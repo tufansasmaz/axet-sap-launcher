@@ -22,8 +22,7 @@ function defaultConfig(): AppConfig {
     connectionHistory: [],
     systemTiers: {},
     theme: "dark",
-    autoCheckUpdates: true,
-    updateToken: null
+    autoCheckUpdates: true
   };
 }
 

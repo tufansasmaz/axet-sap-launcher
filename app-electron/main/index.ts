@@ -133,8 +133,8 @@ function createWindow(): void {
     // manuel kontrol hâlâ mümkün).
     setTimeout(() => {
       const config = loadConfig();
-      if (config.autoCheckUpdates && config.updateToken) {
-        checkForUpdates(win, config.updateToken).catch(() => {});
+      if (config.autoCheckUpdates) {
+        checkForUpdates(win).catch(() => {});
       }
     }, 3000);
   });
@@ -384,8 +384,7 @@ function registerIpc(): void {
 
   ipcMain.handle("updates:check", async () => {
     if (!mainWindow) return;
-    const config = loadConfig();
-    await checkForUpdates(mainWindow, config.updateToken);
+    await checkForUpdates(mainWindow);
   });
 
   ipcMain.handle("updates:download", async () => {
