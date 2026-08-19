@@ -81,7 +81,8 @@
       "provider": "github",
       "owner": "tufansasmaz",
       "repo": "axet-sap-launcher",
-      "private": true
+      "private": true,
+      "releaseType": "release"
     },
     "afterPack": "build/afterPack.cjs",
     "nsis": {
