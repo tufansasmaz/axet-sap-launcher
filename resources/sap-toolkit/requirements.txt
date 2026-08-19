@@ -1,0 +1,54 @@
+# ============================================================================
+# sap-toolkit — Python dependencies (aXet.code SAP + Office skills)
+# Install once:  pip install -r requirements.txt
+# (office-tools prefers an isolated venv — see README.)
+# ============================================================================
+
+# --- SAP ADT read-only server (abaper/sap-adt-readonly) ---------------------
+requests>=2.25.0
+# Security: pin transitive idna floor — CVE-2026-45409 (DoS via idna.encode on
+# crafted Unicode) is fixed in 3.15. requests pulls idna in transitively.
+idna>=3.15
+python-dotenv>=0.19.0
+# The read-only HTTP gate imports the abaper engine, which imports FastMCP.
+mcp>=1.0.0
+
+# --- RFC bridge (abaper/sap-adt-readonly, ONLY for systems behind a router
+# that denies raw/native TCP to the ADT/ICM port — see SKILL.md "Router-only
+# sistemler (RFC bridge)") -----------------------------------------------
+# NOT installed by this file — pyrfc needs the SAP NW RFC SDK's headers/libs
+# to compile, and that SDK is a licensed SAP download gated behind your own
+# SAP S-user (free of extra cost, but not redistributable). Steps:
+#   1. Download "SAP NW RFC SDK" from https://support.sap.com/en/product/connectors/nwrfcsdk.html
+#      (requires an S-user with download authorization for this object).
+#   2. Extract it, set SAPNWRFC_HOME to the extracted folder.
+#   3. py -m pip install pyrfc
+# adt_rfc_probe.py / adt_rfc_bridge.py give a clear error if this isn't done.
+# pyrfc>=3.3
+
+# --- office-tools -----------------------------------------------------------
+# Excel skills
+pandas>=2.0.0
+polars>=0.20.0
+openpyxl>=3.1.0
+xlrd>=2.0.1
+
+# Document generators
+markdown>=3.5         # office-pdf: Markdown -> HTML
+python-pptx>=0.6.23   # office-pptx: native editable .pptx
+python-docx>=1.1.0    # office-docx: Word .docx
+
+# NOTE: office-pdf's rendering engine (headless Chromium) is installed ON DEMAND,
+# not here (~130 MB):
+#     py -m pip install playwright && py -m playwright install chromium
+# The office-pdf script prints this command if Playwright is missing.
+
+# abapgit-bridge uses the Python standard library only — no dependencies.
+
+# --- fs2ts / fs-generator (abaper/skills/{fs2ts,fs-generator}) --------------
+# Python: stdlib only. They render PDFs by shelling out to office-pdf's
+# md_to_pdf.py, so they reuse the markdown + playwright deps above.
+# Node.js: PDF text extraction needs pdfjs-dist — installed separately via
+#     cd abaper/skills/fs2ts/scripts && npm install
+#     cd abaper/skills/fs-generator/scripts && npm install
+

@@ -1,0 +1,31 @@
+# ============================================================================
+# .conn_adt — SAP connection for the read-only ADT server
+# Copy to `.conn_adt` in the folder where you launch aXet.code, then fill in.
+# NEVER commit the real .conn_adt (it holds a plaintext password).
+#
+# NOTE: the read-only server FORCES ADT_READONLY=true regardless of this file,
+# so these credentials can only ever READ. You cannot change SAP through it.
+# ============================================================================
+
+# --- OPTION 1: On-Premise SAP (Basic Auth) ---
+ADT_SAP_URL=https://your-sap-server.com:44300
+ADT_SAP_USER=YOUR_USERNAME
+ADT_SAP_PASSWORD=YOUR_PASSWORD
+ADT_SAP_CLIENT=100
+ADT_SAP_LANGUAGE=EN
+
+# Optional: mark the system tier. QA/PRD adds a KVKK/PII gate on sensitive-table
+# reads (adt_sql). DEV is exempt. Reads are always allowed; writes never are.
+# ADT_SAP_TIER=DEV
+
+# --- OPTION 2: SAP BTP ABAP Environment (Service Key) ---
+# ADT_SAP_URL=https://your-system-abap.eu10.hana.ondemand.com
+# ADT_BTP_SERVICE_KEY_PATH=.btp_service_key.json
+# ADT_BTP_AUTH_TYPE=service_key
+
+# --- OPTION 3: SAP S/4HANA Cloud (SAML SSO) ---
+# ADT_SAP_URL=https://your-system.s4hana.cloud.sap
+# ADT_SAP_USER=your.email@example.com
+# ADT_SAP_PASSWORD=your-password
+# ADT_SAP_CLIENT=default
+# ADT_BTP_AUTH_TYPE=saml

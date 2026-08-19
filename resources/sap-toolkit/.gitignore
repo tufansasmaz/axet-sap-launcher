@@ -1,0 +1,26 @@
+# --- SAP / NTTH credentials & sessions — NEVER commit ---
+.conn_adt
+.conn_adt.*
+!.conn_adt.example
+.btp_service_key*.json
+.sap_sessions/
+.saml_cookies_*.json
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# --- Office / work artifacts ---
+.abapgit-status/
+.abapgit-tmp/
+dist/
+*.xlsx.tmp
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+*.swp
