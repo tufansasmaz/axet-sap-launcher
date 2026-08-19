@@ -1,0 +1,28 @@
+import { useState } from "react";
+import { Copy, Check } from "lucide-react";
+
+export default function CopyButton({ value, title = "Kopyala" }: { value: string; title?: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard erişimi başarısız olsa da sessizce geç, kritik değil
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      title={title}
+      className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-slate-200"
+    >
+      {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}
+    </button>
+  );
+}

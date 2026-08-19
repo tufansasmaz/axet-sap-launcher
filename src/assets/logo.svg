@@ -1,0 +1,36 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0c1023"/>
+      <stop offset="100%" stop-color="#161b3a"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#6d5efc"/>
+      <stop offset="60%" stop-color="#8b7dff"/>
+      <stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Zemin -->
+  <rect width="512" height="512" rx="104" fill="url(#bg)"/>
+
+  <!-- Hız çizgileri: chevron'un sol-alt tarafında, ona net bir boşlukla
+       ayrılmış, kısadan uzuna üç paralel diyagonal çizgi (dinamizm) -->
+  <line x1="86" y1="330" x2="118" y2="298" stroke="url(#mark)" stroke-width="12" stroke-linecap="round" opacity="0.3"/>
+  <line x1="98" y1="372" x2="146" y2="324" stroke="url(#mark)" stroke-width="12" stroke-linecap="round" opacity="0.48"/>
+  <line x1="110" y1="414" x2="174" y2="350" stroke="url(#mark)" stroke-width="12" stroke-linecap="round" opacity="0.68"/>
+
+  <!-- Ana sembol: tek, açık, temiz bir chevron ">" — üst-sağa doğru
+       "ilerleme/başlatma" hissi veren, hiçbir başka şekle dokunmayan
+       yalın bir işaret -->
+  <path d="M 208 140 L 372 256 L 208 372"
+        fill="none" stroke="url(#mark)" stroke-width="52"
+        stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+</svg>

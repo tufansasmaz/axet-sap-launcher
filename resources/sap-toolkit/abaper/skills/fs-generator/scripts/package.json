@@ -1,0 +1,13 @@
+{
+  "name": "fs-generator-scripts",
+  "version": "1.0.0",
+  "description": "Scripts for the fs-generator (Functional Specification author) skill",
+  "scripts": {
+    "extract-pdf": "node extract_pdf.js",
+    "test": "echo \"No tests\" && exit 0"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^4.10.38"
+  },
+  "type": "commonjs"
+}

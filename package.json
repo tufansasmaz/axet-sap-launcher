@@ -1,0 +1,87 @@
+{
+  "name": "axet-sap-launcher",
+  "version": "1.3.0",
+  "description": "SAP Logon Workspaces musteri sistemlerini axet.code icinde hizli acan masaustu uygulama",
+  "main": "dist-electron/main/index.js",
+  "author": "NTT DATA, Inc.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "build:win": "electron-vite build && electron-builder --win",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
+  },
+  "dependencies": {
+    "@lydell/node-pty": "^1.1.0",
+    "@xterm/addon-fit": "^0.10.0",
+    "@xterm/xterm": "^5.5.0",
+    "fast-xml-parser": "^4.5.0",
+    "lucide-react": "^0.460.0",
+    "mammoth": "^1.12.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^2.3.0",
+    "pe-library": "^0.4.1",
+    "postcss": "^8.4.49",
+    "resedit": "^1.7.2",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "com.nttdata.axet.saplauncher",
+    "productName": "aXet SAP Launcher",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist",
+      "dist-electron",
+      "node_modules/@lydell/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/@lydell/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/sap-toolkit",
+        "to": "sap-toolkit"
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "win": {
+      "target": [
+        "dir",
+        "portable",
+        "nsis"
+      ],
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "afterPack": "build/afterPack.cjs",
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "aXet SAP Launcher"
+    },
+    "portable": {
+      "artifactName": "aXet-SAP-Launcher-${version}-portable.exe"
+    }
+  }
+}
