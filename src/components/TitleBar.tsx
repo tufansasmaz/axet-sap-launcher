@@ -26,6 +26,8 @@ export default function TitleBar() {
       <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
         <img src={logo} alt="" width={16} height={16} className="rounded-[3px]" />
         aXet SAP Launcher
+        <span className="text-slate-600">·</span>
+        <span className="text-slate-500">by tsasmaz</span>
       </div>
       <div className="flex h-full" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
         <button

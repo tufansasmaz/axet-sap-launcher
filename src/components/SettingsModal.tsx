@@ -39,10 +39,7 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
   };
 
   const handleCheckForUpdates = async () => {
-    // Token'ı kontrol öncesi kaydediyoruz — kullanıcı token'ı az önce
-    // yapıştırıp hemen "Kontrol Et"e basarsa, henüz "Kaydet"e basmamış
-    // olsa bile main process'in doğru token'ı görmesi için.
-    await onSave({ updateToken: form.updateToken, autoCheckUpdates: form.autoCheckUpdates });
+    await onSave({ autoCheckUpdates: form.autoCheckUpdates });
     await window.api.checkForUpdates();
   };
 
@@ -178,23 +175,8 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
         <div className="mb-6 rounded-lg border border-base-700 bg-base-800/50 p-3">
           <div className="mb-2 flex items-center justify-between">
             <label className="text-xs text-slate-400">Güncellemeler</label>
-            <span className="text-xs text-slate-500">Sürüm {appVersion || "…"}</span>
+            <span className="text-xs text-slate-500">Sürüm {appVersion || "…"} · by tsasmaz</span>
           </div>
-
-          <label className="mb-1 block text-xs text-slate-400">
-            GitHub erişim anahtarı (token) — repo private olduğu için gerekli
-          </label>
-          <input
-            type="password"
-            value={form.updateToken ?? ""}
-            onChange={(e) => setForm({ ...form, updateToken: e.target.value || null })}
-            placeholder="ghp_..."
-            className="mb-2 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
-          />
-          <p className="mb-3 text-xs text-slate-500">
-            Sadece "Contents: Read-only" yetkili, bu repoya özel (fine-grained) bir token öner. Bu makinede
-            userData/config.json'da düz metin saklanır.
-          </p>
 
           <label className="mb-3 flex items-center gap-2 text-xs text-slate-300">
             <input

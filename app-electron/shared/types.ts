@@ -67,7 +67,6 @@ export interface AppConfig {
   systemTiers: Record<string, SystemTier>;
   theme: AppTheme;
   autoCheckUpdates: boolean;
-  updateToken: string | null;
 }
 
 export interface SystemCredentials {
