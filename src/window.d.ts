@@ -16,7 +16,8 @@ import type {
   SapLandscape,
   SapService,
   SystemTier,
-  TerminalMode
+  TerminalMode,
+  UpdateStatus
 } from "../app-electron/shared/types";
 
 export interface AxetApi {
@@ -56,6 +57,12 @@ export interface AxetApi {
   openExternal: (filePath: string) => Promise<void>;
   importFiles: (destDir: string, sourcePaths: string[]) => Promise<FsImportFilesResult>;
   pickFiles: () => Promise<string[]>;
+  getAppVersion: () => Promise<string>;
+  checkForUpdates: () => Promise<void>;
+  downloadUpdate: () => Promise<void>;
+  installUpdate: () => Promise<void>;
+  getLastUpdateStatus: () => Promise<UpdateStatus>;
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void;
 }
 
 declare global {

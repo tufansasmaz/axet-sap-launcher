@@ -66,6 +66,8 @@ export interface AppConfig {
   connectionHistory: ConnectionHistoryEntry[];
   systemTiers: Record<string, SystemTier>;
   theme: AppTheme;
+  autoCheckUpdates: boolean;
+  updateToken: string | null;
 }
 
 export interface SystemCredentials {
@@ -171,4 +173,20 @@ export interface FsImportFilesResult {
   imported?: number;
   skippedDirs?: string[];
   error?: string;
+}
+
+export type UpdatePhase =
+  | "idle"
+  | "checking"
+  | "available"
+  | "not-available"
+  | "downloading"
+  | "downloaded"
+  | "error";
+
+export interface UpdateStatus {
+  phase: UpdatePhase;
+  version?: string;
+  percent?: number;
+  message?: string;
 }

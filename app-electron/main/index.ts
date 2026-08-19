@@ -10,6 +10,7 @@ import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSys
 import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
 import { isPathAllowed, listDir, readTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles } from "./fsExplorer";
+import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import type { AddManualSystemInput, ConnectRequest, SapService, CredentialDefaults, SystemTier, TerminalMode } from "../shared/types";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -125,6 +126,17 @@ function createWindow(): void {
 
   win.once("ready-to-show", () => {
     win.show();
+    // Açılıştan biraz sonra sessizce güncelleme kontrolü — pencere
+    // gösterilir gösterilmez değil, kullanıcı önce landscape'i görsün
+    // diye 3 saniyelik bir gecikme var. Token yoksa/otomatik kontrol
+    // kapalıysa `checkForUpdates` sessizce erken çıkar (Ayarlar'da
+    // manuel kontrol hâlâ mümkün).
+    setTimeout(() => {
+      const config = loadConfig();
+      if (config.autoCheckUpdates && config.updateToken) {
+        checkForUpdates(win, config.updateToken).catch(() => {});
+      }
+    }, 3000);
   });
 
   win.on("maximize", () => win.webContents.send("window:state-changed", true));
@@ -367,6 +379,24 @@ function registerIpc(): void {
     if (result.canceled || result.filePaths.length === 0) return [];
     return result.filePaths;
   });
+
+  ipcMain.handle("app:getVersion", () => app.getVersion());
+
+  ipcMain.handle("updates:check", async () => {
+    if (!mainWindow) return;
+    const config = loadConfig();
+    await checkForUpdates(mainWindow, config.updateToken);
+  });
+
+  ipcMain.handle("updates:download", async () => {
+    await downloadUpdate();
+  });
+
+  ipcMain.handle("updates:install", () => {
+    installUpdate();
+  });
+
+  ipcMain.handle("updates:getLastStatus", () => getLastUpdateStatus());
 }
 
 app.whenReady().then(() => {

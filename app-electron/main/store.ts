@@ -21,7 +21,9 @@ function defaultConfig(): AppConfig {
     trustedCertificates: {},
     connectionHistory: [],
     systemTiers: {},
-    theme: "dark"
+    theme: "dark",
+    autoCheckUpdates: true,
+    updateToken: null
   };
 }
 
