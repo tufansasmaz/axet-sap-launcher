@@ -1,6 +1,14 @@
 import { app, BrowserWindow } from "electron";
-import { autoUpdater } from "electron-updater";
+import electronUpdater from "electron-updater";
 import type { UpdateStatus } from "../shared/types";
+
+// electron-updater CommonJS bir modül — named export (`import { autoUpdater }
+// from "electron-updater"`) paketlenmiş/ESM ortamda "Named export
+// 'autoUpdater' not found" hatasıyla patlıyor (Node'un CJS/ESM interop'u
+// tüm CJS export'larını otomatik "named" olarak tanımıyor). Bunun yerine
+// default import + destructure kullanılıyor — Node'un kendi resmi
+// önerdiği yol.
+const { autoUpdater } = electronUpdater;
 
 // GitHub reposu (tufansasmaz/axet-sap-launcher) PUBLIC — bu yüzden hem
 // yayınlama (`npm run release`, GH_TOKEN env var'ı gerektirir — sadece o
