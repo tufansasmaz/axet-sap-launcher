@@ -2,7 +2,7 @@
 
 SAP Logon Workspaces müşteri/sistem ağacını okuyup, seçtiğin sisteme tek
 tıkla bağlanmanı ve o sistem için hazırlanmış bir **axet.code** terminali
-açmanı sağlayan Electron masaüstü uygulaması.
+açmanı sağlayan masaüstü uygulaması.
 
 > Hazırlayan: **tsasmaz**
 
@@ -57,19 +57,7 @@ sayfasından indir:
 Detaylı kullanım için [`KULLANIM-REHBERI.md`](./KULLANIM-REHBERI.md)'ye,
 mimari/geliştirici notları için [`PROJE-BILGI.md`](./PROJE-BILGI.md)'ye bak.
 
-## Yeni Sürüm Yayınlama
-
-```bash
-# package.json'da version alanını artır, sonra:
-GH_TOKEN=<repo write yetkili bir PAT> npm run release
-```
-
-Bu komut hem build alır hem `dir`/`portable`/`nsis` çıktılarını GitHub
-Releases'e yükler; kullanıcıların Ayarlar penceresindeki "Güncellemeleri
-Şimdi Kontrol Et" butonu (veya açılıştaki otomatik kontrol) yeni sürümü
-görüp indirip kurabilir.
-
 ## Lisans
 
-Bu proje NTT DATA, Inc. bünyesinde geliştirilmiştir, dahili kullanım
+Bu proje NTT DATA bünyesinde geliştirilmiştir, dahili kullanım
 amaçlıdır.
