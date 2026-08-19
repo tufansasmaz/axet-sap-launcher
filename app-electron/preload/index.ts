@@ -5,7 +5,8 @@ import type {
   ConnectRequest,
   SapService,
   SystemTier,
-  TerminalMode
+  TerminalMode,
+  UpdateStatus
 } from "../shared/types";
 
 const api = {
@@ -65,7 +66,17 @@ const api = {
   openInExplorer: (filePath: string) => ipcRenderer.invoke("fs:openInExplorer", filePath),
   openExternal: (filePath: string) => ipcRenderer.invoke("fs:openExternal", filePath),
   importFiles: (destDir: string, sourcePaths: string[]) => ipcRenderer.invoke("fs:importFiles", destDir, sourcePaths),
-  pickFiles: () => ipcRenderer.invoke("dialog:pickFiles")
+  pickFiles: () => ipcRenderer.invoke("dialog:pickFiles"),
+  getAppVersion: (): Promise<string> => ipcRenderer.invoke("app:getVersion"),
+  checkForUpdates: () => ipcRenderer.invoke("updates:check"),
+  downloadUpdate: () => ipcRenderer.invoke("updates:download"),
+  installUpdate: () => ipcRenderer.invoke("updates:install"),
+  getLastUpdateStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke("updates:getLastStatus"),
+  onUpdateStatus: (callback: (status: UpdateStatus) => void) => {
+    const listener = (_event: unknown, status: UpdateStatus) => callback(status);
+    ipcRenderer.on("updates:status", listener);
+    return () => ipcRenderer.removeListener("updates:status", listener);
+  }
 };
 
 contextBridge.exposeInMainWorld("api", api);

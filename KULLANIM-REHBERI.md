@@ -185,12 +185,33 @@ Uygulama **portable**'dır, kurulum gerektirmez:
 
 - `release/win-unpacked/` klasörünü olduğu gibi kopyala, içindeki
   `aXet SAP Launcher.exe`'yi çalıştır. Ya da
-- `release/aXet SAP Launcher 1.2.0.exe` tek dosyasını çalıştır.
+- `release/aXet SAP Launcher Setup 1.3.0.exe` kurulum dosyasını çalıştır
+  (masaüstü/başlat menüsü kısayolu oluşturur, **otomatik güncelleme sadece
+  bu yolla kurulan sürümlerde çalışır** — portable/win-unpacked kopyalar
+  güncelleme almaz). Ya da
+- `release/aXet-SAP-Launcher-1.3.0-portable.exe` tek dosyasını çalıştır.
 
 Her bilgisayarda SAP Logon'un landscape dosyası kendi standart konumundan
 otomatik okunur — farklı bilgisayarlarda farklı SAP sistemleri tanımlıysa,
 uygulama o bilgisayardaki listeyi gösterir. Eğer SAP Logon'un dosyası
 standart olmayan bir yoldaysa, Ayarlar'dan bir kere elle yol belirtilir.
+
+## Güncellemeler
+
+Ayarlar penceresinde "Güncellemeler" bölümünden:
+
+- **GitHub erişim anahtarı (token)**: Uygulamanın kaynak kodu private bir
+  GitHub deposunda tutulduğu için güncelleme kontrolü bir token gerektirir.
+  Sana verilen salt-okunur (sadece bu depoya erişimi olan) bir token'ı
+  buraya yapıştır. Bu makinede saklanır, tekrar girmen gerekmez.
+- **Açılışta otomatik kontrol et**: Açıkken uygulama her açılışta sessizce
+  yeni sürüm olup olmadığına bakar.
+- **Şimdi Kontrol Et**: Elle tetiklemek için.
+- Yeni bir sürüm bulunursa indirme ilerlemesi gösterilir; indirme
+  tamamlanınca **"Şimdi Yeniden Başlat ve Kur"** butonuna basman yeterli —
+  uygulama kapanıp yeni sürümle yeniden açılır.
+- **Sadece Setup.exe ile kurulan sürümler güncelleme alabilir** — portable
+  `.exe`'yi kullanıyorsan yeni sürümü elle indirip değiştirmen gerekir.
 
 ## Sık Sorulan Sorunlar
 

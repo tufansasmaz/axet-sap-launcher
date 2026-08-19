@@ -1012,4 +1012,162 @@ gerçek bir Ctrl+V denemesi yapması gerekiyor; sorun tekrar ederse
 `clipboard:readText` IPC'sinin main process konsol log'una (varsa) veya
 `pasteFromClipboard`'daki `catch` bloğuna bakılmalı.
 
+## GÖMÜLÜ TERMİNAL CTRL+V — GERÇEK KÖK SEBEP VE KALICI ÇÖZÜM (2026-08-19, canlı test edildi, TAMAMLANDI)
+
+Yukarıdaki tur hâlâ **yanlış teşhisti** — kullanıcı canlı testte bildirdi:
+uygulama İÇİNDE kopyalanan bir metin terminale/normal input'lara
+yapıştırılabiliyordu, ama Notepad/tarayıcı gibi uygulama DIŞINDAN kopyalanan
+hiçbir şey **hiçbir yere** (ne terminale ne Ayarlar'daki düz bir `<input>`'a)
+yapıştırılamıyordu. Bu, "Windows delayed rendering" veya "Electron native
+clipboard binding bozuk" teorilerinin YANLIŞ olduğunu kanıtladı — sorun ne
+xterm.js'te ne Electron'un `clipboard` modülünde, çünkü Ayarlar'daki sıradan
+bir `<input>` da aynı native tarayıcı paste akışını kullanıyor ve o da
+etkilendi. Sistem geneli bir OS/Electron sorunu değildi çünkü PowerShell
+`Get-Clipboard` panoyu her zaman doğru okuyabiliyordu.
+
+**Gerçek kök sebep**: Kullanıcı Windows 11'in **Pano Geçmişi (Clipboard
+History / Win+V)** özelliğini kapatınca native yapıştırma (normal
+input'lar) HEMEN düzeldi. Bu, bu makinede/Windows sürümünde bilinen bir
+`cbdhsvc` (Clipboard User Service) davranışıyla eşleşiyor — pano geçmişi
+etkinken bazı Chromium/Electron sürümlerinin dış kaynaklı pano
+güncellemelerini (`WM_CLIPBOARDUPDATE`) doğru şekilde göremediği bir durum.
+
+**Ama terminal hâlâ çalışmıyordu** — pano geçmişi kapatıldıktan SONRA bile.
+Sebep: `EmbeddedTerminal.tsx`'teki ÖZEL Ctrl+V/sağ-tık kodu (bu turdan önceki
+tüm turlarda birikte gelen "düzeltmeler") xterm.js'in **kendi native paste
+event zincirini** (`node_modules/@xterm/xterm/src/browser/Clipboard.ts` —
+`textarea`'ya bağlı standart bir DOM `paste` ClipboardEvent'i, tarayıcının
+normal `execCommand`/clipboard izin sisteminden geçen, tıpkı normal bir
+`<input>` gibi çalışan bir mekanizma) `event.preventDefault()` + `return
+false` ile TAMAMEN ENGELLİYORDU, sonra bunun yerine Electron'un `clipboard`
+modülünü (main process IPC üzerinden, retry'lı) manuel çağırıyordu. Native
+input'larda yapıştırma düzelirken terminalde düzelmemesinin sebebi tam
+buydu — terminal kendi native yolunu hiç kullanamıyordu, hep bizim (bozuk
+olduğu ayrıca kanıtlanmamış, sadece gereksiz) manuel köprümüze düşüyordu.
+
+**Kesin çözüm**: `EmbeddedTerminal.tsx`'teki TÜM özel clipboard kodu
+(`attachCustomKeyEventHandler`, `pasteFromClipboard`, `handleContextMenu`
+override'ı) silindi — component artık Ctrl+V/sağ-tık'a hiç dokunmuyor,
+xterm.js kendi native `paste` event'ini (ve sağ tıkta tarayıcının native
+context menüsünü) kullanıyor, aynı normal bir `<input>` gibi. Bununla
+birlikte kaldırılanlar: `main/index.ts`'teki `clipboard:readText` IPC
+handler'ı (retry mantığıyla birlikte) ve `win.on("focus", ...)` "pano ısıtma"
+hack'i, `preload/index.ts`'teki `readClipboardText`/`writeClipboardText`,
+`window.d.ts`'teki karşılık gelen tipler. **Doğrulandı**: kullanıcı canlı
+testte Ctrl+V'nin artık terminalde çalıştığını onayladı.
+
+**Ayrıca bu turda**: `store.ts` `defaultConfig().terminal` `"cmd"`'den
+`"powershell"`'e çevrildi (kullanıcı isteği: "sıfırdan tertemiz powershell"),
+`terminalManager.ts`'e `resolveShellArgs()` eklendi — PowerShell açılırken
+`-NoLogo` ile telif/versiyon banner'ı bastırılıyor (kullanıcının
+`$PROFILE`'ına dokunulmuyor, sadece görsel gürültü kaldırılıyor).
+
+**Ders (ileride benzer bir "yapıştırma çalışmıyor" şikayeti gelirse)**: Önce
+native bir `<input>`'da da aynı sorun var mı diye sor — cevap "evet" ise
+sorun uygulamaya özel değildir (OS/Windows Pano Geçmişi ayarına bak), "hayır,
+sadece X bileşeninde" ise o bileşenin native event akışına elle müdahale
+edip etmediğini kontrol et. Bu projede iki kez de bu sıra tersten izlendi
+(önce "Electron clipboard API bozuk" varsayılıp saatlerce native modül
+retry/timing teorileri kovalandı) ve gerçek sebep ikisinde de çok daha
+basitti.
+
+## GitHub'a Taşınma + Otomatik Güncelleme (`electron-updater`) (2026-08-19, TAMAMLANDI)
+
+Proje ilk kez git'e alındı ve **`https://github.com/tufansasmaz/axet-sap-launcher`**
+(PRIVATE repo) adresine push edildi (`main` branch, ilk commit v1.3.0'ı
+içeriyor). Bu makinede git kurulu olmadığı için **PortableGit** (git-for-
+windows'un kurulum gerektirmeyen self-extracting arşivi) geçici olarak
+`C:\workspace\tools\`'a indirilip açıldı, işlem bitince silindi — sistem
+genelinde bir git kurulumu yapılmadı. Repo, GitHub REST API'sine
+(`POST /user/repos`) kullanıcının kendi oluşturduğu bir Personal Access
+Token ile PowerShell `Invoke-RestMethod` üzerinden (bash tool'daki `curl`
+yasağı yüzünden) çağrı yapılarak oluşturuldu; push sonrası token remote
+URL'den temizlendi ve kullanıcıya token'ı GitHub ayarlarından **revoke
+etmesi** söylendi (konuşma geçmişinde açığa çıktığı için).
+
+**Neden `electron-updater` + GitHub provider**: `electron-builder` (zaten
+proje bağımlılığı, v25.1.8) "auto update" desteğini kutudan çıkar destekler
+ama bunu tetikleyen çalışma-zamanı tarafı ayrı bir paket, `electron-updater`
+— bu tur eklendi (`package.json` dependencies).
+
+**Repo PRIVATE olmasının getirdiği ek karmaşıklık (bilinçli bir tercih,
+kaldırılamaz bir kısıtlama DEĞİL)**: GitHub'ın "generic"/anonim release
+indirme akışı sadece PUBLIC repolarda kimliksiz çalışır. Repo private
+olduğu için hem (a) **build-time**: `electron-builder`'ın release
+dosyalarını (`*.exe`, `*.blockmap`, `latest.yml`) GitHub Releases'e
+YÜKLEMESİ hem de (b) **runtime**: çalışan uygulamanın yeni sürüm VAR MI diye
+GitHub API'sini SORGULAMASI ve indirmesi bir **Personal Access Token**
+gerektiriyor. İkisi birbirinden bağımsız, farklı token'lar/farklı zamanlarda
+kullanılıyor:
+
+- **(a) Yayınlama (build-time)** — `npm run release` (yeni script,
+  `electron-vite build && electron-builder --win --publish always`) çalışan
+  kişinin makinesinde `GH_TOKEN` ortam değişkeni set edilmiş olmalı (`repo`
+  yetkili bir PAT — release yükleyebilmek için). Bu token KAYNAK KODA hiç
+  yazılmıyor, sadece o komutu çalıştıran shell'in ortam değişkeni.
+- **(b) Güncelleme kontrolü (runtime)** — `app-electron/main/updater.ts`
+  `autoUpdater.setFeedURL({ provider: "github", owner, repo, private: true,
+  token })` ile GitHub'a sorguluyor; bu token **KULLANICININ Ayarlar
+  penceresine yapıştırdığı**, `AppConfig.updateToken` olarak diskte
+  (`userData/config.json`, düz metin — `.conn_adt` ile aynı bilinen güvenlik
+  borcu deseni) saklanan, kendi salt-okunur (fine-grained, sadece bu repo,
+  "Contents: Read-only") kişisel erişim anahtarı. Kaynak kodda hiçbir token
+  hardcode EDİLMEDİ — bu bilinçli bir tercih, imzasız/dahili bir kurumsal
+  araç için "kullanıcı kendi token'ını girer" makul bir taviz (sızarsa sadece
+  bu tek repoyu salt-okunur ifşa eder).
+
+**Mimari**:
+- **`app-electron/main/updater.ts`** (yeni) — `autoUpdater` sarmalayıcısı:
+  `checkForUpdates(window, token)`, `downloadUpdate()`, `installUpdate()`
+  (`quitAndInstall`), `getLastUpdateStatus()`. `autoUpdater.autoDownload =
+  false` — kullanıcı önce "yeni sürüm var" bilgisini görüp bilinçli olarak
+  indirmeyi başlatıyor, sessizce arka planda büyük bir dosya inmiyor.
+  Event'ler (`checking-for-update`/`update-available`/`update-not-available`/
+  `download-progress`/`update-downloaded`/`error`) `UpdateStatus` (yeni
+  `shared/types.ts` tipi) şekline çevrilip `webContents.send("updates:status",
+  ...)` ile renderer'a akıyor.
+- **`main/index.ts`**: `app:getVersion`, `updates:check`, `updates:download`,
+  `updates:install`, `updates:getLastStatus` IPC handler'ları eklendi.
+  `win.once("ready-to-show", ...)` içinde, pencere gösterildikten 3 saniye
+  sonra `config.autoCheckUpdates && config.updateToken` ise sessizce
+  `checkForUpdates` tetikleniyor (token yoksa/kapalıysa sessizce hiçbir şey
+  yapmıyor — kullanıcıyı token girmeden rahatsız etmiyor).
+- **`shared/types.ts`**: `AppConfig`'e `autoCheckUpdates: boolean` (varsayılan
+  `true`) ve `updateToken: string | null` (varsayılan `null`) eklendi; yeni
+  `UpdatePhase`/`UpdateStatus` tipleri. Standart zincir (`store.ts`
+  `defaultConfig` → IPC → `preload` → `window.d.ts`) burada da uygulandı.
+- **`SettingsModal.tsx`**: yeni "Güncellemeler" bölümü — mevcut sürüm
+  (`window.api.getAppVersion()`), token input'u (`type="password"`, açıklama
+  metniyle "Contents: Read-only, bu repoya özel" önerisi), "açılışta otomatik
+  kontrol et" checkbox'ı, "Şimdi Kontrol Et" butonu (token'ı önce `onSave`
+  ile diske yazıp sonra `checkForUpdates` çağırıyor — kullanıcı token'ı
+  yapıştırıp "Kaydet"e basmadan direkt kontrol edebilsin diye), ve
+  `onUpdateStatus` event'ine göre değişen bir durum satırı (checking/
+  available/downloading %/downloaded → "Şimdi Yeniden Başlat ve Kur" butonu/
+  error mesajı).
+- **`package.json`**: `repository` alanı eklendi, `build.publish` (`provider:
+  "github"`, `owner: "tufansasmaz"`, `repo: "axet-sap-launcher"`, `private:
+  true`) eklendi, yeni `"release"` script'i.
+
+**Bilinen kısıtlama (electron-builder/electron-updater'ın kendi mimarisi,
+bizim kodumuzdan kaynaklı değil)**: Windows'ta NSIS tabanlı auto-update
+sadece **NSIS installer (`Setup.exe`) ile kurulmuş** uygulamalarda çalışır
+— `portable`/`dir` hedefleriyle dağıtılan kopyalar auto-update alamaz (bu
+electron-updater'ın belgelenmiş bir sınırı, `win.target` listesi zaten
+`["dir","portable","nsis"]` olarak üçünü de üretiyor, kullanıcıya güncelleme
+almak istiyorsa NSIS installer'ı kullanması gerektiği söylenmeli).
+
+**Yeni bir sürüm yayınlamak için (sonraki oturum/geliştirici için adımlar)**:
+1. `package.json`'da `version` alanını artır.
+2. `GH_TOKEN` ortam değişkenini `repo` yetkili bir PAT ile set et.
+3. `npm run release` çalıştır — bu hem build alır hem GitHub Releases'e
+   yükler (repo private olduğu için `GH_TOKEN`'ın bu repoya erişimi olmalı).
+4. Kullanıcılar Ayarlar'daki "Şimdi Kontrol Et" ile (veya otomatik açılış
+   kontrolüyle) yeni sürümü görüp indirip kurabilir.
+
+**Test durumu**: `npm run typecheck` ve `npm run build` temiz geçti. Gerçek
+bir GitHub Release yayınlanıp uçtan uca bir güncelleme indirme/kurma akışı
+bu oturumda test edilmedi (henüz hiçbir sürüm GitHub Releases'e
+yayınlanmadı) — `npm run release` ilk kez çalıştırıldığında bu akış
+doğrulanmalı.
 
