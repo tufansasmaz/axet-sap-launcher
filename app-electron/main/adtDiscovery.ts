@@ -224,13 +224,35 @@ export async function discoverAdtEndpoint(
   const notes: string[] = [];
   const instanceNr = guessInstanceNumber(diagPort);
   const httpPort = instanceNr ? Number(`80${instanceNr}`) : null;
-  const httpsPort = instanceNr ? Number(`443${instanceNr}`) : 44300;
+  const computedHttpsPort = instanceNr ? Number(`443${instanceNr}`) : null;
   const expectedSidUpper = expectedSid.toUpperCase();
 
-  const candidates: AdtCandidate[] = [{ host: ipHost, port: httpsPort, url: `https://${ipHost}:${httpsPort}` }];
+  // Olası ADT/ICM HTTPS portları — DIAG porttan hesaplanan standart port
+  // (443<instance no>) her zaman doğru olmayabilir: bazı Basis ekipleri
+  // ICM'i reverse-proxy/firewall ardında standart olmayan bir porta (443,
+  // 8443, 50000 vb.) bağlıyor. Bu yüzden tek bir tahmine güvenmek yerine
+  // bilinen tüm olası portlar PARALEL denenir, ilk SID eşleşen kazanır.
+  const candidatePorts: number[] = [];
+  const addPort = (p: number | null | undefined) => {
+    if (p && !candidatePorts.includes(p)) candidatePorts.push(p);
+  };
+  addPort(computedHttpsPort);
+  addPort(44300);
+  addPort(443);
+  addPort(8443);
+  addPort(50000);
+  addPort(4443);
+
+  const candidates: AdtCandidate[] = candidatePorts.map((port) => ({
+    host: ipHost,
+    port,
+    url: `https://${ipHost}:${port}`
+  }));
 
   if (routerString) {
-    notes.push(`SAProuter üzerinden bağlanılıyor (${routerString}) — HTTP redirect keşfi atlandı, doğrudan ${ipHost}:${httpsPort} deneniyor.`);
+    notes.push(
+      `SAProuter üzerinden bağlanılıyor (${routerString}) — HTTP redirect keşfi atlandı, ${candidatePorts.length} olası port paralel deneniyor (${candidatePorts.join(", ")}).`
+    );
   } else if (httpPort) {
     const location = await followHttpRedirect(ipHost, httpPort);
     if (location) {
@@ -240,22 +262,35 @@ export async function discoverAdtEndpoint(
         if (u.hostname !== ipHost) {
           candidates.unshift({ host: u.hostname, port: redirectPort, url: `https://${u.hostname}:${redirectPort}` });
           notes.push(`HTTP redirect ile hostname bulundu: ${u.hostname}:${redirectPort}`);
+        } else if (!candidatePorts.includes(redirectPort)) {
+          candidates.unshift({ host: ipHost, port: redirectPort, url: `https://${ipHost}:${redirectPort}` });
+          notes.push(`HTTP redirect ile port bulundu: ${ipHost}:${redirectPort}`);
         }
       } catch {
         notes.push("Redirect Location parse edilemedi.");
       }
     } else {
-      notes.push(`Port ${httpPort} üzerinden redirect alınamadı.`);
+      notes.push(`Port ${httpPort} üzerinden redirect alınamadı, ${candidatePorts.length} olası HTTPS portu paralel deneniyor (${candidatePorts.join(", ")}).`);
     }
   } else {
-    notes.push("DIAG port formatından instance no çözümlenemedi, varsayılan 44300 deneniyor.");
+    notes.push(`DIAG port formatından instance no çözümlenemedi, ${candidatePorts.length} olası HTTPS portu paralel deneniyor (${candidatePorts.join(", ")}).`);
   }
+
+  // Tüm candidate'lar SIRAYLA değil PARALEL probe ediliyor — 7+ port
+  // sırayla denense (her biri saniyelerce timeout'a kadar bekleyebilir)
+  // bağlantı denemesi dakikalar sürebilirdi; paralelde toplam süre en
+  // yavaş tekil probe kadardır.
+  const probeResults = await Promise.all(
+    candidates.map(async (candidate) => ({
+      candidate,
+      probe: await probeRealm(candidate.host, candidate.port, 4000, routerString)
+    }))
+  );
 
   let chosen: AdtCandidate | null = null;
   let sidVerified = false;
 
-  for (const candidate of candidates) {
-    const probe = await probeRealm(candidate.host, candidate.port, undefined, routerString);
+  for (const { candidate, probe } of probeResults) {
     if (!probe.reachable) {
       notes.push(`${candidate.host}:${candidate.port} → erişilemedi (${probe.error ?? "bilinmeyen hata"})`);
       continue;
@@ -265,23 +300,29 @@ export async function discoverAdtEndpoint(
       notes.push(
         `${candidate.host}:${candidate.port} → sistem kimliği "${probe.sid}" ${match ? "✓ eşleşti" : `✗ beklenen "${expectedSidUpper}" ile eşleşmedi — bu host yanlış sisteme çıkıyor olabilir (DNS hatası)`}`
       );
-      if (match) {
+      if (match && !chosen) {
         chosen = candidate;
         sidVerified = true;
-        break;
       }
     } else {
       notes.push(`${candidate.host}:${candidate.port} → HTTP ${probe.status}, sistem kimliği header'da yok`);
-      if (!chosen) chosen = candidate;
+    }
+  }
+
+  if (!chosen) {
+    const firstReachable = probeResults.find((r) => r.probe.reachable);
+    if (firstReachable) {
+      chosen = firstReachable.candidate;
+      notes.push(`Hiçbir port SID doğrulamasını geçemedi, erişilebilir ilk port kullanılıyor: ${chosen.host}:${chosen.port}`);
     }
   }
 
   if (!chosen) {
     chosen = candidates[0];
-    notes.push("Hiçbir candidate doğrulanamadı, ilk seçenek kullanılıyor — bağlantı büyük olasılıkla başarısız olacak.");
+    notes.push("Hiçbir porta erişilemedi, ilk seçenek kullanılıyor — bağlantı büyük olasılıkla başarısız olacak.");
   }
 
-  const alternate = candidates.find((c) => c !== chosen) ?? null;
+  const alternate = probeResults.find((r) => r.candidate !== chosen && r.probe.reachable)?.candidate ?? candidates.find((c) => c !== chosen) ?? null;
 
   const certKey = `${chosen.host}:${chosen.port}`;
   const updatedTrustedCertificates = { ...trustedCertificates };

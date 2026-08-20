@@ -1171,3 +1171,66 @@ bu oturumda test edilmedi (henüz hiçbir sürüm GitHub Releases'e
 yayınlanmadı) — `npm run release` ilk kez çalıştırıldığında bu akış
 doğrulanmalı.
 
+## ADT Keşfinde Çoklu Port Denemesi (v1.3.2, TAMAMLANDI) — "Ev Yap" müşterisi canlı bulgusu
+
+**Şikayet**: "Ev Yap" müşterisinin `HNP` sistemine bağlanılamıyor,
+`Bağlantı hatası: connect ECONNREFUSED 10.10.20.61:44300` hatası alınıyordu
+— guide (sap-context.md) açılıyordu ama gerçek ADT bağlantısı kurulamıyordu.
+
+**Kök sebep**: `discoverAdtEndpoint()` (`adtDiscovery.ts`) DIAG portundan
+(`3200` → instance no `00`) SAP'ın standart kuralıyla tek bir HTTPS/ICM
+portu (`443` + instance no = `44300`) **tahmin ediyordu** ve sadece bunu
+deniyordu. Canlı testte doğrulandı: bu müşteride Basis, ICM'nin HTTPS
+dinleyicisini standart olmayan şekilde doğrudan **443**'e konfigüre etmiş
+(ICM monitörü: `HTTP 8003`, `HTTPS 443`, port `44300` hiç tanımlı değil) —
+VPN/ağ sorunu değil, port tahmininin bu spesifik sistemde yanlış çıkması.
+`Test-NetConnection` ile doğrulandı: `10.10.20.61:3200` ✓, `:443` ✓, `:8003`
+✓, `:50000` ✓, ama `:44300` ✗ (ECONNREFUSED).
+
+**Çözüm — tek tahmin yerine paralel çoklu port deneme (genel, tüm
+müşteriler için, host+DIAG port'lu HER sistemde otomatik)**:
+`discoverAdtEndpoint()` artık tek bir hesaplanan portu denemek yerine bilinen
+tüm olası ADT/ICM HTTPS portlarını **`Promise.all` ile paralel** (4sn
+timeout'lu) deniyor: hesaplanan `443<instance no>`, `44300` (en yaygın
+varsayılan), `443` (Fiori/reverse-proxy ile aynı porta konmuş ICM'ler — Ev
+Yap'ın durumu), `8443`, `50000` (AS Java tipik portu), `4443`. Her port için
+`WWW-Authenticate` header'ından okunan sistem ID beklenenle eşleştirilir
+(`probeResults` üzerinden), eşleşen ilk port kazanır; hiçbiri SID
+doğrulamasını geçemezse erişilebilir olan ilk port fallback olarak kullanılır.
+Sertifika trust işlemi (`getPeerCertPem`/`trustCertInWindowsStore`) seçilen
+portun gerçek adresine karşı çalışır — davranışı değişmedi.
+
+- **Neden paralel, sıralı değil**: 6 port sırayla denense her biri timeout'a
+  kadar bekleyebileceği için toplam bağlantı denemesi dakikalarca sürebilirdi
+  — paralelde toplam süre en yavaş tekil probe kadardır (~4sn üst sınır),
+  önceki tek-port davranışından fark edilir şekilde daha uzun sürmez.
+- **`addPort()` yardımcı fonksiyonu** tekrarlı portları (örn. hesaplanan port
+  zaten `44300`'se) listeye ikinci kez eklemiyor, `candidatePorts` sırası
+  önceliği belirliyor (SAP'ın kendi kuralı önce, sonra bilinen yaygın
+  alternatifler).
+- **Gotcha (test sırasında yakalandı)**: `8443<instance no>` gibi bir
+  birleşim denendi ama instance no `00` iken `844300` gibi 6 haneli, TCP
+  port aralığının (0–65535) dışında bir sayı üretebiliyor
+  (`ERR_SOCKET_BAD_PORT`) — bu port kaldırıldı, sabit portlar listesi (443,
+  8443, 44300, 50000, 4443) instance no ile birleştirilmeden sabit
+  tutuluyor.
+- HTTP redirect keşfi (`followHttpRedirect`, port hesaplanan `80<instance
+  no>` üzerinden) hâlâ önce denenir — redirect farklı bir host/port
+  bulursa o candidate listenin başına eklenir, çoklu port denemesi sadece
+  redirect bulunamadığında/routerlı sistemlerde devreye giriyor.
+- Router üzerinden bağlanan sistemlerde (`routerString` varsa) de aynı çoklu
+  port listesi kullanılıyor — her port `probeRealmThroughRouter` ile router
+  tünelinden denenir.
+
+**Canlı doğrulama**: `10.10.20.61`/`HNP` (Ev Yap) parametreleriyle gerçek bir
+`tsx` script'i çalıştırıldı (geçici, test sonrası silindi) —
+`44300`/`8443`/`50000`/`4443` reddedildi, **`443` doğru bulundu**, sertifika
+otomatik Windows kullanıcı trust store'una eklendi. `npm run typecheck` ve
+`npm run build` temiz geçti.
+
+**Bilinen kısıtlama**: Bu 6 port de yanlışsa (çok nadir, ör. çok özel bir
+firewall/NAT konfigürasyonu) hâlâ "Sistem Ekle → BTP/Cloud" ile manuel ADT
+URL girme seçeneği (`normalizeAdtBaseUrl`, keşif tamamen atlanır) fallback
+olarak kalıyor — kod tarafında ek bir otomasyon gerekmiyor, kullanıcı gerçek
+portu biliyorsa (ör. ICM monitöründen) direkt girebilir.
+
