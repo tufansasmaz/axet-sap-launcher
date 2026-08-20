@@ -1305,3 +1305,28 @@ kapatabiliyor, terminal App'in kalan tüm dikey/yatay alanını kaplıyor.
   penceresinde görsel doğrulama (buton konumu, geçiş animasyonu yokluğu vb.)
   bu ortamda yapılamadı.
 
+## Güncelleme "Bulundu Ama İndirmiyor" Hatası (v1.3.4, TAMAMLANDI)
+
+**Şikayet**: Yeni sürüm bulunuyor ("Yeni sürüm bulundu: vX.Y.Z" mesajı
+görünüyor) ama uygulama kendiliğinden güncellenmiyordu.
+
+**Kök sebep**: Bu bir bug değil, eksik bir buton — `autoUpdater.autoDownload
+= false` (`updater.ts`) kasıtlı bir tasarım kararı (kullanıcı bilinçli olarak
+indirmeyi başlatsın, arka planda sessizce büyük bir dosya inmesin). Bu yüzden
+`update-available` event'inden sonra indirmeyi tetiklemek için
+`window.api.downloadUpdate()`'in bir yerden ÇAĞRILMASI gerekiyordu —
+`SettingsModal.tsx`'teki `renderUpdateStatus()`'un `"available"` case'i
+sadece bilgi metni gösteriyordu, bu çağrıyı yapan bir buton hiç yoktu. Yani
+kullanıcı "bulundu" mesajını görüyor ama onu indirmeye çevirecek hiçbir
+etkileşim mevcut değildi — `"downloaded"` case'indeki "Şimdi Yeniden Başlat
+ve Kur" butonu asla tetiklenmiyordu çünkü indirme hiç başlamıyordu.
+
+**Çözüm**: `"available"` case'ine `"downloaded"` case'iyle aynı desende
+(mesaj + buton, `flex items-center justify-between`) bir **İndir** butonu
+eklendi — `onClick={() => window.api.downloadUpdate()}`. `updater.ts`'e
+hiç dokunulmadı (mantık zaten doğruydu, `downloadUpdate()` IPC/preload/
+window.d.ts zinciri de zaten tamdı) — sadece UI'da eksik olan tetikleyici
+eklendi. Akış artık: bulundu → **İndir** (yeni) → ilerleme % → indirildi →
+"Şimdi Yeniden Başlat ve Kur" (zaten vardı).
+- `npm run typecheck` ve `npm run build` temiz geçti.
+

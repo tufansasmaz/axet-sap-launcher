@@ -53,9 +53,17 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
         );
       case "available":
         return (
-          <p className="flex items-center gap-1.5 text-xs text-accent-400">
-            <Download size={12} /> Yeni sürüm bulundu: v{updateStatus.version}
-          </p>
+          <div className="flex items-center justify-between gap-2 text-xs text-accent-400">
+            <span className="flex items-center gap-1.5">
+              <Download size={12} /> Yeni sürüm bulundu: v{updateStatus.version}
+            </span>
+            <button
+              onClick={() => window.api.downloadUpdate()}
+              className="cursor-pointer rounded-md bg-accent-500 px-2 py-1 text-xs font-medium text-white hover:bg-accent-400"
+            >
+              İndir
+            </button>
+          </div>
         );
       case "not-available":
         return (
