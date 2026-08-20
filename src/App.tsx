@@ -57,6 +57,7 @@ export default function App() {
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null);
   const [terminalPanelOpen, setTerminalPanelOpen] = useState(false);
   const [terminalPanelHeight, setTerminalPanelHeight] = useState(DEFAULT_TERMINAL_HEIGHT);
+  const [terminalFullscreen, setTerminalFullscreen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [projectDir, setProjectDir] = useState<string | null>(null);
@@ -320,6 +321,20 @@ export default function App() {
     setTerminalPanelOpen((prev) => !prev);
   }, []);
 
+  // Tam ekran modu, sidebar'ı ve ana içerik (SystemPanel/FileViewer) panelini
+  // tamamen render'dan çıkarıp terminale App'in kalan TÜM dikey/yatay alanını
+  // veriyor (VS Code'un "Maximize Panel" davranışına benzer) — üstteki arama/
+  // ayarlar çubuğu bilerek görünür bırakıldı, sadece TerminalPanel içindeki
+  // buton ile çıkılabiliyor. Panel kapalıyken tam ekrana geçilmeye çalışılırsa
+  // önce paneli açıyoruz, aksi halde "tam ekran" boş bir alan gösterirdi.
+  const handleToggleTerminalFullscreen = useCallback(() => {
+    setTerminalFullscreen((prev) => {
+      const next = !prev;
+      if (next) setTerminalPanelOpen(true);
+      return next;
+    });
+  }, []);
+
   const handleTerminalResizeStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -552,6 +567,7 @@ export default function App() {
       )}
 
       <div className="flex min-h-0 flex-1 overflow-hidden">
+        {!terminalFullscreen && (
         <aside
           style={{ width: sidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth }}
           className="flex shrink-0 cursor-default flex-col overflow-hidden border-r border-base-700 bg-base-900/40"
@@ -627,8 +643,9 @@ export default function App() {
             )
           )}
         </aside>
+        )}
 
-        {!sidebarCollapsed && (
+        {!terminalFullscreen && !sidebarCollapsed && (
           <div
             onMouseDown={handleSidebarResizeStart}
             title="Genişliği değiştir"
@@ -637,6 +654,7 @@ export default function App() {
         )}
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          {!terminalFullscreen && (
           <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
             {openFiles.length > 0 && (
               <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b border-base-700 bg-base-900 px-2">
@@ -690,6 +708,7 @@ export default function App() {
               )}
             </div>
           </main>
+          )}
 
           {(terminalPanelOpen || terminalSessions.length > 0) && (
             <TerminalPanel
@@ -697,11 +716,13 @@ export default function App() {
               activeId={activeTerminalId}
               open={terminalPanelOpen}
               height={terminalPanelHeight}
+              fullscreen={terminalFullscreen}
               onSelect={setActiveTerminalId}
               onClose={handleCloseTerminal}
               onToggleOpen={handleToggleTerminalPanel}
               onResizeStart={handleTerminalResizeStart}
               onNewTerminal={handleNewTerminal}
+              onToggleFullscreen={handleToggleTerminalFullscreen}
             />
           )}
         </div>

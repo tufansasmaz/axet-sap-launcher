@@ -1234,3 +1234,74 @@ URL girme seçeneği (`normalizeAdtBaseUrl`, keşif tamamen atlanır) fallback
 olarak kalıyor — kod tarafında ek bir otomasyon gerekmiyor, kullanıcı gerçek
 portu biliyorsa (ör. ICM monitöründen) direkt girebilir.
 
+## Şifre Otomatik Doldurma (v1.3.3, TAMAMLANDI)
+
+Kullanıcı adı/client zaten `AppConfig.lastCredentials` ile otomatik
+dolduruluyordu, şifre dolmuyordu (kullanıcı SAP Logon Memo alanında şifre
+yoksa her bağlanışta elle yazmak zorundaydı). Artık **başarıyla doğrulanmış
+bir bağlantının şifresi de aynı mekanizmayla saklanıp otomatik dolduruluyor**:
+
+- **`shared/types.ts`**: `LastCredential`'a `password: string` eklendi
+  (username/client'ın yanına).
+- **`index.ts` `system:connect` handler'ı**: `result.ok` olduğunda
+  `saveLastCredential()`'a artık `req.credentials.password` da geçiliyor.
+- **`index.ts` `credentials:getDefaults` handler'ı**: şifre önceliği
+  `last?.password ?? memo.password ?? ""` — yani önce bu sistemde daha önce
+  **başarıyla doğrulanmış** bir şifre varsa o kullanılır (kanıtlanmış/güncel),
+  yoksa SAP Logon'un Memo alanındaki şifreye düşülür (kullanıcının SAP
+  Logon'a kendi elle yazdığı, doğrulanmamış bir değer olabilir — bu öncelik
+  sırası bilerek böyle: launcher'ın kendi doğruladığı değer her zaman daha
+  güvenilir kaynak).
+- Ekstra bir IPC endpoint/tip zinciri gerekmedi — `CredentialDefaults` tipi
+  zaten `password` alanına sahipti (önceden sadece SAP Logon memo'sundan
+  geliyordu), `preload`/`window.d.ts`/`CredentialsModal.tsx` hiç değişmedi.
+- **Bilinçli güvenlik kararı (yeni bir borç DEĞİL, mevcut desenle aynı
+  çizgide)**: `config.json`'da şifre düz metin saklanıyor — ama bu proje
+  zaten `.conn_adt` dosyasında da aynı şekilde düz metin şifre tutuyor (bkz.
+  yukarıdaki "Önemli Tasarım Kararları" bölümü) ve bu bilinen/kabul edilmiş
+  bir tercih. Şifreleme (Electron `safeStorage`) hâlâ "Bilinen Eksikler"
+  listesinde, bu turda ele alınmadı.
+- **Geriye uyumluluk**: Eski `config.json`'larda `lastCredentials` kayıtları
+  `password` alanı olmadan kaydedilmiş olabilir — `loadConfig()`'teki generic
+  merge bunu değiştirmedi (nested obje merge yapmıyor, sadece dict seviyesi),
+  okurken `last?.password` `undefined` gelir, `?? memo.password ?? ""` zinciri
+  bunu güvenle ele alıyor, çökme/hata riski yok. İlk başarılı bağlanıştan
+  sonra o sistemin kaydı şifreyle güncellenir.
+- `npm run typecheck` ve `npm run build` temiz geçti.
+
+## Gömülü Terminal Tam Ekran (v1.3.3, TAMAMLANDI)
+
+VS Code'un "Maximize Panel" davranışına benzer bir tam ekran modu eklendi —
+kullanıcı terminali büyütüp sidebar + SystemPanel/FileViewer alanını
+kapatabiliyor, terminal App'in kalan tüm dikey/yatay alanını kaplıyor.
+
+- **`TerminalPanel.tsx`**: yeni `fullscreen: boolean` + `onToggleFullscreen:
+  () => void` prop'ları. Tam ekranda dış container `style={{height}}` yerine
+  `flex-1` class'ı alıyor (piksel yükseklik state'i devre dışı), sürükle-
+  boyutlandır tutamacı ve panel aç/kapat oku gizleniyor (tam ekranda anlamsız).
+  Sekme çubuğunun sağına `Maximize2`/`Minimize2` (lucide-react) ikonlu bir
+  toggle butonu eklendi — tam ekrandan çıkış SADECE bu buton üzerinden
+  (kasıtlı olarak Escape tuşuna bağlanMADI: terminaldeki kabuk/vim/nano gibi
+  programlar Escape'i kendi amaçları için kullanıyor, global bir `keydown`
+  listener'ı bunu yakalayıp paneli kapatsaydı terminal içindeki gerçek
+  Escape kullanımıyla çakışırdı).
+- **`App.tsx`**: yeni `terminalFullscreen` state'i +
+  `handleToggleTerminalFullscreen` (kapalıyken tam ekrana geçilirse önce
+  paneli de açar, aksi halde boş bir alan gösterirdi). Tam ekranken JSX'te
+  `<aside>` (sol sidebar), sidebar resize tutamacı ve `<main>` (SystemPanel/
+  FileViewer + dosya sekmesi çubuğu) hiç render edilMİyor — `{!terminalFullscreen
+  && (...)}` ile şartlı. Üstteki `<header>` (arama, Sistem Ekle, Ayarlar vb.)
+  bilerek görünür bırakıldı — sadece panel alanı büyütülüyor, pencere kontrolleri
+  kaybolmuyor.
+- State kaybı riski yok: `<aside>`/`<main>` unmount olsa da onların state'i
+  (`selection`, `search`, açık dosya sekmeleri) App seviyesinde tutulduğu için
+  tam ekrandan çıkınca aynen geri geliyor; terminal instance'ları zaten
+  `TerminalPanel` içinde ayrıca hiç unmount olmuyor (mevcut "her session bir
+  kez mount olur" tasarımı, bkz. component başındaki yorum), bu yüzden tam
+  ekrana geçiş/çıkış sırasında da scrollback/bağlantı kaybı olmuyor.
+- Ek bir IPC/`AppConfig` değişikliği gerekmedi — tamamen renderer-local UI
+  state'i.
+- `npm run typecheck` ve `npm run build` temiz geçti. Gerçek bir GUI
+  penceresinde görsel doğrulama (buton konumu, geçiş animasyonu yokluğu vb.)
+  bu ortamda yapılamadı.
+
