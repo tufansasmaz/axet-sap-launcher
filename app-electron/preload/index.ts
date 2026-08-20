@@ -4,7 +4,9 @@ import type {
   AppConfig,
   ConnectRequest,
   SapService,
+  SapLogonOpenResult,
   SystemTier,
+  SystemCommentDefaults,
   TerminalMode,
   UpdateStatus
 } from "../shared/types";
@@ -23,6 +25,9 @@ const api = {
   exportManualSystems: () => ipcRenderer.invoke("manualSystems:exportToFile"),
   importManualSystems: () => ipcRenderer.invoke("manualSystems:importFromFile"),
   setSystemTier: (serviceUuid: string, tier: SystemTier | null) => ipcRenderer.invoke("systemTiers:set", serviceUuid, tier),
+  setSystemComment: (serviceUuid: string, comment: string) => ipcRenderer.invoke("systemComments:set", serviceUuid, comment),
+  getSystemCommentDefault: (serviceUuid: string): Promise<SystemCommentDefaults> => ipcRenderer.invoke("systemComment:getDefault", serviceUuid),
+  openInSapLogon: (service: SapService): Promise<SapLogonOpenResult> => ipcRenderer.invoke("sapLogon:open", service),
   windowMinimize: () => ipcRenderer.invoke("window:minimize"),
   windowToggleMaximize: () => ipcRenderer.invoke("window:toggleMaximize"),
   windowClose: () => ipcRenderer.invoke("window:close"),

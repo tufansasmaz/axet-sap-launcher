@@ -18,10 +18,12 @@ function defaultConfig(): AppConfig {
     axetCommand: "axet-code -y",
     terminal: "powershell",
     landscapePathOverride: null,
+    sapShcutPathOverride: null,
     lastCredentials: {},
     trustedCertificates: {},
     connectionHistory: [],
     systemTiers: {},
+    systemComments: {},
     theme: "dark",
     language: "tr",
     autoCheckUpdates: true
@@ -52,7 +54,8 @@ export function loadConfig(): AppConfig {
       lastCredentials: { ...fallback.lastCredentials, ...(parsed.lastCredentials ?? {}) },
       trustedCertificates: { ...fallback.trustedCertificates, ...(parsed.trustedCertificates ?? {}) },
       connectionHistory: Array.isArray(parsed.connectionHistory) ? parsed.connectionHistory : fallback.connectionHistory,
-      systemTiers: { ...fallback.systemTiers, ...(parsed.systemTiers ?? {}) }
+      systemTiers: { ...fallback.systemTiers, ...(parsed.systemTiers ?? {}) },
+      systemComments: { ...fallback.systemComments, ...(parsed.systemComments ?? {}) }
     };
     return merged;
   } catch {
@@ -100,5 +103,16 @@ export function saveSystemTier(serviceUuid: string, tier: SystemTier | null): Ap
     delete systemTiers[serviceUuid];
   }
   return saveConfig({ systemTiers });
+}
+
+export function saveSystemComment(serviceUuid: string, comment: string): AppConfig {
+  const current = loadConfig();
+  const systemComments = { ...current.systemComments };
+  if (comment.trim().length > 0) {
+    systemComments[serviceUuid] = comment;
+  } else {
+    delete systemComments[serviceUuid];
+  }
+  return saveConfig({ systemComments });
 }
 

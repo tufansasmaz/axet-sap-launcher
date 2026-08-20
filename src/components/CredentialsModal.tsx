@@ -13,7 +13,15 @@ interface Props {
   loadDefaults: (serviceUuid: string) => Promise<{ username: string; password: string; client: string }>;
 }
 
-export default function CredentialsModal({ open, service, connecting, errorMessage, onClose, onSubmit, loadDefaults }: Props) {
+export default function CredentialsModal({
+  open,
+  service,
+  connecting,
+  errorMessage,
+  onClose,
+  onSubmit,
+  loadDefaults
+}: Props) {
   const t = useT();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +49,8 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
   if (!open || !service) return null;
 
   const isCloud = service.type === "BTP/CLOUD";
-  const canSubmit = username.trim().length > 0 && password.length > 0 && (isCloud || client.trim().length > 0) && !connecting;
+  const canSubmit =
+    username.trim().length > 0 && password.length > 0 && (isCloud || client.trim().length > 0) && !connecting;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,18 +60,18 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 "
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
     >
-      <form onSubmit={handleSubmit} className="w-[420px] rounded-2xl border border-base-700 bg-base-900 p-6 shadow-2xl">
+      <form onSubmit={handleSubmit} className="w-[420px] rounded-sm border border-base-700 bg-base-900 p-6">
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <KeyRound size={18} className="text-accent-400" />
             <h3 className="text-lg font-semibold text-white">{t("credentialsModal.title")}</h3>
           </div>
-          <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-base-700">
+          <button type="button" onClick={onClose} className="rounded-sm p-1 text-slate-400 hover:bg-base-700">
             <X size={18} />
           </button>
         </div>
@@ -81,7 +90,7 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
           onChange={(e) => setUsername(e.target.value)}
           disabled={loadingDefaults || connecting}
           autoFocus
-          className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
+          className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
         />
 
         <label className="mb-1 block text-xs text-slate-400">{t("credentialsModal.password")}</label>
@@ -91,13 +100,13 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
             onChange={(e) => setPassword(e.target.value)}
             type={showPassword ? "text" : "password"}
             disabled={loadingDefaults || connecting}
-            className="w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
+            className="w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
           />
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             title={showPassword ? t("credentialsModal.hidePassword") : t("credentialsModal.showPassword")}
-            className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-slate-200"
+            className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-slate-200"
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
@@ -110,14 +119,16 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
         <input
           value={client}
           onChange={(e) => setClient(e.target.value)}
-          placeholder={isCloud ? t("credentialsModal.clientPlaceholderCloud") : t("credentialsModal.clientPlaceholderOnprem")}
+          placeholder={
+            isCloud ? t("credentialsModal.clientPlaceholderCloud") : t("credentialsModal.clientPlaceholderOnprem")
+          }
           disabled={loadingDefaults || connecting}
-          className="mb-5 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
+          className="mb-5 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
         />
 
         {errorMessage && (
           <div
-            className="mb-4 flex items-start gap-2 rounded-lg border px-3 py-2 text-xs"
+            className="mb-4 flex items-start gap-2 rounded-sm border px-3 py-2 text-xs"
             style={{
               borderColor: "var(--status-danger-border)",
               backgroundColor: "var(--status-danger-bg)",
@@ -130,13 +141,17 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
         )}
 
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-sm px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+          >
             {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={!canSubmit}
-            className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex items-center gap-2 rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-2 text-sm font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {connecting && <Loader2 size={14} className="animate-spin" />}
             {connecting ? t("credentialsModal.verifying") : t("credentialsModal.connect")}

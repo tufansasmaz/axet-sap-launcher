@@ -27,7 +27,7 @@ export default function TitleBar() {
     >
       <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
         <img src={logo} alt="" width={16} height={16} className="rounded-[3px]" />
-        aXet SAP Launcher
+        <span className="font-semibold text-slate-200">aXet SAP Launcher</span>
         <span className="text-slate-600">·</span>
         <span className="text-slate-500">by tsasmaz</span>
       </div>

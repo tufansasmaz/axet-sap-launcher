@@ -71,7 +71,7 @@ export default function TerminalPanel({
           <button
             onClick={onToggleOpen}
             title={open ? t("terminalPanel.closePanel") : t("terminalPanel.openPanel")}
-            className="shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-base-700 hover:text-white"
+            className="shrink-0 cursor-pointer rounded-sm p-1 text-slate-400 hover:bg-base-700 hover:text-white"
           >
             {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
           </button>
@@ -84,7 +84,7 @@ export default function TerminalPanel({
                 onSelect(s.id);
                 if (!open) onToggleOpen();
               }}
-              className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-t-md px-3 py-1.5 text-xs ${
+              className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-t-sm px-3 py-1.5 text-xs ${
                 activeId === s.id && open ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
               }`}
             >
@@ -109,21 +109,25 @@ export default function TerminalPanel({
         <button
           onClick={onNewTerminal}
           title={t("terminalPanel.newTerminalTitle")}
-          className="flex shrink-0 cursor-pointer items-center gap-1 rounded p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           <Plus size={14} />
         </button>
         <button
           onClick={onToggleFullscreen}
           title={fullscreen ? t("terminalPanel.exitFullscreen") : t("terminalPanel.enterFullscreen")}
-          className="flex shrink-0 cursor-pointer items-center gap-1 rounded p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </button>
       </div>
       <div className="relative w-full min-w-0 flex-1 overflow-hidden p-1">
         {sessions.map((s) => (
-          <div key={s.id} className="absolute inset-1 overflow-hidden" style={{ display: activeId === s.id ? "block" : "none" }}>
+          <div
+            key={s.id}
+            className="absolute inset-1 overflow-hidden"
+            style={{ display: activeId === s.id ? "block" : "none" }}
+          >
             <EmbeddedTerminal sessionId={s.id} active={activeId === s.id && open} />
           </div>
         ))}

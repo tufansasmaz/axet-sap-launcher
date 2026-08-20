@@ -12,7 +12,14 @@ interface Props {
   onImportManualSystems: () => Promise<void>;
 }
 
-export default function SettingsModal({ open, onClose, config, onSave, onExportManualSystems, onImportManualSystems }: Props) {
+export default function SettingsModal({
+  open,
+  onClose,
+  config,
+  onSave,
+  onExportManualSystems,
+  onImportManualSystems
+}: Props) {
   const t = useT();
   const [form, setForm] = useState<AppConfig | null>(config);
   const [appVersion, setAppVersion] = useState<string>("");
@@ -61,7 +68,7 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
             </span>
             <button
               onClick={() => window.api.downloadUpdate()}
-              className="cursor-pointer rounded-md bg-accent-500 px-2 py-1 text-xs font-medium text-white hover:bg-accent-400"
+              className="cursor-pointer rounded-sm border border-accent-500/40 bg-accent-500/15 px-2 py-1 text-xs font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
             >
               {t("settingsModal.download")}
             </button>
@@ -69,7 +76,7 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
         );
       case "not-available":
         return (
-          <p className="flex items-center gap-1.5 text-xs text-emerald-400">
+          <p className="flex items-center gap-1.5 text-xs text-[var(--status-success-text)]">
             <CheckCircle2 size={12} /> {t("settingsModal.upToDate")}
           </p>
         );
@@ -81,13 +88,13 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
         );
       case "downloaded":
         return (
-          <div className="flex items-center justify-between gap-2 text-xs text-emerald-400">
+          <div className="flex items-center justify-between gap-2 text-xs text-[var(--status-success-text)]">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 size={12} /> {t("settingsModal.downloaded", { version: updateStatus.version ?? "" })}
             </span>
             <button
               onClick={() => window.api.installUpdate()}
-              className="cursor-pointer rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+              className="cursor-pointer rounded-sm bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-500"
             >
               {t("settingsModal.restartAndInstall")}
             </button>
@@ -106,15 +113,15 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 "
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="max-h-[90vh] w-[480px] overflow-y-auto rounded-2xl border border-base-700 bg-base-900 p-6 shadow-2xl">
+      <div className="max-h-[90vh] w-[480px] overflow-y-auto rounded-sm border border-base-700 bg-base-900 p-6">
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">{t("settingsModal.title")}</h3>
-          <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-base-700">
+          <button onClick={onClose} className="rounded-sm p-1 text-slate-400 hover:bg-base-700">
             <X size={18} />
           </button>
         </div>
@@ -125,8 +132,10 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
             <button
               key={lang}
               onClick={() => setForm({ ...form, language: lang })}
-              className={`rounded-md px-3 py-1.5 text-sm ${
-                form.language === lang ? "bg-accent-500 text-white" : "border border-base-600 text-slate-300 hover:bg-base-700"
+              className={`rounded-sm px-3 py-1.5 text-sm ${
+                form.language === lang
+                  ? "bg-accent-500 text-white"
+                  : "border border-base-600 text-slate-300 hover:bg-base-700"
               }`}
             >
               {lang === "tr" ? t("settingsModal.languageTr") : t("settingsModal.languageEn")}
@@ -139,9 +148,12 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
           <input
             value={form.projectsBaseDir}
             onChange={(e) => setForm({ ...form, projectsBaseDir: e.target.value })}
-            className="flex-1 rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+            className="flex-1 rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
           />
-          <button onClick={pickFolder} className="rounded-md border border-base-600 px-3 text-slate-300 hover:bg-base-700">
+          <button
+            onClick={pickFolder}
+            className="rounded-sm border border-base-600 px-3 text-slate-300 hover:bg-base-700"
+          >
             <FolderOpen size={16} />
           </button>
         </div>
@@ -150,7 +162,7 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
         <input
           value={form.axetCommand}
           onChange={(e) => setForm({ ...form, axetCommand: e.target.value })}
-          className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+          className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
         <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.shellLabel")}</label>
@@ -159,48 +171,58 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
             <button
               key={shellOption}
               onClick={() => setForm({ ...form, terminal: shellOption })}
-              className={`rounded-md px-3 py-1.5 text-sm ${
-                form.terminal === shellOption ? "bg-accent-500 text-white" : "border border-base-600 text-slate-300 hover:bg-base-700"
+              className={`rounded-sm px-3 py-1.5 text-sm ${
+                form.terminal === shellOption
+                  ? "bg-accent-500 text-white"
+                  : "border border-base-600 text-slate-300 hover:bg-base-700"
               }`}
             >
               {shellOption === "cmd" ? t("settingsModal.shellCmd") : t("settingsModal.shellPowershell")}
             </button>
           ))}
         </div>
-        <p className="mb-6 text-xs text-slate-500">
-          {t("settingsModal.shellHelper")}
-        </p>
+        <p className="mb-6 text-xs text-slate-500">{t("settingsModal.shellHelper")}</p>
 
         <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.landscapePathLabel")}</label>
         <input
           value={form.landscapePathOverride ?? ""}
           onChange={(e) => setForm({ ...form, landscapePathOverride: e.target.value || null })}
           placeholder="C:\Users\...\AppData\Roaming\SAP\Common\SAPUILandscape.xml"
-          className="mb-6 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+          className="mb-6 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+        />
+
+        <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.sapShcutPathLabel")}</label>
+        <input
+          value={form.sapShcutPathOverride ?? ""}
+          onChange={(e) => setForm({ ...form, sapShcutPathOverride: e.target.value || null })}
+          placeholder="C:\Program Files (x86)\SAP\FrontEnd\SapGui\sapshcut.exe"
+          className="mb-6 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
         <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.manualSystemsLabel")}</label>
         <div className="mb-6 flex gap-2">
           <button
             onClick={onExportManualSystems}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
+            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             <Download size={14} />
             {t("settingsModal.exportJson")}
           </button>
           <button
             onClick={onImportManualSystems}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
+            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             <Upload size={14} />
             {t("settingsModal.importJson")}
           </button>
         </div>
 
-        <div className="mb-6 rounded-lg border border-base-700 bg-base-800/50 p-3">
+        <div className="mb-6 rounded-sm border border-base-700 bg-base-800/50 p-3">
           <div className="mb-2 flex items-center justify-between">
             <label className="text-xs text-slate-400">{t("settingsModal.updatesLabel")}</label>
-            <span className="text-xs text-slate-500">{t("settingsModal.versionText", { version: appVersion || "…" })}</span>
+            <span className="text-xs text-slate-500">
+              {t("settingsModal.versionText", { version: appVersion || "…" })}
+            </span>
           </div>
 
           <label className="mb-3 flex items-center gap-2 text-xs text-slate-300">
@@ -215,7 +237,7 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
 
           <button
             onClick={handleCheckForUpdates}
-            className="mb-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
+            className="mb-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             <RefreshCw size={14} />
             {t("settingsModal.checkNow")}
@@ -225,10 +247,13 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
         </div>
 
         <div className="flex justify-end gap-2">
-          <button onClick={onClose} className="rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700">
+          <button onClick={onClose} className="rounded-sm px-4 py-2 text-sm text-slate-300 hover:bg-base-700">
             {t("common.cancel")}
           </button>
-          <button onClick={save} className="rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400">
+          <button
+            onClick={save}
+            className="cursor-pointer rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-2 text-sm font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
+          >
             {t("common.save")}
           </button>
         </div>

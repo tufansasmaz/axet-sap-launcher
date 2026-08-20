@@ -64,10 +64,12 @@ export interface AppConfig {
   axetCommand: string;
   terminal: TerminalMode;
   landscapePathOverride: string | null;
+  sapShcutPathOverride: string | null;
   lastCredentials: Record<string, LastCredential>;
   trustedCertificates: Record<string, string>;
   connectionHistory: ConnectionHistoryEntry[];
   systemTiers: Record<string, SystemTier>;
+  systemComments: Record<string, string>;
   theme: AppTheme;
   language: AppLanguage;
   autoCheckUpdates: boolean;
@@ -77,6 +79,12 @@ export interface SystemCredentials {
   username: string;
   password: string;
   client: string;
+}
+
+export interface SapLogonOpenResult {
+  ok: boolean;
+  reason: "opened" | "missingHostOrPort" | "sapShcutNotFound" | "spawnError";
+  detail?: string;
 }
 
 export interface ConnectRequest {
@@ -98,6 +106,11 @@ export interface CredentialDefaults {
   username: string;
   password: string;
   client: string;
+}
+
+export interface SystemCommentDefaults {
+  comment: string;
+  source: "saved" | "sapLogon" | "none";
 }
 
 export type ManualSystemType = "onprem" | "cloud";

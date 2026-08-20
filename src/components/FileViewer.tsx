@@ -39,13 +39,21 @@ export default function FileViewer({ path, name }: Props) {
       if (ext === ".docx") {
         const result = await window.api.readDocxFile(path);
         if (cancelled) return;
-        setState(result.ok ? { kind: "docx", html: result.html ?? "" } : { kind: "error", message: result.error ?? t("fileViewer.docxReadError") });
+        setState(
+          result.ok
+            ? { kind: "docx", html: result.html ?? "" }
+            : { kind: "error", message: result.error ?? t("fileViewer.docxReadError") }
+        );
         return;
       }
       if (IMAGE_EXTENSIONS.has(ext)) {
         const result = await window.api.readImageDataUrl(path);
         if (cancelled) return;
-        setState(result.ok ? { kind: "image", dataUrl: result.dataUrl ?? "" } : { kind: "error", message: result.error ?? t("fileViewer.imageReadError") });
+        setState(
+          result.ok
+            ? { kind: "image", dataUrl: result.dataUrl ?? "" }
+            : { kind: "error", message: result.error ?? t("fileViewer.imageReadError") }
+        );
         return;
       }
       if (UNSUPPORTED_EXTENSIONS.has(ext)) {
@@ -79,19 +87,17 @@ export default function FileViewer({ path, name }: Props) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 text-center text-slate-500">
         <FileWarning size={32} className="opacity-50" />
-        <p className="max-w-sm text-sm">
-          {state.kind === "error" ? state.message : t("fileViewer.unsupported")}
-        </p>
+        <p className="max-w-sm text-sm">{state.kind === "error" ? state.message : t("fileViewer.unsupported")}</p>
         <div className="flex gap-2">
           <button
             onClick={() => window.api.openExternal(path)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+            className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
           >
             <ExternalLink size={13} /> {t("fileViewer.openExternal")}
           </button>
           <button
             onClick={() => window.api.openInExplorer(path)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+            className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
           >
             <FolderOpen size={13} /> {t("fileViewer.showInFolder")}
           </button>
@@ -103,7 +109,7 @@ export default function FileViewer({ path, name }: Props) {
   if (state.kind === "image") {
     return (
       <div className="flex h-full items-center justify-center overflow-auto p-6">
-        <img src={state.dataUrl} alt={name} className="max-h-full max-w-full rounded-lg shadow-lg" />
+        <img src={state.dataUrl} alt={name} className="max-h-full max-w-full rounded-sm " />
       </div>
     );
   }

@@ -115,13 +115,21 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
               importInto(entry.path, extractDroppedPaths(e.dataTransfer));
             }}
             title={entry.name}
-            className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm text-slate-300 hover:bg-base-700/60 ${
+            className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm text-slate-300 hover:bg-base-700/60 ${
               isDragOver ? "bg-accent-500/20 ring-1 ring-inset ring-accent-400" : ""
             }`}
             style={{ paddingLeft }}
           >
-            {isExpanded ? <ChevronDown size={13} className="shrink-0 text-slate-500" /> : <ChevronRight size={13} className="shrink-0 text-slate-500" />}
-            {isExpanded ? <FolderOpen size={13} className="shrink-0 text-accent-400" /> : <Folder size={13} className="shrink-0 text-accent-400" />}
+            {isExpanded ? (
+              <ChevronDown size={13} className="shrink-0 text-slate-500" />
+            ) : (
+              <ChevronRight size={13} className="shrink-0 text-slate-500" />
+            )}
+            {isExpanded ? (
+              <FolderOpen size={13} className="shrink-0 text-[#d99a4e]" />
+            ) : (
+              <Folder size={13} className="shrink-0 text-[#d99a4e]" />
+            )}
             <span className="truncate">{entry.name}</span>
           </button>
           {isExpanded && (
@@ -132,7 +140,10 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
                 </div>
               )}
               {state === "error" && (
-                <div className="py-1 text-xs text-rose-400" style={{ paddingLeft: paddingLeft + 20 }}>
+                <div
+                  className="py-1 text-xs text-[var(--status-danger-text)]"
+                  style={{ paddingLeft: paddingLeft + 20 }}
+                >
                   {t("fileExplorer.readError")}
                 </div>
               )}
@@ -154,7 +165,7 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
         key={entry.path}
         onClick={() => onSelectFile(entry)}
         title={entry.name}
-        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm ${
+        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm ${
           isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-base-700/60"
         }`}
         style={{ paddingLeft }}
@@ -175,10 +186,18 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
           {rootLabel}
         </span>
         <div className="flex shrink-0 items-center gap-1">
-          <button onClick={handleAddFileClick} title={t("fileExplorer.addFileTitle")} className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white">
+          <button
+            onClick={handleAddFileClick}
+            title={t("fileExplorer.addFileTitle")}
+            className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white"
+          >
             <FilePlus size={12} />
           </button>
-          <button onClick={refresh} title={t("fileExplorer.refreshTitle")} className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white">
+          <button
+            onClick={refresh}
+            title={t("fileExplorer.refreshTitle")}
+            className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white"
+          >
             <RefreshCw size={12} />
           </button>
         </div>
@@ -197,7 +216,9 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
         }}
         className={`flex-1 overflow-y-auto px-1 pb-2 ${isRootDragOver ? "bg-accent-500/10" : ""}`}
       >
-        {rootState === "loading" && <div className="px-2 py-6 text-center text-xs text-slate-500">{t("common.loading")}</div>}
+        {rootState === "loading" && (
+          <div className="px-2 py-6 text-center text-xs text-slate-500">{t("common.loading")}</div>
+        )}
         {rootState === "error" && (
           <div className="px-2 py-6 text-center text-xs text-slate-500">
             {t("fileExplorer.noProjectDir", { openInAxet: t("systemPanel.openInAxet") })}

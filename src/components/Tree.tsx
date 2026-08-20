@@ -27,7 +27,13 @@ function nodeMatches(node: SapNode, term: string): boolean {
   if (!term) return true;
   const lower = term.toLowerCase();
   if (node.name.toLowerCase().includes(lower)) return true;
-  if (node.items.some((it) => it.service && (it.service.name.toLowerCase().includes(lower) || it.service.systemId.toLowerCase().includes(lower)))) {
+  if (
+    node.items.some(
+      (it) =>
+        it.service &&
+        (it.service.name.toLowerCase().includes(lower) || it.service.systemId.toLowerCase().includes(lower))
+    )
+  ) {
     return true;
   }
   return node.nodes.some((child) => nodeMatches(child, lower));
@@ -108,7 +114,12 @@ function TreeNode({
   const visibleItems = getVisibleItems(node, search);
   const visibleChildren = getVisibleChildren(node, search);
 
-  if (hasSearch && visibleItems.length === 0 && visibleChildren.length === 0 && !node.name.toLowerCase().includes(search.toLowerCase())) {
+  if (
+    hasSearch &&
+    visibleItems.length === 0 &&
+    visibleChildren.length === 0 &&
+    !node.name.toLowerCase().includes(search.toLowerCase())
+  ) {
     return null;
   }
 
@@ -119,13 +130,17 @@ function TreeNode({
       <button
         ref={(el) => registerRowRef(node.uuid, el)}
         onClick={() => toggleExpand(node.uuid, depth)}
-        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm text-slate-300 hover:bg-base-700/60 ${
+        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-slate-300 hover:bg-base-700/60 ${
           isFolderFocused ? "ring-1 ring-inset ring-accent-400/70" : ""
         }`}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
       >
-        {isExpanded ? <ChevronDown size={14} className="text-slate-500" /> : <ChevronRight size={14} className="text-slate-500" />}
-        <Folder size={14} className="text-accent-400" />
+        {isExpanded ? (
+          <ChevronDown size={14} className="text-slate-500" />
+        ) : (
+          <ChevronRight size={14} className="text-slate-500" />
+        )}
+        <Folder size={14} className="text-[#d99a4e]" />
         <span className="truncate">{node.name}</span>
       </button>
 
@@ -159,15 +174,17 @@ function TreeNode({
                 key={item.uuid}
                 ref={(el) => registerRowRef(item.uuid, el)}
                 onClick={() => onSelect(path, service, item.uuid)}
-                className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
+                className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
                   isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-base-700/60"
                 } ${isFocused ? "ring-1 ring-inset ring-accent-400/70" : ""}`}
                 style={{ paddingLeft: `${(depth + 1) * 14 + 8}px` }}
               >
-                <Server size={13} className="shrink-0 text-slate-500" />
+                <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
                 <span className="truncate">{service.name}</span>
                 {tier && <TierBadge tier={tier} />}
-                <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">{service.systemId}</span>
+                <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
+                  {service.systemId}
+                </span>
                 <StatusDot state={state} />
               </button>
             );
@@ -184,7 +201,10 @@ export default function Tree({ nodes, search, selectedUuid, connectivity, tierOv
   const [focusedUuid, setFocusedUuid] = useState<string | null>(null);
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
 
-  const isExpandedFn = useCallback<IsExpandedFn>((uuid, depth) => expandedOverrides[uuid] ?? depth < 1, [expandedOverrides]);
+  const isExpandedFn = useCallback<IsExpandedFn>(
+    (uuid, depth) => expandedOverrides[uuid] ?? depth < 1,
+    [expandedOverrides]
+  );
 
   const toggleExpand = useCallback<ToggleExpandFn>((uuid, depth) => {
     setFocusedUuid(uuid);

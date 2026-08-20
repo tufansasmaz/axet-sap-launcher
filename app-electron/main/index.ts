@@ -2,16 +2,17 @@ import { app, BrowserWindow, ipcMain, dialog, Menu } from "electron";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
-import { loadLandscape, getServiceCredentials } from "./sapLandscape";
+import { loadLandscape, getServiceCredentials, getServiceSapLogonNote } from "./sapLandscape";
 import { checkConnectivity } from "./connectivity";
 import { connectToSystem, computeProjectDir } from "./launcher";
-import { loadConfig, saveConfig, saveLastCredential, saveTrustedCertificates, pushConnectionHistory, saveSystemTier } from "./store";
+import { loadConfig, saveConfig, saveLastCredential, saveTrustedCertificates, pushConnectionHistory, saveSystemTier, saveSystemComment } from "./store";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
 import { isPathAllowed, listDir, readTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles } from "./fsExplorer";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
-import type { AddManualSystemInput, ConnectRequest, SapService, CredentialDefaults, SystemTier, TerminalMode } from "../shared/types";
+import { openInSapLogon } from "./sapLogon";
+import type { AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, TerminalMode } from "../shared/types";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isDev = !app.isPackaged;
@@ -164,6 +165,23 @@ function createWindow(): void {
   }
 }
 
+// Şifre önceliği: bu sistemde daha önce BAŞARIYLA doğrulanmış bir şifre
+// varsa (last.password) o kullanılır — kanıtlanmış/güncel. Yoksa SAP
+// Logon'un Memo alanındaki şifreye (memo.password) düşülür (kullanıcının
+// SAP Logon'a kendi elle yazdığı, doğrulanmamış bir değer olabilir).
+// Hem "axet.code'da Aç" kimlik formu hem de "SAP Logon'da Aç" (client'ı
+// login ekranı başlığına önceden yerleştirmek için) aynı mantığı
+// paylaşıyor — iki yerde ayrı ayrı yaşamasın diye ortak fonksiyon.
+async function resolveCredentialDefaults(config: AppConfig, serviceUuid: string): Promise<CredentialDefaults> {
+  const memo = await getServiceCredentials(serviceUuid, config.landscapePathOverride);
+  const last = config.lastCredentials[serviceUuid];
+  return {
+    username: last?.username ?? memo.username ?? "",
+    password: last?.password ?? memo.password ?? "",
+    client: last?.client ?? ""
+  };
+}
+
 function registerIpc(): void {
   ipcMain.handle("landscape:get", async () => {
     const config = loadConfig();
@@ -224,23 +242,30 @@ function registerIpc(): void {
     return saveSystemTier(serviceUuid, tier);
   });
 
+  ipcMain.handle("systemComments:set", (_event, serviceUuid: string, comment: string) => {
+    return saveSystemComment(serviceUuid, comment);
+  });
+
+  ipcMain.handle("systemComment:getDefault", async (_event, serviceUuid: string): Promise<SystemCommentDefaults> => {
+    const config = loadConfig();
+    const saved = config.systemComments[serviceUuid];
+    if (saved) return { comment: saved, source: "saved" };
+    // Henüz uygulama içinde bir yorum kaydedilmemişse, SAP Logon'un kendi
+    // Memo alanındaki 3. satırdan itibaren varsa (kullanıcının SAP Logon'a
+    // kendi elle yazdığı not) burada gösterilir — "sistem bazlı ordaki
+    // veriler varsa getirsin" isteğinin karşılığı.
+    const sapLogonNote = await getServiceSapLogonNote(serviceUuid, config.landscapePathOverride);
+    if (sapLogonNote) return { comment: sapLogonNote, source: "sapLogon" };
+    return { comment: "", source: "none" };
+  });
+
   ipcMain.handle("connectivity:check", (_event, service: SapService) => {
     return checkConnectivity(service);
   });
 
   ipcMain.handle("credentials:getDefaults", async (_event, serviceUuid: string): Promise<CredentialDefaults> => {
     const config = loadConfig();
-    const memo = await getServiceCredentials(serviceUuid, config.landscapePathOverride);
-    const last = config.lastCredentials[serviceUuid];
-    // Şifre önceliği: bu sistemde daha önce BAŞARIYLA doğrulanmış bir şifre
-    // varsa (last.password) o kullanılır — kanıtlanmış/güncel. Yoksa SAP
-    // Logon'un Memo alanındaki şifreye (memo.password) düşülür (kullanıcının
-    // SAP Logon'a kendi elle yazdığı, doğrulanmamış bir değer olabilir).
-    return {
-      username: last?.username ?? memo.username ?? "",
-      password: last?.password ?? memo.password ?? "",
-      client: last?.client ?? ""
-    };
+    return resolveCredentialDefaults(config, serviceUuid);
   });
 
   ipcMain.handle("system:connect", async (_event, req: ConnectRequest) => {
@@ -262,6 +287,20 @@ function registerIpc(): void {
       pushConnectionHistory(req.service.uuid);
     }
     return result;
+  });
+
+  ipcMain.handle("sapLogon:open", async (_event, service: SapService) => {
+    try {
+      const config = loadConfig();
+      // Eclipse ADT'nin "Open SAP GUI"sine benzer bir deneyim: SAP Logon'a
+      // kayıt olmadan doğru host/port/router'a bağlanıp gerçek klasik/büyük
+      // SAP GUI logon ekranını açar (bkz. sapLogon.ts'teki canlı doğrulama
+      // notu). Kullanıcı adı/şifre SAP GUI'nin kendi native davranışı
+      // yüzünden otomatik dolmuyor (Eclipse'in kendisinde de aynı).
+      return openInSapLogon(service, config.sapShcutPathOverride);
+    } catch (err) {
+      return { ok: false, reason: "spawnError", detail: (err as Error).message };
+    }
   });
 
   ipcMain.handle("config:get", () => loadConfig());

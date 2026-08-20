@@ -240,3 +240,23 @@ export async function getServiceCredentials(serviceUuid: string, overridePath?: 
   if (lines.length === 1) return { username: lines[0], password: null };
   return { username: lines[0], password: lines[1] };
 }
+
+// SAP Logon'un kendi "Memo" alanı bu launcher tarafından kullanıcı adı/şifre
+// (ilk iki satır) olarak okunuyor (yukarıdaki getServiceCredentials) — bu
+// SADECE kimlik bilgisi otomatik doldurma için kullanılan bir TAHMİN,
+// Memo'nun "gerçek" yapısı değil. Yorum alanı için bu tahmine GÜVENİLMEZ:
+// canlı veride bazı sistemlerde kullanıcı adından önce bir etiket satırı
+// (örn. "Canlı") geliyor — böyle durumlarda "ilk 2 satırı atla" mantığı
+// gerçek yorum metninin bir kısmını (etiketi ve/veya ilk kimlik satırını)
+// sessizce yutuyordu, kullanıcı "yazdığım metin gelmiyor" şikayetiyle
+// karşılaştı. Kesin çözüm: HİÇBİR satır atlanmadan Memo'nun TAMAMI
+// olduğu gibi döndürülüyor — SAP Logon'da görünen ne varsa launcher'da
+// da birebir aynı görünür, hiçbir metin kaybolmaz.
+export async function getServiceSapLogonNote(serviceUuid: string, overridePath?: string | null): Promise<string | null> {
+  const services = await loadRawServices(overridePath);
+  const svc = services.get(serviceUuid);
+  if (!svc?.memo) return null;
+
+  const trimmed = svc.memo.replace(/\r\n/g, "\n").trim();
+  return trimmed.length > 0 ? trimmed : null;
+}

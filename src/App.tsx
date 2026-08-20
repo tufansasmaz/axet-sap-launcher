@@ -1,6 +1,31 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { Search, RefreshCw, Settings, AlertTriangle, Plus, Download, Sun, Moon, X, TerminalSquare, PanelLeftClose, PanelLeftOpen, FileText, Server, FolderTree, Languages } from "lucide-react";
-import type { AppConfig, AppTheme, ConnectivityState, FsEntry, SapLandscape, SapService, SystemTier } from "../app-electron/shared/types";
+import {
+  Search,
+  RefreshCw,
+  Settings,
+  AlertTriangle,
+  Plus,
+  Download,
+  Sun,
+  Moon,
+  X,
+  TerminalSquare,
+  PanelLeftClose,
+  PanelLeftOpen,
+  FileText,
+  Server,
+  FolderTree,
+  Languages
+} from "lucide-react";
+import type {
+  AppConfig,
+  AppTheme,
+  ConnectivityState,
+  FsEntry,
+  SapLandscape,
+  SapService,
+  SystemTier
+} from "../app-electron/shared/types";
 import TitleBar from "./components/TitleBar";
 import Tree from "./components/Tree";
 import RecentSystems from "./components/RecentSystems";
@@ -73,7 +98,11 @@ export default function App() {
   const manualTerminalCounterRef = useRef(0);
 
   const language = config?.language ?? "tr";
-  const t = useCallback((key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate(language, key, params), [language]);
+  const t = useCallback(
+    (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) =>
+      translate(language, key, params),
+    [language]
+  );
 
   const flushConnectivity = useCallback(() => {
     flushTimerRef.current = null;
@@ -225,7 +254,9 @@ export default function App() {
   }, [selection?.itemUuid]);
 
   const handleOpenFile = useCallback((entry: FsEntry) => {
-    setOpenFiles((prev) => (prev.some((f) => f.path === entry.path) ? prev : [...prev, { path: entry.path, name: entry.name }]));
+    setOpenFiles((prev) =>
+      prev.some((f) => f.path === entry.path) ? prev : [...prev, { path: entry.path, name: entry.name }]
+    );
     setActiveFilePath(entry.path);
   }, []);
 
@@ -240,17 +271,20 @@ export default function App() {
     });
   }, []);
 
-  const handleImportComplete = useCallback((result: { ok: boolean; imported?: number; skippedDirs?: string[]; error?: string }) => {
-    if (!result.ok) {
-      pushToast("error", t("app.fileImportFailed", { error: result.error ?? t("common.unknownError") }));
-      return;
-    }
-    const imported = result.imported ?? 0;
-    const skipped = result.skippedDirs?.length ?? 0;
-    if (imported === 0 && skipped === 0) return;
-    const skippedNote = skipped > 0 ? t("app.skippedFoldersNote", { count: skipped }) : "";
-    pushToast("success", t("app.filesImported", { count: imported, note: skippedNote }));
-  }, [t]);
+  const handleImportComplete = useCallback(
+    (result: { ok: boolean; imported?: number; skippedDirs?: string[]; error?: string }) => {
+      if (!result.ok) {
+        pushToast("error", t("app.fileImportFailed", { error: result.error ?? t("common.unknownError") }));
+        return;
+      }
+      const imported = result.imported ?? 0;
+      const skipped = result.skippedDirs?.length ?? 0;
+      if (imported === 0 && skipped === 0) return;
+      const skippedNote = skipped > 0 ? t("app.skippedFoldersNote", { count: skipped }) : "";
+      pushToast("success", t("app.filesImported", { count: imported, note: skippedNote }));
+    },
+    [t]
+  );
 
   const handleCheck = useCallback(async (service: SapService) => {
     setConnectivity((prev) => ({ ...prev, [service.uuid]: "checking" }));
@@ -262,6 +296,24 @@ export default function App() {
     setConnectError(null);
     setCredentialsTarget(sel);
   };
+
+  const handleOpenSapLogon = useCallback(
+    async (service: SapService) => {
+      try {
+        const result = await window.api.openInSapLogon(service);
+        if (result.ok) {
+          pushToast("success", t("sapLogon.opened"));
+        } else if (result.reason === "spawnError") {
+          pushToast("error", t("sapLogon.spawnError", { detail: result.detail ?? "" }));
+        } else {
+          pushToast("error", t(`sapLogon.${result.reason}` as Parameters<typeof t>[0]));
+        }
+      } catch (err) {
+        pushToast("error", t("sapLogon.spawnError", { detail: (err as Error).message }));
+      }
+    },
+    [t]
+  );
 
   const openTerminalForConnection = useCallback(
     async (projectDir: string, title: string) => {
@@ -476,7 +528,14 @@ export default function App() {
     const result = await window.api.importManualSystems();
     if (result.canceled) return;
     if (result.ok) {
-      pushToast("success", t("app.manualImported", { imported: result.imported ?? 0, skipped: result.skipped ?? 0, total: result.total ?? 0 }));
+      pushToast(
+        "success",
+        t("app.manualImported", {
+          imported: result.imported ?? 0,
+          skipped: result.skipped ?? 0,
+          total: result.total ?? 0
+        })
+      );
       refresh();
     } else {
       pushToast("error", result.error ?? t("app.importFailed"));
@@ -487,315 +546,323 @@ export default function App() {
 
   return (
     <LanguageProvider language={language}>
-    <div className="flex h-screen flex-col overflow-hidden">
-      <TitleBar />
-      <header className="flex items-center gap-3 border-b border-base-700 bg-base-900/80 px-4 py-3">
-        <button
-          onClick={() => setAddSystemOpen(true)}
-          title={t("app.addSystemTitle")}
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-accent-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-400"
-        >
-          <Plus size={14} />
-          {t("app.addSystem")}
-        </button>
-        <button
-          onClick={() => {
-            refresh();
-            pushToast("success", t("app.refreshedFromSapLogon"));
-          }}
-          title={t("app.refetchTitle")}
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
-        >
-          <Download size={14} className={loading ? "animate-pulse" : ""} />
-          {t("app.refetch")}
-        </button>
-        <div className="flex flex-1 items-center gap-2 rounded-lg border border-base-700 bg-base-800 px-3 py-1.5">
-          <Search size={14} className="text-slate-500" />
-          <input
-            ref={searchInputRef}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape" && search) setSearch("");
+      <div className="flex h-screen flex-col overflow-hidden">
+        <TitleBar />
+        <header className="flex items-center gap-3 border-b border-base-700 bg-base-900 px-4 py-3">
+          <button
+            onClick={() => setAddSystemOpen(true)}
+            title={t("app.addSystemTitle")}
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border border-accent-500/40 bg-accent-500/15 px-3 py-1.5 text-xs font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
+          >
+            <Plus size={14} />
+            {t("app.addSystem")}
+          </button>
+          <button
+            onClick={() => {
+              refresh();
+              pushToast("success", t("app.refreshedFromSapLogon"));
             }}
-            placeholder={t("app.searchPlaceholder")}
-            className="w-full bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-500"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              title={t("app.clearSearch")}
-              className="cursor-pointer rounded-md p-0.5 text-slate-500 hover:bg-base-700 hover:text-slate-200"
-            >
-              <X size={13} />
-            </button>
-          )}
-        </div>
-
-        <button
-          onClick={handleToggleTerminalPanel}
-          title={t("app.toggleTerminalTitle")}
-          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
-        >
-          <TerminalSquare size={14} />
-          {t("app.terminal")}
-        </button>
-        <button
-          onClick={refresh}
-          title={t("app.reloadListTitle")}
-          className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-white"
-        >
-          <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-        </button>
-        <button
-          onClick={handleToggleTheme}
-          title={config?.theme === "light" ? t("app.switchToDark") : t("app.switchToLight")}
-          className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-white"
-        >
-          {config?.theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-        </button>
-        <button
-          onClick={handleToggleLanguage}
-          title={t("app.languageToggleTitle")}
-          className="flex cursor-pointer items-center gap-1 rounded-md p-2 text-xs font-semibold text-slate-400 hover:bg-base-700 hover:text-white"
-        >
-          <Languages size={16} />
-          {language.toUpperCase()}
-        </button>
-        <button
-          onClick={() => setSettingsOpen(true)}
-          title={t("app.settingsTitle")}
-          className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-white"
-        >
-          <Settings size={16} />
-        </button>
-      </header>
-
-      {noLandscapeFile && (
-        <div
-          className="flex items-center gap-2 border-b px-4 py-2 text-sm"
-          style={{
-            borderColor: "var(--status-warning-border)",
-            backgroundColor: "var(--status-warning-bg)",
-            color: "var(--status-warning-text)"
-          }}
-        >
-          <AlertTriangle size={14} />
-          {t("app.noLandscapeFile", { file: landscape?.sourceFile ?? "" })}
-        </div>
-      )}
-
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {!terminalFullscreen && (
-        <aside
-          style={{ width: sidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth }}
-          className="flex shrink-0 cursor-default flex-col overflow-hidden border-r border-base-700 bg-base-900/40"
-        >
-          <div className="flex items-center gap-2 p-2">
-            <button
-              onClick={handleToggleSidebar}
-              title={sidebarCollapsed ? t("app.expandSidebar") : t("app.collapseSidebar")}
-              className="cursor-pointer rounded-md p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
-            >
-              {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-            </button>
-            {!sidebarCollapsed && selection && projectDir && (
-              <div className="ml-auto flex items-center gap-1 rounded-md border border-base-700 p-0.5">
-                <button
-                  onClick={() => setLeftPanelMode("systems")}
-                  title={t("app.systemsMode")}
-                  className={`cursor-pointer rounded-md p-1.5 ${
-                    leftPanelMode === "systems" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
-                  }`}
-                >
-                  <Server size={14} />
-                </button>
-                <button
-                  onClick={() => setLeftPanelMode("files")}
-                  title={t("app.filesMode")}
-                  className={`cursor-pointer rounded-md p-1.5 ${
-                    leftPanelMode === "files" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
-                  }`}
-                >
-                  <FolderTree size={14} />
-                </button>
-              </div>
+            title={t("app.refetchTitle")}
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+          >
+            <Download size={14} className={loading ? "animate-pulse" : ""} />
+            {t("app.refetch")}
+          </button>
+          <div className="flex flex-1 items-center gap-2 rounded-sm border border-base-700 bg-base-800 px-3 py-1.5">
+            <Search size={14} className="text-slate-500" />
+            <input
+              ref={searchInputRef}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && search) setSearch("");
+              }}
+              placeholder={t("app.searchPlaceholder")}
+              className="w-full bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-500"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                title={t("app.clearSearch")}
+                className="cursor-pointer rounded-sm p-0.5 text-slate-500 hover:bg-base-700 hover:text-slate-200"
+              >
+                <X size={13} />
+              </button>
             )}
           </div>
-          {!sidebarCollapsed && leftPanelMode === "files" && selection && projectDir ? (
-            <div className="flex-1 overflow-hidden">
-              <FileExplorer
-                rootDir={projectDir}
-                rootLabel={selection.service.systemId || selection.service.name}
-                selectedPath={activeFilePath}
-                onSelectFile={handleOpenFile}
-                onImportComplete={handleImportComplete}
-              />
-            </div>
-          ) : (
-            !sidebarCollapsed && (
-              <div className="flex-1 overflow-y-auto p-3 pt-0">
-                {loading && !landscape ? (
-                  <div className="px-3 py-6 text-center text-sm text-slate-500">{t("common.loading")}</div>
-                ) : (
-                  <>
-                    {!search.trim() && (
-                      <RecentSystems
-                        entries={recentEntries}
-                        selectedUuid={selection?.itemUuid ?? null}
-                        connectivity={connectivity}
-                        tierOverrides={config?.systemTiers ?? {}}
-                        onSelect={handleSelect}
-                      />
-                    )}
-                    <Tree
-                      nodes={landscape?.customers ?? []}
-                      search={search}
-                      selectedUuid={selection?.itemUuid ?? null}
-                      connectivity={connectivity}
-                      tierOverrides={config?.systemTiers ?? {}}
-                      onSelect={handleSelect}
-                    />
-                  </>
-                )}
-              </div>
-            )
-          )}
-        </aside>
-        )}
 
-        {!terminalFullscreen && !sidebarCollapsed && (
+          <button
+            onClick={handleToggleTerminalPanel}
+            title={t("app.toggleTerminalTitle")}
+            className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+          >
+            <TerminalSquare size={14} />
+            {t("app.terminal")}
+          </button>
+          <button
+            onClick={refresh}
+            title={t("app.reloadListTitle")}
+            className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-white"
+          >
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+          </button>
+          <button
+            onClick={handleToggleTheme}
+            title={config?.theme === "light" ? t("app.switchToDark") : t("app.switchToLight")}
+            className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-white"
+          >
+            {config?.theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
+          </button>
+          <button
+            onClick={handleToggleLanguage}
+            title={t("app.languageToggleTitle")}
+            className="flex cursor-pointer items-center gap-1 rounded-sm p-2 text-xs font-semibold text-slate-400 hover:bg-base-700 hover:text-white"
+          >
+            <Languages size={16} />
+            {language.toUpperCase()}
+          </button>
+          <button
+            onClick={() => setSettingsOpen(true)}
+            title={t("app.settingsTitle")}
+            className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-white"
+          >
+            <Settings size={16} />
+          </button>
+        </header>
+
+        {noLandscapeFile && (
           <div
-            onMouseDown={handleSidebarResizeStart}
-            title={t("app.resizeWidthTitle")}
-            className="w-1 shrink-0 cursor-col-resize hover:bg-accent-500/50"
-          />
+            className="flex items-center gap-2 border-b px-4 py-2 text-sm"
+            style={{
+              borderColor: "var(--status-warning-border)",
+              backgroundColor: "var(--status-warning-bg)",
+              color: "var(--status-warning-text)"
+            }}
+          >
+            <AlertTriangle size={14} />
+            {t("app.noLandscapeFile", { file: landscape?.sourceFile ?? "" })}
+          </div>
         )}
 
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 overflow-hidden">
           {!terminalFullscreen && (
-          <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            {openFiles.length > 0 && (
-              <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b border-base-700 bg-base-900 px-2">
+            <aside
+              style={{ width: sidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth }}
+              className="flex shrink-0 cursor-default flex-col overflow-hidden border-r border-base-700 bg-base-900"
+            >
+              <div className="flex items-center gap-2 p-2">
                 <button
-                  onClick={() => setActiveFilePath(null)}
-                  className={`shrink-0 whitespace-nowrap rounded-t-md px-3 py-1.5 text-xs ${
-                    activeFilePath === null ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
-                  }`}
+                  onClick={handleToggleSidebar}
+                  title={sidebarCollapsed ? t("app.expandSidebar") : t("app.collapseSidebar")}
+                  className="cursor-pointer rounded-sm p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
                 >
-                  {t("app.systemDetailTab")}
+                  {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
                 </button>
-                {openFiles.map((f) => (
-                  <div
-                    key={f.path}
-                    onClick={() => setActiveFilePath(f.path)}
-                    className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-t-md px-3 py-1.5 text-xs ${
-                      activeFilePath === f.path ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
-                    }`}
-                  >
-                    <FileText size={12} />
-                    {f.name}
+                {!sidebarCollapsed && selection && projectDir && (
+                  <div className="ml-auto flex items-center gap-1 rounded-sm border border-base-700 p-0.5">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleCloseFileTab(f.path);
-                      }}
-                      title={t("app.closeTabTitle")}
-                      className="cursor-pointer rounded p-0.5 hover:bg-base-700"
+                      onClick={() => setLeftPanelMode("systems")}
+                      title={t("app.systemsMode")}
+                      className={`cursor-pointer rounded-sm p-1.5 ${
+                        leftPanelMode === "systems" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
+                      }`}
                     >
-                      <X size={11} />
+                      <Server size={14} />
+                    </button>
+                    <button
+                      onClick={() => setLeftPanelMode("files")}
+                      title={t("app.filesMode")}
+                      className={`cursor-pointer rounded-sm p-1.5 ${
+                        leftPanelMode === "files" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
+                      }`}
+                    >
+                      <FolderTree size={14} />
                     </button>
                   </div>
-                ))}
+                )}
               </div>
-            )}
-            <div className="min-w-0 flex-1 overflow-y-auto">
-              {activeFilePath ? (
-                <FileViewer path={activeFilePath} name={openFiles.find((f) => f.path === activeFilePath)?.name ?? ""} />
+              {!sidebarCollapsed && leftPanelMode === "files" && selection && projectDir ? (
+                <div className="flex-1 overflow-hidden">
+                  <FileExplorer
+                    rootDir={projectDir}
+                    rootLabel={selection.service.systemId || selection.service.name}
+                    selectedPath={activeFilePath}
+                    onSelectFile={handleOpenFile}
+                    onImportComplete={handleImportComplete}
+                  />
+                </div>
               ) : (
-                <SystemPanel
-                  selection={selection}
-                  connectivity={connectivity}
-                  tierOverrides={config?.systemTiers ?? {}}
-                  lastConnectedAt={lastConnectedAt}
-                  onCheck={handleCheck}
-                  onConnect={handleOpenConnect}
-                  onEditManual={handleEditManual}
-                  onDeleteManual={handleDeleteManual}
-                  onSetTier={handleSetTier}
-                />
+                !sidebarCollapsed && (
+                  <div className="flex-1 overflow-y-auto p-3 pt-0">
+                    {loading && !landscape ? (
+                      <div className="px-3 py-6 text-center text-sm text-slate-500">{t("common.loading")}</div>
+                    ) : (
+                      <>
+                        {!search.trim() && (
+                          <RecentSystems
+                            entries={recentEntries}
+                            selectedUuid={selection?.itemUuid ?? null}
+                            connectivity={connectivity}
+                            tierOverrides={config?.systemTiers ?? {}}
+                            onSelect={handleSelect}
+                          />
+                        )}
+                        <Tree
+                          nodes={landscape?.customers ?? []}
+                          search={search}
+                          selectedUuid={selection?.itemUuid ?? null}
+                          connectivity={connectivity}
+                          tierOverrides={config?.systemTiers ?? {}}
+                          onSelect={handleSelect}
+                        />
+                      </>
+                    )}
+                  </div>
+                )
               )}
-            </div>
-          </main>
+            </aside>
           )}
 
-          {(terminalPanelOpen || terminalSessions.length > 0) && (
-            <TerminalPanel
-              sessions={terminalSessions}
-              activeId={activeTerminalId}
-              open={terminalPanelOpen}
-              height={terminalPanelHeight}
-              fullscreen={terminalFullscreen}
-              onSelect={setActiveTerminalId}
-              onClose={handleCloseTerminal}
-              onToggleOpen={handleToggleTerminalPanel}
-              onResizeStart={handleTerminalResizeStart}
-              onNewTerminal={handleNewTerminal}
-              onToggleFullscreen={handleToggleTerminalFullscreen}
+          {!terminalFullscreen && !sidebarCollapsed && (
+            <div
+              onMouseDown={handleSidebarResizeStart}
+              title={t("app.resizeWidthTitle")}
+              className="w-1 shrink-0 cursor-col-resize hover:bg-accent-500/50"
             />
           )}
+
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            {!terminalFullscreen && (
+              <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                {openFiles.length > 0 && (
+                  <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b border-base-700 bg-base-900 px-2">
+                    <button
+                      onClick={() => setActiveFilePath(null)}
+                      className={`shrink-0 whitespace-nowrap rounded-t-sm px-3 py-1.5 text-xs ${
+                        activeFilePath === null ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
+                      }`}
+                    >
+                      {t("app.systemDetailTab")}
+                    </button>
+                    {openFiles.map((f) => (
+                      <div
+                        key={f.path}
+                        onClick={() => setActiveFilePath(f.path)}
+                        className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-t-sm px-3 py-1.5 text-xs ${
+                          activeFilePath === f.path ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
+                        }`}
+                      >
+                        <FileText size={12} />
+                        {f.name}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCloseFileTab(f.path);
+                          }}
+                          title={t("app.closeTabTitle")}
+                          className="cursor-pointer rounded p-0.5 hover:bg-base-700"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1 overflow-y-auto">
+                  {activeFilePath ? (
+                    <FileViewer
+                      path={activeFilePath}
+                      name={openFiles.find((f) => f.path === activeFilePath)?.name ?? ""}
+                    />
+                  ) : (
+                    <SystemPanel
+                      selection={selection}
+                      connectivity={connectivity}
+                      tierOverrides={config?.systemTiers ?? {}}
+                      lastConnectedAt={lastConnectedAt}
+                      onCheck={handleCheck}
+                      onConnect={handleOpenConnect}
+                      onOpenSapLogon={handleOpenSapLogon}
+                      onEditManual={handleEditManual}
+                      onDeleteManual={handleDeleteManual}
+                      onSetTier={handleSetTier}
+                    />
+                  )}
+                </div>
+              </main>
+            )}
+
+            {(terminalPanelOpen || terminalSessions.length > 0) && (
+              <TerminalPanel
+                sessions={terminalSessions}
+                activeId={activeTerminalId}
+                open={terminalPanelOpen}
+                height={terminalPanelHeight}
+                fullscreen={terminalFullscreen}
+                onSelect={setActiveTerminalId}
+                onClose={handleCloseTerminal}
+                onToggleOpen={handleToggleTerminalPanel}
+                onResizeStart={handleTerminalResizeStart}
+                onNewTerminal={handleNewTerminal}
+                onToggleFullscreen={handleToggleTerminalFullscreen}
+              />
+            )}
+          </div>
+        </div>
+
+        <SettingsModal
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          config={config}
+          onSave={handleSaveConfig}
+          onExportManualSystems={handleExportManualSystems}
+          onImportManualSystems={handleImportManualSystems}
+        />
+
+        <AddSystemModal
+          open={addSystemOpen}
+          editing={editingSystem}
+          onClose={() => {
+            setAddSystemOpen(false);
+            setEditingSystem(null);
+          }}
+          onAdded={(id) => {
+            pushToast("success", editingSystem ? t("app.systemUpdated") : t("app.systemAdded"));
+            setEditingSystem(null);
+            if (id) setPendingSelectUuid(id);
+            refresh();
+          }}
+        />
+
+        <ConfirmDialog
+          open={deleteTarget !== null}
+          title={t("app.deleteSystemTitle")}
+          message={
+            deleteTarget
+              ? t("app.deleteSystemMessage", { name: deleteTarget.name, systemId: deleteTarget.systemId })
+              : ""
+          }
+          confirmLabel={t("common.delete")}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+
+        <CredentialsModal
+          open={credentialsTarget !== null}
+          service={credentialsTarget?.service ?? null}
+          connecting={connecting}
+          errorMessage={connectError}
+          onClose={() => setCredentialsTarget(null)}
+          onSubmit={handleCredentialsSubmit}
+          loadDefaults={(uuid) => window.api.getCredentialDefaults(uuid)}
+        />
+
+        <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+          {toasts.map((toast) => (
+            <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />
+          ))}
         </div>
       </div>
-
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        config={config}
-        onSave={handleSaveConfig}
-        onExportManualSystems={handleExportManualSystems}
-        onImportManualSystems={handleImportManualSystems}
-      />
-
-      <AddSystemModal
-        open={addSystemOpen}
-        editing={editingSystem}
-        onClose={() => {
-          setAddSystemOpen(false);
-          setEditingSystem(null);
-        }}
-        onAdded={(id) => {
-          pushToast("success", editingSystem ? t("app.systemUpdated") : t("app.systemAdded"));
-          setEditingSystem(null);
-          if (id) setPendingSelectUuid(id);
-          refresh();
-        }}
-      />
-
-      <ConfirmDialog
-        open={deleteTarget !== null}
-        title={t("app.deleteSystemTitle")}
-        message={deleteTarget ? t("app.deleteSystemMessage", { name: deleteTarget.name, systemId: deleteTarget.systemId }) : ""}
-        confirmLabel={t("common.delete")}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteTarget(null)}
-      />
-
-      <CredentialsModal
-        open={credentialsTarget !== null}
-        service={credentialsTarget?.service ?? null}
-        connecting={connecting}
-        errorMessage={connectError}
-        onClose={() => setCredentialsTarget(null)}
-        onSubmit={handleCredentialsSubmit}
-        loadDefaults={(uuid) => window.api.getCredentialDefaults(uuid)}
-      />
-
-      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-        {toasts.map((toast) => (
-          <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />
-        ))}
-      </div>
-    </div>
     </LanguageProvider>
   );
 }

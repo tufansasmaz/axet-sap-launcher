@@ -23,7 +23,7 @@ export default function Toast({ toast, onDismiss }: { toast: ToastMsg; onDismiss
     <div
       onClick={() => onDismiss(toast.id)}
       title={t("toast.dismissTitle")}
-      className="flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur transition hover:brightness-110"
+      className="flex cursor-pointer items-center gap-2 rounded-sm border px-4 py-3 text-sm transition hover:brightness-110"
       style={{
         borderColor: isSuccess ? "var(--status-success-border)" : "var(--status-danger-border)",
         backgroundColor: isSuccess ? "var(--status-success-bg)" : "var(--status-danger-bg)",

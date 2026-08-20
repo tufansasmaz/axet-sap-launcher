@@ -1,5 +1,19 @@
-import { useEffect } from "react";
-import { Cable, RefreshCw, Terminal, Router as RouterIcon, Hash, Globe, Trash2, Pencil, AlertTriangle, History } from "lucide-react";
+import { useEffect, useState } from "react";
+import {
+  Cable,
+  RefreshCw,
+  Terminal,
+  Router as RouterIcon,
+  Hash,
+  Globe,
+  Trash2,
+  Pencil,
+  AlertTriangle,
+  History,
+  LogIn,
+  MessageSquare,
+  Check
+} from "lucide-react";
 import type { ConnectivityState, SapService, SystemTier } from "../../app-electron/shared/types";
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
@@ -21,6 +35,7 @@ interface Props {
   lastConnectedAt: string | null;
   onCheck: (service: SapService) => void;
   onConnect: (selection: Selection) => void;
+  onOpenSapLogon: (service: SapService) => void;
   onEditManual: (service: SapService) => void;
   onDeleteManual: (service: SapService) => void;
   onSetTier: (service: SapService, tier: SystemTier | null) => void;
@@ -35,13 +50,36 @@ export default function SystemPanel({
   lastConnectedAt,
   onCheck,
   onConnect,
+  onOpenSapLogon,
   onEditManual,
   onDeleteManual,
   onSetTier
 }: Props) {
   const t = useT();
+  const [comment, setComment] = useState("");
+  const [commentSource, setCommentSource] = useState<"saved" | "sapLogon" | "none">("none");
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [commentSaving, setCommentSaving] = useState(false);
+  const [commentSaved, setCommentSaved] = useState(false);
+
   useEffect(() => {
     if (selection) onCheck(selection.service);
+  }, [selection?.itemUuid]);
+
+  useEffect(() => {
+    if (!selection) return;
+    let cancelled = false;
+    setCommentLoading(true);
+    setCommentSaved(false);
+    window.api.getSystemCommentDefault(selection.service.uuid).then((result) => {
+      if (cancelled) return;
+      setComment(result.comment);
+      setCommentSource(result.source);
+      setCommentLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [selection?.itemUuid]);
 
   if (!selection) {
@@ -58,6 +96,15 @@ export default function SystemPanel({
   const tier = resolveTier(service, tierOverrides);
   const explicitTier = tierOverrides[service.uuid] ?? null;
 
+  const handleSaveComment = async () => {
+    setCommentSaving(true);
+    await window.api.setSystemComment(service.uuid, comment);
+    setCommentSource("saved");
+    setCommentSaving(false);
+    setCommentSaved(true);
+    setTimeout(() => setCommentSaved(false), 2000);
+  };
+
   return (
     <div className="mx-auto max-w-2xl px-8 py-10">
       <div className="mb-1 flex items-center justify-between">
@@ -67,7 +114,7 @@ export default function SystemPanel({
             <button
               onClick={() => onEditManual(service)}
               title={t("systemPanel.editTitle")}
-              className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-base-700"
+              className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-slate-400 hover:bg-base-700"
             >
               <Pencil size={12} />
               {t("common.edit")}
@@ -75,7 +122,7 @@ export default function SystemPanel({
             <button
               onClick={() => onDeleteManual(service)}
               title={t("systemPanel.deleteTitle")}
-              className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs text-rose-400 hover:bg-rose-950/40"
+              className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-[var(--status-danger-text)] hover:bg-[var(--status-danger-bg)]"
             >
               <Trash2 size={12} />
               {t("common.delete")}
@@ -97,14 +144,14 @@ export default function SystemPanel({
         )}
       </div>
 
-      <div className="mb-5 flex items-center gap-2 rounded-xl border border-base-700 bg-base-900/40 px-4 py-3">
+      <div className="mb-5 flex items-center gap-2 rounded-sm border border-base-700 bg-base-900/40 px-4 py-3">
         <span className="text-xs text-slate-500">{t("systemPanel.tierLabel")}</span>
         <div className="flex items-center gap-1.5">
           {TIER_OPTIONS.map((option) => (
             <button
               key={option}
               onClick={() => onSetTier(service, explicitTier === option ? null : option)}
-              className={`rounded-md border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
+              className={`rounded-sm border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
                 explicitTier === option
                   ? "border-accent-500 bg-accent-500/20 text-white"
                   : "border-base-600 text-slate-400 hover:bg-base-700"
@@ -125,7 +172,7 @@ export default function SystemPanel({
         {!explicitTier && tier && <span className="text-[11px] text-slate-500">{t("systemPanel.autoGuessed")}</span>}
       </div>
 
-      <div className="grid grid-cols-2 gap-4 rounded-xl border border-base-700 bg-base-900/60 p-5">
+      <div className="grid grid-cols-2 gap-4 rounded-sm border border-base-700 bg-base-900/60 p-5">
         <div>
           <div className="text-xs text-slate-500">{t("systemPanel.systemId")}</div>
           <div className="font-mono text-sm text-slate-200">{service.systemId || "—"}</div>
@@ -159,13 +206,48 @@ export default function SystemPanel({
         </div>
       </div>
 
-      <div className="mt-5 flex items-center justify-between rounded-xl border border-base-700 bg-base-900/40 px-5 py-4">
+      <div className="mt-5 rounded-sm border border-base-700 bg-base-900/40 px-4 py-3">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <MessageSquare size={13} />
+            {t("systemPanel.commentLabel")}
+          </div>
+          {commentSource === "sapLogon" && (
+            <span className="text-[11px] text-slate-500">{t("systemPanel.commentFromSapLogon")}</span>
+          )}
+        </div>
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          disabled={commentLoading}
+          placeholder={t("systemPanel.commentPlaceholder")}
+          rows={3}
+          className="mb-2 w-full resize-none rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+        />
+        <div className="flex items-center justify-end gap-2">
+          {commentSaved && (
+            <span className="flex items-center gap-1 text-[11px] text-[var(--status-success-text)]">
+              <Check size={12} />
+              {t("systemPanel.commentSaved")}
+            </span>
+          )}
+          <button
+            onClick={handleSaveComment}
+            disabled={commentSaving || commentLoading}
+            className="cursor-pointer rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700 disabled:cursor-default disabled:opacity-50"
+          >
+            {t("common.save")}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5 flex items-center justify-between rounded-sm border border-base-700 bg-base-900/40 px-5 py-4">
         <div className="flex items-center gap-2">
           <StatusDot state={state} showLabel />
         </div>
         <button
           onClick={() => onCheck(service)}
-          className="flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+          className="flex cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
         >
           <RefreshCw size={13} className={state === "checking" ? "animate-spin" : ""} />
           {t("systemPanel.recheck")}
@@ -174,7 +256,7 @@ export default function SystemPanel({
 
       {state === "unreachable" && (
         <div
-          className="mt-4 rounded-lg border px-4 py-3 text-sm"
+          className="mt-4 rounded-sm border px-4 py-3 text-sm"
           style={{
             borderColor: "var(--status-danger-border)",
             backgroundColor: "var(--status-danger-bg)",
@@ -187,7 +269,7 @@ export default function SystemPanel({
 
       {tier === "PRD" && (
         <div
-          className="mt-4 flex items-center gap-2 rounded-lg border px-4 py-3 text-sm"
+          className="mt-4 flex items-center gap-2 rounded-sm border px-4 py-3 text-sm"
           style={{
             borderColor: "var(--status-danger-border)",
             backgroundColor: "var(--status-danger-bg)",
@@ -199,13 +281,25 @@ export default function SystemPanel({
         </div>
       )}
 
-      <button
-        onClick={() => onConnect(selection)}
-        className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-accent-500/20 transition hover:bg-accent-400"
-      >
-        <Terminal size={16} />
-        {t("systemPanel.openInAxet")}
-      </button>
+      <div className="mt-6 flex gap-2">
+        <button
+          onClick={() => onConnect(selection)}
+          className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-3 text-sm font-medium text-[var(--accent-soft-text)] transition hover:bg-accent-500/25"
+        >
+          <Terminal size={16} />
+          {t("systemPanel.openInAxet")}
+        </button>
+        {!service.manualAdtUrl && service.host && service.port && (
+          <button
+            onClick={() => onOpenSapLogon(service)}
+            title={t("systemPanel.openInSapLogonTitle")}
+            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border border-[#a97a3f]/40 bg-[#a97a3f]/15 px-4 py-3 text-sm font-medium text-[#d9a566] transition hover:bg-[#a97a3f]/25"
+          >
+            <LogIn size={16} />
+            {t("systemPanel.openInSapLogon")}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

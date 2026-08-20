@@ -37,12 +37,12 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-base-950 px-8 text-center text-slate-300">
-        <AlertOctagon size={40} className="text-rose-400" />
+        <AlertOctagon size={40} className="text-[var(--status-danger-text)]" />
         <h1 className="text-lg font-semibold text-white">{STRINGS.title}</h1>
         <p className="max-w-md break-words text-xs text-slate-500">{this.state.error.message}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-2 cursor-pointer rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400"
+          className="mt-2 cursor-pointer rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-2 text-sm font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
         >
           {STRINGS.reload}
         </button>

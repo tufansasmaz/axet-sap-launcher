@@ -15,7 +15,9 @@ import type {
   ManualSystemsImportResult,
   SapLandscape,
   SapService,
+  SapLogonOpenResult,
   SystemTier,
+  SystemCommentDefaults,
   TerminalMode,
   UpdateStatus
 } from "../app-electron/shared/types";
@@ -34,6 +36,9 @@ export interface AxetApi {
   exportManualSystems: () => Promise<ManualSystemsExportResult>;
   importManualSystems: () => Promise<ManualSystemsImportResult>;
   setSystemTier: (serviceUuid: string, tier: SystemTier | null) => Promise<AppConfig>;
+  setSystemComment: (serviceUuid: string, comment: string) => Promise<AppConfig>;
+  getSystemCommentDefault: (serviceUuid: string) => Promise<SystemCommentDefaults>;
+  openInSapLogon: (service: SapService) => Promise<SapLogonOpenResult>;
   windowMinimize: () => Promise<void>;
   windowToggleMaximize: () => Promise<boolean>;
   windowClose: () => Promise<void>;

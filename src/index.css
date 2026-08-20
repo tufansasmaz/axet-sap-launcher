@@ -6,62 +6,133 @@ html, body, #root {
   height: 100%;
 }
 
+* {
+  transition-property: background-color, border-color, color;
+  transition-duration: 120ms;
+  transition-timing-function: ease;
+}
+
+/* aXet SAP Launcher — minimalist iki tema (koyu/açık). Amaç: göz yormayan,
+   nötr gri tonlar + tek bir sakin vurgu rengi (indigo), gradyan/parlama/
+   dekoratif efekt yok. Renkler "R G B" tripleti (bkz. tailwind.config.js
+   withOpacity()) — bu format opacity varyantlarının (bg-accent-500/10 vb.)
+   doğru derlenmesi için gerekli, "#hex" yazma. */
+
 :root,
 html[data-theme="dark"] {
-  --base-950: #0b0d12;
-  --base-900: #121520;
-  --base-800: #191d2b;
-  --base-700: #232838;
-  --base-600: #2f3549;
-  --ink-100: #f1f5f9;
-  --ink-200: #e2e8f0;
-  --ink-300: #cbd5e1;
-  --ink-400: #94a3b8;
-  --ink-500: #64748b;
-  --ink-strong: #ffffff;
-  --scrollbar-thumb: #2f3549;
-  --scrollbar-thumb-hover: #3c4258;
+  --base-950-rgb: 15 15 17;
+  --base-900-rgb: 20 20 23;
+  --base-850-rgb: 25 25 29;
+  --base-800-rgb: 30 30 35;
+  --base-700-rgb: 41 41 48;
+  --base-600-rgb: 55 55 63;
 
-  --status-danger-bg: rgba(76, 5, 25, 0.55);
-  --status-danger-border: rgba(159, 18, 57, 0.6);
-  --status-danger-text: #fda4af;
-  --status-warning-bg: rgba(69, 26, 3, 0.55);
-  --status-warning-border: rgba(120, 53, 15, 0.6);
-  --status-warning-text: #fcd34d;
-  --status-success-bg: rgba(2, 44, 34, 0.6);
-  --status-success-border: rgba(6, 95, 70, 0.6);
-  --status-success-text: #6ee7b7;
+  --ink-100-rgb: 237 237 240;
+  --ink-200-rgb: 209 209 214;
+  --ink-300-rgb: 165 165 173;
+  --ink-400-rgb: 124 124 133;
+  --ink-500-rgb: 92 92 100;
+  --ink-strong-rgb: 255 255 255;
+
+  --scrollbar-thumb: #333338;
+  --scrollbar-thumb-hover: #45454c;
+
+  --accent-600-rgb: 29 78 216;
+  --accent-500-rgb: 42 108 235;
+  --accent-400-rgb: 96 165 250;
+  --accent-cyan-rgb: 42 108 235;
+  --accent-glow: rgba(42, 108, 235, 0.25);
+  --accent-soft-text: #8fb8f8;
+
+  --navy-icon: #3d6fa8;
+
+  --app-bg-image: none;
+  --overlay-scrim: rgba(0, 0, 0, 0.5);
+
+  --status-danger-bg: rgba(76, 5, 25, 0.4);
+  --status-danger-border: rgba(159, 18, 57, 0.5);
+  --status-danger-text: #f4718a;
+  --status-warning-bg: rgba(69, 26, 3, 0.4);
+  --status-warning-border: rgba(120, 53, 15, 0.5);
+  --status-warning-text: #f2b84b;
+  --status-success-bg: rgba(2, 44, 34, 0.45);
+  --status-success-border: rgba(6, 95, 70, 0.5);
+  --status-success-text: #4ade95;
+
+  --tier-dev-bg: rgba(56, 150, 220, 0.12);
+  --tier-dev-border: rgba(56, 150, 220, 0.35);
+  --tier-dev-text: #6cb4ea;
+  --tier-qa-bg: rgba(220, 160, 40, 0.12);
+  --tier-qa-border: rgba(220, 160, 40, 0.35);
+  --tier-qa-text: #e0b452;
+  --tier-prd-bg: rgba(220, 70, 90, 0.12);
+  --tier-prd-border: rgba(220, 70, 90, 0.35);
+  --tier-prd-text: #ea8090;
 }
 
 html[data-theme="light"] {
-  --base-950: #f4f5f9;
-  --base-900: #ffffff;
-  --base-800: #eef0f6;
-  --base-700: #dde1ea;
-  --base-600: #c7cddb;
-  --ink-100: #1e2330;
-  --ink-200: #333a4d;
-  --ink-300: #4b5468;
-  --ink-400: #6b7385;
-  --ink-500: #8890a0;
-  --ink-strong: #10131a;
-  --scrollbar-thumb: #c7cddb;
-  --scrollbar-thumb-hover: #b3bacb;
+  /* Saf beyaz + saf siyah yerine yumuşak, hafif sıcak gri tonlu bir palet —
+     maksimum kontrast göz yormasın diye zemin biraz kırık beyaz, metin biraz
+     yumuşatılmış koyu gri (saf siyah değil). Paneller (900→600) birbirinden
+     hafif tonla ayrılıyor, sert beyaz-üstü-beyaz sınır yok. İkinci tur: genel
+     parlaklık bir kademe daha düşürüldü, vurgu rengi daha az doygun/mat mavi. */
+  --base-950-rgb: 234 234 231;
+  --base-900-rgb: 244 244 242;
+  --base-850-rgb: 240 240 237;
+  --base-800-rgb: 236 236 233;
+  --base-700-rgb: 222 222 218;
+  --base-600-rgb: 202 202 198;
 
-  --status-danger-bg: #fef2f2;
-  --status-danger-border: #fecaca;
-  --status-danger-text: #b91c1c;
-  --status-warning-bg: #fffbeb;
-  --status-warning-border: #fde68a;
-  --status-warning-text: #92400e;
-  --status-success-bg: #ecfdf5;
-  --status-success-border: #a7f3d0;
-  --status-success-text: #047857;
+  --ink-100-rgb: 58 56 53;
+  --ink-200-rgb: 80 78 74;
+  --ink-300-rgb: 109 107 102;
+  --ink-400-rgb: 141 139 134;
+  --ink-500-rgb: 166 164 159;
+  --ink-strong-rgb: 41 39 36;
+
+  --scrollbar-thumb: #c9c8c4;
+  --scrollbar-thumb-hover: #b3b2ae;
+
+  --accent-600-rgb: 51 92 173;
+  --accent-500-rgb: 61 108 189;
+  --accent-400-rgb: 82 128 204;
+  --accent-cyan-rgb: 61 108 189;
+  --accent-glow: rgba(61, 108, 189, 0.1);
+  --accent-soft-text: #2f5aa8;
+
+  --navy-icon: #3d5f85;
+
+  --app-bg-image: none;
+  --overlay-scrim: rgba(40, 38, 35, 0.35);
+
+  --status-danger-bg: #f5eaea;
+  --status-danger-border: #ddbdbd;
+  --status-danger-text: #99424f;
+  --status-warning-bg: #f4ede0;
+  --status-warning-border: #d8c69e;
+  --status-warning-text: #83601f;
+  --status-success-bg: #e9efe8;
+  --status-success-border: #b9d2b9;
+  --status-success-text: #43775a;
+
+  --tier-dev-bg: rgba(70, 130, 180, 0.1);
+  --tier-dev-border: rgba(70, 130, 180, 0.28);
+  --tier-dev-text: #45708f;
+  --tier-qa-bg: rgba(180, 140, 60, 0.1);
+  --tier-qa-border: rgba(180, 140, 60, 0.28);
+  --tier-qa-text: #83601f;
+  --tier-prd-bg: rgba(180, 80, 90, 0.1);
+  --tier-prd-border: rgba(180, 80, 90, 0.28);
+  --tier-prd-text: #914957;
 }
 
 body {
   @apply bg-base-950 text-slate-100 antialiased;
   font-family: "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+}
+
+::selection {
+  background-color: var(--accent-glow);
 }
 
 ::-webkit-scrollbar {
