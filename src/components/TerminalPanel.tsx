@@ -1,4 +1,4 @@
-import { TerminalSquare, X, ChevronDown, ChevronUp, Plus } from "lucide-react";
+import { TerminalSquare, X, ChevronDown, ChevronUp, Plus, Maximize2, Minimize2 } from "lucide-react";
 import EmbeddedTerminal from "./EmbeddedTerminal";
 
 export interface TerminalSessionInfo {
@@ -11,11 +11,13 @@ interface Props {
   activeId: string | null;
   open: boolean;
   height: number;
+  fullscreen: boolean;
   onSelect: (id: string) => void;
   onClose: (id: string) => void;
   onToggleOpen: () => void;
   onResizeStart: (e: React.MouseEvent) => void;
   onNewTerminal: () => void;
+  onToggleFullscreen: () => void;
 }
 
 export default function TerminalPanel({
@@ -23,11 +25,13 @@ export default function TerminalPanel({
   activeId,
   open,
   height,
+  fullscreen,
   onSelect,
   onClose,
   onToggleOpen,
   onResizeStart,
-  onNewTerminal
+  onNewTerminal,
+  onToggleFullscreen
 }: Props) {
   // Panel kapalıyken (open=false) body'yi koşullu JSX ile (örn. `{open && ...}`)
   // hiç render ETMİYORUZ artık — bunun yerine dış container'ın yüksekliği
@@ -40,24 +44,36 @@ export default function TerminalPanel({
   // özellikle birden fazla terminal açıkken gözle görülür bir "sapıtma"
   // (flicker/duplicate/hata) sebebiydi. Artık her session bir kez mount
   // olur ve panel kapansa da açılsa da hep aynı xterm instance'ı yaşar.
+  //
+  // Tam ekran modunda (fullscreen=true) App.tsx zaten sidebar/ana içerik
+  // panellerini render etmiyor — burada sadece sabit piksel yükseklik
+  // yerine `flex-1` ile kalan TÜM alanı kaplıyoruz, sürükle-boyutlandır
+  // tutamacı ve piksel yükseklik state'i bu modda anlamsız olduğu için
+  // gizleniyor.
   return (
     <div
-      className="flex w-full min-w-0 shrink-0 flex-col overflow-hidden border-t border-base-700 bg-base-950"
-      style={{ height: open ? height : 36 }}
+      style={fullscreen ? undefined : { height: open ? height : 36 }}
+      className={`flex w-full min-w-0 flex-col overflow-hidden border-t border-base-700 bg-base-950 ${
+        fullscreen ? "flex-1" : "shrink-0"
+      }`}
     >
-      <div
-        onMouseDown={open ? onResizeStart : undefined}
-        title={open ? "Boyutu değiştir" : undefined}
-        className={`h-1 w-full shrink-0 ${open ? "cursor-row-resize hover:bg-accent-500/50" : ""}`}
-      />
+      {!fullscreen && (
+        <div
+          onMouseDown={open ? onResizeStart : undefined}
+          title={open ? "Boyutu değiştir" : undefined}
+          className={`h-1 w-full shrink-0 ${open ? "cursor-row-resize hover:bg-accent-500/50" : ""}`}
+        />
+      )}
       <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 border-b border-base-700 bg-base-900 px-2">
-        <button
-          onClick={onToggleOpen}
-          title={open ? "Terminal panelini kapat" : "Terminal panelini aç"}
-          className="shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-base-700 hover:text-white"
-        >
-          {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-        </button>
+        {!fullscreen && (
+          <button
+            onClick={onToggleOpen}
+            title={open ? "Terminal panelini kapat" : "Terminal panelini aç"}
+            className="shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-base-700 hover:text-white"
+          >
+            {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          </button>
+        )}
         <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
           {sessions.map((s) => (
             <div
@@ -94,6 +110,13 @@ export default function TerminalPanel({
           className="flex shrink-0 cursor-pointer items-center gap-1 rounded p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           <Plus size={14} />
+        </button>
+        <button
+          onClick={onToggleFullscreen}
+          title={fullscreen ? "Tam ekrandan çık" : "Terminali tam ekran yap"}
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
+        >
+          {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </button>
       </div>
       <div className="relative w-full min-w-0 flex-1 overflow-hidden p-1">

@@ -232,9 +232,13 @@ function registerIpc(): void {
     const config = loadConfig();
     const memo = await getServiceCredentials(serviceUuid, config.landscapePathOverride);
     const last = config.lastCredentials[serviceUuid];
+    // Şifre önceliği: bu sistemde daha önce BAŞARIYLA doğrulanmış bir şifre
+    // varsa (last.password) o kullanılır — kanıtlanmış/güncel. Yoksa SAP
+    // Logon'un Memo alanındaki şifreye (memo.password) düşülür (kullanıcının
+    // SAP Logon'a kendi elle yazdığı, doğrulanmamış bir değer olabilir).
     return {
       username: last?.username ?? memo.username ?? "",
-      password: memo.password ?? "",
+      password: last?.password ?? memo.password ?? "",
       client: last?.client ?? ""
     };
   });
@@ -246,8 +250,13 @@ function registerIpc(): void {
       saveTrustedCertificates(result.trustedCertificates);
     }
     if (result.ok) {
+      // Şifre de kullanıcı adı/client gibi otomatik doldurulsun diye
+      // saklanıyor — bu, .conn_adt'ın kendisinin de aynı sistemde zaten düz
+      // metin şifre tuttuğu bilinen/kabul edilmiş bir tasarım kararıyla
+      // (bkz. PROJE-BILGI.md) aynı çizgide, ek bir güvenlik borcu değil.
       saveLastCredential(req.service.uuid, {
         username: req.credentials.username,
+        password: req.credentials.password,
         client: result.effectiveClient ?? req.credentials.client
       });
       pushConnectionHistory(req.service.uuid);

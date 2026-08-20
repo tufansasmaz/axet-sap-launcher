@@ -42,6 +42,7 @@ export interface ConnectivityResult {
 
 export interface LastCredential {
   username: string;
+  password: string;
   client: string;
 }
 
