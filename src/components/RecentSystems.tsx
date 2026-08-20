@@ -3,6 +3,7 @@ import type { ConnectivityState, SapService, SystemTier } from "../../app-electr
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import { resolveTier } from "../lib/tier";
+import { useT } from "../i18n";
 
 interface RecentEntry {
   path: string[];
@@ -20,13 +21,14 @@ interface Props {
 }
 
 export default function RecentSystems({ entries, selectedUuid, connectivity, tierOverrides, onSelect }: Props) {
+  const t = useT();
   if (entries.length === 0) return null;
 
   return (
     <div className="mb-3 border-b border-base-700 pb-3">
       <div className="mb-1.5 flex items-center gap-1.5 px-2 text-[11px] font-medium uppercase tracking-wide text-slate-500">
         <Clock size={12} />
-        Son Bağlanılanlar
+        {t("recentSystems.heading")}
       </div>
       <div className="space-y-0.5">
         {entries.map((entry) => {

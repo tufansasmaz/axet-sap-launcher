@@ -1,5 +1,6 @@
 import { TerminalSquare, X, ChevronDown, ChevronUp, Plus, Maximize2, Minimize2 } from "lucide-react";
 import EmbeddedTerminal from "./EmbeddedTerminal";
+import { useT } from "../i18n";
 
 export interface TerminalSessionInfo {
   id: string;
@@ -33,6 +34,7 @@ export default function TerminalPanel({
   onNewTerminal,
   onToggleFullscreen
 }: Props) {
+  const t = useT();
   // Panel kapalıyken (open=false) body'yi koşullu JSX ile (örn. `{open && ...}`)
   // hiç render ETMİYORUZ artık — bunun yerine dış container'ın yüksekliği
   // 36px'e (sadece sekme çubuğu) düşüyor, body flex-1 olduğu için doğal
@@ -60,7 +62,7 @@ export default function TerminalPanel({
       {!fullscreen && (
         <div
           onMouseDown={open ? onResizeStart : undefined}
-          title={open ? "Boyutu değiştir" : undefined}
+          title={open ? t("terminalPanel.resizeTitle") : undefined}
           className={`h-1 w-full shrink-0 ${open ? "cursor-row-resize hover:bg-accent-500/50" : ""}`}
         />
       )}
@@ -68,7 +70,7 @@ export default function TerminalPanel({
         {!fullscreen && (
           <button
             onClick={onToggleOpen}
-            title={open ? "Terminal panelini kapat" : "Terminal panelini aç"}
+            title={open ? t("terminalPanel.closePanel") : t("terminalPanel.openPanel")}
             className="shrink-0 cursor-pointer rounded p-1 text-slate-400 hover:bg-base-700 hover:text-white"
           >
             {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
@@ -93,7 +95,7 @@ export default function TerminalPanel({
                   e.stopPropagation();
                   onClose(s.id);
                 }}
-                title="Terminali kapat"
+                title={t("terminalPanel.closeTabTitle")}
                 className="cursor-pointer rounded p-0.5 hover:bg-base-700"
               >
                 <X size={11} />
@@ -101,19 +103,19 @@ export default function TerminalPanel({
             </div>
           ))}
           {sessions.length === 0 && (
-            <span className="px-2 text-xs text-slate-500">Henüz terminal yok</span>
+            <span className="px-2 text-xs text-slate-500">{t("terminalPanel.noSessions")}</span>
           )}
         </div>
         <button
           onClick={onNewTerminal}
-          title="Yeni terminal ekle"
+          title={t("terminalPanel.newTerminalTitle")}
           className="flex shrink-0 cursor-pointer items-center gap-1 rounded p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           <Plus size={14} />
         </button>
         <button
           onClick={onToggleFullscreen}
-          title={fullscreen ? "Tam ekrandan çık" : "Terminali tam ekran yap"}
+          title={fullscreen ? t("terminalPanel.exitFullscreen") : t("terminalPanel.enterFullscreen")}
           className="flex shrink-0 cursor-pointer items-center gap-1 rounded p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -127,7 +129,7 @@ export default function TerminalPanel({
         ))}
         {sessions.length === 0 && open && (
           <div className="flex h-full items-center justify-center text-sm text-slate-500">
-            Sağ üstteki + ile yeni bir terminal ekleyebilirsin.
+            {t("terminalPanel.emptyStateHint")}
           </div>
         )}
       </div>

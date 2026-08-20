@@ -6,6 +6,7 @@ import TierBadge from "./TierBadge";
 import CopyButton from "./CopyButton";
 import { resolveTier } from "../lib/tier";
 import { formatRelativeTime } from "../lib/time";
+import { useT } from "../i18n";
 
 interface Selection {
   path: string[];
@@ -38,6 +39,7 @@ export default function SystemPanel({
   onDeleteManual,
   onSetTier
 }: Props) {
+  const t = useT();
   useEffect(() => {
     if (selection) onCheck(selection.service);
   }, [selection?.itemUuid]);
@@ -46,7 +48,7 @@ export default function SystemPanel({
     return (
       <div className="flex h-full flex-col items-center justify-center text-slate-500">
         <Cable size={40} className="mb-3 opacity-40" />
-        <p className="text-sm">Soldan bir müşteri sistemi seç.</p>
+        <p className="text-sm">{t("systemPanel.emptyState")}</p>
       </div>
     );
   }
@@ -64,19 +66,19 @@ export default function SystemPanel({
           <div className="flex items-center gap-1">
             <button
               onClick={() => onEditManual(service)}
-              title="Bu manuel sistemi düzenle"
+              title={t("systemPanel.editTitle")}
               className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-base-700"
             >
               <Pencil size={12} />
-              Düzenle
+              {t("common.edit")}
             </button>
             <button
               onClick={() => onDeleteManual(service)}
-              title="Bu manuel sistemi sil"
+              title={t("systemPanel.deleteTitle")}
               className="flex cursor-pointer items-center gap-1 rounded-md px-2 py-1 text-xs text-rose-400 hover:bg-rose-950/40"
             >
               <Trash2 size={12} />
-              Sil
+              {t("common.delete")}
             </button>
           </div>
         )}
@@ -88,11 +90,15 @@ export default function SystemPanel({
 
       <div className="mb-5 flex items-center gap-1.5 text-xs text-slate-500">
         <History size={13} />
-        {lastConnectedAt ? <span>Son bağlantı: {formatRelativeTime(lastConnectedAt)}</span> : <span>Henüz bağlanılmadı</span>}
+        {lastConnectedAt ? (
+          <span>{t("systemPanel.lastConnected", { time: formatRelativeTime(lastConnectedAt, t) })}</span>
+        ) : (
+          <span>{t("systemPanel.neverConnected")}</span>
+        )}
       </div>
 
       <div className="mb-5 flex items-center gap-2 rounded-xl border border-base-700 bg-base-900/40 px-4 py-3">
-        <span className="text-xs text-slate-500">Sistem Önem Derecesi:</span>
+        <span className="text-xs text-slate-500">{t("systemPanel.tierLabel")}</span>
         <div className="flex items-center gap-1.5">
           {TIER_OPTIONS.map((option) => (
             <button
@@ -112,20 +118,20 @@ export default function SystemPanel({
               onClick={() => onSetTier(service, null)}
               className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300"
             >
-              Temizle
+              {t("systemPanel.clearTier")}
             </button>
           )}
         </div>
-        {!explicitTier && tier && <span className="text-[11px] text-slate-500">(otomatik tahmin)</span>}
+        {!explicitTier && tier && <span className="text-[11px] text-slate-500">{t("systemPanel.autoGuessed")}</span>}
       </div>
 
       <div className="grid grid-cols-2 gap-4 rounded-xl border border-base-700 bg-base-900/60 p-5">
         <div>
-          <div className="text-xs text-slate-500">Sistem ID</div>
+          <div className="text-xs text-slate-500">{t("systemPanel.systemId")}</div>
           <div className="font-mono text-sm text-slate-200">{service.systemId || "—"}</div>
         </div>
         <div>
-          <div className="text-xs text-slate-500">Bağlantı Tipi</div>
+          <div className="text-xs text-slate-500">{t("systemPanel.connectionType")}</div>
           <div className="text-sm text-slate-200">{service.type}</div>
         </div>
         <div className="col-span-2 flex items-center gap-2">
@@ -137,7 +143,7 @@ export default function SystemPanel({
           </span>
           <CopyButton
             value={service.manualAdtUrl ?? `${service.host ?? ""}${service.port ? `:${service.port}` : ""}`}
-            title="Adresi kopyala"
+            title={t("systemPanel.copyAddress")}
           />
         </div>
         {service.routerString && (
@@ -148,8 +154,8 @@ export default function SystemPanel({
         )}
         <div className="col-span-2 flex items-center gap-2">
           <Hash size={14} className="text-slate-500" />
-          <span className="text-xs text-slate-500">UUID: {service.uuid}</span>
-          <CopyButton value={service.uuid} title="UUID'yi kopyala" />
+          <span className="text-xs text-slate-500">{t("systemPanel.uuidLabel", { uuid: service.uuid })}</span>
+          <CopyButton value={service.uuid} title={t("systemPanel.copyUuid")} />
         </div>
       </div>
 
@@ -162,7 +168,7 @@ export default function SystemPanel({
           className="flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
         >
           <RefreshCw size={13} className={state === "checking" ? "animate-spin" : ""} />
-          Yeniden Kontrol Et
+          {t("systemPanel.recheck")}
         </button>
       </div>
 
@@ -175,7 +181,7 @@ export default function SystemPanel({
             color: "var(--status-danger-text)"
           }}
         >
-          Bu sisteme ağ üzerinden erişilemiyor. VPN bağlantını kontrol et, sonra yeniden dene.
+          {t("systemPanel.unreachableWarning")}
         </div>
       )}
 
@@ -189,7 +195,7 @@ export default function SystemPanel({
           }}
         >
           <AlertTriangle size={16} className="shrink-0" />
-          Bu bir PRODUCTION sistemi — dikkatli ol.
+          {t("systemPanel.prodWarning")}
         </div>
       )}
 
@@ -198,7 +204,7 @@ export default function SystemPanel({
         className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-accent-500/20 transition hover:bg-accent-400"
       >
         <Terminal size={16} />
-        axet.code'da Aç
+        {t("systemPanel.openInAxet")}
       </button>
     </div>
   );

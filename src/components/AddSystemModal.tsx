@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, ServerCog, Cloud, Loader2, CheckCircle2 } from "lucide-react";
 import type { ManualSystemType } from "../../app-electron/shared/types";
+import { useT } from "../i18n";
 
 export interface EditingManualSystem {
   id: string;
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function AddSystemModal({ open, editing, onClose, onAdded }: Props) {
+  const t = useT();
   const [type, setType] = useState<ManualSystemType>("onprem");
   const [name, setName] = useState("");
   const [systemId, setSystemId] = useState("");
@@ -114,7 +116,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
     >
       <form onSubmit={handleSubmit} className="w-[460px] rounded-2xl border border-base-700 bg-base-900 p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">{isEditing ? "Sistemi Düzenle" : "Yeni SAP Sistemi Ekle"}</h3>
+          <h3 className="text-lg font-semibold text-white">{isEditing ? t("addSystemModal.editTitle") : t("addSystemModal.addTitle")}</h3>
           <button type="button" onClick={handleClose} className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-base-700">
             <X size={18} />
           </button>
@@ -129,7 +131,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
             }`}
           >
             <ServerCog size={16} />
-            On-Premise
+            {t("addSystemModal.onprem")}
           </button>
           <button
             type="button"
@@ -139,58 +141,58 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
             }`}
           >
             <Cloud size={16} />
-            BTP / Cloud
+            {t("addSystemModal.cloud")}
           </button>
         </div>
 
-        <label className="mb-1 block text-xs text-slate-400">Görünen Ad</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.displayName")}</label>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="örn. Müşteri X - Prod"
+          placeholder={t("addSystemModal.displayNamePlaceholder")}
           className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
-        <label className="mb-1 block text-xs text-slate-400">Sistem ID (SID)</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.systemId")}</label>
         <input
           value={systemId}
           onChange={(e) => setSystemId(e.target.value.toUpperCase())}
-          placeholder="örn. PRD"
+          placeholder={t("addSystemModal.systemIdPlaceholder")}
           maxLength={8}
           className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm uppercase text-slate-100 outline-none focus:border-accent-500"
         />
 
         {type === "onprem" ? (
           <>
-            <label className="mb-1 block text-xs text-slate-400">Host (IP veya hostname)</label>
+            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.host")}</label>
             <input
               value={host}
               onChange={(e) => setHost(e.target.value)}
-              placeholder="örn. 10.70.70.28 veya sap.musteri.com"
+              placeholder={t("addSystemModal.hostPlaceholder")}
               className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
-            <label className="mb-1 block text-xs text-slate-400">SAPGUI Dispatcher (DIAG) Portu</label>
+            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.diagPort")}</label>
             <input
               value={diagPort}
               onChange={(e) => setDiagPort(e.target.value)}
-              placeholder="örn. 3200"
+              placeholder={t("addSystemModal.diagPortPlaceholder")}
               className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <p className="mb-4 text-xs text-slate-500">
-              ADT/ICM HTTPS portu bu DIAG port bilgisinden otomatik keşfedilecek (aynı SAP Logon sistemlerinde olduğu gibi).
+              {t("addSystemModal.diagHelper")}
             </p>
           </>
         ) : (
           <>
-            <label className="mb-1 block text-xs text-slate-400">ADT / Sistem URL'i</label>
+            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.adtUrl")}</label>
             <input
               value={adtUrl}
               onChange={(e) => setAdtUrl(e.target.value)}
-              placeholder="https://xxxx-api.abap-web.eu10.hana.ondemand.com veya https://xxxx.s4hana.cloud.sap"
+              placeholder={t("addSystemModal.adtUrlPlaceholder")}
               className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <p className="mb-4 text-xs text-slate-500">
-              SAP BTP ABAP Environment veya S/4HANA Cloud sisteminin tam URL'i. Bağlanırken doğrudan bu adres kullanılır, keşif yapılmaz.
+              {t("addSystemModal.adtUrlHelper")}
             </p>
           </>
         )}
@@ -210,7 +212,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={handleClose} className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700">
-            İptal
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
@@ -218,7 +220,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
             className="flex cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {isEditing ? "Güncelle" : "Ekle"}
+            {isEditing ? t("addSystemModal.update") : t("addSystemModal.add")}
           </button>
         </div>
       </form>

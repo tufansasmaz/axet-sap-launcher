@@ -1330,3 +1330,85 @@ eklendi. Akış artık: bulundu → **İndir** (yeni) → ilerleme % → indiril
 "Şimdi Yeniden Başlat ve Kur" (zaten vardı).
 - `npm run typecheck` ve `npm run build` temiz geçti.
 
+## Dil Desteği — TR/EN (v1.3.5, TAMAMLANDI)
+
+Uygulama arayüzü artık tamamen iki dilli: Türkçe (varsayılan) ve İngilizce,
+başlık çubuğundaki **Languages ikonlu TR/EN butonu** ile anında değiştirilir,
+tercih `AppConfig.language` olarak diskte kalıcı.
+
+- **`shared/types.ts`**: `AppLanguage = "tr" | "en"`, `AppConfig.language`.
+  `store.ts` `defaultConfig().language = "tr"`, `loadConfig()`'te
+  `VALID_LANGUAGES` allow-list ile eski/bozuk değerler sessizce `"tr"`'ye
+  düşürülüyor (standart zincir, `terminal`/`axetCommand` ile aynı desen).
+- **`src/i18n/`** (yeni dizin) — `tr.ts`/`en.ts`: aynı `TranslationKey`
+  union'ına sahip, 1:1 eşlenen iki sözlük (biri eksik anahtar eklerse
+  TypeScript diğerinde de zorunlu kılıyor — sözlükler asenkron kayamaz).
+  `index.tsx`: `translate(language, key, params?)` saf fonksiyonu (basit
+  `{param}` interpolasyonu), `LanguageProvider`/`useLanguage`/`useT`/
+  `useTranslations` — bileşenler prop drilling yapmadan `const t = useT()`
+  ile erişiyor.
+- **`App.tsx`**: `language = config?.language ?? "tr"`, tüm ağacı
+  `<LanguageProvider language={language}>` ile sarıyor;
+  `handleToggleLanguage()` `saveConfig({ language: next })` ile kalıcı
+  kaydediyor. Header'da tema toggle'ının yanına `Languages` ikonlu, aktif
+  dili ("TR"/"EN") gösteren bir buton eklendi.
+- **Tüm renderer bileşenleri** (`Tree`, `SystemPanel`, `CredentialsModal`,
+  `AddSystemModal`, `SettingsModal`, `ConfirmDialog`, `Toast`,
+  `TerminalPanel`, `FileExplorer`, `FileViewer`, `RecentSystems`,
+  `StatusDot`, `TierBadge`, `CopyButton`, `TitleBar`, `ErrorBoundary` vb.)
+  `useT()` üzerinden çevrildi — sabit Türkçe metin (buton/label/placeholder/
+  tooltip/boş durum mesajı) kalmadı, doğrulama: `grep` ile bilinen Türkçe
+  kelime kalıpları (Kaydet/İptal/Sil/Düzenle/Yükleniyor/...) `src/components`
+  altında sıfır sonuç veriyor.
+- **Backend'den gelen KISA/kullanıcıya doğrudan görünen mesajlar da
+  çevrildi** — `adtDiscovery.ts` `verifyCredentials()`/
+  `verifyCredentialsThroughRouter()`'a `language: AppLanguage = "tr"`
+  parametresi eklendi (`verifyMsg()` yardımcı sözlüğü: doğrulandı/401/
+  beklenmeyen durum/geçersiz URL/zaman aşımı/bağlantı hatası — bunlar
+  `CredentialsModal`'da hata metni veya toast olarak DOĞRUDAN görünüyor,
+  çevrilmemesi "TR arayüz + İngilizce hata" gibi tutarsız bir deneyime yol
+  açardı). `launcher.ts`'e `connectMsg()`/`skillNoteFor()` eklendi —
+  `connectToSystem()`'ın tüm üst seviye `ConnectResult.message` dönüşleri
+  (proje klasörü hatası, host/URL eksik, `.conn_adt`/context yazma hatası,
+  RFC bridge/başarılı bağlantı mesajları) `config.language`'a göre seçiliyor.
+  `index.ts`'teki `system:connect` handler'ı zaten `loadConfig()` sonucunu
+  `connectToSystem(config, req)`'e geçirdiği için ek bir IPC parametresi
+  gerekmedi — `config.language` otomatik akışa dahil.
+- **Kasıtlı olarak çevrilmeyen kısım**: `discoverAdtEndpoint()`'in
+  `allNotes` listesi ve bunların yazıldığı `sap-context.md` (ADT keşif
+  adımları, sertifika/SID eşleşme notları, RFC bridge kurulum talimatları)
+  hâlâ tamamen Türkçe. Bu içerik kullanıcıya toast/hata olarak
+  gösterilmiyor — `axet.code`'un (AI asistanının) session başında okuduğu
+  teknik bir günlük/rehber dosyası; dilin bu dosya için işlevsel bir önemi
+  yok (asistan hangi dilde olursa olsun aynı şekilde anlıyor), bu yüzden
+  devasa markdown üretici fonksiyonun (`buildContextMarkdown`, ~150 satır)
+  ikinci bir dile taşınması kapsam dışı bırakıldı.
+- `ConnectivityResult.message` (`connectivity.ts` — "Sistem erişilebilir"
+  vb.) da çevrilmedi çünkü hiçbir UI bileşeni bu alanı GÖSTERMİYOR —
+  `StatusDot.tsx` sadece `state` enum'ını kendi ayrı `useT()` çevirisiyle
+  (`statusDot.reachable` vb.) render ediyor, `connectivity.ts`'in mesaj
+  string'i şu an ölü kod/sadece debug amaçlı.
+- `npm run typecheck` ve `npm run build` temiz geçti.
+
+## Git Geçmişi — Kök Commit Mesajı Sürüm Numarasız Hale Getirildi (v1.3.5)
+
+`5cc824c "Initial commit: aXet SAP Launcher v1.3.0"` kök commit'i, uygulama
+ilerledikçe GitHub'da o commit'ten sonra hiç değişmemiş dosyalarda hâlâ
+"v1.3.0" olarak görünüyordu (bu git/GitHub'ın normal davranışı — bir
+dosyanın "son commit"i, onu son değiştiren commit'tir; sürüm numarası orada
+sabit kalır, uygulamanın güncel sürümüyle otomatik güncellenmez). Kullanıcı
+isteğiyle kök commit mesajı `git rebase -i --root` ile **sürüm numarası
+içermeyen** "Initial commit: aXet SAP Launcher" olarak reword edildi ve
+`git push --force` ile origin/main'e yazıldı.
+
+- **Yan etki (bilinçli, kabul edildi)**: Kök commit'in mesajı değiştiği için
+  ondan sonraki TÜM commit'lerin SHA'sı değişti — bu normal/beklenen bir
+  durum (rebase her zaman böyle çalışır), tek maintainer'lı bu repo için
+  risk düşük. Force-push öncesi yerel `backup-before-reword-root` branch'i
+  oluşturuldu (push edilmedi, sadece yerel geri dönüş için).
+- Bu bir kerelik bir düzeltmeydi — ileride benzer bir "eski commit mesajı
+  güncel değil" şikayeti gelirse aynı yaklaşım (kısa açıklama, sürüm
+  numarası koymadan) izlenmeli; commit mesajlarına sürüm numarası
+  yazıldığında bu numara o an geçerli anlamına gelir, dosya sonradan
+  değişmezse GitHub'da kalıcı olarak o numarayla görünür.
+

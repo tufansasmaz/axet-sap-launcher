@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File as FileIcon, RefreshCw, FilePlus } from "lucide-react";
 import type { FsEntry, FsImportFilesResult } from "../../app-electron/shared/types";
+import { useT } from "../i18n";
 
 interface Props {
   rootDir: string;
@@ -17,6 +18,7 @@ type DirState = FsEntry[] | "loading" | "error";
 // `childrenByPath`'te path'e göre cache'lenir — büyük proje klasörlerinde
 // tüm alt ağacı önceden taramaya gerek kalmaz.
 export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelectFile, onImportComplete }: Props) {
+  const t = useT();
   const [childrenByPath, setChildrenByPath] = useState<Record<string, DirState>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
@@ -126,17 +128,17 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
             <div>
               {state === "loading" && (
                 <div className="py-1 text-xs text-slate-500" style={{ paddingLeft: paddingLeft + 20 }}>
-                  Yükleniyor…
+                  {t("common.loading")}
                 </div>
               )}
               {state === "error" && (
                 <div className="py-1 text-xs text-rose-400" style={{ paddingLeft: paddingLeft + 20 }}>
-                  Okunamadı.
+                  {t("fileExplorer.readError")}
                 </div>
               )}
               {Array.isArray(state) && state.length === 0 && (
                 <div className="py-1 text-xs text-slate-500" style={{ paddingLeft: paddingLeft + 20 }}>
-                  Boş.
+                  {t("fileExplorer.empty")}
                 </div>
               )}
               {Array.isArray(state) && state.map((child) => renderEntry(child, depth + 1))}
@@ -173,10 +175,10 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
           {rootLabel}
         </span>
         <div className="flex shrink-0 items-center gap-1">
-          <button onClick={handleAddFileClick} title="Bu klasöre dosya ekle" className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white">
+          <button onClick={handleAddFileClick} title={t("fileExplorer.addFileTitle")} className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white">
             <FilePlus size={12} />
           </button>
-          <button onClick={refresh} title="Dosya listesini yenile" className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white">
+          <button onClick={refresh} title={t("fileExplorer.refreshTitle")} className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white">
             <RefreshCw size={12} />
           </button>
         </div>
@@ -195,14 +197,14 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
         }}
         className={`flex-1 overflow-y-auto px-1 pb-2 ${isRootDragOver ? "bg-accent-500/10" : ""}`}
       >
-        {rootState === "loading" && <div className="px-2 py-6 text-center text-xs text-slate-500">Yükleniyor…</div>}
+        {rootState === "loading" && <div className="px-2 py-6 text-center text-xs text-slate-500">{t("common.loading")}</div>}
         {rootState === "error" && (
           <div className="px-2 py-6 text-center text-xs text-slate-500">
-            Bu sistem için proje klasörü henüz yok. Sağdaki "axet.code'da Aç" ile bir kere bağlanınca burada görünecek.
+            {t("fileExplorer.noProjectDir", { openInAxet: t("systemPanel.openInAxet") })}
           </div>
         )}
         {Array.isArray(rootState) && rootState.length === 0 && (
-          <div className="px-2 py-6 text-center text-xs text-slate-500">Klasör boş. Dosya sürükleyip bırakabilir veya + ile ekleyebilirsin.</div>
+          <div className="px-2 py-6 text-center text-xs text-slate-500">{t("fileExplorer.emptyRoot")}</div>
         )}
         {Array.isArray(rootState) && rootState.map((entry) => renderEntry(entry, 0))}
       </div>

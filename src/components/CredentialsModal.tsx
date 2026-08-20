@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, KeyRound, Loader2, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import type { SapService } from "../../app-electron/shared/types";
+import { useT } from "../i18n";
 
 interface Props {
   open: boolean;
@@ -13,6 +14,7 @@ interface Props {
 }
 
 export default function CredentialsModal({ open, service, connecting, errorMessage, onClose, onSubmit, loadDefaults }: Props) {
+  const t = useT();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [client, setClient] = useState("");
@@ -58,7 +60,7 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <KeyRound size={18} className="text-accent-400" />
-            <h3 className="text-lg font-semibold text-white">Sisteme Bağlan</h3>
+            <h3 className="text-lg font-semibold text-white">{t("credentialsModal.title")}</h3>
           </div>
           <button type="button" onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-base-700">
             <X size={18} />
@@ -73,7 +75,7 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
               : ""}
         </p>
 
-        <label className="mb-1 block text-xs text-slate-400">Kullanıcı Adı</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("credentialsModal.username")}</label>
         <input
           value={username}
           onChange={(e) => setUsername(e.target.value)}
@@ -82,7 +84,7 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
           className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
         />
 
-        <label className="mb-1 block text-xs text-slate-400">Şifre</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("credentialsModal.password")}</label>
         <div className="mb-4 flex items-center gap-1">
           <input
             value={password}
@@ -94,18 +96,21 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            title={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+            title={showPassword ? t("credentialsModal.hidePassword") : t("credentialsModal.showPassword")}
             className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-slate-200"
           >
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
 
-        <label className="mb-1 block text-xs text-slate-400">Client{isCloud ? " (opsiyonel)" : ""}</label>
+        <label className="mb-1 block text-xs text-slate-400">
+          {t("credentialsModal.client")}
+          {isCloud ? t("credentialsModal.optional") : ""}
+        </label>
         <input
           value={client}
           onChange={(e) => setClient(e.target.value)}
-          placeholder={isCloud ? "Boş bırakılırsa varsayılan 100 kullanılır" : "örn. 100"}
+          placeholder={isCloud ? t("credentialsModal.clientPlaceholderCloud") : t("credentialsModal.clientPlaceholderOnprem")}
           disabled={loadingDefaults || connecting}
           className="mb-5 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500 disabled:opacity-50"
         />
@@ -126,7 +131,7 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
 
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700">
-            İptal
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
@@ -134,7 +139,7 @@ export default function CredentialsModal({ open, service, connecting, errorMessa
             className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {connecting && <Loader2 size={14} className="animate-spin" />}
-            {connecting ? "Doğrulanıyor…" : "Bağlan"}
+            {connecting ? t("credentialsModal.verifying") : t("credentialsModal.connect")}
           </button>
         </div>
       </form>

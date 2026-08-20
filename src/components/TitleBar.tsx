@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { Minus, Square, Copy, X } from "lucide-react";
 import logo from "../assets/logo.svg";
+import { useT } from "../i18n";
 
 export default function TitleBar() {
+  const t = useT();
   const [isMaximized, setIsMaximized] = useState(false);
 
   useEffect(() => {
@@ -32,21 +34,21 @@ export default function TitleBar() {
       <div className="flex h-full" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
         <button
           onClick={handleMinimize}
-          title="Küçült"
+          title={t("titleBar.minimize")}
           className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-base-700 hover:text-white"
         >
           <Minus size={14} />
         </button>
         <button
           onClick={handleToggleMaximize}
-          title={isMaximized ? "Geri yükle" : "Büyüt"}
+          title={isMaximized ? t("titleBar.restore") : t("titleBar.maximize")}
           className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-base-700 hover:text-white"
         >
           {isMaximized ? <Copy size={12} /> : <Square size={12} />}
         </button>
         <button
           onClick={handleClose}
-          title="Kapat"
+          title={t("titleBar.close")}
           className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-rose-600 hover:text-white"
         >
           <X size={15} />

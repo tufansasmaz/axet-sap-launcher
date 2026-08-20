@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { CheckCircle2, XCircle } from "lucide-react";
+import { useT } from "../i18n";
 
 export interface ToastMsg {
   id: number;
@@ -10,9 +11,10 @@ export interface ToastMsg {
 }
 
 export default function Toast({ toast, onDismiss }: { toast: ToastMsg; onDismiss: (id: number) => void }) {
+  const t = useT();
   useEffect(() => {
-    const t = setTimeout(() => onDismiss(toast.id), 4500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onDismiss(toast.id), 4500);
+    return () => clearTimeout(timer);
   }, [toast.id, toast.version]);
 
   const isSuccess = toast.kind === "success";
@@ -20,7 +22,7 @@ export default function Toast({ toast, onDismiss }: { toast: ToastMsg; onDismiss
   return (
     <div
       onClick={() => onDismiss(toast.id)}
-      title="Kapatmak için tıkla"
+      title={t("toast.dismissTitle")}
       className="flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur transition hover:brightness-110"
       style={{
         borderColor: isSuccess ? "var(--status-success-border)" : "var(--status-danger-border)",

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X, FolderOpen, Download, Upload, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
+import { useT } from "../i18n";
 
 interface Props {
   open: boolean;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function SettingsModal({ open, onClose, config, onSave, onExportManualSystems, onImportManualSystems }: Props) {
+  const t = useT();
   const [form, setForm] = useState<AppConfig | null>(config);
   const [appVersion, setAppVersion] = useState<string>("");
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle" });
@@ -48,46 +50,46 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
       case "checking":
         return (
           <p className="flex items-center gap-1.5 text-xs text-slate-400">
-            <RefreshCw size={12} className="animate-spin" /> Kontrol ediliyor…
+            <RefreshCw size={12} className="animate-spin" /> {t("settingsModal.checking")}
           </p>
         );
       case "available":
         return (
           <div className="flex items-center justify-between gap-2 text-xs text-accent-400">
             <span className="flex items-center gap-1.5">
-              <Download size={12} /> Yeni sürüm bulundu: v{updateStatus.version}
+              <Download size={12} /> {t("settingsModal.updateAvailable", { version: updateStatus.version ?? "" })}
             </span>
             <button
               onClick={() => window.api.downloadUpdate()}
               className="cursor-pointer rounded-md bg-accent-500 px-2 py-1 text-xs font-medium text-white hover:bg-accent-400"
             >
-              İndir
+              {t("settingsModal.download")}
             </button>
           </div>
         );
       case "not-available":
         return (
           <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-            <CheckCircle2 size={12} /> En güncel sürümü kullanıyorsun.
+            <CheckCircle2 size={12} /> {t("settingsModal.upToDate")}
           </p>
         );
       case "downloading":
         return (
           <p className="flex items-center gap-1.5 text-xs text-accent-400">
-            <Download size={12} /> İndiriliyor… %{updateStatus.percent ?? 0}
+            <Download size={12} /> {t("settingsModal.downloading", { percent: updateStatus.percent ?? 0 })}
           </p>
         );
       case "downloaded":
         return (
           <div className="flex items-center justify-between gap-2 text-xs text-emerald-400">
             <span className="flex items-center gap-1.5">
-              <CheckCircle2 size={12} /> v{updateStatus.version} indirildi, kurulmaya hazır.
+              <CheckCircle2 size={12} /> {t("settingsModal.downloaded", { version: updateStatus.version ?? "" })}
             </span>
             <button
               onClick={() => window.api.installUpdate()}
               className="cursor-pointer rounded-md bg-emerald-600 px-2 py-1 text-xs font-medium text-white hover:bg-emerald-500"
             >
-              Şimdi Yeniden Başlat ve Kur
+              {t("settingsModal.restartAndInstall")}
             </button>
           </div>
         );
@@ -111,13 +113,28 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
     >
       <div className="max-h-[90vh] w-[480px] overflow-y-auto rounded-2xl border border-base-700 bg-base-900 p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">Ayarlar</h3>
+          <h3 className="text-lg font-semibold text-white">{t("settingsModal.title")}</h3>
           <button onClick={onClose} className="rounded-md p-1 text-slate-400 hover:bg-base-700">
             <X size={18} />
           </button>
         </div>
 
-        <label className="mb-1 block text-xs text-slate-400">Proje klasörü (her müşteri/sistem için buraya alt klasör oluşturulur)</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.languageLabel")}</label>
+        <div className="mb-4 flex gap-2">
+          {(["tr", "en"] as const).map((lang) => (
+            <button
+              key={lang}
+              onClick={() => setForm({ ...form, language: lang })}
+              className={`rounded-md px-3 py-1.5 text-sm ${
+                form.language === lang ? "bg-accent-500 text-white" : "border border-base-600 text-slate-300 hover:bg-base-700"
+              }`}
+            >
+              {lang === "tr" ? t("settingsModal.languageTr") : t("settingsModal.languageEn")}
+            </button>
+          ))}
+        </div>
+
+        <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.projectsDirLabel")}</label>
         <div className="mb-4 flex gap-2">
           <input
             value={form.projectsBaseDir}
@@ -129,32 +146,32 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
           </button>
         </div>
 
-        <label className="mb-1 block text-xs text-slate-400">axet.code çalıştırma komutu</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.axetCommandLabel")}</label>
         <input
           value={form.axetCommand}
           onChange={(e) => setForm({ ...form, axetCommand: e.target.value })}
           className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
-        <label className="mb-1 block text-xs text-slate-400">Gömülü terminal kabuğu</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.shellLabel")}</label>
         <div className="mb-2 flex gap-2">
-          {(["cmd", "powershell"] as const).map((t) => (
+          {(["cmd", "powershell"] as const).map((shellOption) => (
             <button
-              key={t}
-              onClick={() => setForm({ ...form, terminal: t })}
+              key={shellOption}
+              onClick={() => setForm({ ...form, terminal: shellOption })}
               className={`rounded-md px-3 py-1.5 text-sm ${
-                form.terminal === t ? "bg-accent-500 text-white" : "border border-base-600 text-slate-300 hover:bg-base-700"
+                form.terminal === shellOption ? "bg-accent-500 text-white" : "border border-base-600 text-slate-300 hover:bg-base-700"
               }`}
             >
-              {t === "cmd" ? "cmd.exe" : "PowerShell"}
+              {shellOption === "cmd" ? t("settingsModal.shellCmd") : t("settingsModal.shellPowershell")}
             </button>
           ))}
         </div>
         <p className="mb-6 text-xs text-slate-500">
-          Bağlandığında uygulamanın altında gömülü bir terminal sekmesi açılır, harici pencere açılmaz.
+          {t("settingsModal.shellHelper")}
         </p>
 
-        <label className="mb-1 block text-xs text-slate-400">SAPUILandscape.xml yolu (boş = otomatik algıla)</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.landscapePathLabel")}</label>
         <input
           value={form.landscapePathOverride ?? ""}
           onChange={(e) => setForm({ ...form, landscapePathOverride: e.target.value || null })}
@@ -162,28 +179,28 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
           className="mb-6 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
-        <label className="mb-1 block text-xs text-slate-400">Manuel Sistemler</label>
+        <label className="mb-1 block text-xs text-slate-400">{t("settingsModal.manualSystemsLabel")}</label>
         <div className="mb-6 flex gap-2">
           <button
             onClick={onExportManualSystems}
             className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             <Download size={14} />
-            Dışa Aktar (JSON)
+            {t("settingsModal.exportJson")}
           </button>
           <button
             onClick={onImportManualSystems}
             className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             <Upload size={14} />
-            İçe Aktar (JSON)
+            {t("settingsModal.importJson")}
           </button>
         </div>
 
         <div className="mb-6 rounded-lg border border-base-700 bg-base-800/50 p-3">
           <div className="mb-2 flex items-center justify-between">
-            <label className="text-xs text-slate-400">Güncellemeler</label>
-            <span className="text-xs text-slate-500">Sürüm {appVersion || "…"} · by tsasmaz</span>
+            <label className="text-xs text-slate-400">{t("settingsModal.updatesLabel")}</label>
+            <span className="text-xs text-slate-500">{t("settingsModal.versionText", { version: appVersion || "…" })}</span>
           </div>
 
           <label className="mb-3 flex items-center gap-2 text-xs text-slate-300">
@@ -193,7 +210,7 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
               onChange={(e) => setForm({ ...form, autoCheckUpdates: e.target.checked })}
               className="cursor-pointer"
             />
-            Uygulama açılışında otomatik kontrol et
+            {t("settingsModal.autoCheckLabel")}
           </label>
 
           <button
@@ -201,7 +218,7 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
             className="mb-2 flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-base-600 px-3 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             <RefreshCw size={14} />
-            Güncellemeleri Şimdi Kontrol Et
+            {t("settingsModal.checkNow")}
           </button>
 
           {renderUpdateStatus()}
@@ -209,10 +226,10 @@ export default function SettingsModal({ open, onClose, config, onSave, onExportM
 
         <div className="flex justify-end gap-2">
           <button onClick={onClose} className="rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700">
-            İptal
+            {t("common.cancel")}
           </button>
           <button onClick={save} className="rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400">
-            Kaydet
+            {t("common.save")}
           </button>
         </div>
       </div>

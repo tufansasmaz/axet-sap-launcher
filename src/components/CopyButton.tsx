@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Copy, Check } from "lucide-react";
+import { useT } from "../i18n";
 
-export default function CopyButton({ value, title = "Kopyala" }: { value: string; title?: string }) {
+export default function CopyButton({ value, title }: { value: string; title?: string }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -19,7 +21,7 @@ export default function CopyButton({ value, title = "Kopyala" }: { value: string
     <button
       type="button"
       onClick={handleCopy}
-      title={title}
+      title={title ?? t("copyButton.copy")}
       className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-slate-200"
     >
       {copied ? <Check size={13} className="text-emerald-400" /> : <Copy size={13} />}

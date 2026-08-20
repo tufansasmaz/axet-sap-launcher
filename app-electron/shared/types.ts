@@ -57,6 +57,8 @@ export type TerminalMode = "cmd" | "powershell";
 
 export type AppTheme = "dark" | "light";
 
+export type AppLanguage = "tr" | "en";
+
 export interface AppConfig {
   projectsBaseDir: string;
   axetCommand: string;
@@ -67,6 +69,7 @@ export interface AppConfig {
   connectionHistory: ConnectionHistoryEntry[];
   systemTiers: Record<string, SystemTier>;
   theme: AppTheme;
+  language: AppLanguage;
   autoCheckUpdates: boolean;
 }
 

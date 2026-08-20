@@ -9,6 +9,18 @@ interface State {
   error: Error | null;
 }
 
+// Bu component App'in (ve dolayısıyla LanguageProvider'ın) DIŞINDA render
+// ediliyor (bkz. main.tsx) — App henüz hiç mount olmadan bile bir hata
+// yakalayabilmesi gerektiği için AppConfig.language'a bağımlı olamaz.
+// Bunun yerine tarayıcının/OS'in kendi dil tercihini (navigator.language)
+// best-effort bir ipucu olarak kullanıyor — kalıcı bir tercih değil, sadece
+// bu tek, nadir görülen çökme ekranı için.
+const isTurkish = typeof navigator !== "undefined" && navigator.language?.toLowerCase().startsWith("tr");
+
+const STRINGS = isTurkish
+  ? { title: "Beklenmeyen bir hata oluştu", reload: "Uygulamayı Yeniden Yükle" }
+  : { title: "An unexpected error occurred", reload: "Reload App" };
+
 export default class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null };
 
@@ -26,13 +38,13 @@ export default class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-4 bg-base-950 px-8 text-center text-slate-300">
         <AlertOctagon size={40} className="text-rose-400" />
-        <h1 className="text-lg font-semibold text-white">Beklenmeyen bir hata oluştu</h1>
+        <h1 className="text-lg font-semibold text-white">{STRINGS.title}</h1>
         <p className="max-w-md break-words text-xs text-slate-500">{this.state.error.message}</p>
         <button
           onClick={() => window.location.reload()}
           className="mt-2 cursor-pointer rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-400"
         >
-          Uygulamayı Yeniden Yükle
+          {STRINGS.reload}
         </button>
       </div>
     );

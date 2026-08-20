@@ -1,11 +1,12 @@
 import { app } from "electron";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import type { AppConfig, ConnectionHistoryEntry, LastCredential, SystemTier, TerminalMode } from "../shared/types";
+import type { AppConfig, ConnectionHistoryEntry, LastCredential, SystemTier, TerminalMode, AppLanguage } from "../shared/types";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
 const MAX_CONNECTION_HISTORY = 10;
 const VALID_TERMINAL_MODES: TerminalMode[] = ["cmd", "powershell"];
+const VALID_LANGUAGES: AppLanguage[] = ["tr", "en"];
 
 function configPath(): string {
   return path.join(app.getPath("userData"), "config.json");
@@ -22,6 +23,7 @@ function defaultConfig(): AppConfig {
     connectionHistory: [],
     systemTiers: {},
     theme: "dark",
+    language: "tr",
     autoCheckUpdates: true
   };
 }
@@ -37,11 +39,16 @@ export function loadConfig(): AppConfig {
     // olabilir — gömülü terminal artık her zaman cmd/powershell kabuğu
     // kullandığı için "wt" geçersizdir, sessizce "cmd"ye düşürülür.
     const terminal = VALID_TERMINAL_MODES.includes(parsed.terminal) ? parsed.terminal : fallback.terminal;
+    // Eski config dosyalarında `language` alanı hiç yoktu (bu alan eklenmeden
+    // önce oluşturulmuş) — geçersiz/eksik değer sessizce varsayılana ("tr")
+    // düşürülür, hata fırlatılmaz.
+    const language = VALID_LANGUAGES.includes(parsed.language) ? parsed.language : fallback.language;
     const merged: AppConfig = {
       ...fallback,
       ...parsed,
       axetCommand,
       terminal,
+      language,
       lastCredentials: { ...fallback.lastCredentials, ...(parsed.lastCredentials ?? {}) },
       trustedCertificates: { ...fallback.trustedCertificates, ...(parsed.trustedCertificates ?? {}) },
       connectionHistory: Array.isArray(parsed.connectionHistory) ? parsed.connectionHistory : fallback.connectionHistory,

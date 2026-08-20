@@ -4,6 +4,7 @@ import type { ConnectivityState, SapNode, SapService, SystemTier } from "../../a
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import { resolveTier } from "../lib/tier";
+import { useT } from "../i18n";
 
 interface TreeProps {
   nodes: SapNode[];
@@ -178,6 +179,7 @@ function TreeNode({
 }
 
 export default function Tree({ nodes, search, selectedUuid, connectivity, tierOverrides, onSelect }: TreeProps) {
+  const t = useT();
   const [expandedOverrides, setExpandedOverrides] = useState<Record<string, boolean>>({});
   const [focusedUuid, setFocusedUuid] = useState<string | null>(null);
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -262,7 +264,7 @@ export default function Tree({ nodes, search, selectedUuid, connectivity, tierOv
   };
 
   if (filtered.length === 0) {
-    return <div className="px-3 py-6 text-center text-sm text-slate-500">Eşleşen müşteri/sistem bulunamadı.</div>;
+    return <div className="px-3 py-6 text-center text-sm text-slate-500">{t("tree.noMatch")}</div>;
   }
 
   return (

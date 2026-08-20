@@ -7,6 +7,44 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import { tlsConnectThroughRouter, httpRequestOverSocket } from "./sapRouter";
+import type { AppLanguage } from "../shared/types";
+
+// Kimlik doğrulama sonucunun kısa mesajı (`CredentialVerifyResult.message`)
+// doğrudan renderer'da toast/hata metni olarak gösteriliyor (bkz.
+// App.tsx handleCredentialsSubmit, CredentialsModal errorMessage) — bu
+// yüzden config.language'a göre iki dilde tutuluyor. Uzun keşif notları
+// (discoveryNotes/sap-context.md) buna dahil değil, onlar hâlâ Türkçe
+// (esas olarak axet.code'un okuduğu teknik bir günlük, dil o akış için
+// önemli değil).
+function verifyMsg(
+  language: AppLanguage,
+  key: "verified" | "verifiedRouter" | "unauthorized" | "unauthorizedWithSid" | "unexpectedStatus" | "invalidUrl" | "timeout" | "connectionError" | "connectionErrorRouter",
+  params?: { sid?: string; client?: string; status?: number | null; message?: string }
+): string {
+  const tr = {
+    verified: "Kimlik bilgileri doğrulandı",
+    verifiedRouter: "Kimlik bilgileri doğrulandı (SAProuter üzerinden)",
+    unauthorized: "401 Unauthorized — kullanıcı adı/şifre yanlış veya kilitli",
+    unauthorizedWithSid: `401 Unauthorized (sistem: ${params?.sid}, client: ${params?.client}) — kullanıcı adı/şifre yanlış veya kilitli`,
+    unexpectedStatus: `Beklenmeyen HTTP durumu: ${params?.status}`,
+    invalidUrl: "Geçersiz ADT URL",
+    timeout: "Zaman aşımı",
+    connectionError: `Bağlantı hatası: ${params?.message}`,
+    connectionErrorRouter: `Bağlantı hatası (SAProuter): ${params?.message}`
+  };
+  const en = {
+    verified: "Credentials verified",
+    verifiedRouter: "Credentials verified (via SAProuter)",
+    unauthorized: "401 Unauthorized — wrong username/password or account locked",
+    unauthorizedWithSid: `401 Unauthorized (system: ${params?.sid}, client: ${params?.client}) — wrong username/password or account locked`,
+    unexpectedStatus: `Unexpected HTTP status: ${params?.status}`,
+    invalidUrl: "Invalid ADT URL",
+    timeout: "Timed out",
+    connectionError: `Connection error: ${params?.message}`,
+    connectionErrorRouter: `Connection error (SAProuter): ${params?.message}`
+  };
+  return (language === "en" ? en : tr)[key];
+}
 
 export function guessInstanceNumber(diagPort: number | null): string | null {
   if (!diagPort) return null;
@@ -363,13 +401,14 @@ export function verifyCredentials(
   password: string,
   client: string,
   timeoutMs = 15000,
-  routerString?: string | null
+  routerString?: string | null,
+  language: AppLanguage = "tr"
 ): Promise<CredentialVerifyResult> {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    return Promise.resolve({ ok: false, status: null, sid: null, message: "Geçersiz ADT URL" });
+    return Promise.resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "invalidUrl") });
   }
   const auth = Buffer.from(`${username}:${password}`).toString("base64");
   const discoveryPath = client.trim()
@@ -379,7 +418,7 @@ export function verifyCredentials(
   const port = parsed.port ? Number(parsed.port) : 443;
 
   if (routerString) {
-    return verifyCredentialsThroughRouter(routerString, host, port, discoveryPath, auth, client, timeoutMs);
+    return verifyCredentialsThroughRouter(routerString, host, port, discoveryPath, auth, client, timeoutMs, language);
   }
 
   return new Promise((resolve) => {
@@ -399,25 +438,25 @@ export function verifyCredentials(
         res.resume();
         const status = res.statusCode ?? null;
         if (status === 200) {
-          resolve({ ok: true, status, sid, message: "Kimlik bilgileri doğrulandı" });
+          resolve({ ok: true, status, sid, message: verifyMsg(language, "verified") });
         } else if (status === 401) {
           resolve({
             ok: false,
             status,
             sid,
             message: sid
-              ? `401 Unauthorized (sistem: ${sid}, client: ${client}) — kullanıcı adı/şifre yanlış veya kilitli`
-              : "401 Unauthorized — kullanıcı adı/şifre yanlış veya kilitli"
+              ? verifyMsg(language, "unauthorizedWithSid", { sid, client })
+              : verifyMsg(language, "unauthorized")
           });
         } else {
-          resolve({ ok: false, status, sid, message: `Beklenmeyen HTTP durumu: ${status}` });
+          resolve({ ok: false, status, sid, message: verifyMsg(language, "unexpectedStatus", { status }) });
         }
       }
     );
-    req.on("error", (err) => resolve({ ok: false, status: null, sid: null, message: `Bağlantı hatası: ${err.message}` }));
+    req.on("error", (err) => resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "connectionError", { message: err.message }) }));
     req.on("timeout", () => {
       req.destroy();
-      resolve({ ok: false, status: null, sid: null, message: "Zaman aşımı" });
+      resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "timeout") });
     });
     req.end();
   });
@@ -430,13 +469,14 @@ async function verifyCredentialsThroughRouter(
   discoveryPath: string,
   auth: string,
   client: string,
-  timeoutMs: number
+  timeoutMs: number,
+  language: AppLanguage = "tr"
 ): Promise<CredentialVerifyResult> {
   let socket;
   try {
     socket = await tlsConnectThroughRouter(routerString, host, port, timeoutMs);
   } catch (err) {
-    return { ok: false, status: null, sid: null, message: `SAProuter bağlantı hatası: ${(err as Error).message}` };
+    return { ok: false, status: null, sid: null, message: verifyMsg(language, "connectionErrorRouter", { message: (err as Error).message }) };
   }
   try {
     const res = await httpRequestOverSocket(socket, {
@@ -448,20 +488,20 @@ async function verifyCredentialsThroughRouter(
     const sid = extractSidFromRealm(res.headers["www-authenticate"]);
     const status = res.statusCode;
     if (status === 200) {
-      return { ok: true, status, sid, message: "Kimlik bilgileri doğrulandı (SAProuter üzerinden)" };
+      return { ok: true, status, sid, message: verifyMsg(language, "verifiedRouter") };
     } else if (status === 401) {
       return {
         ok: false,
         status,
         sid,
         message: sid
-          ? `401 Unauthorized (sistem: ${sid}, client: ${client}) — kullanıcı adı/şifre yanlış veya kilitli`
-          : "401 Unauthorized — kullanıcı adı/şifre yanlış veya kilitli"
+          ? verifyMsg(language, "unauthorizedWithSid", { sid, client })
+          : verifyMsg(language, "unauthorized")
       };
     }
-    return { ok: false, status, sid, message: `Beklenmeyen HTTP durumu: ${status}` };
+    return { ok: false, status, sid, message: verifyMsg(language, "unexpectedStatus", { status }) };
   } catch (err) {
-    return { ok: false, status: null, sid: null, message: `Bağlantı hatası (SAProuter): ${(err as Error).message}` };
+    return { ok: false, status: null, sid: null, message: verifyMsg(language, "connectionErrorRouter", { message: (err as Error).message }) };
   } finally {
     socket.destroy();
   }

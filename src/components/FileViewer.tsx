@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { FileWarning, FolderOpen, ExternalLink } from "lucide-react";
+import { useT } from "../i18n";
 
 interface Props {
   path: string;
@@ -26,6 +27,7 @@ function extOf(name: string): string {
 }
 
 export default function FileViewer({ path, name }: Props) {
+  const t = useT();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
   useEffect(() => {
@@ -37,13 +39,13 @@ export default function FileViewer({ path, name }: Props) {
       if (ext === ".docx") {
         const result = await window.api.readDocxFile(path);
         if (cancelled) return;
-        setState(result.ok ? { kind: "docx", html: result.html ?? "" } : { kind: "error", message: result.error ?? "Dosya okunamadı." });
+        setState(result.ok ? { kind: "docx", html: result.html ?? "" } : { kind: "error", message: result.error ?? t("fileViewer.docxReadError") });
         return;
       }
       if (IMAGE_EXTENSIONS.has(ext)) {
         const result = await window.api.readImageDataUrl(path);
         if (cancelled) return;
-        setState(result.ok ? { kind: "image", dataUrl: result.dataUrl ?? "" } : { kind: "error", message: result.error ?? "Resim okunamadı." });
+        setState(result.ok ? { kind: "image", dataUrl: result.dataUrl ?? "" } : { kind: "error", message: result.error ?? t("fileViewer.imageReadError") });
         return;
       }
       if (UNSUPPORTED_EXTENSIONS.has(ext)) {
@@ -70,7 +72,7 @@ export default function FileViewer({ path, name }: Props) {
   }, [path, name]);
 
   if (state.kind === "loading") {
-    return <div className="flex h-full items-center justify-center text-sm text-slate-500">Yükleniyor…</div>;
+    return <div className="flex h-full items-center justify-center text-sm text-slate-500">{t("common.loading")}</div>;
   }
 
   if (state.kind === "error" || state.kind === "unsupported") {
@@ -78,20 +80,20 @@ export default function FileViewer({ path, name }: Props) {
       <div className="flex h-full flex-col items-center justify-center gap-4 text-center text-slate-500">
         <FileWarning size={32} className="opacity-50" />
         <p className="max-w-sm text-sm">
-          {state.kind === "error" ? state.message : "Bu dosya türü uygulama içinde önizlenemiyor."}
+          {state.kind === "error" ? state.message : t("fileViewer.unsupported")}
         </p>
         <div className="flex gap-2">
           <button
             onClick={() => window.api.openExternal(path)}
             className="flex cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
           >
-            <ExternalLink size={13} /> Harici Programda Aç
+            <ExternalLink size={13} /> {t("fileViewer.openExternal")}
           </button>
           <button
             onClick={() => window.api.openInExplorer(path)}
             className="flex cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
           >
-            <FolderOpen size={13} /> Klasörde Göster
+            <FolderOpen size={13} /> {t("fileViewer.showInFolder")}
           </button>
         </div>
       </div>
@@ -127,7 +129,7 @@ export default function FileViewer({ path, name }: Props) {
             borderBottom: "1px solid var(--status-warning-border)"
           }}
         >
-          Dosya çok büyük — sadece ilk bölümü gösteriliyor.
+          {t("fileViewer.truncated")}
         </div>
       )}
       <pre className="whitespace-pre-wrap break-words p-4 font-mono text-xs text-slate-200">{state.content}</pre>

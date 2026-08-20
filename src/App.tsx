@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { Search, RefreshCw, Settings, AlertTriangle, Plus, Download, Sun, Moon, X, TerminalSquare, PanelLeftClose, PanelLeftOpen, FileText, Server, FolderTree } from "lucide-react";
+import { Search, RefreshCw, Settings, AlertTriangle, Plus, Download, Sun, Moon, X, TerminalSquare, PanelLeftClose, PanelLeftOpen, FileText, Server, FolderTree, Languages } from "lucide-react";
 import type { AppConfig, AppTheme, ConnectivityState, FsEntry, SapLandscape, SapService, SystemTier } from "../app-electron/shared/types";
 import TitleBar from "./components/TitleBar";
 import Tree from "./components/Tree";
@@ -14,6 +14,7 @@ import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPa
 import FileExplorer from "./components/FileExplorer";
 import FileViewer from "./components/FileViewer";
 import { flattenLandscape } from "./lib/landscape";
+import { LanguageProvider, translate } from "./i18n";
 
 const MIN_TERMINAL_HEIGHT = 160;
 const MAX_TERMINAL_HEIGHT = 720;
@@ -71,6 +72,9 @@ export default function App() {
   const pendingTerminalTitlesRef = useRef<Map<string, string>>(new Map());
   const manualTerminalCounterRef = useRef(0);
 
+  const language = config?.language ?? "tr";
+  const t = useCallback((key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) => translate(language, key, params), [language]);
+
   const flushConnectivity = useCallback(() => {
     flushTimerRef.current = null;
     const pending = pendingConnectivityRef.current;
@@ -105,7 +109,7 @@ export default function App() {
       return [...prev, { id, kind, text, count: 1, version: 0 }];
     });
   };
-  const dismissToast = (id: number) => setToasts((prev) => prev.filter((t) => t.id !== id));
+  const dismissToast = (id: number) => setToasts((prev) => prev.filter((toast) => toast.id !== id));
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -114,7 +118,7 @@ export default function App() {
       setLandscape(ls);
       setConfig(cfg);
     } catch (err) {
-      pushToast("error", `Landscape yüklenemedi: ${(err as Error).message}`);
+      pushToast("error", t("app.landscapeLoadError", { message: (err as Error).message }));
     } finally {
       setLoading(false);
     }
@@ -238,15 +242,15 @@ export default function App() {
 
   const handleImportComplete = useCallback((result: { ok: boolean; imported?: number; skippedDirs?: string[]; error?: string }) => {
     if (!result.ok) {
-      pushToast("error", `Dosya eklenemedi: ${result.error ?? "bilinmeyen hata"}`);
+      pushToast("error", t("app.fileImportFailed", { error: result.error ?? t("common.unknownError") }));
       return;
     }
     const imported = result.imported ?? 0;
     const skipped = result.skippedDirs?.length ?? 0;
     if (imported === 0 && skipped === 0) return;
-    const skippedNote = skipped > 0 ? ` (${skipped} klasör atlandı, sadece dosyalar eklenebiliyor)` : "";
-    pushToast("success", `${imported} dosya eklendi${skippedNote}`);
-  }, []);
+    const skippedNote = skipped > 0 ? t("app.skippedFoldersNote", { count: skipped }) : "";
+    pushToast("success", t("app.filesImported", { count: imported, note: skippedNote }));
+  }, [t]);
 
   const handleCheck = useCallback(async (service: SapService) => {
     setConnectivity((prev) => ({ ...prev, [service.uuid]: "checking" }));
@@ -271,10 +275,10 @@ export default function App() {
         // READY_PATTERNS/READY_FALLBACK_MS açıklaması.
         pendingTerminalTitlesRef.current.set(id, title);
       } catch (err) {
-        pushToast("error", `Gömülü terminal açılamadı: ${(err as Error).message}`);
+        pushToast("error", t("app.terminalOpenFailed", { message: (err as Error).message }));
       }
     },
-    [config?.terminal, config?.axetCommand]
+    [config?.terminal, config?.axetCommand, t]
   );
 
   useEffect(() => {
@@ -283,13 +287,13 @@ export default function App() {
       pendingTerminalTitlesRef.current.delete(id);
       setTerminalSessions((prev) => {
         if (prev.some((s) => s.id === id)) return prev;
-        return [...prev, { id, title: title ?? `Terminal ${prev.length + 1}` }];
+        return [...prev, { id, title: title ?? t("app.terminalDefaultTitle", { n: prev.length + 1 }) }];
       });
       setActiveTerminalId(id);
       setTerminalPanelOpen(true);
     });
     return unsubscribe;
-  }, []);
+  }, [t]);
 
   const handleNewTerminal = useCallback(async () => {
     const shell = config?.terminal ?? "cmd";
@@ -297,11 +301,11 @@ export default function App() {
     try {
       manualTerminalCounterRef.current += 1;
       const id = await window.api.createTerminal(cwd, 80, 24, shell);
-      pendingTerminalTitlesRef.current.set(id, `Terminal ${manualTerminalCounterRef.current}`);
+      pendingTerminalTitlesRef.current.set(id, t("app.terminalDefaultTitle", { n: manualTerminalCounterRef.current }));
     } catch (err) {
-      pushToast("error", `Terminal açılamadı: ${(err as Error).message}`);
+      pushToast("error", t("app.terminalCreateFailed", { message: (err as Error).message }));
     }
-  }, [config?.terminal, config?.projectsBaseDir]);
+  }, [config?.terminal, config?.projectsBaseDir, t]);
 
   const handleCloseTerminal = useCallback((id: string) => {
     window.api.disposeTerminal(id).catch(() => {
@@ -412,7 +416,7 @@ export default function App() {
   const handleSaveConfig = async (partial: Partial<AppConfig>) => {
     const next = await window.api.saveConfig(partial);
     setConfig(next);
-    pushToast("success", "Ayarlar kaydedildi");
+    pushToast("success", t("app.settingsSaved"));
   };
 
   const handleDeleteManual = (service: SapService) => {
@@ -422,7 +426,7 @@ export default function App() {
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
     await window.api.removeManualSystem(deleteTarget.uuid);
-    pushToast("success", "Sistem silindi");
+    pushToast("success", t("app.systemDeleted"));
     setSelection(null);
     setDeleteTarget(null);
     refresh();
@@ -447,6 +451,12 @@ export default function App() {
     setConfig(next);
   };
 
+  const handleToggleLanguage = async () => {
+    const nextLanguage = language === "tr" ? "en" : "tr";
+    const next = await window.api.saveConfig({ language: nextLanguage });
+    setConfig(next);
+  };
+
   const handleSetTier = async (service: SapService, tier: SystemTier | null) => {
     const next = await window.api.setSystemTier(service.uuid, tier);
     setConfig(next);
@@ -456,9 +466,9 @@ export default function App() {
     const result = await window.api.exportManualSystems();
     if (result.canceled) return;
     if (result.ok) {
-      pushToast("success", `Manuel sistemler dışa aktarıldı: ${result.filePath}`);
+      pushToast("success", t("app.manualExported", { path: result.filePath ?? "" }));
     } else {
-      pushToast("error", result.error ?? "Dışa aktarma başarısız");
+      pushToast("error", result.error ?? t("app.exportFailed"));
     }
   };
 
@@ -466,37 +476,38 @@ export default function App() {
     const result = await window.api.importManualSystems();
     if (result.canceled) return;
     if (result.ok) {
-      pushToast("success", `İçe aktarıldı: ${result.imported} eklendi, ${result.skipped} atlandı (toplam ${result.total}).`);
+      pushToast("success", t("app.manualImported", { imported: result.imported ?? 0, skipped: result.skipped ?? 0, total: result.total ?? 0 }));
       refresh();
     } else {
-      pushToast("error", result.error ?? "İçe aktarma başarısız");
+      pushToast("error", result.error ?? t("app.importFailed"));
     }
   };
 
   const noLandscapeFile = landscape && landscape.customers.length === 0;
 
   return (
+    <LanguageProvider language={language}>
     <div className="flex h-screen flex-col overflow-hidden">
       <TitleBar />
       <header className="flex items-center gap-3 border-b border-base-700 bg-base-900/80 px-4 py-3">
         <button
           onClick={() => setAddSystemOpen(true)}
-          title="Yeni SAP sistemi ekle"
+          title={t("app.addSystemTitle")}
           className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-accent-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-400"
         >
           <Plus size={14} />
-          Sistem Ekle
+          {t("app.addSystem")}
         </button>
         <button
           onClick={() => {
             refresh();
-            pushToast("success", "Sistemler SAP Logon'dan yeniden yüklendi");
+            pushToast("success", t("app.refreshedFromSapLogon"));
           }}
-          title="Sistemleri SAP Logon'dan yeniden getir"
+          title={t("app.refetchTitle")}
           className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
         >
           <Download size={14} className={loading ? "animate-pulse" : ""} />
-          SAP Logon'dan Getir
+          {t("app.refetch")}
         </button>
         <div className="flex flex-1 items-center gap-2 rounded-lg border border-base-700 bg-base-800 px-3 py-1.5">
           <Search size={14} className="text-slate-500" />
@@ -507,13 +518,13 @@ export default function App() {
             onKeyDown={(e) => {
               if (e.key === "Escape" && search) setSearch("");
             }}
-            placeholder="Müşteri veya sistem ara… (Ctrl+F)"
+            placeholder={t("app.searchPlaceholder")}
             className="w-full bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-500"
           />
           {search && (
             <button
               onClick={() => setSearch("")}
-              title="Aramayı temizle"
+              title={t("app.clearSearch")}
               className="cursor-pointer rounded-md p-0.5 text-slate-500 hover:bg-base-700 hover:text-slate-200"
             >
               <X size={13} />
@@ -523,29 +534,37 @@ export default function App() {
 
         <button
           onClick={handleToggleTerminalPanel}
-          title="Terminal panelini aç/kapat"
+          title={t("app.toggleTerminalTitle")}
           className="flex cursor-pointer items-center gap-1.5 rounded-md border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
         >
           <TerminalSquare size={14} />
-          Terminal
+          {t("app.terminal")}
         </button>
         <button
           onClick={refresh}
-          title="Listeyi yeniden yükle"
+          title={t("app.reloadListTitle")}
           className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
         </button>
         <button
           onClick={handleToggleTheme}
-          title={config?.theme === "light" ? "Koyu temaya geç" : "Açık temaya geç"}
+          title={config?.theme === "light" ? t("app.switchToDark") : t("app.switchToLight")}
           className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           {config?.theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
         </button>
         <button
+          onClick={handleToggleLanguage}
+          title={t("app.languageToggleTitle")}
+          className="flex cursor-pointer items-center gap-1 rounded-md p-2 text-xs font-semibold text-slate-400 hover:bg-base-700 hover:text-white"
+        >
+          <Languages size={16} />
+          {language.toUpperCase()}
+        </button>
+        <button
           onClick={() => setSettingsOpen(true)}
-          title="Ayarlar"
+          title={t("app.settingsTitle")}
           className="cursor-pointer rounded-md p-2 text-slate-400 hover:bg-base-700 hover:text-white"
         >
           <Settings size={16} />
@@ -562,7 +581,7 @@ export default function App() {
           }}
         >
           <AlertTriangle size={14} />
-          SAPUILandscape.xml bulunamadı ({landscape?.sourceFile}). Ayarlardan yolu manuel belirtebilirsin.
+          {t("app.noLandscapeFile", { file: landscape?.sourceFile ?? "" })}
         </div>
       )}
 
@@ -575,7 +594,7 @@ export default function App() {
           <div className="flex items-center gap-2 p-2">
             <button
               onClick={handleToggleSidebar}
-              title={sidebarCollapsed ? "Sistem listesini genişlet" : "Sistem listesini daralt"}
+              title={sidebarCollapsed ? t("app.expandSidebar") : t("app.collapseSidebar")}
               className="cursor-pointer rounded-md p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
             >
               {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
@@ -584,7 +603,7 @@ export default function App() {
               <div className="ml-auto flex items-center gap-1 rounded-md border border-base-700 p-0.5">
                 <button
                   onClick={() => setLeftPanelMode("systems")}
-                  title="Sistem listesi"
+                  title={t("app.systemsMode")}
                   className={`cursor-pointer rounded-md p-1.5 ${
                     leftPanelMode === "systems" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
                   }`}
@@ -593,7 +612,7 @@ export default function App() {
                 </button>
                 <button
                   onClick={() => setLeftPanelMode("files")}
-                  title="Dosya gezgini"
+                  title={t("app.filesMode")}
                   className={`cursor-pointer rounded-md p-1.5 ${
                     leftPanelMode === "files" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
                   }`}
@@ -617,7 +636,7 @@ export default function App() {
             !sidebarCollapsed && (
               <div className="flex-1 overflow-y-auto p-3 pt-0">
                 {loading && !landscape ? (
-                  <div className="px-3 py-6 text-center text-sm text-slate-500">Yükleniyor…</div>
+                  <div className="px-3 py-6 text-center text-sm text-slate-500">{t("common.loading")}</div>
                 ) : (
                   <>
                     {!search.trim() && (
@@ -648,7 +667,7 @@ export default function App() {
         {!terminalFullscreen && !sidebarCollapsed && (
           <div
             onMouseDown={handleSidebarResizeStart}
-            title="Genişliği değiştir"
+            title={t("app.resizeWidthTitle")}
             className="w-1 shrink-0 cursor-col-resize hover:bg-accent-500/50"
           />
         )}
@@ -664,7 +683,7 @@ export default function App() {
                     activeFilePath === null ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
                   }`}
                 >
-                  Sistem Detayı
+                  {t("app.systemDetailTab")}
                 </button>
                 {openFiles.map((f) => (
                   <div
@@ -681,7 +700,7 @@ export default function App() {
                         e.stopPropagation();
                         handleCloseFileTab(f.path);
                       }}
-                      title="Sekmeyi kapat"
+                      title={t("app.closeTabTitle")}
                       className="cursor-pointer rounded p-0.5 hover:bg-base-700"
                     >
                       <X size={11} />
@@ -745,7 +764,7 @@ export default function App() {
           setEditingSystem(null);
         }}
         onAdded={(id) => {
-          pushToast("success", editingSystem ? "Sistem güncellendi" : "Sistem eklendi");
+          pushToast("success", editingSystem ? t("app.systemUpdated") : t("app.systemAdded"));
           setEditingSystem(null);
           if (id) setPendingSelectUuid(id);
           refresh();
@@ -754,9 +773,9 @@ export default function App() {
 
       <ConfirmDialog
         open={deleteTarget !== null}
-        title="Sistemi Sil"
-        message={deleteTarget ? `"${deleteTarget.name}" (${deleteTarget.systemId}) kalıcı olarak silinecek. Bu işlem geri alınamaz.` : ""}
-        confirmLabel="Sil"
+        title={t("app.deleteSystemTitle")}
+        message={deleteTarget ? t("app.deleteSystemMessage", { name: deleteTarget.name, systemId: deleteTarget.systemId }) : ""}
+        confirmLabel={t("common.delete")}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
@@ -772,10 +791,11 @@ export default function App() {
       />
 
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
-        {toasts.map((t) => (
-          <Toast key={t.id} toast={t} onDismiss={dismissToast} />
+        {toasts.map((toast) => (
+          <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />
         ))}
       </div>
     </div>
+    </LanguageProvider>
   );
 }

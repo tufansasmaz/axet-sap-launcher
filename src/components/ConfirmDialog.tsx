@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react";
+import { useT } from "../i18n";
 
 interface Props {
   open: boolean;
@@ -15,12 +16,13 @@ export default function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Onayla",
-  cancelLabel = "İptal",
+  confirmLabel,
+  cancelLabel,
   danger = true,
   onConfirm,
   onCancel
 }: Props) {
+  const t = useT();
   if (!open) return null;
 
   return (
@@ -42,7 +44,7 @@ export default function ConfirmDialog({
             className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
             autoFocus
           >
-            {cancelLabel}
+            {cancelLabel ?? t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -50,7 +52,7 @@ export default function ConfirmDialog({
               danger ? "bg-rose-600 hover:bg-rose-500" : "bg-accent-500 hover:bg-accent-400"
             }`}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("confirmDialog.confirm")}
           </button>
         </div>
       </div>

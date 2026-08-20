@@ -8,6 +8,49 @@ import { installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit"
 const NOTES_MARKER = "<!-- axet-sap-launcher:notes -->";
 const INVALID_CHARS = /[<>:"/\\|?*]/g;
 const DEFAULT_CLOUD_CLIENT = "100";
+
+// connectToSystem()'ın en tepe seviye ConnectResult.message'ı doğrudan
+// renderer'da toast/hata metni olarak görünür — bu yüzden config.language'a
+// göre iki dilde tutuluyor. allNotes/sap-context.md içeriği bu kapsamda
+// DEĞİL, o hâlâ Türkçe (axet.code'un okuduğu teknik günlük, kullanıcıya
+// gösterilmiyor).
+function connectMsg(
+  language: "tr" | "en",
+  key:
+    | "projectDirFailed"
+    | "missingHostOrUrl"
+    | "connAdtWriteFailed"
+    | "contextWriteFailed"
+    | "rfcBridgeActivated"
+    | "verifiedOpening"
+    | "verifiedButSelfTestFailed",
+  params?: { error?: string; skillNote?: string; url?: string }
+): string {
+  const skillNote = params?.skillNote ?? "";
+  const tr = {
+    projectDirFailed: `Proje klasörü oluşturulamadı: ${params?.error}`,
+    missingHostOrUrl: "Bu sistem için host veya ADT URL bilgisi eksik.",
+    connAdtWriteFailed: `.conn_adt yazılamadı: ${params?.error}`,
+    contextWriteFailed: `Bağlam dosyası yazılamadı: ${params?.error}`,
+    rfcBridgeActivated: `Router raw HTTPS'i reddetti — RFC bridge moduna geçildi${skillNote}, gömülü terminal açılıyor. Kurulum adımları için sap-context.md'ye bak.`,
+    verifiedOpening: `Bağlantı doğrulandı, gömülü terminal açılıyor${skillNote} (${params?.url})`,
+    verifiedButSelfTestFailed: `Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız${skillNote} — sap-context.md'de detay var (${params?.url})`
+  };
+  const en = {
+    projectDirFailed: `Could not create project folder: ${params?.error}`,
+    missingHostOrUrl: "Host or ADT URL information is missing for this system.",
+    connAdtWriteFailed: `Failed to write .conn_adt: ${params?.error}`,
+    contextWriteFailed: `Failed to write context file: ${params?.error}`,
+    rfcBridgeActivated: `Router rejected raw HTTPS — switched to RFC bridge mode${skillNote}, opening embedded terminal. See sap-context.md for setup steps.`,
+    verifiedOpening: `Connection verified, opening embedded terminal${skillNote} (${params?.url})`,
+    verifiedButSelfTestFailed: `Connection verified but adt-tool.ps1 self-test failed${skillNote} — see sap-context.md for details (${params?.url})`
+  };
+  return (language === "en" ? en : tr)[key];
+}
+
+function skillNoteFor(language: "tr" | "en", count: number): string {
+  return language === "en" ? `, ${count} skills installed` : `, ${count} skill kuruldu`;
+}
 const DEFAULT_RFC_BRIDGE_PORT = 8788;
 
 interface RfcBridgeConfig {
@@ -366,12 +409,13 @@ function ensureGitignore(projectDir: string): void {
 }
 
 export async function connectToSystem(config: AppConfig, req: ConnectRequest): Promise<ConnectResult> {
+  const language = config.language ?? "tr";
   const projectDir = computeProjectDir(config, req.customerPath, req.service);
 
   try {
     mkdirSync(projectDir, { recursive: true });
   } catch (err) {
-    return { ok: false, verified: false, projectDir, message: `Proje klasörü oluşturulamadı: ${(err as Error).message}` };
+    return { ok: false, verified: false, projectDir, message: connectMsg(language, "projectDirFailed", { error: (err as Error).message }) };
   }
 
   const host = req.service.host;
@@ -382,7 +426,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       ok: false,
       verified: false,
       projectDir,
-      message: "Bu sistem için host veya ADT URL bilgisi eksik."
+      message: connectMsg(language, "missingHostOrUrl")
     };
   }
 
@@ -408,7 +452,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     }
     allNotes.push(`Manuel tanımlanan ADT URL doğrudan kullanılıyor: ${normalizedUrl}`);
     finalUrl = normalizedUrl;
-    verify = await verifyCredentials(normalizedUrl, credentials.username, credentials.password, credentials.client);
+    verify = await verifyCredentials(normalizedUrl, credentials.username, credentials.password, credentials.client, undefined, undefined, language);
   } else {
     const routerString = req.service.routerString;
     if (routerString) {
@@ -431,12 +475,13 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       credentials.password,
       credentials.client,
       undefined,
-      routerString
+      routerString,
+      language
     );
 
     if (!verify.ok && verify.status !== 401 && discovery.alternateUrl && !routerString) {
       allNotes.push(`Birincil URL (${discovery.url}) ağ seviyesinde başarısız oldu, alternatif deneniyor: ${discovery.alternateUrl}`);
-      const altVerify = await verifyCredentials(discovery.alternateUrl, credentials.username, credentials.password, credentials.client);
+      const altVerify = await verifyCredentials(discovery.alternateUrl, credentials.username, credentials.password, credentials.client, undefined, undefined, language);
       if (altVerify.ok || altVerify.status === 401) {
         verify = altVerify;
         finalUrl = discovery.alternateUrl;
@@ -482,7 +527,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   try {
     writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge), "utf-8");
   } catch (err) {
-    return { ok: false, verified: verify.ok, projectDir, message: `.conn_adt yazılamadı: ${(err as Error).message}` };
+    return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "connAdtWriteFailed", { error: (err as Error).message }) };
   }
   ensureGitignore(projectDir);
 
@@ -505,17 +550,17 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   try {
     writeFileSync(contextFile, finalContent, "utf-8");
   } catch (err) {
-    return { ok: false, verified: verify.ok, projectDir, message: `Bağlam dosyası yazılamadı: ${(err as Error).message}` };
+    return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "contextWriteFailed", { error: (err as Error).message }) };
   }
 
-  const skillNote = skillInstall.toolkitRoot ? `, ${skillInstall.installed.length} skill kuruldu` : "";
+  const skillNote = skillInstall.toolkitRoot ? skillNoteFor(language, skillInstall.installed.length) : "";
 
   if (rfcBridge) {
     return {
       ok: true,
       verified: false,
       projectDir,
-      message: `Router raw HTTPS'i reddetti — RFC bridge moduna geçildi${skillNote}, gömülü terminal açılıyor. Kurulum adımları için sap-context.md'ye bak.`,
+      message: connectMsg(language, "rfcBridgeActivated", { skillNote }),
       trustedCertificates: trustedCertificatesUpdate,
       effectiveClient: credentials.client
     };
@@ -526,8 +571,8 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     verified: true,
     projectDir,
     message: toolTest.ok
-      ? `Bağlantı doğrulandı, gömülü terminal açılıyor${skillNote} (${finalUrl})`
-      : `Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız${skillNote} — sap-context.md'de detay var (${finalUrl})`,
+      ? connectMsg(language, "verifiedOpening", { skillNote, url: finalUrl })
+      : connectMsg(language, "verifiedButSelfTestFailed", { skillNote, url: finalUrl }),
     trustedCertificates: trustedCertificatesUpdate,
     effectiveClient: credentials.client
   };
