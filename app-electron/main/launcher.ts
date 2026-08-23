@@ -4,6 +4,9 @@ import path from "node:path";
 import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials } from "../shared/types";
 import { discoverAdtEndpoint, verifyCredentials, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
 import { installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
+import { startRfcBridge } from "./rfcBridgeManager";
+import { startReadonlyServer } from "./adtReadonlyServerManager";
+import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
 
 const NOTES_MARKER = "<!-- axet-sap-launcher:notes -->";
 const INVALID_CHARS = /[<>:"/\\|?*]/g;
@@ -21,18 +24,23 @@ function connectMsg(
     | "missingHostOrUrl"
     | "connAdtWriteFailed"
     | "contextWriteFailed"
-    | "rfcBridgeActivated"
+    | "rfcBridgeVerified"
+    | "rfcBridgeRunningUnverified"
+    | "rfcBridgeAutoStartFailed"
     | "verifiedOpening"
     | "verifiedButSelfTestFailed",
-  params?: { error?: string; skillNote?: string; url?: string }
+  params?: { error?: string; skillNote?: string; url?: string; detail?: string }
 ): string {
   const skillNote = params?.skillNote ?? "";
+  const detail = params?.detail ?? "";
   const tr = {
     projectDirFailed: `Proje klasörü oluşturulamadı: ${params?.error}`,
     missingHostOrUrl: "Bu sistem için host veya ADT URL bilgisi eksik.",
     connAdtWriteFailed: `.conn_adt yazılamadı: ${params?.error}`,
     contextWriteFailed: `Bağlam dosyası yazılamadı: ${params?.error}`,
-    rfcBridgeActivated: `Router raw HTTPS'i reddetti — RFC bridge moduna geçildi${skillNote}, gömülü terminal açılıyor. Kurulum adımları için sap-context.md'ye bak.`,
+    rfcBridgeVerified: `Router raw HTTPS'i reddetti — RFC bridge otomatik başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı${skillNote}, gömülü terminal açılıyor.`,
+    rfcBridgeRunningUnverified: `RFC bridge otomatik başlatıldı${skillNote} ama kimlik doğrulaması tamamlanamadı (${detail}) — gömülü terminal yine de açılıyor, detay için sap-context.md'ye bak.`,
+    rfcBridgeAutoStartFailed: `Router raw HTTPS'i reddetti, RFC bridge otomatik başlatılamadı (${detail})${skillNote} — gömülü terminal yine de açılıyor, elle kurulum adımları için sap-context.md'ye bak.`,
     verifiedOpening: `Bağlantı doğrulandı, gömülü terminal açılıyor${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız${skillNote} — sap-context.md'de detay var (${params?.url})`
   };
@@ -41,7 +49,9 @@ function connectMsg(
     missingHostOrUrl: "Host or ADT URL information is missing for this system.",
     connAdtWriteFailed: `Failed to write .conn_adt: ${params?.error}`,
     contextWriteFailed: `Failed to write context file: ${params?.error}`,
-    rfcBridgeActivated: `Router rejected raw HTTPS — switched to RFC bridge mode${skillNote}, opening embedded terminal. See sap-context.md for setup steps.`,
+    rfcBridgeVerified: `Router rejected raw HTTPS — RFC bridge auto-started and credentials verified over RFC${skillNote}, opening embedded terminal.`,
+    rfcBridgeRunningUnverified: `RFC bridge auto-started${skillNote} but credential verification did not complete (${detail}) — opening embedded terminal anyway, see sap-context.md for details.`,
+    rfcBridgeAutoStartFailed: `Router rejected raw HTTPS, RFC bridge auto-start failed (${detail})${skillNote} — opening embedded terminal anyway, see sap-context.md for manual setup steps.`,
     verifiedOpening: `Connection verified, opening embedded terminal${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Connection verified but adt-tool.ps1 self-test failed${skillNote} — see sap-context.md for details (${params?.url})`
   };
@@ -52,6 +62,7 @@ function skillNoteFor(language: "tr" | "en", count: number): string {
   return language === "en" ? `, ${count} skills installed` : `, ${count} skill kuruldu`;
 }
 const DEFAULT_RFC_BRIDGE_PORT = 8788;
+const DEFAULT_READONLY_SERVER_PORT = 8787;
 
 interface RfcBridgeConfig {
   ashost: string;
@@ -62,6 +73,165 @@ interface RfcBridgeConfig {
 
 function isRouterPermissionDenied(message: string): boolean {
   return message.includes("NIEROUT_PERM_DENIED") || message.includes("-94");
+}
+
+// bridgeVerify.message artık adt_rfc_bridge.py'nin 502 gövdesindeki gerçek
+// pyrfc/RFC istisna metnini de içeriyor (bkz. adtDiscovery.ts
+// unexpectedStatusMessage) — bu, RFC bridge ayakta ama SAP'a gerçek RFC
+// bağlantısı kuramadığında (Basis'in saprouttab'ında RFC/gateway trafiği
+// için de ayrı bir izin satırı gerekebilir, raw HTTPS izni RFC'yi
+// kapsamıyor) kök sebebi tahmin etmek zorunda kalmadan doğrudan gösteriyor.
+// Burada yaygın kalıpları tanıyıp elle teşhis yapmadan aynı sonuca (Basis/
+// saprouttab RFC izni mi, ağ/parametre hatası mı, yoksa RFC logon hatası mı)
+// otomatik ulaşan kısa bir not ekliyoruz.
+function describeRfcEndpointFailure(message: string): string {
+  if (/NIEROUT_PERM_DENIED|route permission denied/i.test(message)) {
+    return "SAProuter RFC/gateway trafiğini de reddediyor — Basis'in saprouttab'a bu ashost:sysnr için ayrı bir RFC izin satırı (P) eklemesi gerekiyor, kimlik bilgisi sorunu değil.";
+  }
+  if (/RFC_COMMUNICATION_FAILURE|partner.*not reached|connection refused|econnrefused|timed? ?out|WSAETIMEDOUT/i.test(message)) {
+    return "RFC bağlantısının kendisi router üzerinden application server/gateway'e ulaşamadı — büyük olasılıkla Basis'in saprouttab'daki RFC izni veya yanlış ashost/sysnr, kimlik bilgisi sorunu değil.";
+  }
+  if (/logon (failed|denied)|name or password is incorrect|user.*locked/i.test(message)) {
+    return "RFC logon'un kendisi reddedildi — bu sistem için kullanıcı adı/şifre/client'ı özellikle kontrol et (RFC logon, HTTP Basic Auth kontrolünden farklı davranabilir).";
+  }
+  return "";
+}
+
+interface RfcBridgeOutcome {
+  started: boolean;
+  verified: boolean;
+  credentialsInvalid: boolean;
+  detailNote: string;
+  verifyMessage: string;
+}
+
+// Router -94/NIEROUT_PERM_DENIED tespit edilince kullanıcıya elle
+// "py adt_rfc_bridge.py --port ..." çalıştırmasını söylemek yerine launcher
+// bunu kendisi yapar: proje klasörüne kopyalanan adt_rfc_bridge.py'yi spawn
+// eder (rfcBridgeManager.ts), /health ile ayakta olduğunu doğrular, sonra
+// bridge üzerinden GERÇEK bir kimlik doğrulama isteği (verifyCredentials,
+// http://127.0.0.1:<port>) atarak RFC/router zincirinin uçtan uca çalıştığını
+// kanıtlar — Limak sisteminde elle izlenen adımların (bkz. PROJE-BILGI.md)
+// otomatikleştirilmiş hali.
+async function attemptRfcBridgeAutoStart(
+  skillInstall: SkillInstallResult,
+  projectDir: string,
+  rfcBridge: RfcBridgeConfig,
+  credentials: SystemCredentials,
+  pythonPath: string,
+  language: "tr" | "en",
+  sapnwrfcHome?: string
+): Promise<RfcBridgeOutcome> {
+  const scriptRel = ["sap-adt-readonly", "scripts", "adt_rfc_bridge.py"];
+  const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
+  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "abaper", "skills", ...scriptRel) : null;
+  const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
+
+  if (!scriptPath) {
+    return {
+      started: false,
+      verified: false,
+      credentialsInvalid: false,
+      verifyMessage: "",
+      detailNote: "adt_rfc_bridge.py bulunamadı (SAP toolkit kurulu değil gibi görünüyor) — RFC bridge otomatik başlatılamadı, elle kuruluma bak."
+    };
+  }
+
+  const startResult = await startRfcBridge({ projectDir, scriptPath, pythonPath, bridgePort: rfcBridge.bridgePort, sapnwrfcHome });
+  if (!startResult.ok) {
+    return {
+      started: false,
+      verified: false,
+      credentialsInvalid: false,
+      verifyMessage: "",
+      detailNote: `RFC bridge otomatik başlatılamadı: ${startResult.message}`
+    };
+  }
+
+  const bridgeUrl = `http://127.0.0.1:${rfcBridge.bridgePort}`;
+  const bridgeVerify = await verifyCredentials(bridgeUrl, credentials.username, credentials.password, credentials.client, 20000, undefined, language);
+
+  if (bridgeVerify.ok) {
+    return {
+      started: true,
+      verified: true,
+      credentialsInvalid: false,
+      verifyMessage: bridgeVerify.message,
+      detailNote: `RFC bridge otomatik başlatıldı (${bridgeUrl}) ve kimlik bilgileri RFC üzerinden doğrulandı ✓.`
+    };
+  }
+  if (bridgeVerify.status === 401) {
+    return {
+      started: true,
+      verified: false,
+      credentialsInvalid: true,
+      verifyMessage: bridgeVerify.message,
+      detailNote: `RFC bridge çalışıyor (${bridgeUrl}) ama kimlik doğrulama başarısız: ${bridgeVerify.message}`
+    };
+  }
+  return {
+    started: true,
+    verified: false,
+    credentialsInvalid: false,
+    verifyMessage: bridgeVerify.message,
+    detailNote: `RFC bridge başlatıldı (${bridgeUrl}) ama kimlik doğrulaması tamamlanamadı (${bridgeVerify.message}) — bridge yine de çalışır durumda, %sap-adt-readonly ile tekrar denenebilir.${
+      describeRfcEndpointFailure(bridgeVerify.message) ? ` ${describeRfcEndpointFailure(bridgeVerify.message)}` : ""
+    }`
+  };
+}
+
+interface ReadonlyServerOutcome {
+  started: boolean;
+  alreadyRunning: boolean;
+  detailNote: string;
+}
+
+// `.conn_adt` yazıldıktan (ve varsa RFC bridge ayağa kalktıktan) SONRA
+// çağrılır — router'lı VEYA router'sız HER başarılı bağlantıda `%sap-adt-
+// readonly`'nin arka planındaki gerçek Python sunucusunu (adt_readonly_
+// server.py, port 8787) launcher kendisi başlatır. Önceden kullanıcı/agent
+// her bağlanışta terminalde elle "ADT_CWD=$(pwd) py adt_readonly_server.py
+// --port 8787" çalıştırmak zorundaydı (bkz. sap-context.md "Yöntem 1")
+// — artık RFC bridge otomatik başlatmasıyla (attemptRfcBridgeAutoStart)
+// birebir aynı desenle, terminal açıldığında sunucu zaten canlıdır.
+// Bu sunucu pyrfc/SAP NW RFC SDK gerektirmediği için gömülü RFC runtime'ı
+// KULLANILMIYOR — sistemdeki "py" çalıştırıcısı kullanılıyor (mevcut elle
+// kurulum dokümantasyonuyla aynı varsayım; requests/mcp/python-dotenv
+// kurulu olmalı, bkz. sap-toolkit/requirements.txt).
+async function attemptReadonlyServerAutoStart(
+  skillInstall: SkillInstallResult,
+  projectDir: string,
+  port: number
+): Promise<ReadonlyServerOutcome> {
+  const scriptRel = ["sap-adt-readonly", "scripts", "adt_readonly_server.py"];
+  const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
+  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "abaper", "skills", ...scriptRel) : null;
+  const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
+
+  if (!scriptPath) {
+    return {
+      started: false,
+      alreadyRunning: false,
+      detailNote: "adt_readonly_server.py bulunamadı (SAP toolkit kurulu değil gibi görünüyor) — ADT read-only sunucusu otomatik başlatılamadı, elle kuruluma bak."
+    };
+  }
+
+  const startResult = await startReadonlyServer({ projectDir, scriptPath, pythonPath: "py", port });
+  if (!startResult.ok) {
+    return {
+      started: false,
+      alreadyRunning: false,
+      detailNote: `ADT read-only sunucusu otomatik başlatılamadı: ${startResult.message}`
+    };
+  }
+
+  return {
+    started: true,
+    alreadyRunning: startResult.alreadyRunning,
+    detailNote: startResult.alreadyRunning
+      ? `ADT read-only sunucusu (http://127.0.0.1:${port}) zaten çalışıyordu.`
+      : `ADT read-only sunucusu otomatik başlatıldı (http://127.0.0.1:${port}) ✓.`
+  };
 }
 
 function sanitizeSegment(segment: string): string {
@@ -246,7 +416,9 @@ function buildContextMarkdown(
   discoveryNotes: string[],
   toolTest: { ok: boolean; detail: string },
   skillInstall: SkillInstallResult,
-  rfcBridge?: RfcBridgeConfig | null
+  rfcBridge?: RfcBridgeConfig | null,
+  rfcOutcome?: RfcBridgeOutcome | null,
+  readonlyOutcome?: ReadonlyServerOutcome | null
 ): string {
   const { customerPath, service } = req;
   const breadcrumb = customerPath.join(" / ");
@@ -268,6 +440,21 @@ function buildContextMarkdown(
 - Python bağımlılıkları kurulu değilse (\`ModuleNotFoundError\`), kullanıcıya \`pip install -r "${skillInstall.toolkitRoot}\\requirements.txt"\` çalıştırmasını söyle.`
     : `- SAP Toolkit bulunamadı — skill kurulumu atlandı. Sadece \`.conn_adt\` + \`adt-tool.ps1\` (PowerShell tabanlı, sınırlı) kullanılabilir.`;
 
+  // adt_readonly_server.py artık RFC bridge ile aynı desende launcher
+  // tarafından OTOMATIK başlatılıyor (attemptReadonlyServerAutoStart) —
+  // bu blok agent'a körlemesine "elle başlat" komutu vermek yerine gerçek
+  // durumu (başlatıldı/zaten çalışıyordu/başarısız) söylüyor.
+  const readonlyServerStatusLine = (() => {
+    if (!readonlyOutcome) return "- Otomatik başlatma durumu bilinmiyor (beklenmeyen akış) — elle başlatman gerekebilir.";
+    if (readonlyOutcome.started) {
+      return readonlyOutcome.alreadyRunning
+        ? "- **Sunucu zaten çalışıyordu ✓** (http://127.0.0.1:8787) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır."
+        : "- **Sunucu OTOMATİK başlatıldı ✓** (http://127.0.0.1:8787, launcher tarafından — bu klasördeki `adt-readonly.log`'a bak) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır.";
+    }
+    return `- **Otomatik başlatma BAŞARISIZ**: ${readonlyOutcome.detailNote}\n  Elle başlatman gerekiyor (aşağıdaki bash bloğuna bak) — Python bağımlılıkları kurulu değilse önce \`pip install -r "${skillInstall.toolkitRoot ?? "<sap-toolkit>"}\\requirements.txt"\` çalıştır.`;
+  })();
+
+
   const isCloudSystem = Boolean(service.manualAdtUrl) || service.type === "BTP/CLOUD";
   const cloudNoteBlock = isCloudSystem
     ? `
@@ -282,25 +469,38 @@ function buildContextMarkdown(
 - 401/403 yerine **HTML login sayfası** dönmesi (ADT XML değil) SAML'in kanıtıdır — kullanıcıya "kimlik bilgisi yanlış" deme, doğrudan yukarıdaki SAML akışını öner.`
     : "";
 
+  const rfcAutoStartLines = (() => {
+    if (!rfcBridge) return "";
+    if (!rfcOutcome) return "- Otomatik başlatma durumu bilinmiyor (beklenmeyen akış).";
+    if (rfcOutcome.verified) {
+      return `- **Bridge OTOMATİK başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı ✓** — launcher bu process'i arka planda ayakta tutuyor (uygulama kapanana kadar), \`%sap-adt-readonly\` doğrudan kullanılabilir, ekstra kurulum adımı YOK.
+- Log: bu klasördeki \`rfc-bridge.log\`.`;
+    }
+    if (rfcOutcome.started) {
+      return `- **Bridge başlatıldı** (\`http://127.0.0.1:${rfcBridge.bridgePort}\`, süreç çalışıyor) ama kimlik doğrulama denemesi tamamlanamadı: ${rfcOutcome.verifyMessage || rfcOutcome.detailNote}. Bridge çalışır durumda kalıyor — \`%sap-adt-readonly\` ile tekrar dene; sorun sürerse bu klasördeki \`rfc-bridge.log\`'a ve elle \`adt_rfc_probe.py\` çalıştırmaya bak.`;
+    }
+    return `- **Otomatik başlatma BAŞARISIZ**: ${rfcOutcome.detailNote}
+- RFC bridge için gereken Python + pyrfc + SAP NW RFC SDK aXet SAP Launcher'a **gömülü** olarak geliyor — normalde ekstra bir kurulum adımı gerekmez. Bu hata genelde şu ikisinden biri:
+  1. Uygulama kurulumu bozuk/eksik (\`resources/rfc-runtime\` klasörü paketlenmemiş) — uygulamayı yeniden kur.
+  2. Ayarlar'da elle bir "Python çalıştırıcısı" yolu girilmiş ve o Python'da pyrfc/SDK yok — Ayarlar'dan bu alanı boşaltıp uygulamanın kendi gömülü runtime'ını kullanmasına izin ver.
+- Sorun sürerse bu klasördeki \`rfc-bridge.log\`'a bak; elle tanılamak için \`%sap-adt-readonly\` skill'inin SKILL.md'sindeki "Router-only sistemler (RFC bridge)" bölümüne bak (\`adt_rfc_probe.py\` ile RFC_PING/arayüz doğrulaması).`;
+  })();
+
   const rfcNoteBlock = rfcBridge
     ? `
 
 ## SAProuter RFC Bridge Modu — HTTPS bu sistemde ENGELLİ
 - Bu sistemin SAProuter'ı (${service.routerString ?? "?"}) native/raw HTTPS tünellemeyi **REDDETTİ** (-94 NIEROUT_PERM_DENIED) — SAP Logon'un DIAG bağlantısı çalışıyor çünkü o native SAP protokolü, ama ADT'nin düz HTTPS'i router tarafından engelleniyor. Bu bir kimlik/ağ hatası **değil**, router'ın izin tablosu (\`saprouttab\`) kısıtı.
-- Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor. Bu bridge kurulup çalıştırılınca, router'ın izin verdiği RFC kanalı üzerinden \`SADT_REST_RFC_ENDPOINT\` ile ADT isteklerini proxy'liyor — \`%sap-adt-readonly\` tamamen **değişmeden** çalışıyor, sadece arkada bridge'e gidiyor.
-- **Bu bridge henüz kurulu/doğrulanmış değil** (bu launcher onu HTTP ile test edemez — RFC için lisanslı SAP NW RFC SDK gerekir). \`%sap-adt-readonly\` skill'inin SKILL.md'sindeki **"Router-only sistemler (RFC bridge)"** bölümünü oku ve şu sırayla ilerle:
-  1. Kullanıcının kendi SAP S-user'ıyla SAP NW RFC SDK'yı indirt (\`https://support.sap.com/en/product/connectors/nwrfcsdk.html\`), \`SAPNWRFC_HOME\` ayarla, \`pip install pyrfc\`.
-  2. \`py "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\adt_rfc_probe.py"\` çalıştır — RFC_PING ve \`SADT_REST_RFC_ENDPOINT\` arayüzünü doğrular.
-  3. \`ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\adt_rfc_bridge.py" --port ${rfcBridge.bridgePort}\` başlat (\`run_in_background: true\`).
-  4. Sonra normal \`%sap-adt-readonly\` akışına (Step 1–4) geç — \`ADT_SAP_URL\` zaten bridge'e işaret ediyor, ekstra bir şey yapmana gerek yok.
+- Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor — bu bridge \`SADT_REST_RFC_ENDPOINT\` üzerinden router'ın izin verdiği RFC kanalıyla gerçek SAP'a bağlanıyor, \`%sap-adt-readonly\` tamamen **değişmeden** çalışıyor.
+${rfcAutoStartLines}
 - Gerçek keşfedilen (ama şu an router tarafından engellenen) HTTPS URL: **${verifiedUrl}** — Basis ekibi ileride \`saprouttab\`'a bu makinenin IP'sinden yukarıdaki URL'in host:port'una bir \`P\` (permit, native değil) satırı eklerse, \`.conn_adt\`'ta \`ADT_RFC_MODE=false\` yapıp \`ADT_SAP_URL\`'i bu adrese çevirebilirsin — doğrudan HTTPS daha basit ve daha güvenilir.
 - Aktivasyon gibi çok-adımlı stateful akışlar RFC bridge üzerinden güvenilir çalışmaz (zaten bu read-only server'da aktivasyon yok) — sadece okuma araçlarını (\`adt_get_source\`, \`adt_search\`, \`adt_sql\`, vb.) bekle.`
     : "";
 
   const connectionStatusBlock = rfcBridge
-    ? `## ADT Bağlantısı — RFC BRIDGE GEREKLİ (henüz HTTP ile doğrulanamadı)
-- Router doğrudan HTTPS'i reddetti, bkz. aşağıdaki "SAProuter RFC Bridge Modu" bölümü — orada anlatılan kurulumu tamamlamadan \`%sap-adt-readonly\` çalışmaz.
-- adt-tool.ps1 bu modda yazılmadı/çalıştırılmadı (o script düz HTTPS kullanır, bu sistemde işe yaramaz) — RFC bridge kurulumunu tamamladıktan sonra doğrulama \`adt_rfc_probe.py\` ile yapılır.
+    ? `## ADT Bağlantısı — ${rfcOutcome?.verified ? "RFC BRIDGE ÜZERİNDEN DOĞRULANDI ✓" : rfcOutcome?.started ? "RFC BRIDGE ÇALIŞIYOR (kimlik doğrulaması tamamlanamadı)" : "RFC BRIDGE GEREKLİ (otomatik başlatma başarısız)"}
+- Router doğrudan HTTPS'i reddetti, bkz. aşağıdaki "SAProuter RFC Bridge Modu" bölümü.
+- adt-tool.ps1 bu modda yazılmadı/çalıştırılmadı (o script düz HTTPS kullanır, bu sistemde işe yaramaz).
 - Keşif/doğrulama adımları (referans):
 ${notesBlock}`
     : `## ADT Bağlantısı — DOĞRULANDI ✓
@@ -336,11 +536,15 @@ ${connectionStatusBlock}
 **Tercih sırası: önce \`%sap-adt-readonly\` skill'i, o çalışmazsa (Python/bağımlılık yoksa) \`adt-tool.ps1\` fallback.**
 
 ### Yöntem 1 — \`%sap-adt-readonly\` (tercih edilen, tam özellikli)
-Python tabanlı gerçek ADT engine, 20 read-only tool sunar (adt_get_source, adt_search, adt_sql, adt_where_used, adt_syntax_check, adt_atc_check, adt_unit_test, adt_list_package, adt_revisions, adt_dumps, adt_list_transports, vb.). Detaylar için \`%sap-adt-readonly\` skill'ini oku (SKILL.md), özet akış:
+Python tabanlı gerçek ADT engine, 20 read-only tool sunar (adt_get_source, adt_search, adt_sql, adt_where_used, adt_syntax_check, adt_atc_check, adt_unit_test, adt_list_package, adt_revisions, adt_dumps, adt_list_transports, vb.). Detaylar için \`%sap-adt-readonly\` skill'ini oku (SKILL.md).
+
+**Otomatik başlatma durumu (launcher tarafından, bu bağlanışta):**
+${readonlyServerStatusLine}
+
 \`\`\`bash
-# Sunucu ayakta mı?
+# Sunucu ayakta mı? (yukarıdaki durum "BAŞARISIZ" değilse zaten ayakta olmalı)
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())" 2>/dev/null || echo "NOT RUNNING"
-# Değilse başlat (run_in_background: true), .conn_adt bu klasörde zaten hazır:
+# SADECE yukarıdaki durum "BAŞARISIZ" ise elle başlat (run_in_background: true):
 ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<sap-toolkit bulunamadı>"}/abaper/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --port 8787
 # Kullan:
 python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_list_package', json={'package':'ZPM003'}).json())"
@@ -531,8 +735,21 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   }
   ensureGitignore(projectDir);
 
-  let toolTest = { ok: false, detail: "RFC bridge modunda adt-tool.ps1 self-test atlandı (bridge henüz kurulu değil)" };
-  if (!rfcBridge) {
+  // Skill kurulumu, RFC bridge otomatik başlatmasından ÖNCE yapılıyor —
+  // adt_rfc_bridge.py'nin proje klasöründeki kopyası (.axet-code/skills/...)
+  // bridge'i spawn etmeden önce diskte hazır olmalı.
+  const skillInstall = installSkillsIntoProject(projectDir);
+
+  let toolTest = { ok: false, detail: "RFC bridge modunda adt-tool.ps1 self-test atlandı" };
+  let rfcOutcome: RfcBridgeOutcome | null = null;
+
+  if (rfcBridge) {
+    const embedded = getEmbeddedRfcRuntime();
+    const pythonPath = embedded?.pythonPath || "py";
+    const sapnwrfcHome = embedded?.sapnwrfcHome;
+    rfcOutcome = await attemptRfcBridgeAutoStart(skillInstall, projectDir, rfcBridge, credentials, pythonPath, language, sapnwrfcHome);
+    allNotes.push(rfcOutcome.detailNote);
+  } else {
     try {
       writeFileSync(path.join(projectDir, "adt-tool.ps1"), buildAdtToolScript(), "utf-8");
       toolTest = await testAdtToolScript(projectDir);
@@ -541,10 +758,18 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     }
   }
 
-  const skillInstall = installSkillsIntoProject(projectDir);
+  // ADT read-only sunucusu (%sap-adt-readonly, port 8787) — RFC bridge
+  // kimlik doğrulaması kesin başarısız olduysa (credentialsInvalid, terminal
+  // hiç açılmayacak) başlatmaya çalışmanın anlamı yok; diğer tüm durumlarda
+  // (router'lı/router'sız, doğrulanmış/doğrulanamamış) başlatılır.
+  let readonlyOutcome: ReadonlyServerOutcome | null = null;
+  if (!rfcBridge || !rfcOutcome?.credentialsInvalid) {
+    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT);
+    allNotes.push(readonlyOutcome.detailNote);
+  }
 
   const contextFile = path.join(projectDir, "sap-context.md");
-  const generated = buildContextMarkdown(req, finalUrl, allNotes, toolTest, skillInstall, rfcBridge);
+  const generated = buildContextMarkdown(req, finalUrl, allNotes, toolTest, skillInstall, rfcBridge, rfcOutcome, readonlyOutcome);
   const finalContent = mergeWithExistingNotes(generated, contextFile);
 
   try {
@@ -555,12 +780,25 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
 
   const skillNote = skillInstall.toolkitRoot ? skillNoteFor(language, skillInstall.installed.length) : "";
 
-  if (rfcBridge) {
+  if (rfcBridge && rfcOutcome) {
+    if (rfcOutcome.credentialsInvalid) {
+      return {
+        ok: false,
+        verified: false,
+        projectDir,
+        message: rfcOutcome.verifyMessage,
+        trustedCertificates: trustedCertificatesUpdate
+      };
+    }
     return {
       ok: true,
-      verified: false,
+      verified: rfcOutcome.verified,
       projectDir,
-      message: connectMsg(language, "rfcBridgeActivated", { skillNote }),
+      message: rfcOutcome.started
+        ? rfcOutcome.verified
+          ? connectMsg(language, "rfcBridgeVerified", { skillNote })
+          : connectMsg(language, "rfcBridgeRunningUnverified", { skillNote, detail: rfcOutcome.verifyMessage || rfcOutcome.detailNote })
+        : connectMsg(language, "rfcBridgeAutoStartFailed", { skillNote, detail: rfcOutcome.detailNote }),
       trustedCertificates: trustedCertificatesUpdate,
       effectiveClient: credentials.client
     };

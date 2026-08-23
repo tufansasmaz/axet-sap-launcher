@@ -225,14 +225,14 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
   eklemeye çalışır; başarısız olursa not olarak `sap-context.md`'ye yazılır.
 - **"Route permission denied" / -94 (SAProuter'lı sistemler)**: Bazı
   müşterilerin SAProuter'ı SAP Logon'un kullandığı native bağlantıya izin
-  verirken ADT'nin düz HTTPS'ini engeller. Bu durumda uygulama terminali
-  yine de açar ve `.conn_adt` + `sap-context.md`'ye bir **RFC bridge** modu
-  yazar (`ADT_RFC_MODE=true`) — terminaldeki asistana `%sap-adt-readonly`
-  skill'inin "Router-only sistemler (RFC bridge)" bölümünü okumasını söyle;
-  orada SAP NW RFC SDK kurulumu (kendi SAP kullanıcı hesabınla indirilir)
-  ve bridge'i başlatma adımları var. Kalıcı çözüm Basis ekibinin
-  `saprouttab`'a bir izin satırı eklemesidir, ama bridge bunu beklemeden
-  çalışır.
+  verirken ADT'nin düz HTTPS'ini engeller. Bu durumda uygulama artık bir
+  **RFC bridge**'i kendisi otomatik başlatır ve kimlik bilgilerini RFC
+  üzerinden doğrular — gereken Python + pyrfc + SAP NW RFC SDK uygulamaya
+  gömülü geldiği için **hiçbir şey kurman gerekmez**; terminal açılır ve
+  `%sap-adt-readonly` doğrudan çalışır. Çok nadir bir durumda (uygulama
+  kurulumu bozuksa) otomatik başlatma başarısız olabilir; bu durumda
+  `sap-context.md`'deki "SAProuter RFC Bridge Modu" bölümü ne yapman
+  gerektiğini yazar.
 - **Uygulama açılırken yavaş/donuk hissediliyor**: Genellikle SAP Logon'un
   landscape dosyasındaki **network Include** (merkezi/paylaşılan landscape)
   dosyalarından biri VPN kapalıyken/ağ yavaşken okunmaya çalışıldığı için

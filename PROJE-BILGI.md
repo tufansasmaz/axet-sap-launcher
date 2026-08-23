@@ -373,6 +373,14 @@ ile doğrulanmadan `adt_rfc_bridge.py`'ye güvenilmemeli.
 
 ### AÇIK DURUM / BEKLEYEN İŞ (2026-08-07 itibarıyla) — sonraki oturum buradan devam etsin
 
+**GÜNCEL DURUM (2026-08-23)**: Aşağıdaki blokaj kullanıcı tarafındaki resmi
+"Software Download" yetkisi açısından hâlâ çözülmedi, AMA bunun uygulamanın
+kullanıcı deneyimini bloklaması artık gerekmiyor — kullanıcı elinde bulunan
+çalışan bir SDK+pyrfc kopyası uygulamaya gömüldü (bkz. "Gömülü RFC Runtime"
+bölümü, en altta). Yani "Sonraki oturumda yapılacaklar" altındaki Yol 1/Yol 2
+hâlâ geçerli birer organizasyonel iyileştirme ama artık **launcher'ın RFC
+bridge özelliğinin çalışması bunlara bağımlı değil**.
+
 **Blokaj**: Kullanıcının SAP S-user'ı var ama SAP Support Portal'da
 "Software Download" yetkisi yok — sadece SAP NetWeaver Developer Studio
 (NWDS) indirebiliyor. Araştırıldı: NWDS'nin eski sürümleri plugin
@@ -1390,6 +1398,90 @@ tercih `AppConfig.language` olarak diskte kalıcı.
   string'i şu an ölü kod/sadece debug amaçlı.
 - `npm run typecheck` ve `npm run build` temiz geçti.
 
+## RFC Bridge Otomatik Başlatma — Router-only Sistemler (2026-08-21, TAMAMLANDI) — Limak canlı doğrulaması
+
+Kullanıcı, Enrico Andreoli'nin SAP Community blog yazısındaki
+("Using Claude for SAP ABAP development on RFC-only/SAProuter systems",
+`community.sap.com/t5/abap-blog-posts/.../ba-p/14414381`, aynı yazarın
+`github.com/enricoandreoli/adt-rfc-bridge` deposu) yaklaşımı elle izleyerek
+**Limak** müşterisinin router-only bir sistemine gerçekten bağlanabildi —
+bu, `adt_rfc_bridge.py`/`adt_rfc_probe.py`'nin (`SADT_REST_RFC_ENDPOINT`
+üzerinden RFC-over-SAProuter, HEAD→GET dönüşümü, sahte X-CSRF-Token —
+zaten bizim koddaki tasarımla birebir aynı) canlı bir müşteride ilk kez
+çalıştığının kanıtı. Önceki tur (bkz. yukarıdaki "SAProuter Üzerinden
+Bağlanan Sistemler" / "RFC Bridge — pratik workaround" bölümleri) bu
+scriptleri yazmış ama SDK erişimi olmadığı için hiç canlı test edememişti.
+
+**Bu turda yapılan**: Kullanıcı elle izlediği adımları (SDK kurulumu, bridge
+başlatma) launcher'ın kendisinin yapması istendi — "sadece manuel adımları
+otomatikleştir" kapsamı seçildi (alan adları/format sorunu çıkmadı, yazma/
+aktivasyon ihtiyacı yok, sadece elle `py adt_rfc_bridge.py --port ...`
+çalıştırma adımı ortadan kalksın).
+
+- **`app-electron/main/rfcBridgeManager.ts`** (yeni) — `startRfcBridge(opts)`:
+  proje klasörü başına (`Map<projectDir, RunningBridge>`) tek bir
+  `adt_rfc_bridge.py` process'i `child_process.spawn` ile açar (stdout/stderr
+  proje klasöründeki `rfc-bridge.log`'a append edilir), `/health` endpoint'ini
+  600ms aralıklarla en fazla 20s polling ile bekler. Zaten sağlıklı çalışan bir
+  bridge varsa (aynı proje, aynı port) yeniden başlatmaz. Health-check
+  başarısız olursa stderr tail'inden basit pattern matching ile anlamlı bir
+  hata ipucu üretir (`pyrfc` yok / `SAPNWRFC_HOME` yok / `python-dotenv` yok /
+  RFC logon hatası / process erken sonlandı). `stopRfcBridge`/
+  `stopAllRfcBridges` — ikincisi `main/index.ts`'teki `window-all-closed`/
+  `before-quit`'e eklendi (zombi `python.exe` kalmasın diye, `disposeAllTerminals()`
+  ile aynı noktada çağrılıyor).
+- **`launcher.ts` `attemptRfcBridgeAutoStart()`** (yeni) — router `-94` tespit
+  edilip `.conn_adt` (RFC bloğuyla) yazıldıktan SONRA, skill kurulumu
+  (`installSkillsIntoProject`, artık RFC dalından ÖNCE — proje klasöründeki
+  `.axet-code/skills/sap-adt-readonly/scripts/adt_rfc_bridge.py`'nin diskte
+  hazır olması gerekiyor) tamamlandıktan sonra çalışır: script'i proje
+  klasöründen (yoksa toolkit kök yolundan fallback) bulur, `startRfcBridge`
+  çağırır, health-check geçerse **bridge üzerinden gerçek bir kimlik
+  doğrulama isteği** atar (`verifyCredentials("http://127.0.0.1:<port>", ...)`
+  — router/TLS'siz düz HTTP, RFC lazy-connect'i bu istekte tetiklenir, yani
+  bu an itibarıyla RFC/router zincirinin **uçtan uca** çalıştığı kanıtlanır,
+  sadece HTTP server'ın ayakta olduğu değil). Üç sonuç: `verified` (bridge
+  başlatıldı + 200 OK), `started ama unverified` (bridge çalışıyor ama
+  doğrulama tamamlanamadı — yine de terminal açılır), `credentialsInvalid`
+  (bridge 401 döndürdü — bu artık GERÇEK bir yanlış şifre kanıtı, bu yüzden
+  `ok:false` ile normal 401 akışıyla aynı şekilde davranılır, terminal
+  AÇILMAZ) veya `başlatma başarısız` (pyrfc/SDK yok — `ok:true` ile terminal
+  yine açılır, `sap-context.md`'deki elle kurulum adımlarına düşülür).
+- **`adtDiscovery.ts` `verifyCredentials()`** artık `http://` şemasını da
+  destekliyor (önceden URL şeması ne olursa olsun hep `https.request`
+  kullanıyordu — yerel bridge'e `http://127.0.0.1:8788` ile TLS handshake
+  denemesi zaman aşımına düşerdi). `parsed.protocol === "http:"` ise
+  `node:http`'in `request`'i kullanılıyor, port varsayılanı 80'e düşüyor.
+- **`shared/types.ts`**: `AppConfig.pythonPath: string | null` (varsayılan
+  `null` → çalışma zamanında `"py"`'a düşer — **GÜNCEL DEĞİL**, bkz. "Gömülü
+  RFC Runtime" bölümü: 2026-08-23'ten itibaren `null` iken gömülü runtime
+  kullanılır, `"py"`'a düşmek sadece gömülü runtime paketlenmemişse gerçekleşen
+  bir son çare) — Ayarlar'da "Python çalıştırıcısı (RFC bridge için)" alanı
+  olarak eklendi (`SettingsModal.tsx`, `store.ts` `defaultConfig`, i18n
+  `tr.ts`/`en.ts`).
+  Ekstra bir IPC handler gerekmedi — `config:get`/`config:save` zaten generic
+  `Partial<AppConfig>` alıyor.
+- **`sap-context.md`** artık RFC bridge modunda otomatik başlatmanın gerçek
+  sonucunu yazıyor (`buildContextMarkdown`'a yeni `rfcOutcome` parametresi) —
+  "otomatik doğrulandı ✓" / "başlatıldı ama doğrulanamadı" / "otomatik
+  başlatma başarısız, elle kurulum adımları" olarak üç ayrı anlatım; agent
+  artık her router-only bağlantıda körlemesine 4 adımlı elle kurulumu
+  önermek zorunda değil, önce bu bölümü okuyup gerçek durumu görüyor.
+- **`SKILL.md`** ("Router-only sistemler" bölümü) güncellendi: elle kurulum
+  artık "sadece otomatik başlatma başarısız olursa" başlığı altında,
+  otomatik başlatmanın varlığı ve Limak'ta canlı doğrulandığı not edildi.
+- **Bilinçli olarak DEĞİŞTİRİLMEYEN**: `adt_rfc_bridge.py`/`adt_rfc_probe.py`
+  scriptlerinin kendisi (SADT_REST_RFC_ENDPOINT marshalling, HEAD→GET,
+  placeholder CSRF) — Limak'ta blogdaki yaklaşımla birebir aynı mantıkla
+  çalıştığı için hiç dokunulmadı, sadece başlatma/yaşam döngüsü
+  otomatikleştirildi.
+- `npm run typecheck` ve `npm run build` temiz geçti. Gerçek bir GUI
+  penceresinde/Limak'ın kendi router'ına karşı bu otomatik başlatma akışının
+  ucuca testi bu ortamda yapılamadı (SDK/pyrfc bu makinede yok) —
+  kullanıcının bir dahaki Limak bağlantısında doğrulaması gerekiyor; scriptin
+  kendisi zaten elle çalıştırıldığında doğrulanmıştı, değişen sadece
+  process'in kim tarafından/ne zaman başlatıldığı.
+
 ## Git Geçmişi — Kök Commit Mesajı Sürüm Numarasız Hale Getirildi (v1.3.5)
 
 `5cc824c "Initial commit: aXet SAP Launcher v1.3.0"` kök commit'i, uygulama
@@ -1412,3 +1504,346 @@ içermeyen** "Initial commit: aXet SAP Launcher" olarak reword edildi ve
   yazıldığında bu numara o an geçerli anlamına gelir, dosya sonradan
   değişmezse GitHub'da kalıcı olarak o numarayla görünür.
 
+## pyrfc/SAP NW RFC SDK — Windows'ta gerçek kurulum sorunları ve kalıcı düzeltme (2026-08-22, bu makinede canlı doğrulandı)
+
+Bu geliştirme makinesinde (Windows, Python 3.14 sistem varsayılanı) `pyrfc`'yi
+gerçekten kurup çalıştırmaya çalışırken üç ayrı, birbirinden bağımsız engel
+çıktı — hepsi çözüldü, sırasıyla:
+
+1. **PyRFC projesi SAP tarafından terk edildi** (GitHub'da arşivlendi,
+   `SAP/PyRFC#372`). Son sürüm 3.3.1, prebuilt wheel'leri sadece Python
+   3.8–3.12 için var, **3.13/3.14 için hiç wheel yok**. Çözüm: sistem
+   Python'una dokunmadan, **ayrı bir Python 3.12 kurulumuyla venv**
+   (`C:\Users\<user>\AppData\Local\axet-rfc-venv`) oluşturup `pip install
+   pyrfc==3.3.1 python-dotenv` (yanked sürüm olduğu için `pip` uyarı verir,
+   engel değil). `AppConfig.pythonPath`'i (`config.json`, Ayarlar → "Python
+   çalıştırıcısı") bu venv'in `Scripts\python.exe`'sine çevir — sistem `py`
+   komutu asla pyrfc göremeyecek.
+2. **SAP NW RFC SDK dosyaları eksikse `import pyrfc` "DLL load failed"
+   verir, hangi DLL eksik olduğunu SÖYLEMEZ.** Tam SDK (7.53 patch 814, Windows
+   x64: `sapnwrfc.dll`, `libsapucum.dll`, `icudt50.dll`, `icuin50.dll`,
+   `icuuc50.dll`, `libicudecnumber.dll`, `include/*.h`) `SAPNWRFC_HOME`
+   altına yerleştirilmeli. **Kaynak seçimi önemli**: support.sap.com'un resmi
+   SDK'sı S-user + "Software Download" yetkisi gerektiriyor (bkz. yukarıdaki
+   "AÇIK DURUM" bölümü); bu oturumda kullanıcının kendi temin ettiği bir SDK
+   kopyası kullanıldı — `SIGNATURE.SMF` manifestindeki SHA256 hash'leri
+   dosyaların gerçek içeriğiyle (`certutil -hashfile`) tek tek karşılaştırılıp
+   PKCS7 imzasının SAP'nin kendi "SAP Code Signing CA"sına ait olduğu
+   doğrulandı — içerik orijinal/bozulmamış. **Dikkat**: bulunan bazı SDK
+   kopyaları **Linux** SDK'sıydı (`.so`/`.so.50` dosyaları) — Windows'ta işe
+   yaramaz, mimari/platformu (dosya uzantısına bakarak: `.dll`=Windows,
+   `.so`=Linux) her zaman kontrol et. Ayrıca çok eski bir sürüm (7.20 patch
+   610, 2014, ICU 34) da bulundu ama kullanılmadı — zaten canlı çalıştığı
+   kanıtlanmış 7.53 patch 814 tercih edildi.
+3. **VC++ 2013 Redistributable (x64) eksikse SDK DLL'leri yine yüklenemez**
+   (`msvcr120.dll`/`msvcp120.dll` — SAP Note 2573790'da belgeli bağımlılık).
+   Bu makinede yönetici/UAC yetkisi verilmediği için standart
+   `vcredist_x64.exe /install /quiet` **admin gerektirdiği için başarısız
+   oldu** (`0x80070005 Access Denied`). **Admin gerektirmeyen çözüm**: bu
+   bootstrapper aslında iç içe geçmiş PE→CAB→CAB→(CAB+MSI) katmanları — 7-Zip
+   ile katman katık sökülüp içindeki `F_CENTRAL_msvcr120_x64`/
+   `F_CENTRAL_msvcp120_x64` dosyaları (binary olarak `msvcr120.dll`/
+   `msvcp120.dll`'in kendisi) doğrudan `SAPNWRFC_HOME/lib/` klasörüne
+   kopyalandı — sistem kurulumu/registry değişikliği YOK, sadece dosya kopyası.
+   (7z ile: `l`/`x` komutları PE'nin ilk CAB'ını buluyor ama gerçek MSI
+   payload'ları içeren ikinci, daha büyük CAB dosyayı atlıyor —
+   `re.finditer(b'MSCF', data)` ile ikinci `MSCF` imzasını bulup dosyayı o
+   offset'ten itibaren ayrı bir `.cab` olarak kesip 7z'ye tekrar vermek
+   gerekti; içindeki `a0`/`a1` MSI veritabanları, `a2`/`a3` ise gerçek
+   DLL'leri taşıyan iç içe CAB'lardı.)
+4. **Asıl kod hatası — `import pyrfc` geçse bile `pyrfc.Connection(...)`
+   çağrısı native seviyede tekrar patlıyordu**: "Could not open the ICU
+   common library... icuuc50.dll, icudt50.dll, icuin50.dll [nlsui0.c]"
+   (SAP Note 519753). Kök sebep: Python 3.8+ `os.add_dll_directory()` sadece
+   **Python'un kendi extension-module yükleyicisini** (pyrfc'nin `_cyrfc.pyd`
+   dosyası) kapsıyor — `sapnwrfc.dll`'in KENDİ içindeki, `Connection` açılırken
+   tetiklenen ayrı `LoadLibrary` çağrıları (ICU bağımlılıkları için) hâlâ
+   klasik **PATH** taramasına bakıyor, `add_dll_directory` bunu etkilemiyor.
+   **Düzeltme (`adt_rfc_bridge.py` ve `adt_rfc_probe.py`, her ikisine de
+   eklendi)**: yeni `_ensure_sapnwrfc_dll_dir()` fonksiyonu artık HEM
+   `os.add_dll_directory(SAPNWRFC_HOME/lib)` HEM DE `os.environ["PATH"]`'e
+   aynı klasörü prepend ediyor — `import pyrfc`'den (ve her `pyrfc.Connection(...)`
+   açılışından) ÖNCE çağrılıyor (`_ensure_connection()` içinde ve `main()`'in
+   başında). Bu fonksiyon `sys.platform != "win32"` veya `SAPNWRFC_HOME` set
+   değilse sessizce no-op — Linux/macOS'ta veya SDK kurulu değilken davranış
+   değişmiyor.
+- **Canlı doğrulama**: yukarıdaki tüm adımlardan sonra `adt_rfc_probe.py`
+  gerçek (fake IP'li, `.conn_adt` sahte alanlarıyla) bir `pyrfc.Connection`
+  denemesi yaptı — ICU hatası tamamen gitti, hata artık gerçek bir ağ
+  seviyesi hata oldu (`RFC_COMMUNICATION_FAILURE`, `WSAETIMEDOUT`, fake IP'ye
+  ulaşılamadığı için beklenen). Bu, DLL/import/native-loading zincirinin
+  **uçtan uca çalıştığının** kanıtı — gerçek bir router-only müşteri
+  sisteminde artık yalnızca gerçek ağ/kimlik bilgisi sorunları kalır, DLL
+  sorunu kalmaz.
+- **`AppConfig.pythonPath`'i venv'e çevirmeyi unutma**: `rfcBridgeManager.ts`
+  `spawn(opts.pythonPath, [...])` ile çalışır — `opts.pythonPath` sistem
+  `py`/`python`'a işaret ediyorsa (pyrfc kurulu değilse) otomatik başlatma
+  hep "pyrfc kurulu değil" hatasıyla başarısız olur, kullanıcı Ayarlar'dan
+  bu alanı venv'in `python.exe`'sine çevirmeli.
+- **`SAPNWRFC_HOME` kalıcılığı ile ilgili Windows gotcha'sı**: `setx` sadece
+  registry'ye yazar, **çalışan process'lerin (ve onların spawn ettiği
+  child'ların) environment block'unu güncellemez** — Electron uygulaması
+  zaten açık bir Explorer/oturumdan başlatıldıysa yeni `SAPNWRFC_HOME`'u
+  göremeyebilir. Kullanıcıya, `setx`'ten sonra en azından **oturumu kapat-aç
+  veya yeniden başlat** gerektiğini söyle (log off/on Explorer'ın master
+  environment block'unu registry'den yeniden okumasını sağlar).
+- **Lisans notu (bilerek göz ardı edilmedi, kullanıcıya bildirildi)**: SAP NW
+  RFC SDK, SAP'nin lisanslı ürünüdür; resmi indirme S-user + "Software
+  Download" yetkisi gerektirir. Bu oturumda kullanıcının kendi temin ettiği
+  bir SDK kopyası (içerik olarak orijinal — imzası doğrulandı — ama resmi
+  S-user indirme kanalından değil) kullanıldı; kullanıcı bunu açıkça
+  onayladı ("kendi sorumluluğumda"). **Güncel durum (bkz. aşağıdaki "Gömülü
+  RFC Runtime" bölümü)**: bu SDK kopyası artık uygulamanın kendi build
+  paketine gömülüyor — kalıcı/tam uyumlu çözüm hâlâ kullanıcının kendi
+  S-user'ına "Software Download" yetkisi ekletmesi olsa da, mevcut durumda
+  uygulama zaten çalışan bir kopyayla dağıtılıyor.
+
+## Gömülü RFC Runtime — kullanıcı için sıfır kurulum (2026-08-23, TAMAMLANDI)
+
+Yukarıdaki bölümde bu makinede elle kurulup canlı doğrulanan Python 3.12 +
+pyrfc 3.3.1 + SAP NW RFC SDK 7.53 patch 814 üçlüsü, kullanıcı isteğiyle artık
+**uygulamanın kendi build paketine gömülü** — RFC bridge gerektiren
+router-only sistemlere bağlanırken kullanıcının ayrıca Python/pyrfc/SDK
+kurması, `SAPNWRFC_HOME` ayarlaması veya `pip install` çalıştırması **hiç
+gerekmiyor**.
+
+- **`resources/rfc-runtime/`** (yeni, **repoya commit edilmiyor** —
+  `.gitignore`'a eklendi, bkz. aşağıdaki "build önkoşulu" notu) iki alt
+  klasör içeriyor:
+  - **`python/`** — makinedeki `AppData\Local\Programs\Python312`
+    kurulumunun budanmış bir kopyası (Doc/tcl/Scripts/include/libs/idlelib/
+    tkinter/turtledemo/lib2to3/ensurepip/pydoc_data/test/`__pycache__`
+    klasörleri çıkarıldı — sadece çalışma zamanı için gereken interpreter +
+    stdlib kaldı, ~114MB'tan ~46MB'a indi) + `Lib/site-packages/`'e elle
+    kopyalanan **`pyrfc`** ve **`dotenv`** (zaten kurulu olan
+    `axet-rfc-venv`'den, tekrar `pip install` çalıştırmadan — venv'in
+    kendisi taşınabilir değil çünkü `Scripts\python.exe`'si base
+    `Python312` kurulumuna bağımlı, ama site-packages içeriği saf Python +
+    derlenmiş `.pyd` olduğu için doğrudan kopyalanabiliyor).
+  - **`sdk/lib/`** — `AppData\Local\nwrfcsdk-750\lib`'in içeriği (SAP NW RFC
+    SDK 7.53 patch 814 runtime DLL'leri: `sapnwrfc.dll`, `libsapucum.dll`,
+    `icudt50.dll`, `icuin50.dll`, `icuuc50.dll`, `libicudecnumber.dll`,
+    `msvcr120.dll`, `msvcp120.dll`) — `.lib`/`include` gibi sadece derleme
+    zamanında gereken dosyalar dahil edilmedi (pyrfc zaten önceden
+    derlenmiş bir `.pyd`, runtime'da sadece DLL'lere ihtiyaç var).
+  - Bu yapı standart `SAPNWRFC_HOME` sözleşmesiyle (`$SAPNWRFC_HOME/lib/*.dll`)
+    birebir eşleşiyor — `adt_rfc_bridge.py`'nin var olan
+    `_ensure_sapnwrfc_dll_dir()` fonksiyonuna hiç dokunulmadı, sadece
+    `SAPNWRFC_HOME` artık `resources/rfc-runtime/sdk`'ya işaret ediyor.
+- **`app-electron/main/embeddedRuntime.ts`** (yeni) — `getEmbeddedRfcRuntime()`:
+  `app.isPackaged`'e göre (paketli: `process.resourcesPath/rfc-runtime`,
+  dev: `<proje>/resources/rfc-runtime`, `sapToolkit.ts`'teki
+  `getToolkitRoot()`'un aynı deseni) `python/python.exe` ve `sdk/lib/
+  sapnwrfc.dll`'in gerçekten var olduğunu kontrol edip
+  `{ pythonPath, sapnwrfcHome }` döner, yoksa `null` (paketleme
+  bozuk/eksikse sessizce fallback'e düşülür, çökme olmaz).
+- **`launcher.ts`** `connectToSystem()`'daki RFC bridge dalı artık önce
+  `getEmbeddedRfcRuntime()`'ı dener: `config.pythonPath` (Ayarlar'daki
+  "Özel Python çalıştırıcısı") **boşsa** gömülü runtime kullanılır
+  (`pythonPath` + `sapnwrfcHome` ikisi de embedded'den), kullanıcı elle bir
+  yol girmişse (ileri seviye override — kendi pyrfc/SDK kurulumunu
+  kullanmak isteyenler için) o yol kullanılır ve `sapnwrfcHome`
+  **geçirilmez** (kullanıcının kendi ortam değişkenlerine/`SAPNWRFC_HOME`'una
+  güvenilir — eski davranışla birebir aynı).
+- **`rfcBridgeManager.ts`** `startRfcBridge()`'e `sapnwrfcHome?: string`
+  opsiyonel alanı eklendi — verilirse spawn edilen process'in `env`'ine
+  `SAPNWRFC_HOME` ve `PATH` (sdk `lib` klasörü prepend) enjekte edilir
+  (önceden sadece `process.env` düz geçiliyordu, kullanıcının kendi sistem
+  `SAPNWRFC_HOME`'una güveniliyordu — artık gömülü mod için bunu biz
+  sağlıyoruz). `describeFailure()` embedded/override ayrımına göre farklı
+  hata ipuçları veriyor (embedded modda "pyrfc bulunamadı" artık "SDK indir"
+  değil "uygulamayı yeniden kur" öneriyor, çünkü kullanıcının yapabileceği
+  bir kurulum adımı yok).
+- **`package.json`** `build.extraResources`'a `resources/rfc-runtime` →
+  `rfc-runtime` eklendi (sap-toolkit ile aynı desen). **Build önkoşulu**:
+  `resources/rfc-runtime` klasörü repoya commit edilmiyor (SAP'nin lisanslı
+  SDK'sını git geçmişine/uzak repoya taşımamak için, `axet-rfc-venv`/
+  `nwrfcsdk-750`'nin de repo dışında `AppData\Local`'da tutulmasıyla aynı
+  mantık) — her build makinesinde bir kere elle hazırlanmalı (yukarıdaki
+  `python/`+`sdk/lib/` içeriğini bu makinedeki `Python312`/`axet-rfc-venv`/
+  `nwrfcsdk-750`'den kopyalayarak, veya kendi lisanslı SDK/pyrfc
+  kurulumunuzdan aynı yapıyla). Bu klasör yoksa `build:win`
+  (`extraResources`) build makinesinde HATA verir — bilerek böyle, sessizce
+  eksik bir RFC özelliğiyle paketlemek yerine.
+- **Doğrulama**: hem dev konumundan (`resources/rfc-runtime/python/
+  python.exe`) hem de gerçek bir `electron-builder --win dir` paketleme
+  çıktısından (`release/win-unpacked/resources/rfc-runtime/python/
+  python.exe`) izole bir Python süreci başlatılıp `import pyrfc` +
+  `pyrfc.Connection(...)` denemesi yapıldı — ikisinde de ICU/DLL zinciri
+  hatasız yüklendi, sahte bir IP'ye gerçek bir ağ seviyesi timeout
+  (`RFC_COMMUNICATION_FAILURE`/`WSAETIMEDOUT`) alındı (yani DLL/import
+  sorunu YOK, sadece beklenen ağ hatası). `npm run typecheck`, `npm run
+  build` ve `npx electron-builder --win dir` hepsi temiz geçti.
+- **Ayarlar/i18n**: `settingsModal.pythonPathLabel`/`pythonPathHelper`
+  (`tr.ts`/`en.ts`) "RFC bridge için Python yolu" çerçevesinden "gelişmiş,
+  opsiyonel override — normalde boş bırak" çerçevesine güncellendi;
+  placeholder `"py"` yerine `"(boş = gömülü Python/pyrfc/SDK kullanılır)"`.
+  `SKILL.md`'nin "Router-only sistemler (RFC bridge)" bölümü ve
+  `adt_rfc_bridge.py`/`adt_rfc_probe.py`'nin docstring'leri de bu yeni
+  varsayılan davranışı (gömülü = varsayılan, elle kurulum = sadece override/
+  bozuk paket durumunda fallback) yansıtacak şekilde güncellendi.
+- **Bilinçli olarak DEĞİŞTİRİLMEYEN**: `adt_rfc_bridge.py`/
+  `adt_rfc_probe.py`'nin kendisi (marshalling, `_ensure_sapnwrfc_dll_dir()`
+  dahil) — bu fonksiyon zaten sadece `SAPNWRFC_HOME` ortam değişkenine
+  bakıyor, biz onu nereye işaret ettireceğimizi (embedded ya da kullanıcının
+  kendi kurulumu) `rfcBridgeManager.ts`'ten env enjeksiyonuyla kontrol
+  ediyoruz — Python script'lerinin içine "embedded mi değil mi" mantığı
+  hiç sızmadı.
+- **Gelecekte dokunma notu**: `resources/rfc-runtime`'ı asla `git add`
+  etme — bu klasör SAP'nin lisanslı SDK'sını içeriyor, private bile olsa
+  bir uzak repoya taşınmaması bilinçli bir tercih. Yeni bir build
+  makinesine geçerken bu klasörü elle (güvenli bir dosya paylaşımıyla,
+  git'in dışında) taşı.
+
+## "Özel Python çalıştırıcısı" ayarı kaldırıldı (2026-08-23, TAMAMLANDI)
+
+Gömülü RFC runtime'ı geldikten sonra bu alan artık gereksiz bir kafa
+karışıklığı kaynağıydı (kullanıcı "her bilgisayarda çalışacak" beklerken
+gelişmiş/opsiyonel bir override görüyordu) — kaldırıldı:
+
+- `AppConfig.pythonPath` (`shared/types.ts`, `store.ts` `defaultConfig`)
+  silindi. `launcher.ts`'teki RFC bridge dalı artık HER ZAMAN
+  `getEmbeddedRfcRuntime()`'ı kullanıyor, sadece paket bozuksa/eksikse
+  (`resources/rfc-runtime` yoksa) son çare olarak sistem `"py"`'a düşüyor —
+  kullanıcının elle bir yol girme seçeneği tamamen kaldırıldı.
+- `rfcBridgeManager.ts` `describeFailure()`'daki "Ayarlar'dan Python yolu
+  gir" önerileri "uygulamayı yeniden kur" mesajına çevrildi (artık
+  kullanıcının yapabileceği bir ayar adımı yok).
+- `SettingsModal.tsx`, `KULLANIM-REHBERI.md`, `sap-adt-readonly/SKILL.md`
+  içindeki ilgili tüm metinler kaldırıldı/güncellendi.
+
+## RFC Bridge 502 Hatalarında Gerçek Sebep Artık Görünür (2026-08-23, TAMAMLANDI) — canlı bulgu
+
+**Şikayet (canlı sistem, router-only)**: RFC bridge (`127.0.0.1:8788`) ve ADT
+read-only server (`127.0.0.1:8787`) ayaktaydı, ama `adt_logon` (gerçek bir
+`SADT_REST_RFC_ENDPOINT` çağrısı) **502** ile başarısız oluyordu. Kullanıcı
+doğru teşhis etti: bu bir kimlik bilgisi sorunu değil, RFC bridge'in kendisi
+SAP'a gerçek bir RFC bağlantısı kuramıyordu — muhtemelen Basis'in
+`saprouttab`'ında raw HTTPS için izin verilmiş olsa da RFC/gateway trafiği
+için ayrı bir izin satırı eksikti.
+
+**Kök sebep (kod tarafında, teşhisi zorlaştıran gerçek bir bug)**:
+`adt_rfc_bridge.py`'nin 502 yanıtı gövdesinde başarısız olan gerçek pyrfc/RFC
+istisnasının metnini taşıyordu (`adt-rfc-bridge error calling
+SADT_REST_RFC_ENDPOINT: <gerçek hata>`) — AMA `adtDiscovery.ts`'teki
+`verifyCredentials()` bu gövdeyi **hiç okumuyordu**, sadece `res.resume()`
+ile atıp "Beklenmeyen HTTP durumu: 502" diyordu. Yani en kritik teşhis bilgisi
+(gerçek istisna — `RFC_COMMUNICATION_FAILURE`, `NIEROUT_PERM_DENIED`, logon
+hatası vb.) kullanıcıya/agent'a **hiçbir zaman ulaşmıyordu**, sadece çıplak
+"502" görünüyordu — kullanıcı bunu ancak elle `curl`/log inceleyerek
+öğrenebilirdi (bu oturumda tam olarak öyle yaptı).
+
+**Düzeltme**:
+- `verifyCredentials()`'ın hem doğrudan (non-router) hem router üzerinden
+  giden dalı artık 200/401 dışındaki durumlarda yanıt gövdesini okuyup
+  (`unexpectedStatusMessage()`, max 400 karakterlik özet) mesaja ekliyor —
+  `CredentialVerifyResult.message` artık "Beklenmeyen HTTP durumu: 502 —
+  adt-rfc-bridge error calling SADT_REST_RFC_ENDPOINT: <gerçek pyrfc hatası>"
+  şeklinde, gerçek kök sebebi taşıyor.
+- `launcher.ts`'e `describeRfcEndpointFailure()` eklendi — bu mesajdaki
+  yaygın kalıpları (`NIEROUT_PERM_DENIED`/route izni, `RFC_COMMUNICATION_
+  FAILURE`/ağ-parametre, logon hatası) tanıyıp elle teşhis yapmadan aynı
+  sonuca (Basis/saprouttab RFC izni mi, yanlış ashost/sysnr mi, yoksa RFC
+  logon'un kendisi mi reddedildi) otomatik ulaşan bir not ekliyor —
+  `attemptRfcBridgeAutoStart()`'ın `detailNote`'una (sap-context.md'ye
+  yazılan) ekleniyor.
+- Bu sistemdeki gerçek durum (kullanıcının teşhisi doğrulandı): 502 gövdesi
+  büyük olasılıkla `NIEROUT_PERM_DENIED`/`RFC_COMMUNICATION_FAILURE` taşıyor
+  — **kalıcı çözüm Basis'in `saprouttab`'a bu ashost:sysnr için ayrı bir RFC/
+  gateway `P` (permit) satırı eklemesi**, kod tarafında ek bir şey
+  yapılamaz (raw HTTPS izni ile RFC izni SAProuter'da ayrı kurallardır).
+- `npm run typecheck` ve `npm run build` temiz geçti. Gerçek bir 502 gövdesine
+  karşı canlı doğrulama bu oturumda yapılamadı (bu makinede pyrfc/SDK yok) —
+  kullanıcının bir dahaki router-only bağlantısında `sap-context.md`'deki
+  yeni notu ve toast mesajını görmesi gerekiyor.
+
+## ADT Read-Only Sunucusu (%sap-adt-readonly, port 8787) da RFC Bridge ile Aynı Desende Otomatik Başlatılıyor (2026-08-23, TAMAMLANDI) — Limak canlı oturumundan çıkan istek
+
+**İstek**: Limak sisteminde RFC bridge'in (8788) canlı olarak çalıştığı
+doğrulandıktan sonra kullanıcı şunu istedi: "bu bağlantının routerli olan her
+sistemde otomatik olarak işliyor olması lazım, routerli olmayan sistemlerde ise
+varolan process ile otomatik axet açılınca sisteme bağlı açılması gerekiyor."
+Yani iki madde:
+1. Router'lı sistemlerde RFC bridge otomatik başlatması zaten **genel** bir
+   mekanizma (`isRouterPermissionDenied()` her sistemde tetiklenir, Limak'a
+   özel bir kod yolu yok) — bu zaten karşılanıyordu, ek bir değişiklik
+   gerekmedi.
+2. **Eksik olan kısım**: `%sap-adt-readonly`'nin arkasındaki gerçek Python
+   sunucusu (`adt_readonly_server.py`, port 8787) hiçbir bağlantı türünde
+   (router'lı VEYA router'sız) launcher tarafından başlatılmıyordu — kullanıcı/
+   agent HER bağlanışta terminalde elle `ADT_CWD=$(pwd) py
+   adt_readonly_server.py --port 8787` çalıştırmak zorundaydı (bkz.
+   `sap-context.md`'nin eski "Yöntem 1" bölümü ve `SKILL.md`'nin "Step 2"si).
+   RFC bridge zaten otomatikleşmişken bu adımın hâlâ elle yapılması tutarsızdı.
+
+**Çözüm — `attemptRfcBridgeAutoStart()`'ın BİREBİR AYNI deseni, ikinci bir
+process için**:
+- **`app-electron/main/adtReadonlyServerManager.ts`** (yeni,
+  `rfcBridgeManager.ts`'in birebir kopyası/uyarlaması) — `startReadonlyServer()`
+  proje klasörü başına (`Map<projectDir, RunningServer>`) `adt_readonly_
+  server.py`'yi spawn eder, `/health`'i 500ms aralıklarla en fazla 15s polling
+  ile bekler, log'u `adt-readonly.log`'a yazar. **Ek bir davranış (RFC bridge
+  manager'da yok)**: spawn etmeden ÖNCE portu doğrudan `healthCheck` ile
+  probe'luyor — kullanıcı zaten elle (veya önceki bir launcher oturumundan)
+  8787'de bir sunucu çalıştırıyorsa bunu **`external: true`** olarak kabul
+  ediyor, ikinci bir process açıp `EADDRINUSE`'a düşmüyor (ve `stopReadonlyServer`
+  bu `external` process'i öldürmüyor — sadece kendi başlattığı process'i
+  yönetiyor). `describeFailure()` bu sunucuya özgü hataları (
+  `requests`/`mcp`/`python-dotenv` eksik, port çakışması) tanıyor — RFC/pyrfc/
+  SDK'yla hiç ilgisi yok, çünkü bu sunucu **pyrfc/SAP NW RFC SDK'ya hiç ihtiyaç
+  duymuyor** (düz `requests` ile HTTP'ye konuşuyor — router-only sistemlerde
+  bile hedefi zaten yerel RFC bridge'in kendisi olan `http://127.0.0.1:8788`,
+  pyrfc'siz). Bu yüzden gömülü RFC runtime'ı (`getEmbeddedRfcRuntime()`)
+  kullanılmıyor — sistemdeki `"py"` çalıştırıcısı kullanılıyor (mevcut elle
+  kurulum dokümantasyonuyla aynı varsayım; `requests`/`mcp`/`python-dotenv`'in
+  kurulu olması gerekiyor, `pip install -r requirements.txt`).
+- **`launcher.ts` `attemptReadonlyServerAutoStart()`** (yeni) — `.conn_adt`
+  yazıldıktan ve (varsa) RFC bridge outcome'u belirlendikten SONRA,
+  **`DEFAULT_READONLY_SERVER_PORT = 8787`** ile çağrılır. Script yolu RFC
+  bridge ile birebir aynı öncelik sırasıyla bulunur (`scriptRel = ["sap-adt-
+  readonly", "scripts", "adt_readonly_server.py"]`, önce proje klasöründeki
+  kopya, yoksa toolkit kökü). Tek atlama koşulu: `rfcBridge && rfcOutcome.
+  credentialsInvalid` — bu durumda `connectToSystem()` zaten `ok:false` ile
+  terminal açmadan dönüyor, sunucu başlatmanın anlamı yok. **Diğer TÜM
+  durumlarda** (router'sız direkt bağlantı, router'lı+doğrulanmış RFC bridge,
+  router'lı+doğrulanamamış-ama-çalışan RFC bridge) sunucu başlatılmaya
+  çalışılır — RFC bridge modunda `.conn_adt`'taki `ADT_SAP_URL` zaten yerel
+  bridge'e (8788) işaret ettiği için read-only sunucusu (8787) otomatik olarak
+  bridge üzerinden SAP'a konuşur, ekstra bir yönlendirme kodu gerekmedi.
+- **`buildContextMarkdown()`**'a yeni `readonlyOutcome` parametresi eklendi —
+  "Yöntem 1" bölümündeki eski sabit "başlat" komutu, artık gerçek otomatik
+  başlatma durumunu (başlatıldı ✓ / zaten çalışıyordu ✓ / BAŞARISIZ + detay)
+  söyleyen dinamik bir satıra (`readonlyServerStatusLine`) çevrildi; elle
+  başlatma komutu hâlâ orada ama artık "SADECE yukarıdaki durum BAŞARISIZ ise"
+  notuyla ikinci plana düştü — agent artık körlemesine her seferinde "sunucu
+  ayakta mı" diye kontrol edip elle başlatmayı denemek zorunda değil, önce
+  bu durumu okuyabilir.
+- **`main/index.ts`**: `stopAllReadonlyServers()` (yeni export) `window-all-
+  closed`/`before-quit`'te `stopAllRfcBridges()`'in yanına eklendi — zombi
+  `python.exe` kalmasın diye, mevcut temizlik noktasıyla aynı yer.
+- **`SKILL.md`** ("Step 1"/"Step 2") güncellendi: aXet SAP Launcher içindeyken
+  önce `sap-context.md`'deki otomatik başlatma durumuna bakılması, elle
+  başlatmanın (Step 2) sadece "BAŞARISIZ" durumunda gerekli olduğu not edildi
+  (bu SKILL.md launcher dışında/tek başına klonlanmış repo olarak da
+  kullanılabildiği için elle adımlar kaldırılmadı, sadece ikincil plana
+  alındı).
+- **Bilinçli tasarım kararı — neden RFC bridge'inkinden farklı python
+  seçimi**: RFC bridge embedded runtime kullanıyor çünkü pyrfc/SDK'ya
+  ihtiyacı var ve bunlar lisanslı/büyük bağımlılıklar (gömülü olmaları
+  kullanıcı deneyimini kurtarıyor). Read-only sunucusu sadece `requests`/`mcp`/
+  `python-dotenv` istiyor — bunlar embedded Python'a eklenmedi (embedded
+  runtime sadece pyrfc+dotenv taşıyor, bkz. "Gömülü RFC Runtime" bölümü) ve
+  `mcp` paketi nispeten büyük/sık güncellenen bir bağımlılık olduğu için
+  şimdilik gömülmedi — kullanıcının sistem Python'una `pip install -r
+  requirements.txt` yapmış olması hâlâ gerekiyor. Bu, gelecekte embedded
+  runtime'a `requests`/`mcp`/`python-dotenv` eklenip bu sunucunun da tam
+  sıfır-kurulum hale getirilebileceği bir genişletme noktası (henüz
+  yapılmadı, kapsam dışı bırakıldı — kullanıcı bunu istemedi, sadece
+  "otomatik başlatma" istedi, "kurulum gerektirmesin" değil).
+- `npm run typecheck` ve `npm run build` temiz geçti. Gerçek bir GUI
+  penceresinde/Limak'ın kendi router'ına karşı bu otomatik başlatmanın
+  (özellikle RFC bridge + read-only server'ın birlikte, doğru sırada, aynı
+  proje klasöründe ayağa kalkması) ucuca canlı testi bu oturumda yapılamadı —
+  kullanıcının bir dahaki bağlantısında (router'lı VEYA router'sız herhangi
+  bir sistemde) doğrulaması gerekiyor; `%sap-adt-readonly`'ye ilk soru
+  sorulduğunda artık "NOT RUNNING" değil doğrudan bir yanıt beklenir.

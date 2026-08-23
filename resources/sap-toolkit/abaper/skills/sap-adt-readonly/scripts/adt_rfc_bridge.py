@@ -38,6 +38,11 @@ LIMITATIONS (read before relying on this for anything beyond reads)
       RFC_GET_FUNCTION_INTERFACE so you can fix the marshalling below.
 
 REQUIRES (see SKILL.md "Router-only sistemler (RFC bridge)")
+    aXet SAP Launcher bundles its own Python + pyrfc + SAP NW RFC SDK
+    (resources/rfc-runtime) and spawns this script with that runtime
+    automatically — you normally never need to install anything. This
+    section only applies if you run this script standalone (outside the
+    launcher) with your own Python:
     - SAP NW RFC SDK (licensed, requires your own SAP S-user download
       authorization) + SAPNWRFC_HOME environment variable pointing at it.
     - pip install pyrfc (compiles against the SDK; needs a matching C/C++
@@ -64,6 +69,35 @@ try:
 except ImportError:
     print("[adt-rfc-bridge] FAIL: python-dotenv not installed. pip install python-dotenv", file=sys.stderr)
     sys.exit(1)
+
+
+def _ensure_sapnwrfc_dll_dir() -> None:
+    """Two independent DLL-search mechanisms need SAPNWRFC_HOME/lib:
+    1. Python >=3.8's own extension-module loader (pyrfc's _cyrfc.pyd) no
+       longer searches PATH (PEP 3118 / bpo-36085) -- needs os.add_dll_directory().
+    2. sapnwrfc.dll's OWN internal LoadLibrary calls for its ICU dependencies
+       (icuuc50.dll/icudt50.dll/icuin50.dll), made deep inside the native RFC
+       runtime when a Connection is actually opened, are classic LoadLibrary
+       calls that only honour the process PATH -- add_dll_directory() does not
+       cover those, so PATH must be extended too, or you get a native
+       'Could not open the ICU common library' error at logon time (not at
+       import time), pointing at [nlsui0.c] / SAP note 519753."""
+    if sys.platform != "win32":
+        return
+    home = os.getenv("SAPNWRFC_HOME")
+    if not home:
+        return
+    lib_dir = Path(home) / "lib"
+    if not lib_dir.is_dir():
+        return
+    try:
+        os.add_dll_directory(str(lib_dir))
+    except (AttributeError, OSError):
+        pass
+    lib_dir_str = str(lib_dir)
+    path = os.environ.get("PATH", "")
+    if lib_dir_str not in path.split(os.pathsep):
+        os.environ["PATH"] = lib_dir_str + os.pathsep + path
 
 
 def find_conn_file() -> Path:
@@ -132,6 +166,7 @@ class RfcAdtClient:
     def _ensure_connection(self):
         if self._conn is not None:
             return
+        _ensure_sapnwrfc_dll_dir()
         import pyrfc
 
         self._conn = pyrfc.Connection(
@@ -144,11 +179,23 @@ class RfcAdtClient:
             saprouter=self._cfg["saprouter"],
         )
 
+    def _call_endpoint(self, request_struct: dict):
+        """Calls SADT_REST_RFC_ENDPOINT, retrying ONCE after a fresh reconnect
+        if the call raises (e.g. the RFC connection died underneath us).
+        Deliberately does NOT retry more than once -- repeated logon attempts
+        on a bad connection can lock the SAP user, same caution the reference
+        adt-rfc-bridge implementation (enricoandreoli/adt-rfc-bridge) takes."""
+        self._ensure_connection()
+        try:
+            return self._conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=request_struct)
+        except Exception:
+            self._conn = None
+            self._ensure_connection()
+            return self._conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=request_struct)
+
     def request(self, method: str, uri: str, headers: list, body: bytes):
         """Returns (status_code, reason_phrase, headers_list, body_bytes)."""
         with self._lock:
-            self._ensure_connection()
-
             fetch_csrf = any(h[0].lower() == "x-csrf-token" and h[1] == "Fetch" for h in headers)
             real_method = "GET" if method.upper() == "HEAD" else method.upper()
 
@@ -160,7 +207,7 @@ class RfcAdtClient:
                 "MESSAGE_BODY": body or b"",
             }
 
-            result = self._conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=request_struct)
+            result = self._call_endpoint(request_struct)
             response = result["RESPONSE"]
             status_line = response["STATUS_LINE"]
             status_code = int(status_line.get("STATUS_CODE", 500))
@@ -290,6 +337,7 @@ def main() -> None:
 
     cfg = load_rfc_config()
 
+    _ensure_sapnwrfc_dll_dir()
     try:
         import pyrfc  # noqa: F401
     except ImportError as exc:

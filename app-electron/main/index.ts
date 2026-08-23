@@ -9,6 +9,8 @@ import { loadConfig, saveConfig, saveLastCredential, saveTrustedCertificates, pu
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
+import { stopAllRfcBridges } from "./rfcBridgeManager";
+import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { isPathAllowed, listDir, readTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles } from "./fsExplorer";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
@@ -457,9 +459,13 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   disposeAllTerminals();
+  stopAllRfcBridges();
+  stopAllReadonlyServers();
   if (process.platform !== "darwin") app.quit();
 });
 
 app.on("before-quit", () => {
   disposeAllTerminals();
+  stopAllRfcBridges();
+  stopAllReadonlyServers();
 });

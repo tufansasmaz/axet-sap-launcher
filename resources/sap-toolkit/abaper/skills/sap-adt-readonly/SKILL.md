@@ -35,13 +35,19 @@ tools (push/create/activate/delete/transport/screen-gen) return `404 unknown_too
 
 ## Step 1 — Is the server running?
 
+**If you are inside aXet SAP Launcher**: the launcher already auto-started this
+server for you when it opened this terminal (same mechanism as the RFC bridge
+auto-start below) — check `sap-context.md`'s "Otomatik başlatma durumu" line
+under Yöntem 1 first. It should already say "OTOMATİK başlatıldı ✓" or "zaten
+çalışıyordu ✓". Only fall back to Step 2 if that line says "BAŞARISIZ" (failed).
+
 ```bash
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())" 2>/dev/null || echo "NOT RUNNING"
 ```
 
 `{"ok": true, "readonly": true, ...}` → go to Step 3. `NOT RUNNING` → Step 2.
 
-## Step 2 — Start the read-only server (background)
+## Step 2 — Start the read-only server (background) — only if auto-start failed/not applicable
 
 Set `ADT_CWD` to the folder that holds the project's `.conn_adt`, then start the
 gate. **Run this with `run_in_background: true`.** Adjust the path to wherever this
@@ -156,15 +162,27 @@ ADT_RFC_BRIDGE_PORT=8788
 ADT_SAP_URL=http://127.0.0.1:8788
 ```
 
-`ADT_SAP_URL` zaten bu bridge'e işaret ediyor — yani `%sap-adt-readonly`'yi
-**her zamanki gibi** kullan (SKILL.md'nin üstündeki adımlar), sadece bridge'i
-önce ayakta tutman gerekiyor:
+**Artık launcher bu bridge'i OTOMATİK başlatıyor** (Limak sisteminde canlı
+doğrulandı — bkz. PROJE-BILGI.md): `.conn_adt` yazıldıktan sonra launcher
+kendisi `adt_rfc_bridge.py`'yi proje klasöründen, **kendi gömülü Python +
+pyrfc + SAP NW RFC SDK runtime'ıyla** (`resources/rfc-runtime`, kullanıcının
+hiçbir şey kurmasına gerek kalmadan uygulamaya paketli gelir) spawn eder,
+`/health` ile ayakta olduğunu doğrular, sonra bridge üzerinden gerçek bir
+kimlik doğrulama isteği atıp RFC/router zincirinin baştan sona çalıştığını
+kanıtlar. Terminal açıldığında `sap-context.md`'deki "SAProuter RFC Bridge
+Modu" bölümünde bu otomatik başlatmanın sonucu (başarılı/doğrulandı,
+başlatıldı ama doğrulanamadı, veya başarısız) zaten yazılı olacak — önce onu
+oku, genelde **hiçbir ekstra adım gerekmez**, `%sap-adt-readonly`'yi doğrudan
+kullan.
 
-### Kurulum (bir kere, kullanıcının kendi SAP S-user'ı gerekli)
+Otomatik başlatma sadece uygulama kurulumu bozuk/eksikse başarısız olur
+(`resources/rfc-runtime` paketlenmemiş) — o zaman aşağıdaki elle kurulum
+adımlarına ihtiyaç duyarsın. Hata mesajı ve `rfc-bridge.log` (proje
+klasöründe) sebebi söyler; kalıcı çözüm uygulamayı yeniden kurmaktır.
 
-RFC bağlantısı **lisanslı SAP NW RFC SDK** gerektirir — bunu bu asistan
-senin adına indiremez (S-user kimlik doğrulaması gerekiyor, dağıtımı SAP
-tarafından yasak):
+### Elle kurulum (sadece gömülü runtime paketi bozuksa/eksikse, kullanıcının kendi SAP S-user'ı gerekli)
+
+Bu adımlar sadece uygulamanın gömülü RFC runtime'ı çalışmıyorsa gerekli:
 
 1. `https://support.sap.com/en/product/connectors/nwrfcsdk.html` adresinden
    kendi SAP S-user'ınla "SAP NW RFC SDK"yı indir (ek ücret yok, sadece
@@ -172,19 +190,23 @@ tarafından yasak):
 2. ZIP'i aç, `SAPNWRFC_HOME` ortam değişkenini açılan klasöre ayarla.
 3. `py -m pip install pyrfc` (SDK header/lib'lerine karşı derlenir; Python
    sürümünle uyumlu bir C/C++ toolchain gerekir).
+4. Uygulamayı yeniden kur (gömülü runtime paketini onarmak için), ya da
+   `%sap-adt-readonly` altındaki `adt_rfc_bridge.py`'yi bu Python'ınla elle
+   çalıştır (bkz. altta "Elle çalıştırma").
 
-### Kullanım
+### Elle çalıştırma / diagnostik (bridge otomatik başladıysa normalde gerekmez)
 
 ```bash
 # 1) Kurulumu doğrula (RFC_PING + SADT_REST_RFC_ENDPOINT arayüzünü kontrol eder)
 py "<sap-toolkit>/abaper/skills/sap-adt-readonly/scripts/adt_rfc_probe.py"
 
-# 2) Bridge'i başlat (run_in_background: true)
+# 2) Bridge'i elle başlat (launcher zaten başlatmışsa gerek yok; run_in_background: true)
 ADT_CWD=$(pwd) py "<sap-toolkit>/abaper/skills/sap-adt-readonly/scripts/adt_rfc_bridge.py" --port 8788
 
 # 3) Normal akışa devam et — %sap-adt-readonly zaten ADT_SAP_URL üzerinden bu bridge'e gidiyor
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())"
 ```
+
 
 **Nasıl çalışıyor**: Bridge, router'ın izin verdiği native RFC kanalını
 kullanıp SAP'ın `SADT_REST_RFC_ENDPOINT` fonksiyon modülüyle (resmi olarak

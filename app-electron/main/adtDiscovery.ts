@@ -18,8 +18,18 @@ import type { AppLanguage } from "../shared/types";
 // önemli değil).
 function verifyMsg(
   language: AppLanguage,
-  key: "verified" | "verifiedRouter" | "unauthorized" | "unauthorizedWithSid" | "unexpectedStatus" | "invalidUrl" | "timeout" | "connectionError" | "connectionErrorRouter",
-  params?: { sid?: string; client?: string; status?: number | null; message?: string }
+  key:
+    | "verified"
+    | "verifiedRouter"
+    | "unauthorized"
+    | "unauthorizedWithSid"
+    | "unexpectedStatus"
+    | "unexpectedStatusWithBody"
+    | "invalidUrl"
+    | "timeout"
+    | "connectionError"
+    | "connectionErrorRouter",
+  params?: { sid?: string; client?: string; status?: number | null; message?: string; body?: string }
 ): string {
   const tr = {
     verified: "Kimlik bilgileri doğrulandı",
@@ -27,6 +37,7 @@ function verifyMsg(
     unauthorized: "401 Unauthorized — kullanıcı adı/şifre yanlış veya kilitli",
     unauthorizedWithSid: `401 Unauthorized (sistem: ${params?.sid}, client: ${params?.client}) — kullanıcı adı/şifre yanlış veya kilitli`,
     unexpectedStatus: `Beklenmeyen HTTP durumu: ${params?.status}`,
+    unexpectedStatusWithBody: `Beklenmeyen HTTP durumu: ${params?.status} — ${params?.body}`,
     invalidUrl: "Geçersiz ADT URL",
     timeout: "Zaman aşımı",
     connectionError: `Bağlantı hatası: ${params?.message}`,
@@ -38,12 +49,34 @@ function verifyMsg(
     unauthorized: "401 Unauthorized — wrong username/password or account locked",
     unauthorizedWithSid: `401 Unauthorized (system: ${params?.sid}, client: ${params?.client}) — wrong username/password or account locked`,
     unexpectedStatus: `Unexpected HTTP status: ${params?.status}`,
+    unexpectedStatusWithBody: `Unexpected HTTP status: ${params?.status} — ${params?.body}`,
     invalidUrl: "Invalid ADT URL",
     timeout: "Timed out",
     connectionError: `Connection error: ${params?.message}`,
     connectionErrorRouter: `Connection error (SAProuter): ${params?.message}`
   };
   return (language === "en" ? en : tr)[key];
+}
+
+// Bir doğrulama isteği 200/401 dışında bir durum döndürdüğünde, yanıt
+// gövdesini olduğu gibi atmak yerine kısa bir özet olarak mesaja ekliyoruz —
+// özellikle yerel RFC bridge (adt_rfc_bridge.py) 502 döndürdüğünde gövde,
+// başarısız olan gerçek pyrfc/RFC istisnasının metnini taşıyor (örn.
+// "RFC_COMMUNICATION_FAILURE", "NIEROUT_PERM_DENIED", "Logon failed") — bu
+// olmadan kullanıcı/agent sadece "502" görüyor ve kök sebebi tahmin etmek
+// zorunda kalıyordu.
+const MAX_BODY_SNIPPET = 400;
+
+function summarizeBody(raw: string): string {
+  const trimmed = raw.trim().replace(/\s+/g, " ");
+  return trimmed.length > MAX_BODY_SNIPPET ? `${trimmed.slice(0, MAX_BODY_SNIPPET)}…` : trimmed;
+}
+
+function unexpectedStatusMessage(language: AppLanguage, status: number | null, body: string): string {
+  const snippet = summarizeBody(body);
+  return snippet
+    ? verifyMsg(language, "unexpectedStatusWithBody", { status, body: snippet })
+    : verifyMsg(language, "unexpectedStatus", { status });
 }
 
 export function guessInstanceNumber(diagPort: number | null): string | null {
@@ -415,14 +448,19 @@ export function verifyCredentials(
     ? `/sap/bc/adt/discovery?sap-client=${encodeURIComponent(client.trim())}`
     : "/sap/bc/adt/discovery";
   const host = parsed.hostname;
-  const port = parsed.port ? Number(parsed.port) : 443;
+  // http:// şeması (yalnızca yerel RFC bridge — 127.0.0.1 — için kullanılır,
+  // gerçek SAP sistemleri her zaman https) düz http modülüyle istek atar,
+  // aksi halde TLS handshake bekleyip zaman aşımına düşer.
+  const isPlainHttp = parsed.protocol === "http:";
+  const port = parsed.port ? Number(parsed.port) : isPlainHttp ? 80 : 443;
+  const requestFn = isPlainHttp ? httpRequest : httpsRequest;
 
   if (routerString) {
     return verifyCredentialsThroughRouter(routerString, host, port, discoveryPath, auth, client, timeoutMs, language);
   }
 
   return new Promise((resolve) => {
-    const req = httpsRequest(
+    const req = requestFn(
       {
         host,
         port,
@@ -435,22 +473,28 @@ export function verifyCredentials(
       },
       (res) => {
         const sid = extractSidFromRealm(res.headers["www-authenticate"]);
-        res.resume();
         const status = res.statusCode ?? null;
-        if (status === 200) {
-          resolve({ ok: true, status, sid, message: verifyMsg(language, "verified") });
-        } else if (status === 401) {
-          resolve({
-            ok: false,
-            status,
-            sid,
-            message: sid
-              ? verifyMsg(language, "unauthorizedWithSid", { sid, client })
-              : verifyMsg(language, "unauthorized")
-          });
-        } else {
-          resolve({ ok: false, status, sid, message: verifyMsg(language, "unexpectedStatus", { status }) });
-        }
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => {
+          if (chunks.length < 8) chunks.push(chunk);
+        });
+        res.on("end", () => {
+          if (status === 200) {
+            resolve({ ok: true, status, sid, message: verifyMsg(language, "verified") });
+          } else if (status === 401) {
+            resolve({
+              ok: false,
+              status,
+              sid,
+              message: sid
+                ? verifyMsg(language, "unauthorizedWithSid", { sid, client })
+                : verifyMsg(language, "unauthorized")
+            });
+          } else {
+            const body = Buffer.concat(chunks).toString("utf-8");
+            resolve({ ok: false, status, sid, message: unexpectedStatusMessage(language, status, body) });
+          }
+        });
       }
     );
     req.on("error", (err) => resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "connectionError", { message: err.message }) }));
@@ -499,7 +543,7 @@ async function verifyCredentialsThroughRouter(
           : verifyMsg(language, "unauthorized")
       };
     }
-    return { ok: false, status, sid, message: verifyMsg(language, "unexpectedStatus", { status }) };
+    return { ok: false, status, sid, message: unexpectedStatusMessage(language, status, res.body ?? "") };
   } catch (err) {
     return { ok: false, status: null, sid: null, message: verifyMsg(language, "connectionErrorRouter", { message: (err as Error).message }) };
   } finally {

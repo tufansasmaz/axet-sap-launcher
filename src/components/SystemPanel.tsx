@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Cable,
   RefreshCw,
@@ -11,8 +11,14 @@ import {
   AlertTriangle,
   History,
   LogIn,
-  MessageSquare,
-  Check
+  Check,
+  ChevronRight,
+  Database,
+  Network,
+  Loader2,
+  Circle,
+  NotebookPen,
+  type LucideIcon
 } from "lucide-react";
 import type { ConnectivityState, SapService, SystemTier } from "../../app-electron/shared/types";
 import StatusDot from "./StatusDot";
@@ -43,6 +49,131 @@ interface Props {
 
 const TIER_OPTIONS: SystemTier[] = ["DEV", "QA", "PRD"];
 
+const TIER_ACCENT: Record<SystemTier, { border: string; bg: string; text: string }> = {
+  DEV: { border: "var(--tier-dev-border)", bg: "var(--tier-dev-bg)", text: "var(--tier-dev-text)" },
+  QA: { border: "var(--tier-qa-border)", bg: "var(--tier-qa-bg)", text: "var(--tier-qa-text)" },
+  PRD: { border: "var(--tier-prd-border)", bg: "var(--tier-prd-bg)", text: "var(--tier-prd-text)" }
+};
+
+function avatarLabel(service: SapService) {
+  const source = service.systemId?.trim() || service.name.trim();
+  return source.slice(0, 2).toUpperCase() || "?";
+}
+
+function StatTile({ icon: Icon, label, value, mono }: { icon: LucideIcon; label: string; value: ReactNode; mono?: boolean }) {
+  return (
+    <div className="rounded-md border border-base-700/60 bg-base-950/30 p-3 transition-colors hover:border-base-600">
+      <div className="mb-1.5 flex items-center gap-1.5 text-slate-500">
+        <Icon size={12} />
+        <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
+      </div>
+      <div className={`truncate text-sm font-semibold text-slate-200 ${mono ? "font-mono" : ""}`}>{value}</div>
+    </div>
+  );
+}
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+  mono,
+  compact,
+  copyValue,
+  copyTitle
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  mono?: boolean;
+  compact?: boolean;
+  copyValue?: string;
+  copyTitle?: string;
+}) {
+  return (
+    <div className="group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-base-800/40">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-base-800 text-slate-500 transition-colors group-hover:bg-accent-500/15 group-hover:text-[var(--accent-soft-text)]">
+        <Icon size={13} />
+      </span>
+      <div className="min-w-0 flex-1 pt-0.5">
+        <div className="text-[11px] text-slate-500">{label}</div>
+        <div
+          className={`break-all ${mono ? "font-mono" : ""} ${compact ? "text-xs text-slate-400" : "text-sm text-slate-200"}`}
+        >
+          {value}
+        </div>
+      </div>
+      {copyValue && (
+        <div className="opacity-40 transition-opacity group-hover:opacity-100">
+          <CopyButton value={copyValue} title={copyTitle} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ActionCard({
+  icon: Icon,
+  label,
+  description,
+  tone,
+  onClick,
+  title
+}: {
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  tone: "accent" | "amber";
+  onClick: () => void;
+  title?: string;
+}) {
+  const toneStyle =
+    tone === "accent"
+      ? {
+          bg: "rgb(var(--accent-500-rgb) / 0.1)",
+          bgHover: "rgb(var(--accent-500-rgb) / 0.18)",
+          iconBg: "rgb(var(--accent-500-rgb) / 0.22)",
+          text: "var(--accent-soft-text)",
+          border: "rgb(var(--accent-500-rgb) / 0.35)",
+          borderHover: "rgb(var(--accent-500-rgb) / 0.6)"
+        }
+      : {
+          bg: "rgba(169, 122, 63, 0.1)",
+          bgHover: "rgba(169, 122, 63, 0.18)",
+          iconBg: "rgba(169, 122, 63, 0.25)",
+          text: "#d9a566",
+          border: "rgba(169, 122, 63, 0.35)",
+          borderHover: "rgba(169, 122, 63, 0.6)"
+        };
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border p-3.5 text-left shadow-sm transition-colors"
+      style={{ borderColor: toneStyle.border, backgroundColor: toneStyle.bg }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = toneStyle.borderHover;
+        e.currentTarget.style.backgroundColor = toneStyle.bgHover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = toneStyle.border;
+        e.currentTarget.style.backgroundColor = toneStyle.bg;
+      }}
+    >
+      <span
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md"
+        style={{ backgroundColor: toneStyle.iconBg, color: toneStyle.text }}
+      >
+        <Icon size={18} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-semibold text-slate-200 group-hover:text-white">{label}</div>
+        <div className="truncate text-xs text-slate-500">{description}</div>
+      </div>
+      <ChevronRight size={16} className="shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-slate-400" />
+    </button>
+  );
+}
+
 export default function SystemPanel({
   selection,
   connectivity,
@@ -57,10 +188,12 @@ export default function SystemPanel({
 }: Props) {
   const t = useT();
   const [comment, setComment] = useState("");
+  const [originalComment, setOriginalComment] = useState("");
   const [commentSource, setCommentSource] = useState<"saved" | "sapLogon" | "none">("none");
   const [commentLoading, setCommentLoading] = useState(false);
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentSaved, setCommentSaved] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     if (selection) onCheck(selection.service);
@@ -74,6 +207,7 @@ export default function SystemPanel({
     window.api.getSystemCommentDefault(selection.service.uuid).then((result) => {
       if (cancelled) return;
       setComment(result.comment);
+      setOriginalComment(result.comment);
       setCommentSource(result.source);
       setCommentLoading(false);
     });
@@ -82,10 +216,19 @@ export default function SystemPanel({
     };
   }, [selection?.itemUuid]);
 
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(Math.max(el.scrollHeight, 140), 420)}px`;
+  }, [comment, commentLoading]);
+
   if (!selection) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-slate-500">
-        <Cable size={40} className="mb-3 opacity-40" />
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-base-700 bg-base-900/60">
+          <Cable size={28} className="opacity-50" />
+        </div>
         <p className="text-sm">{t("systemPanel.emptyState")}</p>
       </div>
     );
@@ -95,10 +238,23 @@ export default function SystemPanel({
   const state = connectivity[service.uuid] ?? "unknown";
   const tier = resolveTier(service, tierOverrides);
   const explicitTier = tierOverrides[service.uuid] ?? null;
+  const isDirty = comment !== originalComment;
+
+  const avatarClass = tier
+    ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 text-lg font-bold shadow-sm"
+    : "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-base-600 bg-base-800 text-lg font-bold text-[var(--accent-soft-text)] shadow-sm";
+  const avatarStyle = tier
+    ? { borderColor: TIER_ACCENT[tier].border, backgroundColor: TIER_ACCENT[tier].bg, color: TIER_ACCENT[tier].text }
+    : undefined;
+  const accentBarColor = tier ? TIER_ACCENT[tier].text : "rgb(var(--accent-500-rgb))";
+
+  const address = service.manualAdtUrl ?? `${service.host ?? ""}${service.port ? `:${service.port}` : ""}`;
 
   const handleSaveComment = async () => {
+    if (commentSaving || commentLoading) return;
     setCommentSaving(true);
     await window.api.setSystemComment(service.uuid, comment);
+    setOriginalComment(comment);
     setCommentSource("saved");
     setCommentSaving(false);
     setCommentSaved(true);
@@ -106,199 +262,310 @@ export default function SystemPanel({
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-8 py-10">
-      <div className="mb-1 flex items-center justify-between">
-        <div className="text-xs uppercase tracking-wide text-slate-500">{path.join(" / ")}</div>
-        {service.isManual && (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => onEditManual(service)}
-              title={t("systemPanel.editTitle")}
-              className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-slate-400 hover:bg-base-700"
-            >
-              <Pencil size={12} />
-              {t("common.edit")}
-            </button>
-            <button
-              onClick={() => onDeleteManual(service)}
-              title={t("systemPanel.deleteTitle")}
-              className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-[var(--status-danger-text)] hover:bg-[var(--status-danger-bg)]"
-            >
-              <Trash2 size={12} />
-              {t("common.delete")}
-            </button>
+    <div className="h-full overflow-y-auto">
+      <div
+        key={selection.itemUuid}
+        className="animate-panel-fade-in mx-auto w-full max-w-3xl px-6 py-8 md:max-w-4xl lg:max-w-5xl xl:max-w-6xl xl:px-10 2xl:max-w-[1400px]"
+      >
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-1 text-xs text-slate-500">
+            {path.map((segment, i) => (
+              <span key={`${segment}-${i}`} className="flex min-w-0 items-center gap-1">
+                {i > 0 && <ChevronRight size={11} className="shrink-0 text-slate-600" />}
+                <span className={`truncate ${i === path.length - 1 ? "text-slate-400" : ""}`}>{segment}</span>
+              </span>
+            ))}
           </div>
-        )}
-      </div>
-      <div className="mb-6 flex items-center gap-2">
-        <h2 className="text-2xl font-semibold text-white">{service.name}</h2>
-        {tier && <TierBadge tier={tier} />}
-      </div>
-
-      <div className="mb-5 flex items-center gap-1.5 text-xs text-slate-500">
-        <History size={13} />
-        {lastConnectedAt ? (
-          <span>{t("systemPanel.lastConnected", { time: formatRelativeTime(lastConnectedAt, t) })}</span>
-        ) : (
-          <span>{t("systemPanel.neverConnected")}</span>
-        )}
-      </div>
-
-      <div className="mb-5 flex items-center gap-2 rounded-sm border border-base-700 bg-base-900/40 px-4 py-3">
-        <span className="text-xs text-slate-500">{t("systemPanel.tierLabel")}</span>
-        <div className="flex items-center gap-1.5">
-          {TIER_OPTIONS.map((option) => (
-            <button
-              key={option}
-              onClick={() => onSetTier(service, explicitTier === option ? null : option)}
-              className={`rounded-sm border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                explicitTier === option
-                  ? "border-accent-500 bg-accent-500/20 text-white"
-                  : "border-base-600 text-slate-400 hover:bg-base-700"
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-          {explicitTier && (
-            <button
-              onClick={() => onSetTier(service, null)}
-              className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300"
-            >
-              {t("systemPanel.clearTier")}
-            </button>
+          {service.isManual && (
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                onClick={() => onEditManual(service)}
+                title={t("systemPanel.editTitle")}
+                className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-slate-400 hover:bg-base-700"
+              >
+                <Pencil size={12} />
+                {t("common.edit")}
+              </button>
+              <button
+                onClick={() => onDeleteManual(service)}
+                title={t("systemPanel.deleteTitle")}
+                className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-[var(--status-danger-text)] hover:bg-[var(--status-danger-bg)]"
+              >
+                <Trash2 size={12} />
+                {t("common.delete")}
+              </button>
+            </div>
           )}
         </div>
-        {!explicitTier && tier && <span className="text-[11px] text-slate-500">{t("systemPanel.autoGuessed")}</span>}
-      </div>
 
-      <div className="grid grid-cols-2 gap-4 rounded-sm border border-base-700 bg-base-900/60 p-5">
-        <div>
-          <div className="text-xs text-slate-500">{t("systemPanel.systemId")}</div>
-          <div className="font-mono text-sm text-slate-200">{service.systemId || "—"}</div>
+        {/* Hero: kimlik + durum + önem derecesi — işlem butonları artık ayrı,
+            tam genişlikte bir "hızlı işlemler" şeridinde (aşağıda), hero'nun
+            sağına sıkıştırılmış dar bir buton sütunu olarak DEĞİL. */}
+        <div className="relative mb-4 overflow-hidden rounded-xl border border-base-700 bg-base-900/50 shadow-sm">
+          <div className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: accentBarColor, opacity: 0.6 }} />
+          <div className="p-5 xl:p-6">
+            <div className="flex min-w-0 items-start gap-4">
+              <div className={avatarClass} style={avatarStyle}>
+                {avatarLabel(service)}
+              </div>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="truncate text-2xl font-bold tracking-tight text-white xl:text-[28px]">{service.name}</h2>
+                  {tier && <TierBadge tier={tier} />}
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-slate-500">
+                  {service.systemId && (
+                    <span className="rounded-md bg-base-800 px-1.5 py-0.5 font-mono text-xs text-slate-300">
+                      {service.systemId}
+                    </span>
+                  )}
+                  <span>{service.type}</span>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <StatusDot state={state} pill />
+                  <button
+                    onClick={() => onCheck(service)}
+                    title={t("systemPanel.recheck")}
+                    className="flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 text-[11px] text-slate-500 transition-colors hover:bg-base-700 hover:text-slate-300"
+                  >
+                    <RefreshCw size={11} className={state === "checking" ? "animate-spin" : ""} />
+                    {t("systemPanel.recheck")}
+                  </button>
+                  <span className="flex items-center gap-1 text-[11px] text-slate-500">
+                    <History size={12} />
+                    {lastConnectedAt
+                      ? t("systemPanel.lastConnected", { time: formatRelativeTime(lastConnectedAt, t) })
+                      : t("systemPanel.neverConnected")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-base-700/70 pt-3.5">
+              <span className="text-[11px] uppercase tracking-wide text-slate-500">{t("systemPanel.tierLabel")}</span>
+              <div className="flex items-center gap-0.5 rounded-md border border-base-700 bg-base-950/40 p-0.5">
+                {TIER_OPTIONS.map((option) => {
+                  const active = explicitTier === option;
+                  return (
+                    <button
+                      key={option}
+                      onClick={() => onSetTier(service, active ? null : option)}
+                      className={`cursor-pointer rounded-[5px] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
+                        active ? "" : "text-slate-400 hover:text-slate-200"
+                      }`}
+                      style={active ? { backgroundColor: TIER_ACCENT[option].bg, color: TIER_ACCENT[option].text } : undefined}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              {explicitTier ? (
+                <button
+                  onClick={() => onSetTier(service, null)}
+                  className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-300"
+                >
+                  {t("systemPanel.clearTier")}
+                </button>
+              ) : tier ? (
+                <span className="text-[11px] text-slate-500">{t("systemPanel.autoGuessed")}</span>
+              ) : null}
+            </div>
+          </div>
         </div>
-        <div>
-          <div className="text-xs text-slate-500">{t("systemPanel.connectionType")}</div>
-          <div className="text-sm text-slate-200">{service.type}</div>
-        </div>
-        <div className="col-span-2 flex items-center gap-2">
-          <Globe size={14} className="text-slate-500" />
-          <span className="break-all font-mono text-sm text-slate-200">
-            {service.manualAdtUrl
-              ? service.manualAdtUrl
-              : `${service.host ?? "?"}${service.port ? `:${service.port}` : ""}`}
-          </span>
-          <CopyButton
-            value={service.manualAdtUrl ?? `${service.host ?? ""}${service.port ? `:${service.port}` : ""}`}
-            title={t("systemPanel.copyAddress")}
+
+        {state === "unreachable" && (
+          <div
+            className="animate-alert-slide-in mb-4 flex items-center gap-2 rounded-md border px-4 py-3 text-sm"
+            style={{
+              borderColor: "var(--status-danger-border)",
+              backgroundColor: "var(--status-danger-bg)",
+              color: "var(--status-danger-text)"
+            }}
+          >
+            <AlertTriangle size={16} className="shrink-0" />
+            {t("systemPanel.unreachableWarning")}
+          </div>
+        )}
+
+        {tier === "PRD" && (
+          <div
+            className="animate-alert-slide-in mb-4 flex items-center gap-2 rounded-md border px-4 py-3 text-sm"
+            style={{
+              borderColor: "var(--status-danger-border)",
+              backgroundColor: "var(--status-danger-bg)",
+              color: "var(--status-danger-text)"
+            }}
+          >
+            <AlertTriangle size={16} className="shrink-0" />
+            {t("systemPanel.prodWarning")}
+          </div>
+        )}
+
+        {/* Hızlı işlemler — tam genişlikte, kart görünümlü, hero'dan bağımsız
+            bir şerit. Buton görünümü yerine ikon+başlık+açıklama içeren
+            "action card" deseni, geri kalan minimalist kart diliyle tutarlı. */}
+        <div className="mb-5 flex flex-col gap-2.5 sm:flex-row">
+          <ActionCard
+            icon={Terminal}
+            label={t("systemPanel.openInAxet")}
+            description={t("systemPanel.openInAxetDesc")}
+            tone="accent"
+            onClick={() => onConnect(selection)}
           />
-        </div>
-        {service.routerString && (
-          <div className="col-span-2 flex items-start gap-2">
-            <RouterIcon size={14} className="mt-0.5 shrink-0 text-slate-500" />
-            <span className="break-all font-mono text-xs text-slate-400">{service.routerString}</span>
-          </div>
-        )}
-        <div className="col-span-2 flex items-center gap-2">
-          <Hash size={14} className="text-slate-500" />
-          <span className="text-xs text-slate-500">{t("systemPanel.uuidLabel", { uuid: service.uuid })}</span>
-          <CopyButton value={service.uuid} title={t("systemPanel.copyUuid")} />
-        </div>
-      </div>
-
-      <div className="mt-5 rounded-sm border border-base-700 bg-base-900/40 px-4 py-3">
-        <div className="mb-2 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <MessageSquare size={13} />
-            {t("systemPanel.commentLabel")}
-          </div>
-          {commentSource === "sapLogon" && (
-            <span className="text-[11px] text-slate-500">{t("systemPanel.commentFromSapLogon")}</span>
+          {!service.manualAdtUrl && service.host && service.port && (
+            <ActionCard
+              icon={LogIn}
+              label={t("systemPanel.openInSapLogon")}
+              description={t("systemPanel.openInSapLogonDesc")}
+              tone="amber"
+              title={t("systemPanel.openInSapLogonTitle")}
+              onClick={() => onOpenSapLogon(service)}
+            />
           )}
         </div>
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          disabled={commentLoading}
-          placeholder={t("systemPanel.commentPlaceholder")}
-          rows={3}
-          className="mb-2 w-full resize-none rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
-        />
-        <div className="flex items-center justify-end gap-2">
-          {commentSaved && (
-            <span className="flex items-center gap-1 text-[11px] text-[var(--status-success-text)]">
-              <Check size={12} />
-              {t("systemPanel.commentSaved")}
-            </span>
-          )}
-          <button
-            onClick={handleSaveComment}
-            disabled={commentSaving || commentLoading}
-            className="cursor-pointer rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700 disabled:cursor-default disabled:opacity-50"
-          >
-            {t("common.save")}
-          </button>
-        </div>
-      </div>
 
-      <div className="mt-5 flex items-center justify-between rounded-sm border border-base-700 bg-base-900/40 px-5 py-4">
-        <div className="flex items-center gap-2">
-          <StatusDot state={state} showLabel />
-        </div>
-        <button
-          onClick={() => onCheck(service)}
-          className="flex cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
-        >
-          <RefreshCw size={13} className={state === "checking" ? "animate-spin" : ""} />
-          {t("systemPanel.recheck")}
-        </button>
-      </div>
+        {/* İki kolonlu dashboard alanı — sol: bağlantı bilgileri (özet karolar +
+            uzun değer satırları), sağ: notlar. Geniş ekranda yan yana, dar
+            ekranda (tarayıcı penceresi/sidebar açıkken) alt alta akar. */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40 transition-shadow hover:shadow-sm">
+            <div
+              className="absolute inset-x-0 top-0 h-[3px]"
+              style={{ backgroundColor: "rgb(var(--accent-500-rgb))", opacity: 0.5 }}
+            />
+            <div className="flex items-center justify-between px-4 pt-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-accent-500/15 text-[var(--accent-soft-text)]">
+                  <Globe size={14} />
+                </span>
+                <span className="text-sm font-semibold text-slate-200">{t("systemPanel.detailsHeading")}</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2.5 px-4 pb-1 pt-3">
+              <StatTile icon={Database} label={t("systemPanel.systemId")} value={service.systemId || "—"} mono />
+              <StatTile icon={Network} label={t("systemPanel.connectionType")} value={service.type} />
+            </div>
+            <div className="mt-2 flex-1 divide-y divide-base-700/50 pb-2">
+              <InfoRow
+                icon={Globe}
+                label={t("systemPanel.addressLabel")}
+                value={address || "—"}
+                mono
+                copyValue={address}
+                copyTitle={t("systemPanel.copyAddress")}
+              />
+              {service.routerString && (
+                <InfoRow
+                  icon={RouterIcon}
+                  label={t("systemPanel.routerLabel")}
+                  value={service.routerString}
+                  mono
+                  compact
+                />
+              )}
+              <InfoRow
+                icon={Hash}
+                label={t("systemPanel.uuid")}
+                value={service.uuid}
+                mono
+                compact
+                copyValue={service.uuid}
+                copyTitle={t("systemPanel.copyUuid")}
+              />
+            </div>
+          </div>
 
-      {state === "unreachable" && (
-        <div
-          className="mt-4 rounded-sm border px-4 py-3 text-sm"
-          style={{
-            borderColor: "var(--status-danger-border)",
-            backgroundColor: "var(--status-danger-bg)",
-            color: "var(--status-danger-text)"
-          }}
-        >
-          {t("systemPanel.unreachableWarning")}
+          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40 transition-shadow hover:shadow-sm">
+            <div className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: "#c9973f", opacity: 0.45 }} />
+            <div className="flex items-center justify-between px-4 pt-4">
+              <div className="flex items-center gap-2">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#c9973f]/15 text-[#d9a566]">
+                  <NotebookPen size={14} />
+                </span>
+                <span className="text-sm font-semibold text-slate-200">{t("systemPanel.commentLabel")}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {isDirty && !commentSaving && (
+                  <span className="flex items-center gap-1 text-[11px] text-[var(--status-warning-text)]">
+                    <Circle size={6} className="fill-current" />
+                    {t("systemPanel.commentUnsaved")}
+                  </span>
+                )}
+                {commentSource === "sapLogon" && !isDirty && (
+                  <span className="rounded-full border border-base-600 bg-base-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                    {t("systemPanel.commentFromSapLogon")}
+                  </span>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-1 flex-col px-4 pb-2 pt-3">
+              <textarea
+                ref={textareaRef}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+                    e.preventDefault();
+                    handleSaveComment();
+                  }
+                }}
+                disabled={commentLoading}
+                placeholder={commentLoading ? "" : t("systemPanel.commentPlaceholder")}
+                className="w-full flex-1 resize-none rounded-md border-none bg-transparent text-sm leading-relaxed text-slate-100 outline-none transition placeholder:text-slate-500/70 focus:ring-0 disabled:opacity-60"
+                style={{ boxShadow: "none" }}
+              />
+            </div>
+            <div className="flex items-center justify-between gap-2 border-t border-base-700/60 bg-base-950/20 px-4 py-2.5">
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                {comment.length > 0 ? (
+                  t("systemPanel.commentChars", { count: comment.length })
+                ) : (
+                  <>
+                    <kbd className="rounded border border-base-600 bg-base-800 px-1 py-0.5 text-[10px] font-medium text-slate-400">
+                      Ctrl
+                    </kbd>
+                    <span>+</span>
+                    <kbd className="rounded border border-base-600 bg-base-800 px-1 py-0.5 text-[10px] font-medium text-slate-400">
+                      Enter
+                    </kbd>
+                    <span className="ml-0.5">{t("systemPanel.commentHint")}</span>
+                  </>
+                )}
+              </span>
+              <div className="flex items-center gap-2">
+                {commentSaved && !isDirty && (
+                  <span className="animate-alert-slide-in flex items-center gap-1 text-[11px] text-[var(--status-success-text)]">
+                    <Check size={12} />
+                    {t("systemPanel.commentSaved")}
+                  </span>
+                )}
+                <button
+                  onClick={handleSaveComment}
+                  disabled={commentSaving || commentLoading || !isDirty}
+                  title={t("systemPanel.commentHint")}
+                  className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition disabled:cursor-default ${
+                    isDirty && !commentSaving
+                      ? "border-accent-500/40 bg-accent-500/15 text-[var(--accent-soft-text)] hover:border-accent-500/60 hover:bg-accent-500/25"
+                      : "border-base-600 text-slate-400 disabled:opacity-50"
+                  }`}
+                >
+                  {commentSaving ? (
+                    <>
+                      <Loader2 size={13} className="animate-spin" />
+                      {t("systemPanel.commentSaving")}
+                    </>
+                  ) : (
+                    <>
+                      <Check size={13} />
+                      {t("common.save")}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-
-      {tier === "PRD" && (
-        <div
-          className="mt-4 flex items-center gap-2 rounded-sm border px-4 py-3 text-sm"
-          style={{
-            borderColor: "var(--status-danger-border)",
-            backgroundColor: "var(--status-danger-bg)",
-            color: "var(--status-danger-text)"
-          }}
-        >
-          <AlertTriangle size={16} className="shrink-0" />
-          {t("systemPanel.prodWarning")}
-        </div>
-      )}
-
-      <div className="mt-6 flex gap-2">
-        <button
-          onClick={() => onConnect(selection)}
-          className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-3 text-sm font-medium text-[var(--accent-soft-text)] transition hover:bg-accent-500/25"
-        >
-          <Terminal size={16} />
-          {t("systemPanel.openInAxet")}
-        </button>
-        {!service.manualAdtUrl && service.host && service.port && (
-          <button
-            onClick={() => onOpenSapLogon(service)}
-            title={t("systemPanel.openInSapLogonTitle")}
-            className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border border-[#a97a3f]/40 bg-[#a97a3f]/15 px-4 py-3 text-sm font-medium text-[#d9a566] transition hover:bg-[#a97a3f]/25"
-          >
-            <LogIn size={16} />
-            {t("systemPanel.openInSapLogon")}
-          </button>
-        )}
       </div>
     </div>
   );

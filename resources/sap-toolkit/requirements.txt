@@ -16,9 +16,10 @@ mcp>=1.0.0
 # --- RFC bridge (abaper/sap-adt-readonly, ONLY for systems behind a router
 # that denies raw/native TCP to the ADT/ICM port — see SKILL.md "Router-only
 # sistemler (RFC bridge)") -----------------------------------------------
-# NOT installed by this file — pyrfc needs the SAP NW RFC SDK's headers/libs
-# to compile, and that SDK is a licensed SAP download gated behind your own
-# SAP S-user (free of extra cost, but not redistributable). Steps:
+# When used through aXet SAP Launcher, pyrfc + the SAP NW RFC SDK are already
+# bundled in the app (resources/rfc-runtime) — nothing to install. This entry
+# is only for running adt_rfc_probe.py/adt_rfc_bridge.py standalone, outside
+# the launcher, with your own Python:
 #   1. Download "SAP NW RFC SDK" from https://support.sap.com/en/product/connectors/nwrfcsdk.html
 #      (requires an S-user with download authorization for this object).
 #   2. Extract it, set SAPNWRFC_HOME to the extracted folder.

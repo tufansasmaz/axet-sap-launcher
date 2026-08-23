@@ -28,7 +28,14 @@ WHAT THIS SCRIPT DOES (read-only, safe to run first)
        GET /sap/bc/adt/discovery and prints the raw result, so you can see
        immediately whether the assumed field layout actually round-trips.
 
-REQUIRES (NOT bundled — you must set this up yourself, see SKILL.md):
+REQUIRES
+    aXet SAP Launcher bundles its own Python + pyrfc + SAP NW RFC SDK
+    (resources/rfc-runtime) and runs adt_rfc_bridge.py with that runtime
+    automatically — you normally never need to install anything to use the
+    RFC bridge. This probe script is a standalone diagnostic tool for running
+    OUTSIDE the launcher (e.g. to inspect SADT_REST_RFC_ENDPOINT's real field
+    names on a system, or to debug with your own Python). For that standalone
+    use you need your own:
     - SAP NW RFC SDK ("SAP NetWeaver RFC Library"), a licensed SAP download.
       Free of extra cost, but gated behind a valid SAP S-user with download
       authorization: https://support.sap.com/en/product/connectors/nwrfcsdk.html
@@ -51,6 +58,35 @@ try:
 except ImportError:
     print("[FAIL] python-dotenv not installed. pip install python-dotenv", file=sys.stderr)
     sys.exit(1)
+
+
+def _ensure_sapnwrfc_dll_dir() -> None:
+    """Two independent DLL-search mechanisms need SAPNWRFC_HOME/lib:
+    1. Python >=3.8's own extension-module loader (pyrfc's _cyrfc.pyd) no
+       longer searches PATH (PEP 3118 / bpo-36085) -- needs os.add_dll_directory().
+    2. sapnwrfc.dll's OWN internal LoadLibrary calls for its ICU dependencies
+       (icuuc50.dll/icudt50.dll/icuin50.dll), made deep inside the native RFC
+       runtime when a Connection is actually opened, are classic LoadLibrary
+       calls that only honour the process PATH -- add_dll_directory() does not
+       cover those, so PATH must be extended too, or you get a native
+       'Could not open the ICU common library' error at logon time (not at
+       import time), pointing at [nlsui0.c] / SAP note 519753."""
+    if sys.platform != "win32":
+        return
+    home = os.getenv("SAPNWRFC_HOME")
+    if not home:
+        return
+    lib_dir = Path(home) / "lib"
+    if not lib_dir.is_dir():
+        return
+    try:
+        os.add_dll_directory(str(lib_dir))
+    except (AttributeError, OSError):
+        pass
+    lib_dir_str = str(lib_dir)
+    path = os.environ.get("PATH", "")
+    if lib_dir_str not in path.split(os.pathsep):
+        os.environ["PATH"] = lib_dir_str + os.pathsep + path
 
 
 def find_conn_file() -> Path:
@@ -119,6 +155,7 @@ def main() -> None:
 
     cfg = load_rfc_config()
 
+    _ensure_sapnwrfc_dll_dir()
     try:
         import pyrfc
     except ImportError as exc:

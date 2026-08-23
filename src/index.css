@@ -149,3 +149,38 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
+
+/* "Sisteme Bağlan" ekranı gibi öne çıkan diyaloglar için hafif, minimalist
+   giriş animasyonları — abartılı bounce/spring yok, sade fade+scale. */
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-pop-in {
+  from { opacity: 0; transform: scale(0.97) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes alert-slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-backdrop-fade-in {
+  animation: backdrop-fade-in 160ms ease-out;
+}
+.animate-modal-pop-in {
+  animation: modal-pop-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+.animate-alert-slide-in {
+  animation: alert-slide-in 160ms ease-out;
+}
+
+/* Sistem detay panelinin seçim değiştiğinde sade bir fade+kaydırma ile
+   belirmesi için — panel her selection.itemUuid değişiminde React key ile
+   yeniden mount edilir, bu animasyon o mount anında bir kez oynar. */
+@keyframes panel-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-panel-fade-in {
+  animation: panel-fade-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
