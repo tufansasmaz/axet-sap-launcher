@@ -1891,3 +1891,40 @@ process için**:
   kullanıcının bir dahaki bağlantısında (router'lı VEYA router'sız herhangi
   bir sistemde) doğrulaması gerekiyor; `%sap-adt-readonly`'ye ilk soru
   sorulduğunda artık "NOT RUNNING" değil doğrudan bir yanıt beklenir.
+
+## v1.4.1 Release Exe'si Eski Kaynak Koduyla Paketlenmişti — DEQ Canlı Bulgusu (v1.4.2, TAMAMLANDI)
+
+**Şikayet**: DEQ müşterisinin (`dherpqasa1.dilerhld.com`, router `/H/212.174.101.230`)
+sisteminde `-93 "route permission denied"` alındı ama RFC bridge fallback'i
+**tetiklenmedi** — `isPermissionDeniedDetail()` düzeltmesi (bkz. yukarıdaki
+"-93 de Görülebiliyor" bölümü) kaynakta olmasına rağmen davranış eski
+(sadece `-94`'e bakan) haldeydi.
+
+**Kök sebep — kod değil, build/release süreci**: `git log` zaman damgaları
+karşılaştırıldı: `44e9943` (`-93` düzeltmesi) commit saati **09:46:16**,
+ama `release/*1.4.1*.exe` dosyalarının `LastWriteTime`'ı **09:42:23** —
+yani kullanıcının elindeki v1.4.1 exe'si, düzeltme commit edilmeden ~4
+dakika ÖNCE alınmış bir build'di. `npm run build:win` her zaman diskteki
+GEÇERLİ kaynağı derler ama o an diskteki kaynak henüz düzeltmeyi içermiyordu
+— yani "build al → sonra son bir fix ekle → commit et → ama tekrar build
+almayı unut" sırası kaçırılmış.
+
+**Çözüm**: `npm run typecheck` + `npm run build:win` güncel kaynaktan
+(commit `44e9943` dahil) yeniden çalıştırıldı, yeni exe'lerin
+`LastWriteTime`'ı commit saatinden SONRA olduğu doğrulandı. Versiyon
+`1.4.2`'ye çıkarıldı (`package.json`/`package-lock.json`) — sadece "aynı
+1.4.1 etiketiyle farklı bir binary" karışıklığı olmasın diye, kod tarafında
+1.4.1'den ek bir değişiklik yok, bu tur sadece "gerçekten güncel kaynaktan
+build al ve yayınla" turu.
+
+**Ders (ileride tekrar düşülmesin)**: Bir fix commit edildikten sonra
+kullanıcıya "test et" denmeden önce **her zaman** `git log -1 --format=%ci
+-- <değişen dosya>` ile son commit saatini, `release/*.exe`'lerin
+`LastWriteTime`'ıyla karşılaştır (veya basitçe her commit sonrası otomatik
+`npm run build:win` çalıştırma alışkanlığı edin) — "typecheck/build temiz
+geçti" ifadesi kaynağın derlendiğini kanıtlar ama **paketlenmiş exe'nin
+o kaynaktan alındığını** kanıtlamaz, bunlar ayrı adımlar.
+
+- `npm run typecheck` ve `npm run build:win` bu turda temiz geçti,
+  yeniden build alınan `release/win-unpacked/aXet SAP Launcher.exe`
+  ile DEQ sistemine karşı manuel test kullanıcı tarafından yapılacak.
