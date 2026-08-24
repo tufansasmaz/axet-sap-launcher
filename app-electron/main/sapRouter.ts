@@ -54,14 +54,32 @@ function parseRouterError(responsePayload: Buffer): RouterErrorInfo {
   }
 }
 
+// Marker: launcher.ts'teki isRouterPermissionDenied() (aslında artık
+// isRouterPermissionDeniedMessage() re-export'u) bu string'i mesajda arayarak
+// RFC bridge fallback'ini tetikler — tek doğruluk kaynağı burası.
+const PERMISSION_DENIED_TAG = "ROUTER_PERM_DENIED";
+
+// SAP resmi olarak -94'ü NIEROUT_PERM_DENIED olarak belgeliyor (SAP Note
+// 63342), AMA canlı bulgular gösterdi ki bazı router sürümleri/build'leri
+// AYNI izin-reddi durumunu farklı bir return_code (örn. -93) ile
+// bildirebiliyor — kod farklı olsa da router'ın kendi metni ("route
+// permission denied") aynı kalıyor. Bu yüzden kod numarasına değil, ayrıca
+// yanıt metnine de bakıyoruz; sadece "-94 mü değil mi" kontrolü tek bir
+// müşteride bile kırılgan çıktı (Limak'ta -94, başka bir sistemde -93).
+function isPermissionDeniedDetail(returnCode: number | null, detail: string): boolean {
+  return returnCode === -94 || /permission denied/i.test(detail);
+}
+
 function describeRouterFailure(type: string, responsePayload: Buffer): string {
   if (type !== "NI_RTERR") {
     return `SAProuter rotayı kabul etmedi (yanıt: ${type || "bilinmeyen"}).`;
   }
   const { returnCode, detail } = parseRouterError(responsePayload);
-  if (returnCode === -94) {
+  if (isPermissionDeniedDetail(returnCode, detail)) {
     return (
-      `SAProuter bu rotayı REDDETTİ (-94, NIEROUT_PERM_DENIED — izin tablosunda bu kaynak/hedef/port için kayıt yok). ` +
+      `SAProuter bu rotayı REDDETTİ (${PERMISSION_DENIED_TAG}, return_code=${returnCode ?? "?"} — izin tablosunda bu ` +
+      `kaynak/hedef/port için kayıt yok; router sürümüne göre bu -94/NIEROUT_PERM_DENIED ya da -93 gibi farklı bir kodla ` +
+      `dönebilir, ikisi de aynı "izin reddi" anlamına gelir). ` +
       `Bu bir yazılım hatası değil: router yöneticisinin (Basis/network ekibi) saprouttab izin tablosuna bu makinenin ` +
       `genel IP'sinden hedef host:port'a "ham/native" (raw) tünelleme izni eklemesi gerekiyor — SAP GUI'nin DIAG ` +
       `bağlantısı (native SAP NI protokolü) farklı bir izin kapsamında zaten çalışıyor olabilir, ama ADT/HTTPS trafiği ` +
@@ -69,6 +87,10 @@ function describeRouterFailure(type: string, responsePayload: Buffer): string {
     );
   }
   return `SAProuter rotayı reddetti (return_code=${returnCode ?? "?"}). Detay: ${detail || "yok"}`;
+}
+
+export function isRouterPermissionDeniedMessage(message: string): boolean {
+  return message.includes(PERMISSION_DENIED_TAG) || message.includes("NIEROUT_PERM_DENIED") || message.includes("-94");
 }
 
 function buildHopEntry(hop: RouterHop): Buffer {

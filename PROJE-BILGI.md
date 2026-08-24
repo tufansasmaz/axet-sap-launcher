@@ -440,6 +440,50 @@ tamamlanmasını beklemiyor):
   otomatikleştirilmedi, launcher şu an ilk `-94` sonrası bir daha ham HTTPS
   denemiyor).
 
+## SAProuter İzin Reddi -93 de Görülebiliyor, Sadece -94 DEĞİL (2026-08-24, TAMAMLANDI) — canlı bulgu
+
+**Şikayet**: Limak'ın router'ına bağlanılabiliyordu (RFC bridge otomatik
+başlatma -94 tespitiyle çalışıyordu) ama başka bir router'lı sistemde
+`Bağlantı hatası (SAProuter): SAProuter rotayı reddetti (return_code=-93).
+Detay: STWDPWDPA1: route permission denied (...)` hatasıyla terminal hiç
+açılmıyordu — RFC bridge fallback'i tetiklenmiyordu.
+
+**Kök sebep**: `sapRouter.ts` `describeRouterFailure()` sadece
+`returnCode === -94` durumunda "izin reddi" olarak sınıflandırıp
+`launcher.ts`'in aradığı `NIEROUT_PERM_DENIED`/`-94` işaretini mesaja
+koyuyordu. Bu sistemde router **-93** döndürdü — SAP'nin resmi NI hata kodu
+tablosunda (Note 63342) -93 aslında `NIEROUT_INTERN` (router-içi genel hata)
+anlamına gelir, AMA bu router'ın gerçek yanıt metni ("route permission
+denied") kod numarasından bağımsız olarak izin reddini açıkça söylüyordu.
+Yani kod numarası router sürümüne göre değişebiliyor, metin değişmiyor —
+sadece `-94` kontrolü kırılgan çıktı.
+
+**Çözüm**: `sapRouter.ts`'e `isPermissionDeniedDetail(returnCode, detail)`
+eklendi — `returnCode === -94` VEYA router'ın döndürdüğü ham detay metninde
+(regex, case-insensitive) `"permission denied"` geçiyorsa izin reddi olarak
+sınıflandırılıyor (kod numarasına bakılmaksızın). `describeRouterFailure()`
+artık bu ortak fonksiyonu kullanıyor ve mesaja her zaman `ROUTER_PERM_DENIED`
+marker'ını (yeni, `NIEROUT_PERM_DENIED`/`-94` ile birlikte, geriye
+uyumluluk için) yazıyor. Yeni **export edilen**
+`isRouterPermissionDeniedMessage(message)` — `launcher.ts`'teki eski yerel
+`isRouterPermissionDenied()` fonksiyonu silindi, artık bu tek doğruluk
+kaynağına delege ediyor (`const isRouterPermissionDenied =
+isRouterPermissionDeniedMessage`) — mantık iki dosyada ayrı ayrı
+yaşamıyor/kayamıyor.
+- `launcher.ts`/`sap-context.md`'deki kullanıcıya görünen "-94
+  NIEROUT_PERM_DENIED" metinleri de genelleştirildi ("router sürümüne göre
+  -94/NIEROUT_PERM_DENIED veya -93 gibi farklı bir return_code ile
+  bildirilebilir, ikisi de aynı anlama gelir") — agent artık sadece -94
+  gördüğünde değil, metinde "permission denied" gördüğünde de doğru teşhise
+  ulaşıyor.
+- `npm run typecheck` ve `npm run build` temiz geçti.
+- **Not**: `-93`'ün SAP'nin resmi tablosunda farklı bir anlama (NI-internal
+  error) gelmesi kasıtlı olarak görmezden gelinmedi — kontrol sadece kod
+  numarasına değil, gerçek router metnine bakıyor, bu yüzden gerçekten
+  ilgisiz bir -93 (ör. router'ın kendi içinde çöktüğü bir durum, metninde
+  "permission denied" GEÇMEYEN) hâlâ genel/açıklamasız hata olarak kalır,
+  yanlışlıkla RFC bridge moduna düşürülmez.
+
 ## Bilinen Eksikler / Gelecek İşler (kullanıcıya önerildi, henüz yapılmadı)
 
 - `.conn_adt` şifre şifrelemesi (Electron `safeStorage`).

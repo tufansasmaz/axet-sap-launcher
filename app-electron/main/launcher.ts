@@ -5,6 +5,7 @@ import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials } from
 import { discoverAdtEndpoint, verifyCredentials, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
 import { installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
 import { startRfcBridge } from "./rfcBridgeManager";
+import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
 import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
 
@@ -71,9 +72,12 @@ interface RfcBridgeConfig {
   bridgePort: number;
 }
 
-function isRouterPermissionDenied(message: string): boolean {
-  return message.includes("NIEROUT_PERM_DENIED") || message.includes("-94");
-}
+// Gerçek tespit mantığı sapRouter.ts'te (isRouterPermissionDeniedMessage) —
+// orası tek doğruluk kaynağı: -94/NIEROUT_PERM_DENIED VE router metninde
+// "permission denied" geçen ama farklı bir return_code (canlı bulgu: -93)
+// dönen sistemleri de kapsıyor, kod numarasına göre kırılgan bir kontrol
+// burada tekrarlanmıyor.
+const isRouterPermissionDenied = isRouterPermissionDeniedMessage;
 
 // bridgeVerify.message artık adt_rfc_bridge.py'nin 502 gövdesindeki gerçek
 // pyrfc/RFC istisna metnini de içeriyor (bkz. adtDiscovery.ts
@@ -267,7 +271,9 @@ function buildConnAdt(
     ? `
 # ============================================================================
 # RFC BRIDGE MODU — bu sistemin SAProuter'ı raw/native HTTPS tünellemeyi
-# REDDETTİ (-94 NIEROUT_PERM_DENIED) ama native SAP protokolü (DIAG/RFC)
+# REDDETTİ (izin tablosunda kayıt yok — router sürümüne göre -94/NIEROUT_PERM_DENIED
+# veya -93 gibi farklı bir return_code ile bildirilebilir, ikisi de aynı anlama gelir)
+# ama native SAP protokolü (DIAG/RFC)
 # trafiğine izin veriyor (SAP Logon'un neden çalıştığı budur). ADT_SAP_URL
 # yukarıda yerel bir RFC bridge'e (adt_rfc_bridge.py) işaret ediyor — o script
 # SADT_REST_RFC_ENDPOINT üzerinden gerçek SAP'a RFC ile bağlanıyor. Kurulum ve
@@ -490,7 +496,7 @@ function buildContextMarkdown(
     ? `
 
 ## SAProuter RFC Bridge Modu — HTTPS bu sistemde ENGELLİ
-- Bu sistemin SAProuter'ı (${service.routerString ?? "?"}) native/raw HTTPS tünellemeyi **REDDETTİ** (-94 NIEROUT_PERM_DENIED) — SAP Logon'un DIAG bağlantısı çalışıyor çünkü o native SAP protokolü, ama ADT'nin düz HTTPS'i router tarafından engelleniyor. Bu bir kimlik/ağ hatası **değil**, router'ın izin tablosu (\`saprouttab\`) kısıtı.
+- Bu sistemin SAProuter'ı (${service.routerString ?? "?"}) native/raw HTTPS tünellemeyi **REDDETTİ** (izin tablosunda kayıt yok — router sürümüne göre -94/NIEROUT_PERM_DENIED veya -93 gibi farklı bir return_code ile bildirilebilir, ikisi de aynı anlama gelir) — SAP Logon'un DIAG bağlantısı çalışıyor çünkü o native SAP protokolü, ama ADT'nin düz HTTPS'i router tarafından engelleniyor. Bu bir kimlik/ağ hatası **değil**, router'ın izin tablosu (\`saprouttab\`) kısıtı.
 - Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor — bu bridge \`SADT_REST_RFC_ENDPOINT\` üzerinden router'ın izin verdiği RFC kanalıyla gerçek SAP'a bağlanıyor, \`%sap-adt-readonly\` tamamen **değişmeden** çalışıyor.
 ${rfcAutoStartLines}
 - Gerçek keşfedilen (ama şu an router tarafından engellenen) HTTPS URL: **${verifiedUrl}** — Basis ekibi ileride \`saprouttab\`'a bu makinenin IP'sinden yukarıdaki URL'in host:port'una bir \`P\` (permit, native değil) satırı eklerse, \`.conn_adt\`'ta \`ADT_RFC_MODE=false\` yapıp \`ADT_SAP_URL\`'i bu adrese çevirebilirsin — doğrudan HTTPS daha basit ve daha güvenilir.
