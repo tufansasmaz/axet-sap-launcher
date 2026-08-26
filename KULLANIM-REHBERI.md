@@ -242,3 +242,15 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
   normaldir. Bildirimler (toast) art arda aynı mesajı gösteriyorsa
   yığılmaz, "×3" gibi bir sayaçla tek toast'ta birleşir; bir toast'a
   tıklayarak hemen kapatabilirsin.
+- **Dışarıdan (Notepad, tarayıcı vb.) kopyaladığım hiçbir şeyi yapıştıramıyorum
+  (uygulama içinde kopyaladığım bir şeyi yapıştırabiliyorum)**: Bu bir
+  uygulama hatası değil — bilgisayarın şirketin **Windows Information
+  Protection (WIP)** güvenlik politikası altındaysa, Windows bilinçli olarak
+  izin listesine eklenmemiş uygulamaların (bu uygulama dahil) panodaki gerçek
+  veriyi okumasını engeller; uygulama sadece panoda bir şey olduğunu görebilir,
+  içeriği asla alamaz. **Çözüm**: BT/güvenlik ekibine bu uygulamayı
+  (`aXet SAP Launcher.exe`) WIP'in "İzin Verilen Uygulamalar" listesine
+  ekletmeni iste — bu tek gerçek çözüm, uygulama kendi başına bu engeli
+  aşamaz. Uygulama İÇİNDE kopyala-yapıştır (bir sistem adını başka bir alana,
+  vb.) bu kısıtlamadan etkilenmez, normal çalışır.
+

@@ -1,6 +1,6 @@
 {
   "name": "axet-sap-launcher",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "SAP Logon Workspaces musteri sistemlerini axet.code icinde hizli acan masaustu uygulama",
   "main": "dist-electron/main/index.js",
   "author": "NTT DATA, Inc.",
@@ -56,7 +56,8 @@
       "node_modules/@lydell/**/*"
     ],
     "asarUnpack": [
-      "node_modules/@lydell/**/*"
+      "node_modules/@lydell/**/*",
+      "**/*.node"
     ],
     "extraResources": [
       {

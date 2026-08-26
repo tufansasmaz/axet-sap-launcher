@@ -693,197 +693,6 @@ gerektirmedi (tek istisna: `AddSystemModal.onAdded` imzası):
   - `npm run typecheck` ve `npm run build` bu turun tamamı için temiz
     geçti.
 
-## Gömülü Terminal — DENENDİ VE TAMAMEN KALDIRILDI (2026-08-14)
-
-Uygulama içinde (VS Code benzeri) bir terminal paneli denendi: önce
-`child_process` pipe tabanlı sahte bir terminal, ardından `koffi` ile Win32
-ConPTY API'sine (`CreatePseudoConsole`) doğrudan FFI çağrıları. Standalone
-Node test script'lerinde ConPTY akışı (`CreatePipe` → `CreatePseudoConsole`
-→ `UpdateProcThreadAttribute` → `CreateProcessW` → `ReadFile.async`) her
-denemede çalışıp gerçek `cmd.exe` çıktısı üretti — ama gerçek Electron main
-process'i içinde çalıştırıldığında panel her zaman simsiyah kaldı (`ReadFile`
-hiçbir zaman veri/EOF döndürmedi, process `pid`'i oluşuyordu ama hiçbir I/O
-yapmıyordu). Birden fazla kök sebep denendi ve düzeltildi
-(`UpdateProcThreadAttribute`'a handle'ın adresi değil kendisi geçirilmeli;
-`bInheritHandles=FALSE` olmalı; `CREATE_NO_WINDOW` eklenmemeli — Microsoft'un
-resmi örneğiyle tam eşleştirildi) ve her düzeltme standalone test
-script'inde doğrulandı, AMA gerçek uygulamada sorun kullanıcı tarafından
-tekrar tekrar "hâlâ siyah ekran" olarak bildirildi — kök sebep bu ortamda
-(sandbox, GUI etkileşimi olmadan) kesin olarak teşhis edilemedi.
-
-**(2026-08-14, İKİNCİ DENEME — `node-pty` ile TEKRAR EKLENDİ, bkz. alt bölüm)**
-bu bölümün altındaki geri-alma anlatımı hâlâ geçerli bir **kök sebep dersi**:
-elle yazılmış FFI/ConPTY kodu (o zamanki `koffi` yaklaşımı) gerçek Electron
-main process'inde asla veri akıtmadı. Aşağıdaki yeni deneme bunu **elle FFI
-yazmadan**, VS Code'un da kullandığı endüstri standardı `node-pty` (N-API,
-`node-addon-api` ile derlenmiş, ABI'ye bağımlı olmayan prebuilt binary)
-kütüphanesiyle yapıyor — gerçek Electron 33 main process içinde `pty.spawn()`
-ile açılan bir `cmd.exe`'nin `echo` çıktısı gerçekten okunup doğrulandı
-(bkz. altta "node-pty ile gömülü terminal — YENİDEN EKLENDİ" bölümü).
-
-Kullanıcı talebiyle özellik daha önce TAMAMEN GERİ ALINMIŞTI (aşağıdaki
-anlatım o dönemin kaydıdır):
-- Silinen dosyalar: `app-electron/main/terminalManager.ts`,
-  `src/components/EmbeddedTerminal.tsx`, `src/components/TerminalPanel.tsx`,
-  `src/lib/terminalInstances.ts`, `src/lib/terminalTheme.ts`.
-- `shared/types.ts`/`preload/index.ts`/`window.d.ts`/`App.tsx`/
-  `SettingsModal.tsx`/`store.ts`/`launcher.ts`'teki tüm terminal IPC/state/UI
-  parçaları kaldırıldı (`TerminalMode` artık sadece `"wt" | "cmd"`,
-  `ConnectResult.title` kaldırıldı, `AppConfig.embeddedTerminalMigrationDone`
-  kaldırıldı).
-- `koffi`, `@xterm/xterm`, `@xterm/addon-fit`, `@xterm/addon-web-links`
-  `package.json`'dan çıkarıldı.
-
-**Terminal artık her zaman harici bir pencerede açılıyor**
-(`TerminalMode = "wt" | "cmd"`, varsayılan Windows Terminal varsa `"wt"`
-yoksa `"cmd"`) — bu, özellik eklenmeden önceki, kanıtlanmış çalışan
-davranış. **(GÜNCEL DEĞİL — bkz. altta "node-pty ile gömülü terminal —
-YENİDEN EKLENDİ" bölümü, bu davranış 2026-08-14'te tekrar değiştirildi.)**
-
-**Eğer ileride gömülü terminal tekrar denenirse (elle FFI/ConPTY ile)**:
-gerçek bir Electron GUI penceresinde elle test etme imkanı olmadan (bu
-ortamda mümkün değil) bu özelliğe TEKRAR GİRİŞİLMESİN — standalone script
-başarısı burada YETERLİ KANIT değil, gerçek uygulamada tekrar tekrar
-başarısız oldu. **Bu uyarı sadece elle yazılmış FFI/ConPTY yaklaşımı için
-geçerlidir** — `node-pty` (N-API tabanlı, prebuilt) ile deneme headless
-Electron main process testinde gerçek veri akıtarak doğrulandı (aşağıya
-bak), bu yüzden tekrar denendi ve bu sefer main process seviyesinde
-kanıtlandı.
-
-## node-pty ile gömülü terminal — YENİDEN EKLENDİ (2026-08-14, TAMAMLANDI)
-
-Kullanıcı "harici terminal açılmasın, tamamen uygulama içine gömülü olsun"
-talebiyle özelliği tekrar istedi. Önceki başarısızlığın kök nedeni **elle
-yazılmış Win32 ConPTY FFI kodu** (`koffi`) olduğu için bu sefer **hiçbir
-FFI/ConPTY kodu elle yazılmadı** — VS Code'un/Hyper'ın da kullandığı
-endüstri standardı **`@lydell/node-pty`** (Microsoft'un resmi `node-pty`
-paketinin, platforma göre ayrılmış prebuilt binary'lerle dağıtılan forku)
-kullanıldı:
-
-- **Neden `node-gyp` ile derleme değil**: Bu makinede Visual Studio Build
-  Tools kurulu değil, `npm install node-pty` doğrudan `node-gyp rebuild`
-  ile patladı (`Could not find any Visual Studio installation`).
-  `@lydell/node-pty` bunun yerine platforma özel prebuilt `.node`
-  binary'lerini ayrı `optionalDependencies` paketleri olarak dağıtıyor
-  (`@lydell/node-pty-win32-x64` gibi) — derleme gerektirmiyor, `npm install`
-  sırasında doğrudan indirilip kopyalanıyor.
-- **Neden Electron'da rebuild gerekmiyor**: `node-pty` (ve dolayısıyla
-  `@lydell/node-pty`) **N-API** (`node-addon-api`, `NODE_API_MODULE`) ile
-  derleniyor — bu, V8/NAN'e bağlı eski native modüllerin aksine ABI'ye
-  bağımlı değil, context-aware'dir. Aynı prebuilt binary Node.js'te de
-  Electron'un gömülü Node'unda da değişiklik gerektirmeden çalışır. Bu,
-  önceki `koffi` denemesinden **temel farkı** — `koffi` de teknik olarak
-  FFI kullanıyordu ama ConPTY çağrılarının kendisi elle (yanlış/eksik
-  bir şekilde, kök sebebi asla teşhis edilemeyen) yazılmıştı; burada
-  ConPTY'yi çağıran C++ kodu Microsoft'un kendi, yıllarca üretimde test
-  edilmiş `node-pty` kaynağı.
-- **Gerçek doğrulama (bu turun en kritik adımı)**: Sadece "standalone Node
-  script'inde çalıştı" demekle YETİNİLMEDİ (önceki turun tam olarak
-  düştüğü tuzak buydu). Paketlenmiş bir `electron-builder --win dir` build
-  alındı, `.node` binary'lerinin `app.asar.unpacked/` altına doğru
-  paketlendiği doğrulandı (`asarUnpack: ["node_modules/@lydell/**/*"]`
-  gerekli — asar içine sıkıştırılmış native binary Node tarafından
-  `dlopen` edilemez), ve **gerçek `electron` runtime'ı ile** (`npx electron
-  <script>.cjs`, `app.whenReady()` içinde) bir `.cjs` test script'i
-  çalıştırılıp `pty.spawn("cmd.exe", ...)` ile açılan process'e `echo
-  HELLO_FROM_PTY` yazılıp çıktıda gerçekten göründüğü teyit edildi
-  (`CONTAINS_HELLO true`, `PTY_EXIT 0`) — yani gerçek Electron main
-  process'inde ConPTY üzerinden veri **hem yazılabildi hem okunabildi**,
-  önceki `koffi` denemesinin tam olarak başarısız olduğu nokta bu.
-  Test dosyası doğrulama sonrası silindi, kalıcı bir parça değil.
-- **`package.json:"type":"module"` gotcha'sı**: Test script'i önce `.js`
-  uzantısıyla yazılıp `npx electron` ile çalıştırılınca "require is not
-  defined in ES module scope" hatası verdi (proje `"type": "module"`) —
-  `.cjs` uzantısına çevrilince sorunsuz çalıştı. Bu, gerçek uygulama
-  kodunu etkilemiyor (electron-vite zaten doğru module formatında derliyor)
-  ama ileride benzer bir ad-hoc Node/Electron test script'i yazılırsa bu
-  gotcha'yı tekrar keşfetmeye gerek yok.
-
-### Mimari
-
-- **`app-electron/main/terminalManager.ts`** (yeni) — `Map<sessionId,
-  pty.IPty>` tutar. `createTerminal(window, id, cwd, cols, rows, shell,
-  initialCommand)` bir `pty.spawn()` açar, `onData`'yı
-  `window.webContents.send("terminal:data", id, data)` ile renderer'a
-  akıtır, `onExit`'i `"terminal:exit"` ile bildirir. `writeTerminal`,
-  `resizeTerminal`, `disposeTerminal`, `disposeAllTerminals` (pencere/app
-  kapanırken tüm process'leri temizler — zombi `cmd.exe` kalmasın diye).
-- **IPC** (`main/index.ts`): `terminal:create` (invoke, id döner),
-  `terminal:write`/`terminal:resize` (`ipcMain.on`, fire-and-forget — her
-  tuş vuruşunda `invoke` round-trip'i gereksiz), `terminal:dispose`
-  (invoke). `window-all-closed`/`before-quit`'te `disposeAllTerminals()`
-  çağrılıyor.
-- **`preload/index.ts`** → **`src/window.d.ts`** zincirine
-  `createTerminal`/`writeTerminal`/`resizeTerminal`/`disposeTerminal`/
-  `onTerminalData`/`onTerminalExit` eklendi (standart `shared/types.ts`
-  zinciri kontrol listesi burada da uygulandı).
-- **`src/components/EmbeddedTerminal.tsx`** (yeni) — `@xterm/xterm` +
-  `@xterm/addon-fit`. `ResizeObserver` ile container boyutu değiştiğinde
-  `fit()` + `resizeTerminal` IPC çağrısı; `onData`/`onTerminalData`
-  event'leri iki yönlü veri akışını kurar.
-- **`src/components/TerminalPanel.tsx`** (yeni) — VS Code tarzı alt panel:
-  birden fazla terminal sekmesi (`TerminalSessionInfo[]`), aç/kapat
-  toggle'ı, `onMouseDown` ile sürüklenebilir yeniden boyutlandırma
-  (`MIN_TERMINAL_HEIGHT=160`, `MAX_TERMINAL_HEIGHT=720`,
-  `DEFAULT_TERMINAL_HEIGHT=320`). Her sekme kendi `EmbeddedTerminal`
-  instance'ını `display: none` ile arka planda canlı tutuyor (unmount
-  edilmiyor) — sekme değiştirince xterm.js state'i (scrollback, vs.)
-  kaybolmasın diye.
-- **`App.tsx`**: `openTerminalForConnection(projectDir, title)` —
-  `connectToSystem` başarılı `ConnectResult` döndürdüğünde artık
-  **harici terminal açmıyor**, bunun yerine `window.api.createTerminal()`
-  çağırıp dönen `sessionId`'yi `terminalSessions`'a ekliyor ve paneli
-  otomatik açıyor. `handleCloseTerminal`, `handleToggleTerminalPanel`,
-  `handleTerminalResizeStart` (mouse sürükleme, `window.addEventListener`
-  ile global mousemove/mouseup, `MAX/MIN_TERMINAL_HEIGHT` clamp).
-- **`launcher.ts`**: `launchTerminal()`/`launchWithCmd()`
-  (`spawn("wt.exe"/"cmd.exe", ...)` ile harici pencere açan kod)
-  **tamamen kaldırıldı** — `connectToSystem()` artık hiçbir terminal
-  açmıyor, sadece `.conn_adt`/`sap-context.md`/skill kurulumu yapıp
-  `ConnectResult`'ı döndürüyor; terminali açma sorumluluğu tamamen
-  renderer'a (`App.tsx`) taşındı.
-- **`shared/types.ts`**: `TerminalMode` `"wt" | "cmd"` → `"cmd" |
-  "powershell"` oldu (artık harici pencere programı değil, gömülü
-  terminalin kullanacağı **kabuk** seçimi). `store.ts`'teki
-  `detectWindowsTerminal()` (wt.exe varlığını arayan kod) kaldırıldı —
-  gömülü terminalin `wt.exe`'ye ihtiyacı yok, varsayılan artık düz
-  `"cmd"`. Eski config dosyalarında `terminal: "wt"` kalmışsa
-  `loadConfig()` bunu sessizce `"cmd"`ya düşürüyor
-  (`VALID_TERMINAL_MODES` allow-list kontrolü).
-- **`SettingsModal.tsx`**: "Terminal" seçici artık "Windows Terminal/
-  cmd.exe" (harici pencere) değil, "cmd.exe/PowerShell" (gömülü terminalin
-  kabuğu) sunuyor; açıklama metni güncellendi.
-
-### Build/paketleme detayı (kritik — atlanırsa native modül çalışmaz)
-
-`package.json` `build.files`'a `"node_modules/@lydell/**/*"` ve
-`build.asarUnpack`'e aynı glob eklendi. **Sebep**: electron-builder
-varsayılan olarak tüm `app`'i `app.asar` içine sıkıştırır; Node'un
-`dlopen`/`process.dlopen` çağrısı asar içindeki bir `.node` dosyasını
-doğrudan açamaz (asar salt-okunur bir sanal dosya sistemidir, native
-binary'ler gerçek bir dosya tanıtıcısı ister). `asarUnpack` bu belirli
-yolları asar'ın yanına `app.asar.unpacked/` altına **gerçek dosya olarak**
-kopyalar — `require("@lydell/node-pty")` çalışma zamanında oraya
-yönleniyor. Bu adım atlanırsa paketlenmiş (`build:win`) uygulamada
-"Cannot find module" veya native binary yükleme hatası alınır (dev'de
-`npm run dev` asar kullanmadığı için bu hata **sadece paketlenmiş build'de
-ortaya çıkar** — bu yüzden bu adım özellikle kolay unutulur/atlanır).
-
-**Test durumu**: `npm run typecheck`, `npm run build`, ve
-`npx electron-builder --win dir` (native modülün gerçek `@electron/rebuild`
-adımından geçip `app.asar.unpacked/node_modules/@lydell/node-pty/
-node_modules/@lydell/node-pty-win32-x64/conpty.node` olarak paketlendiği
-doğrulandı) hepsi temiz geçti. Gerçek Electron runtime'ında (headless,
-GUI olmadan) `pty.spawn` + veri okuma/yazma canlı test edildi (yukarıda
-detaylı). **Gerçek bir GUI penceresinde xterm.js render'ının görsel olarak
-doğru göründüğü** (font, renk, resize, scrollback) bu ortamda test
-edilemedi — kullanıcının `release/win-unpacked/aXet SAP Launcher.exe`'yi
-çalıştırıp bir sisteme bağlanarak görsel olarak doğrulaması gerekiyor.
-Ancak önceki turun tam olarak düştüğü "process açılıyor ama I/O hiç
-akmıyor" tuzağı bu sefer **main process seviyesinde kanıtlanarak** aşıldı
-— bu, kalan riski "kozmetik/render" seviyesine indiriyor, "hiç çalışmıyor"
-seviyesinden çok daha düşük bir risk.
-
 ## Uygulama İkonu / Logo (2026-08-14, TAMAMLANDI) — özgün tasarım + gömme bug'ı
 
 **Logo**: `build/icon.svg` özgün bir tasarımla değiştirildi (Electron'un
@@ -982,9 +791,9 @@ Kullanıcı talebi: "VS Code'daki explorer gibi bir dosya ağacı ve dosyaları
     2MB üstü dosyalarda `truncated: true` ile ilk 2MB gösterilir.
   - `readDocxFile(filePath)` — **`mammoth`** (yeni npm bağımlılığı, pure JS,
     native binding YOK) ile `.docx`'i HTML'e çevirir
-    (`mammoth.convertToHtml({path})`). Native olmadığı için `@lydell/node-pty`
-    gibi `asarUnpack` gerekmiyor — `app.asar` içinden direkt çalışıyor
-    (paketli build'de doğrulandı, bkz. altta).
+    (`mammoth.convertToHtml({path})`). Native olmadığı için `asarUnpack`
+    gerekmiyor — `app.asar` içinden direkt çalışıyor (paketli build'de
+    doğrulandı, bkz. altta).
   - `readImageDataUrl(filePath)` — resmi base64 data URL'e çevirir (15MB üst
     sınır), renderer'da `<img src="data:...">` ile gösterilir.
   - `openInExplorer`/`openExternal` — `shell.showItemInFolder`/
@@ -1018,13 +827,11 @@ Kullanıcı talebi: "VS Code'daki explorer gibi bir dosya ağacı ve dosyaları
   genişlik state'i — `explorerWidth`/`MIN_EXPLORER_WIDTH`/
   `MAX_EXPLORER_WIDTH`, sol sidebar'ın resize deseniyle birebir aynı).
   Dosya seçilince üstte VS Code tarzı bir sekme çubuğu belirir ("Sistem
-  Detayı" + açık dosyalar), sekme kapatma/seçme mevcut `TerminalPanel`
-  sekme desenine bilinçli olarak benzetildi (tutarlılık için).
+  Detayı" + açık dosyalar).
 - **Paketleme**: `mammoth` `package.json`'a normal bir `dependencies` girişi
-  olarak eklendi (native binding yok, `@lydell/node-pty` gibi özel
-  `asarUnpack`/`files` girişine ihtiyacı yok — `fast-xml-parser` gibi
-  electron-builder'ın node_modules'ü otomatik toplama mekanizmasına
-  güvenildi). `npx asar list` ile paketlenmiş `app.asar` içinde
+  olarak eklendi (native binding yok, özel `asarUnpack`/`files` girişine
+  ihtiyacı yok — `fast-xml-parser` gibi electron-builder'ın node_modules'ü
+  otomatik toplama mekanizmasına güvenildi). `npx asar list` ile paketlenmiş `app.asar` içinde
   `node_modules/mammoth`'un gerçekten var olduğu doğrulandı; `main/index.ts`
   içinde `await import("mammoth")` (dinamik import, `externalizeDepsPlugin`
   tarafından bundle'a gömülmeden "external" bırakılıyor — `fast-xml-parser`
@@ -1037,91 +844,6 @@ Kullanıcı talebi: "VS Code'daki explorer gibi bir dosya ağacı ve dosyaları
   bu ortamda test edilemedi — kullanıcının paketlenmiş exe'yi çalıştırıp
   bir sisteme bağlanarak (veya zaten bağlanmış bir sistemi seçerek)
   Dosya Gezgini'nde `.docx`/`.txt`/resim dosyalarını açması gerekiyor.
-
-## Gömülü Terminalde Ctrl+V Yapıştırma — Kalan Hata Düzeltildi (devam)
-
-Önceki tur (yukarıdaki node-pty bölümü) Ctrl+V'yi `attachCustomKeyEventHandler`
-ile yakalayıp `preload`'ın kendi izole dünyasında `clipboard.readText()`
-çağırarak `term.paste()`'e veriyordu; kod içinde bunu ana süreçteki
-`debug:clipboardMain` ile karşılaştıran debug log'ları bırakılmıştı — bu,
-preload-taraflı okumanın ara sıra güncel olmayan/boş sonuç verdiğinden
-şüphelenildiğinin bir işaretiydi ve kullanıcı yapıştırmanın hâlâ çalışmadığını
-bildirdi. Çözüm: pano okuma tamamen **ana sürece** taşındı —
-`clipboard:readText` IPC handler'ı (`main/index.ts`, eski `debug:clipboardMain`
-yeniden adlandırıldı) tek okuma kaynağı; `preload/index.ts`'teki
-`readClipboardText` artık senkron `clipboard.readText()` değil, bu IPC'yi
-`invoke` eden bir `Promise<string>`. `EmbeddedTerminal.tsx`'teki
-`pasteFromClipboard` `async`'e çevrildi, tüm debug `console.log`'ları
-kaldırıldı. Ayrıca `isPasteCombo` tespiti artık sadece `event.key === "v"`'ye
-değil, `event.code === "KeyV"`'ye de bakıyor (bazı klavye düzeni/IME
-durumlarında `key` beklenmedik değer üretebiliyor, `code` fiziksel tuş
-konumuna dayandığı için ek güvence sağlıyor). `shared/types.ts`/`window.d.ts`
-zinciri güncellendi (`debugClipboardMain` kaldırıldı, `readClipboardText`
-tipi `Promise<string>` oldu). `npm run typecheck` ve `npm run build` temiz
-geçti. **Not**: Bu değişiklik henüz gerçek bir GUI penceresinde canlı test
-edilmedi (bu ortamda mümkün değil) — kullanıcının paketlenmiş/dev build'de
-gerçek bir Ctrl+V denemesi yapması gerekiyor; sorun tekrar ederse
-`clipboard:readText` IPC'sinin main process konsol log'una (varsa) veya
-`pasteFromClipboard`'daki `catch` bloğuna bakılmalı.
-
-## GÖMÜLÜ TERMİNAL CTRL+V — GERÇEK KÖK SEBEP VE KALICI ÇÖZÜM (2026-08-19, canlı test edildi, TAMAMLANDI)
-
-Yukarıdaki tur hâlâ **yanlış teşhisti** — kullanıcı canlı testte bildirdi:
-uygulama İÇİNDE kopyalanan bir metin terminale/normal input'lara
-yapıştırılabiliyordu, ama Notepad/tarayıcı gibi uygulama DIŞINDAN kopyalanan
-hiçbir şey **hiçbir yere** (ne terminale ne Ayarlar'daki düz bir `<input>`'a)
-yapıştırılamıyordu. Bu, "Windows delayed rendering" veya "Electron native
-clipboard binding bozuk" teorilerinin YANLIŞ olduğunu kanıtladı — sorun ne
-xterm.js'te ne Electron'un `clipboard` modülünde, çünkü Ayarlar'daki sıradan
-bir `<input>` da aynı native tarayıcı paste akışını kullanıyor ve o da
-etkilendi. Sistem geneli bir OS/Electron sorunu değildi çünkü PowerShell
-`Get-Clipboard` panoyu her zaman doğru okuyabiliyordu.
-
-**Gerçek kök sebep**: Kullanıcı Windows 11'in **Pano Geçmişi (Clipboard
-History / Win+V)** özelliğini kapatınca native yapıştırma (normal
-input'lar) HEMEN düzeldi. Bu, bu makinede/Windows sürümünde bilinen bir
-`cbdhsvc` (Clipboard User Service) davranışıyla eşleşiyor — pano geçmişi
-etkinken bazı Chromium/Electron sürümlerinin dış kaynaklı pano
-güncellemelerini (`WM_CLIPBOARDUPDATE`) doğru şekilde göremediği bir durum.
-
-**Ama terminal hâlâ çalışmıyordu** — pano geçmişi kapatıldıktan SONRA bile.
-Sebep: `EmbeddedTerminal.tsx`'teki ÖZEL Ctrl+V/sağ-tık kodu (bu turdan önceki
-tüm turlarda birikte gelen "düzeltmeler") xterm.js'in **kendi native paste
-event zincirini** (`node_modules/@xterm/xterm/src/browser/Clipboard.ts` —
-`textarea`'ya bağlı standart bir DOM `paste` ClipboardEvent'i, tarayıcının
-normal `execCommand`/clipboard izin sisteminden geçen, tıpkı normal bir
-`<input>` gibi çalışan bir mekanizma) `event.preventDefault()` + `return
-false` ile TAMAMEN ENGELLİYORDU, sonra bunun yerine Electron'un `clipboard`
-modülünü (main process IPC üzerinden, retry'lı) manuel çağırıyordu. Native
-input'larda yapıştırma düzelirken terminalde düzelmemesinin sebebi tam
-buydu — terminal kendi native yolunu hiç kullanamıyordu, hep bizim (bozuk
-olduğu ayrıca kanıtlanmamış, sadece gereksiz) manuel köprümüze düşüyordu.
-
-**Kesin çözüm**: `EmbeddedTerminal.tsx`'teki TÜM özel clipboard kodu
-(`attachCustomKeyEventHandler`, `pasteFromClipboard`, `handleContextMenu`
-override'ı) silindi — component artık Ctrl+V/sağ-tık'a hiç dokunmuyor,
-xterm.js kendi native `paste` event'ini (ve sağ tıkta tarayıcının native
-context menüsünü) kullanıyor, aynı normal bir `<input>` gibi. Bununla
-birlikte kaldırılanlar: `main/index.ts`'teki `clipboard:readText` IPC
-handler'ı (retry mantığıyla birlikte) ve `win.on("focus", ...)` "pano ısıtma"
-hack'i, `preload/index.ts`'teki `readClipboardText`/`writeClipboardText`,
-`window.d.ts`'teki karşılık gelen tipler. **Doğrulandı**: kullanıcı canlı
-testte Ctrl+V'nin artık terminalde çalıştığını onayladı.
-
-**Ayrıca bu turda**: `store.ts` `defaultConfig().terminal` `"cmd"`'den
-`"powershell"`'e çevrildi (kullanıcı isteği: "sıfırdan tertemiz powershell"),
-`terminalManager.ts`'e `resolveShellArgs()` eklendi — PowerShell açılırken
-`-NoLogo` ile telif/versiyon banner'ı bastırılıyor (kullanıcının
-`$PROFILE`'ına dokunulmuyor, sadece görsel gürültü kaldırılıyor).
-
-**Ders (ileride benzer bir "yapıştırma çalışmıyor" şikayeti gelirse)**: Önce
-native bir `<input>`'da da aynı sorun var mı diye sor — cevap "evet" ise
-sorun uygulamaya özel değildir (OS/Windows Pano Geçmişi ayarına bak), "hayır,
-sadece X bileşeninde" ise o bileşenin native event akışına elle müdahale
-edip etmediğini kontrol et. Bu projede iki kez de bu sıra tersten izlendi
-(önce "Electron clipboard API bozuk" varsayılıp saatlerce native modül
-retry/timing teorileri kovalandı) ve gerçek sebep ikisinde de çok daha
-basitti.
 
 ## GitHub'a Taşınma + Otomatik Güncelleme (`electron-updater`) (2026-08-19, TAMAMLANDI)
 
@@ -1321,42 +1043,6 @@ bir bağlantının şifresi de aynı mekanizmayla saklanıp otomatik dolduruluyo
   sonra o sistemin kaydı şifreyle güncellenir.
 - `npm run typecheck` ve `npm run build` temiz geçti.
 
-## Gömülü Terminal Tam Ekran (v1.3.3, TAMAMLANDI)
-
-VS Code'un "Maximize Panel" davranışına benzer bir tam ekran modu eklendi —
-kullanıcı terminali büyütüp sidebar + SystemPanel/FileViewer alanını
-kapatabiliyor, terminal App'in kalan tüm dikey/yatay alanını kaplıyor.
-
-- **`TerminalPanel.tsx`**: yeni `fullscreen: boolean` + `onToggleFullscreen:
-  () => void` prop'ları. Tam ekranda dış container `style={{height}}` yerine
-  `flex-1` class'ı alıyor (piksel yükseklik state'i devre dışı), sürükle-
-  boyutlandır tutamacı ve panel aç/kapat oku gizleniyor (tam ekranda anlamsız).
-  Sekme çubuğunun sağına `Maximize2`/`Minimize2` (lucide-react) ikonlu bir
-  toggle butonu eklendi — tam ekrandan çıkış SADECE bu buton üzerinden
-  (kasıtlı olarak Escape tuşuna bağlanMADI: terminaldeki kabuk/vim/nano gibi
-  programlar Escape'i kendi amaçları için kullanıyor, global bir `keydown`
-  listener'ı bunu yakalayıp paneli kapatsaydı terminal içindeki gerçek
-  Escape kullanımıyla çakışırdı).
-- **`App.tsx`**: yeni `terminalFullscreen` state'i +
-  `handleToggleTerminalFullscreen` (kapalıyken tam ekrana geçilirse önce
-  paneli de açar, aksi halde boş bir alan gösterirdi). Tam ekranken JSX'te
-  `<aside>` (sol sidebar), sidebar resize tutamacı ve `<main>` (SystemPanel/
-  FileViewer + dosya sekmesi çubuğu) hiç render edilMİyor — `{!terminalFullscreen
-  && (...)}` ile şartlı. Üstteki `<header>` (arama, Sistem Ekle, Ayarlar vb.)
-  bilerek görünür bırakıldı — sadece panel alanı büyütülüyor, pencere kontrolleri
-  kaybolmuyor.
-- State kaybı riski yok: `<aside>`/`<main>` unmount olsa da onların state'i
-  (`selection`, `search`, açık dosya sekmeleri) App seviyesinde tutulduğu için
-  tam ekrandan çıkınca aynen geri geliyor; terminal instance'ları zaten
-  `TerminalPanel` içinde ayrıca hiç unmount olmuyor (mevcut "her session bir
-  kez mount olur" tasarımı, bkz. component başındaki yorum), bu yüzden tam
-  ekrana geçiş/çıkış sırasında da scrollback/bağlantı kaybı olmuyor.
-- Ek bir IPC/`AppConfig` değişikliği gerekmedi — tamamen renderer-local UI
-  state'i.
-- `npm run typecheck` ve `npm run build` temiz geçti. Gerçek bir GUI
-  penceresinde görsel doğrulama (buton konumu, geçiş animasyonu yokluğu vb.)
-  bu ortamda yapılamadı.
-
 ## Güncelleme "Bulundu Ama İndirmiyor" Hatası (v1.3.4, TAMAMLANDI)
 
 **Şikayet**: Yeni sürüm bulunuyor ("Yeni sürüm bulundu: vX.Y.Z" mesajı
@@ -1406,7 +1092,7 @@ tercih `AppConfig.language` olarak diskte kalıcı.
   dili ("TR"/"EN") gösteren bir buton eklendi.
 - **Tüm renderer bileşenleri** (`Tree`, `SystemPanel`, `CredentialsModal`,
   `AddSystemModal`, `SettingsModal`, `ConfirmDialog`, `Toast`,
-  `TerminalPanel`, `FileExplorer`, `FileViewer`, `RecentSystems`,
+  `FileExplorer`, `FileViewer`, `RecentSystems`,
   `StatusDot`, `TierBadge`, `CopyButton`, `TitleBar`, `ErrorBoundary` vb.)
   `useT()` üzerinden çevrildi — sabit Türkçe metin (buton/label/placeholder/
   tooltip/boş durum mesajı) kalmadı, doğrulama: `grep` ile bilinen Türkçe
@@ -1928,3 +1614,397 @@ o kaynaktan alındığını** kanıtlamaz, bunlar ayrı adımlar.
 - `npm run typecheck` ve `npm run build:win` bu turda temiz geçti,
   yeniden build alınan `release/win-unpacked/aXet SAP Launcher.exe`
   ile DEQ sistemine karşı manuel test kullanıcı tarafından yapılacak.
+
+## Kimlik Doğrulama Her Zaman "Başarılı" Görünüyordu (SAML/SSO Sistemleri) — KÖK SEBEP BULUNDU VE DÜZELTİLDİ (2026-08-26)
+
+**Şikayet**: "occlutech" sisteminde kullanıcı adı/şifre doğru da olsa yanlış
+da olsa axet.code terminali her zaman açılıyordu — kimlik doğrulaması hiç
+engel olmuyormuş gibi davranıyordu.
+
+**Kök sebep**: `verifyCredentials()`/`verifyCredentialsThroughRouter()`
+(`adtDiscovery.ts`) doğrulamayı **sadece HTTP status kodu 200 mi** diye
+kontrol ediyordu — yanıt gövdesi başarı durumunda (200) hiç okunmuyor/
+incelenmiyordu. Bu sistem bir **BTP/Cloud + SAML SSO** sistemi: `/sap/bc/adt/
+discovery`'ye Basic Auth ile istek atıldığında, IdP kimlik bilgisini HİÇ
+kontrol etmeden doğrudan bir **HTML SAML giriş sayfasını HTTP 200 ile**
+döndürüyor (401 değil). Yani "doğru" ve "yanlış" şifre birebir aynı 200+HTML
+yanıtını üretiyordu — kod bunu ayırt edemediği için her ikisinde de
+`ok:true` dönüyor, `.conn_adt` yazılıp terminal açılıyordu.
+
+**Düzeltme (`adtDiscovery.ts`)**: yeni `looksLikeSamlLoginPage(contentType,
+body)` — `Content-Type` header'ı `html` içeriyorsa VEYA (header eksik/
+yanıltıcıysa diye bir güvence olarak) gövdenin ilk 500 karakteri
+`<!doctype html`/`<html` ile başlıyorsa veya içinde hem `<form` hem
+`password` geçiyorsa, bunu gerçek bir ADT discovery yanıtı (Atom Service
+Document, XML) değil bir SAML/SSO login sayfası olarak tanır. Her iki
+`verifyCredentials` varyantı (direkt ve router üzerinden) artık status 200
+olsa bile gövdeyi bu fonksiyondan geçiriyor — eşleşirse `ok:false` +
+yeni `samlLoginDetected` mesajı (`verifyMsg`, TR/EN) dönüyor, terminal
+AÇILMIYOR. Kullanıcıya net olarak "bu sistem SAML SSO gerektiriyor,
+kimlik bilgisi hiç kontrol edilmedi" deniyor, "şifre yanlış" gibi yanlış
+bir teşhise düşürülmüyor.
+- Direkt (non-router) yol: `res.on("data"...)` chunk biriktirme artık
+  status'a bakılmadan HER ZAMAN yapılıyor (önceden sadece 200 dışı
+  durumlarda okunuyordu); `res.on("end")` içinde 200 dalı artık body'yi
+  `looksLikeSamlLoginPage`'den geçiriyor.
+- Router yolu: `httpRequestOverSocket()` zaten tam gövdeyi (`res.body`)
+  senkron olarak döndürdüğü için ek bir değişiklik gerekmedi, sadece 200
+  dalına aynı kontrol eklendi.
+- **Gerçek doğrulanmış SAML akışı** (`%sap-adt-readonly`'nin
+  `login_saml_sso.py`'si, bkz. `buildContextMarkdown`'daki "Cloud / BTP
+  Sistem Notları" bölümü) hiç değişmedi — bu düzeltme sadece launcher'ın
+  kendi ilk Basic-Auth doğrulama adımının SAML sistemlerde sahte bir
+  "başarılı" sonuç üretmesini durduruyor, gerçek SAML cookie akışını
+  etkilemiyor.
+- **Bilinçli sınır**: Bu heuristik (content-type/body-sniffing) %100
+  kesin değil — teorik olarak gerçek bir ADT sunucusu çok garip bir
+  şekilde `text/html` content-type'lı ama geçerli bir yanıt dönerse
+  yanlış pozitif üretebilir, ama bu SAP ADT discovery endpoint'i için
+  hiç görülmemiş/beklenmeyen bir davranış; canlı SAML sistemlerindeki
+  gerçek davranışla (HTML login sayfası) eşleşen durumu yakalamak öncelik.
+- `npm run typecheck` ve `npm run build` temiz geçti. Occlutech sistemine
+  karşı canlı doğrulama bu oturumda yapılamadı (SAML IdP'ye gerçek erişim
+  bu ortamda yok) — kullanıcının bir dahaki bağlantı denemesinde artık
+  "kimlik bilgileri doğrulanamadı, SAML SSO gerekiyor" mesajını görmesi ve
+  yanlış şifreyle artık terminalin AÇILMAMASI beklenir.
+
+## Router-Only Sistemde RFC Bridge "Zaman Aşımı" İle Sürekli Başarısız Oluyordu — Occlutech (OEQ) Canlı Bulgusu (2026-08-26, TAMAMLANDI)
+
+**Şikayet**: Occlutech'in `OEQ` sistemi (router `/H/hermes.itelligence.pl`)
+için RFC bridge otomatik başlatıldı, `/health` (8788) ve read-only gate
+(8787) ayaktaydı, ama gerçek kimlik doğrulaması (`adt_logon`) hem launcher
+kurulumunda hem tekrar denendiğinde **aynı şekilde "Zaman aşımı" ile
+başarısız oluyordu** — bridge çalışıyor görünüyordu ama SAP'a asla
+bağlanamıyordu.
+
+**Kök sebep bulundu, iki katmanlı**:
+1. **Gerçek ağ/router sorunu (kod dışı, muhtemel asıl sebep)**: Router bu
+   sistemde raw HTTPS'i **açıkça** reddetmişti (-94, `NI_RTERR` — bkz.
+   `sap-context.md`'deki discovery notları), RFC bridge moduna otomatik
+   geçildi. Ama RFC bağlantısının kendisi de başarısız — ve bu kez router
+   AÇIKÇA bir `NI_RTERR` DÖNMÜYOR, sadece paket sessizce düşüyor (timeout).
+   Bunun en olası açıklaması: router'ın izin tablosu SAP GUI'nin kullandığı
+   **dispatcher/DIAG portuna** (`32<instance no>`, örn. 3200) izin veriyor
+   ama RFC istemcisinin (`pyrfc`, `ashost`+`sysnr` ile) gerçekte bağlandığı
+   **FARKLI bir port olan gateway portuna** (`33<instance no>`, örn. 3300)
+   hiç izin vermiyor — `saprouttab`'da bunlar ayrı kurallardır, DIAG'a izin
+   vermek gateway'e izin vermek anlamına gelmez. Bu, kod tarafında
+   çözülemeyen bir Basis/network konusu.
+2. **Kod tarafında gerçek bir bug (bu turda düzeltildi)**: `describeRfcEndpointFailure()`
+   (`launcher.ts`) yaygın RFC hata kalıplarını tanıyıp kullanıcıya açıklayıcı
+   bir not ekliyordu, AMA regex'i sadece İngilizce `timed? ?out` arıyordu —
+   launcher varsayılan dili Türkçe olduğu ve `verifyMsg` "timeout" anahtarı
+   Türkçe'de **"Zaman aşımı"** döndüğü için bu dal **hiçbir zaman
+   tetiklenmiyordu**. Kullanıcı/agent sadece çıplak "Zaman aşımı" görüyordu,
+   hiçbir yönlendirme/teşhis notu almıyordu.
+   Ayrıca `adt_rfc_bridge.py`'de **gerçek bir eşzamanlılık bug'ı** vardı:
+   `RfcAdtClient.request()` bağlantıyı açan `pyrfc.Connection(...)` çağrısı
+   sırasında `self._lock`'u (plain `with self._lock:`) tutuyordu — bu çağrı
+   router paketi sessizce düşürdüğünde OS'in kendi TCP connect timeout'una
+   kadar (onlarca saniye/dakika) BLOKE olabiliyordu. Bu süre boyunca gelen
+   HER YENİ istek (kullanıcının "tekrar dene" denemesi dahil) bu lock'un
+   arkasında **süresiz sıraya giriyordu** — yani ikinci/üçüncü deneme aslında
+   YENİ bir bağlantı denemesi değildi, hâlâ asılı kalan İLK denemenin
+   arkasında bekliyordu ve aynı yanıltıcı "Zaman aşımı" sonucunu üretiyordu.
+   Kullanıcıya "hem kurulumda hem şimdi aynı hata" gibi görünen şey, aslında
+   tek bir hiç bitmeyen ilk deneme etkisiydi.
+
+**Düzeltme**:
+- `launcher.ts` `describeRfcEndpointFailure()`'a Türkçe `zaman aşımı` deseni
+  için AYRI ve ÖNCELİKLİ bir dal eklendi — artık kullanıcıya net biçimde
+  "bu router'ın açıkça reddetmediği, sessizce düşürdüğü bir paket" olduğunu,
+  ve büyük olasılıkla **dispatcher değil gateway portu** izninin eksik
+  olduğunu söylüyor (Basis'e hangi portu söyleyeceğini bilmiyordu, artık
+  biliyor).
+- `attemptRfcBridgeAutoStart()`'taki bridge doğrulama isteğinin timeout'u
+  20s'ten **45s**'e çıkarıldı — SAProuter üzerinden ilk RFC bağlantısı düz
+  HTTPS'ten belirgin şekilde daha uzun sürebiliyor, eski süre yavaş-ama-
+  çalışır bir bağlantıyı bile erken "başarısız" sayabiliyordu.
+- `adt_rfc_bridge.py` `RfcAdtClient`: `self._lock.acquire(timeout=30.0)` ile
+  değiştirildi (yeni `RfcBridgeBusy` exception) — lock 30 saniyede
+  alınamazsa (yani hâlâ asılı kalan bir ilk deneme varsa) HTTP **503** +
+  "RFC bağlantısı hâlâ kuruluyor (ilk deneme ~Xs'dir sürüyor)" mesajıyla
+  HEMEN dönüyor, süresiz sıraya girmiyor. `self._connecting_since` yeni bir
+  alan — bağlantı denemesinin ne zaman başladığını takip edip bu mesaja
+  gerçek bekleme süresini yazıyor, başarılı/başarısız her denemede sıfırlanıyor
+  (bir sonraki deneme kendi taze süresini raporlayabilsin diye).
+  `_call_endpoint()`'in retry dalı da aynı şekilde `_connecting_since`'i
+  resetliyor.
+- `SKILL.md`'nin "Router-only sistemler (RFC bridge)" bölümüne bu "zaman
+  aşımı vs -94/-93" ayrımını ve gateway/dispatcher port farkını açıklayan
+  yeni bir alt bölüm eklendi.
+- **Bilinçli sınır**: Kod tarafında yapılabilecek olan budur — asıl bağlantı
+  denemesinin kendisini (native `pyrfc.Connection()`'ın bloklayan C
+  çağrısını) güvenli biçimde iptal etmek/timeout'lamak mümkün değil (Python
+  seviyesinden bir native blocking call'u kesip atamazsınız); bu yüzden
+  hâlâ asılı kalmış bir ilk deneme varsa bridge process'inin **yeniden
+  başlatılması** (launcher'ı kapat/aç) gerekebilir — yeni davranış bunu en
+  azından HIZLI ve NET bir şekilde söylüyor, sonsuz/yanıltıcı bir bekleme
+  yerine.
+- `npm run typecheck`, `npm run build` ve `adt_rfc_bridge.py`'nin
+  `ast.parse` ile syntax kontrolü temiz geçti. Occlutech/OEQ'nun gerçek
+  router'ına karşı canlı yeniden test bu oturumda yapılamadı (SDK/pyrfc bu
+  ortamda yok) — kullanıcının bir dahaki bağlantısında hem yeni
+  "gateway portu" teşhis notunu hem de (eğer ilk deneme hâlâ asılıysa) yeni
+  503 "hâlâ kuruluyor" mesajını görmesi beklenir; asıl "gateway portuna
+  saprouttab izni yok" ihtimali doğruysa nihai çözüm hâlâ Basis/network
+  ekibinin `saprouttab`'a yeni bir satır eklemesidir, kod tarafında bunun
+  ötesinde bir otomasyon mümkün değil.
+
+## Gömülü Terminal — GERİ YÜKLENDİ (2026-08-26)
+
+Önceki bir oturumda (bu dosyanın daha önceki bir sürümünde ayrıntılı belgeli
+"node-pty ile gömülü terminal — YENİDEN EKLENDİ" ve "GÖMÜLÜ TERMİNAL CTRL+V —
+GERÇEK KÖK SEBEP VE KALICI ÇÖZÜM" bölümleri, bkz. git geçmişi commit `5e04b87`)
+özellik commit edilmiş, sonra çalışma kopyasında (commit edilmeden) tamamen
+geri alınmıştı — bu geri almanın gerekçesi bu oturumda bulunamadı/kaydedilmemiş
+görünüyordu (SAML/RFC-bridge düzeltmeleriyle aynı commitlenmemiş değişiklik
+setinin içinde, ayrı bir not olmadan). Kullanıcı özelliği tekrar istedi.
+
+**Yaklaşım — sıfırdan yazmak DEĞİL, kanıtlanmış commit'ten geri yükleme**:
+`git show HEAD:<path>` ile şu dosyalar HEAD'den (v1.4.2, node-pty + Ctrl+V
+kök-sebep düzeltmesi + tam ekran modu dahil, en olgun hali) geri getirildi:
+`app-electron/main/terminalManager.ts`, `src/components/EmbeddedTerminal.tsx`,
+`src/components/TerminalPanel.tsx`, `src/App.tsx`,
+`src/components/SettingsModal.tsx`, `src/i18n/en.ts`, `src/i18n/tr.ts`,
+`src/window.d.ts`, `app-electron/shared/types.ts`,
+`app-electron/preload/index.ts`, `app-electron/main/store.ts`,
+`app-electron/main/index.ts`, `package.json`, `README.md`,
+`KULLANIM-REHBERI.md`. `app-electron/main/launcher.ts` elle birleştirildi
+(bu dosyada terminal-geri-alma ile SAML/RFC-bridge-zaman-aşımı düzeltmeleri
+AYNI çalışma kopyasında iç içeydi) — `launchTerminal`/`launchWithCmd`
+(harici `cmd.exe`/`wt.exe` spawn'ı) kaldırıldı, mesaj metinleri "gömülü
+terminal" ifadesine geri döndürüldü, SAML/timeout düzeltmeleri (2026-08-26
+tarihli, yukarıdaki bölümler) DOKUNULMADAN korundu. Mimari HEAD'deki ile
+birebir aynı: `launcher.ts` artık hiç terminal açmıyor, sadece
+`ConnectResult` döndürüyor; terminali açma sorumluluğu `App.tsx`
+`openTerminalForConnection()`'da (bkz. eski bölümler için git geçmişi).
+
+**Paketleme regresyonu bulundu ve düzeltildi (bu oturumda yeni)**: Temiz bir
+`npm install` sonrası `npx electron-builder --win dir` ile paketlenen exe'de
+`node_modules/@lydell/node-pty/node_modules/@lydell/node-pty-win32-x64/
+conpty.node` (asıl native binary) **`app.asar.unpacked/` altına
+kopyalanmıyordu** — `asar list` ile kontrol edilince dosyanın (JS dosyalarının
+aksine) hâlâ `app.asar`'ın İÇİNDE paketli kaldığı görüldü. Kök sebep tam
+teşhis edilemedi (muhtemelen electron-builder 25.1.8'in iç içe scoped paket
+node_modules yapısını — `@lydell/node-pty/node_modules/@lydell/node-pty-
+win32-x64` — `asarUnpack` glob eşleştirmesinde HER ZAMAN doğru işlemediği bir
+durum; `files` koleksiyonu aynı glob'la doğru çalışıyordu, sadece
+`asarUnpack` adımı atlıyordu). **Çözüm**: `package.json`'daki `asarUnpack`
+listesine daha genel/güvenilir `"**/*.node"` deseni eklendi (mevcut
+`"node_modules/@lydell/**/*"` silinmedi, ikisi birlikte duruyor) — bu, proje
+içindeki HERHANGİ bir native `.node` dosyasının (ileride başka bir native
+bağımlılık eklense de) otomatik olarak unpack edilmesini garanti eder,
+paket-özel bir glob'a bağımlı kalınmaz.
+- **Doğrulama**: `npx electron-builder --win dir` sonrası
+  `release/win-unpacked/resources/app.asar.unpacked/node_modules/@lydell/
+  node-pty/node_modules/@lydell/node-pty-win32-x64/conpty.node` gerçekten var
+  olduğu doğrulandı. Ayrıca gerçek bir `electron pty-test.cjs` (geçici,
+  doğrulama sonrası silindi) çalıştırılıp `pty.spawn("cmd.exe", ...)` ile
+  yazılan `echo HELLO_FROM_PTY`'nin çıktıda gerçekten göründüğü
+  (`CONTAINS_HELLO true`, `PTY_EXIT 0`) teyit edildi — önceki tur bu
+  ortamda YAPAMADIĞI görsel/GUI doğrulamayı hâlâ yapamıyor (gerçek bir
+  pencerede xterm.js render'ının görünümü kullanıcı tarafından test
+  edilmeli), ama native modülün paketlenmiş build'de gerçekten yüklenip veri
+  akıttığı artık bu oturumda da kanıtlandı.
+- `npm run typecheck` ve `npm run build` temiz geçti.
+- **Not**: `node_modules/@lydell/node-pty-win32-x64` root'ta hoisted bir kopya
+  olarak da bulunabiliyor (npm'in bağımlılık çözümüne göre değişebilir) —
+  hangisi var olursa olsun `"**/*.node"` deseni ikisini de kapsar, bu yüzden
+  hoisting davranışına artık bağımlı değiliz.
+
+## Dışarıdan Kopyalanan İçerik Yapıştırılamıyor — DENENDİ, TÜM UYGULAMAYI BOZDU, GERİ ALINDI (2026-08-26) — TEKRAR DENEME
+
+**Şikayet**: Terminalde dışarıdan (Notepad, tarayıcı vb.) kopyalanan içerik
+yapıştırılamıyordu (uygulama İÇİNDE kopyalanan içerik sorunsuz yapıştırılıyordu).
+
+**Yapılan araştırma (bulgu olarak DOĞRU, ama düzeltme girişimi YANLIŞ)**:
+Kapsamlı canlı teşhis (bu makinede, kullanıcının rehberliğiyle) şunu kanıtladı:
+panoda kopyalanan içerik varken (`CountClipboardFormats()` > 0) HEM Electron'un
+kendi `clipboard.readText()`'i HEM ham Win32 `GetClipboardData` HEM .NET
+WinForms `Clipboard.GetText()` — **üçü de** metni okuyamıyordu, ama format
+listesinde **`EnterpriseDataProtectionId`** görüldü. Bu, **Windows
+Information Protection (WIP)** — kurumsal MAM politikasının panoyu
+etiketleme formatıdır. WIP etkinken Windows, izin listesinde OLMAYAN
+uygulamaların (bu imzasız Electron uygulaması gibi) "kurumsal" kaynaktan
+kopyalanan içeriğin GERÇEK VERİSİNİ okumasını **işletim sistemi seviyesinde,
+kasıtlı olarak** engelliyor. **Bu teşhis hâlâ doğru ve geçerli.**
+
+**YANLIŞ olan kısım — "düzeltme" girişimi**: Bu teşhisten sonra Ctrl+V/sağ
+tık'ı ELLE yakalayıp (`term.attachCustomKeyEventHandler()` ile terminalde,
+`document.addEventListener("keydown", ..., {capture:true})` ile TÜM
+uygulamada global olarak) `event.preventDefault()` çağırıp
+`navigator.clipboard.readText()` → ana süreç IPC (`clipboard:readText`,
+ham Win32 fallback'li) zinciriyle manuel doldurmaya çalışıldı. **SONUÇ
+FELAKETTİ**: Bu, Chromium'un native paste mekanizmasını (Ctrl+V →
+`enableDeprecatedPaste` + Menu `role:"paste"` accelerator'ı üzerinden
+çalışan, ÖNCEDEN her yerde — kullanıcı adı/şifre alanları, Ayarlar'daki
+notlar, terminal — sorunsuz çalışan yol) TAMAMEN DEVRE DIŞI BIRAKTI.
+Kullanıcı (VE farklı bir bilgisayardaki arkadaşı) bunun üzerine **hiçbir
+yerde, hiçbir şekilde (ne dahili ne harici kopyalanan içerik) yapıştırma
+yapamadıklarını** bildirdi — yani "düzeltme" harici yapıştırmayı (zaten
+WIP tarafından engelli, düzeltilemez) düzeltmek yerine, önceden gerçekten
+ÇALIŞAN dahili yapıştırmayı da bozdu.
+
+**Kök sebep (neden bozdu)**: `event.preventDefault()` + `return false`
+çağrıldığı anda tarayıcının kendi native `paste` event zincirini (ve
+`execCommand("paste")`'i tetikleyen düşük seviye mekanizmayı) TAMAMEN
+iptal ediyorsunuz — bizim manuel `navigator.clipboard.readText()`/IPC
+zincirimiz native yoldan FARKLI bir API kullanıyor ve bazı ortamlarda
+(izin timing'i, WIP'in bu API'leri de farklı şekilde etkilemesi, vb.)
+native yoldan daha az güvenilir çıktı — üstüne native fallback'e hiç
+düşülemediği için (event zaten iptal edilmiş) önceden çalışan senaryolar
+da bozuldu.
+
+**Geri alma**: Tüm bu turda eklenen kod tamamen kaldırıldı — silinen
+dosyalar: `app-electron/main/clipboardWin32.ts`, `src/lib/robustPaste.ts`,
+`src/lib/clipboardBlockedEvent.ts`. Geri alınan dosyalar (HEAD'e, `git
+checkout HEAD --`, birebir): `app-electron/main/index.ts`,
+`app-electron/preload/index.ts`, `src/window.d.ts`, `src/App.tsx`,
+`src/components/Toast.tsx`, `src/i18n/en.ts`, `src/i18n/tr.ts`,
+`src/main.tsx`, `src/components/EmbeddedTerminal.tsx`. Yani
+`EmbeddedTerminal.tsx` artık **hiçbir özel Ctrl+V/sağ-tık kodu içermiyor**
+— yukarıdaki "GÖMÜLÜ TERMİNAL CTRL+V — GERÇEK KÖK SEBEP VE KALICI ÇÖZÜM"
+bölümündeki (2026-08-19) nihai/kanıtlanmış hâline birebir geri döndü.
+
+**Doğrulama (kullanıcının GERÇEK makinesinde, adım adım)**: Geri alma
+sonrası — kullanıcı adı/şifre alanı, Ayarlar'daki notlar/proje klasörü
+alanı, VE terminal, hepsinde **dahili** (uygulama içinde kopyalanan)
+kopyala-yapıştır Ctrl+C/Ctrl+V ile **tekrar sorunsuz çalıştığı** teyit
+edildi. **Dışarıdan (Notepad) kopyalanan içerik hâlâ yapıştırılamıyor**
+— bu BEKLENEN bir durum, WIP engeli hâlâ orada ve kod tarafında
+çözülemez.
+
+**KESİN KURAL (bir daha bu hataya düşülmesin)**:
+- **Ctrl+V/sağ tık'ı `preventDefault()`/`attachCustomKeyEventHandler` ile
+  ELLE YAKALAMAYA BİR DAHA KALKIŞILMASIN** — ne `EmbeddedTerminal.tsx`'te
+  ne global bir `document` listener'ında. Bu, native paste zincirini
+  kırıp DAHA ÇOK şeyi bozma riski taşıyor, WIP'in engellediği harici
+  yapıştırmayı DÜZELTMİYOR (çünkü engel OS seviyesinde, hangi API'yi
+  kullanırsak kullanalım aynı).
+- **Harici (dışarıdan) yapıştırmanın çalışmaması bu makinede/bu tür
+  WIP-korumalı makinelerde KALICI ve KOD TARAFINDA ÇÖZÜLEMEZ bir
+  kısıtlamadır.** Kullanıcıya söylenecek TEK doğru şey: "Bu, Windows
+  Information Protection (WIP) veya benzer bir kurumsal DLP politikası —
+  BT/güvenlik ekibinize bu uygulamayı (`aXet SAP Launcher.exe`) WIP'in
+  izin listesine ekletmeniz gerekiyor, bu bizim kodumuzda düzeltilemez."
+- **Dahili (uygulama içi) kopyala-yapıştır zaten native olarak çalışıyor**
+  (`enableDeprecatedPaste: true` + `Menu` `role:"paste"` accelerator'ı,
+  `main/index.ts`) — bu mekanizmaya DOKUNULMASIN, zaten doğru çalışıyor.
+- Eğer ileride WIP tespiti/kullanıcıya bilgi göstermek istenirse, bunu
+  SADECE **pasif bir teşhis** olarak yap (örn. bir "Yardım/Tanılama"
+  butonuna basınca elle tetiklenen bir kontrol) — Ctrl+V/paste event
+  akışının HİÇBİR NOKTASINA (keydown, paste event, context menu) elle
+  müdahale ETME.
+- `npm run typecheck` ve `npm run build` bu geri alma sonrası temiz geçti.
+
+## Terminalde Ctrl+V Çalışmıyordu (Diğer Tüm Alanlarda Çalışıyordu) — GERÇEK KÖK SEBEP BULUNDU, DAR KAPSAMLI DÜZELTME (2026-08-27)
+
+**Şikayet**: `release/win-unpacked` build'inde kullanıcı adı/şifre/notlar gibi
+her alanda Ctrl+V ile yapıştırma çalışıyordu, **sadece gömülü terminalde**
+çalışmıyordu.
+
+**Gerçek kök sebep (yukarıdaki "KESİN KURAL" bölümündeki teşhisten FARKLI)**:
+`EmbeddedTerminal.tsx`'teki eski yorum ("xterm'in textarea'sı sıradan bir DOM
+elemanı, dokunmaya gerek yok, native paste zaten çalışır") **yanlış bir
+varsayımdı**. xterm.js, Ctrl+V'yi kasıtlı olarak paste olarak ele almıyor —
+terminal/readline dünyasında bu kombinasyon "sıradaki karakteri literal ekle"
+(quoted-insert) anlamına geldiği için xterm.js bunu ham bir kontrol baytı
+olarak doğrudan shell'e iletiyor, tarayıcının native paste akışını (ve
+dolayısıyla `enableDeprecatedPaste`/permission handler zincirini) HİÇ
+TETİKLEMİYOR. Bu, xterm.js'in resmi/belgelenmiş davranışı
+(bkz. xtermjs/xterm.js#2478, #2390: "xterm.js doesn't do anything special
+with paste, embedder'ın `attachCustomKeyEventHandler` ile kendisi
+uygulaması gerekiyor") — input alanlarında çalışıp terminalde çalışmamasının
+asıl/tek sebebi budur, WIP ile bir ilgisi yok.
+
+**Neden önceki "KESİN KURAL" bunu yasaklamıştı ama bu tur farklı**: Önceki
+başarısız girişim TÜM `document` üzerinde global bir `keydown`
+(`capture:true`) listener'ı kullanıp `preventDefault()` ile native paste
+zincirini **HER YERDE** (input alanları dahil) kırmıştı, üstüne ana süreç
+Win32 `clipboard` IPC'si de hep boş string döndürüyordu — iki bağımsız
+hata üst üste binmişti. Bu turdaki düzeltme mimari olarak tamamen farklı:
+**sadece `EmbeddedTerminal.tsx` içindeki `Terminal` örneğine özel**
+`term.attachCustomKeyEventHandler(...)` kullanılıyor — bu handler SADECE
+xterm'in kendi textarea'sı odaktayken çağrılır, `document` seviyesinde
+hiçbir şeye dokunmaz, diğer input alanlarındaki mevcut native paste akışını
+etkilemez. Metin, ana süreç IPC/Win32 fallback'i OLMADAN, doğrudan
+`navigator.clipboard.readText()` (zaten `CopyButton.tsx`'te `writeText` için
+kullanılan aynı Async Clipboard API) ile okunup `term.paste()`'e veriliyor.
+
+**Değişiklikler**:
+- `src/components/EmbeddedTerminal.tsx`: `attachCustomKeyEventHandler` ile
+  Ctrl+V (`event.ctrlKey && key==="v"`, Shift/Alt hariç) yakalanıp
+  `navigator.clipboard.readText().then(text => term.paste(text))` çağrılıyor,
+  `return false` ile xterm'in bu tuşu ham baytla shell'e göndermesi
+  engelleniyor. Hata durumunda (izin yok/pano boş) sessizce yoksayılıyor —
+  terminal en azından eski (ham Ctrl+V baytı) davranışına düşer, çökme olmaz.
+- `app-electron/main/index.ts`: `setPermissionCheckHandler`'a
+  `"clipboard-read"` (Async Clipboard API'nin izin adı) eklendi (mevcut
+  `"deprecated-sync-clipboard-read"`'in yanına); yeni bir
+  `setPermissionRequestHandler` eklendi (sadece `clipboard-read`'i onaylıyor,
+  başka hiçbir izin talebini otomatik onaylamıyor).
+- Kullanılmayan `clipboard` import'u (electron modülü, önceki bir
+  commitlenmemiş oturumdan kalma ölü kod, `main/index.ts`'te hiçbir yerde
+  çağrılmıyordu) temizlendi — `npm run typecheck` bunu `noUnusedLocals`
+  hatası olarak yakaladı.
+
+**Bilinçli sınır (WIP kısıtlaması hâlâ geçerli, DEĞİŞMEDİ)**: Bu düzeltme
+SADECE uygulama İÇİNDE kopyalanan metnin terminale yapıştırılabilmesini
+sağlıyor. Yukarıdaki "KESİN KURAL" bölümündeki tespit hâlâ doğru: Windows
+Information Protection (WIP) altındaki bir makinede **dışarıdan** (Notepad,
+tarayıcı vb.) kopyalanan içerik `navigator.clipboard.readText()`'e de aynı
+şekilde boş/erişilemez gelir — bu durumda yeni handler `catch` bloğuna
+düşer, terminal sessizce eski davranışa (ham Ctrl+V baytı) döner, hata
+göstermez. Bu, kod tarafında çözülemeyen, BT/WIP politikası gerektiren aynı
+bilinen kısıtlama.
+
+- `npm run typecheck`, `npm run build` ve `npx electron-builder --win dir`
+  temiz geçti. Gerçek bir GUI penceresinde canlı Ctrl+V testi kullanıcı
+  tarafından `release/win-unpacked/aXet SAP Launcher.exe` ile yapılmalı.
+- **KESİN KURAL güncellemesi**: Yukarıdaki "bir daha attachCustomKeyEventHandler
+  denenmesin" kuralı, GLOBAL/`document` seviyesinde bir müdahale için hâlâ
+  geçerli — o asla tekrar denenmesin. Ama xterm `Terminal` örneğine ÖZEL,
+  dar kapsamlı `attachCustomKeyEventHandler` (bu turda yapılan, global hiçbir
+  şeye dokunmayan) artık kanıtlanmış/kalıcı bir çözüm, kaldırılmamalı.
+- **CANLI DOĞRULANDI (kullanıcının kendi makinesinde, v1.4.3 build'i
+  öncesindeki `release/win-unpacked` ile)**: uygulama içinde kopyalanan
+  metin artık terminale Ctrl+V ile sorunsuz yapıştırılıyor — kullanıcı
+  bunu bizzat teyit etti ("şuanda yapıştırıyor terminalede süper").
+- **Diğer bilgisayarlarda da çalışması için önemli not**: bu düzeltme
+  `navigator.clipboard.readText()` (renderer, Async Clipboard API) +
+  `session.setPermissionCheckHandler`/`setPermissionRequestHandler`
+  (`clipboard-read` izni) ikilisine dayanıyor — makineye özel bir ayar/kayıt
+  defteri/ortam değişkeni GEREKTİRMİYOR, sadece paketlenmiş `dist`/
+  `dist-electron` içeriğine gömülü. Yani NSIS Setup ile kurulan VEYA
+  portable/win-unpacked kopyalanan HER bilgisayarda otomatik olarak aynı
+  şekilde çalışır — WIP (Windows Information Protection) altında olmayan
+  standart bir kurumsal Windows makinesinde ek bir kurulum/izin adımı
+  gerekmez. (WIP altındaki makinelerde hâlâ sadece DIŞARIDAN kopyalanan
+  içerik engellenir — bkz. yukarıdaki bilinçli sınır notu; uygulama İÇİ
+  kopyala-yapıştır WIP'ten etkilenmez.)
+
+## v1.4.3 — Ctrl+V Terminal Düzeltmesiyle Sürüm Yükseltmesi (2026-08-27, TAMAMLANDI)
+
+Yukarıdaki "Terminalde Ctrl+V Çalışmıyordu" düzeltmesi canlı doğrulandıktan
+sonra `package.json`/`package-lock.json` `1.4.2` → `1.4.3`'e yükseltildi
+(`npm version patch --no-git-tag-version` — git tag/commit oluşturmadan
+sadece dosyaları güncelledi). `npm run typecheck` ve `npm run build:win`
+(dir+portable+nsis üçü birden) baştan sona hatasız tamamlandı:
+
+- `release/win-unpacked/aXet SAP Launcher.exe`
+- `release/aXet-SAP-Launcher-1.4.3-portable.exe`
+- `release/aXet SAP Launcher Setup 1.4.3.exe` (+ `.blockmap`)
+
+Üçünün de `LastWriteTime`'ı bu build komutunun çalıştığı ana ait (bkz.
+yukarıdaki "v1.4.1 Release Exe'si Eski Kaynak Koduyla Paketlenmişti" dersi —
+her sürüm sonrası bu kontrol tekrarlanmalı). `afterPack.cjs` özel ikon gömme
+hook'u da bu build'de temiz çalıştı ("Özel ikon gömüldü" logu görüldü).
+
+**Dağıtım**: Kullanıcılar `Setup 1.4.3.exe`'yi çalıştırıp kurarsa (mevcut bir
+sürümün üzerine) otomatik güncelleme akışı (`electron-updater`, GitHub
+Releases private repo token'ıyla) da bu sürümü görebilir hâle gelir — ama bu,
+sadece `npm run release`/GitHub Releases'e asset yüklendiğinde işler (bkz.
+"GitHub'a Taşınma" bölümü); bu turda sadece yerel `release/` klasörüne build
+alındı, henüz GitHub Releases'e yayınlanmadı.
+

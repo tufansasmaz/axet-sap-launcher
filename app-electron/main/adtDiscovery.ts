@@ -28,7 +28,8 @@ function verifyMsg(
     | "invalidUrl"
     | "timeout"
     | "connectionError"
-    | "connectionErrorRouter",
+    | "connectionErrorRouter"
+    | "samlLoginDetected",
   params?: { sid?: string; client?: string; status?: number | null; message?: string; body?: string }
 ): string {
   const tr = {
@@ -41,7 +42,8 @@ function verifyMsg(
     invalidUrl: "Geçersiz ADT URL",
     timeout: "Zaman aşımı",
     connectionError: `Bağlantı hatası: ${params?.message}`,
-    connectionErrorRouter: `Bağlantı hatası (SAProuter): ${params?.message}`
+    connectionErrorRouter: `Bağlantı hatası (SAProuter): ${params?.message}`,
+    samlLoginDetected: "HTTP 200 döndü ama yanıt beklenen ADT XML'i değil, bir SAML/SSO giriş sayfası (HTML) — kimlik bilgileri Basic Auth ile hiç kontrol edilmedi, bu sistem SAML SSO gerektiriyor. Kullanıcı adı/şifre doğru veya yanlış olsun bu sonuç aynı görünür; %sap-adt-readonly skill'indeki SAML giriş akışını (login_saml_sso.py) izlemen gerekiyor."
   };
   const en = {
     verified: "Credentials verified",
@@ -53,7 +55,8 @@ function verifyMsg(
     invalidUrl: "Invalid ADT URL",
     timeout: "Timed out",
     connectionError: `Connection error: ${params?.message}`,
-    connectionErrorRouter: `Connection error (SAProuter): ${params?.message}`
+    connectionErrorRouter: `Connection error (SAProuter): ${params?.message}`,
+    samlLoginDetected: "Got HTTP 200 but the response is not the expected ADT XML — it's a SAML/SSO login page (HTML). Credentials were never actually checked via Basic Auth; this system requires SAML SSO. Right or wrong username/password produces the same result here — follow the SAML login flow (login_saml_sso.py) in the %sap-adt-readonly skill."
   };
   return (language === "en" ? en : tr)[key];
 }
@@ -77,6 +80,23 @@ function unexpectedStatusMessage(language: AppLanguage, status: number | null, b
   return snippet
     ? verifyMsg(language, "unexpectedStatusWithBody", { status, body: snippet })
     : verifyMsg(language, "unexpectedStatus", { status });
+}
+
+// KÖK SEBEP DÜZELTMESİ (canlı bulgu — BTP/Cloud + SAML SSO sistemleri):
+// bazı SAML/IdP önündeki ADT endpoint'leri, Basic Auth kimlik bilgisi hiç
+// kontrol edilmeden (doğru veya yanlış, farketmez) doğrudan bir HTML SSO
+// giriş sayfasını HTTP 200 ile döndürüyor — eski kod sadece status===200'e
+// bakıp bunu "doğrulandı" sayıyordu, yani bu sistemlerde kimlik bilgisi ne
+// olursa olsun her zaman terminal açılıyordu. Gerçek ADT discovery yanıtı
+// bir Atom Service Document'tır (XML, <app:service>/<atom:...> kökleriyle
+// başlar) — content-type "html" içeriyorsa veya gövde bir HTML belgesiyse
+// (content-type eksik/yanlış olsa bile) bunu SAML giriş sayfası olarak
+// tanıyıp doğrulamayı BAŞARISIZ say.
+function looksLikeSamlLoginPage(contentType: string | undefined, body: string): boolean {
+  if (contentType && /html/i.test(contentType)) return true;
+  const head = body.slice(0, 500).trim().toLowerCase();
+  if (!head) return false;
+  return head.startsWith("<!doctype html") || head.startsWith("<html") || (head.includes("<form") && head.includes("password"));
 }
 
 export function guessInstanceNumber(diagPort: number | null): string | null {
@@ -474,12 +494,18 @@ export function verifyCredentials(
       (res) => {
         const sid = extractSidFromRealm(res.headers["www-authenticate"]);
         const status = res.statusCode ?? null;
+        const contentType = res.headers["content-type"];
         const chunks: Buffer[] = [];
         res.on("data", (chunk: Buffer) => {
           if (chunks.length < 8) chunks.push(chunk);
         });
         res.on("end", () => {
           if (status === 200) {
+            const body = Buffer.concat(chunks).toString("utf-8");
+            if (looksLikeSamlLoginPage(contentType, body)) {
+              resolve({ ok: false, status, sid, message: verifyMsg(language, "samlLoginDetected") });
+              return;
+            }
             resolve({ ok: true, status, sid, message: verifyMsg(language, "verified") });
           } else if (status === 401) {
             resolve({
@@ -532,6 +558,9 @@ async function verifyCredentialsThroughRouter(
     const sid = extractSidFromRealm(res.headers["www-authenticate"]);
     const status = res.statusCode;
     if (status === 200) {
+      if (looksLikeSamlLoginPage(res.headers["content-type"], res.body ?? "")) {
+        return { ok: false, status, sid, message: verifyMsg(language, "samlLoginDetected") };
+      }
       return { ok: true, status, sid, message: verifyMsg(language, "verifiedRouter") };
     } else if (status === 401) {
       return {

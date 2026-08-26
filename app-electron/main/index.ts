@@ -122,7 +122,18 @@ function createWindow(): void {
   });
 
   win.webContents.session.setPermissionCheckHandler((_webContents, permission) => {
-    return permission === "deprecated-sync-clipboard-read";
+    // "clipboard-read": gömülü terminaldeki (xterm.js) Ctrl+V için
+    // `navigator.clipboard.readText()` — xterm.js Ctrl+V'yi kendi terminal
+    // semantiğinde (readline "quoted-insert") ele aldığından tarayıcının
+    // native paste akışına hiç girmiyor, bu yüzden `EmbeddedTerminal.tsx`
+    // sadece kendi Terminal örneğine özel `attachCustomKeyEventHandler` ile
+    // bu API'yi çağırıyor (bkz. o dosyadaki not — global bir keydown/paste
+    // müdahalesi DEĞİL, sadece bu izin).
+    return permission === "deprecated-sync-clipboard-read" || permission === "clipboard-read";
+  });
+
+  win.webContents.session.setPermissionRequestHandler((_webContents, permission, callback) => {
+    callback(permission === "clipboard-read");
   });
 
   mainWindow = win;

@@ -221,6 +221,28 @@ güvenilir çalışır. Çok adımlı stateful akışlar (özellikle **aktivasyo
 gerçek bir HTTP session gerektirdiği için bu bridge üzerinden **güvenilir
 çalışmaz** — zaten bu read-only server'da aktivasyon yok, sorun değil.
 
+**"Zaman aşımı" (timeout) ile başarısız oluyorsa — bu -94/-93 REDDİNDEN
+FARKLI bir durum (canlı bulgu, 2026-08-26)**: -94/-93 router'ın paketi
+**açıkça** reddettiğini gösterir (NI_RTERR yanıtı geldi). Bridge'in kimlik
+doğrulaması yerine sade bir "zaman aşımı" ile başarısız oluyorsa (health
+endpoint'i `{"ok":true}` dönse bile), router paketi **sessizce düşürüyor**
+— hiç yanıt yok. Bunun en olası sebebi: router'ın izin tablosu SAP GUI'nin
+kullandığı **dispatcher/DIAG portuna** (`32<instance no>`, örn. 3200) izin
+veriyor ama RFC istemcisinin (pyrfc/`ashost`+`sysnr`) gerçekte bağlandığı
+**FARKLI bir port olan gateway portuna** (`33<instance no>`, örn. 3300)
+hiç izin vermiyor — bunlar `saprouttab`'da AYRI kurallardır. Basis/network
+ekibine bu ayrımı özellikle belirt ("dispatcher değil, gateway portu için
+de bir P satırı gerekiyor"). Ayrıca: `adt_rfc_bridge.py`'nin tek RFC
+bağlantısı bir global lock ile serileştirilir — ilk bağlantı denemesi
+(TCP connect seviyesinde) uzun sürüyorsa/asılı kalıyorsa, **o sırada gelen
+her yeni istek** (bir "tekrar dene" dahil) bu lock'un arkasında bekler ve
+30 saniye içinde alınamazsa HTTP 503 + "RFC bağlantısı hâlâ kuruluyor"
+mesajıyla döner — bu, "her denemede aynı hata" gibi görünen durumun
+genelde **tek bir asılı kalmış ilk deneme** olduğunu gösterir, art arda
+denemek yeni bir sonuç üretmez; bridge process'ini (`rfc-bridge.log`'a bak)
+yeniden başlatmak (launcher'ı kapat/aç veya proje klasöründe elle
+`adt_rfc_bridge.py`'yi tekrar çalıştırmak) gerekebilir.
+
 `adt_rfc_probe.py` her zaman önce çalıştırılmalı: `SADT_REST_RFC_ENDPOINT`
 alan adları (REQUEST_LINE/HEADER_FIELDS/MESSAGE_BODY, STATUS_LINE) SAP
 sürümüne göre değişebilir — probe gerçek alan adlarını

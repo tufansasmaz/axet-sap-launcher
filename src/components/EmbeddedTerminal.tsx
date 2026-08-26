@@ -66,24 +66,44 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       window.api.writeTerminal(sessionId, data);
     });
 
-    // Ctrl+V/sağ-tık yapıştırma: burada ELLE hiçbir şey yapılmıyor —
-    // önceki bir sürüm bunu Electron'un `clipboard` modülünü (main
-    // process IPC üzerinden) manuel çağırarak "düzeltmeye" çalışıyordu,
-    // ama bu modül bu makinede tutarlı biçimde boş string döndürüyordu
-    // (kök sebep hâlâ belirsiz — muhtemelen Windows 11 24H2 + Electron 33
-    // clipboard native binding uyumsuzluğu). O manuel handler ayrıca
-    // xterm.js'in KENDİ native paste akışını (`Clipboard.ts` —
-    // `textarea`'ya native `paste` ClipboardEvent'i, tarayıcının kendi
-    // `execCommand("paste")`/clipboard izin sistemi üzerinden) `event.
-    // preventDefault()` ile TAMAMEN ENGELLİYORDU. Uygulamadaki normal
-    // `<input>` alanlarında yapıştırma zaten çalışıyor (bkz.
-    // `main/index.ts`'teki `enableDeprecatedPaste` + permission handler) —
-    // xterm'in textarea'sı da aynı native mekanizmayı kullanan sıradan bir
-    // DOM elemanı, dolayısıyla hiçbir özel koda gerek yok, sadece
-    // ARAYA GİRMEMEK yeterli. Bu component artık Ctrl+V/sağ-tık'a hiç
-    // dokunmuyor — xterm.js kendi `textarea`/`element` üzerindeki `paste`
-    // event listener'ıyla (ve sağ tıkta tarayıcının kendi native context
-    // menüsüyle) bunu native olarak hallediyor.
+    // Ctrl+V yapıştırma: xterm.js Ctrl+V'yi KASITLI OLARAK paste olarak ele
+    // almıyor — terminal/readline dünyasında bu kombinasyon "sıradaki
+    // karakteri literal ekle" (quoted-insert) anlamına geldiği için xterm.js
+    // onu ham bir kontrol baytı olarak shell'e iletiyor
+    // (bkz. xterm.js#2478/#2390 — "xterm.js doesn't do anything special
+    // with paste, embedder'ın `attachCustomKeyEventHandler` ile kendisi
+    // uygulaması gerekiyor"). Önceki bir sürümün buradaki yorumu ("sıradan
+    // bir textarea, dokunmaya gerek yok") bu yüzden YANLIŞTI — dokunmamak
+    // normal `<input>` alanlarında çalışan native paste'in terminalde hiç
+    // tetiklenmemesine yol açıyordu.
+    //
+    // ÖNEMLİ — önceki başarısız girişimden FARKI: o girişim TÜM `document`
+    // üzerinde global bir `keydown` (`capture:true`) listener'ı kullanıp
+    // `preventDefault()` ile native paste zincirini HER YERDE (input
+    // alanları dahil) kırmıştı, üstüne bir de ana süreç Win32 `clipboard`
+    // IPC'si hep boş string döndürüyordu. Burada SADECE bu `Terminal`
+    // örneğine özel `attachCustomKeyEventHandler` kullanılıyor — bu handler
+    // yalnızca xterm'in kendi textarea'sı odaktayken çağrılır, `document`
+    // seviyesinde hiçbir şeye dokunmaz, diğer input alanlarındaki mevcut
+    // native paste akışını etkilemez. Metin `navigator.clipboard.readText()`
+    // (zaten `CopyButton.tsx`'te `writeText` için kullanılan aynı Async
+    // Clipboard API) ile okunup `term.paste()`'e veriliyor.
+    term.attachCustomKeyEventHandler((event) => {
+      if (event.type !== "keydown") return true;
+      const isPasteCombo = (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "v";
+      if (!isPasteCombo) return true;
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          if (disposed || !text) return;
+          term.paste(text);
+        })
+        .catch(() => {
+          // Panoya erişilemedi (izin/WIP vb.) — sessizce yoksay, terminal
+          // en azından eskisi gibi ham Ctrl+V baytını göndermeye devam eder.
+        });
+      return false;
+    });
 
     const unsubscribeData = window.api.onTerminalData((id, data) => {
       if (id !== sessionId || disposed) return;

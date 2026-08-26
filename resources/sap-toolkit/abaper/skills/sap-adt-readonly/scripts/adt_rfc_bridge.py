@@ -61,6 +61,7 @@ from __future__ import annotations
 import os
 import sys
 import threading
+import time
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -152,16 +153,39 @@ def load_rfc_config() -> dict:
     return cfg
 
 
+class RfcBridgeBusy(Exception):
+    """Raised when a caller can't get the connection lock within
+    RfcAdtClient._LOCK_ACQUIRE_TIMEOUT -- i.e. a PREVIOUS request is still
+    stuck opening the RFC connection (see class docstring). Handled
+    separately from generic RFC errors so the HTTP response (503, not 502)
+    and message make it obvious this is "still trying", not "failed"."""
+
+
 class RfcAdtClient:
     """Holds one lazily-opened, lock-serialized RFC connection and knows how to
     turn (method, uri, headers, body) into a SADT_REST_RFC_ENDPOINT call and
     back into (status, reason, headers, body)."""
+
+    # Router olayında ilk pyrfc.Connection() denemesi (özellikle SAProuter'ın
+    # paketi AÇIKÇA reddetmediği, sessizce DÜŞÜRDÜĞÜ durumlarda -- bkz.
+    # launcher.ts describeRfcEndpointFailure "zaman aşımı" notu) OS'in kendi
+    # TCP connect timeout'una kadar (onlarca saniye/dakika) BLOKE olabilir.
+    # Bu blok self._lock'u tutar -- eskiden sonraki HER istek (bir "tekrar
+    # dene" dahil) bu lock'un ARKASINDA süresiz sıraya giriyordu, yani her
+    # tekrar deneme aynı yanıltıcı "zaman aşımı" sonucunu (aslında hâlâ İLK
+    # denemenin kendisi) üretiyordu -- kullanıcıya "az önce de aynı hata,
+    # şimdi de aynı hata" gibi görünüyordu. Artık lock timeout'lu acquire
+    # ediliyor: hâlâ meşgulse (ilk deneme sürüyor) HEMEN, dürüst bir 503
+    # dönülüyor -- "hâlâ kuruluyor" ile "gerçekten başarısız oldu" birbirine
+    # karışmıyor.
+    _LOCK_ACQUIRE_TIMEOUT = 30.0
 
     def __init__(self, cfg: dict):
         self._cfg = cfg
         self._conn = None
         self._lock = threading.Lock()
         self._csrf_counter = 0
+        self._connecting_since: float | None = None
 
     def _ensure_connection(self):
         if self._conn is not None:
@@ -178,6 +202,7 @@ class RfcAdtClient:
             lang=self._cfg["lang"],
             saprouter=self._cfg["saprouter"],
         )
+        self._connecting_since = None
 
     def _call_endpoint(self, request_struct: dict):
         """Calls SADT_REST_RFC_ENDPOINT, retrying ONCE after a fresh reconnect
@@ -185,17 +210,29 @@ class RfcAdtClient:
         Deliberately does NOT retry more than once -- repeated logon attempts
         on a bad connection can lock the SAP user, same caution the reference
         adt-rfc-bridge implementation (enricoandreoli/adt-rfc-bridge) takes."""
-        self._ensure_connection()
         try:
+            self._ensure_connection()
             return self._conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=request_struct)
         except Exception:
             self._conn = None
+            self._connecting_since = None
             self._ensure_connection()
             return self._conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=request_struct)
 
     def request(self, method: str, uri: str, headers: list, body: bytes):
         """Returns (status_code, reason_phrase, headers_list, body_bytes)."""
-        with self._lock:
+        acquired = self._lock.acquire(timeout=self._LOCK_ACQUIRE_TIMEOUT)
+        if not acquired:
+            waited = time.monotonic() - (self._connecting_since or time.monotonic())
+            raise RfcBridgeBusy(
+                f"RFC bağlantısı hâlâ kuruluyor (ilk deneme ~{waited:.0f}s'dir sürüyor) -- bu genelde "
+                "SAProuter'ın paketi AÇIKÇA reddetmeyip SESSİZCE düşürdüğü bir durumun işareti (bkz. "
+                "sap-context.md 'zaman aşımı' notu). Tekrar tekrar deneme aynı sonucu üretir; Basis/network "
+                "ekibinin gateway portu (33<instance no>) için saprouttab izni kontrol etmesi gerekiyor."
+            )
+        try:
+            if self._conn is None and self._connecting_since is None:
+                self._connecting_since = time.monotonic()
             fetch_csrf = any(h[0].lower() == "x-csrf-token" and h[1] == "Fetch" for h in headers)
             real_method = "GET" if method.upper() == "HEAD" else method.upper()
 
@@ -230,6 +267,8 @@ class RfcAdtClient:
                 resp_body = b""
 
             return status_code, reason, resp_headers, resp_body
+        finally:
+            self._lock.release()
 
     def close(self):
         if self._conn is not None:
@@ -277,6 +316,14 @@ def run_bridge(host: str, port: int, cfg: dict) -> None:
 
             try:
                 status, reason, resp_headers, resp_body = client.request(method, uri, headers, body)
+            except RfcBridgeBusy as exc:
+                msg = str(exc).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(msg)))
+                self.end_headers()
+                self.wfile.write(msg)
+                return
             except Exception as exc:
                 msg = f"adt-rfc-bridge error calling SADT_REST_RFC_ENDPOINT: {exc}".encode("utf-8")
                 self.send_response(502)

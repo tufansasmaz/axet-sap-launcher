@@ -92,6 +92,21 @@ function describeRfcEndpointFailure(message: string): string {
   if (/NIEROUT_PERM_DENIED|route permission denied/i.test(message)) {
     return "SAProuter RFC/gateway trafiğini de reddediyor — Basis'in saprouttab'a bu ashost:sysnr için ayrı bir RFC izin satırı (P) eklemesi gerekiyor, kimlik bilgisi sorunu değil.";
   }
+  // "Zaman aşımı"/"Timed out" burada AYRI ve ÖNCELİKLİ bir dal — bu router'ın
+  // NI_RTERR ile AÇIKÇA reddettiği (-94/-93, üstteki dal) durumdan farklı:
+  // paket sessizce DÜŞÜRÜLÜYOR (ne kabul ne ret), bu genelde router'ın DIAG
+  // (32<instance no>, örn. 3200) için izin verdiği ama RFC/CPIC istemcisinin
+  // GERÇEKTE bağlandığı GATEWAY portu (33<instance no>, örn. 3300 — DIAG'dan
+  // FARKLI bir port) için hiç izin VERMEDİĞİ bir durumun işaretidir — router
+  // bu porta ait bir kural bulamayıp paketi TCP/firewall seviyesinde
+  // sessizce yutuyor olabilir (yanıt yok, ne NI_PONG ne NI_RTERR). Eskiden bu
+  // dal sadece İngilizce "timed? ?out" arıyordu, launcher varsayılan dili
+  // Türkçe ("Zaman aşımı") olduğu için bu bulgu (Occlutech/OEQ canlı test)
+  // hiçbir zaman tetiklenmiyordu — kullanıcı "Zaman aşımı" mesajını hiçbir
+  // ek açıklama/yönlendirme olmadan görüyordu.
+  if (/zaman aşımı/i.test(message)) {
+    return "Bu bir \"zaman aşımı\" — router paketi AÇIKÇA reddetmedi (NI_RTERR/-94/-93 değil), sessizce yanıtsız bıraktı. Büyük olasılıkla router'ın izin tablosu SAP GUI'nin kullandığı DIAG/dispatcher portuna (örn. 3200) izin veriyor ama RFC istemcisinin gerçekte bağlandığı FARKLI bir port olan GATEWAY portuna (aynı instance no ile 33xx, örn. 3300) hiç izin vermiyor — Basis/network ekibine bu ayrımı (dispatcher değil, gateway portu) özellikle belirt. Kimlik bilgisi sorunu değil.";
+  }
   if (/RFC_COMMUNICATION_FAILURE|partner.*not reached|connection refused|econnrefused|timed? ?out|WSAETIMEDOUT/i.test(message)) {
     return "RFC bağlantısının kendisi router üzerinden application server/gateway'e ulaşamadı — büyük olasılıkla Basis'in saprouttab'daki RFC izni veya yanlış ashost/sysnr, kimlik bilgisi sorunu değil.";
   }
@@ -153,7 +168,15 @@ async function attemptRfcBridgeAutoStart(
   }
 
   const bridgeUrl = `http://127.0.0.1:${rfcBridge.bridgePort}`;
-  const bridgeVerify = await verifyCredentials(bridgeUrl, credentials.username, credentials.password, credentials.client, 20000, undefined, language);
+  // 20s'ten 45s'e çıkarıldı — SAProuter üzerinden ilk RFC bağlantısının
+  // açılması (pyrfc.Connection(), TCP connect + native NI_ROUTE + RFC logon)
+  // düz HTTPS'ten belirgin şekilde daha uzun sürebiliyor (canlı bulgu:
+  // Occlutech/OEQ). Eski 20s'lik süre, bağlantı aslında yavaş-ama-çalışır
+  // durumdayken bile bizim tarafımızda erken "Zaman aşımı" üretebiliyordu —
+  // bu da adt_rfc_bridge.py'deki tek global lock'un ARKASINDA sıraya giren
+  // sıradaki isteğin de aynı yanıltıcı sonucu almasına yol açıyordu (bkz.
+  // adt_rfc_bridge.py _ensure_connection() lock timeout notu).
+  const bridgeVerify = await verifyCredentials(bridgeUrl, credentials.username, credentials.password, credentials.client, 45000, undefined, language);
 
   if (bridgeVerify.ok) {
     return {
