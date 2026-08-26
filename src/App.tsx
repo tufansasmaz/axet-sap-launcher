@@ -24,7 +24,8 @@ import type {
   FsEntry,
   SapLandscape,
   SapService,
-  SystemTier
+  SystemTier,
+  UpdateStatus
 } from "../app-electron/shared/types";
 import TitleBar from "./components/TitleBar";
 import Tree from "./components/Tree";
@@ -33,6 +34,7 @@ import SystemPanel from "./components/SystemPanel";
 import SettingsModal from "./components/SettingsModal";
 import CredentialsModal from "./components/CredentialsModal";
 import AddSystemModal, { type EditingManualSystem } from "./components/AddSystemModal";
+import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePromptModal";
 import ConfirmDialog from "./components/ConfirmDialog";
 import Toast, { type ToastMsg } from "./components/Toast";
 import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPanel";
@@ -90,6 +92,9 @@ export default function App() {
   const [leftPanelMode, setLeftPanelMode] = useState<"systems" | "files">("systems");
   const [openFiles, setOpenFiles] = useState<OpenFileTab[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle" });
+  const [updatePromptMode, setUpdatePromptMode] = useState<UpdatePromptMode>("hidden");
+  const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const scanGenerationRef = useRef(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const pendingConnectivityRef = useRef<Record<string, ConnectivityState>>({});
@@ -227,6 +232,70 @@ export default function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  // Güncelleme durumu — `main/index.ts`'teki açılıştan 3sn sonraki otomatik
+  // kontrolün (veya Ayarlar'daki "Şimdi Kontrol Et"in) sonucu buraya, tüm
+  // uygulama seviyesinde tek bir yerden dinleniyor. `getLastUpdateStatus()`
+  // ile mount anında son bilinen durum çekiliyor (otomatik kontrol bu
+  // component mount olmadan önce bitmiş olabilir), `onUpdateStatus` ile
+  // sonraki her değişiklik canlı olarak alınıyor. `SettingsModal`'ın kendi
+  // ayrı (sadece o modal açıkken aktif) aynı event'i dinleyen kopyası hâlâ
+  // duruyor — ikisi aynı yayını bağımsız dinliyor, çakışma yok.
+  useEffect(() => {
+    window.api.getLastUpdateStatus().then(setUpdateStatus);
+    const unsubscribe = window.api.onUpdateStatus(setUpdateStatus);
+    return unsubscribe;
+  }, []);
+
+  // `updateStatus.phase`'e göre modal modu türetiliyor — kullanıcı "Daha
+  // Sonra" dediyse (`dismissedUpdateVersion`) AYNI sürüm için modal bir daha
+  // açılmıyor (indirme/kurulum arka planda tetiklenmeden sessizce beklemede
+  // kalır, kullanıcı istediğinde Ayarlar'dan elle indirebilir); farklı/daha
+  // yeni bir sürüm bulunursa (ör. bir sonraki açılışta) tekrar sorulur.
+  // Ayarlar penceresi açıkken bu global modal bilerek gösterilmiyor —
+  // `SettingsModal` zaten aynı durumu kendi içinde (İndir/Yeniden Başlat
+  // butonlarıyla) gösteriyor, iki ayrı UI'ın üst üste binmesini önlüyoruz.
+  useEffect(() => {
+    if (settingsOpen) {
+      setUpdatePromptMode("hidden");
+      return;
+    }
+    if (updateStatus.phase === "available") {
+      if (updateStatus.version && updateStatus.version === dismissedUpdateVersion) return;
+      setUpdatePromptMode("prompt");
+    } else if (updateStatus.phase === "downloading" || updateStatus.phase === "downloaded") {
+      setUpdatePromptMode("progress");
+    } else if (updateStatus.phase === "error") {
+      setUpdatePromptMode((prev) => (prev === "progress" ? "progress" : "hidden"));
+    } else {
+      setUpdatePromptMode("hidden");
+    }
+  }, [updateStatus, dismissedUpdateVersion, settingsOpen]);
+
+  // Kullanıcı "İndir ve Kur"a bastıktan sonra kalan her şey OTOMATİK:
+  // indirme ilerlemesi bu efekt DEĞİL `updateStatus` event akışı ile
+  // güncelleniyor, "downloaded" fazına ulaşıldığında burada kısa bir
+  // gecikmeyle (kullanıcının "indirildi" mesajını görebilmesi için)
+  // `installUpdate()` (quitAndInstall) otomatik çağrılıyor — ikinci bir
+  // onay istenmiyor, bu tam olarak kullanıcının istediği "kendi otomatik
+  // yapsın" akışı.
+  useEffect(() => {
+    if (updateStatus.phase !== "downloaded") return;
+    const timer = window.setTimeout(() => {
+      window.api.installUpdate();
+    }, 2500);
+    return () => window.clearTimeout(timer);
+  }, [updateStatus.phase, updateStatus.version]);
+
+  const handleAcceptUpdate = () => {
+    setUpdatePromptMode("progress");
+    window.api.downloadUpdate();
+  };
+
+  const handleDismissUpdate = () => {
+    setDismissedUpdateVersion(updateStatus.version ?? null);
+    setUpdatePromptMode("hidden");
+  };
 
   const handleSelect = (path: string[], service: SapService, itemUuid: string) => {
     setSelection({ path, service, itemUuid });
@@ -855,6 +924,13 @@ export default function App() {
           onClose={() => setCredentialsTarget(null)}
           onSubmit={handleCredentialsSubmit}
           loadDefaults={(uuid) => window.api.getCredentialDefaults(uuid)}
+        />
+
+        <UpdatePromptModal
+          mode={updatePromptMode}
+          status={updateStatus}
+          onAccept={handleAcceptUpdate}
+          onDismiss={handleDismissUpdate}
         />
 
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">

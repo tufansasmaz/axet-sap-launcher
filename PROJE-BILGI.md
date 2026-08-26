@@ -2029,3 +2029,59 @@ verildi, `git remote`'a hiç yazılmadı) `npm run release`
   kurulmuş kopyalarda (portable/`dir` dağıtımları auto-update almaz, bkz.
   "GitHub'a Taşınma" bölümündeki bilinen kısıtlama).
 
+## Açılışta Otomatik Güncelleme Sorusu (v1.4.4, TAMAMLANDI)
+
+**İstek**: Kullanıcı önceden Ayarlar'a girip elle "Şimdi Kontrol Et"
+diyordu; bunun yerine uygulama açılışta kendisi yeni sürüm olup olmadığına
+baksın, varsa kullanıcıya bir soru sorsun ("yükleyelim mi?"), evet derse
+indirme VE kurulum (yeniden başlatma) tamamen kendi otomatik yapsın —
+ikinci bir onay istenmeden.
+
+**Mimari — mevcut altyapı (`updater.ts`, `main/index.ts`'teki 3 saniyelik
+açılış kontrolü, `UpdateStatus` event akışı) hiç DEĞİŞTİRİLMEDİ**, sadece
+renderer tarafında bu event akışını dinleyen YENİ bir global modal eklendi:
+
+- **`src/components/UpdatePromptModal.tsx`** (yeni) — üç görsel moddan
+  birini gösterir:
+  - `"prompt"`: "v{X.Y.Z} bulundu, İndir ve Kur / Daha Sonra" sorusu.
+  - `"progress"`: indirme ilerlemesi (`%`), sonra "indirildi, yeniden
+    başlatılıyor…" mesajı — bu fazda kullanıcıdan hiçbir aksiyon istenmez.
+  - `"hidden"`: render edilmez (`mode="hidden"` → `null`).
+- **`App.tsx`**: `updateStatus` (`UpdateStatus`, `getLastUpdateStatus()` +
+  `onUpdateStatus` ile — `SettingsModal`'daki AYNI event akışının ikinci,
+  bağımsız bir dinleyicisi, iki UI çakışmaz çünkü `settingsOpen` true iken
+  bu global modal bilerek `"hidden"` tutulur), `updatePromptMode`
+  (`UpdatePromptMode = "hidden" | "prompt" | "progress"`) state'leri
+  eklendi. Üç `useEffect`:
+  1. `updateStatus` değiştiğinde `updatePromptMode`'u türetir (`available`
+     → `prompt`, `downloading`/`downloaded` → `progress`, `error` sadece
+     zaten `progress` gösterilmişse görünür kalır — kullanıcı hiç
+     "İndir"e basmadan sessiz bir arka plan hatası göstermeyiz).
+  2. `phase === "downloaded"` olduğunda **2.5 saniyelik kısa bir gecikmeyle**
+     (kullanıcının "indirildi" mesajını görebilmesi için)
+     `window.api.installUpdate()` (`autoUpdater.quitAndInstall()`)
+     OTOMATİK çağrılır — bu, istenen "kendi otomatik yapsın" davranışının
+     tam karşılığı, kullanıcıdan ikinci bir tıklama istenmez.
+  3. `dismissedUpdateVersion` — kullanıcı "Daha Sonra" derse o SÜRÜM için
+     bu oturumda modal bir daha açılmaz (indirme tetiklenmeden sessizce
+     beklemede kalır, Ayarlar'dan elle indirilebilir); bir sonraki/daha
+     yeni bir sürüm bulunursa (örn. sonraki açılışta) tekrar sorulur.
+- **`src/i18n/tr.ts` / `en.ts`**: yeni `updatePrompt.*` anahtar seti
+  (title/message/install/later/downloading/downloaded/error/close) — mevcut
+  `settingsModal.*` güncelleme metinlerine PARALEL ama ayrı, çünkü bu modal
+  Ayarlar'ın dışında, kendi başlığıyla gösteriliyor.
+- **Değiştirilmeyen**: `updater.ts`, `main/index.ts`'teki açılış tetikleyici
+  (3sn gecikme + `config.autoCheckUpdates` kontrolü), `SettingsModal.tsx`'in
+  kendi "Güncellemeler" bölümü (elle kontrol/indir/kur akışı hâlâ orada,
+  kullanıcı Ayarlar'ı açıkken bu global modal `"hidden"` kalır) — hepsi
+  birebir eskisi gibi çalışıyor, sadece renderer'da YENİ bir tüketici
+  (bu modal) eklendi.
+- **Diğer bilgisayarlarda çalışması**: bu özellik tamamen renderer/i18n
+  kodu, `dist`/`dist-electron`'a gömülü — makineye özel bir ayar
+  gerektirmiyor. NSIS Setup ile kurulmuş HER kopya, açılıştan 3sn sonra
+  otomatik kontrol edip (varsa) bu soruyu soracak. Portable/`dir`
+  dağıtımları auto-update ALMAZ (electron-updater'ın belgelenmiş sınırı,
+  değişmedi) — o dağıtım türlerinde `updates:check` çağrısı hep
+  "not-available"/hata döner, modal hiç açılmaz.
+- `npm run typecheck` ve `npm run build` temiz geçti.
+

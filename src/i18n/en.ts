@@ -102,6 +102,15 @@ export const en: Record<TranslationKey, string> = {
   "sapLogon.sapShcutNotFound": "sapshcut.exe not found. Make sure SAP GUI is installed or set its path in Settings.",
   "sapLogon.spawnError": "Could not open SAP GUI: {detail}",
 
+  "updatePrompt.title": "New version available",
+  "updatePrompt.message": "aXet SAP Launcher v{version} was released. Download it now? The app will automatically restart and install once the download finishes.",
+  "updatePrompt.install": "Download & Install",
+  "updatePrompt.later": "Later",
+  "updatePrompt.downloading": "Downloading v{version}… {percent}%",
+  "updatePrompt.downloaded": "Downloaded — the app will restart and finish installing shortly…",
+  "updatePrompt.error": "Update download failed: {message}",
+  "updatePrompt.close": "Close",
+
   "settingsModal.checking": "Checking…",
   "settingsModal.updateAvailable": "New version found: v{version}",
   "settingsModal.download": "Download",

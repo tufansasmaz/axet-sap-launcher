@@ -100,6 +100,15 @@ export const tr = {
   "sapLogon.sapShcutNotFound": "sapshcut.exe bulunamadı. SAP GUI kurulu olduğundan emin ol veya Ayarlar'dan yolunu belirt.",
   "sapLogon.spawnError": "SAP GUI açılamadı: {detail}",
 
+  "updatePrompt.title": "Yeni sürüm bulundu",
+  "updatePrompt.message": "aXet SAP Launcher v{version} yayınlandı. Şimdi indirilsin mi? İndirme tamamlandığında uygulama otomatik olarak yeniden başlatılıp güncellenecek.",
+  "updatePrompt.install": "İndir ve Kur",
+  "updatePrompt.later": "Daha Sonra",
+  "updatePrompt.downloading": "v{version} indiriliyor… %{percent}",
+  "updatePrompt.downloaded": "İndirildi — uygulama birazdan otomatik olarak yeniden başlatılıp kurulacak…",
+  "updatePrompt.error": "Güncelleme indirilemedi: {message}",
+  "updatePrompt.close": "Kapat",
+
   "settingsModal.checking": "Kontrol ediliyor…",
   "settingsModal.updateAvailable": "Yeni sürüm bulundu: v{version}",
   "settingsModal.download": "İndir",
