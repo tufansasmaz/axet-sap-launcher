@@ -2008,3 +2008,24 @@ sadece `npm run release`/GitHub Releases'e asset yüklendiğinde işler (bkz.
 "GitHub'a Taşınma" bölümü); bu turda sadece yerel `release/` klasörüne build
 alındı, henüz GitHub Releases'e yayınlanmadı.
 
+**GitHub Releases'e yayınlandı (aynı gün, ayrı bir adım)**: Kaynak kod
+(`git push`, commit `472e826`) `main`'e gönderildikten SONRA, kullanıcının
+elle sağladığı geçici bir PAT ile (kalıcı olarak saklanmadı — sadece
+`GH_TOKEN` ortam değişkeni olarak bu tek `npm run release` çağrısına
+verildi, `git remote`'a hiç yazılmadı) `npm run release`
+(`electron-vite build && electron-builder --win --publish always`)
+çalıştırıldı:
+- Yeni bir GitHub Release oluşturuldu: **tag `v1.4.3`**
+  (`github.com/tufansasmaz/axet-sap-launcher/releases/tag/v1.4.3`).
+- Yüklenen asset'ler: `aXet-SAP-Launcher-1.4.3-portable.exe`,
+  `aXet-SAP-Launcher-Setup-1.4.3.exe` (+ `.blockmap`), `latest.yml`
+  (electron-updater'ın "yeni sürüm var mı" kontrolünün okuduğu manifest).
+- Kullanıcıya PAT'ı GitHub ayarlarından **revoke etmesi** hatırlatıldı
+  (konuşma geçmişinde açığa çıktığı için — aynı "GitHub'a Taşınma"
+  bölümündeki ilk kurulumda izlenen güvenlik prosedürü).
+- Artık Ayarlar'daki "Şimdi Kontrol Et" (veya açılışta otomatik kontrol,
+  `config.autoCheckUpdates` + kendi salt-okunur `updateToken`'ı olan
+  kullanıcılarda) v1.4.3'ü görüp indirebilir — ama SADECE NSIS Setup ile
+  kurulmuş kopyalarda (portable/`dir` dağıtımları auto-update almaz, bkz.
+  "GitHub'a Taşınma" bölümündeki bilinen kısıtlama).
+
