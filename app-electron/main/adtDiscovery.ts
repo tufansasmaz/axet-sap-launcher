@@ -446,6 +446,11 @@ export interface CredentialVerifyResult {
   status: number | null;
   sid: string | null;
   message: string;
+  // Dile/regex'e bağımlı fragile string-matching yerine yapısal bir bayrak
+  // — launcher.ts'in "bu sistem SAML SSO gerektiriyor, .conn_adt'ı yine de
+  // yaz ki kullanıcı login_saml_sso.py akışını takip edebilsin" kararı
+  // artık İngilizce/Türkçe mesaj metnine bakmadan bu alana bakıyor.
+  samlDetected?: boolean;
 }
 
 export function verifyCredentials(
@@ -503,7 +508,7 @@ export function verifyCredentials(
           if (status === 200) {
             const body = Buffer.concat(chunks).toString("utf-8");
             if (looksLikeSamlLoginPage(contentType, body)) {
-              resolve({ ok: false, status, sid, message: verifyMsg(language, "samlLoginDetected") });
+              resolve({ ok: false, status, sid, samlDetected: true, message: verifyMsg(language, "samlLoginDetected") });
               return;
             }
             resolve({ ok: true, status, sid, message: verifyMsg(language, "verified") });
@@ -559,7 +564,7 @@ async function verifyCredentialsThroughRouter(
     const status = res.statusCode;
     if (status === 200) {
       if (looksLikeSamlLoginPage(res.headers["content-type"], res.body ?? "")) {
-        return { ok: false, status, sid, message: verifyMsg(language, "samlLoginDetected") };
+        return { ok: false, status, sid, samlDetected: true, message: verifyMsg(language, "samlLoginDetected") };
       }
       return { ok: true, status, sid, message: verifyMsg(language, "verifiedRouter") };
     } else if (status === 401) {
