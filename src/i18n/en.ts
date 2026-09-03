@@ -211,12 +211,6 @@ export const en: Record<TranslationKey, string> = {
   "settingsModal.chatDensityComfortable": "Comfortable",
   "settingsModal.chatDensityCompact": "Compact",
   "settingsModal.chatSidebarOpenLabel": "Open the chat list on startup",
-  "settingsModal.chatConnectorModeLabel": "App connections in chat",
-  "settingsModal.chatConnectorModeHint":
-    "With Outlook/SharePoint tools on, every message takes ~10s longer (measured: ~15s → ~5s) because axet-code starts and tears them down on every call. The test on the \"App Connections\" screen is unaffected by this setting — it always tests with them on.",
-  "settingsModal.chatConnectorModeAuto": "When needed (message mentions mail/calendar/SharePoint)",
-  "settingsModal.chatConnectorModeAlways": "Always on (slower, but no guessing)",
-  "settingsModal.chatConnectorModeOff": "Off (fastest, no tools at all)",
   "settingsModal.sectionTerminal": "Terminal",
   "settingsModal.sectionAdvanced": "Advanced Paths",
   "settingsModal.sectionManual": "Manual Systems",
@@ -545,10 +539,14 @@ export const en: Record<TranslationKey, string> = {
   "appConnections.providerSharepoint": "SharePoint",
   "appConnections.connected": "Connection works",
   "appConnections.notConnected": "Connection failed",
-  "appConnections.testConnection": "Test Connection",
-  "appConnections.loginHint": "If the test keeps failing, your axet.code session may have expired.",
-  "appConnections.openLoginTerminal": "Log In via Terminal",
-  "appConnections.loginTerminalTitle": "axet-code login",
+  "appConnections.connect": "Connect",
+  "appConnections.disconnect": "Disconnect",
+  "appConnections.statusConnected": "Connected",
+  "appConnections.statusDisconnected": "Not connected",
+  "appConnections.statusConnecting": "Connecting…",
+  "appConnections.statusFailed": "Failed",
+  "appConnections.connectFailedHint":
+    "Could not connect. This is usually fixed in the aXet Agentic portal: check whether you have an integration for this provider and whether its authorization is still valid.",
   "appConnections.selectProjectHint": "These connectors require an AXET Project to be selected — this can only be done in axet-code's interactive (full-screen) mode.",
   "appConnections.openProjectTerminal": "Select AXET Project",
   "appConnections.projectTerminalTitle": "Select AXET Project",
@@ -557,8 +555,17 @@ export const en: Record<TranslationKey, string> = {
   "appConnections.openAgenticPortal": "Open aXet Agentic Portal",
   "appConnections.checkedAt": "Last checked: {time}",
   "appConnections.servedBy": "axet.code connects to",
-  "appConnections.chatMode.auto": "Chat uses these tools on its own when needed (messages that mention mail/calendar/SharePoint).",
-  "appConnections.chatMode.always": "Chat uses these tools on every message — most reliable, but every message takes ~10s longer.",
-  "appConnections.chatMode.off": "Careful: even if the test above passes, CHAT is not using these tools — they are off. Ask chat about mail or files and it will have no tools at all.",
-  "appConnections.enableForChat": "Enable for chat too"
+  "appConnections.availableEverywhere": "Connected apps are available everywhere you talk to the AI:",
+  "appConnections.noneConnected":
+    "No app is connected — ask chat or the agents about mail/calendar/SharePoint and they will have no tools at all.",
+  "appConnections.surfaceChat": "Chat",
+  "appConnections.surfaceFlows": "axet.flows agent",
+  "appConnections.surfaceSapGui": "SAP GUI agent",
+  "appConnections.modeTitle": "When should these tools be loaded?",
+  "appConnections.mode.auto": "When needed",
+  "appConnections.mode.always": "Always",
+  "appConnections.modeHint.auto":
+    "Loaded only when your message mentions mail/calendar/SharePoint — every other message is ~10s faster. The decision is a guess: on a rare message that needs them, the tools may not be loaded.",
+  "appConnections.modeHint.always":
+    "Loaded on every message — no guessing, but every message takes ~10s longer (measured: ~5s → ~15s) because axet-code sets the tools up and tears them down on every call."
 };

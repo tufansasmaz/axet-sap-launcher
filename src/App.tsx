@@ -500,21 +500,21 @@ export default function App() {
     }
   }, [config?.terminal, config?.projectsBaseDir, t]);
 
-  // Uygulama Bağlantıları — "Terminalde Giriş Yap"/"AXET Projesi Seç"
-  // butonları (bkz. AppConnectionsSection.tsx). `axet-code login` bir
-  // tam-ekran TUI DEĞİL, düz satırlar (device code + URL) yazan basit bir
-  // komut; `axet-code` (argümansız, interaktif) İSE Connector/MCP
-  // araçlarının gerektirdiği "AXET Project" seçim diyaloğunu açan GERÇEK
-  // TUI'nin kendisi — CLI'nın kendi hata mesajı da bunu doğruluyor:
-  // "No project selected, launch axet-code in interactive mode first."
-  // Bu yüzden `openTerminalForConnection`'ın (READY_PATTERNS/8sn fallback
-  // bekleyen, axet.code'un TAM EKRAN sohbet arayüzü için tasarlanmış) yolunu
-  // KULLANMIYORUZ — `handleNewTerminal`'la AYNI "manuel terminal" yolu
-  // (hemen hazır sayılır, tab anında açılır) + hazır olur olmaz komutu
-  // stdin'e yazan bir `writeTerminal` çağrısı yeterli, HER İKİ senaryo için
-  // de (login düz komut, proje seçimi ise CLI'nın kendi TUI'sini açan
-  // gerçek interaktif komut — kullanıcı orada normal şekilde etkileşime
-  // girer, bizim tarafımızdan ekstra bir tuş vuruşu simüle edilmez).
+  // Uygulama Bağlantıları — "AXET Projesi Seç" butonu (bkz.
+  // AppConnectionsSection.tsx). `axet-code` (argümansız, interaktif),
+  // Connector/MCP araçlarının gerektirdiği "AXET Project" seçim diyaloğunu
+  // açan GERÇEK TUI'nin kendisi — CLI'nın kendi hata mesajı da bunu
+  // doğruluyor: "No project selected, launch axet-code in interactive mode
+  // first." Bu yüzden `openTerminalForConnection`'ın (READY_PATTERNS/8sn
+  // fallback bekleyen, axet.code'un TAM EKRAN sohbet arayüzü için
+  // tasarlanmış) yolunu KULLANMIYORUZ — `handleNewTerminal`'la AYNI "manuel
+  // terminal" yolu (hemen hazır sayılır, tab anında açılır) + hazır olur
+  // olmaz komutu stdin'e yazan bir `writeTerminal` çağrısı yeterli;
+  // kullanıcı TUI'de normal şekilde etkileşime girer, bizim tarafımızdan
+  // ekstra bir tuş vuruşu simüle edilmez.
+  // ("Terminalde Giriş Yap" yolu 2026-09-04'te kullanıcı isteğiyle
+  // kaldırıldı — başarısızlıkların çaresi artık doğrudan aXet Agentic
+  // portalı.)
   const openConnectorHelperTerminal = useCallback(
     async (command: string, title: string) => {
       const shell = config?.terminal ?? "cmd";
@@ -529,11 +529,6 @@ export default function App() {
       }
     },
     [config?.terminal, config?.axetWorkspaceDir, config?.projectsBaseDir, t]
-  );
-
-  const handleOpenLoginTerminal = useCallback(
-    () => openConnectorHelperTerminal("axet-code login", t("appConnections.loginTerminalTitle")),
-    [openConnectorHelperTerminal, t]
   );
 
   const handleOpenProjectTerminal = useCallback(
@@ -740,6 +735,7 @@ export default function App() {
           onToggleLanguage={handleToggleLanguage}
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenConnections={() => setConnectionsOpen(true)}
+          connectorsConnected={Object.values(config?.connectorEnabled ?? {}).some(Boolean)}
         />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {activity === "axetCode" ? (
@@ -1016,8 +1012,14 @@ export default function App() {
 
         <AppConnectionsModal
           open={connectionsOpen}
-          onClose={() => setConnectionsOpen(false)}
-          onOpenLoginTerminal={handleOpenLoginTerminal}
+          // Modal kapanırken config yeniden okunuyor: bağlan/kes main
+          // process'te kaydediliyor, App.tsx'in kopyası bunu bilmiyor —
+          // yoksa ActivityBar'daki nokta bir sonraki açılışa kadar bayat
+          // kalırdı.
+          onClose={() => {
+            setConnectionsOpen(false);
+            window.api.getConfig().then(setConfig);
+          }}
           onOpenProjectTerminal={handleOpenProjectTerminal}
         />
 

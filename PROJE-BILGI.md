@@ -7546,3 +7546,84 @@ fonksiyonları useEffect temizleyicisi olarak kullanılıyor, Promise dönerlers
 tüm ekran *"destroy is not a function"* ile hata sınırına düşer; (b)
 `getConfig`/`getLandscape` gerçek şekli dönmeli — `getLandscape` sarmalayıcı
 değil, doğrudan `{customers, path}` döner.
+
+## Uygulama Bağlantıları — tek buton, her yerde geçerli (2026-09-04, TAMAMLANDI)
+
+Kullanıcı isteği: *"bağlantıyı test et değil de, bağlan ve bağlantıyı kes
+şeklinde tek buton olsun, terminalde giriş yap kısmı kaldırılsın direkt
+agentic sitesine yönlendirsin bağlanamazsa, arayüzü tasarımını temasını
+daha güzel yapabilirsen düzenleyebilirsin, eğer uygulamalar bağlıysa her
+yerden erişilebilsin bunlara yapay zeka ile konuştuğumuz"*.
+
+### "Bağlan" ne demek — burada açılan bir soket YOK
+
+Bu launcher axet.nttdata.com'a hiçbir zaman doğrudan istek atmıyor; her şey
+`axet-code`'un kendi Okta oturumu üzerinden. O yüzden butonların anlamı
+şöyle sabitlendi ve etiketler bu yüzden dürüst:
+
+| Buton | Ne yapıyor | Süre |
+| --- | --- | --- |
+| **Bağlan** | `axet-code`'a sorar (doğrular) + başarılıysa `connectorEnabled[provider] = true` | ~30-60 sn |
+| **Bağlantıyı Kes** | `connectorEnabled[provider] = false` | anında, process yok |
+
+Yani **"bağlı" = hem çalışıyor hem de yapay zekânın kullanmasına izin var.**
+Eskiden bunlar iki ayrı şeydi (test ekranı yeşil tik gösterirken sohbetin
+ayarı kapalı olabiliyordu) — *"bağlandı diyor ama olmuyor"* şikayetinin
+kaynağı buydu; bir önceki tur bunu ekranda **yazarak** çözmüştü, bu tur
+**ortadan kaldırdı**.
+
+### Tek doğruluk kaynağı: `connectorEnabled`
+
+`connectorMode` artık yalnızca `auto | always` — `off` **kaldırıldı**. Aynı
+şeyi (açık/kapalı) iki ayrı yerden ifade etmek karışıklığın ta kendisiydi.
+Kip seçimi de Ayarlar'dan **çıkarıldı**, Uygulama Bağlantıları ekranına
+taşındı: açık/kapalı = Bağlan/Kes butonu, kip = yalnızca *ne zaman
+yükleneceği* (hız ayarı). `store.ts` eski `chatUseConnectors` (boolean) ve
+`chatConnectorMode` (`off` dahil) alanlarını okuyup göç ettiriyor ve
+siliyor; `off` → `auto`.
+
+⚠️ **Gelecekte dokunma notu:** bağlayıcıların açık/kapalı olması için
+`connectorEnabled` dışında ikinci bir alan **eklenmesin**. İki yer = aynı hata.
+
+### Her yerden erişim — üç yüzey, tek politika
+
+`connectorPolicy.ts` tek karar noktası; sohbet (`axetChat.ts`), axet.flows
+ajanı (`axetFlowsAgent.ts`) ve SAP GUI ajanı (`sapGuiScriptAgent.ts`) üçü de
+oradan geçiyor. Ekranda da üç yüzey rozet olarak yazıyor — eskiden yalnızca
+"sohbet" deniyordu ve iki ajanın da aynı araçlara ulaştığı hiçbir yerde
+yazmıyordu.
+
+⚠️ **Karar KULLANICININ KENDİ CÜMLESİYLE verilir, birleştirilmiş prompt'la
+DEĞİL.** İki ajanın prompt'unda node katalogu / aksiyon sözlüğü var ve orada
+geçen tek bir "mail" kelimesi her turu boşuna ~8-10 sn yavaşlatırdı. Bu
+yüzden her iki `agentRunner` da `connectorText`'i ayrıca geçiriyor (mesaj
+boşsa transcript'teki son `KULLANICI:` satırı — konu hâlâ o). Tur ortasında
+değişmesin diye turun her iterasyonunda aynı metin gidiyor.
+
+ℹ️ MCP araçları `axet-code`'un **kendi** ajan döngüsü içinde çağrılıyor, bu
+yüzden stdout hâlâ yalnızca nihai cevabı taşıyor — ajanların JSON aksiyon
+protokolü bundan **bozulmuyor**. Tek maliyet süre.
+
+### Kaldırılanlar
+
+- **"Terminalde Giriş Yap" satırı** — bir başarısızlığın çaresi neredeyse
+  her zaman portalde. Artık **tanınmayan her hata da** portale yönlendiriyor
+  (eskiden tanınmayan hatalar hiçbir yol göstermeden kırmızı satır olarak
+  kalıyordu). Tek istisna **AXET Project seçimi**: portalde çözülemez, bu
+  makinedeki interaktif `axet-code` TUI'sini gerektirir — o buton duruyor.
+- Ayarlar'daki "Sohbette uygulama bağlantıları" seçicisi (yukarı bkz.).
+
+### Görsel
+
+Kartlar bağlıyken accent kenarlık/zemin, değilken nötr; sağ üstte durum
+rozeti (Bağlı / Bağlı değil / Bağlanıyor… / Başarısız), altta tam genişlik
+tek buton. Kartların altında "nerelerde kullanılabilir" kutusu — hiçbiri
+bağlı değilken kehribar uyarıya dönüşüyor. ActivityBar'daki fiş ikonunda
+bağlı uygulama varsa accent nokta (durum artık modal açmadan da görünüyor);
+modal kapanırken `getConfig` yeniden okunuyor, yoksa nokta bayat kalırdı.
+
+### Doğrulama
+
+`npm run typecheck` + `npm run build` temiz. Ölü i18n anahtarı bırakılmadı
+(`testConnection`, `loginHint`, `openLoginTerminal`, `loginTerminalTitle`,
+`chatMode.*`, `enableForChat`, `settingsModal.chatConnectorMode*`).

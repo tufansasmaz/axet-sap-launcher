@@ -39,6 +39,7 @@ import {
 import { runSapGuiAgentStep, cancelSapGuiAgentStep, cancelAllSapGuiAgentSteps } from "./sapGuiScriptAgent";
 import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js";
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
+import { shouldUseConnectors } from "./connectorPolicy";
 import type { AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
@@ -612,9 +613,10 @@ function registerIpc(): void {
     // İptal EDİLEN test bir sonuç değildir — saklanırsa kullanıcı bir dahaki
     // açılışta hiç yaşamadığı bir "başarısız" görürdü.
     if (!result.cancelled) {
+      const current = loadConfig();
       saveConfig({
         connectorLastResults: {
-          ...loadConfig().connectorLastResults,
+          ...current.connectorLastResults,
           [provider]: {
             connected: result.connected,
             detail: result.detail,
@@ -622,10 +624,25 @@ function registerIpc(): void {
             missing: result.missing,
             checkedAt: new Date().toISOString()
           }
-        }
+        },
+        // DOĞRULAMA VE BAĞLANMA TEK ADIM. Ekranda tek bir düğme var
+        // ("Bağlan") ve doğrulanmamış bir "bağlı" hâli olamaz: sağlayıcı
+        // ancak gerçekten çalıştığı görüldüğünde açılıyor. Başarısızlık da
+        // yazılıyor — daha önce bağlıyken bozulmuşsa bağlı KALMAMALI, yoksa
+        // her çağrı boşuna 10 saniye ödeyip aracı bulamazdı.
+        connectorEnabled: { ...current.connectorEnabled, [provider]: result.connected }
       });
     }
     return result;
+  });
+
+  // "Bağlantıyı Kes" — doğrulama YOK, ağ çağrısı YOK, anında. Kesmek için
+  // bir şeyin çalıştığını kanıtlamak gerekmiyor; zaten çalışmadığı için
+  // kesiliyor olabilir.
+  ipcMain.handle("connectors:setEnabled", (_event, provider: ConnectorProvider, enabled: boolean) => {
+    const current = loadConfig();
+    const config = saveConfig({ connectorEnabled: { ...current.connectorEnabled, [provider]: enabled } });
+    return { ok: true, config };
   });
   ipcMain.handle("connectors:cancelTest", (_event, requestId: string) => {
     cancelConnectorTest(requestId);
@@ -634,9 +651,11 @@ function registerIpc(): void {
   ipcMain.handle("connectors:getMcpUrl", (_event, provider: ConnectorProvider) => mcpUrlFor(provider));
 
   // ---------------------------- axet.flows ----------------------------
-  ipcMain.handle("flows:agentStep", async (_event, prompt: string, model: string | null) => {
+  // `userText` = kullanıcının KENDİ cümlesi (ajanın sistem prompt'u değil).
+  // Bağlayıcı kararı buna bakıyor; bkz. connectorPolicy.ts.
+  ipcMain.handle("flows:agentStep", async (_event, prompt: string, model: string | null, userText?: string) => {
     try {
-      const text = await runFlowsAgentStep(prompt, model);
+      const text = await runFlowsAgentStep(prompt, model, shouldUseConnectors([userText]));
       return { ok: true, text };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
@@ -908,9 +927,9 @@ function registerIpc(): void {
   // Faz 3 — AI Agent ile doğal dil otomasyonu. `flows:agentStep` ile AYNI
   // desen (bkz. axetFlowsAgent.ts) — bu handler sadece CLI'yi spawn eder,
   // JSON ayrıştırması TAMAMEN renderer'da (src/lib/sapGuiAgent/agentRunner.ts).
-  ipcMain.handle("sapGuiScript:agentStep", async (_event, requestId: string, prompt: string, model: string | null) => {
+  ipcMain.handle("sapGuiScript:agentStep", async (_event, requestId: string, prompt: string, model: string | null, userText?: string) => {
     try {
-      const result = await runSapGuiAgentStep(requestId, prompt, model);
+      const result = await runSapGuiAgentStep(requestId, prompt, model, shouldUseConnectors([userText]));
       return { ok: !result.cancelled, text: result.text, cancelled: result.cancelled };
     } catch (err) {
       return { ok: false, error: (err as Error).message };

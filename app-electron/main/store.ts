@@ -12,7 +12,7 @@ import type {
   AppLanguage,
   ChatFontSize,
   ChatDensity,
-  ChatConnectorMode
+  ConnectorMode
 } from "../shared/types";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
@@ -21,24 +21,43 @@ const VALID_TERMINAL_MODES: TerminalMode[] = ["cmd", "powershell"];
 const VALID_LANGUAGES: AppLanguage[] = ["tr", "en"];
 const VALID_CHAT_FONT_SIZES: ChatFontSize[] = ["sm", "md", "lg"];
 const VALID_CHAT_DENSITIES: ChatDensity[] = ["compact", "comfortable"];
-const VALID_CONNECTOR_MODES: ChatConnectorMode[] = ["auto", "always", "off"];
+const VALID_CONNECTOR_MODES: ConnectorMode[] = ["auto", "always"];
 
 function configPath(): string {
   return path.join(app.getPath("userData"), "config.json");
 }
 
-// Bağlayıcı kipi + ESKİ `chatUseConnectors: boolean` alanından göç.
+// Bağlayıcı kipi + İKİ eski alandan göç: `chatUseConnectors` (boolean) ve
+// `chatConnectorMode` (üç değerli, `off` dahil).
 //
-// Göç sessizce varsayılana düşmüyor, çünkü o iki durum farklı şeyler söylüyor:
-// alanı bilerek AÇMIŞ bir kullanıcı "her mesajda araçlar olsun" demiştir ve
-// `auto`ya indirmek onun kararını geri almak olurdu. KAPALI olan ise
-// varsayılanın kendisiydi (kimse seçmedi), o yüzden yeni varsayılana geçer.
-function readConnectorMode(parsed: Record<string, unknown>, fallback: ChatConnectorMode): ChatConnectorMode {
-  if (VALID_CONNECTOR_MODES.includes(parsed.chatConnectorMode as ChatConnectorMode)) {
-    return parsed.chatConnectorMode as ChatConnectorMode;
+// `off` artık bir kip DEĞİL — "kapalı", sağlayıcının kendisinin bağlı
+// olmamasıyla ifade ediliyor (`connectorEnabled`). `off` yazan bir config
+// `auto`ya düşüyor ve bu kullanıcının kararını geri almıyor: sağlayıcılar
+// varsayılan olarak BAĞLI DEĞİL, yani ekrandan "Bağlan"a basılmadan hiçbir
+// araç kurulmuyor. Yani göçten sonraki davranış öncekiyle aynı — kapalı.
+//
+// `chatUseConnectors === true` ise bilinçli bir "her zaman açık" kararıydı;
+// `always`e taşınıyor ki geri alınmış olmasın.
+function readConnectorMode(parsed: Record<string, unknown>, fallback: ConnectorMode): ConnectorMode {
+  for (const key of ["connectorMode", "chatConnectorMode"]) {
+    const value = parsed[key];
+    if (VALID_CONNECTOR_MODES.includes(value as ConnectorMode)) return value as ConnectorMode;
+    if (value === "off") return "auto";
   }
   if (parsed.chatUseConnectors === true) return "always";
   return fallback;
+}
+
+// Hangi sağlayıcılar bağlı? Yalnızca `true` olan anahtarlar korunuyor —
+// config elle düzenlenmiş olabilir ve buraya gelen her şey doğrudan bir
+// yetki kapısını (bkz. connectorPolicy.ts) besliyor.
+function readConnectorEnabled(value: unknown): Record<string, boolean> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, boolean> = {};
+  for (const [key, flag] of Object.entries(value as Record<string, unknown>)) {
+    if (flag === true) out[key] = true;
+  }
+  return out;
 }
 
 function defaultConfig(): AppConfig {
@@ -64,10 +83,14 @@ function defaultConfig(): AppConfig {
     chatFontSize: "md",
     chatDensity: "comfortable",
     chatSidebarOpen: true,
-    // Bkz. `ChatConnectorMode`. Eskiden tek bir aç/kapa vardı ve KAPALIYDI;
-    // bağlayıcılar mesaj başına ~10 s ekliyor. Ama kapalıyken sohbetin
-    // elinde hiç araç olmuyordu ve bunu söyleyen hiçbir şey yoktu.
-    chatConnectorMode: "auto",
+    // Bkz. `ConnectorMode`. Bu bir aç/kapa değil, maliyet ayarı — açma/kapama
+    // `connectorEnabled` ile, kullanıcının "Bağlan"/"Bağlantıyı Kes"
+    // düğmesinden yapılıyor.
+    connectorMode: "auto",
+    // VARSAYILAN BOŞ: hiçbir sağlayıcı kendiliğinden bağlı değil. Bir
+    // bağlayıcıyı kullanıcı istemeden açmak, hem her çağrıya ~10 s ekler hem
+    // de kurumsal veriye (posta kutusu, SharePoint) sessizce erişim demektir.
+    connectorEnabled: {},
     connectorLastResults: {}
   };
 }
@@ -122,7 +145,8 @@ export function loadConfig(): AppConfig {
       chatDensity,
       chatDisplayName: typeof parsed.chatDisplayName === "string" ? parsed.chatDisplayName : fallback.chatDisplayName,
       chatSidebarOpen: typeof parsed.chatSidebarOpen === "boolean" ? parsed.chatSidebarOpen : fallback.chatSidebarOpen,
-      chatConnectorMode: readConnectorMode(parsed, fallback.chatConnectorMode),
+      connectorMode: readConnectorMode(parsed, fallback.connectorMode),
+      connectorEnabled: readConnectorEnabled(parsed.connectorEnabled),
       connectorLastResults:
         parsed.connectorLastResults && typeof parsed.connectorLastResults === "object"
           ? parsed.connectorLastResults
@@ -133,9 +157,11 @@ export function loadConfig(): AppConfig {
       systemTiers: { ...fallback.systemTiers, ...(parsed.systemTiers ?? {}) },
       systemComments: { ...fallback.systemComments, ...(parsed.systemComments ?? {}) }
     };
-    // `...parsed` eski alanı da taşıyor; bir kere okunup göç ettirildikten
-    // sonra dosyada kalması yalnızca kafa karıştırır (iki alan, biri ölü).
-    delete (merged as unknown as Record<string, unknown>).chatUseConnectors;
+    // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
+    // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).
+    const dead = merged as unknown as Record<string, unknown>;
+    delete dead.chatUseConnectors;
+    delete dead.chatConnectorMode;
     return merged;
   } catch {
     return fallback;

@@ -15,6 +15,8 @@ interface Props {
   onToggleLanguage: () => void;
   onOpenSettings: () => void;
   onOpenConnections: () => void;
+  /** En az bir uygulama bağlıysa fişin üstünde küçük bir accent nokta. */
+  connectorsConnected: boolean;
 }
 
 // VS Code'un "Activity Bar"ına benzer, uygulamanın tüm modüllerini
@@ -32,7 +34,8 @@ export default function ActivityBar({
   onToggleTheme,
   onToggleLanguage,
   onOpenSettings,
-  onOpenConnections
+  onOpenConnections,
+  connectorsConnected
 }: Props) {
   const t = useT();
 
@@ -138,12 +141,19 @@ export default function ActivityBar({
         >
           {theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
         </button>
+        {/* Bağlı uygulama varsa bunun uygulamanın HER YERİNDEN görünmesi
+            gerekiyordu: bağlayıcılar artık yalnızca sohbetin değil iki ajanın
+            da elinde, ama durumları yalnızca modal açılınca görülebiliyordu.
+            Nokta, "araçlar şu an açık" demenin en ucuz yolu. */}
         <button
           onClick={onOpenConnections}
           title={t("activityBar.connections")}
-          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
+          className="relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
         >
           <Plug size={16} />
+          {connectorsConnected && (
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border border-base-900 bg-accent-500" />
+          )}
         </button>
         <button
           onClick={onOpenSettings}

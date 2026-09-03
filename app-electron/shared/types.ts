@@ -91,12 +91,20 @@ export interface AppConfig {
   // Kenar çubuğunun AÇILIŞTAKİ hâli. Oturum içinde ☰ ile değiştirmek burayı
   // yazmaz — geçici daraltma kalıcı bir tercih değil.
   chatSidebarOpen: boolean;
-  // Sohbet, MCP bağlayıcılarını (Outlook/SharePoint) kullansın mı? Bkz.
-  // `ChatConnectorMode`. Eski `chatUseConnectors: boolean` alanının yerini
-  // aldı; `store.ts` eski değeri okuyup göç ettiriyor.
-  chatConnectorMode: ChatConnectorMode;
-  // "Uygulama Bağlantıları" ekranındaki son test sonuçları, sağlayıcı adına
-  // göre. KALICI olmalarının sebebi ölçülmüş bir şikayet değil, ekranın
+  // Bağlayıcılar açıkken NE ZAMAN kurulacağı. Bkz. `ConnectorMode`. Eski
+  // adları: `chatUseConnectors` (boolean) → `chatConnectorMode` → bu. İkinci
+  // ad yanıltıcıydı: ayar artık sadece sohbeti değil, yapay zekâyla
+  // konuşulan HER yüzeyi yönetiyor (bkz. connectorPolicy.ts). `store.ts`
+  // her iki eski alanı da okuyup göç ettiriyor.
+  connectorMode: ConnectorMode;
+  // Kullanıcının "Bağlan" dediği sağlayıcılar. TEK ana anahtar bu: hiçbir
+  // sağlayıcı bağlı değilse `connectorMode` ne olursa olsun bağlayıcı
+  // kurulmaz. Eskiden ayrı bir "kapalı" kipi vardı ve aynı şeyi iki ayrı
+  // yerden ifade etmek, kullanıcının ilk şikayetinin ("bağlandı diyor ama
+  // olmuyor") tam kaynağıydı.
+  connectorEnabled: Record<string, boolean>;
+  // "Uygulama Bağlantıları" ekranındaki son doğrulama sonuçları, sağlayıcı
+  // adına göre. KALICI olmalarının sebebi ölçülmüş bir şikayet değil, ekranın
   // kendisi: sonuç yalnızca React state'inde duruyordu, modal kapanınca
   // kayboluyordu ve kullanıcı "ben bunu test etmiş miydim" sorusuna
   // cevap veremiyordu.
@@ -816,19 +824,19 @@ export interface ConnectorCheck {
 }
 
 /**
- * Sohbetin MCP bağlayıcılarını (Outlook/SharePoint) ne zaman kuracağı.
+ * BAĞLI sağlayıcıların MCP araçları hangi çağrılarda kurulsun?
  *
- * Ölçüm (bkz. axetSpawnEnv.ts): bağlayıcılar açıkken her mesaj ~10 saniye
- * daha uzun sürüyor, çünkü axet-code onları her çağrıda kurup yıkıyor. Bu
- * yüzden eskiden tek bir aç/kapa vardı ve VARSAYILANI KAPALIYDI — sonuç,
- * "Uygulama Bağlantıları" ekranının yeşil tik göstermesine rağmen sohbette
- * hiçbir aracın olmamasıydı (2026-09-04, canlı ölçüldü: aynı dizinde normal
- * ortam 23 Outlook aracı listeliyor, sohbetin ortamı `NONE`).
+ * Ölçüm (bkz. axetSpawnEnv.ts): bağlayıcılar açıkken her çağrı ~10 saniye
+ * daha uzun sürüyor, çünkü axet-code onları her seferinde kurup yıkıyor.
+ * Yani bu bir AÇ/KAPA değil, bir MALİYET AYARI — "kapalı" hâli artık burada
+ * değil, sağlayıcının kendisinde (`connectorEnabled`), çünkü aynı şeyi iki
+ * yerden ifade etmek kullanıcıyı yanılttı: ekran yeşil tik gösterirken
+ * sohbetin elinde hiçbir araç yoktu (2026-09-04 canlı ölçüm: aynı dizinde
+ * normal ortam 23 Outlook aracı listeliyor, sohbetin ortamı `NONE`).
  *
  *  - `auto`   — mesajın metnine bakılır; e-posta/takvim/SharePoint'ten söz
- *               ediyorsa o mesajda bağlayıcılar açılır. VARSAYILAN.
- *  - `always` — her mesajda açık. Yavaş ama tahmin yok.
- *  - `off`    — hiç açılmaz. En hızlısı, araçlar hiç yok.
+ *               ediyorsa o çağrıda kurulur. VARSAYILAN.
+ *  - `always` — her çağrıda kurulur. Yavaş ama tahmin yok.
  */
-export type ChatConnectorMode = "auto" | "always" | "off";
+export type ConnectorMode = "auto" | "always";
 

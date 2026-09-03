@@ -31,10 +31,16 @@ async function ensureScratchDir(): Promise<string> {
   return dir;
 }
 
+/**
+ * @param useConnectors Bağlı sağlayıcıların MCP araçları bu turda açık olsun
+ *   mu? Kararı `connectorPolicy.shouldUseConnectors` veriyor, yalnızca
+ *   kullanıcının kendi cümlesine bakarak.
+ */
 export function runSapGuiAgentStep(
   requestId: string,
   prompt: string,
-  model: string | null
+  model: string | null,
+  useConnectors = false
 ): Promise<{ text: string; cancelled: boolean }> {
   return new Promise((resolve, reject) => {
     ensureScratchDir()
@@ -54,11 +60,13 @@ export function runSapGuiAgentStep(
           // KANITLANMIŞ ÇALIŞAN deseni (`shell:true` YOK, doğrudan spawn)
           // buraya taşındı — cancel bu şekilde gerçekten çalışıyor (bkz.
           // aşağıdaki PROJE-BILGI.md notu).
-          // Bağlayıcılar KOŞULSUZ kapalı: bu ajan SAP GUI'yi süren aksiyon
-          // JSON'ı üretiyor, hiçbir MCP aracı (Outlook/SharePoint) çağırmıyor.
-          // Kurulup yıkılmaları tur başına ~8 saniye ekliyordu (ölçüm:
-          // axetSpawnEnv.ts).
-          child = spawn("axet-code", args, { cwd: dir, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: axetSpawnEnv(false) });
+          // Bağlayıcılar VARSAYILAN OLARAK kapalı — tur başına ~8 saniye
+          // ekliyorlar (ölçüm: axetSpawnEnv.ts) ve "SE16'yı aç" turlarının
+          // hiçbiri onlara ihtiyaç duymuyor. KOŞULSUZ değil: "şu tabloyu aç
+          // ve sonucu bana mail at" bu ekranın en doğal isteklerinden ve
+          // eskiden imkânsızdı. Araç çağrıları axet-code'un kendi döngüsünde
+          // olup bittiği için stdout'a yine sadece aksiyon JSON'ı düşüyor.
+          child = spawn("axet-code", args, { cwd: dir, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: axetSpawnEnv(useConnectors) });
         } catch (err) {
           reject(err as Error);
           return;

@@ -159,10 +159,14 @@ const api = {
     ipcRenderer.invoke("connectors:cancelTest", requestId),
   getConnectorMcpUrl: (provider: ConnectorProvider): Promise<string> =>
     ipcRenderer.invoke("connectors:getMcpUrl", provider),
+  // Yalnızca KESMEK için — bağlamak `testConnector`'dan geçiyor, çünkü
+  // doğrulanmamış bir "bağlı" hâli olmamalı.
+  setConnectorEnabled: (provider: ConnectorProvider, enabled: boolean): Promise<{ ok: boolean; config: AppConfig }> =>
+    ipcRenderer.invoke("connectors:setEnabled", provider, enabled),
 
   // ---------------------------- axet.flows ----------------------------
-  flowsAgentStep: (prompt: string, model: string | null): Promise<FlowAgentStepResult> =>
-    ipcRenderer.invoke("flows:agentStep", prompt, model),
+  flowsAgentStep: (prompt: string, model: string | null, userText?: string): Promise<FlowAgentStepResult> =>
+    ipcRenderer.invoke("flows:agentStep", prompt, model, userText),
   flowsDeploy: (flowArray: FlowJsonValue[], mode?: string): Promise<FlowDeployResult> =>
     ipcRenderer.invoke("flows:runtime:deploy", flowArray, mode),
   flowsRestart: (): Promise<FlowDeployResult> => ipcRenderer.invoke("flows:runtime:restart"),
@@ -219,8 +223,12 @@ const api = {
   saveGuiScriptScript: (jsonText: string, suggestedName?: string): Promise<GuiScriptJsonFileResult> =>
     ipcRenderer.invoke("sapGuiScript:saveScript", jsonText, suggestedName),
   openGuiScriptScript: (): Promise<GuiScriptJsonFileResult> => ipcRenderer.invoke("sapGuiScript:openScript"),
-  guiScriptAgentStep: (requestId: string, prompt: string, model: string | null): Promise<GuiScriptAgentStepResult> =>
-    ipcRenderer.invoke("sapGuiScript:agentStep", requestId, prompt, model),
+  guiScriptAgentStep: (
+    requestId: string,
+    prompt: string,
+    model: string | null,
+    userText?: string
+  ): Promise<GuiScriptAgentStepResult> => ipcRenderer.invoke("sapGuiScript:agentStep", requestId, prompt, model, userText),
   cancelGuiScriptAgentStep: (requestId: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke("sapGuiScript:cancelAgentStep", requestId)
 };

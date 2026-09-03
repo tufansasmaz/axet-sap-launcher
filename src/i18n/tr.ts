@@ -216,12 +216,6 @@ export const tr = {
   "settingsModal.chatDensityComfortable": "Rahat",
   "settingsModal.chatDensityCompact": "Yoğun",
   "settingsModal.chatSidebarOpenLabel": "Açılışta sohbet listesi açık olsun",
-  "settingsModal.chatConnectorModeLabel": "Sohbette uygulama bağlantıları",
-  "settingsModal.chatConnectorModeHint":
-    "Outlook/SharePoint araçları açıkken her mesaj ~10 sn daha uzun sürüyor (ölçüm: ~15 sn → ~5 sn), çünkü axet-code onları her çağrıda kurup yıkıyor. \"Uygulama Bağlantıları\" ekranındaki test bu ayardan etkilenmez — orası her hâlükârda açık test eder.",
-  "settingsModal.chatConnectorModeAuto": "Gerektiğinde (mesaj mail/takvim/SharePoint'ten söz ediyorsa)",
-  "settingsModal.chatConnectorModeAlways": "Her zaman açık (yavaş ama tahmin yok)",
-  "settingsModal.chatConnectorModeOff": "Kapalı (en hızlı, araçlar hiç yok)",
   "settingsModal.sectionTerminal": "Terminal",
   "settingsModal.sectionAdvanced": "Gelişmiş Yollar",
   "settingsModal.sectionManual": "Manuel Sistemler",
@@ -554,10 +548,16 @@ export const tr = {
   "appConnections.providerSharepoint": "SharePoint",
   "appConnections.connected": "Bağlantı çalışıyor",
   "appConnections.notConnected": "Bağlantı kurulamadı",
-  "appConnections.testConnection": "Bağlantıyı Test Et",
-  "appConnections.loginHint": "Test başarısız oluyorsa axet.code oturumun düşmüş olabilir.",
-  "appConnections.openLoginTerminal": "Terminalde Giriş Yap",
-  "appConnections.loginTerminalTitle": "axet-code login",
+  // Tek buton, iki eylem: "Bağlan" = doğrula + aç, "Bağlantıyı Kes" = kapat.
+  // Ayrı bir "test et" yok — doğrulama bağlanmanın kendisi.
+  "appConnections.connect": "Bağlan",
+  "appConnections.disconnect": "Bağlantıyı Kes",
+  "appConnections.statusConnected": "Bağlı",
+  "appConnections.statusDisconnected": "Bağlı değil",
+  "appConnections.statusConnecting": "Bağlanıyor…",
+  "appConnections.statusFailed": "Başarısız",
+  "appConnections.connectFailedHint":
+    "Bağlanılamadı. Bu genelde aXet Agentic portalında çözülür: bu sağlayıcı için entegrasyonun var mı, yetkilendirmesi hâlâ geçerli mi bir bak.",
   "appConnections.selectProjectHint": "Bu connector'lar bir AXET Project seçilmesini gerektiriyor — bu sadece axet-code'un interaktif (tam ekran) modunda yapılabilir.",
   "appConnections.openProjectTerminal": "AXET Projesi Seç",
   "appConnections.projectTerminalTitle": "AXET Projesi Seç",
@@ -569,12 +569,25 @@ export const tr = {
   "appConnections.openAgenticPortal": "aXet Agentic Portalını Aç",
   "appConnections.checkedAt": "Son kontrol: {time}",
   "appConnections.servedBy": "axet.code şuraya bağlanıyor",
-  // Bu ekranın en önemli cümlesi: yeşil tik "bağlayıcı çalışıyor" demek,
-  // "sohbet onu kullanıyor" demek değil.
-  "appConnections.chatMode.auto": "Sohbet bu araçları gerektiğinde kendiliğinden kullanır (e-posta/takvim/SharePoint'ten söz eden mesajlarda).",
-  "appConnections.chatMode.always": "Sohbet bu araçları her mesajda kullanır — en güvenilir, ama her mesaj ~10 sn daha uzun sürer.",
-  "appConnections.chatMode.off": "Dikkat: yukarıdaki test çalışsa bile SOHBET bu araçları kullanmıyor — kapalı. Sohbete mail/dosya sorduğunda hiçbir aracı olmayacak.",
-  "appConnections.enableForChat": "Sohbette de Aç"
+  // Bağlı bir uygulama SADECE sohbete ait değil — yapay zekâyla konuştuğun
+  // her yerde geçerli. Eski ekran yalnızca "sohbet" diyordu ve iki ajanın
+  // da aynı araçlara ulaştığı hiçbir yerde yazmıyordu.
+  "appConnections.availableEverywhere":
+    "Bağlı uygulamalar, yapay zekâyla konuştuğun her yerde kullanılabilir:",
+  "appConnections.noneConnected":
+    "Hiçbir uygulama bağlı değil — sohbete veya ajanlara mail/takvim/SharePoint sorduğunda ellerinde hiçbir araç olmayacak.",
+  "appConnections.surfaceChat": "Sohbet",
+  "appConnections.surfaceFlows": "axet.flows ajanı",
+  "appConnections.surfaceSapGui": "SAP GUI ajanı",
+  // Bu bir AÇIK/KAPALI ayarı DEĞİL (o artık Bağlan/Bağlantıyı Kes butonu) —
+  // sadece açık olanların ne zaman yükleneceği, yani bir hız ayarı.
+  "appConnections.modeTitle": "Bu araçlar ne zaman yüklensin?",
+  "appConnections.mode.auto": "Gerektiğinde",
+  "appConnections.mode.always": "Her zaman",
+  "appConnections.modeHint.auto":
+    "Yalnızca mesajın mail/takvim/SharePoint'ten söz ediyorsa yükleniyor — diğer mesajlar ~10 sn daha hızlı. Karar bir tahmin: nadiren gereken bir mesajda araçlar açılmayabilir.",
+  "appConnections.modeHint.always":
+    "Her mesajda yükleniyor — tahmin yok, ama her mesaj ~10 sn daha uzun sürüyor (ölçüm: ~5 sn → ~15 sn), çünkü axet-code araçları her çağrıda kurup yıkıyor."
 };
 
 

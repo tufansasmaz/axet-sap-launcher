@@ -17,7 +17,7 @@ import {
   Sparkles,
   Type
 } from "lucide-react";
-import type { AppConfig, ChatConnectorMode, UpdateStatus } from "../../app-electron/shared/types";
+import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
 
@@ -283,21 +283,13 @@ export default function SettingsModal({
                 </button>
               </div>
             </Field>
-            {/* Hız/yetenek dengesi — görünüm değil DAVRANIŞ ayarı olduğu için
-                "Sohbet görünümü" bölümünde değil burada. */}
-            {/* Üç kip, iki değil: eski aç/kapa "kapalı" varsayılanıyla
-                sohbeti sessizce araçsız bırakıyordu (bkz. axetChat.ts). */}
-            <Field label={t("settingsModal.chatConnectorModeLabel")} hint={t("settingsModal.chatConnectorModeHint")}>
-              <select
-                value={form.chatConnectorMode}
-                onChange={(e) => setForm({ ...form, chatConnectorMode: e.target.value as ChatConnectorMode })}
-                className="w-full cursor-pointer rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-accent-500"
-              >
-                <option value="auto">{t("settingsModal.chatConnectorModeAuto")}</option>
-                <option value="always">{t("settingsModal.chatConnectorModeAlways")}</option>
-                <option value="off">{t("settingsModal.chatConnectorModeOff")}</option>
-              </select>
-            </Field>
+            {/* Bağlayıcı kipi ("Sohbette uygulama bağlantıları") BURADAN
+                KALDIRILDI (2026-09-04). Aynı şeyi iki ayrı ekrandan ifade
+                etmek — burada "kapalı", Uygulama Bağlantıları'nda yeşil tik —
+                kullanıcının "bağlandı diyor ama olmuyor" şikayetinin
+                kaynağıydı. Açık/kapalı artık Uygulama Bağlantıları
+                ekranındaki Bağlan/Bağlantıyı Kes butonu, ne zaman
+                yükleneceği de yine orada; tek yer, tek doğruluk kaynağı. */}
           </Section>
 
           {/* Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI

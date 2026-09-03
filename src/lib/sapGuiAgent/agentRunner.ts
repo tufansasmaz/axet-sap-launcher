@@ -107,6 +107,13 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
     onEvent?.({ kind: "user", text: userMessage });
   }
 
+  // Bağlayıcı kararı için kullanılacak metin — kullanıcının KENDİ cümlesi.
+  // `prompt` gönderilemez: içinde SAP GUI aksiyon sözlüğü var ve orada geçen
+  // bir kelime her turu boşuna ~8 sn yavaşlatırdı. Turun her iterasyonunda
+  // aynı metin gidiyor ki karar tur ortasında değişmesin.
+  const connectorText =
+    userMessage || [...transcript].reverse().find((line) => line.startsWith("KULLANICI: ")) || "";
+
   let invalidRetries = 0;
 
   // "Durdur"a basıldığında tur sessizce sonlanıyordu: `AgentEvent`'te
@@ -131,7 +138,7 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
 
     let raw: string;
     try {
-      const stepResult = await window.api.guiScriptAgentStep(requestId, prompt, model || null);
+      const stepResult = await window.api.guiScriptAgentStep(requestId, prompt, model || null, connectorText);
       onRequestIdChange?.(null);
       if (stepResult.cancelled) return cancel();
       if (!stepResult.ok) throw new Error(stepResult.error || "axet-code çağrısı başarısız oldu.");

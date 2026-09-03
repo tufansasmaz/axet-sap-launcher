@@ -129,8 +129,9 @@ export interface AxetApi {
   testConnector: (requestId: string, provider: ConnectorProvider) => Promise<ConnectorTestResult>;
   cancelConnectorTest: (requestId: string) => Promise<{ ok: boolean }>;
   getConnectorMcpUrl: (provider: ConnectorProvider) => Promise<string>;
+  setConnectorEnabled: (provider: ConnectorProvider, enabled: boolean) => Promise<{ ok: boolean; config: AppConfig }>;
 
-  flowsAgentStep: (prompt: string, model: string | null) => Promise<FlowAgentStepResult>;
+  flowsAgentStep: (prompt: string, model: string | null, userText?: string) => Promise<FlowAgentStepResult>;
   flowsDeploy: (flowArray: FlowJsonValue[], mode?: string) => Promise<FlowDeployResult>;
   flowsRestart: () => Promise<FlowDeployResult>;
   flowsValidate: (flowArray: FlowJsonValue[]) => Promise<FlowValidateResult>;
@@ -160,7 +161,12 @@ export interface AxetApi {
   performGuiScriptAction: (connIdx: number, sessIdx: number, payload: GuiScriptActionPayload) => Promise<GuiScriptActionResult>;
   saveGuiScriptScript: (jsonText: string, suggestedName?: string) => Promise<GuiScriptJsonFileResult>;
   openGuiScriptScript: () => Promise<GuiScriptJsonFileResult>;
-  guiScriptAgentStep: (requestId: string, prompt: string, model: string | null) => Promise<GuiScriptAgentStepResult>;
+  guiScriptAgentStep: (
+    requestId: string,
+    prompt: string,
+    model: string | null,
+    userText?: string
+  ) => Promise<GuiScriptAgentStepResult>;
   cancelGuiScriptAgentStep: (requestId: string) => Promise<{ ok: boolean }>;
 }
 

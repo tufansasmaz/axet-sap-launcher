@@ -93,6 +93,12 @@ export async function runAgentTurn({ flowModel, model, transcript, userMessage, 
     onEvent?.({ kind: 'user', text: userMessage });
   }
 
+  // Baglayici karari icin kullanilacak metin. `userMessage` bos gelebilir
+  // (ajan kendiliginden devam ediyor) — o zaman transcript'teki SON kullanici
+  // satiri kullaniliyor, cunku konu hala o.
+  const connectorText =
+    userMessage || [...transcript].reverse().find((line) => line.startsWith('KULLANICI: ')) || '';
+
   let invalidRetries = 0;
 
   for (let i = 0; i < MAX_ITERATIONS; i++) {
@@ -100,7 +106,13 @@ export async function runAgentTurn({ flowModel, model, transcript, userMessage, 
 
     let raw;
     try {
-      const stepResult = await window.api.flowsAgentStep(prompt, model || null);
+      // Kullanicinin KENDI cumlesi ayrica geciyor: bagli Outlook/SharePoint
+      // araclarinin bu turda acilip acilmayacagina o karar veriyor (bkz.
+      // app-electron/main/connectorPolicy.ts). `prompt` gonderilemez —
+      // icinde node katalogu var ve orada gecen "mail" her turu bosuna ~8 sn
+      // yavaslatirdi. Turun HER iterasyonunda ayni metin gidiyor ki karar tur
+      // ortasinda degismesin.
+      const stepResult = await window.api.flowsAgentStep(prompt, model || null, connectorText);
       if (!stepResult.ok) throw new Error(stepResult.error || 'axet-code çağrısı başarısız oldu.');
       raw = stepResult.text || '';
     } catch (err) {

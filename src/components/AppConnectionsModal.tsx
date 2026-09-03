@@ -5,7 +5,6 @@ import AppConnectionsSection from "./AppConnectionsSection";
 interface Props {
   open: boolean;
   onClose: () => void;
-  onOpenLoginTerminal: () => void;
   onOpenProjectTerminal: () => void;
 }
 
@@ -18,21 +17,15 @@ interface Props {
 // başlık/kapatma çerçevesi `SettingsModal.tsx`'in modal kabuğuyla AYNI
 // görsel dili (gradient üst çizgi, X kapatma butonu, ortalanmış backdrop)
 // kullanıyor, tutarlılık için.
-export default function AppConnectionsModal({ open, onClose, onOpenLoginTerminal, onOpenProjectTerminal }: Props) {
+export default function AppConnectionsModal({ open, onClose, onOpenProjectTerminal }: Props) {
   const t = useT();
 
   if (!open) return null;
 
-  // "Terminalde Giriş Yap"/"AXET Projesi Seç" tıklanınca hem terminal
-  // açılıyor hem bu modal KAPATILIYOR — aksi halde modal'ın z-50
-  // backdrop'u, App.tsx'in normal akışta (özel bir z-index olmadan)
-  // render ettiği TerminalPanel'i görünmez şekilde ÖRTERDİ, kullanıcı
-  // device code/proje seçim ekranını hiç göremezdi.
-  const handleOpenLoginTerminal = () => {
-    onOpenLoginTerminal();
-    onClose();
-  };
-
+  // "AXET Projesi Seç" tıklanınca hem terminal açılıyor hem bu modal
+  // KAPATILIYOR — aksi halde modal'ın z-50 backdrop'u, App.tsx'in normal
+  // akışta (özel bir z-index olmadan) render ettiği TerminalPanel'i
+  // görünmez şekilde ÖRTERDİ, kullanıcı proje seçim ekranını hiç göremezdi.
   const handleOpenProjectTerminal = () => {
     onOpenProjectTerminal();
     onClose();
@@ -67,7 +60,7 @@ export default function AppConnectionsModal({ open, onClose, onOpenLoginTerminal
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          <AppConnectionsSection onOpenLoginTerminal={handleOpenLoginTerminal} onOpenProjectTerminal={handleOpenProjectTerminal} />
+          <AppConnectionsSection onOpenProjectTerminal={handleOpenProjectTerminal} />
         </div>
 
         <div className="flex shrink-0 justify-end gap-2 border-t border-base-800 px-6 py-4">

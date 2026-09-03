@@ -26,7 +26,13 @@ async function ensureScratchDir(): Promise<string> {
   return dir;
 }
 
-export function runFlowsAgentStep(prompt: string, model: string | null): Promise<string> {
+/**
+ * @param useConnectors Bağlı sağlayıcıların MCP araçları bu turda açık olsun
+ *   mu? Kararı `connectorPolicy.shouldUseConnectors` veriyor ve SADECE
+ *   kullanıcının kendi cümlesine bakıyor — bu ajanın sistem prompt'unda
+ *   "mail" geçen node adları var, ona bakılsa her tur boşuna yavaşlardı.
+ */
+export function runFlowsAgentStep(prompt: string, model: string | null, useConnectors = false): Promise<string> {
   return new Promise((resolve, reject) => {
     ensureScratchDir()
       .then((dir) => {
@@ -35,11 +41,14 @@ export function runFlowsAgentStep(prompt: string, model: string | null): Promise
 
         let child;
         try {
-          // Bağlayıcılar KOŞULSUZ kapalı: bu ajan yapılandırılmış flow JSON'ı
-          // üretiyor, hiçbir MCP aracı (Outlook/SharePoint) çağırmıyor — ne
-          // prompt'unda ne de protokolünde bunlara atıf var. Kurulup yıkılmaları
-          // tur başına ~8 saniye ekliyordu (ölçüm: axetSpawnEnv.ts).
-          child = spawn("axet-code", args, { cwd: dir, shell: true, windowsHide: true, env: axetSpawnEnv(false) });
+          // Bağlayıcılar VARSAYILAN OLARAK kapalı — kurulup yıkılmaları tur
+          // başına ~8 saniye ekliyor (ölçüm: axetSpawnEnv.ts) ve bu ajanın
+          // çoğu turu ("bir HTTP node ekle") bunlarla hiç ilgilenmiyor. Ama
+          // KOŞULSUZ kapalı DEĞİL: kullanıcı "gelen maili okuyan bir akış
+          // kur" derse ajanın posta kutusuna bakabilmesi gerekiyor. MCP araç
+          // çağrıları axet-code'un kendi döngüsünde olup bittiği için
+          // stdout'a yine sadece nihai JSON düşüyor; protokol bozulmuyor.
+          child = spawn("axet-code", args, { cwd: dir, shell: true, windowsHide: true, env: axetSpawnEnv(useConnectors) });
         } catch (err) {
           reject(err as Error);
           return;

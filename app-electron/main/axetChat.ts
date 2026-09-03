@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import type { AxetChatMessage, AxetChatSendResult, AxetModelEntry, ChatConnectorMode } from "../shared/types";
+import type { AxetChatMessage, AxetChatSendResult, AxetModelEntry } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
-import { loadConfig } from "./store";
+import { shouldUseConnectors } from "./connectorPolicy";
 
 // axet.code'un ana ekranındaki özgün sohbet arayüzü — gerçek interaktif TUI
 // DEĞİL, her mesaj için `axet-code run -q` (stateless, tek-atış, non-interactive)
@@ -41,42 +41,15 @@ const CONNECTOR_RETRY_REMINDER =
   "olması yüzünden başarısız olursa ve aynı sağlayıcı/servis için BAŞKA bir araç/entegrasyon varsa, vazgeçmeden " +
   "önce o alternatif aracı bir kez dene.";
 
-// ---------------------------------------------------------------------------
-// Bağlayıcıların NE ZAMAN açılacağı (2026-09-04)
-// ---------------------------------------------------------------------------
-// Ölçülmüş sorun: `chatUseConnectors` VARSAYILAN OLARAK KAPALIYDI (mesaj
-// başına ~10 s kazanç için), ama "Uygulama Bağlantıları" ekranı bunu hiç
-// bilmiyordu — testi bağlayıcılar AÇIKKEN çalıştırıp yeşil tik gösteriyordu.
-// Aynı dizinde aynı gün ölçüldü: normal ortamda 23 Outlook aracı listeleniyor,
-// sohbetin ortamında (`AXET_MCP_BASE_URL` ölü loopback) cevap `NONE`. Yani
-// ekran "bağlandı" derken sohbetin elinde HİÇBİR araç yoktu.
-//
-// Kullanıcının seçtiği çözüm (2026-09-04): otomatik karar. Mesaj e-posta/
-// takvim/SharePoint'ten söz ediyorsa o mesajda bağlayıcılar açılır.
-//
-// TAHMİN YANILABİLİR, bu yüzden SESSİZ DEĞİL: sonuç `usedConnectors` ile geri
-// dönüyor ve sohbet balonunda görünüyor. Yanılgının iki yönü de var —
-// gereksiz açılırsa mesaj yavaşlar, açılmazsa ajan "erişimim yok" der; ikisi
-// de kullanıcıya sebebini söylemeden olmamalı. Kesinlik isteyen `always`/`off`
-// kiplerini seçebilir.
-//
-// SON İKİ MESAJA da bakılıyor: "gelen kutumda ne var" → "peki yarınki?"
-// zincirinde ikinci mesajda hiçbir anahtar kelime yok, ama konu aynı konu.
-// Fazladan açmak yavaşlatır, eksik açmak ajanı aracsız bırakır — ikincisi
-// daha kötü, çünkü kullanıcı yanlış bir CEVAP alır.
-const CONNECTOR_HINT_PATTERN =
-  /(outlook|sharepoint|onedrive|e-?posta|e-?mail|mail|inbox|gelen kutu|giden kutu|takvim|calendar|toplant|meeting|randevu|appointment|davetiye|invite|out ?of ?office|otomatik yanıt|taslak|draft)/i;
-
-function messageNeedsConnectors(history: AxetChatMessage[], message: string): boolean {
-  const recent = history.slice(-2).map((m) => m.content);
-  return [message, ...recent].some((text) => CONNECTOR_HINT_PATTERN.test(text));
-}
+// Bağlayıcıların NE ZAMAN açılacağı artık burada değil — karar üç yüzeyde de
+// aynı olsun diye `connectorPolicy.ts`'e taşındı (bkz. oradaki gerekçe).
+// Buradan geçilen metin: yeni mesaj + SON İKİ mesaj. Zincir yüzünden:
+// "gelen kutumda ne var" → "peki yarınki?" — ikinci mesajda hiçbir anahtar
+// kelime yok, ama konu aynı konu.
 
 /** Bu mesaj için bağlayıcılar açılsın mı? */
-function decideConnectors(mode: ChatConnectorMode, history: AxetChatMessage[], message: string): boolean {
-  if (mode === "always") return true;
-  if (mode === "off") return false;
-  return messageNeedsConnectors(history, message);
+function decideConnectors(history: AxetChatMessage[], message: string): boolean {
+  return shouldUseConnectors([message, ...history.slice(-2).map((m) => m.content)]);
 }
 
 // `useConnectors` false ise hatırlatma EKLENMİYOR: ortada bağlayıcı yokken
@@ -116,10 +89,11 @@ export function sendChatMessage(
   onChunk?: (text: string) => void
 ): Promise<AxetChatSendResult> {
   return new Promise((resolve) => {
-    // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası) — kullanıcı Ayarlar'dan
-    // bağlayıcıları açıp kapattığında etkisi bir sonraki mesajda görünsün diye;
-    // saniyelerle ölçülen bir işlemin yanında bu okumanın maliyeti ölçülemez.
-    const useConnectors = decideConnectors(loadConfig().chatConnectorMode, history, message);
+    // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası, `shouldUseConnectors`
+    // içinde) — kullanıcı "Uygulama Bağlantıları"ndan bağlanıp kestiğinde
+    // etkisi bir sonraki mesajda görünsün diye; saniyelerle ölçülen bir
+    // işlemin yanında bu okumanın maliyeti ölçülemez.
+    const useConnectors = decideConnectors(history, message);
     const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
     try {
       mkdirSync(resolvedCwd, { recursive: true });
