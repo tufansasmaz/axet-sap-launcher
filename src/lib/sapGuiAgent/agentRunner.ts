@@ -109,8 +109,21 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
 
   let invalidRetries = 0;
 
+  // "Durdur"a basıldığında tur sessizce sonlanıyordu: `AgentEvent`'te
+  // `kind: "cancelled"` TANIMLIYDI, `AgentLogRow` onu ÇİZİYORDU da — ama
+  // üç `return { stopped: "cancelled" }` noktasının hiçbiri olayı ATEŞLEMİYORDU.
+  // Sonuç: spinner kayboluyor, log'da hiçbir iz kalmıyor; kullanıcı "durdu mu,
+  // yoksa bitti mi, yarım kalan aksiyon var mı" sorusunun cevabını ekranda
+  // bulamıyor — ki bu agent GERÇEK SAP GUI aksiyonları uyguluyor. Canlı
+  // tıklamayla yakalandı (2026-09-04): 30 sn'lik bir tur iptal edildi, IPC
+  // iptali gitti, ekranda hiçbir şey yazmadı.
+  const cancel = (): { stopped: AgentStopReason } => {
+    onEvent?.({ kind: "cancelled", text: "Tur kullanici tarafindan durduruldu." });
+    return { stopped: "cancelled" };
+  };
+
   for (let i = 0; i < MAX_ITERATIONS; i++) {
-    if (isCancelled?.()) return { stopped: "cancelled" };
+    if (isCancelled?.()) return cancel();
 
     const prompt = buildPrompt(transcript, uiContext);
     const requestId = crypto.randomUUID();
@@ -120,7 +133,7 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
     try {
       const stepResult = await window.api.guiScriptAgentStep(requestId, prompt, model || null);
       onRequestIdChange?.(null);
-      if (stepResult.cancelled) return { stopped: "cancelled" };
+      if (stepResult.cancelled) return cancel();
       if (!stepResult.ok) throw new Error(stepResult.error || "axet-code çağrısı başarısız oldu.");
       raw = stepResult.text || "";
     } catch (err) {
@@ -146,7 +159,7 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
     let control: { kind: "ask_user" | "finish"; payload: any } | null = null;
 
     for (const act of actions.slice(0, MAX_ACTIONS_PER_BATCH)) {
-      if (isCancelled?.()) return { stopped: "cancelled" };
+      if (isCancelled?.()) return cancel();
       const args = act.args || {};
       onEvent?.({ kind: "tool_call", name: act.action, args });
       const result = await executeTool(act.action, args);

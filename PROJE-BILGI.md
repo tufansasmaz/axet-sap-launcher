@@ -4897,6 +4897,58 @@ aksiyonlar (`set_text`/`press`/`select_context_menu_item`) test koşumunda
 bloke edildi — ajan bunları denemedi, yani o üç yolun ajanla çalıştığı
 DOĞRULANMADI. Ekran yine başladığı yerde bırakıldı (SE16N 200, popup yok).
 
+#### AI Agent panelinin KENDİ arayüzü ilk kez tıklandı — iki sessiz kusur (2026-09-04)
+
+Yukarıdaki koşumun kendi kabul ettiği sınır (*"Panelin düğmesine
+tıklayamadığım için…"*) bu turda kaldırıldı. Yöntem: **gerçek renderer'ı
+tarayıcıda çalıştırmak** — proje kökünde alternatif bir Vite giriş HTML'i
+(`.tmp-stub.html`), `/src/main.tsx`'ten ÖNCE inline bir script'te `window.api`
+tanımlıyor; fixture'lar canlı köprüden okunmuş gerçek verilerdi. Böylece
+`SapGuiAgentPanel.tsx`/`agentRunner.ts`'in **gerçek kodu** tıklanabildi,
+kullanıcının çalışan Electron uygulamasına hiç dokunmadan ve köprüye CORS
+açmadan (köprü kullanıcının SAP GUI'sini COM ile sürüyor — herhangi bir web
+sayfasına açılamaz).
+
+Bulunan iki kusur da **aynı aileden**: alıcı taraf hazır, üretici hiç
+ateşlemiyor. İkisi de kod okuyarak değil, tıklayarak ortaya çıktı.
+
+**1. `ask_user`'ın SEÇENEKLERİ ekrana hiç gelmiyordu.** `tools.ts` `options`'ı
+ayrıştırıyor (en fazla 4), `agentRunner` `kind: "question"` olayıyla taşıyor,
+`LogEntry`'de `entry.options` olarak duruyor — ve `AgentLogRow` sadece
+`entry.text`'i çiziyordu. Yani sistem prompt'unun ajana *"belirsizse seçenek
+sun"* demesinin ekranda hiçbir karşılığı yoktu; kullanıcı cevabı elle yazmak
+zorundaydı. Seçenekler artık tıklanabilir çip olarak çiziliyor ve tıklanınca
+`handleSend` ile yeni tur açıyor. Yalnız **son** soru tıklanabilir
+(`onPickOption` sadece `i === log.length - 1` satırına veriliyor) — eski bir
+soruya dönüp cevap göndermek transkript sırasını bozardı. Doğrulama: üç çip
+çizildi, `VBFA` tıklandı, kullanıcı turu olarak transkripte düştü, eski
+sorunun çipleri `disabled` oldu.
+
+**2. "Durdur" turu SESSİZCE bitiriyordu.** `AgentEvent`'te `kind: "cancelled"`
+TANIMLIYDI, `AgentLogRow` onu ÇİZİYORDU da — ama üç ayrı
+`return { stopped: "cancelled" }` noktasının hiçbiri olayı ateşlemiyordu.
+Ekranda görülen: spinner kayboluyor, log'da hiçbir iz kalmıyor. Kullanıcı
+*"durdu mu, yoksa bitti mi, yarım kalan aksiyon var mı"* sorusunu ekranda
+cevaplayamıyordu — ki bu ajan **geri alınamaz SAP GUI aksiyonları**
+uyguluyor, "Durdur"un tam da bu yüzden var olduğu panelde. Üç nokta da tek
+bir `cancel()` yardımcısına bağlandı. Doğrulama: 30 sn'lik sahte bir tur
+başlatıldı, `Durdur` tıklandı, iptal `cancelGuiScriptAgentStep` ile IPC'ye
+gitti, busy 1,5 sn içinde düştü ve log'a *"Tur kullanici tarafindan
+durduruldu."* yazıldı.
+
+**Bu turda ayrıca ilk kez GÖRÜLEN durumlar** (hepsi sağlam çıktı, değişiklik
+gerekmedi): oynatmadaki *"hâlâ meşgul"* rozeti (`settle.settled === false`
+— açık temada kontrast 5,03:1, WCAG AA geçer), ELEMAN DETAYI'nın
+Metin/Kod/Konum seçicisi, açık tema, ve daraltılmış kenar çubuğu
+(271 px → ikon şeridi; genişlet düğmesi ve "yeni sohbet" hayatta kalıyor).
+
+**Kapatılmayan tek gözlem:** 1280 px'te (kullanıcının gerçek pencere
+genişliği) oturum seçiliyken aksiyon çubuğu taşıyor — ölçüm
+`clientWidth 423 / scrollWidth 451` ve `261 / 278`, "Yardım" ile "AI Agent"
+kırpılıyor. İki kapsayıcı da bilinçli olarak `overflow-x-auto`, yani
+kaydırılabiliyor ve işlev kaybı yok; kozmetik. Taşma menüsüne çevirmek
+tasarım kararı olduğu için dokunulmadı.
+
 #### Sağ tık menüsü: üç yöntem de doğrulandı, ama menü OKUNAMIYOR (2026-09-03)
 
 `selectContextMenuItem`'in üç yöntemi (`code`/`text`/`position`) bugüne

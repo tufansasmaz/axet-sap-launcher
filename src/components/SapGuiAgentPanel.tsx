@@ -170,7 +170,11 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
             )}
             <div className="space-y-1.5">
               {log.map((entry, i) => (
-                <AgentLogRow key={i} entry={entry} />
+                <AgentLogRow
+                  key={i}
+                  entry={entry}
+                  onPickOption={!busy && i === log.length - 1 ? handleSend : undefined}
+                />
               ))}
               {busy && (
                 <div className="flex items-center gap-1.5 py-1 text-xs text-slate-500">
@@ -221,7 +225,7 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
   );
 }
 
-function AgentLogRow({ entry }: { entry: LogEntry }) {
+function AgentLogRow({ entry, onPickOption }: { entry: LogEntry; onPickOption?: (text: string) => void }) {
   if (entry.kind === "user") {
     return (
       <div className="flex items-start gap-2">
@@ -247,10 +251,35 @@ function AgentLogRow({ entry }: { entry: LogEntry }) {
     );
   }
   if (entry.kind === "question") {
+    // `ask_user`'ın SEÇENEKLERİ ekrana hiç gelmiyordu: `tools.ts` onları
+    // ayrıştırıyor, `agentRunner` olayla taşıyor, burada da `entry.options`
+    // olarak DURUYORDU — ama render edilmiyordu. Yani sistem prompt'unun
+    // agent'a "seçenek sun" demesinin ekranda hiçbir karşılığı yoktu;
+    // kullanıcı cevabı elle yazmak zorundaydı. Canlı tıklamayla yakalandı
+    // (2026-09-04). Yalnız SON soru tıklanabilir (`onPickOption` sadece o
+    // satıra veriliyor) — eski bir soruya geri dönüp cevap göndermek
+    // transkript sırasını bozardı.
+    const options = entry.options ?? [];
     return (
-      <div className="flex items-start gap-2 rounded-md border border-accent-500/30 bg-accent-500/10 px-2.5 py-1.5">
-        <HelpCircle size={13} className="mt-0.5 shrink-0 text-accent-400" />
-        <span className="text-xs text-slate-100">{entry.text}</span>
+      <div className="rounded-md border border-accent-500/30 bg-accent-500/10 px-2.5 py-1.5">
+        <div className="flex items-start gap-2">
+          <HelpCircle size={13} className="mt-0.5 shrink-0 text-accent-400" />
+          <span className="text-xs text-slate-100">{entry.text}</span>
+        </div>
+        {options.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5 pl-[21px]">
+            {options.map((opt, i) => (
+              <button
+                key={i}
+                onClick={() => onPickOption?.(opt)}
+                disabled={!onPickOption}
+                className="cursor-pointer rounded border border-accent-500/40 bg-accent-500/15 px-2 py-0.5 text-[11px] text-slate-100 hover:bg-accent-500/30 disabled:cursor-default disabled:opacity-50"
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
