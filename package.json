@@ -49,7 +49,7 @@
   },
   "build": {
     "appId": "com.nttdata.axet.saplauncher",
-    "productName": "aXet SAP Launcher",
+    "productName": "aXet Studio",
     "directories": {
       "output": "release"
     },
@@ -110,10 +110,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "aXet SAP Launcher"
+      "shortcutName": "aXet Studio"
     },
     "portable": {
-      "artifactName": "aXet-SAP-Launcher-${version}-portable.exe"
+      "artifactName": "aXet-Studio-${version}-portable.exe"
     }
   }
 }

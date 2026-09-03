@@ -351,7 +351,7 @@ ADT_RFC_BRIDGE_PORT=${rfcBridge.bridgePort}
     : "";
 
   return `# ============================================================================
-# .conn_adt — aXet SAP Launcher tarafından doğrulanmış bağlantıyla oluşturuldu/güncellendi (${new Date().toISOString()})
+# .conn_adt — aXet Studio tarafından doğrulanmış bağlantıyla oluşturuldu/güncellendi (${new Date().toISOString()})
 # Sistem: ${service.name} (${service.systemId}) — aXet.code'un yerel ADT connector'ı bunu okur.
 # NEVER commit — bu dosyada düz metin şifre var, .gitignore'a eklendi.
 # ============================================================================
@@ -548,7 +548,7 @@ function buildContextMarkdown(
       return `- **Bridge başlatıldı** (\`http://127.0.0.1:${rfcBridge.bridgePort}\`, süreç çalışıyor) ama kimlik doğrulama denemesi tamamlanamadı: ${rfcOutcome.verifyMessage || rfcOutcome.detailNote}. Bridge çalışır durumda kalıyor — \`%sap-adt-readonly\` ile tekrar dene; sorun sürerse bu klasördeki \`rfc-bridge.log\`'a ve elle \`adt_rfc_probe.py\` çalıştırmaya bak.`;
     }
     return `- **Otomatik başlatma BAŞARISIZ**: ${rfcOutcome.detailNote}
-- RFC bridge için gereken Python + pyrfc + SAP NW RFC SDK aXet SAP Launcher'a **gömülü** olarak geliyor — normalde ekstra bir kurulum adımı gerekmez. Bu hata genelde şu ikisinden biri:
+- RFC bridge için gereken Python + pyrfc + SAP NW RFC SDK aXet Studio'a **gömülü** olarak geliyor — normalde ekstra bir kurulum adımı gerekmez. Bu hata genelde şu ikisinden biri:
   1. Uygulama kurulumu bozuk/eksik (\`resources/rfc-runtime\` klasörü paketlenmemiş) — uygulamayı yeniden kur.
   2. Ayarlar'da elle bir "Python çalıştırıcısı" yolu girilmiş ve o Python'da pyrfc/SDK yok — Ayarlar'dan bu alanı boşaltıp uygulamanın kendi gömülü runtime'ını kullanmasına izin ver.
 - Sorun sürerse bu klasördeki \`rfc-bridge.log\`'a bak; elle tanılamak için \`%sap-adt-readonly\` skill'inin SKILL.md'sindeki "Router-only sistemler (RFC bridge)" bölümüne bak (\`adt_rfc_probe.py\` ile RFC_PING/arayüz doğrulaması).`;
@@ -592,7 +592,7 @@ ${toolStatusBlock}`;
 
   return `# SAP Sistem Bağlantı Bağlamı
 
-Bu dosya aXet SAP Launcher tarafından otomatik oluşturulmuştur/güncellenmiştir. Session başında bu bilgileri referans al.
+Bu dosya aXet Studio tarafından otomatik oluşturulmuştur/güncellenmiştir. Session başında bu bilgileri referans al.
 
 ## Sen Şu An Bir SAP ABAP Sistemine Bağlısın
 Bu klasör bir SAP sisteminin proxy çalışma alanıdır — normal bir dosya sistemi/repo değil. ABAP nesneleri (paket, sınıf, CDS view, vs.) yerel diskte yok, uzak SAP sunucusunda ADT REST API üzerinden erişilir.

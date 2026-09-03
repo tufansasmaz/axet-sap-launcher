@@ -104,7 +104,7 @@ export const en: Record<TranslationKey, string> = {
   "sapLogon.spawnError": "Could not open SAP GUI: {detail}",
 
   "activityBar.axetCode": "axet.code",
-  "activityBar.sapLauncher": "aXet SAP Launcher",
+  "activityBar.sapLauncher": "SAP Launcher",
   "activityBar.axetFlows": "axet.flows",
   "activityBar.axetFlowsLive": "axet.flows (Live)",
   "activityBar.theme": "Theme",
@@ -178,7 +178,7 @@ export const en: Record<TranslationKey, string> = {
   "modelSelector.switchFailed": "Could not switch model: {message}",
 
   "updatePrompt.title": "New version available",
-  "updatePrompt.message": "aXet SAP Launcher v{version} was released. Download it now? The app will automatically restart and install once the download finishes.",
+  "updatePrompt.message": "aXet Studio v{version} was released. Download it now? The app will automatically restart and install once the download finishes.",
   "updatePrompt.install": "Download & Install",
   "updatePrompt.later": "Later",
   "updatePrompt.downloading": "Downloading v{version}… {percent}%",

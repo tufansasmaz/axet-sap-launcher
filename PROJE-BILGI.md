@@ -7627,3 +7627,50 @@ modal kapanırken `getConfig` yeniden okunuyor, yoksa nokta bayat kalırdı.
 `npm run typecheck` + `npm run build` temiz. Ölü i18n anahtarı bırakılmadı
 (`testConnection`, `loginHint`, `openLoginTerminal`, `loginTerminalTitle`,
 `chatMode.*`, `enableForChat`, `settingsModal.chatConnectorMode*`).
+
+## Uygulama adı: "aXet Studio" (2026-09-04)
+
+Kullanıcı isteği: *"artık bi platform olduğu için uygulamanın da adını
+değiştirelim"* → seçilen ad **aXet Studio**. Beş modülü (axet.code,
+SAP Launcher, axet.flows, axet.flows Live, SAP GUI Scripting) barındıran
+platformun adı bu; **modül adları değişmedi** — soldaki raydaki kayıt
+"aXet SAP Launcher" değil artık sadece "SAP Launcher", çünkü "aXet" ön eki
+platformun kendisine ait.
+
+Değişen yerler: `package.json` (`productName`, `nsis.shortcutName`,
+`portable.artifactName`), `index.html` başlığı, `TitleBar`, hata diyaloğu
+başlığı (`index.ts`), `updatePrompt.message` (tr/en), `launcher.ts`'in
+ürettiği dosyalardaki imza satırları.
+
+⚠️ **BİLEREK DEĞİŞTİRİLMEDİ** — üçü de kimlik, isim değil:
+
+| Alan | Değer | Neden dokunulmadı |
+| --- | --- | --- |
+| `build.appId` | `com.nttdata.axet.saplauncher` | Windows uygulamayı bununla tanıyor; değişirse mevcut kurulumun ÜSTÜNE gelmez, ikinci bir uygulama olarak kurulur |
+| `build.publish.repo` | `axet-sap-launcher` | electron-updater güncellemeleri buradan çekiyor; değişirse kurulu sürümler güncelleme alamaz |
+| `package.json` `name` | `axet-sap-launcher` | npm paket adı, kullanıcıya görünmüyor |
+
+Bunları değiştirmek isteyen biri, önce mevcut kullanıcıların nasıl geçiş
+yapacağını çözmeli — yeniden adlandırma değil, göç işi.
+
+## Aynı turda düzeltilenler (2026-09-04)
+
+- **Uygulama Bağlantıları'nda yatay taşma.** SharePoint'in cevabındaki
+  boşluksuz uzun URL kartı yırtıp modal'a yatay kaydırma çubuğu ekliyordu
+  (kullanıcı ekran görüntüsüyle bildirdi). İki sebep birden: grid hücresinin
+  varsayılan `min-width:auto`'su (→ `min-w-0`) ve sarılmayan metin
+  (→ `break-words` + `[overflow-wrap:anywhere]`, üstüne `line-clamp-4` +
+  tamamı `title`'da).
+- **Turuncu uyarı kutusu açık temada okunmuyordu.** Sabit `amber-*`
+  sınıfları kullanılıyordu; uygulamanın geri kalanı (StatusDot, FileViewer,
+  SystemPanel) zaten tema değişkenlerini kullanıyor. `--status-warning-bg/
+  border/text` üçlüsüne geçildi. ⚠️ Yeni uyarı kutuları da `amber-*` DEĞİL
+  bu üçlüyü kullanmalı — açık temada `text-amber-200` okunmuyor.
+- **axet.code arama kutusu artık hep açık** (*"kapanmasına gerek yok"*).
+  2026-09-02'de istenen açılır/kapanır büyüteç kaldırıldı; `searchOpen`
+  state'i ve `toggleSearch` silindi, geriye `clearSearch` kaldı (kenar
+  çubuğu daraltılırken de çağrılıyor — görünmeyen bir süzgeç listeyi
+  süzmemeli).
+- **Sol raydaki SAP Launcher ikonu** uygulama logosu değil artık düz bir
+  lucide ikonu (`Server`) — renkli logo, o modülü diğer dördünün arasında
+  "uygulamanın kendisi" gibi gösteriyordu.

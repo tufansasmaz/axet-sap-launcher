@@ -102,7 +102,10 @@ export const tr = {
   "sapLogon.spawnError": "SAP GUI açılamadı: {detail}",
 
   "activityBar.axetCode": "axet.code",
-  "activityBar.sapLauncher": "aXet SAP Launcher",
+  // Platformun adı artık "aXet Studio"; buradaki isim onun BİR MODÜLÜ, o
+  // yüzden "aXet" ön eki düştü — diğer dördü de (axet.code, axet.flows…)
+  // modül adı taşıyor.
+  "activityBar.sapLauncher": "SAP Launcher",
   "activityBar.axetFlows": "axet.flows",
   "activityBar.axetFlowsLive": "axet.flows (Canlı)",
   "activityBar.theme": "Tema",
@@ -183,7 +186,7 @@ export const tr = {
   "modelSelector.switchFailed": "Model değiştirilemedi: {message}",
 
   "updatePrompt.title": "Yeni sürüm bulundu",
-  "updatePrompt.message": "aXet SAP Launcher v{version} yayınlandı. Şimdi indirilsin mi? İndirme tamamlandığında uygulama otomatik olarak yeniden başlatılıp güncellenecek.",
+  "updatePrompt.message": "aXet Studio v{version} yayınlandı. Şimdi indirilsin mi? İndirme tamamlandığında uygulama otomatik olarak yeniden başlatılıp güncellenecek.",
   "updatePrompt.install": "İndir ve Kur",
   "updatePrompt.later": "Daha Sonra",
   "updatePrompt.downloading": "v{version} indiriliyor… %{percent}",

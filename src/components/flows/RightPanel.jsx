@@ -230,7 +230,7 @@ function InfoTab({ onEnterSubflow, selectedId, onSelect, traceEvents, onOpenDebu
   );
 }
 
-// aXet SAP Launcher temasına uyan, sekmeli sağ panel — WorkflowSidebar
+// aXet Studio temasına uyan, sekmeli sağ panel — WorkflowSidebar
 // (metadata+stats+connections) ve NodeEditorPanel'i AYRI sabit sütunlar
 // olarak alt alta dizmek YERİNE, tek bir sekme değiştiricinin ARDINDA
 // gösteriyor (SystemPanel.tsx'teki segmented-tab desenine benzer bir

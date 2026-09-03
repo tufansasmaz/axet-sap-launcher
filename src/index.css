@@ -61,7 +61,7 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
   outline: none;
 }
 
-/* aXet SAP Launcher — minimalist iki tema (koyu/açık). Amaç: göz yormayan,
+/* aXet Studio — minimalist iki tema (koyu/açık). Amaç: göz yormayan,
    nötr gri tonlar + tek bir sakin vurgu rengi (indigo), gradyan/parlama/
    dekoratif efekt yok. Renkler "R G B" tripleti (bkz. tailwind.config.js
    withOpacity()) — bu format opacity varyantlarının (bg-accent-500/10 vb.)

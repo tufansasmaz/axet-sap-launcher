@@ -61,7 +61,7 @@ if (!gotSingleInstanceLock) {
 // göster, log'a yaz.
 process.on("uncaughtException", (err) => {
   console.error("uncaughtException", err);
-  dialog.showErrorBox("aXet SAP Launcher — Beklenmeyen Hata", err.stack ?? String(err));
+  dialog.showErrorBox("aXet Studio — Beklenmeyen Hata", err.stack ?? String(err));
 });
 process.on("unhandledRejection", (reason) => {
   console.error("unhandledRejection", reason);

@@ -66,17 +66,25 @@ function randomRequestId(): string {
   return `connector-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Uyarı renkleri SABİT `amber-*` DEĞİL, tema değişkenleri. Açık temada
+// `text-amber-200` açık zemin üstünde okunmuyordu (kullanıcı bildirdi,
+// 2026-09-04) — `--status-warning-*` üçlüsü her iki temada da kontrastlı
+// ve zaten uygulamanın geri kalanının kullandığı yol (StatusDot, FileViewer,
+// SystemPanel). Buradaki `amber-*` sınıfları istisnaydı.
+const WARN_BOX = "border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]";
+const WARN_TEXT = "text-[var(--status-warning-text)]";
+
 /** Kartın içindeki uyarı + tek eylem. Sağlayıcıya ait, ekrana değil. */
 function ProviderHint({ text, action, onAction }: { text: string; action: string; onAction: () => void }) {
   return (
-    <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2">
-      <div className="flex items-start gap-1.5 text-[11px] leading-relaxed text-amber-200">
+    <div className={`rounded-md border p-2 ${WARN_BOX}`}>
+      <div className={`flex items-start gap-1.5 text-[11px] leading-relaxed ${WARN_TEXT}`}>
         <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-        {text}
+        <span className="min-w-0 break-words">{text}</span>
       </div>
       <button
         onClick={onAction}
-        className="mt-1.5 flex cursor-pointer items-center gap-1.5 rounded border border-amber-500/50 bg-amber-500/15 px-2 py-1 text-[11px] font-medium text-amber-100 hover:bg-amber-500/25"
+        className={`mt-1.5 flex cursor-pointer items-center gap-1.5 rounded border px-2 py-1 text-[11px] font-medium transition hover:brightness-110 ${WARN_BOX} ${WARN_TEXT}`}
       >
         <ExternalLink size={11} />
         {action}
@@ -236,7 +244,13 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
           return (
             <div
               key={id}
-              className={`flex flex-col gap-3 rounded-xl border p-3.5 transition ${
+              // `min-w-0`: grid hücresinin varsayılan `min-width:auto`'su,
+              // içindeki uzun URL'nin hücreyi (ve onunla birlikte tüm
+              // modal'ı) genişletmesine izin veriyordu — SharePoint'in
+              // cevabındaki `https://...sharepoint.com/sites/...` adresi
+              // kartın dışına taşıp yatay kaydırma çubuğu çıkarıyordu
+              // (kullanıcı ekran görüntüsüyle bildirdi, 2026-09-04).
+              className={`flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 transition ${
                 isOn
                   ? "border-accent-500/40 bg-accent-500/[0.06] shadow-sm shadow-accent-500/10"
                   : "border-base-700 bg-base-950/30"
@@ -306,10 +320,17 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                     ) : (
                       <XCircle size={13} className="mt-0.5 shrink-0" />
                     )}
-                    <span>
-                      {result.error ||
-                        result.detail ||
-                        (result.connected ? t("appConnections.connected") : t("appConnections.notConnected"))}
+                    {/* `break-words` + `min-w-0`: ajanın cevabı boşluksuz
+                        uzun bir URL içerebiliyor; sarılmadığında kartı
+                        yırtıyordu. `line-clamp-4` ise uzun bir listenin
+                        kartı sayfa boyu uzatmasını engelliyor — tamamı
+                        `title`'da duruyor. */}
+                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                      <span className="line-clamp-4" title={result.error || result.detail || ""}>
+                        {result.error ||
+                          result.detail ||
+                          (result.connected ? t("appConnections.connected") : t("appConnections.notConnected"))}
+                      </span>
                     </span>
                   </div>
                   <div className="pl-[19px] text-[10px] text-slate-500">
@@ -390,11 +411,9 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
           yazmıyordu ve kullanıcı sohbette araçların neden olmadığını
           anlayamıyordu. */}
       <div
-        className={`rounded-xl border p-3 ${
-          anyConnected ? "border-base-700 bg-base-950/30" : "border-amber-500/40 bg-amber-500/10"
-        }`}
+        className={`rounded-xl border p-3 ${anyConnected ? "border-base-700 bg-base-950/30" : WARN_BOX}`}
       >
-        <div className={`flex items-start gap-2 text-xs ${anyConnected ? "text-slate-300" : "text-amber-200"}`}>
+        <div className={`flex items-start gap-2 text-xs ${anyConnected ? "text-slate-300" : WARN_TEXT}`}>
           {anyConnected ? (
             <CheckCircle2 size={14} className="mt-0.5 shrink-0 text-accent-400" />
           ) : (

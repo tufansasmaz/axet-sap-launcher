@@ -1,6 +1,5 @@
-import { Sparkles, Settings, Sun, Moon, Languages, Workflow, Radio, MousePointerClick, Plug } from "lucide-react";
+import { Sparkles, Settings, Sun, Moon, Languages, Workflow, Radio, MousePointerClick, Plug, Server } from "lucide-react";
 import type { ReactNode } from "react";
-import logo from "../assets/logo.svg";
 import { useT } from "../i18n";
 import type { AppTheme } from "../../app-electron/shared/types";
 
@@ -19,9 +18,9 @@ interface Props {
   connectorsConnected: boolean;
 }
 
-// VS Code'un "Activity Bar"ına benzer, uygulamanın tüm modüllerini
-// (axet.code sohbet ekranı, aXet SAP Launcher, ileride eklenecek
-// axet.flows gibi başkaları) tek bir dikey rayda listeleyen sol şerit.
+// VS Code'un "Activity Bar"ına benzer, aXet Studio'nun tüm modüllerini
+// (axet.code sohbet ekranı, SAP Launcher, axet.flows, axet.flows Live,
+// SAP GUI Scripting) tek bir dikey rayda listeleyen sol şerit.
 // Yeni bir modül eklemek için sadece bu dosyadaki `activities` dizisine
 // bir öğe eklemek yeterli — App.tsx'teki `activity === "..."` koşuluna
 // karşılık gelen bir görünüm bileşeni eklenmesi hâlâ gerekiyor, ama
@@ -63,9 +62,13 @@ export default function ActivityBar({
     {
       id: "sapLauncher",
       label: t("activityBar.sapLauncher"),
+      // Logo DEĞİL, diğer dördü gibi düz bir ikon (kullanıcı isteği,
+      // 2026-09-04): tek renkli lucide ikonların arasında duran renkli
+      // uygulama logosu, SAP Launcher'ı bir "modül" değil "uygulamanın
+      // kendisi" gibi gösteriyordu — artık beşi de eşit.
       render: (active) => (
         <span className={`${boxBase} ${active ? activeBox : ""}`}>
-          <img src={logo} alt="" width={18} height={18} className="rounded-md" />
+          <Server size={17} />
         </span>
       )
     },

@@ -161,10 +161,6 @@ export default function AxetCodeHome({
   const [defaultModel, setDefaultModel] = useState<AxetModelEntry | null>(null);
   const [attaching, setAttaching] = useState(false);
   const [query, setQuery] = useState("");
-  // Arama kutusu KAPALI başlıyor (kullanıcı isteği: *"açılır searchbox
-  // olsun"*) — başlık şeridinde sürekli açık duran bir kutu, dar sütunda
-  // yerin tamamını yiyordu.
-  const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -645,25 +641,14 @@ export default function AxetCodeHome({
     }
   }, [activeId, addAttachments, pushToast, t]);
 
-  // Kapanış, aramayı SIFIRLIYOR: kapalı bir kutu ekranda görünmediği hâlde
-  // listeyi süzmeye devam etseydi, kullanıcı sohbetlerinin neden eksik
-  // göründüğünü anlayamazdı.
-  const closeSearch = useCallback(() => {
-    setSearchOpen(false);
+  // Arama kutusu artık HEP AÇIK (kullanıcı isteği, 2026-09-04: *"arama
+  // kutusu açık olarak gelsin, kapanmasına gerek yok"*) — 2026-09-02'de
+  // istenen açılır/kapanır davranış kaldırıldı. Geriye kalan tek eylem
+  // metni temizlemek; kenar çubuğu daraltılırken de bu çağrılıyor, çünkü
+  // görünmeyen bir süzgeç listeyi süzmeye devam ederse kullanıcı
+  // sohbetlerinin neden eksik göründüğünü anlayamaz.
+  const clearSearch = useCallback(() => {
     setQuery("");
-  }, []);
-
-  const toggleSearch = useCallback(() => {
-    setSearchOpen((open) => {
-      if (open) {
-        setQuery("");
-        return false;
-      }
-      // Odak bir sonraki kareye bırakılıyor: bu render'da input hâlâ
-      // sıfır genişlikte ve odaklanmak kutuyu kaydırabilir.
-      requestAnimationFrame(() => searchInputRef.current?.focus());
-      return true;
-    });
   }, []);
 
 
@@ -967,53 +952,32 @@ export default function AxetCodeHome({
             çubuğu butonları sağ tarafta olacak, solda değil"*) — eskiden solda
             tek başına bir ☰ vardı ve arama listenin içinde ayrı bir satırdı.
 
-            Arama AÇILIR (kullanıcı isteği, 2026-09-02: *"sohbetlerde ara kısmı
-            açılır searchbox olsun, tıklayınca genişlesin"*): normalde tek bir
-            büyüteç ikonu, tıklanınca şeridi dolduruyor. Sürekli açık duran
-            kutu, 272px'lik bir sütunda başlık şeridinin tamamını yiyordu.
-
-            Genişleme `max-width` üzerinden animasyonlu — `flex-1` ile sabit
-            genişlik arasında geçiş yapmak animasyon üretmiyor, `max-w`
-            üretiyor. */}
+            Arama HEP AÇIK (kullanıcı isteği, 2026-09-04: *"arama kutusu açık
+            olarak gelsin, kapanmasına gerek yok"*). 2026-09-02'de istenen
+            açılır/kapanır büyüteç kaldırıldı — bir tık kazanmak için kutunun
+            varlığını gizlemeye değmiyordu; büyüteç artık sadece bir ikon. */}
         <div className="flex h-[54px] shrink-0 items-center gap-1.5 px-2.5">
           {sidebarOpen && (
-            <div
-              // `ml-auto` + `w-full` + `max-w`: kapalıyken 32px'e inip SAĞA
-              // yapışıyor, açılınca soluna doğru büyüyerek şeridi dolduruyor.
-              // `flex-1` KULLANILAMAZ — o, kutuyu şeridin soluna sabitler.
-              className={`ml-auto flex w-full min-w-0 items-center rounded-lg transition-all duration-200 ${
-                searchOpen
-                  ? "max-w-[400px] bg-base-800 ring-1 ring-inset ring-base-700 focus-within:ring-accent-500/40"
-                  : "max-w-[32px] bg-transparent"
-              }`}
-            >
-              <button
-                onClick={toggleSearch}
-                title={t("axetCodeHome.searchTitle")}
-                className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
-              >
+            <div className="flex min-w-0 flex-1 items-center rounded-lg bg-base-800 ring-1 ring-inset ring-base-700 focus-within:ring-accent-500/40">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-500">
                 <Search size={14} />
-              </button>
+              </span>
               <input
                 ref={searchInputRef}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
-                  // Escape önce metni, metin zaten boşsa kutuyu kapatıyor —
-                  // yazdığını silmek için kutuyu kaybetmek gerekmesin.
-                  if (e.key !== "Escape") return;
-                  if (query) setQuery("");
-                  else closeSearch();
+                  // Escape metni temizliyor. Kutu artık kapanmadığı için
+                  // "boşsa kapat" dalı da yok.
+                  if (e.key === "Escape") setQuery("");
                 }}
                 placeholder={t("axetCodeHome.searchPlaceholder")}
-                // Kapalıyken `tabIndex={-1}`: görünmeyen bir alan Tab
-                // sırasında yakalanmamalı.
-                tabIndex={searchOpen ? 0 : -1}
+                title={t("axetCodeHome.searchTitle")}
                 className="min-w-0 flex-1 bg-transparent text-[12px] text-slate-200 outline-none placeholder:text-slate-500"
               />
-              {searchOpen && query && (
+              {query && (
                 <button
-                  onClick={() => setQuery("")}
+                  onClick={clearSearch}
                   title={t("axetCodeHome.searchClear")}
                   className="mr-1 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-base-700 hover:text-slate-300"
                 >
@@ -1024,9 +988,9 @@ export default function AxetCodeHome({
           )}
           <button
             onClick={() => {
-              // Daraltırken aramayı da kapat: 60px'lik şeritte kutu zaten
+              // Daraltırken süzgeci temizle: 60px'lik şeritte kutu zaten
               // çizilmiyor, açık kalan süzgeç geri açılınca sürpriz olurdu.
-              if (sidebarOpen) closeSearch();
+              if (sidebarOpen) clearSearch();
               setSidebarOpen((v) => !v);
             }}
             title={sidebarOpen ? t("axetCodeHome.collapseSidebar") : t("axetCodeHome.expandSidebar")}
