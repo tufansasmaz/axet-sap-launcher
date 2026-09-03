@@ -25,12 +25,17 @@ export const ACTIONS_DOC = `Kullanabilecegin action'lar:
   Su an acik olan SAP GUI baglantilarini listeler (index, description, sessionCount).
 - list_sessions {"conn_idx": 0}
   Bir baglantidaki oturumlari listeler (index, Transaction, Program, SystemName, Client, User).
-- get_node {"conn_idx": 0, "sess_idx": 0, "id": "wnd[0]/usr/txtRSYST-BNAME"}
+- get_node {"conn_idx": 0, "sess_idx": 0, "id": "wnd[0]/usr/txtRSYST-BNAME", "row_offset": 0}
   Bir ekran elemaninin GERCEK detayini (id, type, name, text, tooltip, changeable, children,
   varsa grid verisi) doner. "id" bos/atlanirsa aktif ana pencere (wnd[0]) doner. YENI bir ekrana
   gecince (T-code degisti, bir buton basildiktan sonra) BU action'i tekrar cagirip ekranin
   GERCEKTEN degistigini/hangi elemanlarin oldugunu KONTROL ET - asla onceki turda gordugun
   ID'lerin hala gecerli oldugunu VARSAYMA.
+  BIR GRID'DE satirlar SAYFA SAYFA gelir (bir kerede ~15 satir; tamamini okumak canli bir
+  ALV'de 16 saniye suruyor ve o sure boyunca baska hicbir sey yapilamiyor). Cevaptaki
+  "grid.previewNote" hangi satirlara baktigini ve sonraki sayfayi nasil isteyecegini soyler:
+  "row_offset" ver. "grid.rows" icindeki satirlarin numaralari MUTLAKTIR (0'dan degil,
+  "grid.rowOffset"tan baslar) - double_click'e verecegin "row" iste o numaradir.
 - set_text {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "..."}
   Bir alana metin yazar (GuiTextField/GuiCTextField/GuiPasswordField vb.).
 - press {"conn_idx": 0, "sess_idx": 0, "id": "..."}

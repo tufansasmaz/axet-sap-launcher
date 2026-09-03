@@ -490,6 +490,13 @@ export interface GuiScriptGridData {
   columnCount?: number;
   columns: string[];
   rows: Record<string, string | number | boolean>[];
+  /**
+   * `rows[0]`'ın GERÇEK satır numarası. Grid artık pencere pencere okunuyor
+   * (bkz. bridge'teki `GRID_DEFAULT_ROWS`), yani ikinci sayfanın ilk satırı
+   * "0. satır" DEĞİLDİR — `doubleClick(row, col)` o numarayı istediği için
+   * bu offset olmadan yanlış satır açılır.
+   */
+  rowOffset?: number;
   truncated: boolean;
   columnsTruncated?: boolean;
 }

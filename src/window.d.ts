@@ -156,7 +156,7 @@ export interface AxetApi {
   captureGuiScriptScreenshot: (connIdx: number | null, sessIdx: number | null, method: GuiScriptScreenshotMethod) => Promise<GuiScriptScreenshotResult>;
   listGuiScriptConnections: () => Promise<{ ok: boolean; connections?: GuiScriptConnectionInfo[]; error?: string }>;
   listGuiScriptSessions: (connIdx: number) => Promise<{ ok: boolean; sessions?: GuiScriptSessionInfo[]; error?: string }>;
-  getGuiScriptNode: (connIdx: number, sessIdx: number, elementId: string | null) => Promise<{ ok: boolean; node?: GuiScriptComponentDetail; error?: string }>;
+  getGuiScriptNode: (connIdx: number, sessIdx: number, elementId: string | null, window?: { rows?: number; rowOffset?: number }) => Promise<{ ok: boolean; node?: GuiScriptComponentDetail; error?: string }>;
   performGuiScriptAction: (connIdx: number, sessIdx: number, payload: GuiScriptActionPayload) => Promise<GuiScriptActionResult>;
   saveGuiScriptScript: (jsonText: string, suggestedName?: string) => Promise<GuiScriptJsonFileResult>;
   openGuiScriptScript: () => Promise<GuiScriptJsonFileResult>;

@@ -813,10 +813,16 @@ function registerIpc(): void {
     return guiScriptListSessions(port, connIdx);
   });
 
-  ipcMain.handle("sapGuiScript:getNode", async (_event, connIdx: number, sessIdx: number, elementId: string | null) => {
+  ipcMain.handle("sapGuiScript:getNode", async (
+    _event,
+    connIdx: number,
+    sessIdx: number,
+    elementId: string | null,
+    window?: { rows?: number; rowOffset?: number }
+  ) => {
     const port = getGuiScriptBridgePort();
     if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
-    return guiScriptGetNode(port, connIdx, sessIdx, elementId);
+    return guiScriptGetNode(port, connIdx, sessIdx, elementId, window);
   });
 
   ipcMain.handle("sapGuiScript:performAction", async (_event, connIdx: number, sessIdx: number, payload: GuiScriptActionPayload) => {

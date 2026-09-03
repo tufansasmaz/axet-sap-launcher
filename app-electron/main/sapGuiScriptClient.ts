@@ -151,10 +151,17 @@ export async function guiScriptGetNode(
   port: number,
   connIdx: number,
   sessIdx: number,
-  elementId: string | null
+  elementId: string | null,
+  // Grid satır penceresi. Verilmezse köprünün küçük varsayılanı geçerli —
+  // büyük bir ALV'yi her seferinde baştan sona okumak 16 saniye sürüyordu.
+  window?: { rows?: number; rowOffset?: number }
 ): Promise<{ ok: boolean; node?: GuiScriptComponentDetail; error?: string }> {
   try {
-    const qs = elementId ? `?id=${encodeURIComponent(elementId)}` : "";
+    const params = new URLSearchParams();
+    if (elementId) params.set("id", elementId);
+    if (window?.rows !== undefined) params.set("rows", String(window.rows));
+    if (window?.rowOffset) params.set("rowOffset", String(window.rowOffset));
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const { json } = await httpJson({ port, path: `/session/${connIdx}/${sessIdx}/node${qs}`, method: "GET" });
     if (!json?.ok) return { ok: false, error: errorFrom(json, "Ekran elemanı okunamadı.") };
     return { ok: true, node: json.node };

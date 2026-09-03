@@ -4904,6 +4904,47 @@ Ekran yine başladığı yerde bırakıldı (SE16N 200, VBFA, popup yok);
 açılan üç popup da kendi İptal'iyle kapatıldı ve her seferinde taban
 duruma dönüldüğü okunarak doğrulandı.
 
+#### ALV okuması 16,4 sn → 3,4 sn: grid artık sayfa sayfa okunuyor (2026-09-03)
+
+Bilinen ama düzeltilmemiş maddeydi. Ölçüm: canlı VBFA ALV'sinde
+`get_node` **16,41 sn** (200 satır × 40 sütun = 8000 `GetCellValue`, hücre
+başına ~2 ms). Köprü tek iş parçacıklı olduğu için bu süre boyunca
+**başka hiçbir istek kabul edilmiyor** — yani büyük bir grid seçmek
+uygulamayı 16 saniye cevapsız bırakıyordu. Karşılaştırma: `wnd[0]`
+okuması 0,62 sn, ekran okuması 0,22 sn.
+
+Çözüm bulk API değil (SAP GUI Scripting'de ALV için hücre-hücre
+`GetCellValue` dışında bir yol yok), **daha az okumak**: `/node` artık
+`rows`/`rowOffset` alıyor, varsayılan `GRID_DEFAULT_ROWS = 20`,
+`GRID_CELL_LIMIT_ROWS = 200` tavan olarak kalıyor. Ölçülen sonuç:
+
+| istek | süre |
+|---|---|
+| varsayılan (20 satır) | **3,41 sn** |
+| `rows=5` | 0,86 sn |
+| `rows=200` (eski davranış) | 16,08 sn |
+| `rows=999` → 200'e kırpıldı | 16,75 sn |
+
+`rows=abc` sessizce varsayılana düşmüyor, reddediliyor — istenen pencere
+ile okunan pencere farklı olursa satır numaraları kayar.
+
+**Sayfalama bir kusur ORTAYA ÇIKARDI ve düzeltildi.** Denetçideki tablo
+çift tıklamada `row: i` gönderiyordu — `i` sayfa içindeki sıra. Tek sayfa
+varken doğruydu; sayfalama gelince ikinci sayfada "12. satır"a çift
+tıklamak SAP'de **0. satırı** açacaktı: yanlış kaydı açan ama hata da
+vermeyen bir sessiz kusur. Artık `rowOffset + i`. Canlı doğrulandı:
+`rowOffset=12` penceresinde 12. satır VBELV=20000079/VBELN=80000004
+görünüyor, `doubleClick(row=12)` sonrası açılan ayrıntı ekranında
+**tam olarak o iki değer** okundu (0. satır 20000078 olurdu).
+
+Aynı offset üç yere daha taşındı: `GuiScriptGridData.rowOffset` (tip),
+denetçide "13–15 / 500 satır" + Önceki/Sonraki/"200 satır yükle"
+düğmeleri, ve ajanın `grid.previewNote`'u ("row değerleri BU MUTLAK
+numaralardır, sonraki sayfa için `row_offset: N`"). Ajan ayrıca artık
+köprüden **yalnızca kullandığı 15 satırı** istiyor — önceden köprü 200
+satır okuyor, `nodeToText` ilk 15'i dışındakini atıyordu, yani her tur
+kullanılmayan veri için ~15 sn bekleniyordu.
+
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
 ### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)

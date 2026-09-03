@@ -383,6 +383,12 @@ export const tr = {
   "sapGuiScripting.go": "Uygula",
   "sapGuiScripting.gridTitle": "Grid / Tablo Verisi",
   "sapGuiScripting.gridTruncated": "İlk {count} satır gösteriliyor (kesildi).",
+  "sapGuiScripting.gridRange": "{from}–{to} / {total} satır",
+  "sapGuiScripting.gridPrev": "◀ Önceki",
+  "sapGuiScripting.gridNext": "Sonraki ▶",
+  "sapGuiScripting.gridLoadAll": "{count} satır yükle",
+  "sapGuiScripting.gridLoadAllHint":
+    "Büyük bir grid'i tam okumak saniyeler sürer — bu sırada köprü başka istek kabul etmez (her hücre ayrı bir COM çağrısı).",
   "sapGuiScripting.gridColsTruncated": "İlk {count} sütun gösteriliyor (kesildi).",
   "sapGuiScripting.gridCellHint": "Çift tıkla — SAP'de bu hücreye çift tıklanır.",
   "sapGuiScripting.gridEmpty": "Bu elemanda okunabilir grid/tablo verisi yok.",

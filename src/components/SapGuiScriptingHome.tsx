@@ -289,13 +289,28 @@ export default function SapGuiScriptingHome() {
     });
   };
 
-  const loadNode = useCallback(async (connIdx: number, sessIdx: number, elementId: string) => {
-    const key = nodeKey(connIdx, sessIdx, elementId);
-    setNodesByKey((prev) => ({ ...prev, [key]: "loading" }));
-    const result = await window.api.getGuiScriptNode(connIdx, sessIdx, elementId || null);
-    setNodesByKey((prev) => ({ ...prev, [key]: result.ok && result.node ? result.node : "error" }));
-    return result.ok ? result.node : null;
-  }, []);
+  const loadNode = useCallback(
+    async (connIdx: number, sessIdx: number, elementId: string, gridWindow?: { rows?: number; rowOffset?: number }) => {
+      const key = nodeKey(connIdx, sessIdx, elementId);
+      setNodesByKey((prev) => ({ ...prev, [key]: "loading" }));
+      const result = await window.api.getGuiScriptNode(connIdx, sessIdx, elementId || null, gridWindow);
+      setNodesByKey((prev) => ({ ...prev, [key]: result.ok && result.node ? result.node : "error" }));
+      return result.ok ? result.node : null;
+    },
+    []
+  );
+
+  // Grid'in BAŞKA BİR SAYFASINI okur. Köprü artık her `get_node`'da 200 satır
+  // okumuyor (canlı bir ALV'de 16,4 sn sürüyordu ve köprü tek iş parçacıklı
+  // olduğu için o süre boyunca uygulama cevapsız kalıyordu); varsayılan
+  // küçük bir pencere, gerisi buradan İSTENEREK geliyor.
+  const loadGridWindow = useCallback(
+    (rows: number, rowOffset: number) => {
+      if (!activeSession) return;
+      loadNode(activeSession.connIdx, activeSession.sessIdx, selectedElementId, { rows, rowOffset });
+    },
+    [activeSession, selectedElementId, loadNode]
+  );
 
   // Oturum YOKKEN de çalışır. Sunucu tarafı scripting kapalıyken
   // (`DisabledByServer`) hiçbir oturum çözülemez, ama `window` yakalama COM'a
@@ -1023,6 +1038,7 @@ export default function SapGuiScriptingHome() {
                   state={selectedNode === "loading" ? "loading" : selectedNode === "error" ? "error" : null}
                   busy={actionBusy}
                   onAction={(action, value, extra) => runAction(action, { value, ...extra })}
+                  onLoadRows={loadGridWindow}
                 />
               </div>
             ) : (

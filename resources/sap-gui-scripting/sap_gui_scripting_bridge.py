@@ -431,6 +431,16 @@ def describe_component_summary(comp) -> dict:
 GRID_CELL_LIMIT_ROWS = 200
 GRID_CELL_LIMIT_COLS = 40
 
+# HER `get_node` 200 SATIR OKUMAZ. Hucre basina bir COM cagrisi var ve o
+# cagri ~2 ms: 200x40 = 8000 cagri, OLCULEN 16,4 sn (canli VBFA ALV'si,
+# 2026-09-03) - ve kopru tek is parcacikli oldugu icin o sure boyunca
+# BASKA HICBIR ISTEK kabul edilmiyor. Yani buyuk bir ALV secildiginde
+# uygulama 16 saniye cevapsiz kaliyordu, ustelik cogu zaman o veriye
+# ihtiyac bile yoktu (ajan zaten ilk 15 satiri kullaniyor).
+# Artik varsayilan KUCUK bir pencere; daha fazlasi isteyen `rows`/
+# `rowOffset` ile acikca ister. `GRID_CELL_LIMIT_ROWS` tavan olarak kaliyor.
+GRID_DEFAULT_ROWS = 20
+
 # SUTUN KIRPMASI DA BILDIRILIR. Satir kirpmasi bastan beri `truncated` ile
 # soyleniyordu, sutun kirpmasi ise SESSIZDI: 42 sutunlu canli bir VBFA
 # ALV'sinde (SE16N, 2026-09-03) son iki sutun kullaniciya hic haber
@@ -440,11 +450,37 @@ GRID_CELL_LIMIT_COLS = 40
 # (`columnsTruncated`) ayrica tasiniyor.
 
 
-def _describe_grid(comp, comp_type: str, sub_type: str) -> dict | None:
+def _grid_window(row_count: int, rows_wanted: int | None, row_offset: int) -> tuple[int, int]:
+    """Okunacak satir penceresini hesaplar: (baslangic, adet).
+
+    `rows_wanted` verilmezse `GRID_DEFAULT_ROWS`, verilirse tavanla
+    (`GRID_CELL_LIMIT_ROWS`) sinirlanir. Offset satir sayisini asiyorsa
+    pencere BOS doner - hata degil, sadece o sayfada satir yok.
+    """
+    offset = max(0, min(row_offset, max(row_count, 0)))
+    wanted = GRID_DEFAULT_ROWS if rows_wanted is None else max(0, rows_wanted)
+    wanted = min(wanted, GRID_CELL_LIMIT_ROWS)
+    return offset, max(0, min(wanted, row_count - offset))
+
+
+def _describe_grid(
+    comp,
+    comp_type: str,
+    sub_type: str,
+    rows_wanted: int | None = None,
+    row_offset: int = 0,
+) -> dict | None:
     """GuiGridView (ALV grid) veya GuiTableControl (klasik table control)
     icin GERCEK Scripting API'sine gore (bkz. arastirma notlari,
     help.sap.com GuiGridView/GuiTableControl referanslari) veri okur.
-    Bu iki tipin API'si TAMAMEN FARKLI - birbirine karistirilmaz."""
+    Bu iki tipin API'si TAMAMEN FARKLI - birbirine karistirilmaz.
+
+    Satirlar PENCERE PENCERE okunur (`rows_wanted`/`row_offset`) - nedeni
+    icin bkz. `GRID_DEFAULT_ROWS`. `rowOffset` cevaba yaziliyor ki
+    okuyan taraf gordugu satirlarin gercek numaralarini bilsin: aksi halde
+    ikinci sayfanin ilk satiri "0. satir" sanilir ve o numarayla yapilan
+    bir `doubleClick` BASKA BIR SATIRI acar.
+    """
     is_alv = comp_type == "GuiGridView" or (comp_type == "GuiShell" and sub_type == "GridView")
     is_table_control = comp_type == "GuiTableControl"
     if not is_alv and not is_table_control:
@@ -455,9 +491,9 @@ def _describe_grid(comp, comp_type: str, sub_type: str) -> dict | None:
         col_order = _try(lambda: list(comp.ColumnOrder), [])
         col_total = len(col_order)
         col_order = col_order[:GRID_CELL_LIMIT_COLS]
-        row_limit = min(row_count, GRID_CELL_LIMIT_ROWS)
+        offset, take = _grid_window(row_count, rows_wanted, row_offset)
         rows = []
-        for r in range(row_limit):
+        for r in range(offset, offset + take):
             row = {}
             for c in col_order:
                 row[c] = _try(lambda r=r, c=c: comp.GetCellValue(r, c), "")
@@ -468,7 +504,8 @@ def _describe_grid(comp, comp_type: str, sub_type: str) -> dict | None:
             "columnCount": col_total,
             "columns": col_order,
             "rows": rows,
-            "truncated": row_count > row_limit,
+            "rowOffset": offset,
+            "truncated": offset + take < row_count,
             "columnsTruncated": col_total > len(col_order)
         }
 
@@ -485,9 +522,15 @@ def _describe_grid(comp, comp_type: str, sub_type: str) -> dict | None:
             col_names.append(name)
     col_total = len(col_names)
     col_names = col_names[:GRID_CELL_LIMIT_COLS]
-    row_limit = min(row_count, GRID_CELL_LIMIT_ROWS)
+    # KLASIK TABLE CONTROL'DE PENCERE `VisibleRowCount` ILE SINIRLI.
+    # `GetCell` yalnizca EKRANDA GORUNEN satirlari okuyabiliyor - gorunmeyen
+    # bir satir icin bos donuyor. `RowCount` toplam satiri (sunucudaki) verir,
+    # o yuzden offset+adet gorunen pencereye kirpilir; yoksa "okundu ama hepsi
+    # bos" gibi bir sonuc cikar ve bu, veri yokmus gibi gorunur.
+    visible_cap = visible_row_count if visible_row_count else row_count
+    offset, take = _grid_window(min(row_count, visible_cap), rows_wanted, row_offset)
     rows = []
-    for r in range(row_limit):
+    for r in range(offset, offset + take):
         row = {}
         for name in col_names:
             cell = _try(lambda r=r, name=name: comp.GetCell(r, name))
@@ -499,7 +542,8 @@ def _describe_grid(comp, comp_type: str, sub_type: str) -> dict | None:
         "columnCount": col_total,
         "columns": col_names,
         "rows": rows,
-        "truncated": row_count > row_limit,
+        "rowOffset": offset,
+        "truncated": offset + take < row_count,
         "columnsTruncated": col_total > len(col_names)
     }
 
@@ -543,7 +587,7 @@ DETAIL_PROPERTIES = (
 )
 
 
-def describe_component_detail(comp) -> dict:
+def describe_component_detail(comp, rows_wanted: int | None = None, row_offset: int = 0) -> dict:
     out = describe_component_summary(comp)
     out.pop("hasChildren", None)
     props: dict = {}
@@ -569,7 +613,7 @@ def describe_component_detail(comp) -> dict:
             if child is not None:
                 child_list.append(describe_component_summary(child))
     out["children"] = child_list
-    grid = _try(lambda: _describe_grid(comp, out.get("type", ""), out.get("subType", "")))
+    grid = _try(lambda: _describe_grid(comp, out.get("type", ""), out.get("subType", ""), rows_wanted, row_offset))
     if grid is not None:
         out["grid"] = grid
     return out
@@ -1038,10 +1082,17 @@ def handle_list_sessions(application, conn_idx: int) -> list:
     return [describe_session(sessions.ElementAt(i), i) for i in range(sessions.Count)]
 
 
-def handle_get_node(application, conn_idx: int, sess_idx: int, element_id: str | None) -> dict:
+def handle_get_node(
+    application,
+    conn_idx: int,
+    sess_idx: int,
+    element_id: str | None,
+    rows_wanted: int | None = None,
+    row_offset: int = 0,
+) -> dict:
     session = resolve_session(application, conn_idx, sess_idx)
     comp = resolve_component(session, element_id)
-    return describe_component_detail(comp)
+    return describe_component_detail(comp, rows_wanted, row_offset)
 
 
 ALLOWED_ACTIONS = {
@@ -1506,7 +1557,22 @@ def run_bridge(host: str, port: int) -> None:
                     conn_idx = int(parts[1])
                     sess_idx = int(parts[2])
                     element_id = (qs.get("id") or [None])[0]
-                    self._send_json(200, {"ok": True, "node": handle_get_node(application, conn_idx, sess_idx, element_id)})
+                    # `rows`/`rowOffset`: grid okumasinin satir penceresi.
+                    # Bozuk bir deger SESSIZCE varsayilana dusmez - istenen
+                    # pencere ile okunan pencere farkli olursa, okuyan taraf
+                    # yanlis satir numarasiyla islem yapar.
+                    def _int_param(key: str) -> int | None:
+                        raw = (qs.get(key) or [None])[0]
+                        if raw in (None, ""):
+                            return None
+                        try:
+                            return int(raw)
+                        except ValueError:
+                            raise SapGuiScriptingError(f"'{key}' bir tam sayi olmali, gelen: {raw!r}")
+                    rows_wanted = _int_param("rows")
+                    row_offset = _int_param("rowOffset") or 0
+                    self._send_json(200, {"ok": True, "node": handle_get_node(
+                        application, conn_idx, sess_idx, element_id, rows_wanted, row_offset)})
                     return
                 if len(parts) == 4 and parts[0] == "session" and parts[3] == "screen":
                     session = resolve_session(application, int(parts[1]), int(parts[2]))

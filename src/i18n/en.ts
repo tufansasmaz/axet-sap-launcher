@@ -378,6 +378,12 @@ export const en: Record<TranslationKey, string> = {
   "sapGuiScripting.go": "Apply",
   "sapGuiScripting.gridTitle": "Grid / Table Data",
   "sapGuiScripting.gridTruncated": "Showing the first {count} rows (truncated).",
+  "sapGuiScripting.gridRange": "{from}–{to} of {total} rows",
+  "sapGuiScripting.gridPrev": "◀ Previous",
+  "sapGuiScripting.gridNext": "Next ▶",
+  "sapGuiScripting.gridLoadAll": "Load {count} rows",
+  "sapGuiScripting.gridLoadAllHint":
+    "Reading a large grid in full takes seconds — the bridge accepts no other request meanwhile (every cell is a separate COM call).",
   "sapGuiScripting.gridColsTruncated": "Showing the first {count} columns (truncated).",
   "sapGuiScripting.gridCellHint": "Double-click to double-click this cell in SAP.",
   "sapGuiScripting.gridEmpty": "This element has no readable grid/table data.",

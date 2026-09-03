@@ -212,8 +212,8 @@ const api = {
     ipcRenderer.invoke("sapGuiScript:listConnections"),
   listGuiScriptSessions: (connIdx: number): Promise<{ ok: boolean; sessions?: GuiScriptSessionInfo[]; error?: string }> =>
     ipcRenderer.invoke("sapGuiScript:listSessions", connIdx),
-  getGuiScriptNode: (connIdx: number, sessIdx: number, elementId: string | null): Promise<{ ok: boolean; node?: GuiScriptComponentDetail; error?: string }> =>
-    ipcRenderer.invoke("sapGuiScript:getNode", connIdx, sessIdx, elementId),
+  getGuiScriptNode: (connIdx: number, sessIdx: number, elementId: string | null, window?: { rows?: number; rowOffset?: number }): Promise<{ ok: boolean; node?: GuiScriptComponentDetail; error?: string }> =>
+    ipcRenderer.invoke("sapGuiScript:getNode", connIdx, sessIdx, elementId, window),
   performGuiScriptAction: (connIdx: number, sessIdx: number, payload: GuiScriptActionPayload): Promise<GuiScriptActionResult> =>
     ipcRenderer.invoke("sapGuiScript:performAction", connIdx, sessIdx, payload),
   saveGuiScriptScript: (jsonText: string, suggestedName?: string): Promise<GuiScriptJsonFileResult> =>

@@ -45,13 +45,19 @@ function nodeToText(node: GuiScriptComponentDetail): string {
   // ihtiyacı olan sütun adları ve gerçek boyut. Gerçek sayılar
   // (`rowCount`/`columnCount`) korunuyor ki agent kırpılmış önizlemeyi tam
   // liste sanmasın.
+  const offset = node.grid?.rowOffset ?? 0;
   const grid = node.grid
     ? {
         ...node.grid,
         rows: node.grid.rows.slice(0, AGENT_GRID_PREVIEW_ROWS),
+        // KAÇINCI SATIRLARA BAKTIĞI YAZILIR. Köprü artık pencere pencere
+        // okuyor; agent bunu bilmezse ikinci sayfanın ilk satırını "0.
+        // satır" sanar ve `double_click(row: 0)` BAŞKA bir satırı açar.
         previewNote:
-          node.grid.rows.length > AGENT_GRID_PREVIEW_ROWS
-            ? `Sadece ilk ${AGENT_GRID_PREVIEW_ROWS} satir gosteriliyor (gercek satir sayisi: ${node.grid.rowCount}).`
+          node.grid.rowCount > offset + node.grid.rows.length
+            ? `${offset}. satirdan itibaren ${Math.min(node.grid.rows.length, AGENT_GRID_PREVIEW_ROWS)} satir gosteriliyor ` +
+              `(gercek satir sayisi: ${node.grid.rowCount}). "row" degerleri BU MUTLAK numaralardir. ` +
+              `Sonraki satirlar icin get_node'u "row_offset": ${offset + node.grid.rows.length} ile tekrar cagir.`
             : undefined
       }
     : undefined;
@@ -115,7 +121,17 @@ export function createExecutor(defaultSession: DefaultSession | null, recordStep
           const session = resolveSession(rawArgs, defaultSession);
           if (!session) return { text: "HATA: conn_idx/sess_idx belirtilmedi", error: true };
           const elementId = typeof rawArgs.id === "string" && rawArgs.id ? rawArgs.id : null;
-          const result = await window.api.getGuiScriptNode(session.connIdx, session.sessIdx, elementId);
+          // Agent SADECE ihtiyacı kadar satır okur. Önceden köprü 200 satır
+          // okuyor (canlı ALV'de 16,4 sn), sonra `nodeToText` bunun ilk
+          // 15'i dışındakini ATIYORDU — yani her tur, kullanılmayan veri
+          // için 15 saniye bekleniyordu. `row_offset` ile agent ilerideki
+          // satırları isteyebilir; `rowOffset` cevapta döndüğü için satır
+          // numaraları kayarsa fark eder.
+          const rowOffset = typeof rawArgs.row_offset === "number" ? rawArgs.row_offset : 0;
+          const result = await window.api.getGuiScriptNode(session.connIdx, session.sessIdx, elementId, {
+            rows: AGENT_GRID_PREVIEW_ROWS,
+            rowOffset
+          });
           if (!result.ok || !result.node) return { text: `HATA: ${result.error ?? "?"}`, error: true };
           return { text: nodeToText(result.node) };
         }

@@ -28,14 +28,23 @@ interface Props {
     value?: string,
     extra?: Record<string, unknown>,
   ) => void;
+  /** Grid'in başka bir satır penceresini oku (bkz. köprüdeki GRID_DEFAULT_ROWS). */
+  onLoadRows?: (rows: number, rowOffset: number) => void;
 }
+
+// Denetçide bir sayfa kaç satır. Köprünün varsayılanıyla aynı tutuluyor ki
+// "sonraki sayfa" düğmesi gerçekten SONRAKİ sayfayı getirsin, araya boşluk
+// veya çakışma girmesin.
+const GRID_PAGE_ROWS = 20;
+// "Tümünü yükle" tavanı — köprünün sert sınırıyla (GRID_CELL_LIMIT_ROWS) aynı.
+const GRID_MAX_ROWS = 200;
 
 function formatValue(value: string | number | boolean): string {
   if (typeof value === "boolean") return value ? "true" : "false";
   return String(value);
 }
 
-export default function ElementInspector({ node, state, busy, onAction }: Props) {
+export default function ElementInspector({ node, state, busy, onAction, onLoadRows }: Props) {
   const t = useT();
   const [textValue, setTextValue] = useState("");
   const [contextMenuValue, setContextMenuValue] = useState("");
@@ -217,8 +226,18 @@ export default function ElementInspector({ node, state, busy, onAction }: Props)
                         {node.grid!.columns.map((col) => (
                           <td
                             key={col}
+                            // SATIR NUMARASI MUTLAK OLMAK ZORUNDA. Tablo artık
+                            // sayfa sayfa geliyor; `i` sadece SAYFA içindeki
+                            // sıra. Offset eklenmezse ikinci sayfada "20."
+                            // satıra çift tıklamak SAP'de 0. satırı açardı —
+                            // yanlış kaydı açan, ama hata da vermeyen bir
+                            // sessiz kusur.
                             onDoubleClick={() =>
-                              !busy && onAction("doubleClick", undefined, { row: i, column: col })
+                              !busy &&
+                              onAction("doubleClick", undefined, {
+                                row: (node.grid!.rowOffset ?? 0) + i,
+                                column: col
+                              })
                             }
                             title={t("sapGuiScripting.gridCellHint")}
                             className="cursor-pointer whitespace-nowrap px-2 py-1 hover:bg-base-800">
@@ -230,9 +249,47 @@ export default function ElementInspector({ node, state, busy, onAction }: Props)
                   </tbody>
                 </table>
               </div>
-              {node.grid.truncated && (
-                <div className="text-[10px] text-slate-500">{t("sapGuiScripting.gridTruncated", { count: node.grid.rows.length })}</div>
-              )}
+              {/* SAYFALAMA. Tablonun tamamı okunmuyor (bkz. onDoubleClick'teki
+                  not ve köprüdeki GRID_DEFAULT_ROWS); bu yüzden HANGİ satırlara
+                  bakıldığı açıkça yazılıyor. Kırpıldığını söyleyip nerede
+                  kalındığını söylememek, kullanıcıya eksik tabloyu tam
+                  sandırıyordu. */}
+              {(() => {
+                const offset = node.grid!.rowOffset ?? 0;
+                const shown = node.grid!.rows.length;
+                const total = node.grid!.rowCount;
+                if (!onLoadRows && !node.grid!.truncated && offset === 0) return null;
+                const canPrev = offset > 0;
+                const canNext = offset + shown < total;
+                return (
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+                    <span>{t("sapGuiScripting.gridRange", { from: offset + 1, to: offset + shown, total })}</span>
+                    {onLoadRows && (
+                      <>
+                        <button
+                          disabled={busy || !canPrev}
+                          onClick={() => onLoadRows(GRID_PAGE_ROWS, Math.max(0, offset - GRID_PAGE_ROWS))}
+                          className={`${TOOL_BUTTON} disabled:cursor-not-allowed disabled:opacity-40`}>
+                          {t("sapGuiScripting.gridPrev")}
+                        </button>
+                        <button
+                          disabled={busy || !canNext}
+                          onClick={() => onLoadRows(GRID_PAGE_ROWS, offset + shown)}
+                          className={`${TOOL_BUTTON} disabled:cursor-not-allowed disabled:opacity-40`}>
+                          {t("sapGuiScripting.gridNext")}
+                        </button>
+                        <button
+                          disabled={busy || (offset === 0 && shown >= Math.min(total, GRID_MAX_ROWS))}
+                          onClick={() => onLoadRows(GRID_MAX_ROWS, 0)}
+                          title={t("sapGuiScripting.gridLoadAllHint")}
+                          className={`${TOOL_BUTTON} disabled:cursor-not-allowed disabled:opacity-40`}>
+                          {t("sapGuiScripting.gridLoadAll", { count: Math.min(total, GRID_MAX_ROWS) })}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })()}
               {node.grid.columnsTruncated && (
                 <div className="text-[10px] text-slate-500">
                   {t("sapGuiScripting.gridColsTruncated", { count: node.grid.columns.length })}
