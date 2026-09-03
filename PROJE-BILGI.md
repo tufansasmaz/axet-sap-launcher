@@ -4986,6 +4986,35 @@ alıyor. Aksi halde bir sonraki adımın anlaşılmaz bir SAP hatasıyla
 düşmesinin sebebi görünmez olurdu — ajan da o hatayı kendi argümanlarının
 hatası sanıp düzeltmeye çalışırdı.
 
+#### Aynı porta iki köprü bağlanabiliyordu — ölçüldü, kapatıldı (2026-09-03)
+
+Bilinen ama düzeltilmemiş maddeydi ve **doğru çıktı**. Ölçüm: 8790'da bir
+köprü çalışırken ikincisi elle başlatıldı — hiçbir hata vermedi, kendi de
+"listening on http://127.0.0.1:8790" yazdı ve `netstat -ano` **iki sürecin
+ikisini de LISTENING** gösterdi (PID 11228 + 35784). Sebep: `HTTPServer`
+varsayılan olarak `allow_reuse_address = 1` yapıyor; bu Windows'ta
+SO_REUSEADDR demek ve Windows'ta SO_REUSEADDR — BSD'deki anlamının aksine —
+aynı adrese **ikinci bir dinleyicinin** bağlanmasına izin veriyor.
+
+Neden önemli: her köprü sürecinin AYRI bir SAP COM referansı var. Hangisinin
+cevapladığı istemcinin bilemediği bir şey; biri öldürülünce diğeri sessizce
+devralıyor ve bambaşka bir oturum durumuyla cevap veriyor.
+
+Yapılanlar ve **canlı doğrulaması**:
+
+| Değişiklik | Doğrulama |
+| --- | --- |
+| `_Server`: `allow_reuse_address = False` + `SO_EXCLUSIVEADDRUSE` | İkinci köprü artık `WinError 10048` ile **çıkış kodu 2** vererek ölüyor; tek dinleyici kalıyor, birincisi etkilenmiyor |
+| Bind hatasında portu kimin tuttuğu SORULUYOR | Mesaj: "Bu portta ZATEN bir SAP GUI Scripting koprusu cevap veriyor (PID 24776)" |
+| Öldürüp hemen yeniden başlatma (TIME_WAIT soketleri varken) | Sorunsuz bağlandı — `SO_EXCLUSIVEADDRUSE` yeniden başlatmayı engellemiyor |
+| `/health` artık `pid` de dönüyor | "cevaplayan, benim başlattığım süreç mi" sorusunun başka cevabı yoktu |
+| `sapGuiScriptManager.healthCheck` artık **gövdeyi doğruluyor** (`server === "sap-gui-scripting-bridge"`) | 8791'de 200+JSON dönen yabancı bir servise karşı çalıştırıldı: **benimsenmedi** (öncesinde `external: true` deyip her sonraki çağrıyı ona gönderirdi) |
+| `describeFailure`'daki ipucu Windows metnini de tanıyor | Eski koşul sadece "address already in use" arıyordu; Windows "Only one usage of each socket address (WinError 10048)" diyor — yani ipucu tam da uygulamanın çalıştığı yerde hiç çıkmıyordu |
+
+`/health` gövdesinin **tek `recv` ile okunamadığı** da bu turda çıktı: ilk
+paket sadece başlıkları getiriyor, gövde ikinci pakette geliyordu — tek
+okumaya bakan ilk sürüm "cevap veren bizim köprü değil" sonucuna varıyordu.
+
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
 ### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)

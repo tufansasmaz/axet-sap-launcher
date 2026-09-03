@@ -41,20 +41,43 @@ function pushTail(bridge: RunningBridge, chunk: Buffer): void {
   if (bridge.tail.length > 60) bridge.tail.shift();
 }
 
-function healthCheck(port: number, timeoutMs = 2000): Promise<boolean> {
+// "2xx döndü" YETMEZ — cevabın BİZİM köprümüzden geldiği doğrulanır.
+// Aksi halde 8790'da oturan alakasız bir servis "bridge çalışıyor" diye
+// benimsenir (aşağıdaki `external` yolu) ve sonraki her çağrı anlaşılmaz
+// bir hatayla düşer. Köprü artık `/health`'te kendi adını ve PID'ini
+// söylüyor; PID de "cevaplayan, benim başlattığım çocuk mu" sorusunun
+// tek gerçek cevabı (aynı porta iki köprü bağlanabiliyordu — bkz.
+// bridge'teki `_Server`).
+function healthCheck(port: number, timeoutMs = 2000): Promise<{ ok: boolean; pid?: number }> {
   return new Promise((resolve) => {
     const req = httpRequest(
       { host: "127.0.0.1", port, path: "/health", method: "GET", timeout: timeoutMs },
       (res) => {
-        res.resume();
         const status = res.statusCode ?? 0;
-        resolve(status >= 200 && status < 300);
+        let body = "";
+        res.setEncoding("utf-8");
+        res.on("data", (c: string) => {
+          if (body.length < 4096) body += c;
+        });
+        res.on("end", () => {
+          if (status < 200 || status >= 300) return resolve({ ok: false });
+          try {
+            const json = JSON.parse(body) as { server?: string; pid?: number };
+            resolve(
+              json?.server === "sap-gui-scripting-bridge"
+                ? { ok: true, pid: json.pid }
+                : { ok: false }
+            );
+          } catch {
+            resolve({ ok: false });
+          }
+        });
       }
     );
-    req.on("error", () => resolve(false));
+    req.on("error", () => resolve({ ok: false }));
     req.on("timeout", () => {
       req.destroy();
-      resolve(false);
+      resolve({ ok: false });
     });
     req.end();
   });
@@ -67,7 +90,11 @@ function describeFailure(bridge: RunningBridge): string {
     hint = "pywin32 bulunamadı — gömülü SAP GUI Scripting runtime'ı (resources/guiscript-runtime) bozuk/eksik olabilir, uygulamayı yeniden kur.";
   } else if (/sadece windows'ta calisir/i.test(tail)) {
     hint = "SAP GUI Scripting sadece Windows'ta çalışır.";
-  } else if (/address already in use|eaddrinuse/i.test(tail)) {
+  } else if (/address already in use|eaddrinuse|winerror 10048|only one usage of each socket/i.test(tail)) {
+    // Windows'un mesajı "address already in use" DEĞİL: "Only one usage of
+    // each socket address ... (WinError 10048)". Sadece BSD metnine bakan
+    // eski koşul bu ipucunu Windows'ta hiç veremezdi — yani tam da bu
+    // uygulamanın çalıştığı yerde.
     hint = `${bridge.port} portu başka bir process tarafından kullanılıyor.`;
   } else if (!tail && bridge.exited) {
     hint = `process erken sonlandı (${bridge.exitInfo}).`;
@@ -80,7 +107,7 @@ function describeFailure(bridge: RunningBridge): string {
 
 export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): Promise<GuiScriptBridgeStartResult> {
   if (current && current.port === opts.port && (current.external || (!current.proc?.killed && !current.exited))) {
-    const alive = await healthCheck(current.port);
+    const alive = (await healthCheck(current.port)).ok;
     if (alive) {
       return { ok: true, alreadyRunning: true, external: current.external, port: current.port, message: "SAP GUI Scripting bridge zaten çalışıyor." };
     }
@@ -90,9 +117,18 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
   // Kullanıcı elle başlattıysa veya önceki bir oturumdan process hâlâ
   // ayaktaysa - ikinci bir process açıp EADDRINUSE'a düşme (adtReadonlyServerManager.ts
   // ile AYNI "external" tespiti).
-  if (await healthCheck(opts.port)) {
+  const foreign = await healthCheck(opts.port);
+  if (foreign.ok) {
     current = { proc: null, port: opts.port, tail: [], exited: false, exitInfo: "", external: true };
-    return { ok: true, alreadyRunning: true, external: true, port: opts.port, message: "SAP GUI Scripting bridge bu portta zaten (başka bir process tarafından) çalışıyor." };
+    return {
+      ok: true,
+      alreadyRunning: true,
+      external: true,
+      port: opts.port,
+      message:
+        "SAP GUI Scripting bridge bu portta zaten (başka bir process tarafından) çalışıyor" +
+        (foreign.pid ? ` (PID ${foreign.pid}).` : ".")
+    };
   }
 
   const bridge: RunningBridge = { proc: null, port: opts.port, tail: [], exited: false, exitInfo: "", external: false };
@@ -127,7 +163,7 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
   let healthy = false;
   while (Date.now() < deadline) {
     if (bridge.exited) break;
-    if (await healthCheck(opts.port, 1200)) {
+    if ((await healthCheck(opts.port, 1200)).ok) {
       healthy = true;
       break;
     }

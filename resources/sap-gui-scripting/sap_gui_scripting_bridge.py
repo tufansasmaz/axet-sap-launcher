@@ -49,6 +49,7 @@ import io
 import json
 import os
 import re
+import socket
 import sys
 import tempfile
 import time
@@ -1531,7 +1532,12 @@ def run_bridge(host: str, port: int) -> None:
             qs = parse_qs(parsed.query)
 
             if path in ("/health", "/__bridge_health"):
-                self._send_json(200, {"ok": True, "server": "sap-gui-scripting-bridge"})
+                # `pid` KİMİN cevapladığını söyler. Aynı porta iki köprünün
+                # bağlanabildiği ortaya çıkınca (Windows'ta SO_REUSEADDR bunu
+                # sessizce yapıyor) "cevap veren, benim başlattığım süreç mi"
+                # sorusunun BAŞKA bir cevabı yoktu.
+                self._send_json(200, {"ok": True, "server": "sap-gui-scripting-bridge",
+                                      "pid": os.getpid()})
                 return
 
             # BİLEREK `get_application()` guard'ının DIŞINDA: teşhis uç
@@ -1646,9 +1652,66 @@ def run_bridge(host: str, port: int) -> None:
             except Exception as exc:  # noqa: BLE001
                 self._send_error(500, f"Beklenmeyen hata: {exc}")
 
-    srv = HTTPServer((host, port), _Handler)
+    class _Server(HTTPServer):
+        """PORT PAYLASILMAZ.
+
+        `HTTPServer` varsayilan olarak `allow_reuse_address = 1` yapar; bu
+        Windows'ta SO_REUSEADDR demektir ve Windows'ta SO_REUSEADDR ayni
+        adres/porta IKINCI bir dinleyicinin baglanmasina IZIN VERIR - BSD'deki
+        anlamindan farkli olarak. Olculdu (2026-09-03): iki kopru sureci de
+        "listening on http://127.0.0.1:8790" yazdi, `netstat -ano` ikisini de
+        LISTENING gosterdi, ikisi de hicbir hata vermedi. Her surecin AYRI bir
+        SAP COM referansi var, yani hangi kopruye konustugu istemcinin
+        bilemedigi bir sey haline geliyor: biri oldurulunce digeri sessizce
+        devralir ve bambaska bir oturum durumuyla cevap verir.
+
+        SO_EXCLUSIVEADDRUSE bunu bind ANINDA reddettirir - ikinci surec
+        "calisiyorum" deyip yanlis cevap vermek yerine acikca oler.
+        """
+        allow_reuse_address = False
+
+        def server_bind(self):
+            exclusive = getattr(socket, "SO_EXCLUSIVEADDRUSE", None)
+            if exclusive is not None:
+                self.socket.setsockopt(socket.SOL_SOCKET, exclusive, 1)
+            super().server_bind()
+
+    try:
+        srv = _Server((host, port), _Handler)
+    except OSError as exc:
+        # Portu kimin tuttugu SORULUR. "Address already in use" tek basina
+        # kullaniciya bir sey anlatmiyor; cevap veren gercekten bizim
+        # koprumuzse sorun "port dolu" degil "zaten calisiyor"dur.
+        other = ""
+        try:
+            with socket.create_connection((host, port), timeout=1.5) as probe:
+                probe.sendall(b"GET /health HTTP/1.0\r\n\r\n")
+                # TEK `recv` YETMIYOR: ilk paket sadece basliklari getiriyor,
+                # gövde ikinci pakette geliyor (olculdu) - tek okumayla
+                # "cevap veren bizim kopru degil" sonucuna varilirdi.
+                chunks = []
+                while len(b"".join(chunks)) < 4096:
+                    part = probe.recv(4096)
+                    if not part:
+                        break
+                    chunks.append(part)
+                body = b"".join(chunks).decode("utf-8", "replace")
+            if "sap-gui-scripting-bridge" in body:
+                pid = re.search(r'"pid"\s*:\s*(\d+)', body)
+                other = (" Bu portta ZATEN bir SAP GUI Scripting koprusu cevap veriyor"
+                         + (f" (PID {pid.group(1)})." if pid else ".")
+                         + " Ikinci bir kopru baslatmaya gerek yok; eskisini durdurmak"
+                           " istiyorsan once o sureci sonlandir.")
+        except OSError:
+            pass
+        sys.stderr.write(
+            f"[sap-gui-scripting-bridge] FAIL: {host}:{port} baglanamadi ({exc}).{other}\n"
+        )
+        pythoncom.CoUninitialize()
+        sys.exit(2)
+
     sys.stderr.write(
-        f"[sap-gui-scripting-bridge] listening on http://{host}:{port}\n"
+        f"[sap-gui-scripting-bridge] listening on http://{host}:{port} (pid {os.getpid()})\n"
         f"[sap-gui-scripting-bridge] GET /health icin liveness kontrolu, GET /preflight icin teshis.\n"
     )
     try:
