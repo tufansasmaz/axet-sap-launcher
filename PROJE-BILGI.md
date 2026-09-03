@@ -4149,6 +4149,42 @@ LLM tarafından gerçekten uyulup uyulmadığı — kullanıcının kendi makine
 (SAP GUI kurulu, SAP Logon açık) bir oturum seçip AI Agent panelinden basit
 bir görev (örn. "VA01'e git") yazarak doğrulaması gerekiyor.
 
+> **2026-09-04 — bu madde KAPANDI: agent'ın araç katmanı canlı bir SAP
+> oturumunda koşturuldu.**
+>
+> Kullanıcının DEV sistemi (S4D/100, SE16N/VBFA) açıkken `src/lib/sapGuiAgent/
+> tools.ts` ve `app-electron/main/sapGuiScriptClient.ts` esbuild ile bundle'lanıp
+> Node'da birleştirildi; `window.api` doğrudan 8790'daki köprüye bağlandı. Yani
+> **agent'ın gerçekten çağırdığı kod**, gerçek COM üzerinden gerçek ekrana
+> uygulandı. Daha önce agent yolundan HİÇ geçmemiş üç araç ölçüldü:
+>
+> | Araç | Uygulanan | Sonuç (bağımsız `get_node`/ekran okumasıyla doğrulandı) |
+> |---|---|---|
+> | `set_text` | `ctxtGD-TAB` ← "VBAK", sonra ← "VBFA" | alan gerçekten "VBAK" oldu, sonra "VBFA"ya döndü — **yazma ve geri alma doğrulandı** |
+> | `press` | `btnTABDET` ("Daha fazla bilg.") | `SAPMSDYP 10` "Bilgi" popup'ı açıldı — **buton gerçekten basıldı** |
+> | `select_context_menu_item` | ALV grid'i (`wnd[0]/shellcont/shell`), `by: "position"`, `value: "6"` | `SAPLSKBH 841` "Bul" popup'ı açıldı — **doğru menü öğesi seçildi** |
+>
+> `press`in "başarılı" demesi yetmiyordu; kanıt EKRANIN DEĞİŞMESİ. Üçünün de
+> kanıtı aksiyonun kendi cevabı değil, ardından yapılan ayrı bir okuma.
+>
+> **İkinci soru — agent aksiyonları Faz 2'nin kaydına düşüyor mu?** Aynı koşumda
+> `recordStep` toplandı: altı aksiyonun altısı da kayda düştü ve alanları
+> manuel yoldan (`SapGuiScriptingHome.tsx:428`) yazılanla **birebir aynı**
+> (`action`/`id`/`value`/`vkey`/`row`/`column`/`by`/`label`). Etiket biçimi de
+> `describeStep`'inkiyle aynı (`setText("VBAK") → …`); tek fark, manuel yol
+> elemanın kısa adını (`GD-TAB`), agent yolu tam id'yi yazıyor — oynatma bu
+> alanı okumadığı için etkisiz. Yani kayıt açıkken manuel ve agent adımları
+> gerçekten AYNI script'e karışıyor.
+>
+> Test SAP oturumunu değiştirmeden bıraktı: başlangıç ve bitiş ekranı aynı
+> (`SAPLSE16N 200 SE16N "VBFA: Bulunan giriş görüntüsü"`), açılan iki popup
+> F12 ile kapatıldı, GD-TAB eski değerine geri yazıldı.
+>
+> **Hâlâ ölçülmemiş olan**, LLM'in KARAR verme kısmı: T-code deseni
+> (`/n<TCODE>` + Enter), `MAX_ACTIONS_PER_BATCH=6` ve kural #9'a modelin uyup
+> uymadığı. Bunlar araç katmanının değil, prompt'un konusu — panelden gerçek
+> bir görev yazılmadan ölçülemez.
+
 ### Üç fazın özeti — SAP GUI Scripting ekranı artık TAMAMLANMIŞ
 
 Faz 1 (Bağlantı + Ekran Gezgini) → Faz 2 (Kayıt + Tekrar Oynatma) → Faz 3
