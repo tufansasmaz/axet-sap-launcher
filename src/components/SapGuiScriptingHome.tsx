@@ -647,7 +647,7 @@ export default function SapGuiScriptingHome() {
   const preflightVisible = status.running && (showPreflight || preflightBlocking);
 
   const dockTab = (active: boolean) =>
-    `flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-xs font-medium ${
+    `flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium ${
       active
         ? "bg-accent-500/10 text-accent-300 ring-1 ring-inset ring-accent-500/30"
         : "text-slate-400 hover:bg-base-800 hover:text-slate-200"
@@ -802,7 +802,7 @@ export default function SapGuiScriptingHome() {
                   <button
                     onClick={handleToggleRecording}
                     title={recording ? t("sapGuiScripting.stopRecording") : t("sapGuiScripting.startRecording")}
-                    className={`flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium ${
+                    className={`flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-xs font-medium ${
                       recording
                         ? "border-[rgba(244,113,138,0.4)] bg-[rgba(244,113,138,0.14)] text-[var(--status-danger-text)]"
                         : "border-base-700 bg-base-800 text-slate-200 hover:bg-base-700"

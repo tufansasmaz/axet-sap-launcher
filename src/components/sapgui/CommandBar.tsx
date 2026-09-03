@@ -60,7 +60,7 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
             if (e.key === "Enter") submit();
           }}
           placeholder={t("sapGuiScripting.tcodePlaceholder")}
-          className="h-full w-36 bg-transparent px-2 font-mono text-xs uppercase text-slate-100 outline-none"
+          className="h-full w-28 bg-transparent px-2 font-mono text-xs uppercase text-slate-100 outline-none"
         />
         <button
           onClick={submit}
@@ -91,7 +91,7 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
               onClick={() => onVKey(vkey)}
               disabled={busy || off}
               title={off ? `${label} — ${t("sapGuiScripting.vkeyDisabled")}` : label}
-              className={`flex h-6 shrink-0 items-center rounded px-3 text-xs font-medium ${
+              className={`flex h-6 shrink-0 items-center rounded px-2 text-xs font-medium ${
                 off
                   ? "cursor-not-allowed text-slate-600 line-through"
                   : "cursor-pointer text-slate-200 hover:bg-base-700 disabled:cursor-default disabled:opacity-40"

@@ -4942,12 +4942,37 @@ gerekmedi): oynatmadaki *"hâlâ meşgul"* rozeti (`settle.settled === false`
 Metin/Kod/Konum seçicisi, açık tema, ve daraltılmış kenar çubuğu
 (271 px → ikon şeridi; genişlet düğmesi ve "yeni sohbet" hayatta kalıyor).
 
-**Kapatılmayan tek gözlem:** 1280 px'te (kullanıcının gerçek pencere
-genişliği) oturum seçiliyken aksiyon çubuğu taşıyor — ölçüm
-`clientWidth 423 / scrollWidth 451` ve `261 / 278`, "Yardım" ile "AI Agent"
-kırpılıyor. İki kapsayıcı da bilinçli olarak `overflow-x-auto`, yani
-kaydırılabiliyor ve işlev kaybı yok; kozmetik. Taşma menüsüne çevirmek
-tasarım kararı olduğu için dokunulmadı.
+#### Komut çubuğu 1280 px'te taşıyordu — kırpma yerine sığdırıldı (2026-09-04)
+
+Yukarıdaki turda ölçülmüştü: 1280 px'te (kullanıcının gerçek pencere
+genişliği) oturum seçiliyken fonksiyon tuşları `clientWidth 423 /
+scrollWidth 451`, otomasyon düğmeleri `261 / 278` — yani "Yardım" ile
+"AI Agent" kırpılıyordu. İki kapsayıcı da `overflow-x-auto` olduğu için
+işlev kaybı yoktu ama kırpılmış bir düğme "bozuk" görünüyor, hele
+kaydırma çubuğu 1 px'lik bir çizgiyken.
+
+Taşma menüsü EKLENMEDİ — sorun düğme sayısı değil, dolgu genişliğiydi.
+Dört yerden yer açıldı: tcode girdisi `w-36 → w-28` (bir tcode 4-6 karakter,
+144 px hiç gerekmiyordu), fonksiyon tuşları `px-3 → px-2`, `dockTab`
+`px-3 → px-2`, kayıt düğmesi `px-2.5 → px-2`.
+
+Ölçümle doğrulandı (1280×820, oturum SEÇİLİ — kayıt düğmesi grubun en geniş
+öğesi, o yüzden oturumsuz ölçüm yanıltıcı olurdu):
+
+| | önce | sonra |
+|---|---|---|
+| fonksiyon tuşları | 423 / 451 (taşıyor) | **387 / 387** |
+| otomasyon düğmeleri | 261 / 278 (taşıyor) | **258 / 258** |
+| kalan boşluk | 0 | **89 px** |
+
+İNGİLİZCE de sığıyor ("Start Recording" daha uzun): `277 / 277`, 84 px
+boşluk — yani sığdırma tek dile bağlı bir tesadüf değil. Dar pencerede
+davranış DEĞİŞMEDİ: 900 px'te iki grup yine kaydırılabiliyor
+(`201/387`, `135/258`) ve çubuğun kendisi taşmıyor (`844/844`).
+
+**Yan gözlem, düzeltilmedi:** dil İngilizce'ye alındığında fonksiyon tuşu
+etiketleri Türkçe kalıyor ("Enter Geri Çalıştır…") — `vkeys.ts`'teki
+`meaning` alanı statik ve i18n'e bağlı değil. Ayrı bir iş.
 
 #### Sağ tık menüsü: üç yöntem de doğrulandı, ama menü OKUNAMIYOR (2026-09-03)
 
