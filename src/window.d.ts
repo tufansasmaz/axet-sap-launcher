@@ -1,18 +1,53 @@
 import type {
   AddManualSystemInput,
   AppConfig,
+  AxetChatMessage,
+  AxetChatSendResult,
+  AxetModelConfigResult,
+  AxetModelEntry,
+  AxetModelKind,
+  AxetModelsListResult,
+  ChatAttachmentPreviewResult,
+  ChatAttachmentSaveResult,
+  ChatSessionsLoadResult,
+  ChatSessionsState,
   ConnectRequest,
   ConnectResult,
   ConnectivityResult,
   CredentialDefaults,
+  DictationResult,
+  FlowAgentStepResult,
+  FlowDeployResult,
+  FlowJsonFileResult,
+  FlowJsonValue,
+  FlowRuntimeStatus,
+  FlowTestRequestPayload,
+  FlowTestRequestResult,
+  FlowTriggerInjectResult,
+  FlowValidateResult,
   FsImportFilesResult,
   FsListDirResult,
   FsReadDocxResult,
   FsReadImageResult,
   FsReadTextResult,
+  GuiScriptActionPayload,
+  GuiScriptActionResult,
+  GuiScriptAgentStepResult,
+  GuiScriptBridgeStatus,
+  GuiScriptComponentDetail,
+  GuiScriptConnectionInfo,
+  GuiScriptJsonFileResult,
+  GuiScriptPreflightResult,
+  GuiScriptScreenResult,
+  GuiScriptScreenshotMethod,
+  GuiScriptScreenshotResult,
+  GuiScriptSessionInfo,
+  GuiScriptStartResult,
   ManualSystem,
   ManualSystemsExportResult,
   ManualSystemsImportResult,
+  ConnectorProvider,
+  ConnectorTestResult,
   SapLandscape,
   SapService,
   SapLogonOpenResult,
@@ -60,6 +95,9 @@ export interface AxetApi {
   readImageDataUrl: (filePath: string) => Promise<FsReadImageResult>;
   openInExplorer: (filePath: string) => Promise<void>;
   openExternal: (filePath: string) => Promise<void>;
+  openExternalUrl: (url: string) => Promise<{ ok: boolean; error?: string }>;
+  discoverAxetFlowsLiveUrl: () => Promise<{ ok: boolean; url: string | null; port: number | null; error?: string }>;
+  saveFlowToLiveHost: (flowArray: unknown[]) => Promise<{ ok: boolean; port?: number | null; error?: string }>;
   importFiles: (destDir: string, sourcePaths: string[]) => Promise<FsImportFilesResult>;
   pickFiles: () => Promise<string[]>;
   getAppVersion: () => Promise<string>;
@@ -68,6 +106,62 @@ export interface AxetApi {
   installUpdate: () => Promise<void>;
   getLastUpdateStatus: () => Promise<UpdateStatus>;
   onUpdateStatus: (callback: (status: UpdateStatus) => void) => () => void;
+  listAxetModels: () => Promise<AxetModelsListResult>;
+  getAxetModelConfig: () => Promise<AxetModelConfigResult>;
+  setAxetModel: (kind: AxetModelKind, entry: AxetModelEntry) => Promise<AxetModelConfigResult>;
+  sendChatMessage: (
+    requestId: string,
+    cwd: string,
+    model: AxetModelEntry | null,
+    history: AxetChatMessage[],
+    message: string
+  ) => Promise<AxetChatSendResult>;
+  cancelChatMessage: (requestId: string) => Promise<void>;
+  // Abonelikten çıkma fonksiyonu döner (diğer `on*` köprüleriyle aynı desen).
+  onChatChunk: (callback: (requestId: string, text: string) => void) => () => void;
+  saveChatAttachment: (fileName: string, base64Data: string) => Promise<ChatAttachmentSaveResult>;
+  readChatAttachmentPreview: (filePath: string) => Promise<ChatAttachmentPreviewResult>;
+  isDictationAvailable: () => Promise<boolean>;
+  transcribeDictation: (base64Wav: string, language: string) => Promise<DictationResult>;
+  loadChatSessions: () => Promise<ChatSessionsLoadResult>;
+  saveChatSessions: (state: ChatSessionsState) => Promise<{ ok: boolean; error?: string }>;
+
+  testConnector: (requestId: string, provider: ConnectorProvider) => Promise<ConnectorTestResult>;
+  cancelConnectorTest: (requestId: string) => Promise<{ ok: boolean }>;
+  getConnectorMcpUrl: (provider: ConnectorProvider) => Promise<string>;
+
+  flowsAgentStep: (prompt: string, model: string | null) => Promise<FlowAgentStepResult>;
+  flowsDeploy: (flowArray: FlowJsonValue[], mode?: string) => Promise<FlowDeployResult>;
+  flowsRestart: () => Promise<FlowDeployResult>;
+  flowsValidate: (flowArray: FlowJsonValue[]) => Promise<FlowValidateResult>;
+  flowsStop: () => Promise<{ ok: boolean }>;
+  flowsGetRuntimeStatus: () => Promise<FlowRuntimeStatus>;
+  flowsTriggerInject: (nodeId: string) => Promise<FlowTriggerInjectResult>;
+  flowsSendTestRequest: (payload: FlowTestRequestPayload) => Promise<FlowTestRequestResult>;
+  flowsSaveJson: (jsonText: string) => Promise<FlowJsonFileResult>;
+  flowsOpenJson: () => Promise<FlowJsonFileResult>;
+  flowsExportDebugLog: (jsonText: string) => Promise<FlowJsonFileResult>;
+  onFlowsRuntimeDebug: (callback: (entry: FlowJsonValue) => void) => () => void;
+  onFlowsRuntimeStatus: (callback: (status: FlowJsonValue) => void) => () => void;
+  onFlowsRuntimeLog: (callback: (entry: FlowJsonValue) => void) => () => void;
+  onFlowsRuntimeTrace: (callback: (entry: FlowJsonValue) => void) => () => void;
+
+  // ---------------------------- SAP GUI Scripting ----------------------------
+  startGuiScriptBridge: () => Promise<GuiScriptStartResult>;
+  stopGuiScriptBridge: () => Promise<{ ok: boolean }>;
+  getGuiScriptBridgeStatus: () => Promise<GuiScriptBridgeStatus>;
+  guiScriptPreflight: () => Promise<GuiScriptPreflightResult>;
+  getGuiScriptScreen: (connIdx: number, sessIdx: number) => Promise<GuiScriptScreenResult>;
+  /** connIdx/sessIdx `null` → oturumsuz `window` yakalama (scripting kapalıyken tek yol). */
+  captureGuiScriptScreenshot: (connIdx: number | null, sessIdx: number | null, method: GuiScriptScreenshotMethod) => Promise<GuiScriptScreenshotResult>;
+  listGuiScriptConnections: () => Promise<{ ok: boolean; connections?: GuiScriptConnectionInfo[]; error?: string }>;
+  listGuiScriptSessions: (connIdx: number) => Promise<{ ok: boolean; sessions?: GuiScriptSessionInfo[]; error?: string }>;
+  getGuiScriptNode: (connIdx: number, sessIdx: number, elementId: string | null) => Promise<{ ok: boolean; node?: GuiScriptComponentDetail; error?: string }>;
+  performGuiScriptAction: (connIdx: number, sessIdx: number, payload: GuiScriptActionPayload) => Promise<GuiScriptActionResult>;
+  saveGuiScriptScript: (jsonText: string, suggestedName?: string) => Promise<GuiScriptJsonFileResult>;
+  openGuiScriptScript: () => Promise<GuiScriptJsonFileResult>;
+  guiScriptAgentStep: (requestId: string, prompt: string, model: string | null) => Promise<GuiScriptAgentStepResult>;
+  cancelGuiScriptAgentStep: (requestId: string) => Promise<{ ok: boolean }>;
 }
 
 declare global {

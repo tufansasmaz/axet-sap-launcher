@@ -3,9 +3,18 @@ dist/
 dist-electron/
 release/
 *.log
+# Teşhis sırasında üretilen tek kullanımlık dosyalar (ekran yakalama script'i,
+# köprü günlüğü, ham JSON yanıtları). Depoya girmezler.
+.tmp-*
 .DS_Store
 Thumbs.db
 .axet-code/
 *.conn_adt
 sap-context.md
 resources/rfc-runtime/
+resources/guiscript-runtime/
+# ~200 MB'lik ikili çalışma zamanı (whisper.cpp + konuşma modeli). Diğer
+# runtime'lar gibi repoya girmiyor; kurulumu PROJE-BILGI.md'de anlatılıyor.
+resources/whisper-runtime/
+__pycache__/
+*.pyc

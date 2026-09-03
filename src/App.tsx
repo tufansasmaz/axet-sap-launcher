@@ -2,20 +2,16 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
   Search,
   RefreshCw,
-  Settings,
   AlertTriangle,
   Plus,
   Download,
-  Sun,
-  Moon,
   X,
   TerminalSquare,
   PanelLeftClose,
   PanelLeftOpen,
   FileText,
   Server,
-  FolderTree,
-  Languages
+  FolderTree
 } from "lucide-react";
 import type {
   AppConfig,
@@ -28,10 +24,16 @@ import type {
   UpdateStatus
 } from "../app-electron/shared/types";
 import TitleBar from "./components/TitleBar";
+import ActivityBar, { type Activity } from "./components/ActivityBar";
+import AxetCodeHome from "./components/AxetCodeHome";
+import AxetFlowsHome from "./components/AxetFlowsHome";
+import AxetFlowsLiveHome from "./components/AxetFlowsLiveHome";
+import SapGuiScriptingHome from "./components/SapGuiScriptingHome";
 import Tree from "./components/Tree";
 import RecentSystems from "./components/RecentSystems";
 import SystemPanel from "./components/SystemPanel";
 import SettingsModal from "./components/SettingsModal";
+import AppConnectionsModal from "./components/AppConnectionsModal";
 import CredentialsModal from "./components/CredentialsModal";
 import AddSystemModal, { type EditingManualSystem } from "./components/AddSystemModal";
 import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePromptModal";
@@ -66,6 +68,7 @@ let toastSeq = 0;
 const CONNECTIVITY_SCAN_CONCURRENCY = 5;
 
 export default function App() {
+  const [activity, setActivity] = useState<Activity>("axetCode");
   const [landscape, setLandscape] = useState<SapLandscape | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,6 +76,7 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [connectivity, setConnectivity] = useState<Record<string, ConnectivityState>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
   const [connecting, setConnecting] = useState(false);
@@ -162,11 +166,68 @@ export default function App() {
     refresh();
   }, [refresh]);
 
+  // Tema değişimi. `theme-transition` sınıfı SADECE geçiş süresince ekleniyor
+  // (bkz. src/index.css) — geçiş yumuşak olsun ama o CSS kuralının maliyeti
+  // (sayfadaki her elemana bg/border/color animasyonu) uygulamanın geri
+  // kalanında ödenmesin diye. İlk yüklemede sınıf eklenmez, sadece kullanıcı
+  // temayı değiştirdiğinde.
+  const previousThemeRef = useRef<string | null>(null);
   useEffect(() => {
-    if (config?.theme) {
+    if (!config?.theme) return;
+    const isSwitch = previousThemeRef.current !== null && previousThemeRef.current !== config.theme;
+    previousThemeRef.current = config.theme;
+    if (!isSwitch) {
       document.documentElement.setAttribute("data-theme", config.theme);
+      return;
     }
+    const root = document.documentElement;
+    root.classList.add("theme-transition");
+    root.setAttribute("data-theme", config.theme);
+    const timer = window.setTimeout(() => root.classList.remove("theme-transition"), 260);
+    return () => window.clearTimeout(timer);
   }, [config?.theme]);
+
+  // Sohbet okuma konforu ayarlarını CSS değişkenlerine çevirir. Neden prop
+  // olarak geçirilmiyor: değerlerin ihtiyaç duyulduğu yer AxetCodeHome >
+  // ChatSessionPane > ChatBubble zinciri, yani üç kat prop drilling — üstelik
+  // yalnızca sınıf adı üretmek için. Tema jetonlarında zaten kullanılan
+  // desenin (CSS custom property + Tailwind arbitrary value) aynısı.
+  useEffect(() => {
+    if (!config) return;
+    const root = document.documentElement;
+    // Sembolik ayarın piksel karşılığı TEK YERDE burada. Gövde ve karşılama
+    // birlikte ölçekleniyor; ayrı ayrı ayarlanabilir olsalardı kullanıcı iki
+    // kadranı dengelemek zorunda kalırdı.
+    const fontSize = { sm: "14px", md: "15px", lg: "17px" }[config.chatFontSize];
+    const heroSize = { sm: "34px", md: "40px", lg: "46px" }[config.chatFontSize];
+    // Mesajlar arası dikey boşluk. "Yoğun" ekrana daha çok mesaj sığdırır,
+    // "rahat" uzun cevapların birbirine karışmasını önler.
+    const gap = config.chatDensity === "compact" ? "20px" : "32px";
+    root.style.setProperty("--chat-font-size", fontSize);
+    root.style.setProperty("--chat-hero-size", heroSize);
+    root.style.setProperty("--chat-message-gap", gap);
+  }, [config?.chatFontSize, config?.chatDensity]);
+
+  // Electron/Chromium'un varsayılan davranışı: bir dosya, HERHANGİ bir özel
+  // sürükle-bırak işleyicisi olmayan bir alana bırakılırsa, pencere o dosyayı
+  // (file:// URL'i olarak) AÇMAYA/NAVİGASYONA çalışır — bu, sohbet composer'ı
+  // veya Dosya Gezgini gibi kendi `onDrop`'unu tanımlayan alanların DIŞINDA
+  // bir yere yanlışlıkla bırakılan bir dosyanın tüm uygulamayı bir dosya
+  // görüntüleyiciye çevirmesini önlemek için pencere seviyesinde bir güvenlik
+  // ağı. `stopPropagation()` ÇAĞRILMIYOR — bu yüzden `FileExplorer.tsx`/
+  // `ChatSessionPane.tsx` gibi kendi özel `onDrop`'u olan elemanlar event
+  // bubble sırasında ÖNCE kendi mantıklarını çalıştırır, bu handler sadece
+  // event ağacın en tepesine (window) ulaştığında son bir "varsayılanı
+  // engelle" katmanı olarak devreye girer.
+  useEffect(() => {
+    const preventDefault = (e: DragEvent) => e.preventDefault();
+    window.addEventListener("dragover", preventDefault);
+    window.addEventListener("drop", preventDefault);
+    return () => {
+      window.removeEventListener("dragover", preventDefault);
+      window.removeEventListener("drop", preventDefault);
+    };
+  }, []);
 
   const flatSystems = useMemo(() => flattenLandscape(landscape?.customers ?? []), [landscape]);
 
@@ -301,6 +362,17 @@ export default function App() {
     setSelection({ path, service, itemUuid });
   };
 
+  // axet.code ana ekranındaki (AxetCodeHome) "Son Bağlanılanlar" dashboard
+  // kartından tek tıkla SAP Launcher'a geçip doğrudan kimlik bilgisi
+  // penceresini açar — kullanıcı iki ayrı aktivite arasında elle gezip
+  // sistemi tekrar aramak zorunda kalmaz.
+  const handleQuickConnectSap = useCallback((path: string[], service: SapService, itemUuid: string) => {
+    setActivity("sapLauncher");
+    setSelection({ path, service, itemUuid });
+    setConnectError(null);
+    setCredentialsTarget({ path, service, itemUuid });
+  }, []);
+
   // Seçili sistem değiştiğinde Dosya Gezgini'nin göstereceği kök klasörü
   // (o sistem için proje klasörü) yeniden hesapla — henüz bağlanılmamışsa
   // bu klasör diskte yoktur, FileExplorer bunu kendi içinde uygun bir
@@ -427,6 +499,47 @@ export default function App() {
       pushToast("error", t("app.terminalCreateFailed", { message: (err as Error).message }));
     }
   }, [config?.terminal, config?.projectsBaseDir, t]);
+
+  // Uygulama Bağlantıları — "Terminalde Giriş Yap"/"AXET Projesi Seç"
+  // butonları (bkz. AppConnectionsSection.tsx). `axet-code login` bir
+  // tam-ekran TUI DEĞİL, düz satırlar (device code + URL) yazan basit bir
+  // komut; `axet-code` (argümansız, interaktif) İSE Connector/MCP
+  // araçlarının gerektirdiği "AXET Project" seçim diyaloğunu açan GERÇEK
+  // TUI'nin kendisi — CLI'nın kendi hata mesajı da bunu doğruluyor:
+  // "No project selected, launch axet-code in interactive mode first."
+  // Bu yüzden `openTerminalForConnection`'ın (READY_PATTERNS/8sn fallback
+  // bekleyen, axet.code'un TAM EKRAN sohbet arayüzü için tasarlanmış) yolunu
+  // KULLANMIYORUZ — `handleNewTerminal`'la AYNI "manuel terminal" yolu
+  // (hemen hazır sayılır, tab anında açılır) + hazır olur olmaz komutu
+  // stdin'e yazan bir `writeTerminal` çağrısı yeterli, HER İKİ senaryo için
+  // de (login düz komut, proje seçimi ise CLI'nın kendi TUI'sini açan
+  // gerçek interaktif komut — kullanıcı orada normal şekilde etkileşime
+  // girer, bizim tarafımızdan ekstra bir tuş vuruşu simüle edilmez).
+  const openConnectorHelperTerminal = useCallback(
+    async (command: string, title: string) => {
+      const shell = config?.terminal ?? "cmd";
+      const cwd = config?.axetWorkspaceDir || config?.projectsBaseDir || "";
+      try {
+        manualTerminalCounterRef.current += 1;
+        const id = await window.api.createTerminal(cwd, 80, 24, shell);
+        pendingTerminalTitlesRef.current.set(id, title);
+        window.api.writeTerminal(id, `${command}\r\n`);
+      } catch (err) {
+        pushToast("error", t("app.terminalCreateFailed", { message: (err as Error).message }));
+      }
+    },
+    [config?.terminal, config?.axetWorkspaceDir, config?.projectsBaseDir, t]
+  );
+
+  const handleOpenLoginTerminal = useCallback(
+    () => openConnectorHelperTerminal("axet-code login", t("appConnections.loginTerminalTitle")),
+    [openConnectorHelperTerminal, t]
+  );
+
+  const handleOpenProjectTerminal = useCallback(
+    () => openConnectorHelperTerminal(config?.axetCommand || "axet-code -y", t("appConnections.projectTerminalTitle")),
+    [openConnectorHelperTerminal, config?.axetCommand, t]
+  );
 
   const handleCloseTerminal = useCallback((id: string) => {
     window.api.disposeTerminal(id).catch(() => {
@@ -617,6 +730,34 @@ export default function App() {
     <LanguageProvider language={language}>
       <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar />
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <ActivityBar
+          activity={activity}
+          onChange={setActivity}
+          theme={config?.theme ?? "dark"}
+          language={language.toUpperCase()}
+          onToggleTheme={handleToggleTheme}
+          onToggleLanguage={handleToggleLanguage}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onOpenConnections={() => setConnectionsOpen(true)}
+        />
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {activity === "axetCode" ? (
+          <AxetCodeHome
+            config={config}
+            pushToast={pushToast}
+            recentEntries={recentEntries}
+            connectivity={connectivity}
+            tierOverrides={config?.systemTiers ?? {}}
+            onOpenSapLauncher={() => setActivity("sapLauncher")}
+            onQuickConnectSap={handleQuickConnectSap}
+          />
+        ) : activity === "axetFlows" ? (
+          <AxetFlowsHome />
+        ) : activity === "sapGuiScripting" ? (
+          <SapGuiScriptingHome />
+        ) : activity === "axetFlowsLive" ? null : (
+          <>
         <header className="flex items-center gap-3 border-b border-base-700 bg-base-900 px-4 py-3">
           <button
             onClick={() => setAddSystemOpen(true)}
@@ -674,28 +815,6 @@ export default function App() {
             className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-white"
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
-          <button
-            onClick={handleToggleTheme}
-            title={config?.theme === "light" ? t("app.switchToDark") : t("app.switchToLight")}
-            className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-white"
-          >
-            {config?.theme === "light" ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
-          <button
-            onClick={handleToggleLanguage}
-            title={t("app.languageToggleTitle")}
-            className="flex cursor-pointer items-center gap-1 rounded-sm p-2 text-xs font-semibold text-slate-400 hover:bg-base-700 hover:text-white"
-          >
-            <Languages size={16} />
-            {language.toUpperCase()}
-          </button>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            title={t("app.settingsTitle")}
-            className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-white"
-          >
-            <Settings size={16} />
           </button>
         </header>
 
@@ -878,6 +997,13 @@ export default function App() {
             )}
           </div>
         </div>
+          </>
+        )}
+        <div className={activity === "axetFlowsLive" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
+          <AxetFlowsLiveHome />
+        </div>
+        </div>
+        </div>
 
         <SettingsModal
           open={settingsOpen}
@@ -886,6 +1012,13 @@ export default function App() {
           onSave={handleSaveConfig}
           onExportManualSystems={handleExportManualSystems}
           onImportManualSystems={handleImportManualSystems}
+        />
+
+        <AppConnectionsModal
+          open={connectionsOpen}
+          onClose={() => setConnectionsOpen(false)}
+          onOpenLoginTerminal={handleOpenLoginTerminal}
+          onOpenProjectTerminal={handleOpenProjectTerminal}
         />
 
         <AddSystemModal

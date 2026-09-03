@@ -6,10 +6,59 @@ html, body, #root {
   height: 100%;
 }
 
-* {
+/* Geçişler ETKİLEŞİMLİ elemanlarla sınırlı. Önceden `*` seçicisiyle SAYFADAKİ
+   HER eleman bg/border/color geçişi alıyordu; hover efektlerinin tamamı zaten
+   buton/link/input üzerinde olduğu için bu, binlerce statik div/span'e bedava
+   compositor işi yüklemekten başka bir şey yapmıyordu — sohbet ekranı gibi
+   yüksek frekansta yeniden render olan (akan cevap, uzun mesaj listesi)
+   yerlerde ölçülebilir bir maliyet. Kendi `transition`/`transition-colors`
+   sınıfını yazan bileşenler (örn. sohbet listesi satırları) bundan bağımsız
+   olarak çalışmaya devam eder. */
+a,
+button,
+input,
+textarea,
+select,
+[role="button"] {
   transition-property: background-color, border-color, color;
   transition-duration: 120ms;
   transition-timing-function: ease;
+}
+
+/* Tema değişimi anında (bkz. App.tsx) `<html>`'e kısa süreliğine eklenir —
+   böylece koyu/açık geçişi ani bir "flaş" yerine yumuşak bir geçiş olur, ama
+   bu maliyet SADECE o 220 ms boyunca ödenir. */
+html.theme-transition,
+html.theme-transition * {
+  transition-property: background-color, border-color, color, fill;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+/* Klavyeyle gezinen kullanıcı için tek merkezi odak halkası. Bileşenlerin
+   çoğunda `outline-none` var ve hiçbirinde `focus-visible:` yoktu — Tab ile
+   dolaşırken imlecin nerede olduğu HİÇ görünmüyordu. `:focus-visible`
+   (":focus" değil) olduğu için fareyle tıklamada çıkmaz, sadece klavye
+   navigasyonunda görünür. */
+:focus-visible {
+  outline: 2px solid rgb(var(--accent-400-rgb));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ...ama METİN ALANLARI hariç. Şartnameye göre `<textarea>` ve metin girişli
+   `<input>`ler FAREYLE odaklandığında da `:focus-visible` eşleşir — yani
+   yukarıdaki halka klavye navigasyonunda değil, sohbet kutusuna HER
+   tıklandığında çiziliyordu (kullanıcı geri bildirimi, 2026-09-02: "sohbet
+   boxunu seçtiğimde mavi çerçeve oluyor o kötü"). Erişilebilirlik kaybı yok:
+   metin alanında odağın göstergesi yanıp sönen imleç, composer ayrıca odakta
+   zemin rengini de açıyor. Onay kutusu / düğme / link / select halkayı KORUR,
+   onlarda imleç yok. Bu blok `@tailwind utilities`den SONRA gelmeli, yoksa
+   bileşenlerdeki `outline-none` sınıfıyla kaynak sırasında kaybeder. */
+textarea:focus-visible,
+input:not([type]):focus-visible,
+input:is([type="text"], [type="password"], [type="search"], [type="number"], [type="email"], [type="url"], [type="tel"]):focus-visible {
+  outline: none;
 }
 
 /* aXet SAP Launcher — minimalist iki tema (koyu/açık). Amaç: göz yormayan,
@@ -18,8 +67,24 @@ html, body, #root {
    withOpacity()) — bu format opacity varyantlarının (bg-accent-500/10 vb.)
    doğru derlenmesi için gerekli, "#hex" yazma. */
 
+/* Sohbet ekranının okuma konforu — kullanıcı ayarından geliyor (Ayarlar >
+   Sohbet görünümü). Buradaki değerler yalnızca İLK BOYAMA için: `App.tsx`
+   config yüklenir yüklenmez bunları `<html>` üzerine yazar. Temadan bağımsız
+   oldukları için koyu/açık bloklarının DIŞINDA duruyorlar. */
+:root {
+  --chat-font-size: 15px;
+  --chat-hero-size: 40px;
+  --chat-message-gap: 32px;
+}
+
 :root,
 html[data-theme="dark"] {
+  /* Chromium'un YERLİ kontrolleri (açılır `<select>` listesi, kaydırma
+     çubukları, tarih seçici) CSS ile boyanamıyor — sistem paletini
+     kullanıyorlar. `color-scheme` olmadan koyu temada bile bembeyaz bir liste
+     açılıyordu; SAP GUI ekranındaki vkey seçicisi bunun en görünür örneğiydi.
+     Renk değişkenleriyle birlikte temaya bağlı olması bu yüzden şart. */
+  color-scheme: dark;
   --base-950-rgb: 15 15 17;
   --base-900-rgb: 20 20 23;
   --base-850-rgb: 25 25 29;
@@ -32,6 +97,7 @@ html[data-theme="dark"] {
   --ink-300-rgb: 165 165 173;
   --ink-400-rgb: 124 124 133;
   --ink-500-rgb: 92 92 100;
+  --ink-600-rgb: 70 70 78;
   --ink-strong-rgb: 255 255 255;
 
   --scrollbar-thumb: #333338;
@@ -40,9 +106,32 @@ html[data-theme="dark"] {
   --accent-600-rgb: 29 78 216;
   --accent-500-rgb: 42 108 235;
   --accent-400-rgb: 96 165 250;
+  /* Accent ZEMİN üzerine gelen metin/ikon rengi — her iki temada da beyaz.
+     `text-white` bunun yerine kullanılamaz: o token (`--ink-strong-rgb`) açık
+     temada bilinçli olarak KOYU (41 39 36), çünkü açık zemin üstünde en güçlü
+     metin rengi odur. Ama aynı sınıf accent zeminli bir butonda/balonda
+     kullanılınca açık temada mavi üstüne koyu gri metin çıkıyordu — ölçülen
+     kontrast 2.89:1, WCAG AA eşiği olan 4.5:1'in çok altında (kullanıcının
+     kendi yazdığı sohbet mesajları açık temada zor okunuyordu). Accent zeminli
+     her yerde `text-accent-on` kullan, `text-white` DEĞİL. */
+  --accent-on-rgb: 255 255 255;
   --accent-cyan-rgb: 42 108 235;
   --accent-glow: rgba(42, 108, 235, 0.25);
   --accent-soft-text: #8fb8f8;
+
+  /* Sohbet ekranındaki karşılama başlığının degradesi. Neden AYRI üç değişken:
+     `--accent-cyan-rgb` her iki temada da `--accent-500-rgb` ile AYNI değer, yani
+     accent jetonlarından kurulan bir degrade düpedüz düz çıkıyor. Bunlar sadece
+     o başlıkta kullanılıyor, palete yeni bir vurgu rengi katmıyor.
+
+     Renkler UYDURULMADI: doğrudan `src/assets/logo.svg`'deki `mark` gradyanının
+     durakları (#6d5efc → #8b7dff → #22d3ee). İlk sürümde Gemini'nin kendi
+     mavi→mor→pembe degradesi kullanılıyordu; ekranın "bizim" olması için marka
+     işaretiyle aynı renkleri taşıması gerekiyordu. Logonun renkleri değişirse
+     BURASI da güncellenmeli — bağ otomatik değil. */
+  --chat-hero-from: #6d5efc;
+  --chat-hero-via: #8b7dff;
+  --chat-hero-to: #22d3ee;
 
   --navy-icon: #3d6fa8;
 
@@ -76,6 +165,7 @@ html[data-theme="light"] {
      yumuşatılmış koyu gri (saf siyah değil). Paneller (900→600) birbirinden
      hafif tonla ayrılıyor, sert beyaz-üstü-beyaz sınır yok. İkinci tur: genel
      parlaklık bir kademe daha düşürüldü, vurgu rengi daha az doygun/mat mavi. */
+  color-scheme: light;
   --base-950-rgb: 234 234 231;
   --base-900-rgb: 244 244 242;
   --base-850-rgb: 240 240 237;
@@ -88,6 +178,7 @@ html[data-theme="light"] {
   --ink-300-rgb: 109 107 102;
   --ink-400-rgb: 141 139 134;
   --ink-500-rgb: 166 164 159;
+  --ink-600-rgb: 186 184 179;
   --ink-strong-rgb: 41 39 36;
 
   --scrollbar-thumb: #c9c8c4;
@@ -96,9 +187,18 @@ html[data-theme="light"] {
   --accent-600-rgb: 51 92 173;
   --accent-500-rgb: 61 108 189;
   --accent-400-rgb: 82 128 204;
+  --accent-on-rgb: 255 255 255;
   --accent-cyan-rgb: 61 108 189;
   --accent-glow: rgba(61, 108, 189, 0.1);
   --accent-soft-text: #2f5aa8;
+
+  /* Aynı marka degradesi, açık zemin için KOYULAŞTIRILMIŞ tonlarda: logonun
+     kendi renkleri (#6d5efc/#8b7dff/#22d3ee) koyu zemin için seçilmiş, açık
+     zeminde — özellikle camgöbeği ucu — okunmuyor. Ton (hue) korunuyor,
+     parlaklık düşürülüyor. */
+  --chat-hero-from: #4c3ad4;
+  --chat-hero-via: #6355d8;
+  --chat-hero-to: #0e8ba6;
 
   --navy-icon: #3d5f85;
 
@@ -131,8 +231,12 @@ body {
   font-family: "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Metin seçimi. `--accent-glow` KULLANILMIYOR — o değişken axet.flows'ta
+   düzinelerce yerde çok soluk bir vurgu zemini olarak kullanılıyor (açık
+   temada 0.10 alfa) ve seçim için okunacak kadar belirgin değil; oradaki
+   ince ayarı bozmamak için seçime kendi alfası veriliyor. */
 ::selection {
-  background-color: var(--accent-glow);
+  background-color: rgb(var(--accent-500-rgb) / 0.28);
 }
 
 ::-webkit-scrollbar {
@@ -147,6 +251,24 @@ body {
   border-radius: 8px;
 }
 ::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
+}
+
+/* Sohbet yüzeyi için daha ince ve SESSİZ bir kaydırma çubuğu: yalnızca fare
+   alanın üstündeyken görünür. Genel 10px'lik çubuk, okuma sütununun sağında
+   sürekli duran dikey bir çizgi olarak sayfanın en sağ kenarını sürekli
+   "meşgul" gösteriyordu. Kaydırma yine mümkün, sadece boştayken çizilmiyor. */
+.chat-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  transition: background 140ms ease;
+}
+.chat-scroll:hover::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+}
+.chat-scroll:hover::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
 }
 
@@ -183,4 +305,48 @@ body {
 }
 .animate-panel-fade-in {
   animation: panel-fade-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Cevap beklenirken gösterilen gösterge (bkz. ChatBubble `ThinkingBubble`).
+   Kullanıcı isteği (2026-09-02): *"mors alfabesi gibi parlayan şekilde olsun,
+   parçalı parçalı"* — bütün satırlar yerine kısa/uzun (nokta/çizgi) parçalar,
+   üzerlerinden sırayla geçen bir ışık.
+
+   Işık AYRI bir katmanla değil, her parçanın KENDİ döngüsüne verilen bir
+   GECİKMEYLE ilerliyor: gecikme parçanın soldan sıra numarasıyla orantılı,
+   bu yüzden aynı animasyon soldan sağa akan tek bir dalga gibi görünüyor.
+   Bir gradyan bandı kaydırmak burada işe yaramazdı — parçalar arasındaki
+   boşluklar bandı keser ve ışık aralarda kaybolurdu.
+
+   TOPLAM GECİKME DÖNGÜDEN KÜÇÜK OLMALI: son parça daha parlamadan döngü
+   başa sararsa dalga akmaz, gösterge rastgele titrer. Şu an 9 parça ×
+   80ms = 720ms < 2000ms (bkz. ChatBubble `MORSE_SEGMENTS` / `MORSE_STEP_MS`).
+
+   Parlama döngünün SADECE ilk %20'sinde: geri kalanı sönük duruyor, böylece
+   parlayan parça tek ve belirgin oluyor. `box-shadow` parlamayı parçanın
+   dışına da taşırıyor — mors ışığı hissini veren asıl şey bu. Parçalar ince
+   (3px) olduğu için yayılma yarıçapı da dar: geniş bir gölge, 3px'lik bir
+   çizgide ışık değil bulanık bir leke gibi görünüyor. */
+@keyframes chat-morse-glow {
+  0% {
+    background-color: rgb(var(--base-800-rgb));
+    box-shadow: none;
+  }
+  8% {
+    background-color: rgb(var(--accent-500-rgb) / 0.9);
+    box-shadow: 0 0 6px rgb(var(--accent-500-rgb) / 0.5);
+  }
+  20% {
+    background-color: rgb(var(--base-800-rgb));
+    box-shadow: none;
+  }
+  100% {
+    background-color: rgb(var(--base-800-rgb));
+    box-shadow: none;
+  }
+}
+.chat-morse-dot {
+  border-radius: 9999px;
+  background-color: rgb(var(--base-800-rgb));
+  animation: chat-morse-glow 2000ms ease-in-out infinite;
 }

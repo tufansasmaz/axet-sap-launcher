@@ -116,8 +116,15 @@ export default function FileViewer({ path, name }: Props) {
 
   if (state.kind === "docx") {
     return (
-      <div className="h-full overflow-y-auto bg-white px-10 py-8">
-        <div className="mx-auto max-w-3xl text-slate-900 [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_p]:mb-3 [&_table]:border-collapse [&_td]:border [&_td]:border-slate-300 [&_td]:p-1.5 [&_th]:border [&_th]:border-slate-300 [&_th]:p-1.5">
+      // DOCX önizlemesi bilinçli olarak bir "kâğıt sayfası" taklit ediyor, bu
+      // yüzden renkleri TEMADAN BAĞIMSIZ ve literal. Daha önce `bg-white` +
+      // `text-slate-900` yazıyordu; `bg-white` uygulamanın `white` token'ına
+      // (`--ink-strong-rgb`) bağlı olduğu için AÇIK temada zemin koyuya
+      // (41 39 36) dönüyor, `text-slate-900` ise tanımsız olduğu için
+      // Tailwind'in kendi koyu #0f172a'sını alıyordu — yani açık temada
+      // koyu üstüne koyu, okunamayan bir sayfa.
+      <div className="h-full overflow-y-auto bg-[#ffffff] px-10 py-8">
+        <div className="mx-auto max-w-3xl text-[#1a1a1a] [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_p]:mb-3 [&_table]:border-collapse [&_td]:border [&_td]:border-[#d4d4d4] [&_td]:p-1.5 [&_th]:border [&_th]:border-[#d4d4d4] [&_th]:p-1.5">
           <div dangerouslySetInnerHTML={{ __html: state.html }} />
         </div>
       </div>

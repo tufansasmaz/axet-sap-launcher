@@ -50,7 +50,7 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
               <button
                 onClick={onAccept}
                 autoFocus
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98]"
+                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-4 py-2.5 text-sm font-medium text-accent-on shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98]"
               >
                 <Download size={14} />
                 {t("updatePrompt.install")}

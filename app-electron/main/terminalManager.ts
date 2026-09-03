@@ -1,5 +1,6 @@
 import type { BrowserWindow } from "electron";
 import * as pty from "@lydell/node-pty";
+import { mkdirSync } from "node:fs";
 
 // node-pty (ConPTY üzerinden, N-API tabanlı, prebuilt binary — el yazımı
 // koffi/Win32 FFI DEĞİL) ile gerçek bir Windows konsol pseudo-terminal'i
@@ -90,11 +91,24 @@ export function createTerminal(
   initialCommand?: string
 ): void {
   const hasInitialCommand = Boolean(initialCommand && initialCommand.trim());
+  const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
+  // axet.code ana ekranındaki genel-amaçlı sohbetler (bkz. AxetCodeHome.tsx)
+  // sabit bir varsayılan çalışma klasörüne (`config.axetWorkspaceDir`) açılır
+  // — bu klasör kullanıcı hiç "Ayarlar"a girmeden ilk sohbeti başlattığında
+  // diskte YOK olabilir. SAP Launcher akışında proje klasörü zaten
+  // `connectToSystem()` içinde oluşturulduğu için burası onlar için no-op
+  // (klasör zaten var), ama axet.code'un varsayılan klasörü için tek
+  // güvenli oluşturma noktası burası.
+  try {
+    mkdirSync(resolvedCwd, { recursive: true });
+  } catch {
+    // Oluşturulamazsa pty.spawn zaten aşağıda anlamlı bir hatayla patlar.
+  }
   const proc = pty.spawn(resolveShellPath(shell), resolveShellArgs(shell), {
     name: "xterm-color",
     cols: cols > 0 ? cols : 80,
     rows: rows > 0 ? rows : 24,
-    cwd: cwd && cwd.trim() ? cwd : process.cwd(),
+    cwd: resolvedCwd,
     env: process.env as Record<string, string>
   });
 

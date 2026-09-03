@@ -144,9 +144,13 @@ def load_rfc_config() -> dict:
         "user": os.getenv("ADT_SAP_USER"),
         "passwd": os.getenv("ADT_SAP_PASSWORD"),
         "lang": os.getenv("ADT_SAP_LANGUAGE", "EN"),
-        "saprouter": os.getenv("ADT_RFC_SAPROUTER"),
+        # SAProuter opsiyonel: doğrudan (router'sız) RFC bağlantılarında
+        # (ör. HTTPS tamamen firewall'lu ama RFC/gateway portu açık sistemler
+        # -- bkz. PROJE-BILGI.md "Eclipse ADT RFC tünelleme" bulgusu) bu alan
+        # boş/tanımsız bırakılır, aşağıda pyrfc.Connection()'a hiç geçilmez.
+        "saprouter": os.getenv("ADT_RFC_SAPROUTER", "").strip() or None,
     }
-    missing = [k for k in ("ashost", "user", "passwd", "saprouter") if not cfg.get(k)]
+    missing = [k for k in ("ashost", "user", "passwd") if not cfg.get(k)]
     if missing:
         sys.stderr.write(f"[adt-rfc-bridge] FAIL: .conn_adt is missing RFC fields: {missing}\n")
         sys.exit(1)
@@ -193,15 +197,21 @@ class RfcAdtClient:
         _ensure_sapnwrfc_dll_dir()
         import pyrfc
 
-        self._conn = pyrfc.Connection(
-            ashost=self._cfg["ashost"],
-            sysnr=self._cfg["sysnr"],
-            client=self._cfg["client"],
-            user=self._cfg["user"],
-            passwd=self._cfg["passwd"],
-            lang=self._cfg["lang"],
-            saprouter=self._cfg["saprouter"],
-        )
+        conn_kwargs = {
+            "ashost": self._cfg["ashost"],
+            "sysnr": self._cfg["sysnr"],
+            "client": self._cfg["client"],
+            "user": self._cfg["user"],
+            "passwd": self._cfg["passwd"],
+            "lang": self._cfg["lang"],
+        }
+        # saprouter yoksa (doğrudan/router'sız RFC bağlantısı) pyrfc'ye hiç
+        # geçirilmiyor -- boş string vermek bazı sapnwrfc sürümlerinde
+        # "invalid saprouter string" hatasına yol açabiliyor, anahtarı
+        # tamamen atlamak daha güvenli.
+        if self._cfg.get("saprouter"):
+            conn_kwargs["saprouter"] = self._cfg["saprouter"]
+        self._conn = pyrfc.Connection(**conn_kwargs)
         self._connecting_since = None
 
     def _call_endpoint(self, request_struct: dict):

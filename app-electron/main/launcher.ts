@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
+import { Socket } from "node:net";
 import path from "node:path";
 import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials } from "../shared/types";
 import { discoverAdtEndpoint, verifyCredentials, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
@@ -28,6 +29,7 @@ function connectMsg(
     | "rfcBridgeVerified"
     | "rfcBridgeRunningUnverified"
     | "rfcBridgeAutoStartFailed"
+    | "samlSetupNeeded"
     | "verifiedOpening"
     | "verifiedButSelfTestFailed",
   params?: { error?: string; skillNote?: string; url?: string; detail?: string }
@@ -42,6 +44,7 @@ function connectMsg(
     rfcBridgeVerified: `Router raw HTTPS'i reddetti — RFC bridge otomatik başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı${skillNote}, gömülü terminal açılıyor.`,
     rfcBridgeRunningUnverified: `RFC bridge otomatik başlatıldı${skillNote} ama kimlik doğrulaması tamamlanamadı (${detail}) — gömülü terminal yine de açılıyor, detay için sap-context.md'ye bak.`,
     rfcBridgeAutoStartFailed: `Router raw HTTPS'i reddetti, RFC bridge otomatik başlatılamadı (${detail})${skillNote} — gömülü terminal yine de açılıyor, elle kurulum adımları için sap-context.md'ye bak.`,
+    samlSetupNeeded: `Bu sistem SAML SSO gerektiriyor (kimlik bilgileri Basic Auth ile hiç kontrol edilemedi)${skillNote} — gömülü terminal açılıyor, ilk iş olarak sap-context.md'deki "Cloud / BTP Sistem Notları" bölümündeki login_saml_sso.py adımlarını izle.`,
     verifiedOpening: `Bağlantı doğrulandı, gömülü terminal açılıyor${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız${skillNote} — sap-context.md'de detay var (${params?.url})`
   };
@@ -53,6 +56,7 @@ function connectMsg(
     rfcBridgeVerified: `Router rejected raw HTTPS — RFC bridge auto-started and credentials verified over RFC${skillNote}, opening embedded terminal.`,
     rfcBridgeRunningUnverified: `RFC bridge auto-started${skillNote} but credential verification did not complete (${detail}) — opening embedded terminal anyway, see sap-context.md for details.`,
     rfcBridgeAutoStartFailed: `Router rejected raw HTTPS, RFC bridge auto-start failed (${detail})${skillNote} — opening embedded terminal anyway, see sap-context.md for manual setup steps.`,
+    samlSetupNeeded: `This system requires SAML SSO (credentials could never be checked via Basic Auth)${skillNote} — opening embedded terminal, first follow the login_saml_sso.py steps in sap-context.md's "Cloud / BTP System Notes" section.`,
     verifiedOpening: `Connection verified, opening embedded terminal${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Connection verified but adt-tool.ps1 self-test failed${skillNote} — see sap-context.md for details (${params?.url})`
   };
@@ -114,6 +118,32 @@ function describeRfcEndpointFailure(message: string): string {
     return "RFC logon'un kendisi reddedildi — bu sistem için kullanıcı adı/şifre/client'ı özellikle kontrol et (RFC logon, HTTP Basic Auth kontrolünden farklı davranabilir).";
   }
   return "";
+}
+
+// Ham TCP connect denemesi (HTTP/TLS YOK) — sadece "bu portta bir dinleyici
+// var mı" sorusuna cevap arıyor. Router'sız sistemlerde tüm ADT/HTTPS
+// portları ağ/firewall seviyesinde tamamen engelliyken bile SAP'ın kendi
+// native gateway portu (DIAG portu + 100, SAP'ın kendi 32xx/33xx kuralı)
+// açık kalabiliyor — canlı kanıt: Eclipse ADT'nin "SAP GUI connection"
+// tabanlı projeleri HTTPS yerine tam olarak bu porttan (netstat ile
+// doğrulandı) RFC/SADT_REST_RFC_ENDPOINT üzerinden bağlanıyor. Bu fonksiyon
+// o kararı (RFC bridge'i denemeye değer mi) vermek için kullanılıyor.
+function probeTcpPort(host: string, port: number, timeoutMs = 3000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = new Socket();
+    let settled = false;
+    const finish = (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once("connect", () => finish(true));
+    socket.once("timeout", () => finish(false));
+    socket.once("error", () => finish(false));
+    socket.connect(port, host);
+  });
 }
 
 interface RfcBridgeOutcome {
@@ -293,11 +323,19 @@ function buildConnAdt(
   const rfcBlock = rfcBridge
     ? `
 # ============================================================================
-# RFC BRIDGE MODU — bu sistemin SAProuter'ı raw/native HTTPS tünellemeyi
+# RFC BRIDGE MODU — ${
+        rfcBridge.saprouter
+          ? `bu sistemin SAProuter'ı raw/native HTTPS tünellemeyi
 # REDDETTİ (izin tablosunda kayıt yok — router sürümüne göre -94/NIEROUT_PERM_DENIED
 # veya -93 gibi farklı bir return_code ile bildirilebilir, ikisi de aynı anlama gelir)
 # ama native SAP protokolü (DIAG/RFC)
-# trafiğine izin veriyor (SAP Logon'un neden çalıştığı budur). ADT_SAP_URL
+# trafiğine izin veriyor (SAP Logon'un neden çalıştığı budur).`
+          : `bu sistemde SAProuter YOK ama ADT/HTTPS portlarının TÜMÜ ağ/firewall
+# seviyesinde erişilemez durumda — SAP'ın native gateway portu (DIAG portu + 100)
+# hâlâ açık olduğu için doğrudan (router'sız) RFC bridge kullanılıyor. Bu, Eclipse
+# ADT'nin "SAP GUI connection" tabanlı bağlantılarda kullandığı AYNI mekanizma.`
+      }
+# ADT_SAP_URL
 # yukarıda yerel bir RFC bridge'e (adt_rfc_bridge.py) işaret ediyor — o script
 # SADT_REST_RFC_ENDPOINT üzerinden gerçek SAP'a RFC ile bağlanıyor. Kurulum ve
 # kullanım: %sap-adt-readonly skill'inin SKILL.md'sindeki "Router-only
@@ -447,7 +485,8 @@ function buildContextMarkdown(
   skillInstall: SkillInstallResult,
   rfcBridge?: RfcBridgeConfig | null,
   rfcOutcome?: RfcBridgeOutcome | null,
-  readonlyOutcome?: ReadonlyServerOutcome | null
+  readonlyOutcome?: ReadonlyServerOutcome | null,
+  samlSetupNeeded?: boolean
 ): string {
   const { customerPath, service } = req;
   const breadcrumb = customerPath.join(" / ");
@@ -518,21 +557,33 @@ function buildContextMarkdown(
   const rfcNoteBlock = rfcBridge
     ? `
 
-## SAProuter RFC Bridge Modu — HTTPS bu sistemde ENGELLİ
-- Bu sistemin SAProuter'ı (${service.routerString ?? "?"}) native/raw HTTPS tünellemeyi **REDDETTİ** (izin tablosunda kayıt yok — router sürümüne göre -94/NIEROUT_PERM_DENIED veya -93 gibi farklı bir return_code ile bildirilebilir, ikisi de aynı anlama gelir) — SAP Logon'un DIAG bağlantısı çalışıyor çünkü o native SAP protokolü, ama ADT'nin düz HTTPS'i router tarafından engelleniyor. Bu bir kimlik/ağ hatası **değil**, router'ın izin tablosu (\`saprouttab\`) kısıtı.
-- Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor — bu bridge \`SADT_REST_RFC_ENDPOINT\` üzerinden router'ın izin verdiği RFC kanalıyla gerçek SAP'a bağlanıyor, \`%sap-adt-readonly\` tamamen **değişmeden** çalışıyor.
+## ${rfcBridge.saprouter ? "SAProuter RFC Bridge Modu — HTTPS bu sistemde ENGELLİ" : "Doğrudan RFC Bridge Modu (SAProuter YOK) — HTTPS bu sistemde ağ seviyesinde erişilemez"}
+${
+  rfcBridge.saprouter
+    ? `- Bu sistemin SAProuter'ı (${service.routerString ?? "?"}) native/raw HTTPS tünellemeyi **REDDETTİ** (izin tablosunda kayıt yok — router sürümüne göre -94/NIEROUT_PERM_DENIED veya -93 gibi farklı bir return_code ile bildirilebilir, ikisi de aynı anlama gelir) — SAP Logon'un DIAG bağlantısı çalışıyor çünkü o native SAP protokolü, ama ADT'nin düz HTTPS'i router tarafından engelleniyor. Bu bir kimlik/ağ hatası **değil**, router'ın izin tablosu (\`saprouttab\`) kısıtı.`
+    : `- Bu sistemde SAProuter TANIMLI DEĞİL ama tüm ADT/HTTPS candidate portları (443/8443/44300/50000/4443 vb.) bu makineden ağ/firewall seviyesinde **tamamen erişilemez** (zaman aşımı) — SAP'ın native gateway portu (DIAG portu + 100) ise erişilebilir olduğu için doğrudan RFC bridge'e geçildi. Canlı kanıt: Eclipse ADT'nin "SAP GUI connection" tabanlı bağlantıları tam olarak bu yüzden HTTPS değil RFC/SADT_REST_RFC_ENDPOINT kullanıyor (netstat ile doğrulandı). Bu bir kimlik hatası **değil**, ağ/firewall kısıtı — kalıcı çözüm network/Basis ekibinin bu makineden ilgili HTTPS portuna erişim açması.`
+}
+- Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor — bu bridge \`SADT_REST_RFC_ENDPOINT\` üzerinden ${rfcBridge.saprouter ? "router'ın izin verdiği RFC kanalıyla" : "doğrudan (router'sız) RFC bağlantısıyla"} gerçek SAP'a bağlanıyor, \`%sap-adt-readonly\` tamamen **değişmeden** çalışıyor.
 ${rfcAutoStartLines}
-- Gerçek keşfedilen (ama şu an router tarafından engellenen) HTTPS URL: **${verifiedUrl}** — Basis ekibi ileride \`saprouttab\`'a bu makinenin IP'sinden yukarıdaki URL'in host:port'una bir \`P\` (permit, native değil) satırı eklerse, \`.conn_adt\`'ta \`ADT_RFC_MODE=false\` yapıp \`ADT_SAP_URL\`'i bu adrese çevirebilirsin — doğrudan HTTPS daha basit ve daha güvenilir.
+- Gerçek keşfedilen (ama şu an erişilemeyen) HTTPS URL: **${verifiedUrl}** — ${rfcBridge.saprouter ? "Basis ekibi ileride \`saprouttab\`'a bu makinenin IP'sinden yukarıdaki URL'in host:port'una bir \`P\` (permit, native değil) satırı eklerse" : "network/Basis ekibi bu makinenin IP'sinden yukarıdaki URL'in host:port'una firewall/VPN'de erişim açarsa"}, \`.conn_adt\`'ta \`ADT_RFC_MODE=false\` yapıp \`ADT_SAP_URL\`'i bu adrese çevirebilirsin — doğrudan HTTPS daha basit ve daha güvenilir.
 - Aktivasyon gibi çok-adımlı stateful akışlar RFC bridge üzerinden güvenilir çalışmaz (zaten bu read-only server'da aktivasyon yok) — sadece okuma araçlarını (\`adt_get_source\`, \`adt_search\`, \`adt_sql\`, vb.) bekle.`
     : "";
 
   const connectionStatusBlock = rfcBridge
     ? `## ADT Bağlantısı — ${rfcOutcome?.verified ? "RFC BRIDGE ÜZERİNDEN DOĞRULANDI ✓" : rfcOutcome?.started ? "RFC BRIDGE ÇALIŞIYOR (kimlik doğrulaması tamamlanamadı)" : "RFC BRIDGE GEREKLİ (otomatik başlatma başarısız)"}
-- Router doğrudan HTTPS'i reddetti, bkz. aşağıdaki "SAProuter RFC Bridge Modu" bölümü.
+- ${rfcBridge.saprouter ? "Router doğrudan HTTPS'i reddetti" : "Bu sistemde SAProuter yok ama HTTPS ağ seviyesinde tamamen erişilemez"}, bkz. aşağıdaki "${rfcBridge.saprouter ? "SAProuter RFC Bridge Modu" : "Doğrudan RFC Bridge Modu"}" bölümü.
 - adt-tool.ps1 bu modda yazılmadı/çalıştırılmadı (o script düz HTTPS kullanır, bu sistemde işe yaramaz).
 - Keşif/doğrulama adımları (referans):
 ${notesBlock}`
-    : `## ADT Bağlantısı — DOĞRULANDI ✓
+    : samlSetupNeeded
+      ? `## ADT Bağlantısı — SAML SSO GEREKLİ (kimlik bilgileri HİÇ DOĞRULANAMADI)
+- ADT discovery isteği HTTP 200 döndürdü ama gövde bir ADT XML'i değil, bir **SAML/SSO giriş sayfası (HTML)** — bu, kullanıcı adı/şifre doğru olsun olmasın DEĞİŞMEYEN bir davranış, kimlik bilgileri Basic Auth ile hiçbir zaman kontrol edilmedi.
+- **Terminal bilerek açıldı** (ok:true) ama bağlantı DOĞRULANMADI (verified:false) — bu bir hata durumu değil, bu sistemin normal/beklenen kimlik doğrulama şekli SAML SSO.
+- adt-tool.ps1 bu durumda yazılmadı (o da aynı şekilde Basic Auth kullanır, aynı HTML sayfasını alır).
+- **İlk iş olarak aşağıdaki "Cloud / BTP Sistem Notları" bölümündeki SAML giriş akışını (login_saml_sso.py) izle** — ADT_SAML_COOKIES_FILE elde edilip .conn_adt'a eklenmeden gerçek bir ADT çağrısı (adt_get_source, adt_search vb.) çalışmaz.
+- Keşif/doğrulama adımları (referans):
+${notesBlock}`
+      : `## ADT Bağlantısı — DOĞRULANDI ✓
 - ADT URL: **${verifiedUrl}** (HTTP 200 ile kimlik doğrulaması onaylandı, terminal bu bağlantıyla açıldı)
 - Sertifika ve DNS/SID doğrulaması otomatik yapıldı ve geçti — **bu oturumda TLS/DNS/host:port keşfini tekrar deneme, sonuç zaten kanıtlanmış**.
 - Keşif/doğrulama adımları (referans, tekrar çalıştırma):
@@ -726,6 +777,18 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
 
   const routerString = req.service.routerString;
   let rfcBridge: RfcBridgeConfig | null = null;
+  // SAML/SSO login sayfası tespit edilen sistemler (bkz. adtDiscovery.ts
+  // looksLikeSamlLoginPage) için ayrı bir bayrak — RFC bridge GEREKMİYOR
+  // (aksine gerçek çözüm tarayıcı tabanlı bir SAML akışı, %sap-adt-readonly
+  // skill'indeki login_saml_sso.py), ama önceden bu durumda da diğer TÜM
+  // "!verify.ok" durumlarıyla aynı jenerik dala düşülüp .conn_adt/
+  // sap-context.md HİÇ yazılmıyordu — kullanıcı login_saml_sso.py'nin
+  // ihtiyaç duyduğu .conn_adt'ı asla elde edemiyordu (canlı bulgu,
+  // 2026-09-02, "test"/DA8 S/4HANA Cloud sistemi). Artık bu durumda da
+  // diğer iki bridge senaryosuyla AYNI desende devam ediliyor: dosyalar
+  // yazılır, terminal açılır, sadece ok:true+verified:false ile net bir
+  // "önce SAML login akışını izle" mesajı döner.
+  let samlSetupNeeded = false;
 
   if (!verify.ok && routerString && !manualUrl && isRouterPermissionDenied(verify.message)) {
     const instanceNr = guessInstanceNumber(req.service.port) ?? "00";
@@ -745,6 +808,47 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       "Router raw/native HTTPS'i reddetti ama native SAP protokolüne (DIAG/RFC) izin veriyor — " +
         "RFC bridge moduna geçiliyor (bkz. sap-context.md). Kimlik bilgileri bu launcher tarafından " +
         "HTTP ile doğrulanamadı; gerçek doğrulama RFC bridge kurulumu sırasında yapılmalı."
+    );
+  } else if (!verify.ok && !manualUrl && !routerString && verify.status === null && host) {
+    // SAProuter YOK ama tüm ADT/HTTPS portları ağ/firewall seviyesinde
+    // tamamen erişilemez (verify.status===null → hiçbir port HTTP yanıtı
+    // vermedi, sadece 401/başka status DEĞİL). Canlı kanıt (Exeltis/QUB,
+    // 2026-09-02): bu durumda SAP'ın DIAG portu (host+diagPort) VE gateway
+    // portu (aynı + 100, SAP'ın kendi 32xx/33xx kuralı) hâlâ açık olabiliyor
+    // — Eclipse ADT'nin "SAP GUI connection" tabanlı projeleri tam olarak bu
+    // yüzden RFC/SADT_REST_RFC_ENDPOINT üzerinden bağlanıyor (netstat ile
+    // doğrulandı: eclipse.exe bu sisteme sadece gateway portundan bağlı,
+    // HTTP(S) portlarına hiç bağlı değil). Gateway portu gerçekten açıksa
+    // (ucuz bir TCP probe ile doğrulanıyor — VPN tamamen kapalıysa bu da
+    // başarısız olur, boşuna RFC bridge denenmez) doğrudan/router'sız RFC
+    // bridge moduna geçiyoruz.
+    const gatewayPort = req.service.port ? req.service.port + 100 : null;
+    const gatewayReachable = gatewayPort ? await probeTcpPort(host, gatewayPort, 3000) : false;
+    if (gatewayReachable) {
+      const instanceNr = guessInstanceNumber(req.service.port) ?? "00";
+      rfcBridge = {
+        ashost: host,
+        sysnr: instanceNr,
+        saprouter: "",
+        bridgePort: DEFAULT_RFC_BRIDGE_PORT
+      };
+      allNotes.push(
+        `Tüm ADT/HTTPS portları ağ seviyesinde erişilemez durumda (zaman aşımı/bağlantı hatası) ama SAP'ın native gateway portu (${host}:${gatewayPort}) erişilebilir — SAProuter YOK, doğrudan (router'sız) RFC bridge moduna geçiliyor. Bu, Eclipse ADT'nin "SAP GUI connection" tabanlı bağlantılarda kullandığı AYNI mekanizma (SADT_REST_RFC_ENDPOINT, canlı netstat ile doğrulandı). Kimlik bilgileri bu launcher tarafından HTTP ile doğrulanamadı; gerçek doğrulama RFC bridge kurulumu sırasında yapılmalı.`
+      );
+    } else {
+      return {
+        ok: false,
+        verified: false,
+        projectDir,
+        message: verify.message,
+        trustedCertificates: trustedCertificatesUpdate
+      };
+    }
+  } else if (!verify.ok && verify.samlDetected) {
+    samlSetupNeeded = true;
+    allNotes.push(
+      "Bu sistem SAML SSO gerektiriyor — Basic Auth ile atılan doğrulama isteği kimlik bilgilerini hiç kontrol etmeden bir HTML giriş sayfası döndürdü. " +
+        "RFC bridge gerekmez, gerçek çözüm %sap-adt-readonly skill'indeki login_saml_sso.py (tarayıcı tabanlı SAML akışı) — .conn_adt yine de yazılıyor ki bu script çalışabilsin."
     );
   } else if (!verify.ok) {
     return {
@@ -778,6 +882,13 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     const sapnwrfcHome = embedded?.sapnwrfcHome;
     rfcOutcome = await attemptRfcBridgeAutoStart(skillInstall, projectDir, rfcBridge, credentials, pythonPath, language, sapnwrfcHome);
     allNotes.push(rfcOutcome.detailNote);
+  } else if (samlSetupNeeded) {
+    // adt-tool.ps1 self-test'i burada da atlanıyor — bu script de aynı
+    // Basic Auth + finalUrl'i kullanıyor, SAML sistemde o da kaçınılmaz
+    // olarak HTML sayfası alıp "self-test BAŞARISIZ" diyecekti; bu yanıltıcı
+    // "TLS/sertifika sorunu" notunu (gerçek sebep SAML olduğu için) hiç
+    // üretmemek için hiç çalıştırılmıyor.
+    toolTest = { ok: false, detail: "Bu sistem SAML SSO gerektiriyor — adt-tool.ps1 self-test atlandı (aynı sebep, Basic Auth çalışmıyor)." };
   } else {
     try {
       writeFileSync(path.join(projectDir, "adt-tool.ps1"), buildAdtToolScript(), "utf-8");
@@ -798,7 +909,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   }
 
   const contextFile = path.join(projectDir, "sap-context.md");
-  const generated = buildContextMarkdown(req, finalUrl, allNotes, toolTest, skillInstall, rfcBridge, rfcOutcome, readonlyOutcome);
+  const generated = buildContextMarkdown(req, finalUrl, allNotes, toolTest, skillInstall, rfcBridge, rfcOutcome, readonlyOutcome, samlSetupNeeded);
   const finalContent = mergeWithExistingNotes(generated, contextFile);
 
   try {
@@ -828,6 +939,17 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
           ? connectMsg(language, "rfcBridgeVerified", { skillNote })
           : connectMsg(language, "rfcBridgeRunningUnverified", { skillNote, detail: rfcOutcome.verifyMessage || rfcOutcome.detailNote })
         : connectMsg(language, "rfcBridgeAutoStartFailed", { skillNote, detail: rfcOutcome.detailNote }),
+      trustedCertificates: trustedCertificatesUpdate,
+      effectiveClient: credentials.client
+    };
+  }
+
+  if (samlSetupNeeded) {
+    return {
+      ok: true,
+      verified: false,
+      projectDir,
+      message: connectMsg(language, "samlSetupNeeded", { skillNote }),
       trustedCertificates: trustedCertificatesUpdate,
       effectiveClient: credentials.client
     };

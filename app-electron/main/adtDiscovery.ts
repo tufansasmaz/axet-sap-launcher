@@ -25,12 +25,15 @@ function verifyMsg(
     | "unauthorizedWithSid"
     | "unexpectedStatus"
     | "unexpectedStatusWithBody"
+    | "unexpectedStatusHtml"
+    | "unexpectedStatusHtmlWithTitle"
+    | "unexpectedStatusSicfInactive"
     | "invalidUrl"
     | "timeout"
     | "connectionError"
     | "connectionErrorRouter"
     | "samlLoginDetected",
-  params?: { sid?: string; client?: string; status?: number | null; message?: string; body?: string }
+  params?: { sid?: string; client?: string; status?: number | null; message?: string; body?: string; title?: string }
 ): string {
   const tr = {
     verified: "Kimlik bilgileri doğrulandı",
@@ -39,6 +42,9 @@ function verifyMsg(
     unauthorizedWithSid: `401 Unauthorized (sistem: ${params?.sid}, client: ${params?.client}) — kullanıcı adı/şifre yanlış veya kilitli`,
     unexpectedStatus: `Beklenmeyen HTTP durumu: ${params?.status}`,
     unexpectedStatusWithBody: `Beklenmeyen HTTP durumu: ${params?.status} — ${params?.body}`,
+    unexpectedStatusHtml: `Beklenmeyen HTTP durumu: ${params?.status} (yanıt bir HTML sayfası — SAP bu durumda genelde ICM'in kendi hata sayfasını döndürür, ADT yanıtı değildir)`,
+    unexpectedStatusHtmlWithTitle: `Beklenmeyen HTTP durumu: ${params?.status} — "${params?.title}" (SAP'ın kendi HTML hata sayfası, ADT yanıtı değil)`,
+    unexpectedStatusSicfInactive: `HTTP ${params?.status} — "${params?.title}". Bu, SAP ICM'in kendi hata sayfası ve genelde şu anlama gelir: bu sistemde /sap/bc/adt servisi SICF'te henüz aktive edilmemiş (kullanıcı adı/şifre veya ağ/VPN sorunu DEĞİL). Basis ekibine SICF (t-code SICF) üzerinden default_host/sap/bc/adt düğümünü "Service/Host Activate" ile aktive etmesini iste.`,
     invalidUrl: "Geçersiz ADT URL",
     timeout: "Zaman aşımı",
     connectionError: `Bağlantı hatası: ${params?.message}`,
@@ -52,6 +58,9 @@ function verifyMsg(
     unauthorizedWithSid: `401 Unauthorized (system: ${params?.sid}, client: ${params?.client}) — wrong username/password or account locked`,
     unexpectedStatus: `Unexpected HTTP status: ${params?.status}`,
     unexpectedStatusWithBody: `Unexpected HTTP status: ${params?.status} — ${params?.body}`,
+    unexpectedStatusHtml: `Unexpected HTTP status: ${params?.status} (response is an HTML page — SAP usually returns ICM's own error page in this case, not an ADT response)`,
+    unexpectedStatusHtmlWithTitle: `Unexpected HTTP status: ${params?.status} — "${params?.title}" (SAP's own HTML error page, not an ADT response)`,
+    unexpectedStatusSicfInactive: `HTTP ${params?.status} — "${params?.title}". This is SAP ICM's own error page and usually means the /sap/bc/adt service has not been activated in SICF on this system yet (not a username/password or network/VPN issue). Ask the Basis team to activate the default_host/sap/bc/adt node via SICF (t-code SICF, "Service/Host Activate").`,
     invalidUrl: "Invalid ADT URL",
     timeout: "Timed out",
     connectionError: `Connection error: ${params?.message}`,
@@ -75,7 +84,40 @@ function summarizeBody(raw: string): string {
   return trimmed.length > MAX_BODY_SNIPPET ? `${trimmed.slice(0, MAX_BODY_SNIPPET)}…` : trimmed;
 }
 
-function unexpectedStatusMessage(language: AppLanguage, status: number | null, body: string): string {
+// KÖK SEBEP DÜZELTMESİ (canlı bulgu — Simpro/S4Q, 2026-09-02): bazı
+// hata durumlarında (403/404 vb.) SAP'ın ICM'i kendi HTML hata sayfasını
+// (örn. SICF'te aktive edilmemiş bir servise erişilince "Service cannot be
+// reached") döndürüyor. Eski kod bu HTML'i olduğu gibi (etiketler dahil,
+// 400 karaktere kadar) kullanıcıya gösteriyordu — okunamaz, kök sebebi
+// gizleyen bir çıktıydı. Artık gövde HTML ise SADECE <title> etiketinin
+// içeriği çıkarılıp gösteriliyor (SAP'ın kendi hata sayfalarında bu her
+// zaman anlamlı bir özet taşır — "Service cannot be reached" gibi); ayrıca
+// bu başlık SICF-servis-aktif-değil kalıbına uyuyorsa doğrudan Basis'e
+// yönlendiren açıklayıcı bir not ekleniyor.
+const HTML_BODY_START = /^\s*(<!doctype html|<html)/i;
+
+function isHtmlBody(contentType: string | undefined, body: string): boolean {
+  if (contentType && /html/i.test(contentType)) return true;
+  return HTML_BODY_START.test(body.slice(0, 200));
+}
+
+function extractHtmlTitle(body: string): string {
+  const match = body.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  return match ? match[1].replace(/\s+/g, " ").trim() : "";
+}
+
+const SICF_INACTIVE_TITLE_PATTERN = /service cannot be reached|resource\/service.*not (available|found)|404.*not found|service .* not (active|available)/i;
+
+function unexpectedStatusMessage(language: AppLanguage, status: number | null, body: string, contentType?: string): string {
+  if (isHtmlBody(contentType, body)) {
+    const title = extractHtmlTitle(body);
+    if (title && SICF_INACTIVE_TITLE_PATTERN.test(title)) {
+      return verifyMsg(language, "unexpectedStatusSicfInactive", { status, title });
+    }
+    return title
+      ? verifyMsg(language, "unexpectedStatusHtmlWithTitle", { status, title })
+      : verifyMsg(language, "unexpectedStatusHtml", { status });
+  }
   const snippet = summarizeBody(body);
   return snippet
     ? verifyMsg(language, "unexpectedStatusWithBody", { status, body: snippet })
@@ -446,6 +488,11 @@ export interface CredentialVerifyResult {
   status: number | null;
   sid: string | null;
   message: string;
+  // Dile/regex'e bağımlı fragile string-matching yerine yapısal bir bayrak
+  // — launcher.ts'in "bu sistem SAML SSO gerektiriyor, .conn_adt'ı yine de
+  // yaz ki kullanıcı login_saml_sso.py akışını takip edebilsin" kararı
+  // artık İngilizce/Türkçe mesaj metnine bakmadan bu alana bakıyor.
+  samlDetected?: boolean;
 }
 
 export function verifyCredentials(
@@ -503,7 +550,7 @@ export function verifyCredentials(
           if (status === 200) {
             const body = Buffer.concat(chunks).toString("utf-8");
             if (looksLikeSamlLoginPage(contentType, body)) {
-              resolve({ ok: false, status, sid, message: verifyMsg(language, "samlLoginDetected") });
+              resolve({ ok: false, status, sid, samlDetected: true, message: verifyMsg(language, "samlLoginDetected") });
               return;
             }
             resolve({ ok: true, status, sid, message: verifyMsg(language, "verified") });
@@ -518,7 +565,7 @@ export function verifyCredentials(
             });
           } else {
             const body = Buffer.concat(chunks).toString("utf-8");
-            resolve({ ok: false, status, sid, message: unexpectedStatusMessage(language, status, body) });
+            resolve({ ok: false, status, sid, message: unexpectedStatusMessage(language, status, body, contentType) });
           }
         });
       }
@@ -559,7 +606,7 @@ async function verifyCredentialsThroughRouter(
     const status = res.statusCode;
     if (status === 200) {
       if (looksLikeSamlLoginPage(res.headers["content-type"], res.body ?? "")) {
-        return { ok: false, status, sid, message: verifyMsg(language, "samlLoginDetected") };
+        return { ok: false, status, sid, samlDetected: true, message: verifyMsg(language, "samlLoginDetected") };
       }
       return { ok: true, status, sid, message: verifyMsg(language, "verifiedRouter") };
     } else if (status === 401) {
@@ -572,7 +619,7 @@ async function verifyCredentialsThroughRouter(
           : verifyMsg(language, "unauthorized")
       };
     }
-    return { ok: false, status, sid, message: unexpectedStatusMessage(language, status, res.body ?? "") };
+    return { ok: false, status, sid, message: unexpectedStatusMessage(language, status, res.body ?? "", res.headers["content-type"]) };
   } catch (err) {
     return { ok: false, status: null, sid: null, message: verifyMsg(language, "connectionErrorRouter", { message: (err as Error).message }) };
   } finally {

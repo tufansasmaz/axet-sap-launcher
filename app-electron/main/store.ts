@@ -1,12 +1,25 @@
 import { app } from "electron";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { userInfo } from "node:os";
 import path from "node:path";
-import type { AppConfig, ConnectionHistoryEntry, LastCredential, SystemTier, TerminalMode, AppLanguage } from "../shared/types";
+import { encryptSecret } from "./secureStorage";
+import type {
+  AppConfig,
+  ConnectionHistoryEntry,
+  LastCredential,
+  SystemTier,
+  TerminalMode,
+  AppLanguage,
+  ChatFontSize,
+  ChatDensity
+} from "../shared/types";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
 const MAX_CONNECTION_HISTORY = 10;
 const VALID_TERMINAL_MODES: TerminalMode[] = ["cmd", "powershell"];
 const VALID_LANGUAGES: AppLanguage[] = ["tr", "en"];
+const VALID_CHAT_FONT_SIZES: ChatFontSize[] = ["sm", "md", "lg"];
+const VALID_CHAT_DENSITIES: ChatDensity[] = ["compact", "comfortable"];
 
 function configPath(): string {
   return path.join(app.getPath("userData"), "config.json");
@@ -26,8 +39,35 @@ function defaultConfig(): AppConfig {
     systemComments: {},
     theme: "dark",
     language: "tr",
-    autoCheckUpdates: true
+    autoCheckUpdates: true,
+    axetWorkspaceDir: path.join(app.getPath("documents"), "aXet Code Sessions"),
+    // Windows oturum adından TÜRETİLİR, ama sadece isme benziyorsa
+    // (bkz. safeUserName). Kullanıcı Ayarlar'dan değiştirebilir, boşaltırsa
+    // karşılama adsız görünür.
+    chatDisplayName: safeUserName(),
+    chatFontSize: "md",
+    chatDensity: "comfortable",
+    chatSidebarOpen: true,
+    // Hız varsayılan (bkz. axetSpawnEnv.ts): bağlayıcılar mesaj başına ~8 s
+    // ekliyor ve sohbetlerin çoğunda kullanılmıyor.
+    chatUseConnectors: false
   };
+}
+
+// Karşılamada kullanılacak varsayılan ad. Windows oturum adı kurumsal
+// ortamlarda çoğu zaman bir SİCİL NUMARASIDIR ("10134570") ve "İyi akşamlar,
+// 10134570" saçma görünüyor (kullanıcı geri bildirimi, 2026-09-02). Bu yüzden
+// oturum adı yalnızca İSME BENZİYORSA kullanılıyor: en az bir harf içermeli.
+// Benzemiyorsa boş dönülür ve karşılama adsız kalır — kullanıcı isterse
+// Ayarlar > Sohbet görünümü'nden kendi adını yazar. `userInfo()` bazı kilitli
+// ortamlarda fırlatıyor; ad kozmetik olduğu için hata tüm config'i düşürmemeli.
+function safeUserName(): string {
+  try {
+    const raw = (userInfo().username ?? "").trim();
+    return /\p{L}/u.test(raw) ? raw : "";
+  } catch {
+    return "";
+  }
 }
 
 export function loadConfig(): AppConfig {
@@ -45,12 +85,27 @@ export function loadConfig(): AppConfig {
     // önce oluşturulmuş) — geçersiz/eksik değer sessizce varsayılana ("tr")
     // düşürülür, hata fırlatılmaz.
     const language = VALID_LANGUAGES.includes(parsed.language) ? parsed.language : fallback.language;
+    // Sohbet görünüm ayarları da aynı muameleyi görüyor: bu alanlar eklenmeden
+    // önce yazılmış config'lerde HİÇ YOK, ve doğrudan CSS değişkenine
+    // çevrildikleri için geçersiz bir değer sessiz bir görsel bozulma olurdu.
+    const chatFontSize = VALID_CHAT_FONT_SIZES.includes(parsed.chatFontSize)
+      ? parsed.chatFontSize
+      : fallback.chatFontSize;
+    const chatDensity = VALID_CHAT_DENSITIES.includes(parsed.chatDensity)
+      ? parsed.chatDensity
+      : fallback.chatDensity;
     const merged: AppConfig = {
       ...fallback,
       ...parsed,
       axetCommand,
       terminal,
       language,
+      chatFontSize,
+      chatDensity,
+      chatDisplayName: typeof parsed.chatDisplayName === "string" ? parsed.chatDisplayName : fallback.chatDisplayName,
+      chatSidebarOpen: typeof parsed.chatSidebarOpen === "boolean" ? parsed.chatSidebarOpen : fallback.chatSidebarOpen,
+      chatUseConnectors:
+        typeof parsed.chatUseConnectors === "boolean" ? parsed.chatUseConnectors : fallback.chatUseConnectors,
       lastCredentials: { ...fallback.lastCredentials, ...(parsed.lastCredentials ?? {}) },
       trustedCertificates: { ...fallback.trustedCertificates, ...(parsed.trustedCertificates ?? {}) },
       connectionHistory: Array.isArray(parsed.connectionHistory) ? parsed.connectionHistory : fallback.connectionHistory,
@@ -74,7 +129,12 @@ export function saveConfig(partial: Partial<AppConfig>): AppConfig {
 
 export function saveLastCredential(serviceUuid: string, credential: LastCredential): AppConfig {
   const current = loadConfig();
-  const lastCredentials = { ...current.lastCredentials, [serviceUuid]: credential };
+  // Şifre `config.json`'a ASLA düz metin yazılmıyor — `safeStorage`
+  // (Windows DPAPI) ile şifrelenip `enc:v1:<base64>` olarak saklanıyor
+  // (bkz. secureStorage.ts). Geri okuma tarafı `resolveCredentialDefaults`
+  // (index.ts) — orada `decryptSecret` ile çözülüyor.
+  const encrypted: LastCredential = { ...credential, password: encryptSecret(credential.password) };
+  const lastCredentials = { ...current.lastCredentials, [serviceUuid]: encrypted };
   return saveConfig({ lastCredentials });
 }
 
@@ -115,4 +175,5 @@ export function saveSystemComment(serviceUuid: string, comment: string): AppConf
   }
   return saveConfig({ systemComments });
 }
+
 

@@ -1,0 +1,72 @@
+// SAP GUI Scripting AI Agent — action sözlüğü. `src/flows/agent/tools.js`'in
+// AYNI JSON-aksiyon protokolü desenini izler (LLM'e OpenAI-function-style
+// tam bir `tools` array'i GÖNDERİLMİYOR — CLI stdin ile çağrıldığı için,
+// bunun yerine `ACTIONS_DOC` düz metin olarak system prompt'a gömülür).
+//
+// axet.flows'tan TEK yapısal fark: burada mutasyon YAPILACAK bir in-memory
+// model (FlowModel) yok — her aksiyon gerçek bir IPC round-trip'i (SAP GUI
+// Scripting bridge'ine HTTP isteği). Bu yüzden `createExecutor` ASENKRON
+// bir `executeTool` döner (flows'taki senkron switch'in aksine).
+//
+// KASITLI TASARIM KURALI (agent'ın gerçek ID uydurmasını önlemek için):
+// `set_text`/`press`/`select`/`double_click`/`send_vkey`/
+// `select_context_menu_item` HİÇBİRİ kendi başına bir element ID
+// İCAT EDEMEZ — agent önce `get_node` ile gerçek ağacı okumalı, sadece
+// GÖRDÜĞÜ node'ların `id` alanını kullanabilir. Bu kural kod SEVİYESİNDE
+// zorlanmıyor (executor teknik olarak herhangi bir string id'yi
+// `findById`'e iletir, Python bridge zaten geçersiz bir ID'de kendi COM
+// hatasını verir) — asıl disiplin system prompt'taki kural + `get_node`
+// çağrısının HER YENİ ekran için zorunlu tutulmasıyla sağlanıyor (bkz.
+// systemPrompt.ts kural #2).
+
+export const ACTIONS_DOC = `Kullanabilecegin action'lar:
+
+- list_connections {}
+  Su an acik olan SAP GUI baglantilarini listeler (index, description, sessionCount).
+- list_sessions {"conn_idx": 0}
+  Bir baglantidaki oturumlari listeler (index, Transaction, Program, SystemName, Client, User).
+- get_node {"conn_idx": 0, "sess_idx": 0, "id": "wnd[0]/usr/txtRSYST-BNAME"}
+  Bir ekran elemaninin GERCEK detayini (id, type, name, text, tooltip, changeable, children,
+  varsa grid verisi) doner. "id" bos/atlanirsa aktif ana pencere (wnd[0]) doner. YENI bir ekrana
+  gecince (T-code degisti, bir buton basildiktan sonra) BU action'i tekrar cagirip ekranin
+  GERCEKTEN degistigini/hangi elemanlarin oldugunu KONTROL ET - asla onceki turda gordugun
+  ID'lerin hala gecerli oldugunu VARSAYMA.
+- set_text {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "..."}
+  Bir alana metin yazar (GuiTextField/GuiCTextField/GuiPasswordField vb.).
+- press {"conn_idx": 0, "sess_idx": 0, "id": "..."}
+  Bir butona basar (GuiButton).
+- select {"conn_idx": 0, "sess_idx": 0, "id": "..."}
+  Bir elemani secer (radio button, tab, grid satiri vb.).
+- double_click {"conn_idx": 0, "sess_idx": 0, "id": "..."}
+  Bir elemana cift tiklar (orn bir grid satirinda detaya girmek icin).
+- send_vkey {"conn_idx": 0, "sess_idx": 0, "id": "...", "vkey": 0}
+  Bir tus kodu gonderir (0=Enter, 3=F3/Geri, 8=F8/Calistir, 11=Ctrl+S, 12=F12/Iptal). "id" bos
+  birakilirsa ana pencereye (wnd[0]) gonderilir - COK SIK kullanilan bir aksiyondur (T-code'a
+  Enter ile gecmek icin).
+- select_context_menu_item {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "menuItemId"}
+  Bir elemanin sag-tik menusunden bir ogeyi secer.
+- ask_user {"question": "...", "options": ["...", "..."]}
+  Belirsiz bir noktada kullaniciya soru sor ve dur; cevap bir sonraki KULLANICI mesaji olarak
+  gelecek. "options" opsiyoneldir. Bir batch icindeyse bundan sonraki action'lar CALISTIRILMAZ.
+- finish {"summary": "..."}
+  Yapilacak baska bir sey kalmadiginda kisa bir Turkce ozet ile dur. Bir batch icindeyse
+  bundan sonraki action'lar CALISTIRILMAZ.`;
+
+export const BATCH_FORMAT_DOC = `BATCH FORMATI:
+Her LLM cevabin bir alt-process baslatiyor (yavas ve maliyetli) - TEK bir cevapta BIRDEN FAZLA
+action dondurebilirsin:
+
+{"actions": [
+  {"action": "set_text", "args": {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "..."}},
+  {"action": "send_vkey", "args": {"conn_idx": 0, "sess_idx": 0, "vkey": 0}}
+]}
+
+- Tek bir action yeterliyse basit formu da kullanabilirsin: {"action": "...", "args": {...}}.
+- DIKKAT: flow builder'daki "ref" mekanizmasi BURADA YOK - SAP GUI element ID'leri (orn
+  "wnd[0]/usr/txtRSYST-BNAME") zaten SAP'in kendi verdigi SABIT string'ler, sen yeni bir id
+  URETMIYORSUN, sadece get_node ile GORDUGUN id'leri kullaniyorsun.
+- Bir batch'te en fazla ~6 action calisir (flow builder'dan DAHA DUSUK bir sinir - burada her
+  action GERCEK bir ekranin durumunu degistirebiliyor, bu yuzden "kor" uzun zincirler flow
+  eklemekten daha risklidir). Bir T-code'a girip Enter'a basmak gibi ekran DEGISTIREN bir
+  action'dan SONRA, ayni batch'te devam etmek yerine bir sonraki turda get_node ile YENI
+  ekrani DOGRULA - kor sekilde devam etme.`;

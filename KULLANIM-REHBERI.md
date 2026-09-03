@@ -231,8 +231,19 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
   gömülü geldiği için **hiçbir şey kurman gerekmez**; terminal açılır ve
   `%sap-adt-readonly` doğrudan çalışır. Çok nadir bir durumda (uygulama
   kurulumu bozuksa) otomatik başlatma başarısız olabilir; bu durumda
-  `sap-context.md`'deki "SAProuter RFC Bridge Modu" bölümü ne yapman
-  gerektiğini yazar.
+  `sap-context.md`'deki "RFC Bridge Modu" bölümü ne yapman gerektiğini
+  yazar.
+- **VPN açık ama "Zaman aşımı" veriyor, hâlbuki Eclipse/SAP GUI aynı VPN'den
+  bağlanabiliyor (SAProuter'ı OLMAYAN sistemler)**: Bazı kurumsal ağlarda
+  firewall, SAP'ın native protokollerine (SAP GUI DIAG, RFC/gateway
+  portuna) izin verirken ADT'nin kullandığı düz HTTPS'i tamamen engeller —
+  bu durumda Eclipse ADT da (fark etmeden) RFC üzerinden bağlanıyor
+  olabilir. Uygulama bunu artık kendisi tespit eder: SAP'ın native gateway
+  portu (DIAG portu + 100) erişilebilirse otomatik olarak **doğrudan RFC
+  bridge** moduna geçer (SAProuter gerekmez), terminal normal şekilde
+  açılır. Bu da başarısız olursa, port kesinlikle firewall/VPN tarafında
+  engelli demektir — IT/network ekibine bu makineden ilgili sisteme
+  HTTPS erişimi açtırman gerekir.
 - **Uygulama açılırken yavaş/donuk hissediliyor**: Genellikle SAP Logon'un
   landscape dosyasındaki **network Include** (merkezi/paylaşılan landscape)
   dosyalarından biri VPN kapalıyken/ağ yavaşken okunmaya çalışıldığı için

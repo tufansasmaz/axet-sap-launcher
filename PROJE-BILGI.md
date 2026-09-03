@@ -3,6 +3,10 @@
 Bu dosya, bu projeye tekrar dönen bir AI asistanının (veya geliştiricinin)
 mimariyi hızlıca kavraması için yazıldı. Kod okumadan önce burayı oku.
 
+## Kullanıcı
+
+Bu projede benimle çalışan kullanıcının adı **Mehmet**.
+
 ## Ne Bu Proje
 
 `axet-sap-launcher` — Electron + React + TypeScript masaüstü uygulaması.
@@ -14,6 +18,52 @@ toolkit skill'lerini o klasöre kopyalar ve `axet.code`'u çalıştıran bir
 terminal açar.
 
 `package.json:2-4` → `name: axet-sap-launcher`, açıklama Türkçe.
+
+## ⚠️ DEVAM EDEN PLATFORM DÖNÜŞÜMÜ (2026-08-27'den itibaren) — sonraki oturum önce buraya baksın
+
+Kullanıcı bu tek-amaçlı SAP Launcher uygulamasını **daha büyük bir platforma**
+çevirmek istiyor: ana ekran artık OpenAI/Codex/Claude tarzı bir "AI chat"
+deneyimi olan **axet.code** olacak (arka planda gerçek AI API'si YOK —
+kullanıcının zaten kullandığı `axet.code` CLI'ının kendisi, gömülü terminal
+üzerinden çalıştırılıyor), yanında bir sol **Activity Bar** (VS Code tarzı)
+olacak ve bu barda **aXet SAP Launcher** (bu mevcut uygulamanın TAMAMI,
+değişmeden) bir modül/aktivite olarak yer alacak. Kullanıcı ileride buraya
+`axet.flows` gibi başka modüller de ekleyecek — mimari BUNU KOLAYLAŞTIRACAK
+şekilde (aktivite listesi merkezi, `ActivityBar.tsx`) kuruldu.
+
+**ÖNEMLİ — bu dönüşüm bitene kadar GitHub'a hiçbir release/push YAPILMASIN**
+(kullanıcının açık talimatı, 2026-08-27). Normal şartlarda her versiyon
+sonrası `npm run release` çalıştırma alışkanlığı bu dönüşüm süresince
+DURDURULDU — sadece yerel commit/build, `git push`/`npm run release` YOK.
+
+**Kullanıcı kararları (bu dönüşümün kapsamını belirleyen):**
+1. axet.code chat ekranı bir API key/gateway entegrasyonu GEREKTİRMİYOR —
+   zaten var olan `axet.code` CLI'ı (gömülü terminal + `axetCommand`) bu
+   işi görüyor, sadece SUNUM/ORGANİZASYON değişiyor.
+2. axet.code'un genel-amaçlı sohbet oturumları ile bir SAP sistemine
+   bağlanınca açılan terminal oturumu **AYRI iki liste** (birleştirilmedi —
+   kullanıcı bilerek ayrı tercih etti).
+3. axet.code'daki "+ Yeni Sohbet" **sabit bir varsayılan klasöre**
+   (`AppConfig.axetWorkspaceDir`, Ayarlar'dan değiştirilebilir) açılıyor,
+   her seferinde klasör SORULMUYOR.
+
+**Adım 1 (bu turda TAMAMLANDI) — detaylar dosyanın SONUNDA, "Platform
+Dönüşümü — Adım 1" başlığı altında.** Kısaca: `ActivityBar.tsx` (yeni),
+`AxetCodeHome.tsx` (yeni), `App.tsx`'in JSX ağacı TitleBar altına
+ActivityBar + iki aktiviteyi (axetCode/sapLauncher) koşullu render edecek
+şekilde yeniden düzenlendi, `AppConfig.axetWorkspaceDir` eklendi.
+
+**Sonraki adımlar (henüz YAPILMADI, kullanıcı önceliklendirecek)**:
+- ~~axet.code ekranındaki "Bağlantılar" bölümü şu an sadece "Yakında"
+  yazan bir placeholder~~ — BU NOT ESKİMİŞ: `AxetCodeHome.tsx`'teki
+  "Bağlantılar" widget'ı artık gerçekten işlevsel (son SAP sistemleri
+  gösteren bir hızlı-bağlan listesi) VE ayrıca 2026-08-29'da TAMAMEN AYRI
+  bir "Uygulama Bağlantıları" Activity'si (Outlook/SharePoint için gerçek
+  Microsoft Graph OAuth, bkz. aşağıdaki "Uygulama Bağlantıları" bölümü)
+  eklendi — bu madde artık geçersiz, siliniyor.
+- `axet.flows` veya benzeri yeni modüller — henüz talep gelmedi.
+- İki oturum listesinin (axet.code genel + SAP Launcher'ın kendi terminal
+  paneli) görsel/UX tutarlılığı ileride gözden geçirilebilir.
 
 ## Teknoloji Yığını
 
@@ -486,8 +536,13 @@ yaşamıyor/kayamıyor.
 
 ## Bilinen Eksikler / Gelecek İşler (kullanıcıya önerildi, henüz yapılmadı)
 
-- `.conn_adt` şifre şifrelemesi (Electron `safeStorage`).
-- Otomatik güncelleme (`electron-updater`).
+- ~~`.conn_adt` şifre şifrelemesi (Electron `safeStorage`).~~ — **KISMEN
+  ÇÖZÜLDÜ (2026-08-29)**: `AppConfig.lastCredentials` (config.json'daki SAP
+  şifreleri) artık `safeStorage` ile şifreleniyor, bkz. "Uygulama Genelinde
+  Eksik Denetimi" bölümü. `.conn_adt` dosyasının KENDİSİ hâlâ düz metin —
+  bu BİLEREK değiştirilmedi (dış tüketicileri var, aşağıda detay).
+- ~~Otomatik güncelleme (`electron-updater`).~~ — bu madde ESKİMİŞ, aşağıdaki
+  "GitHub'a Taşınma + Otomatik Güncelleme" bölümünde çok önce tamamlandı.
 - Aktivite/audit log (kim ne zaman hangi sisteme bağlandı) — sadece son 10 bağlantı `AppConfig.connectionHistory`'de tutuluyor, kalıcı/detaylı bir audit log değil.
 
 ## Kullanılabilirlik İyileştirmeleri (2026-08-14 itibarıyla, TAMAMLANDI)
@@ -2076,12 +2131,4825 @@ renderer tarafında bu event akışını dinleyen YENİ bir global modal eklendi
   kullanıcı Ayarlar'ı açıkken bu global modal `"hidden"` kalır) — hepsi
   birebir eskisi gibi çalışıyor, sadece renderer'da YENİ bir tüketici
   (bu modal) eklendi.
-- **Diğer bilgisayarlarda çalışması**: bu özellik tamamen renderer/i18n
-  kodu, `dist`/`dist-electron`'a gömülü — makineye özel bir ayar
-  gerektirmiyor. NSIS Setup ile kurulmuş HER kopya, açılıştan 3sn sonra
-  otomatik kontrol edip (varsa) bu soruyu soracak. Portable/`dir`
-  dağıtımları auto-update ALMAZ (electron-updater'ın belgelenmiş sınırı,
-  değişmedi) — o dağıtım türlerinde `updates:check` çağrısı hep
-  "not-available"/hata döner, modal hiç açılmaz.
 - `npm run typecheck` ve `npm run build` temiz geçti.
 
+## Platform Dönüşümü — Adım 1: ActivityBar + axet.code Ana Ekranı (2026-08-27, DEVAM EDİYOR)
+
+Dosyanın en başındaki "⚠️ DEVAM EDEN PLATFORM DÖNÜŞÜMÜ" bölümündeki kararların
+ilk uygulanışı. **Kritik tasarım kararı**: mevcut SAP Launcher'ın (bugüne
+kadarki TÜM `App.tsx` içeriği — sistem ağacı, arama, terminal paneli, dosya
+gezgini, tüm modallar) **hiçbir iç mantığı değiştirilmedi/taşınmadı** — sadece
+JSX ağacına bir üst seviye ekleyip mevcut bloğu bir `activity === "sapLauncher"`
+koşuluna sardım. Bu, riski en aza indiren, "App.tsx'i ikiye böl + state'i yukarı
+taşı" gibi büyük/riskli bir refactor'dan kaçınan bilinçli bir tercih.
+
+**Yeni dosyalar**:
+- **`src/components/ActivityBar.tsx`** — sol dikey rayda aktivite ikonları
+  (`Activity = "axetCode" | "sapLauncher"`, dizi tabanlı — yeni bir modül
+  eklemek için sadece `activities` dizisine bir öğe eklemek yeterli) +
+  alt kısımda tema/dil/ayarlar butonları (bunlar App.tsx'in kendi header'ından
+  buraya TAŞINDI, aynı `handleToggleTheme`/`handleToggleLanguage`/
+  `setSettingsOpen` handler'larını çağırıyor — mantık tekrarlanmadı, sadece
+  buton nereye render edildiği değişti).
+- **`src/components/AxetCodeHome.tsx`** — axet.code'un ana ekranı: sol mini
+  kenar çubuğunda "Sohbetler" listesi + "+ Yeni Sohbet" butonu + altında
+  "Bağlantılar" (şu an sadece "Yakında" placeholder'ı), sağda aktif oturumun
+  `EmbeddedTerminal`'i (session yoksa boş durum ekranı). Kendi bağımsız
+  `sessions`/`activeId` state'ini tutuyor — **SAP Launcher'ın
+  `terminalSessions`/`TerminalPanel`'inden TAMAMEN AYRI** (kullanıcı kararı
+  #2). Aynı alt yapıyı (`window.api.createTerminal`, `onTerminalReady`
+  event'i, `EmbeddedTerminal` component'i) yeniden kullanıyor — bu event'ler
+  global (`ipcRenderer.on`) olduğu için AxetCodeHome kendi `pendingTitlesRef`
+  Map'inde OLMAYAN bir `id` geldiğinde (yani SAP Launcher'ın açtığı bir
+  terminal) sessizce görmezden geliyor, iki liste birbirine sızmıyor.
+
+**`App.tsx` değişiklikleri**:
+- Yeni `activity` state'i (`useState<Activity>("axetCode")` — varsayılan
+  ekran axet.code, kullanıcının "ana ekranımız" tanımına uygun).
+- JSX: `<TitleBar/>`'dan sonra yeni bir `<div className="flex ... overflow-hidden">`
+  satırı — içinde `<ActivityBar/>` ve onun yanında (yeni) bir sütun; bu sütun
+  `activity === "axetCode"` ise `<AxetCodeHome/>`, değilse (`<>...</>`
+  fragment içinde) SAP Launcher'ın ESKİ `<header>` + sidebar + main +
+  `<TerminalPanel/>` bloğunu **birebir aynı JSX ile** render ediyor.
+- Header'dan tema/dil/ayarlar butonları kaldırıldı (ActivityBar'a taşındı) —
+  `handleToggleTheme`/`handleToggleLanguage` fonksiyonlarının kendisi
+  DOKUNULMADI, sadece çağrıldıkları buton yeri değişti.
+- **Bilinen kozmetik borç**: yeni sarma div'lerin içindeki eski JSX bloğu
+  girinti (indentation) SEVİYESİ güncellenmedi (2 seviye daha içeride olması
+  gerekirken eski hizasında kaldı) — fonksiyonel bir sorun DEĞİL (JSX
+  whitespace'e duyarlı değil), sadece kod okunurluğu için ileride bir
+  "sadece re-indent" geçişi yapılabilir, aceleye gerek yok.
+
+**`shared/types.ts` / `store.ts`**: `AppConfig.axetWorkspaceDir: string`
+eklendi (varsayılan: `Belgelerim\aXet Code Sessions`, `path.join(app.getPath
+("documents"), "aXet Code Sessions")`). Standart zincirin `preload`/
+`window.d.ts` kısmı GEREKMEDİ — `config:get`/`config:save` zaten generic
+`Partial<AppConfig>` alıyor/dönüyor, yeni bir IPC endpoint'i açılmadı.
+
+**`app-electron/main/terminalManager.ts`**: `createTerminal()`'a `cwd` için
+bir `mkdirSync(resolvedCwd, {recursive:true})` (try/catch'li, sessiz)
+güvenlik ağı eklendi — SAP Launcher akışında bu no-op (proje klasörü zaten
+`connectToSystem()` içinde oluşturuluyor), ama axet.code'un varsayılan
+`axetWorkspaceDir`'i kullanıcı Ayarlar'a hiç girmeden ilk sohbeti başlatınca
+diskte YOK olabileceği için tek güvenli oluşturma noktası burası oldu.
+
+**`SettingsModal.tsx`**: Yeni "axet.code" bölümü (Genel'in altına, Terminal'in
+üstüne) — `axetWorkspaceDir` için klasör seç input'u (`projectsBaseDir` ile
+birebir aynı desen, `pickAxetWorkspaceDir()` yeni fonksiyon).
+
+**i18n**: `activityBar.*`, `axetCodeHome.*`, `settingsModal.sectionAxetCode`/
+`axetWorkspaceDirLabel` anahtarları `tr.ts`/`en.ts`'e eklendi.
+
+**Test durumu**: `npm run typecheck`, `npm run build`, `npx electron-builder
+--win dir` temiz geçti. Paketlenmiş exe (`release/win-unpacked/aXet SAP
+Launcher.exe`) bu ortamda başlatılıp **çökme olmadığı** doğrulandı (güncelleme
+kontrolü dahil loglar temiz) — ama gerçek bir GUI penceresinde ActivityBar'a
+tıklama/axet.code'da "Yeni Sohbet" açma/SAP Launcher'a geçiş **görsel olarak**
+bu ortamda test EDİLEMEDİ, kullanıcının kendi makinesinde denemesi gerekiyor.
+
+**Bu turda BİLEREK YAPILMAYAN**: GitHub'a commit/push/release — kullanıcının
+açık talimatıyla ("bu bitene kadar githuba update almıcaz") bu dönüşüm süresince
+durduruldu, sadece yerel diskte değişiklik var.
+
+## Platform Dönüşümü — Adım 2: axet.code Dashboard + Görsel İyileştirme (2026-08-27, DEVAM EDİYOR)
+
+Kullanıcı isteği: "biraz daha geliştir dashboard falan ekle görseli
+güzelleştir". `AxetCodeHome.tsx` tamamen yeniden yazıldı, `ActivityBar.tsx`
+görsel olarak güncellendi. **App.tsx'e ek prop akışı gerekti** (aşağıda) —
+bu, dashboard'un App.tsx'in zaten hesapladığı `recentEntries`/`connectivity`/
+`flatSystems` verisini TEKRAR HESAPLAMADAN kullanabilmesi için.
+
+**`AxetCodeHome.tsx` — yeni prop'lar** (`App.tsx`'ten geçiliyor):
+`recentEntries` (App.tsx'in `recentEntries` useMemo'sunun AYNISI —
+`connectionHistory` + `flattenLandscape` birleşimi, en fazla 5 kayıt),
+`connectivity`, `tierOverrides` (`config.systemTiers`), `totalSystemsCount`
+(`flatSystems.length`), `onOpenSapLauncher` (`setActivity("sapLauncher")`),
+`onQuickConnectSap` (yeni `App.tsx` fonksiyonu `handleQuickConnectSap` —
+`setActivity("sapLauncher")` + `setSelection(...)` + `setCredentialsTarget(...)`
+üçünü birden yapıp kullanıcıyı doğrudan kimlik bilgisi penceresine düşürüyor,
+elle SAP Launcher'a geçip sistemi tekrar arama zorunluluğu yok).
+
+**Dashboard içeriği** (`activeId === null` — hiçbir sohbet oturumu seçili
+değilken gösteriliyor, bir oturum açılınca terminal tam ekran alıyor):
+- Saate göre değişen karşılama (`greetingKey()` — sabah/öğlen/akşam/gece,
+  `axetCodeHome.greeting.*` i18n anahtarları) + logo.
+- 3 istatistik kartı: aktif sohbet sayısı, toplam SAP sistemi sayısı
+  (`totalSystemsCount`), uygulama sürümü (`window.api.getAppVersion()`).
+- İki büyük hızlı aksiyon butonu: "Yeni Sohbet Başlat" / "SAP Launcher'ı Aç".
+- "Son Sohbetler" kartları (varsa, en fazla 4, en yeniden eskiye) — her
+  oturumun kendi `createdAt` (`Date.now()`, session state'ine eklendi) zaman
+  damgası `formatRelativeTime()` ile gösteriliyor.
+- "Son Bağlanılan Sistemler" listesi (`recentEntries`'in TAMAMI, App.tsx'teki
+  `RecentSystems.tsx`'in sol panelde gösterdiğiyle AYNI kaynak veri) —
+  `StatusDot`/`TierBadge` yeniden kullanılıyor, tıklanınca `onQuickConnectSap`.
+- Sol kenar çubuğundaki "Bağlantılar" bölümü artık placeholder DEĞİL — en
+  fazla 3 son bağlantıyı gösteriyor + "Tümünü gör" (SAP Launcher'a geçer),
+  hiç geçmiş yoksa "SAP sistemine bağlan" kısayolu.
+
+**`ActivityBar.tsx` görsel güncelleme**: aktif aktivite artık düz arka plan
+rengi DEĞİL, VS Code tarzı sol kenarda 3px'lik bir accent çubuğu + ikonun
+kendi arka planı (axet.code için gradyan dolgu, SAP Launcher için nötr
+`bg-base-700`) ile gösteriliyor — ikisi görsel olarak farklı "kimliğe" sahip
+(axet.code = canlı/gradyan, SAP Launcher = kurumsal/nötr, kendi logosu).
+
+**Bilinçli sınır**: "Bağlantılar" hâlâ SADECE SAP Launcher'ın geçmişini
+okuyor — kendi başına yeni bir bağlantı türü/CRUD'u YOK, bu component'in
+sorumluluğu değil (SAP Launcher zaten tam bu işi yapıyor, tekrar yazmaya
+gerek yok). "Yeni bir modül daha eklemek" (örn. axet.flows) hâlâ sadece
+`ActivityBar.tsx`'teki `activities` dizisine bir öğe + `App.tsx`'e bir
+`activity === "..."` dalı eklemekle sınırlı, bu turda bir şey eklenmedi.
+
+**Test durumu**: `npm run typecheck`, `npm run build`, `npx electron-builder
+--win dir` temiz geçti; paketlenmiş exe bu ortamda başlatılıp çökme/hata
+olmadığı doğrulandı (stderr logu temiz). Görsel doğrulama (kartların
+hizası, hover efektleri, gradyanların göründüğü hâli) kullanıcının kendi
+GUI'sinde yapılmalı.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## Platform Dönüşümü — Adım 3: Model Seçici + Dosya/Görsel Ekleme (2026-08-27, DEVAM EDİYOR)
+
+Kullanıcı isteği: "chat kısmını geliştirelim model seçme kısmı orda olsun
+görsel görsel ekleme oluşturma v.s gibi şeyleri yapabiliyor olalım".
+
+**Araştırma (canlı, bu makinede `axet-code.exe` gerçekten kurulu — `where
+axet-code`)**: `axet-code --help` çıktısı incelendi — root komutta model
+seçmek için bir flag YOK, ama:
+- **`axet-code models`** — konfigüre edilmiş sağlayıcılardan kullanılabilir
+  TÜM modelleri `provider/model` formatında, tek satır tek model, düz
+  stdout'a basıyor (canlı test: `openai/gpt-5.1`, `aws_anthropic/eu.
+  anthropic.claude-sonnet-5` gibi 16 model döndü, exit code 0, stderr boş).
+- **`axet-code run --model` / `-m`** — SADECE `run` (non-interactive)
+  alt komutunda var, ROOT komutta YOK (`axet-code -m ... ` → "Unknown
+  shorthand flag" hatası verdi, canlı doğrulandı). Yani interaktif oturum
+  başlatırken CLI'nin kendisine bir "başlangıç modeli" flag'i geçirilemiyor.
+- **Gerçek kalıcı model seçimi mekanizması** — `axet-code dirs` ile bulunan
+  veri dizinindeki (`%LOCALAPPDATA%\axet-code\axet-code.json`) `models.
+  large`/`models.small` alanları (`{provider, model}` şekli) + `recent_
+  models.large`/`.small` dizileri (son kullanılanlar, CLI'ın kendi "/model"
+  slash komutunun da yazdığı AYNI dosya/şema — canlı dosya içeriği okunup
+  doğrulandı). CLI açılışta bu dosyayı okuyup varsayılan modeli buradan
+  alıyor — yani **launcher bu dosyaya YAZARAK** kullanıcı yeni bir sohbet
+  başlatmadan ÖNCE modeli değiştirebiliyor, CLI'ye ayrıca bir flag geçirmeye
+  gerek yok.
+
+**Yeni dosyalar**:
+- **`app-electron/main/axetModels.ts`** — `listAxetModels()` (`child_process.
+  exec("axet-code models")`, stdout'u satır satır `provider/model`'e parse
+  eder — ilk `/` üzerinden böler, model id'nin kendisi nokta/tire/kolon
+  içerebildiği için İKİNCİ bir `/` aramaz), `getAxetModelConfig()` (JSON'u
+  okur, `models.large`/`.small`'ı döner), `setAxetModel(kind, entry)`
+  (JSON'u okuyup SADECE `models`/`recent_models` alanlarını güncelleyip
+  geri yazar — dosyanın diğer bölümlerine dokunmuyor, CLI'nin ileride
+  ekleyeceği başka bir alanı sessizce silmemek için `{...raw, models,
+  recent_models}` spread deseni kullanılıyor). `%LOCALAPPDATA%` ortam
+  değişkeninden hesaplanıyor (`axet-code dirs`'i her çağrıda tekrar spawn
+  etmemek için), yoksa `os.homedir()/AppData/Local`'a düşülüyor.
+- **`src/lib/axetModels.ts`** — `formatModelLabel()` (ham model id'lerini
+  — `eu.anthropic.claude-sonnet-5`, `gpt-5.4-2026-03-05` gibi — bölge
+  öneki/bedrock sürüm son eki/tarih son ekini temizleyip okunaklı hâle
+  getiren SAF görsel bir fonksiyon, gerçek id'yi hiç değiştirmiyor),
+  `formatProviderLabel()` (`openai`→`OpenAI`, `aws_anthropic`→`Anthropic
+  (AWS)`), `modelKey()`.
+- **`src/components/ModelSelector.tsx`** — sağlayıcıya göre gruplanmış
+  dropdown (native `<select>` DEĞİL — provider grupları + tema renkleri
+  için özel bir component gerekti). Dışarı tıklama/Escape ile kapanır.
+- **`src/lib/paths.ts`** — `quotePathIfNeeded()` `EmbeddedTerminal.tsx`'ten
+  buraya taşındı (tek kaynak, `AxetCodeHome.tsx`'in dosya ekleme özelliği
+  de aynı fonksiyona ihtiyaç duyduğu için — kod iki yerde ayrı ayrı
+  YAŞAMASIN diye çıkarıldı).
+
+**`EmbeddedTerminal.tsx`**: `forwardRef` + `useImperativeHandle` ile
+`pasteText(text)` handle'ı eklendi (`EmbeddedTerminalHandle` tipi export
+edildi) — mevcut `term.paste()` çağrısının (drag&drop handler'ındaki ile
+BİREBİR AYNI mekanizma) dışarıdan (bir "dosya ekle" butonundan) da
+tetiklenebilmesi için. `TerminalPanel.tsx` bu ref'i hiç kullanmıyor
+(`ref` prop'u opsiyonel, geçmeyince davranış birebir eskisi gibi) — sadece
+`AxetCodeHome.tsx` kullanıyor.
+
+**`AxetCodeHome.tsx` — yeni toolbar**: axet.code ekranının sağ tarafına
+(hem dashboard hem aktif sohbet görünümünde ORTAK, `h-11` sabit yükseklikte)
+bir üst çubuk eklendi:
+- Sol: aktif sohbet varsa başlığı, yoksa "Sohbetler" etiketi.
+- Sağ: **"Dosya/Görsel Ekle"** butonu (`Paperclip` ikonu, SADECE aktif bir
+  sohbet varken görünür — `window.api.pickFiles()` ile native dosya seçim
+  diyaloğu açılır, seçilen yollar `quotePathIfNeeded` ile boşluk-güvenli
+  hâle getirilip `terminalRefs.current.get(activeId)?.pasteText(...)` ile
+  o oturumun xterm'ine yapıştırılır — kullanıcı/axet.code CLI'nin kendisi
+  bu yolu (resim/dosya) nasıl yorumlayacağına karar verir, launcher sadece
+  yolu terminale güvenli biçimde yapıştırıyor, dosya İÇERİĞİYLE hiç
+  ilgilenmiyor), **`ModelSelector`** (her zaman görünür — dashboard'dayken
+  de model önceden seçilebilsin diye).
+- `terminalRefs` (`Map<sessionId, EmbeddedTerminalHandle | null>`) her
+  session'ın ref'ini tutuyor — birden fazla sohbet açıkken doğru oturuma
+  yapıştırma garantisi.
+
+**Bilinçli sınırlar**:
+- Model seçimi **SADECE `large` modeli** değiştiriyor (`small` model —
+  CLI'nin arka plan/düşük maliyetli görevler için kullandığı ikinci model —
+  bu turda UI'ya hiç eklenmedi, kapsam dışı bırakıldı, istenirse aynı
+  `AxetModelKind` altyapısıyla kolayca eklenebilir).
+- Model değişikliği **çalışan bir sohbeti YENİDEN BAŞLATMAZ** — sadece
+  `axet-code.json`'u güncelliyor, CLI zaten açık bir process'te modelini
+  canlı değiştirmiyor (bu CLI'nin kendi davranışı, launcher'ın kontrolünde
+  değil); kullanıcı seçimin ETKİLİ olması için YENİ bir sohbet başlatmalı.
+  Bu davranış dokümante edildi ama UI'da henüz açık bir uyarı YOK (ileride
+  eklenebilir bir iyileştirme noktası).
+- "Görsel ekleme" gerçek bir resim ÖNİZLEME/işleme YAPMIYOR — sadece dosya
+  yolunu terminale yapıştırıyor (tıpkı sürükle-bırak gibi), CLI'nin kendisi
+  o yoldaki dosyayı okuyup okuyamayacağına karar veriyor. Bu, launcher'ın
+  zaten var olan drag&drop davranışıyla TUTARLI, yeni bir dosya
+  okuma/base64 kodlama mekanizması icat edilmedi.
+
+**Test durumu**: CLI komutları (`axet-code models`, `axet-code dirs`, config
+dosyası okuma) bu makinede CANLI doğrulandı. `npm run typecheck`, `npm run
+build`, `npx electron-builder --win dir` temiz geçti; paketlenmiş exe
+başlatılıp çökme olmadığı doğrulandı. Model dropdown'ının GERÇEK açılışı/
+seçimi ve dosya seçim diyaloğunun görsel testi kullanıcının kendi GUI'sinde
+yapılmalı — bu ortamda pencere etkileşimi mümkün değil.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## Platform Dönüşümü — Adım 4: Aktif Sohbette CANLI Model Değiştirme (2026-08-27, DEVAM EDİYOR)
+
+Kullanıcı Adım 3'teki "bilinen sınır"ı ("model değişikliği sadece YENİ
+sohbetlerde geçerli olur") kabul etmedi: "ben model değiştiğimde o modelle
+devam etmesi için ne yapabiliriz" — yani AKTİF/açık bir sohbette de gerçek
+zamanlı model değişimi istendi. Kullanıcıya bunun teknik olarak RİSKLİ bir
+TUI-otomasyonu gerektirdiği açıkça söylendi (`ask_user`) ve kullanıcı
+"Tam otomatik seçim dene (riskli)" seçeneğini seçti.
+
+**Araştırma — bu makinede `@lydell/node-pty` + `@xterm/headless` (geçici,
+`C:\workspace\pty-test` scratch klasöründe, iş bitince SİLİNDİ) ile
+`axet-code.exe`'yi gerçekten spawn edip canlı test edildi**:
+
+1. **`axet-code`'un içinde CANLI bir `/model` slash komutu var** — TUI
+   içinde çalışırken yazılırsa (`\r` ile) gerçek bir "Switch Model" picker
+   menüsü açıyor (fuzzy-search kutusu + "Recently used"/provider grupları
+   + ok tuşlarıyla gezinme + Enter ile onay). **Bu menüden bir model
+   seçilince AKTİF/ÇALIŞAN process'in modeli GERÇEKTEN değişiyor**
+   (canlı doğrulandı — seçim sonrası ekranda "OKAY! large model changed
+   to <model>" mesajı çıktı VE `axet-code.json`'daki `models.large`
+   güncellendi). Bu, kullanıcının istediği tam şey.
+2. **Config dosyasına dışarıdan (launcher'dan) yazmak ÇALIŞAN bir process'i
+   ETKİLEMİYOR** — canlı doğrulandı: process çalışırken dosyayı harici
+   olarak değiştirdim, aynı process'te `/model` açıldığında hâlâ ESKİ
+   "Recently used" sırasını gösterdi. Yani CLI, `recent_models`/`models`
+   listesini SADECE açılışta bir kere okuyup bellekte tutuyor — bu yüzden
+   Adım 3'teki "sadece config'e yaz" yaklaşımı aktif session'ı hiç
+   etkilemiyordu (beklenen/doğrulanmış davranış).
+3. **Menüdeki görünen etiketler ham model id'den FARKLI olabiliyor** —
+   örn. `axet-code models` çıktısında `openai/gpt-5.1` diye geçen model,
+   picker'da **"GPT 5.1 Thinking"** olarak görünüyor (tire/nokta
+   karakterleri kayboluyor, "Thinking" kelimesi ekleniyor — muhtemelen
+   reasoning-mode varsayılan gösterimi). Bu, "ham id'yi ara-yapıştır"
+   yaklaşımının GÜVENİLİR OLMADIĞINI kanıtlıyor (örn. tam "gpt-5.1" arama
+   metni 0 SONUÇ verdi çünkü etiket hiç tire içermiyor).
+4. **Çözüm — model id'sini SADECE alfanümerik karakterlere indirip ara**
+   (`entry.model.toLowerCase().replace(/[^a-z0-9]/g, "")` — örn. "gpt-5.1"
+   → "gpt51"): bu arama, etiketin noktalama farklarından bağımsız olarak
+   subsequence eşleşmesiyle doğru modeli buluyor (canlı doğrulandı: "gpt51"
+   araması "GPT 5.1 Thinking"i BULDU ve seçimi doğru şekilde tamamladı).
+5. **Belirsizlik riski canlı doğrulandı**: kısa/genel bir arama metni
+   (örn. sadece "54") BİRDEN FAZLA modelle eşleşebilir (`gpt-5.4`,
+   `gpt-5.4-mini`, `gpt-5.4-nano` hepsi "54" alt-dizisini içerir) — bu
+   yüzden Enter'a basmadan önce EKRANDAKİ FİLTRELENMİŞ satırları tarayıp
+   KAÇ FARKLI model eşleştiğini saymak ŞART. Aynı model "Son
+   kullanılanlar" VE kendi provider grubunda İKİ satırda görünebiliyor
+   (canlı doğrulandı: "gpt51" araması "GPT 5.1 Thinking"i İKİ satırda
+   gösterdi ama bu TEK model — dedupe edilince doğru sonuç 1 çıkıyor).
+6. **Menüde ESC ile güvenli bir "iptal" YOK** (canlı doğrulandı — Escape
+   sadece arama kutusunu placeholder'a döndürüyor, menüyü KAPATMIYOR,
+   art arda basılsa da). Bu yüzden belirsiz/eşleşmesiz durumlarda menüyü
+   kapatmaya ZORLAMAK yerine, filtrelenmiş hâliyle AÇIK bırakmak (kullanıcı
+   ok tuşlarıyla tamamlar) tek güvenli fallback.
+
+**Uygulama**:
+- **`EmbeddedTerminal.tsx`**: `EmbeddedTerminalHandle`'a yeni
+  `switchModel(entry, knownProviders): Promise<ModelSwitchResult>` eklendi.
+  Akış: `/model\r` yazılır → ekranda "Switch Model" başlığı belirene kadar
+  (max 4sn, 150ms aralıklarla) `term.buffer.active.getLine()` ile taranır
+  → 500ms beklenip alfanümerik-temizlenmiş arama metni yazılır → 900ms
+  beklenip (0 sonuçsa modeller hâlâ yükleniyor olabilir diye bir 900ms
+  daha) ekran taranır: her satırdaki kutu-çizim Unicode karakterleri
+  (`\u2500-\u257F` — │─╭╮╰╯ vb.) temizlenip 2+ boşluğa göre bölünüyor,
+  SAĞ parça bilinen bir provider adına (`knownProviders`, `axet-code
+  models` çıktısından) eşitse SOL parça bir "model etiketi" olarak
+  kaydediliyor (Set ile dedupe) — bu, başlık/ayraç satırlarını (sağ
+  tarafı "✓ Configured" olan grup başlıkları, sağ tarafı boş olan "Son
+  kullanılanlar" başlığı, sağ tarafı boş olan arama kutusu satırı) model
+  satırlarından güvenilir şekilde ayırıyor. Tam 1 farklı etiket varsa
+  Enter'a basılıp `{ok:true}` dönülüyor (Enter sonrası "Switch Model"
+  başlığının GERÇEKTEN kaybolduğu da doğrulanıyor — kaybolmadıysa
+  `{ok:false, reason:"no-match"}`); 0 veya 2+ ise Enter'a HİÇ
+  BASILMIYOR, `{ok:false, reason:"no-match"|"ambiguous"}` dönülüyor.
+- **`AxetCodeHome.tsx` `handleSelectModel`**: önce (Adım 3'teki gibi)
+  `setAxetModel("large", entry)` ile config dosyası güncelleniyor (yeni
+  sohbetler için); AKTİF bir sohbet varsa (`activeId` + `terminalRefs`
+  üzerinden o oturumun `EmbeddedTerminalHandle`'ı) EK OLARAK
+  `switchModel(entry, knownProviders)` deneniyor:
+  - `ok:true` → "Aktif sohbetin modeli değiştirildi" toast'ı (canlı
+    değişim gerçekten oldu).
+  - `reason:"ambiguous"` → "Birden fazla model eşleşti, menüden elle
+    seç" toast'ı (menü AÇIK bırakıldı, kullanıcı tamamlar).
+  - `reason:"timeout"|"no-match"` → sessizce Adım 3'teki eski mesaja
+    ("yeni sohbetlerde geçerli olacak") düşülüyor — hata GÖSTERİLMİYOR,
+    çünkü config zaten güncellendi, sadece canlı geçiş olmadı.
+- **i18n**: `modelSelector.switchedLive`/`switchAmbiguous` eklendi,
+  `appliesNextChatHint` güncellendi ("aktif sohbette canlı değiştirmeyi
+  dener, olmazsa yeni sohbetlerde geçerli olur").
+
+**Bilinçli sınırlar (hâlâ geçerli)**:
+- Bu otomasyon axet-code'un TUI çıktı FORMATINA bağımlı — CLI'nin `/model`
+  menüsünün görsel yapısı (kutu çizim karakterleri, "✓ Configured" metni,
+  sütun hizalaması) ileride değişirse bu kod BOZULABİLİR (sessizce
+  `{ok:false}` dönüp Adım 3 davranışına düşer — asla YANLIŞ model seçmez,
+  bu yüzden "sessiz bozulma" en kötü senaryo, "sessiz YANLIŞ seçim" değil).
+- `small` model hâlâ UI'ya eklenmedi (Adım 3'teki sınır aynen geçerli).
+- Belirsiz eşleşme durumunda kullanıcı menüyü GÖRMÜYOR OLABİLİR (terminal
+  o an ekranda değilse, örn. "Sohbetler" listesinde başka bir oturuma
+  bakıyorsa) — menü o session'ın arka planında filtrelenmiş hâlde açık
+  kalır, kullanıcı o sekmeye geri dönünce görür. Bu bir hata değil, sadece
+  not edilmesi gereken bir UX detayı.
+
+**Test durumu**: TÜM senaryolar (tekil eşleşme + canlı model değişimi
+onayı, dedupe/aynı-modelin-iki-bölümde-görünmesi, config-dosyası-canlı-
+process'i-etkilememesi, Escape'in menüyü kapatmaması) bu makinede
+`axet-code.exe`'ye karşı GERÇEKTEN spawn edilip CANLI doğrulandı (geçici
+test script'leri, iş bitince silindi — `C:\workspace\pty-test` klasörü
+kaldırıldı, test sırasında değişen kullanıcının kendi `axet-code.json`
+`models.large` tercihi orijinal değerine — Claude Sonnet 5 — geri
+yüklendi). `npm run typecheck`, `npm run build`, `npx electron-builder
+--win dir` temiz geçti; paketlenmiş exe başlatılıp çökme olmadığı
+doğrulandı. Gerçek bir GUI penceresinde model seçip aktif sohbette
+canlı geçişin GÖRSEL doğrulaması kullanıcının kendi makinesinde
+yapılmalı.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## Platform Dönüşümü — Adım 5: axet.code Sohbet Ekranı TAMAMEN Özgün (Terminal Yerine Chat Balonları) (2026-08-27, DEVAM EDİYOR)
+
+Kullanıcı Adım 1-4'teki yaklaşımı ("Yeni Sohbet" → gerçek `axet-code` TUI'sini
+gömülü bir terminalde göstermek) kesin olarak reddetti: "yeni sohbet
+başlattığımda axet ekranını [terminali] görmek istemiyorum, ChatGPT'ye
+benzer özgün bir sohbet ekranı olmalı". Yani sohbet ekranı artık **hiçbir
+terminal/TUI görünümü içermiyor** — ama motor hâlâ gerçek `axet-code` (arka
+planda çalışan asıl akıl hâlâ bu CLI, kullanıcı sadece SUNUMUNU
+değiştirmek istedi).
+
+**Mimari karar — TUI'yi canlı tutup CSS ile giydirmek YERİNE, `axet-code run`
+(stateless, tek-atış) modu**: Önce canlı araştırma yapıldı (`axet-code run
+--help`, gerçek `axet-code run` çağrıları bu makinede spawn edilip
+zamanlandı/doğrulandı):
+
+1. **`axet-code run -q [-m provider/model] "<prompt>"`** — tam metni
+   BEKLEYİP tek seferde basıyor (gerçek token-stream YOK, kanıtlandı — ilk
+   çıktı process kapanana kadar gelmiyor). Basit bir soru için ~6-7 saniye
+   sürdü (canlı ölçüldü).
+   > **⚠️ DÜZELTME (2026-09-02, canlı ölçümle ÇÜRÜTÜLDÜ)**: Yukarıdaki
+   > "stdout tamponlanıyor, ilk çıktı process kapanana kadar gelmiyor"
+   > tespiti **YANLIŞ**. Yeniden ölçüldü: `axet-code run -q` stdout'u
+   > **parça parça, gerçek zamanlı akıtıyor** — tek bir cevap için 16
+   > saniyeye yayılmış **178 ayrı `data` chunk'ı** sayıldı. Yani gerçek
+   > streaming MÜMKÜN; `ChatBubble.tsx`'teki simüle daktilo animasyonu
+   > (`TARGET_REVEAL_MS`) bu yanlış varsayım üzerine kurulmuştu. Bunu
+   > gerçek stream'e çevirmek Faz 1'in ilk maddesi (aşağıya bak). Yeni bir
+   > ölçüm yapmadan bu paragrafın ESKİ hâline güvenme.
+2. **CLI seviyesinde oturum hafızası YOK** — aynı `-D` (özel veri dizini)
+   parametresiyle bile iki ayrı `run` çağrısı birbirini HİÇ hatırlamıyor
+   (canlı doğrulandı: "Benim adım X" → sonraki çağrıda "adını bilmiyorum").
+   Gerçek konuşma geçmişi (`axet-code.db`, proje başına `.axet-code/`
+   altında) sadece İNTERAKTİF TUI oturumları için tutuluyor, `run` modunun
+   bunu okuma/devam ettirme flag'i YOK.
+3. **Araç kullanımı (dosya okuma/YAZMA) `run` modunda hiçbir onay istemeden
+   çalışıyor** (canlı doğrulandı — bir test klasöründe dosya oluşturma
+   isteği anında, sorgusuz gerçekleştirildi) — TTY olmadığı için CLI'nin
+   kendisi bunu implicit "yolo" gibi ele alıyor, bizim ek bir `-y` flag'i
+   geçirmemize gerek/imkân yok (`run` alt komutunda `-y` flag'i YOK,
+   denendi, hata verdi).
+4. **`-m` flag'i `provider/model` formatını doğrudan kabul ediyor** (canlı
+   doğrulandı) — bu, Adım 3-4'teki riskli TUI-otomasyonunu (canlı `/model`
+   menüsünü klavye simülasyonuyla kullanma) TAMAMEN GEREKSİZ kıldı: artık
+   model seçimi sadece bir sonraki `run` çağrısına hangi `-m` değerinin
+   geçileceğini belirlemekten ibaret, TUI ayrıştırma/ekran-tarama YOK.
+5. **`cwd` dışındaki mutlak dosya yollarına erişim serbest** (canlı
+   doğrulandı, proje klasörü dışında bir dosya okutuldu, sorunsuz) — dosya/
+   görsel ekleme özelliği (Adım 3) bu yüzden hiç değişmeden aynı mantıkla
+   (mutlak yolu prompt metnine gömmek) çalışmaya devam ediyor.
+
+Bu bulgular üzerine bağlamı (conversation memory) **biz** — önceki
+mesajları düz metin bir transkript olarak yeni prompt'un başına ekleyerek —
+koruyoruz (canlı doğrulandı: "Benim adım Zeynep, bunu hatırla" → transkript
+gömülü ikinci çağrıda "adım neydi?" sorusuna doğru "Zeynep" cevabı geldi).
+
+**Yeni dosyalar**:
+- **`app-electron/main/axetChat.ts`** — `sendChatMessage(requestId, cwd,
+  model, history, message)`: `axet-code run -q [-m provider/model]
+  <transkript+yeni mesaj>` spawn eder (Electron'a bağımlı DEĞİL, `tsx` ile
+  bağımsız test edildi), stdout/stderr'i biriktirip `{ok, text, error?,
+  cancelled?}` döner. `running: Map<requestId, ChildProcess>` — kullanıcı
+  "Durdur"a basınca `cancelChatMessage(requestId)` bu process'i `kill()`
+  eder (canlı doğrulandı — 5000 satır saydırma isteği 1.5s'de kesildi,
+  `{ok:false, cancelled:true}` döndü). `buildPrompt()` transkripti
+  `Kullanıcı: .../Sen: ...` formatında birleştirip yeni mesajı ekliyor;
+  geçmiş boşsa (ilk mesaj) transkript hiç eklenmiyor, düz mesaj gidiyor.
+- **`app-electron/main/axetChat.ts`'in main/index.ts entegrasyonu**:
+  `axetChat:send`/`axetChat:cancel` IPC handler'ları, `cancelAllChatMessages()`
+  `window-all-closed`/`before-quit`'e (RFC bridge/readonly server'la aynı
+  noktaya) eklendi — zombi `axet-code.exe` process'i kalmasın diye.
+- **`src/lib/markdownLite.tsx`** (yeni) — sohbet cevaplarındaki markdown'ı
+  (kod bloğu, `**kalın**`, `` `satır içi kod` ``, link, madde işaretli
+  liste) React elemanlarına çeviren BAĞIMSIZ/hafif bir dönüştürücü —
+  `dangerouslySetInnerHTML` HİÇ kullanılmıyor (React elemanı üretiyor, ham
+  HTML string'i değil), bu yüzden XSS riski yok, yeni bir npm bağımlılığı
+  (marked/remark vb.) eklenmedi.
+- **`src/components/ChatBubble.tsx`** (yeni) — `ChatBubble` (kullanıcı
+  balonu sağa hizalı/accent gradyan, asistan balonu sola hizalı/logo
+  avatar, hover'da `CopyButton`) + `ThinkingBubble` (zıplayan üç nokta,
+  `session.pending` sırasında gösteriliyor) + `TypewriterMarkdown` (iç
+  yardımcı). **Daktilo animasyonu**: CLI'den cevap TAM METİN olarak geldiği
+  için (gerçek stream yok), ChatGPT'ye benzer "canlı yazılıyor" hissini
+  İSTEMCİ tarafında karakter-karakter açarak (6 karakter/12ms) taklit
+  ediyoruz — SADECE mesaj gerçekten YENİ gelmişse (`message.justArrived`
+  bayrağı, `AxetCodeHome.tsx handleSend`'de assistant mesajı oluşturulurken
+  `true` set ediliyor, animasyon bitince `handleAnimationDone` ile `false`'a
+  çevriliyor) oynar — sekme değişip geri dönüldüğünde veya React StrictMode
+  dev'in çift-render'ında TEKRAR OYNAMAZ (ref mutasyonu YERİNE saf state
+  kullanıldı, bilerek — StrictMode'un çift render'ında ref-mutasyon-sırasında
+  side-effect riskli olabilirdi).
+
+**`AxetCodeHome.tsx` — baştan yazıldı**: Önceki `EmbeddedTerminal`/
+`terminalManager`/`onTerminalReady` tabanlı oturum modeli TAMAMEN kaldırıldı
+(bu ekran için — SAP Launcher'ın kendi `TerminalPanel.tsx`'i HİÇ
+DOKUNULMADI, ayrı kalıyor). Yeni model:
+- `ChatSession { id, title, messages: ChatMessage[], model, draft, pending,
+  requestId, createdAt }` — sohbet oluşturma artık HİÇBİR IPC çağrısı
+  gerektirmiyor (eskiden `createTerminal` IPC'siyle bir PTY açmak
+  gerekiyordu) — anında, IPC'siz bir state güncellemesi, ChatGPT'nin "New
+  Chat" tıklamasının hissini taklit ediyor.
+- `handleSend`: kullanıcı mesajını hemen state'e ekler → `pending:true` →
+  `window.api.sendChatMessage(...)` çağırır (geçmiş = mesajlar dizisinin BU
+  ÇAĞRIDAN ÖNCEKİ hâli) → sonucu (başarı/hata/cancel) assistant mesajı
+  olarak ekler. İlk mesaj sohbetin başlığını otomatik belirliyor (ilk 42
+  karakter + "…") — ChatGPT'nin "ilk mesajdan başlık türet" davranışıyla
+  aynı.
+- Model seçimi artık ne TUI-otomasyonu (Adım 4, kaldırıldı) ne de
+  `axet-code.json`'a yazıp bir sonraki YENİ sohbeti beklemek — sadece
+  aktif session'ın `model` alanını güncelliyor, BİR SONRAKİ mesajdan
+  itibaren (AYNI sohbette dahi) o model `-m` ile kullanılıyor. `setAxetModel`
+  hâlâ (uyumluluk için, zararsız) çağrılıp global varsayılan da güncelleniyor.
+- Composer: auto-grow `<textarea>`, Enter=gönder/Shift+Enter=yeni satır,
+  gönderirken buton Send→Stop'a dönüşüyor (`handleCancel`). Boş sohbet
+  durumunda 3 öneri chip'i (`axetCodeHome.suggestion1/2/3`) tıklanınca
+  composer'a yazılıyor. Dosya/Görsel Ekle butonu artık terminale `paste`
+  DEĞİL, composer draft'ına dosya yolunu ekliyor (agent kendi dosya
+  okuma aracıyla ne olduğuna karar veriyor — Adım 3'teki mantıkla aynı,
+  sadece hedef artık bir textarea).
+- Dashboard (hiçbir sohbet aktif değilken) görsel olarak DEĞİŞMEDİ —
+  istatistik kartları, hızlı aksiyonlar, son sohbetler/son bağlantılar
+  aynı kaldı, sadece "son sohbetler" artık terminal oturumu değil chat
+  session'ı temsil ediyor.
+
+**`EmbeddedTerminal.tsx` temizliği (kod tabanı hijyeni)**: Adım 4'te eklenen
+`forwardRef`/`useImperativeHandle`/`pasteText`/`switchModel`/
+`ModelSwitchResult`/`EmbeddedTerminalHandle` (TUI `/model` menüsünü klavye
+simülasyonuyla kullanan ~100 satırlık RİSKLİ otomasyon) bu turda TAMAMEN
+KALDIRILDI — artık hiçbir çağıran YOK (AxetCodeHome artık bu component'i
+hiç kullanmıyor, `TerminalPanel.tsx` zaten ref hiç geçmiyordu, doğrulandı).
+Component düz bir fonksiyon bileşenine geri döndü, SAP Launcher'ın kendi
+terminal panelindeki davranış (Ctrl+V/drag&drop/resize/buffer flush mantığı)
+HİÇ DEĞİŞMEDİ — sadece artık kullanılmayan ref-API'si silindi.
+
+**i18n**: `axetCodeHome.sessionDefaultTitle`/`createFailed`/`attachSuccess`
+(eskiden terminal-oturumu akışına özgü, artık ölü) silindi;
+`newChatTitle`/`composerPlaceholder`/`send`/`stopGenerating`/
+`chatEmptyHint`/`chatGenericError`/`suggestion1-3` eklendi.
+`modelSelector.switchedLive`/`switchAmbiguous` (TUI-otomasyonuna özgü, artık
+ölü) silindi; `appliesNextChatHint`/`switched` metinleri yeni "aynı sohbette
+de bir sonraki mesajdan itibaren geçerli" gerçeğini yansıtacak şekilde
+güncellendi.
+
+**Test durumu**: `npm run typecheck` ve `npm run build` temiz geçti.
+`axetChat.ts`'in `sendChatMessage`/`cancelChatMessage`'ı Electron'a hiç
+bağımlı olmadığı için `tsx` ile bağımsız, gerçek `axet-code.exe`'ye karşı
+CANLI test edildi: (1) bağlam/transkript korunumu ("Zeynep" örneği,
+başarılı), (2) iptal/cancel akışı (1.5s'de kesme, `cancelled:true` döndü,
+başarılı). Gerçek bir GUI penceresinde chat balonlarının/daktilo
+animasyonunun/composer'ın GÖRSEL doğrulaması kullanıcının kendi makinesinde
+yapılmalı — bu ortamda pencere etkileşimi mümkün değil.
+
+**Bilinçli sınırlar**:
+- Her mesaj gerçek bir CLI process'i spawn ettiği için (~6-7s/mesaj gözlendi)
+  ve önceki TÜM geçmiş her seferinde yeniden gönderildiği için, çok uzun
+  sohbetlerde (onlarca mesaj) hem yanıt süresi hem token maliyeti artabilir
+  — bu mimarinin (stateless run + transkript) doğal bir sonucu, kod
+  tarafında "gerçek" bir çözümü yok (CLI'nin kendisi `run` modunda oturum
+  devam ettirme desteklemiyor).
+- Araç kullanımı (dosya okuma/yazma) sonuçları sohbet balonunda AYRINTILI
+  görünmüyor — sadece nihai metin cevap gösteriliyor (interaktif TUI'nin
+  canlı araç-çağrısı göstergeleri burada YOK, bilerek — kullanıcı özgün/
+  sade bir chat deneyimi istedi, ham TUI çıktısı değil).
+- `small` model seçimi hâlâ UI'da yok (Adım 3'ten beri bilinen, değişmeyen
+  bir sınır).
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## Platform Dönüşümü — Adım 6: Sohbet UI Cilası (Sürükle-Bırak, Model Konumu, Bekleme Hissi, Tema) (2026-08-27, DEVAM EDİYOR)
+
+Adım 5'in canlı kullanıcı testinden gelen dört ayrı geri bildirim: (1) sürükle-
+bırak çalışmıyordu, (2) model seçici "sohbet barında" değil, üstte YANLIŞ bir
+yerdeydi, (3) "hız/şeffaflık" hissi yeterli değildi, (4) genel tema/tasarım
+"kötü" bulundu. Dördü de ele alındı:
+
+**1. Sürükle-bırak gerçekten çalışmıyordu — kök sebep bulundu**: Adım 5'teki
+composer React'ın SENTETİK `onDrop`/`onDragEnter`/`onDragLeave`/`onDragOver`
+prop'larını kullanıyordu. `EmbeddedTerminal.tsx`'in (SAP Launcher terminali,
+kanıtlanmış/çalışan) sürükle-bırak'ı ise baştan beri gerçek DOM
+`addEventListener`'ı (bir `useEffect` içinde) kullanıyor — bu FARK bilerek
+kopyalanmadı, gözden kaçtı. Electron'da OS'ten gelen native dosya sürükleme
+event'leri React'ın event-delegasyon sistemi üzerinden bazı durumlarda
+güvenilir iletilmiyor. **Çözüm — yeni `src/components/ChatSessionPane.tsx`**:
+composer artık kendi `dropZoneRef`'ine `dragover`/`dragleave`/`drop`'u native
+`addEventListener` ile bağlıyor (`EmbeddedTerminal.tsx`'teki KANITLANMIŞ
+desenin birebir aynısı) — "bırak" ipucu overlay'i de DOM'da doğrudan
+`style.display` ile açılıp kapanıyor (React re-render'ına bağımlı değil, ekstra
+state gerekmiyor).
+
+**2. Model seçici konumu**: Kullanıcının "model değiştirme sohbet barı
+üzerinde olsun" talebi, Adım 5'te YANLIŞ yorumlanıp sabit bir ÜST başlık
+çubuğuna (h-12) konmuştu — kullanıcı bunu "üstte, yanlış yerde" olarak
+gördü. Artık üst başlık çubuğu TAMAMEN KALDIRILDI; `ModelSelector` composer'ın
+(mesaj yazma kutusunun) KENDİ içinde, alttaki ince bir araç çubuğu satırında
+(`Paperclip` ikonunun yanında) — yani gerçekten "sohbet barı"nın (mesaj
+girişinin) üzerinde. `ModelSelector.tsx`'in açılış yönü de buna göre
+`top-full`+`mt` yerine `bottom-full`+`mb` olarak değiştirildi (artık ekranın
+altına yakın olduğu için menü YUKARI açılıyor).
+
+**3. "Hız/şeffaflık" — iki ayrı düzeltme**:
+- Geçmiş artık `MAX_HISTORY_MESSAGES = 24` ile sınırlı (en eski mesajlar
+  transkripten düşüyor) — uzun sohbetlerde prompt boyutu/süresi sınırsız
+  büyümüyor.
+- **"Düşünüyor" göstergesi baştan tasarlandı**: Adım 5'teki literal saniye
+  sayacı ("· 3s") YANLIŞ bir yaklaşımdı — kullanıcıya beklemenin ne kadar
+  sürdüğünü SAYISAL olarak göstermek, beklemeyi daha görünür/can sıkıcı
+  hissettiriyordu (rakamların artışını izlemek). Kaldırıldı. Yerine ChatGPT/
+  Gemini tarzı iki katmanlı bir "canlılık" göstergesi geldi
+  (`ChatBubble.tsx` `ThinkingBubble`): sürekli zıplayan üç nokta + 2.6
+  saniyede bir değişen kısa durum metni (`axetCodeHome.thinking1/2/3` —
+  "Düşünüyor…" / "axet.code ile konuşuluyor…" / "Yanıt hazırlanıyor…").
+  Sayı YOK, sadece hareket/değişim var — bu, gerçek süreyi kısaltmıyor
+  (kısaltamayız, bkz. aşağıdaki bilinçli sınır) ama beklemeyi daha "canlı/
+  ilerliyor" hissettiriyor.
+- Daktilo animasyonu süresi Adım 5'teki 550ms tavanından 450ms'ye düşürüldü,
+  ek bir gecikmeyi daha da azaltmak için.
+
+**4. Tema/tasarım cilası**: Uygulamanın genelindeki (`src/index.css`'in kendi
+yorumu: "nötr gri tonlar + tek bir sakin vurgu rengi, gradyan/parlama/
+dekoratif efekt yok") minimalist dile Adım 5'teki chat bileşenleri UYMUYORDU
+— avatar/buton/balonlarda yoğun `bg-gradient-to-br` kullanımı vardı. Bu turda:
+- Kullanıcı balonu: gradyan yerine düz `bg-accent-500` (tek, sakin vurgu
+  rengi — projenin kendi felsefesiyle hizalı).
+- Asistan balonu: `border`lı gradyan yerine düz `bg-base-800`, avatar da düz
+  `bg-base-800` (gradyansız).
+- Kopyala butonu artık hover'da BELİRMİYOR — balonun altında sürekli görünür,
+  küçük bir satır (uygulamanın başka yerlerindeki `CopyButton` kullanımıyla
+  — bkz. `SystemPanel.tsx` — TUTARLI, orada da her zaman görünür).
+- Boş durum/dashboard'daki gradyanlı ikon çerçeveleri ve butonlar (Yeni Sohbet
+  butonu dahil) düz renklere çevrildi.
+- Sidebar sohbet satırlarındaki gereksiz ikinci bir renkli "kutu" (mesaj
+  ikonunun arka planı) kaldırıldı, sade bir ikon + metin satırına indirildi.
+- **Üst başlık çubuğu TAMAMEN KALDIRILDI** (yukarıdaki madde 2) — mesaj alanı
+  daha fazla dikey alan kazandı, ekranda daha az "chrome" var.
+
+**Yeni dosya — `src/components/ChatSessionPane.tsx`**: Adım 5'te
+`AxetCodeHome.tsx` içine gömülü olan TEK bir sohbetin render'ı (mesaj listesi +
+composer + sürükle-bırak) ayrı bir component'e çıkarıldı — hem sürükle-bırak'ın
+kendi `useEffect`/ref yaşam döngüsüne sahip olabilmesi için (yukarıdaki madde
+1) hem de `AxetCodeHome.tsx`'in kendisinin aşırı şişmesini önlemek için.
+`AxetCodeHome.tsx` artık sadece sidebar + dashboard + `sessions.map(...)` ile
+her sohbet için bir `ChatSessionPane` render ediyor, state/handler'ların
+SAHİBİ olarak kalıyor (prop olarak geçiyor) — mantık tekrarlanmadı.
+
+**i18n**: `axetCodeHome.thinking` (tekil) silindi, `thinking1/2/3` (rotasyon
+için üç ayrı kısa durum metni) + `composerHint` ("Enter ile gönder, Shift+
+Enter ile yeni satır") eklendi. `index.css`'teki artık kullanılmayan
+`.animate-text-shimmer`/`@keyframes text-shimmer` (madde 3'te kaldırılan
+saniye sayaçlı tasarımın kalıntısı) silindi.
+
+**Bilinçli sınır (DEĞİŞMEDİ, bu turda da çözülemedi)**: Bir mesajın gerçek
+yanıt süresi (~5-7 saniye, canlı `axet-code run` çağrılarıyla ölçüldü — basit
+"Say OK" gibi bir prompt bile bu kadar sürüyor) `axet-code` CLI'ının KENDİ
+başlangıç/kimlik doğrulama/LLM çağrısı overhead'i — launcher'ın kontrolünde
+DEĞİL, bu turda "hız" için yapılabilecek olan sadece ALGILANAN hızı/şeffaflığı
+iyileştirmekti (yukarıdaki madde 3). Gerçek süreyi kısaltmanın tek yolu CLI'nin
+kendisini kalıcı/interaktif bir process olarak arka planda tutup çıktısını
+TUI ekran-tarama ile ayrıştırmak olurdu — bu, Adım 4'te tam olarak denenip
+riskli bulunup TERK EDİLEN yaklaşımın ta kendisi (bkz. yukarıdaki "Adım 4"
+bölümü), kullanıcı zaten "kendine özgü, terminale bağımlı olmayan" bir tasarım
+istediği için bu turda tekrar denenmedi.
+
+**Test durumu**: `npm run typecheck` ve `npm run build` temiz geçti
+(`noUnusedLocals`/`noUnusedParameters` açık, dead code kontrolü de bu sayede
+geçti). Paketlenmiş exe'de gerçek bir sürükle-bırak/yapıştırma/model-seçme
+GÖRSEL testi bu ortamda yapılamadı — kullanıcının kendi makinesinde
+doğrulaması gerekiyor.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## Platform Dönüşümü — Adım 7: axet.flows Modülü Entegrasyonu (2026-08-27, DEVAM EDİYOR)
+
+Kullanıcı, `C:\workspace\axetflow\flow-builder` altında AYRI bir masaüstü
+uygulaması olarak geliştirdiği **axet.flows AI Builder**'ı (metinle konuşarak
+Node-RED uyumlu aXet.flows flow'ları oluşturan bir agentic builder — kendi
+`README.md`'sinde tam belgeli) bu uygulamaya, ActivityBar'daki ÜÇÜNCÜ bir
+aktivite ("axet.flows") olarak entegre etmemizi istedi — **kendi görsel
+temasına/stiline uydurularak**. Kaynak proje TAMAMEN AYRI bir Electron
+uygulamasıydı (kendi `package.json`, kendi `TitleBar`/`SettingsModal`, kendi
+`window.axet` IPC köprüsü) — burada YENİDEN YAZILMADI, mantığın/UI'ın BÜYÜK
+ÇOĞUNLUĞU birebir taşındı, sadece "kendi başına pencere" olan kısımlar
+(başlık çubuğu, ayarlar modalı, sohbet oturumu disk kalıcılığı) bu
+uygulamanın zaten sahip olduğu eşdeğerlerle değiştirildi.
+
+**Neden yeniden yazmadık**: Kaynak proje ~9000 satırlık, canlı test edilmiş
+(gerçek aXet.flows Designer'dan alınan flow JSON'larıyla doğrulanmış node
+kataloğu, gerçekten çalışan bir mini Node-RED runtime'ı — `vm`/`http`/`net`
+built-in'leriyle yazılı, LLM'e hiç bağımlı olmayan deploy/debug motoru) bir
+mantık — bunu satır satır yeniden üretmek hem riskli (halüsinasyon/eksik
+node tipi) hem gereksiz. Bunun yerine dosyalar OLDUĞU GİBİ kopyalanıp SADECE
+üç entegrasyon noktası uyarlandı: (1) IPC köprüsü (`window.axet.*` →
+`window.api.flowsXxx`), (2) modül sınırları (kendi pencere/tema kaldırılıp
+ana uygulamanın ActivityBar/tema sistemine bağlandı), (3) CSS'in kendi
+palet tanımları kaldırılıp ana uygulamanın `--base-*`/`--accent-*`
+token'larına devredildi (aynı değişken adları — tesadüf, ama entegrasyonu
+kolaylaştırdı).
+
+**Taşınan dosyalar (değişmeden — sadece import yolları düzeltildi)**:
+- **`src/flows/`** (yeni, React'tan bağımsız saf mantık — kaynaktaki
+  `src/{idgen,nodeCatalog,templates}.js` + `src/store/{FlowModel,
+  FlowContext}.js(x)` + `src/agent/{tools,systemPrompt,agentRunner}.js` +
+  `src/utils/{dialogService,executionStats}.js`): flow veri modeli
+  (`FlowModel` — node/wire/tab/subflow CRUD'u, undo/redo, kopyala/yapıştır,
+  Node-RED uyumlu import/export), node kataloğu (`nodeCatalog.js` — GERÇEK
+  aXet.flows Designer flow JSON'undan/resmi eğitim dokümanlarından/kurulu
+  Electron paketinin `.html` dosyalarından doğrulanmış ~30 node tipi, HİÇ
+  varsayımsal/genel Node-RED core node'u YOK — kaynağın kendi "sıfır
+  halüsinasyon" ilkesi), agent'ın JSON-aksiyon protokolü (`agentRunner.js`/
+  `tools.js`/`systemPrompt.js` — her tur `axet-code run`'a TEK bir prompt
+  gönderip dönen `{"action":...}` veya `{"actions":[...]}` JSON'unu
+  `FlowModel` üzerinde çalıştırır, "ref" takma adlarıyla aynı batch'te
+  henüz bilinmeyen yeni node id'lerine referans verilebilir).
+- **`src/components/flows/`** (yeni, 21 React bileşeni): canvas
+  (`FlowCanvas.jsx` — `reactflow` kütüphanesiyle, sürükle-bırak/bağlantı/
+  seçim/sağ-tık menüsü), node paleti, özellikler paneli (`NodeEditorPanel`
+  — her node tipinin GERÇEK aXet.flows alanlarını otomatik form olarak
+  üretir), sohbet paneli (`ChatPanel` — agent'la konuşma), debug paneli
+  (`DebugPanel`/`RunsView` — adım adım "Flow Adımları" izi, hata olduğunda
+  "DURDU" kartı + sebep/öneri + "AI ile Düzelt" butonu), tab/subflow
+  yönetimi, şablonlar modalı, deploy öncesi statik kontrol modalı.
+- **`app-electron/main/flowRuntime.js`/`flowDiagnostics.js`** (yeni,
+  JavaScript — proje TS+strict ile derleniyor ama `allowJs`/`checkJs`
+  kapalı bırakıldı, bu dosyalar tip kontrolünden geçmiyor, kaynak JS
+  olarak KALDI çünkü flow node şekli çok esnek/JSON-tabanlı, TypeScript'e
+  taşımak orantısız bir efor olurdu): `FlowRuntime` sınıfı — deploy edilen
+  bir flow'u GERÇEKTEN çalıştırır (`function` node'u gerçek JS, `vm` modülü
+  3sn timeout ile; `axetflows-http-in`/`http in` gerçek bir yerel HTTP
+  sunucusu; `http request` gerçek dış HTTP/HTTPS isteği; `json-to-excel`/
+  `excel-to-json` `xlsx` kütüphanesiyle gerçek .xlsx üretimi/okunması).
+  Kimlik bilgisi/kurumsal entegrasyon gerektiren node'lar (AI/LLM, MS Graph
+  mail, shell, DB, UI-form) GÜVENLİK nedeniyle SIMÜLE edilir (gerçek dış
+  çağrı yapılmaz, "[SIMULATED]" etiketiyle loglanır) — bu ayrım kaynak
+  projede zaten vardı, değiştirilmedi.
+
+**Entegrasyon noktası 1 — IPC köprüsü**: Yeni `app-electron/main/
+axetFlowsAgent.ts` (`runFlowsAgentStep`) — kaynağın `electron/main.js`
+`runAxetCode()`'unun TypeScript'e taşınmış hâli: `axet-code run --quiet
+--cwd <scratch>` alt-process'i, prompt STDIN'den verilir (axet.code sohbet
+ekranının `axetChat.ts`'inden KASITLI OLARAK AYRI bir modül — farklı bir
+scratch klasörüne kilitli, `%TEMP%/axet-flows-agent-scratch`, agent'ın
+yanlışlıkla gerçek proje dosyalarına dokunmaması için). `main/index.ts`'e
+tek bir modül-seviyesi `FlowRuntime` örneği eklendi (SAP Launcher'ın RFC
+bridge/terminal süreçleriyle aynı desende — `before-quit`/`window-all-
+closed`'da `flowRuntime.stop()`), event'leri (`onDebug/onStatus/onLog/
+onTrace`) `flows:runtime:*` kanallarıyla renderer'a push ediliyor. Yeni IPC
+handler'ları: `flows:agentStep`, `flows:runtime:{deploy,restart,validate,
+stop,status,triggerInject,testRequest}`, `flows:{saveJson,openJson,
+exportDebugLog}`. `preload/index.ts`'e `flowsXxx` isimli karşılıkları +
+`onFlowsRuntimeXxx` event dinleyicileri eklendi; `shared/types.ts`'e flow
+node/mesaj şekli JSON-esnek olduğu için BİLEREK gevşek (`FlowJsonValue =
+Record<string, unknown>`) tipler eklendi — asıl doğrulama JS tarafında
+(`nodeCatalog.js`/`flowDiagnostics.js`) zaten yapılıyor, TS'te tekrar
+katı bir şema tanımlamak kaynağın kendi esnekliğini kısıtlardı.
+
+**Entegrasyon noktası 2 — modül sınırları**: `AppShell.jsx`'ten kaynağın
+kendi `TitleBar`/`SettingsModal`'ı ÇIKARILDI (bu uygulama zaten kendi
+`TitleBar.tsx`/pencere çerçevesine sahip); model seçimi artık `window.axet.
+getConfig/setConfig`'in kendi ayrı `llmModel` state'i DEĞİL, dışarıdan
+(`AxetFlowsHome.tsx`) `model` prop'u olarak geliyor — axet.code sohbet
+ekranıyla AYNI paylaşılan `ModelSelector.tsx`/`AxetModelEntry` altyapısını
+kullanıyor (kullanıcı bir kere seçtiği "large" modeli hem axet.code sohbette
+hem axet.flows agent'ında görüyor, iki ayrı model tercihi YOK). Sohbet
+oturumu artık diske YAZILMIYOR (kaynağın `chat:save/load/clear` IPC'leri
+kaldırıldı) — axet.code sohbet ekranıyla AYNI desen: oturum sadece bellekte
+yaşar, aktivite değişince/uygulama kapanınca sıfırlanır; bu, iki modülün
+kalıcılık DAVRANIŞINI tutarlı tutuyor ve ekstra bir disk-senkronizasyon
+yüzeyi eklemiyor. Yeni **`src/components/AxetFlowsHome.tsx`** — ince bir
+sarmalayıcı: üstte axet.code sohbetiyle AYNI görünümde bir başlık çubuğu
+(`Workflow` ikonu + `ModelSelector`), altında `FlowProvider` içine sarılmış
+`AppShell`. `ActivityBar.tsx`'e üçüncü bir `Activity = "axetFlows"` eklendi
+(dizi tabanlı, tasarım baştan buna göre kurulmuştu — bkz. Adım 1), `App.tsx`
+`activity === "axetFlows"` dalıyla bağlandı.
+
+**Entegrasyon noktası 3 — CSS/tema**: Kaynağın `src/styles.css`'i (3665
+satır, TÜM bileşen kuralları) `src/flows/flows.css`'e taşındı ama BAŞINDAKİ
+palet/global bölüm (kendi `--base-*-rgb`/`--ink-*-rgb`/`--accent-*-rgb`
+tanımları, `html`/`body`/`#root`/`*`/`::selection`/`::-webkit-scrollbar*`
+gibi SAYFA-GENELİ kurallar) TAMAMEN KALDIRILDI — bu uygulama artık kendi
+başına bir pencere değil, ana uygulamanın İÇİNDE bir aktivite; aynı
+`--base-900-rgb` vb. değişken adlarını (ayrı ekiplerce bağımsız seçilmiş
+olması ilginç bir tesadüf) ana uygulamanın `src/index.css`'i zaten
+sağlıyor. Geriye SADECE bu paletin içermediği ek token'lar (radius ölçeği,
+gölge/gradyan) kaldı, bunlar da ana uygulamanın `--accent-600`/`--accent-
+400` renklerinden türetiliyor — böylece aXet.flows'un TÜM bileşen kuralları
+(node renkleri hariç — onlar bilerek fonksiyonel/sabit, Node-RED
+konvansiyonu) ana uygulamanın açık/koyu temasını `data-theme` değişince
+ANINDA takip ediyor, ayrı bir tema anahtarı YOK.
+
+**Bağımlılıklar**: `package.json`'a `reactflow`/`xlsx` eklendi (kaynağın
+kendi bağımlılıkları — canvas için `reactflow`, gerçek .xlsx üretimi/
+okunması için `xlsx`/SheetJS), `npm install` ile kuruldu. `flowRuntime.js`
+`fast-xml-parser`'ı (zaten var olan bağımlılık, `XMLParser` — SOAP/XML
+yanıtlarını gerçekten JS objesine çevirmek için) statik `import` ile
+kullanacak şekilde güncellendi (kaynaktaki `require('fast-xml-parser')`
+runtime-inline çağrısı — proje ESM olduğu için, ve `electron.vite.config.ts`
+zaten bu paketi bundle'a gömdüğü için statik import daha doğru).
+`tsconfig.web.json`/`tsconfig.node.json`'a `allowJs: true` + `.jsx`/`.js`
+include desenleri eklendi (kopyalanan JS/JSX dosyaları TypeScript projesinin
+`tsc --noEmit` taramasına DAHİL ama tip kontrolüne TABİ DEĞİL — `checkJs`
+bilerek açılmadı, aksi halde binlerce "implicit any" hatası çıkardı;
+`noUnusedLocals`/`noUnusedParameters` de JS dosyalarında uygulanmıyor).
+
+**`flowRuntime.js`/`flowDiagnostics.js` — CommonJS'ten ESM'e çevrildi**:
+Kaynak dosyalar `require()`/`module.exports` (CommonJS) kullanıyordu, ama
+bu proje `"type":"module"` (ESM) — `import`/`export` söz dizimine
+çevrildi; `xlsx` paketinin kendisi hâlâ `createRequire()` ile senkron
+`require()` edilmeye devam ediyor (SheetJS'in ESM export'u güvenilir
+değil, kaynağın da zaten yaptığı gibi lazy/inline require deseni korundu).
+
+**Test durumu**: `npm run typecheck` ve `npm run build` temiz geçti
+(reactflow/xlsx paketlerinin gerçekten kurulduğu `require.resolve` ile
+doğrulandı). Paketlenmiş build'de gerçek bir canvas sürükle-bırak/agent
+sohbeti/deploy testi bu ortamda yapılamadı — kullanıcının kendi makinesinde
+"axet.flows" aktivitesine tıklayıp "+ Yeni Sekme" → node ekleme → sohbet
+paneline bir istek yazma → Deploy Et akışını denemesi gerekiyor.
+
+**Bilinçli sınırlar (kaynak projeden değişmeden devam eden)**:
+- `axet-code run --quiet --cwd <scratch>` her agent turunda YENİ bir CLI
+  process'i başlatıyor — bu, axet.code sohbet ekranının (Adım 5-6)
+  `axetChat.ts`'iyle AYNI mimari taviz (stateless run + transkript), agent
+  turları da benzer şekilde birkaç saniye sürebilir.
+- AI/LLM, MS Graph mail, shell, DB, UI-form node'ları hâlâ SIMÜLE ediliyor
+  (gerçek dış çağrı yapılmıyor) — bu kaynağın kendi güvenlik/kanıt
+  gereksinimi kararı, bu turda değiştirilmedi.
+- `axet.flows` kendi model tercihini axet.code sohbetiyle PAYLAŞIYOR (aynı
+  "large" model) — `small` model veya axet.flows'a özel bağımsız bir model
+  seçimi bu turda eklenmedi, istenirse ileride ayrılabilir.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## Platform Dönüşümü — Adım 9: axet.flows Referans Görsele Göre Layout Yeniden Tasarımı (2026-08-27, DEVAM EDİYOR — YARIDA, YENİ OTURUM BURADAN DEVAM ETSİN)
+
+**Kullanıcının kesin yeni hedefi**: Verdiği referans görsel
+`C:\Users\10134570\Downloads\Gemini_Generated_Image_njq3fhnjq3fhnjq3.jpg`
+üzerindeki axet.flows yerleşimini istiyor. Görsel incelendi. İstenen düzen:
+
+1. Üstte tek toolbar: solda `+ New Flow` (primary), `Templates`, `Data ▾`
+   (Import/Export), `Tools ▾`, `Run`; sağda `Copy`, `Auto Layout`, `Debug`.
+2. Altında flow tab satırı (`Flow 1`, `+`).
+3. İç ana alan: **sol sabit node paleti** (kategori başlıkları + renkli kare
+   ikon rozetli node satırları), **ortada açık grid-dot canvas**, **sağda
+   sekmeli panel** (`Bilgi | İstatistikler | Özellikler`).
+4. Sağ `İstatistikler`: Total Runs kartı, Success Rate circular gauge, Avg
+   Duration sparkline, Top Nodes ve Connections.
+5. Canvas node'ları klasik büyük Node-RED kutuları değil, referanstaki gibi
+   **yuvarlak kategori ikonları + altında kısa etiketler**, aralarında wire.
+6. Alt kısımda canvas ve sağ panelin altında **tam genişlik `FLOW BUILDER
+   AGENT` chat dock** (model seçici sağda, input satırı altta); en altta
+   kategori lejant çubuğu.
+
+**BU OTURUMDA YAPILANLAR (henüz son build/test YOK):**
+
+### Yeni dosyalar
+- `src/components/flows/RadialGauge.jsx`: SVG dairesel başarı yüzdesi.
+- `src/components/flows/MiniSparkline.jsx`: son çalışma sürelerinden saf SVG
+  `polyline` trend grafiği.
+- `src/components/flows/RightPanel.jsx`: sağ sekmeli `Bilgi/İstatistikler/
+  Özellikler` paneli; eski WorkflowSidebar sorumlulukları buraya taşınıyor.
+- `src/components/flows/CanvasOverlayBar.jsx`: eski sabit WorkflowHeader
+  yerine yalnız gerektiğinde canvas üstünde subflow dönüş/çoklu node→subflow
+  eylemlerini gösterir.
+
+### Değiştirilen dosyalar
+- `src/flows/utils/executionStats.js`: `computeDurationSeries()` eklendi.
+- `src/components/flows/Toolbar.jsx`: baştan yazıldı; Run/deploy/restart/stop
+  sorumluluğu eski WorkflowHeader'dan buraya taşındı. Data/Tools dropdownları
+  eklendi.
+- `src/components/flows/NodePalette.jsx`: baştan yazıldı; node satırları artık
+  kategori renginde kare ikon rozetleri içeriyor ve sabit sol sütun içindir.
+- `src/components/flows/FlowNode.jsx`: baştan yazıldı; `flow-node-circle`
+  (44px renkli daire) + caption düzeni, handle'lar daire merkezine sabit.
+- `src/components/flows/ChatPanel.jsx`: baştan yazıldı; sağ sidebar içi değil,
+  tam genişlik `chat-dock`; geçmiş açılır/kapanır, model headerda.
+- `src/components/flows/AppShell.jsx`: baştan yazıldı. Yeni JSX iskeleti:
+  `Toolbar` → `TabsBar` → `.app-main-row` (`NodePalette` + canvas +
+  `RightPanel`) → `ChatPanel` → `NodeLegend`.
+
+### Silinen dosyalar
+- `src/components/flows/WorkflowHeader.jsx`
+- `src/components/flows/WorkflowSidebar.jsx`
+
+Silmek güvenliydi: yeni AppShell bunları import etmiyor; sorumluluklar
+Toolbar/CanvasOverlayBar/RightPanel'e taşındı.
+
+### CSS DURUMU — EN KRİTİK KALAN İŞ
+`src/flows/flows.css` hala eski layout'un ~3476 satırlık kurallarını içeriyor.
+Adım 8 tema uyum düzenlemeleri (radius/gradyan/glow/hover lift/emoji→lucide)
+korundu. Ancak yeni Adım 9 bileşen class'ları için CSS henüz yazılmadı.
+Özellikle şunlar tamamlanmalı:
+
+- `.app-main-row` (flex/min-height:0/flex:1/overflow:hidden),
+  `.app-center-col` (flex:1/min-width:0/flex-column).
+- `.node-palette` sabit sol sütun (~270px); `.node-palette-floating` ve
+  `.palette-toggle-btn` artık ölü. Eski fake search `::before/::after`
+  kaldırılmalı; JSX artık gerçek `.node-palette-search-icon` kullanıyor.
+  Yeni `.node-palette-item-badge` (28×28, flex center, radius 6px, white)
+  eklenmeli. `node-palette-item-swatch` JSX'te artık yok.
+- `.right-panel`, `.right-panel-tabs`, `.right-panel-tab`,
+  `.right-panel-tab-active`, `.right-panel-scroll`, `.right-panel-tab-body`,
+  `.right-panel-tab-body-flush`, `.right-panel-section`,
+  `.right-panel-section-flush`, `.right-panel-section-title`,
+  `.workflow-meta-value-editable`, `.stats-card-grid`, `.stats-card`,
+  `.stats-card-gauge`, `.stats-card-value`, `.stats-card-value-sm`,
+  `.stats-card-label`, `.radial-gauge`, `.radial-gauge-label`,
+  `.radial-gauge-arc`, `.mini-sparkline`.
+- `.canvas-overlay-bar`: absolute/top/left/right/z-index; iç butonları
+  `pointer-events:auto`.
+- `.flow-node` yeni daire+caption ölçülerine göre: eski min-width:178,
+  header/body/glossy kuralları artık ölü. Yeni `.flow-node-circle`,
+  `.flow-node-caption`, `-primary`, `-secondary`; flow handle 8-10px.
+- `.chat-dock`, `.chat-dock-header`, `.chat-dock-toggle`,
+  `.chat-dock-header-icon`, `.chat-send-btn`; eski `.chat-panel` sidebar
+  ölçüleri yeni dock'a uyarlanmalı; `.chat-log` expanded iken max-height
+  ~180-220px olmalı.
+- `.node-legend` en altta yatay bar kalmalı. `.app-body`, `.app-main`,
+  `.app-side`, `.workflow-header*`, `.node-palette-floating`,
+  `.palette-toggle-btn` eski layout kalıntıları; JSX kullanımını doğruladıktan
+  sonra silmek güvenli.
+
+**Tema kuralları (Adım 8 kararı hâlâ geçerli):** ana tokenlar
+`var(--base-950/900/850/800/700/600)`, `var(--ink-100/200/300/400/500)`,
+`var(--accent-500/600/400)`, `var(--accent-glow)`,
+`var(--accent-soft-text)`; panel kart border `base-700`, input `base-600`;
+gradient/glow/hover translateY YOK; node `nodeCatalog.js` renkleri fonksiyonel
+Node-RED semantiği olduğu için korunur; radius xs=4/sm=6/md-lg=8/xl=12;
+pill sadece gerçek rozetler; ikonlar sadece lucide-react.
+
+**Yeni oturum öncelik sırası:**
+1. `AppShell.jsx`, `RightPanel.jsx`, `Toolbar.jsx`, `NodePalette.jsx`,
+   `FlowNode.jsx`, `ChatPanel.jsx`, `CanvasOverlayBar.jsx`, `RadialGauge.jsx`,
+   `MiniSparkline.jsx` ve `flows.css`i oku.
+2. CSS Adım 9'u tamamla; eski CSS'yi komple silme—DebugPanel, modal, runs,
+   NodeEditor, ReactFlow kontrolleri hâlâ gerekli.
+3. `npm run typecheck`, `npm run build` çalıştır; hata varsa düzelt.
+4. `npm run dev` ile aç; kullanıcı referans görsele göre canlı değerlendirsin.
+5. Adım 9 bitene kadar commit/push/release YOK.
+
+**Not**: Son başarılı test Adım 8 sonundaki typecheck/build idi. Adım 9'da
+çok sayıda JSX dosyası değişti/yazıldı ama henüz test çalıştırılmadı. Yeni
+session testten önce “tamamlandı” demesin.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+### CSS tamamlandı, typecheck/build TEMİZ (2026-08-27, devamı) — görsel doğrulama hâlâ bekliyor
+
+Yukarıdaki "CSS DURUMU — EN KRİTİK KALAN İŞ" listesindeki TÜM kalemler bu
+oturumda `src/flows/flows.css`'e işlendi:
+
+- **Yeni eklenenler**: `.app-main-row`/`.app-center-col` (flex satırı/sütunu),
+  `.canvas-overlay-bar` (absolute, canvas üstünde yüzen, `pointer-events:
+  none` + çocuklarında `auto` — CanvasOverlayBar'ın altındaki canvas'a
+  tıklamayı bloklamaz), `.node-palette-search-icon` (gerçek lucide `Search`
+  ikonu, eski `::before/::after` sahte daire+çizgi kaldırıldı),
+  `.node-palette-item-badge` (28×28 flex-center radius-sm, arka plan rengi
+  `NodeIconBadge`'in inline `style`'ından geliyor), `.right-panel` +
+  `.right-panel-tabs/-tab/-tab-active/-scroll/-tab-body/-tab-body-flush/
+  -section/-section-flush/-section-title` (SystemPanel'deki segmented-tab
+  deseniyle aynı ruhta), `.stats-card-grid/-card/-card-gauge/-card-value(-sm)/
+  -card-label`, `.radial-gauge/-label/-arc`, `.mini-sparkline`,
+  `.workflow-meta-value-editable` (hover'da hafif bir "düzenlenebilir" ipucu),
+  `.flow-node-circle/-caption/-caption-primary/-caption-secondary`,
+  `.chat-dock/-header/-toggle/-header-icon`, `.chat-send-btn` (32×32 dairesel
+  ikon buton, `.chat-input-row button.chat-send-btn` ile temel buton
+  kuralının üzerine yazıyor).
+- **`.flow-node` yeniden kuruldu**: artık kutulu/başlıklı bir kart DEĞİL —
+  `width:44px; padding-top:6px` sabit bir kutu, `.flow-node-circle` bu kutuyu
+  tam dolduran 44px'lik daire (handle'ların `left:-6px`/`right:-6px`'i hâlâ
+  BU 44px kutunun kenarına oturuyor — `FlowNode.jsx`'teki `CIRCLE_TOP=6`/
+  `CIRCLE_SIZE=44` sabitleriyle birebir hizalı), `.flow-node-caption` bu
+  kutudan **`position:absolute` ile çıkarılmış**, altta ortalanmış 108px
+  genişliğinde bir etiket (caption'ın kendi genişliği node'un/handle'ların
+  gerçek pozisyonunu ETKİLEMİYOR — bu yüzden etiket daireden daha geniş
+  olabiliyor ama bağlantı noktaları hep dairenin tam kenarında kalıyor).
+  Seçili halka artık sadece daire etrafında (`.flow-node-selected .flow-node-
+  circle`), eski kutu-genişliğinde çerçeve kaldırıldı.
+- **Silinen ölü CSS** (JSX'te artık hiç referans edilmediği tek tek
+  doğrulandı — `grep` ile tüm `src/components/flows` taranarak): `.app-body`,
+  `.app-main`, `.canvas-header`, `.canvas-breadcrumb` (çıplak; `-back`/
+  `-label` KORUNDU, hâlâ kullanılıyor), `.palette-toggle-btn*`,
+  `.node-palette-floating*`, `.workflow-header*` (10 kural, `-description-
+  empty` KORUNDU), `.app-side`, `.workflow-sidebar` + `-toggle/-chevron*/
+  -body/-section/-section-title` (`-empty` KORUNDU, RightPanel'de hâlâ
+  kullanılıyor), `.node-palette-title`, `.node-palette-hint`,
+  `.node-palette-search::before/::after` (sahte ikon), `.node-palette-item-
+  swatch` (+ subflow override'ı), `.flow-node` eski kutu/header/body/name/
+  type/subflow kuralları, `.chat-panel` (temel sarmalayıcı — `-title-label`/
+  `-title-busy` KORUNDU), `.chat-panel-title` (üst satır — artık `.chat-dock-
+  header`).
+- **Doğrulama yöntemi**: her silinecek class için önce `grep` ile
+  `src/components/flows/*.jsx` içinde gerçekten hiç kullanılmadığı tek tek
+  teyit edildi (yanlışlıkla hâlâ kullanılan bir class'ı silmemek için) —
+  hepsi teyitli.
+
+**Test durumu**: `npm run typecheck` VE `npm run build` bu CSS turunun
+SONUNDA çalıştırıldı, **ikisi de temiz geçti** (önceki oturumun bıraktığı
+"henüz test edilmedi" uyarısı artık geçerli değil). **Ancak `npm run dev`
+ile gerçek bir pencerede görsel doğrulama bu ortamda hâlâ yapılamadı** —
+canvas'taki daire+etiket node'ların, sağ panelin sekmeleri arasında geçişin,
+İstatistikler sekmesindeki gauge/sparkline'ın ve alt chat dock'un referans
+görsele göre GERÇEKTEN doğru göründüğü kullanıcının kendi makinesinde
+`npm run dev` (veya paketlenmiş exe) ile kontrol edilmeli. Küçük ölçü
+ayarları (44px daire, 108px etiket genişliği, 320px sağ panel, 220px chat
+dock kaydırma yüksekliği gibi) gerçek ekranda "biraz küçük/büyük" hissi
+verirse bunlar `flows.css`'te tek satırlık değerler, kolayca ince ayar
+yapılabilir — mimari/yapısal bir değişiklik gerekmez.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## Platform Dönüşümü — Adım 8: axet.flows + Sohbet Ekranı Tema/Layout Tam Uyumu (2026-08-27, DEVAM EDİYOR)
+
+Kullanıcı Adım 7'de entegre edilen axet.flows'un (ve sohbet ekranının)
+"temasını, tasarımını, düzenini, layoutunu, butonları, görünümü TAMAMİYLE
+bizim aXet SAP Launcher temamıza uygun şekilde" yeniden düzenlenmesini
+istedi. Önce bir alt-agent ile projenin GENEL tasarım dilini (radius/border/
+shadow/tipografi/buton kalıpları/ikon kütüphanesi) tam bir rapor olarak
+çıkardık (SystemPanel/Tree/SettingsModal/ConfirmDialog/AddSystemModal/
+ActivityBar/ChatBubble gibi dosyalardan) — bu rapor Adım 6-7'nin ÜZERİNE
+inşa edilen kesin referans oldu.
+
+**Ana bulgu (index.css'in kendi yorumu)**: proje BİLİNÇLİ OLARAK minimalist
+— "gradyan/parlama/dekoratif efekt YOK", nötr gri + tek sakin vurgu rengi.
+axet.flows'un kaynak projesi (`axetflow`) ise tam tersi bir "2026 SaaS koyu
+tema" diliyle yazılmıştı: yoğun gradyanlar (`--accent-gradient`, yeşil deploy
+butonu gradyanı), renkli glow'lar (`box-shadow: 0 4px 14px rgba(...)`),
+hover'da `translateY(-1px)` kaldırma efektleri, `border-radius: 999px` pill
+sekmeler, ve emoji ikonlar (⚡🌐🧩🤖📤🛡🖥🗄📧🔑🧷📊🛠⚠🔗⬛, ayrıca ✓✕≈📌🗗🗑⬇📜⏱▶◀▸▾).
+
+**Yaklaşım — 3555 satırlık `flows.css`'i BAŞTAN YAZMAK YERİNE hedefli/
+kaldıraçlı dönüşüm**: 21 React bileşeninin className referanslarını
+DEĞİŞTİRMEDEN (regresyon riskini en aza indirmek için), CSS'in KÖK
+noktalarını (değişken tanımları) düzelterek yüzlerce kullanım yerini TEK
+seferde düzelttik:
+- **Radius ölçeği**: `--radius-xs/sm/md/lg/xl` değerleri (5/8/11/15/20px)
+  uygulamanın Tailwind radius skalasına (4/6/8/8/12px) çevrildi — TEK bu
+  değişiklik, canvas node'ları, paneller, modaller, buton köşeleri dahil
+  YÜZLERCE kullanım yerini otomatik olarak "daha az yuvarlak/daha kurumsal"
+  hale getirdi. `--radius-pill` (999px) SADECE gerçek daire/pill öğeler
+  (dot'lar, sayı rozetleri) için korundu — sekme/tab chip'leri gibi
+  metin-içerikli öğelerden kaldırıldı (artık `--radius-sm`).
+- **Gradyan düzleştirme**: `--accent-gradient` değişkeni `linear-gradient(...)`
+  yerine düz `var(--accent-500)` olarak yeniden tanımlandı — bu TEK satır,
+  chat baloncuğu/gönder butonu/canvas convert butonu/toolbar dot'u gibi
+  6+ farklı yerdeki gradyanı otomatik düzleştirdi.
+- **Yeşil "deploy" butonu**: elle bulunan ~4 yerde (`deploy-btn-run`/
+  `deploy-split-caret`/ilgili glow'lar) sabit hex gradyan (`#22c55e→#16a34a`)
+  + renkli glow (`rgba(34,197,94,0.32)`) kaldırılıp `var(--status-success-
+  text)` düz rengiyle (uygulamanın kendi başarı rengi) değiştirildi.
+- **Hover-lift efektleri**: 8 ayrı yerdeki `transform: translateY(-1px)`
+  (buton/kart hover'da "kalkma" efekti — uygulamada YOK, sadece renk
+  değişimi var) + `filter: brightness(1.08)` (parlama) satırları toplu
+  olarak kaldırıldı; her hover kuralı böylece sadece arka plan/kenarlık
+  rengi değiştiren (app'in kendi `hover:bg-base-700` deseniyle aynı) düz bir
+  geçişe döndü.
+- **Renkli glow'lar**: durum noktalarındaki (`deploy-status-dot-on`,
+  `workflow-connection-dot`) `box-shadow: 0 0 Npx <renk>` parlama efektleri
+  kaldırıldı (StatusDot.tsx'in kendisinde hiç glow yok, sadece düz nokta) —
+  chat baloncuğu/gönder butonu/modal primary butonundaki glow'lar da
+  kaldırılıp düz `hover:bg-accent-600` geçişine çevrildi.
+- **Eksik `.deploy-btn` temel sınıfı eklendi**: JSX zaten bu className'i
+  kullanıyordu (`deploy-btn deploy-btn-run ...`) ama CSS'te HİÇ tanımlı
+  değildi (kaynak projede de aynı boşluk vardı) — flex/gap/padding/radius/
+  border içeren gerçek bir taban kural eklendi, artık bu butonlar diğer
+  ikincil butonlarla (border-base-700, padding 6px 12px) aynı iskelete
+  sahip.
+
+**İkon dili birleştirme — TÜM emoji/dingbat glyph'ler lucide-react'e
+taşındı** (uygulama genelinde emoji SIFIR kullanılıyor, sadece lucide):
+- Yeni **`src/components/flows/CategoryIcon.jsx`** — node kategorisi ->
+  lucide ikon eşlemesi (⚡→Zap, 🌐→Globe, 🧩→Puzzle, 🤖→Bot, 📤→Upload,
+  🛡→ShieldCheck, 🖥→Monitor, 🗄→Database, 📧→Mail, 🔑→KeyRound, 🧷→Pin,
+  📊→FileSpreadsheet, 🛠→Wrench, ⚠→AlertTriangle, 🔗→Link2, ⬛→Square).
+  `nodeCatalog.js` (React'tan bağımsız kalması gerektiği için) bu eşlemeyi
+  BARINDIRMIYOR — sadece kategori isimlerini tanımlıyor, görsel temsili
+  `FlowNode.jsx`/`NodeLegend.jsx` (bu yeni bileşen üzerinden) belirliyor.
+- `DebugPanel.jsx`: ✓✕≈ → `Check`/`X`/`Waves`; 📌🗗⬇🗑✕ (panel aksiyon
+  butonları) → `Pin`/`PictureInPicture2`/`Download`/`Trash2`/`X`; ⏱📜 (boş
+  durum ikonları) → `Timer`/`ScrollText`; ▾ (chain chevron) → `ChevronDown`.
+- `Toolbar.jsx`: ↶↷ (undo/redo) → `Undo2`/`Redo2`; ayrıca Yeni Flow/
+  Şablonlar/Import/Export/Kopyala/Auto Layout/Debug butonlarına ikon
+  eklendi (`FilePlus2`/`LayoutTemplate`/`Upload`/`Download`/`Copy`/
+  `LayoutGrid`/`Bug`) — önceden SADECE metin etiketliydi.
+- `WorkflowHeader.jsx`: ◀ (geri) → `ArrowLeft`; ▶ (deploy/play) → `Play`;
+  ▾ (dropdown caret) → `ChevronDown`; Durdur butonuna `Square` ikonu
+  eklendi; ayrıca **redundant "aXet.flows AI Builder ▸" breadcrumb kaldırıldı**
+  (modül zaten bu uygulamanın İÇİNDE, kendi adını tekrar tekrar göstermesine
+  gerek yok — tıpkı SAP Launcher'ın kendi header'ının da "aXet SAP Launcher"
+  yazmaması gibi).
+  `✓ Basarili`/`✕ Hatali` metnindeki glyph'ler de düz metne çevrildi.
+- `AppShell.jsx`: ◀▶ Palet toggle → `PanelLeftClose`/`PanelLeftOpen`.
+- `RunsView.jsx`/`WorkflowSidebar.jsx`: ✓✕ (satır durumu) → `Check`/`X`.
+- `TabsBar.jsx`: düz `x`/`+` metin karakterleri → `X`/`Plus` ikonları,
+  butonlar artık kare/ortalı ikon-buton (`.tabs-bar-close`/`.tabs-bar-add`
+  CSS'i flex+sabit boyuta çevrildi).
+- `SubflowsPanel.jsx`: `+` → `Plus`. `NodePalette.jsx`: `▾` (grup chevron)
+  → `ChevronDown`.
+- `FlowNode.jsx`: `▶` (manuel inject butonu) → `Play` (fill="currentColor");
+  🔗 (subflow instance ikonu) → `Link2`; kategori ikonu artık `CategoryIcon`
+  üzerinden geliyor (`iconForType` string-döndüren fonksiyonu bu component
+  içinde artık kullanılmıyor, `nodeCatalog.js`'te export olarak KALDI —
+  başka bir tüketicisi çıkarsa diye kaldırılmadı, sadece FlowNode/NodeLegend
+  artık kendi ikon eşlemesini kullanıyor).
+- Her ikon değişikliğinde karşılık gelen CSS class'ı (`*-icon`, `*-chevron`,
+  `*-btn`) da kontrol edilip gerekirse `display:flex; align-items:center`
+  eklendi (emoji bir metin glyph'i olduğu için `font-size`ile hizalanıyordu,
+  SVG ikon flex-hizalama gerektiriyor).
+
+**Model seçici konumu — axet.code sohbetiyle AYNI karara hizalandı**:
+Adım 7'de `AxetFlowsHome.tsx`'e eklenen sayfa-üstü ayrı başlık çubuğu
+(Workflow ikonu + "axet.flows" etiketi + ModelSelector) KALDIRILDI — Adım
+6'da axet.code sohbetinde alınan "model seçici composer/sohbet barının
+KENDİSİNDE olsun, ayrı bir üst başlık çubuğunda OLMASIN" kararıyla tutarlı
+olması için. Model state (`models`/`currentModel`/`modelsLoading`/
+`modelsError` + `handleSelectModel`) artık `AppShell.jsx`'in içinde yaşıyor
+ve `ChatPanel.jsx`'e prop olarak geçiyor; `ChatPanel`'in kendi başlık
+satırında (`Flow Builder Agent` etiketinin yanında) `ModelSelector.tsx`
+render ediliyor — axet.code'daki `ChatSessionPane.tsx`'in composer
+toolbar'ındaki KULLANIMLA birebir aynı bileşen, aynı davranış.
+`AxetFlowsHome.tsx` artık sadece `<FlowProvider><AppShell /></FlowProvider>`
+saran, GÖRSEL OLARAK hiçbir şey render etmeyen ince bir sarmalayıcı.
+
+**`ModelSelector.tsx`'e yeni `direction` prop'u eklendi** (`"up" | "down"`,
+varsayılan `"up"`): axet.code'un composer'ı ekranın ALTINDA olduğu için
+menü yukarı açılıyordu (Adım 6); axet.flows'un `ChatPanel` başlığı ise
+panelin ÜSTÜNDE — aynı bileşeni oraya taşıyınca menü ekran dışına taşardı.
+`direction="down"` (SADECE `ChatPanel.jsx`'te kullanılıyor) menüyü
+`top-full`+`mt-1.5` ile aşağı açacak şekilde ayarlıyor; axet.code'daki
+mevcut kullanım hiç değişmedi (varsayılan `"up"` ile aynı davranış).
+
+**Bilinçli olarak DOKUNULMAYAN**: `nodeCatalog.js`'teki node tipine özel
+RENKLER (`color: '#e6a23c'` gibi, Node-RED editor konvansiyonu) — bunlar
+zaten kaynak projenin kendi yorumunda "tema sisteminin dışında, fonksiyonel"
+olarak işaretliydi, ilk entegrasyon turunda da bilerek korunmuştu, bu turda
+da değiştirilmedi (canvas'taki node'ların HANGİ tipte olduğunu renkle ayırt
+etmek Node-RED'in evrensel bir konvansiyonu, "tema" değil). Canvas node
+kutularının kendisi (`.flow-node`) hâlâ hafif bir üstten-gelen parlaklık
+(glossy highlight) ve node-header arka planında ince bir gradyan taşıyor —
+bunlar renksiz/nötr (siyah-beyaz opaklık) olduğu için "SaaS gradyan" sorununa
+girmiyor, dokunulmadı.
+
+**Test durumu**: `npm run typecheck` ve `npm run build` her ADIMDA (CSS
+değişiklikleri + her JSX ikon değişikliği + model seçici taşıma sonrası)
+tekrar tekrar çalıştırıldı, hepsi temiz geçti. Görsel/canlı doğrulama
+(canvas'ta node renklerinin/ikonların gerçekten doğru göründüğü, ModelSelector
+menüsünün ChatPanel'de doğru yönde açıldığı) bu ortamda yapılamadı —
+kullanıcının kendi makinesinde axet.flows ekranını açıp kontrol etmesi
+gerekiyor.
+
+**Bu turda da BİLEREK YAPILMAYAN**: GitHub push/release — dönüşüm bitene
+kadar hâlâ durduruldu.
+
+## axet.flows — Bağlantı Çizgisi (Edge) Görünürlüğü ve Debug Scroll Şikayeti + Orijinal axetflow Kaynağıyla Tam Dizin Denetimi (2026-08-28)
+
+**Şikayet**: "nodeların birbirine bağlantısını gösteren ip görünmüyor" (birden
+fazla kez, önceki renk/kontrast/`vector-effect`/CSS-özgüllük düzeltmelerine
+rağmen) ve "debug ekranında flow adımlarında scroll yapamıyorum" — kullanıcı
+ayrıca orijinal `axetflow` kaynağıyla (`C:\workspace\axetflow\flow-builder`)
+bizim portumuz arasında eksik/fazla dosya olup olmadığının denetlenmesini
+istedi.
+
+**Yapılan tam dizin denetimi (satır/boyut seviyesinde, node ile otomatik)**:
+- `src/flows/*` ↔ orijinal `src/*` (store/, utils/, agent/, idgen.js,
+  nodeCatalog.js, templates.js, styles.css→flows.css): **birebir eşleşiyor**,
+  tek fark klasör düzleştirme (`store/` kaldırıldı) ve import yolları.
+  `FlowModel.js` **tamamen özdeş** (sadece import path farkı). `agentRunner.js`
+  tek fark: `window.axet.agentStep` → `window.api.flowsAgentStep` (bilinen IPC
+  köprü rename'i). `executionStats.js`'te SADECE bizim eklediğimiz
+  `computeDurationSeries` (Adım 9 sparkline) fazladan var, eksik hiçbir export
+  yok.
+- `src/components/flows/*` ↔ orijinal `src/components/*`:
+  - **Orijinalde olup bizde OLMAYAN** (bilerek, isim bazında): `SettingsModal.jsx`,
+    `TitleBar.jsx` (bu uygulamanın kendi Ayarlar/TitleBar'ı kullanılıyor),
+    `WorkflowHeader.jsx`, `WorkflowSidebar.jsx` (Adım 9'da Toolbar.jsx/
+    RightPanel.jsx'e devredildi). Kök `App.jsx`/`main.jsx` da yok (host app'in
+    kendi giriş noktası var, `AxetFlowsHome.tsx` ince sarmalayıcı).
+  - **Bizde olup orijinalde OLMAYAN** (yeni eklemeler): `CanvasOverlayBar.jsx`,
+    `CategoryIcon.jsx`, `MiniSparkline.jsx`, `RadialGauge.jsx`, `RightPanel.jsx`.
+  - **İsim eşleşen TÜM dosyalar** satır satır karşılaştırıldı — mantıksal fark
+    YOK, sadece bizim yaptığımız bilinçli tema/layout/özellik eklemeleri
+    (boyut farkları bundan kaynaklanıyor, örn. `Toolbar.jsx` +5979 byte çünkü
+    Data/Tools dropdown'ları + Run split-button bu turda eklendi).
+  - `electron/flowRuntime.js`/`flowDiagnostics.js` ↔ `app-electron/main/`
+    aynı isimle mevcut, fonksiyon imzaları (`coerceType`, `evalRule`,
+    `findFreePort`, `getByPath`, `previewValue`, `safeJsonClone`,
+    `setByPath`) **birebir aynı** — sadece CommonJS→ESM syntax çevrimi
+    (bilinen, dokümante edilmiş dönüşüm).
+  - **Sonuç: hiçbir gerçek fonksiyon/dosya eksik değil.** Bu yüzden edge/scroll
+    şikayetleri "eksik kod" değil, Adım 8-9'da YAPILAN tema/layout
+    yeniden tasarımının (koyu kutulu node → açık dairesel node, ayrı
+    WorkflowSidebar → sekmeli RightPanel) kendi CSS'inden kaynaklanıyor
+    olmalı.
+
+**Edge (bağlantı çizgisi) — kök sebep KESİN olarak izole edilemedi ama
+artık CSS cascade'inden TAMAMEN bağımsız bir çözüm var**: `.flow-canvas`
+özgüllük öneki + `vector-effect:non-scaling-stroke` denendi, kullanıcı hâlâ
+göremedi. `FlowCanvas.jsx`'teki edge nesnelerine artık DOĞRUDAN `style: {
+stroke, strokeWidth }` (inline) veriliyor — reactflow'un `BaseEdge`
+bileşeni bunu `<path style={style}>` olarak DOĞRUDAN uyguluyor (kaynak kodu
+doğrulandı: `node_modules/@reactflow/core/dist/esm/index.js` `BaseEdge`).
+Inline style CSS specificity'den TAMAMEN bağımsızdır, hiçbir harici
+stylesheet (bizim veya kütüphanenin) bunu ezemez — bu artık "çizgi rengi
+görünmüyor" ihtimalini kod seviyesinde İMKANSIZ hale getiriyor. Aktif
+(çalışan) kenar yeşil (`#22c55e`), diğerleri koyu slate (`#334155`).
+**Eğer bu turdan sonra da görünmezse, sorun artık CSS DEĞİL** — muhtemelen
+`raw.wires` verisinin gerçekten boş olması (yani veri modelinde bağlantı hiç
+oluşmamış) ihtimaline bakılmalı; `FlowModel.js.connect()` doğrulandı (orijinalle
+birebir aynı), agent'ın `connect_nodes` tool'unun gerçekten çağrılıp
+çağrılmadığı canlı ortamda kontrol edilmeli.
+
+**Debug panel scroll — kod/CSS satır satır orijinalle karşılaştırıldı,
+FARK YOK**: `.debug-panel`/`.debug-panel-list`/`.debug-panel-header`/
+`.execution-summary` CSS kuralları (flex:1 + min-height:0 + overflow-y:auto
+zinciri) orijinalle **harfiyen özdeş** (sadece bizim eklediğimiz
+`overscroll-behavior:contain`, zararsız). `handleListScroll`/stick-to-bottom
+mantığı da özdeş. reactflow'un zoom/pan wheel dinleyicisinin SADECE
+`.react-flow__pane` DOM elementine (`select(zoomPane.current)`) bağlı olduğu
+kaynak kodundan doğrulandı — DebugPanel'i etkilemesi mümkün değil. **Bu
+şikayetin kök sebebi bu oturumda statik analizle bulunamadı** — kod
+kanıtlanmış-çalışan orijinalle aynı. Sonraki oturum: kullanıcıdan canlı
+repro istensin (kaç chain var, tek chain içinde mi yoksa chain'ler arasında
+mı scroll denendi, scrollbar thumb görünüyor mu/sürüklenebiliyor mu, fare
+tekerleği mi trackpad mi) — DOM inceleme (DevTools) olmadan bu ortamdan daha
+fazla ilerlemek mümkün değil.
+
+**Test durumu**: `npm run typecheck` ve `npm run build` temiz geçti.
+
+## axet.flows — Function Node Motoru + "Cloud'a Kaydet" (2026-08-28)
+
+Kullanıcının amacı: **bizim gömülü axet.flows editörümüzü ve motorumuzu,
+gerçek axet.flows (Canlı) host'una birebir aynı yapmak** (cloud-save gibi
+gerçekten dış/bulut olan özellikler hariç — "Cloud'a Kaydet" burada
+GERÇEKTEN bir cloud değil, aynı makinedeki gerçek host'a kaydetmek anlamına
+geliyor, bkz. aşağı).
+
+### 1) Function node motoru gerçek Node-RED semantiğine yakınlaştırıldı
+
+Kök şikayet: bizim motorumuzda hata vermeyen bir flow, gerçek (Canlı)
+host'ta function node kod kısmında hata veriyordu.
+
+Bulunan/düzeltilen kök sebepler (`app-electron/main/flowRuntime.js`,
+`app-electron/main/flowDiagnostics.js`):
+
+- **`safeJsonClone` (JSON round-trip) → `cloneMessage` (gerçek yapısal
+  derin kopya)**: mesaj AKTARIMINDA (function/change/catch/get-context)
+  artık `Buffer`/`Date`/`RegExp`/`undefined`/döngüsel referans korunuyor
+  (JSON clone bunları bozuyordu). `safeJsonClone` sadece debug-önizleme ve
+  deploy-diff'te (JSON-safe olması İSTENEN yerlerde) kaldı.
+- **Function node kodu artık ASYNC fonksiyona sarmalanıyor**
+  (`(async function(msg){...})(msg)`, öncesi SENKRON'du) — kullanıcı kodu
+  içinde üst seviye `await` artık çalışıyor (gerçek Node-RED'in davranışı).
+  10 saniyelik ayrı bir race-timeout ile hiç çözülmeyen bir Promise'in
+  motoru sonsuza kadar askıda bırakması da önlendi.
+- **`node.send()`, `node.warn/error/log/done/status`, `context`/`flow`/
+  `global`/`env` API'leri eklendi** — sandbox öncesinde SADECE
+  `msg`/`node:{id,name}` içeriyordu. `context`/`flow`/`global` store'ları
+  `FlowRuntime` constructor'ında kalıcı (`nodeContextStore`/
+  `flowContextStore`/`globalContextStore`) — gerçek Node-RED'in bellek
+  context modülü gibi, deploy/stop sırasında SİLİNMİYOR (sadece process
+  kapanınca sıfırlanıyor, `FlowRuntime` `index.ts`'te singleton).
+  `node.send(msg)` çağrıları senkron olarak `pendingSends`'e biriktirilip
+  script bittikten SONRA `_emit()` tarafından gönderiliyor — böylece
+  `node.send(msg); return null;` deseni de `return msg;` deseni de ikisi de
+  çalışıyor (gerçek Node-RED'deki gibi).
+- **Sandbox globalleri genişletildi**: `Buffer, Date, JSON, Math, Promise,
+  RegExp, Array, Object, Error` + **`setTimeout/clearTimeout/setInterval/
+  clearInterval`** (öncesinde bunlar da yoktu, `ReferenceError` veriyordu —
+  `await new Promise(r => setTimeout(r, ms))` gibi ÇOK yaygın bir desen bu
+  yüzden patlıyordu). Oluşan timer handle'ları `this.timers`'a ekleniyor ki
+  stop/redeploy'da sarkan (leaked) timer kalmasın.
+- **Deploy öncesi statik syntax kontrolcüsü** (`flowDiagnostics.js`
+  `checkFunctionSyntax`) de aynı ASYNC sarmalayıcıyı kullanacak şekilde
+  düzeltildi — öncesinde SENKRON sarmalıyordu, bu yüzden geçerli `await`
+  içeren kod deploy'dan ÖNCE yanlış bir `SYNTAX_ERROR` ile bloke ediliyordu
+  (kullanıcının orijinal şikayetinin muhtemel tam kaynağı buydu).
+
+Doğrulama: geçici bir smoke-test scriptiyle (oturum sonunda silindi) `await`,
+context/flow/global persistence, Buffer/Date koruma, `node.send()`+`return`
+birleşik dispatch, catch-node hata yayılımı tek tek test edildi, hepsi
+çalıştı. `node --check` ve `tsc -p tsconfig.node.json --noEmit` temiz.
+
+### 2) "Cloud'a Kaydet" butonu eklendi
+
+Live'daki "Cloud'a Kaydet" butonunun bizim editörde karşılığı yoktu.
+Kullanıcı netleştirdi: bu buton kendi disk/store'umuza kaydetmek DEĞİL,
+**aynı makinede AYRICA çalışan gerçek aXet.flows.exe host'unun (Live
+ekranının bağlandığı aynı Node-RED tabanlı süreç) admin API'sine** (GET/POST
+`/flows`, v2 header + rev optimistic-locking destekli) flow'u YAZMAK.
+
+- **Yeni dosya `app-electron/main/axetFlowsLiveSave.ts`**:
+  `discoverAxetFlowsLiveUrl()` (mevcut discovery, `axetFlowsLiveDiscovery.ts`)
+  ile portu bulur, `GET /flows` ile mevcut workspace'i (v1 düz dizi veya v2
+  `{rev,flows}`) okur, `mergeFlowIntoWorkspace()` ile SADECE aynı id'li
+  tab/node'ları upsert eder (diğer tab'lara dokunmaz), `POST /flows` ile
+  (v2 ise aynı `rev` ile) geri yazar.
+- **IPC**: `axetFlowsLive:saveFlow` handler (`index.ts`) +
+  `saveFlowToLiveHost` preload köprüsü (`preload/index.ts`, `window.d.ts`).
+- **UI**: `Toolbar.jsx`'e "Cloud'a Kaydet" butonu (Kopyala'nın solunda,
+  `CloudUpload` ikonu) — `model.toDeployArray(activeTabId)` + elle
+  eklenen `type:'tab'` node'uyla aktif sekmeyi export edip
+  `window.api.saveFlowToLiveHost()` çağırıyor, export-check modalından
+  (mevcut validasyon akışı) geçiyor.
+
+`tsc` (node+web) ve `electron-vite build` temiz. **Canlı test edilmedi** —
+gerçek aXet.flows.exe çalışırken (discovery ona bağlı) test edilmesi
+gerekiyor; kullanıcı win-unpacked build alıp uygulamayı başlattı, sıradaki
+adım bu butonu gerçek host açıkken denemek.
+
+### "json-to-excel" node'u bizim editörde hata vermiyor ama Canlı host'ta veriyor — KÖK SEBEP: iki motor FARKLI kütüphane kullanıyor (2026-08-29)
+
+**Şikayet**: Kullanıcı bizim gömülü editörde bir flow test etti (`json-to-excel`
+node'u, `kind:"buffer"`, `payloadProp:"payload"`, `bufferProp:"payload"` —
+bir önceki function node'dan gelen `[{ISOCode,CurrencyName}, ...]` dizisini
+excel'e çeviriyor), hiç hata almadı. Aynı flow'u "Cloud'a Kaydet" ile gerçek
+Canlı aXet.flows host'una gönderip orada çalıştırınca **"Input type unknown."**
+hatası aldı (`xlsx-populate/lib/Workbook.js:833`). Soru: "ikisi aynı ekran
+olduğuna göre neden biz hata vermedik?"
+
+**Kök sebep**: İki motor **hiç aynı kütüphaneyi kullanmıyor**:
+- **Bizim `flowRuntime.js` `_runJsonToExcelNode()`** (`app-electron/main/
+  flowRuntime.js:1084-1100`) — `xlsx` (SheetJS) paketiyle **SIFIRDAN** bir
+  worksheet üretir: `XLSX.utils.json_to_sheet(rows)` — girdi olarak SADECE
+  bir obje dizisi (`Array.isArray` kontrolü) ister, dizi ise (boş dizi dahil)
+  asla hata vermez. Bu, flow-builder'ın (`axetflow` kaynak projesinin de
+  BİREBİR aynı şekilde yazdığı) bir **YEREL/OFFLINE TEST SİMÜLATÖRÜ** — gerçek
+  production Node-RED runtime'ı DEĞİL, agent'in ürettiği flow'u editör içinde
+  çalıştırıp hata var mı diye BAKMAK için yazılmış bir motor.
+- **Canlı aXet.flows.exe host'u** — bu tamamen ayrı, gerçek bir Node-RED
+  sunucusu, kendi GERÇEK kurulu `json-to-excel` node paketiyle çalışıyor ve bu
+  paket **`xlsx-populate`** kütüphanesini kullanıyor. Bu kütüphane SheetJS'in
+  tam tersi bir amaç için var — "sıfırdan JSON'dan sayfa üret" YOK, sadece
+  **var olan bir .xlsx dosyasını/şablonunu YÜKLEYİP doldurma** aracı
+  (`Workbook.fromDataAsync`/`fromFileAsync`/`fromBlankAsync` → hepsi aynı
+  `_convertInputToBufferAsync()` zincirinden geçer). Bu fonksiyon girdiyi
+  SADECE `Buffer`/`Blob`/base64 `string`/`Uint8Array`/`ArrayBuffer` olarak
+  kabul eder — bunların HİÇBİRİNE uymayan bir girdi (bizim flow'daki gibi düz
+  bir JS obje dizisi) verilince tam olarak `throw new Error("Input type
+  unknown.")` satırına düşer — kullanıcının aldığı hatanın satır/mesaj
+  seviyesinde birebir kaynağı bu (kaynak koddan doğrulandı,
+  `github.com/dtjohnson/xlsx-populate`).
+- **Sonuç**: Canlı host'taki gerçek `json-to-excel` node'u muhtemelen
+  `msg.payload`'ın (veya `bufferProp` neyi işaret ediyorsa onun) hazır bir
+  **xlsx şablon buffer'ı** olmasını bekliyor (yüklenip üzerine yazılacak bir
+  taban dosya) — bizim nodeCatalog'daki basit `kind/bufferProp/payloadProp`
+  alan seti bunu YANSITMIYOR (gerçek node'un tam config şemasını kanıtlamadan
+  modellemek hallusinasyon olurdu). Bizim simülatör bunu hiç bilmediği için
+  "iyi niyetli" davranıp array'i doğrudan sıfırdan bir sayfaya çeviriyor, hiç
+  hata vermiyor — Canlı host ise gerçek `xlsx-populate` sözleşmesini
+  uyguladığı için aynı girdiyi reddediyor.
+
+**Bilinçli sınır (İLK bulgu turunda, sonra düzeltildi — bkz. aşağıdaki bölüm)**:
+Bu turda "iki motor mimari olarak ayrı, kod tarafında düzeltilecek bir bug
+değil" denip bırakılmıştı. **Kullanıcı bunu kabul etmedi** ve şu talebi verdi:
+"bizim uygulamaya eklenen nodelar/flowlar/debug/ayarlar/configler ve diğer
+her şey 1:1 orijinaliyle aynı olmalı" — yani gerçek aXet.flows Desktop
+kurulumunun (`C:\Users\...\AppData\Local\axet-flows\.deptapps-desktop\
+electron-releases\WINDOWS_X64\latest-prod\resources\app`) kendisi referans
+alınıp bizim motor buna göre BİREBİR düzeltilmeli, "farklı ama meşru iki
+motor" diye bırakılmamalı. Aşağıdaki bölüm bu düzeltmeyi belgeliyor.
+
+### "json-to-excel"/"excel-to-json" — GERÇEK pakete karşı doğrulanıp BİREBİR yeniden yazıldı (2026-08-29, TAMAMLANDI)
+
+Kullanıcının kurulu aXet.flows Desktop'ının kendi `resources/app/node_modules/`
+altında **iki farklı excel node ailesi** olduğu keşfedildi:
+1. `@node-red/nodes/axetflows-excel` (`excel`, json2xls ile dosyaya yazar) ve
+   `@node-red/nodes/axetflows-util/excel-to-json-multiinput`
+   (`excel-to-json-multiinput`, `xlsx` ile dosya/base64 okur) — bunlar zaten
+   bizim `SIMULATED_TYPES` listemizde, dokunulmadı.
+2. **`node_modules/deptapps-flows-contrib-excel-utils`** — asıl `json-to-excel`
+   ve `excel-to-json` node'larının GERÇEK, obfuscate EDİLMEMİŞ kaynak kodunu
+   içeren paket (`src/nodes/json-to-excel/json-to-excel.js`,
+   `src/nodes/excel-to-json/excel-to-json.js`, `src/utils/excel-write-helper.js`,
+   `src/utils/settings-helper.js`, `src/utils/checksum.js`) — kaynak koddan
+   doğrudan okunarak tam sözleşme çıkarıldı.
+
+**Gerçek `json-to-excel` sözleşmesi (kaynaktan doğrulandı)**:
+- Kütüphane **`xlsx-populate`** (SheetJS `xlsx` DEĞİL) — `XlsxPopulate.
+  fromBlankAsync()` (kind="blank"), `XlsxPopulate.fromDataAsync(buffer)`
+  (kind="buffer", var olan bir workbook'u YÜKLER) veya ikisi arasında otomatik
+  seçim (kind="auto": `payload.buffer` varsa buffer, yoksa blank).
+  **`kind` alanının geçerli 3 değeri**: `auto`/`blank`/`buffer` — bizim eski
+  kodumuzdaki `base64` seçeneği GERÇEK node'da HİÇ YOK, kaldırıldı.
+- **Payload sözleşmesi SheetJS'ten TAMAMEN FARKLI**: `payloadProp`'un
+  (varsayılan `payload.data`) işaret ettiği değer bir **obje** olmalı —
+  `{ "SayfaAdi": [ {satır...}, ... ], "Sayfa2": [...] }` (sayfa adı → satır
+  dizisi haritası). **Düz bir dizi (`[{...}]`) GEÇERSİZ** — gerçek kaynakta
+  `Object.keys(payload)` dizi indekslerini ("0","1",...) sahte "sayfa adı"
+  gibi işler ve her "sayfa"nın verisi tek bir satır objesi olur, bu da
+  `data.forEach` çağrısında patlar. Kullanıcının orijinal flow'u (`msg.payload`
+  = düz dizi, `kind:"buffer"`, `bufferProp:"payload"`) **iki ayrı sebepten**
+  gerçek node'da patlıyordu: (a) `kind="buffer"` olduğu için `bufferProp`
+  ("payload") üzerinden `XlsxPopulate.fromDataAsync(diziyi)` çağrılıyor —
+  dizi `Buffer`/`Blob`/base64/`Uint8Array`/`ArrayBuffer` olmadığı için TAM
+  OLARAK `"Input type unknown."` fırlatıyor (kullanıcının aldığı hatanın
+  birebir kaynağı, satır numarası dahil doğrulandı); (b) `kind="blank"` ile
+  bile denense düz dizi payload yine `fillWorkbook`'ta patlardı.
+- Çıktı her zaman `msg.payload`'a yazılır (bizim eski kodumuz `bufferProp`'a
+  yazıyordu — YANLIŞ, düzeltildi).
+- Hücre değeri olarak string/number/boolean/`Date`/formül-fonksiyonu/
+  `{value,style,hyperlink}` objesi desteklenir; header modu (satırların ilk
+  objesinin anahtar birleşimi/2D dizi/kolon-harfi/tanımlı dizi) ve offset
+  `msg.payload.config`'ten okunur.
+
+**Gerçek `excel-to-json` sözleşmesi**: `xlsx` (SheetJS, doğru kütüphane
+buymuş) kullanır ama **TÜM sayfaları** okur (bizim eski kodumuz sadece
+İLK sayfayı okuyordu) ve çıktıyı `{ buffer, checksum, data: {sayfaAdı:
+[satırlar]}, config }` şeklinde `msg.payload`'a yazar — bu çıktı şekli
+`json-to-excel`'in `payloadProp`/`bufferProp` varsayılanlarıyla (`payload.
+data`/`payload.buffer`) TAM olarak eşleşiyor (iki node'un round-trip
+tasarımı bu). `msg.payload` SADECE `Buffer` olabilir (base64 string DEĞİL —
+bizim eski kodumuz base64'ü de kabul ediyordu, bu da kaldırıldı).
+
+**Yapılan değişiklikler**:
+- **`app-electron/main/flowRuntime.js`**: `_runJsonToExcelNode`/
+  `_runExcelToJsonNode` **`xlsx-populate`**'in gerçek kaynak kodundan
+  (`excel-write-helper.js`+`settings-helper.js`) birebir port edilen yeni
+  modül-seviyesi yardımcılarla (`xlsxFillWorkbook`, `xlsxWriteValueInCell`,
+  `xlsxGetHeaderSettings`/`xlsxGetOffsetSettings`, `xlsxChecksumFromBuffer`)
+  tamamen yeniden yazıldı — artık ASYNC (`XlsxPopulate` API'si promise
+  tabanlı), `_executeNode` zaten `await` ile çağırdığı için ek bir değişiklik
+  gerekmedi. `xlsxChecksumFromBuffer` **bilinçli bir sadeleştirme**: gerçek
+  paket `checksum-buffer` (multihash/IPFS formatı) kullanıyor, biz düz SHA-1
+  hex kullanıyoruz — byte-seviyesinde aynı değil ama `json-to-excel` node'un
+  KENDİSİ bu alanı hiç okumadığı için işlevsel bir fark yaratmıyor (yorum
+  olarak koda not edildi).
+- **`app-electron/main/flowDiagnostics.js`**: `"Input type unknown."` ve
+  `json-to-excel`'in "msg.X does not exist" hatası için yeni tanı desenleri
+  eklendi — artık agent/kullanıcı bu hataları görünce otomatik doğru teşhise
+  (`kind` yanlış seçilmiş / Data alanı obje değil) ulaşıyor.
+- **`src/flows/nodeCatalog.js`**: `json-to-excel`'in `kind` seçenekleri
+  `['auto','buffer','base64']` → **`['auto','blank','buffer']`** (gerçek
+  şema), `defaults.name` gerçek node gibi boş string.
+- **`package.json`**: yeni bağımlılık **`xlsx-populate`** (gerçek paketin
+  kullandığı KENDİSİ, taklit değil) — `npm install` ile kuruldu, paketlenmiş
+  `app.asar` içinde `node_modules/xlsx-populate/lib/Workbook.js`'in
+  gerçekten var olduğu `asar list` ile doğrulandı (mevcut `xlsx` deseniyle
+  birebir aynı externalize/require zinciri, `electron.vite.config.ts`'e
+  dokunulmadı).
+- **Canlı doğrulama (bu makinede, gerçek kütüphaneye karşı)**: geçici bir
+  smoke-test scripti (`FlowRuntime` sınıfını doğrudan import edip) 5 senaryo
+  çalıştırdı, hepsi PASS: (1) kullanıcının ORİJİNAL bozuk flow'u artık
+  gerçek Canlı host'takiyle **BİREBİR AYNI** `"Input type unknown."` hatasını
+  veriyor (önceden hiç hata vermiyordu — asıl şikayet buydu), (2) doğru
+  kullanım (`kind:"auto"`, `payload.data={Sheet1:[...]}`) geçerli bir xlsx
+  buffer'ı üretiyor, (3) `excel-to-json` ile round-trip doğru veriyi geri
+  veriyor, (4) `kind:"blank"` direkt çalışıyor, (5) düz dizi payload verilirse
+  net bir "obje olmalı" hatası dönüyor (gerçek node'da sessizce patlayan bir
+  durumu bizim tarafımızda daha açıklayıcı, ama davranış olarak "işe
+  yaramıyor" sonucu aynı). Script sonrasında silindi.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+
+**Sonraki oturum için not**: Bu tur SADECE excel node'larını (kullanıcının
+somut şikayeti) kapsıyor. Kullanıcının "her şey 1:1 aynı olmalı" talebi
+kapsam olarak ÇOK daha büyük — gerçek kurulumda başka onlarca custom node
+paketi var (`axetflows-db-*` 6 node "Deprecated nodes" kategorisinde —
+bizim nodeCatalog'daki `nosql-persist/query/remove/remove-all/find-one`
+adları GERÇEK tip string'leriyle `axetflows-db-persist/query/remove/
+remove-all/find-one` EŞLEŞMİYOR, bu yüzden "Cloud'a Kaydet" ile gönderilen
+bir flow'da bu node'lar Canlı host'ta "tip bulunamadı" hatası verebilir;
+`nosql-count`/`sql-query`'nin gerçek bir karşılığı bu kurulumda bulunamadı;
+`axetflows-ui/*` form/auth node'ları, `axetflows-network`, `axetflows-use-
+register`, `deptapps-vpn`, `mdone-integration` gibi paketler henüz hiç
+denetlenmedi). Gerçek kurulum yolu: `C:\Users\10134570\AppData\Local\
+axet-flows\.deptapps-desktop\electron-releases\WINDOWS_X64\latest-prod\
+resources\app\node_modules\` (hem `@node-red/nodes/*` hem üst seviye
+`deptapps-flows-contrib-*`/`axetflows-*` paketlerine bak — bazı node'ların
+GERÇEK kaynağı `@node-red/nodes` altında değil, üst seviye `node_modules`'ta
+ayrı bir contrib paketinde, bu turda tam da bu yüzden bulundu). Devam etmek
+istenirse aynı yöntem: gerçek `.html` (editor tanımı, `defaults`/fields) +
+`.js` (calisma mantığı, hangi npm paketini kullanıyor) dosyalarını oku,
+nodeCatalog.js + flowRuntime.js'i buna göre düzelt, `node --check` +
+gerçek bir smoke-test scriptiyle doğrula.
+
+## "Her Şey 1:1 Aynı Olmalı" — İkinci Tur Tam Denetim (2026-08-29, aynı gün devamı)
+
+Kullanıcı yukarıdaki "sonraki oturum" notunu bu OTURUMDA devam ettirdi —
+"TÜM node ailelerini sırayla denetle" seçildi. Önceki turun "bulunamadı"
+dediği `nosql-count`/`sql-query` gibi bazı tipler bu turda GERÇEKTEN
+bulundu — kök sebep: bunların gerçek kaynağı `@node-red/nodes/*` altında
+DEĞİL, `resources/app/node_modules/` **üst seviyesinde ayrı contrib
+paketlerinde** (`axet-flows-contrib-nodes-db-nosql`, `axet-flows-contrib-
+nodes-db-sql`, `deptapps-flows-contrib-credentials`, `deptapps-flows-
+contrib-email`, `deptapps-flows-contrib-nodes-audit`, `deptapps-flows-
+contrib-nodes-axet`, `deptapps-flows-contrib-nodes-enabler`, `deptapps-
+flows-contrib-nodes-ms-graph-mail-client`, `deptapps-flows-contrib-nodes-
+ms-graph-sharepoint-client`, `deptapps-flows-contrib-nodes-session`,
+`deptapps-flows-contrib-axet-agents`, `axet-flows-contrib-nodes-agents`,
+`axet-flows-contrib-nodes-axet-ai-capabilities`, `axet-flows-contrib-nodes-
+axet-ui-spa` (yeni), `axet-flows-contrib-nodes-axet-worker`, `axet-flows-
+contrib-nodes-node-backend`, `axet-flows-contrib-nodes-python-agent`,
+`axet-flows-contrib-nodes-userbot` (yeni)) — önceki turda SADECE
+`packages/node_modules/@node-red/nodes` taranmıştı, üst seviye
+`node_modules` hiç taranmamıştı.
+
+**Yöntem**: Node.js ile (`registerType\(\s*(['"])((?:(?!\1).)*)\1` regex'i)
+`axet-`/`deptapps-` önekli TÜM üst seviye paketlerdeki `.html` dosyalarından
+`registerType(...)` çağrılarının ilk ~1800 karakteri toplu dump edildi
+(~3700 satır), tek tek okunup mevcut `nodeCatalog.js`/`flowRuntime.js` ile
+karşılaştırıldı.
+
+**Sonuç — çoğu önceki giriş DOĞRU çıktı** (query/refine/history/axet-config,
+enabler-llm, ms-graph-mail-config/shp-config, session save/get/set/destroy,
+credentials/secret/hidden-secret, sql-query, use-case/audit-config'in temel
+alanları, axet-agents-execute, axet-ai-capability-*, e-mail/e-mail in/
+check-login) — önceki oturumların dikkatli çalıştığının kanıtı. Bulunan ve
+DÜZELTİLEN farklar:
+
+1. **`'aXet Agent'` kategorisi yanlıştı**: gerçek node (`deptapps-flows-
+   contrib-axet-agents/nodes/agent-external-backend/crewai-agent-
+   extback.html`) `category: 'Deprecated nodes'` ile kayıtlı — bizim `'ai'`
+   kategorimiz yanlıştı, `'deprecated'`e çekildi.
+2. **`'audit-use-case'` tipi TAMAMEN HALLUSİNASYONDU** — gerçek palette'te bu
+   isimde `registerType` çağrısı YOK (sadece `'use-case'` var, zaten ayrıca
+   tanımlıydı) — "use case (alias)" girişi tamamen SİLİNDİ, "sıfır
+   halüsinasyon" ilkesine aykırıydı.
+3. **`use-case`'in `useCaseCategory`/`isAI` alanları** gerçek node'da SERBEST
+   METİN (`{type:'text'}`, enum/select YOK) ve varsayılanları BOŞ —
+   bizim `select` (`AUDIT/AI/AUTOMATION`, `true/false`) + `useCaseCategory`
+   varsayılanı `'AUDIT'` UYDURMAYDI, düzeltildi (artık `type:'text'`, boş
+   varsayılan).
+4. **`python-agent` eksik alanlar**: gerçek node'da olup bizde olmayan
+   `pyenvTargetVersion`, `sourceCwd`, `apiName`, `apiRoutes` (deprecated ama
+   hâlâ var), `modelClientId` eklendi (`gitToken` credentials-tipi, diğer
+   credential alanları gibi regular field olarak modellenmedi).
+5. **`python-gateway` eksik alanlar**: `corsMethods`, `corsHeaders`,
+   `agentRoutes`, `backendPrefix`, `internalPort`, `wsAuthMode` eklendi;
+   `corsOrigins` varsayılanı `''` → gerçek `'*'`.
+6. **`node-backend` eksik alanlar**: `language` (varsayılan `'javascript'`)
+   ve `inputs` (0/1) eklendi.
+7. **`nosql-persist`/`nosql-remove`**: gerçek node'da olup bizde olmayan
+   `collectionPropertyType`/`propertyType` (`'str'`/`'msg'`) + hepsine
+   (persist/remove/remove-all/query, find-one HARİÇ — gerçek kaynakta o
+   node'da bu alan yok) `dbNameIsBlockByAutogeneration` eklendi.
+   `nosql-find-one`'a `collectionPropertyType`/`identifierPropertyType`/
+   `bindingPropertyType` eklendi.
+8. **8 YENİ node TAMAMEN EKSİKTİ, katalogda hiç yoktu**:
+   - **`enabler-audio`** (`deptapps-flows-contrib-nodes-enabler/nodes/audio/
+     audio.html`) — ses/transkripsiyon AI node'u, `enabler-config`
+     referanslı, `language`/`translate` alanları.
+   - **`axet-spa-app`**, **`axet-spa-sdk-event-in`**, **`axet-spa-sdk-event-
+     out`**, **`axet-spa-sdk-request-in`**, **`axet-spa-sdk-request-out`**
+     (`axet-flows-contrib-nodes-axet-ui-spa`, TAMAMEN YENİ bir paket, önceki
+     turda taranmamıştı) — derlenmiş bir SPA'yı (statik dosya VEYA git-clone+
+     build) servis eden ve SSE tabanlı bir "SDK" mesaj köprüsü sunan node
+     ailesi. **`axet-spa-app` eski `axetflows-app` ile AYNI flow'da birlikte
+     KULLANILAMAZ** (gerçek editör bunu otomatik siliyor) — bu kısıtlama
+     kod/comment olarak nodeCatalog.js'e not edildi.
+   - **`UserBot`**, **`OktaBot`** (`axet-flows-contrib-nodes-userbot`,
+     TAMAMEN YENİ bir paket) — Okta'ya karşı gerçek bir robot kullanıcı
+     doğrulayan credential node'ları. **Type string'leri GERÇEKTEN BÜYÜK
+     HARFLE başlıyor** (`'UserBot'`/`'OktaBot'`, projedeki diğer TÜM
+     tiplerin aksine — kaynak koddan doğrulandı, yazım hatası değil, agent
+     bunu küçük harfe çevirmemeli).
+9. **`SIMULATED_TYPES`e eklendi** (`flowRuntime.js`): `enabler-audio`,
+   `axet-spa-app`, `axet-spa-sdk-event-in/out`, `axet-spa-sdk-request-in/
+   out`, `UserBot`, `OktaBot` — hepsi bu ortamda güvenle çalıştırılamayacak
+   (harici git clone/SPA build/statik sunucu, gerçek Okta tarayıcı otomasyonu
+   + TOTP) dış entegrasyonlar.
+10. **`systemPrompt.js`'teki `json-to-excel` açıklaması DÜZELTİLDİ** — eski
+    metin hâlâ "düz obje dizisi" bekliyor diyordu (bu oturumun BAŞINDAKİ
+    excel düzeltmesinden ÖNCEKİ, artık yanlış bir varsayım) — artık gerçek
+    `{SayfaAdı:[satırlar]}` sözleşmesini, `kind` seçeneklerini ve
+    `excel-to-json` ile round-trip uyumunu doğru anlatıyor; agent'ın
+    ÜRETTİĞİ flow'ların gerçek host'ta çalışma ihtimali artık daha yüksek.
+
+**Bilinçli olarak bu turda YAPILMAYAN (kapsam dışı bırakıldı, zaman/fayda
+dengesi)**: `axetflows-ui/*` (form/auth alt-node'ları — `axetflows-form`,
+`axetflows-view-action` vb. — zaten büyük ölçüde taranmıştı önceki turlarda),
+`axetflows-network` (sadece `axetflows-http-in`, zaten doğrulanmıştı),
+`deptapps-vpn`, `mdone-integration`, `axet-flows-contrib-nodes-axet-ai-
+capabilities`'in `types/capability.js` gibi yardımcı dosyaları — bunlar ya
+zaten önceki turlarda doğrulanmıştı ya da bu turda incelenen dump'ta hiçbir
+tutarsızlık göstermedi (satır satır zaten örtüşüyordu).
+
+**Doğrulama**:
+- Yeni bir Node.js smoke-test scripti (`NODE_CATALOG`'u doğrudan import
+  edip) TÜM girişlerin `category`/`label`/`color`/`fields`/`defaults`/
+  `formFields` bütünlüğünü, `aXet Agent`/`enabler-audio`/`axet-spa-app`/
+  `UserBot`/`OktaBot` kategorilerini, `audit-use-case`'in silindiğini,
+  `use-case` varsayılanlarının boş olduğunu ve `json-to-excel`'in `kind`
+  seçeneklerinde `base64` KALMADIĞINI doğruladı — hepsi PASS (script
+  sonrasında silindi). "Missing category" uyarıları SADECE `isConfig:true`
+  config node'ları için çıktı (tasarım gereği, gerçek regresyon değil, tek
+  tek `isConfig` bayrağı kontrol edilerek doğrulandı).
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+- Görsel/canlı doğrulama (bu 8 yeni node'un canvas'ta doğru göründüğü,
+  agent'ın bunları doğru şekilde ürettiği/"Cloud'a Kaydet" ile Canlı host'a
+  gönderilen bir flow'un artık gerçekten kabul edildiği) bu ortamda
+  yapılamadı — kullanıcının kendi makinesinde denemesi gerekiyor.
+
+**Hâlâ kapsam dışı / gelecek bir tur için not**: `resources/app/node_modules`
+altında henüz taranmamış birkaç küçük paket var (`deptapps-notifications`,
+`deptapps-workers` — `.html` dosyaları hiç yok, muhtemelen sadece backend/
+worker altyapısı, node paleti tipi içermiyor; doğrulandı, kapsam dışı
+bırakılması güvenli). `axetflows-ui/application` klasöründeki devasa
+`axetflows-app`'in TÜM alt-özellikleri (roller, oturum, tema) önceki
+turlarda zaten taranmıştı, bu turda tekrar edilmedi.
+
+## Debug Panel "Flow Adımları" Scroll'u — JS Güvenlik Ağı Eklendi (2026-08-29)
+
+**Şikayet**: "debug ekranında flow kısmında scroll yok" — bu TAM ŞİKAYET
+daha önce de gelmişti (bkz. yukarıdaki "axet.flows — Bağlantı Çizgisi (Edge)
+Görünürlüğü ve Debug Scroll Şikayeti" bölümü, 2026-08-28), o turda derin bir
+statik analiz (CSS `flex:1`+`min-height:0`+`overflow-y:auto` zinciri, orijinal
+kaynakla satır satır karşılaştırma) yapılmış ve **kod tarafında hiçbir fark
+bulunamamıştı** — "kanıtlanmış-çalışan orijinalle özdeş" sonucuna varılmıştı.
+
+**Bu turda yapılan**: Kullanıcıya `ask_user` ile net bir teşhis sorusu
+soruldu ("scrollbar hiç görünmüyor mu / görünüyor ama tekerlek çalışmıyor mu
+/ içerik zaten dolmuyor mu / panel kesik mi görünüyor") — cevap: **"Scrollbar
+hiç görünmüyor"**. Bu, CSS flex zincirinin (`.debug-panel` → `.debug-panel-
+list`) bir yerde piksel-bazlı yükseklik hesaplamasını BAŞARAMADIĞINI (yani
+`flex:1; min-height:0`'ın beklenen davranışı üretmediğini) işaret ediyor —
+bu tür Chromium/Electron'a özgü, çok katmanlı iç içe flex bağlamlarında
+(App.tsx → AxetFlowsHome → FlowProvider → AppShell → app-main-row →
+app-center-col → debug-panel → debug-panel-list, 7+ katman) ARA SIRA
+görülen, statik CSS okumasıyla asla kanıtlanamayan bir sınıf sorun.
+
+**Çözüm — CSS'e DOKUNMADAN, JS tabanlı bir güvenlik ağı**
+(`src/components/flows/DebugPanel.jsx`): Yeni bir `useEffect` +
+`ResizeObserver` — `.debug-panel` kutusunun (`panelRef`) gerçek
+`getBoundingClientRect().bottom`'undan `.debug-panel-list`'in
+(`scrollRef`) gerçek `getBoundingClientRect().top`'unu çıkararak KALAN
+GERÇEK PİKSEL yüksekliği hesaplar ve bunu `.debug-panel-list`'e **inline
+`style={{maxHeight: ...}}`** olarak zorlar. Bu, projenin BAŞKA yerlerinde
+zaten kanıtlanmış çalışan bir desenle (`.runs-view-list`/`.export-check-
+list`/`.templates-scroll` — hepsi flex-height propagation'a GÜVENMEDEN
+doğrudan `max-height` kullanıyor) AYNI mantığı, flex zincirinin GÜVENİLMEZ
+olabileceği bu özel derin-iç-içe senaryoya JS ile taşıyor:
+- `ResizeObserver` panel kutusunun kendisini VE listten önceki tüm
+  kardeşlerini (resize-handle, header, varsa execution-summary) izler —
+  panel yeniden boyutlandırıldığında, kayan-pencere moduna geçildiğinde
+  veya sekme değişip `execution-summary` görünür/gizlenince yeniden hesaplar
+  (`useEffect` bağımlılıkları: `floating`, `panelHeight`, `floatSize.height`,
+  `tab`, `chains.length`).
+- CSS'teki mevcut `flex:1; min-height:0; overflow-y:auto` KALDIRILMADI —
+  bu JS değeri sadece EK bir üst sınır olarak davranıyor; flex hesaplaması
+  doğru çalışıyorsa iki değer eşleşir ve hiçbir görsel fark olmaz, flex
+  hesaplaması BAŞARISIZ olduğu senaryoda ise bu piksel-kesin `maxHeight`
+  scroll'u garantiler.
+- **Bilinçli sınır**: Kök sebep (flex zincirinin TAM OLARAK hangi katmanda
+  başarısız olduğu) hâlâ kesin olarak kanıtlanamadı — bu ortamda gerçek
+  DevTools/computed-style incelemesi yapılamıyor. Ama çözüm kök sebepten
+  BAĞIMSIZ çalışıyor (gerçek ölçülen piksel değeri kullanıyor, flex'in ne
+  yaptığına güvenmiyor) — bu yüzden kök sebep ne olursa olsun etkili olması
+  gerekiyor.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+  Görsel doğrulama (scrollbar'ın gerçekten göründüğü, tekerlek/sürüklemenin
+  çalıştığı) kullanıcının kendi makinesinde yapılmalı — bu ortamda pencere
+  etkileşimi mümkün değil.
+
+## SAP GUI Scripting Ekranı — Faz 1: Bağlantı + Ekran Gezgini (2026-08-29, TAMAMLANDI)
+
+Kullanıcı isteği: uygulamaya SAP GUI Scripting için yeni bir ekran eklemek.
+Önce SAP GUI Scripting'in ne olduğu/sınırları araştırıldı (aşağıda özet),
+sonra mimari kararlar netleştirildi, sonra `axet.flows` ile AYNI kanıtlanmış
+şablonla (bağımsız Activity + kendi IPC namespace'i + kendi manager modülü)
+adım adım uygulandı. Kullanıcının seçtiği Faz 1 kapsamı: **"Bağlantı + Ekran
+Gezgini"** — açık SAP GUI oturumlarını listele, ekran ağacını/alanları/grid
+verisini canlı gör, manuel click/set/sendVKey ile test et. Kayıt-tekrar
+oynatma (RPA) ve AI agent doğal dil otomasyonu **bilerek bu turda YAPILMADI**
+— kullanıcı üçünden "Bağlantı + Ekran Gezgini"ni seçti, sonraki fazlar için
+zemin hazırlanmış oldu.
+
+### SAP GUI Scripting nedir (araştırma özeti)
+
+SAP GUI for Windows'a gömülü bir **COM otomasyon arayüzü**
+(`SapGuiAuto`/`sapfewse.ocx`, ProgID `SAPGUI`) — sadece **klasik Dynpro
+tabanlı SAP GUI ekranlarını** (Web Dynpro/Fiori **DEĞİL**) `GuiApplication →
+GuiConnection → GuiSession → wnd[0]/usr/...` şeklinde canlı bir COM nesne
+ağacı olarak sunar. `findById`, `.Text`, `.Press()`, `.SendVKey()`,
+`GuiGridView.GetCellValue()` gibi üye/metotlarla ekran okunup/yazılabilir.
+Etkinleştirme: istemci tarafı SAP GUI Options (Alt+F12) → Accessibility &
+Scripting → Scripting → "Enable scripting"; sunucu tarafı
+`sapgui/user_scripting=TRUE` profil parametresi (RZ11). **Bilinen sınırlar**:
+sadece klasik ekranlar; `GuiGridView` (ALV) ile `GuiTableControl` (klasik
+tablo) TAMAMEN farklı API'ler; popup'lar (`wnd[1]`, `wnd[2]`...)
+`GuiModalWindow` olarak öngörülemez şekilde belirir; element ID'leri SAP GUI/
+backend versiyonuna göre kırılabilir; Citrix/RDS üzerinden çalışmak için
+otomasyonun SAP GUI ile **aynı** oturumda çalışması gerekir (uzaktan bağlanan
+bir bot sadece piksel görür, gerçek COM nesnelerini göremez); lisans/
+compliance açısından SAP bunu "kendi tekrarlayan iş süreçlerini otomatikleş­
+tirme/test etme" aracı olarak konumlandırıyor, toplu veri çekme/entegrasyon
+API'si muadili DEĞİL.
+
+### Mimari karar
+
+`axet.flows` ile AYNI kanıtlanmış şablon (bağımsız Activity + kendi IPC
+namespace'i + kendi manager modülü) — bu özellik `connectToSystem()`/
+`.conn_adt` akışına HİÇ bağlı değil, kullanıcının o an AÇIK olan bir SAP
+Logon/SAP GUI penceresine (win32com COM otomasyonu üzerinden) bağlanıyor.
+
+**Neden Python+pywin32, Node native COM köprüsü değil**: Node.js'in kendi
+COM köprüleri (`winax` vb.) node-gyp/Visual Studio derlemesi gerektiriyor —
+bu proje zaten RFC bridge için TAM AYNI sebeple (bu makinede VS derleme
+ortamı yok) Python+pywin32'ye yönelmişti (bkz. yukarıdaki "pyrfc/SAP NW RFC
+SDK — Windows'ta gerçek kurulum sorunları" bölümü). Aynı mantık burada da
+geçerli — `pywin32` PyPI'dan kurulabiliyor (bu makinede canlı doğrulandı),
+derleme gerektirmiyor.
+
+**Bileşenler**:
+- **`resources/guiscript-runtime/`** (yeni, **repoya commit edilmiyor** —
+  `.gitignore`'a eklendi, `resources/rfc-runtime` ile AYNI mantık) — gömülü
+  Python 3.12 + `pywin32`. Hazırlama: `resources/rfc-runtime/python`'ın
+  budanmış kopyası temel alındı (pyrfc/dotenv temizlenip `pip install
+  pywin32` ile üzerine kuruldu) — sıfırdan bir Python indirmek/budamak
+  yerine zaten hazır/kanıtlanmış bir kopyayı yeniden kullanmak daha hızlı ve
+  güvenilirdi. Toplam boyut ~64MB.
+- **`resources/sap-gui-scripting/sap_gui_scripting_bridge.py`** (yeni,
+  **repoya commit EDİLİYOR** — bu bizim kendi kodumuz, lisanslı bir SDK
+  değil, `adt_rfc_bridge.py`'nin sap-toolkit altında commit edilmesiyle AYNI
+  mantık) — `http.server.HTTPServer` (TEK THREAD, `ThreadingHTTPServer`
+  DEĞİL — SAP GUI Scripting COM nesneleri STA/tek-apartman'a bağlı, birden
+  fazla thread'den erişim marshaling sorunlarına yol açabilir; bu bridge'in
+  amacı da yüksek throughput değil manuel test, tek thread yeterli ve daha
+  güvenli) tabanlı yerel HTTP+JSON sunucusu. Endpoint'ler: `GET /health`,
+  `GET /connections`, `GET /connections/{c}/sessions`, `GET /session/{c}/
+  {s}/node?id=...` (lazy component tree — bir node'un özet çocukları), `POST
+  /session/{c}/{s}/action` (`setText`/`press`/`select`/`sendVKey`/
+  `selectContextMenuItem`/`doubleClick`). Grid tespiti: `GuiGridView`/
+  `GuiShell(SubType=GridView)` (ALV) ile `GuiTableControl` (klasik) AYRI
+  fonksiyonlarla okunuyor (`_describe_grid`), ilk 200 satır/40 kolonla
+  sınırlı. Her COM property okuması `_try()` ile best-effort (tip başına
+  farklı sözleşmeler olduğu için hiçbir alan "her zaman var" sayılmıyor).
+  MK_E_SYNTAX (-2147221020) gibi bilinen COM hata kodları anlaşılır Türkçe
+  mesajlara çevriliyor (`_translate_com_error`).
+- **`app-electron/main/embeddedRuntime.ts`**: `getEmbeddedGuiScriptRuntime()`
+  eklendi — `getEmbeddedRfcRuntime()` ile AYNI desen (`app.isPackaged`'e göre
+  path çözümü), `{pythonPath, bridgeScriptPath}` döner.
+- **`app-electron/main/sapGuiScriptManager.ts`** (yeni) —
+  `rfcBridgeManager.ts`/`adtReadonlyServerManager.ts` ile AYNI desen (spawn/
+  health-check/stop, log tail biriktirme, "external" — kullanıcı elle veya
+  önceki oturumdan zaten çalışan bir process'i tespit edip ikinci bir
+  process açmama). **Tek fark**: RFC bridge/readonly server proje klasörü
+  BAŞINA bir process tutar (`Map<projectDir,...>`) — bu bridge ise
+  `connectToSystem()`'a hiç bağlı değil, proje kavramı yok, bu yüzden TEK
+  bir global (singleton) process yönetiliyor (`let current: RunningBridge |
+  null`).
+- **`app-electron/main/sapGuiScriptClient.ts`** (yeni) — main process'in
+  bridge'e `node:http` ile konuştuğu ince istemci (`axetFlowsLiveSave.ts`'teki
+  `httpJson()` yardımcısıyla AYNI desen, bilerek küçük bir kopya — iki modül
+  birbirine bağımlı olmasın diye). `guiScriptListConnections/ListSessions/
+  GetNode/PerformAction` — hepsi `{ok, ..., error?}` sözleşmesiyle döner.
+- **`shared/types.ts`**: `GuiScriptBridgeStatus/StartResult/ConnectionInfo/
+  SessionInfo/ComponentSummary/ComponentDetail/GridData/ActionPayload/
+  ActionResult` — projenin `{ok, ..., error?}` sonuç şekli konvansiyonuna
+  uygun.
+- **`main/index.ts`**: `sapGuiScript:` IPC namespace'i (`start`/`stop`/
+  `status`/`listConnections`/`listSessions`/`getNode`/`performAction`),
+  `DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790` (mevcut RFC bridge 8788/readonly
+  server 8787 ile çakışmıyor). `stopGuiScriptBridge()` her iki `app.on(...)`
+  kapanış hook'una (`window-all-closed`/`before-quit`) eklendi — zombi
+  `python.exe` kalmasın diye, mevcut temizlik noktasıyla AYNI yer.
+- **`preload/index.ts` + `src/window.d.ts`**: `startGuiScriptBridge/
+  stopGuiScriptBridge/getGuiScriptBridgeStatus/listGuiScriptConnections/
+  listGuiScriptSessions/getGuiScriptNode/performGuiScriptAction` — standart
+  zincir (preload → window.d.ts mirror) izlendi.
+- **`src/components/ActivityBar.tsx`**: `Activity` union'a `"sapGuiScripting"`
+  eklendi, `MousePointerClick` (lucide-react) ikonuyla yeni bir aktivite
+  girdisi (`axetFlows`/`axetFlowsLive` ile AYNI görsel desen).
+- **`src/App.tsx`**: `activity === "sapGuiScripting"` dalı — `axetFlows` ile
+  AYNI basit mount/unmount ternary (kalıcı `<iframe>` gibi bir durum yok,
+  `axetFlowsLive`'ın "her zaman mount, CSS-hidden" özel deseni GEREKMEDİ).
+- **`src/components/SapGuiScriptingHome.tsx`** (yeni) — üç panel:
+  - **Sol**: bağlantılar/oturumlar (lazy accordion, `FileExplorer.tsx`'teki
+    tembel klasör yükleme deseniyle AYNI mantık).
+  - **Orta**: ekran ağacı (component tree) — bir oturum seçilince kök
+    (`session.ActiveWindow`, popup açıksa OTOMATİK olarak o popup'a kayar —
+    Python bridge'deki `resolve_component` fallback'i sayesinde) yüklenir,
+    her node lazy expand edilir (`nodesByKey` cache, `FileExplorer.tsx`'teki
+    `childrenByPath` ile AYNI desen).
+  - **Sağ**: seçili elemanın detayı (id/tip/ad/tooltip/changeable) + aksiyon
+    butonları (Metin Yaz, Press, Select, Çift Tıkla, sendVKey, sağ-tık menü
+    öğesi seç) + varsa grid/tablo verisinin salt-okunur bir HTML tablosu.
+- **i18n**: `activityBar.sapGuiScripting` + tam bir `sapGuiScripting.*` blok
+  (tr/en, aynı sıra/aynı anahtarlar).
+- **`package.json`**: `build.extraResources`'a `resources/guiscript-runtime`
+  → `guiscript-runtime` ve `resources/sap-gui-scripting` → `sap-gui-scripting`
+  eklendi (`sap-toolkit`/`rfc-runtime` ile AYNI desen).
+
+**Canlı doğrulama (bu makinede, SAP GUI kurulu OLMADAN)**:
+- Gömülü Python + pywin32: `win32com.client.GetObject("SAPGUI")` çağrısı
+  hem dev konumundan hem **paketlenmiş** `release/win-unpacked/resources/
+  guiscript-runtime/python/python.exe`'den çalıştırılıp DLL yükleme
+  zincirinin (`pywin32_system32` → `os.add_dll_directory`+PATH) hatasız
+  çalıştığı, ve beklenen `MK_E_SYNTAX` (-2147221020, "SAP GUI kurulu değil"
+  anlamına gelir) hatasının alındığı doğrulandı.
+- `sap_gui_scripting_bridge.py` gerçekten spawn edilip `/health`,
+  `/connections` (502 + doğru Türkçe hata mesajı), `POST /session/0/0/action`
+  (502 + aynı hata) canlı test edildi — hepsi doğru çalıştı.
+- `sapGuiScriptManager.ts`/`sapGuiScriptClient.ts` (Electron'a bağımlı
+  değiller) `tsx` ile bağımsız, GERÇEK bir spawn'a karşı 7 senaryo test
+  edildi: ilk başlatma, "zaten çalışıyor" tespiti, 4 endpoint'in hepsinin
+  doğru hata mesajını taşıması, düzgün durdurma — hepsi PASS. Test script'i
+  sonrasında silindi.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti. Paketlenmiş build içinde `guiscript-runtime/python/
+  python.exe` ve `sap-gui-scripting/sap_gui_scripting_bridge.py`'nin
+  gerçekten var olduğu doğrulandı.
+
+**Test EDİLEMEYEN (bu ortamda SAP GUI kurulu değil)**:
+- Gerçek bir SAP GUI'ye karşı `/connections`/`/session/.../node` endpoint'­
+  lerinin GERÇEK veri döndürdüğü — özellikle `_describe_grid()`'in
+  `GuiGridView`/`GuiTableControl` tespiti/okuması (API dokümantasyonundan
+  yazıldı ama canlı doğrulanmadı) ve `session.ActiveWindow`'un popup'lara
+  gerçekten otomatik kaydığı. Kullanıcının kendi makinesinde (SAP GUI kurulu,
+  SAP Logon açık) ekranı açıp "Bağlan" → bir sisteme bağlanmış SAP Logon
+  oturumunun ağaçta gerçekten göründüğünü, bir alana tıklayıp "Metni Yaz" +
+  "Press" ile basit bir işlem (örn. bir T-code'a geçiş) yapabildiğini, ve
+  bir ALV grid ekranında (örn. SE16/SE11 sonuç listesi) grid verisinin
+  doğru göründüğünü doğrulaması gerekiyor.
+- SAP GUI Scripting'in istemci tarafında (Options → Scripting) devre dışı
+  bırakılmış olma ihtimali — bu durumda köprü ayakta kalır ama
+  `/connections` GERÇEK bir COM hatası (farklı bir mesaj) döndürebilir;
+  `_translate_com_error()`'daki genel "kontrol listesi" mesajı bu durumu
+  kapsıyor ama spesifik bir kod-eşleşmesi yazılmadı (MK_E_SYNTAX dışındaki
+  kodlar için genel mesaj kullanılıyor).
+
+**Sonraki fazlar için zemin (bu turda YAPILMAYAN, kullanıcı bilerek
+sonraya bıraktı)**:
+1. **Kayıt + Tekrar Oynatma (RPA)** — kullanıcının SAP GUI'de yaptığı
+   adımları kaydedip bir script olarak saklama/tekrar oynatma. Bu Faz 1'in
+   `/session/.../action` endpoint'i üzerine inşa edilebilir (her aksiyonu
+   bir "adım" olarak loglamak + bir dizi adımı sırayla tekrar oynatan yeni
+   bir endpoint), ekstra bir COM kavramı gerekmez.
+2. **AI Agent ile doğal dil otomasyonu** — `axet.flows`'un agent mimarisiyle
+   (JSON-aksiyon protokolü, `axetChat.ts`/`runFlowsAgentStep` deseni) AYNI
+   yaklaşım uygulanabilir: agent'a bu Faz 1'deki `getNode`/`performAction`
+   primitives'lerini bir "tool" seti olarak ver, agent kendi kendine
+   `findById` yolu icat etmeye çalışmadan önce HER ZAMAN `getNode` ile
+   gerçek ağacı okuyup gerçek ID'leri kullanmalı (yoksa hallusinasyon
+   riski — bu tur bilerek bu riski azaltacak şekilde tasarlandı: agent'a
+   asla "kendi ID'ni uydur" seçeneği verilmeyecek, sadece gördüğü node'ların
+   gerçek ID'lerini kullanabilecek).
+3. **`small` model / port yapılandırması / bridge'i otomatik başlatma**
+   (açılışta) gibi cilalamalar — bu turda kapsam dışı, kullanıcı hiç
+   istemedi.
+
+## SAP GUI Scripting Ekranı — Faz 2: Kayıt + Tekrar Oynatma (RPA) (2026-08-29, TAMAMLANDI)
+
+Kullanıcı "diğer adıma geçelim" dedi — Faz 1'in sonundaki plana göre sıradaki
+adım **Kayıt + Tekrar Oynatma**. Faz 1'in `performAction` primitive'i üzerine
+inşa edildi, backend'e (`sap_gui_scripting_bridge.py`) HİÇ dokunulmadı —
+kayıt/oynatma tamamen renderer tarafında (state + JSON dosya I/O) yaşıyor.
+
+**Tasarım**:
+- **Kayıt**: `SapGuiScriptingHome.tsx`'teki `recording: boolean` state'i
+  açıkken, sağ paneldeki aksiyon butonlarından (`runAction` — Faz 1'in
+  KENDİSİ, değiştirilmedi) tetiklenen HER BAŞARILI aksiyon `steps` dizisine
+  bir `GuiScriptRecordedStep` (`{action, id?, value?, vkey?, label}`) olarak
+  eklenir. `label` insan-okunur bir özet (`describeStep()` — örn.
+  `setText("100") → wnd[0]/usr/txtRSYST-MANDT`), seçili elemanın adı/tipi
+  varsa (Faz 1'in zaten yüklediği `selectedNode`) etiket onu kullanır.
+- **Tekrar oynatma**: `handlePlayScript()` adımları SIRAYLA
+  `performGuiScriptAction`'a gönderir — **`runAction`'ı BİLEREK ATLAR**
+  (doğrudan `window.api.performGuiScriptAction` çağırır) — aksi halde kayıt
+  açıkken oynatma yapılırsa oynatılan adımlar sonsuza kadar tekrar tekrar
+  kaydedilirdi. Adımlar arasında `PLAYBACK_STEP_DELAY_MS = 350` ms sabit bir
+  bekleme var (SAP GUI'nin bir aksiyonu — özellikle Enter/T-code geçişi —
+  işleyip ekranı güncellemesi için asgari bir süre; Faz 1 araştırmasındaki
+  "SAP GUI Scripting'in kendi bir wait mekanizması yok" bulgusunun doğal
+  sonucu, gerçek bir "ready" tespiti YOK, kanıtlanmış çalışan `axet_rfc_
+  bridge.py`/`RfcBridgeBusy` gibi bir "bekle" mekanizması bu turda
+  eklenmedi — basit sabit gecikme bilinçli bir ilk-adım tercihi). İlk hatalı
+  adımda oynatma DURUR (agresif/güvenli taraf — bir adım başarısız olduysa
+  sonraki adımların hangi ekranda çalışacağı garanti değil).
+- **Kaydet/Aç**: `sapGuiScript:saveScript`/`sapGuiScript:openScript` IPC
+  handler'ları (`main/index.ts`) — `flows:saveJson`/`flows:openJson` ile
+  **BİREBİR AYNI** dialog-tabanlı desen (`dialog.showSaveDialog`/
+  `showOpenDialog`, JSON dosyası). Script şekli: `GuiScriptScript = {name,
+  createdAt, steps}` — düz JSON, ekstra bir şema doğrulaması yok (mevcut
+  `flows:openJson`'ın da yapmadığı gibi, kullanıcı elle bozarsa `JSON.parse`
+  hata fırlatır, `scriptMessage`'a yazılır).
+- **UI**: Faz 1'in 3-panelli görünümüne (bağlantılar/oturumlar → ekran
+  ağacı → detay+aksiyonlar) header'da iki yeni buton eklendi (Kaydı Başlat/
+  Durdur — kırmızı dolu daire/kare ikon, Script paneli toggle — adım
+  sayısını gösteren bir rozetle), ve **alta, `axet.flows`'un `DebugPanel`
+  paneli ile AYNI "toggle edilebilir alt panel" deseninde** yeni bir Script
+  paneli (`scriptPanelOpen`) — adım listesi (numaralı, oynatma sırasında
+  canlı ✓/✗ durumu + hata mesajı gösterir, her adım tek tek silinebilir),
+  script adı input'u, Oynat/Kaydet/Aç/Temizle butonları.
+
+**Değişen dosyalar**:
+- **`shared/types.ts`**: `GuiScriptRecordedStep`, `GuiScriptScript`,
+  `GuiScriptJsonFileResult`, `GuiScriptPlaybackStepResult` eklendi.
+- **`main/index.ts`**: `sapGuiScript:saveScript`/`sapGuiScript:openScript`
+  IPC handler'ları eklendi (mevcut `sapGuiScript:` namespace'ine).
+- **`preload/index.ts` + `window.d.ts`**: `saveGuiScriptScript`/
+  `openGuiScriptScript` — standart zincir.
+- **`SapGuiScriptingHome.tsx`**: `recording`/`steps`/`scriptName`/
+  `scriptPanelOpen`/`playing`/`playIndex`/`playResults` state'leri,
+  `describeStep()` (saf fonksiyon), `handleToggleRecording`/
+  `handleClearSteps`/`handleRemoveStep`/`handleSaveScript`/
+  `handleOpenScript`/`handlePlayScript`, `runAction`'a kayıt hook'u eklendi.
+
+**Doğrulama**:
+- `describeStep()`'in mantığı (aynı kod, izole) + `GuiScriptScript` JSON
+  round-trip'i (`JSON.stringify`→`JSON.parse`) `tsx` ile bağımsız test
+  edildi — hepsi PASS. Dialog-tabanlı `saveScript`/`openScript` IPC
+  handler'ları (`dialog.showSaveDialog`/`showOpenDialog` gerçek bir
+  Electron penceresi/kullanıcı etkileşimi gerektirdiği için) bu ortamda
+  CANLI test edilemedi — ama `flows:saveJson`/`flows:openJson` ile **kod
+  satırı satırına aynı** (sadece başlık/varsayılan dosya adı farklı),
+  o ikisi zaten üretimde kanıtlanmış çalışıyor, bu yüzden risk düşük.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+
+**Test EDİLEMEYEN (bu ortamda SAP GUI kurulu değil, Faz 1'deki aynı
+sınırlama)**: gerçek bir SAP GUI'ye karşı kayıt yapıp (örn. bir T-code'a
+girip birkaç alan doldurup Enter'a basmak) tekrar oynatmanın GERÇEKTEN aynı
+sonucu ürettiği — özellikle `PLAYBACK_STEP_DELAY_MS`'in yeterli olup
+olmadığı (ekran geçişi bu süreden uzun sürerse bir sonraki adım YANLIŞ
+ekranda `findById` hatası alabilir) kullanıcının kendi makinesinde
+doğrulanmalı. Yetersiz çıkarsa ilk iyileştirme noktası: sabit gecikme
+yerine `getNode` ile "hedef element artık var mı" diye polling yapan bir
+bekleme (mevcut `getNode` primitive'i zaten bunun için yeterli, backend
+değişikliği gerekmez).
+
+**Sonraki adım (kullanıcı henüz karar vermedi)**: Faz 1 sonundaki plandaki
+3. seçenek — **AI Agent ile doğal dil otomasyonu** — hâlâ yapılmadı, bu iki
+fazın (ekran gezgini + kayıt/oynatma) üzerine inşa edilebilir durumda.
+
+## SAP GUI Scripting Ekranı — Faz 3: AI Agent ile Doğal Dil Otomasyonu (2026-08-29, TAMAMLANDI)
+
+Kullanıcı "edelim" dedi — Faz 1 planındaki 3. seçenek. `axet.flows`'un agent
+mimarisi (`src/flows/agent/{systemPrompt,tools,agentRunner}.js` +
+`app-electron/main/axetFlowsAgent.ts`) önce alt-agent ile tam olarak
+araştırılıp (JSON-aksiyon protokolü, stateless `axet-code run --quiet`
+çağrısı, stdin prompt, sabit scratch cwd, `extractJson`/`normalizeActions`/
+`buildPrompt`/`runAgentTurn` döngüsü) BİREBİR AYNI iskelet SAP GUI Scripting
+için port edildi — Faz 1/2'nin `getNode`/`performAction` primitives'leri
+üzerine.
+
+### Mimari — flow builder'dan farklar
+
+1. **Asenkron executor**: flow builder'ın `createExecutor`'ı SENKRON (bir
+   in-memory `FlowModel`'i doğrudan mutasyona uğratıyor) — SAP GUI Scripting'in
+   HER aksiyonu gerçek bir IPC round-trip'i (main process → Python bridge →
+   COM), bu yüzden `src/lib/sapGuiAgent/tools.ts#createExecutor` **ASENKRON**
+   bir `executeTool` döner, `agentRunner.ts` her aksiyonu `await` eder.
+2. **"ref" mekanizması YOK**: flow builder'da `add_node` gibi aksiyonlar
+   YENİ bir id ÜRETİYOR (agent henüz gerçek id'yi bilmiyor, "ref" takma adı
+   gerekiyor). SAP GUI element ID'leri (`wnd[0]/usr/txtRSYST-BNAME` gibi)
+   zaten SAP'ın kendi verdiği SABİT string'ler — agent HİÇBİR ZAMAN yeni bir
+   id üretmiyor, sadece `get_node` ile GÖRDÜĞÜ id'leri kullanıyor. Bu, sistem
+   promptunda kural #1 olarak açıkça yazıldı (sıfır halüsinasyon ilkesinin bu
+   özellikteki karşılığı).
+3. **Daha düşük batch/iterasyon limitleri**: `MAX_ACTIONS_PER_BATCH = 6`
+   (flow builder'da 12), `MAX_ITERATIONS = 15` (flow builder'da 20) —
+   BİLİNÇLİ bir güvenlik farkı: flow builder'daki bir aksiyon canvas'ta bir
+   node eklemek (geri alınabilir, sadece görsel), SAP GUI Scripting'deki bir
+   aksiyon GERÇEK bir ekranı değiştirebilir (T-code geçişi, bir kayıt
+   silme). Sistem promptuna da açık bir kural eklendi (#9): ekran DEĞİŞTİREN
+   bir aksiyondan sonra ayni batch'te "kör" devam etme, bir sonraki turda
+   `get_node` ile yeni ekranı doğrula.
+4. **İptal (Cancel) desteği EKLENDİ** — `axetFlowsAgent.ts`'te HİÇ yoktu
+   (flow builder'da hiç ihtiyaç duyulmamıştı), `axetChat.ts`'teki
+   `Map<requestId, ChildProcess>` + `__markCancelled` deseni buraya taşındı.
+   **Kritik bir bug bu turda CANLI TESTLE bulundu ve düzeltildi**: ilk
+   yazımda `axetFlowsAgent.ts`'teki `spawn(..., {shell:true})` deseni
+   birebir kopyalanmıştı — canlı smoke test'te (`tsx` ile gerçek bir
+   `axet-code` çağrısı spawn edip 300ms sonra iptal ederek) **iptal hiç
+   çalışmadığı, 120s timeout'a düştüğü KANITLANDI**. Kök sebep: Windows'ta
+   `shell:true` ile spawn edilen bir process'te `child.kill()` sadece ARA
+   `cmd.exe` kabuğunu öldürür, gerçek `axet-code.exe` (cmd'nin child'ı
+   olarak) hayatta kalır. Çözüm: `axetChat.ts`'in KANITLANMIŞ ÇALIŞAN
+   deseni (`shell:true` YOK, doğrudan `spawn("axet-code", args, {cwd,
+   windowsHide, stdio:["pipe","pipe","pipe"]})`) `sapGuiScriptAgent.ts`'e
+   taşındı — düzeltme sonrası AYNI smoke test'te iptal gerçekten 300ms'de
+   çalıştı (`cancelled:true` doğru döndü). **Not**: bu, `axetFlowsAgent.ts`'in
+   KENDİSİNİN de gizli/latent aynı hataya sahip olabileceğini gösteriyor —
+   ama flow builder'da hiç cancel butonu yok, bu yüzden hata orada hiç
+   ortaya çıkmadı/fark edilmedi; bu dosyaya DOKUNULMADI (kapsam dışı, flow
+   builder'ın kendi konusu), ama not olarak buraya yazıldı.
+
+### Yeni dosyalar
+
+- **`src/lib/sapGuiAgent/actionsDoc.ts`** — `ACTIONS_DOC` (action sözlüğü:
+  `list_connections`, `list_sessions`, `get_node`, `set_text`, `press`,
+  `select`, `double_click`, `send_vkey`, `select_context_menu_item`,
+  `ask_user`, `finish`) + `BATCH_FORMAT_DOC`.
+- **`src/lib/sapGuiAgent/systemPrompt.ts`** — `buildSapGuiSystemPrompt()` —
+  çıktı kuralları + `ACTIONS_DOC`/`BATCH_FORMAT_DOC` + 10 domain kuralı
+  (element ID uydurmama, T-code geçiş deseni `/n<TCODE>`+Enter, ALV/table
+  control farkı, popup tespiti, SAP'ın "kendi süreci otomatikleştirme"
+  konumlandırması).
+- **`src/lib/sapGuiAgent/tools.ts`** — `createExecutor(defaultSession,
+  recordStep?)` — asenkron `executeTool`, `{text, id?, error?, control?,
+  payload?}` sonuç sözleşmesi (flow builder'la AYNI). **Faz 2 entegrasyonu**:
+  opsiyonel `recordStep` callback'i — kayıt açıkken agent'ın gerçek
+  aksiyonları da Faz 2'nin `steps` listesine (Kayıt+Tekrar Oynatma script'i)
+  eklenir, manuel ve agent-tetiklemeli aksiyonlar AYNI script'e karışabilir.
+- **`src/lib/sapGuiAgent/agentRunner.ts`** — `createTranscript()`,
+  `extractJson()`, `normalizeActions()`, `buildPrompt()`, `runAgentTurn()` —
+  flow builder'ın AYNI döngü şekli + `onRequestIdChange`/`isCancelled`
+  parametreleri (iptal desteği için).
+- **`app-electron/main/sapGuiScriptAgent.ts`** — `runSapGuiAgentStep(requestId,
+  prompt, model)`/`cancelSapGuiAgentStep`/`cancelAllSapGuiAgentSteps` —
+  `axetFlowsAgent.ts`'in mimarisi (stdin prompt, sabit scratch cwd
+  `%TEMP%/axet-sapgui-agent-scratch`, 120s timeout) + `axetChat.ts`'in
+  iptal deseni (yukarıdaki bug düzeltmesiyle).
+- **`src/components/SapGuiAgentPanel.tsx`** — sohbet-benzeri UI (log
+  satırları: user/tool_call/tool_result/question/finish/error/cancelled),
+  `ModelSelector` (axet.code/axet.flows ile AYNI paylaşılan "large" model —
+  ayrı bir model tercihi yok, PROJE-BILGI'deki mevcut kararla tutarlı),
+  composer (Enter=gönder, Shift+Enter=yeni satır), Gönder/Durdur butonu.
+
+### Değişen dosyalar
+
+- **`shared/types.ts`**: `GuiScriptAgentStepResult` eklendi.
+- **`main/index.ts`**: `sapGuiScript:agentStep`/`sapGuiScript:cancelAgentStep`
+  IPC handler'ları + `cancelAllSapGuiAgentSteps()` her iki `app.on(...)`
+  kapanış hook'una eklendi.
+- **`preload/index.ts` + `window.d.ts`**: `guiScriptAgentStep`/
+  `cancelGuiScriptAgentStep` — standart zincir.
+- **`SapGuiScriptingHome.tsx`**: eski `scriptPanelOpen: boolean` →
+  `bottomPanel: "script" | "agent" | null` (Faz 2'nin Script paneli ile Faz
+  3'ün AI Agent paneli AYNI alt-panel alanını paylaşıyor, `axet.flows`'un
+  `DebugPanel`'i gibi tek bir toggle edilebilir alan) — header'a "AI Agent"
+  butonu eklendi, `recordStep` fonksiyonu Faz 2/3 arasında paylaşılan tek
+  bir kaynağa çıkarıldı, `activeSessionInfo` memo'su (aktif oturumun
+  Transaction/Program bilgisini agent'a bağlam olarak geçmek için) eklendi.
+- **i18n**: `sapGuiScripting.agentPanel/agentNoSession/agentEmpty/
+  agentPlaceholder/agentSend/agentStop/agentThinking` (tr/en).
+
+### Doğrulama
+
+- `src/lib/sapGuiAgent/agentRunner.ts`'in `extractJson`/`normalizeActions`
+  mantığı (aynı kod, izole) 5 senaryoyla (temiz JSON, markdown-sarmalı JSON,
+  batch, geçersiz metin, `ask_user` seçenekleri) test edildi — hepsi PASS.
+- **`app-electron/main/sapGuiScriptAgent.ts` GERÇEK bir `axet-code`
+  çağrısına karşı canlı test edildi** (`tsx` ile bağımsız): (1) basit bir
+  "sadece bu JSON'u dön" isteği gerçekten doğru JSON'u döndürdü (uçtan uca
+  CLI entegrasyonu çalışıyor kanıtı), (2) iptal mekanizması — YUKARIDAKİ
+  `shell:true` bug'ı bu testte YAKALANDI VE DÜZELTİLDİ, düzeltme sonrası
+  tekrar test edilip iptalin gerçekten ~300ms'de çalıştığı doğrulandı.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+
+### Test EDİLEMEYEN (bu ortamda SAP GUI kurulu değil)
+
+Agent'ın gerçek bir SAP GUI ekranına karşı `get_node`/`set_text`/`send_vkey`
+gibi aksiyonları GERÇEKTEN doğru uyguladığı, T-code geçiş deseninin
+(`/n<TCODE>` + Enter) gerçek bir sistemde çalıştığı, ve `MAX_ACTIONS_PER_
+BATCH=6`/kural #9'un ("ekran değiştiren aksiyondan sonra kör devam etme")
+LLM tarafından gerçekten uyulup uyulmadığı — kullanıcının kendi makinesinde
+(SAP GUI kurulu, SAP Logon açık) bir oturum seçip AI Agent panelinden basit
+bir görev (örn. "VA01'e git") yazarak doğrulaması gerekiyor.
+
+### Üç fazın özeti — SAP GUI Scripting ekranı artık TAMAMLANMIŞ
+
+Faz 1 (Bağlantı + Ekran Gezgini) → Faz 2 (Kayıt + Tekrar Oynatma) → Faz 3
+(AI Agent) — kullanıcının ilk turda seçtiği kapsamın TÜMÜ tamamlandı. Her
+faz bir öncekinin primitives'leri üzerine inşa edildi (Faz 2 ve 3'ün ikisi
+de Faz 1'in `performAction`'ını kullanıyor; Faz 3'ün `recordStep` entegrasyonu
+Faz 2'nin `steps` listesini paylaşıyor) — hiçbir faz bir öncekini
+tekrarlamadı/değiştirmedi.
+
+## SAP GUI Scripting Ekranı — Sıfırdan Yeniden Kurgu (2026-09-02, TAMAMLANDI)
+
+Kullanıcı isteği (iki adımda): önce
+`plugins/sapgui-scriptter` referans plugin'indeki "sapgui_scripter ile
+alakalı her şeyi öğren, ve ekranı buraya göre tekrardan ayarlayalım";
+araştırma sonrası boşluk analizi sunulduğunda kesin talimat: **"düzgün
+şekilde sıfırdan ekranı yapalım o zaman"**.
+
+Faz 1-3 çalışıyordu ama ekran SAP'yi yalnızca bir COM ağacı olarak
+gösteriyordu. Referans plugin'den öğrenilen ve BURADA OLMAYAN dört şey
+alındı; her biri bir tahmini bir ölçümle değiştirdiği için eklendi.
+
+### 1. Preflight — "neden çalışmıyor"u tahmin etmek yerine ÖLÇMEK
+
+Köprüde yeni `/preflight` uç noktası, Win32 seviyesinde
+`SAP_FRONTEND_SESSION` sınıfındaki pencereleri sayıyor VE scripting
+engine'in bildirdiği oturum sayısını AYRI okuyor. Teşhisi kesinleştiren
+şey ikisinin FARKI:
+
+- pencere var + scripting oturumu 0 → scripting KAPALI (kesin teşhis,
+  "SAP açık değil" ile karıştırılamaz) → `scriptingDisabled`
+- pencere yok + SAP GUI kurulu → `sapNotRunning`
+- SAP GUI kurulu değil → `sapGuiMissing`
+
+**Bu uç nokta bilerek `get_application()` guard'ının DIŞINDA**: scripting
+kapalıyken de yanıt vermesi gerekiyor, yoksa teşhis tam da teşhise ihtiyaç
+duyulan anda çalışmaz.
+
+`PreflightPanel.tsx` sonucu bir başlıkla değil, HAM ÖLÇÜMLERLE gösteriyor
+(kurulu mu / kaç pencere / bağlanılabildi mi / kaç oturum / kaç bağlantı) —
+"sen nereden biliyorsun" sorusu denetlenebilir olsun diye. `scriptingDisabled`
+durumunda iki taraflı açma rehberi çıkıyor (sunucu RZ11/RZ10, istemci
+Alt+F12) ve sunucu adımının yanında **uygulamanın bu değişikliği YAPMADIĞI
+ve YAPMAMASI GEREKTİĞİ** uyarısı var: sunucu profil parametresi müşterinin
+change control'ü altındaki bir Basis işi.
+
+Eski hâli tek bir sabit "Gereksinimler" metniydi ve hangi maddenin bozuk
+olduğunu söyleyemiyordu.
+
+### 2. Canlı ekran görüntüsü + TAHMİNSİZ eleman çerçevesi
+
+İki yakalama yöntemi, farklı işler için:
+
+- `hardcopy` — `GuiFrameWindow.HardCopy(path, "PNG")`, SAP'nin kendi
+  yakalaması. En temiz sonuç, ama bağlı bir DIAG oturumu + açık scripting
+  şart.
+- `window` — Win32 `PrintWindow` (`PW_RENDERFULLCONTENT=2`, son çare
+  `ImageGrab`). COM'a HİÇ dokunmaz → **scripting kapalıyken bile çalışır**,
+  yani teşhis ekranında kullanıcıya kendi SAP'sini gösterebiliyoruz.
+  `SetProcessDPIAware()` ölçek bozulmasını önlüyor.
+
+Seçili elemanın çerçevesi SADECE `window` yönteminde çiziliyor ve tahmin
+içermiyor: köprü yakalamanın sol üst köşesinin mutlak ekran koordinatını
+(`originLeft/originTop`, `GetWindowRect`) döndürüyor, elemanın
+`ScreenLeft/ScreenTop` değeri de mutlak — fark doğrudan görüntü içi
+koordinat veriyor. **HardCopy'de böyle bir köken bilgisi yok, bu yüzden
+orada çerçeve BİLEREK çizilmiyor**: yanlış yerde bir kutu, hiç kutu
+olmamasından kötüdür ve bu makinede canlı SAP oturumu olmadığı için
+tahmin edilmiş bir başlık-çubuğu ofseti doğrulanamazdı.
+
+### 3. Durum çubuğu — aksiyonun GERÇEKTEN kabul edilip edilmediği
+
+`performAction` daha önce çıplak `{ok:true}` dönüyordu; bu COM çağrısının
+başarısıydı, **SAP'nin işlemi kabul ettiği değil**. SAP'nin reddettiği bir
+kayıt (yetki yok, alan hatalı, kilitli belge) COM seviyesinde pekâlâ
+başarılı olur ve UI'da yeşil görünürdü.
+
+Artık her aksiyon yanıtı `describe_screen()` sonucunu taşıyor:
+transaction/program/ekran no + `wnd[0]/sbar`'dan okunan
+`MessageType` (S/W/E/A/I) + `MessageId`/`MessageNumber` + popup bilgisi +
+`okCode`. `StatusBarStrip.tsx` bunu renk ve ikonla gösteriyor; E ve A
+gerçek hata, S/W/I bilgilendirme. Ekran okuma hatası aksiyonu başarısız
+GÖSTERMİYOR — ayrı bir alan olarak taşınıyor.
+
+Popup da artık ağaçta sıradan bir `wnd[1]` düğümü değil: modal pencere
+açıldığında üstte bir şerit çıkıyor ve butonlar **SAP'nin gerçek
+butonlarından okunuyor** (tahmin edilen SPOP id'leri değil), yanlarında
+standart enter/iptal kısayollarıyla.
+
+### 4. `navigate` + `popupChoice` — uç nokta değil, AKSİYON
+
+Bir transaction'a gitmek eskiden üç adımdı (ağaçtan `wnd[0]/tbar[0]/okcd`
+bul → metin yaz → ayrı alandan VKey 0 gönder). Artık komut çubuğuna tcode
+yazıp Enter yetiyor.
+
+Bunlar bilerek yeni uç nokta DEĞİL, birer aksiyon olarak modellendi:
+böylece Faz 2'nin kaydedici/oynatıcısı ikisini de **hiçbir özel durum
+kodu olmadan** kaydedip tekrar oynatabiliyor.
+
+`sendVKey` de ham sayı kutusu olmaktan çıktı (`src/lib/sapGui/vkeys.ts`):
+0=Enter, 1-12=F1-F12, 13-24=Shift+F, 25-36=Ctrl+F eşlemesi bir kere
+tanımlandı, sık kullanılanlar (Geri/Çalıştır/Kaydet/İptal/Çık…) isimli
+buton olarak komut çubuğunda. Anlam etiketleri SAP'nin standart atamaları —
+bir transaction bunları yeniden atayabildiği için etiket bir İPUCU,
+garanti değil; kod bunu böyle belgeliyor.
+
+### Yeni ekran düzeni
+
+```
+üst       → köprü kontrolleri + teşhis/kayıt/panel anahtarları
+teşhis    → köprü çalışıyor ama scripting hazır DEĞİLSE çalışma alanının
+             önüne geçer (kullanıcı "yine de devam et" ile geçebilir)
+komut     → tcode (/n) + isimlendirilmiş fonksiyon tuşları
+sol (w-72)→ oturumlar (üst) + COM eleman ağacı (alt)
+orta      → CANLI EKRAN (seçili elemanın çerçevesiyle)
+sağ (380) → eleman denetçisi: 31 özellik + aksiyonlar + ALV/tablo grid
+alt şerit → popup + SAP durum çubuğu
+alt panel → script kaydedici | AI agent (Faz 2/3, değişmedi)
+```
+
+Eleman denetçisi eskiden 5 alan gösteriyordu (id/tip/ad/tooltip/
+değiştirilebilir). Artık köprünün `DETAIL_PROPERTIES`'inden okuduğu her
+şey geliyor (31 özellik: geometri, MaxLength, IconName, RowCount/
+CurrentRow, MessageType…) ama İKİ GRUBA ayrılmış — temel alanlar hep
+görünür, gerisi katlanır; bir `GuiTextField`'de 30 satır özellik
+listelemek aranan üç alanı bulmayı zorlaştırıyordu. Geometri ayrıca
+canlı görüntü üzerine çerçeve çizmeyi mümkün kılan şey.
+
+### Dosyalar
+
+Köprü (`resources/sap-gui-scripting/sap_gui_scripting_bridge.py`) baştan
+yazıldı: `preflight()`, `describe_screen()`, `read_status_bar()`,
+`capture_screenshot()`, `_settle()` (`session.Busy` yoklaması),
+`_apply_navigate()`, `_apply_popup_choice()`, `DETAIL_PROPERTIES` (31),
+yeni rotalar `/preflight`, `/screenshot?method=window` (oturumsuz),
+`/session/<c>/<s>/screen`, `/session/<c>/<s>/screenshot?method=`, yeni CLI
+bayrağı `--preflight`.
+
+Yeni renderer dosyaları: `src/lib/sapGui/vkeys.ts`,
+`src/components/sapgui/{PreflightPanel,ScreenViewer,StatusBarStrip,
+ElementInspector,CommandBar}.tsx`. `SapGuiScriptingHome.tsx` bunları
+bağlayan orkestratör olarak yeniden yazıldı; Faz 2/3'ün korunan parçaları:
+`nodeKey()`, `ROOT_KEY`, `PLAYBACK_STEP_DELAY_MS`, tembel ağaç yükleme,
+kayıt/kaydet/aç/oynat ve **playback'in `runAction`'ı değil doğrudan
+`performGuiScriptAction`'ı çağırması** (kayıt açıkken oynatılan adımların
+tekrar kaydedilmemesi için).
+
+### Ortam notu — Pillow
+
+`window` yakalama yolu PNG kodlaması için Pillow istiyor; gömülü
+`resources/guiscript-runtime`'da pywin32 vardı ama Pillow yoktu. Oraya
+`pip install Pillow` ile kuruldu (12.3.0). Klasör gitignore'lu → repoya
+etkisi yok. Yine de import yumuşak (soft) guard'landı: Pillow olmasa bile
+köprü açılıyor, sadece HardCopy ile çalışıyor ve preflight bunu
+`screenshotFallback:false` olarak bildiriyor.
+
+### Canlı test — SAP LIMAK / LED (2026-09-03)
+
+Kullanıcı gerçek bir oturum açtı (LED, `172.16.6.112`, SAProuter
+`212.12.155.132`, kullanıcı LMKERPDEV, mandant 100, GUI `8000.257.1.17`)
+ve iki şey ortaya çıktı.
+
+#### Bulgu 1 — `DisabledByServer`: teşhis ikiye bölündü
+
+Preflight `classicWindows:1, scriptingAttachable:true, connections:1,
+sessions:0` ölçtü. Yani engine'e BAĞLANILABİLİYOR ve bağlantı görünüyor,
+ama `Connections.ElementAt(0).Children.Count == 0`. Doğrudan COM
+yoklamasıyla sebep bulundu: **`GuiConnection.DisabledByServer == True`**.
+
+Bu bayrak, "scripting kapalı" teşhisini iki AYRI duruma ayıran tek
+sinyal — ve o ayrım kullanıcıyı doğru yere gönderdiği için önemli:
+
+| Ölçüm | Anlam | Ne yapılmalı |
+|---|---|---|
+| bağlantı listelenemiyor, oturum 0 | İSTEMCİ tarafı kapalı | SAP Logon → Alt+F12 → Accessibility & Scripting |
+| bağlantı listeleniyor, oturum 0, `DisabledByServer=true` | SUNUCU reddediyor | Basis: `sapgui/user_scripting` (RZ11 anlık / RZ10 kalıcı) |
+
+Köprü artık `disabledByServer` + bağlantı başına `connectionDetails`
+(`{index, description, sessions, disabledByServer}`) döndürüyor ve yeni
+bir `serverScriptingDisabled` tavsiyesi üretiyor. `PreflightPanel` bu
+durumda **istemci rehberini GÖSTERMİYOR**: bağlantı okunabildiğine göre
+istemci ayarı zaten açık, orada vakit harcatmak teşhisin değerini
+düşürür.
+
+`disabledByServer` alanı `boolean | null` — `null` "bu GUI sürümü bayrağı
+bildirmiyor" demek, "kapalı değil" DEĞİL. Panel bunu ayrı bir "bilinmiyor"
+metniyle gösteriyor; ikisini birbirine karıştırmak yanlış teşhis üretirdi.
+
+**LED'de `sapgui/user_scripting` KAPALI. Uygulama bunu açmıyor ve
+açmamalı** — müşterinin change control'ü altındaki bir Basis işi. Panel
+adımları yazıyor, uygulamıyor.
+
+#### Bulgu 2 — oturumsuz ekran görüntüsü rotası (`/screenshot`)
+
+`window` yakalamanın tek varlık sebebi COM'a dokunmadan çalışabilmesiydi,
+ama HTTP rotası `/session/<c>/<s>/screenshot` idi ve önce oturum
+çözüyordu. LED'de `sessions == 0` olduğu için **yetenek tam ihtiyaç
+duyulduğu anda erişilemezdi** (`502 Oturum index'i geçersiz`).
+
+Eklenen: `GET /screenshot?method=window`, `/preflight` gibi bilerek
+`get_application()` guard'ının DIŞINDA. `method=hardcopy` burada 400
+veriyor — HardCopy bağlı bir DIAG oturumu ister, sessizce başka bir şey
+yapmaktansa reddetmek doğru. TS tarafında `captureGuiScriptScreenshot`
+`connIdx/sessIdx` için `number | null` alıyor; `null` → oturumsuz rota.
+`refreshScreenshot` artık oturum yokken erken dönmüyor ve köprü ayaktayken
+oturum seçilemiyorsa bir kez kendiliğinden oturumsuz yakalama deniyor.
+
+Canlı doğrulandı: 1650×1032 PNG (51 KB), `originLeft:105, originTop:0`,
+görüntüde LED'in gerçek SAP Easy Access ekranı — scripting SUNUCUDA
+KAPALIYKEN. Karşılaştırma için aynı anda `/session/0/0/screenshot` hâlâ
+502 dönüyor; oturumsuz rota tam da bu boşluğu kapatıyor.
+
+### Canlı test — Simpro / S4D, scripting AÇIK (2026-09-03)
+
+Aynı gün kullanıcı ikinci bir sistem açtı: **S4D `192.168.1.246`**
+(Simpro Elektronik, mandant 100). Orada da `disabledByServer: true`
+çıktı — tesadüf değil, çünkü **`sapgui/user_scripting` SAP'de varsayılan
+olarak FALSE**. Basis bilerek açmadıysa her sistemde kapalıdır.
+
+İstemci tarafının sağlam olduğu ayrıca registry'den doğrulandı:
+`HKLM\...\SAP Frontend Server\Security\UserScripting = 1`. Yani
+"sunucu reddediyor" teşhisi iki bağımsız kanıta dayanıyor.
+
+#### `DisabledByServer` logon anında pazarlık ediliyor
+
+Kullanıcı RZ11'den TRUE çektikten SONRA da bayrak `true` kalmaya devam
+etti. RZ11 ekranı yakalanıp okundu:
+
+```
+Value of Profile Parameter sapgui/user_scripting
+ 1 Kernel Default     FALSE      Dynamic Parameter:      Yes
+ 2 Default Profile    FALSE      System-Wide Parameter:  No
+ 3 Instance Profile   FALSE
+ 4 Dynamic Switching  TRUE   ← değişiklik
+ Resulting Source: Dynamic Switching → TRUE
+```
+
+Parametre etkindi; sorun **açık bağlantının eski bayrağı taşımasıydı**.
+`DisabledByServer` bağlantı kurulurken bir kez pazarlık ediliyor ve
+bağlantı boyunca sabit kalıyor. Restart gerekmiyor (parametre dinamik)
+ama **bağlantının kapatılıp yeniden kurulması gerekiyor** — tek bir
+oturum açık kalırsa bağlantı ayakta kalır ve eski değer sürer.
+Yeniden bağlanınca: `disabledByServer:false, sessions:1,
+recommendation:"ready"`.
+
+İkinci not: `System-Wide Parameter: No` — RZ11'in dinamik değişikliği
+yalnızca üzerinde çalışılan instance'da geçerli. Çok instance'lı bir
+sistemde "Setting on All Instances" gerekir. Ve dinamik değişiklik
+restart'ta kaybolur; kalıcılık RZ10 işi.
+
+#### BULGU — HardCopy PNG İSTENİYOR, BMP YAZIYOR
+
+Scripting açılır açılmaz ortaya çıkan gerçek hata. `HardCopy(path,
+"PNG")` çağrısı istenen biçimi **yok sayıyor**:
+
+```
+dönen bayt: 5.110.518   ilk 2 bayt: 'BM'   24-bit BMP, 1650x1032
+doğrulama:  54 baytlık başlık + 4 bayta hizalı satırlar (4952*1032+54) = tam eşleşme
+```
+
+Kod bunu `data:image/png;base64,...` diye etiketliyordu → tarayıcı
+görüntüyü **çizemezdi**, üstelik her yakalamada ~6,8 MB'lık bir dataURL
+IPC'den geçerdi. Yeni `_ensure_png()` uzantıya ya da istenen biçime
+değil **baytların kendisine** bakıyor; PNG değilse Pillow ile çeviriyor,
+Pillow yoksa yalan etiket yapıştırmak yerine doğru MIME ile geçiyor.
+
+Düzeltme sonrası ölçüm: **5.110.518 → 89.910 bayt (57×), PNG imzası
+geçerli, görüntü doğru.** Bu hata yalnızca canlı oturumla görülebilirdi —
+LED'de scripting kapalı olduğu için HardCopy hiç çalışmamıştı.
+
+Yan bulgu: HardCopy görüntüsü menü çubuğunu içeriyor, `window` yakalaması
+ise pencere başlığını — yani ikisinin içerik geometrisi FARKLI. Bu,
+"HardCopy'de çerçeve BİLEREK çizilmiyor" kararını canlı veriyle doğruluyor.
+
+#### BULGU — her istekte yeniden bağlanmak onay penceresi yağmuru üretiyordu
+
+Kullanıcının bildirimi: *"şu sürekli SAP popup çıkıyor onay istiyor, o çok
+yorucu"*. Sebep istemci ayarı değil, **bizim kodumuzdu**.
+
+`get_application()` bilerek önbelleklemiyordu; docstring'i şöyleydi:
+*"Her istekte TAZE bir GuiApplication referansı döner - bağlantı/oturum
+listesi istekler arasında değişebilir"*. Ama `GetScriptingEngine` çağrısı
+SAP GUI'nin **"bir script SAP GUI'ye bağlanıyor"** onay penceresini
+tetikleyen çağrının ta kendisi. Yani her ağaç düğümü, her ekran okuma,
+her aksiyon, her ekran görüntüsü ayrı bir onay penceresi demekti — tek
+bir ağacı açmak onlarca onay üretebiliyordu.
+
+Eski gerekçe DOĞRU BİR KAYGIYI YANLIŞ ÇÖZÜYORDU: liste gerçekten
+değişebilir, ama bu yeniden BAĞLANMAYI gerektirmiyor. `GuiApplication`
+canlı bir COM nesnesi ve `Connections` her erişimde SAP tarafında
+yeniden değerlendiriliyor. Ölçerek doğrulandı (S4D, canlı):
+
+```
+30 x get_application()            → gerçek COM attach sayısı: 1
+önbelleklenmiş referanstan okuma  → oturum sayısı 1 → createSession() → 2 → kapat → 1
+```
+
+Yani önbellek bayatlamıyor. Yeni `get_application()` referansı tutuyor,
+her çağrıda `Connections.Count` ile canlılık yokluyor, referans ölmüşse
+(SAP Logon kapatılıp açılmışsa) bir kez yeniden bağlanıyor. Onay
+penceresi sayısı: **istek başına → köprü süreci başına bir kez.**
+
+Güvenli, çünkü sunucu tek iş parçacıklı (`HTTPServer`, `ThreadingHTTPServer`
+değil) ve tek bir `CoInitialize` var. Çok iş parçacıklı bir sunucuya
+geçilirse COM apartman kuralları yüzünden bu önbellek gözden geçirilmeli —
+kod bunu böyle not ediyor.
+
+Kalan tek onay penceresi istemci ayarı: SAP Logon → Alt+F12 →
+Accessibility & Scripting → iki "Notify" kutusu. **Uygulama bunu
+değiştirmiyor** — kullanıcının kendi makinesindeki güvenlik tercihi, ve
+kapatmak "scriptler SAP GUI'ye sessizce bağlanabilir" demek.
+
+#### BULGU — SAP penceresini öne fırlatan adım HardCopy'ydi (`auto` sırası tersine çevrildi)
+
+Kullanıcının ikinci bildirimi: *"bizim uygulamada bir aksiyon alıyorum,
+ekrana SAP GUI geliyor hemen"*. Kodda hiçbir yerde `SetForegroundWindow`,
+`SetFocus`, `BringWindowToTop` YOK — yani "biz çağırmışızdır" cevabı
+elenmişti. Tahmin etmek yerine ölçüldü: bir sonda süreci köprüye HTTP
+isteği atıp her adımdan sonra `GetForegroundWindow()` okudu (COM'a hiç
+dokunmuyor, ekstra onay penceresi üretmiyor).
+
+| adım | ölçüm | SAP öne geçti |
+|---|---|---|
+| `GET /connections` | 2 çağrı | 0 |
+| `GET /session/../screen` | 2 çağrı | 0 |
+| `POST action sendVKey` | 8 çağrı | 0 |
+| `GET screenshot?method=window` | **18 çağrı** | **0** |
+| `GET screenshot?method=hardcopy` | **18 çağrı** | **5** |
+
+Tek suçlu `HardCopy`, ve deterministik değil (bir yarış — bu yüzden
+"bazen oluyor" gibi görünüyor). Kritik nokta: UI her aksiyondan sonra
+görüntüyü otomatik tazeliyor ve varsayılan yöntem `auto`ydu, `auto` da
+ÖNCE HardCopy'yi deniyordu. Yani "uygulamada bir şey yapmak" =
+"SAP penceresi öne atlayabilir".
+
+Düzeltme: `capture_screenshot`'ta sıra **`window` → `hardcopy`** olarak
+çevrildi. Bedeli yok, iki kazancı var: PrintWindow üste binmiş pencerelerin
+altını da çiziyor (HardCopy'nin tek üstünlüğü buydu) ve `origin`
+koordinatı yalnızca bu yolda döndüğü için eleman çerçevesi de ancak burada
+çizilebiliyor. `hardcopy` elle seçilebilir kalıyor. Doğrulandı: `auto`
+artık `method:"window"`, 61 KB, `origin=(105,0)`.
+
+#### DENENDİ VE GERİ ALINDI — odak geri verme sarmalayıcısı köprüyü kilitledi
+
+HardCopy'yi elle seçenler için "önce öndeki pencereyi hatırla, SAP öne
+geçtiyse geri ver" şeklinde bir `keep_foreground()` yazıldı. **Köprüyü
+dondurdu**: ilk `hardcopy` isteği hiç dönmedi, ardından `/health` bile 8
+saniyede cevap vermedi.
+
+Sebep `AttachThreadInput`. Windows yabancı bir sürecin odak çalmasını
+engelliyor ve bunu aşmanın standart yolu bu çağrı, ama girdi kuyruğunu
+SAP GUI'nin UI thread'ine bağlıyor — o thread tam o sırada HardCopy'yi
+yazmakla meşgul, ve sunucu tek iş parçacıklı olduğu için bu tüm köprünün
+donması demek. Diğer bilinen yöntem (sentetik ALT tuşu) zaten elenmişti:
+kullanıcının öndeki penceresine gerçek girdi enjekte ediyor ve menü
+çubuğunu açıyor. **Bu yol tekrar denenmesin**; kodda da böyle not edildi.
+
+#### BULGU — "Kaydet çalışmıyor" bir hata değil, SAP'nin reddi (kod 617)
+
+Kullanıcı SE09'dayken Kaydet'e bastığında ekrana ham COM demeti düşüyordu:
+
+```
+(-2147352567, 'Exception occurred.', (617, 'SAP Frontend Server',
+ 'The virtual key is not enabled.', None, 0, 0), None)
+```
+
+Canlı kök neden: o ekranda `wnd[0]/tbar[0]/btn[11]` (Kaydet) **`Changeable
+= False`** — SAP tuşu kendisi kapatmış (değiştirilecek bir şey yok), ve
+`sendVKey(11)` tam olarak bu 617'yi döndürüyor. Kodda bir kusur yok.
+
+Aynı testte **Yardım (F1) aslında ÇALIŞIYORDU**: SAP `S` tipinde
+"Dokümantasyon mevcut değil" mesajı döndürüyor. "Yardım çalışmıyor"
+şikayeti, sonucun durum çubuğunda kalması ve UI'ın bunu öne çıkarmamasıydı.
+
+Üç katmanda düzeltildi:
+
+1. **Mesaj çevirisi** — `_sap_error_detail()` COM demetinin içindeki SAP
+   mesajını çıkarıyor; `_translate_com_error` bunu bulduğunda "scripting
+   açık mı" kontrol listesini GÖSTERMİYOR (scripting zaten çalışıyor,
+   reddeden SAP). 617 özel olarak adlandırılıyor: *"Bu ekranda 11 numaralı
+   tuş etkin değil — SAP onu araç çubuğunda soluk gösteriyor… Bir kod
+   hatası değil, SAP'nin reddi. Şu an etkin olanlar: …"*.
+2. **Önden bilme** — `read_toolbar_keys()` standart araç çubuğunu tarayıp
+   `[{vkey, enabled, tooltip}]` döndürüyor; `describe_screen` bunu
+   `toolbarKeys` olarak veriyor, `CommandBar` etkin olmayan tuşu soluk +
+   üstü çizili gösteriyor. Etiket SAP'nin KENDİ tooltip'inden geliyor
+   ("Back (F3)", "Yardım (F1)") — transaction tuşu yeniden atamışsa bizim
+   statik tablomuz yanlış olurdu.
+3. **Listede olmayan ≠ kapalı.** Araç çubuğunda görünmeyen ama çalışan
+   tuşlar var (alan içindeki F4 gibi); onlar soluk gösterilmiyor.
+
+**Bedeli ölçüldü**: tarama `/screen` süresini `223 ms → 633 ms` yapıyor
+(410 ms). Soluk butonların tooltip'i zaten boş döndüğü için o okuma
+atlanarak maliyet bir miktar düşürüldü. Kullanıcı aksiyonu başına bir kez
+çalıştığı için kabul edildi; gerekirse **`GET …/screen?keys=0`** taramayı
+atlar.
+
+#### "Nasıl kullanılır" rehberi (`sapgui/GuidePanel.tsx`)
+
+Kullanıcı isteği: *"ekranın nasıl kullanılacağına dair de bir eğitim gibi
+bişey olsa iyi olur"*. Sağdan açılan bir çekmece (ekranı örtmesin diye tam
+ekran değil), üstteki **Nasıl kullanılır** düğmesinden — köprü kapalıyken
+de görünür, çünkü rehbere en çok ihtiyaç duyulan an "bağlanamıyorum" anı.
+
+İçerik tamamen i18n'de (`sapGuiScripting.guide*`, tr/en). Altı adım
+kullanım sırasıyla; ayrı bir "sık karşılaşılanlar" bölümü ise bu ekranda
+canlı sistemde gerçekten yaşananları anlatıyor: iki ayrı scripting kapısı
+ve sunucu ayarının ancak yeniden logon'da geçerli olması, soluk tuşun
+SAP'nin reddi olduğu, F1'in "çalıştığı halde sessiz" görünmesi, popup'ta
+ağacın `wnd[1]`'e kayması, ve bunun gerçek sistemde gerçek kayıt
+oluşturduğu uyarısı.
+
+#### Düzen elden geçirildi — ortak kabuk + görevlerine göre gruplama (2026-09-03)
+
+Kullanıcı isteği: *"tasarımını, düzeni, butonları, yerlerini falan daha
+düzgün daha güzel yapalım"*. Değişiklik göz kararı yapılmadı: uygulama
+penceresi `PrintWindow` ile yakalanıp ekran görüntüsü üzerinden üç tur
+düzeltildi (bu, tahminle bulunamayacak iki hatayı yakaladı — aşağıda).
+
+**`sapgui/ui.tsx` — ortak kabuk sözlüğü.** Panel başlıkları dört dosyada
+dört farklı şekilde yazılmıştı (kimi çerçeveli, 10px/11px, farklı griler,
+farklı yükseklikler); sonuç sütun üstlerinin birbirini tutmamasıydı. Artık
+tek yerde: `PanelHeader`, `TOOL_BUTTON`, `ICON_BUTTON`,
+`GHOST_ICON_BUTTON`, `PRIMARY_BUTTON`, `PANEL_TITLE`, `Pill`,
+`CountBadge`, `EmptyState`. Yükseklikler **bilerek sabit** (`h-8` başlık,
+`h-7` düğme): `py-*` ile yazılan sürüm içerik uzunluğuna göre panelden
+panele 2–3 piksel kayıyordu.
+
+**Bilgi mimarisi göreve göre ayrıldı.** Eskiden üst şeritte bağlantı,
+kayıt, script ve agent düğmeleri yan yanaydı — dört ayrı iş, tek düğme
+kalabalığı. Yeni bölünme:
+
+| şerit | işi |
+|---|---|
+| üst başlık (`h-12`) | yalnız **bağlantı**: durum rozeti, Teşhis, yenile, Nasıl kullanılır, Bağlan/Kes |
+| komut çubuğu (`h-12`) | tcode · fonksiyon tuşları · **Kaydet/Script/AI Agent** (`dock` prop'u) · elle vkey (sağda) |
+
+**Otomasyon düğmelerinin üç durağı oldu, sonuncusu ayrı şerit DEĞİL.** Önce
+sağ üst köşedeydiler (hangi panelin açıldığı görünmüyordu), sonra ekranın
+en altına alındılar (pencere kısalınca kullanıcı onları hiç görmüyordu —
+*"aşağıda gözükmüyor"*), sonra başlığın altına ayrı bir `h-9` şeride. Ayrı
+şerit her hâlinde 36 piksel yiyordu, oysa komut çubuğunda fonksiyon
+tuşlarıyla vkey seçicisi arasındaki bölge zaten boş duruyordu. Şimdi
+oradalar (`CommandBar` `dock` prop'u, dikey ayraçla ayrılmış) ve açtıkları
+panel hemen altlarında.
+
+**Fonksiyon tuşları büyütüldü:** `h-6/11px/px-2` → `h-6/12px/px-3`, kutu
+`h-8`, komut çubuğu `h-11` → `h-12`. İlk turda tuşlar hem tıklama hedefi
+hem okunurluk olarak küçük kalmıştı.
+
+**`color-scheme` (`index.css`).** Chromium'un yerli açılır `<select>`
+listesi CSS ile boyanmıyor — sistem paletini kullanıyor, dolayısıyla koyu
+temada bembeyaz açılıyordu (vkey seçicisi en görünür örnekti). Çözüm renk
+değişkenlerinin yanına `color-scheme: dark|light` koymak; tema bloklarının
+içinde olması şart, yoksa açık temada ters etki yapar. Özel
+`::-webkit-scrollbar` kuralları bundan etkilenmiyor, onlar zaten
+`--scrollbar-thumb`'ı ezip geçiyor.
+
+Sağdaki eleman detayı katlanabilir oldu (340px ↔ 32px dikey ray): SAP
+ekranı geniş olduğunda asıl daralan sütun oydu.
+
+**Ekran görüntüsünden çıkan iki düzeltme.** (1) Fonksiyon tuşu grubu
+`flex-1`di ve boş bir dev kutu olarak çiziliyordu — `shrink` + vkey
+kutusuna `ml-auto`. (2) Teşhis/Nasıl kullanılır'ı ikon-only yapmak
+keşfedilebilirliği düşürüyordu — metin etiketleri geri kondu.
+
+**Ortalama `m-auto` ile, `items-center` ile DEĞİL.** Taşan içerikte flex
+ortalaması kutunun başını kırpıyor: uzun bir SAP ekranının üst kenarı
+kaydırılamaz hâle geliyordu. Görüntüde yalnız **genişlik** sınırlı;
+`max-h-full` bilerek yok — sarmalayıcıyı görüntüden büyütür ve seçili
+eleman çerçevesi (sarmalayıcıya göre konumlanıyor) kayardı.
+
+#### Çerçeve hizası — piksel hassasiyetinde doğrulandı
+
+Canlı koordinatlarla test edildi (`origin=(105,0)`):
+
+| eleman | screen | hesaplanan kutu | sonuç |
+|---|---|---|---|
+| `tbar[0]/okcd` | (153, 42) | (48, 42) 142×22 | komut alanını tam sarıyor |
+| `sbar` | (109, 1000) | (4, 1000) 1642×28 | durum çubuğunu tam sarıyor |
+
+`screenLeft - originLeft` matematiği doğru; tahmin edilmiş ofset yok.
+
+#### Aksiyon zinciri — uçtan uca
+
+| # | aksiyon | sonuç |
+|---|---|---|
+| 1 | `navigate ZZNOTEXIST9` | `statusBar {type:"E", text:"İşlem ZZNOTEXIST9 mevcut değil", number:"343"}` |
+| 2 | `sendVKey 4` (F4) | `isPopup:true`, `GuiModalWindow`, 4 buton SAP'nin KENDİ toolbar'ından (Devam/Yazdır/Bul/İptal + tooltip'ler) |
+| 3 | `popupChoice cancel` | popup kapandı, `isPopup:false` |
+| 4 | `setText okcd` + `sendVKey 0` | `tcode:SE38`, `title:"ABAP düzenleyici: Baslangiç ekrani"` |
+| 5 | `sendVKey 3` (Back) | Easy Access'e döndü |
+| 6 | `navigate SE16` / `SMEN` | `tcode:SE16` → `SESSION_MANAGER` |
+
+1. satır tam olarak durum çubuğunun VAROLUŞ SEBEBİ: COM çağrısı
+`ok:true` döndü ama SAP işlemi reddetti. Durum çubuğu olmasaydı bu
+UI'da yeşil görünecekti.
+
+Ayrıca `elementId` yerine `id` göndermek net bir hata mesajı verdi
+(`'id' alanı zorunlu (sendVKey/navigate/popupChoice dışındaki tüm
+aksiyonlar için)`) — sessizce yanlış elemana gitmedi.
+
+Test sonunda kullanıcının ekranı **SAP Easy Access'e temiz bırakıldı**.
+
+### DOĞRULANAN / DOĞRULANMAYAN
+
+Doğrulandı (canlı, S4D, scripting AÇIK): preflight karar tablosu +
+`DisabledByServer` ayrımı, `guiVersion`, bağlantı/oturum listeleme,
+`describe_screen`, eleman ağacı, eleman özellikleri + geometri,
+`window` yakalama, `hardcopy` yakalama (düzeltmeden sonra), çerçeve
+hizası, durum çubuğu (E tipi hata dahil), popup algılama + gerçek
+butonlar, `navigate`/`sendVKey`/`setText`/`popupChoice`, oturumsuz
+`/screenshot` rotası, `hardcopy` guard'ı. Köprü `py_compile` temiz,
+her iki tsconfig typecheck temiz.
+
+Doğrulanmadı: kaydet/oynat'ın UI üzerinden uçtan uca akışı. Bu
+"çalışmıyor" değil, "bu oturumda sırası gelmedi" — ikisi
+karıştırılmamalı.
+
+#### Açık maddeler canlıda denendi — dördü de kusurluydu (2026-09-03)
+
+Canlı S4D/SE16N'de VBFA listesi (500 satır, 42 sütun) üzerinde
+denendi. Hiçbiri "çalışmıyor" diye raporlanmamıştı; **hiçbiri
+gerçekte denenmemişti**, ve dördü de ilk temasta patladı.
+
+**1. Grid okuma çalışıyordu ama SESSİZ KIRPIYORDU.** `rowCount` 500,
+dönen 200; `columnCount` 42, dönen 40. Satır kırpması `truncated` ile
+bildiriliyordu, **sütun kırpması hiç bildirilmiyordu** — denetçi 40
+sütunu tam liste gibi gösteriyordu. Eksik veriyi tam sanmak, veriyi
+hiç göstermemekten kötü. Eklendi: `columnCount` + `columnsTruncated`,
+ve başlıkta artık `500 × 42` yazıyor.
+
+**2. `doubleClick` bir ALV'de HİÇBİR ZAMAN çalışamazdı.** Köprü
+`comp.DoubleClick()` diye parametresiz çağırıyordu; oysa
+`GuiGridView.doubleClick(row, column)` imzası zorunlu. COM "Parameter
+not optional." diyor, bu SAP'nin kendi mesajı olmadığı için kullanıcıya
+"scripting açık mı, Alt+F12'yi kontrol et" listesi çıkıyordu —
+tamamen yanlış yere bakması söyleniyordu. Düzeltildi: grid ise
+satır+sütun ile çağrılıyor, satır verilmemişse bunu söyleyen net bir
+hata dönüyor. Doğrulandı: satır 0 / `VBELN` → ekran 200'den 600'e
+("Ayrnt.görüntü") geçti.
+
+**3. `sendVKey` modal pencerede yanlış pencereye gidiyordu.** Sabit
+`wnd[0]`'a gönderiliyordu; modal açıkken (çift tıklamayla gelen
+ayrıntı penceresi `wnd[1]`) tuş modalin ARKASINDAKİ pencereye gidip
+617 ile reddediliyordu. Dosyanın geri kalanı zaten `ActiveWindow`
+kullanıyordu; hizalandı.
+
+**4. Araç çubuğu okuması modal açıkken YALAN SÖYLÜYORDU.**
+`read_toolbar_keys` sabit `wnd[0]/tbar[0]` okuyordu, yani modal
+açıkken arkadaki ekranın tuşlarını o anki ekranınmış gibi bildiriyordu.
+Sonuç kendi içinde çelişen bir mesajdı: *"3 numaralı tuş etkin değil
+… şu an etkin olanlar: Geriye (F3)"*. O modalde gerçekte yalnızca
+Devam(0), Ara(71), Aramaya devam(84), İptal(12) var. Aktif pencereye
+çevrildi; okuma artık SAP'nin gösterdiğiyle birebir.
+
+**5. `selectContextMenuItem` MENÜYÜ HİÇ AÇMIYORDU.** Yalnız
+`SelectContextMenuItem(<işlev kodu>)` çağrılıyordu. Açık bir menü
+yokken SAP bunu 613 "invalid argument" ile reddediyor — yani hatayı
+DEĞERDE gösteriyor, oysa eksik olan çağrının kendisi. Beş ayrı
+kod/metin denendi, hepsi 613 verdi. SAP'nin kendi kayıt çıktısı hep
+ikili sıra üretir (`grid.contextMenu` → `grid.selectContextMenuItem`);
+eklendi ve `&OPTIMIZE` ilk denemede geçti.
+
+Ayrıca bu maddede ikinci bir sorun vardı: işlev kodu (`&XXL`) ekranda
+hiçbir yerde yazmaz, kullanıcının bilmesinin yolu yoktur ve her yanlış
+tahmin öğretmeyen bir hata döndürür. SAP'nin `…ByText` / `…ByPosition`
+metotları eklendi; UI'da **varsayılan artık "Metin"** (kullanıcının
+okuyabildiği şey menüde yazan metindir), 613 hatası da ne yapılacağını
+söylüyor. Metin yolunun SAP'ye ulaştığı doğrulandı; doğru etiketle
+uçtan uca teyit edilmedi (tahmin edilen Türkçe etiketler o menüde
+yoktu).
+
+**Yan doğrulama — UTF-8 sağlam.** Türkçe karakterli bir değerin
+köprüden gidip geri döndüğü bayt bayt ölçüldü (`ĞÜŞİÖÇığşiöç` bozulmadan
+döndü). İlk denemede görülen bozulma kabuk argümanındaydı, köprüde
+değil.
+
+**Performans notu (düzeltilmedi):** 200 satır × 40 sütun okuması ~31 sn
+sürüyor — 8000 ayrı COM `GetCellValue` çağrısı, ve köprü tek iş
+parçacıklı olduğu için bu süre boyunca başka istek kabul etmiyor.
+Büyük bir ALV'de denetçi bu kadar donuyor demektir. Sınırlar
+(`GRID_CELL_LIMIT_*`) bilinçli; asıl mesele okumanın tembel/parçalı
+olması gerektiği. Kayda geçirildi, yapılmadı.
+
+**Aynı porta iki köprü bağlanabiliyor (dikkat).** Windows'ta iki
+`python.exe` aynı anda 8790'ı LISTENING tutabildi; istekler ikisi
+arasında dağıldı ve ESKİ kodlu olan yanıt verdiğinde düzeltme
+"çalışmadı" gibi göründü. Köprüyü yeniden başlatırken PID ile
+kapatmak gerekiyor — `taskkill /IM python.exe` filtresi bunları
+yakalamıyor.
+
+Test sonunda kullanıcının ekranı **başladığı yere** bırakıldı
+(SE16N ekran 200, VBFA listesi; ayrıntı penceresi kendi İptal'iyle
+kapatıldı).
+
+## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
+
+### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)
+
+`ms-graph-mail-config` node'unda deploy sonrası şu hata alındı: `node: Mail
+Gönder`, `msg: "Please select the tenant within your config node in flows
+before proceeding with the authentication process."` — canvas'ta node
+kırmızı işaretliydi. Kullanıcı ayrıca gerçek editörde Ctrl+F `is:config
+is:unused` aramasının kullanılmayan config node'ları listelediğini fark
+etti ve **kesin talebi**: sadece bu tek hatayı yamalamayıp, TÜM node/config
+tiplerinde required-field doğrulamasını gerçek Node-RED editörünün
+otomatik mekanizmasıyla (kırmızı kenarlık) ve `is:config is:unused`
+semantiğiyle birebir aynı şekilde bizim gömülü editörümüzde de sistematik
+uygulamak.
+
+### Araştırma
+
+Gerçek aXet.flows kurulumundaki (`%LOCALAPPDATA%/axet-flows/.deptapps-
+desktop/electron-releases/WINDOWS_X64/latest-prod/resources/app/`) TÜM
+`.html` node tanım dosyaları taranıp `required:true` alanları çıkarıldı.
+Kilit bulgu: `ms-graph-mail-config`'in `tenant` alanı ŞEMA seviyesinde
+`required:false` ama `authType==='DELEGATED'` iken tenant boşsa node
+ÇALIŞMA ZAMANINDA patlıyor — yani şemada olmayan ama gerçek davranışta
+var olan KOŞULLU bir zorunluluk. Diğer bulgular: `ms-graph-shp-config`
+(authType/domain required), `audit-config` (credentialname), `enabler-
+config`/`axet-config` (name), `axet-spa-app` (appId), `axetflows-http-in`
+(url/method), `deptapps-app-auth-basic-internal`/`-okta` (çoklu alan),
+`deptapps-app-auth-ldap`/`-cas`/`-openid`/`-azure-ad` (kaynakta
+`databaseName`/`roleField` "requied" YAZIM HATALI — bu ikisi GERÇEKTE
+zorunlu DEĞİL, bilerek buggy davranış korundu, "düzeltilmedi"),
+`ms-graph-mail-send`/`-read` (config, paylaşılan generator'dan miras),
+`axet-ai-capability-*`, `axet-agent-config`, `e-mail in` (repeat).
+
+### Yapılan değişiklikler
+
+- **`src/flows/nodeCatalog.js`**: 57 alana gerçek kaynaktan doğrulanmış
+  `required: true` eklendi + `ms-graph-mail-config.tenant`'a bu projeye
+  özel bir uzantı olan **`requiredIf: (raw) => raw?.authType ===
+  'DELEGATED'`** eklendi (Node-RED şemasında YOK, canlı runtime
+  davranışını modelliyor). Yeni genel fonksiyonlar: `getMissingRequired
+  Fields(type, raw)`, `isNodeValid`, `getNodeValidationIssues(type, raw,
+  nodesById)` (RECURSIVE — kendi alanları + `config-ref` ile işaret
+  ettiği config node'un alanları, kullanıcının "Mail Gönder'in kendi
+  alanları dolu ama işaret ettiği config'in tenant'ı boş" bulgusunu tam
+  modelliyor), `isNodeFullyValid`, `getConfigUsageMap(nodesById)` +
+  `isConfigUnused` (`is:config is:unused` ile AYNI semantik). Eski elle
+  bakımı gereken 9 elemanlı `CONNECTION_IDENTITY_FIELD` haritası TAMAMEN
+  KALDIRILIP `connectionKindFor`/`connectionStatusFor` generic hale
+  getirildi — artık herhangi bir formField'ın `required`/`requiredIf`
+  taşıyıp taşımadığına bakıyor, yeni config tipi eklendiğinde elle harita
+  güncellemesi gerekmiyor.
+- **`src/components/flows/FlowCanvas.jsx`**: her canvas node'u için
+  `getNodeValidationIssues` önceden hesaplanıp `data.validationIssues`
+  olarak React Flow node verisine ekleniyor.
+- **`src/components/flows/FlowNode.jsx`**: `validationIssues`'tan
+  `isInvalid` hesaplanıyor (subflow instance'lar hariç), node'a
+  `flow-node-invalid` class'ı + kırmızı `AlertTriangle` rozeti (tooltip'te
+  hangi alan/hangi config'te ne eksik yazıyor) ekleniyor.
+- **`src/components/flows/ConfigNodesPanel.jsx`**: her config node için
+  `getMissingRequiredFields` (kırmızı uyarı ikonu + kenarlık) ve
+  `getConfigUsageMap` ("kullanılmıyor" rozeti, `is:config is:unused`'un
+  sürekli/görsel karşılığı — ayrıca arama yapmaya gerek yok) gösteriliyor.
+- **`src/components/flows/NodeEditorPanel.jsx`** (bu turda tamamlandı):
+  gerçek Node-RED editörünün formda ANLIK (blur beklemeden, `draft`
+  üzerinden) kırmızı kenarlıkla işaretlemesinin AYNISI — her alan için
+  `fieldWrapperClass`/`renderLabel` yardımcıları, boş zorunlu alanda
+  `node-editor-field-invalid` class'ı + etikette kırmızı `*` işareti.
+  `config-ref` alanlarında ayrıca işaret edilen config node'un kendi eksik
+  alanları varsa forma "Bu config'te eksik alan(lar): ..." uyarısı
+  ekleniyor (recursive, FlowNode/FlowCanvas'la AYNI mantık).
+- **`src/flows/flows.css`**: `.flow-node-invalid`/`-badge`, `.config-panel-
+  item-invalid`/`-warn`/`-unused`, `.node-editor-field-invalid`/`-required-
+  mark`/`-hint`/`-hint-danger` stilleri eklendi.
+
+### Doğrulama
+
+17 senaryolu geçici bir Node script'i ile (iş bitince silindi):
+DELEGATED+boş-tenant → tenant missing + config invalid; MANUAL+boş-tenant
+→ geçerli; Mail Gönder'in kendi alanları dolu ama config'e recursive
+geçersizlik yayılıyor; tenant düzeltilince geçerli oluyor; config kullanım
+sayımı/unused tespiti doğru; `deptapps-app-auth-ldap`'ın gerçek typo
+bug'ının (`databaseName` boş olsa da hâlâ geçerli) korunduğu — hepsi PASS.
+`node --check src/flows/nodeCatalog.js`, `esbuild` ile 4 `.jsx` dosyasının
+sözdizimi, ve `npm run typecheck` temiz geçti.
+
+### İkinci tur — kullanıcı "hepsi için birebir aynı mı yaptın?" diye sorunca yapılan denetim + gerçek eksiklerin kapatılması (2026-08-29, aynı gün)
+
+Kullanıcı doğrudan sorunca dürüst bir ikinci-tur denetim yapıldı (alt-agent
+ile) — ilk turun **editor-time görsel katmanla sınırlı** olduğu, aşağıdaki
+gerçek boşlukların bulunduğu ortaya çıktı ve HEPSİ bu turda kapatıldı:
+
+1. **Deploy pipeline, yeni doğrulamayı HİÇ kullanmıyordu** — gerçek
+   `handleDeploy` → `flowRuntime.js` → `app-electron/main/flowDiagnostics.js
+   validateFlow()` zinciri, `nodeCatalog.js`'teki `required`/`requiredIf`'ten
+   TAMAMEN habersiz, ayrı/eski bir kontrolcüydü. Yani kullanıcının orijinal
+   canlı hatası (tenant boşken deploy sonrası runtime patlaması) editor
+   kırmızı gösterse de **deploy'u BLOKE ETMİYORDU**. Düzeltme:
+   `flowDiagnostics.js` artık `../../src/flows/nodeCatalog.js`'ten
+   `getNodeValidationIssues`/`isConfigUnused`/`catalogEntry`/`isConfigType`'ı
+   DOĞRUDAN import ediyor (main process derlemesine `electron-vite` ile
+   sorunsuz bundle olduğu build ile doğrulandı) ve `validateFlow()` artık
+   TEK bir yerden (nodeCatalog) beslenen 3 yeni issue kodu üretiyor:
+   `REQUIRED_FIELD_EMPTY` (kendi alanı boş, severity `error` → **Deploy'u
+   gerçek Node-RED ile AYNI şekilde bloke eder**), `CONFIG_REQUIRED_FIELD_
+   EMPTY` (işaret ettiği config'in alanı boş, recursive, severity `error`),
+   `UNUSED_CONFIG` (severity `warning`, bloke etmez — gerçek Node-RED'de de
+   unused config deploy'u durdurmaz). Ayrıca eskiden elle bakımı gereken
+   `MISSING_CONFIG_REF` alan-adı listesi (`['modelSchema','config',...]`) da
+   `catalogEntry(type).formFields`'tan `config-ref` tipini okuyan generic
+   bir döngüyle değiştirildi. 4 senaryoyla (`node -e` ile canlı import)
+   doğrulandı: DELEGATED+boş-tenant → `blocking:true`; tenant dolu →
+   `blocking:false`; boş-name'li kullanılmayan config → hem
+   `REQUIRED_FIELD_EMPTY` hem `UNUSED_CONFIG`, `blocking:true`; MANUAL+boş-
+   tenant → `blocking:false`. `npm run build` ile main bundle'da
+   `getNodeValidationIssues`/`isConfigUnused` metinlerinin gerçekten
+   bulunduğu doğrulandı.
+2. **`src/components/flows/NodeEditorPanel.jsx`** (bu turda tamamlanan
+   parça — yukarıdaki "TAMAMLANDI" bölümünde zaten anlatıldı) artık forma
+   canlı kırmızı kenarlık + `*` + config-ref recursive uyarısı ekliyor.
+3. **`src/flows/nodeCatalog.js`'te 3 gerçek tutarsızlık bulunup düzeltildi**
+   (alt-agent'in GERÇEK kaynağa (`node_modules/*/nodes/**/*.html` +
+   paylaşılan `node-core-functions.js` template'leri) karşı doğruladığı,
+   UYDURMA yapılmadı — bazı şüpheli alanlar (`enabler-llm`/`query`/`history`/
+   `python-agent.gateway`/`sql-query.query` config-ref'leri) kontrol edilip
+   GERÇEKTEN `required:false` olduğu doğrulandığı için DOKUNULMADI):
+   - `http in` ve `http request` node'larının `url`/`method` alanları
+     deploy-time kontrolcüsü (`flowDiagnostics.js EMPTY_URL`) tarafından
+     ZATEN bloke ediliyordu ama editor-time `required` bayrağı yoktu —
+     `axetflows-http-in` ile tutarlı hale getirildi.
+   - **`'aXet Agent'` node'unda gerçek bir eksiklik bulundu**: gerçek
+     kaynakta (`crewai-agent-extback.html` + paylaşılan `generateNodeType`)
+     `config` alanı (axet-agent-config referansı) VAR (`required:false`)
+     ama bizim katalogumuzda bu alan `fields`/`defaults`/`formFields`'ın
+     HİÇBİRİNDE yoktu — kullanıcı bu config'i UI'dan hiç seçemiyordu.
+     Eklendi (required değil, gerçek şemayla aynı).
+4. **`ConfigNodesPanel.jsx`'e gerçekten yazılabilir bir arama kutusu
+   eklendi** — önceden `is:config is:unused` SADECE bir kod yorumunda
+   geçen kavramsal bir benzetmeydi, gerçek editördeki gibi Ctrl+F'e
+   yazılabilir bir şey YOKTU. Artık panelin üstünde `is:unused`/`is:invalid`/
+   `is:config` (no-op, panel zaten sadece config'leri listeliyor, sadece
+   gerçek sözdizimiyle tutarlılık için kabul ediliyor) token'ları + düz
+   metni birlikte destekleyen (`parseConfigQuery`) bir arama kutusu var;
+   boşken davranış DEĞİŞMEDİ (tüm config'ler + rozetler görünür), arama
+   sadece üstüne binen bir daraltma.
+5. **Bilerek YAPILMAYAN/kapsamdan çıkarılan bir bulgu**: alt-agent, katalogda
+   `ms-graph-shp-config`'in 7 kardeş "operasyon" node'unun (`ms-graph-shp-
+   get-files`, `-get-folders`, `-download-file`, `-upload-file`, `-move-
+   file`, `-delete-file`, `-create-shareable-link`) **hiçbirinin `nodeCatalog.
+   js`'te TANIMLI OLMADIĞINI** buldu (gerçek kaynakta hepsi var, `config`
+   alanları `required:true`). Bu, "required alanı düzeltme" kapsamının
+   ÖTESİNDE bir katalog-tamlığı boşluğu (7 yeni node tipini site/path/vb.
+   TÜM alanlarıyla dogru sekilde eklemek gerekiyor) — riskli tahmin
+   yapmamak için bu turda EKLENMEDİ, kullanıcıya ayrı bir görev olarak
+   bildirilmesi gerekiyor.
+6. **`NodeContextMenu.jsx`/`NodePalette.jsx`/`TestRequestModal.jsx`**
+   kontrol edildi — bunların doğrulama ile hiçbir ilgisi yok (context menu
+   generic bir shell, palette sadece düz metin arar, test-request modal
+   sadece HTTP sonucu gösterir) - bilerek dokunulmadı, yanlış bir yer
+   olurdu.
+
+**Sonuç**: artık editor-time (canvas kırmızı kenarlık + rozet, config
+panel kırmızı/kullanılmıyor rozeti + arama, node editor formu canlı kırmızı
+kenarlık) VE deploy-time (gerçek Deploy butonu blokajı) **TEK bir kaynaktan**
+(`src/flows/nodeCatalog.js`) besleniyor — kullanıcının orijinal "Please
+select the tenant..." senaryosu artık deploy ANINDA da yakalanıp bloke
+ediliyor, sadece canvas'ta kırmızı görünüp deploy'a izin veren ÖNCEKİ (ilk
+tur) davranış düzeltildi. Kapsam dışı bırakılan tek şey madde 5'teki 7 yeni
+node tipi — bu ayrı, daha büyük bir "katalog tamlığı" görevi.
+
+## Uygulama Bağlantıları — Outlook/SharePoint için GERÇEK Microsoft Graph OAuth (2026-08-29, TAMAMLANDI)
+
+### Kullanıcı isteği ve kapsam kararları
+
+Kullanıcı "uygulama bağla kısmı yapalım, Outlook/SharePoint gibi uygulamalar
+bağlanabilsin" dedi. İki `ask_user` sorusuyla kapsam netleştirildi:
+1. **"Gerçek OAuth girişi"** seçildi (manuel kimlik bilgisi formu veya
+   sadece UI iskeleti DEĞİL) — kullanıcı gerçekten kendi Microsoft
+   hesabıyla giriş yapabilmeli.
+2. Azure AD "App Registration"ı (client id + tenant) kullanıcının **henüz
+   olmadığı** ve **rehber istediği** öğrenildi — bu yüzden ekranın kendisi
+   hem rehber metni hem client id/tenant girişini hem de gerçek bağlan/
+   kes/test akışını tek yerde topluyor (aşağıda detay).
+
+Bu özellik `axet.flows`'un `ms-graph-mail-config`/`ms-graph-shp-config`
+node'larından (Node-RED flow builder'a özel, ayrı bir credential modeli)
+**TAMAMEN AYRI** — burası uygulama/axet.code seviyesinde, yeni bir Activity
+(`ActivityBar.tsx`), kullanıcının kendi Microsoft hesabını GERÇEKTEN
+doğrulayıp Outlook/SharePoint'e Microsoft Graph API üzerinden erişebildiğini
+kanıtlayan (`/me` endpoint'ine gerçek istek atan "Bağlantıyı Test Et"
+butonu) bir merkez.
+
+### Mimari — neden device code flow
+
+Electron masaüstü uygulaması için "public client" (client secret GEREKMEZ)
+OAuth 2.0 **device code flow** seçildi (`@azure/msal-node`,
+`PublicClientApplication.acquireTokenByDeviceCode`): kullanıcıya bir kod +
+"microsoft.com/devicelogin" gösterilir, kendi tarayıcısında (veya
+"Tarayıcıda Aç" butonuyla, `window.api.openExternalUrl` — zaten var olan
+IPC) kodu girip giriş yapar; embedded browser popup'ı YOK, redirect URI/
+custom protocol handler karmaşıklığı YOK. `sapGuiScriptAgent.ts`/
+`axetChat.ts`'teki `requestId`-bazlı iptal deseniyle AYNI mantık — device
+code polling msal-node'un KENDİ desteklediği `request.cancel = true`
+mekanizmasıyla iptal edilebiliyor (`pendingDeviceCodeRequests` map).
+
+### Güvenlik — token'lar NEREDE saklanıyor
+
+**Kritik karar**: token'lar `config.json`'a (düz JSON) YAZILMIYOR.
+`app-electron/main/msGraphAuth.ts`, msal-node'un `ICachePlugin` arayüzünü
+kullanarak token cache'ini AYRI bir `msal-token-cache.bin` dosyasına,
+Electron'un işletim sistemi düzeyindeki `safeStorage` (Windows'ta DPAPI)
+API'siyle ŞİFRELENMİŞ olarak yazıyor. `config.json`'da (AppConfig,
+`store.ts`) SADECE gizli OLMAYAN meta veri tutuluyor:
+`msGraphAppRegistration: {clientId, tenantId}` (bunlar sır değil — public
+client'ın kendisi client secret taşımıyor) ve `msGraphConnections:
+{outlook?, sharepoint?}` (hesap adı/e-posta, bağlantı tarihi, izin
+kapsamları — TOKEN'IN KENDİSİ hiçbir yerde düz metin değil).
+
+### Yeni dosyalar / değişen dosyalar
+
+- **`app-electron/main/msGraphAuth.ts`** (yeni) — `PROVIDER_SCOPES`
+  (outlook: Mail.Read/Mail.Send, sharepoint: Sites.Read.All/Files.
+  ReadWrite.All) + `BASE_SCOPES` (User.Read, offline_access);
+  `saveAppRegistration`, `getConnections`, `connectProvider(requestId,
+  provider, onDeviceCode)`, `cancelConnect`/`cancelAllConnects`,
+  `disconnectProvider` (aynı Microsoft hesabı BAŞKA bir provider tarafından
+  da kullanılıyorsa MSAL cache'indeki hesabı SİLMİYOR — sadece o provider'ın
+  config kaydını kaldırıyor), `testConnection` (`acquireTokenSilent` +
+  gerçek `https://graph.microsoft.com/v1.0/me` isteği).
+- **`app-electron/shared/types.ts`**: `MsGraphProvider`, `MsGraphApp
+  Registration`, `MsGraphConnection`, `MsGraphDeviceCodeInfo`, `MsGraph
+  ConnectResult`, `MsGraphDisconnectResult`, `MsGraphTestResult` +
+  `AppConfig.msGraphAppRegistration`/`msGraphConnections` eklendi.
+- **`app-electron/main/store.ts`**: `saveMsGraphAppRegistration`,
+  `saveMsGraphConnection`, `removeMsGraphConnection` — mevcut
+  `saveLastCredential`/`saveSystemTier` deseniyle AYNI.
+- **`app-electron/main/index.ts`**: `msGraph:saveAppRegistration`/
+  `:getConnections`/`:connect`/`:cancelConnect`/`:disconnect`/`:test` IPC
+  handler'ları; device code bilgisi `mainWindow?.webContents.send
+  ("msGraph:deviceCode", info)` ile (flowRuntime'ın `onDebug`/`onStatus`
+  push deseniyle AYNI) anlık gönderiliyor; `cancelAllMsGraphConnects()`
+  her iki `app.on(...)` kapanış hook'una eklendi.
+- **`app-electron/preload/index.ts` + `src/window.d.ts`**: standart IPC
+  köprü zinciri (`saveMsGraphAppRegistration`, `getMsGraphConnections`,
+  `connectMsGraph`, `cancelMsGraphConnect`, `disconnectMsGraph`,
+  `testMsGraphConnection`, `onMsGraphDeviceCode`).
+- **`src/components/ActivityBar.tsx`**: `Activity` union'a `"connections"`
+  eklendi, `Plug` ikonlu yeni bir aktivite girişi.
+- **`src/components/AppConnectionsHome.tsx`** (yeni) — kendi kendine yeten
+  (SapGuiScriptingHome.tsx gibi, dışarıdan `pushToast` almıyor) tam sayfa:
+  (1) Azure AD App Registration bölümü — Client ID/Tenant ID input + Kaydet
+  + katlanabilir "Nasıl oluşturulur?" rehberi (6 adım, portal.azure.com'da
+  App Registration oluşturma — "Allow public client flows" ve gerekli Graph
+  delegated permission'ları dahil), (2) device code akışı — bağlanma
+  sırasında kod + "microsoft.com" mesajı + Kopyala + Tarayıcıda Aç (gerçek
+  `verificationUri`, API yanıtından) + İptal Et, (3) Outlook/SharePoint
+  kartları — Bağlı/Bağlı değil rozeti, hesap adı, Bağlan/Bağlantıyı Test
+  Et/Bağlantıyı Kes butonları.
+- **`src/App.tsx`**: `activity === "connections"` dalı eklendi.
+- **`src/i18n/tr.ts` + `en.ts`**: `activityBar.connections` + 30 civarı
+  `appConnections.*` anahtarı (her ikisi de `Record<TranslationKey,string>`
+  olduğu için EKSİKSİZ mirror edildi).
+- **`package.json`**: `@azure/msal-node` bağımlılığı eklendi (npm install
+  ile, 14 paket — msal-common dahil).
+- **`electron.vite.config.ts`**: `externalizeDepsPlugin`'in `exclude`
+  listesine `@azure/msal-node`/`@azure/msal-common` eklendi — **kritik
+  paketleme kararı**: `package.json`'daki `build.files` SADECE
+  `dist`/`dist-electron`/`@lydell`'i pakete alıyor, genel `node_modules`
+  DAHIL EDİLMİYOR (fast-xml-parser'ın da AYNI sebeple burada olması gibi) —
+  externalize edilmiş bir paket packed uygulamada "Cannot find module" ile
+  patlardı. Bunun yerine msal-node/msal-common TAMAMEN
+  `dist-electron/main/index.js`'e gömülüyor (main bundle 377KB'tan
+  847KB'a çıktı, 59 modülden 335 modüle).
+
+### Doğrulama
+
+- `@azure/msal-node`'un GERÇEK tip tanımları (`node_modules/@azure/
+  msal-node/src/request/DeviceCodeRequest.ts`,
+  `CommonDeviceCodeRequest.ts`, `@azure/msal-common`'daki
+  `DeviceCodeResponse`/`ICachePlugin`/`TokenCacheContext`) okunup
+  `deviceCodeCallback` yanıt alanları (`userCode`/`verificationUri`/
+  `message`/`expiresIn`), `request.cancel` iptal mekanizması ve
+  `getTokenCache().getAllAccounts()`/`removeAccount()` API'leri
+  UYDURULMADAN, kaynak koddan doğrulanarak kullanıldı.
+- `npm run typecheck` (hem `tsconfig.web.json` hem `tsconfig.node.json`)
+  temiz geçti.
+- `npm run build` (electron-vite) temiz geçti — main/preload/renderer
+  bundle'larının hepsi hatasız derlendi.
+- Bundle içeriği doğrulandı: `dist-electron/main/index.js` içinde
+  `require("@azure/msal-node")` YOK (`grep` ile doğrulandı — tamamen
+  gömülü), `PublicClientApplication`/`acquireTokenByDeviceCode` string'leri
+  VAR (gerçekten bundle'a girdiği kanıtı).
+- **Gerçek bir Windows paketleme testi** yapıldı: `npx electron-builder
+  --win dir` ile `release/win-unpacked` üretildi, exe imzalandı/ikon
+  gömüldü, hatasız tamamlandı — bu, sadece `tsc`/`vite build`in değil,
+  GERÇEK electron-builder paketleme sürecinin de bu yeni bağımlılıkla
+  sorunsuz çalıştığının kanıtı.
+
+### Test EDİLEMEYEN (bu ortamda gerçek bir Azure AD kiracısı/App
+Registration yok)
+
+Gerçek bir Microsoft hesabıyla device code akışının UÇTAN UCA çalıştığı
+(kullanıcı kodu girip giriş yapınca `acquireTokenByDeviceCode`'un
+gerçekten token döndürdüğü, `/me` isteğinin gerçek bir görünen ad
+döndürdüğü) — bu, kullanıcının kendi Azure AD tenant'ında bir App
+Registration oluşturup (yukarıdaki rehber adımlarını izleyerek) Client ID/
+Tenant ID'yi uygulamaya girip "Bağlan" demesiyle doğrulanabilir. Rehberdeki
+adımlar Microsoft'un resmi/bilinen App Registration akışına dayanıyor
+(URL olarak sadece iyi bilinen `portal.azure.com` kök adresi ve resmi
+`graph.microsoft.com/v1.0/me` Graph API endpoint'i kullanıldı — hiçbir
+"tahmin edilmiş" derin bağlantı/URL yok).
+
+## Uygulama Genelinde Eksik Denetimi (2026-08-29, aynı gün devamı)
+
+Kullanıcı "uygulama genelinde nelerimiz eksik" diye sorunca bir alt-agent
+ile TÜM repo (`src/`, `app-electron/`) tarandı: TODO/FIXME/"Yakında"/
+"coming soon"/placeholder işaretleri, `tr.ts`↔`en.ts` anahtar tutarlılığı,
+kullanılan-ama-tanımsız `t()` çağrıları, leftover `console.log`, ölü
+export/dosya, `package.json` script'leri vs. Bulunanlar ve yapılan
+düzeltmeler:
+
+1. **`tr.ts`/`en.ts` anahtar tutarlılığı**: TAM — `en.ts`'in `Record<
+   TranslationKey, string>` tip zorlaması (`TranslationKey = keyof typeof
+   tr`) sayesinde derleme zamanında zaten garanti ediliyor, hiçbir eksik/
+   fazla anahtar yok. Hiçbir `t()` çağrısı tanımsız bir anahtara işaret
+   etmiyor (dinamik anahtar oluşturan `` t(`axetCodeHome.${key}`) `` gibi
+   çağrılar da dahil, tüm olası değerler kontrol edildi).
+2. **Ölü i18n anahtarı bulundu ve KALDIRILDI**: `axetCodeHome.
+   connectionsComingSoon` ("Yakında"/"Coming soon", `tr.ts`/`en.ts`) —
+   `AxetCodeHome.tsx`'teki "Bağlantılar" widget'ı artık işlevsel olduğu
+   (SAP hızlı-bağlan listesi) ve ayrıca yepyeni bir "Uygulama Bağlantıları"
+   Activity'si (Outlook/SharePoint OAuth) eklendiği için bu anahtar hiçbir
+   `t()` çağrısında kullanılmıyordu — silindi. Bu, "Sonraki adımlar"
+   bölümündeki (dosyanın en başı) eskimiş bir notun da kanıtıydı — o not da
+   güncellendi (yukarıda, "DEVAM EDEN PLATFORM DÖNÜŞÜMÜ" bölümünde).
+3. **Leftover `console.log` taraması**: `Toolbar.jsx`/`DebugPanel.jsx`'teki
+   ikisi zaten bilinçli/onaylı (kaydetme sonrası dosya yolu bilgisi,
+   `eslint-disable-next-line no-console` ile işaretli — ESLint kurulu
+   olmadığı için bu yorumlar şu an no-op ama zararsız, dokunulmadı).
+   `sapLogon.ts`'teki log KOŞULLU (sadece gerçekten bir zombi process
+   temizlendiyse loglanıyor) — bilinçli diagnostic log, leftover DEĞİL,
+   dokunulmadı.
+4. **Ölü kod/export**: bulunamadı — `AppConnectionsHome.tsx` dahil her
+   yeni dosya doğru şekilde import edilip kullanılıyor.
+5. **`package.json` script'leri**: `lint`/`test`/`format` yok, hiçbir CI
+   (`.github/workflows`) da yok — ama README de bunları hiç vaat etmiyor
+   (sadece `dev`/`typecheck`/`build`/`build:win` belgeliyor, hepsi mevcut),
+   bu yüzden bir "tutarsızlık" değil, bilinçli/minimal bir araç seti. Test
+   altyapısı kurmak (Jest/Vitest vb.) ayrı, büyük bir karar — kullanıcı
+   istemeden eklenmedi.
+6. **Repo kökünde `tmp/axet-session-test/` boş bir klasör** bulundu (git
+   tarafından TAKİP EDİLMİYORDU, `.gitignore`'da da yok — sadece yerel bir
+   kalıntı) — silindi.
+
+### Bulunan ve KAPATILAN gerçek, önemli bir güvenlik borcu
+
+`PROJE-BILGI.md`'nin çok önceden (v1.3.3 civarı) "Bilinen Eksikler"
+listesine eklediği ama hiç ele alınmamış bir madde vardı: **SAP sistem
+şifreleri `config.json`'a düz metin yazılıyordu**
+(`AppConfig.lastCredentials[uuid].password`). Bu turda Uygulama
+Bağlantıları özelliği için kurulan `safeStorage` (Windows DPAPI) deseni
+BURAYA da genelleştirilerek uygulandı:
+
+- **`app-electron/main/secureStorage.ts`** (yeni, paylaşılan) —
+  `encryptSecret(plain)`/`decryptSecret(stored)`: `enc:v1:<base64>`
+  öneki ile şifreli/düz-metin ayrımı yapılıyor. `decryptSecret`, bu öneki
+  GÖRMEYEN her string'i "eski/düz metin kayıt" kabul edip olduğu gibi
+  döndürüyor — yani şifreleme eklenmeden ÖNCE kaydedilmiş mevcut
+  kullanıcı config'leri KIRILMIYOR (o kayıt bir sonraki başarılı bağlanışta
+  otomatik olarak şifreli forma yükseltilir, ayrı bir migrasyon script'i
+  gerekmedi).
+- **`app-electron/main/store.ts` `saveLastCredential`**: artık
+  `credential.password`'u `encryptSecret` ile şifreleyip diske öyle
+  yazıyor.
+- **`app-electron/main/index.ts` `resolveCredentialDefaults`**: `last?.
+  password` okunurken `decryptSecret` ile çözülüyor (renderer'a/forma
+  hâlâ düz metin gidiyor — sadece DİSKTEKİ hâl şifreli, davranışta hiçbir
+  değişiklik yok, kullanıcı hiçbir fark görmez).
+- **Bilinçli kapsam sınırı**: `.conn_adt` dosyasının KENDİSİ hâlâ düz
+  metin — `adt-tool.ps1` (PowerShell) ve `resources/sap-toolkit`'teki
+  çok sayıda Python script (`sap_adt_lib.py` `python-dotenv` ile okuyor)
+  bu dosyayı HARİCİ olarak, düz `KEY=VALUE` formatında tüketiyor;
+  şifrelemek bu araçların TAMAMINI bozardı. Bu zaten PROJE-BILGI.md'de
+  "bilinçli/kabul edilmiş tercih" olarak belgelenmişti, bu turda da
+  değiştirilmedi — sadece madde artık "KISMEN ÇÖZÜLDÜ" olarak güncellendi
+  (yukarıdaki "Bilinen Eksikler" bölümü).
+- **`trustedCertificates`** kontrol edildi — sadece SHA-256 fingerprint
+  (`host:port -> hash`) tutuyor, PEM/private key YOK, hassas değil,
+  dokunulmadı.
+
+### Doğrulama
+
+- Gerçek Electron ortamında (`npx electron <script>`, `app.whenReady()`
+  içinde) `safeStorage.isEncryptionAvailable()` → `true` ve encrypt/decrypt
+  round-trip testi PASS (bu makinede DPAPI gerçekten çalışıyor, teorik bir
+  varsayım değil).
+- `npm run typecheck` ve `npm run build` temiz geçti.
+- Bundle içeriği doğrulandı: `dist-electron/main/index.js` içinde
+  `encryptSecret`/`decryptSecret`/`enc:v1:` string'leri VAR (gerçekten
+  bundle'a girdiği kanıtı).
+
+## Uygulama Bağlantıları — Ayrı Activity Yerine Ayarlar İçinde "Dropdown" Bölüm (2026-08-29, aynı gün devamı)
+
+Kullanıcı "bu uygulama bağlantısını yeni bir ekran olarak değil de aşağıda
+ayarlar kısmında dropbox (dropdown/katlanabilir bölüm) olarak yapabiliriz"
+dedi — yani az önce eklenen bağımsız `"connections"` Activity'si (ayrı bir
+ActivityBar ikonu + tam ekran sayfa) kaldırılıp `SettingsModal.tsx`'in
+içine, varsayılan KAPALI bir accordion/katlanabilir bölüm olarak taşındı.
+
+### Değişiklikler
+
+- **`src/components/AppConnectionsHome.tsx` SİLİNDİ**, yerine
+  **`src/components/AppConnectionsSection.tsx`** (yeni) eklendi — TÜM
+  state/IPC mantığı (Azure AD kayıt formu, device code akışı, provider
+  kartları, bağlan/test et/bağlantıyı kes) BİREBİR aynı, sadece dış
+  "tam sayfa" kapsayıcısı (kendi `<h1>` başlığı, `min-h-0 flex-1
+  overflow-y-auto` sayfa düzeni) kaldırıldı — artık SADECE İÇERİK
+  döndürüyor, `SettingsModal.tsx`'teki yeni bölüm onu sarmalıyor.
+- **`src/components/SettingsModal.tsx`**: `Section`'ın yanına yeni bir
+  **`CollapsibleSection`** component'i eklendi (`icon`, `title`,
+  `defaultOpen` prop'ları, iç `useState` ile açık/kapalı durumu, başlığa
+  tıklanınca dönen bir `ChevronDown` ikonu) — mevcut `Section`'ları
+  DEĞİŞTİRMEDİ, sadece bu tek, karmaşık/opsiyonel bölüm için ek bir
+  varyant. "Gelişmiş Yollar" bölümünün altına `<CollapsibleSection
+  icon={Plug} title={t("settingsModal.sectionConnections")}>
+  <AppConnectionsSection /></CollapsibleSection>` eklendi, varsayılan
+  KAPALI (`defaultOpen` verilmedi → `false`) — Azure AD kurulumu
+  gerektiren, çoğu kullanıcının her Ayarlar açılışında görmesi
+  gerekmeyen bir özellik olduğu için.
+- **`src/components/ActivityBar.tsx`**: `Activity` union'ından
+  `"connections"` çıkarıldı, `activities` dizisindeki ayrı giriş
+  (Plug ikonlu) kaldırıldı, kullanılmayan `Plug` import'u da temizlendi.
+- **`src/App.tsx`**: `AppConnectionsHome` import'u ve `activity ===
+  "connections"` render dalı kaldırıldı.
+- **i18n temizliği** (`tr.ts`/`en.ts`): `activityBar.connections` (artık
+  Activity yok) ve `appConnections.title`/`appConnections.subtitle`
+  (eski sayfa başlığı, artık render edilmiyor) silindi; yeni
+  `settingsModal.sectionConnections` ("Uygulama Bağlantıları (Outlook,
+  SharePoint)" / "App Connections (Outlook, SharePoint)") eklendi.
+  Kalan tüm `appConnections.*` anahtarları (form etiketleri, rehber
+  metni, buton metinleri) DEĞİŞMEDEN `AppConnectionsSection.tsx`
+  tarafından kullanılmaya devam ediyor.
+- Backend tarafı (`msGraphAuth.ts`, IPC handler'ları, `secureStorage.ts`,
+  `AppConfig.msGraphAppRegistration`/`msGraphConnections`) HİÇ
+  değişmedi — bu sadece bir UI yeniden-konumlandırması, mimari/güvenlik
+  tarafı bir önceki turda tamamlanmış hâliyle aynı.
+
+### Doğrulama
+
+- `npm run typecheck` (web + node) temiz geçti.
+- `npm run build` (main/preload/renderer) temiz geçti.
+
+## Uygulama Bağlantıları — Ayarlar Modal'ından da Çıkarılıp ActivityBar'da Kendi Butonuna Taşındı (2026-08-29, aynı gün üçüncü tur)
+
+Kullanıcı bu sefer "ayarların içinde değil de ayarlar butonunun üstünde de
+olsun" dedi — yani az önce Ayarlar modal'ının içine taşınan katlanabilir
+bölüm de KALDIRILIP, ActivityBar'ın alt köşesindeki (dil/tema/Ayarlar
+butonlarının olduğu dikey sıra) Ayarlar butonunun TAM ÜSTÜNE ayrı bir
+buton eklendi — bu buton kendi bağımsız modal'ını açıyor (Ayarlar
+modal'ından TAMAMEN AYRI, ikisi aynı anda açık olabilir).
+
+### Değişiklikler
+
+- **`src/components/SettingsModal.tsx`**: önceki turda eklenen
+  `CollapsibleSection` component'i ve `AppConnectionsSection` kullanımı
+  TAMAMEN KALDIRILDI — `ChevronDown`/`Plug` import'ları da temizlendi.
+  Modal artık öncesi gibi sadece kendi orijinal `Section`'larını içeriyor.
+- **`src/components/AppConnectionsModal.tsx`** (yeni) — `SettingsModal.tsx`
+  ile AYNI modal kabuğu görsel dili (gradient üst çizgi, ortalanmış
+  backdrop, sağ üstte X kapatma butonu, alt sağda tek bir "Kapat" butonu)
+  kullanan, kendi başlığı (`appConnectionsModal.title`/`.subtitle`) olan
+  bağımsız bir modal. İçeriği DOĞRUDAN `AppConnectionsSection.tsx`'i
+  (state/IPC mantığı hiç değişmeyen, sadece İÇERİK component'i) render
+  ediyor.
+- **`src/components/ActivityBar.tsx`**: yeni `onOpenConnections` prop'u +
+  alt köşedeki dikey sırada (dil → tema → **Bağlantılar (Plug ikonu,
+  YENİ)** → Ayarlar) Ayarlar'ın TAM ÜSTÜNDE bir buton eklendi — kullanıcının
+  "ayarlar butonunun üstünde" talebi birebir bu konumlandırmayla
+  karşılandı.
+- **`src/App.tsx`**: `connectionsOpen` state'i + `<AppConnectionsModal
+  open={connectionsOpen} onClose={...} />` render'ı + `ActivityBar`'a
+  `onOpenConnections={() => setConnectionsOpen(true)}` bağlandı.
+  `SettingsModal`'ınkiyle AYNI basit modal-state deseni (`useState<
+  boolean>`), ekstra bir context/global state gerekmedi.
+- **i18n**: `settingsModal.sectionConnections` (artık kullanılmıyor)
+  silindi; `activityBar.connections` (buton title'ı) GERİ EKLENDİ (bir
+  önceki turda ölü kod diye silinmişti, şimdi gerçekten kullanılıyor);
+  yeni `appConnectionsModal.title`/`.subtitle` + genel amaçlı
+  `common.close` ("Kapat"/"Close" — daha önce hiçbir modalın ihtiyacı
+  olmamıştı, `SettingsModal`/`AddSystemModal` gibi diğerleri hep "İptal"
+  kullanıyordu, bu modalın "kaydet"/"iptal et" ayrımı olmadığı, sadece
+  "görüntüle ve kapat" olduğu için ayrı bir anahtar gerekti) eklendi.
+- Backend (`msGraphAuth.ts`, IPC handler'ları, `secureStorage.ts`,
+  `AppConfig` alanları) yine HİÇ değişmedi — üçüncü turda da sadece UI
+  konumlandırması değişti.
+
+### Doğrulama
+
+- `npm run typecheck` (web + node) temiz geçti.
+- `npm run build` (main/preload/renderer) temiz geçti.
+- Kod tabanında `AppConnectionsHome`/`CollapsibleSection`/
+  `sectionConnections`'a hiçbir gerçek referans (import/kullanım)
+  kalmadığı doğrulandı — sadece iki dosyadaki (`AppConnectionsSection.tsx`,
+  `msGraphAuth.ts`) tarihsel/açıklayıcı yorumlar güncellendi.
+
+## Uygulama Bağlantıları — MİMARİ PİVOTU: Azure AD OAuth Yerine aXet Agentic Connector'ları (2026-08-29, aynı gün dördüncü tur, KAPANDI)
+
+Kullanıcı önceki 3 turdaki "kendi Azure AD App Registration'ını gir, gerçek
+Microsoft Graph OAuth yap" mimarisini **tamamen terk edip** şunu söyledi:
+"biz https://axet.nttdata.com/agentic/ bunu kullanıyoruz, burda da
+https://axet.nttdata.com/api/agentic-mcp-tools/outlook_tools/mcp böyle bir
+MCP var, bu MCP outlook bağlantısı için kullanılıyor, tenant id falan onları
+geçelim, bu şekilde connector yapalım, SharePoint için de
+.../sharepoint_tools/mcp". Yani gerçek hedef, kullanıcının kurumsal "aXet
+Agentic" platformundaki (NTT DATA'nın kendi MCP tool sunucuları) Outlook/
+SharePoint connector'larını kullanmaktı — Azure AD/tenant kavramı TAMAMEN
+YANLIŞ bir varsayımdı (önceki turlarda kullanıcı henüz bunu netleştirmemişti).
+
+### Araştırma ve netleştirme (3 `ask_user` turu)
+
+1. Endpoint'e kimlik bilgisiz `fetch` denendi → `401 Unauthorized` (gerçek,
+   canlı bir sunucu — uydurma değil). Kullanıcıya nasıl kimlik doğrulanacağı
+   soruldu → "oauth ile galiba" (belirsiz).
+2. `https://axet.nttdata.com/.well-known/oauth-authorization-server`
+   denendi — Angular SPA'sının kendisini döndürdü (gerçek bir OAuth
+   metadata endpoint'i DEĞİL), somut bir client id/authority bulunamadı.
+3. Kullanıcıya tekrar soruldu, "ben kendim bağlanmaya çalıştığımda
+   Microsoft giriş ekranı çıkıyor" dedi — bu, MCP sunucusunun kullanıcının
+   TARAYICI oturumuna dayandığını ama uygulamanın kendi başına bunu taklit
+   edemeyeceğini gösterdi.
+4. **Kesin çözüm**: bu makinede zaten kurulu olan `axet-code` CLI'nın
+   (`axet-code --help`) `login`/`logout` komutları bulundu —
+   `axet-code login --help` çıktısı: **"Login to the AXET platform using
+   Okta device code authentication... AXET_PLUGIN_OKTA_DOMAIN,
+   AXET_PLUGIN_CLIENT_ID_OKTA, AXET_CORE_URL, AXET_LLM_ENABLER,
+   AXET_ENABLER_MANAGER"** — yani CLI'nın KENDİSİ zaten bu platforma Okta
+   SSO ile giriş yapıp Connector'lara (MCP tool sunucularına) erişebiliyor.
+   Kullanıcıya "Bağlan butonuna tıklanınca ne olsun" soruldu →
+   **"axet-code CLI üzerinden delege et"** seçildi (uygulamanın kendi başına
+   bir token/OAuth akışı YAPMAMASI, `axetChat.ts`'in zaten kullandığı
+   `axet-code run` mekanizmasını kullanması).
+
+### Tamamen kaldırılanlar
+
+- `app-electron/main/msGraphAuth.ts` — SİLİNDİ.
+- `@azure/msal-node` (+ `@azure/msal-common`) — `npm uninstall` ile
+  kaldırıldı (main bundle 848KB'tan **381KB'a düştü**, bu paketin
+  gerçekten tamamen çıktığının kanıtı).
+- `electron.vite.config.ts`'teki `@azure/msal-node`/`@azure/msal-common`
+  externalize-exclude satırı geri alındı (artık gerek yok).
+- `AppConfig.msGraphAppRegistration`/`msGraphConnections` alanları,
+  `store.ts`'teki `saveMsGraphAppRegistration`/`saveMsGraphConnection`/
+  `removeMsGraphConnection` fonksiyonları — TAMAMEN SİLİNDİ. **Yeni mimaride
+  `AppConfig`'e HİÇBİR alan eklenmedi** — bu launcher artık hiçbir token/
+  hesap/tenant bilgisi SAKLAMIYOR, hepsi CLI'nın kendi sorumluluğunda.
+- `MsGraphProvider`/`MsGraphAppRegistration`/`MsGraphConnection`/
+  `MsGraphDeviceCodeInfo`/`MsGraphConnectResult`/`MsGraphDisconnectResult`/
+  `MsGraphTestResult`/`MsGraphAppRegistrationResult` tipleri (shared/
+  types.ts) — SİLİNDİ, yerine 2 basit tip geldi (aşağıda).
+- Tüm `msGraph:*` IPC kanalları, `AppConnectionsSection.tsx`'teki Azure AD
+  App Registration formu + device code ekranı (kod/QR gösterme, "Tarayıcıda
+  Aç" ile verification URI açma) — TAMAMEN KALDIRILDI.
+
+### Yeni mimari
+
+- **`app-electron/main/agenticConnectors.ts`** (yeni) — `PROVIDER_MCP_URL`
+  (gerçek URL'ler: `.../outlook_tools/mcp`, `.../sharepoint_tools/mcp`,
+  sadece BİLGİ/gösterim amaçlı — bu launcher onlara asla direkt istek
+  atmıyor) + her provider için ajana verilen bir test prompt'u
+  (`PROVIDER_TEST_PROMPT`): ajana "sana ait bir Outlook/SharePoint connector
+  aracın var, SADECE GÜVENLİ/SALT-OKUNUR bir aksiyon çağır (gönderme/silme/
+  değiştirme YOK), sonucu tam olarak `CONNECTOR_OK: <detay>` veya
+  `CONNECTOR_FAIL: <sebep>` formatında tek satır raporla" deniyor. Ajanın
+  hangi tool adını kullanacağı BİLEREK belirtilmiyor (tool adları sürümle
+  değişebilir) — ajan kendi keşfettiği connector aracını seçiyor.
+  `testConnector(requestId, provider, cwd)` — `axetChat.ts`'teki AYNI
+  spawn/iptal deseniyle (`spawn("axet-code", ["run","-q",prompt])`,
+  `requestId`→`ChildProcess` map, `__markCancelled`) `axet-code run -q`
+  çalıştırıp stdout'u `CONNECTOR_(OK|FAIL): (.*)` regex'iyle ayrıştırıyor
+  (agent ekstra açıklama eklese bile SON eşleşmeyi esas alıyor).
+  `cancelConnectorTest`/`cancelAllConnectorTests` de aynı desen.
+  `mcpUrlFor(provider)` — sadece UI'da göstermek için gerçek URL'i döner.
+- **`app-electron/shared/types.ts`**: `ConnectorProvider = "outlook" |
+  "sharepoint"`, `ConnectorTestResult { ok, connected, detail, error?,
+  cancelled? }` — TEK bunlar, `AppConfig`'e HİÇBİR EKLEME yok.
+- **IPC** (`index.ts`/`preload/index.ts`/`window.d.ts`): `connectors:test`,
+  `connectors:cancelTest`, `connectors:getMcpUrl` — 3 basit kanal (önceki
+  turun 6 kanalından + 1 push event'inden çok daha küçük bir yüzey).
+- **`src/components/AppConnectionsSection.tsx`** (tamamen yeniden yazıldı)
+  — artık form YOK: sadece bir açıklama metni + Outlook/SharePoint kartları
+  (gerçek MCP URL'i `getConnectorMcpUrl` ile çekilip küçük gri metinle
+  gösteriliyor) + her biri için "Bağlantıyı Test Et" (busy/cancel
+  durumlarıyla) + sonuç (yeşil ✓ "detay" / kırmızı ✕ "sebep") + altta tek bir
+  "Terminalde Giriş Yap" butonu.
+- **`src/App.tsx`**: yeni `handleOpenLoginTerminal` — `handleNewTerminal`
+  ile AYNI "manuel terminal" yolu (READY_PATTERNS/8sn fallback bekleyen
+  `openTerminalForConnection`'ın YOLUNU KULLANMIYOR, çünkü `axet-code login`
+  tam-ekran bir TUI DEĞİL, düz satırlar yazan basit bir komut) — terminal
+  oluşturulur oluşturulmaz (`setImmediate` ile hemen "ready") `axet-code
+  login\r\n` stdin'e yazılıyor, tab/panel hemen açılıp kullanıcı device
+  code + URL'i doğrudan terminalde görüyor.
+- **`src/components/AppConnectionsModal.tsx`**: "Terminalde Giriş Yap"
+  tıklanınca `onOpenLoginTerminal()` çağrılıp modal KAPATILIYOR (aksi halde
+  modal'ın z-50 backdrop'u App.tsx'in normal akışta render ettiği, özel bir
+  z-index'i olmayan `TerminalPanel`'i görünmez şekilde örterdi).
+- **i18n**: TÜM Azure AD/device-code'a özel anahtarlar (`registrationTitle`,
+  `showGuide`/`hideGuide`, `guideStep1-6`, `clientId`/`tenantId`,
+  `connect`/`disconnect`, `connectingTitle`, `waitingForCode`,
+  `openBrowser`, `appsTitle`, `*Scopes` vb.) silindi; yerine `appConnections.
+  intro`, `.testConnection`, `.loginHint`, `.openLoginTerminal`,
+  `.loginTerminalTitle` gibi çok daha küçük bir set geldi.
+
+### Doğrulama
+
+- `npm run typecheck` (web + node) temiz geçti.
+- `npm run build` temiz geçti — main bundle **848KB → 381KB** (msal-node'un
+  gerçekten tamamen kaldırıldığının somut kanıtı).
+- Kod tabanında `msGraph`/`MsGraph`/`msal-node` string'lerinin TEK kalan
+  yeri, bu pivotu açıklayan tarihsel yorumlar (dosya: `AppConnectionsSection.
+  tsx`, `agenticConnectors.ts`, `index.ts`, `secureStorage.ts`, `shared/
+  types.ts`) — gerçek kod/tip/IPC referansı KALMADI, `grep` ile doğrulandı.
+  `mcpUrlFor` export'unun kullanılmayan (dead code) kalmaması için özellikle
+  `connectors:getMcpUrl` IPC kanalına bağlanıp UI'da gerçekten gösterildiği
+  doğrulandı.
+- **Gerçek paketleme testi**: `npx electron-builder --win dir` ile
+  `release/win-unpacked/aXet SAP Launcher.exe` başarıyla üretildi (bir
+  önceki paketlenmiş sürümün kilitli exe'sini `taskkill` ile serbest
+  bırakıp tekrar denendi).
+
+### Test EDİLEMEYEN (bu ortamda gerçek axet.nttdata.com erişimi/oturumu var
+ama uçtan uca "Bağlantıyı Test Et" akışı bu turda çalıştırılmadı)
+
+Bu makinede `axet-code` CLI'sı zaten kurulu ve `axet-code.json`/`auth.enc`
+dosyaları mevcut (muhtemelen daha önce `axet-code login` yapılmış) — ama bu
+turda gerçek "Bağlantıyı Test Et" butonuna tıklanıp ajanın GERÇEKTEN
+outlook_tools/sharepoint_tools connector'ını çağırıp `CONNECTOR_OK:`
+formatında cevap verdiği UÇTAN UCA doğrulanmadı (bu, paketlenmiş uygulamayı
+açıp gerçek bir tıklama gerektirir — kod-seviyesi doğrulama, gerçek
+kullanıcı testi kadar kesin değil). Kullanıcının kendi makinesinde Ayarlar
+butonunun üstündeki 🔌 ikonuna tıklayıp "Bağlantıyı Test Et"i denemesi
+gerekiyor; başarısız olursa "Terminalde Giriş Yap" ile `axet-code login`
+çalıştırıp tekrar denemesi öneriliyor.
+
+## Canlı Bulgu: "No project selected, launch axet-code in interactive mode first." (2026-08-30, TAMAMLANDI)
+
+### Kullanıcının gerçek testi ve bulduğu hata
+
+Kullanıcı paketlenmiş uygulamayı açıp Outlook connector'ında Okta SSO
+oturumunu tamamladı (login akışı ÇALIŞTI), ama "Bağlantıyı Test Et"
+dediğinde şu hatayı aldı: **"No project selected, launch axet-code in
+interactive mode first."**
+
+### Kök sebep araştırması (canlı, bu makinedeki gerçek axet-code kurulumuna karşı)
+
+1. `axet-code projects --json` çalıştırıldı — bu, axet-code'un KENDİ dizin-
+   bazlı proje geçmişini (hangi klasörlerde `.axet-code` alt klasörü var)
+   listeliyor, `axetWorkspaceDir` ZATEN bu listede — yani bu "proje" kavramı
+   HATANIN SEBEBİ DEĞİL.
+2. `axet-code run -q "list your available tools, just the names, nothing
+   else"` çalıştırıldı — dönen liste: `agent, agentic_fetch, ask_user, bash,
+   code_graph, download, edit, fetch, glob, grep, job_kill, job_output, ls,
+   lsp_diagnostics, lsp_references, lsp_restart, multiedit, skill_install,
+   skill_publish, skill_search, skill_uninstall, sourcegraph, todos, view,
+   write` — **outlook_tools/sharepoint_tools YOK**. `run -q` (non-
+   interactive) modunda bu MCP araçları HİÇ YÜKLENMİYOR.
+3. `axet-code.exe` binary'sinin ham string'leri tarandı (`node` ile
+   latin1 decode + regex) — **kesin kanıt bulundu**: `SelectedProjectID`,
+   `openProjectsDialog`, `ActionSelectProject`, `ActionInitializeProject`,
+   `markProjectInitialized`, `*api.AxetProject`, `FetchProjectModels` gibi
+   string'ler + kritik olarak bir ortam değişkeni: **`AXET_PROJECT_ID`**.
+   Bu, axet-code'un KENDİ dizin-bazlı "projects" komutundan TAMAMEN AYRI
+   bir kavram: **AXET Agentic platformunun "Project" entity'si** — MCP
+   connector'lar (Outlook/SharePoint gibi) hangi AXET Project'e ait
+   olduklarını bilmek zorunda, bu seçim SADECE interaktif TUI'deki bir
+   diyalogla (`openProjectsDialog`) yapılabiliyor. `run -q` non-interactive
+   modda bu diyalog gösterilecek bir yer olmadığı için CLI bu hatayı veriyor
+   — kod tarafımızda bir hata YOK, bu axet-code CLI'nın kendi tasarımı.
+4. `AXET_PROJECT_ID` env var'ını manuel set edip bir proje ID'si tahmin
+   etmek YERİNE (elimizde geçerli bir ID yok, uydurmak riskli), CLI'nın
+   kendi önerdiği çözüm izlendi: **"launch axet-code in interactive mode
+   first"** — yani kullanıcının gerçek/tam ekran `axet-code` TUI'sini
+   AÇIP oradaki proje seçim diyaloğunu bir kere geçmesi gerekiyor.
+
+### Yapılan düzeltme
+
+- **`src/App.tsx`**: `handleOpenLoginTerminal`'ı ("Terminalde Giriş Yap")
+  besleyen mantık genelleştirilip `openConnectorHelperTerminal(command,
+  title)` adında paylaşılan bir yardımcıya çıkarıldı (aynı "manuel
+  terminal aç + hazır olur olmaz komutu stdin'e yaz" deseni). Yeni
+  **`handleOpenProjectTerminal`** eklendi — `config.axetCommand` (varsayılan
+  `"axet-code -y"`, uygulamanın HER YERDE zaten kullandığı interaktif komut)
+  ile GERÇEK bir interaktif `axet-code` TUI'si açıyor; kullanıcı burada
+  normal şekilde etkileşime girip proje seçim diyaloğunu geçebilir —
+  bizim tarafımızdan simüle edilen bir tuş vuruşu YOK, tamamen gerçek CLI
+  deneyimi.
+- **`src/components/AppConnectionsSection.tsx`**: `isNoProjectSelectedError
+  (text)` — sonuç metninde `/no project selected/i` veya `/interactive
+  mode/i` regex'i eşleşirse tespit ediyor. Eşleşirse, mevcut genel
+  "Terminalde Giriş Yap" satırının ÜSTÜNE amber/uyarı renkli, AlertTriangle
+  ikonlu YENİ bir banner ekleniyor: "Bu connector'lar bir AXET Project
+  seçilmesini gerektiriyor — bu sadece axet-code'un interaktif (tam ekran)
+  modunda yapılabilir." + "AXET Projesi Seç" butonu (`onOpenProjectTerminal`
+  prop'u, App.tsx'teki yeni handler'a bağlı).
+- **`src/components/AppConnectionsModal.tsx`**: yeni `onOpenProjectTerminal`
+  prop'u eklendi, "Terminalde Giriş Yap"la AYNI desende (tıklanınca terminal
+  açılıp modal kapanıyor — aksi halde modal'ın backdrop'u TerminalPanel'i
+  örterdi).
+- **i18n** (`tr.ts`/`en.ts`): `appConnections.selectProjectHint`,
+  `.openProjectTerminal`, `.projectTerminalTitle` eklendi.
+
+### Doğrulama
+
+- `npm run typecheck` ve `npm run build` temiz geçti.
+- Gerçek `electron-builder --win dir` paketleme testi yapıldı (kullanıcının
+  açık olan önceki paketli uygulaması `taskkill` ile kapatılıp yeniden
+  paketlendi).
+
+### Kullanıcı için sıradaki adım
+
+🔌 ikonundan Uygulama Bağlantıları'nı aç → "Bağlantıyı Test Et" hâlâ aynı
+hatayı verirse artık amber renkli "AXET Projesi Seç" butonu görünecek →
+tıklayınca gerçek interaktif bir `axet-code` terminali açılır → burada
+normal şekilde (klavyeyle) etkileşime girip AXET Project seçim diyaloğunu
+geçmen gerekiyor (tam olarak hangi ekran/adımların çıkacağı bu ortamda
+görülemedi, CLI'nın kendi TUI'si bunu yönetiyor) → seçim tamamlandıktan
+sonra "Bağlantıyı Test Et"i tekrar dene.
+
+## Canlı Bulgu #2: "Outlook integration is unauthorized (state 'ERROR' — authorization flow not completed)" (2026-08-30, TAMAMLANDI)
+
+### Kullanıcının ikinci gerçek testi
+
+Yukarıdaki proje-seçimi sorunu çözüldükten sonra ("AXET Projesi Seç"
+akışını geçti) kullanıcı FARKLI bir hata aldı: **"Outlook integration is
+unauthorized (state 'ERROR' — authorization flow not completed)"**.
+
+### Kök sebep araştırması (bu makinedeki gerçek axet-code'a karşı canlı test)
+
+1. `axet-code run -q "List the exact names of ALL tools you currently have
+   available..."` çalıştırıldı — artık proje seçili olduğu için gerçek MCP
+   tool'lar görünüyor: **`mcp_conn_c3c2a49d-..._outlook_*`,
+   `mcp_conn_df6566e3-..._outlook_*`, `mcp_conn_e0c6a18b-..._outlook_*`** —
+   yani **AYNI Outlook provider'ı için ÜÇ AYRI, farklı connection ID'li
+   entegrasyon** kayıtlı (muhtemelen tekrarlanan re-authorization/SSO
+   denemelerinden kalan kalıntılar, axet.nttdata.com/agentic platformunun
+   kendi tarafında oluşuyor, bizim kodumuzda değil).
+2. Her üç entegrasyona ayrı ayrı `outlook_read`/`outlook_check_folder`
+   çağrısı yapıldı — **kesin sonuç**: `df6566e3-...` ÇALIŞIYOR (`{'status':
+   'success', 'folder_name': 'Inbox', ...}`), diğer ikisi (`c3c2a49d-...`,
+   `e0c6a18b-...`) **HTTP 500 → "Integrations error for 'outlook'.
+   Integration <id> is in state 'ERROR'; complete the authorization flow
+   before using it."** hatası veriyor.
+3. **Sonuç**: bu bir kod hatası DEĞİL — axet.nttdata.com/agentic
+   platformunun sunucu tarafındaki entegrasyon kayıtlarından bazıları
+   kalıcı olarak bozuk durumda kalmış, ama AYNI PROVIDER için ÇALIŞAN bir
+   entegrasyon da GERÇEKTEN VAR. Sorun, önceki turdaki `PROVIDER_TEST_
+   PROMPT`'un ajana "SADECE bir tool çağır" demesiydi — ajan İLK bulduğu
+   (ve şans eseri bozuk olan) entegrasyonu deneyip hemen `CONNECTOR_FAIL`
+   diyordu, çalışan diğer entegrasyonu HİÇ denemiyordu.
+
+### Yapılan düzeltme ve CANLI doğrulama
+
+- **`app-electron/main/agenticConnectors.ts`**: `PROVIDER_TEST_PROMPT`
+  (outlook + sharepoint, ikisi de) güncellendi — ajana artık şu talimat
+  veriliyor: "Bu provider için BİRDEN FAZLA ayrı connector entegrasyonu
+  olabilir, bazıları bozuk olabilir. İLK tool'u dene; 'unauthorized/error
+  state/authorization flow' hatası alırsan SIRADAKİ farklı tool'u dene,
+  hepsini deneyene kadar devam et (her tool'a SADECE bir çağrı, asla
+  gönderme/silme/değiştirme yapma); herhangi biri çalışırsa CONNECTOR_OK,
+  hepsi başarısız olursa CONNECTOR_FAIL (denenen entegrasyon sayısını
+  belirt)."
+- **Bu değişiklik BU MAKİNEDE gerçek axet-code'a karşı CANLI doğrulandı**
+  (kod yazılmadan ÖNCE `axet-code run -q "<yeni prompt metni>"` ile manuel
+  test edildi): ajan sırasıyla entegrasyonları denedi, `c3c2a49d-...`/
+  `e0c6a18b-...` için hata aldı, `df6566e3-...`'ye geçti, ORADA başarılı
+  oldu ve tam olarak beklenen formatta cevap verdi: **"CONNECTOR_OK: Inbox
+  folder found via second connector (df6566e3-2e65-4bcd-b8eb-
+  0eb047312c5d)"**. Yani kullanıcının GERÇEK senaryosunda bu düzeltmeyle
+  "Bağlantıyı Test Et" artık BAŞARILI sonuç dönecek (agent otomatik olarak
+  çalışan entegrasyonu buluyor).
+- **`src/components/AppConnectionsSection.tsx`**: yeni `isIntegrationError
+  State(text)` dedektörü (`/unauthorized/i`, `/state\s*'?ERROR'?/i`,
+  `/authorization flow/i` regex'leri) — eğer (nadir durumda, TÜM
+  entegrasyonlar bozuksa) test hâlâ bu hatayla başarısız olursa, amber
+  renkli YENİ bir banner gösteriliyor: "Bu sağlayıcı için kayıtlı
+  entegrasyon(lar) 'ERROR' durumunda görünüyor. Genelde ajan çalışan başka
+  bir entegrasyonu otomatik bulur — hepsi bozuksa aXet Agentic portalından
+  yeniden yetkilendirmen/temizlemen gerekebilir." + **"aXet Agentic
+  Portalını Aç"** butonu (`window.api.openExternalUrl` ile
+  `https://axet.nttdata.com/agentic/`'i tarayıcıda açar — zaten var olan
+  IPC, yeni bir kanal eklenmedi).
+- **i18n**: `appConnections.integrationErrorHint`, `.openAgenticPortal`
+  eklendi (tr/en).
+
+### Doğrulama
+
+- `npm run typecheck` ve `npm run build` temiz geçti.
+- Bundle içeriğinde yeni prompt metninin ("DO NOT give up yet") gerçekten
+  paketlenmiş `app.asar` içine girdiği doğrulandı.
+- Gerçek `electron-builder --win dir` paketleme testi yapıldı (kullanıcının
+  açık olan önceki paketli uygulaması tekrar `taskkill` ile kapatılıp
+  yeniden paketlendi).
+- **En kritik doğrulama**: yeni prompt, KOD YAZILMADAN ÖNCE bu makinedeki
+  gerçek `axet-code` CLI'sına karşı manuel çalıştırılıp kullanıcının TAM
+  OLARAK yaşadığı senaryo (3 entegrasyon, 2'si bozuk, 1'i sağlam)
+  üzerinde `CONNECTOR_OK` sonucu üretilene kadar doğrulandı — varsayımsal
+  bir düzeltme değil, gerçek veriye karşı kanıtlanmış bir çözüm.
+
+### Kalıcı not (ileride benzer bir hata gelirse)
+
+axet.nttdata.com/agentic platformu, kullanıcı Outlook/SharePoint'e her
+"yeniden bağlan" dediğinde YENİ bir entegrasyon kaydı oluşturuyor gibi
+görünüyor (eskisini silmiyor) — bu yüzden zamanla birikmiş, kalıcı olarak
+bozuk entegrasyonlar normal bir durum. Uygulama tarafında yapılabilecek en
+iyi şey (ve yapılan şey) ajana "bozuğu atla, çalışanı bul" demek; kalıcı
+temizlik ancak portalın kendisinden yapılabilir, bu launcher'ın erişimi/
+yetkisi yok.
+
+## Canlı Bulgu #3: Aynı Sorun Genel axet.code Sohbetinde de Çıktı (2026-08-30, aynı gün, TAMAMLANDI)
+
+### Kullanıcının üçüncü gerçek testi
+
+Kullanıcı "Bağlantılar"dan Outlook'u bağladı, "Bağlantıyı Test Et" OK
+döndü (Canlı Bulgu #2'deki çoklu-entegrasyon-deneme düzeltmesi sayesinde)
+— AMA genel axet.code sohbet ekranında ("chate sordugumda") "bağlantım
+çalışıyor mu" diye sorunca ŞU cevabı aldı: **"Bağlantı henüz
+tamamlanmamış — Outlook entegrasyonu 'ERROR' durumunda, yetkilendirme
+akışını tamamlamanız gerekiyor..."**
+
+### Kök sebep (bu makinede canlı doğrulandı)
+
+`agenticConnectors.ts`'teki "Bağlantıyı Test Et" prompt'u ajana ÖZEL olarak
+"bir entegrasyon bozuksa BAŞKASINI dene" talimatı veriyordu (Canlı Bulgu #2)
+— ama bu talimat SADECE o özel test akışında vardı. **Genel axet.code
+sohbeti** (`axetChat.ts`, `AxetCodeHome.tsx`'in arkasındaki sohbet
+motoru) tamamen AYRI bir prompt kullanıyor, bu talimat orada YOKTU. Canlı
+doğrulama:
+```
+axet-code run -q "Is my outlook connection working? Before answering, tell me which exact tool name you tried and the raw error/result."
+```
+Sonuç: ajan `mcp_conn_e0c6a18b-..._outlook_c_03079715` (BOZUK entegrasyon)
+tool'unu denedi, `state 'ERROR'` hatası aldı, HİÇ başka bir entegrasyon
+denemeden "Not working" dedi — tam olarak kullanıcının yaşadığı senaryo.
+3 entegrasyondan hangisinin denendiği CLI'nın kendi iç mantığına göre
+değişebiliyor (deterministik bir sıralama garantisi yok), bu yüzden
+kullanıcı bazen çalışan bazen bozuk entegrasyona rastlıyor.
+
+### Yapılan düzeltme ve CANLI doğrulama
+
+- **`app-electron/main/axetChat.ts`**: yeni `CONNECTOR_RETRY_REMINDER`
+  sabiti — Canlı Bulgu #2'deki `agenticConnectors.ts` talimatının KISA,
+  GENERİK bir versiyonu ("bir MCP araç çağrısı entegrasyonun yetkisiz/
+  ERROR durumunda olması yüzünden başarısız olursa ve aynı sağlayıcı için
+  BAŞKA bir araç varsa, vazgeçmeden önce onu dene"). `buildPrompt()`
+  fonksiyonu artık bu hatırlatmayı **TÜM** mesajlara (geçmişli/geçmişsiz)
+  otomatik olarak ekliyor — sadece Outlook/SharePoint'e özel değil,
+  gelecekte eklenecek herhangi bir çoklu-entegrasyon senaryosuna da
+  otomatik uyuyor.
+- **Kod yazılmadan ÖNCE canlı doğrulama** (bu makinedeki gerçek axet-code'a
+  karşı, `axet-code run -q "<hatırlatma metni>\n\nKullanıcı mesajı: Is my
+  outlook connection working?"`): ajan artık BOZUK entegrasyonu deneyip
+  hemen "Yes, working — connected via the alternate Outlook integration
+  (the primary one is unauthorized/errored, but a working connection found
+  your Inbox successfully)." cevabını verdi — kullanıcının gerçek
+  senaryosu ÇÖZÜLDÜ.
+- **Yan etki kontrolü (canlı doğrulandı)**: hatırlatma metninin, MCP
+  araçlarıyla İLGİSİZ basit sorularda (`axet-code run -q "<hatırlatma>
+  \n\nKullanıcı mesajı: 2+2 kaç eder?"`) cevabı BOZMADIĞI doğrulandı — çıktı
+  sadece `4`, hiçbir ekstra/alakasız metin yok. Bu, hatırlatmanın TÜM
+  mesajlara eklenmesinin güvenli olduğunun kanıtı.
+
+### Doğrulama
+
+- `npm run typecheck` ve `npm run build` temiz geçti.
+- Bundle içeriğinde (`app.asar`, `utf-8` decode ile — `latin1` Türkçe
+  karakterleri (`ç`) bozduğu için ilk kontrolde YANLIŞ NEGATİF verdi,
+  `utf-8` ile düzeltilip doğrulandı) `CONNECTOR_RETRY_REMINDER` ve
+  hatırlatma metninin gerçekten paketlendiği doğrulandı.
+- Gerçek `electron-builder --win dir` paketleme testi yapıldı (kullanıcının
+  açık olan önceki paketli uygulaması tekrar `taskkill` ile kapatılıp
+  yeniden paketlendi).
+
+### Genel prensip (bundan sonra benzer bulgular için)
+
+Artık İKİ ayrı yer (agentic connector testi VE genel axet.code sohbeti)
+aynı "bozuk entegrasyonu atla, çalışanı bul" davranışına sahip — bu ikisi
+arasında bir tutarsızlık kalmadı. `sapGuiScriptAgent.ts`/`axetFlowsAgent.ts`
+gibi diğer `axet-code run` çağıran modüllere BİLEREK eklenmedi (onlar
+Outlook/SharePoint connector'larıyla hiç ilgilenmiyor, gereksiz prompt
+şişkinliği olurdu) — sadece kullanıcının gerçekten etkileşime girdiği
+genel sohbet + connector test akışı kapsandı.
+
+## Router'sız Sistemlerde de RFC Bridge — Exeltis (QUB) Canlı Bulgusu: "Eclipse Bağlanıyor Ama Biz Bağlanamıyoruz" (2026-09-02, TAMAMLANDI)
+
+**Şikayet**: Kullanıcı Exeltis müşterisinin `QUB` sistemine (host
+`SAPS4QUBIS.INSUDPHARMA.COM`, **SAProuter TANIMLI DEĞİL** — doğrudan bağlantı)
+VPN açıkken bağlanamıyordu, "zaman aşımı" hatası alıyordu — ama Eclipse'te
+(ADT) aynı sisteme AYNI VPN üzerinden sorunsuz bağlanabiliyordu.
+
+**Teşhis (canlı, bu makinede)**:
+- Tüm bilinen ADT/ICM HTTPS candidate portları (443/8443/44300/50000/4443,
+  ayrıca kullanıcının SMICM'den okuduğu gerçek portlar 8000/8443) bu
+  makineden **tamamen erişilemez** (ham TCP connect zaman aşımına düşüyor) —
+  `discoverAdtEndpoint()`/`verifyCredentials()` ile canlı doğrulandı
+  (`verify.status === null`, mesaj "Zaman aşımı").
+- SAP Logon'un DIAG portu (3200) VE **gateway portu (3300, DIAG+100)**
+  ise erişilebilir (`Test-NetConnection` ile canlı doğrulandı).
+- `netstat`/`Get-NetTCPConnection` ile **KESİN kanıt**: çalışan `eclipse.exe`
+  process'i bu sisteme (`10.166.30.95`) sadece **port 3300**'den bağlıydı,
+  hiçbir HTTP(S) portuna bağlı DEĞİLDİ. Yani Eclipse ADT, bu sistemde HTTPS
+  KULLANMIYOR — "SAP GUI connection'dan oluştur" tipi ADT projeleri, HTTP(S)
+  erişilemezken `SADT_REST_RFC_ENDPOINT` üzerinden **RFC/gateway portu ile**
+  tünelliyor. Bu, tam olarak bu projenin router-only sistemler için zaten
+  sahip olduğu RFC Bridge mekanizmasının (bkz. yukarıdaki "RFC Bridge —
+  pratik workaround" ve "RFC Bridge Otomatik Başlatma" bölümleri) aynısı —
+  sadece bu sistemde bir SAProuter YOK, engel doğrudan ağ/firewall
+  seviyesinde.
+
+**Kök sebep (kod tarafında, gerçek bir kapsam boşluğu)**: RFC bridge otomatik
+başlatması (`attemptRfcBridgeAutoStart`) sadece `routerString && isRouterPermissionDenied(...)`
+koşuluyla tetikleniyordu — router'ı OLMAYAN ama HTTPS'i ağ seviyesinde
+tamamen engelli sistemler için hiçbir fallback yoktu, kullanıcı sadece çıplak
+"Zaman aşımı" görüyordu.
+
+**Düzeltme**:
+- **`app-electron/main/launcher.ts`**: yeni `probeTcpPort(host, port,
+  timeoutMs)` yardımcı fonksiyonu (ham TCP connect, HTTP/TLS yok) + yeni bir
+  `else if` dalı — `!verify.ok && !manualUrl && !routerString &&
+  verify.status === null && host` ise (yani: router yok, manuel URL değil,
+  HİÇBİR HTTP yanıtı alınamadı — 401/SAML/diğer status'lar HARİÇ) önce
+  gateway portunu (`diagPort + 100`) 3 saniyelik ucuz bir TCP probe ile
+  kontrol ediyor; açıksa **doğrudan (router'sız) RFC bridge** moduna geçiyor
+  (`rfcBridge = { ashost: host, sysnr: guessInstanceNumber(...), saprouter:
+  "", bridgePort: 8788 }`), kapalıysa (VPN de kapalıysa gateway de kapalı
+  olur) normal başarısızlık mesajıyla dönüyor — böylece gerçekten tamamen
+  erişilemeyen sistemlerde boşuna RFC bridge denenmez.
+- **`adt_rfc_bridge.py`**: `load_rfc_config()`'teki `saprouter` artık
+  ZORUNLU DEĞİL (`ADT_RFC_SAPROUTER` boş/tanımsızsa `None`), `_ensure_connection()`
+  artık `pyrfc.Connection(**conn_kwargs)`'ı `saprouter` anahtarını SADECE
+  değer varsa ekleyerek çağırıyor (boş string vermek bazı sapnwrfc
+  sürümlerinde "invalid saprouter string" hatası riski taşıyabileceği için
+  anahtar tamamen atlanıyor, değer geçilmiyor).
+- **`buildConnAdt()`/`buildContextMarkdown()`**: `.conn_adt`'taki yorum
+  bloğu ve `sap-context.md`'deki "RFC Bridge Modu" bölümü artık
+  `rfcBridge.saprouter` truthy/falsy'sine göre iki farklı anlatım kullanıyor
+  — router'lı durumda eskisi gibi "SAProuter reddetti", router'sız durumda
+  "SAProuter YOK ama HTTPS ağ seviyesinde erişilemez, Eclipse ADT'nin
+  kullandığı AYNI mekanizma" (yanlışlıkla var olmayan bir router'dan
+  bahsetmiyor).
+- Downstream kod (`attemptRfcBridgeAutoStart`, `rfcBridgeManager.ts`,
+  `%sap-adt-readonly` otomatik başlatması) **hiç değişmedi** — zaten
+  `RfcBridgeConfig.saprouter: string` tipiydi, boş string ile de sorunsuz
+  akıyor, router-specific bir mantık taşımıyordu.
+
+**Canlı doğrulama (bu makinede, gerçek Exeltis/QUB parametreleriyle)**:
+- `discoverAdtEndpoint`/`verifyCredentials` gerçek host'a karşı çalıştırılıp
+  `verify.status === null` (hiçbir port yanıt vermedi) olduğu ve yeni dalın
+  gerçekten tetikleneceği doğrulandı.
+- `probeTcpPort(host, 3300)` gerçekten `true` döndü (gateway portu açık),
+  `guessInstanceNumber(3200)` → `"00"` — üretilecek `rfcBridge` config'i
+  tam olarak beklenen: `{ashost: "SAPS4QUBIS.INSUDPHARMA.COM", sysnr:"00",
+  saprouter:"", bridgePort:8788}`.
+- `adt_rfc_bridge.py`'nin `load_rfc_config()`'i (pyrfc gerektirmeyen kısım)
+  hem `ADT_RFC_SAPROUTER` YOKKEN (`saprouter: None`, `pyrfc.Connection`
+  kwargs'ından `saprouter` anahtarı doğru şekilde ATLANIYOR) hem VARKEN
+  (eski router davranışı KORUNUYOR, `saprouter` anahtarı doğru ekleniyor)
+  test edildi, ikisi de PASS.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+- **Test EDİLEMEYEN**: gerçek Exeltis kimlik bilgileriyle uçtan uca RFC
+  logon + `%sap-adt-readonly` çağrısı (kullanıcının gerçek şifresi bu
+  oturumda kullanılmadı/istenmedi) — kullanıcının kendi makinesinde SAP
+  Logon ağacındaki **gerçek "Exeltis" sistemine** (manuel BTP girişine
+  DEĞİL — o ayrı bir path, host bilgisi olmadığı için bu fallback'i
+  tetiklemez) tıklayıp normal şekilde bağlanmayı denemesi gerekiyor; artık
+  "Zaman aşımı" ile durmayıp otomatik RFC bridge moduna geçmesi ve terminalin
+  açılması beklenir.
+
+**Genel prensip (ileride benzer bulgular için)**: "Eclipse/SAP GUI bağlanıyor
+ama biz bağlanamıyoruz" şikayeti geldiğinde ilk kontrol edilecek şey artık
+bu — `netstat`/`Get-NetTCPConnection` ile Eclipse'in (varsa) o sisteme HANGİ
+portla bağlı olduğuna bak; DIAG/gateway (32xx/33xx) ise muhtemelen bizim de
+zaten sahip olduğumuz RFC bridge mekanizması (router'lı veya router'sız)
+devreye girmeli, illa SAProuter aranmasın.
+
+## SAML SSO Tespit Edilen Cloud Sistemlerde `.conn_adt`/`sap-context.md` HİÇ Yazılmıyordu — "test"/DA8 Canlı Bulgusu (2026-09-02, TAMAMLANDI)
+
+**Şikayet**: Kullanıcı manuel eklediği bir cloud test sistemine
+(`https://my431455.s4hana.cloud.sap`, "test"/DA8) bağlanmaya çalışınca
+`samlLoginDetected` mesajını (bkz. yukarıdaki "Kimlik Doğrulama Her Zaman
+'Başarılı' Görünüyordu" bölümü, 2026-08-26'da eklenen tespit mekanizması)
+aldı — mesaj doğru teşhis koyuyordu ("bu sistem SAML SSO gerektiriyor,
+`login_saml_sso.py` akışını izle") ama **terminal hiç açılmıyordu**.
+
+**Kök sebep (gerçek bir kapsam boşluğu, 2026-08-26'daki SAML tespit
+düzeltmesinden beri var olan)**: `connectToSystem()`'daki karar zinciri, SAML
+tespitini diğer TÜM `!verify.ok` durumlarıyla (401, timeout, vb.) aynı
+jenerik `else if (!verify.ok) { return ok:false, ... }` dalına düşürüyordu —
+bu dal projeyi `mkdirSync` ile oluşturduktan hemen sonra, **`.conn_adt`/
+`sap-context.md` hiç yazılmadan** dönüyordu. Sonuç: kullanıcı proje klasörünü
+açtığında (canlı doğrulandı — boş klasör) `login_saml_sso.py`'nin ihtiyaç
+duyduğu `.conn_adt` (`ADT_SAP_URL`/`ADT_SAP_USER`/`ADT_SAP_PASSWORD`) hiçbir
+zaman diskte oluşmuyordu — mesaj doğru yönlendirme yapıyordu ama önerdiği
+adımı fiilen takip etmek için gereken dosya hiç var olmuyordu. Bu, SAP
+Router-permission-denied ve ağ-seviyesi-erişilemez (yukarıdaki iki bölüm)
+senaryolarının ikisinin de zaten sahip olduğu "ok:true + verified:false,
+dosyaları yaz, terminali aç, kullanıcıyı doğru akışa yönlendir" desenine SAML
+tespitinin dahil edilmemiş olmasıydı.
+
+**Düzeltme**:
+- **`adtDiscovery.ts`**: `CredentialVerifyResult`'a yapısal bir
+  `samlDetected?: boolean` alanı eklendi (`verifyCredentials`'ın hem doğrudan
+  hem router üzerinden giden dalı, SAML sayfası tespit ettiğinde bunu `true`
+  set ediyor) — böylece launcher.ts artık dile bağımlı (`tr`/`en`) mesaj
+  metnine regex ile bakmak zorunda değil, kırılgan string-matching yerine
+  yapısal bir bayrağa bakıyor.
+- **`launcher.ts`**: yeni `samlSetupNeeded: boolean` yerel değişkeni + karar
+  zincirine (`else if (!verify.ok && verify.samlDetected)`) yeni bir dal —
+  router-permission-denied ve gateway-fallback dallarıyla AYNI desende:
+  `rfcBridge` set edilmiyor (RFC bridge bu senaryoda gerekmiyor/anlamsız),
+  ama `.conn_adt`/`sap-context.md` normal şekilde yazılıyor, adt-tool.ps1
+  self-test'i (aynı Basic Auth'u kullanıp aynı yanıltıcı "TLS/sertifika
+  sorunu" notunu üreteceği için) bilerek atlanıyor, ve fonksiyon `ok:true,
+  verified:false` ile döner — terminal açılır, mesaj net biçimde "önce SAML
+  login akışını izle" der.
+- **`buildContextMarkdown()`**'a yeni `samlSetupNeeded` parametresi eklendi
+  — `connectionStatusBlock` artık üç dallı (RFC bridge / SAML SSO gerekli /
+  normal doğrulandı), SAML dalı `sap-context.md`'ye "## ADT Bağlantısı — SAML
+  SSO GEREKLİ" başlığıyla net bir bölüm yazıyor (mevcut "Cloud / BTP Sistem
+  Notları" bölümündeki `login_saml_sso.py` adımlarına doğrudan atıfla).
+- **Bilinçli tasarım kararı**: Bu dal `isCloudSystem`'e bakılmaksızın SADECE
+  `verify.samlDetected`'e bakıyor — teorik olarak router'lı bir sistem de
+  SAML sayfası döndürebilir (çok nadir), o durumda da RFC bridge yerine
+  doğru şekilde SAML akışına yönlendirilir (router-permission-denied dalı
+  zaten kendi koşuluyla önce kontrol ediliyor, SAML'i asla ezmiyor).
+
+**Canlı doğrulama (bu makinede, gerçek "test"/DA8 sistemine karşı)**:
+- `verifyCredentials()` gerçek `https://my431455.s4hana.cloud.sap`'e karşı
+  çalıştırılıp `samlDetected: true`, `status: 200`, `ok: false` döndüğü ve
+  launcher.ts'in karar zincirinin artık doğru şekilde "SAML_SETUP_NEEDED"
+  dalına düştüğü (eskiden düşülen "generic-fail" dalı değil) doğrulandı.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+- **Test EDİLEMEYEN**: `connectToSystem()`'ın tam ucuçtan uca akışı (Electron
+  `app` singleton'ına bağımlı olduğu için `tsx` ile bağımsız çalıştırılamadı)
+  — mantık zinciri elle/statik olarak izlendi (hiçbir early-return yeni dalı
+  atlamıyor), ama gerçek bir GUI'de "test"/DA8'e tıklayıp `.conn_adt`/
+  `sap-context.md`'nin gerçekten oluştuğunu ve terminalin "SAML SSO gerekli"
+  mesajıyla açıldığını kullanıcının doğrulaması gerekiyor.
+
+## Gömülü Terminalde Ctrl+V Yapıştırma İKİ KEZ Oluyordu — Gerçek Kök Sebep Bulundu (2026-09-02, TAMAMLANDI)
+
+**Şikayet**: Kullanıcı gömülü terminalde Ctrl+V ile yapıştırma yaptığında
+metin **iki kez** yazılıyordu (örn. "abc" yapıştırınca "abcabc" görünüyordu).
+
+**Kök sebep (xterm.js'in kendi minified kaynak koduna bakılarak kanıtlandı)**:
+`EmbeddedTerminal.tsx`'teki `term.attachCustomKeyEventHandler()` Ctrl+V'yi
+yakalayıp `navigator.clipboard.readText()` → `term.paste(text)` ile manuel
+yapıştırıyordu ve `false` döndürüyordu — ama xterm.js'in kendi `_keyDown(e)`
+implementasyonu (`node_modules/@xterm/xterm/lib/xterm.js` içinde doğrulandı:
+`if(this._customKeyEventHandler&&!1===this._customKeyEventHandler(e))return!1`)
+handler `false` dönünce SADECE kendi iç işlemesini (data gönderme) durduruyor
+— **native tarayıcı keyboard event'ini `preventDefault()` ETMİYOR**. Bu
+yüzden Chromium'un native Ctrl+V klavye kısayolu (`main/index.ts`'teki
+`enableDeprecatedPaste:true` + Menu'nün `paste` rolündeki
+`registerAccelerator:false` sayesinde hâlâ devrede) tetiklenmeye devam
+ediyordu — bu da xterm'in kendi hidden textarea'sına GERÇEK bir native
+`paste` DOM event'i gönderiyordu. xterm.js'in KENDİSİ de bu textarea'ya
+ayrıca bir `paste` event dinleyicisi bağlıyor (kaynakta `handlePasteEvent`
+fonksiyonu doğrulandı — `e.stopPropagation()` çağırıyor ama bu native paste
+event'inin KENDİSİNİ, bizim keydown handler'ımızın tetiklediği ayrı zinciri
+DEĞİL, engelliyordu) ve o da aynı panodaki metni **ayrıca** yapıştırıyordu.
+Sonuç: iki bağımsız mekanizma (bizim manuel `clipboard.readText()`+`term.paste()`
+zincirimiz VE xterm'in kendi native `paste` event handler'ı) aynı Ctrl+V
+tuşuna aynı anda tepki verip metni iki kez yazıyordu.
+
+**Düzeltme**: `EmbeddedTerminal.tsx`'teki `attachCustomKeyEventHandler`'a
+tek satır eklendi — `event.preventDefault()`, Ctrl+V tespit edildiğinde
+`navigator.clipboard.readText()` çağrılmadan ÖNCE çalıştırılıyor. Bu,
+Chromium'un native Ctrl+V kısayol davranışını (ve dolayısıyla xterm'in kendi
+native `paste` event dinleyicisinin tetiklenmesini) tamamen engelliyor —
+geriye SADECE bizim manuel yolumuz kalıyor, metin artık bir kez yazılıyor.
+Diğer HİÇBİR şeye (Menu/`enableDeprecatedPaste`/global bir listener/başka
+input alanlarındaki native paste) dokunulmadı — bu, `PROJE-BILGI.md`'deki
+"KESİN KURAL" bölümünün izin verdiği TEK müdahale noktası (xterm `Terminal`
+örneğine özel, dar kapsamlı `attachCustomKeyEventHandler`) içinde kalan,
+minimal bir düzeltme.
+
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+- **Test EDİLEMEYEN**: gerçek bir GUI penceresinde Ctrl+V'nin artık TEK
+  yapıştırdığının görsel doğrulaması kullanıcının kendi makinesinde
+  yapılmalı — bu ortamda pencere etkileşimi mümkün değil. Kök sebep xterm.js'in
+  kendi (üçüncü parti, değiştirilemeyen) minified kaynak kodundan kanıtlandığı
+  için düzeltmenin doğruluğu yüksek güvenle biliniyor.
+
+## Beklenmeyen HTTP Durumlarında Ham HTML Dökülüyordu — Simpro/S4Q Canlı Bulgusu (2026-09-02, TAMAMLANDI)
+
+**Şikayet**: Kullanıcı "Simpro QA" sistemine bağlanmaya çalışırken hata
+mesajında şu görünüyordu: `Beklenmeyen HTTP durumu: 403 —
+<html><head><meta http-equiv="content-type" ...` — okunamaz, ham HTML kodu
+kullanıcıya doğrudan gösteriliyordu.
+
+**Kök sebep araştırması (canlı, gerçek Simpro/S4Q — `192.168.1.244:44300` —
+sistemine karşı)**: Birden fazla path canlı test edildi:
+- `/sap/public/icman/ping` → **200 OK** ("server on host s4qasapp system
+  s4qasapp_S4Q_00 successfully reached")
+- `/sap/bc/gui/sap/its/webgui` → **200 OK** (WebGUI çalışıyor)
+- `/sap/public/info` → **403** "Service cannot be reached"
+- `/sap/bc/adt/discovery` → **403** "Service cannot be reached" (kullanıcının
+  aldığı hata)
+
+Sistem tamamen ayakta/erişilebilir (ping ve WebGUI çalışıyor) — bu bir ağ/VPN
+sorunu DEĞİL. `/sap/public/info` gibi başka bir varsayılan-kapalı servisin de
+AYNI hatayı vermesi kanıtlıyor: **`/sap/bc/adt` servis ağacı bu sistemde
+SICF'te hiç aktive edilmemiş** — SAP ICM bu durumda kendi HTML hata sayfasını
+("Service cannot be reached") döndürüyor, gerçek bir ADT/kimlik doğrulama
+yanıtı değil. Eski kod bu HTML gövdesini olduğu gibi (400 karaktere kadar,
+etiketler dahil) mesaja ekliyordu — ne kullanıcıya okunaklı ne de kök sebebi
+gösteren bir çıktı.
+
+**Düzeltme (`adtDiscovery.ts`)**:
+- Yeni `isHtmlBody(contentType, body)` — content-type `html` içeriyorsa VEYA
+  gövde `<!doctype html`/`<html` ile başlıyorsa (SAML tespitindeki
+  `looksLikeSamlLoginPage`'le aynı mantık) gövdeyi HTML olarak tanır.
+- Yeni `extractHtmlTitle(body)` — `<title>...</title>` içeriğini regex ile
+  çıkarır (SAP'ın kendi ICM hata sayfalarında bu her zaman anlamlı bir özet
+  taşır — "Service cannot be reached" gibi).
+- Yeni `SICF_INACTIVE_TITLE_PATTERN` — title bu kalıba uyuyorsa
+  (`service cannot be reached`, `resource/service not available/found`,
+  `404 not found`, `service ... not active/available`) artık kullanıcıya
+  SADECE "beklenmeyen HTTP durumu" değil, doğrudan **Basis'e yönlendiren**
+  açıklayıcı bir mesaj dönüyor: "...bu sistemde /sap/bc/adt servisi SICF'te
+  henüz aktive edilmemiş (kullanıcı adı/şifre veya ağ/VPN sorunu DEĞİL).
+  Basis ekibine SICF (t-code SICF) üzerinden default_host/sap/bc/adt
+  düğümünü 'Service/Host Activate' ile aktive etmesini iste."
+- `unexpectedStatusMessage()` artık `contentType` parametresi de alıyor,
+  üç kademeli bir mantığa göre dallanıyor: (1) HTML + SICF-inactive kalıbı →
+  yukarıdaki Basis-yönlendirmeli mesaj, (2) HTML + başka bir title → sadece
+  title'ı gösteren temiz bir mesaj ("... — 'X' (SAP'ın kendi HTML hata
+  sayfası, ADT yanıtı değil)"), (3) HTML ama title yok → jenerik "yanıt bir
+  HTML sayfası" notu, (4) HTML DEĞİL → eski davranış (düz metin gövdenin
+  400 karakterlik özeti). Her iki çağrı noktası (`verifyCredentials`'ın
+  doğrudan ve router üzerinden giden dalları) artık `content-type`
+  header'ını da bu fonksiyona geçiriyor.
+
+**Canlı doğrulama (bu makinede, gerçek Simpro/S4Q'ya karşı, hem TR hem EN)**:
+- `verifyCredentials("https://192.168.1.244:44300", ...)` gerçek 403 +
+  "Service cannot be reached" HTML sayfasına karşı çalıştırıldı — dönen
+  mesaj artık: `HTTP 403 — "Service cannot be reached". Bu, SAP ICM'in kendi
+  hata sayfası ve genelde şu anlama gelir: bu sistemde /sap/bc/adt servisi
+  SICF'te henüz aktive edilmemiş (kullanıcı adı/şifre veya ağ/VPN sorunu
+  DEĞİL). Basis ekibine SICF (t-code SICF) üzerinden default_host/sap/bc/adt
+  düğümünü "Service/Host Activate" ile aktive etmesini iste.` — ham HTML
+  hiç görünmüyor, ingilizcesi de aynı şekilde doğrulandı.
+- `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
+  temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
+- **Bilinçli sınır**: Bu heuristik (title-pattern eşleştirme) SICF-inaktif
+  dışındaki HTML hata sayfalarını (örn. gerçek bir 500 Internal Server
+  Error HTML sayfası) genel "HTML sayfası" notuna düşürür — ama en azından
+  ham etiketli HTML'i asla kullanıcıya göstermez, en kötü senaryo "temiz
+  ama az bilgilendirici" bir mesajdır, "okunamaz ham kod" değil.
+
+## Sohbet Ekranı Faz 0 — Tema / Tasarım Sistemi (2026-09-02, TAMAMLANDI)
+
+Kullanıcı "adım adım ekran ekran gidelim, önce chat ekranı" dedi; derinlemesine
+analizden sonra fonksiyonel fazların (Faz 1-4) ÖNÜNE bir **Faz 0** eklendi:
+sadece **tema / tasarım / görsel görünüm**, kapsamı **sohbet ekranı + yan
+panellerdeki objeler**. Sonra "bildiğin gibi en iyi şekilde yap sana
+bırakıyorum" denerek tam yetki verildi. 15 dosya değişti.
+
+### Kalıcı tasarım sistemi kuralları (yeni kod yazarken BUNLARA UY)
+
+- **`text-white` accent zeminde KULLANILMAZ — `text-accent-on` kullan.**
+  Sebep: `--ink-strong-rgb` üzerinden `white` tokenı override edildiği için
+  açık temada `text-white` = `41 39 36` (koyu gri) oluyordu ve
+  `bg-accent-500` üzerinde ölçülen kontrast **2.89:1** idi (WCAG AA için
+  4.5:1 gerekiyor). Yeni token `--accent-on-rgb: 255 255 255` her iki temada
+  da tanımlı. 12 yerde düzeltildi (`AppConnectionsSection`, `AxetCodeHome`,
+  `AxetFlowsLiveHome`, `ChatBubble`, `ChatSessionPane`, `SapGuiAgentPanel`,
+  `SapGuiScriptingHome`, + gradient butonlarda `AppConnectionsModal`,
+  `CredentialsModal`, `SettingsModal`, `UpdatePromptModal`).
+- **Yarıçap ölçeği: `md` / `lg` / `xl` / `full` — başka değer kullanma.**
+  Denetimde sadece sohbet yığınında 9 farklı yarıçap vardı
+  (`rounded-[3px]`, `rounded-[4px]`, `rounded-[6px]`, `rounded-sm`,
+  `rounded-2xl`...). Hepsi bu dörde indirildi.
+- **Tipografi ölçeği: 10 / 11 / 12 / 14 / 20 px.** `text-[10.5px]` gibi yarım
+  piksel değerler Windows'ta bulanık render ediliyordu — KULLANMA.
+- **Tanımsız Tailwind tokenı sessizce Tailwind'in KENDİ varsayılan rengine
+  düşer, hata vermez.** `text-slate-600` ve `text-accent-300` böyle sessizce
+  tema dışına kaçıyordu. `slate-600` (`--ink-600-rgb`) artık gerçek bir token;
+  `accent-300` YOK, `accent-400` kullan. Yeni bir renk sınıfı yazmadan önce
+  `tailwind.config.js`'te var mı diye BAK.
+- **Tema geçiş animasyonu artık global `*` seçicisinde DEĞİL.** Eskiden her
+  elemana sürekli `transition-property: background-color,...` uygulanıyordu —
+  bu, hover geri bildirimini bile gecikmeli hissettiriyordu. Artık sadece
+  `a, button, input, textarea, select, [role="button"]` 120ms'lik geçiş
+  alıyor; 200ms'lik tam-sayfa geçişi ise SADECE tema değiştirme ANINDA
+  `html.theme-transition` sınıfıyla açılıp 260ms sonra kaldırılıyor
+  (`App.tsx`, `previousThemeRef` ile ilk yüklemede TETİKLENMEZ).
+- **Global `:focus-visible` outline** (`src/index.css`) — klavye erişilebilirliği
+  için tek merkezî kural, komponent başına tekrar yazma.
+
+### Sohbet ekranındaki görsel değişiklikler
+
+- **Asistan cevabı artık KUTUSUZ akıyor** (hata durumu hariç, o hâlâ
+  `--status-danger-*` kutusunda). Eski `bg-base-800` + `max-w-[80%]` balon,
+  Faz 1'de gelecek markdown tablo/başlık/kod bloğunu taşırıyordu.
+  ChatGPT/Claude deseni: kullanıcı mesajı balon, asistan cevabı düz metin.
+  `ThinkingBubble` da kutusuz yapıldı, yoksa cevap gelince ekran zıplıyordu.
+- **Okuma sütunu `max-w-3xl` (768px) → `max-w-[68ch]`** — 14px metinde 768px,
+  satır başına ~110 karakter demekti (okunabilir aralık 60-75). Composer da
+  aynı genişliğe hizalandı.
+- **Mesaj gruplama**: ardışık aynı rolden mesajlarda avatar tekrar etmiyor
+  (`showAvatar` prop'u), yerinde aynı genişlikte boşluk kalıyor (`AVATAR_COL`).
+- **Her mesajın altında hover'da beliren meta satırı** (saat + kopyala).
+  `opacity-0` ile GİZLİ ama yer KAPLIYOR (`display:none` değil) — aksi hâlde
+  hover'da sayfa zıplardı. Bu yüzden turlar arası boşluk `mt-5` → `mt-3`,
+  gruplananlar arası `0`.
+- **Ölü i18n anahtarları canlandırıldı** (silinmedi, gerçek bir UI evi
+  verildi): `axetCodeHome.emptyTitle`/`emptyHint` → boş sohbet listesi
+  durumu; `modelSelector.appliesNextChatHint` → model menüsünün altbilgisi
+  (model seçiminin GLOBAL olduğunu, sonraki sohbetleri de etkilediğini
+  açıklıyor). Yeni anahtar: `copyButton.copyAnswer`.
+- **ActivityBar'dan gradient kaldırıldı** — aktif sekme artık düz
+  `bg-base-800 text-accent-400`. Alt gruptaki butonlar 40px → 44px (dokunma
+  hedefi).
+- **Yan panel oturum satırları** `role="button" tabIndex={0}` + Enter/Space
+  ile klavyeden erişilebilir, aktif olan 2px accent şeridi alıyor.
+
+### Yan bulgu: DOCX önizleme açık temada KOYU-ÜSTÜNE-KOYU idi
+
+`FileViewer.tsx`'te DOCX önizlemesi `bg-white` + `text-slate-900` kullanıyordu.
+`bg-white` tema tokenına bağlı olduğu için açık temada `41 39 36` (koyu gri)
+oluyor, `text-slate-900` ise tanımsız olduğu için Tailwind'in `#0f172a`'sına
+düşüyordu → okunamaz. Bir Word belgesi HER İKİ temada da beyaz kâğıt gibi
+görünmeli, o yüzden tema-BAĞIMSIZ literallere çevrildi: `bg-[#ffffff]`,
+`text-[#1a1a1a]`, `border-[#d4d4d4]`.
+
+### Doğrulama
+
+`npx tsc -p tsconfig.web.json --noEmit`, `npx tsc -p tsconfig.node.json
+--noEmit` ve `npm run build` temiz geçti. Üretilen CSS'te `.text-accent-on`,
+`--ink-600-rgb` (koyu `70 70 78` / açık `186 184 179`), global
+`:focus-visible` outline, `theme-transition` ve `68ch` varlığı ayrıca
+kontrol edildi. **Release/push YAPILMADI** — dönüşüm bitene kadar sadece
+yerel build kuralı geçerli.
+
+### Sıradaki: Faz 1 (fonksiyonel)
+
+1. **Gerçek streaming** — `chatChunk` IPC push event'i ile; `ChatBubble`'daki
+   simüle daktilo animasyonu bunun yerine geçecek (yukarıdaki ⚠️ DÜZELTME
+   notuna bak, stdout gerçekten akıyor).
+2. Prompt'u komut satırı argümanı yerine **stdin**'den geçirmek.
+3. Markdown kapsamını genişletmek (başlık, tablo, sıralı liste).
+4. Kod bloğuna kopyala butonu + dil rozeti.
+5. Linkler için `openExternalUrl`.
+
+## Sohbet Ekranı Faz 1 — Gerçek Streaming + stdin + Tam Markdown (2026-09-02, TAMAMLANDI)
+
+Faz 0'ın (tema/görsel) ardından fonksiyonel tur. Beş madde de canlı `axet-code`
+CLI'ına karşı ölçülerek yapıldı, varsayımla değil.
+
+### 1. Cevap artık GERÇEKTEN akıyor (simüle daktilo KALDIRILDI)
+
+`ChatBubble.tsx`'teki `TypewriterMarkdown`/`TARGET_REVEAL_MS`/`animationDurationMs`
+ve onu besleyen `justArrived` + `onAnimationDone` zinciri **tamamen silindi**.
+"stdout tamponlanıyor" varsayımı üzerine kurulmuşlardı ve o varsayım yanlış
+(bkz. yukarıdaki ⚠️ DÜZELTME notu).
+
+Yeni zincir — projedeki `flows:runtime:*` push event'leriyle AYNI desen:
+`axetChat.ts` `onChunk` callback'i → `main/index.ts`
+`mainWindow?.webContents.send("axetChat:chunk", requestId, text)` →
+`preload` `onChatChunk(cb) => unsubscribe` → `window.d.ts` → `AxetCodeHome`'da
+BİR KEZ kurulan abonelik.
+
+- **`onChunk` yalnızca YENİ parçayı taşır**, birikmiş metni değil.
+- **50ms'lik biriktirme penceresi** (`CHUNK_FLUSH_MS`): tek bir cevap 178 ayrı
+  `data` event'i üretebiliyor; her biri ayrı IPC + ayrı React render'ı olurdu.
+- **invoke cevabı yine tam metni taşıyor** ve renderer akan mesajı ONUNLA
+  sonlandırıyor — bir parça kaybolsa bile son metin doğru olur. Bu bilinçli
+  bir "kendini düzelten" tasarım, akışa tek başına güvenilmiyor.
+- **Geç gelen parça güvenli**: finalize `requestId`'yi `null`'a çekiyor, sonra
+  gelen bir chunk hiçbir oturumla eşleşmiyor ve sessizce düşüyor.
+- `ChatMessage.justArrived` → **`ChatMessage.streaming`**. Akarken metnin
+  sonunda yanıp sönen bir imleç var; saat + kopyala meta satırı akış bitene
+  kadar GİZLİ (yarım cevabı kopyalatmanın anlamı yok).
+- `ThinkingBubble` sadece İLK parça gelene kadar görünüyor.
+- **Durdurulan cevabın yarım metni artık SİLİNMİYOR** — kullanıcı onu zaten
+  okudu, kaybolması "bir şey ters gitti" hissi veriyordu (ChatGPT de bırakır).
+  Hiç metin gelmeden iptal edilirse boş balon kalmasın diye mesaj kaldırılıyor.
+- **Otomatik kaydırma artık koşullu** (`stickToBottomRef`): kullanıcı yukarı
+  kaydırıp eski bir mesajı okuyorsa akan cevap onu zorla dibe çekmiyor. 48px
+  tolerans (kesirli scroll yüksekliklerinde tam eşitlik aramak tutmaz).
+
+### 2. Prompt komut satırı argümanı DEĞİL, stdin'den
+
+`spawn`'ın stdio'su `["ignore",...]` → `["pipe",...]`; prompt pozisyonel
+argüman yerine `proc.stdin.end(buildPrompt(...))` ile gidiyor. Canlı
+doğrulandı: pozisyonel argüman verilmeden `axet-code run -q` prompt'u
+stdin'den okuyup normal cevap veriyor.
+
+**Neden**: Windows'ta bir process'in komut satırının TAMAMI ~32767 karakterle
+sınırlı ve biz geçmişi transkript olarak prompt'a GÖMÜYORUZ (24 mesaj). Ölçüldü:
+75.000 karakterlik bir prompt eski yöntemde **`spawn ENAMETOOLONG`** ile
+patlıyor — prompt uzunluğunu hiç işaret etmeyen bir mesaj. Aynı prompt stdin ile
+sorunsuz çalıştı (11.3s, `ok=true`). `proc.stdin.on("error")` guard'ı ŞART:
+kullanıcı hemen "Durdur"a basarsa yazma EPIPE fırlatır ve yakalanmazsa main
+process'i düşürür.
+
+### 3-5. `markdownLite.tsx` — kapsam genişletildi
+
+Yeni bloklar: **başlık** (`#`..`######`), **GFM boru-tablosu**, **sıralı liste**,
+**alıntı** (`>`), **yatay çizgi**. Yeni satır içi: ***italik***, ~~üstü çizili~~.
+Kod bloğu artık **dil rozeti + hover'da kopyala butonu** olan bir başlık
+şeridine sahip. Bloklar arası ritim tek merkezden (`space-y-2`) — blok başına
+margin verilince başlık/tablo/liste birleşimlerinde margin-collapse yüzünden
+düzensiz boşluklar çıkıyordu.
+
+- **Linkler artık `window.api.openExternalUrl` ile açılıyor**, `target="_blank"`
+  ile DEĞİL — Electron renderer'ında o ya yeni bir BrowserWindow doğurur ya da
+  engellenir. `http(s)` DIŞINDAKİ şemalar (`javascript:`, `file:` ...) bilinçli
+  olarak reddediliyor: bir LLM cevabından gelen metne kabuk/uygulama açtırmak
+  istemiyoruz.
+- **Sıralı liste en fazla 3 haneli**: sınırsız `\d+` ile Türkçe bir cümle
+  başlangıcı ("2024. yılında...") yanlışlıkla liste maddesine dönüşüyordu.
+- Satır içi token sırası ÖNEMLİ: `` ` `` → `**` → `~~` → `*`. Kalın, italikten
+  önce gelmezse italik kuralı kalın işaretinin ilk yıldızını yer.
+- Hâlâ `dangerouslySetInnerHTML` YOK (React elemanı üretiliyor) — XSS riski yok,
+  yeni npm bağımlılığı eklenmedi.
+
+### Doğrulama (bu makinede, gerçek `axet-code`'a karşı)
+
+- **Streaming + stdin + geçmiş**: 3 parça, akan metin sonuç metniyle tutarlı,
+  transkriptten gelen "Zeynep" adı cevapta doğru geçti.
+- **İptal**: `cancelled=true`, 77 karakterlik kısmi metin korundu.
+- **Uzun prompt**: 75.000 karakter stdin ile `ok=true`; aynısı argümanla
+  `ENAMETOOLONG`.
+- **Markdown**: `react-dom/server` ile statik render — başlık, tablo (hücre içi
+  `kod` dahil), sıralı/madde liste, dil rozetli kod bloğu, kalın/italik/çizili/
+  link, alıntı, hr'nin hepsi doğru; "2024. yılında" paragraf olarak kaldı.
+- **Akış dayanıklılığı**: metnin 1..N arası HER ara uzunluğu render edildi
+  (yarım tablo, kapanmamış ``` bloğu dahil) — **0 hata**. Ayrıca 12 bozuk/eksik
+  girdi (`"```"`, `"[x]("`, `"~~"` ...) test edildi, hiçbiri patlamadı.
+- `npx tsc` (web + node) ve `npm run build` temiz. **Release/push YAPILMADI.**
+
+## Sohbet Ekranı Faz 2 — Kalıcılık + Sohbet Yönetimi (2026-09-02, TAMAMLANDI)
+
+Faz 1 "cevabın nasıl geldiği" ile ilgiliydi; Faz 2 **sohbetin kendisiyle**.
+
+### 2.1 Sohbet geçmişi artık DİSKTE (ana madde)
+
+Faz 2'den önce sohbetler yalnızca React state'inde (`useState<ChatSession[]>([])`)
+yaşıyordu: **uygulamayı kapatmak tüm konuşmaları uyarısız siliyordu.** Bu, ekranın
+en büyük eksiğiydi.
+
+- Yeni dosya: `app-electron/main/chatStore.ts` →
+  `userData/chat-sessions.json`.
+- **`config.json`'dan AYRI** bir dosya: config her ayar değişikliğinde baştan
+  yazılıyor, sohbet geçmişi ise megabaytlara çıkabiliyor — ikisini birleştirmek
+  her tema değişiminde tüm geçmişi yeniden serileştirmek olurdu.
+- **Atomik yazma**: önce `.tmp`, sonra `renameSync`. Doğrudan `writeFileSync`
+  ile yazarken uygulama çökerse dosya yarım kalır ve TÜM geçmiş okunamaz olur.
+- **Bozuk dosya EZİLMİYOR**: JSON parse edilemezse dosya
+  `.corrupt-<zaman>` olarak kenara alınıp kullanıcıya toast ile bildiriliyor.
+- **Diskten gelen her alan süzülüyor** (`sanitizeSession`/`sanitizeMessage`) —
+  elle düzenlenmiş bir dosya render sırasında ekranı çökertmesin.
+- **Üst sınırlar**: 60 sohbet, sohbet başına 400 mesaj, mesaj başına 200.000
+  karakter. Kesme **en eskiden** yapılıyor.
+- **`pending`/`requestId`/`streaming` BİLEREK yazılmıyor**: çalışan bir
+  `axet-code` process'ine işaret ediyorlar ve o process uygulamayla ölüyor.
+  Yazılsalardı açılışta sonsuza kadar "düşünüyor" kalan hayalet sohbetler olurdu.
+- **Hayalet `activeId`**: kayıtlı aktif sohbet listede yoksa `null`'a çekiliyor.
+
+**Renderer tarafındaki KRİTİK ayrıntı** (`AxetCodeHome.tsx`): kaydedici bir
+`loadedRef` ile korunuyor. Bu bayrak olmadan ilk render'daki boş `sessions=[]`
+state'i, yükleme cevabı gelmeden debounce'lu kaydediciyi tetikleyip **diskteki
+tüm geçmişi silerdi**. Kaydetme 600ms debounce'lu; parçalar ~50ms aralıklarla
+geldiği için bu aynı zamanda akış sırasında yazmayı da engelliyor (zamanlayıcı
+sürekli sıfırlanıyor, kayıt cevap bittikten sonra bir kez çalışıyor).
+
+**IPC zinciri** (proje konvansiyonu): `shared/types.ts` (`StoredChatMessage`,
+`StoredChatSession`, `ChatSessionsState`, `ChatSessionsLoadResult`) →
+`main/index.ts` (`chatSessions:load` / `chatSessions:save`) →
+`preload/index.ts` → `src/window.d.ts` → `AxetCodeHome.tsx`.
+
+### 2.2–2.6 Sohbet yönetimi
+
+- **Yeniden adlandırma**: satır içi input (kalem ikonu). Enter kaydeder,
+  Escape iptal, blur kaydeder. Boş ad reddediliyor (sohbet listede kaybolurdu).
+- **Silme onayı**: mevcut `ConfirmDialog` ile, mesaj sayısını da söyleyerek.
+  Kalıcılık geldiği için ARTIK ŞART — yanlış basılan bir "×" geri dönüşsüz.
+  **Boş sohbette onay sorulmuyor** (kaybolacak bir şey yok).
+- **Yeniden üret**: son mesaj bitmiş bir asistan cevabıysa listenin altında
+  bir buton. Eski cevabı atıp aynı istemi yeniden çalıştırıyor (`axet-code run`
+  stateless olduğu için bu gerçekten yeni bir çağrı). Hatalı cevaplarda da
+  aktif — asıl işe yaradığı yer orası.
+- **Arama**: başlık VE mesaj içeriğinde. Yalnızca 3'ten fazla sohbet varken
+  görünüyor. `toLocaleLowerCase("tr")` kullanılıyor — düz `toLowerCase()` ile
+  "İSTEK" araması "istek" başlıklı sohbeti bulamazdı.
+- **Sıralama**: `updatedAt` azalan (en son dokunulan üstte). Sohbetler kalıcı
+  olduğu için ekleme sırası birkaç gün içinde kullanılamaz hâle gelirdi.
+- **Ctrl+N / Cmd+N**: yeni sohbet.
+
+### Doğrulama
+
+- `chatStore.ts` için 20 maddelik izole test (esbuild + sahte `electron`
+  modülü): eksik dosya, tur-gidiş-dönüş, bozuk dosya kurtarma, çöp veri
+  süzme, hayalet `activeId`, üst sınırlar, uzun mesaj kırpma — **hepsi geçti**,
+  `.tmp` artığı kalmadı.
+- `npx tsc` (web + node) ve `npm run build` temiz. **Release/push YAPILMADI.**
+
+---
+
+## Sohbet Ekranı Faz 3 — Arayüz Yeniden Tasarımı (2026-09-02, GÖRSEL KATMANI FAZ 4 İLE DEĞİŞTİ)
+
+> **UYARI — bu bölümün GÖRSEL kararları artık geçerli değil.** Faz 3'ün
+> tasarımı kullanıcı tarafından reddedildi (*"yok hoşuma gitmedi en baştan
+> sıfırdan burayı yap"*) ve yerine Gemini referanslı Faz 4 geldi. Aşağıdaki
+> **yapısal** kararlar (dashboard'un kaldırılması, `NEW_SESSION_ID`, mesaj
+> düzenleme, dibe-in düğmesi, kalıcılık) HÂLÂ geçerli ve Faz 4'te korundu;
+> **düzen/renk/biçim** kararları için Faz 4 bölümüne bak. Değişenler aşağıda
+> tek tek işaretli.
+
+**Tetikleyici — kullanıcı kararı (aynen):** *"bu sohbet chat kısmı hiç
+istediğim gibi değil ben direkt, böyle chat gpt, claude, gemini arayüzleri gibi
+bişey istiyorum"* ve ardından *"bunlara benzer olcak birebir olmayacak
+bunlardan daha iyi olucak"*.
+
+Faz 0-2 işlevsel olarak doğruydu ama YERLEŞİM yanlıştı: uygulama bir
+"dashboard" ile açılıyordu ve sohbet ikinci sınıf bir ekrandı.
+
+### Kaldırılanlar
+
+- **Dashboard TAMAMEN gitti** (`AxetCodeHome.tsx`): istatistik kartları (aktif
+  sohbet / SAP sistemi / sürüm), iki büyük buton, son sohbet kartları, son
+  bağlantı listesi. Hiçbiri kullanıcının o an vereceği kararı beslemiyordu ve
+  sohbete başlamak fazladan bir tıklama gerektiriyordu. Sürüm zaten Ayarlar'da,
+  sistem sayısı SAP Launcher sekmesinde.
+- **Avatarlar** (`ChatBubble.tsx`): her mesajın yanındaki 28px'lik sütun.
+  Referans arayüzlerin üçü de kullanmıyor — iki kişilik bir konuşmada kimin
+  konuştuğu hizadan belli (kullanıcı sağda balon, asistan solda düz metin) ve o
+  sütun okuma genişliğinden kalıcı olarak yer çalıyordu.
+- **Kullanıcı balonunda `bg-accent-500`**: doygun accent üzerinde yapıştırılan
+  yol/kod parçaları okunmuyordu ve asistan cevabından daha çok dikkat
+  çekiyordu — oysa asıl içerik cevap. Nötr `bg-base-800`'e alındı.
+- Ölü i18n anahtarları: `subtitle`, `statSessions`, `statSystems`,
+  `statVersion`, `emptyButton`, `openSapLauncher`, `recentSessionsTitle`,
+  `recentConnectionsTitle`, `connectionsTitle`, `newChatTitle`,
+  `chatEmptyHint`. `App.tsx`'ten `totalSystemsCount` prop'u.
+
+### Yeni yapı
+
+- ~~**Tek arayüz, iki düzen**: sohbet boşsa composer ekranın ORTASINDA, mesaj
+  varsa dibe iniyor.~~ **FAZ 4'TE İPTAL** — composer artık her zaman dipte.
+- **`NEW_SESSION_ID = "__new__"`**: "Yeni sohbet" artık listeye kayıt
+  EKLEMİYOR, sadece boş composer'a dönüyor. Gerçek kayıt ilk mesajla birlikte,
+  başlığı ve kullanıcı mesajı içinde, tek seferde doğuyor (`handleSendNew`).
+  Eskiden üst üste "Yeni sohbet"e basmak listeyi boş kayıtlarla dolduruyordu.
+- **Okuma sütunu**: mesaj listesi ve composer AYNI genişlikte — yazdığın
+  satırla okuduğun satır aynı hizada. (Faz 4'te değer `max-w-[68ch]`'den
+  `max-w-3xl`'e alındı; ilke aynı kaldı.)
+- **Mesaj düzenleme** (`handleEditMessage`): kullanıcı mesajının yanındaki
+  kalem, metni composer'a geri koyup sohbeti O MESAJDAN İTİBAREN kesiyor.
+  Sonraki cevaplar düzeltilmiş soruya ait olmadığı için bağlamda tutulmaları
+  yanlış olurdu. Geri alma yok — bu yüzden düğme sadece hover'da ve akış
+  yokken.
+- **"En alta in" düğmesi**: uzun bir cevap akarken yukarı kaydıran kullanıcı
+  için. `stickToBottomRef` + 48px tolerans (tam piksel eşitliği kesirli scroll
+  yüksekliklerinde tutmuyor). Ayrıca panel görünür olduğu anda dibe sabitleyen
+  ayrı bir efekt var: gizli panelin `scrollHeight`'i 0 olduğu için sohbete geri
+  dönüldüğünde liste en üstte açılıyordu.
+- ~~**Kenar çubuğunda tarih grupları**: Bugün / Dün / Son 7 gün / Daha eski.~~
+  **FAZ 4'TE KALDIRILDI** — Gemini'de liste tek ve düz bir "Son" listesi;
+  240px'lik bir sütunda her birkaç satırda bir gelen başlık listeyi ayraçla
+  dolduruyordu. `groupLabelKey` ve dört `group*` i18n anahtarı silindi.
+- **SAP bağlantıları başlıksız dip bloğuna indirildi**: burası bir sohbet
+  ekranı; kendi başlığıyla ikinci bir bölüm gibi görünmesi sohbet listesiyle
+  dikkat yarıştırıyordu.
+
+### Doğrulama
+
+- `npx tsc -p tsconfig.web.json --noEmit` ve `npm run build` temiz.
+  **Release/push YAPILMADI.**
+
+---
+
+## Sohbet Ekranı Faz 4 — Gemini Düzeni (2026-09-02, TAMAMLANDI)
+
+**Tetikleyici — kullanıcı kararı (aynen):** *"yok hoşuma gitmedi en baştan
+sıfırdan burayı yap gemini yada claude'nin ekranı falan olsun"*. Sorulduğunda
+referans olarak **Gemini** seçildi ve rahatsız eden şey olarak DÖRT maddenin
+hepsi işaretlendi (renkler/tema, yerleşim/boşluklar, composer, kenar çubuğu),
+serbest metin: *"her ley rahatsız etti"*. Yani Faz 3'ün görsel katmanından
+korunacak bir şey yok.
+
+Bu, sohbet ekranının ARKA ARKAYA REDDEDİLEN ÜÇÜNCÜ tasarımı. Bir sonraki
+dokunuşta kararların yanlışlıkla geri alınmaması için düzenin kuralları
+`ChatSessionPane.tsx`'in başına da yazıldı.
+
+### Beş kural
+
+1. **Composer HER ZAMAN dipte.** Boş sohbette composer'ı ekranın ortasına alan
+   desen (ChatGPT/Claude — Faz 3'te bu vardı) bilinçli olarak kullanılmıyor:
+   Gemini'de yazı kutusu ilk andan itibaren aynı yerde durur, ilk mesajdan
+   sonra aşağı zıplamaz.
+2. **Kenarlık değil DOLGU.** Composer, kartlar, satırlar ve model seçici
+   `border` kullanmaz; zeminden bir ton açık bir dolguyla ayrışırlar. Kenar
+   çubuğunun `border-r`'ı ve sohbet satırlarındaki sol accent şerit de bu
+   yüzden kaldırıldı.
+3. **Model seçici SAĞ ÜSTTE**, composer'ın içinde değil. Bu, Faz 0'daki
+   "model değiştirme composer toolbar'ında olsun" kararını AÇIKÇA değiştirir —
+   model seçimi mesaj başına değil oturum başına verilen bir karar.
+4. **Karşılama SOLA yaslı, 40px, degradeli.**
+5. **Öneriler çip değil KART** (`rounded-2xl`, sabit yükseklik, ikon sağ altta
+   bir daire içinde).
+
+### Neden ayrı `--chat-hero-*` tema değişkenleri
+
+Degradeyi mevcut accent jetonlarından kurmak İMKÂNSIZ: `--accent-cyan-rgb`
+her iki temada da `--accent-500-rgb` ile **birebir aynı değer**
+(koyu: `42 108 235`, açık: `61 108 189`), yani o ikisinden kurulan bir
+`bg-gradient-to-r` düpedüz düz bir renk çıkarıyor. `src/index.css`'e her iki
+tema bloğuna üç değişken eklendi (`--chat-hero-from/via/to`); açık temada
+tonlar KOYU seçildi, çünkü koyu tema için seçilen parlak tonlar açık zeminde
+okunmuyor. Bunlar sadece o başlıkta kullanılıyor, palete yeni bir vurgu rengi
+katmıyorlar.
+
+### Dosya dosya
+
+- **`ChatSessionPane.tsx`** — baştan yazıldı. Üstte sadece model seçicinin
+  olduğu ince bir şerit; ortada kaydırılabilir içerik (boşsa degradeli
+  karşılama + 3'lü öneri kartı ızgarası, doluysa mesajlar); dipte kenarlıksız
+  `rounded-3xl` dolgulu composer (`items-end` sayesinde metin çok satıra
+  çıkınca düğmeler dipte kalır) ve altında tek satırlık uyarı metni.
+  **Gönder düğmesi metin yokken hiç çizilmiyor** — soluk ve tıklanamaz bir
+  düğme bırakmak yerine yer kaplamıyor (Gemini deseni).
+- **`ChatBubble.tsx`** — kullanıcı istemi sağda `rounded-3xl` dolgulu balon;
+  cevap solda balonsuz, solunda 26px'lik logo oluğu. Faz 3'te avatarlar
+  tamamen kaldırılmıştı; Gemini SADECE cevap tarafında simge kullandığı için
+  bu asimetri bilinçli olarak geri geldi. Cevabın altındaki kopyala düğmesi
+  **hover'a gizlenmiyor** (gizli düğme, varlığı bilinmediği için
+  kullanılmıyor); istem tarafındaki düzenle/kopyala hover'da kalıyor.
+  Gövde metni 15px (`BODY`), Faz 3'teki 14px'ten büyük.
+- **`AxetCodeHome.tsx`** — kenar çubuğu daraltılabilir (`sidebarOpen`, ☰ ile;
+  açık 256px / kapalı 68px ikon şeridi, animasyonlu genişlik geçişi).
+  Daraltılmışken liste tamamen gizli: 68px'e sığdırılmış kırpık başlıklar
+  okunmuyor, sadece gürültü oluyordu. "Yeni sohbet" accent kutusu yerine nötr
+  hap düğme; sohbet satırları `rounded-full`; tek düz "Son" başlığı; SAP
+  bağlantıları ayırıcı çizgi yerine kendi `rounded-2xl` dolgulu kutusunda.
+- **`ModelSelector.tsx`** — yeni opsiyonel `variant?: "outline" | "filled"`
+  prop'u. Varsayılan `outline` DEĞİŞMEDİ: bileşen axet.flows ChatPanel'de de
+  kullanılıyor ve varsayılanı değiştirmek o ekranın görünümünü bozardı.
+  Sohbet ekranı `variant="filled"` + `direction="down"` geçiyor (tetikleyici
+  artık tepede, varsayılan "up" menüyü pencere dışına taşırdı).
+- **i18n** — eklenen: `toggleSidebar`, `recentTitle`, `disclaimer`. Silinen:
+  `sessionsTitle`, `composerHint`, `groupToday`, `groupYesterday`,
+  `groupWeek`, `groupOlder`. `heroSubtitle` metni de değişti (artık 40px'lik
+  ikinci satır olduğu için kısaltıldı).
+
+### Doğrulama
+
+- `npx tsc -p tsconfig.web.json --noEmit` ve `npm run build` temiz.
+  **Release/push YAPILMADI** (dönüşüm bitene kadar geçerli kural).
+- Görsel doğrulama kullanıcıda: dev server HMR ile açık.
+
+## Sohbet Ekranı Faz 4b — Özelleştirme (2026-09-02, TAMAMLANDI)
+
+**Tetikleyici — kullanıcı (aynen):** *"daha güzel oldu bunu şimdi
+özelleştirelim biraz"*. Sorulduğunda üç alan seçildi: **aXet kimliği**,
+**kullanıcı ayarları**, **görsel rötuşlar**. Dördüncü seçenek (**SAP'ye özel
+içerik** — SAP odaklı öneri kartları, composer'da aktif sistem rozeti)
+seçilMEDİ; bilinçli olarak kapsam dışı, ileride istenirse ayrı bir adım.
+
+### 1. aXet kimliği — degrade uydurulmadı, logodan alındı
+
+`--chat-hero-*` değerleri `src/assets/logo.svg`'nin kendi `mark` degradesinden
+**birebir** kopyalandı: `#6d5efc → #8b7dff → #22d3ee`. Yeni bir marka rengi
+icat etmek yerine zaten var olanı kullanmak, karşılama başlığını logoyla aynı
+görsel aileye sokuyor. Açık temada aynı TONLAR korunup koyulaştırıldı
+(`#4c3ad4 → #6355d8 → #0e8ba6`) — parlak sürüm beyaz zeminde okunmuyordu.
+
+Karşılamada artık **kullanıcının adı** var: `"{greeting}, {name}"`
+(`axetCodeHome.greetingWithName`). Varsayılan ad Windows hesabından geliyor
+(`store.ts` → `safeUserName()`, `os.userInfo()` bir `try/catch` içinde —
+bazı kısıtlı ortamlarda fırlatabiliyor). Ayarlardan değiştirilebilir; **boş
+bırakılırsa** isimsiz karşılamaya düşer, yani bu bir zorunluluk değil.
+
+### 2. Kullanıcı ayarları — yeni IPC kanalı AÇILMADI
+
+`AppConfig`'e dört alan eklendi (`chatDisplayName`, `chatFontSize`,
+`chatDensity`, `chatSidebarOpen`). Bunlar mevcut jenerik
+`window.api.saveConfig(partial)` yolundan gidiyor; sohbet görünümü için ayrı
+bir IPC kanalı AÇMAYIN — `types.ts → index.ts → preload → window.d.ts` zinciri
+yalnızca yeni bir *işlem* gerektiğinde kurulur, yeni bir *ayar alanı* için
+değil.
+
+Sembolik ayarları piksele çeviren TEK yer `App.tsx`'teki efekt: değerleri
+`<html>` üzerinde `--chat-font-size` / `--chat-hero-size` /
+`--chat-message-gap` olarak yazıyor. Bunun alternatifi üç seviye prop
+geçirmekti (AxetCodeHome → ChatSessionPane → ChatBubble); CSS değişkeni hem
+daha az kod hem de bileşenleri ayardan habersiz bırakıyor.
+
+> **Tuzak:** Tailwind'de bir CSS değişkenini yazı boyutu yapmak
+> `text-[length:var(--chat-font-size)]` yazımını GEREKTİRİR. `text-[var(...)]`
+> yazılırsa Tailwind onu RENK sanar, boyut sessizce hiç uygulanmaz — hata da
+> vermez.
+
+Eski `config.json`'lar bu alanları içermiyor: `loadConfig()` her birini tip
+kontrolüyle doğruluyor ve eksikse `defaultConfig()` değerine düşüyor.
+
+`SettingsModal`'a **Sohbet görünümü** bölümü eklendi: ad girişi, yazı boyutu
+(sm/md/lg) ve yoğunluk (rahat/sıkışık) için `SegmentedControl`, bir de
+"kenar çubuğu açılışta açık" onay kutusu.
+
+### 3. Görsel rötuşlar
+
+- **Sessiz kaydırma çubuğu** (`.chat-scroll`): başparmak normalde şeffaf,
+  sadece imleç listenin üstündeyken beliriyor. Kalıcı bir çubuk, kenarlıksız
+  düzende tek dikey çizgi olarak göze batıyordu.
+- Öneri kartları `sm:grid-cols-3` ile dar pencerede alt alta geçiyor; ikon
+  dairesi hover'da accent'e dönüyor (`group-hover:bg-accent-500/15`).
+- Karşılama `animate-panel-fade-in` ile giriyor.
+- "Yeniden üret" düğmesinin negatif üst boşluğu artık sabit `-mt-6` değil,
+  `mt-[calc(var(--chat-message-gap)*-0.6)]` — yoğunluk ayarıyla birlikte
+  ölçekleniyor.
+
+### Doğrulama
+
+- `npx tsc -p tsconfig.web.json --noEmit`, `npx tsc -p tsconfig.node.json
+  --noEmit` ve `npm run build` temiz.
+- **Dev sunucusu yeniden başlatıldı.** `store.ts` bir MAIN process dosyası;
+  electron-vite'ın HMR'ı yalnızca renderer'ı günceller, main process eski
+  hâliyle çalışmaya devam eder. Yeniden başlatmadan yeni `AppConfig` alanları
+  çalışan uygulamada oluşmaz. **Not:** `npm run dev`'i öldürmek Electron
+  penceresini öldürMÜYOR; tek-örnek kilidi yüzünden yeni örnek hemen kapanır.
+  Eski `electron.exe` ağacını `taskkill /PID <main> /T /F` ile kapatmak gerek.
+- **Release/push YAPILMADI.**
+
+## Sohbet Gecikmesi — Kök Sebep ve Çözüm (2026-09-02, TAMAMLANDI)
+
+**Tetikleyici — kullanıcı (aynen):** *"çok geç cevap veriyor direkt axetteki
+gibi cevap verse daha iyi olur çok hızlı cevap vermeli"*.
+
+### Ölçüm — gecikme model kaynaklı DEĞİL
+
+`axet-code run -q` ile, cevabı 2 karakter olan bir prompt ("Sadece OK yaz."):
+
+| Ortam | Süre |
+|---|---|
+| boş dizin | 12.0 s |
+| gerçek çalışma dizini | 16.3 s |
+| **en hızlı modelle (haiku 4.5)** | **13.2 s** |
+| process başlatma tek başına (`axet-code models`) | 1.0 s |
+
+Model seçimi fark etmiyor ve process başlatma 1 saniye — yani süre başka bir
+yerde. `-d` günlüğünün aşama dökümü (12.8 s'lik bir çalışma):
+
+| Aşama | Süre |
+|---|---|
+| `connector.sync` (3 Outlook kaydı ağdan çekiliyor) | 1.5 s |
+| MCP istemcileri başlatılıyor | 0.9 s |
+| MCP araç listeleri yükleniyor | 2.3 s |
+| `skillsmarket.sync` | 0.8 s |
+| `Audit logged` | 0.4 s |
+| başlık üretimi (küçük modelle AYRI bir LLM çağrısı) | 1.3 s |
+| **ASIL CEVAP** | **0.6 s** |
+| MCP istemcileri kapatılıyor (`Shutdown took`) | 3.4 s |
+
+Sürenin **~8 saniyesi**, sohbetin çoğu mesajında hiç kullanılmayan MCP
+bağlayıcılarının HER MESAJDA kurulup yıkılmasına gidiyor.
+
+### İkinci arıza modu — backend çöktüğünde
+
+Ölçüm sırasında backend bir süre cevap vermedi ve tablo değişti: axet-code
+bağlanmayı **tam 10 saniye** deniyor, sonra `connector.sync.failed` yazıp
+devam ediyor. `https://axet.nttdata.com/` 0.7 s'de 200 dönerken
+`/api/agentic-mcp-tools/api/integrations` asılı kalıyordu — yani ağ/VPN değil,
+servisin kendisi.
+
+> **Yanlış giden bir ara adım, tekrar denenmesin diye:** önce "backend ayakta
+> mı" diye yoklayan, ölüyse bağlayıcıları otomatik kapatan bir sağlık kontrolü
+> yazıldı ve ÇÖPE ATILDI. Sebep: endpoint kimlik doğrulamasız bir GET'e
+> **401 ile 562 ms'de** cevap veriyor, yani "ayakta" görünüyor; asılı kalan
+> axet-code'un KİMLİK DOĞRULAMALI çağrısı. Dışarıdan yapılan yoklama bu ikisini
+> ayırt edemez. Üstelik asıl maliyet (8 s) backend SAĞLIKLIYKEN de var — sağlık
+> kontrolü yanlış soruyu çözüyordu.
+
+### Çözüm
+
+`app-electron/main/axetSpawnEnv.ts` — `axetSpawnEnv(useConnectors: boolean)`.
+`false` ise `AXET_MCP_BASE_URL` **anında reddedilen** bir loopback adresine
+(`http://127.0.0.1:9`, discard portu) çevriliyor: dinlenmeyen bir loopback
+portu TCP SYN'e hemen RST döner — DNS yok, zaman aşımı yok. **Ulaşılamayan bir
+İNTERNET adresi vermek işe yaramazdı**, o da zaman aşımına düşerdi.
+
+Uygulandığı yerler:
+
+- **`axetChat.ts`** — `AppConfig.chatUseConnectors` ayarına bakar,
+  **varsayılan `false`**. Ayar her mesajda okunuyor ki değişiklik anında etki
+  etsin. Bağlayıcılar kapalıyken `CONNECTOR_RETRY_REMINDER` prompt'a da
+  EKLENMİYOR (ortada bağlayıcı yokken anlamsız).
+- **`axetFlowsAgent.ts` / `sapGuiScriptAgent.ts`** — KOŞULSUZ kapalı. İkisi de
+  yapılandırılmış JSON üreten ajanlar; ne prompt'larında ne protokollerinde MCP
+  aracına atıf var (arandı, yok).
+- **`agenticConnectors.ts` — DOKUNULMADI.** "Uygulama Bağlantıları"ndaki test
+  bağlayıcıların ta kendisini sınıyor; onu hızlandırmak işlevi yok etmek olurdu.
+
+**Sonuç (gerçek çalışma dizini, aynı prompt):** 15.1 s → **5.4 s**.
+
+### Bilinçli olarak dokunulmayanlar
+
+- **`Audit logged` (~0.4 s)** — kurumsal denetim kaydı, bir uyumluluk kontrolü.
+  Hızlanmak için denetim kaydını atlamak bizim vereceğimiz bir karar değil.
+- **`skillsmarket.sync` (~0.8 s)** ve **başlık üretimi (~1.3 s)** — kapatan bir
+  anahtar bulunamadı, kazanç da bağlayıcılarınkinin yanında küçük.
+
+### Kullanıcıya düşen ayrı bir iyileştirme
+
+Günlükte **3 ayrı Outlook entegrasyonu** görünüyor (`test`, `test123`,
+`test123`) — `axetChat.ts`'in başındaki nottaki gibi, tekrarlanan yetkilendirme
+denemelerinden kalma kopyalar. Bağlayıcılar AÇIKKEN her mesaj üçünü birden
+kurup yıkıyor. Fazlalıkları axet.nttdata.com/agentic üzerinden silmek, açık
+moddaki maliyeti de belirgin şekilde düşürür. Bu bir portal işlemi, koddan
+yapılamaz.
+
+### Doğrulama
+
+- `npx tsc` (web + node) ve `npm run build` temiz.
+- Gecikme ölçümleri `axet-code` CLI'ına karşı canlı yapıldı (yukarıdaki tablolar).
+- **Release/push YAPILMADI.**
+
+## Bekleme Göstergesi — Üçüncü (ve son) Tasarım (2026-09-02, TAMAMLANDI)
+
+**Tetikleyici — kullanıcı (aynen):** *"düşünüyor, axet coda soruyor gibi
+kısmlar yerine daha farklı bişey yapalım ve ordaki logoyu kaldıralım"*.
+
+Elenen iki tasarım, tekrar önerilmesin diye:
+
+1. **Sayısal bekleme sayacı** — saniyelerin akışını izletmek beklemeyi *daha
+   yavaş* hissettiriyordu.
+2. **Logo + dönen durum cümleleri** ("Düşünüyor…", "axet.code ile
+   konuşuluyor…", "Yanıt hazırlanıyor…") — yukarıdaki geri bildirim.
+
+**Şimdiki tasarım (kullanıcı seçimi, AskUserQuestion önizlemesiyle):** hiç
+metin, hiç logo. Cevabın belireceği yerde üç soluk iskelet satırı duruyor ve
+üzerlerinden marka renginde bir ışık soldan sağa süzülüyor. Beklemeyi
+anlatmak yerine gelecek cevabın YERİNİ gösteriyor.
+
+- Gösterge, cevap metniyle **aynı hizadan** başlıyor (`pl-[42px]` = 26px simge
+  oluğu + `gap-4`), böylece metin akmaya başlayınca yatay zıplama olmuyor.
+- Satır genişlikleri kısalıyor (100% / 82% / 48%) — eşit genişlikte satırlar
+  bir tablo gibi duruyordu. Işık satırlara 140ms arayla ulaşıyor, tek blok
+  yerine aşağı akan bir dalga oluyor.
+- `role="status"` + `aria-label` (`axetCodeHome.thinkingAria`, EKRANDA
+  GÖRÜNMEZ): gösterge tamamen görsel olduğu için ekran okuyucunun
+  söyleyebileceği tek şey bu.
+- **Logo yalnızca göstergeden kalktı**, asistan cevaplarının solundaki 26px'lik
+  oluk duruyor — kullanıcının işaret ettiği yer bekleme göstergesiydi.
+- `i18n` `thinking1/2/3` anahtarları SİLİNDİ (başka kullanan yoktu).
+
+> **CSS tuzağı** (`.chat-skeleton-line`, index.css): ışık ayrı bir katman/eleman
+> değil, tek elemanın İKİNCİ arka plan katmanı — altta opak `background-color`,
+> üstte kaydırılan yarı saydam gradyan. Alttaki renk opak olmasaydı gradyanın
+> alfası sayfa zeminine sızar ve koyu temada ışık sönük kalırdı. Ayrıca yüzdeli
+> `background-position`, p'yi *(eleman − resim)* farkıyla ÇARPAR — `background-size:
+> 55%` ile bu 0.45×genişlik demek, bu yüzden bandı iki uçta da tamamen dışarı
+> çıkarmak için %-130 ve %230 gibi 100'ü aşan değerler gerekiyor. %0–%100 yazmak
+> bandı hiç kaybetmez ve süzülme yerine yerinde titreme gibi görünür.
+
+### Doğrulama
+
+- `npx tsc` (web + node) ve `npm run build` temiz.
+- **Release/push YAPILMADI.**
+
+## Ekler: Yol Metni Yerine Çip/Küçük Resim (2026-09-02, TAMAMLANDI)
+
+**Tetikleyici — kullanıcı (aynen):** *"görsel eklemeyi dosya eklemeyi falan
+direkt eklesek olmaz mı yolu gitmesin chate yukarda gözüksün"*.
+
+**Eski davranış:** bir dosya sürüklendiğinde/yapıştırıldığında/seçildiğinde
+tırnaklı disk YOLU doğrudan taslak metnine yazılıyordu. Gönderilen mesaj
+`"C:\Users\...\ekran.png" bu ne?` gibi görünüyordu — hem çirkin hem de
+kullanıcının yazdığı cümleyle karışıyordu.
+
+**Yeni model:** ek artık mesaj metninin parçası DEĞİL, ayrı bir alan
+(`ChatAttachment { id, path, name }` — shared/types.ts).
+
+- Composer'da, yazı satırının **üstünde** ve **kutunun içinde** çip olarak
+  duruyor. Kutunun dışında ayrı bir şerit olsaydı gönderilecek şeyle görsel
+  bağı kopardı.
+- Görseller çipte küçük resimle, gönderilmiş mesajda daha büyük (≤176px)
+  yuvarlatılmış bir görsel olarak çiziliyor. Görsel olmayanlar ikonlu çip.
+- Çipte × ile kaldırılabiliyor; aynı dosya iki kez eklenmiyor (yol karşılaştırması).
+- Metin YOKKEN de gönderilebiliyor (tek başına bir görsel bırakıp göndermek).
+  Bu durumda sohbet başlığı ilk ekin adından türüyor.
+- Düzenle (kalem) ekleri de composer'a geri getiriyor.
+
+**Yol nereye gidiyor?** Yalnızca `axet-code`'a giden prompt'un sonuna, gönderim
+anında (`lib/attachments.ts` → `promptWithAttachments`):
+
+```
+<kullanıcının yazdığı metin>
+
+Ekli dosyalar (bu yollardan okuyabilirsin):
+"C:\...\ekran.png"
+```
+
+**GEÇMİŞ DE aynı fonksiyondan geçiyor.** Geçmemesi hâlinde ajan, iki mesaj önce
+konuşulan dosyanın yolunu kaybeder: ekran metninde o yol artık yok, sadece
+çipin adı var. Bu, "ekleri metinden ayırmanın" kolayca gözden kaçan bedeli —
+`handleSend`/`handleRegenerate` içindeki `historyForCall` eşlemeleri bu yüzden
+`m.content` değil `promptWithAttachments(m.content, m.attachments ?? [])`
+kullanıyor.
+
+### Önizleme — neden main process okuyor?
+
+Renderer dosyayı KENDİSİ okuyamıyor: dev'de sayfanın kaynağı
+`http://localhost:5173`, oradan `file://` bir görsele erişmek engelli. Bu yüzden
+yeni bir IPC var: `chatAttachments:preview` → `readAttachmentPreview` `data:`
+URL'i döndürüyor.
+
+- Önizleme sınırı **6MB**, ek yükleme sınırından (20MB) ayrı ve ondan küçük:
+  base64 boyu ~%33 büyütüyor ve 8MB'lık bir görselin önizlemesi için ~11MB'lık
+  bir string'i process sınırından geçirmenin faydası yok. Ek yine gönderilir,
+  sadece küçük resmi olmaz.
+- Görsel olmayan uzantı = `ok: true` ama `dataUrl` yok. **Hata değil**, çip
+  ikona düşer.
+- Önizlemeler **diske YAZILMIYOR** (`ChatAttachment`te böyle bir alan yok):
+  bir ekran görüntüsü base64 olarak birkaç megabayt tutar ve `chat-sessions.json`
+  şişerdi. Onun yerine `AttachmentChip` içinde **30 kayıtlık, en-eskiyi-atan**
+  bir bellek önbelleği var.
+
+### Dikkat edilenler
+
+- `resolveFilesToPaths` artık **tırnaksız** yol döndürüyor. Tırnaklama sadece
+  prompt kurulurken yapılıyor — ek nesnesinin içinde tırnaklı yol tutmak,
+  aynı yolla yapılan önizleme okumasını sessizce bozardı.
+- Sohbet alanına düz METİN bırakmak (dosya değil) hâlâ taslağa metin ekliyor,
+  ek olarak değil.
+- Diskten yüklerken `s.attachments ?? []` — eski geçmiş dosyalarında bu alan
+  yok ve composer ilk render'da `undefined.length` ile patlardı.
+
+### Doğrulama
+
+- `npx tsc` (web + node) ve `npm run build` temiz.
+- Main process dosyaları değiştiği için dev sunucusu **yeniden başlatıldı**
+  (electron-vite burada main'i sıcak yeniden başlatmıyor).
+- **Release/push YAPILMADI.**
+
+## Bekleme Göstergesi v4 — Mors + Cevaplarda Avatar Kaldırıldı (2026-09-02, TAMAMLANDI)
+
+**Tetikleyici — kullanıcı (aynen):** *"o chatteki süre satırları mors alfabesi
+gibi parlayan şekilde olsun parçalı parçalı, ve chatte hâlâ logo gözüküyor
+cevaplarda"*.
+
+### 1. Gösterge artık parçalı
+
+Bütün iskelet satırları yerine kısa/uzun parçalar (nokta/çizgi) ve
+üzerlerinden SIRAYLA geçen bir ışık.
+
+Işık, kaydırılan bir gradyan bandıyla DEĞİL, her parçanın kendi
+`chat-morse-glow` döngüsüne verilen bir GECİKMEYLE ilerliyor. Gradyan burada
+işe yaramazdı: parçalar arasındaki boşluklar bandı keser, ışık aralarda
+kaybolurdu.
+
+Desen SABİT (rastgele değil): her render'da yeniden üretilen bir desen, React
+her yeniden çizdiğinde animasyonu baştan başlatır ve dalga tökezler.
+
+Parlama döngünün sadece ilk %20'sinde, `box-shadow` ile parçanın dışına da
+taşıyor; mors ışığı hissini veren asıl şey bu.
+
+### 1b. İnce ve tek satır (ikinci tur)
+
+İlk deneme ÜÇ satır ve 9px kalınlıktaydı. Kullanıcı geri bildirimi (aynen):
+*"çok geniş kalın olmuş ince çizgiler ve tek satır"*. Artık **tek satır, 3px**.
+Gerekçe: bu bir paragraf taslağı değil bir gösterge — cevap gelmeden ekranı
+doldurmamalı.
+
+Bağlı iki ayar:
+
+- `box-shadow` yarıçapı 10px → **6px**. 3px'lik bir çizgide geniş bir gölge
+  ışık değil bulanık bir leke gibi görünüyor.
+- Sarmalayıcı `h-6` ile **sabit yükseklikte**. İnce satır tek başına neredeyse
+  yüksekliksiz kalıyor ve cevap gelince satır zıplıyordu.
+
+> **Kırılma noktası:** toplam gecikme, döngüden KÜÇÜK kalmalı. Şu an 9 parça ×
+> 80ms = 720ms < 2000ms. Aşarsa son parça daha parlamadan döngü başa sarar ve
+> dalga akmak yerine rastgele titrer. Parça eklemek/çıkarmak bu hesabı bozar
+> (`MORSE_SEGMENTS`, `MORSE_STEP_MS` — ChatBubble.tsx).
+
+### 2. Cevaplarda logo kaldırıldı
+
+Asistan cevaplarının solundaki 26px'lik logo oluğu tamamen gitti. Kim kimden
+ayrılıyor artık hizadan belli: istem sağda ve balonlu, cevap solda ve balonsuz.
+
+> **Bağlı düzeltme:** düzenin geri kalanı o oluğa göre hizalanmıştı.
+> ChatSessionPane'deki "Yeniden üret" düğmesinin `ml-[42px]` girintisi de
+> kaldırıldı — kaldırılmasaydı düğme cevap metninden içeride kalırdı.
+
+`logo.svg` uygulamada duruyor, sadece sohbet akışında kullanılmıyor:
+`TitleBar.tsx` ve `ActivityBar.tsx` hâlâ kullanıyor.
+
+### Doğrulama
+
+- `npx tsc` (web + node) ve `npm run build` temiz.
+- Yalnızca renderer dosyaları değişti — dev sunucusu yeniden başlatılmadı, HMR yeterli.
+- **Release/push YAPILMADI.**
+
+## Sohbet Ekranı — Düzen Turu v5 (2026-09-02, TAMAMLANDI)
+
+**Tetikleyici — kullanıcı (aynen):** *"model seçimi chat box içersinde olsun
+sağ tarafta, chate eklenilen görseller dosyalar v.s önizleme yapılabilsin
+ekranda büyütebilelim görebilelim tıklarsak, soldaki panel'i daha profesyonel
+şekilde düzenleyelim borderler daha keskin olsun, kenar çubuğunu kapatma açma
+sağ tarafta olsun yanında arama çubuğu falan olabilir, yeni sohbet çok çirkin
+yerde duruyor, tam ekran yaptığımda boyut aynı kalıyor ekran boyutuna göre
+chat boyutlandırması da değişsin"*.
+
+Altı ayrı istek; hepsi tek turda karşılandı.
+
+### 1. Model seçici composer'ın içine indi
+
+Ekranın tepesindeki, SADECE model seçiciyi taşıyan şerit tamamen kaldırıldı —
+tek bir düğme için 52px'lik bir bant ayırıyordu.
+
+Composer artık ÜÇ katmanlı: ekler → yazı alanı (tam genişlik) → araç çubuğu
+(solda ataç, sağda model seçici + gönder). Eskiden üçü tek satırdaydı; model
+seçici o satıra girince dar pencerede yazı alanını eziyordu.
+
+`ModelSelector`'a üçüncü bir görünüm eklendi: **`ghost`** — zeminsiz, sadece
+hover'da beliren, etiketi 120px'e kadar kırpılan kompakt hâli. `filled`/
+`outline` varyantları DEĞİŞMEDİ; axet.flows'un ChatPanel'i onları kullanıyor.
+
+> Menü yönü `direction="up"` olmalı — tetikleyici artık ekranın DİBİNDE.
+
+### 2. Ekler tıklanınca açılıyor / büyüyor
+
+Yeni: `src/components/AttachmentLightbox.tsx`. Tek bir jestin (tıklama) iki
+karşılığı var:
+
+| Ek | Tıklayınca |
+|---|---|
+| Görsel | Tam boy katman (Esc / zemine tıkla = kapat) |
+| Görsel değil | `window.api.openExternal` — işletim sisteminin varsayılan uygulaması |
+
+Katman görseli YENİDEN OKUMUYOR: `AttachmentChip`'in `usePreview`'i zaten
+okumuş ve `data:` URL'i bellekteki önbellekte duruyor. Büyütme, olmayan bir
+veriyi getirmiyor; var olanı kırpmadan gösteriyor.
+
+İki ince nokta:
+
+- Katmanın **üst şeridine** yapılan tıklama `stopPropagation` ile durduruluyor —
+  yoksa "Bilgisayarda aç" düğmesine basmak aynı anda katmanı da kapatırdı.
+- **Görselin kendisine** yapılan tıklama da kapatmıyor; sadece zemin kapatıyor.
+  Büyütülmüş bir görseli incelerken üstüne tıklamak kapatma niyeti değil.
+- Sohbetteki küçük resimde hover'da bir büyüteç maskesi beliriyor:
+  `cursor-zoom-in` tek başına, fareyi oraya götürmemiş kullanıcıya hiçbir şey
+  anlatmıyor.
+
+### 3–5. Kenar çubuğu yeniden düzenlendi
+
+Gemini'nin yumuşak/haplı dili BURADA bırakıldı (sohbet yüzeyinde büyük ölçüde
+duruyor):
+
+- `border-r border-base-800` — ton farkı değil gerçek bir kenarlık.
+- Bölümler arası `border-b`/`border-t` ayırıcılar; köşeler `rounded-md`.
+- Sohbet satırlarında kenarlık **her zaman** var, seçili olmayanlarda
+  `transparent`. Sadece seçiliye eklenseydi satır seçildiğinde 2px uzar, liste
+  zıplardı.
+- Genişlik `w-64` → `w-[272px]` (başlığa arama + düğme sığması için), daraltılmış
+  hâli `68px` → `60px`.
+
+**Başlık şeridi:** solda arama, sağda daralt/genişlet düğmesi. Düğme yön
+gösteren ikonlarla (`PanelLeftClose` / `PanelLeft`) — tek bir ☰, düğmenin ne
+yapacağını söylemiyordu. `axetCodeHome.toggleSidebar` yerine iki yeni etiket:
+`collapseSidebar` / `expandSidebar`.
+
+**Arama artık HER ZAMAN görünür.** Eskiden yalnızca 3'ten fazla sohbet varken
+beliriyordu, yani kullanıcı onu aramaya alıştığı yerde bulamıyordu.
+
+**"Yeni sohbet"** tam genişlik ve accent tonlu birincil düğme oldu; kısayol
+(Ctrl+N) düğmenin üstünde yazıyor, sadece tooltip'te değil — tooltip'i görmek
+için beklemek gerekiyor, o satırı görmek için değil.
+
+### 6. Sohbet genişliği pencereye göre büyüyor
+
+`COLUMN` sabiti `max-w-3xl` → `max-w-3xl xl:max-w-4xl 2xl:max-w-5xl`. Sabit
+768px, 2560px'lik bir ekranda sohbeti ortada dar bir şerit olarak bırakıyordu.
+
+> **Sınırsız DEĞİL, bilinçli olarak.** Satır uzunluğu okunabilirliğin kendisi:
+> 1500px genişliğinde bir paragrafta göz satır sonundan satır başına dönemiyor.
+> Kademeler Tailwind'in kendi kırılma noktalarında (xl 1280px → 896px,
+> 2xl 1536px → 1024px) ve orada duruyor. `SystemPanel.tsx` zaten aynı deseni
+> kullanıyordu; asıl aykırı olan sohbet ekranıydı.
+
+### Doğrulama
+
+- `npx tsc -p tsconfig.web.json --noEmit` ve `npm run build` temiz.
+- Yalnızca renderer dosyaları değişti — dev sunucusu yeniden başlatılmadı, HMR yeterli.
+- **Release/push YAPILMADI.**
+
+---
+
+## Sohbet Ekranı — Rötuş Turu v6 (2026-09-02, TAMAMLANDI)
+
+Bir önceki turun (Düzen Turu v5) hemen ardından gelen geri bildirim, o turda
+yapılan iki şeyi GERİ ALDIRDI. Tetikleyen mesaj birebir:
+
+> *"chat box çok kalın tek box'ın içine gömülü şekilde tek satıra indir,
+> sohbetlerde ara kısmı açılır searchbox olsun tıklayınca genişlesin ve search
+> box daha güzel olabilir çirkin bir box olmuş, panelde ayraç lineları olmasa
+> da olur, sohbet geçmişinde eklediğim görsel silinmiş oluyor, ek olarak yine
+> chat box'a mikrofon ekleyelim tıkladığımızda konuştuklarımızı da yazabilsin"*
+
+Tur sırasında gelen üç ek düzeltme: *"mikrofon solda model seçimi sağda
+olcak"* → hemen ardından *"mikrofon model seçiminin solunda olsun"* (yani
+mikrofon sağ uçta, seçicinin solunda) ve *"model seçimi boxu tam ortalamıyor
+gibi hafif altta kalmış"*.
+
+### 1. Composer tek satıra döndü (`ChatSessionPane.tsx`)
+
+v5'te model seçicisi kutunun içine girince yazı alanı + araç çubuğu AYRI
+satırlara bölünmüştü. Bu, boş sohbette kutuyu ~90px'e çıkarıyordu. Şimdi tek
+satır: `[ataç] [yazı alanı] [mikrofon] [model] [gönder]`, ekler varsa üstte
+ayrı bir sıra olarak aynı kutunun içinde.
+
+- Satır `items-end`: yazı alanı büyüdükçe düğmeler dipte kalıyor.
+- Tüm düğmeler ve model seçicisi 36px (`h-9`). Model seçicinin `ghost`
+  varyantına SABİT yükseklik verilmesinin sebebi buydu: dolgudan türeyen
+  ~30px'lik yüksekliği, `items-end` hizası yüzünden düğmeleri birkaç piksel
+  aşağıda bırakıyordu.
+- Tek satırın bedeli, seçicinin dar pencerede yazı alanından yer çalması;
+  karşılığı `ghost` varyantının dar (`max-w-[120px]`) etiketi.
+
+### 2. Açılır arama kutusu (`AxetCodeHome.tsx`)
+
+Başlık şeridinde sürekli açık duran kutu, 272px'lik sütunda şeridin tamamını
+yiyordu. Şimdi tek bir büyüteç ikonu; tıklanınca şeridi dolduruyor.
+
+- İkon ve daralt/genişlet düğmesi İKİSİ DE ŞERİDİN SAĞINDA (*"sol
+  paneldeki arama ve kenar çubuğu butonları sağ tarafta olacak"*). Kutu
+  `ml-auto` + `w-full` + `max-w` ile sağa yapışıp SOLA doğru büyüyor;
+  `flex-1` kullanılamaz, o kutuyu şeridin soluna sabitler.
+- Genişleme `max-width` üzerinden animasyonlu. `flex-1` ile sabit genişlik
+  ARASINDA geçiş animasyon üretmiyor — `max-w-[32px]` ↔ `max-w-[400px]`
+  üretiyor. Bir dahaki dokunuşta "flex-basis ile daha temiz olur" diye
+  değiştirilmesin.
+- Görünüm de değişti (*"çirkin bir box olmuş"*): `border` + koyu zemin yerine
+  `bg-base-800` + `ring-1 ring-inset`, odakta `ring-accent-500/40`.
+- Escape ÖNCE metni, metin zaten boşsa kutuyu kapatıyor.
+- Kapanış aramayı SIFIRLIYOR — kapalı bir kutunun listeyi süzmeye devam
+  etmesi, kullanıcının sohbetlerini kaybettiğini sanmasına yol açardı. Kenar
+  çubuğu daraltılırken de aynı sebeple kapanıyor.
+
+### 3. Ayraç çizgileri kaldırıldı
+
+v5'te eklenen üç yatay çizgi (`border-b` başlık, `border-b` yeni sohbet,
+`border-t` bağlantılar) gitti. Sütunu dört kutuya bölüp panelin kendisinden
+çok ızgarasını öne çıkarıyorlardı. Bölümleri artık boşluk ayırıyor. Panelin
+sohbet yüzeyinden ayrıldığı `border-r` DURUYOR — o bir bölüm ayracı değil,
+panelin kendi sınırı.
+
+### 4. HATA: sohbet geçmişindeki ekler siliniyordu (`chatStore.ts`)
+
+Kullanıcının bildirdiği *"sohbet geçmişinde eklediğim görsel silinmiş
+oluyor"*. İki ayrı sebep vardı, ikisi de düzeltildi:
+
+**(a) Asıl sebep — ekler diske HİÇ yazılmıyordu.** `sanitizeMessage` ve
+`sanitizeSession` nesneyi alan alan YENİDEN KURUYOR (kopyalamıyor) ve
+`attachments` bu listede yoktu. `saveChatSessions` yazarken, `loadChatSessions`
+okurken aynı süzgeçten geçtiği için ekler HER İKİ YÖNDE de düşüyordu:
+renderer tarafındaki kalıcılık işi doğruydu ama main process onu sessizce
+iptal ediyordu. Kanıt: `chat-sessions.json`'da kullanıcının *"bu ne görseli"*
+mesajı `attachments` alanı olmadan duruyordu, oysa asistanın kayıtlı cevabı
+ekran görüntüsünü ayrıntısıyla anlatıyordu — yani ek ajana ULAŞMIŞ, sadece
+kaydedilmemişti.
+
+Düzeltme: `sanitizeAttachments()` eklendi (yolu olmayan kayıt atılıyor, en
+fazla `MAX_ATTACHMENTS = 20`) ve hem mesaja hem oturuma bağlandı. Boş dizi
+yazılmıyor.
+
+**Genel ders:** alan alan yeniden kuran bir sanitizer, tipe eklenen yeni bir
+alanı SESSİZCE yutuyor — TypeScript bunu yakalamıyor, çünkü eksik alan
+isteğe bağlı (`attachments?`). Bu dosyaya yeni bir alan eklendiğinde
+sanitizer'a da eklenmeli.
+
+**(b) İkincil sebep — dosyanın kendisi siliniyordu.** Yapıştırılan/blob
+ekler `app.getPath("temp")` altına yazılıyordu; Windows'un ve kurumsal
+temizlik politikalarının süpürdüğü yer orası. Sohbet geçmişi kalıcı ve mesajın
+içinde yalnızca DOSYA YOLU duruyor, yani dosya silinince geçmişteki görsel
+kırık bir yola dönüşüyordu. Klasör `app.getPath("userData")/chat-attachments`
+altına taşındı.
+
+### 5. Mikrofon: gömülü, YEREL konuşma tanıma (`main/dictation.ts` + `src/lib/dictationRecorder.ts` — YENİ)
+
+Kayıt renderer'da, tanıma main process'te gömülü **whisper.cpp** ile. Ses bu
+makineden HİÇ çıkmıyor, API anahtarı yok, internet gerekmiyor.
+
+**Bu, ilk denenen yol DEĞİL — iki yol denendi ve ÖLÇÜLEREK elendi. Bir dahaki
+turda tekrar denenmesin:**
+
+- **Web Speech API (`webkitSpeechRecognition`) Electron'da çalışmıyor.**
+  Chromium'un tanıması, Google'ın konuşma servisine derleme anında gömülen bir
+  anahtarla gidiyor; resmî Electron yapılarında o anahtar yok, çağrı her
+  seferinde `error: "network"` ile düşüyor.
+- **Windows'un kendi sesle yazması (Win+H) BU MAKİNEDE TÜRKÇE YAPMIYOR.**
+  Önce bu yol yazıldı (`keybd_event` P/Invoke ile Win+H gönderen bir .ps1),
+  sonra kullanıcı *"mikrofon çalışmıyor"* dedi ve kayıt defterinden ölçüldü
+  (2026-09-03): kurulu tek yerel tanıyıcı `MS-1033-110-WINMO-DNN` (yalnızca
+  en-US); `HKLM:\SOFTWARE\Microsoft\Speech_OneCore\ServiceLanguages` altında
+  de/en/es/fr/it/ja/pt-BR/zh var, **tr-TR YOK**; `OnlineSpeechPrivacy.
+  HasAccepted` boş. Yani Win+H açılsa bile en iyi ihtimalle İngilizce yazardı.
+  Kullanıcı bunun üzerine "yerel Whisper paketle" dedi.
+- **Bulut STT bir API anahtarı ister** ve kurumsal bir masaüstü aracından
+  sessizce dışarı SES çıkarır — teknik bir detay değil, ayrı bir karar.
+
+**Model ve yapı seçimi ÖLÇÜMLE yapıldı (bu makine, 12 çekirdek).** Önce base
+seçilmişti; kullanıcı *"söylemlerim yanlış çıkıyor"* deyince ölçüm tekrarlandı:
+
+| Yapı + model | Sentetik 2 sn | Gerçek konuşma |
+|---|---|---|
+| düz CPU + `base-q5_1` (60 MB) | 1.75 sn | 1.5 sn |
+| düz CPU + `small-q5_1` (190 MB) | 12 sn | — |
+| **BLAS + `small-q5_1`** | 8.2 sn | **4.3–4.7 sn** |
+| BLAS + `small-q5_1`, greedy (`-bs 1 -bo 1`) | 3.9 sn | 3.7 sn |
+
+İki şey öğrenildi: **(1)** BLAS yapısı (`whisper-blas-bin-x64.zip`,
+libopenblas ile) small'ü 1.5 kat hızlandırıyor; **(2)** sentetik ses (saf sinüs)
+çözücüyü halüsinasyona sokup süreyi ŞİŞİRİYOR — gerçek konuşmada aynı model
+neredeyse iki kat hızlı. İlk turda base'i seçtiren 12 saniye, büyük ölçüde bu
+ölçüm hatasıydı.
+
+**BLAS + small seçildi**, beam search varsayılanda bırakıldı: gerçek konuşmada
+greedy yalnızca 0.6 sn kazandırıyor ve şikâyetin konusu hız değil DOĞRULUK.
+İş parçacığı sayısının etkisi YOK (t=4/7/12/16 hepsi aynı bantta) — fark
+modelin kendisinde: whisper encoder'ı sesi her hâlükârda 30 saniyelik pencereye
+tamamlıyor, yani iki saniyelik bir cümle bile modelin tam bedelini ödüyor.
+
+Hız yine sorun olursa `models/` içine base'i koyup small'ü silmek yeterli —
+`getEmbeddedWhisperRuntime()` model dosyasını ADIYLA arıyor ve listedeki ilk
+bulunanı kullanıyor.
+
+**Dil OTOMATİK algılanıyor (`-l auto`), sabit DEĞİL.** Bir ara `-l tr` sabitti
+ve kullanıcı *"İngilizce dil desteği de yok"* dedi. Sabitlemek yalnızca eksik
+değil ZARARLI: ölçüldü (2026-09-03), İngilizce bir cümle `-l tr` ile
+çözümlendiğinde çıkan metin tamamen uydurma oluyor ("Kustamın numara 472'e bir
+saldırı yapabilirsiniz…") ve süre 4.7 sn → **12.6 sn**'ye çıkıyor, çünkü çözücü
+tutarsız sesle boğuşuyor. Otomatik algılama aynı 30 saniyelik pencereden
+bedavaya geliyor ve ölçümde İngilizceyi **p=0.999** ile buldu. Böylece iki dil
+tek düğmeden, uygulama dilinden BAĞIMSIZ olarak çalışıyor. `transcribeAudio`
+dili parametre olarak alıyor — ileride açık bir seçici (TR/EN/Oto) eklemek tek
+satır.
+
+**Ses formatı:** whisper-cli yalnızca flac/mp3/ogg/wav okuyor (`--help` ile
+doğrulandı), `MediaRecorder` ise Chromium'da WebM/Opus üretiyor. Araya ffmpeg
+koymak sırf format çevirmek için ~80MB'lik ikinci bir ikili paketlemek
+demekti; bunun yerine ham PCM `AudioContext`'ten alınıp 16kHz mono WAV başlığı
+`dictationRecorder.ts` içinde elle yazılıyor (birkaç satır, sıfır bağımlılık).
+`AudioContext({ sampleRate: 16000 })` — whisper modelleri 16kHz mono ile
+eğitilmiş.
+
+**Gömülü Whisper Runtime** (`resources/whisper-runtime/`, ~297MB):
+`rfc-runtime` ve `guiscript-runtime` ile AYNI desen — build makinesinde bir
+kere elle hazırlanır, `.gitignore`'dadır, `package.json` →
+`build.extraResources` ile paketlenir. Kurulumu:
+
+1. whisper.cpp sürüm **b4938**, **`whisper-blas-bin-x64.zip`** indir (düz
+   `whisper-bin-x64.zip` DEĞİL — BLAS'sız yapı small modelini 1.5 kat
+   yavaşlatıyor).
+2. İçindeki `whisper-cli.exe`, `whisper.dll`, `ggml*.dll` ve
+   `libopenblas.dll` dosyalarını `resources/whisper-runtime/bin/` altına koy.
+   (`llama.dll`, `parakeet*`, `SDL2.dll`, `bench/stream/talk-llama`,
+   `test-*` gerekmez.)
+3. `ggml-small-q5_1.bin`'i HuggingFace `ggerganov/whisper.cpp`'den indirip
+   `resources/whisper-runtime/models/` altına koy.
+
+⚠️ `bin/` içindeki `ggml-cpu-*.dll` varyantlarının hepsi KALMALI:
+whisper-cli.exe çalışma anında makinenin CPU'suna göre birini seçiyor (bu
+makinede `alderlake`). "Kullanılmıyor gibi duran" varyantları silmek,
+uygulamayı sadece build makinesinin işlemcisinde çalışır hâle getirir.
+`ggml-blas.dll` + `libopenblas.dll` de şart — onlarsız encoder düz CPU yoluna
+düşüyor.
+
+**Düğme üç hâlli** (boşta / kayıtta / yazıya dökülüyor) ve üçü de görünür:
+kaydın sürdüğünü göstermeyen bir mikrofon, kullanıcının boşluğa konuşmasına
+yol açar. Çeviri sürerken düğme kilitli — ikinci bir kayıt, biten çevirinin
+metnini nereye yazacağını belirsizleştirirdi. Tanınan metin taslağın SONUNA
+ekleniyor, üzerine yazılmıyor.
+
+**Doğrulama:** komut satırından uçtan uca çalıştırıldı, çıkış kodu 0,
+`ggml-cpu-alderlake.dll` otomatik yüklendi. Doğruluk testi için GERÇEK konuşma
+üretildi: Windows SAPI (`System.Speech`) ile 16kHz mono WAV sentezlendi ve
+dört yapılandırma aynı cümlede kıyaslandı — dördü de birebir doğru yazdı
+(sayı normalizasyonu dahil: "four seven two" → "472").
+
+⚠️ Makinede yalnızca **İngilizce** TTS sesi var (`David`/`Zira`, en-US;
+`GetInstalledVoices` ile doğrulandı), yani bu yöntemle TÜRKÇE doğruluk
+ölçülemiyor. Türkçe kalite testi kullanıcıya kaldı — bir dahaki turda "Türkçe
+doğruluğu test ettim" denecekse, önce Türkçe bir ses kaynağı bulunmalı.
+
+⚠️ **Sentetik ses (saf sinüs) süre ölçümü için GÜVENİLMEZ.** İlk turda model
+seçimi bu şekilde yapıldı ve small 12 sn ölçüldü; gerçek konuşmada aynı model
+4.3 sn. Fark, whisper'ın anlamsız seste halüsinasyon üretip çözücüyü uzun
+uzun çalıştırmasından geliyor. Süre ölçülecekse SAPI ile gerçek konuşma
+sentezlensin.
+
+⚠️ **`app-electron/main/*` değişiklikleri dev sunucusunda SICAK
+YÜKLENMİYOR.** Renderer HMR ile yeni düğmeyi gösterir ama eski preload'da yeni
+IPC köprüsü bulunmaz ve çağrı sessizce bir TypeError'a düşer — kullanıcıya
+HİÇBİR ŞEY göstermeyen ölü bir düğme. Bu birebir yaşandı (2026-09-02, ilk
+"mikrofon çalışmıyor" raporunun asıl sebebi buydu). İki önlem: (a)
+`handleDictate` köprünün varlığını `typeof … !== "function"` ile kontrol edip
+açık bir hata gösteriyor, (b) main process'e dokunan her turdan sonra dev
+sunucusu TAMAMEN yeniden başlatılmalı (önce artık kalan Electron ağacı
+öldürülerek).

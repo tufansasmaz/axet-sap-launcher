@@ -2,7 +2,41 @@ import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   AddManualSystemInput,
   AppConfig,
+  AxetChatMessage,
+  AxetChatSendResult,
+  AxetModelConfigResult,
+  AxetModelEntry,
+  AxetModelKind,
+  AxetModelsListResult,
+  ChatAttachmentPreviewResult,
+  ChatAttachmentSaveResult,
+  ChatSessionsLoadResult,
+  ChatSessionsState,
   ConnectRequest,
+  DictationResult,
+  FlowAgentStepResult,
+  FlowDeployResult,
+  FlowJsonFileResult,
+  FlowJsonValue,
+  FlowTestRequestPayload,
+  FlowTestRequestResult,
+  FlowTriggerInjectResult,
+  FlowValidateResult,
+  GuiScriptActionPayload,
+  GuiScriptActionResult,
+  GuiScriptAgentStepResult,
+  GuiScriptBridgeStatus,
+  GuiScriptComponentDetail,
+  GuiScriptConnectionInfo,
+  GuiScriptJsonFileResult,
+  GuiScriptPreflightResult,
+  GuiScriptScreenResult,
+  GuiScriptScreenshotMethod,
+  GuiScriptScreenshotResult,
+  GuiScriptSessionInfo,
+  GuiScriptStartResult,
+  ConnectorProvider,
+  ConnectorTestResult,
   SapService,
   SapLogonOpenResult,
   SystemTier,
@@ -70,6 +104,9 @@ const api = {
   readImageDataUrl: (filePath: string) => ipcRenderer.invoke("fs:readImageDataUrl", filePath),
   openInExplorer: (filePath: string) => ipcRenderer.invoke("fs:openInExplorer", filePath),
   openExternal: (filePath: string) => ipcRenderer.invoke("fs:openExternal", filePath),
+  openExternalUrl: (url: string) => ipcRenderer.invoke("shell:openUrl", url),
+  discoverAxetFlowsLiveUrl: () => ipcRenderer.invoke("axetFlowsLive:discoverUrl"),
+  saveFlowToLiveHost: (flowArray: unknown[]) => ipcRenderer.invoke("axetFlowsLive:saveFlow", flowArray),
   importFiles: (destDir: string, sourcePaths: string[]) => ipcRenderer.invoke("fs:importFiles", destDir, sourcePaths),
   pickFiles: () => ipcRenderer.invoke("dialog:pickFiles"),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke("app:getVersion"),
@@ -81,7 +118,111 @@ const api = {
     const listener = (_event: unknown, status: UpdateStatus) => callback(status);
     ipcRenderer.on("updates:status", listener);
     return () => ipcRenderer.removeListener("updates:status", listener);
-  }
+  },
+  listAxetModels: (): Promise<AxetModelsListResult> => ipcRenderer.invoke("axetModels:list"),
+  getAxetModelConfig: (): Promise<AxetModelConfigResult> => ipcRenderer.invoke("axetModels:getCurrent"),
+  setAxetModel: (kind: AxetModelKind, entry: AxetModelEntry): Promise<AxetModelConfigResult> =>
+    ipcRenderer.invoke("axetModels:setCurrent", kind, entry),
+  sendChatMessage: (
+    requestId: string,
+    cwd: string,
+    model: AxetModelEntry | null,
+    history: AxetChatMessage[],
+    message: string
+  ): Promise<AxetChatSendResult> => ipcRenderer.invoke("axetChat:send", requestId, cwd, model, history, message),
+  cancelChatMessage: (requestId: string): Promise<void> => ipcRenderer.invoke("axetChat:cancel", requestId),
+  // Cevap metni üretildikçe gelen parçalar (yalnızca YENİ parça, birikmiş
+  // metin değil). `requestId` ile hangi sohbete ait olduğu ayırt ediliyor.
+  onChatChunk: (callback: (requestId: string, text: string) => void) => {
+    const listener = (_event: unknown, requestId: string, text: string) => callback(requestId, text);
+    ipcRenderer.on("axetChat:chunk", listener);
+    return () => ipcRenderer.removeListener("axetChat:chunk", listener);
+  },
+  saveChatAttachment: (fileName: string, base64Data: string): Promise<ChatAttachmentSaveResult> =>
+    ipcRenderer.invoke("chatAttachments:save", fileName, base64Data),
+  readChatAttachmentPreview: (filePath: string): Promise<ChatAttachmentPreviewResult> =>
+    ipcRenderer.invoke("chatAttachments:preview", filePath),
+  // Mikrofon (bkz. main/dictation.ts). Ses renderer'da 16kHz mono WAV olarak
+  // kaydedilip base64 ile buradan geçiyor, metin geri dönüyor. Tanıma gömülü
+  // whisper.cpp ile YEREL — ses makineden çıkmıyor.
+  isDictationAvailable: (): Promise<boolean> => ipcRenderer.invoke("dictation:available"),
+  transcribeDictation: (base64Wav: string, language: string): Promise<DictationResult> =>
+    ipcRenderer.invoke("dictation:transcribe", base64Wav, language),
+  loadChatSessions: (): Promise<ChatSessionsLoadResult> => ipcRenderer.invoke("chatSessions:load"),
+  saveChatSessions: (state: ChatSessionsState): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("chatSessions:save", state),
+
+  // ---------------------------- Uygulama Bağlantıları (Outlook/SharePoint connector'ları) ----------------------------
+  testConnector: (requestId: string, provider: ConnectorProvider): Promise<ConnectorTestResult> =>
+    ipcRenderer.invoke("connectors:test", requestId, provider),
+  cancelConnectorTest: (requestId: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("connectors:cancelTest", requestId),
+  getConnectorMcpUrl: (provider: ConnectorProvider): Promise<string> =>
+    ipcRenderer.invoke("connectors:getMcpUrl", provider),
+
+  // ---------------------------- axet.flows ----------------------------
+  flowsAgentStep: (prompt: string, model: string | null): Promise<FlowAgentStepResult> =>
+    ipcRenderer.invoke("flows:agentStep", prompt, model),
+  flowsDeploy: (flowArray: FlowJsonValue[], mode?: string): Promise<FlowDeployResult> =>
+    ipcRenderer.invoke("flows:runtime:deploy", flowArray, mode),
+  flowsRestart: (): Promise<FlowDeployResult> => ipcRenderer.invoke("flows:runtime:restart"),
+  flowsValidate: (flowArray: FlowJsonValue[]): Promise<FlowValidateResult> =>
+    ipcRenderer.invoke("flows:runtime:validate", flowArray),
+  flowsStop: (): Promise<{ ok: boolean }> => ipcRenderer.invoke("flows:runtime:stop"),
+  flowsGetRuntimeStatus: () => ipcRenderer.invoke("flows:runtime:status"),
+  flowsTriggerInject: (nodeId: string): Promise<FlowTriggerInjectResult> =>
+    ipcRenderer.invoke("flows:runtime:triggerInject", nodeId),
+  flowsSendTestRequest: (payload: FlowTestRequestPayload): Promise<FlowTestRequestResult> =>
+    ipcRenderer.invoke("flows:runtime:testRequest", payload),
+  flowsSaveJson: (jsonText: string): Promise<FlowJsonFileResult> => ipcRenderer.invoke("flows:saveJson", jsonText),
+  flowsOpenJson: (): Promise<FlowJsonFileResult> => ipcRenderer.invoke("flows:openJson"),
+  flowsExportDebugLog: (jsonText: string): Promise<FlowJsonFileResult> =>
+    ipcRenderer.invoke("flows:exportDebugLog", jsonText),
+  onFlowsRuntimeDebug: (callback: (entry: FlowJsonValue) => void) => {
+    const listener = (_event: unknown, entry: FlowJsonValue) => callback(entry);
+    ipcRenderer.on("flows:runtime:debug", listener);
+    return () => ipcRenderer.removeListener("flows:runtime:debug", listener);
+  },
+  onFlowsRuntimeStatus: (callback: (status: FlowJsonValue) => void) => {
+    const listener = (_event: unknown, status: FlowJsonValue) => callback(status);
+    ipcRenderer.on("flows:runtime:status", listener);
+    return () => ipcRenderer.removeListener("flows:runtime:status", listener);
+  },
+  onFlowsRuntimeLog: (callback: (entry: FlowJsonValue) => void) => {
+    const listener = (_event: unknown, entry: FlowJsonValue) => callback(entry);
+    ipcRenderer.on("flows:runtime:log", listener);
+    return () => ipcRenderer.removeListener("flows:runtime:log", listener);
+  },
+  onFlowsRuntimeTrace: (callback: (entry: FlowJsonValue) => void) => {
+    const listener = (_event: unknown, entry: FlowJsonValue) => callback(entry);
+    ipcRenderer.on("flows:runtime:trace", listener);
+    return () => ipcRenderer.removeListener("flows:runtime:trace", listener);
+  },
+
+  // ---------------------------- SAP GUI Scripting ----------------------------
+  startGuiScriptBridge: (): Promise<GuiScriptStartResult> => ipcRenderer.invoke("sapGuiScript:start"),
+  stopGuiScriptBridge: (): Promise<{ ok: boolean }> => ipcRenderer.invoke("sapGuiScript:stop"),
+  getGuiScriptBridgeStatus: (): Promise<GuiScriptBridgeStatus> => ipcRenderer.invoke("sapGuiScript:status"),
+  guiScriptPreflight: (): Promise<GuiScriptPreflightResult> => ipcRenderer.invoke("sapGuiScript:preflight"),
+  getGuiScriptScreen: (connIdx: number, sessIdx: number): Promise<GuiScriptScreenResult> =>
+    ipcRenderer.invoke("sapGuiScript:getScreen", connIdx, sessIdx),
+  captureGuiScriptScreenshot: (connIdx: number | null, sessIdx: number | null, method: GuiScriptScreenshotMethod): Promise<GuiScriptScreenshotResult> =>
+    ipcRenderer.invoke("sapGuiScript:screenshot", connIdx, sessIdx, method),
+  listGuiScriptConnections: (): Promise<{ ok: boolean; connections?: GuiScriptConnectionInfo[]; error?: string }> =>
+    ipcRenderer.invoke("sapGuiScript:listConnections"),
+  listGuiScriptSessions: (connIdx: number): Promise<{ ok: boolean; sessions?: GuiScriptSessionInfo[]; error?: string }> =>
+    ipcRenderer.invoke("sapGuiScript:listSessions", connIdx),
+  getGuiScriptNode: (connIdx: number, sessIdx: number, elementId: string | null): Promise<{ ok: boolean; node?: GuiScriptComponentDetail; error?: string }> =>
+    ipcRenderer.invoke("sapGuiScript:getNode", connIdx, sessIdx, elementId),
+  performGuiScriptAction: (connIdx: number, sessIdx: number, payload: GuiScriptActionPayload): Promise<GuiScriptActionResult> =>
+    ipcRenderer.invoke("sapGuiScript:performAction", connIdx, sessIdx, payload),
+  saveGuiScriptScript: (jsonText: string, suggestedName?: string): Promise<GuiScriptJsonFileResult> =>
+    ipcRenderer.invoke("sapGuiScript:saveScript", jsonText, suggestedName),
+  openGuiScriptScript: (): Promise<GuiScriptJsonFileResult> => ipcRenderer.invoke("sapGuiScript:openScript"),
+  guiScriptAgentStep: (requestId: string, prompt: string, model: string | null): Promise<GuiScriptAgentStepResult> =>
+    ipcRenderer.invoke("sapGuiScript:agentStep", requestId, prompt, model),
+  cancelGuiScriptAgentStep: (requestId: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke("sapGuiScript:cancelAgentStep", requestId)
 };
 
 contextBridge.exposeInMainWorld("api", api);

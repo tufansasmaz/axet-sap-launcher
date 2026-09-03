@@ -13,7 +13,9 @@ import {
   Wrench,
   Database,
   ChevronRight,
-  Terminal
+  Terminal,
+  Sparkles,
+  Type
 } from "lucide-react";
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
@@ -134,7 +136,11 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
           </span>
           <button
             onClick={() => window.api.installUpdate()}
-            className="cursor-pointer rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-emerald-500"
+            // `text-white` DEĞİL: o token temaya bağlı (`--ink-strong-rgb`) ve
+            // açık temada koyu griye düşüyor — emerald zemin üstünde ~3.9:1
+            // kontrast, AA'nın altında. `text-accent-on` her iki temada da
+            // gerçek beyaz (bkz. index.css).
+            className="cursor-pointer rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-accent-on hover:bg-emerald-500"
           >
             {t("settingsModal.restartAndInstall")}
           </button>
@@ -179,6 +185,11 @@ export default function SettingsModal({
   const pickFolder = async () => {
     const dir = await window.api.pickFolder();
     if (dir) setForm({ ...form, projectsBaseDir: dir });
+  };
+
+  const pickAxetWorkspaceDir = async () => {
+    const dir = await window.api.pickFolder();
+    if (dir) setForm({ ...form, axetWorkspaceDir: dir });
   };
 
   const save = async () => {
@@ -250,6 +261,86 @@ export default function SettingsModal({
                 </button>
               </div>
             </Field>
+          </Section>
+
+          <Section icon={Sparkles} title={t("settingsModal.sectionAxetCode")}>
+            <Field label={t("settingsModal.axetWorkspaceDirLabel")}>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <FolderOpen size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    value={form.axetWorkspaceDir}
+                    onChange={(e) => setForm({ ...form, axetWorkspaceDir: e.target.value })}
+                    className={`${inputClass} pl-9`}
+                  />
+                </div>
+                <button
+                  onClick={pickAxetWorkspaceDir}
+                  title={t("settingsModal.browseFolder")}
+                  className="cursor-pointer rounded-md border border-base-600 px-3 text-slate-300 transition hover:bg-base-700"
+                >
+                  <FolderOpen size={16} />
+                </button>
+              </div>
+            </Field>
+            {/* Hız/yetenek dengesi — görünüm değil DAVRANIŞ ayarı olduğu için
+                "Sohbet görünümü" bölümünde değil burada. */}
+            <Field label={t("settingsModal.chatUseConnectorsLabel")} hint={t("settingsModal.chatUseConnectorsHint")}>
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={form.chatUseConnectors}
+                  onChange={(e) => setForm({ ...form, chatUseConnectors: e.target.checked })}
+                  className="h-4 w-4 cursor-pointer accent-[rgb(var(--accent-500-rgb))]"
+                />
+                {t("settingsModal.chatUseConnectorsCheckbox")}
+              </label>
+            </Field>
+          </Section>
+
+          {/* Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI
+              bir bölüm: burası "nasıl çalışsın" değil "nasıl görünsün" — ikisi
+              aynı kutuda olsaydı görünüm ayarları teknik ayarların arasında
+              kaybolurdu. */}
+          <Section icon={Type} title={t("settingsModal.sectionChatAppearance")}>
+            <Field label={t("settingsModal.chatDisplayNameLabel")} hint={t("settingsModal.chatDisplayNameHint")}>
+              <input
+                value={form.chatDisplayName}
+                onChange={(e) => setForm({ ...form, chatDisplayName: e.target.value })}
+                placeholder={t("settingsModal.chatDisplayNamePlaceholder")}
+                className={inputClass}
+              />
+            </Field>
+            <Field label={t("settingsModal.chatFontSizeLabel")}>
+              <SegmentedControl
+                value={form.chatFontSize}
+                onChange={(size) => setForm({ ...form, chatFontSize: size })}
+                options={[
+                  { key: "sm", label: t("settingsModal.chatFontSizeSm") },
+                  { key: "md", label: t("settingsModal.chatFontSizeMd") },
+                  { key: "lg", label: t("settingsModal.chatFontSizeLg") }
+                ]}
+              />
+            </Field>
+            <Field label={t("settingsModal.chatDensityLabel")} hint={t("settingsModal.chatDensityHint")}>
+              <SegmentedControl
+                value={form.chatDensity}
+                onChange={(density) => setForm({ ...form, chatDensity: density })}
+                options={[
+                  { key: "comfortable", label: t("settingsModal.chatDensityComfortable") },
+                  { key: "compact", label: t("settingsModal.chatDensityCompact") }
+                ]}
+              />
+            </Field>
+            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={form.chatSidebarOpen}
+                onChange={(e) => setForm({ ...form, chatSidebarOpen: e.target.checked })}
+                className="h-4 w-4 cursor-pointer accent-[rgb(var(--accent-500-rgb))]"
+              />
+              {t("settingsModal.chatSidebarOpenLabel")}
+            </label>
           </Section>
 
           <Section icon={TerminalSquare} title={t("settingsModal.sectionTerminal")}>
@@ -367,7 +458,7 @@ export default function SettingsModal({
           </button>
           <button
             onClick={save}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98]"
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-medium text-accent-on shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98]"
           >
             {t("common.save")}
           </button>

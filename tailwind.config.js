@@ -33,14 +33,22 @@ export default {
           600: withOpacity("--accent-600-rgb"),
           500: withOpacity("--accent-500-rgb"),
           400: withOpacity("--accent-400-rgb"),
-          cyan: withOpacity("--accent-cyan-rgb")
+          cyan: withOpacity("--accent-cyan-rgb"),
+          // Accent ZEMİN üzerindeki metin/ikon rengi (`text-accent-on`).
+          // Neden `text-white` olmadığı için bkz. src/index.css'teki
+          // --accent-on-rgb açıklaması (açık temada 2.89:1 kontrast hatası).
+          on: withOpacity("--accent-on-rgb")
         },
         slate: {
           100: withOpacity("--ink-100-rgb"),
           200: withOpacity("--ink-200-rgb"),
           300: withOpacity("--ink-300-rgb"),
           400: withOpacity("--ink-400-rgb"),
-          500: withOpacity("--ink-500-rgb")
+          500: withOpacity("--ink-500-rgb"),
+          // 600 tanımlı DEĞİLDİ — `text-slate-600` yazan yerler sessizce
+          // Tailwind'in kendi #475569'unu alıyor, yani tema değişkenlerini
+          // tamamen atlıyordu (açık temada yanlış tonda görünüyordu).
+          600: withOpacity("--ink-600-rgb")
         },
         white: withOpacity("--ink-strong-rgb")
       }

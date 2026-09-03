@@ -2,14 +2,11 @@ import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import { quotePathIfNeeded } from "../lib/paths";
 
 interface Props {
   sessionId: string;
   active: boolean;
-}
-
-function quotePathIfNeeded(p: string): string {
-  return /\s/.test(p) ? `"${p}"` : p;
 }
 
 export default function EmbeddedTerminal({ sessionId, active }: Props) {
@@ -92,6 +89,23 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       if (event.type !== "keydown") return true;
       const isPasteCombo = (event.ctrlKey || event.metaKey) && !event.shiftKey && !event.altKey && event.key.toLowerCase() === "v";
       if (!isPasteCombo) return true;
+      // KRİTİK: preventDefault() BURADA çağrılmalı, sadece `return false`
+      // YETMEZ — xterm.js'in kendi `_keyDown()` implementasyonu
+      // (`_customKeyEventHandler(e)` false dönünce `return false` ile
+      // erken çıkıyor) native keyboard event'i HİÇ preventDefault ETMİYOR,
+      // sadece xterm'in KENDİ iç işlemesini (data gönderme) durduruyor.
+      // Bu yüzden Chromium'un native Ctrl+V klavye kısayolu (main/index.ts
+      // `enableDeprecatedPaste:true` + Menu'deki paste rolünün
+      // `registerAccelerator:false` olması sayesinde hâlâ aktif) DEVAM
+      // EDİYORDU — bu da xterm'in textarea'sına gerçek bir native "paste"
+      // DOM event'i gönderiyordu, ve xterm.js'in KENDİSİ bu textarea'ya
+      // ayrıca bir "paste" event dinleyicisi bağlıyor (bkz. xterm.js
+      // kaynağında `handlePasteEvent`) — o dinleyici de aynı metni ayrıca
+      // yapıştırıyordu. Sonuç: ikisi üst üste binip metin İKİ KEZ
+      // yazılıyordu (canlı bulgu, 2026-09-02). `preventDefault()` bu native
+      // yolu tamamen kapatıyor, geriye SADECE bizim manuel
+      // `navigator.clipboard.readText()` → `term.paste()` yolu kalıyor.
+      event.preventDefault();
       navigator.clipboard
         .readText()
         .then((text) => {

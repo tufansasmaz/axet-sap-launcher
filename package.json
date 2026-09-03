@@ -27,7 +27,10 @@
     "lucide-react": "^0.460.0",
     "mammoth": "^1.12.1",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "reactflow": "^11.11.4",
+    "xlsx": "^0.18.5",
+    "xlsx-populate": "^1.21.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
@@ -67,6 +70,18 @@
       {
         "from": "resources/rfc-runtime",
         "to": "rfc-runtime"
+      },
+      {
+        "from": "resources/guiscript-runtime",
+        "to": "guiscript-runtime"
+      },
+      {
+        "from": "resources/sap-gui-scripting",
+        "to": "sap-gui-scripting"
+      },
+      {
+        "from": "resources/whisper-runtime",
+        "to": "whisper-runtime"
       },
       {
         "from": "build/icon.png",

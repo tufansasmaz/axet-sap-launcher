@@ -49,7 +49,10 @@ export default function TitleBar() {
         <button
           onClick={handleClose}
           title={t("titleBar.close")}
-          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-rose-600 hover:text-white"
+          // Hover'da rose-600 zemin geliyor; `hover:text-white` açık temada
+          // koyu griye düşüp ~2.9:1 kontrast veriyordu (kapat butonu görünmez
+          // hâle geliyordu). `text-accent-on` tema-bağımsız gerçek beyaz.
+          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-rose-600 hover:text-accent-on"
         >
           <X size={15} />
         </button>

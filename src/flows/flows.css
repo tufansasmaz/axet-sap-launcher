@@ -1,0 +1,3788 @@
+/* aXet.flows AI Builder — bileşen stilleri
+   ==========================================
+   Bu dosya, aXet.flows'un standalone projesindeki `styles.css`'ten (bkz.
+   PROJE-BILGI.md "axet.flows Entegrasyonu" bölümü) taşındı. Orijinal dosya
+   kendi `--base-*-rgb`/`--ink-*-rgb`/`--accent-*-rgb` PALET DEĞERLERİNİ ve
+   `html`/`body`/`#root`/`*`/`::selection`/`::-webkit-scrollbar*` gibi
+   SAYFA-GENELİ (global) kuralları tanımlıyordu — bunlar burada BİLEREK
+   KALDIRILDI: bu uygulama artık kendi başına bir pencere değil, aXet SAP
+   Launcher'ın İÇİNDE bir aktivite (bkz. AxetFlowsHome.tsx) — aynı `--base-
+   900-rgb` vb. değişken adlarını (aynı isimlendirme kuralı, farklı bir
+   ekipçe bağımsız olarak seçilmiş olması dikkat çekici ama tesadüf) ana
+   uygulamanın KENDİ `src/index.css`'i zaten sağlıyor; bu sayede aXet.flows'un
+   TÜM bileşen kuralları (aşağıda, değişmeden) otomatik olarak ana uygulamanın
+   güncel temasını (açık/koyu, `data-theme` değişince ANINDA) kullanıyor.
+   Sadece bu paletin İÇİNDE bulunmayan (radius ölçeği, gradyan/gölge
+   token'ları gibi) birkaç ek değişken burada, ana uygulamanın kendi accent
+   renklerinden türetilerek tanımlanıyor. Node canvas'taki node tipine özel
+   renkler (nodeCatalog.js, Node-RED konvansiyonu) fonksiyoneldir ve bu
+   tema sisteminin dışındadır — hiç değiştirilmedi. */
+
+:root {
+  --base-950: rgb(var(--base-950-rgb));
+  --base-900: rgb(var(--base-900-rgb));
+  --base-850: rgb(var(--base-850-rgb));
+  --base-800: rgb(var(--base-800-rgb));
+  --base-700: rgb(var(--base-700-rgb));
+  --base-600: rgb(var(--base-600-rgb));
+  --ink-100: rgb(var(--ink-100-rgb));
+  --ink-200: rgb(var(--ink-200-rgb));
+  --ink-300: rgb(var(--ink-300-rgb));
+  --ink-400: rgb(var(--ink-400-rgb));
+  --ink-500: rgb(var(--ink-500-rgb));
+  --ink-strong: rgb(var(--ink-strong-rgb));
+  --accent-600: rgb(var(--accent-600-rgb));
+  --accent-500: rgb(var(--accent-500-rgb));
+  --accent-400: rgb(var(--accent-400-rgb));
+
+  --accent-grad-a: var(--accent-600);
+  --accent-grad-b: var(--accent-400);
+  --accent-gradient: var(--accent-500);
+
+  --shadow-color: 0 0 0;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 8px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 48px rgba(0, 0, 0, 0.5);
+  --shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--base-700);
+}
+
+/* ---------------------------- Toolbar ---------------------------- */
+
+.toolbar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  background: var(--base-900);
+  border-bottom: 1px solid var(--base-700);
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolbar-actions-center {
+  justify-content: center;
+  min-width: 0;
+}
+
+.toolbar-actions-right {
+  justify-content: flex-end;
+}
+
+.toolbar-group {
+  display: flex;
+  gap: 4px;
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--base-700);
+  flex-shrink: 0;
+}
+
+.toolbar-actions button,
+.modal-actions button,
+.chat-input-row button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--ink-300);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 6px 11px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.toolbar-actions button:hover,
+.modal-actions button:hover {
+  background: var(--base-700);
+  border-color: var(--base-600);
+  color: var(--ink-100);
+}
+
+.toolbar-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.toolbar-actions button:disabled:hover {
+  background: transparent;
+  border-color: var(--base-700);
+  color: var(--ink-300);
+}
+
+.toolbar-icon-btn {
+  padding: 6px !important;
+}
+
+/* Referans görseldeki parlak yeşil "+ New Flow" birincil aksiyon butonu —
+   diğer tüm toolbar butonları (Şablonlar/Data/Tools/Kopyala/Auto Layout/
+   Debug) outline/transparan kalırken, tek bir dolgu-renkli birincil buton
+   olarak öne çıkıyor. Deploy/Run butonuyla AYNI başarı rengini (var(--status-
+   success-text)) kullanıyor — "yeni bir şey başlatmak" ile "çalıştırmak" ikisi
+   de bilinçli olarak yeşil, tutarlı bir "pozitif aksiyon" semantiği. */
+.toolbar-btn-primary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--status-success-text);
+  color: #06210f;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 6px 13px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.toolbar-btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+/* Data/Tools dropdown'ları — önceden bu class'lara HİÇ CSS tanımlı değildi
+   (bariz bir eksiklik): menü normal doküman akışında render olduğu için
+   açılınca toolbar'ı DİKEY OLARAK büyütüyor/itip kaydırıyordu. Artık
+   `.toolbar-dropdown-wrap` konum referansı, `.toolbar-dropdown-menu` ona göre
+   `position:absolute` — açılıp kapanması toolbar'ın boyutunu ETKİLEMİYOR. */
+.toolbar-dropdown-wrap {
+  position: relative;
+}
+
+.toolbar-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbar-caret-open {
+  transform: rotate(180deg);
+}
+
+.toolbar-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 160px;
+  background: var(--base-850);
+  border: 1px solid var(--base-600);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink-200);
+  white-space: nowrap;
+}
+
+.toolbar-dropdown-item:hover:not(:disabled) {
+  background: var(--accent-glow);
+  color: var(--ink-100);
+}
+
+.toolbar-dropdown-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ----------------------------- Tabs Bar ---------------------------- */
+
+.tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  flex-shrink: 0;
+  padding: 6px 10px;
+  background: var(--base-900);
+  border-bottom: 1px solid var(--base-700);
+  overflow-x: auto;
+}
+
+.tabs-bar-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--ink-400);
+  white-space: nowrap;
+}
+
+.tabs-bar-item:hover {
+  background: var(--base-800);
+  color: var(--ink-200);
+}
+
+.tabs-bar-item-active {
+  background: rgb(var(--accent-500-rgb) / 0.2);
+  color: var(--accent-soft-text);
+  font-weight: 600;
+}
+
+.tabs-bar-label {
+  user-select: none;
+}
+
+.tabs-bar-rename-input {
+  background: var(--base-950);
+  color: var(--ink-100);
+  border: 1px solid var(--accent-500);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  font-size: 12px;
+  width: 100px;
+}
+
+.tabs-bar-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: none;
+  color: var(--ink-500);
+  cursor: pointer;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.tabs-bar-close:hover {
+  background: var(--base-700);
+  color: var(--status-danger-text);
+}
+
+.tabs-bar-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: 1px dashed var(--base-600);
+  color: var(--ink-400);
+  border-radius: var(--radius-sm);
+  padding: 0;
+  cursor: pointer;
+  margin-left: 4px;
+}
+
+.tabs-bar-add:hover {
+  background: var(--accent-glow);
+  color: var(--accent-soft-text);
+  border-color: var(--accent-500);
+  border-style: solid;
+}
+
+/* ----------------------------- Layout ------------------------------ */
+
+.app-main-row {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.app-center-col {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sol (NodePalette) ve sağ (RightPanel) sütunları sürükleyerek yeniden
+   boyutlandırma tutamacı — App.tsx'teki `handleSidebarResizeStart` deseniyle
+   AYNI (mousedown → window mousemove/mouseup, min/max clamp), mantık
+   AppShell.jsx'te. */
+.flows-resize-handle {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+}
+
+.flows-resize-handle:hover {
+  background: rgb(var(--accent-500-rgb) / 0.5);
+}
+
+.canvas-breadcrumb-back {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  color: var(--ink-300);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 3px 9px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.canvas-breadcrumb-back:hover {
+  background: var(--base-800);
+  color: var(--ink-100);
+}
+
+.canvas-breadcrumb-label strong {
+  color: var(--accent-soft-text);
+}
+
+.canvas-convert-btn {
+  margin-left: auto;
+  background: var(--accent-500);
+  color: #fff;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.canvas-convert-btn:hover {
+  background: var(--accent-600);
+}
+
+.flow-canvas {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* --------------------------- Canvas area (full-width + floating palette) --------------------------- */
+
+.app-canvas-area {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* -------------------- Canvas Overlay Bar (canvas'ın üstünde yüzen) -------------------- */
+
+.canvas-overlay-bar {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.canvas-overlay-bar > * {
+  pointer-events: auto;
+}
+
+.workflow-description-empty {
+  color: var(--ink-500);
+}
+
+/* ------------------------------- Run / Deploy / Debug ------------------------------- */
+/* Referans görselde "Run" diğer toolbar butonlarıyla (Templates/Data/Tools)
+   AYNI sade outline görünümde — ayrı bir yeşil dolgulu "pill" DEĞİL. Sadece
+   flow gerçekten deploy/çalışır durumdayken ince bir yeşil vurgu (kenarlık +
+   metin rengi) beliriyor, kalıcı bir dolgu yok. */
+
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--base-700);
+  margin: 0 2px;
+}
+
+.toolbar-run-group {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.toolbar-run-split {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.toolbar-run-main,
+.toolbar-run-caret,
+.toolbar-run-stop {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  color: var(--ink-300);
+  border: 1px solid var(--base-700);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.toolbar-run-main:hover,
+.toolbar-run-caret:hover {
+  background: var(--base-700);
+  border-color: var(--base-600);
+  color: var(--ink-100);
+}
+
+.toolbar-run-main:disabled,
+.toolbar-run-caret:disabled,
+.toolbar-run-stop:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toolbar-run-main {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right: none;
+}
+
+.toolbar-run-caret {
+  padding: 0 8px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.toolbar-run-split-active .toolbar-run-main,
+.toolbar-run-split-active .toolbar-run-caret {
+  border-color: rgba(52, 211, 153, 0.4);
+  color: var(--status-success-text);
+  background: rgba(52, 211, 153, 0.08);
+}
+
+.toolbar-run-split-active .toolbar-run-main:hover,
+.toolbar-run-split-active .toolbar-run-caret:hover {
+  background: rgba(52, 211, 153, 0.16);
+}
+
+.toolbar-run-stop {
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  color: var(--status-danger-text);
+  border-color: rgba(251, 113, 133, 0.4);
+}
+
+.toolbar-run-stop:hover {
+  background: rgba(251, 113, 133, 0.14);
+}
+
+.deploy-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 270px;
+  background: var(--base-850);
+  border: 1px solid var(--base-600);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 5px;
+  display: flex;
+  flex-direction: column;
+}
+
+.deploy-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 7px 11px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.deploy-menu-item:hover:not(:disabled) {
+  background: var(--accent-glow);
+}
+
+.deploy-menu-item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.deploy-menu-item-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-100);
+}
+
+.deploy-menu-item-desc {
+  font-size: 10.5px;
+  color: var(--ink-500);
+}
+
+.deploy-menu-sep {
+  height: 1px;
+  background: var(--base-700);
+  margin: 4px 2px;
+}
+
+.debug-toggle-btn {
+  position: relative;
+}
+
+.debug-toggle-btn-active {
+  background: var(--accent-glow) !important;
+  border-color: var(--accent-500) !important;
+  color: var(--accent-soft-text) !important;
+}
+
+.debug-toggle-badge {
+  margin-left: 5px;
+  background: var(--status-danger-text);
+  color: #1a1a1a;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  padding: 0 6px;
+}
+
+.debug-panel {
+  height: var(--debug-panel-height, 340px);
+  min-height: 120px;
+  max-height: 80vh;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--base-900);
+  border-top: 1px solid var(--base-700);
+  position: relative;
+}
+
+.debug-panel-floating {
+  position: fixed;
+  z-index: 40;
+  height: auto;
+  max-height: 90vh;
+  min-height: 0;
+  border: 1px solid var(--base-600);
+  border-radius: var(--radius-lg);
+  border-top: 1px solid var(--base-600);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.debug-panel-floating .debug-panel-header {
+  cursor: grab;
+  user-select: none;
+}
+
+.debug-panel-floating .debug-panel-header:active {
+  cursor: grabbing;
+}
+
+.debug-panel-float-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  z-index: 5;
+}
+
+.debug-panel-float-resize-handle::after {
+  content: '';
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink-500);
+  border-bottom: 2px solid var(--ink-500);
+}
+
+.debug-panel-resize-handle {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: row-resize;
+  z-index: 5;
+}
+
+.debug-panel-resize-handle:hover,
+.debug-panel-resize-handle.debug-panel-resizing {
+  background: var(--accent-glow);
+}
+
+.debug-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--base-700);
+  flex-shrink: 0;
+}
+
+.debug-panel-header-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+}
+
+.debug-panel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-500);
+  flex-shrink: 0;
+}
+
+.debug-panel-title {
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-300);
+}
+
+.debug-panel-error-badge {
+  background: rgba(244, 113, 138, 0.15);
+  color: var(--status-danger-text);
+  border: 1px solid rgba(244, 113, 138, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 0 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 16px;
+  min-width: 16px;
+  text-align: center;
+}
+
+.debug-panel-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.debug-panel-icon-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--ink-400);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.debug-panel-icon-btn:hover {
+  background: var(--base-800);
+  border-color: var(--base-700);
+  color: var(--ink-100);
+}
+
+.debug-panel-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.debug-panel-icon-btn:disabled:hover {
+  background: transparent;
+  border-color: transparent;
+}
+
+.debug-panel-icon-btn-close:hover {
+  background: rgba(244, 113, 138, 0.14);
+  border-color: rgba(244, 113, 138, 0.35);
+  color: var(--status-danger-text);
+}
+
+.execution-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--ink-400);
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--base-700);
+  background: var(--base-850);
+  flex-shrink: 0;
+}
+
+.execution-summary-sep {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ink-500);
+  flex-shrink: 0;
+}
+
+.execution-summary-value {
+  font-weight: 700;
+  color: var(--ink-200);
+}
+
+.execution-summary-value-ok {
+  color: var(--status-success-text);
+}
+
+.execution-summary-value-error {
+  color: var(--status-danger-text);
+}
+
+.debug-panel-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--base-850);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.debug-panel-tab {
+  background: transparent;
+  color: var(--ink-400);
+  border: none;
+  border-radius: var(--radius-xs);
+  padding: 4px 11px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.debug-panel-tab:hover {
+  color: var(--ink-100);
+}
+
+.debug-panel-tab-active {
+  background: var(--accent-glow);
+  color: var(--accent-soft-text);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px var(--accent-600);
+}
+
+/* ---------------------- Deploy Oncesi Kontrol (validation) ------------------- */
+
+.validation-section {
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background: var(--base-850);
+}
+
+.validation-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-300);
+  margin-bottom: 6px;
+}
+
+.validation-section-blocked {
+  background: rgba(244, 113, 138, 0.15);
+  color: var(--status-danger-text);
+  border: 1px solid rgba(244, 113, 138, 0.4);
+  border-radius: var(--radius-lg);
+  padding: 1px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.validation-issue {
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--status-warning-text);
+  background: rgba(242, 184, 75, 0.06);
+  padding: 6px 10px;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.validation-issue-error {
+  border-left-color: var(--status-danger-text);
+  background: rgba(244, 113, 138, 0.07);
+}
+
+.validation-issue-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+
+.validation-issue-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.03em;
+  background: rgba(242, 184, 75, 0.15);
+  color: var(--status-warning-text);
+}
+
+.validation-issue-error .validation-issue-badge {
+  background: rgba(244, 113, 138, 0.15);
+  color: var(--status-danger-text);
+}
+
+.validation-issue-title {
+  font-weight: 600;
+  color: var(--ink-100);
+}
+
+.validation-issue-node {
+  margin-left: auto;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10.5px;
+  color: var(--ink-500);
+}
+
+.validation-issue-row {
+  color: var(--ink-300);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+/* ------------------------------ Flow Adimlari (trace) ------------------------ */
+
+.trace-chain {
+  border: 1px solid var(--base-700);
+  border-left: 3px solid var(--base-600);
+  border-radius: var(--radius-md);
+  margin-bottom: 6px;
+  overflow: hidden;
+}
+
+.trace-chain-status-ok {
+  border-left-color: var(--status-success-text);
+}
+
+.trace-chain-status-error {
+  border-left-color: var(--status-danger-text);
+}
+
+.trace-chain-focused {
+  border-color: var(--accent-500);
+  border-left-color: var(--accent-500);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+  animation: trace-chain-flash 1.4s ease-out 1;
+}
+
+@keyframes trace-chain-flash {
+  0% { background-color: var(--accent-glow); }
+  100% { background-color: transparent; }
+}
+
+.trace-chain-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--base-850);
+  border: none;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.trace-chain-head:hover {
+  background: var(--base-800);
+}
+
+.trace-chain-head-icon {
+  display: flex;
+  align-items: center;
+  color: var(--ink-500);
+  flex-shrink: 0;
+}
+
+.trace-chain-head-icon.trace-chain-status-ok {
+  color: var(--status-success-text);
+}
+
+.trace-chain-head-icon.trace-chain-status-error {
+  color: var(--status-danger-text);
+}
+
+.trace-chain-head-text {
+  flex: 1;
+  font-size: 12px;
+  color: var(--ink-200);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trace-chain-head-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-400);
+  background: var(--base-800);
+  border-radius: var(--radius-pill);
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+
+.trace-chain-head-time {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10.5px;
+  color: var(--ink-500);
+  flex-shrink: 0;
+}
+
+.trace-chain-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--ink-500);
+  transition: transform 120ms ease;
+  flex-shrink: 0;
+}
+
+.trace-chain-chevron-collapsed {
+  transform: rotate(-90deg);
+}
+
+.trace-chain-body {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trace-chain-empty {
+  font-size: 11.5px;
+  color: var(--ink-500);
+  padding: 4px 0;
+}
+
+.trace-step {
+  display: block;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  position: relative;
+}
+
+.trace-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 15px;
+  top: 22px;
+  bottom: -8px;
+  width: 1px;
+  background: var(--base-700);
+}
+
+/* Adım satırı artık tıklanabilir bir <button> (bkz. DebugPanel.jsx
+   StepRow) — kullanıcı geri bildirimi: "flow adımlarında adım seçilip
+   detay görüntülenemiyor" önceden bu satır sadece düz bir div idi, hiçbir
+   tıklama/detay mekanizması yoktu. */
+.trace-step-row {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  gap: 8px;
+  padding: 4px 6px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.trace-step-row:hover:not(:disabled) {
+  background: var(--base-850);
+}
+
+.trace-step-row:disabled {
+  cursor: default;
+}
+
+.trace-step-row-expanded {
+  background: var(--base-850);
+}
+
+.trace-step-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--ink-500);
+  flex-shrink: 0;
+  margin-top: 3px;
+  transition: transform 120ms ease;
+}
+
+.trace-step-chevron-open {
+  transform: rotate(180deg);
+}
+
+.trace-step-detail {
+  margin: 2px 0 4px 26px;
+  background: var(--base-950);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trace-step-detail-row {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.trace-step-detail-label {
+  flex-shrink: 0;
+  width: 62px;
+  color: var(--ink-500);
+  font-weight: 600;
+}
+
+.trace-step-detail-value {
+  color: var(--ink-200);
+  overflow-wrap: anywhere;
+}
+
+.trace-step-detail-mono {
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.trace-step-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.trace-step-detail-block .trace-step-detail-label {
+  width: auto;
+}
+
+.trace-step-detail-pre {
+  margin: 0;
+  background: var(--base-900);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--ink-200);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.trace-step-detail-pre-error {
+  color: var(--status-danger-text);
+  border-color: rgba(244, 113, 138, 0.4);
+}
+
+.trace-step-appear {
+  animation: trace-step-slide-in 220ms ease-out;
+}
+
+@keyframes trace-step-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.trace-step-icon-appear {
+  animation: trace-step-icon-pop 260ms ease-out;
+}
+
+@keyframes trace-step-icon-pop {
+  0% {
+    transform: scale(0.4);
+    box-shadow: 0 0 0 6px currentColor;
+    opacity: 0.4;
+  }
+  60% {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 0 transparent;
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.trace-step-icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--base-800);
+  color: var(--ink-400);
+  z-index: 1;
+}
+
+.trace-step-icon-ok {
+  background: rgba(74, 222, 149, 0.15);
+  color: var(--status-success-text);
+}
+
+.trace-step-icon-error {
+  background: rgba(244, 113, 138, 0.18);
+  color: var(--status-danger-text);
+}
+
+.trace-step-icon-sim {
+  background: rgba(181, 163, 133, 0.18);
+  color: #b5a385;
+}
+
+.trace-step-body {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.trace-step-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.trace-step-name {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--ink-100);
+}
+
+.trace-step-type {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+  color: var(--ink-500);
+}
+
+.trace-step-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 0 5px;
+  border-radius: var(--radius-xs);
+  background: rgba(181, 163, 133, 0.15);
+  color: #b5a385;
+  letter-spacing: 0.03em;
+}
+
+.trace-step-io {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10.5px;
+  color: var(--ink-500);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-top: 2px;
+}
+
+.trace-step-io-out {
+  color: var(--ink-400);
+}
+
+.trace-step-stopped {
+  background: rgba(244, 113, 138, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+.trace-stopped-card {
+  margin: 6px 0 2px 26px;
+  background: var(--base-850);
+  border: 1px solid rgba(244, 113, 138, 0.4);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trace-stopped-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--status-danger-text);
+  margin-bottom: 2px;
+}
+
+.trace-stopped-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: var(--radius-sm);
+  background: rgba(244, 113, 138, 0.18);
+  color: var(--status-danger-text);
+  letter-spacing: 0.04em;
+}
+
+.trace-stopped-row {
+  color: var(--ink-200);
+  line-height: 1.5;
+}
+
+.trace-stopped-label {
+  color: var(--ink-400);
+  font-weight: 600;
+}
+
+.trace-stopped-fix-btn {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: var(--accent-glow);
+  color: var(--accent-soft-text);
+  border: 1px solid var(--accent-600);
+  border-radius: var(--radius-sm);
+  padding: 5px 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.trace-stopped-fix-btn:hover {
+  border-color: var(--accent-400);
+  background: rgba(42, 108, 235, 0.18);
+}
+
+.debug-panel-list {
+  flex: 1;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-app-region: no-drag;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  scroll-behavior: smooth;
+}
+
+.debug-panel-empty {
+  color: var(--ink-500);
+  font-size: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 340px;
+  margin: 0 auto;
+}
+
+.debug-panel-empty-icon {
+  font-size: 22px;
+  opacity: 0.6;
+}
+
+.debug-entry {
+  background: var(--base-850);
+  border: 1px solid var(--base-700);
+  border-left: 3px solid var(--ink-500);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.debug-entry-error {
+  border-left-color: var(--status-danger-text);
+  background: rgba(244, 113, 138, 0.06);
+}
+
+.debug-entry-simulated {
+  border-left-color: #b5a385;
+}
+
+.debug-entry-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.debug-entry-time {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10.5px;
+  color: var(--ink-500);
+}
+
+.debug-entry-node {
+  font-weight: 600;
+  color: var(--ink-100);
+}
+
+.debug-entry-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.03em;
+}
+
+.debug-entry-tag-sim {
+  background: rgba(181, 163, 133, 0.15);
+  color: #b5a385;
+}
+
+.debug-entry-tag-error {
+  background: rgba(244, 113, 138, 0.15);
+  color: var(--status-danger-text);
+}
+
+.debug-entry-topic {
+  font-size: 10.5px;
+  color: var(--ink-500);
+  font-family: 'Consolas', 'Courier New', monospace;
+}
+
+.debug-entry-loglevel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink-400);
+}
+
+.debug-entry-loglevel-error {
+  color: var(--status-danger-text);
+}
+
+.debug-entry-loglevel-warn {
+  color: var(--status-warning-text);
+}
+
+.debug-entry-payload {
+  margin: 0;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11.5px;
+  color: var(--ink-200);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.debug-entry-fix-btn {
+  margin-top: 6px;
+  background: var(--accent-glow);
+  color: var(--accent-soft-text);
+  border: 1px solid var(--accent-600);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.debug-entry-fix-btn:hover {
+  border-color: var(--accent-400);
+}
+
+/* ---------------------------- Test Request Modal ------------------------------ */
+
+.test-request-method {
+  display: inline-block;
+  background: var(--accent-glow);
+  color: var(--accent-soft-text);
+  border: 1px solid var(--accent-600);
+  border-radius: var(--radius-xs);
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+.test-request-error {
+  background: rgba(244, 113, 138, 0.1);
+  border: 1px solid rgba(244, 113, 138, 0.35);
+  color: var(--status-danger-text);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+.test-request-response {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.test-request-status {
+  align-self: flex-start;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: var(--radius-sm);
+}
+
+.test-request-status-ok {
+  background: rgba(74, 222, 149, 0.12);
+  color: var(--status-success-text);
+}
+
+.test-request-status-error {
+  background: rgba(244, 113, 138, 0.12);
+  color: var(--status-danger-text);
+}
+
+.test-request-body {
+  margin: 0;
+  background: var(--base-950);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11.5px;
+  color: var(--ink-200);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+/* --------------------- React Flow harita/tema uyumu ------------------ */
+/* Referans görseldeki canvas, uygulamanın koyu "chrome"unun (toolbar/
+   paletler/paneller) İÇİNDE bilinçli olarak AÇIK/beyaz bir "çalışma yüzeyi"
+   — tasarım araçlarında (Figma/draw.io/Miro) yaygın bir konvansiyon: canvas
+   kendi başına bağımsız bir "kağıt" yüzeyi, uygulamanın koyu/açık temasını
+   TAKİP ETMEZ (bilerek sabit renkler, --base-*/--ink-* değişkenlerine
+   bağlanmadı). Node dairesi/handle/edge renkleri de bu açık yüzeye göre
+   ayarlandı (önceki koyu-canvas varsayımıyla yazılmış --base-950 ring/--ink-100
+   caption renkleri artık okunaksızdı). */
+
+.flow-canvas {
+  --canvas-bg: #ffffff;
+  --canvas-dot: #dfe3ea;
+  --canvas-edge: #64748b;
+  --canvas-edge-strong: #334155;
+  --canvas-ink: #20242e;
+  --canvas-ink-soft: #6b7280;
+}
+
+.flow-canvas .react-flow__background {
+  background-color: var(--canvas-bg);
+}
+
+.flow-canvas .react-flow__background-pattern {
+  fill: var(--canvas-dot);
+  stroke: var(--canvas-dot);
+  opacity: 1;
+}
+
+/* Kullanıcı geri bildirimi: "nodeları bağlama ipi gözükmüyor" (birden fazla
+   kez bildirildi, önceki renk/kalınlık düzeltmesi yetmedi) — GERÇEK kök
+   sebep bulundu: bu selector'lar reactflow'un kendi bundled
+   `reactflow/dist/style.css`'indeki (FlowCanvas.jsx'te import edilen)
+   `.react-flow__edge-path { stroke: #b1b1b7; stroke-width: 1; }` kuralıyla
+   AYNI özgüllükte (specificity) — üretim build'inde CSS enjeksiyon/birleşme
+   sırasına bağlı olarak bizim kuralımız KAYBEDEBİLİYORDU, sonuç: kenar
+   çizgisi kütüphanenin varsayılan AÇIK GRİSİYLE (#b1b1b7) beyaz canvas'ta
+   pratikte görünmez kalıyordu. Çözüm: TÜM canvas tema kurallarına `.flow-canvas`
+   ata (ancestor) sınıfı eklendi — bu ikişer-sınıflı özgüllük, kütüphanenin
+   tek-sınıflı varsayılanını KAYNAK SIRASINDAN BAĞIMSIZ olarak her zaman
+   yeniyor. */
+.flow-canvas .react-flow__edge-path,
+.flow-canvas .react-flow__connection-path {
+  stroke: var(--canvas-edge);
+  stroke-width: 2;
+  /* Zoom-out'ta (buyuk flow'larda fitView kamerasi kucultunce) SVG
+     stroke-width flow-uzayinda sabit oldugu icin ekran uzerinde alt-piksele
+     inip pratikte kaybolabiliyordu - vector-effect bu kalinligi HER ZAMAN
+     EKRAN UZAYINDA sabit tutar, hangi zoom seviyesinde olunursa olunsun
+     cizgi ayni gorunur kalinlikta kalir. */
+  vector-effect: non-scaling-stroke;
+}
+
+.flow-canvas .react-flow__edge.selected .react-flow__edge-path,
+.flow-canvas .react-flow__edge:focus .react-flow__edge-path,
+.flow-canvas .react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: var(--accent-500);
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.flow-canvas .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--canvas-edge-strong);
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+}
+
+.flow-canvas .flow-edge-active .react-flow__edge-path {
+  stroke: var(--status-success-text);
+  stroke-width: 2.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.flow-canvas .react-flow__arrowhead {
+  fill: var(--canvas-edge);
+}
+
+.flow-canvas .react-flow__selection {
+  background: var(--accent-glow);
+  border: 1px dotted var(--accent-500);
+}
+
+.flow-canvas .react-flow__handle {
+  background: var(--canvas-ink-soft);
+  border: 1.5px solid #ffffff;
+}
+
+.flow-canvas .react-flow__handle-connecting {
+  background: var(--status-warning-text);
+}
+
+.flow-canvas .react-flow__handle-valid {
+  background: var(--status-success-text);
+}
+
+.flow-canvas .react-flow__controls {
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.flow-canvas .react-flow__controls-button {
+  background: var(--base-900);
+  border-bottom: 1px solid var(--base-700);
+}
+
+.flow-canvas .react-flow__controls-button:last-child {
+  border-bottom: none;
+}
+
+.flow-canvas .react-flow__controls-button svg {
+  fill: var(--ink-300);
+}
+
+.flow-canvas .react-flow__controls-button:hover {
+  background: var(--base-700);
+}
+
+.flow-canvas .react-flow__controls-button:hover svg {
+  fill: var(--ink-100);
+}
+
+.flow-canvas .react-flow__minimap {
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.flow-canvas .react-flow__attribution {
+  display: none;
+}
+
+/* --------------------------- Ctrl+Click Quick Add --------------------- */
+
+.quick-add-menu {
+  position: absolute;
+  z-index: 20;
+  width: 220px;
+  max-height: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--base-900);
+  border: 1px solid var(--base-600);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: modal-pop-in 140ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.quick-add-search {
+  background: var(--base-950);
+  color: var(--ink-100);
+  border: none;
+  border-bottom: 1px solid var(--base-700);
+  padding: 8px 10px;
+  font-size: 12.5px;
+}
+
+.quick-add-search:focus {
+  outline: none;
+}
+
+.quick-add-list {
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.quick-add-empty {
+  font-size: 12px;
+  color: var(--ink-500);
+  padding: 8px;
+  text-align: center;
+}
+
+.quick-add-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--base-850);
+  color: var(--ink-200);
+  border: 1px solid var(--base-700);
+  border-left: 3px solid var(--ink-500);
+  border-radius: var(--radius-xs);
+  padding: 5px 8px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.quick-add-item:hover {
+  background: var(--base-800);
+  border-color: var(--accent-500);
+}
+
+/* --------------------------- Node Context Menu (right-click) --------------------------- */
+
+.node-context-menu {
+  position: absolute;
+  z-index: 25;
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  background: var(--base-900);
+  border: 1px solid var(--base-600);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  padding: 4px;
+  animation: modal-pop-in 120ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.node-context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--ink-200);
+  border: none;
+  border-radius: var(--radius-xs);
+  padding: 6px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.node-context-menu-item:hover {
+  background: var(--base-800);
+  color: var(--ink-100);
+}
+
+.node-context-menu-item:disabled {
+  color: var(--ink-500);
+  cursor: default;
+}
+
+.node-context-menu-item:disabled:hover {
+  background: transparent;
+}
+
+.node-context-menu-item-danger {
+  color: var(--status-danger-text);
+}
+
+.node-context-menu-item-danger:hover {
+  background: rgba(244, 113, 138, 0.14);
+}
+
+.node-context-menu-sep {
+  height: 1px;
+  background: var(--base-700);
+  margin: 4px 2px;
+}
+
+/* --------------------------- Node Palette --------------------------- */
+
+.node-palette {
+  width: 200px;
+  min-width: 160px;
+  max-width: 340px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--base-700);
+  background: var(--base-900);
+  display: flex;
+  flex-direction: column;
+}
+
+.node-palette-search {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--base-700);
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.node-palette-search-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--ink-500);
+  pointer-events: none;
+}
+
+/* Kullanıcı geri bildirimi: pill-şeklinde/kenarlıklı "baloncuk" görünümü
+   kaldırıldı — artık panelin arka planıyla birleşen, kenarlıksız, DÜZ bir
+   arama alanı (sadece altında panelin kendi `border-bottom`'u var). */
+.node-palette-search input {
+  width: 100%;
+  background: transparent;
+  color: var(--ink-100);
+  border: none;
+  padding: 4px 4px 4px 22px;
+  font-size: 11.5px;
+}
+
+.node-palette-search input:focus {
+  outline: none;
+}
+
+.node-palette-empty {
+  font-size: 12px;
+  color: var(--ink-500);
+  padding: 10px;
+  text-align: center;
+}
+
+.node-palette-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 8px;
+}
+
+.node-palette-group {
+  margin-bottom: 2px;
+  padding-bottom: 2px;
+}
+
+.node-palette-group-collapsed {
+  padding-bottom: 0;
+}
+
+.node-palette-group-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 7px 6px;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-400);
+  border-radius: var(--radius-sm);
+}
+
+.node-palette-group-title:hover {
+  background: var(--base-850);
+  color: var(--ink-200);
+}
+
+.node-palette-group-accent {
+  width: 3px;
+  height: 12px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+}
+
+.node-palette-group-chevron {
+  display: flex;
+  align-items: center;
+  color: var(--ink-500);
+  transition: transform 120ms ease;
+  flex-shrink: 0;
+}
+
+.node-palette-group-chevron-collapsed {
+  transform: rotate(-90deg);
+}
+
+.node-palette-group-name {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-palette-group-count {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ink-400);
+  background: var(--base-800);
+  border-radius: var(--radius-pill);
+  padding: 1px 7px;
+  flex-shrink: 0;
+}
+
+.node-palette-group-items {
+  padding: 2px 2px 6px 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.node-palette-subflow-hint {
+  font-size: 10.5px;
+  color: var(--accent-soft-text);
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-600);
+  border-radius: var(--radius-md);
+  padding: 7px 9px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+/* Kullanıcı geri bildirimi: kutulu/kenarlıklı satır + dolgu renkli ikon
+   rozeti "çok göze batıyor/kötü duruyor" bulundu — VS Code'un dosya
+   gezgini gibi SADE, arka planı olmayan bir liste satırına indirildi. Sadece
+   hover'da hafif bir vurgu (arka plan rengi) beliriyor, kalıcı kutu/kenarlık
+   yok — `.node-palette-group-title` ile AYNI dil. */
+.node-palette-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--ink-200);
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: 11.5px;
+  cursor: grab;
+  transition: background-color 100ms ease;
+}
+
+.node-palette-item:active {
+  cursor: grabbing;
+}
+
+.node-palette-item:hover {
+  background: var(--base-850);
+  color: var(--ink-100);
+}
+
+.node-palette-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.node-palette-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-palette-item-config {
+  opacity: 0.9;
+}
+
+.node-palette-item-subflow {
+  color: #dab8f0;
+}
+
+/* --------------------------- Right Panel (Bilgi/İstatistikler/Özellikler) --------------------------- */
+
+.right-panel {
+  width: 270px;
+  min-width: 220px;
+  max-width: 420px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--base-700);
+  display: flex;
+  flex-direction: column;
+  background: var(--base-900);
+  min-height: 0;
+}
+
+.right-panel-tabs {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--base-700);
+}
+
+.right-panel-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 7px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--ink-400);
+  cursor: pointer;
+}
+
+.right-panel-tab:hover {
+  color: var(--ink-100);
+  background: var(--base-850);
+}
+
+.right-panel-tab-active {
+  color: var(--ink-100);
+  border-bottom-color: var(--accent-500);
+}
+
+.right-panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.right-panel-tab-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.right-panel-tab-body-flush {
+  padding: 0;
+}
+
+.right-panel-section {
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--base-700);
+}
+
+.right-panel-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.right-panel-section-flush {
+  padding: 0;
+  margin: 0 -10px;
+  border-bottom: none;
+}
+
+.right-panel-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-500);
+  margin-bottom: 6px;
+}
+
+.workflow-sidebar-empty {
+  font-size: 11.5px;
+  color: var(--ink-500);
+}
+
+/* ------------------------- Execution Stats cards ------------------------- */
+
+.stats-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.stats-card {
+  background: transparent;
+  border: none;
+  padding: 6px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.stats-card-gauge {
+  padding: 6px;
+}
+
+.stats-card-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink-100);
+}
+
+.stats-card-value-sm {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.stats-card-label {
+  font-size: 9.5px;
+  color: var(--ink-500);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.radial-gauge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radial-gauge-label {
+  position: absolute;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--ink-100);
+}
+
+.radial-gauge-arc {
+  transition: stroke-dashoffset 300ms ease;
+}
+
+.mini-sparkline {
+  display: block;
+}
+
+.workflow-meta-row {
+  display: flex;
+  gap: 8px;
+  font-size: 12px;
+  padding: 2px 0;
+}
+
+.workflow-meta-row-desc {
+  align-items: flex-start;
+}
+
+.workflow-meta-label {
+  color: var(--ink-500);
+  flex-shrink: 0;
+  width: 64px;
+}
+
+.workflow-meta-value {
+  color: var(--ink-200);
+  overflow-wrap: anywhere;
+}
+
+.workflow-meta-value-editable {
+  cursor: text;
+  border-radius: var(--radius-xs);
+}
+
+.workflow-meta-value-editable:hover {
+  background: var(--base-800);
+  box-shadow: 0 0 0 1px var(--base-700);
+}
+
+.workflow-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.workflow-stat {
+  background: var(--base-850);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 9px 8px;
+  text-align: center;
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+
+.workflow-stat:hover {
+  border-color: var(--accent-600);
+}
+
+.workflow-stat-value {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink-100);
+}
+
+.workflow-stat-label {
+  font-size: 9.5px;
+  color: var(--ink-500);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-top: 2px;
+}
+
+.workflow-usage-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 11.5px;
+}
+
+.workflow-usage-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.workflow-usage-label {
+  width: 96px;
+  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink-300);
+}
+
+.workflow-usage-bar-track {
+  flex: 1;
+  height: 5px;
+  background: var(--base-800);
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+}
+
+.workflow-usage-bar-fill {
+  display: block;
+  height: 100%;
+}
+
+.workflow-usage-count {
+  width: 20px;
+  text-align: right;
+  color: var(--ink-400);
+  flex-shrink: 0;
+}
+
+.workflow-connection-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  font-size: 12px;
+}
+
+.workflow-connection-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--status-success-text);
+  flex-shrink: 0;
+}
+
+.workflow-connection-dot-warn {
+  background: var(--status-warning-text);
+}
+
+.workflow-connection-label {
+  flex: 1;
+  color: var(--ink-200);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-connection-status {
+  font-size: 10.5px;
+  color: var(--status-success-text);
+  flex-shrink: 0;
+}
+
+.workflow-connection-status-warn {
+  color: var(--status-warning-text);
+}
+
+.workflow-connection-verify-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--base-700);
+  color: var(--ink-400);
+  border-radius: var(--radius-xs);
+  padding: 1px 6px;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.workflow-connection-verify-btn:hover {
+  border-color: var(--accent-500);
+  color: var(--accent-soft-text);
+}
+
+.workflow-connection-verify-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.workflow-executions-header {
+  display: flex;
+  gap: 6px;
+}
+
+.workflow-view-executions-btn {
+  flex: 1;
+  width: auto;
+  background: var(--base-850);
+  border: 1px solid var(--base-700);
+  color: var(--ink-200);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.workflow-view-executions-btn:hover {
+  border-color: var(--accent-500);
+  color: var(--accent-soft-text);
+}
+
+.workflow-view-all-runs-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px dashed var(--base-600);
+  color: var(--ink-400);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.workflow-view-all-runs-btn:hover {
+  border-color: var(--accent-500);
+  color: var(--accent-soft-text);
+}
+
+.workflow-executions-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.workflow-execution-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--base-850);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: 11px;
+  color: var(--ink-300);
+  cursor: pointer;
+  text-align: left;
+}
+
+.workflow-execution-row:hover {
+  border-color: var(--base-600);
+}
+
+.workflow-execution-row-error {
+  border-color: rgba(244, 113, 138, 0.4);
+}
+
+.workflow-execution-icon {
+  flex-shrink: 0;
+}
+
+.workflow-execution-row-error .workflow-execution-icon {
+  color: var(--status-danger-text);
+}
+
+.workflow-execution-trigger {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workflow-execution-meta {
+  flex-shrink: 0;
+  color: var(--ink-500);
+}
+
+.subflow-panel {
+  border-bottom: 1px solid var(--base-700);
+  padding: 10px 12px;
+  max-height: 160px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.subflow-panel-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-400);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.subflow-panel-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: transparent;
+  border: 1px dashed var(--base-600);
+  color: var(--ink-400);
+  border-radius: var(--radius-xs);
+  padding: 0;
+  cursor: pointer;
+}
+
+.subflow-panel-add:hover {
+  border-color: var(--accent-500);
+  color: var(--accent-soft-text);
+}
+
+.subflow-panel-empty {
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+.subflow-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.subflow-panel-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  border-radius: var(--radius-xs);
+}
+
+.subflow-panel-item-active {
+  background: var(--base-800) !important;
+}
+
+.subflow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c084e8;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.subflow-name {
+  flex: 1;
+  color: var(--ink-200);
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subflow-panel-btn {
+  background: var(--base-800);
+  color: var(--ink-200);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-xs);
+  padding: 2px 6px;
+  font-size: 10.5px;
+  cursor: pointer;
+}
+
+.subflow-panel-btn:hover {
+  border-color: var(--base-600);
+}
+
+.subflow-panel-btn-danger {
+  color: var(--status-danger-text);
+  border-color: rgba(159, 18, 57, 0.4);
+}
+
+.config-panel {
+  border-bottom: 1px solid var(--base-700);
+  padding: 10px 12px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.config-panel-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-400);
+}
+
+.config-panel-empty {
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+/* GERCEK editorun Ctrl+F arama kutusunun kucuk bir karsiligi - bkz.
+   ConfigNodesPanel.jsx parseConfigQuery (is:unused/is:invalid/is:config +
+   duz metin destekler). */
+.config-panel-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--base-950);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  color: var(--ink-500);
+}
+
+.config-panel-search input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink-100);
+  font-size: 11.5px;
+}
+
+.config-panel-search input::placeholder {
+  color: var(--ink-500);
+}
+
+
+.config-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+}
+
+.config-panel-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  color: var(--ink-200);
+}
+
+.config-panel-list li:hover {
+  background: var(--base-800);
+}
+
+.config-panel-item-selected {
+  background: var(--base-800) !important;
+  box-shadow: inset 0 0 0 1px var(--accent-600);
+}
+
+/* GERCEK Node-RED editor'unun required-field dogrulamasinin (bkz.
+   nodeCatalog.js getMissingRequiredFields) bu listedeki gorsel karsiligi. */
+.config-panel-item-invalid {
+  box-shadow: inset 0 0 0 1px rgba(244, 113, 138, 0.4);
+}
+
+.config-panel-item-warn {
+  display: flex;
+  align-items: center;
+  color: var(--status-danger-text);
+  flex-shrink: 0;
+}
+
+/* "is:config is:unused" (gercek editorun Ctrl+F arama sozdizimi) ile AYNI
+   semantigi surekli gosteren rozet - bkz. nodeCatalog.js getConfigUsageMap. */
+.config-panel-item-unused {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--ink-500);
+  border: 1px solid var(--base-600);
+  border-radius: var(--radius-xs);
+  padding: 0 5px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.config-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.config-type {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.config-id {
+  margin-left: auto;
+  color: var(--ink-500);
+  font-family: monospace;
+}
+
+/* --------------------------- Node Editor --------------------------- */
+
+/* Kullanıcı geri bildirimi: "Özellikler kısmında panelin alt tarafı boş" —
+   kök sebep bu kural: `.node-editor` önceki (eski) sabit sidebar
+   düzeninden kalma `max-height:46vh` + kendi `overflow-y:auto`'sunu
+   taşıyordu, ama artık zaten `.right-panel-scroll`nin (dış scroll
+   kapsayıcısı) İÇİNDE render ediliyor — bu ikili scroll+sabit-yükseklik
+   kombinasyonu paneli sadece %46 doldurup ALTTA boş alan bırakıyordu.
+   Artık dış scroll'a güveniyor, kendi max-height/overflow'unu taşımıyor —
+   min-height:100% ile kısa içerikte de paneli tam dolduruyor. */
+.node-editor {
+  padding: 12px;
+  min-height: 100%;
+  background: var(--base-900);
+}
+
+.node-editor-empty {
+  color: var(--ink-500);
+  font-size: 12.5px;
+}
+
+.node-editor-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--base-700);
+}
+
+.node-editor-swatch {
+  width: 15px;
+  height: 15px;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  margin-top: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3) inset, var(--shadow-sm);
+}
+
+.node-editor-back {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  background: transparent;
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  color: var(--ink-400);
+  padding: 0;
+  cursor: pointer;
+}
+
+.node-editor-back:hover {
+  background: var(--base-800);
+  color: var(--ink-100);
+}
+
+.node-editor-header-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.node-editor-title {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--ink-strong);
+  margin-bottom: 6px;
+}
+
+.node-editor-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.node-editor-pill {
+  font-size: 10px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--base-800);
+  color: var(--ink-400);
+  border: 1px solid var(--base-700);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.node-editor-pill-type {
+  color: var(--accent-soft-text);
+  border-color: var(--accent-600);
+  background: var(--accent-glow);
+}
+
+.node-editor-hint {
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+.node-editor-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.node-editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 12px;
+}
+
+.node-editor-field label {
+  color: var(--ink-400);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.node-editor-field input[type='text'],
+.node-editor-field input[type='number'],
+.node-editor-field select,
+.node-editor-field textarea {
+  background: var(--base-950);
+  color: var(--ink-100);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 6px 9px;
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.node-editor-field input[type='text']:hover,
+.node-editor-field input[type='number']:hover,
+.node-editor-field select:hover,
+.node-editor-field textarea:hover {
+  border-color: var(--base-600);
+}
+
+.node-editor-field input:focus,
+.node-editor-field select:focus,
+.node-editor-field textarea:focus {
+  outline: none;
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* GERCEK Node-RED editor'unun formda bos zorunlu alani ANLIK kirmizi
+   kenarlikla isaretlemesinin (bkz. NodeEditorPanel.jsx missingFieldKeys,
+   nodeCatalog.js getMissingRequiredFields) AYNISI. */
+.node-editor-field-required-mark {
+  color: var(--status-danger-text);
+  margin-left: 3px;
+}
+
+.node-editor-field-invalid input[type='text'],
+.node-editor-field-invalid input[type='number'],
+.node-editor-field-invalid input[type='password'],
+.node-editor-field-invalid select,
+.node-editor-field-invalid textarea,
+.node-editor-field-invalid .node-editor-config-ref select {
+  border-color: var(--status-danger-text) !important;
+  box-shadow: 0 0 0 1px rgba(244, 113, 138, 0.35);
+}
+
+.node-editor-field-hint {
+  font-size: 10.5px;
+  color: var(--ink-500);
+  margin-top: -2px;
+}
+
+.node-editor-field-hint-danger {
+  color: var(--status-danger-text);
+}
+
+.node-editor-code {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  resize: vertical;
+  background: var(--base-950) !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.node-editor-field-checkbox {
+  flex-direction: row;
+  align-items: center;
+}
+
+.node-editor-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink-200);
+  font-size: 12.5px;
+  text-transform: none;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.node-editor-toggle {
+  position: relative;
+  display: inline-block;
+  width: 30px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.node-editor-toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+.node-editor-toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--base-700);
+  border: 1px solid var(--base-600);
+  border-radius: var(--radius-lg);
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.node-editor-toggle-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--ink-300);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+.node-editor-toggle input:checked ~ .node-editor-toggle-track {
+  background: var(--accent-gradient);
+  border-color: transparent;
+}
+
+.node-editor-toggle input:checked ~ .node-editor-toggle-track .node-editor-toggle-thumb {
+  transform: translateX(13px);
+  background: #fff;
+}
+
+.node-editor-json-error {
+  color: var(--status-danger-text);
+  font-size: 10.5px;
+}
+
+.node-editor-config-ref {
+  display: flex;
+  gap: 6px;
+}
+
+.node-editor-config-ref select {
+  flex: 1;
+}
+
+.node-editor-config-ref button {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--base-800);
+  color: var(--ink-200);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.node-editor-config-ref button:hover {
+  border-color: var(--accent-500);
+  color: var(--accent-soft-text);
+}
+
+.node-editor-config-ref-edit {
+  padding: 4px 6px !important;
+}
+
+.node-editor-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.node-editor-delete {
+  background: rgba(251, 113, 133, 0.12);
+  color: var(--status-danger-text);
+  border: 1px solid rgba(251, 113, 133, 0.4);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.node-editor-delete:hover {
+  background: var(--status-danger-text);
+  color: #fff;
+}
+
+/* ----------------------------- Chat Panel ---------------------------- */
+
+/* ----------------------------- Chat Dock (tam genislik, canvas'in altinda) ---------------------------- */
+
+/* Flow Builder Agent — artık ayrı bir sütun/pencere DEĞİL, RightPanel'in
+   (Bilgi/İstatistikler/Özellikler) KENDİSİ — "Agent" adlı dördüncü sekme
+   render olduğunda `.right-panel`'in tabs şeridinin ALTINDAKİ tüm alanı
+   dolduran bir flex sütunu (bkz. RightPanel.jsx — `right-panel-scroll`
+   wrapper'ının dışında, kendi flex:1 alanında render ediliyor). */
+.chat-dock {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--base-900);
+}
+
+.chat-dock-header {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--base-700);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-dock-header-icon {
+  color: var(--accent-soft-text);
+  flex-shrink: 0;
+}
+
+.chat-panel-title-label {
+  flex: 1;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-400);
+}
+
+.chat-panel-title-busy {
+  font-size: 10.5px;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--accent-soft-text);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.chat-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Kullanıcı geri bildirimi: eski uzun API örneği ("Bir POST /api/orders
+   ac...") kaldırıldı — çok dikkat dağıtıcı/gereksiz bulundu. Yerine boş
+   durumda ortalanmış, kısa/jenerik bir ikon+metin ipucu geldi. */
+.chat-empty-hint {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--ink-500);
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Sohbet balonlari - kullanici saga, agent sola hizali gercek bir chat
+   gorunumu. Onceki tasarim tum satirlari sol-hizali, monospace, emoji
+   isaretli tek bir liste olarak gosteriyordu - okumasi zor ve gorsel
+   hiyerarsisi yoktu. */
+
+.chat-row {
+  display: flex;
+  width: 100%;
+}
+
+.chat-row-user {
+  justify-content: flex-end;
+}
+
+.chat-row-agent {
+  justify-content: flex-start;
+}
+
+.chat-bubble {
+  max-width: 88%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.chat-bubble-user {
+  background: var(--accent-500);
+  color: #fff;
+  border-radius: 16px 16px 4px 16px;
+}
+
+.chat-bubble-agent {
+  background: var(--base-800);
+  color: var(--ink-100);
+  border: 1px solid var(--base-700);
+  border-radius: 14px 14px 14px 4px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Tool-call/tool-result aktivite satirlari: kompakt, ikonsuz-temiz, renkli
+   nokta ile durum belirten tek satirlik kartlar - eskiden ham JSON dump
+   ediliyordu, artik insan-okunur kisa ozetler gosteriliyor. */
+
+.agent-activity {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 10px 5px 8px;
+  margin-left: 4px;
+  border-left: 2px solid var(--base-700);
+  font-size: 12px;
+  color: var(--ink-300);
+  line-height: 1.4;
+}
+
+.agent-activity-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transform: translateY(1px);
+  background: var(--ink-500);
+}
+
+.agent-activity-call .agent-activity-dot {
+  background: var(--accent-400);
+}
+
+.agent-activity-ok .agent-activity-dot {
+  background: var(--status-success-text);
+}
+
+.agent-activity-error .agent-activity-dot {
+  background: var(--status-danger-text);
+}
+
+.agent-activity-error {
+  color: var(--status-danger-text);
+}
+
+.agent-activity-title {
+  font-weight: 600;
+  color: var(--ink-200);
+  flex-shrink: 0;
+}
+
+.agent-activity-error .agent-activity-title {
+  color: var(--status-danger-text);
+}
+
+.agent-activity-detail {
+  color: var(--ink-400);
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-banner {
+  max-width: 88%;
+  padding: 8px 12px;
+  border-radius: var(--radius-lg);
+  font-size: 12.5px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chat-banner-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.chat-banner-question {
+  background: rgba(242, 184, 75, 0.12);
+  border: 1px solid rgba(242, 184, 75, 0.4);
+  color: var(--status-warning-text);
+}
+
+.chat-suggested-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.chat-suggested-option-btn {
+  background: rgba(242, 184, 75, 0.14);
+  color: var(--status-warning-text);
+  border: 1px solid rgba(242, 184, 75, 0.45);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.chat-suggested-option-btn:hover:not(:disabled) {
+  background: rgba(242, 184, 75, 0.24);
+}
+
+.chat-suggested-option-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.chat-banner-finish {
+  background: rgba(74, 222, 149, 0.1);
+  border: 1px solid rgba(74, 222, 149, 0.35);
+  color: var(--status-success-text);
+}
+
+.chat-banner-error {
+  background: rgba(244, 113, 138, 0.1);
+  border: 1px solid rgba(244, 113, 138, 0.35);
+  color: var(--status-danger-text);
+}
+
+.agent-busy-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  color: var(--ink-400);
+  font-size: 12px;
+}
+
+.agent-busy-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.agent-busy-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent-400);
+  animation: agent-busy-bounce 1.1s ease-in-out infinite;
+}
+
+.agent-busy-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.agent-busy-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes agent-busy-bounce {
+  0%, 60%, 100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.chat-input-row {
+  display: flex;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--base-700);
+}
+
+/* Kullanıcı geri bildirimi: kutulu/kenarlıklı composer "kötü duruyordu" —
+   node-palette-search'teki AYNI yaklaşımla kenarlık/arka plan kaldırıldı,
+   artık panelin arka planıyla bütünleşen DÜZ bir metin alanı. */
+.chat-input-row textarea {
+  flex: 1;
+  resize: none;
+  background: transparent;
+  color: var(--ink-100);
+  border: none;
+  padding: 6px 2px;
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.chat-input-row textarea:focus {
+  outline: none;
+}
+
+/* Gönder butonu — düz "Send" ikonu yerine ChatSessionPane.tsx'teki
+   axet.code sohbetinin g\u00f6nder butonuyla AYNI: dolgu renkli, dairesel,
+   yukarı ok ("ChatGPT tarzı" modern chat gönder butonu konvansiyonu). */
+.chat-input-row button.chat-send-btn {
+  align-self: flex-end;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  background: var(--accent-500);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.chat-input-row button.chat-send-btn:hover:not(:disabled) {
+  background: var(--accent-600);
+}
+
+.chat-input-row button.chat-send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ------------------------------- Modal ------------------------------- */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay-scrim, rgba(0, 0, 0, 0.55));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  animation: backdrop-fade-in 160ms ease-out;
+}
+
+.modal {
+  background: var(--base-900);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-xl);
+  padding: 22px 26px;
+  width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-lg);
+  animation: modal-pop-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes modal-pop-in {
+  from { opacity: 0; transform: scale(0.97) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-wide {
+  width: 640px;
+  max-height: 80vh;
+}
+
+.export-check-list {
+  overflow-y: auto;
+  max-height: 45vh;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.templates-scroll {
+  overflow-y: auto;
+  max-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* --------------------------- Runs View (full history modal) --------------------------- */
+
+.runs-view-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.runs-view-filters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.runs-view-filter-btn {
+  background: var(--base-850);
+  border: 1px solid var(--base-700);
+  color: var(--ink-300);
+  border-radius: var(--radius-md);
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.runs-view-filter-btn:hover {
+  border-color: var(--base-600);
+  color: var(--ink-100);
+}
+
+.runs-view-filter-btn-active {
+  background: var(--accent-glow);
+  border-color: var(--accent-500);
+  color: var(--accent-soft-text);
+}
+
+.runs-view-filter-count {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--base-800);
+  border-radius: var(--radius-md);
+  padding: 0 6px;
+}
+
+.runs-view-filter-btn-active .runs-view-filter-count {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.runs-view-list {
+  overflow-y: auto;
+  max-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.runs-view-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--base-850);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 9px 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.runs-view-row:hover {
+  border-color: var(--base-600);
+  background: var(--base-800);
+}
+
+.runs-view-row-error {
+  border-color: rgba(244, 113, 138, 0.35);
+}
+
+.runs-view-row-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.runs-view-row-icon-ok {
+  background: rgba(74, 222, 149, 0.15);
+  color: var(--status-success-text);
+}
+
+.runs-view-row-icon-error {
+  background: rgba(244, 113, 138, 0.18);
+  color: var(--status-danger-text);
+}
+
+.runs-view-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.runs-view-row-trigger {
+  font-size: 13px;
+  color: var(--ink-100);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runs-view-row-meta {
+  font-size: 11px;
+  color: var(--ink-500);
+}
+
+.templates-group-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-500);
+  margin-bottom: 6px;
+}
+
+.template-card {
+  background: var(--base-850);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.template-card-name {
+  font-weight: 600;
+  color: var(--accent-soft-text);
+  font-size: 13px;
+}
+
+.template-card-desc {
+  font-size: 12px;
+  color: var(--ink-300);
+  line-height: 1.4;
+}
+
+.template-card-btn {
+  align-self: flex-start;
+  background: var(--base-800);
+  color: var(--ink-200);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.template-card-btn:hover {
+  background: var(--base-700);
+  border-color: var(--base-600);
+}
+
+.modal h2 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  color: var(--ink-strong);
+}
+
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--ink-400);
+}
+
+.modal select,
+.modal input {
+  background: var(--base-950);
+  color: var(--ink-100);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.modal select:focus,
+.modal input:focus {
+  outline: none;
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+.modal-hint {
+  font-size: 11.5px;
+  color: var(--ink-500);
+  margin: 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.modal-actions .primary {
+  background: var(--accent-500);
+  border-color: transparent;
+  color: #fff;
+  font-weight: 600;
+}
+
+.modal-actions .primary:hover {
+  background: var(--accent-600);
+}
+
+.modal-actions .primary-danger {
+  background: rgba(244, 113, 138, 0.85);
+  border-color: rgba(244, 113, 138, 0.85);
+}
+
+.modal-actions .primary-danger:hover {
+  background: var(--status-danger-text);
+}
+
+.modal-dialog {
+  width: 380px;
+}
+
+.modal-dialog-message {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-200);
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.modal-dialog-input {
+  background: var(--base-950);
+  color: var(--ink-100);
+  border: 1px solid var(--base-700);
+  border-radius: var(--radius-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.modal-dialog-input:focus {
+  outline: none;
+  border-color: var(--accent-500);
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+/* --------------------------- Flow Nodes ------------------------------ */
+/* Node basliklarindaki renkler nodeCatalog.js'ten gelen fonksiyonel/
+   semantik renklerdir (Node-RED editor konvansiyonu) - tema disinda kalir. */
+
+.flow-node {
+  position: relative;
+  width: 36px;
+  padding-top: 6px;
+}
+
+.flow-node-circle {
+  position: relative;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(20, 24, 34, 0.25), 0 0 0 3px var(--canvas-bg);
+  transition: box-shadow 140ms ease;
+}
+
+.flow-node:hover .flow-node-circle {
+  box-shadow: 0 3px 8px rgba(20, 24, 34, 0.3), 0 0 0 3px var(--canvas-bg);
+}
+
+.flow-node-selected .flow-node-circle {
+  box-shadow: 0 0 0 3px var(--canvas-bg), 0 0 0 5px var(--accent-500), 0 4px 14px rgba(20, 24, 34, 0.25);
+}
+
+/* GERCEK Node-RED editor'unun "required field bos -> kirmizi/gecersiz node"
+   davranisinin (bkz. nodeCatalog.js getNodeValidationIssues) gorsel karsiligi
+   - hem node'un KENDI alanlari hem isaret ettigi config node'un alanlari
+   (recursive) bos ise bu stil tetiklenir. Secili DURUMDAYKEN de (ikisi
+   birlikte olabilir) kirmizi halka accent halkasinin USTUNE eklenir (iki
+   ayri box-shadow katmani). */
+.flow-node-invalid .flow-node-circle {
+  box-shadow: 0 0 0 3px var(--canvas-bg), 0 0 0 5px var(--status-danger-text), 0 4px 14px rgba(20, 24, 34, 0.25);
+}
+
+.flow-node-invalid.flow-node-selected .flow-node-circle {
+  box-shadow: 0 0 0 3px var(--canvas-bg), 0 0 0 5px var(--status-danger-text), 0 0 0 7px var(--accent-500), 0 4px 14px rgba(20, 24, 34, 0.25);
+}
+
+.flow-node-invalid-badge {
+  position: absolute;
+  left: -3px;
+  bottom: -3px;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--status-danger-text);
+  border: 2px solid var(--canvas-bg);
+  border-radius: 50%;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(20, 24, 34, 0.25);
+  cursor: default;
+}
+
+.flow-node-run-btn {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 2px solid var(--canvas-bg);
+  border-radius: 50%;
+  color: #1c1c1c;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(20, 24, 34, 0.25);
+  /* nodrag: react-flow'un node surukleme dinleyicisini bu buton uzerinde
+     devre disi birakir, aksi halde tiklama surukleme ile karisir. */
+}
+
+.flow-node-run-btn:hover {
+  transform: scale(1.12);
+}
+
+.flow-node-caption {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  text-align: center;
+}
+
+.flow-node-caption-primary {
+  font-weight: 700;
+  font-size: 10.5px;
+  color: var(--canvas-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node-caption-secondary {
+  margin-top: 1px;
+  font-size: 9.5px;
+  color: var(--canvas-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node-endpoint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 10px;
+}
+
+.flow-node-endpoint-method {
+  background: var(--accent-glow);
+  color: var(--accent-soft-text);
+  border-radius: var(--radius-xs);
+  padding: 1.5px 6px;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.25);
+}
+
+.flow-node-endpoint-url {
+  color: var(--canvas-ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node-info {
+  margin-top: 6px;
+  color: var(--canvas-ink-soft);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flow-node-test-btn {
+  margin-top: 6px;
+  width: 100%;
+  background: var(--accent-glow);
+  color: var(--accent-soft-text);
+  border: 1px solid var(--accent-600);
+  border-radius: var(--radius-xs);
+  padding: 4px 0;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.flow-node-test-btn:hover {
+  background: var(--accent-600);
+  color: #fff;
+}
+
+/* Kullanıcı geri bildirimi: "noktalardan tutup çekince bağlantı çizgisi
+   çıkmıyor, tıklayarak bağlıyorum" — kök sebep: görünür nokta (11px) 36px'lik
+   küçük node'un kenarında çok dar bir isabet alanı bırakıyordu, fare
+   sürüklemesi genelde noktayı KAÇIRIP node'un kendisini (drag) veya boş
+   canvas'ı (pan/selection) yakalıyordu — bu da kullanıcıyı yalnızca
+   ("connectOnClick" — reactflow'un varsayılan davranışı) art arda iki
+   handle'a TIKLAYARAK bağlantı kurmaya zorluyordu. Görünür nokta boyutu
+   AYNI kalıyor, ama gerçek sürükleme başlangıcını yakalayan isabet alanı
+   ::before ile SESSİZCE (görünmez) büyütüldü — fare imleci noktanın tam
+   üzerinde olmasa bile (±6px tolerans) sürükleme artık güvenle başlıyor. */
+.flow-handle {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ink-400);
+  border: 2px solid var(--base-950);
+  z-index: 5;
+  cursor: crosshair;
+  transition: transform 120ms ease, box-shadow 120ms ease;
+}
+
+.flow-handle::before {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
+.flow-handle:hover {
+  transform: scale(1.35);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+/* Node-RED/aXet.flows'ta bir node canvas'a eklendigi anda solundan (giris)
+   ve sagindan (cikis) net bicimde protrude eden (disariya tasan) birer
+   baglanti noktasi gorunur - handle'lar node govdesinin disina tasacak
+   sekilde konumlandirilir (react-flow'un varsayilan -4px offset'i yerine). */
+.react-flow__handle-left.flow-handle {
+  left: -6px;
+}
+
+.react-flow__handle-right.flow-handle {
+  right: -6px;
+}
+
+.flow-handle-in {
+  background: var(--ink-400);
+}
+
+.flow-handle-out {
+  background: var(--accent-400);
+  box-shadow: 0 0 6px rgba(129, 140, 248, 0.5);
+}
