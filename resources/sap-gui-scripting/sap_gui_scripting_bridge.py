@@ -165,6 +165,10 @@ SAP_ERR_VKEY_NOT_ENABLED = 617
 # "The method got an invalid argument" - sag tik menusunde taninmayan islev
 # kodu/metin bununla donuyor (canli dogrulandi, 2026-09-03).
 SAP_ERR_INVALID_ARGUMENT = 613
+# "The control could not be found by id." - verilen eleman kimligi O ANKI
+# ekranda yok. Kaydedilmis bir script'i tekrar oynatirken EN OLASI hata bu:
+# adim baska bir ekranda kaydedilmis, simdiki ekranda o eleman yok.
+SAP_ERR_ID_NOT_FOUND = 619
 
 
 def _translate_com_error(exc: Exception) -> str:
@@ -591,7 +595,24 @@ def resolve_component(session, element_id: str | None):
         if window is not None:
             return window
         return session.findById("wnd[0]")
-    return session.findById(element_id)
+    # 619 OKUNUR HALE GETIRILIR. `findById` bulamadiginda ham COM demeti
+    # yukari kadar cikiyordu: kullanici "Beklenmeyen hata: (-2147352567,
+    # 'Exception occurred.', (619, 'SAP Frontend Server', ...))" goruyor ve
+    # icinde ARADIGI KIMLIK bile yaziliyor degil. Kayitli bir script'i tekrar
+    # oynatirken en sik karsilasilacak hata tam olarak budur (canli goruldu,
+    # 2026-09-03) - ve bu haliyle "hangi adim, hangi eleman" sorusuna cevap
+    # vermiyordu.
+    try:
+        return session.findById(element_id)
+    except Exception as exc:
+        sap_code, _ = _sap_error_detail(exc)
+        if sap_code == SAP_ERR_ID_NOT_FOUND:
+            raise SapGuiScriptingError(
+                f"Bu eleman su anki ekranda yok: {element_id!r}. "
+                "Kayitli bir adim oynatiliyorsa, adim baska bir ekranda "
+                "kaydedilmis olabilir - once o ekrana gidilmeli."
+            ) from exc
+        raise
 
 
 # ----------------------------------------------------------------------------
@@ -1202,7 +1223,11 @@ def handle_action(application, conn_idx: int, sess_idx: int, payload: dict) -> d
         else:
             if not element_id:
                 raise SapGuiScriptingError("'id' alanı zorunlu (sendVKey/navigate/popupChoice dışındaki tüm aksiyonlar için).")
-            comp = session.findById(element_id)
+            # `resolve_component` uzerinden: dogrudan `findById` cagirildiginda
+            # 619 ("bu ekranda yok") oynatma icin anlamsiz olan genel COM
+            # cevirisine dusuyordu. Kayitli adimin hangi elemanda takildigini
+            # soyleyen mesaj orada.
+            comp = resolve_component(session, element_id)
             if action == "setText":
                 comp.Text = payload.get("value", "")
             elif action == "press":

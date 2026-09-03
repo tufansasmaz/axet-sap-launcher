@@ -697,6 +697,13 @@ export interface GuiScriptRecordedStep {
   id?: string;
   value?: string;
   vkey?: number;
+  // Aksiyonun ÇALIŞMASI için gereken her alan kayda girmeli. `row`/`column`
+  // ve `by` başta unutulmuştu: ALV'de çift tıklama satır+sütun olmadan,
+  // sağ tık menüsü de seçim yöntemi olmadan tekrar oynatılamıyordu —
+  // kaydedilen adım, kaydedildiği anda çalışan adımın aynısı olmuyordu.
+  row?: number;
+  column?: string;
+  by?: "text" | "code" | "position";
   label: string;
 }
 

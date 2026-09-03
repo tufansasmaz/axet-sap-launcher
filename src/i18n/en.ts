@@ -379,6 +379,7 @@ export const en: Record<TranslationKey, string> = {
   "sapGuiScripting.gridTitle": "Grid / Table Data",
   "sapGuiScripting.gridTruncated": "Showing the first {count} rows (truncated).",
   "sapGuiScripting.gridColsTruncated": "Showing the first {count} columns (truncated).",
+  "sapGuiScripting.gridCellHint": "Double-click to double-click this cell in SAP.",
   "sapGuiScripting.gridEmpty": "This element has no readable grid/table data.",
   "sapGuiScripting.actionSuccess": "Action applied successfully.",
   "sapGuiScripting.actionError": "Action failed: {error}",
@@ -492,6 +493,8 @@ export const en: Record<TranslationKey, string> = {
   "sapGuiScripting.saveScript": "Save (JSON)",
   "sapGuiScripting.openScript": "Open (JSON)",
   "sapGuiScripting.clearSteps": "Clear All",
+  "sapGuiScripting.scriptFileInvalid": "This file is not a SAP GUI script — it has no 'steps' list. The current steps were kept.",
+  "sapGuiScripting.scriptStepsDropped": "{count} step(s) were skipped because of an unknown action; the script opened incomplete.",
   "sapGuiScripting.stepsEmpty": "No recorded steps yet. Start recording and use the action buttons on the right panel — every successful action gets added here as a step.",
 
   "sapGuiScripting.agentPanel": "AI Agent",

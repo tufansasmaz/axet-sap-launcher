@@ -384,6 +384,7 @@ export const tr = {
   "sapGuiScripting.gridTitle": "Grid / Tablo Verisi",
   "sapGuiScripting.gridTruncated": "İlk {count} satır gösteriliyor (kesildi).",
   "sapGuiScripting.gridColsTruncated": "İlk {count} sütun gösteriliyor (kesildi).",
+  "sapGuiScripting.gridCellHint": "Çift tıkla — SAP'de bu hücreye çift tıklanır.",
   "sapGuiScripting.gridEmpty": "Bu elemanda okunabilir grid/tablo verisi yok.",
   "sapGuiScripting.actionSuccess": "Aksiyon başarıyla uygulandı.",
   "sapGuiScripting.actionError": "Aksiyon başarısız: {error}",
@@ -497,6 +498,8 @@ export const tr = {
   "sapGuiScripting.saveScript": "Kaydet (JSON)",
   "sapGuiScripting.openScript": "Aç (JSON)",
   "sapGuiScripting.clearSteps": "Tümünü Temizle",
+  "sapGuiScripting.scriptFileInvalid": "Bu dosya bir SAP GUI script'i değil — içinde 'steps' listesi yok. Mevcut adımlar korundu.",
+  "sapGuiScripting.scriptStepsDropped": "{count} adım tanınmayan bir aksiyon içerdiği için atlandı; script eksik açıldı.",
   "sapGuiScripting.stepsEmpty": "Henüz kaydedilmiş bir adım yok. Kaydı başlatıp sağ paneldeki aksiyon butonlarını kullan — her başarılı aksiyon buraya bir adım olarak eklenir.",
 
   "sapGuiScripting.agentPanel": "AI Agent",

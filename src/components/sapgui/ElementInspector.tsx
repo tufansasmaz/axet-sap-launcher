@@ -206,10 +206,22 @@ export default function ElementInspector({ node, state, busy, onAction }: Props)
                     </tr>
                   </thead>
                   <tbody>
+                    {/* HÜCREYE ÇİFT TIKLAMA = SAP'de o hücreye çift tıklamak.
+                        Yukarıdaki "doubleClick" düğmesi bir grid'de tek başına
+                        işe yaramıyor: SAP satır+sütun istiyor ve denetçide
+                        bunları verecek başka bir yer yok. Tablo zaten burada
+                        duruyorken doğru yer burası — tıklanan hücre satırı da
+                        sütunu da kendisi söylüyor. */}
                     {node.grid.rows.map((gridRow, i) => (
                       <tr key={i} className="border-t border-base-800/70 text-slate-300">
                         {node.grid!.columns.map((col) => (
-                          <td key={col} className="whitespace-nowrap px-2 py-1">
+                          <td
+                            key={col}
+                            onDoubleClick={() =>
+                              !busy && onAction("doubleClick", undefined, { row: i, column: col })
+                            }
+                            title={t("sapGuiScripting.gridCellHint")}
+                            className="cursor-pointer whitespace-nowrap px-2 py-1 hover:bg-base-800">
                             {String(gridRow[col] ?? "")}
                           </td>
                         ))}

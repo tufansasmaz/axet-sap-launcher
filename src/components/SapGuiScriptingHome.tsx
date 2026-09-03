@@ -60,6 +60,21 @@ interface SelectedSession {
 const ROOT_KEY = "__root__";
 const PLAYBACK_STEP_DELAY_MS = 350;
 
+// Diskten açılan bir script'in adımlarını doğrulamak için TANINAN aksiyonlar.
+// `Record<GuiScriptActionKind, true>` üzerinden türetiliyor: birliğe yeni bir
+// aksiyon eklenirse burası derlenmez — listenin sessizce eskimesi, doğrulamayı
+// doğrulama olmaktan çıkarırdı (geçerli bir adım "tanınmadı" diye atılırdı).
+const GUI_SCRIPT_ACTIONS = Object.keys({
+  setText: true,
+  press: true,
+  select: true,
+  sendVKey: true,
+  selectContextMenuItem: true,
+  doubleClick: true,
+  navigate: true,
+  popupChoice: true
+} satisfies Record<GuiScriptActionKind, true>) as GuiScriptActionKind[];
+
 function nodeKey(connIdx: number, sessIdx: number, elementId: string): string {
   return `${connIdx}:${sessIdx}:${elementId || ROOT_KEY}`;
 }
@@ -73,7 +88,8 @@ function describeStep(
   id: string | undefined,
   value: string | undefined,
   vkey: number | undefined,
-  nodeLabel: string
+  nodeLabel: string,
+  extra?: { row?: number; column?: string; by?: string }
 ): string {
   const target = nodeLabel || id || "wnd[0]";
   switch (action) {
@@ -84,11 +100,15 @@ function describeStep(
     case "select":
       return `select() → ${target}`;
     case "doubleClick":
-      return `doubleClick() → ${target}`;
+      // Grid'de satır/sütun etiketin PARÇASI: onlarsız iki farklı adım
+      // listede birebir aynı görünüyordu.
+      return extra?.row !== undefined
+        ? `doubleClick(${extra.row}, "${extra.column ?? ""}") → ${target}`
+        : `doubleClick() → ${target}`;
     case "sendVKey":
       return `sendVKey(${vkey ?? 0}) · ${vkeyLabel(vkey ?? 0)}`;
     case "selectContextMenuItem":
-      return `selectContextMenuItem("${value ?? ""}") → ${target}`;
+      return `selectContextMenuItem("${value ?? ""}"${extra?.by ? `, ${extra.by}` : ""}) → ${target}`;
     case "navigate":
       return `navigate(/n${value ?? ""})`;
     case "popupChoice":
@@ -396,7 +416,10 @@ export default function SapGuiScriptingHome() {
             id: targetId,
             value: extra?.value,
             vkey: extra?.vkey,
-            label: describeStep(action, targetId, extra?.value, extra?.vkey, nodeLabel)
+            row: extra?.row,
+            column: extra?.column,
+            by: extra?.by,
+            label: describeStep(action, targetId, extra?.value, extra?.vkey, nodeLabel, extra)
           });
         }
         // Ekran değişmiş olabilir: seçili eleman artık var olmayabilir, bu
@@ -441,17 +464,40 @@ export default function SapGuiScriptingHome() {
 
   const handleOpenScript = useCallback(async () => {
     const result = await window.api.openGuiScriptScript();
-    if (result.canceled || !result.content) return;
+    if (result.canceled) return;
+    // Okuma hatası da SESSİZDİ: `!result.content` ile iptalle aynı kefeye
+    // konuyordu, oysa main artık `error` dolduruyor.
+    if (!result.content) {
+      setScriptMessage({ ok: false, text: result.error ?? t("sapGuiScripting.scriptFileInvalid") });
+      return;
+    }
     try {
       const parsed = JSON.parse(result.content) as GuiScriptScript;
-      setSteps(Array.isArray(parsed.steps) ? parsed.steps : []);
+      // AÇILAN DOSYA DOĞRULANIR. Önce geçerli JSON olması yeterli sayılıyordu:
+      // `steps` yoksa liste sessizce boşalıyor, kullanıcı da "hiçbir şey
+      // olmadı" görüyordu — yanlış dosyayı seçtiğini anlamasının yolu yoktu.
+      if (!Array.isArray(parsed?.steps)) {
+        setScriptMessage({ ok: false, text: t("sapGuiScripting.scriptFileInvalid") });
+        return;
+      }
+      const valid = parsed.steps.filter(
+        (step): step is GuiScriptRecordedStep =>
+          !!step && typeof step === "object" && GUI_SCRIPT_ACTIONS.includes(step.action)
+      );
+      setSteps(valid);
       setScriptName(parsed.name || "");
       setPlayResults([]);
-      setScriptMessage(null);
+      // Atılan adım varsa SÖYLENİR; sessizce kısaltılmış bir script,
+      // kullanıcının kaydettiğini sandığı script değildir.
+      setScriptMessage(
+        valid.length === parsed.steps.length
+          ? null
+          : { ok: false, text: t("sapGuiScripting.scriptStepsDropped", { count: parsed.steps.length - valid.length }) }
+      );
     } catch (err) {
       setScriptMessage({ ok: false, text: (err as Error).message });
     }
-  }, []);
+  }, [t]);
 
   const handlePlayScript = useCallback(async () => {
     if (!activeSession || steps.length === 0 || playing) return;
@@ -467,7 +513,10 @@ export default function SapGuiScriptingHome() {
         action: step.action,
         id: step.id,
         value: step.value,
-        vkey: step.vkey
+        vkey: step.vkey,
+        row: step.row,
+        column: step.column,
+        by: step.by
       });
       if (result.screen) setScreen(result.screen);
       setPlayResults((prev) => [...prev, { index: i, ok: result.ok, error: result.error }]);

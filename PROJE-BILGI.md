@@ -4739,6 +4739,65 @@ Test sonunda kullanıcının ekranı **başladığı yere** bırakıldı
 (SE16N ekran 200, VBFA listesi; ayrıntı penceresi kendi İptal'iyle
 kapatıldı).
 
+#### Kayıt → Kaydet → Aç → Oynat zinciri canlıda çalıştı (2026-09-03)
+
+Faz 2'nin tamamı bugüne kadar hiç uçtan uca çalıştırılmamıştı.
+Çalıştırıldı — ve yine üç kusur çıktı, üçü de **sessiz başarısızlık**
+ailesinden.
+
+**1. Kaydedilen adım, kaydedildiği anda çalışan adım değildi.**
+`GuiScriptRecordedStep` yalnızca `action/id/value/vkey` taşıyordu;
+`row`/`column` (ALV'de çift tıklama) ve `by` (sağ tık menüsünde
+seçim yöntemi) kayda hiç girmiyordu. Bu alanlar bugün eklendiği için
+kayıt da, oynatma da onlarsız kalmıştı: bir grid çift tıklaması
+kaydedilebiliyor ama tekrar oynatılamıyordu. Üçü de
+`recordStep` → JSON → `handlePlayScript` boyunca geçirildi;
+`describeStep` de artık satır/sütunu etikete yazıyor (onlarsız iki
+farklı adım listede birebir aynı görünüyordu).
+
+**2. `handleOpenScript` yanlış dosyayı SESSİZCE yutuyordu.** Geçerli
+JSON olması yeterliydi: `steps` yoksa liste boşalıyor, kullanıcı
+"hiçbir şey olmadı" görüyordu. Artık `steps` dizi değilse dosya
+reddediliyor (`scriptFileInvalid`, mevcut adımlar korunuyor) ve
+tanınmayan aksiyon içeren adımlar atlanırken **kaç adımın atlandığı
+söyleniyor** (`scriptStepsDropped`). Tanınan aksiyon listesi
+`Record<GuiScriptActionKind, true>`'dan türetiliyor — birliğe yeni bir
+aksiyon eklenirse dosya derlenmiyor, yani liste sessizce eskiyip
+geçerli adımları "tanınmadı" diye atamıyor.
+
+**3. Dosya yazma/okuma hatası hiçbir yere ulaşmıyordu.**
+`sapGuiScript:saveScript`/`openScript` handler'larında `fs.writeFile`/
+`readFile` try dışındaydı; hata handler'ın promise'ini reddediyor,
+renderer'daki `await` yakalanmamış hataya dönüşüyor ve kullanıcı hiçbir
+şey görmüyordu — oysa `GuiScriptJsonFileResult.error` alanı en baştan
+vardı ve renderer onu okuyordu, sadece kimse doldurmuyordu. İkisi de
+try içine alındı; `handleOpenScript` de artık `error`'u iptalden
+ayırıyor. Ayrıca diyalog sahibi pencere `undefined as any` yerine
+odaklı pencere → ilk pencere sırasıyla çözülüyor (sahipsiz diyalog
+uygulamanın arkasında kalabiliyordu).
+
+**Ayrıca: 619 okunabilir hâle geldi.** `findById` bir kimliği
+bulamadığında ham COM demeti yukarı çıkıyordu — içinde aranan kimlik
+bile yazmadan. **Kayıtlı bir script'i tekrar oynatırken en olası hata
+tam olarak budur** (adım başka bir ekranda kaydedilmiştir). Artık:
+"Bu eleman şu anki ekranda yok: '<id>'. Kayıtlı bir adım
+oynatılıyorsa…". `handle_action` de doğrudan `session.findById`
+çağırmayı bırakıp `resolve_component`'e geçti — yoksa aksiyon yolu bu
+mesajı almıyordu (ilk düzeltmeden sonra canlıda görüldü).
+
+**Doğrulama (canlı S4D, SE16N/VBFA).** Dosya diyaloglarına
+tıklayamadığım için aynı veri yolu birebir tekrar edildi
+(`.tmp-replay.cjs`): `handleSaveScript`'in ürettiği JSON diske yazıldı,
+`handleOpenScript`'in doğrulaması uygulandı, `handlePlayScript`'in
+gönderdiği payload'lar aynı sırayla ve aynı 350 ms gecikmeyle köprüye
+gitti. İki adımlık salt-okunur script — `doubleClick(0, "VBELN")` →
+ayrıntı penceresi (SAPLTSWUSL 600, popup), `sendVKey(12)` → geri
+(SAPLSE16N 200) — **iki adım da OK**. Bozuk dosya reddedildi,
+tanınmayan aksiyonlu dosyada 1 adım atlandığı bildirildi, bayat kimlik
+okunabilir mesaj verdi. **Denenemeyen tek parça:** Kaydet/Aç
+düğmelerinin açtığı işletim sistemi dosya diyalogları — tıklama
+gerektiriyor. Ekran yine **başladığı yerde** bırakıldı.
+
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
 ### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)

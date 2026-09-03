@@ -833,28 +833,53 @@ function registerIpc(): void {
   // bu, her adımın sonucunu (başarılı/hatalı, hangi adımda durdu) UI'da
   // canlı göstermeyi kolaylaştırıyor, ekstra bir IPC/stream mekanizması
   // gerektirmiyor (mevcut `sapGuiScript:performAction` zaten tek-adımlık).
+  // Diyalog SAHİBİ pencere: odaklı pencere yoksa ilk pencere. Eskiden
+  // `undefined as any` geçiliyordu — o durumda diyalog sahipsiz açılıyor ve
+  // uygulamanın ARKASINDA kalabiliyor; kullanıcı donmuş bir pencere görüyor.
+  const dialogOwner = () => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+
   ipcMain.handle("sapGuiScript:saveScript", async (_event, jsonText: string, suggestedName?: string) => {
-    const win = BrowserWindow.getFocusedWindow();
-    const result = await dialog.showSaveDialog(win ?? (undefined as any), {
-      title: "SAP GUI Scripting kaydını JSON olarak kaydet",
-      defaultPath: suggestedName || "sap-gui-script.json",
-      filters: [{ name: "JSON", extensions: ["json"] }]
-    });
-    if (result.canceled || !result.filePath) return { canceled: true };
-    await fs.writeFile(result.filePath, jsonText, "utf-8");
-    return { canceled: false, filePath: result.filePath };
+    // DOSYA İŞLEMİ TRY İÇİNDE. `GuiScriptJsonFileResult.error` alanı en baştan
+    // vardı ve renderer onu okuyordu, ama buradan hiç doldurulmuyordu: yazma
+    // hatasında (salt-okunur klasör, kilitli dosya) handler'ın promise'i
+    // reddediyor, renderer'daki `await` yakalanmamış bir hataya dönüşüyor ve
+    // kullanıcı HİÇBİR ŞEY görmüyordu.
+    try {
+      const owner = dialogOwner();
+      const result = owner
+        ? await dialog.showSaveDialog(owner, {
+            title: "SAP GUI Scripting kaydını JSON olarak kaydet",
+            defaultPath: suggestedName || "sap-gui-script.json",
+            filters: [{ name: "JSON", extensions: ["json"] }]
+          })
+        : await dialog.showSaveDialog({
+            title: "SAP GUI Scripting kaydını JSON olarak kaydet",
+            defaultPath: suggestedName || "sap-gui-script.json",
+            filters: [{ name: "JSON", extensions: ["json"] }]
+          });
+      if (result.canceled || !result.filePath) return { canceled: true };
+      await fs.writeFile(result.filePath, jsonText, "utf-8");
+      return { canceled: false, filePath: result.filePath };
+    } catch (err) {
+      return { canceled: false, error: (err as Error).message };
+    }
   });
 
   ipcMain.handle("sapGuiScript:openScript", async () => {
-    const win = BrowserWindow.getFocusedWindow();
-    const result = await dialog.showOpenDialog(win ?? (undefined as any), {
-      title: "SAP GUI Scripting kaydı aç",
-      properties: ["openFile"],
-      filters: [{ name: "JSON", extensions: ["json"] }]
-    });
-    if (result.canceled || result.filePaths.length === 0) return { canceled: true };
-    const content = await fs.readFile(result.filePaths[0], "utf-8");
-    return { canceled: false, filePath: result.filePaths[0], content };
+    try {
+      const owner = dialogOwner();
+      const options = {
+        title: "SAP GUI Scripting kaydı aç",
+        properties: ["openFile" as const],
+        filters: [{ name: "JSON", extensions: ["json"] }]
+      };
+      const result = owner ? await dialog.showOpenDialog(owner, options) : await dialog.showOpenDialog(options);
+      if (result.canceled || result.filePaths.length === 0) return { canceled: true };
+      const content = await fs.readFile(result.filePaths[0], "utf-8");
+      return { canceled: false, filePath: result.filePaths[0], content };
+    } catch (err) {
+      return { canceled: false, error: (err as Error).message };
+    }
   });
 
   // Faz 3 — AI Agent ile doğal dil otomasyonu. `flows:agentStep` ile AYNI
