@@ -1,4 +1,4 @@
-import { AlertTriangle, Pencil } from "lucide-react";
+import { AlertTriangle, Pencil, Plug } from "lucide-react";
 import type { ChatAttachment } from "../../app-electron/shared/types";
 import { renderMarkdownLite } from "../lib/markdownLite";
 import AttachmentChip from "./AttachmentChip";
@@ -20,6 +20,11 @@ export interface ChatMessage {
   // sonuna yanıp sönen bir imleç koyar ve kopyala/saat meta satırını yarım
   // bir cevaba iliştirmemek için gizler.
   streaming?: boolean;
+  // Bu cevap üretilirken Outlook/SharePoint araçları AÇIK MIYDI? `auto`
+  // kipinde karar mesajın metnine bakılarak veriliyor (bkz. axetChat.ts) ve
+  // yanılabilir; bu alan o kararı görünür kılıyor. Sohbet geçmişine de
+  // yazılıyor, yani eski bir cevaba dönüp bakıldığında da belli.
+  usedConnectors?: boolean;
 }
 
 // NOT — burada eskiden bir SİMÜLE daktilo animasyonu vardı
@@ -132,8 +137,23 @@ export default function ChatBubble({
       </div>
       {/* Akış sürerken gizli — yarım bir cevabı kopyalatmanın anlamı yok. */}
       {!message.streaming && !message.error && (
-        <div className="mt-1 flex h-7 items-center">
+        <div className="mt-1 flex h-7 items-center gap-2">
           <CopyButton value={message.content} title={t("copyButton.copyAnswer")} />
+          {/* Bu cevap Outlook/SharePoint araçlarına erişebiliyor muydu?
+              "Gerektiğinde" kipinde bu bir TAHMİN ve tahmin yanılabilir —
+              işaret olmasa yanılgı sessiz olurdu: kullanıcı "neden mailime
+              bakmadı" ya da "neden bu kadar yavaştı" diye sorar, cevabı
+              hiçbir yerde yazmaz. Sadece açıkken gösteriliyor; kapalı olan
+              her cevaba rozet basmak gürültü olurdu. */}
+          {message.usedConnectors && (
+            <span
+              title={t("chatBubble.connectorsUsedHint")}
+              className="flex items-center gap-1 rounded-full border border-base-700 px-1.5 py-0.5 text-[10px] text-slate-500"
+            >
+              <Plug size={10} />
+              {t("chatBubble.connectorsUsed")}
+            </span>
+          )}
         </div>
       )}
     </div>

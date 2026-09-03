@@ -7439,3 +7439,110 @@ HİÇBİR ŞEY göstermeyen ölü bir düğme. Bu birebir yaşandı (2026-09-02,
 açık bir hata gösteriyor, (b) main process'e dokunan her turdan sonra dev
 sunucusu TAMAMEN yeniden başlatılmalı (önce artık kalan Electron ağacı
 öldürülerek).
+
+---
+
+## Uygulama Bağlantıları — "bağlandı diyor ama olmuyor" (2026-09-04, TAMAMLANDI)
+
+Kullanıcı raporu: *"ben sharepoint ve outlooka bağlanamıyorum bağlandı diyor
+ama olmuyor eksik bişeyler var"*. Ekranda Outlook yeşil tik veriyordu, sohbete
+"mailime bak" denince hiçbir şey olmuyordu.
+
+**Çıkarımla değil ÖLÇÜMLE bulundu.** Gerçek `axet-code`, gerçek çalışma
+dizininde koşturuldu:
+
+| koşu | sonuç |
+|---|---|
+| normal env (testin kullandığı) | **23 Outlook aracı**, 4 yinelenmiş bağlantı; ~10.5 sn |
+| `AXET_MCP_BASE_URL=http://127.0.0.1:9` (sohbetin kullandığı) | **hiç araç yok** |
+| SharePoint'e özel sonda | **hiç araç yok** |
+| uygulamanın kendi SharePoint istemi | `CONNECTOR_FAIL: … 0 SharePoint tools found to try.` → kırmızı |
+| uygulamanın kendi Outlook istemi | `CONNECTOR_OK: … listed calendars for Sasmaz, Tufan…` → yeşil |
+| canlı config | `chatUseConnectors = false` |
+
+### İki AYRI arıza vardı, tek belirtinin altında
+
+**1. Outlook — yeşil tik DOĞRUYDU, sohbet ayrı bir kapıdan geçiyordu.**
+`agenticConnectors.ts` testi `spawn`'a hiç `env` vermiyor, yani connector'lar
+her zaman açık koşuyor. Sohbet ise `axetSpawnEnv(useConnectors)` üzerinden
+geçiyor ve `false` ise `AXET_MCP_BASE_URL`'i **discard portuna**
+(`http://127.0.0.1:9`) çeviriyor — MCP kurulumunu tamamen atlatmak için
+(mesaj başına ~8-10 sn kazanç, ölçülmüş). Ayarı yöneten kutucuk Ayarlar'da,
+**testle aynı Türkçe adı taşıyor** ve varsayılanı kapalıydı. Yani ekran
+"bağlandı" derken doğru söylüyordu; söylemediği şey sohbetin o bağlantıyı
+kullanmadığıydı. Ekranda bunu ima eden tek bir kelime yoktu.
+
+**2. SharePoint — bozuk değil, HİÇ KURULMAMIŞ.** Platformda kayıtlı bir
+SharePoint entegrasyonu yok; agent'ın elinde denenecek sıfır araç var. Ekran
+bunu doğru raporluyordu ama önündeki tek çıkış yolunu (portaldan entegrasyonu
+eklemek) göstermiyordu: portal düğmesi yalnızca "unauthorized"/ERROR
+kelimeleri geçtiğinde beliriyordu, "hiç araç yok" hâli bu kalıba uymuyordu.
+
+### Okumayla bulunan ek eksikler
+
+- Test sonuçları **hiçbir yere yazılmıyordu** (yalnızca React state) — modal
+  kapanınca kayboluyordu, "en son ne zaman çalıştı" sorusunun cevabı yoktu.
+- Uyarı şeritleri `Object.values(results).some(...)` ile **iki sağlayıcıyı
+  topluyordu**: SharePoint'in derdi Outlook kartının altında görünüyordu.
+- Kartın altındaki MCP adresi, sanki **uygulama** oraya bağlanıyormuş gibi
+  duruyordu (bağlanan axet-code, uygulama değil).
+- Testin **zaman aşımı yoktu** — asılı bir `axet-code` düğmeyi sonsuza kadar
+  "test ediliyor"da bırakırdı.
+
+### Yapılanlar
+
+- `agenticConnectors.ts`: üçüncü bir sonuç eklendi — `CONNECTOR_NONE`, "böyle
+  bir araç HİÇ yok" hâli için (`FAIL`'den ayrı, çünkü çözümü de ayrı: biri
+  oturum/izin, öteki portalda kurulum). 180 sn zaman aşımı + süreç öldürme.
+- `ConnectorCheck` config'e yazılıyor (`connectorLastResults`), kartta
+  "Son kontrol: …" olarak görünüyor.
+- Tanı **sağlayıcı başına** yapılıyor (`diagnose()`), ipucu ilgili kartın
+  İÇİNDE çıkıyor: `project` (proje seçili değil) / `missing` (hiç kurulmamış,
+  portal düğmesiyle) / `repair` (oturum düşmüş).
+- Ekranın altına **sohbet kipi satırı** eklendi. Kip `off` iken kehribar
+  renginde ve "Sohbette de Aç" düğmesiyle — kullanıcının vurduğu tam boşluk.
+- `chatUseConnectors` (boolean) → `chatConnectorMode: "auto"|"always"|"off"`.
+  Eski `true` değeri `"always"`e göç ediyor (`readConnectorMode`), eski alan
+  merge sonrası config'den siliniyor.
+- **Varsayılan `auto`** — kullanıcının kararı (seçenekler sunulduğunda
+  "Otomatik karar" seçildi). `axetChat.ts` mesajın metnine bakıyor
+  (`CONNECTOR_HINT_PATTERN`: outlook/sharepoint/mail/takvim/toplantı/taslak…,
+  TR+EN) ve son 2 mesajı da tarıyor ki "peki ya yarınki?" gibi devam
+  soruları da yakalansın.
+
+⚠️ **Otomatik karar TAHMİNDİR ve yanılabilir.** Yanılgı sessiz olmasın diye
+cevabın altına bir fiş rozeti basılıyor (`ChatBubble.usedConnectors`, sohbet
+geçmişine de yazılıyor). Kullanıcı "neden mailime bakmadı" ya da "neden bu
+kadar yavaştı" diye sorduğunda cevap ekranda duruyor. Rozet SADECE açıkken
+gösteriliyor — her cevaba basmak gürültü olurdu.
+
+⚠️ **Yeşil tik "sohbet kullanabiliyor" demek DEĞİL.** Test her zaman
+connector'lar açık koşar; sohbet `chatConnectorMode`'a bağlıdır. İkisi ayrı
+kapı ve öyle kalıyor (test, ayardan bağımsız olarak "bağlantı sağlam mı"
+sorusunu cevaplamalı). Ekran artık bu ayrımı yazıyor.
+
+### Yan bulgu — İngilizce'de "APP CONNECTİONS İN CHAT"
+
+`index.html`'de `<html lang="tr">` sabit yazılı ve dil değişince
+güncellenmiyordu. Bu sadece bir erişilebilirlik etiketi değil: tarayıcı
+`text-transform: uppercase`'i **dile özgü** kurallarla uyguluyor, Türkçe
+kuralıyla İngilizce 'i' harfi noktalı 'İ' oluyordu. Ayarlar'daki tüm bölüm
+başlıklarını etkiliyordu. `LanguageProvider` artık `document.documentElement
+.lang`'i dille birlikte güncelliyor.
+
+### Doğrulama
+
+`npm run typecheck` + `npm run build` temiz. Otomatik karar regex'i 10 gerçekçi
+olumlu ve 10 olumsuz mesajla sınandı: 10/10 ve 10/10. Ekran tarayıcı
+koşumunda (sahte `window.api` ile, canlı ölçümün verisiyle beslenerek)
+görsel olarak doğrulandı: Outlook yeşil + "Son kontrol", SharePoint kırmızı +
+"hiç kurulmamış" ipucu + portal düğmesi (`openExternalUrl`'e
+`https://axet.nttdata.com/agentic/` gittiği ölçüldü), kehribar sohbet kipi
+satırı ve "Sohbette de Aç" düğmesinin kipi `auto`'ya çevirişi, aynısı
+İngilizce'de.
+
+⚠️ Tarayıcı koşumunda sahte köprü kurarken iki tuzak: (a) `onX` abonelik
+fonksiyonları useEffect temizleyicisi olarak kullanılıyor, Promise dönerlerse
+tüm ekran *"destroy is not a function"* ile hata sınırına düşer; (b)
+`getConfig`/`getLandscape` gerçek şekli dönmeli — `getLandscape` sarmalayıcı
+değil, doğrudan `{customers, path}` döner.

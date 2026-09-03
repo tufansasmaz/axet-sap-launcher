@@ -66,7 +66,8 @@ const PROVIDER_TEST_PROMPT: Record<ConnectorProvider, string> = {
     "Never call more than one action per distinct tool, and never send, delete, move, or modify anything. " +
     "After you are done, reply with EXACTLY one line and nothing else: " +
     'if ANY of the outlook connector tools worked, write "CONNECTOR_OK: " followed by a short human-readable detail (e.g. the folder name or status you saw); ' +
-    'if ALL of them failed (or none exist), write "CONNECTOR_FAIL: " followed by a short reason (mention how many distinct tools/integrations you tried).',
+    'if NO outlook connector tool exists at all (you have zero such tools available), write "CONNECTOR_NONE: " followed by a short note about what you do have; ' +
+    'if such tools exist but ALL of them failed, write "CONNECTOR_FAIL: " followed by a short reason (mention how many distinct tools/integrations you tried).',
   sharepoint:
     "You have access to one or more SharePoint connector tools (their tool names will contain \"sharepoint\" or \"shp\"). " +
     "There may be MULTIPLE separate connector instances/integrations registered for this same provider (e.g. from repeated re-authorization attempts) — some may be broken (in an error/unauthorized state) while others work fine. " +
@@ -75,16 +76,24 @@ const PROVIDER_TEST_PROMPT: Record<ConnectorProvider, string> = {
     "Never call more than one action per distinct tool, and never upload, delete, move, or modify anything. " +
     "After you are done, reply with EXACTLY one line and nothing else: " +
     'if ANY of the sharepoint connector tools worked, write "CONNECTOR_OK: " followed by a short human-readable detail (e.g. the site or item you saw); ' +
-    'if ALL of them failed (or none exist), write "CONNECTOR_FAIL: " followed by a short reason (mention how many distinct tools/integrations you tried).'
+    'if NO sharepoint connector tool exists at all (you have zero such tools available), write "CONNECTOR_NONE: " followed by a short note about what you do have; ' +
+    'if such tools exist but ALL of them failed, write "CONNECTOR_FAIL: " followed by a short reason (mention how many distinct tools/integrations you tried).'
 };
 
 // Ajanın çıktısı bazen ek açıklama/markdown içerebilir (LLM'in "sadece bu
 // satırı yaz" talimatına her zaman harfiyen uymaması ihtimaline karşı) —
 // bu yüzden TÜM metin içinde bu deseni ARAR (anchor'lamaz), en son eşleşen
 // (agent genelde en sonda özet satırı yazar) esas alınır.
-const RESULT_PATTERN = /CONNECTOR_(OK|FAIL):\s*(.*)/gi;
+//
+// ÜÇ sonuç var, iki değil. "Hiç entegrasyon yok" ile "entegrasyon var ama
+// bozuk" farklı şeyler ve ÇARELERİ de farklı: ilkinin çaresi portalden ilk
+// kez eklemek, ikincisininki yeniden yetkilendirmek. Ekran ikisini de kırmızı
+// gösterip aynı öneriyi vermek zorunda kalıyordu — 2026-09-04'te canlı
+// ölçüldüğünde SharePoint tam olarak birinci durumdaydı (0 araç) ve ekran
+// kullanıcıya gidecek bir yol göstermiyordu.
+const RESULT_PATTERN = /CONNECTOR_(OK|FAIL|NONE):\s*(.*)/gi;
 
-function parseConnectorResult(text: string): { connected: boolean; detail: string } | null {
+function parseConnectorResult(text: string): { connected: boolean; detail: string; missing: boolean } | null {
   let match: RegExpExecArray | null;
   let last: RegExpExecArray | null = null;
   RESULT_PATTERN.lastIndex = 0;
@@ -92,8 +101,15 @@ function parseConnectorResult(text: string): { connected: boolean; detail: strin
     last = match;
   }
   if (!last) return null;
-  return { connected: last[1].toUpperCase() === "OK", detail: last[2].trim() };
+  const verdict = last[1].toUpperCase();
+  return { connected: verdict === "OK", detail: last[2].trim(), missing: verdict === "NONE" };
 }
+
+// Testin üst sınırı. Ölçülen normal süre ~30-60 sn (ajan birkaç entegrasyonu
+// sırayla deniyor), ama sınır yokken `axet-code` takılırsa buton SONSUZA
+// KADAR dönüyordu ve tek çare elle iptaldi — kullanıcı ise dönen bir
+// spinner'a bakıp "çalışıyor herhalde" diye bekliyor.
+const TEST_TIMEOUT_MS = 180_000;
 
 // requestId -> aktif `axet-code run` process'i (axetChat.ts'teki iptal
 // deseniyle AYNI — kullanıcı testi "İptal Et" ile durdurabilsin).
@@ -124,6 +140,15 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
     let stdout = "";
     let stderr = "";
     let killedByUser = false;
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        proc.kill();
+      } catch {
+        // zaten kapanmış olabilir
+      }
+    }, TEST_TIMEOUT_MS);
     proc.stdout?.on("data", (chunk: Buffer) => {
       stdout += chunk.toString("utf-8");
     });
@@ -132,19 +157,30 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
     });
 
     proc.on("error", (err) => {
+      clearTimeout(timer);
       running.delete(requestId);
       resolve({ ok: false, connected: false, detail: "", error: err.message });
     });
 
     proc.on("close", (code) => {
+      clearTimeout(timer);
       running.delete(requestId);
       if (killedByUser) {
         resolve({ ok: false, connected: false, detail: "", cancelled: true });
         return;
       }
+      if (timedOut) {
+        resolve({
+          ok: false,
+          connected: false,
+          detail: stdout.trim(),
+          error: `axet-code ${Math.round(TEST_TIMEOUT_MS / 1000)} saniyede cevap vermedi, test durduruldu.`
+        });
+        return;
+      }
       const parsed = parseConnectorResult(stdout);
       if (parsed) {
-        resolve({ ok: true, connected: parsed.connected, detail: parsed.detail });
+        resolve({ ok: true, connected: parsed.connected, detail: parsed.detail, missing: parsed.missing });
         return;
       }
       // Ajan beklenen formatta cevap vermedi (nadiren) veya CLI hata verdi

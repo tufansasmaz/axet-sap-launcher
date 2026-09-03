@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import type { AxetChatMessage, AxetChatSendResult, AxetModelEntry } from "../shared/types";
+import type { AxetChatMessage, AxetChatSendResult, AxetModelEntry, ChatConnectorMode } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import { loadConfig } from "./store";
 
@@ -40,6 +40,44 @@ const CONNECTOR_RETRY_REMINDER =
   "Not: Bir MCP araç çağrısı, altta yatan entegrasyonun yetkisiz (unauthorized) veya hata (ERROR) durumunda " +
   "olması yüzünden başarısız olursa ve aynı sağlayıcı/servis için BAŞKA bir araç/entegrasyon varsa, vazgeçmeden " +
   "önce o alternatif aracı bir kez dene.";
+
+// ---------------------------------------------------------------------------
+// Bağlayıcıların NE ZAMAN açılacağı (2026-09-04)
+// ---------------------------------------------------------------------------
+// Ölçülmüş sorun: `chatUseConnectors` VARSAYILAN OLARAK KAPALIYDI (mesaj
+// başına ~10 s kazanç için), ama "Uygulama Bağlantıları" ekranı bunu hiç
+// bilmiyordu — testi bağlayıcılar AÇIKKEN çalıştırıp yeşil tik gösteriyordu.
+// Aynı dizinde aynı gün ölçüldü: normal ortamda 23 Outlook aracı listeleniyor,
+// sohbetin ortamında (`AXET_MCP_BASE_URL` ölü loopback) cevap `NONE`. Yani
+// ekran "bağlandı" derken sohbetin elinde HİÇBİR araç yoktu.
+//
+// Kullanıcının seçtiği çözüm (2026-09-04): otomatik karar. Mesaj e-posta/
+// takvim/SharePoint'ten söz ediyorsa o mesajda bağlayıcılar açılır.
+//
+// TAHMİN YANILABİLİR, bu yüzden SESSİZ DEĞİL: sonuç `usedConnectors` ile geri
+// dönüyor ve sohbet balonunda görünüyor. Yanılgının iki yönü de var —
+// gereksiz açılırsa mesaj yavaşlar, açılmazsa ajan "erişimim yok" der; ikisi
+// de kullanıcıya sebebini söylemeden olmamalı. Kesinlik isteyen `always`/`off`
+// kiplerini seçebilir.
+//
+// SON İKİ MESAJA da bakılıyor: "gelen kutumda ne var" → "peki yarınki?"
+// zincirinde ikinci mesajda hiçbir anahtar kelime yok, ama konu aynı konu.
+// Fazladan açmak yavaşlatır, eksik açmak ajanı aracsız bırakır — ikincisi
+// daha kötü, çünkü kullanıcı yanlış bir CEVAP alır.
+const CONNECTOR_HINT_PATTERN =
+  /(outlook|sharepoint|onedrive|e-?posta|e-?mail|mail|inbox|gelen kutu|giden kutu|takvim|calendar|toplant|meeting|randevu|appointment|davetiye|invite|out ?of ?office|otomatik yanıt|taslak|draft)/i;
+
+function messageNeedsConnectors(history: AxetChatMessage[], message: string): boolean {
+  const recent = history.slice(-2).map((m) => m.content);
+  return [message, ...recent].some((text) => CONNECTOR_HINT_PATTERN.test(text));
+}
+
+/** Bu mesaj için bağlayıcılar açılsın mı? */
+function decideConnectors(mode: ChatConnectorMode, history: AxetChatMessage[], message: string): boolean {
+  if (mode === "always") return true;
+  if (mode === "off") return false;
+  return messageNeedsConnectors(history, message);
+}
 
 // `useConnectors` false ise hatırlatma EKLENMİYOR: ortada bağlayıcı yokken
 // ajana "alternatif entegrasyonu dene" demek hem anlamsız hem de var olmayan
@@ -81,7 +119,7 @@ export function sendChatMessage(
     // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası) — kullanıcı Ayarlar'dan
     // bağlayıcıları açıp kapattığında etkisi bir sonraki mesajda görünsün diye;
     // saniyelerle ölçülen bir işlemin yanında bu okumanın maliyeti ölçülemez.
-    const useConnectors = loadConfig().chatUseConnectors;
+    const useConnectors = decideConnectors(loadConfig().chatConnectorMode, history, message);
     const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
     try {
       mkdirSync(resolvedCwd, { recursive: true });
@@ -181,13 +219,14 @@ export function sendChatMessage(
         return;
       }
       if (code === 0) {
-        resolve({ ok: true, text: stdout.trim() });
+        resolve({ ok: true, text: stdout.trim(), usedConnectors: useConnectors });
         return;
       }
       resolve({
         ok: false,
         text: stdout.trim(),
-        error: (stderr || `axet-code çıkış kodu: ${code}`).trim()
+        error: (stderr || `axet-code çıkış kodu: ${code}`).trim(),
+        usedConnectors: useConnectors
       });
     });
 

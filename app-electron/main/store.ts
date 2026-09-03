@@ -11,7 +11,8 @@ import type {
   TerminalMode,
   AppLanguage,
   ChatFontSize,
-  ChatDensity
+  ChatDensity,
+  ChatConnectorMode
 } from "../shared/types";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
@@ -20,9 +21,24 @@ const VALID_TERMINAL_MODES: TerminalMode[] = ["cmd", "powershell"];
 const VALID_LANGUAGES: AppLanguage[] = ["tr", "en"];
 const VALID_CHAT_FONT_SIZES: ChatFontSize[] = ["sm", "md", "lg"];
 const VALID_CHAT_DENSITIES: ChatDensity[] = ["compact", "comfortable"];
+const VALID_CONNECTOR_MODES: ChatConnectorMode[] = ["auto", "always", "off"];
 
 function configPath(): string {
   return path.join(app.getPath("userData"), "config.json");
+}
+
+// Bağlayıcı kipi + ESKİ `chatUseConnectors: boolean` alanından göç.
+//
+// Göç sessizce varsayılana düşmüyor, çünkü o iki durum farklı şeyler söylüyor:
+// alanı bilerek AÇMIŞ bir kullanıcı "her mesajda araçlar olsun" demiştir ve
+// `auto`ya indirmek onun kararını geri almak olurdu. KAPALI olan ise
+// varsayılanın kendisiydi (kimse seçmedi), o yüzden yeni varsayılana geçer.
+function readConnectorMode(parsed: Record<string, unknown>, fallback: ChatConnectorMode): ChatConnectorMode {
+  if (VALID_CONNECTOR_MODES.includes(parsed.chatConnectorMode as ChatConnectorMode)) {
+    return parsed.chatConnectorMode as ChatConnectorMode;
+  }
+  if (parsed.chatUseConnectors === true) return "always";
+  return fallback;
 }
 
 function defaultConfig(): AppConfig {
@@ -48,9 +64,11 @@ function defaultConfig(): AppConfig {
     chatFontSize: "md",
     chatDensity: "comfortable",
     chatSidebarOpen: true,
-    // Hız varsayılan (bkz. axetSpawnEnv.ts): bağlayıcılar mesaj başına ~8 s
-    // ekliyor ve sohbetlerin çoğunda kullanılmıyor.
-    chatUseConnectors: false
+    // Bkz. `ChatConnectorMode`. Eskiden tek bir aç/kapa vardı ve KAPALIYDI;
+    // bağlayıcılar mesaj başına ~10 s ekliyor. Ama kapalıyken sohbetin
+    // elinde hiç araç olmuyordu ve bunu söyleyen hiçbir şey yoktu.
+    chatConnectorMode: "auto",
+    connectorLastResults: {}
   };
 }
 
@@ -104,14 +122,20 @@ export function loadConfig(): AppConfig {
       chatDensity,
       chatDisplayName: typeof parsed.chatDisplayName === "string" ? parsed.chatDisplayName : fallback.chatDisplayName,
       chatSidebarOpen: typeof parsed.chatSidebarOpen === "boolean" ? parsed.chatSidebarOpen : fallback.chatSidebarOpen,
-      chatUseConnectors:
-        typeof parsed.chatUseConnectors === "boolean" ? parsed.chatUseConnectors : fallback.chatUseConnectors,
+      chatConnectorMode: readConnectorMode(parsed, fallback.chatConnectorMode),
+      connectorLastResults:
+        parsed.connectorLastResults && typeof parsed.connectorLastResults === "object"
+          ? parsed.connectorLastResults
+          : fallback.connectorLastResults,
       lastCredentials: { ...fallback.lastCredentials, ...(parsed.lastCredentials ?? {}) },
       trustedCertificates: { ...fallback.trustedCertificates, ...(parsed.trustedCertificates ?? {}) },
       connectionHistory: Array.isArray(parsed.connectionHistory) ? parsed.connectionHistory : fallback.connectionHistory,
       systemTiers: { ...fallback.systemTiers, ...(parsed.systemTiers ?? {}) },
       systemComments: { ...fallback.systemComments, ...(parsed.systemComments ?? {}) }
     };
+    // `...parsed` eski alanı da taşıyor; bir kere okunup göç ettirildikten
+    // sonra dosyada kalması yalnızca kafa karıştırır (iki alan, biri ölü).
+    delete (merged as unknown as Record<string, unknown>).chatUseConnectors;
     return merged;
   } catch {
     return fallback;

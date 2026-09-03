@@ -211,10 +211,12 @@ export const en: Record<TranslationKey, string> = {
   "settingsModal.chatDensityComfortable": "Comfortable",
   "settingsModal.chatDensityCompact": "Compact",
   "settingsModal.chatSidebarOpenLabel": "Open the chat list on startup",
-  "settingsModal.chatUseConnectorsLabel": "App connections",
-  "settingsModal.chatUseConnectorsHint":
-    "When off, chat replies noticeably faster (measured: ~15s → ~5s) because Outlook/SharePoint tools are no longer started and torn down for every message. Turn it on to let chat reach those tools, at the cost of speed. The test on the \"App Connections\" screen is unaffected by this setting.",
-  "settingsModal.chatUseConnectorsCheckbox": "Let chat use Outlook/SharePoint tools (slower)",
+  "settingsModal.chatConnectorModeLabel": "App connections in chat",
+  "settingsModal.chatConnectorModeHint":
+    "With Outlook/SharePoint tools on, every message takes ~10s longer (measured: ~15s → ~5s) because axet-code starts and tears them down on every call. The test on the \"App Connections\" screen is unaffected by this setting — it always tests with them on.",
+  "settingsModal.chatConnectorModeAuto": "When needed (message mentions mail/calendar/SharePoint)",
+  "settingsModal.chatConnectorModeAlways": "Always on (slower, but no guessing)",
+  "settingsModal.chatConnectorModeOff": "Off (fastest, no tools at all)",
   "settingsModal.sectionTerminal": "Terminal",
   "settingsModal.sectionAdvanced": "Advanced Paths",
   "settingsModal.sectionManual": "Manual Systems",
@@ -308,6 +310,9 @@ export const en: Record<TranslationKey, string> = {
 
   "copyButton.copy": "Copy",
   "copyButton.copyAnswer": "Copy answer",
+  "chatBubble.connectorsUsed": "App connections",
+  "chatBubble.connectorsUsedHint":
+    "Outlook/SharePoint tools were on while this answer was produced. Settings > App connections in chat controls this.",
 
   "errorBoundary.title": "An unexpected error occurred",
   "errorBoundary.reload": "Reload App",
@@ -548,5 +553,12 @@ export const en: Record<TranslationKey, string> = {
   "appConnections.openProjectTerminal": "Select AXET Project",
   "appConnections.projectTerminalTitle": "Select AXET Project",
   "appConnections.integrationErrorHint": "The registered integration(s) for this provider appear to be in an 'ERROR' state. The agent usually finds another working integration automatically — if all of them are broken, you may need to re-authorize/clean them up from the aXet Agentic portal.",
-  "appConnections.openAgenticPortal": "Open aXet Agentic Portal"
+  "appConnections.missingIntegrationHint": "There is no integration registered for this provider at all — not broken, never set up. You need to add it from the aXet Agentic portal; it cannot be done from inside this app.",
+  "appConnections.openAgenticPortal": "Open aXet Agentic Portal",
+  "appConnections.checkedAt": "Last checked: {time}",
+  "appConnections.servedBy": "axet.code connects to",
+  "appConnections.chatMode.auto": "Chat uses these tools on its own when needed (messages that mention mail/calendar/SharePoint).",
+  "appConnections.chatMode.always": "Chat uses these tools on every message — most reliable, but every message takes ~10s longer.",
+  "appConnections.chatMode.off": "Careful: even if the test above passes, CHAT is not using these tools — they are off. Ask chat about mail or files and it will have no tools at all.",
+  "appConnections.enableForChat": "Enable for chat too"
 };

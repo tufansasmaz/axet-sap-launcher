@@ -17,7 +17,7 @@ import {
   Sparkles,
   Type
 } from "lucide-react";
-import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
+import type { AppConfig, ChatConnectorMode, UpdateStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
 
@@ -285,16 +285,18 @@ export default function SettingsModal({
             </Field>
             {/* Hız/yetenek dengesi — görünüm değil DAVRANIŞ ayarı olduğu için
                 "Sohbet görünümü" bölümünde değil burada. */}
-            <Field label={t("settingsModal.chatUseConnectorsLabel")} hint={t("settingsModal.chatUseConnectorsHint")}>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={form.chatUseConnectors}
-                  onChange={(e) => setForm({ ...form, chatUseConnectors: e.target.checked })}
-                  className="h-4 w-4 cursor-pointer accent-[rgb(var(--accent-500-rgb))]"
-                />
-                {t("settingsModal.chatUseConnectorsCheckbox")}
-              </label>
+            {/* Üç kip, iki değil: eski aç/kapa "kapalı" varsayılanıyla
+                sohbeti sessizce araçsız bırakıyordu (bkz. axetChat.ts). */}
+            <Field label={t("settingsModal.chatConnectorModeLabel")} hint={t("settingsModal.chatConnectorModeHint")}>
+              <select
+                value={form.chatConnectorMode}
+                onChange={(e) => setForm({ ...form, chatConnectorMode: e.target.value as ChatConnectorMode })}
+                className="w-full cursor-pointer rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-200 outline-none focus:border-accent-500"
+              >
+                <option value="auto">{t("settingsModal.chatConnectorModeAuto")}</option>
+                <option value="always">{t("settingsModal.chatConnectorModeAlways")}</option>
+                <option value="off">{t("settingsModal.chatConnectorModeOff")}</option>
+              </select>
             </Field>
           </Section>
 

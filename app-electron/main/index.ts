@@ -608,7 +608,24 @@ function registerIpc(): void {
   // run -q` çağrısı, sonucu doğrudan invoke cevabıyla dönüyor.
   ipcMain.handle("connectors:test", async (_event, requestId: string, provider: ConnectorProvider) => {
     const config = loadConfig();
-    return testConnector(requestId, provider, config.axetWorkspaceDir);
+    const result = await testConnector(requestId, provider, config.axetWorkspaceDir);
+    // İptal EDİLEN test bir sonuç değildir — saklanırsa kullanıcı bir dahaki
+    // açılışta hiç yaşamadığı bir "başarısız" görürdü.
+    if (!result.cancelled) {
+      saveConfig({
+        connectorLastResults: {
+          ...loadConfig().connectorLastResults,
+          [provider]: {
+            connected: result.connected,
+            detail: result.detail,
+            error: result.error,
+            missing: result.missing,
+            checkedAt: new Date().toISOString()
+          }
+        }
+      });
+    }
+    return result;
   });
   ipcMain.handle("connectors:cancelTest", (_event, requestId: string) => {
     cancelConnectorTest(requestId);

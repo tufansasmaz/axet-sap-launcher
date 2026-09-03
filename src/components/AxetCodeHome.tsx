@@ -426,11 +426,16 @@ export default function AxetCodeHome({
         }
 
         const finalContent = result.ok ? result.text : result.error || t("axetCodeHome.chatGenericError");
+        // Bağlayıcıların bu mesajda açık olup olmadığı cevaba İLİŞTİRİLİYOR:
+        // "gerektiğinde" kipinde bu bir tahmin ve yanıldığında sebebi
+        // görünür olmalı (bkz. ChatBubble `usedConnectors`).
         if (streamed) {
           return {
             ...s,
             messages: s.messages.map((m) =>
-              m.id === streamed.id ? { ...m, content: finalContent, error: !result.ok, streaming: false } : m
+              m.id === streamed.id
+                ? { ...m, content: finalContent, error: !result.ok, streaming: false, usedConnectors: result.usedConnectors }
+                : m
             ),
             ...done
           };
@@ -440,7 +445,8 @@ export default function AxetCodeHome({
           role: "assistant",
           content: finalContent,
           error: !result.ok,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          usedConnectors: result.usedConnectors
         };
         return { ...s, messages: [...s.messages, assistantMessage], ...done };
       })

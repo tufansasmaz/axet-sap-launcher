@@ -216,10 +216,12 @@ export const tr = {
   "settingsModal.chatDensityComfortable": "Rahat",
   "settingsModal.chatDensityCompact": "Yoğun",
   "settingsModal.chatSidebarOpenLabel": "Açılışta sohbet listesi açık olsun",
-  "settingsModal.chatUseConnectorsLabel": "Uygulama bağlantıları",
-  "settingsModal.chatUseConnectorsHint":
-    "Kapalıyken sohbet belirgin şekilde daha hızlı cevap verir (ölçüm: ~15 sn → ~5 sn), çünkü Outlook/SharePoint araçları her mesajda kurulup kapatılmıyor. Açarsan sohbet bu araçlara erişir ama yavaşlar. \"Uygulama Bağlantıları\" ekranındaki test bu ayardan etkilenmez.",
-  "settingsModal.chatUseConnectorsCheckbox": "Sohbet Outlook/SharePoint araçlarını kullanabilsin (daha yavaş)",
+  "settingsModal.chatConnectorModeLabel": "Sohbette uygulama bağlantıları",
+  "settingsModal.chatConnectorModeHint":
+    "Outlook/SharePoint araçları açıkken her mesaj ~10 sn daha uzun sürüyor (ölçüm: ~15 sn → ~5 sn), çünkü axet-code onları her çağrıda kurup yıkıyor. \"Uygulama Bağlantıları\" ekranındaki test bu ayardan etkilenmez — orası her hâlükârda açık test eder.",
+  "settingsModal.chatConnectorModeAuto": "Gerektiğinde (mesaj mail/takvim/SharePoint'ten söz ediyorsa)",
+  "settingsModal.chatConnectorModeAlways": "Her zaman açık (yavaş ama tahmin yok)",
+  "settingsModal.chatConnectorModeOff": "Kapalı (en hızlı, araçlar hiç yok)",
   "settingsModal.sectionTerminal": "Terminal",
   "settingsModal.sectionAdvanced": "Gelişmiş Yollar",
   "settingsModal.sectionManual": "Manuel Sistemler",
@@ -313,6 +315,9 @@ export const tr = {
 
   "copyButton.copy": "Kopyala",
   "copyButton.copyAnswer": "Cevabı kopyala",
+  "chatBubble.connectorsUsed": "Uygulama bağlantıları",
+  "chatBubble.connectorsUsedHint":
+    "Bu cevap üretilirken Outlook/SharePoint araçları açıktı. Kararı Ayarlar > Sohbette uygulama bağlantıları belirliyor.",
 
   "errorBoundary.title": "Beklenmeyen bir hata oluştu",
   "errorBoundary.reload": "Uygulamayı Yeniden Yükle",
@@ -557,7 +562,19 @@ export const tr = {
   "appConnections.openProjectTerminal": "AXET Projesi Seç",
   "appConnections.projectTerminalTitle": "AXET Projesi Seç",
   "appConnections.integrationErrorHint": "Bu sağlayıcı için kayıtlı entegrasyon(lar) 'ERROR' durumunda görünüyor. Genelde ajan çalışan başka bir entegrasyonu otomatik bulur — hepsi bozuksa aXet Agentic portalından yeniden yetkilendirmen/temizlemen gerekebilir.",
-  "appConnections.openAgenticPortal": "aXet Agentic Portalını Aç"
+  // "Hiç yok" ile "var ama bozuk" farklı şeyler: ilkinin çaresi yeniden
+  // yetkilendirmek değil, portalden İLK KEZ eklemek. Ekran eskiden ikisini de
+  // aynı kırmızı satırla gösteriyor ve birincisine hiçbir yol göstermiyordu.
+  "appConnections.missingIntegrationHint": "Bu sağlayıcı için kayıtlı hiçbir entegrasyon yok — bozuk değil, hiç kurulmamış. aXet Agentic portalından eklemen gerekiyor; bu uygulamanın içinden yapılamaz.",
+  "appConnections.openAgenticPortal": "aXet Agentic Portalını Aç",
+  "appConnections.checkedAt": "Son kontrol: {time}",
+  "appConnections.servedBy": "axet.code şuraya bağlanıyor",
+  // Bu ekranın en önemli cümlesi: yeşil tik "bağlayıcı çalışıyor" demek,
+  // "sohbet onu kullanıyor" demek değil.
+  "appConnections.chatMode.auto": "Sohbet bu araçları gerektiğinde kendiliğinden kullanır (e-posta/takvim/SharePoint'ten söz eden mesajlarda).",
+  "appConnections.chatMode.always": "Sohbet bu araçları her mesajda kullanır — en güvenilir, ama her mesaj ~10 sn daha uzun sürer.",
+  "appConnections.chatMode.off": "Dikkat: yukarıdaki test çalışsa bile SOHBET bu araçları kullanmıyor — kapalı. Sohbete mail/dosya sorduğunda hiçbir aracı olmayacak.",
+  "appConnections.enableForChat": "Sohbette de Aç"
 };
 
 

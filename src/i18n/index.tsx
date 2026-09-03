@@ -30,6 +30,18 @@ export function translate(language: AppLanguage, key: TranslationKey, params?: T
 const LanguageContext = createContext<AppLanguage>("tr");
 
 export function LanguageProvider({ language, children }: { language: AppLanguage; children: ReactNode }) {
+  // `<html lang>`'i dille birlikte güncelle. index.html'de sabit `lang="tr"`
+  // yazıyor ve bu SADECE bir erişilebilirlik etiketi değil: tarayıcı büyük
+  // harfe çevirmede (`text-transform: uppercase`) DİLE ÖZGÜ kuralları
+  // uyguluyor. Türkçe kuralıyla İngilizce bir başlık "APP CONNECTİONS İN
+  // CHAT" diye çiziliyordu — noktalı İ, çünkü Türkçe'de 'i'nin büyüğü 'İ'.
+  // Ayarlar'daki bölüm başlıkları gibi tüm `uppercase` sınıflı metinleri
+  // etkiliyordu. Efekt değil doğrudan atama: render sırasında yapılması
+  // sakıncasız (React ağacının dışında bir nitelik) ve ilk boyamada doğru
+  // olması gerekiyor.
+  if (typeof document !== "undefined" && document.documentElement.lang !== language) {
+    document.documentElement.lang = language;
+  }
   return <LanguageContext.Provider value={language}>{children}</LanguageContext.Provider>;
 }
 

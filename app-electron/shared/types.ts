@@ -91,13 +91,16 @@ export interface AppConfig {
   // Kenar çubuğunun AÇILIŞTAKİ hâli. Oturum içinde ☰ ile değiştirmek burayı
   // yazmaz — geçici daraltma kalıcı bir tercih değil.
   chatSidebarOpen: boolean;
-  // Sohbet, MCP bağlayıcılarını (Outlook/SharePoint) kullansın mı?
-  // VARSAYILAN `false` — ölçüm, bağlayıcıların her mesajda kurulup yıkılmasının
-  // cevap süresine ~8 saniye eklediğini gösterdi (gerekçe: axetSpawnEnv.ts).
-  // Açıldığında sohbet e-posta/dosya araçlarına erişir ama belirgin şekilde
-  // yavaşlar. "Uygulama Bağlantıları" ekranındaki test bu ayardan ETKİLENMEZ,
-  // orası bağlayıcıları her hâlükârda kullanır.
-  chatUseConnectors: boolean;
+  // Sohbet, MCP bağlayıcılarını (Outlook/SharePoint) kullansın mı? Bkz.
+  // `ChatConnectorMode`. Eski `chatUseConnectors: boolean` alanının yerini
+  // aldı; `store.ts` eski değeri okuyup göç ettiriyor.
+  chatConnectorMode: ChatConnectorMode;
+  // "Uygulama Bağlantıları" ekranındaki son test sonuçları, sağlayıcı adına
+  // göre. KALICI olmalarının sebebi ölçülmüş bir şikayet değil, ekranın
+  // kendisi: sonuç yalnızca React state'inde duruyordu, modal kapanınca
+  // kayboluyordu ve kullanıcı "ben bunu test etmiş miydim" sorusuna
+  // cevap veremiyordu.
+  connectorLastResults: Record<string, ConnectorCheck>;
 }
 
 export interface SystemCredentials {
@@ -277,6 +280,13 @@ export interface AxetChatSendResult {
   text: string;
   error?: string;
   cancelled?: boolean;
+  /**
+   * Bu mesaj bağlayıcılar AÇIKKEN mi çalıştırıldı? `auto` kipinde karar bir
+   * TAHMİNDİR ve tahmin yanılabilir — bu alan olmasa yanılgı sessiz olurdu:
+   * kullanıcı "neden mailime bakmadı" ya da "neden bu kadar yavaştı" diye
+   * sorar, cevabı hiçbir yerde yazmaz. Sohbet balonunda gösteriliyor.
+   */
+  usedConnectors?: boolean;
 }
 
 // --- Sohbet geçmişinin DİSKTE saklanan hâli (bkz. chatStore.ts) ---
@@ -787,5 +797,38 @@ export interface ConnectorTestResult {
   detail: string;
   error?: string;
   cancelled?: boolean;
+  /**
+   * Sağlayıcı için platformda KAYITLI HİÇ entegrasyon yok (yetkisi bozuk bir
+   * entegrasyon DEĞİL — hiç yok). Ayrı tutuluyor çünkü çaresi de ayrı:
+   * "yeniden yetkilendir" değil, portalden ilk kez eklemek.
+   */
+  missing?: boolean;
 }
+
+/** Kalıcı saklanan son test sonucu (bkz. `AppConfig.connectorLastResults`). */
+export interface ConnectorCheck {
+  connected: boolean;
+  detail: string;
+  error?: string;
+  missing?: boolean;
+  /** ISO 8601. "En son ne zaman baktık" sorusunun tek cevabı. */
+  checkedAt: string;
+}
+
+/**
+ * Sohbetin MCP bağlayıcılarını (Outlook/SharePoint) ne zaman kuracağı.
+ *
+ * Ölçüm (bkz. axetSpawnEnv.ts): bağlayıcılar açıkken her mesaj ~10 saniye
+ * daha uzun sürüyor, çünkü axet-code onları her çağrıda kurup yıkıyor. Bu
+ * yüzden eskiden tek bir aç/kapa vardı ve VARSAYILANI KAPALIYDI — sonuç,
+ * "Uygulama Bağlantıları" ekranının yeşil tik göstermesine rağmen sohbette
+ * hiçbir aracın olmamasıydı (2026-09-04, canlı ölçüldü: aynı dizinde normal
+ * ortam 23 Outlook aracı listeliyor, sohbetin ortamı `NONE`).
+ *
+ *  - `auto`   — mesajın metnine bakılır; e-posta/takvim/SharePoint'ten söz
+ *               ediyorsa o mesajda bağlayıcılar açılır. VARSAYILAN.
+ *  - `always` — her mesajda açık. Yavaş ama tahmin yok.
+ *  - `off`    — hiç açılmaz. En hızlısı, araçlar hiç yok.
+ */
+export type ChatConnectorMode = "auto" | "always" | "off";
 
