@@ -98,7 +98,14 @@ async function performAndMaybeRecord(
     return { text: `HATA: ${result.error ?? "bilinmeyen hata"}`, error: true };
   }
   recordStep?.({ action, id, value: extra.value, vkey: extra.vkey, row: extra.row, column: extra.column, by: extra.by, label });
-  return { text: `${label} basarili` };
+  // Oturum köprünün beklemesi bittiğinde hâlâ meşgulse agent'a SÖYLENİR.
+  // Aksi halde bir sonraki aracı meşgul bir oturuma gönderir, gelen SAP
+  // hatasını kendi argümanlarının hatası sanır ve düzeltmeye çalışır —
+  // düzeltilecek bir şey yokken. Doğrusu kısa bir bekleyip tekrar denemek.
+  const busyNote = result.settle?.settled === false
+    ? " (UYARI: SAP oturumu hala mesgul; sonraki adimi gondermeden once kisa bekle)"
+    : "";
+  return { text: `${label} basarili${busyNote}` };
 }
 
 export function createExecutor(defaultSession: DefaultSession | null, recordStep?: RecordStepFn) {

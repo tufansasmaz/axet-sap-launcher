@@ -58,7 +58,6 @@ interface SelectedSession {
 }
 
 const ROOT_KEY = "__root__";
-const PLAYBACK_STEP_DELAY_MS = 350;
 
 // Diskten açılan bir script'in adımlarını doğrulamak için TANINAN aksiyonlar.
 // `Record<GuiScriptActionKind, true>` üzerinden türetiliyor: birliğe yeni bir
@@ -534,9 +533,18 @@ export default function SapGuiScriptingHome() {
         by: step.by
       });
       if (result.screen) setScreen(result.screen);
-      setPlayResults((prev) => [...prev, { index: i, ok: result.ok, error: result.error }]);
+      // ADIMLAR ARASINDA UYKU YOK. Burada 350 ms'lik sabit bir bekleme vardı;
+      // canlı ölçüm (S4D/SE16N, 2026-09-03) bunun tamamen ölü zaman olduğunu
+      // gösterdi: sıfır beklemeyle arka arkaya gönderilen 10 adımın hepsi
+      // geçti, ekran geçişleri doğru, ve köprünün `busySeen` raporu BİR KEZ
+      // bile doğru olmadı — SAP GUI Scripting çağrısı senkron, sunucu turu
+      // çağrının içinde bitiyor (tek bir F3 bile 5,2 sn boyunca DÖNMÜYOR).
+      // Hazır olma beklemesi köprüde, oturum nesnesinin yanında yapılıyor.
+      setPlayResults((prev) => [
+        ...prev,
+        { index: i, ok: result.ok, error: result.error, stillBusy: result.settle?.settled === false }
+      ]);
       if (!result.ok) break;
-      await new Promise((resolve) => setTimeout(resolve, PLAYBACK_STEP_DELAY_MS));
     }
     if (autoRefresh) await refreshScreenshot(activeSession);
     setPlaying(false);
@@ -872,6 +880,17 @@ export default function SapGuiScriptingHome() {
                           {result && !result.ok && (
                             <span className="max-w-[240px] truncate text-[10px] text-[var(--status-danger-text)]" title={result.error}>
                               {result.error}
+                            </span>
+                          )}
+                          {/* Adım geçti ama oturum hâlâ meşguldü. Sessiz
+                              geçilirse, bir SONRAKİ adımın anlaşılmaz bir SAP
+                              hatasıyla düşmesinin sebebi görünmez olur. */}
+                          {result?.ok && result.stillBusy && (
+                            <span
+                              className="shrink-0 text-[10px] text-[var(--status-warning-text)]"
+                              title={t("sapGuiScripting.stepStillBusyHint")}
+                            >
+                              {t("sapGuiScripting.stepStillBusy")}
                             </span>
                           )}
                           <button

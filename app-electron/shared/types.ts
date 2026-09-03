@@ -690,6 +690,18 @@ export interface GuiScriptActionResult {
   // Aksiyondan SONRAKİ ekran durumu (durum çubuğu dahil). Okunamazsa
   // aksiyon yine de başarılıdır — okuma hatası aksiyonu başarısız göstermez.
   screen?: GuiScriptScreenState;
+  /**
+   * Köprünün aksiyondan sonraki HAZIR OLMA beklemesi (bkz. bridge'teki
+   * `_settle`). Beklemenin köprüde yapılması gerekiyor: oturum nesnesi orada
+   * ve HTTP turu yok. Oynatıcı bunun üzerine adımlar arasına ayrıca uyku
+   * KOYMAZ — canlı ölçümde (S4D/SE16N, 2026-09-03) sıfır beklemeyle arka
+   * arkaya gönderilen 10 adımın tamamı geçti ve `busySeen` bir kez bile
+   * doğru olmadı: SAP GUI Scripting çağrısı zaten senkron, sunucu turu
+   * çağrının İÇİNDE bitiyor.
+   * `settled: false` = köprü 3 sn bekledi, oturum hâlâ meşgul; bir sonraki
+   * adım meşgul bir oturuma gidecek demektir.
+   */
+  settle?: { waitedMs: number; busySeen: boolean; settled: boolean };
   error?: string;
 }
 
@@ -731,6 +743,13 @@ export interface GuiScriptPlaybackStepResult {
   index: number;
   ok: boolean;
   error?: string;
+  /**
+   * Adım başarılı ama oturum köprünün beklemesi bittiğinde HÂLÂ meşguldü
+   * (`settle.settled === false`). Bir sonraki adım meşgul bir oturuma gitti
+   * demektir — hata değil ama sessiz de geçilmemeli: sonraki adımın anlaşılmaz
+   * bir SAP hatasıyla düşmesinin sebebi budur.
+   */
+  stillBusy?: boolean;
 }
 
 // Faz 3 — AI Agent ile doğal dil otomasyonu. `axet.flows`'un agent

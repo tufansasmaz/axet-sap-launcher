@@ -389,6 +389,9 @@ export const tr = {
   "sapGuiScripting.gridLoadAll": "{count} satır yükle",
   "sapGuiScripting.gridLoadAllHint":
     "Büyük bir grid'i tam okumak saniyeler sürer — bu sırada köprü başka istek kabul etmez (her hücre ayrı bir COM çağrısı).",
+  "sapGuiScripting.stepStillBusy": "hâlâ meşgul",
+  "sapGuiScripting.stepStillBusyHint":
+    "Adım geçti ama SAP oturumu 3 sn sonunda hâlâ meşguldü; sonraki adım meşgul bir oturuma gitti. Bir sonraki adım anlaşılmaz bir hatayla düştüyse sebebi bu olabilir.",
   "sapGuiScripting.gridColsTruncated": "İlk {count} sütun gösteriliyor (kesildi).",
   "sapGuiScripting.gridCellHint": "Çift tıkla — SAP'de bu hücreye çift tıklanır.",
   "sapGuiScripting.gridEmpty": "Bu elemanda okunabilir grid/tablo verisi yok.",

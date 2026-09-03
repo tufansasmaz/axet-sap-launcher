@@ -384,6 +384,9 @@ export const en: Record<TranslationKey, string> = {
   "sapGuiScripting.gridLoadAll": "Load {count} rows",
   "sapGuiScripting.gridLoadAllHint":
     "Reading a large grid in full takes seconds — the bridge accepts no other request meanwhile (every cell is a separate COM call).",
+  "sapGuiScripting.stepStillBusy": "still busy",
+  "sapGuiScripting.stepStillBusyHint":
+    "The step succeeded but the SAP session was still busy after 3 s; the next step went to a busy session. If the next step failed with an obscure error, this may be why.",
   "sapGuiScripting.gridColsTruncated": "Showing the first {count} columns (truncated).",
   "sapGuiScripting.gridCellHint": "Double-click to double-click this cell in SAP.",
   "sapGuiScripting.gridEmpty": "This element has no readable grid/table data.",

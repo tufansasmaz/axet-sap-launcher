@@ -836,15 +836,31 @@ def describe_screen(session, with_toolbar_keys: bool = True) -> dict:
     return out
 
 
-def _settle(session, timeout: float = 3.0) -> None:
+def _settle(session, timeout: float = 3.0) -> dict:
     """Aksiyondan sonra oturum meşgulse kısa süre bekler. SAP GUI Scripting
     çağrıları genelde senkron ama sunucu turu gerektiren tuşlarda (Enter/F8)
     `Busy` bir süre TRUE kalabiliyor - bu bekleme olmadan ardından okunan
-    durum çubuğu bir ÖNCEKİ ekrana ait olur."""
-    deadline = time.time() + timeout
-    while time.time() < deadline:
+    durum çubuğu bir ÖNCEKİ ekrana ait olur.
+
+    NE OLDUĞUNU ARTIK RAPOR EDİYOR: {"waitedMs", "busySeen", "settled"}.
+    Sessizce beklediği sürece çağıran tarafın elinde tek bir bilgi yoktu, o
+    yüzden oynatıcı adımlar arasına 350 ms'lik SABİT bir uyku koyuyordu -
+    hazır olan oturumu boşuna bekleten, hazır olmayanı ise kurtarmayan bir
+    sayı. Beklemenin BURADA yapılması gerekiyor: oturum nesnesi burada,
+    HTTP turu yok. `settled: False` ise bekleme zaman aşımına uğradı ve bir
+    sonraki aksiyon meşgul bir oturuma gidecek demektir - bu, uydurulacak
+    değil söylenecek bir şey."""
+    started = time.time()
+    deadline = started + timeout
+    busy_seen = False
+    while True:
         if not _try(lambda: bool(session.Busy), False):
-            return
+            return {"waitedMs": int((time.time() - started) * 1000),
+                    "busySeen": busy_seen, "settled": True}
+        busy_seen = True
+        if time.time() >= deadline:
+            return {"waitedMs": int((time.time() - started) * 1000),
+                    "busySeen": True, "settled": False}
         time.sleep(0.08)
 
 
@@ -1480,11 +1496,13 @@ def handle_action(application, conn_idx: int, sess_idx: int, payload: dict) -> d
             )
         raise SapGuiScriptingError(message) from exc
 
-    _try(lambda: _settle(session))
+    # Bekleme BURADA yapılır ve raporlanır; oynatıcının adımlar arasına sabit
+    # bir uyku koymasına gerek kalmasın diye (bkz. `_settle`).
+    settle = _try(lambda: _settle(session)) or {"waitedMs": 0, "busySeen": False, "settled": True}
     # Ekran durumu okunamazsa aksiyon YİNE DE başarılıdır - okuma hatası
     # aksiyonu başarısız göstermemeli.
     screen = _try(lambda: describe_screen(session), {}) or {}
-    return {"screen": screen}
+    return {"screen": screen, "settle": settle}
 
 
 def run_bridge(host: str, port: int) -> None:

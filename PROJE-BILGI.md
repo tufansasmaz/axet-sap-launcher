@@ -3952,13 +3952,12 @@ kayıt/oynatma tamamen renderer tarafında (state + JSON dosya I/O) yaşıyor.
   `performGuiScriptAction`'a gönderir — **`runAction`'ı BİLEREK ATLAR**
   (doğrudan `window.api.performGuiScriptAction` çağırır) — aksi halde kayıt
   açıkken oynatma yapılırsa oynatılan adımlar sonsuza kadar tekrar tekrar
-  kaydedilirdi. Adımlar arasında `PLAYBACK_STEP_DELAY_MS = 350` ms sabit bir
-  bekleme var (SAP GUI'nin bir aksiyonu — özellikle Enter/T-code geçişi —
-  işleyip ekranı güncellemesi için asgari bir süre; Faz 1 araştırmasındaki
-  "SAP GUI Scripting'in kendi bir wait mekanizması yok" bulgusunun doğal
-  sonucu, gerçek bir "ready" tespiti YOK, kanıtlanmış çalışan `axet_rfc_
-  bridge.py`/`RfcBridgeBusy` gibi bir "bekle" mekanizması bu turda
-  eklenmedi — basit sabit gecikme bilinçli bir ilk-adım tercihi). İlk hatalı
+  kaydedilirdi. Adımlar arasında **bekleme YOK**: burada `PLAYBACK_STEP_
+  DELAY_MS = 350` ms'lik sabit bir uyku vardı ve ölçüldüğünde tamamen ölü
+  zaman çıktı (bkz. "Oynatmadaki 350 ms'lik sabit bekleme kaldırıldı",
+  2026-09-03 — 22 canlı adımda `Busy` bir kez bile yakalanamadı, çünkü SAP
+  GUI Scripting çağrısı senkron). Hazır olma beklemesi köprüde yapılıyor ve
+  `settle` alanıyla raporlanıyor. İlk hatalı
   adımda oynatma DURUR (agresif/güvenli taraf — bir adım başarısız olduysa
   sonraki adımların hangi ekranda çalışacağı garanti değil).
 - **Kaydet/Aç**: `sapGuiScript:saveScript`/`sapGuiScript:openScript` IPC
@@ -4012,6 +4011,12 @@ doğrulanmalı. Yetersiz çıkarsa ilk iyileştirme noktası: sabit gecikme
 yerine `getNode` ile "hedef element artık var mı" diye polling yapan bir
 bekleme (mevcut `getNode` primitive'i zaten bunun için yeterli, backend
 değişikliği gerekmez).
+
+> **2026-09-03 — bu madde KAPANDI, ama tahmin edilenden başka bir sonuçla.**
+> Canlı SAP GUI'ye karşı ölçüldü: gecikme yetersiz değil, GEREKSİZDİ.
+> `getNode` polling'i de eklenmedi — çünkü bekleyecek bir şey yok, SAP GUI
+> Scripting çağrısı senkron. Bkz. "Oynatmadaki 350 ms'lik sabit bekleme
+> kaldırıldı".
 
 **Sonraki adım (kullanıcı henüz karar vermedi)**: Faz 1 sonundaki plandaki
 3. seçenek — **AI Agent ile doğal dil otomasyonu** — hâlâ yapılmadı, bu iki
@@ -4285,7 +4290,8 @@ Yeni renderer dosyaları: `src/lib/sapGui/vkeys.ts`,
 `src/components/sapgui/{PreflightPanel,ScreenViewer,StatusBarStrip,
 ElementInspector,CommandBar}.tsx`. `SapGuiScriptingHome.tsx` bunları
 bağlayan orkestratör olarak yeniden yazıldı; Faz 2/3'ün korunan parçaları:
-`nodeKey()`, `ROOT_KEY`, `PLAYBACK_STEP_DELAY_MS`, tembel ağaç yükleme,
+`nodeKey()`, `ROOT_KEY`, `PLAYBACK_STEP_DELAY_MS` (2026-09-03'te ölçülüp
+KALDIRILDI), tembel ağaç yükleme,
 kayıt/kaydet/aç/oynat ve **playback'in `runAction`'ı değil doğrudan
 `performGuiScriptAction`'ı çağırması** (kayıt açıkken oynatılan adımların
 tekrar kaydedilmemesi için).
@@ -4944,6 +4950,41 @@ numaralardır, sonraki sayfa için `row_offset: N`"). Ajan ayrıca artık
 köprüden **yalnızca kullandığı 15 satırı** istiyor — önceden köprü 200
 satır okuyor, `nodeToText` ilk 15'i dışındakini atıyordu, yani her tur
 kullanılmayan veri için ~15 sn bekleniyordu.
+
+#### Oynatmadaki 350 ms'lik sabit bekleme kaldırıldı — ölçüldü, ölü zamandı (2026-09-03)
+
+Bilinen ama düzeltilmemiş maddeydi: oynatıcı adımlar arasında
+`PLAYBACK_STEP_DELAY_MS = 350` uyuyordu ve bu sayının arkasında bir ölçüm
+yoktu. Önce **köprü ne beklediğini raporlar** hale getirildi — `_settle()`
+artık `{waitedMs, busySeen, settled}` döndürüyor ve `handle_action` bunu
+cevaba koyuyor (`GuiScriptActionResult.settle`).
+
+Canlı ölçüm (S4D / SE16N-VBFA, sıfır istemci beklemesiyle arka arkaya
+**22 adım**: F3/F8 turları + `navigate`+`setText`+Enter+F8 senaryosu):
+
+| Ölçüm | Sonuç |
+| --- | --- |
+| Başarısız adım | **0** — ekran geçişlerinin hepsi doğru |
+| `busySeen` doğru olan adım | **0 / 22** |
+| Köprünün gerçek beklemesi | 3–23 ms (bu `Busy`'yi bir kez okuma maliyeti) |
+| Tek bir F3'ün süresi | **5184 ms** — çağrının KENDİSİ o kadar dönmüyor |
+| 6 adımlık script, 350 ms ile | 15 728 ms |
+| 6 adımlık script, beklemesiz | **13 964 ms** |
+
+Sebep: **SAP GUI Scripting çağrısı senkron** — sunucu turu çağrının içinde
+bitiyor, `sendVKey` döndüğünde iş çoktan bitmiş oluyor. Bu yüzden `Busy`
+hiç yakalanamıyor ve üstüne konan sabit uyku adım başına tam 350 ms ölü
+zaman demek. Uyku kaldırıldı; hazır olma beklemesi **köprüde**, oturum
+nesnesinin yanında yapılıyor (HTTP turu yok, oradan başka türlü de
+yapılamaz).
+
+`settled: false` (köprü 3 sn bekledi, oturum hâlâ meşgul) **hiç
+gözlenmedi** — bir güvenlik ağı, doğrulanmış bir davranış değil. Yine de
+sessiz bırakılmadı: adım listesinde "hâlâ meşgul" rozeti çıkıyor
+(`GuiScriptPlaybackStepResult.stillBusy`) ve ajan araç cevabında uyarı
+alıyor. Aksi halde bir sonraki adımın anlaşılmaz bir SAP hatasıyla
+düşmesinin sebebi görünmez olurdu — ajan da o hatayı kendi argümanlarının
+hatası sanıp düzeltmeye çalışırdı.
 
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 

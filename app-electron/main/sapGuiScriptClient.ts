@@ -185,7 +185,7 @@ export async function guiScriptPerformAction(
       payload
     );
     if (!json?.ok) return { ok: false, error: errorFrom(json, "Aksiyon uygulanamadı.") };
-    return { ok: true, screen: json.screen };
+    return { ok: true, screen: json.screen, settle: json.settle };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }
