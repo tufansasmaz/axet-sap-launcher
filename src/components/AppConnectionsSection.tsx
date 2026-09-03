@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Plug,
   Unplug,
-  Workflow,
   XCircle
 } from "lucide-react";
 import { useLanguage, useT } from "../i18n";
@@ -56,9 +55,12 @@ const PROVIDERS: { id: ConnectorProvider; icon: typeof Mail; labelKey: Translati
 // ekranda görünür kılıyor — yoksa kullanıcı bağlayıcıların yalnızca sohbete
 // ait olduğunu sanmaya devam ederdi (eski hâlinde ekranda sadece "sohbet"
 // yazıyordu).
+// axet.flows satırı 2026-09-04'te çıkarıldı: modül arayüzden kaldırılınca
+// burada durması, olmayan bir ekranı vaat etmek olurdu. Ajanın kendisi
+// (flowsAgentStep) hâlâ aynı bağlayıcı politikasından geçiyor — modül geri
+// gelirse tek yapılacak bu satırı geri koymak.
 const SURFACES: { icon: typeof Mail; labelKey: TranslationKey }[] = [
   { icon: MessageSquare, labelKey: "appConnections.surfaceChat" },
-  { icon: Workflow, labelKey: "appConnections.surfaceFlows" },
   { icon: Bot, labelKey: "appConnections.surfaceSapGui" }
 ];
 

@@ -26,8 +26,14 @@ import type {
 import TitleBar from "./components/TitleBar";
 import ActivityBar, { type Activity } from "./components/ActivityBar";
 import AxetCodeHome from "./components/AxetCodeHome";
-import AxetFlowsHome from "./components/AxetFlowsHome";
-import AxetFlowsLiveHome from "./components/AxetFlowsLiveHome";
+// axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
+// isteği, 2026-09-04): uygulama GitHub'a açılırken bu iki modül henüz hazır
+// değil ve akıbetleri sonra kararlaştırılacak. Kaynak dosyalar
+// (AxetFlowsHome.tsx, AxetFlowsLiveHome.tsx, src/flows/**,
+// src/components/flows/**, app-electron/main/axetFlows*.ts, flowRuntime.js)
+// diskte DURUYOR, yalnızca import/route/rayları kaldırıldı — geri açmak
+// bu üç yeri (import, ActivityBar girdisi, aşağıdaki route dalı) geri
+// eklemekten ibaret.
 import SapGuiScriptingHome from "./components/SapGuiScriptingHome";
 import Tree from "./components/Tree";
 import RecentSystems from "./components/RecentSystems";
@@ -748,11 +754,9 @@ export default function App() {
             onOpenSapLauncher={() => setActivity("sapLauncher")}
             onQuickConnectSap={handleQuickConnectSap}
           />
-        ) : activity === "axetFlows" ? (
-          <AxetFlowsHome />
         ) : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome />
-        ) : activity === "axetFlowsLive" ? null : (
+        ) : (
           <>
         <header className="flex items-center gap-3 border-b border-base-700 bg-base-900 px-4 py-3">
           <button
@@ -995,9 +999,6 @@ export default function App() {
         </div>
           </>
         )}
-        <div className={activity === "axetFlowsLive" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
-          <AxetFlowsLiveHome />
-        </div>
         </div>
         </div>
 

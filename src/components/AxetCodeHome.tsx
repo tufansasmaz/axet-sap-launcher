@@ -213,7 +213,12 @@ export default function AxetCodeHome({
             requestId: null
           }))
         );
-        setActiveId(result.state.activeId);
+        // `result.state.activeId` BİLEREK yok sayılıyor (kullanıcı isteği,
+        // 2026-09-04): uygulama her açılışta boş sohbet ekranıyla karşılasın,
+        // son sohbetin yarım kalmış bağlamına düşmesin. Geçmiş listesi
+        // solda duruyor, tıklayınca eskisi gibi açılıyor — kaybolan bir şey
+        // yok, yalnızca AÇILIŞ noktası değişti. Alan diske hâlâ yazılıyor
+        // (ChatSessionsState'in zorunlu alanı), sadece okunmuyor.
         if (result.recoveredFrom) {
           pushToast("error", t("axetCodeHome.historyCorrupt"));
         } else if (!result.ok && result.error) {

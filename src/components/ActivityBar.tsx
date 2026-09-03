@@ -1,4 +1,4 @@
-import { Sparkles, Settings, Sun, Moon, Languages, Workflow, Radio, MousePointerClick, Plug, Server } from "lucide-react";
+import { Sparkles, Settings, Sun, Moon, Languages, MousePointerClick, Plug, Server } from "lucide-react";
 import type { ReactNode } from "react";
 import { useT } from "../i18n";
 import type { AppTheme } from "../../app-electron/shared/types";
@@ -19,8 +19,8 @@ interface Props {
 }
 
 // VS Code'un "Activity Bar"ına benzer, aXet Studio'nun tüm modüllerini
-// (axet.code sohbet ekranı, SAP Launcher, axet.flows, axet.flows Live,
-// SAP GUI Scripting) tek bir dikey rayda listeleyen sol şerit.
+// (axet.code sohbet ekranı, SAP Launcher, SAP GUI Scripting) tek bir dikey
+// rayda listeleyen sol şerit.
 // Yeni bir modül eklemek için sadece bu dosyadaki `activities` dizisine
 // bir öğe eklemek yeterli — App.tsx'teki `activity === "..."` koşuluna
 // karşılık gelen bir görünüm bileşeni eklenmesi hâlâ gerekiyor, ama
@@ -38,7 +38,7 @@ export default function ActivityBar({
 }: Props) {
   const t = useT();
 
-  // Aktif sekme kutusunun stili — BEŞ sekmede de aynı. Önceden axet.code
+  // Aktif sekme kutusunun stili — sekmelerin HEPSİNDE aynı. Önceden axet.code
   // tek başına `bg-gradient-to-br from-accent-500 to-accent-600` + `shadow-lg`
   // kullanıyordu; bu hem src/index.css'in en başında yazılı olan "gradyan/
   // parlama/dekoratif efekt yok" kuralının tek istisnasıydı (üstelik en
@@ -72,24 +72,9 @@ export default function ActivityBar({
         </span>
       )
     },
-    {
-      id: "axetFlows",
-      label: t("activityBar.axetFlows"),
-      render: (active) => (
-        <span className={`${boxBase} ${active ? activeBox : ""}`}>
-          <Workflow size={17} />
-        </span>
-      )
-    },
-    {
-      id: "axetFlowsLive",
-      label: t("activityBar.axetFlowsLive"),
-      render: (active) => (
-        <span className={`${boxBase} ${active ? activeBox : ""}`}>
-          <Radio size={17} />
-        </span>
-      )
-    },
+    // axet.flows ve axet.flows Live girdileri BİLEREK yok (2026-09-04) —
+    // bkz. App.tsx'in tepesindeki not. `Activity` birleşim tipinde
+    // duruyorlar ki geri açmak tek bir dizi girdisi eklemek olsun.
     {
       id: "sapGuiScripting",
       label: t("activityBar.sapGuiScripting"),

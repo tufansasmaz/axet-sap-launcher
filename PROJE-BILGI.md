@@ -7674,3 +7674,56 @@ yapacağını çözmeli — yeniden adlandırma değil, göç işi.
 - **Sol raydaki SAP Launcher ikonu** uygulama logosu değil artık düz bir
   lucide ikonu (`Server`) — renkli logo, o modülü diğer dördünün arasında
   "uygulamanın kendisi" gibi gösteriyordu.
+
+## GitHub'a açılış öncesi sadeleştirme (2026-09-04)
+
+Kullanıcı isteği: *"uygulama ilk açıldığında axet chat kısmında sıfır sohbet
+ekranı karşılasın son sohbeti açmasın, axet flows ve axet flows canlı
+ekranlarını kaldıralım uygulamayı gite atıcaz onlara şuan gerek yok sonra
+karar vericem onlara ne olucağını"*.
+
+### 1. Açılışta boş sohbet
+
+`AxetCodeHome`'un mount effect'i diskteki `activeId`'yi artık **okumuyor**
+(`src/components/AxetCodeHome.tsx`, geçmiş yükleme effect'i). `activeId === null`
+zaten "yeni sohbet" ekranını çiziyordu; tek yapılan o satırı kaldırmak oldu.
+
+Alan diske hâlâ **yazılıyor** (`ChatSessionsState`'in zorunlu alanı) — sadece
+okunmuyor. Sohbet geçmişi kaybolmadı: liste solda duruyor, tıklayınca eskisi
+gibi açılıyor. Değişen tek şey AÇILIŞ noktası.
+
+### 2. axet.flows ve axet.flows Live arayüzden kaldırıldı
+
+⚠️ **Kaynak dosyalar SİLİNMEDİ — bu bilinçli.** Kullanıcı *"sonra karar
+vericem onlara ne olucağını"* dedi; karar verilmemiş bir modülü silmek, geri
+getirmek için commit arkeolojisi gerektirir. Diskte duruyorlar ve TypeScript
+tarafından hâlâ derleniyorlar (tsconfig `src/**`), yani çürümüyorlar da:
+
+`src/components/AxetFlowsHome.tsx`, `src/components/AxetFlowsLiveHome.tsx`,
+`src/components/flows/**`, `src/flows/**`,
+`app-electron/main/axetFlows{Agent,LiveDiscovery,LiveSave}.ts`,
+`app-electron/main/flowRuntime.js`, `flowDiagnostics.js`
+
+Kaldırılan yalnızca **arayüz yolu** — üç yer:
+
+1. `src/App.tsx` — iki `import` ve iki route dalı (`activity === "axetFlows"`
+   ile `axetFlowsLive` için tutulan gizli `<div>`).
+2. `src/components/ActivityBar.tsx` — `activities` dizisindeki iki girdi
+   (`Workflow`/`Radio` ikonları da artık import edilmiyor).
+3. `src/components/AppConnectionsSection.tsx` — `SURFACES` listesindeki
+   "axet.flows" satırı; olmayan bir ekranı vaat etmemesi için.
+
+Geri açmak = bu üç yeri geri eklemek. `Activity` birleşim tipi ile i18n
+anahtarları (`activityBar.axetFlows*`, `axetFlowsLive.*`) bilerek DURUYOR;
+i18n anahtarları zaten hâlâ derlenen bileşenler tarafından kullanılıyor,
+silinirse typecheck patlar.
+
+Ana süreçteki IPC handler'ları (`flows:*`, `axetFlowsLive:*`) da duruyor —
+kimse çağırmıyor, `FlowRuntime` yalnızca `deploy()` ile başlıyor, dolayısıyla
+açılışta hiçbir maliyeti yok.
+
+**Yan fayda:** `axetFlowsLive` ekranı "hidden div" olarak HER ZAMAN mount
+kalıyordu; içindeki webview yüzünden konsolda sürekli
+`BACKEND_MODELS_SEPARATOR has already been declared`, `Failed to get token:
+Unauthorized`, `Error loading catalog … Forbidden` gürültüsü akıyordu. O div
+gidince gürültü de gitti.
