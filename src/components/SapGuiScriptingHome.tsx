@@ -238,6 +238,25 @@ export default function SapGuiScriptingHome() {
     }
   }, []);
 
+  // Köprü ZATEN çalışırken bu ekrana gelindiğinde bağlantılar KENDİLİĞİNDEN
+  // yüklenir. Önceden `loadConnections` yalnızca "Bağlan" düğmesinden, küçük
+  // yenile ikonundan ve preflight'ın "yine de devam et"inden çağrılıyordu —
+  // yani hepsi kullanıcı tıklamasıydı. Köprü uygulama açılmadan önce ayaktaysa
+  // (uygulama yeniden başlatıldı, köprüyü başka bir process başlattı, ya da
+  // bu sekmeden çıkılıp geri dönüldü) başlık "Köprü çalışıyor (port 8790)"
+  // diyor, BAĞLANTILAR listesi ise boş kalıyordu: çalışan bir köprünün yanında
+  // hiçbir açıklaması olmayan boş bir liste. Canlı pencere görüntüsünde
+  // yakalandı (2026-09-04) — kod okunarak değil, ekrana bakılarak.
+  // TEK SEFER denenir: liste gerçekten boşsa (SAP Logon kapalı) her render'da
+  // yeniden sorgulamanın anlamı yok, yenile ikonu zaten duruyor. `starting`
+  // beklenir ki `handleStart`ın kendi çağrısıyla çakışıp iki kez sormasın.
+  const autoLoadTried = useRef(false);
+  useEffect(() => {
+    if (!status.running || starting || connections !== null || autoLoadTried.current) return;
+    autoLoadTried.current = true;
+    loadConnections();
+  }, [status.running, starting, connections, loadConnections]);
+
   const handleStart = useCallback(async () => {
     setStarting(true);
     setStartError(null);

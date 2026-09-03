@@ -5085,6 +5085,40 @@ mount oluyor ve **gerçek Designer editörü açılıyor** (palet + akış
 sekmeleri). 12 sn boyunca izlendi: yeniden yükleme döngüsü YOK (eski
 patholoji geri gelmedi).
 
+#### Köprü zaten çalışırken BAĞLANTILAR listesi boş kalıyordu (2026-09-04)
+
+Bu kusur kod okunarak değil, **çalışan uygulamanın penceresine bakılarak**
+bulundu (`PrintWindow`, uygulamanın kendi hwnd'i). Görüntüde başlık
+"Köprü çalışıyor (port 8790)" diyor, canlı ekran gerçek SAP oturumunu
+aynalıyor — ama BAĞLANTILAR paneli **bomboş** ve ekran ağacı "sol taraftan bir
+oturum seç" diyor. Çalışan bir köprünün yanında, hiçbir açıklaması olmayan boş
+bir liste.
+
+Sebep: `loadConnections` üç yerden çağrılıyordu ve **üçü de kullanıcı
+tıklamasıydı** — "Bağlan" düğmesi, küçük yenile ikonu, preflight'ın "yine de
+devam et"i. Köprü uygulama açılmadan ÖNCE ayaktaysa hiçbiri çalışmıyor:
+uygulama yeniden başlatıldığında (dev'de her main-process değişikliğinde
+oluyor), köprüyü başka bir process başlattığında, ya da bu sekmeden çıkılıp
+geri dönüldüğünde. `refreshStatus` `status.running`'i true yapıp "başlat"
+ekranını geçiyor, ama listeyi kimse doldurmuyordu.
+
+Ekran görüntüsündeki ikinci tuhaflık aynı sebebin sonucu DEĞİL, tasarım:
+oturum seçilmemişken bile canlı ekranın dolu olması `sessionlessShotTried`
+yolundan geliyor (scripting sunucuda kapalıysa alan boş kalmasın diye bir
+kereliğine oturumsuz `window` yakalaması yapılıyor). İkisi birbirine
+karıştırılmamalı.
+
+Düzeltme: köprü çalışır bulunduğunda bağlantıları TEK SEFER kendiliğinden
+yükleyen bir effect. `starting` beklenir ki `handleStart`ın kendi çağrısıyla
+çakışıp aynı şeyi iki kez sormasın; `connections !== null` ise hiç
+çalışmaz. Liste gerçekten boşsa (SAP Logon kapalı) tekrar tekrar sorulmaz —
+yenile ikonu zaten duruyor.
+
+Doğrulama, bulgunun kendisiyle aynı yöntemle: aynı pencere, aynı koşullar,
+düzeltme öncesi/sonrası iki görüntü. Öncesi "BAĞLANTILAR" (boş) → sonrası
+**"BAĞLANTILAR 2"** ve iki `S4D [192.168.1.246]` satırı, **tek bir tıklama
+olmadan**.
+
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
 ### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)
