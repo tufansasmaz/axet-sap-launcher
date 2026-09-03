@@ -4855,6 +4855,55 @@ aksiyonlar (`set_text`/`press`/`select_context_menu_item`) test koşumunda
 bloke edildi — ajan bunları denemedi, yani o üç yolun ajanla çalıştığı
 DOĞRULANMADI. Ekran yine başladığı yerde bırakıldı (SE16N 200, popup yok).
 
+#### Sağ tık menüsü: üç yöntem de doğrulandı, ama menü OKUNAMIYOR (2026-09-03)
+
+`selectContextMenuItem`'in üç yöntemi (`code`/`text`/`position`) bugüne
+kadar "SAP'ye ulaşıyor" seviyesinde bırakılmıştı — hiçbiri **gözlenebilir**
+bir sonuçla teyit edilmemişti. Canlı ALV'de (SE16N/VBFA, S4D) üçü de
+teyit edildi:
+
+| yöntem | değer | gözlenen sonuç |
+|---|---|---|
+| `code` | `&XXL` | "Export As" popup'ı |
+| `position` | `6` / `8` / `11` | "Ara..." popup'ı / filtre popup'ı / Export As |
+| `text` | `Ara...` | konum 6 ile **aynı** popup |
+
+Reddedilenler de bilgi taşıyor: konum `999`/`-5`/saçma değer 613 alıyor,
+`2`/`5`/`10` ise menü **ayıraçları** olduğu için reddediliyor. Yani konum
+yöntemi gerçek menüye karşı doğruluyor — "OK döndü ama hiçbir şey olmadı"
+şüphesi (ilk sonda, `position: 0`) böyle çürütüldü: 0 gerçek ama sessiz
+bir öğe.
+
+**Asıl bulgu — menü içeriği okunamıyor.** Bunu ölçmek için köprüye bir
+teşhis ucu eklendi: `GET /session/{c}/{s}/contextmenu?id=…` menüyü açar
+(`contextMenu()`), oturumun durulmasını bekler, sonra elemanın / aktif
+pencerenin / ana pencerenin altında menü tipindeki her düğümü tarar.
+Sonuç: **`component: 0`** — SAP açık bir bağlam menüsünü bileşen ağacında
+hiç göstermiyor. Tarama sağlam, çünkü aynı taramada ana menü çubuğu
+(`wnd[0]/mbar`) tüm alt menüleriyle Türkçe okunuyor. `Key`/`Name` de işlev
+kodu vermiyor (`Name == Text`). Bu yüzden teşhis "menüyü listele" diye
+değil, `contextMenuExposed` (bulgunun regresyon kontrolü) + `menuBar`
+(gerçekten okunabilen tek menü) olarak döner.
+
+**Metin yönteminin tuzağı, ve neden varsayılan artık "konum".** Menüde
+yazan etiket, açtığı ekranın başlığı DEĞİL: aynı öğenin etiketi `Ara...`,
+açtığı popup'ın başlığı `Bul`. `Bul`, `Bul...`, `Find...`, `Ayrıntılar`,
+`E-tabloya aktar`… dokuz mantıklı tahminin **hepsi** reddedildi; çalışan
+tek değer menüde gerçekten yazan `Ara...` idi. Metni GÖREN kullanıcı için
+metin yöntemi doğru yol; menüyü göremeyen (ajan, ya da script yazan)
+için tek çalışan yol **konum sondalaması** — geçersiz konum zararsızca
+reddedilir, geçerli konum işlemi yapar. Ajanın action sözlüğü (
+`actionsDoc.ts`) ve 613 hata metni bunu artık böyle anlatıyor.
+
+*Not:* bu ölçümde `&OPTIMIZE` reddedildi, oysa aynı gün önceki ölçümde
+geçmişti. Menünün içeriği o anki hücreye/bağlama göre değişiyor olabilir;
+kanıtlanmadı, sadece kayda geçiyor — kod tahmininin neden kırılgan
+olduğunun bir örneği daha.
+
+Ekran yine başladığı yerde bırakıldı (SE16N 200, VBFA, popup yok);
+açılan üç popup da kendi İptal'iyle kapatıldı ve her seferinde taban
+duruma dönüldüğü okunarak doğrulandı.
+
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
 ### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)

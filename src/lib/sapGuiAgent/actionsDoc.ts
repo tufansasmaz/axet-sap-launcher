@@ -48,10 +48,19 @@ export const ACTIONS_DOC = `Kullanabilecegin action'lar:
   Bir tus kodu gonderir (0=Enter, 3=F3/Geri, 8=F8/Calistir, 11=Ctrl+S, 12=F12/Iptal). "id" bos
   birakilirsa ana pencereye (wnd[0]) gonderilir - COK SIK kullanilan bir aksiyondur (T-code'a
   Enter ile gecmek icin).
-- select_context_menu_item {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "...", "by": "text"}
-  Bir elemanin sag-tik menusunden bir ogeyi secer. "by": "text" (menude GORUNEN metin,
-  varsayilan), "code" (SAP islev kodu, orn "&XXL") veya "position" (menudeki sira).
+- select_context_menu_item {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "...", "by": "position"}
+  Bir elemanin sag-tik menusunden bir ogeyi secer. "by": "position" (menudeki sira, 0 tabanli),
+  "text" (menude GORUNEN etiket) veya "code" (SAP islev kodu, orn "&XXL").
   Menu ONCE acilir, sonra oge secilir - bunu sen yapmiyorsun, tek action yeterli.
+  MENUNUN ICINDEKILERI OKUMANIN YOLU YOK: get_node baglam menusunu GORMEZ (SAP onu bilesen
+  agacinda hic gostermiyor - canli dogrulandi). Yani "text" ve "code" degerlerini ancak
+  TAHMIN edebilirsin, ve tahmin genelde tutmaz: canli bir ALV'de menudeki ogenin etiketi
+  "Ara..." iken actigi popup'in basligi "Bul" idi - "Bul"/"Find..."/"Ayrintilar" gibi dokuz
+  mantikli tahminin hepsi reddedildi.
+  BU YUZDEN "position" ILE SONDALA: "0"dan baslayip artir. Gecersiz/ayirac bir konum
+  ZARARSIZCA reddedilir (hata metnini gorursun, ekran degismez), gecerli bir konum ise ISLEMI
+  YAPAR - her denemeden sonra get_node ile ekranin degisip degismedigine bak. Yanlis bir oge
+  calistiysa (beklenmedik popup) F12/Iptal (send_vkey 12) ile geri don.
 - ask_user {"question": "...", "options": ["...", "..."]}
   Belirsiz bir noktada kullaniciya soru sor ve dur; cevap bir sonraki KULLANICI mesaji olarak
   gelecek. "options" opsiyoneldir. Bir batch icindeyse bundan sonraki action'lar CALISTIRILMAZ.

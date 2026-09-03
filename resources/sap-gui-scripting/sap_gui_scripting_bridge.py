@@ -1078,6 +1078,152 @@ def _apply_navigate(session, tcode: str) -> None:
 CONTEXT_MENU_MODES = ("code", "text", "position")
 
 
+def _menu_items(menu, depth: int = 0) -> list:
+    """Bir menu dugumunun ogelerini okur: metin + SAP islev kodu.
+
+    `Key` SAP'nin islev kodudur ("&XXL" gibi) - `selectContextMenuItem`'in
+    "code" yontemi TAM OLARAK bunu bekliyor. Yani menu okunabiliyorsa, kod
+    tahmin edilmek zorunda degil: burada yaziyor.
+    """
+    items: list = []
+    children = _try(lambda: menu.Children)
+    if children is None:
+        return items
+    for i in range(min(_try(lambda: children.Count, 0) or 0, 200)):
+        child = _try(lambda i=i: children.ElementAt(i))
+        if child is None:
+            continue
+        item = {
+            "position": i,
+            "text": (_try(lambda: child.Text, "") or "").strip()[:120],
+            # Islev kodu iki ayri yerde olabiliyor ve HANGISI oldugu belgeli
+            # degil: `Key` menu ogelerinde cogunlukla bos donuyor (canli
+            # olcum, ana menu cubugu), `Name` ise SAP'nin ic adini tasiyor.
+            # Ikisi de yaziliyor - tahmin etmemek icin.
+            "code": (_try(lambda: child.Key, "") or "").strip()[:40],
+            "name": (_try(lambda: child.Name, "") or "").strip()[:40],
+            "type": _try(lambda: child.Type, "") or "",
+        }
+        if depth < 3:
+            sub = _menu_items(child, depth + 1)
+            if sub:
+                item["items"] = sub
+        items.append(item)
+    return items
+
+
+def _collect_menus(comp, acc: list, depth: int = 0) -> None:
+    """Bir agacta menu tipindeki dugumleri toplar (GuiMenubar/GuiMenu/
+    GuiContextMenu - hepsinin tip adinda "Menu" gecer)."""
+    if depth > 5 or len(acc) >= 20:
+        return
+    comp_type = _try(lambda: comp.Type, "") or ""
+    if "Menu" in comp_type:
+        acc.append({
+            "id": _try(lambda: comp.Id, "") or "",
+            "type": comp_type,
+            "text": (_try(lambda: comp.Text, "") or "").strip()[:120],
+            "items": _menu_items(comp),
+        })
+        return
+    children = _try(lambda: comp.Children)
+    if children is None:
+        return
+    for i in range(_try(lambda: children.Count, 0) or 0):
+        child = _try(lambda i=i: children.ElementAt(i))
+        if child is not None:
+            _collect_menus(child, acc, depth + 1)
+
+
+def read_context_menu(session, element_id: str | None) -> dict:
+    """TESHIS: bir elemanin sag tik menusunu acar ve ICINDEKILERI okumayi dener.
+
+    SONUC (canli olcum, S4D / SE16N ALV grid, 2026-09-03): SAP BIR BAGLAM
+    MENUSUNU BILESEN AGACINDA HIC GOSTERMIYOR. `contextMenu()` basariyla
+    donuyor, oturum duruluyor, sonra elemanin/aktif pencerenin/ana pencerenin
+    ALTINDA menu tipinde tek bir yeni dugum bile cikmiyor (`component: 0`).
+    Bulunan tek menu ana menu cubugu (`wnd[0]/mbar`) - ve o TAMAMEN okunuyor,
+    yani tarama calisiyor, ortada okunacak sey yok.
+
+    Bu yuzden fonksiyon "menuyu listele" degil, IKI SEY yapar:
+      - `menuBar`: ana menu cubugunu okur. Baglam menusu okunamadigi icin
+        bu, agentin/kullanicinin GERCEKTEN okuyabildigi tek menudir - ayni
+        islevler cogu ekranda oradan da erisilebilir.
+      - `contextMenuExposed`: yukaridaki bulgunun REGRESYON KONTROLU. Bir gun
+        (baska bir SAP GUI surumu, baska bir kontrol tipi) True donerse,
+        menuyu tahmin etme donemi biter.
+
+    Menude ne oldugunu ogrenmenin CALISAN yolu KONUM SONDALAMASIDIR:
+    `selectContextMenuItem` + `by: "position"` gercek menuye karsi dogruluyor
+    - "999"/"-5"/sacma bir deger 613 ile REDDEDILIYOR, gecerli bir konum
+    calisiyor. Yani reddedilen konum zararsizdir, kabul edilen konum ISLEMI
+    YAPAR. Ayni ALV'de olculen harita: 0/1/3/4/7/9 sessiz, 2/5/10 ayirac
+    (reddedildi), 6 "Ara..." popup'i, 8 filtre popup'i, 11 "Export As".
+
+    YAN ETKISI VAR: menuyu gercekten acar (`contextMenu()`). Salt okuma
+    degildir; teshis amaciyla bilerek boyle.
+    """
+    comp = resolve_component(session, element_id)
+    opened = False
+    open_error = ""
+    try:
+        comp.contextMenu()
+        opened = True
+    except Exception as exc:  # noqa: BLE001
+        open_error = _translate_com_error(exc)
+
+    # ALV baglam menusunu SAP cogu zaman SUNUCUDA kuruyor - `contextMenu()`
+    # donduginde menu daha var olmamis olabilir. Aramadan once oturumun
+    # durulmasi beklenir; yoksa "menu yok" sonucu, menunun gercekten
+    # okunamadigini degil, ERKEN BAKILDIGINI gosterirdi.
+    _try(lambda: _settle(session, 2.0))
+
+    menus: list = []
+    seen_ids: set = set()
+    probes: dict = {}
+    for label, getter in (
+        ("activeWindow", lambda: session.ActiveWindow),
+        ("mainWindow", lambda: session.findById("wnd[0]")),
+        ("component", lambda: comp),
+    ):
+        root = _try(getter)
+        if root is None:
+            probes[label] = None
+            continue
+        found: list = []
+        _collect_menus(root, found)
+        probes[label] = len(found)
+        for menu in found:
+            key = menu.get("id") or repr(menu)
+            if key in seen_ids:
+                continue
+            seen_ids.add(key)
+            menus.append(menu)
+
+    # Ana menu cubugu ile "geri kalan" AYRILIR. Ayrilmasaydi `mbar` baglam
+    # menusuymus gibi donerdi - okunan menuyu SAG TIK menusu sanmak, bu
+    # teshisin engellemesi gereken tam da o hata olurdu.
+    menu_bar = next((m for m in menus if m.get("id", "").endswith("/mbar")), None)
+    others = [m for m in menus if m is not menu_bar]
+
+    return {
+        "elementId": _try(lambda: comp.Id, "") or (element_id or ""),
+        "elementType": _try(lambda: comp.Type, "") or "",
+        "opened": opened,
+        "openError": open_error,
+        "probes": probes,
+        "contextMenuExposed": bool(others),
+        "contextMenus": others,
+        "menuBar": menu_bar,
+        "note": (
+            "SAP acik baglam menusunu bilesen agacinda GOSTERMIYOR (canli "
+            "dogrulandi). Menude ne oldugunu ogrenmek icin selectContextMenuItem "
+            "+ by='position' ile sondala: gecersiz konum 613 ile reddedilir "
+            "(zararsiz), gecerli konum ISLEMI YAPAR."
+        ) if not others else "",
+    }
+
+
 def _apply_context_menu(comp, payload: dict) -> None:
     """Sag tik menusunden bir oge sec - KOD, METIN veya KONUM ile.
 
@@ -1090,8 +1236,22 @@ def _apply_context_menu(comp, payload: dict) -> None:
 
     SAP'nin kendi API'sinde bunun karsiligi zaten var: menude GORUNEN metinle
     (`SelectContextMenuItemByText`) veya sirasiyla
-    (`SelectContextMenuItemByPosition`) secmek. Kullanicinin okuyabildigi sey
-    metin, o yuzden asil yol o.
+    (`SelectContextMenuItemByPosition`) secmek.
+
+    UCU DE CANLI DOGRULANDI (S4D / SE16N ALV grid, 2026-09-03) - hepsi
+    GOZLENEBILIR bir sonuc uretti, yani "OK dondu" ile yetinilmedi:
+      code     "&XXL"     -> "Export As" popup'i
+      position "6"        -> "Ara..." popup'i;  "8" -> filtre;  "11" -> Export As
+      text     "Ara..."   -> ayni "Ara..." popup'i
+    Reddedilenler de bilgi: konum "999"/"-5"/sacma bir deger 613 aliyor,
+    "2"/"5"/"10" ise MENU AYIRACLARI oldugu icin reddediliyor.
+
+    METIN YONTEMININ TUZAGI: menude yazan etiket, ACTIGI EKRANIN BASLIGI
+    DEGILDIR. Ayni ogenin etiketi "Ara...", actigi popup'in basligi "Bul".
+    "Bul", "Bul...", "Find...", "Ayrintilar" gibi mantikli dokuz tahminin
+    HEPSI reddedildi; calisan tek deger menude gercekten yazan "Ara..." idi.
+    Yani metin yontemi, metni GERCEKTEN goren biri icindir; gormeyen icin
+    guvenilir yol KONUM SONDALAMASIDIR (bkz. `read_context_menu`).
     """
     mode = str(payload.get("by") or "code").strip().lower()
     if mode not in CONTEXT_MENU_MODES:
@@ -1129,12 +1289,16 @@ def _apply_context_menu(comp, payload: dict) -> None:
             raise SapGuiScriptingError(
                 f"SAP bu {what} degerini tanimadi: {value!r}. "
                 + (
-                    "Islev kodlari ('&XXL' gibi) ekranda yazmaz; SAP'de sag tiklayip "
-                    "GORDUGUN metni 'metin' yontemiyle vermek daha guvenilir."
+                    "Islev kodlari ('&XXL' gibi) ekranda hicbir yerde yazmaz."
                     if mode == "code"
-                    else "SAP'de sag tiklayip menude yazan metnin birebir aynisini ver "
-                    "(oturum dilinde, kisayol kismi olmadan)."
+                    else "Menude yazan etiket, actigi ekranin basligiyla AYNI DEGIL "
+                    "(orn. etiket 'Ara...', popup basligi 'Bul') - baslikten tahmin etme."
+                    if mode == "text"
+                    else "Bu konumda oge yok; menu ayiraclari da reddedilir."
                 )
+                + " Menu icerigi OKUNAMIYOR (SAP acik menuyu bilesen agacinda "
+                "gostermiyor); dogru degeri bulmanin calisan yolu 'position' ile "
+                "0'dan baslayarak sondalamaktir - gecersiz konum zararsizca reddedilir."
             ) from exc
         raise
 
@@ -1351,6 +1515,15 @@ def run_bridge(host: str, port: int) -> None:
                     # ve tuş durumunun gerekmediği çağrılar için).
                     with_keys = (qs.get("keys") or ["1"])[0] != "0"
                     self._send_json(200, {"ok": True, "screen": describe_screen(session, with_keys)})
+                    return
+                # GET olmasina ragmen YAN ETKILI (menuyu acar) - teshis ucu.
+                # POST altina konsaydi bir "aksiyon" gibi gorunur, kaydediciye
+                # ve oynaticiya sizardi; bu ise oynatilacak bir adim degil,
+                # bakilacak bir sey.
+                if len(parts) == 4 and parts[0] == "session" and parts[3] == "contextmenu":
+                    session = resolve_session(application, int(parts[1]), int(parts[2]))
+                    element_id = (qs.get("id") or [None])[0]
+                    self._send_json(200, {"ok": True, "contextMenu": read_context_menu(session, element_id)})
                     return
                 if len(parts) == 4 and parts[0] == "session" and parts[3] == "screenshot":
                     session = resolve_session(application, int(parts[1]), int(parts[2]))

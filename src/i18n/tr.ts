@@ -376,7 +376,7 @@ export const tr = {
   "sapGuiScripting.contextMenuTitle": "Sağ Tık Menüsü (selectContextMenuItem)",
   "sapGuiScripting.contextMenuPlaceholder": "İşlev kodu (ör. &XXL)",
   "sapGuiScripting.contextMenuPlaceholderText": "Menüde yazan metin",
-  "sapGuiScripting.contextMenuPlaceholderPosition": "Sıra no (1, 2, 3…)",
+  "sapGuiScripting.contextMenuPlaceholderPosition": "Sıra no — 0'dan başlar (0, 1, 2…)",
   "sapGuiScripting.contextMenuByText": "Metin",
   "sapGuiScripting.contextMenuByCode": "Kod",
   "sapGuiScripting.contextMenuByPosition": "Konum",

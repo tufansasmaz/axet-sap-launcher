@@ -371,7 +371,7 @@ export const en: Record<TranslationKey, string> = {
   "sapGuiScripting.contextMenuTitle": "Context Menu (selectContextMenuItem)",
   "sapGuiScripting.contextMenuPlaceholder": "Function code (e.g. &XXL)",
   "sapGuiScripting.contextMenuPlaceholderText": "Text shown in the menu",
-  "sapGuiScripting.contextMenuPlaceholderPosition": "Position (1, 2, 3…)",
+  "sapGuiScripting.contextMenuPlaceholderPosition": "Position — 0-based (0, 1, 2…)",
   "sapGuiScripting.contextMenuByText": "Text",
   "sapGuiScripting.contextMenuByCode": "Code",
   "sapGuiScripting.contextMenuByPosition": "Position",
