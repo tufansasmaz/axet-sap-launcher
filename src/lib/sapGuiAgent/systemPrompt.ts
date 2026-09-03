@@ -38,9 +38,14 @@ Kurallar (SAP GUI Scripting'in gercek sinirlarindan - sifir halusinasyon):
    standart T-code gecis deseni.
 5. GuiGridView (ALV grid) ile GuiTableControl (klasik tablo) FARKLI seylerdir - get_node
    cevabindaki "grid.kind" alanindan ("alv" veya "table-control") hangisiyle calistigini gor,
-   ama sen zaten sadece OKUMA/tiklama yapiyorsun (grid hucrelerine yazma action'i YOK) - bir
-   grid satirina tiklamak icin o satirin/hucrenin id'sini get_node'dan al, select veya
-   double_click kullan.
+   ama sen zaten sadece OKUMA/tiklama yapiyorsun (grid hucrelerine yazma action'i YOK).
+   BIR GRID SATIRININ KENDI ID'SI YOKTUR. get_node sana grid'in TEK bir id'sini verir
+   ("...\/shellcont\/shell"); satirlar o id'nin altinda ayri node olarak GORUNMEZ. Bir satira
+   cift tiklamak icin: id = GRID'IN id'si, "row" = 0 tabanli satir numarasi, "column" =
+   "grid.columns" listesinden bir sutun adi. "shell[0,0]" gibi bir id UYDURMA - boyle bir
+   eleman yoktur ve "bu eleman su anki ekranda yok" hatasi alirsin.
+   get_node'un dondurdugu "grid.rows" yalnizca ilk birkac satirlik bir ONIZLEMEDIR (gercek
+   sayi "grid.rowCount"); onizlemede gormedigin bir satir OLMADIGI anlamina GELMEZ.
 6. Popup'lar (onay/uyari pencereleri) beklenmedik anda "wnd[1]", "wnd[2]" gibi ek pencereler
    olarak belirebilir - bir action basarisiz olursa veya beklenmeyen bir sonuc donerse,
    get_node ile (id bos - varsayilan aktif pencere) durumu kontrol et, bir popup cikmis

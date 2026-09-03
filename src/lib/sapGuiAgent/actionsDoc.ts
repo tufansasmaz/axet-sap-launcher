@@ -37,14 +37,21 @@ export const ACTIONS_DOC = `Kullanabilecegin action'lar:
   Bir butona basar (GuiButton).
 - select {"conn_idx": 0, "sess_idx": 0, "id": "..."}
   Bir elemani secer (radio button, tab, grid satiri vb.).
-- double_click {"conn_idx": 0, "sess_idx": 0, "id": "..."}
-  Bir elemana cift tiklar (orn bir grid satirinda detaya girmek icin).
+- double_click {"conn_idx": 0, "sess_idx": 0, "id": "...", "row": 0, "column": "VBELN"}
+  Bir elemana cift tiklar. DIKKAT - bir ALV GRID'de (get_node cevabinda "grid.kind":"alv")
+  "row" ZORUNLUDUR: SAP'nin imzasi doubleClick(satir, sutun) seklinde ve grid SATIRLARININ
+  KENDI ID'SI YOKTUR - "id" her zaman GRID'IN kendi id'sidir ("...\/shellcont\/shell" gibi),
+  satiri "id"nin sonuna EKLEME. "row" 0 tabanli satir numarasi, "column" ise get_node
+  cevabindaki "grid.columns" listesinden bir sutun adi (verilmezse ilk sutun kullanilir).
+  Grid DISINDAKI elemanlarda (agac dugumu, liste satiri) sadece "id" yeterli.
 - send_vkey {"conn_idx": 0, "sess_idx": 0, "id": "...", "vkey": 0}
   Bir tus kodu gonderir (0=Enter, 3=F3/Geri, 8=F8/Calistir, 11=Ctrl+S, 12=F12/Iptal). "id" bos
   birakilirsa ana pencereye (wnd[0]) gonderilir - COK SIK kullanilan bir aksiyondur (T-code'a
   Enter ile gecmek icin).
-- select_context_menu_item {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "menuItemId"}
-  Bir elemanin sag-tik menusunden bir ogeyi secer.
+- select_context_menu_item {"conn_idx": 0, "sess_idx": 0, "id": "...", "value": "...", "by": "text"}
+  Bir elemanin sag-tik menusunden bir ogeyi secer. "by": "text" (menude GORUNEN metin,
+  varsayilan), "code" (SAP islev kodu, orn "&XXL") veya "position" (menudeki sira).
+  Menu ONCE acilir, sonra oge secilir - bunu sen yapmiyorsun, tek action yeterli.
 - ask_user {"question": "...", "options": ["...", "..."]}
   Belirsiz bir noktada kullaniciya soru sor ve dur; cevap bir sonraki KULLANICI mesaji olarak
   gelecek. "options" opsiyoneldir. Bir batch icindeyse bundan sonraki action'lar CALISTIRILMAZ.

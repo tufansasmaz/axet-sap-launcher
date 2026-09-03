@@ -4660,7 +4660,9 @@ her iki tsconfig typecheck temiz.
 
 Doğrulanmadı: kaydet/oynat'ın UI üzerinden uçtan uca akışı. Bu
 "çalışmıyor" değil, "bu oturumda sırası gelmedi" — ikisi
-karıştırılmamalı.
+karıştırılmamalı. *(Sonradan: veri yolu aynı gün doğrulandı, bkz.
+"Kayıt → Kaydet → Aç → Oynat zinciri canlıda çalıştı" — geriye yalnız
+düğmelere fiilî tıklama ve dosya diyalogları kaldı.)*
 
 #### Açık maddeler canlıda denendi — dördü de kusurluydu (2026-09-03)
 
@@ -4797,6 +4799,61 @@ tanınmayan aksiyonlu dosyada 1 adım atlandığı bildirildi, bayat kimlik
 okunabilir mesaj verdi. **Denenemeyen tek parça:** Kaydet/Aç
 düğmelerinin açtığı işletim sistemi dosya diyalogları — tıklama
 gerektiriyor. Ekran yine **başladığı yerde** bırakıldı.
+
+#### AI Agent canlıda denendi — dört kusur, ikisi ajanı tamamen tıkıyordu (2026-09-03)
+
+Faz 3'ün AI Agent'ı bugüne kadar gerçek bir görevle hiç çalıştırılmamıştı.
+Görev: *"Ekranda açık ALV listesindeki ilk satıra çift tıklayarak ayrıntı
+penceresini aç, sonra F12 ile kapatıp listeye dön."* İlk koşumda **8 turda
+görevi yapamadı**; düzeltmelerden sonra **yaptı**.
+
+**1. `double_click` bir ALV'de ajanla ASLA çalışamazdı.**
+`performAndMaybeRecord`'un `extra` tipi `{value, vkey}` idi; ajanın
+gönderdiği `row`/`column` oraya kadar gelip **sessizce düşüyordu**. Canlı
+kanıt: ajan 8. turda `row: 0, column: "RUUID"`'i **doğru** üretti, köprü
+yine *"'row' gerekli"* diye reddetti — ajan haklıydı, tesisat eksikti. Ajan
+o hataya sonsuz takılıyordu. `row`/`column`/`by` eklendi; kayda da
+(`recordStep`) geçiyor, yani ajan aksiyonları artık Faz 2 script'ine doğru
+kaydediliyor.
+
+**2. Prompt, ajana ALV satırının kimliği varmış gibi söylüyordu.**
+Kural 5 aynen şuydu: *"bir grid satırına tıklamak için o satırın/hücrenin
+id'sini get_node'dan al"*. Öyle bir id yok. Ajan bunun üzerine
+`.../shellcont/shell[0,0]` **uydurdu** (5. tur). Kural düzeltildi: id her
+zaman GRID'in kendi id'si, satır `row` + `column` ile veriliyor, `shell[0,0]`
+gibi bir id'nin var olmadığı açıkça yazıldı. `ACTIONS_DOC`'ta da
+`double_click` artık `row`/`column`, `select_context_menu_item` ise `by`
+taşıyor — ikisi de bugün eklenmişti ve sözlükte hiç yoktu.
+
+**3. Tek bir ALV okuması prompt'u 115 bin karaktere şişiriyordu.**
+`nodeToText` grid'i olduğu gibi gönderiyordu: canlı 500×42 listede
+`get_node` cevabı **104.699 karakter**. Prompt 10 binden 115 bine fırladı ve
+transcript biriktiği için **sonraki her tur** o boyutta kaldı; bir tur **99
+saniye** sürdü. Ajanın bir satıra tıklamak için 200 satırın içeriğine
+ihtiyacı yok. Ajana giden kopya ilk 15 satıra kırpıldı (`previewNote` ile
+"bu bir önizleme, gerçek sayı şu" diye söylenerek; gerçek `rowCount`/
+`columnCount` korunuyor). **Denetçideki insan tablosu etkilenmedi** — orası
+tam veriyi görmeye devam ediyor.
+
+**4. (Bugün düzeltilen 619 hemen işe yaradı.)** Uydurulan `shell[0,0]`
+kimliği artık *"Bu eleman şu anki ekranda yok: '...'"* diyor ve ajan bir
+sonraki turda kendini düzeltti. Ham COM demeti olsaydı düzeltemezdi.
+
+**Sonuç (aynı görev, düzeltmelerden sonra).** 6. turda ajan
+`double_click(row 0, "VBELN")` + `send_vkey(12)`'yi tek batch'te gönderdi,
+ikisi de başarılı; 7. turda ekranı doğruladı; 8. turda doğru bir özetle
+bitirdi (*"VBELN=80000000 … veri değiştirilmedi"* — VBELN değeri gerçekten
+o). Prompt tepe noktası **116.703 → 23.223 karakter**, transcript
+**110.161 → 15.622**.
+
+**Test koşumunun sınırı — dürüstçe.** Panelin düğmesine tıklayamadığım için
+aynı döngü birebir tekrar edildi (gerçek system prompt, gerçek `axet-code
+run --quiet --cwd <scratch>` spawn'ı, gerçek `extractJson`/
+`normalizeActions`); tek fark `executeTool`'un IPC yerine doğrudan köprüye
+HTTP atması. Ayrıca **canlı sistem olduğu için** veri değiştirebilecek
+aksiyonlar (`set_text`/`press`/`select_context_menu_item`) test koşumunda
+bloke edildi — ajan bunları denemedi, yani o üç yolun ajanla çalıştığı
+DOĞRULANMADI. Ekran yine başladığı yerde bırakıldı (SE16N 200, popup yok).
 
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
