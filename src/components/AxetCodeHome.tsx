@@ -57,6 +57,14 @@ interface RecentEntry {
 }
 
 interface Props {
+  /**
+   * Bu bileşen App.tsx'te ARTIK KOŞULLU RENDER EDİLMİYOR — sekme değişince
+   * CSS ile gizleniyor ki akan cevaplar ve açık sohbet seçimi hayatta kalsın.
+   * Bunun bedeli: gizliyken de canlı olması. Global klavye kısayolları bu
+   * bayrakla susturuluyor; yoksa SAP Launcher'dayken basılan Ctrl+N,
+   * görünmeyen bir panelde sessizce yeni sohbet açardı.
+   */
+  active: boolean;
   config: AppConfig | null;
   pushToast: (kind: "success" | "error", text: string) => void;
   recentEntries: RecentEntry[];
@@ -97,6 +105,67 @@ const MAX_HISTORY_MESSAGES = 24;
 // "Yeni sohbet"e üst üste basan kullanıcı, listeyi hiç kullanılmamış boş
 // kayıtlarla dolduruyordu.
 const NEW_SESSION_ID = "__new__";
+
+// --- Açılış ekranındaki öneri kartları ---
+//
+// SABİT ÜÇ TANE DEĞİL (kullanıcı isteği, 2026-09-04: *"burdaki önerilen
+// sorular sürekli değişen mantıklı şeyler olsun"*). Eskiden ekranda her
+// zaman aynı üç kart vardı ("mimariyi özetle / src'deki dosyaları listele /
+// package.json'ı açıkla"); ikinci açılıştan sonra kimse okumuyordu.
+//
+// "Mantıklı" kısmı `scope` ile: karşılığı olmayan bir öneri GÖSTERİLMİYOR.
+// Bağlı SAP sistemi yokken "SAP sistemlerimi özetle" demek ya boş bir cevap
+// ya uydurma üretir. Öneri kartının işi, kullanıcıya yapabileceği bir şeyi
+// hatırlatmak — yapamayacağı bir şeyi vaat etmek değil.
+type SuggestionScope = "general" | "sap" | "connector";
+
+const SUGGESTION_POOL: readonly { key: string; scope: SuggestionScope }[] = [
+  { key: "sgArchitecture", scope: "general" },
+  { key: "sgKeyFiles", scope: "general" },
+  { key: "sgDependencies", scope: "general" },
+  { key: "sgRecentChanges", scope: "general" },
+  { key: "sgTests", scope: "general" },
+  { key: "sgDebug", scope: "general" },
+  { key: "sgCommitMessage", scope: "general" },
+  { key: "sgTodos", scope: "general" },
+  { key: "sgReadme", scope: "general" },
+  { key: "sgExplainFile", scope: "general" },
+  { key: "sgSetup", scope: "general" },
+  { key: "sgSapSystems", scope: "sap" },
+  { key: "sgAbapReport", scope: "sap" },
+  { key: "sgSapDump", scope: "sap" },
+  { key: "sgSapGuiAutomate", scope: "sap" },
+  { key: "sgMailSummary", scope: "connector" },
+  { key: "sgSharepointFind", scope: "connector" }
+];
+
+const SUGGESTION_COUNT = 3;
+
+// Tohumlanmış karıştırma (mulberry32). Düz `Math.random()` kullanılmıyor,
+// çünkü seçim bir `useMemo` içinde yapılıyor: React aynı bağımlılıklarla
+// gövdeyi tekrar çalıştırabildiği (StrictMode çift render, yeniden render)
+// için kartlar kullanıcı hiçbir şey yapmadan gözünün önünde değişirdi.
+// Tohum yalnızca "yeni sohbet"te değişiyor — yani kartlar tam olarak
+// istendiği anda ve yalnızca o anda yenileniyor.
+function seededShuffle<T>(items: readonly T[], seed: number): T[] {
+  let state = seed >>> 0;
+  const random = () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const out = items.slice();
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function freshSuggestionSeed(): number {
+  return (Date.now() ^ Math.floor(Math.random() * 0xffffffff)) >>> 0;
+}
 
 // NOT — kenar çubuğunda bir ara TARİH BAŞLIKLARI vardı ("Bugün / Dün / Bu
 // hafta / Daha eski", `groupLabelKey` + yapışkan başlıklar). Gemini düzenine
@@ -140,6 +209,7 @@ const NEW_SESSION_ID = "__new__";
 // Model seçici bu dosyadan değil ChatSessionPane'in COMPOSER'INDAN yönetiliyor
 // (seçim mantığı burada: `handleSelectModel`).
 export default function AxetCodeHome({
+  active,
   config,
   pushToast,
   recentEntries,
@@ -189,6 +259,10 @@ export default function AxetCodeHome({
   // ilk render'daki boş `sessions=[]` state'i, yükleme cevabı gelmeden önce
   // debounce'lu kaydediciyi tetikleyip diskteki TÜM geçmişi silerdi.
   const loadedRef = useRef(false);
+  // Öneri kartlarının tohumu — her "yeni sohbet"te yenileniyor (bkz.
+  // SUGGESTION_POOL). Diske yazılmıyor: açılışta zaten yeni bir tohum
+  // isteniyor.
+  const [suggestionSeed, setSuggestionSeed] = useState(freshSuggestionSeed);
 
   // --- Sohbet geçmişini diskten yükle (yalnızca bir kez, mount'ta) ---
   // Bağımlılık listesi bilerek boş: `t`/`pushToast` değiştiğinde yeniden
@@ -219,6 +293,11 @@ export default function AxetCodeHome({
         // solda duruyor, tıklayınca eskisi gibi açılıyor — kaybolan bir şey
         // yok, yalnızca AÇILIŞ noktası değişti. Alan diske hâlâ yazılıyor
         // (ChatSessionsState'in zorunlu alanı), sadece okunmuyor.
+        //
+        // Bu effect UYGULAMA ÖMRÜNDE BİR KEZ çalışıyor: App.tsx bu bileşeni
+        // artık koşullu render etmiyor, sekme değişince CSS ile gizliyor.
+        // Yani "boş sohbetle karşıla" davranışı gerçekten yalnızca AÇILIŞTA
+        // geçerli — sekme değiştirip geri gelmek açık sohbeti kapatmıyor.
         if (result.recoveredFrom) {
           pushToast("error", t("axetCodeHome.historyCorrupt"));
         } else if (!result.ok && result.error) {
@@ -310,13 +389,17 @@ export default function AxetCodeHome({
     setNewDraft("");
     setNewAttachments([]);
     setQuery("");
+    // Boş ekrana her dönüşte kartlar yenileniyor — "sürekli değişen" burada.
+    setSuggestionSeed(freshSuggestionSeed());
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
 
   // Ctrl+N / Cmd+N — yeni sohbet. Bir metin alanındayken de çalışıyor
   // (Ctrl+N'in girişte anlamlı bir yerel karşılığı yok), ama tarayıcının
   // kendi "yeni pencere" davranışını bastırmak için preventDefault şart.
+  // Yalnızca sekme ÖNDEYKEN bağlanıyor (bkz. `active`).
   useEffect(() => {
+    if (!active) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "n") {
         e.preventDefault();
@@ -325,7 +408,7 @@ export default function AxetCodeHome({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleNewSession]);
+  }, [active, handleNewSession]);
 
   // Silme ARTIK onay istiyor: Faz 2'den önce sohbetler zaten uygulama
   // kapanınca kayboluyordu, şimdi kalıcılar — yanlışlıkla basılan bir "×"
@@ -794,7 +877,22 @@ export default function AxetCodeHome({
   }, []);
 
   const greeting = useMemo(greetingKey, []);
-  const suggestionKeys = ["suggestion1", "suggestion2", "suggestion3"] as const;
+
+  // Havuzdan bu turun üç kartı. Bağımlılıklar bilerek dar: kullanıcı "yeni
+  // sohbet"e basmadıkça (tohum) ya da bağlam gerçekten değişmedikçe (SAP
+  // sistemi bağlandı / bir uygulama bağlandı) kartlar yerinde duruyor.
+  const hasSapContext = recentEntries.length > 0;
+  const hasConnectorContext = Object.values(config?.connectorEnabled ?? {}).some(Boolean);
+  const suggestionKeys = useMemo(() => {
+    const eligible = SUGGESTION_POOL.filter(({ scope }) => {
+      if (scope === "sap") return hasSapContext;
+      if (scope === "connector") return hasConnectorContext;
+      return true;
+    });
+    return seededShuffle(eligible, suggestionSeed)
+      .slice(0, SUGGESTION_COUNT)
+      .map(({ key }) => key);
+  }, [hasConnectorContext, hasSapContext, suggestionSeed]);
 
   // En son dokunulan sohbet en üstte. Sohbetler artık kalıcı olduğu için
   // ekleme sırası (eskiler üstte) birkaç gün içinde kullanılamaz hâle gelir.
@@ -1113,7 +1211,7 @@ export default function AxetCodeHome({
           <ChatSessionPane
             key={session.id}
             session={session}
-            active={activeId === session.id}
+            active={active && activeId === session.id}
             models={models}
             modelsLoading={modelsLoading}
             modelsError={modelsError}
@@ -1142,7 +1240,7 @@ export default function AxetCodeHome({
             sohbet. Uygulama açıldığında imleç zaten yazı kutusunda. */}
         <ChatSessionPane
           session={newSessionView}
-          active={activeId === null}
+          active={active && activeId === null}
           models={models}
           modelsLoading={modelsLoading}
           modelsError={modelsError}

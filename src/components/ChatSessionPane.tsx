@@ -1,15 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
+  BookOpen,
+  Bug,
+  Code2,
+  FileCode,
+  Files,
+  FlaskConical,
   FolderTree,
+  GitBranch,
+  History,
   Layers,
+  ListChecks,
   Loader2,
+  Mail,
   Mic,
+  MousePointerClick,
   Package,
   Paperclip,
   RefreshCw,
+  Rocket,
+  Server,
   Sparkles,
   Square,
   UploadCloud
@@ -24,10 +38,26 @@ import { useT } from "../i18n";
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
 // gelirse `Sparkles`'a düşer, yani yeni öneri eklemek bu haritayı
 // güncellemeyi ZORUNLU kılmaz.
+// Anahtarların havuzu AxetCodeHome'da (`SUGGESTION_POOL`) — burada yalnızca
+// görsel karşılıkları var.
 const SUGGESTION_ICONS: Record<string, LucideIcon> = {
-  suggestion1: Layers,
-  suggestion2: FolderTree,
-  suggestion3: Package
+  sgArchitecture: Layers,
+  sgKeyFiles: FolderTree,
+  sgDependencies: Package,
+  sgRecentChanges: History,
+  sgTests: FlaskConical,
+  sgDebug: Bug,
+  sgCommitMessage: GitBranch,
+  sgTodos: ListChecks,
+  sgReadme: BookOpen,
+  sgExplainFile: FileCode,
+  sgSetup: Rocket,
+  sgSapSystems: Server,
+  sgAbapReport: Code2,
+  sgSapDump: AlertTriangle,
+  sgSapGuiAutomate: MousePointerClick,
+  sgMailSummary: Mail,
+  sgSharepointFind: Files
 };
 
 // Okuma sütunu. Mesajlar, karşılama ve composer AYNI genişliği kullanır —

@@ -744,8 +744,22 @@ export default function App() {
           connectorsConnected={Object.values(config?.connectorEnabled ?? {}).some(Boolean)}
         />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        {activity === "axetCode" ? (
+        {/* axet.code HER ZAMAN mount — gizlenirken CSS ile gizleniyor, koşullu
+            render EDİLMİYOR (kullanıcı isteği, 2026-09-04: *"eğer açıksa ve
+            herhangi bir sohbet devam ediyosa ekran değiştiğinde de sabit
+            kalsın"*). Koşullu render'da başka bir sekmeye geçmek bileşeni
+            unmount ediyordu ve bu üç şeyi birden götürüyordu: açık sohbetin
+            seçimi, henüz diske yazılmamış (600ms debounce) son değişiklikler,
+            ve AKAN bir cevap — main process'teki `axet-code` çalışmaya devam
+            edip cevabı ölü bir bileşene teslim ediyordu. Mount'u korumak
+            üçünü de tek hamlede çözüyor; bedeli yok, çünkü burada webview
+            yok (bkz. axetFlowsLive'ın gizli div'inin yarattığı konsol
+            gürültüsü — o yüzden O kaldırıldı, bu KALIYOR).
+            Ek fayda: model listesi/sohbet geçmişi her sekme geçişinde değil
+            uygulama ömründe bir kez yükleniyor. */}
+        <div className={activity === "axetCode" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
           <AxetCodeHome
+            active={activity === "axetCode"}
             config={config}
             pushToast={pushToast}
             recentEntries={recentEntries}
@@ -754,7 +768,8 @@ export default function App() {
             onOpenSapLauncher={() => setActivity("sapLauncher")}
             onQuickConnectSap={handleQuickConnectSap}
           />
-        ) : activity === "sapGuiScripting" ? (
+        </div>
+        {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome />
         ) : (
           <>

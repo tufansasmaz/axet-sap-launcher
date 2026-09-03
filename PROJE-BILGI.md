@@ -7727,3 +7727,57 @@ kalıyordu; içindeki webview yüzünden konsolda sürekli
 `BACKEND_MODELS_SEPARATOR has already been declared`, `Failed to get token:
 Unauthorized`, `Error loading catalog … Forbidden` gürültüsü akıyordu. O div
 gidince gürültü de gitti.
+
+## axet.code: mount kalıcılığı ve dönüşümlü öneri kartları (2026-09-04)
+
+Kullanıcı isteği: *"bu chat kısmındaki boş sohbet ekranı sadece uygulama
+kapalıysa ve açıldıysa gelsin ... eğer açıksa ve herhangi bir sohbet devam
+ediyosa ekran değiştiğinde de sabit kalsın"* ve *"burdaki önerilen sorular
+sürekli değişen mantıklı şeyler olsun"*.
+
+### 1. axet.code artık UNMOUNT OLMUYOR
+
+`App.tsx` bu bileşeni koşullu render etmiyor; sekme değişince CSS ile
+gizliyor (`hidden`). Bir üstteki turda eklenen "açılışta boş sohbet"
+davranışı, koşullu render yüzünden **her sekme geçişinde** tetikleniyordu.
+
+Koşullu render'ın götürdüğü üç şey vardı ve üçü de tek hamlede çözüldü:
+
+1. Açık sohbetin seçimi (`activeId`) sıfırlanıyordu.
+2. Henüz diske yazılmamış son değişiklikler kayboluyordu — kaydedici 600ms
+   debounce'lu ve unmount `clearTimeout` ile zamanlayıcıyı iptal ediyor.
+3. **AKAN bir cevap** kayboluyordu: main process'teki `axet-code` çalışmaya
+   devam edip cevabı ölü bir bileşene teslim ediyordu.
+
+⚠️ Mount'u korumanın iki bedeli var, ikisi de karşılandı:
+
+- **Global kısayollar gizliyken de dinliyordu.** `active` prop'u eklendi;
+  Ctrl+N dinleyicisi yalnızca sekme öndeyken bağlanıyor. Yoksa SAP
+  Launcher'dayken Ctrl+N, görünmeyen bir panelde sessizce yeni sohbet açardı.
+- **`display:none` panelin `scrollHeight`'i 0'dır.** `ChatSessionPane`'in
+  `active` prop'u artık `active && activeId === …` — sekmeye geri dönüldüğünde
+  effect yeniden çalışıp listeyi dibe sabitliyor (gizliyken akan cevap
+  yüzünden liste en üstte açılırdı).
+
+`axetFlowsLive` de aynı desendeydi ve KALDIRILDI — çelişki değil: oradaki
+gizli div bir **webview** barındırıyordu ve sürekli konsol gürültüsü
+üretiyordu. Burada webview yok, maliyet sıfır.
+
+### 2. Öneri kartları havuzdan geliyor
+
+Eskiden ekranda her zaman aynı üç kart vardı; ikinci açılıştan sonra kimse
+okumuyordu. Artık `AxetCodeHome`'daki `SUGGESTION_POOL`'dan (17 öneri) üçü
+seçiliyor ve **her "yeni sohbet"te** yenileniyor.
+
+- **Tohumlanmış karıştırma** (`seededShuffle`, mulberry32) kullanılıyor, düz
+  `Math.random()` değil: seçim bir `useMemo` içinde ve React aynı
+  bağımlılıklarla gövdeyi tekrar çalıştırabildiği için kartlar kullanıcı
+  hiçbir şey yapmadan gözünün önünde değişirdi.
+- **`scope` ile bağlam süzgeci**: `sap` kapsamlı öneriler yalnızca bağlanılmış
+  bir SAP sistemi varsa, `connector` kapsamlılar yalnızca bir uygulama bağlıysa
+  gösteriliyor. Öneri kartının işi kullanıcıya *yapabileceği* bir şeyi
+  hatırlatmak; karşılığı olmayan bir öneri ya boş cevap ya uydurma üretir.
+
+Yeni öneri eklemek: `src/i18n/{tr,en}.ts`'e `axetCodeHome.sg*` anahtarı +
+`SUGGESTION_POOL`'a bir satır. İkon isteğe bağlı (`ChatSessionPane`'deki
+`SUGGESTION_ICONS`; eşleşme yoksa `Sparkles`).
