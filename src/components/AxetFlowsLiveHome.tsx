@@ -60,6 +60,18 @@ async function probeReachable(baseUrl: string, timeoutMs = PROBE_TIMEOUT_MS): Pr
 //  1) Basit iframe'in `onLoad` GEÇ (ama sonunda) tetiklendiği durumlar
 //     için 15s'lik bir zaman aşımı watchdog'u var — süre dolarsa "hata"
 //     durumuna zorla geçilir.
+//  1b) `onError` BU İŞ İÇİN ÇALIŞMIYOR — ölçüldü (2026-09-03): kapalı bir
+//     porta (`http://localhost:60004/`, aXet.flows'un ÖNCEKİ çalıştırmasından
+//     kalan cache'lenmiş adres) bakan bir iframe `load` olayını **1 kez**
+//     tetikliyor, `error`'ı **hiç** tetiklemiyor — Chromium'un kendi
+//     ERR_CONNECTION_REFUSED sayfası da bir sayfadır ve o YÜKLENİR. Sonuç:
+//     `loading=false, loadError=false` olup watchdog iptal ediliyor, kurtarma
+//     döngüsü de (`needsRecovery`) hiç çalışmıyordu; kullanıcı Chromium'un ham
+//     hata sayfasına bakakalıyor ve axet.flows sonradan açılsa bile ekran
+//     kendiliğinden düzelmiyordu. Port HER çalıştırmada rastgele seçildiği
+//     için (bkz. axetFlowsLiveDiscovery.ts) cache'lenmiş adresin ölmesi
+//     istisna değil, NORMAL durum. DÜZELTME: iframe artık ancak host
+//     GERÇEKTEN cevap verdiği doğrulandıktan sonra mount ediliyor.
 //  2) BİR ÖNCEKİ sürümde eklenen "kurtarma döngüsü" YANLIŞLIKLA `loading`
 //     durumunu da "sağlıksız" sayıp host erişilebilir olduğunda HENÜZ
 //     YÜKLENMEKTE OLAN iframe'i her 4 saniyede bir zorla yeniden
@@ -89,6 +101,10 @@ export default function AxetFlowsLiveHome() {
   const [reloadKey, setReloadKey] = useState(0);
   const [loading, setLoading] = useState(!!activeUrl);
   const [loadError, setLoadError] = useState(false);
+  // `null` = henüz sorulmadı. iframe SADECE bu `true` iken mount edilir —
+  // `onError` kapalı bir hostta hiç tetiklenmediği için (bkz. dosya başındaki
+  // 1b notu) "ulaşılabilir mi" sorusunun tek güvenilir cevabı bu.
+  const [reachable, setReachable] = useState<boolean | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [detectError, setDetectError] = useState<string | null>(null);
   const activeUrlRef = useRef<string | null>(activeUrl);
@@ -142,6 +158,28 @@ export default function AxetFlowsLiveHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // (0) MOUNT ÖNCESİ ERİŞİLEBİLİRLİK KONTROLÜ. Adres değiştiğinde (veya
+  // yeniden yükleme istendiğinde) önce host'a sorulur; ancak cevap verirse
+  // iframe mount edilir. Bir kez başarıyla yüklendikten sonra BURASI BİR
+  // DAHA ÇALIŞMAZ — çalışan bir editörü geçici bir ağ takılması yüzünden
+  // unmount etmek kullanıcının kaydedilmemiş akışını yok ederdi.
+  useEffect(() => {
+    if (!activeUrl) {
+      setReachable(null);
+      return;
+    }
+    let cancelled = false;
+    setReachable(null);
+    probeReachable(activeUrl).then((ok) => {
+      if (cancelled) return;
+      setReachable(ok);
+      if (!ok) setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeUrl, reloadKey]);
+
   // (1) Yükleme zaman aşımı watchdog'u — bkz. dosya başındaki not.
   // `reloadKey` değiştiğinde (yeni bir yükleme denemesi) SIFIRLANIR.
   useEffect(() => {
@@ -157,7 +195,10 @@ export default function AxetFlowsLiveHome() {
   // yokken çalışır. Devam eden normal bir yüklemeye (loading===true,
   // loadError===false) hiç dokunmaz — bkz. dosya başındaki kök sebep notu.
   useEffect(() => {
-    const needsRecovery = loadError || !activeUrl;
+    // `reachable === false` de bir kurtarma sebebidir: iframe hiç mount
+    // edilmediği için `loadError` asla true olmaz, o koşula bakan eski
+    // sürüm bu durumda hiç uyanmazdı.
+    const needsRecovery = loadError || reachable === false || !activeUrl;
     if (!needsRecovery) return;
     const interval = setInterval(async () => {
       if (checkingRef.current) return;
@@ -165,8 +206,9 @@ export default function AxetFlowsLiveHome() {
       try {
         const current = activeUrlRef.current;
         if (current) {
-          const reachable = await probeReachable(current);
-          if (reachable) {
+          const isReachable = await probeReachable(current);
+          if (isReachable) {
+            setReachable(true);
             setLoading(true);
             setLoadError(false);
             setReloadKey((k) => k + 1);
@@ -174,14 +216,15 @@ export default function AxetFlowsLiveHome() {
           }
         }
         // Mevcut URL erişilemez (veya hiç URL yok) - tam keşfi sessizce
-        // tekrar dene (port değişmiş olabilir).
+        // tekrar dene (port değişmiş olabilir; axet.flows portu HER
+        // çalıştırmada rastgele seçiyor, o yüzden bu istisna değil kural).
         await autoDetect(true);
       } finally {
         checkingRef.current = false;
       }
     }, RECOVERY_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [activeUrl, loadError, autoDetect]);
+  }, [activeUrl, loadError, reachable, autoDetect]);
 
   const connect = useCallback(() => connectTo(inputUrl), [connectTo, inputUrl]);
 
@@ -258,18 +301,26 @@ export default function AxetFlowsLiveHome() {
             )}
           </div>
         )}
-        {activeUrl && loading && !loadError && (
+        {activeUrl && reachable !== false && loading && !loadError && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-base-950">
             <span className="text-xs text-slate-500">{t("axetFlowsLive.loading")}</span>
           </div>
         )}
-        {activeUrl && loadError && (
+        {activeUrl && (loadError || reachable === false) && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-base-950 px-6 text-center">
             <p className="max-w-sm text-xs text-slate-500">{t("axetFlowsLive.error")}</p>
+            {/* HANGİ adrese ulaşılamadığı yazılır. Port her çalıştırmada
+                değiştiği için "bağlanamadı" tek başına kullanıcıya neyin
+                eskidiğini anlatmıyordu. */}
+            <p className="max-w-sm break-all font-mono text-[11px] text-slate-600">{activeUrl}</p>
             <p className="max-w-sm text-[11px] text-slate-600">{t("axetFlowsLive.retrying")}</p>
           </div>
         )}
-        {activeUrl && (
+        {/* iframe SADECE host'un cevap verdiği doğrulandıktan sonra mount
+            edilir. Doğrudan mount edilseydi ölü bir adreste Chromium'un ham
+            ERR_CONNECTION_REFUSED sayfası görünürdü — ve o sayfa `load`
+            tetiklediği için (ölçüldü) uygulama bunu BAŞARI sanardı. */}
+        {activeUrl && reachable === true && (
           <iframe
             key={reloadKey}
             src={activeUrl}

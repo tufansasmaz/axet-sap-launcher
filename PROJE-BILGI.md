@@ -5015,6 +5015,40 @@ Yapılanlar ve **canlı doğrulaması**:
 paket sadece başlıkları getiriyor, gövde ikinci pakette geliyordu — tek
 okumaya bakan ilk sürüm "cevap veren bizim köprü değil" sonucuna varıyordu.
 
+#### axet.flows (Live) "ERR_CONNECTION_REFUSED" ekranı — kök sebep: iframe ölü hostta da `load` tetikliyor (2026-09-04)
+
+Bilinen ama düzeltilmemiş maddeydi. Semptom: Live sekmesinde Chromium'un ham
+`ERR_CONNECTION_REFUSED http://localhost:60004/` hata sayfası, ve ekran
+kendiliğinden hiç düzelmiyor.
+
+Ölçüm (uygulamanın kendi origin'inden, `http://localhost:5173`):
+
+| Soru | Ölçülen |
+| --- | --- |
+| 60004 hâlâ canlı mı? | Hayır — aXet.flows o an **62129**'da dinliyordu (port HER çalıştırmada rastgele; bkz. `axetFlowsLiveDiscovery.ts`) |
+| Kapalı porta bakan iframe hangi olayı tetikler? | **`load`: 1, `error`: 0** — Chromium'un hata sayfası da bir sayfadır ve o YÜKLENİR |
+| `/settings` yoklaması canlı hostta çalışıyor mu? | Evet (`Access-Control-Allow-Origin: *`) |
+
+Yani `onError`'a bakan tek hata dedektörü bu senaryoda **hiç tetiklenmiyordu**:
+`onLoad` `loading=false, loadError=false` yapıyor, 15 sn'lik watchdog iptal
+oluyor ve kurtarma döngüsünün koşulu (`loadError || !activeUrl`) hiçbir zaman
+doğru olmuyordu. Cache'lenmiş adres ölünce ekran **kalıcı** olarak ham hata
+sayfasında kalıyordu — axet.flows sonradan açılsa bile.
+
+Düzeltme: iframe artık **ancak host'un cevap verdiği doğrulandıktan sonra**
+mount ediliyor (`reachable === true`). Bir kez başarıyla yüklendikten sonra
+bu kontrol BİR DAHA çalışmaz — çalışan bir editörü geçici bir takılma
+yüzünden unmount etmek kullanıcının kaydedilmemiş akışını yok ederdi.
+Kurtarma koşuluna `reachable === false` eklendi ve hata ekranı artık
+**hangi adrese** ulaşılamadığını yazıyor.
+
+Canlı doğrulama (bileşen tek başına render edilip gerçek axet.flows'a karşı
+çalıştırıldı): ölü adresle **hiç iframe mount edilmiyor**, kendi mesajımız
+adresi yazıyor; keşif canlı portu bulunca adres 62129'a dönüyor, iframe
+mount oluyor ve **gerçek Designer editörü açılıyor** (palet + akış
+sekmeleri). 12 sn boyunca izlendi: yeniden yükleme döngüsü YOK (eski
+patholoji geri gelmedi).
+
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
 ### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)
