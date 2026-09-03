@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { CornerDownLeft, Keyboard } from "lucide-react";
 import { useT } from "../../i18n";
-import { ALL_VKEYS, QUICK_VKEYS, vkeyDef } from "../../lib/sapGui/vkeys";
+import { ALL_VKEYS, QUICK_VKEYS, vkeyLabel, vkeyMeaning, vkeyShort } from "../../lib/sapGui/vkeys";
 import type { GuiScriptToolbarKey } from "../../../app-electron/shared/types";
 
 // Komut çubuğu — transaction'a geçiş + fonksiyon tuşları.
@@ -78,13 +78,13 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
           düğme kalabalığı gibi okunuyordu. */}
       <div className="flex h-8 min-w-0 shrink items-center gap-0.5 overflow-x-auto rounded-md border border-base-700 bg-base-800/40 px-1">
         {QUICK_VKEYS.map((vkey) => {
-          const def = vkeyDef(vkey);
           const live = keyState.get(vkey);
           const known = live !== undefined;
           const off = known && !live.enabled;
           // Tooltip'te SAP'nin kendi etiketi varsa o kazanır: transaction
-          // tuşu yeniden atamışsa bizim statik tablomuz yanlış olur.
-          const label = live?.tooltip || (def?.meaning ? `${def.combo} · ${def.meaning}` : def?.combo);
+          // tuşu yeniden atamışsa bizim statik tablomuz yanlış olur. (SAP'nin
+          // etiketi zaten oturum dilinde geliyor.)
+          const label = live?.tooltip || vkeyLabel(vkey, t);
           return (
             <button
               key={vkey}
@@ -97,7 +97,7 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
                   : "cursor-pointer text-slate-200 hover:bg-base-700 disabled:cursor-default disabled:opacity-40"
               }`}
             >
-              {def?.meaning?.split(" ")[0] ?? def?.combo ?? vkey}
+              {vkeyShort(vkey, t)}
             </button>
           );
         })}
@@ -123,12 +123,15 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
           onChange={(e) => setCustomVKey(e.target.value)}
           className="h-full max-w-[190px] cursor-pointer bg-base-800 px-1.5 text-xs text-slate-200 outline-none"
         >
-          {ALL_VKEYS.map((def) => (
-            <option key={def.vkey} value={def.vkey}>
-              {def.vkey} · {def.combo}
-              {def.meaning ? ` · ${def.meaning}` : ""}
-            </option>
-          ))}
+          {ALL_VKEYS.map((def) => {
+            const meaning = vkeyMeaning(def.vkey, t);
+            return (
+              <option key={def.vkey} value={def.vkey}>
+                {def.vkey} · {def.combo}
+                {meaning ? ` · ${meaning}` : ""}
+              </option>
+            );
+          })}
         </select>
         <button
           onClick={() => onVKey(Number(customVKey) || 0)}

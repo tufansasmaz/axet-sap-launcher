@@ -24,7 +24,7 @@ import {
   Trash2,
   X
 } from "lucide-react";
-import { useT } from "../i18n";
+import { useT, type TranslateFn } from "../i18n";
 import SapGuiAgentPanel from "./SapGuiAgentPanel";
 import CommandBar from "./sapgui/CommandBar";
 import ElementInspector from "./sapgui/ElementInspector";
@@ -88,6 +88,11 @@ function describeStep(
   value: string | undefined,
   vkey: number | undefined,
   nodeLabel: string,
+  // Etiketin TEK çevrilen parçası tuş anlamı (`vkeyLabel`) — gerisi kasten
+  // kod gibi okunuyor (`setText("X") → GD-TAB`). Etiket kaydedilen script'e
+  // YAZILIYOR, yani kayıt anındaki dil dosyada kalır; dili sonradan
+  // değiştirmek eski adımların yazısını geçmişe dönük değiştirmez.
+  t: TranslateFn,
   extra?: { row?: number; column?: string; by?: string }
 ): string {
   const target = nodeLabel || id || "wnd[0]";
@@ -105,7 +110,7 @@ function describeStep(
         ? `doubleClick(${extra.row}, "${extra.column ?? ""}") → ${target}`
         : `doubleClick() → ${target}`;
     case "sendVKey":
-      return `sendVKey(${vkey ?? 0}) · ${vkeyLabel(vkey ?? 0)}`;
+      return `sendVKey(${vkey ?? 0}) · ${vkeyLabel(vkey ?? 0, t)}`;
     case "selectContextMenuItem":
       return `selectContextMenuItem("${value ?? ""}"${extra?.by ? `, ${extra.by}` : ""}) → ${target}`;
     case "navigate":
@@ -452,7 +457,7 @@ export default function SapGuiScriptingHome() {
             row: extra?.row,
             column: extra?.column,
             by: extra?.by,
-            label: describeStep(action, targetId, extra?.value, extra?.vkey, nodeLabel, extra)
+            label: describeStep(action, targetId, extra?.value, extra?.vkey, nodeLabel, t, extra)
           });
         }
         // Ekran değişmiş olabilir: seçili eleman artık var olmayabilir, bu

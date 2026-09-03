@@ -4970,9 +4970,38 @@ boşluk — yani sığdırma tek dile bağlı bir tesadüf değil. Dar pencerede
 davranış DEĞİŞMEDİ: 900 px'te iki grup yine kaydırılabiliyor
 (`201/387`, `135/258`) ve çubuğun kendisi taşmıyor (`844/844`).
 
-**Yan gözlem, düzeltilmedi:** dil İngilizce'ye alındığında fonksiyon tuşu
-etiketleri Türkçe kalıyor ("Enter Geri Çalıştır…") — `vkeys.ts`'teki
-`meaning` alanı statik ve i18n'e bağlı değil. Ayrı bir iş.
+#### Fonksiyon tuşu etiketleri İngilizce'de Türkçe kalıyordu (2026-09-04)
+
+Yukarıdaki ölçüm turunda dil düğmesi tıklanınca görüldü: uygulama
+İngilizce'ye geçiyor, komut çubuğu **"Enter Geri Çalıştır Kaydet…"** demeye
+devam ediyordu. Sebep `lib/sapGui/vkeys.ts`'teki `MEANINGS` sabitiydi —
+Türkçe metinler doğrudan koda gömülmüştü ve i18n'e hiç bağlı değildi.
+Etiketler üç yerde birden görünüyordu: düğme yazısı, ipucu (tooltip) ve
+37 satırlık "özel vkey" açılır listesi.
+
+`MEANINGS` yerine ÇEVİRİ ANAHTARLARI kondu (`meaningKey`/`shortKey`); metin
+`i18n`'den geliyor. `combo` ("Shift+F3") çevrilmiyor — o bir klavye
+gösterimi.
+
+**Düğme yazısı artık ayrı bir anahtar.** Eskiden uzun anlamın ilk
+kelimesinden türetiliyordu (`meaning.split(" ")[0]`): "Değer yardımı (F4)"
+→ "Değer". Bu, sözlüğe metin yazan kişiye görünmeyen bir kural dayatıyordu
+("ilk kelime iyi bir başlık olmalı") ve her dilde tutmayabilirdi. Sekiz
+hızlı tuşun kısa yazısı artık açıkça yazılıyor; listede olmayan bir tuş
+`combo`ya düşüyor, yani QUICK_VKEYS'e anahtarsız bir tuş eklemek kırmıyor.
+
+Doğrulandı (tarayıcıda dil değiştirilerek, üç yüzeyin üçü de):
+düğmeler `Enter/Back/Execute/Save/Cancel/Exit/Value/Help`, ipuçları
+`F3 · Back`, kapalı tuşun ipucu `F11 · Save — SAP has disabled this key on
+this screen`, açılır liste `0 · Enter · Enter / Confirm`. Genişlik ölçümü
+yenilendi (yazılar değişti, eski ölçüm geçersizdi): **İngilizce 381/381 ve
+277/277, 91 px boşluk; Türkçe 387/387 ve 258/258, 89 px** — ikisi de sığıyor.
+
+**Bilerek böyle:** kaydedilmiş adımın etiketi KAYIT ANINDAKİ dilde kalır
+(etiket script dosyasına yazılıyor). Ölçüldü: Türkçe kaydedilen adım
+`sendVKey(0) · Enter · Enter / Onayla`, dil değişince o satır aynı kalıyor,
+yeni adım `… / Confirm` oluyor. Etiketi kalıcı saklamak yerine her render'da
+üretmek ayrı bir iş — script dosyası biçimini değiştirir.
 
 #### Sağ tık menüsü: üç yöntem de doğrulandı, ama menü OKUNAMIYOR (2026-09-03)
 

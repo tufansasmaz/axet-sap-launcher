@@ -441,6 +441,29 @@ export const tr = {
   "sapGuiScripting.tcodePlaceholder": "TCODE",
   "sapGuiScripting.tcodeGo": "Transaction'a git (/n + Enter)",
   "sapGuiScripting.vkeyDisabled": "SAP bu ekranda bu tuşu kapatmış",
+
+  // Fonksiyon tuşlarının SAP standart anlamları (bkz. lib/sapGui/vkeys.ts).
+  // `short` düğme yazısı, `meaning` ipucu/açılır liste metni — düğme yazısı
+  // uzun anlamın ilk kelimesinden TÜRETİLMİYOR: "ilk kelime" her dilde iyi
+  // bir başlık olmuyor ve bu, sözlüğe yazan kişiye görünmeyen bir kural olurdu.
+  "sapGuiScripting.vkeyShort.0": "Enter",
+  "sapGuiScripting.vkeyShort.1": "Yardım",
+  "sapGuiScripting.vkeyShort.3": "Geri",
+  "sapGuiScripting.vkeyShort.4": "Değer",
+  "sapGuiScripting.vkeyShort.8": "Çalıştır",
+  "sapGuiScripting.vkeyShort.11": "Kaydet",
+  "sapGuiScripting.vkeyShort.12": "İptal",
+  "sapGuiScripting.vkeyShort.15": "Çık",
+  "sapGuiScripting.vkeyMeaning.0": "Enter / Onayla",
+  "sapGuiScripting.vkeyMeaning.1": "Yardım",
+  "sapGuiScripting.vkeyMeaning.2": "Seç",
+  "sapGuiScripting.vkeyMeaning.3": "Geri",
+  "sapGuiScripting.vkeyMeaning.4": "Değer yardımı (F4)",
+  "sapGuiScripting.vkeyMeaning.8": "Çalıştır",
+  "sapGuiScripting.vkeyMeaning.10": "Menü çubuğu",
+  "sapGuiScripting.vkeyMeaning.11": "Kaydet",
+  "sapGuiScripting.vkeyMeaning.12": "İptal",
+  "sapGuiScripting.vkeyMeaning.15": "Çık",
   "sapGuiScripting.collapsePanel": "Paneli katla",
   "sapGuiScripting.expandPanel": "Paneli aç",
 
