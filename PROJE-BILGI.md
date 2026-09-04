@@ -8137,3 +8137,44 @@ görmek.
   ısıtılan oturumla birazdan doğacak sohbet aynı kimliği paylaşsın.
 - Her tur `[axetChatTui] tur bitti` satırıyla süresini ve kaç araç çalıştığını
   log'a yazıyor — "yavaş" şikâyeti bir daha ölçüsüz kalmasın.
+
+### "model changed to" HAZIR demek değil — bağlayıcı yarışı
+
+Kullanıcı (2026-09-04): *"connector var aslında direkt bakması lazım"* — ajan
+ise "bu oturumda posta kutusuna bağlı bir entegrasyon görünmüyor" diyordu.
+Ajan doğru söylüyordu; sorduğumuz ANDA gerçekten yoktu.
+
+Ölçüm (bağlayıcılar açık, tek açılış):
+
+```
+[2.8] "model changed to"      <- eskiden prompt TAM BURADA yazılıyordu
+[2.8] Connectors: None   ● launcher test starting... ● test123 starting...
+                         ● test123 starting...       ● test starting...
+[6.5] ● test 25 tools
+[6.6] ● test123 25 tools
+[6.8] ● test123 25 tools
+[6.8] ● launcher test 17 tools
+```
+
+Yani model seçildikten sonra araçların gelmesi için ~4 saniye daha var. O
+boşlukta sorulan soruya ajan dürüstçe "aracım yok" diyor.
+
+Düzeltme: `useConnectors` açıkken açılış, ekrandaki `● <ad> <N> tools`
+satırlarının SAYISI artmayı bırakıp 1,2 sn sessizlik geçene kadar bekliyor
+(tavan 15 sn, dolarsa beklemeden devam + log). Tek bir işaret aranmıyor çünkü
+kayıt sayısı kullanıcıya göre değişiyor ve hepsi ayrı ayrı geliyor.
+
+A/B doğrulama, aynı soru ("mail ile ilgili araçlarının adlarını yaz"):
+
+| | cevap |
+|---|---|
+| beklemesiz | "elimde mail ile ilgili herhangi bir araç yok" |
+| beklemeli (2,5 s) | `outlook_read_tool`, `outlook_send_email`, `outlook_save_draft_tool`, ... |
+
+Bedel: bağlayıcı isteyen sohbetin İLK mesajında ~2,5 s. Sonraki turlar
+etkilenmiyor (oturum kalıcı). Eski `run` kipinde aynı maliyet HER mesajda
+ödeniyordu.
+
+**Ayrıca ölçüldü**: 4 bağlayıcı kaydı var ve `test123` İKİ KEZ kayıtlı —
+25+25+25+17 = 92 araç. Mükerrer kayıtların temizlenmesi kod işi değil,
+axet.nttdata.com/agentic tarafındaki bir ayar.

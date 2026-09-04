@@ -42,6 +42,22 @@ const MARK_TOOL_DIALOG = "Choose your development tool";
 const MARK_MODEL_DIALOG = "choose a provider and model";
 const MARK_READY = ["model changed to", "tab focus chat"];
 
+/**
+ * Bağlayıcıların YÜKLENDİĞİNİ gösteren satır: `● test123 25 tools`.
+ *
+ * "model changed to" HAZIR demek DEĞİL — yalnızca modelin seçildiği demek.
+ * Ölçüm (2026-09-04, bağlayıcılar açık): model 2,8 s'de seçiliyor, o anda
+ * panel `Connectors: None` diyor ve kayıtlar `starting...` durumunda; araçlar
+ * 6,5-6,8 s arasında geliyor. Bu 4 saniyelik boşlukta sorulan soruya ajan
+ * DOĞRU cevap veriyor: "bağlı bir entegrasyon görünmüyor". Kullanıcının
+ * "connector var aslında direkt bakması lazım" dediği hata tam olarak buydu.
+ */
+const RE_CONNECTOR_TOOLS = /\b\d+\s+tools\b/g;
+/** Bağlayıcılar için en fazla beklenecek süre; dolarsa yine de devam edilir. */
+const CONNECTOR_WAIT_MS = 15_000;
+/** Son araç satırından sonra "yerleşti" saymak için gereken sessizlik. */
+const CONNECTOR_SETTLE_MS = 1_200;
+
 /** Bir açılış adımının en fazla bekleyeceği süre. */
 const HANDSHAKE_STEP_MS = 30_000;
 /** Açılışta en fazla kaç diyalog adımı çevrilecek (sonsuz döngüye karşı). */
@@ -203,6 +219,39 @@ function feed(session: TuiSession, data: string): void {
  * "Recently used" listesinin başı bizim model oluyor ve tek Enter doğru
  * modeli seçiyor — ekrana model adı yazıp filtrelemeye gerek kalmıyor.
  */
+/**
+ * Bağlayıcı araçları yüklenene kadar bekler.
+ *
+ * Ekrandaki `● <ad> <N> tools` satırlarının SAYISI izleniyor; sayı artmayı
+ * bıraktıktan sonra kısa bir sessizlik geçince yerleşmiş sayılıyor. Neden tek
+ * bir işaret aranmıyor: kayıt sayısı kullanıcıya göre değişiyor (ölçümde 4
+ * kayıt, 25+25+25+17 = 92 araç) ve hepsi ayrı ayrı, saniyeler içinde geliyor.
+ *
+ * Tavan dolarsa BEKLEMEDEN devam ediliyor ve durum log'a yazılıyor: bağlayıcı
+ * arka ucu çökmüşse sohbeti tamamen kilitlemek, aracı olmayan bir cevaptan
+ * daha kötü olurdu.
+ */
+async function waitForConnectors(session: TuiSession): Promise<Record<string, unknown>> {
+  const started = Date.now();
+  const deadline = started + CONNECTOR_WAIT_MS;
+  let seen = 0;
+  let lastGrowth = Date.now();
+  while (Date.now() < deadline) {
+    if (session.disposed || session.exited) break;
+    const count = session.screen.match(RE_CONNECTOR_TOOLS)?.length ?? 0;
+    if (count > seen) {
+      seen = count;
+      lastGrowth = Date.now();
+    }
+    if (seen > 0 && Date.now() - lastGrowth > CONNECTOR_SETTLE_MS) break;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  return {
+    baglayiciBekleme: ((Date.now() - started) / 1000).toFixed(1),
+    baglayiciSatir: seen
+  };
+}
+
 async function handshake(session: TuiSession): Promise<boolean> {
   for (let step = 0; step < HANDSHAKE_MAX_STEPS; step += 1) {
     const hit = await waitForAny(session, [MARK_TOOL_DIALOG, MARK_MODEL_DIALOG, ...MARK_READY], HANDSHAKE_STEP_MS);
@@ -218,8 +267,9 @@ async function handshake(session: TuiSession): Promise<boolean> {
       return false;
     }
     if (MARK_READY.includes(hit)) {
+      const bekleme = session.useConnectors ? await waitForConnectors(session) : null;
       session.ready = true;
-      console.log("[axetChatTui] oturum hazir", { chatId: session.chatId, adim: step });
+      console.log("[axetChatTui] oturum hazir", { chatId: session.chatId, adim: step, ...(bekleme ?? {}) });
       return true;
     }
     // Diyalogda ilk sıra bizim istediğimiz seçenek: araç listesinde aXet.Code,
