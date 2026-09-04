@@ -5,6 +5,7 @@ import type {
   AddManualSystemInput,
   AppConfig,
   AxetChatMessage,
+  AxetChatActivityPhase,
   AxetChatSendResult,
   AxetModelConfigResult,
   AxetModelEntry,
@@ -154,12 +155,23 @@ const api = {
     message: string
   ): Promise<AxetChatSendResult> => ipcRenderer.invoke("axetChat:send", requestId, cwd, model, history, message),
   cancelChatMessage: (requestId: string): Promise<void> => ipcRenderer.invoke("axetChat:cancel", requestId),
+  // Kullanıcı yazmaya başlayınca: alt süreci şimdiden açtır. Sonucu YOK,
+  // beklemek de gerekmiyor — kazanç tamamen zamanlamada.
+  prewarmChat: (cwd: string, model: AxetModelEntry | null): Promise<void> =>
+    ipcRenderer.invoke("axetChat:prewarm", cwd, model),
   // Cevap metni üretildikçe gelen parçalar (yalnızca YENİ parça, birikmiş
   // metin değil). `requestId` ile hangi sohbete ait olduğu ayırt ediliyor.
   onChatChunk: (callback: (requestId: string, text: string) => void) => {
     const listener = (_event: unknown, requestId: string, text: string) => callback(requestId, text);
     ipcRenderer.on("axetChat:chunk", listener);
     return () => ipcRenderer.removeListener("axetChat:chunk", listener);
+  },
+  // Cevap beklenirken alt sürecin hangi aşamada olduğu.
+  onChatActivity: (callback: (requestId: string, phase: AxetChatActivityPhase) => void) => {
+    const listener = (_event: unknown, requestId: string, phase: AxetChatActivityPhase) =>
+      callback(requestId, phase);
+    ipcRenderer.on("axetChat:activity", listener);
+    return () => ipcRenderer.removeListener("axetChat:activity", listener);
   },
   saveChatAttachment: (fileName: string, base64Data: string): Promise<ChatAttachmentSaveResult> =>
     ipcRenderer.invoke("chatAttachments:save", fileName, base64Data),

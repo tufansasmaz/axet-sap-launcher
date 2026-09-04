@@ -7960,3 +7960,74 @@ sormadığı bir bağlamı her cevaba sızdırmak olurdu. Gevşetmek isteyen
 - Aktif bağlam `App.tsx`'te TEK KEZ okunup prop olarak dağıtılıyor. Hook'u
   her bileşende ayrı çağırmak N ayrı abone ve N ayrı kopya demek olurdu —
   "tek bir yere toplama" isteğinin tam tersi.
+
+## Sohbet hızı ve "arkada ne oluyor" — ölçülmüş düzeltmeler (2026-09-04)
+
+Kullanıcı bildirimi: *"chat boxda çoklu satır metni gönderince boxun
+büyüklüğü o şekilde kalıyor, chat aynı zamanda çok yavaş çalışıyor ... arkada
+bişey yaparken uzun süre chatdeki çubuklar yanıp sönüyor, eğer anlık olarak
+bişey yapıyorsa arka planda onları da görsek fena olmaz"*.
+
+### Ölçümler (bu makinede, canlı `axet-code`'a karşı)
+
+| Ne | Değer |
+|---|---|
+| "merhaba" yaz → tek atış toplam | 8.1 s |
+| stdin'den ÖNCE yapılan iş (auth, config, yetenek kataloğu) | ~2–4 s |
+| stdin'den SONRA sabit maliyet (agent → oturum → kod grafiği → denetim) | ~0.47 s |
+| Modele giden istek gövdesi — bağlayıcılar KAPALI | 92 KB |
+| Modele giden istek gövdesi — bağlayıcılar AÇIK | 409 KB |
+
+Ölçüm yöntemi: `(sleep 9; echo prompt) \| axet-code run -v` — `skillsmarket.sync`
+satırı prompt gönderilmeden DOKUZ SANİYE ÖNCE düştü. Gövde boyutları
+`axet-code run -d` sonrası `axet-code logs` içindeki `bodyLen=` alanından.
+
+409 KB'ın 317 KB'ı bağlayıcı araç şemaları: `axet.nttdata.com/agentic`'te aynı
+sağlayıcı için DÖRT ayrı Outlook kaydı duruyor (eski yetkilendirme
+denemelerinden kalıntı). Bunları silmek kod değişikliği olmadan kazanılacak
+bir hız — uygulamanın karar vereceği bir şey değil, hesabın sahibinin.
+
+### Yapılanlar
+
+1. **Composer yüksekliği** (`ChatSessionPane.tsx`). Ölçüm `onInput`'taydı ve
+   `onInput` yalnızca KLAVYEYLE yazınca ateşleniyor. Gönderdikten sonra
+   taslağı React `""` yapıyor, olay ateşlenmiyor ve inline `style.height` eski
+   değerinde asılı kalıyordu. Aynı kör noktanın TERS yönü de vardı ve
+   görülmemişti: dikte, öneri kartı, sürüklenen metin ve "mesajı düzenle"
+   taslağı programatik yazdığı için kutu BÜYÜMÜYORDU da. Ölçüm taslağa bakan
+   bir efekte taşındı; ikisi birden kapandı.
+2. **Ön-ısıtma** (`axetChat.ts` `prewarmChat`). Kullanıcı yazmayı yarım saniye
+   duraklattığında bir sonraki mesajın `axet-code run` süreci açılıp stdin'de
+   bekletiliyor. Tek süreç, boşta 3 dakika sonra bırakılıyor.
+3. **Canlı aşama göstergesi**. `-q` (yalnızca spinner'ı gizliyordu) yerine `-v`
+   (Show logs): aşamalar stderr'e CANLI düşüyor, stdout eskisi gibi tertemiz
+   kalıyor. Ham log satırı arayüze taşınmıyor, `AxetChatActivityPhase`'e
+   indirgeniyor — metin İngilizce ve sürüme bağlı.
+4. **Zaman aşımı + süreç ağacı**. 5 dakikalık tavan (eskiden tavan YOKTU:
+   axet-code takılırsa sohbet sonsuza kadar bekliyordu) ve `taskkill /T` ile
+   ağaç öldürme (`proc.kill()` Windows'ta MCP torun süreçlerini bırakıyordu).
+
+### Dikkat
+
+- Isıtılmış süreç BAĞLAYICILAR KAPALI açılıyor: açılıp açılmayacağı mesajın
+  METNİNE bağlı (bkz. `connectorPolicy.ts`) ve ısıtma anında metin yok. Karar
+  "açık" çıkarsa ısıtılan süreç atılıp yenisi kuruluyor — yani yanlış tahminin
+  bedeli, eskiden HER mesajda ödenen şeyin aynısı; kötüleşme yok.
+- Klasör ve model spawn anında sabitleniyor. İkisinden biri değişirse
+  ısıtılmış süreç kullanılamaz, `takeWarm` bu yüzden ikisini de karşılaştırıyor.
+- Aşamalar GERİYE gitmiyor (`PHASE_ORDER`). İki sebeple giderdi: ısıtılmış
+  süreçte açılış satırları prompt'tan sonra tekrar akıyor, ve bağlayıcılar
+  açıkken "MCP client initialized" denetim kaydından sonra da gelebiliyor.
+- `-v` açıkken stderr NORMAL çalışmada da dolu. Hata mesajı üretirken
+  `extractError` INFO/DEBU/WARN satırlarını atıyor — yoksa her hata bir log
+  yığını olarak görünürdü.
+- **Çözülmemiş, bilerek**: araç çağrıları HİÇBİR akışa düşmüyor (ölçüldü —
+  denetim kaydından sonra cevap gelene kadar 12 saniyeye varan tam sessizlik).
+  Bu yüzden `thinking` aşamasında yapılan tek dürüst şey geçen süreyi saymak.
+  Gerçek araç etkinliğini görmek `run` moduyla mümkün değil; kalıcı bir oturum
+  (node-pty ile gerçek TUI) gerekiyor — kullanıcı kararı (2026-09-04) bunu
+  AYRI bir adım olarak ele almak yönünde.
+- `run`'ın `--resume`/`--session` bayrağı YOK (`run --help` ile doğrulandı).
+  Bunun bedeli yalnızca hız değil: araç SONUÇLARI mesajlar arasında kayboluyor
+  — ajan 1. mesajda okuduğu dosyanın içeriğini 2. mesajda göremiyor, çünkü
+  transkriptte yalnızca metin cevabı var.

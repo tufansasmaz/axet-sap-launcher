@@ -4,6 +4,7 @@ import type {
   AddManualSystemInput,
   AppConfig,
   AxetChatMessage,
+  AxetChatActivityPhase,
   AxetChatSendResult,
   AxetModelConfigResult,
   AxetModelEntry,
@@ -130,8 +131,10 @@ export interface AxetApi {
     message: string
   ) => Promise<AxetChatSendResult>;
   cancelChatMessage: (requestId: string) => Promise<void>;
+  prewarmChat: (cwd: string, model: AxetModelEntry | null) => Promise<void>;
   // Abonelikten çıkma fonksiyonu döner (diğer `on*` köprüleriyle aynı desen).
   onChatChunk: (callback: (requestId: string, text: string) => void) => () => void;
+  onChatActivity: (callback: (requestId: string, phase: AxetChatActivityPhase) => void) => () => void;
   saveChatAttachment: (fileName: string, base64Data: string) => Promise<ChatAttachmentSaveResult>;
   readChatAttachmentPreview: (filePath: string) => Promise<ChatAttachmentPreviewResult>;
   isDictationAvailable: () => Promise<boolean>;

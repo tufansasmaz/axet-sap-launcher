@@ -15,6 +15,7 @@ import {
 import type {
   ActiveSapContext,
   AppConfig,
+  AxetChatActivityPhase,
   AxetChatMessage,
   AxetModelEntry,
   ChatAttachment,
@@ -34,6 +35,12 @@ import { DictationRecorder } from "../lib/dictationRecorder";
 import { promptWithAttachments, toAttachments } from "../lib/attachments";
 import { useT } from "../i18n";
 
+// Kullanıcı yazmayı bu kadar duraklattıktan sonra alt süreç ısıtılıyor. Her
+// tuşta ısıtmak süreç açıp kapatmaktan başka bir şey yapmazdı; yarım saniye,
+// "yazmayı bıraktı" ile "hâlâ yazıyor"u ayıracak kadar uzun ve kazancı
+// (~2–4 saniye) yemeyecek kadar kısa.
+const PREWARM_DEBOUNCE_MS = 500;
+
 interface ChatSession {
   id: string;
   title: string;
@@ -44,6 +51,9 @@ interface ChatSession {
   attachments: ChatAttachment[];
   pending: boolean;
   requestId: string | null;
+  // Cevap beklenirken alt sürecin bildirdiği son aşama (bkz. axetChat.ts).
+  // Diske YAZILMIYOR: bekleyen bir istek yeniden başlatmayı atlatmıyor.
+  activity: AxetChatActivityPhase | null;
   createdAt: number;
   // Listedeki sıralama bunun üzerinden — sohbetler artık diskte kalıcı
   // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz
@@ -342,6 +352,7 @@ export default function AxetCodeHome({
             attachments: s.attachments ?? [],
             pending: false,
             requestId: null,
+            activity: null,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
             sapLabel: s.sapLabel ?? null
@@ -559,7 +570,9 @@ export default function AxetCodeHome({
     ) => {
       const requestId = crypto.randomUUID();
       setSessions((prev) =>
-        prev.map((s) => (s.id === sessionId ? { ...s, pending: true, requestId, updatedAt: Date.now() } : s))
+        prev.map((s) =>
+          s.id === sessionId ? { ...s, pending: true, requestId, activity: null, updatedAt: Date.now() } : s
+        )
       );
 
       const cwd = sessionCwd || config?.axetWorkspaceDir || "";
@@ -576,7 +589,7 @@ export default function AxetCodeHome({
 
         // `updatedAt` her sonlanmada tazeleniyor: cevabın gelişi de listedeki
         // sıralamayı etkileyen bir olay.
-        const done = { pending: false, requestId: null, updatedAt: Date.now() } as const;
+        const done = { pending: false, requestId: null, activity: null, updatedAt: Date.now() } as const;
 
         if (result.cancelled) {
           // Kullanıcı durdurdu. Ekranda GÖRÜNEN yarım metni silmiyoruz —
@@ -653,6 +666,7 @@ export default function AxetCodeHome({
       attachments: [],
       pending: false,
       requestId: null,
+      activity: null,
       createdAt: now,
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
@@ -965,6 +979,53 @@ export default function AxetCodeHome({
     });
   }, []);
 
+  // Alt sürecin aşama bildirimleri. Cevap beklenirken arayüzde yalnızca yanıp
+  // sönen çubuklar vardı ve hiçbir şey söylemiyorlardı (kullanıcı bildirimi,
+  // 2026-09-04). Kaynak `axet-code run -v`'nin canlı stderr'i (bkz.
+  // axetChat.ts). Akış aboneliğiyle aynı desen: bir kez kuruluyor, state'e
+  // yalnızca fonksiyonel `setSessions` ile dokunuyor.
+  useEffect(() => {
+    return window.api.onChatActivity((requestId, phase) => {
+      setSessions((prev) =>
+        // Eşleşme yoksa AYNI dizi döndürülüyor: geç kalmış bir bildirim
+        // (istek çoktan bitmiş) boşuna bir render tetiklemesin.
+        prev.some((s) => s.requestId === requestId)
+          ? prev.map((s) => (s.requestId === requestId ? { ...s, activity: phase } : s))
+          : prev
+      );
+    });
+  }, []);
+
+  // --- Ön-ısıtma ---
+  // Kullanıcı yazarken bir sonraki mesajın alt süreci şimdiden açılıp stdin'de
+  // bekletiliyor; ölçüm ve gerekçe axetChat.ts'te (mesaj başına ~2–4 saniye).
+  //
+  // Hedef (klasör + model) bir REF'te tutuluyor, ısıtma efektinin bağımlılık
+  // listesinde DEĞİL: `sessions` akan bir cevapta saniyede onlarca kez
+  // değişiyor ve efekti her seferinde söküp takmak, debounce sayacını sürekli
+  // sıfırlayarak ısıtmanın hiç çalışmamasına yol açardı.
+  const prewarmTargetRef = useRef<{ cwd: string; model: AxetModelEntry | null }>({ cwd: "", model: null });
+  const activeDraft = activeId ? (sessions.find((s) => s.id === activeId)?.draft ?? "") : newDraft;
+  useEffect(() => {
+    const session = activeId ? (sessions.find((s) => s.id === activeId) ?? null) : null;
+    prewarmTargetRef.current = {
+      cwd: (session ? session.cwd : (effectiveNewBinding?.cwd ?? null)) || config?.axetWorkspaceDir || "",
+      model: session ? session.model : defaultModel
+    };
+  });
+
+  useEffect(() => {
+    // Boş taslak = ortada gönderilecek bir şey yok; süreç açmak boşuna.
+    if (!activeDraft.trim()) return;
+    const timer = setTimeout(() => {
+      const { cwd, model } = prewarmTargetRef.current;
+      // Ateşle-unut: ısıtma başarısız olsa da asıl gönderim eskisi gibi
+      // çalışıyor, bu yüzden hatası kullanıcıya gösterilecek bir şey değil.
+      window.api.prewarmChat(cwd, model).catch(() => {});
+    }, PREWARM_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [activeDraft]);
+
   const greeting = useMemo(greetingKey, []);
 
   // Havuzdan bu turun üç kartı. Bağımlılıklar bilerek dar: kullanıcı "yeni
@@ -1027,7 +1088,8 @@ export default function AxetCodeHome({
     model: defaultModel,
     draft: newDraft,
     attachments: newAttachments,
-    pending: false
+    pending: false,
+    activity: null
   };
 
   // Kenar çubuğundaki tek satır. Ayrı bir fonksiyon çünkü artık iki kat

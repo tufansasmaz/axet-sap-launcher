@@ -334,6 +334,30 @@ export interface AxetChatMessage {
   content: string;
 }
 
+/**
+ * Cevap beklenirken alt süreçte NE olduğu.
+ *
+ * Kullanıcı isteği (2026-09-04): *"arkada bişey yaparken uzun süre chatdeki
+ * çubuklar yanıp sönüyor ... onları da görsek fena olmaz"*. Kaynak, `axet-code
+ * run -v`'nin stderr'e CANLI yazdığı INFO satırları (zaman damgalarıyla
+ * doğrulandı) — ham log satırını arayüze taşımak yerine burada sayılabilir bir
+ * aşamaya indirgiyoruz, çünkü metnin kendisi İngilizce ve sürüme bağlı.
+ *
+ * `thinking` diğerlerinden farklı: axet-code denetim kaydını yazdıktan SONRA
+ * cevap gelene kadar hiçbir şey yazmıyor (ölçüldü: 12 saniyeye kadar tam
+ * sessizlik). Yani bu, "bilmiyoruz"un dürüst adı — arayüz onun yanında geçen
+ * süreyi sayıyor.
+ */
+export type AxetChatActivityPhase =
+  | "starting"
+  | "connectors"
+  | "skills"
+  | "agent"
+  | "session"
+  | "indexing"
+  | "thinking"
+  | "finishing";
+
 export interface AxetChatSendResult {
   ok: boolean;
   text: string;

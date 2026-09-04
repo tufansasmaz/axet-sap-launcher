@@ -30,7 +30,7 @@ import {
   TerminalSquare,
   UploadCloud
 } from "lucide-react";
-import type { AxetModelEntry, ChatAttachment } from "../../app-electron/shared/types";
+import type { AxetChatActivityPhase, AxetModelEntry, ChatAttachment } from "../../app-electron/shared/types";
 import AttachmentChip from "./AttachmentChip";
 import ChatBubble, { ThinkingBubble, type ChatMessage } from "./ChatBubble";
 import ModelSelector from "./ModelSelector";
@@ -75,6 +75,12 @@ const SUGGESTION_ICONS: Record<string, LucideIcon> = {
 // 896px, 2xl (1536px) → 1024px. Üstü artık büyümüyor.
 const COLUMN = "mx-auto w-full max-w-3xl xl:max-w-4xl 2xl:max-w-5xl";
 
+// Yazı alanının büyüyebileceği en fazla yükseklik. Sınıftaki `max-h-52` ile
+// AYNI değer olmak zorunda (13rem = 208px): biri CSS'te kırpıyor, diğeri
+// ölçülen yüksekliği kırpıyor ve ayrışırlarsa kutu ya erken duruyor ya da
+// içeride gizli bir kaydırma bırakıyor.
+const COMPOSER_MAX_PX = 208;
+
 export interface ChatSessionData {
   id: string;
   messages: ChatMessage[];
@@ -85,6 +91,9 @@ export interface ChatSessionData {
   // `ChatAttachment`).
   attachments: ChatAttachment[];
   pending: boolean;
+  // Cevap beklenirken alt sürecin bildirdiği son aşama. `null` = henüz bir
+  // aşama gelmedi (ya da bekleyen istek yok).
+  activity: AxetChatActivityPhase | null;
 }
 
 interface Props {
@@ -193,6 +202,11 @@ export default function ChatSessionPane({
   // Aynı bilgi state olarak da tutuluyor: "dibe in" düğmesinin görünürlüğü
   // render'a bağlı, ref tek başına yeniden render tetiklemez.
   const [atBottom, setAtBottom] = useState(true);
+  // Yazı alanının KENDİ referansı. `registerTextarea` yukarıya (AxetCodeHome'a,
+  // odaklanmak için) veriliyor ama yalnızca AKTİF sohbet için — bu bileşenin
+  // yüksekliği kendi başına ayarlaması gerektiğinden burada ayrı bir referans
+  // tutuluyor.
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const lastMessage = session.messages.length > 0 ? session.messages[session.messages.length - 1] : null;
   const streaming = lastMessage?.streaming === true;
@@ -223,6 +237,26 @@ export default function ChatSessionPane({
       if (el) el.scrollTop = el.scrollHeight;
     });
   }, [active]);
+
+  // Yazı alanının yüksekliği. Bu ölçüm ESKİDEN `onInput`'taydı ve orada
+  // OLMAMASI gerekiyordu: `onInput` yalnızca kullanıcı klavyeyle yazdığında
+  // ateşleniyor. Gönderdikten sonra taslağı React `""` yapıyor, `onInput`
+  // ateşlenmiyor ve inline `style.height`'e yazılmış eski değer olduğu gibi
+  // kalıyordu — kutu, gönderilen çok satırlı mesajın yüksekliğinde ASILI
+  // kalıyordu (kullanıcı bildirimi, 2026-09-04).
+  //
+  // Aynı kör nokta TERS yönde de vardı ve fark edilmemişti: dikte, öneri
+  // kartı, sürüklenen düz metin ve "mesajı düzenle" taslağı PROGRAMATİK
+  // yazıyor, dolayısıyla uzun bir metin kutuya girdiğinde kutu büyümüyordu.
+  // Taslağı tek doğruluk kaynağı yapmak ikisini birden kapatıyor.
+  useEffect(() => {
+    const el = textareaRef.current;
+    // Gizli panelde `scrollHeight` 0 — o anda ölçmek kutuyu en küçük boya
+    // çökertirdi. Panel görünür olduğu anda `active` değişip yeniden ölçülüyor.
+    if (!el || !active) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
+  }, [session.draft, active]);
 
   const handleScroll = () => {
     const el = messagesRef.current;
@@ -403,7 +437,7 @@ export default function ChatSessionPane({
             {/* "Düşünüyor" göstergesi SADECE ilk parça gelene kadar. Metin
                 akmaya başladıktan sonra da göstermek, cevabın altında
                 sürekli zıplayan ikinci bir satır demek olurdu. */}
-            {session.pending && !streaming && <ThinkingBubble />}
+            {session.pending && !streaming && <ThinkingBubble phase={session.activity} />}
             {/* "Yeniden üret" sohbetin SONUNDA, sadece son mesaj bitmiş bir
                 asistan cevabıysa — her cevapta değil yalnızca sonuncusunda
                 anlamlı. Cevap tarafında artık avatar oluğu olmadığı için
@@ -476,7 +510,10 @@ export default function ChatSessionPane({
                 <Paperclip size={16} />
               </button>
               <textarea
-                ref={registerTextarea}
+                ref={(el) => {
+                  textareaRef.current = el;
+                  registerTextarea(el);
+                }}
                 value={session.draft}
                 onChange={(e) => onDraftChange(e.target.value)}
                 onKeyDown={(e) => {
@@ -491,12 +528,10 @@ export default function ChatSessionPane({
                 // Yazdığın metin okuduğun metinle AYNI boyutta olmalı — yazı
                 // boyutu ayarı composer'ı da kapsıyor. `min-h`/dikey boşluk,
                 // yandaki 36px'lik düğmelerle aynı yüksekliği tutturuyor.
+                // Yükseklik burada DEĞİL, taslağa bakan bir efektte ayarlanıyor
+                // (bkz. yukarıdaki not) — `onInput` klavye dışındaki taslak
+                // değişikliklerini görmüyordu.
                 className="max-h-52 min-h-[36px] min-w-0 flex-1 resize-none bg-transparent py-[7px] text-[length:var(--chat-font-size)] leading-[22px] text-slate-200 outline-none placeholder:text-slate-500"
-                onInput={(e) => {
-                  const el = e.currentTarget;
-                  el.style.height = "auto";
-                  el.style.height = `${Math.min(el.scrollHeight, 208)}px`;
-                }}
               />
               {/* Mikrofon, model seçicinin SOLUNDA (kullanıcı isteği,
                   2026-09-02) — sağ uçtaki üçlü soldan sağa "söyle → hangi

@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import { AlertTriangle, Pencil, Plug } from "lucide-react";
-import type { ChatAttachment } from "../../app-electron/shared/types";
+import type { AxetChatActivityPhase, ChatAttachment } from "../../app-electron/shared/types";
 import { renderMarkdownLite } from "../lib/markdownLite";
 import AttachmentChip from "./AttachmentChip";
 import CopyButton from "./CopyButton";
 import { useT } from "../i18n";
+import type { TranslationKey } from "../i18n/tr";
 
 export interface ChatMessage {
   id: string;
@@ -186,23 +188,67 @@ const MORSE_SEGMENTS: readonly number[] = [16, 6, 11, 6, 16, 6, 11, 16, 6];
 // 720ms. Aşarsa dalga akmaz, gösterge rastgele titrer.
 const MORSE_STEP_MS = 80;
 
-export function ThinkingBubble() {
+// Gösterge, çubukların YANINA alt sürecin o an ne yaptığını da yazıyor
+// (kullanıcı isteği, 2026-09-04: *"eğer anlık olarak bişey yapıyorsa arka
+// planda onları da görsek fena olmaz"*). Kaynak `axet-code run -v`'nin canlı
+// stderr'i — bkz. main/axetChat.ts.
+//
+// DÜRÜSTLÜK NOTU: axet-code, denetim kaydını yazdıktan sonra cevap gelene
+// kadar HİÇBİR ŞEY yazmıyor (ölçüldü: 12 saniyeye varan tam sessizlik; araç
+// çağrıları hiçbir akışa düşmüyor). O yüzden `thinking` aşamasında yapılan
+// tek dürüst şey, geçen SÜREYİ saymak: uydurma bir "dosyaları okuyor"
+// yazmaktansa "12 sn"nin kendisi daha çok bilgi.
+const PHASE_KEYS: Record<AxetChatActivityPhase, TranslationKey> = {
+  starting: "axetCodeHome.phaseStarting",
+  connectors: "axetCodeHome.phaseConnectors",
+  skills: "axetCodeHome.phaseSkills",
+  agent: "axetCodeHome.phaseAgent",
+  session: "axetCodeHome.phaseSession",
+  indexing: "axetCodeHome.phaseIndexing",
+  thinking: "axetCodeHome.phaseThinking",
+  finishing: "axetCodeHome.phaseFinishing"
+};
+
+export function ThinkingBubble({ phase }: { phase: AxetChatActivityPhase | null }) {
   const t = useT();
+  // Geçen süre. Sayaç bileşenin KENDİ ömrüne bağlı: gösterge tam olarak
+  // "istek başladı, henüz metin gelmedi" aralığında mount kalıyor, yani ayrı
+  // bir başlangıç zamanı taşımaya gerek yok.
+  const [seconds, setSeconds] = useState(0);
+  useEffect(() => {
+    const timer = setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const label = t(PHASE_KEYS[phase ?? "starting"]);
 
   return (
     // Cevap metniyle aynı sol kenardan başlıyor — cevap tarafında artık
     // avatar oluğu yok (bkz. yukarıdaki not). `role="status"` + `aria-label`:
-    // gösterge tamamen görsel, ekran okuyucunun söyleyebileceği tek şey bu.
+    // çubuklar tamamen görsel, ekran okuyucuya aşama metni gidiyor.
     // Dış `h-6`: gösterge ince olduğu için tek başına neredeyse yüksekliksiz
     // kalıyordu ve cevap gelince satır zıplıyordu.
-    <div className="flex h-6 items-center gap-1.5" role="status" aria-label={t("axetCodeHome.thinkingAria")}>
-      {MORSE_SEGMENTS.map((width, index) => (
-        <span
-          key={index}
-          className="chat-morse-dot block h-[3px]"
-          style={{ width: `${width}px`, animationDelay: `${index * MORSE_STEP_MS}ms` }}
-        />
-      ))}
+    <div className="flex h-6 items-center gap-3" role="status" aria-label={label}>
+      <div className="flex items-center gap-1.5">
+        {MORSE_SEGMENTS.map((width, index) => (
+          <span
+            key={index}
+            className="chat-morse-dot block h-[3px]"
+            style={{ width: `${width}px`, animationDelay: `${index * MORSE_STEP_MS}ms` }}
+          />
+        ))}
+      </div>
+      <span className="text-[11px] text-slate-500">
+        {label}
+        {/* Sayaç ilk saniyede yazılmıyor: hemen dönen bir cevapta "0 sn" bir
+            an görünüp kaybolurdu ve bu, gösterge yerine bir titremeye
+            benziyordu. */}
+        {seconds > 0 && (
+          <span className="ml-1.5 tabular-nums text-slate-600">
+            {t("axetCodeHome.phaseElapsed", { seconds: String(seconds) })}
+          </span>
+        )}
+      </span>
     </div>
   );
 }

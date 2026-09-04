@@ -1,12 +1,17 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import type { AxetChatMessage, AxetChatSendResult, AxetModelEntry } from "../shared/types";
+import type {
+  AxetChatActivityPhase,
+  AxetChatMessage,
+  AxetChatSendResult,
+  AxetModelEntry
+} from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import { buildContextPreamble } from "./activeContext";
 import { shouldUseConnectors } from "./connectorPolicy";
 
 // axet.code'un ana ekranındaki özgün sohbet arayüzü — gerçek interaktif TUI
-// DEĞİL, her mesaj için `axet-code run -q` (stateless, tek-atış, non-interactive)
+// DEĞİL, her mesaj için `axet-code run` (stateless, tek-atış, non-interactive)
 // modunu bir kere spawn edip tam metin cevabı bekleyen bir model. Bu modun
 // CLI seviyesinde bir oturum hafızası YOK (canlı doğrulandı — aynı `-D` veri
 // dizinine karşı iki ayrı `run` çağrısı birbirini hiç hatırlamıyor), bu yüzden
@@ -15,10 +20,15 @@ import { shouldUseConnectors } from "./connectorPolicy";
 // yazma) `run` modunda hiçbir onay istemeden (yolo/otomatik) çalışıyor —
 // canlı doğrulandı, bu modun kendi tasarımı (non-interactive = TTY'siz, onay
 // isteyecek bir yer yok).
+//
+// BU MODELİN SINIRI, ve bir sonraki adımda ele alınacak olan şey: `run`'ın
+// `--resume`/`--session` gibi bir devam bayrağı YOK (`run --help` ile
+// doğrulandı). Yani araç SONUÇLARI mesajlar arasında kayboluyor — ajan 1.
+// mesajda bir dosya okuduysa, 2. mesajın transkriptinde yalnızca metin cevabı
+// var, okuduğu içerik yok. Gerçek TUI bunu tutuyor. Kalıcı bir oturuma geçmek
+// (node-pty) ayrı ve daha büyük bir iş; kullanıcı kararı (2026-09-04) önce bu
+// dosyadaki ucuz kazanımları uygulamak yönünde.
 
-// Aktif olarak çalışan (henüz `close` event'i gelmemiş) her sohbet isteğinin
-// process referansı — kullanıcı "Durdur"a basınca `cancelChatMessage` bunu
-// bulup `kill()` çağırabilsin diye `requestId` başına saklanıyor.
 const running = new Map<string, ChildProcess>();
 
 // Canlı bulgu (2026-08-30): kullanıcı "Uygulama Bağlantıları"ndan Outlook'u
@@ -84,6 +94,279 @@ function buildPrompt(history: AxetChatMessage[], message: string, useConnectors:
 // bir kat azaltıyor.
 const CHUNK_FLUSH_MS = 50;
 
+// Bir cevabın bekletilebileceği en uzun süre. Eskiden TAVAN YOKTU: axet-code
+// takılırsa (ağ yutulması, yanıtsız bir MCP sunucusu) sohbet sonsuza kadar
+// "düşünüyor"da kalıyordu ve tek çıkış kullanıcının Durdur'a basmasıydı.
+// 5 dakika, uzun bir araç zincirini kesmeyecek kadar geniş — ölçülen en uzun
+// gerçek cevap bunun onda biri bile değil.
+const CHAT_TIMEOUT_MS = 5 * 60_000;
+
+// ---------------------------------------------------------------------------
+// Ön-ısıtma (pre-warm) — ölçülmüş gerekçe (2026-09-04)
+// ---------------------------------------------------------------------------
+// Kullanıcı şikâyeti: *"chat aynı zamanda çok yavaş çalışıyor, chatteki
+// bekleme süresi aşırı çok"*.
+//
+// Ölçüm: `(sleep 9; echo prompt) | axet-code run -v` çalıştırıldığında
+// `skillsmarket.sync.complete` satırı, prompt gönderilmeden DOKUZ SANİYE ÖNCE
+// düştü. Yani axet-code açılış işinin çoğunu (auth, config, skills kataloğu)
+// stdin'i BEKLERKEN yapıyor. Prompt geldikten sonraki sabit maliyet ise
+// yalnızca ~0.47 s (agent resolve → oturum → kod grafiği → denetim kaydı).
+//
+// Sonuç: süreci kullanıcı YAZARKEN başlatırsak mesaj başına ~2–4 saniye
+// tamamen görünmez oluyor. İnsanların yazma süresi bundan uzun.
+//
+// NEDEN TEK BİR ISITILMIŞ SÜREÇ: ikisi aynı anda beklerse ikinci kullanıcı
+// yok, ikisi de aynı kişinin. Havuz tutmak bellek ve süreç sayısı demek,
+// karşılığı yok.
+//
+// NEDEN BAĞLAYICILAR KAPALI ISITILIYOR: bağlayıcıların açılıp açılmayacağı
+// MESAJIN METNİNE bağlı (bkz. connectorPolicy) ve ısıtma anında metin henüz
+// yok. Yaygın durum kapalı; karar "açık" çıkarsa ısıtılmış süreç atılıp
+// yenisi kuruluyor. Yanlış tahminin bedeli, eskiden her mesajda ödenen şeyin
+// aynısı — yani kötüleşme yok.
+const WARM_IDLE_MS = 3 * 60_000;
+
+interface ProcChannel {
+  proc: ChildProcess;
+  cwd: string;
+  modelKey: string;
+  /** Şu ana kadar biriken cevap metni (ısıtma sırasında boş kalır). */
+  stdout: string;
+  /** Ham log çıktısı — hata mesajı üretmek için saklanıyor. */
+  stderr: string;
+  /** Satıra bölünmemiş stderr artığı. */
+  stderrTail: string;
+  exited: boolean;
+  onStdout: ((text: string) => void) | null;
+  onStderrLine: ((line: string) => void) | null;
+  onExit: ((code: number | null) => void) | null;
+  onSpawnError: ((message: string) => void) | null;
+}
+
+interface WarmEntry {
+  channel: ProcChannel;
+  idleTimer: NodeJS.Timeout;
+}
+
+let warm: WarmEntry | null = null;
+
+function modelKeyOf(model: AxetModelEntry | null): string {
+  return model ? `${model.provider}/${model.model}` : "";
+}
+
+/**
+ * `axet-code run` sürecini başlatır ve çıktı borularını tek bir kanala bağlar.
+ * Prompt BURADA yazılmıyor — süreç stdin'i bekleyerek açılıyor, çünkü
+ * ön-ısıtmanın tüm kazancı tam olarak bu bekleyişte (bkz. yukarıdaki not).
+ */
+function createChannel(cwd: string, modelKey: string, useConnectors: boolean): ProcChannel {
+  // `-v` (Show logs) ARTIK `-q` yerine: `-q` yalnızca spinner'ı gizliyordu ve
+  // karşılığında hiçbir ilerleme bilgisi vermiyordu. `-v` aşamaları stderr'e
+  // CANLI yazıyor (zaman damgalarıyla doğrulandı) ve stdout'u kirletmiyor —
+  // cevap metni eskisi gibi tertemiz geliyor.
+  const args = ["run", "-v"];
+  if (modelKey) args.push("-m", modelKey);
+
+  const channel: ProcChannel = {
+    proc: spawn("axet-code", args, {
+      cwd,
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "pipe"],
+      // Bağlayıcılar kapalıyken MCP kurulumu/yıkımı atlanıyor — mesaj
+      // başına ~8 saniye ve istek gövdesinde 317 KB (ölçüm ve gerekçe:
+      // axetSpawnEnv.ts).
+      env: axetSpawnEnv(useConnectors)
+    }),
+    cwd,
+    modelKey,
+    stdout: "",
+    stderr: "",
+    stderrTail: "",
+    exited: false,
+    onStdout: null,
+    onStderrLine: null,
+    onExit: null,
+    onSpawnError: null
+  };
+
+  // stdin yazarken process çoktan ölmüş olabilir (kullanıcı hemen "Durdur"a
+  // bastıysa, ya da ısıtılmış süreç bu arada düştüyse) — o durumda EPIPE
+  // fırlar ve yakalanmazsa main process'i düşürür.
+  channel.proc.stdin?.on("error", () => {});
+
+  channel.proc.stdout?.on("data", (chunk: Buffer) => {
+    const text = chunk.toString("utf-8");
+    channel.stdout += text;
+    channel.onStdout?.(text);
+  });
+
+  channel.proc.stderr?.on("data", (chunk: Buffer) => {
+    const text = chunk.toString("utf-8");
+    channel.stderr += text;
+    if (!channel.onStderrLine) return;
+    // Satır satır işleniyor: bir `data` event'i satırın ORTASINDA bitebilir,
+    // yarım satırdan aşama okumaya kalkmak yanlış aşama üretirdi.
+    const parts = (channel.stderrTail + text).split(/\r?\n/);
+    channel.stderrTail = parts.pop() ?? "";
+    for (const line of parts) {
+      if (line.trim()) channel.onStderrLine(line);
+    }
+  });
+
+  channel.proc.on("error", (err) => {
+    channel.exited = true;
+    channel.onSpawnError?.(err.message);
+  });
+
+  channel.proc.on("close", (code) => {
+    channel.exited = true;
+    channel.onExit?.(code);
+  });
+
+  return channel;
+}
+
+function killTree(proc: ChildProcess): void {
+  const pid = proc.pid;
+  // `proc.kill()` Windows'ta YALNIZCA o süreci öldürüyor; axet-code'un
+  // başlattığı MCP istemcileri torun süreç olarak hayatta kalıyordu.
+  // `taskkill /T` ağacın tamamını alıyor.
+  if (pid && process.platform === "win32") {
+    try {
+      spawn("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      return;
+    } catch {
+      // taskkill yoksa aşağıdaki normal kill'e düşülüyor
+    }
+  }
+  try {
+    proc.kill();
+  } catch {
+    // süreç zaten kapanmış olabilir
+  }
+}
+
+function disposeWarm(): void {
+  if (!warm) return;
+  const { channel, idleTimer } = warm;
+  warm = null;
+  clearTimeout(idleTimer);
+  // Bırakılan sürecin olay kancaları da temizleniyor: `onExit` hâlâ bağlıyken
+  // ölürse, çoktan `null`'lanmış `warm`'a dokunmaya çalışırdı.
+  channel.onExit = null;
+  channel.onSpawnError = null;
+  if (!channel.exited) killTree(channel.proc);
+}
+
+/**
+ * Kullanıcı yazmaya başladığında çağrılır: bir sonraki mesajın süreci şimdiden
+ * açılıp stdin'de bekletilir. Zaten uygun bir süreç ısınıyorsa yalnızca
+ * boşta-kalma sayacı tazelenir.
+ */
+export function prewarmChat(cwd: string, model: AxetModelEntry | null): void {
+  const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
+  const key = modelKeyOf(model);
+  if (warm && !warm.channel.exited && warm.channel.cwd === resolvedCwd && warm.channel.modelKey === key) {
+    clearTimeout(warm.idleTimer);
+    warm.idleTimer = setTimeout(disposeWarm, WARM_IDLE_MS);
+    return;
+  }
+  // Klasör ya da model değiştiyse eldeki ısıtılmış süreç işe yaramaz: ikisi de
+  // spawn anında sabitleniyor.
+  disposeWarm();
+  try {
+    mkdirSync(resolvedCwd, { recursive: true });
+  } catch {
+    // klasör açılamıyorsa ısıtma da yapılmıyor; asıl gönderim anlamlı bir
+    // hatayla patlayacak
+    return;
+  }
+  let channel: ProcChannel;
+  try {
+    channel = createChannel(resolvedCwd, key, false);
+  } catch {
+    // axet-code kurulu değilse ısıtma sessizce vazgeçiyor — kullanıcıya hata
+    // göstermek için doğru an, gerçekten bir mesaj gönderdiği an.
+    return;
+  }
+  warm = { channel, idleTimer: setTimeout(disposeWarm, WARM_IDLE_MS) };
+  // Isınırken ölürse (auth düşmüş, axet-code güncelleniyor) eldeki referans
+  // çöpe dönüyor; bu ilk gönderimde fark edilmesin diye hemen bırakılıyor.
+  const forget = () => {
+    if (warm?.channel !== channel) return;
+    clearTimeout(warm.idleTimer);
+    warm = null;
+  };
+  channel.onExit = forget;
+  channel.onSpawnError = forget;
+}
+
+/** Isıtılmış süreç bu isteğe uyuyorsa devral, yoksa `null`. */
+function takeWarm(cwd: string, modelKey: string, useConnectors: boolean): ProcChannel | null {
+  // Bağlayıcılar İSTENİYORSA ısıtılmış süreç kullanılamaz: MCP adresi spawn
+  // anında ortam değişkeniyle sabitleniyor (bkz. axetSpawnEnv.ts).
+  if (useConnectors) return null;
+  if (!warm) return null;
+  const { channel, idleTimer } = warm;
+  if (channel.exited || channel.cwd !== cwd || channel.modelKey !== modelKey) return null;
+  clearTimeout(idleTimer);
+  warm = null;
+  channel.onExit = null;
+  channel.onSpawnError = null;
+  return channel;
+}
+
+// Aşamaların GÖRÜNME sırası — canlı log'dan okunmuş hâli, alfabetik ya da
+// tahmini değil. Bağlayıcılar açıkken `connector.sync` "Running in
+// non-interactive mode"dan ÖNCE düşüyor, bu yüzden `connectors` listede
+// `starting`'in hemen ardında.
+//
+// Neye yarıyor: gösterge GERİ SIÇRAMASIN. İki ayrı sebeple sıçrardı — (1)
+// ısıtılmış süreçte açılış satırları prompt'tan sonra tekrar akıyor, (2)
+// bağlayıcılar açıkken "MCP client initialized" satırları denetim kaydından
+// sonra da gelebiliyor. "Düşünüyor"dan "Başlatılıyor"a dönen bir gösterge,
+// olmayan bir yeniden başlatmayı anlatırdı.
+const PHASE_ORDER: readonly AxetChatActivityPhase[] = [
+  "starting",
+  "connectors",
+  "skills",
+  "agent",
+  "session",
+  "indexing",
+  "thinking",
+  "finishing"
+];
+
+/** stderr log satırından arayüze gösterilecek aşamayı çıkarır. */
+function phaseFromLogLine(line: string): AxetChatActivityPhase | null {
+  if (line.includes("connector.sync") || line.includes("MCP client")) return "connectors";
+  if (line.includes("skillsmarket.sync")) return "skills";
+  if (line.includes("Running in non-interactive mode")) return "starting";
+  if (line.includes("Agent resolved")) return "agent";
+  if (line.includes("Created session")) return "session";
+  if (line.includes("Code graph")) return "indexing";
+  // Denetim kaydından SONRA axet-code cevap gelene kadar hiçbir şey yazmıyor —
+  // bu satır pratikte "artık model çalışıyor" demek.
+  if (line.includes("Audit logged")) return "thinking";
+  if (line.includes("agent turn finished")) return "finishing";
+  return null;
+}
+
+/**
+ * Hata mesajı için stderr'i temizler. `-v` açık olduğu için stderr artık
+ * NORMAL çalışmada da dolu — ham hâliyle gösterilseydi her hata "INFO
+ * skillsmarket.sync.complete..." diye başlayan bir log yığını olurdu.
+ */
+function extractError(stderr: string): string {
+  const noise = /^(INFO|DEBU|DEBUG|WARN)\b/;
+  const lines = stderr
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !noise.test(l));
+  return lines.join("\n").trim();
+}
+
 export function sendChatMessage(
   requestId: string,
   cwd: string,
@@ -93,7 +376,9 @@ export function sendChatMessage(
   // Cevap metni ÜRETİLDİKÇE çağrılır (yalnızca YENİ gelen parça, birikmiş
   // metnin tamamı değil). Verilmezse davranış eskisiyle birebir aynı: sadece
   // sonuçta tam metin döner.
-  onChunk?: (text: string) => void
+  onChunk?: (text: string) => void,
+  // Alt süreç aşama değiştirdikçe çağrılır (bkz. AxetChatActivityPhase).
+  onActivity?: (phase: AxetChatActivityPhase) => void
 ): Promise<AxetChatSendResult> {
   return new Promise((resolve) => {
     // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası, `shouldUseConnectors`
@@ -102,53 +387,34 @@ export function sendChatMessage(
     // işlemin yanında bu okumanın maliyeti ölçülemez.
     const useConnectors = decideConnectors(history, message);
     const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
-    try {
-      mkdirSync(resolvedCwd, { recursive: true });
-    } catch {
-      // pty.spawn/spawn zaten aşağıda anlamlı bir hatayla patlar
+    const key = modelKeyOf(model);
+
+    let channel = takeWarm(resolvedCwd, key, useConnectors);
+    const wasWarm = channel !== null;
+    if (!channel) {
+      // Isıtılmış süreç bu isteğe uymuyorsa (klasör/model/bağlayıcı farkı) ya
+      // da hiç yoksa: eskisi gibi şimdi başlat. Uymayan ısıtılmış süreç boşuna
+      // bekliyor demektir, bırakılıyor.
+      disposeWarm();
+      try {
+        mkdirSync(resolvedCwd, { recursive: true });
+      } catch {
+        // spawn zaten aşağıda anlamlı bir hatayla patlar
+      }
+      try {
+        channel = createChannel(resolvedCwd, key, useConnectors);
+      } catch (err) {
+        resolve({ ok: false, text: "", error: (err as Error).message });
+        return;
+      }
     }
 
-    const args = ["run", "-q"];
-    if (model) args.push("-m", `${model.provider}/${model.model}`);
-    // Prompt ARTIK komut satırı argümanı DEĞİL, stdin'den geçiyor (canlı
-    // doğrulandı: pozisyonel argüman verilmeden `axet-code run -q` prompt'u
-    // stdin'den okuyor ve normal cevap veriyor). Sebep: Windows'ta bir
-    // process'in komut satırının tamamı ~32767 karakterle sınırlı; biz
-    // geçmişi transkript olarak prompt'a GÖMDÜĞÜMÜZ için uzun bir sohbet bu
-    // sınıra dayanabiliyordu ve aşıldığında hata, prompt'un uzunluğunu değil
-    // spawn'ı işaret eden anlamsız bir mesaj olurdu. stdin'de böyle bir
-    // sınır yok.
+    const active = channel;
+    running.set(requestId, active.proc);
 
-    let proc: ChildProcess;
-    try {
-      proc = spawn("axet-code", args, {
-        cwd: resolvedCwd,
-        windowsHide: true,
-        stdio: ["pipe", "pipe", "pipe"],
-        // Bağlayıcılar kapalıyken MCP kurulumu/yıkımı atlanıyor — mesaj
-        // başına ~8 saniye (ölçüm ve gerekçe: axetSpawnEnv.ts).
-        env: axetSpawnEnv(useConnectors)
-      });
-    } catch (err) {
-      resolve({ ok: false, text: "", error: (err as Error).message });
-      return;
-    }
-    running.set(requestId, proc);
-
-    // stdin yazarken process çoktan ölmüş olabilir (kullanıcı hemen
-    // "Durdur"a bastıysa) — o durumda EPIPE fırlar ve yakalanmazsa main
-    // process'i düşürür. Sessizce yutuluyor; asıl sonuç zaten `close`
-    // event'inden geliyor.
-    proc.stdin?.on("error", () => {});
-    try {
-      proc.stdin?.end(buildPrompt(history, message, useConnectors, resolvedCwd), "utf-8");
-    } catch {
-      // yukarıdaki 'error' handler'ı zaten devrede
-    }
-
-    let stdout = "";
-    let stderr = "";
+    let settled = false;
     let killedByUser = false;
+    let lastPhase: AxetChatActivityPhase | null = null;
 
     // --- parça biriktirme (bkz. CHUNK_FLUSH_MS) ---
     let pending = "";
@@ -172,52 +438,88 @@ export function sendChatMessage(
       }
     };
 
-    proc.stdout?.on("data", (chunk: Buffer) => {
-      const text = chunk.toString("utf-8");
-      stdout += text;
+    const timeoutTimer = setTimeout(() => {
+      if (settled) return;
+      killTree(active.proc);
+      finish({
+        ok: false,
+        text: active.stdout.trim(),
+        error: `axet-code ${Math.round(CHAT_TIMEOUT_MS / 1000)} saniyede cevap vermedi.`,
+        usedConnectors: useConnectors
+      });
+    }, CHAT_TIMEOUT_MS);
+
+    const finish = (result: AxetChatSendResult) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutTimer);
+      clearFlush();
+      running.delete(requestId);
+      resolve(result);
+    };
+
+    const report = (phase: AxetChatActivityPhase) => {
+      if (phase === lastPhase) return;
+      // Geriye gitmiyor (bkz. PHASE_ORDER).
+      if (lastPhase && PHASE_ORDER.indexOf(phase) < PHASE_ORDER.indexOf(lastPhase)) return;
+      lastPhase = phase;
+      try {
+        onActivity?.(phase);
+      } catch {
+        // pencere kapanmış olabilir
+      }
+    };
+
+    active.onStdout = (text) => {
       if (!onChunk) return;
       pending += text;
       if (!flushTimer) flushTimer = setTimeout(flush, CHUNK_FLUSH_MS);
-    });
-    proc.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf-8");
-    });
+    };
 
-    proc.on("error", (err) => {
-      clearFlush();
-      running.delete(requestId);
-      resolve({ ok: false, text: "", error: err.message });
-    });
+    active.onStderrLine = (line) => {
+      const phase = phaseFromLogLine(line);
+      if (phase) report(phase);
+    };
 
-    proc.on("close", (code) => {
+    active.onSpawnError = (msg) => {
+      finish({ ok: false, text: "", error: msg });
+    };
+
+    active.onExit = (code) => {
       // Bekleyen parça BİLEREK gönderilmiyor: hemen ardından dönen sonuç
       // zaten metnin TAMAMINI taşıyor ve renderer akış mesajını onunla
       // sonlandırıyor. Son bir parça daha göndermek gereksiz bir render.
-      clearFlush();
-      running.delete(requestId);
       if (killedByUser) {
-        resolve({ ok: false, text: stdout.trim(), cancelled: true });
+        finish({ ok: false, text: active.stdout.trim(), cancelled: true });
         return;
       }
       if (code === 0) {
-        resolve({ ok: true, text: stdout.trim(), usedConnectors: useConnectors });
+        finish({ ok: true, text: active.stdout.trim(), usedConnectors: useConnectors });
         return;
       }
-      resolve({
+      finish({
         ok: false,
-        text: stdout.trim(),
-        error: (stderr || `axet-code çıkış kodu: ${code}`).trim(),
+        text: active.stdout.trim(),
+        error: extractError(active.stderr) || `axet-code çıkış kodu: ${code}`,
         usedConnectors: useConnectors
       });
-    });
+    };
 
-    // `cancelChatMessage`'ın kill() çağırdığını bu closure'da işaretlemek
-    // için — Map'ten silindikten sonra kill edilse bile `close` handler'ı
-    // hâlâ bu process referansına bağlı, `killedByUser`'ı ayrıca bir dış
-    // Set üzerinden takip etmek yerine burada closure değişkeni yeterli
-    // (bkz. cancelChatMessage — aynı `proc` referansına `(proc as any)
-    // .__cancelled` yerine daha temiz bir çözüm için aşağıdaki yardımcı).
-    (proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled = () => {
+    // Isıtılmış süreçte açılış (auth, config, yetenek kataloğu) ZATEN geçti;
+    // prompt'tan sonra gelen ilk gerçek adım ajanın seçilmesi. "Başlatılıyor"
+    // demek, olmayan bir bekleyişi anlatmak olurdu.
+    report(wasWarm ? "agent" : "starting");
+
+    // Süreç ısıtma sırasında ölmüş olabilir; `takeWarm` bunu kontrol ediyor
+    // ama devralma ile stdin yazımı arasında da ölebilir. `stdin.on("error")`
+    // yutuyor, gerçek sonuç `close`'dan geliyor.
+    try {
+      active.proc.stdin?.end(buildPrompt(history, message, useConnectors, resolvedCwd), "utf-8");
+    } catch {
+      // yukarıdaki 'error' handler'ı zaten devrede
+    }
+
+    (active.proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled = () => {
       killedByUser = true;
     };
   });
@@ -227,14 +529,13 @@ export function cancelChatMessage(requestId: string): void {
   const proc = running.get(requestId);
   if (!proc) return;
   (proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled?.();
-  try {
-    proc.kill();
-  } catch {
-    // process zaten kapanmış olabilir
-  }
+  killTree(proc);
   running.delete(requestId);
 }
 
 export function cancelAllChatMessages(): void {
   for (const id of Array.from(running.keys())) cancelChatMessage(id);
+  // Isıtılmış süreç de bırakılmalı: uygulama kapanırken stdin'de bekleyen bir
+  // axet-code'u arkada bırakmak, kullanıcının göremediği bir süreç demek.
+  disposeWarm();
 }

@@ -152,6 +152,17 @@ export const tr = {
   // Bekleme göstergesi artık metinsiz (bkz. ChatBubble `ThinkingBubble`) —
   // bu etiket EKRANDA GÖRÜNMEZ, sadece ekran okuyucuya okunur.
   "axetCodeHome.thinkingAria": "Yanıt hazırlanıyor",
+  // Cevap beklenirken alt sürecin aşaması (bkz. shared/types.ts
+  // `AxetChatActivityPhase`). Kısa tutuluyor: çubukların yanında tek satır.
+  "axetCodeHome.phaseStarting": "Başlatılıyor",
+  "axetCodeHome.phaseConnectors": "Uygulama bağlantıları hazırlanıyor",
+  "axetCodeHome.phaseSkills": "Yetenekler yükleniyor",
+  "axetCodeHome.phaseAgent": "Ajan seçiliyor",
+  "axetCodeHome.phaseSession": "Oturum hazırlanıyor",
+  "axetCodeHome.phaseIndexing": "Proje taranıyor",
+  "axetCodeHome.phaseThinking": "Düşünüyor",
+  "axetCodeHome.phaseFinishing": "Tamamlanıyor",
+  "axetCodeHome.phaseElapsed": "{seconds} sn",
   "axetCodeHome.dropFilesHint": "Eklemek için dosyaları buraya bırak",
   "axetCodeHome.contextTerminal": "Terminal",
   "axetCodeHome.contextTerminalHint": "Bu proje klasöründe terminal aç",
