@@ -13,6 +13,7 @@ import {
   Trash2
 } from "lucide-react";
 import type {
+  ActiveSapContext,
   AppConfig,
   AxetChatMessage,
   AxetModelEntry,
@@ -93,6 +94,15 @@ interface Props {
    * düşülüyor.
    */
   sapChatRequest: SapChatRequest | null;
+  /**
+   * O an bağlı olunan SAP sistemi (bkz. app-electron/main/activeContext.ts).
+   * `sapChatRequest`'ten FARKLI: o, "şimdi bağlandık, yeni sohbet aç" diyen
+   * TEK SEFERLİK bir olay; bu ise sürekli bir durum. Bağlandıktan sonra elle
+   * açılan yeni sohbetler de bu sayede aynı sisteme bağlanıyor — bağlantı
+   * kurulduktan sonra "Yeni sohbet"e basmak, kullanıcıyı sessizce bağlamsız
+   * bir sohbete düşürüyordu.
+   */
+  activeSap: ActiveSapContext | null;
   /** Terminal, silinmedi — sadece varsayılan olmaktan çıktı (rozetteki düğme). */
   onOpenChatTerminal: (cwd: string, title: string) => void;
 }
@@ -241,6 +251,7 @@ export default function AxetCodeHome({
   onOpenSapLauncher,
   onQuickConnectSap,
   sapChatRequest,
+  activeSap,
   onOpenChatTerminal
 }: Props) {
   const t = useT();
@@ -254,6 +265,18 @@ export default function AxetCodeHome({
   // bağlantı da o ana kadar burada bekliyor: bağlanıp hiçbir şey sormayan
   // kullanıcı, listede boş bir sohbet bulmuyor.
   const [newBinding, setNewBinding] = useState<{ cwd: string; label: string } | null>(null);
+  // Taslak sohbetin GERÇEKTE kullanacağı bağlantı. `newBinding` yoksa aktif
+  // SAP bağlamı devreye giriyor: bir sisteme bağlandıktan sonra açılan her
+  // yeni sohbet o sisteme ait sayılıyor. `newBinding` ("şu an bağlandık"
+  // olayı) her zaman önce gelir — nadir de olsa ikisi farklı olabilir.
+  // Bağlamsız bir sohbet istemenin yolu, başlık çubuğundaki rozetten
+  // bağlamı temizlemek.
+  const effectiveNewBinding = useMemo(
+    () =>
+      newBinding ??
+      (activeSap ? { cwd: activeSap.projectDir, label: `${activeSap.systemId} · ${activeSap.client}` } : null),
+    [newBinding, activeSap]
+  );
   const [models, setModels] = useState<AxetModelEntry[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState<string | null>(null);
@@ -633,8 +656,8 @@ export default function AxetCodeHome({
       createdAt: now,
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
-      cwd: newBinding?.cwd ?? null,
-      sapLabel: newBinding?.label ?? null
+      cwd: effectiveNewBinding?.cwd ?? null,
+      sapLabel: effectiveNewBinding?.label ?? null
     };
     setSessions((prev) => [...prev, session]);
     setActiveId(id);
@@ -642,7 +665,7 @@ export default function AxetCodeHome({
     setNewAttachments([]);
     setNewBinding(null);
     await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel, session.cwd);
-  }, [defaultModel, newAttachments, newBinding, newDraft, runPrompt]);
+  }, [defaultModel, newAttachments, effectiveNewBinding, newDraft, runPrompt]);
 
   const handleSend = useCallback(async () => {
     if (!activeId) return handleSendNew();
@@ -1355,22 +1378,22 @@ export default function AxetCodeHome({
           onRemoveAttachment={(attachmentId) => removeAttachment(NEW_SESSION_ID, attachmentId)}
           suggestionKeys={suggestionKeys}
           onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
-          contextLabel={newBinding?.label ?? null}
-          contextPath={newBinding?.cwd || workspaceDir}
+          contextLabel={effectiveNewBinding?.label ?? null}
+          contextPath={effectiveNewBinding?.cwd || workspaceDir}
           onOpenContextTerminal={
-            newBinding
-              ? () => onOpenChatTerminal(newBinding.cwd, newBinding.label)
+            effectiveNewBinding
+              ? () => onOpenChatTerminal(effectiveNewBinding.cwd, effectiveNewBinding.label)
               : workspaceDir
                 ? () => onOpenChatTerminal(workspaceDir, t("axetCodeHome.contextWorkspace"))
                 : undefined
           }
           filesPanelOpen={filesPanelOpen}
-          onToggleFilesPanel={newBinding?.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
+          onToggleFilesPanel={effectiveNewBinding?.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
           filesPanel={
             filesPanelOpen ? (
               <ChatFilesPanel
-                rootDir={newBinding?.cwd || workspaceDir}
-                rootLabel={newBinding?.label ?? t("axetCodeHome.contextWorkspace")}
+                rootDir={effectiveNewBinding?.cwd || workspaceDir}
+                rootLabel={effectiveNewBinding?.label ?? t("axetCodeHome.contextWorkspace")}
                 onClose={() => setFilesPanelOpen(false)}
                 active={active && activeId === null}
               />

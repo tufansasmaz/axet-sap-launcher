@@ -1,4 +1,6 @@
 import type {
+  ActiveContext,
+  ActiveGuiContext,
   AddManualSystemInput,
   AppConfig,
   AxetChatMessage,
@@ -63,6 +65,12 @@ export interface AxetApi {
   checkConnectivity: (service: SapService) => Promise<ConnectivityResult>;
   connect: (req: ConnectRequest) => Promise<ConnectResult>;
   getCredentialDefaults: (serviceUuid: string) => Promise<CredentialDefaults>;
+  // Aktif bağlam — üç ekranın ortak "neredeyiz" bilgisi
+  // (bkz. app-electron/main/activeContext.ts).
+  getActiveContext: () => Promise<ActiveContext>;
+  clearActiveSapContext: () => Promise<ActiveContext>;
+  setActiveGuiContext: (gui: ActiveGuiContext | null) => Promise<ActiveContext>;
+  onActiveContextChanged: (callback: (context: ActiveContext) => void) => () => void;
   getConfig: () => Promise<AppConfig>;
   saveConfig: (partial: Partial<AppConfig>) => Promise<AppConfig>;
   pickFolder: () => Promise<string | null>;

@@ -35,6 +35,7 @@ import StatusBarStrip from "./sapgui/StatusBarStrip";
 import { CountBadge, EmptyState, GHOST_ICON_BUTTON, ICON_BUTTON, PRIMARY_BUTTON, PanelHeader, Pill, TOOL_BUTTON } from "./sapgui/ui";
 import { vkeyLabel } from "../lib/sapGui/vkeys";
 import type {
+  ActiveSapContext,
   GuiScriptActionKind,
   GuiScriptBridgeStatus,
   GuiScriptComponentDetail,
@@ -73,6 +74,18 @@ const GUI_SCRIPT_ACTIONS = Object.keys({
   navigate: true,
   popupChoice: true
 } satisfies Record<GuiScriptActionKind, true>) as GuiScriptActionKind[];
+
+// SAP GUI'nin bildirdiği sistem, Launcher'ın bağlandığı sistemle aynı mı?
+// GUI tarafı SID'i `systemName`'de veriyor; Launcher'da karşılığı `systemId`.
+// Client de karşılaştırılıyor: aynı sistemin iki client'ı FARKLI veri
+// demek. `client` bazı ekranlarda hiç gelmiyor — gelmediğinde o kısım
+// sessizce eşleşmiş sayılıyor, yoksa her ekranda yanlış bir uyarı çıkardı.
+function sameSystem(screen: GuiScriptScreenState, sap: ActiveSapContext): boolean {
+  const sidMatch = (screen.systemName ?? "").trim().toUpperCase() === sap.systemId.trim().toUpperCase();
+  if (!sidMatch) return false;
+  if (!screen.client) return true;
+  return screen.client.trim() === sap.client.trim();
+}
 
 function nodeKey(connIdx: number, sessIdx: number, elementId: string): string {
   return `${connIdx}:${sessIdx}:${elementId || ROOT_KEY}`;
@@ -151,7 +164,7 @@ interface ActionExtra {
 //   sağ      → eleman denetçisi (tüm özellikler + aksiyonlar + grid)
 //   alt şerit→ popup + SAP durum çubuğu (aksiyonun GERÇEKTEN kabul edilip
 //              edilmediğinin tek güvenilir kaynağı)
-export default function SapGuiScriptingHome() {
+export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSapContext | null }) {
   const t = useT();
 
   const [status, setStatus] = useState<GuiScriptBridgeStatus>({ running: false, port: null, external: false });
@@ -362,6 +375,41 @@ export default function SapGuiScriptingHome() {
     },
     [activeSession]
   );
+
+  // Aktif bağlamın GUI tarafını yayınlar (bkz. app-electron/main/activeContext.ts).
+  // Böylece sohbet ajanı, kullanıcının SAP GUI'de hangi işlemde olduğunu
+  // biliyor — üç ekranın "birbirinden haberi olsun" isteğinin bu ekrandaki
+  // payı.
+  //
+  // TEMİZLİK YOK, bilerek: bu ekran sekme değişince UNMOUNT oluyor ve
+  // unmount'ta bağlamı silmek, tam olarak ona ihtiyaç duyulan anda (kullanıcı
+  // sohbete geçip "bu ekranda ne yapmalıyım" diye sorduğunda) siler. Oturum
+  // gerçekten kaybolduğunda `activeSession`/`screen` zaten burada null'a
+  // düşüyor ve yayın o zaman yapılıyor.
+  //
+  // `updatedAt` her çağrıda değişiyor ama main tarafı onu karşılaştırmaya
+  // KATMIYOR — aksi hâlde her ekran yoklaması bir yayın tetiklerdi.
+  useEffect(() => {
+    if (!activeSession || !screen) {
+      window.api.setActiveGuiContext(null).catch(() => {});
+      return;
+    }
+    window.api
+      .setActiveGuiContext({
+        connectionIndex: activeSession.connIdx,
+        sessionIndex: activeSession.sessIdx,
+        systemName: screen.systemName,
+        client: screen.client,
+        user: screen.user,
+        transaction: screen.transaction,
+        program: screen.program,
+        title: screen.title,
+        updatedAt: new Date().toISOString()
+      })
+      .catch(() => {
+        // bağlam yayını en iyi çaba — başarısızlığı bu ekranı etkilemez
+      });
+  }, [activeSession, screen]);
 
   const handleSelectSession = useCallback(
     (connIdx: number, sessIdx: number) => {
@@ -694,6 +742,34 @@ export default function SapGuiScriptingHome() {
               ? t("sapGuiScripting.bridgeRunning", { port: status.port ?? "" })
               : t("sapGuiScripting.bridgeStopped")}
         </span>
+
+        {/* Launcher'ın bağlı olduğu sistem. Bu ekran SAP GUI'ye COM üzerinden
+            bakıyor ve Launcher'ın ADT/RFC bağlantısından tamamen habersizdi —
+            ikisi FARKLI sistemler olabilir ve fark, script'i yanlış sistemde
+            oynatana kadar hiçbir yerde görünmüyordu. */}
+        {activeSap && (
+          <span
+            className="ml-1 flex h-6 min-w-0 shrink items-center gap-1.5 rounded-full border border-base-700 bg-base-800 px-2.5 text-[10px] font-medium text-slate-400"
+            title={t("activeContext.launcherSystem", { system: activeSap.systemId, client: activeSap.client })}
+          >
+            <Plug size={11} className="shrink-0" />
+            <span className="truncate">
+              {activeSap.systemId} / {activeSap.client}
+            </span>
+            {screen?.systemName && !sameSystem(screen, activeSap) && (
+              <span
+                className="shrink-0 font-semibold"
+                style={{ color: "var(--status-warning-text)" }}
+                title={t("activeContext.mismatchHint", {
+                  gui: `${screen.systemName ?? "?"} / ${screen.client ?? "?"}`,
+                  launcher: `${activeSap.systemId} / ${activeSap.client}`
+                })}
+              >
+                {t("activeContext.mismatch")}
+              </span>
+            )}
+          </span>
+        )}
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
           {status.running && (

@@ -49,6 +49,7 @@ import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPa
 import FileExplorer from "./components/FileExplorer";
 import FileViewer from "./components/FileViewer";
 import { flattenLandscape } from "./lib/landscape";
+import { useActiveContext } from "./lib/useActiveContext";
 import { LanguageProvider, translate } from "./i18n";
 
 const MIN_TERMINAL_HEIGHT = 160;
@@ -114,6 +115,12 @@ export default function App() {
   const flushTimerRef = useRef<number | null>(null);
   const pendingTerminalTitlesRef = useRef<Map<string, string>>(new Map());
   const manualTerminalCounterRef = useRef(0);
+
+  // Aktif bağlam TEK KEZ burada okunuyor ve prop olarak dağıtılıyor. Hook'u
+  // her ihtiyaç duyan bileşende ayrı ayrı çağırmak, aynı yayına N ayrı abone
+  // ve N ayrı kopya demek olurdu — "tek bir yerde toplama" isteğinin tam
+  // tersi (bkz. app-electron/main/activeContext.ts).
+  const activeContext = useActiveContext();
 
   const language = config?.language ?? "tr";
   const t = useCallback(
@@ -370,6 +377,22 @@ export default function App() {
   const handleSelect = (path: string[], service: SapService, itemUuid: string) => {
     setSelection({ path, service, itemUuid });
   };
+
+  // Başlık çubuğundaki aktif bağlam rozetine tıklandığında: SAP Launcher'a
+  // geç ve bağlı sistemi seç. `pendingSelectUuid` yolu kullanılıyor çünkü
+  // rozet yalnızca uuid'yi biliyor — ağaçtaki karşılığını (yol + service)
+  // zaten var olan efekt buluyor.
+  const handleShowActiveSystem = useCallback(() => {
+    if (!activeContext.sap) return;
+    setActivity("sapLauncher");
+    setPendingSelectUuid(activeContext.sap.uuid);
+  }, [activeContext.sap?.uuid]);
+
+  const handleClearActiveSap = useCallback(() => {
+    window.api.clearActiveSapContext().catch(() => {
+      // bağlam yayını zaten main'den geliyor; temizleme başarısızsa rozet kalır
+    });
+  }, []);
 
   // axet.code ana ekranındaki (AxetCodeHome) "Son Bağlanılanlar" dashboard
   // kartından tek tıkla SAP Launcher'a geçip doğrudan kimlik bilgisi
@@ -746,7 +769,7 @@ export default function App() {
   return (
     <LanguageProvider language={language}>
       <div className="flex h-screen flex-col overflow-hidden">
-        <TitleBar />
+        <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
         <ActivityBar
           activity={activity}
@@ -784,11 +807,12 @@ export default function App() {
             onOpenSapLauncher={() => setActivity("sapLauncher")}
             onQuickConnectSap={handleQuickConnectSap}
             sapChatRequest={sapChatRequest}
+            activeSap={activeContext.sap}
             onOpenChatTerminal={openProjectDirTerminal}
           />
         </div>
         {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
-          <SapGuiScriptingHome />
+          <SapGuiScriptingHome activeSap={activeContext.sap} />
         ) : (
           <>
         <header className="flex items-center gap-3 border-b border-base-700 bg-base-900 px-4 py-3">

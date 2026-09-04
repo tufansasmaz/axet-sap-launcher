@@ -144,6 +144,52 @@ export interface CredentialDefaults {
   client: string;
 }
 
+// --------------------------- Aktif Bağlam ---------------------------
+// Uygulamanın üç ekranı (axet.code, SAP Launcher, SAP GUI Scripting) uzun
+// süre birbirinden habersiz üç ayrı adaydı. Kullanıcı isteği (2026-09-04):
+// *"bu 3 farklı uygulamayı tek bir yere toplamış gibi / birbiriyle haberleri
+// olsun"*. Bu tip, üçünün de okuduğu O TEK ortak gerçeği taşıyor.
+//
+// ŞİFRE YOK. Bağlam ekranda gösteriliyor ve ajanın prompt'una giriyor;
+// kimlik bilgisi zaten `.conn_adt`'ta ve `secureStorage`'da, buraya bir
+// kopyası daha çıkmamalı.
+
+/** SAP Launcher'ın BAŞARIYLA bağlandığı sistem. Tek yazarı `system:connect`. */
+export interface ActiveSapContext {
+  uuid: string;
+  systemId: string;
+  systemName: string;
+  /** Landscape ağacındaki yol — ekranda "Müşteri › Klasör" olarak gösteriliyor. */
+  customerPath: string[];
+  /** SapService.host gibi null olabilir (BTP/Cloud girdilerinde host yok). */
+  host: string | null;
+  client: string;
+  username: string;
+  tier: SystemTier | null;
+  projectDir: string;
+  connectedAt: string;
+  /** Bağlantı gerçekten doğrulanabildi mi (bkz. ConnectResult.verified). */
+  verified: boolean;
+}
+
+/** SAP GUI Scripting ekranının o an baktığı canlı oturum. Tek yazarı o ekran. */
+export interface ActiveGuiContext {
+  connectionIndex: number;
+  sessionIndex: number;
+  systemName?: string;
+  client?: string;
+  user?: string;
+  transaction?: string;
+  program?: string;
+  title?: string;
+  updatedAt: string;
+}
+
+export interface ActiveContext {
+  sap: ActiveSapContext | null;
+  gui: ActiveGuiContext | null;
+}
+
 export interface SystemCommentDefaults {
   comment: string;
   source: "saved" | "sapLogon" | "none";

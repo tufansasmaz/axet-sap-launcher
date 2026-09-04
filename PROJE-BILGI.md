@@ -7888,3 +7888,75 @@ kapsadığı için bilinçli ve sınırlı tutuldu.
   adımı: ajanın nereye yazdığı tahmin edilecek bir şey olmamalı.
 - Panel genişliği SABİT (380px). Sürüklenebilir bir ayırıcı, okuma sütununun
   kendi kademeli genişliğiyle (`COLUMN`) çakışırdı.
+
+## Aktif Bağlam — üç ekranın ortak "neredeyiz" bilgisi (2026-09-04)
+
+Geri bildirimin üçüncü maddesi: *"bu 3 farklı uygulamayı tek bir yere toplamış
+gibi / birbiriyle haberleri olsun"*. axet.code, SAP Launcher ve SAP GUI
+Scripting aynı pencerede duruyordu ama birbirinden tamamen habersizdi:
+Launcher bir sisteme bağlanıyor, sohbet bunu bilmiyor, GUI Scripting ekranı
+hangi sisteme bağlı olduğumuzu hiç duymuyordu.
+
+Ortak gerçek `app-electron/main/activeContext.ts`'te: bağlı SAP sistemi
+(`sap`) ve canlı SAP GUI oturumu (`gui`).
+
+### Neden main process'te, neden diske YAZILMIYOR
+
+Bu bilgiyi okuyan iki yer renderer'da değil: prompt'u kuran `axetChat.ts` ve
+bağlantıyı kuran `launcher.ts`. React state'i olsaydı main tarafı kendi
+yazdığı gerçeği geri okuyamazdı.
+
+Diske yazılmıyor çünkü **canlı bir bağlantı yeniden başlatmayı atlatmaz** —
+RFC bridge ölür, `.conn_adt` bayatlar. Kalıcı olsaydı uygulama bir sonraki
+açılışta "PRD'ye bağlısın" diye yanlış bir şey iddia ederdi; bu tam olarak
+birinin yanlış sisteme iş yaptırmasına yol açan tür bir yalan.
+
+**Şifre taşınmıyor.** Bu nesne hem ekranda gösteriliyor hem de ajanın
+prompt'una giriyor; kimlik bilgisi `.conn_adt` ve `secureStorage`'da kalıyor.
+
+### Tek yazar kuralı
+
+| Alan | Tek yazarı |
+| --- | --- |
+| `sap` | başarılı `system:connect` (main) |
+| `gui` | SAP GUI Scripting ekranı (`setActiveGuiContext`) |
+
+Renderer `sap`'ı ÜRETEMİYOR, yalnızca okuyor ve kullanıcı isterse
+temizliyor. İki yerden yazılabilen bir "aktif sistem", iki farklı doğruya
+sahip olurdu.
+
+### Üç ekranın kazancı
+
+- **Başlık çubuğu**: bağlı sistem + client/kullanıcı + tier rozeti + canlı
+  GUI işlemi. Üç ekranın da üstünde duran tek yer orası; rozeti bir ekranın
+  içine koymak "bu bilgi o ekrana ait" demek olurdu. Tıklayınca Launcher'da
+  o sistem seçiliyor.
+- **axet.code**: bir sisteme bağlandıktan sonra elle açılan yeni sohbetler de
+  o sisteme bağlanıyor (madde 1 yalnızca bağlantı ANINDA açılan sohbeti
+  bağlıyordu). Bağlamsız sohbet istemenin yolu rozetten bağlamı temizlemek.
+- **SAP GUI Scripting**: başlıkta Launcher'ın bağlı olduğu sistem, ve GUI'deki
+  oturum FARKLI bir sistem/client ise "farklı sistem" uyarısı. Bu fark
+  eskiden script yanlış sistemde oynatılana kadar hiçbir yerde görünmüyordu.
+- **Ajan**: sohbetin prompt'una kısa bir bağlam bloğu giriyor (sistem, tier,
+  client, proje klasörü, açık GUI işlemi). QA/PRD'de ayrıca "yazma yapma,
+  önce sor" satırı ekleniyor.
+
+### Prompt bloğunun sınırı (bilinçli)
+
+Blok YALNIZCA sohbetin çalışma klasörü aktif bağlamın proje klasörüyse
+ekleniyor. Genel bir sohbette "S4D'ye bağlısın" demek, kullanıcının hiç
+sormadığı bir bağlamı her cevaba sızdırmak olurdu. Gevşetmek isteyen
+`buildContextPreamble`'daki tek `if`'i değiştirir.
+
+### Dikkat
+
+- `setActiveGui` değişiklik yoksa yayın YAPMIYOR. GUI ekranı `getScreen`'i
+  düzenli yokluyor ve çoğu yoklama aynı ekranı döndürüyor; `updatedAt`
+  karşılaştırmaya kasten katılmıyor, yoksa her yoklama tüm renderer'ı
+  yeniden render ederdi.
+- SAP GUI Scripting ekranı UNMOUNT olurken bağlamı TEMİZLEMİYOR. Sekme
+  değişince unmount oluyor ve orada silmek, tam ona ihtiyaç duyulan anda
+  (kullanıcı sohbete geçip "bu ekranda ne yapmalıyım" derken) silerdi.
+- Aktif bağlam `App.tsx`'te TEK KEZ okunup prop olarak dağıtılıyor. Hook'u
+  her bileşende ayrı çağırmak N ayrı abone ve N ayrı kopya demek olurdu —
+  "tek bir yere toplama" isteğinin tam tersi.

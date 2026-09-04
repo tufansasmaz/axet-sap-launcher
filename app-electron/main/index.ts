@@ -15,6 +15,7 @@ import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, dispose
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { isPathAllowed, listDir, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
+import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
 import { listAxetModels, getAxetModelConfig, setAxetModel } from "./axetModels";
@@ -40,7 +41,7 @@ import { runSapGuiAgentStep, cancelSapGuiAgentStep, cancelAllSapGuiAgentSteps } 
 import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js";
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
-import type { AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -212,6 +213,14 @@ function createWindow(): void {
 
   mainWindow = win;
 
+  // Aktif bağlam yayını (bkz. activeContext.ts). Emitter burada kuruluyor
+  // çünkü pencereyi bilen tek yer burası — o modül `electron`'a hiç
+  // dokunmuyor.
+  setActiveContextEmitter((context) => {
+    if (mainWindow?.isDestroyed()) return;
+    mainWindow?.webContents.send("context:changed", context);
+  });
+
   win.once("ready-to-show", () => {
     win.show();
     // Açılıştan biraz sonra sessizce güncelleme kontrolü — pencere
@@ -377,8 +386,40 @@ function registerIpc(): void {
         client: result.effectiveClient ?? req.credentials.client
       });
       pushConnectionHistory(req.service.uuid);
+      // Aktif bağlamın SAP tarafının TEK yazarı burası (bkz.
+      // activeContext.ts). Şifre BİLEREK taşınmıyor — bu nesne hem ekranda
+      // gösteriliyor hem de ajanın prompt'una giriyor.
+      setActiveSap({
+        uuid: req.service.uuid,
+        systemId: req.service.systemId || req.service.name,
+        systemName: req.service.name,
+        customerPath: req.customerPath,
+        host: req.service.host,
+        client: result.effectiveClient ?? req.credentials.client,
+        username: req.credentials.username,
+        tier: config.systemTiers?.[req.service.uuid] ?? null,
+        projectDir: result.projectDir,
+        connectedAt: new Date().toISOString(),
+        verified: result.verified
+      });
     }
     return result;
+  });
+
+  // ---------------------------- Aktif Bağlam ----------------------------
+  ipcMain.handle("context:get", () => getActiveContext());
+
+  // Temizleme yalnızca SAP tarafı için var ve kullanıcı eylemi (başlık
+  // çubuğundaki rozetin çarpısı). GUI tarafı kendi kendini yönetiyor:
+  // oturum kapanınca ekran zaten `null` yayınlıyor.
+  ipcMain.handle("context:clearSap", () => {
+    clearActiveSap();
+    return getActiveContext();
+  });
+
+  ipcMain.handle("context:setGui", (_event, gui: ActiveGuiContext | null) => {
+    setActiveGui(gui);
+    return getActiveContext();
   });
 
   ipcMain.handle("sapLogon:open", async (_event, service: SapService) => {

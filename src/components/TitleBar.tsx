@@ -1,9 +1,21 @@
 import { useEffect, useState } from "react";
-import { Minus, Square, Copy, X } from "lucide-react";
+import { Minus, Square, Copy, X, MonitorPlay, Unplug } from "lucide-react";
+import type { ActiveContext } from "../../app-electron/shared/types";
 import logo from "../assets/logo.svg";
+import TierBadge from "./TierBadge";
 import { useT } from "../i18n";
 
-export default function TitleBar() {
+interface Props {
+  // Aktif bağlam rozeti BAŞLIK ÇUBUĞUNDA, çünkü aynı anda üç ekranın da
+  // üstünde duran tek yer burası. Rozeti bir ekranın içine koymak, "bu bilgi
+  // o ekrana ait" demek olurdu — oysa mesele tam tersi: üçü de aynı şeye
+  // bakıyor (bkz. app-electron/main/activeContext.ts).
+  context: ActiveContext;
+  onShowSystem: () => void;
+  onClearSap: () => void;
+}
+
+export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
   const t = useT();
   const [isMaximized, setIsMaximized] = useState(false);
 
@@ -31,6 +43,54 @@ export default function TitleBar() {
         <span className="text-slate-600">·</span>
         <span className="text-slate-500">by tsasmaz</span>
       </div>
+
+      {/* Aktif bağlam. Bağlantı yoksa rozet HİÇ ÇİZİLMİYOR — "bağlı değil"
+          yazan boş bir rozet, olmayan bir durumu varmış gibi gösterirdi. */}
+      {context.sap && (
+        <div
+          className="flex min-w-0 items-center gap-1.5 rounded-sm border border-base-700 bg-base-800 px-2 py-0.5"
+          style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        >
+          <span
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${context.sap.verified ? "bg-emerald-500" : "bg-[var(--status-warning-text)]"}`}
+            title={context.sap.verified ? t("activeContext.verified") : t("activeContext.unverified")}
+          />
+          <button
+            onClick={onShowSystem}
+            title={t("activeContext.showSystem", { path: context.sap.customerPath.join(" › ") })}
+            className="flex min-w-0 cursor-pointer items-center gap-1.5 text-xs text-slate-300 hover:text-white"
+          >
+            <span className="truncate font-semibold">{context.sap.systemId}</span>
+            <span className="shrink-0 text-slate-500">·</span>
+            <span className="shrink-0 text-slate-400">
+              {context.sap.client} / {context.sap.username}
+            </span>
+          </button>
+          {context.sap.tier && <TierBadge tier={context.sap.tier} />}
+          {/* SAP GUI oturumu ayrı bir parça: bağlı sistem ile açık GUI ekranı
+              FARKLI şeyler ve aynı anda ikisi de doğru olabilir. */}
+          {context.gui && (
+            <span
+              className="flex shrink-0 items-center gap-1 border-l border-base-700 pl-1.5 text-xs text-slate-400"
+              title={t("activeContext.guiSession", {
+                system: context.gui.systemName ?? "?",
+                title: context.gui.title ?? ""
+              })}
+            >
+              <MonitorPlay size={12} />
+              {context.gui.transaction || context.gui.program || "SAP GUI"}
+            </span>
+          )}
+          <button
+            onClick={onClearSap}
+            title={t("activeContext.clear")}
+            className="ml-0.5 shrink-0 cursor-pointer rounded-sm p-0.5 text-slate-500 hover:bg-base-700 hover:text-slate-200"
+          >
+            <Unplug size={12} />
+          </button>
+        </div>
+      )}
+
       <div className="flex h-full" style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}>
         <button
           onClick={handleMinimize}

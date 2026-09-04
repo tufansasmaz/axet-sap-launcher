@@ -55,6 +55,15 @@ export const en: Record<TranslationKey, string> = {
   "titleBar.maximize": "Maximize",
   "titleBar.close": "Close",
 
+  "activeContext.verified": "Connection verified",
+  "activeContext.unverified": "Connection could not be verified — ADT calls may fail",
+  "activeContext.showSystem": "Show system · {path}",
+  "activeContext.guiSession": "SAP GUI session · {system} {title}",
+  "activeContext.clear": "Clear active context (does not close the connection)",
+  "activeContext.launcherSystem": "SAP Launcher is connected to: {system}, client {client}",
+  "activeContext.mismatch": "different system",
+  "activeContext.mismatchHint": "SAP GUI screen is {gui}, SAP Launcher connection is {launcher} — not the same system.",
+
   "tree.noMatch": "No matching customer/system found.",
 
   "recentSystems.heading": "Recently Connected",

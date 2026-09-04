@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import type { AxetChatMessage, AxetChatSendResult, AxetModelEntry } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
+import { buildContextPreamble } from "./activeContext";
 import { shouldUseConnectors } from "./connectorPolicy";
 
 // axet.code'un ana ekranındaki özgün sohbet arayüzü — gerçek interaktif TUI
@@ -55,8 +56,14 @@ function decideConnectors(history: AxetChatMessage[], message: string): boolean 
 // `useConnectors` false ise hatırlatma EKLENMİYOR: ortada bağlayıcı yokken
 // ajana "alternatif entegrasyonu dene" demek hem anlamsız hem de var olmayan
 // bir yetenek varmış izlenimi veriyor.
-function buildPrompt(history: AxetChatMessage[], message: string, useConnectors: boolean): string {
-  const preamble = useConnectors ? `${CONNECTOR_RETRY_REMINDER}\n\n` : "";
+function buildPrompt(history: AxetChatMessage[], message: string, useConnectors: boolean, cwd: string): string {
+  // Aktif SAP bağlamı (bkz. activeContext.ts). Sohbet bir sisteme BAĞLIYSA
+  // ajan hangi sistemde/hangi ekranda olduğumuzu bilmeden cevap veriyordu:
+  // proje klasöründe duran `.conn_adt` ve `sap-context.md`'yi ancak tesadüfen
+  // okurdu. Sohbet bağlı değilse bu blok boş döner ve prompt eskisiyle
+  // birebir aynı kalır.
+  const contextBlock = buildContextPreamble(cwd);
+  const preamble = contextBlock + (useConnectors ? `${CONNECTOR_RETRY_REMINDER}\n\n` : "");
   if (history.length === 0) return `${preamble}Kullanıcı mesajı: ${message}`;
   const transcript = history
     .map((m) => `${m.role === "user" ? "Kullanıcı" : "Sen"}: ${m.content}`)
@@ -134,7 +141,7 @@ export function sendChatMessage(
     // event'inden geliyor.
     proc.stdin?.on("error", () => {});
     try {
-      proc.stdin?.end(buildPrompt(history, message, useConnectors), "utf-8");
+      proc.stdin?.end(buildPrompt(history, message, useConnectors, resolvedCwd), "utf-8");
     } catch {
       // yukarıdaki 'error' handler'ı zaten devrede
     }

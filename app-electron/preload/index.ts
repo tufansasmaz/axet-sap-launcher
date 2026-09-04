@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
+  ActiveContext,
+  ActiveGuiContext,
   AddManualSystemInput,
   AppConfig,
   AxetChatMessage,
@@ -50,6 +52,17 @@ const api = {
   checkConnectivity: (service: SapService) => ipcRenderer.invoke("connectivity:check", service),
   connect: (req: ConnectRequest) => ipcRenderer.invoke("system:connect", req),
   getCredentialDefaults: (serviceUuid: string) => ipcRenderer.invoke("credentials:getDefaults", serviceUuid),
+  // Aktif bağlam — üç ekranın ortak "neredeyiz" bilgisi (bkz.
+  // main/activeContext.ts). Renderer SAP tarafını YAZAMIYOR, sadece okuyor
+  // ve temizleyebiliyor; tek yazar başarılı bağlantının kendisi.
+  getActiveContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:get"),
+  clearActiveSapContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:clearSap"),
+  setActiveGuiContext: (gui: ActiveGuiContext | null): Promise<ActiveContext> => ipcRenderer.invoke("context:setGui", gui),
+  onActiveContextChanged: (callback: (context: ActiveContext) => void) => {
+    const listener = (_e: unknown, context: ActiveContext) => callback(context);
+    ipcRenderer.on("context:changed", listener);
+    return () => ipcRenderer.removeListener("context:changed", listener);
+  },
   getConfig: () => ipcRenderer.invoke("config:get"),
   saveConfig: (partial: Partial<AppConfig>) => ipcRenderer.invoke("config:save", partial),
   pickFolder: () => ipcRenderer.invoke("dialog:pickFolder"),

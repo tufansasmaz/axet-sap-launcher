@@ -53,6 +53,16 @@ export const tr = {
   "titleBar.maximize": "Büyüt",
   "titleBar.close": "Kapat",
 
+  // Aktif bağlam — üç ekranın ortak "neredeyiz" rozeti.
+  "activeContext.verified": "Bağlantı doğrulandı",
+  "activeContext.unverified": "Bağlantı doğrulanamadı — ADT çağrıları başarısız olabilir",
+  "activeContext.showSystem": "Sistemi göster · {path}",
+  "activeContext.guiSession": "SAP GUI oturumu · {system} {title}",
+  "activeContext.clear": "Aktif bağlamı temizle (bağlantıyı kapatmaz)",
+  "activeContext.launcherSystem": "SAP Launcher bu sisteme bağlı: {system}, client {client}",
+  "activeContext.mismatch": "farklı sistem",
+  "activeContext.mismatchHint": "SAP GUI ekranı {gui}, SAP Launcher bağlantısı {launcher} — aynı sistem değil.",
+
   "tree.noMatch": "Eşleşen müşteri/sistem bulunamadı.",
 
   "recentSystems.heading": "Son Bağlanılanlar",
