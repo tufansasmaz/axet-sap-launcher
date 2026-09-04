@@ -125,16 +125,20 @@ export interface AxetApi {
   setAxetModel: (kind: AxetModelKind, entry: AxetModelEntry) => Promise<AxetModelConfigResult>;
   sendChatMessage: (
     requestId: string,
+    chatId: string,
     cwd: string,
     model: AxetModelEntry | null,
     history: AxetChatMessage[],
     message: string
   ) => Promise<AxetChatSendResult>;
   cancelChatMessage: (requestId: string) => Promise<void>;
-  prewarmChat: (cwd: string, model: AxetModelEntry | null) => Promise<void>;
+  closeChatSession: (chatId: string) => Promise<void>;
+  prewarmChat: (cwd: string, model: AxetModelEntry | null, chatId?: string) => Promise<void>;
   // Abonelikten çıkma fonksiyonu döner (diğer `on*` köprüleriyle aynı desen).
   onChatChunk: (callback: (requestId: string, text: string) => void) => () => void;
-  onChatActivity: (callback: (requestId: string, phase: AxetChatActivityPhase) => void) => () => void;
+  onChatActivity: (
+    callback: (requestId: string, phase: AxetChatActivityPhase, detail?: string) => void
+  ) => () => void;
   saveChatAttachment: (fileName: string, base64Data: string) => Promise<ChatAttachmentSaveResult>;
   readChatAttachmentPreview: (filePath: string) => Promise<ChatAttachmentPreviewResult>;
   isDictationAvailable: () => Promise<boolean>;

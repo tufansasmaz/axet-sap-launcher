@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Pencil, Plug } from "lucide-react";
 import type { AxetChatActivityPhase, ChatAttachment } from "../../app-electron/shared/types";
 import { renderMarkdownLite } from "../lib/markdownLite";
@@ -193,11 +193,13 @@ const MORSE_STEP_MS = 80;
 // planda onları da görsek fena olmaz"*). Kaynak `axet-code run -v`'nin canlı
 // stderr'i — bkz. main/axetChat.ts.
 //
-// DÜRÜSTLÜK NOTU: axet-code, denetim kaydını yazdıktan sonra cevap gelene
-// kadar HİÇBİR ŞEY yazmıyor (ölçüldü: 12 saniyeye varan tam sessizlik; araç
-// çağrıları hiçbir akışa düşmüyor). O yüzden `thinking` aşamasında yapılan
-// tek dürüst şey, geçen SÜREYİ saymak: uydurma bir "dosyaları okuyor"
-// yazmaktansa "12 sn"nin kendisi daha çok bilgi.
+// YEDEK KİPTE (`axet-code run`, bkz. main/axetChat.ts) axet-code denetim
+// kaydını yazdıktan sonra cevap gelene kadar HİÇBİR ŞEY yazmıyor (ölçüldü: 12
+// saniyeye varan tam sessizlik; araç çağrıları hiçbir akışa düşmüyor). Orada
+// `thinking` sırasında yapılan tek dürüst şey geçen SÜREYİ saymak. KALICI
+// OTURUM kipinde ise araç çağrıları görünüyor (kaynak: axet-code'un kendi
+// oturum veritabanı — bkz. main/axetSessionDb.ts) ve `tool` aşaması tam olarak
+// o sessizliği dolduruyor.
 const PHASE_KEYS: Record<AxetChatActivityPhase, TranslationKey> = {
   starting: "axetCodeHome.phaseStarting",
   connectors: "axetCodeHome.phaseConnectors",
@@ -206,10 +208,36 @@ const PHASE_KEYS: Record<AxetChatActivityPhase, TranslationKey> = {
   session: "axetCodeHome.phaseSession",
   indexing: "axetCodeHome.phaseIndexing",
   thinking: "axetCodeHome.phaseThinking",
+  tool: "axetCodeHome.phaseTool",
   finishing: "axetCodeHome.phaseFinishing"
 };
 
-export function ThinkingBubble({ phase }: { phase: AxetChatActivityPhase | null }) {
+// axet-code'un araç adları → okunur metin. Liste KAPALI DEĞİL: bilinmeyen bir
+// ad çeviriye zorlanmıyor, `toolGeneric` ile ham hâliyle gösteriliyor. Yeni
+// bir araç eklendiğinde gösterge yanlış bir şey söylemektense sade bir şey
+// söylüyor.
+const TOOL_KEYS: Record<string, TranslationKey> = {
+  view: "axetCodeHome.toolView",
+  read: "axetCodeHome.toolView",
+  edit: "axetCodeHome.toolEdit",
+  write: "axetCodeHome.toolWrite",
+  bash: "axetCodeHome.toolBash",
+  glob: "axetCodeHome.toolGlob",
+  grep: "axetCodeHome.toolGrep",
+  ls: "axetCodeHome.toolLs",
+  fetch: "axetCodeHome.toolFetch",
+  download: "axetCodeHome.toolFetch",
+  agent: "axetCodeHome.toolAgent",
+  todo: "axetCodeHome.toolTodo"
+};
+
+export function ThinkingBubble({
+  phase,
+  detail
+}: {
+  phase: AxetChatActivityPhase | null;
+  detail?: string | null;
+}) {
   const t = useT();
   // Geçen süre. Sayaç bileşenin KENDİ ömrüne bağlı: gösterge tam olarak
   // "istek başladı, henüz metin gelmedi" aralığında mount kalıyor, yani ayrı
@@ -220,7 +248,19 @@ export function ThinkingBubble({ phase }: { phase: AxetChatActivityPhase | null 
     return () => clearInterval(timer);
   }, []);
 
-  const label = t(PHASE_KEYS[phase ?? "starting"]);
+  const label = useMemo(() => {
+    if (phase === "tool" && detail) {
+      // MCP araçları ayrı: bunlar kullanıcının kendi bağladığı uygulamalar
+      // (Outlook vb.), ve "list_emails çalıştırılıyor" demek yerine bunu
+      // söylemek, bekleyişin NEDEN uzun olduğunu da açıklıyor.
+      if (detail.startsWith("mcp:")) {
+        return t("axetCodeHome.toolMcp", { name: detail.slice(4).replace(/_/g, " ") });
+      }
+      const key = TOOL_KEYS[detail];
+      return key ? t(key) : t("axetCodeHome.toolGeneric", { name: detail });
+    }
+    return t(PHASE_KEYS[phase ?? "starting"]);
+  }, [detail, phase, t]);
 
   return (
     // Cevap metniyle aynı sol kenardan başlıyor — cevap tarafında artık

@@ -147,18 +147,24 @@ const api = {
   getAxetModelConfig: (): Promise<AxetModelConfigResult> => ipcRenderer.invoke("axetModels:getCurrent"),
   setAxetModel: (kind: AxetModelKind, entry: AxetModelEntry): Promise<AxetModelConfigResult> =>
     ipcRenderer.invoke("axetModels:setCurrent", kind, entry),
+  // `chatId` sohbetin kalıcı kimliği — main process kalıcı axet-code
+  // oturumlarını bununla eşliyor (bkz. axetChatTui.ts). `requestId` tek bir
+  // mesaja ait ve iptal onunla yapılıyor.
   sendChatMessage: (
     requestId: string,
+    chatId: string,
     cwd: string,
     model: AxetModelEntry | null,
     history: AxetChatMessage[],
     message: string
-  ): Promise<AxetChatSendResult> => ipcRenderer.invoke("axetChat:send", requestId, cwd, model, history, message),
+  ): Promise<AxetChatSendResult> =>
+    ipcRenderer.invoke("axetChat:send", requestId, chatId, cwd, model, history, message),
   cancelChatMessage: (requestId: string): Promise<void> => ipcRenderer.invoke("axetChat:cancel", requestId),
-  // Kullanıcı yazmaya başlayınca: alt süreci şimdiden açtır. Sonucu YOK,
+  closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
+  // Kullanıcı yazmaya başlayınca: oturumu/süreci şimdiden açtır. Sonucu YOK,
   // beklemek de gerekmiyor — kazanç tamamen zamanlamada.
-  prewarmChat: (cwd: string, model: AxetModelEntry | null): Promise<void> =>
-    ipcRenderer.invoke("axetChat:prewarm", cwd, model),
+  prewarmChat: (cwd: string, model: AxetModelEntry | null, chatId?: string): Promise<void> =>
+    ipcRenderer.invoke("axetChat:prewarm", cwd, model, chatId),
   // Cevap metni üretildikçe gelen parçalar (yalnızca YENİ parça, birikmiş
   // metin değil). `requestId` ile hangi sohbete ait olduğu ayırt ediliyor.
   onChatChunk: (callback: (requestId: string, text: string) => void) => {
@@ -166,10 +172,11 @@ const api = {
     ipcRenderer.on("axetChat:chunk", listener);
     return () => ipcRenderer.removeListener("axetChat:chunk", listener);
   },
-  // Cevap beklenirken alt sürecin hangi aşamada olduğu.
-  onChatActivity: (callback: (requestId: string, phase: AxetChatActivityPhase) => void) => {
-    const listener = (_event: unknown, requestId: string, phase: AxetChatActivityPhase) =>
-      callback(requestId, phase);
+  // Cevap beklenirken alt sürecin hangi aşamada olduğu. `detail` yalnızca
+  // "tool" aşamasında dolu: çalışan aracın adı.
+  onChatActivity: (callback: (requestId: string, phase: AxetChatActivityPhase, detail?: string) => void) => {
+    const listener = (_event: unknown, requestId: string, phase: AxetChatActivityPhase, detail?: string) =>
+      callback(requestId, phase, detail);
     ipcRenderer.on("axetChat:activity", listener);
     return () => ipcRenderer.removeListener("axetChat:activity", listener);
   },

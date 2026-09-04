@@ -9,6 +9,15 @@ import type {
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import { buildContextPreamble } from "./activeContext";
 import { shouldUseConnectors } from "./connectorPolicy";
+import {
+  cancelTui,
+  closeAllTuiSessions,
+  closeTuiSession,
+  prewarmTui,
+  sendViaTui,
+  tuiBusy,
+  tuiUnavailableReason
+} from "./axetChatTui";
 
 // axet.code'un ana ekranındaki özgün sohbet arayüzü — gerçek interaktif TUI
 // DEĞİL, her mesaj için `axet-code run` (stateless, tek-atış, non-interactive)
@@ -21,13 +30,16 @@ import { shouldUseConnectors } from "./connectorPolicy";
 // canlı doğrulandı, bu modun kendi tasarımı (non-interactive = TTY'siz, onay
 // isteyecek bir yer yok).
 //
-// BU MODELİN SINIRI, ve bir sonraki adımda ele alınacak olan şey: `run`'ın
-// `--resume`/`--session` gibi bir devam bayrağı YOK (`run --help` ile
-// doğrulandı). Yani araç SONUÇLARI mesajlar arasında kayboluyor — ajan 1.
-// mesajda bir dosya okuduysa, 2. mesajın transkriptinde yalnızca metin cevabı
-// var, okuduğu içerik yok. Gerçek TUI bunu tutuyor. Kalıcı bir oturuma geçmek
-// (node-pty) ayrı ve daha büyük bir iş; kullanıcı kararı (2026-09-04) önce bu
-// dosyadaki ucuz kazanımları uygulamak yönünde.
+// BU MODELİN SINIRI: `run`'ın `--resume`/`--session` gibi bir devam bayrağı
+// YOK (`run --help` ile doğrulandı). Yani araç SONUÇLARI mesajlar arasında
+// kayboluyor — ajan 1. mesajda bir dosya okuduysa, 2. mesajın transkriptinde
+// yalnızca metin cevabı var, okuduğu içerik yok. Gerçek TUI bunu tutuyor.
+//
+// 2026-09-04 (2. adım): bu yüzden ARTIK ÖNCE kalıcı TUI oturumu deneniyor
+// (axetChatTui.ts) — gerçek interaktif axet-code, bir pty içinde, sohbet
+// başına bir oturum. Bu dosyadaki `run` yolu KALDIRILMADI, YEDEK oldu: TUI
+// kurulamazsa (native sqlite yüklenemedi, açılış diyalogları değişti, pty
+// açılmadı) mesaj sessizce buradan gider. Yani en kötü durum, dünkü davranış.
 
 const running = new Map<string, ChildProcess>();
 
@@ -264,8 +276,15 @@ function disposeWarm(): void {
  * açılıp stdin'de bekletilir. Zaten uygun bir süreç ısınıyorsa yalnızca
  * boşta-kalma sayacı tazelenir.
  */
-export function prewarmChat(cwd: string, model: AxetModelEntry | null): void {
+export function prewarmChat(cwd: string, model: AxetModelEntry | null, chatId?: string): void {
   const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
+  // TUI kipi kullanılabiliyorsa ısıtılacak şey ODUR: `run` süreci o mesajda
+  // zaten kullanılmayacak, ısıtmak boşuna bir axet-code süreci demek.
+  if (chatId && !tuiUnavailableReason(resolvedCwd)) {
+    disposeWarm();
+    prewarmTui(chatId, resolvedCwd, model);
+    return;
+  }
   const key = modelKeyOf(model);
   if (warm && !warm.channel.exited && warm.channel.cwd === resolvedCwd && warm.channel.modelKey === key) {
     clearTimeout(warm.idleTimer);
@@ -367,12 +386,90 @@ function extractError(stderr: string): string {
   return lines.join("\n").trim();
 }
 
-export function sendChatMessage(
+/**
+ * Bir mesaj gönderir.
+ *
+ * ÖNCE kalıcı TUI oturumu denenir (axetChatTui.ts): açılış maliyeti bir kez
+ * ödenir, oturum hafızası CLI'ın kendisinde durur ve arka plandaki araç
+ * çağrıları canlı görünür. Kurulamazsa aşağıdaki `run` yoluna düşülür.
+ *
+ * `chatId` sohbetin kalıcı kimliği (renderer'daki `session.id`) — TUI
+ * oturumları bununla eşleniyor. `requestId` ise TEK BİR mesaja ait; iptal
+ * onunla yapılıyor.
+ */
+export async function sendChatMessage(
+  requestId: string,
+  chatId: string,
+  cwd: string,
+  model: AxetModelEntry | null,
+  history: AxetChatMessage[],
+  message: string,
+  onChunk?: (text: string) => void,
+  onActivity?: (phase: AxetChatActivityPhase, detail?: string) => void
+): Promise<AxetChatSendResult> {
+  const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
+  // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası, `shouldUseConnectors`
+  // içinde) — kullanıcı "Uygulama Bağlantıları"ndan bağlanıp kestiğinde etkisi
+  // bir sonraki mesajda görünsün diye; saniyelerle ölçülen bir işlemin yanında
+  // bu okumanın maliyeti ölçülemez.
+  const useConnectors = decideConnectors(history, message);
+
+  if (chatId && !tuiUnavailableReason(resolvedCwd)) {
+    tuiRequests.set(requestId, chatId);
+    try {
+      const result = await sendViaTui({
+        chatId,
+        cwd: resolvedCwd,
+        model,
+        history,
+        message,
+        useConnectors,
+        buildSeedPrompt: (h, m) => buildPrompt(h, m, useConnectors, resolvedCwd),
+        buildFirstPrompt: (m) => buildPrompt([], m, useConnectors, resolvedCwd),
+        onChunk: (text) => {
+          try {
+            onChunk?.(text);
+          } catch {
+            // renderer penceresi kapanmış olabilir
+          }
+        },
+        onActivity: (phase, detail) => {
+          try {
+            onActivity?.(phase, detail);
+          } catch {
+            // pencere kapanmış olabilir
+          }
+        }
+      });
+      if (result) return result;
+    } catch {
+      // TUI tarafındaki beklenmedik bir hata mesajı düşürmemeli — `run` yolu
+      // duruyor.
+    } finally {
+      tuiRequests.delete(requestId);
+    }
+    // Buraya düşmek = TUI bu mesaj için kurulamadı. Oturumu bırakıyoruz ki
+    // bir sonraki mesaj yarım kalmış bir pty'ye yazmaya çalışmasın.
+    //
+    // MEŞGULSE DOKUNMUYORUZ: aynı sohbete ikinci bir mesaj gelmişse (arayüz
+    // buna izin vermiyor ama IPC seviyesinde mümkün) süren turun oturumunu
+    // kapatmak, cevabını bekleyen İLK mesajı öldürürdü.
+    if (!tuiBusy(chatId)) closeTuiSession(chatId);
+  }
+
+  return sendViaRun(requestId, resolvedCwd, model, history, message, useConnectors, onChunk, onActivity);
+}
+
+/** İptalin doğru yere gitmesi için: hangi istek hangi TUI sohbetinde. */
+const tuiRequests = new Map<string, string>();
+
+function sendViaRun(
   requestId: string,
   cwd: string,
   model: AxetModelEntry | null,
   history: AxetChatMessage[],
   message: string,
+  useConnectors: boolean,
   // Cevap metni ÜRETİLDİKÇE çağrılır (yalnızca YENİ gelen parça, birikmiş
   // metnin tamamı değil). Verilmezse davranış eskisiyle birebir aynı: sadece
   // sonuçta tam metin döner.
@@ -381,12 +478,7 @@ export function sendChatMessage(
   onActivity?: (phase: AxetChatActivityPhase) => void
 ): Promise<AxetChatSendResult> {
   return new Promise((resolve) => {
-    // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası, `shouldUseConnectors`
-    // içinde) — kullanıcı "Uygulama Bağlantıları"ndan bağlanıp kestiğinde
-    // etkisi bir sonraki mesajda görünsün diye; saniyelerle ölçülen bir
-    // işlemin yanında bu okumanın maliyeti ölçülemez.
-    const useConnectors = decideConnectors(history, message);
-    const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
+    const resolvedCwd = cwd;
     const key = modelKeyOf(model);
 
     let channel = takeWarm(resolvedCwd, key, useConnectors);
@@ -526,6 +618,15 @@ export function sendChatMessage(
 }
 
 export function cancelChatMessage(requestId: string): void {
+  // TUI kipinde iptal süreci ÖLDÜRMÜYOR: oturum kalıcı, esc sadece süren turu
+  // kesiyor. Süreci öldürmek bir sonraki mesajda açılış maliyetini geri
+  // getirirdi — yani iptalin bedeli, iptal edilen mesajdan büyük olurdu.
+  const chatId = tuiRequests.get(requestId);
+  if (chatId) {
+    tuiRequests.delete(requestId);
+    cancelTui(chatId);
+    return;
+  }
   const proc = running.get(requestId);
   if (!proc) return;
   (proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled?.();
@@ -533,9 +634,17 @@ export function cancelChatMessage(requestId: string): void {
   running.delete(requestId);
 }
 
+/** Bir sohbet silindiğinde/kapatıldığında onun TUI oturumunu da bırak. */
+export function closeChatSession(chatId: string): void {
+  closeTuiSession(chatId);
+}
+
 export function cancelAllChatMessages(): void {
   for (const id of Array.from(running.keys())) cancelChatMessage(id);
   // Isıtılmış süreç de bırakılmalı: uygulama kapanırken stdin'de bekleyen bir
   // axet-code'u arkada bırakmak, kullanıcının göremediği bir süreç demek.
   disposeWarm();
+  // Kalıcı TUI oturumları da öyle — bunlar tam bir interaktif axet-code.
+  closeAllTuiSessions();
+  tuiRequests.clear();
 }

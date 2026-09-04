@@ -8021,13 +8021,119 @@ bir hız — uygulamanın karar vereceği bir şey değil, hesabın sahibinin.
 - `-v` açıkken stderr NORMAL çalışmada da dolu. Hata mesajı üretirken
   `extractError` INFO/DEBU/WARN satırlarını atıyor — yoksa her hata bir log
   yığını olarak görünürdü.
-- **Çözülmemiş, bilerek**: araç çağrıları HİÇBİR akışa düşmüyor (ölçüldü —
-  denetim kaydından sonra cevap gelene kadar 12 saniyeye varan tam sessizlik).
-  Bu yüzden `thinking` aşamasında yapılan tek dürüst şey geçen süreyi saymak.
-  Gerçek araç etkinliğini görmek `run` moduyla mümkün değil; kalıcı bir oturum
-  (node-pty ile gerçek TUI) gerekiyor — kullanıcı kararı (2026-09-04) bunu
-  AYRI bir adım olarak ele almak yönünde.
+- **`run` kipinde araç çağrıları HİÇBİR akışa düşmüyor** (ölçüldü — denetim
+  kaydından sonra cevap gelene kadar 12 saniyeye varan tam sessizlik). Bu
+  yüzden bu kipte `thinking` aşamasında yapılan tek dürüst şey geçen süreyi
+  saymak. **Bu, aşağıdaki Adım 2'de kalıcı oturumla çözüldü** — `run` yolu
+  artık yalnızca yedek; orada bu sınır aynen geçerli.
 - `run`'ın `--resume`/`--session` bayrağı YOK (`run --help` ile doğrulandı).
   Bunun bedeli yalnızca hız değil: araç SONUÇLARI mesajlar arasında kayboluyor
   — ajan 1. mesajda okuduğu dosyanın içeriğini 2. mesajda göremiyor, çünkü
-  transkriptte yalnızca metin cevabı var.
+  transkriptte yalnızca metin cevabı var. (Adım 2 bunu da çözüyor: kalıcı TUI
+  oturumunun hafızası CLI'ın kendisinde.)
+
+## Adım 2 — Kalıcı oturum (gerçek TUI, node-pty) — 2026-09-04
+
+Bir önceki adımın bilerek açık bıraktığı iki maddeyi kapatıyor: araç
+çağrılarının görünmemesi ve oturum hafızasının olmaması. Kullanıcı: *"ikinci
+adıma geçelim hâlâ yavaşlık var gibi ama maillerimden son maili oku dedim biraz
+yavaş davrandı"*.
+
+**Ne yapıldı**: her sohbet için `axet-code`'un GERÇEK interaktif TUI'si bir
+pty içinde bir kez açılıyor ve açık kalıyor. Mesajlar bu oturuma yazılıyor;
+cevap ise ekrandan değil, axet-code'un KENDİ oturum veritabanından okunuyor.
+
+| | eski (`run`) | yeni (kalıcı TUI) |
+|---|---|---|
+| Açılış maliyeti | her mesajda | sohbette bir kez (3,5 s, ısıtmada görünmez) |
+| "sadece OK yaz" | 8,1 s | 3 s |
+| package.json'daki version (1 araç) | — | 5,4 s |
+| aynı sorunun tekrarı (araçsız, hafızadan) | — | **3,1 s** |
+| Oturum hafızası | yok (transkript prompt'a gömülüyordu) | CLI'ın kendisinde |
+| Araç çağrıları | görünmüyor | canlı görünüyor |
+
+### Neden ekrandan okumuyoruz
+
+TUI tam ekran bir Bubble Tea arayüzü. ANSI dizileri temizlendikten sonra bile
+cevap; kenarlıklar, yan panel ve spinner artıklarıyla iç içe okunamaz hâlde
+çıkıyor (ölçüldü). Aynı cevap `.axet-code/axet-code.db` içinde tertemiz
+duruyor — araç çağrılarıyla birlikte.
+
+### Veritabanı hakkında (ölçülmüş)
+
+- Proje başına `.axet-code/axet-code.db`, **WAL kipinde** (header baytı 18/19=2).
+- `messages(id, session_id, role, parts TEXT, model, created_at, ...)`;
+  `created_at` şemadaki yoruma rağmen **Unix SANİYE**.
+- `parts` içinde `text` / `tool_call` / `tool_result` / `finish` öğeleri var.
+  MCP araçları `mcp_conn_<uuid>_<ad>` biçiminde.
+- 281 MB'lık gerçek veritabanında Electron içinde: açılış 15 ms, oturum
+  sorgusu 5 ms, artımlı mesaj sorgusu 0 ms. 250 ms'lik yoklama serbest.
+- axet-code `.axet-code`'u cwd'den YUKARI doğru arıyor (doğrulandı: cwd
+  `...\Temp\axprobe` iken veriler `...\Temp\.axet-code` altına yazıldı).
+
+### better-sqlite3 — bu makineye özgü kurulum
+
+Saf JS/WASM okuyucular (denendi: `node-sqlite3-wasm`) **WAL yüzünden**
+kullanılamıyor: paylaşımlı belleği kuramadıkları için var olan her dosyada
+"unable to open database file" veriyorlar. Native sürüm zorunlu.
+
+- Sürüm **12.4.1'e sabitli**. 13.x, `engines: node>=22` yüzünden Electron 33'ün
+  Node 20'sinde `new Database`'te süreci sert çökertiyor (crashpad).
+- Bu makinede kurumsal npm kurulum script'lerini engelliyor ve Visual Studio
+  derleme araçları YOK — yani ne indirilebiliyor ne derlenebiliyor. Paket
+  `--ignore-scripts` ile kuruluyor; ikiliyi `build/ensureSqlite.cjs` indiriyor
+  (Electron ABI'si için hazır prebuild, derleme değil).
+- Bu script `npm run build`'in **prebuild** aşamasında otomatik çalışıyor.
+  Kasıtlı: eksik ikilinin belirtisi SESSİZ ("sohbet yine yavaş") olurdu.
+- `npmRebuild: false` — bu ortamda rebuild garanti patlar.
+- Paketleme: `files`'a `better-sqlite3`, `bindings`, `file-uri-to-path`
+  eklendi; `asarUnpack`'teki `**/*.node` zaten `.node`'u asar dışına çıkarıyor.
+
+### Açılış el sıkışması
+
+Ekranda sırayla aranan işaretler: `Choose your development tool` →
+`choose a provider and model` → `model changed to` / `tab focus chat`. Her
+diyaloga tek `Enter`. İşaretlerden hiçbiri 30 sn içinde görünmezse oturum
+bırakılıp `run` yoluna düşülüyor **ve sebep log'a yazılıyor** — TUI'nin açılış
+ekranı bir sürümde değişirse tek belirti "sohbet yine yavaş" olurdu.
+
+Model diyalogunda tek Enter'ın DOĞRU modeli seçmesi, modelin spawn'dan önce
+`axetModels.setAxetModel` ile axet-code'un kendi config'ine yazılmasıyla
+sağlanıyor (`recent_models.large` — CLI'ın kendi `/model` seçicisinin yazdığı
+dosyanın aynısı). Ekrana model adı yazıp filtrelemek gerekmiyor.
+
+Klavye: `Enter` = `\r` gönderir, `ctrl+j` = `\n` satır atlar. Yani çok satırlı
+metin olduğu gibi yazılıp sonuna tek `\r` konabiliyor.
+
+### Turun bittiğini anlamak
+
+**Bitiş sebebi `"stop"` DEĞİL.** İlk sürüm ona baktı ve cevabı aldığı hâlde
+beklemeye devam edip 2 dakikada zaman aşımına düştü. Ölçülen gerçek: araç
+zincirindeki ara asistan mesajları `tool_use`, kapanış mesajı **`end_turn`**
+ile bitiyor; `"stop"` yalnızca `tool_result` kayıtlarında görülüyor. Kural bu
+yüzden sebebi saymak değil, SON asistan mesajında `tool_use` DIŞINDA bir sebep
+görmek.
+
+### Dikkat
+
+- **`run` yolu KALDIRILMADI, yedek oldu.** TUI kurulamazsa (sqlite yok, açılış
+  ekranı tanınmadı, pty açılmadı) mesaj oradan gidiyor. En kötü durum = dünkü
+  davranış.
+- Araç çağrıları çağrı KİMLİĞİYLE tekilleniyor, adla değil. Ad karşılaştıran
+  ilk sürüm, yoklama aynı mesajları yeniden okuduğu için saniyede dört kez aynı
+  aracı bildirdi.
+- Bir turda yalnızca o tura ait mesajlar akıtılıyor: gönderimden ÖNCE var olan
+  mesaj kimlikleri işaretleniyor. Yoksa `created_at` saniye çözünürlüklü olduğu
+  için önceki turun cevabı bu turun başında yeniden akardı.
+- İptal (`esc`) süreci ÖLDÜRMÜYOR — oturum kalıcı, yalnızca tur kesiliyor.
+  İptalde ayrıca bir bayrak set ediliyor: esc her zaman veritabanına bir bitiş
+  yazdırmıyor, yoklama onu beklerse iptal 5 dakikalık zaman aşımına dönerdi.
+- Bağlayıcı kararı (bkz. `connectorPolicy.ts`) spawn anında sabitleniyor. Karar
+  değişirse oturum yeniden kuruluyor ve geçmiş `buildPrompt` ile yeniden
+  tohumlanıyor — yine en kötü durum eski davranış.
+- En fazla 3 eşzamanlı oturum (LRU), 10 dakika boşta kalan bırakılıyor. Sohbet
+  silinince oturumu da kapanıyor (`axetChat:closeSession`).
+- Yeni sohbetin kimliği kullanıcı YAZARKEN üretiliyor (`newChatIdRef`) ki
+  ısıtılan oturumla birazdan doğacak sohbet aynı kimliği paylaşsın.
+- Her tur `[axetChatTui] tur bitti` satırıyla süresini ve kaç araç çalıştığını
+  log'a yazıyor — "yavaş" şikâyeti bir daha ölçüsüz kalmasın.

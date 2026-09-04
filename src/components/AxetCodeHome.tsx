@@ -54,6 +54,11 @@ interface ChatSession {
   // Cevap beklenirken alt sürecin bildirdiği son aşama (bkz. axetChat.ts).
   // Diske YAZILMIYOR: bekleyen bir istek yeniden başlatmayı atlatmıyor.
   activity: AxetChatActivityPhase | null;
+  // `activity === "tool"` iken çalışan aracın adı (`view`, `bash`,
+  // `mcp:list_emails`). Sözlükte karşılığı olmayan bir araç adı olduğu gibi
+  // gösteriliyor — bilinmeyen bir aracı gizlemek, kullanıcıyı yine karanlıkta
+  // bırakırdı.
+  activityDetail: string | null;
   createdAt: number;
   // Listedeki sıralama bunun üzerinden — sohbetler artık diskte kalıcı
   // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz
@@ -267,6 +272,10 @@ export default function AxetCodeHome({
   const t = useT();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  // Bir sonraki YENİ sohbetin kimliği, doğmadan önce. Kalıcı axet-code
+  // oturumu kullanıcı yazarken bu kimlikle ısıtılıyor; sohbet oluşunca aynı
+  // kimliği devralıyor (bkz. handleSendNew).
+  const newChatIdRef = useRef<string>(crypto.randomUUID());
   // Henüz bir sohbete bağlanmamış taslak (bkz. NEW_SESSION_ID).
   const [newDraft, setNewDraft] = useState("");
   // Henüz bir sohbete bağlanmamış taslağın ekleri — `newDraft`'ın eşleniği.
@@ -353,6 +362,7 @@ export default function AxetCodeHome({
             pending: false,
             requestId: null,
             activity: null,
+            activityDetail: null,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
             sapLabel: s.sapLabel ?? null
@@ -506,6 +516,9 @@ export default function AxetCodeHome({
       if (target?.pending && target.requestId) {
         window.api.cancelChatMessage(target.requestId).catch(() => {});
       }
+      // Sohbetin kalıcı axet-code oturumu da kapanmalı — yoksa silinmiş bir
+      // konuşmanın süreci arkada, kullanıcının göremeyeceği bir yerde kalırdı.
+      window.api.closeChatSession(id).catch(() => {});
       setSessions((prev) => prev.filter((s) => s.id !== id));
       setActiveId((current) => (current === id ? null : current));
       setDeleteId(null);
@@ -571,12 +584,15 @@ export default function AxetCodeHome({
       const requestId = crypto.randomUUID();
       setSessions((prev) =>
         prev.map((s) =>
-          s.id === sessionId ? { ...s, pending: true, requestId, activity: null, updatedAt: Date.now() } : s
+          s.id === sessionId ? { ...s, pending: true, requestId, activity: null, activityDetail: null, updatedAt: Date.now() } : s
         )
       );
 
       const cwd = sessionCwd || config?.axetWorkspaceDir || "";
-      const result = await window.api.sendChatMessage(requestId, cwd, model, history, text);
+      // `sessionId` main process'e de gidiyor: kalıcı axet-code oturumları
+      // sohbet başına tutuluyor (bkz. axetChatTui.ts), yani bir sohbetin
+      // hafızası artık CLI'ın kendisinde duruyor.
+      const result = await window.api.sendChatMessage(requestId, sessionId, cwd, model, history, text);
 
       setSessions((prev) =>
       prev.map((s) => {
@@ -589,7 +605,7 @@ export default function AxetCodeHome({
 
         // `updatedAt` her sonlanmada tazeleniyor: cevabın gelişi de listedeki
         // sıralamayı etkileyen bir olay.
-        const done = { pending: false, requestId: null, activity: null, updatedAt: Date.now() } as const;
+        const done = { pending: false, requestId: null, activity: null, activityDetail: null, updatedAt: Date.now() } as const;
 
         if (result.cancelled) {
           // Kullanıcı durdurdu. Ekranda GÖRÜNEN yarım metni silmiyoruz —
@@ -646,7 +662,11 @@ export default function AxetCodeHome({
     // Tek başına bir ek de gönderilebilir — bir görsel bırakıp hiçbir şey
     // yazmadan göndermek meşru bir kullanım.
     if (!text && attachments.length === 0) return;
-    const id = crypto.randomUUID();
+    // Kimlik ÜRETİLMİYOR, devralınıyor: kullanıcı yazarken ısıtılan kalıcı
+    // oturum bu kimlikle açıldı (bkz. prewarmTargetRef). Bir sonraki yeni
+    // sohbet için hemen taze bir kimlik hazırlanıyor.
+    const id = newChatIdRef.current;
+    newChatIdRef.current = crypto.randomUUID();
     const now = Date.now();
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -667,6 +687,7 @@ export default function AxetCodeHome({
       pending: false,
       requestId: null,
       activity: null,
+      activityDetail: null,
       createdAt: now,
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
@@ -985,12 +1006,14 @@ export default function AxetCodeHome({
   // axetChat.ts). Akış aboneliğiyle aynı desen: bir kez kuruluyor, state'e
   // yalnızca fonksiyonel `setSessions` ile dokunuyor.
   useEffect(() => {
-    return window.api.onChatActivity((requestId, phase) => {
+    return window.api.onChatActivity((requestId, phase, detail) => {
       setSessions((prev) =>
         // Eşleşme yoksa AYNI dizi döndürülüyor: geç kalmış bir bildirim
         // (istek çoktan bitmiş) boşuna bir render tetiklemesin.
         prev.some((s) => s.requestId === requestId)
-          ? prev.map((s) => (s.requestId === requestId ? { ...s, activity: phase } : s))
+          ? prev.map((s) =>
+              s.requestId === requestId ? { ...s, activity: phase, activityDetail: detail ?? null } : s
+            )
           : prev
       );
     });
@@ -1004,13 +1027,22 @@ export default function AxetCodeHome({
   // listesinde DEĞİL: `sessions` akan bir cevapta saniyede onlarca kez
   // değişiyor ve efekti her seferinde söküp takmak, debounce sayacını sürekli
   // sıfırlayarak ısıtmanın hiç çalışmamasına yol açardı.
-  const prewarmTargetRef = useRef<{ cwd: string; model: AxetModelEntry | null }>({ cwd: "", model: null });
+  const prewarmTargetRef = useRef<{ cwd: string; model: AxetModelEntry | null; chatId: string }>({
+    cwd: "",
+    model: null,
+    chatId: ""
+  });
   const activeDraft = activeId ? (sessions.find((s) => s.id === activeId)?.draft ?? "") : newDraft;
   useEffect(() => {
     const session = activeId ? (sessions.find((s) => s.id === activeId) ?? null) : null;
     prewarmTargetRef.current = {
       cwd: (session ? session.cwd : (effectiveNewBinding?.cwd ?? null)) || config?.axetWorkspaceDir || "",
-      model: session ? session.model : defaultModel
+      model: session ? session.model : defaultModel,
+      // Yeni sohbette kimlik henüz "yok" değil, ÖNCEDEN üretilmiş
+      // (newChatIdRef): ısıtılan kalıcı oturum ile birazdan oluşacak sohbet
+      // aynı kimliği paylaşsın diye. Paylaşmasalardı ilk mesaj ısıtmadan hiç
+      // faydalanamaz, ısınan oturum da sahipsiz kalırdı.
+      chatId: session ? session.id : newChatIdRef.current
     };
   });
 
@@ -1018,10 +1050,10 @@ export default function AxetCodeHome({
     // Boş taslak = ortada gönderilecek bir şey yok; süreç açmak boşuna.
     if (!activeDraft.trim()) return;
     const timer = setTimeout(() => {
-      const { cwd, model } = prewarmTargetRef.current;
+      const { cwd, model, chatId } = prewarmTargetRef.current;
       // Ateşle-unut: ısıtma başarısız olsa da asıl gönderim eskisi gibi
       // çalışıyor, bu yüzden hatası kullanıcıya gösterilecek bir şey değil.
-      window.api.prewarmChat(cwd, model).catch(() => {});
+      window.api.prewarmChat(cwd, model, chatId).catch(() => {});
     }, PREWARM_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [activeDraft]);
@@ -1089,7 +1121,8 @@ export default function AxetCodeHome({
     draft: newDraft,
     attachments: newAttachments,
     pending: false,
-    activity: null
+    activity: null,
+    activityDetail: null
   };
 
   // Kenar çubuğundaki tek satır. Ayrı bir fonksiyon çünkü artık iki kat

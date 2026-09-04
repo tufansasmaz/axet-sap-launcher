@@ -347,6 +347,11 @@ export interface AxetChatMessage {
  * cevap gelene kadar hiçbir şey yazmıyor (ölçüldü: 12 saniyeye kadar tam
  * sessizlik). Yani bu, "bilmiyoruz"un dürüst adı — arayüz onun yanında geçen
  * süreyi sayıyor.
+ *
+ * `tool` yalnızca KALICI OTURUM kipinde (axetChatTui.ts) düşüyor ve tam olarak
+ * o sessizliği dolduruyor: `run -v`'nin stderr'i araç çağrılarını hiç yazmaz,
+ * ama axet-code'un kendi oturum veritabanı yazar. Bu aşamanın yanında bir de
+ * `detail` gelir — aracın adı (`view`, `bash`, `mcp:get_current_date`).
  */
 export type AxetChatActivityPhase =
   | "starting"
@@ -356,6 +361,7 @@ export type AxetChatActivityPhase =
   | "session"
   | "indexing"
   | "thinking"
+  | "tool"
   | "finishing";
 
 export interface AxetChatSendResult {

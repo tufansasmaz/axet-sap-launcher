@@ -19,7 +19,7 @@ import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActive
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
 import { listAxetModels, getAxetModelConfig, setAxetModel } from "./axetModels";
-import { sendChatMessage, cancelChatMessage, cancelAllChatMessages, prewarmChat } from "./axetChat";
+import { sendChatMessage, cancelChatMessage, cancelAllChatMessages, closeChatSession, prewarmChat } from "./axetChat";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { isDictationAvailable, transcribeAudio } from "./dictation";
@@ -648,27 +648,42 @@ function registerIpc(): void {
   // bile son metin doğru olur.
   ipcMain.handle(
     "axetChat:send",
-    (_event, requestId: string, cwd: string, model: AxetModelEntry | null, history: AxetChatMessage[], message: string) =>
+    (
+      _event,
+      requestId: string,
+      chatId: string,
+      cwd: string,
+      model: AxetModelEntry | null,
+      history: AxetChatMessage[],
+      message: string
+    ) =>
       sendChatMessage(
         requestId,
+        chatId,
         cwd,
         model,
         history,
         message,
         (text) => mainWindow?.webContents.send("axetChat:chunk", requestId, text),
         // Alt sürecin aşaması. Eskiden cevap beklenirken arayüzde yalnızca
-        // yanıp sönen çubuklar vardı ve hiçbir şey söylemiyorlardı.
-        (phase) => mainWindow?.webContents.send("axetChat:activity", requestId, phase)
+        // yanıp sönen çubuklar vardı ve hiçbir şey söylemiyorlardı. `detail`
+        // yalnızca araç aşamasında dolu — çalışan aracın adı.
+        (phase, detail) => mainWindow?.webContents.send("axetChat:activity", requestId, phase, detail)
       )
   );
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
     cancelChatMessage(requestId);
   });
-  // Kullanıcı yazmaya başlayınca çağrılıyor: bir sonraki mesajın süreci
-  // şimdiden açılıp stdin'de bekletiliyor (ölçüm ve gerekçe: axetChat.ts).
-  // Ateşle-unut — ısıtma başarısız olursa asıl gönderim yine de çalışıyor.
-  ipcMain.handle("axetChat:prewarm", (_event, cwd: string, model: AxetModelEntry | null) => {
-    prewarmChat(cwd, model);
+  // Sohbet silindiğinde kalıcı TUI oturumunu da bırak — yoksa arkada kullanıcı
+  // tarafından görülemeyen bir axet-code süreci kalırdı.
+  ipcMain.handle("axetChat:closeSession", (_event, chatId: string) => {
+    closeChatSession(chatId);
+  });
+  // Kullanıcı yazmaya başlayınca çağrılıyor: oturum/süreç şimdiden açılıyor
+  // (ölçüm ve gerekçe: axetChat.ts). Ateşle-unut — ısıtma başarısız olursa
+  // asıl gönderim yine de çalışıyor.
+  ipcMain.handle("axetChat:prewarm", (_event, cwd: string, model: AxetModelEntry | null, chatId?: string) => {
+    prewarmChat(cwd, model, chatId);
   });
   ipcMain.handle("chatAttachments:save", (_event, fileName: string, base64Data: string) =>
     saveClipboardAttachment(fileName, base64Data)

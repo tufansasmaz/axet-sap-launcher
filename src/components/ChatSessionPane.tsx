@@ -94,6 +94,8 @@ export interface ChatSessionData {
   // Cevap beklenirken alt sürecin bildirdiği son aşama. `null` = henüz bir
   // aşama gelmedi (ya da bekleyen istek yok).
   activity: AxetChatActivityPhase | null;
+  // `activity === "tool"` iken çalışan aracın adı.
+  activityDetail: string | null;
 }
 
 interface Props {
@@ -437,7 +439,7 @@ export default function ChatSessionPane({
             {/* "Düşünüyor" göstergesi SADECE ilk parça gelene kadar. Metin
                 akmaya başladıktan sonra da göstermek, cevabın altında
                 sürekli zıplayan ikinci bir satır demek olurdu. */}
-            {session.pending && !streaming && <ThinkingBubble phase={session.activity} />}
+            {session.pending && !streaming && <ThinkingBubble phase={session.activity} detail={session.activityDetail} />}
             {/* "Yeniden üret" sohbetin SONUNDA, sadece son mesaj bitmiş bir
                 asistan cevabıysa — her cevapta değil yalnızca sonuncusunda
                 anlamlı. Cevap tarafında artık avatar oluğu olmadığı için
