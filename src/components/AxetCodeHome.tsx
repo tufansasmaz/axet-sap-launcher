@@ -23,6 +23,7 @@ import type {
   SystemTier
 } from "../../app-electron/shared/types";
 import ChatSessionPane from "./ChatSessionPane";
+import ChatFilesPanel from "./ChatFilesPanel";
 import ConfirmDialog from "./ConfirmDialog";
 import type { ChatMessage } from "./ChatBubble";
 import StatusDot from "./StatusDot";
@@ -291,6 +292,11 @@ export default function AxetCodeHome({
   // SUGGESTION_POOL). Diske yazılmıyor: açılışta zaten yeni bir tohum
   // isteniyor.
   const [suggestionSeed, setSuggestionSeed] = useState(freshSuggestionSeed);
+  // Dosya paneli TÜM sohbetler için ortak: her sohbette ayrı ayrı açmak
+  // gerekseydi, panelin işi (ajanın yazdığını görmek) her yeni sohbette
+  // yeniden hatırlanması gereken bir şey olurdu. Açık DOSYA ise sohbet başına
+  // (bkz. ChatFilesPanel) — o gerçekten o sohbete ait.
+  const [filesPanelOpen, setFilesPanelOpen] = useState(false);
 
   // --- Sohbet geçmişini diskten yükle (yalnızca bir kez, mount'ta) ---
   // Bağımlılık listesi bilerek boş: `t`/`pushToast` değiştiğinde yeniden
@@ -975,6 +981,9 @@ export default function AxetCodeHome({
 
   const deleteTarget = deleteId ? sessions.find((s) => s.id === deleteId) ?? null : null;
 
+  // Sohbete özel klasörü olmayan sohbetlerin kökü/çalışma klasörü.
+  const workspaceDir = config?.axetWorkspaceDir ?? "";
+
   // "Günaydın" yerine "Günaydın, Tufan". Ad, Ayarlar'daki `chatDisplayName`
   // (varsayılanı Windows oturum adı); BOŞ bırakılırsa adsız hâle düşüyor —
   // ekranı başkasına gösteren biri adını kaldırabilmeli. Ayrıca oturum adı
@@ -1296,9 +1305,26 @@ export default function AxetCodeHome({
             suggestionKeys={suggestionKeys}
             onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
             contextLabel={session.sapLabel}
-            contextPath={session.cwd}
+            contextPath={session.cwd || workspaceDir}
             onOpenContextTerminal={
-              session.cwd ? () => onOpenChatTerminal(session.cwd!, session.sapLabel ?? session.title) : undefined
+              session.cwd || workspaceDir
+                ? () => onOpenChatTerminal(session.cwd || workspaceDir, session.sapLabel ?? session.title)
+                : undefined
+            }
+            filesPanelOpen={filesPanelOpen}
+            onToggleFilesPanel={session.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
+            filesPanel={
+              // Panel yalnızca AÇIKKEN mount ediliyor: kapalıyken de yaşasaydı
+              // her sohbet için bir dosya ağacı ve (görünürse) bir izleyici
+              // boşuna ayakta kalırdı.
+              filesPanelOpen ? (
+                <ChatFilesPanel
+                  rootDir={session.cwd || workspaceDir}
+                  rootLabel={session.sapLabel ?? t("axetCodeHome.contextWorkspace")}
+                  onClose={() => setFilesPanelOpen(false)}
+                  active={active && activeId === session.id}
+                />
+              ) : undefined
             }
           />
         ))}
@@ -1330,9 +1356,25 @@ export default function AxetCodeHome({
           suggestionKeys={suggestionKeys}
           onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
           contextLabel={newBinding?.label ?? null}
-          contextPath={newBinding?.cwd ?? null}
+          contextPath={newBinding?.cwd || workspaceDir}
           onOpenContextTerminal={
-            newBinding ? () => onOpenChatTerminal(newBinding.cwd, newBinding.label) : undefined
+            newBinding
+              ? () => onOpenChatTerminal(newBinding.cwd, newBinding.label)
+              : workspaceDir
+                ? () => onOpenChatTerminal(workspaceDir, t("axetCodeHome.contextWorkspace"))
+                : undefined
+          }
+          filesPanelOpen={filesPanelOpen}
+          onToggleFilesPanel={newBinding?.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
+          filesPanel={
+            filesPanelOpen ? (
+              <ChatFilesPanel
+                rootDir={newBinding?.cwd || workspaceDir}
+                rootLabel={newBinding?.label ?? t("axetCodeHome.contextWorkspace")}
+                onClose={() => setFilesPanelOpen(false)}
+                active={active && activeId === null}
+              />
+            ) : undefined
           }
         />
       </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -10,6 +10,7 @@ import {
   FileCode,
   Files,
   FlaskConical,
+  FolderOpen,
   FolderTree,
   GitBranch,
   History,
@@ -122,6 +123,11 @@ interface Props {
   // Terminal KALDIRILMADI, sadece varsayılan olmaktan çıktı (2026-09-04):
   // bağlanınca artık konsol değil sohbet açılıyor, konsol bu düğmede duruyor.
   onOpenContextTerminal?: () => void;
+  // Sağdaki dosya paneli. Bu bileşen İÇERİĞİNİ bilmiyor, sadece yerini
+  // ayırıyor — panelin kendi durumu (açık dosya, izleyici) ChatFilesPanel'de.
+  filesPanel?: ReactNode;
+  filesPanelOpen?: boolean;
+  onToggleFilesPanel?: () => void;
 }
 
 // axet.code sohbet ekranındaki tek bir sohbetin TAMAMI.
@@ -173,7 +179,10 @@ export default function ChatSessionPane({
   onSuggestionClick,
   contextLabel = null,
   contextPath = null,
-  onOpenContextTerminal
+  onOpenContextTerminal,
+  filesPanel,
+  filesPanelOpen = false,
+  onToggleFilesPanel
 }: Props) {
   const t = useT();
   const [dragOver, setDragOver] = useState(false);
@@ -274,12 +283,16 @@ export default function ChatSessionPane({
 
   return (
     <div
-      className="absolute inset-0 flex flex-col"
+      // Yatay bölme: solda sohbet, sağda (varsa) dosya paneli.
+      className="absolute inset-0 flex"
       style={{ display: active ? "flex" : "none" }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {/* `relative`: sürükleme kaplaması ve "dibe in" düğmesi bu sütuna göre
+          konumlanıyor, dosya paneline taşmasınlar diye. */}
+      <div className="relative flex min-w-0 flex-1 flex-col">
       {dragOver && (
         <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-3xl bg-accent-500/10 ring-2 ring-dashed ring-accent-400">
           <div className="flex items-center gap-2 rounded-full bg-base-900/90 px-4 py-2.5 text-sm font-medium text-accent-400 shadow-lg">
@@ -295,18 +308,31 @@ export default function ChatSessionPane({
           ve şerit tamamen kaldırıldı — tek bir düğme için ekranın tepesinden
           52px ayırmak, sohbete ayrılan yeri boşuna kısaltıyordu. */}
 
-      {/* SAP bağlam şeridi — SADECE bağlı sohbetlerde çiziliyor, yani ekranın
-          tepesindeki 32px bağlamsız sohbetlerden çalınmıyor. Klasör yolu da
-          yazılı: ajanın hangi dizinde dosya oluşturduğu tahmin edilecek bir
-          şey olmamalı. */}
-      {contextLabel && (
+      {/* Bağlam şeridi. Klasör YOLU yazılı olmak zorunda: ajanın dosyaları
+          nereye yazdığı tahmin edilecek bir şey olmamalı — kullanıcı isteğinin
+          (*"kendi gidip txt vs yazıyor direkt göreyim"*) ilk adımı bu.
+          SAP'a bağlı sohbetlerde sistem adı da var; bağlamsız sohbetlerde
+          etiket "Çalışma alanı"na düşüyor ve ikon sönük kalıyor. */}
+      {contextPath && (
         <div className="flex shrink-0 items-center gap-2 border-b border-base-800 bg-base-900/60 px-5 py-1.5 text-[11px]">
-          <Server size={12} className="shrink-0 text-accent-400" />
-          <span className="shrink-0 font-medium text-slate-300">{contextLabel}</span>
-          {contextPath && (
-            <span className="min-w-0 flex-1 truncate font-mono text-slate-500" title={contextPath}>
-              {contextPath}
-            </span>
+          <Server size={12} className={`shrink-0 ${contextLabel ? "text-accent-400" : "text-slate-600"}`} />
+          <span className="shrink-0 font-medium text-slate-300">
+            {contextLabel ?? t("axetCodeHome.contextWorkspace")}
+          </span>
+          <span className="min-w-0 flex-1 truncate font-mono text-slate-500" title={contextPath}>
+            {contextPath}
+          </span>
+          {onToggleFilesPanel && (
+            <button
+              onClick={onToggleFilesPanel}
+              className={`flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 transition hover:bg-base-800 hover:text-slate-200 ${
+                filesPanelOpen ? "text-accent-400" : "text-slate-500"
+              }`}
+              title={t("axetCodeHome.contextFilesHint")}
+            >
+              <FolderOpen size={12} />
+              {t("axetCodeHome.contextFiles")}
+            </button>
           )}
           {onOpenContextTerminal && (
             <button
@@ -551,6 +577,12 @@ export default function ChatSessionPane({
 
         <p className="mt-2 text-center text-[11px] text-slate-500">{t("axetCodeHome.disclaimer")}</p>
       </div>
+      </div>
+
+      {/* Genişlik sabit: sürüklenebilir bir ayırıcı, okuma sütununun kendi
+          kademeli genişliğiyle (bkz. COLUMN) çakışırdı — sohbetin genişliği
+          zaten pencereye göre ayarlanıyor. */}
+      {filesPanelOpen && filesPanel && <div className="w-[380px] shrink-0">{filesPanel}</div>}
     </div>
   );
 }

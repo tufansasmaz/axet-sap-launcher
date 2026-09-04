@@ -30,6 +30,7 @@ import type {
   FsReadDocxResult,
   FsReadImageResult,
   FsReadTextResult,
+  FsWriteTextResult,
   GuiScriptActionPayload,
   GuiScriptActionResult,
   GuiScriptAgentStepResult,
@@ -91,6 +92,10 @@ export interface AxetApi {
   resolveProjectDir: (customerPath: string[], service: SapService) => Promise<string>;
   listDir: (dirPath: string) => Promise<FsListDirResult>;
   readTextFile: (filePath: string) => Promise<FsReadTextResult>;
+  writeTextFile: (filePath: string, content: string) => Promise<FsWriteTextResult>;
+  watchDir: (id: string, dirPath: string) => Promise<{ ok: boolean; error?: string }>;
+  unwatchDir: (id: string) => Promise<{ ok: boolean }>;
+  onFsChanged: (callback: (id: string) => void) => () => void;
   readDocxFile: (filePath: string) => Promise<FsReadDocxResult>;
   readImageDataUrl: (filePath: string) => Promise<FsReadImageResult>;
   openInExplorer: (filePath: string) => Promise<void>;

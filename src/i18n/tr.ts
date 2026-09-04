@@ -145,6 +145,9 @@ export const tr = {
   "axetCodeHome.dropFilesHint": "Eklemek için dosyaları buraya bırak",
   "axetCodeHome.contextTerminal": "Terminal",
   "axetCodeHome.contextTerminalHint": "Bu proje klasöründe terminal aç",
+  "axetCodeHome.contextFiles": "Dosyalar",
+  "axetCodeHome.contextFilesHint": "Bu klasörün dosyalarını yan panelde aç/kapat",
+  "axetCodeHome.contextWorkspace": "Çalışma alanı",
   // Açılış ekranının öneri havuzu — her yeni sohbette üçü seçiliyor
   // (bkz. AxetCodeHome `SUGGESTION_POOL`). Buraya bir anahtar eklemek
   // yetmez, havuza da eklenmeli; ikon isteğe bağlı (ChatSessionPane).
@@ -323,6 +326,12 @@ export const tr = {
   "fileViewer.openExternal": "Harici Programda Aç",
   "fileViewer.showInFolder": "Klasörde Göster",
   "fileViewer.truncated": "Dosya çok büyük — sadece ilk bölümü gösteriliyor.",
+  "fileViewer.edit": "Düzenle",
+  "fileViewer.save": "Kaydet",
+  "fileViewer.saveError": "Dosya kaydedilemedi.",
+  "chatFiles.title": "Dosyalar",
+  "chatFiles.hide": "Dosya panelini gizle",
+  "chatFiles.closeFile": "Dosyayı kapat",
 
   "statusDot.unknown": "Bilinmiyor",
   "statusDot.checking": "Kontrol ediliyor…",

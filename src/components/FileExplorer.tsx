@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, ChevronDown, Folder, FolderOpen, File as FileIcon, RefreshCw, FilePlus } from "lucide-react";
 import type { FsEntry, FsImportFilesResult } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
@@ -9,6 +9,24 @@ interface Props {
   selectedPath: string | null;
   onSelectFile: (entry: FsEntry) => void;
   onImportComplete?: (result: FsImportFilesResult, destDir: string) => void;
+  /**
+   * Kökü izle ve değişince ağacı kendiliğinden tazele. Sohbet panelinde AÇIK
+   * (kullanıcı isteği: *"kendi gidip txt vs yazıyor direkt göreyim"* — ajanın
+   * yazdığı dosyayı görmek için YENİLE'ye basmak gerekmemeli), SAP Launcher
+   * ekranındaki gezginde KAPALI: orada dosyaları kullanıcı kendisi koyuyor,
+   * izlemenin bedelini ödemeye değmez.
+   *
+   * Aynı anda birden çok gezgin mount olabildiği (her sohbetin kendi paneli)
+   * için sadece GÖRÜNEN panelde açılmalı — izleyici pencere başına değil,
+   * bileşen başına.
+   */
+  autoRefresh?: boolean;
+  /**
+   * `autoRefresh` açıkken, disk değişikliği algılandığında çağrılır. İzleyici
+   * burada olduğu için açık dosya önizlemesi de aynı olaydan besleniyor —
+   * ikinci bir `fs.watch` açmaya gerek yok.
+   */
+  onExternalChange?: () => void;
 }
 
 type DirState = FsEntry[] | "loading" | "error";
@@ -17,7 +35,15 @@ type DirState = FsEntry[] | "loading" | "error";
 // her klasörün içeriği ancak açıldığında `fs:listDir` ile çekilir ve
 // `childrenByPath`'te path'e göre cache'lenir — büyük proje klasörlerinde
 // tüm alt ağacı önceden taramaya gerek kalmaz.
-export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelectFile, onImportComplete }: Props) {
+export default function FileExplorer({
+  rootDir,
+  rootLabel,
+  selectedPath,
+  onSelectFile,
+  onImportComplete,
+  autoRefresh = false,
+  onExternalChange
+}: Props) {
   const t = useT();
   const [childrenByPath, setChildrenByPath] = useState<Record<string, DirState>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -47,12 +73,45 @@ export default function FileExplorer({ rootDir, rootLabel, selectedPath, onSelec
     });
   };
 
-  const refresh = () => {
+  // `expanded` bir ref'te de tutuluyor: `refresh` onu okumak zorunda ama
+  // bağımlılığı olsaydı, her klasör açılışında izleyici (aşağıdaki effect)
+  // sökülüp yeniden kurulurdu.
+  const expandedRef = useRef(expanded);
+  expandedRef.current = expanded;
+
+  // Kök + O AN AÇIK olan klasörler yeniden okunuyor; kapalı klasörlerin
+  // içeriğini tazelemek görünmeyen bir şey için disk okumak olurdu.
+  const refresh = useCallback(() => {
     loadDir(rootDir);
-    for (const dirPath of Object.keys(expanded)) {
-      if (expanded[dirPath]) loadDir(dirPath);
+    for (const dirPath of Object.keys(expandedRef.current)) {
+      if (expandedRef.current[dirPath]) loadDir(dirPath);
     }
-  };
+  }, [loadDir, rootDir]);
+
+  // Canlı tazeleme. Debounce main tarafında (bkz. fsExplorer WATCH_DEBOUNCE_MS),
+  // burada sadece "benim kökümde değişiklik oldu mu" süzülüyor — aynı anda
+  // birden çok panel izliyor olabilir.
+  // Callback de ref üzerinden: çağıran her render'da yeni bir fonksiyon
+  // veriyorsa izleyici boşuna sökülüp kurulmasın.
+  const onExternalChangeRef = useRef(onExternalChange);
+  onExternalChangeRef.current = onExternalChange;
+
+  useEffect(() => {
+    if (!autoRefresh || !rootDir) return;
+    const id = crypto.randomUUID();
+    let disposed = false;
+    window.api.watchDir(id, rootDir).catch(() => {});
+    const off = window.api.onFsChanged((changedId) => {
+      if (changedId !== id || disposed) return;
+      refresh();
+      onExternalChangeRef.current?.();
+    });
+    return () => {
+      disposed = true;
+      off();
+      window.api.unwatchDir(id).catch(() => {});
+    };
+  }, [autoRefresh, rootDir, refresh]);
 
   // Dışarıdan (Windows Explorer/Masaüstü) sürüklenip bırakılan dosyaları
   // hedef klasöre kopyalar — hem "Dosya Ekle" diyaloğu hem sürükle-bırak

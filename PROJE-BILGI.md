@@ -7837,3 +7837,54 @@ görmüyordu**. O yüzden klasör sohbet BAŞINA taşındı:
 
 `nonce`: `SapChatRequest`'te bilerek var — aynı sisteme arka arkaya bağlanmak
 aynı `{projectDir, label}` çiftini üretir ve effect bir daha tetiklenmezdi.
+
+## Sohbetin yanında dosya paneli — gör, izle, müdahale et (2026-09-04)
+
+Aynı geri bildirimin ikinci maddesi: *"ayrıca dosya sistemleri de çok faydalı
+oluyor / kendi gidip txt vs yazıyor direkt göreyim müdahale edeyim"*.
+
+Cümlenin üç ayrı gereği var; üçü de karşılandı:
+
+| İstek | Karşılığı |
+| --- | --- |
+| **Görmek** | `ChatFilesPanel` — sohbetin sağında, o sohbetin KENDİ çalışma klasörünü kök alan bir ağaç |
+| **Direkt** | `fs.watch(recursive)` — ajan dosyayı yazdığı anda ağaç tazeleniyor, YENİLE'ye basmak gerekmiyor |
+| **Müdahale** | `FileViewer`'ın düzenleme kipi — metin dosyası panelde düzenlenip diske yazılıyor |
+
+Gezgin ve önizleme YENİ BİLEŞEN DEĞİL: `FileExplorer`/`FileViewer` zaten SAP
+Launcher ekranında vardı. İki yeni yetenek (canlı izleme, düzenleme) oraya
+opsiyonel bayrak olarak eklendi ve SAP Launcher'da KAPALI bırakıldı — orada
+dosyaları kullanıcı kendisi koyuyor, önizleme bilinçli olarak salt okunur.
+
+### İzin kökü genişledi (dikkat)
+
+`isPathAllowed` yalnızca `projectsBaseDir`'i kabul ediyordu. `axetWorkspaceDir`
+onun KARDEŞİ (ikisi de Belgeler altında, biri diğerinin içinde değil), yani
+bağlamsız bir sohbetin klasörü için tüm `fs:*` çağrıları reddedilirdi. Artık
+iki kök kabul ediliyor. İzin hâlâ KAPALI BİR LİSTE — bu iki klasörün dışına
+çıkan hiçbir yol geçmiyor; genişleme, yeni `fs:writeTextFile` yolunu da
+kapsadığı için bilinçli ve sınırlı tutuldu.
+
+### Kararlar ve sebepleri
+
+- **İzleyici gezginin içinde** (`FileExplorer`, `autoRefresh`), panelde değil.
+  Açık dosya önizlemesi aynı olaydan `onExternalChange` ile besleniyor —
+  ikinci bir `fs.watch` açmaya gerek yok.
+- **Debounce main tarafında** (`WATCH_DEBOUNCE_MS = 300`): Windows tek bir
+  yazma için birden çok olay üretiyor, renderer'a saniyede onlarca IPC mesajı
+  gitmemeli. `.git`, `node_modules`, `.venv`, `__pycache__` filtreli.
+- **İzleyici yalnızca GÖRÜNEN panelde.** Her sohbetin kendi paneli var ve
+  hepsi mount hâlde duruyor; bayrak olmasa onlarca `fs.watch` aynı anda
+  çalışırdı. Panel kapalıyken hiç mount edilmiyor.
+- **Panel açık/kapalı TÜM sohbetler için ortak**, açık DOSYA sohbet başına.
+  Paneli her yeni sohbette yeniden açmak, işini (ajanın yazdığını görmek) her
+  seferinde yeniden hatırlanması gereken bir şey yapardı.
+- **Kırpılmış dosya düzenlenemez.** Ekranda dosyanın ilk 2MB'ı var
+  (`MAX_TEXT_BYTES`); onu kaydetmek geri kalanını SİLERDİ.
+- **Düzenleme kipinde disk tazelemesi yok sayılıyor.** Kullanıcının yazdığının
+  üzerine gelen bir tazeleme, kaybedilen emek demek.
+- **Bağlam şeridi artık her sohbette var** (bağlamsız olanlarda etiket
+  "Çalışma alanı", ikon sönük). Klasör yolunun görünür olması isteğin ilk
+  adımı: ajanın nereye yazdığı tahmin edilecek bir şey olmamalı.
+- Panel genişliği SABİT (380px). Sürüklenebilir bir ayırıcı, okuma sütununun
+  kendi kademeli genişliğiyle (`COLUMN`) çakışırdı.

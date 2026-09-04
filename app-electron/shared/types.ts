@@ -208,6 +208,11 @@ export interface FsReadTextResult {
   error?: string;
 }
 
+export interface FsWriteTextResult {
+  ok: boolean;
+  error?: string;
+}
+
 export interface FsReadDocxResult {
   ok: boolean;
   html?: string;

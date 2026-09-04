@@ -14,7 +14,7 @@ import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
-import { isPathAllowed, listDir, readTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles } from "./fsExplorer";
+import { isPathAllowed, listDir, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
 import { listAxetModels, getAxetModelConfig, setAxetModel } from "./axetModels";
@@ -473,6 +473,38 @@ function registerIpc(): void {
       return { ok: false, error: "Bu dosyaya erişim izni yok." };
     }
     return readTextFile(filePath);
+  });
+
+  ipcMain.handle("fs:writeTextFile", async (_event, filePath: string, content: string) => {
+    const config = loadConfig();
+    if (!isPathAllowed(config, filePath)) {
+      return { ok: false, error: "Bu dosyaya erişim izni yok." };
+    }
+    return writeTextFile(filePath, content);
+  });
+
+  // Klasör izleme — ajan bir dosya yazdığında panel kendiliğinden tazelensin
+  // diye (bkz. fsExplorer startWatch). `id` renderer tarafından üretiliyor;
+  // her panel kendi izleyicisini açıp kapatıyor.
+  ipcMain.handle("fs:watchDir", async (event, id: string, dirPath: string) => {
+    const config = loadConfig();
+    if (!isPathAllowed(config, dirPath)) {
+      return { ok: false, error: "Bu klasöre erişim izni yok." };
+    }
+    return startWatch(id, dirPath, () => {
+      // Pencere kapanmışsa gönderme — kapanan bir webContents'e mesaj yollamak
+      // yakalanmayan bir hata fırlatır.
+      if (event.sender.isDestroyed()) {
+        stopWatch(id);
+        return;
+      }
+      event.sender.send("fs:changed", id);
+    });
+  });
+
+  ipcMain.handle("fs:unwatchDir", async (_event, id: string) => {
+    stopWatch(id);
+    return { ok: true };
   });
 
   ipcMain.handle("fs:readDocx", async (_event, filePath: string) => {
@@ -953,6 +985,7 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   disposeAllTerminals();
+  stopAllWatches();
   stopAllRfcBridges();
   stopAllReadonlyServers();
   stopGuiScriptBridge();
@@ -965,6 +998,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   disposeAllTerminals();
+  stopAllWatches();
   stopAllRfcBridges();
   stopAllReadonlyServers();
   stopGuiScriptBridge();

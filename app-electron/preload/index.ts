@@ -100,6 +100,16 @@ const api = {
   resolveProjectDir: (customerPath: string[], service: SapService) => ipcRenderer.invoke("project:resolveDir", customerPath, service),
   listDir: (dirPath: string) => ipcRenderer.invoke("fs:listDir", dirPath),
   readTextFile: (filePath: string) => ipcRenderer.invoke("fs:readTextFile", filePath),
+  writeTextFile: (filePath: string, content: string) => ipcRenderer.invoke("fs:writeTextFile", filePath, content),
+  // Klasör izleme: `id` çağıranın ürettiği bir anahtar, kapatırken aynısı
+  // veriliyor. Olay yalnızca "bu kökün altında bir şey değişti" diyor.
+  watchDir: (id: string, dirPath: string) => ipcRenderer.invoke("fs:watchDir", id, dirPath),
+  unwatchDir: (id: string) => ipcRenderer.invoke("fs:unwatchDir", id),
+  onFsChanged: (callback: (id: string) => void) => {
+    const listener = (_e: unknown, id: string) => callback(id);
+    ipcRenderer.on("fs:changed", listener);
+    return () => ipcRenderer.removeListener("fs:changed", listener);
+  },
   readDocxFile: (filePath: string) => ipcRenderer.invoke("fs:readDocx", filePath),
   readImageDataUrl: (filePath: string) => ipcRenderer.invoke("fs:readImageDataUrl", filePath),
   openInExplorer: (filePath: string) => ipcRenderer.invoke("fs:openInExplorer", filePath),

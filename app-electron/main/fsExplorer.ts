@@ -1,7 +1,7 @@
 import { shell } from "electron";
-import { promises as fs } from "node:fs";
+import { promises as fs, watch as watchSync } from "node:fs";
 import path from "node:path";
-import type { AppConfig, FsEntry, FsImportFilesResult, FsListDirResult, FsReadDocxResult, FsReadImageResult, FsReadTextResult } from "../shared/types";
+import type { AppConfig, FsEntry, FsImportFilesResult, FsListDirResult, FsReadDocxResult, FsReadImageResult, FsReadTextResult, FsWriteTextResult } from "../shared/types";
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024; // 2MB — daha büyük dosyalar önizleme için gereksiz/yavaş
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -17,17 +17,30 @@ const IMAGE_MIME_BY_EXT: Record<string, string> = {
   ".ico": "image/x-icon"
 };
 
-// Dosya Gezgini paneli sadece bu uygulamanın kendi oluşturduğu proje
-// klasörlerini göstermeli — renderer'dan (contextIsolation altında olsa da)
-// gelen bir path'in bilgisayardaki HERHANGİ bir dosyayı okumasına izin
-// vermemek için tüm fs:* çağrıları burada projectsBaseDir'in altında kalmaya
-// zorlanıyor.
+// Dosya Gezgini paneli sadece bu uygulamanın kendi oluşturduğu klasörleri
+// göstermeli — renderer'dan (contextIsolation altında olsa da) gelen bir
+// path'in bilgisayardaki HERHANGİ bir dosyayı okumasına izin vermemek için
+// tüm fs:* çağrıları burada iki köke sıkıştırılıyor.
+//
+// İKİNCİ KÖK (`axetWorkspaceDir`) 2026-09-04'te eklendi: sohbet ajanı
+// dosyalarını oraya yazıyor ve kullanıcı isteği tam olarak *"kendi gidip txt
+// vs yazıyor direkt göreyim müdahale edeyim"*. `projectsBaseDir`'in KARDEŞİ
+// (ikisi de Belgeler altında, biri diğerinin içinde değil), yani tek kök
+// yeterli değildi. İzin hâlâ kapalı bir liste: bu iki klasörün dışına çıkan
+// hiçbir yol kabul edilmiyor.
+function allowedRoots(config: AppConfig): string[] {
+  return [config.projectsBaseDir, config.axetWorkspaceDir]
+    .filter((dir): dir is string => Boolean(dir && dir.trim()))
+    .map((dir) => path.resolve(dir));
+}
+
 export function isPathAllowed(config: AppConfig, targetPath: string): boolean {
-  const base = path.resolve(config.projectsBaseDir);
   const target = path.resolve(targetPath);
-  if (target === base) return true;
-  const relative = path.relative(base, target);
-  return !relative.startsWith("..") && !path.isAbsolute(relative);
+  return allowedRoots(config).some((base) => {
+    if (target === base) return true;
+    const relative = path.relative(base, target);
+    return !relative.startsWith("..") && !path.isAbsolute(relative);
+  });
 }
 
 export async function listDir(dirPath: string): Promise<FsListDirResult> {
@@ -87,6 +100,81 @@ export async function readTextFile(filePath: string): Promise<FsReadTextResult> 
   } catch (err) {
     return { ok: false, error: (err as Error).message };
   }
+}
+
+// Görüntülemenin karşılığı: kullanıcı ajanın yazdığı dosyayı okuyup DÜZELTEBİLSİN
+// (bkz. FileViewer'ın düzenleme kipi). Yeni dosya oluşturmuyor — yalnızca var olan,
+// izinli bir yola yazıyor; klasör oluşturmak/silmek bilinçli olarak kapsam dışı.
+export async function writeTextFile(filePath: string, content: string): Promise<FsWriteTextResult> {
+  try {
+    const stat = await fs.stat(filePath);
+    if (stat.isDirectory()) return { ok: false, error: "Bu bir klasör, dosya değil." };
+    await fs.writeFile(filePath, content, "utf-8");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+// --- Klasör izleme ---
+// "Ajan bir dosya yazdı" olayını kullanıcıya YENİLE'ye basmadan göstermek için.
+// Tek bir `fs.watch(recursive)` yetiyor: renderer'a sadece "bu kökün altında bir
+// şey değişti" deniyor, hangi dosya olduğu SÖYLENMİYOR — ağaç zaten yalnızca AÇIK
+// klasörleri yeniden okuyor, dosya bazlı olay ayrıştırmak hiçbir şey kazandırmazdı.
+//
+// Windows'ta `fs.watch` aynı yazma için birden çok olay üretiyor (rename + change),
+// o yüzden debounce burada, main tarafında: renderer'a saniyede onlarca IPC mesajı
+// gitmesin.
+const WATCH_DEBOUNCE_MS = 300;
+// Kendi kendine sürekli değişen, kullanıcıyı ilgilendirmeyen klasörler. Bunlar
+// filtrelenmezse bir `git` komutu ya da npm kurulumu ağacı durmadan tazeletir.
+const WATCH_IGNORED = [".git", "node_modules", ".venv", "__pycache__"];
+
+interface WatchEntry {
+  watcher: import("node:fs").FSWatcher;
+  timer: NodeJS.Timeout | null;
+}
+
+const watchers = new Map<string, WatchEntry>();
+
+export function startWatch(id: string, dirPath: string, onChange: () => void): { ok: boolean; error?: string } {
+  stopWatch(id);
+  try {
+    const watcher = watchSync(dirPath, { recursive: true }, (_event, filename) => {
+      const name = typeof filename === "string" ? filename : "";
+      if (WATCH_IGNORED.some((ignored) => name.split(/[\\/]/).includes(ignored))) return;
+      const entry = watchers.get(id);
+      if (!entry) return;
+      if (entry.timer) clearTimeout(entry.timer);
+      entry.timer = setTimeout(() => {
+        entry.timer = null;
+        onChange();
+      }, WATCH_DEBOUNCE_MS);
+    });
+    // İzlenen klasör silinirse `fs.watch` hata fırlatır; bu, izlemeyi bırakmak
+    // için yeterli bir sebep ama uygulamayı düşürmek için değil.
+    watcher.on("error", () => stopWatch(id));
+    watchers.set(id, { watcher, timer: null });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+export function stopWatch(id: string): void {
+  const entry = watchers.get(id);
+  if (!entry) return;
+  if (entry.timer) clearTimeout(entry.timer);
+  try {
+    entry.watcher.close();
+  } catch {
+    // zaten kapanmış olabilir
+  }
+  watchers.delete(id);
+}
+
+export function stopAllWatches(): void {
+  for (const id of [...watchers.keys()]) stopWatch(id);
 }
 
 export async function readDocxFile(filePath: string): Promise<FsReadDocxResult> {
