@@ -68,6 +68,17 @@ interface TuiSession {
   modelKey: string;
   useConnectors: boolean;
   dbPath: string;
+  /**
+   * pty'nin başlatıldığı an (Unix saniye).
+   *
+   * Oturum eşleşmesinin ZORUNLU alt sınırı. Bu alan olmadan (2026-09-04 canlı
+   * hatası): bağlayıcı kararı değişince pty yeniden kuruluyor, ilk yoklamada
+   * bizim yeni oturumumuz henüz veritabanında olmuyor, "en yeni oturum" yedeği
+   * de bir ÖNCEKİ sohbetin oturumunu döndürüyordu. Sonuç: mail sorusuna
+   * bir önceki turun ("selam") cevabı 0,0 saniyede "bitti" diye verildi, ve
+   * yanlış bağ önbellekte kaldığı için sonraki mesaj hiç bitmedi.
+   */
+  spawnedAt: number;
   /** axet-code'un bu pty için açtığı oturum. İlk cevaptan sonra doluyor. */
   axetSessionId: string | null;
   /** ANSI'siz son çıktı — yalnızca açılış işaretlerini aramak için. */
@@ -232,6 +243,9 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     setAxetModel("large", model);
   }
   let proc: pty.IPty;
+  // Spawn'dan ÖNCE okunuyor: axet-code oturum satırını spawn'dan sonra yazıyor,
+  // yani bu değer her zaman gerçek oturumun altında kalır.
+  const spawnedAt = Math.floor(Date.now() / 1000);
   try {
     proc = pty.spawn("axet-code.exe", ["-c", cwd, "-y"], {
       name: "xterm-256color",
@@ -252,6 +266,7 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     modelKey: modelKeyOf(model),
     useConnectors,
     dbPath,
+    spawnedAt,
     axetSessionId: null,
     screen: "",
     ready: false,
@@ -300,13 +315,19 @@ async function ensureSession(
 ): Promise<TuiSession | null> {
   const existing = sessions.get(chatId);
   if (existing) {
+    // Bağlayıcılarda YENİDEN KURMA yalnızca KAPALI→AÇIK yönünde. Ters yönde
+    // kurmak, kazanılan her şeyi (oturum hafızası, araç sonuçları) bir kez daha
+    // "mail" geçmeyen bir mesaj yüzünden çöpe atmak olurdu; tek kazancı o turda
+    // araç kataloğunu göndermemek, bedeli 3,5 s + geçmişin yeniden tohumlanması.
+    // Yani sohbette bir kez açıldıysa sohbet boyunca açık kalıyor.
+    const connectorsOk = existing.useConnectors || !useConnectors;
     const compatible =
       !existing.exited &&
       !existing.disposed &&
       existing.ready &&
       existing.cwd === cwd &&
       existing.modelKey === modelKeyOf(model) &&
-      existing.useConnectors === useConnectors;
+      connectorsOk;
     if (compatible) return existing;
   }
   const inFlight = pendingSetup.get(chatId);
@@ -318,7 +339,7 @@ async function ensureSession(
       !session.disposed &&
       session.cwd === cwd &&
       session.modelKey === modelKeyOf(model) &&
-      session.useConnectors === useConnectors
+      (session.useConnectors || !useConnectors)
     ) {
       return session;
     }
@@ -463,7 +484,11 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     session.proc.write(`${text.replace(/\r/g, "")}\r`);
     session.seeded = true;
 
-    const needle = promptNeedle(args.message);
+    // İğne, GÖNDERDİĞİMİZ metinden çıkarılıyor (kullanıcının ham mesajından
+    // değil): tohumlama turunda veritabanına düşen metin önsözle birlikte olan
+    // metindir, ve "selam" gibi çok kısa bir mesaj iğne olarak ayırt edici
+    // değildir.
+    const needle = promptNeedle(text);
     const started = Date.now();
     const deadline = started + TURN_TIMEOUT_MS;
     const emitted = new Map<string, number>();
@@ -474,6 +499,11 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     const seenTools = new Set<string>();
     let toolCount = 0;
     let answer = "";
+    // Gönderdiğimiz prompt oturuma DÜŞENE kadar hiçbir asistan mesajı bu tura
+    // ait sayılmıyor. Tek başına "yeni mesaj" ölçütü yetmiyordu: yanlış bir
+    // oturuma bağlanıldığında oradaki her mesaj "yeni" görünüyor ve turun
+    // cevabı diye akıyordu (2026-09-04).
+    let promptLanded = false;
 
     for (;;) {
       if (session.disposed || session.cancelled) return { ok: false, text: answer, cancelled: true };
@@ -481,17 +511,46 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
         return { ok: false, text: answer, error: "axet-code oturumu beklenmedik şekilde kapandı." };
       }
       if (Date.now() > deadline) {
+        // Zaman aşımının SEBEBİ log'a düşüyor. Sessiz kalırsa "cevap gelmedi"
+        // ile "yanlış oturumu dinledik" ayırt edilemez — 2026-09-04'te tam da
+        // bu ikisi karıştı ve teşhis veritabanını elle okumayı gerektirdi.
+        console.log("[axetChatTui] tur zaman asimina ugradi", {
+          chatId: session.chatId,
+          oturum: session.axetSessionId?.slice(0, 8) ?? "bulunamadi",
+          promptDustu: promptLanded,
+          arac: toolCount,
+          metinUzunlugu: answer.length
+        });
         return { ok: false, text: answer, error: `axet-code ${TURN_TIMEOUT_MS / 1000} saniyede cevap vermedi.` };
       }
 
       if (!session.axetSessionId) {
+        // ALT SINIR `spawnedAt`, `sinceSec` DEĞİL. `sinceSec` veritabanındaki
+        // son mesaja bakıyor ve o mesaj pekâlâ BİZDEN ÖNCEKİ bir sohbete ait
+        // olabilir; o pencereyle "en yeni oturum" yedeği başka bir sohbetin
+        // oturumunu döndürüp turu onun cevabıyla bitiriyordu.
         session.axetSessionId =
-          findSessionByPrompt(session.dbPath, sinceSec, needle) ?? newestSessionSince(session.dbPath, sinceSec);
+          findSessionByPrompt(session.dbPath, session.spawnedAt, needle) ??
+          newestSessionSince(session.dbPath, session.spawnedAt);
       }
 
       if (session.axetSessionId) {
         const messages = readMessagesSince(session.dbPath, session.axetSessionId, sinceSec);
-        const assistants = messages.filter((m) => m.role === "assistant" && !preexisting.has(m.id));
+        if (!promptLanded) {
+          promptLanded = messages.some(
+            (m) =>
+              m.role === "user" &&
+              !preexisting.has(m.id) &&
+              m.parts
+                .filter((part) => part.type === "text")
+                .map((part) => part.data?.text ?? "")
+                .join("")
+                .includes(needle)
+          );
+        }
+        const assistants = promptLanded
+          ? messages.filter((m) => m.role === "assistant" && !preexisting.has(m.id))
+          : [];
         for (const message of assistants) {
           const body = message.parts
             .filter((part) => part.type === "text")
@@ -534,9 +593,12 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
             chatId: session.chatId,
             saniye: ((Date.now() - started) / 1000).toFixed(1),
             arac: toolCount,
-            baglayici: args.useConnectors
+            // Oturumun GERÇEK durumu; istenen değil (bkz. yapışkan bağlayıcı
+            // kuralı, ensureSession).
+            baglayici: session.useConnectors,
+            oturum: session.axetSessionId?.slice(0, 8) ?? "?"
           });
-          return { ok: true, text: answer.trim(), usedConnectors: args.useConnectors };
+          return { ok: true, text: answer.trim(), usedConnectors: session.useConnectors };
         }
       }
 
