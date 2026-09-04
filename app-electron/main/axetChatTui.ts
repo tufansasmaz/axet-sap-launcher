@@ -423,15 +423,27 @@ async function ensureSession(
  * henüz yok; yaygın durum kapalı. Karar "açık" çıkarsa oturum yeniden kurulur,
  * yani yanlış tahminin bedeli eski davranışın aynısı.
  */
-export function prewarmTui(chatId: string, cwd: string, model: AxetModelEntry | null): void {
+export function prewarmTui(
+  chatId: string,
+  cwd: string,
+  model: AxetModelEntry | null,
+  useConnectors = false
+): void {
   if (!chatId || tuiUnavailableReason(cwd)) return;
   const existing = sessions.get(chatId);
   if (existing && !existing.exited && !existing.disposed) {
     touch(existing);
+    // Taslak yazılırken karar KAPALI'dan AÇIK'a dönebiliyor ("...mail..."
+    // yazıldığı an). Bu durumda oturumu şimdiden yeniden kuruyoruz; aksi hâlde
+    // ısıtma yapılmış ama işe yaramamış olurdu ve altı saniyelik kurulum yine
+    // gönderim anına kalırdı. Süren bir tur varsa dokunulmuyor.
+    if (useConnectors && !existing.useConnectors && !existing.busy) {
+      void ensureSession(chatId, cwd, model, true).catch(() => null);
+    }
     return;
   }
   if (pendingSetup.has(chatId)) return;
-  void ensureSession(chatId, cwd, model, false).catch(() => null);
+  void ensureSession(chatId, cwd, model, useConnectors).catch(() => null);
 }
 
 // ---------------------------------------------------------------------------

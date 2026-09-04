@@ -133,7 +133,12 @@ export interface AxetApi {
   ) => Promise<AxetChatSendResult>;
   cancelChatMessage: (requestId: string) => Promise<void>;
   closeChatSession: (chatId: string) => Promise<void>;
-  prewarmChat: (cwd: string, model: AxetModelEntry | null, chatId?: string) => Promise<void>;
+  prewarmChat: (
+    cwd: string,
+    model: AxetModelEntry | null,
+    chatId?: string,
+    draft?: string
+  ) => Promise<void>;
   // Abonelikten çıkma fonksiyonu döner (diğer `on*` köprüleriyle aynı desen).
   onChatChunk: (callback: (requestId: string, text: string) => void) => () => void;
   onChatActivity: (

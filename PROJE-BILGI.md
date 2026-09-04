@@ -8178,3 +8178,36 @@ etkilenmiyor (oturum kalıcı). Eski `run` kipinde aynı maliyet HER mesajda
 **Ayrıca ölçüldü**: 4 bağlayıcı kaydı var ve `test123` İKİ KEZ kayıtlı —
 25+25+25+17 = 92 araç. Mükerrer kayıtların temizlenmesi kod işi değil,
 axet.nttdata.com/agentic tarafındaki bir ayar.
+
+### 30 saniyelik mail cevabının dökümü (2026-09-04)
+
+Kullanıcı: *"ortalama 30sn sürdü"*. Cevap DOĞRUYDU (mail okundu). Süre
+veritabanından adım adım:
+
+```
+19:10:38  prompt gönderildi
+19:10:38  -> outlook_read  (connector c3c2a49d)
+19:10:45  <- sonuç: +7 s   YETKİSİZ, başarısız
+19:10:45  -> outlook_read  (connector df6566e3 — MÜKERRER kayıt)
+19:10:57  <- sonuç: +12 s  başarılı
+19:10:57  cevap
+```
+
+Üç ayrı kalem, üçü de farklı yerde:
+
+1. **7 s bozuk mükerrer kayda gidiyor.** Ajan önce `c3c2a49d`'yi deniyor, o
+   yetkisiz dönüyor, sonra `df6566e3`'e geçiyor. Alternatifi denemesinin
+   sebebi bizim `CONNECTOR_RETRY_REMINDER` önsözümüz — yani cevabın gelmesini
+   o sağlıyor, bedeli de bu. KOD İŞİ DEĞİL: axet.nttdata.com/agentic'teki
+   mükerrer kayıt silinince kalkar.
+2. **12 s bağlayıcı arka ucunun kendi süresi.** Bizde yapılacak bir şey yok.
+3. **~6 s açılış** (3,5 s el sıkışması + 2,5 s bağlayıcı beklemesi). Bu
+   gizlenebilirdi ve gizlendi: ön-ısıtmaya artık YAZILMAKTA OLAN TASLAK da
+   gidiyor ve bağlayıcı kararı ona bakılarak veriliyor. Kullanıcı "mail"
+   yazdığı anda doğru oturum kurulmaya başlıyor; eskiden ısıtma her zaman
+   bağlayıcısız kuruluyor, doğru oturum Gönder'e basıldıktan SONRA
+   kuruluyordu.
+
+Taslak kararı yanlış çıkarsa bedel sınırlı: sonradan bağlayıcı gerekmezse
+oturum olduğu gibi kullanılıyor (yapışkan kural), gerekir de kaçırmışsak o
+mesajda yeniden kuruluyor — yani eski davranış.

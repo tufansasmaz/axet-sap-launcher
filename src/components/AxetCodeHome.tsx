@@ -1051,9 +1051,13 @@ export default function AxetCodeHome({
     if (!activeDraft.trim()) return;
     const timer = setTimeout(() => {
       const { cwd, model, chatId } = prewarmTargetRef.current;
+      // Taslak da gidiyor: bağlayıcıların (Outlook vb.) ısıtma sırasında
+      // kurulup kurulmayacağına metne bakılarak karar veriliyor. Kullanıcı
+      // "mail" yazdığı anda doğru oturum kurulmaya başlıyor, yoksa o kurulum
+      // Gönder'e basıldıktan SONRA yapılıyor ve altı saniye görünür oluyordu.
       // Ateşle-unut: ısıtma başarısız olsa da asıl gönderim eskisi gibi
       // çalışıyor, bu yüzden hatası kullanıcıya gösterilecek bir şey değil.
-      window.api.prewarmChat(cwd, model, chatId).catch(() => {});
+      window.api.prewarmChat(cwd, model, chatId, activeDraft).catch(() => {});
     }, PREWARM_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [activeDraft]);

@@ -276,13 +276,28 @@ function disposeWarm(): void {
  * açılıp stdin'de bekletilir. Zaten uygun bir süreç ısınıyorsa yalnızca
  * boşta-kalma sayacı tazelenir.
  */
-export function prewarmChat(cwd: string, model: AxetModelEntry | null, chatId?: string): void {
+export function prewarmChat(
+  cwd: string,
+  model: AxetModelEntry | null,
+  chatId?: string,
+  draft?: string
+): void {
   const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
   // TUI kipi kullanılabiliyorsa ısıtılacak şey ODUR: `run` süreci o mesajda
   // zaten kullanılmayacak, ısıtmak boşuna bir axet-code süreci demek.
   if (chatId && !tuiUnavailableReason(resolvedCwd)) {
     disposeWarm();
-    prewarmTui(chatId, resolvedCwd, model);
+    // Bağlayıcı kararı, YAZILMAKTA OLAN metne bakılarak şimdiden veriliyor.
+    // Bunsuz ısıtma her zaman bağlayıcısız kuruluyordu ve "mail" geçen ilk
+    // mesajda oturum baştan kuruluyordu: 3,5 s el sıkışması + 2,5 s bağlayıcı
+    // beklemesi, kullanıcının GÖZÜ ÖNÜNDE (ölçüldü, 2026-09-04). Taslakta
+    // "mail" görür görmez doğru oturumu kurarsak bu altı saniye yazma
+    // süresinin içinde eriyor.
+    //
+    // Yanlış tahminin bedeli sınırlı: metin sonradan bağlayıcı gerektirmezse
+    // oturum olduğu gibi kullanılıyor (yapışkan kural), gerektirir de biz
+    // kaçırmışsak eski davranışa, yani o mesajda yeniden kuruluma dönüyoruz.
+    prewarmTui(chatId, resolvedCwd, model, shouldUseConnectors([draft]));
     return;
   }
   const key = modelKeyOf(model);

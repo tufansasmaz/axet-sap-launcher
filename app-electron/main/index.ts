@@ -682,9 +682,12 @@ function registerIpc(): void {
   // Kullanıcı yazmaya başlayınca çağrılıyor: oturum/süreç şimdiden açılıyor
   // (ölçüm ve gerekçe: axetChat.ts). Ateşle-unut — ısıtma başarısız olursa
   // asıl gönderim yine de çalışıyor.
-  ipcMain.handle("axetChat:prewarm", (_event, cwd: string, model: AxetModelEntry | null, chatId?: string) => {
-    prewarmChat(cwd, model, chatId);
-  });
+  ipcMain.handle(
+    "axetChat:prewarm",
+    (_event, cwd: string, model: AxetModelEntry | null, chatId?: string, draft?: string) => {
+      prewarmChat(cwd, model, chatId, draft);
+    }
+  );
   ipcMain.handle("chatAttachments:save", (_event, fileName: string, base64Data: string) =>
     saveClipboardAttachment(fileName, base64Data)
   );

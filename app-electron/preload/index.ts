@@ -163,8 +163,10 @@ const api = {
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
   // Kullanıcı yazmaya başlayınca: oturumu/süreci şimdiden açtır. Sonucu YOK,
   // beklemek de gerekmiyor — kazanç tamamen zamanlamada.
-  prewarmChat: (cwd: string, model: AxetModelEntry | null, chatId?: string): Promise<void> =>
-    ipcRenderer.invoke("axetChat:prewarm", cwd, model, chatId),
+  // `draft` = o an yazılmakta olan metin. Bağlayıcıların ısıtma sırasında
+  // kurulup kurulmayacağı buna bakılarak kararlaştırılıyor.
+  prewarmChat: (cwd: string, model: AxetModelEntry | null, chatId?: string, draft?: string): Promise<void> =>
+    ipcRenderer.invoke("axetChat:prewarm", cwd, model, chatId, draft),
   // Cevap metni üretildikçe gelen parçalar (yalnızca YENİ parça, birikmiş
   // metin değil). `requestId` ile hangi sohbete ait olduğu ayırt ediliyor.
   onChatChunk: (callback: (requestId: string, text: string) => void) => {
