@@ -346,6 +346,15 @@ export interface StoredChatSession {
   // Henüz gönderilmemiş ekler — taslak metni gibi, uygulama kapanıp
   // açıldığında composer'da yerinde dursun diye.
   attachments?: ChatAttachment[];
+  // Bu sohbetin ÇALIŞMA KLASÖRÜ. Bir SAP sistemine bağlanınca açılan sohbet,
+  // o bağlantının proje klasörüne bağlanıyor — `.conn_adt` ve `sap-context.md`
+  // orada duruyor (bkz. launcher.ts), yani ajan SAP bağlamını ancak bu klasörde
+  // çalışırsa görüyor. Yoksa genel çalışma alanı (`config.axetWorkspaceDir`)
+  // kullanılır; eski geçmiş dosyalarında bu alan hiç yok, o yüzden opsiyonel.
+  cwd?: string;
+  // Yalnızca GÖRSEL etiket ("Müşteri · S4D") — sohbetin tepesindeki rozette
+  // hangi sisteme bağlı olduğunu göstermek için. Bağlantı kimliği değil.
+  sapLabel?: string;
   createdAt: number;
   updatedAt: number;
 }

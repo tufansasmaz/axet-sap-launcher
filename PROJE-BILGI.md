@@ -7781,3 +7781,59 @@ seçiliyor ve **her "yeni sohbet"te** yenileniyor.
 Yeni öneri eklemek: `src/i18n/{tr,en}.ts`'e `axetCodeHome.sg*` anahtarı +
 `SUGGESTION_POOL`'a bir satır. İkon isteğe bağlı (`ChatSessionPane`'deki
 `SUGGESTION_ICONS`; eşleşme yoksa `Sparkles`).
+
+## "Sisteme bağlan" artık konsol değil sohbet açıyor (2026-09-04)
+
+Kullanıcı geri bildirimi (üçüncü bir kişiden aktarıldı): *"la sisteme bağlan
+diyince yine konsol açılıyor ... dayım konsolla ne işimiz var daha"*. Kastedilen
+"SAP GUI açılsın" değil, **terminal yerine bizim sohbet ekranımıza düşülsün**
+(kullanıcı açıklaması, aynı gün).
+
+Eskiden `handleCredentialsSubmit`, bağlantı başarılı olunca proje klasöründe
+`axet-code -y` TUI'sini bir terminalde başlatıyordu. Uygulamanın kendi sohbet
+arayüzü varken kullanıcıyı bir konsol penceresine bırakmak, aynı işin iki
+ayrı yüzünü yan yana koymaktı.
+
+**Artık:** bağlantı başarılı → `setActivity("axetCode")` + o bağlantının proje
+klasörüne bağlı BOŞ bir sohbet.
+
+### Sohbete özel çalışma klasörü (asıl iş bu)
+
+Bu değişiklik kozmetik olamazdı: sohbet, çalışma klasörünü tek bir global
+ayardan (`config.axetWorkspaceDir`) alıyordu — yani hangi sisteme bağlanırsan
+bağlan, ajan hep aynı klasörde çalışıyordu ve bağlantının ürettiği
+`.conn_adt` / `sap-context.md` dosyalarını (bkz. `launcher.ts`) **hiç
+görmüyordu**. O yüzden klasör sohbet BAŞINA taşındı:
+
+- `StoredChatSession.cwd?` + `sapLabel?` (opsiyonel — eski geçmiş dosyaları
+  bu alanlar olmadan okunabilmeli, `?? null` ile bağlamsız açılıyorlar).
+- `runPrompt(..., sessionCwd)` → `sessionCwd || config.axetWorkspaceDir || ""`.
+  Klasör, çağıranın elindeki oturumdan geliyor; `runPrompt` içinde `sessions`
+  aramak bağımlılık listesini gereksiz büyütürdü.
+- Bağlantı, kayıt DOĞMADAN önce geliyor (yeni sohbet ilk mesajda kayda
+  dönüşüyor, bkz. `NEW_SESSION_ID`), o yüzden o ana kadar `newBinding`
+  state'inde bekliyor. Bağlanıp hiçbir şey sormayan kullanıcı listede boş bir
+  sohbet bulmuyor.
+- `handleNewSession(binding = null)`: elle açılan yeni sohbet **bağlamsız**
+  başlıyor — önceki sistemin klasörü yapışıp kalmamalı. Bu yüzden düğmede
+  `onClick={() => handleNewSession()}` sarmalayıcısı var; fonksiyonu doğrudan
+  geçmek MouseEvent'i `binding` sanardı.
+
+### Görünürlük ve kaçış yolu
+
+- Sohbetin tepesinde ince bir şerit: sistem etiketi + proje klasörünün TAM
+  YOLU. Görünmezse aynı görünen iki sohbetin farklı sistemlere konuştuğu
+  anlaşılamaz, ajanın dosyayı nereye yazdığı da tahmin işi olurdu. Şerit
+  yalnızca bağlı sohbetlerde çiziliyor.
+- **Terminal kaldırılmadı, varsayılan olmaktan çıktı.** Şeritteki "Terminal"
+  düğmesi aynı klasörde DÜZ bir kabuk açıyor (`openProjectDirTerminal`).
+  Komut verilmiyor: `createTerminal`'ın READY_PATTERNS beklemesi yalnızca
+  TUI'nin kendi arayüzünü çizmesini beklemek içindi, düz kabukta sekme anında
+  açılmalı (bkz. `handleNewTerminal`, aynı yol).
+- `openConnectorHelperTerminal` **değişmedi**: Connector/MCP araçlarının
+  istediği "AXET Project" seçim diyaloğu gerçekten interaktif TUI'yi
+  gerektiriyor (CLI'nın kendi hatası: *"No project selected, launch axet-code
+  in interactive mode first"*).
+
+`nonce`: `SapChatRequest`'te bilerek var — aynı sisteme arka arkaya bağlanmak
+aynı `{projectDir, label}` çiftini üretir ve effect bir daha tetiklenmezdi.

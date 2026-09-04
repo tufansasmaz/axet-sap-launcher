@@ -47,6 +47,19 @@ interface ChatSession {
   // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz
   // hâle geliyor (en eski sohbet en üstte kalırdı).
   updatedAt: number;
+  // Bu sohbetin bağlı olduğu SAP proje klasörü (bkz. shared/types.ts
+  // `StoredChatSession.cwd`). `null` = genel çalışma alanı.
+  cwd: string | null;
+  sapLabel: string | null;
+}
+
+// SAP'a bağlanınca App.tsx'in "bu sisteme bağlı bir sohbet aç" isteği.
+// `nonce` şart: aynı sisteme arka arkaya bağlanmak AYNI projectDir/label
+// nesnesini üretir ve effect bir daha tetiklenmezdi.
+export interface SapChatRequest {
+  projectDir: string;
+  label: string;
+  nonce: number;
 }
 
 interface RecentEntry {
@@ -72,6 +85,15 @@ interface Props {
   tierOverrides: Record<string, SystemTier>;
   onOpenSapLauncher: () => void;
   onQuickConnectSap: (path: string[], service: SapService, itemUuid: string) => void;
+  /**
+   * SAP bağlantısı başarılı olduğunda App.tsx buraya bir istek bırakıyor;
+   * bu bileşen boş bir sohbete geçip onu o projeye bağlıyor. Bağlantı artık
+   * terminal AÇMIYOR (kullanıcı isteği, 2026-09-04) — bağlanınca sohbete
+   * düşülüyor.
+   */
+  sapChatRequest: SapChatRequest | null;
+  /** Terminal, silinmedi — sadece varsayılan olmaktan çıktı (rozetteki düğme). */
+  onOpenChatTerminal: (cwd: string, title: string) => void;
 }
 
 function greetingKey(): "morning" | "afternoon" | "evening" | "night" {
@@ -216,7 +238,9 @@ export default function AxetCodeHome({
   connectivity,
   tierOverrides,
   onOpenSapLauncher,
-  onQuickConnectSap
+  onQuickConnectSap,
+  sapChatRequest,
+  onOpenChatTerminal
 }: Props) {
   const t = useT();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -225,6 +249,10 @@ export default function AxetCodeHome({
   const [newDraft, setNewDraft] = useState("");
   // Henüz bir sohbete bağlanmamış taslağın ekleri — `newDraft`'ın eşleniği.
   const [newAttachments, setNewAttachments] = useState<ChatAttachment[]>([]);
+  // Taslağın SAP bağlamı. Kayıt ilk mesajda doğduğu için (bkz. handleSendNew)
+  // bağlantı da o ana kadar burada bekliyor: bağlanıp hiçbir şey sormayan
+  // kullanıcı, listede boş bir sohbet bulmuyor.
+  const [newBinding, setNewBinding] = useState<{ cwd: string; label: string } | null>(null);
   const [models, setModels] = useState<AxetModelEntry[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
   const [modelsError, setModelsError] = useState<string | null>(null);
@@ -284,7 +312,10 @@ export default function AxetCodeHome({
             // olmadan composer ilk render'da `undefined.length` ile patlardı.
             attachments: s.attachments ?? [],
             pending: false,
-            requestId: null
+            requestId: null,
+            // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
+            cwd: s.cwd ?? null,
+            sapLabel: s.sapLabel ?? null
           }))
         );
         // `result.state.activeId` BİLEREK yok sayılıyor (kullanıcı isteği,
@@ -348,6 +379,9 @@ export default function AxetCodeHome({
           model: s.model,
           draft: s.draft,
           ...(s.attachments.length > 0 ? { attachments: s.attachments } : {}),
+          // Bağlamsız sohbetler geçmiş dosyasını boş alanlarla şişirmesin.
+          ...(s.cwd ? { cwd: s.cwd } : {}),
+          ...(s.sapLabel ? { sapLabel: s.sapLabel } : {}),
           createdAt: s.createdAt,
           updatedAt: s.updatedAt
         }))
@@ -384,15 +418,28 @@ export default function AxetCodeHome({
 
   // "Yeni sohbet" artık kayıt OLUŞTURMUYOR — sadece boş composer'a dönüyor.
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
-  const handleNewSession = useCallback(() => {
+  // `binding`: yalnızca SAP bağlantısından gelen çağrı doldurur; elle açılan
+  // yeni sohbet bağlamsız başlar (önceki sistemin klasörü yapışıp kalmasın).
+  const handleNewSession = useCallback((binding: { cwd: string; label: string } | null = null) => {
     setActiveId(null);
     setNewDraft("");
     setNewAttachments([]);
+    setNewBinding(binding);
     setQuery("");
     // Boş ekrana her dönüşte kartlar yenileniyor — "sürekli değişen" burada.
     setSuggestionSeed(freshSuggestionSeed());
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
+
+  // --- "Sisteme bağlan" → sohbet ---
+  // Bağlantı başarılı olunca App.tsx yeni bir istek bırakıyor; burada boş
+  // sohbete geçip onu o sistemin proje klasörüne bağlıyoruz. `nonce`
+  // bağımlılıkta: aynı sisteme tekrar bağlanmak da yeni bir sohbet açmalı.
+  useEffect(() => {
+    if (!sapChatRequest) return;
+    handleNewSession({ cwd: sapChatRequest.projectDir, label: sapChatRequest.label });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sapChatRequest?.nonce]);
 
   // Ctrl+N / Cmd+N — yeni sohbet. Bir metin alanındayken de çalışıyor
   // (Ctrl+N'in girişte anlamlı bir yerel karşılığı yok), ama tarayıcının
@@ -471,13 +518,22 @@ export default function AxetCodeHome({
   // cevabı sonlandır. Tek fark ikisinin çağrıdan ÖNCE mesaj listesine ne
   // yaptığı (biri kullanıcı mesajı ekler, diğeri eski cevabı atar).
   const runPrompt = useCallback(
-    async (sessionId: string, text: string, history: AxetChatMessage[], model: AxetModelEntry | null) => {
+    async (
+      sessionId: string,
+      text: string,
+      history: AxetChatMessage[],
+      model: AxetModelEntry | null,
+      // Sohbete özel çalışma klasörü. SAP'a bağlanınca açılan sohbetlerde bu,
+      // bağlantının proje klasörü — ajan `.conn_adt`/`sap-context.md`'yi ancak
+      // orada çalışırsa görüyor. `null` ise genel çalışma alanına düşüyor.
+      sessionCwd: string | null
+    ) => {
       const requestId = crypto.randomUUID();
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, pending: true, requestId, updatedAt: Date.now() } : s))
       );
 
-      const cwd = config?.axetWorkspaceDir ?? "";
+      const cwd = sessionCwd || config?.axetWorkspaceDir || "";
       const result = await window.api.sendChatMessage(requestId, cwd, model, history, text);
 
       setSessions((prev) =>
@@ -569,14 +625,18 @@ export default function AxetCodeHome({
       pending: false,
       requestId: null,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
+      cwd: newBinding?.cwd ?? null,
+      sapLabel: newBinding?.label ?? null
     };
     setSessions((prev) => [...prev, session]);
     setActiveId(id);
     setNewDraft("");
     setNewAttachments([]);
-    await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel);
-  }, [defaultModel, newAttachments, newDraft, runPrompt]);
+    setNewBinding(null);
+    await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel, session.cwd);
+  }, [defaultModel, newAttachments, newBinding, newDraft, runPrompt]);
 
   const handleSend = useCallback(async () => {
     if (!activeId) return handleSendNew();
@@ -615,7 +675,7 @@ export default function AxetCodeHome({
       )
     );
 
-    await runPrompt(activeId, promptWithAttachments(text, attachments), historyForCall, session.model);
+    await runPrompt(activeId, promptWithAttachments(text, attachments), historyForCall, session.model, session.cwd);
   }, [activeId, handleSendNew, runPrompt, sessions]);
 
   // Gönderilmiş bir kullanıcı mesajını düzenle: metni composer'a geri koy ve
@@ -678,7 +738,7 @@ export default function AxetCodeHome({
     setSessions((prev) =>
       prev.map((s) => (s.id === activeId ? { ...s, messages: msgs.slice(0, lastIndex) } : s))
     );
-    await runPrompt(activeId, prompt, historyForCall, session.model);
+    await runPrompt(activeId, prompt, historyForCall, session.model, session.cwd);
   }, [activeId, runPrompt, sessions]);
 
   const handleCancel = useCallback(() => {
@@ -1114,8 +1174,10 @@ export default function AxetCodeHome({
             düğmesi olduğu hâlde sıradan bir satır gibi duruyordu.
             Daraltılmışken metin gidiyor, düğme kalıyor. */}
         <div className="shrink-0 px-2.5 pb-2.5">
+          {/* onClick'teki sarmalayıcı ok fonksiyonu şart: `handleNewSession`'ı
+              doğrudan geçmek MouseEvent'i `binding` argümanı sanardı. */}
           <button
-            onClick={handleNewSession}
+            onClick={() => handleNewSession()}
             title={`${t("axetCodeHome.newSession")} (Ctrl+N)`}
             className={`flex h-9 cursor-pointer items-center rounded-md border border-accent-500/30 bg-accent-500/10 text-[13px] font-medium text-accent-400 transition hover:border-accent-500/50 hover:bg-accent-500/20 ${
               sidebarOpen ? "w-full gap-2 px-3" : "mx-auto w-9 justify-center"
@@ -1233,6 +1295,11 @@ export default function AxetCodeHome({
             onRemoveAttachment={(attachmentId) => removeAttachment(session.id, attachmentId)}
             suggestionKeys={suggestionKeys}
             onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
+            contextLabel={session.sapLabel}
+            contextPath={session.cwd}
+            onOpenContextTerminal={
+              session.cwd ? () => onOpenChatTerminal(session.cwd!, session.sapLabel ?? session.title) : undefined
+            }
           />
         ))}
 
@@ -1262,6 +1329,11 @@ export default function AxetCodeHome({
           onRemoveAttachment={(attachmentId) => removeAttachment(NEW_SESSION_ID, attachmentId)}
           suggestionKeys={suggestionKeys}
           onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
+          contextLabel={newBinding?.label ?? null}
+          contextPath={newBinding?.cwd ?? null}
+          onOpenContextTerminal={
+            newBinding ? () => onOpenChatTerminal(newBinding.cwd, newBinding.label) : undefined
+          }
         />
       </div>
 

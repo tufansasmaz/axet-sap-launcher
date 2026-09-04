@@ -25,7 +25,7 @@ import type {
 } from "../app-electron/shared/types";
 import TitleBar from "./components/TitleBar";
 import ActivityBar, { type Activity } from "./components/ActivityBar";
-import AxetCodeHome from "./components/AxetCodeHome";
+import AxetCodeHome, { type SapChatRequest } from "./components/AxetCodeHome";
 // axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
 // isteği, 2026-09-04): uygulama GitHub'a açılırken bu iki modül henüz hazır
 // değil ve akıbetleri sonra kararlaştırılacak. Kaynak dosyalar
@@ -87,6 +87,9 @@ export default function App() {
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  // Başarılı bağlantıdan sonra axet.code'a devredilen "bu sisteme bağlı bir
+  // sohbet aç" isteği (bkz. AxetCodeHome `SapChatRequest`).
+  const [sapChatRequest, setSapChatRequest] = useState<SapChatRequest | null>(null);
   const [addSystemOpen, setAddSystemOpen] = useState(false);
   const [editingSystem, setEditingSystem] = useState<EditingManualSystem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SapService | null>(null);
@@ -462,22 +465,30 @@ export default function App() {
     [t]
   );
 
-  const openTerminalForConnection = useCallback(
+  // Bir sohbetin proje klasöründe DÜZ bir kabuk açar (rozetteki "Terminal"
+  // düğmesi).
+  //
+  // 2026-09-04 — kullanıcı geri bildirimi: *"la sisteme bağlan diyince yine
+  // konsol açılıyor ... dayım konsolla ne işimiz var daha"*. Bağlantı
+  // başarılı olduğunda eskiden burada `axet-code -y` TUI'si açılıyordu;
+  // artık açılmıyor, bağlanınca axet.code SOHBET ekranına düşülüyor (bkz.
+  // handleCredentialsSubmit + AxetCodeHome `sapChatRequest`). Terminal
+  // silinmedi, VARSAYILAN olmaktan çıktı: elle isteyen buradan açıyor.
+  //
+  // `createTerminal`e komut VERİLMİYOR — READY_PATTERNS beklemesi yalnızca
+  // TUI'nin kendi arayüzünü çizmesini beklemek içindi; düz kabukta sekme
+  // anında açılmalı (bkz. handleNewTerminal, aynı yol).
+  const openProjectDirTerminal = useCallback(
     async (projectDir: string, title: string) => {
       const shell = config?.terminal ?? "cmd";
-      const command = config?.axetCommand ?? "axet-code -y";
       try {
-        const id = await window.api.createTerminal(projectDir, 80, 24, shell, command);
-        // Tab/panel burada AÇILMIYOR — axet.code kendi arayüzünü çizmeye
-        // başlayana kadar (terminal:ready event'i) terminal tamamen arka
-        // planda, görünmez şekilde çalışıyor. Bkz. terminalManager.ts'teki
-        // READY_PATTERNS/READY_FALLBACK_MS açıklaması.
+        const id = await window.api.createTerminal(projectDir, 80, 24, shell);
         pendingTerminalTitlesRef.current.set(id, title);
       } catch (err) {
         pushToast("error", t("app.terminalOpenFailed", { message: (err as Error).message }));
       }
     },
-    [config?.terminal, config?.axetCommand, t]
+    [config?.terminal, t]
   );
 
   useEffect(() => {
@@ -511,7 +522,7 @@ export default function App() {
   // Connector/MCP araçlarının gerektirdiği "AXET Project" seçim diyaloğunu
   // açan GERÇEK TUI'nin kendisi — CLI'nın kendi hata mesajı da bunu
   // doğruluyor: "No project selected, launch axet-code in interactive mode
-  // first." Bu yüzden `openTerminalForConnection`'ın (READY_PATTERNS/8sn
+  // first." Bu yüzden komut vererek terminal açan yolun (READY_PATTERNS/8sn
   // fallback bekleyen, axet.code'un TAM EKRAN sohbet arayüzü için
   // tasarlanmış) yolunu KULLANMIYORUZ — `handleNewTerminal`'la AYNI "manuel
   // terminal" yolu (hemen hazır sayılır, tab anında açılır) + hazır olur
@@ -631,7 +642,12 @@ export default function App() {
         pushToast("success", result.message);
         const title = `${credentialsTarget.path[credentialsTarget.path.length - 1] ?? credentialsTarget.service.name} · ${credentialsTarget.service.systemId || credentialsTarget.service.name}`;
         setCredentialsTarget(null);
-        await openTerminalForConnection(result.projectDir, title);
+        // Bağlantı artık TERMİNAL AÇMIYOR: axet.code sohbetine, bu bağlantının
+        // proje klasörüne bağlı boş bir sohbetle düşüyoruz (bkz.
+        // openProjectDirTerminal'daki not). `nonce` şart — aynı sisteme arka
+        // arkaya bağlanmak da yeni bir sohbet açmalı.
+        setSapChatRequest({ projectDir: result.projectDir, label: title, nonce: Date.now() });
+        setActivity("axetCode");
         try {
           const cfg = await window.api.getConfig();
           setConfig(cfg);
@@ -767,6 +783,8 @@ export default function App() {
             tierOverrides={config?.systemTiers ?? {}}
             onOpenSapLauncher={() => setActivity("sapLauncher")}
             onQuickConnectSap={handleQuickConnectSap}
+            sapChatRequest={sapChatRequest}
+            onOpenChatTerminal={openProjectDirTerminal}
           />
         </div>
         {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (

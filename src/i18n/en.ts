@@ -138,6 +138,8 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.chatGenericError": "Could not get a response, want to try again?",
   "axetCodeHome.thinkingAria": "Preparing a response",
   "axetCodeHome.dropFilesHint": "Drop files here to attach",
+  "axetCodeHome.contextTerminal": "Terminal",
+  "axetCodeHome.contextTerminalHint": "Open a terminal in this project folder",
   "axetCodeHome.sgArchitecture": "Summarize this project's overall architecture",
   "axetCodeHome.sgKeyFiles": "List the most important files in the src folder",
   "axetCodeHome.sgDependencies": "Explain the dependencies in package.json",

@@ -143,6 +143,8 @@ export const tr = {
   // bu etiket EKRANDA GÖRÜNMEZ, sadece ekran okuyucuya okunur.
   "axetCodeHome.thinkingAria": "Yanıt hazırlanıyor",
   "axetCodeHome.dropFilesHint": "Eklemek için dosyaları buraya bırak",
+  "axetCodeHome.contextTerminal": "Terminal",
+  "axetCodeHome.contextTerminalHint": "Bu proje klasöründe terminal aç",
   // Açılış ekranının öneri havuzu — her yeni sohbette üçü seçiliyor
   // (bkz. AxetCodeHome `SUGGESTION_POOL`). Buraya bir anahtar eklemek
   // yetmez, havuza da eklenmeli; ikon isteğe bağlı (ChatSessionPane).

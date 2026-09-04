@@ -26,6 +26,7 @@ import {
   Server,
   Sparkles,
   Square,
+  TerminalSquare,
   UploadCloud
 } from "lucide-react";
 import type { AxetModelEntry, ChatAttachment } from "../../app-electron/shared/types";
@@ -111,6 +112,16 @@ interface Props {
   onRemoveAttachment: (attachmentId: string) => void;
   suggestionKeys: readonly string[];
   onSuggestionClick: (key: string) => void;
+  // --- SAP bağlamı ---
+  // Bu sohbet bir SAP bağlantısının proje klasöründe çalışıyorsa, hangisi
+  // olduğu tepede bir şeritle gösteriliyor. Görünmezse kullanıcı, aynı görünen
+  // iki sohbetin farklı sistemlere konuştuğunu anlayamaz. `null` = bağlamsız
+  // sohbet, şerit hiç çizilmiyor.
+  contextLabel?: string | null;
+  contextPath?: string | null;
+  // Terminal KALDIRILMADI, sadece varsayılan olmaktan çıktı (2026-09-04):
+  // bağlanınca artık konsol değil sohbet açılıyor, konsol bu düğmede duruyor.
+  onOpenContextTerminal?: () => void;
 }
 
 // axet.code sohbet ekranındaki tek bir sohbetin TAMAMI.
@@ -159,7 +170,10 @@ export default function ChatSessionPane({
   onFilesResolved,
   onRemoveAttachment,
   suggestionKeys,
-  onSuggestionClick
+  onSuggestionClick,
+  contextLabel = null,
+  contextPath = null,
+  onOpenContextTerminal
 }: Props) {
   const t = useT();
   const [dragOver, setDragOver] = useState(false);
@@ -280,6 +294,32 @@ export default function ChatSessionPane({
           içersinde olsun sağ tarafta"*) seçici composer'ın alt satırına indi
           ve şerit tamamen kaldırıldı — tek bir düğme için ekranın tepesinden
           52px ayırmak, sohbete ayrılan yeri boşuna kısaltıyordu. */}
+
+      {/* SAP bağlam şeridi — SADECE bağlı sohbetlerde çiziliyor, yani ekranın
+          tepesindeki 32px bağlamsız sohbetlerden çalınmıyor. Klasör yolu da
+          yazılı: ajanın hangi dizinde dosya oluşturduğu tahmin edilecek bir
+          şey olmamalı. */}
+      {contextLabel && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-base-800 bg-base-900/60 px-5 py-1.5 text-[11px]">
+          <Server size={12} className="shrink-0 text-accent-400" />
+          <span className="shrink-0 font-medium text-slate-300">{contextLabel}</span>
+          {contextPath && (
+            <span className="min-w-0 flex-1 truncate font-mono text-slate-500" title={contextPath}>
+              {contextPath}
+            </span>
+          )}
+          {onOpenContextTerminal && (
+            <button
+              onClick={onOpenContextTerminal}
+              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
+              title={t("axetCodeHome.contextTerminalHint")}
+            >
+              <TerminalSquare size={12} />
+              {t("axetCodeHome.contextTerminal")}
+            </button>
+          )}
+        </div>
+      )}
 
       <div ref={messagesRef} onScroll={handleScroll} className="chat-scroll min-h-0 flex-1 overflow-y-auto px-5">
         {isEmpty ? (
