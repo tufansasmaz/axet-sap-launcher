@@ -1794,7 +1794,10 @@ export default function AxetCodeHome({
   // sisteme özel ve kalıcı. Etiket olarak `sapLabel` kullanılıyor, yoksa
   // klasör adına düşülüyor: eski (etiketi diske yazılmadan önce kaydedilmiş)
   // sohbetler bile grupsuz kalmıyor.
+  // Bölüm başlıklarının kendi anahtarları. `cwd` hiçbir zaman bu biçimde
+  // olamayacağı için sistem gruplarıyla çakışmıyorlar.
   const GENERAL_GROUP_KEY = "__general__";
+  const SAP_SECTION_KEY = "__sap__";
   const sessionGroups = useMemo(() => {
     const sap = new Map<string, { key: string; label: string; sessions: ChatSession[] }>();
     const general: ChatSession[] = [];
@@ -2170,10 +2173,24 @@ export default function AxetCodeHome({
                   boş bir başlık göstermenin anlamı yok. */}
               {sessionGroups.sapGroups.length > 0 && (
                 <>
-                  <div className="px-0.5 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    {t("axetCodeHome.sapChatsTitle")}
-                  </div>
-                  <div className="space-y-0.5">
+                  {/* Bölüm başlığı da daraltılabilir — "Sohbetler" öyleyken
+                      bunun düz bir etiket kalması tutarsızdı (kullanıcı
+                      bildirimi). Buradaki daraltma sistemleri TEK TEK değil,
+                      SAP bölümünün tamamını kapatıyor. */}
+                  <button
+                    onClick={() => toggleGroup(SAP_SECTION_KEY)}
+                    aria-expanded={groupOpen(SAP_SECTION_KEY)}
+                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
+                  >
+                    {groupOpen(SAP_SECTION_KEY) ? (
+                      <ChevronDown size={12} className="shrink-0" />
+                    ) : (
+                      <ChevronRight size={12} className="shrink-0" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.sapChatsTitle")}</span>
+                    <span className="shrink-0 normal-case tracking-normal">{sessionGroups.sapGroups.length}</span>
+                  </button>
+                  <div className={groupOpen(SAP_SECTION_KEY) ? "space-y-0.5" : "hidden"}>
                     {sessionGroups.sapGroups.map((group) => {
                       const open = groupOpen(group.key);
                       return (
