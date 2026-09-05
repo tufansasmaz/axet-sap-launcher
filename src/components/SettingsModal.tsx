@@ -157,6 +157,40 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
   }
 }
 
+/**
+ * Bu kutunun GERÇEKTEN düzenlediği alanlar — kaydederken yalnızca bunlar
+ * gönderiliyor.
+ *
+ * NEDEN bir liste: `form`, kutu açıldığında alınmış bir `AppConfig`
+ * ANLIK GÖRÜNTÜSÜ. Eskiden `onSave(form)` bu görüntünün TAMAMINI yolluyordu ve
+ * `saveConfig` gelen nesneyi diskteki hâlin üstüne yaydığı için, kutu açıkken
+ * ANA SÜRECİN yazdığı her alan sessizce eski değerine dönüyordu.
+ *
+ * Ana sürecin sahibi olduğu alanlar az değil: `connectorIntegrations`,
+ * `connectorAutoDisabled` (bkz. connectorHealth.ts), `connectorEnabled`,
+ * `lastCredentials`, `trustedCertificates`. Bunlar kullanıcı ayarı değil,
+ * ÖLÇÜM sonucu — geri alınmaları hiçbir yerde görünmüyor, yalnızca etkisi
+ * görünüyor (ölçüm 2026-09-05: kapatılmış iki bağlayıcı kendiliğinden geri
+ * açıldı, tur başına ~24k jeton yeniden ~153k oldu).
+ *
+ * Buraya yeni bir alan eklerken listeye de eklemek gerekiyor; unutulursa alan
+ * kaydedilmez — sessizce başka bir ayarı bozmasından iyidir.
+ */
+const EDITED_FIELDS = [
+  "language",
+  "projectsBaseDir",
+  "axetWorkspaceDir",
+  "chatDisplayName",
+  "chatFontSize",
+  "chatDensity",
+  "chatSidebarOpen",
+  "axetCommand",
+  "terminal",
+  "landscapePathOverride",
+  "sapShcutPathOverride",
+  "autoCheckUpdates"
+] as const satisfies readonly (keyof AppConfig)[];
+
 export default function SettingsModal({
   open,
   onClose,
@@ -193,7 +227,9 @@ export default function SettingsModal({
   };
 
   const save = async () => {
-    await onSave(form);
+    const patch: Partial<AppConfig> = {};
+    for (const field of EDITED_FIELDS) patch[field] = form[field] as never;
+    await onSave(patch);
     onClose();
   };
 

@@ -285,7 +285,23 @@ function syncDisabledConnectors(known: Record<string, Entry>): void {
   if (!sameFile) {
     try {
       writeFileSync(STATE_FILE, `${JSON.stringify({ ...state, disabled: nextDisabled }, null, 2)}\n`, "utf-8");
+      // GERİ AÇILANLAR ayrıca yazılıyor, çünkü sessiz geri açılma pahalı ve
+      // görünmez: kapanan bağlayıcının araçları hiç yüklenmediği için tur
+      // başına ~24k jeton, geri açılınca ~153k. 2026-09-05'te iki kayıt
+      // kendiliğinden geri açıldı ve nedenini bulmak günlükten değil dosya
+      // zaman damgalarından çıkarılmak zorunda kaldı. Bir daha olursa satırın
+      // kendisi söylesin.
+      const reopenedNow = state.disabled.filter((uuid) => !nextDisabled.includes(uuid));
       console.log("[connectorHealth] yerel kapatma yazıldı", { kapali: nextDisabled });
+      if (reopenedNow.length) {
+        console.log("[connectorHealth] kayıt geri açıldı", {
+          uuid: reopenedNow,
+          // Not kalmadıysa `bad` boş kalır ve sahiplendiğimiz her kayıt düşer —
+          // bugüne kadarki tek gözlenen sebep buydu.
+          notVarMi: reopenedNow.map((uuid) => Boolean(known[uuid])),
+          canliBiliniyor: live !== null
+        });
+      }
     } catch (err) {
       // Yazamamak bir arıza değil: prompt yönlendirmesi zaten devrede, sadece
       // araç tanımları yüklenmeye devam eder.

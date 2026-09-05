@@ -446,7 +446,26 @@ function registerIpc(): void {
 
   ipcMain.handle("config:get", () => loadConfig());
 
-  ipcMain.handle("config:save", (_event, partial) => saveConfig(partial));
+  // Ana sürecin ÖLÇEREK yazdığı alanlar. Renderer'dan gelen bir yamada
+  // görünürlerse yok sayılıyorlar: renderer'ın elindeki `config` bir anlık
+  // görüntü ve ölçüm bu arada değişmiş olabiliyor — geri yazmak, ölçümü
+  // sessizce eskiye döndürmek olurdu (bkz. SettingsModal `EDITED_FIELDS`).
+  const MAIN_OWNED: (keyof AppConfig)[] = [
+    "connectorIntegrations",
+    "connectorAutoDisabled",
+    "lastCredentials",
+    "trustedCertificates"
+  ];
+
+  ipcMain.handle("config:save", (_event, partial: Partial<AppConfig>) => {
+    const clean = { ...partial };
+    for (const key of MAIN_OWNED) {
+      if (!(key in clean)) continue;
+      delete clean[key];
+      console.warn("[config] renderer'dan gelen yamada ana sürece ait alan vardı, yok sayıldı", { alan: key });
+    }
+    return saveConfig(clean);
+  });
 
   ipcMain.handle("dialog:pickFolder", async () => {
     const win = BrowserWindow.getFocusedWindow();
