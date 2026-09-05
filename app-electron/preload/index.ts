@@ -177,7 +177,13 @@ const api = {
     promptAtMs: number
   ): Promise<{ text: string; finished: boolean } | null> =>
     ipcRenderer.invoke("axetChat:recoverAnswer", cwd, prompt, promptAtMs),
-  answerChatQuestion: (requestId: string, optionIndex: number, customText?: string): Promise<boolean> =>
+  // `optionIndex` DİZİ olabiliyor: çoklu seçimli soru kutusunda birden fazla
+  // şık işaretlenebiliyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+  answerChatQuestion: (
+    requestId: string,
+    optionIndex: number | number[],
+    customText?: string
+  ): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex, customText),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
   resetChatHistory: (chatId: string): Promise<boolean> =>

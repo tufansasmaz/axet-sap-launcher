@@ -760,7 +760,7 @@ function registerIpc(): void {
   // kutusuna gidiyor, yani tur DURMADAN devam ediyor (bkz. axetChatTui.ts).
   ipcMain.handle(
     "axetChat:answerQuestion",
-    (_event, requestId: string, optionIndex: number, customText?: string) =>
+    (_event, requestId: string, optionIndex: number | number[], customText?: string) =>
       answerChatQuestion(requestId, optionIndex, customText)
   );
   // Sohbet silindiğinde kalıcı TUI oturumunu da bırak — yoksa arkada kullanıcı

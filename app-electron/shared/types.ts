@@ -466,6 +466,12 @@ export interface AxetChatActivity {
   /** Sorunun kısa başlığı (`ask_user` girdisindeki `header`); olmayabilir. */
   header?: string;
   options?: string[];
+  /**
+   * Birden fazla şık işaretlenebilir mi (`ask_user` girdisindeki
+   * `multi_select`). Kart bu bayrakla kutucuklu çiziliyor ve cevap bir DİZİ
+   * dizin olarak dönüyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+   */
+  multiSelect?: boolean;
 }
 
 /**

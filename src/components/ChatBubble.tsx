@@ -1,5 +1,13 @@
 import { memo, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, CornerDownLeft, Pencil, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  CornerDownLeft,
+  Pencil,
+  RefreshCw
+} from "lucide-react";
 import type {
   AxetChatActivity,
   AxetChatActivityPhase,
@@ -633,31 +641,48 @@ export function ThinkingBubble({
  * bunu kabul ediyor (bkz. axetChatTui.ts `answerTuiQuestion`). Şıklar ajanın
  * tahmini; kullanıcının aklındaki cevap listede olmayabilir ve o durumda tek
  * çıkışın "vazgeç" olması turu boşa harcardı.
+ *
+ * ÇOKLU SEÇİMDE (`ask.multiSelect`) davranış değişiyor: tıklamak göndermiyor,
+ * işaretliyor; gönderme ayrı bir düğmede. Tek tıkla göndermek, ajanın açıkça
+ * "birden fazla" diye sorduğu yerde kullanıcıyı tek cevaba mahkûm ederdi.
  */
 export function AskUserCard({
   ask,
   onAnswer
 }: {
   ask: AxetChatActivity;
-  onAnswer: (index: number, customText?: string) => void;
+  onAnswer: (index: number | number[], customText?: string) => void;
 }) {
   const t = useT();
   const options = ask.options ?? [];
+  const multi = ask.multiSelect === true;
   // Basılan düğmenin dizini. Çift tıklama koruması ve seçimin ANLIK geri
   // bildirimi: kart bir kare sonra kayboluyor, ama o kare boyunca hangi şıkkın
   // gittiği görünüyor.
   const [chosen, setChosen] = useState<number | null>(null);
+  // Çoklu seçimde İŞARETLİ dizinler. Burada sıralanmıyor — ana süreç zaten
+  // sıralıyor, çünkü sıra orada teknik bir zorunluluk: imleç yalnızca aşağı
+  // yürüyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+  const [picked, setPicked] = useState<number[]>([]);
+  // Cevap YOLA ÇIKTI mı. Çoklu seçimde `chosen` tek başına yetmiyor: orada
+  // tıklamak göndermek değil, sadece işaretlemek.
+  const [sent, setSent] = useState(false);
   // Serbest metin alanı açık mı, ve içinde ne var. Alan varsayılan olarak
   // KAPALI: kartın işi tek tıkla bitsin, yazmak isteyen açsın.
   const [customOpen, setCustomOpen] = useState(false);
   const [custom, setCustom] = useState("");
   const sendCustom = () => {
     const text = custom.trim();
-    if (!text || chosen !== null) return;
+    if (!text || sent) return;
     // `options.length` = kutudaki "Other" satırının dizini; ana süreç zaten
     // kendi listesinden hesaplıyor, bu yalnızca "şık değil" işareti.
-    setChosen(options.length);
+    setSent(true);
     onAnswer(options.length, text);
+  };
+  const sendPicked = () => {
+    if (sent || picked.length === 0) return;
+    setSent(true);
+    onAnswer(picked);
   };
   return (
     // Kutu değil ŞERİT: soldaki ince accent çizgisi dışında çerçevesi yok.
@@ -672,36 +697,77 @@ export function AskUserCard({
       <p className="text-[13px] leading-snug text-slate-200">
         {ask.question || t("axetCodeHome.askUserFallback")}
       </p>
+      {/* Çoklu seçimde kullanıcının bilmesi gereken tek şey: tıklamak
+          göndermiyor. Tek seçimliyle aynı görünen bir kartın farklı çalışması,
+          söylenmezse "düğmem çalışmadı" olarak okunurdu. */}
+      {multi && (
+        <span className="-mt-0.5 text-[11px] text-slate-500">{t("axetCodeHome.askUserMultiHint")}</span>
+      )}
       <div className="flex flex-wrap gap-1.5">
         {options.map((option, index) => {
-          const isChosen = chosen === index;
+          const isChosen = multi ? picked.includes(index) : chosen === index;
+          // Sönükleştirme yalnızca cevap gittikten SONRA: çoklu seçimde
+          // işaretlenmemiş şıklar hâlâ tıklanabilir olmalı.
+          const dimmed = sent && !isChosen;
           return (
             <button
               key={`${index}-${option}`}
-              disabled={chosen !== null}
+              disabled={sent}
               onClick={() => {
+                if (multi) {
+                  setPicked((prev) =>
+                    prev.includes(index) ? prev.filter((i) => i !== index) : [...prev, index]
+                  );
+                  return;
+                }
                 setChosen(index);
+                setSent(true);
                 onAnswer(index);
               }}
-              className={`rounded-full border px-3 py-1 text-[12.5px] leading-tight transition-all duration-150 ${
+              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] leading-tight transition-all duration-150 ${
                 isChosen
                   ? "border-accent-500 bg-accent-500/25 text-[var(--accent-soft-text)]"
                   : "border-base-700 bg-base-850/70 text-slate-300 hover:-translate-y-px hover:border-accent-500/60 hover:bg-accent-500/10 hover:text-[var(--accent-soft-text)]"
-              } ${chosen !== null && !isChosen ? "opacity-35" : ""} disabled:cursor-default`}
+              } ${dimmed ? "opacity-35" : ""} disabled:cursor-default`}
             >
+              {multi && (
+                <span
+                  className={`flex h-3 w-3 shrink-0 items-center justify-center rounded-[3px] border ${
+                    isChosen ? "border-accent-500 bg-accent-500/70" : "border-base-600"
+                  }`}
+                >
+                  {isChosen && <Check size={9} strokeWidth={3} className="text-white" />}
+                </span>
+              )}
               {option}
             </button>
           );
         })}
         {!customOpen && (
           <button
-            disabled={chosen !== null}
+            disabled={sent}
             onClick={() => setCustomOpen(true)}
             className={`rounded-full border border-dashed border-base-700 bg-transparent px-3 py-1 text-[12.5px] leading-tight text-slate-400 transition-all duration-150 hover:-translate-y-px hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] ${
-              chosen !== null ? "opacity-35" : ""
+              sent ? "opacity-35" : ""
             } disabled:cursor-default`}
           >
             {t("axetCodeHome.askUserCustom")}
+          </button>
+        )}
+        {/* Gönder düğmesi YALNIZCA çoklu seçimde: tek seçimlide tıklama zaten
+            gönderiyor ve fazladan bir adım, kartın tek tıklık işini iki tıka
+            çıkarırdı. Hiçbir şey işaretli değilken kapalı — boş bir onay,
+            TUI'de hiçbir şey seçmeden `enter` basmak olurdu. */}
+        {multi && (
+          <button
+            disabled={sent || picked.length === 0}
+            onClick={sendPicked}
+            className="flex items-center gap-1.5 rounded-full border border-accent-500/60 bg-accent-500/15 px-3 py-1 text-[12.5px] leading-tight text-[var(--accent-soft-text)] transition-all duration-150 hover:-translate-y-px hover:bg-accent-500/25 disabled:cursor-default disabled:opacity-35 disabled:hover:translate-y-0"
+          >
+            <CornerDownLeft size={12} />
+            {picked.length > 0
+              ? t("axetCodeHome.askUserSendCount", { count: String(picked.length) })
+              : t("axetCodeHome.askUserSend")}
           </button>
         )}
       </div>
@@ -710,7 +776,7 @@ export function AskUserCard({
           <input
             autoFocus
             value={custom}
-            disabled={chosen !== null}
+            disabled={sent}
             onChange={(event) => setCustom(event.target.value)}
             // Enter GÖNDERİR: kutu tek satırlık, alt satır diye bir şey yok.
             onKeyDown={(event) => {
@@ -726,7 +792,7 @@ export function AskUserCard({
             className="min-w-0 flex-1 rounded-lg border border-base-700 bg-base-850/70 px-2.5 py-1 text-[12.5px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/60"
           />
           <button
-            disabled={chosen !== null || custom.trim() === ""}
+            disabled={sent || custom.trim() === ""}
             onClick={sendCustom}
             title={t("axetCodeHome.askUserCustom")}
             className="rounded-lg border border-base-700 bg-base-850/70 p-1.5 text-slate-300 transition-colors hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] disabled:opacity-35"

@@ -1275,7 +1275,7 @@ export default function AxetCodeHome({
   // aynı korumayı yapıyor (bkz. axetChatTui.ts `answerTuiQuestion`), bu sadece
   // kullanıcının gördüğü gecikmeyi kapatıyor.
   const handleAnswerQuestion = useCallback(
-    (index: number, customText?: string) => {
+    (index: number | number[], customText?: string) => {
       const requestId = activeSession?.requestId;
       if (!requestId) return;
       setSessions((prev) =>

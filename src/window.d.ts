@@ -145,12 +145,13 @@ export interface AxetApi {
     promptAtMs: number
   ) => Promise<{ text: string; finished: boolean } | null>;
   /**
-   * Ajanın `askUser` aşamasında sorduğu sorunun cevabı; `-1` = vazgeç.
+   * Ajanın `askUser` aşamasında sorduğu sorunun cevabı; `-1` (ya da boş dizi)
+   * = vazgeç. Çoklu seçimli soruda dizin bir DİZİ olarak gidiyor.
    * `customText` doluysa şık değil, kutunun serbest metin satırı kullanılıyor.
    */
   answerChatQuestion: (
     requestId: string,
-    optionIndex: number,
+    optionIndex: number | number[],
     customText?: string
   ) => Promise<boolean>;
   closeChatSession: (chatId: string) => Promise<void>;

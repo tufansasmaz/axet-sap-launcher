@@ -173,6 +173,11 @@ export const tr = {
   "axetCodeHome.askUserFallback": "Devam etmek için bir tercihine ihtiyacım var.",
   "axetCodeHome.askUserCustom": "Kendim yazayım",
   "axetCodeHome.askUserCustomPlaceholder": "Cevabını yaz ve Enter'a bas",
+  // Çoklu seçim: tıklamak GÖNDERMİYOR, işaretliyor. Kart tek seçimliyle aynı
+  // göründüğü için bu satır olmadan "düğmem çalışmadı" diye okunuyordu.
+  "axetCodeHome.askUserMultiHint": "Birden fazla seçebilirsin",
+  "axetCodeHome.askUserSend": "Gönder",
+  "axetCodeHome.askUserSendCount": "Gönder ({count})",
   // F1 ile açılan kısayol listesi.
   "axetCodeHome.shortcutsTitle": "Klavye kısayolları",
   "axetCodeHome.shortcutNewChat": "Yeni sohbet",

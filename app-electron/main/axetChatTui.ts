@@ -970,13 +970,28 @@ interface TurnResult extends AxetChatSendResult {
 // bir varsayım: kutu bir sürümde son seçileni hatırlamaya başlarsa yanlış
 // seçenek onaylanır.
 //
-// ÇOKLU SEÇİM (`multi_select`) DESTEKLENMİYOR: o kipte kutunun yardım satırı
-// farklı (bir "toggle" tuşu olmalı) ve ÖLÇÜLMEDİ. Ölçmeden tuş göndermek
-// yanlış seçeneği onaylamak demek olurdu, o yüzden çoklu seçimde eski yola
-// düşülüyor: tur soruyla bitiriliyor, kullanıcı cevabını yazıyor.
+// ÇOKLU SEÇİM (`multi_select: true`) DE ÖLÇÜLDÜ (canlı pty, 2026-09-05):
 //
-// Prompt tarafındaki not (axetChat.ts `ASK_FORMAT_HINT`) buradaki iki sınırı
-// ajana önden söylüyor: tek seçimli sor, en az iki seçenek ver. Yasak değil —
+//     ╭──────────────────────────────────────────────────────────────╮
+//     │  Agent Question                                              │
+//     │ Hangi renkleri seversin?                                     │
+//     │  [ ] Mavi                                                    │  ← options[0] (imleç burada)
+//     │  [ ] Kirmizi                                                 │  ← options[1]
+//     │  [ ] Yesil                                                   │  ← options[2]
+//     │  Other                                                       │  ← dizin = options.length
+//     │    > Type a custom answer                                    │
+//     │ ↑ previous • ↓ next • space toggle • enter confirm •         │
+//     │ esc dismiss                                                  │
+//     ╰──────────────────────────────────────────────────────────────╯
+//
+// Geometri tek seçimliyle AYNI; tek fark satırların önündeki kutucuklar ve
+// `space toggle` satırı. `space`, imlecin ÜSTÜNDEKİ satırı işaretliyor;
+// `enter` işaretli olanların HEPSİNİ onaylıyor. Ölçümde `space, ↓, ↓, space,
+// enter` dizisi TUI'ye `✓ The user selected: "Mavi", "Yesil"` yazdırdı ve ajan
+// aynı turda devam etti — yani çoklu seçim de turu bölmüyor.
+//
+// Prompt tarafındaki not (axetChat.ts `ASK_FORMAT_HINT`) buradaki sınırı
+// ajana önden söylüyor: en az iki seçenek ver. Yasak değil —
 // "hiç sorma" yasağı 2026-09-05'te kaldırıldı, çünkü tuttuğu için bu kod hiç
 // çalışmıyordu.
 const ASK_USER_TOOL = "ask_user";
@@ -1023,7 +1038,11 @@ function askUserAsText(ask: AskUserRequest): string {
 }
 
 /**
- * Bekleyen soruyu cevaplar. `index < 0` = vazgeç (`esc`).
+ * Bekleyen soruyu cevaplar. Negatif ya da boş dizin = vazgeç (`esc`).
+ *
+ * `index` bir DİZİ olabiliyor: çoklu seçimli kutuda (`multi_select: true`)
+ * kullanıcı birden fazla şık işaretleyebiliyor. Tek seçimlide dizinin yalnızca
+ * ilk elemanı kullanılıyor — kutu zaten tek satır onaylıyor.
  *
  * `customText` doluysa şıklardan biri DEĞİL, kutunun kendi "Other" satırındaki
  * serbest metin alanı kullanılıyor; `index` o durumda yok sayılıyor.
@@ -1043,19 +1062,35 @@ function askUserAsText(ask: AskUserRequest): string {
  * Araya bir `enter` koymak BOŞ bir özel cevabı onaylar, ardından metnimiz ana
  * sohbet kutusuna yeni bir istem olarak düşerdi.
  *
+ * SERBEST METİN ÇOKLU SEÇİMDE DE AYNI (ölçüm 2026-09-05, `axet-mscprobe`):
+ * kutucuklu kutuda hiçbir şık işaretlemeden `↓` × options.length + metin +
+ * `enter` → `✓ The user typed a custom answer: "Turuncu"`. "Other" satırında
+ * `space` gerekmiyor; o satır kutucuklu değil, odaklanınca giriş alanı oluyor.
+ *
  * Bekleyen soru YOKSA hiçbir tuş gönderilmiyor: geç gelen bir tıklama, kutu
  * kapandıktan sonra sohbet kutusuna `enter` basıp boş bir mesaj gönderirdi.
  */
-export function answerTuiQuestion(chatId: string, index: number, customText?: string): boolean {
+export function answerTuiQuestion(
+  chatId: string,
+  index: number | number[],
+  customText?: string
+): boolean {
   const session = sessions.get(chatId);
   const ask = session?.pendingAsk;
   if (!session || !ask || session.exited || session.disposed) return false;
   // Kutu tek satırlık: satır sonu `enter` demek olurdu, yani cevabı yarıda
   // onaylamak. Boşluğa çeviriliyor.
   const custom = (customText ?? "").replace(/[\r\n]+/g, " ").trim();
+  // Dizinler TEK BİR biçime indiriliyor: sıralı, tekrarsız, kutunun satır
+  // sayısına kırpılmış. Sıra ŞART — imleç yalnızca aşağı yürütülüyor, yani
+  // sırasız bir liste ikinci hedefi ıskalar ve yanlış satırı işaretlerdi.
+  const wanted = (Array.isArray(index) ? index : [index]).filter((i) => Number.isInteger(i) && i >= 0);
+  const targets = [...new Set(wanted.map((i) => Math.min(i, ask.options.length - 1)))].sort(
+    (a, b) => a - b
+  );
   session.pendingAsk = null;
   try {
-    if (index < 0 && !custom) {
+    if (!targets.length && !custom) {
       session.proc.write("\x1b");
       console.log("[axetChatTui] sorudan vazgecildi", { chatId });
       return true;
@@ -1071,7 +1106,26 @@ export function answerTuiQuestion(chatId: string, index: number, customText?: st
       });
       return true;
     }
-    const target = Math.max(0, Math.min(index, ask.options.length - 1));
+    if (ask.multiSelect) {
+      // İmleç 0. satırda başlıyor; her hedefe ARADAKİ FARK kadar iniliyor ve
+      // orada `space` ile kutucuk işaretleniyor. Sonda tek bir `enter` işaretli
+      // olanların hepsini birden onaylıyor (ölçüm: `✓ The user selected:
+      // "Mavi", "Yesil"`).
+      let cursor = 0;
+      for (const target of targets) {
+        for (let step = cursor; step < target; step += 1) session.proc.write("\x1b[B");
+        cursor = target;
+        session.proc.write(" ");
+      }
+      session.proc.write("\r");
+      console.log("[axetChatTui] coklu soru cevaplandi", {
+        chatId,
+        dizinler: targets,
+        secenekler: targets.map((i) => ask.options[i])
+      });
+      return true;
+    }
+    const target = targets[0];
     for (let step = 0; step < target; step += 1) session.proc.write("\x1b[B");
     session.proc.write("\r");
     console.log("[axetChatTui] soru cevaplandi", { chatId, dizin: target, secenek: ask.options[target] });
@@ -1328,10 +1382,11 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             // göreceği şey bir araç adı değil, sorunun kendisi.
             if (name === ASK_USER_TOOL) {
               const ask = parseAskUser(callId, part.data?.input);
-              // Tek seçenekli ya da seçeneksiz bir soruya basacak düğme yok;
-              // çoklu seçim ise ölçülmedi. İkisinde de eski yol: turu soruyla
-              // bitir, kullanıcı cevabını yazsın.
-              const usable = ask !== null && !ask.multiSelect && ask.options.length >= 2;
+              // Tek seçenekli ya da seçeneksiz bir soruya basacak düğme yok:
+              // eski yol, turu soruyla bitir, kullanıcı cevabını yazsın.
+              // ÇOKLU SEÇİM ARTIK BURAYA DÜŞMÜYOR — kutucuklu kutu 2026-09-05'te
+              // ölçüldü ve cevaplanabiliyor (bkz. `ASK_USER_TOOL` çizimi).
+              const usable = ask !== null && ask.options.length >= 2;
               if (!usable) {
                 // ÖNCE BİTMESİNİ BEKLE. Argümanlar veritabanına AKARAK
                 // yazılıyor, yani ilk gördüğümüz hâlde `input` yarım bir JSON
@@ -1349,7 +1404,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
                 const question = ask ? askUserAsText(ask) : "Devam etmek için bir tercihine ihtiyacım var.";
                 console.log("[axetChatTui] soru cevaplanamiyor, tur soruyla bitiriliyor", {
                   chatId: session.chatId,
-                  sebep: !ask ? "ayristirilamadi" : ask.multiSelect ? "coklu-secim" : "secenek-yok",
+                  sebep: !ask ? "ayristirilamadi" : "secenek-yok",
                   girdi: (part.data?.input ?? "").slice(0, 300)
                 });
                 const gap = answer ? "\n\n" : "";
@@ -1368,14 +1423,19 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
               askDeadline = Date.now() + ASK_USER_WAIT_MS;
               console.log("[axetChatTui] ajan soru sordu, cevap bekleniyor", {
                 chatId: session.chatId,
-                secenek: ask.options.length
+                secenek: ask.options.length,
+                coklu: ask.multiSelect
               });
               args.onActivity({
                 phase: "askUser",
                 callId,
                 question: ask.question,
                 ...(ask.header ? { header: ask.header } : {}),
-                options: ask.options
+                options: ask.options,
+                // Arayüz kartı buna göre kutucuklu çiziliyor: çoklu seçimde tek
+                // tıkla göndermek, ajanın istediği "birden fazla" cevabı
+                // kullanıcının elinden almak olurdu.
+                ...(ask.multiSelect ? { multiSelect: true } : {})
               });
               continue;
             }

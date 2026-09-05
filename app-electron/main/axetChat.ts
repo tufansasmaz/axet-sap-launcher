@@ -115,8 +115,8 @@ const NO_UNASKED_WRITE_HINT =
 const ASK_FORMAT_HINT =
   "Not: Gerçekten bir tercihe ihtiyacın varsa soru sorma aracını (ask_user) kullanabilirsin; " +
   "sorman gerekmiyorsa en makul varsayımla devam et ve varsayımını tek cümleyle söyle. " +
-  "Sorarken tek seçimli sor ve EN AZ İKİ seçenek ver — bu arayüz çoklu seçimi ve " +
-  "seçeneksiz soruyu gösteremiyor.";
+  "Sorarken EN AZ İKİ seçenek ver — bu arayüz seçeneksiz soruyu gösteremiyor. " +
+  "Çoklu seçim (multi_select) serbest.";
 
 // Bağlayıcıların NE ZAMAN açılacağı artık burada değil — karar üç yüzeyde de
 // aynı olsun diye `connectorPolicy.ts`'e taşındı (bkz. oradaki gerekçe).
@@ -760,7 +760,11 @@ export function cancelChatMessage(
  * etkinlik akışında `askUser` aşaması olarak o kimlikle geliyor. `run` kipinde
  * soru kutusu diye bir şey yok, orada `false` dönüyor.
  */
-export function answerChatQuestion(requestId: string, optionIndex: number, customText?: string): boolean {
+export function answerChatQuestion(
+  requestId: string,
+  optionIndex: number | number[],
+  customText?: string
+): boolean {
   const chatId = tuiRequests.get(requestId);
   if (!chatId) return false;
   return answerTuiQuestion(chatId, optionIndex, customText);
