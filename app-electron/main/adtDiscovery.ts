@@ -582,6 +582,81 @@ export function verifyCredentials(
   });
 }
 
+/**
+ * Basic Auth YERİNE oturum çereziyle doğrulama — SAML SSO akışı tamamlandıktan
+ * sonra kullanılıyor (bkz. samlLogin.ts).
+ *
+ * `verifyCredentials`'a isteğe bağlı bir parametre olarak eklenmedi, çünkü o
+ * fonksiyonun router dalı da var ve SAML'li sistemler tanım gereği cloud/BTP —
+ * router'ın arkasında değiller. Ayrı ve dar tutmak, Basic Auth yolunu hiç
+ * riske atmadan aynı yanıt yorumunu (SAML giriş sayfası hâlâ dönüyor mu?)
+ * yeniden kullanmayı sağlıyor.
+ */
+export function verifyWithCookies(
+  url: string,
+  cookieHeader: string,
+  client: string,
+  timeoutMs = 15000,
+  language: AppLanguage = "tr"
+): Promise<CredentialVerifyResult> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return Promise.resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "invalidUrl") });
+  }
+  const discoveryPath = client.trim()
+    ? `/sap/bc/adt/discovery?sap-client=${encodeURIComponent(client.trim())}`
+    : "/sap/bc/adt/discovery";
+  const host = parsed.hostname;
+  const port = parsed.port ? Number(parsed.port) : 443;
+
+  return new Promise((resolve) => {
+    const req = httpsRequest(
+      {
+        host,
+        port,
+        path: discoveryPath,
+        method: "GET",
+        timeout: timeoutMs,
+        rejectUnauthorized: false,
+        checkServerIdentity: () => undefined,
+        servername: sniFor(host),
+        headers: { Cookie: cookieHeader, Accept: "*/*" }
+      },
+      (res) => {
+        const status = res.statusCode ?? null;
+        const contentType = res.headers["content-type"];
+        const chunks: Buffer[] = [];
+        res.on("data", (chunk: Buffer) => {
+          if (chunks.length < 8) chunks.push(chunk);
+        });
+        res.on("end", () => {
+          const body = Buffer.concat(chunks).toString("utf-8");
+          if (status === 200) {
+            // Çerezle de HTML giriş sayfası dönüyorsa oturum tutmamış
+            // demektir — 200 tek başına kanıt değil, SAML'in tuzağı tam olarak
+            // bu (bkz. looksLikeSamlLoginPage'in başlığı).
+            if (looksLikeSamlLoginPage(contentType, body)) {
+              resolve({ ok: false, status, sid: null, samlDetected: true, message: verifyMsg(language, "samlLoginDetected") });
+              return;
+            }
+            resolve({ ok: true, status, sid: null, message: verifyMsg(language, "verified") });
+            return;
+          }
+          resolve({ ok: false, status, sid: null, message: unexpectedStatusMessage(language, status, body, contentType) });
+        });
+      }
+    );
+    req.on("error", (err) => resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "connectionError", { message: err.message }) }));
+    req.on("timeout", () => {
+      req.destroy();
+      resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "timeout") });
+    });
+    req.end();
+  });
+}
+
 async function verifyCredentialsThroughRouter(
   routerString: string,
   host: string,

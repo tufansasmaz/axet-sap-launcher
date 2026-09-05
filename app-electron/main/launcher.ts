@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } fr
 import { Socket } from "node:net";
 import path from "node:path";
 import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials } from "../shared/types";
-import { discoverAdtEndpoint, verifyCredentials, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
+import { discoverAdtEndpoint, verifyCredentials, verifyWithCookies, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
+import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
 import { installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
 import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
@@ -30,6 +31,8 @@ function connectMsg(
     | "rfcBridgeRunningUnverified"
     | "rfcBridgeAutoStartFailed"
     | "samlSetupNeeded"
+    | "samlAutoVerified"
+    | "samlAutoVerifiedSilent"
     | "verifiedOpening"
     | "verifiedButSelfTestFailed",
   params?: { error?: string; skillNote?: string; url?: string; detail?: string }
@@ -44,7 +47,9 @@ function connectMsg(
     rfcBridgeVerified: `Router raw HTTPS'i reddetti — RFC bridge otomatik başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı${skillNote}, sohbet açılıyor.`,
     rfcBridgeRunningUnverified: `RFC bridge otomatik başlatıldı${skillNote} ama kimlik doğrulaması tamamlanamadı (${detail}) — sohbet yine de açılıyor, detay için sap-context.md'ye bak.`,
     rfcBridgeAutoStartFailed: `Router raw HTTPS'i reddetti, RFC bridge otomatik başlatılamadı (${detail})${skillNote} — sohbet yine de açılıyor, elle kurulum adımları için sap-context.md'ye bak.`,
-    samlSetupNeeded: `Bu sistem SAML SSO gerektiriyor (kimlik bilgileri Basic Auth ile hiç kontrol edilemedi)${skillNote} — sohbet açılıyor, ilk iş olarak sap-context.md'deki "Cloud / BTP Sistem Notları" bölümündeki login_saml_sso.py adımlarını izle.`,
+    samlSetupNeeded: `Bu sistem SAML SSO gerektiriyor ve otomatik giriş tamamlanamadı (${detail})${skillNote} — sohbet yine de açılıyor, detay ve elle giriş adımları için sap-context.md'ye bak.`,
+    samlAutoVerified: `SAML SSO girişi tamamlandı ve oturum çereziyle doğrulandı${skillNote}, sohbet açılıyor (${params?.url})`,
+    samlAutoVerifiedSilent: `SAML SSO girişi arka planda kendiliğinden tamamlandı (kimlik sağlayıcı oturumun zaten açıktı) ve oturum çereziyle doğrulandı${skillNote}, sohbet açılıyor (${params?.url})`,
     verifiedOpening: `Bağlantı doğrulandı, sohbet açılıyor${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız${skillNote} — sap-context.md'de detay var (${params?.url})`
   };
@@ -56,7 +61,9 @@ function connectMsg(
     rfcBridgeVerified: `Router rejected raw HTTPS — RFC bridge auto-started and credentials verified over RFC${skillNote}, opening chat.`,
     rfcBridgeRunningUnverified: `RFC bridge auto-started${skillNote} but credential verification did not complete (${detail}) — opening chat anyway, see sap-context.md for details.`,
     rfcBridgeAutoStartFailed: `Router rejected raw HTTPS, RFC bridge auto-start failed (${detail})${skillNote} — opening chat anyway, see sap-context.md for manual setup steps.`,
-    samlSetupNeeded: `This system requires SAML SSO (credentials could never be checked via Basic Auth)${skillNote} — opening chat, first follow the login_saml_sso.py steps in sap-context.md's "Cloud / BTP System Notes" section.`,
+    samlSetupNeeded: `This system requires SAML SSO and the automatic login could not be completed (${detail})${skillNote} — opening chat anyway, see sap-context.md for details and manual login steps.`,
+    samlAutoVerified: `SAML SSO login completed and verified with the session cookie${skillNote}, opening chat (${params?.url})`,
+    samlAutoVerifiedSilent: `SAML SSO login completed in the background (your identity provider session was already open) and verified with the session cookie${skillNote}, opening chat (${params?.url})`,
     verifiedOpening: `Connection verified, opening chat${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Connection verified but adt-tool.ps1 self-test failed${skillNote} — see sap-context.md for details (${params?.url})`
   };
@@ -68,6 +75,23 @@ function skillNoteFor(language: "tr" | "en", count: number): string {
 }
 const DEFAULT_RFC_BRIDGE_PORT = 8788;
 const DEFAULT_READONLY_SERVER_PORT = 8787;
+// Proje klasörüne göreli sabit ad. `login_saml_sso.py` host'a göre değişen bir
+// ad üretiyordu (`.saml_cookies_<host>.json`) ve o yüzden `.conn_adt` satırını
+// da elle kopyalatmak zorundaydı. Klasör zaten sisteme özel olduğu için
+// sabit ad hem yeter hem de .gitignore'a tek satırla girer.
+const SAML_COOKIES_FILENAME = ".saml_cookies.json";
+
+// sap-context.md'nin SAML durumunu anlatabilmesi için gereken bilgi. Tek bir
+// boolean yetmiyordu: artık üç ayrı sonuç var (SAML değil / SAML + giriş
+// başarılı / SAML + giriş tutmadı) ve ajanın hangisinde olduğunu bilmesi
+// gerekiyor — "önce şu adımı yap" ile "hiçbir şey yapma, bağlısın" arasındaki
+// fark bu.
+interface SamlContextInfo {
+  system: boolean;
+  verified: boolean;
+  interactive: boolean;
+  failureDetail: string;
+}
 
 interface RfcBridgeConfig {
   ashost: string;
@@ -310,7 +334,8 @@ function buildConnAdt(
   req: ConnectRequest,
   credentials: SystemCredentials,
   verifiedUrl: string,
-  rfcBridge?: RfcBridgeConfig | null
+  rfcBridge?: RfcBridgeConfig | null,
+  samlCookiesFile?: string | null
 ): string {
   const { service } = req;
   const clientLine = credentials.client.trim() ? `ADT_SAP_CLIENT=${credentials.client.trim()}\n` : "";
@@ -350,6 +375,24 @@ ADT_RFC_BRIDGE_PORT=${rfcBridge.bridgePort}
 `
     : "";
 
+  // SAML çerez dosyası — sap_adt_lib.py bu satırı okuyup (`ADT_SAML_COOKIES_FILE`)
+  // çerezleri isteklerine ekliyor. Eskiden bu satırı kullanıcının ELLE
+  // eklemesi gerekiyordu (login_saml_sso.py'nin ekrana bastığı satırı kopyala-
+  // yapıştır); artık girişi launcher yaptığı için satırı da o yazıyor.
+  const samlBlock = samlCookiesFile
+    ? `
+# ============================================================================
+# SAML SSO MODU — kimlik doğrulama Basic Auth ile DEĞİL, aşağıdaki dosyadaki
+# oturum çerezleriyle yapılıyor. Çerezleri aXet Studio bağlanma sırasında
+# açtığı giriş penceresinden aldı; süresi dolarsa sistemden çıkıp yeniden
+# bağlan (pencere gerekirse yeniden açılır). ADT_SAP_PASSWORD yukarıda
+# duruyor ama bu sistemde işe yaramıyor — SAP kimlik bilgilerine hiç bakmadan
+# giriş sayfası döndürüyor.
+# ============================================================================
+ADT_SAML_COOKIES_FILE=${samlCookiesFile}
+`
+    : "";
+
   return `# ============================================================================
 # .conn_adt — aXet Studio tarafından doğrulanmış bağlantıyla oluşturuldu/güncellendi (${new Date().toISOString()})
 # Sistem: ${service.name} (${service.systemId}) — aXet.code'un yerel ADT connector'ı bunu okur.
@@ -361,7 +404,7 @@ ADT_SAP_URL=${effectiveUrl}
 ADT_SAP_USER=${credentials.username}
 ADT_SAP_PASSWORD=${credentials.password}
 ${clientComment}${clientLine}ADT_SAP_LANGUAGE=EN
-${rfcBlock}
+${rfcBlock}${samlBlock}
 # Sistem tier'ı gerekirse aç (QA/PRD KVKK/PII gate ekler):
 # ADT_SAP_TIER=DEV
 `;
@@ -486,7 +529,7 @@ function buildContextMarkdown(
   rfcBridge?: RfcBridgeConfig | null,
   rfcOutcome?: RfcBridgeOutcome | null,
   readonlyOutcome?: ReadonlyServerOutcome | null,
-  samlSetupNeeded?: boolean
+  saml?: SamlContextInfo | null
 ): string {
   const { customerPath, service } = req;
   const breadcrumb = customerPath.join(" / ");
@@ -533,12 +576,10 @@ function buildContextMarkdown(
 
 ## Cloud / BTP Sistem Notları
 - Bu sistem manuel eklenmiş bir **cloud/BTP** sistemi — client kavramı genelde gerekmez (SAML SSO ve BTP service-key kimlik doğrulamasında client yoktur). Kullanıcı bağlanırken client alanını boş bıraktıysa \`.conn_adt\`'a otomatik olarak varsayılan \`${DEFAULT_CLOUD_CLIENT}\` yazıldı — bu ADT endpoint'lerinin sap-client parametresi bekleyip 400/404 dönmesini önlemek içindir, sistemin gerçek client'ı olduğu anlamına gelmez.
-- \`%sap-adt-readonly\` skill'i bu sistemin **SAML SSO** kullanıp kullanmadığını otomatik tespit eder (URL \`*.cloud.sap\`/\`*.hana.ondemand.com\` içeriyorsa). SAML ise ilk ADT çağrısı "SAML SSO required" hatası verir — bu bir VPN/bağlantı sorunu **değildir**, şu adımı izle:
-  1. Playwright kurulu değilse: \`pip install playwright && playwright install chromium\` (~200MB, tek seferlik).
-  2. \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` (bu klasörden — zaten içinde bulunduğun çalışma klasörü) çalıştır — tarayıcı açılır, kullanıcı giriş yapar (gerekirse \`--headed\` ile görünür modda), session cookie'leri \`.saml_cookies_<host>.json\`'a kaydedilir.
-  3. Script'in verdiği \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle.
-  4. Tekrar dene — artık SAML cookie'leriyle kimlik doğrulanır.
-- 401/403 yerine **HTML login sayfası** dönmesi (ADT XML değil) SAML'in kanıtıdır — kullanıcıya "kimlik bilgisi yanlış" deme, doğrudan yukarıdaki SAML akışını öner.`
+- Bu sistem **SAML SSO** kullanıyorsa (401/403 yerine ADT XML değil **HTML login sayfası** dönmesi bunun kanıtıdır) giriş akışını **aXet Studio bağlanma sırasında kendisi çalıştırır** — kendi başına \`login_saml_sso.py\` çalıştırma, Playwright kurmaya kalkışma. Yukarıdaki "ADT Bağlantısı" bölümü bu sistemde SAML girişinin tamamlanıp tamamlanmadığını söylüyor; oradaki duruma güven.
+- Giriş tamamlandıysa çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında ve \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor. Çerezin süresi dolarsa (ADT çağrıları yine HTML dönmeye başlarsa) doğru adım kullanıcıdan **aXet Studio'da sisteme yeniden bağlanmasını** istemek.
+- Otomatik giriş tamamlanamadıysa ve yeniden bağlanmak da işe yaramadıysa, SON ÇARE elle akış: \`pip install playwright && playwright install chromium\` (~200MB), sonra \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` ve script'in bastığı \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle. Bunu ancak kullanıcı onaylarsa yap.
+- Kullanıcıya "kimlik bilgisi yanlış" deme — SAML'li bir sistemde kullanıcı adı/şifre doğru da olsa yanlış da olsa yanıt aynıdır.`
     : "";
 
   const rfcAutoStartLines = (() => {
@@ -579,12 +620,24 @@ ${rfcAutoStartLines}
 - adt-tool.ps1 bu modda yazılmadı/çalıştırılmadı (o script düz HTTPS kullanır, bu sistemde işe yaramaz).
 - Keşif/doğrulama adımları (referans):
 ${notesBlock}`
-    : samlSetupNeeded
-      ? `## ADT Bağlantısı — SAML SSO GEREKLİ (kimlik bilgileri HİÇ DOĞRULANAMADI)
+    : saml?.system
+      ? saml.verified
+        ? `## ADT Bağlantısı — SAML SSO ile DOĞRULANDI ✓
+- ADT URL: **${verifiedUrl}** — bu sistem Basic Auth kabul etmiyor (kimlik bilgilerine hiç bakmadan HTML giriş sayfası döndürüyor), kimlik doğrulama **SAML SSO** ile yapıldı.
+- Giriş akışını aXet Studio **kendisi çalıştırdı** (${saml.interactive ? "kullanıcıya bir giriş penceresi açıldı ve giriş yapıldı" : "kimlik sağlayıcı oturumu zaten açık olduğu için arka planda, pencere gösterilmeden tamamlandı"}) ve alınan oturum çerezi gerçek bir ADT çağrısıyla doğrulandı.
+- Çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında, \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor — \`%sap-adt-readonly\` bunu otomatik okur, **senin yapman gereken hiçbir kurulum adımı YOK**.
+- \`login_saml_sso.py\`'yi ÇALIŞTIRMA ve Playwright kurmaya kalkışma — o yol artık gereksiz, giriş zaten yapıldı.
+- Çerezin süresi dolarsa ADT çağrıları yeniden HTML giriş sayfası döndürmeye başlar; çözüm kullanıcıdan aXet Studio'da sisteme **yeniden bağlanmasını** istemek (gerekirse pencere yeniden açılır), elle script çalıştırmak değil.
+- adt-tool.ps1 bu sistemde yazılmadı (o script Basic Auth kullanıyor, burada işe yaramaz) — ADT erişimi için read-only server'ı kullan.
+- Keşif/doğrulama adımları (referans):
+${notesBlock}`
+        : `## ADT Bağlantısı — SAML SSO GEREKLİ, OTOMATİK GİRİŞ TAMAMLANAMADI
 - ADT discovery isteği HTTP 200 döndürdü ama gövde bir ADT XML'i değil, bir **SAML/SSO giriş sayfası (HTML)** — bu, kullanıcı adı/şifre doğru olsun olmasın DEĞİŞMEYEN bir davranış, kimlik bilgileri Basic Auth ile hiçbir zaman kontrol edilmedi.
+- aXet Studio SAML giriş akışını otomatik çalıştırdı ama tamamlanamadı: **${saml.failureDetail || "sebep bilinmiyor"}**.
 - **Sohbet bilerek açıldı** (ok:true) ama bağlantı DOĞRULANMADI (verified:false) — bu bir hata durumu değil, bu sistemin normal/beklenen kimlik doğrulama şekli SAML SSO.
 - adt-tool.ps1 bu durumda yazılmadı (o da aynı şekilde Basic Auth kullanır, aynı HTML sayfasını alır).
-- **İlk iş olarak aşağıdaki "Cloud / BTP Sistem Notları" bölümündeki SAML giriş akışını (login_saml_sso.py) izle** — ADT_SAML_COOKIES_FILE elde edilip .conn_adt'a eklenmeden gerçek bir ADT çağrısı (adt_get_source, adt_search vb.) çalışmaz.
+- **Doğru ilk adım kullanıcıdan sisteme yeniden bağlanmasını istemek** — giriş penceresi yeniden açılır (kapatıldıysa/zaman aşımına uğradıysa çoğu durumda sebep budur). Kendi başına script çalıştırma.
+- Bu tekrar tekrar başarısız olursa son çare olarak aşağıdaki "Cloud / BTP Sistem Notları"ndaki elle SAML giriş akışı var.
 - Keşif/doğrulama adımları (referans):
 ${notesBlock}`
       : `## ADT Bağlantısı — DOĞRULANDI ✓
@@ -679,17 +732,23 @@ function mergeWithExistingNotes(newContent: string, existingFilePath: string): s
   }
 }
 
+// `.saml_cookies.json` da en az `.conn_adt` kadar gizli: içindeki
+// SAP_SESSIONID, süresi dolana kadar parolanın yerine geçen canlı bir oturum
+// anahtarı. Tek girdilik liste iki girdiye çıktığı için döngüye çevrildi.
+const GITIGNORE_ENTRIES = [".conn_adt", SAML_COOKIES_FILENAME];
+
 function ensureGitignore(projectDir: string): void {
   const gitignorePath = path.join(projectDir, ".gitignore");
-  const entry = ".conn_adt";
   try {
     if (!existsSync(gitignorePath)) {
-      writeFileSync(gitignorePath, `${entry}\n`, "utf-8");
+      writeFileSync(gitignorePath, `${GITIGNORE_ENTRIES.join("\n")}\n`, "utf-8");
       return;
     }
     const content = readFileSync(gitignorePath, "utf-8");
-    if (!content.split(/\r?\n/).some((line) => line.trim() === entry)) {
-      appendFileSync(gitignorePath, `\n${entry}\n`, "utf-8");
+    const lines = content.split(/\r?\n/).map((line) => line.trim());
+    const missing = GITIGNORE_ENTRIES.filter((entry) => !lines.includes(entry));
+    if (missing.length > 0) {
+      appendFileSync(gitignorePath, `\n${missing.join("\n")}\n`, "utf-8");
     }
   } catch {
     // .gitignore best-effort, sessizce devam
@@ -801,17 +860,24 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   const routerString = req.service.routerString;
   let rfcBridge: RfcBridgeConfig | null = null;
   // SAML/SSO login sayfası tespit edilen sistemler (bkz. adtDiscovery.ts
-  // looksLikeSamlLoginPage) için ayrı bir bayrak — RFC bridge GEREKMİYOR
-  // (aksine gerçek çözüm tarayıcı tabanlı bir SAML akışı, %sap-adt-readonly
-  // skill'indeki login_saml_sso.py), ama önceden bu durumda da diğer TÜM
+  // looksLikeSamlLoginPage) için ayrı bir dal — RFC bridge GEREKMİYOR, çözüm
+  // tarayıcı tabanlı bir SAML akışı. Önceden bu durumda da diğer TÜM
   // "!verify.ok" durumlarıyla aynı jenerik dala düşülüp .conn_adt/
-  // sap-context.md HİÇ yazılmıyordu — kullanıcı login_saml_sso.py'nin
-  // ihtiyaç duyduğu .conn_adt'ı asla elde edemiyordu (canlı bulgu,
-  // 2026-09-02, "test"/DA8 S/4HANA Cloud sistemi). Artık bu durumda da
-  // diğer iki bridge senaryosuyla AYNI desende devam ediliyor: dosyalar
-  // yazılır, sohbet açılır, sadece ok:true+verified:false ile net bir
-  // "önce SAML login akışını izle" mesajı döner.
-  let samlSetupNeeded = false;
+  // sap-context.md HİÇ yazılmıyordu (canlı bulgu, 2026-09-02, "test"/DA8
+  // S/4HANA Cloud sistemi); sonra dosyalar yazılır oldu ama giriş akışını
+  // kullanıcının/ajanın ELLE çalıştırması bekleniyordu. 2026-09-06'dan beri
+  // akışı launcher'ın kendisi çalıştırıyor (performSamlLogin) — Playwright
+  // yok, Python yok, elle kopyalanan .conn_adt satırı yok.
+  //
+  // `samlSystem` = bu sistem SAML kullanıyor; `samlVerified` = girişi de tuttu.
+  // İkisi ayrı, çünkü Basic Auth'a dayanan adımlar (adt-tool.ps1 self-test)
+  // giriş BAŞARILI olsa bile atlanmalı — o script hâlâ kullanıcı adı/şifre
+  // gönderiyor ve bu sistemde kaçınılmaz olarak HTML giriş sayfası alacak.
+  let samlSystem = false;
+  let samlLogin: SamlLoginResult | null = null;
+  let samlCookiesFile: string | null = null;
+  let samlVerified = false;
+  let samlFailureDetail = "";
 
   if (!verify.ok && routerString && !manualUrl && isRouterPermissionDenied(verify.message)) {
     const instanceNr = guessInstanceNumber(req.service.port) ?? "00";
@@ -875,11 +941,59 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       };
     }
   } else if (!verify.ok && verify.samlDetected) {
-    samlSetupNeeded = true;
+    samlSystem = true;
     allNotes.push(
       "Bu sistem SAML SSO gerektiriyor — Basic Auth ile atılan doğrulama isteği kimlik bilgilerini hiç kontrol etmeden bir HTML giriş sayfası döndürdü. " +
-        "RFC bridge gerekmez, gerçek çözüm %sap-adt-readonly skill'indeki login_saml_sso.py (tarayıcı tabanlı SAML akışı) — .conn_adt yine de yazılıyor ki bu script çalışabilsin."
+        "RFC bridge gerekmez; launcher SAML giriş akışını kendisi çalıştırıyor (Electron'un kendi Chromium penceresi, bkz. samlLogin.ts)."
     );
+
+    // Kullanıcı isteği (2026-09-06): *"bu şekildeki sistemlerde otomatik
+    // olarak bana dediği adımları kendi yapmalı ... arkada kendi tarayıcıyı
+    // açsın otomatik halletsin"*. Önceden burada sadece bir NOT bırakılıyor,
+    // giriş akışını kullanıcı (aslında ajan) elle çalıştırıyordu.
+    samlLogin = await performSamlLogin({
+      baseUrl: finalUrl,
+      username: credentials.username,
+      partitionKey: req.service.uuid,
+      language
+    });
+
+    if (samlLogin.ok && samlLogin.jar) {
+      const jar = samlLogin.jar;
+      try {
+        writeFileSync(path.join(projectDir, SAML_COOKIES_FILENAME), JSON.stringify(jar, null, 2), "utf-8");
+        samlCookiesFile = SAML_COOKIES_FILENAME;
+      } catch (err) {
+        samlCookiesFile = null;
+        samlFailureDetail = `çerez dosyası yazılamadı: ${(err as Error).message}`;
+      }
+
+      if (samlCookiesFile) {
+        // Çerez ALINDI ≠ çerez GEÇERLİ. Doğrulamayı gerçekten ADT'ye
+        // sorarak yapıyoruz, yoksa "bağlandın" deyip ilk araç çağrısında
+        // patlardık — bu, tam olarak kullanıcının şikâyet ettiği durum.
+        const cookieHeader = Object.entries(jar.cookies)
+          .map(([name, value]) => `${name}=${value}`)
+          .join("; ");
+        const cookieVerify = await verifyWithCookies(finalUrl, cookieHeader, credentials.client, undefined, language);
+        if (cookieVerify.ok) {
+          samlVerified = true;
+          allNotes.push(
+            `SAML SSO girişi ${samlLogin.interactive ? "giriş penceresi üzerinden" : "arka planda (IdP oturumu zaten açıktı)"} tamamlandı ve oturum çerezi ADT'ye karşı doğrulandı — .conn_adt'a ADT_SAML_COOKIES_FILE=${SAML_COOKIES_FILENAME} yazıldı.`
+          );
+        } else {
+          samlFailureDetail = `giriş tamamlandı ama oturum çerezi ADT'ye karşı doğrulanamadı: ${cookieVerify.message}`;
+        }
+      }
+    } else if (samlLogin) {
+      samlFailureDetail = samlLogin.message;
+    }
+
+    if (!samlVerified) {
+      allNotes.push(
+        `SAML SSO otomatik girişi tamamlanamadı (${samlFailureDetail}). .conn_adt yine de yazılıyor — sisteme yeniden bağlanmayı dene; sürerse %sap-adt-readonly skill'indeki login_saml_sso.py ile elle giriş yapılabilir.`
+      );
+    }
   } else if (!verify.ok) {
     return {
       ok: false,
@@ -892,7 +1006,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
 
   const connAdtPath = path.join(projectDir, ".conn_adt");
   try {
-    writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge), "utf-8");
+    writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge, samlCookiesFile), "utf-8");
   } catch (err) {
     return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "connAdtWriteFailed", { error: (err as Error).message }) };
   }
@@ -912,7 +1026,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     const sapnwrfcHome = embedded?.sapnwrfcHome;
     rfcOutcome = await attemptRfcBridgeAutoStart(skillInstall, projectDir, rfcBridge, credentials, pythonPath, language, sapnwrfcHome);
     allNotes.push(rfcOutcome.detailNote);
-  } else if (samlSetupNeeded) {
+  } else if (samlSystem) {
     // adt-tool.ps1 self-test'i burada da atlanıyor — bu script de aynı
     // Basic Auth + finalUrl'i kullanıyor, SAML sistemde o da kaçınılmaz
     // olarak HTML sayfası alıp "self-test BAŞARISIZ" diyecekti; bu yanıltıcı
@@ -939,7 +1053,12 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   }
 
   const contextFile = path.join(projectDir, "sap-context.md");
-  const generated = buildContextMarkdown(req, finalUrl, allNotes, toolTest, skillInstall, rfcBridge, rfcOutcome, readonlyOutcome, samlSetupNeeded);
+  const generated = buildContextMarkdown(req, finalUrl, allNotes, toolTest, skillInstall, rfcBridge, rfcOutcome, readonlyOutcome, {
+    system: samlSystem,
+    verified: samlVerified,
+    interactive: samlLogin?.interactive ?? false,
+    failureDetail: samlFailureDetail
+  });
   const finalContent = mergeWithExistingNotes(generated, contextFile);
 
   try {
@@ -974,12 +1093,25 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     };
   }
 
-  if (samlSetupNeeded) {
+  if (samlSystem) {
+    if (samlVerified) {
+      return {
+        ok: true,
+        verified: true,
+        projectDir,
+        message: connectMsg(language, samlLogin?.interactive ? "samlAutoVerified" : "samlAutoVerifiedSilent", {
+          skillNote,
+          url: finalUrl
+        }),
+        trustedCertificates: trustedCertificatesUpdate,
+        effectiveClient: credentials.client
+      };
+    }
     return {
       ok: true,
       verified: false,
       projectDir,
-      message: connectMsg(language, "samlSetupNeeded", { skillNote }),
+      message: connectMsg(language, "samlSetupNeeded", { skillNote, detail: samlFailureDetail }),
       trustedCertificates: trustedCertificatesUpdate,
       effectiveClient: credentials.client
     };

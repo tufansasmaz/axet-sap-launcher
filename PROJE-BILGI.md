@@ -8279,3 +8279,72 @@ sıradaki adım.
 Aynı turda **"Son Bağlananlar" listesindeki göreli zaman satırı geri alındı**
 (kullanıcı isteği) — liste yine tek satır. `formatRelativeTime` hâlâ
 `SystemPanel`de "son bağlantı" için kullanılıyor, ölü kod kalmadı.
+
+## SAML SSO girişi artık OTOMATİK (2026-09-06)
+
+Kullanıcı isteği: *"bu şekildeki sistemlerde otomatik olarak bana dediği
+adımları kendi yapmalı zaten login bilgilerini giriyorum arkada kendi
+tarayıcıyı açsın otomatik halletsin falan yani"*.
+
+Önceden SAML'li (BTP/cloud) bir sisteme bağlanınca launcher sadece bir NOT
+bırakıyordu: "`login_saml_sso.py` çalıştır". Bu, kullanıcı açısından dört elle
+adım demekti — `pip install playwright`, ~200MB Chromium indir, script'i
+çalıştır, script'in bastığı `ADT_SAML_COOKIES_FILE=...` satırını `.conn_adt`'a
+kopyala. Yani "bağlan" düğmesi bağlamıyordu.
+
+**Yeni akış** (`app-electron/main/samlLogin.ts`, `performSamlLogin`):
+- Giriş penceresini **Electron'un kendisi** açıyor. Electron zaten Chromium —
+  ayrı bir tarayıcı indirmenin, ayrı bir Python çalışma zamanının ve elle
+  kopyalanan bir satırın hiçbirine gerek yok.
+- Pencere **önce gizli**. Kurumsal ortamda IdP oturumu çoğu zaman zaten
+  açıktır ve akış 6 saniye içinde kendiliğinden biter — bu durumda kullanıcı
+  hiçbir şey görmez. Bitmezse pencere gösterilir (parola + MFA/push için 3
+  dakika).
+- Oturum bölmesi **sistem başına ve kalıcı** (`persist:saml-<service.uuid>`):
+  bir kere giriş yapıldıktan sonra aynı sisteme sonraki bağlanmalar sessiz.
+  İki farklı sisteme iki farklı kullanıcıyla bağlanmak birbirine karışmıyor.
+- Başarının ölçüsü "çerez var mı" DEĞİL, `SAP_SESSIONID*`/`MYSAPSSO2` var mı —
+  IdP'ye yönlendiren ilk istek de çerez bırakıyor, yarım kalmış bir akışı
+  başarı sanardık. Python tarafı (`saml_auth_provider.get_sap_session_id`)
+  aynı çereze bakıyor.
+- **Sertifika hatası SESSİZCE GEÇİLMİYOR** (`callback(false)`). Uygulamanın
+  geri kalanı ADT isteklerinde `rejectUnauthorized: false` kullanıyor ama
+  orada gönderilen şey zaten bilinen bir kimlik bilgisi; burada kullanıcı
+  parolasını CANLI olarak yabancı bir sayfaya yazıyor.
+- Akışın sonu `application/atomsvc+xml`, yani Chromium için bir İNDİRME —
+  varsayılan davranış gizli pencereden bir "farklı kaydet" diyaloğu açmak
+  olurdu. `will-download` iptal ediliyor; bizi ilgilendiren gövde değil, o
+  noktaya gelene kadar toplanan çerez.
+
+**Çerez alındı ≠ çerez geçerli.** `adtDiscovery.ts`e eklenen
+`verifyWithCookies` gerçek bir ADT çağrısıyla doğruluyor (ve dönen şey yine
+bir HTML giriş sayfasıysa başarısız sayıyor — SAML'in tuzağı tam olarak 200
+dönmesi). Ancak bu geçtikten sonra `verified: true` deniyor. `verifyCredentials`
+imzasına isteğe bağlı bir parametre olarak EKLENMEDİ: o fonksiyonun router dalı
+da var, SAML'li sistemler ise tanım gereği cloud — router'ın arkasında değiller.
+
+Yazılan dosyalar: `<proje>/.saml_cookies.json` (Python tarafının beklediği
+şekil: `cookies` sözlüğü + `session_cookies` listesi, alan adları camelCase
+DEĞİL) ve `.conn_adt` içinde `ADT_SAML_COOKIES_FILE=.saml_cookies.json`.
+Sabit ad bilinçli — klasör zaten sisteme özel, `login_saml_sso.py`'nin
+host'a göre değişen adı (`.saml_cookies_<host>.json`) yüzden `.conn_adt`
+satırını da elle kopyalatmak zorunda kalıyordu. `.gitignore`'a **ikisi de**
+giriyor: çerez dosyasındaki SAP_SESSIONID, süresi dolana kadar parolanın
+yerine geçen canlı bir oturum anahtarı.
+
+`samlSystem` ve `samlVerified` iki AYRI bayrak: Basic Auth'a dayanan adımlar
+(`adt-tool.ps1` self-test) giriş BAŞARILI olsa bile atlanmalı, çünkü o script
+hâlâ kullanıcı adı/şifre gönderiyor ve bu sistemde kaçınılmaz olarak HTML
+giriş sayfası alacak.
+
+`sap-context.md`nin SAML bölümü de değişti: artık ajana "önce
+`login_saml_sso.py` çalıştır" DEMİYOR. Giriş başarılıysa açıkça *"senin
+yapman gereken hiçbir kurulum adımı YOK, Playwright kurmaya kalkışma"*
+diyor; başarısızsa doğru ilk adım olarak **kullanıcıdan yeniden bağlanmasını
+istemeyi** öneriyor (pencere kapatıldıysa/zaman aşımına uğradıysa sebep
+çoğu zaman budur). Elle akış son çare olarak duruyor.
+
+Çerezin süresi dolduğunda Python tarafı bunu ANLAMIYOR — `is_valid()` sadece
+`bool(self._cookies)`, bir tarih kontrolü yok. Bayat bir kavanoz geçerli
+görünüp ADT çağrısında HTML sayfası döndürüyor. Çözüm yeniden bağlanmak;
+`sap-context.md` ajana bunu söylüyor.
