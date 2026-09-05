@@ -22,10 +22,14 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       fontSize: 13,
       fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",
       cursorBlink: true,
+      // xterm kendi tuvalini boyuyor, CSS değişkenlerini okumuyor — bu yüzden
+      // renkler burada elle tutuluyor ve koyu temanın base/ink jetonlarıyla
+      // AYNI değerde olmaları gerekiyor (--base-950 / --ink-100). Palet
+      // değişirse burası da değişmeli; bağ otomatik değil.
       theme: {
-        background: "#0b0d12",
-        foreground: "#e2e8f0",
-        cursor: "#38bdf8"
+        background: "#0d111a",
+        foreground: "#e9edf5",
+        cursor: "#60a5fa"
       }
     });
     const fit = new FitAddon();

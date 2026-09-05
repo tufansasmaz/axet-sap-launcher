@@ -85,23 +85,33 @@ html[data-theme="dark"] {
      açılıyordu; SAP GUI ekranındaki vkey seçicisi bunun en görünür örneğiydi.
      Renk değişkenleriyle birlikte temaya bağlı olması bu yüzden şart. */
   color-scheme: dark;
-  --base-950-rgb: 15 15 17;
-  --base-900-rgb: 20 20 23;
-  --base-850-rgb: 25 25 29;
-  --base-800-rgb: 30 30 35;
-  --base-700-rgb: 41 41 48;
-  --base-600-rgb: 55 55 63;
+  /* LACİVERT ARDUVAZ (2026-09-06, kullanıcı seçimi). Önceki palet neredeyse
+     saf siyahtı (15 15 17) ve ekran "siyah zemin" olarak okunuyordu.
+     Şimdiki tonlar bir kademe açık ve MAVİ kanal belirgin şekilde baskın —
+     lacivere çalan koyu bir arduvaz.
+     Uygulamanın vurgu rengiyle (mavi #2a6ceb) ve navy ikonlarıyla (#3d6fa8)
+     aynı aileden olması bilinçli: zemin, vurgunun soğuk tonunu taşıyor. */
+  --base-950-rgb: 13 17 26;
+  --base-900-rgb: 17 23 38;
+  --base-850-rgb: 21 28 43;
+  --base-800-rgb: 27 36 54;
+  --base-700-rgb: 38 49 74;
+  --base-600-rgb: 53 67 99;
 
-  --ink-100-rgb: 237 237 240;
-  --ink-200-rgb: 209 209 214;
-  --ink-300-rgb: 165 165 173;
-  --ink-400-rgb: 124 124 133;
-  --ink-500-rgb: 92 92 100;
-  --ink-600-rgb: 70 70 78;
+  /* Metin tonları da aynı soğukluğa çekildi. PARLAKLIK merdiveni bilinçli
+     olarak korundu (237→70 civarı), yalnızca ton kaydı: kontrast oranları ve
+     dolayısıyla okunabilirlik aynı kaldı. Nötr gri metin lacivert zeminde
+     hafif sarımsı/kirli görünüyordu. */
+  --ink-100-rgb: 233 237 245;
+  --ink-200-rgb: 205 211 224;
+  --ink-300-rgb: 160 168 186;
+  --ink-400-rgb: 120 129 148;
+  --ink-500-rgb: 88 97 116;
+  --ink-600-rgb: 66 75 94;
   --ink-strong-rgb: 255 255 255;
 
-  --scrollbar-thumb: #333338;
-  --scrollbar-thumb-hover: #45454c;
+  --scrollbar-thumb: #2c3855;
+  --scrollbar-thumb-hover: #3d4b6e;
 
   --accent-600-rgb: 29 78 216;
   --accent-500-rgb: 42 108 235;
