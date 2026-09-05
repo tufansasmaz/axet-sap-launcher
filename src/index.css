@@ -145,6 +145,13 @@ html[data-theme="dark"] {
 
   --navy-icon: #3d6fa8;
 
+  /* "Yeni proje" düğmesi. Kenar çubuğunun tepesinde "Yeni sohbet"in YANINDA
+     duruyor; ikisi de vurgu mavisi olsaydı hangisinin ne yaptığı bir bakışta
+     okunmazdı. Renk uydurulmadı: logonun mark gradyanının ilk durağı, yani
+     `--chat-hero-from` ile aynı mor. */
+  --project-500-rgb: 109 94 252;
+  --project-soft-text: #b9b1ff;
+
   --app-bg-image: none;
   --overlay-scrim: rgba(0, 0, 0, 0.5);
 
@@ -220,6 +227,10 @@ html[data-theme="light"] {
   --chat-hero-to: #0e8ba6;
 
   --navy-icon: #3d5f85;
+
+  /* Aynı mor, açık zemin için koyulaştırılmış (bkz. --chat-hero-from). */
+  --project-500-rgb: 76 58 212;
+  --project-soft-text: #4c3ad4;
 
   --app-bg-image: none;
   --overlay-scrim: rgba(40, 38, 35, 0.35);

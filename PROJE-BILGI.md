@@ -8519,3 +8519,41 @@ Yeniden bağlanma yolunda (`sapChatRequest` effect'i) `keepInGeneral` olanlar
 eşleşmeden **eleniyor**: aynı klasörde çalışan ama kullanıcının bilerek
 genelde tuttuğu bir sohbet, "sistemin kaldığı yerden devam eden sohbeti"
 değil. Eşleşme çıkmazsa sisteme bağlı yeni bir taslak açılıyor.
+
+## "SAP sohbetleri kayboldu, kurduğum proje silinmiş" (2026-09-06)
+
+Kullanıcı bildirimi. Kodda hata YOKTU; sebep **çalışan ana sürecin eski
+olmasıydı**. Electron 00:27'de başlamıştı, `cwd`/`sapLabel` kalıcılığı 00:42'de
+(`be47c4b`), projeler 01:37'de eklendi. Yani `chatStore.ts`'in bellekteki hâli
+bu alanların HİÇBİRİNİ tanımıyordu ve `sanitizeSession` nesneyi alan alan
+yeniden kurduğu için her kayıtta hepsini siliyordu.
+
+Diskteki dosya bunu açıkça gösterdi: 31 sohbetin tamamında `cwd` yok,
+`projects` alanı hiç yok. Sohbetlerin kendisi ve mesajları sağlamdı — kaybolan
+yalnızca sistem aidiyetiydi, ve o hiçbir zaman diske yazılamamıştı (düzeltme
+yazıldı ama çalışmadı). Geri getirilecek bir şey yok.
+
+### Yapısal düzeltme: tanınmayan alanlar artık TAŞINIYOR
+
+Bu, alan alan yeniden kurmanın ALTINCI kurbanıydı: `attachments` (09-02),
+`steps` (09-05), `cwd`/`sapLabel`, `projectId`, `keepInGeneral` ve — bu arada
+fark edilen — `interrupted`. Sonuncusu tipinde "diske de yazılıyor" diye
+YAZILI olmasına rağmen `sanitizeMessage`'da yoktu, yani yarıda kalmış cevabın
+notu her kayıtta düşüyordu: kırpılmış bir cevap sonraki açılışta tam bir cevap
+gibi görünüyordu.
+
+Artık `carryUnknown` var: bilinen alanlar eskisi gibi tek tek doğrulanıyor,
+TANINMAYAN alanlar olduğu gibi taşınıyor. Böyle bir alan en kötü ihtimalle
+doğrulanmamış olur, yok olmaz. Sınırlar (20 alan, 8000 karakter) dosya elle
+düzenlendiğinde keyfî büyümeye karşı — taşınan değer hiçbir kırpmadan
+geçmiyor.
+
+Bu, bugünkü olayı geriye dönük çözmüyor (düzeltmenin kendisi de eski süreçte
+yoktu). Kuralı değiştiriyor: bundan sonra tipe alan eklemeyi unutmak veri
+kaybı DEĞİL.
+
+### Değişmeyen kural
+
+`app-electron/main/*` ve `app-electron/preload/*` HMR ile GELMİYOR. Bu
+dosyalara dokunulduysa `npm run dev` tamamen kapatılıp açılmalı — yoksa çizici
+yeni alanları yazar, ana süreç onları sessizce siler.

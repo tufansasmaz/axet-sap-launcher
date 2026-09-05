@@ -18,7 +18,7 @@ import {
   FolderOpen,
   FolderPlus,
   FolderInput,
-  Settings2
+  Settings2,
 } from "lucide-react";
 import type {
   ActiveSapContext,
@@ -33,7 +33,7 @@ import type {
   ChatSessionsState,
   ConnectivityState,
   SapService,
-  SystemTier
+  SystemTier,
 } from "../../app-electron/shared/types";
 import ChatSessionPane from "./ChatSessionPane";
 import ChatFilesPanel from "./ChatFilesPanel";
@@ -172,7 +172,11 @@ interface Props {
   connectivity: Record<string, ConnectivityState>;
   tierOverrides: Record<string, SystemTier>;
   onOpenSapLauncher: () => void;
-  onQuickConnectSap: (path: string[], service: SapService, itemUuid: string) => void;
+  onQuickConnectSap: (
+    path: string[],
+    service: SapService,
+    itemUuid: string,
+  ) => void;
   /**
    * SAP bağlantısı başarılı olduğunda App.tsx buraya bir istek bırakıyor;
    * bu bileşen boş bir sohbete geçip onu o projeye bağlıyor. Bağlantı artık
@@ -249,7 +253,10 @@ const MOVE_MENU_MAX_H = 280;
  * oluyor. Bedeli her turda talimat kadar jeton; `chatStore.ts` bunu 8000
  * karakterle sınırlıyor ve tipik bir talimat birkaç yüz karakter.
  */
-function withProjectInstructions(text: string, project: ChatProject | null): string {
+function withProjectInstructions(
+  text: string,
+  project: ChatProject | null,
+): string {
   const instructions = project?.instructions.trim();
   if (!project || !instructions) return text;
   return `[Proje talimatı — "${project.name}" projesindeki tüm sohbetlerde geçerli]\n${instructions}\n[Proje talimatı sonu]\n\n${text}`;
@@ -269,7 +276,8 @@ function withProjectInstructions(text: string, project: ChatProject | null): str
 // kullanılsaydı React aynı `key`den iki tane görürdü.
 const CONNECT_NOTICE_PREFIX = "connect-notice";
 const CONNECT_NOTICE_ID = CONNECT_NOTICE_PREFIX;
-const isNotConnectNotice = (m: ChatMessage) => !m.id.startsWith(CONNECT_NOTICE_PREFIX);
+const isNotConnectNotice = (m: ChatMessage) =>
+  !m.id.startsWith(CONNECT_NOTICE_PREFIX);
 
 // Gelen bir etkinlik olayını oturuma işler.
 //
@@ -282,9 +290,14 @@ const STREAM_TICK_MS = 33;
 /** Kuyruğun kaç tikte erimesi hedefleniyor. 6 x 33 ms ≈ 200 ms. */
 const STREAM_DRAIN_TICKS = 6;
 
-function applyActivity(session: ChatSession, activity: AxetChatActivity): ChatSession {
+function applyActivity(
+  session: ChatSession,
+  activity: AxetChatActivity,
+): ChatSession {
   if (activity.phase === "toolResult") {
-    const index = session.activitySteps.findIndex((step) => step.callId === activity.callId);
+    const index = session.activitySteps.findIndex(
+      (step) => step.callId === activity.callId,
+    );
     // Çağrısını görmediğimiz bir sonuç sessizce atılıyor: bağlanacağı satır yok.
     if (index < 0) return session;
     const steps = session.activitySteps.slice();
@@ -299,7 +312,7 @@ function applyActivity(session: ChatSession, activity: AxetChatActivity): ChatSe
       result: activity.result,
       extraLines: activity.extraLines,
       output: activity.output,
-      failed: activity.failed
+      failed: activity.failed,
     };
     return { ...session, activitySteps: steps };
   }
@@ -312,14 +325,17 @@ function applyActivity(session: ChatSession, activity: AxetChatActivity): ChatSe
   if (activity.phase === "tool") {
     // Main tarafı çağrıları zaten tekilliyor; bu ikinci kapı, olayın yeniden
     // bağlanan bir pencereye tekrar düşmesine karşı.
-    if (activity.callId && session.activitySteps.some((step) => step.callId === activity.callId)) {
+    if (
+      activity.callId &&
+      session.activitySteps.some((step) => step.callId === activity.callId)
+    ) {
       return session;
     }
     return {
       ...session,
       activity: "tool",
       pendingAsk: null,
-      activitySteps: [...session.activitySteps, activity]
+      activitySteps: [...session.activitySteps, activity],
     };
   }
   return { ...session, activity: activity.phase, pendingAsk: null };
@@ -355,7 +371,7 @@ const SUGGESTION_POOL: readonly { key: string; scope: SuggestionScope }[] = [
   { key: "sgSapDump", scope: "sap" },
   { key: "sgSapGuiAutomate", scope: "sap" },
   { key: "sgMailSummary", scope: "connector" },
-  { key: "sgSharepointFind", scope: "connector" }
+  { key: "sgSharepointFind", scope: "connector" },
 ];
 
 const SUGGESTION_COUNT = 3;
@@ -376,7 +392,7 @@ const SHORTCUTS = [
   ["↑", "axetCodeHome.shortcutEditLast"],
   ["Enter", "axetCodeHome.shortcutSend"],
   ["Shift+Enter", "axetCodeHome.shortcutNewline"],
-  ["F1", "axetCodeHome.shortcutHelp"]
+  ["F1", "axetCodeHome.shortcutHelp"],
 ] as const;
 
 // Tohumlanmış karıştırma (mulberry32). Düz `Math.random()` kullanılmıyor,
@@ -456,7 +472,7 @@ export default function AxetCodeHome({
   onOpenSapLauncher,
   onQuickConnectSap,
   sapChatRequest,
-  activeSap
+  activeSap,
 }: Props) {
   const t = useT();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -472,7 +488,10 @@ export default function AxetCodeHome({
   // Taslağın SAP bağlamı. Kayıt ilk mesajda doğduğu için (bkz. handleSendNew)
   // bağlantı da o ana kadar burada bekliyor: bağlanıp hiçbir şey sormayan
   // kullanıcı, listede boş bir sohbet bulmuyor.
-  const [newBinding, setNewBinding] = useState<{ cwd: string; label: string } | null>(null);
+  const [newBinding, setNewBinding] = useState<{
+    cwd: string;
+    label: string;
+  } | null>(null);
   // Taslağın bağlantı karşılaması (bkz. SapChatRequest.notice). `newBinding`
   // gibi taslakta bekliyor ve ilk mesajla birlikte sohbete taşınıyor —
   // yalnızca boş ekranda gösterilseydi kullanıcı yazar yazmaz kaybolur,
@@ -497,14 +516,25 @@ export default function AxetCodeHome({
   // "Projeye taşı" menüsü. Konum SABİT (viewport) koordinat: menü kenar
   // çubuğunun kaydırılan listesinin içinde açılsaydı, listeyle birlikte
   // kayar ve `overflow-hidden` sınırında kırpılırdı.
-  const [moveMenu, setMoveMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
+  const [moveMenu, setMoveMenu] = useState<{
+    sessionId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   // Kimlik SABİT, her render'da `crypto.randomUUID()` DEĞİL: id React `key`
   // olarak kullanılıyor, her render'da değişseydi balon her tuş vuruşunda
   // sökülüp yeniden kurulurdu (bkz. CONNECT_NOTICE_ID).
   const noticeMessage = useMemo<ChatMessage | null>(
     () =>
-      newNotice ? { id: CONNECT_NOTICE_ID, role: "assistant", content: newNotice, createdAt: Date.now() } : null,
-    [newNotice]
+      newNotice
+        ? {
+            id: CONNECT_NOTICE_ID,
+            role: "assistant",
+            content: newNotice,
+            createdAt: Date.now(),
+          }
+        : null,
+    [newNotice],
   );
   // Taslak sohbetin GERÇEKTE kullanacağı bağlantı. `newBinding` yoksa aktif
   // SAP bağlamı devreye giriyor: bir sisteme bağlandıktan sonra açılan her
@@ -515,8 +545,13 @@ export default function AxetCodeHome({
   const effectiveNewBinding = useMemo(
     () =>
       newBinding ??
-      (activeSap ? { cwd: activeSap.projectDir, label: `${activeSap.systemId} · ${activeSap.client}` } : null),
-    [newBinding, activeSap]
+      (activeSap
+        ? {
+            cwd: activeSap.projectDir,
+            label: `${activeSap.systemId} · ${activeSap.client}`,
+          }
+        : null),
+    [newBinding, activeSap],
   );
   const [models, setModels] = useState<AxetModelEntry[]>([]);
   const [modelsLoading, setModelsLoading] = useState(true);
@@ -554,7 +589,9 @@ export default function AxetCodeHome({
   // Mikrofonun üç hâli. `transcribing` ayrı bir durum çünkü whisper birkaç
   // saniye sürebiliyor: kayıt bitmiş ama metin henüz yok, ve bu arada düğme
   // tekrar tıklanabilir görünmemeli.
-  const [dictationState, setDictationState] = useState<"idle" | "recording" | "transcribing">("idle");
+  const [dictationState, setDictationState] = useState<
+    "idle" | "recording" | "transcribing"
+  >("idle");
   // Diskten yükleme TAMAMLANANA kadar kaydetme yapılmaz. Bu bayrak olmadan
   // ilk render'daki boş `sessions=[]` state'i, yükleme cevabı gelmeden önce
   // debounce'lu kaydediciyi tetikleyip diskteki TÜM geçmişi silerdi.
@@ -613,8 +650,8 @@ export default function AxetCodeHome({
             projectId: s.projectId ?? null,
             // Alanın hiç olmaması "eski davranış": `cwd`'si olan eski
             // sohbetler sistem gruplarında kalmaya devam ediyor.
-            keepInGeneral: s.keepInGeneral === true
-          }))
+            keepInGeneral: s.keepInGeneral === true,
+          })),
         );
         // Projeler sohbetlerden AYRI bir liste ama aynı dosyada. Artık var
         // olmayan bir projeye işaret eden sohbet kaybolmuyor: gruplama
@@ -635,11 +672,18 @@ export default function AxetCodeHome({
         if (result.recoveredFrom) {
           pushToast("error", t("axetCodeHome.historyCorrupt"));
         } else if (!result.ok && result.error) {
-          pushToast("error", t("axetCodeHome.historyLoadFailed", { message: result.error }));
+          pushToast(
+            "error",
+            t("axetCodeHome.historyLoadFailed", { message: result.error }),
+          );
         }
       })
       .catch((err: Error) => {
-        if (!cancelled) pushToast("error", t("axetCodeHome.historyLoadFailed", { message: err.message }));
+        if (!cancelled)
+          pushToast(
+            "error",
+            t("axetCodeHome.historyLoadFailed", { message: err.message }),
+          );
       })
       .finally(() => {
         // Hata durumunda da açılıyor: yükleme başarısızsa kullanıcının bundan
@@ -683,7 +727,11 @@ export default function AxetCodeHome({
         const cwd = session.cwd || workspace;
         if (!cwd) continue;
         try {
-          const answer = await window.api.recoverChatAnswer(cwd, last.content, last.createdAt);
+          const answer = await window.api.recoverChatAnswer(
+            cwd,
+            last.content,
+            last.createdAt,
+          );
           if (!answer) continue;
           found.push({
             sessionId: session.id,
@@ -694,8 +742,8 @@ export default function AxetCodeHome({
               createdAt: Date.now(),
               // Tamamlanmış bir turu "yarıda kaldı" diye işaretlemek yanlış
               // olurdu: axet-code bitirmiş, yalnızca biz kaydedememişiz.
-              ...(answer.finished ? {} : { interrupted: true })
-            }
+              ...(answer.finished ? {} : { interrupted: true }),
+            },
           });
         } catch {
           // Kurtarma bir KOLAYLIK; başarısızlığı sohbeti açmayı engellememeli.
@@ -707,9 +755,10 @@ export default function AxetCodeHome({
           const hit = found.find((f) => f.sessionId === s.id);
           // Bu arada kullanıcı yazmaya devam etmiş olabilir: son mesaj artık
           // kullanıcı mesajı değilse kurtarılan metin oraya AİT DEĞİL.
-          if (!hit || s.messages[s.messages.length - 1]?.role !== "user") return s;
+          if (!hit || s.messages[s.messages.length - 1]?.role !== "user")
+            return s;
           return { ...s, messages: [...s.messages, hit.message] };
-        })
+        }),
       );
     })();
 
@@ -747,14 +796,16 @@ export default function AxetCodeHome({
               // Yalnızca dolu olduğunda yazılıyor — eklerin BÜYÜK çoğunluğu
               // yok ve her mesaja boş bir dizi koymak geçmiş dosyasını
               // gereksiz şişirirdi.
-              ...(m.attachments && m.attachments.length > 0 ? { attachments: m.attachments } : {}),
+              ...(m.attachments && m.attachments.length > 0
+                ? { attachments: m.attachments }
+                : {}),
               // Araç dökümü — aynı gerekçeyle yalnızca doluysa yazılıyor.
               ...(m.steps && m.steps.length > 0 ? { steps: m.steps } : {}),
               // "Yarıda kaldı" notu diske de gidiyor: bir kez gösterilip
               // kaybolsaydı, kırpılmış cevap bir sonraki açılışta tam bir cevap
               // gibi görünürdü.
               ...(m.interrupted ? { interrupted: true } : {}),
-              createdAt: m.createdAt
+              createdAt: m.createdAt,
             })),
           model: s.model,
           draft: s.draft,
@@ -765,9 +816,9 @@ export default function AxetCodeHome({
           ...(s.projectId ? { projectId: s.projectId } : {}),
           ...(s.keepInGeneral ? { keepInGeneral: true } : {}),
           createdAt: s.createdAt,
-          updatedAt: s.updatedAt
+          updatedAt: s.updatedAt,
         })),
-        projects
+        projects,
       };
       window.api.saveChatSessions(state).catch(() => {});
     }, 600);
@@ -780,21 +831,22 @@ export default function AxetCodeHome({
   useEffect(() => {
     let cancelled = false;
     setModelsLoading(true);
-    Promise.all([window.api.listAxetModels(), window.api.getAxetModelConfig()]).then(
-      ([modelsResult, configResult]) => {
-        if (cancelled) return;
-        if (modelsResult.ok) {
-          setModels(modelsResult.models);
-          setModelsError(null);
-        } else {
-          setModelsError(modelsResult.error ?? null);
-        }
-        if (configResult.ok && configResult.config) {
-          setDefaultModel(configResult.config.large);
-        }
-        setModelsLoading(false);
+    Promise.all([
+      window.api.listAxetModels(),
+      window.api.getAxetModelConfig(),
+    ]).then(([modelsResult, configResult]) => {
+      if (cancelled) return;
+      if (modelsResult.ok) {
+        setModels(modelsResult.models);
+        setModelsError(null);
+      } else {
+        setModelsError(modelsResult.error ?? null);
       }
-    );
+      if (configResult.ok && configResult.config) {
+        setDefaultModel(configResult.config.large);
+      }
+      setModelsLoading(false);
+    });
     return () => {
       cancelled = true;
     };
@@ -824,7 +876,7 @@ export default function AxetCodeHome({
     (
       binding: { cwd: string; label: string } | null = null,
       notice: string | null = null,
-      projectId: string | null = null
+      projectId: string | null = null,
     ) => {
       setActiveId(null);
       setNewDraft("");
@@ -843,7 +895,7 @@ export default function AxetCodeHome({
       setSuggestionSeed(freshSuggestionSeed());
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
-    []
+    [],
   );
 
   // --- "Sisteme bağlan" → sohbet ---
@@ -861,7 +913,10 @@ export default function AxetCodeHome({
   // de aynı şekilde eşleştiriyor.
   useEffect(() => {
     if (!sapChatRequest) return;
-    const binding = { cwd: sapChatRequest.projectDir, label: sapChatRequest.label };
+    const binding = {
+      cwd: sapChatRequest.projectDir,
+      label: sapChatRequest.label,
+    };
     const key = sapChatRequest.projectDir.toLowerCase();
     // En son konuşulan eşleşme. `sessionsRef` kullanılıyor ki `sessions`
     // bağımlılığa girip her mesajda efekti yeniden çalıştırmasın.
@@ -905,13 +960,13 @@ export default function AxetCodeHome({
                   id: `${CONNECT_NOTICE_PREFIX}-${sapChatRequest.nonce}`,
                   role: "assistant" as const,
                   content: sapChatRequest.notice,
-                  createdAt: Date.now()
-                }
+                  createdAt: Date.now(),
+                },
               ],
-              updatedAt: Date.now()
+              updatedAt: Date.now(),
             }
-          : s
-      )
+          : s,
+      ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sapChatRequest?.nonce]);
@@ -923,7 +978,12 @@ export default function AxetCodeHome({
   useEffect(() => {
     if (!active) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "n") {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        !e.shiftKey &&
+        !e.altKey &&
+        e.key.toLowerCase() === "n"
+      ) {
         e.preventDefault();
         handleNewSession();
       }
@@ -948,7 +1008,7 @@ export default function AxetCodeHome({
       setActiveId((current) => (current === id ? null : current));
       setDeleteId(null);
     },
-    [sessions]
+    [sessions],
   );
 
   // Boş bir sohbette onay sormak gereksiz bir tıklama — hiçbir şey kaybolmuyor.
@@ -961,7 +1021,7 @@ export default function AxetCodeHome({
       }
       setDeleteId(id);
     },
-    [handleDeleteSession, sessions]
+    [handleDeleteSession, sessions],
   );
 
   // Sohbeti Markdown dosyasına aktar. Metin burada üretiliyor, kaydetme
@@ -975,13 +1035,13 @@ export default function AxetCodeHome({
         title: target.title,
         messages: target.messages,
         contextPath: target.cwd,
-        contextLabel: target.sapLabel
+        contextLabel: target.sapLabel,
       });
       // Hata bildirimi ana süreçte (`dialog.showErrorBox`): sohbet listesinde
       // bu işlemin sonucunu gösterecek bir yer yok.
       await window.api.exportChatMarkdown(safeFileName(target.title), markdown);
     },
-    [sessions]
+    [sessions],
   );
 
   // Proje yönergeleri kaydedildikten sonra: O KLASÖRDE çalışan her sohbetin
@@ -1007,7 +1067,7 @@ export default function AxetCodeHome({
         }
       }
     },
-    [sessions, config?.axetWorkspaceDir]
+    [sessions, config?.axetWorkspaceDir],
   );
 
   const commitRename = useCallback(() => {
@@ -1018,7 +1078,11 @@ export default function AxetCodeHome({
     // Boş ada izin verilmiyor — sohbet listede görünmez hâle gelirdi.
     if (!next) return;
     setSessions((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, title: deriveTitle(next), updatedAt: Date.now() } : s))
+      prev.map((s) =>
+        s.id === id
+          ? { ...s, title: deriveTitle(next), updatedAt: Date.now() }
+          : s,
+      ),
     );
   }, [renameDraft, renamingId]);
 
@@ -1033,7 +1097,10 @@ export default function AxetCodeHome({
   // bırakılan bir proje, ikinci projeden itibaren ayırt edilemez olurdu.
   const handleCreateProject = useCallback(() => {
     if (projects.length >= MAX_PROJECTS) {
-      pushToast("error", t("axetCodeHome.projectLimit", { count: MAX_PROJECTS }));
+      pushToast(
+        "error",
+        t("axetCodeHome.projectLimit", { count: MAX_PROJECTS }),
+      );
       return;
     }
     const now = Date.now();
@@ -1042,17 +1109,22 @@ export default function AxetCodeHome({
       name: t("axetCodeHome.newProjectName"),
       instructions: "",
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
     setProjects((prev) => [...prev, project]);
     setProjectDialogId(project.id);
   }, [projects.length, pushToast, t]);
 
-  const handleSaveProject = useCallback((id: string, name: string, instructions: string) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name, instructions, updatedAt: Date.now() } : p))
-    );
-  }, []);
+  const handleSaveProject = useCallback(
+    (id: string, name: string, instructions: string) => {
+      setProjects((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, name, instructions, updatedAt: Date.now() } : p,
+        ),
+      );
+    },
+    [],
+  );
 
   // Proje silmek SOHBETLERİ SİLMİYOR — yalnızca aidiyeti kopuyor ve sohbetler
   // "Sohbetler" başlığına düşüyor. Aksi hâlde tek bir çöp kutusu düğmesi, bir
@@ -1060,7 +1132,9 @@ export default function AxetCodeHome({
   // şey düzenlemenin kendisi, içeriği değil.
   const handleDeleteProject = useCallback((id: string) => {
     setProjects((prev) => prev.filter((p) => p.id !== id));
-    setSessions((prev) => prev.map((s) => (s.projectId === id ? { ...s, projectId: null } : s)));
+    setSessions((prev) =>
+      prev.map((s) => (s.projectId === id ? { ...s, projectId: null } : s)),
+    );
     setNewProjectId((current) => (current === id ? null : current));
     setProjectDialogId(null);
   }, []);
@@ -1070,25 +1144,35 @@ export default function AxetCodeHome({
   // `updatedAt` BİLEREK dokunulmuyor: taşımak bir konuşma değil, listeyi
   // yeniden sıralamak istenmiyor — taşınan sohbet birdenbire en üste
   // zıplasaydı kullanıcı onu kaybederdi.
-  const handleMoveSession = useCallback((sessionId: string, projectId: string | null) => {
-    setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, projectId } : s)));
-    setMoveMenu(null);
-  }, []);
+  const handleMoveSession = useCallback(
+    (sessionId: string, projectId: string | null) => {
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, projectId } : s)),
+      );
+      setMoveMenu(null);
+    },
+    [],
+  );
 
   const handleSelectModel = useCallback(
     async (entry: AxetModelEntry) => {
       const result = await window.api.setAxetModel("large", entry);
       if (!result.ok) {
-        pushToast("error", t("modelSelector.switchFailed", { message: result.error ?? "" }));
+        pushToast(
+          "error",
+          t("modelSelector.switchFailed", { message: result.error ?? "" }),
+        );
         return;
       }
       setDefaultModel(entry);
       if (activeId) {
-        setSessions((prev) => prev.map((s) => (s.id === activeId ? { ...s, model: entry } : s)));
+        setSessions((prev) =>
+          prev.map((s) => (s.id === activeId ? { ...s, model: entry } : s)),
+        );
       }
       pushToast("success", t("modelSelector.switched", { model: entry.model }));
     },
-    [activeId, pushToast, t]
+    [activeId, pushToast, t],
   );
 
   // `handleSend` ve `handleRegenerate` ORTAK gövdesi: istemi çalıştır, akan
@@ -1107,7 +1191,7 @@ export default function AxetCodeHome({
       // Sohbetin projesi. Sohbet listesinden okunmuyor, AÇIKÇA geçiliyor:
       // `handleSendNew` bu fonksiyonu `setSessions` çağrısının hemen ardından
       // çağırıyor ve yeni kayıt o an ne `sessions`'ta ne `sessionsRef`'te var.
-      sessionProjectId: string | null = null
+      sessionProjectId: string | null = null,
     ) => {
       const requestId = crypto.randomUUID();
       setSessions((prev) =>
@@ -1123,10 +1207,10 @@ export default function AxetCodeHome({
                 // Yeni tur, yeni durum: "durduramadım" uyarısı bir önceki tura
                 // aitti ve orada asılı kalması yanıltıcı olurdu.
                 cancelStuck: false,
-                updatedAt: Date.now()
+                updatedAt: Date.now(),
               }
-            : s
-        )
+            : s,
+        ),
       );
 
       const cwd = sessionCwd || config?.axetWorkspaceDir || "";
@@ -1138,9 +1222,16 @@ export default function AxetCodeHome({
       // yapılması birinin unutulmasını imkânsız kılıyor.
       const promptText = withProjectInstructions(
         text,
-        projects.find((p) => p.id === sessionProjectId) ?? null
+        projects.find((p) => p.id === sessionProjectId) ?? null,
       );
-      const result = await window.api.sendChatMessage(requestId, sessionId, cwd, model, history, promptText);
+      const result = await window.api.sendChatMessage(
+        requestId,
+        sessionId,
+        cwd,
+        model,
+        history,
+        promptText,
+      );
 
       // Kuyrukta kalan artık metin ATILIYOR: aşağıda mesajın içeriği sonucun
       // tam metniyle değiştiriliyor, yani kaybolan bir şey yok. Bırakılsaydı
@@ -1148,96 +1239,111 @@ export default function AxetCodeHome({
       streamQueue.current.delete(requestId);
 
       setSessions((prev) =>
-      prev.map((s) => {
-        if (s.id !== sessionId || s.requestId !== requestId) return s;
-        // Akış sırasında oluşturulmuş (varsa) yarım asistan mesajı — sonucu
-        // ona YAZIYORUZ, yeni bir mesaj eklemiyoruz. Yoksa (hiç parça
-        // gelmeden hata/iptal) sıfırdan oluşturulur.
-        const last = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
-        const streamed = last?.streaming === true ? last : null;
+        prev.map((s) => {
+          if (s.id !== sessionId || s.requestId !== requestId) return s;
+          // Akış sırasında oluşturulmuş (varsa) yarım asistan mesajı — sonucu
+          // ona YAZIYORUZ, yeni bir mesaj eklemiyoruz. Yoksa (hiç parça
+          // gelmeden hata/iptal) sıfırdan oluşturulur.
+          const last =
+            s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+          const streamed = last?.streaming === true ? last : null;
 
-        // `updatedAt` her sonlanmada tazeleniyor: cevabın gelişi de listedeki
-        // sıralamayı etkileyen bir olay.
-        // `as const` DEĞİL: `activitySteps: []` o zaman `readonly []` olur ve
-        // `ChatSession`'ın değiştirilebilir dizisine atanamaz. Tip güvenliği
-        // yerine `Pick` ile korunuyor — alan adı yanlış yazılırsa yine patlar.
-        const done: Pick<
-          ChatSession,
-          "pending" | "requestId" | "activity" | "activitySteps" | "pendingAsk" | "updatedAt"
-        > = {
-          pending: false,
-          requestId: null,
-          activity: null,
-          activitySteps: [],
-          pendingAsk: null,
-          updatedAt: Date.now()
-        };
-
-        // Araç dökümü CEVABA TAŞINIYOR. `done` oturumdaki canlı listeyi
-        // sıfırlıyor (bir sonraki tur temiz başlasın diye); buraya kopyalanmazsa
-        // ajanın bu turda ne yaptığı ekrandan tamamen silinirdi — eski davranış
-        // buydu ve "neden bu cevabı verdi" sorusunun karşılığı hiçbir yerde
-        // kalmıyordu. Boşsa alan hiç eklenmiyor: araç çalıştırmayan cevaplar
-        // geçmiş dosyasını boş dizilerle şişirmesin.
-        const steps = s.activitySteps.filter((step) => step.phase === "tool");
-        const withSteps = steps.length > 0 ? { steps } : {};
-
-        if (result.cancelled) {
-          // Kullanıcı durdurdu. Ekranda GÖRÜNEN yarım metni silmiyoruz —
-          // kullanıcı onu zaten okudu, kaybolması "bir şey ters gitti"
-          // hissi verirdi (ChatGPT de durdurulan cevabı bırakır). Hiç metin
-          // gelmediyse yarım mesajı tamamen kaldır, boş balon kalmasın.
-          if (!streamed) return { ...s, ...done };
-          const partial = streamed.content.trim();
-          return {
-            ...s,
-            messages: partial
-              ? s.messages.map((m) =>
-                  m.id === streamed.id ? { ...m, content: partial, streaming: false, ...withSteps } : m
-                )
-              : s.messages.filter((m) => m.id !== streamed.id),
-            ...done
+          // `updatedAt` her sonlanmada tazeleniyor: cevabın gelişi de listedeki
+          // sıralamayı etkileyen bir olay.
+          // `as const` DEĞİL: `activitySteps: []` o zaman `readonly []` olur ve
+          // `ChatSession`'ın değiştirilebilir dizisine atanamaz. Tip güvenliği
+          // yerine `Pick` ile korunuyor — alan adı yanlış yazılırsa yine patlar.
+          const done: Pick<
+            ChatSession,
+            | "pending"
+            | "requestId"
+            | "activity"
+            | "activitySteps"
+            | "pendingAsk"
+            | "updatedAt"
+          > = {
+            pending: false,
+            requestId: null,
+            activity: null,
+            activitySteps: [],
+            pendingAsk: null,
+            updatedAt: Date.now(),
           };
-        }
 
-        const finalContent = result.ok ? result.text : result.error || t("axetCodeHome.chatGenericError");
-        // Bağlayıcıların bu mesajda açık olup olmadığı cevaba İLİŞTİRİLİYOR:
-        // "gerektiğinde" kipinde bu bir tahmin ve yanıldığında sebebi
-        // görünür olmalı (bkz. ChatBubble `usedConnectors`).
-        if (streamed) {
-          return {
-            ...s,
-            messages: s.messages.map((m) =>
-              m.id === streamed.id
-                ? {
-                    ...m,
-                    content: finalContent,
-                    error: !result.ok,
-                    streaming: false,
-                    usedConnectors: result.usedConnectors,
-                    restartedReason: result.restartedReason,
-                    ...withSteps
-                  }
-                : m
-            ),
-            ...done
+          // Araç dökümü CEVABA TAŞINIYOR. `done` oturumdaki canlı listeyi
+          // sıfırlıyor (bir sonraki tur temiz başlasın diye); buraya kopyalanmazsa
+          // ajanın bu turda ne yaptığı ekrandan tamamen silinirdi — eski davranış
+          // buydu ve "neden bu cevabı verdi" sorusunun karşılığı hiçbir yerde
+          // kalmıyordu. Boşsa alan hiç eklenmiyor: araç çalıştırmayan cevaplar
+          // geçmiş dosyasını boş dizilerle şişirmesin.
+          const steps = s.activitySteps.filter((step) => step.phase === "tool");
+          const withSteps = steps.length > 0 ? { steps } : {};
+
+          if (result.cancelled) {
+            // Kullanıcı durdurdu. Ekranda GÖRÜNEN yarım metni silmiyoruz —
+            // kullanıcı onu zaten okudu, kaybolması "bir şey ters gitti"
+            // hissi verirdi (ChatGPT de durdurulan cevabı bırakır). Hiç metin
+            // gelmediyse yarım mesajı tamamen kaldır, boş balon kalmasın.
+            if (!streamed) return { ...s, ...done };
+            const partial = streamed.content.trim();
+            return {
+              ...s,
+              messages: partial
+                ? s.messages.map((m) =>
+                    m.id === streamed.id
+                      ? {
+                          ...m,
+                          content: partial,
+                          streaming: false,
+                          ...withSteps,
+                        }
+                      : m,
+                  )
+                : s.messages.filter((m) => m.id !== streamed.id),
+              ...done,
+            };
+          }
+
+          const finalContent = result.ok
+            ? result.text
+            : result.error || t("axetCodeHome.chatGenericError");
+          // Bağlayıcıların bu mesajda açık olup olmadığı cevaba İLİŞTİRİLİYOR:
+          // "gerektiğinde" kipinde bu bir tahmin ve yanıldığında sebebi
+          // görünür olmalı (bkz. ChatBubble `usedConnectors`).
+          if (streamed) {
+            return {
+              ...s,
+              messages: s.messages.map((m) =>
+                m.id === streamed.id
+                  ? {
+                      ...m,
+                      content: finalContent,
+                      error: !result.ok,
+                      streaming: false,
+                      usedConnectors: result.usedConnectors,
+                      restartedReason: result.restartedReason,
+                      ...withSteps,
+                    }
+                  : m,
+              ),
+              ...done,
+            };
+          }
+          const assistantMessage: ChatMessage = {
+            id: crypto.randomUUID(),
+            role: "assistant",
+            content: finalContent,
+            error: !result.ok,
+            createdAt: Date.now(),
+            usedConnectors: result.usedConnectors,
+            restartedReason: result.restartedReason,
+            ...withSteps,
           };
-        }
-        const assistantMessage: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: "assistant",
-          content: finalContent,
-          error: !result.ok,
-          createdAt: Date.now(),
-          usedConnectors: result.usedConnectors,
-          restartedReason: result.restartedReason,
-          ...withSteps
-        };
-        return { ...s, messages: [...s.messages, assistantMessage], ...done };
-      })
-    );
+          return { ...s, messages: [...s.messages, assistantMessage], ...done };
+        }),
+      );
     },
-    [config?.axetWorkspaceDir, projects, t]
+    [config?.axetWorkspaceDir, projects, t],
   );
 
   // İlk mesaj: sohbet TAM OLUŞMUŞ hâlde (kullanıcı mesajı + başlık içinde)
@@ -1260,7 +1366,7 @@ export default function AxetCodeHome({
       role: "user",
       content: text,
       createdAt: now,
-      ...(attachments.length > 0 ? { attachments } : {})
+      ...(attachments.length > 0 ? { attachments } : {}),
     };
     const session: ChatSession = {
       id,
@@ -1293,7 +1399,7 @@ export default function AxetCodeHome({
       // Proje aidiyeti de aynı şekilde: sohbet ancak burada doğduğu için
       // "hangi projede açtım" bilgisi ilk mesaja kadar taslakta bekliyordu.
       projectId: newProjectId,
-      keepInGeneral: newKeepInGeneral
+      keepInGeneral: newKeepInGeneral,
     };
     setSessions((prev) => [...prev, session]);
     setActiveId(id);
@@ -1308,7 +1414,14 @@ export default function AxetCodeHome({
     // zaten proje klasöründeki `sap-context.md`den okuyor (bkz. runPrompt'taki
     // `sessionCwd` notu), ikinci kez ve uydurma bir "asistan turu" olarak
     // göndermek gereksiz.
-    await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel, session.cwd, session.projectId);
+    await runPrompt(
+      id,
+      promptWithAttachments(text, attachments),
+      [],
+      defaultModel,
+      session.cwd,
+      session.projectId,
+    );
   }, [
     defaultModel,
     newAttachments,
@@ -1317,7 +1430,7 @@ export default function AxetCodeHome({
     newKeepInGeneral,
     newProjectId,
     noticeMessage,
-    runPrompt
+    runPrompt,
   ]);
 
   const handleSend = useCallback(async () => {
@@ -1334,13 +1447,16 @@ export default function AxetCodeHome({
     const historyForCall: AxetChatMessage[] = session.messages
       .filter(isNotConnectNotice)
       .slice(-MAX_HISTORY_MESSAGES)
-      .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
+      .map((m) => ({
+        role: m.role,
+        content: promptWithAttachments(m.content, m.attachments ?? []),
+      }));
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
       content: text,
       createdAt: Date.now(),
-      ...(attachments.length > 0 ? { attachments } : {})
+      ...(attachments.length > 0 ? { attachments } : {}),
     };
     const isFirstMessage = session.messages.length === 0;
 
@@ -1349,17 +1465,19 @@ export default function AxetCodeHome({
         s.id === activeId
           ? {
               ...s,
-              title: isFirstMessage ? deriveTitle(text || attachments[0].name) : s.title,
+              title: isFirstMessage
+                ? deriveTitle(text || attachments[0].name)
+                : s.title,
               messages: [...s.messages, userMessage],
               draft: "",
               attachments: [],
               // Düzeltilmiş soru gönderildi: artık geri alınacak bir düzenleme
               // yok. Şerit burada silinmeseydi, kesilen kuyruğu yeni cevabın
               // ARDINA yapıştıran bir düğme olarak kalırdı.
-              editUndo: null
+              editUndo: null,
             }
-          : s
-      )
+          : s,
+      ),
     );
 
     // Bekleyen bir düzenleme varsa (`editUndo`) dallandırma ŞİMDİ kesinleşiyor:
@@ -1373,14 +1491,15 @@ export default function AxetCodeHome({
     // (bkz. axetChatTui.ts başlığı, madde 3). Yukarı ok da artık düzenlemeyi
     // tek tuşa indirdiği için bu yanlışlıkla çok kolay tetiklenir hâle
     // gelmişti.
-    if (session.editUndo) await window.api.resetChatHistory(activeId).catch(() => false);
+    if (session.editUndo)
+      await window.api.resetChatHistory(activeId).catch(() => false);
     await runPrompt(
       activeId,
       promptWithAttachments(text, attachments),
       historyForCall,
       session.model,
       session.cwd,
-      session.projectId
+      session.projectId,
     );
   }, [activeId, handleSendNew, runPrompt, sessions]);
 
@@ -1410,15 +1529,19 @@ export default function AxetCodeHome({
           return {
             ...s,
             messages: s.messages.slice(0, idx),
-            editUndo: { messages: s.messages.slice(idx), draft: s.draft, attachments: s.attachments },
+            editUndo: {
+              messages: s.messages.slice(idx),
+              draft: s.draft,
+              attachments: s.attachments,
+            },
             draft: content,
             // Ekler de composer'a geri geliyor: düzenlenen mesaj bir görselle
             // gönderildiyse, düzeltilmiş hâlinin o görseli kaybetmesi
             // kullanıcının istediği şey değil.
             attachments: s.messages[idx].attachments ?? [],
-            updatedAt: Date.now()
+            updatedAt: Date.now(),
           };
-        })
+        }),
       );
       requestAnimationFrame(() => {
         const el = textareaRef.current;
@@ -1429,7 +1552,7 @@ export default function AxetCodeHome({
         el.setSelectionRange(el.value.length, el.value.length);
       });
     },
-    [activeId]
+    [activeId],
   );
 
   // Düzenlemeyi geri al: kesilen kuyruk ve composer'ın eski hâli birlikte
@@ -1450,9 +1573,9 @@ export default function AxetCodeHome({
           draft: s.editUndo.draft,
           attachments: s.editUndo.attachments,
           editUndo: null,
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         };
-      })
+      }),
     );
   }, [activeId]);
 
@@ -1473,15 +1596,23 @@ export default function AxetCodeHome({
     while (userIndex >= 0 && msgs[userIndex].role !== "user") userIndex -= 1;
     if (userIndex < 0) return;
 
-    const prompt = promptWithAttachments(msgs[userIndex].content, msgs[userIndex].attachments ?? []);
+    const prompt = promptWithAttachments(
+      msgs[userIndex].content,
+      msgs[userIndex].attachments ?? [],
+    );
     const historyForCall: AxetChatMessage[] = msgs
       .slice(0, userIndex)
       .filter(isNotConnectNotice)
       .slice(-MAX_HISTORY_MESSAGES)
-      .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
+      .map((m) => ({
+        role: m.role,
+        content: promptWithAttachments(m.content, m.attachments ?? []),
+      }));
 
     setSessions((prev) =>
-      prev.map((s) => (s.id === activeId ? { ...s, messages: msgs.slice(0, lastIndex) } : s))
+      prev.map((s) =>
+        s.id === activeId ? { ...s, messages: msgs.slice(0, lastIndex) } : s,
+      ),
     );
     // BEKLENİYOR ama beklediği şey sıfırlamanın BİTMESİ değil, BAŞLAMASI:
     // çağrı, palet tuşu yazılır yazılmaz dönüyor. Tuşlar ile istem arasındaki
@@ -1489,7 +1620,14 @@ export default function AxetCodeHome({
     // Buradaki await'in işi sıralama: sıfırlama IPC'si gönderim IPC'sinden
     // sonra varsa palet, istem gittikten SONRA açılırdı.
     await window.api.resetChatHistory(activeId).catch(() => false);
-    await runPrompt(activeId, prompt, historyForCall, session.model, session.cwd, session.projectId);
+    await runPrompt(
+      activeId,
+      prompt,
+      historyForCall,
+      session.model,
+      session.cwd,
+      session.projectId,
+    );
   }, [activeId, runPrompt, sessions]);
 
   // Yarıda kalmış son cevabı KALDIĞI YERDEN sürdür (bkz. `interrupted`).
@@ -1507,7 +1645,8 @@ export default function AxetCodeHome({
     const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
     // Yalnızca SON mesaj sürdürülüyor; ChatSessionPane düğmeyi zaten sadece
     // orada çiziyor, bu ikinci kapı IPC gecikmesine karşı.
-    if (!last || last.role !== "assistant" || !last.interrupted || last.error) return;
+    if (!last || last.role !== "assistant" || !last.interrupted || last.error)
+      return;
     const targetId = last.id;
 
     // Geçmişe YARIM CEVAP DA giriyor (`slice` son mesajı kesmiyor): ajan neyi
@@ -1515,7 +1654,10 @@ export default function AxetCodeHome({
     const historyForCall: AxetChatMessage[] = msgs
       .filter(isNotConnectNotice)
       .slice(-MAX_HISTORY_MESSAGES)
-      .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
+      .map((m) => ({
+        role: m.role,
+        content: promptWithAttachments(m.content, m.attachments ?? []),
+      }));
 
     await runPrompt(
       activeId,
@@ -1523,7 +1665,7 @@ export default function AxetCodeHome({
       historyForCall,
       session.model,
       session.cwd,
-      session.projectId
+      session.projectId,
     );
 
     // İki balon tek balona indiriliyor: kullanıcı açısından bu BİR cevap, ikiye
@@ -1533,8 +1675,15 @@ export default function AxetCodeHome({
     setSessions((prev) =>
       prev.map((s) => {
         if (s.id !== activeId) return s;
-        const tail = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
-        if (!tail || tail.id === targetId || tail.role !== "assistant" || tail.error) return s;
+        const tail =
+          s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+        if (
+          !tail ||
+          tail.id === targetId ||
+          tail.role !== "assistant" ||
+          tail.error
+        )
+          return s;
         const extra = tail.content.trim();
         if (!extra) return s;
         // Araç dökümleri de birleşiyor. Boşsa alan HİÇ eklenmiyor: geçmiş
@@ -1554,13 +1703,13 @@ export default function AxetCodeHome({
                     content: `${m.content.trimEnd()}\n\n${extra}`,
                     // Artık yarım değil: uyarı da düğme de kalkıyor.
                     interrupted: false,
-                    ...mergeSteps(m)
+                    ...mergeSteps(m),
                   }
-                : m
+                : m,
             ),
-          updatedAt: Date.now()
+          updatedAt: Date.now(),
         };
-      })
+      }),
     );
   }, [activeId, runPrompt, sessions, t]);
 
@@ -1568,7 +1717,9 @@ export default function AxetCodeHome({
   // mesaja kadar orada duruyor ve o mesaj hiç gelmeyebilir.
   const handleDismissCancelStuck = useCallback(() => {
     if (!activeId) return;
-    setSessions((prev) => prev.map((s) => (s.id === activeId ? { ...s, cancelStuck: false } : s)));
+    setSessions((prev) =>
+      prev.map((s) => (s.id === activeId ? { ...s, cancelStuck: false } : s)),
+    );
   }, [activeId]);
 
   const handleCancel = useCallback(() => {
@@ -1586,11 +1737,15 @@ export default function AxetCodeHome({
       const requestId = activeSession?.requestId;
       if (!requestId) return;
       setSessions((prev) =>
-        prev.map((s) => (s.id === activeSession.id ? { ...s, pendingAsk: null } : s))
+        prev.map((s) =>
+          s.id === activeSession.id ? { ...s, pendingAsk: null } : s,
+        ),
       );
-      window.api.answerChatQuestion(requestId, index, customText).catch(() => {});
+      window.api
+        .answerChatQuestion(requestId, index, customText)
+        .catch(() => {});
     },
-    [activeSession]
+    [activeSession],
   );
 
   // Ekleri taslağa iliştir. Eskiden dosya YOLU taslak metnine yazılıyordu;
@@ -1603,24 +1758,41 @@ export default function AxetCodeHome({
     if (paths.length === 0) return;
     const merge = (existing: ChatAttachment[]): ChatAttachment[] => {
       const known = new Set(existing.map((a) => a.path));
-      return [...existing, ...toAttachments(paths.filter((p) => !known.has(p)))];
+      return [
+        ...existing,
+        ...toAttachments(paths.filter((p) => !known.has(p))),
+      ];
     };
     if (sessionId === NEW_SESSION_ID) {
       setNewAttachments(merge);
       return;
     }
-    setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, attachments: merge(s.attachments) } : s)));
-  }, []);
-
-  const removeAttachment = useCallback((sessionId: string, attachmentId: string) => {
-    if (sessionId === NEW_SESSION_ID) {
-      setNewAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
-      return;
-    }
     setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, attachments: s.attachments.filter((a) => a.id !== attachmentId) } : s))
+      prev.map((s) =>
+        s.id === sessionId ? { ...s, attachments: merge(s.attachments) } : s,
+      ),
     );
   }, []);
+
+  const removeAttachment = useCallback(
+    (sessionId: string, attachmentId: string) => {
+      if (sessionId === NEW_SESSION_ID) {
+        setNewAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+        return;
+      }
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === sessionId
+            ? {
+                ...s,
+                attachments: s.attachments.filter((a) => a.id !== attachmentId),
+              }
+            : s,
+        ),
+      );
+    },
+    [],
+  );
 
   const handleAttachFiles = useCallback(async () => {
     setAttaching(true);
@@ -1630,7 +1802,10 @@ export default function AxetCodeHome({
       addAttachments(activeId ?? NEW_SESSION_ID, paths);
       requestAnimationFrame(() => textareaRef.current?.focus());
     } catch (err) {
-      pushToast("error", t("axetCodeHome.attachFailed", { message: (err as Error).message }));
+      pushToast(
+        "error",
+        t("axetCodeHome.attachFailed", { message: (err as Error).message }),
+      );
     } finally {
       setAttaching(false);
     }
@@ -1646,16 +1821,17 @@ export default function AxetCodeHome({
     setQuery("");
   }, []);
 
-
   const handleDraftChange = useCallback(
     (value: string) => {
       if (!activeId) {
         setNewDraft(value);
         return;
       }
-      setSessions((prev) => prev.map((s) => (s.id === activeId ? { ...s, draft: value } : s)));
+      setSessions((prev) =>
+        prev.map((s) => (s.id === activeId ? { ...s, draft: value } : s)),
+      );
     },
-    [activeId]
+    [activeId],
   );
 
   // Mikrofon. Düğme bir AÇ/KAPA: ilk tık kaydı başlatır, ikinci tık bitirip
@@ -1695,7 +1871,10 @@ export default function AxetCodeHome({
         // İngilizce aynı düğmeden çalışıyor — kullanıcının uygulama dilini
         // değiştirmesi ya da bir seçici açması gerekmiyor. Sabit bir dil
         // vermek yalnızca eksik değil zararlı olurdu (ölçüm: dictation.ts).
-        const result = await window.api.transcribeDictation(recording.base64, "auto");
+        const result = await window.api.transcribeDictation(
+          recording.base64,
+          "auto",
+        );
         if (!result.ok || !result.text) {
           // Kodlu hatalar kendi metnine çevriliyor; whisper'ın kendi hata
           // satırı olduğu gibi gösteriliyor.
@@ -1720,11 +1899,18 @@ export default function AxetCodeHome({
           pushToast("error", t("axetCodeHome.dictateNoSpeech"));
           return;
         }
-        const current = activeId ? sessions.find((s) => s.id === activeId)?.draft ?? "" : newDraft;
-        handleDraftChange(current.length > 0 ? `${current.trimEnd()} ${spoken}` : spoken);
+        const current = activeId
+          ? (sessions.find((s) => s.id === activeId)?.draft ?? "")
+          : newDraft;
+        handleDraftChange(
+          current.length > 0 ? `${current.trimEnd()} ${spoken}` : spoken,
+        );
         requestAnimationFrame(() => textareaRef.current?.focus());
       } catch (err) {
-        pushToast("error", t("axetCodeHome.dictateFailed", { message: (err as Error).message }));
+        pushToast(
+          "error",
+          t("axetCodeHome.dictateFailed", { message: (err as Error).message }),
+        );
       } finally {
         setDictationState("idle");
       }
@@ -1738,7 +1924,10 @@ export default function AxetCodeHome({
     } catch (err) {
       // Mikrofon yok, başka bir uygulamada kullanımda ya da politika engelli.
       setDictationState("idle");
-      pushToast("error", t("axetCodeHome.dictateMicFailed", { message: (err as Error).message }));
+      pushToast(
+        "error",
+        t("axetCodeHome.dictateMicFailed", { message: (err as Error).message }),
+      );
     }
   }, [activeId, handleDraftChange, newDraft, pushToast, sessions, t]);
 
@@ -1777,7 +1966,8 @@ export default function AxetCodeHome({
   const drainStreams = useCallback(() => {
     const q = streamQueue.current;
     if (q.size === 0) {
-      if (streamTimer.current !== null) window.clearInterval(streamTimer.current);
+      if (streamTimer.current !== null)
+        window.clearInterval(streamTimer.current);
       streamTimer.current = null;
       return;
     }
@@ -1795,11 +1985,14 @@ export default function AxetCodeHome({
       prev.map((s) => {
         const text = s.requestId ? slice.get(s.requestId) : undefined;
         if (!text) return s;
-        const last = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+        const last =
+          s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
         if (last?.streaming === true) {
           return {
             ...s,
-            messages: s.messages.map((m) => (m.id === last.id ? { ...m, content: m.content + text } : m))
+            messages: s.messages.map((m) =>
+              m.id === last.id ? { ...m, content: m.content + text } : m,
+            ),
           };
         }
         const streamingMessage: ChatMessage = {
@@ -1807,10 +2000,10 @@ export default function AxetCodeHome({
           role: "assistant",
           content: text,
           createdAt: Date.now(),
-          streaming: true
+          streaming: true,
         };
         return { ...s, messages: [...s.messages, streamingMessage] };
-      })
+      }),
     );
   }, []);
 
@@ -1828,7 +2021,8 @@ export default function AxetCodeHome({
   // Bileşen sökülürse zamanlayıcı arkada dönmesin.
   useEffect(() => {
     return () => {
-      if (streamTimer.current !== null) window.clearInterval(streamTimer.current);
+      if (streamTimer.current !== null)
+        window.clearInterval(streamTimer.current);
       streamTimer.current = null;
       streamQueue.current.clear();
     };
@@ -1845,8 +2039,10 @@ export default function AxetCodeHome({
         // Eşleşme yoksa AYNI dizi döndürülüyor: geç kalmış bir bildirim
         // (istek çoktan bitmiş) boşuna bir render tetiklemesin.
         prev.some((s) => s.requestId === requestId)
-          ? prev.map((s) => (s.requestId === requestId ? applyActivity(s, activity) : s))
-          : prev
+          ? prev.map((s) =>
+              s.requestId === requestId ? applyActivity(s, activity) : s,
+            )
+          : prev,
       );
     });
   }, []);
@@ -1865,11 +2061,11 @@ export default function AxetCodeHome({
                     ...s,
                     todos: progress.todos,
                     contextTokens: progress.contextTokens,
-                    contextLimit: progress.contextLimit
+                    contextLimit: progress.contextLimit,
                   }
-                : s
+                : s,
             )
-          : prev
+          : prev,
       );
     });
   }, []);
@@ -1889,7 +2085,7 @@ export default function AxetCodeHome({
       setSessions((prev) =>
         prev.some((s) => s.id === chatId)
           ? prev.map((s) => (s.id === chatId ? { ...s, cancelStuck: true } : s))
-          : prev
+          : prev,
       );
     });
   }, []);
@@ -1902,22 +2098,33 @@ export default function AxetCodeHome({
   // listesinde DEĞİL: `sessions` akan bir cevapta saniyede onlarca kez
   // değişiyor ve efekti her seferinde söküp takmak, debounce sayacını sürekli
   // sıfırlayarak ısıtmanın hiç çalışmamasına yol açardı.
-  const prewarmTargetRef = useRef<{ cwd: string; model: AxetModelEntry | null; chatId: string }>({
+  const prewarmTargetRef = useRef<{
+    cwd: string;
+    model: AxetModelEntry | null;
+    chatId: string;
+  }>({
     cwd: "",
     model: null,
-    chatId: ""
+    chatId: "",
   });
-  const activeDraft = activeId ? (sessions.find((s) => s.id === activeId)?.draft ?? "") : newDraft;
+  const activeDraft = activeId
+    ? (sessions.find((s) => s.id === activeId)?.draft ?? "")
+    : newDraft;
   useEffect(() => {
-    const session = activeId ? (sessions.find((s) => s.id === activeId) ?? null) : null;
+    const session = activeId
+      ? (sessions.find((s) => s.id === activeId) ?? null)
+      : null;
     prewarmTargetRef.current = {
-      cwd: (session ? session.cwd : (effectiveNewBinding?.cwd ?? null)) || config?.axetWorkspaceDir || "",
+      cwd:
+        (session ? session.cwd : (effectiveNewBinding?.cwd ?? null)) ||
+        config?.axetWorkspaceDir ||
+        "",
       model: session ? session.model : defaultModel,
       // Yeni sohbette kimlik henüz "yok" değil, ÖNCEDEN üretilmiş
       // (newChatIdRef): ısıtılan kalıcı oturum ile birazdan oluşacak sohbet
       // aynı kimliği paylaşsın diye. Paylaşmasalardı ilk mesaj ısıtmadan hiç
       // faydalanamaz, ısınan oturum da sahipsiz kalırdı.
-      chatId: session ? session.id : newChatIdRef.current
+      chatId: session ? session.id : newChatIdRef.current,
     };
   });
 
@@ -1943,7 +2150,9 @@ export default function AxetCodeHome({
   // sohbet"e basmadıkça (tohum) ya da bağlam gerçekten değişmedikçe (SAP
   // sistemi bağlandı / bir uygulama bağlandı) kartlar yerinde duruyor.
   const hasSapContext = recentEntries.length > 0;
-  const hasConnectorContext = Object.values(config?.connectorEnabled ?? {}).some(Boolean);
+  const hasConnectorContext = Object.values(
+    config?.connectorEnabled ?? {},
+  ).some(Boolean);
   const suggestionKeys = useMemo(() => {
     const eligible = SUGGESTION_POOL.filter(({ scope }) => {
       if (scope === "sap") return hasSapContext;
@@ -1957,7 +2166,10 @@ export default function AxetCodeHome({
 
   // En son dokunulan sohbet en üstte. Sohbetler artık kalıcı olduğu için
   // ekleme sırası (eskiler üstte) birkaç gün içinde kullanılamaz hâle gelir.
-  const orderedSessions = useMemo(() => sessions.slice().sort((a, b) => b.updatedAt - a.updatedAt), [sessions]);
+  const orderedSessions = useMemo(
+    () => sessions.slice().sort((a, b) => b.updatedAt - a.updatedAt),
+    [sessions],
+  );
 
   // `toLocaleLowerCase("tr")`: "İ"/"I" Türkçede ASCII kurallarıyla
   // küçültülemez — düz `toLowerCase()` ile "İSTEK" araması "istek" başlıklı
@@ -1970,7 +2182,9 @@ export default function AxetCodeHome({
         s.title.toLocaleLowerCase("tr").includes(normalizedQuery) ||
         // Başlık ilk mesajdan türetildiği için başlık araması tek başına
         // yetmiyor — sohbetin İÇİNDE geçen bir terimle de bulunabilmeli.
-        s.messages.some((m) => m.content.toLocaleLowerCase("tr").includes(normalizedQuery))
+        s.messages.some((m) =>
+          m.content.toLocaleLowerCase("tr").includes(normalizedQuery),
+        ),
     );
   }, [normalizedQuery, orderedSessions]);
 
@@ -1992,7 +2206,10 @@ export default function AxetCodeHome({
   const PROJECTS_SECTION_KEY = "__projects__";
   const sessionGroups = useMemo(() => {
     const byProject = new Map<string, ChatSession[]>();
-    const sap = new Map<string, { key: string; cwd: string; label: string; sessions: ChatSession[] }>();
+    const sap = new Map<
+      string,
+      { key: string; cwd: string; label: string; sessions: ChatSession[] }
+    >();
     const general: ChatSession[] = [];
     // Silinmiş bir projeye işaret eden `projectId` YOK SAYILIYOR: sohbet
     // görünmez bir grubun içinde kaybolmak yerine sistemine/geneline düşüyor.
@@ -2025,14 +2242,14 @@ export default function AxetCodeHome({
           // vereceği klasör yolu ise ÖZGÜN hâliyle gerekiyor.
           cwd,
           label: s.sapLabel || cwd.split(/[\\/]/).filter(Boolean).pop() || cwd,
-          sessions: [s]
+          sessions: [s],
         });
       }
     }
     // `visibleSessions` zaten en yeniden eskiye sıralı, dolayısıyla her grubun
     // ilk üyesi o grubun en tazesi — gruplar da ona göre sıralanıyor.
     const sapGroups = Array.from(sap.values()).sort(
-      (a, b) => b.sessions[0].updatedAt - a.sessions[0].updatedAt
+      (a, b) => b.sessions[0].updatedAt - a.sessions[0].updatedAt,
     );
     // Projeler SOHBETSİZ de listeleniyor (SAP gruplarının aksine): yeni
     // kurulan bir proje boş doğuyor ve görünmeseydi kullanıcı onu kurduğunu
@@ -2040,12 +2257,16 @@ export default function AxetCodeHome({
     // aramanın sonucu, eşleşmesi olmayan başlıklarla dolmamalı.
     const searching = Boolean(normalizedQuery);
     const projectGroups = projects
-      .map((project) => ({ key: project.id, project, sessions: byProject.get(project.id) ?? [] }))
+      .map((project) => ({
+        key: project.id,
+        project,
+        sessions: byProject.get(project.id) ?? [],
+      }))
       .filter((g) => !searching || g.sessions.length > 0)
       .sort(
         (a, b) =>
           (b.sessions[0]?.updatedAt ?? b.project.createdAt) -
-          (a.sessions[0]?.updatedAt ?? a.project.createdAt)
+          (a.sessions[0]?.updatedAt ?? a.project.createdAt),
       );
     return { projectGroups, sapGroups, general };
   }, [normalizedQuery, projects, visibleSessions]);
@@ -2053,13 +2274,16 @@ export default function AxetCodeHome({
   // Yalnızca DARALTILMIŞ olanlar tutuluyor: varsayılan açık. Daraltma isteğe
   // bağlı bir sadeleştirme, açılışta gizlenmesi gereken bir şey değil.
   // Kalıcı değil (oturum içi) — kenar çubuğunun açık/kapalı durumu gibi.
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [collapsedGroups, setCollapsedGroups] = useState<
+    Record<string, boolean>
+  >({});
   const toggleGroup = useCallback((key: string) => {
     setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
   // Arama sırasında daraltma YOK SAYILIYOR: eşleşen bir sohbet kapalı bir
   // grubun içinde kalsaydı arama bozuk görünürdü.
-  const groupOpen = (key: string) => Boolean(normalizedQuery) || !collapsedGroups[key];
+  const groupOpen = (key: string) =>
+    Boolean(normalizedQuery) || !collapsedGroups[key];
 
   // Klavye kısayolları. Ctrl+N (yeni sohbet) yukarıda, sohbet İÇİ arama (Ctrl+F)
   // ChatSessionPane'de — buradakiler sohbetler ARASI olanlar.
@@ -2076,7 +2300,9 @@ export default function AxetCodeHome({
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
-      const session = activeId ? sessions.find((s) => s.id === activeId) ?? null : null;
+      const session = activeId
+        ? (sessions.find((s) => s.id === activeId) ?? null)
+        : null;
       // Liste açıkken Esc ÖNCE listeyi kapatır — arkada bir tur sürüyorsa
       // yardım kutusunu kapatmak isterken cevabı iptal etmiş olmayalım.
       if (e.key === "Escape" && shortcutsOpen) {
@@ -2089,7 +2315,10 @@ export default function AxetCodeHome({
         window.api.cancelChatMessage(session.requestId).catch(() => {});
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        (e.key === "ArrowUp" || e.key === "ArrowDown")
+      ) {
         if (orderedSessions.length === 0) return;
         e.preventDefault();
         const at = orderedSessions.findIndex((s) => s.id === activeId);
@@ -2099,7 +2328,8 @@ export default function AxetCodeHome({
             ? e.key === "ArrowDown"
               ? 0
               : orderedSessions.length - 1
-            : (at + (e.key === "ArrowDown" ? 1 : -1) + orderedSessions.length) % orderedSessions.length;
+            : (at + (e.key === "ArrowDown" ? 1 : -1) + orderedSessions.length) %
+              orderedSessions.length;
         setActiveId(orderedSessions[next].id);
         return;
       }
@@ -2116,11 +2346,17 @@ export default function AxetCodeHome({
     return () => window.removeEventListener("keydown", onKey);
   }, [active, activeId, orderedSessions, sessions, shortcutsOpen]);
 
-  const deleteTarget = deleteId ? sessions.find((s) => s.id === deleteId) ?? null : null;
-  const projectDialog = projectDialogId ? projects.find((p) => p.id === projectDialogId) ?? null : null;
+  const deleteTarget = deleteId
+    ? (sessions.find((s) => s.id === deleteId) ?? null)
+    : null;
+  const projectDialog = projectDialogId
+    ? (projects.find((p) => p.id === projectDialogId) ?? null)
+    : null;
   // "Projeye taşı" menüsünün açık olduğu sohbet — o an hangi projede olduğunu
   // (ve "projeden çıkar"ın gösterilip gösterilmeyeceğini) buradan okuyor.
-  const moveTarget = moveMenu ? sessions.find((s) => s.id === moveMenu.sessionId) ?? null : null;
+  const moveTarget = moveMenu
+    ? (sessions.find((s) => s.id === moveMenu.sessionId) ?? null)
+    : null;
 
   // Sohbete özel klasörü olmayan sohbetlerin kökü/çalışma klasörü.
   const workspaceDir = config?.axetWorkspaceDir ?? "";
@@ -2130,10 +2366,15 @@ export default function AxetCodeHome({
   // ekranı başkasına gösteren biri adını kaldırabilmeli. Ayrıca oturum adı
   // bazı kurumlarda sicil numarası oluyor ("10134570, günaydın" saçma olurdu),
   // o yüzden ad kullanıcı tarafından düzeltilebilir olmak zorunda.
-  const baseGreeting = t(`axetCodeHome.greeting.${greeting}` as Parameters<typeof t>[0]);
+  const baseGreeting = t(
+    `axetCodeHome.greeting.${greeting}` as Parameters<typeof t>[0],
+  );
   const displayName = config?.chatDisplayName?.trim() ?? "";
   const greetingText = displayName
-    ? t("axetCodeHome.greetingWithName", { greeting: baseGreeting, name: displayName })
+    ? t("axetCodeHome.greetingWithName", {
+        greeting: baseGreeting,
+        name: displayName,
+      })
     : baseGreeting;
 
   // Boş "yeni sohbet" yüzeyi. Gerçek bir kayıt değil — sadece ChatSessionPane'in
@@ -2156,7 +2397,7 @@ export default function AxetCodeHome({
     contextTokens: 0,
     contextLimit: 0,
     editUndo: null,
-    cancelStuck: false
+    cancelStuck: false,
   };
 
   // Kenar çubuğundaki tek satır. Ayrı bir fonksiyon çünkü artık iki kat
@@ -2166,7 +2407,10 @@ export default function AxetCodeHome({
     const isActive = activeId === session.id;
     if (renamingId === session.id) {
       return (
-        <div key={session.id} className="flex items-center gap-2 rounded-md border border-base-700 bg-base-800 px-2.5 py-1.5">
+        <div
+          key={session.id}
+          className="flex items-center gap-2 rounded-md border border-base-700 bg-base-800 px-2.5 py-1.5"
+        >
           <MessageSquare size={14} className="shrink-0 text-accent-400" />
           <input
             autoFocus
@@ -2216,7 +2460,10 @@ export default function AxetCodeHome({
             : "border-transparent text-slate-400 hover:bg-base-800/60 hover:text-slate-300"
         }`}
       >
-        <MessageSquare size={14} className={`shrink-0 ${isActive ? "text-accent-400" : "text-slate-500"}`} />
+        <MessageSquare
+          size={14}
+          className={`shrink-0 ${isActive ? "text-accent-400" : "text-slate-500"}`}
+        />
         <span className="min-w-0 flex-1 truncate">{session.title}</span>
         {session.pending && (
           <span className="relative flex h-2 w-2 shrink-0">
@@ -2238,7 +2485,10 @@ export default function AxetCodeHome({
               setMoveMenu({
                 sessionId: session.id,
                 x: rect.left,
-                y: Math.min(rect.bottom + 4, window.innerHeight - MOVE_MENU_MAX_H - 8)
+                y: Math.min(
+                  rect.bottom + 4,
+                  window.innerHeight - MOVE_MENU_MAX_H - 8,
+                ),
               });
             }}
             title={t("axetCodeHome.moveToProject")}
@@ -2372,14 +2622,22 @@ export default function AxetCodeHome({
               if (sidebarOpen) clearSearch();
               setSidebarOpen((v) => !v);
             }}
-            title={sidebarOpen ? t("axetCodeHome.collapseSidebar") : t("axetCodeHome.expandSidebar")}
+            title={
+              sidebarOpen
+                ? t("axetCodeHome.collapseSidebar")
+                : t("axetCodeHome.expandSidebar")
+            }
             className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-base-800 hover:text-slate-200 ${
               sidebarOpen ? "" : "mx-auto"
             }`}
           >
             {/* İkon YÖN gösteriyor: kapalıyken "aç", açıkken "kapat". Tek bir
                 ☰ ikonu, düğmenin ne yapacağını söylemiyordu. */}
-            {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeft size={16} />}
+            {sidebarOpen ? (
+              <PanelLeftClose size={16} />
+            ) : (
+              <PanelLeft size={16} />
+            )}
           </button>
         </div>
 
@@ -2389,26 +2647,40 @@ export default function AxetCodeHome({
             rengiyle aynı tonda dar bir haptı; ekranın en sık kullanılan
             düğmesi olduğu hâlde sıradan bir satır gibi duruyordu.
             Daraltılmışken metin gidiyor, düğme kalıyor. */}
-        <div className="shrink-0 px-2.5 pb-2.5">
+        {/* İki eylem YAN YANA, ikisi de renkli ve yazılı (kullanıcı isteği,
+            2026-09-06). Proje kurma eskiden "PROJELER" başlığının içindeki
+            küçük bir "+"tı: hem zor görülüyordu hem de bölümü daraltmamak için
+            tıklamayı durdurmak zorundaydı.
+
+            İkinci renk şart: iki düğme de vurgu mavisi olsaydı hangisinin ne
+            yaptığı bir bakışta okunmazdı (bkz. --project-500-rgb).
+
+            Ctrl+N rozeti düğmenin YÜZÜNDEN kalktı, yalnızca tooltip'te: 272px
+            kenar çubuğunda iki yazılı düğme + rozet aynı satıra sığmıyor,
+            rozeti bırakmak "Yeni sohbet" yazısını kırpardı. Daraltılmışken
+            ikisi alt alta 9x9 simge. */}
+        <div className={`flex shrink-0 gap-1.5 px-2.5 pb-2.5 ${sidebarOpen ? "" : "flex-col"}`}>
           {/* onClick'teki sarmalayıcı ok fonksiyonu şart: `handleNewSession`'ı
               doğrudan geçmek MouseEvent'i `binding` argümanı sanardı. */}
           <button
             onClick={() => handleNewSession()}
             title={`${t("axetCodeHome.newSession")} (Ctrl+N)`}
-            className={`flex h-9 cursor-pointer items-center rounded-md border border-accent-500/30 bg-accent-500/10 text-[13px] font-medium text-accent-400 transition hover:border-accent-500/50 hover:bg-accent-500/20 ${
-              sidebarOpen ? "w-full gap-2 px-3" : "mx-auto w-9 justify-center"
+            className={`flex h-9 cursor-pointer items-center rounded-md border border-accent-500/30 bg-accent-500/10 text-[12px] font-medium text-accent-400 transition hover:border-accent-500/50 hover:bg-accent-500/20 ${
+              sidebarOpen ? "min-w-0 flex-1 justify-center gap-1.5 px-2" : "mx-auto w-9 justify-center"
             }`}
           >
-            <Plus size={16} className="shrink-0" />
-            {sidebarOpen && (
-              <>
-                <span className="flex-1 text-left">{t("axetCodeHome.newSession")}</span>
-                {/* Kısayol düğmenin ÜSTÜNDE yazıyor, sadece tooltip'te değil —
-                    tooltip'i görmek için beklemek gerekiyor, bu satırı
-                    görmek için değil. */}
-                <span className="text-[10px] tracking-wide text-accent-400/60">Ctrl+N</span>
-              </>
-            )}
+            <Plus size={15} className="shrink-0" />
+            {sidebarOpen && <span className="min-w-0 truncate">{t("axetCodeHome.newSession")}</span>}
+          </button>
+          <button
+            onClick={handleCreateProject}
+            title={t("axetCodeHome.newProject")}
+            className={`flex h-9 cursor-pointer items-center rounded-md border border-[rgb(var(--project-500-rgb)/0.35)] bg-[rgb(var(--project-500-rgb)/0.12)] text-[12px] font-medium text-[var(--project-soft-text)] transition hover:border-[rgb(var(--project-500-rgb)/0.6)] hover:bg-[rgb(var(--project-500-rgb)/0.22)] ${
+              sidebarOpen ? "min-w-0 flex-1 justify-center gap-1.5 px-2" : "mx-auto w-9 justify-center"
+            }`}
+          >
+            <FolderPlus size={15} className="shrink-0" />
+            {sidebarOpen && <span className="min-w-0 truncate">{t("axetCodeHome.newProject")}</span>}
           </button>
         </div>
 
@@ -2420,109 +2692,114 @@ export default function AxetCodeHome({
               {/* Projeler — kullanıcının kendi kurduğu, kendi talimatını
                   taşıyan gruplar (ChatGPT'nin "Projects" karşılığı, kullanıcı
                   isteği 2026-09-06). SAP grupları bunun ALTINDA ve otomatik.
-                  Bölüm başlığı proje yokken de görünüyor: tek kapısı buradaki
-                  "+" düğmesi olduğu için gizlenseydi özellik keşfedilemezdi. */}
-              <button
-                onClick={() => toggleGroup(PROJECTS_SECTION_KEY)}
-                aria-expanded={groupOpen(PROJECTS_SECTION_KEY)}
-                className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
-              >
-                {groupOpen(PROJECTS_SECTION_KEY) ? (
-                  <ChevronDown size={12} className="shrink-0" />
-                ) : (
-                  <ChevronRight size={12} className="shrink-0" />
-                )}
-                <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.projectsTitle")}</span>
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => {
-                    // Başlık daraltmayı açıp kapatıyor; "+" onun İÇİNDE bir
-                    // düğme olduğu için olayı burada durdurmak şart, yoksa yeni
-                    // proje bölümü de kapatırdı.
-                    e.stopPropagation();
-                    handleCreateProject();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handleCreateProject();
+                  Proje yokken bölüm hiç çizilmiyor: kurma düğmesi artık "Yeni
+                  sohbet"in yanında, yani boş başlık bir keşif kapısı değil
+                  sadece gürültü olurdu. */}
+              {sessionGroups.projectGroups.length > 0 && (
+                <>
+                  <button
+                    onClick={() => toggleGroup(PROJECTS_SECTION_KEY)}
+                    aria-expanded={groupOpen(PROJECTS_SECTION_KEY)}
+                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
+                  >
+                    {groupOpen(PROJECTS_SECTION_KEY) ? (
+                      <ChevronDown size={12} className="shrink-0" />
+                    ) : (
+                      <ChevronRight size={12} className="shrink-0" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">
+                      {t("axetCodeHome.projectsTitle")}
+                    </span>
+                    <span className="shrink-0 normal-case tracking-normal">
+                      {projects.length}
+                    </span>
+                  </button>
+                  <div
+                    className={
+                      groupOpen(PROJECTS_SECTION_KEY) ? "space-y-0.5" : "hidden"
                     }
-                  }}
-                  title={t("axetCodeHome.newProject")}
-                  className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
-                >
-                  <FolderPlus size={13} />
-                </span>
-              </button>
-              <div className={groupOpen(PROJECTS_SECTION_KEY) ? "space-y-0.5" : "hidden"}>
-                {sessionGroups.projectGroups.map((group) => {
-                  const open = groupOpen(group.key);
-                  return (
-                    <div key={group.key}>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => toggleGroup(group.key)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            toggleGroup(group.key);
-                          }
-                        }}
-                        aria-expanded={open}
-                        title={group.project.name}
-                        className="group/proj flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
-                      >
-                        {open ? (
-                          <ChevronDown size={12} className="shrink-0 text-slate-500" />
-                        ) : (
-                          <ChevronRight size={12} className="shrink-0 text-slate-500" />
-                        )}
-                        <FolderOpen size={12} className="shrink-0 text-accent-400" />
-                        <span className="min-w-0 flex-1 truncate font-medium">{group.project.name}</span>
-                        {/* Projede yeni sohbet: sohbet, projenin talimatını
+                  >
+                    {sessionGroups.projectGroups.map((group) => {
+                      const open = groupOpen(group.key);
+                      return (
+                        <div key={group.key}>
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => toggleGroup(group.key)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggleGroup(group.key);
+                              }
+                            }}
+                            aria-expanded={open}
+                            title={group.project.name}
+                            className="group/proj flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                          >
+                            {open ? (
+                              <ChevronDown
+                                size={12}
+                                className="shrink-0 text-slate-500"
+                              />
+                            ) : (
+                              <ChevronRight
+                                size={12}
+                                className="shrink-0 text-slate-500"
+                              />
+                            )}
+                            <FolderOpen
+                              size={12}
+                              className="shrink-0 text-accent-400"
+                            />
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {group.project.name}
+                            </span>
+                            {/* Projede yeni sohbet: sohbet, projenin talimatını
                             devralarak doğuyor (bkz. handleSendNew). */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleNewSession(null, null, group.project.id);
-                          }}
-                          title={t("axetCodeHome.newChatInProject")}
-                          className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
-                        >
-                          <Plus size={12} />
-                        </button>
-                        {/* Ad, talimat ve silme TEK kutuda (ChatProjectDialog):
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleNewSession(null, null, group.project.id);
+                              }}
+                              title={t("axetCodeHome.newChatInProject")}
+                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
+                            >
+                              <Plus size={12} />
+                            </button>
+                            {/* Ad, talimat ve silme TEK kutuda (ChatProjectDialog):
                             başlığa dört düğme sığmıyordu. */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setProjectDialogId(group.project.id);
-                          }}
-                          title={t("axetCodeHome.projectSettings")}
-                          className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
-                        >
-                          <Settings2 size={12} />
-                        </button>
-                        <span className="shrink-0 text-[10px] text-slate-500">{group.sessions.length}</span>
-                      </div>
-                      {open && (
-                        <div className="ml-2 space-y-0.5 border-l border-base-800 pl-1.5">
-                          {group.sessions.length > 0 ? (
-                            group.sessions.map(renderSessionRow)
-                          ) : (
-                            <div className="px-2 py-1.5 text-[11px] leading-relaxed text-slate-500">
-                              {t("axetCodeHome.projectEmpty")}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setProjectDialogId(group.project.id);
+                              }}
+                              title={t("axetCodeHome.projectSettings")}
+                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
+                            >
+                              <Settings2 size={12} />
+                            </button>
+                            <span className="shrink-0 text-[10px] text-slate-500">
+                              {group.sessions.length}
+                            </span>
+                          </div>
+                          {open && (
+                            <div className="ml-2 space-y-0.5 border-l border-base-800 pl-1.5">
+                              {group.sessions.length > 0 ? (
+                                group.sessions.map(renderSessionRow)
+                              ) : (
+                                <div className="px-2 py-1.5 text-[11px] leading-relaxed text-slate-500">
+                                  {t("axetCodeHome.projectEmpty")}
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
               {/* SAP sohbetleri: sistem başına bir daraltılabilir grup.
                   Bölüm etiketi yalnızca gerçekten SAP sohbeti varsa
@@ -2544,10 +2821,18 @@ export default function AxetCodeHome({
                     ) : (
                       <ChevronRight size={12} className="shrink-0" />
                     )}
-                    <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.sapChatsTitle")}</span>
-                    <span className="shrink-0 normal-case tracking-normal">{sessionGroups.sapGroups.length}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {t("axetCodeHome.sapChatsTitle")}
+                    </span>
+                    <span className="shrink-0 normal-case tracking-normal">
+                      {sessionGroups.sapGroups.length}
+                    </span>
                   </button>
-                  <div className={groupOpen(SAP_SECTION_KEY) ? "space-y-0.5" : "hidden"}>
+                  <div
+                    className={
+                      groupOpen(SAP_SECTION_KEY) ? "space-y-0.5" : "hidden"
+                    }
+                  >
                     {sessionGroups.sapGroups.map((group) => {
                       const open = groupOpen(group.key);
                       return (
@@ -2559,12 +2844,23 @@ export default function AxetCodeHome({
                             className="group/sys flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
                           >
                             {open ? (
-                              <ChevronDown size={12} className="shrink-0 text-slate-500" />
+                              <ChevronDown
+                                size={12}
+                                className="shrink-0 text-slate-500"
+                              />
                             ) : (
-                              <ChevronRight size={12} className="shrink-0 text-slate-500" />
+                              <ChevronRight
+                                size={12}
+                                className="shrink-0 text-slate-500"
+                              />
                             )}
-                            <Server size={12} className="shrink-0 text-[var(--navy-icon)]" />
-                            <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
+                            <Server
+                              size={12}
+                              className="shrink-0 text-[var(--navy-icon)]"
+                            />
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {group.label}
+                            </span>
                             {/* Bu sistemde yeni sohbet. Elle açılan "Yeni
                                 sohbet" artık "Sohbetler"e düştüğü için, bir
                                 sistemin altına bilerek sohbet eklemenin TEK
@@ -2576,13 +2872,19 @@ export default function AxetCodeHome({
                               tabIndex={0}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleNewSession({ cwd: group.cwd, label: group.label });
+                                handleNewSession({
+                                  cwd: group.cwd,
+                                  label: group.label,
+                                });
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  handleNewSession({ cwd: group.cwd, label: group.label });
+                                  handleNewSession({
+                                    cwd: group.cwd,
+                                    label: group.label,
+                                  });
                                 }
                               }}
                               title={t("axetCodeHome.newChatInSystem")}
@@ -2590,7 +2892,9 @@ export default function AxetCodeHome({
                             >
                               <Plus size={12} />
                             </span>
-                            <span className="shrink-0 text-[10px] text-slate-500">{group.sessions.length}</span>
+                            <span className="shrink-0 text-[10px] text-slate-500">
+                              {group.sessions.length}
+                            </span>
                           </button>
                           {/* Sol kenar çizgisi: satırların hangi gruba ait
                               olduğunu daraltma durumundan bağımsız gösteriyor. */}
@@ -2610,7 +2914,9 @@ export default function AxetCodeHome({
                   daraltılabilir — SAP grupları daraltılıp bu bırakılsaydı
                   tutarsız olurdu. */}
               {sessionGroups.general.length > 0 && (
-                <div className={sessionGroups.sapGroups.length > 0 ? "mt-1" : ""}>
+                <div
+                  className={sessionGroups.sapGroups.length > 0 ? "mt-1" : ""}
+                >
                   <button
                     onClick={() => toggleGroup(GENERAL_GROUP_KEY)}
                     aria-expanded={groupOpen(GENERAL_GROUP_KEY)}
@@ -2621,11 +2927,17 @@ export default function AxetCodeHome({
                     ) : (
                       <ChevronRight size={12} className="shrink-0" />
                     )}
-                    <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.generalChatsTitle")}</span>
-                    <span className="shrink-0 normal-case tracking-normal">{sessionGroups.general.length}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {t("axetCodeHome.generalChatsTitle")}
+                    </span>
+                    <span className="shrink-0 normal-case tracking-normal">
+                      {sessionGroups.general.length}
+                    </span>
                   </button>
                   {groupOpen(GENERAL_GROUP_KEY) && (
-                    <div className="space-y-0.5">{sessionGroups.general.map(renderSessionRow)}</div>
+                    <div className="space-y-0.5">
+                      {sessionGroups.general.map(renderSessionRow)}
+                    </div>
                   )}
                 </div>
               )}
@@ -2638,8 +2950,12 @@ export default function AxetCodeHome({
 
               {sessions.length === 0 && (
                 <div className="mt-1 rounded-md border border-base-800 bg-base-950 px-3 py-3 text-center">
-                  <div className="text-[12px] font-medium text-slate-400">{t("axetCodeHome.emptyTitle")}</div>
-                  <div className="mt-1 text-[11px] leading-relaxed text-slate-500">{t("axetCodeHome.emptyHint")}</div>
+                  <div className="text-[12px] font-medium text-slate-400">
+                    {t("axetCodeHome.emptyTitle")}
+                  </div>
+                  <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    {t("axetCodeHome.emptyHint")}
+                  </div>
                 </div>
               )}
             </div>
@@ -2662,12 +2978,23 @@ export default function AxetCodeHome({
                     return (
                       <button
                         key={entry.itemUuid}
-                        onClick={() => onQuickConnectSap(entry.path, entry.service, entry.itemUuid)}
+                        onClick={() =>
+                          onQuickConnectSap(
+                            entry.path,
+                            entry.service,
+                            entry.itemUuid,
+                          )
+                        }
                         title={entry.path.join(" / ")}
                         className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
                       >
-                        <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
-                        <span className="min-w-0 flex-1 truncate">{entry.service.name}</span>
+                        <Server
+                          size={13}
+                          className="shrink-0 text-[var(--navy-icon)]"
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {entry.service.name}
+                        </span>
                         {tier && <TierBadge tier={tier} />}
                         <StatusDot state={state} />
                       </button>
@@ -2723,16 +3050,28 @@ export default function AxetCodeHome({
             onDictate={handleDictate}
             dictationState={dictationState}
             onFilesResolved={(paths) => addAttachments(session.id, paths)}
-            onRemoveAttachment={(attachmentId) => removeAttachment(session.id, attachmentId)}
+            onRemoveAttachment={(attachmentId) =>
+              removeAttachment(session.id, attachmentId)
+            }
             suggestionKeys={suggestionKeys}
-            onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
+            onSuggestionClick={(key) =>
+              handleDraftChange(
+                t(`axetCodeHome.${key}` as Parameters<typeof t>[0]),
+              )
+            }
             contextLabel={session.sapLabel}
             contextPath={session.cwd || workspaceDir}
             onOpenInstructions={
-              session.cwd || workspaceDir ? () => setInstructionsCwd(session.cwd || workspaceDir) : undefined
+              session.cwd || workspaceDir
+                ? () => setInstructionsCwd(session.cwd || workspaceDir)
+                : undefined
             }
             filesPanelOpen={filesPanelOpen}
-            onToggleFilesPanel={session.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
+            onToggleFilesPanel={
+              session.cwd || workspaceDir
+                ? () => setFilesPanelOpen((v) => !v)
+                : undefined
+            }
             filesPanel={
               // Panel yalnızca AÇIKKEN mount ediliyor: kapalıyken de yaşasaydı
               // her sohbet için bir dosya ağacı ve (görünürse) bir izleyici
@@ -2740,7 +3079,9 @@ export default function AxetCodeHome({
               filesPanelOpen ? (
                 <ChatFilesPanel
                   rootDir={session.cwd || workspaceDir}
-                  rootLabel={session.sapLabel ?? t("axetCodeHome.contextWorkspace")}
+                  rootLabel={
+                    session.sapLabel ?? t("axetCodeHome.contextWorkspace")
+                  }
                   onClose={() => setFilesPanelOpen(false)}
                   active={active && activeId === session.id}
                 />
@@ -2776,23 +3117,37 @@ export default function AxetCodeHome({
           onDictate={handleDictate}
           dictationState={dictationState}
           onFilesResolved={(paths) => addAttachments(NEW_SESSION_ID, paths)}
-          onRemoveAttachment={(attachmentId) => removeAttachment(NEW_SESSION_ID, attachmentId)}
+          onRemoveAttachment={(attachmentId) =>
+            removeAttachment(NEW_SESSION_ID, attachmentId)
+          }
           suggestionKeys={suggestionKeys}
-          onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
+          onSuggestionClick={(key) =>
+            handleDraftChange(
+              t(`axetCodeHome.${key}` as Parameters<typeof t>[0]),
+            )
+          }
           contextLabel={effectiveNewBinding?.label ?? null}
           contextPath={effectiveNewBinding?.cwd || workspaceDir}
           onOpenInstructions={
             effectiveNewBinding?.cwd || workspaceDir
-              ? () => setInstructionsCwd(effectiveNewBinding?.cwd || workspaceDir)
+              ? () =>
+                  setInstructionsCwd(effectiveNewBinding?.cwd || workspaceDir)
               : undefined
           }
           filesPanelOpen={filesPanelOpen}
-          onToggleFilesPanel={effectiveNewBinding?.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
+          onToggleFilesPanel={
+            effectiveNewBinding?.cwd || workspaceDir
+              ? () => setFilesPanelOpen((v) => !v)
+              : undefined
+          }
           filesPanel={
             filesPanelOpen ? (
               <ChatFilesPanel
                 rootDir={effectiveNewBinding?.cwd || workspaceDir}
-                rootLabel={effectiveNewBinding?.label ?? t("axetCodeHome.contextWorkspace")}
+                rootLabel={
+                  effectiveNewBinding?.label ??
+                  t("axetCodeHome.contextWorkspace")
+                }
                 onClose={() => setFilesPanelOpen(false)}
                 active={active && activeId === null}
               />
@@ -2806,7 +3161,7 @@ export default function AxetCodeHome({
         title={t("axetCodeHome.deleteConfirmTitle")}
         message={t("axetCodeHome.deleteConfirmMessage", {
           title: deleteTarget?.title ?? "",
-          count: deleteTarget?.messages.length ?? 0
+          count: deleteTarget?.messages.length ?? 0,
         })}
         confirmLabel={t("axetCodeHome.deleteConfirmButton")}
         onConfirm={() => deleteId && handleDeleteSession(deleteId)}
@@ -2822,7 +3177,10 @@ export default function AxetCodeHome({
       <ChatProjectDialog
         project={projectDialog}
         onClose={() => setProjectDialogId(null)}
-        onSave={(name, instructions) => projectDialog && handleSaveProject(projectDialog.id, name, instructions)}
+        onSave={(name, instructions) =>
+          projectDialog &&
+          handleSaveProject(projectDialog.id, name, instructions)
+        }
         onDelete={() => projectDialog && handleDeleteProject(projectDialog.id)}
       />
 
@@ -2831,17 +3189,26 @@ export default function AxetCodeHome({
           çizildiği için listenin kendi tıklamalarıyla kapanmazdı. */}
       {moveMenu && (
         <>
-          <div className="fixed inset-0 z-[70]" onClick={() => setMoveMenu(null)} />
+          <div
+            className="fixed inset-0 z-[70]"
+            onClick={() => setMoveMenu(null)}
+          />
           <div
             className="chat-scroll fixed z-[71] w-[200px] overflow-y-auto rounded-md border border-base-700 bg-base-900 p-1 shadow-xl"
-            style={{ left: moveMenu.x, top: moveMenu.y, maxHeight: MOVE_MENU_MAX_H }}
+            style={{
+              left: moveMenu.x,
+              top: moveMenu.y,
+              maxHeight: MOVE_MENU_MAX_H,
+            }}
           >
             {projects.map((project) => {
               const current = moveTarget?.projectId === project.id;
               return (
                 <button
                   key={project.id}
-                  onClick={() => handleMoveSession(moveMenu.sessionId, project.id)}
+                  onClick={() =>
+                    handleMoveSession(moveMenu.sessionId, project.id)
+                  }
                   disabled={current}
                   title={project.name}
                   className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] transition ${
@@ -2851,7 +3218,9 @@ export default function AxetCodeHome({
                   }`}
                 >
                   <FolderOpen size={12} className="shrink-0 text-accent-400" />
-                  <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {project.name}
+                  </span>
                 </button>
               );
             })}
@@ -2864,7 +3233,9 @@ export default function AxetCodeHome({
                 className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded border-t border-base-800 px-2 py-1.5 pt-2 text-left text-[12px] text-slate-500 transition hover:bg-base-800 hover:text-slate-300"
               >
                 <X size={12} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.removeFromProject")}</span>
+                <span className="min-w-0 flex-1 truncate">
+                  {t("axetCodeHome.removeFromProject")}
+                </span>
               </button>
             )}
           </div>
@@ -2885,9 +3256,16 @@ export default function AxetCodeHome({
             </h3>
             <dl className="flex flex-col gap-1.5">
               {SHORTCUTS.map(([keys, labelKey]) => (
-                <div key={keys} className="flex items-center justify-between gap-4">
-                  <dt className="text-[12.5px] text-slate-400">{t(labelKey)}</dt>
-                  <dd className="shrink-0 font-mono text-[11px] text-slate-300">{keys}</dd>
+                <div
+                  key={keys}
+                  className="flex items-center justify-between gap-4"
+                >
+                  <dt className="text-[12.5px] text-slate-400">
+                    {t(labelKey)}
+                  </dt>
+                  <dd className="shrink-0 font-mono text-[11px] text-slate-300">
+                    {keys}
+                  </dd>
                 </div>
               ))}
             </dl>

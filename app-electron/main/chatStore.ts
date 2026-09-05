@@ -53,6 +53,75 @@ function asNumber(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
+// --- Tanınmayan alanları YOK ETME, taşı ---
+//
+// Aşağıdaki süzgeçler nesneyi alan alan YENİDEN KURUYOR. Doğrulama açısından
+// doğru, ama bedeli altı kez ödendi: `attachments` (2026-09-02), `steps`
+// (09-05), `cwd`/`sapLabel` (09-06), `projectId`, `keepInGeneral` ve
+// `interrupted` — hepsi tipe ve çiziciye eklenip BURAYA eklenmediği için
+// kaydetmede DE okumada DA sessizce düşmüştü.
+//
+// 2026-09-06'da bunun daha kötü bir biçimi çıktı: `npm run dev` yeniden
+// başlatılmadığı için ana süreç ESKİ koddu; o gün eklenen `cwd` ve `projects`
+// alanlarını her kayıtta siliyordu. Kullanıcının gördüğü hâliyle "SAP
+// sohbetleri kayboldu, kurduğum proje silinmiş" — ve kod tarafında hiçbir
+// hata yoktu, dosyaya bakana kadar da anlaşılmıyordu.
+//
+// Bundan sonra bilinen alanlar eskisi gibi tek tek doğrulanıyor, TANINMAYAN
+// alanlar ise olduğu gibi taşınıyor. Böyle bir alan en kötü ihtimalle
+// doğrulanmamış olur; yok olmaz. Sınırlar keyfî büyümeye karşı: bu dosya elle
+// de düzenlenebiliyor ve taşınan değer hiçbir kırpmadan geçmiyor.
+const MAX_UNKNOWN_KEYS = 20;
+const MAX_UNKNOWN_CHARS = 8_000;
+
+function carryUnknown(raw: Record<string, unknown>, known: Set<string>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  let budget = MAX_UNKNOWN_CHARS;
+  let kept = 0;
+  for (const [key, value] of Object.entries(raw)) {
+    if (kept >= MAX_UNKNOWN_KEYS) break;
+    if (known.has(key) || value === undefined || typeof value === "function") continue;
+    let size: number;
+    try {
+      // Döngüsel referans ya da `undefined` sonucu: taşınamaz.
+      size = JSON.stringify(value)?.length ?? 0;
+    } catch {
+      continue;
+    }
+    if (size === 0 || size > budget) continue;
+    budget -= size;
+    out[key] = value;
+    kept += 1;
+  }
+  return out;
+}
+
+const KNOWN_MESSAGE_KEYS = new Set([
+  "id",
+  "role",
+  "content",
+  "error",
+  "steps",
+  "attachments",
+  "interrupted",
+  "createdAt"
+]);
+
+const KNOWN_SESSION_KEYS = new Set([
+  "id",
+  "title",
+  "messages",
+  "model",
+  "draft",
+  "attachments",
+  "cwd",
+  "sapLabel",
+  "projectId",
+  "keepInGeneral",
+  "createdAt",
+  "updatedAt"
+]);
+
 // Diskten gelen veri BİR KEZ bile doğrulanmadan React'e verilirse, elle
 // düzenlenmiş/yarım yazılmış bir dosya render sırasında (örn. `messages.map`
 // bir dizi değilse) tüm ekranı çökertir. Her alan tek tek süzülüyor.
@@ -135,6 +204,11 @@ function sanitizeMessage(raw: unknown): StoredChatMessage | null {
     // Boş dizi YAZILMIYOR: ekler isteğe bağlı ve sohbetlerin büyük çoğunluğu
     // eksiz — her mesaja `"attachments": []` eklemek dosyayı şişirirdi.
     ...(attachments.length > 0 ? { attachments } : {}),
+    // ALTINCI kez: tipte "diske de yazılıyor" diye YAZILI olmasına rağmen
+    // buraya eklenmemişti, yani yarıda kalmış cevabın notu her kayıtta
+    // düşüyordu — kırpılmış bir cevap sonraki açılışta tam görünüyordu.
+    ...(m.interrupted === true ? { interrupted: true } : {}),
+    ...carryUnknown(m, KNOWN_MESSAGE_KEYS),
     createdAt: asNumber(m.createdAt, Date.now())
   };
 }
@@ -178,6 +252,7 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
     ...(sapLabel ? { sapLabel } : {}),
     ...(projectId ? { projectId } : {}),
     ...(keepInGeneral ? { keepInGeneral } : {}),
+    ...carryUnknown(s, KNOWN_SESSION_KEYS),
     createdAt,
     updatedAt: asNumber(s.updatedAt, createdAt)
   };
