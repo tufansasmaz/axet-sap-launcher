@@ -532,6 +532,13 @@ yaşamıyor/kayamıyor.
   bildirilebilir, ikisi de aynı anlama gelir") — agent artık sadece -94
   gördüğünde değil, metinde "permission denied" gördüğünde de doğru teşhise
   ulaşıyor.
+- **Sonradan (2026-09-05) daraltıldı**: geriye uyumluluk için duran üçüncü
+  koşul `message.includes("-94")` idi ve fazla genişti — hata mesajında host
+  adı da geçtiği için `sapqas-94.firma.local` gibi bir ad testi geçiriyor,
+  router'ı sadece ERİŞİLEMEZ olan bir sistemde launcher izin reddi sanıp RFC
+  bridge'i başlatmaya kalkıyor ve kullanıcı gerçek sebebi hiç görmüyordu.
+  Artık `BARE_94_REGEX = /(^|[^\w.\-])-94($|[^\w.\-])/`: `return_code=-94` ve
+  `(-94,` geçiyor, `sapqas-94` ve `-940` geçmiyor.
 - `npm run typecheck` ve `npm run build` temiz geçti.
 - **Not**: `-93`'ün SAP'nin resmi tablosunda farklı bir anlama (NI-internal
   error) gelmesi kasıtlı olarak görmezden gelinmedi — kontrol sadece kod

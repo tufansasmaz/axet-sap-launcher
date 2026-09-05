@@ -740,7 +740,26 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     }
     allNotes.push(`Manuel tanımlanan ADT URL doğrudan kullanılıyor: ${normalizedUrl}`);
     finalUrl = normalizedUrl;
-    verify = await verifyCredentials(normalizedUrl, credentials.username, credentials.password, credentials.client, undefined, undefined, language);
+    // Router BU DALDA DA geçirilmek zorunda. Eskiden `undefined` gidiyordu ve
+    // bu doğruydu, çünkü `manualAdtUrl` yalnızca cloud sistemlerde dolabilir,
+    // cloud sistemde de router yoktur. Artık on-prem sistemlere de ADT adresi
+    // girilebiliyor: router arkasındaki böyle bir sisteme adres girildiği anda
+    // doğrulama tüneli atlayıp doğrudan URL'e gider ve kurumsal ağ dışından
+    // her zaman başarısız olurdu — üstelik hata "bağlantı hatası" olarak
+    // görünür, router'ın atlandığına dair hiçbir iz bırakmazdı.
+    const manualRouterString = req.service.routerString;
+    if (manualRouterString) {
+      allNotes.push(`SAProuter tanımlı: ${manualRouterString} — manuel ADT URL'i router üzerinden tünellenecek.`);
+    }
+    verify = await verifyCredentials(
+      normalizedUrl,
+      credentials.username,
+      credentials.password,
+      credentials.client,
+      undefined,
+      manualRouterString,
+      language
+    );
   } else {
     const routerString = req.service.routerString;
     if (routerString) {

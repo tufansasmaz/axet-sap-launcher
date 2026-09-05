@@ -9,6 +9,18 @@ export interface RouterHop {
 
 const HOP_REGEX = /\/[hH]\/([\w.\-]+)(?:\/[sS]\/(\w+))?(?:\/[pP][wW]?\/([\w.]+))?/g;
 
+// TLS SNI'ya IP yazılamaz (RFC 6066). Node bunu DEP0123 ile uyarıyor ve
+// ileride yok sayacağını söylüyor. Dört ayrı TLS/HTTPS çağrısı (buradaki
+// `tlsConnectThroughRouter` + `adtDiscovery.ts`'teki üç istek) bunu ayrı ayrı
+// düşünmek zorundaydı ve yalnızca ikisi düşünmüştü; ötekiler IP'li bir host'ta
+// (SAP Logon kayıtlarında sık) uyarı üretiyordu. Artık tek yerden.
+// IPv6 de kapsanıyor — iki nokta içeren bir host adı zaten geçerli bir DNS
+// adı değil.
+export function sniFor(host: string): string | undefined {
+  const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
+  return isIp ? undefined : host;
+}
+
 export function parseRouteString(routeString: string): RouterHop[] {
   const hops: RouterHop[] = [];
   const re = new RegExp(HOP_REGEX);
@@ -89,8 +101,23 @@ function describeRouterFailure(type: string, responsePayload: Buffer): string {
   return `SAProuter rotayı reddetti (return_code=${returnCode ?? "?"}). Detay: ${detail || "yok"}`;
 }
 
+// Üçüncü koşul geriye uyumluluk için duruyor (bu dosyanın kendi ürettiği
+// mesajlarda zaten marker var), ama çıplak `includes("-94")` fazla genişti:
+// mesajın içinde host adı da geçiyor ve `sapqas-94.firma.local` gibi bir ad
+// -veya bir port/ID- bu testi geçiriyordu. Sonucu sessiz ve kafa karıştırıcı:
+// router'ı sadece ERİŞİLEMEZ olan bir sistemde launcher "izin reddi" sanıp
+// RFC bridge'i başlatmaya kalkıyor, kullanıcı da gerçek sebebi ("router'a
+// bağlanılamadı") hiç görmüyordu. Artık `-94`'ün iki yanında da harf/rakam/
+// nokta/tire olmaması gerekiyor: `return_code=-94` ve `(-94,` geçer,
+// `sapqas-94` ve `-940` geçmez.
+const BARE_94_REGEX = /(^|[^\w.\-])-94($|[^\w.\-])/;
+
 export function isRouterPermissionDeniedMessage(message: string): boolean {
-  return message.includes(PERMISSION_DENIED_TAG) || message.includes("NIEROUT_PERM_DENIED") || message.includes("-94");
+  return (
+    message.includes(PERMISSION_DENIED_TAG) ||
+    message.includes("NIEROUT_PERM_DENIED") ||
+    BARE_94_REGEX.test(message)
+  );
 }
 
 function buildHopEntry(hop: RouterHop): Buffer {
@@ -205,10 +232,9 @@ export async function tlsConnectThroughRouter(
   const rawSocket = await connectThroughRouter(hops, timeoutMs);
 
   return new Promise((resolve, reject) => {
-    const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(finalHost);
     const tlsSocket = tlsConnect({
       socket: rawSocket,
-      servername: isIp ? undefined : finalHost,
+      servername: sniFor(finalHost),
       rejectUnauthorized: false,
       timeout: timeoutMs
     });

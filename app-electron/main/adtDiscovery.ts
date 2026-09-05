@@ -6,7 +6,7 @@ import { writeFileSync, unlinkSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import os from "node:os";
-import { tlsConnectThroughRouter, httpRequestOverSocket } from "./sapRouter";
+import { tlsConnectThroughRouter, httpRequestOverSocket, sniFor } from "./sapRouter";
 import type { AppLanguage } from "../shared/types";
 
 // Kimlik doğrulama sonucunun kısa mesajı (`CredentialVerifyResult.message`)
@@ -204,6 +204,7 @@ function probeRealm(host: string, port: number, timeoutMs = 6000, routerString?:
         timeout: timeoutMs,
         rejectUnauthorized: false,
         checkServerIdentity: () => undefined,
+        servername: sniFor(host),
         headers: { Accept: "*/*" }
       },
       (res) => {
@@ -258,14 +259,13 @@ function getPeerCertPem(host: string, port: number, timeoutMs = 5000, routerStri
     return getPeerCertPemThroughRouter(routerString, host, port, timeoutMs);
   }
   return new Promise((resolve) => {
-    const isIp = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
     const socket = tlsConnect(
       {
         host,
         port,
         rejectUnauthorized: false,
         timeout: timeoutMs,
-        servername: isIp ? undefined : host
+        servername: sniFor(host)
       },
       () => {
         const cert = socket.getPeerCertificate();
@@ -536,6 +536,9 @@ export function verifyCredentials(
         timeout: timeoutMs,
         rejectUnauthorized: false,
         checkServerIdentity: () => undefined,
+        // Düz http dalında (yerel RFC bridge) SNI'nın karşılığı yok, zaten
+        // yok sayılıyor.
+        servername: isPlainHttp ? undefined : sniFor(host),
         headers: { Authorization: `Basic ${auth}`, Accept: "*/*" }
       },
       (res) => {
