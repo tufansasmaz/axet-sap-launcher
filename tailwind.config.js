@@ -51,6 +51,33 @@ export default {
           600: withOpacity("--ink-600-rgb")
         },
         white: withOpacity("--ink-strong-rgb")
+      },
+
+      // KÖŞE YARIÇAPI ÖLÇEĞİ — tasarım dilinin tek kaynağı (2026-09-06).
+      //
+      // "Modern SaaS" dilinin kuralı 6px'lik sakin bir köşe. Ama uygulamada
+      // yarıçap 36 bileşene dağılmış durumdaydı: `rounded-sm` 52, bare
+      // `rounded` 49, `rounded-md` 104, `rounded-lg` 41, `rounded-xl` 19 kez.
+      // Yani aynı ekranda 2px'lik keskin bir kutu ile 12px'lik yuvarlak bir
+      // kart yan yana durabiliyordu.
+      //
+      // Bunları tek tek değiştirmek yerine ÖLÇEĞİN KENDİSİ daraltıldı:
+      // Tailwind'in varsayılan 2/4/6/8/12/16/24 merdiveni 4/6/6/8/10/12/16'ya
+      // çekildi. Sonuç: hiçbir bileşene dokunmadan tüm uygulama aynı dile
+      // geçti ve bundan sonra hangi sınıf yazılırsa yazılsın sonuç dilin
+      // içinde kalıyor. `rounded` ile `rounded-md`nin AYNI değeri vermesi
+      // kasıtlı — ikisi arasındaki seçim artık görsel bir fark yaratmıyor.
+      //
+      // `full` dokunulmadı: rozetler, avatarlar ve durum noktaları hap
+      // biçiminde kalmalı.
+      borderRadius: {
+        sm: "4px",
+        DEFAULT: "6px",
+        md: "6px",
+        lg: "8px",
+        xl: "10px",
+        "2xl": "12px",
+        "3xl": "16px"
       }
     }
   },

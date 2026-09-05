@@ -8557,3 +8557,150 @@ kaybı DEĞİL.
 `app-electron/main/*` ve `app-electron/preload/*` HMR ile GELMİYOR. Bu
 dosyalara dokunulduysa `npm run dev` tamamen kapatılıp açılmalı — yoksa çizici
 yeni alanları yazar, ana süreç onları sessizce siler.
+
+## Tema baştan kuruldu: "Modern SaaS" + zeytin vurgu (2026-09-06)
+
+Kullanıcı: *"şu temayı hiç beğenmedim komple tüm temayı tasarımı baştan
+ayarlayalım uygulamanın tüm butonlar ayarlar tema tasarım renk v.s her şeyi"*.
+İki soru soruldu, iki cevap alındı:
+
+- **Tasarım dili:** Modern SaaS (Linear/Notion) — nötr koyu gri-siyah zemin,
+  saç teli kenarlıklar, 6px köşeler, sık yerleşim, düz dolgu düğmeler, gölge
+  yok, renk yalnızca vurguda.
+- **Vurgu rengi:** Zeytin / yeşil — doygunluğu düşük, mavi-mor yorgunluğundan
+  çıkan bir ton.
+
+### Neden paletle başlandı
+
+Tasarım sistemi zaten merkezîydi: renkler `src/index.css`'te "R G B" tripleti
+olarak duruyor, `tailwind.config.js` bunları `withOpacity()` ile okuyor. Yani
+**paletin tamamı tek dosyadan değiştirilebiliyordu** ve CSS HMR üzerinden anında
+geliyor — kullanıcı sonucu görmek için yeniden başlatmak zorunda değil.
+Şekil dili ise 36 bileşene dağılmıştı; oraya ikinci adımda gidildi.
+
+### Palet
+
+Koyu tema artık **nötr**: `14 14 16` → `46 46 51`, üç kanal birbirine yakın.
+Önceki palet (`18 16 25`) mor tintliydi; vurgu rengi maviden zeytine kayınca o
+tint zeminden ayrı bir renk gibi okunmaya başlıyordu. Nötr zemin, "tek renkli
+vurgu" stratejisinin ön şartı.
+
+Açık tema Notion'a çekildi: sayfa `#ffffff`, uygulama zemini `#f3f3f1`,
+ayırıcılar `#e5e5e3`.
+
+Vurgu ölçülerek seçildi, göz kararı değil:
+
+| | koyu | açık |
+|---|---|---|
+| `accent-400` zemin üstünde metin | 8.4:1 | 4.95:1 |
+| `accent-500` üstünde `accent-on` | 4.95:1 | 6.1:1 |
+
+Ton değiştirilecekse **bu iki oran yeniden hesaplanmalı** — `bg-accent-500` +
+`text-accent-on` ikilisi uygulamanın her yerinde birincil düğme demek.
+
+### Vurgu yeşili ile durum yeşilini ayırma
+
+Vurgu zeytin olunca `--status-success-text`in eski yaprak yeşili (`#4ade95`)
+"seçili öğe" ile "başarılı işlem"i ayırt edilemez hâle getiriyordu. Başarı
+rengi belirgin biçimde **turkuaza** kaydırıldı (`#46cfa8` / `#1f7a5c`). Bu bir
+estetik tercih değil, okunabilirlik gereği: iki yeşil yan yana geldiğinde
+kullanıcı hangisinin durum hangisinin seçim olduğunu bilemiyordu.
+
+### Köşe yarıçapı: 36 bileşen yerine tek bir ölçek
+
+Yarıçap dağılmıştı — `rounded-sm` 62, bare `rounded` 39, `rounded-md` 108,
+`rounded-lg` 39, `rounded-xl` 21 kullanım. Aynı ekranda 2px'lik keskin bir kutu
+ile 12px'lik yuvarlak bir kart yan yana durabiliyordu.
+
+Bunları tek tek değiştirmek yerine **ölçeğin kendisi daraltıldı**
+(`tailwind.config.js` > `borderRadius`): Tailwind'in 2/4/6/8/12/16/24
+merdiveni 4/6/6/8/10/12/16 oldu. Tek bir yapılandırma değişikliğiyle 300+
+kullanım dile geçti ve bundan sonra hangi sınıf yazılırsa yazılsın sonuç dilin
+içinde kalıyor. `rounded` ile `rounded-md`nin aynı değeri vermesi kasıtlı.
+
+`full` dokunulmadı — rozetler, avatarlar ve durum noktaları hap kalmalı.
+
+### Gölge: kart değil, katman göstergesi
+
+Yeni kural: **gölge "bu şey yüzüyor" demektir**, dekorasyon değil.
+
+- Kaldırıldı: kart gölgeleri (`SystemPanel` kartları, `AppConnectionsSection`
+  seçili kart, `ScreenViewer` görseli), düğme gölgeleri.
+- Kaldı: modal, açılır liste, toast, lightbox — ekranın üstünde duran her şey.
+
+Aynı turda dört birincil düğmedeki `bg-gradient-to-r from-accent-600
+to-accent-500` + `shadow-lg` + `hover:brightness-110` + `active:scale-[0.98]`
+kombinasyonu düz `bg-accent-500` / `hover:bg-accent-600` ile değiştirildi, ve
+üç modalin tepesindeki dekoratif accent gradyan şeridi silindi.
+
+### Temadan kaçmış renkler toplandı
+
+Bunların hepsi Tailwind'in KENDİ sabit renkleriydi, yani tema değişkenlerini
+tamamen atlıyorlardı — açık temada yanlış tonda görünüyorlardı:
+
+| nerede | eski | yeni |
+|---|---|---|
+| `StatusDot` üç nokta | `bg-amber-400` / `bg-emerald-400` / `bg-rose-500` | `--status-*-text` |
+| `TitleBar` doğrulanmış rozeti | `bg-emerald-500` | `--status-success-text` |
+| `TitleBar` kapat düğmesi hover | `bg-rose-600` | `--status-danger-solid` (yeni) |
+| `SettingsModal` "yeniden başlat ve kur" | `bg-emerald-600` | `bg-accent-500` |
+| `SettingsModal` / `UpdatePromptModal` hata | `text-red-400` | `--status-danger-text` |
+| klasör ikonu (4 dosyada) | `text-[#d99a4e]` | `--folder-icon` (yeni) |
+| `SystemPanel` yorum kartı şeridi | `#c9973f` / `#d9a566` | `--action-amber-*` |
+| `PreflightPanel` "bilinmiyor" | `#94a3b8` | `--ink-400-rgb` |
+| `StatusBarStrip` "I" mesajı | `#93c5fd` | `--status-info-text` (yeni) |
+| `EmbeddedTerminal` xterm teması | `#121019` / `#eceaf2` / `#60a5fa` | yeni paletin değerleri |
+| `BrowserWindow.backgroundColor` | `#121019` | `#0e0e10` |
+
+`StatusBarStrip`'teki durum ZEMİNLERİ ayrıca `color-mix(in srgb, var(--token)
+%N, transparent)` ile kendi metin renklerinden türetiliyor artık. Önceden elle
+yazılmış rgba üçlüleriydi ve o sayılar eski paletten kopyalanmıştı: metin
+jetonu kayıyor, zemin olduğu yerde kalıyordu.
+
+**`--status-danger-solid` neden ayrı bir jeton:** `--status-danger-text` koyu
+zemin üstünde OKUNSUN diye açık bir pembe. Zemin olarak kullanıldığında
+üstündeki beyaz ikon 2.5:1'de kayboluyor. Yeni jeton beyazla 5.5:1 veriyor.
+Yıkıcı **dolgu** gereken her yerde (başlık çubuğu kapat düğmesi, `ConfirmDialog`
+danger onayı) bu kullanılmalı, `-text` olan DEĞİL.
+
+### Modal perdeleri
+
+`bg-black/40`, `/50`, `/60`, `/70` diye dört farklı değer vardı ve hepsi gerçek
+siyahtı — açık temada sert bir siyah örtü. Hepsi zaten var olan ama tek bir
+yerde kullanılan `--overlay-scrim` jetonuna alındı (koyu 0.6, açık 0.35).
+
+Üç yerde `bg-black/*` KALDI ve kalmalı: `AttachmentChip` (fotoğrafın üstündeki
+büyüteç örtüsü) ve `Toast` sayaç rozeti — bunlar tema yüzeyinin değil, bir
+görselin/renkli kutunun üstünde duruyor.
+
+### Karşılama başlığının gradyanı değişti
+
+`--chat-hero-*` logonun mor→camgöbeği gradyanıydı (`#6d5efc → #22d3ee`,
+`src/assets/logo.svg`'den alınmıştı). Nötr-zeytin bir ekranın ortasında o
+başlık tek başına başka bir uygulamadan kopyalanmış gibi duruyordu. Şimdi
+degrade **palet içinde**: en açık metin tonundan vurgu yeşiline sessiz bir
+geçiş.
+
+**Logonun kendisine dokunulmadı** — `logo.svg` hâlâ mor/camgöbeği, marka
+işareti değişmedi. Değişen yalnızca başlık metninin degradesi. Kullanıcı marka
+renklerinin başlıkta da geri gelmesini isterse tek yapılacak `--chat-hero-*`
+üçlüsünü eski değerlerine döndürmek.
+
+### Tek renk kuralının bilinçli tek istisnası
+
+`--project-500-rgb` ("Yeni proje" düğmesi). Kullanıcı bu düğmenin renkli
+olmasını açıkça istedi (2026-09-06) ve yanındaki "Yeni sohbet" ile aynı renk
+olursa hangisinin ne yaptığı bir bakışta okunmuyor. Doygunluğu zeytinle aynı
+seviyeye çekilmiş mat bir mor — logonun morunun sönümlenmiş hâli.
+
+### Değişmeyen kurallar
+
+- Renk değişkenlerine **`#hex` yazma**: `*-rgb` ile biten her şey boşlukla
+  ayrılmış triplet olmalı, yoksa `bg-accent-500/20` gibi opacity varyantları
+  derlenmez. Hex değerli `--*-text` jetonları bunun dışında; onlar Tailwind'e
+  değil doğrudan CSS'e gidiyor.
+- Accent zeminli her yerde **`text-accent-on`**, `text-white` DEĞİL —
+  `white` bu projede `--ink-strong-rgb`'ye bağlı ve açık temada koyuya düşüyor.
+- `EmbeddedTerminal`'ın xterm teması ve `BrowserWindow.backgroundColor` CSS
+  değişkeni okuyamıyor; palet değişirse **bu iki yer elle** güncellenmeli.
+  Bağ otomatik değil.

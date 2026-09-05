@@ -43,7 +43,7 @@ html.theme-transition * {
 :focus-visible {
   outline: 2px solid rgb(var(--accent-400-rgb));
   outline-offset: 2px;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 /* ...ama METİN ALANLARI hariç. Şartnameye göre `<textarea>` ve metin girişli
@@ -61,11 +61,20 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
   outline: none;
 }
 
-/* aXet Studio — minimalist iki tema (koyu/açık). Amaç: göz yormayan,
-   nötr gri tonlar + tek bir sakin vurgu rengi (indigo), gradyan/parlama/
-   dekoratif efekt yok. Renkler "R G B" tripleti (bkz. tailwind.config.js
-   withOpacity()) — bu format opacity varyantlarının (bg-accent-500/10 vb.)
-   doğru derlenmesi için gerekli, "#hex" yazma. */
+/* aXet Studio — "Modern SaaS" tasarım dili (kullanıcı seçimi, 2026-09-05).
+   Referans: Linear / Notion. Kuralları tek cümlede: NÖTR zemin (tint yok),
+   saç teli inceliğinde kenarlıklar, 6px köşeler, sık yerleşim, düz dolgulu
+   düğmeler, gölge yok — ve renk yalnızca VURGUDA, o da tek bir aileden.
+
+   Vurgu: zeytin/yeşil. Doygunluğu bilinçli olarak düşük; mavi-mor yorgunluğu
+   yaratmayan, gözü yormayan bir ton. Durum yeşiliyle (`--status-success-*`)
+   karışmasın diye o taraf turkuaza kaydırıldı — ikisi yan yana geldiğinde
+   biri "seçili", diğeri "başarılı" olarak okunabilsin.
+
+   Renkler "R G B" tripleti (bkz. tailwind.config.js withOpacity()) — bu format
+   opacity varyantlarının (bg-accent-500/10 vb.) doğru derlenmesi için gerekli,
+   "#hex" YAZMA. (Hex değerli `--*-text` değişkenleri bunun dışında; onlar
+   Tailwind'e değil doğrudan CSS'e gidiyor.) */
 
 /* Sohbet ekranının okuma konforu — kullanıcı ayarından geliyor (Ayarlar >
    Sohbet görünümü). Buradaki değerler yalnızca İLK BOYAMA için: `App.tsx`
@@ -85,85 +94,120 @@ html[data-theme="dark"] {
      açılıyordu; SAP GUI ekranındaki vkey seçicisi bunun en görünür örneğiydi.
      Renk değişkenleriyle birlikte temaya bağlı olması bu yüzden şart. */
   color-scheme: dark;
-  /* DERİN GRAFİT-MOR (2026-09-06, kullanıcı seçimi). Önceki palet neredeyse
-     saf siyahtı (15 15 17) ve ekran "siyah zemin" olarak okunuyordu.
-     Şimdiki tonlar bir kademe açık; nötr grafitin üstüne hafif bir mor tint
-     var (mavi kanal baskın, kırmızı ikinci) — soğuk ama lacivert kadar mavi
-     değil.
-     Sohbet ekranındaki karşılama gradyanıyla (#6d5efc → #22d3ee, logodan
-     geliyor) aynı aileden olması bilinçli. */
-  --base-950-rgb: 18 16 25;
-  --base-900-rgb: 23 21 31;
-  --base-850-rgb: 28 25 38;
-  --base-800-rgb: 34 30 46;
-  --base-700-rgb: 47 42 63;
-  --base-600-rgb: 64 58 85;
+  /* NÖTR GRAFİT. Üç kanal birbirine çok yakın (14/14/16 → 46/46/51): ekranda
+     hiçbir yönde renk tinti okunmuyor, "soğuk mavi" ya da "sıcak kahve" bir
+     siyah değil, sadece koyu gri. Bir önceki palet (18 16 25) mor tintliydi ve
+     vurgu rengi değişince o tint zeminden ayrı bir renk gibi görünmeye
+     başlıyordu; nötr zemin tek renkli vurgu stratejisinin ön şartı.
 
-  /* Metin tonları da aynı tinte çekildi. PARLAKLIK merdiveni bilinçli olarak
-     korundu (237→70 civarı), yalnızca ton kaydı: kontrast oranları ve
-     dolayısıyla okunabilirlik aynı kaldı. */
-  --ink-100-rgb: 236 234 242;
-  --ink-200-rgb: 208 205 217;
-  --ink-300-rgb: 165 161 178;
-  --ink-400-rgb: 124 120 139;
-  --ink-500-rgb: 92 88 107;
-  --ink-600-rgb: 70 66 85;
+       950 = uygulama zemini      #0e0e10
+       900 = panel/kenar çubuğu   #151517
+       850 = yükseltilmiş yüzey   #1a1a1d
+       800 = hover / girdi zemini #1f1f22
+       700 = SAÇ TELİ kenarlık    #232326  ← 1px çizgilerin varsayılanı
+       600 = belirgin kenarlık    #2e2e33 */
+  --base-950-rgb: 14 14 16;
+  --base-900-rgb: 21 21 23;
+  --base-850-rgb: 26 26 29;
+  --base-800-rgb: 31 31 34;
+  --base-700-rgb: 35 35 38;
+  --base-600-rgb: 46 46 51;
+
+  /* Metin merdiveni de nötr. Parlaklık kademeleri korundu (237→63), yalnızca
+     mor tint temizlendi — kontrast oranları ve okunabilirlik aynı. */
+  --ink-100-rgb: 237 237 239;
+  --ink-200-rgb: 196 196 201;
+  --ink-300-rgb: 152 152 159;
+  --ink-400-rgb: 111 111 120;
+  --ink-500-rgb: 85 85 93;
+  --ink-600-rgb: 63 63 70;
   --ink-strong-rgb: 255 255 255;
 
-  --scrollbar-thumb: #332e45;
-  --scrollbar-thumb-hover: #453f5c;
+  --scrollbar-thumb: #2a2a2e;
+  --scrollbar-thumb-hover: #3a3a40;
 
-  --accent-600-rgb: 29 78 216;
-  --accent-500-rgb: 42 108 235;
-  --accent-400-rgb: 96 165 250;
+  /* ZEYTİN / YEŞİL vurgu (kullanıcı seçimi). Doygunluk kasten düşük.
+     Ölçülen kontrastlar:
+       accent-400 (#93b75c) zemin üstünde metin  → 8.4:1  (AAA)
+       accent-500 (#5c7a31) üstünde beyaz metin  → 4.95:1 (AA)
+     Yani `bg-accent-500` + `text-accent-on` kombinasyonu her iki temada da
+     eşiği geçiyor; ton değiştirilecekse bu iki oran yeniden hesaplanmalı. */
+  --accent-600-rgb: 70 93 37;
+  --accent-500-rgb: 92 122 49;
+  --accent-400-rgb: 147 183 92;
   /* Accent ZEMİN üzerine gelen metin/ikon rengi — her iki temada da beyaz.
      `text-white` bunun yerine kullanılamaz: o token (`--ink-strong-rgb`) açık
-     temada bilinçli olarak KOYU (41 39 36), çünkü açık zemin üstünde en güçlü
+     temada bilinçli olarak KOYU (24 24 27), çünkü açık zemin üstünde en güçlü
      metin rengi odur. Ama aynı sınıf accent zeminli bir butonda/balonda
-     kullanılınca açık temada mavi üstüne koyu gri metin çıkıyordu — ölçülen
+     kullanılınca açık temada vurgu üstüne koyu gri metin çıkıyordu — ölçülen
      kontrast 2.89:1, WCAG AA eşiği olan 4.5:1'in çok altında (kullanıcının
      kendi yazdığı sohbet mesajları açık temada zor okunuyordu). Accent zeminli
      her yerde `text-accent-on` kullan, `text-white` DEĞİL. */
   --accent-on-rgb: 255 255 255;
-  --accent-cyan-rgb: 42 108 235;
-  --accent-glow: rgba(42, 108, 235, 0.25);
-  --accent-soft-text: #8fb8f8;
+  --accent-cyan-rgb: 92 122 49;
+  --accent-glow: rgba(92, 122, 49, 0.25);
+  --accent-soft-text: #a9c97d;
 
   /* Sohbet ekranındaki karşılama başlığının degradesi. Neden AYRI üç değişken:
      `--accent-cyan-rgb` her iki temada da `--accent-500-rgb` ile AYNI değer, yani
-     accent jetonlarından kurulan bir degrade düpedüz düz çıkıyor. Bunlar sadece
-     o başlıkta kullanılıyor, palete yeni bir vurgu rengi katmıyor.
+     accent jetonlarından kurulan bir degrade düpedüz düz çıkıyor.
 
-     Renkler UYDURULMADI: doğrudan `src/assets/logo.svg`'deki `mark` gradyanının
-     durakları (#6d5efc → #8b7dff → #22d3ee). İlk sürümde Gemini'nin kendi
-     mavi→mor→pembe degradesi kullanılıyordu; ekranın "bizim" olması için marka
-     işaretiyle aynı renkleri taşıması gerekiyordu. Logonun renkleri değişirse
-     BURASI da güncellenmeli — bağ otomatik değil. */
-  --chat-hero-from: #6d5efc;
-  --chat-hero-via: #8b7dff;
-  --chat-hero-to: #22d3ee;
+     2026-09-06'ya kadar burada logonun mor→camgöbeği gradyanı (#6d5efc →
+     #22d3ee) duruyordu. Yeni tasarım dilinde tek renkli vurgu kuralı var ve
+     nötr-zeytin bir ekranın ortasındaki mor-turkuaz başlık tek başına başka
+     bir uygulamadan kopyalanmış gibi duruyordu. Şimdi degrade PALET İÇİNDE:
+     en açık metin tonundan vurgu yeşiline doğru sessiz bir geçiş. Logonun
+     kendi renkleri değişmedi — `src/assets/logo.svg` olduğu gibi duruyor,
+     marka işareti hâlâ mor/camgöbeği. */
+  --chat-hero-from: #ededef;
+  --chat-hero-via: #c4d3a6;
+  --chat-hero-to: #93b75c;
 
-  --navy-icon: #3d6fa8;
+  /* Sistem/sunucu ikonlarının rengi. Vurgu ailesinden AYRI olması bilinçli:
+     bunlar bir seçim/aksiyon değil, sadece tür göstergesi. Nötr çelik mavisi
+     zeytinle yarışmıyor. */
+  --navy-icon: #6b7b8c;
+
+  /* Klasör ikonlarının rengi (dosya gezgini, sohbet dosya paneli, ağaç).
+     Dört ayrı bileşende `text-[#d99a4e]` olarak gömülüydü; açık temada kırık
+     beyaz üstünde soluklaşıyordu. Tür göstergesi olduğu için vurgu ailesinin
+     dışında — "seçili" ile karışmamalı. */
+  --folder-icon: #c9954a;
 
   /* "Yeni proje" düğmesi. Kenar çubuğunun tepesinde "Yeni sohbet"in YANINDA
-     duruyor; ikisi de vurgu mavisi olsaydı hangisinin ne yaptığı bir bakışta
-     okunmazdı. Renk uydurulmadı: logonun mark gradyanının ilk durağı, yani
-     `--chat-hero-from` ile aynı mor. */
-  --project-500-rgb: 109 94 252;
-  --project-soft-text: #b9b1ff;
+     duruyor; ikisi de vurgu yeşili olsaydı hangisinin ne yaptığı bir bakışta
+     okunmazdı — kullanıcı bu düğmenin renkli olmasını açıkça istedi
+     (2026-09-06). Tek renk kuralının bilinçli tek istisnası; doygunluğu
+     zeytinle aynı seviyede tutulmuş mat bir mor, logonun morunun sönümlenmiş
+     hâli. */
+  --project-500-rgb: 107 98 168;
+  --project-soft-text: #a9a1e0;
 
   --app-bg-image: none;
-  --overlay-scrim: rgba(0, 0, 0, 0.5);
+  --overlay-scrim: rgba(0, 0, 0, 0.6);
 
-  --status-danger-bg: rgba(76, 5, 25, 0.4);
-  --status-danger-border: rgba(159, 18, 57, 0.5);
-  --status-danger-text: #f4718a;
-  --status-warning-bg: rgba(69, 26, 3, 0.4);
-  --status-warning-border: rgba(120, 53, 15, 0.5);
-  --status-warning-text: #f2b84b;
-  --status-success-bg: rgba(2, 44, 34, 0.45);
-  --status-success-border: rgba(6, 95, 70, 0.5);
-  --status-success-text: #4ade95;
+  --status-danger-bg: rgba(60, 12, 20, 0.45);
+  --status-danger-border: rgba(140, 32, 48, 0.5);
+  --status-danger-text: #f0717f;
+  /* DOLU zemin olarak kullanılacak tehlike rengi (başlık çubuğundaki kapat
+     düğmesi, yıkıcı eylem düğmeleri). `--status-danger-text` bunun yerine
+     kullanılamaz: o, koyu zemin üstünde OKUNSUN diye açık bir pembe — zemin
+     olarak kullanıldığında üstündeki beyaz ikon 2.5:1'de kayboluyor. Bu ton
+     beyazla 5.5:1 veriyor. */
+  --status-danger-solid: #c2334a;
+  --status-warning-bg: rgba(58, 36, 8, 0.45);
+  --status-warning-border: rgba(122, 78, 20, 0.5);
+  --status-warning-text: #e5a94a;
+  /* Başarı yeşili TURKUAZA kaydırıldı. Vurgu rengi artık zeytin olduğu için
+     klasik bir yaprak yeşili (#4ade95) "seçili öğe" ile "başarılı işlem"i
+     ayırt edilemez hâle getiriyordu; bu ton belirgin biçimde daha mavi. */
+  --status-success-bg: rgba(6, 52, 44, 0.45);
+  --status-success-border: rgba(12, 110, 92, 0.5);
+  --status-success-text: #46cfa8;
+  /* Bilgi (SAP durum çubuğundaki "I" tipi mesajlar). Kırmızı/sarı/yeşil
+     üçlüsünün dışında dördüncü bir durum; nötr bir çelik mavisi, vurgu
+     zeytiniyle çakışmıyor. */
+  --status-info-text: #7fa8d8;
 
   /* İkincil aksiyon kartının (SAP Logon'da Aç) tonu — accent'in yanında
      ayırt edilsin diye kehribar. `--status-warning-*` DEĞİL: bu bir uyarı
@@ -186,64 +230,79 @@ html[data-theme="dark"] {
 }
 
 html[data-theme="light"] {
-  /* Saf beyaz + saf siyah yerine yumuşak, hafif sıcak gri tonlu bir palet —
-     maksimum kontrast göz yormasın diye zemin biraz kırık beyaz, metin biraz
-     yumuşatılmış koyu gri (saf siyah değil). Paneller (900→600) birbirinden
-     hafif tonla ayrılıyor, sert beyaz-üstü-beyaz sınır yok. İkinci tur: genel
-     parlaklık bir kademe daha düşürüldü, vurgu rengi daha az doygun/mat mavi. */
+  /* Açık temanın referansı Notion: sayfa BEYAZ, kenar çubuğu bir tık kırık
+     beyaz, ayırıcılar saç teli. Koyu temayla aynı nötrlük kuralı geçerli —
+     kanallar birbirine yakın, sıcak/soğuk tint yok.
+
+       950 = uygulama zemini      #f3f3f1  ← koyu temanın tersine EN KOYU olan
+       900 = panel/kart           #ffffff
+       850 = yükseltilmiş yüzey   #fafaf9
+       800 = hover / girdi zemini #f4f4f3
+       700 = SAÇ TELİ kenarlık    #e5e5e3
+       600 = belirgin kenarlık    #d1d1ce */
   color-scheme: light;
-  --base-950-rgb: 234 234 231;
-  --base-900-rgb: 244 244 242;
-  --base-850-rgb: 240 240 237;
-  --base-800-rgb: 236 236 233;
-  --base-700-rgb: 222 222 218;
-  --base-600-rgb: 202 202 198;
+  --base-950-rgb: 243 243 241;
+  --base-900-rgb: 255 255 255;
+  --base-850-rgb: 250 250 249;
+  --base-800-rgb: 244 244 243;
+  --base-700-rgb: 229 229 227;
+  --base-600-rgb: 209 209 206;
 
-  --ink-100-rgb: 58 56 53;
-  --ink-200-rgb: 80 78 74;
-  --ink-300-rgb: 109 107 102;
-  --ink-400-rgb: 141 139 134;
-  --ink-500-rgb: 166 164 159;
-  --ink-600-rgb: 186 184 179;
-  --ink-strong-rgb: 41 39 36;
+  --ink-100-rgb: 39 39 42;
+  --ink-200-rgb: 63 63 70;
+  --ink-300-rgb: 96 96 104;
+  --ink-400-rgb: 130 130 138;
+  --ink-500-rgb: 160 160 168;
+  --ink-600-rgb: 190 190 196;
+  --ink-strong-rgb: 24 24 27;
 
-  --scrollbar-thumb: #c9c8c4;
-  --scrollbar-thumb-hover: #b3b2ae;
+  --scrollbar-thumb: #d4d4d1;
+  --scrollbar-thumb-hover: #bebebb;
 
-  --accent-600-rgb: 51 92 173;
-  --accent-500-rgb: 61 108 189;
-  --accent-400-rgb: 82 128 204;
+  /* Aynı zeytin ailesi, beyaz zemin için KOYULAŞTIRILMIŞ. Ölçülen kontrastlar:
+       accent-400 (#5c7a31) beyaz üstünde metin → 4.95:1 (AA)
+       accent-500 (#4e6a2a) üstünde beyaz metin → 6.1:1  (AA+)
+     Koyu temadaki 400/500 değerleri burada bir kademe kaydı: koyu temanın
+     "metin tonu" (500) açık temanın "dolgu tonu" oldu. */
+  --accent-600-rgb: 62 82 33;
+  --accent-500-rgb: 78 106 42;
+  --accent-400-rgb: 92 122 49;
   --accent-on-rgb: 255 255 255;
-  --accent-cyan-rgb: 61 108 189;
-  --accent-glow: rgba(61, 108, 189, 0.1);
-  --accent-soft-text: #2f5aa8;
+  --accent-cyan-rgb: 78 106 42;
+  --accent-glow: rgba(78, 106, 42, 0.12);
+  --accent-soft-text: #3e5221;
 
-  /* Aynı marka degradesi, açık zemin için KOYULAŞTIRILMIŞ tonlarda: logonun
-     kendi renkleri (#6d5efc/#8b7dff/#22d3ee) koyu zemin için seçilmiş, açık
-     zeminde — özellikle camgöbeği ucu — okunmuyor. Ton (hue) korunuyor,
-     parlaklık düşürülüyor. */
-  --chat-hero-from: #4c3ad4;
-  --chat-hero-via: #6355d8;
-  --chat-hero-to: #0e8ba6;
+  /* Aynı sessiz degrade, açık zemin için ters yönde: en koyu metin tonundan
+     vurgu yeşiline (bkz. koyu temadaki --chat-hero-from notu). */
+  --chat-hero-from: #27272a;
+  --chat-hero-via: #4a5a35;
+  --chat-hero-to: #5c7a31;
 
-  --navy-icon: #3d5f85;
+  --navy-icon: #5a6b7c;
 
-  /* Aynı mor, açık zemin için koyulaştırılmış (bkz. --chat-hero-from). */
-  --project-500-rgb: 76 58 212;
-  --project-soft-text: #4c3ad4;
+  /* Beyaz zeminde okunacak kadar koyulaştırılmış klasör sarısı. */
+  --folder-icon: #a9762c;
+
+  /* Aynı mat mor, beyaz zemin için koyulaştırılmış (bkz. koyu temadaki not). */
+  --project-500-rgb: 85 76 160;
+  --project-soft-text: #554ca0;
 
   --app-bg-image: none;
-  --overlay-scrim: rgba(40, 38, 35, 0.35);
+  --overlay-scrim: rgba(24, 24, 27, 0.35);
 
-  --status-danger-bg: #f5eaea;
-  --status-danger-border: #ddbdbd;
-  --status-danger-text: #99424f;
-  --status-warning-bg: #f4ede0;
-  --status-warning-border: #d8c69e;
-  --status-warning-text: #83601f;
-  --status-success-bg: #e9efe8;
-  --status-success-border: #b9d2b9;
-  --status-success-text: #43775a;
+  --status-danger-bg: #fdf2f3;
+  --status-danger-border: #f0d5d8;
+  --status-danger-text: #a33b48;
+  /* Dolu zemin tehlike rengi — gerekçesi koyu temada yazılı. */
+  --status-danger-solid: #b52d42;
+  --status-warning-bg: #fbf3e4;
+  --status-warning-border: #ebdbb4;
+  --status-warning-text: #7a5a18;
+  /* Turkuaza kaydırılmış başarı yeşili — gerekçesi koyu temada yazılı. */
+  --status-success-bg: #e8f5f0;
+  --status-success-border: #b9decf;
+  --status-success-text: #1f7a5c;
+  --status-info-text: #3a6491;
 
   --action-amber-rgb: 138 100 45;
   --action-amber-text: #7a5a1c;
@@ -272,16 +331,18 @@ body {
   background-color: rgb(var(--accent-500-rgb) / 0.28);
 }
 
+/* Kaydırma çubuğu 10px'ten 8px'e indirildi: "sık yerleşim" dilinde çubuk bir
+   arayüz elemanı değil, sadece bir işaret. */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 8px;
+  border-radius: 6px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
@@ -311,7 +372,7 @@ body {
    o an gezinilen tek mesaj belirgin çerçeveleniyor. */
 .chat-search-hit,
 .chat-search-current {
-  border-radius: 18px;
+  border-radius: 8px;
   outline-offset: 5px;
 }
 .chat-search-hit {

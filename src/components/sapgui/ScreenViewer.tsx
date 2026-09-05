@@ -154,7 +154,7 @@ export default function ScreenViewer({
               // (`max-h-full`) sarmalayıcıyı görüntüden büyütür ve seçili
               // eleman çerçevesi kayar — çerçeve sarmalayıcıya göre konumlanıyor.
               // Uzun ekranlarda dış kutu zaten dikey kaydırıyor.
-              className="max-w-full rounded-md border border-base-700 shadow-lg"
+              className="max-w-full rounded-md border border-base-700"
             />
             {highlight && (
               <div

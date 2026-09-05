@@ -736,7 +736,10 @@ export function AskUserCard({
                     isChosen ? "border-accent-500 bg-accent-500/70" : "border-base-600"
                   }`}
                 >
-                  {isChosen && <Check size={9} strokeWidth={3} className="text-white" />}
+                  {/* Kutunun zemini accent dolgusu (`bg-accent-500/70`), o
+                      yüzden tik `text-accent-on` — `text-white` açık temada
+                      koyu griye düşüp dolgunun üstünde kayboluyordu. */}
+                  {isChosen && <Check size={9} strokeWidth={3} className="text-accent-on" />}
                 </span>
               )}
               {option}

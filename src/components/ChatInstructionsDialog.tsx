@@ -90,12 +90,12 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)]"
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="flex max-h-[80vh] w-[620px] flex-col rounded-sm border border-base-700 bg-base-900 p-6">
+      <div className="flex max-h-[80vh] w-[620px] flex-col rounded-xl border border-base-700 bg-base-900 p-6">
         <div className="mb-1 flex items-center gap-2">
           <BookOpen size={18} className="text-accent-400" />
           <h3 className="text-base font-semibold text-white">{t("chatInstructions.title")}</h3>
@@ -133,7 +133,7 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="cursor-pointer rounded-sm px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             {t("common.cancel")}
           </button>
@@ -141,7 +141,7 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
             onClick={() => void save()}
             disabled={loading || saving || truncated}
             title={truncated ? t("chatInstructions.tooLarge") : undefined}
-            className="cursor-pointer rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-2 text-sm font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25 disabled:cursor-default disabled:opacity-50"
+            className="cursor-pointer rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600 disabled:cursor-default disabled:opacity-50"
           >
             {saving ? t("chatInstructions.saving") : t("common.save")}
           </button>

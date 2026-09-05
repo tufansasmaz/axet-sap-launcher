@@ -120,7 +120,10 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
                 <span className="text-slate-400">{m.label}</span>
                 <span
                   className="font-mono"
-                  style={{ color: m.ok === null ? "#94a3b8" : m.ok ? "var(--status-success-text)" : "var(--status-warning-text)" }}
+                  // "Bilinmiyor" hâli sabit `#94a3b8` yerine ink jetonundan —
+                  // diğer iki hâl zaten temadan geliyordu, bu açık temada
+                  // yanlış tondaydı.
+                  style={{ color: m.ok === null ? "rgb(var(--ink-400-rgb))" : m.ok ? "var(--status-success-text)" : "var(--status-warning-text)" }}
                 >
                   {m.value}
                 </span>

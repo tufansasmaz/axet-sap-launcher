@@ -13,22 +13,28 @@ const STYLES: Record<
     pillBg: "bg-base-700/50",
     pillBorder: "border-base-600"
   },
+  // Noktalar da artık tema jetonundan besleniyor. Önceden `bg-amber-400` /
+  // `bg-emerald-400` / `bg-rose-500` yazıyordu — yani Tailwind'in kendi sabit
+  // renkleri, temadan bağımsız. Aynı rozetin metni jetondan, noktası başka bir
+  // yerden gelince açık temada ikisi birbirini tutmuyordu; ayrıca yeni
+  // paletteki turkuaz "başarı" tonu zeytin vurgusundan ayrışsın diye
+  // seçilmişti, sabit emerald bunu boşa çıkarıyordu.
   checking: {
-    dot: "bg-amber-400 animate-pulse",
+    dot: "bg-[var(--status-warning-text)] animate-pulse",
     labelKey: "statusDot.checking",
     text: "text-[var(--status-warning-text)]",
     pillBg: "bg-[var(--status-warning-bg)]",
     pillBorder: "border-[var(--status-warning-border)]"
   },
   reachable: {
-    dot: "bg-emerald-400",
+    dot: "bg-[var(--status-success-text)]",
     labelKey: "statusDot.reachable",
     text: "text-[var(--status-success-text)]",
     pillBg: "bg-[var(--status-success-bg)]",
     pillBorder: "border-[var(--status-success-border)]"
   },
   unreachable: {
-    dot: "bg-rose-500",
+    dot: "bg-[var(--status-danger-text)]",
     labelKey: "statusDot.unreachable",
     text: "text-[var(--status-danger-text)]",
     pillBg: "bg-[var(--status-danger-bg)]",

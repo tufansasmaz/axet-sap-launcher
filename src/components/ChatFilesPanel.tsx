@@ -49,7 +49,7 @@ export default function ChatFilesPanel({ rootDir, rootLabel, onClose, active }: 
     <div className="flex h-full w-full flex-col overflow-hidden border-l border-base-800 bg-base-900">
       <div className="flex shrink-0 items-center justify-between gap-2 border-b border-base-800 px-3 py-2">
         <div className="flex min-w-0 items-center gap-1.5">
-          <FolderOpen size={13} className="shrink-0 text-[#d99a4e]" />
+          <FolderOpen size={13} className="shrink-0 text-[var(--folder-icon)]" />
           <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             {t("chatFiles.title")}
           </span>

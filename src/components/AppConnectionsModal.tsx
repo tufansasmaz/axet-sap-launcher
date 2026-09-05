@@ -33,13 +33,12 @@ export default function AppConnectionsModal({ open, onClose, onOpenProjectTermin
 
   return (
     <div
-      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm"
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
     >
       <div className="animate-modal-pop-in flex max-h-[88vh] w-[640px] flex-col overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50">
-        <div className="h-1 w-full shrink-0 bg-gradient-to-r from-accent-600 via-accent-500 to-accent-400" />
 
         <div className="relative shrink-0 px-6 pb-4 pt-5">
           <button
@@ -66,7 +65,7 @@ export default function AppConnectionsModal({ open, onClose, onOpenProjectTermin
         <div className="flex shrink-0 justify-end gap-2 border-t border-base-800 px-6 py-4">
           <button
             onClick={onClose}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-medium text-accent-on shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98]"
+            className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600"
           >
             {t("common.close")}
           </button>

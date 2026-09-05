@@ -254,7 +254,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
               // (kullanıcı ekran görüntüsüyle bildirdi, 2026-09-04).
               className={`flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 transition ${
                 isOn
-                  ? "border-accent-500/40 bg-accent-500/[0.06] shadow-sm shadow-accent-500/10"
+                  ? "border-accent-500/40 bg-accent-500/[0.06]"
                   : "border-base-700 bg-base-950/30"
               }`}
             >

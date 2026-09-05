@@ -140,7 +140,7 @@ function TreeNode({
         ) : (
           <ChevronRight size={14} className="text-slate-500" />
         )}
-        <Folder size={14} className="text-[#d99a4e]" />
+        <Folder size={14} className="text-[var(--folder-icon)]" />
         <span className="truncate">{node.name}</span>
       </button>
 

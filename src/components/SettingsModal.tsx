@@ -148,11 +148,15 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
           </span>
           <button
             onClick={() => window.api.installUpdate()}
+            // Zemin `bg-emerald-600` DEĞİL artık: o, temadan bağımsız sabit bir
+            // Tailwind rengiydi. Bu satırın birincil eylemi olduğu için düz
+            // vurgu dolgusu kullanıyor — satırın metni zaten "başarı" tonunda,
+            // düğmenin de yeşil olması ikisini birbirine karıştırıyordu.
             // `text-white` DEĞİL: o token temaya bağlı (`--ink-strong-rgb`) ve
-            // açık temada koyu griye düşüyor — emerald zemin üstünde ~3.9:1
+            // açık temada koyu griye düşüyor — dolu zemin üstünde ~3.9:1
             // kontrast, AA'nın altında. `text-accent-on` her iki temada da
             // gerçek beyaz (bkz. index.css).
-            className="cursor-pointer rounded-md bg-emerald-600 px-2.5 py-1 text-xs font-medium text-accent-on hover:bg-emerald-500"
+            className="cursor-pointer rounded-md bg-accent-500 px-2.5 py-1 text-xs font-medium text-accent-on hover:bg-accent-600"
           >
             {t("settingsModal.restartAndInstall")}
           </button>
@@ -160,7 +164,7 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
       );
     case "error":
       return (
-        <p className="flex items-start gap-1.5 text-xs text-red-400">
+        <p className="flex items-start gap-1.5 text-xs text-[var(--status-danger-text)]">
           <AlertCircle size={12} className="mt-0.5 shrink-0" /> {updateStatus.message}
         </p>
       );
@@ -321,7 +325,7 @@ export default function SettingsModal({
   return (
     <>
     <div
-      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm"
       onKeyDown={(e) => {
         if (e.key === "Escape") requestClose();
       }}
@@ -331,7 +335,6 @@ export default function SettingsModal({
         tabIndex={-1}
         className="animate-modal-pop-in flex max-h-[88vh] w-[560px] flex-col overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50 outline-none"
       >
-        <div className="h-1 w-full shrink-0 bg-gradient-to-r from-accent-600 via-accent-500 to-accent-400" />
 
         <div className="relative shrink-0 px-6 pb-4 pt-5">
           <button
@@ -572,13 +575,13 @@ export default function SettingsModal({
           )}
           <button
             onClick={requestClose}
-            className="cursor-pointer rounded-lg px-4 py-2.5 text-sm text-slate-300 transition hover:bg-base-700"
+            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 transition hover:bg-base-700"
           >
             {t("common.cancel")}
           </button>
           <button
             onClick={save}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-medium text-accent-on shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98]"
+            className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600"
           >
             {t("common.save")}
           </button>

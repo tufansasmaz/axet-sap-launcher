@@ -128,12 +128,12 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 "
+      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] "
       onKeyDown={(e) => {
         if (e.key === "Escape") handleClose();
       }}
     >
-      <form onSubmit={handleSubmit} className="w-[460px] rounded-sm border border-base-700 bg-base-900 p-6">
+      <form onSubmit={handleSubmit} className="w-[460px] rounded-xl border border-base-700 bg-base-900 p-6">
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">
             {isEditing ? t("addSystemModal.editTitle") : t("addSystemModal.addTitle")}
@@ -141,7 +141,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           <button
             type="button"
             onClick={handleClose}
-            className="cursor-pointer rounded-sm p-1 text-slate-400 hover:bg-base-700"
+            className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-base-700"
           >
             <X size={18} />
           </button>
@@ -151,7 +151,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           <button
             type="button"
             onClick={() => setType("onprem")}
-            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-sm transition ${
+            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition ${
               type === "onprem"
                 ? "border-accent-500 bg-accent-500/15 text-white"
                 : "border-base-600 text-slate-400 hover:bg-base-700"
@@ -163,7 +163,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           <button
             type="button"
             onClick={() => setType("cloud")}
-            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-sm border px-3 py-2.5 text-sm transition ${
+            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition ${
               type === "cloud"
                 ? "border-accent-500 bg-accent-500/15 text-white"
                 : "border-base-600 text-slate-400 hover:bg-base-700"
@@ -184,7 +184,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           onChange={(e) => setName(e.target.value)}
           placeholder={t("addSystemModal.displayNamePlaceholder")}
           autoFocus
-          className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+          className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
         <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.systemId")}</label>
@@ -193,7 +193,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           onChange={(e) => setSystemId(e.target.value.toUpperCase())}
           placeholder={t("addSystemModal.systemIdPlaceholder")}
           maxLength={8}
-          className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm uppercase text-slate-100 outline-none focus:border-accent-500"
+          className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm uppercase text-slate-100 outline-none focus:border-accent-500"
         />
 
         {type === "onprem" ? (
@@ -203,7 +203,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               value={host}
               onChange={(e) => setHost(e.target.value)}
               placeholder={t("addSystemModal.hostPlaceholder")}
-              className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+              className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.diagPort")}</label>
             <input
@@ -211,7 +211,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               onChange={(e) => setDiagPort(e.target.value)}
               placeholder={t("addSystemModal.diagPortPlaceholder")}
               inputMode="numeric"
-              className={`mb-1 w-full rounded-sm border bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none ${
+              className={`mb-1 w-full rounded-md border bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none ${
                 diagPortValid ? "border-base-600 focus:border-accent-500" : "border-[var(--status-danger-border)]"
               }`}
             />
@@ -227,7 +227,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               value={adtUrl}
               onChange={(e) => setAdtUrl(e.target.value)}
               placeholder={t("addSystemModal.adtUrlOnpremPlaceholder")}
-              className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+              className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.adtUrlOnpremHelper")}</p>
           </>
@@ -238,7 +238,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               value={adtUrl}
               onChange={(e) => setAdtUrl(e.target.value)}
               placeholder={t("addSystemModal.adtUrlPlaceholder")}
-              className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+              className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.adtUrlHelper")}</p>
           </>
@@ -246,7 +246,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
 
         {error && (
           <div
-            className="mb-4 rounded-sm border px-3 py-2 text-xs"
+            className="mb-4 rounded-md border px-3 py-2 text-xs"
             style={{
               borderColor: "var(--status-danger-border)",
               backgroundColor: "var(--status-danger-bg)",
@@ -261,14 +261,14 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           <button
             type="button"
             onClick={handleClose}
-            className="cursor-pointer rounded-sm px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
           >
             {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={!canSubmit}
-            className="flex cursor-pointer items-center gap-2 rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-2 text-sm font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
             {isEditing ? t("addSystemModal.update") : t("addSystemModal.add")}

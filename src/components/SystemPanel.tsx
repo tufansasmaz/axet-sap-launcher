@@ -149,7 +149,7 @@ function ActionCard({
     <button
       onClick={onClick}
       title={title}
-      className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border p-3.5 text-left shadow-sm transition-colors"
+      className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border p-3.5 text-left transition-colors"
       style={{ borderColor: toneStyle.border, backgroundColor: toneStyle.bg }}
       onMouseEnter={(e) => {
         e.currentTarget.style.borderColor = toneStyle.borderHover;
@@ -287,8 +287,8 @@ export default function SystemPanel({
   const isDirty = comment !== originalComment;
 
   const avatarClass = tier
-    ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 text-lg font-bold shadow-sm"
-    : "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border-2 border-base-600 bg-base-800 text-lg font-bold text-[var(--accent-soft-text)] shadow-sm";
+    ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border text-lg font-bold"
+    : "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-base-600 bg-base-800 text-lg font-bold text-[var(--accent-soft-text)]";
   const avatarStyle = tier
     ? { borderColor: TIER_ACCENT[tier].border, backgroundColor: TIER_ACCENT[tier].bg, color: TIER_ACCENT[tier].text }
     : undefined;
@@ -367,7 +367,7 @@ export default function SystemPanel({
         {/* Hero: kimlik + durum + önem derecesi — işlem butonları artık ayrı,
             tam genişlikte bir "hızlı işlemler" şeridinde (aşağıda), hero'nun
             sağına sıkıştırılmış dar bir buton sütunu olarak DEĞİL. */}
-        <div className="relative mb-4 overflow-hidden rounded-xl border border-base-700 bg-base-900/50 shadow-sm">
+        <div className="relative mb-4 overflow-hidden rounded-xl border border-base-700 bg-base-900/50">
           <div className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: accentBarColor, opacity: 0.6 }} />
           <div className="p-5 xl:p-6">
             <div className="flex min-w-0 items-start gap-4">
@@ -500,7 +500,7 @@ export default function SystemPanel({
             uzun değer satırları), sağ: notlar. Geniş ekranda yan yana, dar
             ekranda (tarayıcı penceresi/sidebar açıkken) alt alta akar. */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40 transition-shadow hover:shadow-sm">
+          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40">
             <div
               className="absolute inset-x-0 top-0 h-[3px]"
               style={{ backgroundColor: "rgb(var(--accent-500-rgb))", opacity: 0.5 }}
@@ -558,11 +558,14 @@ export default function SystemPanel({
             </div>
           </div>
 
-          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40 transition-shadow hover:shadow-sm">
-            <div className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: "#c9973f", opacity: 0.45 }} />
+          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40">
+            {/* Kart üstündeki ince şerit ve ikon rozeti artık `--action-amber-*`
+                jetonundan; önceden `#c9973f`/`#d9a566` olarak gömülüydü ve tema
+                değişince olduğu yerde kalıyordu. */}
+            <div className="absolute inset-x-0 top-0 h-[2px] bg-[rgb(var(--action-amber-rgb)/0.45)]" />
             <div className="flex items-center justify-between px-4 pt-4">
               <div className="flex items-center gap-2">
-                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[#c9973f]/15 text-[#d9a566]">
+                <span className="flex h-7 w-7 items-center justify-center rounded-md bg-[rgb(var(--action-amber-rgb)/0.15)] text-[var(--action-amber-text)]">
                   <NotebookPen size={14} />
                 </span>
                 <span className="text-sm font-semibold text-slate-200">{t("systemPanel.commentLabel")}</span>

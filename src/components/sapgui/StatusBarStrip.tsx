@@ -12,12 +12,18 @@ import type { GuiScriptScreenState } from "../../../app-electron/shared/types";
 // çubuğunun tipi bunu kesin olarak söyler: E (Error) ve A (Abort) GERÇEK
 // hatadır, S/W/I bilgilendirmedir.
 
+// Zeminler `color-mix` ile KENDİ metin renklerinden türetiliyor. Önceden elle
+// yazılmış rgba üçlüleriydi (örn. `rgba(74,222,128,0.10)`) ve o sayılar eski
+// paletin yeşilinden kopyalanmıştı — tema değişince metin jetonu kayıyor,
+// zemin olduğu yerde kalıyordu. Türetme sayesinde jetonu değiştirmek yetiyor.
+const tint = (token: string, pct: number) => `color-mix(in srgb, var(${token}) ${pct}%, transparent)`;
+
 const TONES: Record<string, { icon: typeof Info; color: string; bg: string; labelKey: "success" | "warning" | "error" | "abort" | "info" }> = {
-  S: { icon: CheckCircle2, color: "var(--status-success-text)", bg: "rgba(74,222,128,0.10)", labelKey: "success" },
-  W: { icon: AlertTriangle, color: "var(--status-warning-text)", bg: "rgba(251,191,36,0.10)", labelKey: "warning" },
-  E: { icon: AlertCircle, color: "var(--status-danger-text)", bg: "rgba(244,113,138,0.10)", labelKey: "error" },
-  A: { icon: OctagonX, color: "var(--status-danger-text)", bg: "rgba(244,113,138,0.16)", labelKey: "abort" },
-  I: { icon: Info, color: "#93c5fd", bg: "rgba(147,197,253,0.10)", labelKey: "info" }
+  S: { icon: CheckCircle2, color: "var(--status-success-text)", bg: tint("--status-success-text", 10), labelKey: "success" },
+  W: { icon: AlertTriangle, color: "var(--status-warning-text)", bg: tint("--status-warning-text", 10), labelKey: "warning" },
+  E: { icon: AlertCircle, color: "var(--status-danger-text)", bg: tint("--status-danger-text", 10), labelKey: "error" },
+  A: { icon: OctagonX, color: "var(--status-danger-text)", bg: tint("--status-danger-text", 16), labelKey: "abort" },
+  I: { icon: Info, color: "var(--status-info-text)", bg: tint("--status-info-text", 10), labelKey: "info" }
 };
 
 const LABEL_KEYS = {

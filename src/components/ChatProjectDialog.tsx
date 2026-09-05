@@ -54,12 +54,12 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)]"
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="flex max-h-[80vh] w-[560px] flex-col rounded-sm border border-base-700 bg-base-900 p-6">
+      <div className="flex max-h-[80vh] w-[560px] flex-col rounded-xl border border-base-700 bg-base-900 p-6">
         <div className="mb-4 flex items-center gap-2">
           <FolderOpen size={18} className="text-accent-400" />
           <h3 className="text-base font-semibold text-white">{t("chatProject.title")}</h3>
@@ -111,13 +111,13 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
               </span>
               <button
                 onClick={onDelete}
-                className="shrink-0 cursor-pointer rounded-sm border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 text-[12px] font-medium text-[var(--status-danger-text)]"
+                className="shrink-0 cursor-pointer rounded-md border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 text-[12px] font-medium text-[var(--status-danger-text)]"
               >
                 {t("chatProject.deleteYes")}
               </button>
               <button
                 onClick={() => setConfirmingDelete(false)}
-                className="shrink-0 cursor-pointer rounded-sm px-3 py-2 text-[12px] text-slate-300 hover:bg-base-700"
+                className="shrink-0 cursor-pointer rounded-md px-3 py-2 text-[12px] text-slate-300 hover:bg-base-700"
               >
                 {t("common.cancel")}
               </button>
@@ -127,7 +127,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
               <button
                 onClick={() => setConfirmingDelete(true)}
                 title={t("chatProject.delete")}
-                className="flex cursor-pointer items-center gap-1.5 rounded-sm px-2 py-2 text-[12px] text-slate-500 transition hover:text-[var(--status-danger-text)]"
+                className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-2 text-[12px] text-slate-500 transition hover:text-[var(--status-danger-text)]"
               >
                 <Trash2 size={13} />
                 {t("chatProject.delete")}
@@ -135,13 +135,13 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
               <div className="flex-1" />
               <button
                 onClick={onClose}
-                className="cursor-pointer rounded-sm px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+                className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
               >
                 {t("common.cancel")}
               </button>
               <button
                 onClick={save}
-                className="cursor-pointer rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-2 text-sm font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
+                className="cursor-pointer rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600"
               >
                 {t("common.save")}
               </button>

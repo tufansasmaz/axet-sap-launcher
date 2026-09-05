@@ -23,7 +23,10 @@ export default function Toast({ toast, onDismiss }: { toast: ToastMsg; onDismiss
     <div
       onClick={() => onDismiss(toast.id)}
       title={t("toast.dismissTitle")}
-      className="flex cursor-pointer items-center gap-2 rounded-sm border px-4 py-3 text-sm transition hover:brightness-110"
+      // Yüzen bir katman: gölge KALIYOR. Yeni tasarım dilindeki "gölge yok"
+      // kuralı düğmeler ve kartlar için — ekranın üstünde duran şeyler
+      // (modal, açılır liste, toast) yüzdüklerini gölgeyle söylüyor.
+      className="flex cursor-pointer items-center gap-2 rounded-md border px-4 py-3 text-sm shadow-lg shadow-black/20 transition hover:brightness-110"
       style={{
         borderColor: isSuccess ? "var(--status-success-border)" : "var(--status-danger-border)",
         backgroundColor: isSuccess ? "var(--status-success-bg)" : "var(--status-danger-bg)",
@@ -33,7 +36,12 @@ export default function Toast({ toast, onDismiss }: { toast: ToastMsg; onDismiss
       {isSuccess ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
       <span>{toast.text}</span>
       {toast.count > 1 && (
-        <span className="rounded-full bg-black/20 px-1.5 py-0.5 text-[10px] font-semibold">×{toast.count}</span>
+        // Rozet zemini `bg-black/20` DEĞİL: açık temada zaten açık olan durum
+        // zemininin üstünde gri bir leke oluyordu. `currentColor` kutunun kendi
+        // durum rengini alıyor, yani her iki temada da doğru tonda.
+        <span className="rounded-full bg-[color-mix(in_srgb,currentColor_18%,transparent)] px-1.5 py-0.5 text-[10px] font-semibold">
+          ×{toast.count}
+        </span>
       )}
     </div>
   );

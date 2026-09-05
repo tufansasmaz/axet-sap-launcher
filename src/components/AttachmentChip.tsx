@@ -117,7 +117,11 @@ export default function AttachmentChip({
               tek başına, fareyi zaten oraya götürmemiş kullanıcıya hiçbir şey
               anlatmıyor. */}
           <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover/img:opacity-100">
-            <Maximize2 size={18} className="text-white" />
+            {/* Zemin GERÇEK siyah bir örtü (resmin üstünde), tema jetonu değil
+                — ikon da tema-bağımsız gerçek beyaz olmalı. `text-white` bu
+                projede `--ink-strong-rgb`'ye bağlı ve açık temada koyuya
+                düşüyor, yani siyah örtünün üstünde kayboluyordu. */}
+            <Maximize2 size={18} className="text-accent-on" />
           </span>
         </button>
         {lightbox}

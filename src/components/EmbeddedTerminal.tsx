@@ -27,9 +27,9 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       // AYNI değerde olmaları gerekiyor (--base-950 / --ink-100). Palet
       // değişirse burası da değişmeli; bağ otomatik değil.
       theme: {
-        background: "#121019",
-        foreground: "#eceaf2",
-        cursor: "#60a5fa"
+        background: "#0e0e10",
+        foreground: "#ededef",
+        cursor: "#93b75c"
       }
     });
     const fit = new FitAddon();

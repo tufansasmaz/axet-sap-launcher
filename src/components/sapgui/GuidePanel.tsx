@@ -26,7 +26,7 @@ export default function GuidePanel({ onClose }: Props) {
   return (
     // Ekranın üstüne binen bir çekmece: kullanıcı rehberi okurken SAP ekranını
     // da görebilsin diye tam ekran değil, sağda dar bir sütun.
-    <div className="absolute inset-0 z-30 flex justify-end bg-black/40" onClick={onClose}>
+    <div className="absolute inset-0 z-30 flex justify-end bg-[var(--overlay-scrim)]" onClick={onClose}>
       <aside
         onClick={(e) => e.stopPropagation()}
         className="flex h-full w-full max-w-md flex-col border-l border-base-700 bg-base-900 shadow-2xl"

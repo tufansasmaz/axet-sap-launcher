@@ -283,9 +283,9 @@ export default function FileExplorer({
               <ChevronRight size={13} className="shrink-0 text-slate-500" />
             )}
             {isExpanded ? (
-              <FolderOpen size={13} className="shrink-0 text-[#d99a4e]" />
+              <FolderOpen size={13} className="shrink-0 text-[var(--folder-icon)]" />
             ) : (
-              <Folder size={13} className="shrink-0 text-[#d99a4e]" />
+              <Folder size={13} className="shrink-0 text-[var(--folder-icon)]" />
             )}
             <span className="truncate">{entry.name}</span>
           </button>

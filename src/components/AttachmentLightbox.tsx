@@ -49,7 +49,7 @@ export default function AttachmentLightbox({
           basmak aynı anda pencereyi de kapatırdı. */}
       <div
         onClick={(e) => e.stopPropagation()}
-        className="flex shrink-0 items-center gap-3 border-b border-white/10 px-4 py-2.5"
+        className="flex shrink-0 items-center gap-3 border-b border-base-700 px-4 py-2.5"
       >
         <span className="min-w-0 flex-1 truncate text-[13px] text-slate-200" title={attachment.path}>
           {attachment.name}

@@ -52,7 +52,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
           <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${context.sap.verified ? "bg-emerald-500" : "bg-[var(--status-warning-text)]"}`}
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${context.sap.verified ? "bg-[var(--status-success-text)]" : "bg-[var(--status-warning-text)]"}`}
             title={context.sap.verified ? t("activeContext.verified") : t("activeContext.unverified")}
           />
           <button
@@ -109,10 +109,12 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
         <button
           onClick={handleClose}
           title={t("titleBar.close")}
-          // Hover'da rose-600 zemin geliyor; `hover:text-white` açık temada
-          // koyu griye düşüp ~2.9:1 kontrast veriyordu (kapat butonu görünmez
-          // hâle geliyordu). `text-accent-on` tema-bağımsız gerçek beyaz.
-          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-rose-600 hover:text-accent-on"
+          // Hover'da dolu tehlike zemini geliyor (`--status-danger-solid`,
+          // sabit `rose-600` değil — bkz. index.css). `hover:text-white` açık
+          // temada koyu griye düşüp ~2.9:1 kontrast veriyordu (kapat butonu
+          // görünmez hâle geliyordu). `text-accent-on` tema-bağımsız gerçek
+          // beyaz.
+          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-[var(--status-danger-solid)] hover:text-accent-on"
         >
           <X size={15} />
         </button>

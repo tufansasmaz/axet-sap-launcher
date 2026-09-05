@@ -66,7 +66,7 @@ export default function CredentialsModal({
 
   return (
     <div
-      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm"
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();
       }}
@@ -75,7 +75,6 @@ export default function CredentialsModal({
         onSubmit={handleSubmit}
         className="animate-modal-pop-in relative w-[440px] overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50"
       >
-        <div className="h-1 w-full bg-gradient-to-r from-accent-600 via-accent-500 to-accent-400" />
 
         <div className="px-6 pb-5 pt-5">
           <button
@@ -201,14 +200,14 @@ export default function CredentialsModal({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer rounded-lg px-4 py-2.5 text-sm text-slate-300 transition hover:bg-base-700"
+            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 transition hover:bg-base-700"
           >
             {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={!canSubmit}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-5 py-2.5 text-sm font-medium text-accent-on shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+            className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {connecting && <Loader2 size={14} className="animate-spin" />}
             {connecting ? t("credentialsModal.verifying") : t("credentialsModal.connect")}

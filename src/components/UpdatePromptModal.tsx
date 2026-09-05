@@ -26,7 +26,7 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
   if (mode === "hidden") return null;
 
   return (
-    <div className="animate-backdrop-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div className="animate-backdrop-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm">
       <div className="animate-modal-pop-in w-[420px] rounded-2xl border border-base-700/60 bg-base-900 p-6 shadow-2xl shadow-black/50">
         <div className="mb-3 flex items-center gap-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
@@ -43,14 +43,14 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
             <div className="flex justify-end gap-2">
               <button
                 onClick={onDismiss}
-                className="cursor-pointer rounded-lg px-4 py-2.5 text-sm text-slate-300 hover:bg-base-700"
+                className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
               >
                 {t("updatePrompt.later")}
               </button>
               <button
                 onClick={onAccept}
                 autoFocus
-                className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-accent-600 to-accent-500 px-4 py-2.5 text-sm font-medium text-accent-on shadow-lg shadow-accent-600/20 transition hover:brightness-110 active:scale-[0.98]"
+                className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600"
               >
                 <Download size={14} />
                 {t("updatePrompt.install")}
@@ -83,14 +83,14 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
 
         {mode === "progress" && status.phase === "error" && (
           <>
-            <p className="mb-5 flex items-start gap-1.5 text-sm text-red-400">
+            <p className="mb-5 flex items-start gap-1.5 text-sm text-[var(--status-danger-text)]">
               <AlertCircle size={14} className="mt-0.5 shrink-0" />
               {t("updatePrompt.error", { message: status.message ?? "" })}
             </p>
             <div className="flex justify-end">
               <button
                 onClick={onDismiss}
-                className="cursor-pointer rounded-lg px-4 py-2.5 text-sm text-slate-300 hover:bg-base-700"
+                className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
               >
                 {t("updatePrompt.close")}
               </button>
