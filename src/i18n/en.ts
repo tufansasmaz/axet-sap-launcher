@@ -397,6 +397,9 @@ export const en: Record<TranslationKey, string> = {
   "chatPlan.contextTitle": "{tokens} tokens in use. The session rotates automatically at 80%.",
   "chatEditUndo.removed": "Editing removed the {count} messages that followed.",
   "chatEditUndo.undo": "Undo",
+  "chatCancelStuck.notice":
+    "The stop request did not take: the agent is finishing this turn in the background. The answer will not appear, but tokens keep being spent.",
+  "chatCancelStuck.dismiss": "Dismiss",
 
   "chatSearch.placeholder": "Search in chat…",
   "chatSearch.noResults": "none",

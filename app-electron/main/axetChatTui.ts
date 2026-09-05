@@ -2,6 +2,7 @@ import * as pty from "@lydell/node-pty";
 import { mkdirSync } from "node:fs";
 import type {
   AxetChatActivity,
+  AxetChatCancelVerdict,
   AxetChatMessage,
   AxetChatProgress,
   AxetChatSendResult,
@@ -1578,8 +1579,14 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
  * `end_turn` (kendiliğinden bitti) / `canceled` (esc tuttu). İptalin gerçekten
  * tutup tutmadığını başka hiçbir yerden öğrenemiyoruz — pty çıktısı okunabilir
  * değil, kendi durumumuz ise yalnızca BİZİM ne yaptığımızı biliyor.
+ *
+ * Mesajın KİMLİĞİ de dönüyor, çünkü "son asistan mesajı" her zaman bu tura ait
+ * değil: kullanıcı gönderdikten hemen sonra durdurursa bu turun satırı
+ * veritabanında henüz açılmamış olabiliyor ve elde kalan, BİR ÖNCEKİ turun
+ * `end_turn`'ü oluyor. Kimlik karşılaştırılmadan o bayat sebep, "durduramadım"
+ * diye yanlış bir uyarıya dönüşürdü (bkz. `cancelTui`).
  */
-function turnFinishReason(session: TuiSession): string | null {
+function turnFinishReason(session: TuiSession): { messageId: string; reason: string | null } | null {
   if (!session.axetSessionId) return null;
   try {
     const since = Math.floor(Date.now() / 1000) - 180;
@@ -1589,9 +1596,9 @@ function turnFinishReason(session: TuiSession): string | null {
     const last = msgs[msgs.length - 1];
     if (!last) return null;
     for (const part of last.parts) {
-      if (part.type === "finish") return part.data?.reason ?? "bilinmiyor";
+      if (part.type === "finish") return { messageId: last.id, reason: part.data?.reason ?? "bilinmiyor" };
     }
-    return null;
+    return { messageId: last.id, reason: null };
   } catch {
     return null;
   }
@@ -1611,8 +1618,22 @@ function turnFinishReason(session: TuiSession): string | null {
  * veritabanına bak, tutmadıysa tekrar bas. Son durumda ne olduğu da günlüğe
  * yazılıyor — çünkü "durdurdum" ile "gerçekten durdu" arasındaki farkı bir kez
  * kaçırdık ve bedeli, kullanıcının ödediği ama hiç görmediği jetonlar oldu.
+ *
+ * `onVerdict` o farkı ARAYÜZE de taşıyor. Günlüğe yazmak yetmiyordu: iptal
+ * tutmadığında ekranda hiçbir iz kalmıyor, kullanıcı "durdurdum" sanıyor ve
+ * tur arkada üretmeye devam ediyordu — yani ürün sessizce yanlış bilgi
+ * veriyordu. Karar en geç ~4 sn içinde, tek sefer bildiriliyor.
  */
-export function cancelTui(chatId: string): void {
+export function cancelTui(chatId: string, onVerdict?: (verdict: AxetChatCancelVerdict) => void): void {
+  // Karar TEK SEFER bildiriliyor: aşağıdaki üç zamanlayıcı birbirinden bağımsız
+  // ve hepsi aynı sonucu görebiliyor.
+  let reported = false;
+  const report = (verdict: AxetChatCancelVerdict): void => {
+    if (reported) return;
+    reported = true;
+    onVerdict?.(verdict);
+  };
+
   const session = sessions.get(chatId);
   if (!session || session.exited) {
     console.log("[axetChatTui] iptal: yazilacak oturum yok", {
@@ -1620,6 +1641,9 @@ export function cancelTui(chatId: string): void {
       oturumVar: Boolean(session),
       kapandi: session?.exited ?? null
     });
+    // Süreç yoksa üreten de yok: bu bir başarısızlık değil, iptalin
+    // kendiliğinden gerçekleşmiş hali.
+    report({ stopped: true, reason: null });
     return;
   }
   // Bayrak ŞART: esc turu TUI tarafında kesiyor ama veritabanına bir "stop"
@@ -1642,7 +1666,17 @@ export function cancelTui(chatId: string): void {
     }
   };
 
-  press(1);
+  // Esc'ten ÖNCEKİ hâl. Bu turun satırı veritabanında henüz açılmamışsa
+  // "son asistan mesajı" bir önceki tura ait ve zaten bitmiş oluyor; o bayat
+  // `end_turn`'ü bizim esc'imizin sonucu sanmamak için kimliği saklanıyor.
+  const before = turnFinishReason(session);
+  const staleFinishId = before?.reason ? before.messageId : null;
+
+  if (!press(1)) {
+    // Yazılamayan bir pty ölmüş bir pty: tırmanmanın anlamı yok.
+    report({ stopped: true, reason: null });
+    return;
+  }
 
   // Tırmanma basamakları. Aralıklar, sağlayıcıya giden isteğin kesilmesinin
   // veritabanına yansıması için ölçülen ~1 sn'ye göre seçildi; son basamak
@@ -1650,16 +1684,31 @@ export function cancelTui(chatId: string): void {
   const steps = [1200, 2400, 4000];
   steps.forEach((ms, i) => {
     setTimeout(() => {
-      if (session.exited || session.disposed) return;
-      const reason = turnFinishReason(session);
-      if (reason) {
-        console.log("[axetChatTui] iptal sonucu", { chatId, sebep: reason, msSonra: ms });
+      if (session.exited || session.disposed) {
+        report({ stopped: true, reason: null });
+        return;
+      }
+      const finish = turnFinishReason(session);
+      // Bitiş İPTALDEN ÖNCE de oradaysa bu tura ait değil: karar verilmiyor,
+      // bir sonraki basamak bekleniyor.
+      if (finish?.reason && finish.messageId !== staleFinishId) {
+        console.log("[axetChatTui] iptal sonucu", { chatId, sebep: finish.reason, msSonra: ms });
+        // `end_turn` = tur SONUNA KADAR üretti, esc'e rağmen. Bitmiş olması
+        // durdurulmuş olması demek değil; ölçülen 16:40 turunda tam olarak bu
+        // oldu ve jetonların ~%69'u iptalden sonra harcandı. Diğer sebepler
+        // (`canceled`, `stop`, ...) kesintiye işaret ediyor.
+        report({ stopped: finish.reason !== "end_turn", reason: finish.reason });
         return;
       }
       // Hâlâ bitmemiş: son basamakta artık basmıyoruz, çünkü bu noktadan sonra
       // esc'in tutmaması tuş sayısıyla ilgili değil demektir.
       if (i === steps.length - 1) {
-        console.log("[axetChatTui] iptal TUTMADI, tur hala suruyor", { chatId, msSonra: ms });
+        // Uyarı ancak KANIT varken veriliyor: bu tura ait, açılmış ve hâlâ
+        // bitmemiş bir asistan satırı. Satır hiç açılmadıysa (çok erken iptal)
+        // ortada üretilen bir şey de yok — kullanıcıyı boşuna korkutmuyoruz.
+        const live = Boolean(finish) && finish?.messageId !== staleFinishId;
+        console.log("[axetChatTui] iptal TUTMADI", { chatId, msSonra: ms, uretimSuruyor: live });
+        report({ stopped: !live, reason: null });
         return;
       }
       press(i + 2);

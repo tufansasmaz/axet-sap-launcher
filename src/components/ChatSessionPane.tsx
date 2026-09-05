@@ -131,6 +131,11 @@ export interface ChatSessionData {
   contextLimit: number;
   /** Son düzenlemenin kestiği kuyruk — `null` ise geri alma şeridi çizilmiyor. */
   editUndo: { messages: ChatMessage[] } | null;
+  /**
+   * "Durdur"a basıldı ama tur DURMADI: ajan arkada üretmeye devam ediyor
+   * (bkz. AxetCodeHome `cancelStuck`, axetChatTui.ts `cancelTui`).
+   */
+  cancelStuck: boolean;
 }
 
 interface Props {
@@ -161,6 +166,8 @@ interface Props {
   onContinue: () => void;
   onEditMessage: (id: string, content: string) => void;
   onUndoEdit: () => void;
+  /** "Durduramadım" uyarısını kapatır (bkz. `cancelStuck`). */
+  onDismissCancelStuck: () => void;
   onAttachFiles: () => void;
   // Kaydı başlatır/durdurur. Tanınan metni taslağa ekleme işi çağırana ait
   // (bkz. AxetCodeHome `handleDictate`).
@@ -233,6 +240,7 @@ export default function ChatSessionPane({
   onContinue,
   onEditMessage,
   onUndoEdit,
+  onDismissCancelStuck,
   onAttachFiles,
   onDictate,
   dictationState,
@@ -835,6 +843,34 @@ export default function ChatSessionPane({
                 className="ml-auto shrink-0 cursor-pointer rounded-md px-2 py-1 font-medium text-accent-400 transition hover:bg-base-800"
               >
                 {t("chatEditUndo.undo")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* "Durdur" TUTMADI. Aynı yerde ve aynı dilde, çünkü aynı işi yapıyor:
+            kullanıcının göremediği bir şeyi görünür kılıyor. Uyarı, ana süreç
+            axet-code'un veritabanına bakıp turun hâlâ sürdüğünü DOĞRULADIĞINDA
+            geliyor (bkz. axetChatTui.ts `cancelTui`) — tahmin değil, ölçüm.
+            Bir sonraki mesajda kendiliğinden kapanıyor. */}
+        {session.cancelStuck && (
+          <div className={COLUMN}>
+            <div
+              className="mb-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px]"
+              style={{
+                borderColor: "var(--status-warning-border)",
+                background: "var(--status-warning-bg)",
+                color: "var(--status-warning-text)"
+              }}
+            >
+              <AlertTriangle size={13} className="shrink-0" />
+              <span className="min-w-0">{t("chatCancelStuck.notice")}</span>
+              <button
+                onClick={onDismissCancelStuck}
+                title={t("chatCancelStuck.dismiss")}
+                className="ml-auto shrink-0 cursor-pointer rounded-md p-1 transition hover:bg-black/10"
+              >
+                <X size={13} />
               </button>
             </div>
           </div>

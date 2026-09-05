@@ -100,6 +100,17 @@ interface ChatSession {
   // Diske YAZILMIYOR: geri alma o anki düzenlemeye ait, uygulama kapanınca
   // anlamı kalmaz.
   editUndo: EditUndo | null;
+  // "Durdur"a basıldı ama tur DURMADI — ajan arkada üretmeye devam ediyor
+  // (bkz. axetChatTui.ts `cancelTui`, shared/types.ts `AxetChatCancelVerdict`).
+  //
+  // Bu bayrak iptalden 1–4 saniye SONRA geliyor: esc yazılıyor, sonra
+  // axet-code'un veritabanına bakılıp turun gerçekten kesilip kesilmediği
+  // doğrulanıyor. Eskiden doğrulamanın sonucu yalnızca günlüğe yazılıyordu,
+  // yani kullanıcı "durdurdum" sanırken jeton harcanmaya devam ediyordu.
+  //
+  // Diske YAZILMIYOR: uygulama kapanınca pty de ölüyor, yani arkada süren
+  // bir tur kalmıyor — kaydedilmiş bir uyarı sonsuza kadar yalan söylerdi.
+  cancelStuck: boolean;
   createdAt: number;
   // Listedeki sıralama bunun üzerinden — sohbetler artık diskte kalıcı
   // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz
@@ -498,6 +509,7 @@ export default function AxetCodeHome({
             contextTokens: 0,
             contextLimit: 0,
             editUndo: null,
+            cancelStuck: false,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
             sapLabel: s.sapLabel ?? null
@@ -843,7 +855,18 @@ export default function AxetCodeHome({
       setSessions((prev) =>
         prev.map((s) =>
           s.id === sessionId
-            ? { ...s, pending: true, requestId, activity: null, activitySteps: [], pendingAsk: null, updatedAt: Date.now() }
+            ? {
+                ...s,
+                pending: true,
+                requestId,
+                activity: null,
+                activitySteps: [],
+                pendingAsk: null,
+                // Yeni tur, yeni durum: "durduramadım" uyarısı bir önceki tura
+                // aitti ve orada asılı kalması yanıltıcı olurdu.
+                cancelStuck: false,
+                updatedAt: Date.now()
+              }
             : s
         )
       );
@@ -992,6 +1015,7 @@ export default function AxetCodeHome({
       contextTokens: 0,
       contextLimit: 0,
       editUndo: null,
+      cancelStuck: false,
       createdAt: now,
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
@@ -1232,6 +1256,13 @@ export default function AxetCodeHome({
       })
     );
   }, [activeId, runPrompt, sessions, t]);
+
+  // Uyarıyı kapat. Kalıcı bir şeridi kapatmanın yolu olmalı: bir sonraki
+  // mesaja kadar orada duruyor ve o mesaj hiç gelmeyebilir.
+  const handleDismissCancelStuck = useCallback(() => {
+    if (!activeId) return;
+    setSessions((prev) => prev.map((s) => (s.id === activeId ? { ...s, cancelStuck: false } : s)));
+  }, [activeId]);
 
   const handleCancel = useCallback(() => {
     if (!activeSession?.requestId) return;
@@ -1536,6 +1567,26 @@ export default function AxetCodeHome({
     });
   }, []);
 
+  // "Durdur" gerçekten durdurdu mu? Karar iptalden 1–4 saniye SONRA geliyor,
+  // çünkü ana süreç esc'i yazdıktan sonra axet-code'un veritabanına bakıp
+  // doğruluyor (bkz. axetChatTui.ts `cancelTui`). Bu yüzden ayrı bir kanal ve
+  // `requestId` yerine `chatId`: istek çoktan çözülmüş, oturumun `requestId`'si
+  // `null`'lanmış oluyor.
+  //
+  // Sessiz kalmak bir seçenek değildi: iptal tutmadığında ekranda hiçbir iz
+  // olmuyor, kullanıcı "durdurdum" sanıyor, tur arkada üretmeye ve jeton
+  // harcamaya devam ediyordu.
+  useEffect(() => {
+    return window.api.onChatCancelResult((chatId, verdict) => {
+      if (verdict.stopped) return;
+      setSessions((prev) =>
+        prev.some((s) => s.id === chatId)
+          ? prev.map((s) => (s.id === chatId ? { ...s, cancelStuck: true } : s))
+          : prev
+      );
+    });
+  }, []);
+
   // --- Ön-ısıtma ---
   // Kullanıcı yazarken bir sonraki mesajın alt süreci şimdiden açılıp stdin'de
   // bekletiliyor; ölçüm ve gerekçe axetChat.ts'te (mesaj başına ~2–4 saniye).
@@ -1703,7 +1754,8 @@ export default function AxetCodeHome({
     todos: [],
     contextTokens: 0,
     contextLimit: 0,
-    editUndo: null
+    editUndo: null,
+    cancelStuck: false
   };
 
   // Kenar çubuğundaki tek satır. Ayrı bir fonksiyon çünkü artık iki kat
@@ -2031,6 +2083,7 @@ export default function AxetCodeHome({
             onContinue={handleContinue}
             onEditMessage={handleEditMessage}
             onUndoEdit={handleUndoEdit}
+            onDismissCancelStuck={handleDismissCancelStuck}
             onAttachFiles={handleAttachFiles}
             onDictate={handleDictate}
             dictationState={dictationState}
@@ -2088,6 +2141,7 @@ export default function AxetCodeHome({
           onContinue={handleContinue}
           onEditMessage={handleEditMessage}
           onUndoEdit={handleUndoEdit}
+          onDismissCancelStuck={handleDismissCancelStuck}
           onAttachFiles={handleAttachFiles}
           onDictate={handleDictate}
           dictationState={dictationState}

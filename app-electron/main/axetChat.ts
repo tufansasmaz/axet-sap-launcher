@@ -3,6 +3,7 @@ import { mkdirSync } from "node:fs";
 import type {
   AxetChatActivity,
   AxetChatActivityPhase,
+  AxetChatCancelVerdict,
   AxetChatProgress,
   AxetChatMessage,
   AxetChatSendResult,
@@ -708,14 +709,29 @@ function sendViaRun(
   });
 }
 
-export function cancelChatMessage(requestId: string): void {
+/**
+ * Süren turu iptal eder.
+ *
+ * `onVerdict` YALNIZCA TUI kipinde çağrılıyor, çünkü "gerçekten durdu mu"
+ * sorusunu ancak orada cevaplayabiliyoruz: iptalden sonra axet-code'un kendi
+ * veritabanına bakılıyor (bkz. axetChatTui.ts `cancelTui`). `run` kipinde
+ * süreç öldürülüyor, yani soru zaten yok.
+ *
+ * `chatId` geri veriliyor çünkü karar 1–4 saniye SONRA geliyor ve o noktada
+ * `requestId` arayüzde ölü: istek iptalle birlikte çözülüyor ve oturumun
+ * `requestId`'si `null`'a çekiliyor. Sohbet kimliği ise kalıcı.
+ */
+export function cancelChatMessage(
+  requestId: string,
+  onVerdict?: (chatId: string, verdict: AxetChatCancelVerdict) => void
+): void {
   // TUI kipinde iptal süreci ÖLDÜRMÜYOR: oturum kalıcı, esc sadece süren turu
   // kesiyor. Süreci öldürmek bir sonraki mesajda açılış maliyetini geri
   // getirirdi — yani iptalin bedeli, iptal edilen mesajdan büyük olurdu.
   const chatId = tuiRequests.get(requestId);
   if (chatId) {
     tuiRequests.delete(requestId);
-    cancelTui(chatId);
+    cancelTui(chatId, onVerdict ? (verdict) => onVerdict(chatId, verdict) : undefined);
     return;
   }
   const proc = running.get(requestId);

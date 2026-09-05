@@ -5,6 +5,7 @@ import type {
   AppConfig,
   AxetChatMessage,
   AxetChatActivity,
+  AxetChatCancelVerdict,
   AxetChatProgress,
   AxetChatSendResult,
   AxetModelConfigResult,
@@ -171,6 +172,10 @@ export interface AxetApi {
   ) => () => void;
   onChatProgress: (
     callback: (requestId: string, progress: AxetChatProgress) => void
+  ) => () => void;
+  /** "Durdur" gerçekten durdurdu mu? Karar iptalden 1–4 saniye SONRA geliyor. */
+  onChatCancelResult: (
+    callback: (chatId: string, verdict: AxetChatCancelVerdict) => void
   ) => () => void;
   saveChatAttachment: (fileName: string, base64Data: string) => Promise<ChatAttachmentSaveResult>;
   readChatAttachmentPreview: (filePath: string) => Promise<ChatAttachmentPreviewResult>;

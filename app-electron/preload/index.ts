@@ -6,6 +6,7 @@ import type {
   AppConfig,
   AxetChatMessage,
   AxetChatActivity,
+  AxetChatCancelVerdict,
   AxetChatProgress,
   AxetChatSendResult,
   AxetModelConfigResult,
@@ -209,6 +210,15 @@ const api = {
       callback(requestId, progress);
     ipcRenderer.on("axetChat:progress", listener);
     return () => ipcRenderer.removeListener("axetChat:progress", listener);
+  },
+  // "Durdur"un sonucu. `requestId` DEĞİL `chatId` taşıyor: karar iptalden
+  // 1–4 saniye sonra geliyor ve o noktada istek kimliği ölü (bkz.
+  // axetChatTui.ts `cancelTui`).
+  onChatCancelResult: (callback: (chatId: string, verdict: AxetChatCancelVerdict) => void) => {
+    const listener = (_event: unknown, chatId: string, verdict: AxetChatCancelVerdict) =>
+      callback(chatId, verdict);
+    ipcRenderer.on("axetChat:cancelResult", listener);
+    return () => ipcRenderer.removeListener("axetChat:cancelResult", listener);
   },
   saveChatAttachment: (fileName: string, base64Data: string): Promise<ChatAttachmentSaveResult> =>
     ipcRenderer.invoke("chatAttachments:save", fileName, base64Data),

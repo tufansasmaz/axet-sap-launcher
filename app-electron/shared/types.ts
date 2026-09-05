@@ -498,6 +498,22 @@ export interface AxetChatProgress {
   contextLimit: number;
 }
 
+/**
+ * "Durdur"un gerçekte ne yaptığı (bkz. axetChatTui.ts `cancelTui`).
+ *
+ * Ayrı bir olay, çünkü cevabın kendisinden 1–4 saniye SONRA belli oluyor:
+ * esc yazılıyor, sonra axet-code'un veritabanına bakılıp turun gerçekten
+ * kesilip kesilmediği doğrulanıyor. Eskiden bu doğrulamanın sonucu yalnızca
+ * günlüğe yazılıyordu — kullanıcı "durdurdum" sanırken tur arkada üretmeye
+ * devam ediyor ve jeton harcıyordu.
+ */
+export interface AxetChatCancelVerdict {
+  /** Tur gerçekten durdu mu? `false` = arkada üretmeye devam ediyor. */
+  stopped: boolean;
+  /** Veritabanındaki bitiş sebebi (`canceled` / `end_turn` / ...), yoksa `null`. */
+  reason: string | null;
+}
+
 export interface AxetChatSendResult {
   ok: boolean;
   text: string;

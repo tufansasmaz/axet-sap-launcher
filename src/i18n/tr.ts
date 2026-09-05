@@ -430,6 +430,12 @@ export const tr = {
   "chatPlan.contextTitle": "{tokens} jeton kullanılıyor. %80'de oturum kendiliğinden yenilenir.",
   "chatEditUndo.removed": "Düzenleme, sonrasındaki {count} mesajı kaldırdı.",
   "chatEditUndo.undo": "Geri al",
+  // Ajanın kendi veritabanına bakılarak DOĞRULANMIŞ bir uyarı, tahmin değil.
+  // "Durdur"un tutmadığı hâli sessizce geçiştirmek, kullanıcıya farkında
+  // olmadığı bir jeton faturası çıkarmak demekti.
+  "chatCancelStuck.notice":
+    "Durdurma isteği tutmadı: ajan bu turu arka planda tamamlıyor. Cevap tamamlandığında görünmeyecek, ama jeton harcanmaya devam ediyor.",
+  "chatCancelStuck.dismiss": "Uyarıyı kapat",
 
   "chatSearch.placeholder": "Sohbette ara…",
   "chatSearch.noResults": "yok",

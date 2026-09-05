@@ -741,7 +741,13 @@ function registerIpc(): void {
       )
   );
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
-    cancelChatMessage(requestId);
+    // İptalin GERÇEKTEN tutup tutmadığı ayrı bir olayla dönüyor: karar,
+    // isteğin kendisi çözüldükten 1–4 saniye sonra veriliyor (bkz.
+    // axetChatTui.ts `cancelTui`). Bu yüzden `requestId` değil `chatId` ile
+    // geliyor — o noktada arayüzdeki `requestId` çoktan `null`'lanmış oluyor.
+    cancelChatMessage(requestId, (chatId, verdict) => {
+      mainWindow?.webContents.send("axetChat:cancelResult", chatId, verdict);
+    });
   });
   // Uygulama tur ortasında kapandıysa cevabı axet-code'un kendi veritabanından
   // geri getirir (bkz. axetChatRecovery.ts). Açılışta, cevapsız kalmış her
