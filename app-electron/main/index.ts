@@ -174,7 +174,7 @@ function createWindow(): void {
     // Pencerenin İLK BOYAMA rengi — React yüklenene kadar görünen zemin.
     // Koyu temanın `--base-950-rgb` değeriyle aynı tutuluyor; farklı olursa
     // açılışta bir kare boyunca yanlış renkte bir çerçeve görünüyor.
-    backgroundColor: "#0d111a",
+    backgroundColor: "#121019",
     frame: false,
     show: false,
     icon: resolveIconPath(),

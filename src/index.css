@@ -85,33 +85,33 @@ html[data-theme="dark"] {
      açılıyordu; SAP GUI ekranındaki vkey seçicisi bunun en görünür örneğiydi.
      Renk değişkenleriyle birlikte temaya bağlı olması bu yüzden şart. */
   color-scheme: dark;
-  /* LACİVERT ARDUVAZ (2026-09-06, kullanıcı seçimi). Önceki palet neredeyse
+  /* DERİN GRAFİT-MOR (2026-09-06, kullanıcı seçimi). Önceki palet neredeyse
      saf siyahtı (15 15 17) ve ekran "siyah zemin" olarak okunuyordu.
-     Şimdiki tonlar bir kademe açık ve MAVİ kanal belirgin şekilde baskın —
-     lacivere çalan koyu bir arduvaz.
-     Uygulamanın vurgu rengiyle (mavi #2a6ceb) ve navy ikonlarıyla (#3d6fa8)
-     aynı aileden olması bilinçli: zemin, vurgunun soğuk tonunu taşıyor. */
-  --base-950-rgb: 13 17 26;
-  --base-900-rgb: 17 23 38;
-  --base-850-rgb: 21 28 43;
-  --base-800-rgb: 27 36 54;
-  --base-700-rgb: 38 49 74;
-  --base-600-rgb: 53 67 99;
+     Şimdiki tonlar bir kademe açık; nötr grafitin üstüne hafif bir mor tint
+     var (mavi kanal baskın, kırmızı ikinci) — soğuk ama lacivert kadar mavi
+     değil.
+     Sohbet ekranındaki karşılama gradyanıyla (#6d5efc → #22d3ee, logodan
+     geliyor) aynı aileden olması bilinçli. */
+  --base-950-rgb: 18 16 25;
+  --base-900-rgb: 23 21 31;
+  --base-850-rgb: 28 25 38;
+  --base-800-rgb: 34 30 46;
+  --base-700-rgb: 47 42 63;
+  --base-600-rgb: 64 58 85;
 
-  /* Metin tonları da aynı soğukluğa çekildi. PARLAKLIK merdiveni bilinçli
-     olarak korundu (237→70 civarı), yalnızca ton kaydı: kontrast oranları ve
-     dolayısıyla okunabilirlik aynı kaldı. Nötr gri metin lacivert zeminde
-     hafif sarımsı/kirli görünüyordu. */
-  --ink-100-rgb: 233 237 245;
-  --ink-200-rgb: 205 211 224;
-  --ink-300-rgb: 160 168 186;
-  --ink-400-rgb: 120 129 148;
-  --ink-500-rgb: 88 97 116;
-  --ink-600-rgb: 66 75 94;
+  /* Metin tonları da aynı tinte çekildi. PARLAKLIK merdiveni bilinçli olarak
+     korundu (237→70 civarı), yalnızca ton kaydı: kontrast oranları ve
+     dolayısıyla okunabilirlik aynı kaldı. */
+  --ink-100-rgb: 236 234 242;
+  --ink-200-rgb: 208 205 217;
+  --ink-300-rgb: 165 161 178;
+  --ink-400-rgb: 124 120 139;
+  --ink-500-rgb: 92 88 107;
+  --ink-600-rgb: 70 66 85;
   --ink-strong-rgb: 255 255 255;
 
-  --scrollbar-thumb: #2c3855;
-  --scrollbar-thumb-hover: #3d4b6e;
+  --scrollbar-thumb: #332e45;
+  --scrollbar-thumb-hover: #453f5c;
 
   --accent-600-rgb: 29 78 216;
   --accent-500-rgb: 42 108 235;

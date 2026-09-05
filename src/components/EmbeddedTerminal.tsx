@@ -27,8 +27,8 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       // AYNI değerde olmaları gerekiyor (--base-950 / --ink-100). Palet
       // değişirse burası da değişmeli; bağ otomatik değil.
       theme: {
-        background: "#0d111a",
-        foreground: "#e9edf5",
+        background: "#121019",
+        foreground: "#eceaf2",
         cursor: "#60a5fa"
       }
     });
