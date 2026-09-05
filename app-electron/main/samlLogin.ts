@@ -97,9 +97,84 @@ function toJar(cookies: Cookie[], baseUrl: string, username: string): SamlCookie
   };
 }
 
+// ============================================================================
+// Otomatik doldurma.
+//
+// Kullanıcı isteği (2026-09-06): *"açılan chromium penceresinde otomatik
+// olarak kullanıcı şifre dolsun zaten bağlan dediğimizde biz giriyoruz o
+// bilgileri onlarla dolsun ve bağlansın o direkt"*. Kimlik bilgileri zaten
+// bağlanma diyaloğunda giriliyor; bir daha yazdırmanın anlamı yok.
+//
+// Sayfanın yapısını BİLMİYORUZ — IdP Okta olabilir, Azure AD olabilir, SAP'ın
+// kendi giriş sayfası olabilir. O yüzden yapısal bir sezgi kullanılıyor:
+// görünür bir parola alanı ve ona en yakın metin/e-posta alanı.
+//
+// Üç şey bilinçli:
+//
+// 1. `.value = x` YETMİYOR. Bu sayfaların çoğu React/Angular ve doğrudan
+//    atama framework'ün kendi state'ini güncellemiyor — alan dolu görünüyor,
+//    "Sign in"e basınca "kullanıcı adı boş" diyor. Native setter + input/change
+//    olayı bunu çözüyor.
+// 2. PAROLA GÖNDERİLDİKTEN SONRA hiçbir şey doldurulmuyor. Ondan sonrası
+//    MFA — kod/push ekranı — ve oraya kullanıcı adı yazmaya kalkmak hem
+//    saçma hem zararlı olurdu. O ekran kullanıcının.
+// 3. Aynı alan bir kereden fazla doldurulmuyor (`data-axet-filled`) ve
+//    gönderim sayısı sınırlı. Yanlış bir parolayla döngüye girip HESABI
+//    KİLİTLEMEK, bu özelliğin yapabileceği en pahalı hata olurdu.
+// ============================================================================
+
+// Kullanıcı adı adımı + parola adımı + biraz pay. Bunun ötesi "form
+// gönderiliyor ama sayfa hep geri geliyor" demektir; orada durup pencereyi
+// kullanıcıya göstermek doğrusu.
+const MAX_AUTOFILL_SUBMITS = 4;
+
+function buildAutofillScript(username: string, password: string): string {
+  // Kimlik bilgileri JSON.stringify ile gömülüyor — içindeki tırnak/ters bölü
+  // script'i bozmasın diye.
+  const u = JSON.stringify(username);
+  const p = JSON.stringify(password);
+  return `(() => {
+  const visible = (el) => !el.disabled && !el.readOnly && (el.offsetParent !== null || el.getClientRects().length > 0);
+  const fresh = (el) => !el.dataset.axetFilled;
+  const setValue = (el, v) => {
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    if (setter) { setter.call(el, v); } else { el.value = v; }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.dataset.axetFilled = '1';
+  };
+  const pw = Array.from(document.querySelectorAll('input[type=password]')).filter(visible).filter(fresh)[0];
+  const userCandidates = Array.from(
+    document.querySelectorAll('input[type=text],input[type=email],input[type=tel],input:not([type])')
+  ).filter(visible).filter(fresh).filter((el) => {
+    const hay = ((el.name || '') + (el.id || '') + (el.getAttribute('aria-label') || '') + (el.getAttribute('autocomplete') || '')).toLowerCase();
+    // Arama kutusu, OTP/doğrulama kodu alanı kullanıcı adı DEĞİLDİR.
+    return !/search|otp|code|token|captcha|pin/.test(hay);
+  });
+  const user = userCandidates[0];
+  if (!pw && !user) return 'nofields';
+  if (user) setValue(user, ${u});
+  if (pw) setValue(pw, ${p});
+  const anchor = pw || user;
+  const form = anchor.form;
+  const scope = form || document;
+  const btn = scope.querySelector('button[type=submit],input[type=submit],button:not([type])');
+  // Kısa gecikme: framework'ün state'i işlemesine zaman tanıyor, yoksa bazı
+  // sayfalar hâlâ boş sanıp gönderimi reddediyor.
+  setTimeout(() => {
+    try {
+      if (btn) { btn.click(); }
+      else if (form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
+    } catch (e) { /* gönderim başarısızsa pencere kullanıcıya gösterilecek */ }
+  }, 150);
+  return pw ? 'password' : 'username';
+})()`;
+}
+
 export interface SamlLoginOptions {
   baseUrl: string;
   username: string;
+  password: string;
   // Oturum bölmesi sistem başına ayrı: iki farklı SAP sistemine iki farklı
   // kullanıcıyla bağlanmak, birinin çerezini ötekine taşımamalı.
   partitionKey: string;
@@ -215,6 +290,45 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
 
   const started = Date.now();
   let shown = false;
+  // Otomatik doldurma durumu. `lastActionAt`, pencereyi gösterme kararını
+  // erteliyor: doldurma AKTİFKEN pencereyi açmak, kullanıcıya bir saniye
+  // yanıp sönen ve kendiliğinden ilerleyen bir giriş formu göstermek olurdu.
+  let autofillSubmits = 0;
+  let passwordSubmitted = false;
+  let lastActionAt = started;
+  const autofillScript = buildAutofillScript(opts.username, opts.password);
+
+  const tryAutofill = async (): Promise<void> => {
+    if (passwordSubmitted || autofillSubmits >= MAX_AUTOFILL_SUBMITS) return;
+    if (win.isDestroyed()) return;
+    // Parola HTTPS OLMAYAN bir sayfaya asla yazılmaz. Yönlendirme zinciri
+    // beklenmedik bir yere giderse doldurma sessizce durur ve pencere
+    // kullanıcıya gösterilir — kararı o verir.
+    if (!win.webContents.getURL().startsWith("https://")) return;
+    // Giriş formu bir iframe içinde olabiliyor; ana çerçeve + alt çerçeveler
+    // birlikte taranıyor.
+    let frames: Electron.WebFrameMain[] = [];
+    try {
+      frames = win.webContents.mainFrame.framesInSubtree;
+    } catch {
+      return;
+    }
+    for (const frame of frames) {
+      let outcome: unknown;
+      try {
+        outcome = await frame.executeJavaScript(autofillScript, true);
+      } catch {
+        // Çerçeve gitmiş/erişilemez olabilir — sıradakine geç.
+        continue;
+      }
+      if (outcome === "password" || outcome === "username") {
+        autofillSubmits += 1;
+        lastActionAt = Date.now();
+        if (outcome === "password") passwordSubmitted = true;
+        return;
+      }
+    }
+  };
 
   for (;;) {
     await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -245,10 +359,13 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
       });
     }
 
+    if (!shown) await tryAutofill();
+
     const elapsed = Date.now() - started;
-    if (!shown && elapsed >= SILENT_GRACE_MS) {
-      // Sessiz deneme tutmadı: kullanıcı giriş yapacak. Pencere ANCAK
-      // burada görünüyor.
+    // Sessizlik süresi son EYLEMDEN itibaren sayılıyor, açılıştan değil:
+    // otomatik doldurma iş yaptığı sürece pencere gizli kalıyor, iş bitince
+    // (tipik olarak MFA ekranında) 6 saniye sonra kullanıcıya açılıyor.
+    if (!shown && Date.now() - lastActionAt >= SILENT_GRACE_MS) {
       shown = true;
       if (!win.isDestroyed()) {
         win.show();

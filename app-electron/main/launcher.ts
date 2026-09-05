@@ -954,6 +954,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     samlLogin = await performSamlLogin({
       baseUrl: finalUrl,
       username: credentials.username,
+      password: credentials.password,
       partitionKey: req.service.uuid,
       language
     });
