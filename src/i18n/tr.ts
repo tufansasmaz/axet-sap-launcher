@@ -330,6 +330,11 @@ export const tr = {
   "settingsModal.versionText": "Sürüm {version} · by tsasmaz",
   "settingsModal.autoCheckLabel": "Uygulama açılışında otomatik kontrol et",
   "settingsModal.checkNow": "Güncellemeleri Şimdi Kontrol Et",
+  "settingsModal.unsavedBadge": "Kaydedilmemiş değişiklik var",
+  "settingsModal.discardTitle": "Değişiklikleri at?",
+  "settingsModal.discardMessage": "Bu kutuda kaydetmediğin değişiklikler var. Kapatırsan geri alınamaz.",
+  "settingsModal.discardConfirm": "At ve Kapat",
+  "settingsModal.pathMissing": "Bu yol bulunamadı — ayar yok sayılacak ve varsayılan kullanılacak.",
 
   "credentialsModal.title": "Sisteme Bağlan",
   "credentialsModal.username": "Kullanıcı Adı",

@@ -79,6 +79,10 @@ export interface AxetApi {
   getConfig: () => Promise<AppConfig>;
   saveConfig: (partial: Partial<AppConfig>) => Promise<AppConfig>;
   pickFolder: () => Promise<string | null>;
+  validateOverridePaths: (input: {
+    landscapePath?: string | null;
+    sapShcutPath?: string | null;
+  }) => Promise<{ landscape: boolean | null; sapShcut: boolean | null }>;
   addManualSystem: (input: AddManualSystemInput) => Promise<ManualSystem>;
   removeManualSystem: (id: string) => Promise<ManualSystem[]>;
   updateManualSystem: (id: string, input: AddManualSystemInput) => Promise<ManualSystem | null>;

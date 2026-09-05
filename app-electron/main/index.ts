@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard } from "electron";
 import path from "node:path";
-import { promises as fs } from "node:fs";
+import { promises as fs, existsSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -481,6 +481,28 @@ function registerIpc(): void {
     }
     return saveConfig(clean);
   });
+
+  // Ayarlardaki iki "gelişmiş" yol alanının (SAPUILandscape.xml ve
+  // sapshcut.exe) gerçekten var olup olmadığını söyler. Yanlış yazılmış bir
+  // yol bugüne kadar SESSİZCE yok sayılıyordu: uygulama varsayılana düşüyor,
+  // kullanıcı ayarı girdiğini sanıyor, sistem listesinin neden değişmediğini
+  // anlamıyordu.
+  //
+  // Bilerek GENEL bir "şu yol var mı" aracı DEĞİL: renderer'dan gelen rastgele
+  // bir yolu yoklamaya açmak istemiyoruz (bkz. `fs:*` kanallarındaki kök
+  // koruması). Sadece bu iki alanı alır, sadece iki boolean döner.
+  // null = alan boş, yani doğrulanacak bir şey yok.
+  ipcMain.handle(
+    "config:validateOverridePaths",
+    (_event, input: { landscapePath?: string | null; sapShcutPath?: string | null }) => {
+      const check = (value?: string | null): boolean | null => {
+        const trimmed = value?.trim();
+        if (!trimmed) return null;
+        return existsSync(trimmed);
+      };
+      return { landscape: check(input?.landscapePath), sapShcut: check(input?.sapShcutPath) };
+    }
+  );
 
   ipcMain.handle("dialog:pickFolder", async () => {
     const win = BrowserWindow.getFocusedWindow();

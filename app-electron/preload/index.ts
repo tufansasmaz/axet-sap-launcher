@@ -70,6 +70,11 @@ const api = {
   getConfig: () => ipcRenderer.invoke("config:get"),
   saveConfig: (partial: Partial<AppConfig>) => ipcRenderer.invoke("config:save", partial),
   pickFolder: () => ipcRenderer.invoke("dialog:pickFolder"),
+  validateOverridePaths: (input: {
+    landscapePath?: string | null;
+    sapShcutPath?: string | null;
+  }): Promise<{ landscape: boolean | null; sapShcut: boolean | null }> =>
+    ipcRenderer.invoke("config:validateOverridePaths", input),
   addManualSystem: (input: AddManualSystemInput) => ipcRenderer.invoke("manualSystems:add", input),
   removeManualSystem: (id: string) => ipcRenderer.invoke("manualSystems:remove", id),
   updateManualSystem: (id: string, input: AddManualSystemInput) => ipcRenderer.invoke("manualSystems:update", id, input),

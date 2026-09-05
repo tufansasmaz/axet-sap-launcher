@@ -302,6 +302,11 @@ export const en: Record<TranslationKey, string> = {
   "settingsModal.versionText": "Version {version} · by tsasmaz",
   "settingsModal.autoCheckLabel": "Check automatically on app startup",
   "settingsModal.checkNow": "Check for Updates Now",
+  "settingsModal.unsavedBadge": "Unsaved changes",
+  "settingsModal.discardTitle": "Discard changes?",
+  "settingsModal.discardMessage": "This dialog has changes you have not saved. Closing it cannot be undone.",
+  "settingsModal.discardConfirm": "Discard and Close",
+  "settingsModal.pathMissing": "This path was not found — the setting will be ignored and the default used.",
 
   "credentialsModal.title": "Connect to System",
   "credentialsModal.username": "Username",

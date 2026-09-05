@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   X,
   FolderOpen,
@@ -18,6 +18,7 @@ import {
   Type
 } from "lucide-react";
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
+import ConfirmDialog from "./ConfirmDialog";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
 
@@ -88,6 +89,17 @@ function SegmentedControl<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+// Uyarı, hata değil: yol yanlış olsa da kaydetmek serbest. Kullanıcı henüz
+// bağlanmamış bir ağ sürücüsündeki yolu bilerek girmiş olabilir.
+function PathMissing({ text }: { text: string }) {
+  return (
+    <p className="mt-1.5 flex items-start gap-1.5 text-xs text-[var(--status-warning-text)]">
+      <AlertCircle size={12} className="mt-0.5 shrink-0" />
+      {text}
+    </p>
   );
 }
 
@@ -203,6 +215,12 @@ export default function SettingsModal({
   const [form, setForm] = useState<AppConfig | null>(config);
   const [appVersion, setAppVersion] = useState<string>("");
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle" });
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [pathCheck, setPathCheck] = useState<{ landscape: boolean | null; sapShcut: boolean | null }>({
+    landscape: null,
+    sapShcut: null
+  });
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setForm(config), [config]);
 
@@ -214,7 +232,67 @@ export default function SettingsModal({
     return unsubscribe;
   }, [open]);
 
+  // Escape'in ÇALIŞMASININ şartı. `onKeyDown` odaklanamayan bir `div`'de
+  // duruyor ve React'te tuş olayları odaklı elemandan yukarı kabarır — kutu
+  // açıldığında odak hâlâ onu açan butonda, yani dışarıda kaldığı için tuş bu
+  // ağaca hiç girmiyordu. Kutunun içine tıklanana kadar Escape ölüydü.
+  // Buradaki çözüm `autoFocus` DEĞİL (öbür kutularda öyle): ayarlarda belirgin
+  // bir "ilk alan" yok, rastgele bir metin kutusuna odaklanmak yanlış olurdu.
+  // Onun yerine panelin kendisi odaklanıyor.
+  //
+  // Aynı efekt kutuyu her açılışta SIFIRLIYOR. Bileşen kapanınca `null`
+  // döndürüyor ama SÖKÜLMÜYOR — state olduğu gibi duruyor. Sıfırlama olmadan,
+  // kaydetmeden çıkılan bir düzenleme bir sonraki açılışta hâlâ ekranda
+  // duruyordu (ve artık "kaydedilmemiş" uyarısını da tetiklerdi).
+  useEffect(() => {
+    if (!open) return;
+    setForm(config);
+    setConfirmDiscard(false);
+    panelRef.current?.focus();
+  }, [open, config]);
+
+  // Yazarken doğrulama, kaydederken değil — kaydettikten SONRA "bu yol yok"
+  // demek geç kalmış olurdu, kutu çoktan kapanmış olur. Yazma sırasında her
+  // tuşta ana sürece gitmemek için 400 ms bekliyor.
+  const landscapePath = form?.landscapePathOverride ?? null;
+  const sapShcutPath = form?.sapShcutPathOverride ?? null;
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      window.api
+        .validateOverridePaths({ landscapePath, sapShcutPath })
+        .then((result) => {
+          if (!cancelled) setPathCheck(result);
+        })
+        .catch(() => {
+          // Doğrulama başarısızsa uyarı göstermiyoruz — var olmayan bir yolu
+          // sessizce geçmek, var olan bir yolu yanlışlıkla kırmızı boyamaktan
+          // iyi.
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, landscapePath, sapShcutPath]);
+
+  // Yalnızca bu kutunun düzenlediği alanlar karşılaştırılıyor — ana sürecin
+  // arka planda yazdığı alanlar (`connectorAutoDisabled` vb.) `form`'u
+  // "kirli" göstermemeli, bkz. EDITED_FIELDS.
+  const isDirty = useMemo(() => {
+    if (!form || !config) return false;
+    return EDITED_FIELDS.some((field) => form[field] !== config[field]);
+  }, [form, config]);
+
   if (!open || !form) return null;
+
+  // Kapatma isteği tek kapıdan geçiyor (X, Escape, Vazgeç). Kaydedilmemiş
+  // değişiklik varsa sessizce atılmıyor.
+  const requestClose = () => {
+    if (isDirty) setConfirmDiscard(true);
+    else onClose();
+  };
 
   const pickFolder = async () => {
     const dir = await window.api.pickFolder();
@@ -238,19 +316,26 @@ export default function SettingsModal({
     await window.api.checkForUpdates();
   };
 
+  const updateStatusNode = renderUpdateStatus(updateStatus, t);
+
   return (
+    <>
     <div
       className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
       onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === "Escape") requestClose();
       }}
     >
-      <div className="animate-modal-pop-in flex max-h-[88vh] w-[560px] flex-col overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="animate-modal-pop-in flex max-h-[88vh] w-[560px] flex-col overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50 outline-none"
+      >
         <div className="h-1 w-full shrink-0 bg-gradient-to-r from-accent-600 via-accent-500 to-accent-400" />
 
         <div className="relative shrink-0 px-6 pb-4 pt-5">
           <button
-            onClick={onClose}
+            onClick={requestClose}
             className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-base-700 hover:text-slate-200"
           >
             <X size={16} />
@@ -367,7 +452,7 @@ export default function SettingsModal({
                 type="checkbox"
                 checked={form.chatSidebarOpen}
                 onChange={(e) => setForm({ ...form, chatSidebarOpen: e.target.checked })}
-                className="h-4 w-4 cursor-pointer accent-[rgb(var(--accent-500-rgb))]"
+                className="h-4 w-4 cursor-pointer accent-accent-500"
               />
               {t("settingsModal.chatSidebarOpenLabel")}
             </label>
@@ -402,16 +487,18 @@ export default function SettingsModal({
                 value={form.landscapePathOverride ?? ""}
                 onChange={(e) => setForm({ ...form, landscapePathOverride: e.target.value || null })}
                 placeholder="C:\Users\...\AppData\Roaming\SAP\Common\SAPUILandscape.xml"
-                className={inputClass}
+                className={`${inputClass} ${pathCheck.landscape === false ? "border-[var(--status-danger-border)]" : ""}`}
               />
+              {pathCheck.landscape === false && <PathMissing text={t("settingsModal.pathMissing")} />}
             </Field>
             <Field label={t("settingsModal.sapShcutPathLabel")}>
               <input
                 value={form.sapShcutPathOverride ?? ""}
                 onChange={(e) => setForm({ ...form, sapShcutPathOverride: e.target.value || null })}
                 placeholder="C:\Program Files (x86)\SAP\FrontEnd\SapGui\sapshcut.exe"
-                className={inputClass}
+                className={`${inputClass} ${pathCheck.sapShcut === false ? "border-[var(--status-danger-border)]" : ""}`}
               />
+              {pathCheck.sapShcut === false && <PathMissing text={t("settingsModal.pathMissing")} />}
             </Field>
           </Section>
 
@@ -471,17 +558,20 @@ export default function SettingsModal({
               {t("settingsModal.checkNow")}
             </button>
 
-            {renderUpdateStatus(updateStatus, t) && (
-              <div className="rounded-md border border-base-700/60 bg-base-950/30 px-3 py-2">
-                {renderUpdateStatus(updateStatus, t)}
-              </div>
+            {updateStatusNode && (
+              <div className="rounded-md border border-base-700/60 bg-base-950/30 px-3 py-2">{updateStatusNode}</div>
             )}
           </Section>
         </div>
 
-        <div className="flex shrink-0 justify-end gap-2 border-t border-base-800 px-6 py-4">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-base-800 px-6 py-4">
+          {isDirty && (
+            <span className="mr-auto text-xs text-[var(--status-warning-text)]">
+              {t("settingsModal.unsavedBadge")}
+            </span>
+          )}
           <button
-            onClick={onClose}
+            onClick={requestClose}
             className="cursor-pointer rounded-lg px-4 py-2.5 text-sm text-slate-300 transition hover:bg-base-700"
           >
             {t("common.cancel")}
@@ -495,5 +585,22 @@ export default function SettingsModal({
         </div>
       </div>
     </div>
+
+    {/* Ayarlar kutusunun DIŞINDA, kardeş olarak — içine konsaydı buradaki
+        Escape yukarı kabarıp ayarların `onKeyDown`'ına da düşer ve az önce
+        kapattığımız onayı yeniden açardı. */}
+    <ConfirmDialog
+      open={confirmDiscard}
+      danger={false}
+      title={t("settingsModal.discardTitle")}
+      message={t("settingsModal.discardMessage")}
+      confirmLabel={t("settingsModal.discardConfirm")}
+      onConfirm={() => {
+        setConfirmDiscard(false);
+        onClose();
+      }}
+      onCancel={() => setConfirmDiscard(false)}
+    />
+    </>
   );
 }
