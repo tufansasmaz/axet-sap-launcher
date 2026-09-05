@@ -1392,6 +1392,14 @@ router-only sistemlere bağlanırken kullanıcının ayrıca Python/pyrfc/SDK
 kurması, `SAPNWRFC_HOME` ayarlaması veya `pip install` çalıştırması **hiç
 gerekmiyor**.
 
+> **Dağıtım kararı (2026-09-05, kullanıcı).** Depo PUBLIC ve `build.extraResources`
+> bu runtime'ları (`rfc-runtime`, `guiscript-runtime`, `whisper-runtime`) kurulum
+> paketinin içinde yayınlıyor — yani repoya commit edilmiyor olmaları lisanslı
+> SDK'nın release varlığından indirilebilmesini engellemiyor. Bu soruldu ve
+> **böyle devam** kararı verildi: kullanım şirket içi. Karar bilinçli; bir sonraki
+> sürümde yeniden tartışmaya açmaya gerek yok. Kapsam şirket dışına çıkarsa
+> (harici müşteri dağıtımı) yeniden bakılmalı.
+
 - **`resources/rfc-runtime/`** (yeni, **repoya commit edilmiyor** —
   `.gitignore`'a eklendi, bkz. aşağıdaki "build önkoşulu" notu) iki alt
   klasör içeriyor:
