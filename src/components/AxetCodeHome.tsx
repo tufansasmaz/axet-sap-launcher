@@ -14,7 +14,11 @@ import {
   Trash2,
   Keyboard,
   ChevronRight,
-  ChevronDown
+  ChevronDown,
+  FolderOpen,
+  FolderPlus,
+  FolderInput,
+  Settings2
 } from "lucide-react";
 import type {
   ActiveSapContext,
@@ -25,6 +29,7 @@ import type {
   AxetModelEntry,
   AxetTodo,
   ChatAttachment,
+  ChatProject,
   ChatSessionsState,
   ConnectivityState,
   SapService,
@@ -34,6 +39,7 @@ import ChatSessionPane from "./ChatSessionPane";
 import ChatFilesPanel from "./ChatFilesPanel";
 import ConfirmDialog from "./ConfirmDialog";
 import ChatInstructionsDialog from "./ChatInstructionsDialog";
+import ChatProjectDialog from "./ChatProjectDialog";
 import type { ChatMessage } from "./ChatBubble";
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
@@ -122,6 +128,10 @@ interface ChatSession {
   // `StoredChatSession.cwd`). `null` = genel çalışma alanı.
   cwd: string | null;
   sapLabel: string | null;
+  // Kullanıcının elle kurduğu projeye aidiyet (bkz. shared/types.ts
+  // `ChatProject`). `cwd`'den BAĞIMSIZ: bir SAP sohbeti de bir projeye
+  // konabilir, o zaman kenar çubuğunda proje altında görünüyor.
+  projectId: string | null;
 }
 
 // SAP'a bağlanınca App.tsx'in "bu sisteme bağlı bir sohbet aç" isteği.
@@ -209,6 +219,38 @@ const MAX_HISTORY_MESSAGES = 24;
 // "Yeni sohbet"e üst üste basan kullanıcı, listeyi hiç kullanılmamış boş
 // kayıtlarla dolduruyordu.
 const NEW_SESSION_ID = "__new__";
+
+// Proje sayısının tavanı. Ana süreçteki `chatStore.ts` ile AYNI olmalı: orada
+// fazlası kesiliyor, burada ise daha oluşturulmadan söyleniyor — sınırın
+// diskte sessizce uygulanması, kullanıcının kurduğu projenin bir sonraki
+// açılışta yok olması demek olurdu.
+const MAX_PROJECTS = 40;
+
+// "Projeye taşı" menüsünün en fazla kaplayacağı yükseklik (px). Hem menünün
+// kendi `max-h` sınıfı hem de ekranın altına taşmasını engelleyen sıkıştırma
+// bu sayıyı kullanıyor — ikisinin ayrışması menüyü yarım gösterirdi.
+const MOVE_MENU_MAX_H = 280;
+
+/**
+ * Proje talimatını gönderilecek mesajın başına ekler.
+ *
+ * EKRANDA GÖRÜNEN mesaja dokunulmuyor — kullanıcı ne yazdıysa onu görüyor,
+ * talimat yalnızca ajana giden metinde var.
+ *
+ * HER TURDA ekleniyor, sadece ilk mesajda değil. Tek sefer denendiğinde üç
+ * ayrı yoldan kayboluyordu: (1) geçmiş son `MAX_HISTORY_MESSAGES` mesajla
+ * sınırlı, uzun sohbette ilk mesaj pencereden düşüyor; (2) kalıcı axet-code
+ * oturumu uygulama kapanınca ölüyor ve yeniden tohumlanırken geçmiş ekrandaki
+ * mesajlardan kuruluyor — talimat orada hiç yok; (3) var olan bir sohbet
+ * sonradan bir projeye taşınabiliyor, o sohbetin "ilk mesajı" çoktan gitmiş
+ * oluyor. Bedeli her turda talimat kadar jeton; `chatStore.ts` bunu 8000
+ * karakterle sınırlıyor ve tipik bir talimat birkaç yüz karakter.
+ */
+function withProjectInstructions(text: string, project: ChatProject | null): string {
+  const instructions = project?.instructions.trim();
+  if (!project || !instructions) return text;
+  return `[Proje talimatı — "${project.name}" projesindeki tüm sohbetlerde geçerli]\n${instructions}\n[Proje talimatı sonu]\n\n${text}`;
+}
 
 // SAP'a bağlanınca sohbetin başına basılan karşılama balonunun kimliği.
 // Ekranda asistan mesajı gibi görünüyor ama ajanın ÜRETTİĞİ bir tur değil —
@@ -433,6 +475,21 @@ export default function AxetCodeHome({
   // yalnızca boş ekranda gösterilseydi kullanıcı yazar yazmaz kaybolur,
   // "hangi sisteme bağlıydım" bilgisi sohbette hiç kalmazdı.
   const [newNotice, setNewNotice] = useState<string | null>(null);
+  // Taslağın PROJESİ — `newBinding`'in eşleniği. Bir projenin başlığındaki
+  // "+" ile açılan yeni sohbet, ilk mesaj gönderilene kadar burada bekliyor;
+  // kayıt doğduğunda (handleSendNew) sohbete taşınıyor.
+  const [newProjectId, setNewProjectId] = useState<string | null>(null);
+  // Kullanıcının kendi kurduğu projeler (bkz. shared/types.ts `ChatProject`).
+  // Sohbetlerle AYNI dosyada saklanıyorlar (chat-sessions.json): proje bir
+  // sohbet düzenlemesi, ayrı bir dosya iki kaynağın birbirinden kayması
+  // (silinmiş bir projeye ait sohbetler) demek olurdu.
+  const [projects, setProjects] = useState<ChatProject[]>([]);
+  // Ayar kutusu açık olan projenin kimliği (ad + talimat + silme).
+  const [projectDialogId, setProjectDialogId] = useState<string | null>(null);
+  // "Projeye taşı" menüsü. Konum SABİT (viewport) koordinat: menü kenar
+  // çubuğunun kaydırılan listesinin içinde açılsaydı, listeyle birlikte
+  // kayar ve `overflow-hidden` sınırında kırpılırdı.
+  const [moveMenu, setMoveMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
   // Kimlik SABİT, her render'da `crypto.randomUUID()` DEĞİL: id React `key`
   // olarak kullanılıyor, her render'da değişseydi balon her tuş vuruşunda
   // sökülüp yeniden kurulurdu (bkz. CONNECT_NOTICE_ID).
@@ -544,9 +601,15 @@ export default function AxetCodeHome({
             cancelStuck: false,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
-            sapLabel: s.sapLabel ?? null
+            sapLabel: s.sapLabel ?? null,
+            projectId: s.projectId ?? null
           }))
         );
+        // Projeler sohbetlerden AYRI bir liste ama aynı dosyada. Artık var
+        // olmayan bir projeye işaret eden sohbet kaybolmuyor: gruplama
+        // bilinmeyen `projectId`'yi yok sayıp sohbeti "Sohbetler"e düşürüyor
+        // (bkz. sessionGroups).
+        setProjects(result.state.projects ?? []);
         // `result.state.activeId` BİLEREK yok sayılıyor (kullanıcı isteği,
         // 2026-09-04): uygulama her açılışta boş sohbet ekranıyla karşılasın,
         // son sohbetin yarım kalmış bağlamına düşmesin. Geçmiş listesi
@@ -688,14 +751,19 @@ export default function AxetCodeHome({
           // Bağlamsız sohbetler geçmiş dosyasını boş alanlarla şişirmesin.
           ...(s.cwd ? { cwd: s.cwd } : {}),
           ...(s.sapLabel ? { sapLabel: s.sapLabel } : {}),
+          ...(s.projectId ? { projectId: s.projectId } : {}),
           createdAt: s.createdAt,
           updatedAt: s.updatedAt
-        }))
+        })),
+        projects
       };
       window.api.saveChatSessions(state).catch(() => {});
     }, 600);
     return () => clearTimeout(timer);
-  }, [sessions, activeId]);
+    // `projects` bağımlılıkta: bir projenin adını/talimatını değiştirmek
+    // sohbet listesine dokunmuyor, bu olmadan değişiklik ancak bir sonraki
+    // mesajla diske inerdi (ve arada kapatılırsa hiç inmezdi).
+  }, [sessions, activeId, projects]);
 
   useEffect(() => {
     let cancelled = false;
@@ -737,13 +805,21 @@ export default function AxetCodeHome({
   // `notice`: yalnızca SAP bağlantısından gelen çağrı doldurur. Elle açılan
   // yeni sohbette `null` — bir önceki bağlantının karşılaması ekranda asılı
   // kalmamalı.
+  // `projectId`: yalnızca bir projenin başlığındaki "+" doldurur. Genel "Yeni
+  // sohbet" düğmesi projesiz açıyor — bir projeye girip çıkan kullanıcının
+  // sonraki sohbetlerinin sessizce o projeye yapışması istenmiyor.
   const handleNewSession = useCallback(
-    (binding: { cwd: string; label: string } | null = null, notice: string | null = null) => {
+    (
+      binding: { cwd: string; label: string } | null = null,
+      notice: string | null = null,
+      projectId: string | null = null
+    ) => {
       setActiveId(null);
       setNewDraft("");
       setNewAttachments([]);
       setNewBinding(binding);
       setNewNotice(notice);
+      setNewProjectId(projectId);
       setQuery("");
       // Boş ekrana her dönüşte kartlar yenileniyor — "sürekli değişen" burada.
       setSuggestionSeed(freshSuggestionSeed());
@@ -924,6 +1000,59 @@ export default function AxetCodeHome({
     );
   }, [renameDraft, renamingId]);
 
+  // --- Projeler ---
+  //
+  // Kullanıcı isteği (2026-09-06): *"chat ekranının kısmında chat gpt deki
+  // projeler yapısını ekleyelim"* → seçilen biçim: kendi kurduğun, adlandırdığın
+  // ve KENDİ TALİMATI olan projeler. SAP sistem grupları bundan bağımsız ve
+  // otomatik olarak durmaya devam ediyor.
+  //
+  // Yeni proje HEMEN ayar kutusunu açıyor: varsayılan adıyla ("Yeni proje")
+  // bırakılan bir proje, ikinci projeden itibaren ayırt edilemez olurdu.
+  const handleCreateProject = useCallback(() => {
+    if (projects.length >= MAX_PROJECTS) {
+      pushToast("error", t("axetCodeHome.projectLimit", { count: MAX_PROJECTS }));
+      return;
+    }
+    const now = Date.now();
+    const project: ChatProject = {
+      id: crypto.randomUUID(),
+      name: t("axetCodeHome.newProjectName"),
+      instructions: "",
+      createdAt: now,
+      updatedAt: now
+    };
+    setProjects((prev) => [...prev, project]);
+    setProjectDialogId(project.id);
+  }, [projects.length, pushToast, t]);
+
+  const handleSaveProject = useCallback((id: string, name: string, instructions: string) => {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name, instructions, updatedAt: Date.now() } : p))
+    );
+  }, []);
+
+  // Proje silmek SOHBETLERİ SİLMİYOR — yalnızca aidiyeti kopuyor ve sohbetler
+  // "Sohbetler" başlığına düşüyor. Aksi hâlde tek bir çöp kutusu düğmesi, bir
+  // klasör dolusu konuşmayı uyarısız yok ederdi; kullanıcının silmek istediği
+  // şey düzenlemenin kendisi, içeriği değil.
+  const handleDeleteProject = useCallback((id: string) => {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setSessions((prev) => prev.map((s) => (s.projectId === id ? { ...s, projectId: null } : s)));
+    setNewProjectId((current) => (current === id ? null : current));
+    setProjectDialogId(null);
+  }, []);
+
+  // Var olan bir sohbeti bir projeye taşı / projeden çıkar.
+  //
+  // `updatedAt` BİLEREK dokunulmuyor: taşımak bir konuşma değil, listeyi
+  // yeniden sıralamak istenmiyor — taşınan sohbet birdenbire en üste
+  // zıplasaydı kullanıcı onu kaybederdi.
+  const handleMoveSession = useCallback((sessionId: string, projectId: string | null) => {
+    setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, projectId } : s)));
+    setMoveMenu(null);
+  }, []);
+
   const handleSelectModel = useCallback(
     async (entry: AxetModelEntry) => {
       const result = await window.api.setAxetModel("large", entry);
@@ -952,7 +1081,11 @@ export default function AxetCodeHome({
       // Sohbete özel çalışma klasörü. SAP'a bağlanınca açılan sohbetlerde bu,
       // bağlantının proje klasörü — ajan `.conn_adt`/`sap-context.md`'yi ancak
       // orada çalışırsa görüyor. `null` ise genel çalışma alanına düşüyor.
-      sessionCwd: string | null
+      sessionCwd: string | null,
+      // Sohbetin projesi. Sohbet listesinden okunmuyor, AÇIKÇA geçiliyor:
+      // `handleSendNew` bu fonksiyonu `setSessions` çağrısının hemen ardından
+      // çağırıyor ve yeni kayıt o an ne `sessions`'ta ne `sessionsRef`'te var.
+      sessionProjectId: string | null = null
     ) => {
       const requestId = crypto.randomUUID();
       setSessions((prev) =>
@@ -978,7 +1111,14 @@ export default function AxetCodeHome({
       // `sessionId` main process'e de gidiyor: kalıcı axet-code oturumları
       // sohbet başına tutuluyor (bkz. axetChatTui.ts), yani bir sohbetin
       // hafızası artık CLI'ın kendisinde duruyor.
-      const result = await window.api.sendChatMessage(requestId, sessionId, cwd, model, history, text);
+      // Proje talimatı TEK YERDE ekleniyor: gönder / yeniden üret / sürdür
+      // yollarının üçü de buradan geçiyor, üç ayrı çağrı yerine burada
+      // yapılması birinin unutulmasını imkânsız kılıyor.
+      const promptText = withProjectInstructions(
+        text,
+        projects.find((p) => p.id === sessionProjectId) ?? null
+      );
+      const result = await window.api.sendChatMessage(requestId, sessionId, cwd, model, history, promptText);
 
       // Kuyrukta kalan artık metin ATILIYOR: aşağıda mesajın içeriği sonucun
       // tam metniyle değiştiriliyor, yani kaybolan bir şey yok. Bırakılsaydı
@@ -1075,7 +1215,7 @@ export default function AxetCodeHome({
       })
     );
     },
-    [config?.axetWorkspaceDir, t]
+    [config?.axetWorkspaceDir, projects, t]
   );
 
   // İlk mesaj: sohbet TAM OLUŞMUŞ hâlde (kullanıcı mesajı + başlık içinde)
@@ -1127,7 +1267,10 @@ export default function AxetCodeHome({
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
       cwd: effectiveNewBinding?.cwd ?? null,
-      sapLabel: effectiveNewBinding?.label ?? null
+      sapLabel: effectiveNewBinding?.label ?? null,
+      // Proje aidiyeti de aynı şekilde: sohbet ancak burada doğduğu için
+      // "hangi projede açtım" bilgisi ilk mesaja kadar taslakta bekliyordu.
+      projectId: newProjectId
     };
     setSessions((prev) => [...prev, session]);
     setActiveId(id);
@@ -1135,13 +1278,14 @@ export default function AxetCodeHome({
     setNewAttachments([]);
     setNewBinding(null);
     setNewNotice(null);
+    setNewProjectId(null);
     // Geçmiş BOŞ gidiyor, karşılama balonu dahil değil: o balon ajanın
     // ürettiği bir tur değil, bizim bastığımız bir özet. Ajan aynı bilgiyi
     // zaten proje klasöründeki `sap-context.md`den okuyor (bkz. runPrompt'taki
     // `sessionCwd` notu), ikinci kez ve uydurma bir "asistan turu" olarak
     // göndermek gereksiz.
-    await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel, session.cwd);
-  }, [defaultModel, newAttachments, effectiveNewBinding, newDraft, noticeMessage, runPrompt]);
+    await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel, session.cwd, session.projectId);
+  }, [defaultModel, newAttachments, effectiveNewBinding, newDraft, newProjectId, noticeMessage, runPrompt]);
 
   const handleSend = useCallback(async () => {
     if (!activeId) return handleSendNew();
@@ -1197,7 +1341,14 @@ export default function AxetCodeHome({
     // tek tuşa indirdiği için bu yanlışlıkla çok kolay tetiklenir hâle
     // gelmişti.
     if (session.editUndo) await window.api.resetChatHistory(activeId).catch(() => false);
-    await runPrompt(activeId, promptWithAttachments(text, attachments), historyForCall, session.model, session.cwd);
+    await runPrompt(
+      activeId,
+      promptWithAttachments(text, attachments),
+      historyForCall,
+      session.model,
+      session.cwd,
+      session.projectId
+    );
   }, [activeId, handleSendNew, runPrompt, sessions]);
 
   // Gönderilmiş bir kullanıcı mesajını düzenle: metni composer'a geri koy ve
@@ -1305,7 +1456,7 @@ export default function AxetCodeHome({
     // Buradaki await'in işi sıralama: sıfırlama IPC'si gönderim IPC'sinden
     // sonra varsa palet, istem gittikten SONRA açılırdı.
     await window.api.resetChatHistory(activeId).catch(() => false);
-    await runPrompt(activeId, prompt, historyForCall, session.model, session.cwd);
+    await runPrompt(activeId, prompt, historyForCall, session.model, session.cwd, session.projectId);
   }, [activeId, runPrompt, sessions]);
 
   // Yarıda kalmış son cevabı KALDIĞI YERDEN sürdür (bkz. `interrupted`).
@@ -1333,7 +1484,14 @@ export default function AxetCodeHome({
       .slice(-MAX_HISTORY_MESSAGES)
       .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
 
-    await runPrompt(activeId, t("axetCodeHome.continuePrompt"), historyForCall, session.model, session.cwd);
+    await runPrompt(
+      activeId,
+      t("axetCodeHome.continuePrompt"),
+      historyForCall,
+      session.model,
+      session.cwd,
+      session.projectId
+    );
 
     // İki balon tek balona indiriliyor: kullanıcı açısından bu BİR cevap, ikiye
     // bölünmüş olması bizim kaza eserimiz. Devam üretilemediyse (hata/iptal/boş)
@@ -1798,10 +1956,24 @@ export default function AxetCodeHome({
   // olamayacağı için sistem gruplarıyla çakışmıyorlar.
   const GENERAL_GROUP_KEY = "__general__";
   const SAP_SECTION_KEY = "__sap__";
+  const PROJECTS_SECTION_KEY = "__projects__";
   const sessionGroups = useMemo(() => {
+    const byProject = new Map<string, ChatSession[]>();
     const sap = new Map<string, { key: string; label: string; sessions: ChatSession[] }>();
     const general: ChatSession[] = [];
+    // Silinmiş bir projeye işaret eden `projectId` YOK SAYILIYOR: sohbet
+    // görünmez bir grubun içinde kaybolmak yerine sistemine/geneline düşüyor.
+    const knownProjects = new Set(projects.map((p) => p.id));
     for (const s of visibleSessions) {
+      // Proje, `cwd`'yi YENİYOR: proje bilinçli bir seçim, `cwd` ise
+      // bağlantının yan ürünü. Bir SAP sohbeti bir projeye taşındıysa
+      // kullanıcı onu orada görmek istiyor demektir.
+      if (s.projectId && knownProjects.has(s.projectId)) {
+        const list = byProject.get(s.projectId);
+        if (list) list.push(s);
+        else byProject.set(s.projectId, [s]);
+        continue;
+      }
       const cwd = s.cwd ?? "";
       if (!cwd) {
         general.push(s);
@@ -1824,8 +1996,21 @@ export default function AxetCodeHome({
     const sapGroups = Array.from(sap.values()).sort(
       (a, b) => b.sessions[0].updatedAt - a.sessions[0].updatedAt
     );
-    return { sapGroups, general };
-  }, [visibleSessions]);
+    // Projeler SOHBETSİZ de listeleniyor (SAP gruplarının aksine): yeni
+    // kurulan bir proje boş doğuyor ve görünmeseydi kullanıcı onu kurduğunu
+    // sanıp içine sohbet açamazdı. Ama ARAMA sırasında boşlar gizleniyor —
+    // aramanın sonucu, eşleşmesi olmayan başlıklarla dolmamalı.
+    const searching = Boolean(normalizedQuery);
+    const projectGroups = projects
+      .map((project) => ({ key: project.id, project, sessions: byProject.get(project.id) ?? [] }))
+      .filter((g) => !searching || g.sessions.length > 0)
+      .sort(
+        (a, b) =>
+          (b.sessions[0]?.updatedAt ?? b.project.createdAt) -
+          (a.sessions[0]?.updatedAt ?? a.project.createdAt)
+      );
+    return { projectGroups, sapGroups, general };
+  }, [normalizedQuery, projects, visibleSessions]);
 
   // Yalnızca DARALTILMIŞ olanlar tutuluyor: varsayılan açık. Daraltma isteğe
   // bağlı bir sadeleştirme, açılışta gizlenmesi gereken bir şey değil.
@@ -1894,6 +2079,10 @@ export default function AxetCodeHome({
   }, [active, activeId, orderedSessions, sessions, shortcutsOpen]);
 
   const deleteTarget = deleteId ? sessions.find((s) => s.id === deleteId) ?? null : null;
+  const projectDialog = projectDialogId ? projects.find((p) => p.id === projectDialogId) ?? null : null;
+  // "Projeye taşı" menüsünün açık olduğu sohbet — o an hangi projede olduğunu
+  // (ve "projeden çıkar"ın gösterilip gösterilmeyeceğini) buradan okuyor.
+  const moveTarget = moveMenu ? sessions.find((s) => s.id === moveMenu.sessionId) ?? null : null;
 
   // Sohbete özel klasörü olmayan sohbetlerin kökü/çalışma klasörü.
   const workspaceDir = config?.axetWorkspaceDir ?? "";
@@ -1996,6 +2185,29 @@ export default function AxetCodeHome({
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-400 opacity-60" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-400" />
           </span>
+        )}
+        {/* "Projeye taşı" — yalnızca gidecek bir proje varsa. Proje kurmamış
+            kullanıcıya boş bir menü açan düğme göstermenin anlamı yok.
+            Menü SABİT konumlu (bkz. `moveMenu`): kaydırılan listenin içinde
+            açılsaydı listeyle kayar ve kenar çubuğunun sınırında kırpılırdı. */}
+        {projects.length > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              // Alt kenara sıkıştırma: listenin en altındaki bir sohbette menü
+              // ekranın dışında açılır ve tıklanamaz olurdu.
+              setMoveMenu({
+                sessionId: session.id,
+                x: rect.left,
+                y: Math.min(rect.bottom + 4, window.innerHeight - MOVE_MENU_MAX_H - 8)
+              });
+            }}
+            title={t("axetCodeHome.moveToProject")}
+            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <FolderInput size={12} />
+          </button>
         )}
         <button
           onClick={(e) => {
@@ -2167,6 +2379,113 @@ export default function AxetCodeHome({
         {sidebarOpen && (
           <>
             <div className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-2">
+              {/* Projeler — kullanıcının kendi kurduğu, kendi talimatını
+                  taşıyan gruplar (ChatGPT'nin "Projects" karşılığı, kullanıcı
+                  isteği 2026-09-06). SAP grupları bunun ALTINDA ve otomatik.
+                  Bölüm başlığı proje yokken de görünüyor: tek kapısı buradaki
+                  "+" düğmesi olduğu için gizlenseydi özellik keşfedilemezdi. */}
+              <button
+                onClick={() => toggleGroup(PROJECTS_SECTION_KEY)}
+                aria-expanded={groupOpen(PROJECTS_SECTION_KEY)}
+                className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
+              >
+                {groupOpen(PROJECTS_SECTION_KEY) ? (
+                  <ChevronDown size={12} className="shrink-0" />
+                ) : (
+                  <ChevronRight size={12} className="shrink-0" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.projectsTitle")}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    // Başlık daraltmayı açıp kapatıyor; "+" onun İÇİNDE bir
+                    // düğme olduğu için olayı burada durdurmak şart, yoksa yeni
+                    // proje bölümü de kapatırdı.
+                    e.stopPropagation();
+                    handleCreateProject();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleCreateProject();
+                    }
+                  }}
+                  title={t("axetCodeHome.newProject")}
+                  className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
+                >
+                  <FolderPlus size={13} />
+                </span>
+              </button>
+              <div className={groupOpen(PROJECTS_SECTION_KEY) ? "space-y-0.5" : "hidden"}>
+                {sessionGroups.projectGroups.map((group) => {
+                  const open = groupOpen(group.key);
+                  return (
+                    <div key={group.key}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleGroup(group.key)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleGroup(group.key);
+                          }
+                        }}
+                        aria-expanded={open}
+                        title={group.project.name}
+                        className="group/proj flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                      >
+                        {open ? (
+                          <ChevronDown size={12} className="shrink-0 text-slate-500" />
+                        ) : (
+                          <ChevronRight size={12} className="shrink-0 text-slate-500" />
+                        )}
+                        <FolderOpen size={12} className="shrink-0 text-accent-400" />
+                        <span className="min-w-0 flex-1 truncate font-medium">{group.project.name}</span>
+                        {/* Projede yeni sohbet: sohbet, projenin talimatını
+                            devralarak doğuyor (bkz. handleSendNew). */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleNewSession(null, null, group.project.id);
+                          }}
+                          title={t("axetCodeHome.newChatInProject")}
+                          className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
+                        >
+                          <Plus size={12} />
+                        </button>
+                        {/* Ad, talimat ve silme TEK kutuda (ChatProjectDialog):
+                            başlığa dört düğme sığmıyordu. */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProjectDialogId(group.project.id);
+                          }}
+                          title={t("axetCodeHome.projectSettings")}
+                          className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
+                        >
+                          <Settings2 size={12} />
+                        </button>
+                        <span className="shrink-0 text-[10px] text-slate-500">{group.sessions.length}</span>
+                      </div>
+                      {open && (
+                        <div className="ml-2 space-y-0.5 border-l border-base-800 pl-1.5">
+                          {group.sessions.length > 0 ? (
+                            group.sessions.map(renderSessionRow)
+                          ) : (
+                            <div className="px-2 py-1.5 text-[11px] leading-relaxed text-slate-500">
+                              {t("axetCodeHome.projectEmpty")}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
               {/* SAP sohbetleri: sistem başına bir daraltılabilir grup.
                   Bölüm etiketi yalnızca gerçekten SAP sohbeti varsa
                   görünüyor — tek bir sisteme bile bağlanmamış kullanıcıya
@@ -2436,6 +2755,58 @@ export default function AxetCodeHome({
         onClose={() => setInstructionsCwd(null)}
         onSaved={handleInstructionsSaved}
       />
+
+      <ChatProjectDialog
+        project={projectDialog}
+        onClose={() => setProjectDialogId(null)}
+        onSave={(name, instructions) => projectDialog && handleSaveProject(projectDialog.id, name, instructions)}
+        onDelete={() => projectDialog && handleDeleteProject(projectDialog.id)}
+      />
+
+      {/* "Projeye taşı" menüsü. Arkasındaki saydam katman dışarı tıklamayı
+          yakalıyor — menü, kaydırılan listenin dışında (sabit konumda)
+          çizildiği için listenin kendi tıklamalarıyla kapanmazdı. */}
+      {moveMenu && (
+        <>
+          <div className="fixed inset-0 z-[70]" onClick={() => setMoveMenu(null)} />
+          <div
+            className="chat-scroll fixed z-[71] w-[200px] overflow-y-auto rounded-md border border-base-700 bg-base-900 p-1 shadow-xl"
+            style={{ left: moveMenu.x, top: moveMenu.y, maxHeight: MOVE_MENU_MAX_H }}
+          >
+            {projects.map((project) => {
+              const current = moveTarget?.projectId === project.id;
+              return (
+                <button
+                  key={project.id}
+                  onClick={() => handleMoveSession(moveMenu.sessionId, project.id)}
+                  disabled={current}
+                  title={project.name}
+                  className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] transition ${
+                    current
+                      ? "cursor-default bg-base-800 text-slate-300"
+                      : "cursor-pointer text-slate-400 hover:bg-base-800 hover:text-slate-200"
+                  }`}
+                >
+                  <FolderOpen size={12} className="shrink-0 text-accent-400" />
+                  <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                </button>
+              );
+            })}
+            {/* Yalnızca bir projedeyken görünüyor: projesiz bir sohbette
+                "projeden çıkar" tıklanacak ama hiçbir şey yapmayan bir satır
+                olurdu. */}
+            {moveTarget?.projectId && (
+              <button
+                onClick={() => handleMoveSession(moveMenu.sessionId, null)}
+                className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded border-t border-base-800 px-2 py-1.5 pt-2 text-left text-[12px] text-slate-500 transition hover:bg-base-800 hover:text-slate-300"
+              >
+                <X size={12} className="shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.removeFromProject")}</span>
+              </button>
+            )}
+          </div>
+        </>
+      )}
 
       {shortcutsOpen && (
         <div

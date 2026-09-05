@@ -624,6 +624,32 @@ export interface StoredChatSession {
   // Yalnızca GÖRSEL etiket ("Müşteri · S4D") — sohbetin tepesindeki rozette
   // hangi sisteme bağlı olduğunu göstermek için. Bağlantı kimliği değil.
   sapLabel?: string;
+  // Kullanıcının elle oluşturduğu projeye aidiyet (bkz. ChatProject). SAP
+  // sistemine göre OTOMATİK gruplama `cwd` üzerinden ayrıca sürüyor; ikisi
+  // çakışırsa kenar çubuğunda proje kazanıyor, çünkü bu alan bilinçli bir
+  // seçim, `cwd` ise bağlantının yan ürünü.
+  projectId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/**
+ * Kullanıcının kendi eliyle oluşturduğu sohbet projesi (ChatGPT'deki
+ * "Projects" karşılığı). SAP sistem grupları bundan AYRI ve otomatik.
+ *
+ * `instructions`: projedeki sohbetlerin HER turunda, gönderilen metnin başına
+ * eklenen kalıcı bağlam (bkz. AxetCodeHome.tsx `withProjectInstructions` —
+ * tek turda eklemenin neden kaybolduğu orada yazıyor). Klasör bazlı
+ * `AGENTS.md`'den (bkz. ChatInstructionsDialog.tsx) farkı: o dosya KLASÖRE
+ * ait ve axet-code onu süreç açılışında kendi okuyor; bu ise sohbetin
+ * kendisine ait, aynı klasörde farklı projelerden sohbetler olabiliyor ve
+ * prompt'a biz ekliyoruz. Bedeli her turda talimat kadar jeton; bu yüzden
+ * chatStore.ts 8000 karakterde kesiyor.
+ */
+export interface ChatProject {
+  id: string;
+  name: string;
+  instructions: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -631,6 +657,9 @@ export interface StoredChatSession {
 export interface ChatSessionsState {
   activeId: string | null;
   sessions: StoredChatSession[];
+  // Eski geçmiş dosyalarında bu alan hiç yok — okurken boş diziye düşüyor,
+  // o yüzden sürüm yükseltmesi gerekmedi.
+  projects?: ChatProject[];
 }
 
 export interface ChatSessionsLoadResult {

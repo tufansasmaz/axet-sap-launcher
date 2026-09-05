@@ -125,6 +125,15 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.sapChatsTitle": "SAP chats",
   "axetCodeHome.generalChatsTitle": "Chats",
   "axetCodeHome.systemsTitle": "Systems",
+  "axetCodeHome.projectsTitle": "Projects",
+  "axetCodeHome.newProject": "New project",
+  "axetCodeHome.newProjectName": "New project",
+  "axetCodeHome.newChatInProject": "New chat in this project",
+  "axetCodeHome.projectSettings": "Project settings",
+  "axetCodeHome.projectEmpty": "This project is empty — start a chat here.",
+  "axetCodeHome.projectLimit": "You can create at most {count} projects.",
+  "axetCodeHome.moveToProject": "Move to project",
+  "axetCodeHome.removeFromProject": "Remove from project",
   "axetCodeHome.newSession": "New chat",
   "axetCodeHome.connectionsEmpty": "Connect to a SAP system",
   "axetCodeHome.viewAllConnections": "View all",
@@ -433,6 +442,20 @@ export const en: Record<TranslationKey, string> = {
   "chatInstructions.saving": "Saving…",
   "chatInstructions.tooLarge":
     "This file is over 2 MB and was read here truncated; saving would delete the rest. Open it in a text editor instead.",
+
+  "chatProject.title": "Project",
+  "chatProject.nameLabel": "Project name",
+  "chatProject.namePlaceholder": "e.g. Invoice integration",
+  "chatProject.instructionsLabel": "Project instructions",
+  "chatProject.instructionsHint":
+    "Added to the FIRST message of every chat in this project — later turns already have it in the history.",
+  "chatProject.instructionsPlaceholder":
+    "Example:\n- Answer in English.\n- This project is about the MM module.\n- Use package ZAI in code samples.",
+  "chatProject.folderNote":
+    "Folder-level instructions live elsewhere: the “Instructions” button above the chat (AGENTS.md).",
+  "chatProject.delete": "Delete project",
+  "chatProject.deleteConfirm": "Are you sure? The chats are kept and move under “Chats”.",
+  "chatProject.deleteYes": "Yes, delete",
 
   "errorBoundary.title": "An unexpected error occurred",
   "errorBoundary.reload": "Reload App",

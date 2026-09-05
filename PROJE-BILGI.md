@@ -8416,3 +8416,76 @@ Değişmeyen güvenlik kuralı: parola bir bağlanma başına EN FAZLA BİR KEZ
 gönderiliyor (`passwordSubmitted`). Hesap kilitlemek bu özelliğin
 yapabileceği en pahalı hata olurdu; `MAX_AUTOFILL_SUBMITS` yalnızca kullanıcı
 adı adımlarını sınırlıyor.
+
+## Sohbet projeleri (2026-09-06)
+
+Kullanıcı isteği: *"chat ekranının kısmında chat gpt deki projeler yapısını
+ekleyelim"*. Sorulduğunda seçilen biçim: **gerçek projeler + proje talimatı** —
+kendin oluştur, adlandır, sil; sohbetleri içine taşı; her projenin kendi kalıcı
+talimatı var. SAP sistem grupları bundan BAĞIMSIZ ve otomatik olarak durmaya
+devam ediyor.
+
+Kenar çubuğu sırası: **Projeler** → **SAP sohbetleri** → **Sohbetler** →
+sistemler bloğu. Bir sohbet hem bir projede hem bir SAP klasöründe olabilir;
+o durumda **proje kazanıyor**, çünkü proje bilinçli bir seçim, `cwd` ise
+bağlantının yan ürünü.
+
+### Talimat HER TURDA gönderiliyor, sadece ilk mesajda değil
+
+İlk tasarım "projedeki her sohbet o talimatla başlar" idi. Tek sefer enjekte
+etmek üç ayrı yoldan sessizce kayboluyor:
+
+1. Ajana giden geçmiş son `MAX_HISTORY_MESSAGES` (24) mesajla sınırlı — uzun
+   sohbette ilk mesaj pencereden düşüyor.
+2. Kalıcı axet-code oturumu uygulama kapanınca ölüyor; yeniden tohumlanırken
+   geçmiş EKRANDAKİ mesajlardan kuruluyor ve talimat orada hiç yok (talimat
+   bilerek ekrana yazılmıyor).
+3. Var olan bir sohbet sonradan bir projeye taşınabiliyor — o sohbetin "ilk
+   mesajı" çoktan gitmiş oluyor.
+
+Bu yüzden `withProjectInstructions` her turda, gönderilen metnin başına
+işaretli bir blok ekliyor. EKRANDA görünen mesaja dokunulmuyor. Bedeli her
+turda talimat kadar jeton; `chatStore.ts` talimatı 8000 karakterle
+sınırlıyor ve tipik bir talimat birkaç yüz karakter. Ekleme TEK yerde
+(`runPrompt`) yapılıyor: gönder / yeniden üret / sürdür yollarının üçü de
+oradan geçiyor.
+
+### İki ayrı "yönerge" mekanizması var, karıştırılmamalı
+
+- **Proje talimatı** (bu iş): sohbete ait, `chat-sessions.json`'da duruyor,
+  prompt'a BİZ ekliyoruz. Terminali etkilemiyor.
+- **Klasör yönergesi** (`AGENTS.md`, `ChatInstructionsDialog`): klasöre ait,
+  axet-code onu SÜREÇ AÇILIŞINDA kendisi okuyor, gömülü terminaldeki
+  oturumlarda da geçerli.
+
+Proje kutusunda bunu söyleyen bir satır var (`chatProject.folderNote`) —
+kullanıcının "buraya yazdım ama terminalde çalışmıyor" diye takılacağı en
+olası yer burası.
+
+### Kararlar
+
+- **Proje silmek sohbetleri SİLMİYOR** — aidiyet kopuyor, sohbetler
+  "Sohbetler" başlığına düşüyor. Tek bir çöp kutusu düğmesinin bir klasör
+  dolusu konuşmayı uyarısız yok etmesi kabul edilebilir değildi.
+- Silinmiş bir projeye işaret eden `projectId` **yok sayılıyor**, sohbet
+  görünmez bir grupta kaybolmuyor.
+- Boş projeler listede **görünüyor** (SAP gruplarının aksine): yeni kurulan
+  proje boş doğuyor, görünmeseydi içine sohbet açılamazdı. Arama sırasında
+  gizleniyorlar.
+- Sohbeti taşımak `updatedAt`'e dokunmuyor — taşınan sohbet listenin en
+  üstüne zıplamamalı.
+- Ad/talimat/silme **tek kutuda** (`ChatProjectDialog`): 272px'lik başlığa
+  dört düğme sığmıyordu. Silme onayı kutunun İÇİNDE iki aşamalı, üstüne
+  `ConfirmDialog` açılmıyor (ikisi de `z-[60]`).
+- `MAX_PROJECTS = 40` hem `chatStore.ts`'te hem çizicide: sınır yalnızca
+  diskte uygulansaydı kullanıcının kurduğu proje bir sonraki açılışta yok
+  olurdu. Aynı gerekçeyle ad 80 / talimat 8000 karakterde `maxLength`.
+
+### Yine aynı tuzak: `sanitizeSession` alan alan kuruyor
+
+`projectId` hem tiplere hem çiziciye eklenip `chatStore.ts`'e eklenmeseydi
+kaydetmede DE okumada DA sessizce düşerdi — `attachments`, `steps` ve
+`cwd`/`sapLabel` bunu üç kez yaşattı. Bu sefer aynı commit'te eklendi.
+Ayrıca kayıt effect'inin bağımlılığına `projects` KONULDU: proje adı/talimatı
+sohbet listesine dokunmuyor, olmasaydı değişiklik ancak bir sonraki mesajla
+diske inerdi.

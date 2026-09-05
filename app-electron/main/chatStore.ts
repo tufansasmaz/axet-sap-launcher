@@ -4,6 +4,7 @@ import path from "node:path";
 import type {
   AxetChatActivity,
   ChatAttachment,
+  ChatProject,
   ChatSessionsLoadResult,
   ChatSessionsState,
   StoredChatMessage,
@@ -33,6 +34,12 @@ const MAX_ATTACHMENTS = 20;
 // atlandığında (elle düzenlenmiş dosya) devreye giren ikinci kapı.
 const MAX_STEPS_PER_MESSAGE = 40;
 const MAX_STEP_DETAIL_CHARS = 4_000;
+// Proje sayısı ve proje talimatının uzunluğu. Talimat HER sohbetin ilk
+// mesajına eklendiği için sınırsız olamaz: 20 bin karakterlik bir talimat
+// projedeki her sohbetin ilk turunu tek başına şişirirdi.
+const MAX_PROJECTS = 40;
+const MAX_PROJECT_INSTRUCTION_CHARS = 8_000;
+const MAX_PROJECT_NAME_CHARS = 80;
 
 function storePath(): string {
   return path.join(app.getPath("userData"), "chat-sessions.json");
@@ -155,6 +162,8 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
   // sisteme ait olduğunun tek kalıcı anahtarı (sistem uuid'si sohbette yok).
   const cwd = asString(s.cwd);
   const sapLabel = asString(s.sapLabel);
+  // Aynı tuzağın DÖRDÜNCÜSÜ olmaması için: proje aidiyeti de burada.
+  const projectId = asString(s.projectId);
   return {
     id,
     title: asString(s.title, "…"),
@@ -164,12 +173,34 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
     ...(attachments.length > 0 ? { attachments } : {}),
     ...(cwd ? { cwd } : {}),
     ...(sapLabel ? { sapLabel } : {}),
+    ...(projectId ? { projectId } : {}),
     createdAt,
     updatedAt: asNumber(s.updatedAt, createdAt)
   };
 }
 
-const EMPTY: ChatSessionsState = { activeId: null, sessions: [] };
+function sanitizeProject(raw: unknown): ChatProject | null {
+  if (!raw || typeof raw !== "object") return null;
+  const p = raw as Record<string, unknown>;
+  const id = asString(p.id);
+  if (!id) return null;
+  const createdAt = asNumber(p.createdAt, Date.now());
+  return {
+    id,
+    // Adsız bir proje kenar çubuğunda tıklanamaz bir boşluk olurdu.
+    name: asString(p.name).slice(0, MAX_PROJECT_NAME_CHARS) || "Proje",
+    instructions: asString(p.instructions).slice(0, MAX_PROJECT_INSTRUCTION_CHARS),
+    createdAt,
+    updatedAt: asNumber(p.updatedAt, createdAt)
+  };
+}
+
+function sanitizeProjects(raw: unknown): ChatProject[] {
+  if (!Array.isArray(raw)) return [];
+  return (raw.map(sanitizeProject).filter(Boolean) as ChatProject[]).slice(0, MAX_PROJECTS);
+}
+
+const EMPTY: ChatSessionsState = { activeId: null, sessions: [], projects: [] };
 
 export function loadChatSessions(): ChatSessionsLoadResult {
   const file = storePath();
@@ -193,7 +224,8 @@ export function loadChatSessions(): ChatSessionsLoadResult {
         // olabilir) null'a çekiliyor — aksi hâlde açılışta var olmayan bir
         // sohbet seçili görünür ve sağ taraf boş kalırdı.
         activeId: sessions.some((s) => s.id === rawActive) ? rawActive : null,
-        sessions
+        sessions,
+        projects: sanitizeProjects(parsed.projects)
       }
     };
   } catch (err) {
@@ -216,11 +248,13 @@ export function saveChatSessions(state: ChatSessionsState): { ok: boolean; error
     .map(sanitizeSession)
     .filter(Boolean) as StoredChatSession[];
   const trimmed = sessions.slice(-MAX_SESSIONS);
+  const projects = sanitizeProjects(state?.projects);
   const payload = JSON.stringify(
     {
       version: 1,
       activeId: trimmed.some((s) => s.id === state?.activeId) ? state.activeId : null,
-      sessions: trimmed
+      sessions: trimmed,
+      projects
     },
     null,
     2

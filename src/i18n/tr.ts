@@ -136,6 +136,17 @@ export const tr = {
   "axetCodeHome.sapChatsTitle": "SAP sohbetleri",
   "axetCodeHome.generalChatsTitle": "Sohbetler",
   "axetCodeHome.systemsTitle": "Sistemler",
+  // Kullanıcının kendi oluşturduğu projeler — SAP grupları gibi otomatik
+  // değil, elle kurulan ve kendi talimatını taşıyan klasörler.
+  "axetCodeHome.projectsTitle": "Projeler",
+  "axetCodeHome.newProject": "Yeni proje",
+  "axetCodeHome.newProjectName": "Yeni proje",
+  "axetCodeHome.newChatInProject": "Bu projede yeni sohbet",
+  "axetCodeHome.projectSettings": "Proje ayarları",
+  "axetCodeHome.projectEmpty": "Bu proje boş — buradan bir sohbet başlat.",
+  "axetCodeHome.projectLimit": "En fazla {count} proje oluşturabilirsin.",
+  "axetCodeHome.moveToProject": "Projeye taşı",
+  "axetCodeHome.removeFromProject": "Projeden çıkar",
   "axetCodeHome.newSession": "Yeni sohbet",
   "axetCodeHome.connectionsEmpty": "SAP sistemine bağlan",
   "axetCodeHome.viewAllConnections": "Tümünü gör",
@@ -478,6 +489,20 @@ export const tr = {
   "chatInstructions.saving": "Kaydediliyor…",
   "chatInstructions.tooLarge":
     "Bu dosya 2 MB'ın üstünde ve buraya kesilerek okundu; kaydetmek gerisini silerdi. Dosyayı bir metin düzenleyicide açman gerekiyor.",
+
+  "chatProject.title": "Proje",
+  "chatProject.nameLabel": "Proje adı",
+  "chatProject.namePlaceholder": "Örn. Fatura entegrasyonu",
+  "chatProject.instructionsLabel": "Proje talimatı",
+  "chatProject.instructionsHint":
+    "Bu projedeki her sohbetin İLK mesajına eklenir — sonraki turlarda geçmişte zaten duruyor.",
+  "chatProject.instructionsPlaceholder":
+    "Örnek:\n- Cevapları Türkçe yaz.\n- Bu proje MM modülüyle ilgili.\n- Kod örneklerinde ZAI paketini kullan.",
+  "chatProject.folderNote":
+    "Klasöre ait yönergeler ayrı bir yerde: sohbetin üstündeki “Yönergeler” düğmesi (AGENTS.md).",
+  "chatProject.delete": "Projeyi sil",
+  "chatProject.deleteConfirm": "Emin misin? Sohbetler silinmez, “Sohbetler” başlığına taşınır.",
+  "chatProject.deleteYes": "Evet, sil",
 
   "errorBoundary.title": "Beklenmeyen bir hata oluştu",
   "errorBoundary.reload": "Uygulamayı Yeniden Yükle",
