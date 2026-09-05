@@ -114,6 +114,8 @@ export interface AxetApi {
   openInExplorer: (filePath: string) => Promise<void>;
   openExternal: (filePath: string) => Promise<void>;
   openExternalUrl: (url: string) => Promise<{ ok: boolean; error?: string }>;
+  /** Panoya yazar. Tarayıcının Async Clipboard API'si düşerse yedek yol (bkz. CopyButton). */
+  writeClipboard: (text: string) => Promise<{ ok: boolean; error?: string }>;
   discoverAxetFlowsLiveUrl: () => Promise<{ ok: boolean; url: string | null; port: number | null; error?: string }>;
   saveFlowToLiveHost: (flowArray: unknown[]) => Promise<{ ok: boolean; port?: number | null; error?: string }>;
   importFiles: (destDir: string, sourcePaths: string[]) => Promise<FsImportFilesResult>;

@@ -331,6 +331,13 @@ function ChatBubble({
       {!message.streaming && !message.error && (
         <div className="mt-1 flex h-7 items-center gap-2">
           <CopyButton value={message.content} title={t("copyButton.copyAnswer")} />
+          {/* Cevabın saati. İstem tarafında (yukarıda) baştan beri vardı,
+              cevap tarafında yoktu — uzun bir sohbette "bu cevap ne zaman
+              geldi" sorusunun karşılığı hiçbir yerde kalmıyordu (kullanıcı
+              bulgusu 2026-09-05). İstemdekinden farkı, hover'a bağlı
+              OLMAMASI: bu satır zaten kalıcı ve kopyala düğmesiyle aynı
+              şeritte duruyor. */}
+          <span className="text-[11px] text-slate-500">{formatClock(message.createdAt)}</span>
           {/* BURAYA "Uygulama bağlantıları" ROZETİ GERİ EKLENMESİN.
               Cevabın altında, bağlayıcılar açıkken her seferinde basılan bir
               rozet vardı; gerekçesi "tahmin yanılırsa sessiz kalmasın" idi.

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard } from "electron";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { request as httpRequest } from "node:http";
@@ -211,7 +211,20 @@ function createWindow(): void {
   // - "media": sohbet kutusundaki mikrofon (bkz. main/dictation.ts). Yalnızca
   //   kullanıcı mikrofon düğmesine bastığında isteniyor; kayıt bittiğinde
   //   `DictationRecorder.cleanup()` track'leri durduruyor.
-  const ALLOWED_PERMISSIONS = new Set(["deprecated-sync-clipboard-read", "clipboard-read", "media"]);
+  // - "clipboard-sanitized-write": `navigator.clipboard.writeText()` — sohbetteki
+  //   ve kod bloklarındaki kopyala düğmeleri (CopyButton.tsx), SAP element
+  //   denetçisindeki "ID kopyala". Chromium bu izni odaklı bir sayfada kullanıcı
+  //   etkileşimiyle KENDİLİĞİNDEN verir; ama `setPermissionCheckHandler` o
+  //   kararı da eziyor, yani listede olmaması izni doğrudan REDDEDİYORDU.
+  //   Sonuç: düğmeye basılıyor, promise sessizce reddediliyor, hiçbir şey
+  //   olmuyor (kullanıcı bulgusu 2026-09-05: *"chatteki kopyalama butonu
+  //   çalışmıyor"*). Yazma tek yönlü ve panonun okunmasına kapı açmıyor.
+  const ALLOWED_PERMISSIONS = new Set([
+    "deprecated-sync-clipboard-read",
+    "clipboard-read",
+    "clipboard-sanitized-write",
+    "media"
+  ]);
 
   win.webContents.session.setPermissionCheckHandler((_webContents, permission) =>
     ALLOWED_PERMISSIONS.has(permission)
@@ -628,6 +641,18 @@ function registerIpc(): void {
       return { ok: false, error: "Sadece http:// veya https:// URL'lerine izin verilir." };
     }
     await shell.openExternal(url);
+    return { ok: true };
+  });
+
+  // Panoya YAZMA — tarayıcı API'si düşerse kullanılan yedek yol
+  // (bkz. CopyButton.tsx). Yalnızca YAZIYOR: pano okuma bilinçli olarak
+  // burada yok, çünkü okuma kullanıcının başka uygulamalarda kopyaladığı
+  // her şeye (şifreler dahil) erişim demek ve renderer'ın buna ihtiyacı yok.
+  // Gömülü terminalin okuma ihtiyacı ayrı bir yoldan, tarayıcının kendi
+  // izin akışıyla karşılanıyor (bkz. EmbeddedTerminal.tsx).
+  ipcMain.handle("clipboard:writeText", (_event, text: string) => {
+    if (typeof text !== "string") return { ok: false, error: "text bir metin degil" };
+    clipboard.writeText(text);
     return { ok: true };
   });
 

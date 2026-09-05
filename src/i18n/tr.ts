@@ -405,6 +405,7 @@ export const tr = {
 
   "copyButton.copy": "Kopyala",
   "copyButton.copyAnswer": "Cevabı kopyala",
+  "copyButton.failed": "Panoya yazılamadı",
   "chatBubble.connectorsUsed": "Uygulama bağlantıları",
   "chatBubble.connectorsUsedHint":
     "Bu cevap üretilirken Outlook/SharePoint araçları açıktı. Kararı Ayarlar > Sohbette uygulama bağlantıları belirliyor.",

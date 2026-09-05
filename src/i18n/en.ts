@@ -379,6 +379,7 @@ export const en: Record<TranslationKey, string> = {
 
   "copyButton.copy": "Copy",
   "copyButton.copyAnswer": "Copy answer",
+  "copyButton.failed": "Could not write to the clipboard",
   "chatBubble.connectorsUsed": "App connections",
   "chatBubble.connectorsUsedHint":
     "Outlook/SharePoint tools were on while this answer was produced. Settings > App connections in chat controls this.",

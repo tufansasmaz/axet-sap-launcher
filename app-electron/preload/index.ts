@@ -136,6 +136,7 @@ const api = {
   openInExplorer: (filePath: string) => ipcRenderer.invoke("fs:openInExplorer", filePath),
   openExternal: (filePath: string) => ipcRenderer.invoke("fs:openExternal", filePath),
   openExternalUrl: (url: string) => ipcRenderer.invoke("shell:openUrl", url),
+  writeClipboard: (text: string) => ipcRenderer.invoke("clipboard:writeText", text),
   discoverAxetFlowsLiveUrl: () => ipcRenderer.invoke("axetFlowsLive:discoverUrl"),
   saveFlowToLiveHost: (flowArray: unknown[]) => ipcRenderer.invoke("axetFlowsLive:saveFlow", flowArray),
   importFiles: (destDir: string, sourcePaths: string[]) => ipcRenderer.invoke("fs:importFiles", destDir, sourcePaths),
