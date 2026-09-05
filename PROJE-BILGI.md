@@ -8348,3 +8348,40 @@ istemeyi** öneriyor (pencere kapatıldıysa/zaman aşımına uğradıysa sebep
 `bool(self._cookies)`, bir tarih kontrolü yok. Bayat bir kavanoz geçerli
 görünüp ADT çağrısında HTML sayfası döndürüyor. Çözüm yeniden bağlanmak;
 `sap-context.md` ajana bunu söylüyor.
+
+## Sohbetler: sisteme göre gruplanıyor ve devam ediyor (2026-09-06)
+
+Üç ayrı iş, hepsi kenar çubuğunda buluşuyor.
+
+**1) `sanitizeSession` veri kaybı (chatStore.ts).** `cwd` ve `sapLabel` tipe
+ve renderer'a eklenmişti ama `sanitizeSession`'a eklenmemişti; o fonksiyon
+nesneyi alan alan YENİDEN KURDUĞU için ikisi de hem kaydetmede hem okumada
+sessizce düşüyordu — uygulama kapanınca her sohbet "sistemsiz" hâle
+geliyordu. Aynı hatanın ÜÇÜNCÜ tekrarı (önce `attachments`, sonra `steps`).
+Bu dosyaya yeni bir alan eklerken `sanitizeSession`/`sanitizeMessage`
+mutlaka güncellenmeli — tip sistemi bunu yakalamıyor.
+
+**2) Aynı sisteme tekrar bağlanınca eski sohbet devam ediyor.**
+`AxetCodeHome.tsx`'teki `sapChatRequest` etkisi artık `cwd`'si eşleşen en son
+güncellenmiş sohbeti bulup ona geçiyor ve bağlantı notunu oraya ekliyor.
+Anahtar `cwd` (küçük harfe indirilmiş): sohbette sistem uuid'si YOK, tek
+kalıcı bağ çalışma klasörünün yolu. Önceki sohbet `pending` ise (ajan hâlâ
+cevap yazıyor) araya girilmiyor, yeni sohbet açılıyor. Etki `sessions`
+yerine `sessionsRef` okuyor — bağımlılığa `sessions` konsaydı her mesajda
+yeniden çalışıp tekrar tekrar bağlantı notu basardı. Not id'si de sabit
+değil, `connect-notice-<nonce>`: aynı sohbet ikinci kez not alabildiği için
+sabit id çift React key üretirdi.
+
+**3) Kenar çubuğu grupları.** Sohbetler artık iki bölüm: "SAP sohbetleri"
+(sistem başına daraltılabilir bir grup, `cwd` ile anahtarlanıyor, etiket
+`sapLabel` yoksa klasör adına düşüyor — düzeltmeden önce kaydedilmiş
+sohbetler öksüz kalmasın diye) ve "Sohbetler" (sistemsiz olanlar, o da
+daraltılabilir). Sadece KAPALI gruplar state'te tutuluyor, yani varsayılan
+açık. Arama yapılırken `groupOpen` her grubu açık sayıyor; aksi hâlde
+eşleşen sohbet kapalı bir grubun içinde kalır ve arama bozuk görünürdü.
+Daraltma durumu diske YAZILMIYOR (oturumluk).
+
+Dipteki sistemler bloğu artık başlıklı ve üstünde `border-t` var. "Panelde
+ayraç lineları olmasa da olur" kuralının bilinçli istisnası: sohbetler kendi
+başlıklarının altında gruplanınca başlıksız dip blok da bir sohbet grubu
+gibi görünmeye başladı, oysa oradaki satırlar tıklanınca BAĞLANIYOR.

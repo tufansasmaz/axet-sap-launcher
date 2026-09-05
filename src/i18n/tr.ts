@@ -130,7 +130,12 @@ export const tr = {
   // hangi işi yapacağını söylemiyordu.
   "axetCodeHome.collapseSidebar": "Kenar çubuğunu daralt",
   "axetCodeHome.expandSidebar": "Kenar çubuğunu genişlet",
-  "axetCodeHome.recentTitle": "Sohbetler",
+  // Kenar çubuğu bölümleri. SAP sohbetleri sistem başına gruplanıyor, bu
+  // yüzden başlık "sistemler" değil "SAP sohbetleri": altındaki her satır
+  // bir sistem değil, o sisteme ait sohbetlerin başlığı.
+  "axetCodeHome.sapChatsTitle": "SAP sohbetleri",
+  "axetCodeHome.generalChatsTitle": "Sohbetler",
+  "axetCodeHome.systemsTitle": "Sistemler",
   "axetCodeHome.newSession": "Yeni sohbet",
   "axetCodeHome.connectionsEmpty": "SAP sistemine bağlan",
   "axetCodeHome.viewAllConnections": "Tümünü gör",

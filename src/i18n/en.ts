@@ -122,7 +122,9 @@ export const en: Record<TranslationKey, string> = {
 
   "axetCodeHome.collapseSidebar": "Collapse sidebar",
   "axetCodeHome.expandSidebar": "Expand sidebar",
-  "axetCodeHome.recentTitle": "Chats",
+  "axetCodeHome.sapChatsTitle": "SAP chats",
+  "axetCodeHome.generalChatsTitle": "Chats",
+  "axetCodeHome.systemsTitle": "Systems",
   "axetCodeHome.newSession": "New chat",
   "axetCodeHome.connectionsEmpty": "Connect to a SAP system",
   "axetCodeHome.viewAllConnections": "View all",

@@ -12,7 +12,9 @@ import {
   Pencil,
   Download,
   Trash2,
-  Keyboard
+  Keyboard,
+  ChevronRight,
+  ChevronDown
 } from "lucide-react";
 import type {
   ActiveSapContext,
@@ -216,8 +218,13 @@ const NEW_SESSION_ID = "__new__";
 // çelişir hem de aynı bilgi zaten proje klasöründeki `sap-context.md`de var.
 // Kimliğin sabit olması yeterli: mesaj kimlikleri yalnızca bir sohbetin kendi
 // listesi içinde benzersiz olmak zorunda ve her sohbette bundan bir tane var.
-const CONNECT_NOTICE_ID = "connect-notice";
-const isNotConnectNotice = (m: ChatMessage) => m.id !== CONNECT_NOTICE_ID;
+// Kimlik ÖNEK: aynı sohbete birden fazla karşılama girebiliyor artık. Bir
+// sisteme tekrar bağlanmak eski sohbeti açtığı için (bkz. sapChatRequest
+// efekti) o sohbete YENİ bir karşılama ekleniyor — sabit tek bir kimlik
+// kullanılsaydı React aynı `key`den iki tane görürdü.
+const CONNECT_NOTICE_PREFIX = "connect-notice";
+const CONNECT_NOTICE_ID = CONNECT_NOTICE_PREFIX;
+const isNotConnectNotice = (m: ChatMessage) => !m.id.startsWith(CONNECT_NOTICE_PREFIX);
 
 // Gelen bir etkinlik olayını oturuma işler.
 //
@@ -715,6 +722,14 @@ export default function AxetCodeHome({
 
   const activeSession = sessions.find((s) => s.id === activeId) ?? null;
 
+  // Efektlerin sohbet listesini bağımlılığa almadan okuyabilmesi için ayna.
+  // `sapChatRequest` efekti listeyi ARIYOR ama listenin değişmesiyle yeniden
+  // çalışmamalı — aksi hâlde her mesaj yeni bir bağlantı karşılaması basardı.
+  const sessionsRef = useRef<ChatSession[]>([]);
+  useEffect(() => {
+    sessionsRef.current = sessions;
+  }, [sessions]);
+
   // "Yeni sohbet" artık kayıt OLUŞTURMUYOR — sadece boş composer'a dönüyor.
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
   // `binding`: yalnızca SAP bağlantısından gelen çağrı doldurur; elle açılan
@@ -738,12 +753,68 @@ export default function AxetCodeHome({
   );
 
   // --- "Sisteme bağlan" → sohbet ---
-  // Bağlantı başarılı olunca App.tsx yeni bir istek bırakıyor; burada boş
-  // sohbete geçip onu o sistemin proje klasörüne bağlıyoruz. `nonce`
-  // bağımlılıkta: aynı sisteme tekrar bağlanmak da yeni bir sohbet açmalı.
+  // Bağlantı başarılı olunca App.tsx yeni bir istek bırakıyor. `nonce`
+  // bağımlılıkta: aynı sisteme tekrar bağlanmak da efekti yeniden tetikler.
+  //
+  // Kullanıcı isteği (2026-09-06): *"bağlandığım bir sisteme daha sonra tekrar
+  // bağlandıysam önceden konuşmamızın olduğu sohbetten devam etsin"*. Önceden
+  // her bağlantı koşulsuz olarak BOŞ composer'a düşürüyordu — dün o sistemde
+  // ne konuşulduğunu bulmak kullanıcının işiydi.
+  //
+  // Eşleştirme anahtarı `cwd`: sohbette sistem uuid'si yok, proje klasörü
+  // yolu ise o sisteme özel ve kalıcı (bkz. computeProjectDir). Windows'ta
+  // yol karşılaştırması büyük/küçük harfe duyarsız — `handleInstructionsSaved`
+  // de aynı şekilde eşleştiriyor.
   useEffect(() => {
     if (!sapChatRequest) return;
-    handleNewSession({ cwd: sapChatRequest.projectDir, label: sapChatRequest.label }, sapChatRequest.notice);
+    const binding = { cwd: sapChatRequest.projectDir, label: sapChatRequest.label };
+    const key = sapChatRequest.projectDir.toLowerCase();
+    // En son konuşulan eşleşme. `sessionsRef` kullanılıyor ki `sessions`
+    // bağımlılığa girip her mesajda efekti yeniden çalıştırmasın.
+    const prior = sessionsRef.current
+      .filter((s) => (s.cwd ?? "").toLowerCase() === key)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+
+    if (!prior) {
+      handleNewSession(binding, sapChatRequest.notice);
+      return;
+    }
+
+    // Devam eden bir sohbetin ortasına dalmıyoruz: cevap akarken araya
+    // karşılama balonu sıkıştırmak hem akışı bozar hem de kullanıcı o an
+    // başka bir işin ortasındadır. Böyle bir durumda yeni sohbet açılıyor —
+    // kullanıcının "sorun olursa yeni sohbet açsın" dediği durum.
+    if (prior.pending) {
+      handleNewSession(binding, sapChatRequest.notice);
+      return;
+    }
+
+    setActiveId(prior.id);
+    setNewNotice(null);
+    setQuery("");
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === prior.id
+          ? {
+              ...s,
+              // Bağlantı bilgisi TAZELENİYOR: sistemin proje klasörü aynı ama
+              // etiketi (client/kullanıcı) değişmiş olabilir.
+              cwd: sapChatRequest.projectDir,
+              sapLabel: sapChatRequest.label,
+              messages: [
+                ...s.messages,
+                {
+                  id: `${CONNECT_NOTICE_PREFIX}-${sapChatRequest.nonce}`,
+                  role: "assistant" as const,
+                  content: sapChatRequest.notice,
+                  createdAt: Date.now()
+                }
+              ],
+              updatedAt: Date.now()
+            }
+          : s
+      )
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sapChatRequest?.nonce]);
 
@@ -1712,6 +1783,58 @@ export default function AxetCodeHome({
     );
   }, [normalizedQuery, orderedSessions]);
 
+  // --- Kenar çubuğu grupları (ChatGPT'nin "projeler" yapısı) ---
+  //
+  // Kullanıcı isteği (2026-09-06): *"sisteme bağlantı yaptığımız sohbetlerle
+  // normal sohbetlerin başlıkları ayrı olsun ayrı başlıklar altında olsunlar
+  // ve daraltıp genişletme olayı olsun"*. Önceden liste tamamen düzdü ve bir
+  // SAP sohbetiyle sıradan bir sohbet aynı görünüyordu.
+  //
+  // Gruplama anahtarı `cwd` — sohbette sistem uuid'si yok, proje klasörü ise
+  // sisteme özel ve kalıcı. Etiket olarak `sapLabel` kullanılıyor, yoksa
+  // klasör adına düşülüyor: eski (etiketi diske yazılmadan önce kaydedilmiş)
+  // sohbetler bile grupsuz kalmıyor.
+  const GENERAL_GROUP_KEY = "__general__";
+  const sessionGroups = useMemo(() => {
+    const sap = new Map<string, { key: string; label: string; sessions: ChatSession[] }>();
+    const general: ChatSession[] = [];
+    for (const s of visibleSessions) {
+      const cwd = s.cwd ?? "";
+      if (!cwd) {
+        general.push(s);
+        continue;
+      }
+      const key = cwd.toLowerCase();
+      const existing = sap.get(key);
+      if (existing) {
+        existing.sessions.push(s);
+      } else {
+        sap.set(key, {
+          key,
+          label: s.sapLabel || cwd.split(/[\\/]/).filter(Boolean).pop() || cwd,
+          sessions: [s]
+        });
+      }
+    }
+    // `visibleSessions` zaten en yeniden eskiye sıralı, dolayısıyla her grubun
+    // ilk üyesi o grubun en tazesi — gruplar da ona göre sıralanıyor.
+    const sapGroups = Array.from(sap.values()).sort(
+      (a, b) => b.sessions[0].updatedAt - a.sessions[0].updatedAt
+    );
+    return { sapGroups, general };
+  }, [visibleSessions]);
+
+  // Yalnızca DARALTILMIŞ olanlar tutuluyor: varsayılan açık. Daraltma isteğe
+  // bağlı bir sadeleştirme, açılışta gizlenmesi gereken bir şey değil.
+  // Kalıcı değil (oturum içi) — kenar çubuğunun açık/kapalı durumu gibi.
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = useCallback((key: string) => {
+    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
+  // Arama sırasında daraltma YOK SAYILIYOR: eşleşen bir sohbet kapalı bir
+  // grubun içinde kalsaydı arama bozuk görünürdü.
+  const groupOpen = (key: string) => Boolean(normalizedQuery) || !collapsedGroups[key];
+
   // Klavye kısayolları. Ctrl+N (yeni sohbet) yukarıda, sohbet İÇİ arama (Ctrl+F)
   // ChatSessionPane'de — buradakiler sohbetler ARASI olanlar.
   //
@@ -2041,13 +2164,72 @@ export default function AxetCodeHome({
         {sidebarOpen && (
           <>
             <div className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-2">
-              {/* Tek ve düz bir bölüm başlığı — tarih grupları yok (bkz.
-                  dosyanın üstündeki not). Küçük, büyük harfli ve seyrek
-                  aralıklı: içerikle karışmayan bir etiket. */}
-              <div className="px-0.5 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                {t("axetCodeHome.recentTitle")}
-              </div>
-              <div className="space-y-0.5">{visibleSessions.map(renderSessionRow)}</div>
+              {/* SAP sohbetleri: sistem başına bir daraltılabilir grup.
+                  Bölüm etiketi yalnızca gerçekten SAP sohbeti varsa
+                  görünüyor — tek bir sisteme bile bağlanmamış kullanıcıya
+                  boş bir başlık göstermenin anlamı yok. */}
+              {sessionGroups.sapGroups.length > 0 && (
+                <>
+                  <div className="px-0.5 pb-1.5 pt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    {t("axetCodeHome.sapChatsTitle")}
+                  </div>
+                  <div className="space-y-0.5">
+                    {sessionGroups.sapGroups.map((group) => {
+                      const open = groupOpen(group.key);
+                      return (
+                        <div key={group.key}>
+                          <button
+                            onClick={() => toggleGroup(group.key)}
+                            aria-expanded={open}
+                            title={group.label}
+                            className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                          >
+                            {open ? (
+                              <ChevronDown size={12} className="shrink-0 text-slate-500" />
+                            ) : (
+                              <ChevronRight size={12} className="shrink-0 text-slate-500" />
+                            )}
+                            <Server size={12} className="shrink-0 text-[var(--navy-icon)]" />
+                            <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
+                            <span className="shrink-0 text-[10px] text-slate-500">{group.sessions.length}</span>
+                          </button>
+                          {/* Sol kenar çizgisi: satırların hangi gruba ait
+                              olduğunu daraltma durumundan bağımsız gösteriyor. */}
+                          {open && (
+                            <div className="ml-2 space-y-0.5 border-l border-base-800 pl-1.5">
+                              {group.sessions.map(renderSessionRow)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {/* Sisteme bağlı olmayan sohbetler. Kendi başlığı var ve o da
+                  daraltılabilir — SAP grupları daraltılıp bu bırakılsaydı
+                  tutarsız olurdu. */}
+              {sessionGroups.general.length > 0 && (
+                <div className={sessionGroups.sapGroups.length > 0 ? "mt-1" : ""}>
+                  <button
+                    onClick={() => toggleGroup(GENERAL_GROUP_KEY)}
+                    aria-expanded={groupOpen(GENERAL_GROUP_KEY)}
+                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
+                  >
+                    {groupOpen(GENERAL_GROUP_KEY) ? (
+                      <ChevronDown size={12} className="shrink-0" />
+                    ) : (
+                      <ChevronRight size={12} className="shrink-0" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate">{t("axetCodeHome.generalChatsTitle")}</span>
+                    <span className="shrink-0 normal-case tracking-normal">{sessionGroups.general.length}</span>
+                  </button>
+                  {groupOpen(GENERAL_GROUP_KEY) && (
+                    <div className="space-y-0.5">{sessionGroups.general.map(renderSessionRow)}</div>
+                  )}
+                </div>
+              )}
 
               {sessions.length > 0 && visibleSessions.length === 0 && (
                 <div className="mt-1 rounded-md border border-base-800 bg-base-950 px-3 py-3 text-center text-[12px] text-slate-500">
@@ -2063,10 +2245,16 @@ export default function AxetCodeHome({
               )}
             </div>
 
-            {/* SAP bağlantıları BAŞLIKSIZ bir dip bloğu. Burası bir sohbet
-                ekranı; bağlantılar yalnızca "elimin altında olsun" diye
-                duruyor. Listeden çizgiyle değil boşlukla ayrılıyor. */}
-            <div className="shrink-0 p-2.5 pt-1.5">
+            {/* SAP bağlantıları dip bloğu. Eskiden başlıksızdı ve listeden
+                yalnızca boşlukla ayrılıyordu; sohbetler artık kendi
+                başlıklarının altında gruplandığı için bu blok da onlardan
+                biri gibi görünmeye başladı — üstüne çizgi ve başlık kondu
+                (kullanıcı isteği, 2026-09-06). Buradaki satırlar sohbet
+                DEĞİL: tıklayınca bağlanıyorlar. */}
+            <div className="shrink-0 border-t border-base-800 p-2.5 pt-2">
+              <div className="px-0.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {t("axetCodeHome.systemsTitle")}
+              </div>
               {recentEntries.length > 0 ? (
                 <div className="space-y-0.5">
                   {recentEntries.slice(0, 3).map((entry) => {

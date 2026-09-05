@@ -147,6 +147,14 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
   const createdAt = asNumber(s.createdAt, Date.now());
   // Gönderilmemiş taslak ekleri — taslak metniyle aynı mantık.
   const attachments = sanitizeAttachments(s.attachments);
+  // Sohbetin hangi SAP sistemine ait olduğu. Yukarıdaki uyarının ÜÇÜNCÜ kez
+  // gerçekleşmesiydi (2026-09-06): `cwd`/`sapLabel` hem tipe hem renderer'a
+  // eklenmişti, buraya eklenmediği için kaydetmede DE okumada DA sessizce
+  // düşüyordu — uygulama kapanınca her sohbet "sistemsiz" hâle geliyordu.
+  // `cwd` sadece bir etiket değil: ajanın çalışma klasörü VE sohbetin hangi
+  // sisteme ait olduğunun tek kalıcı anahtarı (sistem uuid'si sohbette yok).
+  const cwd = asString(s.cwd);
+  const sapLabel = asString(s.sapLabel);
   return {
     id,
     title: asString(s.title, "…"),
@@ -154,6 +162,8 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
     model,
     draft: asString(s.draft),
     ...(attachments.length > 0 ? { attachments } : {}),
+    ...(cwd ? { cwd } : {}),
+    ...(sapLabel ? { sapLabel } : {}),
     createdAt,
     updatedAt: asNumber(s.updatedAt, createdAt)
   };
