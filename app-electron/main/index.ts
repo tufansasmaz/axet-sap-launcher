@@ -27,6 +27,7 @@ import {
   closeChatSession,
   prewarmChat
 } from "./axetChat";
+import { recoverAnswer } from "./axetChatRecovery";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { isDictationAvailable, transcribeAudio } from "./dictation";
@@ -716,6 +717,13 @@ function registerIpc(): void {
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
     cancelChatMessage(requestId);
   });
+  // Uygulama tur ortasında kapandıysa cevabı axet-code'un kendi veritabanından
+  // geri getirir (bkz. axetChatRecovery.ts). Açılışta, cevapsız kalmış her
+  // sohbet için bir kez çağrılıyor.
+  ipcMain.handle(
+    "axetChat:recoverAnswer",
+    (_event, cwd: string, prompt: string, promptAtMs: number) => recoverAnswer(cwd, prompt, promptAtMs)
+  );
   // Ajanın `ask_user` ile sorduğu sorunun cevabı. Tuşlar TUI'deki soru
   // kutusuna gidiyor, yani tur DURMADAN devam ediyor (bkz. axetChatTui.ts).
   ipcMain.handle("axetChat:answerQuestion", (_event, requestId: string, optionIndex: number) =>

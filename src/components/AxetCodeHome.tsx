@@ -428,6 +428,9 @@ export default function AxetCodeHome({
   // ilk render'daki boş `sessions=[]` state'i, yükleme cevabı gelmeden önce
   // debounce'lu kaydediciyi tetikleyip diskteki TÜM geçmişi silerdi.
   const loadedRef = useRef(false);
+  // Aynı bilginin DURUM hâli: ref bir yeniden çizim tetiklemiyor, kurtarma
+  // effect'inin (aşağıda) yükleme bittikten sonra çalışması ise buna bağlı.
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
   // Öneri kartlarının tohumu — her "yeni sohbet"te yenileniyor (bkz.
   // SUGGESTION_POOL). Diske yazılmıyor: açılışta zaten yeni bir tohum
   // isteniyor.
@@ -500,13 +503,84 @@ export default function AxetCodeHome({
       .finally(() => {
         // Hata durumunda da açılıyor: yükleme başarısızsa kullanıcının bundan
         // SONRA yazdığı sohbetler yine de kaydedilebilmeli.
-        if (!cancelled) loadedRef.current = true;
+        if (cancelled) return;
+        loadedRef.current = true;
+        // Ref bir yeniden çizim tetiklemiyor; kurtarma effect'inin yükleme
+        // bittikten SONRA çalışabilmesi için durum olarak da tutuluyor.
+        setSessionsLoaded(true);
       });
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // --- Yarıda kalmış turların cevabını geri getir (açılışta bir kez) ---
+  //
+  // Uygulama bir tur sürerken kapanırsa cevap diske HİÇ yazılmıyor: akan mesaj
+  // kayıt dışı bırakılıyor, üstelik 600 ms'lik debounce akış boyunca sürekli
+  // sıfırlandığı için kayıt zaten çalışmıyor (bkz. aşağıdaki kayıt effect'i).
+  // Sonuç, kullanıcının gördüğü hâliyle: soru duruyor, cevabın yerinde hiçbir
+  // şey yok — ne metin ne açıklama. Metnin kendisi kayıp değil, axet-code onu
+  // üretirken kendi veritabanına yazıyor; buradan geri getiriliyor.
+  //
+  // Ölçüt "son mesaj KULLANICI mesajı": cevabı olmayan tek durum bu. Kurtarma
+  // bulamazsa hiçbir şey yapılmıyor — bu normal bir sonuç (tur hiç başlamamış,
+  // klasör değişmiş ya da veritabanı silinmiş olabilir).
+  const recoveredRef = useRef(false);
+  useEffect(() => {
+    if (recoveredRef.current || !loadedRef.current || !config) return;
+    recoveredRef.current = true;
+    const workspace = config.axetWorkspaceDir ?? "";
+    let cancelled = false;
+
+    (async () => {
+      const found: Array<{ sessionId: string; message: ChatMessage }> = [];
+      for (const session of sessions) {
+        const last = session.messages[session.messages.length - 1];
+        if (!last || last.role !== "user") continue;
+        const cwd = session.cwd || workspace;
+        if (!cwd) continue;
+        try {
+          const answer = await window.api.recoverChatAnswer(cwd, last.content, last.createdAt);
+          if (!answer) continue;
+          found.push({
+            sessionId: session.id,
+            message: {
+              id: `${last.id}-recovered`,
+              role: "assistant",
+              content: answer.text,
+              createdAt: Date.now(),
+              // Tamamlanmış bir turu "yarıda kaldı" diye işaretlemek yanlış
+              // olurdu: axet-code bitirmiş, yalnızca biz kaydedememişiz.
+              ...(answer.finished ? {} : { interrupted: true })
+            }
+          });
+        } catch {
+          // Kurtarma bir KOLAYLIK; başarısızlığı sohbeti açmayı engellememeli.
+        }
+      }
+      if (cancelled || found.length === 0) return;
+      setSessions((prev) =>
+        prev.map((s) => {
+          const hit = found.find((f) => f.sessionId === s.id);
+          // Bu arada kullanıcı yazmaya devam etmiş olabilir: son mesaj artık
+          // kullanıcı mesajı değilse kurtarılan metin oraya AİT DEĞİL.
+          if (!hit || s.messages[s.messages.length - 1]?.role !== "user") return s;
+          return { ...s, messages: [...s.messages, hit.message] };
+        })
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // `sessions` BİLEREK bağımlılıkta değil: bu effect'in çalışması gereken tek
+    // an yüklemenin bittiği andır ve o anda kapanışta yakalanan liste tam da
+    // diskten gelen listedir. Bağımlılığa eklemek, her akış parçasında yeniden
+    // kurulan (ve `recoveredRef` yüzünden hemen çıkan) bir effect demek olurdu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config, sessionsLoaded]);
 
   // --- Değişiklikleri diske yaz (debounce'lu) ---
   // 600ms'lik gecikme aynı zamanda akış sırasında yazmayı da engelliyor:
@@ -535,6 +609,10 @@ export default function AxetCodeHome({
               ...(m.attachments && m.attachments.length > 0 ? { attachments: m.attachments } : {}),
               // Araç dökümü — aynı gerekçeyle yalnızca doluysa yazılıyor.
               ...(m.steps && m.steps.length > 0 ? { steps: m.steps } : {}),
+              // "Yarıda kaldı" notu diske de gidiyor: bir kez gösterilip
+              // kaybolsaydı, kırpılmış cevap bir sonraki açılışta tam bir cevap
+              // gibi görünürdü.
+              ...(m.interrupted ? { interrupted: true } : {}),
               createdAt: m.createdAt
             })),
           model: s.model,

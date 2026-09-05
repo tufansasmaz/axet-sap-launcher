@@ -397,6 +397,8 @@ export const tr = {
   "chatBubble.restartedAuth": "Yetki hatası alındı, oturum yenilendi ve soru yeniden gönderildi.",
   "chatBubble.restartedContext": "Bağlam sınırına ulaşıldı, oturum yenilendi; sohbet geçmişi yeni oturuma taşındı.",
   "chatBubble.restartedProvider": "Sağlayıcı yanıt vermedi, oturum yenilendi ve soru yeniden gönderildi.",
+  "chatBubble.interrupted":
+    "Bu cevap yarıda kaldı: uygulama kapandığında üretim sürüyordu. Metin, o ana kadar üretilmiş olan kadarıyla geri getirildi.",
   // Cevabın üstündeki katlanır araç dökümünün başlığı.
   "chatBubble.stepsToggle": "{count} işlem",
 

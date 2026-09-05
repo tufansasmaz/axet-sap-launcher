@@ -167,6 +167,14 @@ const api = {
   ): Promise<AxetChatSendResult> =>
     ipcRenderer.invoke("axetChat:send", requestId, chatId, cwd, model, history, message),
   cancelChatMessage: (requestId: string): Promise<void> => ipcRenderer.invoke("axetChat:cancel", requestId),
+  // Yarıda kalmış turun cevabını axet-code'un veritabanından geri getirir.
+  // `null` normal bir sonuç: kurtarılacak bir şey yok demek.
+  recoverChatAnswer: (
+    cwd: string,
+    prompt: string,
+    promptAtMs: number
+  ): Promise<{ text: string; finished: boolean } | null> =>
+    ipcRenderer.invoke("axetChat:recoverAnswer", cwd, prompt, promptAtMs),
   answerChatQuestion: (requestId: string, optionIndex: number): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),

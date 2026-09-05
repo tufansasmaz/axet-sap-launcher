@@ -573,6 +573,15 @@ export interface StoredChatMessage {
    * kendi çağrılarının üstüne (`result`/`extraLines`/`failed`) işleniyor.
    */
   steps?: AxetChatActivity[];
+  /**
+   * Bu cevap, uygulama tur ortasında kapandığı için YARIDA KALDI ve axet-code'un
+   * veritabanından geri getirildi (bkz. axetChatRecovery.ts).
+   *
+   * Diske de yazılıyor: not bir kez gösterilip kaybolursa, kırpılmış bir cevap
+   * bir sonraki açılışta tam bir cevap gibi görünürdü. Sessiz kaybı sessiz bir
+   * yanlış bilgiyle değiştirmek olurdu.
+   */
+  interrupted?: boolean;
 }
 
 export interface StoredChatSession {

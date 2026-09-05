@@ -45,6 +45,10 @@ export interface ChatMessage {
   // nereden çıkardı" diye bakmanın yolu yoktu. Diske de yazılıyor
   // (StoredChatMessage.steps).
   steps?: AxetChatActivity[];
+  // Uygulama tur ortasında kapandı; bu metin axet-code'un veritabanından geri
+  // getirildi ve CÜMLENİN ORTASINDA bitiyor olabilir. Görünür olması şart —
+  // aksi hâlde kırpılmış bir cevap tam bir cevap sanılır.
+  interrupted?: boolean;
 }
 
 // NOT — burada eskiden bir SİMÜLE daktilo animasyonu vardı
@@ -294,6 +298,15 @@ function ChatBubble({
         <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--status-warning-text)]">
           <RefreshCw size={11} className="shrink-0" />
           <span>{t(RESTART_KEYS[message.restartedReason])}</span>
+        </div>
+      )}
+      {/* Yarıda kalmış cevap: metin cümlenin ortasında bitiyor olabilir ve bunu
+          söylemeyen bir arayüz, kırpılmış bir cevabı tam bir cevap gibi
+          gösterirdi. `restartedReason` ile aynı biçim — ikisi de bir OLAY. */}
+      {message.interrupted && !message.streaming && (
+        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--status-warning-text)]">
+          <RefreshCw size={11} className="shrink-0" />
+          <span>{t("chatBubble.interrupted")}</span>
         </div>
       )}
       {/* Akış sürerken gizli — yarım bir cevabı kopyalatmanın anlamı yok. */}

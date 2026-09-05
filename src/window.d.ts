@@ -136,6 +136,11 @@ export interface AxetApi {
     message: string
   ) => Promise<AxetChatSendResult>;
   cancelChatMessage: (requestId: string) => Promise<void>;
+  recoverChatAnswer: (
+    cwd: string,
+    prompt: string,
+    promptAtMs: number
+  ) => Promise<{ text: string; finished: boolean } | null>;
   /** Ajanın `askUser` aşamasında sorduğu sorunun cevabı; `-1` = vazgeç. */
   answerChatQuestion: (requestId: string, optionIndex: number) => Promise<boolean>;
   closeChatSession: (chatId: string) => Promise<void>;
