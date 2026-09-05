@@ -714,7 +714,18 @@ export function cancelChatMessage(requestId: string): void {
     return;
   }
   const proc = running.get(requestId);
-  if (!proc) return;
+  if (!proc) {
+    // SESSİZ DEĞİL: bu dal, iptalin hiçbir sürece ulaşmadığı yer. Arayüz yine de
+    // duruyor, yani kullanıcı "durdurdum" diyor ve tur arkada üretmeye devam
+    // ediyor — 2026-09-05'te tam olarak bu oldu ve nedenini bulmak, jeton
+    // sayaçlarını iki ayrı veritabanından karşılaştırmayı gerektirdi.
+    console.log("[axetChat] iptal edilecek istek bulunamadi", {
+      requestId,
+      tuiIstekleri: tuiRequests.size,
+      calisanSurecler: running.size
+    });
+    return;
+  }
   (proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled?.();
   killTree(proc);
   running.delete(requestId);

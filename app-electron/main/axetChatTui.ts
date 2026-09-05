@@ -1401,10 +1401,57 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
   return { ...second, restartedReason: first.failure };
 }
 
-/** Süren turu iptal eder — TUI'de esc "cancel". */
+/**
+ * Süren turun axet-code tarafındaki BİTİŞ SEBEBİ — henüz bitmediyse `null`.
+ *
+ * `finish` parçası turun sonunda yazılıyor ve sebebini söylüyor:
+ * `end_turn` (kendiliğinden bitti) / `canceled` (esc tuttu). İptalin gerçekten
+ * tutup tutmadığını başka hiçbir yerden öğrenemiyoruz — pty çıktısı okunabilir
+ * değil, kendi durumumuz ise yalnızca BİZİM ne yaptığımızı biliyor.
+ */
+function turnFinishReason(session: TuiSession): string | null {
+  if (!session.axetSessionId) return null;
+  try {
+    const since = Math.floor(Date.now() / 1000) - 180;
+    const msgs = readMessagesSince(session.dbPath, session.axetSessionId, since).filter(
+      (m) => m.role === "assistant"
+    );
+    const last = msgs[msgs.length - 1];
+    if (!last) return null;
+    for (const part of last.parts) {
+      if (part.type === "finish") return part.data?.reason ?? "bilinmiyor";
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Süren turu iptal eder — TUI'de esc "cancel".
+ *
+ * TEK BİR ESC GÜVENİLİR DEĞİL (ölçüm 2026-09-05): kullanıcının 16:40 turunda
+ * esc yazıldı, arayüz durdu, ama axet-code kendi veritabanına
+ * `finish {"reason":"end_turn"}` yazıp sonuna kadar üretti — 3084 karakter,
+ * 1913 tamamlama jetonu, bunun ~%69'u iptalden SONRA üretilip çöpe gitti.
+ * Aynı tuş, ayrı bir pty sondasında turun erken bir anında gönderildiğinde
+ * `reason: "canceled"` yazdırdı. Yani tuş doğru; sorun tek atışın tutmaması.
+ *
+ * Bu yüzden körlemesine tuş yağdırmak yerine DOĞRULAYIP tırmanıyoruz: bas,
+ * veritabanına bak, tutmadıysa tekrar bas. Son durumda ne olduğu da günlüğe
+ * yazılıyor — çünkü "durdurdum" ile "gerçekten durdu" arasındaki farkı bir kez
+ * kaçırdık ve bedeli, kullanıcının ödediği ama hiç görmediği jetonlar oldu.
+ */
 export function cancelTui(chatId: string): void {
   const session = sessions.get(chatId);
-  if (!session || session.exited) return;
+  if (!session || session.exited) {
+    console.log("[axetChatTui] iptal: yazilacak oturum yok", {
+      chatId,
+      oturumVar: Boolean(session),
+      kapandi: session?.exited ?? null
+    });
+    return;
+  }
   // Bayrak ŞART: esc turu TUI tarafında kesiyor ama veritabanına bir "stop"
   // bitişi yazılmayabiliyor — yoklama döngüsü onu beklerse iptal, iptal değil
   // 5 dakikalık bir zaman aşımı olurdu.
@@ -1412,9 +1459,40 @@ export function cancelTui(chatId: string): void {
   // Açık bir soru kutusu varsa esc onu kapatıyor; bekleyen soru kaydı da
   // düşmeli, yoksa geç bir tıklama kapanmış kutuya tuş gönderirdi.
   session.pendingAsk = null;
-  try {
-    session.proc.write("\x1b");
-  } catch {
-    // Yazılamıyorsa süreç zaten gitmiş demektir.
-  }
+
+  const press = (deneme: number): boolean => {
+    try {
+      session.proc.write("\x1b");
+      console.log("[axetChatTui] iptal esc yazildi", { chatId, deneme });
+      return true;
+    } catch {
+      // Yazılamıyorsa süreç zaten gitmiş demektir.
+      console.log("[axetChatTui] iptal esc yazilamadi", { chatId, deneme });
+      return false;
+    }
+  };
+
+  press(1);
+
+  // Tırmanma basamakları. Aralıklar, sağlayıcıya giden isteğin kesilmesinin
+  // veritabanına yansıması için ölçülen ~1 sn'ye göre seçildi; son basamak
+  // yalnızca RAPOR ediyor, tuş göndermiyor.
+  const steps = [1200, 2400, 4000];
+  steps.forEach((ms, i) => {
+    setTimeout(() => {
+      if (session.exited || session.disposed) return;
+      const reason = turnFinishReason(session);
+      if (reason) {
+        console.log("[axetChatTui] iptal sonucu", { chatId, sebep: reason, msSonra: ms });
+        return;
+      }
+      // Hâlâ bitmemiş: son basamakta artık basmıyoruz, çünkü bu noktadan sonra
+      // esc'in tutmaması tuş sayısıyla ilgili değil demektir.
+      if (i === steps.length - 1) {
+        console.log("[axetChatTui] iptal TUTMADI, tur hala suruyor", { chatId, msSonra: ms });
+        return;
+      }
+      press(i + 2);
+    }, ms);
+  });
 }
