@@ -2,6 +2,7 @@ import { app } from "electron";
 import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type {
+  AxetChatActivity,
   ChatAttachment,
   ChatSessionsLoadResult,
   ChatSessionsState,
@@ -26,6 +27,12 @@ const MAX_MESSAGE_CHARS = 200_000;
 // bırakabiliyor. Ekin KENDİSİ burada tutulmuyor (sadece diskteki yolu), yani
 // bu sınır dosya boyutuyla değil, listenin makul kalmasıyla ilgili.
 const MAX_ATTACHMENTS = 20;
+// Bir cevaba iliştirilen araç dökümünün üst sınırları. Tek bir turda 40'tan
+// fazla araç çalıştığı görülmedi; çıktı ve fark main tarafında zaten 4000
+// karakterde kırpılıyor (axetChatTui.ts), buradaki kırpma o katman
+// atlandığında (elle düzenlenmiş dosya) devreye giren ikinci kapı.
+const MAX_STEPS_PER_MESSAGE = 40;
+const MAX_STEP_DETAIL_CHARS = 4_000;
 
 function storePath(): string {
   return path.join(app.getPath("userData"), "chat-sessions.json");
@@ -69,6 +76,41 @@ function sanitizeAttachments(raw: unknown): ChatAttachment[] {
   return out;
 }
 
+// Cevabın altındaki araç dökümü. Tıpkı `attachments` gibi, bu süzgece
+// eklenmediği için diske HİÇ yazılmıyordu: `AxetChatActivity` tipe ve
+// `StoredChatMessage`'a eklenmişti, `sanitizeMessage` ise nesneyi alan alan
+// yeniden kurduğu için alanı sessizce düşürüyordu (2026-09-05, geçmiş
+// dosyasında `steps` taşıyan tek mesaj yoktu). Yukarıdaki uyarının ikinci
+// kez gerçekleşmesi.
+function sanitizeSteps(raw: unknown): AxetChatActivity[] {
+  if (!Array.isArray(raw)) return [];
+  const out: AxetChatActivity[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const s = item as Record<string, unknown>;
+    // Yalnızca araç çağrıları saklanıyor: "düşünüyor"/"bağlanıyor" gibi
+    // geçici aşamaların cevap tamamlandıktan sonra anlamı yok.
+    if (s.phase !== "tool") continue;
+    const tool = asString(s.tool);
+    if (!tool) continue;
+    const output = asString(s.output);
+    const diff = asString(s.diff);
+    out.push({
+      phase: "tool",
+      tool,
+      ...(asString(s.callId) ? { callId: asString(s.callId) } : {}),
+      ...(asString(s.target) ? { target: asString(s.target) } : {}),
+      ...(asString(s.result) ? { result: asString(s.result) } : {}),
+      ...(typeof s.extraLines === "number" && s.extraLines > 0 ? { extraLines: s.extraLines } : {}),
+      ...(output ? { output: output.slice(0, MAX_STEP_DETAIL_CHARS) } : {}),
+      ...(diff ? { diff: diff.slice(0, MAX_STEP_DETAIL_CHARS) } : {}),
+      ...(s.failed === true ? { failed: true } : {})
+    });
+    if (out.length >= MAX_STEPS_PER_MESSAGE) break;
+  }
+  return out;
+}
+
 function sanitizeMessage(raw: unknown): StoredChatMessage | null {
   if (!raw || typeof raw !== "object") return null;
   const m = raw as Record<string, unknown>;
@@ -76,11 +118,13 @@ function sanitizeMessage(raw: unknown): StoredChatMessage | null {
   if (!role) return null;
   const content = asString(m.content);
   const attachments = sanitizeAttachments(m.attachments);
+  const steps = sanitizeSteps(m.steps);
   return {
     id: asString(m.id) || `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     role,
     content: content.length > MAX_MESSAGE_CHARS ? content.slice(0, MAX_MESSAGE_CHARS) : content,
     ...(m.error === true ? { error: true } : {}),
+    ...(steps.length > 0 ? { steps } : {}),
     // Boş dizi YAZILMIYOR: ekler isteğe bağlı ve sohbetlerin büyük çoğunluğu
     // eksiz — her mesaja `"attachments": []` eklemek dosyayı şişirirdi.
     ...(attachments.length > 0 ? { attachments } : {}),

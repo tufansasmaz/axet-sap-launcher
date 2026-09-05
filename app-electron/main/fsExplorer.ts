@@ -1,7 +1,7 @@
 import { shell } from "electron";
 import { promises as fs, watch as watchSync } from "node:fs";
 import path from "node:path";
-import type { AppConfig, FsEntry, FsImportFilesResult, FsListDirResult, FsReadDocxResult, FsReadImageResult, FsReadTextResult, FsWriteTextResult } from "../shared/types";
+import type { AppConfig, FsEntry, FsImportFilesResult, FsListDirResult, FsReadDocxResult, FsReadImageResult, FsReadTextResult, FsSearchFilesResult, FsWriteTextResult } from "../shared/types";
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024; // 2MB — daha büyük dosyalar önizleme için gereksiz/yavaş
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -103,12 +103,34 @@ export async function readTextFile(filePath: string): Promise<FsReadTextResult> 
 }
 
 // Görüntülemenin karşılığı: kullanıcı ajanın yazdığı dosyayı okuyup DÜZELTEBİLSİN
-// (bkz. FileViewer'ın düzenleme kipi). Yeni dosya oluşturmuyor — yalnızca var olan,
-// izinli bir yola yazıyor; klasör oluşturmak/silmek bilinçli olarak kapsam dışı.
-export async function writeTextFile(filePath: string, content: string): Promise<FsWriteTextResult> {
+// (bkz. FileViewer'ın düzenleme kipi). Varsayılan olarak yeni dosya OLUŞTURMUYOR —
+// yalnızca var olan, izinli bir yola yazıyor; klasör oluşturmak/silmek bilinçli
+// olarak kapsam dışı.
+//
+// `allowCreate` İSTİSNASI: yönerge kutusu (`ChatInstructionsDialog`) olmayan bir
+// `AGENTS.md`'yi oluşturmak zorunda — bir klasörün ilk yönergesi tanım gereği
+// henüz yok. Varsayılanı açmak yerine çağrı başına izin isteniyor, çünkü
+// görüntüleyicide yanlış yazılmış bir yolun SESSİZCE yeni bir dosya bırakması
+// istenmiyor; orada ENOENT doğru cevap.
+//
+// İzin verildiğinde bile ÜST KLASÖRÜN var olması aranıyor: yol izinli bir kökün
+// altında diye (bkz. isPathAllowed) var olmayan bir klasör ağacı yaratmak, bu
+// fonksiyonun kapsamı dışında kalmaya devam ediyor.
+export async function writeTextFile(
+  filePath: string,
+  content: string,
+  allowCreate = false
+): Promise<FsWriteTextResult> {
   try {
-    const stat = await fs.stat(filePath);
-    if (stat.isDirectory()) return { ok: false, error: "Bu bir klasör, dosya değil." };
+    const stat = await fs.stat(filePath).catch((err: NodeJS.ErrnoException) => {
+      if (allowCreate && err.code === "ENOENT") return null;
+      throw err;
+    });
+    if (stat?.isDirectory()) return { ok: false, error: "Bu bir klasör, dosya değil." };
+    if (!stat) {
+      const parent = await fs.stat(path.dirname(filePath));
+      if (!parent.isDirectory()) return { ok: false, error: "Hedef klasör bulunamadı." };
+    }
     await fs.writeFile(filePath, content, "utf-8");
     return { ok: true };
   } catch (err) {
@@ -122,6 +144,108 @@ export async function writeTextFile(filePath: string, content: string): Promise<
 // şey değişti" deniyor, hangi dosya olduğu SÖYLENMİYOR — ağaç zaten yalnızca AÇIK
 // klasörleri yeniden okuyor, dosya bazlı olay ayrıştırmak hiçbir şey kazandırmazdı.
 //
+// ---------------------------------------------------------------------------
+// `@` DOSYA BAHSİ için özyinelemeli arama
+// ---------------------------------------------------------------------------
+// `listDir` tek bir klasörü listeliyor; composer'da `@` yazıldığında gereken
+// ise ağacın TAMAMINDA ada göre arama.
+//
+// BU ARAMA SINIRLI OLMAK ZORUNDA. Ajan tarafında ölçülmüş bir arıza var:
+// kök dizinden başlayan `glob "**/*"` taraması, uygulamayı gözle görülür
+// şekilde kilitliyordu. Aynı hatayı burada tekrarlamamak için ÜÇ ayrı fren
+// var ve üçü de gerekli:
+//   1. Yoksayılan klasörler — `node_modules` tek başına on binlerce dosya.
+//   2. Derinlik sınırı — sembolik bağ döngüsü ya da çok derin bir ağaçta
+//      tarama sonsuza kadar sürebilir.
+//   3. ZAMAN BÜTÇESİ — yukarıdaki ikisi yetmezse tarama süreyle kesiliyor.
+//      Kullanıcı yazarken her tuşta çalışan bir arama, "eksik sonuç" verse
+//      de "geç sonuç" vermemeli.
+const SEARCH_IGNORED = new Set([
+  ".git",
+  "node_modules",
+  ".venv",
+  "__pycache__",
+  "dist",
+  "out",
+  "build",
+  ".next",
+  ".cache",
+  // axet-code'un kendi veri klasörü: 281 MB'lık veritabanı ve log'lar.
+  // Kullanıcının ajana göstermek isteyeceği bir şey değil.
+  ".axet-code"
+]);
+const SEARCH_MAX_DEPTH = 8;
+const SEARCH_BUDGET_MS = 400;
+const SEARCH_MAX_RESULTS = 40;
+
+/**
+ * Kök altında adı `query`'yi içeren dosyaları arar (küçük/büyük harf ayrımsız).
+ *
+ * Sıralama isabete göre: tam ad eşleşmesi > adın başında > yolun herhangi
+ * bir yerinde. Boş `query` = kökün ilk dosyaları (menü `@` yazılır yazılmaz
+ * boş görünmesin diye).
+ *
+ * Yalnızca DOSYA döndürüyor, klasör değil: bahis metne bir yol yazmak için
+ * ve ajana bir klasör yolu vermek nadiren istenen şey.
+ */
+export async function searchFiles(root: string, query: string): Promise<FsSearchFilesResult> {
+  const needle = query.trim().toLowerCase();
+  const deadline = Date.now() + SEARCH_BUDGET_MS;
+  const hits: Array<{ path: string; rel: string; rank: number }> = [];
+
+  const walk = async (dir: string, depth: number): Promise<void> => {
+    if (depth > SEARCH_MAX_DEPTH || Date.now() > deadline || hits.length >= SEARCH_MAX_RESULTS * 4) return;
+    let names: string[];
+    try {
+      names = await fs.readdir(dir);
+    } catch {
+      return;
+    }
+    const subdirs: string[] = [];
+    for (const name of names) {
+      if (Date.now() > deadline) return;
+      // Gizli dosyalar atlanıyor ama gizli KLASÖRLER de: `.git` içindeki
+      // binlerce nesne aramaya hiçbir şey katmıyor.
+      if (name.startsWith(".") || SEARCH_IGNORED.has(name)) continue;
+      const full = path.join(dir, name);
+      let isDir: boolean;
+      try {
+        isDir = (await fs.stat(full)).isDirectory();
+      } catch {
+        continue;
+      }
+      if (isDir) {
+        subdirs.push(full);
+        continue;
+      }
+      const lower = name.toLowerCase();
+      const rel = path.relative(root, full);
+      if (!needle) {
+        hits.push({ path: full, rel, rank: 2 });
+        continue;
+      }
+      if (lower === needle) hits.push({ path: full, rel, rank: 0 });
+      else if (lower.startsWith(needle)) hits.push({ path: full, rel, rank: 1 });
+      else if (lower.includes(needle)) hits.push({ path: full, rel, rank: 2 });
+      else if (rel.toLowerCase().includes(needle)) hits.push({ path: full, rel, rank: 3 });
+    }
+    // Klasörlere dosyalardan SONRA iniliyor: sığ eşleşmeler derin olanlardan
+    // önce toplansın, zaman bütçesi dolarsa elde daha alakalı sonuçlar kalsın.
+    for (const sub of subdirs) await walk(sub, depth + 1);
+  };
+
+  try {
+    await walk(root, 0);
+  } catch (err) {
+    return { ok: false, error: (err as Error).message, entries: [] };
+  }
+  hits.sort((a, b) => a.rank - b.rank || a.rel.length - b.rel.length || a.rel.localeCompare(b.rel, "tr"));
+  return {
+    ok: true,
+    entries: hits.slice(0, SEARCH_MAX_RESULTS).map(({ path: full, rel }) => ({ path: full, rel }))
+  };
+}
+
 // Windows'ta `fs.watch` aynı yazma için birden çok olay üretiyor (rename + change),
 // o yüzden debounce burada, main tarafında: renderer'a saniyede onlarca IPC mesajı
 // gitmesin.

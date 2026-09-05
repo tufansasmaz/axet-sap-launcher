@@ -109,6 +109,26 @@ export interface AppConfig {
   // kayboluyordu ve kullanıcı "ben bunu test etmiş miydim" sorusuna
   // cevap veremiyordu.
   connectorLastResults: Record<string, ConnectorCheck>;
+  // Entegrasyon (connection uuid) bazında ÖLÇÜLMÜŞ sağlık. Kullanıcının
+  // düzenlediği bir ayar DEĞİL — turlar sırasında öğrenilip yazılıyor, bkz.
+  // connectorHealth.ts. Amacı: aynı sağlayıcının bozuk kaydını her turda
+  // yeniden denemenin bedelini (ölçülen: 6 sn) bir kez ödemek.
+  connectorIntegrations: Record<string, ConnectorIntegrationHealth>;
+  // axet-code'un kendi `connector_state.json`'ına BİZİM yazdığımız uuid'ler.
+  // Ayrı tutulmasının tek sebebi sahiplik: o dosyada kullanıcının `ctrl+b`
+  // diyaloğundan elle kapattıkları da var ve onlara asla dokunmuyoruz. Bu liste
+  // olmasaydı "kim kapattı" sorusu cevapsız kalır, bir uuid düzeldiğinde ya
+  // kullanıcının kapatmasını geri açar ya da kendi kapatmamızı asla
+  // kaldıramazdık. Bkz. connectorHealth.ts.
+  connectorAutoDisabled: string[];
+}
+
+export interface ConnectorIntegrationHealth {
+  /** Araç adından çıkarılan sağlayıcı (`outlook`, `sharepoint`, …). */
+  provider: string;
+  state: "ok" | "error";
+  /** Unix milisaniye — kayıtların eskimesi için (bkz. connectorHealth TTL). */
+  seenAt: number;
 }
 
 export interface SystemCredentials {
@@ -247,6 +267,27 @@ export interface FsListDirResult {
   error?: string;
 }
 
+/**
+ * Composer'daki `@` dosya bahsi için arama sonucu (bkz. fsExplorer.ts
+ * `searchFiles`).
+ *
+ * `FsEntry` KULLANILMIYOR: orada `size`/`modifiedAt` var ve ikisi de her
+ * dosya için ayrı bir `stat` demek. Menüde gösterilen tek şey yol olduğu
+ * için arama bu bilgileri hiç toplamıyor.
+ */
+export interface FsSearchFilesEntry {
+  /** Mutlak yol — ajana verilecek olan. */
+  path: string;
+  /** Köke göre göreli yol — menüde gösterilen. */
+  rel: string;
+}
+
+export interface FsSearchFilesResult {
+  ok: boolean;
+  entries: FsSearchFilesEntry[];
+  error?: string;
+}
+
 export interface FsReadTextResult {
   ok: boolean;
   content?: string;
@@ -348,10 +389,9 @@ export interface AxetChatMessage {
  * sessizlik). Yani bu, "bilmiyoruz"un dürüst adı — arayüz onun yanında geçen
  * süreyi sayıyor.
  *
- * `tool` yalnızca KALICI OTURUM kipinde (axetChatTui.ts) düşüyor ve tam olarak
- * o sessizliği dolduruyor: `run -v`'nin stderr'i araç çağrılarını hiç yazmaz,
- * ama axet-code'un kendi oturum veritabanı yazar. Bu aşamanın yanında bir de
- * `detail` gelir — aracın adı (`view`, `bash`, `mcp:get_current_date`).
+ * `tool`/`toolResult` yalnızca KALICI OTURUM kipinde (axetChatTui.ts) düşüyor
+ * ve tam olarak o sessizliği dolduruyor: `run -v`'nin stderr'i araç
+ * çağrılarını hiç yazmaz, ama axet-code'un kendi oturum veritabanı yazar.
  */
 export type AxetChatActivityPhase =
   | "starting"
@@ -362,7 +402,101 @@ export type AxetChatActivityPhase =
   | "indexing"
   | "thinking"
   | "tool"
+  | "toolResult"
+  // Tur, axet-code tarafında kurtarılamaz bir arızaya düştü (yetki/403,
+  // bağlam sınırı) ve oturum yenilenip mesaj yeniden gönderiliyor.
+  | "restarting"
+  // Ajan `ask_user` aracıyla soru sordu; tur, kullanıcı bir seçenek seçene
+  // kadar DURUYOR (bkz. axetChatTui.ts `ASK_USER_TOOL`).
+  | "askUser"
   | "finishing";
+
+/**
+ * Tek bir etkinlik olayı.
+ *
+ * Eskiden bu bir `(phase, detail)` ikilisiydi ve `detail` yalnızca aracın ADINI
+ * taşıyordu — arayüz "Dosya okuyor" diyebiliyor ama HANGİ dosyayı okuduğunu
+ * söyleyemiyordu. Kullanıcı isteği (2026-09-04) bunun terminaldeki gibi
+ * olması: çağrı satırı + altında sonuç satırı. Bu yüzden olay artık bir nesne;
+ * yeni bir alan eklemek imza değiştirmeyi gerektirmiyor.
+ */
+export interface AxetChatActivity {
+  phase: AxetChatActivityPhase;
+  /**
+   * Araç çağrısının kimliği (`toolu_bdrk_…`). `toolResult` satırını kendi
+   * çağrısına bununla bağlıyoruz — araç ADI yetmez, aynı araç bir turda
+   * birden fazla kez çağrılabiliyor.
+   */
+  callId?: string;
+  /** Araç adı — `view`, `bash`, `mcp:outlook_read`. */
+  tool?: string;
+  /** Aracın ÜZERİNDE çalıştığı şey: dosya yolu, komut, desen, sorgu. */
+  target?: string;
+  /** Sonucun ilk satırı, kısaltılmış. */
+  result?: string;
+  /** İlk satırdan sonra kaç satır daha geldiği — "+12 satır" için. */
+  extraLines?: number;
+  /**
+   * Aracın TAM çıktısı (4000 karakterde kırpılmış, `<result>` sarmalayıcısı
+   * atılmış). `result` yalnızca ilk satır; "12 satır daha var" demek ama o
+   * satırları göstermemek, kullanıcıyı bilginin varlığından haberdar edip
+   * erişimini kapatmak olurdu.
+   */
+  output?: string;
+  /**
+   * Dosya değişikliğinin farkı — `-`/`+` ön ekli satırlar. Yalnızca
+   * `edit`/`multiedit`/`write` araçlarında dolu.
+   *
+   * Aracın SONUCU bunu vermiyor ("Content replaced in file: …" diyor, ne
+   * değiştiğini söylemiyor); fark, araç GİRDİSİNDEKİ old_string/new_string
+   * çiftinden üretiliyor (bkz. axetChatTui.ts `buildDiff`).
+   */
+  diff?: string;
+  /** Sonuç bir hata mı (araç patladı ya da entegrasyon bozuk). */
+  failed?: boolean;
+  /**
+   * `askUser` aşamasında: ajanın sorusu ve seçenekleri.
+   *
+   * `options` SIRASI ÖNEMLİ — arayüzdeki düğmenin dizini, TUI'deki soru
+   * kutusunda kaç kez aşağı okuna basılacağını belirliyor (ölçüm: kutu ilk
+   * satır seçili açılıyor, `↓ next` bir satır ilerletiyor, `enter confirm`
+   * onaylıyor). Yani sıra bozulursa yanlış seçenek onaylanır.
+   */
+  question?: string;
+  /** Sorunun kısa başlığı (`ask_user` girdisindeki `header`); olmayabilir. */
+  header?: string;
+  options?: string[];
+}
+
+/**
+ * Ajanın kendi planındaki tek bir madde (`sessions.todos`, bkz.
+ * axetSessionDb.ts `sessionTodos`).
+ */
+export interface AxetTodo {
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+}
+
+/**
+ * Tur SÜRERKEN gelen "durum" bilgisi — etkinlik akışından AYRI bir kanal.
+ *
+ * `AxetChatActivity` bir OLAY dizisi ("şu araç çağrıldı, sonucu şu"); burada
+ * ise her seferinde tam durum taşınıyor ("plan şu an bu, bağlam bu kadar
+ * dolu"). İkisini tek tipte birleştirmek, plan her güncellendiğinde araç
+ * dökümüne anlamsız bir satır daha eklemek olurdu.
+ *
+ * Maliyet (`sessions.cost`) BİLİNÇLİ olarak yok: canlı veritabanında bu sütun
+ * her oturumda 0 (ölçüm 2026-09-05). Kurumsal portal üzerinden çalışırken
+ * sağlayıcı fiyat bildirmiyor, yani ekranda gösterilecek tek şey kalıcı bir
+ * "0,00 $" olurdu — bu bir bilgi değil, uydurma bir rakam.
+ */
+export interface AxetChatProgress {
+  todos: AxetTodo[];
+  /** Son isteğin bağlam doluluğu (girdi + çıktı jetonu). */
+  contextTokens: number;
+  /** Modelin bağlam penceresi — yüzdeyi arayüzde hesaplamak için. */
+  contextLimit: number;
+}
 
 export interface AxetChatSendResult {
   ok: boolean;
@@ -376,6 +510,17 @@ export interface AxetChatSendResult {
    * sorar, cevabı hiçbir yerde yazmaz. Sohbet balonunda gösteriliyor.
    */
   usedConnectors?: boolean;
+  /**
+   * Bu cevap alınmadan önce axet-code oturumu YENİLENDİYSE sebebi.
+   *
+   * Kullanıcıya söylenmesi gerekiyor (istek, 2026-09-05: *"eğer arka planda 403
+   * hatasıyla karşılaşırsa bilgi verilip tekrardan başlatılsın ve devam
+   * etsin"*). Sessiz bir yeniden başlatma, ajanın oturum belleğini kaybettiğini
+   * gizlerdi: cevap gelir ama "az önce konuştuğumuz şey" artık orada değildir.
+   *
+   * Metin DEĞİL anahtar taşınıyor; çeviri arayüzde yapılıyor.
+   */
+  restartedReason?: "auth" | "context" | "provider";
 }
 
 // --- Sohbet geçmişinin DİSKTE saklanan hâli (bkz. chatStore.ts) ---
@@ -416,6 +561,18 @@ export interface StoredChatMessage {
   error?: boolean;
   createdAt: number;
   attachments?: ChatAttachment[];
+  /**
+   * Bu cevap üretilirken çalışan araçlar, sırayla.
+   *
+   * DİSKE DE YAZILIYOR, çünkü asıl mesele kalıcılık: araç dökümü eskiden
+   * yalnızca bekleme göstergesinde anlık görünüyor, tur bitince buharlaşıyordu
+   * — ajanın hangi dosyayı okuduğu, ne çalıştırdığı, ne bulduğu hiçbir yerde
+   * kalmıyordu. Uygulama kapanınca da kaybolsaydı yarım bir çözüm olurdu.
+   *
+   * Yalnızca `phase === "tool"` olan olaylar tutuluyor; `toolResult` olayları
+   * kendi çağrılarının üstüne (`result`/`extraLines`/`failed`) işleniyor.
+   */
+  steps?: AxetChatActivity[];
 }
 
 export interface StoredChatSession {
@@ -546,6 +703,15 @@ export interface FlowJsonFileResult {
   canceled: boolean;
   filePath?: string;
   content?: string;
+  error?: string;
+}
+
+// Sohbeti dosyaya yazma sonucu. `canceled` ve `error` AYRI: kullanıcının
+// diyaloğu kapatması bir hata değil, bunu ayırmayan bir sonuç tipinde
+// "kaydedilemedi" uyarısı iptal edildiğinde de çıkardı.
+export interface ChatExportResult {
+  canceled: boolean;
+  filePath?: string;
   error?: string;
 }
 

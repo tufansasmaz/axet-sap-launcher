@@ -272,6 +272,22 @@ body {
   background: var(--scrollbar-thumb-hover);
 }
 
+/* Sohbet içi arama (Ctrl+F) vurgusu. `border` DEĞİL `outline`: outline düzende
+   yer kaplamıyor, yani arama açılıp kapandıkça ya da eşleşmeler arasında
+   gezinildikçe mesajlar bir-iki piksel oynamıyor. Eşleşen tüm mesajlar sönük,
+   o an gezinilen tek mesaj belirgin çerçeveleniyor. */
+.chat-search-hit,
+.chat-search-current {
+  border-radius: 18px;
+  outline-offset: 5px;
+}
+.chat-search-hit {
+  outline: 1px solid rgb(var(--accent-400-rgb) / 0.3);
+}
+.chat-search-current {
+  outline: 2px solid rgb(var(--accent-400-rgb) / 0.85);
+}
+
 /* "Sisteme Bağlan" ekranı gibi öne çıkan diyaloglar için hafif, minimalist
    giriş animasyonları — abartılı bounce/spring yok, sade fade+scale. */
 @keyframes backdrop-fade-in {
@@ -307,46 +323,19 @@ body {
   animation: panel-fade-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* Cevap beklenirken gösterilen gösterge (bkz. ChatBubble `ThinkingBubble`).
-   Kullanıcı isteği (2026-09-02): *"mors alfabesi gibi parlayan şekilde olsun,
-   parçalı parçalı"* — bütün satırlar yerine kısa/uzun (nokta/çizgi) parçalar,
-   üzerlerinden sırayla geçen bir ışık.
 
-   Işık AYRI bir katmanla değil, her parçanın KENDİ döngüsüne verilen bir
-   GECİKMEYLE ilerliyor: gecikme parçanın soldan sıra numarasıyla orantılı,
-   bu yüzden aynı animasyon soldan sağa akan tek bir dalga gibi görünüyor.
-   Bir gradyan bandı kaydırmak burada işe yaramazdı — parçalar arasındaki
-   boşluklar bandı keser ve ışık aralarda kaybolurdu.
+/* Sohbet göstergesinin "nefesi" (bkz. ChatBubble `ThinkingBubble`).
+   Kullanıcı kararı (2026-09-04): dönen glif *"çok kasıyor"*du — hızlı bir
+   dönüş bekleyişi sakinleştirmek yerine acele ettiriyor. 2 saniyelik yavaş bir
+   opaklık+ölçek döngüsü hâlâ "çalışıyor" diyor ama telaş etmiyor.
 
-   TOPLAM GECİKME DÖNGÜDEN KÜÇÜK OLMALI: son parça daha parlamadan döngü
-   başa sararsa dalga akmaz, gösterge rastgele titrer. Şu an 9 parça ×
-   80ms = 720ms < 2000ms (bkz. ChatBubble `MORSE_SEGMENTS` / `MORSE_STEP_MS`).
-
-   Parlama döngünün SADECE ilk %20'sinde: geri kalanı sönük duruyor, böylece
-   parlayan parça tek ve belirgin oluyor. `box-shadow` parlamayı parçanın
-   dışına da taşırıyor — mors ışığı hissini veren asıl şey bu. Parçalar ince
-   (3px) olduğu için yayılma yarıçapı da dar: geniş bir gölge, 3px'lik bir
-   çizgide ışık değil bulanık bir leke gibi görünüyor. */
-@keyframes chat-morse-glow {
-  0% {
-    background-color: rgb(var(--base-800-rgb));
-    box-shadow: none;
-  }
-  8% {
-    background-color: rgb(var(--accent-500-rgb) / 0.9);
-    box-shadow: 0 0 6px rgb(var(--accent-500-rgb) / 0.5);
-  }
-  20% {
-    background-color: rgb(var(--base-800-rgb));
-    box-shadow: none;
-  }
-  100% {
-    background-color: rgb(var(--base-800-rgb));
-    box-shadow: none;
-  }
+   Neden CSS, neden React değil: bir karakter döngüsü saniyede altı kez render
+   tetikliyordu ve gösterge zaten cevabın en yoğun anında ekranda duruyor.
+   Bu animasyon derleyici katmanında dönüyor, React'ın haberi bile olmuyor. */
+@keyframes chat-breathe {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50%      { opacity: 1;    transform: scale(1.15); }
 }
-.chat-morse-dot {
-  border-radius: 9999px;
-  background-color: rgb(var(--base-800-rgb));
-  animation: chat-morse-glow 2000ms ease-in-out infinite;
+.chat-breathe {
+  animation: chat-breathe 2000ms ease-in-out infinite;
 }

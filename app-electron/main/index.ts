@@ -14,12 +14,19 @@ import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
-import { isPathAllowed, listDir, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
+import { isPathAllowed, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
 import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
 import { listAxetModels, getAxetModelConfig, setAxetModel } from "./axetModels";
-import { sendChatMessage, cancelChatMessage, cancelAllChatMessages, closeChatSession, prewarmChat } from "./axetChat";
+import {
+  sendChatMessage,
+  answerChatQuestion,
+  cancelChatMessage,
+  cancelAllChatMessages,
+  closeChatSession,
+  prewarmChat
+} from "./axetChat";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { isDictationAvailable, transcribeAudio } from "./dictation";
@@ -41,6 +48,7 @@ import { runSapGuiAgentStep, cancelSapGuiAgentStep, cancelAllSapGuiAgentSteps } 
 import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js";
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
+import { forgetConnectorHealth } from "./connectorHealth";
 import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
@@ -508,6 +516,16 @@ function registerIpc(): void {
     return listDir(dirPath);
   });
 
+  // `@` dosya bahsi. Aynı kök denetiminden geçiyor: arama, `listDir`'in
+  // izin vermediği bir yeri gezmek için bir arka kapı olmamalı.
+  ipcMain.handle("fs:searchFiles", async (_event, root: string, query: string) => {
+    const config = loadConfig();
+    if (!isPathAllowed(config, root)) {
+      return { ok: false, entries: [], error: "Bu klasöre erişim izni yok." };
+    }
+    return searchFiles(root, query);
+  });
+
   ipcMain.handle("fs:readTextFile", async (_event, filePath: string) => {
     const config = loadConfig();
     if (!isPathAllowed(config, filePath)) {
@@ -516,12 +534,14 @@ function registerIpc(): void {
     return readTextFile(filePath);
   });
 
-  ipcMain.handle("fs:writeTextFile", async (_event, filePath: string, content: string) => {
+  ipcMain.handle("fs:writeTextFile", async (_event, filePath: string, content: string, allowCreate?: boolean) => {
     const config = loadConfig();
     if (!isPathAllowed(config, filePath)) {
       return { ok: false, error: "Bu dosyaya erişim izni yok." };
     }
-    return writeTextFile(filePath, content);
+    // `allowCreate` KONUM izni vermiyor: yol yine izinli köklerin altında olmak
+    // zorunda, yalnızca "var olmayan dosyaya yazma" kuralı gevşiyor.
+    return writeTextFile(filePath, content, allowCreate === true);
   });
 
   // Klasör izleme — ajan bir dosya yazdığında panel kendiliğinden tazelensin
@@ -665,15 +685,23 @@ function registerIpc(): void {
         history,
         message,
         (text) => mainWindow?.webContents.send("axetChat:chunk", requestId, text),
-        // Alt sürecin aşaması. Eskiden cevap beklenirken arayüzde yalnızca
-        // yanıp sönen çubuklar vardı ve hiçbir şey söylemiyorlardı. `detail`
-        // yalnızca araç aşamasında dolu — çalışan aracın adı.
-        (phase, detail) => mainWindow?.webContents.send("axetChat:activity", requestId, phase, detail)
+        // Alt sürecin aşaması + araç çağrıları/sonuçları (bkz. AxetChatActivity).
+        // Eskiden cevap beklenirken arayüzde yalnızca yanıp sönen çubuklar
+        // vardı ve hiçbir şey söylemiyorlardı.
+        (activity) => mainWindow?.webContents.send("axetChat:activity", requestId, activity),
+        // Ajanın planı + bağlam doluluğu. Ayrı bir kanal: bunlar olay değil,
+        // her seferinde tam DURUM (bkz. AxetChatProgress).
+        (progress) => mainWindow?.webContents.send("axetChat:progress", requestId, progress)
       )
   );
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
     cancelChatMessage(requestId);
   });
+  // Ajanın `ask_user` ile sorduğu sorunun cevabı. Tuşlar TUI'deki soru
+  // kutusuna gidiyor, yani tur DURMADAN devam ediyor (bkz. axetChatTui.ts).
+  ipcMain.handle("axetChat:answerQuestion", (_event, requestId: string, optionIndex: number) =>
+    answerChatQuestion(requestId, optionIndex)
+  );
   // Sohbet silindiğinde kalıcı TUI oturumunu da bırak — yoksa arkada kullanıcı
   // tarafından görülemeyen bir axet-code süreci kalırdı.
   ipcMain.handle("axetChat:closeSession", (_event, chatId: string) => {
@@ -707,6 +735,30 @@ function registerIpc(): void {
   ipcMain.handle("chatSessions:load", () => loadChatSessions());
   ipcMain.handle("chatSessions:save", (_event, state: ChatSessionsState) => saveChatSessions(state));
 
+  // Sohbeti Markdown olarak dışa aktar. Metnin KENDİSİ renderer'da üretiliyor
+  // (bkz. src/lib/chatExport.ts) — burada yalnızca kaydetme diyaloğu ve yazma
+  // var, çünkü mesaj/araç yapısını bilen taraf orası.
+  ipcMain.handle("chat:exportMarkdown", async (_event, suggestedName: string, markdown: string) => {
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showSaveDialog(win ?? (undefined as any), {
+      title: "Sohbeti Markdown olarak kaydet",
+      defaultPath: suggestedName,
+      filters: [{ name: "Markdown", extensions: ["md"] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    try {
+      await fs.writeFile(result.filePath, markdown, "utf-8");
+      return { canceled: false, filePath: result.filePath };
+    } catch (err) {
+      // Hata KUTUYLA bildiriliyor: sohbet listesinde bu işlemin sonucunu
+      // gösterecek bir yer yok, sessizce dönseydi kullanıcı dosyanın
+      // yazıldığını sanırdı.
+      const message = err instanceof Error ? err.message : String(err);
+      dialog.showErrorBox("Sohbet dışa aktarılamadı", message);
+      return { canceled: false, error: message };
+    }
+  });
+
   // ---------------------------- Uygulama Bağlantıları (Outlook/SharePoint connector'ları) ----------------------------
   // Not: burada `mainWindow`'a push edilen bir device-code event'i YOK -
   // önceki turdaki @azure/msal-node akışı tamamen kaldırıldı (bkz.
@@ -714,6 +766,10 @@ function registerIpc(): void {
   // run -q` çağrısı, sonucu doğrudan invoke cevabıyla dönüyor.
   ipcMain.handle("connectors:test", async (_event, requestId: string, provider: ConnectorProvider) => {
     const config = loadConfig();
+    // Testten ÖNCE unut: kullanıcı bu düğmeye basıyorsa portalde bir şey
+    // düzeltmiş olabilir ve bizim eski "bozuk" notumuz, testin de o
+    // entegrasyonu atlamasına yol açardı — yani düzeltme hiç görünmezdi.
+    forgetConnectorHealth(provider);
     const result = await testConnector(requestId, provider, config.axetWorkspaceDir);
     // İptal EDİLEN test bir sonuç değildir — saklanırsa kullanıcı bir dahaki
     // açılışta hiç yaşamadığı bir "başarısız" görürdü.

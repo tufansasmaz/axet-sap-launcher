@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -6,6 +6,8 @@ import {
   ArrowUp,
   BookOpen,
   Bug,
+  ChevronDown,
+  ChevronUp,
   Code2,
   FileCode,
   Files,
@@ -24,17 +26,27 @@ import {
   Paperclip,
   RefreshCw,
   Rocket,
+  Search,
   Server,
   Sparkles,
   Square,
   TerminalSquare,
-  UploadCloud
+  UploadCloud,
+  X
 } from "lucide-react";
-import type { AxetChatActivityPhase, AxetModelEntry, ChatAttachment } from "../../app-electron/shared/types";
+import type {
+  AxetChatActivity,
+  AxetChatActivityPhase,
+  AxetModelEntry,
+  AxetTodo,
+  ChatAttachment,
+  FsSearchFilesEntry
+} from "../../app-electron/shared/types";
 import AttachmentChip from "./AttachmentChip";
-import ChatBubble, { ThinkingBubble, type ChatMessage } from "./ChatBubble";
+import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./ChatBubble";
 import ModelSelector from "./ModelSelector";
 import { resolveFilesToPaths } from "../lib/attachments";
+import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import { useT } from "../i18n";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
@@ -81,6 +93,17 @@ const COLUMN = "mx-auto w-full max-w-3xl xl:max-w-4xl 2xl:max-w-5xl";
 // içeride gizli bir kaydırma bırakıyor.
 const COMPOSER_MAX_PX = 208;
 
+// İmlecin SOLUNDA yarım kalmış bir `@dosya` bahsi var mı? Başındaki
+// `(?:^|\s)`, bir e-posta adresinin (`biri@yer.com`) menüyü açmasını engelliyor;
+// `[^\s@]*` ise bahsin boşlukla bittiğini, yani tamamlanmış bir bahsin menüyü
+// yeniden açmadığını söylüyor.
+const MENTION_RE = /(?:^|\s)@([^\s@]*)$/;
+
+// Arama, her tuşta değil bu kadar sessizlik sonrasında yapılıyor. Arama diskte
+// yürüyor (bkz. fsExplorer.searchFiles) — hızlı yazan birinde her harf için bir
+// dizin taraması başlatmak, sonucu ilk harfe ait olan bir yarışa dönerdi.
+const MENTION_DEBOUNCE_MS = 120;
+
 export interface ChatSessionData {
   id: string;
   messages: ChatMessage[];
@@ -94,8 +117,20 @@ export interface ChatSessionData {
   // Cevap beklenirken alt sürecin bildirdiği son aşama. `null` = henüz bir
   // aşama gelmedi (ya da bekleyen istek yok).
   activity: AxetChatActivityPhase | null;
-  // `activity === "tool"` iken çalışan aracın adı.
-  activityDetail: string | null;
+  /** Bu turda çağrılan araçlar, sırayla — sonuçları da içinde (bkz. applyActivity). */
+  activitySteps: AxetChatActivity[];
+  /**
+   * Ajanın ŞU AN sorduğu soru. Doluyken tur DURUYOR; cevap, TUI'deki soru
+   * kutusuna tuş olarak gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+   */
+  pendingAsk: AxetChatActivity | null;
+  /** Ajanın kendi planı (axet-code `todos` aracı). Boşsa panel hiç çizilmiyor. */
+  todos: AxetTodo[];
+  /** Bağlam doluluğu. `contextLimit` 0 iken gösterge çizilmiyor (ölçüm yok). */
+  contextTokens: number;
+  contextLimit: number;
+  /** Son düzenlemenin kestiği kuyruk — `null` ise geri alma şeridi çizilmiyor. */
+  editUndo: { messages: ChatMessage[] } | null;
 }
 
 interface Props {
@@ -112,9 +147,12 @@ interface Props {
   onDraftChange: (value: string) => void;
   onSend: () => void;
   onCancel: () => void;
+  /** Soru kutusundaki seçeneği seçer (`index < 0` = vazgeç). */
+  onAnswerQuestion: (index: number) => void;
   onSelectModel: (entry: AxetModelEntry) => void;
   onRegenerate: () => void;
   onEditMessage: (id: string, content: string) => void;
+  onUndoEdit: () => void;
   onAttachFiles: () => void;
   // Kaydı başlatır/durdurur. Tanınan metni taslağa ekleme işi çağırana ait
   // (bkz. AxetCodeHome `handleDictate`).
@@ -134,6 +172,9 @@ interface Props {
   // Terminal KALDIRILMADI, sadece varsayılan olmaktan çıktı (2026-09-04):
   // bağlanınca artık konsol değil sohbet açılıyor, konsol bu düğmede duruyor.
   onOpenContextTerminal?: () => void;
+  // Klasördeki `AGENTS.md`'yi düzenleyen kutuyu açar. Şeritte duruyor çünkü
+  // yönerge sohbete değil BU KLASÖRE ait — bkz. ChatInstructionsDialog.
+  onOpenInstructions?: () => void;
   // Sağdaki dosya paneli. Bu bileşen İÇERİĞİNİ bilmiyor, sadece yerini
   // ayırıyor — panelin kendi durumu (açık dosya, izleyici) ChatFilesPanel'de.
   filesPanel?: ReactNode;
@@ -178,9 +219,11 @@ export default function ChatSessionPane({
   onDraftChange,
   onSend,
   onCancel,
+  onAnswerQuestion,
   onSelectModel,
   onRegenerate,
   onEditMessage,
+  onUndoEdit,
   onAttachFiles,
   onDictate,
   dictationState,
@@ -191,6 +234,7 @@ export default function ChatSessionPane({
   contextLabel = null,
   contextPath = null,
   onOpenContextTerminal,
+  onOpenInstructions,
   filesPanel,
   filesPanelOpen = false,
   onToggleFilesPanel
@@ -209,6 +253,39 @@ export default function ChatSessionPane({
   // yüksekliği kendi başına ayarlaması gerektiğinden burada ayrı bir referans
   // tutuluyor.
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Yazı alanının ARKASINDAKİ boyama katmanı (bkz. composer'daki gerekçe).
+  const overlayRef = useRef<HTMLDivElement | null>(null);
+
+  // --- `@` dosya bahsi ---
+  // `start`, taslaktaki `@` işaretinin indeksi: seçim yapıldığında bahsin
+  // TAMAMININ (işaret dâhil) yerine yol yazılabilsin diye saklanıyor.
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
+  const [mentionItems, setMentionItems] = useState<FsSearchFilesEntry[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  // Esc'le kapatılan bahsin `start`'ı. Bu olmadan, kapattıktan sonra yazılan bir
+  // sonraki harf aynı bahsi yeniden açardı — Esc'in hiçbir anlamı kalmazdı.
+  const dismissedStartRef = useRef<number | null>(null);
+  const mentionOpen = mention !== null && mentionItems.length > 0;
+
+  // --- sohbet içi arama (Ctrl+F) ---
+  // Eşleşme MESAJ düzeyinde: eşleşen balona kaydırılıyor ve balon çerçeveleniyor,
+  // metnin içindeki kelime ayrıca boyanmıyor. Boyamak için cevap gövdesindeki
+  // markdown ağacını gezip metin düğümlerini bölmek gerekirdi — kod bloklarını,
+  // tabloları ve linkleri bozma riski, kazanılan hassasiyetten büyük.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchIndex, setSearchIndex] = useState(0);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const searchHits = useMemo(() => {
+    const needle = searchQuery.trim().toLowerCase();
+    if (needle.length < 2) return [] as string[];
+    return session.messages.filter((m) => m.content.toLowerCase().includes(needle)).map((m) => m.id);
+  }, [searchQuery, session.messages]);
+  // Eşleşme kümesi küçüldüğünde (harf eklendi) eski indeks aralık dışında
+  // kalabiliyor; sıfırlamak, "sonraki"nin hiçbir yere gitmemesinden iyi.
+  useEffect(() => {
+    setSearchIndex(0);
+  }, [searchQuery]);
 
   const lastMessage = session.messages.length > 0 ? session.messages[session.messages.length - 1] : null;
   const streaming = lastMessage?.streaming === true;
@@ -216,6 +293,12 @@ export default function ChatSessionPane({
   // Hatalı bir cevap da yeniden üretilebilir olmalı — asıl işe yaradığı
   // durumlardan biri zaten "cevap alınamadı" balonu.
   const canRegenerate = !session.pending && !streaming && lastMessage?.role === "assistant";
+  // Çalışma göstergesi hangi mesajın ARDINA giriyor: son kullanıcı mesajının.
+  // Böylece bu turun cevabı göstergenin ALTINDA büyüyor, gösterge de büyüyen
+  // metinle birlikte aşağı sürüklenmiyor (bkz. render'daki gerekçe).
+  // Kullanıcı mesajı yoksa (yeniden üretme) listenin sonuna düşüyor.
+  const lastUserIndex = session.messages.map((m) => m.role).lastIndexOf("user");
+  const indicatorAfter = lastUserIndex >= 0 ? lastUserIndex : session.messages.length - 1;
 
   useEffect(() => {
     if (!stickToBottomRef.current) return;
@@ -240,6 +323,47 @@ export default function ChatSessionPane({
     });
   }, [active]);
 
+  // Ctrl+F yalnızca GÖRÜNÜR panelde çalışıyor: aynı anda üç sohbet paneli
+  // birden DOM'da duruyor (gizli olanlar `display:none`) ve hepsi dinleseydi
+  // tek tuşa üç arama kutusu açılırdı. Tarayıcının kendi bul çubuğu Electron'da
+  // zaten yok, o yüzden `preventDefault` bir şeyi elden almıyor.
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSearchOpen(true);
+        requestAnimationFrame(() => searchInputRef.current?.select());
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active]);
+
+  // Seçili eşleşmeye kaydır. `block: "center"`: eşleşen balon uzunsa üstten
+  // hizalamak, aranan kelimenin ekranın dışında kalmasına yol açabiliyor.
+  useEffect(() => {
+    if (!searchOpen || searchHits.length === 0) return;
+    const id = searchHits[Math.min(searchIndex, searchHits.length - 1)];
+    const el = messagesRef.current?.querySelector(`[data-mid="${CSS.escape(id)}"]`);
+    if (!el) return;
+    // Aramayla gezinirken otomatik dibe yapışma KAPANMALI, yoksa akan bir
+    // cevap kullanıcıyı bulduğu yerden geri çeker.
+    stickToBottomRef.current = false;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [searchOpen, searchIndex, searchHits]);
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchQuery("");
+  };
+  const stepSearch = (delta: number) => {
+    if (searchHits.length === 0) return;
+    setSearchIndex((prev) => (prev + delta + searchHits.length) % searchHits.length);
+  };
+  const currentHitId = searchOpen && searchHits.length > 0 ? searchHits[Math.min(searchIndex, searchHits.length - 1)] : null;
+  const hitSet = searchOpen ? new Set(searchHits) : null;
+
   // Yazı alanının yüksekliği. Bu ölçüm ESKİDEN `onInput`'taydı ve orada
   // OLMAMASI gerekiyordu: `onInput` yalnızca kullanıcı klavyeyle yazdığında
   // ateşleniyor. Gönderdikten sonra taslağı React `""` yapıyor, `onInput`
@@ -259,6 +383,85 @@ export default function ChatSessionPane({
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
   }, [session.draft, active]);
+
+  // Taslak dışarıdan boşaltıldığında (gönderme, yeni sohbet) menü de kapanmalı:
+  // bahsin dayandığı metin artık yok.
+  useEffect(() => {
+    if (session.draft.length === 0) {
+      setMention(null);
+      setMentionItems([]);
+      dismissedStartRef.current = null;
+    }
+  }, [session.draft.length]);
+
+  // Bahis aranıyor. Bağlam klasörü yoksa (`contextPath` null) arama yapılacak
+  // bir kök de yok — menü hiç açılmıyor, `@` düz metin olarak kalıyor.
+  useEffect(() => {
+    const root = contextPath;
+    if (!mention || !root) {
+      setMentionItems([]);
+      return;
+    }
+    let alive = true;
+    const timer = window.setTimeout(async () => {
+      const res = await window.api.searchFiles(root, mention.query);
+      if (!alive) return;
+      setMentionItems(res.ok ? res.entries : []);
+      setMentionIndex(0);
+    }, MENTION_DEBOUNCE_MS);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [mention?.query, mention?.start, contextPath]);
+
+  const syncMention = (value: string, caret: number) => {
+    const match = MENTION_RE.exec(value.slice(0, caret));
+    if (!match) {
+      dismissedStartRef.current = null;
+      setMention(null);
+      return;
+    }
+    const start = caret - match[1].length - 1;
+    if (dismissedStartRef.current === start) return; // Esc'le kapatılmıştı
+    dismissedStartRef.current = null;
+    setMention({ query: match[1], start });
+  };
+
+  const applyMention = (entry: FsSearchFilesEntry) => {
+    if (!mention) return;
+    const el = textareaRef.current;
+    const caret = el?.selectionStart ?? session.draft.length;
+    const before = session.draft.slice(0, mention.start);
+    const after = session.draft.slice(caret);
+    // Ters bölü ileri bölüye çevriliyor: yol PROMPT METNİNE giriyor ve `\s`
+    // gibi bir dizi kaçış dizisi gibi okunabilir. İleri bölüyü Windows da
+    // kabul ediyor.
+    //
+    // Sondaki BOŞLUK zorunlu, süs değil: axet-code'un kendi TUI'si `@`
+    // görünce bir tamamlama menüsü açıyor ve menü açıkken Enter göndermiyor
+    // (ölçüm ve kalıcı düzeltme: axetChatTui.ts `closeMentionMenus`).
+    const inserted = `@${entry.rel.replace(/\\/g, "/")} `;
+    onDraftChange(`${before}${inserted}${after}`);
+    setMention(null);
+    setMentionItems([]);
+    dismissedStartRef.current = null;
+    // Bir sonraki boyamada: imleç eklenen yolun ARDINA konuyor, yoksa metnin
+    // başına düşer ve yazmaya devam etmek imkânsız olur.
+    requestAnimationFrame(() => {
+      const node = textareaRef.current;
+      if (!node) return;
+      const pos = before.length + inserted.length;
+      node.focus();
+      node.setSelectionRange(pos, pos);
+    });
+  };
+
+  const dismissMention = () => {
+    if (mention) dismissedStartRef.current = mention.start;
+    setMention(null);
+    setMentionItems([]);
+  };
 
   const handleScroll = () => {
     const el = messagesRef.current;
@@ -370,6 +573,16 @@ export default function ChatSessionPane({
               {t("axetCodeHome.contextFiles")}
             </button>
           )}
+          {onOpenInstructions && (
+            <button
+              onClick={onOpenInstructions}
+              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
+              title={t("chatInstructions.title")}
+            >
+              <BookOpen size={12} />
+              {t("chatInstructions.button")}
+            </button>
+          )}
           {onOpenContextTerminal && (
             <button
               onClick={onOpenContextTerminal}
@@ -380,6 +593,68 @@ export default function ChatSessionPane({
               {t("axetCodeHome.contextTerminal")}
             </button>
           )}
+        </div>
+      )}
+
+      {/* ARAMA ÇUBUĞU — akış içinde değil, ÜSTÜNDE duruyor: akışa eklenseydi
+          açılıp kapandıkça mesaj listesi zıplardı ve kullanıcı okuduğu yeri
+          kaybederdi. Bağlam şeridi varsa onun altına iniyor. */}
+      {searchOpen && (
+        <div
+          className={`absolute right-4 z-30 flex items-center gap-1 rounded-xl border border-base-700 bg-base-900/95 px-2 py-1.5 shadow-lg backdrop-blur ${
+            contextPath ? "top-9" : "top-2"
+          }`}
+        >
+          <Search size={13} className="shrink-0 text-slate-500" />
+          <input
+            ref={searchInputRef}
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                closeSearch();
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                stepSearch(e.shiftKey ? -1 : 1);
+              }
+            }}
+            placeholder={t("chatSearch.placeholder")}
+            className="w-52 bg-transparent text-[13px] text-slate-200 outline-none placeholder:text-slate-500"
+          />
+          {/* Sayaç sabit genişlikte (`tabular-nums`): eşleşmeler arasında
+              gezinirken rakam değiştikçe düğmelerin kayması rahatsız edici. */}
+          <span className="shrink-0 tabular-nums text-[11px] text-slate-500">
+            {searchQuery.trim().length < 2
+              ? ""
+              : searchHits.length === 0
+                ? t("chatSearch.noResults")
+                : `${Math.min(searchIndex, searchHits.length - 1) + 1}/${searchHits.length}`}
+          </span>
+          <button
+            onClick={() => stepSearch(-1)}
+            disabled={searchHits.length === 0}
+            title={t("chatSearch.prev")}
+            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-base-800 hover:text-slate-200 disabled:cursor-default disabled:opacity-40"
+          >
+            <ChevronUp size={13} />
+          </button>
+          <button
+            onClick={() => stepSearch(1)}
+            disabled={searchHits.length === 0}
+            title={t("chatSearch.next")}
+            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-base-800 hover:text-slate-200 disabled:cursor-default disabled:opacity-40"
+          >
+            <ChevronDown size={13} />
+          </button>
+          <button
+            onClick={closeSearch}
+            title={t("chatSearch.close")}
+            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+          >
+            <X size={13} />
+          </button>
         </div>
       )}
 
@@ -429,17 +704,57 @@ export default function ChatSessionPane({
           </div>
         ) : (
           <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] py-6`}>
-            {session.messages.map((message) => (
-              <ChatBubble
-                key={message.id}
-                message={message}
-                onEdit={message.role === "user" && !session.pending ? onEditMessage : undefined}
-              />
+            {session.messages.map((message, index) => (
+              <Fragment key={message.id}>
+                <ChatBubble
+                  message={message}
+                  onEdit={message.role === "user" && !session.pending ? onEditMessage : undefined}
+                  searchState={
+                    currentHitId === message.id ? "current" : hitSet?.has(message.id) ? "hit" : undefined
+                  }
+                />
+                {/* Gösterge, istek BİTENE kadar duruyor — akış başladıktan
+                    sonra da. Eskiden ilk parçada kayboluyordu, ama ajan metin
+                    yazdıktan SONRA da araç çağırıyor (canlı ölçüm: mail
+                    turunda iki çağrı ilk cümleden sonra) ve o anlar yine
+                    karanlıkta kalıyordu.
+
+                    KONUM: akan cevabın ALTINDA değil, ÜSTÜNDE — son kullanıcı
+                    mesajının hemen ardında. Altta dururken cevap büyüdükçe
+                    gösterge de onunla birlikte aşağı iniyordu (kullanıcı
+                    kararı, 2026-09-04: *"düşünüyor ve altında çıkan kısımlar
+                    aşağı doğru kaymasın, cevap yazılırken en üstte dursun en
+                    son kaybolsun"*). Yapışkanlık da bu yüzden `bottom-0`
+                    değil `top-0`: cevap altından akıp giderken gösterge
+                    panelin üst kenarına tutunuyor ve ancak tur gerçekten
+                    bittiğinde (`pending` düşünce) kayboluyor.
+
+                    Degrade bir KUTU değil, bir geçiş: altından akan metin
+                    göstergeye değmeden soluyor, böylece iki katman üst üste
+                    binmiş gibi okunmuyor. */}
+                {session.pending && index === indicatorAfter && (
+                  <div className="sticky top-0 z-10 -mx-1 -mb-2 flex flex-col gap-2 bg-gradient-to-b from-[rgb(var(--base-950-rgb))] from-60% to-transparent px-1 pb-4 pt-1">
+                    <ThinkingBubble phase={session.activity} steps={session.activitySteps} />
+                    {/* Soru kutusu göstergenin ALTINDA: gösterge "cevabını
+                        bekliyor" diyor, kart da neyi beklediğini soruyor. */}
+                    {session.pendingAsk && (
+                      <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />
+                    )}
+                  </div>
+                )}
+              </Fragment>
             ))}
-            {/* "Düşünüyor" göstergesi SADECE ilk parça gelene kadar. Metin
-                akmaya başladıktan sonra da göstermek, cevabın altında
-                sürekli zıplayan ikinci bir satır demek olurdu. */}
-            {session.pending && !streaming && <ThinkingBubble phase={session.activity} detail={session.activityDetail} />}
+            {/* Hiç mesaj yokken gösterge yukarıdaki döngüye giremez; boş bir
+                sohbette "pending" görünmesi olası olmasa da, göstergenin
+                tamamen kaybolmasındansa burada durması yeğ. */}
+            {session.pending && session.messages.length === 0 && (
+              <div className="flex flex-col gap-2">
+                <ThinkingBubble phase={session.activity} steps={session.activitySteps} />
+                {session.pendingAsk && (
+                  <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />
+                )}
+              </div>
+            )}
             {/* "Yeniden üret" sohbetin SONUNDA, sadece son mesaj bitmiş bir
                 asistan cevabıysa — her cevapta değil yalnızca sonuncusunda
                 anlamlı. Cevap tarafında artık avatar oluğu olmadığı için
@@ -475,7 +790,49 @@ export default function ChatSessionPane({
           </button>
         )}
 
-        <div className={COLUMN}>
+        {/* Ajanın PLANI — composer'ın hemen üstünde, sohbet akışının DIŞINDA.
+            Akışın içine konsaydı her güncellemede yeni bir satır olarak
+            birikirdi; oysa bu bir olay değil, tek bir yaşayan liste (bkz.
+            AxetChatProgress). Terminaldeki karşılığı da ekranın altında
+            sabit durur. */}
+        {session.todos.length > 0 && (
+          <div className={COLUMN}>
+            <PlanPanel todos={session.todos} />
+          </div>
+        )}
+
+        {/* Düzenleme sonrası geri alma şeridi. Composer'ın hemen üstünde ve
+            kalıcı: bir saniye sonra kaybolan bir bildirim, kesilenin fark
+            edilmesinden önce gider. Düzeltilmiş soru gönderilince kendiliğinden
+            kapanıyor (bkz. AxetCodeHome `handleSend`). */}
+        {session.editUndo && session.editUndo.messages.length > 0 && (
+          <div className={COLUMN}>
+            <div className="mb-2 flex items-center gap-2 rounded-xl border border-base-800 bg-base-900/70 px-3 py-2 text-[12px] text-slate-400">
+              <History size={13} className="shrink-0" />
+              <span className="min-w-0 truncate">
+                {t("chatEditUndo.removed", { count: String(session.editUndo.messages.length) })}
+              </span>
+              <button
+                onClick={onUndoEdit}
+                className="ml-auto shrink-0 cursor-pointer rounded-md px-2 py-1 font-medium text-accent-400 transition hover:bg-base-800"
+              >
+                {t("chatEditUndo.undo")}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* `relative`: `@` menüsü composer kutusuna göre, ONUN ÜSTÜNDE
+            konumlanıyor. */}
+        <div className={`${COLUMN} relative`}>
+          {mentionOpen && (
+            <MentionMenu
+              items={mentionItems}
+              index={mentionIndex}
+              onHover={setMentionIndex}
+              onPick={applyMention}
+            />
+          )}
           {/* Composer — TEK SATIR, tek kutunun içinde:
                 [ataç] [yazı alanı] [mikrofon] [model] [gönder]
               Bir ara yazı alanı ile araç çubuğu ayrı satırlardaydı; kullanıcı
@@ -511,30 +868,95 @@ export default function ChatSessionPane({
               >
                 <Paperclip size={16} />
               </button>
-              <textarea
-                ref={(el) => {
-                  textareaRef.current = el;
-                  registerTextarea(el);
-                }}
-                value={session.draft}
-                onChange={(e) => onDraftChange(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    onSend();
-                  }
-                }}
-                onPaste={handlePaste}
-                placeholder={t("axetCodeHome.composerPlaceholder")}
-                rows={1}
-                // Yazdığın metin okuduğun metinle AYNI boyutta olmalı — yazı
-                // boyutu ayarı composer'ı da kapsıyor. `min-h`/dikey boşluk,
-                // yandaki 36px'lik düğmelerle aynı yüksekliği tutturuyor.
-                // Yükseklik burada DEĞİL, taslağa bakan bir efektte ayarlanıyor
-                // (bkz. yukarıdaki not) — `onInput` klavye dışındaki taslak
-                // değişikliklerini görmüyordu.
-                className="max-h-52 min-h-[36px] min-w-0 flex-1 resize-none bg-transparent py-[7px] text-[length:var(--chat-font-size)] leading-[22px] text-slate-200 outline-none placeholder:text-slate-500"
-              />
+              {/* Yazı alanı + BOYAMA KAPLAMASI.
+                  Bir `textarea`nın içindeki metnin bir parçası tek başına
+                  renklendirilemez; standart çözüm, aynı yazı ölçüleriyle
+                  çizilmiş bir katmanı arkasına koymak. Metni GÖSTEREN bu
+                  katman, `textarea`nın kendi metni saydam (yalnızca imleç ve
+                  seçim görünür). İkisinin yazı boyu/satır yüksekliği/dolgusu
+                  ve sarma kuralı BİREBİR aynı olmak zorunda — ayrışırlarsa
+                  yazılan metinle görünen metin kayar. */}
+              <div className="relative min-w-0 flex-1">
+                <div
+                  ref={overlayRef}
+                  aria-hidden
+                  // `pr-[10px]` kaydırma çubuğunun karşılığı: yazı alanı
+                  // `overflow-y-scroll` ile o 10px'i HER ZAMAN ayırıyor
+                  // (bkz. index.css `::-webkit-scrollbar`). Çubuk yalnızca
+                  // taslak uzayınca çıksaydı, çıktığı anda yazı alanının satır
+                  // genişliği 10px daralır, kaplamanınki daralmaz ve boyama
+                  // metinden kayardı.
+                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-[7px] pr-[10px] text-[length:var(--chat-font-size)] leading-[22px] text-slate-200"
+                >
+                  {renderWithMentions(session.draft, MENTION_CLASS)}
+                </div>
+                <textarea
+                  ref={(el) => {
+                    textareaRef.current = el;
+                    registerTextarea(el);
+                  }}
+                  // Kutu kendi içinde kaydığında (uzun taslak) kaplama da aynı
+                  // kadar kaymalı, yoksa boyama metnin gerisinde kalır.
+                  onScroll={(e) => {
+                    if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }}
+                  value={session.draft}
+                  onChange={(e) => {
+                    onDraftChange(e.target.value);
+                    syncMention(e.target.value, e.target.selectionStart ?? e.target.value.length);
+                  }}
+                  // İmleci klavyeyle/fareyle taşımak da bahsi değiştirir: yazmayı
+                  // bırakıp sola gitmek yarım bir bahsin içine düşebiliyor.
+                  onSelect={(e) => {
+                    const el = e.currentTarget;
+                    syncMention(el.value, el.selectionStart ?? el.value.length);
+                  }}
+                  onKeyDown={(e) => {
+                    // Menü açıkken ok tuşları ve Enter MENÜNÜN — Enter'ın burada
+                    // göndermemesi kritik: kullanıcı bir dosya seçmek üzere.
+                    if (mentionOpen) {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setMentionIndex((i) => (i + 1) % mentionItems.length);
+                        return;
+                      }
+                      if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setMentionIndex((i) => (i - 1 + mentionItems.length) % mentionItems.length);
+                        return;
+                      }
+                      if (e.key === "Enter" || e.key === "Tab") {
+                        e.preventDefault();
+                        applyMention(mentionItems[mentionIndex] ?? mentionItems[0]);
+                        return;
+                      }
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        dismissMention();
+                        return;
+                      }
+                    }
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      onSend();
+                    }
+                  }}
+                  onPaste={handlePaste}
+                  placeholder={t("axetCodeHome.composerPlaceholder")}
+                  rows={1}
+                  // Yazdığın metin okuduğun metinle AYNI boyutta olmalı — yazı
+                  // boyutu ayarı composer'ı da kapsıyor. `min-h`/dikey boşluk,
+                  // yandaki 36px'lik düğmelerle aynı yüksekliği tutturuyor.
+                  // Yükseklik burada DEĞİL, taslağa bakan bir efektte ayarlanıyor
+                  // (bkz. yukarıdaki not) — `onInput` klavye dışındaki taslak
+                  // değişikliklerini görmüyordu.
+                  // `text-transparent`: metni kaplama çiziyor. `caret-slate-200`
+                  // ŞART — saydam metinle birlikte imleç de kaybolurdu.
+                  // `placeholder:` kuralı daha özgül olduğu için yer tutucu
+                  // saydamlıktan etkilenmiyor.
+                  className="relative max-h-52 min-h-[36px] w-full resize-none overflow-y-scroll bg-transparent py-[7px] text-[length:var(--chat-font-size)] leading-[22px] text-transparent caret-slate-200 outline-none placeholder:text-slate-500"
+                />
+              </div>
               {/* Mikrofon, model seçicinin SOLUNDA (kullanıcı isteği,
                   2026-09-02) — sağ uçtaki üçlü soldan sağa "söyle → hangi
                   modele → gönder" sırasında ilerliyor.
@@ -612,7 +1034,13 @@ export default function ChatSessionPane({
           </div>
         </div>
 
-        <p className="mt-2 text-center text-[11px] text-slate-500">{t("axetCodeHome.disclaimer")}</p>
+        {/* Feragat satırı + bağlam doluluğu. Doluluk AYRI bir şeride
+            konmadı: ekranın dibinde ikinci bir satır açmak, composer'ın
+            zaten dar olan alanını yiyordu. */}
+        <p className="mt-2 text-center text-[11px] text-slate-500">
+          {t("axetCodeHome.disclaimer")}
+          <ContextMeter tokens={session.contextTokens} limit={session.contextLimit} />
+        </p>
       </div>
       </div>
 
@@ -621,5 +1049,160 @@ export default function ChatSessionPane({
           zaten pencereye göre ayarlanıyor. */}
       {filesPanelOpen && filesPanel && <div className="w-[380px] shrink-0">{filesPanel}</div>}
     </div>
+  );
+}
+
+/**
+ * `@` ile açılan dosya listesi — composer'ın ÜSTÜNDE.
+ *
+ * Aşağı açılmıyor: kutu zaten ekranın dibinde, aşağıda yer yok.
+ *
+ * Fare seçimi `onMouseDown` üzerinde ve `preventDefault`'lu: `onClick`
+ * beklenseydi, tıklamanın başında yazı alanı odağı kaybeder, imleç konumu
+ * (`selectionStart`) belirsizleşir ve yol yanlış yere eklenirdi.
+ */
+function MentionMenu({
+  items,
+  index,
+  onHover,
+  onPick
+}: {
+  items: FsSearchFilesEntry[];
+  index: number;
+  onHover: (i: number) => void;
+  onPick: (entry: FsSearchFilesEntry) => void;
+}) {
+  const listRef = useRef<HTMLDivElement | null>(null);
+  // Klavyeyle seçilen satır kırpılan alanın dışına çıkabiliyor; ok tuşuyla
+  // ilerlerken listenin kendiliğinden kaymaması "menü dondu" gibi okunuyor.
+  useEffect(() => {
+    const el = listRef.current?.children[index] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: "nearest" });
+  }, [index]);
+  return (
+    <div
+      ref={listRef}
+      className="chat-scroll absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-auto rounded-xl border border-base-700 bg-base-900 py-1 shadow-lg"
+    >
+      {items.map((entry, i) => {
+        const rel = entry.rel.replace(/\\/g, "/");
+        const slash = rel.lastIndexOf("/");
+        const name = slash >= 0 ? rel.slice(slash + 1) : rel;
+        const dir = slash >= 0 ? rel.slice(0, slash) : "";
+        return (
+          <div
+            key={entry.path}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              onPick(entry);
+            }}
+            onMouseEnter={() => onHover(i)}
+            className={`flex cursor-pointer items-baseline gap-2 px-3 py-1.5 text-[12px] ${
+              i === index ? "bg-base-800 text-slate-100" : "text-slate-300"
+            }`}
+          >
+            <FileCode size={12} className="shrink-0 self-center text-slate-500" />
+            <span className="shrink-0">{name}</span>
+            {dir && <span className="truncate text-[11px] text-slate-500">{dir}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Ajanın yapılacaklar listesi.
+ *
+ * BİZ ÜRETMİYORUZ: liste axet-code'un kendi `todos` aracının çıktısı, oturum
+ * veritabanından okunuyor (bkz. axetSessionDb.ts `sessionTodos`). Terminalde
+ * bu liste görünür ve "ajan planının neresinde" sorusunun tek doğrudan
+ * cevabıdır; kılıfta hiç gösterilmiyordu ve kullanıcı uzun bir turda ne
+ * kadar iş kaldığını bilemiyordu.
+ *
+ * Varsayılan olarak KAPALI değil, ÖZET açık: tek satırda "3/7 madde" ve
+ * o an çalışılan maddenin adı. Yedi maddelik bir listeyi composer'ın üstünde
+ * sürekli açık tutmak ekranın yarısını yerdi.
+ */
+function PlanPanel({ todos }: { todos: AxetTodo[] }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const done = todos.filter((todo) => todo.status === "completed").length;
+  const active = todos.find((todo) => todo.status === "in_progress");
+  return (
+    <div className="mb-2 rounded-xl border border-base-800 bg-base-900/70 text-[12px]">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-slate-400 transition hover:text-slate-200"
+      >
+        <ListChecks size={13} className="shrink-0" />
+        <span className="shrink-0 font-medium text-slate-300">
+          {t("chatPlan.progress", { done: String(done), total: String(todos.length) })}
+        </span>
+        {/* Kapalıyken o an çalışılan madde görünüyor: paneli açmadan da
+            "şu an ne yapıyor" okunabilsin. */}
+        {!open && active && <span className="truncate text-slate-500">· {active.content}</span>}
+        <span className="ml-auto shrink-0 text-slate-500">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <ul className="chat-scroll max-h-48 overflow-auto border-t border-base-800 px-3 py-2">
+          {todos.map((todo, i) => (
+            <li
+              key={i}
+              className={`flex items-start gap-2 py-0.5 ${
+                todo.status === "completed"
+                  ? "text-slate-500 line-through"
+                  : todo.status === "in_progress"
+                    ? "text-slate-100"
+                    : "text-slate-400"
+              }`}
+            >
+              <span className="mt-[1px] shrink-0 font-mono text-[11px]">
+                {todo.status === "completed" ? "✓" : todo.status === "in_progress" ? "▸" : "·"}
+              </span>
+              <span className="min-w-0 break-words">{todo.content}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Bağlam doluluğu — feragat satırının devamında tek bir yüzde.
+ *
+ * NEDEN YÜZDE, NEDEN JETON DEĞİL: ham sayı ("128.884 jeton") kullanıcıya
+ * hiçbir şey söylemiyor; anlamlı olan pencerenin ne kadarının dolduğu, çünkü
+ * %80'de oturum kendiliğinden yenileniyor (bkz. axetChatTui.ts
+ * `CONTEXT_ROTATE_AT`) ve o an sohbetin belleği sıfırlanıyor. Kullanıcının
+ * bunun geldiğini görebilmesi gerekiyor.
+ *
+ * MALİYET GÖSTERİLMİYOR. `sessions.cost` canlı veritabanında her oturumda 0
+ * (ölçüm 2026-09-05, 8 oturum): kurumsal portal üzerinden sağlayıcı fiyat
+ * bildirmiyor. Ekranda kalıcı bir "0,00 $" göstermek bilgi değil, uydurma
+ * bir rakam olurdu — bu yüzden alan hiç okunmuyor.
+ *
+ * %60'a kadar sessiz gri; üstünde uyarı, %80'de tehlike rengine geçiyor.
+ */
+function ContextMeter({ tokens, limit }: { tokens: number; limit: number }) {
+  const t = useT();
+  // Ölçüm gelmeden hiçbir şey yazılmıyor: "%0" ile "henüz bilmiyoruz" aynı
+  // şey değil ve ilki yanlış bir güven veriyor.
+  if (limit <= 0 || tokens <= 0) return null;
+  const pct = Math.min(100, Math.round((tokens / limit) * 100));
+  const tone =
+    pct >= 80
+      ? "text-[var(--status-danger-text)]"
+      : pct >= 60
+        ? "text-[var(--status-warning-text)]"
+        : "text-slate-500";
+  return (
+    <>
+      <span className="text-slate-600"> · </span>
+      <span className={tone} title={t("chatPlan.contextTitle", { tokens: tokens.toLocaleString() })}>
+        {t("chatPlan.context", { pct: String(pct) })}
+      </span>
+    </>
   );
 }

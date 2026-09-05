@@ -1,17 +1,34 @@
 import * as pty from "@lydell/node-pty";
 import { mkdirSync } from "node:fs";
-import type { AxetChatActivityPhase, AxetChatMessage, AxetChatSendResult, AxetModelEntry } from "../shared/types";
+import type {
+  AxetChatActivity,
+  AxetChatMessage,
+  AxetChatProgress,
+  AxetChatSendResult,
+  AxetModelEntry
+} from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import { setAxetModel } from "./axetModels";
 import {
   closeSessionDbs,
   findSessionByPrompt,
   latestMessageTime,
+  matchKey,
   newestSessionSince,
   readMessagesSince,
   resolveSessionDb,
-  sessionDbLoadError
+  sessionDbLoadError,
+  sessionTodos,
+  sessionTokens
 } from "./axetSessionDb";
+import {
+  classifyFailure,
+  logOffset,
+  readLiveConnectors,
+  readLogSince,
+  type AxetFailureKind
+} from "./axetCodeLog";
+import { connectorGuidance, learnConnectorHealth, noteLiveConnectors } from "./connectorHealth";
 
 // ---------------------------------------------------------------------------
 // KALICI OTURUM — axet-code'un gerçek TUI'si bir pty içinde
@@ -40,7 +57,27 @@ import {
 /** Açılış diyaloglarının ve hazır olma işaretinin ekranda aranan karşılıkları. */
 const MARK_TOOL_DIALOG = "Choose your development tool";
 const MARK_MODEL_DIALOG = "choose a provider and model";
-const MARK_READY = ["model changed to", "tab focus chat"];
+// TUI'nin sohbete hazır olduğunu gösteren işaretler. Tek bir metne bağlanmıyor,
+// çünkü BİR KEZ KIRILDI (2026-09-04): eldeki tek işaret `"tab focus chat"`ti ve
+// axet-code alt bilgi çubuğunu değiştirince el sıkışması 30 saniye bekleyip
+// `run` kipine düştü. Belirti kullanıcı tarafında "hiç çalışmadı, bilmem kaç
+// saniye 'Başlatılıyor'da geçti" oldu — araç adımları da o yüzden hiç gelmedi.
+//
+// Ölçülen (aynı gün) gerçek alt bilgi çubuğu:
+//   ctrl+p commands • ctrl+l models • ctrl+j newline • ctrl+c quit • ctrl+g more
+//
+// Bu yüzden çubuğun BİRDEN FAZLA parçası ayrı ayrı aranıyor: bir kısayolun
+// metni değişse bile diğerleri tutar. Sıra ÖNEMLİ değil ama diyalog
+// işaretlerinin bu listeden ÖNCE gelmesi önemli (bkz. handshake): iki tür
+// işaret aynı ekranda görünürse diyalog kazanmalı, yoksa açık bir diyaloğun
+// üstüne "hazır" deyip istemi diyaloğa yazardık.
+const MARK_READY = [
+  "model changed to",
+  "tab focus chat",
+  "ctrl+c quit",
+  "ctrl+j newline",
+  "ctrl+p commands"
+];
 
 /**
  * Bağlayıcıların YÜKLENDİĞİNİ gösteren satır: `● test123 25 tools`.
@@ -64,8 +101,34 @@ const HANDSHAKE_STEP_MS = 30_000;
 const HANDSHAKE_MAX_STEPS = 6;
 /** Cevap için tavan — `run` kipiyle aynı. */
 const TURN_TIMEOUT_MS = 5 * 60_000;
-/** Veritabanı yoklama aralığı. Ölçülen sorgu maliyeti 0-5 ms. */
-const POLL_MS = 250;
+/**
+ * İğne eşleşmesinden vazgeçip "bu oturumdaki yeni kullanıcı mesajı bizimdir"
+ * demeye başlama süresi. Bkz. döngüdeki güvenlik ağı.
+ *
+ * Prompt pty'ye yazıldıktan sonra veritabanına düşmesi ölçümde bir saniyenin
+ * altında; 20 saniye fazlasıyla cömert bir pay.
+ */
+const LAND_GRACE_MS = 20_000;
+/**
+ * Veritabanı yoklama aralığı. Ölçülen sorgu maliyeti 0-5 ms.
+ *
+ * Bu aralık AYNI ZAMANDA arayüzdeki yazma ritmi: her yoklamada o ana kadar
+ * biriken metin tek parça hâlinde `onChunk`'a veriliyor. 250 ms'de cevap
+ * saniyede dört kez, kocaman bloklar hâlinde "zıplayarak" beliriyordu
+ * (kullanıcı, 2026-09-05: *"cevabı çok kasarak yavaş yazıyor seri kasmadan
+ * yazmalı"*). 90 ms'de aynı metin ~11 kez/sn, çok daha küçük parçalarla
+ * geliyor — akıyormuş gibi görünüyor. Sorgu maliyeti sıfıra yakın olduğu için
+ * üç katına çıkan yoklama sayısı ölçülebilir bir yük getirmiyor.
+ */
+const POLL_MS = 90;
+/**
+ * Plan (`sessions.todos`) ve bağlam doluluğu ne sıklıkla okunsun.
+ *
+ * Yoklama ritminden AYRI: bu iki bilgi mesaj akışı gibi akmıyor, ajan bir
+ * maddeyi bitirdiğinde ya da tur döndüğünde değişiyor. 90 ms'de okumak
+ * saniyede 11 kez aynı satırı sorgulamak olurdu.
+ */
+const PROGRESS_MS = 1_000;
 /** Kullanılmayan bir oturum ne kadar sonra kapatılsın. */
 const IDLE_MS = 10 * 60_000;
 /** Aynı anda açık tutulacak en fazla TUI oturumu. */
@@ -110,6 +173,14 @@ interface TuiSession {
   lastUsed: number;
   idleTimer: NodeJS.Timeout | null;
   waiters: Waiter[];
+  /**
+   * TUI'de ŞU AN açık olan soru kutusu; yoksa `null`.
+   *
+   * Oturumda tutuluyor çünkü cevap turdan DIŞARIDAN geliyor: kullanıcı bir
+   * düğmeye basınca `answerTuiQuestion` çağrılıyor ve o an tur döngüsünün
+   * içinde değiliz (bkz. `ASK_USER_TOOL`).
+   */
+  pendingAsk: AskUserRequest | null;
 }
 
 const sessions = new Map<string, TuiSession>();
@@ -327,7 +398,8 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     seeded: false,
     lastUsed: Date.now(),
     idleTimer: null,
-    waiters: []
+    waiters: [],
+    pendingAsk: null
   };
   proc.onData((data) => feed(session, data));
   proc.onExit(() => {
@@ -461,17 +533,232 @@ function normalizeToolName(raw: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Araç girdisi ve sonucu — "ne üstünde çalışıyor" ve "ne çıktı"
+// ---------------------------------------------------------------------------
+// Kullanıcı isteği (2026-09-04): gösterge terminaldeki gibi olsun —
+//
+//   ● Searching for textarea|composer|rows=|scrollHeight
+//     ⎿  "textarea|composer|rows=|scrollHeight"
+//
+// Yani sadece aracın adı değil, ÜZERİNDE ÇALIŞTIĞI ŞEY de görünmeli. Bilgi
+// zaten elimizde: axet-code her `tool_call`'un girdisini oturum veritabanına
+// JSON metni olarak yazıyor, biz o kayıtları turda zaten okuyoruz.
+//
+// Alan adları araca göre değişiyor ve SÜRÜME BAĞLI. Bu yüzden sabit bir şema
+// beklemiyoruz: bilinen adlar sırayla deneniyor, hiçbiri tutmazsa girdideki
+// ilk anlamlı metin alınıyor. Böylece yarın eklenecek bir araç "adsız" değil,
+// sadece daha kaba bir özetle görünür.
+const TARGET_KEYS = [
+  "command",
+  "pattern",
+  "file_path",
+  "filePath",
+  "path",
+  "filename",
+  "file",
+  "url",
+  "query",
+  "user_prompt",
+  "prompt",
+  "description"
+];
+
+/** Göstergedeki tek satır için üst sınır. Uzun bir bash komutu satırı taşırmasın. */
+const TARGET_MAX = 90;
+
+function clip(text: string, max: number): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
+/** `tool_call` girdisinden gösterilecek tek satırlık hedef. Çıkarılamazsa boş. */
+function summarizeToolInput(input: string | undefined): string {
+  if (!input) return "";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input);
+  } catch {
+    // Girdi her zaman JSON olmayabilir; ham hâli de bir şey söylüyor.
+    return clip(input, TARGET_MAX);
+  }
+  if (typeof parsed === "string") return clip(parsed, TARGET_MAX);
+  if (!parsed || typeof parsed !== "object") return "";
+  const record = parsed as Record<string, unknown>;
+  for (const key of TARGET_KEYS) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return clip(value, TARGET_MAX);
+  }
+  // Bilinen alan yok — girdideki ilk metin değeri. Boolean/sayı atlanıyor:
+  // "true" tek başına hiçbir şey anlatmaz.
+  for (const value of Object.values(record)) {
+    if (typeof value === "string" && value.trim()) return clip(value, TARGET_MAX);
+  }
+  return "";
+}
+
+// Sonucun hata olup olmadığı. `is_error` GÜVENİLİR DEĞİL — canlı ölçümde
+// (2026-09-04) bir MCP çağrısı HTTP 500 döndürdüğü hâlde `is_error: false`
+// yazıyordu, bkz. connectorHealth.ts.
+const RE_TOOL_FAILED = /^\s*(error|traceback|exception)\b|error calling tool|\bhttp error \d{3}\b/i;
+
+interface ResultSummary {
+  result: string;
+  extraLines: number;
+  failed: boolean;
+  output: string;
+}
+
+/**
+ * Araç çıktısının tam metni sohbet geçmişine de yazıldığı için üst sınır var.
+ * ÖLÇÜM (2026-09-05, canlı veritabanındaki 2100 sonuç): medyan 255, p90 4554,
+ * p99 33.526, en büyük 139.744 karakter. 4000, sonuçların ~%90'ını olduğu gibi
+ * taşıyor; kuyruğu uzun birkaç dev çıktı için geçmiş dosyasını megabaytlarca
+ * şişirmenin anlamı yok.
+ */
+const OUTPUT_MAX = 4000;
+
+/**
+ * axet-code araç çıktılarını `<result>…</result>` içine sarıyor (ölçüm,
+ * 2026-09-05). Bu sarmalayıcı ATILMAK ZORUNDA: ilk satır olduğu gibi
+ * alındığında göstergedeki sonuç satırı düpedüz `<result>` yazıyordu — yani
+ * araç sonucu diye gösterilen şey aracın çıktısı bile değildi.
+ */
+function stripResultWrapper(body: string): string {
+  const match = body.match(/^<result>\s*([\s\S]*?)\s*<\/result>\s*$/);
+  return (match ? match[1] : body).trim();
+}
+
+/**
+ * TUI'nin KENDİ menülerini açan iki karakteri zararsızlaştırır.
+ *
+ * İkisi de aynı sonuca çıkıyor: menü açıkken Enter GÖNDERMİYOR, menüdeki
+ * seçimi uyguluyor — yani mesaj hiç yola çıkmıyor ve tur, kimse bir şey
+ * beklemezken 5 dakikalık zaman aşımına kadar oturuyor. Ölçümler 2026-09-05,
+ * geçici pty spike'ları:
+ *
+ *   `@` — dosya tamamlama menüsü:
+ *     `Merhaba @src/index.ts dosyasi.` + \r → gitti, ajan dosyayı okudu.
+ *     `Merhaba @src/index.ts` + \r          → HİÇBİR ŞEY gitmedi; ekranda
+ *       yalnızca menünün ürettiği `≡ index.ts ✕ src/index.ts` çipi kaldı.
+ *
+ *   `/` — satır başındayken KOMUT PALETİ (New Session, Switch Model, Logout,
+ *     Quit...). Metnin geri kalanı paletin filtre kutusuna yazılıyor:
+ *     `/etc/hosts nedir?` + \r bir mesaj değil, bir KOMUT çalıştırırdı.
+ *     ` /etc/hosts nedir?` (başta tek boşluk) + \r → palet hiç açılmadı, mesaj
+ *     gitti ve baştaki boşluk TUI tarafından kırpıldı — gönderilen metin
+ *     `/etc/hosts nedir?`.
+ *
+ * Düzeltme arayüzde DEĞİL burada: kullanıcı bu iki işareti kendi elleriyle de
+ * yazabiliyor (ya da yapıştırabiliyor), yani composer'daki `@` menüsü bu
+ * tuzağın tek kapısı değil.
+ *
+ * `/` yalnızca metnin EN BAŞINDA korunuyor: palet giriş kutusu BOŞKEN açılıyor,
+ * sonraki satırların başındaki `/` (ctrl+j ile satır atlanmış oluyor) menüyü
+ * açmıyor.
+ */
+function escapeTuiMenus(text: string): string {
+  const guarded = text.startsWith("/") ? ` ${text}` : text;
+  if (!guarded.includes("@")) return guarded;
+  return guarded
+    .split("\n")
+    .map((line) => (/(^|\s)@[^\s@]+$/.test(line) ? `${line} ` : line))
+    .join("\n");
+}
+
+function summarizeToolResult(content: string | undefined, isError: boolean | undefined): ResultSummary {
+  const raw = (content ?? "").trim();
+  if (!raw) return { result: "", extraLines: 0, failed: isError === true, output: "" };
+  const body = stripResultWrapper(raw);
+  const lines = body.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  return {
+    result: clip(lines[0] ?? "", TARGET_MAX),
+    extraLines: Math.max(0, lines.length - 1),
+    // Hata tespiti HAM metinde: sarmalayıcı dışında kalan bir hata satırı da
+    // yakalansın.
+    failed: isError === true || RE_TOOL_FAILED.test(body) || RE_TOOL_FAILED.test(raw),
+    output: body.length > OUTPUT_MAX ? `${body.slice(0, OUTPUT_MAX)}\n…` : body
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Dosya değişikliği farkı
+// ---------------------------------------------------------------------------
+//
+// Araç SONUCU bir şey anlatmıyor: `edit` "Content replaced in file: …", `write`
+// "File successfully written: …" diyor, yani NE değiştiği hiçbir yerde yok.
+// Ama araç GİRDİSİ tam olarak bunu taşıyor (ölçüm, 2026-09-05):
+//   edit      -> { file_path, old_string, new_string }
+//   multiedit -> { file_path, edits: [{ old_string, new_string }, …] }
+//   write     -> { file_path, content }
+// Farkı bu yüzden sonuçtan değil girdiden üretiyoruz.
+//
+// Gerçek bir satır-satır fark algoritması (Myers vb.) BİLİNÇLİ OLARAK YOK:
+// elimizdeki zaten "şu blok gitti, bu blok geldi" biçiminde, yani hangi
+// satırların değiştiği belli. Blokları `-`/`+` ile göstermek hem doğru hem de
+// bir fark kütüphanesi bağımlılığı getirmiyor.
+
+/** Fark metninin üst sınırı — geçmiş dosyası şişmesin. */
+const DIFF_MAX = 4000;
+
+function diffBlock(oldText: string, newText: string): string {
+  const out: string[] = [];
+  for (const line of (oldText ?? "").split(/\r?\n/)) out.push(`-${line}`);
+  for (const line of (newText ?? "").split(/\r?\n/)) out.push(`+${line}`);
+  return out.join("\n");
+}
+
+/** Düzenleme araçlarının girdisinden `-`/`+` satırlarından oluşan bir fark metni. */
+function buildDiff(tool: string, input: string | undefined): string {
+  if (!input) return "";
+  let parsed: Record<string, unknown>;
+  try {
+    const value: unknown = JSON.parse(input);
+    if (!value || typeof value !== "object") return "";
+    parsed = value as Record<string, unknown>;
+  } catch {
+    return "";
+  }
+  const blocks: string[] = [];
+  if (tool === "write") {
+    const content = parsed.content;
+    if (typeof content !== "string") return "";
+    for (const line of content.split(/\r?\n/)) blocks.push(`+${line}`);
+  } else if (tool === "edit") {
+    const oldText = parsed.old_string;
+    const newText = parsed.new_string;
+    if (typeof oldText !== "string" && typeof newText !== "string") return "";
+    blocks.push(diffBlock(String(oldText ?? ""), String(newText ?? "")));
+  } else if (tool === "multiedit") {
+    const edits = parsed.edits;
+    if (!Array.isArray(edits)) return "";
+    for (const edit of edits) {
+      if (!edit || typeof edit !== "object") continue;
+      const e = edit as Record<string, unknown>;
+      blocks.push(diffBlock(String(e.old_string ?? ""), String(e.new_string ?? "")));
+    }
+  } else {
+    return "";
+  }
+  const text = blocks.join("\n");
+  return text.length > DIFF_MAX ? `${text.slice(0, DIFF_MAX)}\n…` : text;
+}
+
+// ---------------------------------------------------------------------------
 // Bir tur
 // ---------------------------------------------------------------------------
 
 /** Oturumu veritabanında bulmak için kullanılacak, tek satırlık ayırt edici parça. */
 function promptNeedle(message: string): string {
+  // Satır seçimi HAM metin üzerinde (satır sonları burada anlamlı), ama iğnenin
+  // kendisi `matchKey`'den geçiyor: pty'ye yazarken bazı noktalama işaretleri
+  // düşüyor ve iğne onlara güvenemez (gerekçe ve ölçüm: axetSessionDb.ts
+  // `matchKey`).
   const longest = message
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .map((line) => matchKey(line))
     .filter((line) => line.length > 0)
     .sort((a, b) => b.length - a.length)[0];
-  return (longest ?? message.trim()).slice(0, 80);
+  return (longest ?? matchKey(message)).slice(0, 80);
 }
 
 export interface TuiSendArgs {
@@ -486,7 +773,9 @@ export interface TuiSendArgs {
   /** İlk mesajda eklenen bağlam/hatırlatma önsözü. */
   buildFirstPrompt: (message: string) => string;
   onChunk: (text: string) => void;
-  onActivity: (phase: AxetChatActivityPhase, detail?: string) => void;
+  onActivity: (activity: AxetChatActivity) => void;
+  /** Plan ve bağlam doluluğu — saniyede bir, yalnızca DEĞİŞTİĞİNDE. */
+  onProgress: (progress: AxetChatProgress) => void;
 }
 
 /** Bu sohbetin TUI oturumu şu an bir turu sürdürüyor mu? */
@@ -502,22 +791,141 @@ export function tuiUnavailableReason(cwd: string): string {
   return "";
 }
 
-/**
- * Kalıcı oturum üzerinden bir mesaj gönderir.
- *
- * `null` dönerse TUI kipi bu mesaj için kurulamadı demektir — çağıran taraf
- * eski `run` kipine düşmeli. Bilerek sessiz bir başarısızlık DEĞİL: sebep
- * `tuiUnavailableReason` ile ayrıca okunabiliyor.
- */
-export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult | null> {
-  const session = await ensureSession(args.chatId, args.cwd, args.model, args.useConnectors);
-  if (!session) return null;
-  if (session.busy) return null;
+interface TurnResult extends AxetChatSendResult {
+  /**
+   * Tur, axet-code tarafında KURTARILAMAZ bir arızaya düştüyse türü. Bunu
+   * gören sarmalayıcı oturumu yeniliyor ve mesajı bir kez daha gönderiyor.
+   */
+  failure?: AxetFailureKind;
+  /**
+   * Tur, ajan soru sorduğu için bitirildi. Süreç TUI'de soru kutusunda ASILI
+   * kaldığı için oturum bırakılmalı (bkz. `ASK_USER_TOOL`).
+   */
+  askedUser?: true;
+}
 
+// ---------------------------------------------------------------------------
+// `ask_user` — soru kutusunu BİZİM arayüzden cevaplama
+// ---------------------------------------------------------------------------
+// Sorun (ölçüm 2026-09-05): ajan `ask_user` çağırınca TUI bir soru kutusu
+// çizip cevabı bekliyor. Bizim sohbet kılıfı o kutuyu görmediği için tur beş
+// dakikalık zaman aşımına kadar asılı kalıyordu — kullanıcı 105 saniye
+// "Düşünüyor" görüp hiç cevap alamadı.
+//
+// KUTUNUN TUŞ DAVRANIŞI ÖLÇÜLDÜ (canlı pty, 2026-09-05):
+//
+//     ╭──────────────────────────────────────────╮
+//     │  Dil                                     │  ← header
+//     │  Hangi dili tercih edersin?              │  ← question
+//     │  Türkçe                                  │  ← options[0]  (AÇILIŞTA SEÇİLİ)
+//     │  İngilizce                               │  ← options[1]
+//     │  Other                                   │  ← TUI'nin kendi eklediği satır
+//     │    > Type a custom answer                │
+//     │  ↑ previous • ↓ next • enter confirm •   │
+//     │  esc dismiss                             │
+//     ╰──────────────────────────────────────────╯
+//
+// Yani `i` numaralı seçeneği onaylamak = `i` kez `↓` + `enter`. İkinci ölçümde
+// (1x aşağı + enter) TUI `✓ The user selected: "Mavi"` yazdı ve ajan AYNI TURDA
+// devam etti. Oturum kapatılmıyor, geçmiş yeniden tohumlanmıyor, araç sonucu
+// ajanın bağlamına normal yoldan giriyor — terminaldekiyle birebir aynı.
+//
+// İMLECİN AÇILIŞ SATIRI 0 olduğu için `↓` sayısı doğrudan dizin. Bu ÖLÇÜLMÜŞ
+// bir varsayım: kutu bir sürümde son seçileni hatırlamaya başlarsa yanlış
+// seçenek onaylanır.
+//
+// ÇOKLU SEÇİM (`multi_select`) DESTEKLENMİYOR: o kipte kutunun yardım satırı
+// farklı (bir "toggle" tuşu olmalı) ve ÖLÇÜLMEDİ. Ölçmeden tuş göndermek
+// yanlış seçeneği onaylamak demek olurdu, o yüzden çoklu seçimde eski yola
+// düşülüyor: tur soruyla bitiriliyor, kullanıcı cevabını yazıyor.
+//
+// Prompt tarafındaki not (axetChat.ts `ASK_FORMAT_HINT`) buradaki iki sınırı
+// ajana önden söylüyor: tek seçimli sor, en az iki seçenek ver. Yasak değil —
+// "hiç sorma" yasağı 2026-09-05'te kaldırıldı, çünkü tuttuğu için bu kod hiç
+// çalışmıyordu.
+const ASK_USER_TOOL = "ask_user";
+
+/** Kullanıcı seçene kadar en fazla beklenecek süre. */
+const ASK_USER_WAIT_MS = 10 * 60_000;
+
+interface AskUserRequest {
+  callId: string;
+  question: string;
+  header: string;
+  options: string[];
+  multiSelect: boolean;
+}
+
+/** `ask_user` girdisini ayrıştırır; ayrıştırılamazsa `null`. */
+function parseAskUser(callId: string, input: string | undefined): AskUserRequest | null {
+  let parsed: { question?: unknown; header?: unknown; options?: unknown; multi_select?: unknown };
+  try {
+    parsed = JSON.parse(input ?? "") as typeof parsed;
+  } catch {
+    return null;
+  }
+  const options = Array.isArray(parsed.options)
+    ? parsed.options
+        .map((opt) => (typeof opt === "string" ? opt : (opt as { label?: unknown })?.label))
+        .filter((label): label is string => typeof label === "string" && label.trim() !== "")
+    : [];
+  return {
+    callId,
+    question: typeof parsed.question === "string" ? parsed.question.trim() : "",
+    header: typeof parsed.header === "string" ? parsed.header.trim() : "",
+    options,
+    multiSelect: parsed.multi_select === true
+  };
+}
+
+/** Soruyu, cevaplanamadığında sohbete yazılacak düz metne çevirir. */
+function askUserAsText(ask: AskUserRequest): string {
+  const question = ask.question || "Devam etmek için bir tercihine ihtiyacım var.";
+  return ask.options.length
+    ? `${question}\n\n${ask.options.map((opt) => `- ${opt}`).join("\n")}`
+    : question;
+}
+
+/**
+ * Bekleyen soruyu seçilen seçenekle cevaplar. `index < 0` = vazgeç (`esc`).
+ *
+ * Bekleyen soru YOKSA hiçbir tuş gönderilmiyor: geç gelen bir tıklama, kutu
+ * kapandıktan sonra sohbet kutusuna `enter` basıp boş bir mesaj gönderirdi.
+ */
+export function answerTuiQuestion(chatId: string, index: number): boolean {
+  const session = sessions.get(chatId);
+  const ask = session?.pendingAsk;
+  if (!session || !ask || session.exited || session.disposed) return false;
+  session.pendingAsk = null;
+  try {
+    if (index < 0) {
+      session.proc.write("\x1b");
+      console.log("[axetChatTui] sorudan vazgecildi", { chatId });
+      return true;
+    }
+    const target = Math.max(0, Math.min(index, ask.options.length - 1));
+    for (let step = 0; step < target; step += 1) session.proc.write("\x1b[B");
+    session.proc.write("\r");
+    console.log("[axetChatTui] soru cevaplandi", { chatId, dizin: target, secenek: ask.options[target] });
+    return true;
+  } catch {
+    // Yazılamıyorsa süreç gitmiş demektir; tur zaten kendi yolundan bitecek.
+    return false;
+  }
+}
+
+/**
+ * TEK bir turu yürütür: prompt'u yazar, cevabı veritabanından toplar.
+ *
+ * Yeniden başlatma kararını VERMİYOR — arızayı `failure` ile bildirip
+ * `sendViaTui`'ye bırakıyor. Ayrım bilinçli: kurtarma kendini çağıran bir
+ * döngüye dönüşmesin.
+ */
+async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResult> {
   session.busy = true;
   session.cancelled = false;
   touch(session);
-  args.onActivity("thinking");
+  args.onActivity({ phase: "thinking" });
 
   try {
     const sinceSec = Math.max(0, Math.min(latestMessageTime(session.dbPath), Math.floor(Date.now() / 1000)) - 2);
@@ -535,15 +943,35 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
 
     // Oturum yeni ya da yeniden kurulmuşsa geçmişi TAŞIYAN metni gönderiyoruz;
     // aksi hâlde oturum zaten hatırlıyor ve sadece mesajın kendisi yeterli.
+    //
+    // TEK İSTİSNA entegrasyon yönlendirmesi: o, oturumun İLK mesajındaki önsözde
+    // duruyor (bkz. axetChat.ts `buildPrompt`) ve iki durumda oraya hiç
+    // giremiyor — (1) oturum, bozuk entegrasyon henüz ÖĞRENİLMEDEN önce
+    // açılmışsa, (2) uzun bir oturumda ilk mesaj bağlamın gerisinde kalmışsa.
+    // İkisi de gerçek: yönlendirme ancak bir tur bedeli ödendikten sonra
+    // öğreniliyor, yani onu öğreten oturum onu hiç görmüyordu. Bu yüzden sonraki
+    // her mesajın başına da ekleniyor; boşsa (bilinen bozuk kayıt yok) hiçbir
+    // şey eklenmiyor.
+    // Yönlendirmeyi kurmadan ÖNCE, hangi kayıtların hâlâ var olduğu günlükten
+    // okunuyor. Kullanıcı portalden bir kaydı sildiğinde bunu öğrenebildiğimiz
+    // tek yer orası — ve öğrenmezsek prompt'a var olmayan bir aracın kimliğini
+    // yazabiliyorduk (bkz. axetCodeLog.readLiveConnectors).
+    if (args.useConnectors) noteLiveConnectors(readLiveConnectors(session.cwd));
+    const guidance = args.useConnectors ? connectorGuidance() : "";
     const text = session.seeded
-      ? args.message
+      ? `${guidance}${args.message}`
       : args.history.length > 0
         ? args.buildSeedPrompt(args.history, args.message)
         : args.buildFirstPrompt(args.message);
 
+    // axet-code'un kendi günlüğündeki imleç, YAZMADAN ÖNCE alınıyor: sağlayıcı
+    // hatası prompt'un ardından saniyeler içinde düşüyor ve imleci sonra almak
+    // o satırı kaçırma ihtimali demek.
+    let logCursor = logOffset(session.cwd);
+
     // TUI'de Enter (\r) gönderir, ctrl+j (\n) satır atlar — yani metindeki
     // satır sonlarını olduğu gibi yazabiliyoruz, sonuna tek \r koymak yeterli.
-    session.proc.write(`${text.replace(/\r/g, "")}\r`);
+    session.proc.write(`${escapeTuiMenus(text.replace(/\r/g, ""))}\r`);
     session.seeded = true;
 
     // İğne, GÖNDERDİĞİMİZ metinden çıkarılıyor (kullanıcının ham mesajından
@@ -552,13 +980,21 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     // değildir.
     const needle = promptNeedle(text);
     const started = Date.now();
-    const deadline = started + TURN_TIMEOUT_MS;
+    /** Yazma anı, veritabanının birimiyle (Unix SANİYE) ve iki saniye payla. */
+    const sentAtSec = Math.floor(started / 1000) - 2;
+    // `let`: soru kutusu açıkken ileri itiliyor (bkz. `ASK_USER_TOOL`).
+    let deadline = started + TURN_TIMEOUT_MS;
+    /** Soru kutusu açıkken kullanıcının cevabı için tavan; kapalıyken `0`. */
+    let askDeadline = 0;
     const emitted = new Map<string, number>();
     // Araç çağrıları çağrı KİMLİĞİYLE tekilleniyor. Ad yetmiyor: yoklama her
     // seferinde aynı mesajları yeniden okuyor, ve arka arkaya gelen iki farklı
     // `bash` çağrısı da meşru — canlı denemede (2026-09-04) ad karşılaştırması
     // saniyede dört kez aynı aracı bildirdi.
     const seenTools = new Set<string>();
+    // Sonuçlar da tekilleniyor: yoklama aynı `tool` mesajını tekrar tekrar
+    // okuyor ve aynı sonuç satırı arayüzde çoğalırdı.
+    const seenResults = new Set<string>();
     let toolCount = 0;
     let answer = "";
     // Gönderdiğimiz prompt oturuma DÜŞENE kadar hiçbir asistan mesajı bu tura
@@ -566,12 +1002,68 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     // oturuma bağlanıldığında oradaki her mesaj "yeni" görünüyor ve turun
     // cevabı diye akıyordu (2026-09-04).
     let promptLanded = false;
+    // Plan/bağlam yoklaması: `0` = ilk turda hemen bir kez okunsun.
+    let lastProgressAt = 0;
+    let lastProgressKey = "";
 
     for (;;) {
       if (session.disposed || session.cancelled) return { ok: false, text: answer, cancelled: true };
       if (session.exited) {
         return { ok: false, text: answer, error: "axet-code oturumu beklenmedik şekilde kapandı." };
       }
+
+      // --- Arka planda arıza denetimi ---------------------------------------
+      // Sağlayıcı hatası veritabanına HİÇ yazılmıyor (ölçüm: axetCodeLog.ts
+      // başlığı). Bu denetim olmadan 403 ya da bağlam taşması, bekleyecek bir
+      // asistan mesajı olmadığı için beş dakikalık zaman aşımına dönüşüyordu.
+      {
+        const read = readLogSince(session.cwd, logCursor);
+        logCursor = read.offset;
+        for (const line of read.lines) {
+          // Aynı çalışma dizininde birden fazla sohbet olabilir; satır bir
+          // oturum adı taşıyorsa BAŞKASININ arızasını üstlenmiyoruz. Adsız
+          // satırlar (taşıma katmanı hataları) tur penceresine güveniyor.
+          if (line.sessionId && session.axetSessionId && line.sessionId !== session.axetSessionId) continue;
+          const kind = classifyFailure(line);
+          if (!kind) continue;
+          console.log("[axetChatTui] tur arizasi", {
+            chatId: session.chatId,
+            tur: kind,
+            seviye: line.level,
+            mesaj: line.msg,
+            hata: line.error.slice(0, 200)
+          });
+          return { ok: false, text: answer, failure: kind };
+        }
+      }
+
+      // --- Soru kutusu açık mı ----------------------------------------------
+      // Açıkken tur zaman aşımı İŞLEMEMELİ: bekleyen taraf ajan değil,
+      // kullanıcı. Beş dakika bir makine için uzun, bir insan için kısa.
+      if (session.pendingAsk) {
+        if (Date.now() > askDeadline) {
+          const question = askUserAsText(session.pendingAsk);
+          session.pendingAsk = null;
+          console.log("[axetChatTui] soruya cevap gelmedi, tur soruyla bitiriliyor", {
+            chatId: session.chatId,
+            dakika: ASK_USER_WAIT_MS / 60_000
+          });
+          const gap = answer ? "\n\n" : "";
+          args.onChunk(gap + question);
+          return {
+            ok: true,
+            text: (answer + gap + question).trim(),
+            usedConnectors: session.useConnectors,
+            askedUser: true
+          };
+        }
+        deadline = Date.now() + TURN_TIMEOUT_MS;
+      } else if (askDeadline) {
+        // Cevap verildi (ya da vazgeçildi): gösterge yeniden "düşünüyor".
+        askDeadline = 0;
+        args.onActivity({ phase: "thinking" });
+      }
+
       if (Date.now() > deadline) {
         // Zaman aşımının SEBEBİ log'a düşüyor. Sessiz kalırsa "cevap gelmedi"
         // ile "yanlış oturumu dinledik" ayırt edilemez — 2026-09-04'te tam da
@@ -598,17 +1090,49 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
 
       if (session.axetSessionId) {
         const messages = readMessagesSince(session.dbPath, session.axetSessionId, sinceSec);
+        // Araç SONUÇLARINDAN entegrasyon sağlığını öğren (bkz.
+        // connectorHealth.ts). `promptLanded` kapısının DIŞINDA, çünkü bu
+        // bilgi tura değil hesaba ait — hangi turda görüldüğü önemli değil.
+        if (session.useConnectors) learnConnectorHealth(messages);
         if (!promptLanded) {
           promptLanded = messages.some(
             (m) =>
               m.role === "user" &&
               !preexisting.has(m.id) &&
-              m.parts
-                .filter((part) => part.type === "text")
-                .map((part) => part.data?.text ?? "")
-                .join("")
-                .includes(needle)
+              // İki taraf da `matchKey`'den geçiyor — bkz. promptNeedle.
+              matchKey(
+                m.parts
+                  .filter((part) => part.type === "text")
+                  .map((part) => part.data?.text ?? "")
+                  .join("")
+              ).includes(needle)
           );
+          // GÜVENLİK AĞI. İğne eşleşmesi metnin bozulmadan veritabanına
+          // inmesine dayanıyor ve bu varsayım 2026-09-04'te ÇÖKTÜ: pty'ye
+          // yazdığımız `—` ve `→` yolda düştü, iğne hiç tutmadı ve cevap
+          // 189 saniyedir hazır beklerken tur beş dakikalık zaman aşımına
+          // gitti. `matchKey` o ölçülen kaybı kapatıyor, ama bir dahaki
+          // sefere düşen başka bir karakter olacaksa bedeli yine kullanıcı
+          // ödemesin.
+          //
+          // Gecikmeden SONRA ölçüt gevşiyor: bu oturuma bizim yazmamızdan
+          // sonra düşen ve önceden var olmayan bir KULLANICI mesajı varsa o
+          // bizimdir — pty'ye yazan tek el biziz. Kapı hâlâ kapalı kalıyor
+          // (yanlış oturuma bağlanma senaryosu için) çünkü ölçüt "yeni bir
+          // mesaj" değil, "yeni bir kullanıcı mesajı".
+          if (!promptLanded && Date.now() - started > LAND_GRACE_MS) {
+            const mine = messages.find(
+              (m) => m.role === "user" && !preexisting.has(m.id) && m.createdAt >= sentAtSec
+            );
+            if (mine) {
+              promptLanded = true;
+              console.log("[axetChatTui] igne tutmadi, yeni kullanici mesaji kabul edildi", {
+                chatId: session.chatId,
+                oturum: session.axetSessionId?.slice(0, 8),
+                igne: needle.slice(0, 40)
+              });
+            }
+          }
         }
         const assistants = promptLanded
           ? messages.filter((m) => m.role === "assistant" && !preexisting.has(m.id))
@@ -629,9 +1153,110 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
             const name = normalizeToolName(part.data?.name ?? "");
             const callId = part.data?.id ?? `${message.id}:${name}`;
             if (!name || seenTools.has(callId)) continue;
+            // Soru kutusu: araç satırı olarak GÖSTERİLMİYOR — kullanıcının
+            // göreceği şey bir araç adı değil, sorunun kendisi.
+            if (name === ASK_USER_TOOL) {
+              const ask = parseAskUser(callId, part.data?.input);
+              // Tek seçenekli ya da seçeneksiz bir soruya basacak düğme yok;
+              // çoklu seçim ise ölçülmedi. İkisinde de eski yol: turu soruyla
+              // bitir, kullanıcı cevabını yazsın.
+              const usable = ask !== null && !ask.multiSelect && ask.options.length >= 2;
+              if (!usable) {
+                // ÖNCE BİTMESİNİ BEKLE. Argümanlar veritabanına AKARAK
+                // yazılıyor, yani ilk gördüğümüz hâlde `input` yarım bir JSON
+                // metni olabiliyor (`{"question": "Sevdi`). Ölçüm (2026-09-05,
+                // kullanıcı testi): çağrı seçenekleriyle birlikte doğru
+                // yapıldığı hâlde ayrıştırma patladı ve kullanıcı düğme yerine
+                // "Devam etmek için bir tercihine ihtiyacım var." gördü.
+                //
+                // `seenTools`'a EKLEMEDEN geçiyoruz ki sonraki yoklama tam
+                // hâlini okusun. Bekleme yalnızca BURADA: girdi zaten
+                // ayrıştırılabiliyorsa `finished` beklenmiyor — o bayrak hiç
+                // yazılmazsa soru sonsuza dek gizli kalırdı.
+                if (part.data?.finished !== true) continue;
+                seenTools.add(callId);
+                const question = ask ? askUserAsText(ask) : "Devam etmek için bir tercihine ihtiyacım var.";
+                console.log("[axetChatTui] soru cevaplanamiyor, tur soruyla bitiriliyor", {
+                  chatId: session.chatId,
+                  sebep: !ask ? "ayristirilamadi" : ask.multiSelect ? "coklu-secim" : "secenek-yok",
+                  girdi: (part.data?.input ?? "").slice(0, 300)
+                });
+                const gap = answer ? "\n\n" : "";
+                args.onChunk(gap + question);
+                return {
+                  ok: true,
+                  text: (answer + gap + question).trim(),
+                  usedConnectors: session.useConnectors,
+                  askedUser: true
+                };
+              }
+              // `usable` doğruyken `ask` dolu; derleyici bunu bilemiyor.
+              if (!ask) continue;
+              seenTools.add(callId);
+              session.pendingAsk = ask;
+              askDeadline = Date.now() + ASK_USER_WAIT_MS;
+              console.log("[axetChatTui] ajan soru sordu, cevap bekleniyor", {
+                chatId: session.chatId,
+                secenek: ask.options.length
+              });
+              args.onActivity({
+                phase: "askUser",
+                callId,
+                question: ask.question,
+                ...(ask.header ? { header: ask.header } : {}),
+                options: ask.options
+              });
+              continue;
+            }
             seenTools.add(callId);
             toolCount += 1;
-            args.onActivity("tool", name);
+            const diff = buildDiff(name, part.data?.input);
+            args.onActivity({
+              phase: "tool",
+              callId,
+              tool: name,
+              target: summarizeToolInput(part.data?.input),
+              // Yalnızca düzenleme araçlarında dolu; diğerlerinde alan hiç
+              // gönderilmiyor ki geçmiş dosyasına boş dizeler yazılmasın.
+              ...(diff ? { diff } : {})
+            });
+          }
+        }
+        // Araç SONUÇLARI. Çağrılarla aynı döngüde olamazlar: sonuç ayrı bir
+        // `tool` rolündeki mesajda ve genellikle SONRAKİ yoklamada geliyor.
+        // `promptLanded` kapısı burada da geçerli — yanlış bir oturuma
+        // bağlanıldığında oradaki sonuçları bu turun altına yazmayalım.
+        if (promptLanded) {
+          for (const message of messages) {
+            if (message.role !== "tool" || preexisting.has(message.id)) continue;
+            for (const part of message.parts) {
+              if (part.type !== "tool_result") continue;
+              const callId = part.data?.tool_call_id ?? "";
+              // Çağrısını görmediğimiz bir sonuç gösterilmiyor: bağlanacağı
+              // bir satır yok, tek başına da anlamsız.
+              if (!callId || !seenTools.has(callId) || seenResults.has(callId)) continue;
+              seenResults.add(callId);
+              const summary = summarizeToolResult(part.data?.content, part.data?.is_error);
+              args.onActivity({ phase: "toolResult", callId, ...summary });
+            }
+          }
+        }
+        // --- Plan + bağlam doluluğu -------------------------------------
+        // Yoklama 90 ms'de bir dönüyor; bu iki sorgu o ritimde gereksiz.
+        // Saniyede bir okunuyor ve DEĞİŞMEDİYSE hiç gönderilmiyor: aksi
+        // hâlde her saniye renderer'a aynı nesne düşer ve React'te durup
+        // dururken yeniden çizim olurdu.
+        if (Date.now() - lastProgressAt >= PROGRESS_MS) {
+          lastProgressAt = Date.now();
+          const progress: AxetChatProgress = {
+            todos: sessionTodos(session.dbPath, session.axetSessionId),
+            contextTokens: sessionTokens(session.dbPath, session.axetSessionId),
+            contextLimit: CONTEXT_LIMIT_TOKENS
+          };
+          const key = JSON.stringify(progress);
+          if (key !== lastProgressKey) {
+            lastProgressKey = key;
+            args.onProgress(progress);
           }
         }
         // Turun bittiğine SON asistan mesajından karar veriliyor.
@@ -648,7 +1273,7 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
           : undefined;
         const reason = lastFinish?.data?.reason;
         if (reason && reason !== "tool_use") {
-          args.onActivity("finishing");
+          args.onActivity({ phase: "finishing" });
           // Yavaşlık şikâyeti ölçülebilir olsun diye: her turun süresi ve kaç
           // araç çalıştığı log'a düşüyor.
           console.log("[axetChatTui] tur bitti", {
@@ -672,6 +1297,110 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
   }
 }
 
+// ---------------------------------------------------------------------------
+// Kurtarma: arızada oturumu yenile, mesajı bir kez daha gönder
+// ---------------------------------------------------------------------------
+// İSTEK (2026-09-05): *"axet.code da bazen 403 hatası gibi hatalar oluşuyor ya
+// da 1 milyon token sınırı aşılınca aynı sessionda devam edilmiyor, eğer arka
+// planda 403 hatasıyla karşılaşırsa bilgi verilip tekrardan başlatılsın ve
+// devam etsin, 1 milyon token sınırı kontrolü de aynı şekilde arka planda
+// yapılsın."*
+//
+// İki arıza da AYNI ilaçla geçiyor, çünkü ikisi de sürecin kendisine yapışık:
+// 403'te taşıyıcının kimliği düşmüş, bağlam taşmasında pencere dolmuş. Yeni bir
+// axet-code süreci ikisini de sıfırlıyor.
+//
+// GEÇMİŞ KAYBOLMUYOR: yeni oturumun `seeded` bayrağı false olduğu için sonraki
+// gönderim `buildSeedPrompt(history, message)` kullanıyor, yani sohbetin
+// tamamı yeni oturuma taşınıyor. "Devam etsin" isteği tam olarak bunun
+// üzerinde duruyor.
+//
+// BİR KEZ deneniyor. Arıza kalıcıysa (portal gerçekten 403 veriyorsa) ikinci,
+// üçüncü deneme kullanıcıya bir şey kazandırmaz; her biri açılış bedelini
+// (~3 s) yeniden ödetir ve hatayı geciktirir.
+
+/** Bağlam penceresi — 1 milyon jeton. */
+const CONTEXT_LIMIT_TOKENS = 1_000_000;
+/**
+ * Hangi doluluktan sonra oturum ÖNCEDEN yenilensin.
+ *
+ * Sınıra çarpmayı beklemek pahalı: çarptığında o turun tamamı boşa gidiyor.
+ * %80'de yenilemek, bir sonraki turun sığacağından emin olmayı sağlıyor —
+ * bağlayıcılar açıkken tek bir turun kendisi bile ~153.000 jeton (ölçüm:
+ * axetSessionDb.ts `sessionTokens`), yani kalan %20 rahat bir pay.
+ */
+const CONTEXT_ROTATE_AT = Math.floor(CONTEXT_LIMIT_TOKENS * 0.8);
+
+async function restartSession(args: TuiSendArgs): Promise<TuiSession | null> {
+  disposeSession(args.chatId);
+  return ensureSession(args.chatId, args.cwd, args.model, args.useConnectors);
+}
+
+export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult | null> {
+  let session = await ensureSession(args.chatId, args.cwd, args.model, args.useConnectors);
+  if (!session) return null;
+  if (session.busy) return null;
+
+  args.onActivity({ phase: "thinking" });
+
+  // --- Jeton sınırı denetimi, turdan ÖNCE --------------------------------
+  // Ölçüm bir SQL satırı: canlı veritabanında 0 ms. Sınıra çarpıp turu çöpe
+  // atmaktansa, dolmuş bir oturumu daha başlamadan değiştiriyoruz.
+  let rotated: TurnResult["failure"] | undefined;
+  if (session.axetSessionId) {
+    const tokens = sessionTokens(session.dbPath, session.axetSessionId);
+    if (tokens >= CONTEXT_ROTATE_AT) {
+      console.log("[axetChatTui] baglam doldu, oturum yenileniyor", {
+        chatId: args.chatId,
+        jeton: tokens,
+        esik: CONTEXT_ROTATE_AT
+      });
+      args.onActivity({ phase: "restarting" });
+      const fresh = await restartSession(args);
+      if (fresh) {
+        session = fresh;
+        rotated = "context";
+      }
+    }
+  }
+
+  const first = await runTurn(session, args);
+  // Süreç soru kutusunda asılı: bir sonraki mesaj oraya yazılamaz, oturum
+  // bırakılıyor. Geçmiş kaybolmuyor — yeni oturum `buildSeedPrompt` ile
+  // tohumlanıyor (bkz. `ASK_USER_TOOL` notu).
+  if (first.askedUser) disposeSession(args.chatId);
+  if (!first.failure) {
+    return rotated ? { ...first, restartedReason: rotated } : first;
+  }
+
+  // --- Arıza: bilgi ver, oturumu yenile, bir kez daha dene ------------------
+  args.onActivity({ phase: "restarting" });
+  const fresh = await restartSession(args);
+  if (!fresh) {
+    // Yeni oturum da kurulamadı: `null` dönerek çağıranın `run` kipine
+    // düşmesini sağlıyoruz — sessiz bir başarısızlıktan iyidir.
+    console.log("[axetChatTui] ariza sonrasi oturum kurulamadi", { chatId: args.chatId, tur: first.failure });
+    return null;
+  }
+  console.log("[axetChatTui] oturum yenilendi, mesaj tekrar gonderiliyor", {
+    chatId: args.chatId,
+    tur: first.failure
+  });
+  const second = await runTurn(fresh, args);
+  if (second.askedUser) disposeSession(args.chatId);
+  // İkinci denemenin de arızalanması, arızanın kalıcı olduğunu söylüyor.
+  // Kullanıcıya "cevap gelmedi" demek, sonsuza kadar denemekten dürüsttür.
+  if (second.failure) {
+    return {
+      ok: false,
+      text: second.text,
+      error: `axet-code oturumu yenilendi ama hata sürüyor (${second.failure}).`,
+      restartedReason: first.failure
+    };
+  }
+  return { ...second, restartedReason: first.failure };
+}
+
 /** Süren turu iptal eder — TUI'de esc "cancel". */
 export function cancelTui(chatId: string): void {
   const session = sessions.get(chatId);
@@ -680,6 +1409,9 @@ export function cancelTui(chatId: string): void {
   // bitişi yazılmayabiliyor — yoklama döngüsü onu beklerse iptal, iptal değil
   // 5 dakikalık bir zaman aşımı olurdu.
   session.cancelled = true;
+  // Açık bir soru kutusu varsa esc onu kapatıyor; bekleyen soru kaydı da
+  // düşmeli, yoksa geç bir tıklama kapanmış kutuya tuş gönderirdi.
+  session.pendingAsk = null;
   try {
     session.proc.write("\x1b");
   } catch {

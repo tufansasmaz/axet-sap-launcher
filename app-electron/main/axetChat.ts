@@ -1,7 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import type {
+  AxetChatActivity,
   AxetChatActivityPhase,
+  AxetChatProgress,
   AxetChatMessage,
   AxetChatSendResult,
   AxetModelEntry
@@ -9,7 +11,9 @@ import type {
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import { buildContextPreamble } from "./activeContext";
 import { shouldUseConnectors } from "./connectorPolicy";
+import { connectorGuidance } from "./connectorHealth";
 import {
+  answerTuiQuestion,
   cancelTui,
   closeAllTuiSessions,
   closeTuiSession,
@@ -64,6 +68,50 @@ const CONNECTOR_RETRY_REMINDER =
   "olması yüzünden başarısız olursa ve aynı sağlayıcı/servis için BAŞKA bir araç/entegrasyon varsa, vazgeçmeden " +
   "önce o alternatif aracı bir kez dene.";
 
+// axet-code'un `ask_user` diye bir aracı var: ajan soruyu sorunca TUI bir soru
+// kutusu çiziyor ve cevabı BEKLİYOR.
+//
+// ESKİDEN BU BİR TUZAKTI. Ölçüm (2026-09-05): "kısa bi abap kodu yaz" mesajına
+// ajan `ask_user` çağırdı, oturum veritabanında ondan sonra HİÇBİR kayıt yok,
+// kullanıcı 105 saniye "Düşünüyor" görüp hiç cevap alamadı. O dönemde buradaki
+// metin ajandan aracı HİÇ kullanmamasını istiyordu.
+//
+// ARTIK DEĞİL: kutuyu cevaplayabiliyoruz (bkz. axetChatTui.ts
+// `answerTuiQuestion` — seçenek dizini kadar `↓`, sonra `enter`; ölçümde
+// axet-code `✓ The user selected: ...` yazıp aynı turda devam etti). Soru,
+// sohbette tıklanabilir bir kart olarak çiziliyor.
+//
+// O YÜZDEN "SORMA" YASAĞI KALDIRILDI (kullanıcı testi, 2026-09-05: yasak
+// tuttuğu için kart hiç çıkmadı — ajan soruyu düz metinle sordu). Yerine, HANGİ
+// BİÇİMDE sorulacağını söyleyen bir not var, çünkü desteklenen tek biçim bu:
+// tek seçimli ve en az iki seçenekli. Çoklu seçim ile seçeneksiz soru
+// ölçülmedi; onlar hâlâ eski yoldan (turu soruyla bitir) gidiyor.
+//
+// Yumuşak önlem: metin bir kural değil, istek. Ajan yine de yanlış biçimde
+// sorabilir — ikinci katman orada devreye giriyor.
+// axet-code bir KODLAMA ajanı ve `-y` ile çalışıyor (kullanıcı kararı): onay
+// sormadan dosya yazabiliyor. Terminalde beklenen davranış bu; sohbet kılıfında
+// değil.
+//
+// ÖLÇÜM (2026-09-05, kullanıcı testi): "kısa bi abap kodu yaz" mesajına ajan
+// `hello.abap` diye bir DOSYA oluşturdu. Kullanıcının istediği bir cevaptı,
+// dosya değil — *"burada direkt bi dosyaya abap kodunu yazıyor ben istemeden"*.
+//
+// Dosya yazmayı KAPATMIYORUZ: bu sohbet gerçek bir proje klasöründe çalışıyor
+// ve "şu dosyayı düzelt" de meşru bir istek. Ayıran şey niyet, o yüzden çare
+// bir bayrak değil bu cümle: istenmedikçe yazma, kodu cevabın içinde ver.
+const NO_UNASKED_WRITE_HINT =
+  "Not: Kullanıcı açıkça bir dosya oluşturmanı/değiştirmeni istemedikçe diske YAZMA. " +
+  "\"Kod yaz\" demek dosya istemek değildir — kodu cevabının içinde kod bloğu olarak ver. " +
+  "Dosyaya yazmanın gerektiğini düşünüyorsan önce bunu tek cümleyle söyle ve kullanıcının " +
+  "istemesini bekle.";
+
+const ASK_FORMAT_HINT =
+  "Not: Gerçekten bir tercihe ihtiyacın varsa soru sorma aracını (ask_user) kullanabilirsin; " +
+  "sorman gerekmiyorsa en makul varsayımla devam et ve varsayımını tek cümleyle söyle. " +
+  "Sorarken tek seçimli sor ve EN AZ İKİ seçenek ver — bu arayüz çoklu seçimi ve " +
+  "seçeneksiz soruyu gösteremiyor.";
+
 // Bağlayıcıların NE ZAMAN açılacağı artık burada değil — karar üç yüzeyde de
 // aynı olsun diye `connectorPolicy.ts`'e taşındı (bkz. oradaki gerekçe).
 // Buradan geçilen metin: yeni mesaj + SON İKİ mesaj. Zincir yüzünden:
@@ -85,7 +133,17 @@ function buildPrompt(history: AxetChatMessage[], message: string, useConnectors:
   // okurdu. Sohbet bağlı değilse bu blok boş döner ve prompt eskisiyle
   // birebir aynı kalır.
   const contextBlock = buildContextPreamble(cwd);
-  const preamble = contextBlock + (useConnectors ? `${CONNECTOR_RETRY_REMINDER}\n\n` : "");
+  // Hatırlatma bozuk entegrasyonu KURTARIYOR (ajan alternatifi deniyor), sağlık
+  // kaydı ise ONU HİÇ DENEMEMESİNİ sağlıyor — ölçülen kazanç tur başına ~6 sn.
+  // İkisi birlikte duruyor: kayıt boşken (ilk kullanım, ya da kayıtlar
+  // eskidiğinde) kurtarma yine devrede.
+  // `ASK_FORMAT_HINT` bağlayıcılardan BAĞIMSIZ: soru sorma her mesajda olabilir
+  // (ölçülen olay bağlayıcısız bir ABAP sorusunda yaşandı).
+  const preamble =
+    contextBlock +
+    `${NO_UNASKED_WRITE_HINT}\n\n` +
+    `${ASK_FORMAT_HINT}\n\n` +
+    (useConnectors ? `${CONNECTOR_RETRY_REMINDER}\n\n${connectorGuidance()}` : "");
   if (history.length === 0) return `${preamble}Kullanıcı mesajı: ${message}`;
   const transcript = history
     .map((m) => `${m.role === "user" ? "Kullanıcı" : "Sen"}: ${m.content}`)
@@ -420,7 +478,11 @@ export async function sendChatMessage(
   history: AxetChatMessage[],
   message: string,
   onChunk?: (text: string) => void,
-  onActivity?: (phase: AxetChatActivityPhase, detail?: string) => void
+  onActivity?: (activity: AxetChatActivity) => void,
+  // `run` yolunda KARŞILIĞI YOK: ayrı bir süreç kendi oturumunu veritabanına
+  // yazana kadar okuyacak bir plan da yok. Bu yüzden yalnızca TUI kipinde
+  // bağlanıyor, ve arayüz bilginin gelmemesine dayanıklı.
+  onProgress?: (progress: AxetChatProgress) => void
 ): Promise<AxetChatSendResult> {
   const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
   // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası, `shouldUseConnectors`
@@ -448,9 +510,16 @@ export async function sendChatMessage(
             // renderer penceresi kapanmış olabilir
           }
         },
-        onActivity: (phase, detail) => {
+        onActivity: (activity) => {
           try {
-            onActivity?.(phase, detail);
+            onActivity?.(activity);
+          } catch {
+            // pencere kapanmış olabilir
+          }
+        },
+        onProgress: (progress) => {
+          try {
+            onProgress?.(progress);
           } catch {
             // pencere kapanmış olabilir
           }
@@ -490,7 +559,9 @@ function sendViaRun(
   // sonuçta tam metin döner.
   onChunk?: (text: string) => void,
   // Alt süreç aşama değiştirdikçe çağrılır (bkz. AxetChatActivityPhase).
-  onActivity?: (phase: AxetChatActivityPhase) => void
+  // Bu kipte YALNIZCA aşama var: `run -v`'nin stderr'i araç çağrılarını hiç
+  // yazmıyor, dolayısıyla `tool`/`toolResult` olayları buradan çıkmıyor.
+  onActivity?: (activity: AxetChatActivity) => void
 ): Promise<AxetChatSendResult> {
   return new Promise((resolve) => {
     const resolvedCwd = cwd;
@@ -571,7 +642,7 @@ function sendViaRun(
       if (lastPhase && PHASE_ORDER.indexOf(phase) < PHASE_ORDER.indexOf(lastPhase)) return;
       lastPhase = phase;
       try {
-        onActivity?.(phase);
+        onActivity?.({ phase });
       } catch {
         // pencere kapanmış olabilir
       }
@@ -647,6 +718,19 @@ export function cancelChatMessage(requestId: string): void {
   (proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled?.();
   killTree(proc);
   running.delete(requestId);
+}
+
+/**
+ * Ajanın sorduğu soruyu seçilen seçenekle cevaplar (`index < 0` = vazgeç).
+ *
+ * `requestId` üzerinden gidiyor çünkü arayüzün elindeki kimlik bu: soru,
+ * etkinlik akışında `askUser` aşaması olarak o kimlikle geliyor. `run` kipinde
+ * soru kutusu diye bir şey yok, orada `false` dönüyor.
+ */
+export function answerChatQuestion(requestId: string, optionIndex: number): boolean {
+  const chatId = tuiRequests.get(requestId);
+  if (!chatId) return false;
+  return answerTuiQuestion(chatId, optionIndex);
 }
 
 /** Bir sohbet silindiğinde/kapatıldığında onun TUI oturumunu da bırak. */

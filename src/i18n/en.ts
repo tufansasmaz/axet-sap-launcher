@@ -154,8 +154,12 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.phaseIndexing": "Scanning project",
   "axetCodeHome.phaseThinking": "Thinking",
   "axetCodeHome.phaseTool": "Running a tool",
+  "axetCodeHome.phaseRestarting": "Restarting session",
+  "axetCodeHome.phaseAskUser": "Waiting for your answer",
+  "axetCodeHome.askUserFallback": "I need one choice from you to continue.",
   "axetCodeHome.phaseFinishing": "Finishing",
   "axetCodeHome.phaseElapsed": "{seconds}s",
+  "axetCodeHome.phaseStepCount": "step {count}",
   "axetCodeHome.toolView": "Reading a file",
   "axetCodeHome.toolEdit": "Editing a file",
   "axetCodeHome.toolWrite": "Writing a file",
@@ -168,6 +172,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.toolTodo": "Updating the task list",
   "axetCodeHome.toolMcp": "App connection: {name}",
   "axetCodeHome.toolGeneric": "Running {name}",
+  "axetCodeHome.toolMoreLines": "+{count} lines",
   "axetCodeHome.dropFilesHint": "Drop files here to attach",
   "axetCodeHome.contextTerminal": "Terminal",
   "axetCodeHome.contextTerminalHint": "Open a terminal in this project folder",
@@ -207,6 +212,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.dictateFailed": "Voice typing failed: {message}",
   "axetCodeHome.renameTitle": "Rename",
   "axetCodeHome.deleteTitle": "Delete chat",
+  "axetCodeHome.exportTitle": "Export as Markdown",
   "axetCodeHome.deleteConfirmTitle": "Delete chat",
   "axetCodeHome.deleteConfirmMessage": "The chat \"{title}\" and its {count} messages will be permanently deleted. This cannot be undone.",
   "axetCodeHome.deleteConfirmButton": "Delete",
@@ -363,6 +369,35 @@ export const en: Record<TranslationKey, string> = {
   "chatBubble.connectorsUsed": "App connections",
   "chatBubble.connectorsUsedHint":
     "Outlook/SharePoint tools were on while this answer was produced. Settings > App connections in chat controls this.",
+  "chatBubble.restartedAuth": "Authorization failed, the session was restarted and the question resent.",
+  "chatBubble.restartedContext": "Context limit reached; the session was restarted and the chat history carried over.",
+  "chatBubble.restartedProvider": "The provider did not respond, the session was restarted and the question resent.",
+  "chatBubble.stepsToggle": "{count} steps",
+
+  // --- Agent plan and context usage (see ChatSessionPane PlanPanel) ---
+  "chatPlan.progress": "Plan {done}/{total}",
+  "chatPlan.context": "Context {pct}%",
+  "chatPlan.contextTitle": "{tokens} tokens in use. The session rotates automatically at 80%.",
+  "chatEditUndo.removed": "Editing removed the {count} messages that followed.",
+  "chatEditUndo.undo": "Undo",
+
+  "chatSearch.placeholder": "Search in chat…",
+  "chatSearch.noResults": "none",
+  "chatSearch.prev": "Previous match (Shift+Enter)",
+  "chatSearch.next": "Next match (Enter)",
+  "chatSearch.close": "Close (Esc)",
+
+  "chatInstructions.title": "Project instructions",
+  "chatInstructions.button": "Instructions",
+  "chatInstructions.description":
+    "Persistent instructions given to the assistant in every chat and terminal session in this folder. Code style, which package to use, which language to answer in — anything you don't want to repeat every turn.",
+  "chatInstructions.placeholder":
+    "Example:\n- Answer in English.\n- Create ABAP objects in package ZAI.\n- Always ask for the transport before making a change.",
+  "chatInstructions.restartNote":
+    "Instructions are read when a session starts. Saving closes the sessions of chats in this folder; they restart with the new instructions on your next message.",
+  "chatInstructions.saving": "Saving…",
+  "chatInstructions.tooLarge":
+    "This file is over 2 MB and was read here truncated; saving would delete the rest. Open it in a text editor instead.",
 
   "errorBoundary.title": "An unexpected error occurred",
   "errorBoundary.reload": "Reload App",

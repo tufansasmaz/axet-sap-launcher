@@ -10,14 +10,17 @@ import {
   ArrowUpRight,
   Search,
   Pencil,
+  Download,
   Trash2
 } from "lucide-react";
 import type {
   ActiveSapContext,
   AppConfig,
+  AxetChatActivity,
   AxetChatActivityPhase,
   AxetChatMessage,
   AxetModelEntry,
+  AxetTodo,
   ChatAttachment,
   ChatSessionsState,
   ConnectivityState,
@@ -27,12 +30,14 @@ import type {
 import ChatSessionPane from "./ChatSessionPane";
 import ChatFilesPanel from "./ChatFilesPanel";
 import ConfirmDialog from "./ConfirmDialog";
+import ChatInstructionsDialog from "./ChatInstructionsDialog";
 import type { ChatMessage } from "./ChatBubble";
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import { resolveTier } from "../lib/tier";
 import { DictationRecorder } from "../lib/dictationRecorder";
 import { promptWithAttachments, toAttachments } from "../lib/attachments";
+import { chatToMarkdown, safeFileName } from "../lib/chatExport";
 import { useT } from "../i18n";
 
 // Kullanıcı yazmayı bu kadar duraklattıktan sonra alt süreç ısıtılıyor. Her
@@ -40,6 +45,16 @@ import { useT } from "../i18n";
 // "yazmayı bıraktı" ile "hâlâ yazıyor"u ayıracak kadar uzun ve kazancı
 // (~2–4 saniye) yemeyecek kadar kısa.
 const PREWARM_DEBOUNCE_MS = 500;
+
+// Bir düzenlemenin geri alınması için gereken HER ŞEY: kesilen mesajlar ve
+// composer'ın o andaki hâli. Yalnızca mesajları saklamak yetmezdi — geri
+// alındığında düzenlenmek üzere kutuya konan metnin de gitmesi gerekiyor,
+// yoksa aynı mesaj hem listede hem composer'da durur.
+export interface EditUndo {
+  messages: ChatMessage[];
+  draft: string;
+  attachments: ChatAttachment[];
+}
 
 interface ChatSession {
   id: string;
@@ -54,11 +69,36 @@ interface ChatSession {
   // Cevap beklenirken alt sürecin bildirdiği son aşama (bkz. axetChat.ts).
   // Diske YAZILMIYOR: bekleyen bir istek yeniden başlatmayı atlatmıyor.
   activity: AxetChatActivityPhase | null;
-  // `activity === "tool"` iken çalışan aracın adı (`view`, `bash`,
-  // `mcp:list_emails`). Sözlükte karşılığı olmayan bir araç adı olduğu gibi
-  // gösteriliyor — bilinmeyen bir aracı gizlemek, kullanıcıyı yine karanlıkta
-  // bırakırdı.
-  activityDetail: string | null;
+  // Bu turda çağrılan araçlar, ÇAĞRI SIRASIYLA — terminaldeki gibi bir
+  // döküm. Sonuçlar geldikçe aynı satırın üzerine yazılıyor (eşleşme
+  // `callId` ile), yeni satır açılmıyor.
+  activitySteps: AxetChatActivity[];
+  // Ajanın ŞU AN sorduğu soru (`ask_user`). Doluyken tur, kullanıcı bir
+  // seçenek seçene kadar DURUYOR — cevap TUI'deki soru kutusuna tuş olarak
+  // gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+  //
+  // Diske YAZILMIYOR: bekleyen bir soru, süreciyle birlikte yaşıyor. Uygulama
+  // kapanınca cevaplanacak bir kutu kalmıyor, kayıtlı bir soru ise sonsuza
+  // kadar tıklanabilir ama etkisiz bir düğme olurdu.
+  pendingAsk: AxetChatActivity | null;
+  // Ajanın KENDİ planı (axet-code'un `todos` aracı). Bizim ürettiğimiz bir
+  // şey değil, oturum veritabanından okunuyor — bkz. axetSessionDb.ts
+  // `sessionTodos`. Tur bittiğinde SİLİNMİYOR: plan bir sonraki turda da
+  // geçerli, ajan onu güncelleyene kadar duruyor.
+  todos: AxetTodo[];
+  // Bağlam doluluğu — son isteğin jeton sayısı ve pencerenin büyüklüğü.
+  // `0` = henüz ölçüm yok.
+  contextTokens: number;
+  contextLimit: number;
+  // "Mesajı düzenle"nin kestiği kuyruk. Düzenleme, o mesajdan SONRASINI
+  // siliyor ve bu geri ALINAMIYORDU: tek bir kalem tıklamasıyla yarım sohbet,
+  // uyarısız, kalıcı olarak gidiyordu (diske de öyle yazılıyor). Kesme
+  // davranışı doğru — düzeltilmiş soruya ait olmayan cevaplar bağlamda
+  // kalmamalı — eksik olan geri dönüş yoluydu.
+  //
+  // Diske YAZILMIYOR: geri alma o anki düzenlemeye ait, uygulama kapanınca
+  // anlamı kalmaz.
+  editUndo: EditUndo | null;
   createdAt: number;
   // Listedeki sıralama bunun üzerinden — sohbetler artık diskte kalıcı
   // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz
@@ -153,6 +193,60 @@ const MAX_HISTORY_MESSAGES = 24;
 // "Yeni sohbet"e üst üste basan kullanıcı, listeyi hiç kullanılmamış boş
 // kayıtlarla dolduruyordu.
 const NEW_SESSION_ID = "__new__";
+
+// Gelen bir etkinlik olayını oturuma işler.
+//
+// `tool` YENİ bir satır açıyor, `toolResult` ise açılmış satırı TAMAMLIYOR —
+// yeni satır açmıyor. Çağrıyı ve sonucunu iki bağımsız satır olarak
+// göstermek, terminaldeki `● çağrı` / `⎿ sonuç` düzenini bozar ve gösterge
+// her araçta iki kat uzardı.
+/** Akış tikinin periyodu (ms) — ~30 kare/sn. Bkz. `drainStreams`. */
+const STREAM_TICK_MS = 33;
+/** Kuyruğun kaç tikte erimesi hedefleniyor. 6 x 33 ms ≈ 200 ms. */
+const STREAM_DRAIN_TICKS = 6;
+
+function applyActivity(session: ChatSession, activity: AxetChatActivity): ChatSession {
+  if (activity.phase === "toolResult") {
+    const index = session.activitySteps.findIndex((step) => step.callId === activity.callId);
+    // Çağrısını görmediğimiz bir sonuç sessizce atılıyor: bağlanacağı satır yok.
+    if (index < 0) return session;
+    const steps = session.activitySteps.slice();
+    // Alanlar TEK TEK aktarılıyor, `...activity` ile değil: gelen olayın
+    // `phase`'i "toolResult" ve `target`/`diff`'i boş — yayılsaydı çağrı
+    // satırının aracı ve farkı üzerine boş değer yazardı.
+    // `output` BURADA UNUTULMUŞTU (2026-09-05): tam araç çıktısı main
+    // tarafından geliyordu ama bu birleştirmede düşüyor, ekranda hiçbir
+    // satır açılabilir olmuyordu.
+    steps[index] = {
+      ...steps[index],
+      result: activity.result,
+      extraLines: activity.extraLines,
+      output: activity.output,
+      failed: activity.failed
+    };
+    return { ...session, activitySteps: steps };
+  }
+  if (activity.phase === "askUser") {
+    return { ...session, activity: "askUser", pendingAsk: activity };
+  }
+  // Soru kutusu KAPANIYOR: askUser dışındaki her olay, turun devam ettiğini
+  // (cevap işlendi) ya da bittiğini gösteriyor. Kalsaydı, artık bir kutu
+  // yokken tuş gönderen ölü bir düğme olurdu.
+  if (activity.phase === "tool") {
+    // Main tarafı çağrıları zaten tekilliyor; bu ikinci kapı, olayın yeniden
+    // bağlanan bir pencereye tekrar düşmesine karşı.
+    if (activity.callId && session.activitySteps.some((step) => step.callId === activity.callId)) {
+      return session;
+    }
+    return {
+      ...session,
+      activity: "tool",
+      pendingAsk: null,
+      activitySteps: [...session.activitySteps, activity]
+    };
+  }
+  return { ...session, activity: activity.phase, pendingAsk: null };
+}
 
 // --- Açılış ekranındaki öneri kartları ---
 //
@@ -322,6 +416,10 @@ export default function AxetCodeHome({
     setSidebarOpen(config.chatSidebarOpen);
   }, [config]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // Akış kuyruğu — istek kimliği -> henüz ekrana basılmamış metin.
+  // Neden var: aşağıdaki `drainStreams` açıklamasına bak.
+  const streamQueue = useRef(new Map<string, string>());
+  const streamTimer = useRef<number | null>(null);
   // Mikrofonun üç hâli. `transcribing` ayrı bir durum çünkü whisper birkaç
   // saniye sürebiliyor: kayıt bitmiş ama metin henüz yok, ve bu arada düğme
   // tekrar tıklanabilir görünmemeli.
@@ -339,6 +437,9 @@ export default function AxetCodeHome({
   // yeniden hatırlanması gereken bir şey olurdu. Açık DOSYA ise sohbet başına
   // (bkz. ChatFilesPanel) — o gerçekten o sohbete ait.
   const [filesPanelOpen, setFilesPanelOpen] = useState(false);
+  // Yönerge kutusunun açık olduğu KLASÖR (sohbet kimliği değil): dosya klasöre
+  // ait, aynı klasördeki iki sohbet aynı yönergeyi görüyor.
+  const [instructionsCwd, setInstructionsCwd] = useState<string | null>(null);
 
   // --- Sohbet geçmişini diskten yükle (yalnızca bir kez, mount'ta) ---
   // Bağımlılık listesi bilerek boş: `t`/`pushToast` değiştiğinde yeniden
@@ -362,7 +463,15 @@ export default function AxetCodeHome({
             pending: false,
             requestId: null,
             activity: null,
-            activityDetail: null,
+            activitySteps: [],
+            pendingAsk: null,
+            // Plan ve jeton sayacı diske YAZILMIYOR: ikisi de axet-code'un
+            // oturumuna ait ve o oturum uygulama kapanınca ölüyor. Diskten
+            // gelen eski bir plan, artık var olmayan bir işin listesi olurdu.
+            todos: [],
+            contextTokens: 0,
+            contextLimit: 0,
+            editUndo: null,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
             sapLabel: s.sapLabel ?? null
@@ -424,6 +533,8 @@ export default function AxetCodeHome({
               // yok ve her mesaja boş bir dizi koymak geçmiş dosyasını
               // gereksiz şişirirdi.
               ...(m.attachments && m.attachments.length > 0 ? { attachments: m.attachments } : {}),
+              // Araç dökümü — aynı gerekçeyle yalnızca doluysa yazılıyor.
+              ...(m.steps && m.steps.length > 0 ? { steps: m.steps } : {}),
               createdAt: m.createdAt
             })),
           model: s.model,
@@ -539,6 +650,52 @@ export default function AxetCodeHome({
     [handleDeleteSession, sessions]
   );
 
+  // Sohbeti Markdown dosyasına aktar. Metin burada üretiliyor, kaydetme
+  // diyaloğu ve yazma ana süreçte (`chat:exportMarkdown`). İptal sessiz —
+  // kullanıcının diyaloğu kapatması bir hata değil.
+  const handleExportSession = useCallback(
+    async (id: string) => {
+      const target = sessions.find((s) => s.id === id);
+      if (!target || target.messages.length === 0) return;
+      const markdown = chatToMarkdown({
+        title: target.title,
+        messages: target.messages,
+        contextPath: target.cwd,
+        contextLabel: target.sapLabel
+      });
+      // Hata bildirimi ana süreçte (`dialog.showErrorBox`): sohbet listesinde
+      // bu işlemin sonucunu gösterecek bir yer yok.
+      await window.api.exportChatMarkdown(safeFileName(target.title), markdown);
+    },
+    [sessions]
+  );
+
+  // Proje yönergeleri kaydedildikten sonra: O KLASÖRDE çalışan her sohbetin
+  // kalıcı axet-code oturumu bırakılıyor. Ölçüm (2026-09-05): bağlam dosyaları
+  // süreç açılışında okunuyor, çalışan bir oturum sonradan yazılan AGENTS.md'yi
+  // GÖRMÜYOR. Oturum bırakılmasaydı kullanıcı yönergesini kaydeder, hiçbir şey
+  // değişmez ve nedenini anlayamazdı. Sohbetin kendisi ve mesajları duruyor;
+  // yalnızca arkadaki süreç kapanıyor, sonraki mesajda yenisi açılıyor.
+  //
+  // `workspaceDir` DEĞİL `config?.axetWorkspaceDir` okunuyor: aynı değeri veren
+  // o yardımcı değişken bu satırdan ÇOK SONRA tanımlanıyor ve bağımlılık dizisi
+  // render sırasında değerlendiği için burada ona bakmak
+  // "Cannot access 'workspaceDir' before initialization" ile TÜM ekranı
+  // düşürüyordu. Dosyanın geri kalanı da (bkz. `handleOpenTerminal`) prop'u
+  // doğrudan okuyor.
+  const handleInstructionsSaved = useCallback(
+    (cwd: string) => {
+      const target = cwd.toLowerCase();
+      const fallback = config?.axetWorkspaceDir ?? "";
+      for (const s of sessions) {
+        if ((s.cwd || fallback).toLowerCase() === target) {
+          window.api.closeChatSession(s.id).catch(() => {});
+        }
+      }
+    },
+    [sessions, config?.axetWorkspaceDir]
+  );
+
   const commitRename = useCallback(() => {
     const id = renamingId;
     if (!id) return;
@@ -584,7 +741,9 @@ export default function AxetCodeHome({
       const requestId = crypto.randomUUID();
       setSessions((prev) =>
         prev.map((s) =>
-          s.id === sessionId ? { ...s, pending: true, requestId, activity: null, activityDetail: null, updatedAt: Date.now() } : s
+          s.id === sessionId
+            ? { ...s, pending: true, requestId, activity: null, activitySteps: [], pendingAsk: null, updatedAt: Date.now() }
+            : s
         )
       );
 
@@ -593,6 +752,11 @@ export default function AxetCodeHome({
       // sohbet başına tutuluyor (bkz. axetChatTui.ts), yani bir sohbetin
       // hafızası artık CLI'ın kendisinde duruyor.
       const result = await window.api.sendChatMessage(requestId, sessionId, cwd, model, history, text);
+
+      // Kuyrukta kalan artık metin ATILIYOR: aşağıda mesajın içeriği sonucun
+      // tam metniyle değiştiriliyor, yani kaybolan bir şey yok. Bırakılsaydı
+      // tamamlanmış cevabın sonuna tekrar eklenirdi.
+      streamQueue.current.delete(requestId);
 
       setSessions((prev) =>
       prev.map((s) => {
@@ -605,7 +769,29 @@ export default function AxetCodeHome({
 
         // `updatedAt` her sonlanmada tazeleniyor: cevabın gelişi de listedeki
         // sıralamayı etkileyen bir olay.
-        const done = { pending: false, requestId: null, activity: null, activityDetail: null, updatedAt: Date.now() } as const;
+        // `as const` DEĞİL: `activitySteps: []` o zaman `readonly []` olur ve
+        // `ChatSession`'ın değiştirilebilir dizisine atanamaz. Tip güvenliği
+        // yerine `Pick` ile korunuyor — alan adı yanlış yazılırsa yine patlar.
+        const done: Pick<
+          ChatSession,
+          "pending" | "requestId" | "activity" | "activitySteps" | "pendingAsk" | "updatedAt"
+        > = {
+          pending: false,
+          requestId: null,
+          activity: null,
+          activitySteps: [],
+          pendingAsk: null,
+          updatedAt: Date.now()
+        };
+
+        // Araç dökümü CEVABA TAŞINIYOR. `done` oturumdaki canlı listeyi
+        // sıfırlıyor (bir sonraki tur temiz başlasın diye); buraya kopyalanmazsa
+        // ajanın bu turda ne yaptığı ekrandan tamamen silinirdi — eski davranış
+        // buydu ve "neden bu cevabı verdi" sorusunun karşılığı hiçbir yerde
+        // kalmıyordu. Boşsa alan hiç eklenmiyor: araç çalıştırmayan cevaplar
+        // geçmiş dosyasını boş dizilerle şişirmesin.
+        const steps = s.activitySteps.filter((step) => step.phase === "tool");
+        const withSteps = steps.length > 0 ? { steps } : {};
 
         if (result.cancelled) {
           // Kullanıcı durdurdu. Ekranda GÖRÜNEN yarım metni silmiyoruz —
@@ -617,7 +803,9 @@ export default function AxetCodeHome({
           return {
             ...s,
             messages: partial
-              ? s.messages.map((m) => (m.id === streamed.id ? { ...m, content: partial, streaming: false } : m))
+              ? s.messages.map((m) =>
+                  m.id === streamed.id ? { ...m, content: partial, streaming: false, ...withSteps } : m
+                )
               : s.messages.filter((m) => m.id !== streamed.id),
             ...done
           };
@@ -632,7 +820,15 @@ export default function AxetCodeHome({
             ...s,
             messages: s.messages.map((m) =>
               m.id === streamed.id
-                ? { ...m, content: finalContent, error: !result.ok, streaming: false, usedConnectors: result.usedConnectors }
+                ? {
+                    ...m,
+                    content: finalContent,
+                    error: !result.ok,
+                    streaming: false,
+                    usedConnectors: result.usedConnectors,
+                    restartedReason: result.restartedReason,
+                    ...withSteps
+                  }
                 : m
             ),
             ...done
@@ -644,7 +840,9 @@ export default function AxetCodeHome({
           content: finalContent,
           error: !result.ok,
           createdAt: Date.now(),
-          usedConnectors: result.usedConnectors
+          usedConnectors: result.usedConnectors,
+          restartedReason: result.restartedReason,
+          ...withSteps
         };
         return { ...s, messages: [...s.messages, assistantMessage], ...done };
       })
@@ -687,7 +885,12 @@ export default function AxetCodeHome({
       pending: false,
       requestId: null,
       activity: null,
-      activityDetail: null,
+      activitySteps: [],
+      pendingAsk: null,
+      todos: [],
+      contextTokens: 0,
+      contextLimit: 0,
+      editUndo: null,
       createdAt: now,
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
@@ -733,7 +936,11 @@ export default function AxetCodeHome({
               title: isFirstMessage ? deriveTitle(text || attachments[0].name) : s.title,
               messages: [...s.messages, userMessage],
               draft: "",
-              attachments: []
+              attachments: [],
+              // Düzeltilmiş soru gönderildi: artık geri alınacak bir düzenleme
+              // yok. Şerit burada silinmeseydi, kesilen kuyruğu yeni cevabın
+              // ARDINA yapıştıran bir düğme olarak kalırdı.
+              editUndo: null
             }
           : s
       )
@@ -745,8 +952,16 @@ export default function AxetCodeHome({
   // Gönderilmiş bir kullanıcı mesajını düzenle: metni composer'a geri koy ve
   // sohbeti O MESAJDAN İTİBAREN kes. Sonrasındaki cevap(lar) düzeltilmiş
   // soruya ait olmadığı için bağlamda tutulmaları yanlış olurdu — üç referans
-  // arayüz de aynı şeyi yapıyor. Geri alma yok: kesilen kuyruk gerçekten
-  // gidiyor, bu yüzden düğme sadece hover'da ve akış yokken görünüyor.
+  // arayüz de aynı şeyi yapıyor.
+  //
+  // Kesilen kuyruk artık GERİ ALINABİLİR (`editUndo`): kesme kalıcıydı ve
+  // uyarısızdı, yani yanlış mesajın kalemine basmak yarım sohbeti siliyordu.
+  //
+  // BİLİNEN SINIR — düzeltilmemiş ve düzeltilmesi ucuz değil: kesme yalnızca
+  // BİZİM listemizi kısaltıyor. Arkadaki axet-code oturumu tüm geçmişi
+  // hatırlamaya devam ediyor (kalıcı TUI, bkz. axetChatTui.ts), yani ajan hem
+  // eski hem düzeltilmiş soruyu görüyor. Gerçek bir geri sarma için oturumu
+  // kapatıp geçmişi yeniden tohumlamak gerekir.
   const handleEditMessage = useCallback(
     (messageId: string, content: string) => {
       if (!activeId) return;
@@ -758,6 +973,7 @@ export default function AxetCodeHome({
           return {
             ...s,
             messages: s.messages.slice(0, idx),
+            editUndo: { messages: s.messages.slice(idx), draft: s.draft, attachments: s.attachments },
             draft: content,
             // Ekler de composer'a geri geliyor: düzenlenen mesaj bir görselle
             // gönderildiyse, düzeltilmiş hâlinin o görseli kaybetmesi
@@ -778,6 +994,26 @@ export default function AxetCodeHome({
     },
     [activeId]
   );
+
+  // Düzenlemeyi geri al: kesilen kuyruk ve composer'ın eski hâli birlikte
+  // dönüyor. Ayrı ayrı dönselerdi, düzenlenmek üzere kutuya konan metin
+  // kutuda kalır ve aynı mesaj iki yerde görünürdü.
+  const handleUndoEdit = useCallback(() => {
+    if (!activeId) return;
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== activeId || !s.editUndo) return s;
+        return {
+          ...s,
+          messages: [...s.messages, ...s.editUndo.messages],
+          draft: s.editUndo.draft,
+          attachments: s.editUndo.attachments,
+          editUndo: null,
+          updatedAt: Date.now()
+        };
+      })
+    );
+  }, [activeId]);
 
   // Son cevabı at, AYNI istemi yeniden çalıştır. `axet-code run` stateless
   // olduğu için bu, gerçekten yeni bir çağrı — önbellekten dönen bir şey yok.
@@ -809,6 +1045,23 @@ export default function AxetCodeHome({
     if (!activeSession?.requestId) return;
     window.api.cancelChatMessage(activeSession.requestId).catch(() => {});
   }, [activeSession]);
+
+  // Ajanın sorduğu sorunun cevabı. Kartı hemen kaldırıyoruz: tuşlar TUI'deki
+  // kutuya gidiyor ve kutu kapanıyor — açık kalan bir kart, artık var olmayan
+  // bir kutuya tuş gönderen ölü bir düğme olurdu. Ana süreç de kendi tarafında
+  // aynı korumayı yapıyor (bkz. axetChatTui.ts `answerTuiQuestion`), bu sadece
+  // kullanıcının gördüğü gecikmeyi kapatıyor.
+  const handleAnswerQuestion = useCallback(
+    (index: number) => {
+      const requestId = activeSession?.requestId;
+      if (!requestId) return;
+      setSessions((prev) =>
+        prev.map((s) => (s.id === activeSession.id ? { ...s, pendingAsk: null } : s))
+      );
+      window.api.answerChatQuestion(requestId, index).catch(() => {});
+    },
+    [activeSession]
+  );
 
   // Ekleri taslağa iliştir. Eskiden dosya YOLU taslak metnine yazılıyordu;
   // artık ayrı bir alanda duruyorlar (kullanıcı geri bildirimi, 2026-09-02:
@@ -974,30 +1227,81 @@ export default function AxetCodeHome({
   // fonksiyonel `setSessions` ile dokunuyor — aksi hâlde her sohbet
   // değişikliğinde listener söküp takmak gerekirdi ve iki abonelik arasına
   // düşen parçalar kaybolabilirdi.
+  // Kuyruğu ekrana akıtan tik.
+  //
+  // NEDEN KUYRUK VAR: axet-code cevabı veritabanına LOKMA LOKMA yazıyor.
+  // Yoklama aralığını 250 ms'den 90 ms'ye indirmek metnin geliş ritmini
+  // değiştirmedi (2026-09-05) — darboğaz bizim okumamız değil, satırın
+  // kaynağa yazılma anı. Gelen parça doğrudan ekrana basılınca cevap yüzlerce
+  // karakterlik bloklar hâlinde zıplayarak beliriyordu (kullanıcı: *"cevap
+  // mesajını böyle kasarak yazıyor, seri şekilde yazması lazım"*).
+  //
+  // Pay her tikte kuyruğun SABİT BİR ORANI (1/6): kuyruk büyüdükçe hız da
+  // büyüyor, yani büyük bir lokma geldiğinde geride kalmıyor — kuyruk her
+  // zaman ~6 tikte (≈200 ms) eriyor. Sabit "n karakter/tik" olsaydı hızlı
+  // cevaplarda gecikme birikirdi.
+  //
+  // Kare hızı bilinçli olarak 30/sn: `renderMarkdownLite` ölçümde 7,5 KB'lık
+  // bir cevap için 1,07 ms (2026-09-05) ve `ChatBubble` memo'lu olduğu için
+  // tik başına yalnızca AKAN balon yeniden çiziliyor.
+  const drainStreams = useCallback(() => {
+    const q = streamQueue.current;
+    if (q.size === 0) {
+      if (streamTimer.current !== null) window.clearInterval(streamTimer.current);
+      streamTimer.current = null;
+      return;
+    }
+    // Önce bu tikte basılacak paylar hesaplanıyor, sonra TEK bir state
+    // güncellemesiyle uygulanıyor.
+    const slice = new Map<string, string>();
+    for (const [requestId, pending] of q) {
+      const take = Math.max(3, Math.ceil(pending.length / STREAM_DRAIN_TICKS));
+      slice.set(requestId, pending.slice(0, take));
+      const rest = pending.slice(take);
+      if (rest) q.set(requestId, rest);
+      else q.delete(requestId);
+    }
+    setSessions((prev) =>
+      prev.map((s) => {
+        const text = s.requestId ? slice.get(s.requestId) : undefined;
+        if (!text) return s;
+        const last = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+        if (last?.streaming === true) {
+          return {
+            ...s,
+            messages: s.messages.map((m) => (m.id === last.id ? { ...m, content: m.content + text } : m))
+          };
+        }
+        const streamingMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: text,
+          createdAt: Date.now(),
+          streaming: true
+        };
+        return { ...s, messages: [...s.messages, streamingMessage] };
+      })
+    );
+  }, []);
+
   useEffect(() => {
     return window.api.onChatChunk((requestId, text) => {
       if (!text) return;
-      setSessions((prev) =>
-        prev.map((s) => {
-          if (s.requestId !== requestId) return s;
-          const last = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
-          if (last?.streaming === true) {
-            return {
-              ...s,
-              messages: s.messages.map((m) => (m.id === last.id ? { ...m, content: m.content + text } : m))
-            };
-          }
-          const streamingMessage: ChatMessage = {
-            id: crypto.randomUUID(),
-            role: "assistant",
-            content: text,
-            createdAt: Date.now(),
-            streaming: true
-          };
-          return { ...s, messages: [...s.messages, streamingMessage] };
-        })
-      );
+      const q = streamQueue.current;
+      q.set(requestId, (q.get(requestId) ?? "") + text);
+      if (streamTimer.current === null) {
+        streamTimer.current = window.setInterval(drainStreams, STREAM_TICK_MS);
+      }
     });
+  }, [drainStreams]);
+
+  // Bileşen sökülürse zamanlayıcı arkada dönmesin.
+  useEffect(() => {
+    return () => {
+      if (streamTimer.current !== null) window.clearInterval(streamTimer.current);
+      streamTimer.current = null;
+      streamQueue.current.clear();
+    };
   }, []);
 
   // Alt sürecin aşama bildirimleri. Cevap beklenirken arayüzde yalnızca yanıp
@@ -1006,13 +1310,34 @@ export default function AxetCodeHome({
   // axetChat.ts). Akış aboneliğiyle aynı desen: bir kez kuruluyor, state'e
   // yalnızca fonksiyonel `setSessions` ile dokunuyor.
   useEffect(() => {
-    return window.api.onChatActivity((requestId, phase, detail) => {
+    return window.api.onChatActivity((requestId, activity) => {
       setSessions((prev) =>
         // Eşleşme yoksa AYNI dizi döndürülüyor: geç kalmış bir bildirim
         // (istek çoktan bitmiş) boşuna bir render tetiklemesin.
         prev.some((s) => s.requestId === requestId)
+          ? prev.map((s) => (s.requestId === requestId ? applyActivity(s, activity) : s))
+          : prev
+      );
+    });
+  }, []);
+
+  // Ajanın planı + bağlam doluluğu. Ayrı bir kanal, ayrı bir abonelik: bu
+  // olaylar saniyede bir ve yalnızca DEĞİŞTİĞİNDE geliyor (bkz.
+  // axetChatTui.ts `PROGRESS_MS`), etkinlik akışına karıştırılsalardı araç
+  // dökümünü anlamsız satırlarla doldururlardı.
+  useEffect(() => {
+    return window.api.onChatProgress((requestId, progress) => {
+      setSessions((prev) =>
+        prev.some((s) => s.requestId === requestId)
           ? prev.map((s) =>
-              s.requestId === requestId ? { ...s, activity: phase, activityDetail: detail ?? null } : s
+              s.requestId === requestId
+                ? {
+                    ...s,
+                    todos: progress.todos,
+                    contextTokens: progress.contextTokens,
+                    contextLimit: progress.contextLimit
+                  }
+                : s
             )
           : prev
       );
@@ -1126,7 +1451,12 @@ export default function AxetCodeHome({
     attachments: newAttachments,
     pending: false,
     activity: null,
-    activityDetail: null
+    activitySteps: [],
+    pendingAsk: null,
+    todos: [],
+    contextTokens: 0,
+    contextLimit: 0,
+    editUndo: null
   };
 
   // Kenar çubuğundaki tek satır. Ayrı bir fonksiyon çünkü artık iki kat
@@ -1205,6 +1535,20 @@ export default function AxetCodeHome({
         >
           <Pencil size={12} />
         </button>
+        {/* Dışa aktarma yalnızca DOLU sohbetlerde: boş bir sohbetin markdown'ı
+            yalnızca başlıktan ibaret olurdu. */}
+        {session.messages.length > 0 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleExportSession(session.id);
+            }}
+            title={t("axetCodeHome.exportTitle")}
+            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <Download size={12} />
+          </button>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -1416,9 +1760,11 @@ export default function AxetCodeHome({
             onDraftChange={handleDraftChange}
             onSend={handleSend}
             onCancel={handleCancel}
+            onAnswerQuestion={handleAnswerQuestion}
             onSelectModel={handleSelectModel}
             onRegenerate={handleRegenerate}
             onEditMessage={handleEditMessage}
+            onUndoEdit={handleUndoEdit}
             onAttachFiles={handleAttachFiles}
             onDictate={handleDictate}
             dictationState={dictationState}
@@ -1432,6 +1778,9 @@ export default function AxetCodeHome({
               session.cwd || workspaceDir
                 ? () => onOpenChatTerminal(session.cwd || workspaceDir, session.sapLabel ?? session.title)
                 : undefined
+            }
+            onOpenInstructions={
+              session.cwd || workspaceDir ? () => setInstructionsCwd(session.cwd || workspaceDir) : undefined
             }
             filesPanelOpen={filesPanelOpen}
             onToggleFilesPanel={session.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
@@ -1467,9 +1816,11 @@ export default function AxetCodeHome({
           onDraftChange={handleDraftChange}
           onSend={handleSend}
           onCancel={handleCancel}
+          onAnswerQuestion={handleAnswerQuestion}
           onSelectModel={handleSelectModel}
           onRegenerate={handleRegenerate}
           onEditMessage={handleEditMessage}
+          onUndoEdit={handleUndoEdit}
           onAttachFiles={handleAttachFiles}
           onDictate={handleDictate}
           dictationState={dictationState}
@@ -1485,6 +1836,11 @@ export default function AxetCodeHome({
               : workspaceDir
                 ? () => onOpenChatTerminal(workspaceDir, t("axetCodeHome.contextWorkspace"))
                 : undefined
+          }
+          onOpenInstructions={
+            effectiveNewBinding?.cwd || workspaceDir
+              ? () => setInstructionsCwd(effectiveNewBinding?.cwd || workspaceDir)
+              : undefined
           }
           filesPanelOpen={filesPanelOpen}
           onToggleFilesPanel={effectiveNewBinding?.cwd || workspaceDir ? () => setFilesPanelOpen((v) => !v) : undefined}
@@ -1511,6 +1867,12 @@ export default function AxetCodeHome({
         confirmLabel={t("axetCodeHome.deleteConfirmButton")}
         onConfirm={() => deleteId && handleDeleteSession(deleteId)}
         onCancel={() => setDeleteId(null)}
+      />
+
+      <ChatInstructionsDialog
+        cwd={instructionsCwd}
+        onClose={() => setInstructionsCwd(null)}
+        onSaved={handleInstructionsSaved}
       />
     </div>
   );

@@ -162,8 +162,14 @@ export const tr = {
   "axetCodeHome.phaseIndexing": "Proje taranıyor",
   "axetCodeHome.phaseThinking": "Düşünüyor",
   "axetCodeHome.phaseTool": "Araç çalıştırıyor",
+  "axetCodeHome.phaseRestarting": "Oturum yenileniyor",
+  "axetCodeHome.phaseAskUser": "Cevabını bekliyor",
+  "axetCodeHome.askUserFallback": "Devam etmek için bir tercihine ihtiyacım var.",
   "axetCodeHome.phaseFinishing": "Tamamlanıyor",
   "axetCodeHome.phaseElapsed": "{seconds} sn",
+  // Kaçıncı araç adımında olunduğu. Biten adımlar ekranda birikmiyor (gösterge
+  // sabit yükseklikte), bu sayaç onların yerini tutuyor.
+  "axetCodeHome.phaseStepCount": "{count}. adım",
   // Ajanın o an çalıştırdığı araç (yalnızca kalıcı oturum kipinde görünür).
   // Bilinmeyen bir araç adı `toolGeneric` ile ham hâliyle gösteriliyor —
   // uydurma bir açıklamadansa adın kendisi.
@@ -179,6 +185,9 @@ export const tr = {
   "axetCodeHome.toolTodo": "Görev listesini güncelliyor",
   "axetCodeHome.toolMcp": "Uygulama bağlantısı: {name}",
   "axetCodeHome.toolGeneric": "{name} çalıştırıyor",
+  // Araç sonucunun ilk satırı gösteriliyor; gerisi sayı olarak. Tam metin
+  // satırın `title`'ında duruyor — sohbeti ezmeden erişilebilir kalsın.
+  "axetCodeHome.toolMoreLines": "+{count} satır",
   "axetCodeHome.dropFilesHint": "Eklemek için dosyaları buraya bırak",
   "axetCodeHome.contextTerminal": "Terminal",
   "axetCodeHome.contextTerminalHint": "Bu proje klasöründe terminal aç",
@@ -224,6 +233,7 @@ export const tr = {
   "axetCodeHome.dictateFailed": "Sesle yazma başarısız: {message}",
   "axetCodeHome.renameTitle": "Yeniden adlandır",
   "axetCodeHome.deleteTitle": "Sohbeti sil",
+  "axetCodeHome.exportTitle": "Markdown olarak dışa aktar",
   "axetCodeHome.deleteConfirmTitle": "Sohbeti sil",
   "axetCodeHome.deleteConfirmMessage": "\"{title}\" sohbeti ve içindeki {count} mesaj kalıcı olarak silinecek. Bu işlem geri alınamaz.",
   "axetCodeHome.deleteConfirmButton": "Sil",
@@ -380,6 +390,40 @@ export const tr = {
   "chatBubble.connectorsUsed": "Uygulama bağlantıları",
   "chatBubble.connectorsUsedHint":
     "Bu cevap üretilirken Outlook/SharePoint araçları açıktı. Kararı Ayarlar > Sohbette uygulama bağlantıları belirliyor.",
+  // Oturum yenilendiğinde cevabın altına düşen satırlar. Sebep AYRI AYRI
+  // yazılıyor: "yetki düştü" ile "bağlam doldu" kullanıcının yapacağı şey
+  // bakımından bambaşka — ilkinde portalda oturum açmak gerekebilir, ikincisi
+  // uzun sohbetin doğal sonu.
+  "chatBubble.restartedAuth": "Yetki hatası alındı, oturum yenilendi ve soru yeniden gönderildi.",
+  "chatBubble.restartedContext": "Bağlam sınırına ulaşıldı, oturum yenilendi; sohbet geçmişi yeni oturuma taşındı.",
+  "chatBubble.restartedProvider": "Sağlayıcı yanıt vermedi, oturum yenilendi ve soru yeniden gönderildi.",
+  // Cevabın üstündeki katlanır araç dökümünün başlığı.
+  "chatBubble.stepsToggle": "{count} işlem",
+
+  // --- Ajanın planı ve bağlam doluluğu (bkz. ChatSessionPane PlanPanel) ---
+  "chatPlan.progress": "Plan {done}/{total}",
+  "chatPlan.context": "Bağlam %{pct}",
+  "chatPlan.contextTitle": "{tokens} jeton kullanılıyor. %80'de oturum kendiliğinden yenilenir.",
+  "chatEditUndo.removed": "Düzenleme, sonrasındaki {count} mesajı kaldırdı.",
+  "chatEditUndo.undo": "Geri al",
+
+  "chatSearch.placeholder": "Sohbette ara…",
+  "chatSearch.noResults": "yok",
+  "chatSearch.prev": "Önceki eşleşme (Shift+Enter)",
+  "chatSearch.next": "Sonraki eşleşme (Enter)",
+  "chatSearch.close": "Kapat (Esc)",
+
+  "chatInstructions.title": "Proje yönergeleri",
+  "chatInstructions.button": "Yönergeler",
+  "chatInstructions.description":
+    "Bu klasördeki her sohbette ve terminalde asistana verilecek kalıcı talimatlar. Kod stili, kullanılacak paket, konuşma dili gibi her turda tekrar yazmak istemediğin şeyler.",
+  "chatInstructions.placeholder":
+    "Örnek:\n- Cevapları Türkçe yaz.\n- ABAP nesnelerini ZAI paketine oluştur.\n- Değişiklikten önce mutlaka taşıma talebini sor.",
+  "chatInstructions.restartNote":
+    "Yönergeler oturum açılırken okunuyor. Kaydedince bu klasördeki sohbetlerin oturumları kapatılır; sonraki mesajda yeni yönergelerle yeniden başlarlar.",
+  "chatInstructions.saving": "Kaydediliyor…",
+  "chatInstructions.tooLarge":
+    "Bu dosya 2 MB'ın üstünde ve buraya kesilerek okundu; kaydetmek gerisini silerdi. Dosyayı bir metin düzenleyicide açman gerekiyor.",
 
   "errorBoundary.title": "Beklenmeyen bir hata oluştu",
   "errorBoundary.reload": "Uygulamayı Yeniden Yükle",

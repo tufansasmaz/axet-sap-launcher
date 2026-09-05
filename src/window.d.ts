@@ -4,7 +4,8 @@ import type {
   AddManualSystemInput,
   AppConfig,
   AxetChatMessage,
-  AxetChatActivityPhase,
+  AxetChatActivity,
+  AxetChatProgress,
   AxetChatSendResult,
   AxetModelConfigResult,
   AxetModelEntry,
@@ -12,6 +13,7 @@ import type {
   AxetModelsListResult,
   ChatAttachmentPreviewResult,
   ChatAttachmentSaveResult,
+  ChatExportResult,
   ChatSessionsLoadResult,
   ChatSessionsState,
   ConnectRequest,
@@ -30,6 +32,7 @@ import type {
   FlowValidateResult,
   FsImportFilesResult,
   FsListDirResult,
+  FsSearchFilesResult,
   FsReadDocxResult,
   FsReadImageResult,
   FsReadTextResult,
@@ -100,8 +103,9 @@ export interface AxetApi {
   getPathForFile: (file: File) => string;
   resolveProjectDir: (customerPath: string[], service: SapService) => Promise<string>;
   listDir: (dirPath: string) => Promise<FsListDirResult>;
+  searchFiles: (root: string, query: string) => Promise<FsSearchFilesResult>;
   readTextFile: (filePath: string) => Promise<FsReadTextResult>;
-  writeTextFile: (filePath: string, content: string) => Promise<FsWriteTextResult>;
+  writeTextFile: (filePath: string, content: string, allowCreate?: boolean) => Promise<FsWriteTextResult>;
   watchDir: (id: string, dirPath: string) => Promise<{ ok: boolean; error?: string }>;
   unwatchDir: (id: string) => Promise<{ ok: boolean }>;
   onFsChanged: (callback: (id: string) => void) => () => void;
@@ -132,6 +136,8 @@ export interface AxetApi {
     message: string
   ) => Promise<AxetChatSendResult>;
   cancelChatMessage: (requestId: string) => Promise<void>;
+  /** Ajanın `askUser` aşamasında sorduğu sorunun cevabı; `-1` = vazgeç. */
+  answerChatQuestion: (requestId: string, optionIndex: number) => Promise<boolean>;
   closeChatSession: (chatId: string) => Promise<void>;
   prewarmChat: (
     cwd: string,
@@ -142,7 +148,10 @@ export interface AxetApi {
   // Abonelikten çıkma fonksiyonu döner (diğer `on*` köprüleriyle aynı desen).
   onChatChunk: (callback: (requestId: string, text: string) => void) => () => void;
   onChatActivity: (
-    callback: (requestId: string, phase: AxetChatActivityPhase, detail?: string) => void
+    callback: (requestId: string, activity: AxetChatActivity) => void
+  ) => () => void;
+  onChatProgress: (
+    callback: (requestId: string, progress: AxetChatProgress) => void
   ) => () => void;
   saveChatAttachment: (fileName: string, base64Data: string) => Promise<ChatAttachmentSaveResult>;
   readChatAttachmentPreview: (filePath: string) => Promise<ChatAttachmentPreviewResult>;
@@ -150,6 +159,7 @@ export interface AxetApi {
   transcribeDictation: (base64Wav: string, language: string) => Promise<DictationResult>;
   loadChatSessions: () => Promise<ChatSessionsLoadResult>;
   saveChatSessions: (state: ChatSessionsState) => Promise<{ ok: boolean; error?: string }>;
+  exportChatMarkdown: (suggestedName: string, markdown: string) => Promise<ChatExportResult>;
 
   testConnector: (requestId: string, provider: ConnectorProvider) => Promise<ConnectorTestResult>;
   cancelConnectorTest: (requestId: string) => Promise<{ ok: boolean }>;

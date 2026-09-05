@@ -91,7 +91,10 @@ function defaultConfig(): AppConfig {
     // bağlayıcıyı kullanıcı istemeden açmak, hem her çağrıya ~10 s ekler hem
     // de kurumsal veriye (posta kutusu, SharePoint) sessizce erişim demektir.
     connectorEnabled: {},
-    connectorLastResults: {}
+    connectorLastResults: {},
+    // Ölçülerek doldurulur (connectorHealth.ts); elle düzenlenen bir ayar değil.
+    connectorIntegrations: {},
+    connectorAutoDisabled: []
   };
 }
 
@@ -151,6 +154,16 @@ export function loadConfig(): AppConfig {
         parsed.connectorLastResults && typeof parsed.connectorLastResults === "object"
           ? parsed.connectorLastResults
           : fallback.connectorLastResults,
+      connectorIntegrations:
+        parsed.connectorIntegrations && typeof parsed.connectorIntegrations === "object"
+          ? (parsed.connectorIntegrations as AppConfig["connectorIntegrations"])
+          : fallback.connectorIntegrations,
+      // Dizi olduğu ve İÇİNİN dize olduğu ayrıca süzülüyor: bu listedeki bir
+      // değer doğrudan axet-code'un durum dosyasına yazılıyor, bozuk bir eleman
+      // o dosyayı da bozardı.
+      connectorAutoDisabled: Array.isArray(parsed.connectorAutoDisabled)
+        ? (parsed.connectorAutoDisabled as unknown[]).filter((x): x is string => typeof x === "string")
+        : fallback.connectorAutoDisabled,
       lastCredentials: { ...fallback.lastCredentials, ...(parsed.lastCredentials ?? {}) },
       trustedCertificates: { ...fallback.trustedCertificates, ...(parsed.trustedCertificates ?? {}) },
       connectionHistory: Array.isArray(parsed.connectionHistory) ? parsed.connectionHistory : fallback.connectionHistory,

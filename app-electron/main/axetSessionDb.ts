@@ -38,11 +38,33 @@ export interface AxetPart {
   data?: {
     /** `tool_call` için çağrı kimliği (`toolu_bdrk_...`). Tekrar bildirimi bununla önleniyor. */
     id?: string;
+    /**
+     * `tool_result` için, ait olduğu çağrının kimliği. Alan adı çağrı
+     * tarafındakinden FARKLI (`id` değil) — canlı veriyle doğrulandı; sonucu
+     * `id` ile aramak sessizce hiçbir şey bulmuyordu.
+     */
+    tool_call_id?: string;
     text?: string;
     name?: string;
     input?: string;
+    /**
+     * `tool_call` için: argümanlar TAMAMLANDI mı?
+     *
+     * Araç çağrısı veritabanına AKARKEN yazılıyor — ilk gördüğümüz hâlinde
+     * `input` yarım bir JSON metni olabiliyor (`{"question": "Sevdi`). Girdiyi
+     * okuması gereken her yer bunu beklemeli (bkz. axetChatTui.ts `ask_user`).
+     */
+    finished?: boolean;
     reason?: string;
     is_error?: boolean;
+    /**
+     * `tool_result` için aracın döndürdüğü ham gövde. `is_error` GÜVENİLİR
+     * DEĞİL: canlı ölçümde (2026-09-04) bir MCP çağrısı "HTTP error 500 …
+     * Integration … is in state 'ERROR'" döndürdüğü hâlde `is_error: false`
+     * yazıyordu. Bozuk entegrasyon teşhisi bu yüzden metne bakıyor
+     * (connectorHealth.ts).
+     */
+    content?: string;
   };
 }
 
@@ -189,8 +211,40 @@ export function latestMessageTime(dbPath: string): number {
 }
 
 /**
+ * İki metni KARŞILAŞTIRILABİLİR biçime indirger: harf ve rakam dışındaki her
+ * şey tek boşluğa iniyor.
+ *
+ * NEDEN GEREKLİ — ölçülmüş, tahmin değil (2026-09-04). Prompt'u pty'ye
+ * yazıyoruz, ama axet-code'un veritabanına düşen metin YAZDIĞIMIZIN AYNISI
+ * DEĞİL: bazı karakterler yolda düşüyor. Gönderilen
+ *
+ *   "KURAL — uygulama bağlantısı araçları: ... outlook → df6566e3-…"
+ *
+ * veritabanına
+ *
+ *   "KURAL  uygulama bağlantısı araçları: ... outlook  df6566e3-…"
+ *
+ * olarak indi: em-dash (—) ve ok (→) yok oldu, Türkçe harfler (ç, ğ, ş, ı)
+ * sağ salim geçti. Yani süzgeç Latin dışındaki noktalama işaretlerine takılıyor.
+ *
+ * Sonucu ciddiydi: turun bittiğini anlamak için gönderdiğimiz metinden
+ * türetilen bir iğneyi veritabanında arıyoruz, iğne eşleşmeyince tur hiç
+ * "başladı" sayılmadı ve cevap 189 saniyedir hazır beklerken arayüz beş
+ * dakikalık zaman aşımını doldurdu. Aynı kilit, KULLANICI kendi mesajında bir
+ * tire ya da emoji kullansa da oluşurdu.
+ *
+ * Bu yüzden eşleştirme artık hiçbir noktalama işaretine güvenmiyor. Harf ve
+ * rakam yeter: 80 karakterlik bir iğnede yanlış eşleşme için fazlasıyla sinyal
+ * var.
+ */
+export function matchKey(text: string): string {
+  return text.replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/**
  * Gönderdiğimiz prompt'u İÇEREN kullanıcı mesajını bulup oturum kimliğini
- * döndürür.
+ * döndürür. `needle` `matchKey`'den GEÇMİŞ olmalı — karşılaştırma iki tarafta
+ * da o biçimde yapılıyor.
  *
  * Neden metinle eşleştiriyoruz da "en yeni oturum"u almıyoruz: aynı klasörde
  * aynı anda birden fazla sohbet açık olabilir (uygulama buna izin veriyor) ve
@@ -210,7 +264,7 @@ export function findSessionByPrompt(dbPath: string, sinceEpochSec: number, needl
         .filter((p) => p.type === "text")
         .map((p) => p.data?.text ?? "")
         .join("");
-      if (text.includes(needle)) return row.session_id;
+      if (matchKey(text).includes(needle)) return row.session_id;
     }
   } catch {
     return null;
@@ -235,6 +289,85 @@ export function newestSessionSince(dbPath: string, sinceEpochSec: number): strin
     return row?.id ?? null;
   } catch {
     return null;
+  }
+}
+
+/**
+ * Bir oturumun bağlam büyüklüğü — SON isteğin girdi + çıktı jeton sayısı.
+ *
+ * `sessions.prompt_tokens` KÜMÜLATİF DEĞİL: axet-code her asistan cevabından
+ * sonra o isteğin kullanımını yazıyor, yani alan "bu oturum toplam ne harcadı"
+ * değil "en son istekte bağlam ne kadar doluydu" sorusunun cevabı. Jeton
+ * sınırını ilgilendiren de tam olarak budur.
+ *
+ * ÖLÇÜM (2026-09-04, canlı veritabanı): bağlayıcılar açıkken tek soruluk bir
+ * mail turu bile `prompt_tokens ≈ 153.000` ile başlıyor — 92 araçlık katalog
+ * bağlamın altıda birini daha ilk mesajda dolduruyor. Yani sınıra, uzun bir
+ * sohbette sanılandan çok daha çabuk yaklaşılıyor.
+ */
+export function sessionTokens(dbPath: string, sessionId: string): number {
+  const db = openDb(dbPath);
+  if (!db) return 0;
+  try {
+    const row = db
+      .prepare("SELECT prompt_tokens, completion_tokens FROM sessions WHERE id=?")
+      .get(sessionId) as { prompt_tokens: number | null; completion_tokens: number | null } | undefined;
+    if (!row) return 0;
+    return (row.prompt_tokens ?? 0) + (row.completion_tokens ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Ajanın kendi yapılacaklar listesi — `sessions.todos`.
+ *
+ * BİZ ÜRETMİYORUZ. axet-code'un `todos` aracı çalıştığında listeyi bu sütuna
+ * JSON olarak yazıyor; burada yalnızca okunuyor. Terminaldeki arayüzde bu
+ * liste turun ortasında görünür ve "ajan planının neresinde" sorusunun tek
+ * doğrudan cevabı — kılıfta hiç gösterilmiyordu.
+ *
+ * ÖLÇÜLEN ŞEKİL (2026-09-05, canlı veritabanı, todos taşıyan 8 oturum):
+ *   [{"content":"...","status":"completed","active_form":"..."}]
+ * `status` üç değerden biri: `pending` | `in_progress` | `completed`.
+ * `active_form` ("...yapılıyor" kipi) OKUNMUYOR: ekranda içeriğin iki farklı
+ * çekimini yan yana göstermek karışıklıktan başka bir şey vermiyor.
+ *
+ * Sütun bozuk/yarım yazılmışsa boş dizi dönüyor — bu bilgi süs, turu
+ * düşürmesine izin yok.
+ */
+export interface AxetTodo {
+  content: string;
+  status: "pending" | "in_progress" | "completed";
+}
+
+export function sessionTodos(dbPath: string, sessionId: string): AxetTodo[] {
+  const db = openDb(dbPath);
+  if (!db) return [];
+  try {
+    const row = db.prepare("SELECT todos FROM sessions WHERE id=?").get(sessionId) as
+      | { todos: string | null }
+      | undefined;
+    const raw = row?.todos;
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const out: AxetTodo[] = [];
+    for (const item of parsed) {
+      if (!item || typeof item !== "object") continue;
+      const t = item as Record<string, unknown>;
+      const content = typeof t.content === "string" ? t.content.trim() : "";
+      if (!content) continue;
+      const status =
+        t.status === "completed" ? "completed" : t.status === "in_progress" ? "in_progress" : "pending";
+      out.push({ content, status });
+      // Terminaldeki listeler de bu civarda kalıyor; daha uzunu ekranda
+      // okunmuyor ve her yoklamada IPC'den geçmesi gereksiz.
+      if (out.length >= 30) break;
+    }
+    return out;
+  } catch {
+    return [];
   }
 }
 

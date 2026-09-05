@@ -5,7 +5,8 @@ import type {
   AddManualSystemInput,
   AppConfig,
   AxetChatMessage,
-  AxetChatActivityPhase,
+  AxetChatActivity,
+  AxetChatProgress,
   AxetChatSendResult,
   AxetModelConfigResult,
   AxetModelEntry,
@@ -13,6 +14,7 @@ import type {
   AxetModelsListResult,
   ChatAttachmentPreviewResult,
   ChatAttachmentSaveResult,
+  ChatExportResult,
   ChatSessionsLoadResult,
   ChatSessionsState,
   ConnectRequest,
@@ -113,8 +115,13 @@ const api = {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
   resolveProjectDir: (customerPath: string[], service: SapService) => ipcRenderer.invoke("project:resolveDir", customerPath, service),
   listDir: (dirPath: string) => ipcRenderer.invoke("fs:listDir", dirPath),
+  // Composer'daki `@` bahsi için — ağaçta ada göre arama (bkz. searchFiles).
+  searchFiles: (root: string, query: string) => ipcRenderer.invoke("fs:searchFiles", root, query),
   readTextFile: (filePath: string) => ipcRenderer.invoke("fs:readTextFile", filePath),
-  writeTextFile: (filePath: string, content: string) => ipcRenderer.invoke("fs:writeTextFile", filePath, content),
+  // `allowCreate`: yalnızca yönerge kutusu geçiyor (olmayan AGENTS.md'yi
+  // oluşturmak için). Bkz. fsExplorer.writeTextFile.
+  writeTextFile: (filePath: string, content: string, allowCreate?: boolean) =>
+    ipcRenderer.invoke("fs:writeTextFile", filePath, content, allowCreate),
   // Klasör izleme: `id` çağıranın ürettiği bir anahtar, kapatırken aynısı
   // veriliyor. Olay yalnızca "bu kökün altında bir şey değişti" diyor.
   watchDir: (id: string, dirPath: string) => ipcRenderer.invoke("fs:watchDir", id, dirPath),
@@ -160,6 +167,8 @@ const api = {
   ): Promise<AxetChatSendResult> =>
     ipcRenderer.invoke("axetChat:send", requestId, chatId, cwd, model, history, message),
   cancelChatMessage: (requestId: string): Promise<void> => ipcRenderer.invoke("axetChat:cancel", requestId),
+  answerChatQuestion: (requestId: string, optionIndex: number): Promise<boolean> =>
+    ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
   // Kullanıcı yazmaya başlayınca: oturumu/süreci şimdiden açtır. Sonucu YOK,
   // beklemek de gerekmiyor — kazanç tamamen zamanlamada.
@@ -174,13 +183,21 @@ const api = {
     ipcRenderer.on("axetChat:chunk", listener);
     return () => ipcRenderer.removeListener("axetChat:chunk", listener);
   },
-  // Cevap beklenirken alt sürecin hangi aşamada olduğu. `detail` yalnızca
-  // "tool" aşamasında dolu: çalışan aracın adı.
-  onChatActivity: (callback: (requestId: string, phase: AxetChatActivityPhase, detail?: string) => void) => {
-    const listener = (_event: unknown, requestId: string, phase: AxetChatActivityPhase, detail?: string) =>
-      callback(requestId, phase, detail);
+  // Cevap beklenirken alt süreçte olup bitenler: aşama, araç çağrıları ve
+  // sonuçları (bkz. AxetChatActivity).
+  onChatActivity: (callback: (requestId: string, activity: AxetChatActivity) => void) => {
+    const listener = (_event: unknown, requestId: string, activity: AxetChatActivity) =>
+      callback(requestId, activity);
     ipcRenderer.on("axetChat:activity", listener);
     return () => ipcRenderer.removeListener("axetChat:activity", listener);
+  },
+  // Ajanın kendi yapılacaklar listesi ve bağlam doluluğu. Etkinlikten farkı:
+  // her olay TAM DURUM taşıyor, birikmiyor.
+  onChatProgress: (callback: (requestId: string, progress: AxetChatProgress) => void) => {
+    const listener = (_event: unknown, requestId: string, progress: AxetChatProgress) =>
+      callback(requestId, progress);
+    ipcRenderer.on("axetChat:progress", listener);
+    return () => ipcRenderer.removeListener("axetChat:progress", listener);
   },
   saveChatAttachment: (fileName: string, base64Data: string): Promise<ChatAttachmentSaveResult> =>
     ipcRenderer.invoke("chatAttachments:save", fileName, base64Data),
@@ -195,6 +212,8 @@ const api = {
   loadChatSessions: (): Promise<ChatSessionsLoadResult> => ipcRenderer.invoke("chatSessions:load"),
   saveChatSessions: (state: ChatSessionsState): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("chatSessions:save", state),
+  exportChatMarkdown: (suggestedName: string, markdown: string): Promise<ChatExportResult> =>
+    ipcRenderer.invoke("chat:exportMarkdown", suggestedName, markdown),
 
   // ---------------------------- Uygulama Bağlantıları (Outlook/SharePoint connector'ları) ----------------------------
   testConnector: (requestId: string, provider: ConnectorProvider): Promise<ConnectorTestResult> =>

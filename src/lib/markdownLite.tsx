@@ -1,5 +1,6 @@
 import { type ReactNode } from "react";
 import CopyButton from "../components/CopyButton";
+import { highlightCode } from "./highlightLite";
 
 // axet.code sohbet cevaplarındaki markdown'ı React elemanlarına çeviren,
 // bağımsız/hafif bir dönüştürücü — tam bir CommonMark implementasyonu DEĞİL,
@@ -111,8 +112,8 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
           <CopyButton value={code} />
         </span>
       </div>
-      <pre className="overflow-x-auto p-3 text-xs text-slate-200">
-        <code className={lang ? `language-${lang}` : undefined}>{code}</code>
+      <pre className="overflow-x-auto p-3 font-mono text-xs text-slate-200">
+        <code className={lang ? `language-${lang}` : undefined}>{highlightCode(code, lang)}</code>
       </pre>
     </div>
   );
