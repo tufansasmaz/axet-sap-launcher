@@ -41,11 +41,11 @@ function connectMsg(
     missingHostOrUrl: "Bu sistem için host veya ADT URL bilgisi eksik.",
     connAdtWriteFailed: `.conn_adt yazılamadı: ${params?.error}`,
     contextWriteFailed: `Bağlam dosyası yazılamadı: ${params?.error}`,
-    rfcBridgeVerified: `Router raw HTTPS'i reddetti — RFC bridge otomatik başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı${skillNote}, gömülü terminal açılıyor.`,
-    rfcBridgeRunningUnverified: `RFC bridge otomatik başlatıldı${skillNote} ama kimlik doğrulaması tamamlanamadı (${detail}) — gömülü terminal yine de açılıyor, detay için sap-context.md'ye bak.`,
-    rfcBridgeAutoStartFailed: `Router raw HTTPS'i reddetti, RFC bridge otomatik başlatılamadı (${detail})${skillNote} — gömülü terminal yine de açılıyor, elle kurulum adımları için sap-context.md'ye bak.`,
-    samlSetupNeeded: `Bu sistem SAML SSO gerektiriyor (kimlik bilgileri Basic Auth ile hiç kontrol edilemedi)${skillNote} — gömülü terminal açılıyor, ilk iş olarak sap-context.md'deki "Cloud / BTP Sistem Notları" bölümündeki login_saml_sso.py adımlarını izle.`,
-    verifiedOpening: `Bağlantı doğrulandı, gömülü terminal açılıyor${skillNote} (${params?.url})`,
+    rfcBridgeVerified: `Router raw HTTPS'i reddetti — RFC bridge otomatik başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı${skillNote}, sohbet açılıyor.`,
+    rfcBridgeRunningUnverified: `RFC bridge otomatik başlatıldı${skillNote} ama kimlik doğrulaması tamamlanamadı (${detail}) — sohbet yine de açılıyor, detay için sap-context.md'ye bak.`,
+    rfcBridgeAutoStartFailed: `Router raw HTTPS'i reddetti, RFC bridge otomatik başlatılamadı (${detail})${skillNote} — sohbet yine de açılıyor, elle kurulum adımları için sap-context.md'ye bak.`,
+    samlSetupNeeded: `Bu sistem SAML SSO gerektiriyor (kimlik bilgileri Basic Auth ile hiç kontrol edilemedi)${skillNote} — sohbet açılıyor, ilk iş olarak sap-context.md'deki "Cloud / BTP Sistem Notları" bölümündeki login_saml_sso.py adımlarını izle.`,
+    verifiedOpening: `Bağlantı doğrulandı, sohbet açılıyor${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız${skillNote} — sap-context.md'de detay var (${params?.url})`
   };
   const en = {
@@ -53,11 +53,11 @@ function connectMsg(
     missingHostOrUrl: "Host or ADT URL information is missing for this system.",
     connAdtWriteFailed: `Failed to write .conn_adt: ${params?.error}`,
     contextWriteFailed: `Failed to write context file: ${params?.error}`,
-    rfcBridgeVerified: `Router rejected raw HTTPS — RFC bridge auto-started and credentials verified over RFC${skillNote}, opening embedded terminal.`,
-    rfcBridgeRunningUnverified: `RFC bridge auto-started${skillNote} but credential verification did not complete (${detail}) — opening embedded terminal anyway, see sap-context.md for details.`,
-    rfcBridgeAutoStartFailed: `Router rejected raw HTTPS, RFC bridge auto-start failed (${detail})${skillNote} — opening embedded terminal anyway, see sap-context.md for manual setup steps.`,
-    samlSetupNeeded: `This system requires SAML SSO (credentials could never be checked via Basic Auth)${skillNote} — opening embedded terminal, first follow the login_saml_sso.py steps in sap-context.md's "Cloud / BTP System Notes" section.`,
-    verifiedOpening: `Connection verified, opening embedded terminal${skillNote} (${params?.url})`,
+    rfcBridgeVerified: `Router rejected raw HTTPS — RFC bridge auto-started and credentials verified over RFC${skillNote}, opening chat.`,
+    rfcBridgeRunningUnverified: `RFC bridge auto-started${skillNote} but credential verification did not complete (${detail}) — opening chat anyway, see sap-context.md for details.`,
+    rfcBridgeAutoStartFailed: `Router rejected raw HTTPS, RFC bridge auto-start failed (${detail})${skillNote} — opening chat anyway, see sap-context.md for manual setup steps.`,
+    samlSetupNeeded: `This system requires SAML SSO (credentials could never be checked via Basic Auth)${skillNote} — opening chat, first follow the login_saml_sso.py steps in sap-context.md's "Cloud / BTP System Notes" section.`,
+    verifiedOpening: `Connection verified, opening chat${skillNote} (${params?.url})`,
     verifiedButSelfTestFailed: `Connection verified but adt-tool.ps1 self-test failed${skillNote} — see sap-context.md for details (${params?.url})`
   };
   return (language === "en" ? en : tr)[key];
@@ -250,7 +250,7 @@ interface ReadonlyServerOutcome {
 // her bağlanışta terminalde elle "ADT_CWD=$(pwd) py adt_readonly_server.py
 // --port 8787" çalıştırmak zorundaydı (bkz. sap-context.md "Yöntem 1")
 // — artık RFC bridge otomatik başlatmasıyla (attemptRfcBridgeAutoStart)
-// birebir aynı desenle, terminal açıldığında sunucu zaten canlıdır.
+// birebir aynı desenle, sohbet açıldığında sunucu zaten canlıdır.
 // Bu sunucu pyrfc/SAP NW RFC SDK gerektirmediği için gömülü RFC runtime'ı
 // KULLANILMIYOR — sistemdeki "py" çalıştırıcısı kullanılıyor (mevcut elle
 // kurulum dokümantasyonuyla aynı varsayım; requests/mcp/python-dotenv
@@ -523,7 +523,11 @@ function buildContextMarkdown(
   })();
 
 
-  const isCloudSystem = Boolean(service.manualAdtUrl) || service.type === "BTP/CLOUD";
+  // SADECE tipe bakılıyor. Eskiden `manualAdtUrl` varlığı da cloud sayılıyordu;
+  // bu, elle eklenen cloud sistemlerin zaten `type: "BTP/CLOUD"` aldığı için
+  // gereksizdi ve artık YANLIŞ: on-prem bir sisteme ADT adresi girilebildiğinden,
+  // o sistemin sap-context.md'sine SAML/BTP notları enjekte ederdi.
+  const isCloudSystem = service.type === "BTP/CLOUD";
   const cloudNoteBlock = isCloudSystem
     ? `
 
@@ -531,7 +535,7 @@ function buildContextMarkdown(
 - Bu sistem manuel eklenmiş bir **cloud/BTP** sistemi — client kavramı genelde gerekmez (SAML SSO ve BTP service-key kimlik doğrulamasında client yoktur). Kullanıcı bağlanırken client alanını boş bıraktıysa \`.conn_adt\`'a otomatik olarak varsayılan \`${DEFAULT_CLOUD_CLIENT}\` yazıldı — bu ADT endpoint'lerinin sap-client parametresi bekleyip 400/404 dönmesini önlemek içindir, sistemin gerçek client'ı olduğu anlamına gelmez.
 - \`%sap-adt-readonly\` skill'i bu sistemin **SAML SSO** kullanıp kullanmadığını otomatik tespit eder (URL \`*.cloud.sap\`/\`*.hana.ondemand.com\` içeriyorsa). SAML ise ilk ADT çağrısı "SAML SSO required" hatası verir — bu bir VPN/bağlantı sorunu **değildir**, şu adımı izle:
   1. Playwright kurulu değilse: \`pip install playwright && playwright install chromium\` (~200MB, tek seferlik).
-  2. \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` (bu klasörden, yani bu terminal zaten burada açık) çalıştır — tarayıcı açılır, kullanıcı giriş yapar (gerekirse \`--headed\` ile görünür modda), session cookie'leri \`.saml_cookies_<host>.json\`'a kaydedilir.
+  2. \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` (bu klasörden — zaten içinde bulunduğun çalışma klasörü) çalıştır — tarayıcı açılır, kullanıcı giriş yapar (gerekirse \`--headed\` ile görünür modda), session cookie'leri \`.saml_cookies_<host>.json\`'a kaydedilir.
   3. Script'in verdiği \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle.
   4. Tekrar dene — artık SAML cookie'leriyle kimlik doğrulanır.
 - 401/403 yerine **HTML login sayfası** dönmesi (ADT XML değil) SAML'in kanıtıdır — kullanıcıya "kimlik bilgisi yanlış" deme, doğrudan yukarıdaki SAML akışını öner.`
@@ -578,13 +582,13 @@ ${notesBlock}`
     : samlSetupNeeded
       ? `## ADT Bağlantısı — SAML SSO GEREKLİ (kimlik bilgileri HİÇ DOĞRULANAMADI)
 - ADT discovery isteği HTTP 200 döndürdü ama gövde bir ADT XML'i değil, bir **SAML/SSO giriş sayfası (HTML)** — bu, kullanıcı adı/şifre doğru olsun olmasın DEĞİŞMEYEN bir davranış, kimlik bilgileri Basic Auth ile hiçbir zaman kontrol edilmedi.
-- **Terminal bilerek açıldı** (ok:true) ama bağlantı DOĞRULANMADI (verified:false) — bu bir hata durumu değil, bu sistemin normal/beklenen kimlik doğrulama şekli SAML SSO.
+- **Sohbet bilerek açıldı** (ok:true) ama bağlantı DOĞRULANMADI (verified:false) — bu bir hata durumu değil, bu sistemin normal/beklenen kimlik doğrulama şekli SAML SSO.
 - adt-tool.ps1 bu durumda yazılmadı (o da aynı şekilde Basic Auth kullanır, aynı HTML sayfasını alır).
 - **İlk iş olarak aşağıdaki "Cloud / BTP Sistem Notları" bölümündeki SAML giriş akışını (login_saml_sso.py) izle** — ADT_SAML_COOKIES_FILE elde edilip .conn_adt'a eklenmeden gerçek bir ADT çağrısı (adt_get_source, adt_search vb.) çalışmaz.
 - Keşif/doğrulama adımları (referans):
 ${notesBlock}`
       : `## ADT Bağlantısı — DOĞRULANDI ✓
-- ADT URL: **${verifiedUrl}** (HTTP 200 ile kimlik doğrulaması onaylandı, terminal bu bağlantıyla açıldı)
+- ADT URL: **${verifiedUrl}** (HTTP 200 ile kimlik doğrulaması onaylandı, sohbet bu bağlantıyla açıldı)
 - Sertifika ve DNS/SID doğrulaması otomatik yapıldı ve geçti — **bu oturumda TLS/DNS/host:port keşfini tekrar deneme, sonuç zaten kanıtlanmış**.
 - Keşif/doğrulama adımları (referans, tekrar çalıştırma):
 ${notesBlock}
@@ -718,7 +722,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // kimlik doğrulanır) ama bazı ADT endpoint'leri sap-client parametresi
   // olmadan 400/404 dönebiliyor. Kullanıcı client'ı boş bıraktıysa
   // varsayılan bir değer ata — kullanıcıya tekrar sormaya gerek yok.
-  const isCloudSystem = Boolean(manualUrl) || req.service.type === "BTP/CLOUD";
+  const isCloudSystem = req.service.type === "BTP/CLOUD";
   const credentials =
     isCloudSystem && !req.credentials.client.trim()
       ? { ...req.credentials, client: DEFAULT_CLOUD_CLIENT }
@@ -786,7 +790,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // ihtiyaç duyduğu .conn_adt'ı asla elde edemiyordu (canlı bulgu,
   // 2026-09-02, "test"/DA8 S/4HANA Cloud sistemi). Artık bu durumda da
   // diğer iki bridge senaryosuyla AYNI desende devam ediliyor: dosyalar
-  // yazılır, terminal açılır, sadece ok:true+verified:false ile net bir
+  // yazılır, sohbet açılır, sadece ok:true+verified:false ile net bir
   // "önce SAML login akışını izle" mesajı döner.
   let samlSetupNeeded = false;
 
@@ -809,7 +813,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
         "RFC bridge moduna geçiliyor (bkz. sap-context.md). Kimlik bilgileri bu launcher tarafından " +
         "HTTP ile doğrulanamadı; gerçek doğrulama RFC bridge kurulumu sırasında yapılmalı."
     );
-  } else if (!verify.ok && !manualUrl && !routerString && verify.status === null && host) {
+  } else if (!verify.ok && !routerString && verify.status === null && host) {
     // SAProuter YOK ama tüm ADT/HTTPS portları ağ/firewall seviyesinde
     // tamamen erişilemez (verify.status===null → hiçbir port HTTP yanıtı
     // vermedi, sadece 401/başka status DEĞİL). Canlı kanıt (Exeltis/QUB,
@@ -822,6 +826,13 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     // (ucuz bir TCP probe ile doğrulanıyor — VPN tamamen kapalıysa bu da
     // başarısız olur, boşuna RFC bridge denenmez) doğrudan/router'sız RFC
     // bridge moduna geçiyoruz.
+    //
+    // Koşuldan `!manualUrl` kaldırıldı: o guard "URL veren kullanıcı cloud
+    // sistemi ekliyordur, DIAG portu yoktur" varsayımına dayanıyordu ve artık
+    // on-prem sistemlere de ADT adresi girilebiliyor. Cloud sistemlerin `host`u
+    // zaten null olduğu için bu dala hiç giremiyorlar — yani guard gereksizdi
+    // ve sadece "URL'ini verdiğim on-prem sistem" durumunda RFC kaçış yolunu
+    // sessizce kapatıyordu.
     const gatewayPort = req.service.port ? req.service.port + 100 : null;
     const gatewayReachable = gatewayPort ? await probeTcpPort(host, gatewayPort, 3000) : false;
     if (gatewayReachable) {
@@ -899,7 +910,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   }
 
   // ADT read-only sunucusu (%sap-adt-readonly, port 8787) — RFC bridge
-  // kimlik doğrulaması kesin başarısız olduysa (credentialsInvalid, terminal
+  // kimlik doğrulaması kesin başarısız olduysa (credentialsInvalid, sohbet
   // hiç açılmayacak) başlatmaya çalışmanın anlamı yok; diğer tüm durumlarda
   // (router'lı/router'sız, doğrulanmış/doğrulanamamış) başlatılır.
   let readonlyOutcome: ReadonlyServerOutcome | null = null;

@@ -23,19 +23,22 @@ type FlatRow =
   | { kind: "folder"; uuid: string; depth: number }
   | { kind: "item"; uuid: string; depth: number; service: SapService; path: string[] };
 
+// Aramanın bir sistemde neye baktığı: ad, SID ve ADRES. Adres eskiden kapsam
+// dışındaydı — sunucu adını hatırlayıp sistem adını hatırlamayan kullanıcı
+// (ki SAP'ta sık) sistemi bulamıyordu.
+function serviceMatches(service: SapService, lower: string): boolean {
+  if (service.name.toLowerCase().includes(lower)) return true;
+  if (service.systemId.toLowerCase().includes(lower)) return true;
+  if (service.host?.toLowerCase().includes(lower)) return true;
+  if (service.manualAdtUrl?.toLowerCase().includes(lower)) return true;
+  return false;
+}
+
 function nodeMatches(node: SapNode, term: string): boolean {
   if (!term) return true;
   const lower = term.toLowerCase();
   if (node.name.toLowerCase().includes(lower)) return true;
-  if (
-    node.items.some(
-      (it) =>
-        it.service &&
-        (it.service.name.toLowerCase().includes(lower) || it.service.systemId.toLowerCase().includes(lower))
-    )
-  ) {
-    return true;
-  }
+  if (node.items.some((it) => it.service && serviceMatches(it.service, lower))) return true;
   return node.nodes.some((child) => nodeMatches(child, lower));
 }
 
@@ -52,10 +55,7 @@ function getVisibleItems(node: SapNode, search: string) {
     .filter(
       (it) =>
         it.service &&
-        (!hasSearch ||
-          it.service.name.toLowerCase().includes(lower) ||
-          it.service.systemId.toLowerCase().includes(lower) ||
-          node.name.toLowerCase().includes(lower))
+        (!hasSearch || serviceMatches(it.service, lower) || node.name.toLowerCase().includes(lower))
     )
     .sort((a, b) => (a.service?.name ?? "").localeCompare(b.service?.name ?? "", "tr", { sensitivity: "base" }));
 }

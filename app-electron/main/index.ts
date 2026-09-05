@@ -311,7 +311,7 @@ function registerIpc(): void {
     const config = loadConfig();
     const landscape = await loadLandscape(config.landscapePathOverride);
     const manualSystems = loadManualSystems();
-    return mergeManualSystems(landscape, manualSystems);
+    return mergeManualSystems(landscape, manualSystems, config.language);
   });
 
   ipcMain.handle("manualSystems:add", (_event, input: AddManualSystemInput) => {

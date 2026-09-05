@@ -148,6 +148,15 @@ html[data-theme="dark"] {
   --status-success-border: rgba(6, 95, 70, 0.5);
   --status-success-text: #4ade95;
 
+  /* İkincil aksiyon kartının (SAP Logon'da Aç) tonu — accent'in yanında
+     ayırt edilsin diye kehribar. `--status-warning-*` DEĞİL: bu bir uyarı
+     değil, eşdeğer bir seçenek. rgb üçlüsü olarak duruyor çünkü kart accent
+     dalıyla birebir aynı opaklık merdivenini (0.1/0.18/0.25/0.35/0.6)
+     kullanıyor. Eskiden bu değerler SystemPanel.tsx'e gömülüydü ve tema
+     değiştiğinde olduğu yerde kalıyordu. */
+  --action-amber-rgb: 169 122 63;
+  --action-amber-text: #d9a566;
+
   --tier-dev-bg: rgba(56, 150, 220, 0.12);
   --tier-dev-border: rgba(56, 150, 220, 0.35);
   --tier-dev-text: #6cb4ea;
@@ -214,6 +223,9 @@ html[data-theme="light"] {
   --status-success-bg: #e9efe8;
   --status-success-border: #b9d2b9;
   --status-success-text: #43775a;
+
+  --action-amber-rgb: 138 100 45;
+  --action-amber-text: #7a5a1c;
 
   --tier-dev-bg: rgba(70, 130, 180, 0.1);
   --tier-dev-border: rgba(70, 130, 180, 0.28);

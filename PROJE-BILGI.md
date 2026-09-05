@@ -128,9 +128,8 @@ resources/sap-toolkit/    # abapGit bridge, ADT read-only Python server,
 3. **Main** (`main/index.ts` → `connectToSystem()` in `launcher.ts`):
    a. `sanitizeSegment()` ile müşteri path + sistem ID'den güvenli bir
       proje klasör yolu üretilir (`config.projectsBaseDir/.../SID`).
-   b. **Cloud/BTP tespiti**: `manualAdtUrl` varsa veya `service.type ===
-      "BTP/CLOUD"` ise ve kullanıcı client'ı boş bıraktıysa
-      `DEFAULT_CLOUD_CLIENT = "100"` otomatik atanır (`launcher.ts:349-357`).
+   b. **Cloud/BTP tespiti**: `service.type === "BTP/CLOUD"` ise ve kullanıcı
+      client'ı boş bıraktıysa `DEFAULT_CLOUD_CLIENT = "100"` otomatik atanır.
    c. **URL çözümü**:
       - Manuel URL varsa: `normalizeAdtBaseUrl()` ile Fiori/UI path'leri
         temizlenir (sadece `scheme://host[:port]` kalır), doğrudan kullanılır.
@@ -187,11 +186,18 @@ resources/sap-toolkit/    # abapGit bridge, ADT read-only Python server,
   kullanıcı senaryosu. `.gitignore`'a otomatik ekleniyor ama şifreleme
   (Electron `safeStorage` / Windows Credential Manager) yapılmıyor. Bu
   bilinen bir güvenlik borcu — kullanıcıya önerildi, henüz uygulanmadı.
-- **Cloud sistem tespiti** iki yerde ayrı ayrı yapılıyor: `launcher.ts:353`
-  (`connectToSystem` içinde, client default'u için) ve `launcher.ts:178`
-  (`buildContextMarkdown` içinde, not metni için). Aynı mantık
-  (`Boolean(manualAdtUrl) || type === "BTP/CLOUD"`) — biri değişirse
-  diğerini de güncelle.
+- **Cloud sistem tespiti dört yerde ayrı ayrı yapılıyor** ve hepsi tek bir
+  kurala bakmak ZORUNDA: `service.type === "BTP/CLOUD"`. Yerler:
+  `launcher.ts` `connectToSystem` (client default'u için), `launcher.ts`
+  `buildContextMarkdown` (not metni için), `sapLogon.ts` `canOpenInSapLogon`
+  (SAP GUI kapısı) ve `SystemPanel.tsx` (o butonun görünürlüğü — main'deki
+  kapıyla AYNI olmalı, ayrışırsa buton ya kaybolur ya da tıklanınca
+  `missingHostOrPort` döner).
+  Bu kural eskiden `Boolean(manualAdtUrl) || type === "BTP/CLOUD"` idi.
+  Artık on-prem sistemlere de elle ADT adresi girilebildiği için
+  `manualAdtUrl` bir cloud göstergesi DEĞİL — o hâliyle bırakılsaydı ADT
+  adresi girilen bir on-prem sistem SAML/BTP notları alır, RFC gateway
+  yedeği sessizce devre dışı kalır ve "SAP Logon'da Aç" kaybolurdu.
 - **`DEFAULT_CLOUD_CLIENT = "100"`** (`launcher.ts:10`) — kullanıcı client
   alanını boş bırakırsa cloud/BTP sistemlerde otomatik atanır. Sebep: bazı
   ADT endpoint'leri `sap-client` parametresi olmadan 400/404 dönüyor. Bu

@@ -58,16 +58,34 @@ function checkHttpsUrl(rawUrl: string, uuid: string, timeoutMs: number): Promise
     }
     const started = Date.now();
     const port = parsed.port ? Number(parsed.port) : 443;
-    const socket = tlsConnect({ host: parsed.hostname, port, rejectUnauthorized: false, timeout: timeoutMs, servername: parsed.hostname }, () => {
-      socket.end();
-      resolve({ serviceUuid: uuid, state: "reachable", message: "Sistem erişilebilir", latencyMs: Date.now() - started });
-    });
+    // TLS SNI'ya IP yazılamaz (RFC 6066) — Node bunu DEP0123 ile uyarıyor ve
+    // ileride tamamen yok sayacak. adtDiscovery.ts ve sapRouter.ts bu ayrımı
+    // zaten yapıyordu, burada atlanmıştı; ADT URL'i IP içeren her sistemde
+    // uygulama açılışında uyarı basılıyordu.
+    const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(parsed.hostname) || parsed.hostname.includes(":");
+    // checkTcp'deki `settled` korumasının aynısı: zaman aşımında socket
+    // destroy ediliyor, bu da bir "error" doğuruyor ve ikinci bir resolve
+    // çağrısı yapılıyordu. Şu an zararsız (Promise ilk resolve'da kilitlenir)
+    // ama iki dal arasındaki bu asimetri kolayca gerçek bir hataya dönüşür.
+    let settled = false;
+    const finish = (result: ConnectivityResult) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+    const socket = tlsConnect(
+      { host: parsed.hostname, port, rejectUnauthorized: false, timeout: timeoutMs, servername: isIp ? undefined : parsed.hostname },
+      () => {
+        socket.end();
+        finish({ serviceUuid: uuid, state: "reachable", message: "Sistem erişilebilir", latencyMs: Date.now() - started });
+      }
+    );
     socket.once("timeout", () => {
       socket.destroy();
-      resolve({ serviceUuid: uuid, state: "unreachable", message: "Zaman aşımı — VPN bağlı değil olabilir" });
+      finish({ serviceUuid: uuid, state: "unreachable", message: "Zaman aşımı — VPN bağlı değil olabilir" });
     });
     socket.once("error", () => {
-      resolve({ serviceUuid: uuid, state: "unreachable", message: "Bağlanılamadı — VPN kontrol et" });
+      finish({ serviceUuid: uuid, state: "unreachable", message: "Bağlanılamadı — VPN kontrol et" });
     });
   });
 }
@@ -101,19 +119,29 @@ function checkRouter(routerString: string, host: string, port: number, uuid: str
   })();
 }
 
+// Sıralama önemli: sistemin GERÇEKTE nasıl erişildiği önce gelir. Host/port
+// (ve varsa router) varsa yoklama oradan yapılır; ADT adresi ancak yoklanacak
+// bir host/port YOKSA (yani cloud/BTP sistemlerde) kullanılır.
+//
+// Eskiden `manualAdtUrl` en başta bakılıyordu ve bu doğruydu, çünkü o alan
+// yalnızca cloud sistemlerde dolabiliyordu. On-prem sistemlere de ADT adresi
+// girilebildiğinden artık yanlış olurdu: router arkasındaki bir sisteme ADT
+// adresi girilir girilmez yoklama router'ı ATLAYIP doğrudan URL'e giderdi —
+// kurumsal ağ dışından bu her zaman başarısız olur, yani sistem sapasağlamken
+// kırmızı nokta gösterirdi.
 export function checkConnectivity(service: SapService, timeoutMs = 2500): Promise<ConnectivityResult> {
+  if (service.host && service.port) {
+    if (service.routerString) {
+      return checkRouter(service.routerString, service.host, service.port, service.uuid, timeoutMs);
+    }
+    return checkTcp(service.host, service.port, service.uuid, timeoutMs);
+  }
   if (service.manualAdtUrl) {
     return checkHttpsUrl(service.manualAdtUrl, service.uuid, timeoutMs);
   }
-  if (!service.host || !service.port) {
-    return Promise.resolve({
-      serviceUuid: service.uuid,
-      state: "unknown",
-      message: "Host/port bilgisi çözümlenemedi"
-    });
-  }
-  if (service.routerString) {
-    return checkRouter(service.routerString, service.host, service.port, service.uuid, timeoutMs);
-  }
-  return checkTcp(service.host, service.port, service.uuid, timeoutMs);
+  return Promise.resolve({
+    serviceUuid: service.uuid,
+    state: "unknown",
+    message: "Host/port bilgisi çözümlenemedi"
+  });
 }

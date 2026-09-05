@@ -165,6 +165,17 @@ export default function App() {
   };
   const dismissToast = (id: number) => setToasts((prev) => prev.filter((toast) => toast.id !== id));
 
+  // `refresh`in bağımlılıkları BİLEREK boş: kimliği değişirse aşağıdaki efekt
+  // landscape'i baştan yükler, yani dil değiştirmek SAPUILandscape.xml'i
+  // yeniden okuturdu. Ama hata mesajı da güncel dilde olmalı — bu yüzden dil
+  // kapanıştan değil ref'ten okunuyor. Eskiden buradaki `t` ilk render'ın
+  // dilinde donuyordu: kullanıcı dili değiştirse bile landscape hatası hep
+  // açılış dilinde çıkıyordu.
+  const languageRef = useRef(language);
+  useEffect(() => {
+    languageRef.current = language;
+  }, [language]);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -172,7 +183,10 @@ export default function App() {
       setLandscape(ls);
       setConfig(cfg);
     } catch (err) {
-      pushToast("error", t("app.landscapeLoadError", { message: (err as Error).message }));
+      pushToast(
+        "error",
+        translate(languageRef.current, "app.landscapeLoadError", { message: (err as Error).message })
+      );
     } finally {
       setLoading(false);
     }
@@ -181,6 +195,19 @@ export default function App() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Ağaçtaki "Manuel Eklenen Sistemler" başlığı main'de üretiliyor
+  // (manualMerge.ts) ve dili landscape okunurken sabitleniyor — dil
+  // değişince o başlık eski dilde kalırdı. İlk render atlanıyor: yukarıdaki
+  // efekt zaten yüklemeyi yapıyor.
+  const didInitialLoadRef = useRef(false);
+  useEffect(() => {
+    if (!didInitialLoadRef.current) {
+      didInitialLoadRef.current = true;
+      return;
+    }
+    refresh();
+  }, [language, refresh]);
 
   // Tema değişimi. `theme-transition` sınıfı SADECE geçiş süresince ekleniyor
   // (bkz. src/index.css) — geçiş yumuşak olsun ama o CSS kuralının maliyeti

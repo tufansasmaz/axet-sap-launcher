@@ -29,6 +29,19 @@ function saveManualSystems(systems: ManualSystem[]): void {
 export function addManualSystem(input: AddManualSystemInput): ManualSystem {
   const systems = loadManualSystems();
   const trimmedAdtUrl = input.adtUrl?.trim() || null;
+  // Aynı sistemi ikinci kez eklemeyi engelle. `dedupeKey` zaten vardı ama
+  // SADECE içe aktarmada kullanılıyordu — elle eklerken hiçbir kontrol yoktu,
+  // aynı sistem ağaçta iki kez görünebiliyordu.
+  const candidateKey = dedupeKey({
+    name: input.name.trim(),
+    systemId: input.systemId.trim().toUpperCase(),
+    host: input.host?.trim() || null,
+    adtUrl: trimmedAdtUrl
+  });
+  const duplicate = systems.find((s) => dedupeKey(s) === candidateKey);
+  if (duplicate) {
+    throw new Error(`Bu sistem zaten ekli: ${duplicate.name} (${duplicate.systemId})`);
+  }
   const system: ManualSystem = {
     id: randomUUID(),
     name: input.name.trim(),

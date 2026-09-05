@@ -17,6 +17,7 @@ import {
   Network,
   Loader2,
   Circle,
+  Link2,
   NotebookPen,
   type LucideIcon
 } from "lucide-react";
@@ -137,12 +138,12 @@ function ActionCard({
           borderHover: "rgb(var(--accent-500-rgb) / 0.6)"
         }
       : {
-          bg: "rgba(169, 122, 63, 0.1)",
-          bgHover: "rgba(169, 122, 63, 0.18)",
-          iconBg: "rgba(169, 122, 63, 0.25)",
-          text: "#d9a566",
-          border: "rgba(169, 122, 63, 0.35)",
-          borderHover: "rgba(169, 122, 63, 0.6)"
+          bg: "rgb(var(--action-amber-rgb) / 0.1)",
+          bgHover: "rgb(var(--action-amber-rgb) / 0.18)",
+          iconBg: "rgb(var(--action-amber-rgb) / 0.25)",
+          text: "var(--action-amber-text)",
+          border: "rgb(var(--action-amber-rgb) / 0.35)",
+          borderHover: "rgb(var(--action-amber-rgb) / 0.6)"
         };
   return (
     <button
@@ -194,25 +195,70 @@ export default function SystemPanel({
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentSaved, setCommentSaved] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Kaydedilmemiş yorum taslakları, sistem uuid'i başına. Kullanıcı yazarken
+  // ağaçtan başka bir sisteme tıklarsa o metin HENÜZ diskte değil, sadece
+  // `comment` state'inde duruyor — aşağıdaki yükleme efekti onu koşulsuz
+  // ezerse yazılan şey sessizce kaybolur, üstelik arayüz tam o sırada
+  // "Kaydedilmemiş değişiklik" rozetini gösterirken. Bu yüzden geçişte taslak
+  // buraya alınıyor ve sisteme geri dönüldüğünde yerine konuyor.
+  const draftsRef = useRef<Map<string, string>>(new Map());
+  // Yükleme efektinin temizlik fonksiyonu çalıştığı anda `comment`/
+  // `originalComment` state'leri hâlâ ESKİ sisteme ait, ama efektin kendi
+  // kapanışı bayat olabilir — o yüzden en güncel değerler bir ref'te
+  // aynalanıyor. Efekt sırası: önce tüm temizlikler, sonra tüm efektler;
+  // yani temizlik okuduğunda bu ref hâlâ eski sistemi gösteriyor.
+  const liveRef = useRef<{ uuid: string; comment: string; original: string } | null>(null);
 
+  // Seçimde erişim kontrolü — ama 30 sn'lik bir pencereyle. App.tsx zaten
+  // açılışta 5 işçilik bir tarama yapıyor; bu efekt onun üstüne biniyordu ve
+  // ağaçta sistemler arasında gezinen kullanıcı her tıklamada yeni bir TCP/
+  // SAProuter bağlantısı açtırıyordu. Durum bilgisi 30 sn'de bir tazelenirse
+  // yeterince güncel; anında sonuç isteyen için hero karttaki yenile düğmesi
+  // var ve o bu penceredan geçmiyor.
+  const lastCheckedRef = useRef<Map<string, number>>(new Map());
   useEffect(() => {
-    if (selection) onCheck(selection.service);
+    if (!selection) return;
+    const uuid = selection.service.uuid;
+    const last = lastCheckedRef.current.get(uuid) ?? 0;
+    if (Date.now() - last < 30_000) return;
+    lastCheckedRef.current.set(uuid, Date.now());
+    onCheck(selection.service);
   }, [selection?.itemUuid]);
 
   useEffect(() => {
     if (!selection) return;
+    liveRef.current = { uuid: selection.service.uuid, comment, original: originalComment };
+  }, [selection?.service.uuid, comment, originalComment]);
+
+  useEffect(() => {
+    if (!selection) return;
+    const uuid = selection.service.uuid;
     let cancelled = false;
     setCommentLoading(true);
     setCommentSaved(false);
-    window.api.getSystemCommentDefault(selection.service.uuid).then((result) => {
-      if (cancelled) return;
-      setComment(result.comment);
-      setOriginalComment(result.comment);
-      setCommentSource(result.source);
-      setCommentLoading(false);
-    });
+    window.api
+      .getSystemCommentDefault(uuid)
+      .then((result) => {
+        if (cancelled) return;
+        const draft = draftsRef.current.get(uuid);
+        // Taslak varsa metin olarak o geri geliyor, ama `originalComment`
+        // diskteki hâl olarak kalıyor — böylece "kaydedilmemiş" rozeti ve
+        // Kaydet butonu doğru şekilde açık kalıyor.
+        setComment(draft ?? result.comment);
+        setOriginalComment(result.comment);
+        setCommentSource(result.source);
+        setCommentLoading(false);
+      })
+      .catch(() => {
+        // Yutulan reddediş `commentLoading`'i sonsuza kadar true bırakıyordu:
+        // yorum kartı hep iskelet hâlinde kalır, kullanıcı sebebini göremezdi.
+        if (cancelled) return;
+        setCommentLoading(false);
+      });
     return () => {
       cancelled = true;
+      const live = liveRef.current;
+      if (live && live.comment !== live.original) draftsRef.current.set(live.uuid, live.comment);
     };
   }, [selection?.itemUuid]);
 
@@ -248,12 +294,32 @@ export default function SystemPanel({
     : undefined;
   const accentBarColor = tier ? TIER_ACCENT[tier].text : "rgb(var(--accent-500-rgb))";
 
-  const address = service.manualAdtUrl ?? `${service.host ?? ""}${service.port ? `:${service.port}` : ""}`;
+  // "Adres" satırı sistemin AĞ kimliğini gösterir: host:port. ADT adresi artık
+  // on-prem sistemlerde de dolabildiği için ikisi aynı satırı paylaşamaz —
+  // paylaşsalardı ADT adresi girilen bir on-prem sistemin host:port'u panelde
+  // hiçbir yerde görünmezdi, üstelik hemen yanındaki "SAP Logon'da Aç" tam da
+  // o gizlenen host:port'a bağlanırdı. Cloud sistemlerde host yok, orada adres
+  // yine ADT URL'i.
+  const address = service.host
+    ? `${service.host}${service.port ? `:${service.port}` : ""}`
+    : (service.manualAdtUrl ?? "");
+  const extraAdtUrl = service.host && service.manualAdtUrl ? service.manualAdtUrl : null;
 
   const handleSaveComment = async () => {
     if (commentSaving || commentLoading) return;
     setCommentSaving(true);
-    await window.api.setSystemComment(service.uuid, comment);
+    try {
+      await window.api.setSystemComment(service.uuid, comment);
+    } catch {
+      // Yazma başarısızsa taslak DURUYOR (silinmiyor) ve `originalComment`
+      // değişmiyor — yani metin ekranda kalıyor, rozet "kaydedilmemiş"
+      // demeye devam ediyor. Eskiden buradaki reddediş `commentSaving`'i
+      // kilitli bırakıp Kaydet butonunu kalıcı olarak devre dışı bırakıyordu.
+      setCommentSaving(false);
+      return;
+    }
+    // Artık diskte — taslağın yaşaması için bir sebep kalmadı.
+    draftsRef.current.delete(service.uuid);
     setOriginalComment(comment);
     setCommentSource("saved");
     setCommentSaving(false);
@@ -413,7 +479,12 @@ export default function SystemPanel({
             tone="accent"
             onClick={() => onConnect(selection)}
           />
-          {!service.manualAdtUrl && service.host && service.port && (
+          {/* Buradaki koşul, main tarafındaki `canOpenInSapLogon` ile AYNI
+              olmak zorunda — ayrışırsa buton ya hiç görünmez ya da görünüp
+              "missingHostOrPort" ile başarısız olur. Cloud testi sadece tipe
+              bakar; ADT adresi girilmiş bir on-prem sistem hâlâ SAP GUI ile
+              açılabilir. */}
+          {service.type !== "BTP/CLOUD" && service.host && service.port && (
             <ActionCard
               icon={LogIn}
               label={t("systemPanel.openInSapLogon")}
@@ -455,6 +526,17 @@ export default function SystemPanel({
                 copyValue={address}
                 copyTitle={t("systemPanel.copyAddress")}
               />
+              {extraAdtUrl && (
+                <InfoRow
+                  icon={Link2}
+                  label={t("systemPanel.adtUrlLabel")}
+                  value={extraAdtUrl}
+                  mono
+                  compact
+                  copyValue={extraAdtUrl}
+                  copyTitle={t("systemPanel.copyAdtUrl")}
+                />
+              )}
               {service.routerString && (
                 <InfoRow
                   icon={RouterIcon}

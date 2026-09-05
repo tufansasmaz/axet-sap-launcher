@@ -1,11 +1,24 @@
-import type { ManualSystem, SapLandscape, SapNode } from "../shared/types";
+import type { AppLanguage, ManualSystem, SapLandscape, SapNode } from "../shared/types";
 
-export function mergeManualSystems(landscape: SapLandscape, manualSystems: ManualSystem[]): SapLandscape {
+// Ağaçtaki TEK çevrilebilir düğüm adı bu — diğer her şey SAPUILandscape.xml'den
+// geliyor ve çevrilmemeli. Metin main tarafında üretiliyor çünkü düğüm de
+// burada üretiliyor; renderer'daki i18n sözlüğünü main'e import etmek React'ı
+// da beraberinde getirirdi. launcher.ts'teki `connectMsg` ile aynı desen.
+const MANUAL_ROOT_NAME: Record<AppLanguage, string> = {
+  tr: "Manuel Eklenen Sistemler",
+  en: "Manually Added Systems"
+};
+
+export function mergeManualSystems(
+  landscape: SapLandscape,
+  manualSystems: ManualSystem[],
+  language: AppLanguage = "tr"
+): SapLandscape {
   if (manualSystems.length === 0) return landscape;
 
   const manualNode: SapNode = {
     uuid: "manual-systems-root",
-    name: "Manuel Eklenen Sistemler",
+    name: MANUAL_ROOT_NAME[language] ?? MANUAL_ROOT_NAME.tr,
     nodes: [],
     items: manualSystems.map((sys) => ({
       uuid: sys.id,

@@ -70,10 +70,19 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
     onClose();
   };
 
+  // DIAG portu: boş bırakılabilir ama yazıldıysa geçerli bir port olmalı.
+  // Eskiden `Number("abc")` → NaN → JSON'a `null` olarak yazılıyordu; kullanıcı
+  // yanlış yazdığını hiç öğrenmiyor, sistem sadece sessizce "erişilemiyor"
+  // oluyordu.
+  const diagPortTrimmed = diagPort.trim();
+  const diagPortValid =
+    diagPortTrimmed.length === 0 ||
+    (/^\d+$/.test(diagPortTrimmed) && Number(diagPortTrimmed) >= 1 && Number(diagPortTrimmed) <= 65535);
+
   const canSubmit =
     name.trim().length > 0 &&
     systemId.trim().length > 0 &&
-    (type === "onprem" ? host.trim().length > 0 : adtUrl.trim().length > 0) &&
+    (type === "onprem" ? host.trim().length > 0 && diagPortValid : adtUrl.trim().length > 0) &&
     !saving;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,8 +96,14 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
         systemId: systemId.trim(),
         type,
         host: type === "onprem" ? host.trim() : null,
-        diagPort: type === "onprem" && diagPort.trim() ? Number(diagPort.trim()) : null,
-        adtUrl: type === "cloud" ? adtUrl.trim() : null
+        diagPort: type === "onprem" && diagPortTrimmed ? Number(diagPortTrimmed) : null,
+        // ADT URL artık on-prem'de de gönderiliyor. Eskiden `type === "cloud"`
+        // koşuluna bağlıydı; bu, ADT adresi bilinen bir on-prem sistemi
+        // (çoğu S/4'te `https://host:44300`) elle girmeyi imkânsız kılıyor ve
+        // kullanıcıyı port keşfine mahkûm ediyordu. Daha kötüsü: cloud olarak
+        // eklenmiş bir sistemi on-prem'e çevirmek kayıtlı URL'i SESSİZCE
+        // siliyordu. Boşsa yine null gider, davranış değişmez.
+        adtUrl: adtUrl.trim() || null
       };
       let resultId: string | null = null;
       if (editing) {
@@ -101,7 +116,11 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
       onAdded(resultId);
       handleClose();
     } catch (err) {
-      setError((err as Error).message);
+      // Electron, main'den fırlayan hatayı "Error invoking remote method
+      // 'x': Error: ..." diye sarıyor. Kullanıcıya gösterilen tek şey bu
+      // kutu olduğu için sarmalayıcıyı soyup gerçek mesajı bırakıyoruz.
+      const raw = (err as Error).message;
+      setError(raw.replace(/^Error invoking remote method '[^']+':\s*(Error:\s*)?/, ""));
     } finally {
       setSaving(false);
     }
@@ -156,10 +175,15 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
         </div>
 
         <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.displayName")}</label>
+        {/* autoFocus sadece kolaylık değil, Escape'in ÇALIŞMASININ şartı:
+            aşağıdaki onKeyDown odaklanamayan bir div'de duruyor, tuş oraya
+            ancak odak modalın içindeyken kabararak ulaşıyor. Odak dışarıdayken
+            Escape hiçbir şey yapmıyordu. */}
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder={t("addSystemModal.displayNamePlaceholder")}
+          autoFocus
           className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
@@ -186,9 +210,26 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               value={diagPort}
               onChange={(e) => setDiagPort(e.target.value)}
               placeholder={t("addSystemModal.diagPortPlaceholder")}
+              inputMode="numeric"
+              className={`mb-1 w-full rounded-sm border bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none ${
+                diagPortValid ? "border-base-600 focus:border-accent-500" : "border-[var(--status-danger-border)]"
+              }`}
+            />
+            {!diagPortValid && (
+              <p className="mb-3 text-xs" style={{ color: "var(--status-danger-text)" }}>
+                {t("addSystemModal.diagPortInvalid")}
+              </p>
+            )}
+            <p className="mb-4 mt-3 text-xs text-slate-500">{t("addSystemModal.diagHelper")}</p>
+
+            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.adtUrlOnprem")}</label>
+            <input
+              value={adtUrl}
+              onChange={(e) => setAdtUrl(e.target.value)}
+              placeholder={t("addSystemModal.adtUrlOnpremPlaceholder")}
               className="mb-4 w-full rounded-sm border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
-            <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.diagHelper")}</p>
+            <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.adtUrlOnpremHelper")}</p>
           </>
         ) : (
           <>

@@ -426,7 +426,14 @@ export function canOpenInSapLogon(service: SapService): boolean {
   // Cloud/BTP sistemlerde DIAG/SAP GUI protokolü yok (SAML SSO/HTTPS'ten
   // erişilir) — bu buton sadece host+DIAG port bilgisi olan (SAP Logon'dan
   // gelen veya manuel On-Premise) sistemlerde anlamlı.
-  return Boolean(!service.manualAdtUrl && service.host && service.port);
+  //
+  // Cloud testi SADECE tipe bakıyor. Eskiden `manualAdtUrl` varlığı da cloud
+  // sayılıyordu; on-prem sistemlere de ADT adresi girilebildiğinden bu artık
+  // YANLIŞ olurdu — host+port'u olan bir on-prem sisteme ADT adresi girilir
+  // girilmez "SAP Logon'da Aç" sessizce kaybolurdu. Aynı düzeltme
+  // `launcher.ts`teki `isCloudSystem` için de yapıldı; ikisi aynı kural.
+  // Görünürlük tarafındaki ikizi: `SystemPanel.tsx`.
+  return Boolean(service.type !== "BTP/CLOUD" && service.host && service.port);
 }
 
 export function openInSapLogon(service: SapService, sapShcutOverride?: string | null): SapLogonOpenResult {
