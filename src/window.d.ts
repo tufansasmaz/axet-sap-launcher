@@ -151,6 +151,11 @@ export interface AxetApi {
     customText?: string
   ) => Promise<boolean>;
   closeChatSession: (chatId: string) => Promise<void>;
+  /**
+   * Ajanın hafızasını geri sarar (axet-code'da yeni oturum), süreci kapatmadan.
+   * `false` = sıfırlanacak ayakta oturum yoktu.
+   */
+  resetChatHistory: (chatId: string) => Promise<boolean>;
   prewarmChat: (
     cwd: string,
     model: AxetModelEntry | null,

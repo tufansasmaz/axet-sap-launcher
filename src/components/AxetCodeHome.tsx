@@ -1035,14 +1035,19 @@ export default function AxetCodeHome({
   // Kesilen kuyruk artık GERİ ALINABİLİR (`editUndo`): kesme kalıcıydı ve
   // uyarısızdı, yani yanlış mesajın kalemine basmak yarım sohbeti siliyordu.
   //
-  // BİLİNEN SINIR — düzeltilmemiş ve düzeltilmesi ucuz değil: kesme yalnızca
-  // BİZİM listemizi kısaltıyor. Arkadaki axet-code oturumu tüm geçmişi
-  // hatırlamaya devam ediyor (kalıcı TUI, bkz. axetChatTui.ts), yani ajan hem
-  // eski hem düzeltilmiş soruyu görüyor. Gerçek bir geri sarma için oturumu
-  // kapatıp geçmişi yeniden tohumlamak gerekir.
+  // AJANIN HAFIZASI DA GERİ SARILIYOR. Eskiden kesme yalnızca BİZİM listemizi
+  // kısaltıyordu: arkadaki axet-code oturumu tüm geçmişi hatırlamaya devam
+  // ettiği için ajan hem eski hem düzeltilmiş soruyu görüyordu — yani
+  // dallandırma sadece ekranda oluyordu. `resetChatHistory` axet-code'da yeni
+  // bir oturum açıyor (süreç kapanmıyor), sonraki gönderim de geçmişi
+  // KISALTILMIŞ hâliyle yeniden tohumluyor (bkz. axetChatTui.ts `seeded`).
+  //
+  // Ateşle-unut: başarısız olursa eski davranışa düşülüyor, düzenleme yine de
+  // çalışıyor. Kullanıcının kalemine bastığı an bloke olması bundan kötü.
   const handleEditMessage = useCallback(
     (messageId: string, content: string) => {
       if (!activeId) return;
+      window.api.resetChatHistory(activeId).catch(() => {});
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id !== activeId) return s;
@@ -1076,6 +1081,10 @@ export default function AxetCodeHome({
   // Düzenlemeyi geri al: kesilen kuyruk ve composer'ın eski hâli birlikte
   // dönüyor. Ayrı ayrı dönselerdi, düzenlenmek üzere kutuya konan metin
   // kutuda kalır ve aynı mesaj iki yerde görünürdü.
+  //
+  // Sıfırlanan ajan hafızası GERİ ALINMIYOR — alınamaz da. Ama kayıp değil:
+  // oturum tohumlanmamış durumda kaldığı için sonraki gönderim geçmişi
+  // yeniden yazıyor ve o geçmiş, geri alınmış (yani TAM) liste oluyor.
   const handleUndoEdit = useCallback(() => {
     if (!activeId) return;
     setSessions((prev) =>
@@ -1093,8 +1102,11 @@ export default function AxetCodeHome({
     );
   }, [activeId]);
 
-  // Son cevabı at, AYNI istemi yeniden çalıştır. `axet-code run` stateless
-  // olduğu için bu, gerçekten yeni bir çağrı — önbellekten dönen bir şey yok.
+  // Son cevabı at, AYNI istemi yeniden çalıştır.
+  //
+  // Ajanın hafızası da geri sarılıyor. Kalıcı TUI'de bu şart: sarılmazsa ajan
+  // az önceki cevabını hatırlıyor ve "yeniden üret" bir tekrar değil, kendi
+  // cevabının üstüne konuşma oluyor — kullanıcının istediği şeyin tersi.
   const handleRegenerate = useCallback(async () => {
     if (!activeId) return;
     const session = sessions.find((s) => s.id === activeId);
@@ -1116,6 +1128,12 @@ export default function AxetCodeHome({
     setSessions((prev) =>
       prev.map((s) => (s.id === activeId ? { ...s, messages: msgs.slice(0, lastIndex) } : s))
     );
+    // BEKLENİYOR ama beklediği şey sıfırlamanın BİTMESİ değil, BAŞLAMASI:
+    // çağrı, palet tuşu yazılır yazılmaz dönüyor. Tuşlar ile istem arasındaki
+    // ~1,6 saniyelik payı ana süreç tutuyor (bkz. axetChatTui.ts `resetting`).
+    // Buradaki await'in işi sıralama: sıfırlama IPC'si gönderim IPC'sinden
+    // sonra varsa palet, istem gittikten SONRA açılırdı.
+    await window.api.resetChatHistory(activeId).catch(() => false);
     await runPrompt(activeId, prompt, historyForCall, session.model, session.cwd);
   }, [activeId, runPrompt, sessions]);
 

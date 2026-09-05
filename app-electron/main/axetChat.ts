@@ -18,6 +18,7 @@ import {
   closeAllTuiSessions,
   closeTuiSession,
   prewarmTui,
+  resetTuiHistory,
   sendViaTui,
   tuiBusy,
   tuiUnavailableReason
@@ -752,6 +753,17 @@ export function answerChatQuestion(requestId: string, optionIndex: number, custo
 /** Bir sohbet silindiğinde/kapatıldığında onun TUI oturumunu da bırak. */
 export function closeChatSession(chatId: string): void {
   closeTuiSession(chatId);
+}
+
+/**
+ * Sohbeti DALLANDIR: ajanın hafızasını sıfırla, süreci kapatmadan.
+ *
+ * Arayüz bunu mesaj düzenlendiğinde ve cevap yeniden üretildiğinde çağırıyor.
+ * `false` dönmesi hata değil: ayakta bir TUI oturumu yoksa sıfırlanacak bir
+ * hafıza da yok, sonraki gönderim zaten sıfırdan başlıyor.
+ */
+export function resetChatHistory(chatId: string): boolean {
+  return resetTuiHistory(chatId);
 }
 
 export function cancelAllChatMessages(): void {

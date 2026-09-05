@@ -170,6 +170,16 @@ interface TuiSession {
   cancelled: boolean;
   /** Bu oturuma daha önce mesaj gönderildi mi (geçmiş tohumlaması gerekiyor mu). */
   seeded: boolean;
+  /**
+   * Süren geçmiş sıfırlama (`resetTuiHistory`) — bitene kadar İSTEM YAZILMAZ.
+   *
+   * Sıfırlama iki tuş: `ctrl+p` ile palet, kısa bir bekleme, sonra `enter`.
+   * O aralıkta gönderilen bir istem paletin FİLTRE kutusuna düşerdi — mesaj
+   * hiç yola çıkmaz, tur zaman aşımına kadar otururdu. Kullanıcı düzenlenen
+   * mesajın hazır gelen metnine hemen Enter'a basabildiği için bu aralık
+   * teorik değil.
+   */
+  resetting: Promise<void> | null;
   lastUsed: number;
   idleTimer: NodeJS.Timeout | null;
   waiters: Waiter[];
@@ -233,6 +243,72 @@ export function closeTuiSession(chatId: string): void {
 export function closeAllTuiSessions(): void {
   for (const chatId of [...sessions.keys()]) disposeSession(chatId);
   closeSessionDbs();
+}
+
+/**
+ * Ajanın HAFIZASINI sıfırlar: axet-code'da yeni bir oturum açar, pty'yi
+ * KAPATMADAN.
+ *
+ * Neden gerekli: kullanıcı bir mesajı düzenleyip yeniden gönderdiğinde bizim
+ * listemiz kısalıyor ama arkadaki oturum her şeyi hatırlamaya devam ediyordu —
+ * ajan hem eski hem düzeltilmiş soruyu görüyordu. Yani "dallandırma" yalnızca
+ * ekranda oluyordu. (Bu, kodda uzun süre "bilinen sınır" diye yazılıydı.)
+ *
+ * ÖLÇÜM (2026-09-05, `.tmp-cmdprobe`): axet-code TUI'nin komut paletinde geri
+ * sarma/undo diye bir komut YOK — tam liste: New Session, Sessions, Switch
+ * Model, Open File Picker, Switch Project, Connectors, Skills, Logout, View
+ * Code Graph, Toggle Help, Add File, Initialize Project, Quit. Hafızayı kesmenin
+ * tek yolu yeni oturum.
+ *
+ * Palet ilk sırada "New Session" açıyor, yani `ctrl+p` + `enter`. Doğrudan
+ * `ctrl+n` DENENDİ ve pty'den tek bayt bile çıkmadı (bağlı değil), o yüzden
+ * palet yolu kullanılıyor.
+ *
+ * Aynı ölçümde iki kısa tur atıldı, arada bu iki tuş: veritabanında İKİ AYRI
+ * oturum oluştu ve bağlayıcılar (17+25 araç) yeniden yüklenmedi — yani pty'yi
+ * kapatıp yeniden kurmanın ~10 saniyelik bedeli ödenmiyor.
+ *
+ * `seeded` false'a çekiliyor: sonraki gönderim geçmişi yeniden tohumluyor ve
+ * arayüz o an KISALTILMIŞ geçmişi veriyor. Dallandırmayı asıl yapan bu.
+ */
+export function resetTuiHistory(chatId: string): boolean {
+  const session = sessions.get(chatId);
+  if (!session || session.exited || session.disposed || !session.ready) return false;
+  if (session.busy) {
+    // Süren bir turun ortasında palet açmak, tuşları o turun kutusuna
+    // göndermek demek. Arayüz zaten tur sırasında düzenlemeye izin vermiyor.
+    console.log("[axetChatTui] gecmis sifirlanmadi, tur suruyor", { chatId });
+    return false;
+  }
+  try {
+    session.proc.write("\x10");
+  } catch {
+    return false;
+  }
+  session.resetting = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      try {
+        if (!session.exited && !session.disposed) session.proc.write("\r");
+      } catch {
+        // Süreç gitmişse sıfırlanacak bir şey de kalmadı.
+      }
+      // Enter'dan sonra da bir pay: palet kapanıp sohbet kutusu odağı geri
+      // alana kadar yazılan istem yine yanlış yere düşerdi.
+      setTimeout(() => {
+        session.resetting = null;
+        resolve();
+      }, 700);
+    }, 900);
+  });
+  session.axetSessionId = null;
+  session.seeded = false;
+  session.pendingAsk = null;
+  session.screen = "";
+  // Oturum eşleşmesinin alt sınırı da ileri alınıyor: yeni oturum bu andan
+  // sonra doğacak ve eski oturum artık aday olmamalı.
+  session.spawnedAt = Math.floor(Date.now() / 1000);
+  console.log("[axetChatTui] gecmis sifirlandi (yeni axet-code oturumu)", { chatId });
+  return true;
 }
 
 function evictIfNeeded(): void {
@@ -396,6 +472,7 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     exited: false,
     cancelled: false,
     seeded: false,
+    resetting: null,
     lastUsed: Date.now(),
     idleTimer: null,
     waiters: [],
@@ -629,9 +706,9 @@ function stripResultWrapper(body: string): string {
 }
 
 /**
- * TUI'nin KENDİ menülerini açan iki karakteri zararsızlaştırır.
+ * TUI'nin KENDİ menülerini açan ÜÇ karakteri zararsızlaştırır.
  *
- * İkisi de aynı sonuca çıkıyor: menü açıkken Enter GÖNDERMİYOR, menüdeki
+ * Üçü de aynı sonuca çıkıyor: menü açıkken Enter GÖNDERMİYOR, menüdeki
  * seçimi uyguluyor — yani mesaj hiç yola çıkmıyor ve tur, kimse bir şey
  * beklemezken 5 dakikalık zaman aşımına kadar oturuyor. Ölçümler 2026-09-05,
  * geçici pty spike'ları:
@@ -655,13 +732,31 @@ function stripResultWrapper(body: string): string {
  * `/` yalnızca metnin EN BAŞINDA korunuyor: palet giriş kutusu BOŞKEN açılıyor,
  * sonraki satırların başındaki `/` (ctrl+j ile satır atlanmış oluyor) menüyü
  * açmıyor.
+ *
+ * ÜÇÜNCÜSÜ SONRADAN BULUNDU (2026-09-05): TUI'nin kendi yardım listesi
+ * (`ctrl+g`) `% use skill` diyor — yani `%` de bir menü açıyor ve buradaki
+ * koruma onu tanımıyordu. Ölçüm (tuş-only pty):
+ *
+ *     `100% emin misin`  → menü YOK      `%50 indirim var` → menü YOK
+ *     `indirim %50`      → menü YOK      `indirim %`       → MENÜ AÇILDI
+ *                                         (`axet-sap-launcher-knowledge …`)
+ *
+ * Yani tetikleyici `@` ile aynı: satırın SONUNDA, boşlukla başlayan bir
+ * `%<parça>`. Yüzde işaretinin bir sayıya yapıştığı hâl (`100%`) tetiklemiyor,
+ * o yüzden `(^|\s)` şartı korunuyor — normal Türkçe metinde `%` çoğunlukla
+ * sayıya bitişik yazılıyor ve o cümleler bozulmadan geçmeli.
+ *
+ * Parça UZUNLUĞU `+` değil `*`: ölçümde satır sonundaki YALNIZ `%` de menüyü
+ * açtı, yani "en az bir karakter" şartı yanlıştı.
  */
+const MENU_TAIL = /(^|\s)[@%][^\s@%]*$/;
+
 function escapeTuiMenus(text: string): string {
   const guarded = text.startsWith("/") ? ` ${text}` : text;
-  if (!guarded.includes("@")) return guarded;
+  if (!/[@%]/.test(guarded)) return guarded;
   return guarded
     .split("\n")
-    .map((line) => (/(^|\s)@[^\s@]+$/.test(line) ? `${line} ` : line))
+    .map((line) => (MENU_TAIL.test(line) ? `${line} ` : line))
     .join("\n");
 }
 
@@ -958,6 +1053,9 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
   session.cancelled = false;
   touch(session);
   args.onActivity({ phase: "thinking" });
+  // Geçmiş sıfırlaması sürüyorsa BİTMESİNİ bekle: aradaki tuşlar paletin
+  // filtre kutusuna gider ve istem hiç yola çıkmazdı (bkz. `resetting`).
+  if (session.resetting) await session.resetting;
 
   try {
     const sinceSec = Math.max(0, Math.min(latestMessageTime(session.dbPath), Math.floor(Date.now() / 1000)) - 2);

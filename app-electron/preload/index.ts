@@ -178,6 +178,8 @@ const api = {
   answerChatQuestion: (requestId: string, optionIndex: number, customText?: string): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex, customText),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
+  resetChatHistory: (chatId: string): Promise<boolean> =>
+    ipcRenderer.invoke("axetChat:resetHistory", chatId),
   // Kullanıcı yazmaya başlayınca: oturumu/süreci şimdiden açtır. Sonucu YOK,
   // beklemek de gerekmiyor — kazanç tamamen zamanlamada.
   // `draft` = o an yazılmakta olan metin. Bağlayıcıların ısıtma sırasında

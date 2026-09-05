@@ -25,7 +25,8 @@ import {
   cancelChatMessage,
   cancelAllChatMessages,
   closeChatSession,
-  prewarmChat
+  prewarmChat,
+  resetChatHistory
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
@@ -736,6 +737,9 @@ function registerIpc(): void {
   ipcMain.handle("axetChat:closeSession", (_event, chatId: string) => {
     closeChatSession(chatId);
   });
+  // Mesaj düzenlendiğinde/cevap yeniden üretildiğinde ajanın hafızasını da
+  // geri sar — yoksa dallandırma yalnızca ekranda olur.
+  ipcMain.handle("axetChat:resetHistory", (_event, chatId: string) => resetChatHistory(chatId));
   // Kullanıcı yazmaya başlayınca çağrılıyor: oturum/süreç şimdiden açılıyor
   // (ölçüm ve gerekçe: axetChat.ts). Ateşle-unut — ısıtma başarısız olursa
   // asıl gönderim yine de çalışıyor.
