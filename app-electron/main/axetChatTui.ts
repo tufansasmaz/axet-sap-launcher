@@ -80,6 +80,22 @@ const MARK_READY = [
 ];
 
 /**
+ * Komut paletinin (`ctrl+p`) AÇILDIĞINI gösteren işaretler.
+ *
+ * Paletin ilk satırı "New Session" ve `resetTuiHistory`'nin bastığı Enter tam
+ * olarak onu seçiyor; aranan da o satırın kendisi. İkinci işaret yedek: bir
+ * sürümde ilk satırın adı değişirse tek işaret sessizce körleşirdi.
+ *
+ * Ekran tamponu aramadan HEMEN ÖNCE temizleniyor (bkz. `resetTuiHistory`),
+ * yoksa bu metinler ajanın kendi cevabından da geliyor olabilirdi — bu kılıfın
+ * kendisi hakkında konuşan bir sohbette hiç de uzak bir ihtimal değil.
+ */
+const MARK_PALETTE = "New Session";
+const MARK_PALETTE_ALT = "Initialize Project";
+/** Paletin açılması için tavan; dolarsa sıfırlama YAPILMIYOR. */
+const PALETTE_OPEN_MS = 3_000;
+
+/**
  * Bağlayıcıların YÜKLENDİĞİNİ gösteren satır: `● test123 25 tools`.
  *
  * "model changed to" HAZIR demek DEĞİL — yalnızca modelin seçildiği demek.
@@ -270,6 +286,13 @@ export function closeAllTuiSessions(): void {
  *
  * `seeded` false'a çekiliyor: sonraki gönderim geçmişi yeniden tohumluyor ve
  * arayüz o an KISALTILMIŞ geçmişi veriyor. Dallandırmayı asıl yapan bu.
+ *
+ * ENTER KÖRLEMESİNE BASILMIYOR. Paletin ilk satırı "New Session", ama son
+ * satırı "Quit" ve arada "Logout" var: palet AÇILMADIYSA (ctrl+p yutuldu, ekran
+ * başka bir şeyle meşgul) o Enter'ın nereye gideceğini bilmiyoruz. Bu yüzden
+ * önce paletin açıldığı EKRANDAN doğrulanıyor; açılmadıysa esc ile toparlanıp
+ * hafıza olduğu gibi bırakılıyor — yanlış dallanmış bir sohbet, dallanmamış bir
+ * sohbetten çok daha pahalı.
  */
 export function resetTuiHistory(chatId: string): boolean {
   const session = sessions.get(chatId);
@@ -280,34 +303,51 @@ export function resetTuiHistory(chatId: string): boolean {
     console.log("[axetChatTui] gecmis sifirlanmadi, tur suruyor", { chatId });
     return false;
   }
+  // Tampon ÖNCE temizleniyor: `waitForAny` 64 KB'lik birikmiş çıktıda da arıyor
+  // ve "New Session" oraya daha önce (başka bir palet açılışında) düşmüş
+  // olabilirdi — o zaman doğrulama, hiç açılmamış bir paleti açık sayardı.
+  session.screen = "";
   try {
     session.proc.write("\x10");
   } catch {
     return false;
   }
-  session.resetting = new Promise<void>((resolve) => {
-    setTimeout(() => {
+  session.resetting = (async () => {
+    const opened = await waitForAny(session, [MARK_PALETTE, MARK_PALETTE_ALT], PALETTE_OPEN_MS);
+    if (!opened) {
+      // Açılmadı: Enter'ı yeme, esc ile ekranı bilinen bir hâle getir.
       try {
-        if (!session.exited && !session.disposed) session.proc.write("\r");
+        if (!session.exited && !session.disposed) session.proc.write("\x1b");
       } catch {
-        // Süreç gitmişse sıfırlanacak bir şey de kalmadı.
+        // Süreç gitmişse toparlanacak bir şey de yok.
       }
-      // Enter'dan sonra da bir pay: palet kapanıp sohbet kutusu odağı geri
-      // alana kadar yazılan istem yine yanlış yere düşerdi.
-      setTimeout(() => {
-        session.resetting = null;
-        resolve();
-      }, 700);
-    }, 900);
-  });
-  session.axetSessionId = null;
-  session.seeded = false;
-  session.pendingAsk = null;
-  session.screen = "";
-  // Oturum eşleşmesinin alt sınırı da ileri alınıyor: yeni oturum bu andan
-  // sonra doğacak ve eski oturum artık aday olmamalı.
-  session.spawnedAt = Math.floor(Date.now() / 1000);
-  console.log("[axetChatTui] gecmis sifirlandi (yeni axet-code oturumu)", { chatId });
+      // Oturum duruyor, ama en azından geçmiş yeniden TOHUMLANSIN: sonraki
+      // istem, kısaltılmış konuşmayı açıkça yazıp "yalnızca son mesaja cevap
+      // ver" diyen uzun biçime düşüyor. Ajan eski dalı hâlâ hatırlıyor, fakat
+      // hangi geçmişin geçerli olduğu artık istemde yazılı. Bir büyük istemin
+      // bedeli, sessizce yanlış dala cevap vermekten ucuz.
+      session.seeded = false;
+      console.log("[axetChatTui] gecmis SIFIRLANAMADI, palet acilmadi", { chatId });
+      session.resetting = null;
+      return;
+    }
+    try {
+      if (!session.exited && !session.disposed) session.proc.write("\r");
+    } catch {
+      // Süreç gitmişse sıfırlanacak bir şey de kalmadı.
+    }
+    session.axetSessionId = null;
+    session.seeded = false;
+    session.pendingAsk = null;
+    // Oturum eşleşmesinin alt sınırı da ileri alınıyor: yeni oturum bu andan
+    // sonra doğacak ve eski oturum artık aday olmamalı.
+    session.spawnedAt = Math.floor(Date.now() / 1000);
+    console.log("[axetChatTui] gecmis sifirlandi (yeni axet-code oturumu)", { chatId });
+    // Enter'dan sonra da bir pay: palet kapanıp sohbet kutusu odağı geri alana
+    // kadar yazılan istem yine yanlış yere düşerdi.
+    await new Promise((r) => setTimeout(r, 700));
+    session.resetting = null;
+  })();
   return true;
 }
 
