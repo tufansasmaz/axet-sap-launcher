@@ -11,7 +11,8 @@ import {
   Search,
   Pencil,
   Download,
-  Trash2
+  Trash2,
+  Keyboard
 } from "lucide-react";
 import type {
   ActiveSapContext,
@@ -283,6 +284,25 @@ const SUGGESTION_POOL: readonly { key: string; scope: SuggestionScope }[] = [
 
 const SUGGESTION_COUNT = 3;
 
+/**
+ * Ctrl+/ ile açılan listede gösterilen kısayollar.
+ *
+ * Liste ELLE tutuluyor, kısayolları bağlayan koddan türetilmiyor: bağlar üç
+ * ayrı yerde (burada, ChatSessionPane'de, composer'da) ve türetmeye çalışmak
+ * onları tek bir yere toplamayı gerektirirdi. Bedeli: yeni bir kısayol
+ * eklerken bu listeye de yazmak.
+ */
+const SHORTCUTS = [
+  ["Ctrl+N", "axetCodeHome.shortcutNewChat"],
+  ["Ctrl+↑ / Ctrl+↓", "axetCodeHome.shortcutSwitchChat"],
+  ["Ctrl+F", "axetCodeHome.shortcutFind"],
+  ["Esc", "axetCodeHome.shortcutStop"],
+  ["↑", "axetCodeHome.shortcutEditLast"],
+  ["Enter", "axetCodeHome.shortcutSend"],
+  ["Shift+Enter", "axetCodeHome.shortcutNewline"],
+  ["Ctrl+/", "axetCodeHome.shortcutHelp"]
+] as const;
+
 // Tohumlanmış karıştırma (mulberry32). Düz `Math.random()` kullanılmıyor,
 // çünkü seçim bir `useMemo` içinde yapılıyor: React aynı bağımlılıklarla
 // gövdeyi tekrar çalıştırabildiği (StrictMode çift render, yeniden render)
@@ -400,6 +420,9 @@ export default function AxetCodeHome({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  // Kısayol listesi (Ctrl+/). Kısayollar keşfedilemezse yok sayılır; TUI'nin
+  // kendi karşılığı ctrl+g ile açılan yardım şeridi.
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // Kenar çubuğu daraltılabilir (Gemini deseni). Kapalıyken tamamen
   // kaybolmuyor, ikon şeridine iniyor — "yeni sohbet" ve geri açma düğmesi
   // her zaman elin altında kalsın diye.
@@ -1520,6 +1543,57 @@ export default function AxetCodeHome({
     );
   }, [normalizedQuery, orderedSessions]);
 
+  // Klavye kısayolları. Ctrl+N (yeni sohbet) yukarıda, sohbet İÇİ arama (Ctrl+F)
+  // ChatSessionPane'de — buradakiler sohbetler ARASI olanlar.
+  //
+  // `orderedSessions`'a bağlı olduğu için bilinçli olarak BURADA duruyor,
+  // yukarıdaki efektlerin yanında değil: `const` bir liste kendinden önceki bir
+  // efektin bağımlılığı olamaz (TDZ) ve tsc bunu YAKALAMIYOR.
+  //
+  // Esc'in bir metin kutusundayken de çalışması bilinçli: kullanıcının
+  // "durdur" demek isteyeceği an, çoğunlukla bir sonraki mesajı yazmaya
+  // başladığı andır. Yerel bir Esc anlamı olan yerler (bahis menüsü, soru
+  // kartındaki serbest metin) olayı kendileri yutuyor.
+  useEffect(() => {
+    if (!active) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      const session = activeId ? sessions.find((s) => s.id === activeId) ?? null : null;
+      // Liste açıkken Esc ÖNCE listeyi kapatır — arkada bir tur sürüyorsa
+      // yardım kutusunu kapatmak isterken cevabı iptal etmiş olmayalım.
+      if (e.key === "Escape" && shortcutsOpen) {
+        e.preventDefault();
+        setShortcutsOpen(false);
+        return;
+      }
+      if (e.key === "Escape" && session?.pending && session.requestId) {
+        e.preventDefault();
+        window.api.cancelChatMessage(session.requestId).catch(() => {});
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        if (orderedSessions.length === 0) return;
+        e.preventDefault();
+        const at = orderedSessions.findIndex((s) => s.id === activeId);
+        // Sohbet listesi açıkken (activeId yok) ilk/son sohbete giriliyor.
+        const next =
+          at < 0
+            ? e.key === "ArrowDown"
+              ? 0
+              : orderedSessions.length - 1
+            : (at + (e.key === "ArrowDown" ? 1 : -1) + orderedSessions.length) % orderedSessions.length;
+        setActiveId(orderedSessions[next].id);
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+        e.preventDefault();
+        setShortcutsOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [active, activeId, orderedSessions, sessions, shortcutsOpen]);
+
   const deleteTarget = deleteId ? sessions.find((s) => s.id === deleteId) ?? null : null;
 
   // Sohbete özel klasörü olmayan sohbetlerin kökü/çalışma klasörü.
@@ -1702,8 +1776,13 @@ export default function AxetCodeHome({
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
                   // Escape metni temizliyor. Kutu artık kapanmadığı için
-                  // "boşsa kapat" dalı da yok.
-                  if (e.key === "Escape") setQuery("");
+                  // "boşsa kapat" dalı da yok. `preventDefault` şart: Escape
+                  // artık süren turu da durduruyor (pencere düzeyinde), aramayı
+                  // temizlerken cevabı iptal etmek istemiyoruz.
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setQuery("");
+                  }
                 }}
                 placeholder={t("axetCodeHome.searchPlaceholder")}
                 title={t("axetCodeHome.searchTitle")}
@@ -1719,6 +1798,19 @@ export default function AxetCodeHome({
                 </button>
               )}
             </div>
+          )}
+          {/* Kısayol listesinin GÖRÜNÜR kapısı. Ctrl+/ tek başına keşfedilemez
+              bir kısayol: bilmeyen kimse denemez. Daralmış şeritte çizilmiyor,
+              çünkü 60px'e iki düğme sığmıyor ve daraltma düğmesinin `mx-auto`
+              ortalaması bozulurdu. */}
+          {sidebarOpen && (
+            <button
+              onClick={() => setShortcutsOpen(true)}
+              title={t("axetCodeHome.shortcutsTitle")}
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+            >
+              <Keyboard size={16} />
+            </button>
           )}
           <button
             onClick={() => {
@@ -1970,6 +2062,30 @@ export default function AxetCodeHome({
         onClose={() => setInstructionsCwd(null)}
         onSaved={handleInstructionsSaved}
       />
+
+      {shortcutsOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-6"
+          onClick={() => setShortcutsOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-xl border border-base-700 bg-base-900 p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="mb-3 text-sm font-semibold text-slate-200">
+              {t("axetCodeHome.shortcutsTitle")}
+            </h3>
+            <dl className="flex flex-col gap-1.5">
+              {SHORTCUTS.map(([keys, labelKey]) => (
+                <div key={keys} className="flex items-center justify-between gap-4">
+                  <dt className="text-[12.5px] text-slate-400">{t(labelKey)}</dt>
+                  <dd className="shrink-0 font-mono text-[11px] text-slate-300">{keys}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

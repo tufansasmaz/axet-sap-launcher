@@ -167,6 +167,16 @@ export const tr = {
   "axetCodeHome.askUserFallback": "Devam etmek için bir tercihine ihtiyacım var.",
   "axetCodeHome.askUserCustom": "Kendim yazayım",
   "axetCodeHome.askUserCustomPlaceholder": "Cevabını yaz ve Enter'a bas",
+  // Ctrl+/ ile açılan kısayol listesi.
+  "axetCodeHome.shortcutsTitle": "Klavye kısayolları",
+  "axetCodeHome.shortcutNewChat": "Yeni sohbet",
+  "axetCodeHome.shortcutSwitchChat": "Önceki / sonraki sohbet",
+  "axetCodeHome.shortcutFind": "Sohbette ara",
+  "axetCodeHome.shortcutStop": "Süren turu durdur",
+  "axetCodeHome.shortcutEditLast": "Son mesajını düzenle (kutu boşken)",
+  "axetCodeHome.shortcutSend": "Gönder",
+  "axetCodeHome.shortcutNewline": "Alt satıra geç",
+  "axetCodeHome.shortcutHelp": "Bu listeyi aç/kapat",
   "axetCodeHome.phaseFinishing": "Tamamlanıyor",
   "axetCodeHome.phaseElapsed": "{seconds} sn",
   // Kaçıncı araç adımında olunduğu. Biten adımlar ekranda birikmiyor (gösterge

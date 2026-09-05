@@ -939,6 +939,21 @@ export default function ChatSessionPane({
                         return;
                       }
                     }
+                    // Kutu BOŞKEN yukarı ok = son mesajı düzenle. Boşluk şartı
+                    // pazarlık dışı: taslak varken ↑ imleci satır başına taşır
+                    // ve çok satırlı bir metinde gezinmek imkânsızlaşırdı.
+                    // Düzenleme kipi taslağı doldurduğu için ikinci bir ↑ zaten
+                    // bu dala girmiyor — yani art arda basıp geçmişte geri geri
+                    // yürünmüyor; kasıtlı, çünkü ajanın hafızası da o mesaja
+                    // kadar geri sarılıyor (bkz. AxetCodeHome `handleEditMessage`).
+                    if (e.key === "ArrowUp" && !e.shiftKey && session.draft === "" && !session.pending) {
+                      const last = [...session.messages].reverse().find((m) => m.role === "user");
+                      if (last) {
+                        e.preventDefault();
+                        onEditMessage(last.id, last.content);
+                        return;
+                      }
+                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       onSend();
