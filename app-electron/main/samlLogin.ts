@@ -64,6 +64,32 @@ const SILENT_GRACE_MS = 6000;
 // gerekebiliyor.
 const INTERACTIVE_TIMEOUT_MS = 180000;
 const POLL_INTERVAL_MS = 500;
+// Sayfa yüklenmeye devam ettiği sürece pencere gizli tutuluyor; bu, o
+// beklemenin üst sınırı. Yoksa bitmeyen bir yükleme (yavaş IdP, takılmış
+// istek) pencereyi hiç açmaz ve kullanıcı ne olduğunu göremezdi.
+const MAX_SILENT_MS = 20000;
+// İzole dünya kimliği. 0 = ana dünya, 999 = Electron'un preload'u; çakışmayan
+// bir sayı seçiliyor.
+const AUTOFILL_WORLD_ID = 4181;
+
+// Tanılama. Bu akışın tamamı görünmez bir pencerede geçiyor ve tutmadığında
+// kullanıcının elinde hiçbir ipucu olmuyordu — ilk hata raporu ("çalışmıyor")
+// tam olarak böyle geldi. Parola ASLA basılmıyor.
+function log(message: string): void {
+  console.log(`[saml] ${message}`);
+}
+
+function frameLabel(frame: Electron.WebFrameMain): string {
+  let url = "";
+  try {
+    url = frame.url;
+  } catch {
+    return "çerçeve";
+  }
+  // Sorgu dizesi atılıyor: SAMLRequest/state parametreleri satırları
+  // okunamaz hâle getiriyor ve tanılamaya bir şey katmıyor.
+  return url.split("?")[0] || "çerçeve";
+}
 
 // Oturumun gerçekten açıldığının kanıtı. Yalnızca "çerez var mı" demek
 // yetmiyor: IdP'ye yönlendiren ilk istek de çerez bırakıyor, o hâlde
@@ -125,8 +151,19 @@ function toJar(cookies: Cookie[], baseUrl: string, username: string): SamlCookie
 
 // Kullanıcı adı adımı + parola adımı + biraz pay. Bunun ötesi "form
 // gönderiliyor ama sayfa hep geri geliyor" demektir; orada durup pencereyi
-// kullanıcıya göstermek doğrusu.
+// kullanıcıya göstermek doğrusu. Not: PAROLA bundan bağımsız olarak en fazla
+// BİR kez gönderiliyor (`passwordSubmitted`), yani bu sayı hesap kilitleme
+// riskini değil, kullanıcı adı adımlarının sayısını sınırlıyor.
 const MAX_AUTOFILL_SUBMITS = 4;
+
+interface AutofillOutcome {
+  // "password" = parola dolduruldu ve gönderildi; "username" = yalnızca
+  // kullanıcı adı adımı; "nofields" = doldurulacak taze alan yok.
+  outcome: "password" | "username" | "nofields";
+  // Tanılama için: sayfada ne bulundu. Doldurma tutmadığında "alan mı yoktu,
+  // doluydu da mı atlandı, düğme mi bulunamadı" sorusunun cevabı bu.
+  note: string;
+}
 
 function buildAutofillScript(username: string, password: string): string {
   // Kimlik bilgileri JSON.stringify ile gömülüyor — içindeki tırnak/ters bölü
@@ -135,30 +172,50 @@ function buildAutofillScript(username: string, password: string): string {
   const p = JSON.stringify(password);
   return `(() => {
   const visible = (el) => !el.disabled && !el.readOnly && (el.offsetParent !== null || el.getClientRects().length > 0);
-  const fresh = (el) => !el.dataset.axetFilled;
+  // DOLU bir alana asla dokunulmuyor. İki sebep: (1) pencere gösterildikten
+  // sonra da doldurma çalışmaya devam ediyor ve kullanıcı o sırada yazıyor
+  // olabilir — altından değeri değiştirmek en kötü davranış olurdu;
+  // (2) IdP kullanıcı adını hatırlamış olabilir, hatırladığı değer bizimkinden
+  // doğru olabilir.
+  const usable = (el) => visible(el) && !el.dataset.axetFilled && !el.value;
   const setValue = (el, v) => {
+    try { el.focus(); } catch (e) { /* odaklanamıyorsa da değer atanabiliyor */ }
     const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
     if (setter) { setter.call(el, v); } else { el.value = v; }
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
+    // Bazı formlar doğrulamayı blur'da yapıyor ve o çalışmadan gönderimi
+    // reddediyor.
+    el.dispatchEvent(new Event('blur', { bubbles: true }));
     el.dataset.axetFilled = '1';
   };
-  const pw = Array.from(document.querySelectorAll('input[type=password]')).filter(visible).filter(fresh)[0];
-  const userCandidates = Array.from(
+  const allPw = Array.from(document.querySelectorAll('input[type=password]'));
+  const pw = allPw.filter(usable)[0];
+  const allUser = Array.from(
     document.querySelectorAll('input[type=text],input[type=email],input[type=tel],input:not([type])')
-  ).filter(visible).filter(fresh).filter((el) => {
+  ).filter((el) => {
     const hay = ((el.name || '') + (el.id || '') + (el.getAttribute('aria-label') || '') + (el.getAttribute('autocomplete') || '')).toLowerCase();
     // Arama kutusu, OTP/doğrulama kodu alanı kullanıcı adı DEĞİLDİR.
     return !/search|otp|code|token|captcha|pin/.test(hay);
   });
-  const user = userCandidates[0];
-  if (!pw && !user) return 'nofields';
+  const user = allUser.filter(usable)[0];
+  if (!pw && !user) {
+    return { outcome: 'nofields', note: 'pw=' + allPw.length + ' user=' + allUser.length + ' (taze/boş yok)' };
+  }
   if (user) setValue(user, ${u});
   if (pw) setValue(pw, ${p});
   const anchor = pw || user;
   const form = anchor.form;
   const scope = form || document;
-  const btn = scope.querySelector('button[type=submit],input[type=submit],button:not([type])');
+  // "İptal"/"Geri"/"Parolamı unuttum" bir gönderim düğmesi DEĞİL. Eskiden
+  // seçici ilk eşleşeni alıyordu; DOM'da önce duran bir iptal düğmesi akışı
+  // sessizce geri sarardı.
+  const negative = /cancel|iptal|back|geri|vazge|forgot|unut|reset|help|yardım|other|başka/i;
+  const pick = (sel) => Array.from(scope.querySelectorAll(sel)).filter(visible).filter((b) => {
+    const hay = (b.textContent || '') + ' ' + (b.value || '') + ' ' + (b.id || '') + ' ' + (b.name || '') + ' ' + (b.getAttribute('aria-label') || '');
+    return !negative.test(hay);
+  });
+  const btn = pick('button[type=submit],input[type=submit]')[0] || pick('button:not([type]),input[type=button]')[0];
   // Kısa gecikme: framework'ün state'i işlemesine zaman tanıyor, yoksa bazı
   // sayfalar hâlâ boş sanıp gönderimi reddediyor.
   setTimeout(() => {
@@ -167,7 +224,10 @@ function buildAutofillScript(username: string, password: string): string {
       else if (form) { form.requestSubmit ? form.requestSubmit() : form.submit(); }
     } catch (e) { /* gönderim başarısızsa pencere kullanıcıya gösterilecek */ }
   }, 150);
-  return pw ? 'password' : 'username';
+  return {
+    outcome: pw ? 'password' : 'username',
+    note: (user ? 'kullanıcı ' : '') + (pw ? 'parola ' : '') + (btn ? 'düğme:' + (btn.textContent || btn.value || '?').trim().slice(0, 30) : form ? 'form.submit' : 'GÖNDERİM YOK')
+  };
 })()`;
 }
 
@@ -256,6 +316,15 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
     if (!settled) closedByUser = true;
   });
 
+  // Kullanıcı klavyeye dokunduğu anda otomatik doldurma ÇEKİLİYOR. Doldurma
+  // artık pencere gösterildikten sonra da sürdüğü için bu şart: kullanıcı bir
+  // alanı silip yeniden yazmaya başladığında, boşalmış alanı görüp doldurmak
+  // ve altından formu göndermek olurdu. Kontrol kullanıcıdaysa bizde değil.
+  let userTyped = false;
+  win.webContents.on("before-input-event", () => {
+    userTyped = true;
+  });
+
   const onCertError = (
     _event: Electron.Event,
     _url: string,
@@ -296,15 +365,20 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
   let autofillSubmits = 0;
   let passwordSubmitted = false;
   let lastActionAt = started;
+  // Son "doldurulacak bir şey bulamadım" gerekçesi — yalnızca tanılama için,
+  // aynı gerekçe arka arkaya basılmıyor.
+  let lastNote = "";
+  let loggedNote = "";
   const autofillScript = buildAutofillScript(opts.username, opts.password);
 
   const tryAutofill = async (): Promise<void> => {
     if (passwordSubmitted || autofillSubmits >= MAX_AUTOFILL_SUBMITS) return;
-    if (win.isDestroyed()) return;
+    if (userTyped || win.isDestroyed()) return;
     // Parola HTTPS OLMAYAN bir sayfaya asla yazılmaz. Yönlendirme zinciri
     // beklenmedik bir yere giderse doldurma sessizce durur ve pencere
     // kullanıcıya gösterilir — kararı o verir.
-    if (!win.webContents.getURL().startsWith("https://")) return;
+    const url = win.webContents.getURL();
+    if (!url.startsWith("https://")) return;
     // Giriş formu bir iframe içinde olabiliyor; ana çerçeve + alt çerçeveler
     // birlikte taranıyor.
     let frames: Electron.WebFrameMain[] = [];
@@ -314,19 +388,37 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
       return;
     }
     for (const frame of frames) {
-      let outcome: unknown;
+      let result: AutofillOutcome | null = null;
       try {
-        outcome = await frame.executeJavaScript(autofillScript, true);
-      } catch {
-        // Çerçeve gitmiş/erişilemez olabilir — sıradakine geç.
-        continue;
+        result = (await frame.executeJavaScript(autofillScript, true)) as AutofillOutcome;
+      } catch (err) {
+        // Sıkı bir CSP (Okta, Azure AD) ana dünyada script çalıştırmayı
+        // "unsafe-eval" gerekçesiyle reddedebiliyor. İZOLE DÜNYA bu kısıttan
+        // muaf ve DOM'u paylaşıyor — yani atadığımız değeri sayfanın kendi
+        // React/Angular kodu yine görüyor. Bu yol yalnızca ANA çerçeve için
+        // var (`webContents` üzerinde); `WebFrameMain`'in izole dünya API'si
+        // yok, dolayısıyla CSP'li bir iframe'de doldurma yapılamıyor ve
+        // pencere kullanıcıya açılıyor.
+        try {
+          if (frame !== win.webContents.mainFrame) throw err;
+          result = (await win.webContents.executeJavaScriptInIsolatedWorld(AUTOFILL_WORLD_ID, [
+            { code: autofillScript }
+          ])) as AutofillOutcome;
+        } catch {
+          // Çerçeve gitmiş/erişilemez olabilir — sıradakine geç.
+          log(`script çalışmadı (${frameLabel(frame)}): ${(err as Error).message}`);
+          continue;
+        }
       }
-      if (outcome === "password" || outcome === "username") {
+      if (!result || typeof result !== "object") continue;
+      if (result.outcome === "password" || result.outcome === "username") {
         autofillSubmits += 1;
         lastActionAt = Date.now();
-        if (outcome === "password") passwordSubmitted = true;
+        if (result.outcome === "password") passwordSubmitted = true;
+        log(`dolduruldu [${result.outcome}] ${frameLabel(frame)} — ${result.note}`);
         return;
       }
+      lastNote = `${frameLabel(frame)}: ${result.note}`;
     }
   };
 
@@ -359,14 +451,32 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
       });
     }
 
-    if (!shown) await tryAutofill();
+    // Doldurma pencere GÖSTERİLDİKTEN SONRA DA sürüyor. Eskiden `if (!shown)`
+    // ile kapatılıyordu ve özelliğin çalışmamasının sebebi tam olarak buydu
+    // (kullanıcı bildirimi, 2026-09-06): kurumsal bir IdP'ye yönlendirme
+    // zinciri 6 saniyeden uzun sürüyor, pencere o dolmadan gösteriliyor ve
+    // giriş formu ekrana geldiğinde doldurma çoktan kapanmış oluyordu.
+    // Kullanıcının yazdığının üstüne yazma riski script tarafında çözülü:
+    // dolu bir alana dokunulmuyor.
+    await tryAutofill();
+    if (lastNote && lastNote !== loggedNote) {
+      loggedNote = lastNote;
+      log(`doldurulacak alan yok — ${lastNote}`);
+    }
 
     const elapsed = Date.now() - started;
     // Sessizlik süresi son EYLEMDEN itibaren sayılıyor, açılıştan değil:
     // otomatik doldurma iş yaptığı sürece pencere gizli kalıyor, iş bitince
     // (tipik olarak MFA ekranında) 6 saniye sonra kullanıcıya açılıyor.
-    if (!shown && Date.now() - lastActionAt >= SILENT_GRACE_MS) {
+    // Sayfa hâlâ YÜKLENİYORSA da bekleniyor: yarım yüklenmiş bir formu bir
+    // saniyeliğine gösterip sonra kendiliğinden ilerletmek, kullanıcıya
+    // yanıp sönen bir ekran göstermek olurdu. Üst sınır var, aksi hâlde
+    // bitmeyen bir yükleme pencereyi sonsuza dek gizli tutardı.
+    const stillLoading = !win.isDestroyed() && win.webContents.isLoading();
+    const graceOver = Date.now() - lastActionAt >= SILENT_GRACE_MS;
+    if (!shown && (graceOver || elapsed >= MAX_SILENT_MS) && (!stillLoading || elapsed >= MAX_SILENT_MS)) {
       shown = true;
+      log(`pencere gösteriliyor (${Math.round(elapsed / 1000)} sn, doldurma: ${autofillSubmits} adım)`);
       if (!win.isDestroyed()) {
         win.show();
         win.focus();

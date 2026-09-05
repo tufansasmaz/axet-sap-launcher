@@ -8385,3 +8385,34 @@ Dipteki sistemler bloğu artık başlıklı ve üstünde `border-t` var. "Paneld
 ayraç lineları olmasa da olur" kuralının bilinçli istisnası: sohbetler kendi
 başlıklarının altında gruplanınca başlıksız dip blok da bir sohbet grubu
 gibi görünmeye başladı, oysa oradaki satırlar tıklanınca BAĞLANIYOR.
+
+### SAML otomatik doldurma neden çalışmıyordu (2026-09-06)
+
+İlk sürümde doldurma `if (!shown) await tryAutofill();` ile çağrılıyordu —
+yani YALNIZCA pencere gizliyken. Pencere ise açılıştan 6 saniye sonra
+koşulsuz gösteriliyordu. Kurumsal bir IdP'ye yönlendirme zinciri 6 saniyede
+bitmediği için giriş formu ekrana geldiğinde doldurma çoktan kapanmış
+oluyordu: pencere açılıyor, alanlar boş, bir daha denenmiyor.
+
+Düzeltmeler:
+
+- Doldurma pencere gösterildikten SONRA da sürüyor.
+- Bunun güvenli olması için script artık DOLU bir alana dokunmuyor, ve
+  kullanıcı klavyeye dokunduğu anda (`before-input-event`) doldurma tamamen
+  çekiliyor. Kontrol kullanıcıdaysa bizde değil.
+- Sayfa hâlâ yükleniyorken pencere gizli tutuluyor (üst sınır 20 sn) —
+  yarım yüklenmiş formu bir saniyeliğine gösterip ilerletmek yanıp sönen bir
+  ekran demekti.
+- CSP yedeği: Okta/Azure AD gibi sıkı CSP'li sayfalar ana dünyada script
+  çalıştırmayı reddedebiliyor; ana çerçeve için `executeJavaScriptInIsolated-
+  World` deneniyor. `WebFrameMain`'in izole dünya API'si YOK, yani CSP'li bir
+  iframe'de doldurma yapılamıyor — o durumda pencere kullanıcıya açılıyor.
+- Gönderim düğmesi seçimi: "İptal/Geri/Parolamı unuttum" eleniyor. Önceki
+  seçici DOM'da ilk duran düğmeyi alıyordu.
+- `console.log("[saml] …")` ile tanılama: hangi çerçevede ne bulundu, hangi
+  düğmeye basıldı, pencere kaçıncı saniyede açıldı. Parola asla basılmıyor.
+
+Değişmeyen güvenlik kuralı: parola bir bağlanma başına EN FAZLA BİR KEZ
+gönderiliyor (`passwordSubmitted`). Hesap kilitlemek bu özelliğin
+yapabileceği en pahalı hata olurdu; `MAX_AUTOFILL_SUBMITS` yalnızca kullanıcı
+adı adımlarını sınırlıyor.
