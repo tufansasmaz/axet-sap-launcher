@@ -1047,6 +1047,18 @@ export default function AxetCodeHome({
       )
     );
 
+    // Bekleyen bir düzenleme varsa (`editUndo`) dallandırma ŞİMDİ kesinleşiyor:
+    // ajanın hafızası da o mesaja kadar geri sarılıyor, yoksa kesme yalnızca
+    // bizim listemizde olur ve ajan hem eski hem düzeltilmiş soruyu görürdü.
+    //
+    // Sıfırlama KALEME BASILDIĞINDA DEĞİL BURADA: kalemde yapıldığında
+    // düzenlemeden vazgeçen kullanıcı (geri al) da bedeli ödüyordu — axet-code
+    // oturumu kapanmış, o oturumdaki ARAÇ SONUÇLARI gitmiş oluyordu. Kalıcı
+    // oturum mimarisinin var olma sebebi tam olarak o sonuçları korumak
+    // (bkz. axetChatTui.ts başlığı, madde 3). Yukarı ok da artık düzenlemeyi
+    // tek tuşa indirdiği için bu yanlışlıkla çok kolay tetiklenir hâle
+    // gelmişti.
+    if (session.editUndo) await window.api.resetChatHistory(activeId).catch(() => false);
     await runPrompt(activeId, promptWithAttachments(text, attachments), historyForCall, session.model, session.cwd);
   }, [activeId, handleSendNew, runPrompt, sessions]);
 
@@ -1058,19 +1070,16 @@ export default function AxetCodeHome({
   // Kesilen kuyruk artık GERİ ALINABİLİR (`editUndo`): kesme kalıcıydı ve
   // uyarısızdı, yani yanlış mesajın kalemine basmak yarım sohbeti siliyordu.
   //
-  // AJANIN HAFIZASI DA GERİ SARILIYOR. Eskiden kesme yalnızca BİZİM listemizi
-  // kısaltıyordu: arkadaki axet-code oturumu tüm geçmişi hatırlamaya devam
-  // ettiği için ajan hem eski hem düzeltilmiş soruyu görüyordu — yani
-  // dallandırma sadece ekranda oluyordu. `resetChatHistory` axet-code'da yeni
-  // bir oturum açıyor (süreç kapanmıyor), sonraki gönderim de geçmişi
-  // KISALTILMIŞ hâliyle yeniden tohumluyor (bkz. axetChatTui.ts `seeded`).
-  //
-  // Ateşle-unut: başarısız olursa eski davranışa düşülüyor, düzenleme yine de
-  // çalışıyor. Kullanıcının kalemine bastığı an bloke olması bundan kötü.
+  // Ajanın hafızası da geri sarılıyor — ama BURADA DEĞİL, düzeltilmiş mesaj
+  // gerçekten gönderildiğinde (`handleSend`). Kesme yalnızca bizim listemizde
+  // kalsaydı arkadaki axet-code oturumu tüm geçmişi hatırlamaya devam eder,
+  // ajan hem eski hem düzeltilmiş soruyu görürdü; yani dallandırma sadece
+  // ekranda olurdu. Sıfırlamayı gönderime ertelemenin sebebi, vazgeçmenin
+  // bedava olması: buradan sıfırlansaydı kalemine basıp fikrini değiştiren
+  // kullanıcı da oturumdaki araç sonuçlarını kaybederdi.
   const handleEditMessage = useCallback(
     (messageId: string, content: string) => {
       if (!activeId) return;
-      window.api.resetChatHistory(activeId).catch(() => {});
       setSessions((prev) =>
         prev.map((s) => {
           if (s.id !== activeId) return s;
@@ -1105,9 +1114,9 @@ export default function AxetCodeHome({
   // dönüyor. Ayrı ayrı dönselerdi, düzenlenmek üzere kutuya konan metin
   // kutuda kalır ve aynı mesaj iki yerde görünürdü.
   //
-  // Sıfırlanan ajan hafızası GERİ ALINMIYOR — alınamaz da. Ama kayıp değil:
-  // oturum tohumlanmamış durumda kaldığı için sonraki gönderim geçmişi
-  // yeniden yazıyor ve o geçmiş, geri alınmış (yani TAM) liste oluyor.
+  // Ajanın hafızasına DOKUNULMAMIŞ oluyor: sıfırlama gönderime ertelendiği
+  // için (bkz. `handleSend`) buraya gelen kullanıcı hiçbir şey kaybetmiyor —
+  // axet-code oturumu, içindeki araç sonuçlarıyla birlikte olduğu gibi duruyor.
   const handleUndoEdit = useCallback(() => {
     if (!activeId) return;
     setSessions((prev) =>
