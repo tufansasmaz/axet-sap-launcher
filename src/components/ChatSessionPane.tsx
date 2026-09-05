@@ -147,8 +147,11 @@ interface Props {
   onDraftChange: (value: string) => void;
   onSend: () => void;
   onCancel: () => void;
-  /** Soru kutusundaki seçeneği seçer (`index < 0` = vazgeç). */
-  onAnswerQuestion: (index: number) => void;
+  /**
+   * Soru kutusundaki seçeneği seçer (`index < 0` = vazgeç). `customText`
+   * doluysa şık değil, kutunun serbest metin satırı kullanılıyor.
+   */
+  onAnswerQuestion: (index: number, customText?: string) => void;
   onSelectModel: (entry: AxetModelEntry) => void;
   onRegenerate: () => void;
   onEditMessage: (id: string, content: string) => void;

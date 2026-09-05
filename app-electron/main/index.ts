@@ -726,8 +726,10 @@ function registerIpc(): void {
   );
   // Ajanın `ask_user` ile sorduğu sorunun cevabı. Tuşlar TUI'deki soru
   // kutusuna gidiyor, yani tur DURMADAN devam ediyor (bkz. axetChatTui.ts).
-  ipcMain.handle("axetChat:answerQuestion", (_event, requestId: string, optionIndex: number) =>
-    answerChatQuestion(requestId, optionIndex)
+  ipcMain.handle(
+    "axetChat:answerQuestion",
+    (_event, requestId: string, optionIndex: number, customText?: string) =>
+      answerChatQuestion(requestId, optionIndex, customText)
   );
   // Sohbet silindiğinde kalıcı TUI oturumunu da bırak — yoksa arkada kullanıcı
   // tarafından görülemeyen bir axet-code süreci kalırdı.

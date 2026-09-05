@@ -175,8 +175,8 @@ const api = {
     promptAtMs: number
   ): Promise<{ text: string; finished: boolean } | null> =>
     ipcRenderer.invoke("axetChat:recoverAnswer", cwd, prompt, promptAtMs),
-  answerChatQuestion: (requestId: string, optionIndex: number): Promise<boolean> =>
-    ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex),
+  answerChatQuestion: (requestId: string, optionIndex: number, customText?: string): Promise<boolean> =>
+    ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex, customText),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
   // Kullanıcı yazmaya başlayınca: oturumu/süreci şimdiden açtır. Sonucu YOK,
   // beklemek de gerekmiyor — kazanç tamamen zamanlamada.

@@ -157,6 +157,8 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.phaseRestarting": "Restarting session",
   "axetCodeHome.phaseAskUser": "Waiting for your answer",
   "axetCodeHome.askUserFallback": "I need one choice from you to continue.",
+  "axetCodeHome.askUserCustom": "Write my own",
+  "axetCodeHome.askUserCustomPlaceholder": "Type your answer and press Enter",
   "axetCodeHome.phaseFinishing": "Finishing",
   "axetCodeHome.phaseElapsed": "{seconds}s",
   "axetCodeHome.phaseStepCount": "step {count}",

@@ -1130,13 +1130,13 @@ export default function AxetCodeHome({
   // aynı korumayı yapıyor (bkz. axetChatTui.ts `answerTuiQuestion`), bu sadece
   // kullanıcının gördüğü gecikmeyi kapatıyor.
   const handleAnswerQuestion = useCallback(
-    (index: number) => {
+    (index: number, customText?: string) => {
       const requestId = activeSession?.requestId;
       if (!requestId) return;
       setSessions((prev) =>
         prev.map((s) => (s.id === activeSession.id ? { ...s, pendingAsk: null } : s))
       );
-      window.api.answerChatQuestion(requestId, index).catch(() => {});
+      window.api.answerChatQuestion(requestId, index, customText).catch(() => {});
     },
     [activeSession]
   );

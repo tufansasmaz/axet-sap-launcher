@@ -165,6 +165,8 @@ export const tr = {
   "axetCodeHome.phaseRestarting": "Oturum yenileniyor",
   "axetCodeHome.phaseAskUser": "Cevabını bekliyor",
   "axetCodeHome.askUserFallback": "Devam etmek için bir tercihine ihtiyacım var.",
+  "axetCodeHome.askUserCustom": "Kendim yazayım",
+  "axetCodeHome.askUserCustomPlaceholder": "Cevabını yaz ve Enter'a bas",
   "axetCodeHome.phaseFinishing": "Tamamlanıyor",
   "axetCodeHome.phaseElapsed": "{seconds} sn",
   // Kaçıncı araç adımında olunduğu. Biten adımlar ekranda birikmiyor (gösterge

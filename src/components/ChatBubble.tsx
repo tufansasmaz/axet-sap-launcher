@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, Pencil, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, CornerDownLeft, Pencil, RefreshCw } from "lucide-react";
 import type {
   AxetChatActivity,
   AxetChatActivityPhase,
@@ -603,13 +603,18 @@ export function ThinkingBubble({
  *
  * Düğme SIRASI dizinle birebir: dizin, kutuda kaç kez aşağı okuna basılacağını
  * belirliyor. Bu yüzden burada sıralama/filtreleme YAPILMIYOR.
+ *
+ * Şıkların yanında SERBEST METİN de var: TUI kutusunun kendi "Other" satırı
+ * bunu kabul ediyor (bkz. axetChatTui.ts `answerTuiQuestion`). Şıklar ajanın
+ * tahmini; kullanıcının aklındaki cevap listede olmayabilir ve o durumda tek
+ * çıkışın "vazgeç" olması turu boşa harcardı.
  */
 export function AskUserCard({
   ask,
   onAnswer
 }: {
   ask: AxetChatActivity;
-  onAnswer: (index: number) => void;
+  onAnswer: (index: number, customText?: string) => void;
 }) {
   const t = useT();
   const options = ask.options ?? [];
@@ -617,6 +622,18 @@ export function AskUserCard({
   // bildirimi: kart bir kare sonra kayboluyor, ama o kare boyunca hangi şıkkın
   // gittiği görünüyor.
   const [chosen, setChosen] = useState<number | null>(null);
+  // Serbest metin alanı açık mı, ve içinde ne var. Alan varsayılan olarak
+  // KAPALI: kartın işi tek tıkla bitsin, yazmak isteyen açsın.
+  const [customOpen, setCustomOpen] = useState(false);
+  const [custom, setCustom] = useState("");
+  const sendCustom = () => {
+    const text = custom.trim();
+    if (!text || chosen !== null) return;
+    // `options.length` = kutudaki "Other" satırının dizini; ana süreç zaten
+    // kendi listesinden hesaplıyor, bu yalnızca "şık değil" işareti.
+    setChosen(options.length);
+    onAnswer(options.length, text);
+  };
   return (
     // Kutu değil ŞERİT: soldaki ince accent çizgisi dışında çerçevesi yok.
     // Sohbet balonlarının arasına bir pencere daha koymamak için — kart,
@@ -651,7 +668,48 @@ export function AskUserCard({
             </button>
           );
         })}
+        {!customOpen && (
+          <button
+            disabled={chosen !== null}
+            onClick={() => setCustomOpen(true)}
+            className={`rounded-full border border-dashed border-base-700 bg-transparent px-3 py-1 text-[12.5px] leading-tight text-slate-400 transition-all duration-150 hover:-translate-y-px hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] ${
+              chosen !== null ? "opacity-35" : ""
+            } disabled:cursor-default`}
+          >
+            {t("axetCodeHome.askUserCustom")}
+          </button>
+        )}
       </div>
+      {customOpen && (
+        <div className="flex items-center gap-1.5">
+          <input
+            autoFocus
+            value={custom}
+            disabled={chosen !== null}
+            onChange={(event) => setCustom(event.target.value)}
+            // Enter GÖNDERİR: kutu tek satırlık, alt satır diye bir şey yok.
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                sendCustom();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                setCustomOpen(false);
+              }
+            }}
+            placeholder={t("axetCodeHome.askUserCustomPlaceholder")}
+            className="min-w-0 flex-1 rounded-lg border border-base-700 bg-base-850/70 px-2.5 py-1 text-[12.5px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/60"
+          />
+          <button
+            disabled={chosen !== null || custom.trim() === ""}
+            onClick={sendCustom}
+            title={t("axetCodeHome.askUserCustom")}
+            className="rounded-lg border border-base-700 bg-base-850/70 p-1.5 text-slate-300 transition-colors hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] disabled:opacity-35"
+          >
+            <CornerDownLeft size={13} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

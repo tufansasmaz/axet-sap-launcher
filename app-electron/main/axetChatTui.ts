@@ -887,20 +887,52 @@ function askUserAsText(ask: AskUserRequest): string {
 }
 
 /**
- * Bekleyen soruyu seçilen seçenekle cevaplar. `index < 0` = vazgeç (`esc`).
+ * Bekleyen soruyu cevaplar. `index < 0` = vazgeç (`esc`).
+ *
+ * `customText` doluysa şıklardan biri DEĞİL, kutunun kendi "Other" satırındaki
+ * serbest metin alanı kullanılıyor; `index` o durumda yok sayılıyor.
+ *
+ * SERBEST METİN ÖLÇÜLDÜ (canlı pty, 2026-09-05, `.tmp-askprobe3`):
+ *
+ *     │  Mavi                      │  ← options[0]  (açılışta seçili)
+ *     │  Kırmızı                   │  ← options[1]
+ *     │  Other                     │  ← dizin = options.length
+ *     │    > Type a custom answer  │  ← "Other" seçiliyken ODAKLI giriş alanı
+ *
+ * `↓` × options.length + doğrudan metin + `enter` → TUI şunu yazdı:
+ *     ✓ The user typed a custom answer: "Yesil"
+ * ve ajan aynı turda o cevapla devam etti.
+ *
+ * ÖNCE ENTER BASILMIYOR: alan "Other" satırına inildiği anda zaten odaklı.
+ * Araya bir `enter` koymak BOŞ bir özel cevabı onaylar, ardından metnimiz ana
+ * sohbet kutusuna yeni bir istem olarak düşerdi.
  *
  * Bekleyen soru YOKSA hiçbir tuş gönderilmiyor: geç gelen bir tıklama, kutu
  * kapandıktan sonra sohbet kutusuna `enter` basıp boş bir mesaj gönderirdi.
  */
-export function answerTuiQuestion(chatId: string, index: number): boolean {
+export function answerTuiQuestion(chatId: string, index: number, customText?: string): boolean {
   const session = sessions.get(chatId);
   const ask = session?.pendingAsk;
   if (!session || !ask || session.exited || session.disposed) return false;
+  // Kutu tek satırlık: satır sonu `enter` demek olurdu, yani cevabı yarıda
+  // onaylamak. Boşluğa çeviriliyor.
+  const custom = (customText ?? "").replace(/[\r\n]+/g, " ").trim();
   session.pendingAsk = null;
   try {
-    if (index < 0) {
+    if (index < 0 && !custom) {
       session.proc.write("\x1b");
       console.log("[axetChatTui] sorudan vazgecildi", { chatId });
+      return true;
+    }
+    if (custom) {
+      for (let step = 0; step < ask.options.length; step += 1) session.proc.write("\x1b[B");
+      session.proc.write(escapeTuiMenus(custom));
+      session.proc.write("\r");
+      console.log("[axetChatTui] soru serbest metinle cevaplandi", {
+        chatId,
+        satirIndirme: ask.options.length,
+        uzunluk: custom.length
+      });
       return true;
     }
     const target = Math.max(0, Math.min(index, ask.options.length - 1));

@@ -81,6 +81,10 @@ const CONNECTOR_RETRY_REMINDER =
 // axet-code `✓ The user selected: ...` yazıp aynı turda devam etti). Soru,
 // sohbette tıklanabilir bir kart olarak çiziliyor.
 //
+// Şıklar da tek yol değil: kutunun "Other" satırı serbest metin kabul ediyor
+// (ölçüm 2026-09-05: `✓ The user typed a custom answer: "Yesil"`), yani
+// kullanıcı hiçbir şıkka mahkûm değil — kartta kendi cevabını yazabiliyor.
+//
 // O YÜZDEN "SORMA" YASAĞI KALDIRILDI (kullanıcı testi, 2026-09-05: yasak
 // tuttuğu için kart hiç çıkmadı — ajan soruyu düz metinle sordu). Yerine, HANGİ
 // BİÇİMDE sorulacağını söyleyen bir not var, çünkü desteklenen tek biçim bu:
@@ -732,16 +736,17 @@ export function cancelChatMessage(requestId: string): void {
 }
 
 /**
- * Ajanın sorduğu soruyu seçilen seçenekle cevaplar (`index < 0` = vazgeç).
+ * Ajanın sorduğu soruyu cevaplar (`index < 0` = vazgeç). `customText` doluysa
+ * şıklar yerine kutunun "Other" satırındaki serbest metin alanı kullanılıyor.
  *
  * `requestId` üzerinden gidiyor çünkü arayüzün elindeki kimlik bu: soru,
  * etkinlik akışında `askUser` aşaması olarak o kimlikle geliyor. `run` kipinde
  * soru kutusu diye bir şey yok, orada `false` dönüyor.
  */
-export function answerChatQuestion(requestId: string, optionIndex: number): boolean {
+export function answerChatQuestion(requestId: string, optionIndex: number, customText?: string): boolean {
   const chatId = tuiRequests.get(requestId);
   if (!chatId) return false;
-  return answerTuiQuestion(chatId, optionIndex);
+  return answerTuiQuestion(chatId, optionIndex, customText);
 }
 
 /** Bir sohbet silindiğinde/kapatıldığında onun TUI oturumunu da bırak. */

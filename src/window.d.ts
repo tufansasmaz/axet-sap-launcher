@@ -141,8 +141,15 @@ export interface AxetApi {
     prompt: string,
     promptAtMs: number
   ) => Promise<{ text: string; finished: boolean } | null>;
-  /** Ajanın `askUser` aşamasında sorduğu sorunun cevabı; `-1` = vazgeç. */
-  answerChatQuestion: (requestId: string, optionIndex: number) => Promise<boolean>;
+  /**
+   * Ajanın `askUser` aşamasında sorduğu sorunun cevabı; `-1` = vazgeç.
+   * `customText` doluysa şık değil, kutunun serbest metin satırı kullanılıyor.
+   */
+  answerChatQuestion: (
+    requestId: string,
+    optionIndex: number,
+    customText?: string
+  ) => Promise<boolean>;
   closeChatSession: (chatId: string) => Promise<void>;
   prewarmChat: (
     cwd: string,
