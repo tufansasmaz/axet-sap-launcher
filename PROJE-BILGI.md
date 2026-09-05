@@ -8489,3 +8489,33 @@ kaydetmede DE okumada DA sessizce düşerdi — `attachments`, `steps` ve
 Ayrıca kayıt effect'inin bağımlılığına `projects` KONULDU: proje adı/talimatı
 sohbet listesine dokunmuyor, olmasaydı değişiklik ancak bir sonraki mesajla
 diske inerdi.
+
+## Gruplama artık `cwd`'ye değil, sohbetin nasıl doğduğuna bakıyor (2026-09-06)
+
+Kullanıcı bildirimi: *"eğer bir sisteme bağlıysam ve yeni sohbet başlatmışsam
+SAP sohbetlerine alıyor ama ben Sohbetler'e gitmesini istiyorum"*. Netleşen
+kural:
+
+- SAP Launcher'dan bir **sisteme bağlanınca** doğan sohbet → "SAP sohbetleri",
+  orada devam ediyor.
+- Elle **"Yeni sohbet"** (ya da Ctrl+N) → "Sohbetler". O sohbet sistemin
+  klasöründe çalışıyor olabilir, ama listede sistemin altına gömülmüyor.
+- Bir sistemin altına bilerek sohbet eklemek isteyen için, sistem satırının
+  üzerine gelince çıkan **"+"** düğmesi (`newChatInSystem`).
+
+Önceden ayrım `cwd`'nin dolu olmasıydı; `effectiveNewBinding` bağlıyken açılan
+her sohbete `activeSap`'ın klasörünü verdiği için elle açılan sohbetler de
+sistemin altına düşüyordu. Artık `StoredChatSession.keepInGeneral` var:
+`handleNewSession`'a bir **bağlantı geçilmişse** false, geçilmemişse true.
+`cwd`'ye DOKUNULMADI — ajanın çalışma klasörü işlevsel bir şey, listedeki yer
+ise düzenleme; ikisini aynı alandan türetmek bu hatanın kaynağıydı.
+
+Alan yalnızca `true` iken diske yazılıyor; hiç olmaması "eski davranış" demek,
+o yüzden bu işten önce kaydedilmiş sohbetler sistem gruplarında kaldı.
+`sanitizeSession`'daki alan alan kurulum tuzağının BEŞİNCİSİ — aynı commit'te
+eklendi.
+
+Yeniden bağlanma yolunda (`sapChatRequest` effect'i) `keepInGeneral` olanlar
+eşleşmeden **eleniyor**: aynı klasörde çalışan ama kullanıcının bilerek
+genelde tuttuğu bir sohbet, "sistemin kaldığı yerden devam eden sohbeti"
+değil. Eşleşme çıkmazsa sisteme bağlı yeni bir taslak açılıyor.

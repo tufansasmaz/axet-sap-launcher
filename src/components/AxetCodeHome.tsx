@@ -132,6 +132,9 @@ interface ChatSession {
   // `ChatProject`). `cwd`'den BAĞIMSIZ: bir SAP sohbeti de bir projeye
   // konabilir, o zaman kenar çubuğunda proje altında görünüyor.
   projectId: string | null;
+  // "SAP sohbetleri" altına değil "Sohbetler" altına düşsün (bkz.
+  // shared/types.ts `StoredChatSession.keepInGeneral`). `cwd` dolu olsa bile.
+  keepInGeneral: boolean;
 }
 
 // SAP'a bağlanınca App.tsx'in "bu sisteme bağlı bir sohbet aç" isteği.
@@ -479,6 +482,11 @@ export default function AxetCodeHome({
   // "+" ile açılan yeni sohbet, ilk mesaj gönderilene kadar burada bekliyor;
   // kayıt doğduğunda (handleSendNew) sohbete taşınıyor.
   const [newProjectId, setNewProjectId] = useState<string | null>(null);
+  // Taslak sohbetin listede nereye düşeceği. `handleNewSession`'a bir bağlantı
+  // GEÇİLDİYSE (sisteme bağlandık ya da bir sistem grubunun "+"ına basıldı)
+  // false, elle "Yeni sohbet" ise true. Başlangıçta true: uygulama açılışındaki
+  // boş composer elle açılmış bir sohbet sayılıyor.
+  const [newKeepInGeneral, setNewKeepInGeneral] = useState(true);
   // Kullanıcının kendi kurduğu projeler (bkz. shared/types.ts `ChatProject`).
   // Sohbetlerle AYNI dosyada saklanıyorlar (chat-sessions.json): proje bir
   // sohbet düzenlemesi, ayrı bir dosya iki kaynağın birbirinden kayması
@@ -602,7 +610,10 @@ export default function AxetCodeHome({
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
             sapLabel: s.sapLabel ?? null,
-            projectId: s.projectId ?? null
+            projectId: s.projectId ?? null,
+            // Alanın hiç olmaması "eski davranış": `cwd`'si olan eski
+            // sohbetler sistem gruplarında kalmaya devam ediyor.
+            keepInGeneral: s.keepInGeneral === true
           }))
         );
         // Projeler sohbetlerden AYRI bir liste ama aynı dosyada. Artık var
@@ -752,6 +763,7 @@ export default function AxetCodeHome({
           ...(s.cwd ? { cwd: s.cwd } : {}),
           ...(s.sapLabel ? { sapLabel: s.sapLabel } : {}),
           ...(s.projectId ? { projectId: s.projectId } : {}),
+          ...(s.keepInGeneral ? { keepInGeneral: true } : {}),
           createdAt: s.createdAt,
           updatedAt: s.updatedAt
         })),
@@ -820,6 +832,12 @@ export default function AxetCodeHome({
       setNewBinding(binding);
       setNewNotice(notice);
       setNewProjectId(projectId);
+      // Gruplama artık `cwd`'ye değil sohbetin nasıl doğduğuna bakıyor: bir
+      // bağlantı geçildiyse sistemine, geçilmediyse "Sohbetler"e. Elle açılan
+      // sohbet `activeSap` yüzünden yine de bir `cwd` alabiliyor (bkz.
+      // `effectiveNewBinding`) — ajan o klasörde çalışsın, ama listede
+      // sistemin altına gömülmesin.
+      setNewKeepInGeneral(binding === null);
       setQuery("");
       // Boş ekrana her dönüşte kartlar yenileniyor — "sürekli değişen" burada.
       setSuggestionSeed(freshSuggestionSeed());
@@ -847,8 +865,12 @@ export default function AxetCodeHome({
     const key = sapChatRequest.projectDir.toLowerCase();
     // En son konuşulan eşleşme. `sessionsRef` kullanılıyor ki `sessions`
     // bağımlılığa girip her mesajda efekti yeniden çalıştırmasın.
+    // `keepInGeneral` olanlar ELENİYOR: aynı klasörde çalışan ama kullanıcının
+    // elle "Sohbetler"de açtığı bir sohbet, bağlanınca kaldığı yerden devam
+    // ettirilecek "sistemin sohbeti" değil. Onu buraya çekmek, kullanıcının
+    // bilerek genelde tuttuğu sohbete karşılama balonu iliştirmek olurdu.
     const prior = sessionsRef.current
-      .filter((s) => (s.cwd ?? "").toLowerCase() === key)
+      .filter((s) => !s.keepInGeneral && (s.cwd ?? "").toLowerCase() === key)
       .sort((a, b) => b.updatedAt - a.updatedAt)[0];
 
     if (!prior) {
@@ -1270,7 +1292,8 @@ export default function AxetCodeHome({
       sapLabel: effectiveNewBinding?.label ?? null,
       // Proje aidiyeti de aynı şekilde: sohbet ancak burada doğduğu için
       // "hangi projede açtım" bilgisi ilk mesaja kadar taslakta bekliyordu.
-      projectId: newProjectId
+      projectId: newProjectId,
+      keepInGeneral: newKeepInGeneral
     };
     setSessions((prev) => [...prev, session]);
     setActiveId(id);
@@ -1279,13 +1302,23 @@ export default function AxetCodeHome({
     setNewBinding(null);
     setNewNotice(null);
     setNewProjectId(null);
+    setNewKeepInGeneral(true);
     // Geçmiş BOŞ gidiyor, karşılama balonu dahil değil: o balon ajanın
     // ürettiği bir tur değil, bizim bastığımız bir özet. Ajan aynı bilgiyi
     // zaten proje klasöründeki `sap-context.md`den okuyor (bkz. runPrompt'taki
     // `sessionCwd` notu), ikinci kez ve uydurma bir "asistan turu" olarak
     // göndermek gereksiz.
     await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel, session.cwd, session.projectId);
-  }, [defaultModel, newAttachments, effectiveNewBinding, newDraft, newProjectId, noticeMessage, runPrompt]);
+  }, [
+    defaultModel,
+    newAttachments,
+    effectiveNewBinding,
+    newDraft,
+    newKeepInGeneral,
+    newProjectId,
+    noticeMessage,
+    runPrompt
+  ]);
 
   const handleSend = useCallback(async () => {
     if (!activeId) return handleSendNew();
@@ -1959,7 +1992,7 @@ export default function AxetCodeHome({
   const PROJECTS_SECTION_KEY = "__projects__";
   const sessionGroups = useMemo(() => {
     const byProject = new Map<string, ChatSession[]>();
-    const sap = new Map<string, { key: string; label: string; sessions: ChatSession[] }>();
+    const sap = new Map<string, { key: string; cwd: string; label: string; sessions: ChatSession[] }>();
     const general: ChatSession[] = [];
     // Silinmiş bir projeye işaret eden `projectId` YOK SAYILIYOR: sohbet
     // görünmez bir grubun içinde kaybolmak yerine sistemine/geneline düşüyor.
@@ -1975,7 +2008,9 @@ export default function AxetCodeHome({
         continue;
       }
       const cwd = s.cwd ?? "";
-      if (!cwd) {
+      // `keepInGeneral`: elle "Yeni sohbet" ile açılmış sohbet. `cwd`'si olsa
+      // bile sistem grubuna girmiyor — bkz. shared/types.ts.
+      if (!cwd || s.keepInGeneral) {
         general.push(s);
         continue;
       }
@@ -1986,6 +2021,9 @@ export default function AxetCodeHome({
       } else {
         sap.set(key, {
           key,
+          // Anahtar küçük harfe çevrilmiş; grubun "+" düğmesinin yeni sohbete
+          // vereceği klasör yolu ise ÖZGÜN hâliyle gerekiyor.
+          cwd,
           label: s.sapLabel || cwd.split(/[\\/]/).filter(Boolean).pop() || cwd,
           sessions: [s]
         });
@@ -2518,7 +2556,7 @@ export default function AxetCodeHome({
                             onClick={() => toggleGroup(group.key)}
                             aria-expanded={open}
                             title={group.label}
-                            className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                            className="group/sys flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
                           >
                             {open ? (
                               <ChevronDown size={12} className="shrink-0 text-slate-500" />
@@ -2527,6 +2565,31 @@ export default function AxetCodeHome({
                             )}
                             <Server size={12} className="shrink-0 text-[var(--navy-icon)]" />
                             <span className="min-w-0 flex-1 truncate font-medium">{group.label}</span>
+                            {/* Bu sistemde yeni sohbet. Elle açılan "Yeni
+                                sohbet" artık "Sohbetler"e düştüğü için, bir
+                                sistemin altına bilerek sohbet eklemenin TEK
+                                yolu bu. `span role="button"`: satırın kendisi
+                                zaten bir <button>, iç içe düğme geçersiz HTML
+                                (proje başlığındaki "+" ile aynı gerekçe). */}
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleNewSession({ cwd: group.cwd, label: group.label });
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleNewSession({ cwd: group.cwd, label: group.label });
+                                }
+                              }}
+                              title={t("axetCodeHome.newChatInSystem")}
+                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/sys:opacity-100"
+                            >
+                              <Plus size={12} />
+                            </span>
                             <span className="shrink-0 text-[10px] text-slate-500">{group.sessions.length}</span>
                           </button>
                           {/* Sol kenar çizgisi: satırların hangi gruba ait

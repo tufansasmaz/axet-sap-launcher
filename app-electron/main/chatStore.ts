@@ -164,6 +164,9 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
   const sapLabel = asString(s.sapLabel);
   // Aynı tuzağın DÖRDÜNCÜSÜ olmaması için: proje aidiyeti de burada.
   const projectId = asString(s.projectId);
+  // BEŞİNCİSİ: "Sohbetler"de kalma tercihi. Yalnızca `true` yazılıyor —
+  // alanın hiç olmaması eski (cwd'ye göre gruplanan) sohbet demek.
+  const keepInGeneral = s.keepInGeneral === true;
   return {
     id,
     title: asString(s.title, "…"),
@@ -174,6 +177,7 @@ function sanitizeSession(raw: unknown): StoredChatSession | null {
     ...(cwd ? { cwd } : {}),
     ...(sapLabel ? { sapLabel } : {}),
     ...(projectId ? { projectId } : {}),
+    ...(keepInGeneral ? { keepInGeneral } : {}),
     createdAt,
     updatedAt: asNumber(s.updatedAt, createdAt)
   };

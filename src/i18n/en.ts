@@ -129,6 +129,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.newProject": "New project",
   "axetCodeHome.newProjectName": "New project",
   "axetCodeHome.newChatInProject": "New chat in this project",
+  "axetCodeHome.newChatInSystem": "New chat in this system",
   "axetCodeHome.projectSettings": "Project settings",
   "axetCodeHome.projectEmpty": "This project is empty — start a chat here.",
   "axetCodeHome.projectLimit": "You can create at most {count} projects.",

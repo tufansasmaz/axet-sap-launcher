@@ -629,6 +629,19 @@ export interface StoredChatSession {
   // çakışırsa kenar çubuğunda proje kazanıyor, çünkü bu alan bilinçli bir
   // seçim, `cwd` ise bağlantının yan ürünü.
   projectId?: string;
+  // Kenar çubuğunda "SAP sohbetleri" altına DEĞİL, "Sohbetler" altına düşsün.
+  //
+  // Kullanıcı isteği (2026-09-06): *"yeni sohbet dediğimde sohbetlerde açacak,
+  // sistem bağlantısını görebilir görmeyebilir o sohbette ama sohbetlerde
+  // kalacak"*. Yani gruplama artık `cwd`'nin dolu olmasına değil, sohbetin
+  // NASIL DOĞDUĞUNA bakıyor: bir sisteme bağlanınca (ya da bir sistem
+  // grubundaki "+" ile) doğan sohbet sistemine, elle "Yeni sohbet" ile doğan
+  // sohbet genele gidiyor. `cwd` her iki durumda da aynı kalıyor — ajanın
+  // çalışma klasörü işlevsel bir şey, listedeki yer ise düzenleme.
+  //
+  // Yalnızca `true` yazılıyor; alanın HİÇ olmaması "eski davranış" demek, o
+  // yüzden bu iş öncesinde kaydedilmiş sohbetler sistem gruplarında kalıyor.
+  keepInGeneral?: boolean;
   createdAt: number;
   updatedAt: number;
 }

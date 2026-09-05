@@ -142,6 +142,7 @@ export const tr = {
   "axetCodeHome.newProject": "Yeni proje",
   "axetCodeHome.newProjectName": "Yeni proje",
   "axetCodeHome.newChatInProject": "Bu projede yeni sohbet",
+  "axetCodeHome.newChatInSystem": "Bu sistemde yeni sohbet",
   "axetCodeHome.projectSettings": "Proje ayarları",
   "axetCodeHome.projectEmpty": "Bu proje boş — buradan bir sohbet başlat.",
   "axetCodeHome.projectLimit": "En fazla {count} proje oluşturabilirsin.",
