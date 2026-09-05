@@ -149,6 +149,12 @@ export const tr = {
   "axetCodeHome.send": "Gönder",
   "axetCodeHome.stopGenerating": "Durdur",
   "axetCodeHome.chatGenericError": "Cevap alınamadı, tekrar dener misin?",
+  // Yarım kalmış cevabı sürdürmek için ajana GÖNDERİLEN istem — ekranda
+  // görünmüyor (bkz. AxetCodeHome `handleContinue`). Yarım metin geçmişte
+  // zaten var; buradaki iş, "baştan yaz" ile "kaldığın yerden devam et"
+  // arasındaki farkı ajana açıkça söylemek.
+  "axetCodeHome.continuePrompt":
+    "Son cevabın yarıda kesildi. Kaldığın yerden devam et: baştan özetleme, yazdıklarını tekrarlama, yalnızca eksik kalan kısmı yaz.",
   // Bekleme göstergesi artık metinsiz (bkz. ChatBubble `ThinkingBubble`) —
   // bu etiket EKRANDA GÖRÜNMEZ, sadece ekran okuyucuya okunur.
   "axetCodeHome.thinkingAria": "Yanıt hazırlanıyor",
@@ -167,13 +173,13 @@ export const tr = {
   "axetCodeHome.askUserFallback": "Devam etmek için bir tercihine ihtiyacım var.",
   "axetCodeHome.askUserCustom": "Kendim yazayım",
   "axetCodeHome.askUserCustomPlaceholder": "Cevabını yaz ve Enter'a bas",
-  // Ctrl+/ ile açılan kısayol listesi.
+  // F1 ile açılan kısayol listesi.
   "axetCodeHome.shortcutsTitle": "Klavye kısayolları",
   "axetCodeHome.shortcutNewChat": "Yeni sohbet",
   "axetCodeHome.shortcutSwitchChat": "Önceki / sonraki sohbet",
   "axetCodeHome.shortcutFind": "Sohbette ara",
   "axetCodeHome.shortcutStop": "Süren turu durdur",
-  "axetCodeHome.shortcutEditLast": "Son mesajını düzenle (kutu boşken)",
+  "axetCodeHome.shortcutEditLast": "Son mesajını geri çağır (kutu boşken)",
   "axetCodeHome.shortcutSend": "Gönder",
   "axetCodeHome.shortcutNewline": "Alt satıra geç",
   "axetCodeHome.shortcutHelp": "Bu listeyi aç/kapat",
@@ -411,6 +417,9 @@ export const tr = {
   "chatBubble.restartedProvider": "Sağlayıcı yanıt vermedi, oturum yenilendi ve soru yeniden gönderildi.",
   "chatBubble.interrupted":
     "Bu cevap yarıda kaldı: uygulama kapandığında üretim sürüyordu. Metin, o ana kadar üretilmiş olan kadarıyla geri getirildi.",
+  // Yarım cevabın yanındaki düğme. "Yeniden üret" DEĞİL: üretilmiş metin
+  // atılmıyor, ajandan kaldığı yerden sürdürmesi isteniyor.
+  "chatBubble.continueAnswer": "Devam et",
   // Cevabın üstündeki katlanır araç dökümünün başlığı.
   "chatBubble.stepsToggle": "{count} işlem",
 

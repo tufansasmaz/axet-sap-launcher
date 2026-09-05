@@ -154,6 +154,11 @@ interface Props {
   onAnswerQuestion: (index: number, customText?: string) => void;
   onSelectModel: (entry: AxetModelEntry) => void;
   onRegenerate: () => void;
+  /**
+   * Yarıda kalmış son cevaba KALDIĞI YERDEN devam ettirir (bkz. `interrupted`).
+   * Yeniden üretmekten farkı, üretilmiş metnin atılmaması.
+   */
+  onContinue: () => void;
   onEditMessage: (id: string, content: string) => void;
   onUndoEdit: () => void;
   onAttachFiles: () => void;
@@ -225,6 +230,7 @@ export default function ChatSessionPane({
   onAnswerQuestion,
   onSelectModel,
   onRegenerate,
+  onContinue,
   onEditMessage,
   onUndoEdit,
   onAttachFiles,
@@ -712,6 +718,15 @@ export default function ChatSessionPane({
                 <ChatBubble
                   message={message}
                   onEdit={message.role === "user" && !session.pending ? onEditMessage : undefined}
+                  // "Devam et" YALNIZCA son mesajda: ortadaki yarım bir cevaba
+                  // devam etmek, arkasındaki soru-cevapları geçersiz kılardı.
+                  onContinue={
+                    message.interrupted &&
+                    !session.pending &&
+                    index === session.messages.length - 1
+                      ? onContinue
+                      : undefined
+                  }
                   searchState={
                     currentHitId === message.id ? "current" : hitSet?.has(message.id) ? "hit" : undefined
                   }
@@ -939,18 +954,30 @@ export default function ChatSessionPane({
                         return;
                       }
                     }
-                    // Kutu BOŞKEN yukarı ok = son mesajı düzenle. Boşluk şartı
-                    // pazarlık dışı: taslak varken ↑ imleci satır başına taşır
-                    // ve çok satırlı bir metinde gezinmek imkânsızlaşırdı.
-                    // Düzenleme kipi taslağı doldurduğu için ikinci bir ↑ zaten
-                    // bu dala girmiyor — yani art arda basıp geçmişte geri geri
-                    // yürünmüyor; kasıtlı, çünkü ajanın hafızası da o mesaja
-                    // kadar geri sarılıyor (bkz. AxetCodeHome `handleEditMessage`).
+                    // Kutu BOŞKEN yukarı ok = son mesajın metnini GERİ ÇAĞIR.
+                    // Terminaldeki geçmiş çağırma gibi: metin kutuya gelir,
+                    // sohbetten SİLİNMEZ.
+                    //
+                    // Önce düzenleme kipini (kalem düğmesi) açıyordu ve
+                    // kullanıcı bunu haklı olarak yanlış buldu (2026-09-05:
+                    // *"yukarı basınca mesajı geri alarak son yazdığımı aşağı
+                    // alıyor"*): tek bir ok tuşunun sohbetin kuyruğunu kesmesi
+                    // ağır bir yan etki. Düzenleme kalem düğmesinde kaldı.
+                    //
+                    // Boşluk şartı pazarlık dışı: taslak varken ↑ imleci
+                    // taşımalı, yoksa çok satırlı bir metinde gezinmek
+                    // imkânsızlaşır. Bunun bir sonucu, art arda basıp geçmişte
+                    // geri geri yürümenin olmaması — ilk basışta kutu doluyor.
                     if (e.key === "ArrowUp" && !e.shiftKey && session.draft === "" && !session.pending) {
                       const last = [...session.messages].reverse().find((m) => m.role === "user");
-                      if (last) {
+                      if (last?.content) {
                         e.preventDefault();
-                        onEditMessage(last.id, last.content);
+                        onDraftChange(last.content);
+                        // İmleç sona: kullanıcı çoğunlukla eklemek için çağırır.
+                        requestAnimationFrame(() => {
+                          const el = textareaRef.current;
+                          if (el) el.setSelectionRange(el.value.length, el.value.length);
+                        });
                         return;
                       }
                     }

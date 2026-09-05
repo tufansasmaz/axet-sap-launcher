@@ -90,12 +90,14 @@ function formatClock(ts: number): string {
 //   1. `message` nesnesinin kimliği değişmemeli. AxetCodeHome akış sırasında
 //      yalnızca akan mesajı yeni nesneyle değiştiriyor, geri kalanı aynı
 //      referansla taşıyor.
-//   2. `onEdit` kararlı olmalı — `handleEditMessage` bir `useCallback`.
-//      Buraya satır içi ok fonksiyonu (`onEdit={(id, c) => ...}`) verilirse
-//      memo tamamen ETKİSİZLEŞİR.
+//   2. `onEdit` ve `onContinue` kararlı olmalı — ikisi de `useCallback`
+//      (`handleEditMessage`, `handleContinue`). Buraya satır içi ok
+//      fonksiyonu (`onEdit={(id, c) => ...}`) verilirse memo tamamen
+//      ETKİSİZLEŞİR.
 function ChatBubble({
   message,
   onEdit,
+  onContinue,
   searchState
 }: {
   message: ChatMessage;
@@ -103,6 +105,9 @@ function ChatBubble({
   // MESAJDAN itibaren keser (bkz. AxetCodeHome.handleEditMessage). Sadece
   // kullanıcı mesajlarında anlamlı.
   onEdit?: (id: string, content: string) => void;
+  // Yarıda kalmış cevaba devam ettir. Verilmezse düğme çizilmiyor — çağıran
+  // yalnızca SON mesaj için veriyor. `onEdit` gibi kararlı olmalı (memo).
+  onContinue?: () => void;
   // Sohbet içi aramanın (Ctrl+F) sonucu: `hit` eşleşen mesaj, `current` o an
   // gezinilen eşleşme. Arama kapalıyken `undefined` — memo'yu bozmaması için
   // ChatSessionPane bu durumda hiç değer üretmiyor.
@@ -304,9 +309,22 @@ function ChatBubble({
           söylemeyen bir arayüz, kırpılmış bir cevabı tam bir cevap gibi
           gösterirdi. `restartedReason` ile aynı biçim — ikisi de bir OLAY. */}
       {message.interrupted && !message.streaming && (
-        <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-[var(--status-warning-text)]">
-          <RefreshCw size={11} className="shrink-0" />
-          <span>{t("chatBubble.interrupted")}</span>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--status-warning-text)]">
+          <span className="flex items-center gap-1.5">
+            <RefreshCw size={11} className="shrink-0" />
+            <span>{t("chatBubble.interrupted")}</span>
+          </span>
+          {/* Notu OKUMAK yetmiyordu: kullanıcı yarım cevabı görüp ne
+              yapacağını bilemiyordu (2026-09-05). Devam etmek, yeniden
+              üretmekten farklı — üretilmiş metin atılmıyor, üstüne ekleniyor. */}
+          {onContinue && (
+            <button
+              onClick={onContinue}
+              className="cursor-pointer rounded-md border border-[var(--status-warning-border)] px-2 py-0.5 font-medium transition hover:bg-[var(--status-warning-bg)]"
+            >
+              {t("chatBubble.continueAnswer")}
+            </button>
+          )}
         </div>
       )}
       {/* Akış sürerken gizli — yarım bir cevabı kopyalatmanın anlamı yok. */}

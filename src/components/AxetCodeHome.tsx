@@ -285,7 +285,7 @@ const SUGGESTION_POOL: readonly { key: string; scope: SuggestionScope }[] = [
 const SUGGESTION_COUNT = 3;
 
 /**
- * Ctrl+/ ile açılan listede gösterilen kısayollar.
+ * F1 ile açılan listede gösterilen kısayollar.
  *
  * Liste ELLE tutuluyor, kısayolları bağlayan koddan türetilmiyor: bağlar üç
  * ayrı yerde (burada, ChatSessionPane'de, composer'da) ve türetmeye çalışmak
@@ -300,7 +300,7 @@ const SHORTCUTS = [
   ["↑", "axetCodeHome.shortcutEditLast"],
   ["Enter", "axetCodeHome.shortcutSend"],
   ["Shift+Enter", "axetCodeHome.shortcutNewline"],
-  ["Ctrl+/", "axetCodeHome.shortcutHelp"]
+  ["F1", "axetCodeHome.shortcutHelp"]
 ] as const;
 
 // Tohumlanmış karıştırma (mulberry32). Düz `Math.random()` kullanılmıyor,
@@ -420,7 +420,7 @@ export default function AxetCodeHome({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  // Kısayol listesi (Ctrl+/). Kısayollar keşfedilemezse yok sayılır; TUI'nin
+  // Kısayol listesi (F1). Kısayollar keşfedilemezse yok sayılır; TUI'nin
   // kendi karşılığı ctrl+g ile açılan yardım şeridi.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   // Kenar çubuğu daraltılabilir (Gemini deseni). Kapalıyken tamamen
@@ -1169,6 +1169,70 @@ export default function AxetCodeHome({
     await runPrompt(activeId, prompt, historyForCall, session.model, session.cwd);
   }, [activeId, runPrompt, sessions]);
 
+  // Yarıda kalmış son cevabı KALDIĞI YERDEN sürdür (bkz. `interrupted`).
+  //
+  // `handleRegenerate`'in tersi: orada üretilmiş metin atılıyor, burada
+  // korunuyor. Kullanıcı uygulamayı cevap üretilirken kapattığında pty de
+  // ölüyor, yani tur kendiliğinden devam edemiyor (axetChatRecovery yalnızca
+  // o ana kadarki metni geri getirebiliyor). Sürdürmenin tek yolu yeni bir
+  // tur — ama ajanın yarım metni görmesi şartıyla.
+  const handleContinue = useCallback(async () => {
+    if (!activeId) return;
+    const session = sessions.find((s) => s.id === activeId);
+    if (!session || session.pending) return;
+    const msgs = session.messages;
+    const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    // Yalnızca SON mesaj sürdürülüyor; ChatSessionPane düğmeyi zaten sadece
+    // orada çiziyor, bu ikinci kapı IPC gecikmesine karşı.
+    if (!last || last.role !== "assistant" || !last.interrupted || last.error) return;
+    const targetId = last.id;
+
+    // Geçmişe YARIM CEVAP DA giriyor (`slice` son mesajı kesmiyor): ajan neyi
+    // yazdığını görmeden "kaldığın yerden devam et" anlamsız bir istem olurdu.
+    const historyForCall: AxetChatMessage[] = msgs
+      .slice(-MAX_HISTORY_MESSAGES)
+      .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
+
+    await runPrompt(activeId, t("axetCodeHome.continuePrompt"), historyForCall, session.model, session.cwd);
+
+    // İki balon tek balona indiriliyor: kullanıcı açısından bu BİR cevap, ikiye
+    // bölünmüş olması bizim kaza eserimiz. Devam üretilemediyse (hata/iptal/boş)
+    // dokunulmuyor — yarım cevap uyarısıyla birlikte olduğu gibi kalsın ki
+    // düğme yeniden denenebilir olsun.
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== activeId) return s;
+        const tail = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+        if (!tail || tail.id === targetId || tail.role !== "assistant" || tail.error) return s;
+        const extra = tail.content.trim();
+        if (!extra) return s;
+        // Araç dökümleri de birleşiyor. Boşsa alan HİÇ eklenmiyor: geçmiş
+        // dosyası boş dizilerle şişmesin (bkz. `runPrompt` içindeki aynı kural).
+        const mergeSteps = (m: ChatMessage) => {
+          const steps = [...(m.steps ?? []), ...(tail.steps ?? [])];
+          return steps.length > 0 ? { steps } : {};
+        };
+        return {
+          ...s,
+          messages: s.messages
+            .filter((m) => m.id !== tail.id)
+            .map((m) =>
+              m.id === targetId
+                ? {
+                    ...m,
+                    content: `${m.content.trimEnd()}\n\n${extra}`,
+                    // Artık yarım değil: uyarı da düğme de kalkıyor.
+                    interrupted: false,
+                    ...mergeSteps(m)
+                  }
+                : m
+            ),
+          updatedAt: Date.now()
+        };
+      })
+    );
+  }, [activeId, runPrompt, sessions, t]);
+
   const handleCancel = useCallback(() => {
     if (!activeSession?.requestId) return;
     window.api.cancelChatMessage(activeSession.requestId).catch(() => {});
@@ -1594,7 +1658,11 @@ export default function AxetCodeHome({
         setActiveId(orderedSessions[next].id);
         return;
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === "/") {
+      // F1 (kullanıcı seçimi, 2026-09-05). Önce Ctrl+/ idi ve TÜRKÇE KLAVYEDE
+      // `/` = Shift+7, yani kısayol gerçekte Ctrl+Shift+7 oluyordu — çalışıyor
+      // ama basılmıyor. Modifier'sız F1 hem klasik "yardım" tuşu hem de
+      // düzen-bağımsız.
+      if (e.key === "F1") {
         e.preventDefault();
         setShortcutsOpen((open) => !open);
       }
@@ -1808,7 +1876,7 @@ export default function AxetCodeHome({
               )}
             </div>
           )}
-          {/* Kısayol listesinin GÖRÜNÜR kapısı. Ctrl+/ tek başına keşfedilemez
+          {/* Kısayol listesinin GÖRÜNÜR kapısı. F1 tek başına keşfedilemez
               bir kısayol: bilmeyen kimse denemez. Daralmış şeritte çizilmiyor,
               çünkü 60px'e iki düğme sığmıyor ve daraltma düğmesinin `mx-auto`
               ortalaması bozulurdu. */}
@@ -1960,6 +2028,7 @@ export default function AxetCodeHome({
             onAnswerQuestion={handleAnswerQuestion}
             onSelectModel={handleSelectModel}
             onRegenerate={handleRegenerate}
+            onContinue={handleContinue}
             onEditMessage={handleEditMessage}
             onUndoEdit={handleUndoEdit}
             onAttachFiles={handleAttachFiles}
@@ -2016,6 +2085,7 @@ export default function AxetCodeHome({
           onAnswerQuestion={handleAnswerQuestion}
           onSelectModel={handleSelectModel}
           onRegenerate={handleRegenerate}
+          onContinue={handleContinue}
           onEditMessage={handleEditMessage}
           onUndoEdit={handleUndoEdit}
           onAttachFiles={handleAttachFiles}

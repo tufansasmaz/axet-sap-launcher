@@ -145,6 +145,8 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.send": "Send",
   "axetCodeHome.stopGenerating": "Stop",
   "axetCodeHome.chatGenericError": "Could not get a response, want to try again?",
+  "axetCodeHome.continuePrompt":
+    "Your last answer was cut off. Carry on from where you stopped: do not summarise from the start, do not repeat what you already wrote, write only the missing part.",
   "axetCodeHome.thinkingAria": "Preparing a response",
   "axetCodeHome.phaseStarting": "Starting",
   "axetCodeHome.phaseConnectors": "Preparing app connections",
@@ -164,7 +166,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.shortcutSwitchChat": "Previous / next chat",
   "axetCodeHome.shortcutFind": "Find in chat",
   "axetCodeHome.shortcutStop": "Stop the running turn",
-  "axetCodeHome.shortcutEditLast": "Edit your last message (empty composer)",
+  "axetCodeHome.shortcutEditLast": "Recall your last message (empty composer)",
   "axetCodeHome.shortcutSend": "Send",
   "axetCodeHome.shortcutNewline": "New line",
   "axetCodeHome.shortcutHelp": "Toggle this list",
@@ -385,6 +387,7 @@ export const en: Record<TranslationKey, string> = {
   "chatBubble.restartedProvider": "The provider did not respond, the session was restarted and the question resent.",
   "chatBubble.interrupted":
     "This answer was cut short: generation was still running when the app closed. The text was recovered as far as it had got.",
+  "chatBubble.continueAnswer": "Continue",
   "chatBubble.stepsToggle": "{count} steps",
 
   // --- Agent plan and context usage (see ChatSessionPane PlanPanel) ---
