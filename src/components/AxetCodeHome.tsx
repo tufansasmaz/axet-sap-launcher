@@ -170,8 +170,6 @@ interface Props {
    * bir sohbete düşürüyordu.
    */
   activeSap: ActiveSapContext | null;
-  /** Terminal, silinmedi — sadece varsayılan olmaktan çıktı (rozetteki düğme). */
-  onOpenChatTerminal: (cwd: string, title: string) => void;
 }
 
 function greetingKey(): "morning" | "afternoon" | "evening" | "night" {
@@ -391,8 +389,7 @@ export default function AxetCodeHome({
   onOpenSapLauncher,
   onQuickConnectSap,
   sapChatRequest,
-  activeSap,
-  onOpenChatTerminal
+  activeSap
 }: Props) {
   const t = useT();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -2093,11 +2090,6 @@ export default function AxetCodeHome({
             onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
             contextLabel={session.sapLabel}
             contextPath={session.cwd || workspaceDir}
-            onOpenContextTerminal={
-              session.cwd || workspaceDir
-                ? () => onOpenChatTerminal(session.cwd || workspaceDir, session.sapLabel ?? session.title)
-                : undefined
-            }
             onOpenInstructions={
               session.cwd || workspaceDir ? () => setInstructionsCwd(session.cwd || workspaceDir) : undefined
             }
@@ -2151,13 +2143,6 @@ export default function AxetCodeHome({
           onSuggestionClick={(key) => handleDraftChange(t(`axetCodeHome.${key}` as Parameters<typeof t>[0]))}
           contextLabel={effectiveNewBinding?.label ?? null}
           contextPath={effectiveNewBinding?.cwd || workspaceDir}
-          onOpenContextTerminal={
-            effectiveNewBinding
-              ? () => onOpenChatTerminal(effectiveNewBinding.cwd, effectiveNewBinding.label)
-              : workspaceDir
-                ? () => onOpenChatTerminal(workspaceDir, t("axetCodeHome.contextWorkspace"))
-                : undefined
-          }
           onOpenInstructions={
             effectiveNewBinding?.cwd || workspaceDir
               ? () => setInstructionsCwd(effectiveNewBinding?.cwd || workspaceDir)

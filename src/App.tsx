@@ -488,31 +488,11 @@ export default function App() {
     [t]
   );
 
-  // Bir sohbetin proje klasöründe DÜZ bir kabuk açar (rozetteki "Terminal"
-  // düğmesi).
-  //
-  // 2026-09-04 — kullanıcı geri bildirimi: *"la sisteme bağlan diyince yine
-  // konsol açılıyor ... dayım konsolla ne işimiz var daha"*. Bağlantı
-  // başarılı olduğunda eskiden burada `axet-code -y` TUI'si açılıyordu;
-  // artık açılmıyor, bağlanınca axet.code SOHBET ekranına düşülüyor (bkz.
-  // handleCredentialsSubmit + AxetCodeHome `sapChatRequest`). Terminal
-  // silinmedi, VARSAYILAN olmaktan çıktı: elle isteyen buradan açıyor.
-  //
-  // `createTerminal`e komut VERİLMİYOR — READY_PATTERNS beklemesi yalnızca
-  // TUI'nin kendi arayüzünü çizmesini beklemek içindi; düz kabukta sekme
-  // anında açılmalı (bkz. handleNewTerminal, aynı yol).
-  const openProjectDirTerminal = useCallback(
-    async (projectDir: string, title: string) => {
-      const shell = config?.terminal ?? "cmd";
-      try {
-        const id = await window.api.createTerminal(projectDir, 80, 24, shell);
-        pendingTerminalTitlesRef.current.set(id, title);
-      } catch (err) {
-        pushToast("error", t("app.terminalOpenFailed", { message: (err as Error).message }));
-      }
-    },
-    [config?.terminal, t]
-  );
+  // SOHBET EKRANINDA TERMİNAL YOK (2026-09-05, kullanıcı isteği: *"chat
+  // ekranındaki terminali kaldıralım"*). Bir zamanlar bağlanınca terminal
+  // açılıyordu, sonra rozetteki bir düğmeye indi, şimdi de kalktı: sohbet
+  // ekranının işi sohbet, konsol işi SAP Launcher ekranındaki alt panelde
+  // duruyor (`TerminalPanel`) ve orada duruyor olmaya devam ediyor.
 
   useEffect(() => {
     const unsubscribe = window.api.onTerminalReady((id) => {
@@ -808,7 +788,6 @@ export default function App() {
             onQuickConnectSap={handleQuickConnectSap}
             sapChatRequest={sapChatRequest}
             activeSap={activeContext.sap}
-            onOpenChatTerminal={openProjectDirTerminal}
           />
         </div>
         {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
@@ -934,6 +913,7 @@ export default function App() {
                     selectedPath={activeFilePath}
                     onSelectFile={handleOpenFile}
                     onImportComplete={handleImportComplete}
+                    browsable
                   />
                 </div>
               ) : (

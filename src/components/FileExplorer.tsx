@@ -1,7 +1,42 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight, ChevronDown, Folder, FolderOpen, File as FileIcon, RefreshCw, FilePlus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ArrowUp,
+  ChevronRight,
+  ChevronDown,
+  Folder,
+  FolderOpen,
+  FolderSearch,
+  File as FileIcon,
+  RefreshCw,
+  FilePlus
+} from "lucide-react";
 import type { FsEntry, FsImportFilesResult } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+
+// --- Yol yardımcıları ---
+// Renderer'da `node:path` yok ve yollar Windows'tan geliyor, ama ajanın
+// yazdığı yollarda `/` de görülüyor: her iki ayraç da tanınıyor.
+const lastSep = (p: string): number => Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
+
+const baseName = (p: string): string => p.slice(lastSep(p) + 1) || p;
+
+const parentDir = (p: string): string => {
+  const trimmed = p.replace(/[\\/]+$/, "");
+  const i = lastSep(trimmed);
+  if (i <= 0) return trimmed;
+  const parent = trimmed.slice(0, i);
+  // `C:\Users`in üstü `C:` değil `C:\` — sürücü kökü ayraçsız kalırsa
+  // listelenemeyen bir yol olurdu.
+  return /^[a-zA-Z]:$/.test(parent) ? `${parent}\\` : parent;
+};
+
+// Windows'ta büyük/küçük harf yol için anlamsız: `C:\Users` ile `c:\users`
+// aynı klasör ve karşılaştırma bunu bilmezse "izinli kök" hiç bulunamazdı.
+const isInside = (root: string, target: string): boolean => {
+  const base = root.replace(/[\\/]+$/, "").toLowerCase();
+  const item = target.replace(/[\\/]+$/, "").toLowerCase();
+  return item === base || item.startsWith(`${base}\\`) || item.startsWith(`${base}/`);
+};
 
 interface Props {
   rootDir: string;
@@ -27,6 +62,17 @@ interface Props {
    * ikinci bir `fs.watch` açmaya gerek yok.
    */
   onExternalChange?: () => void;
+  /**
+   * Klasörler arasında gezinmeye izin ver: yol çubuğu (breadcrumb), "üst
+   * klasör" düğmesi ve bir klasörü kök yapan çift tıklama. Kapalıyken bileşen
+   * eskisi gibi sadece `rootDir` altını gösterir.
+   *
+   * Gezinme İZİN SINIRINI GENİŞLETMİYOR: `fs:*` kanalları hâlâ
+   * `isPathAllowed` ile sınırlı. Yeni bir klasöre çıkmanın tek yolu
+   * `window.api.pickExplorerRoot()` — yani kullanıcının işletim sistemi
+   * penceresinden kendi seçmesi (bkz. fsExplorer.ts `grantUserRoot`).
+   */
+  browsable?: boolean;
 }
 
 type DirState = FsEntry[] | "loading" | "error";
@@ -42,12 +88,30 @@ export default function FileExplorer({
   onSelectFile,
   onImportComplete,
   autoRefresh = false,
-  onExternalChange
+  onExternalChange,
+  browsable = false
 }: Props) {
   const t = useT();
   const [childrenByPath, setChildrenByPath] = useState<Record<string, DirState>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [dragOverPath, setDragOverPath] = useState<string | null>(null);
+  // Ağacın O ANKİ kökü. `rootDir` prop'u "nereden başlanacağı"; kullanıcı
+  // gezinince buradan ayrılıyor, prop değişince (başka projeye/sohbete
+  // geçiş) yeniden ona sabitleniyor.
+  const [currentRoot, setCurrentRoot] = useState(rootDir);
+  const [allowedRoots, setAllowedRoots] = useState<string[]>([]);
+
+  useEffect(() => {
+    setCurrentRoot(rootDir);
+  }, [rootDir]);
+
+  useEffect(() => {
+    if (!browsable) return;
+    window.api
+      .getAllowedRoots()
+      .then(setAllowedRoots)
+      .catch(() => setAllowedRoots([]));
+  }, [browsable]);
 
   const loadDir = useCallback(async (dirPath: string) => {
     setChildrenByPath((prev) => ({ ...prev, [dirPath]: "loading" }));
@@ -61,9 +125,9 @@ export default function FileExplorer({
 
   useEffect(() => {
     setChildrenByPath({});
-    setExpanded({ [rootDir]: true });
-    loadDir(rootDir);
-  }, [rootDir, loadDir]);
+    setExpanded({ [currentRoot]: true });
+    loadDir(currentRoot);
+  }, [currentRoot, loadDir]);
 
   const toggleDir = (dirPath: string) => {
     setExpanded((prev) => {
@@ -82,11 +146,11 @@ export default function FileExplorer({
   // Kök + O AN AÇIK olan klasörler yeniden okunuyor; kapalı klasörlerin
   // içeriğini tazelemek görünmeyen bir şey için disk okumak olurdu.
   const refresh = useCallback(() => {
-    loadDir(rootDir);
+    loadDir(currentRoot);
     for (const dirPath of Object.keys(expandedRef.current)) {
       if (expandedRef.current[dirPath]) loadDir(dirPath);
     }
-  }, [loadDir, rootDir]);
+  }, [loadDir, currentRoot]);
 
   // Canlı tazeleme. Debounce main tarafında (bkz. fsExplorer WATCH_DEBOUNCE_MS),
   // burada sadece "benim kökümde değişiklik oldu mu" süzülüyor — aynı anda
@@ -97,10 +161,10 @@ export default function FileExplorer({
   onExternalChangeRef.current = onExternalChange;
 
   useEffect(() => {
-    if (!autoRefresh || !rootDir) return;
+    if (!autoRefresh || !currentRoot) return;
     const id = crypto.randomUUID();
     let disposed = false;
-    window.api.watchDir(id, rootDir).catch(() => {});
+    window.api.watchDir(id, currentRoot).catch(() => {});
     const off = window.api.onFsChanged((changedId) => {
       if (changedId !== id || disposed) return;
       refresh();
@@ -111,7 +175,7 @@ export default function FileExplorer({
       off();
       window.api.unwatchDir(id).catch(() => {});
     };
-  }, [autoRefresh, rootDir, refresh]);
+  }, [autoRefresh, currentRoot, refresh]);
 
   // Dışarıdan (Windows Explorer/Masaüstü) sürüklenip bırakılan dosyaları
   // hedef klasöre kopyalar — hem "Dosya Ekle" diyaloğu hem sürükle-bırak
@@ -144,8 +208,41 @@ export default function FileExplorer({
 
   const handleAddFileClick = async () => {
     const paths = await window.api.pickFiles();
-    await importInto(rootDir, paths);
+    await importInto(currentRoot, paths);
   };
+
+  // Kullanıcı işletim sisteminin klasör penceresinden bir klasör seçiyor;
+  // main süreci SEÇİLEN yolu birinci elden alıp izin veriyor ve geri
+  // döndürüyor. Renderer'ın kendi uydurduğu bir yol asla izin listesine
+  // giremiyor — kapı burada değil, orada.
+  const handlePickRoot = async () => {
+    const picked = await window.api.pickExplorerRoot();
+    if (!picked) return;
+    setAllowedRoots((prev) => (prev.includes(picked) ? prev : [...prev, picked]));
+    setCurrentRoot(picked);
+  };
+
+  // Gezinmenin tabanı: `currentRoot`u içeren izinli köklerin EN UZUNU.
+  // "Üst klasör" düğmesi buranın dışına çıkamaz, çünkü dışarısı zaten
+  // `fs:listDir` tarafından reddedilirdi.
+  const baseRoot = useMemo(() => {
+    const candidates = [rootDir, ...allowedRoots].filter((dir) => dir && isInside(dir, currentRoot));
+    if (candidates.length === 0) return currentRoot;
+    return candidates.reduce((longest, dir) => (dir.length > longest.length ? dir : longest));
+  }, [rootDir, allowedRoots, currentRoot]);
+
+  // Yol çubuğu: taban kök + oradan `currentRoot`a inen her parça tıklanabilir.
+  const crumbs = useMemo(() => {
+    const rest = currentRoot.slice(baseRoot.replace(/[\\/]+$/, "").length).replace(/^[\\/]+/, "");
+    const parts = rest ? rest.split(/[\\/]+/).filter(Boolean) : [];
+    let acc = baseRoot.replace(/[\\/]+$/, "");
+    return parts.map((name) => {
+      acc = `${acc}\\${name}`;
+      return { name, path: acc };
+    });
+  }, [baseRoot, currentRoot]);
+
+  const canGoUp = browsable && !isInside(currentRoot, baseRoot);
 
   const renderEntry = (entry: FsEntry, depth: number) => {
     const paddingLeft = depth * 14 + 8;
@@ -157,6 +254,7 @@ export default function FileExplorer({
         <div key={entry.path}>
           <button
             onClick={() => toggleDir(entry.path)}
+            onDoubleClick={browsable ? () => setCurrentRoot(entry.path) : undefined}
             onDragOver={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -173,7 +271,7 @@ export default function FileExplorer({
               setDragOverPath(null);
               importInto(entry.path, extractDroppedPaths(e.dataTransfer));
             }}
-            title={entry.name}
+            title={browsable ? `${entry.name}\n${t("fileExplorer.enterDirHint")}` : entry.name}
             className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm text-slate-300 hover:bg-base-700/60 ${
               isDragOver ? "bg-accent-500/20 ring-1 ring-inset ring-accent-400" : ""
             }`}
@@ -235,16 +333,25 @@ export default function FileExplorer({
     );
   };
 
-  const rootState = childrenByPath[rootDir];
-  const isRootDragOver = dragOverPath === rootDir;
+  const rootState = childrenByPath[currentRoot];
+  const isRootDragOver = dragOverPath === currentRoot;
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between gap-1 px-2 py-2">
-        <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400" title={rootDir}>
-          {rootLabel}
+        <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400" title={currentRoot}>
+          {browsable && currentRoot !== rootDir ? baseName(currentRoot) : rootLabel}
         </span>
         <div className="flex shrink-0 items-center gap-1">
+          {browsable && (
+            <button
+              onClick={handlePickRoot}
+              title={t("fileExplorer.openDirTitle")}
+              className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white"
+            >
+              <FolderSearch size={12} />
+            </button>
+          )}
           <button
             onClick={handleAddFileClick}
             title={t("fileExplorer.addFileTitle")}
@@ -261,17 +368,53 @@ export default function FileExplorer({
           </button>
         </div>
       </div>
+      {browsable && (
+        <div className="flex shrink-0 items-center gap-1 border-b border-base-800 px-2 pb-1.5">
+          <button
+            onClick={() => setCurrentRoot(parentDir(currentRoot))}
+            disabled={!canGoUp}
+            title={t("fileExplorer.upDirTitle")}
+            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+          >
+            <ArrowUp size={12} />
+          </button>
+          {/* Yol çubuğu yatay kayıyor: derin bir yol paneli genişletemez. */}
+          <div className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto whitespace-nowrap text-[11px] text-slate-500">
+            <button
+              onClick={() => setCurrentRoot(baseRoot)}
+              title={baseRoot}
+              className="shrink-0 cursor-pointer rounded px-1 py-0.5 hover:bg-base-700 hover:text-white"
+            >
+              {baseName(baseRoot) || baseRoot}
+            </button>
+            {crumbs.map((crumb) => (
+              <span key={crumb.path} className="flex shrink-0 items-center gap-0.5">
+                <ChevronRight size={10} className="text-slate-600" />
+                <button
+                  onClick={() => setCurrentRoot(crumb.path)}
+                  title={crumb.path}
+                  className={`cursor-pointer rounded px-1 py-0.5 hover:bg-base-700 hover:text-white ${
+                    crumb.path === currentRoot ? "text-slate-300" : ""
+                  }`}
+                >
+                  {crumb.name}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div
         onDragOver={(e) => {
           e.preventDefault();
           e.dataTransfer.dropEffect = "copy";
-          setDragOverPath(rootDir);
+          setDragOverPath(currentRoot);
         }}
-        onDragLeave={() => setDragOverPath((prev) => (prev === rootDir ? null : prev))}
+        onDragLeave={() => setDragOverPath((prev) => (prev === currentRoot ? null : prev))}
         onDrop={(e) => {
           e.preventDefault();
           setDragOverPath(null);
-          importInto(rootDir, extractDroppedPaths(e.dataTransfer));
+          importInto(currentRoot, extractDroppedPaths(e.dataTransfer));
         }}
         className={`flex-1 overflow-y-auto px-1 pb-2 ${isRootDragOver ? "bg-accent-500/10" : ""}`}
       >

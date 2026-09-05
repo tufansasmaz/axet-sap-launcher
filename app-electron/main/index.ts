@@ -14,7 +14,7 @@ import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
-import { isPathAllowed, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
+import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
 import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
@@ -540,6 +540,24 @@ function registerIpc(): void {
   ipcMain.handle("project:resolveDir", (_event, customerPath: string[], service: SapService) => {
     const config = loadConfig();
     return computeProjectDir(config, customerPath, service);
+  });
+
+  // Gezginin gezebileceği köklerin listesi. "Yukarı" tuşu buna bakarak
+  // duruyor — sınırı denemeden bilmek, kullanıcıya tıklayınca hata veren bir
+  // düğme göstermemek demek (bkz. fsExplorer `listAllowedRoots`).
+  ipcMain.handle("fs:allowedRoots", () => listAllowedRoots(loadConfig()));
+
+  // Gezgine YENİ bir kök ekler: klasörü işletim sisteminin kendi penceresi
+  // seçtiriyor, yani izni veren kullanıcının kendisi oluyor. Ayrı bir kanal,
+  // çünkü `dialog:pickFolder` (ayarlardaki klasör seçici) hiçbir erişim izni
+  // vermiyor ve vermemeli.
+  ipcMain.handle("dialog:pickExplorerRoot", async () => {
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showOpenDialog(win ?? (undefined as any), {
+      properties: ["openDirectory"]
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return grantUserRoot(result.filePaths[0]);
   });
 
   ipcMain.handle("fs:listDir", async (_event, dirPath: string) => {

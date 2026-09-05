@@ -212,8 +212,6 @@ export const tr = {
   // satırın `title`'ında duruyor — sohbeti ezmeden erişilebilir kalsın.
   "axetCodeHome.toolMoreLines": "+{count} satır",
   "axetCodeHome.dropFilesHint": "Eklemek için dosyaları buraya bırak",
-  "axetCodeHome.contextTerminal": "Terminal",
-  "axetCodeHome.contextTerminalHint": "Bu proje klasöründe terminal aç",
   "axetCodeHome.contextFiles": "Dosyalar",
   "axetCodeHome.contextFilesHint": "Bu klasörün dosyalarını yan panelde aç/kapat",
   "axetCodeHome.contextWorkspace": "Çalışma alanı",
@@ -387,6 +385,9 @@ export const tr = {
   "fileExplorer.empty": "Boş.",
   "fileExplorer.addFileTitle": "Bu klasöre dosya ekle",
   "fileExplorer.refreshTitle": "Dosya listesini yenile",
+  "fileExplorer.openDirTitle": "Başka bir klasör aç",
+  "fileExplorer.upDirTitle": "Üst klasör",
+  "fileExplorer.enterDirHint": "Çift tıkla: bu klasöre gir",
   "fileExplorer.noProjectDir": "Bu sistem için proje klasörü henüz yok. Sağdaki \"{openInAxet}\" ile bir kere bağlanınca burada görünecek.",
   "fileExplorer.emptyRoot": "Klasör boş. Dosya sürükleyip bırakabilir veya + ile ekleyebilirsin.",
 

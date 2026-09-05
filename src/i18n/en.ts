@@ -190,8 +190,6 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.toolGeneric": "Running {name}",
   "axetCodeHome.toolMoreLines": "+{count} lines",
   "axetCodeHome.dropFilesHint": "Drop files here to attach",
-  "axetCodeHome.contextTerminal": "Terminal",
-  "axetCodeHome.contextTerminalHint": "Open a terminal in this project folder",
   "axetCodeHome.contextFiles": "Files",
   "axetCodeHome.contextFilesHint": "Show or hide this folder's files in the side panel",
   "axetCodeHome.contextWorkspace": "Workspace",
@@ -359,6 +357,9 @@ export const en: Record<TranslationKey, string> = {
   "fileExplorer.empty": "Empty.",
   "fileExplorer.addFileTitle": "Add a file to this folder",
   "fileExplorer.refreshTitle": "Refresh file list",
+  "fileExplorer.openDirTitle": "Open another folder",
+  "fileExplorer.upDirTitle": "Parent folder",
+  "fileExplorer.enterDirHint": "Double-click: enter this folder",
   "fileExplorer.noProjectDir": "There's no project folder for this system yet. It will appear here once you connect via \"{openInAxet}\" on the right.",
   "fileExplorer.emptyRoot": "Folder is empty. You can drag & drop files here or add them with +.",
 

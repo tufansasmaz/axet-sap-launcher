@@ -30,7 +30,6 @@ import {
   Server,
   Sparkles,
   Square,
-  TerminalSquare,
   UploadCloud,
   X
 } from "lucide-react";
@@ -185,9 +184,8 @@ interface Props {
   // sohbet, şerit hiç çizilmiyor.
   contextLabel?: string | null;
   contextPath?: string | null;
-  // Terminal KALDIRILMADI, sadece varsayılan olmaktan çıktı (2026-09-04):
-  // bağlanınca artık konsol değil sohbet açılıyor, konsol bu düğmede duruyor.
-  onOpenContextTerminal?: () => void;
+  // TERMİNAL DÜĞMESİ KALDIRILDI (2026-09-05, kullanıcı isteği). Konsol
+  // uygulamadan silinmedi — SAP Launcher ekranının alt panelinde duruyor.
   // Klasördeki `AGENTS.md`'yi düzenleyen kutuyu açar. Şeritte duruyor çünkü
   // yönerge sohbete değil BU KLASÖRE ait — bkz. ChatInstructionsDialog.
   onOpenInstructions?: () => void;
@@ -251,7 +249,6 @@ export default function ChatSessionPane({
   onSuggestionClick,
   contextLabel = null,
   contextPath = null,
-  onOpenContextTerminal,
   onOpenInstructions,
   filesPanel,
   filesPanelOpen = false,
@@ -599,16 +596,6 @@ export default function ChatSessionPane({
             >
               <BookOpen size={12} />
               {t("chatInstructions.button")}
-            </button>
-          )}
-          {onOpenContextTerminal && (
-            <button
-              onClick={onOpenContextTerminal}
-              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
-              title={t("axetCodeHome.contextTerminalHint")}
-            >
-              <TerminalSquare size={12} />
-              {t("axetCodeHome.contextTerminal")}
             </button>
           )}
         </div>

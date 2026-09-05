@@ -28,10 +28,44 @@ const IMAGE_MIME_BY_EXT: Record<string, string> = {
 // (ikisi de Belgeler altında, biri diğerinin içinde değil), yani tek kök
 // yeterli değildi. İzin hâlâ kapalı bir liste: bu iki klasörün dışına çıkan
 // hiçbir yol kabul edilmiyor.
+// ÜÇÜNCÜ KÖK TÜRÜ: kullanıcının kendi eliyle açtığı klasörler (2026-09-05,
+// kullanıcı isteği: *"dosya ekranında istediğimiz dizini açabilelim"*).
+//
+// Yukarıdaki kural bozulmuyor: renderer'dan gelen bir yol hâlâ tek başına
+// hiçbir kapıyı açmıyor. Buraya YALNIZCA `dialog:pickExplorerRoot` yazıyor,
+// yani yolu ana süreç işletim sisteminin klasör seçme penceresinden BİRİNCİ
+// ELDEN alıyor. Kullanıcının gördüğü ve onayladığı bir klasör ile renderer'ın
+// uydurduğu bir yol arasındaki fark tam olarak bu.
+//
+// DİSKE YAZILMIYOR: izin uygulama çalıştığı sürece geçerli. Kalıcı bir liste,
+// bir kez açılan klasörü sonsuza kadar açık bırakmak olurdu — panelin kökü
+// zaten kaydedilmiyor, yeniden açmak tek tıklık iş.
+const grantedRoots = new Set<string>();
+
+/** Kullanıcının klasör penceresinde seçtiği klasöre erişim izni ver. */
+export function grantUserRoot(dirPath: string): string {
+  const resolved = path.resolve(dirPath);
+  grantedRoots.add(resolved);
+  return resolved;
+}
+
 function allowedRoots(config: AppConfig): string[] {
   return [config.projectsBaseDir, config.axetWorkspaceDir]
     .filter((dir): dir is string => Boolean(dir && dir.trim()))
-    .map((dir) => path.resolve(dir));
+    .map((dir) => path.resolve(dir))
+    .concat([...grantedRoots]);
+}
+
+/**
+ * İzinli köklerin listesi — gezginin "yukarı" tuşunun NEREDE duracağını
+ * bilmesi için.
+ *
+ * Arayüz bunu bilmeseydi tek seçenek denemek olurdu: bir üst klasöre çıkıp
+ * "erişim izni yok" hatasına toslamak. Sınırı önden bilmek, kullanıcıya
+ * tıklayamayacağı bir düğme göstermemeyi sağlıyor.
+ */
+export function listAllowedRoots(config: AppConfig): string[] {
+  return allowedRoots(config);
 }
 
 export function isPathAllowed(config: AppConfig, targetPath: string): boolean {

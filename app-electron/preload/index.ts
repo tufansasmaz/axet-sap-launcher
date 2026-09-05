@@ -142,6 +142,11 @@ const api = {
   saveFlowToLiveHost: (flowArray: unknown[]) => ipcRenderer.invoke("axetFlowsLive:saveFlow", flowArray),
   importFiles: (destDir: string, sourcePaths: string[]) => ipcRenderer.invoke("fs:importFiles", destDir, sourcePaths),
   pickFiles: () => ipcRenderer.invoke("dialog:pickFiles"),
+  // Dosya gezgininin gezebildiği kökler ve onlara yeni bir tane ekleme.
+  // Ekleme İŞLETİM SİSTEMİNİN klasör penceresinden geçiyor: izni veren
+  // kullanıcı, isteyen renderer değil (bkz. fsExplorer.ts `grantUserRoot`).
+  getAllowedRoots: (): Promise<string[]> => ipcRenderer.invoke("fs:allowedRoots"),
+  pickExplorerRoot: (): Promise<string | null> => ipcRenderer.invoke("dialog:pickExplorerRoot"),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke("app:getVersion"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   downloadUpdate: () => ipcRenderer.invoke("updates:download"),

@@ -73,6 +73,7 @@ export default function ChatFilesPanel({ rootDir, rootLabel, onClose, active }: 
           selectedPath={openFile?.path ?? null}
           onSelectFile={setOpenFile}
           autoRefresh={active}
+          browsable
           onExternalChange={() => setReloadToken((n) => n + 1)}
         />
       </div>

@@ -121,6 +121,13 @@ export interface AxetApi {
   saveFlowToLiveHost: (flowArray: unknown[]) => Promise<{ ok: boolean; port?: number | null; error?: string }>;
   importFiles: (destDir: string, sourcePaths: string[]) => Promise<FsImportFilesResult>;
   pickFiles: () => Promise<string[]>;
+  /** Gezginin gezebildiği kökler — "yukarı" bu sınırda duruyor. */
+  getAllowedRoots: () => Promise<string[]>;
+  /**
+   * Gezgine yeni bir kök ekler (işletim sisteminin klasör penceresi).
+   * Vazgeçilirse `null`. Dönen yol artık `fs:*` çağrılarına açık.
+   */
+  pickExplorerRoot: () => Promise<string | null>;
   getAppVersion: () => Promise<string>;
   checkForUpdates: () => Promise<void>;
   downloadUpdate: () => Promise<void>;
