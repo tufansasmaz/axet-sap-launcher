@@ -3,7 +3,6 @@ import type { ConnectivityState, SapService, SystemTier } from "../../app-electr
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import { resolveTier } from "../lib/tier";
-import { formatRelativeTime } from "../lib/time";
 import { useT } from "../i18n";
 
 interface RecentEntry {
@@ -41,27 +40,17 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
               key={entry.itemUuid}
               onClick={() => onSelect(entry.path, entry.service, entry.itemUuid)}
               title={entry.path.join(" / ")}
-              className={`flex w-full cursor-pointer items-start gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
+              className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
                 isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-base-700/60"
               }`}
             >
-              <Server size={13} className="mt-1 shrink-0 text-[var(--navy-icon)]" />
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="truncate">{entry.service.name}</span>
-                  {tier && <TierBadge tier={tier} />}
-                  <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
-                    {entry.service.systemId}
-                  </span>
-                  <StatusDot state={state} />
-                </span>
-                {/* Listenin adı "Son Bağlananlar" ama ne kadar "son" olduğu
-                    hiçbir yerde yazmıyordu — `connectedAt` veri olarak zaten
-                    taşınıyor, yalnızca gösterilmiyordu. */}
-                <span className="block text-[10px] text-slate-500">
-                  {formatRelativeTime(entry.connectedAt, t)}
-                </span>
+              <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
+              <span className="truncate">{entry.service.name}</span>
+              {tier && <TierBadge tier={tier} />}
+              <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
+                {entry.service.systemId}
               </span>
+              <StatusDot state={state} />
             </button>
           );
         })}

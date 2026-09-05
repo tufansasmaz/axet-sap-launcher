@@ -128,6 +128,10 @@ interface ChatSession {
 export interface SapChatRequest {
   projectDir: string;
   label: string;
+  // Sohbetin ilk balonu olarak basılacak bağlantı özeti (App.tsx üretiyor).
+  // Ajandan gelmiyor: bağlantı sonucunu launcher zaten biliyor, sordurmak
+  // gereksiz bir tur olurdu.
+  notice: string;
   nonce: number;
 }
 
@@ -203,6 +207,17 @@ const MAX_HISTORY_MESSAGES = 24;
 // "Yeni sohbet"e üst üste basan kullanıcı, listeyi hiç kullanılmamış boş
 // kayıtlarla dolduruyordu.
 const NEW_SESSION_ID = "__new__";
+
+// SAP'a bağlanınca sohbetin başına basılan karşılama balonunun kimliği.
+// Ekranda asistan mesajı gibi görünüyor ama ajanın ÜRETTİĞİ bir tur değil —
+// launcher'ın bağlantı sonucundan üretilen bir özet (bkz. App.tsx
+// `handleCredentialsSubmit`). Bu yüzden ajana giden geçmişten süzülüyor:
+// uydurma bir asistan turu göndermek, hem ajanın kendi oturum hafızasıyla
+// çelişir hem de aynı bilgi zaten proje klasöründeki `sap-context.md`de var.
+// Kimliğin sabit olması yeterli: mesaj kimlikleri yalnızca bir sohbetin kendi
+// listesi içinde benzersiz olmak zorunda ve her sohbette bundan bir tane var.
+const CONNECT_NOTICE_ID = "connect-notice";
+const isNotConnectNotice = (m: ChatMessage) => m.id !== CONNECT_NOTICE_ID;
 
 // Gelen bir etkinlik olayını oturuma işler.
 //
@@ -406,6 +421,19 @@ export default function AxetCodeHome({
   // bağlantı da o ana kadar burada bekliyor: bağlanıp hiçbir şey sormayan
   // kullanıcı, listede boş bir sohbet bulmuyor.
   const [newBinding, setNewBinding] = useState<{ cwd: string; label: string } | null>(null);
+  // Taslağın bağlantı karşılaması (bkz. SapChatRequest.notice). `newBinding`
+  // gibi taslakta bekliyor ve ilk mesajla birlikte sohbete taşınıyor —
+  // yalnızca boş ekranda gösterilseydi kullanıcı yazar yazmaz kaybolur,
+  // "hangi sisteme bağlıydım" bilgisi sohbette hiç kalmazdı.
+  const [newNotice, setNewNotice] = useState<string | null>(null);
+  // Kimlik SABİT, her render'da `crypto.randomUUID()` DEĞİL: id React `key`
+  // olarak kullanılıyor, her render'da değişseydi balon her tuş vuruşunda
+  // sökülüp yeniden kurulurdu (bkz. CONNECT_NOTICE_ID).
+  const noticeMessage = useMemo<ChatMessage | null>(
+    () =>
+      newNotice ? { id: CONNECT_NOTICE_ID, role: "assistant", content: newNotice, createdAt: Date.now() } : null,
+    [newNotice]
+  );
   // Taslak sohbetin GERÇEKTE kullanacağı bağlantı. `newBinding` yoksa aktif
   // SAP bağlamı devreye giriyor: bir sisteme bağlandıktan sonra açılan her
   // yeni sohbet o sisteme ait sayılıyor. `newBinding` ("şu an bağlandık"
@@ -691,16 +719,23 @@ export default function AxetCodeHome({
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
   // `binding`: yalnızca SAP bağlantısından gelen çağrı doldurur; elle açılan
   // yeni sohbet bağlamsız başlar (önceki sistemin klasörü yapışıp kalmasın).
-  const handleNewSession = useCallback((binding: { cwd: string; label: string } | null = null) => {
-    setActiveId(null);
-    setNewDraft("");
-    setNewAttachments([]);
-    setNewBinding(binding);
-    setQuery("");
-    // Boş ekrana her dönüşte kartlar yenileniyor — "sürekli değişen" burada.
-    setSuggestionSeed(freshSuggestionSeed());
-    requestAnimationFrame(() => textareaRef.current?.focus());
-  }, []);
+  // `notice`: yalnızca SAP bağlantısından gelen çağrı doldurur. Elle açılan
+  // yeni sohbette `null` — bir önceki bağlantının karşılaması ekranda asılı
+  // kalmamalı.
+  const handleNewSession = useCallback(
+    (binding: { cwd: string; label: string } | null = null, notice: string | null = null) => {
+      setActiveId(null);
+      setNewDraft("");
+      setNewAttachments([]);
+      setNewBinding(binding);
+      setNewNotice(notice);
+      setQuery("");
+      // Boş ekrana her dönüşte kartlar yenileniyor — "sürekli değişen" burada.
+      setSuggestionSeed(freshSuggestionSeed());
+      requestAnimationFrame(() => textareaRef.current?.focus());
+    },
+    []
+  );
 
   // --- "Sisteme bağlan" → sohbet ---
   // Bağlantı başarılı olunca App.tsx yeni bir istek bırakıyor; burada boş
@@ -708,7 +743,7 @@ export default function AxetCodeHome({
   // bağımlılıkta: aynı sisteme tekrar bağlanmak da yeni bir sohbet açmalı.
   useEffect(() => {
     if (!sapChatRequest) return;
-    handleNewSession({ cwd: sapChatRequest.projectDir, label: sapChatRequest.label });
+    handleNewSession({ cwd: sapChatRequest.projectDir, label: sapChatRequest.label }, sapChatRequest.notice);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sapChatRequest?.nonce]);
 
@@ -999,7 +1034,11 @@ export default function AxetCodeHome({
       // Metin yoksa başlık ilk ekin adından — başlıksız bir satır listede
       // hiçbir şey anlatmıyor.
       title: deriveTitle(text || attachments[0].name),
-      messages: [userMessage],
+      // Karşılama balonu sohbete de taşınıyor — sadece boş ekranda dursaydı
+      // ilk mesajla birlikte kaybolur, kullanıcı geçmişe döndüğünde bu
+      // sohbetin hangi sisteme ve hangi bağlantı durumuna ait olduğunu
+      // göremezdi.
+      messages: noticeMessage ? [noticeMessage, userMessage] : [userMessage],
       model: defaultModel,
       draft: "",
       attachments: [],
@@ -1024,8 +1063,14 @@ export default function AxetCodeHome({
     setNewDraft("");
     setNewAttachments([]);
     setNewBinding(null);
+    setNewNotice(null);
+    // Geçmiş BOŞ gidiyor, karşılama balonu dahil değil: o balon ajanın
+    // ürettiği bir tur değil, bizim bastığımız bir özet. Ajan aynı bilgiyi
+    // zaten proje klasöründeki `sap-context.md`den okuyor (bkz. runPrompt'taki
+    // `sessionCwd` notu), ikinci kez ve uydurma bir "asistan turu" olarak
+    // göndermek gereksiz.
     await runPrompt(id, promptWithAttachments(text, attachments), [], defaultModel, session.cwd);
-  }, [defaultModel, newAttachments, effectiveNewBinding, newDraft, runPrompt]);
+  }, [defaultModel, newAttachments, effectiveNewBinding, newDraft, noticeMessage, runPrompt]);
 
   const handleSend = useCallback(async () => {
     if (!activeId) return handleSendNew();
@@ -1039,6 +1084,7 @@ export default function AxetCodeHome({
     // iki mesaj önce konuşulan dosyanın yolunu kaybeder — ekran metninde o
     // yol yok, sadece çipin adı var.
     const historyForCall: AxetChatMessage[] = session.messages
+      .filter(isNotConnectNotice)
       .slice(-MAX_HISTORY_MESSAGES)
       .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
     const userMessage: ChatMessage = {
@@ -1175,6 +1221,7 @@ export default function AxetCodeHome({
     const prompt = promptWithAttachments(msgs[userIndex].content, msgs[userIndex].attachments ?? []);
     const historyForCall: AxetChatMessage[] = msgs
       .slice(0, userIndex)
+      .filter(isNotConnectNotice)
       .slice(-MAX_HISTORY_MESSAGES)
       .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
 
@@ -1211,6 +1258,7 @@ export default function AxetCodeHome({
     // Geçmişe YARIM CEVAP DA giriyor (`slice` son mesajı kesmiyor): ajan neyi
     // yazdığını görmeden "kaldığın yerden devam et" anlamsız bir istem olurdu.
     const historyForCall: AxetChatMessage[] = msgs
+      .filter(isNotConnectNotice)
       .slice(-MAX_HISTORY_MESSAGES)
       .map((m) => ({ role: m.role, content: promptWithAttachments(m.content, m.attachments ?? []) }));
 
@@ -1740,7 +1788,10 @@ export default function AxetCodeHome({
   // AYNI bileşen (ve aynı composer) oluyor.
   const newSessionView = {
     id: NEW_SESSION_ID,
-    messages: [] as ChatMessage[],
+    // Bağlantı karşılaması varsa boş ekran yerine O görünüyor: sisteme yeni
+    // bağlanmış birine genel öneri kartları göstermek, elimizdeki tek somut
+    // bilgiyi (bağlandık mı, bağlanamadık mı) saklamak demekti.
+    messages: (noticeMessage ? [noticeMessage] : []) as ChatMessage[],
     model: defaultModel,
     draft: newDraft,
     attachments: newAttachments,

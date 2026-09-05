@@ -8232,3 +8232,50 @@ veritabanından adım adım:
 Taslak kararı yanlış çıkarsa bedel sınırlı: sonradan bağlayıcı gerekmezse
 oturum olduğu gibi kullanılıyor (yapışkan kural), gerekir de kaçırmışsak o
 mesajda yeniden kuruluyor — yani eski davranış.
+
+---
+
+## Bağlantıdan sonra sohbetin ilk balonu (2026-09-06)
+
+**Kullanıcının bildirdiği davranış**: bir sisteme bağlanıldıktan sonra sohbet
+BOMBOŞ açılıyordu. Kullanıcı "MAYA sistemine bağlı mısın" diye sormak zorunda
+kalıyor, ajan da 4 komut çalıştırıp durumu sıfırdan keşfediyordu ("Hayır,
+gerçek anlamda bağlı değilim — SAML SSO giriş sayfası döndü"). Cevap DOĞRUYDU,
+ama bir tur jetona, birkaç saniyeye ve kullanıcının soru sormasına mal
+oluyordu.
+
+**Kök sebep**: bağlantı sonucu sohbete hiç ulaşmıyordu. `App.tsx`
+`handleCredentialsSubmit` `ConnectResult`ten yalnızca `ok`, `message` ve
+`projectDir`i okuyor, `verified`i hiç kullanmıyordu; `AxetCodeHome`in yeni
+sohbet yüzeyi (`newSessionView`) `messages: []` ile sabitti. Yani doğrulama
+sonucunu launcher ZATEN biliyordu, sadece kimseye söylemiyordu.
+
+**Çözüm**: karşılama metni bağlantı anında `App.tsx`te üretiliyor
+(`connectNotice.*` anahtarları) ve `SapChatRequest.notice` ile sohbete
+taşınıyor. İçeriği: sistem etiketi + client/kullanıcı + `result.message`
+(launcher'ın dile duyarlı, duruma özel açıklaması — yeniden yazılmıyor) +
+sıradaki adım.
+
+- **`ok: true` + `verified: false` GERÇEK bir durum** (SAML kurulumu gereken
+  sistemler, RFC bridge ayakta ama doğrulanmamış, bridge auto-start başarısız).
+  Karşılama bu iki hâli ayırıyor; renderer eskiden üçünü de aynı "başarılı"
+  toast'ıyla geçiştiriyordu.
+- Balon `newSessionView.messages`e giriyor, yani bağlantıdan sonra açılış
+  ekranındaki genel öneri kartları yerine O görünüyor.
+- İlk mesajla birlikte sohbete de taşınıyor (`handleSendNew`) — sadece boş
+  ekranda dursaydı kullanıcı yazar yazmaz kaybolur, geçmişe dönüldüğünde
+  sohbetin hangi sisteme ait olduğu görünmezdi.
+- **Ajana giden geçmişten SÜZÜLÜYOR** (`CONNECT_NOTICE_ID` /
+  `isNotConnectNotice`, üç `historyForCall` kurucusunda da). Bu balon asistan
+  gibi görünüyor ama ajanın ürettiği bir tur değil; uydurma bir asistan turu
+  göndermek ajanın kendi kalıcı oturum hafızasıyla çelişirdi ve aynı bilgi
+  zaten proje klasöründeki `sap-context.md`de duruyor.
+- Kimlik SABİT (`"connect-notice"`), her render'da `crypto.randomUUID()`
+  değil — id React `key` olarak kullanılıyor, değişseydi balon her tuş
+  vuruşunda sökülüp yeniden kurulurdu.
+- Elle açılan yeni sohbet (`handleNewSession(null)`) karşılamayı temizliyor:
+  bir önceki bağlantının metni ekranda asılı kalmamalı.
+
+Aynı turda **"Son Bağlananlar" listesindeki göreli zaman satırı geri alındı**
+(kullanıcı isteği) — liste yine tek satır. `formatRelativeTime` hâlâ
+`SystemPanel`de "son bağlantı" için kullanılıyor, ölü kod kalmadı.

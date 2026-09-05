@@ -34,6 +34,15 @@ export const tr = {
   "app.fileImportFailed": "Dosya eklenemedi: {error}",
   "app.skippedFoldersNote": " ({count} klasör atlandı, sadece dosyalar eklenebiliyor)",
   "app.filesImported": "{count} dosya eklendi{note}",
+  // Bağlantıdan sonra sohbetin ilk balonuna basılan karşılama. Metin ajandan
+  // DEĞİL launcher'ın kendi bağlantı sonucundan üretiliyor (bkz. App.tsx
+  // `handleCredentialsSubmit`) — o sonuç zaten elimizde, ajana sordurmak hem
+  // bir tur jetona mal oluyor hem de tahmine dayanıyordu.
+  "connectNotice.verified": "**{system}** sistemine bağlıyım.",
+  "connectNotice.unverified": "**{system}** sistemine bağlandım, ama kimlik doğrulaması tamamlanmadı.",
+  "connectNotice.identity": "Client `{client}` · kullanıcı `{user}`",
+  "connectNotice.whatNext": "Ne yapmak istersin?",
+  "connectNotice.whatNextUnverified": "Bu hâliyle sisteme okuma/yazma yapamam. Yukarıdaki adımı birlikte tamamlayalım mı?",
   "app.terminalDefaultTitle": "Terminal {n}",
   "app.terminalCreateFailed": "Terminal açılamadı: {message}",
   "app.settingsSaved": "Ayarlar kaydedildi",

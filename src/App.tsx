@@ -672,11 +672,35 @@ export default function App() {
         pushToast("success", result.message);
         const title = `${credentialsTarget.path[credentialsTarget.path.length - 1] ?? credentialsTarget.service.name} · ${credentialsTarget.service.systemId || credentialsTarget.service.name}`;
         setCredentialsTarget(null);
+        // Sohbetin ilk balonu. Bunu BURADA üretmemizin sebebi: bağlantının
+        // doğrulanıp doğrulanmadığını launcher zaten biliyor. Eskiden sohbet
+        // bomboş açılıyordu, kullanıcı "bu sisteme bağlı mısın" diye sormak
+        // zorunda kalıyor, ajan da sıfırdan komut çalıştırıp durumu kendi
+        // keşfediyordu — bir tur jeton, birkaç saniye ve tahmine dayalı bir
+        // cevap. Buradaki metin ölçüm değil, olgu.
+        //
+        // `ok: true` + `verified: false` GERÇEK bir durum (SAML kurulumu
+        // gerektiren sistemler, RFC bridge ayakta ama doğrulanmamış) — o
+        // yüzden karşılama iki ayrı hâl biliyor. Sebebi ve sıradaki adımı
+        // yeniden yazmıyoruz: `result.message` zaten launcher'ın dile
+        // duyarlı, duruma özel açıklaması (bkz. `connectMsg`).
+        const svc = credentialsTarget.service;
+        const systemLabel = `${svc.name}${svc.systemId ? ` · ${svc.systemId}` : ""}`;
+        const notice = [
+          result.verified
+            ? t("connectNotice.verified", { system: systemLabel })
+            : t("connectNotice.unverified", { system: systemLabel }),
+          t("connectNotice.identity", { client: result.effectiveClient || client, user: username }),
+          "",
+          result.message,
+          "",
+          result.verified ? t("connectNotice.whatNext") : t("connectNotice.whatNextUnverified")
+        ].join("\n");
         // Bağlantı artık TERMİNAL AÇMIYOR: axet.code sohbetine, bu bağlantının
         // proje klasörüne bağlı boş bir sohbetle düşüyoruz (bkz.
         // openProjectDirTerminal'daki not). `nonce` şart — aynı sisteme arka
         // arkaya bağlanmak da yeni bir sohbet açmalı.
-        setSapChatRequest({ projectDir: result.projectDir, label: title, nonce: Date.now() });
+        setSapChatRequest({ projectDir: result.projectDir, label: title, notice, nonce: Date.now() });
         setActivity("axetCode");
         try {
           const cfg = await window.api.getConfig();
