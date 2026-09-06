@@ -88,8 +88,13 @@ export default function ActivityBar({
   ];
 
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center justify-between border-r border-line bg-sidebar py-2">
-      <div className="flex w-full flex-col items-center gap-1.5">
+    // Ray 56px DEĞİL 48px (kullanıcı isteği, 2026-09-06: "ilk rayı biraz daha
+    // dar ve daha sakin yapardım"). Ekranın dörtte birinin navigasyon olduğu
+    // hissini azaltmak için; asıl sidebar'a (272px) dokunulmadı, o kullanıcının
+    // açık kararıyla aynı kaldı. Kutular da 44 -> 40px; ikon boyu (17px) ve
+    // içteki hover kutusu (32px) sabit, yani daralan şey yalnızca boşluk.
+    <div className="flex w-12 shrink-0 flex-col items-center justify-between border-r border-line bg-sidebar py-2">
+      <div className="flex w-full flex-col items-center gap-1">
         {activities.map((item) => {
           const isActive = activity === item.id;
           return (
@@ -97,17 +102,22 @@ export default function ActivityBar({
               key={item.id}
               onClick={() => onChange(item.id)}
               title={item.label}
-              className="group relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl transition-colors"
+              className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-colors"
             >
+              {/* Şerit PARLAK lime (`accent-500`), fonksiyonel ton değil:
+                  kullanıcının "aktif navigation" için istediği yer tam burası
+                  ve iki katmanlı lime kuralında küçük durum göstergesi parlak
+                  tondan beslenir. İkon ise metin/ikon rolünde olduğu için
+                  `accent-400`'de kalıyor. */}
               <span
-                className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-400 transition-all ${
+                className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-500 transition-all ${
                   isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40"
                 }`}
               />
               <span
                 className={`${boxBase} ${
                   isActive
-                    ? "bg-control text-accent-400"
+                    ? "bg-accent-500/10 text-accent-400"
                     : "opacity-70 group-hover:bg-hover/60 group-hover:opacity-100"
                 }`}
                 // Seçiliyken renk sınıftan (`text-accent-400`) geliyor, bu
@@ -121,10 +131,11 @@ export default function ActivityBar({
         })}
       </div>
 
-      {/* Alt grup butonları üsttekilerle AYNI kutu boyutunda (h-11 w-11) —
-          önceden h-10 w-10 idi ve dikey ray hizası gözle görülür şekilde
-          kayıyordu. Ayırıcı da panel kenarlıklarının her yerde kullandığı
-          base-700 tonunda (base-800 değil).
+      {/* Alt grup butonları üsttekilerle AYNI kutu boyutunda (h-10 w-10) —
+          bir ara h-11 idi, ray 48px'e inince ikisi birden küçüldü. Boyutun
+          ORTAK olması şart: farklı olduğu sürümde dikey ray hizası gözle
+          görülür şekilde kayıyordu. Ayırıcı da panel kenarlıklarının her
+          yerde kullandığı base-700 tonunda (base-800 değil).
 
           RENK BURADA DA DURGUN HÂLDE VAR (kullanıcı isteği, 2026-09-06:
           *"ayarlar ve üstündeki simgelerin renkleri gözükmüyor"*). Önceki
@@ -143,7 +154,7 @@ export default function ActivityBar({
         <button
           onClick={onToggleLanguage}
           title={t("activityBar.language")}
-          className="flex h-11 w-11 cursor-pointer flex-col items-center justify-center rounded-lg text-[var(--status-info-text)] opacity-75 transition hover:bg-hover hover:opacity-100"
+          className="flex h-10 w-10 cursor-pointer flex-col items-center justify-center rounded-lg text-[var(--status-info-text)] opacity-75 transition hover:bg-hover hover:opacity-100"
         >
           <Languages size={15} />
           <span className="text-[10px] font-semibold uppercase leading-tight tracking-wide">{language}</span>
@@ -155,7 +166,7 @@ export default function ActivityBar({
         <button
           onClick={onToggleTheme}
           title={t("activityBar.theme")}
-          className={`flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg opacity-75 transition hover:bg-hover hover:opacity-100 ${
+          className={`flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg opacity-75 transition hover:bg-hover hover:opacity-100 ${
             theme === "light" ? "text-[var(--module-code)]" : "text-[var(--action-amber-text)]"
           }`}
         >
@@ -172,7 +183,7 @@ export default function ActivityBar({
         <button
           onClick={onOpenConnections}
           title={t("activityBar.connections")}
-          className={`relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-[var(--status-success-text)] transition hover:bg-hover hover:opacity-100 ${
+          className={`relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-[var(--status-success-text)] transition hover:bg-hover hover:opacity-100 ${
             connectorsConnected ? "opacity-100" : "opacity-75"
           }`}
         >
@@ -191,7 +202,7 @@ export default function ActivityBar({
         <button
           onClick={onOpenSettings}
           title={t("activityBar.settings")}
-          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-[var(--navy-icon)] opacity-75 transition hover:bg-hover hover:opacity-100"
+          className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-[var(--navy-icon)] opacity-75 transition hover:bg-hover hover:opacity-100"
         >
           <Settings size={16} />
         </button>

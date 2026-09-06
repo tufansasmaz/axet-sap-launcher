@@ -7,6 +7,7 @@ import {
   BookOpen,
   Bug,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Code2,
   FileCode,
@@ -61,6 +62,11 @@ import { btn } from "../ui/buttons";
 // aynı üç rengi konuşsun; dördüncü bir renk uydurmak, sol şeritteki renklerin
 // taşıdığı anlamı sulandırırdı.
 const SUGGESTION_TINTS = ["var(--module-code)", "var(--module-sap)", "var(--module-guiscript)"];
+
+/** "Son çalışmalar" bölümünde durgun hâlde çizilen satır sayısı; gerisi
+ *  "Tümünü gör" ile YERİNDE açılıyor (bkz. `workExpanded`). Üç, üstteki öneri
+ *  ızgarasının sütun sayısıyla aynı — iki bölüm aynı ritmi tutuyor. */
+const VISIBLE_RECENT_WORK = 3;
 
 const SUGGESTION_ICONS: Record<string, LucideIcon> = {
   sgArchitecture: Layers,
@@ -292,6 +298,11 @@ export default function ChatSessionPane({
 }: Props) {
   const t = useT();
   const [dragOver, setDragOver] = useState(false);
+  // "Son çalışmalar" durgun hâlde üç satır; "Tümünü gör" listeyi YERİNDE
+  // açıyor, başka bir yere götürmüyor. Kenar çubuğuna yönlendirmek daha
+  // doğal görünüyordu ama kenar çubuğu zaten açıksa düğme hiçbir şey
+  // yapmayan bir bağlantıya dönüşürdü.
+  const [workExpanded, setWorkExpanded] = useState(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   // Kullanıcı listeyi yukarı kaydırıp eski bir mesajı okuyorsa, akan cevap
   // onu zorla dibe çekmemeli. `true` olduğu sürece otomatik kaydırma yapılır.
@@ -763,9 +774,21 @@ export default function ChatSessionPane({
               {t("axetCodeHome.heroSubtitle")}
             </p>
 
+            {/* BAĞLAYICI ETİKET. Selamlama ile kartlar arasında 40 piksellik
+                boşluk vardı ve kartlar havada duruyordu: "Bugün ne yapalım?"
+                sorusuyla altındaki üçlü arasında görsel bir bağ yoktu
+                (kullanıcı geri bildirimi, 2026-09-06: *"başlık güzel ama fazla
+                yalnız"*). Bilerek KÜÇÜK ve sessiz — aynı geri bildirimde
+                *"bunu büyük bir başlık yapmazdım, 10-12px muted text
+                yeterli"*. Aşağıdaki "SON ÇALIŞMALAR" başlığıyla aynı biçimde
+                yazılıyor, böylece ekranda iki bölüm olduğu okunuyor. */}
+            <div className="mt-8 pb-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              {t("axetCodeHome.quickStart")}
+            </div>
+
             {/* Dar pencerede tek sütuna iniyor: sabit üç sütunda kartlar
                 ~140px'e sıkışıp metinleri dört-beş satıra bölünüyordu. */}
-            <div className="mt-10 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               {suggestionKeys.map((key, i) => {
                 const Icon = SUGGESTION_ICONS[key] ?? Sparkles;
                 // İkon rengi modül paletinden sırayla dönüyor. Kartların
@@ -794,15 +817,18 @@ export default function ChatSessionPane({
                     // Zemin TAM `bg-card`, `/60` DEĞİL: yeni açılmış palette
                     // 950 ile 900 arasında zaten 7 birim var, %60 saydamlık bunu
                     // 4'e indiriyor ve kart zeminden ayrılmıyor.
-                    className="group flex cursor-pointer flex-col items-start gap-2.5 rounded-xl border border-line-subtle bg-card p-3.5 text-left transition-colors hover:border-line-strong hover:bg-raised"
+                    className="group flex cursor-pointer flex-col items-start gap-3 rounded-xl border border-line-subtle bg-card p-4 text-left transition-colors hover:border-line-strong hover:bg-raised"
                   >
+                    {/* İkon kutusu 28 -> 32px, ikon 14 -> 16px: kartın
+                        içindeki tek görsel çapa buydu ve metnin yanında
+                        cılız kalıyordu. */}
                     <span
-                      className="flex h-7 w-7 items-center justify-center rounded-md bg-control transition-colors group-hover:bg-[color-mix(in_srgb,currentColor_16%,transparent)]"
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-control transition-colors group-hover:bg-[color-mix(in_srgb,currentColor_16%,transparent)]"
                       style={{ color: tint }}
                     >
-                      <Icon size={14} />
+                      <Icon size={16} />
                     </span>
-                    <span className="text-[13px] leading-snug text-slate-300 transition-colors group-hover:text-slate-100">
+                    <span className="text-[13px] font-medium leading-snug text-slate-200 transition-colors group-hover:text-white">
                       {t(`axetCodeHome.${key}` as Parameters<typeof t>[0])}
                     </span>
                   </button>
@@ -817,11 +843,31 @@ export default function ChatSessionPane({
                 başlığı, olmayan bir geçmişi varmış gibi gösterirdi. */}
             {recentWork.length > 0 && (
               <div className="mt-9">
-                <div className="pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  {t("recentWork.heading")}
+                {/* BAŞLIK SATIRI: solda bölüm adı, sağda eylem. Tek başına
+                    duran bir etiket "bir liste" gibi görünüyordu; iki uçlu
+                    satır onu bir BÖLÜM yapıyor (kullanıcı isteği,
+                    2026-09-06). Düğme yalnızca gösterilenden fazlası varken
+                    çiziliyor — üç sohbetin olduğu bir sistemde "Tümünü gör"
+                    hiçbir şey yapmayan bir bağlantı olurdu. */}
+                <div className="flex items-center justify-between pb-2.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    {t("recentWork.heading")}
+                  </span>
+                  {recentWork.length > VISIBLE_RECENT_WORK && (
+                    <button
+                      onClick={() => setWorkExpanded((v) => !v)}
+                      className="flex cursor-pointer items-center gap-1 text-[11px] text-slate-500 transition-colors hover:text-accent-400"
+                    >
+                      {workExpanded ? t("recentWork.showLess") : t("recentWork.viewAll")}
+                      <ChevronRight
+                        size={12}
+                        className={`transition-transform ${workExpanded ? "-rotate-90" : ""}`}
+                      />
+                    </button>
+                  )}
                 </div>
-                <div className="flex flex-col gap-1">
-                  {recentWork.map((item) => {
+                <div className="flex flex-col gap-1.5">
+                  {(workExpanded ? recentWork : recentWork.slice(0, VISIBLE_RECENT_WORK)).map((item) => {
                     // Nokta HER SATIRDA duruyor, yalnızca dikkat çekecek bir
                     // şey varken değil: sessiz gri bir nokta "bu tur bitti"
                     // bilgisidir ve sütunun şeklini koruyor. Anlamı `title`
@@ -836,18 +882,27 @@ export default function ChatSessionPane({
                       <button
                         key={item.id}
                         onClick={() => onOpenRecentWork?.(item.id)}
-                        className="group flex w-full cursor-pointer flex-col gap-0.5 rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-line-subtle hover:bg-card"
+                        // Satırlar durgun hâlde de GÖRÜNÜR: önceden zemin ve
+                        // kenarlık şeffaftı, blok fareyle üstüne gelinene
+                        // kadar sayfada asılı duran gri metinlerdi (kullanıcı
+                        // geri bildirimi, 2026-09-06: *"satırların
+                        // görünürlüğü artırılmalı"*). Üstteki öneri
+                        // kartlarıyla AYNI zemin/kenarlık dili kullanılıyor
+                        // ama satır yüksekliğinde — yani bölüm bir kart
+                        // ızgarasına dönüşmüyor, sadece kendi ağırlığını
+                        // kazanıyor.
+                        className="group flex w-full cursor-pointer flex-col gap-1 rounded-lg border border-line-subtle bg-card px-3.5 py-2.5 text-left transition-colors hover:border-line hover:bg-raised"
                       >
                         <div className="flex items-baseline gap-3">
-                          <span className="min-w-0 flex-1 truncate text-[13px] text-slate-300 transition-colors group-hover:text-slate-100">
+                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-200 transition-colors group-hover:text-white">
                             {item.title}
                           </span>
-                          <span className="shrink-0 text-[11px] text-slate-500">
+                          <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
                             {formatRelativeTime(new Date(item.updatedAt).toISOString(), t)}
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
+                          <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
                             {where || t("recentWork.general")}
                           </span>
                           <span

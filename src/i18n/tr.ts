@@ -178,6 +178,11 @@ export const tr = {
   "recentWork.running": "Sürüyor",
   "recentWork.stuck": "Durdurulamadı",
   "recentWork.done": "Tamamlandı",
+  "recentWork.viewAll": "Tümünü gör",
+  "recentWork.showLess": "Daha az",
+
+  // Selamlama ile öneri kartları arasındaki küçük bağlayıcı etiket.
+  "axetCodeHome.quickStart": "Hızlı başlangıç",
   "axetCodeHome.emptyTitle": "Henüz bir sohbet yok",
   "axetCodeHome.emptyHint": "axet.code ile konuşmaya başlamak için yeni bir sohbet aç.",
   "axetCodeHome.greeting.morning": "Günaydın",

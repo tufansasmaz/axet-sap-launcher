@@ -2401,7 +2401,11 @@ export default function AxetCodeHome({
     return [...sessions]
       .filter((s) => s.messages.length > 0)
       .sort((a, b) => b.updatedAt - a.updatedAt)
-      .slice(0, 3)
+      // Üç DEĞİL on iki: bölümün "Tümünü gör"ü listeyi yerinde açıyor, yani
+      // görünenden fazlasının burada olması gerekiyor. Yine de sınırsız
+      // değil — açılış ekranı bir sohbet arşivi değil, kenar çubuğu zaten
+      // tam listeyi tutuyor.
+      .slice(0, 12)
       .map((s) => {
         const projectName = s.projectId ? (projectNames.get(s.projectId) ?? null) : null;
         // Proje yoksa çalışma klasörünün adı: `cwd` tam yol, kullanıcıya
@@ -2700,6 +2704,23 @@ export default function AxetCodeHome({
             İkinci renk şart: iki düğme de vurgu mavisi olsaydı hangisinin ne
             yaptığı bir bakışta okunmazdı (bkz. --project-500-rgb).
 
+            "Yeni sohbet" artık YIKAMA değil DOLGU (kullanıcı isteği,
+            2026-09-06: *"#B7F34A rengini özellikle Yeni sohbet ... için
+            kullanırdım"*, çünkü *"şu an ekranda lime çok az görünüyor"*).
+            Yıkama hâlinde (accent-500/10 + accent-400 metin) düğme yan
+            komşusuyla aynı ağırlıktaydı; ikisi de "bir seçenek" gibi
+            duruyordu. Şimdi ayrım İKİ eksende: dolgu-yıkama ve lime-mor.
+            Yan taraftaki "Yeni proje" bilerek yıkama olarak kaldı — iki
+            dolgu yan yana olsaydı hiyerarşi yine düzleşirdi.
+
+            src/ui/buttons.ts'teki "ekranda tek `primary`" kuralına göre bu
+            ekrandaki tek dolgu bu; composer'ın gönder düğmesi de dolgu ama o
+            yalnızca gönderilecek bir şey varken görünüyor, yani durgun
+            ekranda ikisi aynı anda bulunmuyor. */}
+        {/* Sınıf dizesi elde yazılıyor (buttons.ts'in `btn()` kuralının
+            istisnası): daraltılmış hâlde genişlik/padding/hizalama değişiyor,
+            `btn()`'in sabit `px-4`'ü ile çakışırdı.
+
             Ctrl+N rozeti düğmenin YÜZÜNDEN kalktı, yalnızca tooltip'te: 272px
             kenar çubuğunda iki yazılı düğme + rozet aynı satıra sığmıyor,
             rozeti bırakmak "Yeni sohbet" yazısını kırpardı. Daraltılmışken
@@ -2710,7 +2731,7 @@ export default function AxetCodeHome({
           <button
             onClick={() => handleNewSession()}
             title={`${t("axetCodeHome.newSession")} (Ctrl+N)`}
-            className={`flex h-9 cursor-pointer items-center rounded-md border border-accent-500/30 bg-accent-500/10 text-[12px] font-medium text-accent-400 transition hover:border-accent-500/50 hover:bg-accent-500/20 ${
+            className={`flex h-9 cursor-pointer items-center rounded-md bg-accent-500 text-[12px] font-semibold text-accent-on transition hover:bg-accent-600 ${
               sidebarOpen ? "min-w-0 flex-1 justify-center gap-1.5 px-2" : "mx-auto w-9 justify-center"
             }`}
           >

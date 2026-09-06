@@ -9292,3 +9292,117 @@ dışlıyor ve sıra önemsizleşiyor.
 özelliği (kenarlık, zemin) sürüyorsa, hover'ı `:not(:focus-within)` ile
 sınırla. Yoksa odak durumu sessizce kaybolur ve bu, ekranda bakarken "bazen
 çalışıyor" gibi görünür.
+
+## Arayüz üçüncü tur: lime kimliği, ray oranı, açılış hiyerarşisi (2026-09-06)
+
+Kullanıcı çalışan ekrana bakıp şunu söyledi: temel yapı sağlam ama sonuç
+*"premium AI workspace"*ten çok *"koyu renkli kurumsal developer paneli"*
+gibi duruyor. Teşhisi tek cümleyle özetlenebilir ve bu turun tamamının
+kuralı olarak alındı:
+
+> *"Şu anki görüntünün problemi 'yeterince şey yok' değil. Asıl problem var
+> olan şeylerin görsel ağırlığının biraz yanlış dağılması. Daha fazla UI
+> değil → daha güçlü hierarchy."*
+
+Yani bu turda ana ekrana **yeni hiçbir bileşen eklenmedi**. Değişen şey
+yalnızca var olanların boyu, ağırlığı ve rengi.
+
+### 1. Lime gerçekten görünüyor
+
+`#B7F34A` paletin adı olduğu hâlde ekranda neredeyse hiç geçmiyordu; her yer
+yıkama (`accent-500/10`) ya da fonksiyonel ton (`accent-400`) kullanıyordu.
+Sonuç: uygulamanın kendine ait bir rengi olduğu hissi yok.
+
+Parlak tonun DOLGU olarak kullanıldığı yerler artık şunlar ve yalnızca
+bunlar:
+
+| Yer | Sınıf |
+| --- | --- |
+| "Yeni sohbet" (kenar çubuğu) | `bg-accent-500 text-accent-on` |
+| Gönder düğmesi (composer) | `bg-accent-500 text-accent-on` (zaten öyleydi) |
+| Aktif navigasyon şeridi (ray) | `bg-accent-500` |
+| Composer odak halkası | `focus-within:border-accent-500` (önceki tur) |
+
+`src/ui/buttons.ts`'teki *"ekranda aynı anda en fazla bir `primary`"* kuralı
+bozulmuyor: gönder düğmesi yalnızca gönderilecek bir şey varken çiziliyor,
+durgun ekranda tek dolgu "Yeni sohbet". Yanındaki "Yeni proje" bilerek
+yıkama olarak KALDI — iki dolgu yan yana konsaydı hiyerarşi yine düzleşir,
+üstelik `--project-500-rgb` ile kurulan "hangi düğme ne yapıyor" ayrımı da
+gereksizleşirdi. Ayrım artık iki eksende çalışıyor: dolgu-yıkama **ve**
+lime-mor.
+
+**Kartların hiçbiri lime olmadı** (kullanıcının kendi sınırı: *"kartların
+tamamını lime yapmazdım, bu önemli"*). Öneri kartları modül renklerini
+kullanmaya devam ediyor.
+
+**Yapılmayan bir istek var ve bilerek yapılmadı:** kullanıcı listesinde
+*"online/active küçük indicator"* de vardı. Bu noktalar (`StatusDot`, ray
+altındaki fiş rozeti) `--status-success-text` kullanıyor ve bu, 2026-09-06
+tarihli bir kararın sonucu: *"Nokta artık accent DEĞİL, durum yeşili: bu bir
+seçim değil bir sağlık göstergesi ve accent yeşili uygulamanın her yerinde
+'seçili' demek."* Onları lime yapmak sağlık ile seçim anlamlarını tek renge
+bindirirdi. Kullanıcıya soruldu, karar ona bırakıldı.
+
+### 2. Ray 56 → 48 piksel
+
+`ActivityBar` şeridi ekranın dörtte birinin navigasyon olduğu hissini
+besliyordu. Ray `w-14` → `w-12`, kutular `h-11 w-11` → `h-10 w-10`, dikey
+aralık `gap-1.5` → `gap-1`. İkon boyu (17px) ve içteki hover kutusu (`h-8
+w-8`) SABİT — daralan şey yalnızca boşluk, okunabilirlik değil.
+
+Asıl kenar çubuğu (`w-[272px]`) kullanıcının açık kararıyla aynı kaldı.
+
+İki ayrı kural burada korunmak zorundaydı ve ikisi de korundu:
+
+- Üst ve alt grup kutuları AYNI boyutta olmalı — farklı olduğu sürümde
+  dikey ray hizası gözle görülür şekilde kayıyordu.
+- Alt gruptaki ikonların rengi DURGUN hâlde de duruyor (2026-09-06:
+  *"ayarlar ve üstündeki simgelerin renkleri gözükmüyor"*). "Sakinleştirme"
+  rengi söndürerek yapılmadı; yalnızca ölçüyle yapıldı.
+
+### 3. Açılış ekranı: iki bölüm, iki başlık
+
+Selamlama ile öneri kartları arasında 40 piksellik boşluk vardı ve kartlar
+havada duruyordu (*"başlık güzel ama fazla yalnız"*). Araya küçük bir
+bağlayıcı etiket girdi: **HIZLI BAŞLANGIÇ**, 10px, `text-slate-500`,
+`uppercase tracking-wider` — yani aşağıdaki **SON ÇALIŞMALAR** başlığıyla
+BİREBİR aynı biçimde. Kullanıcının kendi sınırı: *"bunu büyük bir başlık
+yapmazdım, 10-12px muted text yeterli."*
+
+Aynı biçimi paylaşmaları tesadüf değil: ekranda artık iki eşdeğer bölüm
+olduğu ilk bakışta okunuyor.
+
+### 4. "Son çalışmalar" bir liste değil bir bölüm
+
+Üç değişiklik:
+
+- **Başlık satırı iki uçlu.** Solda bölüm adı, sağda `Tümünü gör →`. Tek
+  başına duran bir etiket "bir liste"ydi; iki uçlu satır onu bir bölüm
+  yapıyor.
+- **Satırlar durgun hâlde görünür.** Önceden zemin ve kenarlık şeffaftı,
+  blok fareyle üstüne gelinene kadar sayfada asılı duran gri metinlerdi.
+  Artık üstteki öneri kartlarıyla AYNI dili konuşuyorlar (`border-line-subtle
+  bg-card`, hover'da `border-line bg-raised`) ama satır yüksekliğinde — bölüm
+  bir kart ızgarasına DÖNÜŞMÜYOR, sadece kendi ağırlığını kazanıyor.
+- **Tipografi.** Başlık `text-slate-300` → `font-medium text-slate-200`,
+  hover'da `text-white`. Alt satır `text-slate-500` → `text-slate-400`.
+  Zaman damgası `tabular-nums`, yani satırlar arasında zıplamıyor.
+
+**"Tümünü gör" listeyi YERİNDE açıyor**, başka bir yere götürmüyor.
+Kenar çubuğuna yönlendirmek daha doğal görünüyordu ama kenar çubuğu zaten
+açıksa düğme hiçbir şey yapmayan bir bağlantıya dönüşürdü. Düğme yalnızca
+gösterilenden fazlası varken çiziliyor (`recentWork.length >
+VISIBLE_RECENT_WORK`) — üç sohbetin olduğu bir sistemde ölü bir bağlantı
+bırakmamak için. `AxetCodeHome` bu yüzden artık 3 değil 12 kayıt geçiriyor.
+
+Yan etki bilerek: açılan liste, kullanıcının *"içerik alanı fazla boş"*
+şikâyetine yeni bir bileşen eklemeden cevap veriyor.
+
+### 5. Öneri kartları — üç kart, sadece cila
+
+Kullanıcı kendi önerisini geri çekti: TODO/FIXME · Son commit'ler · Proje
+mimarisi üçlüsü *"daha gerçek bir developer workflow hissi veriyor"*, dörde
+çıkarılmadı. Yalnızca ölçüler: iç boşluk `p-3.5` → `p-4`, ikon kutusu
+`h-7 w-7` → `h-8 w-8` (ikon 14 → 16), metin `text-slate-300` →
+`font-medium text-slate-200`. İkon kutusu kartın içindeki tek görsel
+çapaydı ve metnin yanında cılız kalıyordu.
