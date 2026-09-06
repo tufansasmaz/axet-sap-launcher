@@ -13,7 +13,8 @@ export const en: Record<TranslationKey, string> = {
   "app.landscapeLoadError": "Failed to load landscape: {message}",
   "app.addSystemTitle": "Add a new SAP system",
   "app.addSystem": "Add System",
-  "app.refreshedFromSapLogon": "Systems reloaded from SAP Logon",
+  "app.refreshedFromSapLogon": "Loaded {count} systems from SAP Logon",
+  "app.listReloaded": "List refreshed — {count} systems",
   "app.refetchTitle": "Reload systems from SAP Logon",
   "app.refetch": "Refetch from SAP Logon",
   "app.searchPlaceholder": "Search customer or system… (Ctrl+F)",
@@ -64,13 +65,15 @@ export const en: Record<TranslationKey, string> = {
   "activeContext.showSystem": "Show system · {path}",
   "activeContext.guiSession": "SAP GUI session · {system} {title}",
   "activeContext.clear": "Clear active context (does not close the connection)",
-  "activeContext.launcherSystem": "SAP Launcher is connected to: {system}, client {client}",
+  "activeContext.launcherSystem": "aXet SAP Logon is connected to: {system}, client {client}",
   "activeContext.mismatch": "different system",
-  "activeContext.mismatchHint": "SAP GUI screen is {gui}, SAP Launcher connection is {launcher} — not the same system.",
+  "activeContext.mismatchHint": "SAP GUI screen is {gui}, aXet SAP Logon connection is {launcher} — not the same system.",
 
   "tree.noMatch": "No matching customer/system found.",
 
   "recentSystems.heading": "Recently Connected",
+  "recentSystems.collapse": "Collapse list",
+  "recentSystems.expand": "Expand list",
 
   "systemPanel.emptyState": "Select a customer system on the left.",
   "systemPanel.editTitle": "Edit this manual system",
@@ -113,7 +116,7 @@ export const en: Record<TranslationKey, string> = {
   "sapLogon.spawnError": "Could not open SAP GUI: {detail}",
 
   "activityBar.axetCode": "axet.code",
-  "activityBar.sapLauncher": "SAP Launcher",
+  "activityBar.sapLauncher": "aXet SAP Logon",
   "activityBar.axetFlows": "axet.flows",
   "activityBar.axetFlowsLive": "axet.flows (Live)",
   "activityBar.theme": "Theme",
@@ -260,7 +263,7 @@ export const en: Record<TranslationKey, string> = {
   "modelSelector.switchFailed": "Could not switch model: {message}",
 
   "updatePrompt.title": "New version available",
-  "updatePrompt.message": "aXet Studio v{version} was released. Download it now? The app will automatically restart and install once the download finishes.",
+  "updatePrompt.message": "NTT Studio v{version} was released. Download it now? The app will automatically restart and install once the download finishes.",
   "updatePrompt.install": "Download & Install",
   "updatePrompt.later": "Later",
   "updatePrompt.downloading": "Downloading v{version}… {percent}%",

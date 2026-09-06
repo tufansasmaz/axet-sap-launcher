@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { X, ServerCog, Cloud, Loader2, CheckCircle2 } from "lucide-react";
 import type { ManualSystemType } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 
 export interface EditingManualSystem {
   id: string;
@@ -261,14 +262,14 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           <button
             type="button"
             onClick={handleClose}
-            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+            className={DIALOG_CANCEL_BUTTON}
           >
             {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={!canSubmit}
-            className="flex cursor-pointer items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className={DIALOG_CONFIRM_BUTTON}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
             {isEditing ? t("addSystemModal.update") : t("addSystemModal.add")}

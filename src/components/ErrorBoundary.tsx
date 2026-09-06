@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertOctagon } from "lucide-react";
+import { btn } from "../ui/buttons";
 
 interface Props {
   children: ReactNode;
@@ -42,7 +43,7 @@ export default class ErrorBoundary extends Component<Props, State> {
         <p className="max-w-md break-words text-xs text-slate-500">{this.state.error.message}</p>
         <button
           onClick={() => window.location.reload()}
-          className="mt-2 cursor-pointer rounded-sm border border-accent-500/40 bg-accent-500/15 px-4 py-2 text-sm font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
+          className={btn("primary", "lg", "mt-2")}
         >
           {STRINGS.reload}
         </button>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Loader2 } from "lucide-react";
 import { useT } from "../i18n";
+import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 
 // Proje yönergeleri = çalışma klasöründeki `AGENTS.md`. Kendi icat ettiğimiz
 // bir mekanizma DEĞİL: axet-code bu dosyayı kendi bağlam dosyası olarak
@@ -133,7 +134,7 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+            className={DIALOG_CANCEL_BUTTON}
           >
             {t("common.cancel")}
           </button>
@@ -141,7 +142,7 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
             onClick={() => void save()}
             disabled={loading || saving || truncated}
             title={truncated ? t("chatInstructions.tooLarge") : undefined}
-            className="cursor-pointer rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600 disabled:cursor-default disabled:opacity-50"
+            className={DIALOG_CONFIRM_BUTTON}
           >
             {saving ? t("chatInstructions.saving") : t("common.save")}
           </button>

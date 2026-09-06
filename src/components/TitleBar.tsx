@@ -39,7 +39,12 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
     >
       <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
         <img src={logo} alt="" width={16} height={16} className="rounded-[3px]" />
-        <span className="font-semibold text-slate-200">aXet Studio</span>
+        {/* "NTT Studio" (kullanıcı isteği, 2026-09-06). Ürünün adı; modül
+            adları (axet.code, aXet SAP Logon…) i18n'de ayrı duruyor.
+            `appId` DEĞİŞMEDİ (`com.nttdata.axet.saplauncher`) — bkz.
+            PROJE-BILGI.md: appId kurulu her makinede kullanıcı verisinin
+            kimliği, adı değiştirmek eski kurulumları öksüz bırakır. */}
+        <span className="font-semibold text-slate-200">NTT Studio</span>
         <span className="text-slate-600">·</span>
         <span className="text-slate-500">by tsasmaz</span>
       </div>

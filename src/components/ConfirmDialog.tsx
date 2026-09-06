@@ -1,5 +1,10 @@
 import { AlertTriangle } from "lucide-react";
 import { useT } from "../i18n";
+import {
+  DIALOG_CANCEL_BUTTON,
+  DIALOG_CONFIRM_BUTTON,
+  DIALOG_DANGER_BUTTON,
+} from "../ui/buttons";
 
 interface Props {
   open: boolean;
@@ -38,26 +43,18 @@ export default function ConfirmDialog({
           <h3 className="text-base font-semibold text-white">{title}</h3>
         </div>
         <p className="mb-5 text-sm text-slate-400">{message}</p>
+        {/* Düğmeler tek yerden: `src/ui/buttons.ts`. Onay düğmesi DÜZ DOLGU
+            (yeni tasarım dili: gradyan/gölge yok, saydam "hayalet" dolgu da
+            yok). Yıkıcı hâlde vurgu yerine `--status-danger-solid` dolduruyor
+            — kullanıcı kırmızıya basarken neye bastığını rengin kendisinden
+            görüyor, ince bir kenarlıktan değil. */}
         <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
-            autoFocus
-          >
+          <button onClick={onCancel} className={DIALOG_CANCEL_BUTTON} autoFocus>
             {cancelLabel ?? t("common.cancel")}
           </button>
-          {/* Onay düğmesi artık DÜZ DOLGU (yeni tasarım dili: gradyan/gölge
-              yok, saydam "hayalet" dolgu da yok). Yıkıcı hâlde vurgu yerine
-              `--status-danger-solid` dolduruyor — kullanıcı kırmızıya basarken
-              neye bastığını rengin kendisinden görüyor, ince bir kenarlıktan
-              değil. Metin her iki hâlde de `text-accent-on` (gerçek beyaz). */}
           <button
             onClick={onConfirm}
-            className={`cursor-pointer rounded-md px-4 py-2 text-sm font-medium text-accent-on transition ${
-              danger
-                ? "bg-[var(--status-danger-solid)] hover:brightness-110"
-                : "bg-accent-500 hover:bg-accent-600"
-            }`}
+            className={danger ? DIALOG_DANGER_BUTTON : DIALOG_CONFIRM_BUTTON}
           >
             {confirmLabel ?? t("confirmDialog.confirm")}
           </button>

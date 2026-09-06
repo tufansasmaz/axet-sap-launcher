@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { X, KeyRound, Loader2, AlertTriangle, Eye, EyeOff, User, Lock, Hash, Globe, Server, ShieldCheck } from "lucide-react";
 import type { SapService } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 
 interface Props {
   open: boolean;
@@ -200,14 +201,14 @@ export default function CredentialsModal({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 transition hover:bg-base-700"
+            className={DIALOG_CANCEL_BUTTON}
           >
             {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={!canSubmit}
-            className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600 disabled:cursor-not-allowed disabled:opacity-40"
+            className={DIALOG_CONFIRM_BUTTON}
           >
             {connecting && <Loader2 size={14} className="animate-spin" />}
             {connecting ? t("credentialsModal.verifying") : t("credentialsModal.connect")}

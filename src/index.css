@@ -2,6 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ---------------------------------------------------------------------------
+   YAZI TİPİ: Inter (değişken ağırlık, 100–900)
+
+   Neden paketle GELİYOR, sistemden değil: uygulama Windows'ta "Segoe UI
+   Variable" kullanıyordu. Segoe kötü bir yazı tipi değil ama o kadar tanıdık
+   ki ekran "bir Windows aracı" gibi görünüyordu; seçilen tasarım dili
+   (Linear/Notion) ise tam olarak Inter'in dili. Ayrıca Segoe UI Variable
+   yalnızca Windows 11'de var — Windows 10'da sessizce Segoe UI'a, Segoe
+   olmayan bir makinede Arial'a düşüyordu, yani "aynı uygulama" üç makinede üç
+   farklı görünüyordu. Gömülü tek bir dosya bu belirsizliği bitiriyor.
+
+   Neden `@fontsource-variable/inter` BAĞIMLILIK olarak durmuyor: pakette 12
+   alfabe altkümesi var (kiril, yunan, vietnam...) ve Vite hepsini dist'e
+   kopyalıyordu. Bize gereken iki dosya (latin + latin-ext, 132 KB toplam)
+   `src/assets/fonts/` altına alındı, paket kaldırıldı. Lisans (SIL OFL 1.1)
+   aynı klasörde `Inter-LICENSE.txt` olarak duruyor — dosyalar taşınırsa o da
+   taşınmalı.
+
+   `latin-ext` ŞART: Türkçe'nin ğ/Ğ/ş/Ş/İ harfleri latin altkümesinde DEĞİL.
+   Yalnız `latin` gömülseydi tam da uygulamanın dilindeki harfler yedek yazı
+   tipine düşer, bir kelimenin ortasında harf değiştirirdi.
+
+   `font-display: swap`: dosya yerelden yükleniyor, gecikme pratikte sıfır —
+   ama `swap` olmadan ilk boyamada görünmez metin (FOIT) riski var.
+--------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/inter-latin-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url("./assets/fonts/inter-latin-ext-wght-normal.woff2") format("woff2-variations");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+    U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF,
+    U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
 html, body, #root {
   height: 100%;
 }
@@ -100,31 +147,57 @@ html[data-theme="dark"] {
      vurgu rengi değişince o tint zeminden ayrı bir renk gibi görünmeye
      başlıyordu; nötr zemin tek renkli vurgu stratejisinin ön şartı.
 
-       950 = uygulama zemini      #0e0e10
-       900 = panel/kenar çubuğu   #151517
-       850 = yükseltilmiş yüzey   #1a1a1d
-       800 = hover / girdi zemini #1f1f22
-       700 = SAÇ TELİ kenarlık    #232326  ← 1px çizgilerin varsayılanı
-       600 = belirgin kenarlık    #2e2e33 */
-  --base-950-rgb: 14 14 16;
-  --base-900-rgb: 21 21 23;
-  --base-850-rgb: 26 26 29;
-  --base-800-rgb: 31 31 34;
-  --base-700-rgb: 35 35 38;
-  --base-600-rgb: 46 46 51;
+       950 = uygulama zemini      #131316
+       900 = panel/kenar çubuğu   #1a1a1e
+       850 = yükseltilmiş yüzey   #202024
+       800 = hover / girdi zemini #26262b
+       700 = SAÇ TELİ kenarlık    #2c2c31  ← 1px çizgilerin varsayılanı
+       600 = belirgin kenarlık    #39393f
 
-  /* Metin merdiveni de nötr. Parlaklık kademeleri korundu (237→63), yalnızca
-     mor tint temizlendi — kontrast oranları ve okunabilirlik aynı. */
+     İKİ KADEMELİ BİR AYAR OLDU, sırayla:
+
+     (1) 2026-09-06 sabah — merdivenin tamamı BİR KADEME AÇILDI (kullanıcı
+     isteği: *"arka siyah zemin rengi kısmı biraz daha açık olsun"*). Eski
+     taban #0e0e10 neredeyse saf siyahtı; OLED bir panelde şık ama IPS bir
+     ofis monitöründe zemin ile paneller arasındaki 7 birimlik fark hiç
+     okunmuyordu.
+
+     (2) Aynı gün — *"tema biraz daha koyu olsun"*. #18181b fazla açılmıştı;
+     taban şimdi #131316, yani ikisinin arası. KADEMELER ARASI FARK HER İKİ
+     ayarda da korundu (7/6/6/6/13); değişen sadece merdivenin nerede
+     durduğu. Önemli olan buydu — panel ile zeminin birbirinden ayrılması
+     farkın kendisine bağlı, mutlak parlaklığa değil.
+
+     Kontrast bu yönde bozulmuyor, düzeliyor: zemin koyuldukça üstündeki gri
+     metnin oranı yükseliyor. `--ink-400` ölçümü #18181b üstünde 4.28:1 idi,
+     #131316 üstünde 4.48:1. O yüzden metin merdivenine dokunulmadı.
+
+     AYNA NOKTALARI — bu değer üç yerde daha ELLE duruyor, biri unutulursa
+     açılışta ya da terminalde eski koyu renk bir kare olarak görünür:
+       app-electron/main/index.ts  → BrowserWindow backgroundColor
+       src/components/EmbeddedTerminal.tsx → xterm theme.background
+       index.html → <body> ilk boyama zemini (varsa) */
+  --base-950-rgb: 19 19 22;
+  --base-900-rgb: 26 26 30;
+  --base-850-rgb: 32 32 36;
+  --base-800-rgb: 38 38 43;
+  --base-700-rgb: 44 44 49;
+  --base-600-rgb: 57 57 63;
+
+  /* Metin merdiveni de nötr:
+       ink-300 (#98989f) → 6.5:1  ikincil metin
+       ink-400 (#7c7c85) → 4.5:1  meta / yer tutucu
+       ink-500 (#606069) → 3.1:1  yalnızca etiket/ikon, düz metin DEĞİL */
   --ink-100-rgb: 237 237 239;
   --ink-200-rgb: 196 196 201;
   --ink-300-rgb: 152 152 159;
-  --ink-400-rgb: 111 111 120;
-  --ink-500-rgb: 85 85 93;
-  --ink-600-rgb: 63 63 70;
+  --ink-400-rgb: 124 124 133;
+  --ink-500-rgb: 96 96 105;
+  --ink-600-rgb: 70 70 78;
   --ink-strong-rgb: 255 255 255;
 
-  --scrollbar-thumb: #2a2a2e;
-  --scrollbar-thumb-hover: #3a3a40;
+  --scrollbar-thumb: #34343a;
+  --scrollbar-thumb-hover: #45454d;
 
   /* ZEYTİN / YEŞİL vurgu (kullanıcı seçimi). Doygunluk kasten düşük.
      Ölçülen kontrastlar:
@@ -164,9 +237,64 @@ html[data-theme="dark"] {
   --chat-hero-to: #93b75c;
 
   /* Sistem/sunucu ikonlarının rengi. Vurgu ailesinden AYRI olması bilinçli:
-     bunlar bir seçim/aksiyon değil, sadece tür göstergesi. Nötr çelik mavisi
-     zeytinle yarışmıyor. */
-  --navy-icon: #6b7b8c;
+     bunlar bir seçim/aksiyon değil, sadece tür göstergesi. Çelik mavisi
+     zeytinle yarışmıyor.
+
+     2026-09-06: doygunluk ve parlaklık artırıldı (#6b7b8c → #8aa4bd, kullanıcı
+     isteği: *"sistemlerin yanındaki simgenin rengi biraz daha belirgin
+     olsun"*). Eski ton, tema koyulaştıktan sonra ikincil metin grisinden
+     (`--ink-300`) neredeyse ayırt edilemiyordu — mavi olduğu ancak yan yana
+     konunca fark ediliyordu. Yeni ton `--module-sap` ile AYNI aile ama bir
+     tık soluk: sistem satırı SAP modülünün akrabası, kendisi değil. */
+  --navy-icon: #8aa4bd;
+
+  /* MODÜL RENKLERİ — sol şeritteki (ActivityBar) her ekranın kendi kimliği.
+     Kullanıcı isteği, 2026-09-06: *"sol paneldeki tüm ekranlar logoların
+     rengi olsun, seçili olan ayrı renkte gözüksün"*.
+
+     Bu, "renk yalnızca vurguda" kuralına bilinçli bir istisna ve tek bir
+     yerle sınırlı: sol şerit bir NAVİGASYON, yani ekrandaki tek yer ki
+     kullanıcının "nerede olduğunu" değil "nereye gidebileceğini" gösteriyor.
+     Üç tek renkli gri ikon arasından doğru olanı bulmak her seferinde
+     okumayı gerektiriyordu; renk, ikonu tanınabilir kılıyor.
+
+     SEÇİLİ hâl bu renklerin HİÇBİRİ değil — vurgu yeşili. Yani renk "hangi
+     modül" sorusunu, yeşil "hangisi açık" sorusunu cevaplıyor; ikisi
+     birbirine karışmıyor. Seçili ikonun kendi rengini kaybetmesi bir kayıp
+     değil, kasıt: o an zaten o ekrandasınız.
+
+     Tonlar modüllerin kendi kaynaklarından:
+       code       → logonun moru (src/assets/logo.svg gradyanının başı)
+       sap        → SAP marka mavisinin HUE'su, sönümlenmiş doygunlukta.
+                    Kullanıcı kararı, 2026-09-06: *"sap logondan getir"*.
+                    Alınan sadece RENK; ikon hâlâ düz bir lucide `Server`,
+                    çünkü SAP logosunun kendisi tescilli bir marka işareti ve
+                    bu uygulamanın içine gömülmesi ayrı bir karar.
+       guiscript  → otomasyon/kayıt çağrışımlı sıcak kehribar; klasör
+                    sarısından (`--folder-icon`) yeterince uzak tutuldu.
+
+     DOYGUNLUK BANDI (2026-09-06, kullanıcı: *"renkler çok parlak"*): bu üç
+     ton bir kez markanın/ikonun kendi ham renginden alınmıştı ve ölçünce
+     sorun net göründü — `--module-sap` %100, `--module-code` %100 doygunluk
+     taşıyordu, oysa uygulamanın VURGU rengi `--accent-500` yalnızca %46.
+     Yani kimlik renkleri, ekranın en önemli rengi olan vurgudan daha yüksek
+     sesle konuşuyordu; renkli düğmeler eklenince bu bir "canlı palet" değil
+     doğrudan parlama olarak okundu.
+
+     Kural artık şu: kimlik renkleri accent ile AYNI bantta durur — doygunluk
+     %45-55, base-800 üstünde kontrast 5.0-6.3 arası (accent'in kendisi
+     5.11). Hue'lar değişmedi, yani hiçbir renk kimliğini kaybetmedi;
+     yalnızca ses seviyeleri eşitlendi. SAP mavisi bu yüzden artık markanın
+     birebir hex'i değil, marka hue'sunun bandımıza oturtulmuş hâli —
+     alternatif, ham marka rengini korumak ve ekrandaki en parlak şey
+     olmasına razı olmaktı.
+
+     guiscript ayrıca hue tarafında da bir tık turuncuya kaydı (h34 → h24):
+     doygunluk düşünce `--folder-icon` (h35) ile arasındaki mesafe yalnızca
+     doygunluk farkına kalıyordu ve ikisi ayırt edilemez hâle geliyordu. */
+  --module-code: #9890d5;
+  --module-sap: #519ec8;
+  --module-guiscript: #cf8859;
 
   /* Klasör ikonlarının rengi (dosya gezgini, sohbet dosya paneli, ağaç).
      Dört ayrı bileşende `text-[#d99a4e]` olarak gömülüydü; açık temada kırık
@@ -200,14 +328,22 @@ html[data-theme="dark"] {
   --status-warning-text: #e5a94a;
   /* Başarı yeşili TURKUAZA kaydırıldı. Vurgu rengi artık zeytin olduğu için
      klasik bir yaprak yeşili (#4ade95) "seçili öğe" ile "başarılı işlem"i
-     ayırt edilemez hâle getiriyordu; bu ton belirgin biçimde daha mavi. */
+     ayırt edilemez hâle getiriyordu; bu ton belirgin biçimde daha mavi.
+
+     Bu ikisi (`success`, `info`) 2026-09-06'da kimlik renkleriyle aynı banda
+     çekildi, çünkü ARTIK yalnızca durum bildirimi değiller: yeşil terminal
+     düğmesinin ve fişin, mavi de dil düğmesinin rengi. Durgun hâlde ekranda
+     duran bir renk, bir toast'ta bir saniye görünen renkle aynı ses
+     seviyesinde olamaz. `danger` ve `warning` BİLEREK dokunulmadan bırakıldı
+     — onlar hâlâ yalnızca uyarı bağlamında çıkıyor ve orada yüksek sesli
+     olmaları işin kendisi. */
   --status-success-bg: rgba(6, 52, 44, 0.45);
   --status-success-border: rgba(12, 110, 92, 0.5);
-  --status-success-text: #46cfa8;
+  --status-success-text: #46b998;
   /* Bilgi (SAP durum çubuğundaki "I" tipi mesajlar). Kırmızı/sarı/yeşil
      üçlüsünün dışında dördüncü bir durum; nötr bir çelik mavisi, vurgu
      zeytiniyle çakışmıyor. */
-  --status-info-text: #7fa8d8;
+  --status-info-text: #759bc7;
 
   /* İkincil aksiyon kartının (SAP Logon'da Aç) tonu — accent'in yanında
      ayırt edilsin diye kehribar. `--status-warning-*` DEĞİL: bu bir uyarı
@@ -278,7 +414,21 @@ html[data-theme="light"] {
   --chat-hero-via: #4a5a35;
   --chat-hero-to: #5c7a31;
 
-  --navy-icon: #5a6b7c;
+  /* Koyu temadaki belirginlik artışının açık tema karşılığı (#5a6b7c →
+     #3f6b93): burada "belirgin" daha parlak değil daha KOYU demek. */
+  --navy-icon: #3f6b93;
+
+  /* Modül renkleri, kırık beyaz zemin için koyulaştırıldı (bkz. koyu temadaki
+     not). Koyu temadaki tonlar burada 3:1'in altına düşüyordu — 17px'lik bir
+     ikon için o eşik, düz metinden daha az değil daha çok önemli.
+
+     `sap` ve `code` 2026-09-06'da doygunluk bandına çekildi (koyu temadaki
+     bandın açık tema karşılığı): ikisi de %90'a yakın doygunlukla beyaz
+     zeminde çiğ duruyordu. `guiscript` zaten bandın içindeydi, dokunulmadı.
+     Kontrast beyaz üstünde 5.0 (sap) / 7.0 (code) ile korundu. */
+  --module-code: #5746b9;
+  --module-sap: #2f72b1;
+  --module-guiscript: #a16a15;
 
   /* Beyaz zeminde okunacak kadar koyulaştırılmış klasör sarısı. */
   --folder-icon: #a9762c;
@@ -320,7 +470,19 @@ html[data-theme="light"] {
 
 body {
   @apply bg-base-950 text-slate-100 antialiased;
-  font-family: "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  /* Inter'in isteğe bağlı özellikleri:
+       cv05 → düz uçlu `l` (Windows'ta `I` ile karışan asıl harf)
+       cv11 → tek katlı `a`... KAPALI bırakıldı, çift katlı `a` daha okunaklı
+       ss03 → Türkçe/İngilizce ayraçlarda daha dengeli tırnak
+       tnum → HAYIR, genel metinde orantılı rakam daha iyi okunuyor; sabit
+              genişlik gereken yerler (arama sayacı, süre) `tabular-nums`
+              sınıfını zaten tek tek kullanıyor. */
+  font-feature-settings: "cv05" 1, "ss03" 1;
+  /* Inter'in x-yüksekliği Segoe UI'dan belirgin yüksek; aynı px değerinde
+     satırlar daha sıkışık okunuyor. Küçük ama gövde metninde hissedilen bir
+     nefes payı. */
+  letter-spacing: -0.006em;
 }
 
 /* Metin seçimi. `--accent-glow` KULLANILMIYOR — o değişken axet.flows'ta

@@ -6,12 +6,12 @@ import {
   Folder,
   FolderOpen,
   FolderSearch,
-  File as FileIcon,
   RefreshCw,
   FilePlus
 } from "lucide-react";
 import type { FsEntry, FsImportFilesResult } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+import { fileKind } from "../ui/fileIcons";
 
 // --- Yol yardımcıları ---
 // Renderer'da `node:path` yok ve yollar Windows'tan geliyor, ama ajanın
@@ -317,6 +317,7 @@ export default function FileExplorer({
     }
 
     const isSelected = selectedPath === entry.path;
+    const { icon: FileTypeIcon, color: fileColor } = fileKind(entry.name);
     return (
       <button
         key={entry.path}
@@ -327,7 +328,14 @@ export default function FileExplorer({
         }`}
         style={{ paddingLeft }}
       >
-        <FileIcon size={13} className="shrink-0 text-slate-500" />
+        {/* İkon ve rengi dosya TÜRÜNDEN geliyor (bkz. src/ui/fileIcons.ts).
+            Seçili satırda renk verilmiyor: seçim zemini zaten accent tonunda
+            ve üstüne gelen renkli bir ikon o zemine karışıyordu. */}
+        <FileTypeIcon
+          size={13}
+          className={`shrink-0 ${isSelected || !fileColor ? "text-slate-500" : ""}`}
+          style={isSelected || !fileColor ? undefined : { color: fileColor }}
+        />
         <span className="truncate">{entry.name}</span>
       </button>
     );

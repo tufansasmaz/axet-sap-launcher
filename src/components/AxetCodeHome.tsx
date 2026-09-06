@@ -4,7 +4,6 @@ import {
   X,
   PanelLeft,
   PanelLeftClose,
-  MessageSquare,
   Link2,
   Server,
   ArrowUpRight,
@@ -2411,7 +2410,6 @@ export default function AxetCodeHome({
           key={session.id}
           className="flex items-center gap-2 rounded-md border border-base-700 bg-base-800 px-2.5 py-1.5"
         >
-          <MessageSquare size={14} className="shrink-0 text-accent-400" />
           <input
             autoFocus
             value={renameDraft}
@@ -2460,10 +2458,12 @@ export default function AxetCodeHome({
             : "border-transparent text-slate-400 hover:bg-base-800/60 hover:text-slate-300"
         }`}
       >
-        <MessageSquare
-          size={14}
-          className={`shrink-0 ${isActive ? "text-accent-400" : "text-slate-500"}`}
-        />
+        {/* Sohbet ikonu KALDIRILDI (kullanıcı isteği, 2026-09-06: *"chat
+            kısmında sohbetlerin yanındaki iconu kaldıralım"*). Bir sohbet
+            listesinde her satıra "bu bir sohbettir" ikonu koymak bilgi
+            taşımıyordu; kalkınca başlıklar da ~22px daha geniş yer buldu,
+            yani daha azı kırpılıyor. Seçili satırın işareti zaten kendi
+            zemini + kenarlığı. */}
         <span className="min-w-0 flex-1 truncate">{session.title}</span>
         {session.pending && (
           <span className="relative flex h-2 w-2 shrink-0">

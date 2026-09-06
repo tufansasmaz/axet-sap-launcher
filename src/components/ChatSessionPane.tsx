@@ -47,12 +47,20 @@ import ModelSelector from "./ModelSelector";
 import { resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import { useT } from "../i18n";
+import { btn } from "../ui/buttons";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
 // gelirse `Sparkles`'a düşer, yani yeni öneri eklemek bu haritayı
 // güncellemeyi ZORUNLU kılmaz.
 // Anahtarların havuzu AxetCodeHome'da (`SUGGESTION_POOL`) — burada yalnızca
 // görsel karşılıkları var.
+//
+// Öneri kartlarının ikon RENKLERİ ayrı bir dizi ve sırayla dönüyor (bkz.
+// kullanım yeri). Modül paletinden geliyorlar ki uygulamanın geri kalanıyla
+// aynı üç rengi konuşsun; dördüncü bir renk uydurmak, sol şeritteki renklerin
+// taşıdığı anlamı sulandırırdı.
+const SUGGESTION_TINTS = ["var(--module-code)", "var(--module-sap)", "var(--module-guiscript)"];
+
 const SUGGESTION_ICONS: Record<string, LucideIcon> = {
   sgArchitecture: Layers,
   sgKeyFiles: FolderTree,
@@ -568,14 +576,26 @@ export default function ChatSessionPane({
           SAP'a bağlı sohbetlerde sistem adı da var; bağlamsız sohbetlerde
           etiket "Çalışma alanı"na düşüyor ve ikon sönük kalıyor. */}
       {contextPath && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-base-800 bg-base-900/60 px-5 py-1.5 text-[11px]">
-          <Server size={12} className={`shrink-0 ${contextLabel ? "text-accent-400" : "text-slate-600"}`} />
+        <div className="flex shrink-0 items-center gap-2 border-b border-base-800 bg-base-900/60 px-6 py-1.5 text-[11px]">
+          <Server
+            size={12}
+            className={`shrink-0 ${contextLabel ? "text-[var(--navy-icon)]" : "text-slate-600"}`}
+          />
           <span className="shrink-0 font-medium text-slate-300">
             {contextLabel ?? t("axetCodeHome.contextWorkspace")}
           </span>
           <span className="min-w-0 flex-1 truncate font-mono text-slate-500" title={contextPath}>
             {contextPath}
           </span>
+          {/* İKONLAR RENKLİ, YAZI NÖTR (kullanıcı isteği, 2026-09-06:
+              *"dosyalar yönergeler kısımlarındaki simgelerde renkli olsun"*).
+              Renk ikonun kendi türünün rengi — klasör sarısı ve doküman
+              mavisi; uygulamanın geri kalanında da aynı iki jeton kullanılıyor
+              (bkz. `src/ui/fileIcons.ts`). Etiketin gri kalması bilinçli: bu
+              şerit bir araç çubuğu değil bir bilgi satırı, iki renkli etiket
+              yan yana durunca satır ortasındaki YOL'dan daha çok bağırıyordu.
+              "Dosyalar" açıkken vurgu yeşiline geçiyor, çünkü orada renk
+              türü değil DURUMU söylüyor. */}
           {onToggleFilesPanel && (
             <button
               onClick={onToggleFilesPanel}
@@ -584,7 +604,10 @@ export default function ChatSessionPane({
               }`}
               title={t("axetCodeHome.contextFilesHint")}
             >
-              <FolderOpen size={12} />
+              <FolderOpen
+                size={12}
+                className={filesPanelOpen ? undefined : "text-[var(--folder-icon)]"}
+              />
               {t("axetCodeHome.contextFiles")}
             </button>
           )}
@@ -594,7 +617,7 @@ export default function ChatSessionPane({
               className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
               title={t("chatInstructions.title")}
             >
-              <BookOpen size={12} />
+              <BookOpen size={12} className="text-[var(--status-info-text)]" />
               {t("chatInstructions.button")}
             </button>
           )}
@@ -663,44 +686,96 @@ export default function ChatSessionPane({
         </div>
       )}
 
-      <div ref={messagesRef} onScroll={handleScroll} className="chat-scroll min-h-0 flex-1 overflow-y-auto px-5">
+      {/* SOHBETİN ORANLARI (kullanıcı isteği, 2026-09-06: *"chat kısmında
+          sohbetin sağ sol üst tarafında oran orantı olsun"*).
+
+          Üç ayrı sayı aynı ritmi kurmak zorunda ve eskiden kurmuyordu:
+            yatay boşluk          px-5  (20px)
+            mesaj listesi dikey   py-6  (24px alt/üst)
+            composer şeridi       pt-2 pb-3 (8/12px)
+
+          Yani ilk mesaj bağlam şeridine 24px, composer pencerenin dibine 12px
+          uzaktaydı — ekranın altı üstünden daha sıkışıktı ve yatay boşluk
+          ikisinden de dardı. Şimdi tek bir 8px ızgarasına oturuyor:
+            yatay 24 · üst 32 · son mesaj→composer 32+8 · composer→dip 16
+
+          Yatayın dikeyden DAR olması kasıtlı değil, tersi: sütun zaten
+          `max-w-*` ile ortalanıyor (bkz. COLUMN), yani geniş pencerede yanlarda
+          zaten yüzlerce piksel boşluk var. Buradaki 24px yalnızca pencere
+          daraldığında devreye giren ASGARİ pay. */}
+      <div ref={messagesRef} onScroll={handleScroll} className="chat-scroll min-h-0 flex-1 overflow-y-auto px-6">
         {isEmpty ? (
           // --- AÇILIŞ: sola yaslı degradeli karşılama + öneri kartları ---
           // `min-h-full` + `justify-center`: içerik dikeyde ortalanır ama
           // pencere kısaldığında kaymak yerine normal şekilde kaydırılır.
           <div className={`${COLUMN} animate-panel-fade-in flex min-h-full flex-col justify-center py-10`}>
-            {/* Degrade renkleri logonun kendi `mark` gradyanından geliyor
-                (bkz. index.css `--chat-hero-*`) — ekranın "bizim" olmasının
-                en görünür yeri burası. Boyut kullanıcı ayarıyla ölçekleniyor. */}
-            <h1 className="bg-gradient-to-r from-[var(--chat-hero-from)] via-[var(--chat-hero-via)] to-[var(--chat-hero-to)] bg-clip-text text-[length:var(--chat-hero-size)] font-medium leading-tight text-transparent">
+            {/* BAŞLIK İKİLİSİ. 2026-09-06'ya kadar iki satır da aynı boyuttaydı
+                (`--chat-hero-size`, yani 40px) ve aynı ağırlıktaydı; tek
+                farkları renkti. Sonuç, ekranın tepesinde 80 piksellik iki eşit
+                ağırlıklı metin bloğuydu — hangisinin başlık hangisinin alt
+                başlık olduğu okunmuyordu, ikisi birlikte "bir duvar" gibi
+                duruyordu (kullanıcı isteği: *"balonun üstündeki yazı ... daha
+                iyi olsun"*).
+
+                Şimdi bir HİYERARŞİ var: selam tam boyda ve yarı kalın, soru
+                onun %48'i ve normal ağırlıkta. Oran sabit bir piksel DEĞİL
+                çünkü başlık boyutu kullanıcı ayarından geliyor (Ayarlar >
+                Sohbet görünümü) — 32px'te de 48px'te de aynı ilişki kuruluyor.
+
+                `tracking-tight`: Inter'in geniş harf aralığı büyük puntoda
+                başlığı dağıtıyor; 40px'te -0.02em kelimeleri birbirine bağlayıp
+                tek bir cümle gibi okutuyor.
+
+                Degrade renkleri logonun kendi `mark` gradyanından geliyor
+                (bkz. index.css `--chat-hero-*`). */}
+            <h1 className="bg-gradient-to-r from-[var(--chat-hero-from)] via-[var(--chat-hero-via)] to-[var(--chat-hero-to)] bg-clip-text text-[length:var(--chat-hero-size)] font-semibold leading-[1.1] tracking-tight text-transparent">
               {greeting}
             </h1>
-            <p className="mt-1 text-[length:var(--chat-hero-size)] font-medium leading-tight text-slate-500">
+            <p className="mt-2 text-[length:calc(var(--chat-hero-size)*0.48)] font-normal leading-snug tracking-tight text-slate-400">
               {t("axetCodeHome.heroSubtitle")}
             </p>
 
             {/* Dar pencerede tek sütuna iniyor: sabit üç sütunda kartlar
                 ~140px'e sıkışıp metinleri dört-beş satıra bölünüyordu. */}
-            <div className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {suggestionKeys.map((key) => {
+            <div className="mt-10 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+              {suggestionKeys.map((key, i) => {
                 const Icon = SUGGESTION_ICONS[key] ?? Sparkles;
+                // İkon rengi modül paletinden sırayla dönüyor. Kartların
+                // hangisi olduğu metinden okunuyor zaten; renk, üç kartı tek bir
+                // gri blok olmaktan çıkarıp birbirinden ayırıyor. Sıraya bağlı
+                // olması bilinçli: öneri anahtarları bağlama göre değişiyor
+                // (SAP'lı sohbette başka, boş klasörde başka), yani anahtar
+                // başına sabit bir renk tablosu hem eksik kalırdı hem de bakımı
+                // imkânsız olurdu.
+                const tint = SUGGESTION_TINTS[i % SUGGESTION_TINTS.length];
                 return (
                   <button
                     key={key}
                     onClick={() => onSuggestionClick(key)}
-                    // Kenarlık + `rounded-xl`: composer'la aynı dil. Kartlar
-                    // eskiden kenarlıksız ve daha yuvarlaktı (bkz. yukarıdaki
-                    // kural notu).
-                    className="group flex h-[136px] cursor-pointer flex-col justify-between rounded-xl border border-base-800 bg-base-900 p-4 text-left transition hover:border-base-700 hover:bg-base-800"
+                    // SABİT YÜKSEKLİK KALKTI. `h-[136px]` tek satırlık bir öneri
+                    // için fazlasıyla boştu; kartın içinde metin tepede, ikon
+                    // dipte, arada 70 piksel hiçlik duruyordu. Grid satırları
+                    // zaten varsayılan olarak eşit yükseklikte (`stretch`), yani
+                    // üç kart en uzun metne göre hizalanmaya sabit boy olmadan
+                    // da devam ediyor.
+                    //
+                    // OKUMA SIRASI da düzeldi: ikon artık sağ altta değil sol
+                    // üstte. Göz karta soldan üstten giriyor, önce "ne tür bir
+                    // şey" sonra "ne diyor" okuyor.
+                    //
+                    // Zemin TAM `bg-base-900`, `/60` DEĞİL: yeni açılmış palette
+                    // 950 ile 900 arasında zaten 7 birim var, %60 saydamlık bunu
+                    // 4'e indiriyor ve kart zeminden ayrılmıyor.
+                    className="group flex cursor-pointer flex-col items-start gap-2.5 rounded-xl border border-base-800 bg-base-900 p-3.5 text-left transition-colors hover:border-base-600 hover:bg-base-850"
                   >
-                    <span className="text-[13px] leading-snug text-slate-300">
-                      {t(`axetCodeHome.${key}` as Parameters<typeof t>[0])}
+                    <span
+                      className="flex h-7 w-7 items-center justify-center rounded-md bg-base-800 transition-colors group-hover:bg-[color-mix(in_srgb,currentColor_16%,transparent)]"
+                      style={{ color: tint }}
+                    >
+                      <Icon size={14} />
                     </span>
-                    {/* İkon hover'da marka rengine dönüyor — kartın tıklanabilir
-                        olduğunu zemin tonundaki tek kademelik değişimden daha
-                        net söylüyor. */}
-                    <span className="flex h-8 w-8 items-center justify-center self-end rounded-lg bg-base-800 text-slate-400 transition-colors group-hover:bg-accent-500/15 group-hover:text-accent-400">
-                      <Icon size={15} />
+                    <span className="text-[13px] leading-snug text-slate-300 transition-colors group-hover:text-slate-100">
+                      {t(`axetCodeHome.${key}` as Parameters<typeof t>[0])}
                     </span>
                   </button>
                 );
@@ -708,7 +783,7 @@ export default function ChatSessionPane({
             </div>
           </div>
         ) : (
-          <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] py-6`}>
+          <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] pb-8 pt-8`}>
             {session.messages.map((message, index) => (
               <Fragment key={message.id}>
                 <ChatBubble
@@ -781,7 +856,7 @@ export default function ChatSessionPane({
                 // Üstteki cevaba yaklaşsın diye negatif üst boşluk, ama sabit
                 // bir piksel DEĞİL: mesaj aralığı kullanıcı ayarıyla
                 // değiştiği için ona oranlı.
-                className="mt-[calc(var(--chat-message-gap)*-0.6)] flex cursor-pointer items-center gap-1.5 self-start rounded-md border border-base-800 bg-base-900 px-3 py-1.5 text-[12px] text-slate-400 transition hover:border-base-700 hover:bg-base-800 hover:text-slate-200"
+                className={btn("neutral", "md", "mt-[calc(var(--chat-message-gap)*-0.6)] self-start")}
               >
                 <RefreshCw size={12} />
                 {t("axetCodeHome.regenerate")}
@@ -791,7 +866,7 @@ export default function ChatSessionPane({
         )}
       </div>
 
-      <div className="relative shrink-0 px-5 pb-3 pt-2">
+      <div className="relative shrink-0 px-6 pb-4 pt-2">
         {/* "Dibe in" düğmesi — uzun bir cevap akarken kullanıcı yukarı
             kaydırdıysa geri dönmesi için. */}
         {!atBottom && !isEmpty && (
@@ -1023,7 +1098,18 @@ export default function ChatSessionPane({
                   // ŞART — saydam metinle birlikte imleç de kaybolurdu.
                   // `placeholder:` kuralı daha özgül olduğu için yer tutucu
                   // saydamlıktan etkilenmiyor.
-                  className="relative max-h-52 min-h-[36px] w-full resize-none overflow-y-scroll bg-transparent py-[7px] text-[length:var(--chat-font-size)] leading-[22px] text-transparent caret-slate-200 outline-none placeholder:text-slate-500"
+                  //
+                  // `block` PAZARLIK DIŞI (kullanıcı isteği, 2026-09-06:
+                  // *"sohbet boxının içindeki butonlar yazılar ortalanmış
+                  // değil"*). Tailwind'in preflight'ı `textarea`yı `block`
+                  // YAPMIYOR — satır içi bir kutu olarak kalıyor ve satır
+                  // kutusunun taban çizgisinin ALTINDA ~4px'lik iniş boşluğu
+                  // bırakıyor. Sonuç: sarmalayıcı 36px değil 40px oluyordu,
+                  // satır `items-end` hizalandığı için düğmeler dibe
+                  // yapışırken yazı 4px yukarıda asılı kalıyordu. Gözle
+                  // "biraz kaymış" görünen buydu; `block` satır kutusunu
+                  // tamamen ortadan kaldırıyor.
+                  className="relative block max-h-52 min-h-[36px] w-full resize-none overflow-y-scroll bg-transparent py-[7px] text-[length:var(--chat-font-size)] leading-[22px] text-transparent caret-slate-200 outline-none placeholder:text-slate-500"
                 />
               </div>
               {/* Mikrofon, model seçicinin SOLUNDA (kullanıcı isteği,

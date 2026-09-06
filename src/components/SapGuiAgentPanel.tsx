@@ -4,6 +4,7 @@ import { useT } from "../i18n";
 import ModelSelector from "./ModelSelector";
 import { createExecutor, type RecordStepFn } from "../lib/sapGuiAgent/tools";
 import { createTranscript, runAgentTurn, type AgentEvent, type SapGuiUiContext } from "../lib/sapGuiAgent/agentRunner";
+import { btn } from "../ui/buttons";
 import type {
   AxetModelEntry,
   GuiScriptComponentDetail
@@ -203,7 +204,7 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
             {busy ? (
               <button
                 onClick={handleCancel}
-                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md border border-[rgba(244,113,138,0.4)] bg-[rgba(244,113,138,0.14)] px-2.5 py-1.5 text-xs font-medium text-[var(--status-danger-text)] hover:bg-[rgba(244,113,138,0.22)]"
+                className={btn("danger", "sm")}
               >
                 <Square size={12} />
                 {t("sapGuiScripting.agentStop")}
@@ -212,7 +213,7 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
               <button
                 onClick={handleComposerSubmit}
                 disabled={!draft.trim()}
-                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md bg-accent-500 px-2.5 py-1.5 text-xs font-medium text-accent-on hover:bg-accent-600 disabled:cursor-default disabled:opacity-50"
+                className={btn("primary", "sm")}
               >
                 <Send size={12} />
                 {t("sapGuiScripting.agentSend")}

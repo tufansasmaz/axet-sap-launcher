@@ -49,6 +49,7 @@ import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPa
 import FileExplorer from "./components/FileExplorer";
 import FileViewer from "./components/FileViewer";
 import { flattenLandscape } from "./lib/landscape";
+import { iconBtn, tintBtn } from "./ui/buttons";
 import { useActiveContext } from "./lib/useActiveContext";
 import { LanguageProvider, translate } from "./i18n";
 
@@ -59,6 +60,11 @@ const MIN_SIDEBAR_WIDTH = 200;
 const MAX_SIDEBAR_WIDTH = 560;
 const DEFAULT_SIDEBAR_WIDTH = 320;
 const COLLAPSED_SIDEBAR_WIDTH = 44;
+// Yenileme animasyonunun EN AZ görünür kalacağı süre. Yerel XML okuması
+// ~15ms; bayrağı hemen indirmek dönme animasyonunu hiç çizdirmiyordu ve
+// düğme ölü görünüyordu. 450ms "bir şey oldu" demeye yetiyor, beklemeye
+// dönüşecek kadar uzun değil.
+const MIN_REFRESH_SPIN_MS = 450;
 
 interface OpenFileTab {
   path: string;
@@ -176,21 +182,59 @@ export default function App() {
     languageRef.current = language;
   }, [language]);
 
-  const refresh = useCallback(async () => {
+  // "Yenile çalışmıyor" (kullanıcı, 2026-09-06). İŞLEVSEL OLARAK ÇALIŞIYORDU:
+  // `landscape:get` her çağrıda SAPUILandscape.xml'i diskten baştan okuyor,
+  // hiçbir yerde önbellek yok. Çalışmayan şey GERİ BİLDİRİMDİ —
+  //   * yerel bir XML'i okumak ~15ms sürüyor, yani `loading` bayrağına bağlı
+  //     dönme animasyonu bir kare bile çizilmeden bitiyordu;
+  //   * dosya değişmediyse ekranda hiçbir piksel değişmiyor.
+  // Sonuç: kullanıcı düğmeye basıyor, hiçbir şey olmuyor, düğme ölü sanılıyor.
+  //
+  // İki şey eklendi: (1) animasyonun görülebileceği bir ALT SÜRE, (2) yüklenen
+  // sistem sayısını söyleyen bir bildirim. Sayı önemli — dosya gerçekten
+  // değişmediyse kullanıcı bunu sayının aynı kalmasından anlıyor, "düğme
+  // bozuk" diye düşünmüyor.
+  //
+  // Ayrıca artık SONUCU DÖNDÜRÜYOR. Eskiden çağıran taraf koşulsuz "başarılı"
+  // bildirimi basıyordu: okuma patladığında ekranda aynı anda bir hata ve bir
+  // başarı bildirimi beliriyordu.
+  const refresh = useCallback(async (): Promise<SapLandscape | null> => {
+    const startedAt = Date.now();
     setLoading(true);
     try {
       const [ls, cfg] = await Promise.all([window.api.getLandscape(), window.api.getConfig()]);
       setLandscape(ls);
       setConfig(cfg);
+      return ls;
     } catch (err) {
       pushToast(
         "error",
         translate(languageRef.current, "app.landscapeLoadError", { message: (err as Error).message })
       );
+      return null;
     } finally {
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < MIN_REFRESH_SPIN_MS) {
+        await new Promise((resolve) => setTimeout(resolve, MIN_REFRESH_SPIN_MS - elapsed));
+      }
       setLoading(false);
     }
   }, []);
+
+  // Yenileme düğmelerinin ortak kuyruğu: sayıyı hesapla, bildirimi bas.
+  // `messageKey` iki düğme için ayrı, çünkü ikisi kullanıcının kafasında ayrı
+  // şeyler ("SAP Logon'dan getir" vs "listeyi yenile") — teknik olarak aynı
+  // okumayı yapıyor olmaları bunu değiştirmiyor.
+  const refreshWithToast = useCallback(
+    async (messageKey: "app.refreshedFromSapLogon" | "app.listReloaded") => {
+      const ls = await refresh();
+      if (!ls) return;
+      pushToast("success", translate(languageRef.current, messageKey, {
+        count: String(flattenLandscape(ls.customers).length)
+      }));
+    },
+    [refresh]
+  );
 
   useEffect(() => {
     refresh();
@@ -845,28 +889,54 @@ export default function App() {
           <SapGuiScriptingHome activeSap={activeContext.sap} />
         ) : (
           <>
-        <header className="flex items-center gap-3 border-b border-base-700 bg-base-900 px-4 py-3">
+        {/* Başlık şeridi, axet.code ekranının diline çekildi (kullanıcı isteği,
+            2026-09-06: *"ordaki butonlar arama kutularının şekilleri axet.code
+            ekranındaki buton ve arama kutuları gibi olsun"*). Değişen üç şey:
+
+              1. Köşeler: `rounded-sm` (4px) → `rounded-md`/`rounded-lg`. Bu
+                 ekran, 4px köşeleri hâlâ kullanan son yerdi.
+              2. Yükseklik: `py-1.5`ten TÜREYEN yükseklik yerine sabit `h-9`.
+                 Dolgudan türeyen yükseklik yazı boyuna göre düğmeden düğmeye
+                 1-2px kayıyordu (bkz. src/ui/buttons.ts başlığı).
+              3. Arama kutusu: kenarlık yerine `ring-1 ring-inset` + odakta
+                 vurgu halkası — axet.code kenar çubuğundaki kutunun aynısı.
+                 `ring-inset` şart: dıştan halka, kutuyu komşu düğmelerden 1px
+                 daha uzun gösteriyordu.
+
+            Üç metinli düğmenin ÜÇÜ DE soluk-dolgu ailesinde (kullanıcı isteği,
+            2026-09-06), yalnızca renkleri farklı: ekleme accent, "SAP Logon'dan
+            Getir" SAP mavisi, terminal durum yeşili. Önceki hâlde renk sadece
+            ikondaydı, gövde nötrdü — 15px'lik renkli bir ikon nötr bir düğmenin
+            içinde kaybolduğu için düğmeler pratikte üç tane aynı gri kutuydu.
+            Renk artık gövdenin kendisinde, yani şeride bakınca hangisinin neye
+            dokunduğu okunuyor.
+
+            Bu ÜÇÜ birden `btn("primary")` OLAMAZ: dolgulu vurgu düğmesi
+            "ekranda en fazla bir tane" kuralına bağlı (bkz. src/ui/buttons.ts).
+            `tintBtn` tam olarak bu yüzden var — kimlik veriyor ama "asıl eylem
+            benim" demiyor. Sağdaki yenile düğmesi bilerek nötr kaldı: konusu
+            kendi başına bir şey değil, şeridin tamamı. */}
+        <header className="flex items-center gap-2 border-b border-base-700 bg-base-900 px-4 py-2.5">
           <button
             onClick={() => setAddSystemOpen(true)}
             title={t("app.addSystemTitle")}
-            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border border-accent-500/40 bg-accent-500/15 px-3 py-1.5 text-xs font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
+            className={tintBtn("accent", "lg", "gap-1.5 px-3 text-[12px]")}
           >
-            <Plus size={14} />
+            <Plus size={15} className="shrink-0" />
             {t("app.addSystem")}
           </button>
           <button
-            onClick={() => {
-              refresh();
-              pushToast("success", t("app.refreshedFromSapLogon"));
-            }}
+            onClick={() => refreshWithToast("app.refreshedFromSapLogon")}
             title={t("app.refetchTitle")}
-            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+            className={tintBtn("sap", "lg", "gap-1.5 px-3 text-[12px]")}
           >
-            <Download size={14} className={loading ? "animate-pulse" : ""} />
+            <Download size={15} className={`shrink-0 ${loading ? "animate-pulse" : ""}`} />
             {t("app.refetch")}
           </button>
-          <div className="flex flex-1 items-center gap-2 rounded-sm border border-base-700 bg-base-800 px-3 py-1.5">
-            <Search size={14} className="text-slate-500" />
+          <div className="flex h-9 min-w-0 flex-1 items-center rounded-lg bg-base-800 ring-1 ring-inset ring-base-700 focus-within:ring-accent-500/40">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center text-slate-500">
+              <Search size={14} />
+            </span>
             <input
               ref={searchInputRef}
               value={search}
@@ -875,15 +945,15 @@ export default function App() {
                 if (e.key === "Escape" && search) setSearch("");
               }}
               placeholder={t("app.searchPlaceholder")}
-              className="w-full bg-transparent text-sm text-slate-200 outline-none placeholder:text-slate-500"
+              className="min-w-0 flex-1 bg-transparent text-[12px] text-slate-200 outline-none placeholder:text-slate-500"
             />
             {search && (
               <button
                 onClick={() => setSearch("")}
                 title={t("app.clearSearch")}
-                className="cursor-pointer rounded-sm p-0.5 text-slate-500 hover:bg-base-700 hover:text-slate-200"
+                className="mr-1.5 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-base-700 hover:text-slate-300"
               >
-                <X size={13} />
+                <X size={12} />
               </button>
             )}
           </div>
@@ -891,15 +961,15 @@ export default function App() {
           <button
             onClick={handleToggleTerminalPanel}
             title={t("app.toggleTerminalTitle")}
-            className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+            className={tintBtn("terminal", "lg", "gap-1.5 px-3 text-[12px]")}
           >
-            <TerminalSquare size={14} />
+            <TerminalSquare size={15} className="shrink-0" />
             {t("app.terminal")}
           </button>
           <button
-            onClick={refresh}
+            onClick={() => refreshWithToast("app.listReloaded")}
             title={t("app.reloadListTitle")}
-            className="cursor-pointer rounded-sm p-2 text-slate-400 hover:bg-base-700 hover:text-white"
+            className={iconBtn("neutral", "lg")}
           >
             <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
           </button>

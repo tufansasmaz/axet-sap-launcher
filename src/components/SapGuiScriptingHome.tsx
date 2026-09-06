@@ -33,6 +33,7 @@ import PreflightPanel from "./sapgui/PreflightPanel";
 import ScreenViewer from "./sapgui/ScreenViewer";
 import StatusBarStrip from "./sapgui/StatusBarStrip";
 import { CountBadge, EmptyState, GHOST_ICON_BUTTON, ICON_BUTTON, PRIMARY_BUTTON, PanelHeader, Pill, TOOL_BUTTON } from "./sapgui/ui";
+import { btn } from "../ui/buttons";
 import { vkeyLabel } from "../lib/sapGui/vkeys";
 import type {
   ActiveSapContext,
@@ -850,7 +851,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
                   setShowPreflight(false);
                   loadConnections();
                 }}
-                className="cursor-pointer rounded-md border border-base-700 bg-base-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+                className={btn("neutral", "md")}
               >
                 {t("sapGuiScripting.preflight.continueAnyway")}
               </button>
@@ -858,7 +859,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
             {!preflightBlocking && (
               <button
                 onClick={() => setShowPreflight(false)}
-                className="cursor-pointer rounded-md bg-accent-500 px-3 py-1.5 text-xs font-medium text-accent-on hover:bg-accent-600"
+                className={btn("primary", "md")}
               >
                 {t("sapGuiScripting.preflight.close")}
               </button>

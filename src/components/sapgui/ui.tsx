@@ -11,21 +11,26 @@ import type { ReactNode } from "react";
 // Yükseklikler BİLEREK sabit: `h-8` başlık, `h-7` düğme. Dikey ritim ancak
 // böyle tutuyor; `py-*` ile yazılan sürüm, içerik uzunluğuna göre panelden
 // panele 2-3 piksel kayıyordu.
+//
+// DÜĞMELER ARTIK BURADA TANIMLI DEĞİL (2026-09-06). Bu ekranın düğme yapısı
+// kullanıcı kararıyla uygulamanın tamamına dil oldu, dolayısıyla tanımlar
+// `src/ui/buttons.ts`e taşındı. Buradan yeniden dışa aktarılıyorlar ki bu
+// klasördeki düzinelerce `import { TOOL_BUTTON } from "./ui"` satırı olduğu
+// gibi çalışmaya devam etsin.
+export {
+  TOOL_BUTTON,
+  ICON_BUTTON,
+  GHOST_ICON_BUTTON,
+  PRIMARY_BUTTON,
+  PANEL_TITLE,
+  btn,
+  iconBtn,
+} from "../../ui/buttons";
 
-export const TOOL_BUTTON =
-  "flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-base-700 bg-base-800 px-2.5 text-[11px] font-medium text-slate-200 hover:bg-base-700 disabled:cursor-default disabled:opacity-40";
-
-export const ICON_BUTTON =
-  "flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-base-700 bg-base-800 text-slate-400 hover:bg-base-700 hover:text-white disabled:cursor-default disabled:opacity-40";
-
-// Çerçevesiz ikon düğmesi — panel başlıklarındaki ikincil eylemler için.
-export const GHOST_ICON_BUTTON =
-  "flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-500 hover:bg-base-800 hover:text-white disabled:cursor-default disabled:opacity-40";
-
-export const PRIMARY_BUTTON =
-  "flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-accent-500 px-3 text-[11px] font-medium text-accent-on hover:bg-accent-600 disabled:cursor-default disabled:opacity-60";
-
-export const PANEL_TITLE = "text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500";
+// `PanelHeader` aşağıda PANEL_TITLE'ı kendisi kullanıyor; `export ... from`
+// yeniden dışa aktarır ama bu dosyanın kapsamına SOKMAZ, o yüzden ayrıca
+// içe aktarılıyor.
+import { PANEL_TITLE } from "../../ui/buttons";
 
 export function PanelHeader({
   icon,

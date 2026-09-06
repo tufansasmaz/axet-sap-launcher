@@ -72,7 +72,7 @@ if (!gotSingleInstanceLock) {
 // göster, log'a yaz.
 process.on("uncaughtException", (err) => {
   console.error("uncaughtException", err);
-  dialog.showErrorBox("aXet Studio — Beklenmeyen Hata", err.stack ?? String(err));
+  dialog.showErrorBox("NTT Studio — Beklenmeyen Hata", err.stack ?? String(err));
 });
 process.on("unhandledRejection", (reason) => {
   console.error("unhandledRejection", reason);
@@ -174,7 +174,7 @@ function createWindow(): void {
     // Pencerenin İLK BOYAMA rengi — React yüklenene kadar görünen zemin.
     // Koyu temanın `--base-950-rgb` değeriyle aynı tutuluyor; farklı olursa
     // açılışta bir kare boyunca yanlış renkte bir çerçeve görünüyor.
-    backgroundColor: "#0e0e10",
+    backgroundColor: "#131316",
     frame: false,
     show: false,
     icon: resolveIconPath(),

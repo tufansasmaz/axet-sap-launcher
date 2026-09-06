@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { ExternalLink, X } from "lucide-react";
 import type { ChatAttachment } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+import { btn, iconBtn } from "../ui/buttons";
 
 // Bir görsel ekin TAM BOY önizlemesi. Sohbetteki küçük resim en fazla 176px
 // yüksekliğinde — bir ekran görüntüsündeki yazıyı okumaya yetmiyor, ki eki
@@ -57,7 +58,7 @@ export default function AttachmentLightbox({
         <button
           onClick={onOpenExternal}
           title={t("axetCodeHome.attachmentOpen")}
-          className="flex cursor-pointer items-center gap-1.5 rounded-md border border-base-700 bg-base-900 px-2.5 py-1.5 text-[12px] text-slate-300 transition hover:bg-base-800 hover:text-slate-100"
+          className={btn("neutral", "md")}
         >
           <ExternalLink size={13} />
           {t("axetCodeHome.attachmentOpen")}
@@ -65,7 +66,7 @@ export default function AttachmentLightbox({
         <button
           onClick={onClose}
           title={`${t("axetCodeHome.attachmentClose")} (Esc)`}
-          className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-md border border-base-700 bg-base-900 text-slate-300 transition hover:bg-base-800 hover:text-slate-100"
+          className={iconBtn("neutral", "md")}
         >
           <X size={15} />
         </button>

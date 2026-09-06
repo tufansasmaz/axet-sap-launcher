@@ -1,6 +1,7 @@
 import { Download, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import type { UpdateStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 
 export type UpdatePromptMode = "hidden" | "prompt" | "progress";
 
@@ -43,14 +44,14 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
             <div className="flex justify-end gap-2">
               <button
                 onClick={onDismiss}
-                className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+                className={DIALOG_CANCEL_BUTTON}
               >
                 {t("updatePrompt.later")}
               </button>
               <button
                 onClick={onAccept}
                 autoFocus
-                className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600"
+                className={DIALOG_CONFIRM_BUTTON}
               >
                 <Download size={14} />
                 {t("updatePrompt.install")}
@@ -90,7 +91,7 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
             <div className="flex justify-end">
               <button
                 onClick={onDismiss}
-                className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+                className={DIALOG_CANCEL_BUTTON}
               >
                 {t("updatePrompt.close")}
               </button>

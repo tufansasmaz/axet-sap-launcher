@@ -11,7 +11,11 @@ export const tr = {
   "app.landscapeLoadError": "Landscape yüklenemedi: {message}",
   "app.addSystemTitle": "Yeni SAP sistemi ekle",
   "app.addSystem": "Sistem Ekle",
-  "app.refreshedFromSapLogon": "Sistemler SAP Logon'dan yeniden yüklendi",
+  // Sayı BİLEREK var: dosya değişmediyse ekranda hiçbir şey kıpırdamıyor ve
+  // düğme bozuk sanılıyordu. Sayının aynı kalması "okundu ama değişmemiş"
+  // demenin en kısa yolu.
+  "app.refreshedFromSapLogon": "SAP Logon'dan {count} sistem yüklendi",
+  "app.listReloaded": "Liste yenilendi — {count} sistem",
   "app.refetchTitle": "Sistemleri SAP Logon'dan yeniden getir",
   "app.refetch": "SAP Logon'dan Getir",
   "app.searchPlaceholder": "Müşteri veya sistem ara… (Ctrl+F)",
@@ -67,13 +71,15 @@ export const tr = {
   "activeContext.showSystem": "Sistemi göster · {path}",
   "activeContext.guiSession": "SAP GUI oturumu · {system} {title}",
   "activeContext.clear": "Aktif bağlamı temizle (bağlantıyı kapatmaz)",
-  "activeContext.launcherSystem": "SAP Launcher bu sisteme bağlı: {system}, client {client}",
+  "activeContext.launcherSystem": "aXet SAP Logon bu sisteme bağlı: {system}, client {client}",
   "activeContext.mismatch": "farklı sistem",
-  "activeContext.mismatchHint": "SAP GUI ekranı {gui}, SAP Launcher bağlantısı {launcher} — aynı sistem değil.",
+  "activeContext.mismatchHint": "SAP GUI ekranı {gui}, aXet SAP Logon bağlantısı {launcher} — aynı sistem değil.",
 
   "tree.noMatch": "Eşleşen müşteri/sistem bulunamadı.",
 
   "recentSystems.heading": "Son Bağlanılanlar",
+  "recentSystems.collapse": "Listeyi daralt",
+  "recentSystems.expand": "Listeyi genişlet",
 
   "systemPanel.emptyState": "Soldan bir müşteri sistemi seç.",
   "systemPanel.editTitle": "Bu manuel sistemi düzenle",
@@ -116,10 +122,14 @@ export const tr = {
   "sapLogon.spawnError": "SAP GUI açılamadı: {detail}",
 
   "activityBar.axetCode": "axet.code",
-  // Platformun adı artık "aXet Studio"; buradaki isim onun BİR MODÜLÜ, o
-  // yüzden "aXet" ön eki düştü — diğer dördü de (axet.code, axet.flows…)
-  // modül adı taşıyor.
-  "activityBar.sapLauncher": "SAP Launcher",
+  // "aXet SAP Logon" (kullanıcı isteği, 2026-09-06). Bir ara sadece "SAP
+  // Launcher" idi — gerekçe, platformun adı "Studio" olunca modülün ön eke
+  // ihtiyacı kalmadığıydı. Kullanıcı tersini istedi ve "Launcher" yerine
+  // "Logon" dedi: ekranın yaptığı iş SAP Logon'un sistem listesini okuyup
+  // oradan bağlanmak, yani kullanıcının SAP tarafında zaten bildiği ismin
+  // aynısı. Ön ek de bu yüzden geri geldi — "SAP Logon" tek başına SAP'nin
+  // kendi programının adı olurdu.
+  "activityBar.sapLauncher": "aXet SAP Logon",
   "activityBar.axetFlows": "axet.flows",
   "activityBar.axetFlowsLive": "axet.flows (Canlı)",
   "activityBar.theme": "Tema",
@@ -297,7 +307,7 @@ export const tr = {
   "modelSelector.switchFailed": "Model değiştirilemedi: {message}",
 
   "updatePrompt.title": "Yeni sürüm bulundu",
-  "updatePrompt.message": "aXet Studio v{version} yayınlandı. Şimdi indirilsin mi? İndirme tamamlandığında uygulama otomatik olarak yeniden başlatılıp güncellenecek.",
+  "updatePrompt.message": "NTT Studio v{version} yayınlandı. Şimdi indirilsin mi? İndirme tamamlandığında uygulama otomatik olarak yeniden başlatılıp güncellenecek.",
   "updatePrompt.install": "İndir ve Kur",
   "updatePrompt.later": "Daha Sonra",
   "updatePrompt.downloading": "v{version} indiriliyor… %{percent}",

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FileWarning, FolderOpen, ExternalLink, Pencil, Save } from "lucide-react";
 import { useT } from "../i18n";
+import { btn } from "../ui/buttons";
 
 interface Props {
   path: string;
@@ -138,13 +139,13 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
         <div className="flex gap-2">
           <button
             onClick={() => window.api.openExternal(path)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+            className={btn("neutral", "md")}
           >
             <ExternalLink size={13} /> {t("fileViewer.openExternal")}
           </button>
           <button
             onClick={() => window.api.openInExplorer(path)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-base-600 px-3 py-1.5 text-xs text-slate-300 hover:bg-base-700"
+            className={btn("neutral", "md")}
           >
             <FolderOpen size={13} /> {t("fileViewer.showInFolder")}
           </button>
@@ -204,7 +205,7 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex cursor-pointer items-center gap-1.5 rounded-sm bg-accent-500/20 px-2.5 py-1 text-[11px] font-medium text-accent-400 transition hover:bg-accent-500/30 disabled:cursor-default disabled:opacity-50"
+                className={btn("primary", "sm")}
               >
                 <Save size={12} /> {saving ? t("common.loading") : t("fileViewer.save")}
               </button>
@@ -213,7 +214,7 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
                   setEditDraft(null);
                   setSaveError(null);
                 }}
-                className="cursor-pointer rounded-sm px-2.5 py-1 text-[11px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                className={btn("ghost", "sm")}
               >
                 {t("common.cancel")}
               </button>
@@ -222,7 +223,7 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
           ) : (
             <button
               onClick={() => setEditDraft(state.kind === "text" ? state.content : "")}
-              className="flex cursor-pointer items-center gap-1.5 rounded-sm px-2.5 py-1 text-[11px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+              className={btn("ghost", "sm")}
             >
               <Pencil size={12} /> {t("fileViewer.edit")}
             </button>

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { FolderOpen, Trash2 } from "lucide-react";
 import type { ChatProject } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 
 // Bir projenin TÜM ayarları tek kutuda: adı, kalıcı talimatı ve silme.
 //
@@ -135,13 +136,13 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
               <div className="flex-1" />
               <button
                 onClick={onClose}
-                className="cursor-pointer rounded-md px-4 py-2 text-sm text-slate-300 hover:bg-base-700"
+                className={DIALOG_CANCEL_BUTTON}
               >
                 {t("common.cancel")}
               </button>
               <button
                 onClick={save}
-                className="cursor-pointer rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600"
+                className={DIALOG_CONFIRM_BUTTON}
               >
                 {t("common.save")}
               </button>

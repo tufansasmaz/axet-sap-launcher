@@ -52,7 +52,7 @@
   },
   "build": {
     "appId": "com.nttdata.axet.saplauncher",
-    "productName": "aXet Studio",
+    "productName": "NTT Studio",
     "directories": {
       "output": "release"
     },
@@ -117,7 +117,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "aXet Studio"
+      "shortcutName": "NTT Studio"
     },
     "portable": {
       "artifactName": "aXet-Studio-${version}-portable.exe"
