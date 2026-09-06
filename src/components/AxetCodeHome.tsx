@@ -3041,6 +3041,18 @@ export default function AxetCodeHome({
                   {recentEntries.slice(0, 3).map((entry) => {
                     const state = connectivity[entry.service.uuid] ?? "unknown";
                     const tier = resolveTier(entry.service, tierOverrides);
+                    // ŞU AN BAĞLI OLUNAN sistem. `StatusDot`'tan bambaşka bir
+                    // şey söylüyor ve ikisi karıştırılmamalı: nokta "bu sunucu
+                    // ayakta mı" (sağlık), bu ise "oturum bunun üzerinde"
+                    // (aktiflik). Erişilebilir üç sistem varken hangisine
+                    // bağlı olduğun satırda hiç görünmüyordu — yalnızca hover
+                    // kartını açınca.
+                    //
+                    // Vurgu rengi tam da bu yüzden BURADA doğru: accent yeşili
+                    // uygulamanın her yerinde "seçili/aktif" demek, sağlık
+                    // yeşili (`--status-success-text`) ise noktanın işi. İki
+                    // anlam iki renkte kalıyor.
+                    const connected = activeSap != null && activeSap.uuid === entry.service.uuid;
                     const connect = () =>
                       onQuickConnectSap(
                         entry.path,
@@ -3062,13 +3074,25 @@ export default function AxetCodeHome({
                       >
                         <button
                           onClick={connect}
-                          className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
+                          className={`relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] transition ${
+                            connected
+                              ? "bg-accent-500/10 text-slate-100"
+                              : "text-slate-400 hover:bg-hover hover:text-slate-200"
+                          }`}
                         >
+                          {/* Şerit ray'daki aktif sekme şeridiyle AYNI dil:
+                              uygulamada "burasısın" hep soldaki 2-3px parlak
+                              lime çizgi. */}
+                          {connected && (
+                            <span className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-accent-500" />
+                          )}
                           <Server
                             size={13}
-                            className="shrink-0 text-[var(--navy-icon)]"
+                            className={`shrink-0 ${connected ? "text-accent-400" : "text-[var(--navy-icon)]"}`}
                           />
-                          <span className="min-w-0 flex-1 truncate">
+                          <span
+                            className={`min-w-0 flex-1 truncate ${connected ? "font-medium" : ""}`}
+                          >
                             {entry.service.name}
                           </span>
                           {tier && <TierBadge tier={tier} />}

@@ -9406,3 +9406,37 @@ mimarisi üçlüsü *"daha gerçek bir developer workflow hissi veriyor"*, dörd
 `h-7 w-7` → `h-8 w-8` (ikon 14 → 16), metin `text-slate-300` →
 `font-medium text-slate-200`. İkon kutusu kartın içindeki tek görsel
 çapaydı ve metnin yanında cılız kalıyordu.
+
+### Ek: "şu an bağlısın" satırda görünüyor (2026-09-06)
+
+Kullanıcının aynı turdaki *"SİSTEMLER bölümü çok güzel bir anchor
+oluşturuyor... NTT Studio'yu tasarlarken bunu merkeze alırdım: AI Chat +
+Projects + Connected Systems"* notunun karşılığı. Yeni bileşen eklenmedi;
+eksik olan bir DURUM görünür yapıldı.
+
+Kenar çubuğundaki sistem satırları erişilebilirliği (`StatusDot`) gösteriyordu
+ama hangisine **bağlı olduğunu** göstermiyordu — o bilgi yalnızca hover kartını
+açınca çıkıyordu. Üç sistemin üçü de ayaktayken satırlar birbirinin aynısıydı.
+
+Bağlı satır artık: `bg-accent-500/10`, solda 2px parlak lime şerit, `Server`
+ikonu `accent-400`, ad `font-medium`, metin bir ton parlak.
+
+**İki yeşil, iki anlam — ve karıştırılmamalı:**
+
+| Gösterge | Renk | Sorusu |
+| --- | --- | --- |
+| `StatusDot` | `--status-success-text` | "bu sunucu ayakta mı" (sağlık) |
+| Satır vurgusu | `accent-500` / `accent-400` | "oturum bunun üzerinde mi" (aktiflik) |
+
+Bu, kullanıcının *"online/active küçük indicator için lime kullanırdım"*
+isteğinin doğru karşılığı. Noktayı lime yapmak, 2026-09-06'da yazılmış
+*"nokta accent DEĞİL, durum yeşili... accent yeşili uygulamanın her yerinde
+'seçili' demek"* kuralını bozardı; aktiflik ise zaten accent'in kendi işi.
+Şerit, ray'daki aktif sekme şeridiyle bilerek aynı: uygulamada "burasısın"
+her yerde soldaki ince parlak lime çizgi.
+
+Sınır: liste `recentEntries`in ilk üçünü çiziyor. Bağlanmak geçmişi
+güncellediği için aktif sistem pratikte hep bu üçün içinde, ama bu bir garanti
+değil — bağlıyken listeyi dolduracak kadar başka bağlantı yapılabilseydi vurgu
+görünmezdi. Bilerek böyle: listeyi aktif sistem için uzatmak, üç satırlık dip
+bloğunu belirsiz boyda bir listeye çevirirdi.
