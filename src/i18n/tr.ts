@@ -171,6 +171,13 @@ export const tr = {
   "systemCard.connected": "Bağlı",
   "systemCard.connect": "Bağlan",
   "systemCard.reconnect": "Yeniden bağlan",
+
+  // Açılış ekranındaki "Son çalışmalar" bloğu.
+  "recentWork.heading": "Son çalışmalar",
+  "recentWork.general": "Genel",
+  "recentWork.running": "Sürüyor",
+  "recentWork.stuck": "Durdurulamadı",
+  "recentWork.done": "Tamamlandı",
   "axetCodeHome.emptyTitle": "Henüz bir sohbet yok",
   "axetCodeHome.emptyHint": "axet.code ile konuşmaya başlamak için yeni bir sohbet aç.",
   "axetCodeHome.greeting.morning": "Günaydın",

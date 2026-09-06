@@ -46,6 +46,7 @@ import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./Cha
 import ModelSelector from "./ModelSelector";
 import { resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
+import { formatRelativeTime } from "../lib/time";
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
 
@@ -202,6 +203,31 @@ interface Props {
   filesPanel?: ReactNode;
   filesPanelOpen?: boolean;
   onToggleFilesPanel?: () => void;
+  // --- Açılış ekranındaki "Son çalışmalar" ---
+  // Kenar çubuğundaki sohbet listesinin KOPYASI DEĞİL (kullanıcı kararı,
+  // 2026-09-06: *"ortaya sidebar'daki sohbet listesinin kopyasını
+  // koymayalım"*). Listede yalnızca başlık var; burada başlığın yanında ne
+  // zaman dokunulduğu, hangi projede/sistemde olduğu ve turun hâlâ sürüp
+  // sürmediği duruyor — yani ekran yeni bilgi veriyor, aynı bilgiyi ikinci
+  // kez değil. Boş dizi = blok hiç çizilmiyor.
+  recentWork?: RecentWorkItem[];
+  onOpenRecentWork?: (id: string) => void;
+}
+
+/** Açılış ekranındaki "Son çalışmalar" satırı (bkz. `Props.recentWork`). */
+export interface RecentWorkItem {
+  id: string;
+  title: string;
+  /** ms — `formatRelativeTime` ISO beklediği için burada çevriliyor. */
+  updatedAt: number;
+  /** Proje adı, yoksa çalışma klasörünün adı, o da yoksa null. */
+  project: string | null;
+  /** SAP bağlamı etiketi (`SID · client`), bağlamsız sohbette null. */
+  system: string | null;
+  /** Tur hâlâ sürüyor. */
+  running: boolean;
+  /** "Durdur"a basıldı ama tur durmadı (bkz. `cancelStuck`). */
+  stuck: boolean;
 }
 
 // axet.code sohbet ekranındaki tek bir sohbetin TAMAMI.
@@ -260,7 +286,9 @@ export default function ChatSessionPane({
   onOpenInstructions,
   filesPanel,
   filesPanelOpen = false,
-  onToggleFilesPanel
+  onToggleFilesPanel,
+  recentWork = [],
+  onOpenRecentWork
 }: Props) {
   const t = useT();
   const [dragOver, setDragOver] = useState(false);
@@ -781,6 +809,58 @@ export default function ChatSessionPane({
                 );
               })}
             </div>
+
+            {/* SON ÇALIŞMALAR — bkz. `Props.recentWork`. Kenar çubuğundaki
+                listenin kopyası değil: buradaki üç satırın her biri orada
+                OLMAYAN bir şey söylüyor (ne zaman, nerede, hâlâ sürüyor mu).
+                Boşsa hiç çizilmiyor — ilk açılışta boş bir "Son çalışmalar"
+                başlığı, olmayan bir geçmişi varmış gibi gösterirdi. */}
+            {recentWork.length > 0 && (
+              <div className="mt-9">
+                <div className="pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  {t("recentWork.heading")}
+                </div>
+                <div className="flex flex-col gap-1">
+                  {recentWork.map((item) => {
+                    // Nokta HER SATIRDA duruyor, yalnızca dikkat çekecek bir
+                    // şey varken değil: sessiz gri bir nokta "bu tur bitti"
+                    // bilgisidir ve sütunun şeklini koruyor. Anlamı `title`
+                    // ile okunabilir, renk tek başına taşımıyor.
+                    const status = item.stuck
+                      ? { dot: "bg-[var(--status-danger-text)]", label: t("recentWork.stuck") }
+                      : item.running
+                        ? { dot: "bg-accent-500 animate-pulse", label: t("recentWork.running") }
+                        : { dot: "bg-slate-600", label: t("recentWork.done") };
+                    const where = [item.project, item.system].filter(Boolean).join(" · ");
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => onOpenRecentWork?.(item.id)}
+                        className="group flex w-full cursor-pointer flex-col gap-0.5 rounded-lg border border-transparent px-3 py-2 text-left transition-colors hover:border-line-subtle hover:bg-card"
+                      >
+                        <div className="flex items-baseline gap-3">
+                          <span className="min-w-0 flex-1 truncate text-[13px] text-slate-300 transition-colors group-hover:text-slate-100">
+                            {item.title}
+                          </span>
+                          <span className="shrink-0 text-[11px] text-slate-500">
+                            {formatRelativeTime(new Date(item.updatedAt).toISOString(), t)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="min-w-0 flex-1 truncate text-[11px] text-slate-500">
+                            {where || t("recentWork.general")}
+                          </span>
+                          <span
+                            title={status.label}
+                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${status.dot}`}
+                          />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] pb-8 pt-8`}>
@@ -967,8 +1047,35 @@ export default function ChatSessionPane({
               şeyle görsel bağı kopardı.
 
               `items-end`: yazı alanı büyüdükçe düğmeler dipte kalır, satırın
-              ortasında asılı kalmaz. */}
-          <div className="rounded-2xl border border-line-subtle bg-card px-2 py-1.5 transition focus-within:border-line focus-within:bg-raised">
+              ortasında asılı kalmaz.
+
+              KİMLİĞİ BİLEŞENDEN DEĞİL DURUMDAN ALIYOR (kullanıcı kararı,
+              2026-09-06: *"daha fazla komponent değil, daha iyi state'ler"*).
+              Kutu ekranın en önemli öğesi ama durgun hâlde bir karttan farksız
+              görünüyordu; ayrımı yükseklik ya da yeni düğmeler ekleyerek değil
+              üç kademeli bir geri bildirimle kuruyoruz:
+
+                durgun → `line-subtle`   (neredeyse görünmez, ekranı yormuyor)
+                hover  → `line`          (fare yaklaşınca kutu kendini gösterir)
+                odak   → lime kenarlık + `--accent-glow` halesi
+
+              Hale `shadow`, `ring` DEĞİL: `ring` kenarlığın ÜSTÜNE keskin bir
+              ikinci çizgi koyuyor ve iki hatlı bir çerçeve gibi okunuyor;
+              gölge dışa doğru yumuşayıp "aydınlanma" etkisi veriyor. 3px ve
+              %16 alfa kasıtlı — kutunun dikkat çekmesi yeter, parlaması değil.
+
+              Yükseklik HİÇBİR durumda değişmiyor: kenarlık kalınlığı sabit,
+              gölge yer kaplamıyor. Odaklanınca zıplayan bir kutu, tek satıra
+              indirilmiş olmasının bütün kazancını geri verirdi.
+
+              HOVER NEDEN `:not(:focus-within)` İLE KOŞULLU: düz `hover:` ile
+              yazıldığında lime kenarlık ÇOĞU ZAMAN hiç görünmüyor. Tailwind
+              `hover:` kurallarını `focus-within:` kurallarından SONRA basıyor
+              ve ikisinin özgüllüğü eşit — yani kutu hem odaklı hem fare
+              üstündeyken kazanan gri `line` oluyor. Ve bu istisnai bir durum
+              değil, ana yol: kullanıcı kutuya tıklayarak odaklanıyor, fare de
+              doğal olarak orada kalıyor. */}
+          <div className="rounded-2xl border border-line-subtle bg-card px-2 py-1.5 transition [&:hover:not(:focus-within)]:border-line focus-within:border-accent-500 focus-within:bg-raised focus-within:shadow-[0_0_0_3px_var(--accent-glow)]">
             {session.attachments.length > 0 && (
               <div className="flex flex-wrap gap-2 px-1 pb-2 pt-1">
                 {session.attachments.map((a) => (

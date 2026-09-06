@@ -34,7 +34,7 @@ import type {
   SapService,
   SystemTier,
 } from "../../app-electron/shared/types";
-import ChatSessionPane from "./ChatSessionPane";
+import ChatSessionPane, { type RecentWorkItem } from "./ChatSessionPane";
 import ChatFilesPanel from "./ChatFilesPanel";
 import ConfirmDialog from "./ConfirmDialog";
 import ChatInstructionsDialog from "./ChatInstructionsDialog";
@@ -2387,6 +2387,38 @@ export default function AxetCodeHome({
       })
     : baseGreeting;
 
+  // AÇILIŞ EKRANINDAKİ "SON ÇALIŞMALAR" (bkz. ChatSessionPane RecentWorkItem).
+  //
+  // Kenar çubuğundaki listeyle aynı kaynaktan besleniyor ama aynı şeyi
+  // söylemiyor: orada başlıklar proje/SAP başlıkları altında gruplu duruyor,
+  // burada her satır kendi zamanını, yerini ve turun sürüp sürmediğini
+  // taşıyor.
+  //
+  // Mesajsız oturumlar eleniyor: bir sohbet ilk gönderimde doğuyor, ama
+  // "çalışma" demek için içinde bir şey olması gerek.
+  const recentWork = useMemo<RecentWorkItem[]>(() => {
+    const projectNames = new Map(projects.map((p) => [p.id, p.name]));
+    return [...sessions]
+      .filter((s) => s.messages.length > 0)
+      .sort((a, b) => b.updatedAt - a.updatedAt)
+      .slice(0, 3)
+      .map((s) => {
+        const projectName = s.projectId ? (projectNames.get(s.projectId) ?? null) : null;
+        // Proje yoksa çalışma klasörünün adı: `cwd` tam yol, kullanıcıya
+        // anlamlı gelen kısım son parçası.
+        const folder = s.cwd ? (s.cwd.split(/[\\/]/).filter(Boolean).pop() ?? null) : null;
+        return {
+          id: s.id,
+          title: s.title,
+          updatedAt: s.updatedAt,
+          project: projectName ?? folder,
+          system: s.sapLabel,
+          running: s.pending,
+          stuck: s.cancelStuck,
+        };
+      });
+  }, [sessions, projects]);
+
   // Boş "yeni sohbet" yüzeyi. Gerçek bir kayıt değil — sadece ChatSessionPane'in
   // beklediği şekle bürünmüş bir taslak, böylece açılış ekranı ile sohbet ekranı
   // AYNI bileşen (ve aynı composer) oluyor.
@@ -3150,6 +3182,8 @@ export default function AxetCodeHome({
               t(`axetCodeHome.${key}` as Parameters<typeof t>[0]),
             )
           }
+          recentWork={recentWork}
+          onOpenRecentWork={setActiveId}
           contextLabel={effectiveNewBinding?.label ?? null}
           contextPath={effectiveNewBinding?.cwd || workspaceDir}
           onOpenInstructions={
