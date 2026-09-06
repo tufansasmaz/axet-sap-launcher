@@ -42,6 +42,7 @@ import ChatProjectDialog from "./ChatProjectDialog";
 import type { ChatMessage } from "./ChatBubble";
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
+import SystemHoverCard from "./SystemHoverCard";
 import { resolveTier } from "../lib/tier";
 import { DictationRecorder } from "../lib/dictationRecorder";
 import { promptWithAttachments, toAttachments } from "../lib/attachments";
@@ -2987,29 +2988,40 @@ export default function AxetCodeHome({
                   {recentEntries.slice(0, 3).map((entry) => {
                     const state = connectivity[entry.service.uuid] ?? "unknown";
                     const tier = resolveTier(entry.service, tierOverrides);
+                    const connect = () =>
+                      onQuickConnectSap(
+                        entry.path,
+                        entry.service,
+                        entry.itemUuid,
+                      );
                     return (
-                      <button
+                      // `title={path}` yerine gerçek bir kart: satırda yalnızca
+                      // ad/tier/durum sığıyor, host-port-router-client ise
+                      // bağlanmadan hiç görünmüyordu (bkz. SystemHoverCard).
+                      <SystemHoverCard
                         key={entry.itemUuid}
-                        onClick={() =>
-                          onQuickConnectSap(
-                            entry.path,
-                            entry.service,
-                            entry.itemUuid,
-                          )
-                        }
-                        title={entry.path.join(" / ")}
-                        className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
+                        service={entry.service}
+                        path={entry.path}
+                        tier={tier}
+                        state={state}
+                        activeSap={activeSap}
+                        onConnect={connect}
                       >
-                        <Server
-                          size={13}
-                          className="shrink-0 text-[var(--navy-icon)]"
-                        />
-                        <span className="min-w-0 flex-1 truncate">
-                          {entry.service.name}
-                        </span>
-                        {tier && <TierBadge tier={tier} />}
-                        <StatusDot state={state} />
-                      </button>
+                        <button
+                          onClick={connect}
+                          className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
+                        >
+                          <Server
+                            size={13}
+                            className="shrink-0 text-[var(--navy-icon)]"
+                          />
+                          <span className="min-w-0 flex-1 truncate">
+                            {entry.service.name}
+                          </span>
+                          {tier && <TierBadge tier={tier} />}
+                          <StatusDot state={state} />
+                        </button>
+                      </SystemHoverCard>
                     );
                   })}
                   <button

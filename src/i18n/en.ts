@@ -141,6 +141,13 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.newSession": "New chat",
   "axetCodeHome.connectionsEmpty": "Connect to a SAP system",
   "axetCodeHome.viewAllConnections": "View all",
+
+  "systemCard.port": "Port",
+  "systemCard.client": "Client",
+  "systemCard.user": "User",
+  "systemCard.connected": "Connected",
+  "systemCard.connect": "Connect",
+  "systemCard.reconnect": "Reconnect",
   "axetCodeHome.emptyTitle": "No chats yet",
   "axetCodeHome.emptyHint": "Start a new chat to begin talking with axet.code.",
   "axetCodeHome.greeting.morning": "Good morning",

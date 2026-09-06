@@ -161,6 +161,16 @@ export const tr = {
   "axetCodeHome.newSession": "Yeni sohbet",
   "axetCodeHome.connectionsEmpty": "SAP sistemine bağlan",
   "axetCodeHome.viewAllConnections": "Tümünü gör",
+
+  // Sidebar'daki sistem satırının hover kartı. Etiketlerin çoğu
+  // `systemPanel.*`ten geliyor (aynı alanlar, aynı adlar); burada yalnızca o
+  // ekranda karşılığı olmayanlar var.
+  "systemCard.port": "Port",
+  "systemCard.client": "Client",
+  "systemCard.user": "Kullanıcı",
+  "systemCard.connected": "Bağlı",
+  "systemCard.connect": "Bağlan",
+  "systemCard.reconnect": "Yeniden bağlan",
   "axetCodeHome.emptyTitle": "Henüz bir sohbet yok",
   "axetCodeHome.emptyHint": "axet.code ile konuşmaya başlamak için yeni bir sohbet aç.",
   "axetCodeHome.greeting.morning": "Günaydın",
