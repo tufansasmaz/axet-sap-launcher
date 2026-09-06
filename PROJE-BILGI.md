@@ -8979,3 +8979,106 @@ kesiyordu.
 değildir.** Başarı, o kimlik bilgisiyle korunan kaynaktan beklenen yanıtın
 alınmasıdır. Bu proje aynı hatayı iki kez yaptı: bir kez Basic Auth'ta (HTTP
 200 + HTML giriş sayfası "doğrulandı" sayılıyordu), bir kez burada.
+
+---
+
+## Sohbet PDF olarak dışa aktarılıyor (2026-09-06)
+
+Ertelenmiş maddeydi ve ertelenme gerekçesi `chatExport.ts`in başında yazılı
+duruyordu: *"sohbetin ekrandaki hâli baskıya uygun değil"*. Gerekçe doğruydu;
+yanlış olan, ondan "o hâlde PDF olmaz" sonucunun çıkarılmasıydı.
+
+### Ekran neden basılamaz
+
+`webContents.printToPDF` **ne görüyorsa onu basar**. Sohbetin ekrandaki hâlinde
+dört ayrı engel var ve dördü de kağıtta düzeltilemez:
+
+- **Kod blokları yatay kaydırılıyor.** Kağıtta kaydırma yok: satırın sağı
+  kesilir ve bir daha hiçbir yerde görünmez. Sessiz veri kaybı.
+- **Araç dökümleri katlı** (`<details>` kapalı). Kapalı bir `details` basılmaz —
+  yani cevabın nereden geldiğini anlatan kısım PDF'te hiç olmaz.
+- **Yan paneller `display:none`**, düzen ekran genişliğine göre kurulmuş.
+- **Tema koyu.** Bir sohbeti dolu sayfa siyahla basmak hem okunmuyor hem
+  yazıcıyı boşaltıyor.
+
+### Karar: ekranı yakalamak değil, baskı için ayrı bir belge üretmek
+
+`src/lib/chatPrint.ts` sohbeti **bağımsız bir HTML belgesine** çeviriyor: açık
+zemin, sarmalanan (`white-space: pre-wrap; overflow-wrap: anywhere`) kod ve
+tablolar, **açılmış** araç dökümleri, sabit A4 tipografisi.
+
+Belge tamamen bağımsız — dış CSS yok, font yok, script yok, ağ isteği yok.
+Yazdırma ana süreçte, **ayrı ve gizli** bir `BrowserWindow`'da yapılıyor;
+uygulamanın kendi penceresinde değil, çünkü orada basmak yukarıdaki dört
+engelin hepsini geri getirirdi.
+
+İki detay bilinçli:
+
+- **`javascript: false`.** Belgenin içeriği sonuçta bir dil modelinin ürettiği
+  metin. Zaten kaçırılıyor (`esc()`), ama basılacak bir belgede çalıştırılacak
+  hiçbir şey yok — motoru tümden kapatmak, olası bir kaçırma hatasını da
+  zararsız kılıyor.
+- **`data:` URL değil, geçici dosya.** Uzun bir sohbetin belgesi megabaytlar
+  tutabiliyor ve Chromium çok uzun `data:` URL'lerini reddediyor. Dosya
+  `finally` içinde siliniyor — basım patlasa bile diskte kalmıyor.
+
+Kenar boşluğu belgede değil `printToPDF` seçeneklerinde (inç): `@page`
+marjinleri Chromium'un baskı yolunda güvenilir değil.
+
+### Gramer paylaşılıyor, blok dağıtımı ayrı
+
+Markdown ayrıştırıcısının ikinci bir kopyasını çıkarmamak gerekiyordu —
+"birinde düzeltilip diğerinde unutulan ayrıştırma hatası" hazır bir tuzak.
+
+Ama `markdownLite.tsx` **React elemanı** üretiyor ve bu belgeye taşınamaz:
+Tailwind sınıfları burada tanımsız, `CopyButton` bir PDF'te anlamsız, harici
+linkler orada `window.api` ile açılıyor.
+
+Yapılan: **desenler** `markdownLite.tsx`ten dışa açıldı (`INLINE_TOKEN`,
+`TABLE_DIVIDER`, `splitRow`, `HEADING_RE`, `HR_RE`, `QUOTE_RE`, `ORDERED_RE`,
+`BULLET_RE`) ve `chatPrint.ts` bunları import ediyor. Blok dağıtım döngüsü iki
+dosyada ayrı duruyor, ama **gramerin tek bir tanımı var**.
+
+Blok regexleri bu iş için döngünün içinden çıkarılıp adlandırılmış sabitlere
+alındı. Hiçbirinde `g` bayrağı yok, yani paylaşılmaları `lastIndex` taşımıyor;
+`INLINE_TOKEN` global ve her kullanımdan önce sıfırlanıyor.
+
+**KURAL: yeni bir markdown bloğu eklenirse İKİ yere de eklenmeli.**
+
+### İki biçim, iki farklı iş
+
+| | Markdown | PDF |
+|---|---|---|
+| amaç | **arşiv** | **okunan/paylaşılan belge** |
+| araç çıktıları | tam, kırpılmadan | 40 satırda kırpılıyor |
+| yapıştırılabilir / diff'lenebilir | evet | hayır |
+
+Kırpma sınırı (`STEP_OUTPUT_MAX_LINES = 40`) bir taviz değil, biçimin işinin
+gereği: 300 sayfalık grep çıktısı eki olan bir PDF okunmuyor. **Kırpma
+görünür** — kaç satırın atlandığı ve tamamının nereden alınacağı belgenin
+içine yazılıyor. Sessiz kırpma, eksik bir belgeyi tam sandırırdı.
+
+### Biçim seçimi: ikinci bir düğme değil, kaydetme kutusunun kendi listesi
+
+Sohbet satırında zaten dört ikon var (taşı/yeniden adlandır/dışa aktar/sil);
+beşincisi o yoğun şeride gürültü. İşletim sisteminin bu iş için zaten bir yolu
+var: kaydetme kutusunun **"dosya türü"** açılır listesi. Seçilen tür uzantıdan
+okunuyor.
+
+PDF listede **ilk sırada**, yani varsayılan — okunup paylaşılan biçim bu.
+Markdown tam arşiv olarak bir tık ötede duruyor.
+
+IPC buna göre `chat:exportMarkdown` → **`chat:export`** oldu ve iki biçim tek
+pakette gidiyor (`ChatExportPayload`), çünkü hangisinin istendiği ancak kutu
+kapandığında belli oluyor. İkisini birden üretmek saf metin işi — en uzun
+sohbette bile milisaniyeler; kutuyu açmadan önce kullanıcıya bir soru daha
+sormaya değmiyor.
+
+### Yanında kapanan eksik
+
+`interrupted` — uygulama tur ortasında kapandığı için **cümlenin ortasında
+biten** cevap. Ekranda görünüyordu ama dışa aktarılan dosyaya hiç
+yazılmıyordu. Artık ikisinde de var.
+
+Bu bir cila maddesi değil: yarım bir cevabın tam sanılması yanlış bilgidir, ve
+dosya ekrandan uzun yaşıyor.
