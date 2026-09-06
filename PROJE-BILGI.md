@@ -9202,3 +9202,93 @@ otomatik değil.
 Kullanıcı kararı: *"Dark tema ana deneyim olur, light tema ise aynı semantic
 token mantığının karşılığı olur."* Her iki blok da aynı jeton listesini
 taşıyor; açık temada yalnızca sıralama kuralı ters yönde işliyor.
+
+## Arayüz ikinci tur: hover kartı, son çalışmalar, composer durumları (2026-09-06)
+
+Palet/jeton refactor'undan sonraki üç adım. Ortak fikir: **yeni bileşen
+eklemeden, elde olan gerçek veriyi göstermek.**
+
+### Sistem satırı: `title=""` yerine gerçek bir kart
+
+Sidebar'daki SAP sistem satırının tek hover affordance'ı `title={path}` idi —
+tarayıcının kendi ipucu kutusu, içinde yalnızca müşteri yolu. Host, port,
+router gibi bilgiler ekranın hiçbir yerinde yoktu ve **o satıra tıklamak
+doğrudan BAĞLANIYOR**, yani bakmadan önce bağlanmak gerekiyordu.
+
+`SystemHoverCard` bunların hepsini gösteriyor. Her satır `SapService`in gerçek
+bir alanı; **değeri olmayan alan hiç render edilmiyor**, "—" ile de
+doldurulmuyor.
+
+**Client ve Kullanıcı yalnızca gerçekten bağlıyken çıkıyor**
+(`activeSap.uuid === service.uuid`). Bu ayrım kullanıcının kendi vurgusuydu ve
+doğru: `ConnectivityState` ağın o adrese ulaşıp ulaşmadığını söylüyor,
+client/user ise ancak canlı oturumda anlamlı. Bağlı değilken gösterilseler
+geçmiş bir oturumdan kalma **yanlış bilgi** olurlardı.
+
+Kart portal ile `body`'ye, `fixed` olarak çiziliyor — `absolute` olsaydı
+sidebar'ın `overflow`u kırpardı. Sağda yer yoksa sola kaçıyor; açıkken
+scroll/resize olursa kapanıyor (çapasından kopmuş bir kartı göstermektense).
+Açılış 380 ms, kapanış 140 ms gecikmeli: ilki listede gezinirken her satırda
+kart açılmasını engelliyor, ikincisi fare satırdan kartın **içindeki düğmeye**
+geçerken kartın kaybolmasını.
+
+`RecentSystems`e eklenmedi: orada satıra tıklamak bağlanmıyor, **seçiyor** ve
+sağdaki `SystemPanel` zaten aynı bilgileri tam olarak gösteriyor.
+
+### "Son çalışmalar" — liste kopyası değil
+
+Kullanıcı kararı: *"ortaya sidebar'daki sohbet listesinin kopyasını
+koymayalım."* Blok bu yüzden **aynı kaynaktan besleniyor ama aynı şeyi
+söylemiyor**: kenar çubuğunda başlıklar proje/SAP başlıkları altında gruplu
+duruyor, burada her satır kendi zamanını, yerini ve turun sürüp sürmediğini
+taşıyor.
+
+Biçim: başlık + göreli zaman üst satırda; `proje · sistem` + durum noktası
+altta. Proje yoksa çalışma klasörünün adı, o da yoksa "Genel".
+
+Durum noktası **her satırda** duruyor, yalnızca dikkat çekecek bir şey varken
+değil: sessiz gri bir nokta "bu tur bitti" bilgisidir ve sütunun şeklini
+koruyor. Anlamı `title` ile okunabiliyor — renk tek başına taşımıyor.
+
+Mesajsız oturumlar eleniyor (bir sohbet ilk gönderimde doğuyor, ama "çalışma"
+demek için içinde bir şey olması gerek) ve en fazla 3 satır çıkıyor. **Blok
+boşsa hiç çizilmiyor**: ilk açılışta boş bir "Son çalışmalar" başlığı, olmayan
+bir geçmişi varmış gibi gösterirdi.
+
+"Tümünü gör" eklenmedi: kenar çubuğu zaten açık ve tam listeyi gösteriyor,
+oraya işaret eden bir bağlantı gürültü olurdu.
+
+### Composer: kimlik bileşenden değil DURUMDAN
+
+Kullanıcı kararı: *"daha fazla komponent değil, daha iyi state'ler."* Tek
+satır korundu (2026-09-02 kararı), composer'a dış çark **eklenmedi** (işlevi
+belirsiz, model seçici zaten kutunun içinde, ayarlar global).
+
+    durgun → line-subtle   (neredeyse görünmez, ekranı yormuyor)
+    hover  → line          (fare yaklaşınca kutu kendini gösterir)
+    odak   → lime kenarlık + --accent-glow halesi
+
+Hale `shadow`, **`ring` değil**: `ring` kenarlığın üstüne keskin bir ikinci
+çizgi koyuyor ve çift hatlı bir çerçeve gibi okunuyor; gölge dışa doğru
+yumuşayıp "aydınlanma" etkisi veriyor. Yükseklik hiçbir durumda değişmiyor —
+odaklanınca zıplayan bir kutu, tek satıra indirilmiş olmasının bütün kazancını
+geri verirdi.
+
+### CSS SIRASI TUZAĞI — `hover:` ile `focus-within:` çakışıyor
+
+Odak kenarlığı ilk yazılışında **çoğu zaman hiç görünmedi** ve sebebi kodda
+değil, üretilen CSS'in sırasındaydı:
+
+> Tailwind `hover:` kurallarını `focus-within:` kurallarından **SONRA**
+> basıyor ve ikisinin özgüllüğü eşit. Kutu hem odaklı hem fare üstündeyken
+> kazanan gri `line` oluyor.
+
+Ve bu istisnai bir durum değil, **ana yol**: kullanıcı kutuya tıklayarak
+odaklanıyor, fare de doğal olarak orada kalıyor. Çözüm hover'ı koşullu yazmak:
+`[&:hover:not(:focus-within)]:border-line`. Böylece iki kural birbirini
+dışlıyor ve sıra önemsizleşiyor.
+
+**Aynı desendeki her yerde geçerli**: `hover:` ve `focus`/`focus-within:` AYNI
+özelliği (kenarlık, zemin) sürüyorsa, hover'ı `:not(:focus-within)` ile
+sınırla. Yoksa odak durumu sessizce kaybolur ve bu, ekranda bakarken "bazen
+çalışıyor" gibi görünür.
