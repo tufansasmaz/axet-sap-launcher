@@ -1,6 +1,14 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import type { ConnectorProvider, ConnectorTestResult } from "../shared/types";
+import {
+  findSessionByPrompt,
+  matchKey,
+  readMessagesSince,
+  resolveSessionDb,
+  type AxetDbMessage
+} from "./axetSessionDb";
+import { learnConnectorHealth } from "./connectorHealth";
 
 // Uygulama Bağlantıları — Outlook/SharePoint connector'ları (2026-08-29,
 // mimari pivotu). ÖNCEKİ tur (@azure/msal-node ile kullanıcının kendi Azure
@@ -105,6 +113,87 @@ function parseConnectorResult(text: string): { connected: boolean; detail: strin
   return { connected: verdict === "OK", detail: last[2].trim(), missing: verdict === "NONE" };
 }
 
+// ---------------------------------------------------------------------------
+// KANIT: araç GERÇEKTEN çağrıldı mı?
+// ---------------------------------------------------------------------------
+// `parseConnectorResult` tek başına ajanın SÖZÜNE dayanıyor. Bir dil modeli
+// "EXACTLY one line" talimatına uyup `CONNECTOR_OK: ...` yazmak için hiçbir
+// aracı çağırmak zorunda değil — araçları hiç bulamadığı bir turda bile o
+// satırı yazabilir, çünkü satırın biçimi prompt'ta hazır duruyor. O durumda
+// ekran "Bağlı" der, `connectorEnabled` açılır ve kullanıcı bunu ancak
+// sohbette "erişimim yok" cevabını alınca öğrenir. Bu, bu ekranın en pahalı
+// yanlış bilgisi.
+//
+// Kanıt, ajanın metninde değil axet-code'un KENDİ oturum veritabanında:
+// çağrılan her araç `tool_call`/`tool_result` parçası olarak oraya yazılıyor
+// (bkz. axetSessionDb.ts başlığı, ve aynı deseni kullanan axetChatRecovery.ts).
+// Yani "OK dedi ama hiçbir MCP aracı çağırmamış" ölçülebilir bir şey.
+//
+// BİLİNMİYORSA DOKUNULMUYOR. Veritabanı okunamazsa (better-sqlite3 yüklenmedi,
+// klasör başka, oturum bulunamadı) sonuç eskisi gibi kabul ediliyor —
+// kanıtsızlık, suçun kanıtı değil. Aynı kural connectorHealth.ts'te de
+// geçerli: bilinmeyen bir şey yüzünden çalışan bir bağlayıcı kapatılmıyor.
+const PROVIDER_TOOL_HINT: Record<ConnectorProvider, RegExp> = {
+  outlook: /outlook/i,
+  sharepoint: /sharepoint|shp/i
+};
+
+// Oturumu bulmak için prompt'un başı yetiyor; `matchKey` iki tarafta da aynı
+// biçime indirgiyor (bkz. axetSessionDb.ts `matchKey` notu).
+function promptNeedle(provider: ConnectorProvider): string {
+  return matchKey(PROVIDER_TEST_PROMPT[provider]).slice(0, 160);
+}
+
+interface RunEvidence {
+  /** Turun mesajları okunabildi mi? `false` = bilinmiyor, hüküm verilemez. */
+  known: boolean;
+  /** Bu sağlayıcıya ait bir MCP aracı gerçekten çağrıldı mı? */
+  calledProviderTool: boolean;
+  messages: AxetDbMessage[];
+}
+
+function collectRunEvidence(cwd: string, provider: ConnectorProvider, sinceEpochSec: number): RunEvidence {
+  const empty: RunEvidence = { known: false, calledProviderTool: false, messages: [] };
+  const dbPath = resolveSessionDb(cwd);
+  if (!dbPath) return empty;
+  // `newestSessionSince`'e DÜŞMÜYORUZ (aynı gerekçe axetChatRecovery.ts'te):
+  // aynı klasörde aynı anda bir sohbet turu dönüyor olabilir ve onun araç
+  // çağrılarını bu testin kanıtı saymak, tam da önlemeye çalıştığımız sahte
+  // "doğrulandı" sonucunu üretirdi.
+  const sessionId = findSessionByPrompt(dbPath, sinceEpochSec, promptNeedle(provider));
+  if (!sessionId) return empty;
+  const messages = readMessagesSince(dbPath, sessionId, sinceEpochSec);
+  if (messages.length === 0) return empty;
+
+  const hint = PROVIDER_TOOL_HINT[provider];
+  let calledProviderTool = false;
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (part.type !== "tool_call" && part.type !== "tool_result") continue;
+      const name = part.data?.name ?? "";
+      // `mcp_` önekli olmak ŞART: ajanın kendi yerel araçları (dosya okuma,
+      // kabuk) bir bağlayıcı kanıtı değil.
+      if (/^mcp_/i.test(name) && hint.test(name)) calledProviderTool = true;
+    }
+  }
+  return { known: true, calledProviderTool, messages };
+}
+
+// Süreç kapandığında sqlite yazımı bir an geriden gelebiliyor. Bir kez daha
+// bakmak ucuz; hiç bakmamak, kanıtı olan bir turu "bilinmiyor" saymak olurdu.
+const EVIDENCE_RETRY_MS = 700;
+
+async function collectRunEvidenceWithRetry(
+  cwd: string,
+  provider: ConnectorProvider,
+  sinceEpochSec: number
+): Promise<RunEvidence> {
+  const first = collectRunEvidence(cwd, provider, sinceEpochSec);
+  if (first.known) return first;
+  await new Promise((done) => setTimeout(done, EVIDENCE_RETRY_MS));
+  return collectRunEvidence(cwd, provider, sinceEpochSec);
+}
+
 // Testin üst sınırı. Ölçülen normal süre ~30-60 sn (ajan birkaç entegrasyonu
 // sırayla deniyor), ama sınır yokken `axet-code` takılırsa buton SONSUZA
 // KADAR dönüyordu ve tek çare elle iptaldi — kullanıcı ise dönen bir
@@ -137,6 +226,11 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
     }
     running.set(requestId, proc);
 
+    // Kanıt penceresinin başı. Biraz geriye alınıyor: oturum kaydı spawn'dan
+    // birkaç yüz milisaniye önce/sonra düşebiliyor ve saniye çözünürlüğünde bir
+    // yuvarlama, turun kendi mesajlarını pencerenin dışında bırakabilir.
+    const startedAt = Math.floor(Date.now() / 1000) - 10;
+
     let stdout = "";
     let stderr = "";
     let killedByUser = false;
@@ -162,7 +256,7 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
       resolve({ ok: false, connected: false, detail: "", error: err.message });
     });
 
-    proc.on("close", (code) => {
+    proc.on("close", async (code) => {
       clearTimeout(timer);
       running.delete(requestId);
       if (killedByUser) {
@@ -180,6 +274,25 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
       }
       const parsed = parseConnectorResult(stdout);
       if (parsed) {
+        const evidence = await collectRunEvidenceWithRetry(resolvedCwd, provider, startedAt);
+        // Testin kendi turu da bir ÖLÇÜM: hangi entegrasyonun 500 döndürdüğü,
+        // hangisinin çalıştığı burada da görülüyor. Eskiden bu bilgi çöpe
+        // gidiyordu (`learnConnectorHealth` yalnızca sohbet turlarından
+        // besleniyordu) — oysa `connectors:test` hemen öncesinde
+        // `forgetConnectorHealth` çağırıyor, yani unut/ölç/öğren zincirinin
+        // tam ortası burası.
+        if (evidence.messages.length > 0) learnConnectorHealth(evidence.messages);
+        if (parsed.connected && evidence.known && !evidence.calledProviderTool) {
+          resolve({
+            ok: true,
+            connected: false,
+            detail: parsed.detail,
+            error:
+              "Ajan başarılı olduğunu bildirdi ama bu turda hiçbir bağlayıcı aracı çağırmamış — " +
+              "sonuç doğrulanamadı, bağlantı açılmadı."
+          });
+          return;
+        }
         resolve({ ok: true, connected: parsed.connected, detail: parsed.detail, missing: parsed.missing });
         return;
       }

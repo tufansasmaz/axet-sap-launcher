@@ -5,10 +5,12 @@ import {
   CheckCircle2,
   ExternalLink,
   Files,
+  History,
   Loader2,
   Mail,
   MessageSquare,
   Plug,
+  RefreshCw,
   Unplug,
   XCircle
 } from "lucide-react";
@@ -129,10 +131,26 @@ function isIntegrationErrorState(text: string | undefined): boolean {
 
 const AGENTIC_PORTAL_URL = "https://axet.nttdata.com/agentic/";
 
+// Mutlak damga TEK BAŞINA tazelik bilgisi vermiyordu: "Son kontrol: 5.09.2026
+// 16:26" bir dakika önceki ölçümle üç gün öncekini aynı gösteriyor. Oysa bu
+// ekranın tüm varsayımı bağlantının ARADA bozulabileceği (portaldeki yetki
+// süresi doluyor — bkz. connectorHealth.ts); üç gün önceki bir ölçümü şimdiki
+// zaman gibi okutmak "yanlış bilgi". Göreli yaş, kaç günlük bir iddiaya
+// baktığını okumadan gösteriyor.
+function relativeAge(d: Date, locale: string): string {
+  const mins = Math.round((d.getTime() - Date.now()) / 60_000);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (mins > -60) return rtf.format(Math.min(mins, 0), "minute");
+  const hours = Math.round(mins / 60);
+  if (hours > -24) return rtf.format(hours, "hour");
+  return rtf.format(Math.round(hours / 24), "day");
+}
+
 function formatCheckedAt(iso: string, locale: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+  const absolute = d.toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+  return `${absolute} · ${relativeAge(d, locale)}`;
 }
 
 interface Props {
@@ -241,6 +259,39 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
           const busy = busyProvider === id;
           const isOn = Boolean(enabled[id]);
           const failed = Boolean(result && !result.connected);
+          // ÜÇ DURUM VAR, İKİ DEĞİL — ve üçüncüsü gözden kaçmıştı.
+          //
+          // Kart iki ayrı kaynaktan besleniyor: rozet/buton `connectorEnabled`
+          // (tek doğruluk kaynağı, bkz. dosya başlığı), altındaki satır ise
+          // `connectorLastResults` (saklanan son ölçüm). "Bağlantıyı Kes"
+          // yalnızca BİRİNCİSİNİ değiştiriyor — ikincisi diskte olduğu gibi
+          // kalıyor. Sonuç, kullanıcının bildirdiği hâl (2026-09-06): rozet
+          // "Bağlı değil", buton "Bağlan", ve tam altlarında yeşil bir tikle
+          // "Inbox folder found successfully via Outlook connector." Tek fark
+          // `opacity-60`'tı; koyu zeminde fark edilir bir şey değil.
+          //
+          // Saklanan sonucu SİLMEK çözüm değil: "en son ne zaman çalışıyordu"
+          // bilgisi kullanıcının işine yarıyor ve tekrar bağlanmadan önce ne
+          // beklemesi gerektiğini söylüyor. Sorun bilginin kendisi değil, ŞİMDİKİ
+          // ZAMANLA sunulması. Bu yüzden geçmiş zamana çekiliyor ve yeşilden
+          // çıkarılıyor.
+          const stale = Boolean(result?.connected && !isOn);
+          // Ajanın KENDİ cümlesi tırnak içinde. Bu metin uygulamanın sözü
+          // değil, axet-code'a bağlı modelin serbest biçimli cevabı — İngilizce
+          // olmasının ve bazen "Listed 200 SharePoint sites (…)" gibi anlatı
+          // gibi okunmasının sebebi de bu. Tırnaksızken ekranın kendi ifadesi
+          // sanılıyordu. `error` tırnaklanmıyor: o bir sistem hatası.
+          const line = !result
+            ? ""
+            : stale
+              ? t("appConnections.wasWorking")
+              : result.error
+                ? result.error
+                : result.detail
+                  ? `«${result.detail}»`
+                  : result.connected
+                    ? t("appConnections.connected")
+                    : t("appConnections.notConnected");
           const mcpUrl = mcpUrls[id];
           const issue = isOn ? null : diagnose(result);
           return (
@@ -311,13 +362,19 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
               </div>
 
               {result && (
-                <div className={`space-y-1 ${isOn || failed ? "" : "opacity-60"}`}>
+                <div className="space-y-1">
                   <div
                     className={`flex items-start gap-1.5 text-xs ${
-                      result.connected ? "text-[var(--status-success-text)]" : "text-[var(--status-danger-text)]"
+                      stale
+                        ? "text-slate-500"
+                        : result.connected
+                          ? "text-[var(--status-success-text)]"
+                          : "text-[var(--status-danger-text)]"
                     }`}
                   >
-                    {result.connected ? (
+                    {stale ? (
+                      <History size={13} className="mt-0.5 shrink-0" />
+                    ) : result.connected ? (
                       <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
                     ) : (
                       <XCircle size={13} className="mt-0.5 shrink-0" />
@@ -329,9 +386,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                         `title`'da duruyor. */}
                     <span className="min-w-0 break-words [overflow-wrap:anywhere]">
                       <span className="line-clamp-4" title={result.error || result.detail || ""}>
-                        {result.error ||
-                          result.detail ||
-                          (result.connected ? t("appConnections.connected") : t("appConnections.notConnected"))}
+                        {line}
                       </span>
                     </span>
                   </div>
@@ -374,16 +429,35 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
 
               {/* TEK buton (kullanıcı isteği): bağlıysa kesiyor, değilse
                   bağlıyor. "Test et" diye ayrı bir eylem yok — doğrulama
-                  bağlanmanın kendisi. */}
+                  bağlanmanın kendisi.
+                  YANINDAKİ küçük yenileme düğmesi bir istisna DEĞİL, aynı
+                  eylemin kendisi: `handleConnect` yeniden çalışıyor. Bağlıyken
+                  doğrulamanın hiçbir yolu olmaması, sessizce bozulmuş bir
+                  bağlantıyı ancak "kes + yeniden bağlan" ile fark ettiriyordu. */}
               <div className="mt-auto flex items-center gap-1.5">
                 {isOn ? (
-                  <button
-                    onClick={() => handleDisconnect(id)}
-                    className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-base-600 bg-base-800 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-[var(--status-danger-border)] hover:bg-[var(--status-danger-bg)] hover:text-[var(--status-danger-text)]"
-                  >
-                    <Unplug size={13} />
-                    {t("appConnections.disconnect")}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => handleDisconnect(id)}
+                      className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-base-600 bg-base-800 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-[var(--status-danger-border)] hover:bg-[var(--status-danger-bg)] hover:text-[var(--status-danger-text)]"
+                    >
+                      <Unplug size={13} />
+                      {t("appConnections.disconnect")}
+                    </button>
+                    <button
+                      onClick={() => handleConnect(id)}
+                      disabled={Boolean(busyProvider)}
+                      title={t("appConnections.recheck")}
+                      aria-label={t("appConnections.recheck")}
+                      className="cursor-pointer rounded-lg border border-base-600 bg-base-800 px-2.5 py-2 text-slate-300 transition hover:border-accent-500/40 hover:text-accent-400 disabled:cursor-default disabled:opacity-50"
+                    >
+                      {busy ? (
+                        <Loader2 size={13} className="animate-spin" />
+                      ) : (
+                        <RefreshCw size={13} />
+                      )}
+                    </button>
+                  </>
                 ) : (
                   <button
                     onClick={() => handleConnect(id)}

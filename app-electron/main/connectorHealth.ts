@@ -50,6 +50,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import type { ConnectorCheck, ConnectorProvider } from "../shared/types";
 import type { AxetDbMessage } from "./axetSessionDb";
 import { loadConfig, saveConfig } from "./store";
 
@@ -189,6 +190,11 @@ export function learnConnectorHealth(messages: AxetDbMessage[]): void {
   // `entries()` çağrısından SONRA okunuyor: bayrağı kuran o.
   let changed = staleDropped;
   staleDropped = false;
+  // Bu turda HAKKINDA YENİ BİLGİ EDİNDİĞİMİZ sağlayıcılar. Ekran durumu
+  // yalnızca bunlar için gözden geçiriliyor; hafızadaki eski bir nota bakıp her
+  // turda aynı kararı yeniden vermek, kullanıcı bir şeyi düzeltirken onunla
+  // inatlaşmak olurdu.
+  const touched = new Set<string>();
 
   for (const message of messages) {
     if (message.role !== "tool") continue;
@@ -198,6 +204,7 @@ export function learnConnectorHealth(messages: AxetDbMessage[]): void {
       if (!match) continue;
       const uuid = match[1].toLowerCase();
       const provider = match[2].toLowerCase();
+      touched.add(provider);
       const body = part.data?.content ?? "";
       const state: State = RE_BROKEN.test(body) ? "error" : "ok";
       const previous = known[uuid];
@@ -216,6 +223,64 @@ export function learnConnectorHealth(messages: AxetDbMessage[]): void {
   // Yalnızca DEĞİŞİKLİKTE: aksi hâlde her turda bir dosya okuması eklerdik ve
   // öğrenilecek yeni bir şey yokken yazılacak yeni bir şey de yok.
   if (changed) syncDisabledConnectors(known);
+  disableFullyBrokenProviders(known, touched);
+}
+
+/** `ConnectorProvider`'ın çalışma zamanındaki karşılığı. */
+const KNOWN_PROVIDERS: ConnectorProvider[] = ["outlook", "sharepoint"];
+
+/**
+ * Tüm kayıtları bozuk çıkan bir sağlayıcıyı KAPATIR ve ekrana sebebini yazar.
+ *
+ * NEDEN GEREKLİ (2026-09-06): bu dosya bir sağlayıcının entegrasyonlarının
+ * bozulduğunu sohbet turunun ortasında öğreniyor, hatta axet-code'un kendi
+ * `connector_state.json`'ına yazıp araçlarını yüklemekten vazgeçiyor — ama
+ * "Uygulama Bağlantıları" ekranına bunu HİÇ söylemiyordu. Ekranın gerçeği
+ * yalnızca kullanıcı "Bağlan"a bastığında güncelleniyordu, yani bağlantı
+ * sessizce bozulduktan sonra ekran günlerce yeşil "Bağlı" göstermeye devam
+ * edebiliyordu. Kullanıcının gördüğü şikâyetin ("bağlandı diyor ama olmuyor")
+ * bu dosyaya bakan yüzü tam olarak buydu.
+ *
+ * ÜÇ KAPI, üçü de yanlış yere kapatmamak için:
+ *   1. Yalnızca bu turda hakkında yeni bilgi edinilen sağlayıcı (`touched`).
+ *   2. Yalnızca ŞU AN açık olan sağlayıcı — kapalı olanı kapatmanın anlamı yok
+ *      ve kullanıcının kendi "Bağlantıyı Kes"ini ezmiş olurduk.
+ *   3. Yalnızca sağlayıcının BİLİNEN TÜM canlı kayıtları bozuksa. Tek bir
+ *      bozuk kayıt bir şey ifade etmiyor: `excludable()`'ın tüm mantığı zaten
+ *      "aynı sağlayıcının çalışan başka bir kaydı varsa sorun yok" üzerine
+ *      kurulu. Hiç kayıt bilmiyorsak da susuyoruz.
+ */
+function disableFullyBrokenProviders(known: Record<string, Entry>, touched: Set<string>): void {
+  if (touched.size === 0) return;
+  const config = loadConfig();
+  const enabled = { ...(config.connectorEnabled ?? {}) };
+  const results: Record<string, ConnectorCheck> = { ...(config.connectorLastResults ?? {}) };
+  let changed = false;
+
+  for (const provider of KNOWN_PROVIDERS) {
+    if (!touched.has(provider)) continue;
+    if (enabled[provider] !== true) continue;
+    const mine = Object.entries(known).filter(
+      ([uuid, entry]) => entry.provider === provider && (!live || live.has(uuid))
+    );
+    if (mine.length === 0) continue;
+    if (mine.some(([, entry]) => entry.state === "ok")) continue;
+
+    enabled[provider] = false;
+    results[provider] = {
+      connected: false,
+      // METİN İNGİLİZCE VE BU KALIPTA, bilinçli: ekrandaki `diagnose()`
+      // (AppConnectionsSection.tsx) `state 'ERROR'` imzasını arayıp kullanıcıya
+      // "portalden yeniden yetkilendir" ipucunu gösteriyor. Türkçe bir cümle
+      // yazsaydık kart, çaresi belli bir arızayı çaresiz gösterirdi.
+      detail: "All known integrations for this provider are in state 'ERROR' (observed during a chat turn).",
+      checkedAt: new Date().toISOString()
+    };
+    changed = true;
+    console.log("[connectorHealth] saglayici kapatildi, tum kayitlari bozuk", { provider, kayit: mine.length });
+  }
+
+  if (changed) saveConfig({ connectorEnabled: enabled, connectorLastResults: results });
 }
 
 /**

@@ -750,10 +750,16 @@ export const tr = {
   "appConnections.providerSharepoint": "SharePoint",
   "appConnections.connected": "Bağlantı çalışıyor",
   "appConnections.notConnected": "Bağlantı kurulamadı",
+  // "Bağlantıyı Kes"ten SONRAKİ hâl. Saklanan son sonuç hâlâ "çalıştı" diyor
+  // ama bu artık ŞU ANI anlatmıyor — geçmiş zamanla yazılmasının sebebi bu.
+  "appConnections.wasWorking": "Bağlantı kesildi. Son doğrulamada çalışıyordu.",
   // Tek buton, iki eylem: "Bağlan" = doğrula + aç, "Bağlantıyı Kes" = kapat.
   // Ayrı bir "test et" yok — doğrulama bağlanmanın kendisi.
   "appConnections.connect": "Bağlan",
   "appConnections.disconnect": "Bağlantıyı Kes",
+  // Bağlıyken de doğrulayabilmek gerekiyor: bağlantı arada sessizce bozulabilir
+  // ve tek yol "kes, sonra yeniden bağlan" olmamalı.
+  "appConnections.recheck": "Yeniden doğrula",
   "appConnections.statusConnected": "Bağlı",
   "appConnections.statusDisconnected": "Bağlı değil",
   "appConnections.statusConnecting": "Bağlanıyor…",
