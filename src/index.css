@@ -108,15 +108,24 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
   outline: none;
 }
 
-/* aXet Studio — "Modern SaaS" tasarım dili (kullanıcı seçimi, 2026-09-05).
-   Referans: Linear / Notion. Kuralları tek cümlede: NÖTR zemin (tint yok),
-   saç teli inceliğinde kenarlıklar, 6px köşeler, sık yerleşim, düz dolgulu
-   düğmeler, gölge yok — ve renk yalnızca VURGUDA, o da tek bir aileden.
+/* NTT Studio — "Premium AI Engineering Workspace" tasarım dili (kullanıcı
+   kararı, 2026-09-06; öncesi "Modern SaaS / Dark Developer UI", 2026-09-05).
+   Kuralları tek cümlede: SOĞUK grafit zemin, saç teli inceliğinde kenarlıklar,
+   6px köşeler, sık yerleşim, düz dolgulu düğmeler, gölge yok.
 
-   Vurgu: zeytin/yeşil. Doygunluğu bilinçli olarak düşük; mavi-mor yorgunluğu
-   yaratmayan, gözü yormayan bir ton. Durum yeşiliyle (`--status-success-*`)
-   karışmasın diye o taraf turkuaza kaydırıldı — ikisi yan yana geldiğinde
-   biri "seçili", diğeri "başarılı" olarak okunabilsin.
+   Vurgu: LIME (#b7f34a), tek kimlik rengi. İki kademeli kullanılıyor — parlak
+   ton yalnızca dolgu ve küçük işaret, işlevsel (koyulaştırılmış) ton metin ve
+   kenarlık. Gerekçesi ve ölçülen kontrastlar aşağıda, --accent-* bloğunda.
+
+   RENK BİLGİ MİMARİSİNİN PARÇASI, DEKORASYON DEĞİL. Lime dışındaki her renk
+   bir ANLAM taşıyor ve o anlamın dışında kullanılmıyor:
+     lime   → birincil eylem / seçili
+     mavi   → sistem, bilgi           (--module-sap, --status-info-*, --navy-icon)
+     mor    → yapay zekâ / model      (--module-code, --project-*)
+     turuncu→ eylem / uyarı           (--module-guiscript, --status-warning-*)
+     kırmızı→ hata                    (--status-danger-*)
+   Durum yeşili (`--status-success-*`) turkuaza kaydırılmış hâlde kalıyor: lime
+   ile yan yana geldiğinde biri "seçili", diğeri "başarılı" okunabilsin.
 
    Renkler "R G B" tripleti (bkz. tailwind.config.js withOpacity()) — bu format
    opacity varyantlarının (bg-accent-500/10 vb.) doğru derlenmesi için gerekli,
@@ -141,85 +150,135 @@ html[data-theme="dark"] {
      açılıyordu; SAP GUI ekranındaki vkey seçicisi bunun en görünür örneğiydi.
      Renk değişkenleriyle birlikte temaya bağlı olması bu yüzden şart. */
   color-scheme: dark;
-  /* NÖTR GRAFİT. Üç kanal birbirine çok yakın (14/14/16 → 46/46/51): ekranda
-     hiçbir yönde renk tinti okunmuyor, "soğuk mavi" ya da "sıcak kahve" bir
-     siyah değil, sadece koyu gri. Bir önceki palet (18 16 25) mor tintliydi ve
-     vurgu rengi değişince o tint zeminden ayrı bir renk gibi görünmeye
-     başlıyordu; nötr zemin tek renkli vurgu stratejisinin ön şartı.
+  /* SOĞUK GRAFİT — ROLE göre bölünmüş yüzeyler (kullanıcı kararı, 2026-09-06).
+     Bundan önce tek bir nötr merdiven vardı (`--base-950…600`) ve her basamak
+     birden fazla işi görüyordu; en görünür sonucu şuydu: bir ikonun arkasındaki
+     kap ile onu çevreleyen kartın kenarlığı AYNI renkti, çünkü ikisi de
+     `--base-800`di. "Her şey aynı gri" şikâyetinin kaynağı bu birleşiklikti,
+     merdivenin dar olması değil — basamaklar arası fark zaten 6-7 birimdi.
 
-       950 = uygulama zemini      #131316
-       900 = panel/kenar çubuğu   #1a1a1e
-       850 = yükseltilmiş yüzey   #202024
-       800 = hover / girdi zemini #26262b
-       700 = SAÇ TELİ kenarlık    #2c2c31  ← 1px çizgilerin varsayılanı
-       600 = belirgin kenarlık    #39393f
+     İki şey birden değişti:
 
-     İKİ KADEMELİ BİR AYAR OLDU, sırayla:
+     (1) TİNT. Rampa nötrken metin merdiveni Tailwind'in `slate`ine bağlıydı ve
+     o BELİRGİN mavi (#94a3b8). Yani soğuk metin, nötr zeminin üstüne
+     yapıştırılmış gibi duruyordu. Şimdi ikisi aynı hue ailesinde (~h222,
+     doygunluk %15-18): zemin de metin de aynı yöne bakıyor.
 
-     (1) 2026-09-06 sabah — merdivenin tamamı BİR KADEME AÇILDI (kullanıcı
-     isteği: *"arka siyah zemin rengi kısmı biraz daha açık olsun"*). Eski
-     taban #0e0e10 neredeyse saf siyahtı; OLED bir panelde şık ama IPS bir
-     ofis monitöründe zemin ile paneller arasındaki 7 birimlik fark hiç
-     okunmuyordu.
+     (2) ROL AYRIMI. Her yüzeyin kendi jetonu var; ikisi bugün yakın değerde
+     olabilir ama artık birbirinden BAĞIMSIZ ayarlanıyor.
 
-     (2) Aynı gün — *"tema biraz daha koyu olsun"*. #18181b fazla açılmıştı;
-     taban şimdi #131316, yani ikisinin arası. KADEMELER ARASI FARK HER İKİ
-     ayarda da korundu (7/6/6/6/13); değişen sadece merdivenin nerede
-     durduğu. Önemli olan buydu — panel ile zeminin birbirinden ayrılması
-     farkın kendisine bağlı, mutlak parlaklığa değil.
+       app      #0b0c10  pencere / sohbet zemini
+       sidebar  #0f1116  sol raylar, panel kolonu
+       card     #14161c  kart, composer, açılır kutu
+       raised   #191c23  yükseltilmiş / odaklanmış yüzey
+       hover    #1b1f27  fare üstündeyken
+       control  #1e222b  girdi, ikon kabı, çip, seçili satır (DİNLENME hâli)
+       active   #2a2f3b  basılı / güçlü hover / nötr düğme dolgusu
 
-     Kontrast bu yönde bozulmuyor, düzeliyor: zemin koyuldukça üstündeki gri
-     metnin oranı yükseliyor. `--ink-400` ölçümü #18181b üstünde 4.28:1 idi,
-     #131316 üstünde 4.48:1. O yüzden metin merdivenine dokunulmadı.
+       border-subtle #262b36  neredeyse görünmez ayrım
+       border-line   #333a48  SAÇ TELİ — 1px çizgilerin varsayılanı
+       border-strong #434b5c  vurgulu / hover kenarlık
 
-     AYNA NOKTALARI — bu değer üç yerde daha ELLE duruyor, biri unutulursa
-     açılışta ya da terminalde eski koyu renk bir kare olarak görünür:
+     SIRALAMA KURALI, bozulmasın diye yazılı: `hover` ve `control`, HER ZAMAN
+     `border-subtle`den KOYU kalmalı. Aksi hâlde ince kenarlıklı bir kartın
+     üstüne gelindiğinde dolgu kenarlığı geçer ve çerçeve kaybolur. Aynı
+     gerekçeyle `active` (#2a2f3b) `border-line`dan (#333a48) koyu.
+
+     AYNA NOKTALARI — `app` değeri iki yerde daha ELLE duruyor, biri unutulursa
+     açılışta ya da terminalde eski renk bir kare olarak görünür:
        app-electron/main/index.ts  → BrowserWindow backgroundColor
-       src/components/EmbeddedTerminal.tsx → xterm theme.background
-       index.html → <body> ilk boyama zemini (varsa) */
-  --base-950-rgb: 19 19 22;
-  --base-900-rgb: 26 26 30;
-  --base-850-rgb: 32 32 36;
-  --base-800-rgb: 38 38 43;
-  --base-700-rgb: 44 44 49;
-  --base-600-rgb: 57 57 63;
+       src/components/EmbeddedTerminal.tsx → xterm theme.background */
+  --surface-app-rgb: 11 12 16;
+  --surface-sidebar-rgb: 15 17 22;
+  --surface-card-rgb: 20 22 28;
+  --surface-raised-rgb: 25 28 35;
+  --surface-hover-rgb: 27 31 39;
+  --surface-control-rgb: 30 34 43;
+  --surface-active-rgb: 42 47 59;
 
-  /* Metin merdiveni de nötr:
-       ink-300 (#98989f) → 6.5:1  ikincil metin
-       ink-400 (#7c7c85) → 4.5:1  meta / yer tutucu
-       ink-500 (#606069) → 3.1:1  yalnızca etiket/ikon, düz metin DEĞİL */
-  --ink-100-rgb: 237 237 239;
-  --ink-200-rgb: 196 196 201;
-  --ink-300-rgb: 152 152 159;
-  --ink-400-rgb: 124 124 133;
-  --ink-500-rgb: 96 96 105;
-  --ink-600-rgb: 70 70 78;
+  --border-subtle-rgb: 38 43 54;
+  --border-line-rgb: 51 58 72;
+  --border-strong-rgb: 67 75 92;
+
+  /* ESKİ HAM MERDİVEN — yalnızca `src/flows/flows.css` için. O ekran kendi
+     tasarım dilinde ve `var(--base-700)` gibi doğrudan CSS değişkenleri
+     kullanıyor (157 yerde); jetonları semantiğe bağlamak, iki ekranı tek bir
+     dokunuşta değiştirmek demek olurdu. Tailwind tarafında `base-*` sınıfları
+     ARTIK YOK (bkz. tailwind.config.js) — yani uygulama kodunda yeniden
+     `bg-base-800` yazılamıyor, bu takma adlar sadece flows'un altını
+     dolduruyor. */
+  --base-950-rgb: var(--surface-app-rgb);
+  --base-900-rgb: var(--surface-card-rgb);
+  --base-850-rgb: var(--surface-raised-rgb);
+  --base-800-rgb: var(--surface-control-rgb);
+  --base-700-rgb: var(--border-line-rgb);
+  --base-600-rgb: var(--border-strong-rgb);
+
+  /* Metin merdiveni de aynı soğuk aileye çekildi. Kontrastlar `card`
+     (#14161c) üstünde ölçüldü:
+       ink-300 (#8b919d) → 5.9:1  ikincil metin
+       ink-400 (#7c838f) → 4.5:1  meta / yer tutucu
+       ink-500 (#5f6672) → 3.1:1  yalnızca etiket/ikon, düz metin DEĞİL
+     `app` (#0b0c10) üstünde üçü de bir tık yükseliyor. */
+  --ink-100-rgb: 241 243 245;
+  --ink-200-rgb: 203 209 218;
+  --ink-300-rgb: 139 145 157;
+  --ink-400-rgb: 124 131 143;
+  --ink-500-rgb: 95 102 114;
+  --ink-600-rgb: 74 81 92;
   --ink-strong-rgb: 255 255 255;
 
-  --scrollbar-thumb: #34343a;
-  --scrollbar-thumb-hover: #45454d;
+  --scrollbar-thumb: #2e3440;
+  --scrollbar-thumb-hover: #3f4756;
 
-  /* ZEYTİN / YEŞİL vurgu (kullanıcı seçimi). Doygunluk kasten düşük.
-     Ölçülen kontrastlar:
-       accent-400 (#93b75c) zemin üstünde metin  → 8.4:1  (AAA)
-       accent-500 (#5c7a31) üstünde beyaz metin  → 4.95:1 (AA)
-     Yani `bg-accent-500` + `text-accent-on` kombinasyonu her iki temada da
-     eşiği geçiyor; ton değiştirilecekse bu iki oran yeniden hesaplanmalı. */
-  --accent-600-rgb: 70 93 37;
-  --accent-500-rgb: 92 122 49;
-  --accent-400-rgb: 147 183 92;
-  /* Accent ZEMİN üzerine gelen metin/ikon rengi — her iki temada da beyaz.
-     `text-white` bunun yerine kullanılamaz: o token (`--ink-strong-rgb`) açık
-     temada bilinçli olarak KOYU (24 24 27), çünkü açık zemin üstünde en güçlü
-     metin rengi odur. Ama aynı sınıf accent zeminli bir butonda/balonda
-     kullanılınca açık temada vurgu üstüne koyu gri metin çıkıyordu — ölçülen
-     kontrast 2.89:1, WCAG AA eşiği olan 4.5:1'in çok altında (kullanıcının
-     kendi yazdığı sohbet mesajları açık temada zor okunuyordu). Accent zeminli
-     her yerde `text-accent-on` kullan, `text-white` DEĞİL. */
-  --accent-on-rgb: 255 255 255;
-  --accent-cyan-rgb: 92 122 49;
-  --accent-glow: rgba(92, 122, 49, 0.25);
-  --accent-soft-text: #a9c97d;
+  /* LIME vurgu — NTT Studio'nun kimlik rengi (kullanıcı kararı, 2026-09-06).
+     Öncesinde sönük bir zeytin (#5c7a31, doygunluk %46) vardı; kimlik rengi
+     olacak kadar sesi yoktu ve ekranda "yeşilimsi gri" olarak okunuyordu.
+
+     İKİ KADEMELİ, ve bu ayrım pazarlık dışı — parlak lime her yerde
+     kullanılamaz:
+       500 = PARLAK LIME (#b7f34a). Yalnızca DOLGU ve küçük işaret: gönder
+             düğmesi, birincil CTA, aktif nav çizgisi, odak halkası, durum
+             noktası. Üstündeki metin `text-accent-on`.
+       400 = İŞLEVSEL LIME (#a9e13f). Metin, ikon, kenarlık. Koyu temada
+             parlaktan yalnızca bir tık sönük — asıl işini AÇIK temada
+             görüyor, orada koyu bir limeye dönüyor (#4c7016).
+       600 = dolgunun basılı/hover hâli.
+
+     ÖLÇÜLEN KONTRASTLAR (koyu tema, `card` #14161c üstünde):
+       accent-400 metin olarak            → 11.4:1 (AAA)
+       accent-500 üstünde accent-on metin → 14.7:1 (AAA)
+
+     `--accent-on-rgb` BEYAZDAN SİYAHA DÖNDÜ ve dönmek ZORUNDAYDI: parlak lime
+     üstünde beyaz 1.5:1 veriyor, yani okunmuyor. Bu yüzden değer artık her iki
+     temada da `app` zeminiyle aynı yakın-siyah. Kural değişmedi, sadece rengi
+     değişti: accent zeminli HER yerde `text-accent-on` kullan, `text-white`
+     DEĞİL — `text-white` (`--ink-strong-rgb`) koyu temada bembeyazdır ve
+     parlak lime üstünde kaybolur. */
+  --accent-600-rgb: 155 209 48;
+  --accent-500-rgb: 183 243 74;
+  --accent-400-rgb: 169 225 63;
+  --accent-on-rgb: 11 12 16;
+  --accent-cyan-rgb: 183 243 74;
+
+  /* KOYU/GÜÇLÜ DOLGU üstündeki metin ve ikon (`text-on-solid`). Accent'ten
+     AYRI bir jeton, çünkü ayrı bir rol: kırmızı `--status-danger-solid`
+     düğmesi, resmin üstündeki gerçek siyah örtü gibi yerler.
+
+     Bu jeton `--accent-on-rgb` siyaha döndüğü gün doğdu (2026-09-06). O güne
+     kadar üç yer accent-on'u "güçlü dolgu üstündeki yazı" diye ÖDÜNÇ
+     alıyordu — o sırada beyaz olduğu için çalışıyordu, ama anlamı bu değildi.
+     Siyaha dönünce üçü birden kırıldı: kırmızıda 2.4:1, siyah örtüde
+     görünmez. `text-white` de çözüm değil, o `--ink-strong-rgb`'ye bağlı ve
+     açık temada koyuya düşüyor. Yani rol gerçekten üçüncü bir jeton
+     istiyordu. Değer HER İKİ temada da beyaz ve öyle kalmalı: bağlı olduğu
+     zeminler tema ile değişmiyor. */
+  --on-solid-rgb: 255 255 255;
+  /* 0.25'ten 0.16'ya indi: aynı alfa, parlak limede zeytinin iki katı ses
+     çıkarıyordu (flows ekranında düzinelerce yerde zemin yıkaması olarak
+     kullanılıyor). */
+  --accent-glow: rgba(183, 243, 74, 0.16);
+  --accent-soft-text: #bfe38c;
 
   /* Sohbet ekranındaki karşılama başlığının degradesi. Neden AYRI üç değişken:
      `--accent-cyan-rgb` her iki temada da `--accent-500-rgb` ile AYNI değer, yani
@@ -232,9 +291,9 @@ html[data-theme="dark"] {
      en açık metin tonundan vurgu yeşiline doğru sessiz bir geçiş. Logonun
      kendi renkleri değişmedi — `src/assets/logo.svg` olduğu gibi duruyor,
      marka işareti hâlâ mor/camgöbeği. */
-  --chat-hero-from: #ededef;
-  --chat-hero-via: #c4d3a6;
-  --chat-hero-to: #93b75c;
+  --chat-hero-from: #f1f3f5;
+  --chat-hero-via: #cde9a0;
+  --chat-hero-to: #a9e13f;
 
   /* Sistem/sunucu ikonlarının rengi. Vurgu ailesinden AYRI olması bilinçli:
      bunlar bir seçim/aksiyon değil, sadece tür göstergesi. Çelik mavisi
@@ -246,7 +305,7 @@ html[data-theme="dark"] {
      (`--ink-300`) neredeyse ayırt edilemiyordu — mavi olduğu ancak yan yana
      konunca fark ediliyordu. Yeni ton `--module-sap` ile AYNI aile ama bir
      tık soluk: sistem satırı SAP modülünün akrabası, kendisi değil. */
-  --navy-icon: #8aa4bd;
+  --navy-icon: #8faac6;
 
   /* MODÜL RENKLERİ — sol şeritteki (ActivityBar) her ekranın kendi kimliği.
      Kullanıcı isteği, 2026-09-06: *"sol paneldeki tüm ekranlar logoların
@@ -281,8 +340,8 @@ html[data-theme="dark"] {
      sesle konuşuyordu; renkli düğmeler eklenince bu bir "canlı palet" değil
      doğrudan parlama olarak okundu.
 
-     Kural artık şu: kimlik renkleri accent ile AYNI bantta durur — doygunluk
-     %45-55, base-800 üstünde kontrast 5.0-6.3 arası (accent'in kendisi
+     Kural o gün şu oldu: kimlik renkleri accent ile AYNI bantta durur —
+     doygunluk %45-55, base-800 üstünde kontrast 5.0-6.3 arası (accent'in kendisi
      5.11). Hue'lar değişmedi, yani hiçbir renk kimliğini kaybetmedi;
      yalnızca ses seviyeleri eşitlendi. SAP mavisi bu yüzden artık markanın
      birebir hex'i değil, marka hue'sunun bandımıza oturtulmuş hâli —
@@ -291,16 +350,23 @@ html[data-theme="dark"] {
 
      guiscript ayrıca hue tarafında da bir tık turuncuya kaydı (h34 → h24):
      doygunluk düşünce `--folder-icon` (h35) ile arasındaki mesafe yalnızca
-     doygunluk farkına kalıyordu ve ikisi ayırt edilemez hâle geliyordu. */
-  --module-code: #9890d5;
-  --module-sap: #519ec8;
-  --module-guiscript: #cf8859;
+     doygunluk farkına kalıyordu ve ikisi ayırt edilemez hâle geliyordu.
+
+     BANT AYNI GÜN İKİNCİ KEZ, BU SEFER YUKARI TAŞINDI. Vurgu artık parlak lime; %45-55'lik
+     eski bant, yanında duran her kimlik rengini cılız gösteriyordu — kural
+     "accent ile aynı bantta dur" olduğu için accent taşındığında bandın da
+     taşıması gerekiyordu, aksi hâlde kural kendi gerekçesini kaybediyordu.
+     YENİ BANT: doygunluk %65-75, `card` (#14161c) üstünde kontrast 6.0-8.0.
+     Hue'lar yine değişmedi. */
+  --module-code: #a392e8;
+  --module-sap: #56a8db;
+  --module-guiscript: #e09055;
 
   /* Klasör ikonlarının rengi (dosya gezgini, sohbet dosya paneli, ağaç).
      Dört ayrı bileşende `text-[#d99a4e]` olarak gömülüydü; açık temada kırık
      beyaz üstünde soluklaşıyordu. Tür göstergesi olduğu için vurgu ailesinin
      dışında — "seçili" ile karışmamalı. */
-  --folder-icon: #c9954a;
+  --folder-icon: #d9a055;
 
   /* "Yeni proje" düğmesi. Kenar çubuğunun tepesinde "Yeni sohbet"in YANINDA
      duruyor; ikisi de vurgu yeşili olsaydı hangisinin ne yaptığı bir bakışta
@@ -308,8 +374,8 @@ html[data-theme="dark"] {
      (2026-09-06). Tek renk kuralının bilinçli tek istisnası; doygunluğu
      zeytinle aynı seviyede tutulmuş mat bir mor, logonun morunun sönümlenmiş
      hâli. */
-  --project-500-rgb: 107 98 168;
-  --project-soft-text: #a9a1e0;
+  --project-500-rgb: 122 107 199;
+  --project-soft-text: #b3a9ee;
 
   --app-bg-image: none;
   --overlay-scrim: rgba(0, 0, 0, 0.6);
@@ -339,11 +405,11 @@ html[data-theme="dark"] {
      olmaları işin kendisi. */
   --status-success-bg: rgba(6, 52, 44, 0.45);
   --status-success-border: rgba(12, 110, 92, 0.5);
-  --status-success-text: #46b998;
+  --status-success-text: #45c4a0;
   /* Bilgi (SAP durum çubuğundaki "I" tipi mesajlar). Kırmızı/sarı/yeşil
      üçlüsünün dışında dördüncü bir durum; nötr bir çelik mavisi, vurgu
      zeytiniyle çakışmıyor. */
-  --status-info-text: #759bc7;
+  --status-info-text: #7ba5d6;
 
   /* İkincil aksiyon kartının (SAP Logon'da Aç) tonu — accent'in yanında
      ayırt edilsin diye kehribar. `--status-warning-*` DEĞİL: bu bir uyarı
@@ -367,56 +433,92 @@ html[data-theme="dark"] {
 
 html[data-theme="light"] {
   /* Açık temanın referansı Notion: sayfa BEYAZ, kenar çubuğu bir tık kırık
-     beyaz, ayırıcılar saç teli. Koyu temayla aynı nötrlük kuralı geçerli —
-     kanallar birbirine yakın, sıcak/soğuk tint yok.
+     beyaz, ayırıcılar saç teli. AYNI SEMANTİK JETONLAR, ters yönde — koyu
+     temada "yükselmek" açılmak demek, burada koyulaşmak. Nötrlük kuralı
+     kalktı: koyu tema soğuk grafit olduğu için açık tema da aynı hue
+     ailesinde (~h215, doygunluk %15-25), yoksa tema değiştirmek uygulamanın
+     kimliğini de değiştirirdi.
 
-       950 = uygulama zemini      #f3f3f1  ← koyu temanın tersine EN KOYU olan
-       900 = panel/kart           #ffffff
-       850 = yükseltilmiş yüzey   #fafaf9
-       800 = hover / girdi zemini #f4f4f3
-       700 = SAÇ TELİ kenarlık    #e5e5e3
-       600 = belirgin kenarlık    #d1d1ce */
+       app      #f4f5f7  ← koyu temanın tersine EN KOYU olan
+       sidebar  #fafbfc
+       card     #ffffff
+       raised   #f7f8fa
+       hover    #f1f3f6
+       control  #f4f6f9
+       active   #e4e8ee
+
+       border-subtle #e9ecf1
+       border-line   #d9dee6  SAÇ TELİ
+       border-strong #c3cad5
+
+     Koyu temadaki sıralama kuralının karşılığı burada da geçerli: `hover` ve
+     `control`, `border-subtle`den AÇIK kalmalı (yani daha az koyu), yoksa
+     hover dolgusu kenarlığı yutar. */
   color-scheme: light;
-  --base-950-rgb: 243 243 241;
-  --base-900-rgb: 255 255 255;
-  --base-850-rgb: 250 250 249;
-  --base-800-rgb: 244 244 243;
-  --base-700-rgb: 229 229 227;
-  --base-600-rgb: 209 209 206;
+  --surface-app-rgb: 244 245 247;
+  --surface-sidebar-rgb: 250 251 252;
+  --surface-card-rgb: 255 255 255;
+  --surface-raised-rgb: 247 248 250;
+  --surface-hover-rgb: 241 243 246;
+  --surface-control-rgb: 244 246 249;
+  --surface-active-rgb: 228 232 238;
 
-  --ink-100-rgb: 39 39 42;
-  --ink-200-rgb: 63 63 70;
-  --ink-300-rgb: 96 96 104;
-  --ink-400-rgb: 130 130 138;
-  --ink-500-rgb: 160 160 168;
-  --ink-600-rgb: 190 190 196;
-  --ink-strong-rgb: 24 24 27;
+  --border-subtle-rgb: 233 236 241;
+  --border-line-rgb: 217 222 230;
+  --border-strong-rgb: 195 202 213;
 
-  --scrollbar-thumb: #d4d4d1;
-  --scrollbar-thumb-hover: #bebebb;
+  /* Eski ham merdiven — gerekçesi koyu temada yazılı (flows.css). */
+  --base-950-rgb: var(--surface-app-rgb);
+  --base-900-rgb: var(--surface-card-rgb);
+  --base-850-rgb: var(--surface-raised-rgb);
+  --base-800-rgb: var(--surface-control-rgb);
+  --base-700-rgb: var(--border-line-rgb);
+  --base-600-rgb: var(--border-strong-rgb);
 
-  /* Aynı zeytin ailesi, beyaz zemin için KOYULAŞTIRILMIŞ. Ölçülen kontrastlar:
-       accent-400 (#5c7a31) beyaz üstünde metin → 4.95:1 (AA)
-       accent-500 (#4e6a2a) üstünde beyaz metin → 6.1:1  (AA+)
-     Koyu temadaki 400/500 değerleri burada bir kademe kaydı: koyu temanın
-     "metin tonu" (500) açık temanın "dolgu tonu" oldu. */
-  --accent-600-rgb: 62 82 33;
-  --accent-500-rgb: 78 106 42;
-  --accent-400-rgb: 92 122 49;
-  --accent-on-rgb: 255 255 255;
-  --accent-cyan-rgb: 78 106 42;
-  --accent-glow: rgba(78, 106, 42, 0.12);
-  --accent-soft-text: #3e5221;
+  --ink-100-rgb: 26 29 35;
+  --ink-200-rgb: 59 65 75;
+  --ink-300-rgb: 92 99 111;
+  --ink-400-rgb: 124 132 146;
+  --ink-500-rgb: 154 161 173;
+  --ink-600-rgb: 188 194 204;
+  --ink-strong-rgb: 18 21 26;
+
+  --scrollbar-thumb: #d3d8e0;
+  --scrollbar-thumb-hover: #bec5cf;
+
+  /* İKİ KADEMELİ LIME'IN AÇIK TEMA KARŞILIĞI — ve ayrımın asıl işini gördüğü
+     yer burası. Parlak lime beyaz zeminde METİN OLARAK KULLANILAMAZ: #b7f34a
+     beyaz üstünde 1.4:1 verir. O yüzden:
+       500 = DOLGU olarak kalır, bir tık koyulaştırılmış (#9bd62f). Üstündeki
+             `accent-on` yine yakın-siyah, kontrast 12.6:1.
+       400 = METİN/İKON/KENARLIK için koyu lime (#4c7016), beyaz üstünde
+             5.7:1 (AA). Odak halkası da bunu kullanıyor — parlak lime bir
+             halka beyaz zeminde görünmezdi.
+       600 = dolgunun hover'ı, 500'den koyu.
+     Yani koyu temada 400 ile 500 komşuyken, burada bilinçli olarak birbirinden
+     uzaklar; `text-accent-500` yazmak açık temayı kırar (bu yüzden koddaki üç
+     kullanım 400'e taşındı). */
+  --accent-600-rgb: 134 188 34;
+  --accent-500-rgb: 155 214 47;
+  --accent-400-rgb: 76 112 22;
+  /* Yakın-siyah, koyu temayla AYNI: lime her iki temada da açık bir dolgu. */
+  --accent-on-rgb: 11 12 16;
+  --accent-cyan-rgb: 155 214 47;
+  /* Koyu temayla AYNI beyaz — bu jetonun zeminleri (kırmızı dolgu, resim
+     üstündeki siyah örtü) temaya göre değişmiyor. */
+  --on-solid-rgb: 255 255 255;
+  --accent-glow: rgba(155, 214, 47, 0.14);
+  --accent-soft-text: #3f5c14;
 
   /* Aynı sessiz degrade, açık zemin için ters yönde: en koyu metin tonundan
-     vurgu yeşiline (bkz. koyu temadaki --chat-hero-from notu). */
-  --chat-hero-from: #27272a;
-  --chat-hero-via: #4a5a35;
-  --chat-hero-to: #5c7a31;
+     işlevsel limeye (bkz. koyu temadaki --chat-hero-from notu). */
+  --chat-hero-from: #1a1d23;
+  --chat-hero-via: #6e8f35;
+  --chat-hero-to: #4c7016;
 
-  /* Koyu temadaki belirginlik artışının açık tema karşılığı (#5a6b7c →
-     #3f6b93): burada "belirgin" daha parlak değil daha KOYU demek. */
-  --navy-icon: #3f6b93;
+  /* Koyu temadaki belirginlik artışının açık tema karşılığı: burada "belirgin"
+     daha parlak değil daha KOYU demek. */
+  --navy-icon: #35678f;
 
   /* Modül renkleri, kırık beyaz zemin için koyulaştırıldı (bkz. koyu temadaki
      not). Koyu temadaki tonlar burada 3:1'in altına düşüyordu — 17px'lik bir
@@ -426,16 +528,16 @@ html[data-theme="light"] {
      bandın açık tema karşılığı): ikisi de %90'a yakın doygunlukla beyaz
      zeminde çiğ duruyordu. `guiscript` zaten bandın içindeydi, dokunulmadı.
      Kontrast beyaz üstünde 5.0 (sap) / 7.0 (code) ile korundu. */
-  --module-code: #5746b9;
-  --module-sap: #2f72b1;
-  --module-guiscript: #a16a15;
+  --module-code: #5137c9;
+  --module-sap: #1a6fbf;
+  --module-guiscript: #a56d18;
 
   /* Beyaz zeminde okunacak kadar koyulaştırılmış klasör sarısı. */
-  --folder-icon: #a9762c;
+  --folder-icon: #9c6b1f;
 
-  /* Aynı mat mor, beyaz zemin için koyulaştırılmış (bkz. koyu temadaki not). */
-  --project-500-rgb: 85 76 160;
-  --project-soft-text: #554ca0;
+  /* Aynı mor, beyaz zemin için koyulaştırılmış (bkz. koyu temadaki not). */
+  --project-500-rgb: 91 79 191;
+  --project-soft-text: #5b4fbf;
 
   --app-bg-image: none;
   --overlay-scrim: rgba(24, 24, 27, 0.35);
@@ -451,8 +553,8 @@ html[data-theme="light"] {
   /* Turkuaza kaydırılmış başarı yeşili — gerekçesi koyu temada yazılı. */
   --status-success-bg: #e8f5f0;
   --status-success-border: #b9decf;
-  --status-success-text: #1f7a5c;
-  --status-info-text: #3a6491;
+  --status-success-text: #16805f;
+  --status-info-text: #2f5f91;
 
   --action-amber-rgb: 138 100 45;
   --action-amber-text: #7a5a1c;
@@ -469,7 +571,7 @@ html[data-theme="light"] {
 }
 
 body {
-  @apply bg-base-950 text-slate-100 antialiased;
+  @apply bg-app text-slate-100 antialiased;
   font-family: "Inter Variable", "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   /* Inter'in isteğe bağlı özellikleri:
        cv05 → düz uçlu `l` (Windows'ta `I` ile karışan asıl harf)

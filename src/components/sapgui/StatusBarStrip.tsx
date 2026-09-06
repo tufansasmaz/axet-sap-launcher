@@ -51,14 +51,14 @@ export default function StatusBarStrip({ screen, onPopupChoice, onPopupButton, b
   const ToneIcon = tone?.icon ?? Info;
 
   return (
-    <div className="shrink-0 border-t border-base-700">
+    <div className="shrink-0 border-t border-line">
       {popup && (
         // Popup ŞERİDİ — eskiden `wnd[1]` ağaçta sıradan bir düğümdü ve
         // kullanıcı bir modal pencerenin açıldığını fark etmiyordu. Butonlar
         // SAP'nin GERÇEK butonlarından okunuyor (tahmin edilen SPOP id'leri
         // değil), yanlarında da standart enter/iptal kısayolları var.
-        <div className="flex flex-wrap items-center gap-2 border-b border-base-800 bg-[rgba(147,197,253,0.07)] px-3 py-2">
-          <span className="rounded-full bg-base-800 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle bg-[rgba(147,197,253,0.07)] px-3 py-2">
+          <span className="rounded-full bg-control px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-300">
             {t("sapGuiScripting.popupBadge")}
           </span>
           <span className="min-w-0 flex-1 truncate text-xs text-slate-200" title={`${popup.title}\n${popup.text}`}>

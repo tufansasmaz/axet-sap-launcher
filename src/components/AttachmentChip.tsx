@@ -120,8 +120,11 @@ export default function AttachmentChip({
             {/* Zemin GERÇEK siyah bir örtü (resmin üstünde), tema jetonu değil
                 — ikon da tema-bağımsız gerçek beyaz olmalı. `text-white` bu
                 projede `--ink-strong-rgb`'ye bağlı ve açık temada koyuya
-                düşüyor, yani siyah örtünün üstünde kayboluyordu. */}
-            <Maximize2 size={18} className="text-accent-on" />
+                düşüyor, yani siyah örtünün üstünde kayboluyordu. Bir süre
+                `text-accent-on` kullanıldı; o da beyaz OLDUĞU için, accent
+                dolgusu olduğu için değil. Yakın-siyaha dönünce ikon siyah
+                örtüde tamamen kayboldu. Doğru jeton `text-on-solid`. */}
+            <Maximize2 size={18} className="text-on-solid" />
           </span>
         </button>
         {lightbox}
@@ -133,7 +136,7 @@ export default function AttachmentChip({
     <>
       <div
         title={title}
-        className={`group/chip relative flex items-center gap-2 rounded-lg bg-base-800 ${
+        className={`group/chip relative flex items-center gap-2 rounded-lg bg-control ${
           variant === "composer" ? "py-1.5 pl-1.5 pr-2" : "px-2.5 py-1.5"
         }`}
       >
@@ -148,7 +151,7 @@ export default function AttachmentChip({
           {preview ? (
             <img src={preview} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" />
           ) : (
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-base-700 text-slate-400">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-active text-slate-400">
               <FileText size={15} />
             </span>
           )}
@@ -159,7 +162,7 @@ export default function AttachmentChip({
           <button
             onClick={() => onRemove(attachment.id)}
             title={t("axetCodeHome.attachmentRemove")}
-            className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-500 transition hover:bg-base-700 hover:text-slate-200"
+            className="flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-500 transition hover:bg-active hover:text-slate-200"
           >
             <X size={12} />
           </button>

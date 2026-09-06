@@ -37,7 +37,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     if (!this.state.error) return this.props.children;
 
     return (
-      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-base-950 px-8 text-center text-slate-300">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-app px-8 text-center text-slate-300">
         <AlertOctagon size={40} className="text-[var(--status-danger-text)]" />
         <h1 className="text-lg font-semibold text-white">{STRINGS.title}</h1>
         <p className="max-w-md break-words text-xs text-slate-500">{this.state.error.message}</p>

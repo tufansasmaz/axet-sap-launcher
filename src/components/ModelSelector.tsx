@@ -97,7 +97,7 @@ export default function ModelSelector({
         title={t("modelSelector.title")}
         className={`flex cursor-pointer items-center gap-1.5 text-slate-300 transition disabled:cursor-not-allowed disabled:opacity-60 ${
           variant === "filled"
-            ? "rounded-full bg-base-900 px-3.5 py-2 text-[13px] hover:bg-base-800"
+            ? "rounded-full bg-card px-3.5 py-2 text-[13px] hover:bg-hover"
             : variant === "ghost"
               ? // Yükseklik SABİT 36px — composer satırındaki ataç/mikrofon/
                 // gönder düğmeleriyle aynı. Dikey dolgudan türeyen yükseklik
@@ -105,8 +105,8 @@ export default function ModelSelector({
                 // için seçici komşularından birkaç piksel AŞAĞIDA duruyordu
                 // (kullanıcı: *"model seçimi boxu tam ortalamıyor gibi hafif
                 // altta kalmış"*).
-                "h-9 rounded-md px-2 text-[12px] text-slate-400 hover:bg-base-800 hover:text-slate-200"
-              : "rounded-full border border-base-700 bg-transparent px-2.5 py-1.5 text-xs hover:border-base-600 hover:bg-base-800"
+                "h-9 rounded-md px-2 text-[12px] text-slate-400 hover:bg-hover hover:text-slate-200"
+              : "rounded-full border border-line bg-transparent px-2.5 py-1.5 text-xs hover:border-line-strong hover:bg-hover"
         }`}
       >
         <Cpu size={13} className="text-accent-400" />
@@ -120,11 +120,11 @@ export default function ModelSelector({
 
       {open && (
         <div
-          className={`animate-modal-pop-in absolute z-50 w-72 overflow-hidden rounded-lg border border-base-700 bg-base-900 shadow-2xl shadow-black/40 ${
+          className={`animate-modal-pop-in absolute z-50 w-72 overflow-hidden rounded-lg border border-line bg-card shadow-2xl shadow-black/40 ${
             alignRight ? "right-0" : "left-0"
           } ${direction === "down" ? "top-full mt-1.5" : "bottom-full mb-1.5"}`}
         >
-          <div className="border-b border-base-700 px-3 py-2">
+          <div className="border-b border-line px-3 py-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               {t("modelSelector.heading")}
             </span>
@@ -154,7 +154,7 @@ export default function ModelSelector({
                         setOpen(false);
                       }}
                       className={`flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition ${
-                        isCurrent ? "bg-accent-500/15 text-[var(--accent-soft-text)]" : "text-slate-300 hover:bg-base-800"
+                        isCurrent ? "bg-accent-500/15 text-[var(--accent-soft-text)]" : "text-slate-300 hover:bg-hover"
                       }`}
                     >
                       <span className="min-w-0 flex-1 truncate">{formatModelLabel(entry)}</span>
@@ -172,7 +172,7 @@ export default function ModelSelector({
               zaten yazılmıştı ama HİÇBİR yerde kullanılmıyordu — kullanıcı
               seçimin kapsamını tahmin etmek zorunda kalıyordu. */}
           {!error && grouped.length > 0 && (
-            <div className="border-t border-base-700 px-3 py-2">
+            <div className="border-t border-line px-3 py-2">
               <span className="text-[10px] leading-relaxed text-slate-500">
                 {t("modelSelector.appliesNextChatHint")}
               </span>

@@ -557,7 +557,7 @@ export default function ChatSessionPane({
       <div className="relative flex min-w-0 flex-1 flex-col">
       {dragOver && (
         <div className="pointer-events-none absolute inset-3 z-20 flex items-center justify-center rounded-3xl bg-accent-500/10 ring-2 ring-dashed ring-accent-400">
-          <div className="flex items-center gap-2 rounded-full bg-base-900/90 px-4 py-2.5 text-sm font-medium text-accent-400 shadow-lg">
+          <div className="flex items-center gap-2 rounded-full bg-card/90 px-4 py-2.5 text-sm font-medium text-accent-400 shadow-lg">
             <UploadCloud size={16} />
             {t("axetCodeHome.dropFilesHint")}
           </div>
@@ -576,7 +576,7 @@ export default function ChatSessionPane({
           SAP'a bağlı sohbetlerde sistem adı da var; bağlamsız sohbetlerde
           etiket "Çalışma alanı"na düşüyor ve ikon sönük kalıyor. */}
       {contextPath && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-base-800 bg-base-900/60 px-6 py-1.5 text-[11px]">
+        <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle bg-card/60 px-6 py-1.5 text-[11px]">
           <Server
             size={12}
             className={`shrink-0 ${contextLabel ? "text-[var(--navy-icon)]" : "text-slate-600"}`}
@@ -599,7 +599,7 @@ export default function ChatSessionPane({
           {onToggleFilesPanel && (
             <button
               onClick={onToggleFilesPanel}
-              className={`flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 transition hover:bg-base-800 hover:text-slate-200 ${
+              className={`flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 transition hover:bg-hover hover:text-slate-200 ${
                 filesPanelOpen ? "text-accent-400" : "text-slate-500"
               }`}
               title={t("axetCodeHome.contextFilesHint")}
@@ -614,7 +614,7 @@ export default function ChatSessionPane({
           {onOpenInstructions && (
             <button
               onClick={onOpenInstructions}
-              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
+              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-hover hover:text-slate-200"
               title={t("chatInstructions.title")}
             >
               <BookOpen size={12} className="text-[var(--status-info-text)]" />
@@ -629,7 +629,7 @@ export default function ChatSessionPane({
           kaybederdi. Bağlam şeridi varsa onun altına iniyor. */}
       {searchOpen && (
         <div
-          className={`absolute right-4 z-30 flex items-center gap-1 rounded-xl border border-base-700 bg-base-900/95 px-2 py-1.5 shadow-lg backdrop-blur ${
+          className={`absolute right-4 z-30 flex items-center gap-1 rounded-xl border border-line bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur ${
             contextPath ? "top-9" : "top-2"
           }`}
         >
@@ -664,7 +664,7 @@ export default function ChatSessionPane({
             onClick={() => stepSearch(-1)}
             disabled={searchHits.length === 0}
             title={t("chatSearch.prev")}
-            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-base-800 hover:text-slate-200 disabled:cursor-default disabled:opacity-40"
+            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-hover hover:text-slate-200 disabled:cursor-default disabled:opacity-40"
           >
             <ChevronUp size={13} />
           </button>
@@ -672,14 +672,14 @@ export default function ChatSessionPane({
             onClick={() => stepSearch(1)}
             disabled={searchHits.length === 0}
             title={t("chatSearch.next")}
-            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-base-800 hover:text-slate-200 disabled:cursor-default disabled:opacity-40"
+            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-hover hover:text-slate-200 disabled:cursor-default disabled:opacity-40"
           >
             <ChevronDown size={13} />
           </button>
           <button
             onClick={closeSearch}
             title={t("chatSearch.close")}
-            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+            className="cursor-pointer rounded p-1 text-slate-400 transition hover:bg-hover hover:text-slate-200"
           >
             <X size={13} />
           </button>
@@ -763,13 +763,13 @@ export default function ChatSessionPane({
                     // üstte. Göz karta soldan üstten giriyor, önce "ne tür bir
                     // şey" sonra "ne diyor" okuyor.
                     //
-                    // Zemin TAM `bg-base-900`, `/60` DEĞİL: yeni açılmış palette
+                    // Zemin TAM `bg-card`, `/60` DEĞİL: yeni açılmış palette
                     // 950 ile 900 arasında zaten 7 birim var, %60 saydamlık bunu
                     // 4'e indiriyor ve kart zeminden ayrılmıyor.
-                    className="group flex cursor-pointer flex-col items-start gap-2.5 rounded-xl border border-base-800 bg-base-900 p-3.5 text-left transition-colors hover:border-base-600 hover:bg-base-850"
+                    className="group flex cursor-pointer flex-col items-start gap-2.5 rounded-xl border border-line-subtle bg-card p-3.5 text-left transition-colors hover:border-line-strong hover:bg-raised"
                   >
                     <span
-                      className="flex h-7 w-7 items-center justify-center rounded-md bg-base-800 transition-colors group-hover:bg-[color-mix(in_srgb,currentColor_16%,transparent)]"
+                      className="flex h-7 w-7 items-center justify-center rounded-md bg-control transition-colors group-hover:bg-[color-mix(in_srgb,currentColor_16%,transparent)]"
                       style={{ color: tint }}
                     >
                       <Icon size={14} />
@@ -873,7 +873,7 @@ export default function ChatSessionPane({
           <button
             onClick={scrollToBottom}
             title={t("axetCodeHome.jumpToBottom")}
-            className="absolute -top-2 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 -translate-y-full cursor-pointer items-center justify-center rounded-full bg-base-800 text-slate-300 shadow-lg transition hover:bg-base-700 hover:text-slate-100"
+            className="absolute -top-2 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 -translate-y-full cursor-pointer items-center justify-center rounded-full bg-control text-slate-300 shadow-lg transition hover:bg-active hover:text-slate-100"
           >
             <ArrowDown size={14} />
           </button>
@@ -896,14 +896,14 @@ export default function ChatSessionPane({
             kapanıyor (bkz. AxetCodeHome `handleSend`). */}
         {session.editUndo && session.editUndo.messages.length > 0 && (
           <div className={COLUMN}>
-            <div className="mb-2 flex items-center gap-2 rounded-xl border border-base-800 bg-base-900/70 px-3 py-2 text-[12px] text-slate-400">
+            <div className="mb-2 flex items-center gap-2 rounded-xl border border-line-subtle bg-card/70 px-3 py-2 text-[12px] text-slate-400">
               <History size={13} className="shrink-0" />
               <span className="min-w-0 truncate">
                 {t("chatEditUndo.removed", { count: String(session.editUndo.messages.length) })}
               </span>
               <button
                 onClick={onUndoEdit}
-                className="ml-auto shrink-0 cursor-pointer rounded-md px-2 py-1 font-medium text-accent-400 transition hover:bg-base-800"
+                className="ml-auto shrink-0 cursor-pointer rounded-md px-2 py-1 font-medium text-accent-400 transition hover:bg-hover"
               >
                 {t("chatEditUndo.undo")}
               </button>
@@ -968,7 +968,7 @@ export default function ChatSessionPane({
 
               `items-end`: yazı alanı büyüdükçe düğmeler dipte kalır, satırın
               ortasında asılı kalmaz. */}
-          <div className="rounded-2xl border border-base-800 bg-base-900 px-2 py-1.5 transition focus-within:border-base-700 focus-within:bg-base-850">
+          <div className="rounded-2xl border border-line-subtle bg-card px-2 py-1.5 transition focus-within:border-line focus-within:bg-raised">
             {session.attachments.length > 0 && (
               <div className="flex flex-wrap gap-2 px-1 pb-2 pt-1">
                 {session.attachments.map((a) => (
@@ -981,7 +981,7 @@ export default function ChatSessionPane({
                 onClick={onAttachFiles}
                 disabled={attaching}
                 title={t("axetCodeHome.attachTitle")}
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-base-800 hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-hover hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Paperclip size={16} />
               </button>
@@ -1142,7 +1142,7 @@ export default function ChatSessionPane({
                       "animate-pulse bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] cursor-pointer"
                     : dictationState === "transcribing"
                       ? "cursor-not-allowed text-slate-500"
-                      : "cursor-pointer text-slate-400 hover:bg-base-800 hover:text-slate-200"
+                      : "cursor-pointer text-slate-400 hover:bg-hover hover:text-slate-200"
                 }`}
               >
                 {dictationState === "transcribing" ? (
@@ -1165,7 +1165,7 @@ export default function ChatSessionPane({
                 <button
                   onClick={onCancel}
                   title={t("axetCodeHome.stopGenerating")}
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-base-700 text-slate-200 transition hover:bg-base-600"
+                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-active text-slate-200 transition hover:bg-active"
                 >
                   <Square size={13} />
                 </button>
@@ -1237,7 +1237,7 @@ function MentionMenu({
   return (
     <div
       ref={listRef}
-      className="chat-scroll absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-auto rounded-xl border border-base-700 bg-base-900 py-1 shadow-lg"
+      className="chat-scroll absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-auto rounded-xl border border-line bg-card py-1 shadow-lg"
     >
       {items.map((entry, i) => {
         const rel = entry.rel.replace(/\\/g, "/");
@@ -1253,7 +1253,7 @@ function MentionMenu({
             }}
             onMouseEnter={() => onHover(i)}
             className={`flex cursor-pointer items-baseline gap-2 px-3 py-1.5 text-[12px] ${
-              i === index ? "bg-base-800 text-slate-100" : "text-slate-300"
+              i === index ? "bg-control text-slate-100" : "text-slate-300"
             }`}
           >
             <FileCode size={12} className="shrink-0 self-center text-slate-500" />
@@ -1285,7 +1285,7 @@ function PlanPanel({ todos }: { todos: AxetTodo[] }) {
   const done = todos.filter((todo) => todo.status === "completed").length;
   const active = todos.find((todo) => todo.status === "in_progress");
   return (
-    <div className="mb-2 rounded-xl border border-base-800 bg-base-900/70 text-[12px]">
+    <div className="mb-2 rounded-xl border border-line-subtle bg-card/70 text-[12px]">
       <button
         onClick={() => setOpen((v) => !v)}
         className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-slate-400 transition hover:text-slate-200"
@@ -1300,7 +1300,7 @@ function PlanPanel({ todos }: { todos: AxetTodo[] }) {
         <span className="ml-auto shrink-0 text-slate-500">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <ul className="chat-scroll max-h-48 overflow-auto border-t border-base-800 px-3 py-2">
+        <ul className="chat-scroll max-h-48 overflow-auto border-t border-line-subtle px-3 py-2">
           {todos.map((todo, i) => (
             <li
               key={i}

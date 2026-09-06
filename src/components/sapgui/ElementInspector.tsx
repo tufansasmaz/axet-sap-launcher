@@ -98,12 +98,12 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
             <Copy size={12} />
           </button>
         </div>
-        <div className="mt-1 break-all rounded-md bg-base-850 px-2 py-1 font-mono text-[10px] leading-relaxed text-slate-400">
+        <div className="mt-1 break-all rounded-md bg-raised px-2 py-1 font-mono text-[10px] leading-relaxed text-slate-400">
           {node.id}
         </div>
       </div>
 
-      <div className="space-y-0 border-t border-base-800 pt-2">
+      <div className="space-y-0 border-t border-line-subtle pt-2">
         {row(t("sapGuiScripting.fieldText"), node.text ?? "")}
         {row(t("sapGuiScripting.fieldTooltip"), node.tooltip)}
         {node.subType ? row(t("sapGuiScripting.fieldSubType"), node.subType) : null}
@@ -111,7 +111,7 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
       </div>
 
       {geometry.length > 0 && (
-        <div className="space-y-0 border-t border-base-800 pt-2">
+        <div className="space-y-0 border-t border-line-subtle pt-2">
           <div className={`pb-1 ${PANEL_TITLE}`}>
             {t("sapGuiScripting.geometryTitle")}
           </div>
@@ -120,7 +120,7 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
       )}
 
       {rest.length > 0 && (
-        <div className="border-t border-base-800 pt-2">
+        <div className="border-t border-line-subtle pt-2">
           <button
             onClick={() => setShowAllProps((v) => !v)}
             className={`cursor-pointer hover:text-slate-300 ${PANEL_TITLE}`}
@@ -134,14 +134,14 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
       {/* Aksiyonlar kendi kutusunda: özellik listesiyle aynı düzlemde
           duruyorlardı ve "okunacak bilgi" ile "basılacak düğme" ayırt
           edilmiyordu. */}
-      <div className="space-y-2 rounded-md border border-base-800 bg-base-850/60 p-2.5">
+      <div className="space-y-2 rounded-md border border-line-subtle bg-raised/60 p-2.5">
         <div className={PANEL_TITLE}>{t("sapGuiScripting.actionsTitle")}</div>
         <div className="flex gap-1.5">
           <input
             value={textValue}
             onChange={(e) => setTextValue(e.target.value)}
             placeholder={t("sapGuiScripting.setTextPlaceholder")}
-            className="h-7 min-w-0 flex-1 rounded-md border border-base-700 bg-base-800 px-2 text-[11px] text-slate-100 outline-none focus:border-accent-500"
+            className="h-7 min-w-0 flex-1 rounded-md border border-line bg-control px-2 text-[11px] text-slate-100 outline-none focus:border-accent-500"
           />
           <button disabled={busy} onClick={() => onAction("setText", textValue)} className={TOOL_BUTTON}>
             {t("sapGuiScripting.setText")}
@@ -158,7 +158,7 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
           <select
             value={contextMenuBy}
             onChange={(e) => setContextMenuBy(e.target.value as typeof contextMenuBy)}
-            className="h-7 shrink-0 cursor-pointer rounded-md border border-base-700 bg-base-800 px-1 text-[11px] text-slate-200 outline-none focus:border-accent-500"
+            className="h-7 shrink-0 cursor-pointer rounded-md border border-line bg-control px-1 text-[11px] text-slate-200 outline-none focus:border-accent-500"
           >
             <option value="text">{t("sapGuiScripting.contextMenuByText")}</option>
             <option value="code">{t("sapGuiScripting.contextMenuByCode")}</option>
@@ -174,7 +174,7 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
                   ? "sapGuiScripting.contextMenuPlaceholder"
                   : "sapGuiScripting.contextMenuPlaceholderPosition",
             )}
-            className="h-7 min-w-0 flex-1 rounded-md border border-base-700 bg-base-800 px-2 text-[11px] text-slate-100 outline-none focus:border-accent-500"
+            className="h-7 min-w-0 flex-1 rounded-md border border-line bg-control px-2 text-[11px] text-slate-100 outline-none focus:border-accent-500"
           />
           <button
             disabled={busy}
@@ -187,7 +187,7 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
       </div>
 
       {node.grid && (
-        <div className="space-y-1.5 border-t border-base-800 pt-3">
+        <div className="space-y-1.5 border-t border-line-subtle pt-3">
           <div className={`flex items-center gap-1.5 ${PANEL_TITLE}`}>
             <Table2 size={12} />
             {t("sapGuiScripting.gridTitle")}
@@ -203,9 +203,9 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
             <div className="text-xs text-slate-500">{t("sapGuiScripting.gridEmpty")}</div>
           ) : (
             <>
-              <div className="max-h-64 overflow-auto rounded-md border border-base-800">
+              <div className="max-h-64 overflow-auto rounded-md border border-line-subtle">
                 <table className="w-full text-left text-[11px]">
-                  <thead className="bg-base-800 text-slate-400">
+                  <thead className="bg-control text-slate-400">
                     <tr>
                       {node.grid.columns.map((col) => (
                         <th key={col} className="whitespace-nowrap px-2 py-1 font-medium">
@@ -222,7 +222,7 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
                         duruyorken doğru yer burası — tıklanan hücre satırı da
                         sütunu da kendisi söylüyor. */}
                     {node.grid.rows.map((gridRow, i) => (
-                      <tr key={i} className="border-t border-base-800/70 text-slate-300">
+                      <tr key={i} className="border-t border-line-subtle/70 text-slate-300">
                         {node.grid!.columns.map((col) => (
                           <td
                             key={col}
@@ -240,7 +240,7 @@ export default function ElementInspector({ node, state, busy, onAction, onLoadRo
                               })
                             }
                             title={t("sapGuiScripting.gridCellHint")}
-                            className="cursor-pointer whitespace-nowrap px-2 py-1 hover:bg-base-800">
+                            className="cursor-pointer whitespace-nowrap px-2 py-1 hover:bg-hover">
                             {String(gridRow[col] ?? "")}
                           </td>
                         ))}

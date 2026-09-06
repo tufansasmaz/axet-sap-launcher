@@ -2418,7 +2418,7 @@ export default function AxetCodeHome({
       return (
         <div
           key={session.id}
-          className="flex items-center gap-2 rounded-md border border-base-700 bg-base-800 px-2.5 py-1.5"
+          className="flex items-center gap-2 rounded-md border border-line bg-control px-2.5 py-1.5"
         >
           <input
             autoFocus
@@ -2437,7 +2437,7 @@ export default function AxetCodeHome({
               }
             }}
             onFocus={(e) => e.currentTarget.select()}
-            className="min-w-0 flex-1 rounded bg-base-950 px-2 py-0.5 text-[13px] text-slate-100 outline-none ring-1 ring-accent-500/50"
+            className="min-w-0 flex-1 rounded bg-app px-2 py-0.5 text-[13px] text-slate-100 outline-none ring-1 ring-accent-500/50"
           />
         </div>
       );
@@ -2464,8 +2464,8 @@ export default function AxetCodeHome({
         // seçiliye eklenseydi satır seçildiğinde 2px uzar, liste zıplardı.
         className={`group flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-[13px] transition-colors ${
           isActive
-            ? "border-base-700 bg-base-800 text-slate-100"
-            : "border-transparent text-slate-400 hover:bg-base-800/60 hover:text-slate-300"
+            ? "border-line bg-control text-slate-100"
+            : "border-transparent text-slate-400 hover:bg-hover/60 hover:text-slate-300"
         }`}
       >
         {/* Sohbet ikonu KALDIRILDI (kullanıcı isteği, 2026-09-06: *"chat
@@ -2502,7 +2502,7 @@ export default function AxetCodeHome({
               });
             }}
             title={t("axetCodeHome.moveToProject")}
-            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
+            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
           >
             <FolderInput size={12} />
           </button>
@@ -2514,7 +2514,7 @@ export default function AxetCodeHome({
             setRenamingId(session.id);
           }}
           title={t("axetCodeHome.renameTitle")}
-          className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
+          className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
         >
           <Pencil size={12} />
         </button>
@@ -2529,7 +2529,7 @@ export default function AxetCodeHome({
               void handleExportSession(session.id);
             }}
             title={t("axetCodeHome.exportTitle")}
-            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
+            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
           >
             <Download size={12} />
           </button>
@@ -2542,7 +2542,7 @@ export default function AxetCodeHome({
           title={t("axetCodeHome.deleteTitle")}
           // `focus-visible:opacity-100` olmadan bu buton klavyeyle gezildiğinde
           // odaklanıyor ama GÖRÜNMÜYORDU.
-          className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-[var(--status-danger-text)] focus-visible:opacity-100 group-hover:opacity-100"
+          className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-[var(--status-danger-text)] focus-visible:opacity-100 group-hover:opacity-100"
         >
           <Trash2 size={12} />
         </button>
@@ -2565,7 +2565,7 @@ export default function AxetCodeHome({
           Genişlik geçişi animasyonlu, çünkü daraltma tek tıkla ve sık yapılan
           bir hareket. */}
       <aside
-        className={`flex shrink-0 flex-col overflow-hidden border-r border-base-800 bg-base-900 transition-[width] duration-200 ${
+        className={`flex shrink-0 flex-col overflow-hidden border-r border-line-subtle bg-sidebar transition-[width] duration-200 ${
           sidebarOpen ? "w-[272px]" : "w-[60px]"
         }`}
       >
@@ -2581,7 +2581,7 @@ export default function AxetCodeHome({
             varlığını gizlemeye değmiyordu; büyüteç artık sadece bir ikon. */}
         <div className="flex h-[54px] shrink-0 items-center gap-1.5 px-2.5">
           {sidebarOpen && (
-            <div className="flex min-w-0 flex-1 items-center rounded-lg bg-base-800 ring-1 ring-inset ring-base-700 focus-within:ring-accent-500/40">
+            <div className="flex min-w-0 flex-1 items-center rounded-lg bg-control ring-1 ring-inset ring-line focus-within:ring-accent-500/40">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-500">
                 <Search size={14} />
               </span>
@@ -2607,7 +2607,7 @@ export default function AxetCodeHome({
                 <button
                   onClick={clearSearch}
                   title={t("axetCodeHome.searchClear")}
-                  className="mr-1 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-base-700 hover:text-slate-300"
+                  className="mr-1 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-active hover:text-slate-300"
                 >
                   <X size={12} />
                 </button>
@@ -2622,7 +2622,7 @@ export default function AxetCodeHome({
             <button
               onClick={() => setShortcutsOpen(true)}
               title={t("axetCodeHome.shortcutsTitle")}
-              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-hover hover:text-slate-200"
             >
               <Keyboard size={16} />
             </button>
@@ -2639,7 +2639,7 @@ export default function AxetCodeHome({
                 ? t("axetCodeHome.collapseSidebar")
                 : t("axetCodeHome.expandSidebar")
             }
-            className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-base-800 hover:text-slate-200 ${
+            className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-hover hover:text-slate-200 ${
               sidebarOpen ? "" : "mx-auto"
             }`}
           >
@@ -2747,7 +2747,7 @@ export default function AxetCodeHome({
                             }}
                             aria-expanded={open}
                             title={group.project.name}
-                            className="group/proj flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                            className="group/proj flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
                           >
                             {open ? (
                               <ChevronDown
@@ -2775,7 +2775,7 @@ export default function AxetCodeHome({
                                 handleNewSession(null, null, group.project.id);
                               }}
                               title={t("axetCodeHome.newChatInProject")}
-                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
+                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
                             >
                               <Plus size={12} />
                             </button>
@@ -2787,7 +2787,7 @@ export default function AxetCodeHome({
                                 setProjectDialogId(group.project.id);
                               }}
                               title={t("axetCodeHome.projectSettings")}
-                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
+                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
                             >
                               <Settings2 size={12} />
                             </button>
@@ -2796,7 +2796,7 @@ export default function AxetCodeHome({
                             </span>
                           </div>
                           {open && (
-                            <div className="ml-2 space-y-0.5 border-l border-base-800 pl-1.5">
+                            <div className="ml-2 space-y-0.5 border-l border-line-subtle pl-1.5">
                               {group.sessions.length > 0 ? (
                                 group.sessions.map(renderSessionRow)
                               ) : (
@@ -2853,7 +2853,7 @@ export default function AxetCodeHome({
                             onClick={() => toggleGroup(group.key)}
                             aria-expanded={open}
                             title={group.label}
-                            className="group/sys flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                            className="group/sys flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
                           >
                             {open ? (
                               <ChevronDown
@@ -2900,7 +2900,7 @@ export default function AxetCodeHome({
                                 }
                               }}
                               title={t("axetCodeHome.newChatInSystem")}
-                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-base-700 hover:text-slate-200 focus-visible:opacity-100 group-hover/sys:opacity-100"
+                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover/sys:opacity-100"
                             >
                               <Plus size={12} />
                             </span>
@@ -2911,7 +2911,7 @@ export default function AxetCodeHome({
                           {/* Sol kenar çizgisi: satırların hangi gruba ait
                               olduğunu daraltma durumundan bağımsız gösteriyor. */}
                           {open && (
-                            <div className="ml-2 space-y-0.5 border-l border-base-800 pl-1.5">
+                            <div className="ml-2 space-y-0.5 border-l border-line-subtle pl-1.5">
                               {group.sessions.map(renderSessionRow)}
                             </div>
                           )}
@@ -2955,13 +2955,13 @@ export default function AxetCodeHome({
               )}
 
               {sessions.length > 0 && visibleSessions.length === 0 && (
-                <div className="mt-1 rounded-md border border-base-800 bg-base-950 px-3 py-3 text-center text-[12px] text-slate-500">
+                <div className="mt-1 rounded-md border border-line-subtle bg-app px-3 py-3 text-center text-[12px] text-slate-500">
                   {t("axetCodeHome.searchEmpty", { query: query.trim() })}
                 </div>
               )}
 
               {sessions.length === 0 && (
-                <div className="mt-1 rounded-md border border-base-800 bg-base-950 px-3 py-3 text-center">
+                <div className="mt-1 rounded-md border border-line-subtle bg-app px-3 py-3 text-center">
                   <div className="text-[12px] font-medium text-slate-400">
                     {t("axetCodeHome.emptyTitle")}
                   </div>
@@ -2978,7 +2978,7 @@ export default function AxetCodeHome({
                 biri gibi görünmeye başladı — üstüne çizgi ve başlık kondu
                 (kullanıcı isteği, 2026-09-06). Buradaki satırlar sohbet
                 DEĞİL: tıklayınca bağlanıyorlar. */}
-            <div className="shrink-0 border-t border-base-800 p-2.5 pt-2">
+            <div className="shrink-0 border-t border-line-subtle p-2.5 pt-2">
               <div className="px-0.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 {t("axetCodeHome.systemsTitle")}
               </div>
@@ -2998,7 +2998,7 @@ export default function AxetCodeHome({
                           )
                         }
                         title={entry.path.join(" / ")}
-                        className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+                        className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
                       >
                         <Server
                           size={13}
@@ -3014,7 +3014,7 @@ export default function AxetCodeHome({
                   })}
                   <button
                     onClick={onOpenSapLauncher}
-                    className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] text-slate-500 transition hover:bg-base-800 hover:text-slate-300"
+                    className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] text-slate-500 transition hover:bg-hover hover:text-slate-300"
                   >
                     {t("axetCodeHome.viewAllConnections")}
                     <ArrowUpRight size={12} />
@@ -3023,7 +3023,7 @@ export default function AxetCodeHome({
               ) : (
                 <button
                   onClick={onOpenSapLauncher}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-base-800 bg-base-950 px-3 py-2.5 text-[12px] text-slate-500 transition hover:border-base-700 hover:bg-base-800 hover:text-slate-300"
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-line-subtle bg-app px-3 py-2.5 text-[12px] text-slate-500 transition hover:border-line hover:bg-hover hover:text-slate-300"
                 >
                   <Link2 size={14} className="shrink-0" />
                   {t("axetCodeHome.connectionsEmpty")}
@@ -3034,7 +3034,7 @@ export default function AxetCodeHome({
         )}
       </aside>
 
-      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-base-950">
+      <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-app">
         {sessions.map((session) => (
           <ChatSessionPane
             key={session.id}
@@ -3206,7 +3206,7 @@ export default function AxetCodeHome({
             onClick={() => setMoveMenu(null)}
           />
           <div
-            className="chat-scroll fixed z-[71] w-[200px] overflow-y-auto rounded-md border border-base-700 bg-base-900 p-1 shadow-xl"
+            className="chat-scroll fixed z-[71] w-[200px] overflow-y-auto rounded-md border border-line bg-card p-1 shadow-xl"
             style={{
               left: moveMenu.x,
               top: moveMenu.y,
@@ -3225,8 +3225,8 @@ export default function AxetCodeHome({
                   title={project.name}
                   className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] transition ${
                     current
-                      ? "cursor-default bg-base-800 text-slate-300"
-                      : "cursor-pointer text-slate-400 hover:bg-base-800 hover:text-slate-200"
+                      ? "cursor-default bg-control text-slate-300"
+                      : "cursor-pointer text-slate-400 hover:bg-hover hover:text-slate-200"
                   }`}
                 >
                   <FolderOpen size={12} className="shrink-0 text-accent-400" />
@@ -3242,7 +3242,7 @@ export default function AxetCodeHome({
             {moveTarget?.projectId && (
               <button
                 onClick={() => handleMoveSession(moveMenu.sessionId, null)}
-                className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded border-t border-base-800 px-2 py-1.5 pt-2 text-left text-[12px] text-slate-500 transition hover:bg-base-800 hover:text-slate-300"
+                className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded border-t border-line-subtle px-2 py-1.5 pt-2 text-left text-[12px] text-slate-500 transition hover:bg-hover hover:text-slate-300"
               >
                 <X size={12} className="shrink-0" />
                 <span className="min-w-0 flex-1 truncate">
@@ -3260,7 +3260,7 @@ export default function AxetCodeHome({
           onClick={() => setShortcutsOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-xl border border-base-700 bg-base-900 p-5 shadow-xl"
+            className="w-full max-w-md rounded-xl border border-line bg-card p-5 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="mb-3 text-sm font-semibold text-slate-200">

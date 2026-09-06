@@ -68,13 +68,14 @@ const ICON_SIZE: Record<BtnSize, string> = {
 // olanlarda 0.6 fazla diri kalıp "basılabilir" görünüyordu.
 const VARIANT: Record<BtnVariant, string> = {
   neutral:
-    "border border-base-700 bg-base-800 text-slate-200 hover:border-base-600 hover:bg-base-700 hover:text-white disabled:opacity-40",
+    "border border-line bg-control text-slate-200 hover:border-line-strong hover:bg-active hover:text-white disabled:opacity-40",
   primary:
     "bg-accent-500 text-accent-on hover:bg-accent-600 disabled:opacity-60",
+  // `text-on-solid`, `text-accent-on` DEĞİL: dolgu accent değil kırmızı.
   danger:
-    "bg-[var(--status-danger-solid)] text-accent-on hover:brightness-110 disabled:opacity-60",
+    "bg-[var(--status-danger-solid)] text-on-solid hover:brightness-110 disabled:opacity-60",
   ghost:
-    "text-slate-400 hover:bg-base-800 hover:text-slate-100 disabled:opacity-40",
+    "text-slate-400 hover:bg-hover hover:text-slate-100 disabled:opacity-40",
 };
 
 // Soluk-dolgu ailesi. Şablon her tonda AYNI: kenarlık %30, zemin %10, yazı
@@ -158,7 +159,7 @@ export const ICON_BUTTON = iconBtn("neutral", "sm");
 /** Kenarlıksız satır içi ikon düğmesi — liste satırlarındaki eylemler (24px). */
 export const GHOST_ICON_BUTTON =
   "inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-500 " +
-  "transition hover:bg-base-800 hover:text-white disabled:cursor-default disabled:opacity-40";
+  "transition hover:bg-hover hover:text-white disabled:cursor-default disabled:opacity-40";
 /** Araç panelindeki vurgu düğmesi (28px). */
 export const PRIMARY_BUTTON = btn("primary", "sm");
 

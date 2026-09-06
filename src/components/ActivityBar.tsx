@@ -88,7 +88,7 @@ export default function ActivityBar({
   ];
 
   return (
-    <div className="flex w-14 shrink-0 flex-col items-center justify-between border-r border-base-700 bg-base-950/70 py-2">
+    <div className="flex w-14 shrink-0 flex-col items-center justify-between border-r border-line bg-sidebar py-2">
       <div className="flex w-full flex-col items-center gap-1.5">
         {activities.map((item) => {
           const isActive = activity === item.id;
@@ -107,8 +107,8 @@ export default function ActivityBar({
               <span
                 className={`${boxBase} ${
                   isActive
-                    ? "bg-base-800 text-accent-400"
-                    : "opacity-70 group-hover:bg-base-800/60 group-hover:opacity-100"
+                    ? "bg-control text-accent-400"
+                    : "opacity-70 group-hover:bg-hover/60 group-hover:opacity-100"
                 }`}
                 // Seçiliyken renk sınıftan (`text-accent-400`) geliyor, bu
                 // yüzden satır içi renk yalnızca seçili DEĞİLKEN veriliyor.
@@ -139,11 +139,11 @@ export default function ActivityBar({
 
           Tek istisna FİŞ: bağlıyken opaklığı da tam, çünkü orada renk bir
           dekorasyon değil bir DURUM. */}
-      <div className="flex w-full flex-col items-center gap-1 border-t border-base-700 pt-2">
+      <div className="flex w-full flex-col items-center gap-1 border-t border-line pt-2">
         <button
           onClick={onToggleLanguage}
           title={t("activityBar.language")}
-          className="flex h-11 w-11 cursor-pointer flex-col items-center justify-center rounded-lg text-[var(--status-info-text)] opacity-75 transition hover:bg-base-800 hover:opacity-100"
+          className="flex h-11 w-11 cursor-pointer flex-col items-center justify-center rounded-lg text-[var(--status-info-text)] opacity-75 transition hover:bg-hover hover:opacity-100"
         >
           <Languages size={15} />
           <span className="text-[10px] font-semibold uppercase leading-tight tracking-wide">{language}</span>
@@ -155,7 +155,7 @@ export default function ActivityBar({
         <button
           onClick={onToggleTheme}
           title={t("activityBar.theme")}
-          className={`flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg opacity-75 transition hover:bg-base-800 hover:opacity-100 ${
+          className={`flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg opacity-75 transition hover:bg-hover hover:opacity-100 ${
             theme === "light" ? "text-[var(--module-code)]" : "text-[var(--action-amber-text)]"
           }`}
         >
@@ -172,13 +172,13 @@ export default function ActivityBar({
         <button
           onClick={onOpenConnections}
           title={t("activityBar.connections")}
-          className={`relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-[var(--status-success-text)] transition hover:bg-base-800 hover:opacity-100 ${
+          className={`relative flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-[var(--status-success-text)] transition hover:bg-hover hover:opacity-100 ${
             connectorsConnected ? "opacity-100" : "opacity-75"
           }`}
         >
           <Plug size={16} />
           {connectorsConnected && (
-            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border border-base-900 bg-[var(--status-success-text)]" />
+            <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full border border-line-subtle bg-[var(--status-success-text)]" />
           )}
         </button>
         {/* Ayarlar da renkli. Önceden bilerek renksizdi ("diğer her şey"
@@ -191,7 +191,7 @@ export default function ActivityBar({
         <button
           onClick={onOpenSettings}
           title={t("activityBar.settings")}
-          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-[var(--navy-icon)] opacity-75 transition hover:bg-base-800 hover:opacity-100"
+          className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-lg text-[var(--navy-icon)] opacity-75 transition hover:bg-hover hover:opacity-100"
         >
           <Settings size={16} />
         </button>

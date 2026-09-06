@@ -134,7 +134,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
         if (e.key === "Escape") handleClose();
       }}
     >
-      <form onSubmit={handleSubmit} className="w-[460px] rounded-xl border border-base-700 bg-base-900 p-6">
+      <form onSubmit={handleSubmit} className="w-[460px] rounded-xl border border-line bg-card p-6">
         <div className="mb-5 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">
             {isEditing ? t("addSystemModal.editTitle") : t("addSystemModal.addTitle")}
@@ -142,7 +142,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           <button
             type="button"
             onClick={handleClose}
-            className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-base-700"
+            className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-active"
           >
             <X size={18} />
           </button>
@@ -155,7 +155,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
             className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition ${
               type === "onprem"
                 ? "border-accent-500 bg-accent-500/15 text-white"
-                : "border-base-600 text-slate-400 hover:bg-base-700"
+                : "border-line-strong text-slate-400 hover:bg-active"
             }`}
           >
             <ServerCog size={16} />
@@ -167,7 +167,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
             className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition ${
               type === "cloud"
                 ? "border-accent-500 bg-accent-500/15 text-white"
-                : "border-base-600 text-slate-400 hover:bg-base-700"
+                : "border-line-strong text-slate-400 hover:bg-active"
             }`}
           >
             <Cloud size={16} />
@@ -185,7 +185,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           onChange={(e) => setName(e.target.value)}
           placeholder={t("addSystemModal.displayNamePlaceholder")}
           autoFocus
-          className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+          className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
         />
 
         <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.systemId")}</label>
@@ -194,7 +194,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           onChange={(e) => setSystemId(e.target.value.toUpperCase())}
           placeholder={t("addSystemModal.systemIdPlaceholder")}
           maxLength={8}
-          className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm uppercase text-slate-100 outline-none focus:border-accent-500"
+          className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm uppercase text-slate-100 outline-none focus:border-accent-500"
         />
 
         {type === "onprem" ? (
@@ -204,7 +204,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               value={host}
               onChange={(e) => setHost(e.target.value)}
               placeholder={t("addSystemModal.hostPlaceholder")}
-              className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+              className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.diagPort")}</label>
             <input
@@ -212,8 +212,8 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               onChange={(e) => setDiagPort(e.target.value)}
               placeholder={t("addSystemModal.diagPortPlaceholder")}
               inputMode="numeric"
-              className={`mb-1 w-full rounded-md border bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none ${
-                diagPortValid ? "border-base-600 focus:border-accent-500" : "border-[var(--status-danger-border)]"
+              className={`mb-1 w-full rounded-md border bg-control px-3 py-2 text-sm text-slate-100 outline-none ${
+                diagPortValid ? "border-line-strong focus:border-accent-500" : "border-[var(--status-danger-border)]"
               }`}
             />
             {!diagPortValid && (
@@ -228,7 +228,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               value={adtUrl}
               onChange={(e) => setAdtUrl(e.target.value)}
               placeholder={t("addSystemModal.adtUrlOnpremPlaceholder")}
-              className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+              className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.adtUrlOnpremHelper")}</p>
           </>
@@ -239,7 +239,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
               value={adtUrl}
               onChange={(e) => setAdtUrl(e.target.value)}
               placeholder={t("addSystemModal.adtUrlPlaceholder")}
-              className="mb-4 w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
+              className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
             <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.adtUrlHelper")}</p>
           </>

@@ -38,12 +38,12 @@ export default function AppConnectionsModal({ open, onClose, onOpenProjectTermin
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="animate-modal-pop-in flex max-h-[88vh] w-[640px] flex-col overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50">
+      <div className="animate-modal-pop-in flex max-h-[88vh] w-[640px] flex-col overflow-hidden rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50">
 
         <div className="relative shrink-0 px-6 pb-4 pt-5">
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-base-700 hover:text-slate-200"
+            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-active hover:text-slate-200"
           >
             <X size={16} />
           </button>
@@ -62,7 +62,7 @@ export default function AppConnectionsModal({ open, onClose, onOpenProjectTermin
           <AppConnectionsSection onOpenProjectTerminal={handleOpenProjectTerminal} />
         </div>
 
-        <div className="flex shrink-0 justify-end gap-2 border-t border-base-800 px-6 py-4">
+        <div className="flex shrink-0 justify-end gap-2 border-t border-line-subtle px-6 py-4">
           <button
             onClick={onClose}
             className="flex items-center gap-2 rounded-md bg-accent-500 px-4 py-2 text-sm font-medium text-accent-on transition hover:bg-accent-600"

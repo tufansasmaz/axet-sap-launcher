@@ -28,7 +28,7 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
 
   return (
     <div className="animate-backdrop-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm">
-      <div className="animate-modal-pop-in w-[420px] rounded-2xl border border-base-700/60 bg-base-900 p-6 shadow-2xl shadow-black/50">
+      <div className="animate-modal-pop-in w-[420px] rounded-2xl border border-line/60 bg-card p-6 shadow-2xl shadow-black/50">
         <div className="mb-3 flex items-center gap-2">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
             <Download size={16} className="text-accent-400" />
@@ -66,7 +66,7 @@ export default function UpdatePromptModal({ mode, status, onAccept, onDismiss }:
               <Download size={14} />
               {t("updatePrompt.downloading", { version: status.version ?? "", percent: status.percent ?? 0 })}
             </p>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-base-800">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-control">
               <div
                 className="h-full rounded-full bg-accent-500 transition-all"
                 style={{ width: `${status.percent ?? 0}%` }}

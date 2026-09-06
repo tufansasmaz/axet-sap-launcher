@@ -60,7 +60,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="flex max-h-[80vh] w-[560px] flex-col rounded-xl border border-base-700 bg-base-900 p-6">
+      <div className="flex max-h-[80vh] w-[560px] flex-col rounded-xl border border-line bg-card p-6">
         <div className="mb-4 flex items-center gap-2">
           <FolderOpen size={18} className="text-accent-400" />
           <h3 className="text-base font-semibold text-white">{t("chatProject.title")}</h3>
@@ -83,7 +83,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
             }
           }}
           placeholder={t("chatProject.namePlaceholder")}
-          className="mb-4 rounded-md border border-base-700 bg-base-950 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
+          className="mb-4 rounded-md border border-line bg-app px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
         />
 
         <label className="mb-1 text-[12px] font-medium text-slate-300">
@@ -97,7 +97,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
           maxLength={8000}
           spellCheck={false}
           placeholder={t("chatProject.instructionsPlaceholder")}
-          className="chat-scroll min-h-[180px] flex-1 resize-none rounded-md border border-base-700 bg-base-950 p-3 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
+          className="chat-scroll min-h-[180px] flex-1 resize-none rounded-md border border-line bg-app p-3 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
         />
         {/* İki yönerge mekanizmasının karıştırılması en olası yanlış anlama:
             kullanıcı buraya "her cevabı Türkçe yaz" yazıp terminalde neden
@@ -118,7 +118,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
               </button>
               <button
                 onClick={() => setConfirmingDelete(false)}
-                className="shrink-0 cursor-pointer rounded-md px-3 py-2 text-[12px] text-slate-300 hover:bg-base-700"
+                className="shrink-0 cursor-pointer rounded-md px-3 py-2 text-[12px] text-slate-300 hover:bg-active"
               >
                 {t("common.cancel")}
               </button>

@@ -139,8 +139,8 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
   const noSession = connIdx === null || sessIdx === null;
 
   return (
-    <div className="flex h-80 shrink-0 flex-col overflow-hidden border-b border-base-700 bg-base-900">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-base-800 px-3 py-2">
+    <div className="flex h-80 shrink-0 flex-col overflow-hidden border-b border-line bg-card">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-subtle px-3 py-2">
         <div className="flex items-center gap-2">
           <Bot size={14} className="text-accent-400" />
           <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{t("sapGuiScripting.agentPanel")}</span>
@@ -186,7 +186,7 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
             </div>
             <div ref={logEndRef} />
           </div>
-          <div className="flex shrink-0 items-end gap-1.5 border-t border-base-800 p-2">
+          <div className="flex shrink-0 items-end gap-1.5 border-t border-line-subtle p-2">
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -199,7 +199,7 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
               disabled={busy}
               rows={1}
               placeholder={t("sapGuiScripting.agentPlaceholder")}
-              className="flex-1 resize-none rounded-md border border-base-700 bg-base-800 px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:border-accent-500 disabled:opacity-60"
+              className="flex-1 resize-none rounded-md border border-line bg-control px-2.5 py-1.5 text-xs text-slate-100 outline-none focus:border-accent-500 disabled:opacity-60"
             />
             {busy ? (
               <button

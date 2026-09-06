@@ -199,7 +199,7 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
         </div>
       )}
       {canEdit && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-base-800 px-3 py-1.5">
+        <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle px-3 py-1.5">
           {isEditing ? (
             <>
               <button
@@ -243,7 +243,7 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
               handleSave();
             }
           }}
-          className="min-h-0 flex-1 resize-none bg-base-950 p-4 font-mono text-xs text-slate-200 outline-none"
+          className="min-h-0 flex-1 resize-none bg-app p-4 font-mono text-xs text-slate-200 outline-none"
         />
       ) : (
         <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-xs text-slate-200">

@@ -34,7 +34,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
 
   return (
     <div
-      className="flex h-9 shrink-0 items-center justify-between border-b border-base-700 bg-base-900 pl-3"
+      className="flex h-9 shrink-0 items-center justify-between border-b border-line bg-sidebar pl-3"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
       <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
@@ -53,7 +53,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           yazan boş bir rozet, olmayan bir durumu varmış gibi gösterirdi. */}
       {context.sap && (
         <div
-          className="flex min-w-0 items-center gap-1.5 rounded-sm border border-base-700 bg-base-800 px-2 py-0.5"
+          className="flex min-w-0 items-center gap-1.5 rounded-sm border border-line bg-control px-2 py-0.5"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
           <span
@@ -76,7 +76,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
               FARKLI şeyler ve aynı anda ikisi de doğru olabilir. */}
           {context.gui && (
             <span
-              className="flex shrink-0 items-center gap-1 border-l border-base-700 pl-1.5 text-xs text-slate-400"
+              className="flex shrink-0 items-center gap-1 border-l border-line pl-1.5 text-xs text-slate-400"
               title={t("activeContext.guiSession", {
                 system: context.gui.systemName ?? "?",
                 title: context.gui.title ?? ""
@@ -89,7 +89,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           <button
             onClick={onClearSap}
             title={t("activeContext.clear")}
-            className="ml-0.5 shrink-0 cursor-pointer rounded-sm p-0.5 text-slate-500 hover:bg-base-700 hover:text-slate-200"
+            className="ml-0.5 shrink-0 cursor-pointer rounded-sm p-0.5 text-slate-500 hover:bg-active hover:text-slate-200"
           >
             <Unplug size={12} />
           </button>
@@ -100,14 +100,14 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
         <button
           onClick={handleMinimize}
           title={t("titleBar.minimize")}
-          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-base-700 hover:text-white"
+          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-active hover:text-white"
         >
           <Minus size={14} />
         </button>
         <button
           onClick={handleToggleMaximize}
           title={isMaximized ? t("titleBar.restore") : t("titleBar.maximize")}
-          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-base-700 hover:text-white"
+          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-active hover:text-white"
         >
           {isMaximized ? <Copy size={12} /> : <Square size={12} />}
         </button>
@@ -117,9 +117,11 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           // Hover'da dolu tehlike zemini geliyor (`--status-danger-solid`,
           // sabit `rose-600` değil — bkz. index.css). `hover:text-white` açık
           // temada koyu griye düşüp ~2.9:1 kontrast veriyordu (kapat butonu
-          // görünmez hâle geliyordu). `text-accent-on` tema-bağımsız gerçek
-          // beyaz.
-          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-[var(--status-danger-solid)] hover:text-accent-on"
+          // görünmez hâle geliyordu). `text-on-solid` tema-bağımsız gerçek
+          // beyaz — burada bir süre `text-accent-on` duruyordu, o da beyaz
+          // olduğu için çalışıyordu ama accent değil KIRMIZI bir dolgunun
+          // üstü burası; accent-on yakın-siyaha dönünce 2.4:1'e düştü.
+          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-[var(--status-danger-solid)] hover:text-on-solid"
         >
           <X size={15} />
         </button>

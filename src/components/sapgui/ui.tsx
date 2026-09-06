@@ -44,7 +44,7 @@ export function PanelHeader({
   right?: ReactNode;
 }) {
   return (
-    <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-base-800 px-2.5">
+    <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-line-subtle px-2.5">
       {icon}
       <span className={PANEL_TITLE}>{title}</span>
       {children}
@@ -58,14 +58,14 @@ export function PanelHeader({
 export function CountBadge({ value }: { value: number }) {
   if (!value) return null;
   return (
-    <span className="rounded-full bg-base-800 px-1.5 text-[10px] font-semibold text-slate-400">{value}</span>
+    <span className="rounded-full bg-control px-1.5 text-[10px] font-semibold text-slate-400">{value}</span>
   );
 }
 
 export function Pill({ children, mono = true }: { children: ReactNode; mono?: boolean }) {
   return (
     <span
-      className={`shrink-0 rounded-full bg-base-800 px-2 py-0.5 text-[10px] text-slate-400 ${mono ? "font-mono" : ""}`}
+      className={`shrink-0 rounded-full bg-control px-2 py-0.5 text-[10px] text-slate-400 ${mono ? "font-mono" : ""}`}
     >
       {children}
     </span>

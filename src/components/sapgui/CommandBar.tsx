@@ -50,9 +50,9 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
   };
 
   return (
-    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-base-700 bg-base-900 px-3">
-      <div className="flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-base-700 bg-base-800 focus-within:border-accent-500">
-        <span className="flex select-none items-center self-stretch border-r border-base-700 px-2 font-mono text-xs text-slate-500">/n</span>
+    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-line bg-card px-3">
+      <div className="flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-line bg-control focus-within:border-accent-500">
+        <span className="flex select-none items-center self-stretch border-r border-line px-2 font-mono text-xs text-slate-500">/n</span>
         <input
           value={tcode}
           onChange={(e) => setTcode(e.target.value.toUpperCase())}
@@ -66,7 +66,7 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
           onClick={submit}
           disabled={busy || !tcode.trim()}
           title={t("sapGuiScripting.tcodeGo")}
-          className="flex h-full cursor-pointer items-center border-l border-base-700 px-2.5 text-slate-400 hover:bg-base-700 hover:text-white disabled:cursor-default disabled:opacity-40"
+          className="flex h-full cursor-pointer items-center border-l border-line px-2.5 text-slate-400 hover:bg-active hover:text-white disabled:cursor-default disabled:opacity-40"
         >
           <CornerDownLeft size={14} />
         </button>
@@ -76,7 +76,7 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
           dizilmiş sekiz düğmeydi ve soldaki tcode kutusuyla, sağdaki vkey
           seçicisiyle aynı ağırlıkta görünüyorlardı — üç ayrı iş, tek bir
           düğme kalabalığı gibi okunuyordu. */}
-      <div className="flex h-8 min-w-0 shrink items-center gap-0.5 overflow-x-auto rounded-md border border-base-700 bg-base-800/40 px-1">
+      <div className="flex h-8 min-w-0 shrink items-center gap-0.5 overflow-x-auto rounded-md border border-line bg-control/40 px-1">
         {QUICK_VKEYS.map((vkey) => {
           const live = keyState.get(vkey);
           const known = live !== undefined;
@@ -94,7 +94,7 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
               className={`flex h-6 shrink-0 items-center rounded px-2 text-xs font-medium ${
                 off
                   ? "cursor-not-allowed text-slate-600 line-through"
-                  : "cursor-pointer text-slate-200 hover:bg-base-700 disabled:cursor-default disabled:opacity-40"
+                  : "cursor-pointer text-slate-200 hover:bg-active disabled:cursor-default disabled:opacity-40"
               }`}
             >
               {vkeyShort(vkey, t)}
@@ -105,23 +105,23 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
 
       {dock && (
         <>
-          <div className="mx-1 h-6 w-px shrink-0 bg-base-700" />
+          <div className="mx-1 h-6 w-px shrink-0 bg-active" />
           <div className="flex min-w-0 shrink items-center gap-1 overflow-x-auto">{dock}</div>
         </>
       )}
 
       {/* Nadir yol: listede olmayan bir vkey'i elle göndermek. Bu yüzden
           sağa, ikincil ağırlıkta duruyor. */}
-      <div className="ml-auto flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-base-700 bg-base-800 focus-within:border-accent-500">
+      <div className="ml-auto flex h-8 shrink-0 items-center overflow-hidden rounded-md border border-line bg-control focus-within:border-accent-500">
         <Keyboard size={13} className="ml-2 shrink-0 text-slate-500" />
         {/* Açılır listenin RENGİ: `<option>` gövdesi Chromium'da yerli bir
             pencerede çiziliyor ve CSS ile boyanmıyor. Temayı takip etmesi
-            `index.css`'teki `color-scheme` sayesinde; buradaki `bg-base-800`
+            `index.css`'teki `color-scheme` sayesinde; buradaki `bg-control`
             yalnızca kapalı hâldeki kutuyu ilgilendiriyor. */}
         <select
           value={customVKey}
           onChange={(e) => setCustomVKey(e.target.value)}
-          className="h-full max-w-[190px] cursor-pointer bg-base-800 px-1.5 text-xs text-slate-200 outline-none"
+          className="h-full max-w-[190px] cursor-pointer bg-control px-1.5 text-xs text-slate-200 outline-none"
         >
           {ALL_VKEYS.map((def) => {
             const meaning = vkeyMeaning(def.vkey, t);
@@ -136,7 +136,7 @@ export default function CommandBar({ busy, toolbarKeys, onNavigate, onVKey, dock
         <button
           onClick={() => onVKey(Number(customVKey) || 0)}
           disabled={busy}
-          className="h-full cursor-pointer border-l border-base-700 px-2.5 text-xs font-medium text-slate-300 hover:bg-base-700 hover:text-white disabled:cursor-default disabled:opacity-40"
+          className="h-full cursor-pointer border-l border-line px-2.5 text-xs font-medium text-slate-300 hover:bg-active hover:text-white disabled:cursor-default disabled:opacity-40"
         >
           {t("sapGuiScripting.send")}
         </button>

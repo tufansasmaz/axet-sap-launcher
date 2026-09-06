@@ -46,8 +46,8 @@ export default function ChatFilesPanel({ rootDir, rootLabel, onClose, active }: 
   }, [rootDir]);
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden border-l border-base-800 bg-base-900">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-base-800 px-3 py-2">
+    <div className="flex h-full w-full flex-col overflow-hidden border-l border-line-subtle bg-card">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-line-subtle px-3 py-2">
         <div className="flex min-w-0 items-center gap-1.5">
           <FolderOpen size={13} className="shrink-0 text-[var(--folder-icon)]" />
           <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400">
@@ -57,7 +57,7 @@ export default function ChatFilesPanel({ rootDir, rootLabel, onClose, active }: 
         <button
           onClick={onClose}
           title={t("chatFiles.hide")}
-          className="cursor-pointer rounded p-1 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
+          className="cursor-pointer rounded p-1 text-slate-500 transition hover:bg-hover hover:text-slate-200"
         >
           <PanelRightClose size={13} />
         </button>
@@ -79,15 +79,15 @@ export default function ChatFilesPanel({ rootDir, rootLabel, onClose, active }: 
       </div>
 
       {openFile && (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-base-800">
-          <div className="flex shrink-0 items-center justify-between gap-2 bg-base-950 px-3 py-1.5">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-line-subtle">
+          <div className="flex shrink-0 items-center justify-between gap-2 bg-app px-3 py-1.5">
             <span className="truncate font-mono text-[11px] text-slate-300" title={openFile.path}>
               {openFile.name}
             </span>
             <button
               onClick={() => setOpenFile(null)}
               title={t("chatFiles.closeFile")}
-              className="cursor-pointer rounded p-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-200"
+              className="cursor-pointer rounded p-0.5 text-slate-500 transition hover:bg-hover hover:text-slate-200"
             >
               <X size={12} />
             </button>

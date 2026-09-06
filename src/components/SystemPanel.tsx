@@ -63,7 +63,7 @@ function avatarLabel(service: SapService) {
 
 function StatTile({ icon: Icon, label, value, mono }: { icon: LucideIcon; label: string; value: ReactNode; mono?: boolean }) {
   return (
-    <div className="rounded-md border border-base-700/60 bg-base-950/30 p-3 transition-colors hover:border-base-600">
+    <div className="rounded-md border border-line/60 bg-app/30 p-3 transition-colors hover:border-line-strong">
       <div className="mb-1.5 flex items-center gap-1.5 text-slate-500">
         <Icon size={12} />
         <span className="text-[10px] font-medium uppercase tracking-wide">{label}</span>
@@ -91,8 +91,8 @@ function InfoRow({
   copyTitle?: string;
 }) {
   return (
-    <div className="group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-base-800/40">
-      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-base-800 text-slate-500 transition-colors group-hover:bg-accent-500/15 group-hover:text-[var(--accent-soft-text)]">
+    <div className="group flex items-start gap-3 px-4 py-3 transition-colors hover:bg-hover/40">
+      <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-control text-slate-500 transition-colors group-hover:bg-accent-500/15 group-hover:text-[var(--accent-soft-text)]">
         <Icon size={13} />
       </span>
       <div className="min-w-0 flex-1 pt-0.5">
@@ -272,7 +272,7 @@ export default function SystemPanel({
   if (!selection) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-slate-500">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-base-700 bg-base-900/60">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-line bg-card/60">
           <Cable size={28} className="opacity-50" />
         </div>
         <p className="text-sm">{t("systemPanel.emptyState")}</p>
@@ -288,7 +288,7 @@ export default function SystemPanel({
 
   const avatarClass = tier
     ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border text-lg font-bold"
-    : "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-base-600 bg-base-800 text-lg font-bold text-[var(--accent-soft-text)]";
+    : "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-line-strong bg-control text-lg font-bold text-[var(--accent-soft-text)]";
   const avatarStyle = tier
     ? { borderColor: TIER_ACCENT[tier].border, backgroundColor: TIER_ACCENT[tier].bg, color: TIER_ACCENT[tier].text }
     : undefined;
@@ -347,7 +347,7 @@ export default function SystemPanel({
               <button
                 onClick={() => onEditManual(service)}
                 title={t("systemPanel.editTitle")}
-                className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-slate-400 hover:bg-base-700"
+                className="flex cursor-pointer items-center gap-1 rounded-sm px-2 py-1 text-xs text-slate-400 hover:bg-active"
               >
                 <Pencil size={12} />
                 {t("common.edit")}
@@ -367,7 +367,7 @@ export default function SystemPanel({
         {/* Hero: kimlik + durum + önem derecesi — işlem butonları artık ayrı,
             tam genişlikte bir "hızlı işlemler" şeridinde (aşağıda), hero'nun
             sağına sıkıştırılmış dar bir buton sütunu olarak DEĞİL. */}
-        <div className="relative mb-4 overflow-hidden rounded-xl border border-base-700 bg-base-900/50">
+        <div className="relative mb-4 overflow-hidden rounded-xl border border-line bg-card/50">
           <div className="absolute inset-x-0 top-0 h-[3px]" style={{ backgroundColor: accentBarColor, opacity: 0.6 }} />
           <div className="p-5 xl:p-6">
             <div className="flex min-w-0 items-start gap-4">
@@ -381,7 +381,7 @@ export default function SystemPanel({
                 </div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-slate-500">
                   {service.systemId && (
-                    <span className="rounded-md bg-base-800 px-1.5 py-0.5 font-mono text-xs text-slate-300">
+                    <span className="rounded-md bg-control px-1.5 py-0.5 font-mono text-xs text-slate-300">
                       {service.systemId}
                     </span>
                   )}
@@ -392,7 +392,7 @@ export default function SystemPanel({
                   <button
                     onClick={() => onCheck(service)}
                     title={t("systemPanel.recheck")}
-                    className="flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 text-[11px] text-slate-500 transition-colors hover:bg-base-700 hover:text-slate-300"
+                    className="flex cursor-pointer items-center gap-1 rounded-full px-2 py-1 text-[11px] text-slate-500 transition-colors hover:bg-active hover:text-slate-300"
                   >
                     <RefreshCw size={11} className={state === "checking" ? "animate-spin" : ""} />
                     {t("systemPanel.recheck")}
@@ -407,9 +407,9 @@ export default function SystemPanel({
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-base-700/70 pt-3.5">
+            <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line/70 pt-3.5">
               <span className="text-[11px] uppercase tracking-wide text-slate-500">{t("systemPanel.tierLabel")}</span>
-              <div className="flex items-center gap-0.5 rounded-md border border-base-700 bg-base-950/40 p-0.5">
+              <div className="flex items-center gap-0.5 rounded-md border border-line bg-app/40 p-0.5">
                 {TIER_OPTIONS.map((option) => {
                   const active = explicitTier === option;
                   return (
@@ -500,7 +500,7 @@ export default function SystemPanel({
             uzun değer satırları), sağ: notlar. Geniş ekranda yan yana, dar
             ekranda (tarayıcı penceresi/sidebar açıkken) alt alta akar. */}
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40">
+          <div className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-card/40">
             <div
               className="absolute inset-x-0 top-0 h-[3px]"
               style={{ backgroundColor: "rgb(var(--accent-500-rgb))", opacity: 0.5 }}
@@ -517,7 +517,7 @@ export default function SystemPanel({
               <StatTile icon={Database} label={t("systemPanel.systemId")} value={service.systemId || "—"} mono />
               <StatTile icon={Network} label={t("systemPanel.connectionType")} value={service.type} />
             </div>
-            <div className="mt-2 flex-1 divide-y divide-base-700/50 pb-2">
+            <div className="mt-2 flex-1 divide-y divide-line/50 pb-2">
               <InfoRow
                 icon={Globe}
                 label={t("systemPanel.addressLabel")}
@@ -558,7 +558,7 @@ export default function SystemPanel({
             </div>
           </div>
 
-          <div className="relative flex flex-col overflow-hidden rounded-lg border border-base-700 bg-base-900/40">
+          <div className="relative flex flex-col overflow-hidden rounded-lg border border-line bg-card/40">
             {/* Kart üstündeki ince şerit ve ikon rozeti artık `--action-amber-*`
                 jetonundan; önceden `#c9973f`/`#d9a566` olarak gömülüydü ve tema
                 değişince olduğu yerde kalıyordu. */}
@@ -578,7 +578,7 @@ export default function SystemPanel({
                   </span>
                 )}
                 {commentSource === "sapLogon" && !isDirty && (
-                  <span className="rounded-full border border-base-600 bg-base-800 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+                  <span className="rounded-full border border-line-strong bg-control px-2 py-0.5 text-[10px] font-medium text-slate-400">
                     {t("systemPanel.commentFromSapLogon")}
                   </span>
                 )}
@@ -601,17 +601,17 @@ export default function SystemPanel({
                 style={{ boxShadow: "none" }}
               />
             </div>
-            <div className="flex items-center justify-between gap-2 border-t border-base-700/60 bg-base-950/20 px-4 py-2.5">
+            <div className="flex items-center justify-between gap-2 border-t border-line/60 bg-app/20 px-4 py-2.5">
               <span className="flex items-center gap-1.5 text-[11px] text-slate-500">
                 {comment.length > 0 ? (
                   t("systemPanel.commentChars", { count: comment.length })
                 ) : (
                   <>
-                    <kbd className="rounded border border-base-600 bg-base-800 px-1 py-0.5 text-[10px] font-medium text-slate-400">
+                    <kbd className="rounded border border-line-strong bg-control px-1 py-0.5 text-[10px] font-medium text-slate-400">
                       Ctrl
                     </kbd>
                     <span>+</span>
-                    <kbd className="rounded border border-base-600 bg-base-800 px-1 py-0.5 text-[10px] font-medium text-slate-400">
+                    <kbd className="rounded border border-line-strong bg-control px-1 py-0.5 text-[10px] font-medium text-slate-400">
                       Enter
                     </kbd>
                     <span className="ml-0.5">{t("systemPanel.commentHint")}</span>
@@ -632,7 +632,7 @@ export default function SystemPanel({
                   className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition disabled:cursor-default ${
                     isDirty && !commentSaving
                       ? "border-accent-500/40 bg-accent-500/15 text-[var(--accent-soft-text)] hover:border-accent-500/60 hover:bg-accent-500/25"
-                      : "border-base-600 text-slate-400 disabled:opacity-50"
+                      : "border-line-strong text-slate-400 disabled:opacity-50"
                   }`}
                 >
                   {commentSaving ? (

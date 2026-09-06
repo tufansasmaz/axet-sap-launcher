@@ -636,7 +636,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
       <div key={summary.id || key}>
         <div
           className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left ${
-            isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-base-700/60"
+            isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
           }`}
           style={{ paddingLeft }}
           onClick={() => handleSelectElement(summary.id)}
@@ -704,7 +704,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     `flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium ${
       active
         ? "bg-accent-500/10 text-accent-300 ring-1 ring-inset ring-accent-500/30"
-        : "text-slate-400 hover:bg-base-800 hover:text-slate-200"
+        : "text-slate-400 hover:bg-hover hover:text-slate-200"
     }`;
 
   return (
@@ -715,7 +715,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
           buradan alınıp komut çubuğunun boş orta bölgesine taşındı: altı düğmenin
           aynı tonda yan yana dizildiği eski hâlde hangisinin ne yaptığı da,
           hangisinin daha önemli olduğu da okunmuyordu. */}
-      <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-base-700 bg-base-900 px-3">
+      <div className="flex h-12 shrink-0 items-center gap-2.5 border-b border-line bg-sidebar px-3">
         <MousePointerClick size={15} className="shrink-0 text-accent-400" />
         <div className="min-w-0">
           <h1 className="truncate text-[13px] font-semibold leading-tight text-slate-100">{t("sapGuiScripting.title")}</h1>
@@ -725,7 +725,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
         </div>
 
         <span
-          className="ml-1 flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-base-700 bg-base-800 px-2.5 text-[10px] font-medium text-slate-400"
+          className="ml-1 flex h-6 shrink-0 items-center gap-1.5 rounded-full border border-line bg-control px-2.5 text-[10px] font-medium text-slate-400"
           title={t("sapGuiScripting.bridgeRunning", { port: status.port ?? "" })}
         >
           <span
@@ -750,7 +750,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
             oynatana kadar hiçbir yerde görünmüyordu. */}
         {activeSap && (
           <span
-            className="ml-1 flex h-6 min-w-0 shrink items-center gap-1.5 rounded-full border border-base-700 bg-base-800 px-2.5 text-[10px] font-medium text-slate-400"
+            className="ml-1 flex h-6 min-w-0 shrink items-center gap-1.5 rounded-full border border-line bg-control px-2.5 text-[10px] font-medium text-slate-400"
             title={t("activeContext.launcherSystem", { system: activeSap.systemId, client: activeSap.client })}
           >
             <Plug size={11} className="shrink-0" />
@@ -802,7 +802,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
             {t("sapGuiScripting.guideOpen")}
           </button>
 
-          <div className="mx-0.5 h-5 w-px bg-base-700" />
+          <div className="mx-0.5 h-5 w-px bg-active" />
 
           {status.running ? (
             <button onClick={handleStop} className={TOOL_BUTTON}>
@@ -819,14 +819,14 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
       </div>
 
       {startError && (
-        <div className="shrink-0 border-b border-base-700 bg-[rgba(244,113,138,0.08)] px-4 py-2 text-xs text-[var(--status-danger-text)]">
+        <div className="shrink-0 border-b border-line bg-[rgba(244,113,138,0.08)] px-4 py-2 text-xs text-[var(--status-danger-text)]">
           {startError}
         </div>
       )}
 
       {!status.running ? (
         <div className="flex flex-1 items-center justify-center overflow-y-auto p-8">
-          <div className="max-w-md rounded-lg border border-base-700 bg-base-900 p-5 text-center">
+          <div className="max-w-md rounded-lg border border-line bg-card p-5 text-center">
             <MousePointerClick size={22} className="mx-auto text-slate-600" />
             <h2 className="mt-3 text-sm font-semibold text-slate-100">{t("sapGuiScripting.requirementsTitle")}</h2>
             <p className="mt-2 text-xs leading-relaxed text-slate-400">{t("sapGuiScripting.requirementsBody")}</p>
@@ -887,7 +887,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
                     className={`flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border px-2 text-xs font-medium ${
                       recording
                         ? "border-[rgba(244,113,138,0.4)] bg-[rgba(244,113,138,0.14)] text-[var(--status-danger-text)]"
-                        : "border-base-700 bg-base-800 text-slate-200 hover:bg-base-700"
+                        : "border-line bg-control text-slate-200 hover:bg-active"
                     }`}
                   >
                     {recording ? <Square size={11} /> : <Circle size={11} className="fill-current" />}
@@ -908,15 +908,15 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
           />
 
           {bottomPanel === "script" && (
-            <div className="flex h-60 shrink-0 flex-col overflow-hidden border-b border-base-700 bg-base-900">
+            <div className="flex h-60 shrink-0 flex-col overflow-hidden border-b border-line bg-card">
               {/* Panel başlığı sekmeyle tekrar etmiyor: burada yalnızca script'in
                   KENDİ eylemleri var (ad, oynat, kaydet, aç, temizle). */}
-              <div className="flex h-9 shrink-0 items-center gap-2 border-b border-base-800 px-2.5">
+              <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line-subtle px-2.5">
                 <input
                   value={scriptName}
                   onChange={(e) => setScriptName(e.target.value)}
                   placeholder={t("sapGuiScripting.scriptNamePlaceholder")}
-                  className="h-7 w-52 rounded-md border border-base-700 bg-base-800 px-2 text-xs text-slate-100 outline-none focus:border-accent-500"
+                  className="h-7 w-52 rounded-md border border-line bg-control px-2 text-xs text-slate-100 outline-none focus:border-accent-500"
                 />
                 <div className="ml-auto flex items-center gap-1.5">
                   <button
@@ -958,7 +958,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
                         <div
                           key={i}
                           className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-xs ${
-                            isCurrent ? "bg-accent-500/15 ring-1 ring-inset ring-accent-500/50" : "bg-base-850"
+                            isCurrent ? "bg-accent-500/15 ring-1 ring-inset ring-accent-500/50" : "bg-raised"
                           }`}
                         >
                           <span className="w-5 shrink-0 text-center text-[10px] text-slate-500">{i + 1}</span>
@@ -1024,7 +1024,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
             {/* Sol: oturumlar (üst) + eleman ağacı (alt) */}
-            <div className="flex w-[264px] shrink-0 flex-col overflow-hidden border-r border-base-700 bg-base-900/60">
+            <div className="flex w-[264px] shrink-0 flex-col overflow-hidden border-r border-line bg-sidebar">
               <div className="flex max-h-[45%] min-h-0 flex-col overflow-hidden">
                 <PanelHeader
                   icon={<Network size={12} className="text-slate-500" />}
@@ -1045,7 +1045,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
                         <div key={conn.index}>
                           <button
                             onClick={() => toggleConn(conn.index)}
-                            className="flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-medium text-slate-300 hover:bg-base-800"
+                            className="flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-medium text-slate-300 hover:bg-hover"
                           >
                             {isExpanded ? (
                               <ChevronDown size={12} className="shrink-0 text-slate-500" />
@@ -1071,7 +1071,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
                                       className={`flex w-full cursor-pointer flex-col gap-0.5 border-l-2 py-1.5 pl-5 pr-2.5 text-left ${
                                         isActive
                                           ? "border-accent-500 bg-accent-500/10 text-white"
-                                          : "border-transparent text-slate-300 hover:bg-base-800"
+                                          : "border-transparent text-slate-300 hover:bg-hover"
                                       }`}
                                     >
                                       <span className="truncate text-[11px] font-medium">
@@ -1091,7 +1091,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
                 </div>
               </div>
 
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-base-700">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-line">
                 <PanelHeader icon={<ListTree size={12} className="text-slate-500" />} title={t("sapGuiScripting.treeTitle")} />
                 <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1">
                   {!activeSession && <EmptyState icon={<ListTree size={20} />} text={t("sapGuiScripting.selectSession")} />}
@@ -1131,7 +1131,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
                 boş duruyordu; o genişlik asıl işi gören canlı ekrandan
                 çalınıyordu. Katlanınca dikey etiketli ince bir şeride iniyor. */}
             {inspectorOpen ? (
-              <div className="flex w-[340px] shrink-0 flex-col overflow-hidden border-l border-base-700 bg-base-900/60">
+              <div className="flex w-[340px] shrink-0 flex-col overflow-hidden border-l border-line bg-sidebar">
                 <PanelHeader
                   icon={<Info size={12} className="text-slate-500" />}
                   title={t("sapGuiScripting.detailTitle")}
@@ -1165,7 +1165,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
               <button
                 onClick={() => setInspectorOpen(true)}
                 title={t("sapGuiScripting.expandPanel")}
-                className="flex w-8 shrink-0 cursor-pointer flex-col items-center gap-2 border-l border-base-700 bg-base-900/60 pt-2 text-slate-500 hover:bg-base-800 hover:text-white"
+                className="flex w-8 shrink-0 cursor-pointer flex-col items-center gap-2 border-l border-line bg-sidebar pt-2 text-slate-500 hover:bg-hover hover:text-white"
               >
                 <PanelRightOpen size={13} />
                 <span className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] [writing-mode:vertical-rl]">
@@ -1176,7 +1176,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
           </div>
 
           {actionError && (
-            <div className="shrink-0 border-t border-base-700 bg-[rgba(244,113,138,0.08)] px-3 py-1.5 text-xs text-[var(--status-danger-text)]">
+            <div className="shrink-0 border-t border-line bg-[rgba(244,113,138,0.08)] px-3 py-1.5 text-xs text-[var(--status-danger-text)]">
               {actionError}
             </div>
           )}

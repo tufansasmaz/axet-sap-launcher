@@ -96,7 +96,7 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="flex max-h-[80vh] w-[620px] flex-col rounded-xl border border-base-700 bg-base-900 p-6">
+      <div className="flex max-h-[80vh] w-[620px] flex-col rounded-xl border border-line bg-card p-6">
         <div className="mb-1 flex items-center gap-2">
           <BookOpen size={18} className="text-accent-400" />
           <h3 className="text-base font-semibold text-white">{t("chatInstructions.title")}</h3>
@@ -117,7 +117,7 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
             autoFocus
             spellCheck={false}
             placeholder={t("chatInstructions.placeholder")}
-            className="chat-scroll min-h-[220px] flex-1 resize-none rounded-md border border-base-700 bg-base-950 p-3 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
+            className="chat-scroll min-h-[220px] flex-1 resize-none rounded-md border border-line bg-app p-3 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
           />
         )}
 

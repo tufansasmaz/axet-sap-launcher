@@ -9082,3 +9082,123 @@ yazılmıyordu. Artık ikisinde de var.
 
 Bu bir cila maddesi değil: yarım bir cevabın tam sanılması yanlış bilgidir, ve
 dosya ekrandan uzun yaşıyor.
+
+## Renk jetonları göreve göre bölündü: "Premium AI Engineering Workspace" (2026-09-06)
+
+Kullanıcının şikâyeti "her şey aynı gri" idi. İlk akla gelen teşhis rampanın
+basamaklarının çok yakın olmasıydı — ölçüldüğünde yanlış çıktı: basamaklar
+zaten 6-7 birim aralıklıydı, yani kullanıcının önerdiği rampayla aynı
+mesafede. Gerçek sebep başkaydı ve **hiçbir renk değişikliğiyle
+çözülemezdi**:
+
+> `base-800` aynı anda ikon kabının zemini, girdi zemini, hover hâli ve ince
+> kenarlıktı.
+
+İkon kabı ile kartın kenarlığı TANIM GEREĞİ aynı renkti, çünkü aynı jetondu.
+Kullanıcının kendi ifadesiyle: *"sadece renk değiştirmek değil, renklerin
+görevlerini ayırmak."*
+
+### `base-*` ölçeği Tailwind'den kaldırıldı
+
+Tek merdivenin yerini **role göre adlandırılmış** yüzeyler ve onlardan
+tamamen ayrı bir kenarlık ad alanı aldı:
+
+| Yüzey | Görev |
+|---|---|
+| `app` | pencere/sohbet zemini (en dip) |
+| `sidebar` | sol raylar, panel kolonu, sekme şeridi, başlık çubuğu |
+| `card` | kart, composer, açılır kutu |
+| `raised` | yükseltilmiş / odaklanmış yüzey |
+| `control` | girdi, ikon kabı, çip, seçili satır — **dinlenme** hâli |
+| `hover` | fare üstündeyken — **etkileşim** hâli |
+| `active` | basılı / güçlü hover / nötr düğme dolgusu |
+
+Kenarlıklar: `line-subtle` (neredeyse görünmez ayrım) · `line` (saç teli,
+ezici çoğunluk) · `line-strong` (vurgulu/hover). Alt ad alanı oldukları için
+`ring-line` ve `divide-line` bedavaya geliyor.
+
+`bg-base-800` artık **yazılamaz** — Tailwind o adı tanımıyor. Birleşik jeton
+geri getirilemesin diye kasıtlı. 40 dosya tek bir sıralı `sed` ile taşındı
+(varyant önekli desenler önce, yoksa düz desenler onları yiyor).
+
+**`hover:bg-hover` tekrar gibi okunuyor ama kasıtlı**: sınıf "hangi durumda"
+ve "hangi yüzey" sorularını ayrı ayrı cevaplıyor.
+
+### SIRALAMA KURALI — bozulmamalı
+
+`hover` ve `control`, `border-subtle`'dan **daha koyu** kalır; `active`
+(#2a2f3b), `border-line`'dan (#333a48) daha koyu kalır. Aksi hâlde fare
+üstündeyken kartın dolgusu kendi saç telini yutuyor. Açık temada aynı kural
+ters yönde işler.
+
+### Rampa `--base-*-rgb` olarak yaşamaya devam ediyor
+
+`src/flows/flows.css` bu değişkenleri `:root`'ta kendi adlarına bağlayıp 157
+yerde kullanıyor — ayrı bir ekran, ayrı bir tasarım dili. `index.css`'te altı
+takma ad (`--base-950-rgb: var(--surface-app-rgb)` …) duruyor, o dosyaya hiç
+dokunulmadı. Yani rampa artık **uygulama kodunun değil, tek bir eski ekranın**
+iç meselesi.
+
+### Vurgu: parlak lime + işlevsel lime
+
+Kullanıcı kararı — kimlik rengi lime, ama tek tonda değil, **iki kademeli**:
+
+- `accent-500` **parlak** (koyu #b7f34a / açık #9bd62f) — YALNIZCA dolgu:
+  ana CTA, gönder düğmesi, aktif nav göstergesi, focus ring, küçük durum
+  noktaları.
+- `accent-400` **işlevsel** (koyu #a9e13f / açık **#4c7016**) — metin,
+  ikon, kenarlık, hover. Açık temada beyaz üstünde 5.7:1; parlak lime orada
+  ~2:1 verirdi. *"Böylece beyaz zeminde de erişilebilirlik problemi
+  yaşamayız."*
+
+Koyu temada 400 ile 500 komşu, açık temada bilinçli olarak birbirinden uzak.
+Bu yüzden **`text-accent-500` yazmak açık temayı kırar**; koddaki üç kullanım
+400'e taşındı.
+
+### Doygunluk bandı aynı gün ikinci kez, bu sefer YUKARI taşındı
+
+Önceki tur bandı %45-55'e çekmişti (zeytin vurgu ile aynı ses seviyesi).
+Vurgu parlak limeye dönünce bant referansı da yükseldi: **doygunluk %65-75,
+`card` (#14161c) üstünde kontrast 6.0-8.0.** Hue'lar yine değişmedi.
+`--status-danger-*` ve `--status-warning-*` yine dışarıda.
+
+Renklerin görevleri de yazıya döküldü: lime → ana eylem/seçili · mavi →
+sistem/bilgi · mor → AI/model · turuncu → eylem/uyarı · kırmızı → hata.
+**Renk dekorasyon değil, bilgi mimarisinin parçası.**
+
+### `--accent-on` beyazdan siyaha döndü — ve üç yeri kırdı
+
+Parlak lime üstünde beyaz 1.5:1, yani okunmuyor. Değer her iki temada da
+yakın-siyah (`11 12 16`) oldu. Kural değişmedi, rengi değişti: accent zeminli
+her yerde `text-accent-on`, `text-white` **değil**.
+
+Ama üç yer bu jetonu *"güçlü dolgu üstündeki yazı"* diye **ödünç**
+alıyordu — o sırada beyaz olduğu için çalışıyorlardı, anlamı bu olduğu için
+değil. Siyaha dönünce üçü birden kırıldı: kırmızı `--status-danger-solid`
+üstünde 2.4:1 (`TitleBar` kapat düğmesi, `buttons.ts` `danger` varyantı) ve
+resmin üstündeki gerçek siyah örtüde tamamen görünmez (`AttachmentChip`
+büyütme ikonu).
+
+`text-white` de çözüm değildi: bu projede `--ink-strong-rgb`'ye bağlı ve açık
+temada koyuya düşüyor. Rol gerçekten **üçüncü bir jeton** istiyordu:
+
+> **`--on-solid-rgb` / `text-on-solid`** — koyu/güçlü dolgu üstündeki metin ve
+> ikon. Her iki temada da beyaz ve öyle kalmalı: bağlı olduğu zeminler (kırmızı
+> dolgu, siyah örtü) temaya göre değişmiyor.
+
+Ders, jetonun kendisinden daha genel: **bir jetonu "değeri şu an bana uyuyor"
+diye kullanmak, o jetonun adını yalan hâline getiriyor.** Kırılma değer
+değiştiği gün geliyor.
+
+### Elle güncellenen iki ayna noktası
+
+`BrowserWindow.backgroundColor` (`#0b0c10`) ve `EmbeddedTerminal`'ın xterm
+teması (`background` `#0b0c10`, `foreground` `#f1f3f5`, `cursor` `#a9e13f`).
+İkisi de CSS değişkeni okuyamıyor; palet değişirse burası da değişmeli, bağ
+otomatik değil.
+
+### İki tema birlikte
+
+Kullanıcı kararı: *"Dark tema ana deneyim olur, light tema ise aynı semantic
+token mantığının karşılığı olur."* Her iki blok da aynı jeton listesini
+taşıyor; açık temada yalnızca sıralama kuralı ters yönde işliyor.

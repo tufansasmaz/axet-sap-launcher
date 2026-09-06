@@ -37,7 +37,7 @@ export default function ConfirmDialog({
         if (e.key === "Escape") onCancel();
       }}
     >
-      <div className="w-[380px] rounded-xl border border-base-700 bg-base-900 p-6">
+      <div className="w-[380px] rounded-xl border border-line bg-card p-6">
         <div className="mb-3 flex items-center gap-2">
           <AlertTriangle size={18} className={danger ? "text-[var(--status-danger-text)]" : "text-accent-400"} />
           <h3 className="text-base font-semibold text-white">{title}</h3>

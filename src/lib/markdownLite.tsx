@@ -28,7 +28,7 @@ import { highlightCode } from "./highlightLite";
 export const INLINE_TOKEN =
   /(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*\n]+\*)|(\[[^\]]+\]\([^)\s]+\))|(https?:\/\/[^\s)]+)/g;
 
-const LINK_CLASS = "text-accent-400 underline underline-offset-2 hover:text-accent-500";
+const LINK_CLASS = "text-accent-400 underline underline-offset-2 hover:text-[var(--accent-soft-text)]";
 
 // Linkler Electron'un renderer'ında `target="_blank"` ile açılamaz (yeni bir
 // BrowserWindow doğar ya da tamamen engellenir); doğru yol işletim sisteminin
@@ -62,7 +62,7 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     const key = `${keyPrefix}-${i}`;
     if (token.startsWith("`")) {
       nodes.push(
-        <code key={key} className="rounded bg-base-800 px-1 py-0.5 font-mono text-[0.85em] text-slate-200">
+        <code key={key} className="rounded bg-control px-1 py-0.5 font-mono text-[0.85em] text-slate-200">
           {token.slice(1, -1)}
         </code>
       );
@@ -110,8 +110,8 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
 // ikon görsel gürültü olurdu) ama `focus-within` ile klavyeden de erişilebilir.
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
   return (
-    <div className="group/code overflow-hidden rounded-lg border border-base-700 bg-base-950">
-      <div className="flex items-center justify-between border-b border-base-700 bg-base-900/60 px-3 py-1">
+    <div className="group/code overflow-hidden rounded-lg border border-line bg-app">
+      <div className="flex items-center justify-between border-b border-line bg-card/60 px-3 py-1">
         <span className="font-mono text-[10px] uppercase tracking-wide text-slate-500">{lang || "text"}</span>
         <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/code:opacity-100">
           <CopyButton value={code} />
@@ -191,7 +191,7 @@ export function renderMarkdownLite(content: string): ReactNode {
     if (quoteBuffer.length === 0) return;
     const key = `q-${blocks.length}`;
     blocks.push(
-      <blockquote key={key} className="border-l-2 border-base-600 pl-3 text-slate-400">
+      <blockquote key={key} className="border-l-2 border-line-strong pl-3 text-slate-400">
         {renderInline(quoteBuffer.join("\n"), key)}
       </blockquote>
     );
@@ -249,7 +249,7 @@ export function renderMarkdownLite(content: string): ReactNode {
     // --- yatay çizgi ---
     if (HR_RE.test(trimmed)) {
       flushAll();
-      blocks.push(<hr key={`hr-${blocks.length}`} className="border-base-700" />);
+      blocks.push(<hr key={`hr-${blocks.length}`} className="border-line" />);
       i++;
       continue;
     }
@@ -266,14 +266,14 @@ export function renderMarkdownLite(content: string): ReactNode {
       }
       const key = `tbl-${blocks.length}`;
       blocks.push(
-        <div key={key} className="overflow-x-auto rounded-lg border border-base-700">
+        <div key={key} className="overflow-x-auto rounded-lg border border-line">
           <table className="w-full border-collapse text-xs">
             <thead>
-              <tr className="bg-base-900/60">
+              <tr className="bg-card/60">
                 {headers.map((h, hi) => (
                   <th
                     key={`${key}-h-${hi}`}
-                    className="border-b border-base-700 px-2.5 py-1.5 text-left font-semibold text-slate-300"
+                    className="border-b border-line px-2.5 py-1.5 text-left font-semibold text-slate-300"
                   >
                     {renderInline(h, `${key}-h-${hi}`)}
                   </th>
@@ -282,7 +282,7 @@ export function renderMarkdownLite(content: string): ReactNode {
             </thead>
             <tbody>
               {rows.map((row, ri) => (
-                <tr key={`${key}-r-${ri}`} className="border-b border-base-700/60 last:border-b-0">
+                <tr key={`${key}-r-${ri}`} className="border-b border-line/60 last:border-b-0">
                   {/* Başlıktan az/çok hücreli satırlar sohbet cevaplarında
                       olabiliyor; başlık sayısına göre hizalıyoruz ki tablo
                       kaymasın. */}

@@ -10,8 +10,8 @@ const STYLES: Record<
     dot: "bg-slate-500",
     labelKey: "statusDot.unknown",
     text: "text-slate-400",
-    pillBg: "bg-base-700/50",
-    pillBorder: "border-base-600"
+    pillBg: "bg-active/50",
+    pillBorder: "border-line-strong"
   },
   // Noktalar da artık tema jetonundan besleniyor. Önceden `bg-amber-400` /
   // `bg-emerald-400` / `bg-rose-500` yazıyordu — yani Tailwind'in kendi sabit

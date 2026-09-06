@@ -63,7 +63,7 @@ export default function CredentialsModal({
   };
 
   const fieldClass =
-    "w-full rounded-lg border border-base-600 bg-base-800/70 py-2.5 pl-10 pr-3 text-sm text-slate-100 outline-none transition focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 disabled:opacity-50";
+    "w-full rounded-lg border border-line-strong bg-control/70 py-2.5 pl-10 pr-3 text-sm text-slate-100 outline-none transition focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 disabled:opacity-50";
 
   return (
     <div
@@ -74,14 +74,14 @@ export default function CredentialsModal({
     >
       <form
         onSubmit={handleSubmit}
-        className="animate-modal-pop-in relative w-[440px] overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50"
+        className="animate-modal-pop-in relative w-[440px] overflow-hidden rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50"
       >
 
         <div className="px-6 pb-5 pt-5">
           <button
             type="button"
             onClick={onClose}
-            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-base-700 hover:text-slate-200"
+            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-active hover:text-slate-200"
           >
             <X size={16} />
           </button>
@@ -100,13 +100,13 @@ export default function CredentialsModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-base-600 bg-base-800/70 px-2.5 py-1 text-xs text-slate-300">
+            <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-control/70 px-2.5 py-1 text-xs text-slate-300">
               <Server size={12} className="shrink-0 text-slate-500" />
               <span className="truncate font-medium">{service.name}</span>
               {service.systemId && <span className="text-slate-500">({service.systemId})</span>}
             </span>
             {(service.manualAdtUrl || service.host) && (
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-base-600 bg-base-800/70 px-2.5 py-1 text-xs text-slate-400">
+              <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-control/70 px-2.5 py-1 text-xs text-slate-400">
                 <Globe size={12} className="shrink-0 text-slate-500" />
                 <span className="truncate font-mono">{address}</span>
               </span>
@@ -148,7 +148,7 @@ export default function CredentialsModal({
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 title={showPassword ? t("credentialsModal.hidePassword") : t("credentialsModal.showPassword")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-md p-1.5 text-slate-500 transition hover:bg-base-700 hover:text-slate-200"
+                className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-md p-1.5 text-slate-500 transition hover:bg-active hover:text-slate-200"
               >
                 {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
@@ -161,7 +161,7 @@ export default function CredentialsModal({
                 {t("credentialsModal.client")}
               </label>
               {isCloud && (
-                <span className="rounded-full border border-base-600 px-1.5 py-0.5 text-[10px] leading-none text-slate-500">
+                <span className="rounded-full border border-line-strong px-1.5 py-0.5 text-[10px] leading-none text-slate-500">
                   {t("credentialsModal.optional").trim()}
                 </span>
               )}
@@ -197,7 +197,7 @@ export default function CredentialsModal({
           )}
         </div>
 
-        <div className="mt-2 flex justify-end gap-2 border-t border-base-800 px-6 py-4">
+        <div className="mt-2 flex justify-end gap-2 border-t border-line-subtle px-6 py-4">
           <button
             type="button"
             onClick={onClose}

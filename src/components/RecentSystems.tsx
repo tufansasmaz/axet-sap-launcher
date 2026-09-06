@@ -54,7 +54,7 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
   if (entries.length === 0) return null;
 
   return (
-    <div className="mb-3 border-b border-base-700 pb-3">
+    <div className="mb-3 border-b border-line pb-3">
       {/* Ok CSS döndürmesiyle değil AYRI İKONLA (ChevronRight/ChevronDown) —
           uygulamanın geri kalanındaki daraltılabilir başlıklarla aynı desen.
           Sayı rozeti kapalıyken de duruyor: daraltılmış bir listenin kaç satır
@@ -68,7 +68,7 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
         {collapsed ? <ChevronRight size={12} className="shrink-0" /> : <ChevronDown size={12} className="shrink-0" />}
         <Clock size={12} className="shrink-0 text-[var(--navy-icon)]" />
         {t("recentSystems.heading")}
-        <span className="ml-auto shrink-0 rounded-full bg-base-800 px-1.5 text-[10px] font-semibold normal-case tracking-normal text-slate-400">
+        <span className="ml-auto shrink-0 rounded-full bg-control px-1.5 text-[10px] font-semibold normal-case tracking-normal text-slate-400">
           {entries.length}
         </span>
       </button>
@@ -83,7 +83,7 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
               onClick={() => onSelect(entry.path, entry.service, entry.itemUuid)}
               title={entry.path.join(" / ")}
               className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
-                isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-base-700/60"
+                isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
               }`}
             >
               <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />

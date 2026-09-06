@@ -55,7 +55,7 @@ export default function TerminalPanel({
   return (
     <div
       style={fullscreen ? undefined : { height: open ? height : 36 }}
-      className={`flex w-full min-w-0 flex-col overflow-hidden border-t border-base-700 bg-base-950 ${
+      className={`flex w-full min-w-0 flex-col overflow-hidden border-t border-line bg-app ${
         fullscreen ? "flex-1" : "shrink-0"
       }`}
     >
@@ -75,12 +75,12 @@ export default function TerminalPanel({
           Durgun hâlde %70 opaklıkta duruyorlar: terminal şeridi bir araç
           çubuğu, ekranın konusu değil — beş doygun renk, altındaki çıktıdan
           daha çok dikkat çekerdi. */}
-      <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 border-b border-base-700 bg-base-900 px-2">
+      <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 border-b border-line bg-card px-2">
         {!fullscreen && (
           <button
             onClick={onToggleOpen}
             title={open ? t("terminalPanel.closePanel") : t("terminalPanel.openPanel")}
-            className="shrink-0 cursor-pointer rounded-sm p-1 text-[var(--navy-icon)] opacity-70 transition hover:bg-base-700 hover:opacity-100"
+            className="shrink-0 cursor-pointer rounded-sm p-1 text-[var(--navy-icon)] opacity-70 transition hover:bg-active hover:opacity-100"
           >
             {open ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
           </button>
@@ -94,7 +94,7 @@ export default function TerminalPanel({
                 if (!open) onToggleOpen();
               }}
               className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-t-sm px-3 py-1.5 text-xs ${
-                activeId === s.id && open ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
+                activeId === s.id && open ? "bg-control text-white" : "text-slate-400 hover:bg-hover/60"
               }`}
             >
               <TerminalSquare
@@ -108,7 +108,7 @@ export default function TerminalPanel({
                   onClose(s.id);
                 }}
                 title={t("terminalPanel.closeTabTitle")}
-                className="cursor-pointer rounded p-0.5 text-[var(--status-danger-text)] opacity-70 transition hover:bg-base-700 hover:opacity-100"
+                className="cursor-pointer rounded p-0.5 text-[var(--status-danger-text)] opacity-70 transition hover:bg-active hover:opacity-100"
               >
                 <X size={11} />
               </button>
@@ -121,14 +121,14 @@ export default function TerminalPanel({
         <button
           onClick={onNewTerminal}
           title={t("terminalPanel.newTerminalTitle")}
-          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm p-1.5 text-[var(--status-success-text)] opacity-70 transition hover:bg-base-700 hover:opacity-100"
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm p-1.5 text-[var(--status-success-text)] opacity-70 transition hover:bg-active hover:opacity-100"
         >
           <Plus size={14} />
         </button>
         <button
           onClick={onToggleFullscreen}
           title={fullscreen ? t("terminalPanel.exitFullscreen") : t("terminalPanel.enterFullscreen")}
-          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm p-1.5 text-[var(--navy-icon)] opacity-70 transition hover:bg-base-700 hover:opacity-100"
+          className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm p-1.5 text-[var(--navy-icon)] opacity-70 transition hover:bg-active hover:opacity-100"
         >
           {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </button>

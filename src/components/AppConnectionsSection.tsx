@@ -306,7 +306,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
               className={`flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 transition ${
                 isOn
                   ? "border-accent-500/40 bg-accent-500/[0.06]"
-                  : "border-base-700 bg-base-950/30"
+                  : "border-line bg-app/30"
               }`}
             >
               <div className="flex items-start gap-2.5">
@@ -314,7 +314,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
                     isOn
                       ? "border-accent-500/40 bg-accent-500/15 text-accent-400"
-                      : "border-base-700 bg-base-800 text-slate-500"
+                      : "border-line bg-control text-slate-500"
                   }`}
                 >
                   <Icon size={17} />
@@ -333,7 +333,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                             ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
                             : failed
                               ? "bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]"
-                              : "bg-base-800 text-slate-400"
+                              : "bg-control text-slate-400"
                       }`}
                     >
                       {busy ? (
@@ -439,7 +439,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                   <>
                     <button
                       onClick={() => handleDisconnect(id)}
-                      className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-base-600 bg-base-800 px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-[var(--status-danger-border)] hover:bg-[var(--status-danger-bg)] hover:text-[var(--status-danger-text)]"
+                      className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line-strong bg-control px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-[var(--status-danger-border)] hover:bg-[var(--status-danger-bg)] hover:text-[var(--status-danger-text)]"
                     >
                       <Unplug size={13} />
                       {t("appConnections.disconnect")}
@@ -449,7 +449,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                       disabled={Boolean(busyProvider)}
                       title={t("appConnections.recheck")}
                       aria-label={t("appConnections.recheck")}
-                      className="cursor-pointer rounded-lg border border-base-600 bg-base-800 px-2.5 py-2 text-slate-300 transition hover:border-accent-500/40 hover:text-accent-400 disabled:cursor-default disabled:opacity-50"
+                      className="cursor-pointer rounded-lg border border-line-strong bg-control px-2.5 py-2 text-slate-300 transition hover:border-accent-500/40 hover:text-accent-400 disabled:cursor-default disabled:opacity-50"
                     >
                       {busy ? (
                         <Loader2 size={13} className="animate-spin" />
@@ -471,7 +471,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                 {busy && (
                   <button
                     onClick={handleCancel}
-                    className="cursor-pointer rounded-lg border border-base-700 bg-base-800 px-2.5 py-2 text-xs text-slate-200 hover:bg-base-700"
+                    className="cursor-pointer rounded-lg border border-line bg-control px-2.5 py-2 text-xs text-slate-200 hover:bg-active"
                   >
                     {t("common.cancel")}
                   </button>
@@ -487,7 +487,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
           yazmıyordu ve kullanıcı sohbette araçların neden olmadığını
           anlayamıyordu. */}
       <div
-        className={`rounded-xl border p-3 ${anyConnected ? "border-base-700 bg-base-950/30" : WARN_BOX}`}
+        className={`rounded-xl border p-3 ${anyConnected ? "border-line bg-app/30" : WARN_BOX}`}
       >
         <div className={`flex items-start gap-2 text-xs ${anyConnected ? "text-slate-300" : WARN_TEXT}`}>
           {anyConnected ? (
@@ -504,7 +504,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
             {SURFACES.map(({ icon: SurfaceIcon, labelKey }) => (
               <span
                 key={labelKey}
-                className="flex items-center gap-1.5 rounded-full border border-base-700 bg-base-800/60 px-2.5 py-1 text-[11px] text-slate-300"
+                className="flex items-center gap-1.5 rounded-full border border-line bg-control/60 px-2.5 py-1 text-[11px] text-slate-300"
               >
                 <SurfaceIcon size={11} className="text-accent-400" />
                 {t(labelKey)}
@@ -520,9 +520,9 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
           Açık/kapalı artık yukarıdaki Bağlan/Kes butonu; buradaki seçim
           yalnızca AÇIK olanların ne zaman yükleneceği — bir hız ayarı. */}
       {mode && anyConnected && (
-        <div className="rounded-xl border border-base-700 bg-base-950/30 p-3">
+        <div className="rounded-xl border border-line bg-app/30 p-3">
           <div className="mb-2 text-xs font-medium text-slate-200">{t("appConnections.modeTitle")}</div>
-          <div className="flex gap-1 rounded-lg border border-base-700 bg-base-900 p-1">
+          <div className="flex gap-1 rounded-lg border border-line bg-card p-1">
             {(["auto", "always"] as ConnectorMode[]).map((option) => (
               <button
                 key={option}
@@ -530,7 +530,7 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
                 className={`flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition ${
                   mode === option
                     ? "bg-accent-500 text-accent-on"
-                    : "text-slate-400 hover:bg-base-800 hover:text-slate-200"
+                    : "text-slate-400 hover:bg-hover hover:text-slate-200"
                 }`}
               >
                 {t(`appConnections.mode.${option}` as TranslationKey)}

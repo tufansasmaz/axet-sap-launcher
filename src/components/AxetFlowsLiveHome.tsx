@@ -241,8 +241,8 @@ export default function AxetFlowsLiveHome() {
   }, [activeUrl]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-base-950">
-      <div className="flex shrink-0 items-center gap-2 border-b border-base-700 bg-base-900 px-3 py-2">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-app">
+      <div className="flex shrink-0 items-center gap-2 border-b border-line bg-card px-3 py-2">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-accent-500/15 text-accent-400">
           <Radio size={13} />
         </span>
@@ -253,13 +253,13 @@ export default function AxetFlowsLiveHome() {
             if (e.key === "Enter") connect();
           }}
           placeholder="http://localhost:49275"
-          className="min-w-0 flex-1 rounded-sm border border-base-700 bg-base-800 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-accent-500 focus:outline-none"
+          className="min-w-0 flex-1 rounded-sm border border-line bg-control px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-accent-500 focus:outline-none"
         />
         <button
           onClick={() => autoDetect(false)}
           disabled={detecting}
           title={t("axetFlowsLive.autoDetect")}
-          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border border-base-700 bg-base-800 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-base-700 disabled:cursor-default disabled:opacity-60"
+          className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-sm border border-line bg-control px-2.5 py-1.5 text-xs text-slate-300 hover:bg-active disabled:cursor-default disabled:opacity-60"
         >
           <Wand2 size={13} className={detecting ? "animate-pulse" : ""} />
           {t("axetFlowsLive.autoDetect")}
@@ -274,7 +274,7 @@ export default function AxetFlowsLiveHome() {
           onClick={reload}
           disabled={!activeUrl}
           title={t("axetFlowsLive.reload")}
-          className="flex shrink-0 cursor-pointer items-center justify-center rounded-sm border border-base-700 bg-base-800 p-1.5 text-slate-300 hover:bg-base-700 disabled:cursor-default disabled:opacity-40"
+          className="flex shrink-0 cursor-pointer items-center justify-center rounded-sm border border-line bg-control p-1.5 text-slate-300 hover:bg-active disabled:cursor-default disabled:opacity-40"
         >
           <RefreshCw size={14} />
         </button>
@@ -282,7 +282,7 @@ export default function AxetFlowsLiveHome() {
           onClick={openInBrowser}
           disabled={!activeUrl}
           title={t("axetFlowsLive.openInBrowser")}
-          className="flex shrink-0 cursor-pointer items-center justify-center rounded-sm border border-base-700 bg-base-800 p-1.5 text-slate-300 hover:bg-base-700 disabled:cursor-default disabled:opacity-40"
+          className="flex shrink-0 cursor-pointer items-center justify-center rounded-sm border border-line bg-control p-1.5 text-slate-300 hover:bg-active disabled:cursor-default disabled:opacity-40"
         >
           <ExternalLink size={14} />
         </button>
@@ -290,7 +290,7 @@ export default function AxetFlowsLiveHome() {
 
       <div className="relative min-h-0 flex-1">
         {!activeUrl && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-base-950 px-6 text-center">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-app px-6 text-center">
             {detecting ? (
               <span className="text-xs text-slate-500">{t("axetFlowsLive.detecting")}</span>
             ) : (
@@ -302,12 +302,12 @@ export default function AxetFlowsLiveHome() {
           </div>
         )}
         {activeUrl && reachable !== false && loading && !loadError && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-base-950">
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-app">
             <span className="text-xs text-slate-500">{t("axetFlowsLive.loading")}</span>
           </div>
         )}
         {activeUrl && (loadError || reachable === false) && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-base-950 px-6 text-center">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-app px-6 text-center">
             <p className="max-w-sm text-xs text-slate-500">{t("axetFlowsLive.error")}</p>
             {/* HANGİ adrese ulaşılamadığı yazılır. Port her çalıştırmada
                 değiştiği için "bağlanamadı" tek başına kullanıcıya neyin

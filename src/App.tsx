@@ -916,7 +916,7 @@ export default function App() {
             `tintBtn` tam olarak bu yüzden var — kimlik veriyor ama "asıl eylem
             benim" demiyor. Sağdaki yenile düğmesi bilerek nötr kaldı: konusu
             kendi başına bir şey değil, şeridin tamamı. */}
-        <header className="flex items-center gap-2 border-b border-base-700 bg-base-900 px-4 py-2.5">
+        <header className="flex items-center gap-2 border-b border-line bg-sidebar px-4 py-2.5">
           <button
             onClick={() => setAddSystemOpen(true)}
             title={t("app.addSystemTitle")}
@@ -933,7 +933,7 @@ export default function App() {
             <Download size={15} className={`shrink-0 ${loading ? "animate-pulse" : ""}`} />
             {t("app.refetch")}
           </button>
-          <div className="flex h-9 min-w-0 flex-1 items-center rounded-lg bg-base-800 ring-1 ring-inset ring-base-700 focus-within:ring-accent-500/40">
+          <div className="flex h-9 min-w-0 flex-1 items-center rounded-lg bg-control ring-1 ring-inset ring-line focus-within:ring-accent-500/40">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center text-slate-500">
               <Search size={14} />
             </span>
@@ -951,7 +951,7 @@ export default function App() {
               <button
                 onClick={() => setSearch("")}
                 title={t("app.clearSearch")}
-                className="mr-1.5 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-base-700 hover:text-slate-300"
+                className="mr-1.5 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-active hover:text-slate-300"
               >
                 <X size={12} />
               </button>
@@ -993,23 +993,23 @@ export default function App() {
           {!terminalFullscreen && (
             <aside
               style={{ width: sidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth }}
-              className="flex shrink-0 cursor-default flex-col overflow-hidden border-r border-base-700 bg-base-900"
+              className="flex shrink-0 cursor-default flex-col overflow-hidden border-r border-line bg-sidebar"
             >
               <div className="flex items-center gap-2 p-2">
                 <button
                   onClick={handleToggleSidebar}
                   title={sidebarCollapsed ? t("app.expandSidebar") : t("app.collapseSidebar")}
-                  className="cursor-pointer rounded-sm p-1.5 text-slate-400 hover:bg-base-700 hover:text-white"
+                  className="cursor-pointer rounded-sm p-1.5 text-slate-400 hover:bg-active hover:text-white"
                 >
                   {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
                 </button>
                 {!sidebarCollapsed && selection && projectDir && (
-                  <div className="ml-auto flex items-center gap-1 rounded-sm border border-base-700 p-0.5">
+                  <div className="ml-auto flex items-center gap-1 rounded-sm border border-line p-0.5">
                     <button
                       onClick={() => setLeftPanelMode("systems")}
                       title={t("app.systemsMode")}
                       className={`cursor-pointer rounded-sm p-1.5 ${
-                        leftPanelMode === "systems" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
+                        leftPanelMode === "systems" ? "bg-active text-white" : "text-slate-400 hover:bg-active"
                       }`}
                     >
                       <Server size={14} />
@@ -1018,7 +1018,7 @@ export default function App() {
                       onClick={() => setLeftPanelMode("files")}
                       title={t("app.filesMode")}
                       className={`cursor-pointer rounded-sm p-1.5 ${
-                        leftPanelMode === "files" ? "bg-base-700 text-white" : "text-slate-400 hover:bg-base-700"
+                        leftPanelMode === "files" ? "bg-active text-white" : "text-slate-400 hover:bg-active"
                       }`}
                     >
                       <FolderTree size={14} />
@@ -1081,11 +1081,11 @@ export default function App() {
             {!terminalFullscreen && (
               <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {openFiles.length > 0 && (
-                  <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b border-base-700 bg-base-900 px-2">
+                  <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-sidebar px-2">
                     <button
                       onClick={() => setActiveFilePath(null)}
                       className={`shrink-0 whitespace-nowrap rounded-t-sm px-3 py-1.5 text-xs ${
-                        activeFilePath === null ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
+                        activeFilePath === null ? "bg-control text-white" : "text-slate-400 hover:bg-hover/60"
                       }`}
                     >
                       {t("app.systemDetailTab")}
@@ -1095,7 +1095,7 @@ export default function App() {
                         key={f.path}
                         onClick={() => setActiveFilePath(f.path)}
                         className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-t-sm px-3 py-1.5 text-xs ${
-                          activeFilePath === f.path ? "bg-base-800 text-white" : "text-slate-400 hover:bg-base-800/60"
+                          activeFilePath === f.path ? "bg-control text-white" : "text-slate-400 hover:bg-hover/60"
                         }`}
                       >
                         <FileText size={12} />
@@ -1106,7 +1106,7 @@ export default function App() {
                             handleCloseFileTab(f.path);
                           }}
                           title={t("app.closeTabTitle")}
-                          className="cursor-pointer rounded p-0.5 hover:bg-base-700"
+                          className="cursor-pointer rounded p-0.5 hover:bg-active"
                         >
                           <X size={11} />
                         </button>

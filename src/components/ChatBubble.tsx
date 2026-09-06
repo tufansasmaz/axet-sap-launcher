@@ -169,7 +169,7 @@ function ChatBubble({
           </div>
         )}
         {message.content && (
-          <div className={`max-w-[80%] rounded-3xl bg-base-800 px-5 py-3 text-slate-100 ${BODY}`}>
+          <div className={`max-w-[80%] rounded-3xl bg-control px-5 py-3 text-slate-100 ${BODY}`}>
             {/* `@dosya` bahisleri balonda da VURGULU: composer'da renkli
                 görünen bir yol, gönderilince düz metne dönseydi kullanıcı
                 bahsin tutmadığını sanırdı. */}
@@ -187,7 +187,7 @@ function ChatBubble({
             <button
               onClick={() => onEdit(message.id, message.content)}
               title={t("axetCodeHome.editMessage")}
-              className="cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-base-800 hover:text-slate-200"
+              className="cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-hover hover:text-slate-200"
             >
               <Pencil size={13} />
             </button>
@@ -221,7 +221,7 @@ function ChatBubble({
         <div className="mb-2 text-[11px]">
           <button
             onClick={() => setStepsOpen((v) => !v)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-slate-500 transition hover:bg-base-800 hover:text-slate-300"
+            className="flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-slate-500 transition hover:bg-hover hover:text-slate-300"
           >
             {stepsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             <span>{t("chatBubble.stepsToggle", { count: String(steps.length) })}</span>
@@ -235,7 +235,7 @@ function ChatBubble({
             )}
           </button>
           {stepsOpen && (
-            <div className="mt-1 flex flex-col gap-1 rounded-lg border border-[rgb(var(--base-700-rgb)/0.55)] bg-base-800 px-2 py-1.5">
+            <div className="mt-1 flex flex-col gap-1 rounded-lg border border-[rgb(var(--base-700-rgb)/0.55)] bg-control px-2 py-1.5">
               {steps.map((step, i) => {
                 const key = step.callId ?? String(i);
                 // Ayrıntısı olan adım TIKLANABİLİR. Olmayanı tıklanabilir
@@ -251,7 +251,7 @@ function ChatBubble({
                         detail ? "cursor-pointer hover:bg-[rgb(var(--base-700-rgb)/0.5)]" : ""
                       }`}
                     >
-                      <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-500"}>
+                      <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-400"}>
                         {detail ? (open ? "▾" : "▸") : "·"}
                       </span>
                       <span className="shrink-0 text-slate-500">{toolLabel(step.tool ?? "")}</span>
@@ -377,7 +377,7 @@ function StepDetail({ diff, output }: { diff?: string; output?: string }) {
   if (diff) {
     const lines = diff.split("\n");
     return (
-      <pre className="chat-scroll mt-1 max-h-64 overflow-auto rounded-md bg-base-950 p-2 font-mono text-[10px] leading-[1.5]">
+      <pre className="chat-scroll mt-1 max-h-64 overflow-auto rounded-md bg-app p-2 font-mono text-[10px] leading-[1.5]">
         {lines.map((line, i) => (
           <div
             key={i}
@@ -398,7 +398,7 @@ function StepDetail({ diff, output }: { diff?: string; output?: string }) {
     );
   }
   return (
-    <pre className="chat-scroll mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-base-950 p-2 font-mono text-[10px] leading-[1.5] text-slate-400">
+    <pre className="chat-scroll mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-app p-2 font-mono text-[10px] leading-[1.5] text-slate-400">
       {output}
     </pre>
   );
@@ -589,12 +589,12 @@ export function ThinkingBubble({
           kazanılan bir şey yoktu. */}
       <div
         className={`flex min-h-[22px] w-fit max-w-full items-center gap-1.5 rounded-lg px-2 py-1 ${
-          step ? "border border-[rgb(var(--base-700-rgb)/0.55)] bg-base-800" : ""
+          step ? "border border-[rgb(var(--base-700-rgb)/0.55)] bg-control" : ""
         }`}
       >
         {step && (
           <>
-            <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-500"}>▸</span>
+            <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-400"}>▸</span>
             <span className="shrink-0 text-slate-500">{toolLabel(step.tool ?? "")}</span>
             {/* Hedef (dosya yolu, komut, desen) tek satırda ve kırpılarak —
                 uzun bir bash komutu göstergeyi sarmalayıp kutuyu büyütmesin. */}
@@ -727,13 +727,13 @@ export function AskUserCard({
               className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] leading-tight transition-all duration-150 ${
                 isChosen
                   ? "border-accent-500 bg-accent-500/25 text-[var(--accent-soft-text)]"
-                  : "border-base-700 bg-base-850/70 text-slate-300 hover:-translate-y-px hover:border-accent-500/60 hover:bg-accent-500/10 hover:text-[var(--accent-soft-text)]"
+                  : "border-line bg-raised/70 text-slate-300 hover:-translate-y-px hover:border-accent-500/60 hover:bg-accent-500/10 hover:text-[var(--accent-soft-text)]"
               } ${dimmed ? "opacity-35" : ""} disabled:cursor-default`}
             >
               {multi && (
                 <span
                   className={`flex h-3 w-3 shrink-0 items-center justify-center rounded-[3px] border ${
-                    isChosen ? "border-accent-500 bg-accent-500/70" : "border-base-600"
+                    isChosen ? "border-accent-500 bg-accent-500/70" : "border-line-strong"
                   }`}
                 >
                   {/* Kutunun zemini accent dolgusu (`bg-accent-500/70`), o
@@ -750,7 +750,7 @@ export function AskUserCard({
           <button
             disabled={sent}
             onClick={() => setCustomOpen(true)}
-            className={`rounded-full border border-dashed border-base-700 bg-transparent px-3 py-1 text-[12.5px] leading-tight text-slate-400 transition-all duration-150 hover:-translate-y-px hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] ${
+            className={`rounded-full border border-dashed border-line bg-transparent px-3 py-1 text-[12.5px] leading-tight text-slate-400 transition-all duration-150 hover:-translate-y-px hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] ${
               sent ? "opacity-35" : ""
             } disabled:cursor-default`}
           >
@@ -792,13 +792,13 @@ export function AskUserCard({
               }
             }}
             placeholder={t("axetCodeHome.askUserCustomPlaceholder")}
-            className="min-w-0 flex-1 rounded-lg border border-base-700 bg-base-850/70 px-2.5 py-1 text-[12.5px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/60"
+            className="min-w-0 flex-1 rounded-lg border border-line bg-raised/70 px-2.5 py-1 text-[12.5px] text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/60"
           />
           <button
             disabled={sent || custom.trim() === ""}
             onClick={sendCustom}
             title={t("axetCodeHome.askUserCustom")}
-            className="rounded-lg border border-base-700 bg-base-850/70 p-1.5 text-slate-300 transition-colors hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] disabled:opacity-35"
+            className="rounded-lg border border-line bg-raised/70 p-1.5 text-slate-300 transition-colors hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] disabled:opacity-35"
           >
             <CornerDownLeft size={13} />
           </button>

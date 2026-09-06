@@ -42,8 +42,8 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-base-700 bg-base-900/40">
-      <div className="flex items-center gap-2 border-b border-base-700/70 px-4 py-2.5">
+    <div className="overflow-hidden rounded-lg border border-line bg-card/40">
+      <div className="flex items-center gap-2 border-b border-line/70 px-4 py-2.5">
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-500/15 text-[var(--accent-soft-text)]">
           <Icon size={13} />
         </span>
@@ -74,7 +74,7 @@ function SegmentedControl<T extends string>({
   onChange: (key: T) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-base-700 bg-base-950/40 p-0.5">
+    <div className="inline-flex items-center gap-0.5 rounded-md border border-line bg-app/40 p-0.5">
       {options.map((option) => (
         <button
           key={option.key}
@@ -105,7 +105,7 @@ function PathMissing({ text }: { text: string }) {
 }
 
 const inputClass =
-  "w-full rounded-md border border-base-600 bg-base-800 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
+  "w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
 
 function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
   switch (updateStatus.phase) {
@@ -334,13 +334,13 @@ export default function SettingsModal({
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="animate-modal-pop-in flex max-h-[88vh] w-[560px] flex-col overflow-hidden rounded-2xl border border-base-700/60 bg-base-900 shadow-2xl shadow-black/50 outline-none"
+        className="animate-modal-pop-in flex max-h-[88vh] w-[560px] flex-col overflow-hidden rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50 outline-none"
       >
 
         <div className="relative shrink-0 px-6 pb-4 pt-5">
           <button
             onClick={requestClose}
-            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-base-700 hover:text-slate-200"
+            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-active hover:text-slate-200"
           >
             <X size={16} />
           </button>
@@ -380,7 +380,7 @@ export default function SettingsModal({
                 <button
                   onClick={pickFolder}
                   title={t("settingsModal.browseFolder")}
-                  className="cursor-pointer rounded-md border border-base-600 px-3 text-slate-300 transition hover:bg-base-700"
+                  className="cursor-pointer rounded-md border border-line-strong px-3 text-slate-300 transition hover:bg-active"
                 >
                   <FolderOpen size={16} />
                 </button>
@@ -402,7 +402,7 @@ export default function SettingsModal({
                 <button
                   onClick={pickAxetWorkspaceDir}
                   title={t("settingsModal.browseFolder")}
-                  className="cursor-pointer rounded-md border border-base-600 px-3 text-slate-300 transition hover:bg-base-700"
+                  className="cursor-pointer rounded-md border border-line-strong px-3 text-slate-300 transition hover:bg-active"
                 >
                   <FolderOpen size={16} />
                 </button>
@@ -511,9 +511,9 @@ export default function SettingsModal({
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 onClick={onExportManualSystems}
-                className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border border-base-700 bg-base-950/30 p-3 text-left transition-colors hover:border-base-600 hover:bg-base-800/60"
+                className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border border-line bg-app/30 p-3 text-left transition-colors hover:border-line-strong hover:bg-hover/60"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-base-800 text-slate-400 group-hover:text-slate-200">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-control text-slate-400 group-hover:text-slate-200">
                   <Download size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -524,9 +524,9 @@ export default function SettingsModal({
               </button>
               <button
                 onClick={onImportManualSystems}
-                className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border border-base-700 bg-base-950/30 p-3 text-left transition-colors hover:border-base-600 hover:bg-base-800/60"
+                className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border border-line bg-app/30 p-3 text-left transition-colors hover:border-line-strong hover:bg-hover/60"
               >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-base-800 text-slate-400 group-hover:text-slate-200">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-control text-slate-400 group-hover:text-slate-200">
                   <Upload size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -556,19 +556,19 @@ export default function SettingsModal({
 
             <button
               onClick={handleCheckForUpdates}
-              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-base-600 px-3 py-2 text-sm text-slate-300 transition hover:bg-base-700"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-line-strong px-3 py-2 text-sm text-slate-300 transition hover:bg-active"
             >
               <RefreshCw size={14} />
               {t("settingsModal.checkNow")}
             </button>
 
             {updateStatusNode && (
-              <div className="rounded-md border border-base-700/60 bg-base-950/30 px-3 py-2">{updateStatusNode}</div>
+              <div className="rounded-md border border-line/60 bg-app/30 px-3 py-2">{updateStatusNode}</div>
             )}
           </Section>
         </div>
 
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-base-800 px-6 py-4">
+        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line-subtle px-6 py-4">
           {isDirty && (
             <span className="mr-auto text-xs text-[var(--status-warning-text)]">
               {t("settingsModal.unsavedBadge")}

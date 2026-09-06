@@ -101,7 +101,7 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
           <button
             onClick={onRecheck}
             disabled={loading}
-            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-base-700 bg-base-800 px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-base-700 disabled:cursor-default disabled:opacity-50"
+            className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-line bg-control px-2.5 py-1.5 text-xs font-medium text-slate-200 hover:bg-active disabled:cursor-default disabled:opacity-50"
           >
             <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
             {t("sapGuiScripting.preflight.recheck")}
@@ -110,13 +110,13 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
       </div>
 
       {preflight && (
-        <div className="rounded-lg border border-base-700 bg-base-900 p-4">
+        <div className="rounded-lg border border-line bg-card p-4">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             {t("sapGuiScripting.preflight.measurementsTitle")}
           </div>
           <div className="mt-2 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
             {measurements.map((m) => (
-              <div key={m.label} className="flex items-center justify-between gap-3 border-b border-base-800/60 py-1 text-xs last:border-0">
+              <div key={m.label} className="flex items-center justify-between gap-3 border-b border-line-subtle/60 py-1 text-xs last:border-0">
                 <span className="text-slate-400">{m.label}</span>
                 <span
                   className="font-mono"
@@ -131,7 +131,7 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
             ))}
           </div>
           {preflight.scriptingError && (
-            <p className="mt-3 rounded-md bg-base-850 p-2 font-mono text-[10px] leading-relaxed text-slate-400">
+            <p className="mt-3 rounded-md bg-raised p-2 font-mono text-[10px] leading-relaxed text-slate-400">
               {preflight.scriptingError}
             </p>
           )}
@@ -145,7 +145,7 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
       )}
 
       {preflight && preflight.connectionDetails.length > 0 && (
-        <div className="rounded-lg border border-base-700 bg-base-900 p-4">
+        <div className="rounded-lg border border-line bg-card p-4">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             {t("sapGuiScripting.preflight.connectionsTitle")}
           </div>
@@ -172,7 +172,7 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
       {(showServerGuide || showClientGuide) && (
         <div className={`grid gap-4 ${showClientGuide ? "sm:grid-cols-2" : ""}`}>
           {showServerGuide && (
-            <div className="rounded-lg border border-base-700 bg-base-900 p-4">
+            <div className="rounded-lg border border-line bg-card p-4">
               <h3 className="text-xs font-semibold text-slate-100">{t("sapGuiScripting.preflight.serverTitle")}</h3>
               <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-[11px] leading-relaxed text-slate-400">
                 <li>{t("sapGuiScripting.preflight.serverStep1")}</li>
@@ -185,7 +185,7 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
             </div>
           )}
           {showClientGuide && (
-            <div className="rounded-lg border border-base-700 bg-base-900 p-4">
+            <div className="rounded-lg border border-line bg-card p-4">
               <h3 className="text-xs font-semibold text-slate-100">{t("sapGuiScripting.preflight.clientTitle")}</h3>
               <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-[11px] leading-relaxed text-slate-400">
                 <li>{t("sapGuiScripting.preflight.clientStep1")}</li>
@@ -198,7 +198,7 @@ export default function PreflightPanel({ preflight, loading, error, onRecheck }:
       )}
 
       {preflight && preflight.windows.length > 0 && (
-        <div className="rounded-lg border border-base-700 bg-base-900 p-4">
+        <div className="rounded-lg border border-line bg-card p-4">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
             {t("sapGuiScripting.preflight.windowsTitle")}
           </div>

@@ -21,13 +21,44 @@ export default {
   theme: {
     extend: {
       colors: {
-        base: {
-          950: withOpacity("--base-950-rgb"),
-          900: withOpacity("--base-900-rgb"),
-          850: withOpacity("--base-850-rgb"),
-          800: withOpacity("--base-800-rgb"),
-          700: withOpacity("--base-700-rgb"),
-          600: withOpacity("--base-600-rgb")
+        // YÜZEYLER — GÖREVE göre adlandırılmış, merdiven basamağına göre değil
+        // (kullanıcı kararı, 2026-09-06: *"sadece renk değiştirmek değil,
+        // renklerin görevlerini ayırmak"*).
+        //
+        // Önceki `base-950…600` ölçeği tek bir merdivendi ve aynı basamak
+        // birden fazla işi görüyordu: `base-800` hem ikon kabının zemini, hem
+        // girdi zemini, hem hover, hem de ince kenarlıktı. Sonuç, ekranda
+        // birbirinden ayrılamayan katmanlardı — ikon kabı ile kartın kenarlığı
+        // TANIM GEREĞİ aynı renkti, çünkü aynı jetondu. Değeri değiştirmek bunu
+        // çözmüyordu; jetonu bölmek çözüyor.
+        //
+        // Artık her rol kendi değişkeninde ve bağımsız ayarlanabiliyor:
+        //   app      pencere/sohbet zemini      (en dip)
+        //   sidebar  sol raylar ve panel kolonu
+        //   card     kart, composer, açılır kutu
+        //   raised   yükseltilmiş / odaklanmış yüzey
+        //   control  girdi, ikon kabı, çip, seçili satır  ← DİNLENME hâli
+        //   hover    fare üstündeyken                     ← ETKİLEŞİM hâli
+        //   active   basılı / güçlü hover / nötr düğme dolgusu
+        //
+        // `hover:bg-hover` tekrar gibi okunuyor ama kasıtlı: sınıf "hangi
+        // durumda" ve "hangi yüzey" sorularını ayrı ayrı cevaplıyor.
+        app: withOpacity("--surface-app-rgb"),
+        sidebar: withOpacity("--surface-sidebar-rgb"),
+        card: withOpacity("--surface-card-rgb"),
+        raised: withOpacity("--surface-raised-rgb"),
+        control: withOpacity("--surface-control-rgb"),
+        hover: withOpacity("--surface-hover-rgb"),
+        active: withOpacity("--surface-active-rgb"),
+
+        // KENARLIKLAR — yüzeylerden tamamen ayrı üç kademe. `border-line`
+        // ezici çoğunluk (saç teli), `-subtle` neredeyse görünmez ayrımlar,
+        // `-strong` vurgulu/hover kenarlıklar. Bir alt ad alanı oldukları için
+        // `ring-line` ve `divide-line` de bedavaya geliyor.
+        line: {
+          subtle: withOpacity("--border-subtle-rgb"),
+          DEFAULT: withOpacity("--border-line-rgb"),
+          strong: withOpacity("--border-strong-rgb")
         },
         accent: {
           600: withOpacity("--accent-600-rgb"),
@@ -50,7 +81,12 @@ export default {
           // tamamen atlıyordu (açık temada yanlış tonda görünüyordu).
           600: withOpacity("--ink-600-rgb")
         },
-        white: withOpacity("--ink-strong-rgb")
+        white: withOpacity("--ink-strong-rgb"),
+
+        // Koyu/güçlü dolgu üstündeki metin (`text-on-solid`) — kırmızı danger
+        // düğmesi, resim üstündeki siyah örtü. Her iki temada da beyaz.
+        // Neden `text-accent-on` ya da `text-white` DEĞİL: bkz. src/index.css.
+        "on-solid": withOpacity("--on-solid-rgb")
       },
 
       // KÖŞE YARIÇAPI ÖLÇEĞİ — tasarım dilinin tek kaynağı (2026-09-06).

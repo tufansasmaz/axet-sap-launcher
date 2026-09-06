@@ -116,7 +116,7 @@ export default function ScreenViewer({
             <select
               value={method}
               onChange={(e) => onMethodChange(e.target.value as GuiScriptScreenshotMethod)}
-              className="ml-0.5 h-6 cursor-pointer rounded-md border border-base-700 bg-base-800 px-1.5 text-[11px] text-slate-200 outline-none focus:border-accent-500"
+              className="ml-0.5 h-6 cursor-pointer rounded-md border border-line bg-control px-1.5 text-[11px] text-slate-200 outline-none focus:border-accent-500"
               title={t("sapGuiScripting.screenshotMethod")}
             >
               {METHODS.map((m) => (
@@ -139,7 +139,7 @@ export default function ScreenViewer({
         )}
       </PanelHeader>
 
-      <div className="relative flex min-h-0 flex-1 overflow-auto bg-base-950 p-3">
+      <div className="relative flex min-h-0 flex-1 overflow-auto bg-app p-3">
         {shot?.dataUrl ? (
           // Ortalama `m-auto` ile yapılıyor, `items-center/justify-center` ile
           // DEĞİL: taşan içerikte flex ortalaması kutunun BAŞINI kırpıyor
@@ -154,7 +154,7 @@ export default function ScreenViewer({
               // (`max-h-full`) sarmalayıcıyı görüntüden büyütür ve seçili
               // eleman çerçevesi kayar — çerçeve sarmalayıcıya göre konumlanıyor.
               // Uzun ekranlarda dış kutu zaten dikey kaydırıyor.
-              className="max-w-full rounded-md border border-base-700"
+              className="max-w-full rounded-md border border-line"
             />
             {highlight && (
               <div
@@ -178,10 +178,10 @@ export default function ScreenViewer({
       </div>
 
       {shot?.error && shot.dataUrl && (
-        <div className="shrink-0 border-t border-base-800 px-3 py-1 text-[10px] text-[var(--status-warning-text)]">{shot.error}</div>
+        <div className="shrink-0 border-t border-line-subtle px-3 py-1 text-[10px] text-[var(--status-warning-text)]">{shot.error}</div>
       )}
       {selectedNode && !canHighlight && shot?.dataUrl && (
-        <div className="shrink-0 border-t border-base-800 px-3 py-1 text-[10px] text-slate-500">
+        <div className="shrink-0 border-t border-line-subtle px-3 py-1 text-[10px] text-slate-500">
           {t("sapGuiScripting.highlightUnavailable")}
         </div>
       )}

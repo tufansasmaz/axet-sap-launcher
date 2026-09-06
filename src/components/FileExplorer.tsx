@@ -272,7 +272,7 @@ export default function FileExplorer({
               importInto(entry.path, extractDroppedPaths(e.dataTransfer));
             }}
             title={browsable ? `${entry.name}\n${t("fileExplorer.enterDirHint")}` : entry.name}
-            className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm text-slate-300 hover:bg-base-700/60 ${
+            className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm text-slate-300 hover:bg-active/60 ${
               isDragOver ? "bg-accent-500/20 ring-1 ring-inset ring-accent-400" : ""
             }`}
             style={{ paddingLeft }}
@@ -324,7 +324,7 @@ export default function FileExplorer({
         onClick={() => onSelectFile(entry)}
         title={entry.name}
         className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm ${
-          isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-base-700/60"
+          isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
         }`}
         style={{ paddingLeft }}
       >
@@ -355,7 +355,7 @@ export default function FileExplorer({
             <button
               onClick={handlePickRoot}
               title={t("fileExplorer.openDirTitle")}
-              className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white"
+              className="cursor-pointer rounded p-1 text-slate-500 hover:bg-active hover:text-white"
             >
               <FolderSearch size={12} />
             </button>
@@ -363,26 +363,26 @@ export default function FileExplorer({
           <button
             onClick={handleAddFileClick}
             title={t("fileExplorer.addFileTitle")}
-            className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white"
+            className="cursor-pointer rounded p-1 text-slate-500 hover:bg-active hover:text-white"
           >
             <FilePlus size={12} />
           </button>
           <button
             onClick={refresh}
             title={t("fileExplorer.refreshTitle")}
-            className="cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white"
+            className="cursor-pointer rounded p-1 text-slate-500 hover:bg-active hover:text-white"
           >
             <RefreshCw size={12} />
           </button>
         </div>
       </div>
       {browsable && (
-        <div className="flex shrink-0 items-center gap-1 border-b border-base-800 px-2 pb-1.5">
+        <div className="flex shrink-0 items-center gap-1 border-b border-line-subtle px-2 pb-1.5">
           <button
             onClick={() => setCurrentRoot(parentDir(currentRoot))}
             disabled={!canGoUp}
             title={t("fileExplorer.upDirTitle")}
-            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 hover:bg-base-700 hover:text-white disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 hover:bg-active hover:text-white disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-500"
           >
             <ArrowUp size={12} />
           </button>
@@ -391,7 +391,7 @@ export default function FileExplorer({
             <button
               onClick={() => setCurrentRoot(baseRoot)}
               title={baseRoot}
-              className="shrink-0 cursor-pointer rounded px-1 py-0.5 hover:bg-base-700 hover:text-white"
+              className="shrink-0 cursor-pointer rounded px-1 py-0.5 hover:bg-active hover:text-white"
             >
               {baseName(baseRoot) || baseRoot}
             </button>
@@ -401,7 +401,7 @@ export default function FileExplorer({
                 <button
                   onClick={() => setCurrentRoot(crumb.path)}
                   title={crumb.path}
-                  className={`cursor-pointer rounded px-1 py-0.5 hover:bg-base-700 hover:text-white ${
+                  className={`cursor-pointer rounded px-1 py-0.5 hover:bg-active hover:text-white ${
                     crumb.path === currentRoot ? "text-slate-300" : ""
                   }`}
                 >
