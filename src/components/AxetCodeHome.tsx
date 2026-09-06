@@ -46,6 +46,7 @@ import { resolveTier } from "../lib/tier";
 import { DictationRecorder } from "../lib/dictationRecorder";
 import { promptWithAttachments, toAttachments } from "../lib/attachments";
 import { chatToMarkdown, safeFileName } from "../lib/chatExport";
+import { chatToPrintHtml } from "../lib/chatPrint";
 import { useT } from "../i18n";
 
 // Kullanıcı yazmayı bu kadar duraklattıktan sonra alt süreç ısıtılıyor. Her
@@ -1023,22 +1024,31 @@ export default function AxetCodeHome({
     [handleDeleteSession, sessions],
   );
 
-  // Sohbeti Markdown dosyasına aktar. Metin burada üretiliyor, kaydetme
-  // diyaloğu ve yazma ana süreçte (`chat:exportMarkdown`). İptal sessiz —
+  // Sohbeti dosyaya aktar — PDF ya da Markdown. İÇERİK burada üretiliyor,
+  // kaydetme diyaloğu ve yazma ana süreçte (`chat:export`). İptal sessiz —
   // kullanıcının diyaloğu kapatması bir hata değil.
+  //
+  // İKİ BİÇİM DE ÜRETİLİP GÖNDERİLİYOR, çünkü hangisinin isteneceği ancak
+  // kaydetme kutusu kapandığında belli oluyor (biçim, kutunun kendi "dosya
+  // türü" listesinden seçiliyor). İkisini de kurmak saf metin işi — en uzun
+  // sohbette bile milisaniyeler; kutuyu açmadan önce kullanıcıya bir soru daha
+  // sormaya değmez.
   const handleExportSession = useCallback(
     async (id: string) => {
       const target = sessions.find((s) => s.id === id);
       if (!target || target.messages.length === 0) return;
-      const markdown = chatToMarkdown({
+      const input = {
         title: target.title,
         messages: target.messages,
         contextPath: target.cwd,
         contextLabel: target.sapLabel,
-      });
+      };
       // Hata bildirimi ana süreçte (`dialog.showErrorBox`): sohbet listesinde
       // bu işlemin sonucunu gösterecek bir yer yok.
-      await window.api.exportChatMarkdown(safeFileName(target.title), markdown);
+      await window.api.exportChat(safeFileName(target.title, "pdf"), {
+        markdown: chatToMarkdown(input),
+        html: chatToPrintHtml(input),
+      });
     },
     [sessions],
   );
@@ -2508,8 +2518,10 @@ export default function AxetCodeHome({
         >
           <Pencil size={12} />
         </button>
-        {/* Dışa aktarma yalnızca DOLU sohbetlerde: boş bir sohbetin markdown'ı
-            yalnızca başlıktan ibaret olurdu. */}
+        {/* Dışa aktarma yalnızca DOLU sohbetlerde: boş bir sohbetin dosyası
+            yalnızca başlıktan ibaret olurdu. Biçim seçimi burada DEĞİL,
+            kaydetme kutusunun kendi "dosya türü" listesinde — bu şeride ikinci
+            bir ikon koymak gürültü olurdu. */}
         {session.messages.length > 0 && (
           <button
             onClick={(e) => {

@@ -15,6 +15,7 @@ import type {
   AxetModelsListResult,
   ChatAttachmentPreviewResult,
   ChatAttachmentSaveResult,
+  ChatExportPayload,
   ChatExportResult,
   ChatSessionsLoadResult,
   ChatSessionsState,
@@ -249,8 +250,10 @@ const api = {
   loadChatSessions: (): Promise<ChatSessionsLoadResult> => ipcRenderer.invoke("chatSessions:load"),
   saveChatSessions: (state: ChatSessionsState): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("chatSessions:save", state),
-  exportChatMarkdown: (suggestedName: string, markdown: string): Promise<ChatExportResult> =>
-    ipcRenderer.invoke("chat:exportMarkdown", suggestedName, markdown),
+  // Her iki biçim de BİRLİKTE gönderiliyor: hangisinin yazılacağına kaydetme
+  // kutusunda seçilen uzantı karar veriyor ve o seçim ana süreçte öğreniliyor.
+  exportChat: (suggestedName: string, payload: ChatExportPayload): Promise<ChatExportResult> =>
+    ipcRenderer.invoke("chat:export", suggestedName, payload),
 
   // ---------------------------- Uygulama Bağlantıları (Outlook/SharePoint connector'ları) ----------------------------
   testConnector: (requestId: string, provider: ConnectorProvider): Promise<ConnectorTestResult> =>

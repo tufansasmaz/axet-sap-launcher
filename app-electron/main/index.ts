@@ -309,6 +309,47 @@ async function resolveCredentialDefaults(config: AppConfig, serviceUuid: string)
   };
 }
 
+// Sohbeti PDF'e basar. HTML belgesi renderer'da üretiliyor (bkz.
+// src/lib/chatPrint.ts); burada yalnızca "belgeyi bir sayfaya yerleştir ve
+// kağıda dök" adımı var.
+//
+// AYRI, GİZLİ BİR PENCEREDE basılıyor — uygulamanın kendi penceresinde değil.
+// Sebep: `printToPDF` neyi görüyorsa onu basar, yani ana pencerede basmak
+// sohbetin ekrandaki hâlini (koyu tema, katlı araç dökümleri, yatay kaydırılan
+// kod, yan paneller) verirdi. Gizli pencere baskı için hazırlanmış belgeyi
+// yüklüyor ve iş biter bitmez yok ediliyor.
+//
+// `javascript: false`: belgenin içeriği sonuçta bir dil modelinin ürettiği
+// metin. Zaten kaçırılıyor (chatPrint `esc`), ama basılacak bir belgede
+// çalıştırılacak hiçbir şey yok — motoru tümden kapatmak kaçırma hatasını da
+// zararsız kılıyor.
+//
+// `data:` URL yerine GEÇİCİ DOSYA: uzun bir sohbetin belgesi megabaytlar
+// tutabiliyor ve Chromium çok uzun `data:` URL'lerini reddediyor. Dosya
+// `finally` içinde siliniyor — basım patlasa bile diskte kalmıyor.
+async function writeChatPdf(filePath: string, html: string): Promise<void> {
+  const tempPath = path.join(app.getPath("temp"), `axet-sohbet-${randomUUID()}.html`);
+  await fs.writeFile(tempPath, html, "utf-8");
+  const printWindow = new BrowserWindow({
+    show: false,
+    webPreferences: { javascript: false, nodeIntegration: false, contextIsolation: true }
+  });
+  try {
+    await printWindow.loadFile(tempPath);
+    const pdf = await printWindow.webContents.printToPDF({
+      pageSize: "A4",
+      printBackground: true,
+      // Inç. Kenar boşluğu belgede DEĞİL burada: `@page` marjinleri
+      // Chromium'un baskı yolunda güvenilir değil.
+      margins: { top: 0.6, bottom: 0.6, left: 0.55, right: 0.55 }
+    });
+    await fs.writeFile(filePath, pdf);
+  } finally {
+    printWindow.destroy();
+    await fs.unlink(tempPath).catch(() => undefined);
+  }
+}
+
 function registerIpc(): void {
   ipcMain.handle("landscape:get", async () => {
     const config = loadConfig();
@@ -842,19 +883,33 @@ function registerIpc(): void {
   ipcMain.handle("chatSessions:load", () => loadChatSessions());
   ipcMain.handle("chatSessions:save", (_event, state: ChatSessionsState) => saveChatSessions(state));
 
-  // Sohbeti Markdown olarak dışa aktar. Metnin KENDİSİ renderer'da üretiliyor
-  // (bkz. src/lib/chatExport.ts) — burada yalnızca kaydetme diyaloğu ve yazma
-  // var, çünkü mesaj/araç yapısını bilen taraf orası.
-  ipcMain.handle("chat:exportMarkdown", async (_event, suggestedName: string, markdown: string) => {
+  // Sohbeti dosyaya aktar — PDF ya da Markdown. İÇERİĞİN KENDİSİ renderer'da
+  // üretiliyor (bkz. src/lib/chatExport.ts ve chatPrint.ts), çünkü mesaj/araç
+  // yapısını bilen taraf orası; burada yalnızca kaydetme diyaloğu ve yazma var.
+  //
+  // Biçim seçimi AYRI BİR DÜĞMEYLE DEĞİL, kaydetme kutusunun kendi "dosya
+  // türü" açılır listesiyle yapılıyor: işletim sisteminin bu iş için zaten bir
+  // yolu var, sohbet satırına ikinci bir ikon koymak o yoğun şeride gürültü
+  // eklerdi. Seçilen türü uzantıdan okuyoruz.
+  ipcMain.handle("chat:export", async (_event, suggestedName: string, payload: { markdown: string; html: string }) => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win ?? (undefined as any), {
-      title: "Sohbeti Markdown olarak kaydet",
+      title: "Sohbeti dışa aktar",
       defaultPath: suggestedName,
-      filters: [{ name: "Markdown", extensions: ["md"] }]
+      // PDF ÖNCE: liste ilk sırayı varsayılan sayıyor ve okunup paylaşılan
+      // biçim bu. Markdown tam arşiv olarak bir tık ötede duruyor.
+      filters: [
+        { name: "PDF", extensions: ["pdf"] },
+        { name: "Markdown", extensions: ["md"] }
+      ]
     });
     if (result.canceled || !result.filePath) return { canceled: true };
     try {
-      await fs.writeFile(result.filePath, markdown, "utf-8");
+      if (result.filePath.toLowerCase().endsWith(".pdf")) {
+        await writeChatPdf(result.filePath, payload.html);
+      } else {
+        await fs.writeFile(result.filePath, payload.markdown, "utf-8");
+      }
       return { canceled: false, filePath: result.filePath };
     } catch (err) {
       // Hata KUTUYLA bildiriliyor: sohbet listesinde bu işlemin sonucunu

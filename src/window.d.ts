@@ -14,6 +14,7 @@ import type {
   AxetModelsListResult,
   ChatAttachmentPreviewResult,
   ChatAttachmentSaveResult,
+  ChatExportPayload,
   ChatExportResult,
   ChatSessionsLoadResult,
   ChatSessionsState,
@@ -195,7 +196,7 @@ export interface AxetApi {
   transcribeDictation: (base64Wav: string, language: string) => Promise<DictationResult>;
   loadChatSessions: () => Promise<ChatSessionsLoadResult>;
   saveChatSessions: (state: ChatSessionsState) => Promise<{ ok: boolean; error?: string }>;
-  exportChatMarkdown: (suggestedName: string, markdown: string) => Promise<ChatExportResult>;
+  exportChat: (suggestedName: string, payload: ChatExportPayload) => Promise<ChatExportResult>;
 
   testConnector: (requestId: string, provider: ConnectorProvider) => Promise<ConnectorTestResult>;
   cancelConnectorTest: (requestId: string) => Promise<{ ok: boolean }>;

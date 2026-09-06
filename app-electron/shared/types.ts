@@ -782,6 +782,16 @@ export interface FlowJsonFileResult {
 // Sohbeti dosyaya yazma sonucu. `canceled` ve `error` AYRI: kullanıcının
 // diyaloğu kapatması bir hata değil, bunu ayırmayan bir sonuç tipinde
 // "kaydedilemedi" uyarısı iptal edildiğinde de çıkardı.
+// Sohbet dışa aktarmasının iki biçimi tek pakette gidiyor. Kullanıcı biçimi
+// kaydetme kutusunun "dosya türü" listesinden seçiyor, yani seçim ana süreçte
+// öğreniliyor — renderer hangisinin isteneceğini önceden bilemiyor.
+export interface ChatExportPayload {
+  /** Tam arşiv: araç dökümleri kırpılmadan. */
+  markdown: string;
+  /** Baskıya hazır bağımsız belge (bkz. src/lib/chatPrint.ts). */
+  html: string;
+}
+
 export interface ChatExportResult {
   canceled: boolean;
   filePath?: string;

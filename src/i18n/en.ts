@@ -241,7 +241,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.dictateFailed": "Voice typing failed: {message}",
   "axetCodeHome.renameTitle": "Rename",
   "axetCodeHome.deleteTitle": "Delete chat",
-  "axetCodeHome.exportTitle": "Export as Markdown",
+  "axetCodeHome.exportTitle": "Export (PDF or Markdown)",
   "axetCodeHome.deleteConfirmTitle": "Delete chat",
   "axetCodeHome.deleteConfirmMessage": "The chat \"{title}\" and its {count} messages will be permanently deleted. This cannot be undone.",
   "axetCodeHome.deleteConfirmButton": "Delete",

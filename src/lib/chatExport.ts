@@ -4,14 +4,24 @@ import type { ChatMessage } from "../components/ChatBubble";
 // (`chat:exportMarkdown`); metni burada üretiyoruz, çünkü mesaj/araç yapısını
 // bilen taraf renderer.
 //
-// Neden PDF değil (henüz): PDF, `webContents.printToPDF` ile mümkün ama
-// sohbetin ekrandaki hâli baskıya uygun değil — kaydırılan kod blokları,
-// katlanmış araç dökümleri ve `display:none` duran diğer paneller doğrudan
-// basılamıyor. Markdown ise hem arşivlenebilir hem de başka bir araca
-// yapıştırılabilir; PDF isteyen bu çıktıyı dönüştürebiliyor.
+// PDF ARTIK VAR ama BURADAN DEĞİL — bkz. `chatPrint.ts`. Eski not "sohbetin
+// ekrandaki hâli baskıya uygun değil" diyordu ve bu doğruydu: yatay kaydırılan
+// kod blokları, katlanmış araç dökümleri ve `display:none` duran paneller
+// olduğu gibi basılamaz. Çözüm ekranı basmak değil, baskı için AYRI bir belge
+// üretmek oldu.
+//
+// İki biçim, iki farklı iş — ve bu ayrım bilinçli:
+//   Markdown → ARŞİV. Her şey tam: araç dökümleri kırpılmadan, ham metin
+//              olarak. Başka bir araca yapıştırılabiliyor, diff'lenebiliyor.
+//   PDF      → OKUNAN/PAYLAŞILAN belge. Araç dökümleri kırpılıyor (bkz.
+//              `chatPrint.ts` `STEP_OUTPUT_MAX_LINES`), çünkü 300 sayfalık
+//              grep çıktısı eki olan bir PDF okunmuyor.
 
-/** Dosya adında kullanılamayan karakterleri ayıklar, uzunluğu sınırlar. */
-export function safeFileName(title: string): string {
+/**
+ * Dosya adında kullanılamayan karakterleri ayıklar, uzunluğu sınırlar.
+ * `ext` uzantıyı belirliyor — kaydetme kutusunun ilk teklifi buna göre.
+ */
+export function safeFileName(title: string, ext: "md" | "pdf" = "md"): string {
   const base = title
     .replace(/[<>:"/\\|?*\x00-\x1f]/g, " ")
     .replace(/\s+/g, " ")
@@ -30,10 +40,11 @@ export function safeFileName(title: string): string {
   const stamp =
     `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
     ` ${pad(now.getHours())}.${pad(now.getMinutes())}`;
-  return `${base || "sohbet"} ${stamp}.md`;
+  return `${base || "sohbet"} ${stamp}.${ext}`;
 }
 
-function clock(ts: number): string {
+/** Tarih + saat, kullanıcının yerel biçiminde. `chatPrint.ts` de kullanıyor. */
+export function clock(ts: number): string {
   const d = new Date(ts);
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 }
@@ -98,6 +109,11 @@ export function chatToMarkdown(input: ChatExportInput): string {
     if (message.error) out.push("> ⚠️ Bu cevap bir hata bildirimi.", "");
     if (message.restartedReason) {
       out.push(`> ℹ️ Bu cevaptan önce oturum yenilendi (${message.restartedReason}).`, "");
+    }
+    // Yarım bir cevabın tam sanılması "yanlış bilgi" — ekranda görünüyor,
+    // dosyada da görünmeli.
+    if (message.interrupted) {
+      out.push("> ⚠️ Bu cevap yarıda kesildi; cümlenin ortasında bitiyor olabilir.", "");
     }
     out.push(message.content, "");
   }

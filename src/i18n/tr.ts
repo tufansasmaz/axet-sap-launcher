@@ -285,7 +285,7 @@ export const tr = {
   "axetCodeHome.dictateFailed": "Sesle yazma başarısız: {message}",
   "axetCodeHome.renameTitle": "Yeniden adlandır",
   "axetCodeHome.deleteTitle": "Sohbeti sil",
-  "axetCodeHome.exportTitle": "Markdown olarak dışa aktar",
+  "axetCodeHome.exportTitle": "Dışa aktar (PDF veya Markdown)",
   "axetCodeHome.deleteConfirmTitle": "Sohbeti sil",
   "axetCodeHome.deleteConfirmMessage": "\"{title}\" sohbeti ve içindeki {count} mesaj kalıcı olarak silinecek. Bu işlem geri alınamaz.",
   "axetCodeHome.deleteConfirmButton": "Sil",

@@ -20,7 +20,12 @@ import { highlightCode } from "./highlightLite";
 // Sıra ÖNEMLİ: `**kalın**` `*italik*`ten ÖNCE gelmeli, yoksa italik kuralı
 // kalın işaretinin ilk yıldızını yiyip bozuk eşleşme üretir. Satır içi kod
 // (`) en başta, çünkü içindeki yıldız/alt tire biçimlendirilmemeli.
-const INLINE_TOKEN =
+//
+// DIŞA AÇIK, çünkü ikinci bir tüketicisi var: `chatPrint.ts` aynı markdown'ı
+// PDF için statik HTML'e çeviriyor. O dosya React üretemez (baskı belgesi
+// bağımsız, Tailwind'siz ve etkileşimsiz), bu yüzden blok dağıtımını kendi
+// yapıyor — ama DESENLER paylaşılıyor ki gramerin iki ayrı tanımı oluşmasın.
+export const INLINE_TOKEN =
   /(`[^`]+`)|(\*\*[^*]+\*\*)|(~~[^~]+~~)|(\*[^*\n]+\*)|(\[[^\]]+\]\([^)\s]+\))|(https?:\/\/[^\s)]+)/g;
 
 const LINK_CLASS = "text-accent-400 underline underline-offset-2 hover:text-accent-500";
@@ -121,12 +126,25 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
 
 // GFM boru-tablosu ayırıcı satırı: |---|:---:|---:| gibi. Bir satırın TABLO
 // BAŞLIĞI olduğunu ancak BİR SONRAKİ satır buysa anlarız.
-const TABLE_DIVIDER = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
+export const TABLE_DIVIDER = /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/;
 
-function splitRow(line: string): string[] {
+export function splitRow(line: string): string[] {
   const trimmed = line.trim().replace(/^\|/, "").replace(/\|$/, "");
   return trimmed.split("|").map((cell) => cell.trim());
 }
+
+// Blok desenleri. Döngünün içine gömülü literaller olarak duruyorlardı;
+// `chatPrint.ts` aynı grameri baskı için yeniden dağıtmak zorunda olduğundan
+// buraya çıkarıldılar — iki dosyanın FARKLI listeler taşıması, bir gün
+// birinde düzeltilip diğerinde unutulan bir ayrıştırma hatası demek olurdu.
+// Hiçbirinde `g` bayrağı yok, yani paylaşılmaları `lastIndex` taşımıyor.
+export const HEADING_RE = /^(#{1,6})\s+(.*)$/;
+export const HR_RE = /^(-{3,}|\*{3,}|_{3,})$/;
+export const QUOTE_RE = /^\s*>\s?(.*)$/;
+// En fazla 3 hane: Türkçe metinde "2024. yılında..." gibi bir cümle başlangıcı
+// sınırsız `\d+` ile yanlışlıkla liste maddesine dönüşüyordu.
+export const ORDERED_RE = /^\s*\d{1,3}[.)]\s+(.*)$/;
+export const BULLET_RE = /^\s*[-*+]\s+(.*)$/;
 
 export function renderMarkdownLite(content: string): ReactNode {
   const lines = content.split(/\r?\n/);
@@ -206,7 +224,7 @@ export function renderMarkdownLite(content: string): ReactNode {
     }
 
     // --- başlık ---
-    const headingMatch = /^(#{1,6})\s+(.*)$/.exec(trimmed);
+    const headingMatch = HEADING_RE.exec(trimmed);
     if (headingMatch) {
       flushAll();
       const level = headingMatch[1].length;
@@ -229,7 +247,7 @@ export function renderMarkdownLite(content: string): ReactNode {
     }
 
     // --- yatay çizgi ---
-    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) {
+    if (HR_RE.test(trimmed)) {
       flushAll();
       blocks.push(<hr key={`hr-${blocks.length}`} className="border-base-700" />);
       i++;
@@ -283,7 +301,7 @@ export function renderMarkdownLite(content: string): ReactNode {
     }
 
     // --- alıntı ---
-    const quoteMatch = /^\s*>\s?(.*)$/.exec(line);
+    const quoteMatch = QUOTE_RE.exec(line);
     if (quoteMatch) {
       flushPara();
       flushList();
@@ -292,11 +310,8 @@ export function renderMarkdownLite(content: string): ReactNode {
       continue;
     }
 
-    // --- sıralı liste ---
-    // En fazla 3 hane: Türkçe metinde "2024. yılında..." gibi bir cümle
-    // başlangıcı sınırsız `\d+` ile yanlışlıkla liste maddesine dönüşüyordu.
-    // 999'dan uzun bir sohbet listesi pratikte yok.
-    const orderedMatch = /^\s*\d{1,3}[.)]\s+(.*)$/.exec(line);
+    // --- sıralı liste --- (hane sınırının gerekçesi için bkz. `ORDERED_RE`)
+    const orderedMatch = ORDERED_RE.exec(line);
     if (orderedMatch) {
       flushPara();
       flushQuote();
@@ -308,7 +323,7 @@ export function renderMarkdownLite(content: string): ReactNode {
     }
 
     // --- madde işaretli liste ---
-    const listMatch = /^\s*[-*+]\s+(.*)$/.exec(line);
+    const listMatch = BULLET_RE.exec(line);
     if (listMatch) {
       flushPara();
       flushQuote();
