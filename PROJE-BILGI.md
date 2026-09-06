@@ -8704,3 +8704,278 @@ seviyeye çekilmiş mat bir mor — logonun morunun sönümlenmiş hâli.
 - `EmbeddedTerminal`'ın xterm teması ve `BrowserWindow.backgroundColor` CSS
   değişkeni okuyamıyor; palet değişirse **bu iki yer elle** güncellenmeli.
   Bağ otomatik değil.
+
+
+## Tasarım ikinci tur: tek düğme dili, Inter, modül renkleri (2026-09-06)
+
+Bir önceki bölümde kurulan temanın üstüne gelen iki tur kullanıcı geri
+bildirimi. Palet oturmuştu; eksik olan, o paletin **bileşen düzeyinde**
+tutarlı uygulanmasıydı.
+
+### `src/ui/buttons.ts` — uygulamanın tek düğme kaynağı
+
+Bu dosya `src/components/sapgui/ui.tsx`ten çıkarıldı. O dosya yalnızca SAP GUI
+Scripting ekranı için yazılmıştı ama düğmelerinin yapısı (saç teli kenarlık +
+bir kademe açık zemin + sabit boy + 6px köşe + gölgesiz düz dolgu) aslında
+uygulamanın tamamının olması gereken dildi.
+
+Geri kalan ekranlar bunun yerine her yerde biraz farklı yazılmış onlarca tek
+seferlik sınıf dizisi kullanıyordu: `px-3 py-1.5`, `px-2.5 py-1`, `px-4 py-2`,
+`rounded`, `rounded-lg`, `text-xs`, `text-sm`, `text-[12px]`... Aynı
+diyalogdaki iki düğme 2-3 piksel farklı yükseklikte çıkıyordu — tek tek
+bakınca görünmeyen, ekrana bütün olarak bakınca "özensiz" diye okunan türden
+bir fark.
+
+**Yükseklik `py-*` ile değil sabit `h-*` ile veriliyor.** Sebep ölçülmüş: `py`
+ile kurulan bir düğmenin boyu içindeki metnin satır yüksekliğine bağlı, yani
+aynı sınıf 11px yazıyla 26px, 13px yazıyla 30px düğme üretiyor.
+
+| Kademe | Boy | Yazı | Kullanım |
+|---|---|---|---|
+| `sm` | h-7 (28px) | 11px | araç panelleri, satır içi eylemler |
+| `md` | h-8 (32px) | 12px | panel/modal üst şeritleri, form eylemleri |
+| `lg` | h-9 (36px) | 13px | modal ayak düğmeleri, birincil eylemler |
+
+Ton kademeleri: `neutral` (varsayılan) · `primary` (vurgu dolgusu, **ekranda
+aynı anda en fazla bir tane**) · `danger` (`--status-danger-solid` kullanıyor,
+`--status-danger-text` DEĞİL — ikincisi koyu zemin üstünde okunmak için ayarlı,
+zemin olarak kullanıldığında beyaz metinle ~2.5:1 veriyor) · `ghost`
+(kenarlıksız, yoğun listelerde satır başına düşen eylemler için).
+
+**KURAL: yeni bir düğme yazarken sınıf dizisini elle kurma.** Buradan bir
+kademe seç; kademeler yetmiyorsa BURAYA ekle.
+
+### `tintBtn` — `primary`nin sakin hâli
+
+Soluk kenarlık (%30) + soluk dolgu (%10) + renkli yazı; hover'da %50/%20.
+Tonlar: `accent` (Sistem Ekle), `sap` (SAP Logon'dan Getir), `terminal`
+(Terminal düğmesi).
+
+`primary` bu iş için kullanılamıyor çünkü o "ekranda tek birincil düğme"
+kuralına bağlı ve SAP Launcher başlığında yan yana üç tane var. `tintBtn`
+kimlik veriyor ama "asıl eylem benim" demiyor: renk "ne yapılması bekleniyor"u
+değil "bu düğme neye dokunuyor"u söylüyor.
+
+**Sınıflar bu dosyada birebir ve uzun uzun yazılı, bu bilinçli.** Tailwind
+sınıf adlarını kaynak METNİNDEN tarıyor; `bg-[color-mix(...var(${x})...)]`
+gibi çalışma anında kurulan bir dize taramaya hiç görünmez, dolayısıyla o CSS
+üretilmez ve düğme sessizce zeminsiz çıkar. Yeni bir ton eklemek = `TINT`
+nesnesine tam yazılmış bir satır eklemek.
+
+`accent` Tailwind'in kendi opaklık sözdizimini kullanıyor (`accent-500/30`)
+çünkü accent bir RGB üçlüsü; `--module-*` ve `--status-*` hex olduğu için
+onlarda tek yol `color-mix()`. `color:` ipucu da gerekli — `border-[...]` /
+`text-[...]` Tailwind için genişlik/punto ile renk arasında belirsiz ve
+`color-mix()` tahmin edilebilir bir renk değeri değil.
+
+Değişiklik sonrası `dist/assets/*.css` içinde sekiz `color-mix()` bildiriminin
+gerçekten üretildiği doğrulandı — sessiz atlanma bu mekanizmanın beklenen
+başarısızlık biçimi.
+
+### `src/ui/fileIcons.ts`
+
+`fileKind(name)` — dosya adından ikon/renk türü. Dört ayrı bileşende
+tekrarlanan uzantı listesi tek yere alındı.
+
+### Yazı tipi: Inter, yerel
+
+`src/assets/fonts/` — Inter latin + latin-ext woff2 alt kümeleri, lisansıyla
+(`Inter-LICENSE.txt`). CDN yok: uygulama VPN arkasında ve çevrimdışı
+kullanılabiliyor, bir web fontunun yüklenememesi tipografiyi sistem fontuna
+düşürürdü.
+
+### Modül renkleri — `--module-*`
+
+Sol şeritteki (ActivityBar) her ekranın kendi kimliği. Bu, "renk yalnızca
+vurguda" kuralına bilinçli bir istisna ve **tek bir yerle sınırlı**: sol şerit
+bir navigasyon, yani kullanıcının "nerede olduğunu" değil "nereye
+gidebileceğini" gösteren tek yer. Üç tek renkli gri ikon arasından doğru olanı
+bulmak her seferinde okumayı gerektiriyordu.
+
+- `--module-code` → logonun moru
+- `--module-sap` → SAP marka mavisinin hue'su
+- `--module-guiscript` → otomasyon çağrışımlı sıcak kehribar
+
+**Seçili hâl bu renklerin hiçbiri değil, vurgu yeşili.** Renk "hangi modül",
+yeşil "hangisi açık" sorusunu cevaplıyor; ikisi birbirine karışmıyor. Seçili
+ikonun kendi rengini kaybetmesi kasıt, kayıp değil.
+
+### DOYGUNLUK BANDI — yeni ve bağlayıcı kural
+
+Kimlik renkleri bir kez markanın/ikonun kendi ham renginden alınmıştı.
+Kullanıcı "renkler çok parlak" dediğinde ölçüldü ve sorun net göründü:
+
+| Jeton | Doygunluk |
+|---|---|
+| `--module-sap` (`#0faaff`) | **%100** |
+| `--module-code` (`#8b7cff`) | **%100** |
+| `--accent-500` (vurgu!) | **%46** |
+
+Yani kimlik renkleri, ekranın en önemli rengi olan vurgudan daha yüksek sesle
+konuşuyordu. Renkli düğmeler eklenince bu "canlı palet" değil doğrudan parlama
+olarak okundu.
+
+**Kural: kimlik renkleri accent ile aynı bantta durur — doygunluk %45-55,
+base-800 üstünde kontrast 5.0-6.3 (accent'in kendisi s46 l44, 5.11:1).**
+Hue'lar değişmez, yani hiçbir renk kimliğini kaybetmez; eşitlenen yalnızca ses
+seviyesi.
+
+Banda çekilenler (koyu tema): `--module-code` `#8b7cff` → `#9890d5` ·
+`--module-sap` `#0faaff` → `#519ec8` · `--module-guiscript` `#e2a34e` →
+`#cf8859` · `--status-success-text` `#46cfa8` → `#46b998` ·
+`--status-info-text` `#7fa8d8` → `#759bc7`. Açık temada `--module-sap`
+`#0a6ed1` → `#2f72b1`, `--module-code` `#5b4bd6` → `#5746b9`.
+
+Bunun bir sonucu: **`--module-sap` artık SAP'ın marka HEX'i değil, marka
+HUE'su.** Marka rengini birebir taşımak, o rengin bu arayüzün ses seviyesinde
+olmasından daha önemli değil.
+
+`success` ve `info` bu listede, çünkü artık yalnızca durum bildirimi değiller:
+yeşil terminal düğmesinin ve bağlayıcı fişinin, mavi dil düğmesinin rengi.
+Durgun hâlde ekranda duran bir renk, bir toast'ta bir saniye görünen renkle
+aynı ses seviyesinde olamaz.
+
+**`--status-danger-*` ve `--status-warning-*` bilerek dışarıda.** Onlar hâlâ
+yalnızca uyarı bağlamında çıkıyor ve orada yüksek sesli olmaları işin kendisi.
+`--navy-icon`, `--folder-icon`, `--action-amber-*` ve `--project-*` de
+değişmedi (navy zaten rampanın en az doygun rengi).
+
+`--module-guiscript` ayrıca hue tarafında da kaydı (h34 → h24): doygunluk
+düşünce `--folder-icon` (h35) ile arasındaki mesafe yalnızca doygunluk farkına
+kalıyordu ve ikisi ayırt edilemez hâle geliyordu.
+
+### Zemin rampası bir kademe koyulaştı
+
+`--base-950` `#18181b` → `#131316`, rampanın tamamı aynı adım farklarıyla
+aşağı. Mürekkep rampası **değişmedi**: koyulaşma kontrastı zaten yükseltiyor
+(`--ink-400` 4.28:1 → 4.48:1). Bir önceki turda rampa açıldığı için mürekkep
+tarafında telafi gerekmişti; bu yönde gerekmiyor.
+
+`BrowserWindow.backgroundColor` ve `EmbeddedTerminal`'ın xterm teması da elle
+güncellendi — bu iki yer CSS değişkeni okuyamıyor (bkz. bir önceki bölümün
+"Değişmeyen kurallar"ı).
+
+### ActivityBar: alt grup da durgun hâlde renkli
+
+Önceki sürümde renk yalnızca hover'da geliyordu; gerekçesi "üstteki üç renkli
+ikonun taşıdığı bilgi kaybolmasın" idi ama pratikte sonuç şuydu: şeridin alt
+yarısı, fareyi üzerinden geçirene kadar gri bir ikon yığınıydı — yani renk hiç
+görülmüyordu. **Üst ve alt grubun ayrımı artık renkle değil opaklıkla
+yapılıyor:** alt grup %75'te duruyor, hover'da %100. Tek istisna bağlayıcı
+fişi: bağlıyken opaklığı da tam, çünkü orada renk dekorasyon değil DURUM.
+
+### Ürün adı: NTT Studio
+
+`productName`, `shortcutName`, `index.html` başlığı, TitleBar, hata kutusu ve
+`launcher.ts`in axet.code'a verdiği AGENTS.md metni. `activityBar.sapLauncher`
+de "aXet SAP Logon" oldu.
+
+**`appId` (`com.nttdata.axet.saplauncher`) bilerek değişmedi** — bu dosyanın
+kendi kuralı: migration planı olmadan `appId`/`publish.repo` değiştirilmez.
+Değiştirilseydi kurulu sürümler yan yana ikinci bir uygulama olarak görünür ve
+güncelleme zinciri kopardı.
+
+### İki düzeltme, iki farklı cinsten
+
+**Composer'daki dikey hiza.** Kök sebep padding değildi: Tailwind preflight
+`<textarea>`'ya `display:block` **vermiyor**, inline-block kalıyor ve
+sarmalayıcı taban çizgisi altı boşluğu (~4px) kazanıyor — `items-end` altında
+36px'lik düğmelerin yanında 40px'lik bir kutu. Tek bir `block` sınıfı çözdü.
+
+**SAP Launcher'ın yenile düğmesi "çalışmıyor" diye bildirildi ama
+çalışıyordu.** `landscape:get` → `loadLandscape()` zincirinde hiçbir yerde
+önbellek yok, her çağrıda XML diskten yeniden okunuyor. Sorun geri bildirimdi:
+okuma ~15 ms sürüyor, `animate-spin` hiç çizilmiyor ve dosya değişmemişse
+ekranda tek piksel oynamıyordu. `MIN_REFRESH_SPIN_MS = 450` (App.tsx:67) +
+sayı taşıyan toast (`app.listReloaded` — "Liste yenilendi — 47 sistem") ile
+"okundu ama değişen yok" ile "düğme bozuk" ayrıştı.
+
+Bunu ararken **gerçek bir hata** çıktı: "SAP Logon'dan Getir" okuma başarısız
+olsa bile koşulsuz `success` toast'ı basıyordu, yani hata ve başarı bildirimi
+yan yana görünüyordu. `refresh` artık `SapLandscape | null` döndürüyor.
+
+### Değişmeyen kurallar (bu tura eklenenler)
+
+- Düğme sınıf dizisi **elle kurulmaz** — `src/ui/buttons.ts`ten kademe seçilir.
+- Tailwind sınıfları **çalışma anında dize birleştirerek üretilmez**; tarayıcı
+  kaynak metnini tarıyor, üretilen sınıf sessizce hiç derlenmez.
+- Kimlik renkleri **doygunluk bandının** dışına çıkmaz (%45-55). Yeni bir renk
+  eklerken accent ile karşılaştır.
+- `--status-danger/warning` banda çekilmez.
+
+---
+
+## SAML SSO girişi: bitiş koşulu artık ADT'nin cevabı (2026-09-06, canlı doğrulandı)
+
+MAYA (`my431433.s4hana.cloud.sap`, client 100) ile canlı bulgu. Otomatik SAML
+girişi "SAML SSO girişi arka planda tamamlandı (kimlik sağlayıcı oturumu zaten
+açıktı)" diyor, hemen ardından aynı çerez ADT'ye sorulduğunda giriş sayfası
+dönüyordu.
+
+### Kök sebep
+
+`samlLogin.ts`in döngüsü `SAP_SESSIONID*` çerezinin **varlığını** başarı
+sayıyordu.
+
+Ama SAP'ın ICF'i, SAML akışının kendi durumunu (RelayState) tutmak için
+oturumu **daha IdP'ye yönlendirmeden önce** açıyor ve
+`SAP_SESSIONID_<SID>_<CLNT>` çerezini tam o anda yazıyor. Yani çerez çoğu
+zaman ilk yoklamada, 500 ms içinde beliriyor.
+
+Sonuç bir yarış değil, düpedüz kendi kendini baltalama: çerezi gören döngü
+`finish()` çağırıp **pencereyi yok ediyor**, yani giriş akışını tam başladığı
+yerde kesiyordu.
+
+Dosyanın eski notu bu tuzağı düşünmüş ama yanlış yerde aramış — "IdP'ye
+yönlendiren ilk istek de çerez bırakıyor, o yüzden özellikle `SAP_SESSIONID`'ye
+bakıyoruz" diyordu. Yanıltıcı çerez zaten `SAP_SESSIONID`'nin kendisiymiş.
+
+### İkinci sorun: mandant uyumsuzluğu
+
+Tarayıcı `/sap/bc/adt/discovery`yi `sap-client` **olmadan** açıyordu, yani
+oturum sistemin varsayılan mandantında kuruluyordu; doğrulama ise kullanıcının
+seçtiği istemciyi soruyordu. İkisi çakışmadığı sürece görünmeyen, çakıştığı an
+"doğru parolayla giriş yapıyorum ama olmuyor"a dönüşen bir uyumsuzluk.
+
+### Düzeltme
+
+- **Bitiş koşulu artık çerezin varlığı değil, ADT'nin onu KABUL ETMESİ.** Çerez
+  göründüğünde `verifyWithCookies` ile gerçek bir discovery isteği atılıyor
+  (`PROBE_TIMEOUT_MS = 8000`); XML dönerse bitiyor. Dönmezse **akış
+  kesilmiyor** — döngü dönmeye, otomatik doldurma çalışmaya devam ediyor.
+  Anonim oturum çerezi artık bir tuzak değil, sadece henüz olumlu olmayan bir
+  yoklama.
+- **Doğrulama sonda değil akışın içinde.** Sondaki tek atış "olmadı"dan başka
+  bir şey söyleyemiyordu ve akış çoktan kesilmiş oluyordu.
+- `sap-client` tarayıcıya da veriliyor (`SamlLoginOptions.client`).
+- Yeni sonuç türü **`unverified`**: zaman aşımı ile "çerez alındı ama ADT
+  reddetti" ayrışıyor. Biri "tekrar dene", diğeri "istemciyi/girişi kontrol
+  et" demek.
+- Aynı çerez kümesi iki kez sorulmuyor (`sessionSignature()` — oturum
+  çerezlerinin ad=değer imzası karşılaştırılıyor); 500 ms'lik döngü aksi hâlde
+  sisteme dakikada 120 istek atardı.
+
+`launcher.ts`teki `verifyWithCookies` çağrısı **kaldırılmadı**: artık ikinci
+bir onay olarak duruyor, diskteki jar'ın gerçekten yazıldığı hâliyle
+çalıştığını doğruluyor ve iki dosya arasındaki sözleşme bozulursa (jar'ın
+şekli, çerez adları) bunu sohbet açılmadan önce yakalıyor.
+
+### Canlı doğrulama
+
+```
+[saml] ...my431433.s4hana.cloud.sap/sap/bc/adt/discovery: pw=0 user=0
+[saml] ...a0ckcsl6m.accounts.cloud.sap/saml2/idp/sso/...: pw=0 user=0
+[saml] dolduruldu [password] ...accounts.cloud.sap... — kullanıcı parola form.submit
+[saml] oturum çerezi ADT tarafından kabul edildi (1. yoklama)
+```
+
+"Pencere gösteriliyor" satırı yok — hiç pencere açılmadan tamamlandı. Eski kod
+bu akışı `pw=0 user=0` satırının hemen ardından, doldurma daha başlamadan
+kesiyordu.
+
+### Kural
+
+**Bir kimlik doğrulama akışında "kimlik bilgisi/çerez elde edildi" başarı
+değildir.** Başarı, o kimlik bilgisiyle korunan kaynaktan beklenen yanıtın
+alınmasıdır. Bu proje aynı hatayı iki kez yaptı: bir kez Basic Auth'ta (HTTP
+200 + HTML giriş sayfası "doğrulandı" sayılıyordu), bir kez burada.
