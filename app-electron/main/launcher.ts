@@ -383,7 +383,7 @@ ADT_RFC_BRIDGE_PORT=${rfcBridge.bridgePort}
     ? `
 # ============================================================================
 # SAML SSO MODU — kimlik doğrulama Basic Auth ile DEĞİL, aşağıdaki dosyadaki
-# oturum çerezleriyle yapılıyor. Çerezleri aXet Studio bağlanma sırasında
+# oturum çerezleriyle yapılıyor. Çerezleri NTT Studio bağlanma sırasında
 # açtığı giriş penceresinden aldı; süresi dolarsa sistemden çıkıp yeniden
 # bağlan (pencere gerekirse yeniden açılır). ADT_SAP_PASSWORD yukarıda
 # duruyor ama bu sistemde işe yaramıyor — SAP kimlik bilgilerine hiç bakmadan
@@ -394,7 +394,7 @@ ADT_SAML_COOKIES_FILE=${samlCookiesFile}
     : "";
 
   return `# ============================================================================
-# .conn_adt — aXet Studio tarafından doğrulanmış bağlantıyla oluşturuldu/güncellendi (${new Date().toISOString()})
+# .conn_adt — NTT Studio tarafından doğrulanmış bağlantıyla oluşturuldu/güncellendi (${new Date().toISOString()})
 # Sistem: ${service.name} (${service.systemId}) — aXet.code'un yerel ADT connector'ı bunu okur.
 # NEVER commit — bu dosyada düz metin şifre var, .gitignore'a eklendi.
 # ============================================================================
@@ -576,8 +576,8 @@ function buildContextMarkdown(
 
 ## Cloud / BTP Sistem Notları
 - Bu sistem manuel eklenmiş bir **cloud/BTP** sistemi — client kavramı genelde gerekmez (SAML SSO ve BTP service-key kimlik doğrulamasında client yoktur). Kullanıcı bağlanırken client alanını boş bıraktıysa \`.conn_adt\`'a otomatik olarak varsayılan \`${DEFAULT_CLOUD_CLIENT}\` yazıldı — bu ADT endpoint'lerinin sap-client parametresi bekleyip 400/404 dönmesini önlemek içindir, sistemin gerçek client'ı olduğu anlamına gelmez.
-- Bu sistem **SAML SSO** kullanıyorsa (401/403 yerine ADT XML değil **HTML login sayfası** dönmesi bunun kanıtıdır) giriş akışını **aXet Studio bağlanma sırasında kendisi çalıştırır** — kendi başına \`login_saml_sso.py\` çalıştırma, Playwright kurmaya kalkışma. Yukarıdaki "ADT Bağlantısı" bölümü bu sistemde SAML girişinin tamamlanıp tamamlanmadığını söylüyor; oradaki duruma güven.
-- Giriş tamamlandıysa çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında ve \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor. Çerezin süresi dolarsa (ADT çağrıları yine HTML dönmeye başlarsa) doğru adım kullanıcıdan **aXet Studio'da sisteme yeniden bağlanmasını** istemek.
+- Bu sistem **SAML SSO** kullanıyorsa (401/403 yerine ADT XML değil **HTML login sayfası** dönmesi bunun kanıtıdır) giriş akışını **NTT Studio bağlanma sırasında kendisi çalıştırır** — kendi başına \`login_saml_sso.py\` çalıştırma, Playwright kurmaya kalkışma. Yukarıdaki "ADT Bağlantısı" bölümü bu sistemde SAML girişinin tamamlanıp tamamlanmadığını söylüyor; oradaki duruma güven.
+- Giriş tamamlandıysa çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında ve \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor. Çerezin süresi dolarsa (ADT çağrıları yine HTML dönmeye başlarsa) doğru adım kullanıcıdan **NTT Studio'da sisteme yeniden bağlanmasını** istemek.
 - Otomatik giriş tamamlanamadıysa ve yeniden bağlanmak da işe yaramadıysa, SON ÇARE elle akış: \`pip install playwright && playwright install chromium\` (~200MB), sonra \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` ve script'in bastığı \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle. Bunu ancak kullanıcı onaylarsa yap.
 - Kullanıcıya "kimlik bilgisi yanlış" deme — SAML'li bir sistemde kullanıcı adı/şifre doğru da olsa yanlış da olsa yanıt aynıdır.`
     : "";
@@ -593,7 +593,7 @@ function buildContextMarkdown(
       return `- **Bridge başlatıldı** (\`http://127.0.0.1:${rfcBridge.bridgePort}\`, süreç çalışıyor) ama kimlik doğrulama denemesi tamamlanamadı: ${rfcOutcome.verifyMessage || rfcOutcome.detailNote}. Bridge çalışır durumda kalıyor — \`%sap-adt-readonly\` ile tekrar dene; sorun sürerse bu klasördeki \`rfc-bridge.log\`'a ve elle \`adt_rfc_probe.py\` çalıştırmaya bak.`;
     }
     return `- **Otomatik başlatma BAŞARISIZ**: ${rfcOutcome.detailNote}
-- RFC bridge için gereken Python + pyrfc + SAP NW RFC SDK aXet Studio'a **gömülü** olarak geliyor — normalde ekstra bir kurulum adımı gerekmez. Bu hata genelde şu ikisinden biri:
+- RFC bridge için gereken Python + pyrfc + SAP NW RFC SDK NTT Studio'a **gömülü** olarak geliyor — normalde ekstra bir kurulum adımı gerekmez. Bu hata genelde şu ikisinden biri:
   1. Uygulama kurulumu bozuk/eksik (\`resources/rfc-runtime\` klasörü paketlenmemiş) — uygulamayı yeniden kur.
   2. Ayarlar'da elle bir "Python çalıştırıcısı" yolu girilmiş ve o Python'da pyrfc/SDK yok — Ayarlar'dan bu alanı boşaltıp uygulamanın kendi gömülü runtime'ını kullanmasına izin ver.
 - Sorun sürerse bu klasördeki \`rfc-bridge.log\`'a bak; elle tanılamak için \`%sap-adt-readonly\` skill'inin SKILL.md'sindeki "Router-only sistemler (RFC bridge)" bölümüne bak (\`adt_rfc_probe.py\` ile RFC_PING/arayüz doğrulaması).`;
@@ -624,16 +624,16 @@ ${notesBlock}`
       ? saml.verified
         ? `## ADT Bağlantısı — SAML SSO ile DOĞRULANDI ✓
 - ADT URL: **${verifiedUrl}** — bu sistem Basic Auth kabul etmiyor (kimlik bilgilerine hiç bakmadan HTML giriş sayfası döndürüyor), kimlik doğrulama **SAML SSO** ile yapıldı.
-- Giriş akışını aXet Studio **kendisi çalıştırdı** (${saml.interactive ? "kullanıcıya bir giriş penceresi açıldı ve giriş yapıldı" : "kimlik sağlayıcı oturumu zaten açık olduğu için arka planda, pencere gösterilmeden tamamlandı"}) ve alınan oturum çerezi gerçek bir ADT çağrısıyla doğrulandı.
+- Giriş akışını NTT Studio **kendisi çalıştırdı** (${saml.interactive ? "kullanıcıya bir giriş penceresi açıldı ve giriş yapıldı" : "kimlik sağlayıcı oturumu zaten açık olduğu için arka planda, pencere gösterilmeden tamamlandı"}) ve alınan oturum çerezi gerçek bir ADT çağrısıyla doğrulandı.
 - Çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında, \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor — \`%sap-adt-readonly\` bunu otomatik okur, **senin yapman gereken hiçbir kurulum adımı YOK**.
 - \`login_saml_sso.py\`'yi ÇALIŞTIRMA ve Playwright kurmaya kalkışma — o yol artık gereksiz, giriş zaten yapıldı.
-- Çerezin süresi dolarsa ADT çağrıları yeniden HTML giriş sayfası döndürmeye başlar; çözüm kullanıcıdan aXet Studio'da sisteme **yeniden bağlanmasını** istemek (gerekirse pencere yeniden açılır), elle script çalıştırmak değil.
+- Çerezin süresi dolarsa ADT çağrıları yeniden HTML giriş sayfası döndürmeye başlar; çözüm kullanıcıdan NTT Studio'da sisteme **yeniden bağlanmasını** istemek (gerekirse pencere yeniden açılır), elle script çalıştırmak değil.
 - adt-tool.ps1 bu sistemde yazılmadı (o script Basic Auth kullanıyor, burada işe yaramaz) — ADT erişimi için read-only server'ı kullan.
 - Keşif/doğrulama adımları (referans):
 ${notesBlock}`
         : `## ADT Bağlantısı — SAML SSO GEREKLİ, OTOMATİK GİRİŞ TAMAMLANAMADI
 - ADT discovery isteği HTTP 200 döndürdü ama gövde bir ADT XML'i değil, bir **SAML/SSO giriş sayfası (HTML)** — bu, kullanıcı adı/şifre doğru olsun olmasın DEĞİŞMEYEN bir davranış, kimlik bilgileri Basic Auth ile hiçbir zaman kontrol edilmedi.
-- aXet Studio SAML giriş akışını otomatik çalıştırdı ama tamamlanamadı: **${saml.failureDetail || "sebep bilinmiyor"}**.
+- NTT Studio SAML giriş akışını otomatik çalıştırdı ama tamamlanamadı: **${saml.failureDetail || "sebep bilinmiyor"}**.
 - **Sohbet bilerek açıldı** (ok:true) ama bağlantı DOĞRULANMADI (verified:false) — bu bir hata durumu değil, bu sistemin normal/beklenen kimlik doğrulama şekli SAML SSO.
 - adt-tool.ps1 bu durumda yazılmadı (o da aynı şekilde Basic Auth kullanır, aynı HTML sayfasını alır).
 - **Doğru ilk adım kullanıcıdan sisteme yeniden bağlanmasını istemek** — giriş penceresi yeniden açılır (kapatıldıysa/zaman aşımına uğradıysa çoğu durumda sebep budur). Kendi başına script çalıştırma.
@@ -649,7 +649,7 @@ ${toolStatusBlock}`;
 
   return `# SAP Sistem Bağlantı Bağlamı
 
-Bu dosya aXet Studio tarafından otomatik oluşturulmuştur/güncellenmiştir. Session başında bu bilgileri referans al.
+Bu dosya NTT Studio tarafından otomatik oluşturulmuştur/güncellenmiştir. Session başında bu bilgileri referans al.
 
 ## Sen Şu An Bir SAP ABAP Sistemine Bağlısın
 Bu klasör bir SAP sisteminin proxy çalışma alanıdır — normal bir dosya sistemi/repo değil. ABAP nesneleri (paket, sınıf, CDS view, vs.) yerel diskte yok, uzak SAP sunucusunda ADT REST API üzerinden erişilir.
@@ -955,6 +955,9 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       baseUrl: finalUrl,
       username: credentials.username,
       password: credentials.password,
+      // İstemci giriş akışına da veriliyor: oturum, aşağıdaki doğrulamanın
+      // soracağı istemcide açılsın (bkz. SamlLoginOptions.client).
+      client: credentials.client,
       partitionKey: req.service.uuid,
       language
     });
@@ -970,9 +973,13 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       }
 
       if (samlCookiesFile) {
-        // Çerez ALINDI ≠ çerez GEÇERLİ. Doğrulamayı gerçekten ADT'ye
-        // sorarak yapıyoruz, yoksa "bağlandın" deyip ilk araç çağrısında
-        // patlardık — bu, tam olarak kullanıcının şikâyet ettiği durum.
+        // Çerez ALINDI ≠ çerez GEÇERLİ. Bu doğrulama 2026-09-06'dan beri
+        // giriş akışının İÇİNDE de yapılıyor (samlLogin.ts, `verifyWithCookies`
+        // yoklaması) — yani buraya gelen bir çerezin ADT tarafından kabul
+        // edildiği zaten biliniyor. Buradaki çağrı yine de duruyor: diskteki
+        // jar'ın gerçekten yazıldığı hâliyle çalıştığını doğruluyor ve iki
+        // dosya arasındaki sözleşme bozulursa (jar'ın şekli, çerez adları)
+        // bunu sohbet açılmadan ÖNCE yakalıyor.
         const cookieHeader = Object.entries(jar.cookies)
           .map(([name, value]) => `${name}=${value}`)
           .join("; ");

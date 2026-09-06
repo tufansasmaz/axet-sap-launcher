@@ -1,4 +1,5 @@
 import { BrowserWindow, session as electronSession, type Cookie } from "electron";
+import { verifyWithCookies } from "./adtDiscovery";
 
 // ============================================================================
 // SAML SSO girişi — tarayıcıyı BİZ açıyoruz.
@@ -51,8 +52,9 @@ export interface SamlLoginResult {
   // kalmadı" diyebilmek için sonuca taşınıyor.
   interactive: boolean;
   // "cancelled" = kullanıcı pencereyi kapattı; "timeout" = süre doldu;
-  // "certificate" = TLS sertifikası doğrulanamadı; "error" = beklenmeyen.
-  reason: "ok" | "cancelled" | "timeout" | "certificate" | "error";
+  // "certificate" = TLS sertifikası doğrulanamadı; "error" = beklenmeyen;
+  // "unverified" = oturum çerezi toplandı ama ADT onu kabul etmedi.
+  reason: "ok" | "cancelled" | "timeout" | "certificate" | "error" | "unverified";
   message: string;
 }
 
@@ -64,6 +66,10 @@ const SILENT_GRACE_MS = 6000;
 // gerekebiliyor.
 const INTERACTIVE_TIMEOUT_MS = 180000;
 const POLL_INTERVAL_MS = 500;
+// Çerez yoklaması döngünün içinde çalışıyor; uzun bir zaman aşımı döngüyü de
+// o kadar süre durdurur. Bu iş bir discovery GET'i, saniyeler sürmesi
+// beklenmiyor — sürüyorsa zaten bir sonraki turda yeniden sorulacak.
+const PROBE_TIMEOUT_MS = 8000;
 // Sayfa yüklenmeye devam ettiği sürece pencere gizli tutuluyor; bu, o
 // beklemenin üst sınırı. Yoksa bitmeyen bir yükleme (yavaş IdP, takılmış
 // istek) pencereyi hiç açmaz ve kullanıcı ne olduğunu göremezdi.
@@ -91,12 +97,47 @@ function frameLabel(frame: Electron.WebFrameMain): string {
   return url.split("?")[0] || "çerçeve";
 }
 
-// Oturumun gerçekten açıldığının kanıtı. Yalnızca "çerez var mı" demek
-// yetmiyor: IdP'ye yönlendiren ilk istek de çerez bırakıyor, o hâlde
-// yarım kalmış bir akışı başarı sanardık. Python tarafı da aynı çereze
-// bakıyor (`saml_auth_provider.py` `get_sap_session_id`).
+// Oturum çerezinin VARLIĞI. Dikkat: bu bir başarı ölçütü DEĞİL, yalnızca
+// "sormaya değer bir çerez oluştu mu" sorusunun cevabı.
+//
+// Bir zamanlar akışı bitiren koşul buydu ve YANLIŞTI (canlı bulgu, MAYA/
+// client 100, 2026-09-06). Dosyanın eski notu "IdP'ye yönlendiren ilk istek
+// de çerez bırakıyor, o yüzden özellikle SAP_SESSIONID'ye bakıyoruz" diyordu;
+// gerçek şu ki SAP'ın ICF'i SAML akışının KENDİ durumunu (RelayState) tutmak
+// için oturumu daha IdP'ye yönlendirmeden önce açıyor ve `SAP_SESSIONID_<SID>
+// _<CLNT>` çerezini tam da o anda yazıyor. Yani çerez ilk yoklamada, çoğu
+// zaman daha ilk 500 ms içinde beliriyor.
+//
+// Sonuç bir yarış değil, düpedüz kendi kendini baltalama oluyordu: çerezi
+// gören döngü `finish()` çağırıp PENCEREYİ YOK EDİYOR, yani giriş akışını
+// tam da başladığı yerde kesiyordu. Kullanıcıya "SAML SSO girişi arka planda
+// tamamlandı (IdP oturumu zaten açıktı)" yazılıyor, ardından aynı çerez
+// ADT'ye sorulduğunda giriş sayfası dönüyordu. Rapor edilen belirti birebir
+// buydu.
+//
+// Python tarafı da aynı çereze bakıyor (`saml_auth_provider.py`
+// `get_sap_session_id`) — ama o, giriş akışı bitmiş bir jar'ı okuyor.
 function hasSapSession(cookies: Cookie[]): boolean {
   return cookies.some((c) => c.name.startsWith("SAP_SESSIONID") || c.name === "MYSAPSSO2");
+}
+
+// Aynı çerez kümesini tekrar tekrar ADT'ye sormamak için parmak izi. Oturum
+// çerezinin DEĞERİ giriş tamamlandığında değişiyor (anonim oturum → kimliği
+// doğrulanmış oturum), yani "değişti mi" sorusu "yeniden sormaya değer mi"
+// sorusuyla aynı şey.
+function sessionSignature(cookies: Cookie[]): string {
+  return cookies
+    .filter((c) => c.name.startsWith("SAP_SESSIONID") || c.name === "MYSAPSSO2")
+    .map((c) => `${c.name}=${c.value}`)
+    .sort()
+    .join("|");
+}
+
+function cookieHeaderOf(cookies: Cookie[]): string {
+  return cookies
+    .filter((c) => c.name)
+    .map((c) => `${c.name}=${c.value}`)
+    .join("; ");
 }
 
 function toJar(cookies: Cookie[], baseUrl: string, username: string): SamlCookieJar {
@@ -235,6 +276,14 @@ export interface SamlLoginOptions {
   baseUrl: string;
   username: string;
   password: string;
+  // İstemci (mandant). İKİ yerde birden gerekiyor ve ikisinin AYNI olması
+  // şart: tarayıcının açtığı oturum bir istemcide kuruluyor, doğrulama başka
+  // bir istemcide sorulursa SAP oturumu tanımaz ve yine giriş sayfası döner.
+  // Eskiden tarayıcı `?sap-client` olmadan yükleniyordu, yani oturum sistemin
+  // VARSAYILAN istemcisinde açılıyordu; doğrulama ise kullanıcının seçtiği
+  // istemciyi soruyordu. İkisi çakışmadığı sürece fark edilmeyen, çakıştığı
+  // anda "doğru parolayla giriş yapıyorum ama olmuyor"a dönüşen bir uyumsuzluk.
+  client: string;
   // Oturum bölmesi sistem başına ayrı: iki farklı SAP sistemine iki farklı
   // kullanıcıyla bağlanmak, birinin çerezini ötekine taşımamalı.
   partitionKey: string;
@@ -247,6 +296,9 @@ const MSG = {
     silent: "SAML SSO girişi arka planda tamamlandı (kimlik sağlayıcı oturumu zaten açıktı).",
     cancelled: "SAML giriş penceresi kapatıldı — oturum alınamadı.",
     timeout: "SAML girişi zaman aşımına uğradı (3 dakika).",
+    unverified:
+      "SAP oturum çerezi alındı ama ADT onu kabul etmedi — giriş akışı tamamlanmamış olabilir " +
+      "ya da oturum başka bir istemcide (mandant) açılmış olabilir.",
     certificate: "SAML giriş sayfasının TLS sertifikası doğrulanamadı; parola girilecek bir pencere güvenilmeyen bir sertifikayla açılmıyor.",
     error: "SAML giriş penceresi açılamadı"
   },
@@ -255,6 +307,9 @@ const MSG = {
     silent: "SAML SSO login completed in the background (the identity provider session was already open).",
     cancelled: "The SAML login window was closed — no session was captured.",
     timeout: "SAML login timed out (3 minutes).",
+    unverified:
+      "A SAP session cookie was captured but ADT rejected it — the login flow may not have completed, " +
+      "or the session may have been opened against a different client.",
     certificate: "The TLS certificate of the SAML login page could not be verified; a window where a password is typed is not opened over an untrusted certificate.",
     error: "The SAML login window could not be opened"
   }
@@ -343,10 +398,18 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
     return result;
   };
 
+  // İstemci sorgu parametresi tarayıcıya da veriliyor — oturum, doğrulamanın
+  // soracağı istemcide açılsın diye (bkz. SamlLoginOptions.client).
+  const client = opts.client.trim();
+  const discoveryUrl = client
+    ? `${baseUrl}/sap/bc/adt/discovery?sap-client=${encodeURIComponent(client)}`
+    : `${baseUrl}/sap/bc/adt/discovery`;
+
   try {
     // `loadURL` SAML yönlendirmesinde reddedilebiliyor (ERR_ABORTED) — bu
-    // akışın normali, hata değil. Sonucu belirleyen tek şey çerez.
-    win.loadURL(`${baseUrl}/sap/bc/adt/discovery`).catch(() => undefined);
+    // akışın normali, hata değil. Sonucu belirleyen şey çerez DEĞİL, o çerezle
+    // ADT'den gerçek bir yanıt alınabilmesi.
+    win.loadURL(discoveryUrl).catch(() => undefined);
   } catch (err) {
     return finish({
       ok: false,
@@ -369,6 +432,12 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
   // aynı gerekçe arka arkaya basılmıyor.
   let lastNote = "";
   let loggedNote = "";
+  // ADT yoklamasının durumu. `probedSignature` aynı çerezi tekrar sormayı,
+  // `probing` de yavaş bir yoklama sürerken ikincisini başlatmayı engelliyor.
+  let probedSignature = "";
+  let probing = false;
+  let probeAttempts = 0;
+  let lastProbeMessage = "";
   const autofillScript = buildAutofillScript(opts.username, opts.password);
 
   const tryAutofill = async (): Promise<void> => {
@@ -441,14 +510,42 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
       cookies = [];
     }
 
+    // BİTİŞ KOŞULU: çerezin varlığı değil, ADT'nin o çerezi KABUL ETMESİ.
+    //
+    // Doğrulama akışın SONUNDA değil İÇİNDE yapılıyor ve bu bilinçli. Sonda
+    // yapıldığında elde tek bir cevap oluyordu ("olmadı") ve akış çoktan
+    // kesilmiş oluyordu; burada ise doğrulanmayan bir çerez akışı bitirmiyor,
+    // döngü dönmeye ve otomatik doldurma çalışmaya devam ediyor. Yani anonim
+    // oturum çerezi artık bir tuzak değil, sadece henüz olumlu olmayan bir
+    // yoklama.
+    //
+    // Aynı çerez kümesi iki kez sorulmuyor: yoklama her 500 ms'de bir dönen
+    // bir döngünün içinde ve her turda ADT'ye HTTPS isteği atmak sisteme
+    // dakikada 120 istek göndermek olurdu.
     if (hasSapSession(cookies)) {
-      return finish({
-        ok: true,
-        jar: toJar(cookies, baseUrl, opts.username),
-        interactive: shown,
-        reason: "ok",
-        message: shown ? msg.ok : msg.silent
-      });
+      const signature = sessionSignature(cookies);
+      if (signature !== probedSignature && !probing) {
+        probedSignature = signature;
+        probing = true;
+        try {
+          const probe = await verifyWithCookies(baseUrl, cookieHeaderOf(cookies), client, PROBE_TIMEOUT_MS, lang);
+          probeAttempts += 1;
+          if (probe.ok) {
+            log(`oturum çerezi ADT tarafından kabul edildi (${probeAttempts}. yoklama)`);
+            return finish({
+              ok: true,
+              jar: toJar(cookies, baseUrl, opts.username),
+              interactive: shown,
+              reason: "ok",
+              message: shown ? msg.ok : msg.silent
+            });
+          }
+          lastProbeMessage = probe.message;
+          log(`oturum çerezi henüz geçerli değil (${probeAttempts}. yoklama) — ${probe.message}`);
+        } finally {
+          probing = false;
+        }
+      }
     }
 
     // Doldurma pencere GÖSTERİLDİKTEN SONRA DA sürüyor. Eskiden `if (!shown)`
@@ -483,6 +580,19 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
       }
     }
     if (shown && elapsed >= INTERACTIVE_TIMEOUT_MS) {
+      // Süre dolduğunda "zaman aşımı" demek doğru ama YETERSİZ: çerez alınmış
+      // da ADT reddetmişse sebep beklemek değil, oturumun kabul edilmemesi.
+      // Bu ayrım kullanıcının bir sonraki hamlesini değiştiriyor — biri
+      // "tekrar dene", diğeri "istemciyi/girişi kontrol et".
+      if (probeAttempts > 0) {
+        return finish({
+          ok: false,
+          jar: null,
+          interactive: true,
+          reason: "unverified",
+          message: `${msg.unverified}${lastProbeMessage ? ` (${lastProbeMessage})` : ""}`
+        });
+      }
       return finish({ ok: false, jar: null, interactive: true, reason: "timeout", message: msg.timeout });
     }
   }
