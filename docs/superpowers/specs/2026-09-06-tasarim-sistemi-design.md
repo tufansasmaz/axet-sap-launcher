@@ -20,8 +20,8 @@ Biten şey renk. **Bitmeyen şey dil.** Ölçülen durum:
 | Alan | Bugün | Olması gereken |
 |---|---|---|
 | Düğme | `btn()`/`iconBtn()`/`tintBtn()` var; 9 dosyada 21 çağrı. Buna karşılık 25 dosyada ~150 elde yazılmış `cursor-pointer` sınıf dizesi. **Benimsenme %12.** | Tek ilkel, %90+ benimsenme |
-| Girdi | 30 `<input>`, **8 farklı odak muamelesi** (`focus:border-accent-500`, `/50`, `/60`, `focus:ring-2`, `focus:ring-accent-500/20`, `focus-within:ring-accent-500/40`, `focus:ring-0`, `focus-within:border-accent-500`) | Tek odak muamelesi |
-| Modal | 8 modal, **3 zemin muamelesi** (4'ünde `animate-backdrop-fade-in backdrop-blur-sm`, 4'ünde yok), **3 z katmanı** (50/60/70), her biri aynı flex kabuğunu yeniden yazıyor | Tek kabuk, tek z kaydı |
+| Girdi | 29 odak bildirimi, **7 farklı muamele**: `focus:border-accent-500` (çıplak), `/50`, `/60`, `focus:border-accent-500 + ring-2 + ring-accent-500/20`, `focus-within:border-accent-500`, `focus-within:ring-accent-500/40`, `focus:ring-0` | Tek odak muamelesi |
+| Modal | 10 modal, **2 zemin muamelesi** (5'inde `animate-backdrop-fade-in backdrop-blur-sm`, 5'inde yok), **3 z katmanı** (50×5 / 60×4 / 70×1), her biri aynı flex kabuğunu yeniden yazıyor. Ayrıca `GuidePanel` z-30 çekmecesi. | Tek kabuk, tek z kaydı |
 | Bölüm etiketi | Aynı anlamsal öğe **6 farklı biçimde** (10px/11px × `tracking-wide`/`tracking-wider` × `text-slate-300`/`400`/`500`) | Tek bileşen |
 | Tipografi | Tailwind basamakları + `text-[10px]`/`[11px]`/`[13px]` gibi keyfi boyutlar yan yana | 6 basamaklı kapalı ölçek (bkz. 4) |
 | "Seçili" | **4+ lehçe**: ray (lime şerit + yıkama), sistem satırı (lime yıkama + şerit), SAP Launcher segmentleri (`bg-active text-white`), dosya ağacı (bir başkası) | Tek dil |
@@ -147,7 +147,7 @@ Göç: eski `btn()`/`iconBtn()`/`tintBtn()` fonksiyonları Faz 0 boyunca **kalı
 
 ### 5.2 `Field.tsx`
 
-30 girdi, 8 odak muamelesi → **tek** muamele:
+29 odak bildirimi, 7 muamele → **tek** muamele:
 
 | Durum | Görünüm |
 |---|---|
@@ -170,10 +170,10 @@ bestecisi (composer) **hariç** — kullanıcının açıkça kararlaştırdığ
 
 ### 5.3 `Modal.tsx`
 
-8 kabuk → 1.
+10 kabuk → 1.
 
 - Zemin: `bg-[var(--overlay-scrim)]` + `backdrop-blur-sm` + `animate-backdrop-fade-in`
-  — **her modalde**, bugün 8'in 4'ünde eksik.
+  — **her modalde**, bugün 10'un 5'inde eksik.
 - `size`: `sm`(400) / `md`(560) / `lg`(720) / `xl`(920)
 - Yuvalar: başlık (başlık metni + kapat), gövde (kaydırılabilir), altlık
   (eylemler sağa yaslı, `primary` en sağda)
@@ -275,10 +275,10 @@ Bu belgedeki hiçbir madde aşağıdakileri değiştirmez:
 Faz 0 için:
 
 - `npm run typecheck` ve `npm run build` temiz.
-- Açık ve koyu temada gözle geçiş: ray, açılış ekranı, sistem listesi, 8 modalin
+- Açık ve koyu temada gözle geçiş: ray, açılış ekranı, sistem listesi, 10 modalin
   her biri, ayarlar.
-- Sayısal kontrol: `text-\[[0-9]+px\]` eşleşmesi yok (selamlama değişkeni hariç);
-  odak muamelesi sayısı 8→1; modal kabuğu sayısı 8→1.
+- Sayısal kontrol: `text-\[[0-9]+px\]` eşleşmesi yok (selamlama değişkeni ve
+  FileViewer'ın belge önizlemesi hariç); odak muamelesi 7→1; modal kabuğu 10→1.
 - `Button` benimsenmesi: elde yazılmış `cursor-pointer` sınıf dizesi sayısı ~150'den
   20'nin altına iner.
 
