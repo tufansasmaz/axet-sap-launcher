@@ -22,7 +22,6 @@ import type {
   ConnectResult,
   ConnectivityResult,
   CredentialDefaults,
-  DictationResult,
   FlowAgentStepResult,
   FlowDeployResult,
   FlowJsonFileResult,
@@ -192,8 +191,6 @@ export interface AxetApi {
   ) => () => void;
   saveChatAttachment: (fileName: string, base64Data: string) => Promise<ChatAttachmentSaveResult>;
   readChatAttachmentPreview: (filePath: string) => Promise<ChatAttachmentPreviewResult>;
-  isDictationAvailable: () => Promise<boolean>;
-  transcribeDictation: (base64Wav: string, language: string) => Promise<DictationResult>;
   loadChatSessions: () => Promise<ChatSessionsLoadResult>;
   saveChatSessions: (state: ChatSessionsState) => Promise<{ ok: boolean; error?: string }>;
   exportChat: (suggestedName: string, payload: ChatExportPayload) => Promise<ChatExportResult>;

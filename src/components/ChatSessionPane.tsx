@@ -18,9 +18,7 @@ import {
   History,
   Layers,
   ListChecks,
-  Loader2,
   Mail,
-  Mic,
   MousePointerClick,
   Package,
   Paperclip,
@@ -177,10 +175,6 @@ interface Props {
   /** "Durduramadım" uyarısını kapatır (bkz. `cancelStuck`). */
   onDismissCancelStuck: () => void;
   onAttachFiles: () => void;
-  // Kaydı başlatır/durdurur. Tanınan metni taslağa ekleme işi çağırana ait
-  // (bkz. AxetCodeHome `handleDictate`).
-  onDictate: () => void;
-  dictationState: "idle" | "recording" | "transcribing";
   onFilesResolved: (paths: string[]) => void;
   onRemoveAttachment: (attachmentId: string) => void;
   suggestionKeys: readonly string[];
@@ -249,8 +243,6 @@ export default function ChatSessionPane({
   onUndoEdit,
   onDismissCancelStuck,
   onAttachFiles,
-  onDictate,
-  dictationState,
   onFilesResolved,
   onRemoveAttachment,
   suggestionKeys,
@@ -1154,45 +1146,10 @@ export default function ChatSessionPane({
                   className="relative block max-h-52 min-h-[36px] w-full resize-none overflow-y-scroll bg-transparent py-[7px] text-[length:var(--chat-font-size)] leading-[22px] text-transparent caret-slate-200 outline-none placeholder:text-slate-500"
                 />
               </div>
-              {/* Mikrofon, model seçicinin SOLUNDA (kullanıcı isteği,
-                  2026-09-02) — sağ uçtaki üçlü soldan sağa "söyle → hangi
-                  modele → gönder" sırasında ilerliyor.
-
-                  Bir AÇ/KAPA düğmesi: tanıma gömülü whisper.cpp ile YEREL
-                  yapılıyor (bkz. main/dictation.ts), yani konuşmanın ne zaman
-                  bittiğini uygulamanın bilmesi gerekiyor. Üç hâlin üçü de
-                  GÖRÜNÜR olmalı — kaydın sürdüğünü göstermeyen bir mikrofon,
-                  kullanıcının boşluğa konuşmasına yol açar.
-
-                  Çeviri sürerken düğme KİLİTLİ: whisper birkaç saniye
-                  sürebiliyor ve bu arada ikinci bir kayıt başlatmak, biten
-                  çevirinin metnini nereye yazacağını belirsizleştirirdi. */}
-              <button
-                onClick={onDictate}
-                disabled={dictationState === "transcribing"}
-                title={
-                  dictationState === "recording"
-                    ? t("axetCodeHome.dictateStopTitle")
-                    : dictationState === "transcribing"
-                      ? t("axetCodeHome.dictateBusyTitle")
-                      : t("axetCodeHome.dictateTitle")
-                }
-                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition ${
-                  dictationState === "recording"
-                    ? // Kayıt sürerken nabız gibi atıyor: durağan kırmızı bir
-                      // ikon "hata" gibi okunuyordu.
-                      "animate-pulse bg-[var(--status-danger-bg)] text-[var(--status-danger-text)] cursor-pointer"
-                    : dictationState === "transcribing"
-                      ? "cursor-not-allowed text-slate-500"
-                      : "cursor-pointer text-slate-400 hover:bg-hover hover:text-slate-200"
-                }`}
-              >
-                {dictationState === "transcribing" ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  <Mic size={16} />
-                )}
-              </button>
+              {/* Buradaki mikrofon düğmesi 2026-09-07'de KALDIRILDI: tanıma
+                  güvenilir çalışmıyordu ve gömülü whisper.cpp çalışma zamanı
+                  kuruluma tek başına ~297 MB ekliyordu. Geri istenirse
+                  6c42f8f öncesindeki sürümde duruyor. */}
               <ModelSelector
                 models={models}
                 current={session.model}

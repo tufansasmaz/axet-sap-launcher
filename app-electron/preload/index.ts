@@ -20,7 +20,6 @@ import type {
   ChatSessionsLoadResult,
   ChatSessionsState,
   ConnectRequest,
-  DictationResult,
   FlowAgentStepResult,
   FlowDeployResult,
   FlowJsonFileResult,
@@ -241,12 +240,6 @@ const api = {
     ipcRenderer.invoke("chatAttachments:save", fileName, base64Data),
   readChatAttachmentPreview: (filePath: string): Promise<ChatAttachmentPreviewResult> =>
     ipcRenderer.invoke("chatAttachments:preview", filePath),
-  // Mikrofon (bkz. main/dictation.ts). Ses renderer'da 16kHz mono WAV olarak
-  // kaydedilip base64 ile buradan geçiyor, metin geri dönüyor. Tanıma gömülü
-  // whisper.cpp ile YEREL — ses makineden çıkmıyor.
-  isDictationAvailable: (): Promise<boolean> => ipcRenderer.invoke("dictation:available"),
-  transcribeDictation: (base64Wav: string, language: string): Promise<DictationResult> =>
-    ipcRenderer.invoke("dictation:transcribe", base64Wav, language),
   loadChatSessions: (): Promise<ChatSessionsLoadResult> => ipcRenderer.invoke("chatSessions:load"),
   saveChatSessions: (state: ChatSessionsState): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("chatSessions:save", state),

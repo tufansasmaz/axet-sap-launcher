@@ -706,16 +706,6 @@ export interface ChatAttachmentPreviewResult {
   error?: string;
 }
 
-// Sohbet kutusundaki mikrofonun sonucu (bkz. dictation.ts). `error` KODLU:
-// `missing_runtime` / `empty_audio` / `audio_too_long` / `timeout` renderer'da
-// kendi i18n metnine çevriliyor, diğer her şey whisper'ın kendi hata satırı ve
-// olduğu gibi gösteriliyor — sessizce yutulmuyor.
-export interface DictationResult {
-  ok: boolean;
-  text?: string;
-  error?: string;
-}
-
 // axet.flows — AI destekli Node-RED uyumlu flow builder modülü (bkz.
 // AxetFlowsHome.tsx, src/flows/). Flow'un kendisi (node/wire modeli),
 // runtime/debug event'leri ve validasyon sonuçları esnek/JSON-şekilli

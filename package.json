@@ -87,10 +87,6 @@
         "to": "sap-gui-scripting"
       },
       {
-        "from": "resources/whisper-runtime",
-        "to": "whisper-runtime"
-      },
-      {
         "from": "build/icon.png",
         "to": "icon.png"
       }

@@ -11,9 +11,6 @@ export const MAIN_EN = {
   "axetCode.runExitCode": "axet-code run finished with code {code}.",
   "axetCode.testTimeout": "axet-code did not answer within {seconds}s; the test was stopped.",
 
-  // --- dictation.ts ---
-  "dictation.whisperExitCode": "whisper exit code {code}",
-
   // --- manualSystems.ts ---
   "manualSystems.invalidFormat": "Invalid file format: a JSON array was expected.",
 

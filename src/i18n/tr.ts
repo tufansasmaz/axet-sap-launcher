@@ -256,6 +256,9 @@ export const tr = {
   // Araç sonucunun ilk satırı gösteriliyor; gerisi sayı olarak. Tam metin
   // satırın `title`'ında duruyor — sohbeti ezmeden erişilebilir kalsın.
   "axetCodeHome.toolMoreLines": "+{count} satır",
+  // Canlı göstergedeki araç satırının ipucu: tıklanınca o adımın tam çıktısı
+  // altında açılıyor ve sonraki adımlarda da açık kalıyor.
+  "axetCodeHome.toolDetailToggle": "Ayrıntıyı aç/kapat",
   "axetCodeHome.dropFilesHint": "Eklemek için dosyaları buraya bırak",
   "axetCodeHome.contextFiles": "Dosyalar",
   "axetCodeHome.contextFilesHint": "Bu klasörün dosyalarını yan panelde aç/kapat",
@@ -284,19 +287,6 @@ export const tr = {
   "axetCodeHome.searchEmpty": "\"{query}\" ile eşleşen sohbet yok",
   "axetCodeHome.searchClear": "Aramayı temizle",
   "axetCodeHome.searchTitle": "Sohbetlerde ara",
-  // Mikrofon Windows'un kendi sesle yazma katmanını açıyor (bkz.
-  // main/dictation.ts) — ipucu metni bunu AÇIKÇA söylüyor, çünkü açılan
-  // pencere uygulamanın kendi arayüzü değil.
-  "axetCodeHome.dictateTitle": "Sesle yaz (konuşma bu bilgisayarda çözümlenir)",
-  "axetCodeHome.dictateStopTitle": "Kaydı bitir ve yazıya dök",
-  "axetCodeHome.dictateBusyTitle": "Yazıya dökülüyor…",
-  "axetCodeHome.dictateUnavailable": "Sesle yazma bu oturumda kullanılamıyor — uygulamayı yeniden başlatın.",
-  "axetCodeHome.dictateNoRuntime": "konuşma tanıma bileşeni kurulu değil",
-  "axetCodeHome.dictateTooLong": "kayıt çok uzun (en fazla 5 dakika)",
-  "axetCodeHome.dictateTimeout": "yazıya dökme zaman aşımına uğradı",
-  "axetCodeHome.dictateNoSpeech": "Kayıtta anlaşılır bir konuşma bulunamadı.",
-  "axetCodeHome.dictateMicFailed": "Mikrofona erişilemedi: {message}",
-  "axetCodeHome.dictateFailed": "Sesle yazma başarısız: {message}",
   "axetCodeHome.renameTitle": "Yeniden adlandır",
   "axetCodeHome.deleteTitle": "Sohbeti sil",
   "axetCodeHome.exportTitle": "Dışa aktar (PDF veya Markdown)",

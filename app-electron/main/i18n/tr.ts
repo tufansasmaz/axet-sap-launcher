@@ -14,9 +14,6 @@ export const MAIN_TR = {
   "axetCode.runExitCode": "axet-code run kod {code} ile bitti.",
   "axetCode.testTimeout": "axet-code {seconds} saniyede cevap vermedi, test durduruldu.",
 
-  // --- dictation.ts ---
-  "dictation.whisperExitCode": "whisper çıkış kodu {code}",
-
   // --- manualSystems.ts ---
   "manualSystems.invalidFormat": "Geçersiz dosya formatı: JSON dizi bekleniyor.",
 

@@ -552,6 +552,17 @@ export function ThinkingBubble({
   const label = t(PHASE_KEYS[quiet ? "thinking" : phase ?? "starting"]);
   const all = steps ?? [];
   const step = all.length > 0 ? all[all.length - 1] : null;
+  // Canlı ayrıntı: araç satırına tıklanınca o adımın TAM çıktısı (ya da farkı)
+  // altında açılıyor. Tercih YAPIŞKAN — adım adım değil, bir kez açılıyor ve
+  // sonraki adımlarda da açık kalıyor. Kullanıcı isteği (2026-09-07): *"ordaki
+  // dalları falan da görebilsek anlık olarak yaptığı şeyi"*. Her yeni araç
+  // çağrısında kapansaydı, canlı izlemek için saniyede bir tıklamak gerekirdi.
+  //
+  // Varsayılan KAPALI ve kapalıyken gösterge bir piksel bile büyümüyor: kutunun
+  // kendiliğinden büyümesi daha önce açıkça yadırganmıştı (bkz. yukarıdaki
+  // "elenen tasarımlar" notu, madde 4).
+  const [detailOpen, setDetailOpen] = useState(false);
+  const detail = step ? step.diff || step.output || "" : "";
 
   return (
     // Cevap metniyle aynı sol kenardan başlıyor — cevap tarafında avatar oluğu
@@ -588,13 +599,23 @@ export function ThinkingBubble({
           `--base-950` gradyanı arkada duruyor, saydamlıktan görsel olarak
           kazanılan bir şey yoktu. */}
       <div
-        className={`flex min-h-[22px] w-fit max-w-full items-center gap-1.5 rounded-lg px-2 py-1 ${
+        className={`flex w-fit max-w-full flex-col rounded-lg ${
           step ? "border border-[rgb(var(--base-700-rgb)/0.55)] bg-control" : ""
         }`}
       >
+        <div
+          role={detail ? "button" : undefined}
+          onClick={detail ? () => setDetailOpen((v) => !v) : undefined}
+          title={detail ? t("axetCodeHome.toolDetailToggle") : undefined}
+          className={`flex min-h-[22px] min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 ${
+            detail ? "cursor-pointer hover:bg-[rgb(var(--base-700-rgb)/0.5)]" : ""
+          }`}
+        >
         {step && (
           <>
-            <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-400"}>▸</span>
+            <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-400"}>
+              {detail ? (detailOpen ? "▾" : "▸") : "▸"}
+            </span>
             <span className="shrink-0 text-slate-500">{toolLabel(step.tool ?? "")}</span>
             {/* Hedef (dosya yolu, komut, desen) tek satırda ve kırpılarak —
                 uzun bir bash komutu göstergeyi sarmalayıp kutuyu büyütmesin. */}
@@ -621,6 +642,17 @@ export function ThinkingBubble({
               </span>
             )}
           </>
+        )}
+        </div>
+        {/* Canlı döküm. `max-h-40` (160 px) BİLEREK dar: amaç terminali sohbete
+            taşımak değil, o an ne okunduğunu/ne çalıştırıldığını görmek. Metin
+            aktıkça kutu büyümüyor, kendi içinde kayıyor. */}
+        {detailOpen && detail && (
+          <div className="border-t border-[rgb(var(--base-700-rgb)/0.55)] px-2 pb-1.5">
+            <pre className="chat-scroll mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-app p-2 font-mono text-[10px] leading-[1.5] text-slate-400">
+              {detail}
+            </pre>
+          </div>
         )}
       </div>
     </div>

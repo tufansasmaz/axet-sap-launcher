@@ -32,7 +32,6 @@ import {
 import { recoverAnswer } from "./axetChatRecovery";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
-import { isDictationAvailable, transcribeAudio } from "./dictation";
 import { runFlowsAgentStep } from "./axetFlowsAgent";
 import { discoverAxetFlowsLiveUrl } from "./axetFlowsLiveDiscovery";
 import { saveFlowToLiveHost } from "./axetFlowsLiveSave";
@@ -240,9 +239,10 @@ function createWindow(): void {
   //   `EmbeddedTerminal.tsx` sadece kendi Terminal örneğine özel
   //   `attachCustomKeyEventHandler` ile bu API'yi çağırıyor (bkz. o dosyadaki
   //   not — global bir keydown/paste müdahalesi DEĞİL, sadece bu izin).
-  // - "media": sohbet kutusundaki mikrofon (bkz. main/dictation.ts). Yalnızca
-  //   kullanıcı mikrofon düğmesine bastığında isteniyor; kayıt bittiğinde
-  //   `DictationRecorder.cleanup()` track'leri durduruyor.
+  // "media" BİLEREK YOK: composer'daki mikrofon 2026-09-07'de kaldırıldı
+  // (düzgün çalışmıyordu ve gömülü whisper.cpp kuruluma 297 MB ekliyordu).
+  // Uygulamanın mikrofona ihtiyacı kalmadı; izni listede tutmak, kullanılmayan
+  // bir kapıyı açık bırakmak olurdu.
   // - "clipboard-sanitized-write": `navigator.clipboard.writeText()` — sohbetteki
   //   ve kod bloklarındaki kopyala düğmeleri (CopyButton.tsx), SAP element
   //   denetçisindeki "ID kopyala". Chromium bu izni odaklı bir sayfada kullanıcı
@@ -254,8 +254,7 @@ function createWindow(): void {
   const ALLOWED_PERMISSIONS = new Set([
     "deprecated-sync-clipboard-read",
     "clipboard-read",
-    "clipboard-sanitized-write",
-    "media"
+    "clipboard-sanitized-write"
   ]);
 
   win.webContents.session.setPermissionCheckHandler((_webContents, permission) =>
@@ -902,14 +901,6 @@ function registerIpc(): void {
     saveClipboardAttachment(fileName, base64Data)
   );
   ipcMain.handle("chatAttachments:preview", (_event, filePath: string) => readAttachmentPreview(filePath));
-
-  // Composer'daki mikrofon. Ses kaydı renderer'da yapılıyor, tanıma burada
-  // GÖMÜLÜ whisper.cpp ile — ses makineden hiç çıkmıyor, API anahtarı yok
-  // (gerekçe ve elenen yollar: dictation.ts başındaki not).
-  ipcMain.handle("dictation:available", () => isDictationAvailable());
-  ipcMain.handle("dictation:transcribe", (_event, base64Wav: string, language: string) =>
-    transcribeAudio(base64Wav, language)
-  );
 
   // Sohbet geçmişi kalıcılığı (Faz 2). Kaydetme senkron ve hızlı (tek JSON
   // dosyası + rename); renderer zaten debounce ediyor, burada ayrıca kuyruk

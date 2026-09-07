@@ -44,7 +44,6 @@ import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import SystemHoverCard from "./SystemHoverCard";
 import { resolveTier } from "../lib/tier";
-import { DictationRecorder } from "../lib/dictationRecorder";
 import { promptWithAttachments, toAttachments } from "../lib/attachments";
 import { chatToMarkdown, safeFileName } from "../lib/chatExport";
 import { chatToPrintHtml } from "../lib/chatPrint";
@@ -587,12 +586,6 @@ export default function AxetCodeHome({
   // Neden var: aşağıdaki `drainStreams` açıklamasına bak.
   const streamQueue = useRef(new Map<string, string>());
   const streamTimer = useRef<number | null>(null);
-  // Mikrofonun üç hâli. `transcribing` ayrı bir durum çünkü whisper birkaç
-  // saniye sürebiliyor: kayıt bitmiş ama metin henüz yok, ve bu arada düğme
-  // tekrar tıklanabilir görünmemeli.
-  const [dictationState, setDictationState] = useState<
-    "idle" | "recording" | "transcribing"
-  >("idle");
   // Diskten yükleme TAMAMLANANA kadar kaydetme yapılmaz. Bu bayrak olmadan
   // ilk render'daki boş `sessions=[]` state'i, yükleme cevabı gelmeden önce
   // debounce'lu kaydediciyi tetikleyip diskteki TÜM geçmişi silerdi.
@@ -1844,109 +1837,6 @@ export default function AxetCodeHome({
     [activeId],
   );
 
-  // Mikrofon. Düğme bir AÇ/KAPA: ilk tık kaydı başlatır, ikinci tık bitirip
-  // sesi gömülü whisper'a yollar ve dönen metni taslağın SONUNA ekler
-  // (üzerine yazmaz — kullanıcı yazdığının silinmesini beklemez).
-  //
-  // Kaydedici `useRef`'te: bileşenin yeniden render'ı kaydı bölmemeli, ve
-  // ekran değiştiğinde mikrofonun donanım göstergesi açık kalmamalı (bkz.
-  // aşağıdaki temizlik effect'i).
-  const recorderRef = useRef<DictationRecorder | null>(null);
-
-  const handleDictate = useCallback(async () => {
-    // Köprü YOKSA açıkça söyle. Dev sunucusu main process'i sıcak yeniden
-    // yüklemiyor: renderer HMR ile mikrofon düğmesini gösterdiği hâlde eski
-    // preload'da fonksiyon bulunmuyor ve çağrı bir TypeError'a düşüyordu —
-    // yakalanmayan bir promise reddi, yani kullanıcıya HİÇBİR ŞEY göstermeyen
-    // ölü bir düğme. (Bu birebir yaşandı, 2026-09-02.)
-    if (typeof window.api.transcribeDictation !== "function") {
-      pushToast("error", t("axetCodeHome.dictateUnavailable"));
-      return;
-    }
-
-    const recorder = recorderRef.current ?? new DictationRecorder();
-    recorderRef.current = recorder;
-
-    // --- İkinci tık: durdur, çevir, yaz ---
-    if (recorder.recording) {
-      setDictationState("transcribing");
-      try {
-        const recording = await recorder.stop();
-        if (!recording) {
-          // Hiç ses yakalanmadı (basıp hemen bırakma). Hata değil, sessiz geç.
-          setDictationState("idle");
-          return;
-        }
-        // "auto": konuşulan dili whisper kendisi buluyor, yani Türkçe ve
-        // İngilizce aynı düğmeden çalışıyor — kullanıcının uygulama dilini
-        // değiştirmesi ya da bir seçici açması gerekmiyor. Sabit bir dil
-        // vermek yalnızca eksik değil zararlı olurdu (ölçüm: dictation.ts).
-        const result = await window.api.transcribeDictation(
-          recording.base64,
-          "auto",
-        );
-        if (!result.ok || !result.text) {
-          // Kodlu hatalar kendi metnine çevriliyor; whisper'ın kendi hata
-          // satırı olduğu gibi gösteriliyor.
-          const code = result.error ?? "";
-          const message =
-            code === "missing_runtime"
-              ? t("axetCodeHome.dictateNoRuntime")
-              : code === "audio_too_long"
-                ? t("axetCodeHome.dictateTooLong")
-                : code === "timeout"
-                  ? t("axetCodeHome.dictateTimeout")
-                  : code;
-          // "Ses tanınmadı" da bir başarısızlık: kullanıcı konuştu ve
-          // karşılığında hiçbir şey yazılmadı. Sessiz geçmek, mikrofonun
-          // bozuk olduğunu düşündürürdü.
-          if (result.ok) pushToast("error", t("axetCodeHome.dictateNoSpeech"));
-          else pushToast("error", t("axetCodeHome.dictateFailed", { message }));
-          return;
-        }
-        const spoken = result.text.trim();
-        if (spoken.length === 0) {
-          pushToast("error", t("axetCodeHome.dictateNoSpeech"));
-          return;
-        }
-        const current = activeId
-          ? (sessions.find((s) => s.id === activeId)?.draft ?? "")
-          : newDraft;
-        handleDraftChange(
-          current.length > 0 ? `${current.trimEnd()} ${spoken}` : spoken,
-        );
-        requestAnimationFrame(() => textareaRef.current?.focus());
-      } catch (err) {
-        pushToast(
-          "error",
-          t("axetCodeHome.dictateFailed", { message: (err as Error).message }),
-        );
-      } finally {
-        setDictationState("idle");
-      }
-      return;
-    }
-
-    // --- İlk tık: kaydı başlat ---
-    try {
-      await recorder.start();
-      setDictationState("recording");
-    } catch (err) {
-      // Mikrofon yok, başka bir uygulamada kullanımda ya da politika engelli.
-      setDictationState("idle");
-      pushToast(
-        "error",
-        t("axetCodeHome.dictateMicFailed", { message: (err as Error).message }),
-      );
-    }
-  }, [activeId, handleDraftChange, newDraft, pushToast, sessions, t]);
-
-  // Ekran kapanırken kaydı ATAR. Yalnızca `AudioContext`'i bırakmak Windows'ta
-  // mikrofonun "kullanımda" rozetini açık bırakıyor.
-  useEffect(() => {
-    return () => recorderRef.current?.cancel();
-  }, []);
-
   // Gerçek akış aboneliği. Main process cevabı ÜRETİLDİKÇE `axetChat:chunk`
   // push ediyor (bkz. axetChat.ts / main/index.ts); burada ilgili sohbeti
   // `requestId` ile bulup son asistan mesajına ekliyoruz. İlk parça geldiğinde
@@ -3112,8 +3002,6 @@ export default function AxetCodeHome({
             onUndoEdit={handleUndoEdit}
             onDismissCancelStuck={handleDismissCancelStuck}
             onAttachFiles={handleAttachFiles}
-            onDictate={handleDictate}
-            dictationState={dictationState}
             onFilesResolved={(paths) => addAttachments(session.id, paths)}
             onRemoveAttachment={(attachmentId) =>
               removeAttachment(session.id, attachmentId)
@@ -3179,8 +3067,6 @@ export default function AxetCodeHome({
           onUndoEdit={handleUndoEdit}
           onDismissCancelStuck={handleDismissCancelStuck}
           onAttachFiles={handleAttachFiles}
-          onDictate={handleDictate}
-          dictationState={dictationState}
           onFilesResolved={(paths) => addAttachments(NEW_SESSION_ID, paths)}
           onRemoveAttachment={(attachmentId) =>
             removeAttachment(NEW_SESSION_ID, attachmentId)
