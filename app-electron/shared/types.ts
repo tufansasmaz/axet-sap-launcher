@@ -103,6 +103,55 @@ export interface SkillStatus {
   updateAvailable: boolean;
 }
 
+/** Eşitlenmiş NTT kataloğundaki tek yetenek (bkz. catalogSkills.ts). */
+export interface CatalogSkill {
+  /** `<eklenti>/<yetenek>` — katalogdaki kimlik. */
+  id: string;
+  /** Diskteki klasör adı. */
+  name: string;
+  plugin: string;
+  description: string;
+  /** Katalogdaki risk seviyesi: 0 = yalnızca dosya, >= 3 = müşteri-üretim kapısı. */
+  riskTier: number;
+  /** Tier >= 1 — PRD işaretli sistemde projede durmaz. */
+  writeCapable: boolean;
+  /** Katalog klasörüne göreli yol. */
+  path: string;
+  /** Kurulamama sebebi; `null` ise kurulabilir. */
+  blocked: "missing" | "os" | "pluginRoot" | "bundled" | null;
+  /** `<proje>/.axet-code/skills` altında bu adda klasör var mı. */
+  installed: boolean;
+  /** Klasörü BİZ kurduk mu — yalnızca o zaman kaldırılabilir. */
+  removable: boolean;
+}
+
+/** Katalogdan kurulmuş bir yeteneğin projedeki kaydı. */
+export interface CatalogSkillRecord {
+  id: string;
+  name: string;
+  plugin: string;
+  riskTier: number;
+  catalogVersion: string | null;
+  installed: string;
+}
+
+/** "Katalogdan yetenek ekle" kutusunun tek veri kaynağı. */
+export interface CatalogSkillList {
+  /** Eşitlenmiş katalog klasörü; `null` = bu makinede yok. */
+  folder: string | null;
+  catalogVersion: string | null;
+  department: string | null;
+  skills: CatalogSkill[];
+}
+
+/** Kurulum/kaldırma sonucu — liste her zaman TAZE hâliyle geri dönüyor. */
+export interface CatalogInstallOutcome {
+  ok: boolean;
+  /** Başarısızlığın sebebi; arayüzde olduğu gibi gösteriliyor. */
+  error: "noFolder" | "notFound" | "blocked" | "copy" | null;
+  list: CatalogSkillList;
+}
+
 /**
  * Proje reçetesi — uygulamanın SAP'a bakarak ÖĞRENEMEYECEĞİ şeyler.
  *

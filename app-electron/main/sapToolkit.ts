@@ -10,6 +10,7 @@ import {
   writeFileSync
 } from "node:fs";
 import path from "node:path";
+import { enforceTierOnCatalog } from "./catalogSkills";
 import {
   DEFAULT_PROFILE,
   SKILL_CATALOG,
@@ -148,6 +149,11 @@ export function installSkillsIntoProject(
       result.skipped.push(entry.name);
     }
   }
+
+  // Katalogdan kurulmuş yetenekler de aynı PRD kapısına tabi. Yukarıdaki döngü
+  // yalnızca profildeki adlara bakıyor; katalogdan gelen bir yazma yeteneği o
+  // listede olmadığı için kapıdan sessizce sızardı.
+  result.blockedByTier.push(...enforceTierOnCatalog(projectDir, tier));
 
   // Sürüm damgası. Bunsuz "bu projedeki skill'ler güncel mi?" sorusunun cevabı
   // yok — bugüne kadar da yoktu.

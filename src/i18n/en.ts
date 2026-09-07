@@ -280,6 +280,26 @@ export const en: Record<TranslationKey, string> = {
   "skillsSection.empty": "No skills installed in this project.",
   "skillsSection.unknownHint": "This folder was not installed by the app; it may have been added by hand.",
 
+  "catalogSkills.title": "Add a skill from the catalog",
+  "catalogSkills.source": "Catalog {version} · {department}",
+  "catalogSkills.noFolder":
+    "No synced NTT catalog was found on this machine. Choose \"Add shortcut to OneDrive\" on the SharePoint library and the folder is picked up automatically.",
+  "catalogSkills.empty": "The catalog has no installable skills.",
+  "catalogSkills.install": "Install",
+  "catalogSkills.reinstall": "Reinstall",
+  "catalogSkills.remove": "Remove",
+  "catalogSkills.installed": "installed",
+  "catalogSkills.tierWarning": "This skill reaches beyond files (risk {tier}); it is removed from the project when you connect to a system marked PRD.",
+  "catalogSkills.blocked.missing": "Its files are not in the catalog folder.",
+  "catalogSkills.blocked.os": "Not published for Windows.",
+  "catalogSkills.blocked.pluginRoot":
+    "Depends on libraries in the plugin root; it would not work installed as a single folder.",
+  "catalogSkills.blocked.bundled": "Already ships with the app; it is installed according to your role.",
+  "catalogSkills.error.noFolder": "The catalog folder can no longer be read.",
+  "catalogSkills.error.notFound": "This entry was not found in the catalog.",
+  "catalogSkills.error.blocked": "This entry cannot be installed.",
+  "catalogSkills.error.copy": "The files could not be copied.",
+
   // --- Project brief ---
   "settingsModal.sectionProjectBrief": "Project brief",
   "projectBrief.hint":

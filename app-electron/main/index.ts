@@ -12,6 +12,7 @@ import { installMissingPackages, runDoctor } from "./doctor";
 import { emptyBrief, readProjectBrief, writeProjectBrief } from "./projectBrief";
 import { emptyPreview, readSapContext } from "./sapContextFile";
 import { readConnectorInventory } from "./connectorInventory";
+import { installCatalogSkill, listCatalogSkills, removeCatalogSkill } from "./catalogSkills";
 import {
   installSkillsIntoProject,
   isSkillUpdateAvailable,
@@ -487,6 +488,26 @@ function registerIpc(): void {
       toolkit: readToolkitVersion(),
       updateAvailable: isSkillUpdateAvailable(projectDir, config.skillProfile)
     };
+  });
+
+  // Eşitlenmiş NTT kataloğu. Ağ isteği YOK: klasör OneDrive ile zaten diskte
+  // (bkz. catalogFolder.ts), kurulum da düz dosya kopyası.
+  ipcMain.handle("catalogSkills:list", (_event, projectDir: string) => listCatalogSkills(projectDir));
+
+  // Kurulan/kaldırılan yetenek ajanın gördüğü listeyi değiştiriyor ve axet-code
+  // o listeyi süreç açılışında tarıyor — sıcak oturumlar kapatılmazsa kullanıcı
+  // kurar ama ajan bir sonraki turda hâlâ eski listeyle konuşur (bkz.
+  // skills:reinstall).
+  ipcMain.handle("catalogSkills:install", async (_event, projectDir: string, id: string) => {
+    const result = await installCatalogSkill(projectDir, id);
+    if (result.ok) closeTuiSessionsForProject(projectDir);
+    return result;
+  });
+
+  ipcMain.handle("catalogSkills:remove", async (_event, projectDir: string, name: string) => {
+    const result = await removeCatalogSkill(projectDir, name);
+    if (result.ok) closeTuiSessionsForProject(projectDir);
+    return result;
   });
 
   // Ortam Hazırlık. Ölçüm her çağrıda yeniden yapılıyor — önbelleğe alınmış

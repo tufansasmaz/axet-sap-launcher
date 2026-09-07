@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, PencilLine, RefreshCw } from "lucide-react";
-import type { SkillProfile, SkillStatus } from "../../app-electron/shared/types";
+import { AlertCircle, Download, PencilLine, RefreshCw, Trash2 } from "lucide-react";
+import type { CatalogSkillList, SkillProfile, SkillStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
 
@@ -13,6 +13,21 @@ interface Props {
 }
 
 const ROLES: SkillProfile[] = ["module-consultant", "technical-consultant", "sandbox"];
+
+/** Kurulamama sebebi -> metin. Sebep HER ZAMAN yazılıyor; girdi gizlenmiyor. */
+const BLOCKED_KEYS = {
+  missing: "catalogSkills.blocked.missing",
+  os: "catalogSkills.blocked.os",
+  pluginRoot: "catalogSkills.blocked.pluginRoot",
+  bundled: "catalogSkills.blocked.bundled"
+} as const;
+
+const ERROR_KEYS = {
+  noFolder: "catalogSkills.error.noFolder",
+  notFound: "catalogSkills.error.notFound",
+  blocked: "catalogSkills.error.blocked",
+  copy: "catalogSkills.error.copy"
+} as const;
 
 /**
  * Ayarlar'daki "Yapay zekâ yetenekleri" bölümü.
@@ -30,16 +45,25 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
   const t = useT();
   const [status, setStatus] = useState<SkillStatus | null>(null);
   const [busy, setBusy] = useState(false);
+  const [catalog, setCatalog] = useState<CatalogSkillList | null>(null);
+  /** O an kurulan/kaldırılan girdinin kimliği — yalnızca o düğme kilitleniyor. */
+  const [pending, setPending] = useState<string | null>(null);
+  const [catalogError, setCatalogError] = useState<keyof typeof ERROR_KEYS | null>(null);
 
   const load = useCallback(() => {
     if (!projectDir) {
       setStatus(null);
+      setCatalog(null);
       return;
     }
     void window.api
       .getSkillStatus(projectDir)
       .then(setStatus)
       .catch(() => setStatus(null));
+    void window.api
+      .listCatalogSkills(projectDir)
+      .then(setCatalog)
+      .catch(() => setCatalog(null));
   }, [projectDir]);
 
   useEffect(load, [load]);
@@ -53,6 +77,28 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
       load();
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Katalog kurulumu/kaldırması. Sonuç TAZE listeyi geri getiriyor, ama kurulu
+   * yetenek rozetleri ayrı bir kaynaktan (`skills:status`) geliyor — o yüzden
+   * ikisi birden tazeleniyor, yoksa çip listesi bir tur geride kalırdı.
+   */
+  const runCatalog = async (key: string, action: () => Promise<Awaited<ReturnType<typeof window.api.installCatalogSkill>>>) => {
+    if (!projectDir || pending) return;
+    setPending(key);
+    setCatalogError(null);
+    try {
+      const result = await action();
+      setCatalog(result.list);
+      if (!result.ok && result.error) setCatalogError(result.error);
+      setStatus(await window.api.getSkillStatus(projectDir));
+    } catch {
+      setCatalogError("copy");
+      load();
+    } finally {
+      setPending(null);
     }
   };
 
@@ -133,6 +179,94 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
                 {skill.name}
               </span>
             ))}
+          </div>
+
+          <div className="space-y-2 rounded-lg border border-line/50 bg-control/30 p-3">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="text-xs font-medium text-slate-300">{t("catalogSkills.title")}</span>
+              {catalog?.folder && (
+                <span className="truncate text-2xs text-slate-500" title={catalog.folder}>
+                  {t("catalogSkills.source", {
+                    version: catalog.catalogVersion ?? "—",
+                    department: catalog.department ?? "—"
+                  })}
+                </span>
+              )}
+            </div>
+
+            {!catalog?.folder && <p className="text-xs leading-relaxed text-slate-500">{t("catalogSkills.noFolder")}</p>}
+            {catalog?.folder && catalog.skills.length === 0 && (
+              <p className="text-xs text-slate-500">{t("catalogSkills.empty")}</p>
+            )}
+
+            {catalogError && (
+              <p className="flex items-start gap-1.5 text-xs text-[var(--status-danger-text)]">
+                <AlertCircle size={12} className="mt-0.5 shrink-0" />
+                {t(ERROR_KEYS[catalogError])}
+              </p>
+            )}
+
+            {catalog?.folder && catalog.skills.length > 0 && (
+              <ul className="max-h-56 space-y-1.5 overflow-y-auto pr-1">
+                {catalog.skills.map((skill) => (
+                  <li key={skill.id} className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className={`font-mono text-2xs ${skill.blocked ? "text-slate-500" : "text-slate-300"}`}>
+                        {skill.id}
+                      </span>
+                      {skill.installed && (
+                        <span className="ml-1.5 rounded border border-line/60 bg-control px-1 py-px text-2xs text-slate-400">
+                          {t("catalogSkills.installed")}
+                        </span>
+                      )}
+                      {skill.description && !skill.blocked && (
+                        <p className="truncate text-2xs text-slate-500" title={skill.description}>
+                          {skill.description}
+                        </p>
+                      )}
+                      {skill.blocked && (
+                        <p className="text-2xs leading-relaxed text-slate-500">{t(BLOCKED_KEYS[skill.blocked])}</p>
+                      )}
+                      {!skill.blocked && skill.writeCapable && (
+                        <p className="text-2xs leading-relaxed text-[var(--status-warning-text)]">
+                          {t("catalogSkills.tierWarning", { tier: skill.riskTier })}
+                        </p>
+                      )}
+                    </div>
+                    {!skill.blocked && (
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={pending !== null}
+                          onClick={() =>
+                            void runCatalog(skill.id, () => window.api.installCatalogSkill(projectDir, skill.id))
+                          }
+                          className={`${btn("neutral", "sm")} disabled:cursor-not-allowed disabled:opacity-50`}
+                        >
+                          <Download size={12} className={pending === skill.id ? "animate-pulse" : undefined} />
+                          {t(skill.installed ? "catalogSkills.reinstall" : "catalogSkills.install")}
+                        </button>
+                        {skill.removable && (
+                          <button
+                            type="button"
+                            disabled={pending !== null}
+                            title={t("catalogSkills.remove")}
+                            onClick={() =>
+                              void runCatalog(`rm:${skill.id}`, () =>
+                                window.api.removeCatalogSkill(projectDir, skill.name)
+                              )
+                            }
+                            className={`${btn("neutral", "sm")} disabled:cursor-not-allowed disabled:opacity-50`}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}

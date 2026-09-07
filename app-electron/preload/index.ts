@@ -51,6 +51,8 @@ import type {
   SapLogonOpenResult,
   SkillPlanEntry,
   SkillProfile,
+  CatalogSkillList,
+  CatalogInstallOutcome,
   SkillStatus,
   SystemTier,
   SystemCommentDefaults,
@@ -95,6 +97,12 @@ const api = {
     ipcRenderer.invoke("skills:status", projectDir),
   reinstallSkills: (projectDir: string, serviceUuid: string | null): Promise<SkillStatus> =>
     ipcRenderer.invoke("skills:reinstall", projectDir, serviceUuid),
+  listCatalogSkills: (projectDir: string): Promise<CatalogSkillList> =>
+    ipcRenderer.invoke("catalogSkills:list", projectDir),
+  installCatalogSkill: (projectDir: string, id: string): Promise<CatalogInstallOutcome> =>
+    ipcRenderer.invoke("catalogSkills:install", projectDir, id),
+  removeCatalogSkill: (projectDir: string, name: string): Promise<CatalogInstallOutcome> =>
+    ipcRenderer.invoke("catalogSkills:remove", projectDir, name),
   runDoctor: (): Promise<DoctorReport> => ipcRenderer.invoke("doctor:run"),
   installPythonPackages: (packages: string[]): Promise<{ ok: boolean; output: string }> =>
     ipcRenderer.invoke("doctor:install", packages),

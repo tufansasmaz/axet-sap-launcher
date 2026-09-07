@@ -65,6 +65,8 @@ import type {
   SapLogonOpenResult,
   SkillPlanEntry,
   SkillProfile,
+  CatalogSkillList,
+  CatalogInstallOutcome,
   SkillStatus,
   SystemTier,
   SystemCommentDefaults,
@@ -100,6 +102,9 @@ export interface AxetApi {
   planSkills: (profile: SkillProfile, tier: SystemTier | null) => Promise<SkillPlanEntry[]>;
   getSkillStatus: (projectDir: string) => Promise<SkillStatus>;
   reinstallSkills: (projectDir: string, serviceUuid: string | null) => Promise<SkillStatus>;
+  listCatalogSkills: (projectDir: string) => Promise<CatalogSkillList>;
+  installCatalogSkill: (projectDir: string, id: string) => Promise<CatalogInstallOutcome>;
+  removeCatalogSkill: (projectDir: string, name: string) => Promise<CatalogInstallOutcome>;
   runDoctor: () => Promise<DoctorReport>;
   installPythonPackages: (packages: string[]) => Promise<{ ok: boolean; output: string }>;
   getProjectBrief: (projectDir: string) => Promise<ProjectBrief>;

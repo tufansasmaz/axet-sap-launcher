@@ -333,6 +333,29 @@ export const tr = {
   "skillsSection.empty": "Bu projede kurulu yetenek yok.",
   "skillsSection.unknownHint": "Bu klasörü uygulama kurmadı; elle eklenmiş olabilir.",
 
+  // --- Katalogdan yetenek kurulumu ---
+  // Kurulamayan girdiler listeden GİZLENMİYOR: "katalogda vardı, nerede?"
+  // sorusunu sessiz bir eksiklikle bırakmak, sebebini yazmaktan kötü.
+  "catalogSkills.title": "Katalogdan yetenek ekle",
+  "catalogSkills.source": "Katalog {version} · {department}",
+  "catalogSkills.noFolder":
+    "Bu makinede eşitlenmiş bir NTT kataloğu bulunamadı. SharePoint kitaplığında \"OneDrive'a kısayol ekle\" dedikten sonra klasör kendiliğinden bulunur.",
+  "catalogSkills.empty": "Katalogda kurulabilir yetenek yok.",
+  "catalogSkills.install": "Kur",
+  "catalogSkills.reinstall": "Yeniden kur",
+  "catalogSkills.remove": "Kaldır",
+  "catalogSkills.installed": "kurulu",
+  "catalogSkills.tierWarning": "Bu yetenek dosya dışına dokunuyor (risk {tier}); PRD işaretli bir sisteme bağlanınca projeden kaldırılır.",
+  "catalogSkills.blocked.missing": "Katalog klasöründe dosyaları yok.",
+  "catalogSkills.blocked.os": "Windows için yayınlanmamış.",
+  "catalogSkills.blocked.pluginRoot":
+    "Eklentinin kökündeki kitaplıklara dayanıyor; tek klasör olarak kurulduğunda çalışmaz.",
+  "catalogSkills.blocked.bundled": "Uygulamanın kendi paketinde zaten var; rolüne göre kuruluyor.",
+  "catalogSkills.error.noFolder": "Katalog klasörü artık okunamıyor.",
+  "catalogSkills.error.notFound": "Bu girdi katalogda bulunamadı.",
+  "catalogSkills.error.blocked": "Bu girdi kurulamaz.",
+  "catalogSkills.error.copy": "Dosyalar kopyalanamadı.",
+
   // --- Proje reçetesi ---
   "settingsModal.sectionProjectBrief": "Proje reçetesi",
   "projectBrief.hint":
