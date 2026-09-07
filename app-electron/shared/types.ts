@@ -53,6 +53,17 @@ export interface ConnectionHistoryEntry {
 
 export type SystemTier = "DEV" | "QA" | "PRD";
 
+/**
+ * Danışman rolü. Proje klasörüne HANGİ skill'lerin kurulacağını bu belirliyor;
+ * tablo `app-electron/main/skillProfiles.ts` içinde.
+ *
+ * Bu ayrım NTT skill kataloğunun profil modelinden geliyor: fonksiyonel
+ * danışmana ABAP ekranı üreten bir skill vermek, teknik danışmana da
+ * "bu zaten yapılmış mı?" araştırması yaptıran skill'i vermek, ikisi de
+ * yanlış — ajan eline verilen her skill'i eninde sonunda kullanıyor.
+ */
+export type SkillProfile = "module-consultant" | "technical-consultant" | "sandbox";
+
 export type TerminalMode = "cmd" | "powershell";
 
 export type AppTheme = "dark" | "light";
@@ -77,6 +88,14 @@ export interface AppConfig {
   connectionHistory: ConnectionHistoryEntry[];
   systemTiers: Record<string, SystemTier>;
   systemComments: Record<string, string>;
+  /** Danışman rolü — kurulacak skill setini belirler. Bir kez sorulur. */
+  skillProfile: SkillProfile | null;
+  /**
+   * Yazma yetenekli skill'ler için gösterilen bildirimin kabul zamanı (ISO).
+   * `null` = henüz kabul edilmedi. Sessizce geçilmez: kabul edilmeden yazma
+   * yetenekli skill kurulmaz.
+   */
+  skillNoticeAcceptedAt: string | null;
   theme: AppTheme;
   language: AppLanguage;
   autoCheckUpdates: boolean;

@@ -25,6 +25,19 @@ import os
 import sys
 import subprocess
 
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -32,7 +45,7 @@ def _office_pdf_candidates():
     """Candidate locations for office-pdf's md_to_pdf.py, most-specific first."""
     rel = os.path.join("office-pdf", "scripts", "md_to_pdf.py")
     cands = [
-        # This repo clone: abaper/skills/fs-generator/scripts -> repo root -> office-tools/...
+        # Repo clone / NTT cache: sap-specs/skills/fs-generator/scripts -> repo root -> office-tools/...
         os.path.normpath(os.path.join(
             _HERE, "..", "..", "..", "..",
             "office-tools", "skills", "office-pdf", "scripts", "md_to_pdf.py")),

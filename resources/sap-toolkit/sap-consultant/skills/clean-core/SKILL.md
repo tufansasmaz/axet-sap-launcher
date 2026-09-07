@@ -9,6 +9,18 @@ author: Claude Code
 
 Check if SAP objects are released for ABAP Cloud development and find allowed replacements.
 
+## Data source & self-hosting
+
+Release data comes from **ROSA** (Released Objects Search Assistant,
+[github.com/ClementRingot/ROSA](https://github.com/ClementRingot/ROSA), MIT), which
+wraps SAP's **official Cloudification Repository** — the source of truth for
+released objects. The checker uses ROSA's public hosted instance by default; set
+**`ROSA_BASE_URL`** to a self-hosted instance (`npx -y @rosa-mcp/server`, Docker,
+or a BTP deployment via ROSA's own `mta.yaml`) when the public host is down or an
+NTT-controlled endpoint is preferred. Only **standard SAP object names** are ever
+sent — never customer Z/Y names or business data. When no endpoint is reachable,
+the built-in offline replacement table answers the common cases and says so.
+
 ## Usage
 
 **Check object release status:**

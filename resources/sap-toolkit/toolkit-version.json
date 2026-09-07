@@ -1,0 +1,33 @@
+{
+  "version": "2026.09.07+e972b3b2",
+  "generated": "2026-09-07T17:51:38.251Z",
+  "source": "NTT ABAP skill katalogu (elle uyarlanmis dagitim)",
+  "skills": {
+    "abap-code-checker": "a35c1848c0095ad8",
+    "abapgit-export-zip": "66cd57b6c37c593c",
+    "abapgit-howto": "6654b4cf77f8be77",
+    "abapgit-import-status-zip": "f81fa19b0bd6eb93",
+    "abapgit-workflow": "d197d2d25120b309",
+    "clean-core": "d0f0a69cfaed0625",
+    "fs-generator": "ee612240291af6b2",
+    "library-match": "177a9693ae8a779e",
+    "meeting-notes-organizer": "238f2bcea2d6e182",
+    "office-docx": "27011ab4f977ed7f",
+    "office-excel-compare": "1a6ebdec1a238920",
+    "office-excel-images": "e690539dc46bdcf5",
+    "office-excel-read": "53ff478681b0d015",
+    "office-excel-report": "3381714dcd3c3453",
+    "office-excel-transform": "14043b5a4cd1d728",
+    "office-excel-write": "f5d6e677ac0f012c",
+    "office-manual": "9083229066f69315",
+    "office-pdf": "7b515ebe61c7dfd8",
+    "office-pptx": "141126fe9c196053",
+    "office-slides": "a4147cfcf8c3a48d",
+    "sap-adt-readonly": "51a6cacc52171c7c",
+    "sap-docs": "9bf74ba0a8c462bb",
+    "screen-gen": "7cabc44162d8af65",
+    "screen-mockup": "7e229f8c81023516",
+    "spec-reviewer": "fe4d00f0c6103225",
+    "ts-generator": "bf0b207c34c932ff"
+  }
+}

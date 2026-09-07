@@ -4,7 +4,7 @@ Reference for using the ABAP Cloud Clean Core checker.
 
 ## Installation
 
-The clean-core skill is part of the abaper plugin. No separate installation required.
+The clean-core skill is part of the sap-consultant plugin. No separate installation required.
 
 ## Python API
 

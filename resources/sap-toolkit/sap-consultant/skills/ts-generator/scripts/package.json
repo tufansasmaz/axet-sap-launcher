@@ -1,7 +1,7 @@
 {
-  "name": "fs2ts-scripts",
+  "name": "ts-generator-scripts",
   "version": "1.0.0",
-  "description": "Scripts for the fs2ts (FS to TS) conversion skill",
+  "description": "Scripts for the ts-generator (FS to TS) conversion skill",
   "scripts": {
     "extract-pdf": "node extract_pdf.js",
     "test": "echo \"No tests\" && exit 0"

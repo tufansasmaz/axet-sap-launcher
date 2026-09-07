@@ -3,7 +3,7 @@ import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { mt } from "./i18n";
 
-// `adt_readonly_server.py`'yi (bkz. resources/sap-toolkit/abaper/skills/sap-adt-readonly/scripts)
+// `adt_readonly_server.py`'yi (bkz. resources/sap-toolkit/sap-consultant/skills/sap-adt-readonly/scripts)
 // launcher'ın kendisi başlatır — RFC bridge otomatik başlatmasıyla (rfcBridgeManager.ts)
 // BİREBİR AYNI desen: kullanıcı/agent artık her bağlanışta elle
 // "ADT_CWD=$(pwd) py adt_readonly_server.py --port 8787" çalıştırmak zorunda değil,

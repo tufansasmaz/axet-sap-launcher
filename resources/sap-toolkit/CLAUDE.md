@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A **distribution of skills**, not an application. It adapts three NTT plugins (`abaper`,
+A **distribution of skills**, not an application. It adapts three NTT plugins (`sap-consultant`,
 `abapgit-bridge`, `office-tools`) into self-contained skill folders that install into a
 project's `.axet-code/skills/` directory for **aXet.code** (NTT DATA's Crush-based CLI,
 which has no plugin/marketplace system and cannot use MCP). There is no build step, no
@@ -16,8 +16,8 @@ single file.
 
 ## Non-negotiable: SAP is READ-ONLY
 
-The `abaper` plugin was adapted specifically to strip write access. When touching anything
-under `abaper/skills/sap-adt-readonly/`, preserve the two independent locks in
+The `sap-consultant` plugin was adapted specifically to strip write access. When touching anything
+under `sap-consultant/skills/sap-adt-readonly/`, preserve the two independent locks in
 `scripts/adt_readonly_server.py`:
 
 - **Belt** — `os.environ["ADT_READONLY"] = "true"` is set *before* `import adt_mcp_server`,
@@ -28,7 +28,7 @@ under `abaper/skills/sap-adt-readonly/`, preserve the two independent locks in
   `404 unknown_tool`.
 
 The engine under `scripts/` (`adt_mcp_server.py`, `sap_client.py`, `sap_adt_lib.py`,
-`guardrails.py`, etc.) is **vendored verbatim** from the upstream `abaper` plugin. Do not
+`guardrails.py`, etc.) is **vendored verbatim** from the upstream `sap-consultant` plugin. Do not
 edit it to add features here — the read-only server wraps it unchanged. `screen-gen` is
 shipped for reference only; generation is a write and is disabled.
 
@@ -39,7 +39,7 @@ aXet.code can't speak MCP stdio, so SAP ADT runs behind a localhost HTTP server 
 
 ```bash
 # Start (background). ADT_CWD points at the folder holding .conn_adt.
-ADT_CWD=$(pwd) py abaper/skills/sap-adt-readonly/scripts/adt_readonly_server.py --port 8787
+ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py --port 8787
 
 # Health / auth
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())"
@@ -80,24 +80,47 @@ Every `skills/<name>/` folder has:
 
 ## Dependencies
 
-`pip install -r requirements.txt`. Notable: the read-only server imports the abaper engine
+`pip install -r requirements.txt`. Notable: the read-only server imports the vendored ADT engine
 which imports `mcp` (FastMCP); `office-pdf` needs Playwright Chromium installed on demand
 (`py -m playwright install chromium`); `office-slides --render` needs Marp
 (`npm install -g @marp-team/marp-cli`). `abapgit-bridge` is stdlib-only.
 
-## fs-generator & fs2ts span two plugin groups
+## fs-generator & ts-generator span two plugin groups
 
-`abaper/skills/fs-generator/` (author an FS from requirements + a template) and
-`abaper/skills/fs2ts/` (convert that FS into a TS) are a pair — the FS produced by the first
-feeds the second. Both are read-only toward SAP (they produce documents), and both render
-PDFs by shelling out to `office-tools/skills/office-pdf/scripts/md_to_pdf.py`, resolved
-relative to `__file__` for the repo clone and the installed sibling-skill layout (override
-with `OFFICE_PDF_SCRIPT`) — `fs-generator/scripts/render_pdf.py` (single file) and
-`fs2ts/scripts/merge_and_pdf.py` (merges 5 parts). If you relocate any of these, keep the
-resolvers in sync. PDF text extraction is Node (`extract_pdf.js` + `pdfjs-dist`, its own
-`npm install`); everything else is Python stdlib. Both are intentionally interactive —
-`fs-generator` is strictly grounded (no hallucination; the prompt is credited to Dersim Tas)
-and `fs2ts` must ask clarification questions and wait before emitting the TS.
+`sap-consultant/skills/fs-generator/` (author an FS from requirements + a template) and
+`sap-consultant/skills/ts-generator/` (convert that FS into a TS) are a pair — the FS
+produced by the first feeds the second. Both are read-only toward SAP (they produce
+documents), and both render PDFs by shelling out to
+`office-tools/skills/office-pdf/scripts/md_to_pdf.py`, resolved relative to `__file__` for
+the repo clone and the installed sibling-skill layout (override with `OFFICE_PDF_SCRIPT`) —
+`fs-generator/scripts/render_pdf.py` (single file) and `ts-generator/scripts/merge_and_pdf.py`
+(merges 5 parts). If you relocate any of these, keep the resolvers in sync. PDF text
+extraction is Node (`extract_pdf.js` + `pdfjs-dist`, its own `npm install`); everything else
+is Python stdlib. Both are intentionally interactive — `fs-generator` is strictly grounded
+(no hallucination; the prompt is credited to Dersim Tas) and `ts-generator` must ask
+clarification questions and wait before emitting the TS.
+
+> `fs2ts` was this pair's older half and was removed on 2026-09-07: its `description`
+> triggered on the same phrases as `ts-generator`'s, so the agent picked between two
+> near-identical skills by chance.
+
+## Version stamping
+
+`toolkit-version.json` at this root carries a **content-derived** version plus a per-skill
+hash — generated by `build/genToolkitVersion.cjs` in the launcher repo, which runs as part
+of `npm run prebuild`. Do not hand-edit it; change a skill and re-run the generator. The
+launcher writes the same version into `<project>/.axet-code/skills/.version` on install,
+which is the only way to answer "are this project's skills current?".
+
+## What does NOT go into the project copy
+
+`installSkillsIntoProject()` (launcher, `app-electron/main/sapToolkit.ts`) copies
+`sap-adt-readonly` **without its `scripts/` directory**. The engine there is the full
+1400-line ADT server, write paths included, and the skill itself instructs the agent to talk
+to the HTTP server and never run the scripts — so a copy in the agent's working tree is
+exposure with no upside. The launcher starts the server from this toolkit root instead.
+The `scripts/` folder must stay here: `adt_readonly_server.py` imports `adt_mcp_server`,
+and that import is the belt lock above.
 
 ## abapGit is the compliant write path
 

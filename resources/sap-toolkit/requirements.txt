@@ -4,16 +4,16 @@
 # (office-tools prefers an isolated venv — see README.)
 # ============================================================================
 
-# --- SAP ADT read-only server (abaper/sap-adt-readonly) ---------------------
+# --- SAP ADT read-only server (sap-consultant/sap-adt-readonly) ---------------------
 requests>=2.25.0
 # Security: pin transitive idna floor — CVE-2026-45409 (DoS via idna.encode on
 # crafted Unicode) is fixed in 3.15. requests pulls idna in transitively.
 idna>=3.15
 python-dotenv>=0.19.0
-# The read-only HTTP gate imports the abaper engine, which imports FastMCP.
+# The read-only HTTP gate imports the vendored ADT engine, which imports FastMCP.
 mcp>=1.0.0
 
-# --- RFC bridge (abaper/sap-adt-readonly, ONLY for systems behind a router
+# --- RFC bridge (sap-consultant/sap-adt-readonly, ONLY for systems behind a router
 # that denies raw/native TCP to the ADT/ICM port — see SKILL.md "Router-only
 # sistemler (RFC bridge)") -----------------------------------------------
 # When used through aXet SAP Launcher, pyrfc + the SAP NW RFC SDK are already
@@ -46,10 +46,10 @@ python-docx>=1.1.0    # office-docx: Word .docx
 
 # abapgit-bridge uses the Python standard library only — no dependencies.
 
-# --- fs2ts / fs-generator (abaper/skills/{fs2ts,fs-generator}) --------------
+# --- ts-generator / fs-generator (sap-consultant/skills/{ts-generator,fs-generator}) ---
 # Python: stdlib only. They render PDFs by shelling out to office-pdf's
 # md_to_pdf.py, so they reuse the markdown + playwright deps above.
 # Node.js: PDF text extraction needs pdfjs-dist — installed separately via
-#     cd abaper/skills/fs2ts/scripts && npm install
-#     cd abaper/skills/fs-generator/scripts && npm install
+#     cd sap-consultant/skills/ts-generator/scripts && npm install
+#     cd sap-consultant/skills/fs-generator/scripts && npm install
 

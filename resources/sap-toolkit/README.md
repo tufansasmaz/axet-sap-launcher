@@ -37,7 +37,7 @@ python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').j
 
 # Start it (run_in_background: true). Point ADT_CWD at the folder holding .conn_adt.
 # Windows uses 'py'; macOS/Linux uses 'python3'.
-ADT_CWD=$(pwd) py "<sap-toolkit>/abaper/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --port 8787
+ADT_CWD=$(pwd) py "<sap-toolkit>/sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --port 8787
 
 # Verify SAP auth
 python -c "import requests; r=requests.post('http://127.0.0.1:8787/tool/adt_logon', json={}); print(r.json())"
@@ -69,7 +69,7 @@ Replace `<sap-toolkit>` with wherever this repo was cloned.
 
 | Source plugin | Skills provided here | SAP access | Needs the HTTP server? |
 |---|---|---|---|
-| **abaper** (adapted → read-only) | `sap-adt-readonly`, `clean-core`, `sap-docs`, `screen-gen`*, `fs2ts`, `fs-generator` | **read-only** | ✅ `sap-adt-readonly` only |
+| **sap-consultant** (adapted → read-only) | `sap-adt-readonly`, `clean-core`, `sap-docs`, `abap-code-checker`, `library-match`, `screen-mockup`, `screen-gen`*, `spec-reviewer`, `meeting-notes-organizer`, `ts-generator`, `fs-generator` | **read-only** | ✅ `sap-adt-readonly`, `abap-code-checker` |
 | **abapgit-bridge** (as-is) | `abapgit-workflow`, `abapgit-export-zip`, `abapgit-import-status-zip`, `abapgit-howto` | none (developer carries ZIPs) | ❌ |
 | **office-tools** (as-is) | `office-excel-read/write/transform/report/compare/images`, `office-slides`, `office-pdf`, `office-pptx`, `office-docx`, `office-manual` | n/a | ❌ |
 
@@ -86,10 +86,10 @@ write, so it is disabled in this read-only toolkit.
 Repo layout (each `skills/<name>` folder is installed into a project's `.axet-code/skills/`):
 ```
 sap-toolkit/
-├── abaper/skills/{sap-adt-readonly, clean-core, sap-docs, screen-gen, fs2ts, fs-generator}/
+├── sap-consultant/skills/{sap-adt-readonly, clean-core, sap-docs, screen-gen, screen-mockup, abap-code-checker, library-match, spec-reviewer, meeting-notes-organizer, fs-generator, ts-generator}/
 │   ├── sap-adt-readonly/scripts/adt_readonly_server.py   # the read-only HTTP gate
 │   ├── fs-generator/scripts/{extract_pdf.js, render_pdf.py}  # requirements → FS → branded PDF
-│   └── fs2ts/scripts/{extract_pdf.js, merge_and_pdf.py}  # FS→TS: PDF in, branded PDF out
+│   └── ts-generator/scripts/{extract_pdf.js, merge_and_pdf.py}  # FS→TS: PDF in, branded PDF out
 ├── abapgit-bridge/skills/{abapgit-workflow, abapgit-export-zip, ...}/
 ├── office-tools/
 │   ├── lib/redact.py                 # shared KVKK/PII masker (--redact-pii)
@@ -110,7 +110,7 @@ sap-toolkit/
 - **aXet.code** — NTT DATA's Crush-based CLI assistant
 - **Python 3.10+** — the SAP server and Office scripts use 3.10 type-hint syntax
 - **Git**
-- **Node.js 18+** — for `office-slides --render` (Marp) and `fs2ts` PDF extraction
+- **Node.js 18+** — for `office-slides --render` (Marp) and `ts-generator` PDF extraction
   (`pdfjs-dist`, via `npm install` in the skill's `scripts/`); optional otherwise
 - **SAP credentials** — a `.conn_adt` file, for the read-only SAP server (see
   [Configuration](#configuration))
@@ -185,9 +185,9 @@ Create `<project>/.axet-code/skills/` and link each folder from the clone, e.g. 
 macOS/Linux:
 ```bash
 tk=~/sap-toolkit; dest=./.axet-code/skills; mkdir -p "$dest"
-for p in abaper/skills/sap-adt-readonly abaper/skills/clean-core \
-         abaper/skills/sap-docs abaper/skills/screen-gen abaper/skills/fs2ts \
-         abaper/skills/fs-generator \
+for p in sap-consultant/skills/sap-adt-readonly sap-consultant/skills/clean-core \
+         sap-consultant/skills/sap-docs sap-consultant/skills/screen-gen sap-consultant/skills/ts-generator \
+         sap-consultant/skills/fs-generator \
          abapgit-bridge/skills/abapgit-workflow abapgit-bridge/skills/abapgit-export-zip \
          abapgit-bridge/skills/abapgit-import-status-zip abapgit-bridge/skills/abapgit-howto \
          office-tools/skills/office-excel-read office-tools/skills/office-excel-write \
@@ -245,7 +245,7 @@ links, you can drop `--copy` for auto-updating links; see the note in step 3 abo
 
 aXet.code can't use MCP, so SAP ADT is exposed over a small localhost HTTP server that
 holds **one persistent SAP session**. This repo ships the **read-only** launcher:
-`abaper/skills/sap-adt-readonly/scripts/adt_readonly_server.py`.
+`sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py`.
 
 **Two independent locks make it impossible to change SAP:**
 
@@ -280,7 +280,7 @@ ADT_SAP_LANGUAGE=EN
 ```
 
 BTP service-key and S/4HANA Cloud SAML variants are in `.conn_adt.example`. For SAML,
-run once: `python abaper/skills/sap-adt-readonly/scripts/login_saml_sso.py`.
+run once: `python sap-consultant/skills/sap-adt-readonly/scripts/login_saml_sso.py`.
 
 > **Security.** `.conn_adt`, `.btp_service_key*.json`, and `.sap_sessions/` hold
 > plaintext credentials/cookies and are in `.gitignore` — never commit them.
@@ -371,8 +371,8 @@ Invoke with `%skill-name`.
 | `%clean-core` | Clean Core / ABAP Cloud compatibility reference (knowledge, no SAP writes). |
 | `%sap-docs` | SAP documentation search & reference (knowledge). |
 | `%screen-gen` | Classic Dynpro screen reference — **inspection only** (generation disabled here). |
-| `%fs-generator` | Author a SAP Functional Spec (FS) from analysis/requirements docs + your FS template: strictly grounded (no hallucination), Clean-Core-aware, asks clarifying questions when input is thin, tags gaps/suggestions, renders a branded PDF via `office-pdf`. Companion to `fs2ts`. Prompt by Dersim Tas. |
-| `%fs2ts` | Convert a SAP Functional Spec (FS) into a Clean-Core Technical Spec (TS): extract the FS PDF, build a Gap List, apply the Clean Core decision tree, ask clarifying questions, emit a 5-part TS, and render a branded PDF via `office-pdf`. |
+| `%fs-generator` | Author a SAP Functional Spec (FS) from analysis/requirements docs + your FS template: strictly grounded (no hallucination), Clean-Core-aware, asks clarifying questions when input is thin, tags gaps/suggestions, renders a branded PDF via `office-pdf`. Companion to `ts-generator`. Prompt by Dersim Tas. |
+| `%ts-generator` | Convert a SAP Functional Spec (FS) into a Clean-Core Technical Spec (TS): extract the FS PDF, build a Gap List, apply the Clean Core decision tree, ask clarifying questions, emit a 5-part TS, and render a branded PDF via `office-pdf`. |
 
 ### abapGit delivery (developer-in-the-loop)
 | Skill | What it does |
@@ -407,7 +407,7 @@ If you installed with **`--copy`** (the default), a `git pull` does **not** upda
 projects — re-run the installer in each project to refresh the copied folders, then
 restart aXet.code. If you used **link mode**, skills refresh automatically; you only
 restart when skills were added or removed. Either way, restart the read-only SAP server
-after a `git pull` that touched the `abaper/` engine.
+after a `git pull` that touched the `sap-consultant/` engine.
 
 ---
 
@@ -437,7 +437,7 @@ python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_
 | `Connection refused` | Server not started, or wrong port (default 8787). |
 | `401 Unauthorized` from a tool | Check `.conn_adt` credentials; VPN; run `adt_doctor`. |
 | `404 unknown_tool` on a write | Expected — this toolkit is read-only. Use `%abapgit-workflow` to deliver changes. |
-| `ModuleNotFoundError: mcp` (server) | `pip install -r requirements.txt` (the server imports the abaper engine → FastMCP). |
+| `ModuleNotFoundError: mcp` (server) | `pip install -r requirements.txt` (the server imports the vendored ADT engine → FastMCP). |
 | `--redact-pii ... lib/redact.py not importable` | Run the office script by its **real** repo path in the clone, not the installed `.axet-code/skills` copy/link, so `../../../lib` resolves. |
 | Skills not discovered | (1) They must be in the **project-level** `.axet-code/skills/` (not user-global). (2) aXet.code scans at **startup** — restart it in the project. (3) If still missing, the scanner isn't following links — re-run the linker with `--copy` / `-Copy` to install real folders. Confirm each entry has a `SKILL.md`. |
 | `list skills` shows none but the folders exist | Same as above — almost always a missing **restart** (skills load at session start), or links the scanner skips (use `--copy`). |
@@ -465,4 +465,4 @@ SAP agreement.
 
 **Proprietary — NTT DATA Business Solutions.** Copyright © 2026 NTT DATA Business
 Solutions. All rights reserved. Adapted from the NTT ABAP Marketplace
-(`abaper`, `abapgit-bridge`, `office-tools`) for aXet.code.
+(`sap-consultant`, `abapgit-bridge`, `office-tools`) for aXet.code.

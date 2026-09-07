@@ -4,7 +4,7 @@ import { request as httpRequest } from "node:http";
 import { mt } from "./i18n";
 
 // Router'ın raw/native HTTPS'i reddettiği (-94 NIEROUT_PERM_DENIED) sistemlerde
-// `adt_rfc_bridge.py`'yi (bkz. resources/sap-toolkit/abaper/skills/sap-adt-readonly/scripts)
+// `adt_rfc_bridge.py`'yi (bkz. resources/sap-toolkit/sap-consultant/skills/sap-adt-readonly/scripts)
 // launcher'ın kendisi başlatır — kullanıcı artık elle "py adt_rfc_bridge.py --port ..."
 // çalıştırmak zorunda değil. Bridge process'i proje klasörü başına tek bir kez
 // açılır (tekrar bağlanışlarda zaten sağlıklıysa yeniden başlatılmaz), uygulama

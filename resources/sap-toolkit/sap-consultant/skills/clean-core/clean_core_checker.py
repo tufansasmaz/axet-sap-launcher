@@ -6,10 +6,18 @@ ABAP Cloud Clean Core Checker
 Checks if SAP objects are released for ABAP Cloud development
 and finds replacement objects for deprecated/forbidden SAP objects.
 
-Uses the SAP Released Objects API (hosted server) for real-time data
-from the SAP Cloudification Repository.
+Data source: ROSA — Released Objects Search Assistant
+(https://github.com/ClementRingot/ROSA, MIT), which wraps SAP's official
+Cloudification Repository (github.com/SAP/abap-atc-cr-cv-s4hc). The default
+endpoint is ROSA's public hosted instance; set ROSA_BASE_URL to point at a
+self-hosted instance (`npx -y @rosa-mcp/server`, Docker, or a BTP deployment —
+the ROSA repo ships mta.yaml) when the public host is unreachable or an
+NTT-controlled endpoint is preferred. Only STANDARD SAP object names are ever
+sent — never customer Z/Y names or business data. COMMON_REPLACEMENTS below is
+the offline fallback when no endpoint is reachable.
 """
 
+import os
 import sys
 import json
 from typing import List, Dict, Optional, Any
@@ -24,8 +32,12 @@ try:
 except ImportError:
     HAS_REQUESTS = False
 
-# API endpoint (hosted version)
-API_BASE = "https://sap-released-objects-server-production.up.railway.app/api"
+# API endpoint — ROSA public instance by default; override with ROSA_BASE_URL
+# (base URL without /api) to use a self-hosted / NTT-hosted instance.
+API_BASE = os.environ.get(
+    "ROSA_BASE_URL",
+    "https://sap-released-objects-server-production.up.railway.app",
+).rstrip("/") + "/api"
 
 # Common forbidden objects and their replacements (cached for offline use)
 COMMON_REPLACEMENTS = {

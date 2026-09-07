@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { userInfo } from "node:os";
 import path from "node:path";
 import { encryptSecret } from "./secureStorage";
+import { isSkillProfile } from "./skillProfiles";
 import type {
   AppConfig,
   ConnectionHistoryEntry,
@@ -72,6 +73,8 @@ function defaultConfig(): AppConfig {
     connectionHistory: [],
     systemTiers: {},
     systemComments: {},
+    skillProfile: null,
+    skillNoticeAcceptedAt: null,
     theme: "dark",
     language: "tr",
     autoCheckUpdates: true,
@@ -172,7 +175,12 @@ export function loadConfig(): AppConfig {
       trustedCertificates: { ...fallback.trustedCertificates, ...(parsed.trustedCertificates ?? {}) },
       connectionHistory: Array.isArray(parsed.connectionHistory) ? parsed.connectionHistory : fallback.connectionHistory,
       systemTiers: { ...fallback.systemTiers, ...(parsed.systemTiers ?? {}) },
-      systemComments: { ...fallback.systemComments, ...(parsed.systemComments ?? {}) }
+      systemComments: { ...fallback.systemComments, ...(parsed.systemComments ?? {}) },
+      skillProfile: isSkillProfile(parsed.skillProfile) ? parsed.skillProfile : fallback.skillProfile,
+      skillNoticeAcceptedAt:
+        typeof parsed.skillNoticeAcceptedAt === "string"
+          ? parsed.skillNoticeAcceptedAt
+          : fallback.skillNoticeAcceptedAt
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

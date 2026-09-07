@@ -207,7 +207,7 @@ async function attemptRfcBridgeAutoStart(
 ): Promise<RfcBridgeOutcome> {
   const scriptRel = ["sap-adt-readonly", "scripts", "adt_rfc_bridge.py"];
   const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
-  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "abaper", "skills", ...scriptRel) : null;
+  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "sap-consultant", "skills", ...scriptRel) : null;
   const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
 
   if (!scriptPath) {
@@ -298,7 +298,7 @@ async function attemptReadonlyServerAutoStart(
 ): Promise<ReadonlyServerOutcome> {
   const scriptRel = ["sap-adt-readonly", "scripts", "adt_readonly_server.py"];
   const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
-  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "abaper", "skills", ...scriptRel) : null;
+  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "sap-consultant", "skills", ...scriptRel) : null;
   const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
 
   if (!scriptPath) {
@@ -613,7 +613,7 @@ function buildContextMarkdown(
 - Bu sistem manuel eklenmiş bir **cloud/BTP** sistemi — client kavramı genelde gerekmez (SAML SSO ve BTP service-key kimlik doğrulamasında client yoktur). Kullanıcı bağlanırken client alanını boş bıraktıysa \`.conn_adt\`'a otomatik olarak varsayılan \`${DEFAULT_CLOUD_CLIENT}\` yazıldı — bu ADT endpoint'lerinin sap-client parametresi bekleyip 400/404 dönmesini önlemek içindir, sistemin gerçek client'ı olduğu anlamına gelmez.
 - Bu sistem **SAML SSO** kullanıyorsa (401/403 yerine ADT XML değil **HTML login sayfası** dönmesi bunun kanıtıdır) giriş akışını **NTT Studio bağlanma sırasında kendisi çalıştırır** — kendi başına \`login_saml_sso.py\` çalıştırma, Playwright kurmaya kalkışma. Yukarıdaki "ADT Bağlantısı" bölümü bu sistemde SAML girişinin tamamlanıp tamamlanmadığını söylüyor; oradaki duruma güven.
 - Giriş tamamlandıysa çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında ve \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor. Çerezin süresi dolarsa (ADT çağrıları yine HTML dönmeye başlarsa) doğru adım kullanıcıdan **NTT Studio'da sisteme yeniden bağlanmasını** istemek.
-- Otomatik giriş tamamlanamadıysa ve yeniden bağlanmak da işe yaramadıysa, SON ÇARE elle akış: \`pip install playwright && playwright install chromium\` (~200MB), sonra \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\abaper\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` ve script'in bastığı \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle. Bunu ancak kullanıcı onaylarsa yap.
+- Otomatik giriş tamamlanamadıysa ve yeniden bağlanmak da işe yaramadıysa, SON ÇARE elle akış: \`pip install playwright && playwright install chromium\` (~200MB), sonra \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\sap-consultant\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` ve script'in bastığı \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle. Bunu ancak kullanıcı onaylarsa yap.
 - Kullanıcıya "kimlik bilgisi yanlış" deme — SAML'li bir sistemde kullanıcı adı/şifre doğru da olsa yanlış da olsa yanıt aynıdır.`
     : "";
 
@@ -717,7 +717,7 @@ ${readonlyServerStatusLine}
 # Sunucu ayakta mı? (yukarıdaki durum "BAŞARISIZ" değilse zaten ayakta olmalı)
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())" 2>/dev/null || echo "NOT RUNNING"
 # SADECE yukarıdaki durum "BAŞARISIZ" ise elle başlat (run_in_background: true):
-ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<sap-toolkit bulunamadı>"}/abaper/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --port 8787
+ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<sap-toolkit bulunamadı>"}/sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --port 8787
 # Kullan:
 python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_list_package', json={'package':'ZPM003'}).json())"
 \`\`\`
@@ -1055,10 +1055,16 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   }
   ensureGitignore(projectDir);
 
-  // Skill kurulumu, RFC bridge otomatik başlatmasından ÖNCE yapılıyor —
-  // adt_rfc_bridge.py'nin proje klasöründeki kopyası (.axet-code/skills/...)
-  // bridge'i spawn etmeden önce diskte hazır olmalı.
-  const skillInstall = installSkillsIntoProject(projectDir);
+  // Skill kurulumu, otomatik başlatmalardan ÖNCE yapılıyor: aşağıdaki iki
+  // başlatıcı da önce proje kopyasına, sonra toolkit köküne bakıyor.
+  //
+  // Rol + sistem önem derecesi burada devreye giriyor. PRD işaretli bir
+  // sistemde yazma yetenekli skill kurulmaz; rol seçilmemişse en dar profil
+  // (modül danışmanı) kullanılır — varsayılan geniş olursa kimse daraltmaz.
+  const skillInstall = installSkillsIntoProject(projectDir, {
+    profile: config.skillProfile ?? undefined,
+    tier: config.systemTiers?.[req.service.uuid] ?? null
+  });
 
   let toolTest = { ok: false, detail: "RFC bridge modunda adt-tool.ps1 self-test atlandı" };
   let rfcOutcome: RfcBridgeOutcome | null = null;

@@ -27,6 +27,19 @@ import subprocess
 import glob
 import re
 
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 _HERE = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -34,11 +47,11 @@ def _office_pdf_candidates():
     """Candidate locations for office-pdf's md_to_pdf.py, most-specific first."""
     rel = os.path.join("office-pdf", "scripts", "md_to_pdf.py")
     cands = [
-        # This repo clone: abaper/skills/fs2ts/scripts -> repo root -> office-tools/skills/office-pdf
+        # Repo clone / NTT cache: sap-specs/skills/ts-generator/scripts -> plugins root -> office-tools/skills/office-pdf
         os.path.normpath(os.path.join(
             _HERE, "..", "..", "..", "..",
             "office-tools", "skills", "office-pdf", "scripts", "md_to_pdf.py")),
-        # Installed as sibling skill: .axet-code/skills/fs2ts/scripts -> .axet-code/skills/office-pdf
+        # Installed as sibling skill: <skills>/ts-generator/scripts -> <skills>/office-pdf
         os.path.normpath(os.path.join(_HERE, "..", "..", rel)),
         # Legacy NTT marketplace layouts (backward compatibility)
         r"C:\workspace\ntt-claude-marketplace\plugins\office-tools\skills\office-pdf\scripts\md_to_pdf.py",
