@@ -49,6 +49,7 @@ export const tr = {
   "connectNotice.whatNextUnverified": "Bu hâliyle sisteme okuma/yazma yapamam. Yukarıdaki adımı birlikte tamamlayalım mı?",
   "app.terminalDefaultTitle": "Terminal {n}",
   "app.terminalCreateFailed": "Terminal açılamadı: {message}",
+  "app.terminalSessionEnded": "[Oturum sonlandı — terminali kapatabilirsin]",
   "app.settingsSaved": "Ayarlar kaydedildi",
   "app.systemDeleted": "Sistem silindi",
   "app.manualExported": "Manuel sistemler dışa aktarıldı: {path}",

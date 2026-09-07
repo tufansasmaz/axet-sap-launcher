@@ -3,6 +3,7 @@ import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { quotePathIfNeeded } from "../lib/paths";
+import { useT } from "../i18n";
 
 interface Props {
   sessionId: string;
@@ -10,6 +11,11 @@ interface Props {
 }
 
 export default function EmbeddedTerminal({ sessionId, active }: Props) {
+  const t = useT();
+  // `t` ref üzerinden okunuyor: effect'in bağımlılığı yapılırsa dil değişince
+  // terminal sıfırdan kurulur ve çalışan oturumun çıktısı silinir.
+  const tRef = useRef(t);
+  tRef.current = t;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
@@ -147,7 +153,7 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
 
     const unsubscribeExit = window.api.onTerminalExit((id) => {
       if (id === sessionId && !disposed) {
-        term.write("\r\n\u001b[90m[Oturum sonlandı — terminali kapatabilirsin]\u001b[0m\r\n");
+        term.write(`\r\n\u001b[90m${tRef.current("app.terminalSessionEnded")}\u001b[0m\r\n`);
       }
     });
 

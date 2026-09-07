@@ -44,6 +44,7 @@ export const en: Record<TranslationKey, string> = {
   "connectNotice.whatNextUnverified": "As it stands I cannot read from or write to the system. Shall we finish the step above together?",
   "app.terminalDefaultTitle": "Terminal {n}",
   "app.terminalCreateFailed": "Could not open terminal: {message}",
+  "app.terminalSessionEnded": "[Session ended — you can close this terminal]",
   "app.settingsSaved": "Settings saved",
   "app.systemDeleted": "System deleted",
   "app.manualExported": "Manual systems exported: {path}",
