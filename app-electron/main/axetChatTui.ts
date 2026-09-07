@@ -1530,6 +1530,18 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     // oturuma bağlanıldığında oradaki her mesaj "yeni" görünüyor ve turun
     // cevabı diye akıyordu (2026-09-04).
     let promptLanded = false;
+    /**
+     * İstem oturuma DÜŞTÜĞÜ an. Turun asıl başlangıcı bu; bundan öncesi
+     * bizim kılıfımızın (pty'ye yazma, menü kaçışı, oturumun veritabanında
+     * belirmesi), sonrası karşı tarafın payı.
+     *
+     * Ölçmeden ayrılamıyordu ve bu tam olarak yanlış yere bakmaya yol açtı
+     * (2026-09-07): "ilk tur 100 sn" şikâyetinde axet-code'un kendi
+     * veritabanı ilk turları 3-9 saniyede bitmiş gösteriyor — yani süre
+     * turun İÇİNDE değil, öncesinde geçiyor. Bu sayı olmadan "önce" ile
+     * "içeri" ayırt edilemiyor.
+     */
+    let promptLandedAt = 0;
     // Plan/bağlam yoklaması: `0` = ilk turda hemen bir kez okunsun.
     let lastProgressAt = 0;
     let lastProgressKey = "";
@@ -1690,6 +1702,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
                   .join("")
               ).includes(needle)
           );
+          if (promptLanded) promptLandedAt = Date.now();
           // GÜVENLİK AĞI. İğne eşleşmesi metnin bozulmadan veritabanına
           // inmesine dayanıyor ve bu varsayım 2026-09-04'te ÇÖKTÜ: pty'ye
           // yazdığımız `—` ve `→` yolda düştü, iğne hiç tutmadı ve cevap
@@ -1709,6 +1722,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             );
             if (mine) {
               promptLanded = true;
+              promptLandedAt = Date.now();
               console.log("[axetChatTui] igne tutmadi, yeni kullanici mesaji kabul edildi", {
                 chatId: session.chatId,
                 oturum: session.axetSessionId?.slice(0, 8),
@@ -1874,6 +1888,10 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
           console.log("[axetChatTui] tur bitti", {
             chatId: session.chatId,
             saniye: ((Date.now() - started) / 1000).toFixed(1),
+            // Turun asıl başlangıcı. Bundan öncesi BİZİM payımız (pty'ye
+            // yazma, menü kaçışı, oturumun veritabanında belirmesi); bu
+            // sayı büyükse hızlandırılacak yer kılıf, model değil.
+            istemIndi: promptLandedAt ? ((promptLandedAt - started) / 1000).toFixed(1) : "-",
             // Yazmadan ilk belirtiye (araç ya da harf) ve ilk harfe kadar
             // geçen süre: ikisi de KARŞI TARAFIN düşünme payı.
             ilkBelirti: firstSignalAt ? ((firstSignalAt - started) / 1000).toFixed(1) : "-",
