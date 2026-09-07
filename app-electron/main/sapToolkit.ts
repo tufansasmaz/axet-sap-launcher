@@ -52,13 +52,21 @@ export function readSkillVersionStamp(projectDir: string): SkillVersionStamp | n
   }
 }
 
-/** Projedeki kurulum, paketteki toolkit'in gerisinde mi? */
-export function isSkillUpdateAvailable(projectDir: string): boolean {
+/**
+ * Projedeki kurulum tazelenmeli mi?
+ *
+ * İki sebep var ve ikisi de "güncelle" düğmesini yakmalı: paket yeni bir
+ * toolkit sürümü getirmiş olabilir, ya da kullanıcı rolünü değiştirmiş
+ * olabilir. İkincisi ilk yazımda atlanmıştı — rol değişince diskteki liste
+ * eskisi kalıyor ve hiçbir yerde bunu söyleyen bir işaret olmuyordu.
+ */
+export function isSkillUpdateAvailable(projectDir: string, profile?: SkillProfile | null): boolean {
   const toolkit = readToolkitVersion();
   if (!toolkit) return false;
   const stamp = readSkillVersionStamp(projectDir);
   if (!stamp) return true;
-  return stamp.version !== toolkit.version;
+  if (stamp.version !== toolkit.version) return true;
+  return Boolean(profile) && stamp.profile !== profile;
 }
 
 export interface SkillInstallResult {

@@ -321,6 +321,18 @@ export const tr = {
   "modelSelector.switched": "Model değiştirildi: {model}",
   "modelSelector.switchFailed": "Model değiştirilemedi: {message}",
 
+  "settingsModal.sectionSkills": "Yapay zekâ yetenekleri",
+  "skillsSection.roleLabel": "Rolüm",
+  "skillsSection.roleHint":
+    "Rolü değiştirdikten sonra aşağıdaki Güncelle düğmesine bas — yetenekler ancak o zaman yeniden kurulur.",
+  "skillsSection.noProject": "Açık bir proje yok. Bir sisteme bağlandığında bu projenin yetenekleri burada listelenir.",
+  "skillsSection.versionLine": "Paket: {toolkit} · Bu proje: {installed}",
+  "skillsSection.update": "Güncelle",
+  "skillsSection.driftNotice":
+    "Bu projedeki yetenekler güncel değil. Güncelle'ye bastığında yeniden kurulur ve bu projenin bekleyen sohbet oturumları kapatılır (asistan yetenek listesini yalnızca açılışta okuyor).",
+  "skillsSection.empty": "Bu projede kurulu yetenek yok.",
+  "skillsSection.unknownHint": "Bu klasörü uygulama kurmadı; elle eklenmiş olabilir.",
+
   // --- Rol seçimi (skill profili) ---
   "roleModal.title": "Bu projede hangi rolle çalışacaksın?",
   "roleModal.subtitle":

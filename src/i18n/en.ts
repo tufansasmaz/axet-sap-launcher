@@ -268,6 +268,18 @@ export const en: Record<TranslationKey, string> = {
   "modelSelector.switched": "Switched model: {model}",
   "modelSelector.switchFailed": "Could not switch model: {message}",
 
+  "settingsModal.sectionSkills": "AI skills",
+  "skillsSection.roleLabel": "My role",
+  "skillsSection.roleHint":
+    "After changing the role, press Update below — the skills are only reinstalled then.",
+  "skillsSection.noProject": "No project is open. Once you connect to a system, that project's skills are listed here.",
+  "skillsSection.versionLine": "Package: {toolkit} · This project: {installed}",
+  "skillsSection.update": "Update",
+  "skillsSection.driftNotice":
+    "This project's skills are out of date. Update reinstalls them and closes this project's idle chat sessions (the assistant only reads the skill list at startup).",
+  "skillsSection.empty": "No skills installed in this project.",
+  "skillsSection.unknownHint": "This folder was not installed by the app; it may have been added by hand.",
+
   // --- Role picker (skill profile) ---
   "roleModal.title": "What role are you working in on this project?",
   "roleModal.subtitle":

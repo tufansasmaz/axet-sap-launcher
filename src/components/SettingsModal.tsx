@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
 import ConfirmDialog from "./ConfirmDialog";
+import SkillsSection from "./SkillsSection";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
 import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
@@ -28,6 +29,8 @@ interface Props {
   onClose: () => void;
   config: AppConfig | null;
   onSave: (partial: Partial<AppConfig>) => Promise<void>;
+  /** Ayarlardaki yetenek listesi bu projeyi gosteriyor. */
+  projectDir: string | null;
   onExportManualSystems: () => Promise<void>;
   onImportManualSystems: () => Promise<void>;
 }
@@ -205,7 +208,8 @@ const EDITED_FIELDS = [
   "terminal",
   "landscapePathOverride",
   "sapShcutPathOverride",
-  "autoCheckUpdates"
+  "autoCheckUpdates",
+  "skillProfile"
 ] as const satisfies readonly (keyof AppConfig)[];
 
 export default function SettingsModal({
@@ -213,6 +217,7 @@ export default function SettingsModal({
   onClose,
   config,
   onSave,
+  projectDir,
   onExportManualSystems,
   onImportManualSystems
 }: Props) {
@@ -415,6 +420,18 @@ export default function SettingsModal({
                 kaynağıydı. Açık/kapalı artık Uygulama Bağlantıları
                 ekranındaki Bağlan/Bağlantıyı Kes butonu, ne zaman
                 yükleneceği de yine orada; tek yer, tek doğruluk kaynağı. */}
+          </Section>
+
+          {/* Yapay zekâ yetenekleri: rol + bu projede kurulu olanlar + sürüm.
+              axet.code bölümünden AYRI duruyor çünkü oradaki alanlar "hangi
+              klasörde çalışsın" derken burası "ne bilsin" — ve buradaki
+              güncelleme düğmesi diske yazıyor, bir metin kutusu değil. */}
+          <Section icon={Sparkles} title={t("settingsModal.sectionSkills")}>
+            <SkillsSection
+              profile={form.skillProfile}
+              onProfileChange={(profile) => setForm({ ...form, skillProfile: profile })}
+              projectDir={projectDir}
+            />
           </Section>
 
           {/* Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI

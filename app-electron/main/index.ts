@@ -460,7 +460,7 @@ function registerIpc(): void {
       skills: listInstalledSkills(projectDir),
       stamp: readSkillVersionStamp(projectDir),
       toolkit: readToolkitVersion(),
-      updateAvailable: isSkillUpdateAvailable(projectDir)
+      updateAvailable: isSkillUpdateAvailable(projectDir, loadConfig().skillProfile)
     };
   });
 
@@ -481,7 +481,7 @@ function registerIpc(): void {
       skills: listInstalledSkills(projectDir),
       stamp: readSkillVersionStamp(projectDir),
       toolkit: readToolkitVersion(),
-      updateAvailable: isSkillUpdateAvailable(projectDir)
+      updateAvailable: isSkillUpdateAvailable(projectDir, config.skillProfile)
     };
   });
 

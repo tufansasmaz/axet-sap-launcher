@@ -1228,6 +1228,7 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
           config={config}
           onSave={handleSaveConfig}
+          projectDir={projectDir}
           onExportManualSystems={handleExportManualSystems}
           onImportManualSystems={handleImportManualSystems}
         />
