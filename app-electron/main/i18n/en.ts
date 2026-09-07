@@ -109,6 +109,7 @@ export const MAIN_EN = {
   "doctor.axetUnknown": "Could not read the axet-code version. Is it installed?",
   "doctor.toolkitMissing": "The sap-toolkit folder was not found — the installation looks incomplete.",
   "doctor.nothingToInstall": "Nothing to install.",
+  "doctor.catalogNotSynced": "The NTT catalog folder is not synced on this machine (not required; the app ships its own package).",
 
   // --- adtReadonlyServerManager.ts ---
   "adtServer.requestsMissing": "`requests` is not installed.",

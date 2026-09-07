@@ -149,7 +149,8 @@ export type DoctorRowId =
   | "rfcBridge"
   | "rfcRuntime"
   | "axetCode"
-  | "toolkit";
+  | "toolkit"
+  | "catalog";
 
 export interface DoctorRow {
   id: DoctorRowId;

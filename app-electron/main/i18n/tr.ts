@@ -112,6 +112,8 @@ export const MAIN_TR = {
   "doctor.axetUnknown": "axet-code sürümü okunamadı. Kurulu mu?",
   "doctor.toolkitMissing": "sap-toolkit klasörü bulunamadı — kurulum eksik görünüyor.",
   "doctor.nothingToInstall": "Kurulacak paket yok.",
+  "doctor.catalogNotSynced":
+    "NTT katalog klasörü bu makineye eşitlenmemiş (gerekli değil; uygulama kendi paketiyle geliyor).",
 
   // --- adtReadonlyServerManager.ts ---
   "adtServer.requestsMissing": "`requests` kurulu değil.",

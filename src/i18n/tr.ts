@@ -365,6 +365,7 @@ export const tr = {
   "doctorSection.row.rfcRuntime": "RFC çalışma zamanı",
   "doctorSection.row.axetCode": "axet.code",
   "doctorSection.row.toolkit": "SAP yetenek paketi",
+  "doctorSection.row.catalog": "NTT katalog klasörü",
 
   // --- Rol seçimi (skill profili) ---
   "roleModal.title": "Bu projede hangi rolle çalışacaksın?",

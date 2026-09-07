@@ -17,6 +17,7 @@ import { request as httpRequest } from "node:http";
 import path from "node:path";
 import { app } from "electron";
 import { axetCodeVersion } from "./axetCodeVersion";
+import { findCatalogFolders } from "./catalogFolder";
 import { getToolkitRoot, readToolkitVersion } from "./sapToolkit";
 import type { DoctorReport, DoctorRow } from "../shared/types";
 import { mt } from "./i18n";
@@ -226,6 +227,27 @@ export async function runDoctor(): Promise<DoctorReport> {
           detail: toolkit ? `${toolkit.version} · ${toolkitRoot}` : toolkitRoot
         }
       : { id: "toolkit", status: "fail", detail: mt("doctor.toolkitMissing") }
+  );
+
+  // Eşitlenmiş NTT katalog klasörü. Bulunamaması bir ARIZA DEĞİL (uygulama
+  // kendi paketiyle geliyor), o yüzden "info" — ama bulunduğunda nerede
+  // olduğunu söylemek gerekiyor, çünkü klasörün yerel adı her makinede farklı
+  // ve kullanıcı onu kendi başına bulamıyor.
+  const catalogs = await findCatalogFolders();
+  rows.push(
+    catalogs.length === 0
+      ? { id: "catalog", status: "info", detail: mt("doctor.catalogNotSynced") }
+      : {
+          id: "catalog",
+          status: "ok",
+          detail: catalogs
+            .map((entry) =>
+              [entry.department, entry.version, entry.skillCount === null ? null : `${entry.skillCount} skill`, entry.path]
+                .filter(Boolean)
+                .join(" · ")
+            )
+            .join("\n")
+        }
   );
 
   return { rows, python: python?.exe ?? null, missingPackages, checkedAt: new Date().toISOString() };

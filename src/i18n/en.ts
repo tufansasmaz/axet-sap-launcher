@@ -311,6 +311,7 @@ export const en: Record<TranslationKey, string> = {
   "doctorSection.row.rfcBridge": "RFC bridge",
   "doctorSection.row.rfcRuntime": "RFC runtime",
   "doctorSection.row.axetCode": "axet.code",
+  "doctorSection.row.catalog": "NTT catalog folder",
   "doctorSection.row.toolkit": "SAP skill package",
 
   // --- Role picker (skill profile) ---
