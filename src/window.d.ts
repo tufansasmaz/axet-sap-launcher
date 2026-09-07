@@ -59,6 +59,7 @@ import type {
   DoctorReport,
   ProjectBrief,
   SapContextPreview,
+  ConnectorInventory,
   SapLandscape,
   SapService,
   SapLogonOpenResult,
@@ -104,6 +105,7 @@ export interface AxetApi {
   getProjectBrief: (projectDir: string) => Promise<ProjectBrief>;
   saveProjectBrief: (projectDir: string, brief: ProjectBrief) => Promise<ProjectBrief>;
   getSapContext: (projectDir: string) => Promise<SapContextPreview>;
+  getConnectorInventory: (projectDir: string) => Promise<ConnectorInventory>;
   getSystemCommentDefault: (serviceUuid: string) => Promise<SystemCommentDefaults>;
   openInSapLogon: (service: SapService) => Promise<SapLogonOpenResult>;
   windowMinimize: () => Promise<void>;

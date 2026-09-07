@@ -1273,6 +1273,7 @@ export default function App() {
 
         <AppConnectionsModal
           open={connectionsOpen}
+          projectDir={projectDir}
           // Modal kapanırken config yeniden okunuyor: bağlan/kes main
           // process'te kaydediliyor, App.tsx'in kopyası bunu bilmiyor —
           // yoksa ActivityBar'daki nokta bir sonraki açılışa kadar bayat

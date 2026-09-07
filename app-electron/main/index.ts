@@ -11,6 +11,7 @@ import { planSkills } from "./skillProfiles";
 import { installMissingPackages, runDoctor } from "./doctor";
 import { emptyBrief, readProjectBrief, writeProjectBrief } from "./projectBrief";
 import { emptyPreview, readSapContext } from "./sapContextFile";
+import { readConnectorInventory } from "./connectorInventory";
 import {
   installSkillsIntoProject,
   isSkillUpdateAvailable,
@@ -63,7 +64,7 @@ import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
-import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -518,6 +519,12 @@ function registerIpc(): void {
     if (!projectDir) return emptyPreview("");
     return readSapContext(projectDir);
   });
+
+  // Bağlayıcıların tur başına bedeli. Portale HİÇ istek atmıyor: kaynak
+  // axet-code'un kendi günlüğü ve kendi durum dosyası (bkz. connectorInventory).
+  ipcMain.handle("connectors:inventory", (_event, projectDir: string): ConnectorInventory =>
+    readConnectorInventory(projectDir)
+  );
 
   ipcMain.handle("systemComments:set", (_event, serviceUuid: string, comment: string) => {
     return saveSystemComment(serviceUuid, comment);

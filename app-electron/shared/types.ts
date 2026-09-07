@@ -134,6 +134,33 @@ export interface ProjectBrief {
   savedAt: string | null;
 }
 
+/** axet-code'un senkronizasyon günlüğünden okunan tek bağlayıcı kaydı. */
+export interface ConnectorRecord {
+  uuid: string;
+  /** Portalde verilen ad; boşsa uuid'in kendisi. */
+  displayName: string;
+  /** `outlook`, `sharepoint`, … */
+  type: string;
+  url: string;
+  /** Kayıt bu makinede kapalı mı (günlük + yerel durum dosyası birleşimi). */
+  disabledInLog: boolean;
+}
+
+/** Bağlayıcı kayıtları ve bunların tur başına tahmini bedeli. */
+export interface ConnectorInventory {
+  /** Günlükten TAM bir blok okunabildi mi. `false` = bilinmiyor, sıfır değil. */
+  known: boolean;
+  records: ConnectorRecord[];
+  /** Kapalı olmayan kayıt sayısı — bedeli bunlar üretiyor. */
+  activeCount: number;
+  /** TAHMİN: ölçüm çapasından türetilmiş (bkz. connectorInventory.ts). */
+  estimatedTools: number;
+  /** TAHMİN: tur başına jeton. */
+  estimatedTokens: number;
+  /** Tahminin dayandığı ölçüm — arayüzde olduğu gibi gösteriliyor. */
+  anchor: { measuredAt: string; records: number; tools: number; tokens: number };
+}
+
 /** `sap-context.md` önizlemesi — ajanın SAP tarafında gördüğü tek dosya. */
 export interface SapContextPreview {
   /** Dosya var mı — yoksa "henüz bağlanılmadı" demek, hata değil. */

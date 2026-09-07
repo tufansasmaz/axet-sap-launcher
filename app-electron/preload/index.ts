@@ -46,6 +46,7 @@ import type {
   DoctorReport,
   ProjectBrief,
   SapContextPreview,
+  ConnectorInventory,
   SapService,
   SapLogonOpenResult,
   SkillPlanEntry,
@@ -99,6 +100,8 @@ const api = {
     ipcRenderer.invoke("doctor:install", packages),
   getProjectBrief: (projectDir: string): Promise<ProjectBrief> =>
     ipcRenderer.invoke("projectBrief:get", projectDir),
+  getConnectorInventory: (projectDir: string): Promise<ConnectorInventory> =>
+    ipcRenderer.invoke("connectors:inventory", projectDir),
   getSapContext: (projectDir: string): Promise<SapContextPreview> =>
     ipcRenderer.invoke("sapContext:get", projectDir),
   saveProjectBrief: (projectDir: string, brief: ProjectBrief): Promise<ProjectBrief> =>

@@ -896,6 +896,19 @@ export const tr = {
   "appConnections.modeHint.always":
     "Her mesajda yükleniyor — tahmin yok, ama her mesaj ~10 sn daha uzun sürüyor (ölçüm: ~5 sn → ~15 sn), çünkü axet-code araçları her çağrıda kurup yıkıyor.",
 
+  // Bağlayıcıların tur başına bedeli. Sayı TAHMİN ve metin bunu saklamıyor:
+  // dayanağı ("{date} ölçümü") her zaman ekranda duruyor, çünkü gizlenmiş bir
+  // dayanak bu sayının ölçülmüş sanılması demekti (bkz. connectorInventory.ts).
+  "connectorCost.title": "Tur başına bedel",
+  "connectorCost.unknown":
+    "Bağlayıcı kayıtları okunamadı — axet-code bu projede henüz çalışmamış ya da eşitleme sürüyor olabilir.",
+  "connectorCost.summary": "{records} açık kayıt ≈ {tools} araç ≈ tur başına ~{tokens} jeton",
+  "connectorCost.basis": "Tahmin, {date} ölçümünden türetildi: {records} kayıt = {tools} araç ≈ {tokens} jeton.",
+  "connectorCost.disabled": "kapalı",
+  "connectorCost.localHint":
+    "Bir kaydı yalnızca bu makinede kapatmak: sohbet terminalinde ctrl+b → satırı seç → t. Kapalı bir kaydın araçları hiç yüklenmiyor.",
+  "connectorCost.managePortal": "Kayıtları portalde yönet",
+
   // SAP GUI Scripting ajanının log şeridindeki olay metinleri. Ajana GİDEN
   // prompt/talimat metinleri (systemPrompt.ts, actionsDoc.ts, transcript'teki
   // `SISTEM:` satırları) bilerek burada YOK — onlar arayüz değil, modelin

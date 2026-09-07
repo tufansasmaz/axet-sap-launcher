@@ -814,6 +814,16 @@ export const en: Record<TranslationKey, string> = {
   "appConnections.modeHint.always":
     "Loaded on every message — no guessing, but every message takes ~10s longer (measured: ~5s → ~15s) because axet-code sets the tools up and tears them down on every call.",
 
+  "connectorCost.title": "Cost per turn",
+  "connectorCost.unknown":
+    "Connector records could not be read — axet-code may not have run in this project yet, or a sync is in progress.",
+  "connectorCost.summary": "{records} active records ≈ {tools} tools ≈ ~{tokens} tokens per turn",
+  "connectorCost.basis": "Estimate derived from the {date} measurement: {records} records = {tools} tools ≈ {tokens} tokens.",
+  "connectorCost.disabled": "off",
+  "connectorCost.localHint":
+    "To switch a record off on this machine only: in the chat terminal press ctrl+b → select the row → t. A record that is off loads no tools at all.",
+  "connectorCost.managePortal": "Manage records in the portal",
+
   // Event texts in the SAP GUI Scripting agent's log strip. The text that goes
   // TO the agent (systemPrompt.ts, actionsDoc.ts, the `SISTEM:` transcript
   // lines) is deliberately absent here — that is the model's instruction, not

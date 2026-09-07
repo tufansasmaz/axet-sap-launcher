@@ -166,19 +166,19 @@ export function readLogSince(cwd: string, offset: number): { offset: number; lin
 // alınıyor. Bu yüzden dosyanın SONU ayrıca okunuyor.
 
 /** Son tam senkronizasyon bloğu için en fazla ne kadar geriye bakılacak. */
-const SYNC_TAIL = 256 * 1024;
+export const SYNC_TAIL = 256 * 1024;
 
 const RE_MCP_NAME = /"mcp_name":"conn_([0-9a-f-]{8,})"/i;
 
 /**
- * Günlükteki SON TAM senkronizasyon bloğundaki bağlayıcı uuid'leri.
+ * Günlüğün SON `maxBytes` baytı, metin olarak. `null` = dosya yok/okunamadı.
  *
- * `null` = bilinmiyor; çağıran bu durumda hiçbir şeyi elemesin. Bu ayrım önemli:
- * boş dizi "hiç bağlayıcı yok" demek (hepsini elemek doğru), `null` ise "günlük
- * yok / blok yarım / pencerenin dışında kaldı" demek ve orada elemek, sağlam
- * kayıtları sahte bir kanıtla silmek olurdu.
+ * Ayrı bir işlev, çünkü dosyanın sonunu okuyan İKİ çağıran var: buradaki
+ * uuid listesi ve `connectorInventory` (aynı bloğun tam dökümü). İkisi de
+ * aynı bloğa bakıyor; kopyalanmış bir tail okuyucu, birinde düzeltilen bir
+ * sınır hatasının diğerinde yaşamaya devam etmesi demekti.
  */
-export function readLiveConnectors(cwd: string): string[] | null {
+export function readLogTail(cwd: string, maxBytes: number): string | null {
   const path = logPath(cwd);
   let size = 0;
   try {
@@ -186,7 +186,7 @@ export function readLiveConnectors(cwd: string): string[] | null {
   } catch {
     return null;
   }
-  const start = Math.max(0, size - SYNC_TAIL);
+  const start = Math.max(0, size - maxBytes);
   const length = size - start;
   if (length <= 0) return null;
 
@@ -206,8 +206,22 @@ export function readLiveConnectors(cwd: string): string[] | null {
       }
     }
   }
+  return buffer.toString("utf8");
+}
 
-  const lines = buffer.toString("utf8").split(/\r?\n/);
+/**
+ * Günlükteki SON TAM senkronizasyon bloğundaki bağlayıcı uuid'leri.
+ *
+ * `null` = bilinmiyor; çağıran bu durumda hiçbir şeyi elemesin. Bu ayrım önemli:
+ * boş dizi "hiç bağlayıcı yok" demek (hepsini elemek doğru), `null` ise "günlük
+ * yok / blok yarım / pencerenin dışında kaldı" demek ve orada elemek, sağlam
+ * kayıtları sahte bir kanıtla silmek olurdu.
+ */
+export function readLiveConnectors(cwd: string): string[] | null {
+  const text = readLogTail(cwd, SYNC_TAIL);
+  if (text === null) return null;
+
+  const lines = text.split(/\r?\n/);
   // Sondan başlayarak son `complete`, oradan geriye onun `start`'ı. Sırayı
   // tersten kurmanın sebebi: dosyada aynı bloktan onlarca var (her açılışta bir
   // tane) ve bizi ilgilendiren yalnızca sonuncusu.

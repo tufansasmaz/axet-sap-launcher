@@ -107,6 +107,21 @@ function readState(): ConnectorState | null {
   }
 }
 
+/**
+ * axet-code'un YERELDEN kapattığı bağlayıcı uuid'leri.
+ *
+ * Durum dosyasının sahibi bu modül (yukarıdaki `STATE_FILE`), o yüzden okuma
+ * da buradan veriliyor — ikinci bir yerde aynı yolu kurmak, `-D/--data-dir`
+ * gibi bir ayrıntı değiştiğinde iki dosyanın ayrışması demekti.
+ *
+ * Boş dizi "hiçbiri kapalı değil" demek; dosya bozuksa da boş dönüyor, çünkü
+ * çağıran taraf (arayüzdeki maliyet kutusu) için "bilmiyorum" ile "kapalı yok"
+ * arasındaki fark bir şeyi değiştirmiyor — ikisinde de kapalı işaretlenmiyor.
+ */
+export function locallyDisabledConnectors(): string[] {
+  return readState()?.disabled ?? [];
+}
+
 type State = "ok" | "error";
 
 interface Entry {

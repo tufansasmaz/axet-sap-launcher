@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Files,
+  Gauge,
   History,
   Loader2,
   Mail,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { useLanguage, useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
-import type { ConnectorCheck, ConnectorMode, ConnectorProvider } from "../../app-electron/shared/types";
+import type { ConnectorCheck, ConnectorInventory, ConnectorMode, ConnectorProvider } from "../../app-electron/shared/types";
 
 // Uygulama Bağlantıları — Outlook/SharePoint connector'ları. MİMARİ
 // PİVOTU (2026-08-29): ÖNCEKİ tur burada kullanıcının kendi Azure AD "App
@@ -155,6 +156,13 @@ function formatCheckedAt(iso: string, locale: string): string {
 
 interface Props {
   onOpenProjectTerminal: () => void;
+  /**
+   * Bağlayıcı kayıtları axet-code'un günlüğünden okunuyor ve o günlük ÇALIŞMA
+   * DİZİNİ başına tutuluyor (bkz. axetCodeLog.ts) — yani maliyet kutusunun
+   * hangi projeye bakacağını bilmesi gerekiyor. Proje yoksa kutu hiç
+   * çıkmıyor; uydurma bir sıfır göstermekten iyi.
+   */
+  projectDir: string | null;
 }
 
 // "Terminalde Giriş Yap" satırı KALDIRILDI (kullanıcı isteği, 2026-09-04):
@@ -164,7 +172,7 @@ interface Props {
 // login` ise oturum düşmüşse gereken NADİR durumdu ve ekranın kalıcı bir
 // satırını işgal ediyordu. Tek istisna proje seçimi — o portalde çözülemez,
 // bu yüzden yalnızca o hata için terminal butonu duruyor.
-export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) {
+export default function AppConnectionsSection({ onOpenProjectTerminal, projectDir }: Props) {
   const t = useT();
   const language = useLanguage();
 
@@ -173,7 +181,22 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [mcpUrls, setMcpUrls] = useState<Partial<Record<ConnectorProvider, string>>>({});
   const [mode, setMode] = useState<ConnectorMode | null>(null);
+  const [inventory, setInventory] = useState<ConnectorInventory | null>(null);
   const requestIdRef = useRef<string | null>(null);
+
+  // Kayıtlar günlükten okunuyor; modal her açıldığında bir kez. Bağlan/Kes
+  // bu listeyi DEĞİŞTİRMİYOR (o `connectorEnabled`, bu ise hesaptaki kayıtlar),
+  // o yüzden her eylemden sonra yeniden okumaya gerek yok.
+  useEffect(() => {
+    if (!projectDir) {
+      setInventory(null);
+      return;
+    }
+    window.api
+      .getConnectorInventory(projectDir)
+      .then(setInventory)
+      .catch(() => setInventory(null));
+  }, [projectDir]);
 
   useEffect(() => {
     Promise.all(PROVIDERS.map(({ id }) => window.api.getConnectorMcpUrl(id).then((url) => [id, url] as const))).then(
@@ -513,6 +536,79 @@ export default function AppConnectionsSection({ onOpenProjectTerminal }: Props) 
           </div>
         )}
       </div>
+
+      {/* BEDEL. Bu ekran bugüne kadar yalnızca "bağlı mı" diyordu; bağlı
+          olmanın her tura eklediği araç tanımlarını hiç söylemiyordu.
+          Ölçüm ve neden TAHMİN olduğu: connectorInventory.ts başlığı.
+          Kayıt yoksa kutu da yok — boş bir kutu bilgi değil, gürültü. */}
+      {projectDir && inventory && (inventory.records.length > 0 || !inventory.known) && (
+        <div className="rounded-xl border border-line bg-app/30 p-3">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-200">
+            <Gauge size={13} className="shrink-0 text-slate-400" />
+            {t("connectorCost.title")}
+          </div>
+
+          {!inventory.known ? (
+            // Bilinmiyor ≠ sıfır. Günlükte tam bir senkronizasyon bloğu
+            // bulunamadıysa sayı uydurmak yerine sebebi yazıyoruz.
+            <p className="text-[11px] leading-relaxed text-slate-500">{t("connectorCost.unknown")}</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-300">
+                {t("connectorCost.summary", {
+                  records: inventory.activeCount,
+                  tools: inventory.estimatedTools,
+                  tokens: inventory.estimatedTokens.toLocaleString(language)
+                })}
+              </p>
+
+              <ul className="mt-2 space-y-1">
+                {inventory.records.map((record) => (
+                  <li
+                    key={record.uuid}
+                    className={`flex items-center gap-2 text-[11px] ${
+                      record.disabledInLog ? "text-slate-600" : "text-slate-400"
+                    }`}
+                    title={record.url || undefined}
+                  >
+                    <span className="truncate font-medium">{record.displayName}</span>
+                    {record.type && <span className="shrink-0 text-slate-600">{record.type}</span>}
+                    {/* Kimliğin ilk sekiz hanesi: portalde aynı adı taşıyan
+                        iki kaydı ayırt etmenin tek yolu bu. Tamamı `title`'da
+                        değil çünkü orada URL var — o daha çok işe yarıyor. */}
+                    <span className="shrink-0 font-mono text-slate-600">{record.uuid.slice(0, 8)}</span>
+                    {record.disabledInLog && (
+                      <span className="shrink-0 rounded-full bg-control px-1.5 py-0.5 text-[10px] text-slate-500">
+                        {t("connectorCost.disabled")}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+
+              {/* Tahminin dayanağı HER ZAMAN görünür. Gizlenmiş bir dayanak,
+                  bu sayının ölçülmüş sanılması demekti. */}
+              <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
+                {t("connectorCost.basis", {
+                  date: inventory.anchor.measuredAt,
+                  records: inventory.anchor.records,
+                  tools: inventory.anchor.tools,
+                  tokens: inventory.anchor.tokens.toLocaleString(language)
+                })}
+              </p>
+              <p className="mt-1 text-[10px] leading-relaxed text-slate-600">{t("connectorCost.localHint")}</p>
+
+              <button
+                onClick={() => window.api.openExternalUrl(AGENTIC_PORTAL_URL)}
+                className="mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] text-accent-400 hover:underline"
+              >
+                <ExternalLink size={11} />
+                {t("connectorCost.managePortal")}
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Kip ayarı ARTIK SADECE BURADA. Eskiden Ayarlar'daydı ve orada "off"
           da seçilebiliyordu: aynı şeyi (açık/kapalı) iki ayrı yerden ifade
