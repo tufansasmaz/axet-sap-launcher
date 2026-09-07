@@ -1363,6 +1363,17 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     const seenResults = new Set<string>();
     let toolCount = 0;
     let answer = "";
+    /**
+     * Turun ZAMAN ÇİZELGESİ. Yavaşlık şikâyetinde "bizden mi, axet-code'dan
+     * mı" sorusunu tahminle değil ölçümle ayırmak için: `ilkBelirti` ile
+     * `ilkHarf` arasındaki süre KARŞI TARAFIN düşünme süresi (pty'ye yazdık,
+     * o an itibarıyla topu biz tutmuyoruz), ondan sonrası ise akıtma ritmi.
+     * Yoklamanın kendi maliyeti ölçüldü: 50 mesajlık / 208 KB'lık bir turda
+     * yoklama başına 1,5 ms, yani saniyede %1,6 CPU — burada aranacak bir şey
+     * yok (2026-09-07 ölçümü).
+     */
+    let firstSignalAt = 0;
+    let firstCharAt = 0;
     // Gönderdiğimiz prompt oturuma DÜŞENE kadar hiçbir asistan mesajı bu tura
     // ait sayılmıyor. Tek başına "yeni mesaj" ölçütü yetmiyordu: yanlış bir
     // oturuma bağlanıldığında oradaki her mesaj "yeni" görünüyor ve turun
@@ -1533,6 +1544,8 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             .join("");
           const already = emitted.get(message.id) ?? 0;
           if (body.length > already) {
+            if (!firstCharAt) firstCharAt = Date.now();
+            if (!firstSignalAt) firstSignalAt = firstCharAt;
             args.onChunk(body.slice(already));
             emitted.set(message.id, body.length);
             answer += body.slice(already);
@@ -1606,6 +1619,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             }
             seenTools.add(callId);
             toolCount += 1;
+            if (!firstSignalAt) firstSignalAt = Date.now();
             alive();
             const diff = buildDiff(name, part.data?.input);
             args.onActivity({
@@ -1677,6 +1691,10 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
           console.log("[axetChatTui] tur bitti", {
             chatId: session.chatId,
             saniye: ((Date.now() - started) / 1000).toFixed(1),
+            // Yazmadan ilk belirtiye (araç ya da harf) ve ilk harfe kadar
+            // geçen süre: ikisi de KARŞI TARAFIN düşünme payı.
+            ilkBelirti: firstSignalAt ? ((firstSignalAt - started) / 1000).toFixed(1) : "-",
+            ilkHarf: firstCharAt ? ((firstCharAt - started) / 1000).toFixed(1) : "-",
             arac: toolCount,
             // Oturumun GERÇEK durumu; istenen değil (bkz. yapışkan bağlayıcı
             // kuralı, ensureSession).
@@ -1735,7 +1753,21 @@ async function restartSession(args: TuiSendArgs): Promise<TuiSession | null> {
 }
 
 export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult | null> {
+  // Oturum HAZIR MI, yoksa bu mesaj el sıkışmanın bedelini mi ödüyor? Fark
+  // kullanıcı için saniyeler: hazır oturumda 0 ms, sıfırdan kurulan bir
+  // oturumda bağlayıcı beklemesi tek başına 15 saniyeye kadar çıkabiliyor.
+  // Ölçülmeden "yavaş" şikâyeti hangi katmana ait bilinemiyor.
+  const warm = sessions.has(args.chatId);
+  const ensureStarted = Date.now();
   let session = await ensureSession(args.chatId, args.cwd, args.model, args.useConnectors);
+  const ensureMs = Date.now() - ensureStarted;
+  if (ensureMs > 250 || !warm) {
+    console.log("[axetChatTui] oturum hazirligi", {
+      chatId: args.chatId,
+      sicak: warm,
+      saniye: (ensureMs / 1000).toFixed(1)
+    });
+  }
   if (!session) {
     // Zorunlu güncelleme engeli: `null` dönmek `run` kipine düşürürdü ve o da
     // aynı kutuya çarpıp sessizce zaman aşımına uğrardı. Sebep biliniyorken
