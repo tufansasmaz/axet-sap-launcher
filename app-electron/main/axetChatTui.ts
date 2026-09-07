@@ -224,10 +224,29 @@ const POLL_MS = 90;
  * saniyede 11 kez aynı satırı sorgulamak olurdu.
  */
 const PROGRESS_MS = 1_000;
-/** Kullanılmayan bir oturum ne kadar sonra kapatılsın. */
-const IDLE_MS = 10 * 60_000;
-/** Aynı anda açık tutulacak en fazla TUI oturumu. */
-const MAX_SESSIONS = 3;
+/**
+ * Kullanılmayan bir oturum ne kadar sonra kapatılsın.
+ *
+ * 10 dakikaydı, 2026-09-07'de 60'a çıkarıldı. Sebebi ölçüm: bir turun süresi
+ * SÜRECİN KAÇINCI TURU olduğuna bağlı — aynı süreçte ikinci ve sonraki turlar
+ * 15-25 saniye, sürecin İLK turu 100-170 saniye. Yani oturumu kaybetmenin
+ * bedeli iki katı değil, beş-on katı. On dakika bir kahve molasını bile
+ * kaldıramıyordu: kullanıcı dönüp yazdığı ilk mesaj tam soğuk bedeli ödüyordu.
+ *
+ * Karşılığında boşta duran bir axet-code süreci bir saat ayakta kalıyor.
+ * Ölçüldü (2026-09-07): süreç başına 33-57 MB, yani MAX_SESSIONS ile birlikte
+ * en kötü hâlde ~250 MB. Bu, beş-on kat yavaşlamanın karşılığında ucuz.
+ */
+const IDLE_MS = 60 * 60_000;
+/**
+ * Aynı anda açık tutulacak en fazla TUI oturumu.
+ *
+ * 3'tü, 5 yapıldı (2026-09-07). Üçte, dört sohbet arasında gidip gelen bir
+ * kullanıcı her geçişte bir oturumu tahliye ediyordu ve geri döndüğünde
+ * yukarıdaki soğuk bedeli ödüyordu — IDLE_MS'i uzatmanın faydasını tam da bu
+ * yiyordu.
+ */
+const MAX_SESSIONS = 5;
 
 interface Waiter {
   needles: string[];

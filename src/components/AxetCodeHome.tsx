@@ -54,6 +54,8 @@ import { useT } from "../i18n";
 // "yazmayı bıraktı" ile "hâlâ yazıyor"u ayıracak kadar uzun ve kazancı
 // (~2–4 saniye) yemeyecek kadar kısa.
 const PREWARM_DEBOUNCE_MS = 500;
+/** Bir sohbet açıldıktan ne kadar sonra oturumu ısıtmaya başlayalım. */
+const CHAT_OPEN_PREWARM_MS = 1_500;
 
 // Bir düzenlemenin geri alınması için gereken HER ŞEY: kesilen mesajlar ve
 // composer'ın o andaki hâli. Yalnızca mesajları saklamak yetmezdi — geri
@@ -2043,6 +2045,35 @@ export default function AxetCodeHome({
     }, PREWARM_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [activeDraft]);
+
+  // Sohbet AÇILDIĞINDA da ısıt — yazmaya başlanmasını bekleme.
+  //
+  // Yukarıdaki efekt taslağa bakıyor, yani ısıtma ancak ilk harfe basıldığında
+  // başlıyor. Ölçüm (2026-09-07): soğuk bir oturumun hazırlanması 6,5 saniye
+  // ve bu süre kullanıcının GÖZÜ ÖNÜNDE, Gönder'e bastıktan sonra geçiyordu.
+  // Oysa bir sohbeti açmak ile ilk mesajı yazıp göndermek arasında -- geçmişi
+  // okumak, ne soracağını düşünmek -- neredeyse her zaman o altı saniyeden
+  // fazlası var. Açılışta başlatınca kurulum o boşluğun içinde eriyor.
+  //
+  // Gecikme ısıtma debounce'undan uzun: sohbetler arasında ok tuşlarıyla hızlıca
+  // gezinmek, uğranılan her sohbet için bir axet-code süreci açmak anlamına
+  // gelmemeli. Bir buçuk saniye duran kullanıcı o sohbeti gerçekten açmıştır.
+  useEffect(() => {
+    if (!activeId) return;
+    const timer = setTimeout(() => {
+      const { cwd, model, chatId } = prewarmTargetRef.current;
+      if (!chatId) return;
+      // Taslak da gidiyor: sohbette yarım kalmış bir metin varsa bağlayıcı
+      // kararı ondan çıkar. Yoksa boş -- bağlayıcısız kurulur ve metin
+      // gerektirirse oturum gönderim anında yeniden kurulur (eski davranış).
+      window.api.prewarmChat(cwd, model, chatId, activeDraft).catch(() => {});
+    }, CHAT_OPEN_PREWARM_MS);
+    return () => clearTimeout(timer);
+    // activeDraft BİLEREK bağımlılık değil: taslak her tuşta değişiyor ve bu
+    // efekt her seferinde sökülüp takılsa sayaç hiç dolmazdı. Taslağa tepki
+    // vermek yukarıdaki efektin işi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   const greeting = useMemo(greetingKey, []);
 
