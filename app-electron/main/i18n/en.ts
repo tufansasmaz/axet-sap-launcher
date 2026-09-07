@@ -52,6 +52,10 @@ export const MAIN_EN = {
   "chatTui.turnTimedOut": "axet-code has shown no sign of activity for {minutes} minutes.",
   "chatTui.turnRanTooLong": "axet-code has been running non-stop for {hours} hours; the turn was cut off here.",
   "chatTui.restartStillFailing": "The axet-code session was restarted but the error persists ({failure}).",
+  "chatTui.updateRequired":
+    "aXet.Code is waiting for a mandatory update and cannot answer any message until it is installed. Open Company Portal from your Start menu, search for \"aXet.code\", install the new version and restart the application.",
+  "chatTui.updateRequiredVersions":
+    "aXet.Code is waiting for a mandatory update ({installed} → {latest}) and cannot answer any message until it is installed. Open Company Portal from your Start menu, search for \"aXet.code\", install the new version and restart the application.",
 
   // --- fsExplorer.ts ---
   "fsExplorer.notAFile": "This is a folder, not a file.",

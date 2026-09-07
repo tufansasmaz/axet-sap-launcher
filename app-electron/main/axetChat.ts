@@ -718,6 +718,24 @@ function sendViaRun(
         finish({ ok: true, text: active.stdout.trim(), usedConnectors: useConnectors });
         return;
       }
+      // Zorunlu güncelleme `run` kipini de durduruyor ve çıkış kodu bunu
+      // anlatmıyor. TUI yolunda ekrandan yakalanıyor (bkz. axetChatTui
+      // `detectUpdateBlock`); burada süreç ne yazdıysa onun içinde aranıyor.
+      const blocked = `${active.stdout}\n${active.stderr}`;
+      if (/Mandatory update required|new version of aXet\.Code is available/i.test(blocked)) {
+        const installed = /Installed version:\s*([0-9][\w.+-]*)/i.exec(blocked)?.[1] ?? "";
+        const latest = /New version:\s*([0-9][\w.+-]*)/i.exec(blocked)?.[1] ?? "";
+        console.log("[axetChat] ZORUNLU GUNCELLEME ekrani (run kipi)", { installed, latest });
+        finish({
+          ok: false,
+          text: "",
+          error: latest
+            ? mt("chatTui.updateRequiredVersions", { installed: installed || "?", latest })
+            : mt("chatTui.updateRequired"),
+          usedConnectors: useConnectors
+        });
+        return;
+      }
       finish({
         ok: false,
         text: active.stdout.trim(),

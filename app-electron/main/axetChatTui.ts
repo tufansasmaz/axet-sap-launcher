@@ -84,6 +84,58 @@ const MARK_READY = [
 ];
 
 /**
+ * axet-code'un ZORUNLU GÜNCELLEME ekranı.
+ *
+ * Yeni bir sürüm çıktığında axet-code sohbeti hiç açmıyor; ortada tek düğmesi
+ * "Quit" olan bir kutu çiziyor:
+ *
+ *   Mandatory update required
+ *   A new version of aXet.Code is available.
+ *   Installed version: 1.2.0
+ *   New version:       1.3.0
+ *   This update is mandatory: Access Company Portal through your Start menu,
+ *   then search for "aXet.code", proceed to install the new version and
+ *   restart the application.
+ *
+ * Bu kutu bizim beklediğimiz işaretlerin HİÇBİRİNİ içermiyor: el sıkışma zaman
+ * aşımına uğruyor, `run` kipine düşülüyor ve o da aynı duvara çarpıyor.
+ * Kullanıcının gördüğü tek şey "axet-code hiçbir belirti vermedi" oluyor —
+ * oysa sebep bellidir ve tek cümleyle söylenebilir. Bu yüzden ekran açıkça
+ * aranıyor ve mesaj `run` kipine düşmeden doğrudan cevaplanıyor.
+ */
+const MARK_UPDATE_REQUIRED = "Mandatory update required";
+/** Kutunun ikinci cümlesi; başlık bir sürümde değişirse bu tutar. */
+const MARK_UPDATE_ALT = "new version of aXet.Code is available";
+const RE_UPDATE_INSTALLED = /Installed version:\s*([0-9][\w.+-]*)/i;
+const RE_UPDATE_LATEST = /New version:\s*([0-9][\w.+-]*)/i;
+
+/**
+ * Son görülen zorunlu güncelleme engeli. Süreç ömrü kadar yaşıyor; kullanıcı
+ * Company Portal'dan güncelleyip uygulamayı yeniden başlatınca sıfırlanır.
+ */
+let updateBlock: { installed: string; latest: string } | null = null;
+
+/** Zorunlu güncelleme engeli görüldüyse sürümler, yoksa `null`. */
+export function axetUpdateBlock(): { installed: string; latest: string } | null {
+  return updateBlock;
+}
+
+/** Ekranda güncelleme kutusu var mı? Varsa sürümleri kaydeder. */
+function detectUpdateBlock(screen: string): boolean {
+  if (!screen.includes(MARK_UPDATE_REQUIRED) && !screen.includes(MARK_UPDATE_ALT)) return false;
+  // Sürümler okunamazsa engel yine de gerçek: boş bırakılıyor ve mesaj
+  // sürümsüz kuruluyor (bkz. `chatTui.updateRequired`).
+  const installed = RE_UPDATE_INSTALLED.exec(screen)?.[1] ?? "";
+  const latest = RE_UPDATE_LATEST.exec(screen)?.[1] ?? "";
+  const next = { installed, latest };
+  if (!updateBlock || updateBlock.installed !== installed || updateBlock.latest !== latest) {
+    console.log("[axetChatTui] ZORUNLU GUNCELLEME ekrani", next);
+  }
+  updateBlock = next;
+  return true;
+}
+
+/**
  * Komut paletinin (`ctrl+p`) AÇILDIĞINI gösteren işaretler.
  *
  * Paletin ilk satırı "New Session" ve `resetTuiHistory`'nin bastığı Enter tam
@@ -468,9 +520,22 @@ async function waitForConnectors(session: TuiSession): Promise<Record<string, un
 
 async function handshake(session: TuiSession): Promise<boolean> {
   for (let step = 0; step < HANDSHAKE_MAX_STEPS; step += 1) {
-    const hit = await waitForAny(session, [MARK_TOOL_DIALOG, MARK_MODEL_DIALOG, ...MARK_READY], HANDSHAKE_STEP_MS);
+    // Güncelleme işareti listenin BAŞINDA: o kutu açıkken hazır olma işareti
+    // hiç gelmiyor, ama beklemeye devam etmek 30 saniyeyi boşa harcardı.
+    const hit = await waitForAny(
+      session,
+      [MARK_UPDATE_REQUIRED, MARK_UPDATE_ALT, MARK_TOOL_DIALOG, MARK_MODEL_DIALOG, ...MARK_READY],
+      HANDSHAKE_STEP_MS
+    );
     if (session.disposed || session.exited) return false;
+    if (hit === MARK_UPDATE_REQUIRED || hit === MARK_UPDATE_ALT) {
+      detectUpdateBlock(session.screen);
+      return false;
+    }
     if (!hit) {
+      // Kutunun metni bir sürümde değişmiş olabilir; el sıkışma boşa çıktıysa
+      // ekranın tamamı bir kez daha, işaretlerden bağımsız taranıyor.
+      if (detectUpdateBlock(session.screen)) return false;
       // Sessiz kalmıyoruz: TUI'nin açılış ekranı bir sürümde değişirse tek
       // belirti "sohbet yine yavaş" olurdu ve sebebi hiçbir yerde yazmazdı.
       console.log("[axetChatTui] acilis ekrani taninmadi, run kipine dusuluyor", {
@@ -1671,7 +1736,23 @@ async function restartSession(args: TuiSendArgs): Promise<TuiSession | null> {
 
 export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult | null> {
   let session = await ensureSession(args.chatId, args.cwd, args.model, args.useConnectors);
-  if (!session) return null;
+  if (!session) {
+    // Zorunlu güncelleme engeli: `null` dönmek `run` kipine düşürürdü ve o da
+    // aynı kutuya çarpıp sessizce zaman aşımına uğrardı. Sebep biliniyorken
+    // kullanıcıyı beş dakika bekletmenin anlamı yok.
+    const blocked = axetUpdateBlock();
+    if (blocked) {
+      return {
+        ok: false,
+        text: "",
+        error: blocked.latest
+          ? mt("chatTui.updateRequiredVersions", { installed: blocked.installed || "?", latest: blocked.latest })
+          : mt("chatTui.updateRequired"),
+        usedConnectors: args.useConnectors
+      };
+    }
+    return null;
+  }
   if (session.busy) return null;
 
   args.onActivity({ phase: "thinking" });
