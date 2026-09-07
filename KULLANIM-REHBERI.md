@@ -14,17 +14,62 @@ elle tekrar tekrar yapmak zorunda kalmamak.
 
 En soldaki ince dikey şeritten modüller arasında geçersin:
 
-- **axet.code** (kıvılcım ikonu) — Asıl çalışma ekranı. Bağlandığın sistem
-  bağlamında sohbet edersin.
+- **Axet Chat** (kıvılcım ikonu) — Asıl çalışma ekranı. Bağlandığın sistem
+  bağlamında sohbet edersin. (Arkada çalışan komut satırı aracının adı hâlâ
+  `axet-code`; ekranın adı Axet Chat.)
 - **SAP Launcher** (sunucu ikonu) — Müşteri/sistem ağacı, bağlanma, proje
   klasörü. Bu rehberin büyük kısmı bu modülü anlatıyor.
 - **SAP GUI Scripting** (fare ikonu) — SAP GUI ekranlarını gezme, işlem
   kaydedip tekrar oynatma, doğal dille otomasyon.
 
-Rayın altında **Uygulama Bağlantıları** (fiş ikonu — Outlook/SharePoint gibi
-aXet bağlayıcıları), açık/koyu tema, dil (TR/EN) ve **Ayarlar** var.
-Bağlayıcılardan en az biri bağlıysa fiş ikonunun üstünde küçük bir nokta
-belirir. Bu pencere **Esc** ile kapanır.
+Rayın altında **Hazırlık** (stetoskop ikonu), hemen altında **Uygulama
+Bağlantıları** (fiş ikonu — Outlook/SharePoint gibi aXet bağlayıcıları),
+açık/koyu tema, dil (TR/EN) ve **Ayarlar** var. Bağlayıcılardan en az biri
+bağlıysa fiş ikonunun üstünde küçük bir nokta belirir. Bu pencere **Esc**
+ile kapanır.
+
+## Hazırlık Ekranı
+
+Stetoskop ikonu, bir tur başlamadan önce doğru olması gereken her şeyi tek
+ekranda toplar. Ekran genişliğine göre bir, iki ya da üç sütuna açılır:
+
+- **Proje reçetesi** — Ajanın bu projede neyi bileceği. Müşteri, kapsam,
+  kısıtlar; sen yazarsın, ajan her turda okur.
+- **Yapay zekâ yetenekleri** — Danışman rolü ve o role ait yetenekler
+  (aşağıda ayrıntılı).
+- **Ortam teşhisi** — Makine bu işi taşıyabiliyor mu (axet-code sürümü,
+  Python, RFC bileşenleri, disk). Bir arıza varsa raydaki stetoskop
+  ikonunun üstünde nokta belirir.
+- **Ajan ne görüyor** — `sap-context.md` dosyasının kendisi. Ajana giden
+  bağlamı doğrulamak için okunur.
+
+### Danışman rolü ve yetenekler
+
+Rol seçimi üç seçenekli: **Modül danışmanı**, **Teknik danışman**,
+**Sandbox**. Rol yalnızca bir etiket değil — ajanın müşteri sisteminde
+**yapabileceklerini** belirler, çünkü ajan sadece burada kurulu yetenekleri
+kullanabilir.
+
+- Rolü değiştirdiğin anda yetenekler yeniden kurulur: yeni role ait olmayan
+  yetenekler projeden **kaldırılır**, ait olanlar kurulur. Ayrı bir
+  "Güncelle" tıklaması gerekmez.
+- **Modül danışmanı** seçiliyken sisteme yazan hiçbir yetenek kurulmaz.
+  **Teknik danışman** seçiliyken kod denetimi, ekran üretimi ve abapGit de
+  kurulur.
+- Katalogdan elle kurduğun yetenekler bu temizlikten etkilenmez; onlar
+  role bağlı değildir.
+- Doğru rolü seçmek önemli: eksik rol ajanı iş yapamaz hâle getirir, geniş
+  rol ise müşteri sisteminde istemediğin bir yeteneği masaya koyar.
+
+### Tur başına bedel (Uygulama Bağlantıları)
+
+Fiş ikonundaki pencerede, açık bağlayıcıların bir tura ne kadar bağlam
+maliyeti getirdiği yazar. Sayı artık kayıt başına sabit değil, **bağlayıcı
+türüne göre**: ölçülen değerler Outlook 25, SharePoint 17 araç
+(2026-09-08'de bağlayıcı penceresinden okundu). Toplam, açık kayıtların
+kendi sayılarının toplamıdır; kapalı kayıtlar sayıya girmez. Henüz
+ölçülmemiş türde bir bağlayıcı varsa ölçülenlerin ortalaması kullanılır ve
+ekranda **bunun bir tahmin olduğu açıkça yazar**.
 
 ## SAP Launcher Ne Yapar (özet)
 
@@ -157,7 +202,7 @@ Her sistem için oluşturulan proje klasöründe:
   teslim akışı, Office doküman araçları gibi hazır skill'ler otomatik
   kopyalanır; terminalde `%skill-adı` yazarak çağrılabilir.
 
-## axet.code Sohbet Ekranı
+## Axet Chat Sohbet Ekranı
 
 Bir sisteme bağlandıktan sonra asıl çalışma burada yapılır. Sol kenar
 çubuğunda **Yeni sohbet** ve **Yeni proje** düğmeleri, altında sohbet

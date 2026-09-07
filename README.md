@@ -15,12 +15,13 @@ Soldaki dikey rayda üç modül var:
 
 | Modül | Ne yapar |
 | --- | --- |
-| **axet.code** | Bağlandığın sistem bağlamında sohbet — asıl çalışma ekranı |
+| **Axet Chat** | Bağlandığın sistem bağlamında sohbet — asıl çalışma ekranı |
 | **SAP Launcher** | Müşteri/sistem ağacı, bağlanma, proje klasörü |
 | **SAP GUI Scripting** | SAP GUI ekranlarını gezme, kayıt/tekrar oynatma, doğal dille otomasyon |
 
-Rayın altında: **Uygulama Bağlantıları** (Outlook/SharePoint gibi aXet
-bağlayıcıları), tema, dil ve ayarlar.
+Rayın altında: **Hazırlık** (proje reçetesi, danışman rolü/yetenekler, ortam
+teşhisi, ajana giden bağlam), **Uygulama Bağlantıları** (Outlook/SharePoint
+gibi aXet bağlayıcıları), tema, dil ve ayarlar.
 
 ## Özellikler
 
@@ -42,7 +43,17 @@ bağlayıcıları), tema, dil ve ayarlar.
 - Sistem önem derecesi etiketleme (DEV/QA/PRD) ve otomatik tahmin.
 - Bağlantı geçmişi, açılışta toplu erişilebilirlik taraması.
 
-**Sohbet (axet.code)**
+**Hazırlık**
+
+- Proje reçetesi, danışman rolü + yetenekler, ortam teşhisi ve ajana giden
+  bağlam dosyası tek ekranda; genişliğe göre 1/2/3 sütun.
+- Danışman rolü değişince yetenekler **gerçekten değişir**: role ait
+  olmayanlar projeden kaldırılır, ait olanlar kurulur.
+- Uygulama bağlantılarının tur başına bağlam maliyeti, bağlayıcı **türüne
+  göre** ölçülmüş sayılarla gösterilir; ölçülmemiş tür varsa tahmin
+  olduğu açıkça yazılır.
+
+**Sohbet (Axet Chat)**
 
 - Bağlandığın sistem için doğrudan sohbet açılır; her sohbet kendi kalıcı
   axet-code oturumunu (`node-pty` üzerinden gerçek TUI) kullanır.

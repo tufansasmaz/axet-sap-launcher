@@ -31,10 +31,12 @@ değişmeden) bir modül/aktivite olarak yer alacak. Kullanıcı ileride buraya
 `axet.flows` gibi başka modüller de ekleyecek — mimari BUNU KOLAYLAŞTIRACAK
 şekilde (aktivite listesi merkezi, `ActivityBar.tsx`) kuruldu.
 
-**ÖNEMLİ — bu dönüşüm bitene kadar GitHub'a hiçbir release/push YAPILMASIN**
-(kullanıcının açık talimatı, 2026-08-27). Normal şartlarda her versiyon
-sonrası `npm run release` çalıştırma alışkanlığı bu dönüşüm süresince
-DURDURULDU — sadece yerel commit/build, `git push`/`npm run release` YOK.
+**~~ÖNEMLİ — bu dönüşüm bitene kadar GitHub'a hiçbir release/push
+YAPILMASIN~~ — BU YASAK KALKTI (kullanıcı, 2026-09-08:** *"commitle build al
+yeni versiyonu setup dosyasıyla beraber git'e pushla"*). 2026-08-27'de konan
+push/release yasağı 1.6.4 ile sona erdi; yayın yine de **kendiliğinden**
+yapılmaz, kullanıcı açıkça istediğinde yapılır (bkz. bölüm 16, yayın
+adımları).
 
 **Kullanıcı kararları (bu dönüşümün kapsamını belirleyen):**
 1. axet.code chat ekranı bir API key/gateway entegrasyonu GEREKTİRMİYOR —
@@ -9800,6 +9802,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.1** | Bayat veritabanı düzeltmesi + sessizlik temelli zaman aşımı. **Etiketi uzakta ama release'i hiç yayınlanmadı** |
 | **1.6.2** | Whisper çalışma zamanı diskten kaldırıldı. Yayınlanmış bir etiketi oynatmak yerine sürüm ileri alındı |
 | **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
+| **1.6.4** | Danışman rolü gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
 
 İptal edilen Faz 0-4 planının iki belgesi
 (`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
@@ -9823,3 +9826,109 @@ gündeme getirilmez.**
 - Güncelleme **token gerektirmiyor** (depo public). `updateToken` alanı
   kaynaktan tamamen kaldırıldı; `README.md` ve `KULLANIM-REHBERI.md` buna göre
   düzeltildi.
+
+---
+
+## v1.6.4 — Danışman Rolü, Hazırlık Ekranı, Bağlayıcı Bedeli (2026-09-08)
+
+Kullanıcının tek mesajda verdiği altı maddenin karşılığı. Kod tarafındaki
+ayrıntılar dosyaların kendi başlık yorumlarında; burada NEDEN'ler ve
+sonraki oturumun bilmesi gerekenler var.
+
+### 1. Danışman rolü gerçekten yetenek değiştiriyor (en önemlisi)
+
+**Şikâyet** (kullanıcı, 2026-09-08): *"iki danışmanda da aynı skiller
+yüklenir, danışman değişince skiller değişmiyor"*. Doğruydu ve **iki ayrı**
+kusurdan geliyordu:
+
+1. `installSkillsIntoProject` yalnızca profilin İSTEDİĞİ adlar üzerinde
+   dönüyordu; yeni profilde olmayan bir yetenek diskte olduğu gibi
+   kalıyordu. Yani roller **birleşiyordu** — bir modül danışmanının
+   klasöründe `screen-gen` durabiliyordu.
+2. Rol değiştirmek yalnızca config'i kaydediyordu; "Güncelle"ye basılana
+   kadar hiçbir kurulum çalışmıyordu.
+
+**Çözüm.** `skillProfiles.ts`'e saf bir fonksiyon eklendi:
+`orphanedProfileSkills(installedDirs, plannedNames, catalogNames)`. Üç kapı,
+üçü de **yanlış klasörü silmemek** için: (a) yalnızca `SKILL_CATALOG`'da adı
+geçenler, (b) yalnızca yeni planda olmayanlar, (c) katalogdan elle kurulmuş
+kayıtlar hariç. `sapToolkit.ts` bu listeyi kurulumdan ÖNCE siliyor ve
+`SkillInstallResult.removed` alanında rapor ediyor.
+
+**Sıra kritik.** `skills:reinstall` kanalı profili çağrı anında
+`loadConfig().skillProfile`'dan okuyor. Bu yüzden `SkillsSection.chooseRole`
+önce `await onProfileChange(id)` yapıp rolü diske YAZDIRIYOR, sonra
+`reinstallSkills` çağırıyor. Sıra bozulursa bir önceki rol kurulur ve hata
+sessizdir — bunu bir test koruyor (`calls` dizisi `["save", "reinstall"]`
+olmak zorunda).
+
+**Uyarı metni.** Kullanıcı isteğiyle rol kutusunun altına kalıcı bir uyarı
+kondu (`skillsSection.roleWarning`): ajan yalnızca kurulu yetenekleri
+kullanabildiği için rol, onun müşteri sisteminde YAPABİLECEKLERİNİ
+belirliyor. Kutu `--status-warning-*` jetonlarını kullanıyor (`amber-*`
+DEĞİL, bkz. tasarım kuralları).
+
+### 2. Hazırlık ekranı — üç sütunlu ızgara
+
+İlk deneme (iki sütuna elle bölünmüş, `max-w-6xl`) kullanıcı tarafından
+reddedildi: *"ekranın her yerini kullanabilirsin, boşluk var sağda solda"*.
+Son hâli `ReadinessHome.tsx`'te düz bir ızgara: `grid-cols-1` →
+`xl:grid-cols-2` → `2xl:grid-cols-3`, **`max-w-*` yok**. Reçete ·
+Yetenekler · Teşhis aynı satırda; `sap-context.md` altta tam genişlikte
+(`2xl:col-span-3`) çünkü o bir doğrulama yüzeyi ve dar sütunda satırları
+kırılıyor. `items-start` — kartlar satır boyuna gerilmiyor.
+
+### 3. Hazırlık düğmesi alt gruba taşındı
+
+`ActivityBar.tsx`: `readiness` artık üstteki `activities` dizisinde değil,
+`readinessItem` sabiti olarak alt grupta, fiş düğmesinin **hemen üstünde**.
+Düğme gövdesi `tabButton(item)` fonksiyonuna çıkarıldı — iki grup da onu
+çiziyor, çünkü Hazırlık alt grupta duruyor ama hâlâ bir sekme (şerit +
+arıza noktası ona ait). `Activity` birleşim tipi değişmedi.
+
+### 4. Bağlayıcı bedeli artık TÜR başına
+
+Eski model her kayda sabit 23 araç sayıyordu ve iki kayıt için 46 diyordu.
+Ölçülen gerçek (2026-09-08, ctrl+b bağlayıcı penceresi): **Outlook 25,
+SharePoint 17 = 42**. `connectorInventory.ts` artık `TOOLS_BY_TYPE`
+tablosundan okuyor, toplamı kayıtların KENDİ sayılarından topluyor.
+
+- Türü ölçülmemiş bir bağlayıcı ortalamaya düşüyor (`fallbackTools`) ve bu
+  ekranda **söyleniyor** (`unmeasuredCount` > 0 → uyarı satırı). Sessizce
+  bir sayı uydurmak eski hatanın küçük bir kopyası olurdu.
+- Kapalı kayıtlar ne toplama ne de uyarıya giriyor.
+- **axet-code günlüğünde kayıt başına araç sayısı YOK** (sayım yapıldı,
+  yalnızca `tool_call_count` var). Yani ctrl+b penceresi tek kaynak: yeni
+  bir bağlayıcı TÜRÜ çıkarsa `TOOLS_BY_TYPE` elle büyütülmeli. Jeton
+  katsayısı ayrı bir ölçümden (2026-09-05, 153.000 / 92 araç).
+
+### 5. Ekranın adı "Axet Chat"
+
+`activityBar.axetCode` etiketi iki dilde de **"Axet Chat"**. CLI'ın ve
+araçların adı (`axet-code`, `axetCommand`) DEĞİŞMEDİ — kullanıcının
+makinesinde çalışan şey hâlâ o; yalnızca ekranın adı değişti. Belgelerde de
+bu ayrım korundu.
+
+### 6. SAP salt-okunurluğu — doğrulandı, bir çekince ile
+
+Kullanıcı sordu: *"sap adt readonly var dimi her türlü"*. Uygulamanın kendi
+yolunda **çift kilit** var ve ikisi de yerinde:
+
+- `launcher.ts` yalnızca `sap-adt-readonly/scripts/adt_readonly_server.py`
+  başlatıyor; bu sarmalayıcı hem `ADT_READONLY=true` ortam değişkenini
+  kendisi koyuyor hem de araç listesini `READONLY_TOOLS` kümesine
+  süzüyor — yazan araçlar MCP'ye hiç görünmüyor.
+- `guardrails.py:require_writable()` ayrıca `GR_READONLY` fırlatıyor.
+
+**Çekince (dürüstlük payı):** garanti sarmalayıcıda, `.conn_adt`'de değil.
+Proje klasörlerindeki `.conn_adt` dosyalarında `ADT_SAP_TIER=DEV` var,
+`ADT_READONLY=` satırı **yok**. Yani ham `adt_mcp_server.py`'yi elle
+başlatan biri DEV sisteminde yazabilir. `.conn_adt`'ye üçüncü bir kilit
+olarak `ADT_READONLY=true` eklemek önerildi; **kullanıcı henüz cevap
+vermedi, kendiliğinden yapılmayacak.**
+
+### Testler
+
+Bu turda 8 yeni test eklendi (`skillProfiles.test.ts` 5,
+`skillsSection.test.tsx` 3) ve bağlayıcı testleri yeni modele göre yeniden
+yazıldı. Kapı: **122/122 test, 12 dosya, typecheck temiz.**
