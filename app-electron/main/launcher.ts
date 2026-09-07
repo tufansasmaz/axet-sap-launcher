@@ -46,13 +46,18 @@ function connectMsg(
     connAdtWriteFailed: `.conn_adt yazılamadı: ${params?.error}`,
     contextWriteFailed: `Bağlam dosyası yazılamadı: ${params?.error}`,
     rfcBridgeVerified: `Router raw HTTPS'i reddetti — RFC bridge otomatik başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı${skillNote}, sohbet açılıyor.`,
-    rfcBridgeRunningUnverified: `RFC bridge otomatik başlatıldı${skillNote} ama kimlik doğrulaması tamamlanamadı (${detail}) — sohbet yine de açılıyor, detay için sap-context.md'ye bak.`,
-    rfcBridgeAutoStartFailed: `Router raw HTTPS'i reddetti, RFC bridge otomatik başlatılamadı (${detail})${skillNote} — sohbet yine de açılıyor, elle kurulum adımları için sap-context.md'ye bak.`,
-    samlSetupNeeded: `Bu sistem SAML SSO gerektiriyor ve otomatik giriş tamamlanamadı (${detail})${skillNote} — sohbet yine de açılıyor, detay ve elle giriş adımları için sap-context.md'ye bak.`,
+    rfcBridgeRunningUnverified: `RFC köprüsü başlatıldı${skillNote} ama kimlik doğrulanamadı (${detail}) — sohbet yine de açılıyor, ayrıntıyı sohbette sorabilirsin.`,
+    rfcBridgeAutoStartFailed: `Router düz HTTPS'i reddetti, RFC köprüsü başlatılamadı (${detail})${skillNote} — sohbet yine de açılıyor, ayrıntıyı sohbette sorabilirsin.`,
+    samlSetupNeeded: `Bu sistem SAML SSO gerektiriyor, otomatik giriş tamamlanamadı (${detail})${skillNote} — sohbet yine de açılıyor, ayrıntıyı sohbette sorabilirsin.`,
     samlAutoVerified: `SAML SSO girişi tamamlandı ve oturum çereziyle doğrulandı${skillNote}, sohbet açılıyor (${params?.url})`,
     samlAutoVerifiedSilent: `SAML SSO girişi arka planda kendiliğinden tamamlandı (kimlik sağlayıcı oturumun zaten açıktı) ve oturum çereziyle doğrulandı${skillNote}, sohbet açılıyor (${params?.url})`,
     verifiedOpening: `Bağlantı doğrulandı, sohbet açılıyor${skillNote} (${params?.url})`,
-    verifiedButSelfTestFailed: `Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız${skillNote} — sap-context.md'de detay var (${params?.url})`
+    // Kullanıcı için ÖNEMLİ OLAN: bağlantı çalışıyor. Bozuk olan, Python
+    // olmayan makineler için duran YEDEK yol; ADT erişimi ondan geçmiyor.
+    // Eski metin ("adt-tool.ps1 self-test başarısız — sap-context.md'de detay
+    // var") iki dosya adı sayıp ne olduğunu söylemiyordu (kullanıcı,
+    // 2026-09-07: *"sapcontext ne alaka onu anlamadım"*).
+    verifiedButSelfTestFailed: `Bağlantı doğrulandı, sohbet açılıyor${skillNote} — yedek PowerShell aracı bu makinede çalışmadı, ADT erişimi bundan etkilenmiyor.`
   };
   const en = {
     projectDirFailed: `Could not create project folder: ${params?.error}`,
@@ -60,13 +65,13 @@ function connectMsg(
     connAdtWriteFailed: `Failed to write .conn_adt: ${params?.error}`,
     contextWriteFailed: `Failed to write context file: ${params?.error}`,
     rfcBridgeVerified: `Router rejected raw HTTPS — RFC bridge auto-started and credentials verified over RFC${skillNote}, opening chat.`,
-    rfcBridgeRunningUnverified: `RFC bridge auto-started${skillNote} but credential verification did not complete (${detail}) — opening chat anyway, see sap-context.md for details.`,
-    rfcBridgeAutoStartFailed: `Router rejected raw HTTPS, RFC bridge auto-start failed (${detail})${skillNote} — opening chat anyway, see sap-context.md for manual setup steps.`,
-    samlSetupNeeded: `This system requires SAML SSO and the automatic login could not be completed (${detail})${skillNote} — opening chat anyway, see sap-context.md for details and manual login steps.`,
+    rfcBridgeRunningUnverified: `RFC bridge started${skillNote} but credentials could not be verified (${detail}) — opening chat anyway, just ask in the chat for details.`,
+    rfcBridgeAutoStartFailed: `Router rejected plain HTTPS, RFC bridge could not start (${detail})${skillNote} — opening chat anyway, just ask in the chat for details.`,
+    samlSetupNeeded: `This system requires SAML SSO and the automatic login could not be completed (${detail})${skillNote} — opening chat anyway, just ask in the chat for details.`,
     samlAutoVerified: `SAML SSO login completed and verified with the session cookie${skillNote}, opening chat (${params?.url})`,
     samlAutoVerifiedSilent: `SAML SSO login completed in the background (your identity provider session was already open) and verified with the session cookie${skillNote}, opening chat (${params?.url})`,
     verifiedOpening: `Connection verified, opening chat${skillNote} (${params?.url})`,
-    verifiedButSelfTestFailed: `Connection verified but adt-tool.ps1 self-test failed${skillNote} — see sap-context.md for details (${params?.url})`
+    verifiedButSelfTestFailed: `Connection verified, opening chat${skillNote} — the fallback PowerShell tool did not run on this machine; ADT access is unaffected.`
   };
   return (language === "en" ? en : tr)[key];
 }
@@ -458,7 +463,24 @@ $pass = $conn['ADT_SAP_PASSWORD']
 $client = $conn['ADT_SAP_CLIENT']
 $clientQuery = if ($client) { "sap-client=$client" } else { "" }
 
-$sec = ConvertTo-SecureString $pass -AsPlainText -Force
+# SecureString DÜZ .NET ile kuruluyor, ConvertTo-SecureString ile DEĞİL.
+#
+# O cmdlet Microsoft.PowerShell.Security modülünde ve bu modül PowerShell 7
+# kurulu makinelerde yüklenemiyor: PS7'nin modül klasörleri PSModulePath'e
+# giriyor, Windows PowerShell 5.1 oradaki tip dosyasını da okuyor ve
+# "System.Security.AccessControl.ObjectSecurity ... member is already present"
+# çakışmasıyla modülü hiç açamıyor. Sonuç, script'in ilk satırlarında
+# "The 'ConvertTo-SecureString' command was found ... but the module could not
+# be loaded" — ölçüldü (2026-09-07, PS 5.1.26100 + PS 7.6.5 yan yana).
+#
+# Bu, self-test'in "BAŞARISIZ" demesinin gerçek sebebiydi ve sebebi SAP'ta,
+# TLS'te ya da yetkide sanan herkesi yanlış yöne gönderiyordu.
+#
+# Aşağıdaki üç satır hiçbir modüle ihtiyaç duymuyor; SecureString ve
+# PSCredential ikisi de çekirdek .NET tipleri.
+$sec = New-Object System.Security.SecureString
+foreach ($__ch in $pass.ToCharArray()) { $sec.AppendChar($__ch) }
+$sec.MakeReadOnly()
 $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
 $script:sess = $null
 
@@ -546,7 +568,13 @@ function buildContextMarkdown(
   const notesBlock = discoveryNotes.map((n) => `  - ${n}`).join("\n");
   const toolStatusBlock = toolTest.ok
     ? `- **adt-tool.ps1 self-test: BAŞARILI ✓** (${toolTest.detail}) — script doğru çalışıyor, güvenle kullan.`
-    : `- **adt-tool.ps1 self-test: BAŞARISIZ ✗** — script'in kendisi bir HTTP isteğini başarıyla tamamlayamadı (detay: ${toolTest.detail}). Bu, .NET/PowerShell'in TLS/sertifika trust zincirinin Node.js tarafındaki doğrulamadan **farklı** olduğunu gösterir. Önce bu script'i düzelt (ör. TLS bypass, PowerShell sürümü, Invoke-WebRequest davranışı), sonra ADT'ye erişmeyi dene — aksi halde "401/TLS/DNS" gibi yanlış yönlere saparsın.`;
+    : `- **adt-tool.ps1 self-test: BAŞARISIZ ✗** — script bir HTTP isteğini tamamlayamadı. **Ham hata: ${toolTest.detail}**
+
+  SEBEBİ TAHMİN ETME, yukarıdaki ham hatayı oku. Bağlantının kendisi Node.js tarafında zaten doğrulandı (bu satırın yazılabilmesi ona bağlı), yani sorun neredeyse hiçbir zaman SAP'ta, ağda ya da kimlikte değil — PowerShell'in bu makinedeki hâlinde.
+
+  Ölçülmüş örnek (2026-09-07): hata \`The 'ConvertTo-SecureString' command was found in the module 'Microsoft.PowerShell.Security', but the module could not be loaded\` idi. Sebep, makinede PowerShell 7'nin de kurulu olması: PS7'nin modül klasörleri \`PSModulePath\`'e giriyor, Windows PowerShell 5.1 oradaki tip dosyasını okuyor ve \`ObjectSecurity ... member is already present\` çakışmasıyla modülü açamıyor. TLS ile ilgisi yoktu; "401/TLS/DNS" yönüne sapmak tam bir zaman kaybı olurdu.
+
+  Bu yol zaten YEDEK. Önce \`%sap-adt-readonly\` skill'ini dene; ADT erişimi ondan geçiyor ve bu self-test'ten etkilenmiyor.`;
 
   const skillsBlock = skillInstall.toolkitRoot
     ? `- SAP Toolkit kaynağı: \`${skillInstall.toolkitRoot}\`
