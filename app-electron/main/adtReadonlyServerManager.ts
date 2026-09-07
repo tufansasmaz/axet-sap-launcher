@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { mt } from "./i18n";
 
 // `adt_readonly_server.py`'yi (bkz. resources/sap-toolkit/abaper/skills/sap-adt-readonly/scripts)
 // launcher'ın kendisi başlatır — RFC bridge otomatik başlatmasıyla (rfcBridgeManager.ts)
@@ -70,24 +71,24 @@ function describeFailure(server: RunningServer): string {
   const tail = server.tail.join("").trim();
   let hint = "";
   if (/no module named ['"]requests['"]/i.test(tail)) {
-    hint = "`requests` kurulu değil.";
+    hint = mt("adtServer.requestsMissing");
   } else if (/no module named ['"]mcp['"]/i.test(tail)) {
-    hint = "`mcp` paketi kurulu değil.";
+    hint = mt("adtServer.mcpMissing");
   } else if (/no module named ['"]dotenv['"]|python-dotenv/i.test(tail)) {
-    hint = "`python-dotenv` kurulu değil.";
+    hint = mt("adtServer.dotenvMissing");
   } else if (/no module named/i.test(tail)) {
-    hint = "Bir Python bağımlılığı kurulu değil.";
+    hint = mt("adtServer.someDepMissing");
   } else if (/address already in use|eaddrinuse/i.test(tail)) {
-    hint = `${server.port} portu başka bir process tarafından kullanılıyor.`;
+    hint = mt("adtServer.portInUse", { port: server.port });
   } else if (!tail && server.exited) {
-    hint = `process erken sonlandı (${server.exitInfo}).`;
+    hint = mt("adtServer.exitedEarly", { detail: server.exitInfo });
   } else if (!tail) {
-    hint = "python çalıştırılabilir bulunamadı (`py` PATH'te değil mi?).";
+    hint = mt("adtServer.pythonMissing");
   }
-  const detail = tail ? ` Detay: ${tail.slice(-400)}` : "";
+  const detail = tail ? mt("common.detailSuffix", { tail: tail.slice(-400) }) : "";
   return hint
-    ? `${hint}${detail} Elle çalıştırmak için: \`pip install -r requirements.txt\` sonra ADT_CWD=<proje klasörü> py adt_readonly_server.py --port ${server.port}.`
-    : `Sunucu ${server.port} portunda ayağa kalkmadı.${detail}`;
+    ? mt("adtServer.failureWithHint", { hint, detail, port: server.port })
+    : mt("adtServer.didNotStart", { port: server.port, detail });
 }
 
 export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Promise<ReadonlyServerStartResult> {
@@ -96,7 +97,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   if (existing && existing.port === opts.port && (existing.external || (!existing.proc?.killed && !existing.exited))) {
     const alive = await healthCheck(existing.port);
     if (alive) {
-      return { ok: true, alreadyRunning: true, external: existing.external, message: "ADT read-only sunucusu zaten çalışıyor, yeniden başlatılmadı." };
+      return { ok: true, alreadyRunning: true, external: existing.external, message: mt("adtServer.alreadyRunning") };
     }
     stopReadonlyServer(key);
   }
@@ -106,7 +107,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // ikinci bir process spawn edip EADDRINUSE'a düşmek yerine bunu kabul et.
   if (await healthCheck(opts.port)) {
     running.set(key, { proc: null, port: opts.port, logStream: null, tail: [], exited: false, exitInfo: "", external: true });
-    return { ok: true, alreadyRunning: true, external: true, message: "ADT read-only sunucusu bu portta zaten (başka bir process tarafından) çalışıyor durumda bulundu." };
+    return { ok: true, alreadyRunning: true, external: true, message: mt("adtServer.externalOnPort") };
   }
 
   let logStream: WriteStream | null = null;
@@ -136,7 +137,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     });
   } catch (err) {
     logStream?.end();
-    return { ok: false, alreadyRunning: false, external: false, message: `ADT read-only sunucu process'i başlatılamadı (${opts.pythonPath}): ${(err as Error).message}` };
+    return { ok: false, alreadyRunning: false, external: false, message: mt("adtServer.spawnFailed", { pythonPath: opts.pythonPath, detail: (err as Error).message }) };
   }
 
   server.proc = proc;
@@ -172,7 +173,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     return { ok: false, alreadyRunning: false, external: false, message };
   }
 
-  return { ok: true, alreadyRunning: false, external: false, message: `ADT read-only sunucusu başlatıldı (http://127.0.0.1:${opts.port}).` };
+  return { ok: true, alreadyRunning: false, external: false, message: mt("adtServer.started", { port: opts.port }) };
 }
 
 export function stopReadonlyServer(key: string): void {

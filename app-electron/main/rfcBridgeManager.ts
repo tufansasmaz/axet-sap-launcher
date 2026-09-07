@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { mt } from "./i18n";
 
 // Router'ın raw/native HTTPS'i reddettiği (-94 NIEROUT_PERM_DENIED) sistemlerde
 // `adt_rfc_bridge.py`'yi (bkz. resources/sap-toolkit/abaper/skills/sap-adt-readonly/scripts)
@@ -65,26 +66,26 @@ function describeFailure(bridge: RunningBridge, usingEmbedded: boolean): string 
   let hint = "";
   if (/no module named ['"]pyrfc['"]/i.test(tail)) {
     hint = usingEmbedded
-      ? "pyrfc bulunamadı — gömülü RFC runtime'ı (resources/rfc-runtime) bozuk/eksik olabilir, uygulamayı yeniden kur."
-      : "pyrfc kurulu değil ve gömülü RFC runtime'ı bulunamadı — uygulamayı yeniden kur.";
+      ? mt("rfcBridge.pyrfcMissingEmbedded")
+      : mt("rfcBridge.pyrfcMissing");
   } else if (/dll load failed|not a valid win32 application|%1 is not a valid/i.test(tail)) {
     hint = usingEmbedded
-      ? "Gömülü SAP NW RFC SDK DLL'leri yüklenemedi — uygulama kurulumu bozuk olabilir, yeniden kur."
-      : "SAP NW RFC SDK yüklenemedi ve gömülü RFC runtime'ı bulunamadı — uygulamayı yeniden kur.";
+      ? mt("rfcBridge.sdkLoadFailedEmbedded")
+      : mt("rfcBridge.sdkLoadFailed");
   } else if (/sapnwrfc_home/i.test(tail)) {
-    hint = "SAPNWRFC_HOME ortam değişkeni ayarlı değil.";
+    hint = mt("rfcBridge.homeNotSet");
   } else if (/python-dotenv/i.test(tail)) {
-    hint = "python-dotenv kurulu değil.";
+    hint = mt("rfcBridge.dotenvMissing");
   } else if (/logon|password|incorrect|invalid user/i.test(tail)) {
-    hint = "RFC logon hatası olabilir — kullanıcı adı/şifre/route kontrol edilmeli.";
+    hint = mt("rfcBridge.logonError");
   } else if (!tail && bridge.exited) {
-    hint = `process erken sonlandı (${bridge.exitInfo}).`;
+    hint = mt("rfcBridge.exitedEarly", { detail: bridge.exitInfo });
   } else if (!tail) {
     hint = usingEmbedded
-      ? "gömülü Python çalıştırılabilir bulunamadı — uygulama kurulumu bozuk olabilir."
-      : "python çalıştırılabilir bulunamadı ve gömülü RFC runtime'ı yok — uygulamayı yeniden kur.";
+      ? mt("rfcBridge.pythonMissingEmbedded")
+      : mt("rfcBridge.pythonMissing");
   }
-  const detail = tail ? ` Detay: ${tail.slice(-500)}` : "";
+  const detail = tail ? mt("common.detailSuffix", { tail: tail.slice(-500) }) : "";
   return `${hint}${detail}`;
 }
 
@@ -94,7 +95,7 @@ export async function startRfcBridge(opts: RfcBridgeStartOptions): Promise<RfcBr
   if (existing && existing.port === opts.bridgePort && !existing.proc.killed && !existing.exited) {
     const alive = await healthCheck(existing.port);
     if (alive) {
-      return { ok: true, alreadyRunning: true, message: "RFC bridge zaten çalışıyor, yeniden başlatılmadı." };
+      return { ok: true, alreadyRunning: true, message: mt("rfcBridge.alreadyRunning") };
     }
     stopRfcBridge(key);
   }
@@ -132,7 +133,7 @@ export async function startRfcBridge(opts: RfcBridgeStartOptions): Promise<RfcBr
     });
   } catch (err) {
     logStream?.end();
-    return { ok: false, alreadyRunning: false, message: `RFC bridge process başlatılamadı (${opts.pythonPath}): ${(err as Error).message}` };
+    return { ok: false, alreadyRunning: false, message: mt("rfcBridge.spawnFailed", { pythonPath: opts.pythonPath, detail: (err as Error).message }) };
   }
 
   bridge.proc = proc;
@@ -163,12 +164,12 @@ export async function startRfcBridge(opts: RfcBridgeStartOptions): Promise<RfcBr
   }
 
   if (!healthy) {
-    const message = `RFC bridge ${opts.bridgePort} portunda ayağa kalkmadı. ${describeFailure(bridge, Boolean(opts.sapnwrfcHome))}`;
+    const message = mt("rfcBridge.didNotStart", { port: opts.bridgePort, detail: describeFailure(bridge, Boolean(opts.sapnwrfcHome)) });
     stopRfcBridge(key);
     return { ok: false, alreadyRunning: false, message };
   }
 
-  return { ok: true, alreadyRunning: false, message: `RFC bridge başlatıldı (http://127.0.0.1:${opts.bridgePort}).` };
+  return { ok: true, alreadyRunning: false, message: mt("rfcBridge.started", { port: opts.bridgePort }) };
 }
 
 export function stopRfcBridge(key: string): void {

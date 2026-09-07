@@ -10,6 +10,7 @@ import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
 import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
+import { mt } from "./i18n";
 
 const NOTES_MARKER = "<!-- axet-sap-launcher:notes -->";
 const INVALID_CHARS = /[<>:"/\\|?*]/g;
@@ -118,7 +119,7 @@ const isRouterPermissionDenied = isRouterPermissionDeniedMessage;
 // otomatik ulaşan kısa bir not ekliyoruz.
 function describeRfcEndpointFailure(message: string): string {
   if (/NIEROUT_PERM_DENIED|route permission denied/i.test(message)) {
-    return "SAProuter RFC/gateway trafiğini de reddediyor — Basis'in saprouttab'a bu ashost:sysnr için ayrı bir RFC izin satırı (P) eklemesi gerekiyor, kimlik bilgisi sorunu değil.";
+    return mt("launcher.rfcRouteDeniedHint");
   }
   // "Zaman aşımı"/"Timed out" burada AYRI ve ÖNCELİKLİ bir dal — bu router'ın
   // NI_RTERR ile AÇIKÇA reddettiği (-94/-93, üstteki dal) durumdan farklı:
@@ -132,14 +133,18 @@ function describeRfcEndpointFailure(message: string): string {
   // Türkçe ("Zaman aşımı") olduğu için bu bulgu (Occlutech/OEQ canlı test)
   // hiçbir zaman tetiklenmiyordu — kullanıcı "Zaman aşımı" mesajını hiçbir
   // ek açıklama/yönlendirme olmadan görüyordu.
-  if (/zaman aşımı/i.test(message)) {
-    return "Bu bir \"zaman aşımı\" — router paketi AÇIKÇA reddetmedi (NI_RTERR/-94/-93 değil), sessizce yanıtsız bıraktı. Büyük olasılıkla router'ın izin tablosu SAP GUI'nin kullandığı DIAG/dispatcher portuna (örn. 3200) izin veriyor ama RFC istemcisinin gerçekte bağlandığı FARKLI bir port olan GATEWAY portuna (aynı instance no ile 33xx, örn. 3300) hiç izin vermiyor — Basis/network ekibine bu ayrımı (dispatcher değil, gateway portu) özellikle belirt. Kimlik bilgisi sorunu değil.";
+  // Kalıp artık İngilizce karşılığını da tanıyor. Mesajın kendisi çevrildiği
+  // için tek dile bakan bir kontrol, arayüz İngilizce'yken bu ÖZEL (gateway
+  // portu) dalı hiç tetiklemez ve aşağıdaki genel dala düşerdi — üstteki notta
+  // anlatılan hatanın aynısı, yalnızca ters yönde.
+  if (/zaman aşımı|timed? ?out|WSAETIMEDOUT/i.test(message)) {
+    return mt("launcher.rfcTimeoutHint");
   }
   if (/RFC_COMMUNICATION_FAILURE|partner.*not reached|connection refused|econnrefused|timed? ?out|WSAETIMEDOUT/i.test(message)) {
-    return "RFC bağlantısının kendisi router üzerinden application server/gateway'e ulaşamadı — büyük olasılıkla Basis'in saprouttab'daki RFC izni veya yanlış ashost/sysnr, kimlik bilgisi sorunu değil.";
+    return mt("launcher.rfcCommFailureHint");
   }
   if (/logon (failed|denied)|name or password is incorrect|user.*locked/i.test(message)) {
-    return "RFC logon'un kendisi reddedildi — bu sistem için kullanıcı adı/şifre/client'ı özellikle kontrol et (RFC logon, HTTP Basic Auth kontrolünden farklı davranabilir).";
+    return mt("launcher.rfcLogonRejectedHint");
   }
   return "";
 }
@@ -206,7 +211,7 @@ async function attemptRfcBridgeAutoStart(
       verified: false,
       credentialsInvalid: false,
       verifyMessage: "",
-      detailNote: "adt_rfc_bridge.py bulunamadı (SAP toolkit kurulu değil gibi görünüyor) — RFC bridge otomatik başlatılamadı, elle kuruluma bak."
+      detailNote: mt("launcher.rfcScriptMissing")
     };
   }
 
@@ -217,7 +222,7 @@ async function attemptRfcBridgeAutoStart(
       verified: false,
       credentialsInvalid: false,
       verifyMessage: "",
-      detailNote: `RFC bridge otomatik başlatılamadı: ${startResult.message}`
+      detailNote: mt("launcher.rfcStartFailed", { detail: startResult.message })
     };
   }
 
@@ -238,7 +243,7 @@ async function attemptRfcBridgeAutoStart(
       verified: true,
       credentialsInvalid: false,
       verifyMessage: bridgeVerify.message,
-      detailNote: `RFC bridge otomatik başlatıldı (${bridgeUrl}) ve kimlik bilgileri RFC üzerinden doğrulandı ✓.`
+      detailNote: mt("launcher.rfcStartedVerified", { url: bridgeUrl })
     };
   }
   if (bridgeVerify.status === 401) {
@@ -247,7 +252,7 @@ async function attemptRfcBridgeAutoStart(
       verified: false,
       credentialsInvalid: true,
       verifyMessage: bridgeVerify.message,
-      detailNote: `RFC bridge çalışıyor (${bridgeUrl}) ama kimlik doğrulama başarısız: ${bridgeVerify.message}`
+      detailNote: mt("launcher.rfcStartedAuthFailed", { url: bridgeUrl, detail: bridgeVerify.message })
     };
   }
   return {
@@ -255,9 +260,11 @@ async function attemptRfcBridgeAutoStart(
     verified: false,
     credentialsInvalid: false,
     verifyMessage: bridgeVerify.message,
-    detailNote: `RFC bridge başlatıldı (${bridgeUrl}) ama kimlik doğrulaması tamamlanamadı (${bridgeVerify.message}) — bridge yine de çalışır durumda, %sap-adt-readonly ile tekrar denenebilir.${
-      describeRfcEndpointFailure(bridgeVerify.message) ? ` ${describeRfcEndpointFailure(bridgeVerify.message)}` : ""
-    }`
+    detailNote: mt("launcher.rfcStartedUnverified", {
+      url: bridgeUrl,
+      detail: bridgeVerify.message,
+      hint: describeRfcEndpointFailure(bridgeVerify.message) ? ` ${describeRfcEndpointFailure(bridgeVerify.message)}` : ""
+    })
   };
 }
 

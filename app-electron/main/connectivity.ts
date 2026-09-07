@@ -2,6 +2,7 @@ import { Socket } from "node:net";
 import { connect as tlsConnect } from "node:tls";
 import type { ConnectivityResult, SapService } from "../shared/types";
 import { buildFullRoute, connectThroughRouter, ROUTER_TALK_MODE_NI_MSG_IO } from "./sapRouter";
+import { mt } from "./i18n";
 
 function checkTcp(host: string, port: number, uuid: string, timeoutMs: number): Promise<ConnectivityResult> {
   return new Promise((resolve) => {
@@ -22,7 +23,7 @@ function checkTcp(host: string, port: number, uuid: string, timeoutMs: number): 
       finish({
         serviceUuid: uuid,
         state: "reachable",
-        message: "Sistem erişilebilir",
+        message: mt("connectivity.reachable"),
         latencyMs: Date.now() - started
       });
     });
@@ -31,7 +32,7 @@ function checkTcp(host: string, port: number, uuid: string, timeoutMs: number): 
       finish({
         serviceUuid: uuid,
         state: "unreachable",
-        message: "Zaman aşımı — VPN bağlı değil olabilir"
+        message: mt("connectivity.timeout")
       });
     });
 
@@ -39,7 +40,7 @@ function checkTcp(host: string, port: number, uuid: string, timeoutMs: number): 
       finish({
         serviceUuid: uuid,
         state: "unreachable",
-        message: "Bağlanılamadı — VPN kontrol et"
+        message: mt("connectivity.refused")
       });
     });
 
@@ -53,7 +54,7 @@ function checkHttpsUrl(rawUrl: string, uuid: string, timeoutMs: number): Promise
     try {
       parsed = new URL(rawUrl);
     } catch {
-      resolve({ serviceUuid: uuid, state: "unknown", message: "Geçersiz ADT URL" });
+      resolve({ serviceUuid: uuid, state: "unknown", message: mt("connectivity.invalidUrl") });
       return;
     }
     const started = Date.now();
@@ -77,15 +78,15 @@ function checkHttpsUrl(rawUrl: string, uuid: string, timeoutMs: number): Promise
       { host: parsed.hostname, port, rejectUnauthorized: false, timeout: timeoutMs, servername: isIp ? undefined : parsed.hostname },
       () => {
         socket.end();
-        finish({ serviceUuid: uuid, state: "reachable", message: "Sistem erişilebilir", latencyMs: Date.now() - started });
+        finish({ serviceUuid: uuid, state: "reachable", message: mt("connectivity.reachable"), latencyMs: Date.now() - started });
       }
     );
     socket.once("timeout", () => {
       socket.destroy();
-      finish({ serviceUuid: uuid, state: "unreachable", message: "Zaman aşımı — VPN bağlı değil olabilir" });
+      finish({ serviceUuid: uuid, state: "unreachable", message: mt("connectivity.timeout") });
     });
     socket.once("error", () => {
-      finish({ serviceUuid: uuid, state: "unreachable", message: "Bağlanılamadı — VPN kontrol et" });
+      finish({ serviceUuid: uuid, state: "unreachable", message: mt("connectivity.refused") });
     });
   });
 }
@@ -106,7 +107,7 @@ function checkRouter(routerString: string, host: string, port: number, uuid: str
       return {
         serviceUuid: uuid,
         state: "reachable" as const,
-        message: "Sistem SAProuter üzerinden erişilebilir",
+        message: mt("connectivity.reachableViaRouter"),
         latencyMs: Date.now() - started
       };
     } catch (err) {
@@ -142,6 +143,6 @@ export function checkConnectivity(service: SapService, timeoutMs = 2500): Promis
   return Promise.resolve({
     serviceUuid: service.uuid,
     state: "unknown",
-    message: "Host/port bilgisi çözümlenemedi"
+    message: mt("connectivity.hostUnresolved")
   });
 }

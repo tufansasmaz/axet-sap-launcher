@@ -6,6 +6,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { DictationResult } from "../shared/types";
 import { getEmbeddedWhisperRuntime } from "./embeddedRuntime";
+import { mt } from "./i18n";
 
 // Sohbet kutusundaki mikrofon (kullanıcı isteği, 2026-09-02: *"chat box'a
 // mikrofon ekleyelim, tıkladığımızda konuştuklarımızı da yazabilsin"*).
@@ -144,7 +145,7 @@ function runWhisper(cliPath: string, modelPath: string, wavPath: string, languag
     child.on("close", (code) => {
       clearTimeout(timer);
       if (code === 0) resolve(cleanTranscript(stdout));
-      else reject(new Error(stderr.trim().split(/\r?\n/).pop() || `whisper çıkış kodu ${code}`));
+      else reject(new Error(stderr.trim().split(/\r?\n/).pop() || mt("dictation.whisperExitCode", { code })));
     });
   });
 }

@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { axetSpawnEnv } from "./axetSpawnEnv";
+import { mt } from "./i18n";
 
 // SAP GUI Scripting Agent — Faz 3. `axetFlowsAgent.ts`'in BİREBİR AYNI
 // mimarisi: her tur (JSON-aksiyon protokolü isteği) `axet-code run --quiet`
@@ -83,7 +84,7 @@ export function runSapGuiAgentStep(
           settled = true;
           running.delete(requestId);
           child.kill();
-          reject(new Error("axet-code run zaman aşımına uğradı (120s)."));
+          reject(new Error(mt("axetCode.runTimeout")));
         }, AXETCODE_TIMEOUT_MS);
 
         child.stdout?.on("data", (d: Buffer) => (stdout += d.toString("utf-8")));
@@ -95,7 +96,7 @@ export function runSapGuiAgentStep(
           clearTimeout(timer);
           running.delete(requestId);
           if (err.code === "ENOENT") {
-            reject(new Error('axet-code CLI bulunamadı (PATH\'de yok). "axet-code -v" komutunun çalıştığını doğrula.'));
+            reject(new Error(mt("axetCode.cliNotFound")));
           } else {
             reject(err);
           }
@@ -111,7 +112,7 @@ export function runSapGuiAgentStep(
             return;
           }
           if (code !== 0 && !stdout.trim()) {
-            reject(new Error(stderr.trim() || `axet-code run kod ${code} ile bitti.`));
+            reject(new Error(stderr.trim() || mt("axetCode.runExitCode", { code })));
             return;
           }
           resolve({ text: stdout.trim(), cancelled: false });

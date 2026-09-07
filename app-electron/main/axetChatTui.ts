@@ -10,6 +10,7 @@ import type {
 } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import { setAxetModel } from "./axetModels";
+import { mt } from "./i18n";
 import {
   closeSessionDbs,
   findSessionByPrompt,
@@ -922,8 +923,8 @@ export function tuiBusy(chatId: string): boolean {
 /** TUI kipi kullanılabilir mi (native sqlite yüklendi mi)? */
 export function tuiUnavailableReason(cwd: string): string {
   const dbError = sessionDbLoadError();
-  if (dbError) return `oturum veritabanı okunamıyor: ${dbError}`;
-  if (!resolveSessionDb(cwd)) return "bu klasör için axet-code oturum veritabanı yok";
+  if (dbError) return mt("chatTui.sessionDbUnreadable", { detail: dbError });
+  if (!resolveSessionDb(cwd)) return mt("chatTui.sessionDbMissing");
   return "";
 }
 
@@ -1031,7 +1032,7 @@ function parseAskUser(callId: string, input: string | undefined): AskUserRequest
 
 /** Soruyu, cevaplanamadığında sohbete yazılacak düz metne çevirir. */
 function askUserAsText(ask: AskUserRequest): string {
-  const question = ask.question || "Devam etmek için bir tercihine ihtiyacım var.";
+  const question = ask.question || mt("chatTui.askFallbackQuestion");
   return ask.options.length
     ? `${question}\n\n${ask.options.map((opt) => `- ${opt}`).join("\n")}`
     : question;
@@ -1234,7 +1235,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     for (;;) {
       if (session.disposed || session.cancelled) return { ok: false, text: answer, cancelled: true };
       if (session.exited) {
-        return { ok: false, text: answer, error: "axet-code oturumu beklenmedik şekilde kapandı." };
+        return { ok: false, text: answer, error: mt("chatTui.sessionClosedUnexpectedly") };
       }
 
       // --- Arka planda arıza denetimi ---------------------------------------
@@ -1401,7 +1402,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
                 // yazılmazsa soru sonsuza dek gizli kalırdı.
                 if (part.data?.finished !== true) continue;
                 seenTools.add(callId);
-                const question = ask ? askUserAsText(ask) : "Devam etmek için bir tercihine ihtiyacım var.";
+                const question = ask ? askUserAsText(ask) : mt("chatTui.askFallbackQuestion");
                 console.log("[axetChatTui] soru cevaplanamiyor, tur soruyla bitiriliyor", {
                   chatId: session.chatId,
                   sebep: !ask ? "ayristirilamadi" : "secenek-yok",
@@ -1625,7 +1626,7 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     return {
       ok: false,
       text: second.text,
-      error: `axet-code oturumu yenilendi ama hata sürüyor (${second.failure}).`,
+      error: mt("chatTui.restartStillFailing", { failure: second.failure }),
       restartedReason: first.failure
     };
   }

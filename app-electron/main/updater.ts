@@ -1,6 +1,7 @@
 import { app, BrowserWindow } from "electron";
 import electronUpdater from "electron-updater";
 import type { UpdateStatus } from "../shared/types";
+import { mt } from "./i18n";
 
 // electron-updater CommonJS bir modül — named export (`import { autoUpdater }
 // from "electron-updater"`) paketlenmiş/ESM ortamda "Named export
@@ -70,7 +71,7 @@ function ensureListeners(): void {
 
 export async function checkForUpdates(window: BrowserWindow): Promise<void> {
   if (!app.isPackaged) {
-    sendStatus({ phase: "error", message: "Güncelleme kontrolü sadece paketlenmiş uygulamada çalışır (dev modda değil)." });
+    sendStatus({ phase: "error", message: mt("updater.devModeOnly") });
     return;
   }
   currentWindow = window;

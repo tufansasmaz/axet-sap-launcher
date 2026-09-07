@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { axetSpawnEnv } from "./axetSpawnEnv";
+import { mt } from "./i18n";
 
 // axet.flows Agent — sohbet penceresinden gelen her turu (bir JSON-aksiyon
 // protokolü isteği) `axet-code run --quiet` alt-process'i olarak çalıştırır.
@@ -62,7 +63,7 @@ export function runFlowsAgentStep(prompt: string, model: string | null, useConne
           if (settled) return;
           settled = true;
           child.kill();
-          reject(new Error("axet-code run zaman aşımına uğradı (120s)."));
+          reject(new Error(mt("axetCode.runTimeout")));
         }, AXETCODE_TIMEOUT_MS);
 
         child.stdout?.on("data", (d: Buffer) => (stdout += d.toString("utf-8")));
@@ -73,7 +74,7 @@ export function runFlowsAgentStep(prompt: string, model: string | null, useConne
           settled = true;
           clearTimeout(timer);
           if (err.code === "ENOENT") {
-            reject(new Error('axet-code CLI bulunamadı (PATH\'de yok). "axet-code -v" komutunun çalıştığını doğrula.'));
+            reject(new Error(mt("axetCode.cliNotFound")));
           } else {
             reject(err);
           }
@@ -84,7 +85,7 @@ export function runFlowsAgentStep(prompt: string, model: string | null, useConne
           settled = true;
           clearTimeout(timer);
           if (code !== 0 && !stdout.trim()) {
-            reject(new Error(stderr.trim() || `axet-code run kod ${code} ile bitti.`));
+            reject(new Error(stderr.trim() || mt("axetCode.runExitCode", { code })));
             return;
           }
           resolve(stdout.trim());

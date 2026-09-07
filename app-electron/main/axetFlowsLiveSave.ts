@@ -1,5 +1,6 @@
 import { request as httpRequest } from "node:http";
 import { discoverAxetFlowsLiveUrl } from "./axetFlowsLiveDiscovery";
+import { mt } from "./i18n";
 
 // "Cloud'a Kaydet" — kullanıcının bizim gömülü (embedded) axet.flows
 // motorumuzda hazırladığı bir flow'u, aynı makinede AYRICA çalışan GERÇEK
@@ -61,7 +62,7 @@ function httpJson(options: HttpJsonOptions, body?: unknown): Promise<{ status: n
     req.on("error", reject);
     req.on("timeout", () => {
       req.destroy();
-      reject(new Error("İstek zaman aşımına uğradı."));
+      reject(new Error(mt("flowsLiveSave.requestTimeout")));
     });
     if (payload) req.write(payload);
     req.end();
@@ -95,7 +96,7 @@ export interface SaveFlowToLiveHostResult {
 export async function saveFlowToLiveHost(flowArray: any[]): Promise<SaveFlowToLiveHostResult> {
   const disc = await discoverAxetFlowsLiveUrl();
   if (!disc.ok || !disc.port) {
-    return { ok: false, error: disc.error || "Çalışan bir aXet.flows Canlı örneği bulunamadı." };
+    return { ok: false, error: disc.error || mt("flowsLiveSave.noInstance") };
   }
   const host = "localhost";
   const port = disc.port;
@@ -104,10 +105,10 @@ export async function saveFlowToLiveHost(flowArray: any[]): Promise<SaveFlowToLi
   try {
     getRes = await httpJson({ host, port, path: "/flows", method: "GET", headers: { "Node-RED-API-Version": "v2" } });
   } catch (err: any) {
-    return { ok: false, port, error: `Mevcut flow'lar okunamadı: ${err?.message || err}` };
+    return { ok: false, port, error: mt("flowsLiveSave.listFailed", { detail: err?.message || err }) };
   }
   if (getRes.status < 200 || getRes.status >= 300 || !getRes.json) {
-    return { ok: false, port, error: `Mevcut flow'lar okunamadı (HTTP ${getRes.status}).` };
+    return { ok: false, port, error: mt("flowsLiveSave.listFailedHttp", { status: getRes.status }) };
   }
 
   const isV2 = Array.isArray(getRes.json?.flows);
@@ -124,11 +125,11 @@ export async function saveFlowToLiveHost(flowArray: any[]): Promise<SaveFlowToLi
   try {
     postRes = await httpJson({ host, port, path: "/flows", method: "POST", headers: postHeaders }, postBody);
   } catch (err: any) {
-    return { ok: false, port, error: `Canlıya kaydedilemedi: ${err?.message || err}` };
+    return { ok: false, port, error: mt("flowsLiveSave.saveFailed", { detail: err?.message || err }) };
   }
   if (postRes.status < 200 || postRes.status >= 300) {
     const detail = postRes.json?.message ? ` (${postRes.json.message})` : "";
-    return { ok: false, port, error: `Canlı host kaydı reddetti (HTTP ${postRes.status})${detail}.` };
+    return { ok: false, port, error: mt("flowsLiveSave.saveRejected", { status: postRes.status, detail }) };
   }
   return { ok: true, port };
 }

@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { AddManualSystemInput, ManualSystem } from "../shared/types";
 import { normalizeAdtBaseUrl } from "./adtDiscovery";
+import { mt } from "./i18n";
 
 function manualSystemsPath(): string {
   return path.join(app.getPath("userData"), "manual-systems.json");
@@ -105,7 +106,7 @@ export function importManualSystemsFromFile(filePath: string): ImportSummary {
   const raw = readFileSync(filePath, "utf-8");
   const parsed = JSON.parse(raw);
   if (!Array.isArray(parsed)) {
-    throw new Error("Geçersiz dosya formatı: JSON dizi bekleniyor.");
+    throw new Error(mt("manualSystems.invalidFormat"));
   }
 
   const existing = loadManualSystems();

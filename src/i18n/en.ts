@@ -732,5 +732,14 @@ export const en: Record<TranslationKey, string> = {
   "appConnections.modeHint.auto":
     "Loaded only when your message mentions mail/calendar/SharePoint — every other message is ~10s faster. The decision is a guess: on a rare message that needs them, the tools may not be loaded.",
   "appConnections.modeHint.always":
-    "Loaded on every message — no guessing, but every message takes ~10s longer (measured: ~5s → ~15s) because axet-code sets the tools up and tears them down on every call."
+    "Loaded on every message — no guessing, but every message takes ~10s longer (measured: ~5s → ~15s) because axet-code sets the tools up and tears them down on every call.",
+
+  // Event texts in the SAP GUI Scripting agent's log strip. The text that goes
+  // TO the agent (systemPrompt.ts, actionsDoc.ts, the `SISTEM:` transcript
+  // lines) is deliberately absent here — that is the model's instruction, not
+  // UI, and translating it would change how the model behaves.
+  "sapGuiAgent.turnCancelled": "The turn was stopped by the user.",
+  "sapGuiAgent.callFailed": "The axet-code call failed.",
+  "sapGuiAgent.invalidOutput": "Invalid output (no JSON action found):",
+  "sapGuiAgent.maxIterations": "The maximum number of steps was reached; the turn was stopped."
 };

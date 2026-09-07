@@ -112,14 +112,15 @@ export default function SapGuiAgentPanel({ connIdx, sessIdx, sessionInfo, select
           onRequestIdChange: (id) => {
             activeRequestIdRef.current = id;
           },
-          isCancelled: () => cancelledRef.current
+          isCancelled: () => cancelledRef.current,
+          t
         });
       } finally {
         setBusy(false);
         activeRequestIdRef.current = null;
       }
     },
-    [busy, uiContext, pushLog]
+    [busy, uiContext, pushLog, t]
   );
 
   const handleCancel = useCallback(() => {

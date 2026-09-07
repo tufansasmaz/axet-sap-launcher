@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { request as httpRequest } from "node:http";
+import { mt } from "./i18n";
 
 // axet.flows (Live) ekranı için: kullanıcının bu makinede AYRICA çalıştırdığı
 // (bizim uygulamamızdan tamamen bağımsız bir süreç olan) gerçek "aXet.flows"
@@ -106,7 +107,7 @@ export interface AxetFlowsLiveDiscoveryResult {
 
 export async function discoverAxetFlowsLiveUrl(): Promise<AxetFlowsLiveDiscoveryResult> {
   if (process.platform !== "win32") {
-    return { ok: false, url: null, port: null, error: "Otomatik keşif şu an sadece Windows'ta destekleniyor." };
+    return { ok: false, url: null, port: null, error: mt("flowsLive.windowsOnly") };
   }
   const ports = await findListeningPortsForProcess(AXET_FLOWS_PROCESS_NAME);
   if (ports.length === 0) {
@@ -114,7 +115,7 @@ export async function discoverAxetFlowsLiveUrl(): Promise<AxetFlowsLiveDiscovery
       ok: false,
       url: null,
       port: null,
-      error: "Çalışan bir aXet.flows masaüstü uygulaması bulunamadı (aXet.flows.exe). Önce onu başlat."
+      error: mt("flowsLive.appNotRunning")
     };
   }
   const probes = await Promise.all(ports.map(async (port) => ({ port, valid: await probeIsAxetFlowsSettings(port) })));
@@ -124,7 +125,7 @@ export async function discoverAxetFlowsLiveUrl(): Promise<AxetFlowsLiveDiscovery
       ok: false,
       url: null,
       port: null,
-      error: "aXet.flows.exe çalışıyor ama Designer arayüzünün portu doğrulanamadı (henüz tam açılmamış olabilir)."
+      error: mt("flowsLive.portUnverified")
     };
   }
   // KÖK SEBEP (kullanıcı canlı test ile doğruladı): "127.0.0.1" DEĞİL,

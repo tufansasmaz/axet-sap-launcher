@@ -1,5 +1,6 @@
 import { Socket } from "node:net";
 import { connect as tlsConnect, type TLSSocket } from "node:tls";
+import { mt } from "./i18n";
 
 export interface RouterHop {
   host: string;
@@ -84,21 +85,17 @@ function isPermissionDeniedDetail(returnCode: number | null, detail: string): bo
 
 function describeRouterFailure(type: string, responsePayload: Buffer): string {
   if (type !== "NI_RTERR") {
-    return `SAProuter rotayı kabul etmedi (yanıt: ${type || "bilinmeyen"}).`;
+    return mt("sapRouter.unexpectedResponse", { type: type || mt("sapRouter.unexpectedResponseUnknown") });
   }
   const { returnCode, detail } = parseRouterError(responsePayload);
   if (isPermissionDeniedDetail(returnCode, detail)) {
-    return (
-      `SAProuter bu rotayı REDDETTİ (${PERMISSION_DENIED_TAG}, return_code=${returnCode ?? "?"} — izin tablosunda bu ` +
-      `kaynak/hedef/port için kayıt yok; router sürümüne göre bu -94/NIEROUT_PERM_DENIED ya da -93 gibi farklı bir kodla ` +
-      `dönebilir, ikisi de aynı "izin reddi" anlamına gelir). ` +
-      `Bu bir yazılım hatası değil: router yöneticisinin (Basis/network ekibi) saprouttab izin tablosuna bu makinenin ` +
-      `genel IP'sinden hedef host:port'a "ham/native" (raw) tünelleme izni eklemesi gerekiyor — SAP GUI'nin DIAG ` +
-      `bağlantısı (native SAP NI protokolü) farklı bir izin kapsamında zaten çalışıyor olabilir, ama ADT/HTTPS trafiği ` +
-      `için ayrı bir P/S saprouttab satırı gerekir. Detay: ${detail || "yok"}`
-    );
+    return mt("sapRouter.permissionDenied", {
+      tag: PERMISSION_DENIED_TAG,
+      returnCode: returnCode ?? "?",
+      detail: detail || mt("sapRouter.noDetail")
+    });
   }
-  return `SAProuter rotayı reddetti (return_code=${returnCode ?? "?"}). Detay: ${detail || "yok"}`;
+  return mt("sapRouter.rejected", { returnCode: returnCode ?? "?", detail: detail || mt("sapRouter.noDetail") });
 }
 
 // Üçüncü koşul geriye uyumluluk için duruyor (bu dosyanın kendi ürettiği
@@ -171,7 +168,7 @@ export function connectThroughRouter(
 ): Promise<Socket> {
   return new Promise((resolve, reject) => {
     if (hops.length < 2) {
-      reject(new Error("Router rotası en az bir router hop'u ve bir hedef içermeli."));
+      reject(new Error(mt("sapRouter.routeTooShort")));
       return;
     }
     const first = hops[0];
@@ -186,8 +183,8 @@ export function connectThroughRouter(
     };
 
     socket.setTimeout(timeoutMs);
-    socket.once("timeout", () => fail(new Error(`SAProuter bağlantısı zaman aşımına uğradı (${first.host}:${first.port})`)));
-    socket.once("error", (err) => fail(new Error(`SAProuter'a bağlanılamadı (${first.host}:${first.port}): ${err.message}`)));
+    socket.once("timeout", () => fail(new Error(mt("sapRouter.connectTimeout", { host: first.host, port: first.port }))));
+    socket.once("error", (err) => fail(new Error(mt("sapRouter.connectFailed", { host: first.host, port: first.port, detail: err.message }))));
 
     socket.connect(Number(first.port), first.host, () => {
       const request = buildRouteRequest(hops, talkMode);
@@ -242,7 +239,7 @@ export async function tlsConnectThroughRouter(
     tlsSocket.once("error", (err) => reject(err));
     tlsSocket.once("timeout", () => {
       tlsSocket.destroy();
-      reject(new Error("TLS handshake zaman aşımına uğradı (SAProuter üzerinden)."));
+      reject(new Error(mt("sapRouter.tlsTimeout")));
     });
   });
 }
@@ -274,7 +271,7 @@ export function httpRequestOverSocket(
       if (settled) return;
       settled = true;
       socket.destroy();
-      reject(new Error("HTTP isteği zaman aşımına uğradı (SAProuter üzerinden)."));
+      reject(new Error(mt("sapRouter.httpTimeout")));
     }, timeoutMs);
 
     socket.on("data", (chunk: Buffer) => {
@@ -294,7 +291,7 @@ export function httpRequestOverSocket(
         const text = raw.toString("latin1");
         const headerEnd = text.indexOf("\r\n\r\n");
         if (headerEnd === -1) {
-          reject(new Error("Geçersiz HTTP yanıtı (SAProuter üzerinden)."));
+          reject(new Error(mt("sapRouter.invalidHttpResponse")));
           return;
         }
         const headerText = text.slice(0, headerEnd);

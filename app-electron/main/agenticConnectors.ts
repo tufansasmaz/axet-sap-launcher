@@ -9,6 +9,7 @@ import {
   type AxetDbMessage
 } from "./axetSessionDb";
 import { learnConnectorHealth } from "./connectorHealth";
+import { mt } from "./i18n";
 
 // Uygulama Bağlantıları — Outlook/SharePoint connector'ları (2026-08-29,
 // mimari pivotu). ÖNCEKİ tur (@azure/msal-node ile kullanıcının kendi Azure
@@ -268,7 +269,7 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
           ok: false,
           connected: false,
           detail: stdout.trim(),
-          error: `axet-code ${Math.round(TEST_TIMEOUT_MS / 1000)} saniyede cevap vermedi, test durduruldu.`
+          error: mt("axetCode.testTimeout", { seconds: Math.round(TEST_TIMEOUT_MS / 1000) })
         });
         return;
       }
@@ -287,9 +288,7 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
             ok: true,
             connected: false,
             detail: parsed.detail,
-            error:
-              "Ajan başarılı olduğunu bildirdi ama bu turda hiçbir bağlayıcı aracı çağırmamış — " +
-              "sonuç doğrulanamadı, bağlantı açılmadı."
+            error: mt("agenticConnectors.noToolCalled")
           });
           return;
         }
@@ -303,7 +302,7 @@ export function testConnector(requestId: string, provider: ConnectorProvider, cw
         ok: false,
         connected: false,
         detail: stdout.trim(),
-        error: code === 0 ? undefined : (stderr || `axet-code çıkış kodu: ${code}`).trim()
+        error: code === 0 ? undefined : (stderr || mt("axetCode.exitCode", { code })).trim()
       });
     });
 

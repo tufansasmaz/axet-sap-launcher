@@ -1,5 +1,6 @@
 import { buildSapGuiSystemPrompt } from "./systemPrompt";
 import type { ToolResult } from "./tools";
+import type { TranslateFn } from "../../i18n";
 
 // `src/flows/agent/agentRunner.js`'in AYNI döngü şekli — TEK yapısal fark:
 // `executeTool` burada ASENKRON (her aksiyon gerçek bir IPC round-trip'i)
@@ -95,12 +96,19 @@ export interface RunAgentTurnOptions {
   onEvent?: (event: AgentEvent) => void;
   onRequestIdChange?: (requestId: string | null) => void;
   isCancelled?: () => boolean;
+  /**
+   * Kullanıcıya GÖRÜNEN olay metinleri (log şeridi) için çeviri fonksiyonu —
+   * çağıran bileşenin `useT()`'si geçiliyor. Ajana GİDEN metinler (prompt,
+   * `SISTEM:` transcript satırları, `actionsDoc`) bilerek çevrilmiyor: onlar
+   * arayüz değil, modelin talimatı.
+   */
+  t: TranslateFn;
 }
 
 export type AgentStopReason = "error" | "invalid_output" | "ask_user" | "finish" | "max_iterations" | "cancelled";
 
 export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped: AgentStopReason }> {
-  const { model, transcript, userMessage, uiContext, executeTool, onEvent, onRequestIdChange, isCancelled } = opts;
+  const { model, transcript, userMessage, uiContext, executeTool, onEvent, onRequestIdChange, isCancelled, t } = opts;
 
   if (userMessage) {
     transcript.push(`KULLANICI: ${userMessage}`);
@@ -125,7 +133,7 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
   // tıklamayla yakalandı (2026-09-04): 30 sn'lik bir tur iptal edildi, IPC
   // iptali gitti, ekranda hiçbir şey yazmadı.
   const cancel = (): { stopped: AgentStopReason } => {
-    onEvent?.({ kind: "cancelled", text: "Tur kullanici tarafindan durduruldu." });
+    onEvent?.({ kind: "cancelled", text: t("sapGuiAgent.turnCancelled") });
     return { stopped: "cancelled" };
   };
 
@@ -141,7 +149,7 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
       const stepResult = await window.api.guiScriptAgentStep(requestId, prompt, model || null, connectorText);
       onRequestIdChange?.(null);
       if (stepResult.cancelled) return cancel();
-      if (!stepResult.ok) throw new Error(stepResult.error || "axet-code çağrısı başarısız oldu.");
+      if (!stepResult.ok) throw new Error(stepResult.error || t("sapGuiAgent.callFailed"));
       raw = stepResult.text || "";
     } catch (err) {
       onRequestIdChange?.(null);
@@ -153,7 +161,7 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
     const actions = normalizeActions(parsed);
     if (!actions) {
       invalidRetries += 1;
-      onEvent?.({ kind: "error", text: `Gecersiz cikti (JSON action bulunamadi):\n${raw}` });
+      onEvent?.({ kind: "error", text: `${t("sapGuiAgent.invalidOutput")}\n${raw}` });
       if (invalidRetries > MAX_INVALID_RETRIES) {
         return { stopped: "invalid_output" };
       }
@@ -193,6 +201,6 @@ export async function runAgentTurn(opts: RunAgentTurnOptions): Promise<{ stopped
     }
   }
 
-  onEvent?.({ kind: "error", text: "Maksimum adim sayisina ulasildi, tur durduruldu." });
+  onEvent?.({ kind: "error", text: t("sapGuiAgent.maxIterations") });
   return { stopped: "max_iterations" };
 }

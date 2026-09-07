@@ -809,7 +809,16 @@ export const tr = {
   "appConnections.modeHint.auto":
     "Yalnızca mesajın mail/takvim/SharePoint'ten söz ediyorsa yükleniyor — diğer mesajlar ~10 sn daha hızlı. Karar bir tahmin: nadiren gereken bir mesajda araçlar açılmayabilir.",
   "appConnections.modeHint.always":
-    "Her mesajda yükleniyor — tahmin yok, ama her mesaj ~10 sn daha uzun sürüyor (ölçüm: ~5 sn → ~15 sn), çünkü axet-code araçları her çağrıda kurup yıkıyor."
+    "Her mesajda yükleniyor — tahmin yok, ama her mesaj ~10 sn daha uzun sürüyor (ölçüm: ~5 sn → ~15 sn), çünkü axet-code araçları her çağrıda kurup yıkıyor.",
+
+  // SAP GUI Scripting ajanının log şeridindeki olay metinleri. Ajana GİDEN
+  // prompt/talimat metinleri (systemPrompt.ts, actionsDoc.ts, transcript'teki
+  // `SISTEM:` satırları) bilerek burada YOK — onlar arayüz değil, modelin
+  // talimatı; çevirmek modelin davranışını değiştirirdi.
+  "sapGuiAgent.turnCancelled": "Tur kullanıcı tarafından durduruldu.",
+  "sapGuiAgent.callFailed": "axet-code çağrısı başarısız oldu.",
+  "sapGuiAgent.invalidOutput": "Geçersiz çıktı (JSON action bulunamadı):",
+  "sapGuiAgent.maxIterations": "Maksimum adım sayısına ulaşıldı, tur durduruldu."
 };
 
 

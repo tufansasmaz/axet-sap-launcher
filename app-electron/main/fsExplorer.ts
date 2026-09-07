@@ -2,6 +2,7 @@ import { shell } from "electron";
 import { promises as fs, watch as watchSync } from "node:fs";
 import path from "node:path";
 import type { AppConfig, FsEntry, FsImportFilesResult, FsListDirResult, FsReadDocxResult, FsReadImageResult, FsReadTextResult, FsSearchFilesResult, FsWriteTextResult } from "../shared/types";
+import { mt } from "./i18n";
 
 const MAX_TEXT_BYTES = 2 * 1024 * 1024; // 2MB — daha büyük dosyalar önizleme için gereksiz/yavaş
 const MAX_IMAGE_BYTES = 15 * 1024 * 1024;
@@ -117,7 +118,7 @@ function looksBinary(buffer: Buffer): boolean {
 export async function readTextFile(filePath: string): Promise<FsReadTextResult> {
   try {
     const stat = await fs.stat(filePath);
-    if (stat.isDirectory()) return { ok: false, error: "Bu bir klasör, dosya değil." };
+    if (stat.isDirectory()) return { ok: false, error: mt("fsExplorer.notAFile") };
     const truncated = stat.size > MAX_TEXT_BYTES;
     const fd = await fs.open(filePath, "r");
     try {
@@ -125,7 +126,7 @@ export async function readTextFile(filePath: string): Promise<FsReadTextResult> 
       const buffer = Buffer.alloc(readLength);
       await fd.read(buffer, 0, readLength, 0);
       if (looksBinary(buffer)) {
-        return { ok: false, error: "Bu dosya metin olarak görüntülenemiyor (ikili/binary içerik)." };
+        return { ok: false, error: mt("fsExplorer.notText") };
       }
       return { ok: true, content: buffer.toString("utf-8"), truncated };
     } finally {
@@ -160,10 +161,10 @@ export async function writeTextFile(
       if (allowCreate && err.code === "ENOENT") return null;
       throw err;
     });
-    if (stat?.isDirectory()) return { ok: false, error: "Bu bir klasör, dosya değil." };
+    if (stat?.isDirectory()) return { ok: false, error: mt("fsExplorer.notAFile") };
     if (!stat) {
       const parent = await fs.stat(path.dirname(filePath));
-      if (!parent.isDirectory()) return { ok: false, error: "Hedef klasör bulunamadı." };
+      if (!parent.isDirectory()) return { ok: false, error: mt("fsExplorer.parentMissing") };
     }
     await fs.writeFile(filePath, content, "utf-8");
     return { ok: true };
@@ -349,10 +350,10 @@ export async function readImageDataUrl(filePath: string): Promise<FsReadImageRes
   try {
     const ext = path.extname(filePath).toLowerCase();
     const mime = IMAGE_MIME_BY_EXT[ext];
-    if (!mime) return { ok: false, error: "Bilinmeyen resim türü." };
+    if (!mime) return { ok: false, error: mt("fsExplorer.unknownImageType") };
     const stat = await fs.stat(filePath);
     if (stat.size > MAX_IMAGE_BYTES) {
-      return { ok: false, error: "Resim önizleme için çok büyük." };
+      return { ok: false, error: mt("fsExplorer.imageTooLarge") };
     }
     const buffer = await fs.readFile(filePath);
     return { ok: true, dataUrl: `data:${mime};base64,${buffer.toString("base64")}` };

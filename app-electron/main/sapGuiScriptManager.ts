@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { request as httpRequest } from "node:http";
+import { mt } from "./i18n";
 
 // `sap_gui_scripting_bridge.py`'yi (bkz. resources/sap-gui-scripting) yönetir —
 // `rfcBridgeManager.ts`/`adtReadonlyServerManager.ts` ile AYNI desen
@@ -87,21 +88,21 @@ function describeFailure(bridge: RunningBridge): string {
   const tail = bridge.tail.join("").trim();
   let hint = "";
   if (/no module named ['"]win32com['"]|no module named ['"]pythoncom['"]/i.test(tail)) {
-    hint = "pywin32 bulunamadı — gömülü SAP GUI Scripting runtime'ı (resources/guiscript-runtime) bozuk/eksik olabilir, uygulamayı yeniden kur.";
+    hint = mt("guiScriptManager.pywin32Missing");
   } else if (/sadece windows'ta calisir/i.test(tail)) {
-    hint = "SAP GUI Scripting sadece Windows'ta çalışır.";
+    hint = mt("guiScriptManager.windowsOnly");
   } else if (/address already in use|eaddrinuse|winerror 10048|only one usage of each socket/i.test(tail)) {
     // Windows'un mesajı "address already in use" DEĞİL: "Only one usage of
     // each socket address ... (WinError 10048)". Sadece BSD metnine bakan
     // eski koşul bu ipucunu Windows'ta hiç veremezdi — yani tam da bu
     // uygulamanın çalıştığı yerde.
-    hint = `${bridge.port} portu başka bir process tarafından kullanılıyor.`;
+    hint = mt("guiScriptManager.portInUse", { port: bridge.port });
   } else if (!tail && bridge.exited) {
-    hint = `process erken sonlandı (${bridge.exitInfo}).`;
+    hint = mt("guiScriptManager.exitedEarly", { detail: bridge.exitInfo });
   } else if (!tail) {
-    hint = "gömülü Python çalıştırılabilir bulunamadı — uygulama kurulumu bozuk olabilir.";
+    hint = mt("guiScriptManager.pythonMissing");
   }
-  const detail = tail ? ` Detay: ${tail.slice(-500)}` : "";
+  const detail = tail ? mt("common.detailSuffix", { tail: tail.slice(-500) }) : "";
   return `${hint}${detail}`;
 }
 
@@ -109,7 +110,7 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
   if (current && current.port === opts.port && (current.external || (!current.proc?.killed && !current.exited))) {
     const alive = (await healthCheck(current.port)).ok;
     if (alive) {
-      return { ok: true, alreadyRunning: true, external: current.external, port: current.port, message: "SAP GUI Scripting bridge zaten çalışıyor." };
+      return { ok: true, alreadyRunning: true, external: current.external, port: current.port, message: mt("guiScriptManager.alreadyRunning") };
     }
     stopGuiScriptBridge();
   }
@@ -125,9 +126,7 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
       alreadyRunning: true,
       external: true,
       port: opts.port,
-      message:
-        "SAP GUI Scripting bridge bu portta zaten (başka bir process tarafından) çalışıyor" +
-        (foreign.pid ? ` (PID ${foreign.pid}).` : ".")
+      message: mt("guiScriptManager.externalOnPort") + (foreign.pid ? ` (PID ${foreign.pid}).` : ".")
     };
   }
 
@@ -140,7 +139,7 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
       stdio: ["ignore", "pipe", "pipe"]
     });
   } catch (err) {
-    return { ok: false, alreadyRunning: false, external: false, port: opts.port, message: `SAP GUI Scripting bridge process başlatılamadı (${opts.pythonPath}): ${(err as Error).message}` };
+    return { ok: false, alreadyRunning: false, external: false, port: opts.port, message: mt("guiScriptManager.spawnFailed", { pythonPath: opts.pythonPath, detail: (err as Error).message }) };
   }
 
   bridge.proc = proc;
@@ -171,12 +170,12 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
   }
 
   if (!healthy) {
-    const message = `SAP GUI Scripting bridge ${opts.port} portunda ayağa kalkmadı. ${describeFailure(bridge)}`;
+    const message = mt("guiScriptManager.didNotStart", { port: opts.port, detail: describeFailure(bridge) });
     stopGuiScriptBridge();
     return { ok: false, alreadyRunning: false, external: false, port: opts.port, message };
   }
 
-  return { ok: true, alreadyRunning: false, external: false, port: opts.port, message: `SAP GUI Scripting bridge başlatıldı (http://127.0.0.1:${opts.port}).` };
+  return { ok: true, alreadyRunning: false, external: false, port: opts.port, message: mt("guiScriptManager.started", { port: opts.port }) };
 }
 
 export function stopGuiScriptBridge(): void {

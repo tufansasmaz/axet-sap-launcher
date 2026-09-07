@@ -8,6 +8,7 @@ import { loadLandscape, getServiceCredentials, getServiceSapLogonNote } from "./
 import { checkConnectivity } from "./connectivity";
 import { connectToSystem, computeProjectDir } from "./launcher";
 import { loadConfig, saveConfig, saveLastCredential, saveTrustedCertificates, pushConnectionHistory, saveSystemTier, saveSystemComment } from "./store";
+import { mt, refreshMainLanguage } from "./i18n";
 import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
@@ -72,7 +73,7 @@ if (!gotSingleInstanceLock) {
 // göster, log'a yaz.
 process.on("uncaughtException", (err) => {
   console.error("uncaughtException", err);
-  dialog.showErrorBox("NTT Studio — Beklenmeyen Hata", err.stack ?? String(err));
+  dialog.showErrorBox(mt("app.unexpectedErrorTitle"), err.stack ?? String(err));
 });
 process.on("unhandledRejection", (reason) => {
   console.error("unhandledRejection", reason);
@@ -401,7 +402,7 @@ function registerIpc(): void {
   ipcMain.handle("manualSystems:exportToFile", async () => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win ?? (undefined as any), {
-      title: "Manuel Sistemleri Dışa Aktar",
+      title: mt("dialog.exportManualSystems"),
       defaultPath: "axet-manual-systems.json",
       filters: [{ name: "JSON", extensions: ["json"] }]
     });
@@ -419,7 +420,7 @@ function registerIpc(): void {
   ipcMain.handle("manualSystems:importFromFile", async () => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showOpenDialog(win ?? (undefined as any), {
-      title: "Manuel Sistemleri İçe Aktar",
+      title: mt("dialog.importManualSystems"),
       properties: ["openFile"],
       filters: [{ name: "JSON", extensions: ["json"] }]
     });
@@ -551,7 +552,12 @@ function registerIpc(): void {
       delete clean[key];
       console.warn("[config] renderer'dan gelen yamada ana sürece ait alan vardı, yok sayıldı", { alan: key });
     }
-    return saveConfig(clean);
+    const saved = saveConfig(clean);
+    // Ana sürecin çeviri katmanı dili önbellekte tutuyor (her mesajda
+    // config.json okumamak için). Kullanıcı dili değiştirdiğinde tazelenmezse
+    // arayüz İngilizce'ye geçerken ana sürecin hata mesajları Türkçe kalırdı.
+    refreshMainLanguage(saved.language);
+    return saved;
   });
 
   // Ayarlardaki iki "gelişmiş" yol alanının (SAPUILandscape.xml ve
@@ -608,7 +614,7 @@ function registerIpc(): void {
   ipcMain.handle(
     "terminal:create",
     (_event, cwd: string, cols: number, rows: number, shell: TerminalMode, initialCommand?: string) => {
-      if (!mainWindow) throw new Error("Pencere hazır değil");
+      if (!mainWindow) throw new Error(mt("app.windowNotReady"));
       const id = randomUUID();
       createTerminal(mainWindow, id, cwd, cols, rows, shell, initialCommand);
       return id;
@@ -657,7 +663,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:listDir", async (_event, dirPath: string) => {
     const config = loadConfig();
     if (!isPathAllowed(config, dirPath)) {
-      return { ok: false, error: "Bu klasöre erişim izni yok." };
+      return { ok: false, error: mt("explorer.folderAccessDenied") };
     }
     return listDir(dirPath);
   });
@@ -667,7 +673,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:searchFiles", async (_event, root: string, query: string) => {
     const config = loadConfig();
     if (!isPathAllowed(config, root)) {
-      return { ok: false, entries: [], error: "Bu klasöre erişim izni yok." };
+      return { ok: false, entries: [], error: mt("explorer.folderAccessDenied") };
     }
     return searchFiles(root, query);
   });
@@ -675,7 +681,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:readTextFile", async (_event, filePath: string) => {
     const config = loadConfig();
     if (!isPathAllowed(config, filePath)) {
-      return { ok: false, error: "Bu dosyaya erişim izni yok." };
+      return { ok: false, error: mt("explorer.fileAccessDenied") };
     }
     return readTextFile(filePath);
   });
@@ -683,7 +689,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:writeTextFile", async (_event, filePath: string, content: string, allowCreate?: boolean) => {
     const config = loadConfig();
     if (!isPathAllowed(config, filePath)) {
-      return { ok: false, error: "Bu dosyaya erişim izni yok." };
+      return { ok: false, error: mt("explorer.fileAccessDenied") };
     }
     // `allowCreate` KONUM izni vermiyor: yol yine izinli köklerin altında olmak
     // zorunda, yalnızca "var olmayan dosyaya yazma" kuralı gevşiyor.
@@ -696,7 +702,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:watchDir", async (event, id: string, dirPath: string) => {
     const config = loadConfig();
     if (!isPathAllowed(config, dirPath)) {
-      return { ok: false, error: "Bu klasöre erişim izni yok." };
+      return { ok: false, error: mt("explorer.folderAccessDenied") };
     }
     return startWatch(id, dirPath, () => {
       // Pencere kapanmışsa gönderme — kapanan bir webContents'e mesaj yollamak
@@ -717,7 +723,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:readDocx", async (_event, filePath: string) => {
     const config = loadConfig();
     if (!isPathAllowed(config, filePath)) {
-      return { ok: false, error: "Bu dosyaya erişim izni yok." };
+      return { ok: false, error: mt("explorer.fileAccessDenied") };
     }
     return readDocxFile(filePath);
   });
@@ -725,7 +731,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:readImageDataUrl", async (_event, filePath: string) => {
     const config = loadConfig();
     if (!isPathAllowed(config, filePath)) {
-      return { ok: false, error: "Bu dosyaya erişim izni yok." };
+      return { ok: false, error: mt("explorer.fileAccessDenied") };
     }
     return readImageDataUrl(filePath);
   });
@@ -763,7 +769,7 @@ function registerIpc(): void {
   // Gömülü terminalin okuma ihtiyacı ayrı bir yoldan, tarayıcının kendi
   // izin akışıyla karşılanıyor (bkz. EmbeddedTerminal.tsx).
   ipcMain.handle("clipboard:writeText", (_event, text: string) => {
-    if (typeof text !== "string") return { ok: false, error: "text bir metin degil" };
+    if (typeof text !== "string") return { ok: false, error: mt("app.clipboardNotAString") };
     clipboard.writeText(text);
     return { ok: true };
   });
@@ -785,7 +791,7 @@ function registerIpc(): void {
   ipcMain.handle("fs:importFiles", async (_event, destDir: string, sourcePaths: string[]) => {
     const config = loadConfig();
     if (!isPathAllowed(config, destDir)) {
-      return { ok: false, error: "Bu klasöre erişim izni yok." };
+      return { ok: false, error: mt("explorer.folderAccessDenied") };
     }
     return importFiles(destDir, sourcePaths);
   });
@@ -922,7 +928,7 @@ function registerIpc(): void {
   ipcMain.handle("chat:export", async (_event, suggestedName: string, payload: { markdown: string; html: string }) => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win ?? (undefined as any), {
-      title: "Sohbeti dışa aktar",
+      title: mt("dialog.exportChat"),
       defaultPath: suggestedName,
       // PDF ÖNCE: liste ilk sırayı varsayılan sayıyor ve okunup paylaşılan
       // biçim bu. Markdown tam arşiv olarak bir tık ötede duruyor.
@@ -944,7 +950,7 @@ function registerIpc(): void {
       // gösterecek bir yer yok, sessizce dönseydi kullanıcı dosyanın
       // yazıldığını sanırdı.
       const message = err instanceof Error ? err.message : String(err);
-      dialog.showErrorBox("Sohbet dışa aktarılamadı", message);
+      dialog.showErrorBox(mt("dialog.exportChatFailed"), message);
       return { canceled: false, error: message };
     }
   });
@@ -1057,7 +1063,7 @@ function registerIpc(): void {
 
   ipcMain.handle("flows:runtime:testRequest", async (_event, payload: FlowTestRequestPayload) => {
     if (!flowRuntime.isRunning() || !flowRuntime.port) {
-      return { ok: false, error: "Flow deploy edilmemiş (çalışan bir HTTP sunucusu yok)." };
+      return { ok: false, error: mt("flows.notDeployed") };
     }
     return new Promise((resolve) => {
       const bodyStr =
@@ -1089,7 +1095,7 @@ function registerIpc(): void {
       );
       req.on("timeout", () => {
         req.destroy();
-        resolve({ ok: false, error: "İstek zaman aşımına uğradı." });
+        resolve({ ok: false, error: mt("flows.requestTimeout") });
       });
       req.on("error", (err) => resolve({ ok: false, error: err.message }));
       if (bodyStr) req.write(bodyStr);
@@ -1100,7 +1106,7 @@ function registerIpc(): void {
   ipcMain.handle("flows:saveJson", async (_event, jsonText: string) => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win ?? (undefined as any), {
-      title: "aXet.flows JSON olarak kaydet",
+      title: mt("dialog.saveFlowJson"),
       defaultPath: "flow.json",
       filters: [{ name: "JSON", extensions: ["json"] }]
     });
@@ -1112,7 +1118,7 @@ function registerIpc(): void {
   ipcMain.handle("flows:openJson", async () => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showOpenDialog(win ?? (undefined as any), {
-      title: "aXet.flows JSON dosyası aç",
+      title: mt("dialog.openFlowJson"),
       properties: ["openFile"],
       filters: [{ name: "JSON", extensions: ["json"] }]
     });
@@ -1124,7 +1130,7 @@ function registerIpc(): void {
   ipcMain.handle("flows:exportDebugLog", async (_event, jsonText: string) => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(win ?? (undefined as any), {
-      title: "Debug kaydını JSON olarak dışa aktar",
+      title: mt("dialog.exportDebugJson"),
       defaultPath: `debug-log-${Date.now()}.json`,
       filters: [{ name: "JSON", extensions: ["json"] }]
     });
@@ -1147,7 +1153,7 @@ function registerIpc(): void {
         ok: false,
         running: false,
         port: null,
-        message: "Gömülü SAP GUI Scripting runtime'ı (resources/guiscript-runtime) bulunamadı — uygulama kurulumu eksik/bozuk olabilir."
+        message: mt("guiScript.runtimeMissing")
       };
     }
     const result = await startGuiScriptBridge({
@@ -1172,31 +1178,31 @@ function registerIpc(): void {
   // ile "SAP açık değil" ayrımını buradan yapıyor.
   ipcMain.handle("sapGuiScript:preflight", async () => {
     const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
+    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
     return guiScriptPreflight(port);
   });
 
   ipcMain.handle("sapGuiScript:getScreen", async (_event, connIdx: number, sessIdx: number) => {
     const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
+    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
     return guiScriptGetScreen(port, connIdx, sessIdx);
   });
 
   ipcMain.handle("sapGuiScript:screenshot", async (_event, connIdx: number | null, sessIdx: number | null, method: GuiScriptScreenshotMethod) => {
     const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
+    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
     return guiScriptScreenshot(port, connIdx, sessIdx, method);
   });
 
   ipcMain.handle("sapGuiScript:listConnections", async () => {
     const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
+    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
     return guiScriptListConnections(port);
   });
 
   ipcMain.handle("sapGuiScript:listSessions", async (_event, connIdx: number) => {
     const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
+    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
     return guiScriptListSessions(port, connIdx);
   });
 
@@ -1208,13 +1214,13 @@ function registerIpc(): void {
     window?: { rows?: number; rowOffset?: number }
   ) => {
     const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
+    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
     return guiScriptGetNode(port, connIdx, sessIdx, elementId, window);
   });
 
   ipcMain.handle("sapGuiScript:performAction", async (_event, connIdx: number, sessIdx: number, payload: GuiScriptActionPayload) => {
     const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: "Bridge çalışmıyor — önce başlat." };
+    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
     return guiScriptPerformAction(port, connIdx, sessIdx, payload);
   });
 
@@ -1241,12 +1247,12 @@ function registerIpc(): void {
       const owner = dialogOwner();
       const result = owner
         ? await dialog.showSaveDialog(owner, {
-            title: "SAP GUI Scripting kaydını JSON olarak kaydet",
+            title: mt("dialog.saveGuiScriptJson"),
             defaultPath: suggestedName || "sap-gui-script.json",
             filters: [{ name: "JSON", extensions: ["json"] }]
           })
         : await dialog.showSaveDialog({
-            title: "SAP GUI Scripting kaydını JSON olarak kaydet",
+            title: mt("dialog.saveGuiScriptJson"),
             defaultPath: suggestedName || "sap-gui-script.json",
             filters: [{ name: "JSON", extensions: ["json"] }]
           });
@@ -1262,7 +1268,7 @@ function registerIpc(): void {
     try {
       const owner = dialogOwner();
       const options = {
-        title: "SAP GUI Scripting kaydı aç",
+        title: mt("dialog.openGuiScriptJson"),
         properties: ["openFile" as const],
         filters: [{ name: "JSON", extensions: ["json"] }]
       };

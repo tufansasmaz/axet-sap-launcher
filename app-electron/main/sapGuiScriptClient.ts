@@ -10,6 +10,7 @@ import type {
   GuiScriptScreenshotResult,
   GuiScriptSessionInfo
 } from "../shared/types";
+import { mt } from "./i18n";
 
 // `sap_gui_scripting_bridge.py` (bkz. sapGuiScriptManager.ts, resources/
 // sap-gui-scripting) yerel HTTP+JSON sunucusuna konuşan ince istemci —
@@ -58,7 +59,7 @@ function httpJson(options: HttpJsonOptions, body?: unknown): Promise<{ status: n
     req.on("error", reject);
     req.on("timeout", () => {
       req.destroy();
-      reject(new Error("SAP GUI Scripting bridge isteği zaman aşımına uğradı."));
+      reject(new Error(mt("guiScriptClient.requestTimeout")));
     });
     if (payload) req.write(payload);
     req.end();
@@ -74,7 +75,7 @@ function errorFrom(json: any, fallback: string): string {
 export async function guiScriptPreflight(port: number): Promise<GuiScriptPreflightResult> {
   try {
     const { json } = await httpJson({ port, path: "/preflight", method: "GET" });
-    if (!json?.ok) return { ok: false, error: errorFrom(json, "Teşhis çalıştırılamadı.") };
+    if (!json?.ok) return { ok: false, error: errorFrom(json, mt("guiScriptClient.diagnosticsFailed")) };
     return { ok: true, preflight: json.preflight };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
@@ -84,7 +85,7 @@ export async function guiScriptPreflight(port: number): Promise<GuiScriptPreflig
 export async function guiScriptGetScreen(port: number, connIdx: number, sessIdx: number): Promise<GuiScriptScreenResult> {
   try {
     const { json } = await httpJson({ port, path: `/session/${connIdx}/${sessIdx}/screen`, method: "GET" });
-    if (!json?.ok) return { ok: false, error: errorFrom(json, "Ekran durumu okunamadı.") };
+    if (!json?.ok) return { ok: false, error: errorFrom(json, mt("guiScriptClient.screenStateFailed")) };
     return { ok: true, screen: json.screen };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
@@ -111,7 +112,7 @@ export async function guiScriptScreenshot(
       method: "GET",
       timeoutMs: 20000
     });
-    if (!json?.ok) return { ok: false, error: errorFrom(json, "Ekran görüntüsü alınamadı.") };
+    if (!json?.ok) return { ok: false, error: errorFrom(json, mt("guiScriptClient.screenshotFailed")) };
     return {
       ok: true,
       dataUrl: json.dataUrl,
@@ -130,7 +131,7 @@ export async function guiScriptScreenshot(
 export async function guiScriptListConnections(port: number): Promise<{ ok: boolean; connections?: GuiScriptConnectionInfo[]; error?: string }> {
   try {
     const { json } = await httpJson({ port, path: "/connections", method: "GET" });
-    if (!json?.ok) return { ok: false, error: errorFrom(json, "Bağlantı listesi alınamadı.") };
+    if (!json?.ok) return { ok: false, error: errorFrom(json, mt("guiScriptClient.connectionListFailed")) };
     return { ok: true, connections: json.connections };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
@@ -140,7 +141,7 @@ export async function guiScriptListConnections(port: number): Promise<{ ok: bool
 export async function guiScriptListSessions(port: number, connIdx: number): Promise<{ ok: boolean; sessions?: GuiScriptSessionInfo[]; error?: string }> {
   try {
     const { json } = await httpJson({ port, path: `/connections/${connIdx}/sessions`, method: "GET" });
-    if (!json?.ok) return { ok: false, error: errorFrom(json, "Oturum listesi alınamadı.") };
+    if (!json?.ok) return { ok: false, error: errorFrom(json, mt("guiScriptClient.sessionListFailed")) };
     return { ok: true, sessions: json.sessions };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
@@ -163,7 +164,7 @@ export async function guiScriptGetNode(
     if (window?.rowOffset) params.set("rowOffset", String(window.rowOffset));
     const qs = params.toString() ? `?${params.toString()}` : "";
     const { json } = await httpJson({ port, path: `/session/${connIdx}/${sessIdx}/node${qs}`, method: "GET" });
-    if (!json?.ok) return { ok: false, error: errorFrom(json, "Ekran elemanı okunamadı.") };
+    if (!json?.ok) return { ok: false, error: errorFrom(json, mt("guiScriptClient.elementReadFailed")) };
     return { ok: true, node: json.node };
   } catch (err) {
     return { ok: false, error: (err as Error).message };
@@ -184,7 +185,7 @@ export async function guiScriptPerformAction(
       { port, path: `/session/${connIdx}/${sessIdx}/action`, method: "POST", timeoutMs: 20000 },
       payload
     );
-    if (!json?.ok) return { ok: false, error: errorFrom(json, "Aksiyon uygulanamadı.") };
+    if (!json?.ok) return { ok: false, error: errorFrom(json, mt("guiScriptClient.actionFailed")) };
     return { ok: true, screen: json.screen, settle: json.settle };
   } catch (err) {
     return { ok: false, error: (err as Error).message };

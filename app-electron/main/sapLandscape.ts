@@ -5,6 +5,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { XMLParser } from "fast-xml-parser";
 import type { SapLandscape, SapNode, SapItem, SapService } from "../shared/types";
+import { mt } from "./i18n";
 
 const ARRAY_TAGS = new Set(["Include", "Workspace", "Node", "Item", "Router", "Service"]);
 // Include'lar bazen ağ paylaşımına (SAP Common merkezi landscape dosyası)
@@ -179,7 +180,7 @@ function buildNode(rawNode: any, services: Map<string, RawService>, routers: Map
 
   return {
     uuid: rawNode?.["@_uuid"] ?? randomUUID(),
-    name: rawNode?.["@_name"] ?? "Adsız",
+    name: rawNode?.["@_name"] ?? mt("sapLandscape.unnamed"),
     nodes,
     items
   };

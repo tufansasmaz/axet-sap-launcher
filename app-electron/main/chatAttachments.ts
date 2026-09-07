@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { ChatAttachmentPreviewResult, ChatAttachmentSaveResult } from "../shared/types";
+import { mt } from "./i18n";
 
 // axet.code sohbet ekranına sürükle-bırakılan/yapıştırılan dosyaların BÜYÜK
 // çoğunluğu (Explorer'dan sürüklenen bir dosya, kopyalanan bir dosya) zaten
@@ -72,10 +73,10 @@ export async function saveClipboardAttachment(fileName: string, base64Data: stri
   try {
     const buffer = Buffer.from(base64Data, "base64");
     if (buffer.byteLength === 0) {
-      return { ok: false, error: "Dosya içeriği okunamadı." };
+      return { ok: false, error: mt("chatAttachments.readFailed") };
     }
     if (buffer.byteLength > MAX_ATTACHMENT_BYTES) {
-      return { ok: false, error: "Dosya çok büyük (20MB üst sınır)." };
+      return { ok: false, error: mt("chatAttachments.tooLarge") };
     }
     const dir = attachmentsDir();
     await fs.mkdir(dir, { recursive: true });

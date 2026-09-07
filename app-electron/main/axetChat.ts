@@ -13,6 +13,7 @@ import { axetSpawnEnv } from "./axetSpawnEnv";
 import { buildContextPreamble } from "./activeContext";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { connectorGuidance } from "./connectorHealth";
+import { mt } from "./i18n";
 import {
   answerTuiQuestion,
   cancelTui,
@@ -684,7 +685,7 @@ function sendViaRun(
       finish({
         ok: false,
         text: active.stdout.trim(),
-        error: extractError(active.stderr) || `axet-code çıkış kodu: ${code}`,
+        error: extractError(active.stderr) || mt("axetCode.exitCode", { code }),
         usedConnectors: useConnectors
       });
     };
