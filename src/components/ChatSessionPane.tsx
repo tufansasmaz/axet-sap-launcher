@@ -720,7 +720,7 @@ export default function ChatSessionPane({
                 Şimdi bir HİYERARŞİ var: selam tam boyda ve yarı kalın, soru
                 onun %48'i ve normal ağırlıkta. Oran sabit bir piksel DEĞİL
                 çünkü başlık boyutu kullanıcı ayarından geliyor (Ayarlar >
-                Sohbet görünümü) — 46px'te de 62px'te de aynı ilişki kuruluyor.
+                Sohbet görünümü) — 50px'te de 70px'te de aynı ilişki kuruluyor.
 
                 `tracking-tight`: Inter'in geniş harf aralığı büyük puntoda
                 başlığı dağıtıyor; bu boyda -0.02em kelimeleri birbirine

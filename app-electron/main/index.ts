@@ -175,11 +175,15 @@ function resolveIconPath(): string {
 // görev çubuğu ve dock o alanın dışında kalıyor.
 function preferredWindowSize(): { width: number; height: number } {
   const { width: aw, height: ah } = screen.getPrimaryDisplay().workAreaSize;
-  // Genişlikte cömert, yükseklikte değil: istenen "yana doğru geniş". Üst
-  // sınırlar 4K ekranda pencerenin absürt boyuta ulaşmasını engelliyor;
+  // Üst sınırlar 4K ekranda pencerenin absürt boyuta ulaşmasını engelliyor;
   // alt sınırlar `minWidth`/`minHeight` ile aynı, yani küçük bir ekranda
   // pencere kendi asgarisinin altına inemiyor.
-  const width = Math.max(980, Math.min(1760, Math.round(aw * 0.9)));
+  //
+  // Genişlik payı %90 değil %80 (kullanıcı isteği, 2026-09-07: *"%90 çok"*).
+  // %90'da pencere ekranın iki yanında yalnızca birer parmak boşluk
+  // bırakıyordu — tam ekran olmadığı hâlde tam ekran gibi duruyor, yani
+  // arkasındaki pencerelere geçmek için "küçült"ten başka yol kalmıyordu.
+  const width = Math.max(980, Math.min(1760, Math.round(aw * 0.8)));
   const height = Math.max(640, Math.min(1000, Math.round(ah * 0.88)));
   return { width, height };
 }

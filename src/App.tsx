@@ -286,13 +286,14 @@ export default function App() {
     // birlikte ölçekleniyor; ayrı ayrı ayarlanabilir olsalardı kullanıcı iki
     // kadranı dengelemek zorunda kalırdı.
     const fontSize = { sm: "14px", md: "15px", lg: "17px" }[config.chatFontSize];
-    // Karşılama merdiveni 34/40/46'dan 46/54/62'ye çıktı (kullanıcı isteği,
-    // 2026-09-07: *"bu yazı büyük olsun iyice"*). Gövde ölçeği DEĞİŞMEDİ:
+    // Karşılama merdiveni 34/40/46'dan iki adımda 50/60/70'e çıktı (kullanıcı
+    // isteği, 2026-09-07: *"bu yazı büyük olsun iyice"*, ardından 46/54/62
+    // görüldükten sonra *"biraz daha büyük olsun"*). Gövde ölçeği DEĞİŞMEDİ:
     // karşılama açılış ekranının tek başlığı ve orada rakibi yok, gövde ise
     // her mesajda okunan metin — ikisini birlikte büyütmek okuma konforu
     // ayarını bozardı. Alt başlık bu değerin %48'i (bkz. ChatSessionPane),
-    // yani 54px'te ~26px: hiyerarşi oran olarak korunuyor.
-    const heroSize = { sm: "46px", md: "54px", lg: "62px" }[config.chatFontSize];
+    // yani 60px'te ~29px: hiyerarşi oran olarak korunuyor.
+    const heroSize = { sm: "50px", md: "60px", lg: "70px" }[config.chatFontSize];
     // Mesajlar arası dikey boşluk. "Yoğun" ekrana daha çok mesaj sığdırır,
     // "rahat" uzun cevapların birbirine karışmasını önler.
     const gap = config.chatDensity === "compact" ? "20px" : "32px";
