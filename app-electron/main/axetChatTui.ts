@@ -10,6 +10,7 @@ import type {
   AxetModelEntry
 } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
+import { noteAxetCodeVersion } from "./axetCodeVersion";
 import { setAxetModel } from "./axetModels";
 import { mt } from "./i18n";
 import {
@@ -513,6 +514,10 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     // Diyalogda tek Enter'ın doğru modeli seçmesini sağlayan adım.
     setAxetModel("large", model);
   }
+  // Sürüm sondajı: beklenmiyor (oturum açılışını geciktirmesin), yalnızca
+  // günlüğe düşsün diye. axet-code kendini güncellerse ilk yeni oturumda
+  // "SURUM DEGISTI" satırı çıkar — bkz. axetCodeVersion.ts.
+  void noteAxetCodeVersion();
   let proc: pty.IPty;
   // Spawn'dan ÖNCE okunuyor: axet-code oturum satırını spawn'dan sonra yazıyor,
   // yani bu değer her zaman gerçek oturumun altında kalır.
@@ -1246,7 +1251,21 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
 
     // TUI'de Enter (\r) gönderir, ctrl+j (\n) satır atlar — yani metindeki
     // satır sonlarını olduğu gibi yazabiliyoruz, sonuna tek \r koymak yeterli.
-    session.proc.write(`${escapeTuiMenus(text.replace(/\r/g, ""))}\r`);
+    const wire = escapeTuiMenus(text.replace(/\r/g, ""));
+    session.proc.write(`${wire}\r`);
+    // Yazmanın KENDİSİ günlüğe düşüyor. 2026-09-07'de bir mesaj (ME22N metni)
+    // ne veritabanına ne de axet-code'un günlüğüne ulaştı; geriye dönük hiçbir
+    // kayıt "yazıldı mı, yazılmadı mı" sorusunu cevaplayamadı. Bu satır o
+    // soruyu bir daha açık bırakmıyor: tur sessizce zaman aşımına uğrarsa,
+    // günlükte ya bu satır vardır (metin pty'ye gitti, sorun karşı tarafta)
+    // ya da yoktur (bu koda hiç gelinmedi).
+    console.log("[axetChatTui] mesaj yazildi", {
+      chatId: session.chatId,
+      karakter: wire.length,
+      satir: wire.split("\n").length,
+      tohumlanmis: session.seeded,
+      baglayici: args.useConnectors
+    });
     session.seeded = true;
 
     // İğne, GÖNDERDİĞİMİZ metinden çıkarılıyor (kullanıcının ham mesajından
