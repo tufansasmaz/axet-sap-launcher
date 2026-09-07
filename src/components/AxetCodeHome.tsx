@@ -230,6 +230,18 @@ function deriveTitle(text: string): string {
 // bir taviz (ChatGPT'nin kendi context-window kesme davranışıyla aynı ruh).
 const MAX_HISTORY_MESSAGES = 24;
 
+// Geçmiş tekrarının KARAKTER tavanı. Mesaj sayısı tek başına tavan değil:
+// ölçüm (2026-09-07) `MAX_HISTORY_MESSAGES` dolu bir sohbette tekrarın
+// 13.314 karakter (~3.800 jeton) olduğunu gösterdi ve önünde hiçbir sınır
+// yoktu. Derin ABAP işinde tek bir ajan cevabı 5.000 karakter olabiliyor,
+// yani 24 mesaj 100 KB'a çıkabilir.
+//
+// Tavanın ÖZET olmamasının sebebi ölçüm: özet çıkarmak fazladan bir model
+// çağrısı demek (kısa turlar 5-25 sn) ve kazanılacak şey ~2.800 jeton —
+// jeton zaten darboğaz değildi. Dahası kayan bir özet ajana YANLIŞ BİLGİ
+// verirdi; kesip atmak yalnızca bağlam eksiltir.
+const MAX_HISTORY_CHARS = 12_000;
+
 // Henüz kaydedilmemiş "yeni sohbet" için sahte kimlik. Yeni sohbet AÇILDIĞINDA
 // listeye bir kayıt eklenmiyor; ilk mesaj gönderilene kadar sadece boş bir
 // composer var (ChatGPT/Claude/Gemini'nin üçünün de davranışı). Aksi hâlde
@@ -288,6 +300,50 @@ const CONNECT_NOTICE_PREFIX = "connect-notice";
 const CONNECT_NOTICE_ID = CONNECT_NOTICE_PREFIX;
 const isNotConnectNotice = (m: ChatMessage) =>
   !m.id.startsWith(CONNECT_NOTICE_PREFIX);
+
+/**
+ * Ajana gönderilecek geçmişi kurar: bağlantı bildirimlerini eler, son
+ * `MAX_HISTORY_MESSAGES` mesajı alır ve `MAX_HISTORY_CHARS` tavanını uygular.
+ *
+ * Üç çağrı yerinde de AYNI kural geçerli olsun diye burada: gönderme, yeniden
+ * üretme ve "kaldığın yerden devam et" aynı geçmişi görmezse ajan aynı sohbetin
+ * iki farklı hâlini görmüş olur.
+ *
+ * Tavan YENİDEN ESKİYE doğru uygulanıyor — en yeni mesajlar bağlamın en
+ * değerli kısmı. En yeni mesaj tavanı tek başına aşsa bile TAM kalıyor:
+ * mesajı ortadan kesmek yarım bir kod bloğu ya da yarım bir ABAP dökümü
+ * göndermek demek olurdu ve bu, bağlam eksikliğinden daha kötü — yanlış bilgi.
+ */
+function buildHistoryForCall(messages: ChatMessage[]): AxetChatMessage[] {
+  const recent = messages
+    .filter(isNotConnectNotice)
+    .slice(-MAX_HISTORY_MESSAGES)
+    .map((m) => ({
+      role: m.role,
+      content: promptWithAttachments(m.content, m.attachments ?? []),
+    }));
+
+  const kept: AxetChatMessage[] = [];
+  let chars = 0;
+  for (let i = recent.length - 1; i >= 0; i -= 1) {
+    const len = recent[i].content.length;
+    // İlk (en yeni) mesaj koşulsuz giriyor; sonrakiler tavana bakıyor.
+    if (kept.length > 0 && chars + len > MAX_HISTORY_CHARS) break;
+    kept.unshift(recent[i]);
+    chars += len;
+  }
+
+  // Düşen mesaj varsa ajan bunu BİLMELİ: sessizce kırpılmış bir geçmiş,
+  // "daha önce sana söylemiştim" dendiğinde ajanın yanlış yere bakmasına
+  // yol açıyor. Rolü `user`: bu, ajanın kendi cümlesi değil, ortamın notu.
+  if (kept.length < recent.length) {
+    kept.unshift({
+      role: "user",
+      content: `[Bu sohbetin daha eski ${recent.length - kept.length} mesajı uzunluk nedeniyle kısaltıldı.]`,
+    });
+  }
+  return kept;
+}
 
 // Gelen bir etkinlik olayını oturuma işler.
 //
@@ -1478,13 +1534,7 @@ export default function AxetCodeHome({
     // Geçmiş de `promptWithAttachments`ten geçiyor: geçmemesi hâlinde ajan,
     // iki mesaj önce konuşulan dosyanın yolunu kaybeder — ekran metninde o
     // yol yok, sadece çipin adı var.
-    const historyForCall: AxetChatMessage[] = session.messages
-      .filter(isNotConnectNotice)
-      .slice(-MAX_HISTORY_MESSAGES)
-      .map((m) => ({
-        role: m.role,
-        content: promptWithAttachments(m.content, m.attachments ?? []),
-      }));
+    const historyForCall = buildHistoryForCall(session.messages);
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
@@ -1634,14 +1684,7 @@ export default function AxetCodeHome({
       msgs[userIndex].content,
       msgs[userIndex].attachments ?? [],
     );
-    const historyForCall: AxetChatMessage[] = msgs
-      .slice(0, userIndex)
-      .filter(isNotConnectNotice)
-      .slice(-MAX_HISTORY_MESSAGES)
-      .map((m) => ({
-        role: m.role,
-        content: promptWithAttachments(m.content, m.attachments ?? []),
-      }));
+    const historyForCall = buildHistoryForCall(msgs.slice(0, userIndex));
 
     setSessions((prev) =>
       prev.map((s) =>
@@ -1685,13 +1728,7 @@ export default function AxetCodeHome({
 
     // Geçmişe YARIM CEVAP DA giriyor (`slice` son mesajı kesmiyor): ajan neyi
     // yazdığını görmeden "kaldığın yerden devam et" anlamsız bir istem olurdu.
-    const historyForCall: AxetChatMessage[] = msgs
-      .filter(isNotConnectNotice)
-      .slice(-MAX_HISTORY_MESSAGES)
-      .map((m) => ({
-        role: m.role,
-        content: promptWithAttachments(m.content, m.attachments ?? []),
-      }));
+    const historyForCall = buildHistoryForCall(msgs);
 
     await runPrompt(
       activeId,
