@@ -347,7 +347,15 @@ export default function FileExplorer({
   return (
     <div className="flex h-full flex-col">
       <div className="flex shrink-0 items-center justify-between gap-1 px-2 py-2">
-        <span className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400" title={currentRoot}>
+        {/* lang yalnız klasör adı gösterilirken "en": dosya sistemi adları Türkçe
+            değil ve `uppercase` büyütmesi dile özgü — "Github" klasörü Türkçe
+            arayüzde "GİTHUB" olurdu. `rootLabel` çevrilmiş metin olabildiği için
+            o dalda işaretlenmiyor, arayüz dili geçerli kalıyor. */}
+        <span
+          lang={browsable && currentRoot !== rootDir ? "en" : undefined}
+          className="truncate text-[11px] font-semibold uppercase tracking-wide text-slate-400"
+          title={currentRoot}
+        >
           {browsable && currentRoot !== rootDir ? baseName(currentRoot) : rootLabel}
         </span>
         <div className="flex shrink-0 items-center gap-1">

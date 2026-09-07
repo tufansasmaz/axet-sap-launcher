@@ -127,7 +127,9 @@ function markdownToHtml(content: string): string {
         i++;
       }
       i++;
-      const label = lang ? `<div class="code-lang">${esc(lang)}</div>` : "";
+      // lang="en": belge `<html lang="tr">`, `.code-lang` ise `uppercase` çiziliyor.
+      // İşaretlenmezse "typescript" Türkçe büyütme kuralıyla "TYPESCRİPT" basılır.
+      const label = lang ? `<div class="code-lang" lang="en">${esc(lang)}</div>` : "";
       blocks.push(`<div class="code">${label}<pre>${esc(codeLines.join("\n"))}</pre></div>`);
       continue;
     }

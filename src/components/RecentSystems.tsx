@@ -89,7 +89,9 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
               <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
               <span className="truncate">{entry.service.name}</span>
               {tier && <TierBadge tier={tier} />}
-              <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
+              {/* lang="en": SID teknik bir kimlik, Türkçe değil — küçük harfli
+                  kaydedilmiş bir SID Türkçe büyütme kuralıyla bozulurdu. */}
+              <span lang="en" className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
                 {entry.service.systemId}
               </span>
               <StatusDot state={state} />

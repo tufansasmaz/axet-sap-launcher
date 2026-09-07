@@ -689,8 +689,11 @@ export function AskUserCard({
     // Sohbet balonlarının arasına bir pencere daha koymamak için — kart,
     // konuşmanın kesildiği yeri işaretlesin yeter.
     <div className="flex flex-col gap-2 border-l-2 border-accent-500/70 py-0.5 pl-3">
+      {/* lang="en": başlık axet-code'dan geliyor ve İngilizce. `uppercase`
+          büyütmesi dile göre değiştiğinden, Türkçe arayüzde işaretlenmezse
+          "Login" gibi bir başlık "LOGİN" diye çizilir. */}
       {ask.header && (
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-400/90">
+        <span lang="en" className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-400/90">
           {ask.header}
         </span>
       )}

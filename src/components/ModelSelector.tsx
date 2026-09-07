@@ -141,7 +141,11 @@ export default function ModelSelector({
             )}
             {grouped.map(([provider, entries]) => (
               <div key={provider} className="px-1.5 py-1">
-                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {/* lang="en": sağlayıcı adları İngilizce ("Anthropic", "OpenAI") ve
+                    `uppercase` büyütmesi DİLE ÖZGÜ — Türkçe arayüzde `<html lang="tr">`
+                    altında "ANTHROPİC" / "OPENAİ" çizilir. Metnin kendi dili işaretlenince
+                    tarayıcı doğru kuralı uygular. */}
+                <div lang="en" className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   {formatProviderLabel(provider)}
                 </div>
                 {entries.map((entry) => {

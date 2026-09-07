@@ -182,7 +182,8 @@ function TreeNode({
                 <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
                 <span className="truncate">{service.name}</span>
                 {tier && <TierBadge tier={tier} />}
-                <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
+                {/* lang="en": SID teknik bir kimlik, Türkçe büyütme kuralına tabi değil. */}
+                <span lang="en" className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
                   {service.systemId}
                 </span>
                 <StatusDot state={state} />
