@@ -184,7 +184,11 @@ function preferredWindowSize(): { width: number; height: number } {
   // bırakıyordu — tam ekran olmadığı hâlde tam ekran gibi duruyor, yani
   // arkasındaki pencerelere geçmek için "küçült"ten başka yol kalmıyordu.
   const width = Math.max(980, Math.min(1760, Math.round(aw * 0.8)));
-  const height = Math.max(640, Math.min(1000, Math.round(ah * 0.88)));
+  // Yükseklik payı %88 -> %80, üst sınır 1000 -> 900 (kullanıcı isteği,
+  // 2026-09-07: *"yüksekliği biraz daha düşük olsun, genişlik iyi"*). Artık
+  // iki eksen de aynı payı kullanıyor, yani pencerenin en-boy oranı ekranın
+  // oranını takip ediyor.
+  const height = Math.max(640, Math.min(900, Math.round(ah * 0.8)));
   return { width, height };
 }
 
