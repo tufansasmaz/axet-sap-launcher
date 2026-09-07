@@ -103,6 +103,41 @@ export interface SkillStatus {
   updateAvailable: boolean;
 }
 
+/** Ortam Hazırlık ekranının satır durumu. */
+export type DoctorStatus = "ok" | "warn" | "fail" | "info" | "unknown";
+
+/**
+ * Satır kimlikleri arayüzde çeviri anahtarının gövdesi oluyor
+ * (`doctorSection.row.<id>`) — bu yüzden serbest metin değil kapalı bir küme:
+ * yeni bir satır eklenip çevirisi unutulursa derleme patlıyor.
+ */
+export type DoctorRowId =
+  | "python"
+  | "packages"
+  | "adtServer"
+  | "rfcBridge"
+  | "rfcRuntime"
+  | "axetCode"
+  | "toolkit";
+
+export interface DoctorRow {
+  id: DoctorRowId;
+  status: DoctorStatus;
+  /** Ölçümün kendi metni — çeviri değil, bulunan şey. */
+  detail: string;
+  /** BT'ye olduğu gibi verilebilecek komut. */
+  command?: string;
+  /** Uygulama bunu kendi düzeltebilir mi (Kur düğmesi). */
+  fixable?: boolean;
+}
+
+export interface DoctorReport {
+  rows: DoctorRow[];
+  python: string | null;
+  missingPackages: string[];
+  checkedAt: string;
+}
+
 export type TerminalMode = "cmd" | "powershell";
 
 export type AppTheme = "dark" | "light";

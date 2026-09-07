@@ -280,6 +280,21 @@ export const en: Record<TranslationKey, string> = {
   "skillsSection.empty": "No skills installed in this project.",
   "skillsSection.unknownHint": "This folder was not installed by the app; it may have been added by hand.",
 
+  // --- Environment readiness (Doctor) ---
+  "settingsModal.sectionDoctor": "Environment readiness",
+  "doctorSection.hint": "Everything the SAP side needs is checked here, one by one.",
+  "doctorSection.refresh": "Check again",
+  "doctorSection.install": "Install",
+  "doctorSection.failed": "The check could not be run.",
+  "doctorSection.commandCaption": "You can hand this command to IT as-is.",
+  "doctorSection.row.python": "Python",
+  "doctorSection.row.packages": "Python packages",
+  "doctorSection.row.adtServer": "SAP read-only server",
+  "doctorSection.row.rfcBridge": "RFC bridge",
+  "doctorSection.row.rfcRuntime": "RFC runtime",
+  "doctorSection.row.axetCode": "axet.code",
+  "doctorSection.row.toolkit": "SAP skill package",
+
   // --- Role picker (skill profile) ---
   "roleModal.title": "What role are you working in on this project?",
   "roleModal.subtitle":

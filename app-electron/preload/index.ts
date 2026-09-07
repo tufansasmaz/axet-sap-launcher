@@ -43,6 +43,7 @@ import type {
   GuiScriptStartResult,
   ConnectorProvider,
   ConnectorTestResult,
+  DoctorReport,
   SapService,
   SapLogonOpenResult,
   SkillPlanEntry,
@@ -91,6 +92,9 @@ const api = {
     ipcRenderer.invoke("skills:status", projectDir),
   reinstallSkills: (projectDir: string, serviceUuid: string | null): Promise<SkillStatus> =>
     ipcRenderer.invoke("skills:reinstall", projectDir, serviceUuid),
+  runDoctor: (): Promise<DoctorReport> => ipcRenderer.invoke("doctor:run"),
+  installPythonPackages: (packages: string[]): Promise<{ ok: boolean; output: string }> =>
+    ipcRenderer.invoke("doctor:install", packages),
   getSystemCommentDefault: (serviceUuid: string): Promise<SystemCommentDefaults> => ipcRenderer.invoke("systemComment:getDefault", serviceUuid),
   openInSapLogon: (service: SapService): Promise<SapLogonOpenResult> => ipcRenderer.invoke("sapLogon:open", service),
   windowMinimize: () => ipcRenderer.invoke("window:minimize"),

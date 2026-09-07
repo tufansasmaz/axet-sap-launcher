@@ -15,10 +15,12 @@ import {
   ChevronRight,
   Terminal,
   Sparkles,
+  Stethoscope,
   Type
 } from "lucide-react";
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
 import ConfirmDialog from "./ConfirmDialog";
+import DoctorSection from "./DoctorSection";
 import SkillsSection from "./SkillsSection";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
@@ -432,6 +434,13 @@ export default function SettingsModal({
               onProfileChange={(profile) => setForm({ ...form, skillProfile: profile })}
               projectDir={projectDir}
             />
+          </Section>
+
+          {/* Ortam Hazırlık: Python, pip paketleri, ADT sunucusu, RFC köprüsü.
+              Bir arıza anında bakılacak tek yer — eksikler burada TEK ekranda
+              görünüyor ve her başarısız satır BT'ye verilecek komutu taşıyor. */}
+          <Section icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>
+            <DoctorSection />
           </Section>
 
           {/* Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI

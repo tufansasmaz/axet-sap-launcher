@@ -92,6 +92,24 @@ export const MAIN_EN = {
   "guiScriptManager.didNotStart": "The SAP GUI Scripting bridge did not come up on port {port}. {detail}",
   "guiScriptManager.started": "SAP GUI Scripting bridge started (http://127.0.0.1:{port}).",
 
+  // --- doctor.ts ---
+  "doctor.timedOut": "The command timed out.",
+  "doctor.pythonMissingDetail":
+    "No Python found on this machine (neither `py` nor `python` ran). The SAP connection cannot be established without it.",
+  "doctor.packagesOk": "All {count} packages are installed.",
+  "doctor.packagesMissing": "Missing packages: {list}",
+  "doctor.probeFailed": "Could not query the packages.",
+  "doctor.needsPython": "Python has to be installed first.",
+  "doctor.adtAlive": "Running (127.0.0.1:{port}).",
+  "doctor.adtDown":
+    "Not running ({port}). It starts automatically when you connect to a SAP system; with no connection this is normal.",
+  "doctor.rfcAlive": "Running (127.0.0.1:{port}).",
+  "doctor.rfcDown": "Not running ({port}). Only needed for systems behind a router.",
+  "doctor.rfcRuntimeMissing": "The bundled RFC runtime was not found.",
+  "doctor.axetUnknown": "Could not read the axet-code version. Is it installed?",
+  "doctor.toolkitMissing": "The sap-toolkit folder was not found — the installation looks incomplete.",
+  "doctor.nothingToInstall": "Nothing to install.",
+
   // --- adtReadonlyServerManager.ts ---
   "adtServer.requestsMissing": "`requests` is not installed.",
   "adtServer.mcpMissing": "The `mcp` package is not installed.",

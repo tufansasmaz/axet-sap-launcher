@@ -333,6 +333,21 @@ export const tr = {
   "skillsSection.empty": "Bu projede kurulu yetenek yok.",
   "skillsSection.unknownHint": "Bu klasörü uygulama kurmadı; elle eklenmiş olabilir.",
 
+  // --- Ortam Hazırlık (Doctor) ---
+  "settingsModal.sectionDoctor": "Ortam hazırlık",
+  "doctorSection.hint": "SAP tarafının çalışması için gereken her şey burada tek tek denenir.",
+  "doctorSection.refresh": "Yeniden dene",
+  "doctorSection.install": "Kur",
+  "doctorSection.failed": "Kontrol yapılamadı.",
+  "doctorSection.commandCaption": "Bu komutu olduğu gibi BT'ye iletebilirsin.",
+  "doctorSection.row.python": "Python",
+  "doctorSection.row.packages": "Python paketleri",
+  "doctorSection.row.adtServer": "SAP okuma sunucusu",
+  "doctorSection.row.rfcBridge": "RFC köprüsü",
+  "doctorSection.row.rfcRuntime": "RFC çalışma zamanı",
+  "doctorSection.row.axetCode": "axet.code",
+  "doctorSection.row.toolkit": "SAP yetenek paketi",
+
   // --- Rol seçimi (skill profili) ---
   "roleModal.title": "Bu projede hangi rolle çalışacaksın?",
   "roleModal.subtitle":

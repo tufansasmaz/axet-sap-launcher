@@ -8,6 +8,7 @@ import { loadLandscape, getServiceCredentials, getServiceSapLogonNote } from "./
 import { checkConnectivity } from "./connectivity";
 import { connectToSystem, computeProjectDir } from "./launcher";
 import { planSkills } from "./skillProfiles";
+import { installMissingPackages, runDoctor } from "./doctor";
 import {
   installSkillsIntoProject,
   isSkillUpdateAvailable,
@@ -483,6 +484,15 @@ function registerIpc(): void {
       toolkit: readToolkitVersion(),
       updateAvailable: isSkillUpdateAvailable(projectDir, config.skillProfile)
     };
+  });
+
+  // Ortam Hazırlık. Ölçüm her çağrıda yeniden yapılıyor — önbelleğe alınmış
+  // bir teşhis, kullanıcı eksiği giderdikten sonra da "eksik" demeye devam
+  // ederdi ki bu ekranın varlık sebebini yok eder.
+  ipcMain.handle("doctor:run", () => runDoctor());
+
+  ipcMain.handle("doctor:install", (_event, packages: string[]) => {
+    return installMissingPackages(Array.isArray(packages) ? packages : []);
   });
 
   ipcMain.handle("systemComments:set", (_event, serviceUuid: string, comment: string) => {

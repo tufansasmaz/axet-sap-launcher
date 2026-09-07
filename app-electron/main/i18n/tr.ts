@@ -95,6 +95,24 @@ export const MAIN_TR = {
   "guiScriptManager.didNotStart": "SAP GUI Scripting bridge {port} portunda ayağa kalkmadı. {detail}",
   "guiScriptManager.started": "SAP GUI Scripting bridge başlatıldı (http://127.0.0.1:{port}).",
 
+  // --- doctor.ts ---
+  "doctor.timedOut": "Komut zaman aşımına uğradı.",
+  "doctor.pythonMissingDetail":
+    "Sistemde Python bulunamadı (`py` ve `python` çalışmadı). SAP bağlantısı Python olmadan kurulamaz.",
+  "doctor.packagesOk": "{count} paketin hepsi kurulu.",
+  "doctor.packagesMissing": "Eksik paket: {list}",
+  "doctor.probeFailed": "Paketler sorgulanamadı.",
+  "doctor.needsPython": "Önce Python kurulmalı.",
+  "doctor.adtAlive": "Çalışıyor (127.0.0.1:{port}).",
+  "doctor.adtDown":
+    "Çalışmıyor ({port}). Bir SAP sistemine bağlandığında otomatik başlatılır; şu an bağlantı yoksa bu normaldir.",
+  "doctor.rfcAlive": "Çalışıyor (127.0.0.1:{port}).",
+  "doctor.rfcDown": "Çalışmıyor ({port}). Yalnızca router arkasındaki sistemlerde gerekiyor.",
+  "doctor.rfcRuntimeMissing": "Gömülü RFC çalışma zamanı bulunamadı.",
+  "doctor.axetUnknown": "axet-code sürümü okunamadı. Kurulu mu?",
+  "doctor.toolkitMissing": "sap-toolkit klasörü bulunamadı — kurulum eksik görünüyor.",
+  "doctor.nothingToInstall": "Kurulacak paket yok.",
+
   // --- adtReadonlyServerManager.ts ---
   "adtServer.requestsMissing": "`requests` kurulu değil.",
   "adtServer.mcpMissing": "`mcp` paketi kurulu değil.",
