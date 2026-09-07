@@ -96,10 +96,17 @@ function scan(root: string, depth: number, found: string[]): void {
   for (const child of children) scan(child, depth - 1, found);
 }
 
-function readCatalog(folder: string): CatalogFolder {
+/**
+ * İşaret dosyasının içeriğini ayrıştırır.
+ *
+ * Diskten AYRI duruyor ki test edilebilsin: bu fonksiyonun asıl işi başarılı
+ * ayrıştırma değil, BOZUK bir dosyada da çökmemek — ve o davranışı gerçek bir
+ * OneDrive klasörü olmadan doğrulamanın başka yolu yok.
+ */
+export function parseCatalog(folder: string, raw: string): CatalogFolder {
   const info: CatalogFolder = { path: folder, department: null, version: null, generated: null, skillCount: null };
   try {
-    const data = JSON.parse(readFileSync(path.join(folder, MARKER), "utf-8")) as Record<string, unknown>;
+    const data = JSON.parse(raw) as Record<string, unknown>;
     if (typeof data.department === "string") info.department = data.department;
     if (typeof data.catalog_version === "string") info.version = data.catalog_version;
     if (typeof data.generated === "string") info.generated = data.generated;
@@ -109,6 +116,14 @@ function readCatalog(folder: string): CatalogFolder {
     // katalog var ama okunamıyor" bilgisi, hiç bulunamadı demekten iyi.
   }
   return info;
+}
+
+function readCatalog(folder: string): CatalogFolder {
+  try {
+    return parseCatalog(folder, readFileSync(path.join(folder, MARKER), "utf-8"));
+  } catch {
+    return { path: folder, department: null, version: null, generated: null, skillCount: null };
+  }
 }
 
 /** Bu makinede eşitlenmiş katalog klasörleri (çoğunlukla sıfır ya da bir tane). */

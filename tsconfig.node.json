@@ -14,5 +14,5 @@
     "allowJs": true,
     "outDir": "dist-electron"
   },
-  "include": ["app-electron/**/*.ts", "app-electron/**/*.d.ts", "app-electron/**/*.js"]
+  "include": ["app-electron/**/*.ts", "app-electron/**/*.d.ts", "app-electron/**/*.js", "tests/**/*.ts"]
 }
