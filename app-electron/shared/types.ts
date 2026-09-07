@@ -109,6 +109,20 @@ export interface AppConfig {
   // kayboluyordu ve kullanıcı "ben bunu test etmiş miydim" sorusuna
   // cevap veremiyordu.
   connectorLastResults: Record<string, ConnectorCheck>;
+  // axet-code'un açılışta duyurduğu EN SON sürüm. Kullanıcının düzenlediği bir
+  // ayar DEĞİL: TUI el sıkışması sırasında ekrandan okunup yazılıyor (bkz.
+  // axetChatTui.ts `detectUpdateAvailable`).
+  //
+  // Neden KALICI: duyuru yalnızca bir axet-code süreci açıldığında görülüyor,
+  // oysa gösterilmek istenen yer sohbet AÇILIŞ ekranı — yani henüz hiçbir
+  // sürecin açılmadığı an. Diske yazmadan, uyarı ancak kullanıcı bir mesaj
+  // gönderdikten sonra belirir ve tam da görülmesi gereken ekranda hiç
+  // görünmezdi.
+  //
+  // Boş dizgi "duyuru yok" demek. Gösterilip gösterilmeyeceğine kurulu sürümle
+  // EŞİTLİK'e bakılarak karar veriliyor; sürüm dizgileri sayıya çevrilmiyor,
+  // çünkü biçim değiştiğinde sessizce yanlış cevap veren bir kod olurdu.
+  axetCodeLatestSeen: string;
   // Entegrasyon (connection uuid) bazında ÖLÇÜLMÜŞ sağlık. Kullanıcının
   // düzenlediği bir ayar DEĞİL — turlar sırasında öğrenilip yazılıyor, bkz.
   // connectorHealth.ts. Amacı: aynı sağlayıcının bozuk kaydını her turda

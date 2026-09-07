@@ -2077,6 +2077,19 @@ export default function AxetCodeHome({
 
   const greeting = useMemo(greetingKey, []);
 
+  // axet-code'un güncelleme duyurusu. Bir kez, açılışta soruluyor: değer
+  // config'ten geliyor (bkz. axetChatTui.ts `detectUpdateAvailable`), yani
+  // uygulama daha hiç oturum açmamışken de dolu. Ana süreç ayrıca kurulu
+  // sürümü sondalayıp güncelleme yapılmışsa `null` döndürüyor, o yüzden burada
+  // karşılaştırma yok.
+  const [axetUpdate, setAxetUpdate] = useState<{ installed: string; latest: string } | null>(null);
+  useEffect(() => {
+    window.api
+      .axetUpdateAvailable()
+      .then(setAxetUpdate)
+      .catch(() => {});
+  }, []);
+
   // Havuzdan bu turun üç kartı. Bağımlılıklar bilerek dar: kullanıcı "yeni
   // sohbet"e basmadıkça (tohum) ya da bağlam gerçekten değişmedikçe (SAP
   // sistemi bağlandı / bir uygulama bağlandı) kartlar yerinde duruyor.
@@ -3019,6 +3032,8 @@ export default function AxetCodeHome({
             modelsError={modelsError}
             attaching={attaching}
             greeting={greetingText}
+
+            axetUpdate={axetUpdate}
             registerTextarea={(el) => {
               if (activeId === session.id) textareaRef.current = el;
             }}
@@ -3084,6 +3099,8 @@ export default function AxetCodeHome({
           modelsError={modelsError}
           attaching={attaching}
           greeting={greetingText}
+
+          axetUpdate={axetUpdate}
           registerTextarea={(el) => {
             if (activeId === null) textareaRef.current = el;
           }}

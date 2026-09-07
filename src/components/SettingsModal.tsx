@@ -220,11 +220,6 @@ export default function SettingsModal({
   const [form, setForm] = useState<AppConfig | null>(config);
   const [appVersion, setAppVersion] = useState<string>("");
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle" });
-  // axet-code'un güncelleme duyurusu. Kutu her açıldığında yeniden soruluyor:
-  // değer, arka planda bir TUI oturumu açıldığında ekrandan yakalanıyor, yani
-  // uygulama başlarken henüz yok — bir kez okuyup önbelleğe alsaydık ilk
-  // açılışta boş kalır ve bir daha hiç dolmazdı.
-  const [axetUpdate, setAxetUpdate] = useState<{ installed: string; latest: string } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [pathCheck, setPathCheck] = useState<{ landscape: boolean | null; sapShcut: boolean | null }>({
     landscape: null,
@@ -238,7 +233,6 @@ export default function SettingsModal({
     if (!open) return;
     window.api.getAppVersion().then(setAppVersion);
     window.api.getLastUpdateStatus().then(setUpdateStatus);
-    window.api.axetUpdateAvailable().then(setAxetUpdate).catch(() => {});
     const unsubscribe = window.api.onUpdateStatus(setUpdateStatus);
     return unsubscribe;
   }, [open]);
@@ -571,26 +565,10 @@ export default function SettingsModal({
             {updateStatusNode && (
               <div className="rounded-md border border-line/60 bg-app/30 px-3 py-2">{updateStatusNode}</div>
             )}
-
-            {/* axet-code'un KENDİ güncellemesi — yukarıdaki kutu bu uygulamanın
-                sürümüyle ilgili, bu ayrı. Kurulumu biz yapamıyoruz (Intune
-                Company Portal üzerinden dağıtılıyor), o yüzden düğme yok:
-                yalnızca haber veriliyor. */}
-            {axetUpdate && (
-              <div className="rounded-md border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2">
-                <div className="flex items-start gap-2 text-xs text-[var(--status-warning-text)]">
-                  <AlertCircle size={12} className="mt-0.5 shrink-0" />
-                  <span>
-                    {axetUpdate.installed
-                      ? t("settingsModal.axetCodeUpdateVersions", {
-                          installed: axetUpdate.installed,
-                          latest: axetUpdate.latest
-                        })
-                      : t("settingsModal.axetCodeUpdate", { latest: axetUpdate.latest })}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* axet-code'un KENDİ güncelleme duyurusu buraya konmuyor — sohbet
+                AÇILIŞ ekranında gösteriliyor (bkz. ChatSessionPane). Kullanıcı
+                kararı (2026-09-07): Ayarlar'ı kimse güncelleme haberi için
+                açmıyor. Aynı şeyi iki yerde göstermek de gereksiz. */}
           </Section>
         </div>
 

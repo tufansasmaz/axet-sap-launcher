@@ -11,6 +11,7 @@ import type {
 } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import { axetCodeVersion, noteAxetCodeVersion } from "./axetCodeVersion";
+import { loadConfig, saveConfig } from "./store";
 import { setAxetModel } from "./axetModels";
 import { mt } from "./i18n";
 import {
@@ -142,9 +143,34 @@ const RE_UPDATE_AVAILABLE = /aXet\.Code\s+([0-9][\w.+-]*)\s+is available/i;
 /** Son görülen isteğe bağlı güncelleme duyurusu. Süreç ömrü kadar yaşıyor. */
 let updateAvailable: { installed: string; latest: string } | null = null;
 
-/** axet-code için yeni bir sürüm duyurulduysa sürümler, yoksa `null`. */
-export function axetUpdateAvailable(): { installed: string; latest: string } | null {
-  return updateAvailable;
+/**
+ * axet-code için yeni bir sürüm duyurulduysa sürümler, yoksa `null`.
+ *
+ * İki kaynak birleşiyor: bu süreçte ekrandan yakalanan duyuru ve config'e daha
+ * önce yazılmış olanı. İkincisi, uygulama yeni açıldığında henüz hiçbir TUI
+ * oturumu olmadığı hâlde uyarının gösterilebilmesini sağlıyor.
+ *
+ * Kurulu sürüm burada SONDALANIYOR (`noteAxetCodeVersion`, <1 sn): kullanıcı
+ * Company Portal'dan güncelledikten sonra uyarının kendiliğinden kaybolması
+ * buna bağlı. Sondaj yapılmazsa config'teki eski duyuru sonsuza kadar
+ * gösterilirdi.
+ */
+export async function axetUpdateAvailable(): Promise<{ installed: string; latest: string } | null> {
+  let latest = updateAvailable?.latest ?? "";
+  if (!latest) {
+    try {
+      latest = loadConfig().axetCodeLatestSeen;
+    } catch {
+      latest = "";
+    }
+  }
+  if (!latest) return null;
+  const installed = (await noteAxetCodeVersion()) ?? axetCodeVersion() ?? "";
+  // Güncelleme yapılmış: duyuru artık geçmişte kaldı. Sürümler dizgi olarak
+  // karşılaştırılıyor, sayıya çevrilmiyor — "kurulu olan duyurulanla aynı" tek
+  // ihtiyacımız olan soru ve biçim değişse bile doğru cevap veriyor.
+  if (installed && installed === latest) return null;
+  return { installed, latest };
 }
 
 /** Ekranda "yeni sürüm var" pankartı var mı? Varsa kaydeder. */
@@ -157,6 +183,16 @@ function detectUpdateAvailable(screen: string): void {
   if (updateAvailable?.latest === latest && updateAvailable.installed === installed) return;
   updateAvailable = { installed, latest };
   console.log("[axetChatTui] yeni surum duyurusu", updateAvailable);
+  // Diske de yazılıyor: uyarının gösterileceği yer sohbet AÇILIŞ ekranı, yani
+  // henüz hiçbir axet-code süreci açılmamış olan an. Bellekteki değer o ekrana
+  // asla yetişemezdi. Yazma hatası yutuluyor — bir sürüm duyurusu uğruna
+  // el sıkışmasını düşürmek orantısız olurdu.
+  try {
+    const config = loadConfig();
+    if (config.axetCodeLatestSeen !== latest) saveConfig({ ...config, axetCodeLatestSeen: latest });
+  } catch {
+    // config yazılamadıysa uyarı yalnızca bu oturum boyunca yaşar
+  }
 }
 
 /** Ekranda güncelleme kutusu var mı? Varsa sürümleri kaydeder. */

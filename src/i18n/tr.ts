@@ -175,6 +175,13 @@ export const tr = {
 
   // Selamlama ile öneri kartları arasındaki küçük bağlayıcı etiket.
   "axetCodeHome.quickStart": "Hızlı başlangıç",
+  // axet-code'un KENDİ güncellemesi (bu uygulamanınki ayrı, o Ayarlar'da).
+  // Kurulumu bu uygulama yapamıyor; cümle kullanıcıyı doğru kapıya
+  // yönlendiriyor, tıklanacak bir şey vaat etmiyor.
+  "axetCodeHome.axetCodeUpdate":
+    "axet-code {latest} yayınlandı — Intune Company Portal üzerinden güncelleyebilirsiniz.",
+  "axetCodeHome.axetCodeUpdateVersions":
+    "axet-code {latest} yayınlandı (kurulu: {installed}) — Intune Company Portal üzerinden güncelleyebilirsiniz.",
   "axetCodeHome.emptyTitle": "Henüz bir sohbet yok",
   "axetCodeHome.emptyHint": "axet.code ile konuşmaya başlamak için yeni bir sohbet aç.",
   "axetCodeHome.greeting.morning": "Günaydın",
@@ -370,12 +377,6 @@ export const tr = {
   "settingsModal.versionText": "Sürüm {version} · by tsasmaz",
   "settingsModal.autoCheckLabel": "Uygulama açılışında otomatik kontrol et",
   "settingsModal.checkNow": "Güncellemeleri Şimdi Kontrol Et",
-  // axet-code'un kendi güncellemesi. Kurulumu bu uygulama yapamıyor, bu yüzden
-  // cümle kullanıcıyı doğru kapıya yönlendiriyor.
-  "settingsModal.axetCodeUpdate":
-    "axet-code {latest} yayınlandı. Intune Company Portal üzerinden güncelleyebilirsiniz.",
-  "settingsModal.axetCodeUpdateVersions":
-    "axet-code {latest} yayınlandı (kurulu: {installed}). Intune Company Portal üzerinden güncelleyebilirsiniz.",
   "settingsModal.unsavedBadge": "Kaydedilmemiş değişiklik var",
   "settingsModal.discardTitle": "Değişiklikleri at?",
   "settingsModal.discardMessage": "Bu kutuda kaydetmediğin değişiklikler var. Kapatırsan geri alınamaz.",

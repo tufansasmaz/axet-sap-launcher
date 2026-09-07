@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  ArrowUpCircle,
   BookOpen,
   Bug,
   ChevronDown,
@@ -153,6 +154,10 @@ interface Props {
   // Açılış ekranındaki karşılama başlığı ("Günaydın, Tufan" vb.) — saat ve
   // kullanıcı adı AxetCodeHome tarafında hesaplanıyor, bu bileşen gösteriyor.
   greeting: string;
+  // axet-code'un kendi güncelleme duyurusu; yoksa `null`. Yalnızca AÇILIŞ
+  // ekranında gösteriliyor — süren bir sohbetin ortasına sürüm haberi
+  // düşürmek, kullanıcının o an baktığı şeyle ilgisiz olurdu.
+  axetUpdate: { installed: string; latest: string } | null;
   registerTextarea: (el: HTMLTextAreaElement | null) => void;
   onDraftChange: (value: string) => void;
   onSend: () => void;
@@ -231,6 +236,7 @@ export default function ChatSessionPane({
   modelsError,
   attaching,
   greeting,
+  axetUpdate,
   registerTextarea,
   onDraftChange,
   onSend,
@@ -726,6 +732,31 @@ export default function ChatSessionPane({
             <p className="mt-2 text-[length:calc(var(--chat-hero-size)*0.48)] font-normal leading-snug tracking-tight text-slate-400">
               {t("axetCodeHome.heroSubtitle")}
             </p>
+
+            {/* axet-code GÜNCELLEMESİ. Kullanıcı isteğiyle (2026-09-07) Ayarlar
+                yerine buraya taşındı: Ayarlar'ı kimse güncelleme haberi için
+                açmıyor, oysa açılış ekranı her sohbet başlangıcında görülüyor.
+
+                Kutu DEĞİL, tek satır. Ekranın bu bölümünün ritmi belli —
+                başlık, altyazı, sonra "HIZLI BAŞLANGIÇ" etiketi ve kartlar; araya
+                çerçeveli bir uyarı kutusu koymak hiyerarşiyi bozardı. Rengi
+                taşıyor, ağırlığı taşımıyor.
+
+                Düğme yok: kurulumu bu uygulama yapamıyor, Intune Company Portal
+                dağıtıyor. Tıklanacak bir şey göstermek yanlış söz vermek olurdu. */}
+            {axetUpdate && (
+              <div className="mt-4 flex items-start gap-2 text-xs text-[var(--status-warning-text)]">
+                <ArrowUpCircle size={13} className="mt-0.5 shrink-0" />
+                <span>
+                  {axetUpdate.installed
+                    ? t("axetCodeHome.axetCodeUpdateVersions", {
+                        installed: axetUpdate.installed,
+                        latest: axetUpdate.latest
+                      })
+                    : t("axetCodeHome.axetCodeUpdate", { latest: axetUpdate.latest })}
+                </span>
+              </div>
+            )}
 
             {/* BAĞLAYICI ETİKET. Selamlama ile kartlar arasında 40 piksellik
                 boşluk vardı ve kartlar havada duruyordu: "Bugün ne yapalım?"

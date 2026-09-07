@@ -151,6 +151,10 @@ export const en: Record<TranslationKey, string> = {
   "systemCard.reconnect": "Reconnect",
 
   "axetCodeHome.quickStart": "Quick start",
+  "axetCodeHome.axetCodeUpdate":
+    "axet-code {latest} is out — update it from the Intune Company Portal.",
+  "axetCodeHome.axetCodeUpdateVersions":
+    "axet-code {latest} is out (installed: {installed}) — update it from the Intune Company Portal.",
   "axetCodeHome.emptyTitle": "No chats yet",
   "axetCodeHome.emptyHint": "Start a new chat to begin talking with axet.code.",
   "axetCodeHome.greeting.morning": "Good morning",
@@ -323,10 +327,6 @@ export const en: Record<TranslationKey, string> = {
   "settingsModal.versionText": "Version {version} · by tsasmaz",
   "settingsModal.autoCheckLabel": "Check automatically on app startup",
   "settingsModal.checkNow": "Check for Updates Now",
-  "settingsModal.axetCodeUpdate":
-    "axet-code {latest} has been released. You can update it from the Intune Company Portal.",
-  "settingsModal.axetCodeUpdateVersions":
-    "axet-code {latest} has been released (installed: {installed}). You can update it from the Intune Company Portal.",
   "settingsModal.unsavedBadge": "Unsaved changes",
   "settingsModal.discardTitle": "Discard changes?",
   "settingsModal.discardMessage": "This dialog has changes you have not saved. Closing it cannot be undone.",

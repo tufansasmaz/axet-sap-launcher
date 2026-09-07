@@ -92,6 +92,8 @@ function defaultConfig(): AppConfig {
     // de kurumsal veriye (posta kutusu, SharePoint) sessizce erişim demektir.
     connectorEnabled: {},
     connectorLastResults: {},
+    // Ekrandan okunarak doldurulur (axetChatTui.ts); duyuru görülmediyse boş.
+    axetCodeLatestSeen: "",
     // Ölçülerek doldurulur (connectorHealth.ts); elle düzenlenen bir ayar değil.
     connectorIntegrations: {},
     connectorAutoDisabled: []
@@ -154,6 +156,8 @@ export function loadConfig(): AppConfig {
         parsed.connectorLastResults && typeof parsed.connectorLastResults === "object"
           ? parsed.connectorLastResults
           : fallback.connectorLastResults,
+      axetCodeLatestSeen:
+        typeof parsed.axetCodeLatestSeen === "string" ? parsed.axetCodeLatestSeen : fallback.axetCodeLatestSeen,
       connectorIntegrations:
         parsed.connectorIntegrations && typeof parsed.connectorIntegrations === "object"
           ? (parsed.connectorIntegrations as AppConfig["connectorIntegrations"])
