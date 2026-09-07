@@ -42,6 +42,7 @@ import SystemPanel from "./components/SystemPanel";
 import SettingsModal from "./components/SettingsModal";
 import AppConnectionsModal from "./components/AppConnectionsModal";
 import CredentialsModal from "./components/CredentialsModal";
+import ReadinessHome from "./components/ReadinessHome";
 import RoleModal from "./components/RoleModal";
 import AddSystemModal, { type EditingManualSystem } from "./components/AddSystemModal";
 import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePromptModal";
@@ -939,6 +940,17 @@ export default function App() {
         </div>
         {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome activeSap={activeContext.sap} />
+        ) : activity === "readiness" ? (
+          // Yetenek profili burada FORM DEĞİL, doğrudan kaydediliyor: bu ekranın
+          // "Kaydet" düğmesi yok ve olmamalı — üç bölümün ikisi (teşhis,
+          // yetenek listesi) zaten anlık, üçüncüsü (reçete) kendi düğmesini
+          // taşıyor. Ekranın tepesine ortak bir kaydet koymak, bir bölümü
+          // kaydedince diğer ikisinin de kaydedildiği izlenimini verirdi.
+          <ReadinessHome
+            projectDir={projectDir}
+            skillProfile={config?.skillProfile ?? null}
+            onProfileChange={(profile) => void handleSaveConfig({ skillProfile: profile })}
+          />
         ) : (
           <>
         {/* Başlık şeridi, axet.code ekranının diline çekildi (kullanıcı isteği,
@@ -1228,7 +1240,6 @@ export default function App() {
           onClose={() => setSettingsOpen(false)}
           config={config}
           onSave={handleSaveConfig}
-          projectDir={projectDir}
           onExportManualSystems={handleExportManualSystems}
           onImportManualSystems={handleImportManualSystems}
         />

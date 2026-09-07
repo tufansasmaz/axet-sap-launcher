@@ -1,9 +1,15 @@
-import { Sparkles, Settings, Sun, Moon, Languages, MousePointerClick, Plug, Server } from "lucide-react";
+import { Sparkles, Settings, Stethoscope, Sun, Moon, Languages, MousePointerClick, Plug, Server } from "lucide-react";
 import type { ReactNode } from "react";
 import { useT } from "../i18n";
 import type { AppTheme } from "../../app-electron/shared/types";
 
-export type Activity = "axetCode" | "sapLauncher" | "axetFlows" | "axetFlowsLive" | "sapGuiScripting";
+export type Activity =
+  | "axetCode"
+  | "sapLauncher"
+  | "axetFlows"
+  | "axetFlowsLive"
+  | "sapGuiScripting"
+  | "readiness";
 
 interface Props {
   activity: Activity;
@@ -84,6 +90,18 @@ export default function ActivityBar({
       label: t("activityBar.sapGuiScripting"),
       color: "var(--module-guiscript)",
       render: () => <MousePointerClick size={17} />
+    },
+    {
+      id: "readiness",
+      label: t("activityBar.readiness"),
+      // Kimlik renkleri için YENİ BİR HUE UYDURULMADI. index.css'in tepesindeki
+      // palet sözleşmesinde dört anlam var (lime/mavi/mor/turuncu/kırmızı) ve
+      // bu ekran tam olarak "sistem, bilgi" ailesine düşüyor — ama SAP
+      // Launcher'ın doygun mavisiyle aynı rayda karışmaması gerekiyordu.
+      // `--navy-icon` bu yüzden seçildi: aynı mavi ailesinin nötr, çelik tonu,
+      // zaten "bunlardan biri değilim" demek için var (bkz. dişli düğmesi).
+      color: "var(--navy-icon)",
+      render: () => <Stethoscope size={17} />
     }
   ];
 

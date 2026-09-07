@@ -558,6 +558,9 @@ export const en: Record<TranslationKey, string> = {
   "axetFlowsLive.manualHint": "Make sure aXet.flows desktop is running, then click Auto-detect again, or enter its URL manually above.",
   "axetFlowsLive.retrying": "Retrying automatically in the background…",
 
+  "activityBar.readiness": "Readiness",
+  "readiness.title": "Readiness",
+  "readiness.subtitle": "What the agent will know, what it may do, and whether this machine can carry it.",
   "activityBar.sapGuiScripting": "SAP GUI Scripting",
   "activityBar.connections": "App Connections",
 

@@ -13,17 +13,12 @@ import {
   Wrench,
   Database,
   ChevronRight,
-  ClipboardList,
   Terminal,
   Sparkles,
-  Stethoscope,
   Type
 } from "lucide-react";
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
 import ConfirmDialog from "./ConfirmDialog";
-import DoctorSection from "./DoctorSection";
-import ProjectBriefSection from "./ProjectBriefSection";
-import SkillsSection from "./SkillsSection";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
 import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
@@ -33,8 +28,6 @@ interface Props {
   onClose: () => void;
   config: AppConfig | null;
   onSave: (partial: Partial<AppConfig>) => Promise<void>;
-  /** Ayarlardaki yetenek listesi bu projeyi gosteriyor. */
-  projectDir: string | null;
   onExportManualSystems: () => Promise<void>;
   onImportManualSystems: () => Promise<void>;
 }
@@ -212,8 +205,7 @@ const EDITED_FIELDS = [
   "terminal",
   "landscapePathOverride",
   "sapShcutPathOverride",
-  "autoCheckUpdates",
-  "skillProfile"
+  "autoCheckUpdates"
 ] as const satisfies readonly (keyof AppConfig)[];
 
 export default function SettingsModal({
@@ -221,7 +213,6 @@ export default function SettingsModal({
   onClose,
   config,
   onSave,
-  projectDir,
   onExportManualSystems,
   onImportManualSystems
 }: Props) {
@@ -426,31 +417,15 @@ export default function SettingsModal({
                 yükleneceği de yine orada; tek yer, tek doğruluk kaynağı. */}
           </Section>
 
-          {/* Yapay zekâ yetenekleri: rol + bu projede kurulu olanlar + sürüm.
-              axet.code bölümünden AYRI duruyor çünkü oradaki alanlar "hangi
-              klasörde çalışsın" derken burası "ne bilsin" — ve buradaki
-              güncelleme düğmesi diske yazıyor, bir metin kutusu değil. */}
-          <Section icon={Sparkles} title={t("settingsModal.sectionSkills")}>
-            <SkillsSection
-              profile={form.skillProfile}
-              onProfileChange={(profile) => setForm({ ...form, skillProfile: profile })}
-              projectDir={projectDir}
-            />
-          </Section>
-
-          {/* Proje reçetesi: sistemin SAP'tan okunamayan yarısı. Boş bırakılan
-              alan dosyadan düşmüyor, `[BİLİNMİYOR]` olarak yazılıyor — ajan
-              böylece tahmin etmek yerine soruyor. */}
-          <Section icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
-            <ProjectBriefSection projectDir={projectDir} />
-          </Section>
-
-          {/* Ortam Hazırlık: Python, pip paketleri, ADT sunucusu, RFC köprüsü.
-              Bir arıza anında bakılacak tek yer — eksikler burada TEK ekranda
-              görünüyor ve her başarısız satır BT'ye verilecek komutu taşıyor. */}
-          <Section icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>
-            <DoctorSection />
-          </Section>
+          {/* Yetenek profili, proje reçetesi ve Ortam Hazırlık BURADAN
+              KALDIRILDI (2026-09-07) — hepsi kenar çubuğundaki "Hazırlık"
+              ekranına taşındı (bkz. ReadinessHome.tsx). Buraya bir kısayol
+              bile konmadı: aynı şeyi iki yerden göstermek, bağlayıcı kipinde
+              yaşanan "iki ekran iki farklı şey söylüyor" sorununun aynısını
+              üretirdi (yukarıdaki nota bakınız). `skillProfile` bu yüzden
+              EDITED_FIELDS listesinden de çıkarıldı: burada düzenlenmeyen bir
+              alanın Kaydet'e basıldığında form değerine geri yazılması,
+              Hazırlık ekranında yapılan seçimi sessizce geri alırdı. */}
 
           {/* Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI
               bir bölüm: burası "nasıl çalışsın" değil "nasıl görünsün" — ikisi

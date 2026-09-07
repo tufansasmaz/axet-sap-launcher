@@ -621,6 +621,9 @@ export const tr = {
   "axetFlowsLive.manualHint": "aXet.flows masaüstü uygulamasının çalıştığından emin ol, sonra tekrar Otomatik Bul'a tıkla — veya yukarıya URL'sini elle yaz.",
   "axetFlowsLive.retrying": "Arka planda otomatik olarak yeniden deneniyor…",
 
+  "activityBar.readiness": "Hazırlık",
+  "readiness.title": "Hazırlık",
+  "readiness.subtitle": "Ajan neyi bilecek, neyi yapabilecek ve makine bunu taşıyabiliyor mu.",
   "activityBar.sapGuiScripting": "SAP GUI Scripting",
   "activityBar.connections": "Uygulama Bağlantıları",
 
