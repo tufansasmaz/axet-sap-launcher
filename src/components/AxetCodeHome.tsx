@@ -2087,8 +2087,22 @@ export default function AxetCodeHome({
   // Gecikme ısıtma debounce'undan uzun: sohbetler arasında ok tuşlarıyla hızlıca
   // gezinmek, uğranılan her sohbet için bir axet-code süreci açmak anlamına
   // gelmemeli. Bir buçuk saniye duran kullanıcı o sohbeti gerçekten açmıştır.
+  //
+  // YENİ SOHBET DE ISITILIYOR. Eskiden koşul `if (!activeId) return` idi, yani
+  // ısıtma yalnızca VAR OLAN bir sohbete girildiğinde çalışıyordu. Oysa en sık
+  // giriş noktası bu değil: bir SAP sistemine bağlanınca uygulama doğrudan
+  // "Ne yapmak istersin?" ekranına düşüyor ve orada `activeId` yok. Kullanıcı
+  // tam da o ekranda bildirimi okuyup ne soracağını düşünürken hiçbir şey
+  // ısınmıyordu; kurulum, ilk harfe basılana kadar bekliyordu (kullanıcı,
+  // 2026-09-07: *"bağlandığımızda arka planda axet.code halihazırda açılmış
+  // olmalı"*).
+  //
+  // Bağlam ŞART: `effectiveNewBinding` yalnızca bir SAP sistemi bağlıyken (ya
+  // da bir klasör seçiliyken) dolu. Böylece uygulamayı hiçbir yere bağlanmadan
+  // açmak hâlâ süreç açmıyor — ısıtma, gerçekten bir hedef varken başlıyor.
+  const prewarmKey = activeId ?? (effectiveNewBinding?.cwd ? `yeni:${effectiveNewBinding.cwd}` : "");
   useEffect(() => {
-    if (!activeId) return;
+    if (!prewarmKey) return;
     const timer = setTimeout(() => {
       const { cwd, model, chatId } = prewarmTargetRef.current;
       if (!chatId) return;
@@ -2102,7 +2116,7 @@ export default function AxetCodeHome({
     // efekt her seferinde sökülüp takılsa sayaç hiç dolmazdı. Taslağa tepki
     // vermek yukarıdaki efektin işi.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeId]);
+  }, [prewarmKey]);
 
   const greeting = useMemo(greetingKey, []);
 
