@@ -50,6 +50,7 @@ export const MAIN_EN = {
   "chatTui.askFallbackQuestion": "I need you to make a choice before I can continue.",
   "chatTui.sessionClosedUnexpectedly": "The axet-code session closed unexpectedly.",
   "chatTui.turnTimedOut": "axet-code has shown no sign of activity for {minutes} minutes.",
+  "chatTui.turnRanTooLong": "axet-code has been running non-stop for {hours} hours; the turn was cut off here.",
   "chatTui.restartStillFailing": "The axet-code session was restarted but the error persists ({failure}).",
 
   // --- fsExplorer.ts ---

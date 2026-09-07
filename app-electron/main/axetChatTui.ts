@@ -135,8 +135,14 @@ const TURN_TIMEOUT_MS = 5 * 60_000;
  * Aynı çalışma dizinindeki BAŞKA bir sohbet de aynı günlüğe yazıyor; teorik
  * olarak o trafik sayacı sonsuza kadar diri tutabilir. Bu tavan, turun her
  * koşulda bir sonu olmasını garantiliyor.
+ *
+ * 6 saat, 30 dakika DEĞİL (kullanıcı kararı, 2026-09-07): gerçek işler
+ * aralıksız 1-3 saat sürebiliyor ve 30 dakikalık tavan onları sorunsuz
+ * çalışırken kesiyordu. Tavanın koruduğu tek durum, kimse bakmıyorken
+ * takılmış bir döngünün gece boyu jeton yakması; onun için 6 saat yeterli.
+ * Kullanıcı bakıyorken zaten elle durdurabiliyor (bkz. `cancelTui`).
  */
-const TURN_HARD_CAP_MS = 30 * 60_000;
+const TURN_HARD_CAP_MS = 6 * 60 * 60_000;
 /**
  * İğne eşleşmesinden vazgeçip "bu oturumdaki yeni kullanıcı mesajı bizimdir"
  * demeye başlama süresi. Bkz. döngüdeki güvenlik ağı.
@@ -1361,12 +1367,19 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
           arac: toolCount,
           metinUzunlugu: answer.length
         });
+        // İki sebep, İKİ AYRI cümle. Tek anahtarla yazıldığında mutlak tavan
+        // "hiçbir belirti vermedi" diyordu — tam tersi doğruyken: tur, altı
+        // saat boyunca ARALIKSIZ çalıştığı için kesildi.
         return {
           ok: false,
           text: answer,
-          error: mt("chatTui.turnTimedOut", {
-            minutes: String(Math.round((capped ? TURN_HARD_CAP_MS : TURN_TIMEOUT_MS) / 60_000))
-          })
+          error: capped
+            ? mt("chatTui.turnRanTooLong", {
+                hours: String(Math.round(TURN_HARD_CAP_MS / 3_600_000))
+              })
+            : mt("chatTui.turnTimedOut", {
+                minutes: String(Math.round(TURN_TIMEOUT_MS / 60_000))
+              })
         };
       }
 

@@ -53,6 +53,7 @@ export const MAIN_TR = {
   "chatTui.askFallbackQuestion": "Devam etmek için bir tercihine ihtiyacım var.",
   "chatTui.sessionClosedUnexpectedly": "axet-code oturumu beklenmedik şekilde kapandı.",
   "chatTui.turnTimedOut": "axet-code {minutes} dakikadır hiçbir belirti vermedi.",
+  "chatTui.turnRanTooLong": "axet-code {hours} saattir aralıksız çalışıyor; tur burada kesildi.",
   "chatTui.restartStillFailing": "axet-code oturumu yenilendi ama hata sürüyor ({failure}).",
 
   // --- fsExplorer.ts ---

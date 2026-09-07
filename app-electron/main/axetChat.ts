@@ -183,8 +183,11 @@ const CHUNK_FLUSH_MS = 50;
 // gerçek cevap bunun onda biri bile değil") artık geçerli değil: araç
 // zincirleri ölçülebilir şekilde uzadı.
 const CHAT_TIMEOUT_MS = 5 * 60_000;
-/** Sessizlik sayacı ne kadar tazelenirse tazelensin turun mutlak sonu. */
-const CHAT_HARD_CAP_MS = 30 * 60_000;
+/**
+ * Sessizlik sayacı ne kadar tazelenirse tazelensin turun mutlak sonu.
+ * 6 saat — gerekçe için bkz. axetChatTui.ts `TURN_HARD_CAP_MS`.
+ */
+const CHAT_HARD_CAP_MS = 6 * 60 * 60_000;
 
 // ---------------------------------------------------------------------------
 // Ön-ısıtma (pre-warm) — ölçülmüş gerekçe (2026-09-04)
@@ -632,29 +635,34 @@ function sendViaRun(
     };
 
     const startedAt = Date.now();
-    const giveUp = (minutes: number) => {
+    // `capped`: mutlak tavan mı doldu, yoksa süreç mi sustu. İki sebebin
+    // cümlesi ayrı — bkz. axetChatTui.ts'teki aynı ayrım.
+    const giveUp = (capped: boolean) => {
       if (settled) return;
       killTree(active.proc);
       finish({
         ok: false,
         text: active.stdout.trim(),
-        error: mt("chatTui.turnTimedOut", { minutes: String(minutes) }),
+        error: capped
+          ? mt("chatTui.turnRanTooLong", {
+              hours: String(Math.round(CHAT_HARD_CAP_MS / 3_600_000))
+            })
+          : mt("chatTui.turnTimedOut", {
+              minutes: String(Math.round(CHAT_TIMEOUT_MS / 60_000))
+            }),
         usedConnectors: useConnectors
       });
     };
     // Sessizlik sayacı: her çıktı satırında yeniden kuruluyor.
-    let timeoutTimer = setTimeout(() => giveUp(Math.round(CHAT_TIMEOUT_MS / 60_000)), CHAT_TIMEOUT_MS);
-    const hardCapTimer = setTimeout(() => giveUp(Math.round(CHAT_HARD_CAP_MS / 60_000)), CHAT_HARD_CAP_MS);
+    let timeoutTimer = setTimeout(() => giveUp(false), CHAT_TIMEOUT_MS);
+    const hardCapTimer = setTimeout(() => giveUp(true), CHAT_HARD_CAP_MS);
     /** "Süreç çalışıyor" işareti — sessizlik sayacını sıfırlar. */
     const alive = () => {
       if (settled) return;
       clearTimeout(timeoutTimer);
       const left = CHAT_HARD_CAP_MS - (Date.now() - startedAt);
       if (left <= 0) return;
-      timeoutTimer = setTimeout(
-        () => giveUp(Math.round(CHAT_TIMEOUT_MS / 60_000)),
-        Math.min(CHAT_TIMEOUT_MS, left)
-      );
+      timeoutTimer = setTimeout(() => giveUp(false), Math.min(CHAT_TIMEOUT_MS, left));
     };
 
     const finish = (result: AxetChatSendResult) => {
