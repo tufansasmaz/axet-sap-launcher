@@ -149,13 +149,6 @@ export const en: Record<TranslationKey, string> = {
   "systemCard.connect": "Connect",
   "systemCard.reconnect": "Reconnect",
 
-  "recentWork.heading": "Recent work",
-  "recentWork.general": "General",
-  "recentWork.running": "Running",
-  "recentWork.stuck": "Could not stop",
-  "recentWork.done": "Done",
-  "recentWork.viewAll": "View all",
-  "recentWork.showLess": "Show less",
   "axetCodeHome.quickStart": "Quick start",
   "axetCodeHome.emptyTitle": "No chats yet",
   "axetCodeHome.emptyHint": "Start a new chat to begin talking with axet.code.",

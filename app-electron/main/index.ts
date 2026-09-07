@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, screen } from "electron";
 import path from "node:path";
 import { promises as fs, existsSync } from "node:fs";
 import { request as httpRequest } from "node:http";
@@ -165,10 +165,30 @@ function resolveIconPath(): string {
     : path.join(app.getAppPath(), "build", "icon.png");
 }
 
+// Açılış penceresinin boyu. Sabit 1280x820 idi; kullanıcı isteğiyle
+// (2026-09-07: *"standart boyutu açıldığında yana doğru geniş falan olsun"*)
+// genişledi. Sabit bir büyük sayı yazmak yerine EKRANA göre hesaplanıyor:
+// 1600x900 bir dizüstünde 1600 piksellik bir pencere ekranın dışına taşardı,
+// yani "geniş" olmak yerine kırpılmış olurdu.
+//
+// Ölçü çalışma alanına göre (`workAreaSize`), ekranın tamamına göre değil —
+// görev çubuğu ve dock o alanın dışında kalıyor.
+function preferredWindowSize(): { width: number; height: number } {
+  const { width: aw, height: ah } = screen.getPrimaryDisplay().workAreaSize;
+  // Genişlikte cömert, yükseklikte değil: istenen "yana doğru geniş". Üst
+  // sınırlar 4K ekranda pencerenin absürt boyuta ulaşmasını engelliyor;
+  // alt sınırlar `minWidth`/`minHeight` ile aynı, yani küçük bir ekranda
+  // pencere kendi asgarisinin altına inemiyor.
+  const width = Math.max(980, Math.min(1760, Math.round(aw * 0.9)));
+  const height = Math.max(640, Math.min(1000, Math.round(ah * 0.88)));
+  return { width, height };
+}
+
 function createWindow(): void {
+  const { width, height } = preferredWindowSize();
   const win = new BrowserWindow({
-    width: 1280,
-    height: 820,
+    width,
+    height,
     minWidth: 980,
     minHeight: 640,
     // Pencerenin İLK BOYAMA rengi — React yüklenene kadar görünen zemin.

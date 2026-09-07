@@ -138,7 +138,7 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
    oldukları için koyu/açık bloklarının DIŞINDA duruyorlar. */
 :root {
   --chat-font-size: 15px;
-  --chat-hero-size: 40px;
+  --chat-hero-size: 54px;
   --chat-message-gap: 32px;
 }
 
@@ -478,7 +478,16 @@ html[data-theme="light"] {
   --ink-100-rgb: 26 29 35;
   --ink-200-rgb: 59 65 75;
   --ink-300-rgb: 92 99 111;
-  --ink-400-rgb: 124 132 146;
+  /* ink-400 DÜZ METİN taşıyor (meta satırları, yer tutucular), yani AA'nın
+     4.5:1 eşiği bağlayıcı. Ölçüm KARTA göre değil, jetonun altına düşebilen
+     EN KOYU DURGUN yüzeye göre yapıldı — beyaz `card`ta geçip `hover`da
+     kalan bir değer, "AA geçti" demenin yanlış yolu:
+       hover (#f1f3f6) 4.56:1 · control 4.68 · app 4.64 · raised 4.77
+       sidebar 4.89 · card (beyaz) 5.06
+     Tek istisna `active` (#e4e8ee) — orada 4.12 kalıyor ama o yüzey yalnızca
+     basılı/seçili anın kısa hâli ve üstünde ikon var, düz metin değil; ikon
+     eşiği 3:1 ve rahat geçiyor. */
+  --ink-400-rgb: 103 111 125;
   --ink-500-rgb: 154 161 173;
   --ink-600-rgb: 188 194 204;
   --ink-strong-rgb: 18 21 26;
@@ -550,10 +559,14 @@ html[data-theme="light"] {
   --status-warning-bg: #fbf3e4;
   --status-warning-border: #ebdbb4;
   --status-warning-text: #7a5a18;
-  /* Turkuaza kaydırılmış başarı yeşili — gerekçesi koyu temada yazılı. */
+  /* Turkuaza kaydırılmış başarı yeşili — gerekçesi koyu temada yazılı.
+     `text` bir tık koyulaştı (#16805f -> #157859): eskisi KENDİ zemininde
+     4.37:1 veriyordu, yani AA'nın altında — ve bu jeton rozet metni
+     taşıyor, süs değil. Yeni değer aynı rengin %94'ü, yani ton kaymıyor:
+     kendi zemininde 4.85:1 · beyaz kartta 5.44 · `hover`da 4.89. */
   --status-success-bg: #e8f5f0;
   --status-success-border: #b9decf;
-  --status-success-text: #16805f;
+  --status-success-text: #157859;
   --status-info-text: #2f5f91;
 
   --action-amber-rgb: 138 100 45;

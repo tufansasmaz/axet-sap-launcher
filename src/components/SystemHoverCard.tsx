@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Plug } from "lucide-react";
 import type {
@@ -26,7 +26,13 @@ import TierBadge from "./TierBadge";
 
 const OPEN_DELAY_MS = 380;
 const CLOSE_DELAY_MS = 140;
-const CARD_WIDTH = 264;
+// 264 -> 340. Karttaki her satır "etiket solda, değer sağda" biçiminde ve
+// değerlerin çoğu UZUN: router dizesi, tam host adı, manuel ADT adresi. 264
+// pikselde etiket payı düşüldükten sonra değere ~150 piksel kalıyordu, yani
+// kartın asıl işini gördüğü alanlar neredeyse her sistemde üç noktayla
+// bitiyordu — bilgiyi göstermek için açılan bir kart bilgiyi kesiyordu
+// (kullanıcı geri bildirimi, 2026-09-07: *"önizleme dar"*).
+const CARD_WIDTH = 340;
 const GAP = 10;
 
 interface Props {
@@ -64,6 +70,7 @@ export default function SystemHoverCard({
 }: Props) {
   const t = useT();
   const anchorRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const timerRef = useRef<number | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -116,12 +123,39 @@ export default function SystemHoverCard({
 
   useEffect(() => clearTimer, []);
 
+  // Kart satırla hizalı başlıyor ama alt kenardan taşabiliyor. Bu eskiden
+  // yalnızca `maxHeight` ile karşılanıyordu, yani kart KISALTILIYORDU:
+  // listenin dibindeki bir sisteme gelince kart ~80 piksele sıkışıp içeriğin
+  // yarısını gizliyordu. Şimdi önce çizilip ölçülüyor, sonra sığacak kadar
+  // YUKARI çekiliyor — kısaltmak yerine kaydırıyoruz. `maxHeight` yine var
+  // ama artık ekranın tamamı kadar; yalnızca ekrandan uzun kartlarda devreye
+  // giriyor ve orada gerçek bir kaydırma alanı açıyor.
+  //
+  // Döngüye girmiyor: `top` bir kez düzeltiliyor, ikinci turda koşul artık
+  // sağlanmıyor.
+  useLayoutEffect(() => {
+    if (!pos) return;
+    const el = cardRef.current;
+    if (!el) return;
+    const limit = window.innerHeight - GAP;
+    const bottom = pos.top + el.offsetHeight;
+    if (bottom <= limit) return;
+    const next = Math.max(GAP, limit - el.offsetHeight);
+    if (Math.abs(next - pos.top) > 0.5) setPos({ ...pos, top: next });
+  }, [pos]);
+
   // Kart `fixed`, yani sayfa kayarsa çapasından KOPAR. Açıkken kaydırma veya
   // yeniden boyutlandırma olursa kapatmak, yanlış yerde duran bir kartı
   // göstermekten iyi.
   useEffect(() => {
     if (!pos) return;
-    const dismiss = () => {
+    const dismiss = (e: Event) => {
+      // ...ama kartın KENDİ içindeki kaydırma bu kurala girmiyor. Dinleyici
+      // capture fazında ("scroll" baloncuklanmaz, yakalamanın tek yolu bu) ve
+      // kartın içi de oraya düşüyordu: tekerlek ilk tıkırtıda kartı
+      // kapattığı için taşan içeriğe ULAŞILAMIYORDU — kart kaydırılabilir
+      // görünüp kaydırılamıyordu (kullanıcı geri bildirimi, 2026-09-07).
+      if (e.type === "scroll" && e.target instanceof Node && cardRef.current?.contains(e.target)) return;
       clearTimer();
       setPos(null);
     };
@@ -141,11 +175,12 @@ export default function SystemHoverCard({
       {pos &&
         createPortal(
           <div
+            ref={cardRef}
             role="tooltip"
             onMouseEnter={clearTimer}
             onMouseLeave={close}
-            style={{ top: pos.top, left: pos.left, width: CARD_WIDTH, maxHeight: `calc(100vh - ${pos.top + GAP}px)` }}
-            className="fixed z-50 overflow-y-auto rounded-lg border border-line bg-card p-3 shadow-lg shadow-black/30"
+            style={{ top: pos.top, left: pos.left, width: CARD_WIDTH, maxHeight: `calc(100vh - ${GAP * 2}px)` }}
+            className="fixed z-50 overflow-y-auto overscroll-contain rounded-lg border border-line bg-card p-3 shadow-lg shadow-black/30"
           >
             {path.length > 0 && (
               <div className="truncate pb-1 text-[10px] text-slate-500" title={path.join(" / ")}>

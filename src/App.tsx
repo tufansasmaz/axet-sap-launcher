@@ -49,7 +49,7 @@ import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPa
 import FileExplorer from "./components/FileExplorer";
 import FileViewer from "./components/FileViewer";
 import { flattenLandscape } from "./lib/landscape";
-import { iconBtn, tintBtn } from "./ui/buttons";
+import { btn, iconBtn, tintBtn } from "./ui/buttons";
 import { useActiveContext } from "./lib/useActiveContext";
 import { LanguageProvider, translate } from "./i18n";
 
@@ -286,7 +286,13 @@ export default function App() {
     // birlikte ölçekleniyor; ayrı ayrı ayarlanabilir olsalardı kullanıcı iki
     // kadranı dengelemek zorunda kalırdı.
     const fontSize = { sm: "14px", md: "15px", lg: "17px" }[config.chatFontSize];
-    const heroSize = { sm: "34px", md: "40px", lg: "46px" }[config.chatFontSize];
+    // Karşılama merdiveni 34/40/46'dan 46/54/62'ye çıktı (kullanıcı isteği,
+    // 2026-09-07: *"bu yazı büyük olsun iyice"*). Gövde ölçeği DEĞİŞMEDİ:
+    // karşılama açılış ekranının tek başlığı ve orada rakibi yok, gövde ise
+    // her mesajda okunan metin — ikisini birlikte büyütmek okuma konforu
+    // ayarını bozardı. Alt başlık bu değerin %48'i (bkz. ChatSessionPane),
+    // yani 54px'te ~26px: hiyerarşi oran olarak korunuyor.
+    const heroSize = { sm: "46px", md: "54px", lg: "62px" }[config.chatFontSize];
     // Mesajlar arası dikey boşluk. "Yoğun" ekrana daha çok mesaj sığdırır,
     // "rahat" uzun cevapların birbirine karışmasını önler.
     const gap = config.chatDensity === "compact" ? "20px" : "32px";
@@ -903,24 +909,35 @@ export default function App() {
                  `ring-inset` şart: dıştan halka, kutuyu komşu düğmelerden 1px
                  daha uzun gösteriyordu.
 
-            Üç metinli düğmenin ÜÇÜ DE soluk-dolgu ailesinde (kullanıcı isteği,
-            2026-09-06), yalnızca renkleri farklı: ekleme accent, "SAP Logon'dan
-            Getir" SAP mavisi, terminal durum yeşili. Önceki hâlde renk sadece
-            ikondaydı, gövde nötrdü — 15px'lik renkli bir ikon nötr bir düğmenin
-            içinde kaybolduğu için düğmeler pratikte üç tane aynı gri kutuydu.
-            Renk artık gövdenin kendisinde, yani şeride bakınca hangisinin neye
-            dokunduğu okunuyor.
+            Metinli düğmelerde renk gövdenin KENDİSİNDE (kullanıcı isteği,
+            2026-09-06): önceki hâlde renk sadece ikondaydı, gövde nötrdü —
+            15px'lik renkli bir ikon nötr bir düğmenin içinde kaybolduğu için
+            düğmeler pratikte üç tane aynı gri kutuydu. Şimdi şeride bakınca
+            hangisinin neye dokunduğu okunuyor: ekleme accent, "SAP Logon'dan
+            Getir" SAP mavisi, terminal durum yeşili.
 
-            Bu ÜÇÜ birden `btn("primary")` OLAMAZ: dolgulu vurgu düğmesi
-            "ekranda en fazla bir tane" kuralına bağlı (bkz. src/ui/buttons.ts).
-            `tintBtn` tam olarak bu yüzden var — kimlik veriyor ama "asıl eylem
-            benim" demiyor. Sağdaki yenile düğmesi bilerek nötr kaldı: konusu
-            kendi başına bir şey değil, şeridin tamamı. */}
+            "SİSTEM EKLE" DOLGULU (kullanıcı isteği, 2026-09-07: *"SAP
+            logondaki sistem ekle butonu aynı chat ekranındaki yeni sohbet
+            butonu gibi olsun"*), diğer ikisi soluk-dolgu ailesinde kaldı. Bu
+            AYRIM kuralın kendisi: `btn("primary")` "ekranda en fazla bir tane"
+            (bkz. src/ui/buttons.ts) ve bu şeridin cevabı gerçekten o —
+            sistemsiz bir listede yapılacak tek şey sistem eklemek. Diğer ikisi
+            de dolgu olsaydı kural çiğnenir ve şerit üç tane "asıl eylem benim"
+            diyen düğmeye dönerdi; `tintBtn` tam bu yüzden var, kimlik veriyor
+            ama sıra istemiyor. Kenar çubuğundaki "Yeni sohbet" ile aynı ilişki:
+            orada da tek dolgu o.
+
+            Sağdaki yenile düğmesi bilerek nötr kaldı: konusu kendi başına bir
+            şey değil, şeridin tamamı. */}
         <header className="flex items-center gap-2 border-b border-line bg-sidebar px-4 py-2.5">
           <button
             onClick={() => setAddSystemOpen(true)}
             title={t("app.addSystemTitle")}
-            className={tintBtn("accent", "lg", "gap-1.5 px-3 text-[12px]")}
+            // Kenar çubuğundaki "Yeni sohbet" ile aynı deri: dolgulu accent,
+            // 36px boy, yarı kalın 12px yazı. Boy/punto komşularıyla aynı
+            // kalıyor (`lg` + 12px), yalnızca ton dolguya geçiyor — `lg`nin
+            // kendi 13px'i bırakılsaydı düğme şeritteki tek uzun yazı olurdu.
+            className={btn("primary", "lg", "gap-1.5 px-3 text-[12px] font-semibold")}
           >
             <Plus size={15} className="shrink-0" />
             {t("app.addSystem")}

@@ -7,7 +7,6 @@ import {
   BookOpen,
   Bug,
   ChevronDown,
-  ChevronRight,
   ChevronUp,
   Code2,
   FileCode,
@@ -47,7 +46,6 @@ import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./Cha
 import ModelSelector from "./ModelSelector";
 import { resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
-import { formatRelativeTime } from "../lib/time";
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
 
@@ -62,11 +60,6 @@ import { btn } from "../ui/buttons";
 // aynı üç rengi konuşsun; dördüncü bir renk uydurmak, sol şeritteki renklerin
 // taşıdığı anlamı sulandırırdı.
 const SUGGESTION_TINTS = ["var(--module-code)", "var(--module-sap)", "var(--module-guiscript)"];
-
-/** "Son çalışmalar" bölümünde durgun hâlde çizilen satır sayısı; gerisi
- *  "Tümünü gör" ile YERİNDE açılıyor (bkz. `workExpanded`). Üç, üstteki öneri
- *  ızgarasının sütun sayısıyla aynı — iki bölüm aynı ritmi tutuyor. */
-const VISIBLE_RECENT_WORK = 3;
 
 const SUGGESTION_ICONS: Record<string, LucideIcon> = {
   sgArchitecture: Layers,
@@ -209,31 +202,6 @@ interface Props {
   filesPanel?: ReactNode;
   filesPanelOpen?: boolean;
   onToggleFilesPanel?: () => void;
-  // --- Açılış ekranındaki "Son çalışmalar" ---
-  // Kenar çubuğundaki sohbet listesinin KOPYASI DEĞİL (kullanıcı kararı,
-  // 2026-09-06: *"ortaya sidebar'daki sohbet listesinin kopyasını
-  // koymayalım"*). Listede yalnızca başlık var; burada başlığın yanında ne
-  // zaman dokunulduğu, hangi projede/sistemde olduğu ve turun hâlâ sürüp
-  // sürmediği duruyor — yani ekran yeni bilgi veriyor, aynı bilgiyi ikinci
-  // kez değil. Boş dizi = blok hiç çizilmiyor.
-  recentWork?: RecentWorkItem[];
-  onOpenRecentWork?: (id: string) => void;
-}
-
-/** Açılış ekranındaki "Son çalışmalar" satırı (bkz. `Props.recentWork`). */
-export interface RecentWorkItem {
-  id: string;
-  title: string;
-  /** ms — `formatRelativeTime` ISO beklediği için burada çevriliyor. */
-  updatedAt: number;
-  /** Proje adı, yoksa çalışma klasörünün adı, o da yoksa null. */
-  project: string | null;
-  /** SAP bağlamı etiketi (`SID · client`), bağlamsız sohbette null. */
-  system: string | null;
-  /** Tur hâlâ sürüyor. */
-  running: boolean;
-  /** "Durdur"a basıldı ama tur durmadı (bkz. `cancelStuck`). */
-  stuck: boolean;
 }
 
 // axet.code sohbet ekranındaki tek bir sohbetin TAMAMI.
@@ -292,17 +260,10 @@ export default function ChatSessionPane({
   onOpenInstructions,
   filesPanel,
   filesPanelOpen = false,
-  onToggleFilesPanel,
-  recentWork = [],
-  onOpenRecentWork
+  onToggleFilesPanel
 }: Props) {
   const t = useT();
   const [dragOver, setDragOver] = useState(false);
-  // "Son çalışmalar" durgun hâlde üç satır; "Tümünü gör" listeyi YERİNDE
-  // açıyor, başka bir yere götürmüyor. Kenar çubuğuna yönlendirmek daha
-  // doğal görünüyordu ama kenar çubuğu zaten açıksa düğme hiçbir şey
-  // yapmayan bir bağlantıya dönüşürdü.
-  const [workExpanded, setWorkExpanded] = useState(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   // Kullanıcı listeyi yukarı kaydırıp eski bir mesajı okuyorsa, akan cevap
   // onu zorla dibe çekmemeli. `true` olduğu sürece otomatik kaydırma yapılır.
@@ -759,11 +720,11 @@ export default function ChatSessionPane({
                 Şimdi bir HİYERARŞİ var: selam tam boyda ve yarı kalın, soru
                 onun %48'i ve normal ağırlıkta. Oran sabit bir piksel DEĞİL
                 çünkü başlık boyutu kullanıcı ayarından geliyor (Ayarlar >
-                Sohbet görünümü) — 32px'te de 48px'te de aynı ilişki kuruluyor.
+                Sohbet görünümü) — 46px'te de 62px'te de aynı ilişki kuruluyor.
 
                 `tracking-tight`: Inter'in geniş harf aralığı büyük puntoda
-                başlığı dağıtıyor; 40px'te -0.02em kelimeleri birbirine bağlayıp
-                tek bir cümle gibi okutuyor.
+                başlığı dağıtıyor; bu boyda -0.02em kelimeleri birbirine
+                bağlayıp tek bir cümle gibi okutuyor.
 
                 Degrade renkleri logonun kendi `mark` gradyanından geliyor
                 (bkz. index.css `--chat-hero-*`). */}
@@ -835,87 +796,6 @@ export default function ChatSessionPane({
                 );
               })}
             </div>
-
-            {/* SON ÇALIŞMALAR — bkz. `Props.recentWork`. Kenar çubuğundaki
-                listenin kopyası değil: buradaki üç satırın her biri orada
-                OLMAYAN bir şey söylüyor (ne zaman, nerede, hâlâ sürüyor mu).
-                Boşsa hiç çizilmiyor — ilk açılışta boş bir "Son çalışmalar"
-                başlığı, olmayan bir geçmişi varmış gibi gösterirdi. */}
-            {recentWork.length > 0 && (
-              <div className="mt-9">
-                {/* BAŞLIK SATIRI: solda bölüm adı, sağda eylem. Tek başına
-                    duran bir etiket "bir liste" gibi görünüyordu; iki uçlu
-                    satır onu bir BÖLÜM yapıyor (kullanıcı isteği,
-                    2026-09-06). Düğme yalnızca gösterilenden fazlası varken
-                    çiziliyor — üç sohbetin olduğu bir sistemde "Tümünü gör"
-                    hiçbir şey yapmayan bir bağlantı olurdu. */}
-                <div className="flex items-center justify-between pb-2.5">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                    {t("recentWork.heading")}
-                  </span>
-                  {recentWork.length > VISIBLE_RECENT_WORK && (
-                    <button
-                      onClick={() => setWorkExpanded((v) => !v)}
-                      className="flex cursor-pointer items-center gap-1 text-[11px] text-slate-500 transition-colors hover:text-accent-400"
-                    >
-                      {workExpanded ? t("recentWork.showLess") : t("recentWork.viewAll")}
-                      <ChevronRight
-                        size={12}
-                        className={`transition-transform ${workExpanded ? "-rotate-90" : ""}`}
-                      />
-                    </button>
-                  )}
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  {(workExpanded ? recentWork : recentWork.slice(0, VISIBLE_RECENT_WORK)).map((item) => {
-                    // Nokta HER SATIRDA duruyor, yalnızca dikkat çekecek bir
-                    // şey varken değil: sessiz gri bir nokta "bu tur bitti"
-                    // bilgisidir ve sütunun şeklini koruyor. Anlamı `title`
-                    // ile okunabilir, renk tek başına taşımıyor.
-                    const status = item.stuck
-                      ? { dot: "bg-[var(--status-danger-text)]", label: t("recentWork.stuck") }
-                      : item.running
-                        ? { dot: "bg-accent-500 animate-pulse", label: t("recentWork.running") }
-                        : { dot: "bg-slate-600", label: t("recentWork.done") };
-                    const where = [item.project, item.system].filter(Boolean).join(" · ");
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => onOpenRecentWork?.(item.id)}
-                        // Satırlar durgun hâlde de GÖRÜNÜR: önceden zemin ve
-                        // kenarlık şeffaftı, blok fareyle üstüne gelinene
-                        // kadar sayfada asılı duran gri metinlerdi (kullanıcı
-                        // geri bildirimi, 2026-09-06: *"satırların
-                        // görünürlüğü artırılmalı"*). Üstteki öneri
-                        // kartlarıyla AYNI zemin/kenarlık dili kullanılıyor
-                        // ama satır yüksekliğinde — yani bölüm bir kart
-                        // ızgarasına dönüşmüyor, sadece kendi ağırlığını
-                        // kazanıyor.
-                        className="group flex w-full cursor-pointer flex-col gap-1 rounded-lg border border-line-subtle bg-card px-3.5 py-2.5 text-left transition-colors hover:border-line hover:bg-raised"
-                      >
-                        <div className="flex items-baseline gap-3">
-                          <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-slate-200 transition-colors group-hover:text-white">
-                            {item.title}
-                          </span>
-                          <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
-                            {formatRelativeTime(new Date(item.updatedAt).toISOString(), t)}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
-                            {where || t("recentWork.general")}
-                          </span>
-                          <span
-                            title={status.label}
-                            className={`h-1.5 w-1.5 shrink-0 rounded-full ${status.dot}`}
-                          />
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </div>
         ) : (
           <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] pb-8 pt-8`}>
