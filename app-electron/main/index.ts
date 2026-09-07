@@ -30,6 +30,7 @@ import {
   resetChatHistory
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
+import { axetUpdateAvailable } from "./axetChatTui";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { runFlowsAgentStep } from "./axetFlowsAgent";
@@ -897,6 +898,11 @@ function registerIpc(): void {
       prewarmChat(cwd, model, chatId, draft);
     }
   );
+  // axet-code için yeni sürüm duyurulmuş mu? Değeri TUI el sıkışması sırasında
+  // ekrandan yakalıyoruz (bkz. axetChatTui.ts), yani hiç sohbet açılmamışsa
+  // `null` döner — bu doğru cevap, "duyuru yok" ile "henüz bakmadık" aynı
+  // şekilde ele alınıyor: ikisinde de gösterilecek bir şey yok.
+  ipcMain.handle("axetChat:updateAvailable", () => axetUpdateAvailable());
   ipcMain.handle("chatAttachments:save", (_event, fileName: string, base64Data: string) =>
     saveClipboardAttachment(fileName, base64Data)
   );

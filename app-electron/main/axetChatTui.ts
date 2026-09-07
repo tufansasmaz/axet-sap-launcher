@@ -10,7 +10,7 @@ import type {
   AxetModelEntry
 } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
-import { noteAxetCodeVersion } from "./axetCodeVersion";
+import { axetCodeVersion, noteAxetCodeVersion } from "./axetCodeVersion";
 import { setAxetModel } from "./axetModels";
 import { mt } from "./i18n";
 import {
@@ -118,6 +118,45 @@ let updateBlock: { installed: string; latest: string } | null = null;
 /** Zorunlu güncelleme engeli görüldüyse sürümler, yoksa `null`. */
 export function axetUpdateBlock(): { installed: string; latest: string } | null {
   return updateBlock;
+}
+
+/**
+ * İSTEĞE BAĞLI güncelleme uyarısı — yukarıdaki ZORUNLU engelden farklı.
+ *
+ * axet-code açılışta tek satırlık bir pankart basıyor:
+ *
+ *   HEY!  aXet.Code 1.3.0 is available — install it from the Intune Company Portal
+ *
+ * Hiçbir şeyi engellemiyor, o yüzden el sıkışma olduğu gibi sürüyor. Ama
+ * kullanıcı bunu HİÇ görmüyordu: TUI ekranını okumuyoruz, pankart da tampona
+ * düşüp kayboluyordu. Önemi şu — 2026-09-07'de ölçtüğümüz gecikme axet-code'un
+ * kendi içindeydi; o durumda "yeni sürüm çıkmış" bilgisi, bizim
+ * yapabileceğimiz her şeyden daha yüksek kaldıraçlı.
+ *
+ * Sürüm KARŞILAŞTIRMASI yapılmıyor, pankartın kendisi zaten "yeni sürüm var"
+ * demek. Sürüm dizgilerini sayıya çevirmek, biçim değiştiğinde sessizce yanlış
+ * cevap veren bir kod olurdu.
+ */
+const RE_UPDATE_AVAILABLE = /aXet\.Code\s+([0-9][\w.+-]*)\s+is available/i;
+
+/** Son görülen isteğe bağlı güncelleme duyurusu. Süreç ömrü kadar yaşıyor. */
+let updateAvailable: { installed: string; latest: string } | null = null;
+
+/** axet-code için yeni bir sürüm duyurulduysa sürümler, yoksa `null`. */
+export function axetUpdateAvailable(): { installed: string; latest: string } | null {
+  return updateAvailable;
+}
+
+/** Ekranda "yeni sürüm var" pankartı var mı? Varsa kaydeder. */
+function detectUpdateAvailable(screen: string): void {
+  const latest = RE_UPDATE_AVAILABLE.exec(screen)?.[1];
+  if (!latest) return;
+  // Kurulu sürüm ayrı bir yoldan (`axet-code --version`) geliyor; sondaj henüz
+  // dönmediyse boş bırakılıyor ve arayüz sürümsüz cümleyi kuruyor.
+  const installed = axetCodeVersion() ?? "";
+  if (updateAvailable?.latest === latest && updateAvailable.installed === installed) return;
+  updateAvailable = { installed, latest };
+  console.log("[axetChatTui] yeni surum duyurusu", updateAvailable);
 }
 
 /** Ekranda güncelleme kutusu var mı? Varsa sürümleri kaydeder. */
@@ -565,6 +604,9 @@ async function handshake(session: TuiSession): Promise<boolean> {
       return false;
     }
     if (MARK_READY.includes(hit)) {
+      // Pankart tam burada aranıyor: açılış çıktısı bu noktada tamamlanmış
+      // oluyor ve `session.screen` bir sonraki adımda temizleniyor.
+      detectUpdateAvailable(session.screen);
       const bekleme = session.useConnectors ? await waitForConnectors(session) : null;
       session.ready = true;
       console.log("[axetChatTui] oturum hazir", { chatId: session.chatId, adim: step, ...(bekleme ?? {}) });

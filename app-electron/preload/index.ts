@@ -196,6 +196,10 @@ const api = {
   ): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex, customText),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
+  // axet-code'un kendi güncelleme duyurusu (bizim uygulamamızınki AYRI, o
+  // electron-updater'dan `onUpdateStatus` ile geliyor).
+  axetUpdateAvailable: (): Promise<{ installed: string; latest: string } | null> =>
+    ipcRenderer.invoke("axetChat:updateAvailable"),
   resetChatHistory: (chatId: string): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:resetHistory", chatId),
   // Kullanıcı yazmaya başlayınca: oturumu/süreci şimdiden açtır. Sonucu YOK,

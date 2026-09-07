@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { X, Plug } from "lucide-react";
 import { useT } from "../i18n";
 import AppConnectionsSection from "./AppConnectionsSection";
@@ -19,6 +20,21 @@ interface Props {
 // kullanıyor, tutarlılık için.
 export default function AppConnectionsModal({ open, onClose, onOpenProjectTerminal }: Props) {
   const t = useT();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Escape'in ÇALIŞMASININ şartı. Aşağıdaki `onKeyDown` odaklanamayan bir
+  // `div`'de duruyor ve React'te tuş olayları odaklı elemandan yukarı kabarıyor
+  // — kutu açıldığında odak hâlâ onu açan ActivityBar butonunda, yani DIŞARIDA
+  // kaldığı için tuş bu ağaca hiç girmiyordu. Escape ölüydü (kullanıcı bildirdi,
+  // 2026-09-07); tek çıkış X butonuydu.
+  //
+  // Çözüm `autoFocus` DEĞİL: bu kutuda belirgin bir "ilk alan" yok, içerik
+  // bağlayıcı listesi. `SettingsModal` ile aynı yol — panelin kendisi
+  // odaklanıyor.
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+  }, [open]);
 
   if (!open) return null;
 
@@ -38,7 +54,11 @@ export default function AppConnectionsModal({ open, onClose, onOpenProjectTermin
         if (e.key === "Escape") onClose();
       }}
     >
-      <div className="animate-modal-pop-in flex max-h-[88vh] w-[640px] flex-col overflow-hidden rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="animate-modal-pop-in flex max-h-[88vh] w-[640px] flex-col overflow-hidden rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50 outline-none"
+      >
 
         <div className="relative shrink-0 px-6 pb-4 pt-5">
           <button
