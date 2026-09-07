@@ -64,6 +64,45 @@ export type SystemTier = "DEV" | "QA" | "PRD";
  */
 export type SkillProfile = "module-consultant" | "technical-consultant" | "sandbox";
 
+/** Rol seçim ekranındaki önizleme satırı — `planSkills()` üretir. */
+export interface SkillPlanEntry {
+  name: string;
+  writeCapable: boolean;
+  /** PRD kapısı yüzünden elenmiş. */
+  blockedByTier: boolean;
+}
+
+/** Bir projede o an kurulu olan skill. */
+export interface InstalledSkillInfo {
+  name: string;
+  writeCapable: boolean;
+  /** Katalogda tanınmıyor — elle eklenmiş. */
+  unknown: boolean;
+}
+
+export interface SkillVersionStamp {
+  version: string;
+  installed: string;
+  profile: SkillProfile;
+  tier: SystemTier | null;
+  skills: string[];
+}
+
+export interface ToolkitVersion {
+  version: string;
+  generated: string;
+  source: string;
+  skills: Record<string, string>;
+}
+
+/** "Kurulu Skill'ler" ekranının tek veri kaynağı. */
+export interface SkillStatus {
+  skills: InstalledSkillInfo[];
+  stamp: SkillVersionStamp | null;
+  toolkit: ToolkitVersion | null;
+  updateAvailable: boolean;
+}
+
 export type TerminalMode = "cmd" | "powershell";
 
 export type AppTheme = "dark" | "light";

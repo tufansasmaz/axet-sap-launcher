@@ -17,7 +17,7 @@
 // Tablo elle türetildi: uygulamanın katalog deposuna çalışma zamanında hiçbir
 // bağımlılığı yok, olmamalı da.
 
-import type { SkillProfile, SystemTier } from "../shared/types";
+import type { SkillPlanEntry, SkillProfile, SystemTier } from "../shared/types";
 
 export type { SkillProfile };
 
@@ -120,19 +120,12 @@ export function isSkillProfile(value: unknown): value is SkillProfile {
   return value === "module-consultant" || value === "technical-consultant" || value === "sandbox";
 }
 
-export interface ProfilePlanEntry {
-  name: string;
-  writeCapable: boolean;
-  /** PRD kapısı yüzünden elendi. */
-  blockedByTier: boolean;
-}
-
 /**
  * Bir rol + sistem önem derecesi için hangi skill'lerin kurulacağını hesaplar.
  * Kurulum yapmaz — ekranda önizleme göstermek için de bu kullanılır, böylece
  * kullanıcının gördüğü liste ile diske yazılan liste aynı koddan çıkar.
  */
-export function planSkills(profile: SkillProfile, tier: SystemTier | null): ProfilePlanEntry[] {
+export function planSkills(profile: SkillProfile, tier: SystemTier | null): SkillPlanEntry[] {
   const names = PROFILE_SKILLS[profile] ?? PROFILE_SKILLS[DEFAULT_PROFILE];
   return names.map((name) => {
     const def = SKILL_CATALOG[name];

@@ -45,6 +45,9 @@ import type {
   ConnectorTestResult,
   SapService,
   SapLogonOpenResult,
+  SkillPlanEntry,
+  SkillProfile,
+  SkillStatus,
   SystemTier,
   SystemCommentDefaults,
   TerminalMode,
@@ -82,6 +85,12 @@ const api = {
   importManualSystems: () => ipcRenderer.invoke("manualSystems:importFromFile"),
   setSystemTier: (serviceUuid: string, tier: SystemTier | null) => ipcRenderer.invoke("systemTiers:set", serviceUuid, tier),
   setSystemComment: (serviceUuid: string, comment: string) => ipcRenderer.invoke("systemComments:set", serviceUuid, comment),
+  planSkills: (profile: SkillProfile, tier: SystemTier | null): Promise<SkillPlanEntry[]> =>
+    ipcRenderer.invoke("skills:plan", profile, tier),
+  getSkillStatus: (projectDir: string): Promise<SkillStatus> =>
+    ipcRenderer.invoke("skills:status", projectDir),
+  reinstallSkills: (projectDir: string, serviceUuid: string | null): Promise<SkillStatus> =>
+    ipcRenderer.invoke("skills:reinstall", projectDir, serviceUuid),
   getSystemCommentDefault: (serviceUuid: string): Promise<SystemCommentDefaults> => ipcRenderer.invoke("systemComment:getDefault", serviceUuid),
   openInSapLogon: (service: SapService): Promise<SapLogonOpenResult> => ipcRenderer.invoke("sapLogon:open", service),
   windowMinimize: () => ipcRenderer.invoke("window:minimize"),

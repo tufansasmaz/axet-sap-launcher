@@ -268,6 +268,31 @@ export const en: Record<TranslationKey, string> = {
   "modelSelector.switched": "Switched model: {model}",
   "modelSelector.switchFailed": "Could not switch model: {message}",
 
+  // --- Role picker (skill profile) ---
+  "roleModal.title": "What role are you working in on this project?",
+  "roleModal.subtitle":
+    "Different skills are installed for the AI assistant depending on the role you pick. You can change this later in Settings.",
+  "roleModal.subtitleWithSystem":
+    "For the {system} connection. Different skills are installed depending on the role you pick; you can change this later in Settings.",
+  "roleModal.role.module-consultant": "Module consultant",
+  "roleModal.roleDesc.module-consultant":
+    "Reads the system, analyses processes, produces FS/TS documents and meeting notes. No write-capable skill is installed.",
+  "roleModal.role.technical-consultant": "Technical consultant",
+  "roleModal.roleDesc.technical-consultant":
+    "Builds things: ABAP code review, screen generation and the abapGit bridge are installed as well.",
+  "roleModal.role.sandbox": "Sandbox / my own test system",
+  "roleModal.roleDesc.sandbox":
+    "Everything is installed. Pick this only on a system of your own that holds no customer data.",
+  "roleModal.previewTitle": "Skills to be installed",
+  "roleModal.previewCount": "{count} skills",
+  "roleModal.blockedHint": "Not installed because this system is marked as production",
+  "roleModal.blockedNotice":
+    "This system is marked as production (PRD). {count} write-capable skills will not be installed, and will be removed if already present.",
+  "roleModal.noticeText":
+    "Some of the skills to be installed intend to WRITE to the SAP system (code/screen generation, transport requests). I accept that I will use them only on a development system I am authorised on, and that I will confirm the transport request before every write.",
+  "roleModal.cancel": "Cancel",
+  "roleModal.confirm": "Continue",
+
   "updatePrompt.title": "New version available",
   "updatePrompt.message": "NTT Studio v{version} was released. Download it now? The app will automatically restart and install once the download finishes.",
   "updatePrompt.install": "Download & Install",

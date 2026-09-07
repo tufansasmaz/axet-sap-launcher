@@ -20,6 +20,7 @@ import type {
   FsEntry,
   SapLandscape,
   SapService,
+  SkillProfile,
   SystemTier,
   UpdateStatus
 } from "../app-electron/shared/types";
@@ -41,6 +42,7 @@ import SystemPanel from "./components/SystemPanel";
 import SettingsModal from "./components/SettingsModal";
 import AppConnectionsModal from "./components/AppConnectionsModal";
 import CredentialsModal from "./components/CredentialsModal";
+import RoleModal from "./components/RoleModal";
 import AddSystemModal, { type EditingManualSystem } from "./components/AddSystemModal";
 import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePromptModal";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -94,6 +96,12 @@ export default function App() {
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  // Rol seciminin beklettigi kimlik bilgileri. Dolu ise rol ekrani aciktir.
+  const [pendingConnect, setPendingConnect] = useState<{
+    username: string;
+    password: string;
+    client: string;
+  } | null>(null);
   // Başarılı bağlantıdan sonra axet.code'a devredilen "bu sisteme bağlı bir
   // sohbet aç" isteği (bkz. AxetCodeHome `SapChatRequest`).
   const [sapChatRequest, setSapChatRequest] = useState<SapChatRequest | null>(null);
@@ -709,7 +717,44 @@ export default function App() {
     [sidebarCollapsed, sidebarWidth]
   );
 
+  /**
+   * Rol henüz seçilmemişse bağlantıyı DURDURUP rol ekranını açar.
+   *
+   * Sıra önemli: skill kurulumu `connect` içinde yapılıyor, yani rol
+   * bağlantıdan ÖNCE bilinmek zorunda. Sonradan sorsaydık ilk bağlantı
+   * varsayılan profille kurulur, kullanıcının seçimi bir sonraki bağlantıya
+   * kadar hiçbir şeyi değiştirmezdi.
+   */
   const handleCredentialsSubmit = async (username: string, password: string, client: string) => {
+    if (!credentialsTarget) return;
+    if (config && config.skillProfile === null) {
+      setPendingConnect({ username, password, client });
+      return;
+    }
+    await runConnect(username, password, client);
+  };
+
+  const handleRoleConfirm = async (profile: SkillProfile, noticeAccepted: boolean) => {
+    const creds = pendingConnect;
+    setPendingConnect(null);
+    if (!creds) return;
+    try {
+      const next = await window.api.saveConfig({
+        skillProfile: profile,
+        // Onay yalnızca gerçekten soruldu ise damgalanıyor: sorulmadan
+        // yazılan bir "kabul edildi" kaydı, kullanıcının görmediği bir metni
+        // onaylamış gibi göstermek olurdu.
+        ...(noticeAccepted ? { skillNoticeAcceptedAt: new Date().toISOString() } : {})
+      });
+      setConfig(next);
+    } catch {
+      // Ayar yazılamazsa bağlantıyı yine de kuruyoruz; kurulum en dar
+      // profille (modül danışmanı) yapılır, veri kaybı yok.
+    }
+    await runConnect(creds.username, creds.password, creds.client);
+  };
+
+  const runConnect = async (username: string, password: string, client: string) => {
     if (!credentialsTarget) return;
     setConnecting(true);
     setConnectError(null);
@@ -1236,6 +1281,20 @@ export default function App() {
           onClose={() => setCredentialsTarget(null)}
           onSubmit={handleCredentialsSubmit}
           loadDefaults={(uuid) => window.api.getCredentialDefaults(uuid)}
+        />
+
+        <RoleModal
+          open={pendingConnect !== null}
+          tier={
+            credentialsTarget ? (config?.systemTiers?.[credentialsTarget.service.uuid] ?? null) : null
+          }
+          systemLabel={
+            credentialsTarget
+              ? `${credentialsTarget.service.name}${credentialsTarget.service.systemId ? ` · ${credentialsTarget.service.systemId}` : ""}`
+              : undefined
+          }
+          onConfirm={handleRoleConfirm}
+          onCancel={() => setPendingConnect(null)}
         />
 
         <UpdatePromptModal

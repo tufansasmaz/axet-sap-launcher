@@ -1,6 +1,6 @@
 import * as pty from "@lydell/node-pty";
 import { mkdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import type {
   AxetChatActivity,
   AxetChatCancelVerdict,
@@ -431,6 +431,31 @@ function disposeSession(chatId: string): void {
 
 export function closeTuiSession(chatId: string): void {
   disposeSession(chatId);
+}
+
+/**
+ * Bir projenin sıcak tutulan oturumlarını kapatır.
+ *
+ * Neden ayrı bir fonksiyon: axet-code skill'leri SÜREÇ AÇILIŞINDA tarıyor.
+ * Skill'ler güncellendiğinde havuzda duran süreçler eski listeyi taşımaya
+ * devam eder — kullanıcı "güncelledim" der, ajan eskisini kullanır. Katalogdaki
+ * `auto_update.py` de tam olarak bunu "aXet.code'da yapılamaz" diye yazıyor:
+ * kancası olmadığı için çalışan oturuma girip haber veremiyor. Bizim
+ * elimizde süreçler var, kapatabiliyoruz.
+ *
+ * Meşgul oturuma DOKUNULMAZ: cevap üretirken kapatmak üretilmiş cevabı yok
+ * eder. Onlar sıradaki turda zaten yeniden kurulur.
+ */
+export function closeTuiSessionsForProject(projectDir: string): number {
+  const target = resolve(projectDir).toLowerCase();
+  let closed = 0;
+  for (const [chatId, session] of [...sessions.entries()]) {
+    if (resolve(session.cwd).toLowerCase() !== target) continue;
+    if (session.busy) continue;
+    disposeSession(chatId);
+    closed += 1;
+  }
+  return closed;
 }
 
 export function closeAllTuiSessions(): void {

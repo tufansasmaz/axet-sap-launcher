@@ -321,6 +321,31 @@ export const tr = {
   "modelSelector.switched": "Model değiştirildi: {model}",
   "modelSelector.switchFailed": "Model değiştirilemedi: {message}",
 
+  // --- Rol seçimi (skill profili) ---
+  "roleModal.title": "Bu projede hangi rolle çalışacaksın?",
+  "roleModal.subtitle":
+    "Seçtiğin role göre yapay zekâ asistanına farklı yetenekler kuruluyor. Sonradan Ayarlar'dan değiştirebilirsin.",
+  "roleModal.subtitleWithSystem":
+    "{system} bağlantısı için. Seçtiğin role göre asistana farklı yetenekler kuruluyor; sonradan Ayarlar'dan değiştirebilirsin.",
+  "roleModal.role.module-consultant": "Modül danışmanı",
+  "roleModal.roleDesc.module-consultant":
+    "Sistemi okur, süreç analizi yapar, FS/TS ve toplantı notu üretir. Sisteme yazan hiçbir yetenek kurulmaz.",
+  "roleModal.role.technical-consultant": "Teknik danışman",
+  "roleModal.roleDesc.technical-consultant":
+    "Geliştirme yapar: ABAP kod denetimi, ekran üretimi ve abapGit köprüsü de kurulur.",
+  "roleModal.role.sandbox": "Sandbox / kendi test sistemim",
+  "roleModal.roleDesc.sandbox":
+    "Her şey kurulur. Yalnızca müşteri verisi olmayan, kendine ait bir sistemde çalışıyorsan seç.",
+  "roleModal.previewTitle": "Kurulacak yetenekler",
+  "roleModal.previewCount": "{count} yetenek",
+  "roleModal.blockedHint": "Üretim sistemi işaretli olduğu için kurulmayacak",
+  "roleModal.blockedNotice":
+    "Bu sistem üretim (PRD) olarak işaretli. Sisteme yazabilen {count} yetenek kurulmayacak, kuruluysa kaldırılacak.",
+  "roleModal.noticeText":
+    "Kurulacak yeteneklerden bazıları SAP sistemine YAZMA niyeti taşıyor (kod/ekran üretimi, taşıma kaydı). Bunları yalnızca yetkili olduğum bir geliştirme sisteminde kullanacağımı ve her yazma işleminden önce taşıma kaydını doğrulayacağımı kabul ediyorum.",
+  "roleModal.cancel": "Vazgeç",
+  "roleModal.confirm": "Devam et",
+
   "updatePrompt.title": "Yeni sürüm bulundu",
   "updatePrompt.message": "NTT Studio v{version} yayınlandı. Şimdi indirilsin mi? İndirme tamamlandığında uygulama otomatik olarak yeniden başlatılıp güncellenecek.",
   "updatePrompt.install": "İndir ve Kur",

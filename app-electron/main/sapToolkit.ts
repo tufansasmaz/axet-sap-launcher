@@ -16,20 +16,13 @@ import {
   planSkills,
   type SkillProfile
 } from "./skillProfiles";
-import type { SystemTier } from "../shared/types";
+import type { InstalledSkillInfo, SkillVersionStamp, SystemTier, ToolkitVersion } from "../shared/types";
 
 export function getToolkitRoot(): string | null {
   const candidate = app.isPackaged
     ? path.join(process.resourcesPath, "sap-toolkit")
     : path.join(app.getAppPath(), "resources", "sap-toolkit");
   return existsSync(candidate) ? candidate : null;
-}
-
-export interface ToolkitVersion {
-  version: string;
-  generated: string;
-  source: string;
-  skills: Record<string, string>;
 }
 
 /** `resources/sap-toolkit/toolkit-version.json` — yoksa null. */
@@ -46,21 +39,13 @@ export function readToolkitVersion(): ToolkitVersion | null {
 }
 
 /** Projeye en son hangi sürümün kurulduğu (`.axet-code/skills/.version`). */
-export interface InstalledStamp {
-  version: string;
-  installed: string;
-  profile: SkillProfile;
-  tier: SystemTier | null;
-  skills: string[];
-}
-
-export function readInstalledStamp(projectDir: string): InstalledStamp | null {
+export function readSkillVersionStamp(projectDir: string): SkillVersionStamp | null {
   try {
     const raw = readFileSync(
       path.join(projectDir, ".axet-code", "skills", ".version"),
       "utf8"
     );
-    const parsed = JSON.parse(raw) as InstalledStamp;
+    const parsed = JSON.parse(raw) as SkillVersionStamp;
     return typeof parsed?.version === "string" ? parsed : null;
   } catch {
     return null;
@@ -71,7 +56,7 @@ export function readInstalledStamp(projectDir: string): InstalledStamp | null {
 export function isSkillUpdateAvailable(projectDir: string): boolean {
   const toolkit = readToolkitVersion();
   if (!toolkit) return false;
-  const stamp = readInstalledStamp(projectDir);
+  const stamp = readSkillVersionStamp(projectDir);
   if (!stamp) return true;
   return stamp.version !== toolkit.version;
 }
@@ -159,7 +144,7 @@ export function installSkillsIntoProject(
   // Sürüm damgası. Bunsuz "bu projedeki skill'ler güncel mi?" sorusunun cevabı
   // yok — bugüne kadar da yoktu.
   if (toolkitVersion) {
-    const stamp: InstalledStamp = {
+    const stamp: SkillVersionStamp = {
       version: toolkitVersion.version,
       installed: new Date().toISOString(),
       profile,
@@ -174,13 +159,6 @@ export function installSkillsIntoProject(
   }
 
   return result;
-}
-
-export interface InstalledSkillInfo {
-  name: string;
-  writeCapable: boolean;
-  /** Katalogda tanınmayan, elle eklenmiş skill. */
-  unknown: boolean;
 }
 
 export function listInstalledSkills(projectDir: string): InstalledSkillInfo[] {

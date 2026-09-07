@@ -7,6 +7,14 @@ import { randomUUID } from "node:crypto";
 import { loadLandscape, getServiceCredentials, getServiceSapLogonNote } from "./sapLandscape";
 import { checkConnectivity } from "./connectivity";
 import { connectToSystem, computeProjectDir } from "./launcher";
+import { planSkills } from "./skillProfiles";
+import {
+  installSkillsIntoProject,
+  isSkillUpdateAvailable,
+  listInstalledSkills,
+  readSkillVersionStamp,
+  readToolkitVersion
+} from "./sapToolkit";
 import { loadConfig, saveConfig, saveLastCredential, saveTrustedCertificates, pushConnectionHistory, saveSystemTier, saveSystemComment } from "./store";
 import { mt, refreshMainLanguage } from "./i18n";
 import { decryptSecret } from "./secureStorage";
@@ -30,7 +38,7 @@ import {
   resetChatHistory
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
-import { axetUpdateAvailable } from "./axetChatTui";
+import { axetUpdateAvailable, closeTuiSessionsForProject } from "./axetChatTui";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { runFlowsAgentStep } from "./axetFlowsAgent";
@@ -52,7 +60,7 @@ import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
-import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -437,6 +445,44 @@ function registerIpc(): void {
 
   ipcMain.handle("systemTiers:set", (_event, serviceUuid: string, tier: SystemTier | null) => {
     return saveSystemTier(serviceUuid, tier);
+  });
+
+  // Rol seçim ekranının önizlemesi. Ekranda gösterilen liste ile diske yazılan
+  // liste AYNI koddan (`planSkills`) çıkıyor — önizlemenin kendi kopyası olsa
+  // ikisi zamanla ayrışır ve kullanıcı gördüğünden başkasını kurmuş olur.
+  ipcMain.handle("skills:plan", (_event, profile: SkillProfile, tier: SystemTier | null) => {
+    return planSkills(profile, tier);
+  });
+
+  // Bir projede o an kurulu olan skill'ler + sürüm damgası + güncelleme durumu.
+  ipcMain.handle("skills:status", (_event, projectDir: string) => {
+    return {
+      skills: listInstalledSkills(projectDir),
+      stamp: readSkillVersionStamp(projectDir),
+      toolkit: readToolkitVersion(),
+      updateAvailable: isSkillUpdateAvailable(projectDir)
+    };
+  });
+
+  // "Bu projenin skill'lerini güncelle" düğmesi.
+  //
+  // Kurulumdan SONRA o projenin sıcak oturumları kapatılıyor: axet-code
+  // skill'leri süreç açılışında tarıyor, kapatmazsak kullanıcı güncellemeyi
+  // yapar ama ajan bir sonraki turda hâlâ eski listeyle konuşur.
+  ipcMain.handle("skills:reinstall", (_event, projectDir: string, serviceUuid: string | null) => {
+    const config = loadConfig();
+    installSkillsIntoProject(projectDir, {
+      profile: config.skillProfile ?? undefined,
+      tier: serviceUuid ? (config.systemTiers?.[serviceUuid] ?? null) : null
+    });
+    const closed = closeTuiSessionsForProject(projectDir);
+    if (closed > 0) console.log("[skills] guncelleme sonrasi oturum kapatildi", { projectDir, closed });
+    return {
+      skills: listInstalledSkills(projectDir),
+      stamp: readSkillVersionStamp(projectDir),
+      toolkit: readToolkitVersion(),
+      updateAvailable: isSkillUpdateAvailable(projectDir)
+    };
   });
 
   ipcMain.handle("systemComments:set", (_event, serviceUuid: string, comment: string) => {

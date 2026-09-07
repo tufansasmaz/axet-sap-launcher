@@ -59,6 +59,9 @@ import type {
   SapLandscape,
   SapService,
   SapLogonOpenResult,
+  SkillPlanEntry,
+  SkillProfile,
+  SkillStatus,
   SystemTier,
   SystemCommentDefaults,
   TerminalMode,
@@ -90,6 +93,9 @@ export interface AxetApi {
   importManualSystems: () => Promise<ManualSystemsImportResult>;
   setSystemTier: (serviceUuid: string, tier: SystemTier | null) => Promise<AppConfig>;
   setSystemComment: (serviceUuid: string, comment: string) => Promise<AppConfig>;
+  planSkills: (profile: SkillProfile, tier: SystemTier | null) => Promise<SkillPlanEntry[]>;
+  getSkillStatus: (projectDir: string) => Promise<SkillStatus>;
+  reinstallSkills: (projectDir: string, serviceUuid: string | null) => Promise<SkillStatus>;
   getSystemCommentDefault: (serviceUuid: string) => Promise<SystemCommentDefaults>;
   openInSapLogon: (service: SapService) => Promise<SapLogonOpenResult>;
   windowMinimize: () => Promise<void>;
