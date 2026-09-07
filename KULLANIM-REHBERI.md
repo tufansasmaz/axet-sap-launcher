@@ -1,12 +1,32 @@
-# aXet SAP Launcher — Kullanım Rehberi
+# NTT Studio — Kullanım Rehberi
 
-Bu uygulama, SAP Logon'da tanımlı müşteri/sistem listeni okuyup, seçtiğin
-sisteme bir tık ile bağlanmanı ve o sistem için hazırlanmış bir
-**axet.code terminali** açmanı sağlar. Amaç: her SAP sistemine bağlanırken
+Bu uygulama, SAP Logon'da tanımlı müşteri/sistem listeni okuyup seçtiğin
+sisteme bir tık ile bağlanmanı, ardından o sistem üzerinde **axet.code ile
+sohbet ederek** çalışmanı sağlar. Amaç: her SAP sistemine bağlanırken
 host/port/ADT URL keşfi, kimlik doğrulama, sertifika güveni gibi işleri
 elle tekrar tekrar yapmak zorunda kalmamak.
 
-## Uygulama Ne Yapar (özet)
+> Uygulamanın adı **NTT Studio**. Depo ve eski belgelerde geçen "aXet SAP
+> Launcher" aynı uygulamanın önceki adı; SAP Launcher artık uygulamanın
+> içindeki modüllerden biri.
+
+## Soldaki Ray — Üç Modül
+
+En soldaki ince dikey şeritten modüller arasında geçersin:
+
+- **axet.code** (kıvılcım ikonu) — Asıl çalışma ekranı. Bağlandığın sistem
+  bağlamında sohbet edersin.
+- **SAP Launcher** (sunucu ikonu) — Müşteri/sistem ağacı, bağlanma, proje
+  klasörü. Bu rehberin büyük kısmı bu modülü anlatıyor.
+- **SAP GUI Scripting** (fare ikonu) — SAP GUI ekranlarını gezme, işlem
+  kaydedip tekrar oynatma, doğal dille otomasyon.
+
+Rayın altında **Uygulama Bağlantıları** (fiş ikonu — Outlook/SharePoint gibi
+aXet bağlayıcıları), açık/koyu tema, dil (TR/EN) ve **Ayarlar** var.
+Bağlayıcılardan en az biri bağlıysa fiş ikonunun üstünde küçük bir nokta
+belirir. Bu pencere **Esc** ile kapanır.
+
+## SAP Launcher Ne Yapar (özet)
 
 1. Bilgisayarındaki **SAP Logon** (SAPUILandscape.xml) dosyasını okur,
    müşteri/sistem ağacını sol panelde gösterir.
@@ -20,9 +40,10 @@ elle tekrar tekrar yapmak zorunda kalmamak.
    - Belgelerim klasöründe (ayarlardan değiştirilebilir) müşteri/sistem
      adına göre bir alt klasör açar, içine bağlantı bilgilerini ve SAP
      araçlarını (skill'ler) yerleştirir.
-   - `axet.code`'u çalıştıran bir terminal **uygulamanın kendi içinde, alt
-     panelde gömülü olarak** açılır — harici bir pencere açılmaz, her
-     bağlantı kendi sekmesinde birikir.
+   - Uygulama **axet.code modülüne geçip bu sistem için bir sohbet açar**
+     — harici bir pencere açılmaz. Doğrudan yazmaya başlayabilirsin.
+   - Gömülü terminale hâlâ ihtiyacın olursa alt panelden ulaşırsın; her
+     bağlantı orada kendi sekmesinde birikir.
 
 ## Ekranın Bölümleri
 
@@ -136,6 +157,38 @@ Her sistem için oluşturulan proje klasöründe:
   teslim akışı, Office doküman araçları gibi hazır skill'ler otomatik
   kopyalanır; terminalde `%skill-adı` yazarak çağrılabilir.
 
+## axet.code Sohbet Ekranı
+
+Bir sisteme bağlandıktan sonra asıl çalışma burada yapılır. Sol kenar
+çubuğunda **Yeni sohbet** ve **Yeni proje** düğmeleri, altında sohbet
+listesi ve bağlanılan sistemler var.
+
+- **Her sohbetin kendi oturumu var.** Sohbete yazdığında o sohbete ait bir
+  axet-code oturumu açılır ve açık kalır. Aynı anda en fazla **5 oturum**
+  sıcak tutulur, **60 dakika** dokunulmayan oturum kapanır. Kapanmış bir
+  sohbete geri döndüğünde oturum yeniden kurulur — sohbet kaybolmaz.
+- **İlk mesaj sonrakilerden yavaştır.** İlk turda süreç başlar, uygulama
+  bağlayıcıları yüklenir ve ajan işi baştan kavrar; bu birkaç on saniye
+  sürebilir. Aynı sohbetteki sonraki mesajlar belirgin biçimde hızlıdır.
+  Bir sisteme bağlandığında oturum arka planda önceden ısıtılır, yani ilk
+  mesajın beklemesi kısalır.
+- **Arkada ne olduğunu görürsün.** Cevap beklenirken gösterge ajanın hangi
+  aracı çalıştırdığını, hedefini, kaçıncı adımda olduğunu ve geçen süreyi
+  yazar. Satıra tıklayarak aracın çıktısını açabilirsin.
+- **Sohbetler sisteme göre gruplanır** ve projelere ayrılabilir. Bir sohbet
+  hangi bağlantıdan doğduysa o grupta kalır.
+- **Sohbeti PDF olarak dışa aktarabilirsin.**
+- **Sohbetin yanında dosya paneli** açılır; ajanın dokunduğu dosyaları
+  anında görür, istersen müdahale edersin.
+- **Geçmiş her mesajda baştan gönderilmez.** Oturum kurulurken sohbetin son
+  24 mesajı (en fazla 12.000 karakter) ajana bir kere aktarılır, sonrası
+  yalnızca yazdığın mesajdır. Sohbet çok uzunsa en eski mesajlar düşer ve
+  ajana kaç mesajın kısaltıldığı açıkça söylenir — yani "sana daha önce
+  söylemiştim" dediğinde ajan neyi görmediğini bilir.
+- **axet-code sürümü eskiyse** sohbet açılışında uyarı çıkar. Güncelleme
+  Intune Company Portal üzerinden yapılır; uygulama kendi başına axet-code
+  güncelleyemez.
+
 ## Ayarlar
 
 - **Proje klasörü**: Her müşteri/sistem için alt klasörlerin oluşturulacağı
@@ -181,15 +234,19 @@ Gezgini** paneli açılır — bu, o sistem için oluşturulan proje klasörün�
 
 ## Diğer Bilgisayara Taşıma / Kurulum
 
-Uygulama **portable**'dır, kurulum gerektirmez:
+Üç yol var (`X.Y.Z` yerine güncel sürüm numarası gelir):
 
+- **`NTT-Studio-Setup-X.Y.Z.exe`** kurulum dosyasını çalıştır — masaüstü/
+  başlat menüsü kısayolu oluşturur. **Otomatik güncelleme sadece bu yolla
+  kurulan sürümlerde çalışır.** Önerilen yol. Ya da
+- **`aXet-Studio-X.Y.Z-portable.exe`** tek dosyasını çalıştır (kurulum yok,
+  güncelleme de yok). Ya da
 - `release/win-unpacked/` klasörünü olduğu gibi kopyala, içindeki
-  `aXet SAP Launcher.exe`'yi çalıştır. Ya da
-- `release/aXet SAP Launcher Setup 1.3.0.exe` kurulum dosyasını çalıştır
-  (masaüstü/başlat menüsü kısayolu oluşturur, **otomatik güncelleme sadece
-  bu yolla kurulan sürümlerde çalışır** — portable/win-unpacked kopyalar
-  güncelleme almaz). Ya da
-- `release/aXet-SAP-Launcher-1.3.0-portable.exe` tek dosyasını çalıştır.
+  `NTT Studio.exe`'yi çalıştır.
+
+Dosyalar [Releases](https://github.com/tufansasmaz/axet-sap-launcher/releases)
+sayfasında. İmzalanmadıkları için Windows SmartScreen ilk çalıştırmada uyarı
+gösterebilir — "Daha fazla bilgi" → "Yine de çalıştır".
 
 Her bilgisayarda SAP Logon'un landscape dosyası kendi standart konumundan
 otomatik okunur — farklı bilgisayarlarda farklı SAP sistemleri tanımlıysa,
@@ -200,10 +257,9 @@ standart olmayan bir yoldaysa, Ayarlar'dan bir kere elle yol belirtilir.
 
 Ayarlar penceresinde "Güncellemeler" bölümünden:
 
-- **GitHub erişim anahtarı (token)**: Uygulamanın kaynak kodu private bir
-  GitHub deposunda tutulduğu için güncelleme kontrolü bir token gerektirir.
-  Sana verilen salt-okunur (sadece bu depoya erişimi olan) bir token'ı
-  buraya yapıştır. Bu makinede saklanır, tekrar girmen gerekmez.
+- **Token gerekmiyor.** Depo public olduğu için güncelleme kontrolü ve
+  indirme kimlik doğrulaması olmadan çalışır. (Eski sürümlerde bir GitHub
+  erişim anahtarı istenirdi; o alan tamamen kaldırıldı.)
 - **Açılışta otomatik kontrol et**: Açıkken uygulama her açılışta sessizce
   yeni sürüm olup olmadığına bakar.
 - **Şimdi Kontrol Et**: Elle tetiklemek için.
@@ -260,7 +316,7 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
   izin listesine eklenmemiş uygulamaların (bu uygulama dahil) panodaki gerçek
   veriyi okumasını engeller; uygulama sadece panoda bir şey olduğunu görebilir,
   içeriği asla alamaz. **Çözüm**: BT/güvenlik ekibine bu uygulamayı
-  (`aXet SAP Launcher.exe`) WIP'in "İzin Verilen Uygulamalar" listesine
+  (`NTT Studio.exe`) WIP'in "İzin Verilen Uygulamalar" listesine
   ekletmeni iste — bu tek gerçek çözüm, uygulama kendi başına bu engeli
   aşamaz. Uygulama İÇİNDE kopyala-yapıştır (bir sistem adını başka bir alana,
   vb.) bu kısıtlamadan etkilenmez, normal çalışır.

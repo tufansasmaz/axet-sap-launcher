@@ -7340,6 +7340,13 @@ altına taşındı.
 
 ### 5. Mikrofon: gömülü, YEREL konuşma tanıma (`main/dictation.ts` + `src/lib/dictationRecorder.ts` — YENİ)
 
+> **KALDIRILDI (2026-09-07, sürüm 1.6.1/1.6.2).** Tanıma güvenilir
+> çalışmadığı için mikrofon düğmesi, `dictation.ts`, `DictationRecorder`,
+> `media` izni ve ilgili çeviri anahtarları silindi;
+> `resources/whisper-runtime` (297 MB) da çalışma ağacından kaldırıldı.
+> Aşağıdaki bölüm **tarih ve yeniden kurulum tarifi** olarak duruyor —
+> anlattığı kod artık yok. Ayrıntı için 2026-09-07 turuna bak.
+
 Kayıt renderer'da, tanıma main process'te gömülü **whisper.cpp** ile. Ses bu
 makineden HİÇ çıkmıyor, API anahtarı yok, internet gerekmiyor.
 
@@ -9440,3 +9447,379 @@ güncellediği için aktif sistem pratikte hep bu üçün içinde, ama bu bir ga
 değil — bağlıyken listeyi dolduracak kadar başka bağlantı yapılabilseydi vurgu
 görünmezdi. Bilerek böyle: listeyi aktif sistem için uzatmak, üç satırlık dip
 bloğunu belirsiz boyda bir listeye çevirirdi.
+
+## 1.6.0 → 1.6.3: dil bakımı, ölçüm ve sohbetin güvenilirliği (2026-09-07)
+
+Tek günde 31 işleme ve dört sürüm. Turun tamamına yön veren bir kural var ve
+bu belgeye yazılmayı hak ediyor: **ölçmeden düzeltme yapılmadı.** Bu günün en
+pahalı iki hatası (aşağıdaki "bayat veritabanı" ve "sessizlik") tahminle
+kapatılabilecek gibi görünüyordu; ikisinde de tahmin YANLIŞ olurdu ve gerçek
+sebep ancak ölçümle çıktı.
+
+### 1. Türkçe büyütme tuzağı: `text-transform` dile özgü çalışıyor
+
+`<html lang="tr">` altında CSS `uppercase`, küçük `i` harfini `I` değil
+**`İ`** yapıyor. Yani arayüz dili Türkçeyken ekrandaki **İngilizce** metinler
+bozuluyordu: `"Client"` → `"CLİENT"`, `"typescript"` → `"TYPESCRİPT"`,
+`"OpenAI"` → `"OPENAİ"`.
+
+Sözlüklerde bir kusur yoktu — `tr.ts`/`en.ts` anahtar sayıları eşitti ve
+`en.ts` içinde Türkçe karakter yoktu. Hata, **çevrilmeyen teknik verinin**
+Türkçe kuralla büyütülmesindeydi: sağlayıcı adları, `ask_user` başlığı, klasör
+adı, SID, kod bloğu dil etiketi, `Client` etiketi.
+
+Çözüm her yerde aynı ve kalıcı bir kural: **büyütülen metin çeviriden
+gelmiyorsa `lang="en"` ile işaretlenir.** Türkçe başlıklar arayüz dilinde
+kalıyor, yani `"BAĞLANTILAR"` gibi doğru büyütmeler bozulmuyor.
+
+İlk turda kod blokları elle tarandığı için atlandı (`markdownLite.tsx`).
+İkinci turda yöntem değişti: bütün `uppercase` kullanımları taranıp içeriği
+`t(...)` **olmayan** ve `lang` ile işaretlenmemiş her yer listelendi. Elle
+tarama bir kez yanıldı, listeleme yanılmadı — benzer bir işte yöntem bu
+olmalı.
+
+### 2. Ana sürecin metinleri de çevrildi
+
+Arayüz dili değiştiğinde ana süreçten gelen hata/durum mesajları Türkçe
+kalıyordu: `useT()` orada yok, o metinler baştan beri kaynakta sabitti.
+
+`app-electron/main/i18n/` eklendi. `mt(key, params)` dili `config.json`'dan
+okuyup önbellekte tutuyor, `config:save` sonrası `refreshMainLanguage()` ile
+tazeleniyor. 21 dosya çevrildi: bağlantı/RFC bridge/ADT sunucusu/GUI Scripting
+bridge hataları, SAProuter mesajları, dosya gezgini izinleri, işletim sistemi
+dosya diyaloglarının başlıkları.
+
+**Kapsam dışı bırakılanlar bilinçli:**
+
+| Ne | Neden |
+| --- | --- |
+| `console.log` teşhis satırları | Kullanıcı arayüzü değil |
+| axet-code'a **giden** prompt/talimat metinleri | Arayüz değil, **modelin talimatı** — çevirmek modelin davranışını değiştirirdi |
+| `samlLogin.ts` / `adtDiscovery.ts` `verifyMessage()` | Zaten kendi tr/en tablolarını taşıyordu |
+| Sohbet dışa aktarma/baskı çıktısının **içeriği** | Kullanıcı isteği |
+
+Bir yan tuzak da burada çıktı: `describeRfcEndpointFailure` içindeki zaman
+aşımı kontrolü tek dile bakıyordu. Mesaj çevrilince, arayüz İngilizceyken o
+özel (gateway portu) dalı hiç tetiklenmezdi. **Çevrilen bir metne göre karar
+veren her kontrol, çeviriyle birlikte gözden geçirilmek zorunda.**
+
+Terminalin oturum sonu satırı da (`[Oturum sonlandı ...]`) çevirilere
+bağlandı. `t`, effect'in bağımlılığına **eklenmedi**, ref üzerinden okunuyor —
+eklenseydi dil değişiminde terminal sıfırdan kurulur ve çalışan oturumun
+çıktısı silinirdi.
+
+### 3. Trust store'a artık yalnızca kendinden imzalı sertifika kuruluyor
+
+Uygulama, SAP sunucusunun sertifikası güvenilir değilse onu `certutil -user
+-addstore Root` ile Windows kullanıcı kök deposuna kuruyordu. Handshake
+`rejectUnauthorized: false` ile yapıldığı için **o soketten dönen HER
+sertifika kuruluma adaydı** ve hostname doğrulaması da yoktu.
+
+Bu depo yalnız bize ait değil: Chromium, .NET ve
+`-Declipse.platform.mergeTrust=true` ile çalışan Eclipse/Java da aynı depoyu
+okuyor. Araya giren bir kurumsal proxy o an TLS'i kesiyor olsaydı, proxy'nin
+ürettiği sahte sertifikayı **kök otorite** yapmış olurduk — hem de yalnızca
+bizim uygulamamız için değil, makinedeki her şey için.
+
+- `PeerCertInfo`'ya `selfSigned` (Issuer == Subject) ve `issuerCN` eklendi;
+  çıkarım iki yere kopyalanmak yerine tek `describeCert` fonksiyonuna taşındı.
+- Güvenilmeyen ama kendinden imzalı **olmayan** sertifika artık kurulmuyor;
+  veren CA adıyla "araya giren proxy" uyarısı notlara yazılıyor.
+- Kendi barındırılan SAP sunucuları kendinden imzalı sertifika kullandığı için
+  çalışan hiçbir bağlantı etkilenmedi.
+
+**Bu daraltma geri alınmamalı.** "Bir müşteride sertifika kurulmuyor" diye
+koşulu gevşetmek, kurumsal proxy'yi kök otorite yapmaya geri döner.
+
+### 4. "Cevap hiç görünmüyor" — bayat veritabanı
+
+Kök neden ölçümle bulundu ve tahminle bulunamazdı: oturum kurulurken
+`resolveSessionDb(cwd)` **`pty.spawn`'dan önce** çağrılıyordu. axet-code kendi
+`axet-code.db` dosyasını ancak spawn olunca yaratıyor; yeni bir proje
+klasöründe dosya henüz yok, tarama yukarı çıkıp **ata klasördeki**
+(`...\aXet SAP Projects\.axet-code`) bayat veritabanına bağlanıyordu. `dbPath`
+bir daha hiç yeniden çözülmüyordu.
+
+Ölçüm (IED): cevap **7 saniyede** hazırdı (`end_turn`, 54 karakter, 0 araç);
+kılıf beş dakikalık zaman aşımını doldurdu ve turu yeniden gönderdi. Kanıt
+zarifti: ata klasörün `.db`/`-wal` dosyaları 18 Ağustos'tan beri yazılmamışken
+`-shm` damgası 14:14:28 — oraya yalnızca bir **okuyucu** bağlanmıştı, o da
+bizdik.
+
+Ata klasöründe `.axet-code` bulunan **her yeni sistemin ilk mesajı** bu tuzağa
+düşüyordu.
+
+- `resolveSessionDb`: cwd'de `.axet-code` **klasörü** varsa yukarı
+  çıkılmıyor, dosya henüz yazılmamış olsa bile.
+- `openDb`: dosya yoksa `loadError`'a yazmıyor — yoksa `sessionDbLoadError()`
+  TUI kipini kalıcı olarak kapatırdı.
+- `createSession`: çözümleme `mkdirSync`'ten **sonra**; ata klasöre bağlanma
+  artık log'a düşüyor (tek belirti buydu ve hiçbir yerde yazmıyordu).
+- `runTurn`: veritabanı yolu her tur başında yeniden çözülüyor — açılışta
+  yanlış bağlanan oturum kendini onarıyor.
+
+### 5. Zaman aşımı üç adımda öğrenildi
+
+Bu turun en öğretici zinciri. Aynı sayaç üç kez değişti ve her seferinde
+sebebi bir ölçümdü.
+
+**Adım 1 — mutlak süre yanlıştı.** Ekip geri bildirimi: *"tarıyor tarıyor ama
+cevap yazacak 300 oldu diyor."* Zaman aşımı mutlak süreden **sessizliğe**
+çevrildi; sayaç her belirtide sıfırlanıyor (günlük satırı, metin parçası, araç
+çağrısı, araç sonucu). Kural: **uzun sürmesi arıza değil, hiçbir şey olmaması
+arıza.**
+
+**Adım 2 — mutlak tavan 30 dakika da yanlıştı.** Gerçek işler aralıksız 1-3
+saat sürebiliyor ve tavan onları sorunsuz çalışırken kesiyordu. Tavanın
+koruduğu tek durum, kimse bakmıyorken takılmış bir döngünün gece boyu jeton
+yakması. `TURN_HARD_CAP_MS` 30 dakika → **6 saat**. Kullanıcı bakıyorken zaten
+elle durdurabiliyor.
+
+Burada ayrı bir ders var: tavan ve sessizlik tek çeviri anahtarıyla
+yazıldığında, mutlak tavan *"hiçbir belirti vermedi"* diyordu — tam tersi
+doğruyken. İki ayrı cümle oldu (`chatTui.turnRanTooLong`).
+
+**Adım 3 — sessizlik de turu ÖLDÜRMEMELİ.** Ölçüm (IED, 18:06 turu):
+axet-code soğuk ilk turda **320 saniye** boyunca ne veritabanına ne günlüğüne
+tek satır yazdı. Sayaç 300'de doldu, tur `ok: false` ile kapandı ve cevap
+**20 saniye sonra eksiksiz geldi** — 1.839 karakter, axet-code'un
+veritabanında duruyordu. Kullanıcı aynı oturumu terminalden açıp cevabı
+gözüyle gördü; uygulama ise "hiçbir belirti vermedi" diyordu.
+
+Sayaç iki şey birden yapıyordu ve **ikisinde de yanılıyordu**: üretilmiş bir
+cevabı çöpe atmak (veri kaybı) ve olmayan bir arızayı bildirmek (yanlış
+bilgi). Tasarım öncelik sırasının ilk iki maddesi.
+
+- Sessizlik dalı mutlak tavandan ayrıldı. Turu yalnızca `TURN_HARD_CAP_MS`
+  bitiriyor; sessizlik artık **sadece haber veriyor** ve yoklama sürüyor.
+- Yeni `stalled` aşaması (+ `minutes`): *"Hâlâ düşünüyor (N dk)"*. Beş
+  dakikada bir tazeleniyor, ilk belirtide düşüyor.
+- `chatTui.turnTimedOut` duruyor: tek atımlık `run` yolunda hâlâ çağrılıyor.
+
+> **Bir daha yapılmayacak:** sessizlik sayacına turu bitirme yetkisi geri
+> verilmeyecek. "Takılmış olabilir" hissi, üretilmiş bir cevabı atmayı haklı
+> çıkarmaz.
+
+### 6. Oturumları sıcak tutmak — ölçülmüş, tahmin edilmemiş
+
+Ölçüm: bir turun süresi sürecin **kaçıncı turu** olduğuna bağlı. Aynı süreçte
+ikinci ve sonraki turlar **15-25 sn**, sürecin **ilk turu 100-170 sn**. Yani
+oturumu kaybetmenin bedeli iki kat değil, **beş-on kat**.
+
+| Sabit | Önce | Sonra | Neden |
+| --- | --- | --- | --- |
+| `IDLE_MS` | 10 dk | **60 dk** | On dakika bir kahve molasını kaldıramıyordu |
+| `MAX_SESSIONS` | 3 | **5** | Üçte, dört sohbet arasında gezinen kullanıcı her geçişte bir oturumu tahliye ediyor ve `IDLE_MS` uzatmasının faydasını yiyordu |
+
+Ayrıca sohbet **açıldığında** ısıtma eklendi (1,5 sn gecikmeli). Önceki ısıtma
+ancak ilk harfe basıldığında başlıyordu; oysa sohbeti açmakla ilk mesajı
+göndermek arasında neredeyse her zaman 6,5 saniyeden fazlası var.
+
+Bellek maliyeti ölçüldü: axet-code süreci başına **33-57 MB** (beş oturumla en
+kötü ihtimalle ~250 MB).
+
+Aynı günün sonunda bu ısıtmanın **hiç tetiklenmediği** en sık giriş noktası
+bulundu. Kullanıcı: *"biz sisteme bağlandığımızda ... arka planda axet.code
+halihazırda açılmış ve bağlantı yapılmış şekilde olmalı."* Değildi: ısıtmanın
+koşulu `if (!activeId) return` idi, yani yalnızca **var olan** bir sohbete
+girilince çalışıyordu. Oysa bir SAP sistemine bağlanınca uygulama doğrudan
+"Ne yapmak istersin?" ekranına düşüyor ve orada `activeId` yok.
+
+Koşul `effectiveNewBinding`e bağlandı: bir SAP sistemi bağlıyken (ya da bir
+klasör seçiliyken) yeni sohbet de ısıtılıyor. **Uygulamayı hiçbir yere
+bağlanmadan açmak hâlâ süreç açmıyor** — bu sınır korunmalı.
+
+> **SINIR, açıkça yazılmalı:** ısıtma süreç kurulumunu (~6,5 sn) siliyor,
+> sürecin ilk turunun **sağlayıcı tarafındaki** bedelini (ölçülen 100-170 sn)
+> silmiyor. Bu bizim tarafımızda çözülebilecek bir şey değil.
+
+### 7. Yoklama darboğaz değil (ölçüldü, kapandı)
+
+"Yavaşlık bizden mi" sorusu tahminle kapatılmasın diye `sendViaTui` artık
+oturumun sıcak mı soğuk mu olduğunu ve hazırlık süresini logluyor; `runTurn`
+ilk belirti ve ilk harf zamanlarını tutuyor.
+
+Sonuç: yoklama + veritabanı okuma, **50 mesajlık / 208 KB'lik** bir turda
+yoklama başına **1,5 ms**. Darboğaz bizde değil. `POLL_MS = 90` optimize
+edilecek bir yer değil — bir daha oraya bakılmasın.
+
+### 8. axet-code sürüm duyurusu: iki ayrı kutu, iki ayrı çözüm
+
+**Zorunlu güncelleme.** axet-code yeni sürüm çıktığında sohbeti hiç açmıyor;
+tek düğmesi "Quit" olan *"Mandatory update required"* kutusunu çiziyor. Bu
+kutu beklediğimiz işaretlerin hiçbirini içermediği için el sıkışma zaman
+aşımına uğruyor, `run` kipine düşülüyor, o da aynı duvara çarpıyor ve
+kullanıcının gördüğü tek şey *"axet-code hiçbir belirti vermedi"* oluyordu.
+Ekran artık bu kutu için taranıyor, işaret el sıkışma listesinin **başında**
+ve `sendViaTui` `null` dönmek yerine doğrudan Company Portal yönergesini
+içeren hatayı dönüyor.
+
+**İsteğe bağlı duyuru.** axet-code açılışta tek satırlık `HEY! aXet.Code X.Y.Z
+is available` pankartı basıyor. Kullanıcı: *"axet-code 1.2.3 → 1.3.0 bunun
+için mesajı göremiyorum, hâlâ iyi akşamlar tufan yazıyor."*
+
+Ölçüm pankartın basıldığını ve regex'in birebir uyduğunu gösterdi. Sorun
+zamanlamadaydı: pankart **"Select Tool" diyaloğu ekrandayken** basılıyor, el
+sıkışma ise her diyalog adımında `session.screen`'i siliyor ve pankarta ancak
+`READY` işaretinde bakıyordu. Yani duyuru, ona bakmamızdan önce silinen
+tampondaydı.
+
+- Tarama el sıkışmadan **feed'e** taşındı: pankart tampona düştüğü anda
+  yakalanıyor, hiçbir silme onu kaçırmıyor. Oturum hazır olduktan sonra
+  bakılmıyor, 64 KB'lik tamponun yalnızca ucu taranıyor.
+- Duyuru `AppConfig.axetCodeLatestSeen`'e yazılıyor — pankart yalnızca bir
+  süreç başlayınca görülüyor, oysa açılış ekranında henüz süreç yok.
+- Açılış ekranı duyuruyu bulana kadar yokluyor (20 sn), sonra duruyor. Tek
+  seferlik sorma yetmiyordu; uyarı ancak bir sonraki uygulama açılışında
+  çıkardı. Duyuru yokken çağrı sadece bir config okuması, süreç açmıyor.
+- **Ayarlar'daki kopya kaldırıldı:** kimse Ayarlar'ı güncelleme haberi için
+  açmıyor. Aynı şeyi iki yerde göstermek gereksizdi.
+- Kurulumu biz yapamıyoruz (Intune Company Portal), o yüzden düğme değil
+  **yalnızca haber**.
+
+### 9. Mikrofon kaldırıldı
+
+Tanıma güvenilir çalışmıyordu. Composer'daki düğme, main/preload/shared
+köprüleri ve `DictationRecorder` tamamen silindi; `whisper-runtime`
+`extraResources`'tan çıkarıldı (kuruluma tek başına ~297 MB ekliyordu), sonra
+1.6.2'de çalışma ağacından da kaldırıldı.
+
+`media` izni `ALLOWED_PERMISSIONS`'tan çıkarıldı: uygulamanın artık mikrofona
+ihtiyacı yok, izni tutmak **kullanılmayan bir kapıyı açık bırakmak** olurdu.
+
+Yeniden kurulum tarifi bu belgenin 2026-09-02 turundaki "Gömülü Whisper
+Runtime" bölümünde duruyor; o bölümün başına "KALDIRILDI" notu eklendi.
+
+### 10. Canlı göstergede araç ayrıntısı
+
+Araç satırına tıklanınca o adımın tam çıktısı/farkı altında açılıyor. Tercih
+yapışkan: bir kez açılıp sonraki adımlarda da açık kalıyor. Varsayılan
+**kapalı** ve döküm `max-h-40` ile sınırlı — kutunun kendiliğinden büyümemesi
+bilinçli bir tercih (kullanıcı bunu açıkça istemişti).
+
+### 11. `adt-tool.ps1` self-test: sebep TLS değil, PowerShell sürümüydü
+
+Kullanıcı: *"Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız diyor bu
+ne oluyo ... sapcontext ne alaka onu anlamadım."*
+
+Kök sebep ölçüldü (IED): script'in ilk satırlarındaki `ConvertTo-SecureString`
+`Microsoft.PowerShell.Security` modülünde ve bu modül makinede açılmıyor —
+**PowerShell 7 de kurulu olduğu için** PS7'nin modül klasörleri
+`PSModulePath`'e giriyor, Windows PowerShell 5.1 oradaki tip dosyasını okuyor
+ve *"ObjectSecurity ... member is already present"* çakışmasıyla modülü hiç
+yükleyemiyor. SAP, ağ, TLS ya da yetkiyle ilgisi yok.
+
+- Kimlik artık düz .NET ile kuruluyor (`SecureString` + `AppendChar`), hiçbir
+  modül gerekmiyor. IED'de doğrulandı: `PING_OK 200`.
+- `sap-context.md`'deki teşhis metni **TLS'i sebep göstermeyi bıraktı** — ham
+  hatayı öne koyuyor, ölçülmüş örneği anlatıyor ve bu yolun **yedek** olduğunu
+  söylüyor (asıl yol `%sap-adt-readonly`).
+- Bağlantı bildirimleri kullanıcıya göre yazıldı: dosya adı saymak yerine ne
+  olduğunu söylüyorlar. Self-test hatası artık *"bağlantı doğrulandı, yedek
+  PowerShell aracı bu makinede çalışmadı, ADT erişimi etkilenmiyor"*.
+
+### 12. Geçmiş tekrarına karakter tavanı
+
+Ajana gönderilen geçmişin tek tavanı `slice(-MAX_HISTORY_MESSAGES)` idi:
+**mesaj sayısı sınırlı, karakter sayısı sınırsız.** Derin ABAP işinde tek bir
+ajan cevabı 5.000 karakter olabiliyor, yani 24 mesaj 100 KB'a çıkabilirdi.
+
+Kullanıcının sorusu tam yerindeydi: *"Bu kadar karakteri eklemek zorunda mıyız
+... neden özet gönderilmiyor?"* Ölçüm (kullanıcının gerçek 40 sohbeti):
+
+- Tekrar **her mesajda gitmiyor**; yalnızca oturum yeniden kurulunca. Aynı
+  oturumdaki ikinci mesaj 117 karakter, cevap 5 sn.
+- En ağır gerçek durum **13.314 karakter** (~3.800 jeton). O oturumun toplam
+  prompt harcaması 58.010 jetondu, yani tekrar tek seferlik ~%5.
+- 12.000 karakterlik tavanla 40 sohbetin **39'u aynen** gidiyor; yalnızca biri
+  13.314 → 11.846'ya iniyor (24 mesajın en eski 5'i düşüyor).
+
+**Neden özet DEĞİL:** özet çıkarmak fazladan bir model çağrısı demek (ölçülen
+kısa turlar 5-25 sn) ve kazanç ~2.800 jeton — jeton zaten darboğaz değildi,
+yani özet **süreyi artırırdı**. Kayan bir özet ise ajana **yanlış bilgi**
+verirdi; kesip atmak yalnızca bağlam eksiltir.
+
+- Tavan **yeniden eskiye** uygulanıyor; en yeni mesaj tavanı tek başına aşsa
+  bile **tam kalıyor**. Mesajı ortadan kesmek yarım bir kod bloğu göndermek
+  olurdu — bağlam eksikliğinden kötü, çünkü yanlış.
+- Düşen mesaj varsa ajana tek satırlık not giriyor: sessizce kırpılmış bir
+  geçmiş, *"daha önce söylemiştim"* dendiğinde ajanı yanlış yere baktırıyor.
+- Aynı kural artık **üç çağrı yerinde de** geçerli (gönderme, yeniden üretme,
+  "kaldığın yerden devam et") — ayrışmaları, ajanın aynı sohbetin iki farklı
+  hâlini görmesi demekti. `buildHistoryForCall` bu yüzden var; üç yere geri
+  dağıtılmasın.
+
+### 13. Uygulama Bağlantıları Escape ile kapanıyor
+
+`AppConnectionsModal`'ın `onKeyDown`'u **odaklanamayan** bir div'de duruyordu.
+React'te tuş olayları odaklı elemandan yukarı kabarıyor; kutu açıldığında odak
+hâlâ onu açan ActivityBar butonundaydı, yani **dışarıda**. Tuş bu ağaca hiç
+girmiyordu ve tek çıkış X butonuydu. `SettingsModal` ile aynı çözüm: panelin
+kendisi odaklanıyor (`tabIndex=-1` + `focus`).
+
+Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
+`CredentialsModal`) kontrol edildi — üçünde de `autoFocus` var, Escape'leri
+çalışıyor.
+
+### 14. Arayüz: ölçüler, kontrast, kaldırılanlar
+
+- **"Son çalışmalar" bloğu tamamen kaldırıldı** (render, prop,
+  `RecentWorkItem` tipi, memo, iki dildeki `recentWork.*` anahtarları). Bir
+  önceki turda eklenmişti; kullanıcı istemedi.
+  `axetCodeHome.viewAllConnections` **başka** bir "Tümünü gör" (bağlantılar
+  için), dokunulmadı.
+- **Açık temanın iki AA ihlali düzeltildi.** İkisi de `index.css`'in koyu
+  temada kendi yazdığı hedefi açıklama kaçırmıştı. `--ink-400-rgb` ölçümü
+  karta göre değil, jetonun altına düşebilen **en koyu durgun yüzeye**
+  (hover `#f1f3f6`) göre yapıldı: 4,56:1. `--status-success-text` 4,37 → 4,85
+  (aynı rengin %94'ü, ton kaymıyor).
+- **Sistem hover kartı:** genişlik 264 → 340 (router/host değerleri her
+  sistemde üç noktayla bitiyordu) ve kaydırma artık **çalışıyor**. İki ayrı
+  kusur vardı: kartın kendi içindeki scroll, capture fazındaki kapatma
+  dinleyicisine düşüp kartı anında kapatıyordu; ekranın dibindeki bir satırda
+  ise `maxHeight` ile ~80px'e sıkışıyordu. Artık önce ölçülüp sığacak kadar
+  yukarı çekiliyor, **kısaltılmıyor**.
+- **Açılış penceresi ekrana göre hesaplanıyor:** çalışma alanının **%80'i**,
+  980-1760 (genişlik) / üst sınır 900 (yükseklik). Sabit 1280 yerine — 4K'da
+  absürt büyümesin, 1600x900 dizüstünde ekran dışına taşmasın. İki eksen aynı
+  payı kullanıyor, yani pencerenin en-boy oranı ekranın oranını takip ediyor.
+  (Önce %90 denendi, kullanıcı *"%90 çok"* dedi: o oranda pencere iki yanda
+  birer parmak boşluk bırakıyor, tam ekran olmadığı hâlde tam ekran gibi
+  duruyordu.)
+- **Karşılama merdiveni** 34/40/46 → **50/60/70**. Gövde ölçeği değişmedi; alt
+  başlık zaten bu değerin %48'i, yani hiyerarşi oran olarak korunuyor.
+- **SAP Logon şeridindeki "Sistem Ekle"** dolgulu accent oldu, sohbet kenar
+  çubuğundaki "Yeni sohbet" ile aynı deri. Şerit artık "ekranda tek birincil
+  düğme" kuralına uyuyor.
+
+### 15. Sürümler ve temizlik
+
+| Sürüm | İçerik |
+| --- | --- |
+| **1.6.0** | v1.5.0'dan bu yana 53 işleme: TR/EN dil bakımı (ana süreç dahil), açılış ekranı/kenar çubuğu turları, kontrast düzeltmeleri |
+| **1.6.1** | Bayat veritabanı düzeltmesi + sessizlik temelli zaman aşımı. **Etiketi uzakta ama release'i hiç yayınlanmadı** |
+| **1.6.2** | Whisper çalışma zamanı diskten kaldırıldı. Yayınlanmış bir etiketi oynatmak yerine sürüm ileri alındı |
+| **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
+
+İptal edilen Faz 0-4 planının iki belgesi
+(`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
+`docs/superpowers/plans/2026-09-06-faz-0-tasarim-dili.md`) kullanıcı isteğiyle
+silindi; `docs/superpowers/` tamamen boşaldı. **Bu plan kapalıdır, kendiliğinden
+gündeme getirilmez.**
+
+### 16. Yayın (release) hakkında öğrenilenler
+
+- **Setup dosyası GitHub'a TİRELİ adla yüklenmeli:** `NTT-Studio-Setup-X.Y.Z.exe`.
+  `latest.yml` içindeki `url` alanı tam olarak bu adı yazıyor ve
+  electron-updater onu arıyor. Boşluklu adla (`NTT Studio Setup X.Y.Z.exe`)
+  yüklenirse güncelleme 404 alır. `latest.yml` ve `.blockmap` da release'e
+  eklenmeli.
+- **Çalışan paketlenmiş uygulama build'i kilitliyor:** `release/win-unpacked/
+  d3dcompiler_47.dll` üzerinde `Access is denied` →
+  `ERR_ELECTRON_BUILDER_CANNOT_EXECUTE`. `build:win` öncesi "NTT Studio.exe"
+  kapatılmalı.
+- **Build çıktısını `| tail`'e vermek çıkış kodunu maskeliyor** — başarısız
+  bir build "exit code 0" gibi görünüyor. `EXIT=$?` açıkça yakalanmalı.
+- Güncelleme **token gerektirmiyor** (depo public). `updateToken` alanı
+  kaynaktan tamamen kaldırıldı; `README.md` ve `KULLANIM-REHBERI.md` buna göre
+  düzeltildi.
