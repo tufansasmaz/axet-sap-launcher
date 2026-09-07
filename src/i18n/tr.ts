@@ -122,7 +122,7 @@ export const tr = {
   "sapLogon.sapShcutNotFound": "sapshcut.exe bulunamadı. SAP GUI kurulu olduğundan emin ol veya Ayarlar'dan yolunu belirt.",
   "sapLogon.spawnError": "SAP GUI açılamadı: {detail}",
 
-  "activityBar.axetCode": "axet.code",
+  "activityBar.axetCode": "Axet Chat",
   // "aXet SAP Logon" (kullanıcı isteği, 2026-09-06). Bir ara sadece "SAP
   // Launcher" idi — gerekçe, platformun adı "Studio" olunca modülün ön eke
   // ihtiyacı kalmadığıydı. Kullanıcı tersini istedi ve "Launcher" yerine
@@ -324,7 +324,10 @@ export const tr = {
   "settingsModal.sectionSkills": "Yapay zekâ yetenekleri",
   "skillsSection.roleLabel": "Rolüm",
   "skillsSection.roleHint":
-    "Rolü değiştirdikten sonra aşağıdaki Güncelle düğmesine bas — yetenekler ancak o zaman yeniden kurulur.",
+    "Rolü değiştirdiğinde yetenekler hemen yeniden kurulur: bu role ait olmayanlar projeden kaldırılır.",
+  "skillsSection.roleApplying": "Yetenekler yeniden kuruluyor…",
+  "skillsSection.roleWarning":
+    "Doğru rolü seç. Asistan yalnızca burada kurulu olan yetenekleri kullanabilir — rol, onun müşteri sisteminde YAPABİLECEKLERİNİ belirliyor. Modül danışmanı seçiliyken sisteme yazan hiçbir yetenek kurulmaz; teknik danışman seçiliyken kod denetimi, ekran üretimi ve abapGit de kurulur.",
   "skillsSection.noProject": "Açık bir proje yok. Bir sisteme bağlandığında bu projenin yetenekleri burada listelenir.",
   "skillsSection.versionLine": "Paket: {toolkit} · Bu proje: {installed}",
   "skillsSection.update": "Güncelle",
@@ -925,8 +928,13 @@ export const tr = {
   "connectorCost.title": "Tur başına bedel",
   "connectorCost.unknown":
     "Bağlayıcı kayıtları okunamadı — axet-code bu projede henüz çalışmamış ya da eşitleme sürüyor olabilir.",
-  "connectorCost.summary": "{records} açık kayıt ≈ {tools} araç ≈ tur başına ~{tokens} jeton",
-  "connectorCost.basis": "Tahmin, {date} ölçümünden türetildi: {records} kayıt = {tools} araç ≈ {tokens} jeton.",
+  "connectorCost.summary": "{records} açık kayıt = {tools} araç ≈ tur başına ~{tokens} jeton",
+  "connectorCost.basis":
+    "Araç sayıları {date} tarihinde bağlayıcı penceresinden okundu ({types}). Jeton, {tokenDate} ölçümünden türetildi: araç başına ~{perTool}.",
+  "connectorCost.unmeasured":
+    "{count} açık kaydın türü hiç ölçülmedi; onlar için ölçülenlerin ortalaması ({fallback} araç) kullanıldı.",
+  "connectorCost.recordTools": "{tools} araç",
+  "connectorCost.recordToolsEstimate": "≈{tools} araç",
   "connectorCost.disabled": "kapalı",
   "connectorCost.localHint":
     "Bir kaydı yalnızca bu makinede kapatmak: sohbet terminalinde ctrl+b → satırı seç → t. Kapalı bir kaydın araçları hiç yüklenmiyor.",

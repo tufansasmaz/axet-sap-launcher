@@ -193,6 +193,10 @@ export interface ConnectorRecord {
   url: string;
   /** Kayıt bu makinede kapalı mı (günlük + yerel durum dosyası birleşimi). */
   disabledInLog: boolean;
+  /** Bu kaydın taşıdığı araç sayısı — TÜRÜNDEN geliyor (buildInventory). */
+  tools?: number;
+  /** Yukarıdaki sayı gerçekten ölçüldü mü, yoksa ortalamaya mı düşüldü. */
+  measured?: boolean;
 }
 
 /** Bağlayıcı kayıtları ve bunların tur başına tahmini bedeli. */
@@ -202,12 +206,20 @@ export interface ConnectorInventory {
   records: ConnectorRecord[];
   /** Kapalı olmayan kayıt sayısı — bedeli bunlar üretiyor. */
   activeCount: number;
-  /** TAHMİN: ölçüm çapasından türetilmiş (bkz. connectorInventory.ts). */
+  /** Açık kayıtların araç sayılarının TOPLAMI (bkz. connectorInventory.ts). */
   estimatedTools: number;
   /** TAHMİN: tur başına jeton. */
   estimatedTokens: number;
-  /** Tahminin dayandığı ölçüm — arayüzde olduğu gibi gösteriliyor. */
-  anchor: { measuredAt: string; records: number; tools: number; tokens: number };
+  /** Türü hiç ölçülmemiş AÇIK kayıt sayısı — sıfır değilse ekranda söyleniyor. */
+  unmeasuredCount: number;
+  /** Sayıların dayandığı ölçüm — arayüzde olduğu gibi gösteriliyor. */
+  anchor: {
+    measuredAt: string;
+    toolsByType: Record<string, number>;
+    fallbackTools: number;
+    tokensMeasuredAt: string;
+    tokensPerTool: number;
+  };
 }
 
 /** `sap-context.md` önizlemesi — ajanın SAP tarafında gördüğü tek dosya. */

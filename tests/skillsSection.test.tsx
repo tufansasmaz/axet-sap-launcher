@@ -120,3 +120,54 @@ describe("SkillsSection — katalog kutusu", () => {
     expect(await screen.findByText(/OneDrive'a kısayol ekle|OneDrive'a kisayol ekle/)).toBeTruthy();
   });
 });
+
+describe("SkillsSection — rol secimi", () => {
+  /** Rol dugmelerini ceken kurulum; cagri SIRASI olcusun diye tek bir dizi. */
+  function mountRoles() {
+    const calls: string[] = [];
+    const api = {
+      getSkillStatus: vi.fn().mockResolvedValue(EMPTY_STATUS),
+      reinstallSkills: vi.fn(async () => {
+        calls.push("reinstall");
+        return EMPTY_STATUS;
+      }),
+      listCatalogSkills: vi.fn().mockResolvedValue(catalog([])),
+      installCatalogSkill: vi.fn(),
+      removeCatalogSkill: vi.fn()
+    };
+    (window as unknown as { api: unknown }).api = api;
+    const onProfileChange = vi.fn(async () => {
+      calls.push("save");
+    });
+    render(
+      <LanguageProvider language="tr">
+        <SkillsSection profile="module-consultant" onProfileChange={onProfileChange} projectDir={PROJECT} />
+      </LanguageProvider>
+    );
+    return { api, calls, onProfileChange };
+  }
+
+  it("rol degisince ONCE kaydeder, SONRA yeniden kurar", async () => {
+    // Sira sart: ana surecteki `skills:reinstall` rolu config'ten okuyor, ters
+    // sirada bir onceki rolun yetenekleri kurulurdu.
+    const { calls, onProfileChange } = mountRoles();
+    fireEvent.click(screen.getByRole("button", { name: /Teknik danışman|Teknik danisman/ }));
+    await vi.waitFor(() => expect(calls).toEqual(["save", "reinstall"]));
+    expect(onProfileChange).toHaveBeenCalledWith("technical-consultant");
+  });
+
+  it("zaten secili role basmak hicbir sey kurmaz", async () => {
+    const { calls } = mountRoles();
+    fireEvent.click(screen.getByRole("button", { name: /Modül danışmanı|Modul danismani/ }));
+    await Promise.resolve();
+    expect(calls).toEqual([]);
+  });
+
+  it("hangi rolun ne yaptigini ve dogru secim uyarisini yazar", async () => {
+    // Kullanici (2026-09-08): *"uyari ekle hangi danisman oldugunun dogru
+    // secilmesiyle alakali"*. Rolun adi tek basina ne yapabildigini soylemiyor.
+    mountRoles();
+    expect(await screen.findByText(/Sistemi okur, süreç analizi|Sistemi okur, surec analizi/)).toBeTruthy();
+    expect(screen.getByText(/YAPABİLECEKLERİNİ|YAPABILECEKLERINI/)).toBeTruthy();
+  });
+});

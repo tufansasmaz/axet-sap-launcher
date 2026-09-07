@@ -6,9 +6,9 @@
 // Burada doğrulanan şey o sayının EKRANDA nasıl sunulduğu, ve bu kutunun
 // bütün değeri sunumunda:
 //
-//   - Sayı bir TAHMİN. Dayanağı ("2026-09-05 ölçümü: 4 kayıt = 92 araç")
-//     her zaman görünür olmak zorunda — gizlenmiş bir dayanak, bu sayının
-//     ölçülmüş sanılması demek, yani yanlış bilgi.
+//   - Sayının DAYANAĞI ("araç sayıları 2026-09-08'de okundu") her zaman
+//     görünür olmak zorunda — gizlenmiş bir dayanak, bu sayının kullanıcının
+//     kendi ölçümü sanılması demek, yani yanlış bilgi.
 //   - BİLİNMİYOR ile SIFIR ayrı şeyler. Günlükten tam bir blok
 //     okunamadığında "0 kayıt" yazmak, dört bağlayıcısı açık olan
 //     kullanıcıya bedeli olmadığını söylemekti.
@@ -39,9 +39,16 @@ function inventory(overrides: Partial<ConnectorInventory> = {}): ConnectorInvent
     known: true,
     records: [record()],
     activeCount: 1,
-    estimatedTools: 23,
-    estimatedTokens: 38250,
-    anchor: { measuredAt: "2026-09-05", records: 4, tools: 92, tokens: 153000 },
+    estimatedTools: 25,
+    estimatedTokens: 41575,
+    unmeasuredCount: 0,
+    anchor: {
+      measuredAt: "2026-09-08",
+      toolsByType: { outlook: 25, sharepoint: 17 },
+      fallbackTools: 21,
+      tokensMeasuredAt: "2026-09-05",
+      tokensPerTool: 1663
+    },
     ...overrides
   };
 }
@@ -72,13 +79,40 @@ describe("Bagla yici maliyeti kutusu", () => {
   it("acik kayit sayisini ve tahmini bedeli yazar", async () => {
     mountWith(inventory());
     expect(await screen.findByText(/1 a[çc][ıi]k kay[ıi]t/)).toBeTruthy();
-    expect(screen.getByText(/23 ara[çc]/)).toBeTruthy();
+    expect(screen.getByText(/25 ara[çc]/)).toBeTruthy();
   });
 
-  it("tahminin DAYANAGI her zaman ekranda", async () => {
-    // Gizlenmis bir dayanak, bu sayinin olculmus sanilmasi demekti.
+  it("DAYANAK her zaman ekranda ve olculen tur sayilarini yazar", async () => {
+    // Gizlenmis bir dayanak, bu sayinin kullanicinin kendi olcumu sanilmasi
+    // demekti; turler de esit degil (outlook 25, sharepoint 17).
     mountWith(inventory());
-    expect(await screen.findByText(/2026-09-05 [öo]l[çc][üu]m[üu]nden/)).toBeTruthy();
+    expect(await screen.findByText(/2026-09-08/)).toBeTruthy();
+    expect(screen.getByText(/outlook 25, sharepoint 17/)).toBeTruthy();
+  });
+
+  it("olculmemis tur varsa BUNU SOYLER", async () => {
+    // Ortalamaya dusulen bir kaydi olculmus gibi gostermek, eski hatanin
+    // (kayit basina sabit 23 arac) kucuk bir kopyasi olurdu.
+    mountWith(
+      inventory({
+        records: [record({ type: "jira", measured: false, tools: 21 })],
+        estimatedTools: 21,
+        unmeasuredCount: 1
+      })
+    );
+    expect(await screen.findByText(/hi[çc] [öo]l[çc][üu]lmedi/)).toBeTruthy();
+  });
+
+  it("olculmus turde uyari YOK", async () => {
+    mountWith(inventory());
+    await screen.findByText("Outlook");
+    expect(screen.queryByText(/hi[çc] [öo]l[çc][üu]lmedi/)).toBeNull();
+  });
+
+  it("kayit satirinda o kaydin arac sayisi yazar", async () => {
+    // Toplamin nereden geldigi ancak burada gorunuyor.
+    mountWith(inventory({ records: [record({ tools: 25, measured: true })] }));
+    expect(await screen.findByText("25 araç")).toBeTruthy();
   });
 
   it("BILINMIYOR durumunda sayi degil SEBEP yazar", async () => {

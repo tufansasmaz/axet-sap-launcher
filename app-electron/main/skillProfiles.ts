@@ -133,3 +133,39 @@ export function planSkills(profile: SkillProfile, tier: SystemTier | null): Skil
     return { name, writeCapable, blockedByTier: writeCapable && tier === "PRD" };
   });
 }
+
+/**
+ * Diskte duran ama ARTIK BU PROFİLE AİT OLMAYAN paket yetenekleri.
+ *
+ * NEDEN VAR (kullanıcı, 2026-09-08: *"iki danışmanda da aynı skiller yüklenir,
+ * danışman değişince skiller değişmiyor"*): kurulum bugüne kadar yalnızca
+ * profilin İSTEDİĞİ adlar üzerinde dönüyordu. Teknik danışmanla kurup modül
+ * danışmanına geçince `abap-code-checker`, `screen-gen` ve `abapgit-*` diskte
+ * kalıyor, üstüne `library-match` ekleniyordu — yani rol değiştirmek yetenek
+ * SETİNİ değiştirmiyor, sadece BÜYÜTÜYORDU. İki rolün farkı, bir kere ikisini
+ * de denemiş bir projede tamamen kayboluyor.
+ *
+ * Bu, kozmetik bir hata değil: kurulan bir skill'i ajan okuyor. "Kod yazmaz"
+ * diye seçilen modül danışmanının elinde ekran üreten bir skill duruyordu.
+ *
+ * ÜÇ KAPI, üçü de yanlış klasörü silmemek için:
+ *   1. Yalnızca `SKILL_CATALOG`'da adı geçenler — yani BİZİM paketimizden
+ *      çıkanlar. `.axet-code/skills` altındaki her klasör bizden gelmiyor;
+ *      kullanıcının elle koyduğu bir skill bizim işimiz değil.
+ *   2. Yalnızca yeni planda OLMAYANLAR.
+ *   3. Katalogdan kurulmuş kayıtlar hariç. Katalog, paketle aynı adı taşıyan
+ *      girdileri zaten `bundled` diye engelliyor (bkz. catalogSkills.ts), yani
+ *      bu kesişim normalde boş — ama kayıt dosyası "bu klasörü BİZ kurduk"
+ *      demenin tek yolu ve silme kararı ona rağmen verilmemeli.
+ */
+export function orphanedProfileSkills(
+  installedDirs: readonly string[],
+  plannedNames: readonly string[],
+  catalogNames: readonly string[] = []
+): string[] {
+  const planned = new Set(plannedNames);
+  const fromCatalog = new Set(catalogNames);
+  return installedDirs.filter(
+    (name) => Boolean(SKILL_CATALOG[name]) && !planned.has(name) && !fromCatalog.has(name)
+  );
+}

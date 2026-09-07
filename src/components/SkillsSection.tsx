@@ -7,7 +7,8 @@ import { btn } from "../ui/buttons";
 interface Props {
   /** Ayarlar formundaki (henüz kaydedilmemiş) rol. */
   profile: SkillProfile | null;
-  onProfileChange: (profile: SkillProfile) => void;
+  /** Rolü kaydeder; kayıt bittiğinde çözülür. */
+  onProfileChange: (profile: SkillProfile) => Promise<void> | void;
   /** O an açık proje klasörü; yoksa liste gösterilemez. */
   projectDir: string | null;
 }
@@ -81,6 +82,33 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
   };
 
   /**
+   * Rol seçimi KURULUMU DA YAPIYOR.
+   *
+   * Eskiden yalnızca ayarı kaydediyordu; diskteki yetenekler "Güncelle"ye
+   * basılana kadar eski rolün yetenekleriydi. Kullanıcı (2026-09-08):
+   * *"danışman değişince skiller değişmiyor"*. Ayarın kendisi değiştiği hâlde
+   * ajanın elindekinin değişmemesi, ekranın sessizce yanlış bilgi vermesiydi:
+   * "Modül danışmanı" yazan bir kutunun altında teknik danışmanın yetenekleri
+   * duruyordu.
+   *
+   * Sıra ŞART: önce rol diske yazılıyor (`await`), sonra kurulum. Ana süreçteki
+   * `skills:reinstall` rolü config'ten okuyor — ters sırada bir önceki rolü
+   * kurardı.
+   */
+  const chooseRole = async (id: SkillProfile) => {
+    if (busy || id === profile) return;
+    setBusy(true);
+    try {
+      await onProfileChange(id);
+      if (projectDir) setStatus(await window.api.reinstallSkills(projectDir, null));
+    } catch {
+      load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
    * Katalog kurulumu/kaldırması. Sonuç TAZE listeyi geri getiriyor, ama kurulu
    * yetenek rozetleri ayrı bir kaynaktan (`skills:status`) geliyor — o yüzden
    * ikisi birden tazeleniyor, yoksa çip listesi bir tur geride kalırdı.
@@ -116,8 +144,9 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
             <button
               key={id}
               type="button"
-              onClick={() => onProfileChange(id)}
-              className={`cursor-pointer rounded-[5px] px-3 py-1.5 text-sm font-medium transition ${
+              onClick={() => void chooseRole(id)}
+              disabled={busy}
+              className={`cursor-pointer rounded-[5px] px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 profile === id ? "bg-accent-500/25 text-white" : "text-slate-400 hover:text-slate-200"
               }`}
             >
@@ -127,7 +156,18 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
         </div>
         <p className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-500">
           <PencilLine size={12} className="mt-0.5 shrink-0" />
-          {t("skillsSection.roleHint")}
+          {busy ? t("skillsSection.roleApplying") : t("skillsSection.roleHint")}
+        </p>
+        {/* Seçili rolün NE DEMEK olduğu, seçim kutusunun hemen altında. Aynı
+            metin rol penceresinde de gösteriliyor; oradan sonra bir daha
+            görünmemesi, aylar sonra ayara dönen kişiyi rolün adıyla baş başa
+            bırakıyordu. */}
+        {profile && (
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">{t(`roleModal.roleDesc.${profile}`)}</p>
+        )}
+        <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--status-warning-text)]">
+          <AlertCircle size={12} className="mt-0.5 shrink-0" />
+          {t("skillsSection.roleWarning")}
         </p>
       </div>
 

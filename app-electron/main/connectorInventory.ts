@@ -4,10 +4,6 @@
 // Uygulama Bağlantıları ekranı bugüne kadar tek bir soruyu cevaplıyordu:
 // "Outlook bağlı mı?". Cevaplamadığı soru şuydu: bağlı olmasının bedeli ne.
 //
-// ÖLÇÜM (2026-09-05, connectorHealth.ts başlığında ayrıntısı):
-//   dört bağlayıcı kaydı = 92 araç ≈ tur başına 153.000 jeton.
-//   kayıtların bir kısmı yerelden kapatıldığında: 42 araç.
-//
 // Bu bedel HER TURDA ödeniyor ve model o araçları hiç çağırmasa bile ödeniyor
 // — araç TANIMLARI bağlama giriyor. Kullanıcının bunu görebileceği hiçbir yer
 // yoktu; portalde biriken tekrarlı kayıtlar sessizce her turu pahalılaştırıyor.
@@ -16,30 +12,58 @@
 // bloğundan (bkz. axetCodeLog.ts). Bu, hesaptaki kayıtların tam dökümü —
 // portale HİÇ istek atmadan (bkz. agenticConnectors.ts başlığı).
 //
-// TAHMİN OLDUĞU SÖYLENİYOR, ÇÜNKÜ TAHMİN. Günlük kayıt BAŞINA araç sayısı
-// YAZMIYOR — ne günlükte ne oturum veritabanında böyle bir alan var (2026-09-07
+// ARAÇ SAYISI ARTIK KAYIT BAŞINA DEĞİL, TÜR BAŞINA (2026-09-08).
+//
+// Önceki sürüm tek bir çapadan (dört kayıt = 92 araç) "kayıt başına 23 araç"
+// türetiyordu. İki ayrı yerden yanlıştı ve kullanıcı ikisini de gördü
+// (*"bağlayıcı maliyet kutusu 92 diyosun da bizde o kadar değil ki"*):
+//
+//   1. 92, o makinenin O GÜNKÜ portal durumuydu — kullanıcının kendi durumu
+//      değil. Dayanak satırında yazılı olması onu bir tahmin dayanağı yapmıyor,
+//      ekranda kendi sayısı sanılıyor.
+//   2. Kayıt başına araç sayısı SABİT DEĞİL: 2026-09-08'de bağlayıcı
+//      penceresinden (ctrl+b) okunan gerçek sayılar Outlook 25, SharePoint 17.
+//      Düzgün ortalama bile 46 derdi, doğrusu 42.
+//
+// Bu yüzden sayı artık kaydın TÜRÜNDEN geliyor ve türü ölçülmemiş bir kayıt
+// ortalamaya düşerken bunu ekranda söylüyor. Günlükte kayıt başına araç sayısı
+// yazmıyor — ne günlükte ne oturum veritabanında böyle bir alan var (2026-09-07
 // tarihinde canlı günlük tarandı; araçla ilgili tek sayısal alan
-// `tool_call_count`). Elimizdeki tek çapa yukarıdaki tek ölçüm, o yüzden
-// buradaki sayı ondan TÜRETİLİYOR ve arayüzde "≈" ile, ölçümün tarihiyle
-// birlikte gösteriliyor. Kayıt başına gerçek araç sayısını uyduran bir sütun
-// koymak, ölçülmemiş bir şeyi ölçülmüş gibi göstermek olurdu.
+// `tool_call_count`) — yani ölçüm, bağlayıcı penceresini elle okumaktan
+// geliyor ve yeni bir tür çıktığında bu tablo BÜYÜTÜLMELİ.
+//
+// Jeton tarafı hâlâ tek çapadan türetiliyor (2026-09-05: 92 araç ≈ 153.000
+// jeton → araç başına ~1.663) ve arayüzde "≈" ile gösteriliyor.
 // ---------------------------------------------------------------------------
 
 import { SYNC_TAIL, readLogTail } from "./axetCodeLog";
 import { locallyDisabledConnectors } from "./connectorHealth";
 import type { ConnectorInventory, ConnectorRecord } from "../shared/types";
 
-/** Ölçümün kendisi — türetilen her sayı buradan çıkıyor. */
+/** Bağlayıcı penceresinden (ctrl+b) elle okunan araç sayıları — TÜR başına. */
+const TOOLS_BY_TYPE: Record<string, number> = {
+  outlook: 25,
+  sharepoint: 17
+};
+
+/** Ölçüm çapası — türetilen her sayı buradan çıkıyor, arayüz de bunu yazıyor. */
 export const COST_ANCHOR = {
-  measuredAt: "2026-09-05",
-  records: 4,
-  tools: 92,
-  tokens: 153_000
+  measuredAt: "2026-09-08",
+  toolsByType: TOOLS_BY_TYPE,
+  /** Türü ölçülmemiş kayıt: ölçülenlerin ortalaması, yukarı yuvarlanmadan. */
+  fallbackTools: Math.round(
+    Object.values(TOOLS_BY_TYPE).reduce((sum, n) => sum + n, 0) / Object.keys(TOOLS_BY_TYPE).length
+  ),
+  tokensMeasuredAt: "2026-09-05",
+  /** 153.000 jeton / 92 araç. */
+  tokensPerTool: Math.round(153_000 / 92)
 } as const;
 
-/** Kayıt başına araç ve araç başına jeton — tek çapadan türetilmiş oranlar. */
-const TOOLS_PER_RECORD = COST_ANCHOR.tools / COST_ANCHOR.records;
-const TOKENS_PER_TOOL = COST_ANCHOR.tokens / COST_ANCHOR.tools;
+/** Bir kaydın araç sayısı ve bunun ÖLÇÜLMÜŞ mü tahmin mi olduğu. */
+function toolsFor(type: string): { tools: number; measured: boolean } {
+  const measured = TOOLS_BY_TYPE[type.toLowerCase()];
+  return measured === undefined ? { tools: COST_ANCHOR.fallbackTools, measured: false } : { tools: measured, measured: true };
+}
 
 /**
  * Günlüğün son senkronizasyon bloğundaki kayıtlar.
@@ -111,21 +135,35 @@ function parseResolvedLine(line: string): ConnectorRecord | null {
  */
 export function buildInventory(records: ConnectorRecord[] | null, disabledUuids: readonly string[]): ConnectorInventory {
   if (!records) {
-    return { known: false, records: [], activeCount: 0, estimatedTools: 0, estimatedTokens: 0, anchor: COST_ANCHOR };
+    return {
+      known: false,
+      records: [],
+      activeCount: 0,
+      estimatedTools: 0,
+      estimatedTokens: 0,
+      unmeasuredCount: 0,
+      anchor: COST_ANCHOR
+    };
   }
   const disabled = new Set(disabledUuids.map((x) => x.toLowerCase()));
   const merged = records.map((record) => ({
     ...record,
-    disabledInLog: record.disabledInLog || disabled.has(record.uuid)
+    disabledInLog: record.disabledInLog || disabled.has(record.uuid),
+    ...toolsFor(record.type)
   }));
-  const activeCount = merged.filter((record) => !record.disabledInLog).length;
-  const estimatedTools = Math.round(activeCount * TOOLS_PER_RECORD);
+  const active = merged.filter((record) => !record.disabledInLog);
+  // Toplam, kayıtların KENDİ sayılarından toplanıyor: tek bir ortalamayla
+  // çarpmak, 25 ile 17'yi aynı sayan eski hatanın ta kendisiydi.
+  const estimatedTools = active.reduce((sum, record) => sum + record.tools, 0);
   return {
     known: true,
     records: merged,
-    activeCount,
+    activeCount: active.length,
     estimatedTools,
-    estimatedTokens: Math.round(estimatedTools * TOKENS_PER_TOOL),
+    estimatedTokens: Math.round(estimatedTools * COST_ANCHOR.tokensPerTool),
+    // Yalnızca AÇIK kayıtlar: kapalı bir kaydın türünün ölçülmemiş olması
+    // ekrandaki sayıyı etkilemiyor, o hâlde uyarısı da çıkmamalı.
+    unmeasuredCount: active.filter((record) => !record.measured).length,
     anchor: COST_ANCHOR
   };
 }

@@ -116,7 +116,7 @@ export const en: Record<TranslationKey, string> = {
   "sapLogon.sapShcutNotFound": "sapshcut.exe not found. Make sure SAP GUI is installed or set its path in Settings.",
   "sapLogon.spawnError": "Could not open SAP GUI: {detail}",
 
-  "activityBar.axetCode": "axet.code",
+  "activityBar.axetCode": "Axet Chat",
   "activityBar.sapLauncher": "aXet SAP Logon",
   "activityBar.axetFlows": "axet.flows",
   "activityBar.axetFlowsLive": "axet.flows (Live)",
@@ -270,6 +270,9 @@ export const en: Record<TranslationKey, string> = {
 
   "settingsModal.sectionSkills": "AI skills",
   "skillsSection.roleLabel": "My role",
+  "skillsSection.roleApplying": "Reinstalling skills…",
+  "skillsSection.roleWarning":
+    "Pick the right role. The assistant can only use the skills installed here — the role decides what it is ABLE to do on a customer system. With Module consultant no system-writing skill is installed; with Technical consultant code checking, screen generation and abapGit are installed too.",
   "skillsSection.roleHint":
     "After changing the role, press Update below — the skills are only reinstalled then.",
   "skillsSection.noProject": "No project is open. Once you connect to a system, that project's skills are listed here.",
@@ -837,8 +840,13 @@ export const en: Record<TranslationKey, string> = {
   "connectorCost.title": "Cost per turn",
   "connectorCost.unknown":
     "Connector records could not be read — axet-code may not have run in this project yet, or a sync is in progress.",
-  "connectorCost.summary": "{records} active records ≈ {tools} tools ≈ ~{tokens} tokens per turn",
-  "connectorCost.basis": "Estimate derived from the {date} measurement: {records} records = {tools} tools ≈ {tokens} tokens.",
+  "connectorCost.summary": "{records} active records = {tools} tools ≈ ~{tokens} tokens per turn",
+  "connectorCost.basis":
+    "Tool counts were read from the connector dialog on {date} ({types}). Tokens are derived from the {tokenDate} measurement: ~{perTool} per tool.",
+  "connectorCost.unmeasured":
+    "{count} active records have a type that was never measured; the average of the measured ones ({fallback} tools) was used for them.",
+  "connectorCost.recordTools": "{tools} tools",
+  "connectorCost.recordToolsEstimate": "≈{tools} tools",
   "connectorCost.disabled": "off",
   "connectorCost.localHint":
     "To switch a record off on this machine only: in the chat terminal press ctrl+b → select the row → t. A record that is off loads no tools at all.",

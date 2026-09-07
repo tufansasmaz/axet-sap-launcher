@@ -975,7 +975,9 @@ export default function App() {
           <ReadinessHome
             projectDir={projectDir}
             skillProfile={config?.skillProfile ?? null}
-            onProfileChange={(profile) => void handleSaveConfig({ skillProfile: profile })}
+            // Söz GERİ VERİLİYOR: yetenek bölümü, rol diske yazıldıktan SONRA
+            // kurulumu tazeliyor. `void` ile atılsaydı kurulum eski rolü okurdu.
+            onProfileChange={(profile) => handleSaveConfig({ skillProfile: profile })}
             onDoctorReport={handleDoctorReport}
           />
         ) : (

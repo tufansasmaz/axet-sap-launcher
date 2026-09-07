@@ -85,19 +85,38 @@ describe("buildInventory", () => {
     expect(buildInventory([], []).estimatedTokens).toBe(0);
   });
 
-  it("acik kayitlarin bedelini olcum capasindan turetir", () => {
+  it("arac sayisi TUR basina, kayit basina degil", () => {
+    // Eski surum kayit basina sabit 23 arac sayiyordu ve 46 derdi; olculen
+    // gercek 25 + 17 = 42 (2026-09-08, ctrl+b baglayici penceresi).
     const inv = buildInventory(records, []);
     expect(inv.activeCount).toBe(2);
-    expect(inv.estimatedTools).toBe(46); // 92 arac / 4 kayit = 23
-    expect(inv.estimatedTokens).toBe(Math.round(46 * (COST_ANCHOR.tokens / COST_ANCHOR.tools)));
+    expect(inv.estimatedTools).toBe(42);
+    expect(inv.estimatedTokens).toBe(Math.round(42 * COST_ANCHOR.tokensPerTool));
+    expect(inv.unmeasuredCount).toBe(0);
   });
 
-  it("capanin kendi degerleri geri konuldugunda olcumu aynen verir", () => {
-    // Turetmenin dogrulugu: dort kayit, olculen 92 arac ve 153.000 jeton.
-    const four = [0, 1, 2, 3].map((i) => ({ ...records[0], uuid: `uuid-${i}` }));
-    const inv = buildInventory(four, []);
-    expect(inv.estimatedTools).toBe(COST_ANCHOR.tools);
-    expect(inv.estimatedTokens).toBe(COST_ANCHOR.tokens);
+  it("her kayit KENDI arac sayisini tasiyor", () => {
+    const inv = buildInventory(records, []);
+    expect(inv.records.map((r) => r.tools)).toEqual([25, 17]);
+    expect(inv.records.every((r) => r.measured)).toBe(true);
+  });
+
+  it("olculmemis tur ortalamaya duser ve BUNU SOYLER", () => {
+    // Sessizce bir sayi uydurmak, ekranda olculmus gibi gorunurdu.
+    const inv = buildInventory([{ ...records[0], type: "jira" }], []);
+    expect(inv.records[0].tools).toBe(COST_ANCHOR.fallbackTools);
+    expect(inv.records[0].measured).toBe(false);
+    expect(inv.unmeasuredCount).toBe(1);
+  });
+
+  it("KAPALI kaydin olculmemis turu uyari uretmez", () => {
+    // Sayiyi etkilemiyorsa uyarisi da cikmamali.
+    const inv = buildInventory([{ ...records[0], type: "jira", disabledInLog: true }], []);
+    expect(inv.unmeasuredCount).toBe(0);
+  });
+
+  it("tur buyuk harfle gelse de eslesir", () => {
+    expect(buildInventory([{ ...records[0], type: "Outlook" }], []).records[0].tools).toBe(25);
   });
 
   it("YEREL kapatma gunlugun uzerine biner", () => {
@@ -106,7 +125,7 @@ describe("buildInventory", () => {
     const inv = buildInventory(records, ["C32089B6-2367-4E46-A2DD-A7861AE2B5F1"]);
     expect(inv.records[0].disabledInLog).toBe(true);
     expect(inv.activeCount).toBe(1);
-    expect(inv.estimatedTools).toBe(23);
+    expect(inv.estimatedTools).toBe(17); // yalnizca sharepoint kaldi
   });
 
   it("gunlukte kapali gorunen kayit bedele girmez", () => {

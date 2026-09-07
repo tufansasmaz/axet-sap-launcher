@@ -10,10 +10,11 @@ import {
   writeFileSync
 } from "node:fs";
 import path from "node:path";
-import { enforceTierOnCatalog } from "./catalogSkills";
+import { enforceTierOnCatalog, readCatalogRecord } from "./catalogSkills";
 import {
   DEFAULT_PROFILE,
   SKILL_CATALOG,
+  orphanedProfileSkills,
   planSkills,
   type SkillProfile
 } from "./skillProfiles";
@@ -73,6 +74,8 @@ export function isSkillUpdateAvailable(projectDir: string, profile?: SkillProfil
 export interface SkillInstallResult {
   installed: string[];
   skipped: string[];
+  /** Rol değiştiği için KALDIRILAN paket yetenekleri. */
+  removed: string[];
   /** PRD kapısı yüzünden bilerek kurulmayanlar. */
   blockedByTier: string[];
   toolkitRoot: string | null;
@@ -98,6 +101,7 @@ export function installSkillsIntoProject(
   const result: SkillInstallResult = {
     installed: [],
     skipped: [],
+    removed: [],
     blockedByTier: [],
     toolkitRoot,
     profile,
@@ -109,7 +113,26 @@ export function installSkillsIntoProject(
   const destRoot = path.join(projectDir, ".axet-code", "skills");
   mkdirSync(destRoot, { recursive: true });
 
-  for (const entry of planSkills(profile, tier)) {
+  const plan = planSkills(profile, tier);
+
+  // ÖNCE TEMİZLİK, sonra kurulum. Rol değişince eski rolün yetenekleri diskte
+  // kalıyordu ve iki rol birbirinin üstüne birikiyordu (bkz.
+  // orphanedProfileSkills). Kurulumdan ÖNCE yapılıyor ki yarıda kalan bir
+  // kurulum bile en azından yanlış olanları kaldırmış olsun.
+  for (const name of orphanedProfileSkills(
+    listSkillDirs(destRoot),
+    plan.map((entry) => entry.name),
+    readCatalogRecord(projectDir).map((record) => record.name)
+  )) {
+    try {
+      rmSync(path.join(destRoot, name), { recursive: true, force: true });
+      result.removed.push(name);
+    } catch {
+      /* silinemeyen klasör kurulumu geçersiz kılmıyor; damgada görünür */
+    }
+  }
+
+  for (const entry of plan) {
     const dest = path.join(destRoot, entry.name);
 
     if (entry.blockedByTier) {
@@ -173,6 +196,18 @@ export function installSkillsIntoProject(
   }
 
   return result;
+}
+
+/** `<kök>` altındaki skill klasörleri — okunamıyorsa boş, çünkü boş liste hiçbir
+ *  şey SİLDİRMEZ (bkz. orphanedProfileSkills'in çağrıldığı yer). */
+function listSkillDirs(destRoot: string): string[] {
+  try {
+    return readdirSync(destRoot, { withFileTypes: true })
+      .filter((item) => item.isDirectory())
+      .map((item) => item.name);
+  } catch {
+    return [];
+  }
 }
 
 export function listInstalledSkills(projectDir: string): InstalledSkillInfo[] {

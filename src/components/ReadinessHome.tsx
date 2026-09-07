@@ -12,7 +12,9 @@ interface Props {
   skillProfile: SkillProfile | null;
   /** Teşhis sonucunu App'e taşır — kenar çubuğundaki arıza noktası bunu izliyor. */
   onDoctorReport?: (report: DoctorReport | null) => void;
-  onProfileChange: (profile: SkillProfile) => void;
+  /** Rolü KAYDEDER ve kayıt bitince çözülür — yetenek bölümü kurulumu buna
+   *  zincirliyor, yoksa kurulum bir önceki rolü okuyordu. */
+  onProfileChange: (profile: SkillProfile) => Promise<void> | void;
 }
 
 /**
@@ -53,29 +55,47 @@ export default function ReadinessHome({ projectDir, skillProfile, onProfileChang
         </div>
       </header>
 
-      {/* Tek sütun. İki sütuna bölmek denenebilirdi ama bölümlerin çoğu
-          (reçete formu, teşhis satırları, bağlam dosyası) dikey listeler ve
-          yan yana konduklarında satır uzunlukları okunmayacak kadar
-          kısalıyor. */}
+      {/* İKİ SÜTUN (kullanıcı isteği, 2026-09-08: *"full alt alta yapmışsın
+          olmamış"*). Tek sütun dört kartı 3.000 pikselden uzun bir şeride
+          diziyordu: en alttaki teşhis kartı, ekran ne kadar geniş olursa olsun
+          kaydırmadan görünmüyordu — yani "bu proje hazır mı?" sorusunun cevabı
+          tek bakışta okunamıyordu, ki bu ekranın tek işi o.
+
+          Sütunlar İÇERİĞE göre bölündü, sırayla değil: solda "ne verdim"
+          (reçete + yetenekler), sağda "ne gitti / makine taşıyor mu" (bağlam
+          + teşhis). Basit bir `grid` bunu yapamazdı, kartları sıraya göre
+          dağıtırdı; bu yüzden iki ayrı sütun elemanı var.
+
+          `items-start`: kartlar sütun boyuna GERİLMİYOR — gerildiklerinde
+          içeriği kısa olan kartın altında sebepsiz boşluk kalıyordu.
+
+          1100px altında tek sütuna düşüyor (`xl`), çünkü asıl sidebar (272px)
+          ve ray (48px) çıktıktan sonra iki sütun ancak orada nefes alıyor;
+          daha dar ekranda satır uzunlukları okunmayacak kadar kısalıyor. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 p-4">
-          <Card icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
-            <ProjectBriefSection projectDir={projectDir} />
-          </Card>
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-start gap-3 p-4 xl:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-3">
+            <Card icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
+              <ProjectBriefSection projectDir={projectDir} />
+            </Card>
 
-          <Card icon={Sparkles} title={t("settingsModal.sectionSkills")}>
-            <SkillsSection profile={skillProfile} onProfileChange={onProfileChange} projectDir={projectDir} />
-          </Card>
+            <Card icon={Sparkles} title={t("settingsModal.sectionSkills")}>
+              <SkillsSection profile={skillProfile} onProfileChange={onProfileChange} projectDir={projectDir} />
+            </Card>
+          </div>
 
-          {/* Üçüncü sıra bilerek: üstteki iki kart "ne verdim" tarafı, bu
-              kart "ne gitti" tarafı, sonuncusu "makine taşıyor mu". */}
-          <Card icon={Eye} title={t("readiness.sectionContext")}>
-            <SapContextSection projectDir={projectDir} />
-          </Card>
+          <div className="flex min-w-0 flex-col gap-3">
+            <Card icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>
+              <DoctorSection onReport={onDoctorReport} />
+            </Card>
 
-          <Card icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>
-            <DoctorSection onReport={onDoctorReport} />
-          </Card>
+            {/* Teşhis ÜSTTE: arıza noktası bu ekrana çağırıyorsa aranan şey o.
+                Bağlam dosyası altta, çünkü uzun ve okunmak için değil
+                doğrulanmak için açılıyor. */}
+            <Card icon={Eye} title={t("readiness.sectionContext")}>
+              <SapContextSection projectDir={projectDir} />
+            </Card>
+          </div>
         </div>
       </div>
     </div>

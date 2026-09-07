@@ -98,21 +98,75 @@ export default function ActivityBar({
       label: t("activityBar.sapGuiScripting"),
       color: "var(--module-guiscript)",
       render: () => <MousePointerClick size={17} />
-    },
-    {
-      id: "readiness",
-      label: readinessFault ? `${t("activityBar.readiness")} — ${t("activityBar.readinessFault")}` : t("activityBar.readiness"),
-      dot: readinessFault,
-      // Kimlik renkleri için YENİ BİR HUE UYDURULMADI. index.css'in tepesindeki
-      // palet sözleşmesinde dört anlam var (lime/mavi/mor/turuncu/kırmızı) ve
-      // bu ekran tam olarak "sistem, bilgi" ailesine düşüyor — ama SAP
-      // Launcher'ın doygun mavisiyle aynı rayda karışmaması gerekiyordu.
-      // `--navy-icon` bu yüzden seçildi: aynı mavi ailesinin nötr, çelik tonu,
-      // zaten "bunlardan biri değilim" demek için var (bkz. dişli düğmesi).
-      color: "var(--navy-icon)",
-      render: () => <Stethoscope size={17} />
     }
   ];
+
+  // Hazırlık, üst gruptan ALT gruba taşındı (kullanıcı isteği, 2026-09-08:
+  // *"bu hazırlık butonunu bağlantıların üstüne alalım"*). Üst grup "hangi
+  // modüldeyim" sorusuna cevap veriyor — Hazırlık ise bir modül değil, üç
+  // modülün de öncesinde bir kere bakılan hazırlık ekranı; fişle (Uygulama
+  // Bağlantıları) aynı cinsten. Yine de bir SEKME olduğu için aynı düğme
+  // gövdesiyle çiziliyor: seçili şeridi ve arıza noktası korunuyor, yoksa
+  // taşınırken sessizce bir "hangi ekrandayım" göstergesi kaybolurdu.
+  //
+  // Kimlik renkleri için YENİ BİR HUE UYDURULMADI. index.css'in tepesindeki
+  // palet sözleşmesinde dört anlam var (lime/mavi/mor/turuncu/kırmızı) ve bu
+  // ekran tam olarak "sistem, bilgi" ailesine düşüyor — ama SAP Launcher'ın
+  // doygun mavisiyle aynı rayda karışmaması gerekiyordu. `--navy-icon` bu
+  // yüzden seçildi: aynı mavi ailesinin nötr, çelik tonu, zaten "bunlardan
+  // biri değilim" demek için var (bkz. dişli düğmesi).
+  const readinessItem = {
+    id: "readiness" as Activity,
+    label: readinessFault
+      ? `${t("activityBar.readiness")} — ${t("activityBar.readinessFault")}`
+      : t("activityBar.readiness"),
+    dot: readinessFault,
+    color: "var(--navy-icon)",
+    render: () => <Stethoscope size={17} />
+  };
+
+  /** Sekme düğmesinin GÖVDESİ — iki grup da bunu çiziyor, çünkü Hazırlık alt
+   *  grupta duruyor ama hâlâ bir sekme (şerit + arıza noktası ona ait). */
+  const tabButton = (item: (typeof activities)[number]) => {
+    const isActive = activity === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => onChange(item.id)}
+        title={item.label}
+        className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-colors"
+      >
+        {/* Şerit PARLAK lime (`accent-500`), fonksiyonel ton değil:
+            kullanıcının "aktif navigation" için istediği yer tam burası
+            ve iki katmanlı lime kuralında küçük durum göstergesi parlak
+            tondan beslenir. İkon ise metin/ikon rolünde olduğu için
+            `accent-400`'de kalıyor. */}
+        <span
+          className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-500 transition-all ${
+            isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40"
+          }`}
+        />
+        <span
+          className={`${boxBase} ${
+            isActive ? "bg-accent-500/10 text-accent-400" : "opacity-70 group-hover:bg-hover/60 group-hover:opacity-100"
+          }`}
+          // Seçiliyken renk sınıftan (`text-accent-400`) geliyor, bu
+          // yüzden satır içi renk yalnızca seçili DEĞİLKEN veriliyor.
+          style={isActive ? undefined : { color: item.color }}
+        >
+          {item.render()}
+        </span>
+        {/* Arıza noktası. Kırmızı, çünkü palet sözleşmesinde kırmızının
+            tek anlamı "hata" (bkz. index.css) — ve bu nokta yalnızca
+            `fail` satırlarında çıktığı için gerçekten hata demek.
+            Konum/boyut fişin bağlı noktasıyla AYNI: aynı cinsten iki
+            gösterge şeridin iki ucunda farklı görünmemeli. */}
+        {item.dot && (
+          <span className="absolute right-2 top-2 h-2 w-2 rounded-full border border-line-subtle bg-[var(--status-danger-text)]" />
+        )}
+      </button>
+    );
+  };
 
   return (
     // Ray 56px DEĞİL 48px (kullanıcı isteği, 2026-09-06: "ilk rayı biraz daha
@@ -121,50 +175,7 @@ export default function ActivityBar({
     // açık kararıyla aynı kaldı. Kutular da 44 -> 40px; ikon boyu (17px) ve
     // içteki hover kutusu (32px) sabit, yani daralan şey yalnızca boşluk.
     <div className="flex w-12 shrink-0 flex-col items-center justify-between border-r border-line bg-sidebar py-2">
-      <div className="flex w-full flex-col items-center gap-1">
-        {activities.map((item) => {
-          const isActive = activity === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onChange(item.id)}
-              title={item.label}
-              className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-colors"
-            >
-              {/* Şerit PARLAK lime (`accent-500`), fonksiyonel ton değil:
-                  kullanıcının "aktif navigation" için istediği yer tam burası
-                  ve iki katmanlı lime kuralında küçük durum göstergesi parlak
-                  tondan beslenir. İkon ise metin/ikon rolünde olduğu için
-                  `accent-400`'de kalıyor. */}
-              <span
-                className={`absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-500 transition-all ${
-                  isActive ? "opacity-100" : "opacity-0 group-hover:opacity-40"
-                }`}
-              />
-              <span
-                className={`${boxBase} ${
-                  isActive
-                    ? "bg-accent-500/10 text-accent-400"
-                    : "opacity-70 group-hover:bg-hover/60 group-hover:opacity-100"
-                }`}
-                // Seçiliyken renk sınıftan (`text-accent-400`) geliyor, bu
-                // yüzden satır içi renk yalnızca seçili DEĞİLKEN veriliyor.
-                style={isActive ? undefined : { color: item.color }}
-              >
-                {item.render()}
-              </span>
-              {/* Arıza noktası. Kırmızı, çünkü palet sözleşmesinde kırmızının
-                  tek anlamı "hata" (bkz. index.css) — ve bu nokta yalnızca
-                  `fail` satırlarında çıktığı için gerçekten hata demek.
-                  Konum/boyut fişin bağlı noktasıyla AYNI: aynı cinsten iki
-                  gösterge şeridin iki ucunda farklı görünmemeli. */}
-              {item.dot && (
-                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border border-line-subtle bg-[var(--status-danger-text)]" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      <div className="flex w-full flex-col items-center gap-1">{activities.map(tabButton)}</div>
 
       {/* Alt grup butonları üsttekilerle AYNI kutu boyutunda (h-10 w-10) —
           bir ara h-11 idi, ray 48px'e inince ikisi birden küçüldü. Boyutun
@@ -215,6 +226,7 @@ export default function ActivityBar({
             Nokta artık accent DEĞİL, durum yeşili: bu bir seçim değil bir
             sağlık göstergesi ve accent yeşili uygulamanın her yerinde
             "seçili" demek. */}
+        {tabButton(readinessItem)}
         <button
           onClick={onOpenConnections}
           title={t("activityBar.connections")}

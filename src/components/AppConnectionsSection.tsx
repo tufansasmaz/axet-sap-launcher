@@ -573,6 +573,17 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
                   >
                     <span className="truncate font-medium">{record.displayName}</span>
                     {record.type && <span className="shrink-0 text-slate-600">{record.type}</span>}
+                    {/* Araç sayısı KAYIT BAŞINA yazılıyor: toplam sayının
+                        nereden geldiği ancak burada görülüyor ve türler eşit
+                        değil (Outlook 25, SharePoint 17). Ölçülmemiş bir tür
+                        "≈" ile ayrılıyor. */}
+                    {record.tools !== undefined && (
+                      <span className="shrink-0 text-slate-600">
+                        {t(record.measured ? "connectorCost.recordTools" : "connectorCost.recordToolsEstimate", {
+                          tools: record.tools
+                        })}
+                      </span>
+                    )}
                     {/* Kimliğin ilk sekiz hanesi: portalde aynı adı taşıyan
                         iki kaydı ayırt etmenin tek yolu bu. Tamamı `title`'da
                         değil çünkü orada URL var — o daha çok işe yarıyor. */}
@@ -588,12 +599,25 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
 
               {/* Tahminin dayanağı HER ZAMAN görünür. Gizlenmiş bir dayanak,
                   bu sayının ölçülmüş sanılması demekti. */}
+              {/* Ölçülmemiş tür varsa ÖNCE o söyleniyor: dayanak satırı
+                  "okundu" diyor, bu satır ise o okumanın bu kayıtları
+                  kapsamadığını. */}
+              {inventory.unmeasuredCount > 0 && (
+                <p className="mt-2 text-[10px] leading-relaxed text-[var(--status-warning-text)]">
+                  {t("connectorCost.unmeasured", {
+                    count: inventory.unmeasuredCount,
+                    fallback: inventory.anchor.fallbackTools
+                  })}
+                </p>
+              )}
               <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
                 {t("connectorCost.basis", {
                   date: inventory.anchor.measuredAt,
-                  records: inventory.anchor.records,
-                  tools: inventory.anchor.tools,
-                  tokens: inventory.anchor.tokens.toLocaleString(language)
+                  types: Object.entries(inventory.anchor.toolsByType)
+                    .map(([type, count]) => `${type} ${count}`)
+                    .join(", "),
+                  tokenDate: inventory.anchor.tokensMeasuredAt,
+                  perTool: inventory.anchor.tokensPerTool.toLocaleString(language)
                 })}
               </p>
               <p className="mt-1 text-[10px] leading-relaxed text-slate-600">{t("connectorCost.localHint")}</p>
