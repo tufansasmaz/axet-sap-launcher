@@ -252,6 +252,40 @@ interface PeerCertInfo {
   authorized: boolean;
   subjectCN: string | null;
   fingerprint: string;
+  /** Issuer == Subject. Kurulum kararının DAYANDIĞI alan — bkz. `trustCertInWindowsStore`. */
+  selfSigned: boolean;
+  issuerCN: string | null;
+}
+
+/** DN nesnesini karşılaştırılabilir tek bir dizeye indirger (anahtar sırası garanti değil). */
+function dnString(dn: Record<string, unknown> | undefined | null): string {
+  if (!dn) return "";
+  return Object.keys(dn)
+    .sort()
+    .map((k) => `${k}=${Array.isArray(dn[k]) ? (dn[k] as unknown[]).join("+") : String(dn[k])}`)
+    .join(",");
+}
+
+function firstCN(dn: Record<string, unknown> | undefined | null): string | null {
+  const cn = dn?.CN;
+  if (Array.isArray(cn)) return (cn[0] as string) ?? null;
+  return (cn as string) ?? null;
+}
+
+/** Ham peer sertifikasından karar için gereken alanları çıkarır. Sertifika yoksa null. */
+function describeCert(cert: { raw?: Buffer; subject?: Record<string, unknown>; issuer?: Record<string, unknown> } | null, authorized: boolean): PeerCertInfo | null {
+  if (!cert || !cert.raw) return null;
+  const b64 = cert.raw.toString("base64");
+  const subject = dnString(cert.subject);
+  const issuer = dnString(cert.issuer);
+  return {
+    pem: `-----BEGIN CERTIFICATE-----\n${b64.match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----\n`,
+    authorized,
+    subjectCN: firstCN(cert.subject),
+    issuerCN: firstCN(cert.issuer),
+    fingerprint: createHash("sha256").update(cert.raw).digest("hex"),
+    selfSigned: subject !== "" && subject === issuer
+  };
 }
 
 function getPeerCertPem(host: string, port: number, timeoutMs = 5000, routerString?: string | null): Promise<PeerCertInfo | null> {
@@ -268,17 +302,7 @@ function getPeerCertPem(host: string, port: number, timeoutMs = 5000, routerStri
         servername: sniFor(host)
       },
       () => {
-        const cert = socket.getPeerCertificate();
-        if (!cert || !cert.raw) {
-          socket.end();
-          resolve(null);
-          return;
-        }
-        const b64 = cert.raw.toString("base64");
-        const pem = `-----BEGIN CERTIFICATE-----\n${b64.match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----\n`;
-        const cn = cert.subject?.CN;
-        const fingerprint = createHash("sha256").update(cert.raw).digest("hex");
-        resolve({ pem, authorized: socket.authorized, subjectCN: Array.isArray(cn) ? cn[0] ?? null : cn ?? null, fingerprint });
+        resolve(describeCert(socket.getPeerCertificate(), socket.authorized));
         socket.end();
       }
     );
@@ -298,23 +322,26 @@ async function getPeerCertPemThroughRouter(
 ): Promise<PeerCertInfo | null> {
   try {
     const socket = await tlsConnectThroughRouter(routerString, host, port, timeoutMs);
-    const cert = socket.getPeerCertificate();
-    if (!cert || !cert.raw) {
-      socket.destroy();
-      return null;
-    }
-    const b64 = cert.raw.toString("base64");
-    const pem = `-----BEGIN CERTIFICATE-----\n${b64.match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----\n`;
-    const cn = cert.subject?.CN;
-    const fingerprint = createHash("sha256").update(cert.raw).digest("hex");
-    const authorized = socket.authorized;
+    // authorized soketi kapatmadan ÖNCE okunmalı.
+    const info = describeCert(socket.getPeerCertificate(), socket.authorized);
     socket.destroy();
-    return { pem, authorized, subjectCN: Array.isArray(cn) ? cn[0] ?? null : cn ?? null, fingerprint };
+    return info;
   } catch {
     return null;
   }
 }
 
+/**
+ * Sertifikayı Windows KULLANICI "Trusted Root" deposuna kurar.
+ *
+ * Etki alanı bu uygulamayla sınırlı DEĞİL: aynı depoyu Chromium, .NET ve
+ * `-Declipse.platform.mergeTrust=true` ile çalışan Eclipse/Java da okur. Yani buraya
+ * yazılan her sertifika, kullanıcının bütün araçlarında kök otorite hâline gelir.
+ * Bu yüzden çağrı yeri yalnızca KENDİNDEN İMZALI sertifikalara izin verir
+ * (bkz. `PeerCertInfo.selfSigned`) — handshake `rejectUnauthorized: false` ile
+ * yapıldığından, o filtre olmadan araya giren bir proxy'nin sahte sertifikası da
+ * buraya girebilirdi.
+ */
 function trustCertInWindowsStore(pem: string): boolean {
   if (process.platform !== "win32") return false;
   const tmpFile = path.join(os.tmpdir(), `axet-sap-cert-${Date.now()}.cer`);
@@ -462,6 +489,15 @@ export async function discoverAdtEndpoint(
   const certInfo = await getPeerCertPem(chosen.host, chosen.port, undefined, routerString);
   if (certInfo && trustedCertificates[certKey] === certInfo.fingerprint) {
     notes.push("Sertifika daha önce zaten güvenilir listesine eklenmiş, tekrar kurulmuyor.");
+  } else if (certInfo && !certInfo.authorized && !certInfo.selfSigned) {
+    // Güvenilmeyen AMA kendinden imzalı OLMAYAN sertifika = araya giren bir taraf.
+    // Kendi barındırılan bir SAP sunucusunun sertifikası kendinden imzalıdır (Issuer == Subject);
+    // kurumsal bir MITM proxy'sinin ürettiği sahte sertifika ise kurumun CA'sı tarafından imzalanır.
+    // Böyle bir sertifikayı köke kurmak, proxy'nin ürettiği HER sahte sertifikayı güvenilir yapar.
+    notes.push(
+      `Sertifika güvenilir değil ve kendinden imzalı da değil (CN=${certInfo.subjectCN ?? "?"}, veren=${certInfo.issuerCN ?? "?"}) — ` +
+        "araya giren bir proxy'ye işaret ediyor, trust store'a EKLENMEDİ. Ağ ayarlarını kontrol edin."
+    );
   } else if (certInfo && !certInfo.authorized) {
     notes.push(`Sertifika sistem tarafından güvenilir değil (CN=${certInfo.subjectCN ?? "?"}) — kullanıcı trust store'una ekleniyor.`);
     const trusted = trustCertInWindowsStore(certInfo.pem);
