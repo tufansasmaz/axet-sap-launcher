@@ -1,9 +1,10 @@
 import type { LucideIcon } from "lucide-react";
-import { ClipboardList, Sparkles, Stethoscope } from "lucide-react";
+import { ClipboardList, Eye, Sparkles, Stethoscope } from "lucide-react";
 import type { DoctorReport, SkillProfile } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import DoctorSection from "./DoctorSection";
 import ProjectBriefSection from "./ProjectBriefSection";
+import SapContextSection from "./SapContextSection";
 import SkillsSection from "./SkillsSection";
 
 interface Props {
@@ -15,9 +16,10 @@ interface Props {
 }
 
 /**
- * "Hazırlık" ekranı — bir turun BAŞLAMADAN ÖNCE doğru olması gereken üç şey
- * tek yerde: ajan neyi bilecek (proje reçetesi), neyi yapabilecek (yetenek
- * profili), ve makine bunları taşıyabiliyor mu (ortam teşhisi).
+ * "Hazırlık" ekranı — bir turun BAŞLAMADAN ÖNCE doğru olması gerekenler tek
+ * yerde: ajan neyi bilecek (proje reçetesi), neyi yapabilecek (yetenek
+ * profili), bunlar ona NASIL göründü (sap-context.md), ve makine hepsini
+ * taşıyabiliyor mu (ortam teşhisi).
  *
  * Üçü de önce Ayarlar'ın içindeydi ve orada bulunamıyordu (kullanıcı,
  * 2026-09-07: *"ekranlar nerde hacı"*). Sebebi yerleşim değil sınıflandırma
@@ -51,9 +53,10 @@ export default function ReadinessHome({ projectDir, skillProfile, onProfileChang
         </div>
       </header>
 
-      {/* Tek sütun. İki sütuna bölmek denenebilirdi ama üç bölümün ikisi
-          (reçete formu, teşhis satırları) dikey listeler ve yan yana
-          konduklarında satır uzunlukları okunmayacak kadar kısalıyor. */}
+      {/* Tek sütun. İki sütuna bölmek denenebilirdi ama bölümlerin çoğu
+          (reçete formu, teşhis satırları, bağlam dosyası) dikey listeler ve
+          yan yana konduklarında satır uzunlukları okunmayacak kadar
+          kısalıyor. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 p-4">
           <Card icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
@@ -62,6 +65,12 @@ export default function ReadinessHome({ projectDir, skillProfile, onProfileChang
 
           <Card icon={Sparkles} title={t("settingsModal.sectionSkills")}>
             <SkillsSection profile={skillProfile} onProfileChange={onProfileChange} projectDir={projectDir} />
+          </Card>
+
+          {/* Üçüncü sıra bilerek: üstteki iki kart "ne verdim" tarafı, bu
+              kart "ne gitti" tarafı, sonuncusu "makine taşıyor mu". */}
+          <Card icon={Eye} title={t("readiness.sectionContext")}>
+            <SapContextSection projectDir={projectDir} />
           </Card>
 
           <Card icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>

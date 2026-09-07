@@ -10,6 +10,7 @@ import { connectToSystem, computeProjectDir } from "./launcher";
 import { planSkills } from "./skillProfiles";
 import { installMissingPackages, runDoctor } from "./doctor";
 import { emptyBrief, readProjectBrief, writeProjectBrief } from "./projectBrief";
+import { emptyPreview, readSapContext } from "./sapContextFile";
 import {
   installSkillsIntoProject,
   isSkillUpdateAvailable,
@@ -62,7 +63,7 @@ import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
-import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -508,6 +509,14 @@ function registerIpc(): void {
   ipcMain.handle("projectBrief:save", (_event, projectDir: string, brief: ProjectBrief): ProjectBrief => {
     if (!projectDir) return emptyBrief();
     return writeProjectBrief(projectDir, brief);
+  });
+
+  // Ajanın gördüğü bağlam dosyası. Yol renderer'dan GELMİYOR: proje klasörü +
+  // sabit dosya adı. Gezginin izinli-kök kontrolüne gerek kalmamasının sebebi
+  // bu — buradan başka bir dosya okunamaz.
+  ipcMain.handle("sapContext:get", (_event, projectDir: string): SapContextPreview => {
+    if (!projectDir) return emptyPreview("");
+    return readSapContext(projectDir);
   });
 
   ipcMain.handle("systemComments:set", (_event, serviceUuid: string, comment: string) => {

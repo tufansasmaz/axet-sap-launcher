@@ -45,6 +45,7 @@ import type {
   ConnectorTestResult,
   DoctorReport,
   ProjectBrief,
+  SapContextPreview,
   SapService,
   SapLogonOpenResult,
   SkillPlanEntry,
@@ -98,6 +99,8 @@ const api = {
     ipcRenderer.invoke("doctor:install", packages),
   getProjectBrief: (projectDir: string): Promise<ProjectBrief> =>
     ipcRenderer.invoke("projectBrief:get", projectDir),
+  getSapContext: (projectDir: string): Promise<SapContextPreview> =>
+    ipcRenderer.invoke("sapContext:get", projectDir),
   saveProjectBrief: (projectDir: string, brief: ProjectBrief): Promise<ProjectBrief> =>
     ipcRenderer.invoke("projectBrief:save", projectDir, brief),
   getSystemCommentDefault: (serviceUuid: string): Promise<SystemCommentDefaults> => ipcRenderer.invoke("systemComment:getDefault", serviceUuid),

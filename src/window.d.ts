@@ -58,6 +58,7 @@ import type {
   ConnectorTestResult,
   DoctorReport,
   ProjectBrief,
+  SapContextPreview,
   SapLandscape,
   SapService,
   SapLogonOpenResult,
@@ -102,6 +103,7 @@ export interface AxetApi {
   installPythonPackages: (packages: string[]) => Promise<{ ok: boolean; output: string }>;
   getProjectBrief: (projectDir: string) => Promise<ProjectBrief>;
   saveProjectBrief: (projectDir: string, brief: ProjectBrief) => Promise<ProjectBrief>;
+  getSapContext: (projectDir: string) => Promise<SapContextPreview>;
   getSystemCommentDefault: (serviceUuid: string) => Promise<SystemCommentDefaults>;
   openInSapLogon: (service: SapService) => Promise<SapLogonOpenResult>;
   windowMinimize: () => Promise<void>;

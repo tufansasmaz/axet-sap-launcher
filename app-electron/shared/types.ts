@@ -134,6 +134,21 @@ export interface ProjectBrief {
   savedAt: string | null;
 }
 
+/** `sap-context.md` önizlemesi — ajanın SAP tarafında gördüğü tek dosya. */
+export interface SapContextPreview {
+  /** Dosya var mı — yoksa "henüz bağlanılmadı" demek, hata değil. */
+  exists: boolean;
+  path: string;
+  content: string;
+  /** İçerik önizleme sınırına kırpıldıysa true. */
+  truncated: boolean;
+  modifiedAt: string | null;
+  /** Kırpılmamış metnin satır sayısı. */
+  lineCount: number;
+  /** Notlar işaretçisinden sonra kullanıcının kendi yazdığı bir şey var mı. */
+  hasUserNotes: boolean;
+}
+
 /** Ortam Hazırlık ekranının satır durumu. */
 export type DoctorStatus = "ok" | "warn" | "fail" | "info" | "unknown";
 
