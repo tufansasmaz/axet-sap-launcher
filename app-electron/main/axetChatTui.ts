@@ -559,6 +559,19 @@ function waitForAny(session: TuiSession, needles: string[], timeoutMs: number): 
 
 function feed(session: TuiSession, data: string): void {
   session.screen = (session.screen + stripAnsi(data)).slice(-64_000);
+  // Pankart TAM BURADA aranıyor, `handshake` içinde değil.
+  //
+  // Ölçüm (2026-09-07): axet-code pankartı "Select Tool" diyaloğu ekrandayken
+  // basıyor. `handshake` ise her diyalog adımında `session.screen = ""` yapıyor
+  // ve ancak READY işaretinde bakıyordu — yani pankart, ona bakmamızdan önce
+  // silinen tampondaydı. Sonuç: `axetCodeLatestSeen` config'te boş kaldı ve
+  // 1.2.3 -> 1.3.0 duyurusu açılış ekranında hiç görünmedi.
+  //
+  // `feed` her veri parçasında çalışıyor, o yüzden tarama iki kez sınırlanıyor:
+  // oturum hazır olduktan sonra hiç bakılmıyor (pankart bir AÇILIŞ çıktısı) ve
+  // 64 KB'lik tamponun tamamı değil yalnızca ucu taranıyor. Uç, parçalar
+  // arasında bölünen bir satırı da kapsayacak kadar geniş.
+  if (!session.ready) detectUpdateAvailable(session.screen.slice(-4_000));
   if (!session.waiters.length) return;
   const remaining: Waiter[] = [];
   for (const waiter of session.waiters) {

@@ -56,6 +56,11 @@ import { useT } from "../i18n";
 const PREWARM_DEBOUNCE_MS = 500;
 /** Bir sohbet açıldıktan ne kadar sonra oturumu ısıtmaya başlayalım. */
 const CHAT_OPEN_PREWARM_MS = 1_500;
+// axet-code güncelleme duyurusu için yoklama aralığı. Duyuru bulunana kadar
+// çalışıp sonra duruyor; bulunmadığı sürece yaptığı tek şey bir config okuması.
+// Yirmi saniye, ilk oturumun açılıp pankartı bize göstermesine yetiyor ve
+// kullanıcıyı ekranı yenilemeye zorlamıyor.
+const AXET_UPDATE_POLL_MS = 20_000;
 
 // Bir düzenlemenin geri alınması için gereken HER ŞEY: kesilen mesajlar ve
 // composer'ın o andaki hâli. Yalnızca mesajları saklamak yetmezdi — geri
@@ -2101,18 +2106,38 @@ export default function AxetCodeHome({
 
   const greeting = useMemo(greetingKey, []);
 
-  // axet-code'un güncelleme duyurusu. Bir kez, açılışta soruluyor: değer
-  // config'ten geliyor (bkz. axetChatTui.ts `detectUpdateAvailable`), yani
-  // uygulama daha hiç oturum açmamışken de dolu. Ana süreç ayrıca kurulu
-  // sürümü sondalayıp güncelleme yapılmışsa `null` döndürüyor, o yüzden burada
-  // karşılaştırma yok.
+  // axet-code'un güncelleme duyurusu. Değer config'ten geliyor (bkz.
+  // axetChatTui.ts `detectUpdateAvailable`), yani uygulama daha hiç oturum
+  // açmamışken de dolu olabiliyor. Ana süreç ayrıca kurulu sürümü sondalayıp
+  // güncelleme yapılmışsa `null` döndürüyor, o yüzden burada karşılaştırma yok.
+  //
+  // DUYURU GELENE KADAR yokluyor, sonra duruyor. Tek seferlik sorma yetmiyordu:
+  // pankartı ancak bir axet-code oturumu açılınca görüyoruz, oysa bu ekran ondan
+  // çok önce kuruluyor. İlk kurulumda config boş olduğu için uyarı hiç
+  // görünmüyor, ancak uygulama bir dahaki açılışta çıkıyordu — kullanıcı da
+  // haklı olarak *"mesajı göremiyorum"* dedi (2026-09-07).
+  //
+  // Yoklama BEDAVA: duyuru yokken `axetUpdateAvailable` config'i okuyup dönüyor,
+  // hiçbir süreç açmıyor. Duyuru bulunduğu an aralık iptal ediliyor.
   const [axetUpdate, setAxetUpdate] = useState<{ installed: string; latest: string } | null>(null);
   useEffect(() => {
-    window.api
-      .axetUpdateAvailable()
-      .then(setAxetUpdate)
-      .catch(() => {});
-  }, []);
+    if (axetUpdate) return;
+    let done = false;
+    const ask = () => {
+      window.api
+        .axetUpdateAvailable()
+        .then((found) => {
+          if (!done) setAxetUpdate(found);
+        })
+        .catch(() => {});
+    };
+    ask();
+    const timer = setInterval(ask, AXET_UPDATE_POLL_MS);
+    return () => {
+      done = true;
+      clearInterval(timer);
+    };
+  }, [axetUpdate]);
 
   // Havuzdan bu turun üç kartı. Bağımlılıklar bilerek dar: kullanıcı "yeni
   // sohbet"e basmadıkça (tohum) ya da bağlam gerçekten değişmedikçe (SAP
