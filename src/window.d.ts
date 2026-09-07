@@ -57,6 +57,7 @@ import type {
   ConnectorProvider,
   ConnectorTestResult,
   DoctorReport,
+  ProjectBrief,
   SapLandscape,
   SapService,
   SapLogonOpenResult,
@@ -99,6 +100,8 @@ export interface AxetApi {
   reinstallSkills: (projectDir: string, serviceUuid: string | null) => Promise<SkillStatus>;
   runDoctor: () => Promise<DoctorReport>;
   installPythonPackages: (packages: string[]) => Promise<{ ok: boolean; output: string }>;
+  getProjectBrief: (projectDir: string) => Promise<ProjectBrief>;
+  saveProjectBrief: (projectDir: string, brief: ProjectBrief) => Promise<ProjectBrief>;
   getSystemCommentDefault: (serviceUuid: string) => Promise<SystemCommentDefaults>;
   openInSapLogon: (service: SapService) => Promise<SapLogonOpenResult>;
   windowMinimize: () => Promise<void>;

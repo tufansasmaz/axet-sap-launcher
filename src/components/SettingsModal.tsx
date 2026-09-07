@@ -13,6 +13,7 @@ import {
   Wrench,
   Database,
   ChevronRight,
+  ClipboardList,
   Terminal,
   Sparkles,
   Stethoscope,
@@ -21,6 +22,7 @@ import {
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
 import ConfirmDialog from "./ConfirmDialog";
 import DoctorSection from "./DoctorSection";
+import ProjectBriefSection from "./ProjectBriefSection";
 import SkillsSection from "./SkillsSection";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
@@ -434,6 +436,13 @@ export default function SettingsModal({
               onProfileChange={(profile) => setForm({ ...form, skillProfile: profile })}
               projectDir={projectDir}
             />
+          </Section>
+
+          {/* Proje reçetesi: sistemin SAP'tan okunamayan yarısı. Boş bırakılan
+              alan dosyadan düşmüyor, `[BİLİNMİYOR]` olarak yazılıyor — ajan
+              böylece tahmin etmek yerine soruyor. */}
+          <Section icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
+            <ProjectBriefSection projectDir={projectDir} />
           </Section>
 
           {/* Ortam Hazırlık: Python, pip paketleri, ADT sunucusu, RFC köprüsü.

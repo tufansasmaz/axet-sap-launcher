@@ -280,6 +280,24 @@ export const en: Record<TranslationKey, string> = {
   "skillsSection.empty": "No skills installed in this project.",
   "skillsSection.unknownHint": "This folder was not installed by the app; it may have been added by hand.",
 
+  // --- Project brief ---
+  "settingsModal.sectionProjectBrief": "Project brief",
+  "projectBrief.hint":
+    "The app already knows the system details; these it cannot know. Any field you leave empty is written into the assistant's file as [BİLİNMİYOR] — the assistant then asks you instead of guessing.",
+  "projectBrief.noProject": "No project is open. Once you connect to a system the brief can be filled in here.",
+  "projectBrief.placeholder": "Leave empty and the assistant will ask",
+  "projectBrief.save": "Save",
+  "projectBrief.emptyCount": "{count} field(s) empty — the assistant will ask you about them.",
+  "projectBrief.allFilled": "All fields filled.",
+  "projectBrief.label.customer": "Customer / project",
+  "projectBrief.label.modules": "SAP modules",
+  "projectBrief.label.packageName": "Development package",
+  "projectBrief.label.transport": "Transport request",
+  "projectBrief.label.goal": "Goal",
+  "projectBrief.label.outOfScope": "Out of scope",
+  "projectBrief.label.contact": "Who to ask",
+  "projectBrief.label.constraints": "Constraints / rules",
+
   // --- Environment readiness (Doctor) ---
   "settingsModal.sectionDoctor": "Environment readiness",
   "doctorSection.hint": "Everything the SAP side needs is checked here, one by one.",

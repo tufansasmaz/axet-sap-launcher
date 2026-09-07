@@ -10,6 +10,7 @@ import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
 import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
+import { syncBriefIntoContext } from "./projectBrief";
 import { mt } from "./i18n";
 
 const NOTES_MARKER = "<!-- axet-sap-launcher:notes -->";
@@ -1112,6 +1113,11 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
 
   try {
     writeFileSync(contextFile, finalContent, "utf-8");
+    // Reçete bloğu yeniden üretilen dosyaya geri basılıyor: reçete ayrı bir
+    // dosyada (project-brief.json) duruyor ama sap-context.md her bağlanışta
+    // sıfırdan yazıldığı için yansıması burada tazelenmezse ikinci bağlanışta
+    // kaybolurdu.
+    syncBriefIntoContext(projectDir);
   } catch (err) {
     return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "contextWriteFailed", { error: (err as Error).message }) };
   }

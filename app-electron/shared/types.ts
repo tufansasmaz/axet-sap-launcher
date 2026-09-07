@@ -103,6 +103,37 @@ export interface SkillStatus {
   updateAvailable: boolean;
 }
 
+/**
+ * Proje reçetesi — uygulamanın SAP'a bakarak ÖĞRENEMEYECEĞİ şeyler.
+ *
+ * Sistem kimliği, host, client, ADT adresi bağlanma sırasında zaten
+ * keşfediliyor. Ama "bu işin amacı ne", "hangi pakete yazılacak", "kime
+ * sorulacak" hiçbir keşifle bulunamaz — ve ajan bunları bilmediğinde
+ * SORMUYOR, TAHMİN EDİYOR. Boş bırakılan alan `sap-context.md`'ye
+ * `[BİLİNMİYOR]` olarak yazılıyor; ajan için bu, doldurulmuş bir alandan
+ * daha değerli çünkü tahmin etmeyi değil sormayı söylüyor.
+ */
+export interface ProjectBrief {
+  /** Müşteri / proje adı. */
+  customer: string;
+  /** İlgili SAP modülleri (MM, SD, FI...). */
+  modules: string;
+  /** Geliştirme paketi — ASLA tahmin edilmez, sorulur. */
+  packageName: string;
+  /** Taşıma isteği (transport). */
+  transport: string;
+  /** Bu projede ulaşılmak istenen sonuç. */
+  goal: string;
+  /** Kapsam dışı bırakılanlar. */
+  outOfScope: string;
+  /** Takılınca danışılacak kişi. */
+  contact: string;
+  /** Müşteriye özel kısıtlar/kurallar. */
+  constraints: string;
+  /** Son kaydetme zamanı (ISO); hiç kaydedilmediyse null. */
+  savedAt: string | null;
+}
+
 /** Ortam Hazırlık ekranının satır durumu. */
 export type DoctorStatus = "ok" | "warn" | "fail" | "info" | "unknown";
 

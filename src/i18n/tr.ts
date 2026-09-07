@@ -333,6 +333,24 @@ export const tr = {
   "skillsSection.empty": "Bu projede kurulu yetenek yok.",
   "skillsSection.unknownHint": "Bu klasörü uygulama kurmadı; elle eklenmiş olabilir.",
 
+  // --- Proje reçetesi ---
+  "settingsModal.sectionProjectBrief": "Proje reçetesi",
+  "projectBrief.hint":
+    "Sistem bilgilerini uygulama zaten biliyor; buradakiler bilinemez. Boş bıraktığın alan asistanın dosyasına [BİLİNMİYOR] olarak yazılır — asistan o alanı tahmin etmek yerine sana sorar.",
+  "projectBrief.noProject": "Açık bir proje yok. Bir sisteme bağlandığında reçete burada doldurulabilir.",
+  "projectBrief.placeholder": "Boş bırakırsan asistan sorar",
+  "projectBrief.save": "Kaydet",
+  "projectBrief.emptyCount": "{count} alan boş — asistan bunları sana soracak.",
+  "projectBrief.allFilled": "Tüm alanlar dolu.",
+  "projectBrief.label.customer": "Müşteri / proje",
+  "projectBrief.label.modules": "SAP modülleri",
+  "projectBrief.label.packageName": "Geliştirme paketi",
+  "projectBrief.label.transport": "Taşıma isteği",
+  "projectBrief.label.goal": "Hedef",
+  "projectBrief.label.outOfScope": "Kapsam dışı",
+  "projectBrief.label.contact": "Danışılacak kişi",
+  "projectBrief.label.constraints": "Kısıtlar / kurallar",
+
   // --- Ortam Hazırlık (Doctor) ---
   "settingsModal.sectionDoctor": "Ortam hazırlık",
   "doctorSection.hint": "SAP tarafının çalışması için gereken her şey burada tek tek denenir.",

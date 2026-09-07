@@ -44,6 +44,7 @@ import type {
   ConnectorProvider,
   ConnectorTestResult,
   DoctorReport,
+  ProjectBrief,
   SapService,
   SapLogonOpenResult,
   SkillPlanEntry,
@@ -95,6 +96,10 @@ const api = {
   runDoctor: (): Promise<DoctorReport> => ipcRenderer.invoke("doctor:run"),
   installPythonPackages: (packages: string[]): Promise<{ ok: boolean; output: string }> =>
     ipcRenderer.invoke("doctor:install", packages),
+  getProjectBrief: (projectDir: string): Promise<ProjectBrief> =>
+    ipcRenderer.invoke("projectBrief:get", projectDir),
+  saveProjectBrief: (projectDir: string, brief: ProjectBrief): Promise<ProjectBrief> =>
+    ipcRenderer.invoke("projectBrief:save", projectDir, brief),
   getSystemCommentDefault: (serviceUuid: string): Promise<SystemCommentDefaults> => ipcRenderer.invoke("systemComment:getDefault", serviceUuid),
   openInSapLogon: (service: SapService): Promise<SapLogonOpenResult> => ipcRenderer.invoke("sapLogon:open", service),
   windowMinimize: () => ipcRenderer.invoke("window:minimize"),

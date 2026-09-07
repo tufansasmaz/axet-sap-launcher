@@ -9,6 +9,7 @@ import { checkConnectivity } from "./connectivity";
 import { connectToSystem, computeProjectDir } from "./launcher";
 import { planSkills } from "./skillProfiles";
 import { installMissingPackages, runDoctor } from "./doctor";
+import { emptyBrief, readProjectBrief, writeProjectBrief } from "./projectBrief";
 import {
   installSkillsIntoProject,
   isSkillUpdateAvailable,
@@ -61,7 +62,7 @@ import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
-import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -493,6 +494,20 @@ function registerIpc(): void {
 
   ipcMain.handle("doctor:install", (_event, packages: string[]) => {
     return installMissingPackages(Array.isArray(packages) ? packages : []);
+  });
+
+  // Proje reçetesi. Okuma bir dosya okuması kadar ucuz, kaydetme ise iki
+  // dosyaya birden yazıyor (reçetenin kendisi + sap-context.md'deki yansıma) —
+  // ikisi tek çağrıda, yoksa kaydedilmiş ama ajana hiç ulaşmamış bir reçete
+  // mümkün olurdu.
+  ipcMain.handle("projectBrief:get", (_event, projectDir: string): ProjectBrief => {
+    if (!projectDir) return emptyBrief();
+    return readProjectBrief(projectDir);
+  });
+
+  ipcMain.handle("projectBrief:save", (_event, projectDir: string, brief: ProjectBrief): ProjectBrief => {
+    if (!projectDir) return emptyBrief();
+    return writeProjectBrief(projectDir, brief);
   });
 
   ipcMain.handle("systemComments:set", (_event, serviceUuid: string, comment: string) => {
