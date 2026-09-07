@@ -141,11 +141,29 @@ export function sessionDbLoadError(): string {
 // `...\Temp\axprobe` iken oturumlar `...\Temp\.axet-code` altına yazıldı.
 // Bunu birebir taklit etmezsek boş/yanlış bir veritabanını yoklarız ve cevap
 // hiç gelmemiş gibi görünür.
+//
+// KLASÖR VARSA YUKARI ÇIKILMIYOR — dosya henüz yazılmamış olsa bile.
+// Ölçülmüş arıza (2026-09-07, IED): proje klasörü 14:11'de açıldı, skiller
+// `<cwd>/.axet-code/skills/` altına 14:12'de kuruldu, ama axet-code kendi
+// `axet-code.db` dosyasını ancak spawn olunca (14:14:24) yarattı. Oturum
+// kurulumu ondan ÖNCE çözdüğü için tarama yukarı çıkıp ortak ata klasördeki
+// (`...\aXet SAP Projects\.axet-code`) ÜÇ HAFTALIK veritabanına bağlandı.
+// Kanıt: o klasörün `.db` ve `-wal` dosyaları 18 Ağustos'tan beri
+// yazılmamışken `-shm` damgası 14:14:28 — yani oraya yalnızca OKUYUCU
+// bağlandı, o okuyucu da bizdik. Cevap 7 saniyede hazırdı, kılıf beş dakikalık
+// zaman aşımını doldurdu ve turu yeniden gönderdi. Ata klasörde `.axet-code`
+// bulunan HER yeni sistemin ilk mesajı bu tuzağa düşüyordu.
+//
+// Klasörün varlığı yeterli işaret: skill kurulumu (sapToolkit.ts) onu bizim
+// açtığımız için axet-code veritabanını oraya yazacak. Dosya yokken de yol
+// döndürülüyor; `openDb` o aralıkta sessizce `null` veriyor (bkz. aşağısı).
 export function resolveSessionDb(cwd: string): string | null {
   let dir = cwd;
   for (let depth = 0; depth < 24; depth += 1) {
-    const candidate = join(dir, ".axet-code", "axet-code.db");
+    const home = join(dir, ".axet-code");
+    const candidate = join(home, "axet-code.db");
     if (existsSync(candidate)) return candidate;
+    if (existsSync(home)) return candidate;
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
@@ -162,6 +180,12 @@ function openDb(dbPath: string): SqliteDatabase | null {
   if (cached) return cached;
   const Ctor = loadCtor();
   if (!Ctor) return null;
+  // Dosya HENÜZ yoksa bu bir yükleme arızası DEĞİL: `resolveSessionDb` artık
+  // axet-code'un yazacağı yolu, o yazmadan önce de döndürüyor. Denemeye
+  // girseydik `fileMustExist` patlar, `loadError` dolar ve
+  // `sessionDbLoadError()` TUI kipini kalıcı olarak kapatırdı — halbuki
+  // beklenen şey, birkaç saniye sonra dosyanın belirmesi.
+  if (!existsSync(dbPath)) return null;
   const attempts: Array<Record<string, unknown>> = [
     { readonly: true, fileMustExist: true },
     { readonly: true, fileMustExist: true, nativeBinding: unpackedBindingPath() }

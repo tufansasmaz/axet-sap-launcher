@@ -1,5 +1,6 @@
 import * as pty from "@lydell/node-pty";
 import { mkdirSync } from "node:fs";
+import { join } from "node:path";
 import type {
   AxetChatActivity,
   AxetChatCancelVerdict,
@@ -117,8 +118,25 @@ const CONNECTOR_SETTLE_MS = 1_200;
 const HANDSHAKE_STEP_MS = 30_000;
 /** Açılışta en fazla kaç diyalog adımı çevrilecek (sonsuz döngüye karşı). */
 const HANDSHAKE_MAX_STEPS = 6;
-/** Cevap için tavan — `run` kipiyle aynı. */
+/**
+ * SESSİZLİK tavanı — geçen süre değil, HİÇBİR BELİRTİ GELMEYEN süre.
+ *
+ * Eskiden turun mutlak ömrüydü ve uzun ama sağlıklı bir tur da bunu doldurup
+ * kesiliyordu. Kullanıcı geri bildirimi (2026-09-07, ekip): *"tarıyor tarıyor
+ * ama cevap yazacak 300 oldu diyor"*, *"2 dakika beklese cevap dönecekti"*.
+ * Ajan on dakika araç çalıştırıyorsa bu bir arıza değil; arıza, hiçbir şey
+ * OLMAMASI. Bu yüzden sayaç her belirtide sıfırlanıyor: günlüğe düşen satır,
+ * gelen metin parçası, yeni araç çağrısı ya da sonucu.
+ */
 const TURN_TIMEOUT_MS = 5 * 60_000;
+/**
+ * Mutlak tavan — sessizlik sayacının hiç dolmadığı hâller için.
+ *
+ * Aynı çalışma dizinindeki BAŞKA bir sohbet de aynı günlüğe yazıyor; teorik
+ * olarak o trafik sayacı sonsuza kadar diri tutabilir. Bu tavan, turun her
+ * koşulda bir sonu olmasını garantiliyor.
+ */
+const TURN_HARD_CAP_MS = 30 * 60_000;
 /**
  * İğne eşleşmesinden vazgeçip "bu oturumdaki yeni kullanıcı mesajı bizimdir"
  * demeye başlama süresi. Bkz. döngüdeki güvenlik ağı.
@@ -470,12 +488,20 @@ async function handshake(session: TuiSession): Promise<boolean> {
 }
 
 function createSession(chatId: string, cwd: string, model: AxetModelEntry | null, useConnectors: boolean): TuiSession | null {
-  const dbPath = resolveSessionDb(cwd);
-  if (!dbPath) return null;
   try {
     mkdirSync(cwd, { recursive: true });
   } catch {
     // Oluşturulamazsa pty.spawn zaten anlamlı bir hatayla patlıyor.
+  }
+  // Klasör AÇILDIKTAN sonra çözülüyor: `resolveSessionDb` cwd'de `.axet-code`
+  // görürse yukarı çıkmıyor, yani sıra önemli (bkz. axetSessionDb.ts).
+  const dbPath = resolveSessionDb(cwd);
+  if (!dbPath) return null;
+  if (!dbPath.startsWith(join(cwd, ".axet-code"))) {
+    // Ata klasördeki bir veritabanına bağlanmak MEŞRU olabilir (axet-code da
+    // yukarı doğru arıyor), ama sessizce olmamalı: 2026-09-07'deki arızanın
+    // tek belirtisi buydu ve hiçbir yerde yazmıyordu.
+    console.log("[axetChatTui] oturum veritabani UST klasorde", { chatId, cwd, dbPath });
   }
   if (model) {
     // Diyalogda tek Enter'ın doğru modeli seçmesini sağlayan adım.
@@ -1154,6 +1180,23 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
   if (session.resetting) await session.resetting;
 
   try {
+    // Veritabanı yolu her turun başında YENİDEN çözülüyor. Oturum kurulurken
+    // doğru dosya henüz var olmayabiliyor (axet-code onu spawn'da yaratıyor) ve
+    // o anda alınan karar oturum boyunca donuyordu. İki `existsSync`'lik bedel,
+    // beş dakikalık sessiz bir zaman aşımından ucuz.
+    const currentDb = resolveSessionDb(session.cwd);
+    if (currentDb && currentDb !== session.dbPath) {
+      console.log("[axetChatTui] oturum veritabani DEGISTI", {
+        chatId: session.chatId,
+        eski: session.dbPath,
+        yeni: currentDb
+      });
+      session.dbPath = currentDb;
+      // Eski kimlik ÖTEKİ veritabanına aitti; burada hiçbir şeye karşılık
+      // gelmiyor ve tutulursa tur boş bir oturumu yoklardı.
+      session.axetSessionId = null;
+    }
+
     const sinceSec = Math.max(0, Math.min(latestMessageTime(session.dbPath), Math.floor(Date.now() / 1000)) - 2);
 
     // Zaman penceresi tek başına YETMİYOR. `created_at` saniye çözünürlüklü ve
@@ -1208,8 +1251,15 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     const started = Date.now();
     /** Yazma anı, veritabanının birimiyle (Unix SANİYE) ve iki saniye payla. */
     const sentAtSec = Math.floor(started / 1000) - 2;
-    // `let`: soru kutusu açıkken ileri itiliyor (bkz. `ASK_USER_TOOL`).
+    // `let`: her belirtide ileri itiliyor (bkz. `alive`) ve soru kutusu
+    // açıkken de (bkz. `ASK_USER_TOOL`).
     let deadline = started + TURN_TIMEOUT_MS;
+    /** Turun mutlak sonu; sessizlik sayacı ne kadar tazelenirse tazelensin. */
+    const hardCap = started + TURN_HARD_CAP_MS;
+    /** "axet-code çalışıyor" işareti: sessizlik sayacını sıfırlar. */
+    const alive = () => {
+      deadline = Date.now() + TURN_TIMEOUT_MS;
+    };
     /** Soru kutusu açıkken kullanıcının cevabı için tavan; kapalıyken `0`. */
     let askDeadline = 0;
     const emitted = new Map<string, number>();
@@ -1245,6 +1295,9 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
       {
         const read = readLogSince(session.cwd, logCursor);
         logCursor = read.offset;
+        // Günlüğe satır düşmesi, arızalı olsun olmasın, "süreç çalışıyor"
+        // demek: sessizlik sayacı sıfırlanıyor.
+        if (read.lines.length > 0) alive();
         for (const line of read.lines) {
           // Aynı çalışma dizininde birden fazla sohbet olabilir; satır bir
           // oturum adı taşıyorsa BAŞKASININ arızasını üstlenmiyoruz. Adsız
@@ -1283,25 +1336,38 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             askedUser: true
           };
         }
-        deadline = Date.now() + TURN_TIMEOUT_MS;
+        alive();
       } else if (askDeadline) {
         // Cevap verildi (ya da vazgeçildi): gösterge yeniden "düşünüyor".
         askDeadline = 0;
         args.onActivity({ phase: "thinking" });
       }
 
-      if (Date.now() > deadline) {
+      // Soru kutusu açıkken mutlak tavan İŞLEMEZ: bekleyen taraf insan.
+      const capped = !session.pendingAsk && Date.now() > hardCap;
+      if (Date.now() > deadline || capped) {
         // Zaman aşımının SEBEBİ log'a düşüyor. Sessiz kalırsa "cevap gelmedi"
         // ile "yanlış oturumu dinledik" ayırt edilemez — 2026-09-04'te tam da
         // bu ikisi karıştı ve teşhis veritabanını elle okumayı gerektirdi.
+        // `veritabani` da yazılıyor: 2026-09-07'de tur, ata klasördeki bayat
+        // bir veritabanını yokladığı için doldu (bkz. resolveSessionDb).
         console.log("[axetChatTui] tur zaman asimina ugradi", {
           chatId: session.chatId,
+          sebep: capped ? "mutlak-tavan" : "sessizlik",
+          saniye: ((Date.now() - started) / 1000).toFixed(1),
           oturum: session.axetSessionId?.slice(0, 8) ?? "bulunamadi",
+          veritabani: session.dbPath,
           promptDustu: promptLanded,
           arac: toolCount,
           metinUzunlugu: answer.length
         });
-        return { ok: false, text: answer, error: `axet-code ${TURN_TIMEOUT_MS / 1000} saniyede cevap vermedi.` };
+        return {
+          ok: false,
+          text: answer,
+          error: mt("chatTui.turnTimedOut", {
+            minutes: String(Math.round((capped ? TURN_HARD_CAP_MS : TURN_TIMEOUT_MS) / 60_000))
+          })
+        };
       }
 
       if (!session.axetSessionId) {
@@ -1373,6 +1439,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             args.onChunk(body.slice(already));
             emitted.set(message.id, body.length);
             answer += body.slice(already);
+            alive();
           }
           for (const part of message.parts) {
             if (part.type !== "tool_call") continue;
@@ -1442,6 +1509,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             }
             seenTools.add(callId);
             toolCount += 1;
+            alive();
             const diff = buildDiff(name, part.data?.input);
             args.onActivity({
               phase: "tool",
@@ -1468,6 +1536,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
               // bir satır yok, tek başına da anlamsız.
               if (!callId || !seenTools.has(callId) || seenResults.has(callId)) continue;
               seenResults.add(callId);
+              alive();
               const summary = summarizeToolResult(part.data?.content, part.data?.is_error);
               args.onActivity({ phase: "toolResult", callId, ...summary });
             }

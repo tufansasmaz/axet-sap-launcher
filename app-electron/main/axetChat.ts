@@ -174,9 +174,17 @@ const CHUNK_FLUSH_MS = 50;
 // Bir cevabın bekletilebileceği en uzun süre. Eskiden TAVAN YOKTU: axet-code
 // takılırsa (ağ yutulması, yanıtsız bir MCP sunucusu) sohbet sonsuza kadar
 // "düşünüyor"da kalıyordu ve tek çıkış kullanıcının Durdur'a basmasıydı.
-// 5 dakika, uzun bir araç zincirini kesmeyecek kadar geniş — ölçülen en uzun
-// gerçek cevap bunun onda biri bile değil.
+//
+// Artık MUTLAK SÜRE DEĞİL, SESSİZLİK ölçülüyor: sayaç, süreçten stdout ya da
+// stderr'e her satır düştüğünde sıfırlanıyor. Gerekçe (2026-09-07, ekip geri
+// bildirimi): *"tarıyor tarıyor ama cevap yazacak 300 oldu diyor"* — gerçekten
+// çalışan uzun bir tur da bu duvara çarpıyordu. "Uzun sürmesi" arıza değil,
+// "hiçbir şey olmaması" arıza. Yorumdaki eski varsayım ("ölçülen en uzun
+// gerçek cevap bunun onda biri bile değil") artık geçerli değil: araç
+// zincirleri ölçülebilir şekilde uzadı.
 const CHAT_TIMEOUT_MS = 5 * 60_000;
+/** Sessizlik sayacı ne kadar tazelenirse tazelensin turun mutlak sonu. */
+const CHAT_HARD_CAP_MS = 30 * 60_000;
 
 // ---------------------------------------------------------------------------
 // Ön-ısıtma (pre-warm) — ölçülmüş gerekçe (2026-09-04)
@@ -623,21 +631,37 @@ function sendViaRun(
       }
     };
 
-    const timeoutTimer = setTimeout(() => {
+    const startedAt = Date.now();
+    const giveUp = (minutes: number) => {
       if (settled) return;
       killTree(active.proc);
       finish({
         ok: false,
         text: active.stdout.trim(),
-        error: `axet-code ${Math.round(CHAT_TIMEOUT_MS / 1000)} saniyede cevap vermedi.`,
+        error: mt("chatTui.turnTimedOut", { minutes: String(minutes) }),
         usedConnectors: useConnectors
       });
-    }, CHAT_TIMEOUT_MS);
+    };
+    // Sessizlik sayacı: her çıktı satırında yeniden kuruluyor.
+    let timeoutTimer = setTimeout(() => giveUp(Math.round(CHAT_TIMEOUT_MS / 60_000)), CHAT_TIMEOUT_MS);
+    const hardCapTimer = setTimeout(() => giveUp(Math.round(CHAT_HARD_CAP_MS / 60_000)), CHAT_HARD_CAP_MS);
+    /** "Süreç çalışıyor" işareti — sessizlik sayacını sıfırlar. */
+    const alive = () => {
+      if (settled) return;
+      clearTimeout(timeoutTimer);
+      const left = CHAT_HARD_CAP_MS - (Date.now() - startedAt);
+      if (left <= 0) return;
+      timeoutTimer = setTimeout(
+        () => giveUp(Math.round(CHAT_TIMEOUT_MS / 60_000)),
+        Math.min(CHAT_TIMEOUT_MS, left)
+      );
+    };
 
     const finish = (result: AxetChatSendResult) => {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutTimer);
+      clearTimeout(hardCapTimer);
       clearFlush();
       running.delete(requestId);
       resolve(result);
@@ -656,12 +680,16 @@ function sendViaRun(
     };
 
     active.onStdout = (text) => {
+      alive();
       if (!onChunk) return;
       pending += text;
       if (!flushTimer) flushTimer = setTimeout(flush, CHUNK_FLUSH_MS);
     };
 
     active.onStderrLine = (line) => {
+      // `-v` günlüğü stderr'e akıyor: araç çağrıları, MCP trafiği, denetim
+      // kaydı. Faz eşleşmese bile satırın kendisi "süreç diri" demek.
+      alive();
       const phase = phaseFromLogLine(line);
       if (phase) report(phase);
     };

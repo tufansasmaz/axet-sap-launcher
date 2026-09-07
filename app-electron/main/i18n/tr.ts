@@ -52,6 +52,7 @@ export const MAIN_TR = {
   "chatTui.sessionDbMissing": "bu klasör için axet-code oturum veritabanı yok",
   "chatTui.askFallbackQuestion": "Devam etmek için bir tercihine ihtiyacım var.",
   "chatTui.sessionClosedUnexpectedly": "axet-code oturumu beklenmedik şekilde kapandı.",
+  "chatTui.turnTimedOut": "axet-code {minutes} dakikadır hiçbir belirti vermedi.",
   "chatTui.restartStillFailing": "axet-code oturumu yenilendi ama hata sürüyor ({failure}).",
 
   // --- fsExplorer.ts ---

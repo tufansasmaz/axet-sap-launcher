@@ -49,6 +49,7 @@ export const MAIN_EN = {
   "chatTui.sessionDbMissing": "there is no axet-code session database for this folder",
   "chatTui.askFallbackQuestion": "I need you to make a choice before I can continue.",
   "chatTui.sessionClosedUnexpectedly": "The axet-code session closed unexpectedly.",
+  "chatTui.turnTimedOut": "axet-code has shown no sign of activity for {minutes} minutes.",
   "chatTui.restartStillFailing": "The axet-code session was restarted but the error persists ({failure}).",
 
   // --- fsExplorer.ts ---
