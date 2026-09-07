@@ -112,7 +112,9 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
   return (
     <div className="group/code overflow-hidden rounded-lg border border-line bg-app">
       <div className="flex items-center justify-between border-b border-line bg-card/60 px-3 py-1">
-        <span className="font-mono text-[10px] uppercase tracking-wide text-slate-500">{lang || "text"}</span>
+        {/* lang="en": kod bloğu dil etiketi ("typescript", "javascript") İngilizce ve
+            `uppercase` büyütmesi dile özgü — Türkçe arayüzde "TYPESCRİPT" çizilirdi. */}
+        <span lang="en" className="font-mono text-[10px] uppercase tracking-wide text-slate-500">{lang || "text"}</span>
         <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/code:opacity-100">
           <CopyButton value={code} />
         </span>
