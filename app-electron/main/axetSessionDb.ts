@@ -344,6 +344,76 @@ export function sessionTokens(dbPath: string, sessionId: string): number {
 }
 
 /**
+ * Bir oturumun başlığı — `sessions.title`. Oturum yoksa `null`.
+ *
+ * Sohbet–oturum bağının DOĞRULAMASI bu (bkz. axetSessionBinding.ts): bağ
+ * diskte duruyor, ama oturum aradan silinmiş ya da başkası tarafından yeniden
+ * adlandırılmış olabilir. Başlık beklediğimiz değilse bağa güvenilmiyor.
+ */
+export function sessionTitle(dbPath: string, sessionId: string): string | null {
+  const db = openDb(dbPath);
+  if (!db) return null;
+  try {
+    const row = db.prepare("SELECT title FROM sessions WHERE id=?").get(sessionId) as
+      | { title: string | null }
+      | undefined;
+    if (!row) return null;
+    return row.title ?? "";
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Bir oturumu yeniden adlandırır. Başardıysa `true`.
+ *
+ * TEK YAZMA İŞLEMİ. Bu dosyanın geri kalanı salt okur ve öyle kalmalı;
+ * axet-code'un veritabanına yazmak, başka bir sürecin canlı deposuna
+ * dokunmak demek. Yalnızca `title` sütunu, yalnızca kimliğe göre tek satır —
+ * ajanın gördüğü hiçbir veri (mesajlar, jetonlar, todos) etkilenmiyor.
+ *
+ * NEDEN TUI'DEN DEĞİL: `ctrl+s` ekranındaki `ctrl+r` SEÇİLİ satırı
+ * adlandırıyor ve hangi satırın seçili olduğunu ekrandan güvenilir
+ * okuyamıyoruz. Yanlış satırı adlandırmak, kullanıcının kendi oturum
+ * başlığını sessizce bozmak olurdu. Buradaki `WHERE id=?` bu riski tamamen
+ * kaldırıyor.
+ *
+ * Tutamak ÖNBELLEĞE ALINMIYOR ve hemen kapanıyor: `openDb`'nin tuttuğu
+ * tutamaklar salt okunur ve öyle kalmalı, yazma yetkisi de bu çağrı
+ * boyunca yaşamalı.
+ */
+export function renameSession(dbPath: string, sessionId: string, title: string): boolean {
+  if (!sessionId || !title) return false;
+  const Ctor = loadCtor();
+  if (!Ctor || !existsSync(dbPath)) return false;
+  const attempts: Array<Record<string, unknown>> = [
+    { fileMustExist: true },
+    { fileMustExist: true, nativeBinding: unpackedBindingPath() }
+  ];
+  for (const options of attempts) {
+    let db: SqliteDatabase | null = null;
+    try {
+      db = new Ctor(dbPath, options);
+      // axet-code aynı dosyayı AÇIK tutuyor. WAL kipinde okuyucu ile yazıcı
+      // birbirini engellemiyor, ama iki yazıcı engelliyor; kilitli bir ana
+      // beklemeden vazgeçmek, bağın kurulamaması demek olurdu.
+      db.pragma("busy_timeout = 3000");
+      const info = db.prepare("UPDATE sessions SET title=? WHERE id=?").run(title, sessionId);
+      return info.changes > 0;
+    } catch (error) {
+      loadError = error instanceof Error ? error.message : String(error);
+    } finally {
+      try {
+        db?.close();
+      } catch {
+        // Kapatılamayan tutamak sürecin sonunda serbest kalıyor.
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Ajanın kendi yapılacaklar listesi — `sessions.todos`.
  *
  * BİZ ÜRETMİYORUZ. axet-code'un `todos` aracı çalıştığında listeyi bu sütuna

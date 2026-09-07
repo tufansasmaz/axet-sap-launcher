@@ -21,11 +21,14 @@ import {
   matchKey,
   newestSessionSince,
   readMessagesSince,
+  renameSession,
   resolveSessionDb,
   sessionDbLoadError,
+  sessionTitle,
   sessionTodos,
   sessionTokens
 } from "./axetSessionDb";
+import { bindingTag, clearBinding, readBinding, writeBinding } from "./axetSessionBinding";
 import {
   classifyFailure,
   logOffset,
@@ -227,6 +230,42 @@ const MARK_PALETTE_ALT = "Initialize Project";
 const PALETTE_OPEN_MS = 3_000;
 
 /**
+ * `ctrl+s` — OTURUM SEÇİCİ. Bu ekran, geçmişi taşımak yerine geçmişin zaten
+ * durduğu oturuma bağlanmayı mümkün kılan tek kapı.
+ *
+ * ÖLÇÜLEN EKRAN (2026-09-07, axet-code 1.2.3):
+ *   ╭─ Sessions ────────────────────────────────╮
+ *   │ > Enter session name                      │
+ *   │ OK Yaz Talebi              22 minutes ago │
+ *   │ ...                                       │
+ *   │ ↑↓ choose • ctrl+r rename • ctrl+x delete •
+ *   │   enter choose • esc                      │
+ *   ╰───────────────────────────────────────────╯
+ *
+ * Arama kutusu BULANIK (fuzzy) ve tüm depoda arıyor — başka klasörlerin
+ * oturumları da listede. Yazılan metin tekil değilse hangi satırın başa
+ * geleceği kestirilemiyor; bu yüzden aranan metin axet-code'un kendi ürettiği
+ * başlık DEĞİL, bizim eklediğimiz tekil ek (bkz. axetSessionBinding.ts).
+ * Ölçümdeki aynı veritabanında "OK Yaz Talebi" iki, "Proje MD Dosyalarını
+ * Oku" dört ayrı oturumun başlığıydı.
+ *
+ * İşaret olarak yer tutucu metin seçildi: kutunun başlığı ("Sessions") kısa
+ * ve ajanın kendi cevabında da geçebilir, yer tutucu ise bu ekrana özgü.
+ */
+const MARK_SESSION_PICKER = "Enter session name";
+/** Seçicinin açılması için tavan; dolarsa BAĞLANMA YAPILMIYOR. */
+const PICKER_OPEN_MS = 4_000;
+/**
+ * Arama kutusuna yazdıktan sonra listenin süzülmesi için pay.
+ *
+ * Enter ERKEN basılırsa liste henüz eski sırasındadır ve seçilen oturum
+ * bambaşka biri olur — bu ekranda yapılabilecek en pahalı hata bu.
+ */
+const PICKER_FILTER_MS = 1_200;
+/** Seçimden sonra sohbet kutusunun odağı geri alması için pay (ölçüm: ~4 s). */
+const PICKER_SETTLE_MS = 4_000;
+
+/**
  * Bağlayıcıların YÜKLENDİĞİNİ gösteren satır: `● test123 25 tools`.
  *
  * "model changed to" HAZIR demek DEĞİL — yalnızca modelin seçildiği demek.
@@ -363,6 +402,15 @@ interface TuiSession {
   cancelled: boolean;
   /** Bu oturuma daha önce mesaj gönderildi mi (geçmiş tohumlaması gerekiyor mu). */
   seeded: boolean;
+  /**
+   * Bu pty, sohbetin ESKİ axet-code oturumuna `ctrl+s` ile bağlandı mı?
+   *
+   * Bağlandıysa `seeded` doğrudan true kuruluyor — geçmiş zaten oturumun
+   * içinde, yeniden yapıştırmanın anlamı yok. Bayrak ayrıca teşhis için: bir
+   * turun neden hızlı ya da yavaş olduğu ("tohumlanmis" ile birlikte) günlükte
+   * tek bakışta okunabilsin.
+   */
+  attached: boolean;
   /**
    * Süren geçmiş sıfırlama (`resetTuiHistory`) — bitene kadar İSTEM YAZILMAZ.
    *
@@ -540,6 +588,11 @@ export function resetTuiHistory(chatId: string): boolean {
     }
     session.axetSessionId = null;
     session.seeded = false;
+    session.attached = false;
+    // Sohbet artık BAŞKA bir axet-code oturumunda. Bağ silinmezse uygulama
+    // yeniden açıldığında dallanmadan ÖNCEKİ oturuma bağlanılır ve
+    // kullanıcının bilerek attığı dal sessizce geri alınmış olurdu.
+    clearBinding(session.chatId);
     session.pendingAsk = null;
     // Oturum eşleşmesinin alt sınırı da ileri alınıyor: yeni oturum bu andan
     // sonra doğacak ve eski oturum artık aday olmamalı.
@@ -698,6 +751,150 @@ async function handshake(session: TuiSession): Promise<boolean> {
   return false;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Sohbetin ESKİ axet-code oturumuna bağlanır — geçmişi taşımak yerine.
+ *
+ * ARIZA (2026-09-07, canlı ölçüm): sohbet geçmişi her yeni pty'de TUI'ye
+ * yapıştırılıyordu. 52 mesajlık bir sohbette 115 karakterlik bir soru tele
+ * 9.748 karakter olarak çıktı; tur 224,6 saniye sürdü, bunun 219,4 saniyesi
+ * yapıştırmaydı, modelin payı 5,2 saniye. Kullanıcının "ilk tur neden 100
+ * saniye" sorusunun cevabı buydu: bedel turun içinde değil, öncesindeydi.
+ *
+ * ÇÖZÜM (kullanıcı önerisi): axet-code oturumları zaten `ctrl+s` altında
+ * duruyor ve hafızayı taşıyor. Ölçüldü: bağlanmak 4 saniye, bağlandıktan
+ * sonra bir önceki oturumda konuşulan kelime hatırlandı, tur 3 saniyede
+ * bitti. Yani gönderilen tek şey son mesaj oluyor.
+ *
+ * DOĞRULAMA ÖNCE, TUŞ SONRA. Bağ diskte duruyor ama oturum silinmiş,
+ * veritabanı başka bir klasöre çözülmüş ya da başlık başkası tarafından
+ * değiştirilmiş olabilir. Üçünde de bağa güvenmek, YANLIŞ BİR OTURUMA
+ * bağlanmak demek — bu dosyada bunun bedeli iki kez ödendi (bkz. `spawnedAt`
+ * ve `preexisting` notları: başka bir sohbetin cevabı bu turun cevabı diye
+ * gösterilmişti). Şüphe varsa bağ silinip eski davranışa (tohumlama)
+ * dönülüyor: yavaş ama doğru.
+ */
+async function attachToBoundSession(session: TuiSession): Promise<boolean> {
+  const binding = readBinding(session.chatId);
+  if (!binding) return false;
+  // Klasör değiştiyse bu veritabanında o kimlik YOK; başka bir veritabanında
+  // aynı kimliğin bulunması da beklenmez, ama kontrol bedava.
+  if (binding.cwd !== session.cwd) {
+    console.log("[axetChatTui] bag klasoru degismis, dusuruluyor", {
+      chatId: session.chatId,
+      bagli: binding.cwd,
+      simdi: session.cwd
+    });
+    clearBinding(session.chatId);
+    return false;
+  }
+  const title = sessionTitle(session.dbPath, binding.sessionId);
+  if (title === null || title !== binding.title) {
+    // `null`: oturum silinmiş. Farklı başlık: kullanıcı ya da axet-code
+    // yeniden adlandırmış — aradığımız metin artık o satıra götürmüyor.
+    console.log("[axetChatTui] bag dogrulanamadi, dusuruluyor", {
+      chatId: session.chatId,
+      oturum: binding.sessionId.slice(0, 8),
+      beklenen: binding.title,
+      bulunan: title
+    });
+    clearBinding(session.chatId);
+    return false;
+  }
+
+  const tag = bindingTag(session.chatId);
+  const started = Date.now();
+  // Tampon ÖNCE temizleniyor: `waitForAny` birikmiş çıktıda da arıyor ve bu
+  // ekranın metni daha önce (başka bir bağlanmada) oraya düşmüş olabilirdi.
+  session.screen = "";
+  try {
+    session.proc.write("\x13");
+  } catch {
+    return false;
+  }
+  const opened = await waitForAny(session, [MARK_SESSION_PICKER], PICKER_OPEN_MS);
+  if (!opened) {
+    // Açılmadıysa hiçbir tuşa basılmıyor: kapalı bir seçicide yazılan metin
+    // sohbet kutusuna düşer ve bir sonraki isteme yapışırdı.
+    try {
+      if (!session.exited && !session.disposed) session.proc.write("\x1b");
+    } catch {
+      // Süreç gitmişse toparlanacak bir şey de yok.
+    }
+    console.log("[axetChatTui] oturum secici acilmadi, tohumlamaya donuluyor", { chatId: session.chatId });
+    return false;
+  }
+  try {
+    session.proc.write(tag);
+    await delay(PICKER_FILTER_MS);
+    if (session.exited || session.disposed) return false;
+    session.proc.write("\r");
+    await delay(PICKER_SETTLE_MS);
+  } catch {
+    return false;
+  }
+  if (session.exited || session.disposed) return false;
+
+  session.axetSessionId = binding.sessionId;
+  // Geçmiş artık oturumun İÇİNDE: bu bayrak, `buildSeedPrompt` dalını
+  // tamamen devre dışı bırakan şey.
+  session.seeded = true;
+  session.attached = true;
+  console.log("[axetChatTui] ESKI OTURUMA BAGLANILDI", {
+    chatId: session.chatId,
+    oturum: binding.sessionId.slice(0, 8),
+    etiket: tag,
+    saniye: ((Date.now() - started) / 1000).toFixed(1)
+  });
+  return true;
+}
+
+/**
+ * Sohbeti, ilk turunda doğan axet-code oturumuna BAĞLAR.
+ *
+ * Oturumu burada yeniden adlandırıyoruz, çünkü `ctrl+s` ekranı oturumları
+ * yalnızca başlıklarıyla listeliyor ve axet-code'un ürettiği başlıklar tekil
+ * değil. Okunabilir kısım korunuyor (kullanıcı kendi terminalinden `ctrl+s`
+ * açtığında oturumlarını hâlâ tanıyabilmeli), sonuna tekil ek geliyor.
+ *
+ * Başarısızlık SESSİZ ve zararsız: bağ kurulmazsa sohbet bugünkü davranışına
+ * devam eder, yalnızca yavaş kalır.
+ */
+function bindSessionToChat(session: TuiSession): void {
+  if (!session.axetSessionId || session.attached) return;
+  if (readBinding(session.chatId)) return;
+  const tag = bindingTag(session.chatId);
+  const current = sessionTitle(session.dbPath, session.axetSessionId);
+  if (current === null) return;
+  // Etiket zaten varsa yeniden yazma: aynı başlığı ikinci kez kurmak, ekte
+  // tekrar eden bir kuyruk bırakırdı.
+  const title = current.includes(tag) ? current : `${current.trim()} · ${tag}`.trim();
+  if (title !== current && !renameSession(session.dbPath, session.axetSessionId, title)) {
+    console.log("[axetChatTui] oturum adlandirilamadi, bag kurulmadi", {
+      chatId: session.chatId,
+      oturum: session.axetSessionId.slice(0, 8)
+    });
+    return;
+  }
+  // Yazdığımızı GERİ OKUYORUZ. `renameSession` "kaç satır değişti" diyor,
+  // "ne yazıldı" demiyor; bağın tek dayanağı bu başlık olduğu için iddiaya
+  // değil, veritabanının kendisine bakılıyor.
+  if (sessionTitle(session.dbPath, session.axetSessionId) !== title) return;
+  writeBinding(session.chatId, {
+    sessionId: session.axetSessionId,
+    title,
+    cwd: session.cwd
+  });
+  console.log("[axetChatTui] sohbet oturuma baglandi", {
+    chatId: session.chatId,
+    oturum: session.axetSessionId.slice(0, 8),
+    baslik: title
+  });
+}
+
 function createSession(chatId: string, cwd: string, model: AxetModelEntry | null, useConnectors: boolean): TuiSession | null {
   try {
     mkdirSync(cwd, { recursive: true });
@@ -755,6 +952,7 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     exited: false,
     cancelled: false,
     seeded: false,
+    attached: false,
     resetting: null,
     lastUsed: Date.now(),
     idleTimer: null,
@@ -836,6 +1034,11 @@ async function ensureSession(
       disposeSession(chatId);
       return null;
     }
+    // El sıkışmadan SONRA, ilk mesajdan ÖNCE: bağlanma bir kez ödenip
+    // oturum boyunca kullanılıyor, ve ön-ısıtma sayesinde bedeli çoğu zaman
+    // kullanıcı yazarken ödeniyor. Başarısızlığı turu düşürmüyor — bağ
+    // kurulamazsa sohbet eski yoldan (geçmişi tohumlayarak) devam ediyor.
+    await attachToBoundSession(session).catch(() => false);
     return session;
   })();
   pendingSetup.set(chatId, setup);
@@ -1468,6 +1671,9 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
       karakter: wire.length,
       satir: wire.split("\n").length,
       tohumlanmis: session.seeded,
+      // Bağlıysa geçmiş TELE HİÇ ÇIKMIYOR — "karakter" alanının neden küçük
+      // olduğunu açıklayan tek satır bu.
+      bagli: session.attached,
       baglayici: args.useConnectors
     });
     session.seeded = true;
@@ -1950,6 +2156,18 @@ const CONTEXT_ROTATE_AT = Math.floor(CONTEXT_LIMIT_TOKENS * 0.8);
 
 async function restartSession(args: TuiSendArgs): Promise<TuiSession | null> {
   disposeSession(args.chatId);
+  // BAĞ ÖNCE SİLİNİYOR, yoksa yenileme hiçbir işe yaramaz: `ensureSession`
+  // el sıkışmadan sonra bağa bakıp KAÇMAYA ÇALIŞTIĞIMIZ oturuma geri
+  // bağlanırdı. Bu yolun iki müşterisi de tam olarak o oturumdan kurtulmak
+  // için buraya geliyor — 403'te taşıyıcının kimliği o oturuma yapışmış,
+  // bağlam taşmasında pencere o oturumda dolmuş.
+  //
+  // GEÇMİŞ KAYBOLMUYOR: bağsız kurulan oturumun `seeded` bayrağı false, yani
+  // sonraki gönderim `buildSeedPrompt(history, message)` ile sohbetin
+  // tamamını yeni oturuma taşıyor. Yeni oturum ilk başarılı turdan sonra
+  // yeniden bağlanıyor (bkz. `bindSessionToChat`), yani yapıştırma bedeli
+  // sohbet başına değil, ARIZA başına bir kez ödeniyor.
+  clearBinding(args.chatId);
   return ensureSession(args.chatId, args.cwd, args.model, args.useConnectors);
 }
 
@@ -2017,6 +2235,10 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
   // tohumlanıyor (bkz. `ASK_USER_TOOL` notu).
   if (first.askedUser) disposeSession(args.chatId);
   if (!first.failure) {
+    // Bağ, İLK BAŞARILI TURDAN sonra kuruluyor. Daha erken kurmanın yolu yok
+    // (oturum kimliği ancak istem düştükten sonra biliniyor), daha geç
+    // kurmanın da anlamı: bir sonraki açılışta bağlanacak bir şey olmazdı.
+    bindSessionToChat(session);
     return rotated ? { ...first, restartedReason: rotated } : first;
   }
 
@@ -2045,6 +2267,7 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
       restartedReason: first.failure
     };
   }
+  bindSessionToChat(fresh);
   return { ...second, restartedReason: first.failure };
 }
 
