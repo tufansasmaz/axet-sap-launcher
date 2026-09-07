@@ -559,6 +559,7 @@ export const en: Record<TranslationKey, string> = {
   "axetFlowsLive.retrying": "Retrying automatically in the background…",
 
   "activityBar.readiness": "Readiness",
+  "activityBar.readinessFault": "something needs attention",
   "readiness.title": "Readiness",
   "readiness.subtitle": "What the agent will know, what it may do, and whether this machine can carry it.",
   "activityBar.sapGuiScripting": "SAP GUI Scripting",

@@ -27,7 +27,16 @@ const DOT: Record<DoctorStatus, string> = {
   unknown: "bg-slate-600"
 };
 
-export default function DoctorSection() {
+interface Props {
+  /**
+   * Her olcumden sonra cagriliyor — kenar cubugundaki ariza noktasi bu
+   * ekranin sonucunu izliyor. Boylece kullanici eksik paketleri buradan
+   * kurdugunda nokta ayni anda sonuyor; ikinci bir olcum gerekmiyor.
+   */
+  onReport?: (report: DoctorReport | null) => void;
+}
+
+export default function DoctorSection({ onReport }: Props) {
   const t = useT();
   const [report, setReport] = useState<DoctorReport | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,13 +46,16 @@ export default function DoctorSection() {
   const load = useCallback(async () => {
     setBusy(true);
     try {
-      setReport(await window.api.runDoctor());
+      const next = await window.api.runDoctor();
+      setReport(next);
+      onReport?.(next);
     } catch {
       setReport(null);
+      onReport?.(null);
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [onReport]);
 
   useEffect(() => {
     void load();

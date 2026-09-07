@@ -17,6 +17,7 @@ import type {
   AppConfig,
   AppTheme,
   ConnectivityState,
+  DoctorReport,
   FsEntry,
   SapLandscape,
   SapService,
@@ -43,6 +44,7 @@ import SettingsModal from "./components/SettingsModal";
 import AppConnectionsModal from "./components/AppConnectionsModal";
 import CredentialsModal from "./components/CredentialsModal";
 import ReadinessHome from "./components/ReadinessHome";
+import { hasDoctorFault } from "../app-electron/shared/doctorSeverity";
 import RoleModal from "./components/RoleModal";
 import AddSystemModal, { type EditingManualSystem } from "./components/AddSystemModal";
 import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePromptModal";
@@ -121,6 +123,12 @@ export default function App() {
   const [leftPanelMode, setLeftPanelMode] = useState<"systems" | "files">("systems");
   const [openFiles, setOpenFiles] = useState<OpenFileTab[]>([]);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
+  // Kenar çubuğundaki Hazırlık arıza noktası. Ölçüm açılışta BİR KEZ yapılıyor
+  // ve sonuç yalnızca `fail` satırlarına indirgeniyor (bkz. doctorSeverity.ts).
+  // Süre bu makinede ölçüldü: Python probu 181 ms, katalog taraması 96 ms,
+  // portlar reddedildiğinde anında dönüyor — yani "ucuz kontrolleri ayır"
+  // diye bir bölme gerekmedi, tamamı yarım saniyenin altında.
+  const [readinessFault, setReadinessFault] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle" });
   const [updatePromptMode, setUpdatePromptMode] = useState<UpdatePromptMode>("hidden");
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
@@ -248,6 +256,23 @@ export default function App() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // KİMLİĞİ SABİT olmak ZORUNDA: DoctorSection'ın ölçüm fonksiyonu bunu
+  // bağımlılık olarak taşıyor ve her render'da yeni bir fonksiyon geçseydik
+  // efekt yeniden koşar, ölçüm kendini tetikler, ekran sonsuz döngüye girerdi.
+  const handleDoctorReport = useCallback((report: DoctorReport | null) => {
+    setReadinessFault(report ? hasDoctorFault(report.rows) : false);
+  }, []);
+
+  // Açılışta tek teşhis. Hata yutuluyor: ölçüm yapılamadıysa doğru cevap
+  // "arıza var" değil "bilmiyorum" — uydurma bir kırmızı nokta, gerçek bir
+  // noktanın güvenilirliğini de götürür.
+  useEffect(() => {
+    void window.api
+      .runDoctor()
+      .then((report) => setReadinessFault(hasDoctorFault(report.rows)))
+      .catch(() => setReadinessFault(false));
+  }, []);
 
   // Ağaçtaki "Manuel Eklenen Sistemler" başlığı main'de üretiliyor
   // (manualMerge.ts) ve dili landscape okunurken sabitleniyor — dil
@@ -909,6 +934,7 @@ export default function App() {
           onOpenSettings={() => setSettingsOpen(true)}
           onOpenConnections={() => setConnectionsOpen(true)}
           connectorsConnected={Object.values(config?.connectorEnabled ?? {}).some(Boolean)}
+          readinessFault={readinessFault}
         />
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* axet.code HER ZAMAN mount — gizlenirken CSS ile gizleniyor, koşullu
@@ -950,6 +976,7 @@ export default function App() {
             projectDir={projectDir}
             skillProfile={config?.skillProfile ?? null}
             onProfileChange={(profile) => void handleSaveConfig({ skillProfile: profile })}
+            onDoctorReport={handleDoctorReport}
           />
         ) : (
           <>

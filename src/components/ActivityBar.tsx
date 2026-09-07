@@ -22,6 +22,13 @@ interface Props {
   onOpenConnections: () => void;
   /** En az bir uygulama bağlıysa fişin üstünde küçük bir accent nokta. */
   connectorsConnected: boolean;
+  /**
+   * Ortam teşhisinde ÇÖZÜLMESİ GEREKEN bir şey var mı (Python yok, pip
+   * paketleri eksik, SAP skill paketi bulunamıyor).
+   *
+   * Yalnızca `fail` satırları sayılıyor; gerekçe shared/doctorSeverity.ts'te.
+   */
+  readinessFault: boolean;
 }
 
 // VS Code'un "Activity Bar"ına benzer, NTT Studio'nun tüm modüllerini
@@ -40,7 +47,8 @@ export default function ActivityBar({
   onToggleLanguage,
   onOpenSettings,
   onOpenConnections,
-  connectorsConnected
+  connectorsConnected,
+  readinessFault
 }: Props) {
   const t = useT();
 
@@ -63,7 +71,7 @@ export default function ActivityBar({
   // aynı anda öne çıkıyor ve şerit "üç düğmeli bir oyuncak" gibi görünüyordu;
   // hover'da %100'e çıkması, farenin altındakinin diğer ikisinden ayrılmasına
   // yetiyor.
-  const activities: { id: Activity; label: string; color: string; render: () => ReactNode }[] = [
+  const activities: { id: Activity; label: string; color: string; dot?: boolean; render: () => ReactNode }[] = [
     {
       id: "axetCode",
       label: t("activityBar.axetCode"),
@@ -93,7 +101,8 @@ export default function ActivityBar({
     },
     {
       id: "readiness",
-      label: t("activityBar.readiness"),
+      label: readinessFault ? `${t("activityBar.readiness")} — ${t("activityBar.readinessFault")}` : t("activityBar.readiness"),
+      dot: readinessFault,
       // Kimlik renkleri için YENİ BİR HUE UYDURULMADI. index.css'in tepesindeki
       // palet sözleşmesinde dört anlam var (lime/mavi/mor/turuncu/kırmızı) ve
       // bu ekran tam olarak "sistem, bilgi" ailesine düşüyor — ama SAP
@@ -144,6 +153,14 @@ export default function ActivityBar({
               >
                 {item.render()}
               </span>
+              {/* Arıza noktası. Kırmızı, çünkü palet sözleşmesinde kırmızının
+                  tek anlamı "hata" (bkz. index.css) — ve bu nokta yalnızca
+                  `fail` satırlarında çıktığı için gerçekten hata demek.
+                  Konum/boyut fişin bağlı noktasıyla AYNI: aynı cinsten iki
+                  gösterge şeridin iki ucunda farklı görünmemeli. */}
+              {item.dot && (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full border border-line-subtle bg-[var(--status-danger-text)]" />
+              )}
             </button>
           );
         })}

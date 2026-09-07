@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { ClipboardList, Sparkles, Stethoscope } from "lucide-react";
-import type { SkillProfile } from "../../app-electron/shared/types";
+import type { DoctorReport, SkillProfile } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import DoctorSection from "./DoctorSection";
 import ProjectBriefSection from "./ProjectBriefSection";
@@ -9,6 +9,8 @@ import SkillsSection from "./SkillsSection";
 interface Props {
   projectDir: string | null;
   skillProfile: SkillProfile | null;
+  /** Teşhis sonucunu App'e taşır — kenar çubuğundaki arıza noktası bunu izliyor. */
+  onDoctorReport?: (report: DoctorReport | null) => void;
   onProfileChange: (profile: SkillProfile) => void;
 }
 
@@ -28,7 +30,7 @@ interface Props {
  * Bölümlerin kendisi taşınmadı, olduğu gibi kullanılıyor: aynı bileşenler
  * Ayarlar'da da dursaydı iki ekran aynı durumu ayrı ayrı yazardı.
  */
-export default function ReadinessHome({ projectDir, skillProfile, onProfileChange }: Props) {
+export default function ReadinessHome({ projectDir, skillProfile, onProfileChange, onDoctorReport }: Props) {
   const t = useT();
 
   return (
@@ -63,7 +65,7 @@ export default function ReadinessHome({ projectDir, skillProfile, onProfileChang
           </Card>
 
           <Card icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>
-            <DoctorSection />
+            <DoctorSection onReport={onDoctorReport} />
           </Card>
         </div>
       </div>

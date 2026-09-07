@@ -622,6 +622,7 @@ export const tr = {
   "axetFlowsLive.retrying": "Arka planda otomatik olarak yeniden deneniyor…",
 
   "activityBar.readiness": "Hazırlık",
+  "activityBar.readinessFault": "çözülmesi gereken bir şey var",
   "readiness.title": "Hazırlık",
   "readiness.subtitle": "Ajan neyi bilecek, neyi yapabilecek ve makine bunu taşıyabiliyor mu.",
   "activityBar.sapGuiScripting": "SAP GUI Scripting",
