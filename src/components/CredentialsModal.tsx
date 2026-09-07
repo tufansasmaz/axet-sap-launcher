@@ -157,7 +157,10 @@ export default function CredentialsModal({
 
           <div>
             <div className="mb-1.5 flex items-center gap-1.5">
-              <label className="block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+              {/* lang="en": "Client" Türkçe sözlükte de İngilizce kalıyor (SAP
+                  terimi), etiket ise `uppercase` çiziliyor ve büyütme DİLE
+                  ÖZGÜ — `<html lang="tr">` altında "CLİENT" oluyordu. */}
+              <label lang="en" className="block text-[11px] font-medium uppercase tracking-wide text-slate-500">
                 {t("credentialsModal.client")}
               </label>
               {isCloud && (
