@@ -474,6 +474,10 @@ const PHASE_KEYS: Record<AxetChatActivityPhase, TranslationKey> = {
   toolResult: "axetCodeHome.phaseTool",
   restarting: "axetCodeHome.phaseRestarting",
   askUser: "axetCodeHome.phaseAskUser",
+  // Dakika sayısı bu haritadan GELMİYOR — `label` aşağıda ayrıca kuruluyor,
+  // çünkü metin parametreli. Buradaki karşılık yalnızca `Record`'un eksik
+  // anahtar kabul etmemesi için.
+  stalled: "axetCodeHome.phaseStalled",
   finishing: "axetCodeHome.phaseFinishing"
 };
 
@@ -523,10 +527,13 @@ function useToolLabel(): (tool: string) => string {
 
 export function ThinkingBubble({
   phase,
-  steps
+  steps,
+  stalledMinutes
 }: {
   phase: AxetChatActivityPhase | null;
   steps?: AxetChatActivity[];
+  /** `stalled` aşamasında kaç dakikadır belirti gelmediği; başka aşamada 0. */
+  stalledMinutes?: number;
 }) {
   const t = useT();
   const toolLabel = useToolLabel();
@@ -549,7 +556,12 @@ export function ThinkingBubble({
   // cevap bekleniyor. Aşama yine de tipte DURUYOR, çünkü log ve gelecekteki bir
   // teşhis için hangi aşamada olunduğu bilgisi gerçek.
   const quiet = phase === "tool" || phase === "connectors";
-  const label = t(PHASE_KEYS[quiet ? "thinking" : phase ?? "starting"]);
+  // `stalled` tek parametreli aşama: dakikayı metne gömmek gerekiyor, o yüzden
+  // `PHASE_KEYS` üzerinden düz çeviriye gitmiyor.
+  const label =
+    phase === "stalled"
+      ? t("axetCodeHome.phaseStalled", { minutes: String(stalledMinutes ?? 0) })
+      : t(PHASE_KEYS[quiet ? "thinking" : phase ?? "starting"]);
   const all = steps ?? [];
   const step = all.length > 0 ? all[all.length - 1] : null;
   // Canlı ayrıntı: araç satırına tıklanınca o adımın TAM çıktısı (ya da farkı)

@@ -126,6 +126,11 @@ export interface ChatSessionData {
   /** Bu turda çağrılan araçlar, sırayla — sonuçları da içinde (bkz. applyActivity). */
   activitySteps: AxetChatActivity[];
   /**
+   * Kaç dakikadır axet-code'dan hiçbir belirti gelmediği. `0` = akış normal.
+   * Yalnızca `activity === "stalled"` iken okunuyor.
+   */
+  stalledMinutes: number;
+  /**
    * Ajanın ŞU AN sorduğu soru. Doluyken tur DURUYOR; cevap, TUI'deki soru
    * kutusuna tuş olarak gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`).
    */
@@ -861,7 +866,11 @@ export default function ChatSessionPane({
                     binmiş gibi okunmuyor. */}
                 {session.pending && index === indicatorAfter && (
                   <div className="sticky top-0 z-10 -mx-1 -mb-2 flex flex-col gap-2 bg-gradient-to-b from-[rgb(var(--base-950-rgb))] from-60% to-transparent px-1 pb-4 pt-1">
-                    <ThinkingBubble phase={session.activity} steps={session.activitySteps} />
+                    <ThinkingBubble
+                      phase={session.activity}
+                      steps={session.activitySteps}
+                      stalledMinutes={session.stalledMinutes}
+                    />
                     {/* Soru kutusu göstergenin ALTINDA: gösterge "cevabını
                         bekliyor" diyor, kart da neyi beklediğini soruyor. */}
                     {session.pendingAsk && (
@@ -876,7 +885,11 @@ export default function ChatSessionPane({
                 tamamen kaybolmasındansa burada durması yeğ. */}
             {session.pending && session.messages.length === 0 && (
               <div className="flex flex-col gap-2">
-                <ThinkingBubble phase={session.activity} steps={session.activitySteps} />
+                <ThinkingBubble
+                  phase={session.activity}
+                  steps={session.activitySteps}
+                  stalledMinutes={session.stalledMinutes}
+                />
                 {session.pendingAsk && (
                   <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />
                 )}

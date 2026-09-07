@@ -241,6 +241,10 @@ export const tr = {
   "axetCodeHome.shortcutNewline": "Alt satıra geç",
   "axetCodeHome.shortcutHelp": "Bu listeyi aç/kapat",
   "axetCodeHome.phaseFinishing": "Tamamlanıyor",
+  // Uzun sessizlik. Bilerek "yanıt vermiyor" değil "düşünüyor" deniyor: ölçüldü,
+  // bu bir arıza değil — sağlayıcı sırası uzayınca axet-code dakikalarca tek
+  // satır yazmadan çalışabiliyor ve cevap sonunda eksiksiz geliyor.
+  "axetCodeHome.phaseStalled": "Hâlâ düşünüyor ({minutes} dk)",
   "axetCodeHome.phaseElapsed": "{seconds} sn",
   // Kaçıncı araç adımında olunduğu. Biten adımlar ekranda birikmiyor (gösterge
   // sabit yükseklikte), bu sayaç onların yerini tutuyor.

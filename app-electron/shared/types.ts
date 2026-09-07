@@ -423,6 +423,11 @@ export type AxetChatActivityPhase =
   // Ajan `ask_user` aracıyla soru sordu; tur, kullanıcı bir seçenek seçene
   // kadar DURUYOR (bkz. axetChatTui.ts `ASK_USER_TOOL`).
   | "askUser"
+  // axet-code uzun süredir hiçbir belirti vermiyor. ARIZA DEĞİL: tur sürüyor,
+  // beklemeye devam ediliyor ve cevap geldiği an gösterilecek. Bu aşama
+  // yalnızca kullanıcı boşluğa bakmasın diye var — durdurmak isterse
+  // durdurabilsin (bkz. axetChatTui.ts sessizlik bloğu).
+  | "stalled"
   | "finishing";
 
 /**
@@ -486,6 +491,12 @@ export interface AxetChatActivity {
    * dizin olarak dönüyor (bkz. axetChatTui.ts `answerTuiQuestion`).
    */
   multiSelect?: boolean;
+  /**
+   * `stalled` aşamasında: kaç dakikadır hiçbir belirti gelmediği. Kullanıcıya
+   * söylenen tek somut şey bu — "bekleniyor" tek başına, beklemenin bir
+   * dakika mı yarım saat mi sürdüğünü gizlerdi.
+   */
+  minutes?: number;
 }
 
 /**

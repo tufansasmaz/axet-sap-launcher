@@ -84,6 +84,9 @@ interface ChatSession {
   // döküm. Sonuçlar geldikçe aynı satırın üzerine yazılıyor (eşleşme
   // `callId` ile), yeni satır açılmıyor.
   activitySteps: AxetChatActivity[];
+  // Kaç dakikadır axet-code'dan hiçbir belirti gelmediği. `0` = akış normal.
+  // Yalnızca `stalled` aşamasında dolu; ilk belirtide sıfırlanıyor.
+  stalledMinutes: number;
   // Ajanın ŞU AN sorduğu soru (`ask_user`). Doluyken tur, kullanıcı bir
   // seçenek seçene kadar DURUYOR — cevap TUI'deki soru kutusuna tuş olarak
   // gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`).
@@ -321,6 +324,17 @@ function applyActivity(
   if (activity.phase === "askUser") {
     return { ...session, activity: "askUser", pendingAsk: activity };
   }
+  // Sessizlik uyarısı. `activitySteps`e DOKUNMUYOR: uyarı bir adım değil, bir
+  // durum — araç dökümüne satır eklerse tur bitince orada kalıcı bir "bekledi"
+  // izi bırakırdı, oysa cevap geldiğinde geriye dönük anlatacak bir şey yok.
+  if (activity.phase === "stalled") {
+    return {
+      ...session,
+      activity: "stalled",
+      pendingAsk: null,
+      stalledMinutes: activity.minutes ?? 0,
+    };
+  }
   // Soru kutusu KAPANIYOR: askUser dışındaki her olay, turun devam ettiğini
   // (cevap işlendi) ya da bittiğini gösteriyor. Kalsaydı, artık bir kutu
   // yokken tuş gönderen ölü bir düğme olurdu.
@@ -337,10 +351,15 @@ function applyActivity(
       ...session,
       activity: "tool",
       pendingAsk: null,
+      stalledMinutes: 0,
       activitySteps: [...session.activitySteps, activity],
     };
   }
-  return { ...session, activity: activity.phase, pendingAsk: null };
+  // `stalledMinutes: 0` — `stalled` DIŞINDAKİ her olay bir belirtidir, yani
+  // sessizlik bitmiştir. Main tarafı bunu ayrıca `thinking` yollayarak da
+  // bildiriyor; burada sıfırlamak, o olayın kaybolduğu bir yolda uyarının
+  // ekranda asılı kalmasına karşı ikinci kapı.
+  return { ...session, activity: activity.phase, pendingAsk: null, stalledMinutes: 0 };
 }
 
 // --- Açılış ekranındaki öneri kartları ---
@@ -631,6 +650,7 @@ export default function AxetCodeHome({
             requestId: null,
             activity: null,
             activitySteps: [],
+            stalledMinutes: 0,
             pendingAsk: null,
             // Plan ve jeton sayacı diske YAZILMIYOR: ikisi de axet-code'un
             // oturumuna ait ve o oturum uygulama kapanınca ölüyor. Diskten
@@ -1208,6 +1228,7 @@ export default function AxetCodeHome({
                 requestId,
                 activity: null,
                 activitySteps: [],
+                stalledMinutes: 0,
                 pendingAsk: null,
                 // Yeni tur, yeni durum: "durduramadım" uyarısı bir önceki tura
                 // aitti ve orada asılı kalması yanıltıcı olurdu.
@@ -1264,6 +1285,7 @@ export default function AxetCodeHome({
             | "requestId"
             | "activity"
             | "activitySteps"
+            | "stalledMinutes"
             | "pendingAsk"
             | "updatedAt"
           > = {
@@ -1271,6 +1293,7 @@ export default function AxetCodeHome({
             requestId: null,
             activity: null,
             activitySteps: [],
+            stalledMinutes: 0,
             pendingAsk: null,
             updatedAt: Date.now(),
           };
@@ -1390,6 +1413,7 @@ export default function AxetCodeHome({
       requestId: null,
       activity: null,
       activitySteps: [],
+      stalledMinutes: 0,
       pendingAsk: null,
       todos: [],
       contextTokens: 0,
@@ -2336,6 +2360,7 @@ export default function AxetCodeHome({
     pending: false,
     activity: null,
     activitySteps: [],
+    stalledMinutes: 0,
     pendingAsk: null,
     todos: [],
     contextTokens: 0,

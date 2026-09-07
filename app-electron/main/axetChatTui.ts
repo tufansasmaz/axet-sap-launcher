@@ -247,14 +247,18 @@ const HANDSHAKE_STEP_MS = 30_000;
 /** Açılışta en fazla kaç diyalog adımı çevrilecek (sonsuz döngüye karşı). */
 const HANDSHAKE_MAX_STEPS = 6;
 /**
- * SESSİZLİK tavanı — geçen süre değil, HİÇBİR BELİRTİ GELMEYEN süre.
+ * SESSİZLİK uyarı aralığı — geçen süre değil, HİÇBİR BELİRTİ GELMEYEN süre.
  *
- * Eskiden turun mutlak ömrüydü ve uzun ama sağlıklı bir tur da bunu doldurup
- * kesiliyordu. Kullanıcı geri bildirimi (2026-09-07, ekip): *"tarıyor tarıyor
- * ama cevap yazacak 300 oldu diyor"*, *"2 dakika beklese cevap dönecekti"*.
- * Ajan on dakika araç çalıştırıyorsa bu bir arıza değil; arıza, hiçbir şey
- * OLMAMASI. Bu yüzden sayaç her belirtide sıfırlanıyor: günlüğe düşen satır,
- * gelen metin parçası, yeni araç çağrısı ya da sonucu.
+ * Sayaç her belirtide sıfırlanıyor: günlüğe düşen satır, gelen metin parçası,
+ * yeni araç çağrısı ya da sonucu.
+ *
+ * DİKKAT — bu bir zaman aşımı DEĞİL, turu bitirmiyor. Önce turun mutlak ömrüydü;
+ * sonra sessizlik tavanı oldu (*"tarıyor tarıyor ama cevap yazacak 300 oldu
+ * diyor"*); 2026-09-07'de bir ölçüm ikinci hâlin de yanlış olduğunu gösterdi:
+ * soğuk bir ilk turda axet-code 320 saniye tam sessiz kaldı, tur 300'de
+ * kapatıldı, cevap 20 saniye sonra eksiksiz geldi ve sahipsiz kaldı. Ayrıntı
+ * için `runTurn` içindeki sessizlik bloğuna bak. Bugün bu sabit yalnızca
+ * "kullanıcıya kaç dakikada bir "hâlâ bekleniyor" densin" sorusunun cevabı.
  */
 const TURN_TIMEOUT_MS = 5 * 60_000;
 /**
@@ -1443,9 +1447,21 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     let deadline = started + TURN_TIMEOUT_MS;
     /** Turun mutlak sonu; sessizlik sayacı ne kadar tazelenirse tazelensin. */
     const hardCap = started + TURN_HARD_CAP_MS;
+    /**
+     * Kesintisiz sessizlik ne kadar sürdü — yalnızca kullanıcıya söylemek için.
+     * Belirti geldiği an sıfırlanıyor (bkz. `alive`).
+     */
+    let stalledFor = 0;
     /** "axet-code çalışıyor" işareti: sessizlik sayacını sıfırlar. */
     const alive = () => {
       deadline = Date.now() + TURN_TIMEOUT_MS;
+      // Sessizlik bitti: uyarı satırı kalksın. Koşul şart — `alive` her
+      // günlük satırında ve her metin parçasında çağrılıyor, koşulsuz emit
+      // saniyede onlarca gereksiz olay demek olurdu.
+      if (stalledFor) {
+        stalledFor = 0;
+        args.onActivity({ phase: "thinking" });
+      }
     };
     /** Soru kutusu açıkken kullanıcının cevabı için tavan; kapalıyken `0`. */
     let askDeadline = 0;
@@ -1543,15 +1559,57 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
 
       // Soru kutusu açıkken mutlak tavan İŞLEMEZ: bekleyen taraf insan.
       const capped = !session.pendingAsk && Date.now() > hardCap;
-      if (Date.now() > deadline || capped) {
+      if (capped) {
         // Zaman aşımının SEBEBİ log'a düşüyor. Sessiz kalırsa "cevap gelmedi"
         // ile "yanlış oturumu dinledik" ayırt edilemez — 2026-09-04'te tam da
         // bu ikisi karıştı ve teşhis veritabanını elle okumayı gerektirdi.
         // `veritabani` da yazılıyor: 2026-09-07'de tur, ata klasördeki bayat
         // bir veritabanını yokladığı için doldu (bkz. resolveSessionDb).
-        console.log("[axetChatTui] tur zaman asimina ugradi", {
+        console.log("[axetChatTui] tur mutlak tavana carpti", {
           chatId: session.chatId,
-          sebep: capped ? "mutlak-tavan" : "sessizlik",
+          saat: ((Date.now() - started) / 3_600_000).toFixed(1),
+          oturum: session.axetSessionId?.slice(0, 8) ?? "bulunamadi",
+          veritabani: session.dbPath,
+          promptDustu: promptLanded,
+          arac: toolCount,
+          metinUzunlugu: answer.length
+        });
+        return {
+          ok: false,
+          text: answer,
+          error: mt("chatTui.turnRanTooLong", {
+            hours: String(Math.round(TURN_HARD_CAP_MS / 3_600_000))
+          })
+        };
+      }
+
+      // --- Sessizlik: TURU BİTİRMEZ, yalnızca haber verir -------------------
+      // 2026-09-07, kullanıcı ölçümü. Soğuk bir ilk turda axet-code 320 saniye
+      // boyunca ne veritabanına ne günlüğüne tek satır yazmadı; sessizlik
+      // sayacı 300'de doldu ve tur `ok: false` ile kapandı. Cevap 20 SANİYE
+      // SONRA geldi — 1.839 karakter, eksiksiz, axet-code'un veritabanında
+      // duruyordu. Kullanıcı terminalden `ctrl+s` ile aynı oturumu açıp cevabı
+      // gözüyle gördü; uygulama ise "hiçbir belirti vermedi" diyordu.
+      //
+      // Yani sayaç iki şeyi birden yaptı ve ikisinde de yanıldı: ÜRETİLMİŞ bir
+      // cevabı çöpe attı (veri kaybı) ve olmayan bir arızayı bildirdi (yanlış
+      // bilgi). İkisi de kullanıcının öncelik sırasının en tepesinde.
+      //
+      // Sessizliğin turu bitirmesi için hiçbir sebep yok: turun gerçekten bir
+      // sonu olsun diye zaten MUTLAK TAVAN var (yukarıda), süreç ölürse
+      // `session.exited` yakalıyor, sağlayıcı arızası günlükten okunuyor
+      // (`classifyFailure`), kullanıcı da istediği an durdurabiliyor. Geriye
+      // kalan tek durum "süreç yaşıyor ama uzun süredir sessiz" — ki bu bir
+      // arıza değil, ölçülmüş normal davranış.
+      //
+      // Dolayısıyla sayaç artık yalnızca UYARIYOR. Uyarı tekrarlanıyor
+      // (sıfırlanan `deadline` sayesinde): kullanıcı beklemenin sürdüğünü
+      // görsün, durdurmak isterse durdursun.
+      if (Date.now() > deadline) {
+        deadline = Date.now() + TURN_TIMEOUT_MS;
+        stalledFor += TURN_TIMEOUT_MS;
+        console.log("[axetChatTui] tur sessiz, beklemeye devam", {
+          chatId: session.chatId,
           saniye: ((Date.now() - started) / 1000).toFixed(1),
           oturum: session.axetSessionId?.slice(0, 8) ?? "bulunamadi",
           veritabani: session.dbPath,
@@ -1559,20 +1617,10 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
           arac: toolCount,
           metinUzunlugu: answer.length
         });
-        // İki sebep, İKİ AYRI cümle. Tek anahtarla yazıldığında mutlak tavan
-        // "hiçbir belirti vermedi" diyordu — tam tersi doğruyken: tur, altı
-        // saat boyunca ARALIKSIZ çalıştığı için kesildi.
-        return {
-          ok: false,
-          text: answer,
-          error: capped
-            ? mt("chatTui.turnRanTooLong", {
-                hours: String(Math.round(TURN_HARD_CAP_MS / 3_600_000))
-              })
-            : mt("chatTui.turnTimedOut", {
-                minutes: String(Math.round(TURN_TIMEOUT_MS / 60_000))
-              })
-        };
+        args.onActivity({
+          phase: "stalled",
+          minutes: Math.round(stalledFor / 60_000)
+        });
       }
 
       if (!session.axetSessionId) {

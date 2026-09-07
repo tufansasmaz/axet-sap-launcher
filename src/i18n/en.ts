@@ -203,6 +203,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.shortcutNewline": "New line",
   "axetCodeHome.shortcutHelp": "Toggle this list",
   "axetCodeHome.phaseFinishing": "Finishing",
+  "axetCodeHome.phaseStalled": "Still thinking ({minutes} min)",
   "axetCodeHome.phaseElapsed": "{seconds}s",
   "axetCodeHome.phaseStepCount": "step {count}",
   "axetCodeHome.toolView": "Reading a file",
