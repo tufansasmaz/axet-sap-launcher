@@ -99,7 +99,9 @@ export default function App() {
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
-  // Rol seciminin beklettigi kimlik bilgileri. Dolu ise rol ekrani aciktir.
+  // Rol seciminin beklettigi kimlik bilgileri. Rol ekrani artik ACILISTA
+  // aciliyor (bkz. roleGateOpen); bu alan yalnizca "rolsuz kullanici bir sekilde
+  // baglanti akisina girdi" durumunda bagalantiyi bekletmek icin duruyor.
   const [pendingConnect, setPendingConnect] = useState<{
     username: string;
     password: string;
@@ -760,10 +762,24 @@ export default function App() {
     await runConnect(username, password, client);
   };
 
+  /**
+   * Rol kapısı: config okundu ve içinde rol YOKSA açık.
+   *
+   * Kullanıcı (2026-09-08): *"uygulama kurulduktan sonra açılır açılmaz
+   * danışmanlık statüsünü sorsun zorunlu"* ve *"ilk açıldığında sorsun hiç
+   * seçilmediyse"*. Yani tetikleyici bağlantı değil, uygulamanın kendisi:
+   * kuran ama henüz hiçbir sisteme bağlanmamış kullanıcı da rolünü seçmiş
+   * oluyor, ve bu rol o andan itibaren BÜTÜN SAP sistemleri için geçerli
+   * (rol tek bir küresel ayar, her proje klasörüne o kuruluyor).
+   *
+   * `config === null` iken açılmıyor: ayar dosyası daha okunmadan pencere
+   * açsaydık, rolü zaten seçmiş kullanıcıya her açılışta bir kez sorardı.
+   */
+  const roleGateOpen = config !== null && config.skillProfile === null;
+
   const handleRoleConfirm = async (profile: SkillProfile, noticeAccepted: boolean) => {
     const creds = pendingConnect;
     setPendingConnect(null);
-    if (!creds) return;
     try {
       const next = await window.api.saveConfig({
         skillProfile: profile,
@@ -777,7 +793,10 @@ export default function App() {
       // Ayar yazılamazsa bağlantıyı yine de kuruyoruz; kurulum en dar
       // profille (modül danışmanı) yapılır, veri kaybı yok.
     }
-    await runConnect(creds.username, creds.password, creds.client);
+    // Rol yokken bir bağlantı beklemeye alınmışsa kaldığı yerden sürüyor.
+    // Açılış kapısında böyle bir bekleyen yok; o durumda pencere kapanır ve
+    // kullanıcı normal ekrana düşer.
+    if (creds) await runConnect(creds.username, creds.password, creds.client);
   };
 
   const runConnect = async (username: string, password: string, client: string) => {
@@ -974,10 +993,9 @@ export default function App() {
           // kaydedince diğer ikisinin de kaydedildiği izlenimini verirdi.
           <ReadinessHome
             projectDir={projectDir}
+            // Yalnızca GÖSTERİM: rol ilk açılıştaki kapıda seçildi ve
+            // değişmiyor, bu yüzden buraya bir "değiştir" sözü inmiyor.
             skillProfile={config?.skillProfile ?? null}
-            // Söz GERİ VERİLİYOR: yetenek bölümü, rol diske yazıldıktan SONRA
-            // kurulumu tazeliyor. `void` ile atılsaydı kurulum eski rolü okurdu.
-            onProfileChange={(profile) => handleSaveConfig({ skillProfile: profile })}
             onDoctorReport={handleDoctorReport}
           />
         ) : (
@@ -1326,7 +1344,7 @@ export default function App() {
         />
 
         <RoleModal
-          open={pendingConnect !== null}
+          open={roleGateOpen}
           tier={
             credentialsTarget ? (config?.systemTiers?.[credentialsTarget.service.uuid] ?? null) : null
           }
@@ -1336,7 +1354,6 @@ export default function App() {
               : undefined
           }
           onConfirm={handleRoleConfirm}
-          onCancel={() => setPendingConnect(null)}
         />
 
         <UpdatePromptModal

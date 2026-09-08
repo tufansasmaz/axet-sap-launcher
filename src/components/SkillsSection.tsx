@@ -1,19 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Download, PencilLine, RefreshCw, Trash2 } from "lucide-react";
+import { AlertCircle, Download, Lock, RefreshCw, Trash2 } from "lucide-react";
 import type { CatalogSkillList, SkillProfile, SkillStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
 
 interface Props {
-  /** Ayarlar formundaki (henüz kaydedilmemiş) rol. */
+  /** İlk açılışta seçilmiş, DEĞİŞMEZ rol. */
   profile: SkillProfile | null;
-  /** Rolü kaydeder; kayıt bittiğinde çözülür. */
-  onProfileChange: (profile: SkillProfile) => Promise<void> | void;
   /** O an açık proje klasörü; yoksa liste gösterilemez. */
   projectDir: string | null;
 }
-
-const ROLES: SkillProfile[] = ["module-consultant", "technical-consultant", "sandbox"];
 
 /** Kurulamama sebebi -> metin. Sebep HER ZAMAN yazılıyor; girdi gizlenmiyor. */
 const BLOCKED_KEYS = {
@@ -42,7 +38,7 @@ const ERROR_KEYS = {
  * skill'leri süreç açılışında tarıyor, kapatmasak güncelleme bir sonraki
  * turda hiçbir şeyi değiştirmezdi.
  */
-export default function SkillsSection({ profile, onProfileChange, projectDir }: Props) {
+export default function SkillsSection({ profile, projectDir }: Props) {
   const t = useT();
   const [status, setStatus] = useState<SkillStatus | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,33 +78,6 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
   };
 
   /**
-   * Rol seçimi KURULUMU DA YAPIYOR.
-   *
-   * Eskiden yalnızca ayarı kaydediyordu; diskteki yetenekler "Güncelle"ye
-   * basılana kadar eski rolün yetenekleriydi. Kullanıcı (2026-09-08):
-   * *"danışman değişince skiller değişmiyor"*. Ayarın kendisi değiştiği hâlde
-   * ajanın elindekinin değişmemesi, ekranın sessizce yanlış bilgi vermesiydi:
-   * "Modül danışmanı" yazan bir kutunun altında teknik danışmanın yetenekleri
-   * duruyordu.
-   *
-   * Sıra ŞART: önce rol diske yazılıyor (`await`), sonra kurulum. Ana süreçteki
-   * `skills:reinstall` rolü config'ten okuyor — ters sırada bir önceki rolü
-   * kurardı.
-   */
-  const chooseRole = async (id: SkillProfile) => {
-    if (busy || id === profile) return;
-    setBusy(true);
-    try {
-      await onProfileChange(id);
-      if (projectDir) setStatus(await window.api.reinstallSkills(projectDir, null));
-    } catch {
-      load();
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  /**
    * Katalog kurulumu/kaldırması. Sonuç TAZE listeyi geri getiriyor, ama kurulu
    * yetenek rozetleri ayrı bir kaynaktan (`skills:status`) geliyor — o yüzden
    * ikisi birden tazeleniyor, yoksa çip listesi bir tur geride kalırdı.
@@ -139,29 +108,21 @@ export default function SkillsSection({ profile, onProfileChange, projectDir }: 
         <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
           {t("skillsSection.roleLabel")}
         </label>
-        <div className="inline-flex items-center gap-0.5 rounded-md border border-line bg-app/40 p-0.5">
-          {ROLES.map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => void chooseRole(id)}
-              disabled={busy}
-              className={`cursor-pointer rounded-[5px] px-3 py-1.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                profile === id ? "bg-accent-500/25 text-white" : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              {t(`roleModal.role.${id}`)}
-            </button>
-          ))}
+        {/* SEÇİM DEĞİL, GÖSTERİM. Rol ilk açılışta bir kere seçiliyor ve
+            değişmiyor (kullanıcı, 2026-09-08: *"daha sonra da
+            değiştiremesin"*). Burada tıklanabilir düğmeler dursaydı — kilitli
+            olsalar bile — ekran "değiştirilebilir ama şu an olmuyor" derdi;
+            oysa gerçek şu ki bu karar verilmiş ve kapanmıştır. */}
+        <div className="inline-flex items-center gap-2 rounded-md border border-line bg-app/40 px-3 py-1.5">
+          <Lock size={12} className="shrink-0 text-slate-500" />
+          <span className="text-sm font-medium text-white">
+            {profile ? t(`roleModal.role.${profile}`) : "—"}
+          </span>
         </div>
-        <p className="mt-1.5 flex items-start gap-1.5 text-xs text-slate-500">
-          <PencilLine size={12} className="mt-0.5 shrink-0" />
-          {busy ? t("skillsSection.roleApplying") : t("skillsSection.roleHint")}
-        </p>
-        {/* Seçili rolün NE DEMEK olduğu, seçim kutusunun hemen altında. Aynı
-            metin rol penceresinde de gösteriliyor; oradan sonra bir daha
-            görünmemesi, aylar sonra ayara dönen kişiyi rolün adıyla baş başa
-            bırakıyordu. */}
+        <p className="mt-1.5 text-xs text-slate-500">{t("skillsSection.roleLocked")}</p>
+        {/* Seçili rolün NE DEMEK olduğu, rol adının hemen altında. Aynı metin
+            rol penceresinde de gösteriliyor; oradan sonra bir daha görünmemesi,
+            aylar sonra ayara dönen kişiyi rolün adıyla baş başa bırakıyordu. */}
         {profile && (
           <p className="mt-2 text-xs leading-relaxed text-slate-400">{t(`roleModal.roleDesc.${profile}`)}</p>
         )}

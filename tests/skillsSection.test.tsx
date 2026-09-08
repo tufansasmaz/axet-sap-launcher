@@ -54,7 +54,7 @@ function mountWith(list: CatalogSkillList) {
   (window as unknown as { api: unknown }).api = api;
   render(
     <LanguageProvider language="tr">
-      <SkillsSection profile="module-consultant" onProfileChange={() => {}} projectDir={PROJECT} />
+      <SkillsSection profile="module-consultant" projectDir={PROJECT} />
     </LanguageProvider>
   );
   return api;
@@ -121,52 +121,30 @@ describe("SkillsSection — katalog kutusu", () => {
   });
 });
 
-describe("SkillsSection — rol secimi", () => {
-  /** Rol dugmelerini ceken kurulum; cagri SIRASI olcusun diye tek bir dizi. */
-  function mountRoles() {
-    const calls: string[] = [];
-    const api = {
-      getSkillStatus: vi.fn().mockResolvedValue(EMPTY_STATUS),
-      reinstallSkills: vi.fn(async () => {
-        calls.push("reinstall");
-        return EMPTY_STATUS;
-      }),
-      listCatalogSkills: vi.fn().mockResolvedValue(catalog([])),
-      installCatalogSkill: vi.fn(),
-      removeCatalogSkill: vi.fn()
-    };
-    (window as unknown as { api: unknown }).api = api;
-    const onProfileChange = vi.fn(async () => {
-      calls.push("save");
-    });
-    render(
-      <LanguageProvider language="tr">
-        <SkillsSection profile="module-consultant" onProfileChange={onProfileChange} projectDir={PROJECT} />
-      </LanguageProvider>
-    );
-    return { api, calls, onProfileChange };
-  }
+describe("SkillsSection — rol GOSTERIMI (secim degil)", () => {
+  // Rol ilk acilistaki kapida bir kere seciliyor ve DEGISMIYOR (kullanici,
+  // 2026-09-08: *"daha sonra da degistiremesin"*). Bu blogun tamami o kurali
+  // koruyor: burada tiklanabilir bir rol dugmesi belirirse, ekran kullaniciya
+  // olmayan bir secenek gosteriyor demektir.
 
-  it("rol degisince ONCE kaydeder, SONRA yeniden kurar", async () => {
-    // Sira sart: ana surecteki `skills:reinstall` rolu config'ten okuyor, ters
-    // sirada bir onceki rolun yetenekleri kurulurdu.
-    const { calls, onProfileChange } = mountRoles();
-    fireEvent.click(screen.getByRole("button", { name: /Teknik danışman|Teknik danisman/ }));
-    await vi.waitFor(() => expect(calls).toEqual(["save", "reinstall"]));
-    expect(onProfileChange).toHaveBeenCalledWith("technical-consultant");
+  it("rolu YAZAR ama rol dugmesi CIZMEZ", async () => {
+    mountWith(catalog([]));
+    expect(await screen.findByText("Modül danışmanı")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Teknik danışman|Teknik danisman/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Modül danışmanı|Modul danismani/ })).toBeNull();
   });
 
-  it("zaten secili role basmak hicbir sey kurmaz", async () => {
-    const { calls } = mountRoles();
-    fireEvent.click(screen.getByRole("button", { name: /Modül danışmanı|Modul danismani/ }));
-    await Promise.resolve();
-    expect(calls).toEqual([]);
+  it("degistirilemedigini ACIKCA soyler", async () => {
+    // Kilitli bir alani sebepsiz birakmak, kullaniciyi "neden calismiyor"
+    // diye aramaya gonderirdi.
+    mountWith(catalog([]));
+    expect(await screen.findByText(/değiştirilemez|degistirilemez/)).toBeTruthy();
   });
 
   it("hangi rolun ne yaptigini ve dogru secim uyarisini yazar", async () => {
     // Kullanici (2026-09-08): *"uyari ekle hangi danisman oldugunun dogru
     // secilmesiyle alakali"*. Rolun adi tek basina ne yapabildigini soylemiyor.
-    mountRoles();
+    mountWith(catalog([]));
     expect(await screen.findByText(/Sistemi okur, süreç analizi|Sistemi okur, surec analizi/)).toBeTruthy();
     expect(screen.getByText(/YAPABİLECEKLERİNİ|YAPABILECEKLERINI/)).toBeTruthy();
   });

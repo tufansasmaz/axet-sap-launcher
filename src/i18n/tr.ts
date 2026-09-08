@@ -323,9 +323,8 @@ export const tr = {
 
   "settingsModal.sectionSkills": "Yapay zekâ yetenekleri",
   "skillsSection.roleLabel": "Rolüm",
-  "skillsSection.roleHint":
-    "Rolü değiştirdiğinde yetenekler hemen yeniden kurulur: bu role ait olmayanlar projeden kaldırılır.",
-  "skillsSection.roleApplying": "Yetenekler yeniden kuruluyor…",
+  "skillsSection.roleLocked":
+    "Bu rol uygulamayı ilk açtığında seçildi ve değiştirilemez. Bütün SAP sistemlerinde bu rolün yetenekleri kurulur.",
   "skillsSection.roleWarning":
     "Doğru rolü seç. Asistan yalnızca burada kurulu olan yetenekleri kullanabilir — rol, onun müşteri sisteminde YAPABİLECEKLERİNİ belirliyor. Modül danışmanı seçiliyken sisteme yazan hiçbir yetenek kurulmaz; teknik danışman seçiliyken kod denetimi, ekran üretimi ve abapGit de kurulur.",
   "skillsSection.noProject": "Açık bir proje yok. Bir sisteme bağlandığında bu projenin yetenekleri burada listelenir.",
@@ -394,11 +393,11 @@ export const tr = {
   "doctorSection.row.catalog": "NTT katalog klasörü",
 
   // --- Rol seçimi (skill profili) ---
-  "roleModal.title": "Bu projede hangi rolle çalışacaksın?",
+  "roleModal.title": "Hangi danışmansın?",
   "roleModal.subtitle":
-    "Seçtiğin role göre yapay zekâ asistanına farklı yetenekler kuruluyor. Sonradan Ayarlar'dan değiştirebilirsin.",
+    "Başlamadan önce bir kere soruyoruz: seçtiğin role göre yapay zekâ asistanına farklı yetenekler kuruluyor ve bu, bağlandığın bütün SAP sistemleri için geçerli oluyor.",
   "roleModal.subtitleWithSystem":
-    "{system} bağlantısı için. Seçtiğin role göre asistana farklı yetenekler kuruluyor; sonradan Ayarlar'dan değiştirebilirsin.",
+    "{system} bağlantısı için. Seçtiğin role göre asistana farklı yetenekler kuruluyor; bu seçim bağlandığın bütün SAP sistemleri için geçerli olur.",
   "roleModal.role.module-consultant": "Modül danışmanı",
   "roleModal.roleDesc.module-consultant":
     "Sistemi okur, süreç analizi yapar, FS/TS ve toplantı notu üretir. Sisteme yazan hiçbir yetenek kurulmaz.",
@@ -415,8 +414,10 @@ export const tr = {
     "Bu sistem üretim (PRD) olarak işaretli. Sisteme yazabilen {count} yetenek kurulmayacak, kuruluysa kaldırılacak.",
   "roleModal.noticeText":
     "Kurulacak yeteneklerden bazıları SAP sistemine YAZMA niyeti taşıyor (kod/ekran üretimi, taşıma kaydı). Bunları yalnızca yetkili olduğum bir geliştirme sisteminde kullanacağımı ve her yazma işleminden önce taşıma kaydını doğrulayacağımı kabul ediyorum.",
-  "roleModal.cancel": "Vazgeç",
-  "roleModal.confirm": "Devam et",
+  "roleModal.permanentWarning":
+    "Bu seçim KALICIDIR, sonradan değiştirilemez. Rol, asistanın müşteri sisteminde yapabileceklerini belirliyor: modül danışmanı seçersen sisteme yazan hiçbir yetenek kurulmaz; teknik danışman seçersen kod denetimi, ekran üretimi ve abapGit de kurulur. Doğru olanı seç.",
+  "roleModal.mustChoose": "Devam etmek için bir rol seç.",
+  "roleModal.confirm": "Seçimimi onayla",
 
   "updatePrompt.title": "Yeni sürüm bulundu",
   "updatePrompt.message": "NTT Studio v{version} yayınlandı. Şimdi indirilsin mi? İndirme tamamlandığında uygulama otomatik olarak yeniden başlatılıp güncellenecek.",

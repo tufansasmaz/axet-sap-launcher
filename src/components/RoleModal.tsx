@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BookOpen, Check, FlaskConical, Wrench } from "lucide-react";
+import { AlertTriangle, BookOpen, Check, Lock, Wrench } from "lucide-react";
 import type { SkillPlanEntry, SkillProfile, SystemTier } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
-import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import { DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 
 interface Props {
   open: boolean;
@@ -11,36 +11,61 @@ interface Props {
   /** Sistemin ekranda görünen adı; hangi bağlantı için sorulduğu belli olsun. */
   systemLabel?: string;
   onConfirm: (profile: SkillProfile, noticeAccepted: boolean) => void;
-  onCancel: () => void;
 }
 
+/**
+ * İKİ rol var, üç değil.
+ *
+ * `sandbox` profili `skillProfiles.ts`'te duruyor (eski kurulumlar onunla
+ * kayıtlı olabilir, `store.ts` hâlâ kabul ediyor) ama SEÇİLEBİLİR değil —
+ * kullanıcı, 2026-09-08: *"sadece 2 seçenek ya teknik ya modülcü olucak"*.
+ * Her şeyi kuran bir profili seçenek olarak sunmak, "hangisi olduğunu
+ * bilmiyorum" diyen herkesin varsayılanı olurdu ve rol ayrımının kendisini
+ * anlamsızlaştırırdı.
+ */
 const ROLES: { id: SkillProfile; icon: typeof BookOpen }[] = [
   { id: "module-consultant", icon: BookOpen },
-  { id: "technical-consultant", icon: Wrench },
-  { id: "sandbox", icon: FlaskConical }
+  { id: "technical-consultant", icon: Wrench }
 ];
 
 /**
- * Rol seçimi. Bağlantı akışında BİR KERE sorulur, cevap ayarlara yazılır.
+ * Rol seçimi. Uygulama İLK AÇILDIĞINDA sorulur, cevap ayarlara yazılır ve
+ * **bir daha değişmez**.
  *
  * Neden rol soruyoruz: kurulan her skill ajanın gördüğü bir talimat. Hepsini
  * herkese kurmak "daha çok yetenek" değil, ajanın önünde alakasız yol demek —
  * modül danışmanına abapGit anlatan bir skill, o danışmanın hiç sormadığı bir
  * işi yapmayı önerir.
  *
+ * ÜÇ KURAL, üçü de kullanıcının 2026-09-08 tarihli isteği:
+ *   1. **İlk açılışta** sorulur (*"uygulama kurulduktan sonra açılır açılmaz
+ *      danışmanlık statüsünü sorsun"*) — bağlantı akışında değil. Eskiden ilk
+ *      bağlantıda soruluyordu; kuran ama henüz bağlanmayan kullanıcı rolsüz
+ *      kalıyordu.
+ *   2. **Zorunlu**: iptal yok, varsayılan seçili değil. Kapatma yolu bırakmak,
+ *      seçimi "sonra hallederim"e çevirirdi — ve sonrası yok (3. kural).
+ *   3. **Kalıcı**: *"daha sonra da değiştiremesin, uyarıyı da orda ver doğru
+ *      seçmesi için"*. Bu yüzden uyarı bu pencerede, seçim düğmelerinin
+ *      hemen altında duruyor; bilgi, kararın verildiği yerde.
+ *
  * Önizleme `window.api.planSkills` ile ana süreçten geliyor: ekranda görünen
  * liste ile diske yazılan liste AYNI fonksiyondan çıksın diye. Renderer'da
  * ikinci bir kopya tutulsaydı ikisi zamanla ayrışır, kullanıcı gördüğünden
  * başkasını kurmuş olurdu.
  */
-export default function RoleModal({ open, tier, systemLabel, onConfirm, onCancel }: Props) {
+export default function RoleModal({ open, tier, systemLabel, onConfirm }: Props) {
   const t = useT();
-  const [profile, setProfile] = useState<SkillProfile>("module-consultant");
+  // Varsayılan YOK. Bir rol önceden seçili gelseydi, "İleri"ye basmak seçim
+  // yapmakla aynı görünür; kalıcı bir karar için bu az.
+  const [profile, setProfile] = useState<SkillProfile | null>(null);
   const [plan, setPlan] = useState<SkillPlanEntry[]>([]);
   const [accepted, setAccepted] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || !profile) {
+      setPlan([]);
+      return;
+    }
     let alive = true;
     void window.api
       .planSkills(profile, tier)
@@ -68,7 +93,8 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm, onCancel
   // Onay yalnızca GERÇEKTEN kurulacak yazma yetenekli skill varsa isteniyor.
   // PRD'de hepsi zaten engellendiği için soru anlamsız olurdu.
   const needsNotice = writeCapable.some((entry) => !entry.blockedByTier);
-  const canConfirm = !needsNotice || accepted;
+  // Rol seçilmeden onay YOK — zorunluluğun tek gerçek karşılığı bu satır.
+  const canConfirm = profile !== null && (!needsNotice || accepted);
 
   if (!open) return null;
 
@@ -120,6 +146,17 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm, onCancel
             })}
           </div>
 
+          {/* KALICILIK UYARISI seçim düğmelerinin hemen altında: kullanıcı
+              (2026-09-08) *"uyarıyı da orda ver doğru seçmesi için"*. Ayarlarda
+              bir yerde dursaydı, kararın verildiği anda görünmezdi. */}
+          <p className="flex items-start gap-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2.5 text-xs leading-relaxed text-[var(--status-warning-text)]">
+            <Lock size={13} className="mt-0.5 shrink-0" />
+            {t("roleModal.permanentWarning")}
+          </p>
+
+          {profile === null && <p className="text-xs text-slate-500">{t("roleModal.mustChoose")}</p>}
+
+          {profile !== null && (
           <div>
             <div className="mb-2 flex items-center justify-between">
               <span className="text-xs font-medium uppercase tracking-wide text-slate-500">
@@ -153,6 +190,7 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm, onCancel
               ))}
             </div>
           </div>
+          )}
 
           {blocked.length > 0 && (
             <p className="flex items-start gap-1.5 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--status-warning-text)]">
@@ -176,14 +214,13 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm, onCancel
           )}
         </div>
 
+        {/* İPTAL DÜĞMESİ YOK — seçim zorunlu. Kapatma yolu bırakmak, kalıcı
+            bir kararı "sonra" kutusuna atmak olurdu; sonra da yok. */}
         <div className="flex justify-end gap-2 border-t border-line/50 px-6 py-4">
-          <button type="button" onClick={onCancel} className={DIALOG_CANCEL_BUTTON}>
-            {t("roleModal.cancel")}
-          </button>
           <button
             type="button"
             disabled={!canConfirm}
-            onClick={() => onConfirm(profile, needsNotice)}
+            onClick={() => profile && onConfirm(profile, needsNotice)}
             className={`${DIALOG_CONFIRM_BUTTON} disabled:cursor-not-allowed disabled:opacity-40`}
           >
             {t("roleModal.confirm")}

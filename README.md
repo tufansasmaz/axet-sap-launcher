@@ -47,8 +47,11 @@ gibi aXet bağlayıcıları), tema, dil ve ayarlar.
 
 - Proje reçetesi, danışman rolü + yetenekler, ortam teşhisi ve ajana giden
   bağlam dosyası tek ekranda; genişliğe göre 1/2/3 sütun.
-- Danışman rolü değişince yetenekler **gerçekten değişir**: role ait
-  olmayanlar projeden kaldırılır, ait olanlar kurulur.
+- Danışman rolü uygulamanın **ilk açılışında** zorunlu olarak sorulur (iki
+  seçenek: modül / teknik), **kalıcıdır** ve bütün SAP sistemleri için
+  geçerlidir; Hazırlık ekranında yalnızca kilitli olarak görünür.
+- Seçilen role göre yetenekler **gerçekten değişir**: role ait olmayanlar
+  projeden kaldırılır, ait olanlar kurulur.
 - Uygulama bağlantılarının tur başına bağlam maliyeti, bağlayıcı **türüne
   göre** ölçülmüş sayılarla gösterilir; ölçülmemiş tür varsa tahmin
   olduğu açıkça yazılır.

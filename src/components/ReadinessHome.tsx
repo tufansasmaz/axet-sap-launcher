@@ -12,9 +12,6 @@ interface Props {
   skillProfile: SkillProfile | null;
   /** Teşhis sonucunu App'e taşır — kenar çubuğundaki arıza noktası bunu izliyor. */
   onDoctorReport?: (report: DoctorReport | null) => void;
-  /** Rolü KAYDEDER ve kayıt bitince çözülür — yetenek bölümü kurulumu buna
-   *  zincirliyor, yoksa kurulum bir önceki rolü okuyordu. */
-  onProfileChange: (profile: SkillProfile) => Promise<void> | void;
 }
 
 /**
@@ -34,7 +31,7 @@ interface Props {
  * Bölümlerin kendisi taşınmadı, olduğu gibi kullanılıyor: aynı bileşenler
  * Ayarlar'da da dursaydı iki ekran aynı durumu ayrı ayrı yazardı.
  */
-export default function ReadinessHome({ projectDir, skillProfile, onProfileChange, onDoctorReport }: Props) {
+export default function ReadinessHome({ projectDir, skillProfile, onDoctorReport }: Props) {
   const t = useT();
 
   return (
@@ -83,7 +80,7 @@ export default function ReadinessHome({ projectDir, skillProfile, onProfileChang
           </Card>
 
           <Card icon={Sparkles} title={t("settingsModal.sectionSkills")}>
-            <SkillsSection profile={skillProfile} onProfileChange={onProfileChange} projectDir={projectDir} />
+            <SkillsSection profile={skillProfile} projectDir={projectDir} />
           </Card>
 
           <Card icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>

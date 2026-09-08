@@ -270,11 +270,10 @@ export const en: Record<TranslationKey, string> = {
 
   "settingsModal.sectionSkills": "AI skills",
   "skillsSection.roleLabel": "My role",
-  "skillsSection.roleApplying": "Reinstalling skills…",
   "skillsSection.roleWarning":
     "Pick the right role. The assistant can only use the skills installed here — the role decides what it is ABLE to do on a customer system. With Module consultant no system-writing skill is installed; with Technical consultant code checking, screen generation and abapGit are installed too.",
-  "skillsSection.roleHint":
-    "After changing the role, press Update below — the skills are only reinstalled then.",
+  "skillsSection.roleLocked":
+    "This role was chosen the first time you opened the app and cannot be changed. Its skills are installed on every SAP system you connect to.",
   "skillsSection.noProject": "No project is open. Once you connect to a system, that project's skills are listed here.",
   "skillsSection.versionLine": "Package: {toolkit} · This project: {installed}",
   "skillsSection.update": "Update",
@@ -338,11 +337,11 @@ export const en: Record<TranslationKey, string> = {
   "doctorSection.row.toolkit": "SAP skill package",
 
   // --- Role picker (skill profile) ---
-  "roleModal.title": "What role are you working in on this project?",
+  "roleModal.title": "Which consultant are you?",
   "roleModal.subtitle":
-    "Different skills are installed for the AI assistant depending on the role you pick. You can change this later in Settings.",
+    "One question before you start: the role you pick decides which skills are installed for the AI assistant, and it applies to every SAP system you connect to.",
   "roleModal.subtitleWithSystem":
-    "For the {system} connection. Different skills are installed depending on the role you pick; you can change this later in Settings.",
+    "For the {system} connection. The role you pick decides which skills are installed, and it applies to every SAP system you connect to.",
   "roleModal.role.module-consultant": "Module consultant",
   "roleModal.roleDesc.module-consultant":
     "Reads the system, analyses processes, produces FS/TS documents and meeting notes. No write-capable skill is installed.",
@@ -359,8 +358,10 @@ export const en: Record<TranslationKey, string> = {
     "This system is marked as production (PRD). {count} write-capable skills will not be installed, and will be removed if already present.",
   "roleModal.noticeText":
     "Some of the skills to be installed intend to WRITE to the SAP system (code/screen generation, transport requests). I accept that I will use them only on a development system I am authorised on, and that I will confirm the transport request before every write.",
-  "roleModal.cancel": "Cancel",
-  "roleModal.confirm": "Continue",
+  "roleModal.permanentWarning":
+    "This choice is PERMANENT and cannot be changed later. The role decides what the assistant is able to do on a customer system: with Module consultant no system-writing skill is installed; with Technical consultant code review, screen generation and abapGit are installed too. Pick the right one.",
+  "roleModal.mustChoose": "Pick a role to continue.",
+  "roleModal.confirm": "Confirm my choice",
 
   "updatePrompt.title": "New version available",
   "updatePrompt.message": "NTT Studio v{version} was released. Download it now? The app will automatically restart and install once the download finishes.",

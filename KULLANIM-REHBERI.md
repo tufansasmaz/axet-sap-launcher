@@ -45,21 +45,33 @@ ekranda toplar. Ekran genişliğine göre bir, iki ya da üç sütuna açılır:
 
 ### Danışman rolü ve yetenekler
 
-Rol seçimi üç seçenekli: **Modül danışmanı**, **Teknik danışman**,
-**Sandbox**. Rol yalnızca bir etiket değil — ajanın müşteri sisteminde
-**yapabileceklerini** belirler, çünkü ajan sadece burada kurulu yetenekleri
-kullanabilir.
+**Uygulamayı ilk açtığında** karşına çıkan ilk pencere bunu sorar: modül
+danışmanı mısın, teknik danışman mı? İki seçenek var, üçüncüsü yok.
 
-- Rolü değiştirdiğin anda yetenekler yeniden kurulur: yeni role ait olmayan
-  yetenekler projeden **kaldırılır**, ait olanlar kurulur. Ayrı bir
-  "Güncelle" tıklaması gerekmez.
-- **Modül danışmanı** seçiliyken sisteme yazan hiçbir yetenek kurulmaz.
-  **Teknik danışman** seçiliyken kod denetimi, ekran üretimi ve abapGit de
+Bu pencerenin üç kuralı var ve bilerek böyle:
+
+- **Zorunludur.** İptal düğmesi yoktur, önceden seçili bir rol gelmez.
+  Bir rol seçmeden onay düğmesi açılmaz.
+- **Bir kere sorulur.** Daha önce rol seçilmişse bir daha çıkmaz.
+- **Kalıcıdır.** Seçtiğin rol sonradan değiştirilemez — ne Hazırlık
+  ekranından ne başka bir yerden. Hazırlık ekranında rolün yalnızca
+  kilit ikonuyla **yazar**.
+
+Rol yalnızca bir etiket değil — ajanın müşteri sisteminde
+**yapabileceklerini** belirler, çünkü ajan sadece kurulu yetenekleri
+kullanabilir. Seçimin **bağlandığın bütün SAP sistemleri** için geçerlidir;
+sistem başına ayrı bir rol yoktur.
+
+- **Modül danışmanı** seçersen sisteme yazan hiçbir yetenek kurulmaz.
+  **Teknik danışman** seçersen kod denetimi, ekran üretimi ve abapGit de
   kurulur.
-- Katalogdan elle kurduğun yetenekler bu temizlikten etkilenmez; onlar
-  role bağlı değildir.
-- Doğru rolü seçmek önemli: eksik rol ajanı iş yapamaz hâle getirir, geniş
-  rol ise müşteri sisteminde istemediğin bir yeteneği masaya koyar.
+- Onaylamadan önce pencerede, seçtiğin rolle hangi yeteneklerin kurulacağı
+  ad ad listelenir. Kararı listeye bakarak ver.
+- Katalogdan elle kurduğun yetenekler role bağlı değildir; onlar her iki
+  rolde de kurulabilir ve kaldırılabilir.
+- Doğru seçmek önemli: dar rol ajanı iş yapamaz hâle getirir, geniş rol ise
+  müşteri sisteminde istemediğin bir yeteneği masaya koyar. Değiştirme
+  şansın olmadığı için uyarı da o pencerededir.
 
 ### Tur başına bedel (Uygulama Bağlantıları)
 

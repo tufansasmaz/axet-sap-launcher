@@ -9802,7 +9802,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.1** | Bayat veritabanı düzeltmesi + sessizlik temelli zaman aşımı. **Etiketi uzakta ama release'i hiç yayınlanmadı** |
 | **1.6.2** | Whisper çalışma zamanı diskten kaldırıldı. Yayınlanmış bir etiketi oynatmak yerine sürüm ileri alındı |
 | **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
-| **1.6.4** | Danışman rolü gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
+| **1.6.4** | Danışman rolü ilk açılışta zorunlu + kalıcı soruluyor, gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
 
 İptal edilen Faz 0-4 planının iki belgesi
 (`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
@@ -9856,17 +9856,19 @@ kayıtlar hariç. `sapToolkit.ts` bu listeyi kurulumdan ÖNCE siliyor ve
 `SkillInstallResult.removed` alanında rapor ediyor.
 
 **Sıra kritik.** `skills:reinstall` kanalı profili çağrı anında
-`loadConfig().skillProfile`'dan okuyor. Bu yüzden `SkillsSection.chooseRole`
-önce `await onProfileChange(id)` yapıp rolü diske YAZDIRIYOR, sonra
-`reinstallSkills` çağırıyor. Sıra bozulursa bir önceki rol kurulur ve hata
-sessizdir — bunu bir test koruyor (`calls` dizisi `["save", "reinstall"]`
-olmak zorunda).
+`loadConfig().skillProfile`'dan okuyor: rol diske YAZILMADAN kurulum
+çağrılırsa bir önceki rolün yetenekleri kurulur ve hata sessizdir.
+`App.handleRoleConfirm` bu yüzden önce `saveConfig`, sonra bağlantı /
+kurulum yapıyor. (Bu maddenin ilk hâlinde sıra `SkillsSection.chooseRole`
+içindeydi; o fonksiyon aşağıdaki 7. maddeyle birlikte kaldırıldı.)
 
-**Uyarı metni.** Kullanıcı isteğiyle rol kutusunun altına kalıcı bir uyarı
-kondu (`skillsSection.roleWarning`): ajan yalnızca kurulu yetenekleri
-kullanabildiği için rol, onun müşteri sisteminde YAPABİLECEKLERİNİ
-belirliyor. Kutu `--status-warning-*` jetonlarını kullanıyor (`amber-*`
-DEĞİL, bkz. tasarım kuralları).
+**Uyarı metni.** Kullanıcı isteğiyle kalıcı bir uyarı kondu: ajan yalnızca
+kurulu yetenekleri kullanabildiği için rol, onun müşteri sisteminde
+YAPABİLECEKLERİNİ belirliyor. Uyarı iki yerde: seçimin yapıldığı pencerede
+(`roleModal.permanentWarning` — asıl olan bu, karar orada veriliyor) ve
+Hazırlık ekranındaki gösterimin altında (`skillsSection.roleWarning`). Kutu
+`--status-warning-*` jetonlarını kullanıyor (`amber-*` DEĞİL, bkz. tasarım
+kuralları).
 
 ### 2. Hazırlık ekranı — üç sütunlu ızgara
 
@@ -9927,8 +9929,55 @@ başlatan biri DEV sisteminde yazabilir. `.conn_adt`'ye üçüncü bir kilit
 olarak `ADT_READONLY=true` eklemek önerildi; **kullanıcı henüz cevap
 vermedi, kendiliğinden yapılmayacak.**
 
+### 7. Rol artık ilk açılışta bir kere soruluyor ve DEĞİŞMİYOR
+
+Yukarıdaki 1. madde rolü *değiştirilebilir* bir ayar olarak bırakmıştı.
+Kullanıcı aynı gün bunu tersine çevirdi:
+
+> *"uygulama kurulduktan sonra açılır açılmaz danışmanlık statüsünü sorsun
+> zorunlu ... sadece 2 seçenek ya teknik ya modülcü olucak"*
+> *"bunu ilk açıldığında sorsun hiç seçilmediyse daha sonra da
+> değiştiremesin uyarıyı da orda ver doğru seçmesi için"*
+
+Dört kural ve kodda karşılıkları:
+
+1. **İlk açılışta.** Kapı artık ilk BAĞLANTIDA değil, config okunur okunmaz
+   açılıyor: `App.tsx` → `const roleGateOpen = config !== null &&
+   config.skillProfile === null`. Kurup hiçbir sisteme bağlanmamış kullanıcı
+   da rolünü seçmiş oluyor. Eski `handleCredentialsSubmit` koruması
+   (`pendingConnect`) duruyor ama artık yalnızca emniyet ağı.
+2. **Zorunlu.** `RoleModal`'da iptal düğmesi YOK (`onCancel` prop'u
+   kaldırıldı), varsayılan seçim YOK (`useState<SkillProfile | null>(null)`),
+   ve `canConfirm = profile !== null && (!needsNotice || accepted)`.
+   Önceden seçili bir rol, kalıcı bir kararı "İleri"ye basmakla aynı şeye
+   çevirirdi.
+3. **İki seçenek.** `ROLES` dizisi yalnızca `module-consultant` ve
+   `technical-consultant`. `sandbox` profili `skillProfiles.ts`'te ve
+   `store.ts`'in `isSkillProfile` süzgecinde DURUYOR — eski kurulumlar
+   onunla kayıtlı olabilir ve config'i bozmak istemiyoruz — ama seçenek
+   olarak çizilmiyor. `roleModal.role.sandbox` çevirileri de bu yüzden
+   silinmedi.
+4. **Kalıcı.** `SkillsSection`'daki `chooseRole` fonksiyonu ve `ROLES`
+   sabiti tamamen silindi; yerine kilit ikonlu bir GÖSTERİM kutusu geldi
+   (`skillsSection.roleLocked`). `onProfileChange` prop zinciri
+   App → ReadinessHome → SkillsSection boyunca kaldırıldı — değiştirmenin
+   yolu artık kodda yok, gizlenmiş bir düğme değil.
+
+**Uyarı kararın verildiği yerde.** `roleModal.permanentWarning`, rol
+listesinin hemen altında, seçimden önce görünüyor: seçimin kalıcı olduğunu
+VE her rolün ne getirdiğini tek kutuda söylüyor. Bir rol seçilince ayrıca
+o rolle kurulacak yeteneklerin adı adı listesi çiziliyor (`skills:plan`,
+ana süreçten — renderer'da ikinci bir liste tutulmuyor, iki kopya zamanla
+ayrışırdı).
+
+**Karşılığı olan test:** `tests/roleModal.test.tsx` (7 test) dördünü de
+kilitliyor. `skillsSection.test.tsx`'teki eski `["save", "reinstall"]` sıra
+testi, koruduğu fonksiyon kalktığı için rol GÖSTERİMİ testleriyle
+değiştirildi.
+
 ### Testler
 
-Bu turda 8 yeni test eklendi (`skillProfiles.test.ts` 5,
-`skillsSection.test.tsx` 3) ve bağlayıcı testleri yeni modele göre yeniden
-yazıldı. Kapı: **122/122 test, 12 dosya, typecheck temiz.**
+Bu turda 15 yeni test eklendi (`skillProfiles.test.ts` 5,
+`skillsSection.test.tsx` 3, `roleModal.test.tsx` 7) ve bağlayıcı testleri
+yeni modele göre yeniden yazıldı. Kapı: **129/129 test, 13 dosya, typecheck
+temiz.**
