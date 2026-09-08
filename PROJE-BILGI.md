@@ -9804,7 +9804,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
 | **1.6.4** | Danışman rolü ilk açılışta zorunlu + kalıcı soruluyor, gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
 | **1.6.5** | Boş balon arızası: metinsiz tur artık başarılı sayılmıyor · paketlenmiş uygulamaya günlük dosyası (yalnızca sayaç/durum) |
-| **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor · yetenekler iki kapsama ayrıldı: 41 yetenek genel klasöre (düz sohbetlerde de geçerli), SAP'a yazan 4 yetenek sistem başına (PRD kapısı korunuyor) · "Genel yetenekler" penceresi: küme küme liste, rol dışı satırlar kilitli · açık soru kutusu varken yazılan mesaj artık oturumu öldürmüyor (sarkan `tool_use` → 400) · başarısız turlar günlüğe düşüyor. **Yerelde hazır, yayınlanmadı** |
+| **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor · yetenekler iki kapsama ayrıldı: 41 yetenek genel klasöre (düz sohbetlerde de geçerli), SAP'a yazan 4 yetenek sistem başına (PRD kapısı korunuyor) · "Genel yetenekler" penceresi: küme küme liste, rol dışı satırlar kilitli · açık soru kutusu varken yazılan mesaj artık oturumu öldürmüyor (sarkan `tool_use` → 400) · başarısız turlar günlüğe düşüyor · sonsuz "Düşünüyor" giderildi: oturum etiketi tekilleştiriliyor, istem başka oturuma düşerse takip ediliyor, bozulmuş geçmiş (sarkan `tool_use`) yeni oturumla değiştiriliyor. **Yerelde hazır, yayınlanmadı** |
 
 İptal edilen Faz 0-4 planının iki belgesi
 (`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
@@ -10401,3 +10401,62 @@ satır ortasında `import` + tırnak/kesme olmamalı. Ön koşul (`import`in hem
 Yazarken: **`import'u` yerine "çağrısı"/"satırı" de.**
 
 Kapı: 171/171 test, 19 dosya, typecheck temiz, `electron-vite build` temiz.
+
+## Sonsuz "Düşünüyor": yazdığımız oturum ile baktığımız oturum ayrışıyordu (2026-09-08)
+
+**Belirti:** sohbet saatlerce "Düşünüyor" yazıyor. Durdur düğmesi de tutmuyor
+(`iptal TUTMADI`, esc üç kez yazıldı, tur bitmedi).
+
+**Ölçüm.** Uygulama günlüğü sohbeti `569629ed` oturumuna bağladığını
+söylüyordu:
+
+    [axetChatTui] ESKI OTURUMA BAGLANILDI { oturum: '569629ed', etiket: 'ax4ccee7e6' }
+    [axetChatTui] tur sessiz, beklemeye devam { saniye: '300.0', oturum: '569629ed', promptDustu: false }
+
+axet-code'un kendi veritabanı ise mesajların BAŞKA bir oturuma düştüğünü
+gösteriyordu:
+
+    569629ed  mesaj 7   sonYazim 18:47:48  "fs2ts/ui 404 hatası … · ax4ccee7e6"
+    ebff528c  mesaj 69  sonYazim 19:27:42  "Untitled Session · ax4ccee7e6"
+    8fcfabe1  mesaj 98  sonYazim 15:00:39  "Axet Flow Skill Yükleme … · ax4ccee7e6"
+
+Üç oturum da aynı etiketi taşıyor.
+
+**Sebep — ETİKET TEKİL DEĞİLDİ.** `bindingTag(chatId)` sohbet başına sabit
+(`ax` + kimliğin ilk 8 hanesi) ve `bindSessionToChat` oturum her
+yenilendiğinde onu bir oturuma daha yazıyordu. `ctrl+s` ekranında etiketi
+yazmak bir **filtre**; birden çok satır kalınca Enter en son kullanılanı
+seçiyor. `attachToBoundSession` ise seçilen satırı ekrandan okuyamadığı için
+kimliği **iddia ediyordu**:
+
+    session.axetSessionId = binding.sessionId;   // doğrulama YOK
+
+Yani pty'ye `ebff528c`'ye yazıyorduk, veritabanında `569629ed`'e bakıyorduk.
+Hiçbir zaman aşımı da devreye girmiyor: sessizlik sayacı 5 dakikada bir
+uyarı yazıp devam ediyor (5e93caf'ten beri öldürmüyor), mutlak tavan 6 saat.
+
+**Üç katmanlı çözüm:**
+
+1. **Etiket tekilleştiriliyor** (`makeTagUnique`): bağ kurulurken ve
+   bağlanmadan önce, etiketi taşıyan DİĞER oturumların başlığından etiket
+   sökülüyor (`stripBindingTag`). Okunabilir başlık aynen kalıyor, oturum
+   içeriğine dokunulmuyor. Sökülemezse bağlanmaktan vazgeçilip tohumlamaya
+   dönülüyor — yavaş ama doğru.
+2. **İstem takip ediliyor**: 20 saniye sonra istem baktığımız oturuma hâlâ
+   düşmediyse, `findSessionByPrompt` ile TÜM veritabanında aranıyor. Başka
+   bir oturumda bulunursa oraya geçiliyor, bağ yenileniyor ve o oturumun
+   eski mesajları `preexisting`'e ekleniyor (yoksa oradaki önceki cevap bu
+   turun cevabı diye akardı). Günlük: `sohbet.oturum-kaydi`.
+3. **Bozuk geçmiş atılıyor** (`poisoned`): tur `finish` parçasında
+   `` `tool_use` ids were found without `tool_result` `` görürse oturum
+   KALICI olarak ölmüştür — sonraki her mesaj da aynı 400'ü alır. Bayrak
+   turun sonunda konuyor, bir sonraki gönderimin başında `resetTuiHistory`
+   ile yeni bir axet-code oturumu açılıyor ve konuşma yeniden tohumlanıyor.
+   Bedel bir büyük istem; alternatif ölü bir sohbet. Günlük:
+   `sohbet.gecmis-bozuk`.
+
+**Kural:** seçici ekranında bir FİLTRE yazıp Enter'a basmak, filtre tek satır
+bıraktığı DOĞRULANMADAN oturum seçmek sayılmaz. Bu dosyada aynı sınıf hatanın
+bedeli artık üç kez ödendi.
+
+Kapı: 183/183 test, 20 dosya, typecheck temiz, `electron-vite build` temiz.

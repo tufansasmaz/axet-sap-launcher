@@ -56,6 +56,14 @@ export interface AxetPart {
      */
     finished?: boolean;
     reason?: string;
+    /**
+     * `finish` için, `reason: "error"` olduğunda sağlayıcının kısa hata
+     * başlığı (`"Bad Request"`) ve ayrıntısı. Ayrıntı bazen düz metin,
+     * bazen nesne geliyor — bozuk geçmiş teşhisi (bkz. axetChatTui.ts
+     * `poisoned`) ikisini de tarıyor.
+     */
+    message?: string;
+    details?: unknown;
     is_error?: boolean;
     /**
      * `tool_result` için aracın döndürdüğü ham gövde. `is_error` GÜVENİLİR
@@ -66,6 +74,35 @@ export interface AxetPart {
      */
     content?: string;
   };
+}
+
+/**
+ * Bu `finish` parçası, oturumun GEÇMİŞİNİN artık kullanılamaz olduğunu mu
+ * söylüyor?
+ *
+ * Sağlayıcı, cevabı gelmemiş bir `tool_use` bloğu taşıyan geçmişi topluca
+ * reddediyor:
+ *
+ *   400 Bad Request  `tool_use` ids were found without `tool_result`
+ *                    blocks immediately after: toolu_…
+ *
+ * Ayrım kritik: bu hata TURA değil GEÇMİŞE ait. Sıradan bir sağlayıcı
+ * hatasında (403, EOF) tekrar denemek işe yarıyor; burada aynı oturuma
+ * yazılan HER sonraki mesaj da aynı 400'ü alıyor. Kullanıcının gördüğü tek
+ * şey ardarda boş cevaplar oluyor (2026-09-08 ölçümü).
+ *
+ * Ölçüt iki anahtar kelimenin BİRLİKTE geçmesi. Tek başına `tool_use` bir
+ * araç adında da geçebilir; ikisi birden yalnızca bu hatada bir araya
+ * geliyor. Ayrıntı alanı bazen düz metin bazen nesne geldiği için ikisi de
+ * metne çevriliyor.
+ */
+export function finishPoisonsHistory(part: AxetPart | undefined): boolean {
+  if (!part || part.type !== "finish") return false;
+  const details = part.data?.details;
+  const text = `${part.data?.message ?? ""} ${
+    typeof details === "string" ? details : details === undefined ? "" : JSON.stringify(details)
+  }`;
+  return text.includes("tool_use") && text.includes("tool_result");
 }
 
 export interface AxetDbMessage {
@@ -361,6 +398,35 @@ export function sessionTitle(dbPath: string, sessionId: string): string | null {
     return row.title ?? "";
   } catch {
     return null;
+  }
+}
+
+/**
+ * Başlığında verilen ETİKET geçen bütün oturumlar — en yeniden eskiye.
+ *
+ * NEDEN GEREKLİ: `ctrl+s` seçicisinde etiketi yazıp Enter'a basmak, ancak
+ * etiket TEK bir satıra götürüyorsa doğru oturumu seçiyor. Etiket sohbet
+ * kimliğinden türüyor ve sohbet başına sabit; oturum yenilendiğinde (bkz.
+ * `bindSessionToChat`) aynı etiket ikinci, üçüncü oturuma da yazılıyordu.
+ * 2026-09-08'de üç oturum `ax4ccee7e6` taşıyordu: seçici üç satır gösterdi,
+ * Enter en son kullanılanı seçti, biz ise bağdaki kimliği izlemeye devam
+ * ettik — kimsenin yazmadığı bir oturuma bakan yoklama sonsuza kadar
+ * "Düşünüyor" dedi.
+ *
+ * `%` ve `_` KAÇIRILMIYOR, çünkü etiket `bindingTag` tarafından üretiliyor
+ * ve yalnızca `ax` + onaltılık karakterlerden oluşuyor. Yine de boş etiket
+ * bütün oturumları döndüreceği için baştan reddediliyor.
+ */
+export function sessionsWithTag(dbPath: string, tag: string): Array<{ id: string; title: string }> {
+  if (!tag) return [];
+  const db = openDb(dbPath);
+  if (!db) return [];
+  try {
+    return db
+      .prepare("SELECT id, title FROM sessions WHERE title LIKE ? ORDER BY created_at DESC")
+      .all(`%${tag}%`) as Array<{ id: string; title: string }>;
+  } catch {
+    return [];
   }
 }
 

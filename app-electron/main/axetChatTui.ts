@@ -18,6 +18,7 @@ import { mt } from "./i18n";
 import {
   closeSessionDbs,
   findSessionByPrompt,
+  finishPoisonsHistory,
   latestMessageTime,
   matchKey,
   newestSessionSince,
@@ -27,9 +28,10 @@ import {
   sessionDbLoadError,
   sessionTitle,
   sessionTodos,
-  sessionTokens
+  sessionTokens,
+  sessionsWithTag
 } from "./axetSessionDb";
-import { bindingTag, clearBinding, readBinding, writeBinding } from "./axetSessionBinding";
+import { bindingTag, clearBinding, readBinding, stripBindingTag, writeBinding } from "./axetSessionBinding";
 import {
   classifyFailure,
   logOffset,
@@ -422,6 +424,25 @@ interface TuiSession {
    * teorik değil.
    */
   resetting: Promise<void> | null;
+  /**
+   * Bu axet-code oturumunun GEÇMİŞİ bozuldu — bir daha kullanılamaz.
+   *
+   * Sağlayıcı, cevabı gelmemiş bir `tool_use` bloğu taşıyan geçmişi topluca
+   * reddediyor:
+   *
+   *   400 Bad Request  `tool_use` ids were found without `tool_result`
+   *                    blocks immediately after
+   *
+   * Bu geri dönüşü olmayan bir durum: hata TURA değil GEÇMİŞE ait, yani
+   * aynı oturuma yazılan her sonraki mesaj da aynı 400'ü alıyor. 2026-09-08'de
+   * bir sohbet tam olarak böyle öldü ve kullanıcı için tek belirtisi ardarda
+   * boş cevaplardı.
+   *
+   * Bayrak turun sonunda konuyor, bir sonraki gönderimin BAŞINDA okunuyor:
+   * geçmiş sıfırlanıyor (yeni axet-code oturumu) ve konuşma yeniden
+   * tohumlanıyor. Bedel bir büyük istem; alternatif ölü bir sohbet.
+   */
+  poisoned: boolean;
   lastUsed: number;
   idleTimer: NodeJS.Timeout | null;
   waiters: Waiter[];
@@ -757,6 +778,44 @@ function delay(ms: number): Promise<void> {
 }
 
 /**
+ * Etiketi TEK bir oturuma indirger; başardıysa `true`.
+ *
+ * `ctrl+s` seçicisinde etiketi yazmak bir FİLTRE, seçim değil. Filtre birden
+ * çok satır bırakırsa Enter en son kullanılanı seçiyor ve o satır bizim
+ * bağlandığımızı sandığımız oturum olmuyor. Etiket sohbet kimliğinden
+ * türediği için sabit; oturum her yenilendiğinde aynı etiket bir oturuma
+ * daha yazılıyordu, yani çoğalma zamanla KAÇINILMAZ.
+ *
+ * Onarım, etiketi eski oturumların başlığından SÖKMEK. Kaybedilen şey
+ * yalnızca bizim eklediğimiz ek; kullanıcının gördüğü okunabilir başlık
+ * olduğu gibi kalıyor ve oturumun içeriğine dokunulmuyor.
+ *
+ * Doğrulama sonda tekrar yapılıyor: `renameSession` "kaç satır değişti"
+ * diyor, "artık tekil mi" demiyor.
+ */
+function makeTagUnique(dbPath: string, tag: string, keepId: string): boolean {
+  const others = sessionsWithTag(dbPath, tag).filter((row) => row.id !== keepId);
+  if (others.length === 0) return true;
+  for (const row of others) {
+    const stripped = stripBindingTag(row.title ?? "", tag);
+    // Başlık tamamen etiketten ibaretse boş kalırdı; `renameSession` boş
+    // başlığı reddediyor ve satır etiketli kalırdı.
+    if (!renameSession(dbPath, row.id, stripped || "Untitled Session")) {
+      console.log("[axetChatTui] etiket sokulemedi", { oturum: row.id.slice(0, 8), etiket: tag });
+      return false;
+    }
+  }
+  const left = sessionsWithTag(dbPath, tag).filter((row) => row.id !== keepId);
+  if (left.length > 0) return false;
+  console.log("[axetChatTui] etiket tekillestirildi", {
+    etiket: tag,
+    kalan: keepId.slice(0, 8),
+    sokulen: others.length
+  });
+  return true;
+}
+
+/**
  * Sohbetin ESKİ axet-code oturumuna bağlanır — geçmişi taşımak yerine.
  *
  * ARIZA (2026-09-07, canlı ölçüm): sohbet geçmişi her yeni pty'de TUI'ye
@@ -807,6 +866,19 @@ async function attachToBoundSession(session: TuiSession): Promise<boolean> {
   }
 
   const tag = bindingTag(session.chatId);
+  // FİLTRE TEKİL DEĞİLSE HİÇ BAŞLAMA. Seçicide etiketi yazıp Enter'a basmak
+  // ancak tek satır kaldığında doğru oturuma götürüyor; birden çoksa Enter
+  // en son kullanılanı seçiyor, biz de bağdaki kimliği izlemeye devam
+  // ediyorduk. Sonucu 2026-09-08'de ölçüldü: yoklama kimsenin yazmadığı bir
+  // oturuma bakıyor, tur hiç bitmiyor, arayüz saatlerce "Düşünüyor" diyor.
+  // Onarılamıyorsa tohumlamaya dönülüyor — yavaş ama doğru.
+  if (!makeTagUnique(session.dbPath, tag, binding.sessionId)) {
+    console.log("[axetChatTui] etiket birden cok oturumda, tohumlamaya donuluyor", {
+      chatId: session.chatId,
+      etiket: tag
+    });
+    return false;
+  }
   const started = Date.now();
   // Tampon ÖNCE temizleniyor: `waitForAny` birikmiş çıktıda da arıyor ve bu
   // ekranın metni daha önce (başka bir bağlanmada) oraya düşmüş olabilirdi.
@@ -884,6 +956,12 @@ function bindSessionToChat(session: TuiSession): void {
   // "ne yazıldı" demiyor; bağın tek dayanağı bu başlık olduğu için iddiaya
   // değil, veritabanının kendisine bakılıyor.
   if (sessionTitle(session.dbPath, session.axetSessionId) !== title) return;
+  // Etiket, sohbetin ÖNCEKİ oturumlarında da duruyor olabilir (oturum
+  // yenilendiğinde bu işlev yeniden çalışıyor). Bir sonraki açılışta seçici
+  // filtresinin tek satır bırakması için eskiler burada sökülüyor;
+  // başarısızlık zararsız — `attachToBoundSession` aynı denetimi yeniden
+  // yapıyor ve gerekirse tohumlamaya dönüyor.
+  makeTagUnique(session.dbPath, tag, session.axetSessionId);
   writeBinding(session.chatId, {
     sessionId: session.axetSessionId,
     title,
@@ -955,6 +1033,7 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     seeded: false,
     attached: false,
     resetting: null,
+    poisoned: false,
     lastUsed: Date.now(),
     idleTimer: null,
     waiters: [],
@@ -1945,6 +2024,55 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
               });
             }
           }
+          // SON AĞ: istem BAŞKA bir oturuma düşmüş olabilir.
+          //
+          // `attachToBoundSession` seçicide Enter'a bastıktan sonra hangi
+          // satırın seçildiğini ekrandan okuyamıyor; kimliği İDDİA ediyor.
+          // İddia yanlışsa yazdığımız yer ile baktığımız yer ayrışıyor ve
+          // hiçbir zaman aşımı devreye girmiyor — tur, kullanıcı için
+          // sonsuz bir "Düşünüyor" oluyor (2026-09-08 ölçümü).
+          //
+          // Etiketin tekilleştirilmesi bu ayrışmanın BİLİNEN sebebini
+          // kapatıyor; burası bilinmeyenler için. Ölçüt sıkı: metnimizin
+          // iğnesi, yazma anımızdan sonra düşmüş bir kullanıcı mesajında
+          // geçmeli. pty'ye yazan tek el biz olduğumuz için o mesaj bizimdir.
+          if (!promptLanded && Date.now() - started > LAND_GRACE_MS) {
+            const elsewhere = findSessionByPrompt(session.dbPath, sentAtSec, needle);
+            if (elsewhere && elsewhere !== session.axetSessionId) {
+              console.log("[axetChatTui] ISTEM BASKA OTURUMA DUSMUS, TAKIP EDILIYOR", {
+                chatId: session.chatId,
+                baktigimiz: session.axetSessionId?.slice(0, 8),
+                gercek: elsewhere.slice(0, 8)
+              });
+              appLog("sohbet.oturum-kaydi", {
+                sohbet: session.chatId,
+                baktigimiz: session.axetSessionId?.slice(0, 8) || "-",
+                gercek: elsewhere.slice(0, 8)
+              });
+              // Yeni oturumun BİZDEN ÖNCEKİ mesajları bu tura ait değil.
+              // `preexisting` eski oturuma göre kurulmuştu; burada yeni
+              // oturumun eski mesajlarıyla genişletiliyor, yoksa oradaki
+              // önceki cevap bu turun cevabı diye akardı.
+              for (const old of readMessagesSince(session.dbPath, elsewhere, sinceSec)) {
+                if (old.createdAt < sentAtSec) preexisting.add(old.id);
+              }
+              // Elimizdeki `messages` hâlâ YANLIŞ oturumdan; bu turda hiçbiri
+              // bize ait değil. Bir sonraki yoklama doğru oturumu okuyacak,
+              // ama bu döngü adımı `promptLanded` açıldığı için onları
+              // cevap sanardı.
+              for (const stale of messages) preexisting.add(stale.id);
+              session.axetSessionId = elsewhere;
+              // Bağ da yenileniyor: bir daha yanlış satıra gidilmesin.
+              session.attached = false;
+              clearBinding(session.chatId);
+              bindSessionToChat(session);
+              // Geçmiş bu oturumun İÇİNDE: bir sonraki turda tohumlama dalı
+              // yeniden açılmasın.
+              session.attached = true;
+              promptLanded = true;
+              promptLandedAt = Date.now();
+            }
+          }
         }
         const assistants = promptLanded
           ? messages.filter((m) => m.role === "assistant" && !preexisting.has(m.id))
@@ -2098,6 +2226,25 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
         const reason = lastFinish?.data?.reason;
         if (reason && reason !== "tool_use") {
           args.onActivity({ phase: "finishing" });
+          // --- GEÇMİŞ BOZULDU MU? ---------------------------------------
+          //
+          // `finish` parçasının hata metninde sağlayıcının 400'ü duruyor.
+          // Cevapsız bir `tool_use` bloğu geçmişi topluca geçersiz kılıyor
+          // ve bu, oturumun geri kalanı için KALICI: sonraki her mesaj aynı
+          // hatayı alıyor, kullanıcı ise yalnızca ardarda boş cevaplar
+          // görüyor. Bayrağı burada koyup bir sonraki gönderimde geçmişi
+          // sıfırlamak, ölü bir sohbeti tek kötü tura indiriyor.
+          if (finishPoisonsHistory(lastFinish)) {
+            session.poisoned = true;
+            console.log("[axetChatTui] OTURUM GECMISI BOZUK, YENILENECEK", {
+              chatId: session.chatId,
+              oturum: session.axetSessionId?.slice(0, 8) ?? "?"
+            });
+            appLog("sohbet.gecmis-bozuk", {
+              sohbet: session.chatId,
+              oturum: session.axetSessionId?.slice(0, 8) ?? "-"
+            });
+          }
           // TUR BİTTİ AMA METİN YOK — teşhis burada bırakılıyor.
           //
           // Cevap metni `parts` içinde `type: "text"` olan parçalardan
@@ -2271,6 +2418,23 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     if (sessions.get(args.chatId) !== session) return null;
   }
   if (session.busy) return null;
+
+  // --- Bozulmuş geçmişi TURDAN ÖNCE at ------------------------------------
+  //
+  // Bayrak bir önceki turun sonunda konmuştu (bkz. `poisoned`). Aynı oturuma
+  // yazmak, bilerek 400 almak demek. Sıfırlama axet-code'da yeni bir oturum
+  // açıyor ve `seeded` düştüğü için konuşma bir sonraki istemde yeniden
+  // tohumlanıyor — ajan hafızasını kaybetmiyor, yalnızca bu tur büyük bir
+  // istem ödüyor. Palet açılmazsa `resetTuiHistory` zaten `seeded`'ı düşürüp
+  // `false` dönüyor; o hâlde bayrağı bırakmıyoruz, çünkü ikinci bir deneme
+  // kullanıcıyı aynı yere bir kez daha sokardı.
+  if (session.poisoned) {
+    console.log("[axetChatTui] bozuk gecmis atiliyor", { chatId: args.chatId });
+    args.onActivity({ phase: "restarting" });
+    resetTuiHistory(args.chatId);
+    if (session.resetting) await session.resetting;
+    session.poisoned = false;
+  }
 
   args.onActivity({ phase: "thinking" });
 

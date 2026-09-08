@@ -22,7 +22,7 @@ vi.mock("electron", () => ({
   app: { getPath: () => userData }
 }));
 
-const { bindingTag, clearBinding, readBinding, writeBinding } = await import(
+const { bindingTag, clearBinding, readBinding, stripBindingTag, writeBinding } = await import(
   "../app-electron/main/axetSessionBinding"
 );
 
@@ -59,6 +59,42 @@ describe("bindingTag", () => {
   it("ayni sohbet icin ayni, farkli sohbet icin farkli", () => {
     expect(bindingTag("chat-1")).toBe(bindingTag("chat-1"));
     expect(bindingTag("chat-1")).not.toBe(bindingTag("chat-2"));
+  });
+});
+
+describe("stripBindingTag", () => {
+  // NEDEN: etiket sohbet basina SABIT ve oturum her yenilendiginde bir
+  // oturuma daha yaziliyor. Secici ekraninda etiket bir FILTRE oldugu icin
+  // iki satir kalan filtrede Enter YANLIS oturumu seciyor; 2026-09-08'de uc
+  // oturum ayni etiketi tasidi ve tur hic bitmedi. Eskiden etiketi sokmek bu
+  // testin korudugu sey.
+  const TAG = "axchat1";
+
+  it("etiketi ve ayraci sokuyor, okunabilir kismi birakiyor", () => {
+    expect(stripBindingTag(`Bir Sohbet · ${TAG}`, TAG)).toBe("Bir Sohbet");
+  });
+
+  it("etiket ortadaysa da sokuluyor", () => {
+    expect(stripBindingTag(`Bir ${TAG} Sohbet`, TAG)).toBe("Bir Sohbet");
+  });
+
+  it("etiket yoksa baslik degismiyor", () => {
+    expect(stripBindingTag("Bir Sohbet", TAG)).toBe("Bir Sohbet");
+  });
+
+  it("baslik etiketten ibaretse BOS donuyor", () => {
+    // Karar cagirana ait: bos baslik yazilamaz, yerine bir varsayilan konur.
+    expect(stripBindingTag(`· ${TAG}`, TAG)).toBe("");
+  });
+
+  it("bos etiket basligi bozmuyor", () => {
+    // Bos etiketle `split("")` basligi harflerine ayirirdi.
+    expect(stripBindingTag("Bir Sohbet", "")).toBe("Bir Sohbet");
+  });
+
+  it("sokulen baslik ayni etiketi ARTIK TASIMIYOR", () => {
+    // Testin asil iddiasi bu: filtre bir daha bu satiri getirmemeli.
+    expect(stripBindingTag(`Bir Sohbet · ${TAG}`, TAG)).not.toContain(TAG);
   });
 });
 

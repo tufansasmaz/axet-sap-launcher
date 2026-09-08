@@ -150,3 +150,26 @@ export function clearBinding(chatId: string): void {
 export function bindingTag(chatId: string): string {
   return `ax${chatId.replace(/[^A-Za-z0-9]/g, "").slice(0, 8).toLowerCase()}`;
 }
+
+/**
+ * Bir oturum başlığından ETİKETİ söker; okunabilir kısmı olduğu gibi bırakır.
+ *
+ * Etiket sohbet başına SABİT ve oturum her yenilendiğinde bir oturuma daha
+ * yazılıyor. Seçici ekranında etiketi yazmak bir FİLTRE olduğu için, iki
+ * satır kalan bir filtrede Enter yanlış oturumu seçiyor (2026-09-08: üç
+ * oturum aynı etiketi taşıyordu, tur hiç bitmedi). Çözüm eskilerden etiketi
+ * sökmek — bkz. axetChatTui.ts `makeTagUnique`.
+ *
+ * Boş dönebilir: başlık etiketten ibaretse geriye yazılacak bir şey kalmıyor.
+ * Karar çağırana bırakılıyor, çünkü "ne yazılsın" bu modülün bileceği şey
+ * değil.
+ */
+export function stripBindingTag(title: string, tag: string): string {
+  if (!tag) return title;
+  return title
+    .split(tag)
+    .join("")
+    .replace(/\s*·\s*$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
