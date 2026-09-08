@@ -611,6 +611,12 @@ export function resetTuiHistory(chatId: string): boolean {
     session.axetSessionId = null;
     session.seeded = false;
     session.attached = false;
+    // Bozuk geçmiş bayrağı BURADA düşüyor, `sendViaTui`'de değil: sıfırlamayı
+    // kim isterse istesin sonuç aynı — geçmiş artık yeni bir oturumda ve
+    // bozuk olan geride kaldı. Canlı ölçümde (2026-09-08) boş-cevap yedeği
+    // ile bozuk-geçmiş bayrağı arka arkaya iki sıfırlama tetikledi: iki palet
+    // gidiş-dönüşü ve hiç kullanılmayan bir axet-code oturumu.
+    session.poisoned = false;
     // Sohbet artık BAŞKA bir axet-code oturumunda. Bağ silinmezse uygulama
     // yeniden açıldığında dallanmadan ÖNCEKİ oturuma bağlanılır ve
     // kullanıcının bilerek attığı dal sessizce geri alınmış olurdu.
