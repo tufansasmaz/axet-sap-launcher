@@ -10363,3 +10363,41 @@ diske düşürüyor (iptaller hariç). İçerik kuralı korunuyor: kullanıcı m
 ajan cevabı yazılmıyor, yalnızca kip, yedek sebebi ve hata cümlesi.
 
 Kapı: 169/169 test, 18 dosya, typecheck temiz.
+
+## `import'u` yazmak build'i patlatıyor (2026-09-08)
+
+electron-vite'ın CommonJS gölgesi (`esmShimPlugin`, `lib-BmEkZIgk.mjs:838`)
+demetteki **son statik `import` eşleşmesinin bittiği yere** şu bloğu ekliyor:
+
+```
+// -- CommonJS Shims --
+import __cjs_mod__ from 'node:module';
+```
+
+Eşleşmeyi bulan düzenli ifade AST'ye bakmıyor, düz metinde arıyor. Bu yüzden
+bir DİZGE İÇİNDE geçen Türkçe ek de statik import sayılıyor:
+
+```
+...relative `lib/redact.py` import'u kurulu yolda da çözülüyor...
+```
+
+`import` + kesme işareti → sonraki kesmeye kadar her şey "specifier". Blok o
+yüzden bambaşka bir dizge literalinin ortasına giriyor ve build
+
+```
+[vite:esbuild-transpile] index.js:5616:316 ERROR: Unterminated string literal
+```
+
+ile ölüyor — hem de **bizim satırımızı değil, 300 satır uzaktaki başka bir
+satırı** göstererek. `tsc` temiz geçiyor, `vitest` temiz geçiyor; yalnızca
+build patlıyor. Teşhis ara demeti (`renderChunk` `order: "pre"`) diske döküp
+eklentinin düzenli ifadesini elle çalıştırmayı gerektirdi.
+
+Kapı: `tests/esmShimTrap.test.ts` — `app-electron` altındaki hiçbir kaynakta
+satır ortasında `import` + tırnak/kesme olmamalı. Ön koşul (`import`in hemen
+önünde boşluk/`;`/satır başı) eklentinin kendi ifadesinden alındı, yoksa
+`["import", "in"]` gibi anahtar kelime listeleri yanlış alarm verirdi.
+
+Yazarken: **`import'u` yerine "çağrısı"/"satırı" de.**
+
+Kapı: 171/171 test, 19 dosya, typecheck temiz, `electron-vite build` temiz.
