@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<!--
+  aXet.flows LLM gateway - consultant chat console.
+
+  Served BY THE FLOW ITSELF, from the same origin as the app, on a public GET
+  route. Same-origin is the whole design constraint: the Okta access token lives
+  in localStorage, and only a page on that origin can read it. Open this file
+  from disk and it will find no token and be unable to call the API anyway.
+
+  No CDN, no build step, no external request of any kind. Corporate networks
+  block what they have not seen before, and a chat window that fails because a
+  font did not load is worse than a plain one. Fonts are Windows system faces.
+
+  Fill in ENDPOINT below, or let the page derive it from its own URL.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM console</title>
+<style>
+  :root {
+    --paper:  #f2f4f7;
+    --card:   #ffffff;
+    --ink:    #101828;
+    --muted:  #667085;
+    --rule:   #d0d5dd;
+    --signal: #0b7285;
+    --amber:  #b54708;
+    --ok:     #067647;
+    --danger: #b42318;
+
+    --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+    --sans: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+
+    --rail: 400px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* ---- the session bar: a literal 60-minute depletion line ---------------- */
+  #session {
+    position: fixed; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--rule); z-index: 40;
+  }
+  #session > i {
+    display: block; height: 100%; width: 100%;
+    background: var(--signal);
+    transform-origin: left center;
+    transition: transform .9s linear, background-color .3s;
+  }
+  #session.warn > i { background: var(--amber); }
+  #session.dead > i { background: var(--danger); }
+
+  /* ---- shell ------------------------------------------------------------- */
+  .shell {
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0,1fr) var(--rail);
+    grid-template-rows: auto minmax(0,1fr);
+    padding-top: 3px;
+  }
+
+  header {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--card);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .brand {
+    font-family: var(--mono);
+    font-size: 13px; font-weight: 700;
+    letter-spacing: .14em; text-transform: uppercase;
+  }
+  .brand small {
+    display: block; font-weight: 400; letter-spacing: .08em;
+    color: var(--muted); font-size: 11px;
+  }
+  .brand .build { color: var(--ink); }
+
+  .field { display: flex; align-items: center; gap: 7px; }
+  .field > label {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  input[type=text], input[type=number], textarea, select {
+    font-family: var(--mono); font-size: 13px;
+    color: var(--ink); background: var(--card);
+    border: 1px solid var(--rule); border-radius: 3px;
+    padding: 5px 8px;
+  }
+  input:focus-visible, textarea:focus-visible, button:focus-visible,
+  select:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--signal); outline-offset: 1px;
+  }
+
+  #model { width: 236px; }
+  #maxTokens, #temperature { width: 74px; }
+
+  /* the token lamp */
+  #lamp {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 12px;
+  }
+  #lamp .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--ok); flex: none;
+  }
+  #lamp.warn .dot { background: var(--amber); }
+  #lamp.dead .dot { background: var(--danger); }
+  #lamp .txt { color: var(--muted); }
+  #lamp.warn .txt, #lamp.dead .txt { color: var(--ink); }
+
+  button {
+    font-family: var(--sans); font-size: 13.5px;
+    border: 1px solid var(--rule); border-radius: 3px;
+    background: var(--card); color: var(--ink);
+    padding: 6px 13px; cursor: pointer;
+  }
+  button:hover:not(:disabled) { border-color: var(--signal); color: var(--signal); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button.primary {
+    background: var(--signal); border-color: var(--signal); color: #fff;
+    font-weight: 600;
+  }
+  button.primary:hover:not(:disabled) { background: #095c6b; color: #fff; }
+
+  /* ---- conversation ------------------------------------------------------ */
+  .convo {
+    overflow-y: auto;
+    padding: 22px 24px 0;
+    display: flex; flex-direction: column;
+  }
+  .stream { flex: 1 0 auto; max-width: 760px; width: 100%; }
+
+  .turn { margin-bottom: 22px; }
+  .who {
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+  }
+  .bubble {
+    background: var(--card);
+    border: 1px solid var(--rule); border-left: 3px solid var(--rule);
+    border-radius: 3px; padding: 12px 15px;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .turn.you .bubble { border-left-color: var(--muted); background: #fbfcfd; }
+  .turn.model .bubble { border-left-color: var(--signal); }
+  .turn.fail .bubble { border-left-color: var(--danger); }
+
+  /* every answer carries its own receipt - model, time, trace */
+  .receipt {
+    margin-top: 7px;
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    display: flex; gap: 14px; flex-wrap: wrap;
+  }
+  .receipt b { font-weight: 600; color: var(--ink); }
+
+  .diagnosis {
+    margin-top: 9px; padding: 10px 12px;
+    background: #fef6ee; border: 1px solid #f5c9a3; border-radius: 3px;
+    font-size: 13.5px;
+  }
+  .diagnosis h4 {
+    margin: 0 0 4px; font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--amber);
+  }
+
+  /* empty state: an invitation, not a mood */
+  .empty { max-width: 620px; padding: 6px 0 0; }
+  .empty h2 { font-size: 19px; margin: 0 0 6px; font-weight: 600; }
+  .empty p { margin: 0 0 16px; color: var(--muted); }
+  .starters { display: flex; flex-direction: column; gap: 7px; }
+  .starter {
+    text-align: left; font-family: var(--sans); font-size: 13.5px;
+    padding: 9px 12px 9px 14px; line-height: 1.4;
+    border-left: 3px solid var(--signal);
+  }
+
+  /* ---- composer ---------------------------------------------------------- */
+  .composer {
+    position: sticky; bottom: 0;
+    background: linear-gradient(to bottom, rgba(242,244,247,0), var(--paper) 26%);
+    padding: 14px 0 18px; max-width: 760px; width: 100%;
+  }
+  .composer .box {
+    display: flex; gap: 9px; align-items: flex-end;
+    background: var(--card); border: 1px solid var(--rule);
+    border-radius: 3px; padding: 9px;
+  }
+  .composer textarea {
+    flex: 1; border: none; padding: 4px 5px; resize: none;
+    font-family: var(--sans); font-size: 14.5px; min-height: 24px; max-height: 190px;
+  }
+  .composer textarea:focus { outline: none; }
+  .composer .box:focus-within { border-color: var(--signal); }
+  .hint {
+    font-family: var(--mono); font-size: 11px; color: var(--muted);
+    margin-top: 6px;
+  }
+
+  /* ---- inspector rail ---------------------------------------------------- */
+  .rail {
+    border-left: 1px solid var(--rule); background: var(--card);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .tabs { display: flex; border-bottom: 1px solid var(--rule); }
+  .tab {
+    flex: 1; border: none; border-bottom: 2px solid transparent;
+    border-radius: 0; background: none; padding: 11px 6px;
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+  .tab[aria-selected=true] { color: var(--signal); border-bottom-color: var(--signal); }
+  .tab:hover { color: var(--ink); }
+
+  .panes { flex: 1; overflow-y: auto; padding: 15px; min-height: 0; }
+  .pane[hidden] { display: none; }
+  .pane h3 {
+    margin: 0 0 4px; font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--muted);
+  }
+  .pane p.note { margin: 0 0 12px; font-size: 12.5px; color: var(--muted); }
+  pre {
+    font-family: var(--mono); font-size: 11.5px; line-height: 1.55;
+    background: #f8f9fb; border: 1px solid var(--rule); border-radius: 3px;
+    padding: 11px; margin: 0 0 10px;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .rowbtn { display: flex; gap: 7px; margin-bottom: 16px; flex-wrap: wrap; }
+  .tips { font-size: 13px; }
+  .tips li { margin-bottom: 9px; }
+  .tips code {
+    font-family: var(--mono); font-size: 12px;
+    background: #f8f9fb; border: 1px solid var(--rule);
+    border-radius: 2px; padding: 1px 4px;
+  }
+
+  .toast {
+    position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff; font-size: 13px;
+    padding: 8px 15px; border-radius: 3px; z-index: 50;
+  }
+  .toast[hidden] { display: none; }
+
+  @media (max-width: 1000px) {
+    .shell { grid-template-columns: minmax(0,1fr); }
+    .rail { display: none; }
+    .shell.rail-open .rail {
+      display: flex; position: fixed; inset: 3px 0 0; z-index: 30;
+    }
+    #railToggle { display: inline-block; }
+  }
+  #railToggle { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #session > i { transition: none; }
+    * { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<div id="session" aria-hidden="true"><i></i></div>
+
+<div class="shell" id="shell">
+
+  <header>
+    <!-- The build stamp is STATIC MARKUP on purpose. Rendering it from JavaScript
+         would hide it in the one situation it exists for: a page whose script did
+         not parse, where nothing scripted runs and the served bytes are the only
+         question worth answering. Bump it in this file whenever the page changes;
+         it is the page's own identity, not the flow version. -->
+    <div class="brand">LLM console<small>aXet.flows gateway
+      &middot; build <span class="build">2026-09-02.2</span></small></div>
+
+    <div class="field">
+      <label for="model">Model</label>
+      <input type="text" id="model" list="models" spellcheck="false"
+             value="eu.anthropic.claude-sonnet-5">
+      <datalist id="models"></datalist>
+    </div>
+
+    <div class="field">
+      <label for="maxTokens">Max tokens</label>
+      <input type="number" id="maxTokens" min="1" max="8000" step="50" value="800">
+    </div>
+
+    <div class="field">
+      <label for="temperature">Temp</label>
+      <input type="number" id="temperature" min="0" max="2" step="0.1" value="0.7">
+    </div>
+
+    <button id="railToggle">Inspector</button>
+
+    <div id="lamp" title="Okta access token lifetime">
+      <span class="dot"></span><span class="txt" id="lampText">checking</span>
+    </div>
+  </header>
+
+  <main class="convo" id="convo">
+    <div class="stream" id="stream">
+      <div class="empty" id="empty">
+        <h2>Ask the model anything.</h2>
+        <p>Your question goes to the aXet.flows gateway on this app, signed with the
+           Okta token this browser already holds. The inspector on the right shows
+           the exact request being sent, and the curl command that repeats it.</p>
+        <div class="starters">
+          <button class="starter">Explain what an SAP transport request is to someone new to SAP.</button>
+          <button class="starter">Draft a short handover note for a change request that is moving to QA.</button>
+          <button class="starter">Turn these bullet points into a customer-facing status update.</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="box">
+        <textarea id="input" rows="1" placeholder="Type your question. Enter sends, Shift+Enter makes a new line."></textarea>
+        <button class="primary" id="send">Send</button>
+      </div>
+      <div class="hint" id="hint">Enter to send &middot; Shift+Enter for a new line</div>
+    </div>
+  </main>
+
+  <aside class="rail">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true"  data-pane="req">Request</button>
+      <button class="tab" role="tab" aria-selected="false" data-pane="curl">curl</button>
+      <button class="tab" role="tab" aria-selected="false" data-pane="help">Tips</button>
+    </div>
+
+    <div class="panes">
+
+      <section class="pane" id="pane-req">
+        <h3>Endpoint</h3>
+        <pre id="reqUrl"></pre>
+        <h3>Body being sent</h3>
+        <p class="note">Updates as you type. This is the whole contract.</p>
+        <pre id="reqBody"></pre>
+        <h3>Last response</h3>
+        <pre id="resBody">Nothing sent yet.</pre>
+      </section>
+
+      <section class="pane" id="pane-curl" hidden>
+        <h3>Run this anywhere</h3>
+        <p class="note">Your live token is in this command. It expires with your
+           session and identifies you personally - treat it like a password.</p>
+        <pre id="curlBox"></pre>
+        <div class="rowbtn">
+          <button id="copyCurl" class="primary">Copy command</button>
+          <button id="toggleTok">Show token</button>
+        </div>
+        <h3>Just the token</h3>
+        <p class="note">For <code>AXET_FLOWS_TOKEN</code>, or the probe script.</p>
+        <div class="rowbtn">
+          <button id="copyToken">Copy token</button>
+          <button id="copyEnv">Copy as export</button>
+        </div>
+      </section>
+
+      <section class="pane" id="pane-help" hidden>
+        <h3>Calling it yourself</h3>
+        <ul class="tips">
+          <li><b>Where the token comes from.</b> Signing in to this app stores it in
+              the browser. Read it with
+              <code>localStorage.getItem('access_token')</code> in the console (F12),
+              or use the copy buttons on the curl tab.</li>
+          <li><b>It lasts 60 minutes.</b> The bar across the top of this page is that
+              hour running down. When it turns red, reload and sign in again - a
+              401 or a redirect almost always means the clock, not a broken call.</li>
+          <li><b>The body needs <code>message</code>.</b> Everything else is optional:
+              <code>model</code>, <code>max_tokens</code>, <code>temperature</code>,
+              <code>system</code>, and <code>context</code> (any object, merged into
+              the prompt).</li>
+          <li><b>Answers cut off at 50 tokens if the flow omits <code>max_tokens</code>.</b>
+              That is the enabler node's own default, not a limit on your project.
+              This page sends the value in the header field.</li>
+          <li><b>Two kinds of error look alike.</b> A body with
+              <code>"error": true</code> and <code>httpStatus</code> is the platform
+              refusing before the flow runs. A body with
+              <code>"error": {"code": ...}</code> is the flow answering - your request
+              got in.</li>
+          <li><b>An unknown model name gives you no clue that the name is wrong.</b>
+              It fails with a generic <code>502 llm_gateway_failed</code>, exactly
+              like an outage. The models cannot be listed from a browser - that
+              lookup needs a server-side key - so the dropdown is a probed list, not
+              the project's own. If a name fails, clear the field and try again on
+              the app's default.</li>
+        </ul>
+      </section>
+
+    </div>
+  </aside>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // The API lives on the same app as this page. Deriving it from location keeps
+  // the file free of any tenant URL, so it can be committed and shared.
+  var ENDPOINT = location.pathname.replace(/\/(ui|chat)\/?$/, "") + "/api/llm-enabler/v2";
+  var ABS = location.origin + ENDPOINT;
+
+  // Verified live on 2026-09-02 against project 19238: each of these answered 200
+  // and echoed its own name back. Everything else tried - claude-haiku-4-5,
+  // claude-opus-5, gpt-5, o3-mini, gpt-4, gemini, mistral, nova - returned 502.
+  // There is no way to list a project's models from the browser (see the tips
+  // tab), so this is a probed list, not an authoritative one. Yours may differ:
+  // the field is free text, type any name.
+  var KNOWN_MODELS = [
+    "eu.anthropic.claude-sonnet-5",
+    "gpt-4o",
+    "gpt-4o-mini",
+    "gpt-4.1",
+    "gpt-4.1-mini"
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var history = [];      // [{role, content}] - full conversation sent every turn
+  var token = null;
+  var tokenExp = 0;
+  var showToken = false;
+  var busy = false;
+  var lastAsked = "";     // keeps the curl example runnable between questions
+
+  /* ---- token ----------------------------------------------------------- */
+
+  function readToken() {
+    try { token = localStorage.getItem("access_token"); }
+    catch (e) { token = null; }
+    tokenExp = 0;
+    if (!token) return;
+    try {
+      var seg = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+      tokenExp = JSON.parse(atob(seg)).exp || 0;
+    } catch (e) { tokenExp = 0; }
+  }
+
+  function tickSession() {
+    var bar = $("session"), lamp = $("lamp"), txt = $("lampText");
+    if (!token) {
+      bar.className = "dead";
+      bar.firstElementChild.style.transform = "scaleX(1)";
+      lamp.className = "dead";
+      txt.textContent = "not signed in - reload this page";
+      return;
+    }
+    var left = tokenExp - Math.floor(Date.now() / 1000);
+    var mins = Math.floor(left / 60);
+    var frac = Math.max(0, Math.min(1, left / 3600));
+    bar.firstElementChild.style.transform = "scaleX(" + frac + ")";
+    if (left <= 0) {
+      bar.className = "dead"; lamp.className = "dead";
+      txt.textContent = "session expired - reload to sign in";
+    } else if (mins < 10) {
+      bar.className = "warn"; lamp.className = "warn";
+      txt.textContent = mins + " min left in session";
+    } else {
+      bar.className = ""; lamp.className = "";
+      txt.textContent = mins + " min left in session";
+    }
+  }
+
+  /* ---- the request, always visible ------------------------------------- */
+
+  function currentBody(text) {
+    var typed = text || $("input").value ||
+                lastAsked || "Your question goes here";
+    var b = { message: typed };
+    var mt = parseInt($("maxTokens").value, 10);
+    var tp = parseFloat($("temperature").value);
+    var md = $("model").value.trim();
+    if (md) b.model = md;
+    if (mt > 0) b.max_tokens = mt;
+    if (!isNaN(tp)) b.temperature = tp;
+    return b;
+  }
+
+  function maskedToken() {
+    if (!token) return "<sign in to this app first>";
+    if (showToken) return token;
+    return token.slice(0, 12) + "..." + token.slice(-8) +
+           "   (" + token.length + " chars, hidden - use Show token)";
+  }
+
+  function renderInspector() {
+    var body = currentBody();
+    $("reqUrl").textContent = "POST " + ABS;
+    $("reqBody").textContent = JSON.stringify(body, null, 2);
+    $("curlBox").textContent =
+      "curl -sS -X POST '" + ABS + "' \\\n" +
+      "  -H 'Authorization: Bearer " + maskedToken() + "' \\\n" +
+      "  -H 'Content-Type: application/json' \\\n" +
+      "  -d '" + JSON.stringify(body) + "'";
+  }
+
+  function fullCurl() {
+    return "curl -sS -X POST '" + ABS + "' \\\n" +
+      "  -H 'Authorization: Bearer " + (token || "") + "' \\\n" +
+      "  -H 'Content-Type: application/json' \\\n" +
+      "  -d '" + JSON.stringify(currentBody()) + "'";
+  }
+
+  /* ---- conversation ---------------------------------------------------- */
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined) n.textContent = text;
+    return n;
+  }
+
+  function addTurn(kind, who, text) {
+    var e = $("empty");
+    if (e) e.remove();
+    var t = el("div", "turn " + kind);
+    t.appendChild(el("div", "who", who));
+    t.appendChild(el("div", "bubble", text));
+    $("stream").appendChild(t);
+    $("convo").scrollTop = $("convo").scrollHeight;
+    return t;
+  }
+
+  // The error taxonomy that cost three days, taught in place.
+  function diagnose(status, data) {
+    if (data && data.error === true && data.httpStatus !== undefined) {
+      var m = String(data.message || "");
+      if (/credential/i.test(m) && /app node/i.test(m)) {
+        return ["The app is not configured", "The gateway's auth node is incomplete, " +
+          "so no request can get through - a token will not help. This is a fix in " +
+          "the flow, not something you can do from here. Send this message to whoever " +
+          "maintains the app: the auth node needs dbEngineType."];
+      }
+      if (/credential/i.test(m) && /mandatory/i.test(m)) {
+        return ["Not signed in", "The endpoint needs a token and none was sent. " +
+          "Reload this page and sign in again."];
+      }
+      return ["Refused before the flow ran", m + " - the platform stopped this " +
+        "request in its own middleware, so none of the app's logic ran."];
+    }
+    if (status === 401 || status === 403) {
+      return ["Session rejected", "Your token was refused, which almost always " +
+        "means it expired. Reload the page to sign in again."];
+    }
+    if (data && data.error && data.error.code === "llm_gateway_failed") {
+      return ["The model call failed", "Most often the model name: an unknown one " +
+        "fails here with exactly this message and no hint that the name was the " +
+        "problem. Clear the field to fall back to the app's default, and if that " +
+        "works the name was wrong. If it still fails, the gateway itself is down."];
+    }
+    if (data && data.error && data.error.code === "too_large") {
+      return ["Message too long", data.error.message + "."];
+    }
+    return null;
+  }
+
+  function send(text) {
+    if (busy) return;
+    text = (text || "").trim();
+    if (!text) return;
+
+    readToken();
+    if (!token) {
+      addTurn("fail", "console", "You are not signed in on this browser. Reload the page.");
+      tickSession();
+      return;
+    }
+
+    busy = true;
+    $("send").disabled = true;
+    $("input").value = "";
+    autosize();
+    addTurn("you", "you", text);
+    lastAsked = text;
+    history.push({ role: "user", content: text });
+
+    var pending = addTurn("model", $("model").value.trim() || "model", "Thinking...");
+    var body = currentBody(text);
+    body.history = history.slice(0, -1);          // prior turns, oldest first
+    var started = Date.now();
+
+    fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.text().then(function (raw) {
+        var data = null;
+        try { data = JSON.parse(raw); } catch (e) {}
+        return { status: r.status, data: data, raw: raw };
+      });
+    }).then(function (res) {
+      var wall = Date.now() - started;
+      $("resBody").textContent =
+        "HTTP " + res.status + "  (" + wall + " ms)\n\n" +
+        (res.data ? JSON.stringify(res.data, null, 2) : res.raw).slice(0, 4000);
+
+      var answer = res.data && res.data.answer;
+      if (res.status >= 200 && res.status < 300 && answer) {
+        pending.className = "turn model";
+        pending.querySelector(".bubble").textContent = answer;
+        history.push({ role: "assistant", content: answer });
+
+        var rec = el("div", "receipt");
+        var parts = [
+          ["model", res.data.model || "-"],
+          ["latency", (res.data.latencyMs || wall) + " ms"],
+          ["trace", res.data.traceId || "-"]
+        ];
+        parts.forEach(function (p) {
+          var s = el("span");
+          s.appendChild(el("b", null, p[0] + " "));
+          s.appendChild(document.createTextNode(p[1]));
+          rec.appendChild(s);
+        });
+        pending.appendChild(rec);
+      } else {
+        pending.className = "turn fail";
+        var msg = (res.data && res.data.error && res.data.error.message) ||
+                  (res.data && res.data.message) ||
+                  ("HTTP " + res.status);
+        pending.querySelector(".who").textContent = "no answer";
+        pending.querySelector(".bubble").textContent = msg;
+        history.pop();
+
+        var d = diagnose(res.status, res.data);
+        if (d) {
+          var box = el("div", "diagnosis");
+          box.appendChild(el("h4", null, d[0]));
+          box.appendChild(el("div", null, d[1]));
+          pending.appendChild(box);
+        }
+      }
+    }).catch(function (err) {
+      pending.className = "turn fail";
+      pending.querySelector(".who").textContent = "not sent";
+      pending.querySelector(".bubble").textContent =
+        "The request never left the browser: " + err.message;
+    }).then(function () {
+      busy = false;
+      $("send").disabled = false;
+      $("convo").scrollTop = $("convo").scrollHeight;
+      renderInspector();
+      $("input").focus();
+    });
+  }
+
+  /* ---- wiring ---------------------------------------------------------- */
+
+  function toast(msg) {
+    var t = $("toast");
+    t.textContent = msg;
+    t.hidden = false;
+    clearTimeout(t._t);
+    t._t = setTimeout(function () { t.hidden = true; }, 1900);
+  }
+
+  function copy(text, said) {
+    var done = function () { toast(said); };
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(done, function () { fallback(text, done); });
+    } else { fallback(text, done); }
+  }
+  function fallback(text, done) {
+    var a = document.createElement("textarea");
+    a.value = text;
+    a.style.position = "fixed"; a.style.opacity = "0";
+    document.body.appendChild(a); a.select();
+    try { document.execCommand("copy"); done(); }
+    catch (e) { toast("Could not copy - select the text by hand."); }
+    document.body.removeChild(a);
+  }
+
+  function autosize() {
+    var t = $("input");
+    t.style.height = "auto";
+    t.style.height = Math.min(t.scrollHeight, 190) + "px";
+  }
+
+  $("input").addEventListener("input", function () { autosize(); renderInspector(); });
+  $("input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("input").value); }
+  });
+  $("send").addEventListener("click", function () { send($("input").value); });
+
+  ["model", "maxTokens", "temperature"].forEach(function (id) {
+    $(id).addEventListener("input", renderInspector);
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".starter"), function (b) {
+    b.addEventListener("click", function () { send(b.textContent); });
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (tab) {
+    tab.addEventListener("click", function () {
+      Array.prototype.forEach.call(document.querySelectorAll(".tab"), function (t) {
+        t.setAttribute("aria-selected", String(t === tab));
+      });
+      ["req", "curl", "help"].forEach(function (p) {
+        $("pane-" + p).hidden = (p !== tab.dataset.pane);
+      });
+    });
+  });
+
+  $("railToggle").addEventListener("click", function () {
+    $("shell").classList.toggle("rail-open");
+  });
+
+  $("copyCurl").addEventListener("click", function () {
+    copy(fullCurl(), "Command copied, token included.");
+  });
+  $("copyToken").addEventListener("click", function () {
+    if (token) copy(token, "Token copied. It expires with your session.");
+  });
+  $("copyEnv").addEventListener("click", function () {
+    if (token) copy("export AXET_FLOWS_TOKEN='" + token + "'\n" +
+                    "export AXET_FLOWS_ENDPOINT='" + ABS + "'",
+                    "Exports copied.");
+  });
+  $("toggleTok").addEventListener("click", function () {
+    showToken = !showToken;
+    $("toggleTok").textContent = showToken ? "Hide token" : "Show token";
+    renderInspector();
+  });
+
+  KNOWN_MODELS.forEach(function (m) {
+    var o = document.createElement("option");
+    o.value = m;
+    $("models").appendChild(o);
+  });
+
+  readToken();
+  tickSession();
+  setInterval(tickSession, 1000);
+  renderInspector();
+  $("input").focus();
+})();
+</script>
+</body>
+</html>

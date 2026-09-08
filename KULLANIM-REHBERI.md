@@ -69,6 +69,11 @@ sistem başına ayrı bir rol yoktur.
   ad ad listelenir. Kararı listeye bakarak ver.
 - Katalogdan elle kurduğun yetenekler role bağlı değildir; onlar her iki
   rolde de kurulabilir ve kaldırılabilir.
+- **aXet.flows yeteneği her iki rolde de kurulur.** SAP'a hiç dokunmadığı
+  için rol ayrımının dışında: akış JSON'unu okur, doğrular, üretir ve
+  tasarımcıya aktarılacak hâle getirir. Sohbette "şu akışı incele",
+  "bana bir CRUD uygulaması akışı çıkar", "bu akış deploy oluyor ama
+  çalışmıyor" gibi bir şey dediğinde ajan bunu kendisi kullanır.
 - Doğru seçmek önemli: dar rol ajanı iş yapamaz hâle getirir, geniş rol ise
   müşteri sisteminde istemediğin bir yeteneği masaya koyar. Değiştirme
   şansın olmadığı için uyarı da o pencerededir.

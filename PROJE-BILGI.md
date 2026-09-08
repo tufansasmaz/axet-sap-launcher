@@ -10095,3 +10095,49 @@ tiplerini olduğu gibi yazıyor, metni değil.
 
 Bu turda 10 yeni test (`axetChatAnswer.test.ts` 5, `appLog.test.ts` 5). Kapı:
 **139/139 test, 15 dosya, typecheck temiz.**
+
+## aXet.flows yeteneği pakete alındı (2026-09-08)
+
+> "C:\workspace\ntt-claude-marketplace-main\plugins\axet-flows bizim
+> uygulamamızda bu yok bunu da entegre et herkes kullanabilsin"
+
+Katalog deposundaki `axet-flows` eklentisi (v1.8.0, Beyhan Meyrali) pakete
+alındı: `resources/sap-toolkit/axet-flows/skills/axet-flows` — 17 dosya,
+292 KB, mevcut eklentilerle aynı `<eklenti>/skills/<yetenek>` düzeninde.
+Kaynak depoya **dokunulmadı**, yalnızca kopyalandı.
+
+Yetenek ne yapıyor: aXet.flows (NTT DATA'nın Node-RED türevi) akış JSON'unu
+tasarımcının dışında okuma, doğrulama, üretme ve teslim öncesi denetim.
+`node_catalog.md` (608 satır), Function node API'si, Okta korumalı LLM
+gateway'i, CRUD/form kalıpları ve Sonar/audit kapıları.
+
+### Rolden bağımsız: `HERKES`
+
+Kullanıcının şartı "herkes kullanabilsin". Bu yüzden `PROFILE_SKILLS`'in iki
+listesine de giriyor — ama elle iki kez yazılarak değil, `HERKES` sabiti
+üzerinden. Sebep düz: elle yazılan bir ad bir role eklenip diğerinde
+unutulabilir ve bu sessizce olur; testi de "her rolde var mı" diye soruyor,
+"listede kaç eleman var" diye değil.
+
+`sandbox` zaten `Object.keys(SKILL_CATALOG)` olduğu için kendiliğinden alıyor.
+
+### `writeCapable` DEĞİL — ve bu bilinçli
+
+`writeCapable` bu kod tabanında tek bir şey demek: **SAP'a yazar**, dolayısıyla
+PRD işaretli bir sisteme kurulmaz. axet-flows SAP'a hiç dokunmuyor; ürettiği
+şey aXet.flows tasarımcısına import edilecek bir JSON. Bayrağı "bir şeyler
+üretiyor" diye açmak, PRD'ye bağlı bir danışmandan SAP'la ilgisi olmayan bir
+yeteneği sebepsiz almak olurdu. İki test bunu kilitliyor: her rolde var, ve
+PRD'de `blockedByTier: false`.
+
+### Bağımlılık yok
+
+Script'leri yalnızca Python standart kütüphanesini kullanıyor (`json`,
+`urllib`, `ssl`, `argparse`) — `requirements.txt`'e bu not düşüldü. Office
+skill'lerinin aksine kurulacak hiçbir şey yok.
+
+`toolkit-version.json` yeniden üretildi: **2026.09.08+25148593, 27 skill.**
+Damga değiştiği için kurulu projelerde "yetenekleri güncelle" düğmesi
+kendiliğinden yanıyor (`isSkillUpdateAvailable`).
+
+Kapı: **141/141 test, 15 dosya, typecheck temiz.**

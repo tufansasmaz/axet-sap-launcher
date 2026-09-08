@@ -53,3 +53,8 @@ python-docx>=1.1.0    # office-docx: Word .docx
 #     cd sap-consultant/skills/ts-generator/scripts && npm install
 #     cd sap-consultant/skills/fs-generator/scripts && npm install
 
+
+# --- axet-flows (axet-flows/skills/axet-flows) -------------------------------
+# Python: yalnizca standart kutuphane (json, urllib, ssl, argparse). Kurulacak
+# bir bagimlilik YOK -- scriptler akis JSON'u okuyup dogruluyor ve tasarimcinin
+# admin API'sine konusuyor, o kadar.

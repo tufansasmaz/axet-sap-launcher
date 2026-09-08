@@ -38,7 +38,7 @@ gibi aXet bağlayıcıları), tema, dil ve ayarlar.
 - Doğrulanmış bağlantı bilgilerini bir proje klasörüne yazar
   (`.conn_adt`, `adt-tool.ps1`, `sap-context.md`).
 - SAP toolkit skill'lerini (abapGit bridge, ADT read-only araçları, Office
-  doküman araçları) otomatik olarak proje klasörüne kopyalar.
+  doküman araçları, aXet.flows) otomatik olarak proje klasörüne kopyalar.
 - Manuel sistem ekleme/düzenleme/silme, JSON dışa/içe aktarma.
 - Sistem önem derecesi etiketleme (DEV/QA/PRD) ve otomatik tahmin.
 - Bağlantı geçmişi, açılışta toplu erişilebilirlik taraması.
@@ -52,6 +52,9 @@ gibi aXet bağlayıcıları), tema, dil ve ayarlar.
   geçerlidir; Hazırlık ekranında yalnızca kilitli olarak görünür.
 - Seçilen role göre yetenekler **gerçekten değişir**: role ait olmayanlar
   projeden kaldırılır, ait olanlar kurulur.
+- **aXet.flows** yeteneği rolden bağımsız, her kuruluma gelir: akış JSON'u
+  okuma/doğrulama/üretme, node kataloğu, LLM gateway ve teslim öncesi
+  denetim kapıları.
 - Uygulama bağlantılarının tur başına bağlam maliyeti, bağlayıcı **türüne
   göre** ölçülmüş sayılarla gösterilir; ölçülmemiş tür varsa tahmin
   olduğu açıkça yazılır.

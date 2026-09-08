@@ -43,6 +43,22 @@ describe("PROFILE_SKILLS", () => {
     }
   });
 
+  it("axet-flows HER ROLDE var", () => {
+    // "herkes kullanabilsin" (kullanici, 2026-09-08). SAP disi bir yetenek
+    // oldugu icin rol ayriminin disinda kaliyor; bir role eklenip digerinde
+    // unutulmasin diye kural burada kilitli.
+    for (const profile of Object.keys(PROFILE_SKILLS) as (keyof typeof PROFILE_SKILLS)[]) {
+      expect(PROFILE_SKILLS[profile], profile).toContain("axet-flows");
+    }
+  });
+
+  it("axet-flows PRD'de de kurulur — SAP'a yazmiyor", () => {
+    // `writeCapable` "SAP'a yazar" demek. Akis JSON'u uretmek SAP'i degil
+    // aXet.flows tasarimcisini ilgilendiriyor; PRD kapisi bunu tutmamali.
+    const entry = planSkills("technical-consultant", "PRD").find((e) => e.name === "axet-flows");
+    expect(entry?.blockedByTier).toBe(false);
+  });
+
   it("modul danismaninin hicbir yazma yetkili skill'i yok", () => {
     // Rolun tanimi bu: sistemi okur, dokuman uretir, kod yazmaz.
     const writers = PROFILE_SKILLS["module-consultant"].filter((name) => SKILL_CATALOG[name]?.writeCapable);

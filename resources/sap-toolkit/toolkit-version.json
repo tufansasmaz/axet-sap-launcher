@@ -1,6 +1,6 @@
 {
-  "version": "2026.09.07+e972b3b2",
-  "generated": "2026-09-07T17:51:38.251Z",
+  "version": "2026.09.08+25148593",
+  "generated": "2026-09-08T12:53:42.501Z",
   "source": "NTT ABAP skill katalogu (elle uyarlanmis dagitim)",
   "skills": {
     "abap-code-checker": "a35c1848c0095ad8",
@@ -8,6 +8,7 @@
     "abapgit-howto": "6654b4cf77f8be77",
     "abapgit-import-status-zip": "f81fa19b0bd6eb93",
     "abapgit-workflow": "d197d2d25120b309",
+    "axet-flows": "24ff0d25619f8f67",
     "clean-core": "d0f0a69cfaed0625",
     "fs-generator": "ee612240291af6b2",
     "library-match": "177a9693ae8a779e",

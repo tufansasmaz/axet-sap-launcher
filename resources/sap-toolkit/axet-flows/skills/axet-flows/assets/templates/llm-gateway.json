@@ -1,0 +1,164 @@
+[
+  {
+    "id": "87bb9782a4bbb581",
+    "type": "tab",
+    "label": "LLM gateway (Okta)",
+    "disabled": false,
+    "info": "",
+    "env": []
+  },
+  {
+    "id": "f8cdbd649629ec33",
+    "type": "comment",
+    "z": "87bb9782a4bbb581",
+    "name": "Read me first",
+    "info": "Okta-protected LLM endpoint.\n\n1. Fill in slug and projectid on the enabler-llm node from your own project - do not copy them from someone else's export.\n2. public=false on the security config is the point. Do not publish this as an open endpoint.\n3. The cloud URL exists only after PUBLICATION, not after deploy,\n   and it is keyed by the deptapp ID, not by this app's name:\n   POST https://<portal>/flows/cloud/<deptapp-id>/api/llm-enabler/v2\n   Read it off the deployment panel; do not compose it.\n4. Add the mandatory use case node (audit palette) before you request an audit.\n5. The app node and its Okta auth node are here and wired to each\n   other. Every aXet.flows app authenticates with Okta - house rule.\n   Nothing confidential lives on the auth node; dbEngineType is\n   required, and without it every request dies with HTTP 500\n   'Credentials is not well configured on App node'.",
+    "x": 180,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "6cb97267ad69f146",
+    "type": "http-in-security-config",
+    "name": "Okta",
+    "public": false,
+    "roles": [
+      "ROLE_ADMIN",
+      "ROLE_USER"
+    ]
+  },
+  {
+    "id": "c9671ae2863db4e1",
+    "type": "http in",
+    "z": "87bb9782a4bbb581",
+    "name": "POST api/llm-enabler/v2",
+    "url": "api/llm-enabler/v2",
+    "method": "post",
+    "upload": false,
+    "skipBodyParsing": false,
+    "swaggerDoc": "",
+    "securityConfig": "6cb97267ad69f146",
+    "x": 180,
+    "y": 200,
+    "wires": [
+      [
+        "df69edf574879665"
+      ]
+    ]
+  },
+  {
+    "id": "df69edf574879665",
+    "type": "function",
+    "z": "87bb9782a4bbb581",
+    "name": "build messages",
+    "func": "// enabler-llm reads msg.messages - a TOP-LEVEL msg property, not msg.payload.\n// Writing the list to msg.payload deploys cleanly and sends the model nothing.\n// msg.payload is left as the caller's body.\nconst MAX_CHARS = 8000;          // ~2k tokens. Raise deliberately, never remove.\nconst body = msg.payload || {};\n\n// Correlation id first, so even a 400 can be traced.\nmsg.correlationId =\n    (msg.req && msg.req.headers && msg.req.headers[\"x-correlation-id\"]) ||\n    (msg.req && msg.req.headers && msg.req.headers[\"x-request-id\"]) ||\n    (Date.now() + \"-\" + Math.random().toString(16).slice(2));\n\nfunction reject(code, message) {\n    msg.statusCode = (code === \"too_large\") ? 413 : 400;\n    msg.payload = {\n        error: { code: code, message: message, traceId: msg.correlationId }\n    };\n    return [null, msg];\n}\n\n// A non-object body would otherwise be stringified whole and sent to the model.\nif (typeof body !== \"object\" || body === null || Array.isArray(body)) {\n    return reject(\"bad_request\", \"body must be a JSON object\");\n}\n\n// Official contract is { \"message\": ..., \"context\": {...} }. Falling back to\n// the whole body keeps callers that post free-form JSON working.\nconst query = body.message || body.prompt || body.question ||\n    (Object.keys(body).length ? JSON.stringify(body) : \"\");\n\nif (!query) {\n    return reject(\"bad_request\", \"message is required\");\n}\nif (typeof query !== \"string\") {\n    return reject(\"bad_request\", \"message must be a string\");\n}\n\nconst turn = body.context\n    ? query + \"\\n\\nContext: \" + JSON.stringify(body.context)\n    : query;\n\n// Unbounded input is unbounded cost, and the caller is not always ours.\n// Refuse loudly here rather than discovering it on the invoice.\nif (turn.length > MAX_CHARS) {\n    return reject(\"too_large\",\n        \"input is \" + turn.length + \" characters; the limit is \" + MAX_CHARS);\n}\n\n// enabler-llm reads these off msg, and msg.model outranks the model set on the\n// node itself. Without max_tokens the node's own default of 50 truncates every\n// answer mid-sentence - see references/node_catalog.md.\nif (typeof body.model === \"string\" && body.model.trim()) {\n    msg.model = body.model.trim();\n}\nconst cap = Number(body.max_tokens);\nmsg.max_tokens = (cap > 0 && cap <= 8000) ? Math.round(cap) : 2000;\n\nconst temp = Number(body.temperature);\nif (body.temperature !== undefined && temp >= 0 && temp <= 2) {\n    msg.temperature = temp;\n}\n\nmsg.askedAt = Date.now();\nmsg.messages = [\n    {\n        role: \"system\",\n        content: body.system || \"You are a helpful assistant for enterprise applications.\"\n    }\n];\n\n// Prior turns, oldest first, trimmed so a long session cannot grow the prompt\n// without limit. MAX_CHARS above only measures the current turn.\nif (Array.isArray(body.history)) {\n    body.history.slice(-12).forEach(function (h) {\n        if (h && typeof h.content === \"string\" &&\n            (h.role === \"user\" || h.role === \"assistant\")) {\n            msg.messages.push({ role: h.role, content: h.content });\n        }\n    });\n}\n\nmsg.messages.push({ role: \"user\", content: turn });\nreturn [msg, null];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 400,
+    "y": 200,
+    "wires": [
+      [
+        "2ad559f18d62c760"
+      ],
+      [
+        "71e35cad3825bd68"
+      ]
+    ]
+  },
+  {
+    "id": "2ad559f18d62c760",
+    "type": "enabler-llm",
+    "z": "87bb9782a4bbb581",
+    "name": "Model",
+    "model": "gpt-4.1",
+    "slug": "<your-slug>",
+    "projectid": "<your-project-id>",
+    "x": 640,
+    "y": 180,
+    "wires": [
+      [
+        "823e4447dd29d4e2"
+      ]
+    ]
+  },
+  {
+    "id": "823e4447dd29d4e2",
+    "type": "function",
+    "z": "87bb9782a4bbb581",
+    "name": "extract answer",
+    "func": "// Keep the response contract stable: the caller must not depend on the\n// provider's own envelope, which changes between models.\nconst choice = msg.payload && msg.payload.choices && msg.payload.choices[0];\nmsg.payload = {\n    answer: choice && choice.message ? choice.message.content : \"\",\n    model: msg.payload && msg.payload.model,\n    traceId: msg.correlationId\n};\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 860,
+    "y": 180,
+    "wires": [
+      [
+        "71e35cad3825bd68"
+      ]
+    ]
+  },
+  {
+    "id": "71e35cad3825bd68",
+    "type": "http response",
+    "z": "87bb9782a4bbb581",
+    "name": "respond",
+    "statusCode": "",
+    "headers": {},
+    "x": 1080,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "aaf8888acd33ccd8",
+    "type": "deptapps-app-auth-okta",
+    "configurationName": "OKTA Authentication",
+    "dbEngineType": "localStorage",
+    "databaseName": "deptapp-user-login-okta",
+    "userField": "userId",
+    "roleField": "roles",
+    "autoConfigured": true,
+    "defaults": false,
+    "defaultProject": "",
+    "defaultModel": ""
+  },
+  {
+    "id": "3d2565d1963ad479",
+    "type": "axetflows-app",
+    "z": "87bb9782a4bbb581",
+    "name": "LLM gateway (Okta)",
+    "menu": [
+      {
+        "text": "Menu",
+        "type": "root",
+        "state": {
+          "opened": true,
+          "selected": true
+        },
+        "children": []
+      }
+    ],
+    "welcomePage": null,
+    "sidebarMenuOrientation": "left",
+    "logoImage": "default",
+    "schemeColor": "",
+    "customCSS": "",
+    "customCSSErrors": 0,
+    "authConfig": "Okta",
+    "sessionExpireTimeInMinutes": null,
+    "basicInternalDb": "",
+    "oktaDb": "aaf8888acd33ccd8",
+    "roles": "",
+    "__wellKnownRes": {},
+    "x": 180,
+    "y": 460,
+    "wires": []
+  }
+]

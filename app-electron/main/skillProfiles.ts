@@ -62,6 +62,13 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
     writeCapable: true
   },
 
+  // --- aXet.flows ----------------------------------------------------------
+  // SAP'a hiç dokunmuyor: akış JSON'u okuyor, doğruluyor, üretiyor. Bu yüzden
+  // `writeCapable` DEĞİL — o bayrak "SAP'a yazar" demek ve PRD kapısını açar.
+  // Script'leri yalnızca Python standart kütüphanesini kullanıyor, kurulacak
+  // bir bağımlılık yok.
+  "axet-flows": { path: "axet-flows/skills/axet-flows" },
+
   // --- Office --------------------------------------------------------------
   "office-excel-read": { path: "office-tools/skills/office-excel-read" },
   "office-excel-write": { path: "office-tools/skills/office-excel-write" },
@@ -81,6 +88,17 @@ const ABAPGIT = Object.keys(SKILL_CATALOG).filter((n) => n.startsWith("abapgit-"
 
 const DOCS = ["fs-generator", "ts-generator", "spec-reviewer", "meeting-notes-organizer"];
 
+/**
+ * Role bakmadan HERKESE kurulan yetenekler (kullanıcı, 2026-09-08:
+ * *"bunu da entegre et herkes kullanabilsin"*).
+ *
+ * `axet-flows` bir SAP yeteneği değil — aXet.flows akışlarını okuyor, doğruluyor
+ * ve üretiyor. Rol ayrımı SAP'ta kim ne yapar sorusunu bölüyor; bu skill o
+ * sorunun dışında kaldığı için iki listeye de giriyor. Ayrı bir sabit olarak
+ * duruyor ki bir role eklenip diğerinde unutulması mümkün olmasın.
+ */
+const HERKES = ["axet-flows"];
+
 export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
   // Modül (fonksiyonel) danışmanı: sistemi okur, doküman üretir, kod yazmaz.
   // `library-match` burada — katalogda da modül danışmanına özel olarak
@@ -92,7 +110,8 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "library-match",
     "screen-mockup",
     ...DOCS,
-    ...OFFICE
+    ...OFFICE,
+    ...HERKES
   ],
 
   // Teknik danışman: geliştirme yapar. `library-match` yok (katalogda da
@@ -107,7 +126,8 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "screen-gen",
     ...ABAPGIT,
     ...DOCS,
-    ...OFFICE
+    ...OFFICE,
+    ...HERKES
   ],
 
   // Sandbox: kendi test sistemi. Her şey.
