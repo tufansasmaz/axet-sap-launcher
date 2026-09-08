@@ -44,6 +44,13 @@ export const MAIN_TR = {
   "flowsLiveSave.saveFailed": "Canlıya kaydedilemedi: {detail}",
   "flowsLiveSave.saveRejected": "Canlı host kaydı reddetti (HTTP {status}){detail}.",
 
+  // --- axetChat.ts (boş cevap kapısı) ---
+  "chat.emptyAnswerTui":
+    "axet-code turu bitirdi ama hiçbir cevap metni üretmedi. Aynı mesajı \"Yeniden üret\" ile bir kez daha deneyin; tekrarlıyorsa axet-code sürümünüzü Company Portal'dan güncelleyin.",
+  "chat.emptyAnswerRun":
+    "axet-code hiçbir cevap metni üretmeden kapandı. Sohbet yedek kipte çalıştı ({reason}) — bu kipte cevap kaybı görülebiliyor. Kalıcı kipin açılması için sol alttaki Hazırlık ekranından bir proje klasörü seçin.",
+  "chat.emptyAnswerNoReason": "sebep belirlenemedi",
+
   // --- axetChatTui.ts ---
   "chatTui.sessionDbUnreadable": "oturum veritabanı okunamıyor: {detail}",
   "chatTui.sessionDbMissing": "bu klasör için axet-code oturum veritabanı yok",

@@ -1393,9 +1393,23 @@ export default function AxetCodeHome({
             };
           }
 
-          const finalContent = result.ok
-            ? result.text
-            : result.error || t("axetCodeHome.chatGenericError");
+          // EMNİYET AĞI — boş balon çizilmeyecek.
+          //
+          // Ana süreçte de bir kapı var (axetChat.ts `guard`), ama o kapı
+          // yalnızca `sendChatMessage`'ın çıkışını görüyor; buraya başka bir
+          // yoldan `ok: true` + boş metin gelirse yine üç boş balon çizilirdi
+          // (ölçülen arıza, 2026-09-08). İki kural:
+          //
+          //   1. Sonuç boş ama EKRANDA AKMIŞ metin varsa o metin kazanır —
+          //      kullanıcı onu zaten okudu, silmek düpedüz veri kaybı olurdu.
+          //   2. İkisi de boşsa bu bir başarı değil: hata metni yazılıyor ve
+          //      balon hata olarak işaretleniyor.
+          const streamedText = streamed ? streamed.content.trim() : "";
+          const answer = result.ok ? result.text.trim() || streamedText : "";
+          const failed = !result.ok || !answer;
+          const finalContent = failed
+            ? result.error || t("axetCodeHome.chatGenericError")
+            : answer;
           // Bağlayıcıların bu mesajda açık olup olmadığı cevaba İLİŞTİRİLİYOR:
           // "gerektiğinde" kipinde bu bir tahmin ve yanıldığında sebebi
           // görünür olmalı (bkz. ChatBubble `usedConnectors`).
@@ -1407,7 +1421,7 @@ export default function AxetCodeHome({
                   ? {
                       ...m,
                       content: finalContent,
-                      error: !result.ok,
+                      error: failed,
                       streaming: false,
                       usedConnectors: result.usedConnectors,
                       restartedReason: result.restartedReason,
@@ -1422,7 +1436,7 @@ export default function AxetCodeHome({
             id: crypto.randomUUID(),
             role: "assistant",
             content: finalContent,
-            error: !result.ok,
+            error: failed,
             createdAt: Date.now(),
             usedConnectors: result.usedConnectors,
             restartedReason: result.restartedReason,

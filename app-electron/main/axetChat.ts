@@ -10,6 +10,8 @@ import type {
   AxetModelEntry
 } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
+import { appLog } from "./appLog";
+import { isSilentEmptyAnswer } from "./axetChatAnswer";
 import { buildContextPreamble } from "./activeContext";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { connectorGuidance } from "./connectorHealth";
@@ -508,8 +510,46 @@ export async function sendChatMessage(
   // bir sonraki mesajda görünsün diye; saniyelerle ölçülen bir işlemin yanında
   // bu okumanın maliyeti ölçülemez.
   const useConnectors = decideConnectors(history, message);
+  // TUI kipinin KAPALI olma sebebi (varsa) burada bir kez okunuyor: aşağıdaki
+  // boş-cevap kapısı, hangi kipte kalındığını kullanıcıya söyleyebilsin diye.
+  const fallbackReason = tuiUnavailableReason(resolvedCwd);
 
-  if (chatId && !tuiUnavailableReason(resolvedCwd)) {
+  /**
+   * Metinsiz bir tur BAŞARILI SAYILMAZ (bkz. axetChatAnswer.ts).
+   *
+   * Kapı tek çıkışta duruyor çünkü boş cevap iki ayrı yoldan gelebiliyor ve
+   * ikisini de aynı şey birleştiriyor: arayüz `ok` görünce metni olduğu gibi
+   * balona yazıyor, boşsa boş balon çiziyordu.
+   */
+  const guard = (result: AxetChatSendResult, mode: "tui" | "run"): AxetChatSendResult => {
+    if (!isSilentEmptyAnswer(result)) return result;
+    // Sebebi log'a: kullanıcı ekranda ne olduğunu görecek, biz NEREDE
+    // olduğunu. İkisi ayrı sorular ve tek satırla ikisi de cevaplanmalı.
+    console.log("[axetChat] BOS CEVAP, tur basarisiz sayildi", {
+      chatId,
+      kip: mode,
+      yedekSebebi: fallbackReason || "-",
+      klasor: resolvedCwd
+    });
+    // Diske düşen sürümde KLASÖR YOLU YOK: yol kullanıcının adını ve müşteri
+    // proje adlarını taşıyabiliyor, teşhis için ise "seçilmiş mi" yetiyor.
+    appLog("sohbet.bos-cevap", {
+      sohbet: chatId || "-",
+      kip: mode,
+      yedekSebebi: fallbackReason || "-",
+      klasorSecili: Boolean(resolvedCwd)
+    });
+    return {
+      ...result,
+      ok: false,
+      error:
+        mode === "run"
+          ? mt("chat.emptyAnswerRun", { reason: fallbackReason || mt("chat.emptyAnswerNoReason") })
+          : mt("chat.emptyAnswerTui")
+    };
+  };
+
+  if (chatId && !fallbackReason) {
     tuiRequests.set(requestId, chatId);
     try {
       const result = await sendViaTui({
@@ -543,7 +583,7 @@ export async function sendChatMessage(
           }
         }
       });
-      if (result) return result;
+      if (result) return guard(result, "tui");
     } catch {
       // TUI tarafındaki beklenmedik bir hata mesajı düşürmemeli — `run` yolu
       // duruyor.
@@ -559,7 +599,17 @@ export async function sendChatMessage(
     if (!tuiBusy(chatId)) closeTuiSession(chatId);
   }
 
-  return sendViaRun(requestId, resolvedCwd, model, history, message, useConnectors, onChunk, onActivity);
+  const runResult = await sendViaRun(
+    requestId,
+    resolvedCwd,
+    model,
+    history,
+    message,
+    useConnectors,
+    onChunk,
+    onActivity
+  );
+  return guard(runResult, "run");
 }
 
 /** İptalin doğru yere gitmesi için: hangi istek hangi TUI sohbetinde. */

@@ -42,6 +42,12 @@ export const MAIN_EN = {
   "flowsLiveSave.saveRejected": "The Live host rejected the save (HTTP {status}){detail}.",
 
   // --- axetChatTui.ts ---
+  "chat.emptyAnswerTui":
+    "axet-code finished the turn without producing any answer text. Try the same message once more with \"Regenerate\"; if it keeps happening, update axet-code from Company Portal.",
+  "chat.emptyAnswerRun":
+    "axet-code closed without producing any answer text. The chat ran in fallback mode ({reason}), where answers can go missing. Pick a project folder from the Readiness screen to enable the persistent mode.",
+  "chat.emptyAnswerNoReason": "reason unknown",
+
   "chatTui.sessionDbUnreadable": "session database cannot be read: {detail}",
   "chatTui.sessionDbMissing": "there is no axet-code session database for this folder",
   "chatTui.askFallbackQuestion": "I need you to make a choice before I can continue.",

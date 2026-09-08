@@ -9803,6 +9803,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.2** | Whisper çalışma zamanı diskten kaldırıldı. Yayınlanmış bir etiketi oynatmak yerine sürüm ileri alındı |
 | **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
 | **1.6.4** | Danışman rolü ilk açılışta zorunlu + kalıcı soruluyor, gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
+| **1.6.5** | Boş balon arızası: metinsiz tur artık başarılı sayılmıyor · paketlenmiş uygulamaya günlük dosyası (yalnızca sayaç/durum) |
 
 İptal edilen Faz 0-4 planının iki belgesi
 (`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
@@ -9981,3 +9982,116 @@ Bu turda 15 yeni test eklendi (`skillProfiles.test.ts` 5,
 `skillsSection.test.tsx` 3, `roleModal.test.tsx` 7) ve bağlayıcı testleri
 yeni modele göre yeniden yazıldı. Kapı: **129/129 test, 13 dosya, typecheck
 temiz.**
+
+## v1.6.5 — Boş balon ve günlük dosyası (2026-09-08)
+
+> "uygulamayı güncelleyen bi arkadaşım chatte cevapları göremediğini söyledi"
+
+Ekran görüntüsü net: iki kullanıcı balonu ("selam", "alo") ve **üç asistan
+satırı — kopyala ikonu var, `11:21` saat damgası var, "Yeniden üret" düğmesi
+var, METİN YOK.** Üç saat damgası da aynı, yani turlar hızlı bitmiş; zaman
+aşımı değil.
+
+### 1. Arıza: `ok: true` + boş metin
+
+`AxetCodeHome.tsx` şunu hesaplıyordu:
+
+```ts
+const finalContent = result.ok ? result.text : result.error || t("…chatGenericError");
+// …
+error: !result.ok,
+```
+
+Yani `ok` tek başına "gösterilecek bir şey var" sayılıyordu. Metin boşsa
+uygulama turu **başarılı** ilan ediyor ve boş bir balon çiziyordu. Kullanıcının
+gördüğü şey bir hata değil, hiçbir şeydi — ve hiçbir şey, sorulacak sorusu
+olmayan bir arızadır.
+
+Boş metin İKİ yoldan gelebiliyor ve ikisi de `ok: true` dönüyor:
+
+- `run` kipi, çıkış kodu 0 ama `stdout` boş → `{ ok: true, text: "" }`
+- TUI kipi, turu bitiren asistan mesajında hiç `type: "text"` parçası yok →
+  `{ ok: true, text: answer.trim() }` ve `answer` boş
+
+### 2. Kapı tek çıkışta: `axetChatAnswer.ts`
+
+Karar saf bir işleve çekildi (elektronsuz, sınanabilir):
+
+```ts
+export function isSilentEmptyAnswer(result: AnswerShape): boolean {
+  return result.ok === true && result.cancelled !== true && result.text.trim() === "";
+}
+```
+
+`cancelled` HARİÇ, bilerek: kullanıcı durdurduğunda yarım metnin olmaması
+normaldir ve arayüz o balonu zaten tamamen kaldırıyor. Onu hataya çevirmek,
+kullanıcının kendi eylemini arıza gibi göstermek olurdu.
+
+Kapı `sendChatMessage`'ın **tek çıkışında** duruyor (`axetChat.ts` `guard`),
+çünkü iki kip de aynı yerden dönüyor ve iki ayrı kapı, birinde düzeltilen bir
+şeyin diğerinde yaşamaya devam etmesi demekti. Hata metni kipe göre ayrışıyor:
+`run` kipindeyken kullanıcıya **neden yedek kipte olduğu** da söyleniyor
+(`chat.emptyAnswerRun` + `tuiUnavailableReason`), çünkü asıl şüphe orada.
+
+### 3. Arayüzde emniyet ağı — ve akmış metin KAZANIR
+
+Ana süreçteki kapı yalnızca `sendChatMessage`'ın çıkışını görüyor. Arayüzde de
+iki kural var:
+
+1. Sonuç boş ama **ekranda akmış** metin varsa o metin kazanır — kullanıcı onu
+   zaten okudu, silmek düpedüz veri kaybı olurdu.
+2. İkisi de boşsa bu bir başarı değil: `failed` işaretleniyor ve balon hata
+   olarak çiziliyor. `error: !result.ok` yerine artık `error: failed`.
+
+### 4. Neden hiçbir kanıt yoktu: paketlenmiş uygulama günlük yazmıyordu
+
+Bu arızanın en pahalı yanı düzeltmesi değil, **bize ekran görüntüsüyle
+gelmesiydi.** `index.ts`'te ne electron-log vardı ne bir dosya akışı; bütün
+`console.log` satırları paketlenmiş çalışmada hiçbir yere yazmıyordu.
+
+`appLog.ts` eklendi: `<userData>/logs/ntt-studio.log`, Windows'ta
+`%APPDATA%\axet-sap-launcher\logs\ntt-studio.log`. 2 MB'ta bir kez devrediyor
+(`.log.1`), yazma hatası günlüğü kalıcı olarak kapatıyor — bir yan iş turu
+bozmamalı.
+
+**İçerik yazılmıyor.** Kullanıcı kararı (2026-09-08): "aç, ama içerik yazma".
+Dosyaya yalnızca sayaç ve durum düşüyor — parça tipleri, mesaj sayısı, araç
+sayısı, kip adı, oturum kimliğinin ilk 8 hanesi. Kullanıcı metni, ajan cevabı,
+pty ekran dökümü, dosya içeriği ve kimlik bilgisi ASLA. Bu bir tercih değil,
+dosyanın varlık şartı: kullanıcı bunu destek için e-postayla gönderecek ve
+gönderdiği şeyin ne olduğunu okumadan bilebilmeli.
+
+İki yapısal karşılığı var:
+
+- Mevcut `console.log` çağrıları **buraya bağlanmadı.** Bazıları bilerek metin
+  taşıyor (`axetChatTui`'deki `sonEkran: session.screen.slice(-400)`) ve
+  hepsini toptan dosyaya akıtmak, tam da yazmamaya karar verdiğimiz şeyi yazmak
+  olurdu. Diske düşecek satır tek tek `appLog()` ile seçiliyor.
+- `formatLogLine` her alanı 120 karakterde kırpıyor. Kuralın yerine geçmez;
+  kuralı hatırlatan emniyet supabıdır.
+
+Aynı sebeple `sohbet.bos-cevap` satırında **klasör yolu yok** — yol kullanıcının
+adını ve müşteri proje adlarını taşıyabiliyor, teşhis için ise `klasorSecili`
+yetiyor.
+
+### 5. Teşhis: hâlâ bilmediğimiz şey
+
+Düzeltme arızayı **susturmuyor, konuşturuyor**: sessizlik artık ifade edilmiş
+bir başarısızlık. Ama arkadaşın makinesindeki KÖK SEBEP hâlâ bilinmiyor. İki
+hipotez, ikisi de sınanmadı:
+
+1. Taze kurulum, hiçbir yerde `.axet-code` klasörü yok → `tuiUnavailableReason`
+   dolu → sohbet sessizce `run` kipinde. (`run` kipinin kendisi sağlam:
+   ölçüldü, axet-code 1.2.3'te `axet-code run` EXIT=0 ve cevap veriyor. `-y`
+   ise `run`'ın bayrağı DEĞİL, üst düzey bayrak.)
+2. Farklı bir axet-code sürümü, veritabanındaki `parts` biçimi değişmiş ve
+   `type === "text"` süzgecimiz artık tutmuyor.
+
+Birincisini yeni hata metni kullanıcıya doğrudan söylüyor. İkincisini
+`tui.bos-cevap` satırındaki `parcaTipleri` alanı cevaplayacak — gördüğü parça
+tiplerini olduğu gibi yazıyor, metni değil.
+
+### Testler
+
+Bu turda 10 yeni test (`axetChatAnswer.test.ts` 5, `appLog.test.ts` 5). Kapı:
+**139/139 test, 15 dosya, typecheck temiz.**

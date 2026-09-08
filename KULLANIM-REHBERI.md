@@ -378,3 +378,15 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
   aşamaz. Uygulama İÇİNDE kopyala-yapıştır (bir sistem adını başka bir alana,
   vb.) bu kısıtlamadan etkilenmez, normal çalışır.
 
+- **Sohbette cevap balonu BOŞ geliyor**: Bu artık sessizce olmuyor — uygulama
+  metinsiz bir turu başarılı saymıyor, balonu hata olarak işaretleyip ne
+  olduğunu yazıyor. Mesaj "yedek kipte çalıştı" diyorsa sol alttaki
+  **Hazırlık** ekranından bir proje klasörü seç: kalıcı kip ancak o zaman
+  açılıyor. Aynı mesajı "Yeniden üret" ile bir kez daha denemek de çoğu
+  durumda yeter; tekrarlıyorsa axet-code sürümünü Company Portal'dan güncelle.
+- **Bir arıza tekrar ediyor, destek istiyorsun**: Uygulama kendi günlüğünü
+  `%APPDATA%\axet-sap-launcher\logs\ntt-studio.log` dosyasına yazıyor. Bu
+  dosyayı gönül rahatlığıyla gönderebilirsin: içinde **yalnızca sayaçlar ve
+  durumlar** var (hangi kip, kaç mesaj, kaç araç, sürüm). Yazdığın mesajlar,
+  ajanın cevapları, dosya içerikleri ve şifreler bu dosyaya **hiçbir zaman**
+  yazılmaz.

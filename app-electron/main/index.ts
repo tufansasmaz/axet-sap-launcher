@@ -28,6 +28,7 @@ import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
+import { appLog, appLogPath } from "./appLog";
 import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
 import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
@@ -1405,6 +1406,10 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  // Günlüğün İLK satırı: dosya var olsun (kullanıcı "yok" diye aramasın) ve
+  // her arıza satırı hangi sürümde olduğunu yanında taşısın.
+  appLog("acilis", { surum: app.getVersion(), platform: process.platform, elektron: process.versions.electron });
+  console.log("[gunluk] dosya:", appLogPath());
   registerIpc();
   createWindow();
 

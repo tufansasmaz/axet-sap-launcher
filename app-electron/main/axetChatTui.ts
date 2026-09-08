@@ -10,6 +10,7 @@ import type {
   AxetModelEntry
 } from "../shared/types";
 import { axetSpawnEnv } from "./axetSpawnEnv";
+import { appLog } from "./appLog";
 import { axetCodeVersion, noteAxetCodeVersion } from "./axetCodeVersion";
 import { loadConfig, saveConfig } from "./store";
 import { setAxetModel } from "./axetModels";
@@ -2089,6 +2090,31 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
         const reason = lastFinish?.data?.reason;
         if (reason && reason !== "tool_use") {
           args.onActivity({ phase: "finishing" });
+          // TUR BİTTİ AMA METİN YOK — teşhis burada bırakılıyor.
+          //
+          // Cevap metni `parts` içinde `type: "text"` olan parçalardan
+          // toplanıyor. axet-code bir sürümde bu tipin adını değiştirirse
+          // (ya da metni başka bir alana taşırsa) burada hiçbir şey patlamaz:
+          // tur "başarıyla" biter, cevap boş çıkar. 2026-09-08'de bir
+          // kullanıcının makinesinde tam olarak bu görüldü ve elde tek bir
+          // ipucu yoktu. Gördüğümüz parça TİPLERİNİ yazmak o boşluğu
+          // kapatıyor — metnin kendisi YAZILMIYOR, tipler yeterli.
+          if (!answer.trim()) {
+            const types = new Set<string>();
+            for (const message of assistants) for (const part of message.parts) types.add(part.type);
+            const alanlar = {
+              sohbet: session.chatId,
+              sebep: reason,
+              asistanMesaji: assistants.length,
+              parcaTipleri: [...types].join(",") || "-",
+              arac: toolCount,
+              oturum: session.axetSessionId?.slice(0, 8) ?? "?"
+            };
+            console.log("[axetChatTui] TUR BITTI AMA CEVAP METNI YOK", alanlar);
+            // Aynı satır DİSKE de düşüyor: bu arıza bize paketlenmiş bir
+            // kurulumdan geldi ve orada konsol hiçbir yere yazmıyor.
+            appLog("tui.bos-cevap", alanlar);
+          }
           // Yavaşlık şikâyeti ölçülebilir olsun diye: her turun süresi ve kaç
           // araç çalıştığı log'a düşüyor.
           console.log("[axetChatTui] tur bitti", {
