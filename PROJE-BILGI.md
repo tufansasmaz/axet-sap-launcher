@@ -9804,6 +9804,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
 | **1.6.4** | Danışman rolü ilk açılışta zorunlu + kalıcı soruluyor, gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
 | **1.6.5** | Boş balon arızası: metinsiz tur artık başarılı sayılmıyor · paketlenmiş uygulamaya günlük dosyası (yalnızca sayaç/durum) |
+| **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor. **Yerelde hazır, yayınlanmadı** |
 
 İptal edilen Faz 0-4 planının iki belgesi
 (`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
