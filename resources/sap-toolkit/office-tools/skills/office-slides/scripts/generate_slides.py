@@ -9,6 +9,19 @@ import sys
 from datetime import date
 from pathlib import Path
 
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 
 # ── data loading ──────────────────────────────────────────────────────────────
 
@@ -29,8 +42,20 @@ def load_data(args) -> "pd.DataFrame":
     if suffix == ".xls":
         sheet = args.sheet or 0
         return pd.read_excel(path, sheet_name=sheet, engine="xlrd")
-    sep = "\t" if suffix in (".tsv", ".txt") else ","
-    return pd.read_csv(path, sep=sep)
+    if suffix in (".tsv", ".txt"):
+        return pd.read_csv(path, sep="\t")
+    if suffix == ".csv":
+        return pd.read_csv(path, sep=",")
+    # Anything else used to fall through to the CSV reader, so handing this tool
+    # a .md -- a natural mistake, since the sibling office-pptx takes --md --
+    # answered with a raw pandas ParserError about tokenizing data. Name the
+    # mismatch instead, and name the tool that does take it.
+    hint = ("       For a Markdown deck use office-pptx --md.\n"
+            if suffix in (".md", ".markdown") else "")
+    print(f"ERROR: {path.name} is not tabular data. This tool reads "
+          f".xlsx/.xlsm/.xls/.csv/.tsv/.json.\n{hint}"
+          f"       Got: {suffix or '(no extension)'}", file=sys.stderr)
+    sys.exit(1)
 
 
 # ── logo embedding ────────────────────────────────────────────────────────────

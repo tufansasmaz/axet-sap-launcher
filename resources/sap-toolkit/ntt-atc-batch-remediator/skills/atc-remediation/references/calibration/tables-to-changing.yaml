@@ -1,0 +1,201 @@
+# LLM-eval suite for the `tables-to-changing` pattern.
+
+- id: clean-no-header
+  description: Single caller, no header-line implicit access (high)
+  input_payload:
+    cluster_id: c-0401
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_ORDER_CREATE
+      include: LZ_FG_ORDER_CREATEU01
+      line: 12
+      message: "TABLES: forbidden in Cloud — FM ZORDER_CREATE"
+    context:
+      fm_name: z_order_create
+      table: zorders
+      caller_sites: 2
+      uses_header_line_access: false
+      rfc_enabled: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: header-line-present
+  description: Implicit header-line access via "itab-field" (low)
+  input_payload:
+    cluster_id: c-0402
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_DOC_POST
+      include: LZ_FG_DOC_POSTU02
+      line: 31
+      message: "TABLES with header-line access"
+    context:
+      fm_name: z_doc_post
+      table: zdocs
+      caller_sites: 1
+      uses_header_line_access: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: rfc-enabled
+  description: RFC-enabled FM with external callers (low)
+  input_payload:
+    cluster_id: c-0403
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_RFC_EXPOSED
+      include: LZ_FG_RFC_EXPOSEDU01
+      line: 7
+      message: "TABLES on RFC-enabled FM"
+    context:
+      fm_name: z_rfc_exposed
+      table: zinv
+      caller_sites: 0
+      rfc_enabled: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: caller-scan-unavailable
+  description: caller-scan UNAVAILABLE (low — cannot prove signature safety)
+  input_payload:
+    cluster_id: c-0404
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_PARTNER_API
+      include: LZ_FG_PARTNER_APIU01
+      line: 19
+      message: "TABLES — caller-scan unavailable"
+    context:
+      fm_name: z_partner_api
+      table: zpartners
+      caller_sites_unknown: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: trivial-two-callers
+  description: Two callers, both in same package, no header-line (high)
+  input_payload:
+    cluster_id: c-0405
+    check_id: FL069
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_ASSETS
+      include: LZ_FG_ASSETSU01
+      line: 22
+      message: "TABLES used in FM"
+    context:
+      fm_name: z_assets
+      table: zassets
+      caller_sites: 2
+      uses_header_line_access: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: single-caller-clean
+  description: Single caller, write-only loop, no header-line (high)
+  input_payload:
+    cluster_id: c-0406
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_INV_LOOP
+      include: LZ_FG_INV_LOOPU01
+      line: 9
+      message: "TABLES used in invoice FM"
+    context:
+      fm_name: z_inv_loop
+      table: zinv
+      caller_sites: 1
+      uses_header_line_access: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: header-line-modify
+  description: Header-line MODIFY pattern (low)
+  input_payload:
+    cluster_id: c-0407
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_MODIFY
+      include: LZ_FG_MODIFYU01
+      line: 14
+      message: "TABLES with header-line MODIFY"
+    context:
+      fm_name: z_modify
+      table: ztemp
+      uses_header_line_access: true
+      caller_sites: 1
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: three-callers-clean
+  description: 3 callers, all in same DEVC, no header (high)
+  input_payload:
+    cluster_id: c-0408
+    check_id: FL069
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_THREE
+      include: LZ_FG_THREEU01
+      line: 11
+      message: "TABLES used"
+    context:
+      fm_name: z_three
+      table: zlines
+      caller_sites: 3
+      uses_header_line_access: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: shared-rfc-package
+  description: RFC-enabled but no implicit header (medium)
+  input_payload:
+    cluster_id: c-0409
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_SHARED_RFC
+      include: LZ_FG_SHARED_RFCU01
+      line: 25
+      message: "TABLES on RFC FM, no header-line"
+    context:
+      fm_name: z_shared_rfc
+      table: zshared
+      rfc_enabled: true
+      uses_header_line_access: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: four-callers-clean
+  description: 4 callers, all clean, no surprise (high)
+  input_payload:
+    cluster_id: c-0410
+    check_id: CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES
+    finding_count: 1
+    sample_finding:
+      object_type: FUGR
+      object_name: Z_FG_FOUR
+      include: LZ_FG_FOURU01
+      line: 8
+      message: "TABLES used"
+    context:
+      fm_name: z_four
+      table: zfour
+      caller_sites: 4
+      uses_header_line_access: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]

@@ -1,0 +1,27 @@
+# Pattern 9: Missing parameter typing
+# Source: research-pattern-library.md §9
+check_ids:
+  - "Y_CHECK_PARAMETER_TYPING"
+  - "SLIN::untyped_parameter"
+priority: 2
+fix_shape: context
+template:
+  before: |
+    METHODS calculate
+      CHANGING result.
+  after: |
+    METHODS calculate
+      CHANGING result TYPE bapi_amount.
+context_required:
+  - "caller sites to infer concrete type"
+  - "interface definition (cannot break public signature)"
+confidence_signals:
+  high:
+    - "single caller site identified with consistent concrete type"
+    - "method is in a class with no implementations of an interface"
+  low:
+    - "multiple callers pass different types (mechanical fix would conflict)"
+    - "method implements an interface (type comes from interface definition)"
+    - "caller-scan UNAVAILABLE"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 2270689

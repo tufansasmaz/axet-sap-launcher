@@ -1,0 +1,15 @@
+{
+  "name": "sap-enduser-doc",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Generate end-user PDF documentation for SAP classic GUI programs (WebGUI screenshots + Mermaid + Playwright PDF).",
+  "scripts": {
+    "precheck": "node scripts/precheck.js"
+  },
+  "dependencies": {
+    "marked": "^14.1.4",
+    "mermaid": "^11.16.0",
+    "playwright": "1.56",
+    "sharp": "^0.33.5"
+  }
+}

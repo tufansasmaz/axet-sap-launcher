@@ -1,0 +1,31 @@
+# Pattern 1: SELECT * without target field list
+# Source: research-pattern-library.md §1
+check_ids:
+  - "CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR"
+  - "Y_CHECK_SELECT_STATEMENT"
+priority: 2
+fix_shape: context
+template:
+  before: |
+    SELECT * FROM ekko WHERE bukrs = lv_bukrs INTO TABLE lt_ekko.
+  after: |
+    SELECT ebeln, bsart, bukrs, lifnr
+      FROM ekko
+      WHERE bukrs = @lv_bukrs
+      INTO TABLE @DATA(lt_ekko).
+context_required:
+  - "downstream field usage on lt_ekko-<field> (including INCLUDEs)"
+  - "FORM USING params taking the table"
+  - "MOVE-CORRESPONDING targets and dynamic field-symbol access"
+confidence_signals:
+  high:
+    - "downstream usage names <=8 fields explicitly"
+    - "no dynamic ASSIGN COMPONENT to the structure"
+    - "no MOVE-CORRESPONDING to a wider target"
+  low:
+    - "structure passed to BAPI (often requires full row)"
+    - "dynamic ASSIGN COMPONENT present"
+    - "table passed to FORM USING with no explicit type"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 2160611
+sap_note_secondary: 1912445

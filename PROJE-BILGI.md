@@ -10141,3 +10141,125 @@ Damga değiştiği için kurulu projelerde "yetenekleri güncelle" düğmesi
 kendiliğinden yanıyor (`isSkillUpdateAvailable`).
 
 Kapı: **141/141 test, 15 dosya, typecheck temiz.**
+
+## Marketplace ile hizalama: 27 → 45 yetenek, iki sessiz arıza (2026-09-08)
+
+`C:\workspace\ntt-claude-marketplace-main` (yani `global-innovation-lab/ntt-claude-marketplace`)
+baştan sona okundu ve bizde olmayan / bizde eskimiş her şey pakete alındı.
+Depo **salt okunur** kullanıldı: oraya tek bir satır yazılmadı.
+
+Kapsam kullanıcı kararıyla çizildi: **A + B grupları** alındı, **C grubu
+(SAP'a yazan paketler) alınmadı.** Office tarafında da "ikisini de düzelt"
+denildi: hem eksik `lib/` kuruldu hem script'ler yeni NTT temasına yükseltildi.
+
+### Asıl bulgu: iş bugüne kadar sessizce yarım çalışıyormuş
+
+Analiz, sorulan işin dışında **bugün üretimde olan iki arızayı** ortaya
+çıkardı. İkisinin de ortak yanı: gürültü çıkarmıyorlar.
+
+**1 · `office-tools/lib` hiç kurulmuyordu.** Office script'leri
+`sys.path.insert(0, .../scripts/../../../lib)` ile skill klasörünün *üstüne*
+uzanıyor. Biz yalnızca `skills/<ad>` klasörünü kopyaladığımız için o `lib`
+projede hiç oluşmuyordu. Sonuç: `redact.py` bulunamıyor, `--redact-pii`
+kendini sessizce kapatıyor ve doküman **maskesiz üretiliyor** — TCKN ve vergi
+numarası dahil. Yani hata "çalışmadı" diye değil, "yanlış çalıştı" diye ortaya
+çıkıyor; en kötü türü. Tazelenen script'lerde `theme.py` artık sert bir import
+olduğu için düzeltme olmasa script'ler hiç çalışmayacaktı.
+
+**2 · `sap-consultant/scripts` hiç kurulmuyordu.** `abap-code-checker`,
+`fs-generator` ve `ts-generator` — üçü de aylardır kurulu — `${CLAUDE_PLUGIN_ROOT}/scripts/`
+altındaki `quality.py`, `summary_check.py` gibi dosyaları çağırıyor. O klasör
+projede yoktu; üstelik `${CLAUDE_PLUGIN_ROOT}` değişkeni bu dağıtımda hiç
+tanımlı değil, aXet.code böyle bir kök kavramı taşımıyor.
+
+### Yapısal çözüm: `SHARED_ASSETS`
+
+`skillProfiles.ts`'e skill klasörünün dışında duran klasörleri tarif eden bir
+tablo eklendi; `sapToolkit.ts`'e onu kuran `installSharedAssets()`:
+
+| Kaynak | Hedef | Kim kullanıyor |
+| --- | --- | --- |
+| `office-tools/lib` | `.axet-code/lib` | office-docx, office-pdf, office-pptx, office-manual |
+| `sap-consultant/scripts` | `.axet-code/scripts` | abap-code-checker, fs-generator, ts-generator, sap-cr-scope, sap-cr-handover, sap-incident |
+
+İhtiyaç duyan yeteneklerden biri kuruluysa kopyalanır, hiçbiri kurulu değilse
+kaldırılır. Silme kararı **`marker` dosyasına** bakıyor (`redact.py`, `case.py`):
+`.axet-code/lib` kullanıcının kendi koyduğu bir klasör de olabilir ve o bizim
+işimiz değil. İlk yazdığım sürüm koşulsuz siliyordu; ikisi de daraltıldı.
+
+`tests/skillCatalogFiles.test.ts` (10 test) bu sözleşmeyi kilitliyor. En
+önemlisi iki **tarayıcı**: pakette `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
+skill `scripts` asset'inin `requiredBy`'ında olmak zorunda; `"..", "..", "..", "lib"`
+kalıbını içeren her `.py` de `lib` asset'inde. Yani bundan sonra paylaşılan
+dosyaya ihtiyaç duyan bir yetenek, bağımlılığını kaydetmeden kataloğa
+giremiyor. Tarayıcıların boşa dönmediği doğrulandı: sırasıyla 15 ve 4 dosya
+eşleşiyor. Aynı dosya `sap-adt`/`sap-object-transfer`/`adobe-gen`/`abapgit-deploy`'un
+pakete girmediğini ve `project-kb`'nin **hiç bulunmadığını** da test ediyor —
+bu depo public, `project-kb` müşteriye ait gerçek sistem verisi taşıyor.
+
+### 18 yeni yetenek
+
+Danışmanlık döngüsü (`sap-cr-scope`, `sap-cr-handover`, `sap-incident`,
+`as-built-doc`, `test-scenarios`) her iki role de girdi; yanlarına
+`conversion-scope` (S/4 dönüşüm kapsamı) ve `sapgui-screenshots` eklendi.
+Teknik danışman ayrıca `atc-remediation`, `designer-ai`, `datasphere`,
+`datasphere-skill-pack`, `ui5-dev-pack`, `cap-dev-pack`, `basis-ops-pack`,
+`automation-pilot-pack`; modül danışmanı `bbp-creator`, `sap-enduser-doc`,
+`celonis-ocpm-builder` aldı. **Modül 31, teknik 41, sandbox 45.** PRD'de
+kapanan yetenek listesi değişmedi: `screen-gen` ve üç abapGit yeteneği.
+
+### Yeni gelenler nasıl uyarlandı
+
+Altı yetenek MCP `adt_*` araçlarını çağırdığını varsayıyordu. Bizde MCP yok;
+her birinin SKILL.md'sine `abap-code-checker`'daki blokla aynı biçimde
+"`adt_xxx` gördüğün yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku" notu
+düşüldü ve hangi araçların geçtiği tek tek yazıldı.
+
+`sap-incident` özel durum: yukarı akışta DEV'e `adt_push` → `adt_activate` ile
+yazmayı öneriyordu. O iki araç sunucuda hiç açılmıyor (`404 unknown_tool`) ve
+SKILL.md'de ilgili adım **üstü çizilerek** bırakıldı, altına "NTT Studio'da bu
+adım yok, teslim edilen şey diff'tir" yazıldı. Aynı işlem
+`references/solution-proposal.md`'de de yapıldı. Silmek yerine üstünü çizmek
+bilinçli: skill'i okuyan ajan neyin niye kapalı olduğunu görüyor.
+
+`test-scenarios/scripts/scan_doc_types.py` bizde hiç bulunmayan tam yetkili
+ADT motorunu import ediyordu. Bağımlılık katmanı yeniden yazıldı: yalnızca
+standart kütüphaneyle konuşan bir `ReadOnlyHttpClient`. Kurucusu `/health`'i
+çağırıyor — sunucu ayakta değilse hata ilk SQL'de değil orada çıksın diye.
+Sunucu adresi `--server` ya da `ADT_RO_URL` ile veriliyor.
+
+`sapgui-screenshots` için bir yargı çağrısı yapıldı ve bunu ayrıca bilmek
+gerekiyor: bu yetenek ADT'ye değil, açık SAP GUI penceresine bakıyor ve
+gezinmek için **gerçek tuşlara basıyor**. Yani teknik olarak SAP'ta işlem
+yapabilecek tek yetenek o. `writeCapable` işaretlenmedi — çünkü o bayrak bu
+kod tabanında "ADT üzerinden SAP nesnesi yazar" demek ve PRD kapısının
+koruduğu şey tam olarak o; işaretlemek hem yeteneği PRD'de tamamen kapatır hem
+de "modül danışmanında yazan yetenek yoktur" değişmezini bozardı. Bunun yerine
+SKILL.md'sine sert bir kural bloğu kondu: **PRD'de yalnızca görüntüleme.**
+
+### Alınmayanlar
+
+`sap-adt` (80 dosyalık tam yetkili yazma motoru), `sap-object-transfer`,
+`adobe-gen`, `abapgit-deploy` — hepsi SAP'a yazıyor, C grubu.
+`project-kb/*` müşteri gizli. `ntt-skill-setup` rakip bir kurulumcu, o işi
+uygulama yapıyor. `sap-adt-router-bridge` yerine kendi RFC köprümüz var.
+`abapgit-adt` tam `sap-adt`'ye bağımlı. `sap-bw` ve `sap-sac` skill değil,
+vendor'lanmış MCP sunucuları — aXet.code MCP konuşamıyor.
+
+Bunların hepsi, hangi dosyalarımızın yukarı akıştan **bilerek ayrıldığı**
+listesiyle birlikte `resources/sap-toolkit/CLAUDE.md`'ye yazıldı. Bir sonraki
+tazelemede o tabloyu okumadan `cp` çekmek, uyarlamaları geri alır.
+
+### Notlar
+
+- Paket 1,9 MB → ~12 MB (5,6 MB'ı Celonis).
+- `requirements.txt` yeni paketlerin bağımlılıklarıyla genişletildi; Node
+  isteyen tek yetenek `sap-enduser-doc` ve bu ayrıca uyarı olarak yazıldı.
+- Office script'leri artık `sys.stdout.reconfigure(encoding="utf-8")` ile
+  cp1254 konsolunda da Türkçe basıyor.
+- Karşılaştırma tuzağı: bizde `core.autocrlf = true`, marketplace LF.
+  Normalize etmeden alınan diff/hash **her dosyayı** değişmiş gösteriyor.
+- `toolkit-version.json`: **2026.09.08+6d8b91dd, 45 skill.** Damga
+  değiştiği için kurulu projelerde "yetenekleri güncelle" düğmesi yanıyor.
+
+Kapı: **151/151 test, 16 dosya, typecheck temiz.**

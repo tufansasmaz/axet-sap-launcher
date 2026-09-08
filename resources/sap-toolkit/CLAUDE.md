@@ -4,8 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this repo is
 
-A **distribution of skills**, not an application. It adapts three NTT plugins (`sap-consultant`,
-`abapgit-bridge`, `office-tools`) into self-contained skill folders that install into a
+A **distribution of skills**, not an application. It adapts the NTT marketplace plugins
+(`sap-consultant`, `abapgit-bridge`, `office-tools`, `axet-flows`, `ntt-s4-migrator`,
+`ntt-atc-batch-remediator`, `celonis`, `sap-datasphere`, `sap-ecosystem`,
+`sapgui-scriptter`) into self-contained skill folders that install into a
 project's `.axet-code/skills/` directory for **aXet.code** (NTT DATA's Crush-based CLI,
 which has no plugin/marketplace system and cannot use MCP). There is no build step, no
 lint config, and no test suite — each skill is a `SKILL.md` plus standalone Python scripts.
@@ -59,14 +61,38 @@ Skills are installed **per project**, not user-global, into `<project>/.axet-cod
 and aXet.code discovers them at **startup** (restart required after install). The installers
 `scripts/link-skills.{sh,ps1}` map 21 skill folders (see the `SKILLS` array) into that dir.
 
+> In the launcher the real installer is `installSkillsIntoProject()`; the source of truth
+> for *which* skills a project gets is `SKILL_CATALOG` + `PROFILE_SKILLS` in
+> `app-electron/main/skillProfiles.ts` (45 skills as of 2026-09-08), not the `SKILLS` array
+> in the shell scripts below. Those scripts are for using this toolkit standalone.
+
 - **Copy mode is the default** (`--copy` / `-Copy`) because some aXet.code scanners don't
   follow symlinks. Copies are a snapshot → re-run after `git pull`. If adding/removing a
   skill, update the `SKILLS` list in **both** `link-skills.sh` and `link-skills.ps1`.
 - The plugin sub-folder structure (`office-tools/skills/` + `office-tools/lib/`) is
-  preserved intact because office scripts import the shared masker `lib/redact.py` via a
-  path relative to their plugin root. **Run office scripts by their real repo path in the
-  clone**, not the installed `.axet-code/skills/` copy — otherwise the `../../../lib`
-  import fails and `--redact-pii` silently disables.
+  preserved intact because office scripts import the shared masker `lib/redact.py` and the
+  house theme `lib/theme.py` via a path relative to their plugin root.
+
+### Shared files that live OUTSIDE the skill folder
+
+Two folders are deliberately not part of any skill, and the scripts reach up past the
+skill boundary to find them:
+
+| Source | Installed as | Reached by | Used by |
+| --- | --- | --- | --- |
+| `office-tools/lib` | `<project>/.axet-code/lib` | `sys.path.insert(0, .../scripts/../../../lib)` | `office-docx`, `office-pdf`, `office-pptx`, `office-manual` |
+| `sap-consultant/scripts` | `<project>/.axet-code/scripts` | `py "${CLAUDE_PLUGIN_ROOT}/scripts/<x>.py"` | `abap-code-checker`, `fs-generator`, `ts-generator`, `sap-cr-scope`, `sap-cr-handover`, `sap-incident` |
+
+The launcher copies both — see `SHARED_ASSETS` in `app-electron/main/skillProfiles.ts` and
+`installSharedAssets()` in `sapToolkit.ts`. **Before 2026-09-08 it copied neither**, and
+the failure was invisible rather than loud: `redact.py` missing means `--redact-pii`
+(TCKN/tax-ID masking) silently turns itself off and the document is produced unmasked.
+`tests/skillCatalogFiles.test.ts` now scans every bundled skill for these two access
+patterns and fails if a skill needs a shared folder that no `SHARED_ASSETS` entry lists.
+
+`${CLAUDE_PLUGIN_ROOT}` itself does not exist in this distribution — there is no plugin
+root and aXet.code never sets the variable. Each affected `SKILL.md` carries an adaptation
+note telling the agent to read it as `.axet-code/scripts/`.
 
 ## Skill anatomy
 
@@ -129,3 +155,38 @@ changes, never use the SAP server — use the `abapgit-workflow` skill: Claude e
 `abapgit-export-zip` packs a ZIP, the developer imports it in SAPGUI, and
 `abapgit-import-status-zip` ingests activation errors back into `.abapgit-status/`. It is
 developer-in-the-loop by design; there is no SAP-side automation.
+
+## Upstream'den AYRILAN dosyalar (yenilerken üstüne yazma)
+
+Paket, `global-innovation-lab/ntt-claude-marketplace` deposunun bir uyarlamasi.
+Depo salt okunur kullaniliyor: oraya hicbir sey yazilmiyor. Buradan yukari akisi
+tazelerken asagidaki dosyalarin uzerine YAZMA -- hepsi bilincli bir uyarlama
+tasiyor ve `git diff` ile kurtarilamayacak sekilde kaybolur:
+
+| Dosya | Ne degistirildi | Neden |
+| --- | --- | --- |
+| `sap-consultant/skills/sap-adt-readonly/**` | Tum skill yeniden yazildi; `references/` eklendi | Yazma yollari kapatildi (belt + suspenders) |
+| `.../abap-code-checker/SKILL.md` | MCP -> HTTP notu | aXet.code MCP konusamiyor |
+| `.../as-built-doc/SKILL.md` | MCP -> HTTP notu | ayni |
+| `.../sap-cr-scope/SKILL.md` | MCP -> HTTP + `${CLAUDE_PLUGIN_ROOT}` notu | ayni |
+| `.../sap-cr-handover/SKILL.md` | MCP -> HTTP + `${CLAUDE_PLUGIN_ROOT}` notu | ayni |
+| `.../sap-incident/SKILL.md` | MCP -> HTTP; `adt_push`/`adt_activate` adimlari ustu cizili | O araclar sunucuda hic acilmiyor |
+| `.../sap-incident/references/solution-proposal.md` | Ayni yazma adimi ustu cizili | ayni |
+| `.../test-scenarios/SKILL.md` | MCP -> HTTP notu | ayni |
+| `.../test-scenarios/scripts/scan_doc_types.py` | ADT motoru import'u -> `ReadOnlyHttpClient` | Tam yetkili motor bu pakette bilerek yok |
+| `.../sap-enduser-doc/SKILL.md` | MCP -> HTTP + npm bagimliligi uyarisi | ayni |
+| `.../fs-generator/SKILL.md`, `.../ts-generator/SKILL.md` | `${CLAUDE_PLUGIN_ROOT}` notu | Eklenti koku yok |
+| `sapgui-scriptter/skills/sapgui-screenshots/SKILL.md` | "PRD'de sadece goruntuleme" kurali | Tus basabiliyor, yanlislikla kaydedebilir |
+| `requirements.txt`, `CLAUDE.md`, `toolkit-version.json` | Bu dagitima ait | Yukari akista yok |
+
+Alinmayanlar ve sebepleri: `sap-adt` (tam yetkili yazma motoru),
+`sap-object-transfer` / `adobe-gen` / `abapgit-deploy` (SAP'a yaziyor),
+`project-kb/*` (musteriye ait gercek sistem verisi -- bu depo PUBLIC),
+`ntt-skill-setup` (rakip kurulumcu; bu isi uygulama yapiyor),
+`sap-adt-router-bridge` (uygulamanin kendi RFC koprusu var),
+`abapgit-adt` (tam `sap-adt`'ye bagimli), `sap-bw` / `sap-sac` (skill degil,
+vendor'lanmis MCP sunuculari -- aXet.code MCP konusamiyor).
+
+Karsilastirirken satir sonu tuzagi: bu depoda `core.autocrlf = true`, calisma
+kopyasi CRLF, marketplace LF. Normalize etmeden diff/hash alirsan HER dosya
+farkli gorunur.

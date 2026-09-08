@@ -1,0 +1,183 @@
+# LLM-eval suite for the `into-list` pattern.
+
+- id: makt-static-host-vars
+  description: SELECT SINGLE on MAKT with statically-declared host vars (mechanical)
+  input_payload:
+    cluster_id: c-0101
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_MAKT_LOOKUP
+      include: ZCL_MAKT_LOOKUP==========CM001
+      line: 22
+      message: "INTO list missing @-escape on MAKT"
+    context:
+      ddic_table: MAKT
+      host_vars: [lv_matnr, lv_maktx, lv_input]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: t005t-static-host-vars
+  description: SELECT SINGLE on T005T — country text lookup, mechanical
+  input_payload:
+    cluster_id: c-0102
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_COUNTRY_RESOLVER
+      include: ZCL_COUNTRY_RESOLVER==========CM001
+      line: 14
+      message: "INTO list missing @-escape on T005T"
+    context:
+      ddic_table: T005T
+      host_vars: [lv_land1, lv_landx, lv_country]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: tcurc-static-clean
+  description: SELECT SINGLE on TCURC — currency text, clean host vars
+  input_payload:
+    cluster_id: c-0103
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_TCURC_DUMP
+      include: ZR_TCURC_DUMP
+      line: 33
+      message: "INTO list missing @-escape on TCURC"
+    context:
+      ddic_table: TCURC
+      host_vars: [lv_waers, lv_ltext, lv_curr]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: skat-static-clean
+  description: SELECT SINGLE on SKAT — GL account text
+  input_payload:
+    cluster_id: c-0104
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_SKAT_RESOLVER
+      include: ZCL_SKAT_RESOLVER==========CM002
+      line: 17
+      message: "INTO list missing @-escape on SKAT"
+    context:
+      ddic_table: SKAT
+      host_vars: [lv_saknr, lv_txt, lv_acct]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: dynamic-where-concat
+  description: SELECT with dynamic WHERE built by concatenation (low confidence)
+  input_payload:
+    cluster_id: c-0105
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DYN_QUERY
+      include: ZR_DYN_QUERY
+      line: 88
+      message: "INTO list missing @-escape with dynamic WHERE"
+    context:
+      ddic_table: MAKT
+      dynamic_where: true
+      host_vars: [lv_matnr, lv_maktx]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: tcurr-static
+  description: SELECT SINGLE on TCURR — exchange rates
+  input_payload:
+    cluster_id: c-0106
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_FX_RATE
+      include: ZR_FX_RATE
+      line: 51
+      message: "INTO list missing @-escape on TCURR"
+    context:
+      ddic_table: TCURR
+      host_vars: [lv_kurst, lv_rate, lv_type]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: t001w-static
+  description: SELECT SINGLE on T001W — plant master
+  input_payload:
+    cluster_id: c-0107
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_PLANT_LOAD
+      include: ZCL_PLANT_LOAD==========CM001
+      line: 27
+      message: "INTO list missing @-escape on T001W"
+    context:
+      ddic_table: T001W
+      host_vars: [lv_werks, lv_name, lv_plant]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: corresponding-target
+  description: INTO CORRESPONDING FIELDS OF target (low — pattern doesn't fit cleanly)
+  input_payload:
+    cluster_id: c-0108
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_CORR_LOAD
+      include: ZR_CORR_LOAD
+      line: 74
+      message: "INTO CORRESPONDING FIELDS without @-escape"
+    context:
+      ddic_table: MAKT
+      into_corresponding: true
+      host_vars: [lv_input]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: ekpo-multi-host-var
+  description: SELECT SINGLE on EKPO with three host vars (mechanical)
+  input_payload:
+    cluster_id: c-0109
+    check_id: CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_PO_LINE_LOOKUP
+      include: ZCL_PO_LINE_LOOKUP==========CM001
+      line: 39
+      message: "INTO list missing @-escape on EKPO"
+    context:
+      ddic_table: EKPO
+      host_vars: [lv_ebeln, lv_ebelp, lv_menge]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: code-pal-escaping
+  description: code-pal ESCAPING rule on standard host-var pattern
+  input_payload:
+    cluster_id: c-0110
+    check_id: code-pal::ESCAPING
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_PAL_ESCAPED
+      include: ZR_PAL_ESCAPED
+      line: 19
+      message: "Missing host-variable escape (code-pal ESCAPING)"
+    context:
+      ddic_table: KNA1
+      host_vars: [lv_kunnr, lv_name1, lv_search]
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]

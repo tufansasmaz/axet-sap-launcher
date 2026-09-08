@@ -1,0 +1,189 @@
+# LLM-eval suite for the `unused-vars` pattern.
+
+- id: trivial-local-three
+  description: "Local DATA: block with three vars — only middle one unused (high)"
+  input_payload:
+    cluster_id: c-0701
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_LOCAL_VARS
+      include: ZR_LOCAL_VARS
+      line: 8
+      message: "Unused variable lv_dummy"
+    context:
+      unused_var: lv_dummy
+      scope: local
+      dynamic_assign_in_unit: false
+      is_public_class_data: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: dynamic-assign-present
+  description: Variable name appears in a dynamic ASSIGN — low confidence
+  input_payload:
+    cluster_id: c-0702
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DYN_ASSIGN
+      include: ZR_DYN_ASSIGN
+      line: 19
+      message: "Variable lv_dummy looks unused but dynamic ASSIGN exists"
+    context:
+      unused_var: lv_dummy
+      scope: local
+      dynamic_assign_in_unit: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: public-class-data
+  description: Public CLASS DATA attribute (low — interface concern)
+  input_payload:
+    cluster_id: c-0703
+    check_id: Y_CHECK_SCOPE_OF_VARIABLE
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_REGISTRY
+      include: ZCL_REGISTRY==========CCDEF
+      line: 9
+      message: "Unused public CLASS DATA mv_temp"
+    context:
+      unused_var: mv_temp
+      is_public_class_data: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: interface-returning
+  description: Variable is RETURNING param of an interface method (low)
+  input_payload:
+    cluster_id: c-0704
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_IF_IMPL
+      include: ZCL_IF_IMPL==========CM001
+      line: 33
+      message: "Unused RETURNING parameter of interface method"
+    context:
+      unused_var: rv_result
+      is_interface_returning_param: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: local-form-temp
+  description: FORM-local DATA, never referenced (high)
+  input_payload:
+    cluster_id: c-0705
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_LOCAL_FORM
+      include: ZR_LOCAL_FORM
+      line: 27
+      message: "Unused FORM-local DATA lv_unused"
+    context:
+      unused_var: lv_unused
+      scope: form_local
+      dynamic_assign_in_unit: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: field-symbol-pointing
+  description: A field-symbol points at the variable name (low)
+  input_payload:
+    cluster_id: c-0706
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_FS_POINT
+      include: ZR_FS_POINT
+      line: 22
+      message: "Variable lv_data appears unused but field-symbol points at it"
+    context:
+      unused_var: lv_data
+      field_symbol_points_at_var: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: trivial-method-temp
+  description: Method-local DATA, no references at all (high)
+  input_payload:
+    cluster_id: c-0707
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_TEMP_VARS
+      include: ZCL_TEMP_VARS==========CM001
+      line: 11
+      message: "Unused method-local DATA lv_obsolete"
+    context:
+      unused_var: lv_obsolete
+      scope: method_local
+      dynamic_assign_in_unit: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: trivial-block-temp
+  description: Local block-scope DATA never referenced (high)
+  input_payload:
+    cluster_id: c-0708
+    check_id: Y_CHECK_SCOPE_OF_VARIABLE
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_BLOCK_LOCAL
+      include: ZR_BLOCK_LOCAL
+      line: 41
+      message: "Unused block-scope DATA lv_garbage"
+    context:
+      unused_var: lv_garbage
+      scope: local
+      dynamic_assign_in_unit: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: changing-param-noref
+  description: CHANGING param never used inside method (mechanical but interface concern)
+  input_payload:
+    cluster_id: c-0709
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_PROC
+      include: ZCL_PROC==========CM001
+      line: 17
+      message: "CHANGING parameter unused inside method body"
+    context:
+      unused_var: ct_lines
+      is_changing_param: true
+      callers_count: 2
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: trivial-import-var
+  description: DATA lv_unused imported from include but never used (high)
+  input_payload:
+    cluster_id: c-0710
+    check_id: SLIN_UNUSED_VAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_INCLUDE_HOST
+      include: ZR_INCLUDE_HOST
+      line: 55
+      message: "Unused include-imported DATA lv_x"
+    context:
+      unused_var: lv_x
+      scope: local
+      dynamic_assign_in_unit: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]

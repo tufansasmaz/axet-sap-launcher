@@ -1,0 +1,406 @@
+LOB	Business Area	Scope Item ID	Description	Solution Activity (Hierarchy)	Fiori App or Transaction Title	Fiori App or Transaction ID	Business Role Description	Business Role ID
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	    Create New Versioned Bill Of Material				
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	        Create Bill of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	        Release Version	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	    Minor Change				
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	        Create New Version of Bill of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	        Release Version	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	    Major Change				
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	        Copy(Create) Header Material(Optional)	Create Material 	MM01	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	        Copy Versioned Bill Of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	            Discard Versioned Bill of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	            Change Versioned BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	1NR	Engineering Bill of Material - Versions Management	                Release Version	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	    Create New Allergen				
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	    Assign Allergen to Allergen Group	Manage Allergen Groups 	F2487	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	    Create New Nutrient				
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	    Assign Nutrient to Nutrient Group	Manage Nutrient Groups 	F2484	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	    Create New Pure Substance				
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	    Manage Raw Substance				
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	        Verify Whether Raw Substance Exists	Manage Raw Substances 	F2476	Master Data Specialist - Raw Substance Data	SAP_BR_MD_SPECIALIST_RAW_SUBST
+R&D/Engineering	Product Lifecycle Management	1QA	Specification Management for Recipes	        Create New Raw Substance				
+R&D/Engineering	Product Lifecycle Management	1QC	Formulation - Recipe Development	    Review Recipe	Manage Recipes 	F2210	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	1QC	Formulation - Recipe Development	    Create a New Recipe from an Existing Recipe	Manage Recipes 	F2210	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	1QC	Formulation - Recipe Development	    Modify Recipe Ingredients	Manage Recipes 	F2210	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	1QC	Formulation - Recipe Development	    Release Recipe	My Recipe Overview 	F3109	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	1QG	Recipe Handover to Production - Bill of Material	    Review Recipe and Decide Handover to Production - BOM	Manage Recipes 	F2210	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Lifecycle Management	1QG	Recipe Handover to Production - Bill of Material	    Copy General Recipe to Site Recipe and Assign Plant	Manage Recipes 	F2210	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Lifecycle Management	1QG	Recipe Handover to Production - Bill of Material	    Check Assigned Materials and Release Site Recipe	Manage Recipes 	F2210	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Lifecycle Management	1QG	Recipe Handover to Production - Bill of Material	    Define Plant Specific Target Bill of Material for the Recipe for Synchronization	Manage Recipes 	F2210	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Lifecycle Management	1QG	Recipe Handover to Production - Bill of Material	    Simulate and Execute Synchronization of the Recipe into Bill of Material	Manage Recipes 	F2210	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Lifecycle Management	1QG	Recipe Handover to Production - Bill of Material	    Check Manufacturing Bill of Material (MBOM)	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Process Manufacturing	SAP_BR_PRODN_ENG_PROC
+R&D/Engineering	Product Engineering	22P	Manage Documents	    Search for Document	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	22P	Manage Documents	    Create New Document	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	22P	Manage Documents	    Create a New Version of the Document	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	22P	Manage Documents	    (Optional) Assign Object Link Metadata	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	22P	Manage Documents	    (Optional) Maintain Attachments	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	22P	Manage Documents	    (Optional) Maintain Classification Metadata	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	22P	Manage Documents	    Release Document	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	22P	Manage Documents	    Download Attachments	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	    Recipe Analysis by Material				
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Determine Usage of Material in Recipes	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Export Selection to Excel (Optional)	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Export Selection to Excel (Optional)	Manage Recipes 	F2210	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Analyze Search Result List	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Decide for Ingredient to Replace				
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	    Recipe Analysis by Standard Composition				
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Determine Usage of Pure Substance in Recipes	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Export Selection to Excel (Optional)	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Export Selection to Excel (Optional)	Manage Recipes 	F2210	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Analyze Search Result List	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Decide for Ingredient to Replace				
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	    Ingredient Replacement				
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Determine Usage of an Ingredient in Recipes	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Export Selection to Excel (Optional)	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Analyze Search Result List	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	        Decide for Ingredient to Replace	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	            Create New Versions for Impacted Recipes	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	            Release New Recipe Version				
+R&D/Engineering	Product Lifecycle Management	22R	Advanced Ingredient Replacement for Recipes	            Check Validity of Versions	Recipe Finder 	F0576A	Recipe Developer	SAP_BR_RECIPE_DEVELOPER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	    Create Configurable BOM				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create Characteristic	Manage Characteristics 	CT04	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create Class â€“ Class type 300: Variants	Manage Classes 	CL02	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Assign Class to Product	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create Variant Table	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create Variant Table Content	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create Configuration Profile	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Change Configuration Profile to Assign Characteristic Group	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create Constraint Net	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create and Assign High-Level Dependencies				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            Define Constraint	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            Define Procedure	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            Define Precondition on a Characteristic	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            Define Precondition on a Characteristic Value	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Create Super BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Simulate Single-Level Configurable BOM	Simulate Configuration Models 	F2570	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        (Optional) Simulate Multi-Level Configurable BOM	Simulate Configuration Models 	F2570	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Simulate Configurable Routing	Simulate Configuration Models 	F2570	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        (Optional) Analyze Configurable BOM Simulation	Simulate Configuration Models 	F2570	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	    Maintain Configurable BOM				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        With Requirement Driven Development				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        Without Requirement Driven Development				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            Create High-Level Dependency and Simulate	Simulate Configuration Models 	F2570	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	    (Optional) Create Sales Set				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	    (Optional) Additional Manual Configuration for Replicate Configurable Models using Product Data Replication (PDR)				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	        (Optional) Product Data Replication (PDR)				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            (Optional) Configure PDR Using SSCUIs				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            (Optional) Replicate Configurable Models using Product Data Replication (PDR)				
+R&D/Engineering	Product Engineering	22T	Set Up Configurable Model using Variant Configuration	            (Optional) Replicate Configurable Models using Product Data Replication (PDR)				
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	    Software Compatibility For Bill Of Material(BOM)				
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	        Define Software Compatibility	Manage Software Constraints 	F2098	Systems Engineer	SAP_BR_SYSTEMS_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	        Check Software Compatibility	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	        Fix Conflicts in Bill of Material				
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	    Software Compatibility For Product Structure(PSM)				
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	        Define Software Compatibility				
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	            Constraints For Manual Wiper Controller Software	Manage Software Constraints 	F2098	Systems Engineer	SAP_BR_SYSTEMS_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	            Constraint For Automatic Wiper Controller Software	Manage Software Constraints 	F2098	Systems Engineer	SAP_BR_SYSTEMS_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	        Check Software Compatibility	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G5	Software Compatibility Management	        Fix Conflicts in Product Structure	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G6	Embedded Software Management	    Create Software Material	Create Material 	MM01	Systems Engineer	SAP_BR_SYSTEMS_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G6	Embedded Software Management	    Create Software Document and Link the Software Material	Manage Documents 	F2733	Systems Engineer	SAP_BR_SYSTEMS_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G6	Embedded Software Management	    Add new Software Item to BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G6	Embedded Software Management	    Create New Software Version	Manage Documents 	F2733	Systems Engineer	SAP_BR_SYSTEMS_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2G6	Embedded Software Management	    Update Software Item with New Version in BoM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    Identify Spare Parts in the Manufacturing BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    Set the Manufacturing BOM as Ready for Handover	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    Hand Over to SAP Asset Intelligence Network	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    Publish the Model in SAP Asset Intelligence Network				
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    (Optional) Create New Software Version	Manage Documents 	F2733	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    (Optional) Maintain the New Software Version in Manufacturing BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    (Optional) Hand Over the New Software Version to SAP Asset Intelligence Network	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	2WK	Handover of Product Information to SAP Asset Intelligence Network	    (Optional) Validate the Software Version Change in SAP Asset Intelligence Network				
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Create Purchase Orders				
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	        Option A: Create Purchase Order	Create Purchase Order 	ME21N	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	        Option B: Create Purchase Order with Inbound Delivery	Create Purchase Order 	ME21N	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Approve Purchase Order (Optional)	My Inbox - All Items 	F5331	Administrator - Enterprise Contract Management	SAP_BR_ADMINISTRATOR_LCM
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Preview Purchase Order (Optional)	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Change Purchase Order (Optional)	Change Purchase Order 	ME22N	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Create Inbound Deliveries (Optional)	Inbound Deliveries for Purchase Orders 	VL34	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Confirm Quantities for Putaway (Optional)	Inbound Deliveries for Putaway 	VL06IP	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Post Goods Receipt	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Create Supplier Invoice	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Create Supplier Invoice	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+R&D/Engineering	Product Engineering	2XU	Procurement of Materials with Variant Configuration	    Review Supplier Invoice (Optional)				
+R&D/Engineering	Product Compliance	31G	Chemical Compliance Approval for Purchased Material and Supplier	    Enter Data and Assess Compliance				
+R&D/Engineering	Product Compliance	31G	Chemical Compliance Approval for Purchased Material and Supplier	        Assign Supplier to Raw Material	Manage Basic Compliance Data - Raw Materials 	F3024	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31G	Chemical Compliance Approval for Purchased Material and Supplier	        Enter Composition of Supplier Raw Material	Manage Suppliers Compliance - For Raw Materials	F3034	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31G	Chemical Compliance Approval for Purchased Material and Supplier	        Assess Marketability and Approve Supplier for Raw Material	Manage Suppliers Compliance - For Raw Materials	F3034	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31G	Chemical Compliance Approval for Purchased Material and Supplier	        Confirm Raw Material Composition and Check Marketability Assessments	Manage Basic Compliance Data - Raw Materials 	F3024	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31G	Chemical Compliance Approval for Purchased Material and Supplier	    Optional: Process Compliance Disclosure for Supplier				
+R&D/Engineering	Product Compliance	31G	Chemical Compliance Approval for Purchased Material and Supplier	        Optional: Process Compliance Disclosure for Supplier	Process Compliance Disclosures - For Suppliers 	F7370	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31H	Assess Marketability of a Product	    Create Analytical Composition	Manage Basic Compliance Data - Unpackaged Products 	F2641	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31H	Assess Marketability of a Product	    Open Marketability Assessment and Initiate Substance Assessment	Assess Marketability Requirements - For Products 	F3219	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31H	Assess Marketability of a Product	    Assess Marketability Requirement for Substance as Compliant	Assess Marketability Requirements - For Substances 	F3220	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31H	Assess Marketability of a Product	    Optional: Verify Product Compliance Events	Process Product Compliance Events 	F4005	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	31H	Assess Marketability of a Product	    Assess Markets for a Product as Allowed (Using Test Data Set 1)	Assess Products for Markets	F2612	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	    Create Sales Order with Negatively Assessed Marketability				
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Create Sales Order for a Product with Compliance Relevance Indicated	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Check Status of Sales Order (Optional)	Sales Order Fulfillment - Analyze and Resolve Issues 	F0029A	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Check Status of Sales Order (Optional)	Compliance Information - For Products 	F3226	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Reject Compliance Request from Logistics	Process Requests from Logistics - For Dangerous Goods 	F3342	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	    Create Sales Order with Positively Assessed Marketability				
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Create Sales Order for a Product with Compliance Relevance Indicated	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Provide Safety Data Sheets for Unpackaged Product as Required	Manage Basic Compliance Data - Unpackaged Products 	F2641	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Classify Unpackaged Product as No Dangerous Goods	My Unpackaged Dangerous Goods 	F3643	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Classify Unpackaged Product as No Dangerous Goods	Classify Unpackaged Dangerous Good 	F3642	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Classify Unpackaged Product as No Dangerous Goods	Classify Dangerous Good 	F4465	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Process Compliance Request from Logistics and Assess Marketability Requirements	Process Requests from Logistics - For Dangerous Goods 	F3342	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Assess Markets for a Product as Allowed	Assess Products for Markets 	F2612	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Check Status of Sales Order	Sales Order Fulfillment - Analyze and Resolve Issues 	F0029A	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Check Status of Sales Order	Compliance Information - For Products 	F3226	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	    Customer Compliance Check During Sales Orders				
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Assess Markets for a Product as Allowed with Restriction	Assess Products for Markets 	F2612	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Create Sales Order for a Product with Compliance Relevance Indicated	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Provide Safety Data Sheets for Unpackaged Product as Required	Manage Basic Compliance Data - Unpackaged Products 	F2641	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Classify Unpackaged Product as No Dangerous Goods	My Unpackaged Dangerous Goods 	F3643	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Classify Unpackaged Product as No Dangerous Goods	Classify Unpackaged Dangerous Good 	F3642	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Classify Unpackaged Product as No Dangerous Goods	Classify Dangerous Good 	F4465	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Process Compliance Request from Logistics and Set Risk Level	Process Requests from Logistics - For Dangerous Goods 	F3342	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Document and Release Customer Assessment	Assess Marketability Requirements - For Customers 	F6187	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Document and Release Customer Assessment	Process Requests from Logistics - For Dangerous Goods 	F3342	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Check Status of Sales Order	Sales Order Fulfillment - Analyze and Resolve Issues 	F0029A	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	31J	Chemical Compliance in the Value Chain	        Check Status of Sales Order	Compliance Information - For Products 	F3226	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	    Create High-Level Product Structure Template				
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	        Create Manually	Create Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	        Create Using Block Definition Diagram				
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	            Create Block Definition Diagram				
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	            Create Product Structure Template	Create Product Structure	/PLMU/WDA_PPE_OVP	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	    Update High-Level Product Structure Template				
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	        Update Manually	Change Product Structure	/PLMU/WDA_PPE_OVP	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	        Update Using Block Definition Diagram				
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	            Update Block Definition Diagram				
+R&D/Engineering	Product Engineering	35Q	Product Structure Template Management	            Update Product Structure Template	Change Product Structure	/PLMU/WDA_PPE_OVP	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	    Classify Product as Dangerous Goods				
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Optional: Check Compliance Relevance for Dangerous Good	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Check Assigned Materials, Packaged Products, and Compliance Purposes for Unpackaged Products	Manage Basic Compliance Data - Unpackaged Products 	F2641	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Unpackaged Products as Dangerous Goods	My Unpackaged Dangerous Goods 	F3643	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Unpackaged Products as Dangerous Goods	Classify Unpackaged Dangerous Good 	F3642	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Unpackaged Products as Dangerous Goods	Classify Dangerous Good 	F4465	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Packaged Products as Dangerous Goods				
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	            Classify Packaged Products with All Modes of Transport Allowed	My Packaged Dangerous Goods 	F3711	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	            Classify Packaged Products with All Modes of Transport Allowed	Classify Packaged Dangerous Good 	F3710	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	            Classify Packaged Products with One Mode of Transport Forbidden	My Packaged Dangerous Goods 	F3711	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	            Classify Packaged Products with One Mode of Transport Forbidden	Classify Packaged Dangerous Good 	F3710	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	            Classify Packaged Products with One Mode of Transport Forbidden	Classify Dangerous Good 	F4833	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	    Classify Product as No Dangerous Goods				
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Optional: Check Compliance Relevance for Non-Dangerous Good	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Check Assigned Materials, Packaged Products, and Compliance Purpose for Unpackaged Products	Manage Basic Compliance Data - Unpackaged Products 	F2641	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Unpackaged Products as No Dangerous Good	My Unpackaged Dangerous Goods 	F3643	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Unpackaged Products as No Dangerous Good	Classify Unpackaged Dangerous Good 	F3642	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Unpackaged Products as No Dangerous Good	Classify Dangerous Good 	F4465	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Packaged Products as No Dangerous Good	My Packaged Dangerous Goods 	F3711	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	        Classify Packaged Products as No Dangerous Good	Classify Packaged Dangerous Good 	F3710	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3FC	Assess Dangerous Goods for a Product	    Optional: Apply Regulations to Countries	Apply Regulations - Dangerous Goods 	F3916	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	    Create Sales Documents Containing Dangerous Goods with Transport Allowed				
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Create Sales Order with a Dangerous Good with Transport Allowed	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Create Outbound Delivery with a Dangerous Good with Transport Allowed	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Carry Out Picking and Post Goods Issue for a Dangerous Good with Transport Allowed	Pick Outbound Delivery 	F0868	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	    Create Sales Documents Containing Dangerous Goods with Transport Allowed with Restrictions				
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Create Sales Order with a Dangerous Good with Transport Allowed with Restrictions	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Analyze Sales Order Status for Dangerous Goods	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Analyze Sales Order Fulfillment Monitor	Sales Order Fulfillment - Analyze and Resolve Issues 	F0029A	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Analyze Sales Order Fulfillment Monitor	Compliance Information - For Products 	F3226	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Create Outbound Delivery with a Dangerous Good with Transport Allowed with Restrictions	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Analyze Outbound Delivery Status for Dangerous Goods	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	3G8	Dangerous Goods in the Value Chain	        Carry Out Picking and Post Goods Issue for a Dangerous Good with Transport Allowed with Restrictions	Pick Outbound Delivery 	F0868	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	"    Create Product Master of Type â€Configurable Materialâ€-MDS"""				
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	        Create Header Material (Optional)	Create Material 	MM01	Administrator - Recipe Development	SAP_BR_ADMINISTRATOR_RCP_DEV
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Setup High Level Product Configuration				
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	        Assign Class to Product	Manage Product Master Data 	F1602	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	        Create Configuration Profile	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Create Product Structure From Template	Create Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Define Product Family	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Manage Date Effectivities	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Create Item Variants	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Manage Variant Effectivities (Optional)	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Manage Software Effectivities	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Manage Software Variant	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Add Software And Document Info Record With Version	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Manage Simulation	Simulate Configuration Models 	F2570	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Select Filter/Simulation	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Simulate Product Structure	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Add Components to Item Variant (Optional)	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Filter and Review Product Structure	Change Product Structure	/PLMU/WDA_PPE_OVP	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Check Software Compatibility				
+R&D/Engineering	Product Engineering	3ND	Product Structure Management	    Release For Handover	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Compliance	3VQ	Safety Data Sheets in the Value Chain	    Create Sales Order with a Warning for the Safety Data Sheet Check				
+R&D/Engineering	Product Compliance	3VQ	Safety Data Sheets in the Value Chain	        Create Sales Order for a Product Without Prepared Safety Data Sheets	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	3VQ	Safety Data Sheets in the Value Chain	        Optional: Analyze Sales Order Fulfillment Monitor	Sales Order Fulfillment - Analyze and Resolve Issues 	F0029A	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	3VQ	Safety Data Sheets in the Value Chain	        Process Request from Sales Order for Safety Data Sheet	Process Requests from Logistics - For Dangerous Goods 	F3342	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3VQ	Safety Data Sheets in the Value Chain	    Create Outbound Delivery with a Warning for the Safety Data Sheet Check				
+R&D/Engineering	Product Compliance	3VQ	Safety Data Sheets in the Value Chain	        Create Outbound Delivery for a Non-Compliant Product	Create Outbound Delivery - Without Order Reference 	VL01NO	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	3VQ	Safety Data Sheets in the Value Chain	        Process Request from Outbound Delivery for Safety Data Sheet	Process Requests from Logistics - For Dangerous Goods 	F3342	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3VR	Manage Safety Data Sheets for Products	    Create Unpackaged Product	Manage Basic Compliance Data - Unpackaged Products 	F2641	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3VR	Manage Safety Data Sheets for Products	    Upload Safety Data Sheets for Products	Manage Basic Compliance Data - Unpackaged Products 	F2641	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3VR	Manage Safety Data Sheets for Products	    Enter Contact Data for Safety Data Sheet	Manage Contact Data - Safety Data Sheets 	F4521	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3VR	Manage Safety Data Sheets for Products	    Manual Shipment of Safety Data Sheets	Compliance Information - For Products 	F3226	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3VR	Manage Safety Data Sheets for Products	    Monitor Safety Data Sheet Shipments	Monitor Shipments - Safety Data Sheets 	F4309	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	3VR	Manage Safety Data Sheets for Products	    Optional: Output Parameter Determination				
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	    Purchasing Process				
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Create a Purchase Requisition	Manage Purchase Requisitions - Professional 	F2229	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Convert a Purchase Requisition to a Purchase Order	Process Purchase Requisitions - Formerly Manage Purchase Requisitions 	F1048	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Post Goods Receipt for a Purchase Order	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Analyze Stock Overview (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	    Manufacturing Process Based on a Process Order				
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Create a Process Order	Create Process Order 	COR1	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Manual Goods Issue (Optional)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Confirm a Process Order	Display Process Order Confirmation 	CORT	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Post Goods Receipt for a Process Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	    Sales Process Based on a Sales Order				
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Create a Sales Order	Create Sales Orders -  	VA01	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Add a Market Assessment	Process Requests from Logistics 	F3342	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Apply Regulations to Countries/Regions	Process Requests from Logistics - For Dangerous Goods 	F3342	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Classify a Packaged Product as No Dangerous Good	My Unpackaged Dangerous Goods 	F3643	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Classify a Packaged Product as No Dangerous Good	My Packaged Dangerous Goods 	F3711	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Classify a Packaged Product as No Dangerous Good	Process Requests from Logistics 	F3342	Dangerous Goods Specialist - Product Compliance	SAP_BR_DG_SPLST_PCL
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Create a Delivery	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Post Goods Issue for an Outbound Delivery	Manage Outbound Deliveries 	F0867A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Post Goods Issue for an Outbound Delivery	Pick Outbound Delivery 	F0868	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	    Substance Volume Tracking				
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Monitor Substance Volumes	Monitor Substance Volumes 	F4693	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	4OL	Substance Volume Tracking	        Monitor Substance Volumes	Manage Legal Entity Mappings - Product Compliance 	F5935	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	5OJ	Supplier Compliance in the Value Chain	    Assign Product and Supplier to the Compliance View and Request Supplier Assessment	Manage Basic Compliance Data - Raw Materials 	F3024	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	5OJ	Supplier Compliance in the Value Chain	    Assign Product and Supplier to the Compliance View and Request Supplier Assessment	Supplier Compliance for Raw Material 	F3040	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	5OJ	Supplier Compliance in the Value Chain	    Create Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Compliance	5OJ	Supplier Compliance in the Value Chain	    Assess Supplier Compliance and Review Supplier Check Status	Manage Basic Compliance Data - Raw Materials 	F3024	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	5OJ	Supplier Compliance in the Value Chain	    Assess Supplier Compliance and Review Supplier Check Status	Supplier Compliance for Raw Material 	F3040	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Compliance	5OJ	Supplier Compliance in the Value Chain	    Assess Supplier Compliance and Review Supplier Check Status	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+R&D/Engineering	Product Compliance	5OJ	Supplier Compliance in the Value Chain	    Assess Supplier Compliance and Review Supplier Check Status	Process Requests from Logistics 	F3342	Master Data Specialist - Product Compliance	SAP_BR_MD_SPECIALIST_PCL
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Create Change Record	Manage Change Records 	F2097	Development Manager - Process Industry	SAP_BR_DEV_MANAGER_PIC
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Assign Master Recipe to Change Record	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Submit Change Request	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Check Change Request	Manage Change Records 	F2097	Development Manager - Process Industry	SAP_BR_DEV_MANAGER_PIC
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Approve Change Request	Manage Change Records 	F2097	Development Manager - Process Industry	SAP_BR_DEV_MANAGER_PIC
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Start Change Implementation	Manage Change Records 	F2097	Development Manager - Process Industry	SAP_BR_DEV_MANAGER_PIC
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Perform Change Implementation for Master Recipe				
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	        Start Changes for Master Recipe	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	        Modify Master Recipe	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	        Modify Master Recipe	Change Master Recipe 	C202	Production Engineer - Process Manufacturing	SAP_BR_PRODN_ENG_PROC
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	        Changes Completed	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	        Release Changes for the Master Recipe	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Close Change Implementation	Manage Change Records 	F2097	Development Manager - Process Industry	SAP_BR_DEV_MANAGER_PIC
+R&D/Engineering	Product Lifecycle Management	5QC	Product Change Management with Change Records - Process Industries	    Release Change	Manage Change Records 	F2097	Development Manager - Process Industry	SAP_BR_DEV_MANAGER_PIC
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Create Change Record	Manage Change Records 	F2097	Development Manager - Discrete Industries	SAP_BR_DEVELOPMENT_MANAGER_DIN
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Assign BOM to Change Record	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Submit Change Request	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Check Change Request	Manage Change Records 	F2097	Development Manager - Discrete Industries	SAP_BR_DEVELOPMENT_MANAGER_DIN
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Approve Change Request	Manage Change Records 	F2097	Development Manager - Discrete Industries	SAP_BR_DEVELOPMENT_MANAGER_DIN
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Start Change Implementation	Manage Change Records 	F2097	Development Manager - Discrete Industries	SAP_BR_DEVELOPMENT_MANAGER_DIN
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Perform Change Implementation for BOM				
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	        Start Changes for BOM	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	        Modify BOM	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	        Changes Completed	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	        Release Changes for the BOM	Manage Change Records 	F2097	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Close Change Implementation	Manage Change Records 	F2097	Development Manager - Discrete Industries	SAP_BR_DEVELOPMENT_MANAGER_DIN
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Release Change	Manage Change Records 	F2097	Development Manager - Discrete Industries	SAP_BR_DEVELOPMENT_MANAGER_DIN
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	    Appendix				
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	        Process Integration				
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	            Preceding Processes				
+R&D/Engineering	Product Lifecycle Management	64E	Product Change Mgmt with Change Records - Discrete Industries	            Succeeding Processes				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	    Create and Change Bill of Material				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Create Bill of Material				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Create Bill of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Add Preliminary BOM Components (Optional)	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Create BOM Groupings (Optional)	Manage Multilevel Bill Of Material 	F5238	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Release Change	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Change Bill of Material				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Major Change				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Copy (Create) Header Material (Optional)	Create Material 	MM01	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Copy BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Change Bill Of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Release Change	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Minor Change				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Change BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	                Release Change	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Replace Preliminary Items				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Replace Preliminary Component with Actual Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Where-used and Mass Replacement				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Execute Where-Used for Component to Replace	Material where used list in BOMs - where used list, hierarchy and replace Materials in BOMs 	F2214	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Replace Material for the Selected BOMs	Material where used list in BOMs - where used list, hierarchy and replace Materials in BOMs 	F2214	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Release Change	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	    Basic Handover				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Copy Engineering BOM to Manufacturing BOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Adjust Manufacturing BOM for Production	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Release Change	Manage Change Masters 	F2212	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	    Maintain Design Document				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Create Requirements				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Publish the Requirement Model				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Additional Steps for Using Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Create Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Link Requirements to Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Publish Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Trigger Requirements Assignment for Design Document	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Assign Relevant Requirements or Blocks to Design Document				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Change Design Document	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        View Requirements or Blocks Assigned to Design Document				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Trigger Viewing	Manage Documents 	F2733	Design Engineer	SAP_BR_DESIGN_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            View Requirement or Block Details				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	    Maintain Engineering BOM				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Create Requirements				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Publish the Requirement Model				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Additional Steps for Using Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Create Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Link Requirements to Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Publish Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Trigger Requirements Assignment for Bill of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Assign Relevant Requirements or Blocks to Bill of Material				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Change Bill of Material	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        View Requirements or Blocks Assigned to Design Document				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Trigger Viewing	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            View Requirement or Block Details				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	    Set Change Master Status to Inactive	Change Change Master 	CC02	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	    Maintain Configurable BOM				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Create Requirements				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Publish the Requirement Model				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Additional Steps for Using Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Create Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Link Requirements to Block definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Publish Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Trigger Requirements Assignment for Configuration Profile	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Assign Relevant Requirements or Blocks to High-Level Dependency				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Create High-Level Dependencies	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Trigger Requirements Assignment for High-Level Dependency	VC Modeling Environment 	PMEVC	Product Configuration Modeler	SAP_BR_PRODUCT_CONFIG_MODELER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Assign Relevant Requirements or Blocks to Configuration Profile				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Simulate Configurable BOM	Simulate Configuration Models 	F2570	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	    Maintain Material				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Create Requirement				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Publish the Requirement Model				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Additional Steps for Using Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Edit Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Link Requirement to Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Publish Block Definition Diagram				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Trigger Requirements Assignment for Material	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Assign Relevant Requirements or Blocks to Material				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        Change Material	Change Material 	MM02	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	        View Requirements or Blocks Assigned to Design Document				
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            Trigger Viewing	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+R&D/Engineering	Product Lifecycle Management	64F	Bill of Material Management	            View Requirement or Block Details				
+R&D/Engineering	Product Compliance	6MT	Label Management	    Create Compliance Requirement - Labels				
+R&D/Engineering	Product Compliance	6MT	Label Management	    Create Configuration for Labels	Manage Configurations for Labels 	F6689	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	6MT	Label Management	    Create Label Assignment	Manage Label Assignments - Products 	F6615	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Compliance	6MT	Label Management	    Validate and Print Labels	Validate and Print Labels 	F6656	Product Stewardship Specialist - Product Compliance	SAP_BR_PRODSTWRD_SPLST_PCL
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	    Perform Mass Maintenance of BOM Items				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Mass Maintenance of BOM Items	Mass Maintenance of Bills of Material Items 	F6578	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Simulate Mass Change of BOM Items				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Execute Mass Change of BOM Items				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Release Change	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	    Perform Mass Addition of BOM Items				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Mass Addition of BOM Items	Mass Addition of Bills of Material Items 	F6862	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Simulate Mass Addition of BOM Items				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Execute Mass Addition of BOM Items				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Release Change	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	    Perform Mass Maintenance of BOM Headers				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Define Effectivity of the BOM Changes	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Mass Maintenance of BOM Headers	Mass Maintenance of Bills of Material Headers 	F6863	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Simulate Mass Change of BOM Headers				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Execute Mass Change of BOM Headers				
+R&D/Engineering	Product Lifecycle Management	6OT	Bill of Material Management Professional	        Release Change	Manage Change Masters 	F2212	BOM Engineer	SAP_BR_BOM_ENGINEER
+R&D/Engineering	Product Engineering	6W9	Set Up Advanced Solution Bundle	    Create Solution Bundle				
+R&D/Engineering	Product Engineering	6W9	Set Up Advanced Solution Bundle	    Generate Solution Bundle				

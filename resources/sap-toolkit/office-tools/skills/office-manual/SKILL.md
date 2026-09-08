@@ -76,9 +76,9 @@ py plugins/office-tools/skills/office-manual/scripts/build_manual.py \
 
 ## Layout
 
-**docx:** title page → numbered Heading 2 steps → body text → centered screenshot (6" wide, auto-height). One blank paragraph between steps. All headings in NTT green.
+**docx:** cover with the NTT mark → numbered Heading 2 steps → body text → centered screenshot (6" wide, auto-height). One blank paragraph between steps. Headings in the house accent (`lib/theme.py`), body Segoe UI 10.5 at 1.35 line spacing.
 
-**pptx:** title slide → one slide per step. Green title bar ("Step N: Title") with accent underline. If the step has a screenshot, the image fills the content area (full-width, aspect-ratio preserved) and the description appears as a caption strip at the bottom. Text-only steps use the full slide area for the description.
+**pptx:** title slide → one slide per step. Title bar ("Step N: Title") in the accent with an underline, and the wordmark small in the bottom-right of every slide — out of the reading path, where it does not compete with the one thing the slide is for. If the step has a screenshot, the image fills the content area (full-width, aspect-ratio preserved) and the description appears as a caption strip at the bottom. Text-only steps use the full slide area for the description.
 
 ## End-to-end with sapgui-scriptter
 

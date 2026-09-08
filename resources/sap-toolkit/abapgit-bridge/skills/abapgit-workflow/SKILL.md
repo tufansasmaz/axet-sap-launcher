@@ -230,7 +230,7 @@ NOT the per-object `<abapGit version="..." serializer="...">` wrapper.
 
 ## Rules of the road
 
-1. **Never invoke `sap-adt` scripts in this workflow.** This skill is the manual-cycle path; the whole point is that Claude does NOT call SAP. If the user's policy permits ADT, the `abaper.sap-adt` skill is a separate option.
+1. **Never invoke `sap-adt` scripts in this workflow.** This skill is the manual-cycle path; the whole point is that Claude does NOT call SAP. If the user's policy permits ADT, the `sap-consultant/sap-adt` skill is a separate option.
 
 2. **One ZIP = one logical change.** Per-round import keeps the audit trail readable and shrinks the recovery surface when activation fails. Avoid bundling refactors with features.
 

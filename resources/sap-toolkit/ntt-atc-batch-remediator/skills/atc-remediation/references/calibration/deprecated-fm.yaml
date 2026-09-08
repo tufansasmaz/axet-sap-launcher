@@ -1,0 +1,196 @@
+# LLM-eval suite for the `deprecated-fm` pattern.
+
+- id: ws-download-default-excs
+  description: WS_DOWNLOAD with default SY-SUBRC routing (high)
+  input_payload:
+    cluster_id: c-0501
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_FILE_DUMP
+      include: ZR_FILE_DUMP
+      line: 42
+      message: "WS_DOWNLOAD is obsolete"
+    context:
+      fm_name: WS_DOWNLOAD
+      replacement_kind: class_method
+      replacement: cl_gui_frontend_services=>gui_download
+      exceptions_default_only: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: ws-upload-default
+  description: WS_UPLOAD with default exceptions (high)
+  input_payload:
+    cluster_id: c-0502
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_FILE_LOAD
+      include: ZR_FILE_LOAD
+      line: 11
+      message: "WS_UPLOAD is obsolete"
+    context:
+      fm_name: WS_UPLOAD
+      replacement_kind: class_method
+      replacement: cl_gui_frontend_services=>gui_upload
+      exceptions_default_only: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: rfc-read-table-no-replacement
+  description: RFC_READ_TABLE — replacement_kind == 'none' (low)
+  input_payload:
+    cluster_id: c-0503
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_REMOTE_FETCH
+      include: ZR_REMOTE_FETCH
+      line: 19
+      message: "RFC_READ_TABLE is obsolete (no class replacement)"
+    context:
+      fm_name: RFC_READ_TABLE
+      replacement_kind: none
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: dynamic-invocation
+  description: FM invoked dynamically via CALL FUNCTION fm_name (low)
+  input_payload:
+    cluster_id: c-0504
+    check_id: Y_CHECK_FUNCTION_USAGE
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DYN_FM_INVOKER
+      include: ZR_DYN_FM_INVOKER
+      line: 31
+      message: "Dynamic CALL FUNCTION to obsolete FM"
+    context:
+      fm_name: WS_DOWNLOAD
+      replacement_kind: class_method
+      dynamic_call: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: gui-download-clean
+  description: GUI_DOWNLOAD straightforward replacement (high)
+  input_payload:
+    cluster_id: c-0505
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_LEGACY_DOWNLOAD
+      include: ZR_LEGACY_DOWNLOAD
+      line: 27
+      message: "GUI_DOWNLOAD obsolete"
+    context:
+      fm_name: GUI_DOWNLOAD
+      replacement_kind: class_method
+      replacement: cl_gui_frontend_services=>gui_download
+      exceptions_default_only: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: popup-confirm-step
+  description: POPUP_TO_CONFIRM_STEP → cl_demo_output (high)
+  input_payload:
+    cluster_id: c-0506
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_CONFIRM_DIALOG
+      include: ZCL_CONFIRM_DIALOG==========CM001
+      line: 9
+      message: "POPUP_TO_CONFIRM_STEP obsolete"
+    context:
+      fm_name: POPUP_TO_CONFIRM_STEP
+      replacement_kind: class_method
+      replacement: cl_demo_output=>display
+      exceptions_default_only: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: custom-exc-numbering
+  description: Caller depends on a specific EXCEPTIONS number not in remap (low)
+  input_payload:
+    cluster_id: c-0507
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_FILE_OPEN_ERROR
+      include: ZR_FILE_OPEN_ERROR
+      line: 33
+      message: "WS_DOWNLOAD with custom exception numbering"
+    context:
+      fm_name: WS_DOWNLOAD
+      replacement_kind: class_method
+      exceptions_default_only: false
+      caller_depends_on_exc_number: 7
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: download-clean
+  description: DOWNLOAD with default exceptions
+  input_payload:
+    cluster_id: c-0508
+    check_id: Y_CHECK_FUNCTION_USAGE
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DOWNLOAD_OLD
+      include: ZR_DOWNLOAD_OLD
+      line: 18
+      message: "DOWNLOAD obsolete"
+    context:
+      fm_name: DOWNLOAD
+      replacement_kind: class_method
+      replacement: cl_gui_frontend_services=>gui_download
+      exceptions_default_only: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: ws-query-clean
+  description: WS_QUERY replacement via class method
+  input_payload:
+    cluster_id: c-0509
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_FS_PROBE
+      include: ZCL_FS_PROBE==========CM001
+      line: 22
+      message: "WS_QUERY obsolete"
+    context:
+      fm_name: WS_QUERY
+      replacement_kind: class_method
+      replacement: cl_gui_frontend_services=>get_environment
+      exceptions_default_only: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: c-files-system-no-repl
+  description: C_FILES_SYSTEM has no released replacement (low)
+  input_payload:
+    cluster_id: c-0510
+    check_id: CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_SYS_FILES
+      include: ZR_SYS_FILES
+      line: 14
+      message: "C_FILES_SYSTEM obsolete with no replacement"
+    context:
+      fm_name: C_FILES_SYSTEM
+      replacement_kind: none
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]

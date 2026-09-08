@@ -49,7 +49,7 @@ py plugins/office-tools/skills/office-pptx/scripts/build_pptx.py \
 ```
 
 - `bullets` items are either a string or `[text, indent_level]`.
-- 16:9 widescreen (13.33×7.5 in), green title bars + accent underline.
+- 16:9 widescreen (13.33×7.5 in), accent title bars + underline, wordmark bottom-right on every slide.
 
 ## Tips
 

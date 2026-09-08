@@ -1,0 +1,36 @@
+# Pattern 7: Deprecated function modules (WS_DOWNLOAD etc.)
+# Source: research-pattern-library.md §7
+check_ids:
+  - "CL_CI_TEST_FUNCTION_MODULE_USAGE::OBSOLETE_FM"
+  - "Y_CHECK_FUNCTION_USAGE"
+priority: 2
+fix_shape: mechanical
+template:
+  before: |
+    CALL FUNCTION 'WS_DOWNLOAD'
+      EXPORTING filename = 'C:\out.txt'
+                filetype = 'ASC'
+      TABLES    data_tab = lt_data
+      EXCEPTIONS file_open_error = 1
+                 OTHERS = 2.
+  after: |
+    cl_gui_frontend_services=>gui_download(
+      EXPORTING filename = |C:\\out.txt|
+                filetype = 'ASC'
+      CHANGING  data_tab = lt_data
+      EXCEPTIONS file_write_error = 1
+                 OTHERS = 24 ).
+context_required:
+  - "deprecated FM name resolves to an entry in references/fm-replacements.yaml"
+  - "EXCEPTIONS list remapping per replacement spec"
+confidence_signals:
+  high:
+    - "FM name present in fm-replacements.yaml with replacement_kind != 'none'"
+    - "EXCEPTIONS clause uses default SY-SUBRC routing only"
+  low:
+    - "FM name maps to replacement_kind == 'none' (e.g. RFC_READ_TABLE)"
+    - "caller depends on specific EXCEPTIONS numbering not in remap"
+    - "FM is invoked dynamically by name"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 1875817
+sap_note_secondary: 2190119

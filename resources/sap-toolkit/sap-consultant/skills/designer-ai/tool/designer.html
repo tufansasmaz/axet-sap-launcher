@@ -1,0 +1,1835 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DesignerAI XML/XSLT Dönüştürücü - İnteraktif</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.css">
+
+<style>
+  :root{
+    --bg:#1e1f26; --panel:#262832; --panel-2:#2d2f3b; --border:#3a3d4a;
+    --accent:#5b8cff; --accent-2:#3ddc97; --text:#e6e6ee; --muted:#9a9db0; --danger:#ff5d6c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',Tahoma,Arial,sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;}
+
+  header{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
+  header h1{font-size:16px;margin:0;font-weight:600;}
+  header h1 span{color:var(--accent);}
+
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .toolbar select,.toolbar button{background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px 12px;font-size:13px;cursor:pointer;transition:.15s;}
+  .toolbar button:hover{border-color:var(--accent);color:var(--accent);}
+  .toolbar button.primary{background:var(--accent);border-color:var(--accent);color:#0c0d10;font-weight:600;}
+  .toolbar button.primary:hover{opacity:.9;}
+  .toolbar button.success{background:var(--accent-2);border-color:var(--accent-2);color:#0c0d10;font-weight:600;}
+
+  .doc-type-bar{display:flex;align-items:center;gap:16px;padding:8px 16px;background:var(--panel);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .doc-type-bar span.label{font-size:12px;color:var(--muted);font-weight:600;}
+  .doc-type-option{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;color:var(--text);}
+  .doc-type-option input[type="radio"]{accent-color:var(--accent);cursor:pointer;width:15px;height:15px;}
+  .doc-type-option:hover{color:var(--accent);}
+
+  main.doc-view:not(.active){display:none;}
+
+  main{flex:1;display:flex;flex-direction:column;min-height:0;padding:10px;gap:10px;}
+
+  .editors{display:flex;gap:10px;flex:1 1 45%;min-height:180px;}
+  .pane{flex:1;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;min-height:150px;}
+  .pane-head{display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:var(--panel-2);border-bottom:1px solid var(--border);font-size:12px;}
+  .pane-head b{color:var(--accent);}
+  .pane .CodeMirror{flex:1;height:auto !important;font-size:13px;}
+
+  .output{flex:1 1 55%;display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;min-height:180px;}
+  .tabs{display:flex;background:var(--panel-2);border-bottom:1px solid var(--border);}
+  .tabs button{background:transparent;border:none;color:var(--muted);padding:9px 16px;font-size:13px;cursor:pointer;border-bottom:2px solid transparent;}
+  .tabs button.active{color:var(--text);border-bottom-color:var(--accent);}
+  
+  .output-body{flex:1;position:relative;min-height:0;display:flex;flex-direction:column;}
+  .output-body .CodeMirror{display:none;height:100% !important;font-size:13px;flex:1;}
+  .output-body .CodeMirror.active{display:block;}
+  
+  .visual-editor{display:none;flex:1;overflow:auto;background:#fff;padding:20px;min-height:0;color:#222;}
+  .visual-editor.active{display:block;}
+  .visual-editor table{border-collapse:collapse;width:100%;margin-bottom:20px;}
+  .visual-editor th,.visual-editor td{border:1px solid #ccc;padding:8px 12px;text-align:left;position:relative;}
+  .visual-editor th{background:#3355aa;color:#fff;}
+  .visual-editor tr:nth-child(even){background:#f4f6fb;}
+  .visual-editor h1,.visual-editor h2{color:#3355aa;}
+  
+  .context-menu{position:fixed;background:var(--panel-2);border:1px solid var(--border);border-radius:6px;padding:4px 0;min-width:150px;z-index:1000;display:none;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+  .context-menu.show{display:block;}
+  .context-menu button{display:block;width:100%;text-align:left;padding:8px 12px;border:none;background:transparent;color:var(--text);cursor:pointer;font-size:13px;}
+  .context-menu button:hover{background:var(--panel);color:var(--accent);}
+  
+  .modal{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:20px;min-width:400px;display:none;z-index:2000;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-height:80vh;overflow-y:auto;}
+  .modal.show{display:block;}
+  .modal h3{margin-top:0;color:var(--accent);}
+  .modal .form-group{margin-bottom:15px;}
+  .modal label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .modal input,.modal select{width:100%;padding:8px;background:var(--panel-2);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:13px;}
+  .modal button{margin-right:8px;margin-top:15px;}
+  
+  #cellXmlFieldsList{max-height:250px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:8px;background:var(--panel-2);}
+  #cellXmlFieldsList div{padding:8px;margin:3px 0;background:var(--panel);cursor:pointer;border-radius:3px;border-left:3px solid var(--accent);transition:.15s;}
+  #cellXmlFieldsList div:hover{background:rgba(91,140,255,0.2);padding-left:10px;}
+  
+  footer{padding:6px 16px;font-size:12px;color:var(--muted);background:var(--panel);border-top:1px solid var(--border);display:flex;justify-content:space-between;}
+  footer.error{color:var(--danger);}
+
+  .img-resize-handle{position:absolute;width:12px;height:12px;background:var(--accent);border:1px solid #fff;border-radius:2px;cursor:se-resize;z-index:10;}
+  .visual-editor td, .visual-editor th{position:relative;}
+
+  .CodeMirror-foldgutter{width:1em;}
+  .CodeMirror-foldgutter-open, .CodeMirror-foldgutter-folded{cursor:pointer;color:var(--accent);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>Axet</span> XML / XSLT Dönüştürücü - İnteraktif</h1>
+  <div class="toolbar" id="mainToolbar">
+    <button id="btnSample">Örnek Yükle</button>
+    <button id="btnClear">Temizle</button>
+    <button id="btnTransform" class="primary">▶ Dönüştür</button>
+    <button id="btnUpdateXSL" class="success">⚙ XSL Güncelle</button>
+  </div>
+</header>
+
+<div class="doc-type-bar">
+  <span class="label">Belge Türü:</span>
+  <label class="doc-type-option">
+    <input type="radio" name="docType" value="eFaturaEIrsaliye" checked>
+    eFatura/eIrsaliye
+  </label>
+  <label class="doc-type-option">
+    <input type="radio" name="docType" value="odemeTalimat">
+    Smartform
+  </label>
+</div>
+
+<main id="mainDesigner" class="doc-view active">
+  <div class="editors">
+    <div class="pane" id="xmlPane">
+      <div class="pane-head"><span><b>XML</b> Girdisi</span></div>
+      <textarea id="xmlInput"></textarea>
+    </div>
+    <div class="pane" id="xslPane">
+      <div class="pane-head"><span><b>XSL</b> Şablonu</span></div>
+      <textarea id="xslInput"></textarea>
+    </div>
+  </div>
+
+  <div class="output">
+    <div class="tabs">
+      <button id="tabPreview" class="active">Görsel Düzenleme</button>
+      <button id="tabSource">HTML Kaynağı</button>
+    </div>
+    <div class="output-body">
+      <div id="visualEditor" class="visual-editor active"></div>
+      <textarea id="sourceOutput"></textarea>
+    </div>
+  </div>
+</main>
+
+<main id="odemeTalimatDesigner" class="doc-view">
+  <div class="doc-type-bar" id="odemePaymentDocBar" style="justify-content:space-between;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span class="label">NP4 Ödeme Listesi:</span>
+      <div class="toolbar" style="gap:8px;">
+        <select id="odemePaymentDocSelect" style="min-width:340px;"></select>
+        <button id="btnLoadOdemePaymentDoc" class="primary">🔄 Belgeyi Getir</button>
+      </div>
+    </div>
+    <span id="odemePaymentDocInfo" style="font-size:12px;color:var(--muted);"></span>
+  </div>
+
+  <div class="editors" style="flex:0 0 220px;">
+    <div class="pane" style="flex:0 0 340px;">
+      <div class="pane-head"><span><b>SAP Smartform</b> Yapısı · ZDEMO_SF_BANK_PRINTOUT</span></div>
+      <div id="odemeStructurePanel" style="padding:10px;overflow:auto;font-size:12px;flex:1;"></div>
+    </div>
+    <div class="pane">
+      <div class="pane-head"><span><b>Smartform</b> Getir / Kaydet</span></div>
+      <div style="padding:14px;display:flex;flex-direction:column;gap:10px;">
+        <label style="font-size:12px;color:var(--muted);">Var Olan Smartform Adı (NP4'ten Getir)</label>
+        <div style="display:flex;gap:8px;">
+          <input id="odemeLoadSmartformName" type="text" list="odemeSmartformCatalogList" placeholder="Örn: ZDEMO_SF_BANK_PRINTOUT" value="ZDEMO_SF_BANK_PRINTOUT" style="flex:1;">
+          <datalist id="odemeSmartformCatalogList"></datalist>
+          <button id="btnLoadOdemeSmartform" class="primary">🔄 Getir</button>
+        </div>
+        <p id="odemeLoadSmartformInfo" style="font-size:11px;color:var(--muted);margin:0;"></p>
+        <hr style="width:100%;border:none;border-top:1px solid var(--border);margin:4px 0;">
+        <label style="font-size:12px;color:var(--muted);">Yeni Smartform Adı</label>
+        <input id="odemeSmartformName" type="text" placeholder="Örn: ZDEMO_SF_BANK_PRINTOUT_V2" value="ZDEMO_SF_BANK_PRINTOUT">
+        <button id="btnSaveOdemeSmartform" class="success">💾 NP4'te Smartform Oluştur / Kaydet</button>
+        <p style="font-size:11px;color:var(--muted);margin:0;">Sağ tık ile satır/sütun ekleyip hücreleri "Sabit Metin" veya SAP "Tablo Alanı" olarak düzenleyebilirsin. Kaydet, tasarımı belirtilen isimle NP4 sistemine smartform olarak gönderir; kaydedilen smartform daha sonra "Getir" ile tekrar ekrana çağrılabilir.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="output" style="flex:1 1 auto;">
+    <div class="tabs">
+      <span style="padding:9px 16px;font-size:13px;color:var(--text);">💳 Smartform Tasarım Önizleme</span>
+    </div>
+    <div class="output-body">
+      <div id="odemeVisualEditor" class="visual-editor active">
+        <h1 style="text-align:center;">ÖDEME TALİMATI</h1>
+        <table>
+          <tr><td style="width:160px;"><b>Şirket Adı</b></td><td data-cell-type="sap" data-sap-table="T001" data-sap-field="BUTXT">Axet Teknoloji A.Ş.</td></tr>
+          <tr><td><b>Şirket Adresi</b></td><td data-cell-type="sap" data-sap-table="T001" data-sap-field="STRAS">Maslak, İstanbul</td></tr>
+          <tr><td><b>Belge No</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="VBLNR">1900000123</td></tr>
+          <tr><td><b>Ödeme Tarihi</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="ZALDT">15.01.2026</td></tr>
+        </table>
+
+        <h2>Alıcı ve Banka Bilgileri</h2>
+        <table>
+          <tr><td style="width:160px;"><b>Alıcı Ünvanı</b></td><td data-cell-type="sap" data-sap-table="LFA1" data-sap-field="NAME1">ABC Tedarik Ltd. Şti.</td></tr>
+          <tr><td><b>Alıcı Adresi</b></td><td data-cell-type="sap" data-sap-table="LFA1" data-sap-field="STRAS">Kozyatağı, İstanbul</td></tr>
+          <tr><td><b>Banka Adı</b></td><td data-cell-type="sap" data-sap-table="BNKA" data-sap-field="BANKA">Axet Bankası</td></tr>
+          <tr><td><b>SWIFT/BIC</b></td><td data-cell-type="sap" data-sap-table="BNKA" data-sap-field="SWIFT">AXETTRIS</td></tr>
+          <tr><td><b>Ödeme Tutarı</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="RWBTR">15.750,00</td></tr>
+          <tr><td><b>Para Birimi</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="WAERS">TRY</td></tr>
+          <tr><td><b>Ödeme Yöntemi</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="RZAWE">Havale/EFT</td></tr>
+        </table>
+
+        <h2>Ödeme Kalemleri</h2>
+        <table id="odemeItemsTable">
+          <tr><th>Muhasebe Belge No</th><th>Kayıt Tarihi</th><th>Tutar</th><th>Açıklama</th></tr>
+          <tr>
+            <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="BELNR">5100004521</td>
+            <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="BUDAT">10.01.2026</td>
+            <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="DMBTR">15.750,00</td>
+            <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="SGTXT">Ocak 2026 fatura ödemesi</td>
+          </tr>
+        </table>
+
+        <table style="margin-top:30px;">
+          <tr><td style="border:none;width:50%;">Hazırlayan: ______________________</td><td style="border:none;">Onaylayan: ______________________</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div id="odemeContextMenu" class="context-menu">
+  <button data-action="add-row">Satır Ekle (Altına)</button>
+  <button data-action="add-row-above">Satır Ekle (Üstüne)</button>
+  <button data-action="delete-row">Satırı Sil</button>
+  <button data-action="add-col">Sütun Ekle (Sağına)</button>
+  <button data-action="add-col-before">Sütun Ekle (Soluna)</button>
+  <button data-action="delete-col">Sütunu Sil</button>
+  <button data-action="edit-cell">Hücre Düzenle</button>
+  <button data-action="clear-cell">Hücre İçeriğini Sil</button>
+</div>
+
+<div id="editOdemeCellModal" class="modal">
+  <h3>Hücre İçeriğini Düzenle</h3>
+  <div class="form-group">
+    <label>İçerik Türü:</label>
+    <select id="odemeCellContentType">
+      <option value="text">Sabit Metin</option>
+      <option value="sap">Tablo Alanı (SAP)</option>
+    </select>
+  </div>
+  <div class="form-group" id="odemeTextGroup">
+    <label>Metin:</label>
+    <input id="odemeCellTextInput" type="text" placeholder="Sabit metin girin">
+  </div>
+  <div id="odemeSapFieldsContainer" style="display:none;">
+    <div class="form-group">
+      <label>SAP Tablosu:</label>
+      <select id="odemeSapTableSelect"></select>
+    </div>
+    <label>Tablo Alanları:</label>
+    <div id="odemeSapFieldsList" style="max-height:220px;overflow-y:auto;border:1px solid var(--border);border-radius:4px;padding:8px;background:var(--panel-2);"></div>
+  </div>
+  <button id="btnSaveOdemeCellEdit" class="primary">Kaydet</button>
+  <button id="btnCancelOdemeCellEdit">İptal</button>
+</div>
+
+
+<div id="contextMenu" class="context-menu">
+  <button data-action="add-row">Satır Ekle (Altına)</button>
+  <button data-action="add-row-above">Satır Ekle (Üstüne)</button>
+  <button data-action="delete-row">Satırı Sil</button>
+  <button data-action="add-col">Sütun Ekle (Sağına)</button>
+  <button data-action="add-col-before">Sütun Ekle (Soluna)</button>
+  <button data-action="delete-col">Sütunu Sil</button>
+  <button data-action="edit-cell">Hücre Düzenle</button>
+  <button data-action="clear-cell">Hücre İçeriğini Sil</button>
+  <button data-action="add-image">Görüntü Ekle/Değiştir</button>
+</div>
+
+<input type="file" id="imageFileInput" accept="image/*" style="display:none;">
+
+<div id="editCellModal" class="modal">
+  <h3>Hücre İçeriğini Düzenle</h3>
+  <div class="form-group">
+    <label>İçerik Türü:</label>
+    <select id="cellContentType">
+      <option value="text">Sabit Metin</option>
+      <option value="xml">XML Alanı (CBC)</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Metin:</label>
+    <input id="cellTextInput" type="text" placeholder="Sabit metin girin">
+  </div>
+  <div id="xmlFieldsContainer" style="display:none;">
+    <label>Mevcut CBC Tag'ları:</label>
+    <div id="cellXmlFieldsList"></div>
+  </div>
+  <button id="btnSaveCellEdit" class="primary">Kaydet</button>
+  <button id="btnCancelCellEdit">İptal</button>
+</div>
+
+<footer>
+  <span id="status">Hazır.</span>
+  <span class="hint">Sağ tık ile menü aç · Sürükle-bırakla satırları yeniden düzenle</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/xml-fold.min.js"></script>
+
+<script>
+const SAMPLE_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <cbc:Name>Örnek Adı</cbc:Name>
+  <cbc:Description>Örnek Açıklaması</cbc:Description>
+  <cbc:Value>100</cbc:Value>
+  <cbc:Status>Active</cbc:Status>
+</root>`;
+
+const SAMPLE_XSL = `<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns:cbc="urn:un:unece:uncefact:codelist:standard:UNECE:CodeListSchemeIdentificationCode:D16B">
+  <xsl:output method="html" encoding="UTF-8" indent="yes"/>
+  <xsl:template match="/root">
+    <html>
+      <head>
+        <meta charset="UTF-8"/>
+        <style>
+          body{font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#222;}
+          h1{color:#3355aa;}
+          table{border-collapse:collapse;width:100%;}
+          th,td{border:1px solid #ccc;padding:8px 12px;text-align:left;}
+          th{background:#3355aa;color:#fff;}
+          tr:nth-child(even){background:#f4f6fb;}
+        </style>
+      </head>
+      <body>
+        <h1>Veri Tablosu</h1>
+        <table>
+          <tr><th>Alan Adı</th><th>Değer</th></tr>
+          <tr><td>Name</td><td><xsl:value-of select="cbc:Name"/></td></tr>
+          <tr><td>Description</td><td><xsl:value-of select="cbc:Description"/></td></tr>
+          <tr><td>Value</td><td><xsl:value-of select="cbc:Value"/></td></tr>
+          <tr><td>Status</td><td><xsl:value-of select="cbc:Status"/></td></tr>
+        </table>
+      </body>
+    </html>
+  </xsl:template>
+</xsl:stylesheet>`;
+
+const xmlEditor = CodeMirror.fromTextArea(document.getElementById('xmlInput'), {
+  mode:'xml', theme:'dracula', lineNumbers:true, lineWrapping:false,
+  tabSize:2, indentUnit:2, matchBrackets:true, autoCloseTags:true,
+  foldGutter:true, gutters:['CodeMirror-linenumbers','CodeMirror-foldgutter'],
+  indentWithTabs:false, smartIndent:true
+});
+
+const xslEditor = CodeMirror.fromTextArea(document.getElementById('xslInput'), {
+  mode:'xml', theme:'dracula', lineNumbers:true, lineWrapping:false,
+  tabSize:2, indentUnit:2, matchBrackets:true, autoCloseTags:true,
+  foldGutter:true, gutters:['CodeMirror-linenumbers','CodeMirror-foldgutter'],
+  indentWithTabs:false, smartIndent:true, readOnly:false
+});
+
+const outEditor = CodeMirror.fromTextArea(document.getElementById('sourceOutput'), {
+  mode:'htmlmixed', theme:'dracula', lineNumbers:true, lineWrapping:false,
+  tabSize:2, indentUnit:2, readOnly:true, foldGutter:true,
+  gutters:['CodeMirror-linenumbers','CodeMirror-foldgutter'],
+  indentWithTabs:false
+});
+
+xmlEditor.setValue(SAMPLE_XML);
+xslEditor.setValue(SAMPLE_XSL);
+
+// Event listeners ekleme ve CodeMirror refresh
+xmlEditor.refresh();
+xslEditor.refresh();
+outEditor.refresh();
+
+let lastOutputHtml = '';
+let contextTarget = null;
+let draggedElement = null;
+let xmlFields = [];
+let editingCell = null;
+let editingTable = null;
+let modifiedCells = new Map(); // {tableIndex-cellKey: {xpath, text}}
+let cellXpathMap = new WeakMap(); // DOM hücresinden XPath'e doğrudan bağlantı
+let selectedDocType = document.querySelector('input[name="docType"]:checked')?.value || 'eFaturaEIrsaliye';
+
+const docViewMap = {
+  eFaturaEIrsaliye: 'mainDesigner',
+  odemeTalimat: 'odemeTalimatDesigner'
+};
+
+function onDocTypeChange(docType){
+  selectedDocType = docType;
+  Object.entries(docViewMap).forEach(([type, viewId]) => {
+    document.getElementById(viewId).classList.toggle('active', type === docType);
+  });
+  document.getElementById('mainToolbar').style.display = (docType === 'eFaturaEIrsaliye') ? 'flex' : 'none';
+  console.log('Belge türü seçildi:', docType);
+}
+
+document.querySelectorAll('input[name="docType"]').forEach(radio => {
+  radio.addEventListener('change', (e) => {
+    onDocTypeChange(e.target.value);
+  });
+});
+
+function setStatus(msg, isError){
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.parentElement.classList.toggle('error', !!isError);
+}
+
+function extractXMLFields(){
+  const xmlText = xmlEditor.getValue();
+  const parser = new DOMParser();
+  const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+  xmlFields = [];
+  
+  function getFullPath(node){
+    if(!node || node.nodeType !== 1) return '';
+    const parent = node.parentElement;
+    const parentPath = parent ? getFullPath(parent) : '';
+    const tagName = node.tagName;
+    return parentPath ? parentPath + '/' + tagName : tagName;
+  }
+  
+  // Tüm elements'ı tara ve CBC ile başlayanları bul
+  for(let el of xmlDoc.getElementsByTagName('*')){
+    const tag = el.tagName;
+    if(tag && tag.toLowerCase().includes('cbc')){
+      const fullPath = getFullPath(el);
+      if(!xmlFields.find(f => f.path === fullPath)){
+        xmlFields.push({
+          tag: tag,
+          path: fullPath,
+          value: el.textContent || ''
+        });
+      }
+    }
+  }
+  
+  xmlFields.sort((a, b) => a.path.localeCompare(b.path));
+  console.log('CBC fields with full paths:', xmlFields);
+}
+
+function transform(){
+  const xmlText = xmlEditor.getValue();
+  const xslText = xslEditor.getValue();
+  const parser = new DOMParser();
+
+  const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+  if(xmlDoc.querySelector('parsererror')){
+    setStatus('XML hatası', true);
+    return;
+  }
+
+  const xslDoc = parser.parseFromString(xslText, 'application/xml');
+  if(xslDoc.querySelector('parsererror')){
+    setStatus('XSL hatası', true);
+    return;
+  }
+
+  try{
+    const xsltProcessor = new XSLTProcessor();
+    xsltProcessor.importStylesheet(xslDoc);
+    const resultDoc = xsltProcessor.transformToDocument(xmlDoc);
+    
+    let htmlString = new XMLSerializer().serializeToString(resultDoc);
+    if(!/^\s*<!DOCTYPE/i.test(htmlString)){
+      htmlString = '<!DOCTYPE html>\n' + htmlString;
+    }
+
+    lastOutputHtml = htmlString;
+    outEditor.setValue(htmlString);
+    renderVisualEditor();
+    setStatus('Dönüştürme başarılı', false);
+  } catch(err){
+    setStatus('Hata: ' + err.message, true);
+    console.error(err);
+  }
+}
+
+function renderVisualEditor(){
+  const container = document.getElementById('visualEditor');
+  if(!lastOutputHtml) {
+    container.innerHTML = '<p>Dönüştürme sonucu yok</p>';
+    return;
+  }
+  
+  const tmp = document.createElement('div');
+  tmp.innerHTML = lastOutputHtml;
+  
+  container.innerHTML = '';
+  const body = tmp.querySelector('body');
+  if(body){
+    for(let el of body.children){
+      const clone = el.cloneNode(true);
+      container.appendChild(clone);
+    }
+  } else {
+    container.innerHTML = lastOutputHtml;
+  }
+  
+  // Tüm tablolara ID ve data attributes ekle
+  let tableIndex = 0;
+  for(let table of container.querySelectorAll('table')){
+    if(!table.id) table.id = `table-${tableIndex}`;
+    table.setAttribute('data-table-index', tableIndex);
+    
+    // Her tablonun satırlarına ID ve attributes ekle
+    let rowIndex = 0;
+    for(let row of table.querySelectorAll('tr')){
+      if(!row.id) row.id = `tr-${tableIndex}-${rowIndex}`;
+      row.setAttribute('data-row-index', rowIndex);
+      row.setAttribute('data-table-index', tableIndex);
+      addRowDragListeners(row);
+      
+      // Her hücreye ID ekle
+      let cellIndex = 0;
+      for(let cell of row.querySelectorAll('td, th')){
+        if(!cell.id) cell.id = `cell-${tableIndex}-${rowIndex}-${cellIndex}`;
+
+        const cellInfo = analyzeXSLCellType(tableIndex, rowIndex, cellIndex);
+        if(cellInfo){
+          if(cellInfo.type === 'xpath'){
+            cell.setAttribute('data-xpath', cellInfo.xpath);
+            cell.setAttribute('data-cell-type', 'xpath');
+          } else if(cellInfo.type === 'image'){
+            cell.setAttribute('data-cell-type', 'image');
+          } else {
+            cell.setAttribute('data-cell-type', 'text');
+          }
+        }
+
+        const imgInCell = cell.querySelector('img');
+        if(imgInCell) makeImageResizable(imgInCell);
+
+        cellIndex++;
+      }
+      
+      rowIndex++;
+    }
+    tableIndex++;
+  }
+}
+
+function analyzeXSLCellType(tableIndex, rowIndex, colIndex){
+  try{
+    const xslText = xslEditor.getValue();
+    const parser = new DOMParser();
+    const xslDoc = parser.parseFromString(xslText, 'application/xml');
+    if(xslDoc.querySelector('parsererror')) return null;
+
+    const allTables = xslDoc.getElementsByTagName('table');
+    if(tableIndex >= allTables.length) return null;
+    const xslTable = allTables[tableIndex];
+
+    let targetRow = null;
+    if(rowIndex === 0){
+      targetRow = xslTable.querySelector('tr');
+    } else {
+      const dataItemsTemplate = xslDoc.querySelector('[name="DataOfItems"], xsl\\:template[name="DataOfItems"]');
+      targetRow = dataItemsTemplate ? dataItemsTemplate.querySelector('tr') : null;
+    }
+    if(!targetRow) return null;
+
+    const cells = Array.from(targetRow.querySelectorAll('td, th'));
+    const targetCell = cells[colIndex];
+    if(!targetCell) return null;
+
+    const img = targetCell.querySelector('img');
+    if(img){
+      return { type:'image', src: img.getAttribute('src'), width: img.getAttribute('width'), height: img.getAttribute('height') };
+    }
+
+    const valueOf = Array.from(targetCell.getElementsByTagName('*')).find(n => n.localName === 'value-of');
+    if(valueOf){
+      return { type:'xpath', xpath: valueOf.getAttribute('select') };
+    }
+
+    return { type:'text', text: targetCell.textContent || '' };
+  } catch(e){
+    console.error('analyzeXSLCellType error:', e);
+    return null;
+  }
+}
+
+function makeImageResizable(img){
+  const cell = img.parentElement;
+  if(!cell) return;
+  cell.style.position = 'relative';
+  img.style.display = 'block';
+
+  let handle = cell.querySelector('.img-resize-handle');
+  if(!handle){
+    handle = document.createElement('span');
+    handle.className = 'img-resize-handle';
+    cell.appendChild(handle);
+  }
+
+  function positionHandle(){
+    handle.style.left = (img.offsetLeft + img.offsetWidth - 8) + 'px';
+    handle.style.top = (img.offsetTop + img.offsetHeight - 8) + 'px';
+  }
+  if(img.complete) positionHandle();
+  else img.addEventListener('load', positionHandle);
+
+  let resizing = false, startX, startY, startW, startH;
+  handle.onmousedown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    resizing = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startW = img.width || img.naturalWidth;
+    startH = img.height || img.naturalHeight;
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  };
+
+  function onMove(e){
+    if(!resizing) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    img.width = Math.max(20, startW + dx);
+    img.height = Math.max(20, startH + dy);
+    positionHandle();
+  }
+
+  function onUp(){
+    if(resizing){
+      resizing = false;
+      cell.setAttribute('data-modified', 'true');
+      setStatus('Görüntü boyutu değiştirildi. "XSL Güncelle" butonuna bas.', false);
+    }
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+}
+
+function insertImageIntoCell(src, w, h){
+  if(!editingCell) return;
+  editingCell.innerHTML = '';
+  editingCell.removeAttribute('data-xpath');
+  editingCell.setAttribute('data-cell-type', 'image');
+  editingCell.setAttribute('data-modified', 'true');
+
+  const imgEl = document.createElement('img');
+  imgEl.src = src;
+  imgEl.width = w;
+  imgEl.height = h;
+  editingCell.appendChild(imgEl);
+  makeImageResizable(imgEl);
+
+  setStatus('Görüntü eklendi. "XSL Güncelle" butonuna bas.', false);
+  editingCell = null;
+}
+
+document.getElementById('imageFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file || !editingCell){ e.target.value = ''; return; }
+
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      const MAX = 250;
+      if(w > MAX || h > MAX){
+        const scale = Math.min(MAX / w, MAX / h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        insertImageIntoCell(canvas.toDataURL(file.type || 'image/png'), w, h);
+      } else {
+        insertImageIntoCell(ev.target.result, w, h);
+      }
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+});
+
+function addRowDragListeners(row){
+  row.draggable = true;
+  row.style.cursor = 'grab';
+  row.addEventListener('dragstart', dragStart);
+  row.addEventListener('dragend', dragEnd);
+  row.addEventListener('dragover', allowDrop);
+  row.addEventListener('drop', drop);
+}
+
+function dragStart(e){
+  draggedElement = e.target;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function dragEnd(){
+  draggedElement = null;
+}
+
+function allowDrop(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function drop(e){
+  e.preventDefault();
+  if(draggedElement && draggedElement.tagName === 'TR'){
+    const targetRow = e.target.closest('tr');
+    if(targetRow){
+      targetRow.parentNode.insertBefore(draggedElement, targetRow);
+      updateXSLFromVisual();
+    }
+  }
+}
+
+function positionContextMenu(menu, x, y){
+  menu.classList.add('show');
+  menu.style.left = '0px';
+  menu.style.top = '0px';
+
+  const menuRect = menu.getBoundingClientRect();
+  const maxLeft = Math.max(0, window.innerWidth - menuRect.width - 4);
+  const maxTop = Math.max(0, window.innerHeight - menuRect.height - 4);
+
+  menu.style.left = Math.min(x, maxLeft) + 'px';
+  menu.style.top = Math.min(y, maxTop) + 'px';
+}
+
+function showContextMenu(e){
+  e.preventDefault();
+  contextTarget = e.target;
+  const menu = document.getElementById('contextMenu');
+  positionContextMenu(menu, e.clientX, e.clientY);
+}
+
+document.getElementById('contextMenu').querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const action = e.target.dataset.action;
+    handleContextAction(action);
+    document.getElementById('contextMenu').classList.remove('show');
+  });
+});
+
+document.addEventListener('click', () => {
+  document.getElementById('contextMenu').classList.remove('show');
+});
+
+function handleContextAction(action){
+  if(!contextTarget) return;
+  
+  const cell = contextTarget.closest('td, th');
+  const row = contextTarget.closest('tr');
+  const table = contextTarget.closest('table');
+  
+  // Düzenlenen tabloyu kaydet
+  editingTable = table;
+  
+  if(action === 'add-row' && row){
+    const newRow = row.cloneNode(true);
+    newRow.querySelectorAll('td, th').forEach(c => {
+      c.textContent = '';
+      c.removeAttribute('data-xpath');
+      c.setAttribute('data-modified', 'true');
+    });
+    row.after(newRow);
+    addRowDragListeners(newRow);
+    setStatus('Satır eklendi', false);
+  }
+  else if(action === 'add-row-above' && row){
+    const newRow = row.cloneNode(true);
+    newRow.querySelectorAll('td, th').forEach(c => {
+      c.textContent = '';
+      c.removeAttribute('data-xpath');
+      c.setAttribute('data-modified', 'true');
+    });
+    row.before(newRow);
+    addRowDragListeners(newRow);
+    setStatus('Satır eklendi', false);
+  }
+  else if(action === 'delete-row' && row){
+    row.remove();
+    setStatus('Satır silindi', false);
+  }
+  else if(action === 'add-col' && cell){
+    if(table){
+      const cellsInRow = Array.from(cell.parentElement.children).filter(c => ['TD','TH'].includes(c.tagName));
+      const colIndex = cellsInRow.indexOf(cell);
+      
+      for(let r of table.getElementsByTagName('tr')){
+        const cells = Array.from(r.children).filter(c => ['TD','TH'].includes(c.tagName));
+        if(cells.length > colIndex){
+          const newCell = document.createElement(cells[colIndex].tagName);
+          newCell.textContent = '';
+          newCell.setAttribute('data-modified', 'true');
+          cells[colIndex].after(newCell);
+          
+          // Tüm hücreleri (sadece yenisini değil, sağındakini de) mark et
+          cells[colIndex].setAttribute('data-modified', 'true');
+        }
+      }
+      setStatus('Sütun eklendi', false);
+    }
+  }
+  else if(action === 'add-col-before' && cell){
+    if(table){
+      const cellsInRow = Array.from(cell.parentElement.children).filter(c => ['TD','TH'].includes(c.tagName));
+      const colIndex = cellsInRow.indexOf(cell);
+      
+      for(let r of table.getElementsByTagName('tr')){
+        const cells = Array.from(r.children).filter(c => ['TD','TH'].includes(c.tagName));
+        if(cells.length > colIndex){
+          const newCell = document.createElement(cells[colIndex].tagName);
+          newCell.textContent = '';
+          newCell.setAttribute('data-modified', 'true');
+          cells[colIndex].before(newCell);
+          
+          // Tüm hücreleri (sadece yenisini değil, solundakini de) mark et
+          cells[colIndex].setAttribute('data-modified', 'true');
+        }
+      }
+      setStatus('Sütun eklendi', false);
+    }
+  }
+  else if(action === 'delete-col' && cell){
+    if(table){
+      const cellsInRow = Array.from(cell.parentElement.children).filter(c => ['TD','TH'].includes(c.tagName));
+      const colIndex = cellsInRow.indexOf(cell);
+      
+      for(let r of table.getElementsByTagName('tr')){
+        const cells = Array.from(r.children).filter(c => ['TD','TH'].includes(c.tagName));
+        if(cells.length > colIndex){
+          cells[colIndex].remove();
+        }
+      }
+      setStatus('Sütun silindi', false);
+    }
+  }
+  else if(action === 'clear-cell' && cell){
+    cell.innerHTML = '';
+    cell.removeAttribute('data-xpath');
+    cell.setAttribute('data-cell-type', 'text');
+    cell.setAttribute('data-modified', 'true');
+    setStatus('Hücre içeriği silindi. "XSL Güncelle" butonuna bas.', false);
+  }
+  else if(action === 'add-image' && cell){
+    editingCell = cell;
+    document.getElementById('imageFileInput').click();
+  }
+  else if(action === 'edit-cell' && cell){
+    editingCell = cell;
+    extractXMLFields();
+    
+    const modal = document.getElementById('editCellModal');
+    modal.classList.add('show');
+    
+    const existingType = cell.getAttribute('data-cell-type');
+    const existingXpath = cell.getAttribute('data-xpath');
+    const typeSelect = document.getElementById('cellContentType');
+    const xmlFieldsContainer = document.getElementById('xmlFieldsContainer');
+
+    if(existingType === 'xpath' && existingXpath){
+      typeSelect.value = 'xml';
+      document.getElementById('cellTextInput').value = `<xsl:value-of select="${existingXpath}"/>`;
+      xmlFieldsContainer.style.display = 'block';
+    } else {
+      typeSelect.value = 'text';
+      document.getElementById('cellTextInput').value = cell.textContent || '';
+      xmlFieldsContainer.style.display = 'none';
+    }
+    
+    const xmlList = document.getElementById('cellXmlFieldsList');
+    if(xmlFields.length === 0){
+      xmlList.innerHTML = '<div style="padding:10px;color:#9a9db0;">CBC tag bulunamadı</div>';
+    } else {
+      xmlList.innerHTML = xmlFields.map((f, idx) => 
+        `<div data-index="${idx}" style="padding:8px;margin:4px 0;background:#2d2f3b;border-radius:3px;border-left:3px solid #5b8cff;cursor:pointer;color:#e6e6ee;font-family:monospace;font-size:11px;">
+          <div style="font-weight:bold;color:#3ddc97;">${f.tag}</div>
+          <div style="color:#9a9db0;font-size:10px;">Path: ${f.path}</div>
+          <div style="color:#b0b5cc;margin-top:4px;">Değer: ${f.value.substring(0, 30)}${f.value.length > 30 ? '...' : ''}</div>
+        </div>`
+      ).join('');
+      
+      xmlList.querySelectorAll('div[data-index]').forEach(div => {
+        div.addEventListener('click', () => {
+          const idx = parseInt(div.dataset.index);
+          const field = xmlFields[idx];
+          // Path'in başına //n1: ekle
+          let xpathSelect = field.path;
+          if(!xpathSelect.startsWith('//')){
+            xpathSelect = '//n1:' + xpathSelect;
+          }
+          document.getElementById('cellTextInput').value = `<xsl:value-of select="${xpathSelect}"/>`;
+          console.log('Selected XPath:', xpathSelect);
+        });
+      });
+    }
+  }
+}
+
+function updateXSLFromVisual(){
+  const container = document.getElementById('visualEditor');
+  const visualTable = editingTable || container.querySelector('table');
+  
+  if(!visualTable){
+    setStatus('Görsel editörde tablo bulunamadı', true);
+    return;
+  }
+
+  const visualRows = Array.from(visualTable.querySelectorAll('tr'));
+  
+  if(visualRows.length === 0){
+    setStatus('Tablo satırları bulunamadı', true);
+    return;
+  }
+
+  console.log('Visual rows:', visualRows.length);
+
+  // HTML Output'u güncelle (görsel HTML)
+  const modifiedHTML = container.innerHTML;
+  lastOutputHtml = '<!DOCTYPE html>\n<html><body style="font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#222;">' + modifiedHTML + '</body></html>';
+  outEditor.setValue(lastOutputHtml);
+
+  const xslText = xslEditor.getValue();
+  const parser = new DOMParser();
+  const xslDoc = parser.parseFromString(xslText, 'application/xml');
+  const XSL_NS = 'http://www.w3.org/1999/XSL/Transform';
+  
+  if(xslDoc.querySelector('parsererror')){
+    setStatus('XSL parse hatası', true);
+    return;
+  }
+
+  // Tablo indexini al
+  const tableIndex = parseInt(visualTable.getAttribute('data-table-index')) || 0;
+  console.log('Table index:', tableIndex);
+  
+  // XSL'deki tüm table'ları tara
+  const allTables = xslDoc.getElementsByTagName('table');
+  console.log('All tables in XSL:', allTables.length);
+  
+  let xslTable = null;
+  if(tableIndex < allTables.length){
+    xslTable = allTables[tableIndex];
+  }
+  
+  if(!xslTable){
+    setStatus('XSL\'de seçilen tablo dizini bulunamadı', true);
+    return;
+  }
+
+  function buildCellContentXSL(xslCell, visualCell){
+    while(xslCell.firstChild){
+      xslCell.removeChild(xslCell.firstChild);
+    }
+
+    const img = visualCell.querySelector('img');
+    if(img){
+      const newImg = xslDoc.createElement('img');
+      newImg.setAttribute('src', img.getAttribute('src'));
+      newImg.setAttribute('width', String(img.width || img.getAttribute('width') || ''));
+      newImg.setAttribute('height', String(img.height || img.getAttribute('height') || ''));
+      xslCell.appendChild(newImg);
+      return;
+    }
+
+    const xpathAttr = visualCell.getAttribute('data-xpath');
+    if(xpathAttr && xpathAttr.length > 0){
+      const xslValueOf = xslDoc.createElementNS(XSL_NS, 'xsl:value-of');
+      xslValueOf.setAttribute('select', xpathAttr);
+      xslCell.appendChild(xslValueOf);
+    } else {
+      xslCell.appendChild(xslDoc.createTextNode(visualCell.textContent || ''));
+    }
+  }
+
+  // Header satırını güncelle (ilk <tr>)
+  const headerRow = xslTable.querySelector('tr');
+  const visualHeaderCells = Array.from(visualRows[0].querySelectorAll('td, th'));
+  
+  if(headerRow){
+    const xslHeaderCells = Array.from(headerRow.querySelectorAll('td, th'));
+    
+    // Mevcut hücreleri güncelle
+    for(let i = 0; i < xslHeaderCells.length; i++){
+      if(i < visualHeaderCells.length){
+        buildCellContentXSL(xslHeaderCells[i], visualHeaderCells[i]);
+      }
+    }
+
+    // Sütun silindiyse (görselde daha az hücre varsa) fazla hücreleri kaldır
+    for(let i = xslHeaderCells.length - 1; i >= visualHeaderCells.length; i--){
+      xslHeaderCells[i].remove();
+    }
+    
+    // Yeni hücre eklenirse header'a ekle
+    for(let i = xslHeaderCells.length; i < visualHeaderCells.length; i++){
+      const newHeaderCell = xslDoc.createElement(visualHeaderCells[i].tagName.toLowerCase());
+      newHeaderCell.setAttribute('align', 'center');
+      newHeaderCell.setAttribute('class', 'bold');
+      buildCellContentXSL(newHeaderCell, visualHeaderCells[i]);
+      headerRow.appendChild(newHeaderCell);
+    }
+  }
+  
+  // Data satırı template'ini (DataOfItems) güncelle
+  // DataOfItems template'ini bul
+  const dataItemsTemplate = xslDoc.querySelector('[name="DataOfItems"], xsl\\:template[name="DataOfItems"]');
+  
+  if(dataItemsTemplate){
+    // Template içindeki TR'yi bul
+    const templateTr = dataItemsTemplate.querySelector('tr');
+    if(templateTr){
+      const visualDataCells = Array.from(visualRows[1] ? visualRows[1].querySelectorAll('td, th') : []);
+      const xslDataCells = Array.from(templateTr.querySelectorAll('td, th'));
+      
+      console.log('Visual data cells:', visualDataCells.length, 'XSL data cells:', xslDataCells.length);
+      
+      // Mevcut hücreleri güncelle
+      for(let i = 0; i < xslDataCells.length; i++){
+        if(i < visualDataCells.length){
+          buildCellContentXSL(xslDataCells[i], visualDataCells[i]);
+        }
+      }
+
+      // Sütun silindiyse (görselde daha az hücre varsa) fazla hücreleri kaldır
+      for(let i = xslDataCells.length - 1; i >= visualDataCells.length; i--){
+        xslDataCells[i].remove();
+      }
+      
+      // Yeni hücre eklendiyse template'e ekle
+      for(let i = xslDataCells.length; i < visualDataCells.length; i++){
+        const visualCell = visualDataCells[i];
+        const newCell = xslDoc.createElement(visualCell.tagName.toLowerCase());
+        newCell.setAttribute('align', 'center');
+        newCell.setAttribute('valign', 'top');
+        buildCellContentXSL(newCell, visualCell);
+        templateTr.appendChild(newCell);
+      }
+      
+      console.log('DataOfItems template updated');
+    }
+  }
+  
+  console.log('XSL table updated');
+  
+  // Tüm hücrelerdeki data-modified'i temizle
+  const allCells = visualTable.querySelectorAll('td, th');
+  allCells.forEach(cell => {
+    cell.removeAttribute('data-modified');
+  });
+
+  // XSL'i string'e dönüştür
+  let newXslText = new XMLSerializer().serializeToString(xslDoc);
+  if(!/^\s*<\?xml/.test(newXslText)){
+    newXslText = '<?xml version="1.0" encoding="UTF-8"?>\n' + newXslText;
+  }
+  
+  // XSL Editor'ü güncelle
+  xslEditor.setValue(newXslText);
+  console.log('XSL updated successfully');
+  
+  setStatus('✓ Görsel ve XSL düzenlemeleri senkronize edildi - HTML ve XSL güncellendi', false);
+}
+
+const XSL_NS = 'http://www.w3.org/1999/XSL/Transform';
+
+function resolveXPathValue(xpath){
+  try{
+    const xmlText = xmlEditor.getValue();
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'application/xml');
+    let tagPart = xpath.startsWith('//') ? xpath.substring(2) : xpath;
+    const segments = tagPart.split('/');
+    const lastSegment = segments[segments.length - 1];
+    const localTag = lastSegment.split(':').pop();
+
+    for(let el of xmlDoc.getElementsByTagName('*')){
+      const elLocal = el.tagName.split(':').pop();
+      if(elLocal === localTag){
+        return el.textContent;
+      }
+    }
+  } catch(e){
+    console.error('resolveXPathValue error:', e);
+  }
+  return null;
+}
+
+function getCellPosition(cell){
+  const table = cell.closest('table');
+  const row = cell.closest('tr');
+  if(!table || !row) return null;
+  
+  const cellsInRow = Array.from(row.children).filter(c => {
+    const tag = c.tagName ? c.tagName.toLowerCase() : '';
+    return ['td','th'].includes(tag);
+  });
+  const colIndex = cellsInRow.indexOf(cell);
+
+  // Daha güvenilir rowType tespiti: düzenlenecek hücrenin kendisini kontrol et
+  const cellTag = cell.tagName ? cell.tagName.toLowerCase() : '';
+  const rowType = cellTag === 'th' ? 'header' : 'data';
+
+  // data-row-index attribute'inden rowIndex'i al
+  const rowIndex = parseInt(row.getAttribute('data-row-index')) || 0;
+  
+  // Tablo indexini al
+  const tableIndex = parseInt(table.getAttribute('data-table-index')) || 0;
+
+  console.log('getCellPosition debug:', {rowType, rowIndex, colIndex, tableIndex, cellsInRowLength: cellsInRow.length, cellTag});
+  
+  return { rowType, rowIndex, colIndex, tableIndex };
+}
+
+function syncCellToXSL(pos, contentType, xpathValue, rawContent){
+  if(!pos || pos.colIndex < 0 || pos.rowIndex < 0){
+    console.warn('Geçersiz hücre konumu, XSL senkronize edilemedi');
+    setStatus('XSL güncellenemedi: hücre konumu bulunamadı', true);
+    return false;
+  }
+
+  let xslText = xslEditor.getValue();
+  
+  // Basit regex kullanarak hedef hücreyi bul ve değiştir
+  const lines = xslText.split('\n');
+  let tableCount = -1;
+  let trCount = -1;
+  let tdCount = -1;
+  let inTargetTable = false;
+  
+  for(let i = 0; i < lines.length; i++){
+    const line = lines[i];
+    
+    // TABLE satırını say
+    if(line.includes('<table')){
+      tableCount++;
+      inTargetTable = (tableCount === pos.tableIndex);
+      if(inTargetTable) trCount = -1;
+    }
+    
+    // Hedef tablonun dışında çıktık mı?
+    if(inTargetTable && line.includes('</table')){
+      inTargetTable = false;
+    }
+    
+    // TR satırını say (sadece hedef tablo içinde)
+    if(inTargetTable && line.includes('<tr')){
+      trCount++;
+      if(trCount === pos.rowIndex){
+        tdCount = -1; // Satır başladı, hücre sayacını sıfırla
+      }
+    }
+    
+    // TD/TH sayacı ve değiştirme (sadece hedef satırda)
+    if(inTargetTable && trCount === pos.rowIndex && (line.includes('<td') || line.includes('<th'))){
+      tdCount++;
+      if(tdCount === pos.colIndex){
+        // Hedef hücre bulundu
+        let cellContent = '';
+        if(contentType === 'xml' && xpathValue){
+          cellContent = `<xsl:value-of select="${xpathValue}"/>`;
+        } else {
+          cellContent = rawContent;
+        }
+        
+        // Hücre içeriğini değiştir
+        const cellTagMatch = line.match(/^(\s*)<(td|th)[^>]*>/);
+        if(cellTagMatch){
+          const indent = cellTagMatch[1];
+          const tag = cellTagMatch[2];
+          const closingTag = `</${tag}>`;
+          
+          lines[i] = `${indent}<${tag}>${cellContent}${closingTag}`;
+          console.log('Hücre değiştirildi, satır:', i, lines[i]);
+          xslText = lines.join('\n');
+          xslEditor.setValue(xslText);
+          return true;
+        }
+      }
+    }
+    
+    // TR kapanırsa satır bitmiş demek
+    if(inTargetTable && line.includes('</tr')){
+      if(trCount > pos.rowIndex) break; // Geçtik
+    }
+  }
+
+  console.warn('Hücre bulunamadı. Pos:', pos);
+  setStatus('XSL güncellenemedi: hücre bulunamadı', true);
+  return false;
+}
+
+document.getElementById('btnSaveCellEdit').addEventListener('click', () => {
+  if(!editingCell) return;
+
+  const contentType = document.getElementById('cellContentType').value;
+  const content = document.getElementById('cellTextInput').value;
+
+  console.log('Saving:', contentType, content);
+
+  if(contentType === 'xml'){
+    // XSL value-of expression olarak sakla
+    const match = content.match(/select="([^"]+)"/);
+    if(match){
+      const xpathValue = match[1];
+      const resolvedValue = resolveXPathValue(xpathValue);
+      
+      // data-xpath'e XPath'i kaydet
+      editingCell.setAttribute('data-xpath', xpathValue);
+      
+      // Görüntüde resolved value'yu göster
+      editingCell.textContent = resolvedValue !== null ? resolvedValue : '(değer bulunamadı)';
+      
+      // İlgili hücre attribute'ini ekle (XSL güncellemede kullanılacak)
+      editingCell.setAttribute('data-cell-type', 'xpath');
+      
+      console.log('XPath saved:', xpathValue, 'Resolved:', resolvedValue);
+    } else {
+      // Eğer select attribute bulunmazsa, plain text olarak kaydet
+      editingCell.removeAttribute('data-xpath');
+      editingCell.setAttribute('data-cell-type', 'text');
+      editingCell.textContent = content;
+    }
+  } else {
+    // Sabit metin
+    editingCell.removeAttribute('data-xpath');
+    editingCell.setAttribute('data-cell-type', 'text');
+    editingCell.textContent = content;
+  }
+
+  // Hücreyi mark et
+  editingCell.setAttribute('data-modified', 'true');
+  console.log('Cell marked as modified:', editingCell);
+
+  document.getElementById('editCellModal').classList.remove('show');
+  
+  setStatus('Hücre güncellendi. "XSL Güncelle" butonuna bas.', false);
+  
+  editingCell = null;
+});
+
+document.getElementById('btnCancelCellEdit').addEventListener('click', () => {
+  document.getElementById('editCellModal').classList.remove('show');
+  editingCell = null;
+});
+
+document.getElementById('cellContentType').addEventListener('change', (e) => {
+  const isXml = e.target.value === 'xml';
+  document.getElementById('xmlFieldsContainer').style.display = isXml ? 'block' : 'none';
+});
+
+const visualEditor = document.getElementById('visualEditor');
+visualEditor.addEventListener('contextmenu', showContextMenu);
+
+document.getElementById('btnSample').addEventListener('click', () => {
+  xmlEditor.setValue(SAMPLE_XML);
+  xslEditor.setValue(SAMPLE_XSL);
+  setStatus('Örnek yüklendi', false);
+});
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  xmlEditor.setValue('');
+  xslEditor.setValue('');
+  outEditor.setValue('');
+  visualEditor.innerHTML = '';
+  lastOutputHtml = '';
+  setStatus('Temizlendi', false);
+});
+
+document.getElementById('btnTransform').addEventListener('click', transform);
+
+document.getElementById('btnUpdateXSL').addEventListener('click', () => {
+  const container = document.getElementById('visualEditor');
+  const visualTable = container.querySelector('table');
+  
+  if(!visualTable){
+    setStatus('Görsel editörde tablo bulunamadı', true);
+    return;
+  }
+  
+  // Görsel editörde yapılan değişiklikleri HTML olarak al
+  const modifiedHTML = container.innerHTML;
+  
+  // Bunu output'a yaz
+  lastOutputHtml = '<!DOCTYPE html>\n<html><body style="font-family:Segoe UI,Arial,sans-serif;margin:24px;color:#222;">' + modifiedHTML + '</body></html>';
+  outEditor.setValue(lastOutputHtml);
+  
+  // XSL'i de güncelleyin
+  updateXSLFromVisual();
+  
+  setStatus('✓ Değişiklikler kaydedildi - HTML ve XSL senkronize edildi', false);
+});
+
+document.getElementById('tabPreview').addEventListener('click', () => {
+  visualEditor.classList.add('active');
+  outEditor.getWrapperElement().classList.remove('active');
+  document.getElementById('tabPreview').classList.add('active');
+  document.getElementById('tabSource').classList.remove('active');
+});
+
+document.getElementById('tabSource').addEventListener('click', () => {
+  visualEditor.classList.remove('active');
+  outEditor.getWrapperElement().classList.add('active');
+  document.getElementById('tabPreview').classList.remove('active');
+  document.getElementById('tabSource').classList.add('active');
+  outEditor.refresh();
+});
+
+/* ==================== Smartform (SAP Smartform: ZDEMO_SF_BANK_PRINTOUT) ==================== */
+
+const SAP_TABLES = [
+  { code:'REGUH', name:'Ödeme Öneri Kafası (Payment Header)', fields:[
+      { code:'ZBUKR', desc:'Şirket Kodu', mock:'1000' },
+      { code:'VBLNR', desc:'Referans / Belge No', mock:'1900000123' },
+      { code:'ZALDT', desc:'Ödeme Tarihi', mock:'15.01.2026' },
+      { code:'RWBTR', desc:'Ödeme Tutarı', mock:'15.750,00' },
+      { code:'WAERS', desc:'Para Birimi', mock:'TRY' },
+      { code:'LIFNR', desc:'Satıcı Numarası', mock:'0000100234' },
+      { code:'EMPFG', desc:'Alıcı (Ödeme Yapılan)', mock:'ABC Tedarik Ltd. Şti.' },
+      { code:'RZAWE', desc:'Ödeme Yöntemi', mock:'Havale/EFT' },
+      { code:'UBNKL', desc:'Banka Anahtarı (Gönderen)', mock:'AXET001' },
+      { code:'ZBNKL', desc:'Banka Anahtarı (Alıcı)', mock:'AXET002' }
+  ]},
+  { code:'LFA1', name:'Satıcı / Cari Hesap Ana Verisi', fields:[
+      { code:'NAME1', desc:'Ünvan 1', mock:'ABC Tedarik Ltd. Şti.' },
+      { code:'NAME2', desc:'Ünvan 2', mock:'' },
+      { code:'STRAS', desc:'Adres', mock:'Kozyatağı, İstanbul' },
+      { code:'ORT01', desc:'Şehir', mock:'İstanbul' },
+      { code:'PSTLZ', desc:'Posta Kodu', mock:'34000' },
+      { code:'LAND1', desc:'Ülke', mock:'TR' }
+  ]},
+  { code:'T001', name:'Şirket Kodları', fields:[
+      { code:'BUTXT', desc:'Şirket Adı', mock:'Axet Teknoloji A.Ş.' },
+      { code:'STRAS', desc:'Şirket Adresi', mock:'Maslak, İstanbul' },
+      { code:'ORT01', desc:'Şirket Şehri', mock:'İstanbul' }
+  ]},
+  { code:'BNKA', name:'Banka Ana Verisi', fields:[
+      { code:'BANKA', desc:'Banka Adı', mock:'Axet Bankası' },
+      { code:'BRNCH', desc:'Şube', mock:'Merkez Şube' },
+      { code:'SWIFT', desc:'SWIFT/BIC Kodu', mock:'AXETTRIS' },
+      { code:'BANKL', desc:'Banka Anahtarı', mock:'00061' }
+  ]},
+  { code:'REGUD', name:'Ödeme Detay / Kalem Verisi', fields:[
+      { code:'BELNR', desc:'Muhasebe Belge No', mock:'5100004521' },
+      { code:'BUDAT', desc:'Kayıt Tarihi', mock:'10.01.2026' },
+      { code:'DMBTR', desc:'Kalem Tutarı', mock:'15.750,00' },
+      { code:'SGTXT', desc:'Metin / Açıklama', mock:'Ocak 2026 fatura ödemesi' }
+  ]}
+];
+
+function findSapField(tableCode, fieldCode){
+  const t = SAP_TABLES.find(t => t.code === tableCode);
+  if(!t) return null;
+  return t.fields.find(f => f.code === fieldCode) || null;
+}
+
+function renderOdemeStructurePanel(){
+  const panel = document.getElementById('odemeStructurePanel');
+  panel.innerHTML = SAP_TABLES.map(t => `
+    <div style="margin-bottom:10px;">
+      <div style="font-weight:bold;color:var(--accent-2);">${t.code} <span style="color:var(--muted);font-weight:normal;">- ${t.name}</span></div>
+      ${t.fields.map(f => `<div style="padding:4px 0 4px 10px;color:var(--text);border-left:2px solid var(--border);margin-left:2px;">
+        <span style="color:var(--accent);font-family:monospace;">${f.code}</span>
+        <span style="color:var(--muted);"> — ${f.desc}</span>
+      </div>`).join('')}
+    </div>
+  `).join('');
+}
+
+function addOdemeRowDragListeners(row){
+  row.draggable = true;
+  row.style.cursor = 'grab';
+  row.addEventListener('dragstart', (e) => { odemeDraggedRow = e.target; e.dataTransfer.effectAllowed = 'move'; });
+  row.addEventListener('dragend', () => { odemeDraggedRow = null; });
+  row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+  row.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if(odemeDraggedRow && odemeDraggedRow.tagName === 'TR'){
+      const targetRow = e.target.closest('tr');
+      if(targetRow && targetRow !== odemeDraggedRow){
+        targetRow.parentNode.insertBefore(odemeDraggedRow, targetRow);
+        setStatus('Satır sırası güncellendi', false);
+      }
+    }
+  });
+}
+
+function initOdemeVisualEditor(){
+  const container = document.getElementById('odemeVisualEditor');
+  container.querySelectorAll('tr').forEach(row => addOdemeRowDragListeners(row));
+}
+
+const MOCK_PAYMENT_DOCS = [
+  {
+    id: 'PAY-2026-0001',
+    data: {
+      'T001.BUTXT': 'Axet Teknoloji A.Ş.', 'T001.STRAS': 'Maslak, İstanbul',
+      'REGUH.VBLNR': '1900000123', 'REGUH.ZALDT': '15.01.2026',
+      'LFA1.NAME1': 'ABC Tedarik Ltd. Şti.', 'LFA1.STRAS': 'Kozyatağı, İstanbul',
+      'BNKA.BANKA': 'Axet Bankası', 'BNKA.SWIFT': 'AXETTRIS',
+      'REGUH.RWBTR': '15.750,00', 'REGUH.WAERS': 'TRY', 'REGUH.RZAWE': 'Havale/EFT'
+    },
+    items: [
+      { BELNR:'5100004521', BUDAT:'10.01.2026', DMBTR:'15.750,00', SGTXT:'Ocak 2026 fatura ödemesi' }
+    ]
+  },
+  {
+    id: 'PAY-2026-0002',
+    data: {
+      'T001.BUTXT': 'Axet Teknoloji A.Ş.', 'T001.STRAS': 'Maslak, İstanbul',
+      'REGUH.VBLNR': '1900000124', 'REGUH.ZALDT': '18.01.2026',
+      'LFA1.NAME1': 'Deniz Lojistik A.Ş.', 'LFA1.STRAS': 'Çayırova, Kocaeli',
+      'BNKA.BANKA': 'Marmara Bankası', 'BNKA.SWIFT': 'MARMTRIS',
+      'REGUH.RWBTR': '42.300,50', 'REGUH.WAERS': 'TRY', 'REGUH.RZAWE': 'Havale/EFT'
+    },
+    items: [
+      { BELNR:'5100004598', BUDAT:'12.01.2026', DMBTR:'30.000,00', SGTXT:'Aralık 2025 nakliye faturası' },
+      { BELNR:'5100004599', BUDAT:'14.01.2026', DMBTR:'12.300,50', SGTXT:'Aralık 2025 depolama faturası' }
+    ]
+  },
+  {
+    id: 'PAY-2026-0003',
+    data: {
+      'T001.BUTXT': 'Axet Teknoloji A.Ş.', 'T001.STRAS': 'Maslak, İstanbul',
+      'REGUH.VBLNR': '1900000125', 'REGUH.ZALDT': '22.01.2026',
+      'LFA1.NAME1': 'Global Kimya İth. İhr. Ltd. Şti.', 'LFA1.STRAS': 'Gebze, Kocaeli',
+      'BNKA.BANKA': 'Anadolu Bankası', 'BNKA.SWIFT': 'ANADTRIS',
+      'REGUH.RWBTR': '8.120,00', 'REGUH.WAERS': 'USD', 'REGUH.RZAWE': 'SWIFT Transfer'
+    },
+    items: [
+      { BELNR:'5100004612', BUDAT:'20.01.2026', DMBTR:'8.120,00', SGTXT:'Hammadde ithalat ödemesi' }
+    ]
+  }
+];
+
+function renderOdemePaymentDocSelect(){
+  const select = document.getElementById('odemePaymentDocSelect');
+  select.innerHTML = MOCK_PAYMENT_DOCS.map(d =>
+    `<option value="${d.id}">${d.id} — ${d.data['LFA1.NAME1']} — ${d.data['REGUH.RWBTR']} ${d.data['REGUH.WAERS']}</option>`
+  ).join('');
+}
+
+function applyOdemePaymentDocument(docId){
+  const doc = MOCK_PAYMENT_DOCS.find(d => d.id === docId);
+  if(!doc){
+    setStatus('Seçilen ödeme belgesi bulunamadı', true);
+    return;
+  }
+
+  const container = document.getElementById('odemeVisualEditor');
+  const itemsTable = document.getElementById('odemeItemsTable');
+
+  container.querySelectorAll('td[data-cell-type="sap"], th[data-cell-type="sap"]').forEach(cell => {
+    if(itemsTable && itemsTable.contains(cell)) return;
+    const key = `${cell.getAttribute('data-sap-table')}.${cell.getAttribute('data-sap-field')}`;
+    if(doc.data[key] !== undefined){
+      cell.textContent = doc.data[key];
+    }
+  });
+
+  if(itemsTable){
+    const rows = Array.from(itemsTable.querySelectorAll('tr'));
+    const templateRow = rows[1];
+
+    if(templateRow){
+      const colDefs = Array.from(templateRow.querySelectorAll('td, th')).map(c => ({
+        type: c.getAttribute('data-cell-type') || 'text',
+        table: c.getAttribute('data-sap-table'),
+        field: c.getAttribute('data-sap-field'),
+        text: c.textContent
+      }));
+
+      rows.slice(1).forEach(r => r.remove());
+
+      (doc.items || []).forEach(item => {
+        const newRow = document.createElement('tr');
+        colDefs.forEach(def => {
+          const td = document.createElement('td');
+          if(def.type === 'sap' && def.field && item[def.field] !== undefined){
+            td.setAttribute('data-cell-type', 'sap');
+            td.setAttribute('data-sap-table', def.table);
+            td.setAttribute('data-sap-field', def.field);
+            td.textContent = item[def.field];
+          } else {
+            td.setAttribute('data-cell-type', def.type);
+            if(def.table) td.setAttribute('data-sap-table', def.table);
+            if(def.field) td.setAttribute('data-sap-field', def.field);
+            td.textContent = def.text;
+          }
+          newRow.appendChild(td);
+        });
+        addOdemeRowDragListeners(newRow);
+        itemsTable.appendChild(newRow);
+      });
+    }
+  }
+
+  document.getElementById('odemePaymentDocInfo').textContent = `Yüklenen belge: ${doc.id}`;
+  setStatus(`✓ "${doc.id}" belgesi NP4 ödeme listesinden getirildi ve görüntü yeniden oluşturuldu`, false);
+}
+
+document.getElementById('btnLoadOdemePaymentDoc').addEventListener('click', () => {
+  const select = document.getElementById('odemePaymentDocSelect');
+  applyOdemePaymentDocument(select.value);
+});
+
+let odemeDraggedRow = null;
+let odemeContextTarget = null;
+let odemeEditingCell = null;
+let odemeSelectedSapField = null;
+
+function showOdemeContextMenu(e){
+  e.preventDefault();
+  odemeContextTarget = e.target;
+  const menu = document.getElementById('odemeContextMenu');
+  positionContextMenu(menu, e.clientX, e.clientY);
+}
+
+document.getElementById('odemeVisualEditor').addEventListener('contextmenu', showOdemeContextMenu);
+
+document.getElementById('odemeContextMenu').querySelectorAll('button').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    handleOdemeContextAction(e.target.dataset.action);
+    document.getElementById('odemeContextMenu').classList.remove('show');
+  });
+});
+
+document.addEventListener('click', () => {
+  document.getElementById('odemeContextMenu').classList.remove('show');
+});
+
+function handleOdemeContextAction(action){
+  if(!odemeContextTarget) return;
+
+  const cell = odemeContextTarget.closest('td, th');
+  const row = odemeContextTarget.closest('tr');
+  const table = odemeContextTarget.closest('table');
+
+  if(action === 'add-row' && row){
+    const newRow = row.cloneNode(true);
+    newRow.querySelectorAll('td, th').forEach(c => { c.textContent = ''; c.removeAttribute('data-sap-table'); c.removeAttribute('data-sap-field'); c.setAttribute('data-cell-type','text'); });
+    row.after(newRow);
+    addOdemeRowDragListeners(newRow);
+    setStatus('Satır eklendi', false);
+  }
+  else if(action === 'add-row-above' && row){
+    const newRow = row.cloneNode(true);
+    newRow.querySelectorAll('td, th').forEach(c => { c.textContent = ''; c.removeAttribute('data-sap-table'); c.removeAttribute('data-sap-field'); c.setAttribute('data-cell-type','text'); });
+    row.before(newRow);
+    addOdemeRowDragListeners(newRow);
+    setStatus('Satır eklendi', false);
+  }
+  else if(action === 'delete-row' && row){
+    row.remove();
+    setStatus('Satır silindi', false);
+  }
+  else if(action === 'add-col' && cell && table){
+    const cellsInRow = Array.from(cell.parentElement.children).filter(c => ['TD','TH'].includes(c.tagName));
+    const colIndex = cellsInRow.indexOf(cell);
+    for(let r of table.getElementsByTagName('tr')){
+      const cells = Array.from(r.children).filter(c => ['TD','TH'].includes(c.tagName));
+      if(cells.length > colIndex){
+        const newCell = document.createElement(cells[colIndex].tagName);
+        newCell.textContent = '';
+        cells[colIndex].after(newCell);
+      }
+    }
+    setStatus('Sütun eklendi', false);
+  }
+  else if(action === 'add-col-before' && cell && table){
+    const cellsInRow = Array.from(cell.parentElement.children).filter(c => ['TD','TH'].includes(c.tagName));
+    const colIndex = cellsInRow.indexOf(cell);
+    for(let r of table.getElementsByTagName('tr')){
+      const cells = Array.from(r.children).filter(c => ['TD','TH'].includes(c.tagName));
+      if(cells.length > colIndex){
+        const newCell = document.createElement(cells[colIndex].tagName);
+        newCell.textContent = '';
+        cells[colIndex].before(newCell);
+      }
+    }
+    setStatus('Sütun eklendi', false);
+  }
+  else if(action === 'delete-col' && cell && table){
+    const cellsInRow = Array.from(cell.parentElement.children).filter(c => ['TD','TH'].includes(c.tagName));
+    const colIndex = cellsInRow.indexOf(cell);
+    for(let r of table.getElementsByTagName('tr')){
+      const cells = Array.from(r.children).filter(c => ['TD','TH'].includes(c.tagName));
+      if(cells.length > colIndex) cells[colIndex].remove();
+    }
+    setStatus('Sütun silindi', false);
+  }
+  else if(action === 'clear-cell' && cell){
+    cell.textContent = '';
+    cell.removeAttribute('data-sap-table');
+    cell.removeAttribute('data-sap-field');
+    cell.setAttribute('data-cell-type', 'text');
+    setStatus('Hücre içeriği silindi', false);
+  }
+  else if(action === 'edit-cell' && cell){
+    openOdemeEditModal(cell);
+  }
+}
+
+function populateOdemeSapTableSelect(){
+  const select = document.getElementById('odemeSapTableSelect');
+  select.innerHTML = SAP_TABLES.map(t => `<option value="${t.code}">${t.code} — ${t.name}</option>`).join('');
+}
+
+function renderOdemeSapFieldsList(tableCode){
+  const t = SAP_TABLES.find(t => t.code === tableCode);
+  const list = document.getElementById('odemeSapFieldsList');
+  if(!t){ list.innerHTML = ''; return; }
+  list.innerHTML = t.fields.map(f => `
+    <div data-field="${f.code}" style="padding:8px;margin:4px 0;background:#2d2f3b;border-radius:3px;border-left:3px solid #5b8cff;cursor:pointer;color:#e6e6ee;font-family:monospace;font-size:11px;">
+      <div style="font-weight:bold;color:#3ddc97;">${f.code}</div>
+      <div style="color:#9a9db0;font-size:10px;">${f.desc}</div>
+      <div style="color:#b0b5cc;margin-top:4px;">Örnek: ${f.mock}</div>
+    </div>
+  `).join('');
+  list.querySelectorAll('div[data-field]').forEach(div => {
+    div.addEventListener('click', () => {
+      list.querySelectorAll('div[data-field]').forEach(d => d.style.outline = '');
+      div.style.outline = '2px solid var(--accent)';
+      odemeSelectedSapField = { table: tableCode, field: div.dataset.field };
+    });
+  });
+}
+
+function openOdemeEditModal(cell){
+  odemeEditingCell = cell;
+  odemeSelectedSapField = null;
+  populateOdemeSapTableSelect();
+
+  const modal = document.getElementById('editOdemeCellModal');
+  const typeSelect = document.getElementById('odemeCellContentType');
+  const textGroup = document.getElementById('odemeTextGroup');
+  const sapContainer = document.getElementById('odemeSapFieldsContainer');
+
+  const existingType = cell.getAttribute('data-cell-type');
+  const existingTable = cell.getAttribute('data-sap-table');
+  const existingField = cell.getAttribute('data-sap-field');
+
+  if(existingType === 'sap' && existingTable && existingField){
+    typeSelect.value = 'sap';
+    textGroup.style.display = 'none';
+    sapContainer.style.display = 'block';
+    document.getElementById('odemeSapTableSelect').value = existingTable;
+    renderOdemeSapFieldsList(existingTable);
+    odemeSelectedSapField = { table: existingTable, field: existingField };
+  } else {
+    typeSelect.value = 'text';
+    textGroup.style.display = 'block';
+    sapContainer.style.display = 'none';
+    document.getElementById('odemeCellTextInput').value = cell.textContent || '';
+  }
+
+  modal.classList.add('show');
+}
+
+document.getElementById('odemeCellContentType').addEventListener('change', (e) => {
+  const isSap = e.target.value === 'sap';
+  document.getElementById('odemeTextGroup').style.display = isSap ? 'none' : 'block';
+  document.getElementById('odemeSapFieldsContainer').style.display = isSap ? 'block' : 'none';
+  if(isSap){
+    const select = document.getElementById('odemeSapTableSelect');
+    renderOdemeSapFieldsList(select.value || SAP_TABLES[0].code);
+  }
+});
+
+document.getElementById('odemeSapTableSelect').addEventListener('change', (e) => {
+  renderOdemeSapFieldsList(e.target.value);
+});
+
+document.getElementById('btnSaveOdemeCellEdit').addEventListener('click', () => {
+  if(!odemeEditingCell) return;
+  const contentType = document.getElementById('odemeCellContentType').value;
+
+  if(contentType === 'sap' && odemeSelectedSapField){
+    const field = findSapField(odemeSelectedSapField.table, odemeSelectedSapField.field);
+    odemeEditingCell.setAttribute('data-cell-type', 'sap');
+    odemeEditingCell.setAttribute('data-sap-table', odemeSelectedSapField.table);
+    odemeEditingCell.setAttribute('data-sap-field', odemeSelectedSapField.field);
+    odemeEditingCell.textContent = field ? field.mock : `${odemeSelectedSapField.table}.${odemeSelectedSapField.field}`;
+    setStatus(`Hücre "${odemeSelectedSapField.table}.${odemeSelectedSapField.field}" tablo alanına bağlandı`, false);
+  } else {
+    odemeEditingCell.removeAttribute('data-sap-table');
+    odemeEditingCell.removeAttribute('data-sap-field');
+    odemeEditingCell.setAttribute('data-cell-type', 'text');
+    odemeEditingCell.textContent = document.getElementById('odemeCellTextInput').value;
+    setStatus('Hücre sabit metin olarak güncellendi', false);
+  }
+
+  document.getElementById('editOdemeCellModal').classList.remove('show');
+  odemeEditingCell = null;
+});
+
+document.getElementById('btnCancelOdemeCellEdit').addEventListener('click', () => {
+  document.getElementById('editOdemeCellModal').classList.remove('show');
+  odemeEditingCell = null;
+});
+
+const NP4_SMARTFORMS = new Map();
+
+const MOCK_NP4_SMARTFORM_CATALOG = {
+  'ZDEMO_SF_ITHALAT_PRINTOUT': `
+    <h1 style="text-align:center;">İTHALAT ÖDEME TALİMATI</h1>
+    <table>
+      <tr><td style="width:160px;"><b>Şirket Adı</b></td><td data-cell-type="sap" data-sap-table="T001" data-sap-field="BUTXT">Axet Teknoloji A.Ş.</td></tr>
+      <tr><td><b>Şirket Adresi</b></td><td data-cell-type="sap" data-sap-table="T001" data-sap-field="STRAS">Maslak, İstanbul</td></tr>
+      <tr><td><b>Belge No</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="VBLNR">1900000199</td></tr>
+      <tr><td><b>Ödeme Tarihi</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="ZALDT">20.01.2026</td></tr>
+    </table>
+
+    <h2>İhracatçı ve Banka Bilgileri</h2>
+    <table>
+      <tr><td style="width:160px;"><b>İhracatçı Ünvanı</b></td><td data-cell-type="sap" data-sap-table="LFA1" data-sap-field="NAME1">Global Kimya İth. İhr. Ltd. Şti.</td></tr>
+      <tr><td><b>İhracatçı Adresi</b></td><td data-cell-type="sap" data-sap-table="LFA1" data-sap-field="STRAS">Gebze, Kocaeli</td></tr>
+      <tr><td><b>Banka Adı</b></td><td data-cell-type="sap" data-sap-table="BNKA" data-sap-field="BANKA">Anadolu Bankası</td></tr>
+      <tr><td><b>SWIFT/BIC</b></td><td data-cell-type="sap" data-sap-table="BNKA" data-sap-field="SWIFT">ANADTRIS</td></tr>
+      <tr><td><b>Ödeme Tutarı</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="RWBTR">8.120,00</td></tr>
+      <tr><td><b>Para Birimi</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="WAERS">USD</td></tr>
+      <tr><td><b>Ödeme Yöntemi</b></td><td data-cell-type="sap" data-sap-table="REGUH" data-sap-field="RZAWE">SWIFT Transfer</td></tr>
+    </table>
+
+    <h2>İthalat Kalemleri</h2>
+    <table id="odemeItemsTable">
+      <tr><th>Muhasebe Belge No</th><th>Kayıt Tarihi</th><th>Tutar</th><th>Açıklama</th></tr>
+      <tr>
+        <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="BELNR">5100004612</td>
+        <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="BUDAT">20.01.2026</td>
+        <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="DMBTR">8.120,00</td>
+        <td data-cell-type="sap" data-sap-table="REGUD" data-sap-field="SGTXT">Hammadde ithalat ödemesi</td>
+      </tr>
+    </table>
+
+    <table style="margin-top:30px;">
+      <tr><td style="border:none;width:50%;">Hazırlayan: ______________________</td><td style="border:none;">Onaylayan: ______________________</td></tr>
+    </table>
+  `
+};
+
+function fetchSmartformFromNP4(smartformName){
+  if(NP4_SMARTFORMS.has(smartformName)) return NP4_SMARTFORMS.get(smartformName);
+  if(Object.prototype.hasOwnProperty.call(MOCK_NP4_SMARTFORM_CATALOG, smartformName)){
+    return MOCK_NP4_SMARTFORM_CATALOG[smartformName];
+  }
+  return undefined;
+}
+
+function loadOdemeSmartformFromNP4(rawName){
+  const smartformName = (rawName || '').trim();
+  const infoEl = document.getElementById('odemeLoadSmartformInfo');
+
+  if(!smartformName){
+    setStatus('Getirilecek smartform adı boş olamaz', true);
+    infoEl.textContent = 'Lütfen bir smartform adı girin.';
+    return;
+  }
+
+  const savedHtml = fetchSmartformFromNP4(smartformName);
+  if(savedHtml === undefined){
+    infoEl.textContent = `"${smartformName}" isimli smartform NP4 sisteminde bulunamadı.`;
+    setStatus(`✗ "${smartformName}" isimli smartform NP4 sisteminde bulunamadı`, true);
+    return;
+  }
+
+  const container = document.getElementById('odemeVisualEditor');
+  container.innerHTML = savedHtml;
+  initOdemeVisualEditor();
+
+  document.getElementById('odemeSmartformName').value = smartformName;
+  infoEl.textContent = `✓ "${smartformName}" NP4'ten getirildi (${new Date().toLocaleTimeString()})`;
+  setStatus(`✓ "${smartformName}" isimli smartform NP4 sisteminden getirildi ve ekrana yüklendi`, false);
+}
+
+document.getElementById('btnLoadOdemeSmartform').addEventListener('click', () => {
+  loadOdemeSmartformFromNP4(document.getElementById('odemeLoadSmartformName').value);
+});
+
+document.getElementById('odemeLoadSmartformName').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    loadOdemeSmartformFromNP4(document.getElementById('odemeLoadSmartformName').value);
+  }
+});
+
+function buildOdemeSmartformPayload(smartformName){
+  const container = document.getElementById('odemeVisualEditor');
+  const tables = Array.from(container.querySelectorAll('table')).map(table => ({
+    rows: Array.from(table.querySelectorAll('tr')).map(row => ({
+      cells: Array.from(row.querySelectorAll('td, th')).map(cell => {
+        const type = cell.getAttribute('data-cell-type') || 'text';
+        return type === 'sap'
+          ? { type, table: cell.getAttribute('data-sap-table'), field: cell.getAttribute('data-sap-field'), preview: cell.textContent }
+          : { type, text: cell.textContent };
+      })
+    }))
+  }));
+  return { smartformName, baseForm: 'ZDEMO_SF_BANK_PRINTOUT', tables };
+}
+
+document.getElementById('btnSaveOdemeSmartform').addEventListener('click', () => {
+  const nameInput = document.getElementById('odemeSmartformName');
+  const smartformName = nameInput.value.trim();
+  if(!smartformName){
+    setStatus('Smartform adı boş olamaz', true);
+    return;
+  }
+
+  const payload = buildOdemeSmartformPayload(smartformName);
+  console.log('NP4 Smartform payload:', payload);
+
+  NP4_SMARTFORMS.set(smartformName, document.getElementById('odemeVisualEditor').innerHTML);
+  renderOdemeSmartformCatalogList();
+
+  setStatus(`✓ "${smartformName}" isimli smartform NP4 sisteminde oluşturuldu/güncellendi ve "Getir" ile tekrar çağrılabilir`, false);
+});
+
+function renderOdemeSmartformCatalogList(){
+  const names = new Set([...NP4_SMARTFORMS.keys(), ...Object.keys(MOCK_NP4_SMARTFORM_CATALOG)]);
+  document.getElementById('odemeSmartformCatalogList').innerHTML =
+    Array.from(names).map(n => `<option value="${n}"></option>`).join('');
+}
+
+initOdemeVisualEditor();
+NP4_SMARTFORMS.set('ZDEMO_SF_BANK_PRINTOUT', document.getElementById('odemeVisualEditor').innerHTML);
+renderOdemeSmartformCatalogList();
+renderOdemeStructurePanel();
+renderOdemePaymentDocSelect();
+onDocTypeChange(selectedDocType);
+
+transform();
+</script>
+</body>
+</html>

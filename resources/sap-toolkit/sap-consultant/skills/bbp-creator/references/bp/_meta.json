@@ -1,0 +1,89 @@
+{
+  "kaynak": "sap-best-practices.tsv",
+  "kaynak_sha256": "7bd3f058e389286770113ba1e501eb14f8fcec511ab52b45b60157c329cb4d7c",
+  "kayit": 14238,
+  "sutun": [
+    "LOB",
+    "Business Area",
+    "Scope Item ID",
+    "Description",
+    "Solution Activity (Hierarchy)",
+    "Fiori App or Transaction Title",
+    "Fiori App or Transaction ID",
+    "Business Role Description",
+    "Business Role ID"
+  ],
+  "dusen_sutun": [
+    "Fiori Semantic Object",
+    "Fiori Semantic Action"
+  ],
+  "tarih": "2026-09-03",
+  "dosyalar": {
+    "app-platform.tsv": {
+      "lob": "Application Platform and Infrastructure",
+      "satir": 16,
+      "kb": 4
+    },
+    "asset-mgmt.tsv": {
+      "lob": "Asset Management",
+      "satir": 182,
+      "kb": 32
+    },
+    "data-mgmt.tsv": {
+      "lob": "Database and Data Management",
+      "satir": 8,
+      "kb": 2
+    },
+    "finance.tsv": {
+      "lob": "Finance",
+      "satir": 8499,
+      "kb": 1566
+    },
+    "hr.tsv": {
+      "lob": "Human Resources",
+      "satir": 1,
+      "kb": 0
+    },
+    "it-mgmt.tsv": {
+      "lob": "IT Management",
+      "satir": 8,
+      "kb": 1
+    },
+    "manufacturing.tsv": {
+      "lob": "Manufacturing",
+      "satir": 969,
+      "kb": 187
+    },
+    "rnd.tsv": {
+      "lob": "R&D/Engineering",
+      "satir": 405,
+      "kb": 77
+    },
+    "sales.tsv": {
+      "lob": "Sales",
+      "satir": 1515,
+      "kb": 260
+    },
+    "service.tsv": {
+      "lob": "Service",
+      "satir": 227,
+      "kb": 38
+    },
+    "industries.tsv": {
+      "lob": "Solutions for Specific Industries",
+      "satir": 448,
+      "kb": 89
+    },
+    "sourcing.tsv": {
+      "lob": "Sourcing and Procurement",
+      "satir": 1219,
+      "kb": 232
+    },
+    "supply-chain.tsv": {
+      "lob": "Supply Chain",
+      "satir": 741,
+      "kb": 135
+    }
+  },
+  "not": "Uretilmis dosyalar -- elle duzenleme. SAP Best Practices / Fiori Apps Library icerigi. Yenilemek icin: py scripts/sync_best_practices.py --source <export>"
+}

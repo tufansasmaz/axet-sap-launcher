@@ -97,7 +97,9 @@ define view entity Z_I_SECURE_VIEW
 2. **Avoid forbidden tables** - MARA, BSEG, VBAK, T001, etc.
 3. **Use standard APIs** - BAPIs, released CDS views, RAP BOs
 4. **No dynamic programming** - Avoid dynamic SQL, field symbols where possible
-5. **Follow naming conventions** - Z/Y namespace, proper prefixes
+5. **Follow naming conventions** - Z/Y namespace, proper prefixes. The binding formulas
+   are in `ts-generator/references/NAMING_STANDARD.md`, not here or in any other
+   reference in this folder
 
 ### Clean Core Levels
 

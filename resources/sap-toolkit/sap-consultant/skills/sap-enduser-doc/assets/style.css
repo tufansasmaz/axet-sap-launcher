@@ -1,0 +1,198 @@
+/* SAP End-User Documentation — print stylesheet
+   Accent color is injected by render.js as --accent (default below). */
+
+:root {
+  --accent: #0a6ed1;           /* SAP Horizon blue; override with --accent flag */
+  --text: #1d2d3e;
+  --muted: #556b82;
+  --border: #d5dadf;
+  --bg-soft: #f5f6f7;
+  --warn-bg: #fff8e6;
+  --warn-border: #e9a100;
+  --tip-bg: #eaf6ec;
+  --tip-border: #2e7d32;
+  --note-bg: #eef4fb;
+  --note-border: #0a6ed1;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+body {
+  font-family: "Inter", "Segoe UI", "Noto Sans", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  color: var(--text);
+  margin: 0;
+}
+
+/* ---------- Cover page ---------- */
+
+.cover {
+  page: cover;
+  height: 257mm; /* A4 content height with margins */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  page-break-after: always;
+}
+
+.cover .brand-bar {
+  height: 4mm;
+  background: var(--accent);
+  border-radius: 1mm;
+}
+
+.cover .logo { max-height: 18mm; max-width: 60mm; margin-top: 14mm; }
+
+.cover h1 {
+  font-size: 26pt;
+  line-height: 1.2;
+  margin: 40mm 0 4mm 0;
+  color: var(--text);
+  border: none;
+}
+
+.cover .subtitle {
+  font-size: 14pt;
+  color: var(--accent);
+  font-weight: 600;
+  margin: 0 0 2mm 0;
+}
+
+.cover .customer { font-size: 12pt; color: var(--muted); }
+
+.cover .doc-control {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9pt;
+  margin-bottom: 6mm;
+}
+.cover .doc-control td {
+  border: 1px solid var(--border);
+  padding: 2mm 3mm;
+}
+.cover .doc-control td:first-child {
+  background: var(--bg-soft);
+  font-weight: 600;
+  width: 32mm;
+  color: var(--muted);
+}
+
+/* ---------- TOC ---------- */
+
+.toc { page-break-after: always; }
+.toc h2 { margin-top: 0; }
+.toc ol { list-style: none; padding-left: 0; }
+.toc li { margin: 1.2mm 0; }
+.toc a { color: var(--text); text-decoration: none; }
+.toc .toc-l2 { padding-left: 6mm; color: var(--muted); font-size: 9.5pt; }
+
+/* ---------- Headings ---------- */
+
+h1 {
+  font-size: 16pt;
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+  padding-bottom: 1.5mm;
+  margin: 8mm 0 4mm 0;
+  page-break-after: avoid;
+}
+
+h2 {
+  font-size: 12.5pt;
+  margin: 6mm 0 2.5mm 0;
+  page-break-after: avoid;
+}
+
+h3 { font-size: 11pt; page-break-after: avoid; }
+
+p { margin: 0 0 2.5mm 0; }
+
+/* ---------- Tables ---------- */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+  margin: 3mm 0 4mm 0;
+  page-break-inside: auto;
+}
+thead { display: table-header-group; }
+tr { page-break-inside: avoid; }
+th {
+  background: var(--accent);
+  color: #fff;
+  text-align: left;
+  padding: 2mm 2.5mm;
+  font-weight: 600;
+}
+td {
+  border: 1px solid var(--border);
+  padding: 1.8mm 2.5mm;
+  vertical-align: top;
+}
+tbody tr:nth-child(even) td { background: var(--bg-soft); }
+
+/* ---------- Images ---------- */
+
+img {
+  /* Cap the height so a screenshot cannot claim most of a page and shove the
+     following block over a break — that is what leaves the large blank gaps.
+     max-width keeps the aspect ratio; the cap only bites on tall/wide captures. */
+  max-width: 100%;
+  max-height: 88mm;
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  margin: 2mm 0 3mm 0;
+  page-break-inside: avoid;
+}
+
+/* ---------- Admonitions (> [!NOT] / [!IPUCU] / [!DIKKAT]) ---------- */
+
+.admonition {
+  border-left: 3px solid var(--note-border);
+  background: var(--note-bg);
+  padding: 2.5mm 3.5mm;
+  margin: 3mm 0;
+  border-radius: 0 2px 2px 0;
+  page-break-inside: avoid;
+  font-size: 9.5pt;
+}
+.admonition .adm-title {
+  font-weight: 700;
+  display: block;
+  margin-bottom: 1mm;
+}
+.admonition.tip { border-left-color: var(--tip-border); background: var(--tip-bg); }
+.admonition.warning { border-left-color: var(--warn-border); background: var(--warn-bg); }
+
+/* ---------- Mermaid ---------- */
+
+.mermaid {
+  display: flex;
+  justify-content: center;
+  margin: 4mm 0;
+  page-break-inside: avoid;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
+/* ---------- Code (rare in end-user docs, but style it anyway) ---------- */
+
+code {
+  font-family: "JetBrains Mono", "Consolas", monospace;
+  font-size: 9pt;
+  background: var(--bg-soft);
+  padding: 0.3mm 1mm;
+  border-radius: 2px;
+}
+
+/* ---------- Page setup ---------- */
+
+@page {
+  size: A4;
+  /* Wider top margin so the running header (NTT DATA logo) never collides with the body. */
+  margin: 24mm 14mm 18mm 14mm;
+}

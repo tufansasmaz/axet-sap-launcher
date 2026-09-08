@@ -1,0 +1,742 @@
+LOB	Business Area	Scope Item ID	Description	Solution Activity (Hierarchy)	Fiori App or Transaction Title	Fiori App or Transaction ID	Business Role Description	Business Role ID
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Create Purchase Order	Create Purchase Order 	ME21N	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Create EWM Inbound Delivery	Create Inbound Deliveries - Deliveries 	F1705	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Putaway to the Mezzanine				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Process Goods Receipt	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Check Warehouse Orders (Optional)				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Putaway of Products	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Putaway to the High Rack Narrow Aisle				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Process Goods Receipt	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Check Warehouse Orders (Optional)				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Move Pallets from Staging Area to Handover Point	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Putaway of Products from the Handover Point to the High Rack Pallet Buffer	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Putaway to the Bulk Storage				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Process the Goods Receipt	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Process the Goods Receipt	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Check Warehouse Orders (Optional)				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Putaway of Products to Bulk Storage	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Putaway from Clarification Zone				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Process Goods Receipt	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Move Products to Clarification Zone	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Repack at the Clarification Zone	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Create Warehouse Tasks to Move Handling Units from the Clarification Zone				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Create Warehouse Tasks to Move Handling Units from the Clarification Zone	Create Warehouse Tasks - Handling Units 	/SCWM/ADHU	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Move Products from Clarification Zone to Mezzanine	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Check Inbound Delivery (Optional)	Display Inbound Delivery 	VL33N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	    Appendix				
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Warehouse Management Monitor Handling	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FS	Basic Warehouse Inbound Processing from Supplier	        Succeeding Processes				
+Supply Chain	Warehousing	1FU	Initial Stock Upload for Warehouse	    Upload Initial Stock				
+Supply Chain	Warehousing	1FU	Initial Stock Upload for Warehouse	    Upload Initial Stock	Upload Stock 	/SCWM/ISU	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FU	Initial Stock Upload for Warehouse	    Check Material Documents (Optional)	Material Documents Overview 	F1077	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	    Preparation				
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Create Physical Inventory Documents for High Rack Narrow Aisle and Bulk Storage	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Create Physical Inventory Documents for High Rack Narrow Aisle and Bulk Storage	Create Physical Inventory Documents 	F3197	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Create Physical Inventory Documents for Mezzanine	Create Physical Inventory Documents 	F3197	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	    Counting				
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Alternative 1: Paper-Based Counting				
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	            Print Physical Inventory Documents	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	            Enter Count Results from Printout into System	Count Physical Inventory 	/SCWM/PI_COUNT	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Alternative 2: RF-Based Counting				
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	            Mezzanine: Enter Count Results into System	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	            High-Rack Narrow-Aisle: Enter Count Results into System	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	            Bulk Storage: Enter Count Results into System	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	    Finalization				
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Monitor Recount Physical Inventory Documents (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Post Physical Inventory Documents	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Post Physical Inventory Differences	Post Differences - Automatic 	/SCWM/WM_ADJUST	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FW	Physical Inventory in Warehouse	        Review and Post Differences with Difference Analyzer	Analyze Differences 	/SCWM/DIFF_ANALYZER	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	    Replenish Stock	Replenish Stock 	/SCWM/REPL	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	    Check Replenishment Warehouse Tasks (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	    Process Replenishment of Mezzanine				
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	        Move Handling Unit to Handover Point	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	        Move Handling Unit from Handover Point to Mezzanine	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	    Process Replenishment of High Rack Narrow Aisle Picking Area				
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	        Variant 1: Intra-Aisle Replenishment				
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	            Putaway of Handling Unit in Destination Bin	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	        Variant 2: Cross-Aisle Replenishment				
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	            Move Handling Unit to Handover Point	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	            Move Handling Unit between Handover Points	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	            Putaway of Handling Unit in Destination Aisle	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1FY	Replenishment in Warehouse	    Process Replenishment of Bulk Storage Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	    Alternative 1: Scrapping Due to Expired BBD/SLED				
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	        Select Stock to Be Scrapped	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	        Create Posting Change with Warehouse Tasks				
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	        Move Stock to Handover Point	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	        Move Stock to the Scrapping Zone	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	    Alternative 2: Scrapping Due to Damaged Stock				
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	        Create Ad-Hoc Warehouse Tasks for Scrapping Damaged Stock				
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	            Scrap from Mezzanine	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	            Scrap from Narrow Aisle High Rack Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	            Scrap from Narrow Aisle High Rack Pallet Buffer				
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	                Move Stock to Handover Point	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	                Move Stock from Handover Point to Scrapping Zone	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	            Scrap from Bulk Storage				
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	                Scrap from Bulk Storage A and Bulk Storage B	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	                Scrap from Bulk Storage B Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	            Scrap from Blocked Stock Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G0	Scrapping in Warehouse	    Empty Scrapping Zone and Post Goods Issue	Post Goods Issue - Unplanned 	/SCWM/ADGI	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Create Sales Order				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Create Sales Order				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Create Delivery	Create Outbound Delivery - With Order Reference 	VL01N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Create Delivery	Display Outbound Delivery 	VL03N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Create Warehouse Tasks Manually				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Check Warehouse Orders (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Pick Warehouse Orders from the Mezzanine				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick from the Mezzanine	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Create Shipping Handling Unit(s) and Repacking	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Create Shipping Handling Unit(s) and Repacking	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Pick Warehouse Orders from the High Rack Narrow Aisle				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick from High Rack Pallet Buffer				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	            Pick Handling Units from High Rack Pallet Buffer	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	            Move Handling Unit from Handover Point to Packing Work Center	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick from High Rack Picking Area				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	            Pick Pallet Quantity from High Rack Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	            Pick Partial Quantity from High Rack Picking Area				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	                Pick Partial Quantity	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	                Create Shipping Handling Unit(s) and Repacking	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Pick Warehouse Orders from the Bulk Storage				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick from the Bulk Storage A (Partial Pallets Allowed)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick from the Bulk Storage A (Partial Pallets Allowed)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick Non-Pallet Quantities from the Bulk Storage A (Partial Pallets Allowed)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick Pallet Quantities from the Bulk Storage B (No Partial Pallets)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick Pallet Quantities from the Bulk Storage B (No Partial Pallets)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Pick Non-Pallet Quantities from the Bulk Storage B Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Create Shipping Handling Unit(s) and Repacking	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Create Shipping Handling Unit(s) and Repacking	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Close Shipping Handling Unit(s)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Close Shipping Handling Unit(s)	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Stage Shipping HUs	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Stage Shipping HUs	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Display Loading Overview (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Display Loading Overview (Optional)	Display Sales Orders -  	VA03	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Display Loading Overview (Optional)	Display Outbound Delivery 	VL03N	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Load Shipping Handling Unit(s)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Load Shipping Handling Unit(s)	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Post Goods Issue for Outbound Delivery Order	Run Outbound Process - Deliveries 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Post Goods Issue for Outbound Delivery Order	Run Outbound Process 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Check Outbound Delivery (Optional)	Display Outbound Delivery 	VL03N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	    Appendix				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Process Integration				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	            Preceding Processes				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	            Succeeding Processes				
+Supply Chain	Warehousing	1G2	Basic Warehouse Outbound Processing to Customer	        Warehouse Management Monitor Handling	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	    Backorder Processing (BOP)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Preparation Activities for Running Backorder Processing (BOP)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure BOP Segment	Configure BOP Segment 	F2158	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure BOP Variant	Configure BOP Variant 	F2160	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Custom BOP Sorting	Configure Custom BOP Sorting 	F2983	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Backorder Run				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Schedule BOP Run	Schedule BOP Run 	F2665	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Monitor BOP Run	Monitor BOP Run 	F2159	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	    Release for Delivery				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Preparation Activities for Release for Delivery				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Order Fulfillment Responsibilities	Configure Order Fulfillment Responsibilities 	F2246	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Release for Delivery				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Prepare/Release Sales Orders for Materials Without Availability Issues for Delivery	Release for Delivery 	F1786	Order Fulfillment Specialist	SAP_BR_ORDER_FULFILLMNT_SPCLST
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Identify Most Important Sales Orders for Materials with Availability Issues	Release for Delivery 	F1786	Order Fulfillment Specialist	SAP_BR_ORDER_FULFILLMNT_SPCLST
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Solve Issues by Redistributing Quantities	Release for Delivery 	F1786	Order Fulfillment Specialist	SAP_BR_ORDER_FULFILLMNT_SPCLST
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Release Processed Sales Orders	Release for Delivery 	F1786	Order Fulfillment Specialist	SAP_BR_ORDER_FULFILLMNT_SPCLST
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	    Product Allocation (PAL)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Preparation Activities for Product Allocation (PAL)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Product Allocation	Configure Product Allocation 	F2119	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Product Allocation	Manage Characteristic Catalogs 	F3829	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Manage Product Allocation Planning Data	Manage Product Allocation Planning Data 	F2121	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Manage Product Allocation Sequences	Manage Product Allocation Sequences 	F2474	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Assign Product to Product Allocation	Assign Product to Product Allocation 	F2120	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Assign Product to Product Allocation	Product Allocation Overview 	F3474	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Check Availability with Product Allocation (PAL)	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Check Availability with Product Allocation (PAL)	Manage Product Allocation Planning Data 	F2121	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Check Availability with Product Allocation (PAL)	Assign Product to Product Allocation 	F2120	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	    Alternative-Based Confirmation (ABC)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Preparation Activities for Alternative-Based Confirmation (ABC)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Alternative Determination (Optional)	Configure Alternative Determination 	F5354	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Alternative Determination (Optional)	Configure Substitution Strategy 	F2699	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Substitution Strategy	Configure Substitution Strategy 	F2699	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Manage Characteristic Combinations	Manage Characteristic Combinations 	F5303	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Alternative Control	Configure Alternative Control 	F2698	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Check Availability with Alternative-Based Confirmation (ABC)	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Check Availability with Alternative-Based Confirmation (ABC)	Configure Alternative Control 	F2698	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	    Supply Protection (SUP)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Preparation Activities for Supply Protection (SUP)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Create Master Data for Supply Protection (SUP)	Manage Supply Protection 	F4569	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Create Master Data for Supply Protection (SUP)	Manage Characteristic Catalogs 	F3829	Order Fulfillment Manager	SAP_BR_ORDER_FULFILLMNT_MNGR
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Check Availability with Supply Protection (SUP)	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	    Business Process Scheduling (BPS)	Configure Activity Attributes 	F6439	Order Fulfillment Manager - Scheduling	SAP_BR_ORD_FLFMT_MNGR_SCHDG
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Preperation Activities for Business Process Scheduling (BPS)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Manage Characteristic Combinations	Manage Characteristic Combinations 	F5303	Order Fulfillment Manager - Scheduling	SAP_BR_ORD_FLFMT_MNGR_SCHDG
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Manage Characteristic Combinations	Manage Characteristic Catalogs 	F3829	Order Fulfillment Manager - Scheduling	SAP_BR_ORD_FLFMT_MNGR_SCHDG
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	            Configure Activity Attributes	Configure Activity Attributes 	F6439	Order Fulfillment Manager - Scheduling	SAP_BR_ORD_FLFMT_MNGR_SCHDG
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Scheduling with Days Granularity	Create Sales Orders -  	VA01	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Scheduling with Days Granularity	Configure Activity Attributes 	F6439	Order Fulfillment Manager - Scheduling	SAP_BR_ORD_FLFMT_MNGR_SCHDG
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	    Supply Creation-Based Confirmation (SBC) (Optional)				
+Supply Chain	Advanced Order Promising	1JW	Advanced Available-to-Promise Processing	        Check Availability with Supply Creation-Based Confirmation (SBC)	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Warehousing	1V5	Warehouse Inbound Processing from Supplier with Batch Management	    Create Purchase Order	Create Purchase Order 	ME21N	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Warehousing	1V5	Warehouse Inbound Processing from Supplier with Batch Management	    Create EWM Inbound Delivery				
+Supply Chain	Warehousing	1V5	Warehouse Inbound Processing from Supplier with Batch Management	    Create EWM Inbound Delivery	Create Inbound Deliveries - Deliveries 	F1705	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V5	Warehouse Inbound Processing from Supplier with Batch Management	    Process Goods Receipt	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V5	Warehouse Inbound Processing from Supplier with Batch Management	    Process Goods Receipt	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V5	Warehouse Inbound Processing from Supplier with Batch Management	    Process Goods Receipt	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	    Sales Order Entry				
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	    Sales Order Entry				
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	    Delivery Creation	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	    Delivery Creation	Create Outbound Deliveries 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	    Display Outbound Delivery Orders	Outbound Delivery Orders 	/SCWM/PRDO	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	    Check â€œSimulated Batch Determinationâ€				
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	        Check Batch Stock Overview (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V7	Warehouse Outbound Processing to Customer with Batch Management	        Check â€œSimulated Batch Selectionâ€œ (Optional)	Create Warehouse Tasks - Handling Units 	/SCWM/ADHU	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Create Purchase Order	Create Purchase Order 	ME21N	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Create EWM Inbound Delivery	Create Inbound Deliveries - Deliveries 	F1705	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Process Goods Receipt	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Process Goods Receipt	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Process Goods Receipt	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Check Warehouse Orders (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Move Handling Unit(s) to Quality Inspection Center	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Record Inspection Results	Record Inspection Results (Deprecated) 	F1685	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Record Inspection Results	Record Inspection Results 	F1685	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Make Usage Decision	Record Usage Decision 	QA11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Putaway of Products from the Quality Inspection Center to the High Rack Pallet Buffer				
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	        Move Pallets from Quality Inspection Center to Handover Point	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	        Putaway of Products from the Handover Point to the High Rack Pallet Buffer	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Move Handling Unit(s) to Blocked Stock Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Check Inbound Delivery (Optional)	Display Inbound Delivery 	VL33N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Warehousing	1V9	Basic Warehouse Inbound Processing from Supplier with Quality Management	    Check Inbound Delivery (Optional)	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	    Anonymous Forecast and MRP	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Material Requirements Planning at Plant Level	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Evaluate Stock/Requirements Situation	Monitor Material Coverage - Net Segments 	F0247A	Production Planner	SAP_BR_PRODN_PLNR
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Conversion to Production Order	Check Material Coverage 	F0251	Production Planner	SAP_BR_PRODN_PLNR
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Review Material Availability Status for Production Orders	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	    Production Order Processing				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Release Production Orders	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	    Staging and Consumption				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Plan Staging				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Check Production Material Requests (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Check Production Material Requests (Optional)				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Plan Staging	Stage for Production 	/SCWM/MFG_STAGING	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Plan Staging	Assign Bin to PSA - Warehouse 	/SCWM/PSASTAGE	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Check Staging Warehouse Orders (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Perform Staging of Products to the Production Supply Area				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Staging Products from Narrow Aisle Pallet Buffer				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	                Moving Pallets from Narrow Aisle Pallet Buffer to Handover Point	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	                Moving Pallets from Handover Point to PSA	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Staging Products from Narrow Aisle Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Perform Crate Part Replenishment				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Create Crate Part Replenishment Warehouse Task	Replenish Stock 	/SCWM/REPL	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Check Crate Part Replenishment Warehouse Orders	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Confirm Crate Part Replenishment Warehouse Tasks				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Consume Material during Production and Consumption				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Check PMR Material Requirements and PSA Stock Situation	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Material Consumption at PSA	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Check Goods Movement Posting for Production Consumption	Display Production Order 	CO03	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Confirm Production Orders	Display Production Order 	CO03	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Check Status of the Production Material Requests (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Clear the Production Supply Area				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Create PSA Clearing Warehouse Tasks	Clear Production Supply Area 	/SCWM/MFG_STAGING_REVERSAL	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Check Clearing Warehouse Orders	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Move Products from the Productoin Supply Area back to the Warehouse				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Moving Products to Narrow Aisle Pallet Buffer				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	                Moving Products from PSA to Handover Point	Display Production Order 	CO03	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	                Moving Products from Handover Point to Narrow Aisle Pallet Buffer	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Moving Products to Narrow Aisle Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	    Receipt from Production				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Perform the Goods Receipt from Production	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Check Goods Movement Posting for Production Goods Receipt	Display Production Order 	CO03	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	        Perform the Putaway of Finished Goods to the Final Bins				
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Display Inbound Delivery and Check Putaway Warehouse Orders	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Putaway Products to the Bulk Storage B	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	1VB	Production Integration - Component Consumption and Receipt in Warehouse	            Putaway Products to the Bulk Storage B	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Create Sales Order				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Create Sales Order				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Create Delivery	Create Outbound Delivery - With Order Reference 	VL01N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Release the Picking Wave	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Check Warehouse Orders (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Pick Warehouse Orders from the Mezzanine				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Pick from the Mezzanine	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Create Shipping Handling Unit and Repacking	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Create Shipping Handling Unit and Repacking	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Pick Warehouse Orders from the High Rack Narrow Aisle				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Pick from High Rack Pallet Buffer				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	            Pick Handling Units from High Rack Pallet Buffer	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	            Move Handling Unit from Handover Point to Packing Work Center	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Pick from High Rack Picking Area				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	            Pick Pallet Quantity from High Rack Picking Area	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	            Pick Partial Quantity from High Rack Picking Area				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	                Pick Partial Quantity	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	                Create Shipping Handling Unit(s) and Repacking	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Pick Warehouse Orders from the Bulk Storage				
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Pick from the Bulk Storage A (Partial Pallets Allowed)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Pick Non-Pallet Quantities from the Bulk Storage A (Partial Pallets Allowed)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Pick Pallet Quantities from the Bulk Storage B (No Partial Pallets)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Pick Non-Pallet Quantities from the Bulk Storage B (No Partial Pallets)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	        Create Shipping Handling Unit(s) and Repacking	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Close Shipping Handling Unit(s)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Close Shipping Handling Unit(s)	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Stage Shipping Handling Unit	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Stage Shipping Handling Unit	Pack Handling Units - Advanced 	/SCWM/PACK	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Display Loading Overview (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Display Loading Overview (Optional)	Display Outbound Delivery 	VL03N	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Display Loading Overview (Optional)	Display Sales Orders -  	VA03	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Create Transportation Unit and Assign to Door with Shipping Cockpit	Shipping Cockpit - Planning 	/SCWM/SCO	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Load Shipping Handling Unit(s)	Test RF Environment 	/SCWM/RFUI	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Finish Loading with Shipping Cockpit	Shipping Cockpit - Execution 	/SCWM/SCO_EXEC	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Advanced Warehousing	1VD	Advanced Warehouse Outbound Processing to Customer	    Check Outbound Delivery (Optional)	Display Outbound Delivery 	VL03N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Inventory	4LO	Enablement of SAP Excise Tax Management     (4LO)	    Replication of Organizational Data				
+Supply Chain	Inventory	4LO	Enablement of SAP Excise Tax Management     (4LO)	    Replication of Organizational Data				
+Supply Chain	Inventory	4LO	Enablement of SAP Excise Tax Management     (4LO)	    Replication of Master Data				
+Supply Chain	Inventory	4LO	Enablement of SAP Excise Tax Management     (4LO)	    Replication of Master Data				
+Supply Chain	Inventory	4LO	Enablement of SAP Excise Tax Management     (4LO)	    Replication of Material Documents				
+Supply Chain	Inventory	4LO	Enablement of SAP Excise Tax Management     (4LO)	    Excise Tax: Pricing Integration to SAP S/4HANA	Post Goods Issue 	WDA_WSGM_GR	Retail Store Associate	SAP_BR_RETAIL_STORE_ASSOCIATE
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Create Physical Inventory Documents				
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	        Option A: Schedule Physical Inventory Document Creation	Job Scheduling and Mass Processing - Physical Inventory 	F4550	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	        Option B: Create Physical Inventory Documents Manually	Create Physical Inventory Documents 	F3197	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Print Physical Inventory Documents	Print Physical Inventory Documents 	MI21	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Physical Count				
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Enter Inventory Count	Manage Physical Inventory Count 	F5430	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    List Count Differences	Process Physical Inventory Count Results 	MI20	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Recount (Optional)	Manage Physical Inventory Documents 	F0379A	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Post Inventory Count Differences	Process Physical Inventory Count Results 	MI20	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Display Physical Inventory Document Object Page (Optional)	Manage Physical Inventory Documents 	F0379A	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	4LU	Physical Inventory - Cycle Counting	    Physical Inventory Analysis (Optional)	Physical Inventory Analysis 	W0058	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	    Execute Packing for Outbound Delivery				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Execute Manual Packing	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Execute Automatic Packing	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	    Execute Packing for Inbound Delivery				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Execute Manual Packing	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Execute Automatic Packing	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	    Inventory Management with Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Non-assigned Handling Units in Handling Unit Managed Storage Location				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Transfer from Storage Location to Storage Location (Pick)				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Transfer from Storage Location to Storage Location (Putaway)				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Reverse Goods Movement				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	    Physical Inventory with Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Check Stock Information	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Non-assigned Handling Units in Handling Unit Managed Storage Location				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Physical Inventory Document and Perform Physical Inventory with Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Clear Differences from Physical Inventory Document				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Clear Differences from Physical Inventory Document	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Analyze Physical Inventory Document				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Delete Inventoried Status of Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Delete Physical Inventory Document				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	    Discrete Manufacturing with Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Post Goods Receipt for Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Post Goods Receipt for Handling Units	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	    Process Manufacturing with Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Post Goods Receipt for Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Post Goods Receipt for Handling Units	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	    Repetitive Manufacturing with Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Planned Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Create Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Confirm Repetitive Manufacturing for Handling Units				
+Supply Chain	Logistics Cross Topics	4MM	Handling Unit Management	        Confirm Repetitive Manufacturing for Handling Units	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Advanced Transportation	4OZ	Planning of External Transportation Requirements	    Select Freight Unit	Freight Units - Worklist	/SCMTMS/WD10W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Advanced Transportation	4OZ	Planning of External Transportation Requirements	    Create Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Assign or Create Batch (Optional)	Change Inbound Deliveries - Deliveries 	F1706	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Change Stock Type (Optional)	Change Inbound Deliveries - Deliveries 	F1706	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Create Handling Unit (Optional)	Change Inbound Deliveries - Deliveries 	F1706	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Post Goods Receipt	Change Inbound Deliveries - Deliveries 	F1706	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Create Putaway Warehouse Tasks	Change Inbound Deliveries - Deliveries 	F1706	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Confirm Warehouse Tasks	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Confirm Warehouse Tasks	Process Warehouse Tasks 	F4595	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	    Clarification Zone (Optional)				
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	        Check Material in Clarification Zone	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	        Create Warehouse Tasks from Clarification Zone to Final Bin	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RO	Decentralized EWM - Inbound Processing	        Confirm Warehouse Tasks	Process Warehouse Tasks 	F4595	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Assign Carrier (Optional)	Run Outbound Process - Deliveries 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Assign Carrier (Optional)	Run Outbound Process 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Create Pick Warehouse Tasks	Run Outbound Process - Deliveries 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Create Pick Warehouse Tasks	Run Outbound Process 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Confirm Pick Warehouse Tasks	Process Warehouse Tasks - Picking 	F3880	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Pack Goods into Shipping Handling Units (Optional)	Pack Outbound Deliveries 	F3193	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Print Loading Instruction (Optional)	Run Outbound Process - Deliveries 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Print Loading Instruction (Optional)	Run Outbound Process 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Post Goods Issue	Run Outbound Process - Deliveries 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RP	Decentralized EWM - Outbound Processing	    Post Goods Issue	Run Outbound Process 	F1704	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	    Create Ad-hoc Warehouse Tasks (Alternative 1)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	    Create Posting Change Warehouse Task for Scrapping (Alternative 2)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	    Confirm Warehouse Tasks	Process Warehouse Tasks - Internal Movements 	F4595	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	    Confirm Warehouse Tasks	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	    Post Ad-hoc Goods Issue				
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	        Post Ad Hoc Goods Issue to Another Storage Location	Post Goods Issue - Unplanned 	/SCWM/ADGI	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	        Post Ad-hoc Goods Issue for Consumption with Cost Center	Post Goods Issue - Unplanned 	/SCWM/ADGI	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	        Post Ad-hoc Goods Issue for Scrapping	Post Goods Issue - Unplanned 	/SCWM/ADGI	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	    Appendix				
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	        Process Integration				
+Supply Chain	Warehousing	4RQ	Decentralized EWM - Ad Hoc Goods Issue	            Preceding Processes				
+Supply Chain	Warehousing	4RR	Decentralized EWM - Physical Inventory	    Variant 1: Create and Print Cycle Counting Document	Create Inventory Documents - Cycle Counting 	/SCWM/PI_CC_CREATE	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RR	Decentralized EWM - Physical Inventory	    Variant 2: Create Counting Document	Create Inventory Documents - Physical Inventory 	/SCWM/PI_DOC_CREATE	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RR	Decentralized EWM - Physical Inventory	    Enter Count Result	Count Physical Inventory - Paper-Driven Counting 	F3340	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RR	Decentralized EWM - Physical Inventory	    Confirm Inventory Count Results				
+Supply Chain	Warehousing	4RR	Decentralized EWM - Physical Inventory	    Analyze Differences	Analyze Differences 	/SCWM/DIFF_ANALYZER	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RS	Decentralized EWM - Replenishment	    Replenish Stock	Replenish Stock 	/SCWM/REPL	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RS	Decentralized EWM - Replenishment	    Check Replenishment Warehouse Tasks (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Warehousing	4RS	Decentralized EWM - Replenishment	    Confirm Replenishment Warehouse Tasks	Process Warehouse Tasks 	F4595	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Order Promising	6LJ	Available-to-Promise Processing	    Monitor Product Availability	Monitor Product Availability 	CO09	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	    Manual Transportation Planning Road Freight Order				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Manual Transportation Planning for Road Freight Order				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Subcontracting for Road Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Receive Confirmation for Road Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Create Delivery and Monitor Road Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	    Manual Transportation Planning Rail Freight Order				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Manual Transportation Planning for Rail Freight Order				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Subcontracting for Rail Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Receive Confirmation for Rail Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Create Delivery and Monitor Rail Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	    Manual Transportation Planning Ocean Freight Booking				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Manual Transportation Planning for Ocean Freight Booking				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Subcontracting for Ocean Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Receive Confirmation for Ocean Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Create Freight Orders for Pick-up and Delivery for Ocean Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Create Delivery and Monitor Ocean Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	    Manual Transportation Planning Air Freight Booking				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Manual Transportation Planning for Air Freight Booking				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Perform Subcontracting for Air Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Receive Confirmation for Air Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Create Freight Orders for Pick-up and Delivery for Air Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Create Delivery and Monitor Air Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	    Appendix				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	        Process Integration				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	            Preceding Processes				
+Supply Chain	Delivery and Transportation	6W2	Manual Transportation Planning	            Succeeding Processes				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	    Road				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Outbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived and Checked In at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Checked Out and Departed at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived at Customer Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Inbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived and Checked In at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Ready for Warehousing	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Checked Out and Departed at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	    Rail				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Outbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Railcar Arrived and Checked In at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Railcar Checked Out and Departed at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Railcar Arrived at Customer Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Inbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Railcar Arrived and Checked-In at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Ready for Warehousing	Edit Rail Freight Order	/SCMTMS/WD12G	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Railcar Checked-Out and Departed at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	    Ocean				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Outbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived and Checked In at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Checked Out and Departed at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Create Billing Document	Create Billing Documents 	F0798	Billing Clerk	SAP_BR_BILLING_CLERK
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Truck at Port of Loading (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Vessel from Port of Loading (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Vessel at Port of Discharge (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Truck at Port of Discharge (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived at Customer Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Inbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Truck at Port of Loading (Pick-up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Vessel from Port of Loading (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Vessel at Port of Discharge (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Truck at Port of Discharge (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived and Checked-In at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Ready for Warehousing	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Checked Out and Departed at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	    Air				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Outbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived and Checked In at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Checked Out and Departed at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Create Billing Document	Create Billing Documents 	F0798	Billing Clerk	SAP_BR_BILLING_CLERK
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Truck at Airport of Departure (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Airplane at Airport of Departure (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Airplane at Airport of Departure (Main Leg)				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Airplane at Airport of Destination (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Airplane at Airport of Destination (Main Leg)				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Truck at Airport of Destination (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived at Customer Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	        Inbound				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Truck at Airport of Departure (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Airplane at Airport of Departure (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Airplane at Airport of Departure (Main Leg)				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Airplane at Airport of Destination (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Arrival of Airplane at Airport of Destination (Main Leg)				
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Departure of Truck at Airport of Destination (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Arrived and Checked In at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Ready for Warehousing	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	6W3	Transportation Execution	            Set Truck Checked Out and Departed at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	6W4	Freight Settlement	    Freight Cost Accrual Postings				
+Supply Chain	Delivery and Transportation	6W4	Freight Settlement	    Monitor Freight Cost Allocation Documents				
+Supply Chain	Delivery and Transportation	6W4	Freight Settlement	    Carrier Settlement for Freight Orders and Freight Bookings				
+Supply Chain	Delivery and Transportation	6W4	Freight Settlement	        Create Supplier Invoice (Invoice Verification)	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Create Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Purchase Order Communication to the supplierâ€™s system				
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Create Inbound Delivery				
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	        Inbound Delivery Creation via DELVRY Idoc (Optional)				
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	        Create Inbound Delivery Manually	Create Inbound Delivery 	VL31N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Automatic Freight Unit Creation & Inbound Delivery Creation in EWM				
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	        Display Freight Unit	Freight Units - Worklist	/SCMTMS/WD10W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	        Display EWM Inbound Delivery	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Manual Creation of Freight Order and Freight Unit Assignment				
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	        Create Freight Order	Freight Units - Worklist	/SCMTMS/WD10W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	        Update Freight Order	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Set to Ready for Transportation Execution	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Set Truck Arrived at Receiving Point Location	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Set Truck Checked In at Receiving Point Location	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Set Ready for Warehousing	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Warehouse Door Assignment	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Execution of Unloading the Goods	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Trigger Goods Movement (Goods receipt)	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Create Putaway Warehouse Task	Maintain Inbound Deliveries 	/SCWM/PRDI	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Confirm Warehouse Tasks	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Confirm Warehouse Tasks	Process Warehouse Tasks - Putaway 	F4150	Warehouse Operative (EWM)	SAP_BR_WAREHOUSE_OPERATIVE_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Check Stock Level (Optional)	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Set Warehouse Door Status â€œDeparted from Doorâ€	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GP	Basic TM/EWM - Inbound Advanced Shipping and Receiving	    Set Truck Checked Out and Departed from Receiving Point Location	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	    Create Sales Order and Delivery Creation				
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Create Sales Order	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Create Outbound Delivery	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Create Outbound Delivery	Create Outbound Deliveries 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	    Check Automatic Freight Unit & Outbound Delivery Order in EWM				
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Check Automatic Freight Unit (Optional)	Freight Units - Worklist	/SCMTMS/WD10W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Check Outbound Delivery Order in EWM	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	    Planning				
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Manual Creation of Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Ready for Transportation Execution	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Ready for Warehousing - Transport Driven Process	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	    Picking and Packing				
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Create Pick Warehouse Tasks	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Confirm Pick Warehouse Tasks	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Deliveries to Ready for Shipping	Warehouse Monitor 	/SCWM/MON	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Truck Arrived and Checked In at Shipping Point Location	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	    Loading and Goods Issue				
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Truck arrives at Loading Point (Warehouse)	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Print Shipping Manifest (Optional)	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Execution Status â€œSet items to Loadedâ€	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Execution Status â€œSet Stop to Loading Completedâ€ for Loading Point	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Trigger Goods Issue for Warehouse Stock	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Print Road Waybill (Optional)	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Depart from Door at Loading Point	Load or Unload Freight Orders 	/SCMTMS/ASR	Warehouse Clerk (EWM)	SAP_BR_WAREHOUSE_CLERK_EWM
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	    Execution				
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Truck Checked Out and Departed at Shipping Point Location	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Send Freight Order Information to the Carrier (Optional)	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7GQ	Basic TM/EWM - Outbound Advanced Shipping and Receiving	        Set Truck Arrived at Customer Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	    Manual Transportation Planning Road Freight Order				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Manual Transportation Planning for Road Freight Order				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Subcontracting for Road Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Receive Confirmation for Road Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Monitor Road Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	    Manual Transportation Planning Rail Freight Order				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Manual Transportation Planning for Rail Freight Order				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Subcontracting for Rail Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Receive Confirmation for Rail Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Monitor Rail Freight Order	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	    Manual Transportation Planning Ocean Freight Booking				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Manual Transportation Planning for Ocean Freight Booking				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Subcontracting for Ocean Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Receive Confirmation for Ocean Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Create Freight Orders for Pick-up and Delivery for Ocean Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	    Manual Transportation Planning Air Freight Booking				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Manual Transportation Planning for Air Freight Booking				
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Perform Subcontracting for Air Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Receive Confirmation for Air Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IV	Manual Transportation Planning - Basic TM	        Create Freight Orders for Pick-up and Delivery for Air Freight Booking	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	    Road				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Outbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived and Checked In at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Checked Out and Departed at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived at Customer Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Inbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived and Checked In at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Ready for Warehousing	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Checked Out and Departed at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	    Rail				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Outbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Railcar Arrived and Checked In at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Railcar Checked Out and Departed at Shipping Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Railcar Arrived at Customer Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Inbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Railcar Arrived and Checked-In at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Ready for Warehousing	Edit Rail Freight Order	/SCMTMS/WD12G	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Railcar Checked-Out and Departed at Receiving Point Location	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	    Ocean				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Outbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived and Checked In at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Checked Out and Departed at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Create Billing Document	Create Billing Documents 	F0798	Billing Clerk	SAP_BR_BILLING_CLERK
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Truck at Port of Loading (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Vessel from Port of Loading (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Vessel from Port of Loading (Main Leg)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Vessel at Port of Discharge (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Truck at Port of Discharge (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived at Customer Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Inbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Truck at Port of Loading (Pick-up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Vessel from Port of Loading (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Vessel at Port of Discharge (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Truck at Port of Discharge (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived and Checked-In at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Ready for Warehousing	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Checked Out and Departed at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	    Air				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Outbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived and Checked In at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Checked Out and Departed at Shipping Point Location (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Create Billing Document	Create Billing Documents 	F0798	Billing Clerk	SAP_BR_BILLING_CLERK
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Truck at Airport of Departure (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Airplane at Airport of Departure (Main Leg)				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Airplane at Airport of Departure (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Airplane at Airport of Destination (Main Leg)				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Airplane at Airport of Destination (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Truck at Airport of Destination (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived at Customer Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	        Inbound				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Truck at Airport of Departure (Pick-Up)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Airplane at Airport of Departure (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Airplane at Airport of Departure (Main Leg)				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Airplane at Airport of Destination (Main Leg)	Freight Bookings - Worklist	/SCMTMS/WD11W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Arrival of Airplane at Airport of Destination (Main Leg)				
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Departure of Truck at Airport of Destination (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Arrived and Checked In at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Ready for Warehousing	Edit Road Freight Order	/SCMTMS/WD12F	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Post Goods Receipt	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Delivery and Transportation	7IW	Transportation Execution - Basic TM	            Set Truck Checked Out and Departed at Receiving Point Location (Delivery)	Freight Orders - Worklist	/SCMTMS/WD12W	Transportation Planner	SAP_BR_TRANSPORTATION_PLANNER
+Supply Chain	Delivery and Transportation	7IX	Freight Settlement - Basic TM	    Freight Cost Accrual Postings				
+Supply Chain	Delivery and Transportation	7IX	Freight Settlement - Basic TM	    Monitor Freight Cost Allocation Documents				
+Supply Chain	Delivery and Transportation	7IX	Freight Settlement - Basic TM	    Carrier Settlement for Freight Orders and Freight Bookings				
+Supply Chain	Delivery and Transportation	7IX	Freight Settlement - Basic TM	        Create Supplier Invoice (Invoice Verification)	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review the Bill of Distribution (Optional)	Display Assignment 	CLW2	Master Data Specialist - Product Data (Retail)	SAP_BR_MD_SPCLST_ITEM_RFM
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review the Replenishment Indicator	Display eSPP Cockpit 	/SAPAPO/SPP_COCKPIT	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Copy Historical Demand Data Using Excel File				
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Capture Raw and Demand History Data	Manage Planning Services 	/SAPAPO/PE_RUN	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Historical Demand (Raw and Aggregated)				
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Load the Interactive Forecasting UI (Optional)	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Forecast Profile Parameters	Manage Forecast Profile 	/SAPAPO/SPPFCSTPRF	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Configuration Settings for Forecast Model Determination (Optional)				
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Execute a Simulation Forecast (Optional)	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Execute a Batch Job for Simple Forecast Run	Manage Planning Services 	/SAPAPO/PE_RUN	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Forecasting Results	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Execute a Batch Job for Automatic Model Selection	Manage Planning Services 	/SAPAPO/PE_RUN	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Forecast Model Selection	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Execute a Batch Job for Composite Forecast Run	Manage Planning Services 	/SAPAPO/PE_RUN	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Demand Forecast Results	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Input a Manual Forecast	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Disaggregated Forecast at Child Location (Optional)	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Perform Forecast Approval	Approve Forecast 	/SAPAPO/SPPFCSTAPPR	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Service Parts DistributionÃ¢Â€Â‹	7JF	Extended Service Parts Planning - Demand Planning	    Review Demand Final Forecast Result	Manage Forecast 	/SAPAPO/SPPFCST	Demand Planner - Service Parts	SAP_BR_DEMAND_PLANNER_SPP
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Processing	Overview Inventory Processing 	F2416	Warehouse Clerk	SAP_BR_WAREHOUSE_CLERK
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Processing	Manage Physical Inventory Documents 	F0379A	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Processing	Goods Movement Analysis	W0055	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Processing	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Processing	Overdue Materials 	F2139	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Processing	Monitor Purchase Order Items 	F2358	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Processing	Overdue Materials 	F2347	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Management	Overview Inventory Management 	F2769	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Management	Overdue Materials - GR Blocked Stock 	F2347	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Management	Overdue Materials - Stock in Transit 	F2139	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Management	Monitor Purchase Order Items 	F2358	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Warehousing	BGG	SAP Fiori Analytical Apps for Inventory and Warehouse Management     (BGG)	    Overview Inventory Management	Stock - Multiple Materials 	F1595	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Post Goods Receipt Without Reference	Post Goods Receipt without Reference 	F3244	Warehouse Clerk	SAP_BR_WAREHOUSE_CLERK
+Supply Chain	Inventory	BMC	Core Inventory Management	    Customer Returns Scrapping: Goods Issue to CO-PA	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    General Stock Scrapping: Goods Issue to Cost Center	Manage Stock 	F1062	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Block Material â€“ Stock Transfer Unrestricted to Blocked	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Unblock Material â€“ Stock Transfer Blocked to Unrestricted	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Unblock Material â€“ Stock Transfer Blocked to Quality Inspection Stock	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    One Step Stock Transfer	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Two Steps Stock Transfer (Remove from Storage Location)	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Two Steps Stock Transfer (Place to Storage Location)	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	        Preview Stock Transfer Note				
+Supply Chain	Inventory	BMC	Core Inventory Management	        Preview Stock Transfer Note	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Supply Chain	Inventory	BMC	Core Inventory Management	    Stock Overview - Single Material	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Supply Chain	Inventory	BMC	Core Inventory Management	    Material Documents Overview	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Supply Chain	Inventory	BMC	Core Inventory Management	    Slow or Non-Moving Materials	Slow or Non-Moving Materials 	F2137	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Dead Stock Analysis	Dead Stock Analysis 	F2899	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Goods Movement Analysis (Optional)				
+Supply Chain	Inventory	BMC	Core Inventory Management	    Analyze Stock in Date Range (Optional)	Analyze Stock in Date Range 	F6185	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BMC	Core Inventory Management	    Check Registration Numbers of Traceable Goods Assignments (Optional)	Display RNPT Assignments - Russia 	J3RMRNUSAGE	Trade Compliance Specialist for Russian Federation	SAP_BR_TRD_CMPLNC_MANAGER_RU
+Supply Chain	Inventory	BMC	Core Inventory Management	    Storage Sheet Romania				
+Supply Chain	Inventory	BMC	Core Inventory Management	    Stocks for Posting Date				
+Supply Chain	Inventory	BMK	Return to Supplier	    Part 1: Advanced Returns Management				
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Returns Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Outbound Delivery	My Purchase Orders - Due for Delivery 	VL10B	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	        Pick and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Credit Memo	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Credit Memo	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Supply Chain	Inventory	BMK	Return to Supplier	        Receive Replacement Material (Optional)	Receive Replacement Materials - From Vendor 	MSR_VRM_GR	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	        Post Goods Receipt(Optional)	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	        Follow-Up Activities For Replacement Material(Optional)	My Follow-Up Activities - For Replacement Materials 	MSR_VRM_LFU	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	        Check Invoice Document (Optional)	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Inventory	BMK	Return to Supplier	    Part 2ï¼š Basic Return to Supplier				
+Supply Chain	Inventory	BMK	Return to Supplier	        Post Goods Issue to Supplier				
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Returns Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Inventory	BMK	Return to Supplier	            Goods Issue with Outbound Delivery				
+Supply Chain	Inventory	BMK	Return to Supplier	                Create Outbound Delivery	My Purchase Orders - Due for Delivery 	VL10B	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	                Pick and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	        Monitor Purchase Order Items (Optional)	Monitor Purchase Order Items 	F2358	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Inventory	BMK	Return to Supplier	        Post Goods Issue to Supplier				
+Supply Chain	Inventory	BMK	Return to Supplier	            Goods Issue with Outbound Delivery				
+Supply Chain	Inventory	BMK	Return to Supplier	                Create Outbound Delivery	My Purchase Orders - Due for Delivery 	VL10B	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	                Pick and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Credit Memo	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Supply Chain	Inventory	BMK	Return to Supplier	        Monitor Purchase Order Items (Optional)	Monitor Purchase Order Items 	F2358	Purchaser	SAP_BR_PURCHASER
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Credit Memo	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Supply Chain	Inventory	BMK	Return to Supplier	        Create Credit Memo	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Create Physical Inventory Documents				
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	        Option A: Create Physical Inventory Documents (Mass Creation)				
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	            Mass Creation with Create Physical Inventory Document	Create Physical Inventory Documents 	F3197	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	            Mass Creation with Create PI Documents Regular Stock	Create PI Documents - Regular Stock 	MI31	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	        Option B: Create Physical Inventory Document (Single Creation)	Create Physical Inventory Documents 	F3197	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Print Physical Inventory Documents	Print Physical Inventory Documents 	MI21	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Physical Count				
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Enter Inventory Count	Manage Physical Inventory Count 	F5430	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Manually Trigger Notification for Physical Inventory (Optional)	Manage Situation Types 	F2947	Configuration Expert - Business Process Configuration	SAP_BR_BPC_EXPERT
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Check Notification of Physical Inventory (Optional)				
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Dismiss Notification of Physical Inventory (Optional)				
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    List Count Differences	Process Physical Inventory Count Results 	MI20	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Recount (Optional)	Manage Physical Inventory Documents 	F0379A	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Post Inventory Count Differences	Process Physical Inventory Count Results 	MI20	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Display Physical Inventory Document Object Page (Optional)	Manage Physical Inventory Documents 	F0379A	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Supply Chain	Inventory	BML	Physical Inventory - Inventory Count and Adjustment	    Physical Inventory Analysis (Optional)	Physical Inventory Analysis 	W0058	Inventory Manager	SAP_BR_INVENTORY_MANAGER

@@ -1,0 +1,29 @@
+# Pattern 4: MATNR / partner-field length extension (CHAR18 -> CHAR40)
+# Source: research-pattern-library.md §4
+check_ids:
+  - "FDT_VAR_FIELD_LENGTH::MATNR_EXT"
+  - "FLDEXT_MATNR"
+priority: 1
+fix_shape: mechanical
+template:
+  before: |
+    DATA lv_matnr TYPE char18.
+    SELECT SINGLE matnr FROM mara INTO lv_matnr WHERE matnr = lv_input.
+  after: |
+    DATA lv_matnr TYPE matnr.
+    SELECT SINGLE matnr FROM mara INTO @lv_matnr WHERE matnr = @lv_input.
+context_required:
+  - "DDIC lookup confirming the field is extendable to CHAR40"
+  - "customer pseudo-comment policy for #EC CI_FLDEXT_OK"
+confidence_signals:
+  high:
+    - "type is CHAR18 and used only as MATNR"
+    - "no OFFSET/LENGTH access like lv_matnr+0(18)"
+    - "no CONCATENATE into a fixed-width target"
+  low:
+    - "OFFSET/LENGTH access present (silent truncation risk)"
+    - "RFC partner system still on 18-char MATNR"
+    - "field is concatenated into a wider string of fixed width"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 2267140
+sap_note_secondary: 2347000

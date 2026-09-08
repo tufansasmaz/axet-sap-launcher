@@ -1,0 +1,202 @@
+# LLM-eval suite for the `param-typing` pattern.
+
+- id: single-caller-consistent
+  description: Single caller passes bapi_amount (high)
+  input_payload:
+    cluster_id: c-0601
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_TAX_CALC
+      include: ZCL_TAX_CALC==========CM001
+      line: 12
+      message: "Untyped CHANGING parameter `result`"
+    context:
+      method: calculate
+      param: result
+      callers:
+        - inferred_type: bapi_amount
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: multi-callers-conflict
+  description: Multiple callers pass conflicting types (low)
+  input_payload:
+    cluster_id: c-0602
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_MULTI_USE
+      include: ZCL_MULTI_USE==========CM001
+      line: 7
+      message: "Untyped CHANGING parameter — multiple caller types"
+    context:
+      method: process
+      param: data
+      callers:
+        - inferred_type: vbap
+        - inferred_type: string
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: interface-method
+  description: Method implements an interface — type fixed externally (low)
+  input_payload:
+    cluster_id: c-0603
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_IF_IMPL
+      include: ZCL_IF_IMPL==========CM001
+      line: 11
+      message: "Untyped parameter on interface-implementing method"
+    context:
+      method: handle
+      param: payload
+      implements_interface: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: caller-scan-unavailable
+  description: caller-scan UNAVAILABLE — type unknown (low)
+  input_payload:
+    cluster_id: c-0604
+    check_id: SLIN::untyped_parameter
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_OPAQUE
+      include: ZCL_OPAQUE==========CM001
+      line: 19
+      message: "Untyped parameter, caller-scan unavailable"
+    context:
+      method: build
+      param: result
+      caller_scan_unavailable: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: bapi-amount-single
+  description: Single consistent caller — bapi_amount
+  input_payload:
+    cluster_id: c-0605
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_TOTALS
+      include: ZCL_TOTALS==========CM001
+      line: 27
+      message: "Untyped CHANGING parameter `amount`"
+    context:
+      method: total
+      param: amount
+      callers:
+        - inferred_type: bapi_amount
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: vbap-row-clean
+  description: Single caller passes a VBAP work area
+  input_payload:
+    cluster_id: c-0606
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_LINE_HANDLER
+      include: ZCL_LINE_HANDLER==========CM001
+      line: 22
+      message: "Untyped parameter — VBAP row"
+    context:
+      method: handle_row
+      param: row
+      callers:
+        - inferred_type: vbap
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: string-clean
+  description: Plain string parameter, single caller
+  input_payload:
+    cluster_id: c-0607
+    check_id: SLIN::untyped_parameter
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_TEXT_BUILDER
+      include: ZCL_TEXT_BUILDER==========CM001
+      line: 33
+      message: "Untyped parameter — string"
+    context:
+      method: build
+      param: text
+      callers:
+        - inferred_type: string
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: snwd-so-id-clean
+  description: Returning param — snwd_so_id (high)
+  input_payload:
+    cluster_id: c-0608
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_SO_LOOKUP
+      include: ZCL_SO_LOOKUP==========CM001
+      line: 17
+      message: "Untyped RETURNING parameter"
+    context:
+      method: lookup
+      param: id
+      callers:
+        - inferred_type: snwd_so_id
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: string-table-clean
+  description: Untyped CHANGING `lines` — single caller passes string_table
+  input_payload:
+    cluster_id: c-0609
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_RENDERER
+      include: ZCL_RENDERER==========CM001
+      line: 47
+      message: "Untyped CHANGING parameter `lines`"
+    context:
+      method: render
+      param: lines
+      callers:
+        - inferred_type: string_table
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: many-callers-same-type
+  description: Multiple callers, ALL pass same type — high
+  input_payload:
+    cluster_id: c-0610
+    check_id: Y_CHECK_PARAMETER_TYPING
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_QTY_PROCESS
+      include: ZCL_QTY_PROCESS==========CM001
+      line: 14
+      message: "Untyped CHANGING parameter — multiple consistent callers"
+    context:
+      method: process
+      param: qty
+      callers:
+        - inferred_type: menge_d
+        - inferred_type: menge_d
+        - inferred_type: menge_d
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]

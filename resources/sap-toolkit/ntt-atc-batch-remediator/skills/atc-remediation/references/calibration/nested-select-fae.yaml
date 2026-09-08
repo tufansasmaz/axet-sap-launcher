@@ -1,0 +1,203 @@
+# LLM-eval suite for the `nested-select-fae` pattern.
+
+- id: orders-vendors-clean
+  description: lt_orders -> LFA1 join on LIFNR, single key, no MODIFY of other fields (high)
+  input_payload:
+    cluster_id: c-0901
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_ORDER_ENRICH
+      include: ZR_ORDER_ENRICH
+      line: 22
+      message: "Nested SELECT in LOOP — FAE candidate"
+    context:
+      driver_table: lt_orders
+      target_table: LFA1
+      join_keys: [LIFNR]
+      driver_guarded_not_initial: true
+      modify_widens: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: docs-buyers-clean
+  description: lt_documents -> KNA1 join on KUNNR (high)
+  input_payload:
+    cluster_id: c-0902
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DOC_ENRICH
+      include: ZR_DOC_ENRICH
+      line: 33
+      message: "Nested SELECT — KUNNR lookup"
+    context:
+      driver_table: lt_documents
+      target_table: KNA1
+      join_keys: [KUNNR]
+      driver_guarded_not_initial: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: items-materials-clean
+  description: lt_items -> MAKT join on MATNR (high)
+  input_payload:
+    cluster_id: c-0903
+    check_id: SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_ITEM_DESC
+      include: ZR_ITEM_DESC
+      line: 41
+      message: "Nested SELECT for material text"
+    context:
+      driver_table: lt_items
+      target_table: MAKT
+      join_keys: [MATNR]
+      driver_guarded_not_initial: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: cds-view-preferred
+  description: Released CDS view exists — FAE rewrite is judgment territory (low)
+  input_payload:
+    cluster_id: c-0904
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_CDS_CANDIDATE
+      include: ZR_CDS_CANDIDATE
+      line: 17
+      message: "Nested SELECT but CDS view available"
+    context:
+      driver_table: lt_orders
+      target_table: I_SalesOrder
+      join_keys: [SalesOrder]
+      released_cds_view_exists: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: dedup-risk
+  description: Driver has duplicate join keys — FAE dedup risk (low)
+  input_payload:
+    cluster_id: c-0905
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DUP_KEYS
+      include: ZR_DUP_KEYS
+      line: 28
+      message: "Nested SELECT with duplicate driver keys"
+    context:
+      driver_table: lt_lines
+      target_table: MAKT
+      join_keys: [MATNR]
+      driver_has_dup_keys: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: modify-widens
+  description: MODIFY widens to multiple fields (FAE needs extending — low)
+  input_payload:
+    cluster_id: c-0906
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MOD_WIDE
+      include: ZR_MOD_WIDE
+      line: 47
+      message: "Nested SELECT with multi-field MODIFY"
+    context:
+      driver_table: lt_orders
+      target_table: LFA1
+      join_keys: [LIFNR]
+      modify_widens: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: empty-driver-not-guarded
+  description: Driver not pre-guarded against IS NOT INITIAL (medium)
+  input_payload:
+    cluster_id: c-0907
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_NO_GUARD
+      include: ZR_NO_GUARD
+      line: 19
+      message: "Nested SELECT — driver may be empty"
+    context:
+      driver_table: lt_orders
+      target_table: LFA1
+      join_keys: [LIFNR]
+      driver_guarded_not_initial: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.50, 0.90]
+
+- id: invoices-currencies
+  description: lt_invoices -> TCURC join on WAERS (high)
+  input_payload:
+    cluster_id: c-0908
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_INV_ENRICH
+      include: ZR_INV_ENRICH
+      line: 51
+      message: "Nested SELECT — currency text"
+    context:
+      driver_table: lt_invoices
+      target_table: TCURC
+      join_keys: [WAERS]
+      driver_guarded_not_initial: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: assignments-employees
+  description: lt_assignments -> PA0001 join on PERNR (high)
+  input_payload:
+    cluster_id: c-0909
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_HR_ENRICH
+      include: ZR_HR_ENRICH
+      line: 22
+      message: "Nested SELECT — employee name"
+    context:
+      driver_table: lt_assignments
+      target_table: PA0001
+      join_keys: [PERNR]
+      driver_guarded_not_initial: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: multi-key-join-clean
+  description: Multi-key join (clean composite — high)
+  input_payload:
+    cluster_id: c-0910
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MULTI_KEY
+      include: ZR_MULTI_KEY
+      line: 38
+      message: "Nested SELECT — composite join"
+    context:
+      driver_table: lt_positions
+      target_table: VBAP
+      join_keys: [VBELN, POSNR]
+      driver_guarded_not_initial: true
+      modify_widens: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.70, 1.00]

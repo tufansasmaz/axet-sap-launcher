@@ -13,6 +13,7 @@ import path from "node:path";
 import { enforceTierOnCatalog, readCatalogRecord } from "./catalogSkills";
 import {
   DEFAULT_PROFILE,
+  SHARED_ASSETS,
   SKILL_CATALOG,
   orphanedProfileSkills,
   planSkills,
@@ -173,6 +174,8 @@ export function installSkillsIntoProject(
     }
   }
 
+  installSharedAssets(toolkitRoot, projectDir, result.installed);
+
   // Katalogdan kurulmuş yetenekler de aynı PRD kapısına tabi. Yukarıdaki döngü
   // yalnızca profildeki adlara bakıyor; katalogdan gelen bir yazma yeteneği o
   // listede olmadığı için kapıdan sessizce sızardı.
@@ -196,6 +199,39 @@ export function installSkillsIntoProject(
   }
 
   return result;
+}
+
+/**
+ * Skill klasörünün DIŞINDA duran paylaşılan dosyalar (bkz. `SHARED_ASSETS`).
+ *
+ * Kendilerine ihtiyaç duyan bir skill kurulduysa kopyalanır, kurulmadıysa —
+ * rol değişmiş ya da PRD kapısı kapatmış olabilir — bizim bıraktığımız kopya
+ * kaldırılır. Silme kararı `marker` dosyasına bakıyor: `.axet-code/lib` ya da
+ * `.axet-code/scripts` kullanıcının kendi koyduğu bir klasör de olabilir ve o
+ * bizim işimiz değil.
+ */
+function installSharedAssets(toolkitRoot: string, projectDir: string, installed: string[]): void {
+  const root = path.join(projectDir, ".axet-code");
+  for (const asset of SHARED_ASSETS) {
+    const dest = path.join(root, asset.dest);
+    const ours = existsSync(path.join(dest, asset.marker));
+    if (!asset.requiredBy.some((name) => installed.includes(name))) {
+      if (ours) rmSync(dest, { recursive: true, force: true });
+      continue;
+    }
+    const src = path.join(toolkitRoot, ...asset.path.split("/"));
+    if (!existsSync(src)) continue;
+    try {
+      if (ours) rmSync(dest, { recursive: true, force: true });
+      cpSync(src, dest, {
+        recursive: true,
+        force: true,
+        filter: (from) => !path.relative(src, from).split(path.sep).includes("__pycache__")
+      });
+    } catch {
+      /* kopyalanamadıysa skill'ler yine kurulu; script çalıştığında söyler */
+    }
+  }
 }
 
 /** `<kök>` altındaki skill klasörleri — okunamıyorsa boş, çünkü boş liste hiçbir

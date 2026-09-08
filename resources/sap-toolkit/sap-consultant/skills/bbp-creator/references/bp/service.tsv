@@ -1,0 +1,228 @@
+LOB	Business Area	Scope Item ID	Description	Solution Activity (Hierarchy)	Fiori App or Transaction Title	Fiori App or Transaction ID	Business Role Description	Business Role ID
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Identify Account and Equipment	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Create Service Request				
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Search for Solution				
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Dispatch Service Request and End Call				
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Process Service Request from Inbox				
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Provide Solution via E-Mail				
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Complete Service Request				
+Service	Service Operations & Processes	41W	Interaction Center with Service Request Management	    Optional: Reply to E-Mail from Customer				
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Create Service Quotation	Manage Service Quotations 	WCF0054	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Send Service Quotation to Customer	Manage Service Quotations 	WCF0054	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Create Service Order Without Preceding Document	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Add Service Items with Add Hoc Billing	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Create Service Confirmation	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Release Service Items for Billing via a Report				
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Optional: Release Service Items for Billing via App	Release for Billing 	WCF0140	Customer Service Manager - In-House Repair	SAP_BR_CUST_SRVC_MGR_REPA
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Billing the Service				
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	    Service Accounting and Controlling				
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	        Analyze Product and Service Margin				
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	        Analyze Service Plan and Actuals				
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	        Analyze Service Order Actuals	Service Actuals 	FIS_FPM_OVP_IPSRVO4	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	41Z	Service Quotation and Order Management	        Analyze Event-Based Revenue Recognition				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	    Service Contracts Template				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Create Service Contracts Template	Manage Service Contract Templates 	F6356	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Release Service Contract Templates	Manage Service Contract Templates 	F6356	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Create Follow Up Transaction for Service Contracts	Manage Service Contract Templates 	F6356	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	    Service Contract Management				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Create and release a new Service Contract	Manage Service Contracts 	F3763	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Maintain Product List and create Price Agreement for Service Product				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Create Service Contract Item with Configurable Product (Optional)				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Adapt Service Contract Prices	Manage Service Contracts 	F3763	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Create a Service Contract Item for Ad-hoc Billing				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	    Service Contract Billing				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Create Billing Document Requests				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Create Billing Document (Invoice)	Create Billing Documents 	F0798	Billing Clerk	SAP_BR_BILLING_CLERK
+Service	Service Master Data & Agreement Management	426	Service Contract Management	    Service Contract Change Processes (optional)				
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Manually Renew Service Contract Item	Manage Service Contracts 	F3763	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Manually Renew Service Contract Item	Create Service Contract 	WCF0001	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Manually Renew Entire Service Contract	Manage Service Contracts 	F3763	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Manually Renew Entire Service Contract	Create Service Contract 	WCF0001	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Change Sold-to Party	Manage Service Contracts 	F3763	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	426	Service Contract Management	        Cancel Service Contract	Manage Service Contracts 	F3763	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	    Service Management Overview				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Review Service Contract Items for Expiry/Renewal				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Review Service Contracts by Total Contract Value/Profit Margin				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Review Overdue Service Orders				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Review Incomplete Service Orders				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Monitor Average Service Duration by Product				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Review Expired Service Contracts				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Verify Quick Links	Service Order Issues 	F4033	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Verify Quick Links	Service Contract Issues 	F4032	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	    Service Contracts				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Service Contract Issues				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Contract Issues - Graphical Overview				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Order Issues by Country and Region				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Contract Issues by Service Transactions				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Contract Issues by Sales Organization				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Contract Issues - Mini Tiles				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	    Service Orders				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	        Service Order Issues				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Order Issues - Graphical Overview				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Order Issues by Country and Region				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Order Issues by Service Transactions				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Order Issues by Sales Organization				
+Service	Service Master Data & Agreement Management	43B	Service Monitoring and Analytics     (43B)	            Analyze Service Order Issues - Mini Tiles				
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Create Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Validate Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Adjust Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Send to Supplier	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Maintain Supplier Response	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Post Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Reverse Claim Posting	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Reject Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Cancel Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Close Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Reprocess Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	5HR	Warranty Claim Management - Supplier Recovery Processing	    Reopen Supplier Claim	Manage Supplier Claims 	F5227	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Create Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Discard Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Validate Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Adjust Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Request Customer Return Parts	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Request Additional Information from Customer	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Information Provided	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Start Supplier Process from Customer	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Accept Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Reverse Posting of Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Post Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Reject Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Close Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Reopen Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	63Y	Warranty Claim Management - Customer Claim Processing	    Reprocess Customer Claim	Manage Customer Claims 	F6204	Claims Analyst	SAP_BR_CLAIMS_ANALYST_COMPL
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	    Service Order Quotation Process				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Create Service Quotation with Advanced Execution	Manage Service Quotations 	WCF0054	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Complete Quotation Planning				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Optional:Send Execution Order Item to Re-Planning				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Release Service Order Quotation				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Accept Service Order Quotation				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	    Service Order with Advanced Execution Process				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Create Service Order with Advanced Execution	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Release Maintenance Order	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Optional: Distributed Execution				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	            Copy Maintenance Order				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	            Create Follow-On Maintenance Order				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	    Confirmation Process				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Create Time Confirmation	Enter PM Order Confirmation 	IW41	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Post Goods Issue (Optional)				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Complete Maintenance Order and Service Order Item	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	    Billing Process				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Create Debit Memo Request				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Create Debit Memo				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Optional: Create Billing Document Request for Billing Plan Item				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Optional: Create Invoice for BDR				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	    Revenue and Cost Analytics				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Display Event-Based Revenue Recognition				
+Service	Service Master Data & Agreement Management	6AU	Service with Advanced Execution	        Review Service Plan / Actuals				
+Service	Service Master Data & Agreement Management	6F1	Recurring Services with Advanced Execution	    Create Service Contract	Manage Service Contracts 	F3763	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Master Data & Agreement Management	6F1	Recurring Services with Advanced Execution	    Create Strategy Plan	Add strategy-controlled plan 	IP42	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Master Data & Agreement Management	6F1	Recurring Services with Advanced Execution	    Schedule Maintenance Plan				
+Service	Service Master Data & Agreement Management	6F1	Recurring Services with Advanced Execution	    Mass Schedule and Monitor Maintenance Plans (Optional)	Mass Schedule Maintenance Plans - Service 	F4929	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Master Data & Agreement Management	6F1	Recurring Services with Advanced Execution	    Mass Schedule and Monitor Maintenance Plans (Optional)	Monitor Mass Scheduling Logs - Service 	F4930	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Master Data & Agreement Management	6F1	Recurring Services with Advanced Execution	    Execute Service with Advanced Execution (Optional)				
+Service	Service Operations & Processes	7GA	Recurring Services	    Create and release new Service Contract				
+Service	Service Operations & Processes	7GA	Recurring Services	    Create Service Order Template	Manage Service Order Templates 	WCF0062	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GA	Recurring Services	    Create Maintenance Plan				
+Service	Service Operations & Processes	7GA	Recurring Services	        Time-Based Single Cycle Plan	Create Maintenance Plan 	EAMS_WDA_MPLAN_OIF_V2	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Operations & Processes	7GA	Recurring Services	        Performance-Based Single Cycle Plan	Create Maintenance Plan 	EAMS_WDA_MPLAN_OIF_V2	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Operations & Processes	7GA	Recurring Services	        Multiple Counter Plan	Create Maintenance Plan 	EAMS_WDA_MPLAN_OIF_V2	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Operations & Processes	7GA	Recurring Services	    Schedule Maintenance Plan (Optional)	Schedule Maintenance Plan - Service 	CRMS4_MPLAN_SCHED_S	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Operations & Processes	7GA	Recurring Services	    Mass Schedule Maintenance Plans (Optional)	Mass Schedule Maintenance Plans - Service 	F4929	Service Planner - Recurring Service	SAP_BR_SERVICE_PLANNER
+Service	Service Operations & Processes	7GA	Recurring Services	    Monitor Mass Scheduling Logs (Optional)				
+Service	Service Operations & Processes	7GA	Recurring Services	    Update Counter Reading for the Technical Objects (Optional)	Create Measurement Document for Technical Object 	EAMS_WDA_MD_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Service	Service Operations & Processes	7GB	Service - In-House Repair	    Start with a Returns Order and Process In-House Repair with a Service Quotation				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Returns Order				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create In-House Repair with Repair Object	Enter Inspection Results - From Warehouse 	MSR_INSPWH	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create In-House Repair with Repair Object	Manage Customer Returns 	F4832	Returns and Refund Clerk	SAP_BR_RETURNS_REFUND_CLERK
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Perform Precheck of Repair Object and Create Service Quotation				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Send To Customer and Accept Service Quotation				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Plan Service Order				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Perform Service and Create Service Confirmation				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Release for Billing and Create Billing Document Request	Release for Billing 	WCF0140	Customer Service Manager - In-House Repair	SAP_BR_CUST_SRVC_MGR_REPA
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Billing Document (Optional)				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Return to Customer				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Complete Service				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	    Start with a Service Quotation and Process In-House Repair for Diagnosis, Requote, and Repair				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Service Quotation	Manage Service Quotations 	WCF0054	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create In-House Repair with Repair Object				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Process Service Quotation and Create Service Order				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Returns Order for the Repair Object	Post Goods Receipt 	F4974	Warehouse Clerk	SAP_BR_WAREHOUSE_CLERK
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Plan Service Order (Diagnosis)	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Perform Service (Diagnosis) and Create Service Confirmation (Diagnosis)				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Requote				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Perform Service (Repair) and Create Service Confirmation				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Release for Billing and Create Billing Document Request	Release for Billing 	WCF0140	Customer Service Manager - In-House Repair	SAP_BR_CUST_SRVC_MGR_REPA
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Billing Document (Optional)				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Return to Customer				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Complete Service				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	    Start with an In-House Repair and Process Service with Advanced Execution				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create In-House Repair and Add Repair Objects	Manage In-House Repairs 	F4025	Customer Service Manager - In-House Repair	SAP_BR_CUST_SRVC_MGR_REPA
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Returns Order for the Repair Objects				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Perform Precheck of Repair Object and Create Service Quotation				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Plan Maintenance Order for Quotation	Change Maintenance Order 	IW32	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Send To Customer and Accept Service Quotation				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Plan Service Order				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Plan and Complete Maintenance Order	Change Maintenance Order 	IW32	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Plan and Complete Maintenance Order	Enter PM Order Confirmation 	IW41	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Resource-Related Billing Request (Debit Memo Request) and Billing Document Request				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Create Billing Document (Optional)				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Return to Customer				
+Service	Service Operations & Processes	7GB	Service - In-House Repair	        Complete Service				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	    Create Service Order for Service Ordering Company	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	    Process Service Order in Service Executing Company				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Maintain Service Order Details in Service Executing Company	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Create Service Confirmation in Service Executing Company	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Release Service Items for Billing in Service Executing Company	Release for Billing 	WCF0140	Customer Service Manager - In-House Repair	SAP_BR_CUST_SRVC_MGR_REPA
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Release Service Items for Billing in Service Executing Company	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Billing the Service for the Service Ordering Company				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	    Process Service Order in Service Ordering Company				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Complete Service Order in Service Ordering Company	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Complete Service Order in Service Ordering Company	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Release Service Items for Billing in Service Ordering Company				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Billing the Service for Customer				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	    Service Accounting and Controlling				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Analyze Product and Service Margin				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Analyze Service Plan and Actuals				
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	            Analyze Service Order Actuals	Service Actuals 	FIS_FPM_OVP_IPSRVO4	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GC	Service - Intercompany Execution	        Analyze Revenue Recognition Data				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Create Service Order with Service Part	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Check Service Part Availability				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Update Item Category and Release Service Order	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Logistics and Procurement Follow-Up Processes				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	        Stock Reservation with Automated Goods Issue				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	        Stock Reservation with Manual Goods Issue				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Retrieve Material Reservation ID				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Post Goods Issue	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	        Advance Shipment with Stock Reservation				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Retrieve Sales Order ID				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Create and Pick Outbound Delivery	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Create and Pick Outbound Delivery	Pick Outbound Delivery 	F0868	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	        Advance Shipment with Purchasing				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Retrieve Purchase Requisition ID and Sales Order ID				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Create Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser	SAP_BR_PURCHASER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Post Goods Receipt	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Create and Pick Outbound Delivery	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Create and Pick Outbound Delivery	Pick Outbound Delivery 	F0868	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	        Stock Transfer				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Retrieve Purchase Order ID				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Create and Pick Outbound Delivery	Pick Outbound Delivery 	F0868	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Post Goods Receipt	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	        Purchasing of Service Part				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Retrieve Purchase Requisition ID				
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Create Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser	SAP_BR_PURCHASER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	            Post Goods Receipt	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Create Service Confirmation	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Create Service Confirmation	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Release for Billing	Release for Billing 	WCF0140	Customer Service Manager - In-House Repair	SAP_BR_CUST_SRVC_MGR_REPA
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Release for Billing	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Parts Management	7GD	Service Parts Logistics and Procurement	    Create Billing Document				
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Create Service Order with External Service Item	Manage Service Orders 	WCF0046	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Create Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser - Central Procurement	SAP_BR_CENTRAL_PURCHASER
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Create Service Entry Sheet				
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Approve Service Entry Sheet / Post Goods Receipt				
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Create Supplier Invoice (optional)	Create Supplier Invoice 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Complete Service Confirmation	Manage Service Confirmations 	WCF0051	Customer Service Manager (Customer Management)	SAP_BR_CUSTOMER_SERVICE_MGR
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Complete Service Confirmation	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Release for Billing	Release for Billing 	WCF0140	Customer Service Manager - In-House Repair	SAP_BR_CUST_SRVC_MGR_REPA
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Release for Billing	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Service	Service Operations & Processes	7GE	Service - Workforce Procurement	    Create Billing Document				

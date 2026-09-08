@@ -1,0 +1,13 @@
+# ATC batch-remediation project — <customer name>
+
+**Engagement:** <NTT project code>
+**Source system:** <SID + release>
+**Target system:** <SID + release>
+**Findings file:** ./remediation/inputs/findings/<filename>.zip
+**Custom code namespaces in scope:** Z*, Y*, /CUSTNS/*
+**Categories to auto-fix (v0.1):** select-star, into-list, order-by, matnr-ext, tables-to-changing, deprecated-fm, param-typing, unused-vars, check-top-of-form, nested-select-fae
+**Categories to route to human-review:** non-released-apis, transitive-types, hardcoded-clients-dates, direct-dml-sap-tables, missing-auth-checks
+**LLM wall-time ceiling:** 900 seconds (default; override in config.yaml)
+**Stakeholders:** <names + roles>
+**abapgit-bridge plugin available?:** <yes/no>
+**Transport request for patch imports:** <TR number>

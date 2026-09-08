@@ -37,8 +37,13 @@ gibi aXet bağlayıcıları), tema, dil ve ayarlar.
   oturum çerezi uygulamaya geri alınır.
 - Doğrulanmış bağlantı bilgilerini bir proje klasörüne yazar
   (`.conn_adt`, `adt-tool.ps1`, `sap-context.md`).
-- SAP toolkit skill'lerini (abapGit bridge, ADT read-only araçları, Office
-  doküman araçları, aXet.flows) otomatik olarak proje klasörüne kopyalar.
+- SAP toolkit yeteneklerini (45 skill) danışman rolüne göre otomatik olarak
+  proje klasörüne kopyalar: ADT salt-okunur araçları, abapGit teslim akışı,
+  danışmanlık döngüsü (talep kapsamı → geliştirme → devir → arıza analizi),
+  Office doküman araçları, S/4HANA dönüşüm kapsamı, ATC toplu düzeltme,
+  Celonis, Datasphere ve SAP ekosistem paketleri (UI5/CAP/Basis/otomasyon),
+  SAP GUI ekran yakalama, aXet.flows. Skill klasörünün dışında duran
+  paylaşılan dosyalar (`lib/`, `scripts/`) da birlikte kurulur.
 - Manuel sistem ekleme/düzenleme/silme, JSON dışa/içe aktarma.
 - Sistem önem derecesi etiketleme (DEV/QA/PRD) ve otomatik tahmin.
 - Bağlantı geçmişi, açılışta toplu erişilebilirlik taraması.

@@ -32,7 +32,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
+
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
 try:
@@ -40,7 +54,8 @@ try:
 except Exception:
     redact_text = None
 
-GREEN = (0x0A, 0x7D, 0x3C)
+from theme import (ACCENT, BODY_FONT, DEEP, INK, LIGHT_FONT,  # noqa: E402
+                   MUTED, SEMI_FONT, logo_path)
 
 
 def _require_pptx():
@@ -64,21 +79,84 @@ def _mask(spec, on):
     return spec
 
 
+_INLINE_MD = re.compile(r"\*\*(.+?)\*\*|__(.+?)__|\*(.+?)\*|`(.+?)`")
+_TABLE_RULE = re.compile(r"^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$")
+# "1. ", "2) " — a list, not prose. Without this the paragraph joiner swallowed
+# a numbered list into one run-on bullet, which is worse than the per-line
+# splitting it was fixing.
+_ORDERED = re.compile(r"^\d+[.)]\s+")
+
+
+def _plain(text: str) -> str:
+    """Drop inline Markdown markers. A slide shows text, not syntax."""
+    return _INLINE_MD.sub(lambda m: next(g for g in m.groups() if g is not None),
+                          text).strip()
+
+
 def md_to_spec(md_text: str, deck_title: str) -> dict:
+    """'---' separates slides, the first '# ' on one is its title.
+
+    When the document has no '---' at all, split on '## ' instead. That is not a
+    second syntax, it is the difference between a deck and a document: an FS or a
+    report has sections and no slide breaks, and the old code turned all of it
+    into ONE slide -- heading dropped, every wrapped source line its own bullet,
+    table pipes and '**' included -- then printed "(1 slides)" and exited 0.
+    Measured 2026-09-03 on a five-section spec. Falling back is announced on
+    stderr, because guessing quietly is what made the first version look fine.
+    """
+    if "\n---\n" in md_text:
+        chunks = md_text.split("\n---\n")
+    else:
+        chunks = re.split(r"\n(?=## )", md_text)
+        if len(chunks) > 1:
+            print(f"[office-pptx] no '---' slide breaks; split on {len(chunks)} "
+                  f"'##' headings instead", file=sys.stderr)
+
     slides = []
-    for chunk in md_text.split("\n---\n"):
-        lines = [ln.rstrip() for ln in chunk.strip().splitlines() if ln.strip()]
-        if not lines:
+    for chunk in chunks:
+        lines = [ln.rstrip() for ln in chunk.strip().splitlines()]
+        if not any(ln.strip() for ln in lines):
             continue
         title, bullets = "", []
+        # Prose wraps in the source and means nothing there. One bullet per
+        # source LINE turned a three-line paragraph into three bullets, each
+        # ending mid-sentence. Accumulate until something ends the paragraph.
+        para: list[str] = []
+
+        def flush() -> None:
+            if para:
+                bullets.append([" ".join(para), 0])
+                para.clear()
+
         for ln in lines:
-            if ln.startswith("# ") and not title:
-                title = ln[2:].strip()
-            elif ln.lstrip().startswith(("- ", "* ")):
-                indent = (len(ln) - len(ln.lstrip())) // 2
-                bullets.append([ln.lstrip()[2:].strip(), indent])
-            elif not ln.startswith("#"):
-                bullets.append([ln.strip(), 0])
+            stripped = ln.lstrip()
+            if not stripped:
+                flush()
+            elif ln.startswith("# ") and not title:
+                flush()
+                title = _plain(ln[2:])
+            elif stripped.startswith("## ") and not title:
+                flush()
+                title = _plain(stripped[3:])
+            elif ln.startswith("#"):
+                flush()                        # a heading we are not using as the title
+            elif _TABLE_RULE.match(ln):
+                flush()                        # |---|---| is layout, not content
+            elif stripped.startswith("|"):
+                flush()
+                cells = [_plain(c) for c in stripped.strip("|").split("|")]
+                bullets.append([" · ".join(c for c in cells if c), 0])
+            elif stripped.startswith(("- ", "* ")):
+                flush()
+                indent = (len(ln) - len(stripped)) // 2
+                bullets.append([_plain(stripped[2:]), indent])
+            elif _ORDERED.match(stripped):
+                flush()
+                indent = (len(ln) - len(stripped)) // 2
+                bullets.append([_plain(stripped), indent])
+            else:
+                para.append(_plain(ln))
+        flush()
         slides.append({"type": "bullets", "title": title or "Slide",
                        "bullets": bullets})
     return {"title": deck_title or (slides[0]["title"] if slides else "Deck"),
@@ -94,7 +172,16 @@ def build(spec: dict, out_path: str) -> None:
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
     blank = prs.slide_layouts[6]
-    green = RGBColor(*GREEN)
+    accent = RGBColor(*ACCENT)
+    mark = logo_path()
+
+    def add_mark(slide):
+        """Wordmark bottom right, small. A slide is looked at rather than read,
+        so the mark stays out of the reading path instead of competing with the
+        one thing the slide exists to say."""
+        if mark:
+            slide.shapes.add_picture(
+                str(mark), Inches(11.55), Inches(6.85), width=Inches(1.2))
 
     def add_title_bar(slide, text):
         box = slide.shapes.add_textbox(Inches(0.6), Inches(0.4),
@@ -104,13 +191,14 @@ def build(spec: dict, out_path: str) -> None:
         p = tf.paragraphs[0]
         p.text = text or ""
         p.font.size = Pt(30)
-        p.font.bold = True
-        p.font.color.rgb = green
+        p.font.bold = False
+        p.font.name = SEMI_FONT
+        p.font.color.rgb = accent
         # accent underline
         line = slide.shapes.add_shape(1, Inches(0.6), Inches(1.45),
                                       Inches(12.1), Pt(3))
         line.fill.solid()
-        line.fill.fore_color.rgb = green
+        line.fill.fore_color.rgb = accent
         line.line.fill.background()
 
     for sl in spec.get("slides", []):
@@ -125,16 +213,20 @@ def build(spec: dict, out_path: str) -> None:
             p = tf.paragraphs[0]
             p.text = sl.get("title", "")
             p.font.size = Pt(44)
-            p.font.bold = True
-            p.font.color.rgb = green
+            p.font.bold = False
+            p.font.name = LIGHT_FONT
+            p.font.color.rgb = RGBColor(*DEEP)
             if sl.get("subtitle"):
                 sp = tf.add_paragraph()
                 sp.text = sl["subtitle"]
                 sp.font.size = Pt(22)
-                sp.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+                sp.font.name = BODY_FONT
+                sp.font.color.rgb = RGBColor(*MUTED)
+            add_mark(slide)
             continue
 
         add_title_bar(slide, sl.get("title", ""))
+        add_mark(slide)
 
         if stype == "bullets":
             box = slide.shapes.add_textbox(Inches(0.7), Inches(1.8),
@@ -150,6 +242,8 @@ def build(spec: dict, out_path: str) -> None:
                 p.text = "• " + str(text) if lvl == 0 else "– " + str(text)
                 p.level = int(lvl)
                 p.font.size = Pt(20 - 2 * min(int(lvl), 3))
+                p.font.name = BODY_FONT
+                p.font.color.rgb = RGBColor(*INK)
                 p.space_after = Pt(6)
 
         elif stype == "table":
@@ -163,16 +257,20 @@ def build(spec: dict, out_path: str) -> None:
                 cell = gtab.cell(0, c)
                 cell.text = str(h)
                 cell.fill.solid()
-                cell.fill.fore_color.rgb = green
+                cell.fill.fore_color.rgb = accent
                 para = cell.text_frame.paragraphs[0]
                 para.font.bold = True
                 para.font.size = Pt(13)
+                para.font.name = BODY_FONT
                 para.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
             for r, row in enumerate(rows, start=1):
                 for c in range(ncols):
                     cell = gtab.cell(r, c)
                     cell.text = str(row[c]) if c < len(row) else ""
-                    cell.text_frame.paragraphs[0].font.size = Pt(12)
+                    cp = cell.text_frame.paragraphs[0]
+                    cp.font.size = Pt(12)
+                    cp.font.name = BODY_FONT
+                    cp.font.color.rgb = RGBColor(*INK)
 
     prs.save(out_path)
 

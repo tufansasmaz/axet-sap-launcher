@@ -30,6 +30,19 @@ import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 
 # Filename patterns we consider "status content" worth surfacing
 STATUS_PATTERNS = ("error", "log", "activation", "status", "syntax", "atc", "check")

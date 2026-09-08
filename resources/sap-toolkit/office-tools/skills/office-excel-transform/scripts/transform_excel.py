@@ -5,6 +5,19 @@ import argparse
 import sys
 from pathlib import Path
 
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 
 def load_df(path: Path, sheet, parse_dates):
     import pandas as pd
@@ -57,14 +70,33 @@ def apply_filter(df, expr: str):
 
 
 def apply_sort(df, sort_expr: str):
+    """'Col', 'Col desc', 'A desc, B' — direction optional, per column.
+
+    The last word counts as a direction only when it IS one. Taking it
+    unconditionally broke every column name with a space in it, which in Turkish
+    is nearly all of them: --sort "Tutar TL" sorted by "Tutar", found nothing,
+    and raised a bare pandas KeyError. Worse where it did not raise -- if a
+    column called "Tutar" also existed, it sorted by the wrong one and said
+    nothing. Measured 2026-09-03: "Tutar TL" failed, "Tutar TL desc" worked, so
+    the bug only showed when the direction was left off.
+    """
     parts = [p.strip() for p in sort_expr.split(",")]
     cols, ascending = [], []
     for part in parts:
         tokens = part.rsplit(None, 1)
-        col = tokens[0].strip("'\"")
-        asc = True if len(tokens) < 2 or tokens[1].lower() != "desc" else False
-        cols.append(col)
+        if len(tokens) == 2 and tokens[1].lower() in ("asc", "desc"):
+            col, asc = tokens[0], tokens[1].lower() == "asc"
+        else:
+            col, asc = part, True
+        cols.append(col.strip().strip("'\""))
         ascending.append(asc)
+    missing = [c for c in cols if c not in df.columns]
+    if missing:
+        raise SystemExit(
+            f"ERROR: --sort names {missing} but the sheet has "
+            f"{list(df.columns)}.\n"
+            f"       A column name with spaces needs no quoting; write it as it "
+            f"is, optionally followed by asc or desc.")
     result = df.sort_values(by=cols, ascending=ascending)
     print(f"  sort by {cols} {['asc' if a else 'desc' for a in ascending]}")
     return result

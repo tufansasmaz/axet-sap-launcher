@@ -1,0 +1,970 @@
+LOB	Business Area	Scope Item ID	Description	Solution Activity (Hierarchy)	Fiori App or Transaction Title	Fiori App or Transaction ID	Business Role Description	Business Role ID
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	    Anonymous Forecast and Material Requirements Planning for Semifinished Product				
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Monitor Material Coverage	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	    Production Order Processing for Semifinished Product				
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Create Production Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Release Production Order	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Confirm Production Order for Semifinished Product	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Review Production Order for Semifinished Product	Manage Production Operations 	F2335	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	    Sales Order Processing for Finished Products				
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Alternative 1: Make-to-Order Production - Finished Goods Sales and Final Assembly(BJE)				
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	        Alternative 2: Incoming Sales Order and Consumption of the Component				
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	            Create Sales Order for Finished Product	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	            Monitor Material Coverage for Semifinished Product	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	            Material Requirements Planning for Finished Product	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	            Monitor Material Coverage for Semifinished and Finished Product	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1BM	Make-to-Order Production - Semifinished Goods Planning and Assembly	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	    Quality Management in Discrete Manufacturing - Goods Receipt from Production				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Make-to-Order Production - Semifinished Goods Planning and Assembly (1BM)	Manage Stock 	F1062	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Make-to-Order Production - Semifinished Goods Planning and Assembly (1BM)	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Inspection Plan for Inspection Characteristics	Display Inspection Plan 	QP03	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Post Goods Receipt for Production Order	Post Goods Receipt for Production Order 	F3110	Warehouse Clerk	SAP_BR_WAREHOUSE_CLERK
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Material Stock Before Quality Inspection	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Quality Technician Overview (Optional)	Quality Technician Overview 	F2361	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Open Inspection Lot	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Quality Inspection				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Display Inspection Methods	Display Inspection Methods 	F0311A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Record Inspection Results	Record Inspection Results 	F1685A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Record Inspection Results	Record Inspection Results in Table Form 	F3365	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Display Quality Engineer Overview (Optional)	Quality Engineer Overview 	F2360	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Display Quality Engineer Overview (Optional)	Manage Defects 	F2649	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Make Usage Decision	Quality Engineer Overview 	F2360	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Make Usage Decision	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Material Stock after Quality Inspection	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Inspection Results History (Optional)	Display Results History 	F2428	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	    Quality Management in Discrete Manufacturing - Within Production Process				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Make-to-Stock Production - Discrete Manufacturing (BJ5)	Manage Stock 	F1062	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Make-to-Stock Production - Discrete Manufacturing (BJ5)	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Make-to-Stock Production - Discrete Manufacturing (BJ5)	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Routing for Inspection Characteristics	Display Routing 	CA03	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Quality Technician Overview (Optional)	Quality Technician Overview 	F2361	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Display Open Inspection Lot	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Quality Inspection				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Display Inspection Methods	Display Inspection Methods 	F0311A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Record Inspection Result Before Activation of the Control Chart	Record Inspection Results - Hierarchical Worklist 	QE51N	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Record Inspection Result Before Activation of the Control Chart	Record Results for Inspection Points 	F2689	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Analyze and Activate Control Chart (Optional)	Manage Control Charts 	F2810	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Record Inspection Result After Activation of the Control Chart				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	            Make Usage Decision	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Confirm Production Order Operation	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Review Production Order	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Make-to-Stock Production - Discrete Manufacturing (BJ5)	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	    Quality Management Within Production Process - Make-to-Stock Production of a Batch Managed Material				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Create Raw Material Stock	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Create and Release Production Order				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Goods Issue of Batch-Managed Components via Pick List	Pick Components for Production Orders 	CO27	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Confirm Production Operations	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Execute Quality Inspection With Inspection Points	Record Results for Inspection Points 	F2689	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Confirm Production Operations				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Post Goods Receipt for Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Make Usage Decision				
+Manufacturing	Quality Management	1E1	Quality Management in Discrete Manufacturing	        Review Batch Data (Optional)	Manage Batches 	F2462	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	    Classic Kanban: External Procurement with Requirements Planning				
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Check Dependent Requirement of Material RM233-4	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Release Scheduling Agreement	Manage Purchase Scheduling Agreements 	F2179	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Set Available Kanban to EMPTY	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Set Available Kanban to EMPTY	Kanban Board 	F4630	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Posting the Goods Receipt for External Procurement				
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	            Option A: Change the Kanban to FULL	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	            Option B: Goods Receipt for JIT Call	Goods Receipt for JIT Call 	PJWE	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Precalculation of Kanbans for Future Requirements (Optional)	Distribution for Kanban Calculation 	PKDIS	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Precalculation of Kanbans for Future Requirements (Optional)	Kanban Calculation 	PK07	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Release Proposal of Kanbans Required for Future Period (Optional)	Check Kanban Calculation Result 	PK08N	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Check Changes and Calculation Base in Control Cycle (Optional)	Manage Kanban Control Cycles 	PKMC	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Unlock New Kanbans (Optional)	Unlock Kanban Containers 	PK09	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Alert for Delayed Replenishments - Creation of Replenishment Elements / JIT Calls (Optional)	Display Kanbans: Demand View 	PK13N	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Alert for Delayed Replenishments - Evaluation of Replenishment Elements / JIT Calls (Optional)	Due Kanban Replenishment Elements 	PKAL	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	    Event-driven Kanban: External Processing and PDF Print of Kanban Card				
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Create Event-Driven Kanban	Kanban Board 	F4630	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Variant 1: Set Kanban to FULL	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Variant 2: Goods Receipt	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Set Available Kanban to EMPTY	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	    Classic Kanban: Procurement to Cost Center				
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Set Kanban to Empty	Kanban Board 	F4630	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Set Kanban to Empty	Manage Purchase Orders 	F0842A	Purchaser - Central Procurement	SAP_BR_CENTRAL_PURCHASER
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Set Kanban to Full	Kanban Board 	F4630	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	        Set Kanban to Full	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	    Kanban Control Cycles Analysis (Optional)	Kanban Control Cycles Analysis 	F5235	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	    Monitor Replenishment Situation (Optional)	Kanban Board 	F4630	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	1E3	Material Replenishment with Kanban - External Procurement	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	    Regular Quality Inspection Process				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Create Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Inspection Plan for Inspection Characteristics (optional)	Manage Inspection Plans 	F3788	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Material Stock before Goods Receipt (optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Post Goods Receipt for Purchase Order	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Material Stock Before Quality Inspection (optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Quality Inspection				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Display Quality Technician Overview (Optional)	Quality Technician Overview 	F2361	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Display Open Inspection Lots (optional)	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Record Inspection Results	Record Inspection Results in Table Form 	F3365	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Record Inspection Results	Record Inspection Results 	F1685A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Print Inspection Report (optional)	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Display Quality Engineer Overview (Optional)	Quality Engineer Overview 	F2360	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Display Quality Engineer Overview (Optional)	Manage Defects 	F2649	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Make Usage Decision	Quality Engineer Overview 	F2360	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	            Make Usage Decision	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Material Stock after Quality Inspection (optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Inspection Results History (Optional)	Display Results History 	F2428	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	    Quality Inspection Process with Dynamic Modification				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Execute Regular Quality Inspection Process				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Quality Level (optional)	Manage Quality Levels 	F2914	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Create Second Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Post Goods Receipt for Purchase Order	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Material Stock (optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Quality Level (optional)				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Analyze Quality Level History (optional)	Quality Level History - Skip Rate in Last 180 Days	F2915	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	    Quality Inspection Process with Sampling Scheme and Dynamic Modification	Change Inspection Plan 	QP02	Quality Planner	SAP_BR_QUALITY_PLANNER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	    Quality Inspection Process with Sampling Scheme and Dynamic Modification	Create Sampling Procedure 	QDV1	Quality Planner	SAP_BR_QUALITY_PLANNER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Create Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Inspection Plan and Derive the Sampling Scheme (optional)	Display Inspection Plan 	QP03	Quality Planner	SAP_BR_QUALITY_PLANNER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Inspection Plan and Derive the Sampling Scheme (optional)	Display Sampling Scheme 	QDP3	Quality Planner	SAP_BR_QUALITY_PLANNER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Post Goods Receipt for Purchase Order â€“ 1st iteration	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Quality Level â€“ 1st iteration				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Quality Inspection â€“ 1st iteration	Record Inspection Results 	F1685A	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Quality Inspection â€“ 1st iteration	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Quality Level				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Post Goods Receipt for Purchase Order â€“ 2nd iteration	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Quality Inspection â€“ 2nd iteration	Record Inspection Results 	F1685A	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Quality Inspection â€“ 2nd iteration	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Display Quality Level â€“ 2nd iteration				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Post Goods Receipt for Purchase Order â€“ 3rd iteration	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Quality Inspection â€“ 3rd iteration	Record Inspection Results 	F1685A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Analyze Quality Level History (optional)				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	    Quality Inspection Process with Material-Supplier Release				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Review or Change Quality Info Record (optional)	Manage Quality Info Records 	F2256A	Quality Planner	SAP_BR_QUALITY_PLANNER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Create Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	    Quality Inspection Process with Quality Certificate in Procurement				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Review Quality Settings in Material Master (Optional)	Display Material 	MM03	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Create Purchase Order				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Post Goods Receipt for Purchase Order				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Review Inspection Lot Status Before Receipt of Quality Certificate (Optional)	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Enter Receipt of Quality Certificate	Record Certificate Receipt - Procurement 	QC51	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Review Inspection Lot Status After Receipt of Quality Certificate (Optional)				
+Manufacturing	Quality Management	1FM	Quality Management in Procurement	        Quality Inspection				
+Manufacturing	Quality Management	1MP	Quality Management in Sales	    Create Sales Order	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Quality Management	1MP	Quality Management in Sales	    Display Inspection Plan for Inspection Characteristics (Optional)	Display Inspection Plan 	QP03	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1MP	Quality Management in Sales	    Create Delivery and Pick Quantity				
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Create Delivery	Create Outbound Deliveries - From Sales Orders 	F0869A	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Execute Picking	My Outbound Delivery Monitor 	VL06O	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Quality Management	1MP	Quality Management in Sales	    Quality Inspection				
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Display Quality Technician Overview (Optional)	Quality Technician Overview 	F2361	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Display Open Inspection Lots (Optional)	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Record Inspection Results	Record Inspection Results (Deprecated) 	F1685	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Record Inspection Results	Record Inspection Results in Table Form 	F3365	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Display Quality Engineer Overview (Optional)	Quality Engineer Overview 	F2360	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Make Usage Decision	Record Usage Decision 	QA11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1MP	Quality Management in Sales	            Material Accepted				
+Manufacturing	Quality Management	1MP	Quality Management in Sales	                Post Goods Issue for Outbound Delivery	My Outbound Delivery Monitor 	VL06O	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Quality Management	1MP	Quality Management in Sales	            Material Rejected				
+Manufacturing	Quality Management	1MP	Quality Management in Sales	                Post Unrestricted Stock to Blocked Stock	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1MP	Quality Management in Sales	                Update Delivery	My Outbound Delivery Monitor 	VL06O	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Quality Management	1MP	Quality Management in Sales	        Display Inspection Results History (Optional)	Display Results History 	F2428	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	    Posting Unrestricted or Blocked Stock into Quality Inspection Stock				
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Display Material Stock Before Goods Posting (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Post Material from Unrestricted/Blocked Stock to Quality Inspection Stock	Transfer Stock - In-Plant 	F1061	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Display Material Stock Before Quality Inspection (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Quality Inspection: Make Usage Decision	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Display Material Stock After Quality Inspection (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	    Posting Quality Inspection Stock to Different Storage Location				
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Use Existing Inspection Lot (Or Create a New)				
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Display Quality Inspection Stock Before Change of Storage Location (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Change Storage Location for Quality Stock with Reference to Inspection Lot	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	1MR	Quality Management in Stock Handling	        Display Quality Inspection Stock After Change of Storage Location (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	    Main Scenario				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	        Buffer Positioning				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Schedule Product Classification				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Mass Maintenance of Products				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Check Buffer Positioning	Buffer Positioning 	F3282	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Check Buffer Positioning	Manage Product Master Data 	F1602	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	        Buffer Sizing				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Schedule Lead Time Classification of Products				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Schedule Buffer Proposal Calculation	Schedule Buffer Proposal Calculation 	F2837	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Manage Buffer Levels	Manage Buffer Levels 	F2706	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Manage Buffer Levels	Schedule Buffer Proposal Calculation 	F2837	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	    Use Cases(Optional)				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	        Use Case A: Buffer Positioning â€“ Inbound Protection				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Schedule Product Classification				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Initialize MRP Type				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Buffer Positioning - Inbound Protection	Buffer Positioning 	F3282	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	        Use Case C: Use pMRP for ADU Calculation				
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Maintain PIRs for Finished Goods	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Schedule pMRP Simulation Creation	Schedule pMRP Simulation Creation 	F3968	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Process pMRP Simulations	Process pMRP Simulations 	F3934	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	1Y2	Demand-Driven Buffer Level Management	            Check PIRs for Components	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	    Production Order Processing for Final Assembly				
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Material Staging for Final Assembly	Stage Materials for Production 	MF60	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Release Production Order for Final Assembly	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Check Serial Numbers	Display Production Order 	CO03	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Process and Confirm Shop Floor in Manufacturing Execution System				
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Pick Components for Final Assembly	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Pick Components for Final Assembly	Pick Components for Production Orders 	CO27	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Confirm Production Operations for Final Assembly				
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Review Production Order	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Final Confirmation of Production Operations for Final Assembly				
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Post Goods Receipt for Final Assembly Production Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	1Y5	Production Operations with Manufacturing Execution System     (1Y5)	        Preview Goods Receipt Slip and Label (Optional)	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	    Make to Order Production with Single Level Configurable Material				
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Create Sales Quotation for Configurable Material (Optional)	Manage Sales Quotations 	F1852	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Create Sales Order with Reference to Sales Quotation (Optional)	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Create Sales Order with Configurable Material	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Create Down Payment Request				
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Post Down Payment				
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Manufacturing Steps Production Order Processing	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Manufacturing Steps Production Order Processing	Display Production Order 	CO03	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Manufacturing Steps Production Order Processing	Release Production Orders 	CO05N	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Manufacturing Steps Production Order Processing	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Delivery and Billing Processing				
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	    Make to Order Production with Multilevel Configurable Material				
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Create Sales Order with Configurable Material	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Create Down Payment Request				
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Post Down Payment				
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Manufacturing Steps Production Order Processing	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Manufacturing Steps Production Order Processing	Release Production Orders 	CO05N	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Manufacturing Steps Production Order Processing	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	1YT	Make-to-Order Production with Variant Configuration	        Delivery and Billing Processing				
+Manufacturing	Manufacturing Operations	20N	Predictive Analytics Model Training - Supply Chain     (20N)	    Intelligent Scenario Management	Intelligent Scenario Management 	F4470	Analytics Specialist	SAP_BR_ANALYTICS_SPECIALIST
+Manufacturing	Manufacturing Operations	20N	Predictive Analytics Model Training - Supply Chain     (20N)	        Train Model	Intelligent Scenario Management 	F4470	Analytics Specialist	SAP_BR_ANALYTICS_SPECIALIST
+Manufacturing	Manufacturing Operations	20N	Predictive Analytics Model Training - Supply Chain     (20N)	        Set a Model Version to Active	Intelligent Scenario Management 	F4470	Analytics Specialist	SAP_BR_ANALYTICS_SPECIALIST
+Manufacturing	Manufacturing Operations	20N	Predictive Analytics Model Training - Supply Chain     (20N)	    Overdue - Stock in Transit	Overdue Materials - Stock in Transit 	F2139	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	21D	Make-to-Stock Production with Variant Configuration	    Production Planning	Change Planned Order 	MD12	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Manufacturing Operations	21D	Make-to-Stock Production with Variant Configuration	    Production Execution				
+Manufacturing	Manufacturing Operations	21D	Make-to-Stock Production with Variant Configuration	    Sales Order Processing				
+Manufacturing	Manufacturing Operations	21D	Make-to-Stock Production with Variant Configuration	        Create Sales Order With Material Variant	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	21D	Make-to-Stock Production with Variant Configuration	    Delivery and Billing Processing				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Create Just-In-Time Customer Master Data	Manage JIT Customer data 	F3011	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Summarized JIT Calls (Supply from Stock)				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Just-In-Time Master Data				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Customer Supply Control Records	Manage JIT Customer Supply Controls 	F3010	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Sales Scheduling Agreement	Manage Sales Scheduling Agreements 	F3515	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Copy and Replace Sales Scheduling Agreements (Optional)	Analyze and Copy Scheduling Agreements 	SACO	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Customer Summarized Just-In-Time Call - Integration				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Customer Summarized Just-In-Time Call Manually (Optional)	Manage Customer JIT Calls 	F6078	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Cancel Customer Summarized Just-In-Time Call (Optional)				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Manage Customer JIT Calls â€“ by Component Groups (Optional)	Manage Customer JIT Calls 	F6077	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Summarized JIT Calls				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Summarized JIT Calls	Change Outbound Delivery 	VL02N	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Assign Handling Units to Outbound Delivery	Change Outbound Delivery 	VL02N	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Summarized JIT Calls (Supply with Production)				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Just-In-Time Master Data				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Customer Supply Control Records	Manage JIT Customer Supply Controls 	F3010	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Just-In-Time Teams and Define Responsibilities	Manage Teams and Responsibilities 	F5787	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Sales Scheduling Agreement	Manage Sales Scheduling Agreements 	F3515	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Customer Summarized Just-In-Time Call - Integration				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Customer Summarized Just-In-Time Call Manually (Optional)	Manage Customer JIT Calls - Deprecated 	F3008	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Release Summarized JIT Call to Production	Release Summarized JIT Calls to Production 	F4330	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Production Confirmation of JIT Calls				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Confirm Production of JIT Calls Confirm Production of JIT Calls (Alternative)				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Process Customer JIT Calls â€“ by Scan/Data Entry (Optional)	Process Customer JIT Calls 	F5138	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Manage Customer JIT Calls â€“ by Component Groups (Optional)	Manage Customer JIT Calls 	F6077	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Summarized JIT Calls				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Summarized JIT Calls	Change Outbound Delivery 	VL02N	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Assign Handling Units to Outbound Delivery	Change Outbound Delivery 	VL02N	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Sequenced JIT Call (Supply from Stock)				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Just-In-Time Master Data				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Customer Supply Control Records	Manage JIT Customer Supply Controls 	F3010	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Define Packing Group Specification	Manage Packing Group Specification for Sequenced JIT Calls 	F3896	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Just-In-time Delivery Sequence Groups	Manage JIT Delivery Sequence Groups 	F4879	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Just-In-Time Teams and Define Responsibilities	Manage Teams and Responsibilities 	F5787	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Sales Scheduling Agreement	Manage Sales Scheduling Agreements 	F3515	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Copy and Replace Sales Scheduling Agreements (Optional)	Analyze and Copy Scheduling Agreements 	SACO	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Customer Sequenced Just-In-Time Call Manually	Manage Customer JIT Calls 	F6078	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Change Customer Sequenced Just-In-Time Call Manually (Optional)	Manage Customer JIT Calls 	F6078	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create JIT Delivery Schedule â€“ Background Job (Optional)	Schedule JIT Delivery Schedule Creation - For Customer JIT Calls 	F5001	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Packing Group â€“ Background Job	Schedule Packing Group Creation/Update - For Sequenced JIT Calls 	F4960	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Release to Packing and Confirm Packing for Packing Groups				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Manage JIT Packing Groups	Manage JIT Packing Groups - For Sequenced JIT Calls 	F5457	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Process Customer JIT Calls â€“ by Scan/Data Entry (Optional)	Process Customer JIT Calls 	F5138	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Handling Units from Packing Groups for Sequenced JIT Calls	Schedule Handling Unit Creation - From JIT Packing Groups 	F5260	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Sequenced JIT Calls	Create Outbound Deliveries from Sequenced JIT Calls 	F3897	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Sequenced JIT Calls	Change Outbound Delivery 	VL02N	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Sequenced JIT Call (Supply with Production)				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Just-In-Time Master Data				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Customer Supply Control Records	Manage JIT Customer Supply Controls 	F3010	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Define Packing Group Specification	Manage Packing Group Specification for Sequenced JIT Calls 	F3896	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Just-In-time Delivery Sequence Groups	Manage JIT Delivery Sequence Groups 	F4879	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Just-In-Time Teams and Define Responsibilities	Manage Teams and Responsibilities 	F5787	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Sales Scheduling Agreement	Manage Sales Scheduling Agreements 	F3515	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Customer Sequenced Just-In-Time Call Manually	Manage Customer JIT Calls 	F6078	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Packing Group â€“ Background Job	Schedule Packing Group Creation/Update - For Sequenced JIT Calls 	F4960	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Release Sequenced JIT Call to Production	Release Sequenced JIT Calls to Production 	F4331	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Production Confirmation of JIT Calls				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Confirm Production of JIT Calls	Confirm Production - For Customer JIT Calls 	F4315	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Release to Packing and Confirm Packing for Packing Groups				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Manage JIT Packing Groups	Manage JIT Packing Groups - For Sequenced JIT Calls 	F5457	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Process Customer JIT Calls â€“ by Scan/Data Entry (Optional)	Process Customer JIT Calls 	F5138	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Handling Units from Packing Groups for Sequenced JIT Calls	Schedule Handling Unit Creation - From JIT Packing Groups 	F5260	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Sequenced JIT Calls	Create Outbound Deliveries from Sequenced JIT Calls 	F3897	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Outbound Delivery from Sequenced JIT Calls	Change Outbound Delivery 	VL02N	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Process Packing Groups	Manage JIT Packing Groups 	F5457	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Process Packing Groups	Change Outbound Delivery 	VL02N	Operations Clerk (ACM)	SAP_BR_OPERATION_CLERK_ACM
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Schedule Goods Movement from Production for Customer JIT Calls (Optional)	Schedule Backflush / Goods Movement from Production - For Customer JIT Calls 	F5168	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Reprocessing of Failed Stock Posting After Confirmation of Production (Optional)	Manage Reprocessing List - For Customer JIT Calls 	F5092	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Sequenced JIT Call (Supply from Production of Serialized Materials)				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Just-In-Time Master Data				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Customer Supply Control Records	Manage JIT Customer Supply Controls 	F3010	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Define Packing Group Specification	Manage Packing Group Specification for Sequenced JIT Calls 	F3896	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Just-In-time Delivery Sequence Groups	Manage JIT Delivery Sequence Groups 	F4879	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Create Just-In-Time Teams and Define Responsibilities	Manage Teams and Responsibilities 	F5787	Master Data Specialist - Just-In-Time Supply	SAP_BR_MD_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Sales Scheduling Agreement	Manage Sales Scheduling Agreements 	F3515	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Customer Sequenced Just-In-Time Call Manually	Manage Customer JIT Calls 	F6078	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Create Packing Group â€“ Background Job	Schedule Packing Group Creation/Update - For Sequenced JIT Calls 	F4960	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Release Sequenced JIT Call to Production	Release Sequenced JIT Calls to Production 	F4331	Production Planner - Lean Manufacturing	SAP_BR_PRODN_PLNR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Production Confirmation of JIT Calls				
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Confirm Production of JIT Calls	Confirm Production - For Customer JIT Calls 	F4315	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	            Process Customer JIT Calls â€“ by Scan/ Data Entry [Optional]	Process Customer JIT Calls 	F5138	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Process Packing Groups	Manage JIT Packing Groups 	F5457	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Process Packing Groups	Change Outbound Delivery 	VL02N	Operations Clerk (ACM)	SAP_BR_OPERATION_CLERK_ACM
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Schedule Goods Movement from Production for Customer JIT Calls (Optional)	Schedule Backflush / Goods Movement from Production - For Customer JIT Calls 	F5168	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	        Reprocessing of Failed Stock Posting After Confirmation of Production (Optional)	Manage Reprocessing List - For Customer JIT Calls 	F5092	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Subsequent Outbound Delivery Split (Optional)	Split Outbound Delivery 	VLSP	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Execute Picking and Post Goods Issue	Pick Outbound Delivery 	F0868	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Execute Picking and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Create Billing Document	Create Billing Documents 	F0798	Billing Clerk	SAP_BR_BILLING_CLERK
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    Create Billing Document	Manage Billing Documents 	F0797	Billing Clerk	SAP_BR_BILLING_CLERK
+Manufacturing	Manufacturing Options	2EM	Just-In-Time Supply to Customer	    eDocument Cockpit (Optional)	eDocument Cockpit 	EDOC_COCKPIT	Billing Clerk	SAP_BR_BILLING_CLERK
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Create Quality Notification with Basic Data	Create Quality Notification 	QM01	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Capture Defects and Document Immediate Actions	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Define Tasks	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Execute Tasks and Document Outcome	Change Quality Notification Tasks - Worklist 	QM12	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Review Tasks	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Document Supplier Root Cause Analysis	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Complete Notification	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Display a List of Quality Notifications (optional)	Display Quality Notifications - Worklist 	QM11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2F9	Quality Management for Complaints Against Suppliers	    Display a List of Quality Notification Tasks (optional)	Display Quality Notification Tasks - Worklist 	QM13	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Create Quality Notification with Basic Data	Create Quality Notification 	QM01	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Capture Defects, Define Root Cause Analysis, and Document Immediate Actions	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Define Corrective Actions and Correction Tasks	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Execute Root Cause Analysis, Corrective Actions, Correction Tasks and Document Outcome	Change Quality Notification Tasks - Worklist 	QM12	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Review Root Cause Analysis and Document Root Cause, Review Corrective Actions and Correction Tasks	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Define Preventive Actions				
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Execute Preventive Actions and Document Outcome				
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Review Preventive Actions				
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Complete Notification	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Display a List of Quality Notifications (optional)	Display Quality Notifications - Worklist 	QM11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2FA	Quality Management for Complaints from Customers	    Display a List of Quality Notification Tasks (optional)	Display Quality Notification Tasks - Worklist 	QM13	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	    Replenishment Planning				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Planning Review	Replenishment Planning - By Planning Priority 	F6241	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Planning Review	Manage Buffer Levels 	F2706	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Planning Review	Manage Product Master Data 	F1602	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Create Demand for Finished Goods				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	            Create Sales Order (Option 1)				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	                Create Sales Order for Finished Goods	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	                Schedule MRP Runs	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	                Convert Planned Order to Production Order (For MRP Type D1 only)	Check Material Coverage 	F0251	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	                Firm Planned Order (For MRP Type D2 only)	Check Material Coverage 	F0251	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	            Create Production Order/Planned Order (Option 2)				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	                Create Production Order (For MRP Type D1 only)	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	                Created Firmed Planned Order for Finished Goods (For MRP Type D2 Only)	Manage Planned Orders 	F4170	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Check Planner Overview	Planner Overview 	F2832	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Planning	Replenishment Planning - By Planning Priority 	F6241	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	    Replenishment Execution				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Execution	Replenishment Execution - By On-Hand Status 	F6242	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Execution	Manage Buffer Levels 	F2706	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Execution	Manage Product Master Data 	F1602	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Execution	Planner Overview 	F2832	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Post Goods Issue	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Execution Review	Replenishment Execution - By On-Hand Status 	F6242	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Succeeding Production Execution				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Post Goods Receipt	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Replenishment Execution Review	Replenishment Execution - By On-Hand Status 	F6242	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	    Projected On-Hand Alerts				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Check Projected On-Hand Alert	Projected On-Hand Alerts - Stockout 	F6243	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Create Situation for Safety Stock Alert (Optional)	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Review Projected On-Hand Alert (Optional)				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Create Situation for Threshold Alert (Optional)				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Create Situation for Stockout Alert (Optional)				
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	        Review Projected On-Hand Alert	Projected On-Hand Alerts - Stockout 	F6243	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	2QI	Demand-Driven Replenishment Planning and Execution	    Review Historical Buffer Performance	Historical Buffer Performance - Outliers in last month 	F7147	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Quality Management	2QN	Nonconformance Management	    Manage Defects				
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Record Defect	Record Defect 	F2929	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Record Defect	Record Production Defect 	F2929	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Process Defect				
+Manufacturing	Quality Management	2QN	Nonconformance Management	            Process Defect via Quality Notification				
+Manufacturing	Quality Management	2QN	Nonconformance Management	                Process Defect and Define Quality Task	Process Defects 	F2929	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	                Processor Receives the Notification	My Inbox - All Items 	F0862	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	                Processor Receives the Notification	My Inbox 	F0862	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	                Execute Quality Task and Document Outcome	Process Quality Tasks 	F3250	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	            Process Defect via Eight Disciplines of Problem Solving (8D)	Process Defects 	F2929	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Complete Defect Processing	Process Defects 	F2929	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Assign Defect to Quality Notification (Optional)				
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Assign Defect to Quality Notification (Optional)	Manage Defects 	F2649	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	    Analyze Defects (Optional)	Manage Defects 	F2649	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	    Overview Page for Quality Engineer (Optional)	Quality Engineer Overview 	F2360	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QN	Nonconformance Management	    Manual Inspection Process				
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Create Inspection Lot	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Record Inspection Results	Record Inspection Results 	F1685A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Record Inspection Results	Record Inspection Results in Table Form 	F3365	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2QN	Nonconformance Management	        Make Usage Decision	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Create Quality Notification with Basic Data	Create Quality Notification 	QM01	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Capture Defects, Define Root Cause Analysis, and Document Immediate Actions	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Define Corrective Actions	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Execute Root Cause Analysis and Corrective Actions, and Document Outcome	Change Quality Notification Tasks - Worklist 	QM12	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Review Root Cause Analysis and Document Root Cause, Review Corrective Actions	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Define Preventive Actions				
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Execute Preventive Actions and Document Outcome				
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Review Preventive Actions				
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Complete Quality Notification	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Display a List of Quality Notifications (optional)	Display Quality Notifications - Worklist 	QM11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2QP	Quality Management of Internal Problems	    Display a List of Quality Notification Tasks (optional)	Display Quality Notification Tasks - Worklist 	QM13	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Manufacturing Operations	2QW	Analytics for Production Unit - Plan/Actual Production Cost     (2QW)	    Pre-built CDS Queries for Manufacturing Scenario	View Browser 	F2170	Analytics Specialist	SAP_BR_ANALYTICS_SPECIALIST
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	    Anonymous Forecast and MRP				
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Evaluate the Stock / Requirements Situation	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	    Production Order Processing				
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Create Production Order	Convert Planned Orders 	F4171	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Review Production Order	Display Production Order 	CO03	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Goods Issue of Batch-Managed Components				
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	            Goods Issue via Pick List	Pick Components for Production Orders 	CO27	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	            Manual Goods Issue (Instead of Picking List)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Monitor Order Progress	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Post Goods Receipt for Order	Post Goods Receipt for Production Order 	F3110	Warehouse Clerk	SAP_BR_WAREHOUSE_CLERK
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Confirm Production incl. Component Backflush	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Review Production Order Confirmation	Manage Production Operations 	F2335	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	2UG	Make-to-Stock - Process Manufacturing Based on Production Order	        Review Scrap Report	Material Scrap - Maximum Deviation 	F2035	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Engineer Overview	Quality Engineer Overview 	F2360	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Engineer Overview	Manage Inspection Lots 	F2343	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Engineer Overview	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Engineer Overview	Manage Quality Levels 	F2914	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Engineer Overview	Manage Quality Tasks 	F3381	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Technician Overview	Quality Technician Overview 	F2361	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Technician Overview	Claims Supervisor Overview 	F2635	Insurance Claims Supervisor	SAP_BR_INS_CLAIMS_SUPERVISOR
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Technician Overview	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Technician Overview	Process Quality Tasks 	F3250	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Accepted and Rejected Lots	Inspection Lot Analytics - UDs Made in Last 365 Days	F3239	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Accepted and Rejected Lots	Manage Inspection Lots 	F2343	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Accepted and Rejected Lots	Inspection Lot Detailed Analytics - On Lots with Usage Decision in Last 365 Days	F3273	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Skipped and Non Skipped Lots	Inspection Lot Analytics - UDs Made in Last 365 Days	F3239	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Inspection Lots Leveraging Inspection Lot Detailed Analytics	Inspection Lot Detailed Analytics - On Lots with Usage Decision in Last 365 Days 	F3273	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Inspection Characteristics	Inspection Lot Analytics - UDs Made in Last 365 Days	F3239	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Inspection Characteristics	Characteristic Analytics - Results in Last 365 Days	F3383	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Inspection Characteristics Leveraging Inspection Characteristic Detailed Analytics	Inspection Lot Detailed Analytics - On Lots with Usage Decision in Last 365 Days 	F3273	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Inspection Characteristics Leveraging Inspection Characteristic Detailed Analytics	Characteristic Detailed Analytics - Results Recorded in Last 365 Days 	F3382	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Nonconformance	Inspection Lot Analytics - UDs Made in Last 365 Days	F3239	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Nonconformance	Nonconformance Analytics - Defects Created in Last 365 Days	F3584	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Nonconformance Leveraging Nonconformance Detailed Analytics	Inspection Lot Detailed Analytics - On Lots with Usage Decision in Last 365 Days 	F3273	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Analyze Nonconformance Leveraging Nonconformance Detailed Analytics	Nonconformance Detailed Analytics - Defects Created in Last 365 Days 	F3583	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Manage Defects	Manage Defects 	F2649	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Display Results History	Display Results History 	F2428	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Level History - Skip Rate in Last 180 Days	Quality Level History	F2915	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Quality Level History - Skip Rate in Last 180 Days	Manage Usage Decisions 	F2345	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Manage Control Charts	Manage Control Charts 	F2810	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	2V0	SAP Fiori Analytical Apps for Quality Management     (2V0)	    Manage Quality Tasks	Manage Quality Tasks 	F3381	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	    Capacity Planning Evaluation for Discrete Manufacturing				
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Evaluate Capacity Situation				
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	            Check Capacity Situation	Manage Work Center Capacity 	F3289	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	            Apply Changes to Available Capacity	Mass Maintenance of Work Center Capacities 	F5381	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	            Apply Changes to Available Capacity	Manage Work Center Capacity 	F3289	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Conversion to Production Orders	Check Material Coverage 	F0251	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Production Order Processing for Subassembly				
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Production Order Processing for Final Assembly				
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Evaluate Capacity (Optional)	Evaluate Capacity 	F6798	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	    Capacity Planning Evaluation for Process Manufacturing				
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Evaluate Capacity Situation				
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	            Check Capacity Situation	Manage Work Center Capacity 	F3289	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	            Apply Changes to Available Capacity	Mass Maintenance of Work Center Capacities 	F5381	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	            Apply Changes to Available Capacity	Manage Work Center Capacity 	F3289	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Conversion to Process Orders	Check Material Coverage 	F0251	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	31L	Production Capacity Evaluation	        Process Order Processing				
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	    Anonymous Forecast and MRP				
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Evaluate the Stock / Requirement Situation	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	    Process Order Processing				
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Create Process Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Create Process Order	Convert Planned Orders 	F4171	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Review Process Order	Display Process Order 	COR3	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Goods Issue of Batch-Managed Components				
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	            Goods Issue via Pick List	Pick Components for Process Orders 	COIK	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	            Manual Goods Issue (Instead of Picking List)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Monitor Order Progress	Monitor Order Progress 	CO46	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Confirm Production incl.Component Backflush	Confirm Process Order Phase 	COR6N	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Post Goods Receipt for Process Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Review Process Order Confirmation	Display Process Order Confirmation 	CORT	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	        Review Scrap Report (Optional)	Material Scrap - Maximum Deviation 	F2035	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3L7	Make-to-Stock with Co- and By-Products - Process Manufacturing	    Review Manufacturing Object Pages (Optional)	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Create Change Master	Create Change Master 	CC01	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Exchange a Component in the MBOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Set Change Master Status to Inactive	Change Change Master 	CC02	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Manually Create Production Order	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Create Change Master	Create Change Master 	CC01	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Change to Original Component in the MBOM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Set Change Master Status to Inactive	Change Change Master 	CC02	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LO	Change Manufacturing Bill of Material for Production	    Manually Create Production Order	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Production Engineering	3LP	Mass Change Manufacturing Bill of Material for Production	    Display Where-Used List of the Material	Material where used list in BOMs - where used list, hierarchy and replace Materials in BOMs 	F2214	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LP	Mass Change Manufacturing Bill of Material for Production	    Create Change Master	Create Change Master 	CC01	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LP	Mass Change Manufacturing Bill of Material for Production	    Replace Material	Material where used list in BOMs - where used list, hierarchy and replace Materials in BOMs 	F2214	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LP	Mass Change Manufacturing Bill of Material for Production	    Check Draft BoM	Maintain Bill Of Material - Create, change &amp; display BOMs 	F1813	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LP	Mass Change Manufacturing Bill of Material for Production	    Confirm Material Exchange	Material where used list in BOMs - where used list, hierarchy and replace Materials in BOMs 	F2214	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LP	Mass Change Manufacturing Bill of Material for Production	    Set Change Master Status to Inactive	Change Change Master 	CC02	BOM Engineer	SAP_BR_BOM_ENGINEER
+Manufacturing	Production Engineering	3LP	Mass Change Manufacturing Bill of Material for Production	    Manually Create Production Order	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Production Planning	3LQ	Production Capacity Leveling	    Production Capacity Leveling for Discrete Manufacturing				
+Manufacturing	Production Planning	3LQ	Production Capacity Leveling	        Production Scheduling	Capacity Scheduling Table 	F3770	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	3LQ	Production Capacity Leveling	        Review Work Center Schedules	Capacity Scheduling Board 	F3951	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	3LQ	Production Capacity Leveling	    Production Capacity Leveling for Process Manufacturing				
+Manufacturing	Production Planning	3LQ	Production Capacity Leveling	        Production Scheduling	Capacity Scheduling Table 	F3770	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	3LQ	Production Capacity Leveling	        Review Work Center Schedules	Capacity Scheduling Board 	F3951	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	    Sales Order Processing				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Option 1: Create Sales Order Directly	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Option 1: Create Sales Order Directly	Create Sales Orders -  	VA01	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Option 2: Create Sales Order including Quotation Processing				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	            Create Sales Quotation	Manage Sales Quotations 	F1852	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	            Create Sales Orders with Ref. to Quotation	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	            Create Sales Orders with Ref. to Quotation	Create Sales Orders -  	VA01	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	    Production Planning				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Monitor Material Coverage	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	    Process Order Processing				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Create Process Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Create Process Order	Convert Planned Orders 	F4171	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Review Process Order	Display Process Order 	COR3	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Goods Issue of Batch-Managed Components	Monitor Stock / Requirements List 	MD04	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	            Goods Issue via Pick List	Pick Components for Process Orders 	COIK	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	            Manual Goods Issue (Instead of Picking List)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Monitor Order Progress	Monitor Order Progress 	CO46	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Confirm Process Order	Confirm Process Order Phase 	COR6N	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Post Goods Receipt for Process Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	    Delivery Processing				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Create Delivery with Order Reference				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Execute Picking				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Post Goods Issue				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	    Billing Process				
+Manufacturing	Manufacturing Operations	3OK	Make-to-Order Production - Process Manufacturing	        Create Billing Document				
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	    Receive Batch #2 into Day Tank				
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Create Purchase Order	Manage Purchase Orders 	DFS_PO_MANAGE	Material Planner - Authorized Materials	SAP_BR_FEMAT_PLANNER
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Post Goods Receipt for Purchase Order	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Post Goods Receipt for Purchase Order	My Inbox - All Items 	F0862	Purchasing Manager	SAP_BR_PURCHASING_MANAGER
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Display Material Stock before Quality Inspection	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Display Open Inspection Lot	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Record Inspection Results	Record Inspection Results 	F1685A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Make Usage Decision	Record Usage Decision 	QA11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Display Material Stock after Quality Inspection	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	    Batch Mixing in Main Tank				
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Create Process Order for Mixing	Create Process Order 	COR1	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Execute Batch Determination in Process Order	Change Process Order 	COR2	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Review Process Order	Display Process Order 	COR3	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Goods Issue of Batch-Managed Components				
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	            Goods Issue Via Pick List	Pick Components for Process Orders 	COIK	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	            Manual Goods Issue (instead of Picking List)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Confirm Process Order	Confirm Process Order Phase 	COR6N	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Post Goods Receipt for Process Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Display Material Stock before Quality Inspection	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Display Open Inspection Lot	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Record Inspection Results	Record Inspection Results 	F1685A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Make Usage Decision	Record Usage Decision 	QA11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	        Display Material Stock after Quality Inspection	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Manufacturing Operations	3UK	Inbound Storage Tank Management - Process Manufacturing	    Review Manufacturing Object Pages (Optional)	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	    Anonymous Forecast and MRP				
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Evaluate the Stock / Requirement Situation	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	    Process Order Processing				
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Create Process Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Create Process Order	Convert Planned Orders 	F4171	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Review Process Order	Display Process Order 	COR3	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Goods Issue of Batch-Managed Components	Monitor Stock / Requirements List 	MD04	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	            Goods Issue via Pick List	Pick Components for Process Orders 	COIK	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	            Manual Goods Issue (instead of Picking List)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Confirm Production incl. Component Backflush	Confirm Process Order Phase 	COR6N	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Post Goods Receipt for Process Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Review Process Order Confirmation	Display Process Order Confirmation 	CORT	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	3UL	Make-to-Stock with Silo Material - Process Manufacturing	        Review Scrap Report (Optional)	Material Scrap - Maximum Deviation 	F2035	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	    Create Process Order with Batch for Tank Trailer Filling	Create Process Order 	COR1	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	    Assign Container ID to the Batch	Manage Batches 	F2462	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	    Execute Batch Determination in Process Order	Change Process Order 	COR2	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	    Goods Issue of Components				
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	        Goods Issue via Pick List	Pick Components for Process Orders 	COIK	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	        Manual Goods Issue (Instead of Picking List)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	    Confirm Process Order	Confirm Process Order Phase 	COR6N	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	42N	Tank Trailer Filling with Residuals	    Post Goods Receipt for Process Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	    Anonymous Forecast and MRP				
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	        Adjust Planning in Planning Table	Manage Repetitive Manufacturing 	MF50	Production Supervisor - Repetitive Manufacturing	SAP_BR_PRODN_SUPERVISOR_RPTV
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	    Production-Supply by Changing Kanban Container Status and Using Kanban Board				
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	        Classic Kanban: In-House Production - Planned Orders with MRP				
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Set Available Kanban to EMPTY	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Set Available Kanban to EMPTY	Kanban Board 	F4630	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Change the Kanban to FULL	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Change the Kanban to FULL	Confirm Repetitive Manufacturing - Kanban 	PK41	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	        Classic Kanban: In-House Production - Production Orders with MRP				
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Check Dependent Requirement of Material SG234	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Set Available Kanban to EMPTY	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Pick Components for Production Order	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Pick Components for Production Order	Pick Components for Production Orders 	CO27	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	            Confirm Production Operation	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	        Kanban Control Cycles Analysis (Optional)	Kanban Control Cycles Analysis 	F5235	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	        Monitor Replenishment Situation (Optional)	Kanban Board 	F4630	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	    Repetitive Manufacturing Backflush	Confirm Repetitive Manufacturing 	MFBF	Production Operator - Repetitive Manufacturing	SAP_BR_PRODN_OPTR_RPTV
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	    Post Processing List of Error Records	Reprocess Goods Movements 	COGI	Production Supervisor - Repetitive Manufacturing	SAP_BR_PRODN_SUPERVISOR_RPTV
+Manufacturing	Manufacturing Options	4B3	Material Replenishment with Kanban - In-House Production	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	    Production-Supply by Changing Kanban Container Status and Using Kanban Board				
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	        Classic Kanban: Stock Transfer				
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            Set Available Kanban to EMPTY	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            Set Available Kanban to EMPTY	Kanban Board 	F4630	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            Change the Kanban to FULL	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            Withdraw Quantity (Optional)	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	        One-Card Kanban Procedure with Trigger Quantity				
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            Start with a Full Container	Kanban Board 	F4630	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            Withdraw Current Container till Trigger Quantity	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            New Container Arrives	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	            Withdraw Current Container till Empty	Set Kanban Container Status 	F3717	Production Operator - Lean Manufacturing	SAP_BR_PRODN_OPTR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	        Kanban Control Cycles Analysis (Optional)	Kanban Control Cycles Analysis 	F5235	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	        Monitor Replenishment Situation (Optional)	Kanban Board 	F4630	Production Supervisor - Lean Manufacturing	SAP_BR_PRODN_SUPVR_LEAN_MFG
+Manufacturing	Manufacturing Options	4B4	Material Replenishment with Kanban - Stock Transfer	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	    Main Scenario				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	        Schedule pMRP Simulation Creation	Schedule pMRP Simulation Creation 	F3968	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	        Process pMRP Simulations	Process pMRP Simulations 	F3934	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	        Check Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	        pMRP with Supplier Collaboration (Optional)				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Download Component Data from pMRP Simulation	Process pMRP Simulations 	F3934	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Create Price Request from Suppliers				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	    Use Cases (Optional)				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	        Use-Case Aï¼š Dealing with External Constraints for Supplier(s)				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Variant 1: Flexible Contraints for Multiple Suppliers				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Define Flexible Contraints for Multiple Suppliers	Define Flexible Constraints 	F4449	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Copy Simulation from Main Scenario	Schedule pMRP Simulation Creation 	F3968	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Process pMRP Simulation	Process pMRP Simulations 	F3934	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Update Flexible Constraints	Define Flexible Constraints 	F4449	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Reprocess the pMRP Simulation				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Variant 2: Flexible Constraints for Multiple Materials of a Single Supplier				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Define Flexible Contraints for Multiple Materials	Define Flexible Constraints 	F4449	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Copy Simulation from Main Scenario	Schedule pMRP Simulation Creation 	F3968	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	                Process pMRP Simulation	Process pMRP Simulations 	F3934	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	        Use-Case B: Dealing with Internal Constraints for Production lines				
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Define Constraints for Production Line	Define Flexible Constraints 	F4449	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Copy Simulation from Main Scenario	Schedule pMRP Simulation Creation 	F3968	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Process pMRP Simulation	Process pMRP Simulations 	F3934	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Update the Production Line Constraints	Define Flexible Constraints 	F4449	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Production Planning	4B5	Predictive Material and Resource Planning	            Reprocess the pMRP Simulation				
+Manufacturing	Manufacturing Operations	4OC	Make-to-Order Production for Sales Kits with Variant Configuration	    Create Sales Order with Configurable Material	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	4R8	Engineer-to-Order Production with Variant Configuration	    Create Sales Order	Create Sales Orders -  	VA01	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	4R8	Engineer-to-Order Production with Variant Configuration	    Creation of Order BOM	Order Engineering Worklist 	F4770	BOM Engineer - Customer Order	SAP_BR_BOM_ENG_CUST_ORDER
+Manufacturing	Manufacturing Operations	4R8	Engineer-to-Order Production with Variant Configuration	    Accept Changes of Engineering and Save Sales Order	Change Sales Orders -  	VA02	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Options	53X	Just-In-Time Supply to Customer with Delivery Confirmation	    Create JIT Delivery Confirmation				
+Manufacturing	Manufacturing Options	53X	Just-In-Time Supply to Customer with Delivery Confirmation	    Create JIT Delivery Confirmation				
+Manufacturing	Manufacturing Options	53X	Just-In-Time Supply to Customer with Delivery Confirmation	    Release JIT Delivery Confirmation	Manage JIT Delivery Confirmations 	F5268	Material Planner - Just-In-Time Supply	SAP_BR_MATL_PLNR_JIT_S_TO_C
+Manufacturing	Manufacturing Options	53X	Just-In-Time Supply to Customer with Delivery Confirmation	    Post Goods Issue	My Outbound Delivery Monitor 	VL06O	Shipping Specialist - Just-In-Time Supply	SAP_BR_SHIP_SPECIALIST_JIT
+Manufacturing	Manufacturing Options	53X	Just-In-Time Supply to Customer with Delivery Confirmation	    Check Stock Overview	Stock 	F1595	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Manufacturing Options	53X	Just-In-Time Supply to Customer with Delivery Confirmation	    Create Customer Invoice	Create Billing Documents 	F0798	Billing Clerk	SAP_BR_BILLING_CLERK
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	    Subcontracting without Serial Number Management				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Approve Purchase Order (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Purchase Order as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Confirm Purchase Order as a Supplier in SAP Business Network (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Purchase Order Confirmation (Optional)	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Outbound Delivery for Subcontracting Purchase Order	Display Subcontracting Stocks by Supplier 	ME2ON	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Change Outbound Delivery for Subcontracting Purchase Order	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Shipments for Components as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create a Component Receipt as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Updated Proof of Delivery in Outbound Delivery Document	Display Outbound Delivery - Proof of Delivery 	VLPODA	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Shipping Notification as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Inbound Delivery for Purchase Order (Optional)	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Set Up the Putaway of Goods for Inbound Delivery	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Post Goods Receipt for Inbound Delivery	Change Inbound Delivery 	VL32N	Receiving Specialist	SAP_BR_RECEIVING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Goods Receipt Details (Optional)	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Post Subsequent Stock Adjustment (Optional)	Post Subsequent Adjustment 	F5476	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Supplier Invoice with PO/GR Relation as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Release Supplier Invoice for Payment (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Invoice Status Change as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	    Subcontracting with Serial Number Management				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Purchase Order				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Approve Purchase Order (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Purchase Order as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Confirm Purchase Order as a Supplier in SAP Business Network (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Purchase Order Confirmation (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Outbound Delivery for Subcontracting Purchase Order	Display Subcontracting Stocks by Supplier 	ME2ON	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Pick Delivery Item and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Shipments for Components as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create a Component Receipt as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Updated Proof of Delivery in Outbound Delivery Document	Display Outbound Delivery - Proof of Delivery 	VLPODA	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Shipping Notification as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Inbound Delivery for Purchase Order (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Set Up the Putaway of Goods for Inbound Delivery				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Post Goods Receipt for Inbound Delivery				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Goods Receipt Details (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Supplier Invoice with PO/GR Relation as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Release Supplier Invoice for Payment (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Invoice Status Change as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	    Subcontracting with Batch-Managed Material				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Approve Purchase Order (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Purchase Order as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Confirm Purchase Order as a Supplier in SAP Business Network (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Purchase Order Confirmation (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Outbound Delivery for Subcontracting Purchase Order	Display Subcontracting Stocks by Supplier 	ME2ON	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Pick Delivery Item and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Shipments for Components as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create a Component Receipt as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Updated Proof of Delivery in Outbound Delivery Document				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Shipping Notification as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Inbound Delivery for Purchase Order (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Set Up the Putaway of Goods for Inbound Delivery				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Post Goods Receipt for Inbound Delivery				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Check Goods Receipt Details (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Create Supplier Invoice with PO/GR Relation as a Supplier in SAP Business Network				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Release Supplier Invoice for Payment (Optional)				
+Manufacturing	Manufacturing Options	5I2	Subcontracting with SAP Business Network	        Display Invoice Status Change as a Supplier in SAP Business Network				
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	    Material Requirements Planning (MRP) Change Request				
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	        Create Purchase Order	Check Material Coverage 	F0251	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	        Manage Planned Independent Requirements (PIRs) for Material TG0011	Maintain PIRs 	F3445	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	        Schedule Material Requirements Planning (MRP) Rescheduling Check	Schedule MRP Rescheduling Checks 	F5417	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	        Create Material Requirements Planning (MRP) Change Requests	Create MRP Change Requests 	F5416	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	        Send Material Requirements Planning (MRP) Change Requests	Create MRP Change Requests 	F5416	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	    Manage Material Requirements Planning (MRP) Change Request in SAP Business Network				
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	    Review Material Requirements Planning (MRP) Change Requests Based on Vendorâ€™s Response	Create MRP Change Requests 	F5416	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	    Send Confirmation for Material Requirements Planning (MRP) Change Requests to Vendor	Schedule Sending MRP Change Requests 	F5418	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	65D	MRP Change Request Integration with SAP Business Network	    Review Material Requirements Planning (MRP) Change Request Confirmation in SAP Business Network				
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	    Purchasing and Goods Receipt				
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Create Purchase Order	Manage Purchase Orders 	F0842A	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Display Material Stock before Goods Receipt (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Post Goods Receipt for Purchase Order	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Display Material Stock Before Quality Inspection (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	    Quality Inspection				
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Display Quality Technician Overview (Optional)	Quality Technician Overview 	F2361	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Display Open Inspection Lots (Optional)	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Record Inspection Results	Record Inspection Results 	F1685A	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Make Usage Decision	Record Usage Decision 	QA11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Display Batch classification	Manage Batches 	F2462	Master Data Specialist - Batch Data	SAP_BR_BATCH_MASTER_SPCLST
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Display Material Stock after Quality Inspection (Optional)	Stock - Single Material 	F1076	Inventory Analyst	SAP_BR_INVENTORY_ANALYST
+Manufacturing	Quality Management	7GT	Quality Inspection of Incoming Material with Multiple Specs	        Display Inspection Results History (Optional)	Display Results History 	F2428	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	    Create Stability Study				
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Create Stability Study and Initial Samples	Create Stability Study 	QST01	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	    Quality Inspection				
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Display Open Inspection Lots (Optional)	Manage Inspection Lots 	F2343	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Record Inspection Results	Record Inspection Results - Hierarchical Worklist 	QE51N	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Make Usage Decision	Record Usage Decision 	QA11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	    Planning and Execution of Stability Study				
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Planning of Stability Study	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Scheduling Overview (Optional)	Scheduling Overview 	IP24	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Manual Inspection Lot (Optional)	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Record Inspection Results	Record Inspection Results - Hierarchical Worklist 	QE51N	Quality Technician	SAP_BR_QUALITY_TECHNICIAN
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Make Usage Decision	Record Usage Decision 	QA11	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Manufacturing	Quality Management	7GU	Stability Studies with Quality Management	        Display Stability History	Change Quality Notification 	QM02	Quality Engineer	SAP_BR_QUALITY_ENGINEER
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Anonymous Forecast and MRP				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Material Requirements Planning at Plant Level	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Evaluate Stock/Requirements Situation	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Production Order Convertion and Available-to-Promise Check				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Conversion to Production Orders for Subassembly and Final Assembly	Manage Material Coverage 	F0251A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Conversion to Production Orders for Subassembly and Final Assembly	Manage Planned Orders 	F4170	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Review Material Availability Status for Production Orders	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Production Order Processing for Subassembly				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Material Staging for Subassembly	Stage Materials for Production 	MF60	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Release Production Order for Subassembly	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Confirm Production Operations for Subassembly	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Post Goods Receipt for Subassembly Production Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Production Order Processing for Final Assembly				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Material Staging for Final Assembly	Stage Materials for Production 	MF60	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Release Production Order for Final Assembly	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Check Serial Numbers				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Check Serial Numbers	Display Production Order 	CO03	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Pick Components for Final Assembly	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Pick Components for Final Assembly	Pick Components for Production Orders 	CO27	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Confirm Production Operations for Final Assembly	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Review Production Order	Manage Production Operations 	F2335	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Final Confirmation of Production Operations for Final Assembly	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Post Goods Receipt for Final Assembly Production Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Collective Orders				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Create Planned Independent Requirements for FG130	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Material Requirements Planning at Plant Level for FG130	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Evaluate Stock/Requirements Situation	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Conversion to Production Orders for Subassembly and Final Assembly	Check Material Coverage 	F0251	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Review Material Availability Status for Production Orders	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Material Staging for Subassembly and Final Assembly	Stage Materials for Production 	MF60	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Release Production Order for FG130	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Confirm Production Operations for SG30 and FG130	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Post Goods Receipt for Final Assembly Production Order FG130	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Check PIR Quality (Optional)				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Sell from Stock for FG126				
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	        Check PIR Quality	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Review Scrap Report	Material Scrap - Maximum Deviation 	F2035	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ5	Make-to-Stock Production - Discrete Manufacturing	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	    Anonymous Forecast and MRP				
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Material Requirements Planning	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Evaluate the Stock / Requirement Situation	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	    Process Order Processing				
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Create Process Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Create Process Order	Convert Planned Orders 	F4171	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Review Process Order	Display Process Order 	COR3	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Review Process Order	Manage Process Orders 	F4587	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Goods Issue of Batch-Managed Components	Monitor Stock / Requirements List 	MD04	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	            Goods Issue via Pick List	Pick Components for Process Orders 	COIK	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	            Manual Goods Issue (instead of Picking List)	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Monitor Order Progress	Manage Process Orders 	F4587	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Monitor Order Progress	Monitor Order Progress 	CO46	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Confirm Production incl. Component Backflush	Confirm Process Order Phase 	COR6N	Production Operator - Process Manufacturing	SAP_BR_PRODN_OPTR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Post Goods Receipt for Process Order	Post Goods Receipt for Process Order 	F6352	Warehouse Clerk	SAP_BR_WAREHOUSE_CLERK
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Post Goods Receipt for Process Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Review Process Order Confirmation	Manage Process Orders 	F4587	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Review Process Order Confirmation	Display Process Order Confirmation 	CORT	Production Supervisor - Process Manufacturing	SAP_BR_PRODN_SUPERVISOR_PROC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	        Review Scrap Report	Material Scrap - Maximum Deviation 	F2035	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJ8	Make-to-Stock - Process Manufacturing Based on Process Order	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    MTO Sales Processing (Material w/o Sales Order BoM)				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Receive Customer Request for Quotation				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Create and Send Sales Quotation to Customer	Manage Sales Quotations 	F1852	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Change Sales Quotation	Manage Sales Quotations 	F1852	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Create Sales Order with Ref. to Quotation	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    MTO Sales Processing (Material with Sales Order BoM) (Optional)				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Create Sales Order	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    Down Payment Processing				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Create Down Payment Request				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Post Down Payment				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    Production Planning				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Material Requirements Planning for Sales Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    Process Technical Change BoM in Sales Order (Optional)				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Change Order BoM for Sales Order	Manage Order Bill of Material - Create, Change and Display BOMs 	F1813	BOM Engineer - Customer Order	SAP_BR_BOM_ENG_CUST_ORDER
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Recalculation of Costs in Sales Order	Change Sales Orders -  	VA02	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Recalculation of Costs in Sales Order	Manage Sales Orders 	F1873	Internal Sales Representative	SAP_BR_INTERNAL_SALES_REP
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Rerun MRP for Sales Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    Production Processing				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Create Production Order	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Release Production Orders	Manage Production Orders 	F2336	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Pick Components (Picking List)	Monitor Stock / Requirements List 	MD04	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Pick Components (Picking List)	Pick Components for Production Orders 	CO27	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Confirm Assembly Activities	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Post Goods Receipt for Production Order	Post Goods Receipt for Production Order 	F3110	Warehouse Clerk	SAP_BR_WAREHOUSE_CLERK
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    Delivery Processing				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Create Delivery with Order Reference				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Execute Picking				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Post Goods Issue				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    Billing Process				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Change Sales Orders (Remove Billing Block)				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	        Billing				
+Manufacturing	Manufacturing Operations	BJE	Make-to-Order Production - Finished Goods Sales and Final Assembly	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Anonymous Forecast and MRP				
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	        Create Planned Independent Requirements	Maintain PIRs 	F3445	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	        Material Requirements Planning (MRP)	Check Material Coverage 	F0251	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	        Material Requirements Planning (MRP)	Schedule MRP Runs 	F1339	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	        Adjust Planning in Planning Table	Manage Repetitive Manufacturing 	MF50	Production Supervisor - Repetitive Manufacturing	SAP_BR_PRODN_SUPERVISOR_RPTV
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	        Check Range of Stock Coverage	Monitor Material Coverage - Net / Individual Segments 	F2101A	Production Planner	SAP_BR_PRODN_PLNR
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Material Staging	Stage Materials for Production 	MF60	Production Operator - Repetitive Manufacturing	SAP_BR_PRODN_OPTR_RPTV
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Material Staging	Check Material Coverage 	F0251	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Confirm Repetitive Manufacturing Inclusive Backflush of Materials	Confirm Repetitive Manufacturing 	MFBF	Production Operator - Repetitive Manufacturing	SAP_BR_PRODN_OPTR_RPTV
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Confirm Repetitive Manufacturing Inclusive Backflush of Materials				
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Confirm Repetitive Manufacturing Inclusive Backflush of Materials				
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Post Processing of Error Records	Reprocess REM Goods Movements 	MF47	Production Operator - Repetitive Manufacturing	SAP_BR_PRODN_OPTR_RPTV
+Manufacturing	Manufacturing Options	BJH	Make-to-Stock Production - Repetitive Manufacturing	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Create Production Order with Subcontract Operation	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Create Purchase Order for External Processing	Process Purchase Requisitions - Formerly Manage Purchase Requisitions 	F1048	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Post Goods Receipt for Subcontract Purchase Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Enter Incoming Supplier Invoice	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Enter Incoming Supplier Invoice	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Enter Incoming Supplier Invoice	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Periodic Payment				
+Manufacturing	Manufacturing Operations	BJK	Production Subcontracting - External Processing	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Create Rework Production Order	Create Production Order 	CO01	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Release Rework Production Order	Change Production Order 	CO02	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Goods Issue for Defective Materials	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Preview Goods Issue Slip	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Preview Goods Issue Slip				
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Confirmation of Rework Production Activities	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Manage Production Operations	Manage Production Operations 	F2335	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Post Goods Receipt for Rework Production Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Preview Goods Receipt Slip	Material Documents Overview 	F1077	Administrator (Retail)	SAP_BR_ADMINISTRATOR_RFM
+Manufacturing	Manufacturing Operations	BJN	Rework Processing - Stock-Manufactured Material	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Operations	BJQ	Rework Processing - Work-in-Process	    Confirm Rework Required for Defective Material	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJQ	Rework Processing - Work-in-Process	    Confirm Production Order at Rework Operation	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJQ	Rework Processing - Work-in-Process	    Manage Production Operations	Manage Production Operations 	F2335	Production Supervisor - Discrete Manufacturing	SAP_BR_PRODN_SUPERVISOR_DISC
+Manufacturing	Manufacturing Operations	BJQ	Rework Processing - Work-in-Process	    Confirm Subsequent Operation Including Reworked Quantity	Confirm Production Order Operation 	CO11N	Production Operator - Discrete Manufacturing	SAP_BR_PRODN_OPTR_DISC
+Manufacturing	Manufacturing Operations	BJQ	Rework Processing - Work-in-Process	    Review Manufacturing Object Pages	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Manufacturing	Manufacturing Operations	BJQ	Rework Processing - Work-in-Process	    Delete Reference Operation Set from Routing	Change Routing 	CA02	Production Engineer - Discrete Manufacturing	SAP_BR_PRODN_ENG_DISC
+Manufacturing	Manufacturing Options	BMY	Subcontracting	    Complete Supplier Master Data	Maintain Business Partner 	BP	Accounts Payable Accountant	SAP_BR_AP_ACCOUNTANT
+Manufacturing	Manufacturing Options	BMY	Subcontracting	    Part 1: Subcontracting without Serial Number Management				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Convert Purchase Requisition to Purchase Order				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Monitor Subcontracting Documents (Optional)	Monitor Subcontracting Documents 	F3095	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Approve Purchase Orders (Optional)	My Inbox - All Items 	F0862	Purchasing Manager	SAP_BR_PURCHASING_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Option 1 : Outbound Delivery				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	            Handling Unit Management (Optional)				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	            Create Outbound Delivery	Subcontracting Cockpit 	F2948	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	            Pick and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Option 2: Transfer Posting	Subcontracting Cockpit 	F2948	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Receive Goods from Subcontracting PO	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Subcontracting Challan/Invoice	Create Subcontracting Challan or Invoice 	F3493	Purchaser for India	SAP_BR_PURCHASER_IN
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Supplier Invoice	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Supplier Invoice	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Post Goods Receipt	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Reconciliation of Subcontracting Challan	Reconcile Subcontracting Challans - India 	J1IGRECON	Purchaser for India	SAP_BR_PURCHASER_IN
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Review Supplier Invoice (Optional)				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Quantity Open after GR Cancellation				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	    Part 1: Subcontracting without Serial Number Management				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	    Part 2: Subcontracting with Serial Number Management				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Convert Purchase Requisition to Purchase Order				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Purchase Order	Create Purchase Order 	ME21N	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Purchase Order	Create Purchase Order - Advanced 	ME21N	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Approve Purchase Orders (Optional)	My Inbox - All Items 	F0862	Purchasing Manager	SAP_BR_PURCHASING_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Outbound Delivery	Subcontracting Cockpit 	F2948	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Monitor Subcontracting Documents (Optional)	Monitor Subcontracting Documents 	F3095	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Handling Unit Management (Optional)				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Approve Purchase Orders (Optional)	My Inbox - All Items 	F0862	Purchasing Manager	SAP_BR_PURCHASING_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Pick and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Option 1 : Outbound Delivery				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	            Handling Unit Management (Optional)				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	            Create Outbound Delivery	Subcontracting Cockpit 	F2948	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	            Pick and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Receive Goods from Subcontracting PO	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Option 2: Transfer Posting	Subcontracting Cockpit 	F2948	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Receive Goods from Subcontracting PO	Post Goods Receipt for Purchasing Document 	F0843	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Supplier Invoice	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Supplier Invoice	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Supplier Invoice	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Review Supplier Invoice (Optional)				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	    Part 2: Subcontracting with Serial Number Management				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Purchase Order	Create Purchase Order 	ME21N	Purchaser	SAP_BR_PURCHASER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Approve Purchase Orders (Optional)	My Inbox - All Items 	F0862	Purchasing Manager	SAP_BR_PURCHASING_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Outbound Delivery	Subcontracting Cockpit 	F2948	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Handling Unit Management (Optional)				
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Pick and Post Goods Issue	Change Outbound Delivery 	VL02N	Shipping Specialist	SAP_BR_SHIPPING_SPECIALIST
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Receive Goods from Subcontracting PO	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Manufacturing Options	BMY	Subcontracting	        Create Supplier Invoice	Create Supplier Invoice 	F0859	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Manufacturing	Production Planning	J44	Material Requirements Planning	    Manage PIRs for Material TG0011 & TG0012	Maintain PIRs 	F3445	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	    Monitor Material Coverage				
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Run Material Requirements Planning (MRP)	Monitor Material Coverage - Net / Individual Segments 	F2101A	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Evaluate MRP Result				
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Evaluate MRP Result (Purchase Requisitions)	Monitor Material Coverage - Net / Individual Segments 	F2101A	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Evaluate MRP Result (Purchase Requisitions)	Hand Over Purchase Requisitions 	F4795	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Evaluate MRP Result (Purchase Requisitions)	Change Material 	MM02	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Evaluate MRP Result (Delivery Schedule)	Monitor Material Coverage - Net / Individual Segments 	F2101A	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	    Display MRP Run Master Data Issues	Display MRP Master Data Issues 	F1425A	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	    Display MRP Run Key Figures	Display MRP Key Figures 	F1426	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	    Time-dependent Safety Stock Levels				
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Time-dependent Safety Stock				
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Maintain MRP Safety Stock Method in Material	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Maintain Time-Dependent Safety Stock	Maintain Time-Dependent Stock Levels 	F5726	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Check Material Coverage	Check Material Coverage 	F0251	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Time-dependent Days of Supply				
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Maintain MRP Safety Stock Method in Material	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Maintain Time-Dependent Days of Supply	Maintain Time-Dependent Stock Levels 	F5726	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Manage PIRs for Material TG0099	Maintain PIRs 	F3445	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Check Material Coverage	Check Material Coverage 	F0251	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	            Reset Material Master Data	Manage Product Master Data 	F1602	Master Data Specialist - Product Data	SAP_BR_PRODMASTER_SPECIALIST
+Manufacturing	Production Planning	J44	Material Requirements Planning	    Material Exception (Optional)				
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Clear Initial Stock	Manage Stock 	F1062	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Clear Existing Purchase Requisitions	Check Material Coverage 	F0251	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Manage PIRs for Material TG0099	Maintain PIRs 	F3445	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Run Material Requirements Planning (MRP) and Firm Purchase Requisition	Check Material Coverage 	F0251	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Increase Stock for TG0099	Manage Stock 	F1062	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Detect MRP Situations	Detect MRP Situations 	F3853	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Check and React to Material Exception	Manage Material Coverage 	F0251A	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Reduce Stock for TG0099	Manage Stock 	F1062	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Manufacturing	Production Planning	J44	Material Requirements Planning	    MRP Change Request (Optional)				
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Create Purchase Order	Check Material Coverage 	F0251	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Manage PIRs for Material TG0099	Maintain PIRs 	F3445	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        MRP Rescheduling Check	Schedule MRP Rescheduling Checks 	F5417	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Create and Send MRP Change Requests	Create MRP Change Requests 	F5416	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Manage Change Requests	Create MRP Change Requests 	F5416	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        Manage Change Requests	Manage Change Requests 	F0670	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC
+Manufacturing	Production Planning	J44	Material Requirements Planning	        React to MRP Change Requests based on Vendorâ€™s Response	Create MRP Change Requests 	F5416	Material Planner - External Procurement	SAP_BR_MATL_PLNR_EXT_PROC

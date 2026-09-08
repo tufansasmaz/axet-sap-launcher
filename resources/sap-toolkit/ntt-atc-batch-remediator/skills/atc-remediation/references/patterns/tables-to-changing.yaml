@@ -1,0 +1,35 @@
+# Pattern 6: Classic ABAP statements forbidden in Cloud — TABLES sub-case
+# Source: research-pattern-library.md §6
+check_ids:
+  - "CL_CI_TEST_OBSOLETE_STATEMENTS::TABLES"
+  - "FL069"
+priority: 1
+fix_shape: context
+template:
+  before: |
+    FUNCTION z_create_orders.
+      TABLES: zorders.
+      LOOP AT zorders.
+        WRITE: / zorders-id.
+      ENDLOOP.
+    ENDFUNCTION.
+  after: |
+    FUNCTION z_create_orders
+      CHANGING ct_orders TYPE STANDARD TABLE OF zorders.
+      LOOP AT ct_orders INTO DATA(ls_order).
+        WRITE: / ls_order-id.
+      ENDLOOP.
+    ENDFUNCTION.
+context_required:
+  - "every caller of the FM (TABLES signature change is breaking)"
+  - "detection of header-line usage patterns (`LOOP AT itab.` + `itab-field`)"
+confidence_signals:
+  high:
+    - "no header-line implicit access detected"
+    - "fewer than 5 caller sites identified"
+  low:
+    - "header-line access via implicit work area present"
+    - "caller list incomplete (caller-scan UNAVAILABLE)"
+    - "FM is RFC-enabled (external callers possible)"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 2364250

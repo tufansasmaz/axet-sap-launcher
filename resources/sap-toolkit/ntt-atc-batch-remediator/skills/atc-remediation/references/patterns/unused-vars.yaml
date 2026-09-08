@@ -1,0 +1,28 @@
+# Pattern 10: Unused variables / unused FORM parameters / unused imports
+# Source: research-pattern-library.md §10
+check_ids:
+  - "SLIN_UNUSED_VAR"
+  - "Y_CHECK_SCOPE_OF_VARIABLE"
+priority: 3
+fix_shape: mechanical
+template:
+  before: |
+    DATA: lv_temp  TYPE i,
+          lv_dummy TYPE string,
+          lv_count TYPE i.
+  after: |
+    DATA: lv_temp  TYPE i,
+          lv_count TYPE i.
+context_required:
+  - "static scan of full compilation unit (no dynamic ASSIGN of the name)"
+  - "no MOVE-CORRESPONDING source whose field maps to the variable"
+confidence_signals:
+  high:
+    - "static scan finds zero references to the variable"
+    - "no field-symbols pointing to the variable"
+    - "variable is local (not in CLASS DATA / CHANGING)"
+  low:
+    - "dynamic ASSIGN (lv_dummy) or (lc_name) found in unit"
+    - "variable is a public CLASS DATA attribute"
+    - "variable is RETURNING param of an interface method"
+fallback_on_low_confidence: route_to_human_review

@@ -1,0 +1,194 @@
+# LLM-eval suite for the `matnr-ext` pattern (CHAR18 -> MATNR / CHAR40).
+
+- id: clean-char18-no-offset
+  description: lv_material TYPE char18 used only as MATNR (high)
+  input_payload:
+    cluster_id: c-0301
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MAT_BROWSE
+      include: ZR_MAT_BROWSE
+      line: 17
+      message: "MATNR length extension required: lv_material TYPE char18"
+    context:
+      var_name: lv_material
+      var_type: char18
+      uses_offset_length: false
+      uses_concatenate_fixed_width: false
+      rfc_partner_older: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: offset-length-present
+  description: lv_matnr+0(18) access present (silent truncation risk — low)
+  input_payload:
+    cluster_id: c-0302
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MAT_BAD
+      include: ZR_MAT_BAD
+      line: 32
+      message: "MATNR length extension required with OFFSET/LENGTH"
+    context:
+      var_name: lv_matnr
+      var_type: char18
+      uses_offset_length: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: rfc-partner-old
+  description: RFC partner system still on 18-char MATNR (low)
+  input_payload:
+    cluster_id: c-0303
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_RFC_MAT_OUT
+      include: ZR_RFC_MAT_OUT
+      line: 79
+      message: "MATNR length extension required — RFC partner integration"
+    context:
+      var_name: lv_partner_matnr
+      var_type: char18
+      uses_offset_length: false
+      rfc_partner_older: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: concatenate-fixed
+  description: variable concatenated into a fixed-width target (low)
+  input_payload:
+    cluster_id: c-0304
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_MAT_KEY_BUILDER
+      include: ZCL_MAT_KEY_BUILDER==========CM001
+      line: 41
+      message: "MATNR length extension required — variable concatenated"
+    context:
+      var_name: lv_matnr
+      var_type: char18
+      uses_concatenate_fixed_width: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: struct-field-clean
+  description: ls_row-matnr type alias swap (high)
+  input_payload:
+    cluster_id: c-0305
+    check_id: FLDEXT_MATNR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_MAT_ROW_VIEW
+      include: ZCL_MAT_ROW_VIEW==========CM001
+      line: 12
+      message: "MATNR length extension required on struct field"
+    context:
+      var_name: ls_row-matnr
+      var_type: char18
+      uses_offset_length: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: lookup-clean
+  description: lookup variable used in WHERE only — clean swap
+  input_payload:
+    cluster_id: c-0306
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_MAT_LOOKUP
+      include: ZCL_MAT_LOOKUP==========CM002
+      line: 47
+      message: "MATNR length extension required"
+    context:
+      var_name: lv_search_id
+      var_type: char18
+      uses_offset_length: false
+      uses_concatenate_fixed_width: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: clas-data-attribute
+  description: CLASS DATA attribute (public) — judgment-leaning
+  input_payload:
+    cluster_id: c-0307
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_MAT_REGISTRY
+      include: ZCL_MAT_REGISTRY==========CM001
+      line: 9
+      message: "MATNR length extension required on public CLASS DATA"
+    context:
+      var_name: mv_matnr
+      var_type: char18
+      public_class_data: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: gs-data-matnr-clean
+  description: gs_data-matnr in a private flat structure (high)
+  input_payload:
+    cluster_id: c-0308
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MAT_FLAT
+      include: ZR_MAT_FLAT
+      line: 27
+      message: "MATNR length extension required on private struct"
+    context:
+      var_name: gs_data-matnr
+      var_type: char18
+      uses_offset_length: false
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]
+
+- id: input-arg-from-bapi
+  description: iv_matnr coming from a BAPI parameter (low — caller may pass legacy)
+  input_payload:
+    cluster_id: c-0309
+    check_id: FDT_VAR_FIELD_LENGTH::MATNR_EXT
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_MAT_BAPI_FACADE
+      include: ZCL_MAT_BAPI_FACADE==========CM001
+      line: 18
+      message: "MATNR length extension required — BAPI parameter source"
+    context:
+      var_name: iv_matnr_in
+      var_type: char18
+      source_is_bapi_param: true
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.00, 0.69]
+
+- id: clean-trivial
+  description: trivial CHAR18 local variable with no surprises
+  input_payload:
+    cluster_id: c-0310
+    check_id: FLDEXT_MATNR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MAT_TRIVIAL
+      include: ZR_MAT_TRIVIAL
+      line: 5
+      message: "MATNR length extension required"
+    context:
+      var_name: lv_x
+      var_type: char18
+  expected_fix_shape: mechanical
+  expected_confidence_range: [0.85, 1.00]

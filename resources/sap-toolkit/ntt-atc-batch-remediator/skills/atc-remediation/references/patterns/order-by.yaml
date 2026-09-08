@@ -1,0 +1,31 @@
+# Pattern 3: ORDER BY missing or non-deterministic
+# Source: research-pattern-library.md §3
+check_ids:
+  - "CL_CI_TEST_DB_SEL_SORTORDER"
+  - "MISSING_ORDER_BY"
+priority: 2
+fix_shape: context
+template:
+  before: |
+    SELECT vbeln, posnr, matnr FROM vbap
+      WHERE vbeln = @lv_order
+      INTO TABLE @DATA(lt_items).
+    READ TABLE lt_items WITH KEY posnr = '00010' BINARY SEARCH INTO ls_item.
+  after: |
+    SELECT vbeln, posnr, matnr FROM vbap
+      WHERE vbeln = @lv_order
+      ORDER BY vbeln, posnr
+      INTO TABLE @DATA(lt_items).
+    READ TABLE lt_items WITH KEY posnr = '00010' BINARY SEARCH INTO ls_item.
+context_required:
+  - "DDIC primary-key list for the source table"
+  - "subsequent BINARY SEARCH / SORT keys against the result table"
+confidence_signals:
+  high:
+    - "BINARY SEARCH or SORT follows the SELECT within ~10 lines"
+    - "all selected fields include the keys used in BINARY SEARCH"
+  low:
+    - "selected field list omits some primary-key fields (cannot use PRIMARY KEY)"
+    - "result table >100k rows expected (DB sort cost concern)"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 2185030

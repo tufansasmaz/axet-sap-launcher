@@ -29,6 +29,10 @@ client. Without a connection, stop and say so.
 > `adt_atc_check`, `adt_unit_test`, `adt_get_source`, `adt_where_used`, `adt_revisions`
 > geçer; yazma araçları `404 unknown_tool` döner. Yani bulguları raporlarsın, düzeltmeyi
 > sistemde sen yapmazsın.
+>
+> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Eklenti kökü diye bir şey ve o ortam değişkeni bu
+> dağıtımda tanımlı değil. Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her yerde proje
+> kökündeki **`.axet-code/scripts/`** oku — `quality.py` oraya kuruluyor.
 
 You run the checks. The developer reads the board and decides. Every gate you skip shows
 up as ⬜, never as a pass.

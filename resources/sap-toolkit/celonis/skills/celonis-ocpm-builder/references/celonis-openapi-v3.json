@@ -1,0 +1,657 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Celonis Platform API",
+    "description": "Celonis Platform API - Knowledge Model, Data Push, Audit Log, Copilot, Event Subscriptions.",
+    "version": "3.1.0"
+  },
+  "host": "YOURTEAM.YOURCLUSTER.celonis.cloud",
+  "basePath": "/",
+  "schemes": ["https"],
+  "consumes": ["application/json"],
+  "produces": ["application/json"],
+  "securityDefinitions": {
+    "BearerAuth": {
+      "type": "apiKey",
+      "name": "Authorization",
+      "in": "header",
+      "description": "Bearer <api_key> or AppKey <app_key>"
+    }
+  },
+  "security": [{"BearerAuth": []}],
+  "paths": {
+    "/intelligence/api/knowledge-models": {
+      "get": {
+        "operationId": "listKnowledgeModels",
+        "summary": "List Knowledge Models",
+        "description": "Returns all Knowledge Models.",
+        "parameters": [
+          {"name": "page", "in": "query", "type": "integer", "default": 0},
+          {"name": "pageSize", "in": "query", "type": "integer", "default": 50}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "pageSize": {"type": "integer"},
+                "total": {"type": "integer"},
+                "content": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"},
+                      "name": {"type": "string"},
+                      "description": {"type": "string"},
+                      "packageId": {"type": "string"},
+                      "dataModelId": {"type": "string"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}": {
+      "get": {
+        "operationId": "getKnowledgeModel",
+        "summary": "Get Knowledge Model",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}/kpis": {
+      "get": {
+        "operationId": "listKMKPIs",
+        "summary": "List KM KPIs",
+        "description": "Returns all KPI definitions in a Knowledge Model. NOTE: This returns KPI metadata (id, name, format) but NOT computed values. To get actual KPI values, use getRecordData with the kpis parameter.",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string", "description": "Knowledge Model ID"}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "pageSize": {"type": "integer"},
+                "total": {"type": "integer"},
+                "sort": {"type": "string"},
+                "content": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"},
+                      "name": {"type": "string"},
+                      "description": {"type": "string"},
+                      "format": {"type": "string"},
+                      "unit": {"type": "string"},
+                      "direction": {"type": "string"},
+                      "target": {"type": "string"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}/filters": {
+      "get": {
+        "operationId": "listKMFilters",
+        "summary": "List KM Filters",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "total": {"type": "integer"},
+                "content": {"type": "array", "items": {"type": "object"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}/records": {
+      "get": {
+        "operationId": "listKMRecords",
+        "summary": "List KM Records",
+        "description": "Returns all records (tables) in a Knowledge Model.",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string", "description": "Knowledge Model ID"}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "pageSize": {"type": "integer"},
+                "total": {"type": "integer"},
+                "content": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"},
+                      "name": {"type": "string"},
+                      "description": {"type": "string"},
+                      "shortDisplayName": {"type": "string"},
+                      "internalNote": {"type": "string"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}/records/{record_id}": {
+      "get": {
+        "operationId": "getRecordFields",
+        "summary": "Get Record Fields",
+        "description": "Returns all fields for a record. Use field id values when calling Get Record Data.",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string", "description": "Knowledge Model ID"},
+          {"name": "record_id", "in": "path", "required": true, "type": "string", "description": "Record ID from listKMRecords"}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "id": {"type": "string"},
+                "name": {"type": "string"},
+                "description": {"type": "string"},
+                "shortDisplayName": {"type": "string"},
+                "internalNote": {"type": "string"},
+                "fields": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {"type": "string"},
+                      "name": {"type": "string"},
+                      "description": {"type": "string"},
+                      "type": {"type": "string"},
+                      "format": {"type": "string"},
+                      "unit": {"type": "string"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}/records/{record_id}/data": {
+      "get": {
+        "operationId": "getRecordData",
+        "summary": "Get Record Data",
+        "description": "Query data rows from a record with optional KPI computation. FIELD FORMAT: fields parameter must use field names WITHOUT record prefix — no dots allowed. Correct: CASE_ID,VENDOR,AMOUNT. Wrong: AP_EVENT_LOG.CASE_ID. KPI VALUES: To get computed KPI values per row, pass KPI IDs in the kpis parameter. KPI IDs come from listKMKPIs. The response will include KPI values as extra columns alongside field values. PAGINATION: Use limit and offset to control how many rows are returned. SEGMENT ANALYSIS: To get KPI values grouped by a dimension (e.g. per vendor), set fields to the grouping dimension and kpis to the desired metrics.",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string", "description": "Knowledge Model ID"},
+          {"name": "record_id", "in": "path", "required": true, "type": "string", "description": "Record ID"},
+          {"name": "fields", "in": "query", "required": true, "type": "string", "description": "REQUIRED. Comma-separated field IDs WITHOUT record prefix. Example: CASE_ID,VENDOR,AMOUNT. NEVER use dots or prefixes like TABLE_NAME.FIELD."},
+          {"name": "kpis", "in": "query", "required": false, "type": "string", "description": "Comma-separated KPI IDs from listKMKPIs. When provided, KPI values are computed and returned as additional columns in the response data. Use this to get actual metric values. Example: kpis=on_time_payment_rate,invoice_block_rate. For segment analysis, combine with a dimension field: fields=VENDOR&kpis=invoice_block_rate returns block rate per vendor."},
+          {"name": "limit", "in": "query", "required": false, "type": "integer", "default": 1000, "description": "Maximum number of rows to return. Default 1000. Use higher values for full dataset retrieval or lower values for sampling."},
+          {"name": "offset", "in": "query", "required": false, "type": "integer", "default": 0, "description": "Number of rows to skip for pagination. Use with limit to page through large datasets. Example: offset=1000&limit=1000 returns rows 1001-2000."},
+          {"name": "sorting", "in": "query", "required": false, "type": "string", "description": "Sort order. Format: FIELD_ID:ASC or FIELD_ID:DESC. Example: TIMESTAMP:DESC"}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "pageSize": {"type": "integer"},
+                "total": {"type": "integer"},
+                "sort": {"type": "array", "items": {"type": "string"}},
+                "content": {
+                  "type": "object",
+                  "properties": {
+                    "headers": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {"type": "string"},
+                          "name": {"type": "string"},
+                          "type": {"type": "string"},
+                          "format": {"type": "string"},
+                          "unit": {"type": "string"},
+                          "aggregation": {"type": "boolean"},
+                          "filterable": {"type": "boolean"},
+                          "sortable": {"type": "boolean"}
+                        }
+                      }
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {"type": "object"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}/records/{record_id}/summary": {
+      "get": {
+        "operationId": "getRecordSummary",
+        "summary": "Get Record Summary",
+        "description": "Returns a statistical summary of a record including row count and basic aggregations.",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string"},
+          {"name": "record_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "OK", "schema": {"type": "object"}}
+        }
+      }
+    },
+    "/intelligence/api/triggers": {
+      "get": {
+        "operationId": "listTriggers",
+        "summary": "List Triggers",
+        "parameters": [
+          {"name": "page", "in": "query", "type": "integer", "default": 0},
+          {"name": "pageSize", "in": "query", "type": "integer", "default": 50}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "total": {"type": "integer"},
+                "content": {"type": "array", "items": {"type": "object"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/knowledge-models/{km_id}/triggers": {
+      "get": {
+        "operationId": "listKMTriggers",
+        "summary": "List KM Triggers",
+        "parameters": [
+          {"name": "km_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "total": {"type": "integer"},
+                "content": {"type": "array", "items": {"type": "object"}}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/intelligence/api/triggers/{trigger_id}": {
+      "get": {
+        "operationId": "getTrigger",
+        "summary": "Get Trigger",
+        "parameters": [
+          {"name": "trigger_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "OK", "schema": {"type": "object"}}
+        }
+      }
+    },
+    "/intelligence/api/subscriptions": {
+      "get": {
+        "operationId": "listSubscriptions",
+        "summary": "List Subscriptions",
+        "parameters": [
+          {"name": "page", "in": "query", "type": "integer", "default": 0},
+          {"name": "pageSize", "in": "query", "type": "integer", "default": 50}
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "page": {"type": "integer"},
+                "total": {"type": "integer"},
+                "content": {"type": "array", "items": {"type": "object"}}
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSubscription",
+        "summary": "Create Subscription",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["triggerId", "callbackUrl"],
+              "properties": {
+                "triggerId": {"type": "string"},
+                "callbackUrl": {"type": "string"},
+                "name": {"type": "string"}
+              }
+            }
+          }
+        ],
+        "responses": {
+          "201": {"description": "Created", "schema": {"type": "object"}}
+        }
+      }
+    },
+    "/intelligence/api/subscriptions/{subscription_id}": {
+      "get": {
+        "operationId": "getSubscription",
+        "summary": "Get Subscription",
+        "parameters": [
+          {"name": "subscription_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "200": {"description": "OK", "schema": {"type": "object"}}
+        }
+      },
+      "put": {
+        "operationId": "updateSubscription",
+        "summary": "Update Subscription",
+        "parameters": [
+          {"name": "subscription_id", "in": "path", "required": true, "type": "string"},
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "callbackUrl": {"type": "string"},
+                "name": {"type": "string"}
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {"description": "OK", "schema": {"type": "object"}}
+        }
+      },
+      "delete": {
+        "operationId": "deleteSubscription",
+        "summary": "Delete Subscription",
+        "parameters": [
+          {"name": "subscription_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {
+          "204": {"description": "Deleted"}
+        }
+      }
+    },
+    "/intelligence/api/subscriptions/{subscription_id}/activate": {
+      "post": {
+        "operationId": "activateSubscription",
+        "summary": "Activate Subscription",
+        "parameters": [
+          {"name": "subscription_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/intelligence/api/subscriptions/{subscription_id}/deactivate": {
+      "post": {
+        "operationId": "deactivateSubscription",
+        "summary": "Deactivate Subscription",
+        "parameters": [
+          {"name": "subscription_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/intelligence/api/conversations": {
+      "post": {
+        "operationId": "createConversation",
+        "summary": "Create Copilot Conversation",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["copilotId"],
+              "properties": {
+                "copilotId": {"type": "string"}
+              }
+            }
+          }
+        ],
+        "responses": {"201": {"description": "Created", "schema": {"type": "object"}}}
+      }
+    },
+    "/intelligence/api/conversations/{conversation_id}/messages": {
+      "post": {
+        "operationId": "sendCopilotMessage",
+        "summary": "Send Copilot Message",
+        "parameters": [
+          {"name": "conversation_id", "in": "path", "required": true, "type": "string"},
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["content"],
+              "properties": {
+                "content": {"type": "string"}
+              }
+            }
+          }
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      }
+    },
+    "/integration/api/v1/data-push/{data_pool_id}/jobs": {
+      "get": {
+        "operationId": "listDataPushJobs",
+        "summary": "List Data Push Jobs",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "array", "items": {"type": "object"}}}}
+      },
+      "post": {
+        "operationId": "createDataPushJob",
+        "summary": "Create Data Push Job",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "required": ["targetName"],
+              "properties": {
+                "targetName": {"type": "string"},
+                "type": {"type": "string", "enum": ["DELTA", "FULL"], "default": "DELTA"},
+                "keys": {"type": "array", "items": {"type": "string"}}
+              }
+            }
+          }
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      }
+    },
+    "/integration/api/v1/data-push/{data_pool_id}/jobs/{job_id}": {
+      "get": {
+        "operationId": "getDataPushJob",
+        "summary": "Get Data Push Job Status",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {"name": "job_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      },
+      "delete": {
+        "operationId": "deleteDataPushJob",
+        "summary": "Delete Data Push Job",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {"name": "job_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"204": {"description": "Deleted"}}
+      }
+    },
+    "/integration/api/v1/data-push/{data_pool_id}/jobs/{job_id}/chunks/upserted": {
+      "post": {
+        "operationId": "pushDataChunkUpsert",
+        "summary": "Push Data Chunk Upsert",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {"name": "job_id", "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"type": "array", "items": {"type": "object"}}}
+        ],
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/integration/api/v1/data-push/{data_pool_id}/jobs/{job_id}/chunks/deleted": {
+      "post": {
+        "operationId": "pushDataChunkDelete",
+        "summary": "Push Delete Chunk",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {"name": "job_id", "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "required": true, "schema": {"type": "array", "items": {"type": "object"}}}
+        ],
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/integration/api/v1/data-push/{data_pool_id}/jobs/{job_id}/execute": {
+      "post": {
+        "operationId": "executeDataPushJob",
+        "summary": "Execute Data Push Job",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {"name": "job_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/integration/api/v1/data-models/{data_model_id}/reload": {
+      "post": {
+        "operationId": "reloadDataModel",
+        "summary": "Reload Data Model",
+        "parameters": [
+          {"name": "data_model_id", "in": "path", "required": true, "type": "string"},
+          {"name": "body", "in": "body", "schema": {"type": "object", "properties": {"forceComplete": {"type": "boolean", "default": false}}}}
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      }
+    },
+    "/integration/api/v1/data-models/{data_model_id}/reload/status": {
+      "get": {
+        "operationId": "getDataModelReloadStatus",
+        "summary": "Get Data Model Reload Status",
+        "parameters": [
+          {"name": "data_model_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      }
+    },
+    "/integration/api/v1/data-pools/{data_pool_id}/jobs/{job_id}/execute": {
+      "post": {
+        "operationId": "executeDataJob",
+        "summary": "Execute Data Job",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {"name": "job_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK"}}
+      }
+    },
+    "/integration/api/v1/data-pools/{data_pool_id}/jobs/{job_id}/status": {
+      "get": {
+        "operationId": "getDataJobStatus",
+        "summary": "Get Data Job Status",
+        "parameters": [
+          {"name": "data_pool_id", "in": "path", "required": true, "type": "string"},
+          {"name": "job_id", "in": "path", "required": true, "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      }
+    },
+    "/audit/api/v1/events": {
+      "get": {
+        "operationId": "getAuditLogEvents",
+        "summary": "Get Audit Log Events",
+        "parameters": [
+          {"name": "from", "in": "query", "type": "string", "format": "date-time"},
+          {"name": "to", "in": "query", "type": "string", "format": "date-time"},
+          {"name": "page", "in": "query", "type": "integer", "default": 0},
+          {"name": "pageSize", "in": "query", "type": "integer", "default": 100},
+          {"name": "eventType", "in": "query", "type": "string"},
+          {"name": "userId", "in": "query", "type": "string"}
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      }
+    },
+    "/audit/api/v1/login-history": {
+      "get": {
+        "operationId": "getLoginHistory",
+        "summary": "Get Login History",
+        "parameters": [
+          {"name": "from", "in": "query", "type": "string", "format": "date-time"},
+          {"name": "to", "in": "query", "type": "string", "format": "date-time"},
+          {"name": "page", "in": "query", "type": "integer", "default": 0},
+          {"name": "pageSize", "in": "query", "type": "integer", "default": 100}
+        ],
+        "responses": {"200": {"description": "OK", "schema": {"type": "object"}}}
+      }
+    }
+  }
+}

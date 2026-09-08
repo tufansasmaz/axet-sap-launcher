@@ -45,13 +45,14 @@ py plugins/office-tools/skills/office-pdf/scripts/md_to_pdf.py \
 ## What you get
 
 - **A4** geometry, 16/12 mm margins, `· page/total` footer on every page.
-- **Green corporate theme** — h1 with a green bottom border; table headers green
-  with white text; zebra-striped rows.
+- **House theme** (`lib/theme.py`, shared with the .docx so the two cannot drift)
+  — h1 over an accent rule; table headers filled with white text; zebra rows;
+  horizontal hairlines only, no vertical rules.
 - **Table survival rules** — `table-layout: fixed` + `word-wrap: break-word` so
   wide multi-column tables wrap instead of running off the page.
 - **`pre { white-space: pre-wrap }`** so long code/appendix lines wrap.
 - Font stack `"Segoe UI", Arial` — full Turkish glyph coverage; `print_background`
-  keeps the green fills (Chromium drops backgrounds by default when printing).
+  keeps the header fills (Chromium drops backgrounds by default when printing).
 
 ## Supported Markdown
 

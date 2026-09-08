@@ -1,0 +1,47 @@
+# Pattern 15: Performance — nested SELECT in loops (FAE rewrite)
+# Source: research-pattern-library.md §15
+check_ids:
+  - "CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_IN_LOOP"
+  - "SELECT_IN_LOOP"
+priority: 1
+fix_shape: context
+template:
+  before: |
+    LOOP AT lt_orders INTO DATA(ls_order).
+      SELECT SINGLE name1 FROM lfa1
+        INTO ls_order-name1
+        WHERE lifnr = ls_order-lifnr.
+      MODIFY lt_orders FROM ls_order.
+    ENDLOOP.
+  after: |
+    IF lt_orders IS NOT INITIAL.
+      SELECT lifnr, name1
+        FROM lfa1
+        FOR ALL ENTRIES IN @lt_orders
+        WHERE lifnr = @lt_orders-lifnr
+        INTO TABLE @DATA(lt_vendors).
+      SORT lt_vendors BY lifnr.
+    ENDIF.
+    LOOP AT lt_orders ASSIGNING FIELD-SYMBOL(<order>).
+      READ TABLE lt_vendors INTO DATA(ls_vendor)
+           WITH KEY lifnr = <order>-lifnr BINARY SEARCH.
+      IF sy-subrc = 0.
+        <order>-name1 = ls_vendor-name1.
+      ENDIF.
+    ENDLOOP.
+context_required:
+  - "driver-table identity and emptiness guard (IF ... IS NOT INITIAL)"
+  - "join keys between driver table and SELECT target"
+  - "downstream usage — MODIFY vs read-only"
+confidence_signals:
+  high:
+    - "driver table is non-empty when reaching the loop (guarded or upstream populated)"
+    - "single join column"
+    - "no MODIFY of the loop table beyond the joined field"
+  low:
+    - "MODIFY targets multiple fields (FAE pattern needs extending)"
+    - "released CDS view exists for this join (CDS conversion preferred — judgment)"
+    - "FOR ALL ENTRIES dedup risk noted (duplicate keys in driver)"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 2185030
+sap_note_secondary: 1912445

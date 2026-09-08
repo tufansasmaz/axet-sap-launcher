@@ -58,3 +58,37 @@ python-docx>=1.1.0    # office-docx: Word .docx
 # Python: yalnizca standart kutuphane (json, urllib, ssl, argparse). Kurulacak
 # bir bagimlilik YOK -- scriptler akis JSON'u okuyup dogruluyor ve tasarimcinin
 # admin API'sine konusuyor, o kadar.
+
+# --- ntt-s4-migrator / ntt-atc-batch-remediator ------------------------------
+# conversion-scope (donusum kapsami) ve atc-remediation (toplu ATC duzeltme)
+# SAP'a HIC baglanmiyor -- danismanin disa aktardigi dosyalari okuyorlar. Ama o
+# dosyalar Excel/PDF/HTML/XML olabildigi icin ayristirici bagimliliklari var:
+pydantic>=2.0.0
+click>=8.0.0
+PyYAML>=6.0
+lxml>=5.0.0
+beautifulsoup4>=4.12.0
+networkx>=3.0
+pdfplumber>=0.11.0
+
+# --- sapgui-screenshots (sapgui-scriptter) ----------------------------------
+# SAP GUI penceresini PrintWindow ile yakaliyor: Windows API + goruntu kaydi.
+# aXet SAP Launcher icinden kullanildiginda bunlar uygulamanin kendi
+# calisma zamaninda (resources/guiscript-runtime) zaten var; asagidaki satirlar
+# script'i kendi Python'unla, uygulama disinda calistirmak icin:
+pywin32>=306 ; sys_platform == "win32"
+Pillow>=10.0.0
+
+# --- sap-enduser-doc (sap-consultant/skills/sap-enduser-doc) -----------------
+# Python degil NODE bagimliligi: playwright + marked + sharp + mermaid.
+# Pakette GELMIYOR ve otomatik kurulmuyor -- tek seferlik, kullanici onayli:
+#     cd .axet-code/skills/sap-enduser-doc && npm install
+# Once `node scripts/precheck.js` calistir; eksikse dokumana hic baslama.
+
+# --- celonis-ocpm-builder (celonis) -----------------------------------------
+# Python: stdlib + requests (yukarida). Celonis REST API'sine konusuyor;
+# SAP'a degil. Kimlik bilgisi kullanicinin kendi Celonis ortamindan gelir.
+
+# --- sap-datasphere / sap-ecosystem paketleri -------------------------------
+# Yalnizca SKILL.md: yukari akistaki paketlere yonlendiren rehber dosyalari.
+# Calistirilacak script yok, bagimlilik yok.

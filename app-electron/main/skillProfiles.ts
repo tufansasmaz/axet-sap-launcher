@@ -47,8 +47,51 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   // --- SAP: yazma yetenekli ------------------------------------------------
   "screen-gen": { path: "sap-consultant/skills/screen-gen", writeCapable: true },
 
+  // --- SAP: danışmanlık döngüsü (talep → geliştirme → teslim → arıza) -------
+  // Dördü de canlı sistemi OKUYOR, hiçbiri yazmıyor: kullandıkları `adt_*`
+  // araçlarının hepsi read-only kapının 20 adlık izin listesinde. Paket
+  // kopyalarında MCP→HTTP uyarlama notu var (`POST 127.0.0.1:8787/tool/...`).
+  "as-built-doc": { path: "sap-consultant/skills/as-built-doc" },
+  "sap-cr-scope": { path: "sap-consultant/skills/sap-cr-scope" },
+  "sap-cr-handover": { path: "sap-consultant/skills/sap-cr-handover" },
+  // `sap-incident` yukarı akışta DEV'e `adt_push`/`adt_activate` ile yazmayı
+  // öneriyordu; o iki araç sunucuda hiç açılmıyor ve SKILL.md'de bu bilerek
+  // üstü çizilerek yazıldı. Yani skill "diff öner, uygulamayı geliştiriciye
+  // bırak" hâline geldi — SAP'a yazma niyeti kalmadı.
+  "sap-incident": { path: "sap-consultant/skills/sap-incident" },
+  "test-scenarios": { path: "sap-consultant/skills/test-scenarios" },
+
+  // --- SAP dışı analiz/tasarım (sisteme hiç bağlanmıyor) -------------------
+  // conversion-scope ve atc-remediation kendi tanımlarında "FILES ONLY —
+  // never connects to SAP" diyor: danışman kanıtı dışa aktarıyor, skill
+  // dosyaları okuyor. atc-remediation düzeltmeyi abapGit ZIP'i olarak
+  // paketliyor; teslim yolu yine geliştirici, yani SAP'a yazan taraf değil.
+  "conversion-scope": { path: "ntt-s4-migrator/skills/conversion-scope" },
+  "atc-remediation": { path: "ntt-atc-batch-remediator/skills/atc-remediation" },
+  "bbp-creator": { path: "sap-consultant/skills/bbp-creator" },
+  "designer-ai": { path: "sap-consultant/skills/designer-ai" },
+  // Celonis'e REST ile obje yaratıyor — ama `writeCapable` bayrağı "SAP'a
+  // yazar" demek ve PRD kapısı SAP sistemini koruyor. Celonis ayrı bir ürün,
+  // ayrı bir yetki; bu kapı onun kapısı değil.
+  "celonis-ocpm-builder": { path: "celonis/skills/celonis-ocpm-builder" },
+  "datasphere": { path: "sap-datasphere/skills/datasphere" },
+  "datasphere-skill-pack": { path: "sap-datasphere/skills/datasphere-skill-pack" },
+  "ui5-dev-pack": { path: "sap-ecosystem/skills/ui5-dev-pack" },
+  "cap-dev-pack": { path: "sap-ecosystem/skills/cap-dev-pack" },
+  "basis-ops-pack": { path: "sap-ecosystem/skills/basis-ops-pack" },
+  "automation-pilot-pack": { path: "sap-ecosystem/skills/automation-pilot-pack" },
+
+  // --- SAP GUI ekran yakalama ----------------------------------------------
+  // ADT'ye değil, çalışan SAP GUI penceresine bakıyor: PrintWindow ile ekran
+  // görüntüsü alıp kullanım kılavuzu üretiyor. Tuş basabildiği için SKILL.md'ye
+  // "PRD'de yalnızca görüntüleme işlemleri" uyarısı eklendi; `writeCapable`
+  // DEĞİL çünkü o bayrak ADT üzerinden SAP nesnesi yazmayı işaretliyor ve
+  // PRD kapısının koruduğu şey o.
+  "sapgui-screenshots": { path: "sapgui-scriptter/skills/sapgui-screenshots" },
+
   // --- Doküman üretimi -----------------------------------------------------
   "fs-generator": { path: "sap-consultant/skills/fs-generator" },
+  "sap-enduser-doc": { path: "sap-consultant/skills/sap-enduser-doc" },
   "ts-generator": { path: "sap-consultant/skills/ts-generator" },
   "spec-reviewer": { path: "sap-consultant/skills/spec-reviewer" },
   "meeting-notes-organizer": { path: "sap-consultant/skills/meeting-notes-organizer" },
@@ -83,10 +126,82 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   "office-manual": { path: "office-tools/skills/office-manual" }
 };
 
+/**
+ * Skill KLASÖRÜNÜN DIŞINDA duran, birden çok skill'in paylaştığı dosyalar.
+ *
+ * NEDEN VAR: yukarıdaki katalog yalnızca skill klasörlerini kopyalıyor, ama
+ * bazı script'ler bilerek bir üst dizine bakıyor:
+ *
+ *   - Office script'leri: `sys.path.insert(0, .../scripts/../../../lib)`
+ *   - Danışmanlık script'leri: `py "${CLAUDE_PLUGIN_ROOT}/scripts/case.py" ...`
+ *
+ * İkisi de kurulu düzende `<proje>/.axet-code/` altına, skill'in yanına düşüyor.
+ * Bugüne kadar bu klasörler hiç oluşturulmuyordu ve sonuç GÖRÜNMEZ bir arızaydı:
+ * `redact.py` bulunamayınca `--redact-pii` (TCKN/vergi no maskeleme) sessizce
+ * devre dışı kalıyor, doküman maskesiz üretiliyordu.
+ *
+ * `marker`, "bu klasörü BİZ koyduk" demenin tek yolu: kullanıcının kendi
+ * bıraktığı bir klasörü silmemek için silme kararı ona bakıyor.
+ */
+export interface SharedAsset {
+  /** `resources/sap-toolkit` altındaki kaynak klasör. */
+  path: string;
+  /** `<proje>/.axet-code/` altındaki hedef klasör adı. */
+  dest: string;
+  /** Klasörün bizden geldiğini gösteren dosya. */
+  marker: string;
+  /** Bu klasöre ihtiyaç duyan skill'ler — hiçbiri kurulmadıysa kopyalanmaz. */
+  requiredBy: string[];
+}
+
+export const SHARED_ASSETS: SharedAsset[] = [
+  {
+    path: "office-tools/lib",
+    dest: "lib",
+    marker: "redact.py",
+    requiredBy: ["office-docx", "office-pdf", "office-pptx", "office-manual"]
+  },
+  {
+    // case.py (vaka kaydı), quality.py (kalite tahtası), summary_check.py.
+    path: "sap-consultant/scripts",
+    dest: "scripts",
+    marker: "case.py",
+    requiredBy: [
+      "abap-code-checker",
+      "fs-generator",
+      "ts-generator",
+      "sap-cr-scope",
+      "sap-cr-handover",
+      "sap-incident"
+    ]
+  }
+];
+
 const OFFICE = Object.keys(SKILL_CATALOG).filter((n) => n.startsWith("office-"));
 const ABAPGIT = Object.keys(SKILL_CATALOG).filter((n) => n.startsWith("abapgit-"));
 
 const DOCS = ["fs-generator", "ts-generator", "spec-reviewer", "meeting-notes-organizer"];
+
+/**
+ * Danışmanlık döngüsü: talep gelir (`sap-cr-scope`), yapılır, teslim edilir
+ * (`sap-cr-handover`), sonra bir gün arızalanır (`sap-incident`). Mevcut kod
+ * dokümante edilir (`as-built-doc`), test kapsamı sistemden çıkarılır
+ * (`test-scenarios`), dönüşüm kapsamı dosyalardan hesaplanır
+ * (`conversion-scope`), ekran görüntüsü alınır (`sapgui-screenshots`).
+ *
+ * Hepsi İKİ ROLDE DE var — çünkü bu adımlar rol değil, iş akışı. Bir modül
+ * danışmanı da arıza bakar, bir teknik danışman da teslim dokümanı yazar.
+ * Aralarında SAP'a yazan yok.
+ */
+const DANISMANLIK = [
+  "sap-cr-scope",
+  "sap-cr-handover",
+  "sap-incident",
+  "as-built-doc",
+  "test-scenarios",
+  "conversion-scope",
+  "sapgui-screenshots"
+];
 
 /**
  * Role bakmadan HERKESE kurulan yetenekler (kullanıcı, 2026-09-08:
@@ -109,6 +224,12 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "clean-core",
     "library-match",
     "screen-mockup",
+    // Modül danışmanının kendi ürünleri: konsept tasarım/BBP dokümanı, son
+    // kullanıcı kılavuzu, süreç madenciliği modeli. Üçü de iş tarafına bakıyor.
+    "bbp-creator",
+    "sap-enduser-doc",
+    "celonis-ocpm-builder",
+    ...DANISMANLIK,
     ...DOCS,
     ...OFFICE,
     ...HERKES
@@ -124,6 +245,17 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "abap-code-checker",
     "screen-mockup",
     "screen-gen",
+    // Teknik tarafın kendi işleri: ATC bulgularını toplu düzeltme, çıktı/form
+    // tasarımı (XSLT, Smartform) ve SAP ekosistemi geliştirme paketleri.
+    "atc-remediation",
+    "designer-ai",
+    "datasphere",
+    "datasphere-skill-pack",
+    "ui5-dev-pack",
+    "cap-dev-pack",
+    "basis-ops-pack",
+    "automation-pilot-pack",
+    ...DANISMANLIK,
     ...ABAPGIT,
     ...DOCS,
     ...OFFICE,

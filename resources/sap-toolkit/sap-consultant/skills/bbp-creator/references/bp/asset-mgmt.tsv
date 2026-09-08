@@ -1,0 +1,183 @@
+LOB	Business Area	Scope Item ID	Description	Solution Activity (Hierarchy)	Fiori App or Transaction Title	Fiori App or Transaction ID	Business Role Description	Business Role ID
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Manage Schedule	Resource Scheduling for Maintenance Planners 	F2227	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Manage Schedule	Manage Work Center Utilization 	F2222	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Manage Schedule	Manage Schedules - For Review 	F3326	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Manage Schedule	Maintenance Scheduling Board 	F2603	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Freeze Schedule	Manage Schedules 	F3326	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Assign Person Responsible to Order Operations	Assign Maintenance Order Operations 	F3423	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Work with the Maintenance Scheduling Board	Maintenance Scheduling Board 	F2603	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Work with the Maintenance Schedule for Assets App	Maintenance Scheduling Board 	F2603	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	43R	Maintenance Resource Scheduling	    Work with the Maintenance Schedule for Assets App	Manage Maintenance Schedule for Assets 	F4577	Maintenance Planner - Resource Scheduling	SAP_BR_MAINTENANCE_PLANNER_RSH
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	    Reactive Maintenance				
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create Maintenance Request	Create Maintenance Request 	F1511A	Employee	SAP_BR_EMPLOYEE
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create Maintenance Request	My Maintenance Requests 	F4513	Employee	SAP_BR_EMPLOYEE
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Review Maintenance Requests	My Maintenance Requests 	F4513	Employee	SAP_BR_EMPLOYEE
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Screen Maintenance Requests	Screen Maintenance Requests 	F4072	Maintenance Supervisor	SAP_BR_MAINT_SUPERVISOR
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create and Plan Maintenance Order	Manage Maintenance Notifications and Orders 	F4604	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create and Plan Maintenance Order	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create and Plan Maintenance Order	Change Maintenance Order	EAMS_WDA_ORDNTF_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Submit Maintenance Order for Approval	Manage Maintenance Notifications and Orders 	F4604	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Approve Maintenance Order (Optional)	My Inbox 	F0862	Billing Clerk	SAP_BR_BILLING_CLERK
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Review and Release Maintenance Order	Manage Maintenance Notifications and Orders 	F4604	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Maintenance Backlog Overview	Manage Maintenance Backlog 	F4073	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Maintenance Backlog Overview	Change Purchase Order 	ME22N	Purchaser	SAP_BR_PURCHASER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Maintenance Backlog Overview	Maintenance Backlog Overview 	F5105	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Maintenance Backlog Overview	Find Maintenance Order 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Convert Purchase Requisitions to Purchase Orders				
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Goods Receipt for Purchase Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Post Goods Issue	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Submit Order for Scheduling	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Schedule Maintenance Order and Submit for Execution	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Manage Output	Manage Work Packs 	F6065	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Manage Output	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Manage Output	Find Maintenance Orders and Operations 	F2173	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Execute Maintenance Order	Perform Maintenance Jobs 	F5104A	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Complete Main Work	Find Maintenance Orders - Completion 	F2175	Maintenance Supervisor	SAP_BR_MAINT_SUPERVISOR
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Maintain Service Entry Sheet	Manage Service Entry Sheets - Lean Services 	F2027	Purchaser	SAP_BR_PURCHASER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Execute Post Work Operations	Perform Maintenance Jobs 	F5104A	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Review Failure Data	Find Maintenance Orders and Operations 	F2173	Maintenance Supervisor	SAP_BR_MAINT_SUPERVISOR
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Review Maintenance Cost	Maintenance Order Costs - Plan / Actual 	F4603	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Technically Complete Maintenance Order	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create Supplier Invoice with PO/GR Relation	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	    Emergency Work				
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create Maintenance Request	Create Maintenance Request 	F1511A	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create Maintenance Request	My Maintenance Requests 	F4513	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	    Minor Work				
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create Maintenance Request	Create Maintenance Request 	F1511A	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Create Maintenance Request	My Maintenance Requests 	F4513	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HH	Reactive Maintenance	        Record Malfunction Details	My Maintenance Requests 	F4513	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Time-Based Single Cycle Plan				
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Time-Based Strategy Plan				
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Maintain Maintenance Strategies	Maintain Maintenance Strategies 	IP11	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create General Task List	Create Task List 	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Performance-Based Single Cycle Plan				
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Measurement Document	Create Measurement Document for Technical Object 	EAMS_WDA_MD_OIF	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Performance-Based Strategy Plan				
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Maintain Maintenance Strategies	Maintain Maintenance Strategies 	IP11	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Measurement Document	Create Measurement Document for Technical Object 	EAMS_WDA_MD_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Multiple Counter Plan				
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Create Measurement Document	Create Measurement Document for Technical Object 	EAMS_WDA_MD_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Screen Maintenance Requests	Screen Maintenance Requests 	F4072	Maintenance Supervisor	SAP_BR_MAINT_SUPERVISOR
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Create and Plan Maintenance Orders	Manage Maintenance Notifications and Orders 	F4604	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Create and Plan Maintenance Orders	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Submit Maintenance Order for Approval	Manage Maintenance Notifications and Orders 	F4604	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Approve Maintenance Order (Optional)	My Inbox 	F0862	Billing Clerk	SAP_BR_BILLING_CLERK
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Review and Release Maintenance Order	Manage Maintenance Notifications and Orders 	F4604	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Maintenance Backlog Overview	Manage Maintenance Backlog 	F4073	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Maintenance Backlog Overview	Change Purchase Order 	ME22N	Purchaser	SAP_BR_PURCHASER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Maintenance Backlog Overview	Maintenance Backlog Overview 	F5105	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Maintenance Backlog Overview	Find Maintenance Order 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Convert Purchase Requisitions into Purchase Orders				
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Goods Receipt for Purchase Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Post Goods Issue	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Submit Order for Scheduling	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Schedule Maintenance Orders and Submit for Execution	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Manage Output	Manage Work Packs 	F6065	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Manage Output	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Manage Output	Find Maintenance Orders and Operations 	F2173	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Execute Maintenance Order	Perform Maintenance Jobs 	F5104A	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Complete Main Work	Find Maintenance Orders - Completion 	F2175	Maintenance Supervisor	SAP_BR_MAINT_SUPERVISOR
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Maintain Service Entry Sheet	Manage Service Entry Sheets - Lean Services 	F2027	Purchaser	SAP_BR_PURCHASER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Execute Post Work Operations	Perform Maintenance Jobs 	F5104A	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Review Maintenance Cost	Maintenance Order Costs - Plan / Actual 	F4603	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Technically Complete Maintenance Order	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	4HI	Proactive Maintenance	    Create Supplier Invoice with PO/GR Relation	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Request Maintenance	Request Maintenance 	F1511	Employee	SAP_BR_EMPLOYEE
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Monitor Maintenance Requests	Monitor Maintenance Requests 	F1511	Employee	SAP_BR_EMPLOYEE
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Change Maintenance Request into Malfunction Report	Find Maintenance Notification 	F2071	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Optional - Create Maintenance Notification	Create Maintenance Notification	EAMS_WDA_ORDNTF_OIF	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Create Maintenance Order	Search 	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Create Maintenance Order	Change Maintenance Notification 	EAMS_WDA_ORDNTF_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Create Maintenance Order	Display Stock Overview 	MMBE	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Release Maintenance Order	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Convert Purchase Requisitions to Purchase Orders	Process Purchase Requisitions - Formerly Manage Purchase Requisitions 	F1048	Purchaser	SAP_BR_PURCHASER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Post Goods Receipt for Purchase Order	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Maintain Service Entry Sheet	Manage Service Entry Sheets - Lean Services 	F2027	Purchaser	SAP_BR_PURCHASER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Approve Service Entry Sheet with Flexible Workflow (Optional)	My Inbox 	F5331	Administrator - Enterprise Contract Management	SAP_BR_ADMINISTRATOR_LCM
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Create Supplier Invoice with PO/GR Relation	Create Supplier Invoice - Advanced 	MIRO	Accounts Payable Accountant - Procurement	SAP_BR_AP_ACCOUNTANT_PROCUREMT
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Confirm Maintenance Order	Perform Maintenance Jobs 	F5104A	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Show Costs on Maintenance Order	Display Maintenance Order 	EAMS_WDA_ORDNTF_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Technically Complete Maintenance Order	Find Maintenance Order 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BH1	Corrective Maintenance	    Review Asset Maintenance Object Pages				
+Asset Management	Maintenance Management	BH2	Emergency Maintenance	    Report Malfunction	Report Malfunction 	F2023	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	BH2	Emergency Maintenance	    Repair Malfunction	Repair Malfunctions	F2023	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	BH2	Emergency Maintenance	    Post Goods Issue	Post Goods Movement 	MIGO	Inventory Manager	SAP_BR_INVENTORY_MANAGER
+Asset Management	Maintenance Management	BH2	Emergency Maintenance	    Complete Malfunction Report	Manage Malfunction Reports 	F2023	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	BH2	Emergency Maintenance	    Review Asset Maintenance Object Page	Search	CPROJECTS_SEARCH_RPM	Project Portfolio Manager	SAP_BR_PORTFOLIOMANAGER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	    Time-Based Single Cycle Plan				
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	    Time-Based Strategy Plan				
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Maintain Maintenance Strategies	Maintenance Strategies 	IP12	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	    Performance-Based Single Cycle Plan				
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Measurement Document	Create Measurement Document for Technical Object 	EAMS_WDA_MD_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	    Performance-Based Strategy Plan				
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Maintain Maintenance Strategies	Maintenance Strategies 	IP12	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Measurement Document	Create Measurement Document for Technical Object 	EAMS_WDA_MD_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	    Multiple Counter Plan				
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create General Task List	Create Task List	EAMS_WDA_TL_OIF_V2	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Items 	F5356	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Item	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Maintenance Plan	Manage Maintenance Plans 	F5325	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Measurement Document	Create Measurement Document for Technical Object 	EAMS_WDA_MD_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Schedule Maintenance Plan 	IP10	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Schedule Maintenance Plan	Mass Schedule Maintenance Plans 	F2774	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	    Order Processing				
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Release Preventive Maintenance Order and Print to Job List	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Confirm Preventive Maintenance Order	Perform Maintenance Jobs 	F5104A	Maintenance Technician	SAP_BR_MAINTENANCE_TECHNICIAN
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Create Follow-On Order	Create Maintenance Order	EAMS_WDA_ORDNTF_OIF	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Show Costs on Preventive Maintenance Order	Find Maintenance Orders - Completion 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Technically Complete Preventive Maintenance Order	Find Maintenance Order 	F2175	Maintenance Planner	SAP_BR_MAINTENANCE_PLANNER
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Review Document Flow of Preventive Maintenance Order				
+Asset Management	Maintenance Management	BJ2	Preventive Maintenance	        Review Asset Maintenance Object Pages				

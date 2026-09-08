@@ -1,4 +1,4 @@
-FUNCTION zai_fm_screen_gen
+FUNCTION znd_fm_screen_gen
   IMPORTING
     VALUE(iv_program) TYPE scrhprog
     VALUE(iv_dynpro) TYPE scrfdynnr DEFAULT '0100'
@@ -12,17 +12,17 @@ FUNCTION zai_fm_screen_gen
     VALUE(ev_rc) TYPE i
     VALUE(ev_message) TYPE string.
 
-* GENERIC ekran/GUI-status URETECI (herhangi bir klasik Z programi icin). Programa
-* OZEL metin GOMULMEZ: ekran basligi/titlebar cagiran tarafindan IV_TITLE ile gecilir.
+* GENERIC ekran/GUI-status URETECI (herhangi bir klasik Z programi için). Programa
+* OZEL metin GOMULMEZ: ekran basligi/titlebar cagiran tarafından IV_TITLE ile gecilir.
 * RFC-enabled; /sap/bc/soap/rfc (dialog context, sap-language=TR) ile cagrilir.
 * IV_SCREEN_TYPE: DOCKING (container yok) / CONTAINER (1 custom control CC_ALV).
-* (Split AYRI tip degil: CONTAINER kullan + programda cl_gui_splitter_container.)
+* (Split AYRI tip değil: CONTAINER kullan + programda cl_gui_splitter_container.)
 * 1) RPY_DYNPRO_INSERT -> hedef programda Dynpro (screen) + container(lar) + PBO/PAI.
 * 2) RS_CUA_INTERNAL_FETCH/WRITE/GENERATE -> standart donör (SAPLKKBL/STANDARD)
 *    GUI status'unu referansla kopyalayip STAT<dynnr> + TIT<dynnr> olarak hedef programa
 *    yazar; F3/Shift+F3/F12 -> BACK/EXIT/CANCEL re-map (ADR 0005: standart sadece OKUNUR).
 * HER SEY IV_DYNPRO'ya gore DINAMIK: screen no + flow modulleri (status_<n>/user_command_<n>)
-* + status (STAT<n>) + title (TIT<n>). Farkli ekran icin FM kodu DEGISMEZ. IV_MODE:
+* + status (STAT<n>) + title (TIT<n>). Farklı ekran için FM kodu DEGISMEZ. IV_MODE:
 * WRITE (uret) / READ (oku) / DELETE (sil).
 * classrun bu iki adimi YAPAMAZ (dialog sart -> "Session Timed Out"). Recete:
 * screen-gen skill: references/SCREEN_GEN_RECIPE.md. ALV ornekleri: bootstrap/ZAI_P_ALV_TEMP1/2/3.
@@ -30,8 +30,8 @@ FUNCTION zai_fm_screen_gen
     c_src_prog   TYPE trdir-name      VALUE 'SAPLKKBL',
     c_src_status TYPE rsmpe_sta-code  VALUE 'STANDARD'.
 * Status + titlebar adlari da screen number'a gore DINAMIK: STAT<dynnr> / TIT<dynnr>
-* (ekran 0200 -> STAT0200/TIT0200). Sabit degil -> her ekran kendi status/title'i,
-* FM kodu degismez. Programdaki SET PF-STATUS/TITLEBAR ayni adi kullanmali.
+* (ekran 0200 -> STAT0200/TIT0200). Sabit değil -> her ekran kendi status/title'i,
+* FM kodu degismez. Programdaki SET PF-STATUS/TITLEBAR aynı adi kullanmali.
   DATA: l_status TYPE rsmpe_sta-code,
         l_tit    TYPE rsmpe_tit-code.
 
@@ -55,14 +55,19 @@ FUNCTION zai_fm_screen_gen
         doc  TYPE STANDARD TABLE OF rsmpe_atrt,
         tit  TYPE STANDARD TABLE OF rsmpe_titt,
         biv  TYPE STANDARD TABLE OF rsmpe_buts,
-        l_trkey TYPE trkey.
+        l_trkey TYPE trkey,
+        lv_target_exists TYPE abap_bool,
+        ls_tmpl     TYPE rsmpe_stat,
+        ls_src      TYPE rsmpe_stat,
+        l_pfkcode   TYPE rsmpe_sta-pfkcode,
+        l_actcode   TYPE rsmpe_sta-actcode.
 
   CLEAR: ev_rc, ev_message.
   l_status = |STAT{ iv_dynpro }|.
   l_tit    = |TIT{ iv_dynpro }|.
 
 *--- IV_MODE='READ': mevcut Dynpro'nun container/size verisini OKU (yazma yok) -------
-* (Manuel SE51 duzeltmelerinden sonra gercek konum/boyutu ogrenmek icin.)
+* (Manuel SE51 duzeltmelerinden sonra gerçek konum/boyutu ogrenmek için.)
   IF iv_mode = 'READ'.
     CALL FUNCTION 'RPY_DYNPRO_READ'
       EXPORTING
@@ -91,7 +96,7 @@ FUNCTION zai_fm_screen_gen
     ELSE.
       ev_message = |RPY_DYNPRO_READ subrc={ sy-subrc }|.
     ENDIF.
-*   CUA titlebar'larini da oku (donör artigi temizligini dogrulamak icin)
+*   CUA titlebar'larini da oku (donör artigi temizligini dogrulamak için)
     CALL FUNCTION 'RS_CUA_INTERNAL_FETCH'
       EXPORTING program = iv_program language = sy-langu state = 'A'
       TABLES sta = sta fun = fun men = men mtx = mtx act = act
@@ -100,6 +105,14 @@ FUNCTION zai_fm_screen_gen
     ev_message = ev_message && | TITLES={ lines( tit ) }:|.
     LOOP AT tit INTO DATA(ls_tt).
       ev_message = ev_message && | { ls_tt-code }|.
+    ENDLOOP.
+    ev_message = ev_message && | STA={ lines( sta ) }:|.
+    LOOP AT sta INTO DATA(ls_st).
+      ev_message = ev_message && | { ls_st-code }(act={ ls_st-actcode } pfk={ ls_st-pfkcode })|.
+    ENDLOOP.
+    ev_message = ev_message && | SETT={ lines( sett ) }:|.
+    LOOP AT sett INTO DATA(ls_se).
+      ev_message = ev_message && | { ls_se-status }/{ ls_se-function }|.
     ENDLOOP.
     ev_message = ev_message && | FUN={ lines( fun ) } PFK={ lines( pfk ) } MEN={ lines( men ) } BUT={ lines( but ) }:|.
     LOOP AT fun INTO DATA(ls_ff).
@@ -146,20 +159,20 @@ FUNCTION zai_fm_screen_gen
   ls_flow-line = |  MODULE user_command_{ iv_dynpro }.|.    APPEND ls_flow TO lt_flow.
 
 * Custom control'lere ABAP'ta cl_gui_custom_container( container_name='...' ) baglanir.
-* element_of BOS birakilir -> RPY otomatik SCREEN-root'a baglar (READ'de el=SCREEN gorunur).
+* element_of BOŞ birakilir -> RPY otomatik SCREEN-root'a baglar (READ'de el=SCREEN görünür).
 * element_of='SCREEN' ACIKCA verilirse INSERT 'illegal_field_value' (rc=6) verir
-* (SCREEN satiri tabloda olmadigi icin). Ekran tam boyuta (200x255) buyutulur ki
+* (SCREEN satiri tabloda olmadigi için). Ekran tam boyuta (200x255) buyutulur ki
 * container/ALV tum pencereyi kullansin (TEMP2 manuel duzeltmesinden ogrenildi).
 * 2 ekran tipi: DOCKING (container yok) / CONTAINER (tek custom control CC_ALV, tam ekran).
-* SPLIT AYRI BIR TIP DEGIL: split ekran tarafinda CONTAINER ile AYNIDIR (tek CC_ALV);
+* SPLIT AYRI BIR TIP DEĞIL: split ekran tarafinda CONTAINER ile AYNIDIR (tek CC_ALV);
 * bolme PROGRAMDA cl_gui_splitter_container ile yapilir (CC_ALV'i N hucreye bol, surukle-
-* ayrac). Yani split icin FM'de ozel bir sey YOK -> CONTAINER kullan. (Bkz. ZAI_P_ALV_TEMP3.)
+* ayrac). Yani split için FM'de ozel bir sey YOK -> CONTAINER kullan. (Bkz. ZAI_P_ALV_TEMP3.)
   CASE iv_screen_type.
     WHEN 'CONTAINER'.
       ls_header-lines   = 200.
       ls_header-columns = 255.
 *     c_resize_v/h='X' + c_line_min/c_coln_min=1: custom control pencereyle RESIZE olur
-*     (yoksa sabit boyutta kalir -> ALV alani pencereyi doldurmaz/"bittiği yerden devam eder").
+*     (yoksa sabit boyutta kalır -> ALV alani pencereyi doldurmaz/"bittiği yerden devam eder").
 *     (TEMP3 manuel duzeltmesinden ogrenildi; bundan sonra hep set.)
       APPEND VALUE #( type = 'CUST_CTRL' name = iv_cc_name cu_cc_name = iv_cc_name
                       line = 1 column = 1 height = 200 length = 255
@@ -169,8 +182,8 @@ FUNCTION zai_fm_screen_gen
       " DOCKING -> container yok (program cl_gui_docking_container ekler)
   ENDCASE.
 
-* IV_RECREATE='X': mevcut Dynpro'yu once SIL (flow logic/container degisikligini
-* uygulamak icin — RPY_DYNPRO_INSERT mevcut ekrani overwrite ETMEZ, already_exists doner).
+* IV_RECREATE='X': mevcut Dynpro'yu önce SIL (flow logic/container degisikligini
+* uygulamak için — RPY_DYNPRO_INSERT mevcut ekrani overwrite ETMEZ, already_exists doner).
   IF iv_recreate = 'X'.
     CALL FUNCTION 'RS_SCRP_DELETE'
       EXPORTING
@@ -206,10 +219,20 @@ FUNCTION zai_fm_screen_gen
       OTHERS                 = 10.
   l_screen_rc = sy-subrc.
 
-*--- 2) GUI status + titlebar (fetch-template) --------------------------
+*--- 2) GUI status + titlebar (merge into target program's OWN CUA if it
+*    already has one from a prior generate call for a DIFFERENT dynpro of
+*    the SAME program; otherwise seed from the donor STANDARD status) ------
+*    BUG FIX (2026-08-xx): the previous version ALWAYS refetched STANDARD
+*    from the donor and called RS_CUA_INTERNAL_WRITE(state='A'), which
+*    REPLACES the program's entire active CUA document. On a program with
+*    two screens (e.g. 9000 then 9001), generating the second screen wiped
+*    out the first screen's STAT<n>/TIT<n> — RPY_DYNPRO_READ('9000') still
+*    showed the screen/container, but RS_CUA_INTERNAL_FETCH(program) no
+*    longer returned STAT9000/TIT9000 at all. Root cause: no merge, no
+*    fetch of the TARGET program's own (already-written) CUA before writing.
   CALL FUNCTION 'RS_CUA_INTERNAL_FETCH'
     EXPORTING
-      program         = c_src_prog
+      program         = iv_program
       language        = sy-langu
       state           = 'A'
     IMPORTING
@@ -230,73 +253,143 @@ FUNCTION zai_fm_screen_gen
       not_found       = 1
       unknown_version = 2
       OTHERS          = 3.
-  IF sy-subrc <> 0.
-    l_stat_rc = 100 + sy-subrc.
+  lv_target_exists = COND #( WHEN sy-subrc = 0 AND lines( sta ) > 0 THEN abap_true ELSE abap_false ).
+
+  IF lv_target_exists = abap_true.
+*   MERGE path: the target program already has at least one generated
+*   screen's status. Reuse an EXISTING status row as the template (same
+*   actcode/pfkcode pool — already proven valid, since that screen works)
+*   and only upsert the CURRENT dynpro's STAT<n>/TIT<n>/SET rows. Every
+*   OTHER dynpro's sta/tit/sett rows, and the shared fun/act/pfk/men/mtx/
+*   but/doc/biv/adm tables, are carried through UNCHANGED from this fetch.
+    READ TABLE sta INDEX 1 INTO ls_tmpl.
+    IF sy-subrc <> 0.
+      l_stat_rc = 90.
+    ELSE.
+      l_actcode = ls_tmpl-actcode.
+      l_pfkcode = ls_tmpl-pfkcode.
+
+      DELETE sta WHERE code = l_status.
+      APPEND VALUE #( code = l_status modal = ls_tmpl-modal
+                      actcode = l_actcode pfkcode = l_pfkcode ) TO sta.
+
+      DELETE sett WHERE status = l_status.
+      APPEND VALUE #( status = l_status function = 'BACK' )   TO sett.
+      APPEND VALUE #( status = l_status function = 'EXIT' )   TO sett.
+      APPEND VALUE #( status = l_status function = 'CANCEL' ) TO sett.
+
+      IF NOT line_exists( fun[ code = 'BACK' ] ).   APPEND VALUE #( code = 'BACK'   fun_text = 'Geri'  ) TO fun. ENDIF.
+      IF NOT line_exists( fun[ code = 'EXIT' ] ).   APPEND VALUE #( code = 'EXIT'   fun_text = 'Cikis' ) TO fun. ENDIF.
+      IF NOT line_exists( fun[ code = 'CANCEL' ] ). APPEND VALUE #( code = 'CANCEL' fun_text = 'Iptal' ) TO fun. ENDIF.
+      LOOP AT fun ASSIGNING FIELD-SYMBOL(<fn3>) WHERE code = 'BACK' OR code = 'EXIT' OR code = 'CANCEL'.
+        CLEAR <fn3>-type.
+      ENDLOOP.
+
+      DELETE tit WHERE code = l_tit.
+      APPEND VALUE #( code = l_tit text = iv_title ) TO tit.
+
+      l_stat_rc = 0.
+    ENDIF.
+
   ELSE.
-*   Bloat azalt: sadece donör status'unu tut (tanim havuzlari kalir).
-    DELETE sta  WHERE code   <> c_src_status.
-    DELETE sett WHERE status <> c_src_status.
-    READ TABLE sta WITH KEY code = c_src_status INTO DATA(ls_src).
-    DATA(l_pfkcode) = ls_src-pfkcode.
+*   FIRST-TIME path for this program: no prior CUA — seed from the donor
+*   STANDARD status template (unchanged logic).
+    CLEAR: sta, fun, men, mtx, act, but, pfk, sett, doc, tit, biv, adm.
+    CALL FUNCTION 'RS_CUA_INTERNAL_FETCH'
+      EXPORTING
+        program         = c_src_prog
+        language        = sy-langu
+        state           = 'A'
+      IMPORTING
+        adm             = adm
+      TABLES
+        sta             = sta
+        fun             = fun
+        men             = men
+        mtx             = mtx
+        act             = act
+        but             = but
+        pfk             = pfk
+        set             = sett
+        doc             = doc
+        tit             = tit
+        biv             = biv
+      EXCEPTIONS
+        not_found       = 1
+        unknown_version = 2
+        OTHERS          = 3.
+    IF sy-subrc <> 0.
+      l_stat_rc = 100 + sy-subrc.
+    ELSE.
+*     Bloat azalt: sadece donör status'unu tut (tanim havuzlari kalır).
+      DELETE sta  WHERE code   <> c_src_status.
+      DELETE sett WHERE status <> c_src_status.
+      READ TABLE sta WITH KEY code = c_src_status INTO ls_src.
+      l_pfkcode = ls_src-pfkcode.
 
-*   Standart navigasyon tuslarini programin bekledigi fcode'lara re-map et:
-*   F3 (pfno 03) -> BACK, Shift+F3 (15) -> EXIT, F12 (12) -> CANCEL.
-*   Donör jenerik &F03/&F15/&F12 kullaniyor; program PAI 'BACK/EXIT/CANCEL' bekliyor.
-    LOOP AT pfk ASSIGNING FIELD-SYMBOL(<p>) WHERE code = l_pfkcode.
-      CASE <p>-pfno.
-        WHEN '03'. <p>-funcode = 'BACK'.
-        WHEN '15'. <p>-funcode = 'EXIT'.
-        WHEN '12'. <p>-funcode = 'CANCEL'.
-      ENDCASE.
-    ENDLOOP.
+*     Standart navigasyon tuslarini programin bekledigi fcode'lara re-map et:
+*     F3 (pfno 03) -> BACK, Shift+F3 (15) -> EXIT, F12 (12) -> CANCEL.
+*     Donör jenerik &F03/&F15/&F12 kullaniyor; program PAI 'BACK/EXIT/CANCEL' bekliyor.
+      LOOP AT pfk ASSIGNING FIELD-SYMBOL(<p>) WHERE code = l_pfkcode.
+        CASE <p>-pfno.
+          WHEN '03'. <p>-funcode = 'BACK'.
+          WHEN '15'. <p>-funcode = 'EXIT'.
+          WHEN '12'. <p>-funcode = 'CANCEL'.
+        ENDCASE.
+      ENDLOOP.
 
-*   Status kodunu STANDARD -> STAT0100 (sta + mevcut set).
-    LOOP AT sta ASSIGNING FIELD-SYMBOL(<s>) WHERE code = c_src_status.
-      <s>-code = l_status.
-    ENDLOOP.
-    LOOP AT sett ASSIGNING FIELD-SYMBOL(<f>) WHERE status = c_src_status.
-      <f>-status = l_status.
-    ENDLOOP.
+*     Status kodunu STANDARD -> STAT0100 (sta + mevcut set).
+      LOOP AT sta ASSIGNING FIELD-SYMBOL(<s>) WHERE code = c_src_status.
+        <s>-code = l_status.
+      ENDLOOP.
+      LOOP AT sett ASSIGNING FIELD-SYMBOL(<f>) WHERE status = c_src_status.
+        <f>-status = l_status.
+      ENDLOOP.
 
-*   ⚠️ TOOLBAR PRUNE GERI ALINDI: donör act/fun/toolbar'i temizlemek BACK/EXIT/CANCEL'i
-*   GECERSIZ kildi (runtime "00256 Gecerli bir islev secin"). Bir fonksiyonun gecerli
-*   olmasi `act` (aktif fonksiyon listesi) gerektirir; set/pfk tek basina yetmiyor.
-*   Donör STANDARD'in act/fun/toolbar'i BUTUNUYLE KORUNUR -> BACK/EXIT/CANCEL donörde
-*   gecerli + re-map ile F3/Sh+F3/F12'ye bagli -> butonlar + ESC(=F12) calisir.
-*   (Toolbar'da donör ALV fonksiyonlari kalir; tam-minimal status from-scratch CUA isi.)
-*   BACK/EXIT/CANCEL fun + set'te yoksa garanti et (donörde varsa dokunma).
-    IF NOT line_exists( fun[ code = 'BACK' ] ).   APPEND VALUE #( code = 'BACK'   fun_text = 'Geri'  ) TO fun. ENDIF.
-    IF NOT line_exists( fun[ code = 'EXIT' ] ).   APPEND VALUE #( code = 'EXIT'   fun_text = 'Cikis' ) TO fun. ENDIF.
-    IF NOT line_exists( fun[ code = 'CANCEL' ] ). APPEND VALUE #( code = 'CANCEL' fun_text = 'Iptal' ) TO fun. ENDIF.
-    IF NOT line_exists( sett[ status = l_status function = 'BACK' ] ).   APPEND VALUE #( status = l_status function = 'BACK' )   TO sett. ENDIF.
-    IF NOT line_exists( sett[ status = l_status function = 'EXIT' ] ).   APPEND VALUE #( status = l_status function = 'EXIT' )   TO sett. ENDIF.
-    IF NOT line_exists( sett[ status = l_status function = 'CANCEL' ] ). APPEND VALUE #( status = l_status function = 'CANCEL' ) TO sett. ENDIF.
-*   3'unu de NORMAL type'a zorla (donörde EXIT type='E' geliyor -> AT EXIT-COMMAND
-*   moduluyuz YOK -> Exit takilir). Normal -> user_command_0100 yakalar. ESC=F12=CANCEL.
-    LOOP AT fun ASSIGNING FIELD-SYMBOL(<fn2>)
-         WHERE code = 'BACK' OR code = 'EXIT' OR code = 'CANCEL'.
-      CLEAR <fn2>-type.
-    ENDLOOP.
+*     ⚠️ TOOLBAR PRUNE GERI ALINDI: donör act/fun/toolbar'i temizlemek BACK/EXIT/CANCEL'i
+*     GECERSIZ kildi (runtime "00256 Geçerli bir islev secin"). Bir fonksiyonun geçerli
+*     olmasi `act` (aktif fonksiyon listesi) gerektirir; set/pfk tek basina yetmiyor.
+*     Donör STANDARD'in act/fun/toolbar'i BUTUNUYLE KORUNUR -> BACK/EXIT/CANCEL donörde
+*     geçerli + re-map ile F3/Sh+F3/F12'ye bagli -> butonlar + ESC(=F12) çalışır.
+*     (Toolbar'da donör ALV fonksiyonlari kalır; tam-minimal status from-scratch CUA işi.)
+*     BACK/EXIT/CANCEL fun + set'te yoksa garanti et (donörde varsa dokunma).
+      IF NOT line_exists( fun[ code = 'BACK' ] ).   APPEND VALUE #( code = 'BACK'   fun_text = 'Geri'  ) TO fun. ENDIF.
+      IF NOT line_exists( fun[ code = 'EXIT' ] ).   APPEND VALUE #( code = 'EXIT'   fun_text = 'Cikis' ) TO fun. ENDIF.
+      IF NOT line_exists( fun[ code = 'CANCEL' ] ). APPEND VALUE #( code = 'CANCEL' fun_text = 'Iptal' ) TO fun. ENDIF.
+      IF NOT line_exists( sett[ status = l_status function = 'BACK' ] ).   APPEND VALUE #( status = l_status function = 'BACK' )   TO sett. ENDIF.
+      IF NOT line_exists( sett[ status = l_status function = 'EXIT' ] ).   APPEND VALUE #( status = l_status function = 'EXIT' )   TO sett. ENDIF.
+      IF NOT line_exists( sett[ status = l_status function = 'CANCEL' ] ). APPEND VALUE #( status = l_status function = 'CANCEL' ) TO sett. ENDIF.
+*     3'unu de NORMAL type'a zorla (donörde EXIT type='E' geliyor -> AT EXIT-COMMAND
+*     moduluyuz YOK -> Exit takilir). Normal -> user_command_0100 yakalar. ESC=F12=CANCEL.
+      LOOP AT fun ASSIGNING FIELD-SYMBOL(<fn2>)
+           WHERE code = 'BACK' OR code = 'EXIT' OR code = 'CANCEL'.
+        CLEAR <fn2>-type.
+      ENDLOOP.
 
-*   TOOLBAR/MENU TEMIZLIGI (DIKKATLI): sadece GORUNUR menu bar (men/mtx) +
-*   application toolbar (but) kaldirilir. `act` (aktif fonksiyon listesi = GECERLILIK)
-*   ve fun/pfk/set KORUNUR -> fonksiyonlar gecerli kalir (00256 YOK). Onceki patinaj
-*   act'i de temizlemekti -> fonksiyonlar gecersiz -> 00256. ALV grid'in KENDI toolbar'i
-*   ayri (CL_GUI_ALV_GRID), etkilenmez.
-    REFRESH: men, mtx, but.
-    CLEAR adm-mencode.
-    LOOP AT sta ASSIGNING <s>.
-      CLEAR <s>-butcode.    " application toolbar yok (act/pfkcode korunur)
-    ENDLOOP.
+*     TOOLBAR/MENU TEMIZLIGI (DIKKATLI): sadece GÖRÜNÜR menu bar (men/mtx) +
+*     application toolbar (but) kaldırılır. `act` (aktif fonksiyon listesi = GECERLILIK)
+*     ve fun/pfk/set KORUNUR -> fonksiyonlar geçerli kalır (00256 YOK). Onceki patinaj
+*     act'i de temizlemekti -> fonksiyonlar gecersiz -> 00256. ALV grid'in KENDI toolbar'i
+*     ayri (CL_GUI_ALV_GRID), etkilenmez.
+      REFRESH: men, mtx, but.
+      CLEAR adm-mencode.
+      LOOP AT sta ASSIGNING <s>.
+        CLEAR <s>-butcode.    " application toolbar yok (act/pfkcode korunur)
+      ENDLOOP.
 
-*   Titlebar: donörün TUM titlebar'larini (003/800-808/850/DYN/FIL/LS/POP/TI1/TP1...)
-*   ATARIZ; sadece kendi TIT0100'umuzu birakiriz (title'lar status'tan bagimsiz, güvenli).
-    REFRESH tit.
-    APPEND VALUE #( code = l_tit text = iv_title ) TO tit.
+*     Titlebar: donörün TUM titlebar'larini (003/800-808/850/DYN/FIL/LS/POP/TI1/TP1...)
+*     ATARIZ; sadece kendi TIT0100'umuzu birakiriz (title'lar status'tan bagimsiz, güvenli).
+      REFRESH tit.
+      APPEND VALUE #( code = l_tit text = iv_title ) TO tit.
 
-*   Devclass = hedef programin GERCEK paketi (TADIR'dan turetilir) -> FM herhangi
-*   bir paketteki program icin calisir (sabit paket adi GOMULMEZ). Program henuz
-*   TADIR'da yoksa bos kalir (RS_CUA_INTERNAL_WRITE programin paketini kendi turetir).
+      l_stat_rc = 0.
+    ENDIF.
+  ENDIF.
+
+  IF l_stat_rc = 0.
+*   Devclass = hedef programin GERÇEK paketi (TADIR'dan turetilir) -> FM herhangi
+*   bir paketteki program için çalışır (sabit paket adi GOMULMEZ). Program henuz
+*   TADIR'da yoksa boş kalır (RS_CUA_INTERNAL_WRITE programin paketini kendi turetir).
     SELECT SINGLE devclass FROM tadir INTO l_trkey-devclass
       WHERE pgmid = 'R3TR' AND object = 'PROG' AND obj_name = iv_program.
     l_trkey-obj_type = 'PROG'.
@@ -347,7 +440,7 @@ FUNCTION zai_fm_screen_gen
     ENDIF.
   ENDIF.
 
-*--- Sonuc --------------------------------------------------------------
+*--- Sonuç --------------------------------------------------------------
   ev_rc = l_screen_rc + l_stat_rc + l_gen_rc.
   ev_message = |screen({ iv_program }/{ iv_dynpro }) rc={ l_screen_rc }; | &&
                |status({ l_status }+{ l_tit }) rc={ l_stat_rc }; | &&

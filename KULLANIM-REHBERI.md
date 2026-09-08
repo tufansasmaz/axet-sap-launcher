@@ -65,6 +65,16 @@ sistem başına ayrı bir rol yoktur.
 - **Modül danışmanı** seçersen sisteme yazan hiçbir yetenek kurulmaz.
   **Teknik danışman** seçersen kod denetimi, ekran üretimi ve abapGit de
   kurulur.
+- Sayılarla: modül danışmanı 31, teknik danışman 41 yetenek alır; katalogda
+  toplam 45 var. İkisinin de aldığı **danışmanlık döngüsü** paketi şunları
+  kapsıyor: talep kapsamı çıkarma (`sap-cr-scope`), devir dosyası
+  (`sap-cr-handover`), arıza analizi (`sap-incident`), mevcut durum
+  dokümanı (`as-built-doc`), test senaryoları (`test-scenarios`), S/4HANA
+  dönüşüm kapsamı (`conversion-scope`) ve SAP GUI ekran yakalama
+  (`sapgui-screenshots`). Teknik danışman ayrıca ATC toplu düzeltme,
+  Datasphere ve UI5/CAP/Basis/otomasyon paketlerini alır; modül danışmanı
+  iş süreç dokümanı (`bbp-creator`), son kullanıcı kılavuzu
+  (`sap-enduser-doc`) ve Celonis modelleyicisini alır.
 - Onaylamadan önce pencerede, seçtiğin rolle hangi yeteneklerin kurulacağı
   ad ad listelenir. Kararı listeye bakarak ver.
 - Katalogdan elle kurduğun yetenekler role bağlı değildir; onlar her iki
@@ -74,6 +84,17 @@ sistem başına ayrı bir rol yoktur.
   tasarımcıya aktarılacak hâle getirir. Sohbette "şu akışı incele",
   "bana bir CRUD uygulaması akışı çıkar", "bu akış deploy oluyor ama
   çalışmıyor" gibi bir şey dediğinde ajan bunu kendisi kullanır.
+- **`sapgui-screenshots` canlı sistemde dikkat ister.** Bu yetenek ADT'ye
+  değil, açık duran SAP GUI penceresine bakar ve gezinmek için gerçek
+  tuşlara basar (Enter, F8, alan doldurma). Yani salt-okunur kapının
+  dışındadır. Kural: PRD'de yalnızca görüntüleme işlemleri (SE16 display,
+  ST22, SE09 görüntüleme) yakalanır; kılavuz için işlem adımı gerekiyorsa
+  DEV/QA'da yakalanır. Yanlışlıkla basılan bir Kaydet geri alınamaz.
+- **`sap-enduser-doc` ek kurulum ister.** HTML/PDF kılavuz üretmek için
+  Node 18+, skill klasöründe bir `npm install` (playwright, marked, sharp,
+  mermaid) ve yerel bir Chromium gerekir. Bunların hiçbiri uygulamayla
+  gelmiyor ve otomatik kurulmuyor. Kullanmadan önce skill klasöründe
+  `node scripts/precheck.js` çalıştır; eksikleri o söyler.
 - Doğru seçmek önemli: dar rol ajanı iş yapamaz hâle getirir, geniş rol ise
   müşteri sisteminde istemediğin bir yeteneği masaya koyar. Değiştirme
   şansın olmadığı için uyarı da o pencerededir.
@@ -216,8 +237,18 @@ Her sistem için oluşturulan proje klasöründe:
   skill'ler) içeren dosya. Sen bu dosyanın en altındaki "Notlar" bölümüne
   serbestçe not ekleyebilirsin — yeniden bağlanınca silinmez, korunur.
 - **`.axet-code/skills/`**: SAP'a ADT üzerinden salt-okunur erişim, abapGit
-  teslim akışı, Office doküman araçları gibi hazır skill'ler otomatik
-  kopyalanır; terminalde `%skill-adı` yazarak çağrılabilir.
+  teslim akışı, danışmanlık döngüsü, Office doküman araçları gibi hazır
+  skill'ler otomatik kopyalanır; terminalde `%skill-adı` yazarak
+  çağrılabilir.
+- **`.axet-code/lib/` ve `.axet-code/scripts/`**: Skill'lerin ortak
+  kullandığı Python dosyaları. Bunlar tek bir skill'e ait olmadığı için
+  `skills/` klasörünün *dışında* durur ve ihtiyaç duyan bir yetenek
+  kuruluysa birlikte kopyalanır. `lib/redact.py` doküman üretiminde
+  TCKN/vergi numarası maskelemesini (`--redact-pii`) yapan dosyadır; bu
+  klasörü elle silme, maskeleme sessizce devre dışı kalır. Rol değişip
+  ihtiyaç duyan yetenekler kaldırıldığında uygulama bunları da temizler
+  (yalnızca kendi bıraktığı kopyayı — senin koyduğun aynı adlı bir klasöre
+  dokunmaz).
 
 ## Axet Chat Sohbet Ekranı
 

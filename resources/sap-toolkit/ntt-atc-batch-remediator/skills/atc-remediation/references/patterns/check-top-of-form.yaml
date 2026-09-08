@@ -1,0 +1,30 @@
+# Pattern 11: CHECK / EXIT in FORM routines (top-of-FORM sub-case)
+# Source: research-pattern-library.md §11
+check_ids:
+  - "Y_CHECK_CHECK_STATEMENT_POS"
+  - "Y_CHECK_CHECK_IN_LOOP"
+priority: 2
+fix_shape: context
+template:
+  before: |
+    FORM process_row USING ps_row TYPE ty_row.
+      CHECK ps_row-active = abap_true.
+      WRITE: / ps_row-id.
+    ENDFORM.
+  after: |
+    FORM process_row USING ps_row TYPE ty_row.
+      IF ps_row-active <> abap_true.
+        RETURN.
+      ENDIF.
+      WRITE: / ps_row-id.
+    ENDFORM.
+context_required:
+  - "lexical position of CHECK relative to surrounding FORM / LOOP / IF"
+confidence_signals:
+  high:
+    - "CHECK is the first executable statement of the FORM (top-of-FORM)"
+    - "CHECK is at top of a LOOP body (rewrite as CONTINUE)"
+  low:
+    - "CHECK sits inside a nested IF (judgment — meaning depends on intent)"
+    - "EXIT semantics could change if a loop is added later"
+fallback_on_low_confidence: route_to_human_review

@@ -1,0 +1,28 @@
+# Pattern 2: Implicit / missing INTO field list (host-variable escape)
+# Source: research-pattern-library.md §2
+check_ids:
+  - "CL_CI_TEST_OPEN_SQL::MISSING_INTO_LIST"
+  - "code-pal::ESCAPING"
+priority: 2
+fix_shape: mechanical
+template:
+  before: |
+    SELECT SINGLE matnr maktx FROM makt
+      INTO (lv_matnr, lv_maktx)
+      WHERE matnr = lv_input AND spras = sy-langu.
+  after: |
+    SELECT SINGLE matnr, maktx
+      FROM makt
+      WHERE matnr = @lv_input AND spras = @sy-langu
+      INTO (@lv_matnr, @lv_maktx).
+context_required:
+  - "list of host variables in WHERE / INTO targets"
+confidence_signals:
+  high:
+    - "single SELECT statement with no dynamic WHERE"
+    - "all host vars statically declared in same compilation unit"
+  low:
+    - "WHERE clause built dynamically via concatenation"
+    - "INTO target is a CORRESPONDING fields reference"
+fallback_on_low_confidence: route_to_human_review
+sap_note: 1882425

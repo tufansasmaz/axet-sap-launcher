@@ -2,6 +2,15 @@
 
 **Critical bugs, fixes, and best practices from live development on SAP S/4HANA Cloud Public Edition.**
 
+> **What this is, and what it is not.** Every rule here is about *how the platform
+> behaves* — which ADT attributes it demands, what it rejects, in what order things
+> activate. That part is hard-won and reliable.
+>
+> The **object names** in this document are not. They come from one system built before
+> the NTT naming standard reached it, and they conflict with it throughout. Names for
+> anything new come from `ts-generator/references/NAMING_STANDARD.md`, never from here.
+> See "Names used in this walkthrough" below for the row-by-row difference.
+
 ## Critical Rules
 
 ### 1. Always Include `abapLanguageVersion`
@@ -64,7 +73,7 @@ NOT the deprecated syntax with `@AbapCatalog.sqlViewName`.
 ```
 MARA + MAKT (standard tables)
     ↓
-ZMM000_C_MATERIAL         (CDS Interface View — DDLS)
+ZMM000_C_MATERIAL         (root CDS — DDLS; the doc called it an interface view)
     ↓
 ZMM000_C_MATERIAL_P       (CDS Projection View — DDLS)
     ↓
@@ -75,15 +84,30 @@ ZMM000_SRVD_MATERIAL      (Service Definition — SRVD)
 ZMM000_SRVB_MATERIAL      (Service Binding — SRVB, OData V4 UI)
 ```
 
-## Naming Convention
+## Names used in this walkthrough — NOT a naming convention
 
-| Object | Prefix | Max Length | Example |
-|--------|--------|------------|---------|
-| CDS Interface View | `_C_` | 40 chars | `ZMM000_C_MATERIAL` |
-| CDS Projection View | `_C_` + `_P` | 40 chars | `ZMM000_C_MATERIAL_P` |
-| Behavior Definition | `_BDEF_` | 40 chars | `ZMM000_BDEF_MATERIAL` |
-| Service Definition | `_SRVD_` | 40 chars | `ZMM000_SRVD_MATERIAL` |
-| Service Binding | `_SRVB_` | 40 chars | `ZMM000_SRVB_MATERIAL` |
+> ⚠ **These names do not follow the NTT naming standard, and nothing here should be
+> copied into a TS or a new development.** They are the names that exist on the system
+> this walkthrough was recorded against, kept so the XML and JSON payloads below stay
+> readable against real objects. The binding rules live in
+> `ts-generator/references/NAMING_STANDARD.md` — §4.1 and §4.2 — and they win.
+>
+> The table used to be headed "Naming Convention", which read as a rule. Every row of
+> it conflicts with the standard, so it was the kind of reference an agent could follow
+> straight into a non-conforming stack:
+
+| Object | Used here | What the standard says |
+|---|---|---|
+| RAP root CDS | `ZMM000_C_MATERIAL`, labelled *interface view* | `Z{M}{N}_R_{D}` — `_C_` is the **projection**, and an interface view (`_I_`) is a different layer altogether |
+| Projection view | `ZMM000_C_MATERIAL_P` | `Z{M}{N}_C_{D}` — no `_P` suffix |
+| Behavior Definition | `ZMM000_BDEF_MATERIAL` | the **same name as the root view** it belongs to |
+| Service Definition | `ZMM000_SRVD_MATERIAL` | `Z{M}{N}_UI_{D}` (or `_API_`) |
+| Service Binding | `ZMM000_SRVB_MATERIAL` | `Z{M}{N}_UI_{D}_O2` — the `_O2`/`_O4` suffix carries the OData version |
+| Package | `ZMM000` | `Z<Modül>000` is the module **general** package (BAdI, enhancement, custom field); a RAP stack belongs to an item package, `ZMM001`+ |
+| Max length | 40 | the MaxLen column of the standard's tables governs |
+
+> Useful as a counter-example: this is a real stack, built before the standard reached
+> it, and it is what the drift the standard exists to prevent actually looks like.
 
 ## CDS View Creation XML
 

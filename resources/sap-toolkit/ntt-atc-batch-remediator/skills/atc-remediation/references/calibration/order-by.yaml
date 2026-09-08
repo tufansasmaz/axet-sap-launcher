@@ -1,0 +1,202 @@
+# LLM-eval suite for the `order-by` pattern.
+
+- id: vbap-binary-search-near
+  description: SELECT VBAP followed by BINARY SEARCH within 10 lines (high)
+  input_payload:
+    cluster_id: c-0201
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_ORDER_PROCESS
+      include: ZR_ORDER_PROCESS
+      line: 47
+      message: "ORDER BY missing — BINARY SEARCH follows within 5 lines"
+    context:
+      ddic_table: VBAP
+      primary_keys: [VBELN, POSNR]
+      follow_up_binary_search: true
+      follow_up_distance_lines: 5
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: ekpo-sort-follows
+  description: SELECT EKPO with SORT inside same form
+  input_payload:
+    cluster_id: c-0202
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_PO_REPORT
+      include: ZR_PO_REPORT
+      line: 102
+      message: "ORDER BY missing — SORT follows within 8 lines"
+    context:
+      ddic_table: EKPO
+      primary_keys: [EBELN, EBELP]
+      follow_up_sort: true
+      follow_up_distance_lines: 8
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: bseg-missing-pk-field
+  description: SELECT selects subset that omits BUKRS (low — cannot use PRIMARY KEY)
+  input_payload:
+    cluster_id: c-0203
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_BSEG_SUBSET
+      include: ZR_BSEG_SUBSET
+      line: 19
+      message: "ORDER BY missing — select list omits BUKRS"
+    context:
+      ddic_table: BSEG
+      primary_keys: [BUKRS, BELNR, GJAHR, BUZEI]
+      selected_fields: [BELNR, BUZEI]
+      follow_up_binary_search: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: lips-clean-pk
+  description: SELECT LIPS with all PK fields present + BINARY SEARCH
+  input_payload:
+    cluster_id: c-0204
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_DELIVERY_LINES
+      include: ZCL_DELIVERY_LINES==========CM001
+      line: 33
+      message: "ORDER BY missing on LIPS"
+    context:
+      ddic_table: LIPS
+      primary_keys: [VBELN, POSNR]
+      selected_fields: [VBELN, POSNR, LFIMG]
+      follow_up_binary_search: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: mara-large-result
+  description: SELECT MARA expected to return >100k rows (low — DB sort cost concern)
+  input_payload:
+    cluster_id: c-0205
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MARA_DUMP_ALL
+      include: ZR_MARA_DUMP_ALL
+      line: 11
+      message: "ORDER BY missing — result expected >100k rows"
+    context:
+      ddic_table: MARA
+      primary_keys: [MATNR]
+      selected_fields: [MATNR, MTART]
+      result_row_count_estimate: 250000
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: mkpf-time-keys
+  description: SELECT MKPF + sort by year/document
+  input_payload:
+    cluster_id: c-0206
+    check_id: MISSING_ORDER_BY
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DOC_TIMELINE
+      include: ZR_DOC_TIMELINE
+      line: 41
+      message: "ORDER BY missing on MKPF"
+    context:
+      ddic_table: MKPF
+      primary_keys: [MJAHR, MBLNR]
+      selected_fields: [MJAHR, MBLNR, BUDAT]
+      follow_up_binary_search: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: kna1-no-binary-search
+  description: SELECT KNA1 with no following BINARY SEARCH or SORT (medium)
+  input_payload:
+    cluster_id: c-0207
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_CUST_DUMP
+      include: ZR_CUST_DUMP
+      line: 27
+      message: "ORDER BY missing on KNA1"
+    context:
+      ddic_table: KNA1
+      primary_keys: [KUNNR]
+      selected_fields: [KUNNR, NAME1]
+      follow_up_binary_search: false
+      follow_up_sort: false
+  expected_fix_shape: context
+  expected_confidence_range: [0.50, 0.85]
+
+- id: vbak-clean-pk
+  description: SELECT VBAK with VBELN + ERDAT + NETWR (PK present, BS follows)
+  input_payload:
+    cluster_id: c-0208
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_SO_FETCHER
+      include: ZCL_SO_FETCHER==========CM001
+      line: 56
+      message: "ORDER BY missing on VBAK"
+    context:
+      ddic_table: VBAK
+      primary_keys: [VBELN]
+      selected_fields: [VBELN, ERDAT, NETWR]
+      follow_up_binary_search: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: ekko-multi-pk-clean
+  description: SELECT EKKO returning EBELN + BUKRS + BSART + WERKS (PK present)
+  input_payload:
+    cluster_id: c-0209
+    check_id: CL_CI_TEST_DB_SEL_SORTORDER
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_EKKO_BROWSER
+      include: ZR_EKKO_BROWSER
+      line: 17
+      message: "ORDER BY missing on EKKO"
+    context:
+      ddic_table: EKKO
+      primary_keys: [EBELN]
+      selected_fields: [EBELN, BUKRS, BSART, WERKS]
+      follow_up_binary_search: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: pa0001-employee-time
+  description: SELECT PA0001 followed by SORT BY BEGDA
+  input_payload:
+    cluster_id: c-0210
+    check_id: MISSING_ORDER_BY
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_HR_TIMELINE
+      include: ZR_HR_TIMELINE
+      line: 88
+      message: "ORDER BY missing on PA0001"
+    context:
+      ddic_table: PA0001
+      primary_keys: [PERNR, BEGDA]
+      selected_fields: [PERNR, BEGDA, ENDDA, ENAME]
+      follow_up_sort: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]

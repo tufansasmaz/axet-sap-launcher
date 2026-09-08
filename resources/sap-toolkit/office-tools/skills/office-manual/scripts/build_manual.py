@@ -35,7 +35,22 @@ import os
 import sys
 from pathlib import Path
 
-GREEN = (0x0A, 0x7D, 0x3C)
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+from theme import (ACCENT, BODY_FONT, DEEP, INK, LIGHT_FONT,  # noqa: E402
+                   MUTED, SEMI_FONT, logo_path)
 
 
 def _resolve_screenshot(path: str | None, manifest_dir: Path) -> Path | None:
@@ -58,24 +73,54 @@ def build_docx(spec: dict, out_path: str, manifest_dir: Path) -> None:
     except ImportError:
         sys.exit("ERROR: python-docx required. Run: py -m pip install python-docx")
 
-    doc = Document()
-    green = RGBColor(*GREEN)
+    from docx.oxml.ns import qn
 
-    for lvl in (1, 2, 3):
+    def face(target, name, size=None, bold=None, color=None):
+        """All four rFonts slots — see build_docx._face for why w:ascii is not
+        enough once a Turkish dotless i is in the string."""
+        target.font.name = name
+        rfonts = target._element.rPr.rFonts
+        for slot in ("w:eastAsia", "w:hAnsi", "w:cs"):
+            rfonts.set(qn(slot), name)
+        if size is not None:
+            target.font.size = Pt(size)
+        if bold is not None:
+            target.font.bold = bold
+        if color is not None:
+            target.font.color.rgb = RGBColor(*color)
+        return target
+
+    doc = Document()
+
+    normal = doc.styles["Normal"]
+    face(normal, BODY_FONT, 10.5, color=INK)
+    normal.paragraph_format.line_spacing = 1.35
+    normal.paragraph_format.space_after = Pt(10)
+
+    for lvl, (size, before) in enumerate(((15, 20), (13, 16), (11, 12)), start=1):
         try:
-            doc.styles[f"Heading {lvl}"].font.color.rgb = green
+            style = doc.styles[f"Heading {lvl}"]
+            face(style, SEMI_FONT, size, color=(DEEP if lvl == 3 else ACCENT))
+            style.font.bold = False
+            style.paragraph_format.space_before = Pt(before)
+            style.paragraph_format.space_after = Pt(8)
         except Exception:
             pass
 
-    # Cover
-    h = doc.add_heading(spec.get("title", "User Manual"), level=0)
-    for run in h.runs:
-        run.font.color.rgb = green
+    # Cover — the mark leads, then the title. A manual is read on screen and
+    # printed for a training room, so it gets the same identity as every other
+    # deliverable rather than a bare heading.
+    mark = logo_path()
+    if mark:
+        lp = doc.add_paragraph()
+        lp.paragraph_format.space_after = Pt(16)
+        lp.add_run().add_picture(str(mark), width=Inches(1.5))
+    h = doc.add_paragraph()
+    h.paragraph_format.space_after = Pt(6)
+    face(h.add_run(spec.get("title", "User Manual")), LIGHT_FONT, 24, False, DEEP)
     if spec.get("author"):
         p = doc.add_paragraph()
-        r = p.add_run(spec["author"])
-        r.italic = True
-        r.font.size = Pt(12)
+        face(p.add_run(spec["author"]), BODY_FONT, 11, False, MUTED)
     doc.add_paragraph()
 
     steps = spec.get("steps", [])
@@ -122,7 +167,16 @@ def build_pptx(spec: dict, out_path: str, manifest_dir: Path) -> None:
     prs.slide_width = Inches(13.333)
     prs.slide_height = Inches(7.5)
     blank = prs.slide_layouts[6]
-    green = RGBColor(*GREEN)
+    accent = RGBColor(*ACCENT)
+    mark = logo_path()
+
+    def _mark(slide) -> None:
+        """The wordmark, bottom right, small. On a deck it belongs out of the
+        reading path — a slide is looked at, not read, and a logo in the title
+        zone competes with the one thing the slide is for."""
+        if mark:
+            slide.shapes.add_picture(
+                str(mark), Inches(11.55), Inches(6.85), width=Inches(1.2))
 
     def _title_bar(slide, text: str) -> None:
         box = slide.shapes.add_textbox(
@@ -132,13 +186,14 @@ def build_pptx(spec: dict, out_path: str, manifest_dir: Path) -> None:
         p = tf.paragraphs[0]
         p.text = text
         p.font.size = Pt(26)
-        p.font.bold = True
-        p.font.color.rgb = green
+        p.font.bold = False
+        p.font.name = SEMI_FONT
+        p.font.color.rgb = accent
         # accent underline
         ln = slide.shapes.add_shape(
             1, Inches(0.6), Inches(1.3), Inches(12.1), Pt(3))
         ln.fill.solid()
-        ln.fill.fore_color.rgb = green
+        ln.fill.fore_color.rgb = accent
         ln.line.fill.background()
 
     # ── Title slide ──
@@ -150,13 +205,16 @@ def build_pptx(spec: dict, out_path: str, manifest_dir: Path) -> None:
     p = tf.paragraphs[0]
     p.text = spec.get("title", "User Manual")
     p.font.size = Pt(40)
-    p.font.bold = True
-    p.font.color.rgb = green
+    p.font.bold = False
+    p.font.name = LIGHT_FONT
+    p.font.color.rgb = RGBColor(*DEEP)
     if spec.get("author"):
         sp = tf.add_paragraph()
         sp.text = spec["author"]
         sp.font.size = Pt(20)
-        sp.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+        sp.font.name = BODY_FONT
+        sp.font.color.rgb = RGBColor(*MUTED)
+    _mark(ts)
 
     # ── Step slides ──
     steps = spec.get("steps", [])
@@ -169,6 +227,7 @@ def build_pptx(spec: dict, out_path: str, manifest_dir: Path) -> None:
         slide = prs.slides.add_slide(blank)
         heading = f"Step {num}: {title}" if title else f"Step {num}"
         _title_bar(slide, heading)
+        _mark(slide)
 
         if screenshot:
             try:
@@ -193,7 +252,8 @@ def build_pptx(spec: dict, out_path: str, manifest_dir: Path) -> None:
                 p = tf.paragraphs[0]
                 p.text = description
                 p.font.size = Pt(13)
-                p.font.color.rgb = RGBColor(0x33, 0x33, 0x33)
+                p.font.name = BODY_FONT
+                p.font.color.rgb = RGBColor(*INK)
         else:
             # Text-only: description fills the content area
             box = slide.shapes.add_textbox(

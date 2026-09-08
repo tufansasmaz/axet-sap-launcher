@@ -16,6 +16,12 @@ description: >
 
 # ts-generator — SAP Functional Spec → Technical Spec Converter
 
+> **NTT Studio uyarlaması — `${CLAUDE_PLUGIN_ROOT}` yok.** Eklenti kökü diye bir şey ve o
+> ortam değişkeni bu dağıtımda tanımlı değil. Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/`
+> geçen her yerde proje kökündeki **`.axet-code/scripts/`** oku (`summary_check.py` oraya
+> kuruluyor); `${CLAUDE_PLUGIN_ROOT}/skills/<ad>/scripts` ise
+> **`.axet-code/skills/<ad>/scripts`**.
+
 > Formerly named `fs2ts`; renamed 2026-08-02 for symmetry with `fs-generator`.
 
 ## Purpose

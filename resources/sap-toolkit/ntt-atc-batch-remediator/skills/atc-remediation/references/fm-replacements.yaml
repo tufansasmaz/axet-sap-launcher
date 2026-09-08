@@ -1,0 +1,57 @@
+# Curated deprecated-FM -> released-API lookup.
+# Source of truth for the `deprecated-fm` pattern.
+# replacement_kind: class_method | function_module | none
+replacements:
+  - deprecated_fm: WS_DOWNLOAD
+    replacement_kind: class_method
+    replacement_expression: "cl_gui_frontend_services=>gui_download( ... )"
+    notes: "TABLES -> CHANGING; EXCEPTIONS renumbered"
+    sap_note: 1875817
+  - deprecated_fm: WS_UPLOAD
+    replacement_kind: class_method
+    replacement_expression: "cl_gui_frontend_services=>gui_upload( ... )"
+    sap_note: 1875817
+  - deprecated_fm: DOWNLOAD
+    replacement_kind: class_method
+    replacement_expression: "cl_gui_frontend_services=>gui_download( ... )"
+  - deprecated_fm: UPLOAD
+    replacement_kind: class_method
+    replacement_expression: "cl_gui_frontend_services=>gui_upload( ... )"
+  - deprecated_fm: RFC_READ_TABLE
+    replacement_kind: none
+    notes: "No 1:1 cloud replacement; route to human-review with hint: 'use released CDS view or RAP service'."
+    sap_note: 2190119
+  - deprecated_fm: SO_NEW_DOCUMENT_SEND_API1
+    replacement_kind: class_method
+    replacement_expression: "cl_bcs=>create_persistent( )->send( ... )"
+  - deprecated_fm: POPUP_TO_CONFIRM_STEP
+    replacement_kind: function_module
+    replacement_expression: "CALL FUNCTION 'POPUP_TO_CONFIRM'"
+    notes: "POPUP_TO_CONFIRM itself is NOT deprecated."
+  - deprecated_fm: POPUP_TO_CONFIRM_WITH_MESSAGE
+    replacement_kind: function_module
+    replacement_expression: "CALL FUNCTION 'POPUP_TO_CONFIRM'"
+  - deprecated_fm: F4_FILENAME
+    replacement_kind: class_method
+    replacement_expression: "cl_gui_frontend_services=>file_open_dialog( ... )"
+  - deprecated_fm: GUI_DOWNLOAD
+    replacement_kind: class_method
+    replacement_expression: "cl_gui_frontend_services=>gui_download( ... )"
+  - deprecated_fm: CONVERT_DATE_TO_EXTERNAL
+    replacement_kind: function_module
+    replacement_expression: "CALL FUNCTION 'CONVERT_DATE_INPUT'"
+  - deprecated_fm: BAL_DSP_LOG_DISPLAY
+    replacement_kind: class_method
+    replacement_expression: "cl_recalist_alv=>show( ... )"
+  - deprecated_fm: G_SET_GET_ALL_VALUES
+    replacement_kind: none
+    notes: "No released alternative. Route to human-review."
+  - deprecated_fm: REUSE_ALV_GRID_DISPLAY
+    replacement_kind: class_method
+    replacement_expression: "cl_salv_table=>factory( ... )->display( )"
+    notes: "Classic ALV -> SALV. Container/event signature differs."
+    sap_note: 1875817
+  - deprecated_fm: DYNP_VALUES_READ
+    replacement_kind: function_module
+    replacement_expression: "CALL FUNCTION 'DYNP_VALUES_READ'"
+    notes: "Not deprecated as of 2024; included for completeness."

@@ -1,0 +1,184 @@
+# LLM-eval suite for the `check-top-of-form` pattern.
+
+- id: top-of-form-first-stmt
+  description: CHECK is the first executable statement of the FORM (high)
+  input_payload:
+    cluster_id: c-0801
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_FORM_FIRST
+      include: ZR_FORM_FIRST
+      line: 33
+      message: "CHECK at top of FORM"
+    context:
+      form: process_row
+      position: first_executable
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: nested-if-judgment
+  description: CHECK sits inside a nested IF (judgment-leaning, low)
+  input_payload:
+    cluster_id: c-0802
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_FORM_NESTED
+      include: ZR_FORM_NESTED
+      line: 44
+      message: "CHECK inside nested IF"
+    context:
+      form: dispatch
+      position: nested_if
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: top-of-loop
+  description: CHECK is at top of a LOOP body (rewrite as CONTINUE)
+  input_payload:
+    cluster_id: c-0803
+    check_id: Y_CHECK_CHECK_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_LOOP_CHECK
+      include: ZR_LOOP_CHECK
+      line: 18
+      message: "CHECK at top of LOOP"
+    context:
+      form: filter_rows
+      position: top_of_loop
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: exit-semantics-risk
+  description: EXIT semantics could change if a loop is added later (low)
+  input_payload:
+    cluster_id: c-0804
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_EXIT_FORM
+      include: ZR_EXIT_FORM
+      line: 22
+      message: "EXIT in FORM — semantics depend on loop context"
+    context:
+      form: render_item
+      stmt_kind: exit
+      could_be_in_loop: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: post-doc-first-stmt
+  description: post_doc FORM with CHECK as first statement (high)
+  input_payload:
+    cluster_id: c-0805
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_POST_DOC
+      include: ZR_POST_DOC
+      line: 11
+      message: "CHECK at top of FORM post_doc"
+    context:
+      form: post_doc
+      position: first_executable
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: validate-partner-first
+  description: validate_partner FORM with CHECK on entry (high)
+  input_payload:
+    cluster_id: c-0806
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_VALIDATE_PARTNER
+      include: ZR_VALIDATE_PARTNER
+      line: 9
+      message: "CHECK at top of FORM"
+    context:
+      form: validate_partner
+      position: first_executable
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: publish-event-first
+  description: publish_event FORM, top-of-FORM CHECK (high)
+  input_payload:
+    cluster_id: c-0807
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_PUBLISH_EVENT
+      include: ZR_PUBLISH_EVENT
+      line: 14
+      message: "CHECK at top of FORM"
+    context:
+      form: publish_event
+      position: first_executable
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: render-item-loop-check
+  description: CHECK at top of LOOP body inside render_item
+  input_payload:
+    cluster_id: c-0808
+    check_id: Y_CHECK_CHECK_IN_LOOP
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_RENDER_ITEM
+      include: ZR_RENDER_ITEM
+      line: 41
+      message: "CHECK at top of LOOP"
+    context:
+      form: render_item
+      position: top_of_loop
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: deep-nested
+  description: CHECK inside nested IF AND inside LOOP (low — judgment territory)
+  input_payload:
+    cluster_id: c-0809
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DEEP
+      include: ZR_DEEP
+      line: 56
+      message: "CHECK deeply nested"
+    context:
+      form: complex_flow
+      position: nested_if
+      could_be_in_loop: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: top-of-form-with-data-decl
+  description: "CHECK preceded only by DATA: declarations (still counts as top)"
+  input_payload:
+    cluster_id: c-0810
+    check_id: Y_CHECK_CHECK_STATEMENT_POS
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DATA_THEN_CHECK
+      include: ZR_DATA_THEN_CHECK
+      line: 26
+      message: "CHECK preceded by DATA declarations only"
+    context:
+      form: process_event
+      position: first_executable
+      preceded_by_data_decl_only: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]

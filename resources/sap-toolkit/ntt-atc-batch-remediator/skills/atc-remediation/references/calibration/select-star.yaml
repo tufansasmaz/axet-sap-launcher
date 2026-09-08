@@ -1,0 +1,191 @@
+# LLM-eval suite for the `select-star` pattern.
+# Each case feeds a synthetic cluster (1 finding + downstream-usage context)
+# into PatchGenerator and asserts the LLM produces a Patch whose
+# `fix_shape` + `confidence` match the expectations.
+#
+# Loaded by tests/test_evals_runner.py — gated by @pytest.mark.llm.
+
+- id: ekko-tiny-4-cols
+  description: SELECT * on EKKO where downstream uses only 4 columns (canonical high-confidence)
+  input_payload:
+    cluster_id: c-0001
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_EKKO_READER
+      include: ZCL_EKKO_READER==========CM001
+      line: 47
+      message: "SELECT * on EKKO without explicit field list"
+    context:
+      ddic_table: EKKO
+      downstream_field_uses_on_itab: [EBELN, BSART, BUKRS, LIFNR]
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: vbak-3-cols
+  description: SELECT * on VBAK with VBELN/ERDAT/NETWR downstream
+  input_payload:
+    cluster_id: c-0002
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_VBAK_FETCHER
+      include: ZCL_VBAK_FETCHER==========CM001
+      line: 12
+      message: "SELECT * on VBAK without explicit field list"
+    context:
+      ddic_table: VBAK
+      downstream_field_uses_on_itab: [VBELN, ERDAT, NETWR]
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: mara-with-bapi-passthrough
+  description: SELECT * on MARA but the row is passed to a BAPI (low confidence)
+  input_payload:
+    cluster_id: c-0003
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_MARA_FEED
+      include: ZR_MARA_FEED
+      line: 88
+      message: "SELECT * on MARA — row passed to BAPI"
+    context:
+      ddic_table: MARA
+      downstream_field_uses_on_itab: [MATNR]
+      bapi_pass_through: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: lips-with-move-corresponding
+  description: SELECT * on LIPS where MOVE-CORRESPONDING widens the result
+  input_payload:
+    cluster_id: c-0004
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_DELIVERY_LOAD
+      include: ZR_DELIVERY_LOAD
+      line: 33
+      message: "SELECT * on LIPS — MOVE-CORRESPONDING downstream"
+    context:
+      ddic_table: LIPS
+      downstream_field_uses_on_itab: [VBELN, POSNR, LFIMG]
+      move_corresponding_widens: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: vbap-with-dynamic-assign
+  description: SELECT * on VBAP with dynamic ASSIGN COMPONENT against the structure
+  input_payload:
+    cluster_id: c-0005
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_VBAP_GENERIC
+      include: ZCL_VBAP_GENERIC==========CM004
+      line: 17
+      message: "SELECT * on VBAP with dynamic ASSIGN COMPONENT"
+    context:
+      ddic_table: VBAP
+      downstream_field_uses_on_itab: [VBELN, POSNR]
+      dynamic_assign_component: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: ekpo-clean-mechanical
+  description: SELECT * on EKPO with no downstream surprises (high confidence)
+  input_payload:
+    cluster_id: c-0006
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_EKPO_PROCESSOR
+      include: ZCL_EKPO_PROCESSOR==========CM002
+      line: 102
+      message: "SELECT * on EKPO without explicit field list"
+    context:
+      ddic_table: EKPO
+      downstream_field_uses_on_itab: [EBELN, EBELP, MATNR, MENGE]
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: bseg-form-using-passthrough
+  description: SELECT * on BSEG but the table is passed to FORM USING with no explicit type
+  input_payload:
+    cluster_id: c-0007
+    check_id: Y_CHECK_SELECT_STATEMENT
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_BSEG_REPORT
+      include: ZR_BSEG_REPORT
+      line: 56
+      message: "SELECT * on BSEG passed to FORM USING"
+    context:
+      ddic_table: BSEG
+      downstream_field_uses_on_itab: [BUKRS, BELNR, GJAHR, BUZEI]
+      form_using_no_type: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]
+
+- id: t001w-tiny-2-cols
+  description: SELECT * on T001W with WERKS/NAME1 downstream (high confidence)
+  input_payload:
+    cluster_id: c-0008
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: CLAS
+      object_name: ZCL_PLANT_RESOLVER
+      include: ZCL_PLANT_RESOLVER==========CM001
+      line: 19
+      message: "SELECT * on T001W without explicit field list"
+    context:
+      ddic_table: T001W
+      downstream_field_uses_on_itab: [WERKS, NAME1]
+  expected_fix_shape: context
+  expected_confidence_range: [0.85, 1.00]
+
+- id: kna1-includes-broad
+  description: SELECT * on KNA1 — INCLUDEs lookup expands to 11 fields (medium)
+  input_payload:
+    cluster_id: c-0009
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_CUSTOMER_REPORT
+      include: ZR_CUSTOMER_REPORT
+      line: 71
+      message: "SELECT * on KNA1 with 11-field downstream"
+    context:
+      ddic_table: KNA1
+      downstream_field_uses_on_itab: [KUNNR, NAME1, NAME2, ORT01, ORT02, LAND1, REGIO, PSTLZ, STRAS, STCD1, STCD2]
+  expected_fix_shape: context
+  expected_confidence_range: [0.70, 0.95]
+
+- id: pa0001-rfc-partner
+  description: SELECT * on PA0001 with downstream RFC to an older partner system
+  input_payload:
+    cluster_id: c-0010
+    check_id: CL_CI_TEST_DB_SEL_NESTED_LOOPS::SELECT_STAR
+    finding_count: 1
+    sample_finding:
+      object_type: PROG
+      object_name: ZR_HR_EXPORT
+      include: ZR_HR_EXPORT
+      line: 144
+      message: "SELECT * on PA0001 — downstream RFC partner"
+    context:
+      ddic_table: PA0001
+      downstream_field_uses_on_itab: [PERNR, BEGDA, ENDDA, ENAME]
+      rfc_partner_older_release: true
+  expected_fix_shape: context
+  expected_confidence_range: [0.00, 0.69]

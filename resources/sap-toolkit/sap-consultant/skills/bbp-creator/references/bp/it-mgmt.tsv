@@ -1,0 +1,9 @@
+LOB	Business Area	Scope Item ID	Description	Solution Activity (Hierarchy)	Fiori App or Transaction Title	Fiori App or Transaction ID	Business Role Description	Business Role ID
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Management Apps				
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Management Apps	Maintain Email Templates 	F1306	Payment Specialist - In-House Banking	SAP_BR_PAYM_SPECIALIST_IHB
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Management Apps				
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Management Apps				
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Management Apps				
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Control Apps	Manage Output Items 	F2279	Administrator	SAP_BR_ADMINISTRATOR
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Management Configuration				
+IT Management	Administration and Usability	1LQ	Output Management     (1LQ)	    Check Availability of Output Control Configuration				

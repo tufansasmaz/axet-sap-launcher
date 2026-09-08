@@ -1,0 +1,76 @@
+# Golden-range LLM evals for ImpactMapper.
+# Per spec (PLAN-4 Task 4): each case provides an input prompt + an *expected effort range*
+# (not exact match — LLM is nondeterministic). Runner runs 3 trials per case; passes when
+# the actual effort lands in the expected range. Suite threshold: >= 80% pass rate.
+
+cases:
+  - id: rap-managed-bo-cluster-prio2
+    description: 12 findings of "managed BO using removed FM" pattern in one transport
+    input_payload: |
+      Cluster: 12 findings, check_id=SLIN_RAP_MANAGED_BO, prio=2, sap_note=3045678
+      Objects affected: ZCL_DEMO_HANDLER, ZIF_DEMO_PROVIDER
+      Sample finding message: "Managed BO using removed function module SAP_DEMO_OBSOLETE"
+    expected_effort_range: ["M", "L"]
+    expected_keywords_in_reasoning: ["managed BO", "function module"]
+
+  - id: select-star-low-volume
+    description: SELECT * on VBAP with downstream usage of only 3 columns
+    input_payload: |
+      Cluster: 1 finding, check_id=SELECT_STAR, prio=2, sap_note=2160611
+      Object: ZR_DEMO_REPORT line 47
+      Context: VBAP has 187 columns; downstream code uses VBELN, POSNR, NETPR only.
+    expected_effort_range: ["S", "M"]
+    expected_keywords_in_reasoning: ["field list", "downstream"]
+
+  - id: matnr-field-length-mechanical
+    description: 47 declarations of CHAR18 for material number
+    input_payload: |
+      Cluster: 47 findings, check_id=FLDEXT_MATNR, prio=1, sap_note=2267140
+      Pattern: DATA lv_matnr TYPE c LENGTH 18.
+      Fix template: change to DATA lv_matnr TYPE matnr.
+    expected_effort_range: ["S", "M"]
+    expected_keywords_in_reasoning: ["matnr", "type"]
+
+  - id: order-by-missing-with-binary-search
+    description: SELECT without ORDER BY followed by BINARY SEARCH on result
+    input_payload: |
+      Cluster: 1 finding, check_id=MISSING_ORDER_BY, prio=2
+      Object: ZCL_LOOKUP at line 88
+      Downstream: READ TABLE lt_items WITH KEY ... BINARY SEARCH
+    expected_effort_range: ["S", "M"]
+    expected_keywords_in_reasoning: ["order by", "binary search"]
+
+  - id: deprecated-fm-ws-download
+    description: WS_DOWNLOAD call with 14 sites across the code base
+    input_payload: |
+      Cluster: 14 findings, check_id=OBSOLETE_FM::WS_DOWNLOAD, prio=2, sap_note=1875817
+      Replacement: cl_gui_frontend_services=>gui_download
+      Signature differences: TABLES → CHANGING, EXCEPTIONS renumbered
+    expected_effort_range: ["M", "L"]
+    expected_keywords_in_reasoning: ["frontend_services", "signature"]
+
+  - id: clean-core-non-released-api
+    description: Use of non-released SAP class with no clean-core replacement
+    input_payload: |
+      Cluster: 3 findings, check_id=USE_OF_NON_RELEASED_API, prio=1
+      Class: CL_SAP_INTERNAL_HELPER
+      Replacement: no released API exists; needs Influence ticket
+    expected_effort_range: ["L"]
+    expected_keywords_in_reasoning: ["clean core", "released"]
+
+  - id: hardcoded-client-judgment
+    description: Hardcoded client '100' in IF condition
+    input_payload: |
+      Cluster: 1 finding, check_id=HARDCODED_CLIENT, prio=1
+      Object: ZR_TENANT_LOGIC at line 22
+      Pattern: IF sy-mandt = '100'.
+    expected_effort_range: ["M", "L"]
+    expected_keywords_in_reasoning: ["hardcoded", "client"]
+
+  - id: unused-vars-trivial
+    description: 200 unused local variable findings across 80 programs
+    input_payload: |
+      Cluster: 200 findings, check_id=SLIN_UNUSED_VAR, prio=3
+      Pattern: deletion only; no semantic ripples expected.
+    expected_effort_range: ["S"]
+    expected_keywords_in_reasoning: ["delete", "unused"]

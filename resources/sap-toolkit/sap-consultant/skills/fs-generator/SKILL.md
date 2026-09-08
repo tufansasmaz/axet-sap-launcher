@@ -18,6 +18,12 @@ author: "Dersim Tas <Dersim.Tas@bs.nttdata.com>"
 
 # fs-generator — SAP Functional Specification Author
 
+> **NTT Studio uyarlaması — `${CLAUDE_PLUGIN_ROOT}` yok.** Eklenti kökü diye bir şey ve o
+> ortam değişkeni bu dağıtımda tanımlı değil. Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/`
+> geçen her yerde proje kökündeki **`.axet-code/scripts/`** oku (`summary_check.py` oraya
+> kuruluyor); `${CLAUDE_PLUGIN_ROOT}/skills/<ad>/scripts` ise
+> **`.axet-code/skills/<ad>/scripts`**.
+
 > **Author / prompt credit:** Dersim Tas (<Dersim.Tas@bs.nttdata.com>). The role, grounding
 > rules, and interaction flow below are based on his FS-generation prompt.
 

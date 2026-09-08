@@ -1,0 +1,18 @@
+{
+  "source": "e-Solutions DesignerAI (index.html)",
+  "owner": "e-Solutions / Eren Guney",
+  "imported": "2026-09-04",
+  "upstream_sha256": "20d9d6702dd494e1acdb6b033083da85e75a3eed2a2e8fe89cd1eeba858cb888",
+  "shipped_sha256": "466458274a851a673bd022a83f103ce8cbc6a69971262bdd96abe8a9e8212d44",
+  "scrubbed": {
+    "YITTR_130_SF_BANK_PRINTOUT": {
+      "to": "ZDEMO_SF_BANK_PRINTOUT",
+      "occurrences": 8
+    },
+    "/ITETR/PAY_SF_ITHALAT_PRINTOUT": {
+      "to": "ZDEMO_SF_ITHALAT_PRINTOUT",
+      "occurrences": 1
+    }
+  },
+  "note": "Shipped copy differs from upstream ONLY by the scrub above. Refresh with scripts/sync_designer.py on the release cycle; never hand-edit tool/designer.html."
+}

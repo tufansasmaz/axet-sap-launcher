@@ -1,0 +1,9 @@
+LOB	Business Area	Scope Item ID	Description	Solution Activity (Hierarchy)	Fiori App or Transaction Title	Fiori App or Transaction ID	Business Role Description	Business Role ID
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Start the SAP S/4HANA Migration Cockpit	Migrate Your Data - Migration Cockpit 	F3473	Configuration Expert - Data Migration	SAP_BR_CONFIG_EXPERT_DATA_MIG
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Create Migration Project				
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Fill Staging Tables Using Migration Templates				
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Fill Staging Tables Using Your Preferred Tools				
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Prepare and Simulate the Migration				
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Migrate Data to the Target System				
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Check Data Migration Status	Data Migration Status 	F3280	Configuration Expert - Data Migration	SAP_BR_CONFIG_EXPERT_DATA_MIG
+Database and Data Management	Enterprise Information Management	2Q2	Data Migration to SAP S/4HANA from Staging     (2Q2)	    Validate Imported Data				

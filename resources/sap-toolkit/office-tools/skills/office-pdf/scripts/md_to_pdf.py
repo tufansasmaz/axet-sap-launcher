@@ -34,6 +34,19 @@ import os
 import re
 import sys
 
+# The console on a Turkish Windows machine is cp1254. Anything printed that is
+# not plain ASCII kills the process there -- including text this file never sees
+# in its own source, because a Turkish path or object name arrives through a
+# variable. The work is finished by then, so the output lands on disk and the
+# consultant still reads a traceback and reports the tool as broken.
+# See scripts/test_skill_scripts.py for the three times this was found and
+# locally fixed before it was made an invariant.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 # UTF-8-safe console — Turkish glyphs (ı/ğ/ş/İ/ç/ö/ü) or emoji in an output path
 # or title must not crash on the Windows console code page (cp1254/cp437) with
 # UnicodeEncodeError. Wrap both streams, guarded. See references/MD_TO_PDF_CHROMIUM.md.
@@ -54,45 +67,63 @@ except Exception:  # lib missing -> redaction simply unavailable
     redact_text = None
     count_matches = None
 
+# The house palette, shared with every other Office renderer. Not wrapped in a
+# try: a missing theme means a PDF in the wrong brand, which is worse than a
+# loud failure -- unlike redaction, which degrades to "unavailable" honestly.
+from theme import (ACCENT_HEX, BAND_HEX, DEEP_HEX, INK_HEX,  # noqa: E402
+                   MUTED_HEX, RULE_HEX, TINT_HEX)
+
 ENGINE_HINT = (
     "Headless Chromium engine not found. Install it once (~130 MB):\n"
     "    py -m pip install playwright\n"
     "    py -m playwright install chromium\n"
 )
 
-# Print-oriented CSS. The green corporate theme + the table-survival rules
-# (fixed layout + break-word) are what keep wide tables on the page.
-CSS = """
-@page { size: A4; margin: 16mm 12mm; }
-* { box-sizing: border-box; }
-body {
+# Print-oriented CSS. The house theme (lib/theme.py) + the table-survival rules
+# (fixed layout + break-word) are what keep wide tables on the page. Colours are
+# interpolated rather than typed, so this file cannot drift from the .docx.
+CSS = f"""
+@page {{ size: A4; margin: 16mm 12mm; }}
+* {{ box-sizing: border-box; }}
+body {{
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  font-size: 10.5pt; line-height: 1.45; color: #1a1a1a; margin: 0;
-}
-h1 { font-size: 20pt; color: #0a7d3c; border-bottom: 3px solid #0a7d3c;
-     padding-bottom: 4px; margin: 0 0 14px; }
-h2 { font-size: 15pt; color: #0a7d3c; margin: 18px 0 8px; }
-h3 { font-size: 12.5pt; color: #14502a; margin: 14px 0 6px; }
-a { color: #0a7d3c; }
-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 10px 0; }
-th, td { border: 1px solid #cfd8d0; padding: 5px 7px; text-align: left;
-         vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }
-th { background: #0a7d3c; color: #fff; font-weight: 600; }
-tr:nth-child(even) td { background: #f3f8f4; }
-code { font-family: "Cascadia Code", Consolas, monospace; font-size: 9.5pt;
-       background: #eef2ee; padding: 1px 4px; border-radius: 3px; }
-pre { background: #f5f7f5; border: 1px solid #dde4dd; border-radius: 4px;
-      padding: 10px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }
-pre code { background: none; padding: 0; }
-blockquote { border-left: 4px solid #0a7d3c; margin: 10px 0; padding: 2px 12px;
-             color: #444; background: #f3f8f4; }
-hr { border: none; border-top: 1px solid #cfd8d0; margin: 16px 0; }
-img { max-width: 100%; }
+  font-size: 10.5pt; line-height: 1.45; color: #{INK_HEX}; margin: 0;
+}}
+h1 {{ font-size: 20pt; color: #{DEEP_HEX}; border-bottom: 3px solid #{ACCENT_HEX};
+     padding-bottom: 4px; margin: 0 0 14px; }}
+h2 {{ font-size: 15pt; color: #{ACCENT_HEX}; margin: 18px 0 8px; }}
+h3 {{ font-size: 12.5pt; color: #{DEEP_HEX}; margin: 14px 0 6px; }}
+a {{ color: #{ACCENT_HEX}; }}
+table {{ width: 100%; border-collapse: collapse; table-layout: fixed; margin: 10px 0; }}
+/* Horizontal hairlines only -- a full grid reads as a cage at this size, the
+   same call the .docx tables make. */
+th, td {{ border: none; border-bottom: 1px solid #{RULE_HEX};
+         padding: 6px 8px; text-align: left;
+         vertical-align: top; word-wrap: break-word; overflow-wrap: anywhere; }}
+th {{ background: #{ACCENT_HEX}; color: #fff; font-weight: 600; border-bottom: none; }}
+tr:nth-child(even) td {{ background: #{BAND_HEX}; }}
+code {{ font-family: "Cascadia Code", Consolas, monospace; font-size: 9.5pt;
+       background: #{BAND_HEX}; padding: 1px 4px; border-radius: 3px; }}
+pre {{ background: #{BAND_HEX}; border: 1px solid #{RULE_HEX}; border-radius: 4px;
+      padding: 10px; overflow-x: auto; white-space: pre-wrap; word-wrap: break-word; }}
+pre code {{ background: none; padding: 0; }}
+blockquote {{ border-left: 4px solid #{ACCENT_HEX}; margin: 10px 0;
+             padding: 6px 14px; color: #{MUTED_HEX}; background: transparent; }}
+hr {{ border: none; border-top: 1px solid #{RULE_HEX}; margin: 16px 0; }}
+img {{ max-width: 100%; }}
 /* Mermaid diagrams render to inline SVG (see mermaid support below). */
-.mermaid { background: #fff; border: 1px solid #dde4dd; border-radius: 6px;
-           padding: 12px; margin: 12px 0; text-align: center; break-inside: avoid; }
-.mermaid svg { max-width: 100%; height: auto; }
-h2, h3, table, .mermaid, pre { break-inside: avoid; }
+.mermaid {{ background: #fff; border: 1px solid #{RULE_HEX}; border-radius: 6px;
+           padding: 12px; margin: 12px 0; text-align: center; break-inside: avoid; }}
+/* An UNBREAKABLE element taller than one page yields a blank page in Chromium
+   print (seen live: a 3-subgraph `flowchart TB` under a TS "Teknik Mimari"
+   heading). Diagrams therefore scale to fit a single page: 240mm ≈ A4 height
+   minus margins. Tables and code blocks take the opposite cure — they are
+   ALLOWED to break across pages (a long TS object list or pseudocode block
+   would otherwise hit the same blank-page failure), with table headers
+   repeating on every page. */
+.mermaid svg {{ max-width: 100%; max-height: 240mm; width: auto; height: auto; }}
+thead {{ display: table-header-group; }}
+h2, h3 {{ break-inside: avoid; break-after: avoid; }}
 """
 
 # Loaded as an ES module only when the document actually contains ```mermaid
@@ -102,14 +133,14 @@ MERMAID_JS = """
 <script type="module">
 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
 mermaid.initialize({startOnLoad:false, theme:'base', securityLevel:'loose',
-  themeVariables:{primaryColor:'#e8f5ee', primaryBorderColor:'#0a7d3c',
-  primaryTextColor:'#14502a', lineColor:'#5b6773',
+  themeVariables:{primaryColor:'#%s', primaryBorderColor:'#%s',
+  primaryTextColor:'#%s', lineColor:'#%s',
   fontFamily:'Segoe UI, sans-serif', fontSize:'14px'}});
 window.__mmDone = false;
 (async () => { try { await mermaid.run(); } catch (e) { console.log('mermaid', e); }
               window.__mmDone = true; })();
 </script>
-"""
+""" % (TINT_HEX, ACCENT_HEX, DEEP_HEX, MUTED_HEX)
 
 FOOTER = (
     '<div style="font-size:8pt;color:#777;width:100%;text-align:center;'
