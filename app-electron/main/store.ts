@@ -61,6 +61,20 @@ function readConnectorEnabled(value: unknown): Record<string, boolean> {
   return out;
 }
 
+/**
+ * Global yetenek anahtarları. Yalnızca `false` saklanıyor: varsayılan "açık"
+ * ve rolün listesi zaten kaynaktan geliyor, `true` yazmak dosyayı rol
+ * değiştikçe bayatlayan bir kopyaya çevirirdi.
+ */
+function sanitizeOverrides(value: unknown): Record<string, boolean> {
+  if (!value || typeof value !== "object") return {};
+  const out: Record<string, boolean> = {};
+  for (const [key, flag] of Object.entries(value as Record<string, unknown>)) {
+    if (flag === false) out[key] = false;
+  }
+  return out;
+}
+
 function defaultConfig(): AppConfig {
   return {
     projectsBaseDir: path.join(app.getPath("documents"), "aXet SAP Projects"),
@@ -75,6 +89,7 @@ function defaultConfig(): AppConfig {
     systemComments: {},
     skillProfile: null,
     skillNoticeAcceptedAt: null,
+    globalSkillOverrides: {},
     theme: "dark",
     language: "tr",
     autoCheckUpdates: true,
@@ -180,7 +195,8 @@ export function loadConfig(): AppConfig {
       skillNoticeAcceptedAt:
         typeof parsed.skillNoticeAcceptedAt === "string"
           ? parsed.skillNoticeAcceptedAt
-          : fallback.skillNoticeAcceptedAt
+          : fallback.skillNoticeAcceptedAt,
+      globalSkillOverrides: sanitizeOverrides(parsed.globalSkillOverrides)
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

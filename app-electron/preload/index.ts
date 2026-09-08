@@ -53,6 +53,7 @@ import type {
   SkillProfile,
   CatalogSkillList,
   CatalogInstallOutcome,
+  GlobalSkillList,
   SkillStatus,
   SystemTier,
   SystemCommentDefaults,
@@ -97,6 +98,10 @@ const api = {
     ipcRenderer.invoke("skills:status", projectDir),
   reinstallSkills: (projectDir: string, serviceUuid: string | null): Promise<SkillStatus> =>
     ipcRenderer.invoke("skills:reinstall", projectDir, serviceUuid),
+  listGlobalSkills: (): Promise<GlobalSkillList> =>
+    ipcRenderer.invoke("skills:global:list"),
+  setGlobalSkill: (name: string, enabled: boolean): Promise<GlobalSkillList> =>
+    ipcRenderer.invoke("skills:global:set", name, enabled),
   listCatalogSkills: (projectDir: string): Promise<CatalogSkillList> =>
     ipcRenderer.invoke("catalogSkills:list", projectDir),
   installCatalogSkill: (projectDir: string, id: string): Promise<CatalogInstallOutcome> =>

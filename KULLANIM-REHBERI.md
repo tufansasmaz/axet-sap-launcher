@@ -236,10 +236,11 @@ Her sistem için oluşturulan proje klasöründe:
   ilgili tüm bilgiyi (müşteri, sistem, doğrulama notları, kullanılabilir
   skill'ler) içeren dosya. Sen bu dosyanın en altındaki "Notlar" bölümüne
   serbestçe not ekleyebilirsin — yeniden bağlanınca silinmez, korunur.
-- **`.axet-code/skills/`**: SAP'a ADT üzerinden salt-okunur erişim, abapGit
-  teslim akışı, danışmanlık döngüsü, Office doküman araçları gibi hazır
-  skill'ler otomatik kopyalanır; terminalde `%skill-adı` yazarak
-  çağrılabilir.
+- **`.axet-code/skills/`**: SAP sistemine **yazan** yetenekler (abapGit
+  teslim akışı, ekran üretimi) buraya, yani sistem başına kurulur — PRD
+  sistemlerde bu yetenekler hiç kurulmaz, kapı burada. Diğer yetenekler
+  genel klasörde durur (aşağıya bakın). Hepsi terminalde `%skill-adı`
+  yazarak çağrılır.
 - **`.axet-code/lib/` ve `.axet-code/scripts/`**: Skill'lerin ortak
   kullandığı Python dosyaları. Bunlar tek bir skill'e ait olmadığı için
   `skills/` klasörünün *dışında* durur ve ihtiyaç duyan bir yetenek
@@ -249,6 +250,27 @@ Her sistem için oluşturulan proje klasöründe:
   ihtiyaç duyan yetenekler kaldırıldığında uygulama bunları da temizler
   (yalnızca kendi bıraktığı kopyayı — senin koyduğun aynı adlı bir klasöre
   dokunmaz).
+
+### Genel yetenekler (`%LOCALAPPDATA%\axet-code\skills`)
+
+SAP sisteminde **hiçbir değişiklik yapmayan** yetenekler proje klasörüne
+değil, axet.code'un genel klasörüne kurulur. Sebebi basit: bir SAP sistemine
+bağlı olmayan düz sohbetler hiçbir proje klasöründe çalışmaz, dolayısıyla
+eski kurguda o sohbetler **tek bir yetenek bile göremiyordu**.
+
+- Kurulum **rolü seçtiğiniz anda** olur; sisteme bağlanmayı beklemez.
+- Uygulama güncellenince (yeni toolkit sürümü) ya da klasör elle silinince
+  açılışta kendiliğinden tazelenir.
+- **Ayarlar → Yapay zekâ yetenekleri → Genel yetenekler → Yönet** ile listeyi
+  görebilir, istemediğiniz yeteneği kapatabilirsiniz. Kapatılan yetenek
+  diskten kaldırılır.
+- Liste üç kümede gösterilir: **Ortak** (iki rolün de kullandıkları), **Modül
+  danışmanı** ve **Teknik danışman**. Rolünüzün dışındaki yetenekler
+  görünür ama **kilitlidir** — açılamazlar. Rol seçimi kalıcıdır ve bu ekran
+  rolün verdiğini kısabilir, genişletemez.
+- Bir anahtarı çevirdiğinizde açık sohbet oturumları kapatılır: axet.code
+  yetenek listesini yalnızca süreç açılışında okur, kapatılmasa değişiklik
+  aynı sohbette hiçbir şeyi değiştirmezdi.
 
 ## Axet Chat Sohbet Ekranı
 

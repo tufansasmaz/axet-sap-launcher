@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { AlertCircle, Download, Lock, RefreshCw, Trash2 } from "lucide-react";
+import { AlertCircle, Download, Globe, Lock, RefreshCw, Trash2 } from "lucide-react";
 import type { CatalogSkillList, SkillProfile, SkillStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
+import GlobalSkillsModal from "./GlobalSkillsModal";
 
 interface Props {
   /** İlk açılışta seçilmiş, DEĞİŞMEZ rol. */
@@ -46,6 +47,7 @@ export default function SkillsSection({ profile, projectDir }: Props) {
   /** O an kurulan/kaldırılan girdinin kimliği — yalnızca o düğme kilitleniyor. */
   const [pending, setPending] = useState<string | null>(null);
   const [catalogError, setCatalogError] = useState<keyof typeof ERROR_KEYS | null>(null);
+  const [globalOpen, setGlobalOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!projectDir) {
@@ -131,6 +133,26 @@ export default function SkillsSection({ profile, projectDir }: Props) {
           {t("skillsSection.roleWarning")}
         </p>
       </div>
+
+      {/* Global yetenekler PROJEDEN BAĞIMSIZ: bu düğme `projectDir`
+          kapısının dışında duruyor, çünkü sisteme hiç bağlanmamış kullanıcının
+          da yönetmesi gereken liste bu. */}
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-line/50 bg-control/30 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-300">{t("globalSkills.title")}</p>
+          <p className="text-2xs leading-relaxed text-slate-500">{t("globalSkills.sectionHint")}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setGlobalOpen(true)}
+          className={`${btn("neutral", "sm")} shrink-0`}
+        >
+          <Globe size={12} />
+          {t("globalSkills.manage")}
+        </button>
+      </div>
+
+      <GlobalSkillsModal open={globalOpen} onClose={() => setGlobalOpen(false)} />
 
       {!projectDir && <p className="text-xs text-slate-500">{t("skillsSection.noProject")}</p>}
 

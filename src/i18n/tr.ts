@@ -338,6 +338,26 @@ export const tr = {
   // --- Katalogdan yetenek kurulumu ---
   // Kurulamayan girdiler listeden GİZLENMİYOR: "katalogda vardı, nerede?"
   // sorusunu sessiz bir eksiklikle bırakmak, sebebini yazmaktan kötü.
+  "globalSkills.title": "Genel yetenekler",
+  "globalSkills.subtitle": "Tüm sohbetlerde geçerli",
+  "globalSkills.manage": "Yönet",
+  "globalSkills.sectionHint":
+    "SAP sistemine bağlı olmayan yetenekler; her sohbette geçerli. Rolünüzün verdiklerini burada kapatabilirsiniz.",
+  "globalSkills.intro":
+    "Bu yetenekler SAP sisteminde hiçbir değişiklik yapmaz, bu yüzden proje klasörüne değil ortak klasöre kurulur — düz sohbetler dâhil her yerde açıktır. Bir anahtarı kapattığınızda yetenek diskten kaldırılır ve açık sohbet oturumları yeniden başlatılır.",
+  "globalSkills.noRole": "Önce danışmanlık rolünüzü seçin; liste role göre oluşuyor.",
+  "globalSkills.error": "Genel yetenek listesi güncellenemedi.",
+  "globalSkills.locked": "Rol dışı",
+  "globalSkills.outOfRole": "Bu yetenek sizin rolünüzde yok, açılamaz.",
+  "globalSkills.setCount": "{count} yetenek",
+  "globalSkills.set.shared": "Ortak",
+  "globalSkills.set.module": "Modül danışmanı",
+  "globalSkills.set.technical": "Teknik danışman",
+  "globalSkills.set.sandbox": "Rol dışı",
+  "globalSkills.setDesc.shared": "İki rolün de kullandığı yetenekler.",
+  "globalSkills.setDesc.module": "Yalnızca modül danışmanlığı rolünde geçerli.",
+  "globalSkills.setDesc.technical": "Yalnızca teknik danışmanlık rolünde geçerli.",
+  "globalSkills.setDesc.sandbox": "Hiçbir danışmanlık rolüne bağlı olmayan yetenekler.",
   "catalogSkills.title": "Katalogdan yetenek ekle",
   "catalogSkills.source": "Katalog {version} · {department}",
   "catalogSkills.noFolder":

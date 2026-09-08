@@ -9804,7 +9804,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
 | **1.6.4** | Danışman rolü ilk açılışta zorunlu + kalıcı soruluyor, gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
 | **1.6.5** | Boş balon arızası: metinsiz tur artık başarılı sayılmıyor · paketlenmiş uygulamaya günlük dosyası (yalnızca sayaç/durum) |
-| **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor. **Yerelde hazır, yayınlanmadı** |
+| **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor · yetenekler iki kapsama ayrıldı: 41 yetenek genel klasöre (düz sohbetlerde de geçerli), SAP'a yazan 4 yetenek sistem başına (PRD kapısı korunuyor) · "Genel yetenekler" penceresi: küme küme liste, rol dışı satırlar kilitli. **Yerelde hazır, yayınlanmadı** |
 
 İptal edilen Faz 0-4 planının iki belgesi
 (`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
@@ -10264,3 +10264,52 @@ tazelemede o tabloyu okumadan `cp` çekmek, uyarlamaları geri alır.
   değiştiği için kurulu projelerde "yetenekleri güncelle" düğmesi yanıyor.
 
 Kapı: **151/151 test, 16 dosya, typecheck temiz.**
+
+## Yetenekler iki kapsama ayrıldı: genel + proje (2026-09-08)
+
+Kullanıcı kendi sohbetinde ajanın **hiçbir yeteneği göremediğini** gördü:
+*"o kadar skill yükledik kullanamıyorum"*. Ölçüm önce yapıldı, sonra düzeltme:
+
+| Klasör | Kurulu yetenek |
+| --- | --- |
+| `…\Local\I\Index\IED\.axet-code\skills` | 26 |
+| `…\Manuel Eklenen Sistemler\PRD\.axet-code\skills` | 21 |
+| `…\Documents\aXet Code Sessions\.axet-code\skills` | **0** |
+| `%LOCALAPPDATA%\axet-code\skills` | 1 (elle kopyalanmış) |
+
+Kurulum **yolu** doğruydu (`.axet-code/skills/` axet-code ikilisinde üç kez
+geçiyor); yanlış olan **kapsam**dı. Düz sohbetler `Documents\aXet Code
+Sessions` altında çalışıyor (`store.ts:81`) ve orası hiçbir SAP sistemine ait
+olmadığı için hiç yetenek almıyordu.
+
+**Ayrım:** SAP'a yazmayan 41 yetenek genel klasöre
+(`%LOCALAPPDATA%\axet-code\skills`), SAP'a yazan 4 yetenek
+(`screen-gen`, `abapgit-workflow`, `abapgit-export-zip`,
+`abapgit-import-status-zip`) eskisi gibi proje klasörüne. Bu ayrımın tek
+sebebi PRD kapısı: kapı sistemin önem derecesine bakıyor, genel klasörün
+sistemi yok. Dördü de global'e taşınsaydı kapı anlamını yitirirdi.
+
+**Yedek davranış bilinçli:** `isGlobalInstallHealthy()` hem sürüm damgasına
+hem de damgadaki her adın klasörüne bakıyor. Sağlam değilse
+`installSkillsIntoProject` **hepsini** projeye kuruyor — yani eski davranış.
+Yarım kalmış bir genel kurulum yüzünden kullanıcıyı yeteneksiz bırakmak, iki
+yerde birden kopya durmasından çok daha kötü.
+
+**Kümeler ekranda da küme.** Kullanıcının modeli: *"kümenin kesiştiği
+noktada iki rolün de kullanabildiği skiller, sol küme modül, sağ küme
+teknik"*. `skillSet()` bunu üç değere çeviriyor (`shared` / `module` /
+`technical`), pencere de bu sırayla çiziyor. Rol dışındaki satırlar
+**gizlenmiyor, kilitleniyor**: gizleseydik "bu yetenek niye bende yok"
+sorusu cevapsız kalırdı. Kilit görselde DEĞİL — `skills:global:set` rol
+dışı bir adı ayrıca reddediyor ve `listGlobalSkills` ayarlara elle `true`
+yazılsa bile `enabled: false` döndürüyor (test edildi).
+
+**Anahtar çevrilince tüm sıcak oturumlar kapanıyor** (`closeAllTuiSessions`,
+projeye özel olan değil): genel klasör her oturumu ilgilendiriyor ve
+axet-code yetenek listesini yalnızca süreç açılışında tarıyor.
+
+Kurulum tetikleyicileri: rol ilk seçildiğinde (`config:save`), anahtar
+değiştiğinde ve açılışta — açılışta yalnızca kurulum sağlam değilse, her
+açılışta 41 klasör kopyalamanın anlamı yok.
+
+Kapı: 169/169 test, 18 dosya, typecheck temiz.

@@ -7,15 +7,20 @@ import { randomUUID } from "node:crypto";
 import { loadLandscape, getServiceCredentials, getServiceSapLogonNote } from "./sapLandscape";
 import { checkConnectivity } from "./connectivity";
 import { connectToSystem, computeProjectDir } from "./launcher";
-import { planSkills } from "./skillProfiles";
+import { DEFAULT_PROFILE, planSkills } from "./skillProfiles";
 import { installMissingPackages, runDoctor } from "./doctor";
 import { emptyBrief, readProjectBrief, writeProjectBrief } from "./projectBrief";
 import { emptyPreview, readSapContext } from "./sapContextFile";
 import { readConnectorInventory } from "./connectorInventory";
 import { installCatalogSkill, listCatalogSkills, removeCatalogSkill } from "./catalogSkills";
 import {
+  getGlobalAxetRoot,
+  globalSkillCandidates,
+  installGlobalSkills,
   installSkillsIntoProject,
+  isGlobalInstallHealthy,
   isSkillUpdateAvailable,
+  listGlobalSkills,
   listInstalledSkills,
   readSkillVersionStamp,
   readToolkitVersion
@@ -44,7 +49,7 @@ import {
   resetChatHistory
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
-import { axetUpdateAvailable, closeTuiSessionsForProject } from "./axetChatTui";
+import { axetUpdateAvailable, closeAllTuiSessions, closeTuiSessionsForProject } from "./axetChatTui";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { runFlowsAgentStep } from "./axetFlowsAgent";
@@ -393,6 +398,36 @@ async function writeChatPdf(filePath: string, html: string): Promise<void> {
   }
 }
 
+/**
+ * Rolün SAP'a yazmayan yeteneklerini axet-code'un global klasörüne kurar.
+ *
+ * Rol seçildiği anda ve her anahtar değişiminde çağrılıyor; sisteme bağlanmayı
+ * beklemiyor, çünkü düz sohbetler (`Documents\aXet Code Sessions`) hiçbir SAP
+ * projesine ait değil ve eski kurgu orada TEK bir yetenek bile göremiyordu.
+ *
+ * Kurulumdan sonra sıcak oturumların HEPSİ kapatılıyor (projeye özel
+ * `skills:reinstall`'daki gibi bir proje değil): global klasör tüm oturumları
+ * ilgilendiriyor ve axet-code yetenekleri yalnızca süreç açılışında tarıyor.
+ */
+function syncGlobalSkills(config: AppConfig): void {
+  if (!config.skillProfile) return;
+  try {
+    const result = installGlobalSkills(config.skillProfile, config.globalSkillOverrides);
+    appLog("skills:global", {
+      profile: result.profile,
+      kurulan: result.installed.length,
+      silinen: result.removed.length,
+      atlanan: result.skipped.length
+    });
+  } catch (error) {
+    // Global kurulum başarısızsa proje kurulumu eski davranışa düşüyor
+    // (bkz. `isGlobalInstallHealthy`), kullanıcı yeteneksiz kalmıyor.
+    appLog("skills:global:hata", { mesaj: String(error) });
+    return;
+  }
+  closeAllTuiSessions();
+}
+
 function registerIpc(): void {
   ipcMain.handle("landscape:get", async () => {
     const config = loadConfig();
@@ -458,6 +493,45 @@ function registerIpc(): void {
   // ikisi zamanla ayrışır ve kullanıcı gördüğünden başkasını kurmuş olur.
   ipcMain.handle("skills:plan", (_event, profile: SkillProfile, tier: SystemTier | null) => {
     return planSkills(profile, tier);
+  });
+
+  // Global yetenek yönetimi. Rolün SAP'a yazmayan yetenekleri axet-code'un
+  // global klasörüne kuruluyor; bu iki uç o listeyi gösteriyor ve tek tek
+  // açıp kapatıyor.
+  ipcMain.handle("skills:global:list", () => {
+    const config = loadConfig();
+    return {
+      profile: config.skillProfile,
+      root: getGlobalAxetRoot(),
+      rows: listGlobalSkills(config.skillProfile ?? DEFAULT_PROFILE, config.globalSkillOverrides)
+    };
+  });
+
+  ipcMain.handle("skills:global:set", (_event, name: string, enabled: boolean) => {
+    const config = loadConfig();
+    const profile = config.skillProfile ?? DEFAULT_PROFILE;
+
+    // Rol dışındaki bir ad buradan AÇILAMAZ. Rol kalıcı ve yetenek setini o
+    // belirliyor; bu ekran rolün verdiğini kısabilir, genişletemez.
+    if (enabled && !globalSkillCandidates(profile).includes(name)) {
+      return {
+        profile,
+        root: getGlobalAxetRoot(),
+        rows: listGlobalSkills(profile, config.globalSkillOverrides)
+      };
+    }
+
+    const overrides = { ...config.globalSkillOverrides };
+    if (enabled) delete overrides[name];
+    else overrides[name] = false;
+    const saved = saveConfig({ globalSkillOverrides: overrides });
+
+    syncGlobalSkills(saved);
+    return {
+      profile,
+      root: getGlobalAxetRoot(),
+      rows: listGlobalSkills(profile, saved.globalSkillOverrides)
+    };
   });
 
   // Bir projede o an kurulu olan skill'ler + sürüm damgası + güncelleme durumu.
@@ -661,11 +735,20 @@ function registerIpc(): void {
       delete clean[key];
       console.warn("[config] renderer'dan gelen yamada ana sürece ait alan vardı, yok sayıldı", { alan: key });
     }
+    const before = loadConfig();
     const saved = saveConfig(clean);
     // Ana sürecin çeviri katmanı dili önbellekte tutuyor (her mesajda
     // config.json okumamak için). Kullanıcı dili değiştirdiğinde tazelenmezse
     // arayüz İngilizce'ye geçerken ana sürecin hata mesajları Türkçe kalırdı.
     refreshMainLanguage(saved.language);
+
+    // Rol ilk kez seçildiğinde (ya da değiştiğinde) global yetenekler HEMEN
+    // kuruluyor: kullanıcının beklentisi "kurulur kurulmaz aktif olsun".
+    // Sisteme bağlanmayı beklemek, düz sohbetlerde yeteneklerin hiç
+    // görünmemesi demekti.
+    if (saved.skillProfile && saved.skillProfile !== before.skillProfile) {
+      syncGlobalSkills(saved);
+    }
     return saved;
   });
 
@@ -1412,6 +1495,15 @@ app.whenReady().then(() => {
   console.log("[gunluk] dosya:", appLogPath());
   registerIpc();
   createWindow();
+
+  // Rol daha önce seçilmişse global yetenekler açılışta tazeleniyor: uygulama
+  // güncellendiğinde (yeni toolkit sürümü) ya da klasör elle silindiğinde
+  // kullanıcının hiçbir şey yapmasına gerek kalmasın. Sağlamsa dokunulmuyor —
+  // her açılışta 41 klasör kopyalamanın anlamı yok.
+  const startupConfig = loadConfig();
+  if (startupConfig.skillProfile && !isGlobalInstallHealthy(startupConfig.skillProfile)) {
+    syncGlobalSkills(startupConfig);
+  }
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

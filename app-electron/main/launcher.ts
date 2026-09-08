@@ -5,7 +5,7 @@ import path from "node:path";
 import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials } from "../shared/types";
 import { discoverAdtEndpoint, verifyCredentials, verifyWithCookies, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
-import { installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
+import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
 import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
@@ -579,11 +579,12 @@ function buildContextMarkdown(
 
   const skillsBlock = skillInstall.toolkitRoot
     ? `- SAP Toolkit kaynağı: \`${skillInstall.toolkitRoot}\`
-- Bu klasöre kurulan skill sayısı: **${skillInstall.installed.length}** (\`.axet-code/skills/\` altında, \`%skill-adı\` ile çağrılır)
+- Bu proje klasörüne kurulan skill sayısı: **${skillInstall.installed.length}** (\`.axet-code/skills/\` altında, \`%skill-adı\` ile çağrılır)
+- SAP'a **yazmayan** skiller ayrıca genel klasörde duruyor: \`${getGlobalAxetRoot()}\\skills\` — orada olanlar bu projede de geçerli, ikinci kez kurulmaları gerekmez. Bir skill'i burada göremiyorsan önce orada ara.
 - **\`%sap-adt-readonly\`** — bu skill gerçek bir Python tabanlı ADT read-only server (\`adt_readonly_server.py\`) başlatır ve SAP'a **gerçek** ADT REST çağrıları (adt_get_source, adt_search, adt_sql SELECT-only, adt_where_used, adt_syntax_check, adt_atc_check, adt_unit_test, adt_list_package, vb. 20 read tool) yapar. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
 - \`%clean-core\`, \`%sap-docs\` — ABAP Cloud/Clean Core ve SAP dokümantasyon referans skilleri (SAP'a bağlanmaz, salt bilgi).
 - \`%abapgit-workflow\` ve kardeşleri — ABAP değişikliklerini teslim etmenin **tek meşru yolu** (abapGit ZIP döngüsü, geliştirici SAPGUI'de import eder). SAP'a asla doğrudan yazma — ADT read-only'dir.
-- \`%office-*\` skilleri (excel, pdf, pptx, docx, slides, manual) — Office doküman üretimi/analizi. **Bu scriptleri gerçek toolkit path'inden çalıştır** (\`${skillInstall.toolkitRoot}\`), kopyalanan \`.axet-code/skills/\` altından değil — relative \`lib/redact.py\` import'u sadece gerçek repo path'inde çalışır.
+- \`%office-*\` skilleri (excel, pdf, pptx, docx, slides, manual) — Office doküman üretimi/analizi. Kurulan kopyadan çalıştırılabilirler: paylaşılan \`lib/\` ve \`scripts/\` klasörleri artık skill'lerin yanına kuruluyor, yani relative \`lib/redact.py\` import'u kurulu yolda da çözülüyor. (\`--redact-pii\` bu yüzden sessizce devre dışı kalmıyor; TCKN/vergi no maskelemesi ona bağlı.)
 - Python bağımlılıkları kurulu değilse (\`ModuleNotFoundError\`), kullanıcıya \`pip install -r "${skillInstall.toolkitRoot}\\requirements.txt"\` çalıştırmasını söyle.`
     : `- SAP Toolkit bulunamadı — skill kurulumu atlandı. Sadece \`.conn_adt\` + \`adt-tool.ps1\` (PowerShell tabanlı, sınırlı) kullanılabilir.`;
 

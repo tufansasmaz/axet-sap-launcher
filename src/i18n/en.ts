@@ -282,6 +282,26 @@ export const en: Record<TranslationKey, string> = {
   "skillsSection.empty": "No skills installed in this project.",
   "skillsSection.unknownHint": "This folder was not installed by the app; it may have been added by hand.",
 
+  "globalSkills.title": "Global skills",
+  "globalSkills.subtitle": "Active in every chat",
+  "globalSkills.manage": "Manage",
+  "globalSkills.sectionHint":
+    "Skills that do not touch a SAP system; active in every chat. You can switch off the ones your role grants.",
+  "globalSkills.intro":
+    "These skills never change anything in a SAP system, so they are installed in the shared folder instead of the project folder - they are available everywhere, including plain chats. Switching one off removes it from disk and restarts open chat sessions.",
+  "globalSkills.noRole": "Pick your consultant role first; the list is built from it.",
+  "globalSkills.error": "Global skill list could not be updated.",
+  "globalSkills.locked": "Out of role",
+  "globalSkills.outOfRole": "This skill is not part of your role and cannot be enabled.",
+  "globalSkills.setCount": "{count} skills",
+  "globalSkills.set.shared": "Shared",
+  "globalSkills.set.module": "Module consultant",
+  "globalSkills.set.technical": "Technical consultant",
+  "globalSkills.set.sandbox": "Out of role",
+  "globalSkills.setDesc.shared": "Skills both roles use.",
+  "globalSkills.setDesc.module": "Only in the module consultant role.",
+  "globalSkills.setDesc.technical": "Only in the technical consultant role.",
+  "globalSkills.setDesc.sandbox": "Skills not tied to any consultant role.",
   "catalogSkills.title": "Add a skill from the catalog",
   "catalogSkills.source": "Catalog {version} · {department}",
   "catalogSkills.noFolder":

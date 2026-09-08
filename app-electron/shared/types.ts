@@ -103,6 +103,31 @@ export interface SkillStatus {
   updateAvailable: boolean;
 }
 
+/**
+ * Yeteneğin hangi kümede olduğu — kullanıcının modeli: kesişimde iki rolün de
+ * kullandığı yetenekler, sol küme modül danışmanı, sağ küme teknik danışman.
+ * `sandbox` hiçbir danışman rolünde yok.
+ */
+export type SkillSet = "shared" | "module" | "technical" | "sandbox";
+
+/** Global yetenek listesindeki tek satır. */
+export interface GlobalSkillRow {
+  name: string;
+  set: SkillSet;
+  /** Kullanıcının rolü bu yeteneği veriyor mu? Vermiyorsa anahtar KİLİTLİ. */
+  inRole: boolean;
+  enabled: boolean;
+  /** Global klasörde şu an duruyor mu? */
+  installed: boolean;
+}
+
+export interface GlobalSkillList {
+  profile: SkillProfile | null;
+  /** `%LOCALAPPDATA%\axet-code` — kullanıcıya gösterilecek yol. */
+  root: string;
+  rows: GlobalSkillRow[];
+}
+
 /** Eşitlenmiş NTT kataloğundaki tek yetenek (bkz. catalogSkills.ts). */
 export interface CatalogSkill {
   /** `<eklenti>/<yetenek>` — katalogdaki kimlik. */
@@ -305,6 +330,12 @@ export interface AppConfig {
    * yetenekli skill kurulmaz.
    */
   skillNoticeAcceptedAt: string | null;
+  /**
+   * Global yetenek listesinde kullanıcının ELLE KAPATTIKLARI (`false`).
+   * Yalnızca rolün verdiği yetenekler için anlamlı: rol dışındaki bir ad
+   * burada `true` olsa bile açılmaz (bkz. `listGlobalSkills`).
+   */
+  globalSkillOverrides: Record<string, boolean>;
   theme: AppTheme;
   language: AppLanguage;
   autoCheckUpdates: boolean;

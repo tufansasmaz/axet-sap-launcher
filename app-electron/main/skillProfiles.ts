@@ -17,7 +17,7 @@
 // Tablo elle türetildi: uygulamanın katalog deposuna çalışma zamanında hiçbir
 // bağımlılığı yok, olmamalı da.
 
-import type { SkillPlanEntry, SkillProfile, SystemTier } from "../shared/types";
+import type { SkillPlanEntry, SkillProfile, SkillSet, SystemTier } from "../shared/types";
 
 export type { SkillProfile };
 
@@ -284,6 +284,58 @@ export function planSkills(profile: SkillProfile, tier: SystemTier | null): Skil
     const writeCapable = Boolean(def?.writeCapable);
     return { name, writeCapable, blockedByTier: writeCapable && tier === "PRD" };
   });
+}
+
+/**
+ * Bu yetenek axet-code'un GLOBAL klasörüne mi kurulur, sistem klasörüne mi?
+ *
+ * NEDEN BÖLÜNDÜ (kullanıcı, 2026-09-08: *"o kadar skill yükledik
+ * kullanamıyorum"*): kurulum bugüne kadar yalnızca SAP sistem klasörlerine
+ * yapılıyordu. Bir sisteme bağlanmadan açılan düz sohbet ise
+ * `Documents\aXet Code Sessions` klasöründe çalışıyor (bkz. `store.ts`
+ * `axetWorkspaceDir`) ve oraya hiçbir zaman yetenek kurulmuyordu — ajanın
+ * dünyasında hiçbir skill yoktu. Ölçüldü: IED projesinde 26, PRD'de 21,
+ * sohbet klasöründe 0.
+ *
+ * Hepsini global'e koymak kolay olurdu ama PRD kapısını işlevsiz bırakırdı:
+ * `screen-gen` ve `abapgit-*` canlı sisteme bağlıyken de masada olurdu. O
+ * yüzden bölünüyor:
+ *
+ *   - **global** — SAP'a yazmayan her şey. Rol seçilir seçilmez kurulur, her
+ *     klasörde, sistem bağlamadan geçerli.
+ *   - **project** — `writeCapable` olanlar. Sistem klasöründe kalır, çünkü
+ *     PRD kilidi sistem başına veriliyor ve global'de "hangi sistem" diye bir
+ *     şey yok.
+ *
+ * Aynı yetenek iki yerde birden durmuyor: axet-code'un çakışmayı nasıl
+ * çözdüğü bilinmiyor ve bunu denemeye girmenin bir sebebi yok.
+ */
+export function skillScope(name: string): "global" | "project" {
+  return SKILL_CATALOG[name]?.writeCapable ? "project" : "global";
+}
+
+/**
+ * Yetenek hangi kümede? (Kullanıcının modeli, 2026-09-08: *"kümeleme gibi
+ * düşünebilirsin, kesiştiği noktada iki rolün de kullandığı skiller, sol küme
+ * modül, sağ küme teknik"*.)
+ *
+ *   - `shared`    — kesişim: iki rolde de var
+ *   - `module`    — yalnızca modül danışmanında
+ *   - `technical` — yalnızca teknik danışmanda
+ *   - `sandbox`   — hiçbirinde yok, sadece sandbox rolünde
+ *
+ * Ekranda bu üç kümeyi ayrı ayrı göstermek, "neden bu yetenek bende yok"
+ * sorusunun cevabını listenin kendisine yazıyor.
+ */
+export type { SkillSet };
+
+export function skillSet(name: string): SkillSet {
+  const inModule = PROFILE_SKILLS["module-consultant"].includes(name);
+  const inTechnical = PROFILE_SKILLS["technical-consultant"].includes(name);
+  if (inModule && inTechnical) return "shared";
+  if (inModule) return "module";
+  if (inTechnical) return "technical";
+  return "sandbox";
 }
 
 /**

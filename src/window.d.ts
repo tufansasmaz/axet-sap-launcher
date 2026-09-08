@@ -67,6 +67,7 @@ import type {
   SkillProfile,
   CatalogSkillList,
   CatalogInstallOutcome,
+  GlobalSkillList,
   SkillStatus,
   SystemTier,
   SystemCommentDefaults,
@@ -102,6 +103,8 @@ export interface AxetApi {
   planSkills: (profile: SkillProfile, tier: SystemTier | null) => Promise<SkillPlanEntry[]>;
   getSkillStatus: (projectDir: string) => Promise<SkillStatus>;
   reinstallSkills: (projectDir: string, serviceUuid: string | null) => Promise<SkillStatus>;
+  listGlobalSkills: () => Promise<GlobalSkillList>;
+  setGlobalSkill: (name: string, enabled: boolean) => Promise<GlobalSkillList>;
   listCatalogSkills: (projectDir: string) => Promise<CatalogSkillList>;
   installCatalogSkill: (projectDir: string, id: string) => Promise<CatalogInstallOutcome>;
   removeCatalogSkill: (projectDir: string, name: string) => Promise<CatalogInstallOutcome>;
