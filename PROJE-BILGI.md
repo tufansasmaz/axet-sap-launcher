@@ -9804,7 +9804,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.3** | Sessizlik artık öldürmüyor · SAP bağlantısında ısıtma · ADT self-test · sürüm duyurusu · geçmiş tavanı |
 | **1.6.4** | Danışman rolü ilk açılışta zorunlu + kalıcı soruluyor, gerçekten yetenek değiştiriyor · Hazırlık ekranı üç sütun · bağlayıcı bedeli tür başına · "Axet Chat". **2026-08-27 push yasağı kalktıktan sonraki ilk yayın** |
 | **1.6.5** | Boş balon arızası: metinsiz tur artık başarılı sayılmıyor · paketlenmiş uygulamaya günlük dosyası (yalnızca sayaç/durum) |
-| **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor · yetenekler iki kapsama ayrıldı: 41 yetenek genel klasöre (düz sohbetlerde de geçerli), SAP'a yazan 4 yetenek sistem başına (PRD kapısı korunuyor) · "Genel yetenekler" penceresi: küme küme liste, rol dışı satırlar kilitli. **Yerelde hazır, yayınlanmadı** |
+| **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor · yetenekler iki kapsama ayrıldı: 41 yetenek genel klasöre (düz sohbetlerde de geçerli), SAP'a yazan 4 yetenek sistem başına (PRD kapısı korunuyor) · "Genel yetenekler" penceresi: küme küme liste, rol dışı satırlar kilitli · açık soru kutusu varken yazılan mesaj artık oturumu öldürmüyor (sarkan `tool_use` → 400) · başarısız turlar günlüğe düşüyor. **Yerelde hazır, yayınlanmadı** |
 
 İptal edilen Faz 0-4 planının iki belgesi
 (`docs/superpowers/specs/2026-09-06-tasarim-sistemi-design.md` ve
@@ -10311,5 +10311,55 @@ axet-code yetenek listesini yalnızca süreç açılışında tarıyor.
 Kurulum tetikleyicileri: rol ilk seçildiğinde (`config:save`), anahtar
 değiştiğinde ve açılışta — açılışta yalnızca kurulum sağlam değilse, her
 açılışta 41 klasör kopyalamanın anlamı yok.
+
+Kapı: 169/169 test, 18 dosya, typecheck temiz.
+
+## Açık soru kutusu oturumu öldürüyordu (2026-09-08)
+
+Kullanıcı şikâyeti: *"bi mesajıma 7 dk sonra cevap verdi diğer mesajıma boş
+cevap verdi"*. İkisi de aynı arızadan geldi ve teşhis ölçümle yapıldı —
+`axet-code.db` (oturum geçmişi) ve `chat-sessions.json` (kullanıcının gördüğü
+zaman çizelgesi) yan yana okundu.
+
+### Zincir
+
+Ajan 18:34:19'da `ask_user` kutusu açtı. Kullanıcı kartı tıklamak yerine üç
+mesaj yazdı (18:34:44, 18:37:18, 18:40:22). Oturum `busy` olduğu için
+`sendViaTui` `null` döndü, mesajlar `run` yedeğine düştü ve `run` **aynı**
+axet-code oturumuna yazdı. Geçmişte artık cevapsız bir `tool_use` vardı:
+
+```
+400 Bad Request  messages.56: `tool_use` ids were found without `tool_result`
+blocks immediately after: toolu_bdrk_01FRDkZuqPiD1LeeFLGfHznR
+```
+
+Oturum o andan sonra kalıcı olarak ölüydü. Üç mesaj da cevapsız kaldı; cevap
+ancak `ASK_USER_WAIT_MS` (10 dk) dolup tur kapanınca ve 18:47:00'de yeni
+oturum açılınca geldi — **modelin payı 9 saniye, kılıfın payı 6 dk 47 sn**.
+
+Aynı sohbetteki ikinci arıza (18:47:48, boş cevap) yine 400: bu kez tek
+mesajda iki `view` çağrısı vardı ve ikinci görselin `tool_result`'ı geçmişte
+eşleşmedi. Bu ikincisi axet-code'un geçmiş serileştirmesinde, bizde değil.
+
+Toplam beş sağlayıcı arızası ölçüldü: `Provider Error / unexpected EOF` ×1,
+`403 Forbidden` ×2 (Okta), `400 Bad Request` ×2 (ikisi de sarkan `tool_use`).
+
+### Düzeltme
+
+`sendViaTui`, `session.pendingAsk` doluyken artık `null` dönmüyor: önce
+`answerTuiQuestion(chatId, [])` ile kutuyu esc'liyor — axet-code böylece
+`ask_user` için bir `tool_result` yazıyor ve geçmiş geçerli kalıyor — sonra
+`ASK_RELEASE_MS` (15 sn) boyunca turun kapanmasını bekliyor. Kapanmazsa ya da
+oturum bu arada yenilenmişse eski davranışa dönülüyor; geçmiş artık geçerli
+olduğu için `run` yolu oturumu bir daha zehirlemiyor. Süren turun ürettiği
+metin kendi balonunda kalıyor — veri kaybı yok.
+
+### Günlük körlüğü
+
+`ntt-studio.log` bu iki arızanın hiçbirini yazmamıştı: ikisi de `ok:false` +
+hata metni ile döndüğü için `sohbet.bos-cevap` kapısına (yalnızca *sessiz boş
+cevap*) takılmadı. `guard` artık başarısız her turu `sohbet.tur-hatasi` ile
+diske düşürüyor (iptaller hariç). İçerik kuralı korunuyor: kullanıcı metni ve
+ajan cevabı yazılmıyor, yalnızca kip, yedek sebebi ve hata cümlesi.
 
 Kapı: 169/169 test, 18 dosya, typecheck temiz.

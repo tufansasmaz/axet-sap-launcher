@@ -1445,6 +1445,14 @@ const ASK_USER_TOOL = "ask_user";
 /** Kullanıcı seçene kadar en fazla beklenecek süre. */
 const ASK_USER_WAIT_MS = 10 * 60_000;
 
+/**
+ * Soru kutusu kapatıldıktan sonra süren turun bitmesi için tanınan süre.
+ *
+ * Kısa tutuluyor: burada beklenen şey ajanın düşünmesi değil, iptal edilmiş
+ * bir aracın kapanması. Dolarsa kayıp yok — mesaj eski yoluna (`run`) düşüyor.
+ */
+const ASK_RELEASE_MS = 15_000;
+
 interface AskUserRequest {
   callId: string;
   question: string;
@@ -2229,6 +2237,38 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
       };
     }
     return null;
+  }
+  // --- Açık soru kutusu varken YENİ MESAJ geldi ---------------------------
+  //
+  // Kullanıcı kartı tıklamak yerine yazdı. Eski kurguda oturum `busy`
+  // olduğu için burada `null` dönülüyordu ve mesaj `run` yedeğine düşüyordu;
+  // `run` da AYNI axet-code oturumuna yazdığı için geçmişte cevapsız bir
+  // `tool_use` kalıyordu. O geçmiş sağlayıcıya göre geçersiz:
+  //
+  //   400 Bad Request  `tool_use` ids were found without `tool_result`
+  //                    blocks immediately after: toolu_…
+  //
+  // Yani oturum o andan sonra KALICI olarak ölüyordu. 2026-09-08 ölçümü
+  // (oturum ebff528c): 18:34'te soru kutusu açıldı, kullanıcı üç mesaj yazdı,
+  // üçü de cevapsız kaldı; cevap ancak 10 dakikalık sayaç dolup oturum
+  // yenilendikten sonra geldi — kullanıcı bunu "7 dakika sonra cevap verdi"
+  // diye gördü.
+  //
+  // Çözüm kutuyu ÖNCE kapatmak: `answerTuiQuestion` esc yazıyor, axet-code
+  // `ask_user` için bir `tool_result` üretiyor, geçmiş geçerli kalıyor.
+  // Süren tur da böylece bitiyor ve ürettiği metin kendi balonunda kalıyor —
+  // hiçbir şey çöpe gitmiyor.
+  if (session.pendingAsk) {
+    console.log("[axetChatTui] soru kutusu acikken yeni mesaj geldi, kutu kapatiliyor", {
+      chatId: args.chatId
+    });
+    answerTuiQuestion(args.chatId, []);
+    const until = Date.now() + ASK_RELEASE_MS;
+    while (session.busy && Date.now() < until) await delay(POLL_MS);
+    // Tur biterken oturum yenilenmiş ya da bırakılmış olabilir; elimizdeki
+    // referans o zaman bayat. Eski davranışa dönmek güvenli: geçmiş artık
+    // geçerli olduğu için `run` yolu oturumu bir daha zehirlemiyor.
+    if (sessions.get(args.chatId) !== session) return null;
   }
   if (session.busy) return null;
 

@@ -522,6 +522,25 @@ export async function sendChatMessage(
    * balona yazıyor, boşsa boş balon çiziyordu.
    */
   const guard = (result: AxetChatSendResult, mode: "tui" | "run"): AxetChatSendResult => {
+    // BAŞARISIZ TUR DA DİSKE DÜŞÜYOR — yalnızca "sessiz boş cevap" değil.
+    //
+    // 2026-09-08'de en pahalı iki arıza (sağlayıcının 400'ü, ardından ölen
+    // oturum) günlüğe HİÇ düşmedi: ikisi de `ok:false` + hata metni ile
+    // döndüğü için aşağıdaki sessiz-boş kapısına takılmadılar. Teşhis
+    // veritabanını elle okumayı gerektirdi. Bir satır o boşluğu kapatıyor.
+    //
+    // İçerik kuralı korunuyor: kullanıcının yazdığı ya da ajanın ürettiği
+    // metin YAZILMIYOR — yalnızca kip, iptal bayrağı ve hata metni (zaten
+    // bizim ürettiğimiz ya da sağlayıcıdan gelen teşhis cümlesi, `appLog`
+    // tarafından kırpılıyor).
+    if (!result.ok && !result.cancelled) {
+      appLog("sohbet.tur-hatasi", {
+        sohbet: chatId || "-",
+        kip: mode,
+        yedekSebebi: fallbackReason || "-",
+        hata: result.error || "-"
+      });
+    }
     if (!isSilentEmptyAnswer(result)) return result;
     // Sebebi log'a: kullanıcı ekranda ne olduğunu görecek, biz NEREDE
     // olduğunu. İkisi ayrı sorular ve tek satırla ikisi de cevaplanmalı.
