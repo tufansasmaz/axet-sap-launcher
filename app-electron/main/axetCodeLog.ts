@@ -290,13 +290,22 @@ const IGNORED_SOURCES = /^(connector\.sync|skillsmarket\.sync)|generating title/
  */
 export function classifyFailure(line: AxetLogLine): AxetFailureKind | null {
   if (line.level !== "ERROR" && line.level !== "WARN") return null;
+  const text = `${line.msg} ${line.error}`;
+  // YETKİ ARIZASI, KAYNAĞI NE OLURSA OLSUN ARIZADIR — bu denetim susturma
+  // filtresinin ÖNÜNDE.
+  //
+  // 2026-09-09 ölçümü: taşıyıcının kimliği düştüğünde günlüğe düşen TEK
+  // kanıt "Error generating title with small model" satırıydı ve içinde
+  // aynı endpoint'in 403'ü duruyordu. Aşağıdaki filtre onu zararsız bir
+  // arka plan işi sayıp atıyordu, yani kanaryayı susturmuş oluyorduk.
+  // Başlık üretiminin 503'ü gerçekten zararsız (kendi yedeğine geçiyor);
+  // 403'ü değil — turun kendisi de aynı anda aynı duvara çarpıyor.
+  if (RE_AUTH.test(text)) return "auth";
   // Bağlayıcı/beceri senkronizasyonu ve başlık üretimi bir TUR arızası değil:
   // ilki bağlayıcılar kapalıyken her açılışta bir kez düşüyor (canlı günlükte
   // 22 kez), sonuncusu kendi yedeğine geçip başarıyla tamamlanıyor.
   if (IGNORED_SOURCES.test(line.msg)) return null;
-  const text = `${line.msg} ${line.error}`;
   if (RE_CONTEXT.test(text)) return "context";
-  if (RE_AUTH.test(text)) return "auth";
   if (RE_PROVIDER.test(text)) return "provider";
   return null;
 }

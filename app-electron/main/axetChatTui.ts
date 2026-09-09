@@ -18,6 +18,7 @@ import { mt } from "./i18n";
 import {
   closeSessionDbs,
   findSessionByPrompt,
+  finishAuthFailure,
   finishPoisonsHistory,
   latestMessageTime,
   matchKey,
@@ -2232,6 +2233,31 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
         const reason = lastFinish?.data?.reason;
         if (reason && reason !== "tool_use") {
           args.onActivity({ phase: "finishing" });
+          // --- TAŞIYICININ KİMLİĞİ DÜŞTÜ MÜ? -----------------------------
+          //
+          // Turun kendi 403'ü axet-code'un GÜNLÜĞÜNE düşmüyor; yalnızca
+          // burada, `finish` parçasında duruyor. Yukarıdaki arka plan
+          // denetimi (bkz. `classifyFailure`) bu yüzden onu göremiyordu ve
+          // tur "başarıyla bitti, cevabı boş" sayılıyordu. Kullanıcının
+          // gördüğü şey ardarda boş cevaplar, yaptığı şey de "yeniden
+          // üret" — ki oturumu yeniliyor, jetonu değil (2026-09-09 ölçümü:
+          // dört oturum boşuna döndü, hiçbiri düzelmedi).
+          //
+          // `failure: "auth"` dönmek kurtarma yolunu açıyor: süreç
+          // yenileniyor, mesaj bir kez daha gidiyor, geçmiş tohumlamayla
+          // taşınıyor. Elde metin varsa BIRAKILMIYOR — kısmi bir cevap,
+          // yeniden denemenin üstüne yazılmasa da teşhis için değerli.
+          if (finishAuthFailure(lastFinish)) {
+            console.log("[axetChatTui] TASIYICI KIMLIGI DUSTU (403), surec yenilenecek", {
+              chatId: session.chatId,
+              oturum: session.axetSessionId?.slice(0, 8) ?? "?"
+            });
+            appLog("sohbet.yetki-dustu", {
+              sohbet: session.chatId,
+              oturum: session.axetSessionId?.slice(0, 8) ?? "-"
+            });
+            return { ok: false, text: answer, failure: "auth" };
+          }
           // --- GEÇMİŞ BOZULDU MU? ---------------------------------------
           //
           // `finish` parçasının hata metninde sağlayıcının 400'ü duruyor.
@@ -2499,7 +2525,14 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     return {
       ok: false,
       text: second.text,
-      error: mt("chatTui.restartStillFailing", { failure: second.failure }),
+      // Yetki arızası kendi metnini hak ediyor. Taze bir süreç de 403
+      // alıyorsa sorun bizde değil portalde: jeton yenilenmiyor ya da bu
+      // model bu kullanıcıya kapanmış. "hata sürüyor (auth)" demek,
+      // kullanıcıyı yapacak bir şeyi yokken denemeye devam ettiriyordu.
+      error:
+        second.failure === "auth"
+          ? mt("chatTui.restartStillFailingAuth")
+          : mt("chatTui.restartStillFailing", { failure: second.failure }),
       restartedReason: first.failure
     };
   }

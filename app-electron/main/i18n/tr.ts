@@ -59,6 +59,8 @@ export const MAIN_TR = {
   "chatTui.turnTimedOut": "axet-code {minutes} dakikadır hiçbir belirti vermedi.",
   "chatTui.turnRanTooLong": "axet-code {hours} saattir aralıksız çalışıyor; tur burada kesildi.",
   "chatTui.restartStillFailing": "axet-code oturumu yenilendi ama hata sürüyor ({failure}).",
+  "chatTui.restartStillFailingAuth":
+    "aXet portalı isteği yetki hatasıyla reddediyor (403). Oturum yenilendi ama hata sürüyor — aXet oturumunuzun süresi dolmuş olabilir. Uygulamayı kapatıp açmak genellikle çözüyor; sürerse portal tarafındaki model yetkinizi kontrol ettirin.",
   "chatTui.updateRequired":
     "aXet.Code zorunlu bir güncelleme bekliyor ve güncellenene kadar hiçbir mesajı yanıtlayamıyor. Başlat menüsünden Company Portal'ı açın, \"aXet.code\" aratıp yeni sürümü kurun ve uygulamayı yeniden başlatın.",
   "chatTui.updateRequiredVersions":

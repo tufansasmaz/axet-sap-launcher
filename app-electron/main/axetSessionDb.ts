@@ -97,13 +97,55 @@ export interface AxetPart {
  * metne çevriliyor.
  */
 export function finishPoisonsHistory(part: AxetPart | undefined): boolean {
-  if (!part || part.type !== "finish") return false;
-  const details = part.data?.details;
-  const text = `${part.data?.message ?? ""} ${
-    typeof details === "string" ? details : details === undefined ? "" : JSON.stringify(details)
-  }`;
+  const text = finishErrorText(part);
   return text.includes("tool_use") && text.includes("tool_result");
 }
+
+/**
+ * Bir hata `finish`'inin okunabilir metni — `finish` değilse boş.
+ *
+ * Ayrı bir işlev, çünkü iki teşhis de (`finishPoisonsHistory`,
+ * `finishAuthFailure`) aynı iki alana bakıyor ve `details` bazen düz metin
+ * bazen nesne geliyor. Kopyalanmış bir düzleştirici, birinde düzeltilen bir
+ * eksiğin diğerinde yaşamaya devam etmesi demekti.
+ */
+function finishErrorText(part: AxetPart | undefined): string {
+  if (!part || part.type !== "finish") return "";
+  const details = part.data?.details;
+  return `${part.data?.message ?? ""} ${
+    typeof details === "string" ? details : details === undefined ? "" : JSON.stringify(details)
+  }`;
+}
+
+/**
+ * Bu `finish` parçası, taşıyıcının KİMLİĞİNİN düştüğünü mü söylüyor?
+ *
+ * 2026-09-09 ölçümü: sohbet 13:15:59'a kadar 14 tur sorunsuz çalıştı, sonra
+ * her tur şu `finish` ile bitti ve veritabanında o andan sonra tek bir
+ * başarılı tur kalmadı:
+ *
+ *   reason: "error"  message: "Forbidden"
+ *   details: POST ".../invoke-with-response-stream/v1/messages": 403 Forbidden
+ *
+ * Arıza SÜRECE yapışık, oturuma değil: yeni bir axet-code oturumu açmak (ki
+ * kullanıcı "yeniden üret" ile tam olarak bunu yaptı, dört kez) hiçbir şey
+ * değiştirmiyor, çünkü jeton aynı süreçte duruyor. Kurtarma yolu bunu zaten
+ * biliyor — `AxetFailureKind` "auth" görünce süreci yeniliyor. Eksik olan tek
+ * şey arızanın oraya ULAŞMASIYDI: turun kendi 403'ü axet-code'un günlüğüne
+ * ERROR satırı olarak hiç düşmüyor, yalnızca burada, veritabanında duruyor.
+ *
+ * Ölçüt `axetCodeLog.ts` `RE_AUTH` ile bilinçli olarak AYNI: iki kapı da aynı
+ * arızayı arıyor, biri günlükte biri veritabanında, ve birinde genişletilen
+ * bir ölçütün diğerinde dar kalması sessiz bir kör nokta olurdu.
+ */
+export function finishAuthFailure(part: AxetPart | undefined): boolean {
+  if (part?.data?.reason !== "error") return false;
+  return RE_FINISH_AUTH.test(finishErrorText(part));
+}
+
+/** Bkz. `axetCodeLog.ts` `RE_AUTH` — ölçüt bilerek aynı. */
+const RE_FINISH_AUTH =
+  /\b(?:401|403)\s+[A-Z]|\bforbidden\b|\bunauthorized\b|invalid[_ ]grant|token (?:has )?expired|authentication failed/i;
 
 export interface AxetDbMessage {
   id: string;

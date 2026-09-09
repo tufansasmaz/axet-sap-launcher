@@ -10460,3 +10460,85 @@ bıraktığı DOĞRULANMADAN oturum seçmek sayılmaz. Bu dosyada aynı sınıf 
 bedeli artık üç kez ödendi.
 
 Kapı: 183/183 test, 20 dosya, typecheck temiz, `electron-vite build` temiz.
+
+## Ardarda boş cevaplar: yetki arızasının tek kanaryasını biz susturuyorduk (2026-09-09)
+
+Kullanıcı bildirdi: *"bu axet flow skilleri olan sohbete bak cevap üretememeye
+başladı."* Sohbet bütün gün çalışmış, sonra bir anda ardarda boş cevap vermeye
+başlamıştı.
+
+### Ölçüm
+
+`chat` veritabanındaki bütün turlar, o günün tamamı:
+
+| Saat (UTC) | Oturum | Sonuç |
+| --- | --- | --- |
+| 12:27 – **13:15:59** | 6 ayrı oturum | 14 tur, hepsi `end_turn` |
+| **13:23:16** ve sonrası | `d3786555`, `55aa398b`, `97cc6939`, `f60c8226` | 6 tur, **hepsi 403** |
+
+13:23'ten sonra veritabanının **tamamında** tek bir başarılı tur yok — yani arıza
+ne bu sohbete ne de geçmişe ait. Her turun `finish` parçası birebir aynı:
+
+```
+reason: "error"  message: "Forbidden"
+details: POST ".../invoke-with-response-stream/v1/messages": 403 Forbidden
+```
+
+Uygulama açılışı `12:19:54`, ilk 403 `13:23:16` — **63. dakika**. Bir önceki gün:
+açılış `13:59:26`, ilk 403 `15:00:40` — **61. dakika**. İki ölçüm de aynı yere
+çıkıyor: taşıyıcının jetonu ~60 dakikada doluyor ve kalıcı TUI mimarimiz tek bir
+`axet-code` sürecini saatlerce ayakta tuttuğu için süreç içinde yenilenmiyor.
+
+### Kök sebep: kanaryayı susturan filtre
+
+Kurtarma yolu 2026-09-05'ten beri **zaten vardı** (`AxetFailureKind: "auth"` →
+`restartSession` → süreç yenilenir, geçmiş tohumlamayla taşınır). Hiç
+tetiklenmedi, çünkü arıza oraya iki ayrı sebeple ulaşamıyordu:
+
+1. **Turun kendi 403'ü axet-code'un günlüğüne ERROR satırı olarak hiç düşmüyor.**
+   Yalnızca veritabanındaki `finish` parçasında duruyor. Arka plan denetimi ise
+   sadece günlüğe bakıyordu.
+2. **Günlükteki tek kanıtı biz atıyorduk.** Yetki düştüğünde günlüğe düşen tek
+   satır şuydu:
+
+   ```
+   msg: "Error generating title with small model; trying big model"
+   err: "forbidden: ... 403 Forbidden"
+   ```
+
+   `IGNORED_SOURCES = /…|generating title/i` bu satırı zararsız sayıp atıyordu.
+   Filtre haklı bir sebeple yazılmıştı — başlık üretiminin **503**'ü gerçekten
+   zararsız, kendi yedeğine geçip tamamlanıyor. Ama aynı satırın **403**'ü
+   zararsız değil: turun kendisi de aynı anda aynı duvara çarpıyor.
+
+Kullanıcının gördüğü şey "boş cevap"tı, yaptığı şey de "yeniden üret" — ki
+`resetChatHistory` çağırıp axet-code **oturumunu** yeniliyor, **jetonu** değil.
+Dört oturum bu yüzden boşuna döndü ve `d3786555`'teki bütün araç sonuçları
+geride kaldı.
+
+### Düzeltme, üç katman
+
+1. **`axetSessionDb.finishAuthFailure`** — `finish` parçasındaki 403/401'i
+   tanıyor. Ölçüt `axetCodeLog.RE_AUTH` ile bilerek AYNI: iki kapı da aynı
+   arızayı arıyor, biri günlükte biri veritabanında. Ölçüt `reason === "error"`
+   ile kapılı, yoksa ajanın kendi cevabında "403 Forbidden" yazması — ki tam
+   olarak bu arıza konuşulurken oluyor — sağlam bir turu yeniden başlatırdı.
+2. **`axetChatTui` tur sonu** — bu teşhis `failure: "auth"` döndürüyor ve zaten
+   var olan kurtarma yolunu açıyor: süreç yenilenir, mesaj bir kez daha gider,
+   geçmiş tohumlamayla taşınır. Kullanıcı hiçbir şey yapmaz.
+3. **`classifyFailure`** — yetki denetimi susturma filtresinin ÖNÜNE alındı.
+   Kaynağı ne olursa olsun 403 bir tur arızası; başlık üretiminin 503'ü hâlâ
+   görmezden geliniyor.
+
+Ayrıca ikinci deneme de 403 alırsa gösterilen metin artık ham `(auth)` değil:
+taze bir süreç de reddediliyorsa sorun portalde, ve kullanıcıya yapabileceği şey
+söyleniyor (`chatTui.restartStillFailingAuth`).
+
+### Kural
+
+**Bir susturma filtresi, sınıfa göre değil ARIZAYA göre kurulmalı.** "Başlık
+üretimi zararsızdır" doğru bir gözlemdi ve yanlış bir kurala dönüştü: aynı
+satırın taşıdığı iki farklı hata sınıfından biri sistemin tamamını durduruyordu.
+Bir kanaryayı sustururken, o kanaryanın başka ne söylediğine bakmak gerekiyor.
+
+Kapı: 197/197 test, 21 dosya, typecheck temiz, electron-vite build temiz.

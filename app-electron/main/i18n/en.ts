@@ -55,6 +55,8 @@ export const MAIN_EN = {
   "chatTui.turnTimedOut": "axet-code has shown no sign of activity for {minutes} minutes.",
   "chatTui.turnRanTooLong": "axet-code has been running non-stop for {hours} hours; the turn was cut off here.",
   "chatTui.restartStillFailing": "The axet-code session was restarted but the error persists ({failure}).",
+  "chatTui.restartStillFailingAuth":
+    "The aXet portal is rejecting the request with an authorization error (403). The session was restarted but the error persists — your aXet session may have expired. Restarting the app usually clears it; if it continues, have your model entitlement checked on the portal side.",
   "chatTui.updateRequired":
     "aXet.Code is waiting for a mandatory update and cannot answer any message until it is installed. Open Company Portal from your Start menu, search for \"aXet.code\", install the new version and restart the application.",
   "chatTui.updateRequiredVersions":

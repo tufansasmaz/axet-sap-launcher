@@ -18,7 +18,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ app: { getPath: () => "" } }));
 
-const { finishPoisonsHistory } = await import("../app-electron/main/axetSessionDb");
+const { finishAuthFailure, finishPoisonsHistory } = await import("../app-electron/main/axetSessionDb");
 
 const finish = (data: Record<string, unknown>) => ({ type: "finish", data });
 
@@ -75,5 +75,75 @@ describe("finishPoisonsHistory", () => {
     expect(finishPoisonsHistory(finish({ reason: "error", message: "tool_use limit exceeded" }))).toBe(
       false
     );
+  });
+});
+
+// TASIYICI KIMLIGI DUSTU teshisi.
+//
+// 2026-09-09: sohbet 13:15:59'a kadar 14 tur calisti, sonra veritabanindaki
+// HER tur asagidaki `finish` ile bitti ve o andan sonra tek bir basarili tur
+// olmadi. Aciklamasi jeton omru: ariza SURECE yapisik, oturuma degil.
+//
+// Bu teshisin degeri, `AxetFailureKind: "auth"` kurtarma yolunu acmasi —
+// surec yenileniyor, mesaj bir kez daha gidiyor, gecmis tohumlamayla
+// tasiniyor. Yanlis negatif kullaniciya ardarda BOS CEVAP gosteriyor (olculdu:
+// bes kez, dort oturum bosuna dondu); yanlis pozitif ise saglam bir turu
+// bosuna yeniden baslatiyor.
+describe("finishAuthFailure", () => {
+  const FORBIDDEN =
+    'POST "https://axet.nttdata.com/api/llm-enabler/v3/aws-anthropic/model/eu.anthropic.claude-sonnet-5/invoke-with-response-stream/v1/messages": 403 Forbidden ';
+
+  it("canli 403'u taniyor", () => {
+    expect(finishAuthFailure(finish({ reason: "error", message: "Forbidden", details: FORBIDDEN }))).toBe(
+      true
+    );
+  });
+
+  it("ayrinti NESNE olarak geldiginde de taniyor", () => {
+    expect(
+      finishAuthFailure(finish({ reason: "error", message: "", details: { err: FORBIDDEN } }))
+    ).toBe(true);
+  });
+
+  it("401 ve suresi dolmus jeton da yetki arizasi", () => {
+    expect(finishAuthFailure(finish({ reason: "error", message: "401 Unauthorized" }))).toBe(true);
+    expect(finishAuthFailure(finish({ reason: "error", message: "token has expired" }))).toBe(true);
+  });
+
+  it("BASKA saglayici hatalari yetki arizasi DEGIL", () => {
+    // Bunlar yeniden denemeyle geciyor; surec yenilemek bedeli bosuna odetir.
+    expect(finishAuthFailure(finish({ reason: "error", message: "Provider Error", details: "unexpected EOF" }))).toBe(
+      false
+    );
+    expect(finishAuthFailure(finish({ reason: "error", message: "500 Internal Server Error" }))).toBe(
+      false
+    );
+  });
+
+  it("BASARILI tur yetki arizasi sayilmiyor", () => {
+    // Kritik: olcut `reason === "error"` ile kapili. Ajanin kendi CEVABINDA
+    // "403 Forbidden" yazmasi -- ki tam olarak bu ariza konusulurken oluyor --
+    // saglam bir turu yeniden baslatmamali.
+    expect(finishAuthFailure(finish({ reason: "end_turn", message: FORBIDDEN }))).toBe(false);
+    expect(finishAuthFailure(finish({ reason: "tool_use" }))).toBe(false);
+  });
+
+  it("finish OLMAYAN parca ve eksik parca guvenli", () => {
+    expect(finishAuthFailure(undefined)).toBe(false);
+    expect(finishAuthFailure({ type: "text", data: { text: "403 Forbidden" } })).toBe(false);
+  });
+
+  it("bozuk gecmis ile yetki arizasi BIRBIRINE karismiyor", () => {
+    // Ikisinin ilaci farkli: biri yeni OTURUM, digeri yeni SUREC.
+    const poison = finish({
+      reason: "error",
+      message: "Bad Request",
+      details: "`tool_use` ids were found without `tool_result` blocks"
+    });
+    const auth = finish({ reason: "error", message: "Forbidden", details: FORBIDDEN });
+    expect(finishPoisonsHistory(poison)).toBe(true);
+    expect(finishAuthFailure(poison)).toBe(false);
+    expect(finishAuthFailure(auth)).toBe(true);
+    expect(finishPoisonsHistory(auth)).toBe(false);
   });
 });
