@@ -327,6 +327,16 @@ const TURN_HARD_CAP_MS = 6 * 60 * 60_000;
  */
 const LAND_GRACE_MS = 20_000;
 /**
+ * Yetki arızasından sonra ikinci denemeden ÖNCE beklenen süre.
+ *
+ * Süreci yenilemek ~3 saniye; 403 penceresi ise dakikalarla ölçülüyor, bu
+ * yüzden anında yapılan tekrar deneme neredeyse hep boşa gidiyor. 15 saniye
+ * bir uzlaşma: kullanıcı bekliyor ve bunu hissedecek, ama arızalı bir turun
+ * zaten kaybettiği zamanın yanında küçük. Uzatmak cazip — direnin: kapı
+ * kapalıysa üç dakika beklemek de yetmiyor, açıksa 15 saniye yetiyor.
+ */
+const AUTH_RETRY_BACKOFF_MS = 15_000;
+/**
  * Veritabanı yoklama aralığı. Ölçülen sorgu maliyeti 0-5 ms.
  *
  * Bu aralık AYNI ZAMANDA arayüzdeki yazma ritmi: her yoklamada o ana kadar
@@ -2513,6 +2523,14 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     console.log("[axetChatTui] ariza sonrasi oturum kurulamadi", { chatId: args.chatId, tur: first.failure });
     return null;
   }
+  // Yetki arızasında ANINDA tekrar denemenin karşılığı yok: 2026-09-09
+  // ölçümünde 403 penceresi dakikalarca açık kaldı (13:50:53 ve 13:51:11
+  // reddedildi, 14:03:54 aynı oturumda aynı geçmişle GEÇTİ, 14:24:42 yine
+  // reddedildi). Yani arıza bir uçurum değil, açılıp kapanan bir kapı —
+  // taze süreç 3 saniye sonra aynı kapalı kapıya çarpıyor. Kısa bir bekleme
+  // dar pencereleri yakalıyor ve portalı dövmüyor; kullanıcıyı dakikalarca
+  // bekletmek ise ona yalan söylemekten farksız olurdu, o yüzden kısa.
+  if (first.failure === "auth") await delay(AUTH_RETRY_BACKOFF_MS);
   console.log("[axetChatTui] oturum yenilendi, mesaj tekrar gonderiliyor", {
     chatId: args.chatId,
     tur: first.failure
