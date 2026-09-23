@@ -49,7 +49,7 @@ function verifyMsg(
     timeout: "Zaman aşımı",
     connectionError: `Bağlantı hatası: ${params?.message}`,
     connectionErrorRouter: `Bağlantı hatası (SAProuter): ${params?.message}`,
-    samlLoginDetected: "HTTP 200 döndü ama yanıt beklenen ADT XML'i değil, bir SAML/SSO giriş sayfası (HTML) — kimlik bilgileri Basic Auth ile hiç kontrol edilmedi, bu sistem SAML SSO gerektiriyor. Kullanıcı adı/şifre doğru veya yanlış olsun bu sonuç aynı görünür; %sap-adt-readonly skill'indeki SAML giriş akışını (login_saml_sso.py) izlemen gerekiyor."
+    samlLoginDetected: "HTTP 200 döndü ama yanıt beklenen ADT XML'i değil, bir SAML/SSO giriş sayfası (HTML) — kimlik bilgileri Basic Auth ile hiç kontrol edilmedi, bu sistem SAML SSO gerektiriyor. Kullanıcı adı/şifre doğru veya yanlış olsun bu sonuç aynı görünür; %sap-adt skill'indeki SAML giriş akışını (login_saml_sso.py) izlemen gerekiyor."
   };
   const en = {
     verified: "Credentials verified",
@@ -65,7 +65,7 @@ function verifyMsg(
     timeout: "Timed out",
     connectionError: `Connection error: ${params?.message}`,
     connectionErrorRouter: `Connection error (SAProuter): ${params?.message}`,
-    samlLoginDetected: "Got HTTP 200 but the response is not the expected ADT XML — it's a SAML/SSO login page (HTML). Credentials were never actually checked via Basic Auth; this system requires SAML SSO. Right or wrong username/password produces the same result here — follow the SAML login flow (login_saml_sso.py) in the %sap-adt-readonly skill."
+    samlLoginDetected: "Got HTTP 200 but the response is not the expected ADT XML — it's a SAML/SSO login page (HTML). Credentials were never actually checked via Basic Auth; this system requires SAML SSO. Right or wrong username/password produces the same result here — follow the SAML login flow (login_saml_sso.py) in the %sap-adt skill."
   };
   return (language === "en" ? en : tr)[key];
 }

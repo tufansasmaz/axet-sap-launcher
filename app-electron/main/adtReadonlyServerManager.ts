@@ -20,6 +20,13 @@ export interface ReadonlyServerStartOptions {
   scriptPath: string;
   pythonPath: string;
   port: number;
+  /**
+   * DEV sistemde yazan motoru (33 araç), aksi hâlde sarmalayıcıyı (17 araç)
+   * başlatıyoruz. Bu bayrak, portta ZATEN duran bir sunucuyu sahiplenmeden
+   * önce onun gerçekten doğru yüzey olduğunu doğrulamak için gerekiyor —
+   * bkz. `probeHealth`/`surfaceMismatch`.
+   */
+  expectWritable: boolean;
 }
 
 export interface ReadonlyServerStartResult {
@@ -48,23 +55,65 @@ function pushTail(server: RunningServer, chunk: Buffer): void {
   if (server.tail.length > 60) server.tail.shift();
 }
 
-function healthCheck(port: number, timeoutMs = 2000): Promise<boolean> {
+/**
+ * `/health` cevabı. `tools` alanı iki sunucuda da var ve ASIL KAYNAK odur:
+ * yazan motor `adt_push`'ı listeler, sarmalayıcı listelemez çünkü o araç MCP
+ * kaydına hiç girmemiştir. Yani yüzeyi bir etiketten değil, sunucunun kendi
+ * saydığı araçlardan okuyoruz.
+ */
+interface HealthInfo {
+  alive: boolean;
+  writable: boolean;
+  toolCount: number;
+}
+
+const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0 };
+
+function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
   return new Promise((resolve) => {
     const req = httpRequest(
       { host: "127.0.0.1", port, path: "/health", method: "GET", timeout: timeoutMs },
       (res) => {
-        res.resume();
         const status = res.statusCode ?? 0;
-        resolve(status >= 200 && status < 300);
+        if (status < 200 || status >= 300) {
+          res.resume();
+          resolve(DEAD);
+          return;
+        }
+        let body = "";
+        res.setEncoding("utf-8");
+        res.on("data", (chunk: string) => {
+          // 33 araç adı birkaç KB; sınırı aşan bir cevap bizim sunucumuz değil.
+          if (body.length < 64_000) body += chunk;
+        });
+        res.on("end", () => {
+          try {
+            const parsed = JSON.parse(body) as { tools?: unknown; tool_count?: unknown };
+            const tools = Array.isArray(parsed.tools) ? parsed.tools.map(String) : [];
+            resolve({
+              alive: true,
+              writable: tools.includes("adt_push"),
+              toolCount: typeof parsed.tool_count === "number" ? parsed.tool_count : tools.length
+            });
+          } catch {
+            // Ayakta ama cevabı okunamıyor: sahiplenmek için yeterli değil.
+            resolve(DEAD);
+          }
+        });
+        res.on("error", () => resolve(DEAD));
       }
     );
-    req.on("error", () => resolve(false));
+    req.on("error", () => resolve(DEAD));
     req.on("timeout", () => {
       req.destroy();
-      resolve(false);
+      resolve(DEAD);
     });
     req.end();
   });
+}
+
+function healthCheck(port: number, timeoutMs = 2000): Promise<boolean> {
+  return probeHealth(port, timeoutMs).then((info) => info.alive);
 }
 
 function describeFailure(server: RunningServer): string {
@@ -95,17 +144,41 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   const key = opts.projectDir;
   const existing = running.get(key);
   if (existing && existing.port === opts.port && (existing.external || (!existing.proc?.killed && !existing.exited))) {
-    const alive = await healthCheck(existing.port);
-    if (alive) {
+    const info = await probeHealth(existing.port);
+    if (info.alive && info.writable === opts.expectWritable) {
       return { ok: true, alreadyRunning: true, external: existing.external, message: mt("adtServer.alreadyRunning") };
     }
+    // Ayakta ama YANLIŞ yüzey: kullanıcı bu proje klasörünü başka bir tier'la
+    // açmış olabilir (sistemi DEV işaretlemek gibi). Kendi process'imiz, bizim
+    // kapatma hakkımız var — doğrusuyla değiştir.
     stopReadonlyServer(key);
   }
 
   // Uygulama kapanıp yeniden açıldıysa veya kullanıcı elle başlattıysa, bu
   // portta zaten sağlıklı bir sunucu olabilir — kendi process'imiz olmadan
   // ikinci bir process spawn edip EADDRINUSE'a düşmek yerine bunu kabul et.
-  if (await healthCheck(opts.port)) {
+  //
+  // AMA yalnızca yüzeyi tutuyorsa. Eskiden buradaki tek soru "ayakta mı"ydı ve
+  // tek bir sunucu vardı, dolayısıyla cevap da tekti. Artık iki sunucu var:
+  // DEV'de bırakılmış YAZAN bir sunucu, ardından PRD'ye bağlanıldığında sessizce
+  // sahiplenilir ve canlı sisteme push edilebilir bir oturum açardı. Tersi de
+  // yanlış ama zararsız: DEV'de 17 araçlık sunucuyu devralıp "neden push yok"
+  // sorusunu doğurur. İkisini de reddediyoruz; sahibi olmadığımız bir process'i
+  // öldürmek yerine durumu söylüyoruz.
+  const onPort = await probeHealth(opts.port);
+  if (onPort.alive) {
+    if (onPort.writable !== opts.expectWritable) {
+      return {
+        ok: false,
+        alreadyRunning: false,
+        external: true,
+        message: mt("adtServer.surfaceMismatch", {
+          port: opts.port,
+          found: onPort.writable ? "33" : "17",
+          expected: opts.expectWritable ? "33" : "17"
+        })
+      };
+    }
     running.set(key, { proc: null, port: opts.port, logStream: null, tail: [], exited: false, exitInfo: "", external: true });
     return { ok: true, alreadyRunning: true, external: true, message: mt("adtServer.externalOnPort") };
   }
@@ -129,7 +202,11 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
 
   let proc: ChildProcess;
   try {
-    proc = spawn(opts.pythonPath, [opts.scriptPath, "--port", String(opts.port)], {
+    // `--http` ŞART. Yukarı akış motoru böldüğünde her iki sunucunun da
+    // varsayılan taşıması stdio MCP oldu; bayraksız çalıştırmak sessizce
+    // stdin'i dinleyen, /health'i olmayan bir process bırakıyor ve biz 15
+    // saniye boyunca gelmeyecek bir cevabı bekliyorduk.
+    proc = spawn(opts.pythonPath, [opts.scriptPath, "--http", "--port", String(opts.port)], {
       cwd: opts.projectDir,
       env: process.env,
       windowsHide: true,

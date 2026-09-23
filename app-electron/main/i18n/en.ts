@@ -132,6 +132,8 @@ export const MAIN_EN = {
   "adtServer.didNotStart": "The server did not come up on port {port}.{detail}",
   "adtServer.alreadyRunning": "The ADT read-only server is already running; it was not restarted.",
   "adtServer.externalOnPort": "An ADT read-only server was found already running on this port (started by another process).",
+  "adtServer.surfaceMismatch":
+    "An ADT server is already on port {port} but exposes the wrong surface ({found} tools; this system needs the {expected}-tool server). Not adopted — stop that process, then reconnect to the system.",
   "adtServer.spawnFailed": "The ADT read-only server process could not be started ({pythonPath}): {detail}",
   "adtServer.started": "ADT read-only server started (http://127.0.0.1:{port}).",
 

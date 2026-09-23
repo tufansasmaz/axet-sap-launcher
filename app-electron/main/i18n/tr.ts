@@ -137,6 +137,11 @@ export const MAIN_TR = {
   "adtServer.didNotStart": "Sunucu {port} portunda ayağa kalkmadı.{detail}",
   "adtServer.alreadyRunning": "ADT read-only sunucusu zaten çalışıyor, yeniden başlatılmadı.",
   "adtServer.externalOnPort": "ADT read-only sunucusu bu portta zaten (başka bir process tarafından) çalışıyor durumda bulundu.",
+  // Port doluydu ama duran sunucu YANLIŞ yüzeyi sunuyor. Sahiplenmiyoruz:
+  // DEV'den kalma yazan bir sunucuyu PRD bağlantısında devralmak, canlı
+  // sisteme push edebilen bir oturum açmak demekti.
+  "adtServer.surfaceMismatch":
+    "{port} portunda zaten bir ADT sunucusu var ama yanlış yüzeyi sunuyor ({found} araç; bu sistem için {expected} araçlık sunucu gerekiyor). Devralınmadı — o process'i kapat, sonra sisteme yeniden bağlan.",
   "adtServer.spawnFailed": "ADT read-only sunucu process'i başlatılamadı ({pythonPath}): {detail}",
   "adtServer.started": "ADT read-only sunucusu başlatıldı (http://127.0.0.1:{port}).",
 

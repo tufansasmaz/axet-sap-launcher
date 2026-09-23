@@ -383,8 +383,12 @@ export function isGlobalInstallHealthy(profile: SkillProfile): boolean {
 /**
  * Tek bir skill'i pakete göre hedef klasöre kopyalar. Başarılıysa `true`.
  *
- * `excludeDirs` burada uygulanıyor — `sap-adt-readonly/scripts` (1400 satırlık
- * tam yetkili ADT motoru) ajanın çalışma ağacına bu filtre sayesinde düşmüyor.
+ * `excludeDirs` burada uygulanıyor — ADT üçlüsünün (`sap-adt`,
+ * `sap-adt-readonly`, `sap-adt-router-bridge`) `scripts/` klasörleri ajanın
+ * çalışma ağacına bu filtre sayesinde düşmüyor. Motor her zaman
+ * `resources/sap-toolkit` içinden, üçü yan yanayken çalıştırılıyor:
+ * sarmalayıcı motoru `../../sap-adt/scripts` diye arıyor, kopyalanan bir
+ * `scripts/` o komşuyu bulamaz ve sessizce başlamaz.
  */
 function copySkill(toolkitRoot: string, name: string, dest: string): boolean {
   const def = SKILL_CATALOG[name];

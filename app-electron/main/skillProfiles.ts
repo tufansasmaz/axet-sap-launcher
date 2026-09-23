@@ -27,17 +27,58 @@ export interface SkillDef {
   /** SAP'a yazma niyeti taşıyor mu? PRD'de kurulmaz. */
   writeCapable?: boolean;
   /**
-   * Proje kopyasına ALINMAYACAK alt klasörler. `sap-adt-readonly` için
-   * `scripts/` böyle: içinde 1400 satırlık tam yetkili ADT motoru var, skill'in
-   * kendisi ise zaten "script'leri asla çalıştırma, HTTP sunucusuna konuş"
-   * diyor. Motor `resources/` altında kalır, launcher oradan başlatır.
+   * Proje kopyasına ALINMAYACAK alt klasörler. ADT üçlüsü (`sap-adt`,
+   * `sap-adt-readonly`, `sap-adt-router-bridge`) için `scripts/` böyle: içinde
+   * tam yetkili ADT motoru var, skill'in kendisi ise zaten "script'leri asla
+   * çalıştırma, HTTP sunucusuna konuş" diyor. Motor `resources/` altında
+   * kalır, launcher oradan başlatır.
    */
   excludeDirs?: string[];
+  /**
+   * `skillScope()`'un `writeCapable`'dan türettiği yeri EZER. Tek kullanıcısı
+   * ADT üçlüsü: hangi ADT yüzeyinin doğru olduğu sisteme bağlı (DEV'de yazan
+   * motor, QA/PRD'de sarmalayıcı), global klasörün ise bir sistemi yok. Global
+   * bir kopya bırakılsaydı DEV projesinde iki ADT skill'i yan yana durur,
+   * ajana cevabı olmayan bir soru sorulurdu.
+   */
+  scope?: "global" | "project";
 }
 
 export const SKILL_CATALOG: Record<string, SkillDef> = {
+  // --- SAP: ADT motoru ------------------------------------------------------
+  // Yukarı akış 2026-09'da tek parça `sap-adt-readonly`'yi ÜÇE BÖLDÜ; biz de
+  // aynısını yapıyoruz çünkü bölünmenin sebebi doğru:
+  //
+  //   sap-adt              motorun kendisi, 33 araç, yazma dahil
+  //   sap-adt-readonly     4 dosyalık sarmalayıcı — motoru YANDAN import edip
+  //                        13 yazan aracı MCP kaydından siliyor (17 araç kalır)
+  //   sap-adt-router-bridge  ADT'yi RFC'ye çeviren shim (adt_rfc_bridge.py);
+  //                        router arkasındaki, HTTP portu kapalı sistemler için
+  //
+  // Sarmalayıcı motoru `../sap-adt/scripts`'ten import ediyor ve bulamazsa
+  // açılışta reddediyor — yani ikisi KARDEŞ klasör olmak zorunda. Üçünde de
+  // `excludeDirs: ["scripts"]` olması bunu garantiliyor: hiçbir script proje
+  // kopyasına gitmiyor, sunucu her zaman `resources/sap-toolkit` altından
+  // başlıyor ve orada üçü de yan yana duruyor. `scripts` dışlaması kalkarsa
+  // bu kardeşlik bozulur.
+  "sap-adt": {
+    path: "sap-consultant/skills/sap-adt",
+    writeCapable: true,
+    excludeDirs: ["scripts"],
+    scope: "project"
+  },
+  "sap-adt-readonly": {
+    path: "sap-consultant/skills/sap-adt-readonly",
+    excludeDirs: ["scripts"],
+    scope: "project"
+  },
+  "sap-adt-router-bridge": {
+    path: "sap-consultant/skills/sap-adt-router-bridge",
+    excludeDirs: ["scripts"],
+    scope: "project"
+  },
+
   // --- SAP: inceleme ve tasarım -------------------------------------------
-  "sap-adt-readonly": { path: "sap-consultant/skills/sap-adt-readonly", excludeDirs: ["scripts"] },
   "clean-core": { path: "sap-consultant/skills/clean-core" },
   "sap-docs": { path: "sap-consultant/skills/sap-docs" },
   "library-match": { path: "sap-consultant/skills/library-match" },
@@ -219,7 +260,11 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
   // `library-match` burada — katalogda da modül danışmanına özel olarak
   // veriliyor: "bu zaten yapılmış mı?" sorusunu soracak tek rol bu.
   "module-consultant": [
+    // Modül danışmanı SADECE sarmalayıcıyı görür. Bu, bir bayrak değil bir
+    // yüzey: yazan 13 araç MCP kaydına hiç girmiyor, yani ajan bir push
+    // planlayıp reddedilmiyor — böyle bir araç onun dünyasında yok.
     "sap-adt-readonly",
+    "sap-adt-router-bridge",
     "sap-docs",
     "clean-core",
     "library-match",
@@ -239,7 +284,16 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
   // teknik danışmandan çıkarılmış), buna karşılık kod denetimi, ekran
   // üretimi ve abapGit var.
   "technical-consultant": [
-    "sap-adt-readonly",
+    // Teknik danışman motorun TAMAMINI alır — 33 araç, push/activate/transport
+    // dahil (kullanıcı, 2026-09-23: *"artık sap sistemlerindeki readonly modu
+    // kaldırabiliriz dev sistemde geliştirme, deploy gibi işlemleri
+    // yapabiliriz"*). Kapı kalkmadı, YER DEĞİŞTİRDİ: artık rolde değil
+    // sistemde. `.conn_adt`'taki `ADT_SAP_TIER` DEV değilse motorun kendi
+    // `require_writable()` kapısı her yazmayı reddediyor (guardrails.py,
+    // `_WRITABLE_TIERS = {"DEV"}`), ve launcher tier'ı bilmediği sisteme QA
+    // yazıyor — yani "işaretlenmemiş sistem" yazılabilir değil.
+    "sap-adt",
+    "sap-adt-router-bridge",
     "sap-docs",
     "clean-core",
     "abap-code-checker",
@@ -273,16 +327,43 @@ export function isSkillProfile(value: unknown): value is SkillProfile {
 }
 
 /**
+ * Sistem yazılabilir mi? Tek cümlelik kural, iki yerde birden geçerli:
+ * **yalnızca DEV**.
+ *
+ * `null` (kullanıcı sistemi henüz işaretlememiş) yazılabilir SAYILMAZ. Motorun
+ * kendi varsayılanı bunun tersi — `guardrails.py` `.conn_adt`'ta `ADT_SAP_TIER`
+ * yoksa DEV varsayıyor, yani "bilinmiyor" sessizce "yaz" demek oluyor.
+ * Kullanıcı kararı (2026-09-23): bilinmeyen sisteme QA yazılıyor ve burada da
+ * aynı yön tutuluyor, iki taraf aynı şeyi söylesin diye.
+ */
+function tierAllowsWrite(tier: SystemTier | null): boolean {
+  return tier === "DEV";
+}
+
+/**
  * Bir rol + sistem önem derecesi için hangi skill'lerin kurulacağını hesaplar.
  * Kurulum yapmaz — ekranda önizleme göstermek için de bu kullanılır, böylece
  * kullanıcının gördüğü liste ile diske yazılan liste aynı koddan çıkar.
+ *
+ * ADT motoru burada TAKAS ediliyor, engellenmiyor: DEV'de `sap-adt` (33 araç),
+ * DEV değilse `sap-adt-readonly` (17 araç). Engelleseydik PRD'ye bağlanan bir
+ * teknik danışmanın elinde hiç ADT kalmazdı — yazamamak okuyamamak demek
+ * değil. İkisi aynı anda kurulmuyor: aynı klasörde iki ADT skill'i, ajana
+ * "hangi sunucu" diye cevabı olmayan bir soru sordurur.
  */
 export function planSkills(profile: SkillProfile, tier: SystemTier | null): SkillPlanEntry[] {
-  const names = PROFILE_SKILLS[profile] ?? PROFILE_SKILLS[DEFAULT_PROFILE];
+  const source = PROFILE_SKILLS[profile] ?? PROFILE_SKILLS[DEFAULT_PROFILE];
+  const engine = tierAllowsWrite(tier) ? "sap-adt" : "sap-adt-readonly";
+  const names: string[] = [];
+  for (const name of source) {
+    const mapped = name === "sap-adt" || name === "sap-adt-readonly" ? engine : name;
+    if (!names.includes(mapped)) names.push(mapped);
+  }
+
   return names.map((name) => {
     const def = SKILL_CATALOG[name];
     const writeCapable = Boolean(def?.writeCapable);
-    return { name, writeCapable, blockedByTier: writeCapable && tier === "PRD" };
+    return { name, writeCapable, blockedByTier: writeCapable && !tierAllowsWrite(tier) };
   });
 }
 
@@ -311,7 +392,9 @@ export function planSkills(profile: SkillProfile, tier: SystemTier | null): Skil
  * çözdüğü bilinmiyor ve bunu denemeye girmenin bir sebebi yok.
  */
 export function skillScope(name: string): "global" | "project" {
-  return SKILL_CATALOG[name]?.writeCapable ? "project" : "global";
+  const def = SKILL_CATALOG[name];
+  if (def?.scope) return def.scope;
+  return def?.writeCapable ? "project" : "global";
 }
 
 /**

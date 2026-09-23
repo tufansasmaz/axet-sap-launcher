@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
-import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials } from "../shared/types";
+import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials, SystemTier } from "../shared/types";
 import { discoverAdtEndpoint, verifyCredentials, verifyWithCookies, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
 import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
@@ -206,7 +206,9 @@ async function attemptRfcBridgeAutoStart(
   language: "tr" | "en",
   sapnwrfcHome?: string
 ): Promise<RfcBridgeOutcome> {
-  const scriptRel = ["sap-adt-readonly", "scripts", "adt_rfc_bridge.py"];
+  // Yukarı akış 2026-09'da bu script'i `sap-adt-readonly`'den `sap-adt-router-bridge`
+  // skill'ine taşıdı (ADT motoru üçe bölündü). Eski yol artık hiçbir kurulumda yok.
+  const scriptRel = ["sap-adt-router-bridge", "scripts", "adt_rfc_bridge.py"];
   const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
   const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "sap-consultant", "skills", ...scriptRel) : null;
   const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
@@ -281,23 +283,44 @@ interface ReadonlyServerOutcome {
 }
 
 // `.conn_adt` yazıldıktan (ve varsa RFC bridge ayağa kalktıktan) SONRA
-// çağrılır — router'lı VEYA router'sız HER başarılı bağlantıda `%sap-adt-
-// readonly`'nin arka planındaki gerçek Python sunucusunu (adt_readonly_
-// server.py, port 8787) launcher kendisi başlatır. Önceden kullanıcı/agent
-// her bağlanışta terminalde elle "ADT_CWD=$(pwd) py adt_readonly_server.py
-// --port 8787" çalıştırmak zorundaydı (bkz. sap-context.md "Yöntem 1")
+// çağrılır — router'lı VEYA router'sız HER başarılı bağlantıda ADT skill'inin
+// arka planındaki gerçek Python sunucusunu (port 8787) launcher kendisi
+// başlatır. Önceden kullanıcı/agent her bağlanışta terminalde elle
+// "ADT_CWD=$(pwd) py <sunucu>.py --http --port 8787" çalıştırmak zorundaydı
+// (bkz. sap-context.md "Yöntem 1")
 // — artık RFC bridge otomatik başlatmasıyla (attemptRfcBridgeAutoStart)
 // birebir aynı desenle, sohbet açıldığında sunucu zaten canlıdır.
 // Bu sunucu pyrfc/SAP NW RFC SDK gerektirmediği için gömülü RFC runtime'ı
 // KULLANILMIYOR — sistemdeki "py" çalıştırıcısı kullanılıyor (mevcut elle
 // kurulum dokümantasyonuyla aynı varsayım; requests/mcp/python-dotenv
 // kurulu olmalı, bkz. sap-toolkit/requirements.txt).
+// HANGİ SUNUCU — tier'a göre, role göre değil.
+//
+// Rol hangi SKILL'in kurulacağını belirliyor (bkz. planSkills); burada
+// belirlenen şey o skill'in konuştuğu SUNUCU. İkisinin de aynı `.conn_adt`'ı
+// okuyup aynı 127.0.0.1:8787 sözleşmesini (`GET /health`, `POST /tool/<ad>`)
+// sunması bilinçli: sohbet bağlamındaki komutlar tier'dan tier'a değişmiyor,
+// yalnızca /health'in saydığı araç sayısı değişiyor (33'e karşı 17).
+//
+// Yazan motor SADECE DEV'de açılıyor. Bu, skill kurulumundaki kapının ikizi —
+// biri kalkarsa diğeri hâlâ duruyor. Üçüncü kapı motorun kendi
+// `require_writable()`'ı, o da aynı `.conn_adt`'taki ADT_SAP_TIER'a bakıyor.
+function adtServerScriptFor(tier: SystemTier | null): { rel: string[]; label: string } {
+  return tier === "DEV"
+    ? { rel: ["sap-adt", "scripts", "adt_mcp_server.py"], label: "ADT sunucusu (yazma açık, 33 araç)" }
+    : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (17 araç)" };
+}
+
 async function attemptReadonlyServerAutoStart(
   skillInstall: SkillInstallResult,
   projectDir: string,
-  port: number
+  port: number,
+  tier: SystemTier | null
 ): Promise<ReadonlyServerOutcome> {
-  const scriptRel = ["sap-adt-readonly", "scripts", "adt_readonly_server.py"];
+  const { rel: scriptRel, label } = adtServerScriptFor(tier);
+  // Proje kopyasına artık hiçbir ADT script'i gitmiyor (`excludeDirs:
+  // ["scripts"]`), ama proje yolu önce deneniyor: kullanıcı elle bir kopya
+  // koymuşsa onunki kazansın.
   const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
   const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "sap-consultant", "skills", ...scriptRel) : null;
   const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
@@ -306,16 +329,22 @@ async function attemptReadonlyServerAutoStart(
     return {
       started: false,
       alreadyRunning: false,
-      detailNote: "adt_readonly_server.py bulunamadı (SAP toolkit kurulu değil gibi görünüyor) — ADT read-only sunucusu otomatik başlatılamadı, elle kuruluma bak."
+      detailNote: `${scriptRel[scriptRel.length - 1]} bulunamadı (SAP toolkit kurulu değil gibi görünüyor) — ${label} otomatik başlatılamadı, elle kuruluma bak.`
     };
   }
 
-  const startResult = await startReadonlyServer({ projectDir, scriptPath, pythonPath: "py", port });
+  const startResult = await startReadonlyServer({
+    projectDir,
+    scriptPath,
+    pythonPath: "py",
+    port,
+    expectWritable: tier === "DEV"
+  });
   if (!startResult.ok) {
     return {
       started: false,
       alreadyRunning: false,
-      detailNote: `ADT read-only sunucusu otomatik başlatılamadı: ${startResult.message}`
+      detailNote: `${label} otomatik başlatılamadı: ${startResult.message}`
     };
   }
 
@@ -323,8 +352,8 @@ async function attemptReadonlyServerAutoStart(
     started: true,
     alreadyRunning: startResult.alreadyRunning,
     detailNote: startResult.alreadyRunning
-      ? `ADT read-only sunucusu (http://127.0.0.1:${port}) zaten çalışıyordu.`
-      : `ADT read-only sunucusu otomatik başlatıldı (http://127.0.0.1:${port}) ✓.`
+      ? `${label} (http://127.0.0.1:${port}) zaten çalışıyordu.`
+      : `${label} otomatik başlatıldı (http://127.0.0.1:${port}) ✓.`
   };
 }
 
@@ -348,7 +377,8 @@ function buildConnAdt(
   credentials: SystemCredentials,
   verifiedUrl: string,
   rfcBridge?: RfcBridgeConfig | null,
-  samlCookiesFile?: string | null
+  samlCookiesFile?: string | null,
+  tier?: SystemTier | null
 ): string {
   const { service } = req;
   const clientLine = credentials.client.trim() ? `ADT_SAP_CLIENT=${credentials.client.trim()}\n` : "";
@@ -357,6 +387,38 @@ function buildConnAdt(
     : "# Bu sistemde client belirtilmedi (BTP/Cloud sistemlerde genelde gerekmez).\n# Bir SAP server bunu isterse: SU01/SICF'te veya sistem yöneticisinden öğrenip\n# aşağıya \"ADT_SAP_CLIENT=xxx\" satırı olarak ekle.\n";
 
   const effectiveUrl = rfcBridge ? `http://127.0.0.1:${rfcBridge.bridgePort}` : verifiedUrl;
+
+  // ADT_SAP_TIER artık YORUM DEĞİL, gerçek satır.
+  //
+  // Neden değişti (kullanıcı, 2026-09-23: *"artık sap sistemlerindeki readonly
+  // modu kaldırabiliriz dev sistemde geliştirme, deploy gibi işlemleri
+  // yapabiliriz"*): ADT motorunun kendi kapısı `ADT_SAP_TIER`'a bakıyor
+  // (guardrails.py, `_WRITABLE_TIERS = {"DEV"}`) ve satır YOKSA DEV varsayıyor.
+  // Yani yorum bırakmak "yazmayı kapalı tutmak" değil, tam tersine hiç karar
+  // vermeden AÇIK bırakmaktı; kimse fark etmiyordu çünkü o güne kadar zaten
+  // yazabilen bir motor kurulmuyordu. Motor geldiğine göre satırın yazılması
+  // şart.
+  //
+  // Tier bilinmiyorsa QA yazılıyor (kullanıcı kararı, aynı gün): kullanıcı
+  // sistemi DEV olarak işaretleyene kadar SAP'a yazılamaz. Ters yön —
+  // işaretlenmemiş sistemde yazmaya izin vermek — yanlış sisteme yazmanın
+  // maliyetini kullanıcının fark etmediği bir varsayıma bağlardı.
+  const effectiveTier: SystemTier = tier ?? "QA";
+  const tierBlock = `
+# ============================================================================
+# SİSTEM ÖNEM DERECESİ — ADT motorunun yazma kapısı buna bakıyor.
+# DEV: geliştirme/deploy serbest. QA/PRD: her yazma reddedilir, ayrıca
+# KVKK/PII tablolarında okuma da onaya bağlanır.
+${
+  tier
+    ? `# Bu değeri NTT Studio'da sistemin önem derecesinden aldık.`
+    : `# Bu sistem NTT Studio'da işaretlenmemiş; güvenli taraf seçildi (QA).
+# Gerçekten bir geliştirme sistemiyse sistemi DEV olarak işaretle — elle
+# DEV yazmak da çalışır ama bir sonraki bağlanışta bu dosya yeniden üretilir.`
+}
+# ============================================================================
+ADT_SAP_TIER=${effectiveTier}
+`;
 
   const rfcBlock = rfcBridge
     ? `
@@ -376,8 +438,9 @@ function buildConnAdt(
 # ADT_SAP_URL
 # yukarıda yerel bir RFC bridge'e (adt_rfc_bridge.py) işaret ediyor — o script
 # SADT_REST_RFC_ENDPOINT üzerinden gerçek SAP'a RFC ile bağlanıyor. Kurulum ve
-# kullanım: %sap-adt-readonly skill'inin SKILL.md'sindeki "Router-only
-# sistemler (RFC bridge)" bölümüne bak. Gerçek keşfedilen HTTPS URL (izin
+# kullanım: %sap-adt-router-bridge skill'inin SKILL.md'sine bak. Bu bridge bir
+# TAŞIMA katmanı — motorun altında duruyor, motorun kapılarını değiştirmiyor.
+# Gerçek keşfedilen HTTPS URL (izin
 # verilirse ileride doğrudan kullanılabilir): ${verifiedUrl}
 # ============================================================================
 ADT_RFC_MODE=true
@@ -417,10 +480,7 @@ ADT_SAP_URL=${effectiveUrl}
 ADT_SAP_USER=${credentials.username}
 ADT_SAP_PASSWORD=${credentials.password}
 ${clientComment}${clientLine}ADT_SAP_LANGUAGE=EN
-${rfcBlock}${samlBlock}
-# Sistem tier'ı gerekirse aç (QA/PRD KVKK/PII gate ekler):
-# ADT_SAP_TIER=DEV
-`;
+${rfcBlock}${samlBlock}${tierBlock}`;
 }
 
 function buildAdtToolScript(): string {
@@ -559,9 +619,17 @@ function buildContextMarkdown(
   rfcBridge?: RfcBridgeConfig | null,
   rfcOutcome?: RfcBridgeOutcome | null,
   readonlyOutcome?: ReadonlyServerOutcome | null,
-  saml?: SamlContextInfo | null
+  saml?: SamlContextInfo | null,
+  tier?: SystemTier | null
 ): string {
   const { customerPath, service } = req;
+  // Bu dosyayı ajan okuyor. Tier'a göre değişen tek şey bir bayrak değil,
+  // ajanın elindeki araçların LİSTESİ — o yüzden metin de değişmek zorunda.
+  // Tek yerden türetiliyor ki metnin adlandırdığı skill ile gerçekten kurulan
+  // (planSkills) ve gerçekten başlatılan (adtServerScriptFor) aynı olsun.
+  const writable = tier === "DEV";
+  const adtSkillName = writable ? "sap-adt" : "sap-adt-readonly";
+  const adtServerScript = adtServerScriptFor(tier ?? null).rel.join("/");
   const breadcrumb = customerPath.join(" / ");
   const router = service.routerString ? service.routerString : "Yok (doğrudan bağlantı)";
   const host = service.host ?? "bilinmiyor";
@@ -575,15 +643,26 @@ function buildContextMarkdown(
 
   Ölçülmüş örnek (2026-09-07): hata \`The 'ConvertTo-SecureString' command was found in the module 'Microsoft.PowerShell.Security', but the module could not be loaded\` idi. Sebep, makinede PowerShell 7'nin de kurulu olması: PS7'nin modül klasörleri \`PSModulePath\`'e giriyor, Windows PowerShell 5.1 oradaki tip dosyasını okuyor ve \`ObjectSecurity ... member is already present\` çakışmasıyla modülü açamıyor. TLS ile ilgisi yoktu; "401/TLS/DNS" yönüne sapmak tam bir zaman kaybı olurdu.
 
-  Bu yol zaten YEDEK. Önce \`%sap-adt-readonly\` skill'ini dene; ADT erişimi ondan geçiyor ve bu self-test'ten etkilenmiyor.`;
+  Bu yol zaten YEDEK. Önce \`%${adtSkillName}\` skill'ini dene; ADT erişimi ondan geçiyor ve bu self-test'ten etkilenmiyor.`;
 
   const skillsBlock = skillInstall.toolkitRoot
     ? `- SAP Toolkit kaynağı: \`${skillInstall.toolkitRoot}\`
 - Bu proje klasörüne kurulan skill sayısı: **${skillInstall.installed.length}** (\`.axet-code/skills/\` altında, \`%skill-adı\` ile çağrılır)
 - SAP'a **yazmayan** skiller ayrıca genel klasörde duruyor: \`${getGlobalAxetRoot()}\\skills\` — orada olanlar bu projede de geçerli, ikinci kez kurulmaları gerekmez. Bir skill'i burada göremiyorsan önce orada ara.
-- **\`%sap-adt-readonly\`** — bu skill gerçek bir Python tabanlı ADT read-only server (\`adt_readonly_server.py\`) başlatır ve SAP'a **gerçek** ADT REST çağrıları (adt_get_source, adt_search, adt_sql SELECT-only, adt_where_used, adt_syntax_check, adt_atc_check, adt_unit_test, adt_list_package, vb. 20 read tool) yapar. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
+${
+        writable
+          ? `- **\`%sap-adt\`** — bu sistem **DEV** olarak işaretli, yani ADT motoru **yazma açık** çalışıyor: 33 araç, \`adt_push\`/\`adt_activate\`/\`adt_create\`/\`adt_create_transport\` dahil. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
+  - **Her yazmadan önce transport'u kullanıcıya doğrulat** (\`adt_list_transports\` ile göster, hangisi olduğunu SOR). Paket adını asla tahmin etme, sor.
+  - Motorun kendi kapısı \`.conn_adt\`'taki \`ADT_SAP_TIER\`'a bakıyor. Bir yazma "GR_TIER" ile reddedilirse bu bir arıza değil: bağlı olduğun sistem DEV değil demektir, \`.conn_adt\`'ı düzeltmeye kalkma, kullanıcıya söyle.`
+          : `- **\`%sap-adt-readonly\`** — bu sistem **${tier ?? "işaretlenmemiş"}**, yani ADT motoru **salt okunur** yüzeyle çalışıyor: yazan 13 araç MCP kaydına hiç girmiyor. 17 araç var (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.); \`adt_sql\`, \`adt_dumps\` ve \`adt_unit_test\` ayrıca kendi izin değişkenleriyle kapalı. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir.
+  - Bir push/activate aracı ARAMA: yok. Kullanıcı bu sistemde geliştirme istiyorsa yapılacak şey sistemi NTT Studio'da DEV olarak işaretlemesi, senin bir yolunu bulman değil.`
+      }
 - \`%clean-core\`, \`%sap-docs\` — ABAP Cloud/Clean Core ve SAP dokümantasyon referans skilleri (SAP'a bağlanmaz, salt bilgi).
-- \`%abapgit-workflow\` ve kardeşleri — ABAP değişikliklerini teslim etmenin **tek meşru yolu** (abapGit ZIP döngüsü, geliştirici SAPGUI'de import eder). SAP'a asla doğrudan yazma — ADT read-only'dir.
+- \`%abapgit-workflow\` ve kardeşleri — abapGit ZIP döngüsü${
+        writable
+          ? " (geliştirici SAPGUI'de import eder). DEV'de doğrudan `adt_push` da mümkün; hangisinin istendiğini kullanıcıya sor — ekibin teslim akışı senin tercihin değil."
+          : ". Bu sistemde SAP'a doğrudan yazma yolu zaten yok."
+      }
 - \`%office-*\` skilleri (excel, pdf, pptx, docx, slides, manual) — Office doküman üretimi/analizi. Kurulan kopyadan çalıştırılabilirler: paylaşılan \`lib/\` ve \`scripts/\` klasörleri artık skill'lerin yanına kuruluyor, yani göreli \`lib/redact.py\` çağrısı kurulu yolda da çözülüyor. (\`--redact-pii\` bu yüzden sessizce devre dışı kalmıyor; TCKN/vergi no maskelemesi ona bağlı.)
 - Python bağımlılıkları kurulu değilse (\`ModuleNotFoundError\`), kullanıcıya \`pip install -r "${skillInstall.toolkitRoot}\\requirements.txt"\` çalıştırmasını söyle.`
     : `- SAP Toolkit bulunamadı — skill kurulumu atlandı. Sadece \`.conn_adt\` + \`adt-tool.ps1\` (PowerShell tabanlı, sınırlı) kullanılabilir.`;
@@ -615,7 +694,7 @@ function buildContextMarkdown(
 - Bu sistem manuel eklenmiş bir **cloud/BTP** sistemi — client kavramı genelde gerekmez (SAML SSO ve BTP service-key kimlik doğrulamasında client yoktur). Kullanıcı bağlanırken client alanını boş bıraktıysa \`.conn_adt\`'a otomatik olarak varsayılan \`${DEFAULT_CLOUD_CLIENT}\` yazıldı — bu ADT endpoint'lerinin sap-client parametresi bekleyip 400/404 dönmesini önlemek içindir, sistemin gerçek client'ı olduğu anlamına gelmez.
 - Bu sistem **SAML SSO** kullanıyorsa (401/403 yerine ADT XML değil **HTML login sayfası** dönmesi bunun kanıtıdır) giriş akışını **NTT Studio bağlanma sırasında kendisi çalıştırır** — kendi başına \`login_saml_sso.py\` çalıştırma, Playwright kurmaya kalkışma. Yukarıdaki "ADT Bağlantısı" bölümü bu sistemde SAML girişinin tamamlanıp tamamlanmadığını söylüyor; oradaki duruma güven.
 - Giriş tamamlandıysa çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında ve \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor. Çerezin süresi dolarsa (ADT çağrıları yine HTML dönmeye başlarsa) doğru adım kullanıcıdan **NTT Studio'da sisteme yeniden bağlanmasını** istemek.
-- Otomatik giriş tamamlanamadıysa ve yeniden bağlanmak da işe yaramadıysa, SON ÇARE elle akış: \`pip install playwright && playwright install chromium\` (~200MB), sonra \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\sap-consultant\\skills\\sap-adt-readonly\\scripts\\login_saml_sso.py" --cwd "."\` ve script'in bastığı \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle. Bunu ancak kullanıcı onaylarsa yap.
+- Otomatik giriş tamamlanamadıysa ve yeniden bağlanmak da işe yaramadıysa, SON ÇARE elle akış: \`pip install playwright && playwright install chromium\` (~200MB), sonra \`python "${skillInstall.toolkitRoot ?? "<toolkit>"}\\sap-consultant\\skills\\sap-adt\\scripts\\login_saml_sso.py" --cwd "."\` ve script'in bastığı \`ADT_SAML_COOKIES_FILE=...\` satırını bu klasördeki \`.conn_adt\`'a ekle. Bunu ancak kullanıcı onaylarsa yap.
 - Kullanıcıya "kimlik bilgisi yanlış" deme — SAML'li bir sistemde kullanıcı adı/şifre doğru da olsa yanlış da olsa yanıt aynıdır.`
     : "";
 
@@ -623,17 +702,17 @@ function buildContextMarkdown(
     if (!rfcBridge) return "";
     if (!rfcOutcome) return "- Otomatik başlatma durumu bilinmiyor (beklenmeyen akış).";
     if (rfcOutcome.verified) {
-      return `- **Bridge OTOMATİK başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı ✓** — launcher bu process'i arka planda ayakta tutuyor (uygulama kapanana kadar), \`%sap-adt-readonly\` doğrudan kullanılabilir, ekstra kurulum adımı YOK.
+      return `- **Bridge OTOMATİK başlatıldı ve kimlik bilgileri RFC üzerinden doğrulandı ✓** — launcher bu process'i arka planda ayakta tutuyor (uygulama kapanana kadar), \`%${adtSkillName}\` doğrudan kullanılabilir, ekstra kurulum adımı YOK.
 - Log: bu klasördeki \`rfc-bridge.log\`.`;
     }
     if (rfcOutcome.started) {
-      return `- **Bridge başlatıldı** (\`http://127.0.0.1:${rfcBridge.bridgePort}\`, süreç çalışıyor) ama kimlik doğrulama denemesi tamamlanamadı: ${rfcOutcome.verifyMessage || rfcOutcome.detailNote}. Bridge çalışır durumda kalıyor — \`%sap-adt-readonly\` ile tekrar dene; sorun sürerse bu klasördeki \`rfc-bridge.log\`'a ve elle \`adt_rfc_probe.py\` çalıştırmaya bak.`;
+      return `- **Bridge başlatıldı** (\`http://127.0.0.1:${rfcBridge.bridgePort}\`, süreç çalışıyor) ama kimlik doğrulama denemesi tamamlanamadı: ${rfcOutcome.verifyMessage || rfcOutcome.detailNote}. Bridge çalışır durumda kalıyor — \`%${adtSkillName}\` ile tekrar dene; sorun sürerse bu klasördeki \`rfc-bridge.log\`'a ve elle \`adt_rfc_probe.py\` çalıştırmaya bak.`;
     }
     return `- **Otomatik başlatma BAŞARISIZ**: ${rfcOutcome.detailNote}
 - RFC bridge için gereken Python + pyrfc + SAP NW RFC SDK NTT Studio'a **gömülü** olarak geliyor — normalde ekstra bir kurulum adımı gerekmez. Bu hata genelde şu ikisinden biri:
   1. Uygulama kurulumu bozuk/eksik (\`resources/rfc-runtime\` klasörü paketlenmemiş) — uygulamayı yeniden kur.
   2. Ayarlar'da elle bir "Python çalıştırıcısı" yolu girilmiş ve o Python'da pyrfc/SDK yok — Ayarlar'dan bu alanı boşaltıp uygulamanın kendi gömülü runtime'ını kullanmasına izin ver.
-- Sorun sürerse bu klasördeki \`rfc-bridge.log\`'a bak; elle tanılamak için \`%sap-adt-readonly\` skill'inin SKILL.md'sindeki "Router-only sistemler (RFC bridge)" bölümüne bak (\`adt_rfc_probe.py\` ile RFC_PING/arayüz doğrulaması).`;
+- Sorun sürerse bu klasördeki \`rfc-bridge.log\`'a bak; elle tanılamak için \`%sap-adt-router-bridge\` skill'inin SKILL.md'sine bak ("Prove the path before wiring anything on top" — \`adt_rfc_bridge.py selftest\`), ek olarak \`adt_rfc_probe.py\` ile RFC_PING/arayüz doğrulaması yapılabilir.`;
   })();
 
   const rfcNoteBlock = rfcBridge
@@ -645,10 +724,14 @@ ${
     ? `- Bu sistemin SAProuter'ı (${service.routerString ?? "?"}) native/raw HTTPS tünellemeyi **REDDETTİ** (izin tablosunda kayıt yok — router sürümüne göre -94/NIEROUT_PERM_DENIED veya -93 gibi farklı bir return_code ile bildirilebilir, ikisi de aynı anlama gelir) — SAP Logon'un DIAG bağlantısı çalışıyor çünkü o native SAP protokolü, ama ADT'nin düz HTTPS'i router tarafından engelleniyor. Bu bir kimlik/ağ hatası **değil**, router'ın izin tablosu (\`saprouttab\`) kısıtı.`
     : `- Bu sistemde SAProuter TANIMLI DEĞİL ama tüm ADT/HTTPS candidate portları (443/8443/44300/50000/4443 vb.) bu makineden ağ/firewall seviyesinde **tamamen erişilemez** (zaman aşımı) — SAP'ın native gateway portu (DIAG portu + 100) ise erişilebilir olduğu için doğrudan RFC bridge'e geçildi. Canlı kanıt: Eclipse ADT'nin "SAP GUI connection" tabanlı bağlantıları tam olarak bu yüzden HTTPS değil RFC/SADT_REST_RFC_ENDPOINT kullanıyor (netstat ile doğrulandı). Bu bir kimlik hatası **değil**, ağ/firewall kısıtı — kalıcı çözüm network/Basis ekibinin bu makineden ilgili HTTPS portuna erişim açması.`
 }
-- Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor — bu bridge \`SADT_REST_RFC_ENDPOINT\` üzerinden ${rfcBridge.saprouter ? "router'ın izin verdiği RFC kanalıyla" : "doğrudan (router'sız) RFC bağlantısıyla"} gerçek SAP'a bağlanıyor, \`%sap-adt-readonly\` tamamen **değişmeden** çalışıyor.
+- Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor — bu bridge \`SADT_REST_RFC_ENDPOINT\` üzerinden ${rfcBridge.saprouter ? "router'ın izin verdiği RFC kanalıyla" : "doğrudan (router'sız) RFC bağlantısıyla"} gerçek SAP'a bağlanıyor, \`%${adtSkillName}\` tamamen **değişmeden** çalışıyor.
 ${rfcAutoStartLines}
 - Gerçek keşfedilen (ama şu an erişilemeyen) HTTPS URL: **${verifiedUrl}** — ${rfcBridge.saprouter ? "Basis ekibi ileride \`saprouttab\`'a bu makinenin IP'sinden yukarıdaki URL'in host:port'una bir \`P\` (permit, native değil) satırı eklerse" : "network/Basis ekibi bu makinenin IP'sinden yukarıdaki URL'in host:port'una firewall/VPN'de erişim açarsa"}, \`.conn_adt\`'ta \`ADT_RFC_MODE=false\` yapıp \`ADT_SAP_URL\`'i bu adrese çevirebilirsin — doğrudan HTTPS daha basit ve daha güvenilir.
-- Aktivasyon gibi çok-adımlı stateful akışlar RFC bridge üzerinden güvenilir çalışmaz (zaten bu read-only server'da aktivasyon yok) — sadece okuma araçlarını (\`adt_get_source\`, \`adt_search\`, \`adt_sql\`, vb.) bekle.`
+- Aktivasyon gibi çok-adımlı stateful akışlar RFC bridge üzerinden güvenilir çalışmaz${
+  writable
+    ? " — bu sistemde yazma açık olsa bile (`adt_push`/`adt_activate` var) bir push'u bridge üzerinden denemeden önce kullanıcıya bunu SÖYLE: lock/PUT/activate zinciri yarıda kalabilir ve nesne inaktif kalır. Okuma araçları sorunsuz."
+    : " (zaten bu salt okunur sunucuda aktivasyon yok) — sadece okuma araçlarını (`adt_get_source`, `adt_search`, `adt_sql`, vb.) bekle."
+}`
     : "";
 
   const connectionStatusBlock = rfcBridge
@@ -662,7 +745,7 @@ ${notesBlock}`
         ? `## ADT Bağlantısı — SAML SSO ile DOĞRULANDI ✓
 - ADT URL: **${verifiedUrl}** — bu sistem Basic Auth kabul etmiyor (kimlik bilgilerine hiç bakmadan HTML giriş sayfası döndürüyor), kimlik doğrulama **SAML SSO** ile yapıldı.
 - Giriş akışını NTT Studio **kendisi çalıştırdı** (${saml.interactive ? "kullanıcıya bir giriş penceresi açıldı ve giriş yapıldı" : "kimlik sağlayıcı oturumu zaten açık olduğu için arka planda, pencere gösterilmeden tamamlandı"}) ve alınan oturum çerezi gerçek bir ADT çağrısıyla doğrulandı.
-- Çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında, \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor — \`%sap-adt-readonly\` bunu otomatik okur, **senin yapman gereken hiçbir kurulum adımı YOK**.
+- Çerezler bu klasördeki \`${SAML_COOKIES_FILENAME}\` dosyasında, \`.conn_adt\` içindeki \`ADT_SAML_COOKIES_FILE\` satırı oraya işaret ediyor — \`%${adtSkillName}\` bunu otomatik okur, **senin yapman gereken hiçbir kurulum adımı YOK**.
 - \`login_saml_sso.py\`'yi ÇALIŞTIRMA ve Playwright kurmaya kalkışma — o yol artık gereksiz, giriş zaten yapıldı.
 - Çerezin süresi dolarsa ADT çağrıları yeniden HTML giriş sayfası döndürmeye başlar; çözüm kullanıcıdan NTT Studio'da sisteme **yeniden bağlanmasını** istemek (gerekirse pencere yeniden açılır), elle script çalıştırmak değil.
 - adt-tool.ps1 bu sistemde yazılmadı (o script Basic Auth kullanıyor, burada işe yaramaz) — ADT erişimi için read-only server'ı kullan.
@@ -707,10 +790,14 @@ ${connectionStatusBlock}
 
 ## SAP İçeriğini Nasıl Araştırırsın (ÖNEMLİ — rastgele HTTP denemesi yapma)
 
-**Tercih sırası: önce \`%sap-adt-readonly\` skill'i, o çalışmazsa (Python/bağımlılık yoksa) \`adt-tool.ps1\` fallback.**
+**Tercih sırası: önce \`%${adtSkillName}\` skill'i, o çalışmazsa (Python/bağımlılık yoksa) \`adt-tool.ps1\` fallback.**
 
-### Yöntem 1 — \`%sap-adt-readonly\` (tercih edilen, tam özellikli)
-Python tabanlı gerçek ADT engine, 20 read-only tool sunar (adt_get_source, adt_search, adt_sql, adt_where_used, adt_syntax_check, adt_atc_check, adt_unit_test, adt_list_package, adt_revisions, adt_dumps, adt_list_transports, vb.). Detaylar için \`%sap-adt-readonly\` skill'ini oku (SKILL.md).
+### Yöntem 1 — \`%${adtSkillName}\` (tercih edilen, tam özellikli)
+Python tabanlı gerçek ADT engine${
+        writable
+          ? ", 33 tool (okuma + yazma: adt_push, adt_activate, adt_create*, adt_create_transport, …)"
+          : ", 17 read-only tool (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.)"
+      }. Detaylar için \`%${adtSkillName}\` skill'ini oku (SKILL.md).
 
 **Otomatik başlatma durumu (launcher tarafından, bu bağlanışta):**
 ${readonlyServerStatusLine}
@@ -718,12 +805,17 @@ ${readonlyServerStatusLine}
 \`\`\`bash
 # Sunucu ayakta mı? (yukarıdaki durum "BAŞARISIZ" değilse zaten ayakta olmalı)
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())" 2>/dev/null || echo "NOT RUNNING"
-# SADECE yukarıdaki durum "BAŞARISIZ" ise elle başlat (run_in_background: true):
-ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<sap-toolkit bulunamadı>"}/sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --port 8787
+# SADECE yukarıdaki durum "BAŞARISIZ" ise elle başlat (run_in_background: true).
+# --http ŞART: bayraksız çalıştırırsan stdio MCP modunda açılır ve /health olmaz.
+ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<sap-toolkit bulunamadı>"}/sap-consultant/skills/${adtServerScript}" --http --port 8787
 # Kullan:
 python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_list_package', json={'package':'ZPM003'}).json())"
 \`\`\`
-Bu server **iki kilitle** SAP'a yazmayı engeller (ADT_READONLY=true zorlanır + sadece 20 read tool maplenir) — write denemesi 404 döner, endişelenme.
+${
+        writable
+          ? `Bu sistem DEV: server yazma araçlarını da sunuyor. Yazmadan önce transport'u kullanıcıya doğrulat, paket adını sor. QA/PRD'ye bağlıyken aynı server hiç açılmaz — onun yerine 17 araçlık sarmalayıcı açılır.`
+          : `Bu server SAP'a yazmayı **yüzeyden** engelliyor: yazan 13 araç MCP kaydına hiç girmiyor, yani 404 bile dönmüyor — öyle bir araç yok. Bir yolunu arama.`
+      }
 
 ### Yöntem 2 — \`adt-tool.ps1\` (basit fallback, Python yoksa)
 Bu klasörde hazır bir PowerShell script var: **\`adt-tool.ps1\`**. Kimlik doğrulama, CSRF token, Accept header, sertifika bypass gibi tüm detayları o halleder — sen tekrar icat etmeye çalışma.
@@ -1036,7 +1128,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
 
     if (!samlVerified) {
       allNotes.push(
-        `SAML SSO otomatik girişi tamamlanamadı (${samlFailureDetail}). .conn_adt yine de yazılıyor — sisteme yeniden bağlanmayı dene; sürerse %sap-adt-readonly skill'indeki login_saml_sso.py ile elle giriş yapılabilir.`
+        `SAML SSO otomatik girişi tamamlanamadı (${samlFailureDetail}). .conn_adt yine de yazılıyor — sisteme yeniden bağlanmayı dene; sürerse %sap-adt skill'indeki login_saml_sso.py ile elle giriş yapılabilir.`
       );
     }
   } else if (!verify.ok) {
@@ -1049,9 +1141,14 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     };
   }
 
+  // Tier tek yerden okunuyor: hem `.conn_adt`'a yazılan satır hem de hangi ADT
+  // skill'inin kurulacağı (yazan motor mu, sarmalayıcı mı) aynı değerden
+  // çıksın diye. İkisi ayrı okunsaydı biri DEV diğeri QA diyebilirdi.
+  const systemTier: SystemTier | null = config.systemTiers?.[req.service.uuid] ?? null;
+
   const connAdtPath = path.join(projectDir, ".conn_adt");
   try {
-    writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge, samlCookiesFile), "utf-8");
+    writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge, samlCookiesFile, systemTier), "utf-8");
   } catch (err) {
     return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "connAdtWriteFailed", { error: (err as Error).message }) };
   }
@@ -1065,7 +1162,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // (modül danışmanı) kullanılır — varsayılan geniş olursa kimse daraltmaz.
   const skillInstall = installSkillsIntoProject(projectDir, {
     profile: config.skillProfile ?? undefined,
-    tier: config.systemTiers?.[req.service.uuid] ?? null
+    tier: systemTier
   });
 
   let toolTest = { ok: false, detail: "RFC bridge modunda adt-tool.ps1 self-test atlandı" };
@@ -1093,13 +1190,13 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     }
   }
 
-  // ADT read-only sunucusu (%sap-adt-readonly, port 8787) — RFC bridge
+  // ADT sunucusu (DEV'de %sap-adt, aksi hâlde %sap-adt-readonly; port 8787) — RFC bridge
   // kimlik doğrulaması kesin başarısız olduysa (credentialsInvalid, sohbet
   // hiç açılmayacak) başlatmaya çalışmanın anlamı yok; diğer tüm durumlarda
   // (router'lı/router'sız, doğrulanmış/doğrulanamamış) başlatılır.
   let readonlyOutcome: ReadonlyServerOutcome | null = null;
   if (!rfcBridge || !rfcOutcome?.credentialsInvalid) {
-    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT);
+    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT, systemTier);
     allNotes.push(readonlyOutcome.detailNote);
   }
 
@@ -1109,7 +1206,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     verified: samlVerified,
     interactive: samlLogin?.interactive ?? false,
     failureDetail: samlFailureDetail
-  });
+  }, systemTier);
   const finalContent = mergeWithExistingNotes(generated, contextFile);
 
   try {
