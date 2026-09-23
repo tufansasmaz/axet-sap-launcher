@@ -17,7 +17,25 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # sap-cr-scope — decide whether to build it, then size it honestly
 
-**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so.
+**Requires a live ADT connection.** Without one, stop and say so.
+
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda MCP diye bir şey yok;
+> aXet.code MCP konuşamıyor. `adt_*` araçları yerel bir HTTP sunucusundan çağrılır:
+> aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
+>
+> **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor:** teknik danışman + DEV'de
+> `sap-adt` (33 araç), diğer her durumda `sap-adt-readonly` (17 araç). Bu skill'in
+> kullandığı `adt_search`,
+> `adt_code_search`, `adt_get_source`, `adt_where_used`, `adt_revisions`,
+> `adt_atc_check`, `adt_badi_discovery` her iki yüzeyde de var. **`adt_sql` ve
+> `adt_unit_test` istisna:** read-only yüzeyde `ADT_RO_ALLOW_SQL` /
+> `ADT_RO_ALLOW_UNIT_TEST` ardında; kapalıysa `404 unknown_tool` döner ve o kalem
+> efor tablosuna "ölçülemedi" olarak girer, tahminle değil.
+> Bu skill yazma aracı kullanmıyor: çıktısı imzalanacak bir doküman, sisteme dokunuş
+> değil. Yazma yüzeyi açıkken de böyle kalır.
+>
+> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
+> yerde proje kökündeki **`.axet-code/scripts/`** oku — `case.py` oraya kuruluyor.
 
 The most valuable output of this skill is often **"do not build this."** A CR you talk the
 customer out of costs you an hour and saves them a maintained object forever. Rank that

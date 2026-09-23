@@ -18,7 +18,38 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # sap-incident — analyse a reported SAP problem, end to end
 
-**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so.
+**Requires a live ADT connection.** Without one, stop and say so.
+
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda MCP diye bir şey yok;
+> aXet.code MCP konuşamıyor. `adt_*` araçları yerel bir HTTP sunucusundan çağrılır:
+> aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
+>
+> **§8'deki sınırlar bu dağıtımda MEKANİK olarak uygulanıyor.** Sunucunun yüzeyi role
+> ve sistemin önem derecesine göre seçiliyor:
+>
+> - **Teknik danışman + DEV** → `sap-adt` (33 araç). §8'in DEV yolu — adı geçen bir
+>   insan diff'i onayladıktan sonra `adt_push` → `adt_activate` — gerçekten çalışır.
+>   Onaylayanın adını vakaya yaz; aktivasyon doğrulama değildir.
+> - **Modül danışmanı (her sistem) ve HERKES için QA/PRD ile işaretlenmemiş sistemler**
+>   → `sap-adt-readonly` (17 araç). `adt_push`/`adt_activate` `404 unknown_tool` döner.
+>   Teslim ettiğin şey diff'in kendisi olur; uygulamayı geliştirici yapar.
+>
+> Hangisinin ayakta olduğunu varsayma — `GET /health` araç listesini veriyor.
+> Araştırmanın çekirdeği her iki yüzeyde de var: `adt_search`, `adt_code_search`,
+> `adt_get_source`, `adt_where_used`, `adt_revisions`, `adt_syntax_check`,
+> `adt_atc_check`, `adt_inactive_objects`, `adt_badi_discovery`, `adt_list_transports`,
+> `adt_transport_check`.
+>
+> **Üç araç read-only yüzeyde AYRICA kapalı** ve her biri kendi ortam değişkenini
+> istiyor — `adt_dumps` (`ADT_RO_ALLOW_DUMPS`; dump metni alan değerleri taşır),
+> `adt_sql` (`ADT_RO_ALLOW_SQL`; iş ve kişisel veri) ve `adt_unit_test`
+> (`ADT_RO_ALLOW_UNIT_TEST`; hedefte ABAP koşturur). Bir vakada bunlar ilk elden
+> kanıt olduğu için kapalı olmaları sık: `404 unknown_tool` görürsen bunu bir arıza
+> gibi raporlama, danışmana hangi sistemde olduğunu söyleyip açılmasını iste ya da
+> o adımı bir **limit** olarak kaydet.
+>
+> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
+> yerde proje kökündeki **`.axet-code/scripts/`** oku — `case.py` oraya kuruluyor.
 
 You do the investigation. The consultant pastes and reads. Every question you ask a human
 is a question you failed to answer with a tool call.

@@ -18,9 +18,32 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # abap-code-checker — six gates, one scoreboard, no green by omission
 
-**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so —
-this skill reviews code **on a system**, not files in a folder. A review of a local file
-tells you nothing about what is actually active in the client.
+**Requires a live ADT connection.** This skill reviews code **on a system**, not files in a
+folder — a review of a local file tells you nothing about what is actually active in the
+client. Without a connection, stop and say so.
+
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda MCP diye bir şey yok;
+> aXet.code MCP konuşamıyor. `adt_*` araçları yerel bir HTTP sunucusundan çağrılır:
+> aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
+>
+> **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor.** NTT Studio ikisine birden bakıp
+> iki sunucudan birini başlatıyor: **teknik danışman + DEV**'de `sap-adt` (33 araç,
+> `adt_push`/`adt_activate` dahil); **diğer her durumda** — modül danışmanı rolünde her
+> sistemde, ve QA/PRD ile işaretlenmemiş sistemlerde herkes için — `sap-adt-readonly`
+> (17 araç; yazan her araç `404 unknown_tool` döner). Hangisinin ayakta olduğunu
+> varsayma — `GET /health` araç listesini veriyor.
+>
+> Bu skill'in ihtiyacı olan `adt_syntax_check`, `adt_atc_check`, `adt_get_source`,
+> `adt_where_used`, `adt_revisions` her iki yüzeyde de var. **`adt_unit_test` istisna:**
+> read-only yüzeyde `ADT_RO_ALLOW_UNIT_TEST=true` ardında, çünkü hedefte gerçekten ABAP
+> koşturuyor. Kapalıysa o satır panoda ⬜ kalır — asla geçti sayılmaz.
+>
+> **Yazma yüzeyi açık olsa bile bu skill yazmaz:** işi bulguyu ve önerilen düzeltmeyi
+> raporlamak, uygulamak değil. Uygulama kararı geliştiricinin.
+>
+> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Eklenti kökü diye bir şey ve o ortam değişkeni bu
+> dağıtımda tanımlı değil. Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her yerde proje
+> kökündeki **`.axet-code/scripts/`** oku — `quality.py` oraya kuruluyor.
 
 You run the checks. The developer reads the board and decides. Every gate you skip shows
 up as ⬜, never as a pass.

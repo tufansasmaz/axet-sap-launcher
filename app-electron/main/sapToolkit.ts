@@ -85,6 +85,17 @@ export interface SkillInstallResult {
   /** PRD kapısı yüzünden bilerek kurulmayanlar. */
   blockedByTier: string[];
   /**
+   * Bu rol + bu sistem için YAZAN ADT motoru mu açılacak (`sap-adt`, 33 araç),
+   * yoksa sarmalayıcı mı (`sap-adt-readonly`, 17 araç)?
+   *
+   * Sunucuyu launcher başlatıyor ve gerçek yüzey O. Skill listesi ajana neyin
+   * var olduğunu ANLATIYOR, ama 8787'de ne dinlediğini belirlemiyor — ikisi
+   * ayrı hesaplansaydı bir modül danışmanı DEV'e bağlandığında listesinde
+   * `sap-adt-readonly` yazarken portta `adt_push` servis edilirdi. O yüzden
+   * karar burada, planın kendisinden çıkıyor ve launcher onu okuyor.
+   */
+  adtWriteSurface: boolean;
+  /**
    * Global kurulum sağlam mı? `false` ise SAP'a yazmayan yetenekler de bu
    * projeye kuruldu (yedek davranış, bkz. `installSkillsIntoProject`).
    */
@@ -114,6 +125,7 @@ export function installSkillsIntoProject(
     skipped: [],
     removed: [],
     blockedByTier: [],
+    adtWriteSurface: false,
     globalReady: false,
     toolkitRoot,
     profile,
@@ -134,9 +146,11 @@ export function installSkillsIntoProject(
   // kurulum yüzünden kullanıcıyı yeteneksiz bırakmak, iki yerde birden
   // durmasından çok daha kötü bir sonuç.
   const globalReady = isGlobalInstallHealthy(profile);
-  const plan = planSkills(profile, tier).filter(
-    (entry) => !globalReady || skillScope(entry.name) === "project"
-  );
+  const fullPlan = planSkills(profile, tier);
+  // Süzgeçten ÖNCEKİ plandan okunuyor: yüzey kararı rol + tier'ın kararı,
+  // global kurulumun sağlığının ona söyleyecek bir sözü yok.
+  result.adtWriteSurface = fullPlan.some((entry) => entry.name === "sap-adt");
+  const plan = fullPlan.filter((entry) => !globalReady || skillScope(entry.name) === "project");
   result.globalReady = globalReady;
 
   // ÖNCE TEMİZLİK, sonra kurulum. Rol değişince eski rolün yetenekleri diskte

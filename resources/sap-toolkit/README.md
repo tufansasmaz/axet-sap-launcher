@@ -1,13 +1,14 @@
 # SAP Toolkit for aXet.code
 
-**Read-only SAP inspection + abapGit delivery + Office document automation — packaged as aXet.code skills.**
+**SAP inspection (and, on DEV only, development) + abapGit delivery + Office document
+automation — packaged as aXet.code skills.**
 
-This repo adapts three NTT plugins into **skills** that work in **aXet.code** (NTT DATA's
+This repo adapts the NTT plugins into **skills** that work in **aXet.code** (NTT DATA's
 Crush-based CLI coding assistant). aXet.code has **no plugin/marketplace system** and
 **cannot use MCP**, so:
 
-- SAP ADT is reached over a **localhost HTTP server** (the MCP workaround), and here it
-  is deliberately **READ-ONLY** — new users can inspect SAP but **cannot change it**.
+- SAP ADT is reached over a **localhost HTTP server** (the MCP workaround). **Two servers
+  ship here and exactly one runs at a time** — see below.
 - **abapGit** delivery and **Office** document skills are plain Python scripts and run
   as-is.
 
@@ -17,33 +18,53 @@ Crush-based CLI coding assistant). aXet.code has **no plugin/marketplace system*
 
 ---
 
-## ⚠️ AGENT: READ THIS FIRST — SAP is READ-ONLY, over HTTP
+## ⚠️ AGENT: READ THIS FIRST — SAP over HTTP, and which surface you have
 
 > **If the user wants to work with SAP:**
 >
-> 1. **NEVER run the Python scripts directly.** Start the **read-only HTTP server** and
->    call it over `http://127.0.0.1:8787`. A direct script call spawns a fresh SAP
->    session per call and bypasses the read-only gate.
-> 2. **You cannot change SAP.** Create / edit / push / activate / delete / transport
->    writes are disabled two ways: the server forces `ADT_READONLY=true`, **and** it only
->    exposes 20 read tools (write tools return `404 unknown_tool`).
-> 3. If the user asks to *deliver* ABAP changes, use the **abapgit-workflow** skill
->    (manual abapGit ZIP cycle, developer-in-the-loop) — not this SAP server.
+> 1. **NEVER run the Python scripts directly.** Talk to the HTTP server on
+>    `http://127.0.0.1:8787`. A direct script call spawns a fresh SAP session per call and
+>    bypasses every gate below.
+> 2. **Do not assume you can write, and do not assume you cannot.** Two servers exist:
+>
+>    | Server | Tools | Runs when |
+>    | --- | --- | --- |
+>    | `sap-adt/scripts/adt_mcp_server.py` | 33, incl. `adt_push` / `adt_activate` / `adt_create*` | **teknik danışman rolü + `ADT_SAP_TIER=DEV`** |
+>    | `sap-adt-readonly/scripts/adt_readonly_server.py` | 17 read tools; writes return `404 unknown_tool` | every other case — modül danışmanı in any system, and QA/PRD **or an unmarked system** for anyone |
+>
+>    **`GET /health` names the surface and lists the tools.** Ask it; never guess.
+> 3. **Even with the write surface up, the engine has its own gate.** `guardrails.py`
+>    reads `ADT_SAP_TIER` from `.conn_adt` and refuses every write outside `DEV` with
+>    `GR_TIER`. An unmarked system counts as non-DEV.
+> 4. **Never write to SAP without a named human's approval and a transport they
+>    confirmed.** That rule is older than the gates and survives them.
+> 5. If the user asks to deliver changes to **QA or production**, that is a transport, not
+>    an `adt_push` — or the **abapgit-workflow** skill (manual abapGit ZIP cycle,
+>    developer-in-the-loop).
 
-**Quick check + start (read-only server, background):**
+**Quick check + start (background):**
 ```bash
-# Is it up?
+# Is it up, and which surface?
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())" 2>/dev/null || echo "NOT RUNNING"
 
 # Start it (run_in_background: true). Point ADT_CWD at the folder holding .conn_adt.
 # Windows uses 'py'; macOS/Linux uses 'python3'.
-ADT_CWD=$(pwd) py "<sap-toolkit>/sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --port 8787
+# Read-only surface — NOTE: --http is mandatory, without it the script speaks MCP stdio.
+ADT_CWD=$(pwd) py "<sap-toolkit>/sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py" --http --port 8787
+
+# Write surface (DEV only, technical consultant only)
+ADT_CWD=$(pwd) py "<sap-toolkit>/sap-consultant/skills/sap-adt/scripts/adt_mcp_server.py" --http --port 8787
 
 # Verify SAP auth
 python -c "import requests; r=requests.post('http://127.0.0.1:8787/tool/adt_logon', json={}); print(r.json())"
 ```
 
 Replace `<sap-toolkit>` with wherever this repo was cloned.
+
+> **In NTT Studio you never run these by hand.** The launcher picks the server from the
+> role + tier and starts it. The commands above are for standalone use of this toolkit.
+> The wrapper **imports the engine from its sibling folder** (`../sap-adt/scripts`) and
+> refuses to start if it is missing — keep the two folders side by side.
 
 ---
 
@@ -67,14 +88,20 @@ Replace `<sap-toolkit>` with wherever this repo was cloned.
 
 ## What's inside
 
-| Source plugin | Skills provided here | SAP access | Needs the HTTP server? |
+| Source plugin | What it brings | SAP access | Needs the HTTP server? |
 |---|---|---|---|
-| **sap-consultant** (adapted → read-only) | `sap-adt-readonly`, `clean-core`, `sap-docs`, `abap-code-checker`, `library-match`, `screen-mockup`, `screen-gen`*, `spec-reviewer`, `meeting-notes-organizer`, `ts-generator`, `fs-generator` | **read-only** | ✅ `sap-adt-readonly`, `abap-code-checker` |
-| **abapgit-bridge** (as-is) | `abapgit-workflow`, `abapgit-export-zip`, `abapgit-import-status-zip`, `abapgit-howto` | none (developer carries ZIPs) | ❌ |
-| **office-tools** (as-is) | `office-excel-read/write/transform/report/compare/images`, `office-slides`, `office-pdf`, `office-pptx`, `office-docx`, `office-manual` | n/a | ❌ |
+| **sap-consultant** | the ADT engine + its wrapper, plus the analysis, spec, incident and CR skills | read, and write on DEV | ✅ for anything `adt_*` |
+| **abapgit-bridge** | `abapgit-workflow`, `abapgit-export-zip`, `abapgit-import-status-zip`, `abapgit-howto` | none (developer carries ZIPs) | ❌ |
+| **sapgui-scriptter** | SAP GUI screenshots and the abapGit deploy loop | drives the real GUI — see its own rules | ❌ |
+| **office-tools** | `office-excel-*`, `office-slides`, `office-pdf`, `office-pptx`, `office-docx`, `office-manual` | n/a | ❌ |
+| **axet-flows**, **celonis**, **sap-datasphere**, **sap-ecosystem**, **ntt-s4-migrator**, **ntt-atc-batch-remediator** | their own skills, as-is | varies | ❌ |
 
-\* **screen-gen** is included for **reference/inspection only** — generating a screen is a
-write, so it is disabled in this read-only toolkit.
+**The authoritative list is not this table.** Which skills exist is
+`toolkit-version.json` (content-hashed, one entry per skill); **which skills a given
+project gets** is `SKILL_CATALOG` + `PROFILE_SKILLS` in the launcher's
+`app-electron/main/skillProfiles.ts`, and that answer depends on the consultant's role.
+A module consultant never receives the skills that write to SAP — not `sap-adt`, not
+`screen-gen`, not `adobe-gen`, not `sap-object-transfer`, not `abapgit-deploy`.
 
 > **Where skills are installed.** aXet.code scans the **project-level**
 > `.axet-code/skills/` directory (relative to the folder you launch it in) — **not** a
@@ -86,8 +113,9 @@ write, so it is disabled in this read-only toolkit.
 Repo layout (each `skills/<name>` folder is installed into a project's `.axet-code/skills/`):
 ```
 sap-toolkit/
-├── sap-consultant/skills/{sap-adt-readonly, clean-core, sap-docs, screen-gen, screen-mockup, abap-code-checker, library-match, spec-reviewer, meeting-notes-organizer, fs-generator, ts-generator}/
-│   ├── sap-adt-readonly/scripts/adt_readonly_server.py   # the read-only HTTP gate
+├── sap-consultant/skills/{sap-adt, sap-adt-readonly, sap-adt-router-bridge, clean-core, sap-docs, abap-code-checker, abap-code-review, sap-incident, sap-cr-scope, sap-cr-handover, fs-generator, ts-generator, ...}/
+│   ├── sap-adt/scripts/adt_mcp_server.py                 # the engine, 33 tools (DEV only)
+│   ├── sap-adt-readonly/scripts/adt_readonly_server.py   # the wrapper, 17 tools — imports the engine next door
 │   ├── fs-generator/scripts/{extract_pdf.js, render_pdf.py}  # requirements → FS → branded PDF
 │   └── ts-generator/scripts/{extract_pdf.js, merge_and_pdf.py}  # FS→TS: PDF in, branded PDF out
 ├── abapgit-bridge/skills/{abapgit-workflow, abapgit-export-zip, ...}/
@@ -244,24 +272,49 @@ links, you can drop `--copy` for auto-updating links; see the note in step 3 abo
 ## The read-only SAP server
 
 aXet.code can't use MCP, so SAP ADT is exposed over a small localhost HTTP server that
-holds **one persistent SAP session**. This repo ships the **read-only** launcher:
-`sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py`.
+holds **one persistent SAP session**. This repo ships **two entrypoints over one engine**
+— there is no second copy of the engine, because a fork is how a read-only server quietly
+becomes a different server with the same name.
 
-**Two independent locks make it impossible to change SAP:**
+| Entrypoint | Surface | Default port |
+|---|---|---|
+| `sap-consultant/skills/sap-adt/scripts/adt_mcp_server.py` | the engine's full 33 tools | 8787 |
+| `sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py` | 17, and never a write | 8790 |
+
+The launcher starts whichever one the role and the tier call for, always on **8787**.
+
+### The read-only wrapper's two locks
 
 | Lock | Mechanism |
 |---|---|
-| **Belt** | The launcher forces `ADT_READONLY=true` into the environment before the engine loads, so every write path (`push`/`create`/`activate`/`delete`/…) refuses with `GR_READONLY`. |
-| **Suspenders** | Only 20 read tools are registered on the HTTP surface. Write tools are never mapped, so `POST /tool/adt_push` → `404 unknown_tool`. |
+| **Belt** | It forces `ADT_READONLY=true` into the environment before the engine loads, so every write path (`push`/`create`/`activate`/`delete`/…) refuses with `GR_READONLY`. |
+| **Suspenders** | The 13 tools that can write are **removed from the registry before the transport starts**, so they are neither listed nor callable: `POST /tool/adt_push` → `404 unknown_tool`. Unsetting `ADT_READONLY` afterwards does not bring them back — they do not exist in that process. |
+
+Belt alone would not be enough: with the write tools still advertised, the model plans a
+push, spends the turn on it, and only then learns it was refused.
+
+**Surface: 17 tools on install, 20 with all three gates open.** Three read tools are
+gated behind their own variable because "read-only" reads as "harmless" and these are not:
+
+| Tool | Variable | Why gated |
+|---|---|---|
+| `adt_unit_test` | `ADT_RO_ALLOW_UNIT_TEST` | executes ABAP on the target; a badly isolated test can commit |
+| `adt_sql` | `ADT_RO_ALLOW_SQL` | business and personal data, any table the SAP user can see |
+| `adt_dumps` | `ADT_RO_ALLOW_DUMPS` | short-dump text, which carries field values |
+
+**Drift pin:** every tool the engine registers must be classified in the wrapper. A tool
+added upstream and left unclassified makes the read-only server **refuse to start**,
+naming it — so a new write tool can never silently inherit "exposed".
+
+### The third gate, on both surfaces
+
+`guardrails.py` reads `ADT_SAP_TIER` from `.conn_adt` and refuses every write outside
+`DEV` with `GR_TIER`. **An unmarked system is treated as non-DEV.** This gate does not
+know which role is running, which is why the role decision is taken when the server is
+chosen, not here.
 
 **Endpoints:** `GET /health` · `GET /tools` · `POST /tool/<name>` (JSON kwargs body).
 **Optional auth:** set `ABAP_HTTP_TOKEN` to require `Authorization: Bearer <token>`.
-
-**Read tools (20):** `adt_logon`, `adt_doctor`, `adt_get_source`, `adt_search`,
-`adt_code_search`, `adt_sql` (SELECT-only), `adt_list_package`, `adt_where_used`,
-`adt_revisions`, `adt_syntax_check`, `adt_atc_check`, `adt_unit_test`,
-`adt_check_scatter`, `adt_inactive_objects`, `adt_badi_discovery`, `adt_dumps`,
-`adt_list_transports`, `adt_transport_status`, `adt_transport_check`, `ping`.
 
 Full usage and a per-tool table live in the `sap-adt-readonly` skill's `SKILL.md`.
 
@@ -297,10 +350,12 @@ mode** auto-approves every tool call. It's the interactive `-y` / `--yolo` flag 
 axet-code -y        # or: axet-code --yolo
 ```
 
-> **Read-only SAP is unaffected either way.** YOLO removes the *approval prompt*, not the
-> SAP guardrails — the read-only server still forces `ADT_READONLY=true` and refuses write
-> tools. YOLO only auto-approves local bash/file actions, so use it **only in trusted,
-> git-tracked workspaces**.
+> **The SAP gates are unaffected either way.** YOLO removes the *approval prompt for
+> local bash/file actions*; it does not touch which server is running, which tools that
+> server registers, or `guardrails.py`'s tier check. What it does remove is the pause
+> before a write the write surface allows — so on a DEV system with the write surface up,
+> YOLO means `adt_push` runs the moment you decide to call it. Use it **only in trusted,
+> git-tracked workspaces**, and keep confirming the transport with a human.
 
 > ⚠️ **Agents:** the `-y` flag is **rejected by subcommands** — `axet-code run "..." -y`
 > fails with `Unknown shorthand flag: 'y'`. YOLO is interactive-TUI only; never inject
@@ -364,13 +419,14 @@ function axet-code {
 
 Invoke with `%skill-name`.
 
-### SAP (read-only)
+### SAP
 | Skill | What it does |
 |---|---|
-| `%sap-adt-readonly` | Read SAP via ADT: source, SELECT-only SQL, search, ATC, syntax check, where-used, revisions, packages, transports, dumps. Starts the read-only HTTP server. |
+| `%sap-adt` | The full ADT surface, 33 tools. **Installed only for the technical-consultant role, and only serves writes on a `DEV` system.** |
+| `%sap-adt-readonly` | The same engine behind a surface that cannot write: source, SELECT-only SQL, search, ATC, syntax check, where-used, revisions, packages, transports, dumps. |
 | `%clean-core` | Clean Core / ABAP Cloud compatibility reference (knowledge, no SAP writes). |
 | `%sap-docs` | SAP documentation search & reference (knowledge). |
-| `%screen-gen` | Classic Dynpro screen reference — **inspection only** (generation disabled here). |
+| `%screen-gen` | Classic Dynpro screen generation. **Technical consultant only** — it writes. |
 | `%fs-generator` | Author a SAP Functional Spec (FS) from analysis/requirements docs + your FS template: strictly grounded (no hallucination), Clean-Core-aware, asks clarifying questions when input is thin, tags gaps/suggestions, renders a branded PDF via `office-pdf`. Companion to `ts-generator`. Prompt by Dersim Tas. |
 | `%ts-generator` | Convert a SAP Functional Spec (FS) into a Clean-Core Technical Spec (TS): extract the FS PDF, build a Gap List, apply the Clean Core decision tree, ask clarifying questions, emit a 5-part TS, and render a branded PDF via `office-pdf`. |
 
@@ -418,11 +474,12 @@ after a `git pull` that touched the `sap-consultant/` engine.
 ls .axet-code/skills/                    # macOS/Linux
 cmd /c dir ".axet-code\skills"           # Windows
 
-# read-only SAP server serves 20 read tools and is flagged read-only:
+# which surface is on 8787? read `server` and `tool_count`, never assume:
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())"
-# -> {"ok": true, "server": "abaper-sap-adt-readonly-http", "readonly": true, "tool_count": 20, ...}
+# read-only  -> {"ok": true, "server": "abaper-sap-adt-readonly-http", "readonly": true, "tool_count": 17, ...}
+# write      -> the full engine, 33 tools
 
-# a write tool is refused:
+# on the read-only surface a write tool is refused:
 python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_push', json={}).status_code)"
 # -> 404
 ```
@@ -436,7 +493,8 @@ python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_
 | `NOT RUNNING` | Start `adt_readonly_server.py` with `run_in_background: true`. |
 | `Connection refused` | Server not started, or wrong port (default 8787). |
 | `401 Unauthorized` from a tool | Check `.conn_adt` credentials; VPN; run `adt_doctor`. |
-| `404 unknown_tool` on a write | Expected — this toolkit is read-only. Use `%abapgit-workflow` to deliver changes. |
+| `404 unknown_tool` on a write | The **read-only** surface is up — expected for a module consultant, and for anyone on QA/PRD or an unmarked system. Not a fault, and not something to work around: deliver the diff, or use `%abapgit-workflow`. |
+| `GR_TIER` refusal on the write surface | The server is the full engine but `.conn_adt` does not say `ADT_SAP_TIER=DEV`. Ask the user what the system is; never edit the tier to get past a refusal. |
 | `ModuleNotFoundError: mcp` (server) | `pip install -r requirements.txt` (the server imports the vendored ADT engine → FastMCP). |
 | `--redact-pii ... lib/redact.py not importable` | Run the office script by its **real** repo path in the clone, not the installed `.axet-code/skills` copy/link, so `../../../lib` resolves. |
 | Skills not discovered | (1) They must be in the **project-level** `.axet-code/skills/` (not user-global). (2) aXet.code scans at **startup** — restart it in the project. (3) If still missing, the scanner isn't following links — re-run the linker with `--copy` / `-Copy` to install real folders. Confirm each entry has a `SKILL.md`. |
@@ -451,13 +509,19 @@ python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_
 SAP's API Policy v1.1 (May 2026) treats ADT APIs as SAP-internal and not permitted for
 agentic AI workflows on business data. This toolkit is scoped accordingly:
 
-- **SAP access here is READ-ONLY** and intended for **personal sandbox / R&D** systems.
+- **Writing is confined to DEV**, and to the technical-consultant role, by three
+  independent gates (which skills are installed, which server is started, and the
+  engine's own tier check). Everywhere else the surface cannot write at all.
+- **QA and production are reached by transport, never by `adt_push`.** A direct write
+  desynchronises the system from the request that is supposed to describe it.
 - To **deliver** ABAP changes to any customer/production system, use the compliant
   **abapgit-workflow** path (manual abapGit ZIP cycle, each step executed by the
   developer) — never the SAP server.
+- Every write needs a **named human's approval and a transport they confirmed**. That
+  rule is not one of the three gates; it is the one the gates cannot enforce for you.
 
-By using the SAP read-only server you accept responsibility for compliance with your own
-SAP agreement.
+By using this toolkit you accept responsibility for compliance with your own SAP
+agreement.
 
 ---
 

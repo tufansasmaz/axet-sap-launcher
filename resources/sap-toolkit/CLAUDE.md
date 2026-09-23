@@ -16,41 +16,78 @@ The full user/agent-facing documentation lives in `README.md`; read it for insta
 SAP API policy, and per-skill descriptions. This file covers what isn't obvious from a
 single file.
 
-## Non-negotiable: SAP is READ-ONLY
+## Non-negotiable: writing to SAP is confined to DEV, and to one role
 
-The `sap-consultant` plugin was adapted specifically to strip write access. When touching anything
-under `sap-consultant/skills/sap-adt-readonly/`, preserve the two independent locks in
-`scripts/adt_readonly_server.py`:
+Until 2026-09-23 this toolkit could not write to SAP at all. That changed by user
+decision (*"artık sap sistemlerindeki readonly modu kaldırabiliriz dev sistemde
+geliştirme, deploy gibi işlemleri yapabiliriz"*) — but the gate did not disappear, it
+**moved**, and there are now three of them. They are deliberately redundant; do not
+collapse them into one.
 
-- **Belt** — `os.environ["ADT_READONLY"] = "true"` is set *before* `import adt_mcp_server`,
-  so every write path in the vendored engine refuses at source (`GR_READONLY`).
-- **Suspenders** — only the 20 names in the `READONLY_TOOLS` frozenset are exposed over
-  HTTP. Write tools (`adt_push`, `adt_create`, `adt_activate`, `adt_delete_object`,
-  transport mutations, `adt_generate_screen`) are never registered → `POST` returns
-  `404 unknown_tool`.
+| # | Gate | Where | What it sees |
+|---|---|---|---|
+| 1 | which skills are installed | `planSkills()` in the launcher's `skillProfiles.ts` | role + tier |
+| 2 | which server is started on 8787 | `adtServerScriptFor()` in `launcher.ts`, fed from `SkillInstallResult.adtWriteSurface` | role + tier |
+| 3 | the engine's own `require_writable()` | `sap-adt/scripts/guardrails.py`, `_WRITABLE_TIERS = {"DEV"}` | tier only |
 
-The engine under `scripts/` (`adt_mcp_server.py`, `sap_client.py`, `sap_adt_lib.py`,
-`guardrails.py`, etc.) is **vendored verbatim** from the upstream `sap-consultant` plugin. Do not
-edit it to add features here — the read-only server wraps it unchanged. `screen-gen` is
-shipped for reference only; generation is a write and is disabled.
+Gate 3 **cannot see the role**, which is why gate 2 has to exist: skills are documentation
+the agent reads, but the HTTP port is the surface it actually calls. If those two were
+computed separately they could disagree, and a module consultant on a DEV system would
+read `sap-adt-readonly` in its skill list while `adt_push` was being served on 8787.
+
+Two rules protect the role gate specifically:
+
+- **`planSkills` swaps the engine name DOWNWARDS ONLY.** A role whose list says
+  `sap-adt-readonly` keeps it on a DEV system. Role promotion comes from the role's own
+  list, never from the tier — a two-way map would make "DEV" mean "promote everyone".
+- **A module consultant never receives a write-capable skill**, and that is enforced by
+  the profile lists, not by a runtime check: `sap-adt`, `screen-gen`, `adobe-gen`,
+  `sap-object-transfer` and every `abapgit-*` writer appear only under
+  `technical-consultant` (user, 2026-09-23: *"modül danışmanları asla geliştirme
+  yapamasınlar"*).
+
+When touching `sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py`,
+preserve its two internal locks:
+
+- **Belt** — `ADT_READONLY=true` is set *before* the engine is imported, so every write
+  path refuses at source (`GR_READONLY`).
+- **Suspenders** — the 13 write-capable tools are removed from the registry before the
+  transport starts, so they are neither listed nor callable (`404 unknown_tool`).
+  Unsetting `ADT_READONLY` afterwards does not bring them back.
+
+Its **drift pin** is load-bearing: every tool the engine registers must be classified
+ALLOW / GATED / DENY, and an unclassified one makes the server refuse to start, naming it.
+A new upstream write tool therefore cannot silently inherit "exposed".
+
+The engine under `sap-adt/scripts/` is **vendored verbatim** from upstream. Do not edit it
+to add features here — both servers wrap it unchanged, and the read-only one imports it
+from its sibling folder rather than keeping a second copy.
 
 ## How SAP is reached (the MCP workaround)
 
 aXet.code can't speak MCP stdio, so SAP ADT runs behind a localhost HTTP server holding
-**one persistent SAP session**:
+**one persistent SAP session**. Two entrypoints, one engine, exactly one running:
 
 ```bash
-# Start (background). ADT_CWD points at the folder holding .conn_adt.
-ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py --port 8787
+# Read-only surface — 17 tools. NOTE: --http is mandatory; without it this speaks MCP stdio.
+ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py --http --port 8787
 
-# Health / auth
+# Write surface — the engine's 33 tools. Technical consultant + DEV only.
+ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt/scripts/adt_mcp_server.py --http --port 8787
+
+# Health / auth — /health names the surface and lists the tools. Ask it; never guess.
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())"
 python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_logon', json={}).json())"
 ```
 
 Endpoints: `GET /health`, `GET /tools`, `POST /tool/<name>` (JSON kwargs body). Optional
 bearer auth via `ABAP_HTTP_TOKEN`. **Never call the Python scripts directly** for SAP work
-— a fresh process per call spawns a new SAP session and bypasses the read-only gate.
+— a fresh process per call spawns a new SAP session and bypasses every gate above.
+
+Three read tools are additionally gated on the read-only surface, each behind its own
+variable, because "read-only" reads as "harmless" and these are not: `adt_sql`
+(`ADT_RO_ALLOW_SQL`), `adt_unit_test` (`ADT_RO_ALLOW_UNIT_TEST`), `adt_dumps`
+(`ADT_RO_ALLOW_DUMPS`).
 
 Credentials come from a `.conn_adt` file (see `.conn_adt.example`; gitignored). SAML/BTP
 variants exist — run `scripts/login_saml_sso.py` once for SAML.
@@ -63,8 +100,11 @@ and aXet.code discovers them at **startup** (restart required after install). Th
 
 > In the launcher the real installer is `installSkillsIntoProject()`; the source of truth
 > for *which* skills a project gets is `SKILL_CATALOG` + `PROFILE_SKILLS` in
-> `app-electron/main/skillProfiles.ts` (45 skills as of 2026-09-08), not the `SKILLS` array
-> in the shell scripts below. Those scripts are for using this toolkit standalone.
+> `app-electron/main/skillProfiles.ts` (57 skills as of 2026-09-23), not the `SKILLS`
+> array in the shell scripts below. Those scripts are for using this toolkit standalone
+> and have not tracked the catalog since 2026-09-08 — `toolkit-version.json` is the
+> authoritative inventory. The answer also depends on the **role**: a project does not get
+> "the skills", it gets its consultant profile's skills.
 
 - **Copy mode is the default** (`--copy` / `-Copy`) because some aXet.code scanners don't
   follow symlinks. Copies are a snapshot → re-run after `git pull`. If adding/removing a
@@ -140,21 +180,38 @@ which is the only way to answer "are this project's skills current?".
 
 ## What does NOT go into the project copy
 
-`installSkillsIntoProject()` (launcher, `app-electron/main/sapToolkit.ts`) copies
-`sap-adt-readonly` **without its `scripts/` directory**. The engine there is the full
-1400-line ADT server, write paths included, and the skill itself instructs the agent to talk
-to the HTTP server and never run the scripts — so a copy in the agent's working tree is
-exposure with no upside. The launcher starts the server from this toolkit root instead.
-The `scripts/` folder must stay here: `adt_readonly_server.py` imports `adt_mcp_server`,
-and that import is the belt lock above.
+`installSkillsIntoProject()` (launcher, `app-electron/main/sapToolkit.ts`) copies all
+three ADT skills — `sap-adt`, `sap-adt-readonly`, `sap-adt-router-bridge` — **without
+their `scripts/` directories** (`excludeDirs: ["scripts"]` on each). Two reasons, and both
+matter:
 
-## abapGit is the compliant write path
+- The engine is the full ADT server, write paths included. The skills themselves instruct
+  the agent to talk to the HTTP server and never run the scripts, so a copy in the agent's
+  working tree is exposure with no upside.
+- The wrapper imports the engine from `../sap-adt/scripts` and **refuses to start** if it
+  is missing, so the three must stay siblings. Excluding `scripts` from every project copy
+  is what guarantees the server always starts from this toolkit root, where they are.
 
-SAP's API policy treats ADT as internal/read-only for agentic workflows. To *deliver* ABAP
-changes, never use the SAP server — use the `abapgit-workflow` skill: Claude edits `src/`,
-`abapgit-export-zip` packs a ZIP, the developer imports it in SAPGUI, and
+If that exclusion is ever lifted for one of the three, the sibling relationship breaks.
+
+**A script that reaches for the engine by path is a bug in this distribution.** Upstream's
+`test-scenarios/scripts/scan_doc_types.py` does exactly that; ours talks to the HTTP gate
+instead. See the local-patch table below.
+
+## abapGit is still the path to QA and production
+
+Writing is open on DEV now, but only there and only for the technical consultant. **QA and
+production are reached by transport, never by `adt_push`** — a direct write desynchronises
+the system from the request that is supposed to describe it, and the first symptom is a
+defect nobody can reproduce after the next import.
+
+Where a transport is not the vehicle, use the `abapgit-workflow` skill: Claude edits
+`src/`, `abapgit-export-zip` packs a ZIP, the developer imports it in SAPGUI, and
 `abapgit-import-status-zip` ingests activation errors back into `.abapgit-status/`. It is
 developer-in-the-loop by design; there is no SAP-side automation.
+
+None of this replaces the older rule: **every SAP write needs a named human's approval and
+a transport they confirmed.** The three gates cannot enforce that one for you.
 
 ## Upstream'den AYRILAN dosyalar (yenilerken üstüne yazma)
 
@@ -163,29 +220,41 @@ Depo salt okunur kullaniliyor: oraya hicbir sey yazilmiyor. Buradan yukari akisi
 tazelerken asagidaki dosyalarin uzerine YAZMA -- hepsi bilincli bir uyarlama
 tasiyor ve `git diff` ile kurtarilamayacak sekilde kaybolur:
 
+Her uyarlanan dosya bir isaret tasiyor: govdesinde **`NTT Studio`** gecen her dosya bu
+tablodadir. Bir senkrondan sonra `grep -rl "NTT Studio" resources/sap-toolkit` say -- eksik
+cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: toptan bir
+`cpSync` 11 dosyanin uyarlama blogunu sildi ve `git diff` disinda hicbir yerde gorunmedi.
+
 | Dosya | Ne degistirildi | Neden |
 | --- | --- | --- |
 | `sap-consultant/skills/sap-adt-readonly/**` | Tum skill yeniden yazildi; `references/` eklendi | Yazma yollari kapatildi (belt + suspenders) |
-| `.../abap-code-checker/SKILL.md` | MCP -> HTTP notu | aXet.code MCP konusamiyor |
-| `.../as-built-doc/SKILL.md` | MCP -> HTTP notu | ayni |
-| `.../sap-cr-scope/SKILL.md` | MCP -> HTTP + `${CLAUDE_PLUGIN_ROOT}` notu | ayni |
-| `.../sap-cr-handover/SKILL.md` | MCP -> HTTP + `${CLAUDE_PLUGIN_ROOT}` notu | ayni |
-| `.../sap-incident/SKILL.md` | MCP -> HTTP; `adt_push`/`adt_activate` adimlari ustu cizili | O araclar sunucuda hic acilmiyor |
-| `.../sap-incident/references/solution-proposal.md` | Ayni yazma adimi ustu cizili | ayni |
-| `.../test-scenarios/SKILL.md` | MCP -> HTTP notu | ayni |
-| `.../test-scenarios/scripts/scan_doc_types.py` | ADT motoru import'u -> `ReadOnlyHttpClient` | Tam yetkili motor bu pakette bilerek yok |
+| `.../abap-code-checker/SKILL.md` | MCP -> HTTP; hangi yuzey acik; `adt_unit_test` kapisi; `${CLAUDE_PLUGIN_ROOT}` | aXet.code MCP konusamiyor; yuzey role+tier'a gore degisiyor |
+| `.../as-built-doc/SKILL.md` | ayni sekil, `adt_sql` kapisi | ayni |
+| `.../sap-cr-scope/SKILL.md` | ayni sekil + `case.py` notu | ayni |
+| `.../sap-cr-handover/SKILL.md` | ayni sekil + "release bu skill'in isi degil" | ayni |
+| `.../sap-incident/SKILL.md` | ayni sekil; §8'in DEV yolu artik GERCEKTEN calisiyor | Yazma yuzeyi teknik danisman + DEV'de aciliyor |
+| `.../sap-incident/references/solution-proposal.md` | Ayni push adimina rol/tier notu | ayni |
+| `.../test-scenarios/SKILL.md` | MCP -> HTTP + `ADT_RO_ALLOW_SQL` notu | ayni |
+| `.../test-scenarios/scripts/scan_doc_types.py` | ADT motoru import'u -> `ReadOnlyHttpClient` | `../../sap-adt/scripts` kurulu agacta HIC yok (`excludeDirs`) |
 | `.../sap-enduser-doc/SKILL.md` | MCP -> HTTP + npm bagimliligi uyarisi | ayni |
 | `.../fs-generator/SKILL.md`, `.../ts-generator/SKILL.md` | `${CLAUDE_PLUGIN_ROOT}` notu | Eklenti koku yok |
-| `sapgui-scriptter/skills/sapgui-screenshots/SKILL.md` | "PRD'de sadece goruntuleme" kurali | Tus basabiliyor, yanlislikla kaydedebilir |
-| `requirements.txt`, `CLAUDE.md`, `toolkit-version.json` | Bu dagitima ait | Yukari akista yok |
+| `sapgui-scriptter/skills/sapgui-screenshots/SKILL.md` | "PRD'de sadece goruntuleme" kurali | Tus basabiliyor, yanlislikla kaydedebilir; ADT tier kapisi buraya UZANMIYOR |
+| `requirements.txt`, `CLAUDE.md`, `README.md`, `toolkit-version.json` | Bu dagitima ait | Yukari akista yok |
 
-Alinmayanlar ve sebepleri: `sap-adt` (tam yetkili yazma motoru),
-`sap-object-transfer` / `adobe-gen` / `abapgit-deploy` (SAP'a yaziyor),
-`project-kb/*` (musteriye ait gercek sistem verisi -- bu depo PUBLIC),
-`ntt-skill-setup` (rakip kurulumcu; bu isi uygulama yapiyor),
-`sap-adt-router-bridge` (uygulamanin kendi RFC koprusu var),
-`abapgit-adt` (tam `sap-adt`'ye bagimli), `sap-bw` / `sap-sac` (skill degil,
-vendor'lanmis MCP sunuculari -- aXet.code MCP konusamiyor).
+### Alinmayanlar ve sebepleri
+
+| Alinmayan | Neden |
+| --- | --- |
+| `project-kb/*` (beta-enerji, kibar-americas, ozak-tekstil, sun-tekstil-jimmy-key) | Musteriye ait gercek sistem verisi: tablo adlari, sirket kodlari, sure ve kapsam kayitlari. **Bu depo PUBLIC.** Kullanici karari (2026-09-23: *"alma paketleme onlari"*). Yapisi degil, ICERIGI engel -- ayni skill kabugu musterinin kendi ortaminda kurulabilir. |
+| `sap-adt-mcp` | MCP istemcisi; aXet.code MCP konusamiyor, yani kurulsa da calismaz. Kullanici karari: *"Simdilik alma"*. |
+| `abapgit-adt` | ADT uzerinden abapGit surer. Yazma artik var ama bu skill'in yolu `adt_*` ile SAP'a abapGit repo'su kurmak -- bizim teslim yolumuz `abapgit-workflow` (gelistirici-donguyu-kapatir) ve ikisi ayni isi iki farkli sozlesmeyle yapiyor. Ikisi birden kuruluysa ajan hangisini sececegini bilmiyor. |
+| `ntt-skill-setup` | Rakip kurulumcu: projeye skill kuran bir skill. Bu isi uygulamanin kendisi yapiyor (`installSkillsIntoProject`) ve rol kapisi orada. Ajanin elinde kendi skill'lerini kurabilecegi bir arac olmasi, 1. kapiyi anlamsiz kilar. |
+| `sap-bw`, `sap-sac` | Skill degil, vendor'lanmis MCP sunuculari. |
+
+Bilerek AYRISAN (alindi ama birebir degil): `sap-adt` (yalnizca `__pycache__` farki),
+`sap-adt-router-bridge` (bizde fazladan `adt_rfc_probe.py` var -- yukari akista yok),
+`axet-flows` (yalnizca bir `.pyc` disarida), `fs2ts` (HIC alinmiyor: `ts-generator`'in
+2026-08-02 oncesi adi; ikisi ayni ifadelerle tetikleniyor).
 
 Karsilastirirken satir sonu tuzagi: bu depoda `core.autocrlf = true`, calisma
 kopyasi CRLF, marketplace LF. Normalize etmeden diff/hash alirsan HER dosya

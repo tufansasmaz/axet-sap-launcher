@@ -129,6 +129,14 @@ Then, on **DEV only**: `adt_push` → `adt_syntax_check` → `adt_atc_check` →
 → `adt_activate`, against the transport they named, then re-run the original failing
 scenario **and** one negative case. Activation is not verification.
 
+> **NTT Studio uyarlaması.** Bu adım burada bir izin değil bir OLANAK meselesi: `adt_push`
+> ve `adt_activate` yalnızca **teknik danışman + DEV** birlikteliğinde açılıyor. Modül
+> danışmanı rolünde ve DEV dışındaki her sistemde aynı çağrı `404 unknown_tool` döner —
+> bu bir arıza değil, kapının kendisi. O durumda teslim ettiğin şey diff'in kendisidir;
+> uygulamayı ve aktivasyonu geliştirici kendi ADT'sinde yapar, sen ardından
+> `adt_syntax_check` → `adt_atc_check` → `adt_unit_test` ile doğrularsın. Hangi yüzeyin
+> ayakta olduğunu varsayma: `GET http://127.0.0.1:8787/health` araç listesini veriyor.
+
 **QA is reached by transport, not by `adt_push`.** Somebody else's test cycle is running
 there. A direct write desynchronises QA from the transport that is supposed to describe it,
 and the failure shows up later as a defect nobody can reproduce after the next import.

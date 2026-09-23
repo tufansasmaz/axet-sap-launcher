@@ -294,19 +294,26 @@ interface ReadonlyServerOutcome {
 // KULLANILMIYOR — sistemdeki "py" çalıştırıcısı kullanılıyor (mevcut elle
 // kurulum dokümantasyonuyla aynı varsayım; requests/mcp/python-dotenv
 // kurulu olmalı, bkz. sap-toolkit/requirements.txt).
-// HANGİ SUNUCU — tier'a göre, role göre değil.
+// HANGİ SUNUCU — hem tier'a hem ROLE göre.
 //
-// Rol hangi SKILL'in kurulacağını belirliyor (bkz. planSkills); burada
-// belirlenen şey o skill'in konuştuğu SUNUCU. İkisinin de aynı `.conn_adt`'ı
-// okuyup aynı 127.0.0.1:8787 sözleşmesini (`GET /health`, `POST /tool/<ad>`)
-// sunması bilinçli: sohbet bağlamındaki komutlar tier'dan tier'a değişmiyor,
-// yalnızca /health'in saydığı araç sayısı değişiyor (33'e karşı 17).
+// Karar burada verilmiyor, `skillInstall.adtWriteSurface`'ten OKUNUYOR: aynı
+// karar skill listesini de üretiyor (planSkills), böylece ikisi ayrışamıyor.
+// Bir zamanlar bu fonksiyon yalnızca tier'a bakıyordu ve sonucu şuydu: modül
+// danışmanı DEV'e bağlandığında listesinde `sap-adt-readonly` yazarken 8787'de
+// `adt_push` servis eden sunucu dinliyordu. Skill listesi ajana neyin VAR
+// olduğunu anlatır; portta ne dinlediğini belirlemez. Gerçek yüzey bu.
 //
-// Yazan motor SADECE DEV'de açılıyor. Bu, skill kurulumundaki kapının ikizi —
-// biri kalkarsa diğeri hâlâ duruyor. Üçüncü kapı motorun kendi
-// `require_writable()`'ı, o da aynı `.conn_adt`'taki ADT_SAP_TIER'a bakıyor.
-function adtServerScriptFor(tier: SystemTier | null): { rel: string[]; label: string } {
-  return tier === "DEV"
+// İkisi de aynı `.conn_adt`'ı okuyup aynı 127.0.0.1:8787 sözleşmesini
+// (`GET /health`, `POST /tool/<ad>`) sunuyor: sohbet bağlamındaki komutlar
+// değişmiyor, yalnızca /health'in saydığı araç sayısı değişiyor (33'e karşı
+// 17).
+//
+// Yazan motor SADECE teknik danışman + DEV birlikteliğinde açılıyor. Bu, skill
+// kurulumundaki kapının ikizi — biri kalkarsa diğeri hâlâ duruyor. Üçüncü kapı
+// motorun kendi `require_writable()`'ı, o da `.conn_adt`'taki ADT_SAP_TIER'a
+// bakıyor; o kapı rolü görmüyor, o yüzden rol kapısının burada olması şart.
+function adtServerScriptFor(writeSurface: boolean): { rel: string[]; label: string } {
+  return writeSurface
     ? { rel: ["sap-adt", "scripts", "adt_mcp_server.py"], label: "ADT sunucusu (yazma açık, 33 araç)" }
     : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (17 araç)" };
 }
@@ -314,10 +321,10 @@ function adtServerScriptFor(tier: SystemTier | null): { rel: string[]; label: st
 async function attemptReadonlyServerAutoStart(
   skillInstall: SkillInstallResult,
   projectDir: string,
-  port: number,
-  tier: SystemTier | null
+  port: number
 ): Promise<ReadonlyServerOutcome> {
-  const { rel: scriptRel, label } = adtServerScriptFor(tier);
+  const writeSurface = skillInstall.adtWriteSurface;
+  const { rel: scriptRel, label } = adtServerScriptFor(writeSurface);
   // Proje kopyasına artık hiçbir ADT script'i gitmiyor (`excludeDirs:
   // ["scripts"]`), ama proje yolu önce deneniyor: kullanıcı elle bir kopya
   // koymuşsa onunki kazansın.
@@ -338,7 +345,7 @@ async function attemptReadonlyServerAutoStart(
     scriptPath,
     pythonPath: "py",
     port,
-    expectWritable: tier === "DEV"
+    expectWritable: writeSurface
   });
   if (!startResult.ok) {
     return {
@@ -623,13 +630,15 @@ function buildContextMarkdown(
   tier?: SystemTier | null
 ): string {
   const { customerPath, service } = req;
-  // Bu dosyayı ajan okuyor. Tier'a göre değişen tek şey bir bayrak değil,
+  // Bu dosyayı ajan okuyor. Rol + tier'a göre değişen tek şey bir bayrak değil,
   // ajanın elindeki araçların LİSTESİ — o yüzden metin de değişmek zorunda.
-  // Tek yerden türetiliyor ki metnin adlandırdığı skill ile gerçekten kurulan
-  // (planSkills) ve gerçekten başlatılan (adtServerScriptFor) aynı olsun.
-  const writable = tier === "DEV";
+  // Üçü de `skillInstall.adtWriteSurface`'ten türüyor ki metnin adlandırdığı
+  // skill, gerçekten kurulan (planSkills) ve gerçekten başlatılan
+  // (adtServerScriptFor) aynı olsun. `tier` hâlâ parametre çünkü metnin başka
+  // yerlerinde sistemin önem derecesi de yazıyor.
+  const writable = skillInstall.adtWriteSurface;
   const adtSkillName = writable ? "sap-adt" : "sap-adt-readonly";
-  const adtServerScript = adtServerScriptFor(tier ?? null).rel.join("/");
+  const adtServerScript = adtServerScriptFor(writable).rel.join("/");
   const breadcrumb = customerPath.join(" / ");
   const router = service.routerString ? service.routerString : "Yok (doğrudan bağlantı)";
   const host = service.host ?? "bilinmiyor";
@@ -1196,7 +1205,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // (router'lı/router'sız, doğrulanmış/doğrulanamamış) başlatılır.
   let readonlyOutcome: ReadonlyServerOutcome | null = null;
   if (!rfcBridge || !rfcOutcome?.credentialsInvalid) {
-    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT, systemTier);
+    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT);
     allNotes.push(readonlyOutcome.detailNote);
   }
 

@@ -24,6 +24,7 @@ nothing here can override that.
 from __future__ import annotations
 
 import argparse
+import os
 import json
 import sys
 from pathlib import Path
@@ -86,6 +87,58 @@ def build_query(spec: dict, language: str) -> str:
             f"ORDER BY cnt DESCENDING")
 
 
+class ReadOnlyHttpClient:
+    """Yerel ADT kapısı (8787) — yalnızca standart kütüphane.
+
+    Adı "read-only" ama kapının ardında hangi motorun durduğu role ve sisteme
+    göre değişiyor: teknik danışman + DEV'de tam motor (`sap-adt`), aksi hâlde
+    sarmalayıcı (`sap-adt-readonly`). Bu script'in umurunda değil — ikisi de
+    `adt_sql`'i aynı adreste, aynı gövdeyle sunuyor.
+
+    Kurucusu `/health`'i çağırıyor: sunucu ayakta değilse hata, ilk SQL'de
+    değil BURADA çıksın. Aksi hâlde her belge türü için ayrı bir bağlantı
+    hatası basılır ve tarama "kısmen boş" görünür.
+    """
+
+    def __init__(self, base: str, timeout: float = 120.0) -> None:
+        self.base = base.rstrip("/")
+        self.timeout = timeout
+        self.token = os.environ.get("ADT_RO_TOKEN", "").strip()
+        health = self._call("GET", "/health", None)
+        if not health.get("ok"):
+            raise RuntimeError(f"/health: {health}")
+
+    def sql(self, query: str, max_rows: int) -> dict:
+        res = self._call("POST", "/tool/adt_sql", {"query": query, "max_rows": max_rows})
+        if res.get("error") == "unknown_tool":
+            # adt_sql izin listesinde ama ADT_RO_ALLOW_SQL kapalıyken sunulmuyor.
+            raise RuntimeError("adt_sql bu sunucuda açık değil (ADT_RO_ALLOW_SQL).")
+        if not res.get("ok", True):
+            raise RuntimeError(res.get("message") or res.get("error") or "adt_sql failed")
+        return res
+
+    def _call(self, method: str, path: str, payload: dict | None) -> dict:
+        import urllib.error
+        import urllib.request
+
+        data = json.dumps(payload).encode("utf-8") if payload is not None else None
+        req = urllib.request.Request(self.base + path, data=data, method=method)
+        if data is not None:
+            req.add_header("Content-Type", "application/json")
+        if self.token:
+            req.add_header("Authorization", f"Bearer {self.token}")
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                body = resp.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as exc:
+            # 404 = bilinmeyen/yazma aracı. Gövde JSON, sebebi orada yazıyor.
+            body = exc.read().decode("utf-8", "replace")
+        try:
+            return json.loads(body)
+        except ValueError:
+            return {"ok": False, "error": "bad_response", "message": body[:300]}
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--module", required=True, choices=sorted(MODULES),
@@ -95,10 +148,11 @@ def main() -> int:
     ap.add_argument("--max-types", type=int, default=200,
                     help="row cap per document kind (default 200)")
     ap.add_argument("--json", help="also write the result to this JSON file")
-    ap.add_argument("--cwd", help="project directory holding .conn_adt")
+    ap.add_argument("--cwd", help="(NTT Studio: yok sayılır — oturum sunucuda)")
+    ap.add_argument("--server", default=os.environ.get("ADT_RO_URL", "http://127.0.0.1:8787"),
+                    help="read-only ADT HTTP gate (default http://127.0.0.1:8787)")
     args = ap.parse_args()
 
-    import os
     if (os.getenv("ADT_RO_ALLOW_SQL", "").strip().lower() != "true"):
         print("[FAIL] ADT_RO_ALLOW_SQL is not 'true'.")
         print("[INFO] This scan reads business tables. The gate is a decision your")
@@ -106,37 +160,32 @@ def main() -> int:
         print("       conversion-consultant sets it; other roles do not.")
         return 2
 
-    engine = Path(__file__).resolve().parents[2] / "sap-adt" / "scripts"
-    if engine.is_dir():
-        sys.path.insert(0, str(engine))
+    # NTT Studio uyarlaması: motoru import ETMİYORUZ, HTTP kapısına konuşuyoruz.
+    # Yukarı akış burada `../../sap-adt/scripts`'i `sys.path`'e ekliyor. O yol bu
+    # dağıtımda ASLA çözülmüyor: her üç ADT skill'i de projeye `scripts/` olmadan
+    # kopyalanıyor (`excludeDirs`), motor `resources/sap-toolkit` altında kalıyor
+    # ve sunucuyu oradan launcher başlatıyor. Kurulu ağaçta import edilse bile
+    # yanlış olurdu — SAP oturumu sunucuda tek ve kalıcı; her script çağrısında
+    # ayrı bir oturum açmak o tekliği bozar.
     try:
-        from sap_adt_lib import set_explicit_working_dir
-        from sap_client import SAPClient
-    except ImportError as exc:
-        print("[FAIL] Could not import the sap-adt engine.")
-        print(f"[ERROR] {type(exc).__name__}: {exc}")
-        print(f"[INFO] Expected it at: {engine}")
-        return 1
-
-    if args.cwd:
-        set_explicit_working_dir(args.cwd)
-    try:
-        client = SAPClient()
+        client = ReadOnlyHttpClient(args.server)
     except Exception as exc:
-        print("[FAIL] Could not establish the SAP connection.")
+        print("[FAIL] Read-only ADT sunucusuna ulaşılamadı.")
         print(f"[ERROR] {type(exc).__name__}: {exc}")
+        print(f"[INFO] Beklenen adres: {args.server}")
+        print("[INFO] Sunucuyu NTT Studio başlatır; SAP bağlantısı kurulu mu diye bak.")
         return 1
 
     out = {"module": args.module, "language": args.language, "kinds": []}
     for spec in MODULES[args.module]:
         query = build_query(spec, args.language)
         try:
-            res = client.run_sql_query(query, args.max_types)
+            res = client.sql(query, args.max_types)
         except Exception as exc:
             print(f"[WARN] {spec['what']} ({spec['table']}): {exc}")
             out["kinds"].append({**spec, "error": str(exc)[:300], "types": []})
             continue
-        rows = (res or {}).get("data") or []
+        rows = (res or {}).get("rows") or (res or {}).get("data") or []
         types = [{"code": str(r[0]).strip(),
                   "text": str(r[1]).strip(),
                   "count": int(str(r[2]).strip() or 0)} for r in rows if len(r) >= 3]

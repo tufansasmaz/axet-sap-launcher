@@ -158,7 +158,10 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   "fs-generator": { path: "sap-consultant/skills/fs-generator" },
   "sap-enduser-doc": { path: "sap-consultant/skills/sap-enduser-doc" },
   "ts-generator": { path: "sap-consultant/skills/ts-generator" },
-  "fs2ts": { path: "sap-consultant/skills/fs2ts" },
+  // `fs2ts` BURAYA GERİ EKLENMEYECEK. `ts-generator`'ın 2026-08-02 öncesi adı ve
+  // marketplace'te hâlâ ayrı bir klasör olarak duruyor; `description`'ları aynı
+  // ifadelerle tetikleniyor, yani ikisi birden kuruluysa ajan neredeyse özdeş iki
+  // skill arasında rastgele seçiyor. Toptan bir senkron onu geri getirirse sil.
   "spec-reviewer": { path: "sap-consultant/skills/spec-reviewer" },
   "meeting-notes-organizer": { path: "sap-consultant/skills/meeting-notes-organizer" },
   "fast-scan-question-generator": { path: "sap-consultant/skills/fast-scan-question-generator" },
@@ -256,14 +259,16 @@ const OFFICE = Object.keys(SKILL_CATALOG).filter((n) => n.startsWith("office-"))
 const ABAPGIT = Object.keys(SKILL_CATALOG).filter((n) => n.startsWith("abapgit-"));
 
 /**
- * Doküman üretim zinciri. `fs2ts` aradaki köprü: onaylı bir FS'ten TS taslağı
- * çıkarıyor, yani `fs-generator` ile `ts-generator` arasındaki elle yazma adımı.
+ * Doküman üretim zinciri: gereksinimden FS, FS'ten TS, TS'ten inceleme.
  * `project-store` zincirin sonu — onaylanan dokümanı SharePoint'teki ortak
- * depoya koyuyor. Hiçbiri SAP'a dokunmuyor, o yüzden ikisi de her rolde.
+ * depoya koyuyor. Hiçbiri SAP'a dokunmuyor, o yüzden hepsi her rolde.
+ *
+ * Zincirde `fs-generator` ile `ts-generator` arasında bir üçüncü adım YOK; ikisi
+ * doğrudan birbirine bağlanıyor. Marketplace'teki `fs2ts`, `ts-generator`'ın eski
+ * adıdır (bkz. SKILL_CATALOG'daki not) ve buraya girmez.
  */
 const DOCS = [
   "fs-generator",
-  "fs2ts",
   "ts-generator",
   "spec-reviewer",
   "meeting-notes-organizer",
@@ -422,18 +427,24 @@ function tierAllowsWrite(tier: SystemTier | null): boolean {
  * Kurulum yapmaz — ekranda önizleme göstermek için de bu kullanılır, böylece
  * kullanıcının gördüğü liste ile diske yazılan liste aynı koddan çıkar.
  *
- * ADT motoru burada TAKAS ediliyor, engellenmiyor: DEV'de `sap-adt` (33 araç),
- * DEV değilse `sap-adt-readonly` (17 araç). Engelleseydik PRD'ye bağlanan bir
- * teknik danışmanın elinde hiç ADT kalmazdı — yazamamak okuyamamak demek
- * değil. İkisi aynı anda kurulmuyor: aynı klasörde iki ADT skill'i, ajana
- * "hangi sunucu" diye cevabı olmayan bir soru sordurur.
+ * ADT motoru burada TAKAS ediliyor, engellenmiyor: yazma yüzeyi isteyen bir rol
+ * DEV dışı bir sistemde `sap-adt-readonly`'ye düşer (17 araç). Engelleseydik
+ * PRD'ye bağlanan bir teknik danışmanın elinde hiç ADT kalmazdı — yazamamak
+ * okuyamamak demek değil. İkisi aynı anda kurulmuyor: aynı klasörde iki ADT
+ * skill'i, ajana "hangi sunucu" diye cevabı olmayan bir soru sordurur.
+ *
+ * TAKAS TEK YÖNLÜ — yalnızca AŞAĞI. Rolün listesinde `sap-adt-readonly`
+ * yazıyorsa orada kalır, sistem DEV olsa bile yükseltilmez. Bu tek satır,
+ * modül danışmanının ADT yüzeyini tutan şey: liste iki yönlü eşleşseydi bir
+ * modül danışmanı DEV'e bağlandığı anda 33 araçlık yazan motoru alırdı
+ * (kullanıcı, 2026-09-23: *"modül danışmanları asla geliştirme
+ * yapamasınlar"*). Rol yükseltmesi rolün listesinden geçer, tier'dan değil.
  */
 export function planSkills(profile: SkillProfile, tier: SystemTier | null): SkillPlanEntry[] {
   const source = PROFILE_SKILLS[profile] ?? PROFILE_SKILLS[DEFAULT_PROFILE];
-  const engine = tierAllowsWrite(tier) ? "sap-adt" : "sap-adt-readonly";
   const names: string[] = [];
   for (const name of source) {
-    const mapped = name === "sap-adt" || name === "sap-adt-readonly" ? engine : name;
+    const mapped = name === "sap-adt" && !tierAllowsWrite(tier) ? "sap-adt-readonly" : name;
     if (!names.includes(mapped)) names.push(mapped);
   }
 

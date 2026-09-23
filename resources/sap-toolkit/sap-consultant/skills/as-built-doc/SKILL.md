@@ -23,9 +23,22 @@ A project ends and the customer buys the knowledge, not the opinion. This skill
 produces the document that hands it over: what a development is, what it does, what
 it is made of, and where every sentence of that came from.
 
-**Requires the `sap-adt` skill** (the `adt_*` MCP tools). Without it, stop and say
-so — this reads a live system, and a document written from a folder of files says
-nothing about what is actually active in the client.
+**Requires a live ADT connection.** Without one, stop and say so — this reads a live
+system, and a document written from a folder of files says nothing about what is
+actually active in the client.
+
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda MCP diye bir şey yok;
+> aXet.code MCP konuşamıyor. `adt_*` araçları yerel bir HTTP sunucusundan çağrılır:
+> aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
+>
+> **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor:** teknik danışman + DEV'de
+> `sap-adt` (33 araç), diğer her durumda `sap-adt-readonly` (17 araç). Bu skill'in
+> kullandığı `adt_search`, `adt_get_source`, `adt_list_package`, `adt_where_used`,
+> `adt_revisions` her iki yüzeyde de var. **`adt_sql` istisna:** read-only yüzeyde
+> `ADT_RO_ALLOW_SQL=true` ardında; kapalıysa `404 unknown_tool` döner ve o bölümü
+> "okunamadı" diye yaz, tahminle doldurma. Bu skill hiçbir yazma aracı kullanmıyor ve
+> yazma yüzeyi açıkken de kullanmayacak: burada üretilen şey sistemin fotoğrafı,
+> sisteme dokunuş değil.
 
 Two things make this different from a summary an agent could improvise:
 

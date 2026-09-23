@@ -18,7 +18,28 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # sap-cr-handover — hand over what was actually built
 
-**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so.
+**Requires a live ADT connection.** Without one, stop and say so.
+
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda MCP diye bir şey yok;
+> aXet.code MCP konuşamıyor. `adt_*` araçları yerel bir HTTP sunucusundan çağrılır:
+> aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
+>
+> **Sunucunun yüzeyi ROLE ve SİSTEME göre değişiyor:** teknik danışman + DEV'de
+> `sap-adt` (33 araç), diğer her durumda — modül danışmanı rolünde her sistemde, ve
+> QA/PRD ile işaretlenmemiş sistemlerde herkes için — `sap-adt-readonly` (17 araç).
+> Bu skill'in kullandığı `adt_list_transports`, `adt_transport_check`,
+> `adt_get_source`, `adt_where_used`, `adt_revisions`, `adt_atc_check`,
+> `adt_check_scatter`, `adt_badi_discovery` her iki yüzeyde de var — taşıma isteğini
+> okuyup teslim dokümanı yazmak her sistemde çalışır. **`adt_sql` ve `adt_unit_test`
+> istisna:** read-only yüzeyde `ADT_RO_ALLOW_SQL` / `ADT_RO_ALLOW_UNIT_TEST` ardında;
+> kapalıysa `404 unknown_tool` döner, o alanı boş bırak ve neden boş olduğunu yaz.
+>
+> **Taşımayı serbest bırakmak bu skill'in işi DEĞİL** ve yazma yüzeyi açıkken de
+> yapamaz: motorun 33 aracı arasında bir "release" aracı yok. Serbest bırakmayı
+> geliştirici SE09/SE10'da kendisi yapar.
+>
+> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
+> yerde proje kökündeki **`.axet-code/scripts/`** oku — `case.py` oraya kuruluyor.
 
 Handover documents are normally written from the specification, because that is the document
 that is open. So they describe what was *meant* to be built, and the gap between that and the
