@@ -5,17 +5,6 @@ description: Generate polished, end-user-facing PDF documentation for existing S
 
 # SAP End-User Documentation Generator
 
-> **NTT Studio uyarlaması — MCP değil, HTTP; ve kurulum gerektiriyor.**
-> Aşağıda `sap-adt` skill'i geçen her yerde `sap-adt-readonly` oku: bu dağıtımda `sap-adt`
-> yok ve `adt_*` araçları MCP'den değil yerel okuma kapısından çağrılır —
-> `POST http://127.0.0.1:8787/tool/adt_search`, `.../adt_get_source`. İhtiyaç duyduğun her
-> iki araç da kapıdan geçiyor.
->
-> Ayrıca bu skill **tek başına çalışmaz**: Node 18+, `npm install` (playwright, marked,
-> sharp, mermaid) ve makinede kurulu bir Chromium ister. Bunlar paketle GELMİYOR ve
-> otomatik kurulmuyor; kullanıcı onaylı, tek seferlik bir adım. İşe başlamadan önce
-> `node scripts/precheck.js` çalıştır ve eksikse dokümana değil kullanıcıya dön.
-
 This skill produces professional, business-language PDF documentation for existing SAP classic GUI programs (reports, ALV lists, dynpro transactions). The audience is **SAP end users at the customer** — not developers, not consultants. The output must explain what the program does and how to use it, with zero technical jargon.
 
 The final deliverable is a PDF generated from a Markdown source, with Mermaid process diagrams and annotated WebGUI screenshots.

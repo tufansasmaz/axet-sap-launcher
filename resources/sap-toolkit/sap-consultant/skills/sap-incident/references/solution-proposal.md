@@ -125,12 +125,9 @@ py "${CLAUDE_PLUGIN_ROOT}/scripts/case.py" add --case support/TCK-10482 \
   --claim "Diff onaylandı — Beyhan Meyrali, 04.08.2026, taşıma S4DK900318"
 ```
 
-Then, on **DEV only**: ~~`adt_push` → `adt_syntax_check` → `adt_atc_check` →
-`adt_unit_test` → `adt_activate`~~ — **NTT Studio uyarlaması: `adt_push` ve `adt_activate`
-bu dağıtımda YOK** (`404 unknown_tool`), çünkü hiçbir SAP sistemine yazılmıyor. Onaylanan
-diff'i geliştirici kendi ADT'sinde uygular ve aktive eder; sen ardından
-`adt_syntax_check` → `adt_atc_check` → `adt_unit_test` ile doğrular, sonra orijinal hata
-senaryosunu **ve** bir negatif vakayı yeniden koşturursun. Aktivasyon doğrulama değildir.
+Then, on **DEV only**: `adt_push` → `adt_syntax_check` → `adt_atc_check` → `adt_unit_test`
+→ `adt_activate`, against the transport they named, then re-run the original failing
+scenario **and** one negative case. Activation is not verification.
 
 **QA is reached by transport, not by `adt_push`.** Somebody else's test cycle is running
 there. A direct write desynchronises QA from the transport that is supposed to describe it,

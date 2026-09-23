@@ -17,19 +17,7 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # sap-cr-scope — decide whether to build it, then size it honestly
 
-**Requires a live ADT connection.** Without one, stop and say so.
-
-> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda `sap-adt` skill'i ve `adt_*`
-> MCP araçları YOK; aXet.code MCP konuşamıyor. Aynı araçlar `sap-adt-readonly` skill'inin
-> anlattığı yerel HTTP sunucusundan çağrılır: aşağıda `adt_xxx` denen her yerde
-> `POST http://127.0.0.1:8787/tool/adt_xxx` oku. Bu skill'in kullandığı `adt_search`,
-> `adt_code_search`, `adt_get_source`, `adt_where_used`, `adt_revisions`, `adt_sql`,
-> `adt_atc_check`, `adt_unit_test`, `adt_badi_discovery` araçlarının hepsi kapıdan geçiyor —
-> kapsam ve efor çıkarımı eksiksiz çalışır. Yazma araçları `404 unknown_tool` döner; bu
-> skill zaten hiçbirini kullanmıyor: çıktısı imzalanacak bir doküman, sisteme dokunuş değil.
->
-> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
-> yerde proje kökündeki **`.axet-code/scripts/`** oku — `case.py` oraya kuruluyor.
+**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so.
 
 The most valuable output of this skill is often **"do not build this."** A CR you talk the
 customer out of costs you an hour and saves them a maintained object forever. Rank that

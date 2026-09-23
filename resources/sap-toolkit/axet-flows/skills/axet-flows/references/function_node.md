@@ -158,6 +158,44 @@ The rule that follows from all of it: **a Function node transforms data. It does
 reach the outside world.** Anything that touches a file, a socket or the clock's
 environment is a different node's job.
 
+## Hiding `req`/`res` from a JSON boundary
+
+A node that serialises the whole message — `python-agent` is the one this was
+measured on — crashes with **`Converting circular structure to JSON`** as soon as
+the message came from an `http in` node. `msg.req` and `msg.res` hold a
+Socket -> HTTPParser -> Socket cycle, and `JSON.stringify` walks straight into it.
+
+`JSON.stringify` only visits **own enumerable** properties, so hiding them is
+enough. One Function node, immediately upstream of the serialising node:
+
+```javascript
+// Hide the HTTP handles from the JSON boundary. Nothing is lost downstream:
+// the node returns a clone of the input message, which carries res by reference.
+if (msg.req) {
+    Object.defineProperty(msg, "req",
+        { value: msg.req, enumerable: false, writable: true, configurable: true });
+}
+if (msg.res) {
+    Object.defineProperty(msg, "res",
+        { value: msg.res, enumerable: false, writable: true, configurable: true });
+}
+return msg;
+```
+
+Two rules decide whether it actually works, and both are counter-intuitive:
+
+- **It has to sit immediately before the serialising node, not once after the
+  `http in`.** `RED.util.cloneMessage` re-attaches `req`/`res` with a plain
+  assignment, which makes them enumerable again — so every node that clones the
+  message undoes the hiding. A `switch` clones.
+- **Wire it to exactly one target.** Node-RED clones the message for the second and
+  later destinations of a single output, so a fan-out re-exposes them for every
+  branch but the first.
+
+Deleting `msg.req`/`msg.res` instead would work for the serialiser and break the
+`http response` node at the end of the flow, which is a worse failure: the browser
+hangs and nothing is logged.
+
 ## Timeout
 
 The **Setup** tab has a per-node timeout in seconds. `0` = none. A Function node that

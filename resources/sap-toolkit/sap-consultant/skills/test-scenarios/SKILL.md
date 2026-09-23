@@ -15,14 +15,6 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash(py:*), Bash(python:*)
 
 # Test scenarios grounded in the system
 
-> **NTT Studio uyarlaması — MCP değil, HTTP.** `adt_sql` bu dağıtımda MCP aracı olarak
-> değil, `sap-adt-readonly`'nin yerel okuma kapısından çağrılır:
-> `POST http://127.0.0.1:8787/tool/adt_sql`. `scripts/scan_doc_types.py` bunu kendisi
-> yapıyor — yukarı akıştaki gibi tam yetkili ADT motorunu import ETMİYOR, çünkü o motor
-> bu pakette bilerek yok. `ADT_RO_ALLOW_SQL=true` kapısı aynen duruyor: kapalıysa script
-> hiç bağlanmadan çıkıyor. Gerekirse sunucu adresi `--server` ya da `ADT_RO_URL` ile
-> değiştirilir.
-
 A test plan written from a module name covers the document types someone
 remembered. This one starts from the system: which document types exist, how
 many documents each carries, what each is called in customising. The gap between

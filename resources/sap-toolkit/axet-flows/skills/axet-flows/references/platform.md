@@ -119,6 +119,26 @@ the target instance needs, at which versions. On 6.5.2 that is
 `deptapps-flows-contrib-nodes-audit@2.2.5`, `deptapps-flows-contrib-nodes-enabler@2.2.14`
 and `node-red@v6.5.2 (powered by NODE-RED v4.1.1)` for everything built in.
 
+**The built-in version moves and the module names are migrating.** An export taken
+on 2026-09-08 carries `node-red@v6.5.3 (powered by NODE-RED v4.1.1)`,
+`axet-flows-contrib-nodes-agents@1.0.11` for `axet-agents-execute` and
+`axet-flows-contrib-nodes-python-agent@1.0.6` for `python-agent`, while `use-case`
+and `audit-config` still come from `deptapps-flows-contrib-nodes-audit@2.2.5`. Half
+the palette has been renamed and half has not, so neither prefix is a safe guess.
+
+Two more keys in the same envelope, both worth reading before a file leaves your
+machine:
+
+- **`credentials`** is a list, one entry per node that holds credentials
+  (`nameNode`, `typeNode`, `flowOrSubflowNode`, `uuidNode`, `varNames`,
+  `varNamesDetails`). The *values* are not exported - an empty `varNames` means the
+  node declares none. It is the fastest answer to "does this file carry a secret".
+- **`configData.nodes`** is the exporting machine's whole installed palette, and
+  every entry carries the **absolute file path on that machine** - including the
+  author's Windows user folder, so `C:\Users\<employee number>\AppData\Local\...`
+  travels with any `.deptapp` anybody mails you. `scripts/scrub_flow.py` is what to
+  run before sending one outside the team.
+
 ### What an import does to a version
 
 Measured by diffing what went up against the platform's own re-export of it

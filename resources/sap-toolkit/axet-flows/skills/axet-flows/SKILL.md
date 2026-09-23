@@ -5,7 +5,8 @@ description: Build, review, debug and hand over aXet.flows projects. Use when th
 
 # aXet.flows
 
-aXet.flows (v6.5.2, NTT DATA "AI Inside Transformation") is a **Node-RED derivative**.
+aXet.flows (v6.5.2, **6.5.3 seen in the wild since 2026-09-08**; NTT DATA "AI Inside
+Transformation") is a **Node-RED derivative**.
 A flow is a JSON array of node objects with `id` / `type` / `z` / `x` / `y` / `wires`,
 exactly as in Node-RED, plus a family of aXet nodes (`axetflows-*`, `deptapps-*`,
 `enabler-llm`) that supply UI, persistence, auth and LLM access.

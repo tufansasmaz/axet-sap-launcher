@@ -183,7 +183,7 @@ class ProjectMemory:
 def _main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="memory",
-        description="ntt-atc-batch-remediator memory layer scaffolding.",
+        description="ntt-atc memory layer scaffolding.",
     )
     parser.add_argument(
         "--init",

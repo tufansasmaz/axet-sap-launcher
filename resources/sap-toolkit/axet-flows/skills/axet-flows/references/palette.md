@@ -20,15 +20,19 @@ section is the rest: what exists, which module owns it, and the properties that 
 what it does. **A property set is not a manual** — where the purpose is inferred from
 the property names rather than from a run, it says so.
 
-Modules and versions on that system, read off `global-config.modules`:
+Modules and versions on that system, read off `global-config.modules`. **The
+`deptapps-` to `axet-flows-` rename is per module, not a global cutover** - an app
+measured on 6.5.3 pulled `axet-agents-execute` and `python-agent` from
+`axet-flows-contrib-nodes-*` while still taking `use-case` and `audit-config` from
+`deptapps-flows-contrib-nodes-audit@2.2.5`. Read `usedNodes`, do not infer:
 
 | module | version | gives you |
 |---|---|---|
 | `deptapps-flows-contrib-nodes-axet` | 2.2.13 | app, form, view actions, app DB, shell, context |
 | `deptapps-flows-contrib-nodes-enabler` | 2.2.14 | `enabler-llm` |
 | `deptapps-flows-contrib-nodes-audit` | 2.2.5 | `use-case`, `audit-config` |
-| `deptapps-flows-contrib-axet-agents` | 1.3.4 | `axet-agents-execute`, `aXet Agent` |
-| `axet-flows-contrib-nodes-agents` | 1.0.10 | agent runtime |
+| `deptapps-flows-contrib-axet-agents` | 1.3.4 | the deprecated `aXet Agent` |
+| `axet-flows-contrib-nodes-agents` | 1.0.10 / **1.0.11** | `axet-agents-execute` |
 | `axet-flows-contrib-nodes-axet-ai-capabilities` | 1.0.8 | `axet-ai-capability-in` / `-out`, `refine`, `query`, `history` |
 | `deptapps-flows-contrib-nodes-ms-graph-mail-client` | 1.4.0 | Outlook mail |
 | `deptapps-flows-contrib-nodes-ms-graph-sharepoint-client` | 2.3.0 | SharePoint files |

@@ -18,12 +18,6 @@ author: "Dersim Tas <Dersim.Tas@bs.nttdata.com>"
 
 # fs-generator — SAP Functional Specification Author
 
-> **NTT Studio uyarlaması — `${CLAUDE_PLUGIN_ROOT}` yok.** Eklenti kökü diye bir şey ve o
-> ortam değişkeni bu dağıtımda tanımlı değil. Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/`
-> geçen her yerde proje kökündeki **`.axet-code/scripts/`** oku (`summary_check.py` oraya
-> kuruluyor); `${CLAUDE_PLUGIN_ROOT}/skills/<ad>/scripts` ise
-> **`.axet-code/skills/<ad>/scripts`**.
-
 > **Author / prompt credit:** Dersim Tas (<Dersim.Tas@bs.nttdata.com>). The role, grounding
 > rules, and interaction flow below are based on his FS-generation prompt.
 
@@ -184,6 +178,26 @@ For an **editable Word** deliverable, hand the same Markdown to the `office-docx
 skill (`build_docx.py --input <fs.md> --output <fs.docx> --title "<iş başlığı>"
 --eyebrow "Fonksiyonel Spesifikasyon" --classification "Confidential — Customer Restricted"`).
 The NTT mark lands in the header of every page on its own.
+
+### Approve and save to the project store
+
+When the person is satisfied, ask whether they approve this FS — in the
+wording and under the rules of the **`project-store`** skill, which owns them.
+In short: show the file(s), the project code and the destination first, ask
+once, and save only on an explicit yes. Silence or "sonra" is not a yes.
+
+**Order matters.** If the FS header carries a draft status, it changes on approval. Update it, **re-render the Word file, and only
+then save** — the record hashes the saved bytes, so saving first would store an
+"approved" document that still says draft inside.
+
+```bash
+py <project-store SCRIPTS>/project_store.py save --kind FS \
+    --file <fs.docx> --file <fs.md> --skill fs-generator --approved
+```
+
+Run it from the project folder. Relay the result as `project-store` describes —
+in particular, exit 3 means **nothing was saved** (the Projects folder is not
+synced here), which must never be reported as success.
 
 ### STEP 6: Offer a one-page summary (OPTIONAL — the user decides)
 

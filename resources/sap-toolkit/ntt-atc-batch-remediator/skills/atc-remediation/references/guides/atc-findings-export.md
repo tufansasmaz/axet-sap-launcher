@@ -21,9 +21,9 @@ estimated_time: "5 min (assuming the ATC run is complete)"
 
 ## What to do
 
-The full ATC findings export procedure (variant selection, ATC central system caveats, file-naming convention, encoding pitfalls) is documented in the upstream **ntt-s4-migrator** plugin's guide library at:
+The full ATC findings export procedure (variant selection, ATC central system caveats, file-naming convention, encoding pitfalls) is documented in the upstream **ntt-s4** plugin's guide library at:
 
-> `plugins/ntt-s4-migrator/references/guides/atc-results-export.md`
+> `plugins/ntt-s4/references/guides/atc-results-export.md`
 
 Once you have the export ZIP, drop it at:
 

@@ -13,16 +13,6 @@ description: >
 
 # sapgui-screenshots — capture SAP GUI screens → user manuals
 
-> **NTT Studio kuralı — CANLI SİSTEMDE SADECE GÖRÜNTÜLEME.** Bu skill ADT'ye değil,
-> çalışan SAP GUI penceresine bakıyor ve gezinmek için gerçek tuşlara basıyor (Enter, F8,
-> alan doldurma). Yani okuma aracı gibi görünür ama teknik olarak SAP'ta işlem
-> yapabilecek tek yetenektir. Kural:
->
-> - **PRD/canlı sistemde** yalnızca görüntüleme işlemleri (SE16 display, ST22, SE09
->   görüntüleme) yakalanır. Kaydeden, kitleyen, belge yaratan hiçbir ekrana girilmez.
-> - Kılavuz için işlem adımı gerekiyorsa DEV/QA'da yakala; ekrandaki veri temsilî olmalı.
-> - Emin değilsen dur ve danışmana sor. Yanlışlıkla basılan bir Kaydet, geri alınamaz.
-
 Produces real classic **Windows SAP GUI** screenshots and assembles them into a
 user manual (Word/PPTX/PDF) via the **office-tools `office-manual`** skill.
 Windows-only; needs `pywin32` + `Pillow`.

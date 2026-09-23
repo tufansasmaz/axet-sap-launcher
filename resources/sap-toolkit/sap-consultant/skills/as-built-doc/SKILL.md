@@ -19,14 +19,6 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # as-built-doc — what the code IS, proved line by line
 
-> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda `sap-adt` skill'i ve `adt_*`
-> MCP araçları YOK; aXet.code MCP konuşamıyor. Aynı araçlar `sap-adt-readonly` skill'inin
-> anlattığı yerel HTTP sunucusundan çağrılır: aşağıda `adt_xxx` denen her yerde
-> `POST http://127.0.0.1:8787/tool/adt_xxx` oku. Bu skill'in ihtiyacı olan
-> `adt_search`, `adt_get_source`, `adt_list_package`, `adt_where_used`, `adt_revisions`,
-> `adt_sql` araçlarının hepsi kapıdan geçiyor — yani belge üretimi eksiksiz çalışır.
-> Yazma araçları `404 unknown_tool` döner; bu skill zaten hiçbirini kullanmıyor.
-
 A project ends and the customer buys the knowledge, not the opinion. This skill
 produces the document that hands it over: what a development is, what it does, what
 it is made of, and where every sentence of that came from.

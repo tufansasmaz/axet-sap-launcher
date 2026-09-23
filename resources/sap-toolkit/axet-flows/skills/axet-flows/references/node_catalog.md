@@ -255,7 +255,11 @@ quotes in text before it reaches the query.
 ### `axet-agents-execute` — "Flows AI Agent" (palette **aXet AI**)
 
 The current agent node, and the one to reach for. Not the same thing as
-`enabler-llm`, which is a raw chat-completions call.
+`enabler-llm`, which is a raw chat-completions call. It ships from
+**`axet-flows-contrib-nodes-agents`** (1.0.11 on 6.5.3) - *not* from the older
+`deptapps-flows-contrib-axet-agents@1.3.4`, which is where the deprecated
+`aXet Agent` node comes from. Both spellings are alive on the same instance; read
+`usedNodes` rather than guessing which one a version needs.
 
 ```json
 {"id":"<16 hex>","type":"axet-agents-execute","z":"<tab>","name":"3. TS Reviewer",
@@ -264,6 +268,7 @@ The current agent node, and the one to reach for. Not the same thing as
  "model":"aws-anthropic/eu.anthropic.claude-sonnet-5","input":"",
  "mcpTools":"[]","coreTools":"","customTools":"[]",
  "temperature":0.3,"maxRetries":2,"maxSteps":15,"timeout":300000,"stream":false,
+ "webSearch":false,
  "outputSchema":"","projectId":"<your-project-id>",
  "x":420,"y":480,"wires":[["<ok>"],["<error>"]]}
 ```
@@ -297,6 +302,20 @@ branch on a field:
 
 Set it on the **Input/Output** tab (Simple / Advanced JSON / Validate). Without it,
 one agent's answer cannot drive another node except by string matching.
+
+`webSearch` (boolean, default `false`) turns on the agent's own web tool. It is not
+in the 6.5.2 manual and appeared on the node with the 1.0.x agents module. Leave it
+off unless the task needs the open web: an agent that can browse is a different
+thing to declare to the auditor than one that cannot, and the answer stops being
+reproducible from the inputs the flow holds.
+
+**Split a long generation across two agent nodes rather than raising `maxSteps`.**
+A 51-node app measured on 2026-09-08 writes a six-section technical spec as
+`TS Generator (1/2: sections 1-3)` -> `TS Generator (2/2: sections 4-6)` -> a
+function that concatenates. Same instructions, half the output each. The reason is
+the gateway clock, not the model: one call long enough to emit all six sections
+dies with `OriginTimeout` before the node's own 300 s is anywhere near spent, and a
+partial answer from a timed-out call is indistinguishable from a short one.
 
 **The Tools tab - `mcpTools`, `coreTools`, `customTools` - is real and undocumented.**
 All three ship on the node as strings (`"mcpTools": "[]"`), and consultants do ask
@@ -404,18 +423,100 @@ wires it straight into the mapping function. A provider or gateway failure there
 does not come back on a second wire; it raises, and a **`catch` node on the tab** is
 what turns it into a 502 instead of a hung request.
 
-### Python Agent node (aXet Python palette)
-Runs LangChain / LangGraph / CrewAI / AutoGen agents, and is the execution boundary for
-anything that has to pause for a human. Its dependencies are installed by the **Install
-Dependencies** node (tutorials palette), or by the node's own **Auto Install**.
+### `python-agent` (palette **aXet Python**)
 
-The entrypoint file defines one of `run(msg)`, `main(msg)`, `process(msg)` or
-`handle_message(msg, node_id)`, and returns a serialisable dict. Settings that matter:
-**Environment** = *UV (managed)* for an isolated runtime (Python 3.10-3.13),
-**Dedicated Env** when it must not share dependencies with another python-agent,
-**Timeout and memory** so a stuck run does not hold resources, and **API Gateway** only
-when the Python app must expose FastAPI HTTP handlers — an internal flow does not need
-it.
+Real Python in the flow — the execution boundary for LangChain / LangGraph / CrewAI /
+AutoGen, and equally for the boring case this node is most often actually used for:
+a library that has no JavaScript equivalent (`pdfplumber`, `python-docx`, `openpyxl`).
+Ships from `axet-flows-contrib-nodes-python-agent` (1.0.6 on 6.5.3). Every field,
+read off a working node:
+
+```json
+{"id":"<16 hex>","type":"python-agent","z":"<tab>",
+ "name":"Extract PDF text (pdfplumber)","outputs":1,
+ "runtimeMode":"uv","pythonVersion":"3.12","pyenvTargetVersion":"",
+ "dedicatedEnv":false,"timeout":300,"maxMemory":"512m",
+ "codeSource":"inline","sourceCwd":"","code":"<the module text>",
+ "gitRepo":"","gitBranch":"","entrypoint":"main.py",
+ "requirements":"pdfplumber","autoInstall":true,"envVars":"",
+ "exposeApi":false,"gateway":"","apiName":"","apiRoutes":"",
+ "enableAxetLlm":false,"projectid":"","model":"","slug":"",
+ "modelClientId":"","x":600,"y":320,"wires":[["<next>"]]}
+```
+
+- **`timeout` is SECONDS here** (300), where the agent node's is milliseconds
+  (300000). Copying a number across the two is a 300-times mistake in either
+  direction and neither node complains.
+- **One output.** Unlike `axet-agents-execute` there is no error wire: a Python
+  traceback raises, so the tab needs a `catch` node or the request hangs.
+- `requirements` is newline-separated, not comma-separated
+  (`"python-docx\nopenpyxl"`). With `autoInstall: false` nothing installs them and
+  the import fails on the first message, not at deploy — the alternative is running
+  the tutorials palette's **Install Dependencies** node once.
+- `codeSource` is `inline` (the `code` field is the whole module) or a
+  `gitRepo`/`gitBranch`/`entrypoint` checkout. `entrypoint` stays `main.py` for
+  inline code.
+- `enableAxetLlm: true` plus `projectid`/`model`/`slug`/`modelClientId` wires the
+  aXet LLM gateway into the Python side. Off for a pure library call.
+- `dedicatedEnv` when this node must not share a virtualenv with another
+  python-agent; `pyenvTargetVersion` only when `runtimeMode` is not `uv`.
+
+**The contract is `def run(msg)` returning the same dict.** The entrypoint may define
+`run(msg)`, `main(msg)`, `process(msg)` or `handle_message(msg, node_id)`. `msg` is
+the Node-RED message as a plain dict; what you return becomes the message. Import
+the heavy dependency *inside* the function, so a missing package is one message's
+error rather than a node that will not start:
+
+```python
+import base64
+import io
+
+def run(msg):
+    import pdfplumber                      # inside: fails per message, not at load
+    data = base64.b64decode(msg.get("fsBase64") or "")
+    pages = []
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
+        for page in pdf.pages:
+            pages.append(page.extract_text() or "")
+    msg["fsText"] = "\n\n".join(pages)     # add a field, return the whole msg
+    return msg
+```
+
+**What you return becomes `msg.payload`. It is NOT merged into the message.** This
+is the single most expensive thing to get wrong about this node, because the failure
+is a silently empty field rather than an error. The node clones the *input* message
+and assigns your result to `payload`:
+
+```
+bridge_runner.py:451    result    = handler(msg, req_node_id)
+python-agent.js:786     outputMsg = RED.util.cloneMessage(inputMsg)
+                        outputMsg.payload = result
+```
+
+So a handler written the natural way — `msg["fsText"] = ...; return msg` — delivers
+the value at **`msg.payload.fsText`**, while `msg.fsText` is still whatever came in,
+usually `undefined`. Unwrap it in the next Function node, guarded so that a branch
+which already set the field is not disturbed:
+
+```javascript
+if (!msg.fsText && msg.payload && typeof msg.payload === "object" &&
+        typeof msg.payload.fsText === "string") {
+    msg.fsText = msg.payload.fsText;
+}
+```
+
+The other half of that clone is the good news: **everything on the input message
+survives, `msg.req`/`msg.res` included**, no matter what Python returns. An HTTP
+flow does not lose its response handle here.
+
+**Binary in, binary out is base64.** The JSON boundary cannot carry a Buffer, so an
+upload arrives as a base64 string you decode in Python, and a generated `.docx` goes
+back the same way for a Function node to turn into `Buffer.from(b64, "base64")`.
+
+> **`Converting circular structure to JSON` on an HTTP flow is this node.** It
+> serialises the *whole* message to cross into Python, and `msg.req`/`msg.res` hold
+> a circular Socket. The fix is a one-line Function node immediately upstream —
+> `references/function_node.md`, "Hiding `req`/`res` from a JSON boundary".
 
 A long agent run must not block inside Python. Return a status the flow can branch on
 and let Node-RED route the wait: `references/human_review.md`.
@@ -558,6 +659,60 @@ only bites hand-built JSON — which is exactly what this skill produces.
 Scheduling uses `crontab` with Repeat = *at a specific time*: `30 7 * * 1-5` is 07:30
 Monday to Friday. Extra entries in `props` set fields on the message without touching
 the payload — useful for tagging which trigger fired.
+
+### `http in` with `upload: true` — files land on `msg.req.files`
+
+Tick **File Upload** on the node (`"upload": true` in JSON) and a `multipart/form-data`
+POST is parsed by multer before the flow sees it. This is stock Node-RED, not an aXet
+extension, and nothing else on the node changes:
+
+| where | what is there |
+|---|---|
+| `msg.req.files` | an array — each entry has `originalname`, `mimetype`, `size`, `buffer` (a real Buffer) |
+| `msg.req.body` | the **non-file** form fields of the same submission |
+| `msg.payload` | *not* the file — do not look for it there |
+
+```javascript
+const files = (msg.req && msg.req.files) || [];
+if (!files.length) { msg.statusCode = 400; /* ...answer... */ return [null, msg]; }
+const f = files[0];
+msg.fileName = f.originalname || "upload";
+msg.fileMime = (f.mimetype || "").toLowerCase();
+msg.fileB64  = f.buffer.toString("base64");   // for any JSON boundary downstream
+```
+
+**`mimetype` is the browser's claim, and Windows lies about Office files.** A `.docx`
+or `.xlsx` uploaded from a machine where the type is not registered arrives as
+`application/octet-stream`, which routes a ZIP into whatever branch handles plain
+text. Fall back to the filename extension before branching:
+
+```javascript
+if (!/pdf|officedocument/.test(msg.fileMime)) {
+    const ext = (String(msg.fileName).match(/\.([a-z0-9]+)$/i) || ["", ""])[1].toLowerCase();
+    const byExt = {
+        pdf:  "application/pdf",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    };
+    if (byExt[ext]) { msg.fileMime = byExt[ext]; }
+}
+```
+
+**Map three extensions, not five.** `.doc` and `.xls` are deliberately absent:
+`python-docx` and `openpyxl` cannot read the legacy binary formats, so mapping them
+trades a clear "unsupported file" for a confusing parse error two nodes later.
+
+**`buffer.toString("base64")`, never `btoa`.** The Buffer cannot cross a JSON
+boundary — a `python-agent`, a database field, a stored session — and `btoa`/`atob`
+mangle everything outside ASCII. Reading a `.xlsx` or `.docx` is then a three-node
+chain: `http in (upload)` -> Function (decode to base64) -> `python-agent`
+(`openpyxl` / `python-docx`), and the same base64 in reverse sends one back, with
+`Buffer.from(b64, "base64")` and a `content-disposition` header at the
+`http response`.
+
+A scanned PDF has no text layer and extracts as empty. Say that in the error —
+"no extractable text found" sends the user to look at their file; "failed" sends
+them to you.
 
 ### `http request` — Return must be a parsed JSON object
 

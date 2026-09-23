@@ -63,12 +63,48 @@ answers "how does it look"; a clickable one answers "how does it *work*", and th
 second question is the one that finds the missing requirement. Plain HTML, CSS
 and a little JavaScript in one file; no frameworks, no CDN.
 
+### The controls, as a checklist
+
+Go through this list against the description rather than reaching for whatever
+comes to mind. A forgotten value help or a radio group that should have been a
+dropdown is the kind of thing nobody notices in review and everybody notices in
+the built screen.
+
+| | |
+|---|---|
+| Entry | text, numeric (right-aligned), date, **read-only** |
+| Choice | dropdown, checkbox, **radio group** |
+| Lookup | **value help button (`...`)** next to the field it serves |
+| Action | toolbar buttons (compact, at the top), action buttons (at the bottom) |
+| Data | ALV-like grid |
+| Structure | tab strip — only when one screen genuinely cannot hold it |
+
+For every field say which it is: editable, read-only, required, calculated, or
+filled by the system. That list is section 3 of the handover, so collect it as
+you draw rather than reconstructing it afterwards.
+
 ### The grid follows ALV conventions
 
 Header row, visible column and row borders, numbers right-aligned, editable cells
 visually different from read-only ones, alternating row shading when it helps,
 and a checkbox or highlight for selectable rows. If a row's behaviour depends on
 what is typed into it, say so on the page.
+
+### A process that spans several screens
+
+Some work does not fit one screen: a selection screen leads to a list, the list
+leads to a detail screen. Draw **all of them, in order, in the same file** — one
+section per screen, each with its own header and buttons, and say which button
+moves to which screen. One file, because the flow is the thing being agreed and
+three attachments cannot show it; and because the consultant forwards one link.
+
+Make the navigation work where it is cheap to: the button that opens the detail
+screen should actually show it. A flow whose steps only exist as separate
+pictures hides exactly the question worth asking — what the user carries from
+one screen to the next, and what happens on the way back.
+
+Do not split a single screen into several just because it is busy. Tabs first,
+and a second screen only when the process really has a second step.
 
 ### Annotate inside the HTML
 
@@ -92,7 +128,7 @@ have. For a customer-facing PDF, `office-pdf` renders it.
 After the file, four short sections:
 
 1. **Ne anladım** — the workflow and the assumed goals, in a few lines
-2. **Ekranda ne var** — the sections, and what each button does
+2. **Ekranda ne var** — the sections, what each button does, and for a multi-screen flow, the order the screens come in
 3. **Hangi alan ne** — editable / read-only / required / calculated, as a table
 4. **Neyi netleştirmemiz lazım** — the specific questions, each one naming the
    field or rule it is about

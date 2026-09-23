@@ -83,10 +83,21 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   "sap-docs": { path: "sap-consultant/skills/sap-docs" },
   "library-match": { path: "sap-consultant/skills/library-match" },
   "abap-code-checker": { path: "sap-consultant/skills/abap-code-checker" },
+  // `abap-code-checker` tek bir nesneye bakıyor; bu, NTT'nin kurumsal ABAP
+  // standardının (abap_core v2.0) tamamına karşı denetim yapıyor. İkisi de
+  // yalnızca OKUYOR — düzeltmeyi öneriyor, uygulamıyor.
+  "abap-code-review": { path: "sap-consultant/skills/abap-code-review" },
   "screen-mockup": { path: "sap-consultant/skills/screen-mockup" },
 
   // --- SAP: yazma yetenekli ------------------------------------------------
   "screen-gen": { path: "sap-consultant/skills/screen-gen", writeCapable: true },
+  // SFPF/SFPI yaratıp aktive ediyor — ADT üzerinden değil, RFC'li bir üretici
+  // FM ile. Kapı yine aynı kapı: bu bayrak "SAP'ta nesne oluşur" demek,
+  // hangi kanaldan oluştuğu değil.
+  "adobe-gen": { path: "sap-consultant/skills/adobe-gen", writeCapable: true },
+  // Kaynak sistemden okuyup HEDEF sisteme ADT ile yazıyor (paket taşıma,
+  // yeniden adlandırma). İki sistemli olması kapıyı yumuşatmıyor.
+  "sap-object-transfer": { path: "sap-consultant/skills/sap-object-transfer", writeCapable: true },
 
   // --- SAP: danışmanlık döngüsü (talep → geliştirme → teslim → arıza) -------
   // Dördü de canlı sistemi OKUYOR, hiçbiri yazmıyor: kullandıkları `adt_*`
@@ -122,6 +133,15 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   "basis-ops-pack": { path: "sap-ecosystem/skills/basis-ops-pack" },
   "automation-pilot-pack": { path: "sap-ecosystem/skills/automation-pilot-pack" },
 
+  // --- AUTH+ : yetki taşıma (ECC → S/4) üç aşaması -------------------------
+  // Üçü de `writeCapable` DEĞİL ve bu bir tercih değil, bir olgu: PFCG rolü
+  // bir ADT nesnesi değil, dolayısıyla buradaki hiçbir araç bir SAP sisteminde
+  // rol yaratamaz. İlk ikisi AGR_*/TSTC/TOBJ tablolarını OKUYOR, üçüncüsü
+  // yalnızca dosya üretiyor — insanın PFCG'de yapacağı işin hazırlığı.
+  "auth-discovery": { path: "auth-plus/skills/auth-discovery" },
+  "auth-gap-analysis": { path: "auth-plus/skills/auth-gap-analysis" },
+  "auth-build": { path: "auth-plus/skills/auth-build" },
+
   // --- SAP GUI ekran yakalama ----------------------------------------------
   // ADT'ye değil, çalışan SAP GUI penceresine bakıyor: PrintWindow ile ekran
   // görüntüsü alıp kullanım kılavuzu üretiyor. Tuş basabildiği için SKILL.md'ye
@@ -129,13 +149,22 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   // DEĞİL çünkü o bayrak ADT üzerinden SAP nesnesi yazmayı işaretliyor ve
   // PRD kapısının koruduğu şey o.
   "sapgui-screenshots": { path: "sapgui-scriptter/skills/sapgui-screenshots" },
+  // Bu, ekran yakalamanın aksine SAPGUI'yi SÜRÜYOR: ZABAPGIT_STANDALONE'a
+  // ZIP import ettirip aktive ediyor, yeşil olana kadar döngüde. Sisteme
+  // nesne inmesi ADT'den geçmiyor diye kapının dışında kalamaz.
+  "abapgit-deploy": { path: "sapgui-scriptter/skills/abapgit-deploy", writeCapable: true },
 
   // --- Doküman üretimi -----------------------------------------------------
   "fs-generator": { path: "sap-consultant/skills/fs-generator" },
   "sap-enduser-doc": { path: "sap-consultant/skills/sap-enduser-doc" },
   "ts-generator": { path: "sap-consultant/skills/ts-generator" },
+  "fs2ts": { path: "sap-consultant/skills/fs2ts" },
   "spec-reviewer": { path: "sap-consultant/skills/spec-reviewer" },
   "meeting-notes-organizer": { path: "sap-consultant/skills/meeting-notes-organizer" },
+  "fast-scan-question-generator": { path: "sap-consultant/skills/fast-scan-question-generator" },
+  // Onaylanan dokümanı SharePoint'teki ortak depoya, kimin hangi baytları
+  // onayladığı kaydıyla birlikte koyuyor. SAP'a hiç dokunmuyor.
+  "project-store": { path: "sap-consultant/skills/project-store" },
 
   // --- abapGit köprüsü -----------------------------------------------------
   "abapgit-howto": { path: "abapgit-bridge/skills/abapgit-howto" },
@@ -152,6 +181,11 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   // Script'leri yalnızca Python standart kütüphanesini kullanıyor, kurulacak
   // bir bağımlılık yok.
   "axet-flows": { path: "axet-flows/skills/axet-flows" },
+  // Bozuk bir aXet.code oturumunun geçmişini yerinde onarıyor (tool_use /
+  // tool_result eşleşmesi kopunca oturum 400 dönüyor). SAP'la ilgisi yok,
+  // herkese lazım olabilir — ve BAŞKA bir oturumdan çalıştırılması gerekiyor,
+  // bozuk olan hiçbir şey çalıştıramaz.
+  "session-recovery": { path: "axet-code/skills/session-recovery" },
 
   // --- Office --------------------------------------------------------------
   "office-excel-read": { path: "office-tools/skills/office-excel-read" },
@@ -221,7 +255,29 @@ export const SHARED_ASSETS: SharedAsset[] = [
 const OFFICE = Object.keys(SKILL_CATALOG).filter((n) => n.startsWith("office-"));
 const ABAPGIT = Object.keys(SKILL_CATALOG).filter((n) => n.startsWith("abapgit-"));
 
-const DOCS = ["fs-generator", "ts-generator", "spec-reviewer", "meeting-notes-organizer"];
+/**
+ * Doküman üretim zinciri. `fs2ts` aradaki köprü: onaylı bir FS'ten TS taslağı
+ * çıkarıyor, yani `fs-generator` ile `ts-generator` arasındaki elle yazma adımı.
+ * `project-store` zincirin sonu — onaylanan dokümanı SharePoint'teki ortak
+ * depoya koyuyor. Hiçbiri SAP'a dokunmuyor, o yüzden ikisi de her rolde.
+ */
+const DOCS = [
+  "fs-generator",
+  "fs2ts",
+  "ts-generator",
+  "spec-reviewer",
+  "meeting-notes-organizer",
+  "project-store"
+];
+
+/**
+ * Yetki taşıma (ECC → S/4) üç aşaması. İKİ ROLDE DE var ve bu bir cömertlik
+ * değil bir olgu: PFCG rolü bir ADT nesnesi değil, bu üç skill'in hiçbiri bir
+ * SAP sisteminde rol yaratamıyor. İlk ikisi AGR_, TSTC ve TOBJ tablolarını
+ * OKUYOR, üçüncüsü yalnızca dosya üretiyor — insanın PFCG'de yapacağı işin
+ * hazırlığı. Yetki analizi de zaten çoğunlukla modül tarafının işi.
+ */
+const AUTH = ["auth-discovery", "auth-gap-analysis", "auth-build"];
 
 /**
  * Danışmanlık döngüsü: talep gelir (`sap-cr-scope`), yapılır, teslim edilir
@@ -229,12 +285,15 @@ const DOCS = ["fs-generator", "ts-generator", "spec-reviewer", "meeting-notes-or
  * dokümante edilir (`as-built-doc`), test kapsamı sistemden çıkarılır
  * (`test-scenarios`), dönüşüm kapsamı dosyalardan hesaplanır
  * (`conversion-scope`), ekran görüntüsü alınır (`sapgui-screenshots`).
+ * Hepsinden önce de keşif toplantısının soruları hazırlanır
+ * (`fast-scan-question-generator`).
  *
  * Hepsi İKİ ROLDE DE var — çünkü bu adımlar rol değil, iş akışı. Bir modül
  * danışmanı da arıza bakar, bir teknik danışman da teslim dokümanı yazar.
  * Aralarında SAP'a yazan yok.
  */
 const DANISMANLIK = [
+  "fast-scan-question-generator",
   "sap-cr-scope",
   "sap-cr-handover",
   "sap-incident",
@@ -252,8 +311,12 @@ const DANISMANLIK = [
  * ve üretiyor. Rol ayrımı SAP'ta kim ne yapar sorusunu bölüyor; bu skill o
  * sorunun dışında kaldığı için iki listeye de giriyor. Ayrı bir sabit olarak
  * duruyor ki bir role eklenip diğerinde unutulması mümkün olmasın.
+ *
+ * `session-recovery` aynı gerekçeyle burada: bozuk bir aXet.code oturumunun
+ * geçmişini onarıyor (tool_use / tool_result eşleşmesi kopunca oturum 400
+ * dönüyor). Kimin başına geleceği role bağlı değil.
  */
-const HERKES = ["axet-flows"];
+const HERKES = ["axet-flows", "session-recovery"];
 
 export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
   // Modül (fonksiyonel) danışmanı: sistemi okur, doküman üretir, kod yazmaz.
@@ -274,6 +337,7 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "bbp-creator",
     "sap-enduser-doc",
     "celonis-ocpm-builder",
+    ...AUTH,
     ...DANISMANLIK,
     ...DOCS,
     ...OFFICE,
@@ -297,8 +361,20 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "sap-docs",
     "clean-core",
     "abap-code-checker",
+    // `abap-code-checker` tek bir nesneye bakıyor, bu NTT'nin kurumsal ABAP
+    // standardının (abap_core v2.0) tamamına karşı denetim yapıyor. İkisi de
+    // yalnızca okuyor; teknik tarafta çünkü denetlenen şey kod.
+    "abap-code-review",
     "screen-mockup",
     "screen-gen",
+    // SAP'ta nesne YARATAN ikisi burada, yalnızca burada: Adobe form/arayüzü
+    // üreten `adobe-gen` ve kaynak sistemden okuyup hedefe yazan
+    // `sap-object-transfer`. Modül danışmanı listesinde yoklar ve olmayacaklar
+    // (kullanıcı, 2026-09-23: *"modül danışmanları asla geliştirme
+    // yapamasınlar"*). `abapgit-deploy` de yazıyor ama adı `abapgit-` ile
+    // başladığı için ABAPGIT grubundan zaten sadece bu role giriyor.
+    "adobe-gen",
+    "sap-object-transfer",
     // Teknik tarafın kendi işleri: ATC bulgularını toplu düzeltme, çıktı/form
     // tasarımı (XSLT, Smartform) ve SAP ekosistemi geliştirme paketleri.
     "atc-remediation",
@@ -309,6 +385,7 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "cap-dev-pack",
     "basis-ops-pack",
     "automation-pilot-pack",
+    ...AUTH,
     ...DANISMANLIK,
     ...ABAPGIT,
     ...DOCS,

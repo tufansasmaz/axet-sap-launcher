@@ -18,20 +18,7 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # sap-cr-handover — hand over what was actually built
 
-**Requires a live ADT connection.** Without one, stop and say so.
-
-> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda `sap-adt` skill'i ve `adt_*`
-> MCP araçları YOK; aXet.code MCP konuşamıyor. Aynı araçlar `sap-adt-readonly` skill'inin
-> anlattığı yerel HTTP sunucusundan çağrılır: aşağıda `adt_xxx` denen her yerde
-> `POST http://127.0.0.1:8787/tool/adt_xxx` oku. Bu skill'in kullandığı `adt_list_transports`,
-> `adt_transport_check`, `adt_get_source`, `adt_where_used`, `adt_revisions`, `adt_sql`,
-> `adt_atc_check`, `adt_unit_test`, `adt_check_scatter`, `adt_badi_discovery` araçlarının
-> hepsi kapıdan geçiyor — taşıma isteğini okuyup teslim dokümanı yazmak eksiksiz çalışır.
-> **Taşımayı serbest bırakmak bu skill'in işi DEĞİL** ve zaten yapamaz: taşıma yazan araçlar
-> `404 unknown_tool` döner. Serbest bırakmayı geliştirici SE09/SE10'da kendisi yapar.
->
-> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
-> yerde proje kökündeki **`.axet-code/scripts/`** oku — `case.py` oraya kuruluyor.
+**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so.
 
 Handover documents are normally written from the specification, because that is the document
 that is open. So they describe what was *meant* to be built, and the gap between that and the

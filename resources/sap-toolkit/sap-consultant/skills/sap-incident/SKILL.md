@@ -18,25 +18,7 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # sap-incident — analyse a reported SAP problem, end to end
 
-**Requires a live ADT connection.** Without one, stop and say so.
-
-> **NTT Studio uyarlaması — MCP değil, HTTP; ve YAZMA YOK.** Bu dağıtımda `sap-adt` skill'i
-> ve `adt_*` MCP araçları YOK; aXet.code MCP konuşamıyor. Aynı araçlar `sap-adt-readonly`
-> skill'inin anlattığı yerel HTTP sunucusundan çağrılır: aşağıda `adt_xxx` denen her yerde
-> `POST http://127.0.0.1:8787/tool/adt_xxx` oku.
->
-> Kapı **read-only** ve bu skill için bunun somut bir sonucu var. Araştırma tarafı eksiksiz
-> çalışır: `adt_dumps`, `adt_search`, `adt_code_search`, `adt_get_source`, `adt_where_used`,
-> `adt_revisions`, `adt_sql`, `adt_syntax_check`, `adt_atc_check`, `adt_unit_test`,
-> `adt_inactive_objects`, `adt_badi_discovery`, `adt_list_transports`, `adt_transport_check`
-> hepsi geçer. **Ama §8'de DEV için anlatılan `adt_push` → `adt_activate` adımı bu
-> dağıtımda ÇALIŞMAZ** — o araçlar sunucuda hiç açılmıyor, `404 unknown_tool` döner.
-> Bu bir eksiklik değil, bilinçli bir kilit: NTT Studio hiçbir SAP sistemine yazmaz.
-> Teslim ettiğin şey her zaman diff'in kendisi olur; onaylanan değişikliği sisteme
-> geliştirici ADT/SE80'de kendi elleriyle uygular. Bunu rapora da yaz.
->
-> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
-> yerde proje kökündeki **`.axet-code/scripts/`** oku — `case.py` oraya kuruluyor.
+**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so.
 
 You do the investigation. The consultant pastes and reads. Every question you ask a human
 is a question you failed to answer with a tool call.
@@ -201,12 +183,10 @@ One page, plain language, no evidence IDs on the front — format and worked exa
 - **What ships is a diff, not a push.** The deliverable of this skill is a proposal: source
   read live, change shown as a diff, named person decides. That holds on every system,
   including DEV.
-- **DEV**: ~~once a named human has approved the diff, you may apply and verify it
-  (`adt_push`, `adt_syntax_check`, `adt_atc_check`, `adt_unit_test`, `adt_activate`)~~
-  — **NTT Studio'da bu adım yok**: `adt_push`/`adt_activate` sunucuda açılmıyor. Onaylanan
-  diff'i geliştirici uygular; sen `adt_syntax_check`, `adt_atc_check`, `adt_unit_test` ile
-  uygulandıktan sonra doğrularsın. Kimin onayladığını vakaya yaz. Aktivasyon doğrulama
-  değildir — orijinal hata senaryosunu ve bir negatif vakayı yeniden koştur.
+- **DEV**: once a named human has approved the diff, you may apply and verify it
+  (`adt_push`, `adt_syntax_check`, `adt_atc_check`, `adt_unit_test`, `adt_activate`) against
+  a transport they confirmed. Record who approved it in the case. Activation is not
+  verification — re-run the original failing scenario plus one negative case.
 - **QA**: reached by transport, not by `adt_push`. QA is where somebody else's test cycle
   is running; writing into it directly desynchronises QA from the transport that is supposed
   to describe it, and the first symptom is a defect nobody can reproduce after the next

@@ -315,6 +315,11 @@ first and say which you chose.
    the parts first (rule 3); the heading levels are settled there too, so do not
    restructure at render time.
 
+   Once rendered and accepted, offer to approve and save it through the
+   **`project-store`** skill (`--kind BBP`), under that skill's rules: explicit
+   yes only, re-render before saving if approval changes anything inside the
+   document, and never report exit 3 (store not synced) as saved.
+
 9. **Ask for missing inputs** (via `ask_user`, one question) only if none of
    the required source documents (meeting notes / Fast Scan Q&A / WS plan)
    were provided at all, or if module detection is genuinely ambiguous.

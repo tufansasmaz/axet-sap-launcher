@@ -16,12 +16,6 @@ description: >
 
 # ts-generator — SAP Functional Spec → Technical Spec Converter
 
-> **NTT Studio uyarlaması — `${CLAUDE_PLUGIN_ROOT}` yok.** Eklenti kökü diye bir şey ve o
-> ortam değişkeni bu dağıtımda tanımlı değil. Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/`
-> geçen her yerde proje kökündeki **`.axet-code/scripts/`** oku (`summary_check.py` oraya
-> kuruluyor); `${CLAUDE_PLUGIN_ROOT}/skills/<ad>/scripts` ise
-> **`.axet-code/skills/<ad>/scripts`**.
-
 > Formerly named `fs2ts`; renamed 2026-08-02 for symmetry with `fs-generator`.
 
 ## Purpose
@@ -324,6 +318,27 @@ Present a compact briefing in chat, nothing more:
 
 Iterate in dialogue; keep the TS header Status `Taslak` until the user explicitly
 approves.
+
+### Approve and save to the project store
+
+When the person is satisfied, ask whether they approve this TS — in the
+wording and under the rules of the **`project-store`** skill, which owns them.
+In short: show the file(s), the project code and the destination first, ask
+once, and save only on an explicit yes. Silence or "sonra" is not a yes.
+
+**Order matters.** The TS header Status is `Taslak` until now; it becomes the approved status. Update it, **re-render the Word file, and only
+then save** — the record hashes the saved bytes, so saving first would store an
+"approved" document that still says draft inside.
+
+```bash
+py <project-store SCRIPTS>/project_store.py save --kind TS \
+    --file <ts.docx> --file <ts.md> --skill ts-generator --approved
+```
+
+Run it from the project folder. Relay the result as `project-store` describes —
+in particular, exit 3 means **nothing was saved** (the Projects folder is not
+synced here), which must never be reported as success.
+
 
 ### STEP 8: Offer a two-page technical summary (OPTIONAL — the user decides)
 

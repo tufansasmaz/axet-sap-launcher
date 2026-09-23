@@ -314,6 +314,88 @@ prompt problem wearing a control as a disguise.
 The record shape, the python-agent settings, the LangGraph entrypoint and the test
 list: `references/human_review.md`.
 
+## 7. Bounded retry that knows what is worth retrying
+
+**When**: a model call fails intermittently on input that succeeds on the next
+attempt, and the agent node's own `maxRetries` does not catch it — because from the
+transport's point of view the call *succeeded*, it just came back with nothing in
+the structured slot:
+
+```
+Mastra API error 500: {"error":"Agent execution failed - Agent returned empty
+structured output","status":500}
+```
+
+```
+[agent] --(err)--> [function: retry?] --(retry)--> back into the agent
+                                      --(give up)--> [http response 502]
+```
+
+The whole value is in the classification. A retry loop that retries *everything* is
+worse than none, because the one failure an operator must read — "OKTA token not
+returned from ai-config endpoint", meaning this container has never been activated
+— is the one it hides behind three more minutes of waiting.
+
+```javascript
+const TRANSIENT = /empty structured output|Agent execution failed|API error 5\d\d|ETIMEDOUT|ECONNRESET|socket hang up/i;
+const PERMANENT = /okta|unauthori[sz]ed|forbidden|\b40[13]\b/i;
+const MAX_RETRIES = 2;
+
+const text    = (msg.error && msg.error.message) || "";
+const attempt = msg.retryCount || 0;
+if (PERMANENT.test(text) || !TRANSIENT.test(text) || attempt >= MAX_RETRIES) {
+    return [null, msg];            // second output: answer the caller
+}
+msg.retryCount = attempt + 1;
+return [msg, null];                // first output: back into the agent
+```
+
+**Check the clock before starting a retry, not only the counter.** The gateway in
+front of the flow gives the whole request about 60 seconds (Azure Front Door's
+default origin response timeout, measured). A retry begun at second 55 cannot
+finish, and all it does is replace a readable error with a dead connection. Record
+`msg.startedAt` at the `http in` and refuse a retry that has no room left.
+
+The counter lives on `msg`, exactly like pattern 4's round counter, for the same
+reason: two callers at once would share a context variable.
+
+## 8. Surviving the 60-second gateway ceiling
+
+**When**: a request legitimately takes longer than the gateway in front of the flow
+will wait — two sequential model calls, a document conversion, anything with a person
+or a large file in it.
+
+The ceiling is roughly **60 seconds** (Azure Front Door's default origin response
+timeout, measured). What it does is specific and worth being precise about: Front
+Door answers the **browser** with a 504 and closes that connection, and **the
+container keeps running**. The work finishes. Nobody is listening.
+
+So file the answer somewhere the reconnecting browser can ask for it:
+
+```
+POST /api/run   -> [work] -> flow.set("run:" + id, {status:"done", result})
+                          -> http response          (may already be dead)
+GET  /api/status?run_id=  -> flow.get("run:" + id)  -> http response
+```
+
+**The client invents the run id, before it uploads.** This has to be that way round:
+if the gateway times out, the browser never learns an id the server chose, but it
+always remembers one it chose itself. The server validates the shape
+(`/^[0-9a-f]{16}$/`) and mints its own only when the field is absent or malformed.
+With `upload: true`, multer puts that field on `msg.req.body`.
+
+**Bound the store, and sweep at the start of a run rather than on a timer.** A
+finished record can carry a generated document as base64 and the container heap is
+480 MB; the start of a run is the only moment the store can actually grow, so that
+is when to drop records past their age (30 minutes) and past a count ceiling (~30).
+A `setInterval` in a Function node would survive a redeploy and run twice.
+
+`flow` context is the right home for this and a file is not: the record is
+short-lived, it is read once, and it must not outlive the container the way a
+session file under `/internal-storage-files/` deliberately does. Use the file when
+a human is in the loop (pattern 6); use flow context when only a dropped connection
+is.
+
 ## Anti-patterns
 
 | do not | why |
@@ -343,6 +425,14 @@ list: `references/human_review.md`.
 | Hand-build an `inject` without all four timing fields | The designer invalidates it and it never fires, silently |
 | An AI node with its error output unwired | Every model and gateway failure disappears |
 | A correction loop with no round ceiling | It is a budget incident, not a bug |
+| Retry every error the agent's error output produces | An auth failure is not transient; retrying it three times only delays the message the operator needs |
+| Feed an `http in` message straight into `python-agent` | It serialises the whole message and `msg.req`/`msg.res` are circular. Hide them in a Function node immediately upstream |
+| Build a fresh dict in `run(msg)` | Whatever you leave out is gone downstream, `msg.res` included, and the browser waits forever |
+| Copy a `timeout` between `python-agent` and the agent node | One is seconds, the other milliseconds; neither complains |
+| Read a python-agent's result off `msg.<field>` | It is not merged - the node puts the return value on `msg.payload`, and the field you set in Python reads back undefined |
+| Trust `mimetype` on an upload | Windows sends `application/octet-stream` for Office files; fall back to the filename extension before branching |
+| Map `.doc` / `.xls` to the Office mime types | python-docx and openpyxl cannot read the legacy formats - a clear refusal beats a confusing parse error |
+| Let the server mint the run id for a long request | If the gateway times out, the browser never learns it and cannot ask for the result |
 | Feed the full document back into a loop | The gateway times out (`OriginTimeout`) long before the node does |
 | Promise an unattended AI flow in production | Every restart needs a human at `/credentials/activate.html` |
 | Put a user value into a `sql-query` Mustache slot | Mustache concatenates; it does not bind. That is an injection |

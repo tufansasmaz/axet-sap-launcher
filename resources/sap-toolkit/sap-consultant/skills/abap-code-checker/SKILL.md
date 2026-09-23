@@ -18,21 +18,9 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 
 # abap-code-checker — six gates, one scoreboard, no green by omission
 
-**Requires a live ADT connection.** This skill reviews code **on a system**, not files in a
-folder — a review of a local file tells you nothing about what is actually active in the
-client. Without a connection, stop and say so.
-
-> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda `adt_*` araçları MCP üzerinden
-> değil, `sap-adt-readonly` skill'inin anlattığı yerel HTTP sunucusundan (`http://127.0.0.1:8787`)
-> çağrılır; aXet.code MCP kullanamaz. Aşağıda `adt_xxx` MCP aracı denen her yerde
-> `POST http://127.0.0.1:8787/tool/adt_xxx` oku. Kapı **read-only**: `adt_syntax_check`,
-> `adt_atc_check`, `adt_unit_test`, `adt_get_source`, `adt_where_used`, `adt_revisions`
-> geçer; yazma araçları `404 unknown_tool` döner. Yani bulguları raporlarsın, düzeltmeyi
-> sistemde sen yapmazsın.
->
-> **`${CLAUDE_PLUGIN_ROOT}` de yok.** Eklenti kökü diye bir şey ve o ortam değişkeni bu
-> dağıtımda tanımlı değil. Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her yerde proje
-> kökündeki **`.axet-code/scripts/`** oku — `quality.py` oraya kuruluyor.
+**Requires the `sap-adt` skill from this plugin** (the `adt_*` MCP tools). Without it, stop and say so —
+this skill reviews code **on a system**, not files in a folder. A review of a local file
+tells you nothing about what is actually active in the client.
 
 You run the checks. The developer reads the board and decides. Every gate you skip shows
 up as ⬜, never as a pass.

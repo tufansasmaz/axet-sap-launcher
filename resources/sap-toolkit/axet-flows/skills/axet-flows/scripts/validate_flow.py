@@ -276,6 +276,24 @@ def check_node_type(node, errors, warnings):
                 "to text and the workbook is corrupt. Encoding must be 'none'."
                 % (where, node.get("encoding")))
 
+    elif ntype == "python-agent":
+        reqs = [r for r in (node.get("requirements") or "").splitlines() if r.strip()]
+        if reqs and not node.get("autoInstall"):
+            warnings.append(
+                "python-agent %s lists %d requirement(s) with Auto Install off - "
+                "nothing installs them and the import fails on the first message, "
+                "not at deploy. Tick Auto Install, or run the tutorials palette's "
+                "Install Dependencies node once." % (where, len(reqs)))
+        if node.get("codeSource") == "inline" and not (node.get("code") or "").strip():
+            warnings.append(
+                "python-agent %s is codeSource=inline with an empty code field - it "
+                "passes every message through unchanged" % where)
+        if (node.get("timeout") or 0) > 3600:
+            warnings.append(
+                "python-agent %s has timeout=%s - this node's timeout is in SECONDS "
+                "(300 is the default), unlike the agent node's milliseconds"
+                % (where, node.get("timeout")))
+
     elif ntype == "axet-agents-execute":
         for field, what in (("projectId", "Project"), ("model", "Model")):
             if not node.get(field):
@@ -447,6 +465,40 @@ def check_references(flow, ids, targets, errors, warnings, is_version=False):
                     "form page %s ('%s') is not on the app node's menu and is not the "
                     "welcome page - no user can reach it. Add a page entry with its id "
                     "as pageId." % (form["id"], label_of(form)))
+
+    # A python-agent fed from an http in crashes with "Converting circular structure
+    # to JSON": it serialises the whole message and msg.req/msg.res hold a circular
+    # Socket. Walk forward from every http in and stop at a Function node that makes
+    # them non-enumerable -- which has to sit on the path, because any node that
+    # clones the message (a switch does) re-attaches them enumerably.
+    if by_type.get("python-agent") and by_type.get("http in"):
+        def _hides_handles(n):
+            if n.get("type") != "function":
+                return False
+            body = n.get("func") or ""
+            return "defineProperty" in body and '"req"' in body.replace("'", '"')
+
+        exposed, queue = set(), [n["id"] for n in by_type["http in"]]
+        while queue:
+            nid = queue.pop()
+            if nid in exposed:
+                continue
+            exposed.add(nid)
+            node = by_id.get(nid)
+            if node is None or _hides_handles(node):
+                continue
+            for port in node.get("wires") or []:
+                if isinstance(port, list):
+                    queue.extend(t for t in port if isinstance(t, str))
+        for n in by_type["python-agent"]:
+            if n["id"] in exposed:
+                warnings.append(
+                    "python-agent %s ('%s') is reachable from an http in node with "
+                    "msg.req/msg.res still enumerable - it serialises the whole "
+                    "message and those are circular, so the run dies with "
+                    "'Converting circular structure to JSON'. Put a Function node "
+                    "immediately upstream that makes them non-enumerable, wired to "
+                    "this node only (function_node.md)" % (n["id"], label_of(n)))
 
     if by_type.get("enabler-llm") or by_type.get("axet-agents-execute"):
         declared = [u for u in by_type.get("use-case", []) if u.get("isAI")]

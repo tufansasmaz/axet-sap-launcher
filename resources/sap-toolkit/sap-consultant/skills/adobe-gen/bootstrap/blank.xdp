@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">
+<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/">
+  <subform name="form1" layout="tb" locale="tr_TR" restoreState="auto">
+    <pageSet>
+      <pageArea name="Page1" id="Page1">
+        <contentArea x="0.25in" y="0.25in" w="7.7in" h="10.9in"/>
+        <medium stock="a4" short="210mm" long="297mm"/>
+      </pageArea>
+    </pageSet>
+    <subform name="MAIN" layout="tb" w="7.7in"/>
+  </subform>
+</template>
+<config xmlns="http://www.xfa.org/schema/xci/2.8/">
+  <present>
+    <pdf>
+      <version>1.7</version>
+    </pdf>
+  </present>
+</config>
+</xdp:xdp>

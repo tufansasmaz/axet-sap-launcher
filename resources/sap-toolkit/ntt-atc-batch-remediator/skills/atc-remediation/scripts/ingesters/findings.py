@@ -1,6 +1,6 @@
 """ATC export ZIP → list[ATCFinding].
 
-Mirrors the parsing approach used by ntt-s4-migrator's ATCIngester:
+Mirrors the parsing approach used by ntt-s4's ATCIngester:
 - lxml XML parsing
 - KNOWN_ROOTS set; raise SchemaUnknown on unknown root (no discovery in v0.1)
 - Actionable ValueError on bad zip / malformed XML pointing at the SAP
