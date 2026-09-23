@@ -71,7 +71,7 @@ import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
-import type { ActiveGuiContext, AddManualSystemInput, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+import type { ActiveGuiContext, AddManualSystemInput, AdoptWorkDirResult, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -858,6 +858,44 @@ function registerIpc(): void {
     if (result.canceled || result.filePaths.length === 0) return null;
     return grantUserRoot(result.filePaths[0]);
   });
+
+  // Seçilen klasörü ajanın ÇALIŞMA klasörü yapmadan önceki tek hazırlık:
+  // rol + tier'a göre paket yeteneklerini oraya kur. Kurulum olmadan taşımak,
+  // proje kapsamlı yeteneklerin (ADT üçlüsü, yazan paketler) sessizce
+  // kaybolması olurdu — ajan onları listesinde görmez, kullanıcı sebebini
+  // bilemez.
+  //
+  // `isPathAllowed` kapısı duruyor: buraya yalnızca kullanıcının işletim
+  // sistemi penceresinden kendi seçtiği bir kök gelebilir. Renderer'ın
+  // uydurduğu bir yola kurulum yapılmıyor — aksi hâlde bu kanal, izin
+  // listesinin etrafından dolanan bir yazma yolu olurdu.
+  ipcMain.handle(
+    "axet:adoptWorkDir",
+    (_event, dirPath: string, systemUuid: string | null): AdoptWorkDirResult => {
+      const config = loadConfig();
+      if (!isPathAllowed(config, dirPath)) {
+        return { ok: false, error: mt("explorer.folderAccessDenied") };
+      }
+      // Tier, bağlanılan SAP sisteminden geliyor — klasörden değil. Çalışma
+      // klasörünü değiştirmek hangi sisteme konuşulduğunu değiştirmiyor, o
+      // yüzden kapı da değişmemeli (launcher.ts ile aynı kaynak).
+      const tier = (systemUuid ? config.systemTiers?.[systemUuid] : null) ?? null;
+      try {
+        const install = installSkillsIntoProject(dirPath, {
+          profile: config.skillProfile ?? undefined,
+          tier
+        });
+        return {
+          ok: true,
+          dir: dirPath,
+          installed: install.installed.length,
+          blockedByTier: install.blockedByTier
+        };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    }
+  );
 
   ipcMain.handle("fs:listDir", async (_event, dirPath: string) => {
     const config = loadConfig();

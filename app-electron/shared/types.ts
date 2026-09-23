@@ -592,6 +592,28 @@ export interface FsImportFilesResult {
   error?: string;
 }
 
+/**
+ * Gezginde seçilen klasörün axet'in ÇALIŞMA klasörü olarak benimsenmesi.
+ *
+ * Skill kurulumu bu adımın ayrılmaz parçası: proje kapsamlı yetenekler
+ * (ADT üçlüsü ve yazan paketler) `<klasör>/.axet-code/skills` altında duruyor.
+ * Çalışma klasörünü kurulum yapmadan taşımak, ajanın o yetenekleri SESSİZCE
+ * kaybetmesi olurdu — bu yüzden iki iş tek kanalda.
+ *
+ * SAP bağlantısı bundan ETKİLENMİYOR: `.conn_adt` eski proje klasöründe
+ * kalıyor ve ADT sunucusu kendi `cwd`'siyle ayrı bir süreç olarak çalışıyor
+ * (bkz. adtReadonlyServerManager). Taşınan tek şey ajanın çalışma klasörü.
+ */
+export interface AdoptWorkDirResult {
+  ok: boolean;
+  dir?: string;
+  /** Oraya kurulan paket yetenek sayısı. */
+  installed?: number;
+  /** Tier kapısı (QA/PRD) yüzünden bilerek kurulmayanlar. */
+  blockedByTier?: string[];
+  error?: string;
+}
+
 export type UpdatePhase =
   | "idle"
   | "checking"

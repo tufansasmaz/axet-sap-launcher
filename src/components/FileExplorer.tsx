@@ -10,6 +10,7 @@ import {
   FilePlus
 } from "lucide-react";
 import type { FsEntry, FsImportFilesResult } from "../../app-electron/shared/types";
+import { AXET_PATH_MIME } from "../lib/attachments";
 import { useT } from "../i18n";
 import { fileKind } from "../ui/fileIcons";
 
@@ -73,6 +74,16 @@ interface Props {
    * penceresinden kendi seçmesi (bkz. fsExplorer.ts `grantUserRoot`).
    */
   browsable?: boolean;
+  /**
+   * Kullanıcı işletim sisteminin klasör penceresinden YENİ bir kök seçtiğinde
+   * çağrılır. Gezgin zaten oraya geçiyor; bu çağrı çağıran tarafa "kullanıcı
+   * artık burada çalışmak istiyor" demek için (bkz. App.tsx — ajanın çalışma
+   * klasörü de oraya taşınıyor).
+   *
+   * İsteğe bağlı: sohbet panelindeki gezgin bunu bağlamıyor, orada kök zaten
+   * sohbetin kendi çalışma klasörü.
+   */
+  onRootPicked?: (dir: string) => void;
 }
 
 type DirState = FsEntry[] | "loading" | "error";
@@ -89,7 +100,8 @@ export default function FileExplorer({
   onImportComplete,
   autoRefresh = false,
   onExternalChange,
-  browsable = false
+  browsable = false,
+  onRootPicked
 }: Props) {
   const t = useT();
   const [childrenByPath, setChildrenByPath] = useState<Record<string, DirState>>({});
@@ -220,6 +232,7 @@ export default function FileExplorer({
     if (!picked) return;
     setAllowedRoots((prev) => (prev.includes(picked) ? prev : [...prev, picked]));
     setCurrentRoot(picked);
+    onRootPicked?.(picked);
   };
 
   // Gezinmenin tabanı: `currentRoot`u içeren izinli köklerin EN UZUNU.
@@ -322,6 +335,16 @@ export default function FileExplorer({
       <button
         key={entry.path}
         onClick={() => onSelectFile(entry)}
+        // Sohbete sürüklenebilsin diye. `draggable` OLMADAN sürükleme hiç
+        // BAŞLAMIYOR (bir `button`ın içeriği kendiliğinden sürüklenmez), bu
+        // yüzden sohbetin `onDrop`'u da hiç ateşlenmiyordu: Explorer'dan
+        // atılan dosya çalışırken buradan atılan çalışmıyordu.
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.effectAllowed = "copy";
+          e.dataTransfer.setData(AXET_PATH_MIME, entry.path);
+          e.dataTransfer.setData("text/plain", entry.path);
+        }}
         title={entry.name}
         className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm ${
           isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"

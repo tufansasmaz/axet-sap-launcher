@@ -1,6 +1,32 @@
 import type { ChatAttachment } from "../../app-electron/shared/types";
 import { quotePathIfNeeded } from "./paths";
 
+/**
+ * Uygulamanın KENDİ dosya listesinden sürüklenen yolların taşıyıcı tipi.
+ *
+ * Windows Explorer'dan sürüklenen dosya `dataTransfer.files` ile geliyor ve
+ * gerçek disk yolu `webUtils.getPathForFile` ile çıkarılıyor. Kendi
+ * gezginimizden sürüklenende ise `files` BOŞ — sürükleyen taraf biz olduğumuz
+ * için ortada bir `File` nesnesi yok. Yol zaten elimizde; onu kendi tipimizle
+ * taşıyoruz.
+ *
+ * Neden `text/plain` yetmiyor: sohbet kutusu düz metni EK değil YAZI sayıyor
+ * (bkz. ChatSessionPane `handleDrop`) ve haklı olarak taslağın sonuna
+ * ekliyor. Ayrı bir tip olmasaydı dosya sürüklemek kutuya yol yazardı.
+ *
+ * Yine de `text/plain` de yazılıyor: sürükleyip sohbet dışına (terminale, bir
+ * metin alanına) bırakan kullanıcı boş bir bırakma yerine yolun kendisini
+ * alsın.
+ */
+export const AXET_PATH_MIME = "application/x-axet-path";
+
+/** Sürüklenen yolları tek bir `dataTransfer` alanına koy/oradan oku. */
+export function readDraggedPaths(dt: DataTransfer): string[] {
+  const raw = dt.getData(AXET_PATH_MIME);
+  if (!raw) return [];
+  return raw.split("\n").filter(Boolean);
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";

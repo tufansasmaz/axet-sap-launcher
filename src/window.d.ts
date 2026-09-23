@@ -2,6 +2,7 @@ import type {
   ActiveContext,
   ActiveGuiContext,
   AddManualSystemInput,
+  AdoptWorkDirResult,
   AppConfig,
   AxetChatMessage,
   AxetChatActivity,
@@ -156,6 +157,12 @@ export interface AxetApi {
    * Vazgeçilirse `null`. Dönen yol artık `fs:*` çağrılarına açık.
    */
   pickExplorerRoot: () => Promise<string | null>;
+  /**
+   * Gezginde seçilen klasörü ajanın çalışma klasörü olarak benimser: rol +
+   * tier'a göre paket yeteneklerini oraya kurar. `systemUuid` tier'ın
+   * kaynağı — bağlı sistem yoksa `null`.
+   */
+  adoptWorkDir: (dirPath: string, systemUuid: string | null) => Promise<AdoptWorkDirResult>;
   getAppVersion: () => Promise<string>;
   checkForUpdates: () => Promise<void>;
   downloadUpdate: () => Promise<void>;

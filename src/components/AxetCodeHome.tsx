@@ -44,7 +44,7 @@ import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import SystemHoverCard from "./SystemHoverCard";
 import { resolveTier } from "../lib/tier";
-import { promptWithAttachments, toAttachments } from "../lib/attachments";
+import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
 import { chatToMarkdown, safeFileName } from "../lib/chatExport";
 import { chatToPrintHtml } from "../lib/chatPrint";
 import { useT } from "../i18n";
@@ -160,6 +160,23 @@ export interface SapChatRequest {
   nonce: number;
 }
 
+/**
+ * Kullanıcı Dosya Gezgini'nden yeni bir klasör seçti ve ajan artık ORADA
+ * çalışsın istiyor (kullanıcı isteği, 2026-09-23: *"ordan yol seçince axet in
+ * çalışma yolu da orası olsun"*).
+ *
+ * `SapChatRequest`ten ayrı bir tip, çünkü olay başka: orada yeni bir bağlantı
+ * var ve sohbet açılıyor; burada bağlantı aynı, yalnızca ajanın baktığı klasör
+ * değişiyor. `nonce` aynı sebeple: aynı klasörü iki kez seçmek aynı nesneyi
+ * üretir ve efekt bir daha tetiklenmezdi.
+ */
+export interface WorkDirRequest {
+  dir: string;
+  /** Kullanıcıya gösterilecek özet (klasör + kurulan yetenek sayısı). */
+  notice: string;
+  nonce: number;
+}
+
 interface RecentEntry {
   path: string[];
   service: SapService;
@@ -194,6 +211,12 @@ interface Props {
    * düşülüyor.
    */
   sapChatRequest: SapChatRequest | null;
+  /**
+   * Dosya Gezgini'nde seçilen klasör aktif sohbetin çalışma klasörü olsun.
+   * Yetenek kurulumu App.tsx tarafında BİTMİŞ oluyor (bkz. `adoptWorkDir`) —
+   * buraya yalnızca sonucu uygulamak kalıyor.
+   */
+  workDirRequest: WorkDirRequest | null;
   /**
    * O an bağlı olunan SAP sistemi (bkz. app-electron/main/activeContext.ts).
    * `sapChatRequest`'ten FARKLI: o, "şimdi bağlandık, yeni sohbet aç" diyen
@@ -298,6 +321,11 @@ function withProjectInstructions(
 // kullanılsaydı React aynı `key`den iki tane görürdü.
 const CONNECT_NOTICE_PREFIX = "connect-notice";
 const CONNECT_NOTICE_ID = CONNECT_NOTICE_PREFIX;
+// Çalışma klasörünün değiştiği bilgisi de AYNI kategoride: launcher'ın
+// ürettiği bir özet, ajanın turu değil. Kimliği bilerek `CONNECT_NOTICE_PREFIX`
+// ile başlıyor ki `isNotConnectNotice` onu da geçmişten elesin — uydurma bir
+// asistan turunu ajana göndermek, kendi oturum hafızasıyla çelişirdi.
+const WORKDIR_NOTICE_PREFIX = `${CONNECT_NOTICE_PREFIX}-workdir`;
 const isNotConnectNotice = (m: ChatMessage) =>
   !m.id.startsWith(CONNECT_NOTICE_PREFIX);
 
@@ -554,6 +582,7 @@ export default function AxetCodeHome({
   onOpenSapLauncher,
   onQuickConnectSap,
   sapChatRequest,
+  workDirRequest,
   activeSap,
 }: Props) {
   const t = useT();
@@ -939,6 +968,11 @@ export default function AxetCodeHome({
     sessionsRef.current = sessions;
   }, [sessions]);
 
+  // Çalışma klasörü cevap AKARKEN değişen sohbetler. CLI oturumu burada
+  // bekliyor, çünkü o an kapatmak yarım cevabı öldürürdü (bkz. aşağıdaki
+  // `workDirRequest` efekti).
+  const restartAfterPendingRef = useRef<Set<string>>(new Set());
+
   // "Yeni sohbet" artık kayıt OLUŞTURMUYOR — sadece boş composer'a dönüyor.
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
   // `binding`: yalnızca SAP bağlantısından gelen çağrı doldurur; elle açılan
@@ -1047,6 +1081,68 @@ export default function AxetCodeHome({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sapChatRequest?.nonce]);
+
+  // --- Dosya Gezgini'nde seçilen klasör → ajanın çalışma klasörü ---
+  // Kullanıcı isteği (2026-09-23): *"ordan yol seçince axet in çalışma yolu da
+  // orası olsun"*. Yetenek kurulumu App.tsx'te bitmiş oluyor; burada sohbetin
+  // bağlamasını değiştirip çalışan CLI oturumunu bırakıyoruz.
+  //
+  // Cevap AKARKEN oturum kapatılmıyor: `closeChatSession` o sohbetin
+  // axet-code sürecini öldürüyor, yani yarım kalmış cevap kaybolurdu. Böyle
+  // bir durumda sohbet kuyruğa alınıyor ve cevap biter bitmez bırakılıyor
+  // (aşağıdaki efekt). Klasör bilgisi yine de HEMEN yazılıyor — bir sonraki
+  // mesaj zaten yeni klasöre gidecek.
+  useEffect(() => {
+    if (!workDirRequest) return;
+    const dir = workDirRequest.dir;
+
+    // Açık bir sohbet yoksa seçim TASLAKTA bekliyor: ilk mesajla birlikte
+    // doğacak sohbete taşınacak (bkz. `newBinding`).
+    if (!activeId || activeId === NEW_SESSION_ID) {
+      setNewBinding((prev) => ({ cwd: dir, label: prev?.label ?? baseName(dir) }));
+      setNewNotice(workDirRequest.notice);
+      return;
+    }
+
+    const targetId = activeId;
+    let wasPending = false;
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id !== targetId) return s;
+        wasPending = s.pending;
+        return {
+          ...s,
+          cwd: dir,
+          messages: [
+            ...s.messages,
+            {
+              id: `${WORKDIR_NOTICE_PREFIX}-${workDirRequest.nonce}`,
+              role: "assistant" as const,
+              content: workDirRequest.notice,
+              createdAt: Date.now(),
+            },
+          ],
+          updatedAt: Date.now(),
+        };
+      }),
+    );
+    if (wasPending) restartAfterPendingRef.current.add(targetId);
+    else window.api.closeChatSession(targetId).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workDirRequest?.nonce]);
+
+  // Cevabı akarken klasörü değişen sohbetler: akış biter bitmez CLI oturumu
+  // bırakılıyor ki bir sonraki mesaj YENİ klasörde açılsın. Küme boşken bu
+  // efekt ilk satırda dönüyor — `sessions` her jetonda değişiyor.
+  useEffect(() => {
+    if (restartAfterPendingRef.current.size === 0) return;
+    for (const id of Array.from(restartAfterPendingRef.current)) {
+      const session = sessions.find((s) => s.id === id);
+      if (session?.pending) continue;
+      restartAfterPendingRef.current.delete(id);
+      window.api.closeChatSession(id).catch(() => {});
+    }
+  }, [sessions]);
 
   // Ctrl+N / Cmd+N — yeni sohbet. Bir metin alanındayken de çalışıyor
   // (Ctrl+N'in girişte anlamlı bir yerel karşılığı yok), ama tarayıcının

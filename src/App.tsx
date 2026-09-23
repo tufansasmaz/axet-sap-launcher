@@ -27,7 +27,7 @@ import type {
 } from "../app-electron/shared/types";
 import TitleBar from "./components/TitleBar";
 import ActivityBar, { type Activity } from "./components/ActivityBar";
-import AxetCodeHome, { type SapChatRequest } from "./components/AxetCodeHome";
+import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 // axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
 // isteği, 2026-09-04): uygulama GitHub'a açılırken bu iki modül henüz hazır
 // değil ve akıbetleri sonra kararlaştırılacak. Kaynak dosyalar
@@ -110,6 +110,9 @@ export default function App() {
   // Başarılı bağlantıdan sonra axet.code'a devredilen "bu sisteme bağlı bir
   // sohbet aç" isteği (bkz. AxetCodeHome `SapChatRequest`).
   const [sapChatRequest, setSapChatRequest] = useState<SapChatRequest | null>(null);
+  // Dosya Gezgini'nden seçilen klasörün ajanın çalışma klasörü olması isteği
+  // (bkz. AxetCodeHome `WorkDirRequest`).
+  const [workDirRequest, setWorkDirRequest] = useState<WorkDirRequest | null>(null);
   const [addSystemOpen, setAddSystemOpen] = useState(false);
   const [editingSystem, setEditingSystem] = useState<EditingManualSystem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SapService | null>(null);
@@ -539,6 +542,28 @@ export default function App() {
       cancelled = true;
     };
   }, [selection?.itemUuid]);
+
+  // Gezginde yeni bir kök klasör seçildiğinde: yetenekleri oraya kur ve klasörü
+  // ajanın çalışma klasörü yap. Kurulum ÖNCE bitmeli — sohbet klasöre taşınınca
+  // ajan oradaki `.claude/skills`i okuyor, sonradan kurulan yeteneği görmüyor.
+  const handleExplorerRootPicked = useCallback(
+    async (dir: string) => {
+      const res = await window.api.adoptWorkDir(dir, selection?.service.uuid ?? null);
+      if (!res.ok || !res.dir) {
+        pushToast("error", t("workDir.failed", { message: res.error ?? "" }));
+        return;
+      }
+      const lines = [
+        t("workDir.adopted", { dir: res.dir }),
+        t("workDir.skills", { count: String(res.installed ?? 0) })
+      ];
+      if (res.blockedByTier && res.blockedByTier.length > 0) {
+        lines.push(t("workDir.blockedByTier", { names: res.blockedByTier.join(", ") }));
+      }
+      setWorkDirRequest({ dir: res.dir, notice: lines.join("\n\n"), nonce: Date.now() });
+    },
+    [selection?.service.uuid, t]
+  );
 
   const handleOpenFile = useCallback((entry: FsEntry) => {
     setOpenFiles((prev) =>
@@ -980,6 +1005,7 @@ export default function App() {
             onOpenSapLauncher={() => setActivity("sapLauncher")}
             onQuickConnectSap={handleQuickConnectSap}
             sapChatRequest={sapChatRequest}
+            workDirRequest={workDirRequest}
             activeSap={activeContext.sap}
           />
         </div>
@@ -1156,6 +1182,7 @@ export default function App() {
                     selectedPath={activeFilePath}
                     onSelectFile={handleOpenFile}
                     onImportComplete={handleImportComplete}
+                    onRootPicked={handleExplorerRootPicked}
                     browsable
                   />
                 </div>

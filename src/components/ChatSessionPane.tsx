@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -43,7 +43,7 @@ import type {
 import AttachmentChip from "./AttachmentChip";
 import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./ChatBubble";
 import ModelSelector from "./ModelSelector";
-import { resolveFilesToPaths } from "../lib/attachments";
+import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
@@ -401,14 +401,41 @@ export default function ChatSessionPane({
   // kartı, sürüklenen düz metin ve "mesajı düzenle" taslağı PROGRAMATİK
   // yazıyor, dolayısıyla uzun bir metin kutuya girdiğinde kutu büyümüyordu.
   // Taslağı tek doğruluk kaynağı yapmak ikisini birden kapatıyor.
-  useEffect(() => {
+  const measureComposer = useCallback(() => {
     const el = textareaRef.current;
     // Gizli panelde `scrollHeight` 0 — o anda ölçmek kutuyu en küçük boya
     // çökertirdi. Panel görünür olduğu anda `active` değişip yeniden ölçülüyor.
     if (!el || !active) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
-  }, [session.draft, active]);
+  }, [active]);
+
+  useEffect(() => {
+    measureComposer();
+  }, [session.draft, measureComposer]);
+
+  // GENİŞLİK değişince de yeniden ölçülmeli, taslak hiç değişmemiş olsa bile.
+  // Yukarıdaki efekt yalnızca taslağa bakıyordu ve şunları kaçırıyordu: dosya
+  // panelinin açılıp kapanması (380px), kenar çubuğunun daraltılması, pencere
+  // boyutlandırma. Üçünde de metin yeniden sarılıyor ama yükseklik eski
+  // kalıyordu — kutu ya metni kırpıyor ya boşuna büyük duruyordu
+  // (kullanıcı bildirimi, 2026-09-23).
+  //
+  // Yalnız genişlik: yüksekliği ZATEN biz yazıyoruz, ona tepki vermek
+  // gözlemciyi kendi kendini besleyen bir döngüye sokardı.
+  const lastWidthRef = useRef(0);
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width ?? 0;
+      if (width === lastWidthRef.current) return;
+      lastWidthRef.current = width;
+      measureComposer();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [measureComposer]);
 
   // Taslak dışarıdan boşaltıldığında (gönderme, yeni sohbet) menü de kapanmalı:
   // bahsin dayandığı metin artık yok.
@@ -526,6 +553,14 @@ export default function ChatSessionPane({
     setDragOver(false);
     const dt = e.dataTransfer;
     if (!dt) return;
+    // ÖNCE kendi gezginimizden gelen yollar: `dataTransfer.files` boş olduğu
+    // için aşağıdaki dal bunları görmezdi ve düz metin dalına düşüp taslağa
+    // YOL YAZARDI. Yol zaten mutlak, `getPathForFile`e gerek yok.
+    const own = readDraggedPaths(dt);
+    if (own.length > 0) {
+      onFilesResolved(own);
+      return;
+    }
     if (dt.files && dt.files.length > 0) {
       const paths = await resolveFilesToPaths(Array.from(dt.files));
       onFilesResolved(paths);
@@ -537,6 +572,9 @@ export default function ChatSessionPane({
     const text = dt.getData("text/plain");
     if (text) onDraftChange(session.draft ? `${session.draft} ${text}` : text);
   };
+
+  // Gönderilecek bir şey var mı: yazı ya da tek başına bir ek.
+  const canSend = session.draft.trim().length > 0 || session.attachments.length > 0;
 
   const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const files = e.clipboardData?.files;
@@ -1204,6 +1242,21 @@ export default function ChatSessionPane({
                 direction="up"
                 variant="ghost"
               />
+              {/* Sağdaki düğme HER ZAMAN çiziliyor — durdur ya da gönder,
+                  ikisi de 36px.
+
+                  2026-09-23'e kadar gönder düğmesi gönderilecek bir şey
+                  yokken hiç çizilmiyordu (Gemini deseni). Bedeli satırın
+                  GENİŞLİĞİYDİ: ilk harfte düğme satıra giriyor, yazı alanı
+                  ~40px daralıyor ve yazılmakta olan metin yeniden sarılıyordu.
+                  Aynı sıçrama taslak boşalınca ve cevap bitip durdur düğmesi
+                  kaybolunca ters yönde tekrarlanıyordu — kullanıcının
+                  "kaymalar oluyor" dediği şey buydu (2026-09-23).
+
+                  Boşken soluk ve tıklanamaz duruyor; yer kaplamasının bedeli
+                  36px, kaymasının bedeli yazarken zıplayan bir kutuydu. Tek
+                  başına bir ek de gönderilebilir — bir görsel bırakıp "bu ne?"
+                  yazmadan göndermek meşru bir kullanım. */}
               {session.pending ? (
                 <button
                   onClick={onCancel}
@@ -1213,20 +1266,18 @@ export default function ChatSessionPane({
                   <Square size={13} />
                 </button>
               ) : (
-                // Gönder düğmesi gönderilecek bir şey YOKKEN hiç çizilmiyor
-                // (Gemini deseni): soluk ve tıklanamaz bir düğme bırakmak
-                // yerine yer kaplamıyor. Tek başına bir ek de gönderilebilir —
-                // bir görsel bırakıp "bu ne?" yazmadan göndermek meşru bir
-                // kullanım.
-                (session.draft.trim().length > 0 || session.attachments.length > 0) && (
-                  <button
-                    onClick={onSend}
-                    title={t("axetCodeHome.send")}
-                    className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-accent-500 text-accent-on transition hover:bg-accent-600"
-                  >
-                    <ArrowUp size={16} />
-                  </button>
-                )
+                <button
+                  onClick={onSend}
+                  disabled={!canSend}
+                  title={t("axetCodeHome.send")}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition ${
+                    canSend
+                      ? "cursor-pointer bg-accent-500 text-accent-on hover:bg-accent-600"
+                      : "cursor-not-allowed bg-active text-slate-600"
+                  }`}
+                >
+                  <ArrowUp size={16} />
+                </button>
               )}
             </div>
           </div>

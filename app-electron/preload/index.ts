@@ -189,6 +189,9 @@ const api = {
   // kullanıcı, isteyen renderer değil (bkz. fsExplorer.ts `grantUserRoot`).
   getAllowedRoots: (): Promise<string[]> => ipcRenderer.invoke("fs:allowedRoots"),
   pickExplorerRoot: (): Promise<string | null> => ipcRenderer.invoke("dialog:pickExplorerRoot"),
+  // Seçilen kökü ajanın çalışma klasörü yapmadan önce yetenekleri oraya kurar.
+  adoptWorkDir: (dirPath: string, systemUuid: string | null) =>
+    ipcRenderer.invoke("axet:adoptWorkDir", dirPath, systemUuid),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke("app:getVersion"),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   downloadUpdate: () => ipcRenderer.invoke("updates:download"),
