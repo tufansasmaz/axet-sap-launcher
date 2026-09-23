@@ -190,7 +190,12 @@ export function installSkillsIntoProject(
   // Katalogdan kurulmuş yetenekler de aynı PRD kapısına tabi. Yukarıdaki döngü
   // yalnızca profildeki adlara bakıyor; katalogdan gelen bir yazma yeteneği o
   // listede olmadığı için kapıdan sessizce sızardı.
-  result.blockedByTier.push(...enforceTierOnCatalog(projectDir, tier));
+  //
+  // `profile` de veriliyor: modül danışmanı için bu temizlik SİSTEMDEN bağımsız
+  // çalışıyor, çünkü rol kapısının DEV'i de QA'si de yok. Rol kapısı katalog
+  // tarafına 2026-09-23'te eklendi; o tarihten önce kurulmuş yazma niyetli bir
+  // katalog yeteneği hâlâ diskte duruyor olabilir ve ajan diskte duranı okur.
+  result.blockedByTier.push(...enforceTierOnCatalog(projectDir, tier, profile));
 
   // Sürüm damgası. Bunsuz "bu projedeki skill'ler güncel mi?" sorusunun cevabı
   // yok — bugüne kadar da yoktu.
@@ -391,7 +396,19 @@ export function isGlobalInstallHealthy(profile: SkillProfile): boolean {
   if (stamp?.version !== toolkit.version || stamp.profile !== profile) return false;
   const names = stamp.skills ?? [];
   if (names.length === 0) return false;
-  return names.every((name) => existsSync(path.join(destRoot, name, "SKILL.md")));
+  if (!names.every((name) => existsSync(path.join(destRoot, name, "SKILL.md")))) return false;
+
+  // Paylaşılan klasörler de kurulumun parçası ve aynı elle-silinme riskini
+  // taşıyor. Damga bunları saymıyor, o yüzden ihtiyaç duyulanlar kaynaktan
+  // türetiliyor: kurulu skill'lerden biri bir asset'i istiyorsa marker'ı
+  // yerinde olmalı. Yoksa `redact.py` bulunamıyor ve maskeleme SESSİZCE
+  // kapanıyor — tam da bu kontrolün var olma sebebi.
+  const root = path.dirname(destRoot);
+  return SHARED_ASSETS.every(
+    (asset) =>
+      !asset.requiredBy.some((name) => names.includes(name)) ||
+      existsSync(path.join(root, asset.dest, asset.marker))
+  );
 }
 
 /**
@@ -454,17 +471,27 @@ function installSharedAssets(toolkitRoot: string, root: string, installed: strin
       if (ours) rmSync(dest, { recursive: true, force: true });
       continue;
     }
-    const src = path.join(toolkitRoot, ...asset.path.split("/"));
-    if (!existsSync(src)) continue;
-    try {
-      if (ours) rmSync(dest, { recursive: true, force: true });
-      cpSync(src, dest, {
-        recursive: true,
-        force: true,
-        filter: (from) => !path.relative(src, from).split(path.sep).includes("__pycache__")
-      });
-    } catch {
-      /* kopyalanamadıysa skill'ler yine kurulu; script çalıştığında söyler */
+    // Temizlik döngünün DIŞINDA, bir kez: `paths` birden çok kaynağı aynı
+    // hedefte birleştiriyor (bkz. `SharedAsset.paths`) ve her kaynaktan önce
+    // silmek, bir öncekinin dosyalarını götürürdü. Taşınabilir bir hata değil —
+    // sonuç yine sessiz olurdu: klasör var, içindekilerin yarısı yok.
+    let cleaned = !ours;
+    for (const rel of asset.paths) {
+      const src = path.join(toolkitRoot, ...rel.split("/"));
+      if (!existsSync(src)) continue;
+      try {
+        if (!cleaned) {
+          rmSync(dest, { recursive: true, force: true });
+          cleaned = true;
+        }
+        cpSync(src, dest, {
+          recursive: true,
+          force: true,
+          filter: (from) => !path.relative(src, from).split(path.sep).includes("__pycache__")
+        });
+      } catch {
+        /* kopyalanamadıysa skill'ler yine kurulu; script çalıştığında söyler */
+      }
     }
   }
 }

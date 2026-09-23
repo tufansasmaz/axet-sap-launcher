@@ -317,6 +317,8 @@ export const en: Record<TranslationKey, string> = {
   "catalogSkills.blocked.pluginRoot":
     "Depends on libraries in the plugin root; it would not work installed as a single folder.",
   "catalogSkills.blocked.bundled": "Already ships with the app; it is installed according to your role.",
+  "catalogSkills.blocked.role":
+    "This skill writes to SAP and your role does not carry that. A module consultant does not develop — the limit follows the role, not the system, so it holds on DEV too.",
   "catalogSkills.error.noFolder": "The catalog folder can no longer be read.",
   "catalogSkills.error.notFound": "This entry was not found in the catalog.",
   "catalogSkills.error.blocked": "This entry cannot be installed.",

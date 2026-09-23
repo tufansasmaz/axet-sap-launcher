@@ -120,8 +120,23 @@ skill boundary to find them:
 
 | Source | Installed as | Reached by | Used by |
 | --- | --- | --- | --- |
-| `office-tools/lib` | `<project>/.axet-code/lib` | `sys.path.insert(0, .../scripts/../../../lib)` | `office-docx`, `office-pdf`, `office-pptx`, `office-manual` |
+| `office-tools/lib` **+** `sap-consultant/lib` | `<project>/.axet-code/lib` (MERGED) | `sys.path.insert(0, .../scripts/../../../lib)` | `office-docx`, `office-pdf`, `office-pptx`, `office-manual`, `fast-scan-question-generator`, `project-store` |
 | `sap-consultant/scripts` | `<project>/.axet-code/scripts` | `py "${CLAUDE_PLUGIN_ROOT}/scripts/<x>.py"` | `abap-code-checker`, `fs-generator`, `ts-generator`, `sap-cr-scope`, `sap-cr-handover`, `sap-incident` |
+
+The **merge** in the first row is forced by our install layout, not a convenience.
+Upstream every plugin has its own `lib/`, and `../../../lib` from
+`<plugin>/skills/<name>/scripts` lands inside that plugin. We flatten the plugin layer
+away — every skill sits at `.axet-code/skills/<name>` — so the same expression resolves
+to ONE `.axet-code/lib` for all of them. Hence `SharedAsset.paths` is a list copied in
+order into a single destination, and a filename colliding between two sources would
+silently let the last one win (`tests/skillCatalogFiles.test.ts` fails if one ever does).
+
+> `sap-consultant/lib/onedrive.py` was **never packaged until 2026-09-23** and the
+> failure was silent in the usual way: the import falls back to `candidate_roots = None`,
+> so `fast-scan-question-generator` could not discover a synced SharePoint library at all
+> (`checks = []` → `not_found`) and only worked when a consultant set
+> `FAST_SCAN_SOURCE_ROOT` by hand. `project-store` carries its own fallback and merely
+> lost the registry-based discovery.
 
 The launcher copies both — see `SHARED_ASSETS` in `app-electron/main/skillProfiles.ts` and
 `installSharedAssets()` in `sapToolkit.ts`. **Before 2026-09-08 it copied neither**, and

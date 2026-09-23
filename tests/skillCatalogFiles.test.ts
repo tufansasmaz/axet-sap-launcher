@@ -13,7 +13,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { SHARED_ASSETS, SKILL_CATALOG } from "../app-electron/main/skillProfiles";
+import { PROFILE_SKILLS, SHARED_ASSETS, SKILL_CATALOG } from "../app-electron/main/skillProfiles";
 
 const TOOLKIT = path.join(__dirname, "..", "resources", "sap-toolkit");
 const abs = (rel: string) => path.join(TOOLKIT, ...rel.split("/"));
@@ -61,17 +61,28 @@ describe("SKILL_CATALOG — diskte gerçekten var mı", () => {
     }
   });
 
-  it("SAP'a YAZAN paketler pakete hiç girmemiş", () => {
-    // Toolkit CLAUDE.md: "Non-negotiable: SAP is READ-ONLY." Bunlar marketplace'te
-    // duruyor ve bilerek alınmadı: `sap-adt` tam yetkili yazma motoru,
-    // `sap-object-transfer`/`adobe-gen`/`abapgit-deploy` sisteme yazıyor.
-    for (const forbidden of ["sap-adt", "sap-object-transfer", "adobe-gen", "abapgit-deploy"]) {
-      const hits = readdirSync(TOOLKIT, { withFileTypes: true })
-        .filter((item) => item.isDirectory())
-        .map((item) => path.join(TOOLKIT, item.name, "skills", forbidden))
-        .filter((candidate) => existsSync(candidate));
-      expect(hits, `${forbidden} pakete girmis`).toEqual([]);
-      expect(SKILL_CATALOG[forbidden], `${forbidden} katalogda`).toBeUndefined();
+  it("SAP'a YAZAN her paket MODÜL danışmanının listesinde YOK", () => {
+    // 2026-09-23'te kural değişti. Eskiden bu test "yazan hiçbir paket
+    // alınmadı" diyordu; `sap-adt` dahil sekizi de artık pakette ve bu
+    // bilinçli — kapı paketlemede değil, KURULUMDA: rol + tier.
+    //
+    // Kullanıcı kuralı: *"modül danışmanı teknik danışmanın skillerini
+    // kullanamaz kod falan yazıp deploy falan alamaz asla"*. Ölçtüğümüz şey
+    // artık o: kataloğun yazma niyetli her girdisi modül danışmanının
+    // listesinin DIŞINDA. Katalog büyüdükçe bu test kendiliğinden büyüyor.
+    const writers = Object.keys(SKILL_CATALOG).filter((name) => SKILL_CATALOG[name].writeCapable);
+    expect(writers.length, "katalogda hic yazma yetenegi kalmamis — test anlamsizlasir").toBeGreaterThan(0);
+    for (const name of writers) {
+      expect(PROFILE_SKILLS["module-consultant"], `${name} modul danismaninda`).not.toContain(name);
+    }
+  });
+
+  it("SAP'a YAZAN her paket GERÇEKTEN diskte", () => {
+    // Katalogda adı geçip diskte olmayan bir yazma yeteneği, teknik danışmana
+    // sessizce eksik kurulum demek: `copySkill` `false` döner, kurulum devam
+    // eder ve ajan olmayan bir yeteneğe güvenir.
+    for (const name of Object.keys(SKILL_CATALOG).filter((n) => SKILL_CATALOG[n].writeCapable)) {
+      expect(existsSync(abs(SKILL_CATALOG[name].path)), `${name} diskte yok`).toBe(true);
     }
   });
 
@@ -84,17 +95,40 @@ describe("SKILL_CATALOG — diskte gerçekten var mı", () => {
 });
 
 describe("SHARED_ASSETS — skill klasörünün dışındaki dosyalar", () => {
-  it("kaynak klasör ve marker dosyası diskte var", () => {
+  it("kaynak klasörlerin hepsi diskte var", () => {
     for (const asset of SHARED_ASSETS) {
-      const dir = abs(asset.path);
-      expect(existsSync(dir), `${asset.path} yok`).toBe(true);
-      expect(statSync(dir).isDirectory(), `${asset.path} klasör değil`).toBe(true);
-      // Marker sadece "bu bizim kopyamız" işareti değil, aynı zamanda silme
-      // kararının dayanağı: kaynakta yoksa hedefte de hiç oluşmaz ve kurulum
-      // bıraktığı klasörü bir daha asla temizleyemez.
-      expect(existsSync(path.join(dir, asset.marker)), `${asset.path}/${asset.marker} yok`).toBe(
-        true
-      );
+      for (const rel of asset.paths) {
+        const dir = abs(rel);
+        expect(existsSync(dir), `${rel} yok`).toBe(true);
+        expect(statSync(dir).isDirectory(), `${rel} klasör değil`).toBe(true);
+      }
+    }
+  });
+
+  it("marker dosyası kaynakların BİRİNDE var", () => {
+    // Marker sadece "bu bizim kopyamız" işareti değil, aynı zamanda silme
+    // kararının dayanağı: kaynakta yoksa hedefte de hiç oluşmaz ve kurulum
+    // bıraktığı klasörü bir daha asla temizleyemez.
+    for (const asset of SHARED_ASSETS) {
+      const found = asset.paths.some((rel) => existsSync(path.join(abs(rel), asset.marker)));
+      expect(found, `${asset.dest}: marker ${asset.marker} hicbir kaynakta yok`).toBe(true);
+    }
+  });
+
+  it("aynı hedefe yazan kaynaklar birbirinin dosyasını EZMİYOR", () => {
+    // Birleştirme sıralı bir `cpSync`: iki kaynakta aynı adlı dosya olsa
+    // sonuncusu kazanır ve kimse fark etmez. Bugün çakışma yok; bu test
+    // çakışma girdiği gün haber veriyor.
+    for (const asset of SHARED_ASSETS) {
+      const seen = new Map<string, string>();
+      for (const rel of asset.paths) {
+        for (const entry of readdirSync(abs(rel))) {
+          if (entry === "__pycache__") continue;
+          const clash = seen.get(entry);
+          expect(clash, `${asset.dest}: "${entry}" hem ${clash} hem ${rel} icinde`).toBeUndefined();
+          seen.set(entry, rel);
+        }
+      }
     }
   });
 
@@ -109,6 +143,22 @@ describe("SHARED_ASSETS — skill klasörünün dışındaki dosyalar", () => {
   it("iki asset aynı hedefe yazmıyor", () => {
     const dests = SHARED_ASSETS.map((asset) => asset.dest);
     expect(new Set(dests).size).toBe(dests.length);
+  });
+
+  it("sürüm üreticisi AYNI klasörleri hash'liyor", () => {
+    // İki liste, tek gerçek. Üreticideki `SHARED_DIRS` eksik kalırsa sürüm
+    // paylaşılan bir dosyanın değiştiğini GÖRMEZ; `isGlobalInstallHealthy`
+    // "güncel" der ve düzeltme kullanıcıya hiç ulaşmaz. 2026-09-23'te
+    // `onedrive.py` ile tam olarak bu oldu.
+    const gen = readFileSync(path.join(__dirname, "..", "build", "genToolkitVersion.cjs"), "utf8");
+    const block = /const SHARED_DIRS = \[([^\]]*)\]/.exec(gen);
+    expect(block, "genToolkitVersion.cjs icinde SHARED_DIRS bulunamadi").toBeTruthy();
+    const hashed = new Set((block![1].match(/"([^"]+)"/g) ?? []).map((s) => s.slice(1, -1)));
+    for (const asset of SHARED_ASSETS) {
+      for (const rel of asset.paths) {
+        expect(hashed.has(rel), `${rel} surum hash'ine girmiyor`).toBe(true);
+      }
+    }
   });
 });
 

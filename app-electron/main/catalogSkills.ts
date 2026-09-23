@@ -28,6 +28,15 @@
 // aksi hâlde profil kurulumunun temizlediği kapıdan katalog kopyası sızardı.
 // Sınır tier >= 1'de: "yalnızca dosya" olmayan her şey.
 //
+// ROL KAPISI (2026-09-23): risk seviyesi kapısı SİSTEME bakıyor, role değil —
+// ve bu, tam bir delikti. Modül danışmanı DEV ya da QA'ya bağlıyken buradan
+// `risk_tier >= 1` bir yeteneği projesine kurabiliyordu; kendi paketimizdeki rol
+// kapısı (`planSkills`) bu kataloğa hiç bakmıyor. Kullanıcı kuralı: *"modül
+// danışmanı teknik danışmanın skillerini kullanamaz kod falan yazıp deploy falan
+// alamaz asla"*. Artık rolü yazma taşımayan bir kullanıcıya yazma niyetli
+// katalog girdisi `blocked: "role"` görünüyor, kurulum IPC'de ayrıca
+// reddediliyor ve daha önce kurulmuş olanlar bağlanmada siliniyor.
+//
 // Kayıt dosyası (`.axet-code/skills/.catalog.json`) iki iş yapıyor: hangi
 // klasörün BİZİM kurduğumuz olduğunu bilmek (yabancı bir klasörü asla
 // silmiyoruz) ve katalog klasörü o an erişilemese bile PRD kapısını
@@ -37,12 +46,13 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { findCatalogFolders } from "./catalogFolder";
-import { SKILL_CATALOG } from "./skillProfiles";
+import { DEFAULT_PROFILE, SKILL_CATALOG, profileAllowsWriteCapable } from "./skillProfiles";
 import type {
   CatalogInstallOutcome,
   CatalogSkill,
   CatalogSkillList,
   CatalogSkillRecord,
+  SkillProfile,
   SystemTier
 } from "../shared/types";
 
@@ -89,6 +99,11 @@ export interface CatalogSkillContext {
   hasPath: (rel: string) => boolean;
   /** `windows` | `macos` | `linux` */
   os: string;
+  /**
+   * Kullanıcının rolü SAP'a yazma niyetli yetenek taşıyabiliyor mu?
+   * `false` ise `risk_tier >= 1` her girdi `blocked: "role"`.
+   */
+  writeAllowed: boolean;
 }
 
 /**
@@ -122,12 +137,16 @@ export function buildCatalogSkills(raw: string, ctx: CatalogSkillContext): Catal
 
     // Sıra önemli: en "kesin" engel önce. Diskte olmayan bir girdi için
     // "eklenti kökü gerekiyor" demek, kullanıcıyı yanlış yere bakmaya yollardı.
+    // Rol kapısı EN SONDA: paketimizde aynı adla gelen bir yetenek için
+    // "rolünüz izin vermiyor" demek yanlış olurdu — orada gerçek sebep, o
+    // klasörü zaten rol kurulumunun yönetiyor olması.
     let blocked: CatalogSkill["blocked"] = null;
     if (!isSafeRelPath(rel) || !ctx.hasPath(rel)) blocked = "missing";
     else if (osList.length > 0 && !osList.includes(ctx.os)) blocked = "os";
     else if (entry.plugin_root_required === true) blocked = "pluginRoot";
     else if (Array.isArray(entry.cross_plugin_deps) && entry.cross_plugin_deps.length > 0) blocked = "pluginRoot";
     else if (SKILL_CATALOG[name]) blocked = "bundled";
+    else if (riskTier >= WRITE_TIER && !ctx.writeAllowed) blocked = "role";
 
     skills.push({
       id: typeof entry.id === "string" && entry.id ? entry.id : name,
@@ -175,13 +194,31 @@ function writeCatalogRecord(projectDir: string, records: CatalogSkillRecord[]): 
 }
 
 /**
- * PRD kapısı — katalogdan kurulmuş yazma niyetli yetenekleri kaldırır.
+ * Katalogdan kurulmuş yazma niyetli yetenekleri kaldırır — İKİ sebeple.
+ *
+ * 1. **PRD kapısı**: üretim işaretli bir sisteme bağlanıldı.
+ * 2. **Rol kapısı**: kullanıcının rolü yazma taşımıyor (modül danışmanı).
+ *    İkincisi sisteme HİÇ bakmıyor; modül danışmanı için DEV de QA de aynı.
+ *
+ * Temizliğin var olma sebebi, kapının kurulum anında konmuş olmasının
+ * yetmemesi: katalog daha önce kurulmuş olabilir (rol kapısı yokken kurulmuş
+ * bir yetenek diskte duruyordur) ya da sistem sonradan PRD işaretlenmiş
+ * olabilir. Diskte duran bir skill'i ajan okur.
  *
  * Katalog klasörüne İHTİYAÇ DUYMUYOR: risk seviyesi kurulum anında kayda
  * yazılıyor. Kapının, kitaplık o an eşitlenmemiş olsa bile çalışması gerekiyor.
+ *
+ * `profile` ZORUNLU, oysa listeleme/kurma uçlarında varsayılanı var. Sebep
+ * simetrik değil çünkü sonuçları da değil: burada yanlış varsayılan SİLER.
+ * Unutan bir çağıran derleyiciden dönsün.
  */
-export function enforceTierOnCatalog(projectDir: string, tier: SystemTier | null): string[] {
-  if (tier !== "PRD") return [];
+export function enforceTierOnCatalog(
+  projectDir: string,
+  tier: SystemTier | null,
+  profile: SkillProfile
+): string[] {
+  const byRole = !profileAllowsWriteCapable(profile);
+  if (tier !== "PRD" && !byRole) return [];
   const records = readCatalogRecord(projectDir);
   const keep: CatalogSkillRecord[] = [];
   const removed: string[] = [];
@@ -225,7 +262,10 @@ function installedDirNames(projectDir: string): string[] {
   }
 }
 
-export async function listCatalogSkills(projectDir: string): Promise<CatalogSkillList> {
+export async function listCatalogSkills(
+  projectDir: string,
+  profile: SkillProfile = DEFAULT_PROFILE
+): Promise<CatalogSkillList> {
   const folder = await resolveFolder();
   const empty: CatalogSkillList = { folder: null, catalogVersion: null, department: null, skills: [] };
   if (!folder) return empty;
@@ -253,7 +293,8 @@ export async function listCatalogSkills(projectDir: string): Promise<CatalogSkil
           installed: installedDirNames(projectDir),
           recorded: readCatalogRecord(projectDir).map((r) => r.name),
           hasPath: (rel) => existsSync(path.join(folder, ...rel.split(/[\\/]/))),
-          os: process.platform === "win32" ? "windows" : process.platform === "darwin" ? "macos" : "linux"
+          os: process.platform === "win32" ? "windows" : process.platform === "darwin" ? "macos" : "linux",
+          writeAllowed: profileAllowsWriteCapable(profile)
         })
       : []
   };
@@ -262,8 +303,12 @@ export async function listCatalogSkills(projectDir: string): Promise<CatalogSkil
 /** Ana süreçle arayüzün aynı şeyi konuşması için tip paylaşımda duruyor. */
 export type CatalogInstallResult = CatalogInstallOutcome;
 
-export async function installCatalogSkill(projectDir: string, id: string): Promise<CatalogInstallResult> {
-  const list = await listCatalogSkills(projectDir);
+export async function installCatalogSkill(
+  projectDir: string,
+  id: string,
+  profile: SkillProfile = DEFAULT_PROFILE
+): Promise<CatalogInstallResult> {
+  const list = await listCatalogSkills(projectDir, profile);
   const fail = (error: CatalogInstallResult["error"]) => ({ ok: false, error, list });
   if (!list.folder) return fail("noFolder");
 
@@ -301,23 +346,27 @@ export async function installCatalogSkill(projectDir: string, id: string): Promi
   });
   writeCatalogRecord(projectDir, records);
 
-  return { ok: true, error: null, list: await listCatalogSkills(projectDir) };
+  return { ok: true, error: null, list: await listCatalogSkills(projectDir, profile) };
 }
 
 /** Yalnızca KAYITTA olan bir klasör siliniyor — paketten gelenlere dokunulmuyor. */
-export async function removeCatalogSkill(projectDir: string, name: string): Promise<CatalogInstallResult> {
+export async function removeCatalogSkill(
+  projectDir: string,
+  name: string,
+  profile: SkillProfile = DEFAULT_PROFILE
+): Promise<CatalogInstallResult> {
   const records = readCatalogRecord(projectDir);
   if (!records.some((record) => record.name === name)) {
-    return { ok: false, error: "notFound", list: await listCatalogSkills(projectDir) };
+    return { ok: false, error: "notFound", list: await listCatalogSkills(projectDir, profile) };
   }
   try {
     rmSync(path.join(skillsRoot(projectDir), name), { recursive: true, force: true });
   } catch {
-    return { ok: false, error: "copy", list: await listCatalogSkills(projectDir) };
+    return { ok: false, error: "copy", list: await listCatalogSkills(projectDir, profile) };
   }
   writeCatalogRecord(
     projectDir,
     records.filter((record) => record.name !== name)
   );
-  return { ok: true, error: null, list: await listCatalogSkills(projectDir) };
+  return { ok: true, error: null, list: await listCatalogSkills(projectDir, profile) };
 }

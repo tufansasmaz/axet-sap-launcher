@@ -5,6 +5,14 @@
 // oluyor. Böylece "değişmediği hâlde sürümü artmış" bir toolkit olmuyor;
 // projedeki damga ile paketteki sürüm eşitse gerçekten aynılar.
 //
+// PAYLAŞILAN KLASÖRLER de hash'e giriyor (`SHARED_DIRS`), çünkü onlar da
+// kuruluyor. 2026-09-23'e kadar girmiyorlardı ve sonuç, sürümün YALAN
+// söylemesiydi: `sap-consultant/lib/onedrive.py` pakete eklendiğinde sürüm
+// kılını kıpırdatmadı, `isGlobalInstallHealthy` "güncel" dedi ve global
+// kurulum hiç tazelenmedi — yani düzeltme paketin içinde durup kullanıcıya
+// hiç ulaşmayacaktı. Bir skill'e dokunmadan paylaşılan dosya değiştirmek
+// nadir ama tam da bu yüzden fark edilmiyor.
+//
 // Çalıştır: node build/genToolkitVersion.cjs
 // (build:win öncesi otomatik çalışır, prebuild adımına bağlı.)
 
@@ -14,6 +22,11 @@ const path = require("node:path");
 
 const ROOT = path.join(__dirname, "..", "resources", "sap-toolkit");
 const SKIP = new Set(["__pycache__", ".git", "node_modules"]);
+
+// Skill klasörü DEĞİL ama kuruluyor — `SHARED_ASSETS` (skillProfiles.ts) ile
+// aynı liste. Oraya bir kaynak eklenirse buraya da eklenmeli; eklenmezse
+// sürüm o değişikliği görmez. `skillCatalogFiles.test.ts` ikisini eşliyor.
+const SHARED_DIRS = ["office-tools/lib", "sap-consultant/lib", "sap-consultant/scripts"];
 
 function hashDir(dir) {
   const h = crypto.createHash("sha256");
@@ -55,16 +68,29 @@ function collectSkills() {
 
 const skills = collectSkills();
 const names = Object.keys(skills).sort();
+
+// Eksik bir paylaşılan klasör sessizce atlanmıyor: hash'e adıyla "(yok)"
+// diye giriyor. Yoksa klasörü silmek sürümü DEĞİŞTİRMEZDİ ve "güncel" cevabı
+// eksik bir kurulumu örterdi.
+const shared = {};
+for (const rel of SHARED_DIRS.slice().sort()) {
+  const full = path.join(ROOT, ...rel.split("/"));
+  shared[rel] = fs.existsSync(full) ? hashDir(full).slice(0, 16) : "(yok)";
+}
+
 const rootHash = crypto
   .createHash("sha256")
   .update(names.map((n) => `${n}:${skills[n]}`).join("\n"))
+  .update("\n--shared--\n")
+  .update(Object.keys(shared).map((k) => `${k}:${shared[k]}`).join("\n"))
   .digest("hex");
 
 const payload = {
   version: `${new Date().toISOString().slice(0, 10).replace(/-/g, ".")}+${rootHash.slice(0, 8)}`,
   generated: new Date().toISOString(),
   source: "NTT ABAP skill katalogu (elle uyarlanmis dagitim)",
-  skills: Object.fromEntries(names.map((n) => [n, skills[n]]))
+  skills: Object.fromEntries(names.map((n) => [n, skills[n]])),
+  shared
 };
 
 const target = path.join(ROOT, "toolkit-version.json");

@@ -17,7 +17,8 @@ const BLOCKED_KEYS = {
   missing: "catalogSkills.blocked.missing",
   os: "catalogSkills.blocked.os",
   pluginRoot: "catalogSkills.blocked.pluginRoot",
-  bundled: "catalogSkills.blocked.bundled"
+  bundled: "catalogSkills.blocked.bundled",
+  role: "catalogSkills.blocked.role"
 } as const;
 
 const ERROR_KEYS = {

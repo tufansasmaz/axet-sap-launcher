@@ -373,6 +373,8 @@ export const tr = {
   "catalogSkills.blocked.pluginRoot":
     "Eklentinin kökündeki kitaplıklara dayanıyor; tek klasör olarak kurulduğunda çalışmaz.",
   "catalogSkills.blocked.bundled": "Uygulamanın kendi paketinde zaten var; rolüne göre kuruluyor.",
+  "catalogSkills.blocked.role":
+    "SAP'a yazan bir yetenek; rolün bunu taşımıyor. Modül danışmanı geliştirme yapmaz — bu sınır sisteme değil role bağlı, DEV'de de geçerli.",
   "catalogSkills.error.noFolder": "Katalog klasörü artık okunamıyor.",
   "catalogSkills.error.notFound": "Bu girdi katalogda bulunamadı.",
   "catalogSkills.error.blocked": "Bu girdi kurulamaz.",

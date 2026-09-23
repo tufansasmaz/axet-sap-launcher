@@ -567,20 +567,27 @@ function registerIpc(): void {
 
   // Eşitlenmiş NTT kataloğu. Ağ isteği YOK: klasör OneDrive ile zaten diskte
   // (bkz. catalogFolder.ts), kurulum da düz dosya kopyası.
-  ipcMain.handle("catalogSkills:list", (_event, projectDir: string) => listCatalogSkills(projectDir));
+  //
+  // Rol HER ÜÇ uçta da veriliyor: katalog bizim paketimizden bağımsız bir
+  // kaynak ve rol kapısı (`planSkills`) oraya hiç bakmıyor. Rolsüz bırakılsaydı
+  // varsayılan modül danışmanı olurdu — güvenli yön, ama teknik danışmana da
+  // yanlış cevap verirdi.
+  ipcMain.handle("catalogSkills:list", (_event, projectDir: string) =>
+    listCatalogSkills(projectDir, loadConfig().skillProfile ?? DEFAULT_PROFILE)
+  );
 
   // Kurulan/kaldırılan yetenek ajanın gördüğü listeyi değiştiriyor ve axet-code
   // o listeyi süreç açılışında tarıyor — sıcak oturumlar kapatılmazsa kullanıcı
   // kurar ama ajan bir sonraki turda hâlâ eski listeyle konuşur (bkz.
   // skills:reinstall).
   ipcMain.handle("catalogSkills:install", async (_event, projectDir: string, id: string) => {
-    const result = await installCatalogSkill(projectDir, id);
+    const result = await installCatalogSkill(projectDir, id, loadConfig().skillProfile ?? DEFAULT_PROFILE);
     if (result.ok) closeTuiSessionsForProject(projectDir);
     return result;
   });
 
   ipcMain.handle("catalogSkills:remove", async (_event, projectDir: string, name: string) => {
-    const result = await removeCatalogSkill(projectDir, name);
+    const result = await removeCatalogSkill(projectDir, name, loadConfig().skillProfile ?? DEFAULT_PROFILE);
     if (result.ok) closeTuiSessionsForProject(projectDir);
     return result;
   });

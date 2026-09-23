@@ -78,9 +78,18 @@ describe("planSkills — PRD kapisi", () => {
     expect(planSkills("sandbox", "PRD").some((entry) => entry.blockedByTier)).toBe(true);
   });
 
-  it("DEV/QA/bilinmeyen sistemde hicbir sey engellenmez", () => {
-    for (const tier of ["DEV", "QA", null] as const) {
-      expect(planSkills("sandbox", tier).some((entry) => entry.blockedByTier), String(tier)).toBe(false);
+  it("YALNIZCA DEV'de hicbir sey engellenmez", () => {
+    expect(planSkills("sandbox", "DEV").some((entry) => entry.blockedByTier)).toBe(false);
+  });
+
+  it("QA ve isaretsiz sistemde yazma yetkili skill engellenir", () => {
+    // Kapi 2026-09-23'te daraldi: eskiden yalnizca PRD kapaliydi, artik
+    // yazilabilir tek sey DEV. `null` da kapali, cunku "bilinmiyor" sessizce
+    // "yaz" demek olurdu — kullanici karari: isaretsiz sisteme QA muamelesi.
+    for (const tier of ["QA", null] as const) {
+      const plan = planSkills("sandbox", tier);
+      expect(plan.some((entry) => entry.blockedByTier), String(tier)).toBe(true);
+      for (const entry of plan) expect(entry.blockedByTier, `${tier}/${entry.name}`).toBe(entry.writeCapable);
     }
   });
 

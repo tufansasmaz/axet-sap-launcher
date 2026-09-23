@@ -222,8 +222,23 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
  * bıraktığı bir klasörü silmemek için silme kararı ona bakıyor.
  */
 export interface SharedAsset {
-  /** `resources/sap-toolkit` altındaki kaynak klasör. */
-  path: string;
+  /**
+   * `resources/sap-toolkit` altındaki kaynak klasörler — hepsi TEK hedefe
+   * birleştiriliyor.
+   *
+   * Çoğul olması bir esneklik değil, kurulu düzenin zorunlu sonucu. Yukarı
+   * akışta her eklentinin KENDİ `lib`'i var (`office-tools/lib`,
+   * `sap-consultant/lib`) ve script'ler oraya `<eklenti>/skills/<ad>/scripts`
+   * içinden `../../../lib` diye ulaşıyor. Bizim kurulumumuzda eklenti katmanı
+   * yok — her skill `.axet-code/skills/<ad>` altında, yani aynı `../../../lib`
+   * ifadesi ikisi için de TEK bir `.axet-code/lib` klasörünü gösteriyor.
+   * Ayrı hedefler vermek mümkün değil; sıralı kopyalamak zorunlu.
+   *
+   * Dosya adları çakışmıyor (`redact.py`/`theme.py`/`assets` ile `onedrive.py`)
+   * ve çakışsaydı sessizce sonuncusu kazanırdı — bu yüzden aşağıda ayrıca
+   * test ediliyor.
+   */
+  paths: string[];
   /** `<proje>/.axet-code/` altındaki hedef klasör adı. */
   dest: string;
   /** Klasörün bizden geldiğini gösteren dosya. */
@@ -234,14 +249,25 @@ export interface SharedAsset {
 
 export const SHARED_ASSETS: SharedAsset[] = [
   {
-    path: "office-tools/lib",
+    // `onedrive.py` 2026-09-23'e kadar HİÇ paketlenmemişti ve arıza sessizdi:
+    // `candidate_roots` `None` kalıyor, `fast-scan-question-generator`
+    // eşitlenmiş kütüphaneyi hiç bulamıyor (`checks = []` -> `not_found`) ve
+    // yalnızca elle verilen `FAST_SCAN_SOURCE_ROOT` ile çalışıyordu.
+    paths: ["office-tools/lib", "sap-consultant/lib"],
     dest: "lib",
     marker: "redact.py",
-    requiredBy: ["office-docx", "office-pdf", "office-pptx", "office-manual"]
+    requiredBy: [
+      "office-docx",
+      "office-pdf",
+      "office-pptx",
+      "office-manual",
+      "fast-scan-question-generator",
+      "project-store"
+    ]
   },
   {
     // case.py (vaka kaydı), quality.py (kalite tahtası), summary_check.py.
-    path: "sap-consultant/scripts",
+    paths: ["sap-consultant/scripts"],
     dest: "scripts",
     marker: "case.py",
     requiredBy: [
@@ -420,6 +446,27 @@ export function isSkillProfile(value: unknown): value is SkillProfile {
  */
 function tierAllowsWrite(tier: SystemTier | null): boolean {
   return tier === "DEV";
+}
+
+/**
+ * Bu rol, SAP'a YAZMA niyetli bir yetenek taşıyabilir mi?
+ *
+ * Sabit listeyle değil, rolün kendi listesinden TÜRETİLİYOR: rolün aldığı
+ * skill'lerden en az biri `writeCapable` ise o rol yazma taşıyabiliyor demektir.
+ * Böylece `PROFILE_SKILLS` değiştiğinde bu cevap kendiliğinden değişiyor;
+ * ikinci bir "yazabilen roller" listesi tutulsaydı, ikisinin ayrışması an
+ * meselesiydi ve ayrışma sessiz olurdu.
+ *
+ * NEREDE KULLANILIYOR: eşitlenmiş NTT kataloğu (`catalogSkills.ts`). Orası bu
+ * uygulamanın paketinden bağımsız bir kaynak — modül danışmanı, rol kapısının
+ * hiç bakmadığı o kapıdan `risk_tier >= 1` bir yeteneği projesine kurabiliyordu.
+ * Kullanıcı kuralı (2026-09-23): *"modül danışmanı teknik danışmanın skillerini
+ * kullanamaz kod falan yazıp deploy falan alamaz asla"* — kapı yalnızca kendi
+ * kataloğumuzda değil, her katalogda geçerli.
+ */
+export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
+  const names = PROFILE_SKILLS[profile] ?? PROFILE_SKILLS[DEFAULT_PROFILE];
+  return names.some((name) => Boolean(SKILL_CATALOG[name]?.writeCapable));
 }
 
 /**

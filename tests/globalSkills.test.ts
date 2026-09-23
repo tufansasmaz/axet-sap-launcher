@@ -27,8 +27,19 @@ describe("skillScope", () => {
   });
 
   it("yazmayan yetenekler global", () => {
-    expect(skillScope("sap-adt-readonly")).toBe("global");
+    expect(skillScope("sap-docs")).toBe("global");
     expect(skillScope("abapgit-workflow")).toBe("project");
+  });
+
+  it("ADT ucLUSU yazmiyor olsa da PROJE kapsaminda", () => {
+    // `sap-adt-readonly` ve `sap-adt-router-bridge` SAP'a yazmiyor, yani
+    // "yazmayan global" kuralina gore global olmalilardi. Degiller ve
+    // olmamalilar: uclunun hangi uyesinin kurulacagi SISTEMIN onem derecesine
+    // bagli (`planSkills` takasi) ve global klasorun bir sistemi yok. Global'e
+    // tasinsalardi tier kapisi anlamini yitirirdi.
+    for (const name of ["sap-adt", "sap-adt-readonly", "sap-adt-router-bridge"]) {
+      expect(skillScope(name), name).toBe("project");
+    }
   });
 
   it("katalogda olmayan ad global sayilir (kurulmaz, yalnizca siniflandirma)", () => {

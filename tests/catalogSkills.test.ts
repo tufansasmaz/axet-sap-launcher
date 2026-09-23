@@ -19,11 +19,15 @@ import {
   readCatalogRecord
 } from "../app-electron/main/catalogSkills";
 
+// Varsayılan bağlam TEKNİK danışman: rol kapısı açık, böylece eski testlerin
+// hepsi kendi kuralını ölçmeye devam ediyor. Rol kapısının kendisi aşağıda
+// `writeAllowed: false` ile ayrıca sınanıyor.
 const ctx = {
   installed: [] as string[],
   recorded: [] as string[],
   hasPath: () => true,
-  os: "windows"
+  os: "windows",
+  writeAllowed: true
 };
 
 function catalog(...skills: Record<string, unknown>[]): string {
@@ -102,6 +106,31 @@ describe("buildCatalogSkills", () => {
     expect(buildCatalogSkills(catalog({ ...PLAIN, risk_tier: 3 }), ctx)[0].writeCapable).toBe(true);
   });
 
+  it("rolu yazma tasimayan kullaniciya yazma niyetli girdi KAPALI", () => {
+    // Kullanici kurali: modul danismani kod yazip deploy alamaz. Kendi
+    // paketimizdeki rol kapisi bu kataloga hic bakmiyordu; delik buydu.
+    const blocked = buildCatalogSkills(catalog({ ...PLAIN, risk_tier: 1 }), { ...ctx, writeAllowed: false })[0];
+    expect(blocked.blocked).toBe("role");
+    expect(blocked.writeCapable).toBe(true);
+  });
+
+  it("rol kapisi SISTEME bakmiyor — tier 0 girdi ayni rolde acik kalir", () => {
+    // Kapi role bagli, sisteme degil: modul danismani okuyan bir yetenegi
+    // kurabilmeli. Aksi hâlde rol kapisi bir yasak degil bir felc olurdu.
+    const [skill] = buildCatalogSkills(catalog(PLAIN), { ...ctx, writeAllowed: false });
+    expect(skill.blocked).toBeNull();
+  });
+
+  it("paketle gelen girdi icin sebep 'bundled' kalir, 'role' degil", () => {
+    // Sira: paketimizde ayni adla varsa gercek sebep odur. "Rolunuz izin
+    // vermiyor" demek, kullaniciyi olmayan bir yetki sorununa yollardi.
+    const [skill] = buildCatalogSkills(
+      catalog({ ...PLAIN, id: "sap-consultant/screen-gen", path: "plugins/sap-consultant/skills/screen-gen", risk_tier: 2 }),
+      { ...ctx, writeAllowed: false }
+    );
+    expect(skill.blocked).toBe("bundled");
+  });
+
   it("kurulu olmak ile KALDIRILABILIR olmak ayri seyler", () => {
     // `.axet-code/skills` altindaki her klasoru biz kurmadik; yabanci bir
     // klasoru silme dugmesi gostermek, baskasinin isini silmekti.
@@ -161,33 +190,53 @@ afterEach(() => {
   while (temps.length) rmSync(temps.pop()!, { recursive: true, force: true });
 });
 
+const TECH = "technical-consultant" as const;
+const MODUL = "module-consultant" as const;
+
 describe("enforceTierOnCatalog", () => {
   it("PRD'de yazma niyetli katalog skill'ini SILER", () => {
     const dir = project([{ name: "mass-rename", riskTier: 2 }]);
-    expect(enforceTierOnCatalog(dir, "PRD")).toEqual(["mass-rename"]);
+    expect(enforceTierOnCatalog(dir, "PRD", TECH)).toEqual(["mass-rename"]);
     expect(existsSync(path.join(dir, ".axet-code", "skills", "mass-rename"))).toBe(false);
     expect(readCatalogRecord(dir)).toEqual([]);
   });
 
   it("PRD'de tier 0 skill'e DOKUNMAZ", () => {
     const dir = project([{ name: "reader", riskTier: 0 }]);
-    expect(enforceTierOnCatalog(dir, "PRD")).toEqual([]);
+    expect(enforceTierOnCatalog(dir, "PRD", TECH)).toEqual([]);
     expect(existsSync(path.join(dir, ".axet-code", "skills", "reader"))).toBe(true);
     expect(readCatalogRecord(dir)).toHaveLength(1);
   });
 
-  it("DEV/QA/isaretsiz sistemde hicbir sey silinmez", () => {
+  it("teknik danismanda DEV/QA/isaretsiz sistemde hicbir sey silinmez", () => {
     for (const tier of ["DEV", "QA", null] as const) {
       const dir = project([{ name: "mass-rename", riskTier: 3 }]);
-      expect(enforceTierOnCatalog(dir, tier)).toEqual([]);
+      expect(enforceTierOnCatalog(dir, tier, TECH)).toEqual([]);
       expect(existsSync(path.join(dir, ".axet-code", "skills", "mass-rename"))).toBe(true);
     }
+  });
+
+  it("MODUL danismanda yazma niyetli skill HER sistemde silinir", () => {
+    // Rol kapisinin DEV'i de QA'si de yok. Rol kapisi katalog tarafina
+    // 2026-09-23'te eklendi; oncesinde kurulmus bir yetenek diskte duruyor
+    // olabilir ve ajan diskte durani okur.
+    for (const tier of ["DEV", "QA", "PRD", null] as const) {
+      const dir = project([{ name: "mass-rename", riskTier: 1 }]);
+      expect(enforceTierOnCatalog(dir, tier, MODUL)).toEqual(["mass-rename"]);
+      expect(existsSync(path.join(dir, ".axet-code", "skills", "mass-rename"))).toBe(false);
+    }
+  });
+
+  it("MODUL danismanda okuyan skill'e DOKUNULMAZ", () => {
+    const dir = project([{ name: "reader", riskTier: 0 }]);
+    expect(enforceTierOnCatalog(dir, "DEV", MODUL)).toEqual([]);
+    expect(existsSync(path.join(dir, ".axet-code", "skills", "reader"))).toBe(true);
   });
 
   it("kayit dosyasi yoksa sessizce gecer", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "axet-catalog-"));
     temps.push(dir);
-    expect(enforceTierOnCatalog(dir, "PRD")).toEqual([]);
+    expect(enforceTierOnCatalog(dir, "PRD", TECH)).toEqual([]);
   });
 
   it("silinen kayit dosyadan dusuyor, kalan duruyor", () => {
@@ -195,7 +244,7 @@ describe("enforceTierOnCatalog", () => {
       { name: "reader", riskTier: 0 },
       { name: "writer", riskTier: 3 }
     ]);
-    enforceTierOnCatalog(dir, "PRD");
+    enforceTierOnCatalog(dir, "PRD", TECH);
     expect(readCatalogRecord(dir).map((r) => r.name)).toEqual(["reader"]);
   });
 });

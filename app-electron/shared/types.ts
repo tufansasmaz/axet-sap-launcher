@@ -142,8 +142,8 @@ export interface CatalogSkill {
   writeCapable: boolean;
   /** Katalog klasörüne göreli yol. */
   path: string;
-  /** Kurulamama sebebi; `null` ise kurulabilir. */
-  blocked: "missing" | "os" | "pluginRoot" | "bundled" | null;
+  /** Kurulamama sebebi; `null` ise kurulabilir. `role` = rol yazma taşımıyor. */
+  blocked: "missing" | "os" | "pluginRoot" | "bundled" | "role" | null;
   /** `<proje>/.axet-code/skills` altında bu adda klasör var mı. */
   installed: boolean;
   /** Klasörü BİZ kurduk mu — yalnızca o zaman kaldırılabilir. */
