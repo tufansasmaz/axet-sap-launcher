@@ -249,6 +249,9 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 | `.../sap-cr-handover/SKILL.md` | ayni sekil + "release bu skill'in isi degil" | ayni |
 | `.../sap-incident/SKILL.md` | ayni sekil; §8'in DEV yolu artik GERCEKTEN calisiyor | Yazma yuzeyi teknik danisman + DEV'de aciliyor |
 | `.../sap-incident/references/solution-proposal.md` | Ayni push adimina rol/tier notu | ayni |
+| `.../sap-adt/scripts/credential_charset.py` | YENI dosya (yukari akista yok) | Basic Auth baytlari tek yerden uretiliyor; varsayilan UTF-8, `.conn_adt`'taki `ADT_SAP_PW_CHARSET` satiri elle ezebiliyor |
+| `.../sap-adt/scripts/sap_adt_lib.py` | `auth_string.encode('ascii')` -> `encode_basic_credentials()` | ASCII disi sifre EskiDEN UnicodeEncodeError ile patliyordu |
+| `.../sap-adt/scripts/auth/basic_auth_provider.py` | sabit `.encode('utf-8')` -> ayni fonksiyon | Motorun iki auth yolu da ayni baytlari uretsin; ADT_SAP_PW_CHARSET ikisine birden islesin |
 | `.../test-scenarios/SKILL.md` | MCP -> HTTP + `ADT_RO_ALLOW_SQL` notu | ayni |
 | `.../test-scenarios/scripts/scan_doc_types.py` | ADT motoru import'u -> `ReadOnlyHttpClient` | `../../sap-adt/scripts` kurulu agacta HIC yok (`excludeDirs`) |
 | `.../sap-enduser-doc/SKILL.md` | MCP -> HTTP + npm bagimliligi uyarisi | ayni |

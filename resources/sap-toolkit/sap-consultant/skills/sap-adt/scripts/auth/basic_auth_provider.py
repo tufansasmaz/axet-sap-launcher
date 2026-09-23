@@ -6,9 +6,9 @@ Basic Authentication Provider for SAP ADT
 Handles username/password authentication for on-prem SAP systems.
 Maintains backward compatibility with existing code.
 """
-import base64
 from typing import Dict, Any
 from auth.i_auth_provider import IAuthProvider
+from credential_charset import encode_basic_credentials
 
 
 class BasicAuthProvider(IAuthProvider):
@@ -39,10 +39,11 @@ class BasicAuthProvider(IAuthProvider):
         Returns:
             Dict with Authorization header (Basic base64(user:pass))
         """
-        credentials = f"{self._username}:{self._password}"
-        encoded = base64.b64encode(credentials.encode('utf-8')).decode('utf-8')
+        # NTT Studio uyarlamasi: kodlama tek yerden geliyor (credential_charset.py,
+        # varsayilan UTF-8 -- eskisiyle bayt bayt ayni) ki `.conn_adt`'taki
+        # ADT_SAP_PW_CHARSET satiri motorun HER iki auth yoluna da islesin.
         return {
-            'Authorization': f'Basic {encoded}'
+            'Authorization': f'Basic {encode_basic_credentials(self._username, self._password)}'
         }
 
     def refresh_credentials(self) -> None:

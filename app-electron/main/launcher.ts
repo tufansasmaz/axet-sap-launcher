@@ -486,6 +486,13 @@ ADT_SAML_COOKIES_FILE=${samlCookiesFile}
 ADT_SAP_URL=${effectiveUrl}
 ADT_SAP_USER=${credentials.username}
 ADT_SAP_PASSWORD=${credentials.password}
+# Şifre Basic Auth'ta UTF-8 baytlarıyla taşınır (launcher ve Python motoru aynı).
+# ÖLÇÜLDÜ 2026-09-23 (DS4): ASCII dışı karakter içeren bir şifreyle SAP GUI
+# giriyordu, aynı şifre HTTP/ADT kanalında hem UTF-8 hem ISO-8859-9 baytlarıyla
+# 401 aldı — yani kod sayfasını değiştirmek bu sorunu ÇÖZMÜYOR, şifrenin sadece
+# ASCII karakterlerden oluşması gerekiyor. Başka bir kodlamayı ölçümle
+# gerekçelendiren bir sistem çıkarsa aşağıdaki satırın yorumunu kaldır:
+# ADT_SAP_PW_CHARSET=iso-8859-9
 ${clientComment}${clientLine}ADT_SAP_LANGUAGE=EN
 ${rfcBlock}${samlBlock}${tierBlock}`;
 }

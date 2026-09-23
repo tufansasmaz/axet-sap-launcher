@@ -21,6 +21,11 @@ _scripts_dir = Path(__file__).parent
 if str(_scripts_dir) not in sys.path:
     sys.path.insert(0, str(_scripts_dir))
 
+# NTT Studio uyarlamasi: Basic Auth baytlarini SAP'in kod sayfasiyla uretir.
+# Auth provider'lardan BAGIMSIZ import ediliyor -- asagidaki try/except basarisiz
+# olsa bile basic auth yedek yolu bu fonksiyona bagli.
+from credential_charset import encode_basic_credentials
+
 # Import auth providers for BTP cloud support
 try:
     from auth.i_auth_provider import IAuthProvider
@@ -1378,9 +1383,10 @@ class SAPADTClient:
                     self._debug(f"[DEBUG] Auth provider error: {e}, falling back to basic auth")
 
         # Fallback to basic auth
-        auth_string = f"{self.user}:{self.password}"
-        auth_bytes = auth_string.encode('ascii')
-        base64_auth = base64.b64encode(auth_bytes).decode('ascii')
+        # NTT Studio uyarlamasi: eskiden burada `.encode('ascii')` vardi ve
+        # ASCII disi bir sifre bagimsiz olarak UnicodeEncodeError ile
+        # patliyordu. Kodlama credential_charset.py'de, varsayilani UTF-8.
+        base64_auth = encode_basic_credentials(self.user, self.password)
         return {'Authorization': f'Basic {base64_auth}'}
 
     def _get_auth_header(self):

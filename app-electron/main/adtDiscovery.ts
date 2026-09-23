@@ -7,6 +7,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import os from "node:os";
 import { tlsConnectThroughRouter, httpRequestOverSocket, sniFor } from "./sapRouter";
+import { encodeBasicCredentials, nonAsciiChars } from "./basicAuth";
 import type { AppLanguage } from "../shared/types";
 
 // Kimlik doğrulama sonucunun kısa mesajı (`CredentialVerifyResult.message`)
@@ -16,6 +17,20 @@ import type { AppLanguage } from "../shared/types";
 // (discoveryNotes/sap-context.md) buna dahil değil, onlar hâlâ Türkçe
 // (esas olarak axet.code'un okuduğu teknik bir günlük, dil o akış için
 // önemli değil).
+/**
+ * 401'de "initial şifre" ihtimali ayrıca yazılıyor, çünkü teşhis edilmesi en
+ * zor olan ve kullanıcıya EN YANLIŞ görünen hâl bu: SU01'den ATANAN şifre
+ * "initial" durumdadır, SAP GUI onu kabul eder (sadece değiştirme ekranını
+ * gösterir) ama HTTP Basic reddeder — Basic'te şifre değiştirme diyaloğu
+ * çalıştırılamadığı için. Kullanıcı "GUI'ye giriyorum, uygulamaya giremiyorum"
+ * der ve eski metin onu "şifre yanlış" sanısına yollardı. Ölçüldü 2026-09-23
+ * (DS4): GUI'nin kendi değiştirme ekranından bir kez değiştirmek düzeltti.
+ */
+const INITIAL_PASSWORD_HINT_TR =
+  "Şifre SU01'den yeni atandıysa SAP GUI'ye girip GUI'nin kendi şifre değiştirme ekranından bir kez değiştirin — SU01'den yeniden atamak aynı sonucu verir.";
+const INITIAL_PASSWORD_HINT_EN =
+  "If the password was just assigned in SU01, log on with SAP GUI once and change it from GUI's own change-password dialog — re-assigning it in SU01 leads to the same result.";
+
 function verifyMsg(
   language: AppLanguage,
   key:
@@ -32,14 +47,24 @@ function verifyMsg(
     | "timeout"
     | "connectionError"
     | "connectionErrorRouter"
+    | "unauthorizedNonAscii"
     | "samlLoginDetected",
-  params?: { sid?: string; client?: string; status?: number | null; message?: string; body?: string; title?: string }
+  params?: {
+    sid?: string;
+    client?: string;
+    status?: number | null;
+    message?: string;
+    body?: string;
+    title?: string;
+    chars?: string;
+  }
 ): string {
   const tr = {
     verified: "Kimlik bilgileri doğrulandı",
     verifiedRouter: "Kimlik bilgileri doğrulandı (SAProuter üzerinden)",
-    unauthorized: "401 Unauthorized — kullanıcı adı/şifre yanlış veya kilitli",
-    unauthorizedWithSid: `401 Unauthorized (sistem: ${params?.sid}, client: ${params?.client}) — kullanıcı adı/şifre yanlış veya kilitli`,
+    unauthorized: `401 Unauthorized — kullanıcı adı/şifre yanlış, kullanıcı kilitli, ya da şifre "initial" durumda. ${INITIAL_PASSWORD_HINT_TR}`,
+    unauthorizedWithSid: `401 Unauthorized (sistem: ${params?.sid}, client: ${params?.client}) — kullanıcı adı/şifre yanlış, kullanıcı kilitli, ya da şifre "initial" durumda. ${INITIAL_PASSWORD_HINT_TR}`,
+    unauthorizedNonAscii: `401 Unauthorized (sistem: ${params?.sid}, client: ${params?.client}) — şifrende ASCII dışı karakter var: ${params?.chars}. SAP bu şifreyi GUI'de kabul edip HTTP/ADT kanalında reddedebiliyor; ölçüldü (2026-09-23, DS4): GUI giriyordu, aynı şifre HTTP'de hem UTF-8 hem ISO-8859-9 baytlarıyla 401 aldı, kullanıcı kilitli değildi. Şifreyi SAP GUI'nin kendi değiştirme ekranından SADECE ASCII karakterlerden oluşan bir şeyle değiştir (SU01'den atama "initial" durum yaratır, o da 401 verir). Şifre gerçekten yanlışsa ya da kullanıcı kilitliyse bu mesaj yine aynı görünür.`,
     unexpectedStatus: `Beklenmeyen HTTP durumu: ${params?.status}`,
     unexpectedStatusWithBody: `Beklenmeyen HTTP durumu: ${params?.status} — ${params?.body}`,
     unexpectedStatusHtml: `Beklenmeyen HTTP durumu: ${params?.status} (yanıt bir HTML sayfası — SAP bu durumda genelde ICM'in kendi hata sayfasını döndürür, ADT yanıtı değildir)`,
@@ -54,8 +79,9 @@ function verifyMsg(
   const en = {
     verified: "Credentials verified",
     verifiedRouter: "Credentials verified (via SAProuter)",
-    unauthorized: "401 Unauthorized — wrong username/password or account locked",
-    unauthorizedWithSid: `401 Unauthorized (system: ${params?.sid}, client: ${params?.client}) — wrong username/password or account locked`,
+    unauthorized: `401 Unauthorized — wrong username/password, account locked, or the password is still "initial". ${INITIAL_PASSWORD_HINT_EN}`,
+    unauthorizedWithSid: `401 Unauthorized (system: ${params?.sid}, client: ${params?.client}) — wrong username/password, account locked, or the password is still "initial". ${INITIAL_PASSWORD_HINT_EN}`,
+    unauthorizedNonAscii: `401 Unauthorized (system: ${params?.sid}, client: ${params?.client}) — your password contains non-ASCII characters: ${params?.chars}. SAP can accept such a password in SAP GUI and still reject it over HTTP/ADT; measured (2026-09-23, DS4): GUI logged on fine while the same password got 401 over HTTP with both UTF-8 and ISO-8859-9 bytes, and the account was not locked. Change the password from SAP GUI's own change dialog to one made of ASCII characters only (assigning it in SU01 makes it "initial", which also returns 401). A genuinely wrong password or a locked account looks the same as this.`,
     unexpectedStatus: `Unexpected HTTP status: ${params?.status}`,
     unexpectedStatusWithBody: `Unexpected HTTP status: ${params?.status} — ${params?.body}`,
     unexpectedStatusHtml: `Unexpected HTTP status: ${params?.status} (response is an HTML page — SAP usually returns ICM's own error page in this case, not an ADT response)`,
@@ -68,6 +94,27 @@ function verifyMsg(
     samlLoginDetected: "Got HTTP 200 but the response is not the expected ADT XML — it's a SAML/SSO login page (HTML). Credentials were never actually checked via Basic Auth; this system requires SAML SSO. Right or wrong username/password produces the same result here — follow the SAML login flow (login_saml_sso.py) in the %sap-adt skill."
   };
   return (language === "en" ? en : tr)[key];
+}
+
+/**
+ * 401'in metni şifrenin KENDİ karakterlerine bakarak seçiliyor.
+ *
+ * SAP 401'i gerekçesiz döndürüyor — yanlış şifre, kilit, "initial" durum ve
+ * "GUI kabul ediyor ama HTTP etmiyor" hâli AYNI cevabı veriyor. Şifrede ASCII
+ * dışı karakter varsa ölçülmüş olan (bkz. basicAuth.ts) bu son ihtimal en
+ * üste çıkarılıyor, çünkü kullanıcı açısından en yanıltıcı olan o: GUI'ye
+ * girebildiği için şifresinin doğru olduğunu biliyor.
+ */
+function unauthorizedMessage(
+  language: AppLanguage,
+  sid: string | null,
+  client: string,
+  nonAscii: string[]
+): string {
+  if (nonAscii.length > 0) {
+    return verifyMsg(language, "unauthorizedNonAscii", { sid: sid ?? "?", client, chars: nonAscii.join(" ") });
+  }
+  return sid ? verifyMsg(language, "unauthorizedWithSid", { sid, client }) : verifyMsg(language, "unauthorized");
 }
 
 // Bir doğrulama isteği 200/401 dışında bir durum döndürdüğünde, yanıt
@@ -546,7 +593,10 @@ export function verifyCredentials(
   } catch {
     return Promise.resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "invalidUrl") });
   }
-  const auth = Buffer.from(`${username}:${password}`).toString("base64");
+  const auth = encodeBasicCredentials(username, password);
+  // 401 dönerse metni bu belirleyecek — ölçüm, ASCII dışı karakterli şifrenin
+  // HTTP kanalında reddedildiğini gösterdi (bkz. basicAuth.ts).
+  const nonAscii = nonAsciiChars(password);
   const discoveryPath = client.trim()
     ? `/sap/bc/adt/discovery?sap-client=${encodeURIComponent(client.trim())}`
     : "/sap/bc/adt/discovery";
@@ -559,7 +609,7 @@ export function verifyCredentials(
   const requestFn = isPlainHttp ? httpRequest : httpsRequest;
 
   if (routerString) {
-    return verifyCredentialsThroughRouter(routerString, host, port, discoveryPath, auth, client, timeoutMs, language);
+    return verifyCredentialsThroughRouter(routerString, host, port, discoveryPath, auth, client, timeoutMs, language, nonAscii);
   }
 
   return new Promise((resolve) => {
@@ -598,9 +648,7 @@ export function verifyCredentials(
               ok: false,
               status,
               sid,
-              message: sid
-                ? verifyMsg(language, "unauthorizedWithSid", { sid, client })
-                : verifyMsg(language, "unauthorized")
+              message: unauthorizedMessage(language, sid, client, nonAscii)
             });
           } else {
             const body = Buffer.concat(chunks).toString("utf-8");
@@ -701,7 +749,8 @@ async function verifyCredentialsThroughRouter(
   auth: string,
   client: string,
   timeoutMs: number,
-  language: AppLanguage = "tr"
+  language: AppLanguage = "tr",
+  nonAscii: string[] = []
 ): Promise<CredentialVerifyResult> {
   let socket;
   try {
@@ -728,9 +777,7 @@ async function verifyCredentialsThroughRouter(
         ok: false,
         status,
         sid,
-        message: sid
-          ? verifyMsg(language, "unauthorizedWithSid", { sid, client })
-          : verifyMsg(language, "unauthorized")
+        message: unauthorizedMessage(language, sid, client, nonAscii)
       };
     }
     return { ok: false, status, sid, message: unexpectedStatusMessage(language, status, res.body ?? "", res.headers["content-type"]) };

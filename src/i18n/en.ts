@@ -458,6 +458,8 @@ export const en: Record<TranslationKey, string> = {
   "credentialsModal.title": "Connect to System",
   "credentialsModal.username": "Username",
   "credentialsModal.password": "Password",
+  "credentialsModal.passwordNonAscii":
+    "The password contains non-ASCII characters: {chars}. SAP can accept such a password in SAP GUI and still reject it over HTTP/ADT — measured (2026-09-23, DS4). If this attempt returns 401, change the password from SAP GUI's own change dialog to one made of ASCII characters only. Every failed attempt increments SAP's lock counter.",
   "credentialsModal.showPassword": "Show password",
   "credentialsModal.hidePassword": "Hide password",
   "credentialsModal.client": "Client",

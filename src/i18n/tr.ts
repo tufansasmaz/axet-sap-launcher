@@ -514,6 +514,8 @@ export const tr = {
   "credentialsModal.title": "Sisteme Bağlan",
   "credentialsModal.username": "Kullanıcı Adı",
   "credentialsModal.password": "Şifre",
+  "credentialsModal.passwordNonAscii":
+    "Şifrede ASCII dışı karakter var: {chars}. SAP böyle bir şifreyi GUI'de kabul edip HTTP/ADT kanalında reddedebiliyor — ölçüldü (2026-09-23, DS4). Bağlanma denemesi 401 ile dönerse şifreyi SAP GUI'nin kendi değiştirme ekranından SADECE ASCII karakterlerden oluşan bir şeyle değiştirin. Her başarısız deneme SAP'ın kilit sayacını artırır.",
   "credentialsModal.showPassword": "Şifreyi göster",
   "credentialsModal.hidePassword": "Şifreyi gizle",
   "credentialsModal.client": "Client",
