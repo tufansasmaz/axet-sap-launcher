@@ -1,686 +1,422 @@
-"""ADT-over-RFC bridge -- speak ADT HTTP to a system that only answers RFC.
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# NTT Studio sürümü — yukarı akışın adt_rfc_bridge.py'si DEĞİL, bilerek.
+# Yukarı akış 2026-09'da (d2cb667 senkronu) bu dosyayı başka bir köprüyle değiştirdi:
+# RFC_ASHOST/RFC_SYSNR/RFC_SAPROUTER'ı .env'den okuyor, router'ı zorunlu tutuyor,
+# portu BRIDGE_PORT'tan (8410) alıp --port'u yok sayıyor ve /health ucu yok. Launcher
+# ise ADT_RFC_*'ı .conn_adt'e yazıp köprüyü `--port 8788` ile başlatıyor ve /health'e
+# bakıyor — sonuç: router'lı her sistemde "RFC_ASHOST is not set" (LED, 2026-09-24).
+# Bu dosya launcher'la sahada çalışmış sürümdür; senkronda üzerine YAZILMAMALI
+# (tests/rfcBridgeContract.test.ts kilitliyor, resources/sap-toolkit/CLAUDE.md tablosu).
+"""HTTP-to-RFC bridge for ADT access through a SAProuter that denies raw/native
+TCP tunneling to the ICM HTTP(S) port but permits native SAP-protocol traffic
+(DIAG, RFC). See adt_rfc_probe.py's docstring and PROJE-BILGI.md "BONY" bulgusu
+for the full background on why this exists.
 
-Some customer landscapes expose SAP through SAProuter's NI protocol and nothing
-else: 443 / 8000 / 44300 are shut at the firewall, so every HTTP ADT client fails
-at connect. The system is still reachable, just not over HTTP.
+WHAT THIS IS
+    A tiny localhost HTTP server that:
+      1. Opens ONE persistent RFC connection through the SAProuter (pyrfc),
+         reusing the exact "native SAP protocol" channel SAP GUI's DIAG
+         connection already uses successfully on these restricted routers.
+      2. On every incoming HTTP request, marshals it into a call to the
+         (community-documented, NOT an official SAP public API) function
+         module SADT_REST_RFC_ENDPOINT, and marshals the RFC response back
+         into a real HTTP response.
+      3. Because it speaks plain HTTP on 127.0.0.1, the EXISTING sap_adt_lib.py
+         / adt_readonly_server.py / adt_mcp_server.py code works completely
+         UNCHANGED against it — you just point ADT_SAP_URL at this bridge
+         instead of the real (blocked) HTTPS endpoint. aXet SAP Launcher
+         already does this automatically in .conn_adt when it detects a
+         router -94 permission-denied failure.
 
-This process is a TRANSPORT SHIM, not a second engine. It listens on
-127.0.0.1:<BRIDGE_PORT> and, for each HTTP request, calls the standard
-`SADT_REST_RFC_ENDPOINT` function module over RFC (through SAProuter), returning
-the SAP response verbatim. Point `ADT_SAP_URL` at it and the normal sap-adt /
-sap-adt-readonly server runs on top unchanged -- every guard it has (ghost
-transport, source drift, auth breaker, Z/Y namespace, writable tier) still
-applies, because none of them care how the bytes reach SAP.
+LIMITATIONS (read before relying on this for anything beyond reads)
+    - SADT_REST_RFC_ENDPOINT is stateless per RFC call — it does not carry a
+      real HTTP session/cookie. This bridge synthesizes a placeholder CSRF
+      token so sap_adt_lib.py's "X-CSRF-Token: Fetch" flow gets a response,
+      but multi-step stateful flows (notably object ACTIVATION) are known to
+      NOT work reliably over this bridge. Reads (get_source, search, sql,
+      where_used, syntax_check, atc_check, list_package, revisions, dumps,
+      list_transports, transport_status) are the intended, tested use case.
+    - HEAD requests are converted to GET internally (the FM has been observed
+      to reject literal HTTP HEAD) and the response body is dropped before
+      returning, to keep HEAD semantics correct for the caller.
+    - This is NOT an officially documented SAP integration point. If
+      SADT_REST_RFC_ENDPOINT's parameter/field names differ on your system's
+      release, run adt_rfc_probe.py first — it prints the real names via
+      RFC_GET_FUNCTION_INTERFACE so you can fix the marshalling below.
 
-    aXet.code / Claude Code
-      -> adt_mcp_server.py            the engine and its guards
-      -> http://127.0.0.1:8410        this process
-      -> pyrfc | JPype+SAP JCo        whichever RFC library is on the machine
-      -> RFC via SAProuter            /H/<router-host>/S/3299
-      -> SADT_REST_RFC_ENDPOINT       -> ADT framework
+REQUIRES (see SKILL.md "Router-only sistemler (RFC bridge)")
+    aXet SAP Launcher bundles its own Python + pyrfc + SAP NW RFC SDK
+    (resources/rfc-runtime) and spawns this script with that runtime
+    automatically — you normally never need to install anything. This
+    section only applies if you run this script standalone (outside the
+    launcher) with your own Python:
+    - SAP NW RFC SDK (licensed, requires your own SAP S-user download
+      authorization) + SAPNWRFC_HOME environment variable pointing at it.
+    - pip install pyrfc (compiles against the SDK; needs a matching C/C++
+      toolchain for your Python version).
 
-TWO BACKENDS, because consultant machines differ in which one is already there:
+USAGE
+    ADT_CWD=<dir-with-.conn_adt> py adt_rfc_bridge.py [--host 127.0.0.1] [--port 8788]
 
-  pyrfc   pyrfc 3.3.1 + SAP NetWeaver RFC SDK 7.50 (the SDK is an S-user download
-          and the wheel is built against it). A field test on a routed customer
-          DEV system had this connecting in under a minute. A pyrfc Connection IS
-          one physical RFC handle, so ABAP session context survives across calls
-          with no JCoContext equivalent, and it hands back XSTRING as Python
-          bytes -- no signed-byte fold.
-  jco     SAP JCo, scavenged from an existing Eclipse/ADT install via JPype. No
-          SDK, no S-user, nothing to download -- if the consultant has Eclipse,
-          this backend already works.
-
-BRIDGE_BACKEND picks: auto (default), pyrfc, jco. `auto` prefers pyrfc when it
-imports, because installing it is a deliberate act, and falls back to JCo.
-
-Configuration -- NOTHING is hardcoded here. Values are read, first wins, from:
-  1. the environment
-  2. <project>/.env         RFC_* keys
-  3. <project>/.conn_adt    ADT_SAP_USER / _PASSWORD / _CLIENT / _LANGUAGE
-The project is $ADT_CWD if set, else the working directory -- the same rule the
-ADT engine uses, so both halves read one file and cannot drift.
-
-  RFC_ASHOST      application server host, as seen FROM the router
-  RFC_SYSNR       instance number (00, 01, ...)
-  RFC_CLIENT      mandant
-  RFC_USER        or ADT_SAP_USER in .conn_adt
-  RFC_PASSWD      or ADT_SAP_PASSWORD in .conn_adt
-  RFC_LANG        default EN
-  RFC_SAPROUTER   ROUTER HOP ONLY, e.g. /H/<router-host>/S/3299
-  RFC_DEST_NAME   JCo destination label, default ADT_ROUTER_BRIDGE
-  BRIDGE_PORT     default 8410
-  BRIDGE_BACKEND  auto | pyrfc | jco
-  JCO_JRE         override the Eclipse JRE autodetect   (jco backend)
-  JCO_P2_POOL     override the JCo jar autodetect       (jco backend)
-
-Usage:
-  py adt_rfc_bridge.py selftest   one ADT discovery call; proves the whole path
-  py adt_rfc_bridge.py            serve on 127.0.0.1:$BRIDGE_PORT
-
-Derived from Enrico Andreoli's adt-rfc-bridge (MIT) and the SAP Community post
-"Using Claude for SAP ABAP development on RFC-only SAProuter systems".
+    Then point ADT_SAP_URL at this bridge (aXet SAP Launcher already writes
+    ADT_SAP_URL=http://127.0.0.1:8788 into .conn_adt when RFC mode is needed)
+    and use %sap-adt-readonly exactly as documented — it will transparently
+    go through this bridge instead of talking to SAP directly.
 """
-import atexit
-import datetime
-import glob as _glob
+from __future__ import annotations
+
 import os
-import queue
 import sys
 import threading
-import zipfile
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import time
 from pathlib import Path
+from urllib.parse import urlsplit
 
-# The console on a Turkish Windows machine is cp1254. Anything printed that is
-# not plain ASCII kills the process there -- including text this file never sees
-# in its own source, because a Turkish path or object name arrives through a
-# variable. The work is finished by then, so the output lands on disk and the
-# consultant still reads a traceback and reports the tool as broken.
-# See scripts/test_skill_scripts.py for the three times this was found and
-# locally fixed before it was made an invariant.
-for _stream in (sys.stdout, sys.stderr):
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    print("[adt-rfc-bridge] FAIL: python-dotenv not installed. pip install python-dotenv", file=sys.stderr)
+    sys.exit(1)
+
+
+def _ensure_sapnwrfc_dll_dir() -> None:
+    """Two independent DLL-search mechanisms need SAPNWRFC_HOME/lib:
+    1. Python >=3.8's own extension-module loader (pyrfc's _cyrfc.pyd) no
+       longer searches PATH (PEP 3118 / bpo-36085) -- needs os.add_dll_directory().
+    2. sapnwrfc.dll's OWN internal LoadLibrary calls for its ICU dependencies
+       (icuuc50.dll/icudt50.dll/icuin50.dll), made deep inside the native RFC
+       runtime when a Connection is actually opened, are classic LoadLibrary
+       calls that only honour the process PATH -- add_dll_directory() does not
+       cover those, so PATH must be extended too, or you get a native
+       'Could not open the ICU common library' error at logon time (not at
+       import time), pointing at [nlsui0.c] / SAP note 519753."""
+    if sys.platform != "win32":
+        return
+    home = os.getenv("SAPNWRFC_HOME")
+    if not home:
+        return
+    lib_dir = Path(home) / "lib"
+    if not lib_dir.is_dir():
+        return
     try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
-    except (AttributeError, ValueError):
+        os.add_dll_directory(str(lib_dir))
+    except (AttributeError, OSError):
         pass
+    lib_dir_str = str(lib_dir)
+    path = os.environ.get("PATH", "")
+    if lib_dir_str not in path.split(os.pathsep):
+        os.environ["PATH"] = lib_dir_str + os.pathsep + path
 
 
-# --------------------------------------------------------------------------
-# configuration
-# --------------------------------------------------------------------------
-
-def _project_dir():
-    """Where .conn_adt / .env live. Same rule as adt_mcp_server.py."""
-    return Path(os.environ.get("ADT_CWD") or Path.cwd()).resolve()
-
-
-def _load_config():
-    """Fill os.environ from .env and .conn_adt without clobbering real env vars."""
-    proj = _project_dir()
-
-    env_file = proj / ".env"
-    if env_file.is_file():
-        for line in env_file.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
-
-    # The ADT engine's own file. Reuse its credentials so the consultant keeps ONE
-    # set: .conn_adt already holds the user and password for this system, and
-    # asking for them twice is how the two halves drift apart.
-    conn = proj / ".conn_adt"
-    if conn.is_file():
-        alias = {
-            "ADT_SAP_USER": "RFC_USER",
-            "ADT_SAP_PASSWORD": "RFC_PASSWD",
-            "ADT_SAP_CLIENT": "RFC_CLIENT",
-            "ADT_SAP_LANGUAGE": "RFC_LANG",
-        }
-        for line in conn.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            target = alias.get(k.strip())
-            if target:
-                os.environ.setdefault(target, v.strip().strip('"').strip("'"))
+def find_conn_file() -> Path:
+    for env_var in ("CLAUDE_CWD", "INIT_CWD", "COPILOT_CWD", "ADT_CWD"):
+        value = os.getenv(env_var)
+        if value:
+            p = Path(value)
+            if p.exists():
+                candidate = p.resolve() / ".conn_adt"
+                if candidate.exists():
+                    return candidate
+    cwd_candidate = Path.cwd().resolve() / ".conn_adt"
+    if cwd_candidate.exists():
+        return cwd_candidate
+    value = os.getenv("PWD")
+    if value:
+        p = Path(value)
+        if p.exists():
+            candidate = p.resolve() / ".conn_adt"
+            if candidate.exists():
+                return candidate
+    return cwd_candidate
 
 
-def _need(name, hint):
-    v = os.environ.get(name)
-    if not v:
+def load_rfc_config() -> dict:
+    conn_path = find_conn_file()
+    if not conn_path.exists():
+        sys.stderr.write(f"[adt-rfc-bridge] FAIL: .conn_adt not found (looked at {conn_path}).\n")
+        sys.exit(1)
+    load_dotenv(dotenv_path=conn_path)
+
+    if os.getenv("ADT_RFC_MODE", "").lower() not in ("true", "1", "yes"):
         sys.stderr.write(
-            "ERROR: %s is not set.\n"
-            "       %s\n"
-            "       Put it in %s\\.env (or export it). This script ships no default\n"
-            "       host, router or credential on purpose -- they differ per user and\n"
-            "       must never live in the repo.\n" % (name, hint, _project_dir()))
-        sys.exit(2)
-    return v
-
-
-_load_config()
-
-RFC_ASHOST = _need("RFC_ASHOST", "SAP application server host, as reachable from the router.")
-RFC_SYSNR = _need("RFC_SYSNR", "Instance number, e.g. 00.")
-RFC_CLIENT = _need("RFC_CLIENT", "SAP client / mandant, e.g. 100.")
-RFC_USER = _need("RFC_USER", "SAP user -- or set ADT_SAP_USER in .conn_adt.")
-RFC_PASSWD = _need("RFC_PASSWD", "SAP password -- or set ADT_SAP_PASSWORD in .conn_adt.")
-RFC_SAPROUTER = _need("RFC_SAPROUTER", "Router hop ONLY, e.g. /H/<router-host>/S/3299.")
-RFC_LANG = os.environ.get("RFC_LANG", "EN")
-DEST_NAME = os.environ.get("RFC_DEST_NAME", "ADT_ROUTER_BRIDGE")
-BRIDGE_PORT = int(os.environ.get("BRIDGE_PORT", "8410"))
-
-BACKEND_CHOICE = os.environ.get("BRIDGE_BACKEND", "auto").strip().lower()
-
-LOGFILE = _project_dir() / ".tmp" / "adt_router_bridge.log"
-_loglock = threading.Lock()
-
-# Hop-by-hop headers describe THIS connection, not the ADT payload, so forwarding
-# them corrupts the response we are about to frame ourselves.
-_SKIP_RESP_HDR = {"content-length", "transfer-encoding", "connection", "keep-alive"}
-
-
-def log(msg):
-    line = datetime.datetime.now().strftime("%H:%M:%S.%f ") + msg
-    with _loglock:
-        try:
-            LOGFILE.parent.mkdir(parents=True, exist_ok=True)
-            with open(LOGFILE, "a", encoding="utf-8") as f:
-                f.write(line + "\n")
-        except OSError:
-            pass
-
-
-# --------------------------------------------------------------------------
-# JVM / JCo bootstrap
-# --------------------------------------------------------------------------
-
-_JRE_PATTERNS = [
-    "C:/Program Files/Eclipse*/plugins/org.eclipse.justj.openjdk.hotspot.jre.full.win32.x86_64_*/jre",
-    "C:/Program Files/SAP/*/plugins/org.eclipse.justj.openjdk.hotspot.jre.full.win32.x86_64_*/jre",
-    "C:/Users/*/eclipse/*/plugins/org.eclipse.justj.*.win32.x86_64_*/jre",
-]
-
-
-def _find_jre():
-    override = os.environ.get("JCO_JRE")
-    if override:
-        p = Path(override)
-        if not p.is_dir():
-            sys.exit("ERROR: JCO_JRE=%s is not a directory." % override)
-        return p
-    pats = list(_JRE_PATTERNS)
-    pats.append(str(Path.home() / "eclipse" / "*" / "plugins"
-                    / "org.eclipse.justj.*.win32.x86_64_*" / "jre").replace("\\", "/"))
-    for pat in pats:
-        # Newest last: Eclipse_2025-06 sorts after Eclipse_2024-12, and a machine
-        # with two installs should use the current one.
-        hits = sorted(Path(p) for p in _glob.glob(pat) if Path(p).is_dir())
-        if hits:
-            return hits[-1]
-    sys.exit(
-        "ERROR: no Eclipse JRE found. Install Eclipse with the ADT plugin, or set\n"
-        "       JCO_JRE to a 64-bit JRE directory (the one whose bin/server holds jvm.dll).")
-
-
-def _find_jco_jars():
-    """The two jars ADT ships: the JCo classes and the win64 native fragment."""
-    pool = os.environ.get("JCO_P2_POOL")
-    roots = [Path(pool)] if pool else [
-        Path.home() / ".p2" / "pool" / "plugins",
-        Path("C:/Program Files"),
-    ]
-    for root in roots:
-        if not root.is_dir():
-            continue
-        core = sorted(root.rglob("com.sap.conn.jco_*.jar"))
-        win = sorted(root.rglob("com.sap.conn.jco.win32.x86_64_*.jar"))
-        if core and win:
-            # Version is NOT pinned -- 3.1.12 today, 3.1.13 after the next ADT
-            # update, and a pinned name turns a routine upgrade into a support call.
-            return core[-1], win[-1]
-    sys.exit(
-        "ERROR: SAP JCo jars not found (com.sap.conn.jco_*.jar plus the\n"
-        "       com.sap.conn.jco.win32.x86_64_*.jar fragment). They ship with Eclipse's\n"
-        "       ADT plugin. Set JCO_P2_POOL to the plugin folder holding them if the\n"
-        "       autodetect misses it.")
-
-
-def _extract_native(win_jar):
-    """sapjco3.dll lives inside the win32 fragment jar; the JVM needs it on disk.
-
-    Extracted to a per-user cache, never into the skill folder: the installed copy
-    is shared between projects and may be read-only.
-    """
-    lib_dir = Path.home() / ".sap-adt-router-bridge" / "lib"
-    dll = lib_dir / "sapjco3.dll"
-    if dll.is_file():
-        return lib_dir
-    lib_dir.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(win_jar) as z:
-        for member in z.namelist():
-            if member.rsplit("/", 1)[-1].lower() == "sapjco3.dll":
-                with z.open(member) as src, open(dll, "wb") as out:
-                    out.write(src.read())
-                return lib_dir
-    sys.exit("ERROR: sapjco3.dll not found inside %s" % win_jar)
-
-
-_jvm_started = False
-
-
-def _start_jvm():
-    global _jvm_started
-    try:
-        import jpype
-    except ImportError:
-        sys.exit(
-            "ERROR: JPype1 is not installed. It is an on-demand dependency of this\n"
-            "       skill only -- nothing else in the marketplace needs a JVM:\n"
-            "         py -m pip install JPype1")
-    if _jvm_started or jpype.isJVMStarted():
-        _jvm_started = True
-        return
-    jre = _find_jre()
-    jvm_lib = jre / "bin" / "server" / "jvm.dll"
-    if not jvm_lib.is_file():
-        jvm_lib = jre / "lib" / "server" / "libjvm.so"
-    if not jvm_lib.is_file():
-        sys.exit("ERROR: no jvm library under %s (looked for bin/server/jvm.dll)." % jre)
-    core, win = _find_jco_jars()
-    lib_dir = _extract_native(win)
-    os.environ["PATH"] = str(lib_dir) + os.pathsep + os.environ.get("PATH", "")
-    jpype.startJVM(
-        str(jvm_lib),
-        "-Djava.class.path=" + os.pathsep.join([str(core), str(win)]),
-        "-Djava.library.path=" + str(lib_dir),
-        convertStrings=True,
-    )
-    _jvm_started = True
-    log("JVM started (jre=%s jco=%s)" % (jre.name, core.name))
-
-
-_dest_registered = False
-
-
-def _register_destination():
-    global _dest_registered
-    if _dest_registered:
-        return
-    _start_jvm()
-    import jpype
-    from com.sap.conn.jco.ext import DestinationDataProvider, Environment
-    from java.util import Properties as JProperties
-
-    @jpype.JImplements("com.sap.conn.jco.ext.DestinationDataProvider")
-    class _Provider(object):
-        @jpype.JOverride
-        def getDestinationProperties(self, name):
-            p = JProperties()
-            p.setProperty(DestinationDataProvider.JCO_ASHOST, RFC_ASHOST)
-            p.setProperty(DestinationDataProvider.JCO_SYSNR, RFC_SYSNR)
-            p.setProperty(DestinationDataProvider.JCO_CLIENT, RFC_CLIENT)
-            p.setProperty(DestinationDataProvider.JCO_USER, RFC_USER)
-            p.setProperty(DestinationDataProvider.JCO_PASSWD, RFC_PASSWD)
-            p.setProperty(DestinationDataProvider.JCO_LANG, RFC_LANG)
-            p.setProperty(DestinationDataProvider.JCO_SAPROUTER, RFC_SAPROUTER)
-            return p
-
-        @jpype.JOverride
-        def supportsEvents(self):
-            return False
-
-        @jpype.JOverride
-        def setDestinationDataEventListener(self, listener):
-            pass
-
-    Environment.registerDestinationDataProvider(_Provider())
-    _dest_registered = True
-    log("JCo destination %s registered (router hop %s)" % (DEST_NAME, RFC_SAPROUTER))
-
-
-# --------------------------------------------------------------------------
-# which RFC library
-#
-# `auto` prefers pyrfc: it only imports if someone installed the wheel AND the
-# NetWeaver RFC SDK it links against, which is a deliberate act. JCo is the
-# fallback precisely because it is NOT deliberate -- the jars come from an
-# Eclipse install the consultant already had for ADT.
-# --------------------------------------------------------------------------
-
-_backend = None
-
-
-def _have_pyrfc():
-    try:
-        import pyrfc  # noqa: F401
-        return True
-    except Exception:  # noqa: BLE001 -- a missing SDK raises ImportError OR OSError
-        return False
-
-
-def resolve_backend():
-    global _backend
-    if _backend:
-        return _backend
-    if BACKEND_CHOICE == "pyrfc":
-        if not _have_pyrfc():
-            sys.stderr.write(
-                "ERROR: BRIDGE_BACKEND=pyrfc but pyrfc will not import.\n"
-                "       Needs BOTH: the SAP NetWeaver RFC SDK 7.50 (an S-user\n"
-                "       download, unzipped with its lib/ on PATH) and pyrfc 3.3.1\n"
-                "       built against it. A wheel without the SDK raises at\n"
-                "       import, not at connect.\n")
-            sys.exit(2)
-        _backend = "pyrfc"
-    elif BACKEND_CHOICE == "jco":
-        _backend = "jco"
-    elif BACKEND_CHOICE == "auto":
-        _backend = "pyrfc" if _have_pyrfc() else "jco"
-    else:
-        sys.stderr.write("ERROR: BRIDGE_BACKEND must be auto, pyrfc or jco (got %s).\n"
-                         % BACKEND_CHOICE)
-        sys.exit(2)
-    log("backend: %s (BRIDGE_BACKEND=%s)" % (_backend, BACKEND_CHOICE))
-    return _backend
-
-
-# --------------------------------------------------------------------------
-# the RFC worker
-#
-# Everything below exists for one reason. SADT_REST_RFC_ENDPOINT opens a NEW ADT
-# session per call unless the RFC connection is stateful, so a LOCK handle from
-# call 1 is rejected in call 2 with ExceptionResourceInvalidLockHandle and no
-# write can ever complete. JCoContext.begin() makes the connection stateful --
-# but it binds to the CALLING THREAD, so opening it once in main and then serving
-# requests on handler threads does nothing at all.
-#
-# Hence one dedicated worker: it attaches to the JVM, opens a single JCoContext
-# for the life of the process, and every ADT call runs on it. One bridge process
-# is one SAP session, which is the same shape as the MCP rule upstairs.
-# --------------------------------------------------------------------------
-
-_work = queue.Queue()
-_worker_ready = threading.Event()
-_worker_error = []
-_worker_thread = None
-
-
-def _open_pyrfc():
-    """A Connection IS the stateful handle -- nothing to begin, nothing to bind."""
-    import pyrfc
-    params = dict(ashost=RFC_ASHOST, sysnr=RFC_SYSNR, client=RFC_CLIENT,
-                  user=RFC_USER, passwd=RFC_PASSWD, lang=RFC_LANG)
-    if RFC_SAPROUTER:
-        params["saprouter"] = RFC_SAPROUTER
-    conn = pyrfc.Connection(**params)
-    log("pyrfc connection opened (one handle = one ABAP session)")
-    return conn, lambda: conn.close()
-
-
-def _open_jco():
-    import jpype
-    _register_destination()
-    jpype.attachThreadToJVM()
-    from com.sap.conn.jco import JCoContext, JCoDestinationManager
-    dest = JCoDestinationManager.getDestination(DEST_NAME)
-    JCoContext.begin(dest)
-    log("stateful JCoContext opened")
-    return dest, lambda: JCoContext.end(dest)
-
-
-def _worker():
-    closer = None
-    try:
-        if resolve_backend() == "pyrfc":
-            dest, closer = _open_pyrfc()
-        else:
-            dest, closer = _open_jco()
-    except BaseException as exc:  # noqa: BLE001 -- must reach the caller, not the thread
-        _worker_error.append(exc)
-        _worker_ready.set()
-        return
-    _worker_ready.set()
-    try:
-        while True:
-            job = _work.get()
-            if job is None:
-                break
-            fn, args, box, done = job
-            try:
-                box.append(("ok", fn(dest, *args)))
-            except BaseException as exc:  # noqa: BLE001
-                box.append(("err", exc))
-            finally:
-                done.set()
-    finally:
-        try:
-            closer()
-            log("RFC session closed")
-        except Exception:  # noqa: BLE001
-            pass
-
-
-def _ensure_worker():
-    global _worker_thread
-    if _worker_thread is not None and _worker_thread.is_alive():
-        return
-    _worker_ready.clear()
-    del _worker_error[:]
-    _worker_thread = threading.Thread(target=_worker, name="rfc-session", daemon=True)
-    _worker_thread.start()
-    _worker_ready.wait()
-    if _worker_error:
-        raise RuntimeError("RFC connection failed: %s" % _worker_error[0])
-
-
-def _shutdown():
-    if _worker_thread is not None and _worker_thread.is_alive():
-        _work.put(None)
-        _worker_thread.join(timeout=10)
-
-
-atexit.register(_shutdown)
-
-
-def _submit(fn, *args):
-    _ensure_worker()
-    box = []
-    done = threading.Event()
-    _work.put((fn, args, box, done))
-    done.wait()
-    kind, value = box[0]
-    if kind == "err":
-        raise value
-    return value
-
-
-# --------------------------------------------------------------------------
-# one ADT request -> one FM call
-# --------------------------------------------------------------------------
-
-# Each RFC call is a logon attempt. SAP locks the account after a handful of bad
-# ones and a locked service user costs a Basis ticket, so the FIRST authentication
-# failure stops the bridge rather than letting a retrying client spend the rest of
-# the attempts. Same reasoning as the ADT engine's auth breaker.
-_AUTH_MARKERS = ("RFC_ERROR_LOGON_FAILURE", "Name or password is incorrect",
-                 "Password logon no longer possible", "User is locked",
-                 "RFC_ERROR_SYSTEM_FAILURE: User")
-_auth_tripped = threading.Event()
-
-
-def _fm_call_jco(dest, method, uri, headers, body):
-    import jpype
-    fm = dest.getRepository().getFunction("SADT_REST_RFC_ENDPOINT")
-
-    req = fm.getImportParameterList().getStructure("REQUEST")
-    line = req.getStructure("REQUEST_LINE")
-    line.setValue("METHOD", "GET" if method == "HEAD" else method)
-    line.setValue("URI", uri)
-    line.setValue("VERSION", "HTTP/1.1")
-
-    tbl = req.getTable("HEADER_FIELDS")
-    tbl.deleteAllRows()
-    for k, v in headers:
-        tbl.appendRow()
-        tbl.setValue("NAME", k)
-        tbl.setValue("VALUE", v)
-
-    if body:
-        # Java byte[] is SIGNED, Python bytes are not. Without this fold every byte
-        # >= 128 -- which is every non-ASCII character in ABAP source and in a
-        # Turkish comment -- raises on the way in.
-        req.setValue("MESSAGE_BODY",
-                     jpype.JArray(jpype.JByte)([b - 256 if b > 127 else b for b in body]))
-    else:
-        req.setValue("MESSAGE_BODY", jpype.JArray(jpype.JByte)(0))
-
-    fm.execute(dest)
-
-    resp = fm.getExportParameterList().getStructure("RESPONSE")
-    status = resp.getStructure("STATUS_LINE")
-    raw = str(status.getValue("STATUS_CODE") or "").strip()
-    code = int(raw) if raw.isdigit() else 200
-    reason = str(status.getValue("REASON_PHRASE") or "")
-
-    out_headers = []
-    out_tbl = resp.getTable("HEADER_FIELDS")
-    for i in range(out_tbl.getNumRows()):
-        out_tbl.setRow(i)
-        name = str(out_tbl.getValue("NAME") or "")
-        value = str(out_tbl.getValue("VALUE") or "")
-        if name and name.lower() not in _SKIP_RESP_HDR:
-            out_headers.append((name, value))
-
-    val = resp.getValue("MESSAGE_BODY")
-    if val is None:
-        out_body = b""
-    elif isinstance(val, (bytes, bytearray)):
-        out_body = bytes(val)
-    else:
-        out_body = bytes([int(b) & 0xFF for b in val])
-    return code, reason, out_headers, out_body
-
-
-def _fm_call_pyrfc(conn, method, uri, headers, body):
-    """Same function module, plain dicts, and no signed-byte fold.
-
-    pyrfc maps XSTRING/RAWSTRING to Python bytes in both directions, so the
-    JCo backend's `b - 256 if b > 127` dance -- which exists only because Java's
-    byte is signed -- has no counterpart here.
-    """
-    result = conn.call("SADT_REST_RFC_ENDPOINT", REQUEST={
-        "REQUEST_LINE": {"METHOD": "GET" if method == "HEAD" else method,
-                         "URI": uri, "VERSION": "HTTP/1.1"},
-        "HEADER_FIELDS": [{"NAME": k, "VALUE": v} for k, v in headers],
-        "MESSAGE_BODY": body or b"",
-    })
-    resp = result.get("RESPONSE") or {}
-    status = resp.get("STATUS_LINE") or {}
-    raw = str(status.get("STATUS_CODE") or "").strip()
-    code = int(raw) if raw.isdigit() else 200
-    reason = str(status.get("REASON_PHRASE") or "")
-
-    out_headers = [(row.get("NAME") or "", row.get("VALUE") or "")
-                   for row in (resp.get("HEADER_FIELDS") or [])]
-    out_headers = [(k, v) for k, v in out_headers
-                   if k and k.lower() not in _SKIP_RESP_HDR]
-
-    val = resp.get("MESSAGE_BODY")
-    if val is None:
-        out_body = b""
-    elif isinstance(val, (bytes, bytearray)):
-        out_body = bytes(val)
-    else:
-        out_body = str(val).encode("utf-8")
-    return code, reason, out_headers, out_body
-
-
-def adt_call(method, uri, headers, body):
-    """Map one ADT HTTP request onto SADT_REST_RFC_ENDPOINT and back."""
-    if _auth_tripped.is_set():
-        raise RuntimeError(
-            "refusing to call SAP: a previous logon failed and retrying locks the "
-            "account. Fix the credentials in .conn_adt / .env, then restart the bridge.")
-    log(">> %s %s" % (method, uri))
-    try:
-        fm = _fm_call_pyrfc if resolve_backend() == "pyrfc" else _fm_call_jco
-        code, reason, out_headers, out_body = _submit(fm, method, uri, headers, body)
-    except BaseException as exc:  # noqa: BLE001
-        if any(marker in str(exc) for marker in _AUTH_MARKERS):
-            _auth_tripped.set()
-            log("AUTH FAILURE -- breaker tripped, no retry")
-        raise
-
-    # The engine upstairs fetches a CSRF token before writing. There is no ICM in
-    # this path to issue one and SAP does not check it on the RFC endpoint, so a
-    # constant satisfies the client without pretending to be a real token.
-    if any(k.lower() == "x-csrf-token" and v.strip().lower() == "fetch" for k, v in headers):
-        if not any(k.lower() == "x-csrf-token" for k, _ in out_headers):
-            out_headers.append(("X-CSRF-Token", "ADT-RFC-BRIDGE"))
-
-    log("<< %d %s (%d bytes)" % (code, reason, len(out_body)))
-    return code, reason, out_headers, out_body
-
-
-# --------------------------------------------------------------------------
-# HTTP surface
-# --------------------------------------------------------------------------
-
-class Handler(BaseHTTPRequestHandler):
-    protocol_version = "HTTP/1.1"
-
-    def log_message(self, *args):
-        pass  # the console belongs to the agent; we keep our own log file
-
-    def _handle(self):
-        try:
-            length = int(self.headers.get("Content-Length", 0) or 0)
-            body = self.rfile.read(length) if length else b""
-            headers = [(k, v) for k, v in self.headers.items()
-                       if k.lower() not in ("content-length", "connection", "host")]
-            code, reason, out_headers, out_body = adt_call(
-                self.command, self.path, headers, body)
-        except BaseException as exc:  # noqa: BLE001
-            import traceback
-            log("ERROR: %s\n%s" % (exc, traceback.format_exc()))
-            msg = ("ADT-RFC bridge error: %s" % exc).encode("utf-8", "replace")
-            self.send_response(502, "Bad Gateway")
-            self.send_header("Content-Type", "text/plain; charset=utf-8")
-            self.send_header("Content-Length", str(len(msg)))
-            self.end_headers()
-            self.wfile.write(msg)
+            "[adt-rfc-bridge] FAIL: ADT_RFC_MODE is not 'true' in .conn_adt. This bridge is "
+            "only meant for systems aXet SAP Launcher flagged as router-permission-denied.\n"
+        )
+        sys.exit(1)
+
+    cfg = {
+        "ashost": os.getenv("ADT_RFC_ASHOST"),
+        "sysnr": os.getenv("ADT_RFC_SYSNR", "00"),
+        "client": os.getenv("ADT_SAP_CLIENT", "").strip() or "000",
+        "user": os.getenv("ADT_SAP_USER"),
+        "passwd": os.getenv("ADT_SAP_PASSWORD"),
+        "lang": os.getenv("ADT_SAP_LANGUAGE", "EN"),
+        # SAProuter opsiyonel: doğrudan (router'sız) RFC bağlantılarında
+        # (ör. HTTPS tamamen firewall'lu ama RFC/gateway portu açık sistemler
+        # -- bkz. PROJE-BILGI.md "Eclipse ADT RFC tünelleme" bulgusu) bu alan
+        # boş/tanımsız bırakılır, aşağıda pyrfc.Connection()'a hiç geçilmez.
+        "saprouter": os.getenv("ADT_RFC_SAPROUTER", "").strip() or None,
+    }
+    missing = [k for k in ("ashost", "user", "passwd") if not cfg.get(k)]
+    if missing:
+        sys.stderr.write(f"[adt-rfc-bridge] FAIL: .conn_adt is missing RFC fields: {missing}\n")
+        sys.exit(1)
+    return cfg
+
+
+class RfcBridgeBusy(Exception):
+    """Raised when a caller can't get the connection lock within
+    RfcAdtClient._LOCK_ACQUIRE_TIMEOUT -- i.e. a PREVIOUS request is still
+    stuck opening the RFC connection (see class docstring). Handled
+    separately from generic RFC errors so the HTTP response (503, not 502)
+    and message make it obvious this is "still trying", not "failed"."""
+
+
+class RfcAdtClient:
+    """Holds one lazily-opened, lock-serialized RFC connection and knows how to
+    turn (method, uri, headers, body) into a SADT_REST_RFC_ENDPOINT call and
+    back into (status, reason, headers, body)."""
+
+    # Router olayında ilk pyrfc.Connection() denemesi (özellikle SAProuter'ın
+    # paketi AÇIKÇA reddetmediği, sessizce DÜŞÜRDÜĞÜ durumlarda -- bkz.
+    # launcher.ts describeRfcEndpointFailure "zaman aşımı" notu) OS'in kendi
+    # TCP connect timeout'una kadar (onlarca saniye/dakika) BLOKE olabilir.
+    # Bu blok self._lock'u tutar -- eskiden sonraki HER istek (bir "tekrar
+    # dene" dahil) bu lock'un ARKASINDA süresiz sıraya giriyordu, yani her
+    # tekrar deneme aynı yanıltıcı "zaman aşımı" sonucunu (aslında hâlâ İLK
+    # denemenin kendisi) üretiyordu -- kullanıcıya "az önce de aynı hata,
+    # şimdi de aynı hata" gibi görünüyordu. Artık lock timeout'lu acquire
+    # ediliyor: hâlâ meşgulse (ilk deneme sürüyor) HEMEN, dürüst bir 503
+    # dönülüyor -- "hâlâ kuruluyor" ile "gerçekten başarısız oldu" birbirine
+    # karışmıyor.
+    _LOCK_ACQUIRE_TIMEOUT = 30.0
+
+    def __init__(self, cfg: dict):
+        self._cfg = cfg
+        self._conn = None
+        self._lock = threading.Lock()
+        self._csrf_counter = 0
+        self._connecting_since: float | None = None
+
+    def _ensure_connection(self):
+        if self._conn is not None:
             return
+        _ensure_sapnwrfc_dll_dir()
+        import pyrfc
 
-        self.send_response(code, reason)
-        for k, v in out_headers:
-            self.send_header(k, v)
-        self.send_header("Content-Length", str(len(out_body)))
-        self.end_headers()
-        if self.command != "HEAD":
-            self.wfile.write(out_body)
+        conn_kwargs = {
+            "ashost": self._cfg["ashost"],
+            "sysnr": self._cfg["sysnr"],
+            "client": self._cfg["client"],
+            "user": self._cfg["user"],
+            "passwd": self._cfg["passwd"],
+            "lang": self._cfg["lang"],
+        }
+        # saprouter yoksa (doğrudan/router'sız RFC bağlantısı) pyrfc'ye hiç
+        # geçirilmiyor -- boş string vermek bazı sapnwrfc sürümlerinde
+        # "invalid saprouter string" hatasına yol açabiliyor, anahtarı
+        # tamamen atlamak daha güvenli.
+        if self._cfg.get("saprouter"):
+            conn_kwargs["saprouter"] = self._cfg["saprouter"]
+        self._conn = pyrfc.Connection(**conn_kwargs)
+        self._connecting_since = None
 
-    do_GET = do_POST = do_PUT = do_DELETE = do_HEAD = do_OPTIONS = do_PATCH = _handle
+    def _call_endpoint(self, request_struct: dict):
+        """Calls SADT_REST_RFC_ENDPOINT, retrying ONCE after a fresh reconnect
+        if the call raises (e.g. the RFC connection died underneath us).
+        Deliberately does NOT retry more than once -- repeated logon attempts
+        on a bad connection can lock the SAP user, same caution the reference
+        adt-rfc-bridge implementation (enricoandreoli/adt-rfc-bridge) takes."""
+        try:
+            self._ensure_connection()
+            return self._conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=request_struct)
+        except Exception:
+            self._conn = None
+            self._connecting_since = None
+            self._ensure_connection()
+            return self._conn.call("SADT_REST_RFC_ENDPOINT", REQUEST=request_struct)
+
+    def request(self, method: str, uri: str, headers: list, body: bytes):
+        """Returns (status_code, reason_phrase, headers_list, body_bytes)."""
+        acquired = self._lock.acquire(timeout=self._LOCK_ACQUIRE_TIMEOUT)
+        if not acquired:
+            waited = time.monotonic() - (self._connecting_since or time.monotonic())
+            raise RfcBridgeBusy(
+                f"RFC bağlantısı hâlâ kuruluyor (ilk deneme ~{waited:.0f}s'dir sürüyor) -- bu genelde "
+                "SAProuter'ın paketi AÇIKÇA reddetmeyip SESSİZCE düşürdüğü bir durumun işareti (bkz. "
+                "sap-context.md 'zaman aşımı' notu). Tekrar tekrar deneme aynı sonucu üretir; Basis/network "
+                "ekibinin gateway portu (33<instance no>) için saprouttab izni kontrol etmesi gerekiyor."
+            )
+        try:
+            if self._conn is None and self._connecting_since is None:
+                self._connecting_since = time.monotonic()
+            fetch_csrf = any(h[0].lower() == "x-csrf-token" and h[1] == "Fetch" for h in headers)
+            real_method = "GET" if method.upper() == "HEAD" else method.upper()
+
+            forwarded_headers = [{"NAME": k, "VALUE": v} for (k, v) in headers if k.lower() != "x-csrf-token"]
+
+            request_struct = {
+                "REQUEST_LINE": {"METHOD": real_method, "URI": uri, "VERSION": "HTTP/1.1"},
+                "HEADER_FIELDS": forwarded_headers,
+                "MESSAGE_BODY": body or b"",
+            }
+
+            result = self._call_endpoint(request_struct)
+            response = result["RESPONSE"]
+            status_line = response["STATUS_LINE"]
+            status_code = int(status_line.get("STATUS_CODE", 500))
+            reason = status_line.get("REASON_PHRASE", "")
+            resp_headers = [(h["NAME"], h["VALUE"]) for h in response.get("HEADER_FIELDS", [])]
+            resp_body = response.get("MESSAGE_BODY", b"") or b""
+
+            if fetch_csrf:
+                self._csrf_counter += 1
+                # SADT_REST_RFC_ENDPOINT calls carry no HTTP session, so SAP
+                # never issues a real CSRF token here. The FM itself does not
+                # validate CSRF (the RFC logon already authenticated the
+                # call), so any stable placeholder that round-trips back on
+                # the next request satisfies clients that merely check for
+                # a non-empty X-CSRF-Token header before attempting a write.
+                resp_headers = [h for h in resp_headers if h[0].lower() != "x-csrf-token"]
+                resp_headers.append(("X-CSRF-Token", f"rfc-bridge-placeholder-{self._csrf_counter}"))
+
+            if method.upper() == "HEAD":
+                resp_body = b""
+
+            return status_code, reason, resp_headers, resp_body
+        finally:
+            self._lock.release()
+
+    def close(self):
+        if self._conn is not None:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+            self._conn = None
 
 
-def selftest():
-    code, reason, hdrs, body = adt_call(
-        "GET", "/sap/bc/adt/discovery",
-        [("Accept", "application/atomsvc+xml"), ("sap-client", RFC_CLIENT)], b"")
-    ctype = dict((k.lower(), v) for k, v in hdrs).get("content-type", "")
-    print("SELFTEST  backend: %s" % resolve_backend())
-    print("          status : %d %s" % (code, reason))
-    print("          type   : %s" % ctype)
-    print("          bytes  : %d" % len(body))
-    ok = code == 200 and "atomsvc" in ctype
-    print("RESULT: %s" % ("PASS - ADT is reachable over RFC"
-                          if ok else "FAIL - see %s" % LOGFILE))
-    return 0 if ok else 1
+def run_bridge(host: str, port: int, cfg: dict) -> None:
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+    client = RfcAdtClient(cfg)
 
-def main():
-    _ensure_worker()
-    srv = ThreadingHTTPServer(("127.0.0.1", BRIDGE_PORT), Handler)
-    print("ADT-over-RFC bridge on http://127.0.0.1:%d  (backend: %s)"
-          % (BRIDGE_PORT, resolve_backend()))
-    print("  target : %s sysnr %s client %s user %s" % (RFC_ASHOST, RFC_SYSNR, RFC_CLIENT, RFC_USER))
-    print("  router : %s" % RFC_SAPROUTER)
-    print("Set ADT_SAP_URL=http://127.0.0.1:%d in .conn_adt, then start the ADT server."
-          % BRIDGE_PORT)
+    class _Handler(BaseHTTPRequestHandler):
+        protocol_version = "HTTP/1.1"
+
+        def log_message(self, *a):
+            pass
+
+        def _bridge_health(self):
+            import json
+            body = json.dumps({
+                "ok": True,
+                "server": "adt-rfc-bridge",
+                "mode": "rfc-over-saprouter",
+                "ashost": cfg["ashost"],
+                "saprouter": cfg["saprouter"],
+            }).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _handle(self, method: str):
+            if self.path in ("/__bridge_health", "/health") and method == "GET":
+                return self._bridge_health()
+
+            uri = self.path
+            headers = [(k, v) for k, v in self.headers.items()]
+            clen = int(self.headers.get("Content-Length", 0) or 0)
+            body = self.rfile.read(clen) if clen else b""
+
+            try:
+                status, reason, resp_headers, resp_body = client.request(method, uri, headers, body)
+            except RfcBridgeBusy as exc:
+                msg = str(exc).encode("utf-8")
+                self.send_response(503)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(msg)))
+                self.end_headers()
+                self.wfile.write(msg)
+                return
+            except Exception as exc:
+                msg = f"adt-rfc-bridge error calling SADT_REST_RFC_ENDPOINT: {exc}".encode("utf-8")
+                self.send_response(502)
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(msg)))
+                self.end_headers()
+                self.wfile.write(msg)
+                return
+
+            self.send_response(status, reason or None)
+            skip = {"content-length", "transfer-encoding", "connection"}
+            for name, value in resp_headers:
+                if name.lower() in skip:
+                    continue
+                self.send_header(name, value)
+            self.send_header("Content-Length", str(len(resp_body)))
+            self.end_headers()
+            if resp_body:
+                self.wfile.write(resp_body)
+
+        def do_GET(self):
+            self._handle("GET")
+
+        def do_HEAD(self):
+            self._handle("HEAD")
+
+        def do_POST(self):
+            self._handle("POST")
+
+        def do_PUT(self):
+            self._handle("PUT")
+
+        def do_DELETE(self):
+            self._handle("DELETE")
+
+    srv = ThreadingHTTPServer((host, port), _Handler)
+    sys.stderr.write(
+        f"[adt-rfc-bridge] listening on http://{host}:{port} -> RFC ashost={cfg['ashost']} "
+        f"sysnr={cfg['sysnr']} via saprouter={cfg['saprouter']}\n"
+        f"[adt-rfc-bridge] point ADT_SAP_URL at this address; existing ADT tooling works unchanged.\n"
+        f"[adt-rfc-bridge] GET /health for a liveness check.\n"
+    )
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
-        print("\nstopping")
+        srv.shutdown()
     finally:
-        _shutdown()
-    return 0
+        client.close()
+
+
+def main() -> None:
+    import argparse
+
+    ap = argparse.ArgumentParser(description="HTTP-to-RFC bridge for ADT over a restrictive SAProuter")
+    ap.add_argument("--host", default="127.0.0.1")
+    ap.add_argument("--port", type=int, default=None, help="default: ADT_RFC_BRIDGE_PORT from .conn_adt, else 8788")
+    args, _unknown = ap.parse_known_args()
+
+    cfg = load_rfc_config()
+
+    _ensure_sapnwrfc_dll_dir()
+    try:
+        import pyrfc  # noqa: F401
+    except ImportError as exc:
+        sys.stderr.write(
+            "[adt-rfc-bridge] FAIL: pyrfc is not installed/importable: " + str(exc) + "\n"
+            "  See SKILL.md 'Router-only sistemler (RFC bridge)' for setup steps — you need\n"
+            "  the SAP NW RFC SDK (your own SAP S-user download) + SAPNWRFC_HOME + pip install pyrfc.\n"
+            "  Run adt_rfc_probe.py first to validate the setup before starting this bridge.\n"
+        )
+        sys.exit(1)
+
+    port = args.port or int(os.getenv("ADT_RFC_BRIDGE_PORT", "8788"))
+    run_bridge(args.host, port, cfg)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1 and sys.argv[1] == "selftest":
-        sys.exit(selftest())
-    sys.exit(main())
+    main()

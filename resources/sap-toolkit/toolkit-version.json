@@ -1,6 +1,6 @@
 {
-  "version": "2026.09.23+89040bd6",
-  "generated": "2026-09-23T21:27:47.068Z",
+  "version": "2026.09.23+37a0b89e",
+  "generated": "2026-09-23T21:57:15.205Z",
   "source": "NTT ABAP skill katalogu (elle uyarlanmis dagitim)",
   "skills": {
     "abap-code-checker": "6d0c04cd86a27211",
@@ -45,7 +45,7 @@
     "project-store": "618d10be7eb0605f",
     "sap-adt": "2bbd52c3cbb941b4",
     "sap-adt-readonly": "e3bcf6f362f56434",
-    "sap-adt-router-bridge": "281d2034b71316c5",
+    "sap-adt-router-bridge": "f0f8f09a428b14d7",
     "sap-cr-handover": "1bbb01d329fe1a63",
     "sap-cr-scope": "4a01e5ccb99880db",
     "sap-docs": "b11a3016c84993bf",

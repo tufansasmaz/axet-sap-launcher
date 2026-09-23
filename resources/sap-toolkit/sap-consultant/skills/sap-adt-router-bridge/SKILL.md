@@ -17,6 +17,20 @@ allowed-tools: Bash(py:*), Bash(python:*), Read, Write, Edit, Grep, Glob
 
 # sap-adt-router-bridge — ADT over RFC, for systems with no open HTTP port
 
+> **NTT Studio uyarlaması — köprüyü launcher başlatıyor, sen başlatma.**
+> NTT Studio router'lı (ya da HTTPS'i kapalı) bir sisteme bağlanırken bu klasördeki
+> `adt_rfc_bridge.py`'yi kendisi çalıştırır: ayarları `.conn_adt`'teki `ADT_RFC_ASHOST`,
+> `ADT_RFC_SYSNR`, `ADT_RFC_SAPROUTER`, `ADT_RFC_BRIDGE_PORT` satırlarından okur, portu
+> **8788**'dir, `GET http://127.0.0.1:8788/health` ile yoklanır, çıktısı proje klasöründeki
+> `rfc-bridge.log`'dadır. ADT araçları yine 8787'deki sunucudan gider (bkz. `sap-context.md`);
+> köprü onun altında bir taşıma katmanıdır.
+>
+> Bu yüzden aşağıdaki tarif burada **geçerli değil**: `.env`'e `RFC_*` yazmak, `BRIDGE_PORT` /
+> 8410, `adt_rfc_bridge.py selftest`, JCo arka ucu ve `adt_write.py` (8410'a gider). Buradaki
+> script bilerek yukarı akışınkinden farklıdır; `.env` doldurup elle başlatma. Köprü ayakta
+> değilse `rfc-bridge.log`'u oku ve kullanıcıdan sistemden çıkıp yeniden bağlanmasını iste.
+> Arayüz şüphesi varsa `scripts/adt_rfc_probe.py` (`.conn_adt`'i okur) kullanılabilir.
+
 Some customer landscapes publish SAP only through SAProuter's NI protocol. SAP GUI
 connects; 443, 8000 and 44300 are closed at the firewall, so every ADT client — this
 one included — fails at TCP connect. The system is not unreachable, it just does not
