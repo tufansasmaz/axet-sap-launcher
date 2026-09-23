@@ -242,7 +242,9 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 
 | Dosya | Ne degistirildi | Neden |
 | --- | --- | --- |
-| `sap-consultant/skills/sap-adt-readonly/**` | Tum skill yeniden yazildi; `references/` eklendi | Yazma yollari kapatildi (belt + suspenders) |
+| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil") | 2026-09-24, MAYA: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` kilitliyor |
+| `sap-consultant/skills/sap-adt-readonly/SKILL.md` | Ayni blok + "8790 degil 8787" + `/tools` (sap-adt kurulu olmayabilir) | 1.6.7'deki "aXet.code edition" d2cb667 senkronunda ezilmisti; ayni test |
+| `.../screen-gen/SKILL.md`, `.../sap-object-transfer/SKILL.md` | MCP araci/oturumu = 8787'ye POST; transfer icin `--port 8787` | `transfer_deploy.py` varsayilani 8786 |
 | `.../abap-code-checker/SKILL.md` | MCP -> HTTP; hangi yuzey acik; `adt_unit_test` kapisi; `${CLAUDE_PLUGIN_ROOT}` | aXet.code MCP konusamiyor; yuzey role+tier'a gore degisiyor |
 | `.../as-built-doc/SKILL.md` | ayni sekil, `adt_sql` kapisi | ayni |
 | `.../sap-cr-scope/SKILL.md` | ayni sekil + `case.py` notu | ayni |

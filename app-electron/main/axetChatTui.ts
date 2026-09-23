@@ -41,6 +41,7 @@ import {
   type AxetFailureKind
 } from "./axetCodeLog";
 import { connectorGuidance, learnConnectorHealth, noteLiveConnectors } from "./connectorHealth";
+import { buildContextPreamble } from "./activeContext";
 
 // ---------------------------------------------------------------------------
 // KALICI OTURUM — axet-code'un gerçek TUI'si bir pty içinde
@@ -425,6 +426,17 @@ interface TuiSession {
    * tek bakışta okunabilsin.
    */
   attached: boolean;
+  /**
+   * Bağlanılan eski oturuma SAP bağlamı henüz söylenmedi mi?
+   *
+   * Bağlam önsözü (bkz. axetChat.ts `buildPrompt`) yalnızca oturumun İLK
+   * mesajına giriyor. Eski oturuma bağlanınca o ilk mesaj çoktan geride:
+   * oturum belki sisteme bağlanmadan, belki başka bir tier'dayken açılmıştı.
+   * 2026-09-24, MAYA: bağlanılan oturumda ajana yalnızca kullanıcının mesajı
+   * gitti, ajan hangi sistemde olduğunu bilmeden "bağlı değilim" dedi. Bağlandıktan
+   * sonraki ilk mesaj bu yüzden bağlamı bir kez daha taşıyor.
+   */
+  contextPending: boolean;
   /**
    * Süren geçmiş sıfırlama (`resetTuiHistory`) — bitene kadar İSTEM YAZILMAZ.
    *
@@ -933,6 +945,7 @@ async function attachToBoundSession(session: TuiSession): Promise<boolean> {
   // tamamen devre dışı bırakan şey.
   session.seeded = true;
   session.attached = true;
+  session.contextPending = true;
   console.log("[axetChatTui] ESKI OTURUMA BAGLANILDI", {
     chatId: session.chatId,
     oturum: binding.sessionId.slice(0, 8),
@@ -1049,6 +1062,7 @@ function createSession(chatId: string, cwd: string, model: AxetModelEntry | null
     cancelled: false,
     seeded: false,
     attached: false,
+    contextPending: false,
     resetting: null,
     poisoned: false,
     lastUsed: Date.now(),
@@ -1750,8 +1764,10 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     // yazabiliyorduk (bkz. axetCodeLog.readLiveConnectors).
     if (args.useConnectors) noteLiveConnectors(readLiveConnectors(session.cwd));
     const guidance = args.useConnectors ? connectorGuidance() : "";
+    // Bağlam boşsa (sohbet bu sisteme bağlı değil) hiçbir şey eklenmiyor.
+    const context = session.seeded && session.contextPending ? buildContextPreamble(session.cwd) : "";
     const text = session.seeded
-      ? `${guidance}${args.message}`
+      ? `${context}${guidance}${args.message}`
       : args.history.length > 0
         ? args.buildSeedPrompt(args.history, args.message)
         : args.buildFirstPrompt(args.message);
@@ -1776,12 +1792,14 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
       karakter: wire.length,
       satir: wire.split("\n").length,
       tohumlanmis: session.seeded,
+      baglam: context.length > 0,
       // Bağlıysa geçmiş TELE HİÇ ÇIKMIYOR — "karakter" alanının neden küçük
       // olduğunu açıklayan tek satır bu.
       bagli: session.attached,
       baglayici: args.useConnectors
     });
     session.seeded = true;
+    session.contextPending = false;
 
     // İğne, GÖNDERDİĞİMİZ metinden çıkarılıyor (kullanıcının ham mesajından
     // değil): tohumlama turunda veritabanına düşen metin önsözle birlikte olan

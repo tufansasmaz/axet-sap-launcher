@@ -104,7 +104,13 @@ export function buildContextPreamble(cwd: string): string {
     // "host null" yazmıyor.
     `- Sistem: ${sap.systemId || sap.systemName}${sap.tier ? ` (${sap.tier})` : ""}${sap.host ? ` · host ${sap.host}` : ""}`,
     `- Client ${sap.client} · kullanıcı ${sap.username}`,
-    `- Proje klasörü: ${sap.projectDir} (bağlantı ayrıntıları .conn_adt ve sap-context.md dosyalarında)`
+    `- Proje klasörü: ${sap.projectDir} (bağlantı ayrıntıları .conn_adt ve sap-context.md dosyalarında)`,
+    // Bu satır 2026-09-24'te eklendi. Ajan araç listesinde `adt_*` göremeyince
+    // MAYA'da (DEV, sunucu ayakta) "bu oturumda ADT aracı yok, bağlı değilim"
+    // dedi ve tek araç çağrısı yapmadı. Çünkü okuduğu SKILL.md "her şey MCP
+    // araçlarıyla" diyordu. Skill metni onarıldı, ama o metni okumadan cevap
+    // veren ajanı bu satır yakalıyor.
+    "- ADT araçları MCP DEĞİL: http://127.0.0.1:8787 üzerinden HTTP (`POST /tool/<ad>`, `Authorization: Bearer $ABAP_HTTP_TOKEN`). Araç listende `adt_*` görmemen bağlı olmadığın anlamına gelmez; tarif sap-context.md'de."
   ];
   if (!sap.verified) {
     lines.push("- DİKKAT: bu bağlantı doğrulanamadı; ADT çağrıları başarısız olabilir.");

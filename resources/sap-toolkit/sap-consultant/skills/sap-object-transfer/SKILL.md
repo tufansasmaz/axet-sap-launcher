@@ -24,6 +24,13 @@ point.
 4 reconcile   target (read-only)  -> reports/reconcile.md
 ```
 
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu sayfada "MCP session" denen şey,
+> NTT Studio'nun bağlanırken başlattığı `http://127.0.0.1:8787` sunucusu. Kendin
+> başlatma. `transfer_deploy.py`'nin varsayılan portu 8786 — burada **her zaman
+> `--port 8787` ver**. Token `ABAP_HTTP_TOKEN` olarak ortamda duruyor ve script onu
+> kendisi okuyor; `--token` ile komut satırına yazma. Yazma yalnızca DEV'de açık: hedef
+> DEV değilse deploy reddedilir, bu bir arıza DEĞİL.
+
 Everything lives in `.transfer/<slug>/` in the project. That whole tree is
 gitignored: `payload/` holds one customer's source code, and a repo is the last
 place it should be able to reach another customer.

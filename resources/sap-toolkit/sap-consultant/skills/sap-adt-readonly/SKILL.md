@@ -10,10 +10,37 @@ description: >
   Triggers in Turkish or English: "read-only", "salt okunur", "sadece okuma",
   "yazma yapmasın", "PRD'ye bağlan ama dokunma", "QA connection", "production system",
   "audit only", "don't let it push", "review only", "canlı sisteme bağlan".
+  In NTT Studio (aXet.code) the adt_* tools are NOT MCP tools: they are called over
+  HTTP at http://127.0.0.1:8787/tool/<name>, which NTT Studio starts on connect. An
+  empty adt_* tool list does NOT mean SAP is unreachable.
 allowed-tools: Bash(python:*), Bash(py:*), Read, Grep, Glob
 ---
 
 # sap-adt-readonly — the ADT engine with the write tools removed
+
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda MCP yok; aXet.code MCP
+> konuşamıyor. Bu yüzden araç listende `adt_*` diye bir araç **görmeyeceksin** — bu
+> "SAP'a bağlı değilim" demek DEĞİL. NTT Studio sisteme bağlanırken bu salt okunur
+> sunucuyu kendisi başlatıyor: `http://127.0.0.1:8787` (aşağıda yazan 8790 DEĞİL).
+> Aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx`
+> oku (JSON gövde = aracın argümanları).
+>
+> - Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` gerekiyor, `/health` dahil.
+>   Token ortamda duruyor; değerini ekrana basma, hiçbir dosyaya yazma.
+> - İlk iş `GET /health` (hangi araçlar açık), argümanlar için `GET /tools` (her aracın
+>   açıklaması ve JSON şeması). `sap-adt`'ın SKILL.md'si bu projede kurulu
+>   olmayabilir — araçların ne yaptığını `/tools` söylüyor.
+> - Yazan araçlar (`adt_push`, `adt_create*`, `adt_activate`, …) burada `404
+>   unknown_tool` döner. Bu bir arıza değil, sistemin salt okunur olduğunu gösterir;
+>   etrafından dolaşmaya kalkma, kullanıcıya söyle.
+> - Sunucuyu kendin başlatma, script'leri doğrudan çalıştırma: ikinci süreç ikinci SAP
+>   oturumu demek ve kapıyı atlar. Durum için proje klasöründeki `sap-context.md`'ye bak;
+>   `/health` cevap vermiyorsa kullanıcıdan NTT Studio'da sisteme yeniden bağlanmasını iste.
+>
+> ```bash
+> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.get('http://127.0.0.1:8787/health', headers=h).json())"
+> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.post('http://127.0.0.1:8787/tool/adt_logon', json={}, headers=h).json())"
+> ```
 
 Same engine as [`sap-adt`](../sap-adt/SKILL.md), same persistent session, same
 `.conn_adt`, same guardrails. **17 tools instead of 33**, because the write tools are

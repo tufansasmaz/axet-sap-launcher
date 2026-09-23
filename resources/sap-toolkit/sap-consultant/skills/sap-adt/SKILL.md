@@ -10,11 +10,38 @@ description: >
   connection checks (logon), .conn_adt configuration, SQL queries, ATC checks and
   object activation. Triggers: ABAP, SAP, ADT, transport, CDS, DDIC, .conn_adt,
   S/4HANA, clean core, RAP, Fiori, "tabloyu incele", "veriyi göster", "kodu oku",
-  "bu program ne yapıyor", "nerede kullanılıyor", "as-is analiz", "SAP'ye bağlan"
+  "bu program ne yapıyor", "nerede kullanılıyor", "as-is analiz", "SAP'ye bağlan".
+  In NTT Studio (aXet.code) the adt_* tools are NOT MCP tools: they are called over
+  HTTP at http://127.0.0.1:8787/tool/<name>, which NTT Studio starts on connect. An
+  empty adt_* tool list does NOT mean SAP is unreachable.
 allowed-tools: Bash(python:*), Bash(cd:*), Read, Write, Edit, Grep, Glob
 ---
 
 # SAP ADT Skill
+
+> **NTT Studio uyarlaması — MCP değil, HTTP.** Bu dağıtımda MCP yok; aXet.code MCP
+> konuşamıyor. Bu yüzden araç listende `adt_*` diye bir araç **görmeyeceksin** — bu
+> "SAP'a bağlı değilim" demek DEĞİL. NTT Studio sisteme bağlanırken ADT sunucusunu
+> kendisi başlatıyor: `http://127.0.0.1:8787`. Aşağıda `adt_xxx` MCP aracı denen her
+> yerde `POST http://127.0.0.1:8787/tool/adt_xxx` oku (JSON gövde = aracın argümanları).
+>
+> - Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` gerekiyor, `/health` dahil.
+>   Token ortamda duruyor; değerini ekrana basma, hiçbir dosyaya yazma.
+> - İlk iş `GET /health`: `tools` listesi o an hangi yüzeyin ayakta olduğunu söylüyor.
+>   DEV'de 33 araç (`adt_push`/`adt_activate` dahil); diğer sistemlerde 17, yazanlar
+>   `404 unknown_tool` döner. Hangisinin açık olduğunu varsayma, sor.
+> - Sunucuyu kendin başlatma, `adt_mcp_server.py`'yi doğrudan çalıştırma: ikinci süreç
+>   ikinci SAP oturumu demek. Durum için proje klasöründeki `sap-context.md`'ye bak;
+>   `/health` cevap vermiyorsa kullanıcıdan NTT Studio'da sisteme yeniden bağlanmasını iste.
+> - Aşağıdaki "8787 writes, 8790 is read-only" notu burada geçerli değil: NTT Studio iki
+>   yüzeyden hangisini açtıysa 8787'de o var. `.mcp.json`, `ABAP_PYTHON`,
+>   `/reload-plugins` ve "MCP server'ı yeniden başlat" anlatan bölümler Claude Code
+>   içindir, burada uygulanmaz.
+>
+> ```bash
+> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.get('http://127.0.0.1:8787/health', headers=h).json())"
+> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.post('http://127.0.0.1:8787/tool/adt_logon', json={}, headers=h).json())"
+> ```
 
 SAP ABAP development and analysis through the ADT REST API. **Every SAP operation goes
 through the MCP tools (`adt_*`)** — one long-lived server, one persistent authenticated

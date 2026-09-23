@@ -23,6 +23,12 @@ the API. This fills a real gap: **ADT cannot create Dynpro screens or GUI status
 This skill is a companion to the **`sap-adt`** skill and reuses its engine
 (`sap_client.py` -> `sap_adt_lib.py`) for connection, auth, SSL, and `sap-client`.
 
+> **NTT Studio uyarlaması — MCP değil, HTTP.** aXet.code MCP konuşamıyor; aşağıdaki
+> "MCP tool `adt_generate_screen`" burada `POST http://127.0.0.1:8787/tool/adt_generate_screen`
+> demek (başlık: `Authorization: Bearer $ABAP_HTTP_TOKEN`, token ortamda — asla dosyaya
+> yazma). Araç yalnızca sistem DEV ise 8787'de var (`GET /health` ile bak); DEV değilse
+> `404 unknown_tool` ya da `REFUSED [GR_TIER]` döner — bu bir arıza DEĞİL, kullanıcıya söyle.
+
 ---
 
 ## When to use
