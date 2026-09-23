@@ -1,3 +1,5 @@
+import { getAdtHttpToken } from "./adtHttpToken";
+
 // ---------------------------------------------------------------------------
 // axet-code alt-process'lerine verilecek ortam — ölçülmüş gerekçe (2026-09-02)
 // ---------------------------------------------------------------------------
@@ -45,9 +47,12 @@ const FAST_FAIL_MCP_BASE_URL = "http://127.0.0.1:9";
  *
  * @param useConnectors `false` ise MCP bağlayıcıları (Outlook/SharePoint vb.)
  *   devre dışı bırakılır ve çağrı ~2.5 kat hızlanır. `true` ise `process.env`
- *   olduğu gibi döner, yani axet-code her zamanki gibi bağlayıcıları kurar.
+ *   (+ ADT token'ı) döner, yani axet-code her zamanki gibi bağlayıcıları kurar.
  */
 export function axetSpawnEnv(useConnectors: boolean): NodeJS.ProcessEnv {
-  if (useConnectors) return process.env;
-  return { ...process.env, AXET_MCP_BASE_URL: FAST_FAIL_MCP_BASE_URL };
+  // Ajan 8787'deki ADT sunucusuna `os.environ['ABAP_HTTP_TOKEN']` ile
+  // konuşuyor; token'ı ortama koyan çağrı bu (bkz. adtHttpToken.ts).
+  const env = { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() };
+  if (useConnectors) return env;
+  return { ...env, AXET_MCP_BASE_URL: FAST_FAIL_MCP_BASE_URL };
 }

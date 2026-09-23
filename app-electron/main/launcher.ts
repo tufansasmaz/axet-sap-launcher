@@ -691,8 +691,8 @@ ${
     if (!readonlyOutcome) return "- Otomatik başlatma durumu bilinmiyor (beklenmeyen akış) — elle başlatman gerekebilir.";
     if (readonlyOutcome.started) {
       return readonlyOutcome.alreadyRunning
-        ? "- **Sunucu zaten çalışıyordu ✓** (http://127.0.0.1:8787) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır."
-        : "- **Sunucu OTOMATİK başlatıldı ✓** (http://127.0.0.1:8787, launcher tarafından — bu klasördeki `adt-readonly.log`'a bak) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır.";
+        ? "- **Sunucu zaten çalışıyordu ✓** (http://127.0.0.1:8787) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır. Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` başlığı gerekiyor (`/health` dahil; değer ortamda, asla dosyaya yazma)."
+        : "- **Sunucu OTOMATİK başlatıldı ✓** (http://127.0.0.1:8787, launcher tarafından — bu klasördeki `adt-readonly.log`'a bak) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır. Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` başlığı gerekiyor (`/health` dahil; değer ortamda, asla dosyaya yazma).";
     }
     return `- **Otomatik başlatma BAŞARISIZ**: ${readonlyOutcome.detailNote}\n  Elle başlatman gerekiyor (aşağıdaki bash bloğuna bak) — Python bağımlılıkları kurulu değilse önce \`pip install -r "${skillInstall.toolkitRoot ?? "<sap-toolkit>"}\\requirements.txt"\` çalıştır.`;
   })();
@@ -819,13 +819,15 @@ Python tabanlı gerçek ADT engine${
 ${readonlyServerStatusLine}
 
 \`\`\`bash
+# Her istek token ister (/health dahil) — token ortamda: $ABAP_HTTP_TOKEN. Değerini ASLA bir dosyaya yazma.
 # Sunucu ayakta mı? (yukarıdaki durum "BAŞARISIZ" değilse zaten ayakta olmalı)
-python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())" 2>/dev/null || echo "NOT RUNNING"
+python -c "import os, requests; print(requests.get('http://127.0.0.1:8787/health', headers={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}).json())" 2>/dev/null || echo "NOT RUNNING"
 # SADECE yukarıdaki durum "BAŞARISIZ" ise elle başlat (run_in_background: true).
 # --http ŞART: bayraksız çalıştırırsan stdio MCP modunda açılır ve /health olmaz.
+# Token ortamdan kalıtımla geçer; ABAP_HTTP_TOKEN'ı değiştirme ya da silme.
 ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<sap-toolkit bulunamadı>"}/sap-consultant/skills/${adtServerScript}" --http --port 8787
 # Kullan:
-python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_list_package', json={'package':'ZPM003'}).json())"
+python -c "import os, requests; print(requests.post('http://127.0.0.1:8787/tool/adt_list_package', json={'package':'ZPM003'}, headers={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}).json())"
 \`\`\`
 ${
         writable

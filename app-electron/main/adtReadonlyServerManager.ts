@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { getAdtHttpToken } from "./adtHttpToken";
 import { mt } from "./i18n";
 
 // `adt_readonly_server.py`'yi (bkz. resources/sap-toolkit/sap-consultant/skills/sap-adt-readonly/scripts)
@@ -65,16 +66,36 @@ interface HealthInfo {
   alive: boolean;
   writable: boolean;
   toolCount: number;
+  /**
+   * Portta biri var ama bizim token'ımızı reddediyor (401): önceki bir
+   * oturumdan kalmış, başka token'la başlamış bir yazma sunucusu. "Ölü" ile
+   * aynı şey değil — üstüne spawn etmek EADDRINUSE'a düşer.
+   */
+  unauthorized: boolean;
 }
 
-const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0 };
+const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false };
 
 function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
   return new Promise((resolve) => {
     const req = httpRequest(
-      { host: "127.0.0.1", port, path: "/health", method: "GET", timeout: timeoutMs },
+      {
+        host: "127.0.0.1",
+        port,
+        path: "/health",
+        method: "GET",
+        timeout: timeoutMs,
+        // Yazan motor `/health`'i de kapının arkasında tutuyor; token'sız
+        // yoklama ayakta bir sunucuyu ölü sanıp öldürüyordu (bkz. adtHttpToken.ts).
+        headers: { Authorization: `Bearer ${getAdtHttpToken()}` }
+      },
       (res) => {
         const status = res.statusCode ?? 0;
+        if (status === 401) {
+          res.resume();
+          resolve({ ...DEAD, unauthorized: true });
+          return;
+        }
         if (status < 200 || status >= 300) {
           res.resume();
           resolve(DEAD);
@@ -93,7 +114,8 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
             resolve({
               alive: true,
               writable: tools.includes("adt_push"),
-              toolCount: typeof parsed.tool_count === "number" ? parsed.tool_count : tools.length
+              toolCount: typeof parsed.tool_count === "number" ? parsed.tool_count : tools.length,
+              unauthorized: false
             });
           } catch {
             // Ayakta ama cevabı okunamıyor: sahiplenmek için yeterli değil.
@@ -166,6 +188,11 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // sorusunu doğurur. İkisini de reddediyoruz; sahibi olmadığımız bir process'i
   // öldürmek yerine durumu söylüyoruz.
   const onPort = await probeHealth(opts.port);
+  if (onPort.unauthorized) {
+    // Token'ını bilmediğimiz bir sunucu: ne kullanabiliriz ne de sahibiyiz.
+    // Öldürmüyoruz; kullanıcıya adıyla söylüyoruz.
+    return { ok: false, alreadyRunning: false, external: true, message: mt("adtServer.foreignToken", { port: opts.port }) };
+  }
   if (onPort.alive) {
     if (onPort.writable !== opts.expectWritable) {
       return {
@@ -208,7 +235,9 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     // saniye boyunca gelmeyecek bir cevabı bekliyorduk.
     proc = spawn(opts.pythonPath, [opts.scriptPath, "--http", "--port", String(opts.port)], {
       cwd: opts.projectDir,
-      env: process.env,
+      // Token verilmezse motor kendi token'ını üretip log'a basıyor — hem biz
+      // onu bilmiyoruz hem de log OneDrive'daki proje klasöründe.
+      env: { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() },
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"]
     });

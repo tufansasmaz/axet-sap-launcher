@@ -142,6 +142,11 @@ export const MAIN_TR = {
   // sisteme push edebilen bir oturum açmak demekti.
   "adtServer.surfaceMismatch":
     "{port} portunda zaten bir ADT sunucusu var ama yanlış yüzeyi sunuyor ({found} araç; bu sistem için {expected} araçlık sunucu gerekiyor). Devralınmadı — o process'i kapat, sonra sisteme yeniden bağlan.",
+  // Portta 401 dönen bir sunucu var: token'ı bu oturumun bilmediği bir yazma
+  // sunucusu (büyük olasılıkla önceki bir oturumdan kalmış). Sahibi biz
+  // değiliz, öldürmüyoruz.
+  "adtServer.foreignToken":
+    "{port} portunda token'ını bu oturumun bilmediği bir ADT yazma sunucusu çalışıyor (büyük olasılıkla önceki bir oturumdan kalmış). Devralınmadı — o process'i kapat, sonra sisteme yeniden bağlan.",
   "adtServer.spawnFailed": "ADT read-only sunucu process'i başlatılamadı ({pythonPath}): {detail}",
   "adtServer.started": "ADT read-only sunucusu başlatıldı (http://127.0.0.1:{port}).",
 
