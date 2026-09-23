@@ -68,8 +68,11 @@ export type SkillProfile = "module-consultant" | "technical-consultant" | "sandb
 export interface SkillPlanEntry {
   name: string;
   writeCapable: boolean;
-  /** PRD kapısı yüzünden elenmiş. */
-  blockedByTier: boolean;
+  /**
+   * Kuruluyor ama bu sistemde SAP'a yazmayı REDDEDECEK (sistem DEV değil).
+   * Kapı kurulumda değil, yazma anında, skill'in kendi kodunda duruyor.
+   */
+  writeLocked: boolean;
 }
 
 /** Bir projede o an kurulu olan skill. */

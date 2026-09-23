@@ -644,6 +644,13 @@ function buildContextMarkdown(
   // (adtServerScriptFor) aynı olsun. `tier` hâlâ parametre çünkü metnin başka
   // yerlerinde sistemin önem derecesi de yazıyor.
   const writable = skillInstall.adtWriteSurface;
+  // SAP'a yazan ve kapısı kendi kodunda duran skill'ler (bkz. skillProfiles
+  // `planSkills`, tests/tierWriteGates.test.ts). DEV dışında da kuruluyorlar;
+  // ajan bir `GR_TIER` reddini arıza sanıp etrafından dolaşmaya kalkmasın diye
+  // burada adıyla anılıyorlar.
+  const writeSkillsInstalled = skillInstall.installed.filter((n) =>
+    ["screen-gen", "adobe-gen", "abapgit-deploy", "sap-object-transfer"].includes(n)
+  );
   const adtSkillName = writable ? "sap-adt" : "sap-adt-readonly";
   const adtServerScript = adtServerScriptFor(writable).rel.join("/");
   const breadcrumb = customerPath.join(" / ");
@@ -678,6 +685,14 @@ ${
         writable
           ? " (geliştirici SAPGUI'de import eder). DEV'de doğrudan `adt_push` da mümkün; hangisinin istendiğini kullanıcıya sor — ekibin teslim akışı senin tercihin değil."
           : ". Bu sistemde SAP'a doğrudan yazma yolu zaten yok."
+      }${
+        writeSkillsInstalled.length === 0
+          ? ""
+          : writable
+            ? `
+- Yazan skill'ler: ${writeSkillsInstalled.map((n) => `\`%${n}\``).join(", ")} — bu sistem DEV, yazma açık. Her yazmadan önce transport'u ve paketi kullanıcıya doğrulat.`
+            : `
+- Yazan skill'ler (${writeSkillsInstalled.map((n) => `\`%${n}\``).join(", ")}) kurulu ama bu sistem DEV değil: SAP'a yazmaya kalktıkları anda \`REFUSED [GR_TIER]\` / \`guardrail_violation\` ile reddederler. Bu bir arıza DEĞİL, bilinçli kapı (kullanıcı kararı: yazma yalnızca DEV sistemde). Kapıyı aşmaya, \`.conn_adt\`'ı düzenlemeye ya da aynı işi genel SAP GUI komutlarıyla yapmaya KALKMA. Okuyan modlar (ör. screen-gen/adobe-gen \`READ\`) serbest. Kullanıcı bu sistemde geliştirme istiyorsa sistemi NTT Studio'da DEV olarak işaretlemesi gerekir.`
       }
 - \`%office-*\` skilleri (excel, pdf, pptx, docx, slides, manual) — Office doküman üretimi/analizi. Kurulan kopyadan çalıştırılabilirler: paylaşılan \`lib/\` ve \`scripts/\` klasörleri artık skill'lerin yanına kuruluyor, yani göreli \`lib/redact.py\` çağrısı kurulu yolda da çözülüyor. (\`--redact-pii\` bu yüzden sessizce devre dışı kalmıyor; TCKN/vergi no maskelemesi ona bağlı.)
 - Python bağımlılıkları kurulu değilse (\`ModuleNotFoundError\`), kullanıcıya \`pip install -r "${skillInstall.toolkitRoot}\\requirements.txt"\` çalıştırmasını söyle.`
@@ -1175,9 +1190,12 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // Skill kurulumu, otomatik başlatmalardan ÖNCE yapılıyor: aşağıdaki iki
   // başlatıcı da önce proje kopyasına, sonra toolkit köküne bakıyor.
   //
-  // Rol + sistem önem derecesi burada devreye giriyor. PRD işaretli bir
-  // sistemde yazma yetenekli skill kurulmaz; rol seçilmemişse en dar profil
-  // (modül danışmanı) kullanılır — varsayılan geniş olursa kimse daraltmaz.
+  // Rol + sistem önem derecesi burada devreye giriyor. Rol neyin kurulacağını
+  // belirliyor; tier yalnızca ADT motorunun hangisi olacağını (yazan /
+  // salt okunur) ve katalog skill'lerini. Yazma skill'leri 2026-09-23'ten beri
+  // her sistemde kuruluyor ve DEV dışında yazmayı KENDİLERİ reddediyor (bkz.
+  // `planSkills`). Rol seçilmemişse en dar profil (modül danışmanı) kullanılır —
+  // varsayılan geniş olursa kimse daraltmaz.
   const skillInstall = installSkillsIntoProject(projectDir, {
     profile: config.skillProfile ?? undefined,
     tier: systemTier

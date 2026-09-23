@@ -114,6 +114,13 @@ def main() -> int:
                              f"(default {COMPLETION_TIMEOUT})")
     args = parser.parse_args()
 
+    # AXET-TIER-GATE (aXet launcher adaptation): SAP writes only on a DEV system.
+    from tier_gate import require_dev_tier
+    refused = require_dev_tier()
+    if refused:
+        print(refused, file=sys.stderr)
+        return 2
+
     objs_path = Path(args.objs).resolve()
     if not objs_path.exists():
         print(f"FAIL: picks file not found: {objs_path}", file=sys.stderr)

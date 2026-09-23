@@ -9,10 +9,11 @@
 //   - `SystemTier`    -> bağlanılan sistemin önemi (DEV/QA/PRD)
 //   - `SkillProfile`  -> danışmanın rolü
 //
-// Kural: PRD işaretli bir sisteme yazma yetenekli skill KURULMAZ. SAP API
-// Politikası (Mayıs 2026) ADT dahili API'leri üzerinden ajanla üretim verisine
-// dokunmaya izin vermiyor; kapıyı skill kurulumunda tutuyoruz çünkü kurulan bir
-// skill'i ajan er ya da geç okuyor.
+// Kural: yalnızca DEV işaretli sisteme YAZILIR. SAP API Politikası (Mayıs 2026)
+// ADT dahili API'leri üzerinden ajanla üretim verisine dokunmaya izin vermiyor.
+// Kapı 2026-09-23'e kadar kurulumdaydı (PRD'de yazma skill'i kurulmuyordu);
+// kullanıcı kararıyla artık YAZMA ANINDA, skill'in kendi kodunda — bkz.
+// `planSkills`. Kurulumdaki tek kapı ROL kapısı.
 //
 // Tablo elle türetildi: uygulamanın katalog deposuna çalışma zamanında hiçbir
 // bağımlılığı yok, olmamalı da.
@@ -24,7 +25,7 @@ export type { SkillProfile };
 export interface SkillDef {
   /** `resources/sap-toolkit` altındaki göreli yol. */
   path: string;
-  /** SAP'a yazma niyeti taşıyor mu? PRD'de kurulmaz. */
+  /** SAP'a yazma niyeti taşıyor mu? Modül danışmanına kurulmaz; DEV dışında yazmayı reddeder. */
   writeCapable?: boolean;
   /**
    * Proje kopyasına ALINMAYACAK alt klasörler. ADT üçlüsü (`sap-adt`,
@@ -486,6 +487,21 @@ export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
  * modül danışmanı DEV'e bağlandığı anda 33 araçlık yazan motoru alırdı
  * (kullanıcı, 2026-09-23: *"modül danışmanları asla geliştirme
  * yapamasınlar"*). Rol yükseltmesi rolün listesinden geçer, tier'dan değil.
+ *
+ * YAZMA SKILL'LERİ TIER'A BAKILMADAN KURULUYOR (kullanıcı kararı, 2026-09-23:
+ * *"dev olsada olmasada o skiller yüklensin ama sisteme yazılacağı deploy
+ * edileceği kısımda dev tagı yada onayı istesin"* ve *"sadece dev sisteminde
+ * yazma olarak açılsın diğer sistemlerde readonly modda açılsın"*). Eskiden
+ * DEV dışında `screen-gen`, `adobe-gen`, `abapgit-*` hiç kurulmuyordu; ajan
+ * QA'da bir ekranın nasıl üretildiğini bile anlatamıyordu. Artık kurulum rol
+ * kapısından geçiyor, tier kapısı YAZMA ANINDA skill'in kendi kodunda:
+ * `_tier_refusal` (screen-gen/adobe-gen), `tier_gate.py` (abapgit-deploy) ve
+ * motorun `require_writable`'ı — hepsi `.conn_adt`'taki `ADT_SAP_TIER=DEV`'i
+ * arıyor. Senkron o kapıları silerse `tests/tierWriteGates.test.ts` kırılır.
+ *
+ * ADT takası yine duruyor: yazan motor DEV dışında hiç başlatılmıyor, çünkü
+ * onun 33 aracının her birine ayrı kapı koymak yerine sunucunun kendisini
+ * değiştirmek tek hamlede kapatıyor.
  */
 export function planSkills(profile: SkillProfile, tier: SystemTier | null): SkillPlanEntry[] {
   const source = PROFILE_SKILLS[profile] ?? PROFILE_SKILLS[DEFAULT_PROFILE];
@@ -498,7 +514,7 @@ export function planSkills(profile: SkillProfile, tier: SystemTier | null): Skil
   return names.map((name) => {
     const def = SKILL_CATALOG[name];
     const writeCapable = Boolean(def?.writeCapable);
-    return { name, writeCapable, blockedByTier: writeCapable && !tierAllowsWrite(tier) };
+    return { name, writeCapable, writeLocked: writeCapable && !tierAllowsWrite(tier) };
   });
 }
 
@@ -520,8 +536,8 @@ export function planSkills(profile: SkillProfile, tier: SystemTier | null): Skil
  *   - **global** — SAP'a yazmayan her şey. Rol seçilir seçilmez kurulur, her
  *     klasörde, sistem bağlamadan geçerli.
  *   - **project** — `writeCapable` olanlar. Sistem klasöründe kalır, çünkü
- *     PRD kilidi sistem başına veriliyor ve global'de "hangi sistem" diye bir
- *     şey yok.
+ *     yazma kapısı `.conn_adt`'taki tier'ı okuyor ve global'de "hangi sistem"
+ *     diye bir şey yok (orada kapılar zaten her yazmayı reddederdi).
  *
  * Aynı yetenek iki yerde birden durmuyor: axet-code'un çakışmayı nasıl
  * çözdüğü bilinmiyor ve bunu denemeye girmenin bir sebebi yok.

@@ -87,12 +87,12 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm }: Props)
   }, [profile]);
 
   const writeCapable = useMemo(() => plan.filter((entry) => entry.writeCapable), [plan]);
-  const blocked = useMemo(() => plan.filter((entry) => entry.blockedByTier), [plan]);
-  const willInstall = useMemo(() => plan.filter((entry) => !entry.blockedByTier), [plan]);
+  const locked = useMemo(() => plan.filter((entry) => entry.writeLocked), [plan]);
 
-  // Onay yalnızca GERÇEKTEN kurulacak yazma yetenekli skill varsa isteniyor.
-  // PRD'de hepsi zaten engellendiği için soru anlamsız olurdu.
-  const needsNotice = writeCapable.some((entry) => !entry.blockedByTier);
+  // Onay, yazma yetenekli skill kurulacaksa isteniyor — sistem DEV olmasa da.
+  // 2026-09-23'ten beri bu skill'ler her sistemde kuruluyor (DEV dışında
+  // yazmayı kendileri reddediyor); kurulan şey aynı, kabul de aynı.
+  const needsNotice = writeCapable.length > 0;
   // Rol seçilmeden onay YOK — zorunluluğun tek gerçek karşılığı bu satır.
   const canConfirm = profile !== null && (!needsNotice || accepted);
 
@@ -163,28 +163,21 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm }: Props)
                 {t("roleModal.previewTitle")}
               </span>
               <span className="text-2xs text-slate-500">
-                {t("roleModal.previewCount", { count: willInstall.length })}
+                {t("roleModal.previewCount", { count: plan.length })}
               </span>
             </div>
             <div className="flex flex-wrap gap-1.5 rounded-xl border border-line/50 bg-control/30 p-3">
-              {willInstall.map((entry) => (
+              {plan.map((entry) => (
                 <span
                   key={entry.name}
-                  className={`rounded-md border px-2 py-0.5 font-mono text-2xs ${
+                  className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-2xs ${
                     entry.writeCapable
                       ? "border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]"
                       : "border-line/60 bg-control text-slate-300"
                   }`}
+                  title={entry.writeLocked ? t("roleModal.lockedHint") : undefined}
                 >
-                  {entry.name}
-                </span>
-              ))}
-              {blocked.map((entry) => (
-                <span
-                  key={entry.name}
-                  className="rounded-md border border-line/40 bg-control/50 px-2 py-0.5 font-mono text-2xs text-slate-600 line-through"
-                  title={t("roleModal.blockedHint")}
-                >
+                  {entry.writeLocked && <Lock size={10} className="shrink-0" />}
                   {entry.name}
                 </span>
               ))}
@@ -192,10 +185,10 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm }: Props)
           </div>
           )}
 
-          {blocked.length > 0 && (
+          {locked.length > 0 && (
             <p className="flex items-start gap-1.5 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--status-warning-text)]">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" />
-              {t("roleModal.blockedNotice", { count: blocked.length })}
+              {t("roleModal.lockedNotice", { count: locked.length })}
             </p>
           )}
 

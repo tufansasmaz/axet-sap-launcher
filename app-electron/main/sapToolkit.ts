@@ -82,7 +82,10 @@ export interface SkillInstallResult {
   skipped: string[];
   /** Rol değiştiği için KALDIRILAN paket yetenekleri. */
   removed: string[];
-  /** PRD kapısı yüzünden bilerek kurulmayanlar. */
+  /**
+   * Kapı yüzünden kaldırılan KATALOG yetenekleri (PRD ya da rol). Paket
+   * yetenekleri artık buraya düşmüyor: tier'a bakmadan kuruluyorlar.
+   */
   blockedByTier: string[];
   /**
    * Bu rol + bu sistem için YAZAN ADT motoru mu açılacak (`sap-adt`, 33 araç),
@@ -173,23 +176,20 @@ export function installSkillsIntoProject(
   for (const entry of plan) {
     const dest = path.join(destRoot, entry.name);
 
-    if (entry.blockedByTier) {
-      // Kapı sadece kurmamak değil, KALDIRMAK zorunda: sistem DEV iken kurulmuş
-      // olabilir, sonra PRD işaretlenmiş olabilir. Duran bir skill'i ajan okur.
-      rmSync(dest, { recursive: true, force: true });
-      result.blockedByTier.push(entry.name);
-      continue;
-    }
-
+    // Tier yüzünden kurmama YOK (kullanıcı kararı, 2026-09-23): yazma skill'i
+    // her sistemde kurulur, DEV dışında yazmayı kendi kodu reddeder. Bkz.
+    // `planSkills`. Kurulumu süzen tek şey rol — o da `plan`ın içinde.
     if (copySkill(toolkitRoot, entry.name, dest)) result.installed.push(entry.name);
     else result.skipped.push(entry.name);
   }
 
   installSharedAssets(toolkitRoot, path.join(projectDir, ".axet-code"), result.installed);
 
-  // Katalogdan kurulmuş yetenekler de aynı PRD kapısına tabi. Yukarıdaki döngü
-  // yalnızca profildeki adlara bakıyor; katalogdan gelen bir yazma yeteneği o
-  // listede olmadığı için kapıdan sessizce sızardı.
+  // Katalogdan kurulmuş yazma yetenekleri PRD'de HÂLÂ kaldırılıyor. Paket
+  // yeteneklerinden farkı: onların yazma anındaki DEV kapısını biz yazdık ve
+  // bir test koruyor; katalog yeteneği ise üçüncü kişinin kodu, içinde kapı
+  // olduğunu bilemeyiz. Kapısı bilinmeyen bir yazıcı için kurulum kapısı tek
+  // güvence.
   //
   // `profile` de veriliyor: modül danışmanı için bu temizlik SİSTEMDEN bağımsız
   // çalışıyor, çünkü rol kapısının DEV'i de QA'si de yok. Rol kapısı katalog

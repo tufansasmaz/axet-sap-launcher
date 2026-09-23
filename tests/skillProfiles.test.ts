@@ -52,11 +52,11 @@ describe("PROFILE_SKILLS", () => {
     }
   });
 
-  it("axet-flows PRD'de de kurulur — SAP'a yazmiyor", () => {
+  it("axet-flows PRD'de kilitli degil — SAP'a yazmiyor", () => {
     // `writeCapable` "SAP'a yazar" demek. Akis JSON'u uretmek SAP'i degil
-    // aXet.flows tasarimcisini ilgilendiriyor; PRD kapisi bunu tutmamali.
+    // aXet.flows tasarimcisini ilgilendiriyor; DEV kilidi bunu tutmamali.
     const entry = planSkills("technical-consultant", "PRD").find((e) => e.name === "axet-flows");
-    expect(entry?.blockedByTier).toBe(false);
+    expect(entry?.writeLocked).toBe(false);
   });
 
   it("modul danismaninin hicbir yazma yetkili skill'i yok", () => {
@@ -66,30 +66,55 @@ describe("PROFILE_SKILLS", () => {
   });
 });
 
-describe("planSkills — PRD kapisi", () => {
-  it("PRD'de yazma yetkili her skill engellenir", () => {
-    for (const entry of planSkills("sandbox", "PRD")) {
-      expect(entry.blockedByTier, entry.name).toBe(entry.writeCapable);
+describe("planSkills — yazma skill'leri her sistemde kurulur, DEV disinda kilitli", () => {
+  // Kullanici karari (2026-09-23): "dev olsada olmasada o skiller yuklensin
+  // ama sisteme yazilacagi deploy edilecegi kisimda dev tagi yada onayi
+  // istesin". Kurulum tier'a bakmiyor; DEV kapisi yazma aninda, skill'in kendi
+  // kodunda (bkz. tierWriteGates.test.ts). Burada kilitlenen: hicbir tier bir
+  // skill'i listeden dusurmuyor, `writeLocked` ise yalnizca DEV'de kalkiyor.
+
+  it("teknik danisman PRD/QA/isaretsiz sistemde de ekran, Adobe ve abapGit skill'lerini alir", () => {
+    for (const tier of ["PRD", "QA", null] as const) {
+      const names = planSkills("technical-consultant", tier).map((entry) => entry.name);
+      for (const name of ["screen-gen", "adobe-gen", "abapgit-deploy"]) {
+        expect(names, `${tier}/${name}`).toContain(name);
+      }
     }
   });
 
-  it("PRD'de en az bir skill GERCEKTEN engelleniyor", () => {
-    // Yukaridaki test, katalogda hic yazma yetkili skill kalmasa da gecerdi.
-    expect(planSkills("sandbox", "PRD").some((entry) => entry.blockedByTier)).toBe(true);
-  });
-
-  it("YALNIZCA DEV'de hicbir sey engellenmez", () => {
-    expect(planSkills("sandbox", "DEV").some((entry) => entry.blockedByTier)).toBe(false);
-  });
-
-  it("QA ve isaretsiz sistemde yazma yetkili skill engellenir", () => {
-    // Kapi 2026-09-23'te daraldi: eskiden yalnizca PRD kapaliydi, artik
-    // yazilabilir tek sey DEV. `null` da kapali, cunku "bilinmiyor" sessizce
-    // "yaz" demek olurdu — kullanici karari: isaretsiz sisteme QA muamelesi.
-    for (const tier of ["QA", null] as const) {
+  it("DEV disinda yazma yetkili her skill kilitli, digerleri degil", () => {
+    for (const tier of ["PRD", "QA", null] as const) {
       const plan = planSkills("sandbox", tier);
-      expect(plan.some((entry) => entry.blockedByTier), String(tier)).toBe(true);
-      for (const entry of plan) expect(entry.blockedByTier, `${tier}/${entry.name}`).toBe(entry.writeCapable);
+      expect(plan.some((entry) => entry.writeLocked), String(tier)).toBe(true);
+      for (const entry of plan) expect(entry.writeLocked, `${tier}/${entry.name}`).toBe(entry.writeCapable);
+    }
+  });
+
+  it("YALNIZCA DEV'de hicbir sey kilitli degil", () => {
+    expect(planSkills("sandbox", "DEV").some((entry) => entry.writeLocked)).toBe(false);
+  });
+
+  it("tier listeyi degistirmiyor — tek fark ADT motorunun takasi", () => {
+    const swap = (name: string) => (name === "sap-adt" ? "sap-adt-readonly" : name);
+    const dev = planSkills("technical-consultant", "DEV").map((entry) => swap(entry.name));
+    for (const tier of ["PRD", "QA", null] as const) {
+      expect(planSkills("technical-consultant", tier).map((entry) => entry.name), String(tier)).toEqual(dev);
+    }
+  });
+
+  it("yazan ADT motoru yalnizca DEV'de, digerlerinde salt okur sarmalayici", () => {
+    expect(planSkills("technical-consultant", "DEV").map((e) => e.name)).toContain("sap-adt");
+    for (const tier of ["PRD", "QA", null] as const) {
+      const names = planSkills("technical-consultant", tier).map((e) => e.name);
+      expect(names, String(tier)).toContain("sap-adt-readonly");
+      expect(names, String(tier)).not.toContain("sap-adt");
+    }
+  });
+
+  it("modul danismani DEV'de bile hicbir yazma skill'i almaz", () => {
+    // Rol kapisi yerinde duruyor: "modul danismanlari asla gelistirme yapamasinlar".
+    for (const tier of ["DEV", "QA", "PRD", null] as const) {
+      expect(planSkills("module-consultant", tier).filter((e) => e.writeCapable), String(tier)).toEqual([]);
     }
   });
 

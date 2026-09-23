@@ -138,6 +138,33 @@ def _auto_install(adt, fm_name, source_file, description):
     return ensure_generator_fm(adt, fm_name, 'ZND_FG_AUTO_GEN', source_file, description)
 
 
+def _tier_refusal(what):
+    """AXET-TIER-GATE: refuse a write unless .conn_adt says ADT_SAP_TIER=DEV.
+
+    aXet launcher adaptation (2026-09-23). The skill is installed on every system
+    the technical consultant opens, QA and PRD included, so the gate lives here at
+    write time. The engine's adt_generate_adobe calls generate_adobe without
+    require_writable, and so does the CLI, so this is the only place that covers
+    both. Fails CLOSED: if the guardrails cannot be loaded the tier is unknown and
+    the write is refused. Returns None when the write may proceed, else a result dict.
+    """
+    eng = Path(__file__).resolve().parents[2] / 'sap-adt' / 'scripts'
+    if eng.is_dir() and str(eng) not in sys.path:
+        sys.path.insert(0, str(eng))
+    try:
+        from guardrails import require_writable, GuardrailViolation
+    except ImportError as exc:
+        return {"ok": False, "error": "guardrail_violation", "code": "GR_TIER",
+                "message": f"{what} refused — the sap-adt guardrails could not be loaded "
+                           f"({exc}), so the system tier cannot be verified. Writes are "
+                           f"allowed only on a DEV system."}
+    try:
+        require_writable(what=what)
+    except GuardrailViolation as gv:
+        return gv.as_dict()
+    return None
+
+
 def generate_adobe(adt, interface='', form='', devclass='$TMP', transport=None,
                    language=None, if_text=None, form_text=None, template=None,
                    mode='WRITE', fm_name=None, layout_base64=None,
@@ -163,6 +190,9 @@ def generate_adobe(adt, interface='', form='', devclass='$TMP', transport=None,
                 "message": "at least one of interface / form is required."}
 
     if mode not in READ_ONLY_MODES:
+        refused = _tier_refusal(f"Adobe {mode} on {interface or form}")
+        if refused:
+            return refused
         for label, name in (('interface', interface), ('form', form)):
             if name and not _customer_ns(name):
                 return {"ok": False, "error": "guardrail_violation",

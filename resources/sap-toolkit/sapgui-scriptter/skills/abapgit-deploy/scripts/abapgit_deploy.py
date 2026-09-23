@@ -123,6 +123,13 @@ def main() -> int:
                              "to complete (default 180)")
     args = parser.parse_args()
 
+    # AXET-TIER-GATE (aXet launcher adaptation): SAP writes only on a DEV system.
+    from tier_gate import require_dev_tier
+    refused = require_dev_tier()
+    if refused:
+        print(refused, file=sys.stderr)
+        return 2
+
     try:
         repo_root = Path(subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],

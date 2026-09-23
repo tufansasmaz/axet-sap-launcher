@@ -119,6 +119,13 @@ def main() -> int:
                              f"(default {COMPLETION_TIMEOUT})")
     args = parser.parse_args()
 
+    # AXET-TIER-GATE (aXet launcher adaptation): SAP writes only on a DEV system.
+    from tier_gate import require_dev_tier
+    refused = require_dev_tier()
+    if refused:
+        print(refused, file=sys.stderr)
+        return 2
+
     zip_path = Path(args.zip).resolve()
     if not zip_path.exists():
         print(f"FAIL: ZIP not found: {zip_path}", file=sys.stderr)

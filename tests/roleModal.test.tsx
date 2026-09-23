@@ -20,8 +20,8 @@ import RoleModal from "../src/components/RoleModal";
 import { LanguageProvider } from "../src/i18n";
 
 const PLAN: SkillPlanEntry[] = [
-  { name: "sap-adt-readonly", writeCapable: false, blockedByTier: false },
-  { name: "sap-docs", writeCapable: false, blockedByTier: false }
+  { name: "sap-adt-readonly", writeCapable: false, writeLocked: false },
+  { name: "sap-docs", writeCapable: false, writeLocked: false }
 ];
 
 function mount(open = true) {

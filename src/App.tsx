@@ -46,6 +46,8 @@ import CredentialsModal from "./components/CredentialsModal";
 import ReadinessHome from "./components/ReadinessHome";
 import { hasDoctorFault } from "../app-electron/shared/doctorSeverity";
 import RoleModal from "./components/RoleModal";
+import TierPromptModal from "./components/TierPromptModal";
+import { guessTier } from "./lib/tier";
 import AddSystemModal, { type EditingManualSystem } from "./components/AddSystemModal";
 import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePromptModal";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -97,6 +99,9 @@ export default function App() {
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
+  // İşaretsiz sisteme bağlanmadan önce "bu sistem hangisi?" sorusu (bkz.
+  // TierPromptModal). Cevaptan sonra kimlik penceresi bu seçimle açılıyor.
+  const [tierPromptTarget, setTierPromptTarget] = useState<Selection | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
   // Rol seciminin beklettigi kimlik bilgileri. Rol ekrani artik ACILISTA
@@ -515,12 +520,14 @@ export default function App() {
   // kartından tek tıkla SAP Launcher'a geçip doğrudan kimlik bilgisi
   // penceresini açar — kullanıcı iki ayrı aktivite arasında elle gezip
   // sistemi tekrar aramak zorunda kalmaz.
-  const handleQuickConnectSap = useCallback((path: string[], service: SapService, itemUuid: string) => {
-    setActivity("sapLauncher");
-    setSelection({ path, service, itemUuid });
-    setConnectError(null);
-    setCredentialsTarget({ path, service, itemUuid });
-  }, []);
+  const handleQuickConnectSap = useCallback(
+    (path: string[], service: SapService, itemUuid: string) => {
+      setActivity("sapLauncher");
+      setSelection({ path, service, itemUuid });
+      beginConnect({ path, service, itemUuid });
+    },
+    [config?.systemTiers]
+  );
 
   // Seçili sistem değiştiğinde Dosya Gezgini'nin göstereceği kök klasörü
   // (o sistem için proje klasörü) yeniden hesapla — henüz bağlanılmamışsa
@@ -604,9 +611,50 @@ export default function App() {
     setConnectivity((prev) => ({ ...prev, [service.uuid]: result.state }));
   }, []);
 
-  const handleOpenConnect = (sel: Selection) => {
+  /**
+   * Bağlantının İLK adımı. Sistem işaretsizse (kullanıcı DEV/QA/PRD demediyse)
+   * önce önem derecesi soruluyor, sonra kimlik penceresi açılıyor.
+   *
+   * Neden kimlikten ÖNCE: yazma kapısı `.conn_adt`'a bağlanırken yazılıyor ve
+   * hangi ADT motorunun (yazan / salt okunur) kurulacağı da o anda seçiliyor.
+   * Bağlandıktan sonra sorsaydık ilk bağlantı her zaman salt okunur kurulurdu.
+   * Şifreyi soru boyunca state'te bekletmemek de ikinci sebep.
+   *
+   * `guessTier` burada KULLANILMIYOR: addan tahmin rozette görünüyor ama
+   * launcher yalnızca `systemTiers`'a bakıyor. Tahmin edilmiş bir DEV'i
+   * "işaretli" saymak, kullanıcının hiç onaylamadığı bir yazma iznini açardı.
+   */
+  function beginConnect(sel: Selection) {
     setConnectError(null);
+    if (config && !config.systemTiers?.[sel.service.uuid]) {
+      setTierPromptTarget(sel);
+      return;
+    }
     setCredentialsTarget(sel);
+  }
+
+  const handleOpenConnect = (sel: Selection) => {
+    beginConnect(sel);
+  };
+
+  const handleTierChosen = async (tier: SystemTier) => {
+    const sel = tierPromptTarget;
+    setTierPromptTarget(null);
+    if (!sel) return;
+    try {
+      await handleSetTier(sel.service, tier);
+    } catch (err) {
+      // Kaydedilemezse bağlantı işaretsiz (salt okunur) kurulur — yanlış yön
+      // değil, güvenli yön. Kullanıcı neden yazamadığını buradan öğreniyor.
+      pushToast("error", t("tierPrompt.saveFailed", { message: (err as Error).message }));
+    }
+    setCredentialsTarget(sel);
+  };
+
+  const handleTierSkipped = () => {
+    const sel = tierPromptTarget;
+    setTierPromptTarget(null);
+    if (sel) setCredentialsTarget(sel);
   };
 
   const handleOpenSapLogon = useCallback(
@@ -1368,6 +1416,18 @@ export default function App() {
           onClose={() => setCredentialsTarget(null)}
           onSubmit={handleCredentialsSubmit}
           loadDefaults={(uuid) => window.api.getCredentialDefaults(uuid)}
+        />
+
+        <TierPromptModal
+          open={tierPromptTarget !== null}
+          systemLabel={
+            tierPromptTarget
+              ? `${tierPromptTarget.service.name}${tierPromptTarget.service.systemId ? ` · ${tierPromptTarget.service.systemId}` : ""}`
+              : ""
+          }
+          guess={tierPromptTarget ? guessTier(tierPromptTarget.service) : null}
+          onChoose={(tier) => void handleTierChosen(tier)}
+          onSkip={handleTierSkipped}
         />
 
         <RoleModal

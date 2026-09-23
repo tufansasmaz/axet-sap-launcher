@@ -166,6 +166,13 @@ def main() -> int:
     parser.add_argument("--session-index", type=int, default=0)
     args = parser.parse_args()
 
+    # AXET-TIER-GATE (aXet launcher adaptation): SAP writes only on a DEV system.
+    from tier_gate import require_dev_tier
+    refused = require_dev_tier()
+    if refused:
+        print(refused, file=sys.stderr)
+        return 2
+
     try:
         app = attach_scripting_engine()
         session = get_session(app, args.connection_index, args.session_index)

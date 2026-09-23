@@ -54,6 +54,7 @@ if _SAP_ADT_SCRIPTS.is_dir():
 try:
     from sap_adt_lib import set_explicit_working_dir
     from sap_client import SAPClient
+    from guardrails import require_writable, GuardrailViolation
 except ImportError as exc:
     print("[FAIL] Could not import the sap-adt engine.")
     print(f"[ERROR] {type(exc).__name__}: {exc}")
@@ -138,9 +139,15 @@ def ensure_generator_fm(adt, fm_name, fg_name, source_file, description):
     handing the consultant a setup errand. $TMP only — local, no transport, removable —
     and the caller must say out loud that it wrote to the system.
 
-    Not gated on risk here: tier-3 skills never install into a customer-production
-    workspace in the first place, so that gate already sits upstream in ntt-setup.
+    AXET-TIER-GATE (aXet launcher adaptation, 2026-09-23): upstream relied on tier-3
+    skills never being installed into a customer-production workspace. aXet installs
+    them on every system the technical consultant opens, so the tier is checked here,
+    at write time, against .conn_adt. Only DEV may write.
     """
+    try:
+        require_writable(what=f"install generator FM {fm_name}")
+    except GuardrailViolation as gv:
+        return False, str(gv)
     src = Path(source_file)
     if not src.is_file():
         return False, f"generator source not found: {src}"
@@ -185,6 +192,13 @@ def main():
 
     if args.cwd:
         set_explicit_working_dir(args.cwd)
+
+    # AXET-TIER-GATE: only a DEV system may receive the generator (see ensure_generator_fm).
+    try:
+        require_writable(what=f"install generator FM {args.fm_name}")
+    except GuardrailViolation as gv:
+        print(f"[FAIL] {gv}")
+        return 1
 
     package = args.package
     is_local = package.upper() == '$TMP'

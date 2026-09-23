@@ -86,6 +86,13 @@ def main() -> int:
                         help="Keep .abapgit-tmp/<package>-<UTC>/ after promote")
     args = parser.parse_args()
 
+    # AXET-TIER-GATE (aXet launcher adaptation): SAP writes only on a DEV system.
+    from tier_gate import require_dev_tier
+    refused = require_dev_tier(args.cwd)
+    if refused:
+        print(refused, file=sys.stderr)
+        return 2
+
     cwd = Path(args.cwd).resolve()
     cwd.mkdir(parents=True, exist_ok=True)
     package = args.package.upper()

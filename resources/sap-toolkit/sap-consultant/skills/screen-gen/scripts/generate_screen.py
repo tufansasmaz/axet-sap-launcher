@@ -157,6 +157,33 @@ def _auto_install(adt, fm_name, source_file, description):
     return ensure_generator_fm(adt, fm_name, 'ZND_FG_AUTO_GEN', source_file, description)
 
 
+def _tier_refusal(what):
+    """AXET-TIER-GATE: refuse a write unless .conn_adt says ADT_SAP_TIER=DEV.
+
+    aXet launcher adaptation (2026-09-23). The skill is installed on every system
+    the technical consultant opens, QA and PRD included, so the gate lives here at
+    write time. The engine's adt_generate_screen calls these functions without
+    require_writable, and so does the CLI, so this is the only place that covers
+    both. Fails CLOSED: if the guardrails cannot be loaded the tier is unknown and
+    the write is refused. Returns None when the write may proceed, else a result dict.
+    """
+    eng = Path(__file__).resolve().parents[2] / 'sap-adt' / 'scripts'
+    if eng.is_dir() and str(eng) not in sys.path:
+        sys.path.insert(0, str(eng))
+    try:
+        from guardrails import require_writable, GuardrailViolation
+    except ImportError as exc:
+        return {"ok": False, "error": "guardrail_violation", "code": "GR_TIER",
+                "message": f"{what} refused — the sap-adt guardrails could not be loaded "
+                           f"({exc}), so the system tier cannot be verified. Writes are "
+                           f"allowed only on a DEV system."}
+    try:
+        require_writable(what=what)
+    except GuardrailViolation as gv:
+        return gv.as_dict()
+    return None
+
+
 def generate_screen(adt, program, dynpro='0100', title='Liste', screen_type='DOCKING',
                     cc_name='CC_ALV', mode='WRITE', recreate=False, transport=None,
                     language=None, fm_name=None, auto_install=True, **kwargs):
@@ -194,6 +221,11 @@ def generate_screen(adt, program, dynpro='0100', title='Liste', screen_type='DOC
                                fm_name=kwargs.get('fields_fm_name'),
                                auto_install=auto_install,
                                verify=kwargs.get('verify', True))
+
+    if mode != 'READ':
+        refused = _tier_refusal(f"screen {mode} on {prog}")
+        if refused:
+            return refused
 
     if mode == 'WRITE' and not (prog.startswith('Z') or prog.startswith('Y') or prog.startswith('/')):
         return {"ok": False, "error": "guardrail_violation",
@@ -395,6 +427,11 @@ def generate_fields(adt, program, dynpro='0100', title='Detay', fields=None,
     prog = (program or '').upper()
     mode = (mode or 'WRITE').upper()
 
+    if mode != 'READ':
+        refused = _tier_refusal(f"field screen {mode} on {prog}")
+        if refused:
+            return refused
+
     if mode == 'WRITE' and not (prog.startswith('Z') or prog.startswith('Y') or prog.startswith('/')):
         return {"ok": False, "error": "guardrail_violation",
                 "message": f"Refusing to generate a screen in non-customer program '{prog}'. "
@@ -566,6 +603,10 @@ def add_toolbar_button(adt, program, status, fcode, text='Detay', icon='@1F@',
     code = (fcode or '').strip().upper()
     status = (status or '').strip().upper()
 
+    if (mode or 'WRITE').upper() != 'READ':
+        refused = _tier_refusal(f"GUI status {(mode or 'WRITE').upper()} on {prog}")
+        if refused:
+            return refused
     if not (prog.startswith('Z') or prog.startswith('Y') or prog.startswith('/')):
         return {"ok": False, "error": "guardrail_violation",
                 "message": f"Refusing to modify the GUI status of non-customer program '{prog}'."}
@@ -852,7 +893,9 @@ def main():
         return 0
 
     print(f"[FAIL] {result.get('message', 'Operation failed.')}")
-    if result.get('error') == 'guardrail_violation':
+    if result.get('code') == 'GR_TIER':
+        print("[INFO] Screen writes are allowed only on a DEV system (ADT_SAP_TIER in .conn_adt).")
+    elif result.get('error') == 'guardrail_violation':
         print("[INFO] Target program must be in the Z/Y customer namespace.")
     return 1
 
