@@ -1,6 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
+import { connect as netConnect } from "node:net";
 import { getAdtHttpToken } from "./adtHttpToken";
 import { mt } from "./i18n";
 
@@ -28,6 +29,25 @@ export interface ReadonlyServerStartOptions {
    * bkz. `probeHealth`/`surfaceMismatch`.
    */
   expectWritable: boolean;
+  /**
+   * DEV'de yazan motor doğrudan değil, onay katmanıyla (`adt_gated_server.py`)
+   * başlıyor ve her yazmayı launcher'ın onay ucuna soruyor. Adres ve oturum
+   * token'ı YALNIZCA bu çocuğun ortamına konur, `process.env`'e değil: ajan
+   * (axet-code) launcher'ın ortamını miras alıyor ve onay oturumunu tanıması
+   * için hiçbir sebep yok.
+   */
+  gate?: ApprovalGate;
+  /**
+   * Gated modda portta token'ını bilmediğimiz (401) bir sunucu varsa, önceki
+   * launcher'dan kalmış gated sunucunun kalp atışıyla kapanması bu kadar
+   * beklenir. Yalnızca testler kısaltır.
+   */
+  staleWaitMs?: number;
+}
+
+export interface ApprovalGate {
+  url: string;
+  token: string;
 }
 
 export interface ReadonlyServerStartResult {
@@ -45,7 +65,17 @@ interface RunningServer {
   exited: boolean;
   exitInfo: string;
   external: boolean;
+  /** Bu process'e verilen onay oturumu token'ı; gated değilse null. */
+  gateToken: string | null;
 }
+
+/**
+ * Önceki launcher'dan kalan gated sunucu, onay ucu artık onu tanımadığı için
+ * kalp atışında (10 sn aralık, 3 kaçırma) kendini kapatır. Üstüne pay.
+ */
+const STALE_GATED_WAIT_MS = 45_000;
+/** Kendi durdurduğumuz process'in portu bırakması (ölçüldü: 300 ms'den az). */
+const OWN_STOP_WAIT_MS = 10_000;
 
 const running = new Map<string, RunningServer>();
 
@@ -72,9 +102,15 @@ interface HealthInfo {
    * aynı şey değil — üstüne spawn etmek EADDRINUSE'a düşer.
    */
   unauthorized: boolean;
+  /**
+   * Onay katmanı (`adt_gated_server.py`): motorun araçlarına ek olarak
+   * `axet_teslim`'i listeler. Motorun kendisi de `adt_push`'u listelediği için
+   * `writable` ikisini ayırmıyor.
+   */
+  gated: boolean;
 }
 
-const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false };
+const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false, gated: false };
 
 function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
   return new Promise((resolve) => {
@@ -115,7 +151,8 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
               alive: true,
               writable: tools.includes("adt_push"),
               toolCount: typeof parsed.tool_count === "number" ? parsed.tool_count : tools.length,
-              unauthorized: false
+              unauthorized: false,
+              gated: tools.includes("axet_teslim")
             });
           } catch {
             // Ayakta ama cevabı okunamıyor: sahiplenmek için yeterli değil.
@@ -134,8 +171,37 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
   });
 }
 
-function healthCheck(port: number, timeoutMs = 2000): Promise<boolean> {
-  return probeHealth(port, timeoutMs).then((info) => info.alive);
+/**
+ * Portta dinleyen var mı: HTTP değil TCP, çünkü 401 dönen ya da HTTP
+ * konuşmayan bir process de portu tutar. Zaman aşımı "dolu" sayılır; emin
+ * olmadan spawn etmek EADDRINUSE'a düşer.
+ */
+function portInUse(port: number, timeoutMs = 1000): Promise<boolean> {
+  return new Promise((resolve) => {
+    const sock = netConnect({ host: "127.0.0.1", port });
+    const done = (busy: boolean): void => {
+      sock.destroy();
+      resolve(busy);
+    };
+    sock.setTimeout(timeoutMs, () => done(true));
+    sock.once("connect", () => done(true));
+    sock.once("error", () => done(false));
+  });
+}
+
+async function waitPortFree(port: number, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    if (!(await portInUse(port))) return true;
+    if (Date.now() >= deadline) return false;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+}
+
+/** Ayaktaki sunucu bu isteğin yüzeyini mi sunuyor? */
+function surfaceMatches(info: HealthInfo, opts: ReadonlyServerStartOptions): boolean {
+  if (opts.gate) return info.gated;
+  return !info.gated && info.writable === opts.expectWritable;
 }
 
 function describeFailure(server: RunningServer): string {
@@ -167,13 +233,34 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   const existing = running.get(key);
   if (existing && existing.port === opts.port && (existing.external || (!existing.proc?.killed && !existing.exited))) {
     const info = await probeHealth(existing.port);
-    if (info.alive && info.writable === opts.expectWritable) {
+    // Gated'da yüzey yetmez, oturum da tutmalı: process'in ortamındaki token
+    // eski oturumunsa her yazması 401 → approval_unavailable olur.
+    const sameGate = opts.gate ? existing.gateToken === opts.gate.token : existing.gateToken === null;
+    if (info.alive && surfaceMatches(info, opts) && sameGate) {
       return { ok: true, alreadyRunning: true, external: existing.external, message: mt("adtServer.alreadyRunning") };
     }
     // Ayakta ama YANLIŞ yüzey: kullanıcı bu proje klasörünü başka bir tier'la
     // açmış olabilir (sistemi DEV işaretlemek gibi). Kendi process'imiz, bizim
     // kapatma hakkımız var — doğrusuyla değiştir.
     stopReadonlyServer(key);
+    if (!existing.external && !(await waitPortFree(opts.port, OWN_STOP_WAIT_MS))) {
+      return { ok: false, alreadyRunning: false, external: false, message: mt("adtServer.previousStillRunning", { port: opts.port }) };
+    }
+  }
+
+  // Port tek, sahibi tek proje. Portu BİZİM başka bir projemiz tutuyorsa onu
+  // durduruyoruz. Eskiden bu durumda aşağıdaki yoklama portta "sağlıklı bir
+  // sunucu" bulup onu devralıyordu; oysa o sunucu öbür projenin klasöründe
+  // çalışıyor, onun `.conn_adt`'ını okuyor. Gated'da daha kötüsü: onay
+  // oturumu yanlış projeye bağlanırdı. Devralınmış (external) kayıt yalnızca
+  // unutulur; sahibi olmadığımız process'e dokunmuyoruz, aşağıdaki yoklama
+  // ona karar verir.
+  for (const [otherKey, other] of Array.from(running.entries())) {
+    if (otherKey === key || other.port !== opts.port) continue;
+    stopReadonlyServer(otherKey);
+    if (!other.external && !(await waitPortFree(opts.port, OWN_STOP_WAIT_MS))) {
+      return { ok: false, alreadyRunning: false, external: false, message: mt("adtServer.previousStillRunning", { port: opts.port }) };
+    }
   }
 
   // Uygulama kapanıp yeniden açıldıysa veya kullanıcı elle başlattıysa, bu
@@ -187,26 +274,41 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // yanlış ama zararsız: DEV'de 17 araçlık sunucuyu devralıp "neden push yok"
   // sorusunu doğurur. İkisini de reddediyoruz; sahibi olmadığımız bir process'i
   // öldürmek yerine durumu söylüyoruz.
-  const onPort = await probeHealth(opts.port);
+  //
+  // Gated modda HİÇ devralmıyoruz: devralınan process'in ortamındaki onay
+  // token'ını bilemeyiz; ya ölü bir oturuma sorar (her yazma reddedilir) ya da
+  // başka bir projenin oturumuna.
+  let onPort = await probeHealth(opts.port);
+  if (onPort.unauthorized && opts.gate) {
+    // Büyük olasılıkla önceki launcher'dan kalan gated sunucu: onay ucu artık
+    // onu tanımıyor, kalp atışında kendini kapatacak. Öldürmüyoruz, bekliyoruz.
+    if (!(await waitPortFree(opts.port, opts.staleWaitMs ?? STALE_GATED_WAIT_MS))) {
+      return { ok: false, alreadyRunning: false, external: true, message: mt("adtServer.foreignTokenGated", { port: opts.port }) };
+    }
+    onPort = DEAD;
+  }
   if (onPort.unauthorized) {
     // Token'ını bilmediğimiz bir sunucu: ne kullanabiliriz ne de sahibiyiz.
     // Öldürmüyoruz; kullanıcıya adıyla söylüyoruz.
     return { ok: false, alreadyRunning: false, external: true, message: mt("adtServer.foreignToken", { port: opts.port }) };
   }
+  if (onPort.alive && opts.gate) {
+    return { ok: false, alreadyRunning: false, external: true, message: mt("adtServer.gatedPortBusy", { port: opts.port }) };
+  }
   if (onPort.alive) {
-    if (onPort.writable !== opts.expectWritable) {
+    if (!surfaceMatches(onPort, opts)) {
       return {
         ok: false,
         alreadyRunning: false,
         external: true,
         message: mt("adtServer.surfaceMismatch", {
           port: opts.port,
-          found: onPort.writable ? "33" : "17",
-          expected: opts.expectWritable ? "33" : "17"
+          found: String(onPort.toolCount),
+          expected: opts.expectWritable ? "50" : "17"
         })
       };
     }
-    running.set(key, { proc: null, port: opts.port, logStream: null, tail: [], exited: false, exitInfo: "", external: true });
+    running.set(key, { proc: null, port: opts.port, logStream: null, tail: [], exited: false, exitInfo: "", external: true, gateToken: null });
     return { ok: true, alreadyRunning: true, external: true, message: mt("adtServer.externalOnPort") };
   }
 
@@ -224,8 +326,18 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     tail: [],
     exited: false,
     exitInfo: "",
-    external: false
+    external: false,
+    gateToken: opts.gate?.token ?? null
   };
+
+  // ADT_CWD: motor `.conn_adt`'ı (gated katman `.sap-review/`'u) buradan
+  // okuyor. Launcher'ın ortamından miras kalan bir değer başka projenin
+  // sistemine bağlardı; cwd ile aynı olduğu için açıkça veriyoruz.
+  const env: NodeJS.ProcessEnv = { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken(), ADT_CWD: opts.projectDir };
+  if (opts.gate) {
+    env.ADT_APPROVAL_URL = opts.gate.url;
+    env.ADT_APPROVAL_TOKEN = opts.gate.token;
+  }
 
   let proc: ChildProcess;
   try {
@@ -237,7 +349,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
       cwd: opts.projectDir,
       // Token verilmezse motor kendi token'ını üretip log'a basıyor — hem biz
       // onu bilmiyoruz hem de log OneDrive'daki proje klasöründe.
-      env: { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() },
+      env,
       windowsHide: true,
       stdio: ["ignore", "pipe", "pipe"]
     });
@@ -266,7 +378,10 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   let healthy = false;
   while (Date.now() < deadline) {
     if (server.exited) break;
-    if (await healthCheck(opts.port, 1200)) {
+    // "Ayakta" yetmez: başlattığımız process portu alamadıysa cevap veren
+    // başka biri olabilir. Yüzey de tutmalı.
+    const info = await probeHealth(opts.port, 1200);
+    if (info.alive && surfaceMatches(info, opts)) {
       healthy = true;
       break;
     }

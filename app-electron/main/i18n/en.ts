@@ -136,6 +136,12 @@ export const MAIN_EN = {
     "An ADT server is already on port {port} but exposes the wrong surface ({found} tools; this system needs the {expected}-tool server). Not adopted — stop that process, then reconnect to the system.",
   "adtServer.foreignToken":
     "An ADT write server is already on port {port}, but this session does not know its token (probably left over from an earlier session). Not adopted — stop that process, then reconnect to the system.",
+  "adtServer.gatedPortBusy":
+    "Another ADT server is running on port {port}. The approval-gated DEV server never adopts another process — stop that process, then reconnect to the system. Writing to DEV is not possible until it is gone.",
+  "adtServer.foreignTokenGated":
+    "The old ADT server on port {port} did not exit within 45 seconds (probably left over from an earlier session). Not adopted, not killed — stop that process, then reconnect to the system. Writing to DEV is not possible until it is gone.",
+  "adtServer.previousStillRunning":
+    "The previous ADT server on port {port} (started for another project) was stopped but has not released the port. Reconnect to the system in a few seconds.",
   "adtServer.spawnFailed": "The ADT read-only server process could not be started ({pythonPath}): {detail}",
   "adtServer.started": "ADT read-only server started (http://127.0.0.1:{port}).",
 

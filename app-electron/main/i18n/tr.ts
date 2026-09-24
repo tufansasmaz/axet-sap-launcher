@@ -147,6 +147,14 @@ export const MAIN_TR = {
   // değiliz, öldürmüyoruz.
   "adtServer.foreignToken":
     "{port} portunda token'ını bu oturumun bilmediği bir ADT yazma sunucusu çalışıyor (büyük olasılıkla önceki bir oturumdan kalmış). Devralınmadı — o process'i kapat, sonra sisteme yeniden bağlan.",
+  // DEV'in onaylı sunucusu hiçbir zaman devralınmıyor (bkz. adtReadonlyServerManager.ts):
+  // devralınan process'in onay token'ını bilemeyiz.
+  "adtServer.gatedPortBusy":
+    "{port} portunda başka bir ADT sunucusu çalışıyor. DEV'in onaylı sunucusu başka bir process'i devralmaz — o process'i kapat, sonra sisteme yeniden bağlan. O kapanana kadar DEV'e yazılamaz.",
+  "adtServer.foreignTokenGated":
+    "{port} portundaki eski ADT sunucusu 45 saniye içinde kapanmadı (önceki bir oturumdan kalmış olabilir). Devralınmadı, öldürülmedi — o process'i kapat, sonra sisteme yeniden bağlan. O kapanana kadar DEV'e yazılamaz.",
+  "adtServer.previousStillRunning":
+    "{port} portundaki önceki ADT sunucusu (başka bir proje için başlatılmıştı) durduruldu ama portu bırakmadı. Birkaç saniye sonra sisteme yeniden bağlan.",
   "adtServer.spawnFailed": "ADT read-only sunucu process'i başlatılamadı ({pythonPath}): {detail}",
   "adtServer.started": "ADT read-only sunucusu başlatıldı (http://127.0.0.1:{port}).",
 

@@ -16,7 +16,7 @@
 // `.ts` (`.tsx` değil): `app-electron/main`'den import ediyor, node tsconfig'ine ait.
 
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, request as httpRequest, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -59,14 +59,75 @@ http.createServer((req, res) => {
 }).listen(port, "127.0.0.1", () => process.stderr.write("[adt-http] listening\\n"));
 `;
 
+// Onay katmanının (adt_gated_server.py) kopyası: aynı token kapısı, araç
+// listesinde `axet_teslim`, ve test için /health'te ortamdan aldığı onay
+// adresi/token'ı ile çalışma klasörü. Gerçek sunucu bunları DÖNDÜRMEZ; burada
+// yalnızca launcher'ın çocuğa ne verdiğini görmek için.
+const FAKE_GATED_SERVER = `
+const http = require("node:http");
+const port = Number(process.argv[process.argv.indexOf("--port") + 1]);
+const token = (process.env.ABAP_HTTP_TOKEN || "").trim();
+http.createServer((req, res) => {
+  if (!token || req.headers.authorization !== "Bearer " + token) {
+    res.writeHead(401, { "WWW-Authenticate": "Bearer" });
+    return res.end('{"ok":false,"error":"unauthorized"}');
+  }
+  res.writeHead(200, { "Content-Type": "application/json" });
+  res.end(JSON.stringify({
+    ok: true, tool_count: 3, tools: ["adt_get_source", "adt_push", "axet_teslim"],
+    approvalUrl: process.env.ADT_APPROVAL_URL || null,
+    approvalToken: process.env.ADT_APPROVAL_TOKEN || null,
+    cwd: process.cwd(),
+    adtCwd: process.env.ADT_CWD || null
+  }));
+}).listen(port, "127.0.0.1", () => process.stderr.write("[adt-http] listening\\n"));
+`;
+
 let workDir = "";
 let fakeScript = "";
+let fakeGatedScript = "";
 
 beforeAll(() => {
   workDir = mkdtempSync(path.join(tmpdir(), "adt-token-"));
   fakeScript = path.join(workDir, "fake_adt_server.cjs");
   writeFileSync(fakeScript, FAKE_WRITE_SERVER);
+  fakeGatedScript = path.join(workDir, "fake_gated_server.cjs");
+  writeFileSync(fakeGatedScript, FAKE_GATED_SERVER);
 });
+
+function projectDir(name: string): string {
+  const dir = path.join(workDir, name);
+  mkdirSync(dir, { recursive: true });
+  return dir;
+}
+
+/** 8787'ye ajanın gönderdiği gibi (ADT token'ıyla) /health. */
+function health(port: number): Promise<{ status: number; body: Record<string, unknown> }> {
+  return new Promise((resolve, reject) => {
+    httpRequest(
+      { host: "127.0.0.1", port, path: "/health", headers: { Authorization: `Bearer ${process.env.ABAP_HTTP_TOKEN}` } },
+      (res) => {
+        let text = "";
+        res.setEncoding("utf-8");
+        res.on("data", (c: string) => (text += c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: text ? JSON.parse(text) : {} }));
+      }
+    )
+      .on("error", reject)
+      .end();
+  });
+}
+
+/** Test içinde, sahibi launcher OLMAYAN bir sunucu. */
+async function foreignServer(port: number, handler: Parameters<typeof createServer>[1]): Promise<Server> {
+  const srv = createServer(handler);
+  foreign.push(srv);
+  await new Promise<void>((r) => srv.listen(port, "127.0.0.1", () => r()));
+  return srv;
+}
+
+const GATE_A = { url: "http://127.0.0.1:1", token: "a".repeat(64) };
+const GATE_B = { url: "http://127.0.0.1:2", token: "b".repeat(64) };
 
 const foreign: Server[] = [];
 afterEach(() => {
@@ -149,6 +210,134 @@ describe("yazma sunucusu ayağa kalkıyor", () => {
   });
 });
 
+describe("onaylı (gated) sunucu", () => {
+  it("onay adresi ve token'ı YALNIZCA çocuğun ortamına gidiyor, launcher'ın ortamına değil", async () => {
+    const port = await freePort();
+    const result = await startReadonlyServer({
+      projectDir: projectDir("gated-env"),
+      scriptPath: fakeGatedScript,
+      pythonPath: process.execPath,
+      port,
+      expectWritable: true,
+      gate: GATE_A
+    });
+    expect(result.ok).toBe(true);
+    const { body } = await health(port);
+    expect(body.approvalUrl).toBe(GATE_A.url);
+    expect(body.approvalToken).toBe(GATE_A.token);
+    // Ajan launcher'ın ortamını miras alıyor.
+    expect(process.env.ADT_APPROVAL_TOKEN).toBeUndefined();
+    expect(process.env.ADT_APPROVAL_URL).toBeUndefined();
+  }, 20_000);
+
+  it("aynı oturum: yeniden başlatılmıyor; yeni oturum: yeniden başlıyor ve yeni token çocukta", async () => {
+    const port = await freePort();
+    const dir = projectDir("gated-session");
+    const base = { projectDir: dir, scriptPath: fakeGatedScript, pythonPath: process.execPath, port, expectWritable: true };
+    expect((await startReadonlyServer({ ...base, gate: GATE_A })).ok).toBe(true);
+    const again = await startReadonlyServer({ ...base, gate: GATE_A });
+    expect(again.alreadyRunning).toBe(true);
+    const next = await startReadonlyServer({ ...base, gate: GATE_B });
+    expect(next.ok).toBe(true);
+    expect(next.alreadyRunning).toBe(false);
+    expect((await health(port)).body.approvalToken).toBe(GATE_B.token);
+  }, 40_000);
+
+  it("gated modda portta canlı bir sunucu DEVRALINMIYOR ve öldürülmüyor", async () => {
+    const port = await freePort();
+    await foreignServer(port, (_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, tools: ["adt_push", "axet_teslim"] }));
+    });
+    const result = await startReadonlyServer({
+      projectDir: projectDir("gated-busy"),
+      scriptPath: fakeGatedScript,
+      pythonPath: process.execPath,
+      port,
+      expectWritable: true,
+      gate: GATE_A
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("adtServer.gatedPortBusy");
+    expect((await health(port)).status).toBe(200);
+  });
+
+  it("gated olmayan istek de portta duran gated sunucuyu devralmıyor", async () => {
+    const port = await freePort();
+    await foreignServer(port, (_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ ok: true, tools: ["adt_push", "axet_teslim"] }));
+    });
+    const result = await startReadonlyServer({
+      projectDir: projectDir("plain-vs-gated"),
+      scriptPath: fakeScript,
+      pythonPath: process.execPath,
+      port,
+      expectWritable: true
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("adtServer.surfaceMismatch");
+  });
+
+  it("401 dönen eski sunucu kapanınca yenisi başlıyor (öldürülmeden beklendi)", async () => {
+    const port = await freePort();
+    const stale = await foreignServer(port, (_req, res) => {
+      res.writeHead(401, { "WWW-Authenticate": "Bearer" });
+      res.end();
+    });
+    // Önceki launcher'ın gated sunucusu: kalp atışı kaçırınca kendini kapatır.
+    setTimeout(() => stale.close(), 1000);
+    const result = await startReadonlyServer({
+      projectDir: projectDir("gated-stale"),
+      scriptPath: fakeGatedScript,
+      pythonPath: process.execPath,
+      port,
+      expectWritable: true,
+      gate: GATE_A,
+      staleWaitMs: 10_000
+    });
+    expect(result.ok).toBe(true);
+    expect(result.alreadyRunning).toBe(false);
+    expect((await health(port)).body.approvalToken).toBe(GATE_A.token);
+  }, 30_000);
+
+  it("401 dönen sunucu kapanmazsa bunu adıyla söylüyor ve öldürmüyor", async () => {
+    const port = await freePort();
+    await foreignServer(port, (_req, res) => {
+      res.writeHead(401, { "WWW-Authenticate": "Bearer" });
+      res.end();
+    });
+    const result = await startReadonlyServer({
+      projectDir: projectDir("gated-stale-stuck"),
+      scriptPath: fakeGatedScript,
+      pythonPath: process.execPath,
+      port,
+      expectWritable: true,
+      gate: GATE_A,
+      staleWaitMs: 800
+    });
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("adtServer.foreignTokenGated");
+    expect((await health(port)).status).toBe(401);
+  });
+
+  it("başka projenin (bizim) sunucusu durdurulup port boşalınca yenisi o projenin klasöründe başlıyor", async () => {
+    const port = await freePort();
+    const dirA = projectDir("proj-a");
+    const dirB = projectDir("proj-b");
+    const base = { scriptPath: fakeGatedScript, pythonPath: process.execPath, port, expectWritable: true };
+    expect((await startReadonlyServer({ ...base, projectDir: dirA, gate: GATE_A })).ok).toBe(true);
+    const b = await startReadonlyServer({ ...base, projectDir: dirB, gate: GATE_B });
+    expect(b.ok).toBe(true);
+    expect(b.external).toBe(false);
+    expect(b.alreadyRunning).toBe(false);
+    const { body } = await health(port);
+    expect(body.approvalToken).toBe(GATE_B.token);
+    expect(path.resolve(String(body.cwd))).toBe(path.resolve(dirB));
+    expect(body.adtCwd).toBe(dirB);
+  }, 40_000);
+});
+
 describe("ajana verilen komutlar", () => {
   it("sap-context.md'deki her 8787 çağrısı token başlığını taşıyor, token'ın DEĞERİNİ taşımıyor", () => {
     const launcher = readFileSync(path.join(__dirname, "..", "app-electron", "main", "launcher.ts"), "utf8");
@@ -158,5 +347,13 @@ describe("ajana verilen komutlar", () => {
     // Proje klasörü OneDrive'da senkronlanıyor: değer oraya yazılmamalı.
     // sap-context.md'yi üreten modül token'ın kendisine hiç erişmiyor.
     expect(launcher).not.toContain("getAdtHttpToken");
+    // Onay token'ı da: launcher onu yalnızca yöneticiye değer olarak geçiriyor.
+    expect(launcher).not.toContain("ADT_APPROVAL_TOKEN");
+  });
+
+  it("DEV'in yazan yüzeyi motorun kendisi değil, onay katmanı", () => {
+    const launcher = readFileSync(path.join(__dirname, "..", "app-electron", "main", "launcher.ts"), "utf8");
+    expect(launcher).toContain('["sap-adt", "scripts", "adt_gated_server.py"]');
+    expect(launcher).not.toContain('["sap-adt", "scripts", "adt_mcp_server.py"]');
   });
 });

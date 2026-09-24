@@ -9,6 +9,8 @@ import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } 
 import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
+import { closeAllWriteSessions, closeWriteSession, openWriteSession } from "./sapWrite/server";
+import type { Identity } from "./sapWrite/policy";
 import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
 import { syncBriefIntoContext } from "./projectBrief";
 import { mt } from "./i18n";
@@ -305,8 +307,13 @@ interface ReadonlyServerOutcome {
 //
 // İkisi de aynı `.conn_adt`'ı okuyup aynı 127.0.0.1:8787 sözleşmesini
 // (`GET /health`, `POST /tool/<ad>`) sunuyor: sohbet bağlamındaki komutlar
-// değişmiyor, yalnızca /health'in saydığı araç sayısı değişiyor (33'e karşı
+// değişmiyor, yalnızca /health'in saydığı araç sayısı değişiyor (53'e karşı
 // 17).
+//
+// DEV'de açılan motorun kendisi (`adt_mcp_server.py`) DEĞİL, onu içeri alıp 28
+// yazan aracını sarmalayan onay katmanı (`adt_gated_server.py`): her yazma
+// launcher'ın onay ucuna sorulur, NTT Studio'da pencere açılır (bkz.
+// sapWrite/server.ts). Motoru doğrudan açan bir yol kalmadı.
 //
 // Yazan motor SADECE teknik danışman + DEV birlikteliğinde açılıyor. Bu, skill
 // kurulumundaki kapının ikizi — biri kalkarsa diğeri hâlâ duruyor. Üçüncü kapı
@@ -314,14 +321,15 @@ interface ReadonlyServerOutcome {
 // bakıyor; o kapı rolü görmüyor, o yüzden rol kapısının burada olması şart.
 function adtServerScriptFor(writeSurface: boolean): { rel: string[]; label: string } {
   return writeSurface
-    ? { rel: ["sap-adt", "scripts", "adt_mcp_server.py"], label: "ADT sunucusu (yazma açık, 33 araç)" }
+    ? { rel: ["sap-adt", "scripts", "adt_gated_server.py"], label: "ADT sunucusu (onaylı yazma, 53 araç)" }
     : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (17 araç)" };
 }
 
 async function attemptReadonlyServerAutoStart(
   skillInstall: SkillInstallResult,
   projectDir: string,
-  port: number
+  port: number,
+  identity: Identity
 ): Promise<ReadonlyServerOutcome> {
   const writeSurface = skillInstall.adtWriteSurface;
   const { rel: scriptRel, label } = adtServerScriptFor(writeSurface);
@@ -340,14 +348,36 @@ async function attemptReadonlyServerAutoStart(
     };
   }
 
+  // 8787 tek, sahibi tek proje (yönetici başka projenin sunucusunu durduruyor).
+  // Onay oturumu sahibini izliyor: bu bağlantı portu alacaksa, başka projelerin
+  // oturumları artık hiçbir sunucuya ait değil. Açık kalsalar NTT Studio
+  // ölü bir oturum için mod sorar, pencere gösterirdi.
+  closeAllWriteSessions();
+  let gate: { url: string; token: string } | undefined;
+  if (writeSurface) {
+    try {
+      const session = await openWriteSession(projectDir, identity);
+      gate = { url: session.url, token: session.token };
+    } catch (err) {
+      // Onay ucu yoksa DEV'e onaysız yazan bir sunucu açmıyoruz.
+      return {
+        started: false,
+        alreadyRunning: false,
+        detailNote: `${label} başlatılmadı: NTT Studio'nun onay ucu açılamadı (${(err as Error).message}). DEV'e yazma onaysız açılmaz; sisteme yeniden bağlan.`
+      };
+    }
+  }
+
   const startResult = await startReadonlyServer({
     projectDir,
     scriptPath,
     pythonPath: "py",
     port,
-    expectWritable: writeSurface
+    expectWritable: writeSurface,
+    gate
   });
   if (!startResult.ok) {
+    if (gate) closeWriteSession(projectDir);
     return {
       started: false,
       alreadyRunning: false,
@@ -1232,7 +1262,11 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // (router'lı/router'sız, doğrulanmış/doğrulanamamış) başlatılır.
   let readonlyOutcome: ReadonlyServerOutcome | null = null;
   if (!rfcBridge || !rfcOutcome?.credentialsInvalid) {
-    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT);
+    readonlyOutcome = await attemptReadonlyServerAutoStart(skillInstall, projectDir, DEFAULT_READONLY_SERVER_PORT, {
+      sid: req.service.systemId,
+      client: credentials.client.trim(),
+      user: credentials.username.trim().toUpperCase()
+    });
     allNotes.push(readonlyOutcome.detailNote);
   }
 
