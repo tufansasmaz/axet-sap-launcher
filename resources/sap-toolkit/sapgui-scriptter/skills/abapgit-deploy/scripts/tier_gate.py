@@ -29,6 +29,7 @@ SAP'a dokunmadan önce `require_write_approval` ile 8787'deki onaylı sunucunun
 """
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import sys
@@ -146,9 +147,13 @@ def require_write_approval(script: str, paket: str = "", transport: str = "",
             return _refuse("sap_session_busy",
                            "SAP oturumu başka bir çağrıda meşgul. Biraz sonra aynı komutu tekrar çalıştır.")
         return _refuse("approval_unavailable", f"8787 HTTP {exc.code} döndü.")
-    except (urllib.error.URLError, OSError, ValueError) as exc:
+    except (urllib.error.URLError, OSError, ValueError, http.client.HTTPException) as exc:
         return _refuse("approval_unavailable",
                        f"8787'ye ulaşılamadı ya da cevap okunamadı ({exc}). "
+                       "Onaylı sunucu olmadan SAP'a yazılmaz.")
+    except Exception as exc:  # noqa: BLE001
+        return _refuse("approval_unavailable",
+                       f"8787'ye bağlanırken beklenmedik hata ({exc}). "
                        "Onaylı sunucu olmadan SAP'a yazılmaz.")
     if not isinstance(out, dict):
         return _refuse("approval_unavailable", "8787'nin cevabı anlaşılmadı.")
@@ -162,4 +167,3 @@ def require_write_approval(script: str, paket: str = "", transport: str = "",
         print(f"approval_pending: {message}", flush=True)
         return EXIT_PENDING
     return _refuse(error, message)
-

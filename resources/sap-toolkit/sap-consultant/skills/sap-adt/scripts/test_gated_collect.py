@@ -356,14 +356,31 @@ def t_teslim_and_abapgit_zip():
 
 
 def t_abapgit_transport_needed():
-    # I2: paket varsa ve transport yoksa, yerel olmadığı sürece hata
+    # I2: Transport yalnızca ZIP içe aktarılırken gerekir. Paket-only çalıştırmalar transport istenmez.
     sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"})
     pd = project()
     name = _zip(pd)
-    refused("transport_belirsiz", lambda: gc.collect_abapgit(sap, pd, "abapgit_deploy.py", "zpkg", "", name))
-    # Yerel paket ise sorun yok
+    # ZIP + yerel olmayan paket + no transport → refused
+    exc = refused("transport_belirsiz", lambda: gc.collect_abapgit(sap, pd, "gui_import_zip.py", "zpkg", "", name))
+    assert "--transport" in exc.message
+    # ZIP + paket yok + no transport → da refused
+    exc = refused("transport_belirsiz", lambda: gc.collect_abapgit(sap, pd, "gui_import_zip.py", "", "", name))
+    assert "--transport" in exc.message
+    # $TMP (yerel) + zip + no transport → geçer
     r = gc.collect_abapgit(sap, pd, "script.py", "$TMP", "", name)
     assert r["transport"] == "" and r["kalite"] is True
+
+
+def t_abapgit_paket_only_no_transport():
+    # I2: bootstrap (SAP'tan okuma) ve aktivasyon (zaten kayıtlı) transport istenmez
+    sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"})
+    pd = project()
+    # bootstrap: paket-only, ZIP yok
+    r = gc.collect_abapgit(sap, pd, "abapgit_bootstrap.py", "zpkg", "", "")
+    assert r["transport"] == ""
+    name = gc._name("ZPKG", "paket")
+    assert name == "ZPKG"
+    assert r["abapgit"]["paket"] == name
 
 
 def t_zip_type_validation():
@@ -410,6 +427,7 @@ TESTS = [
     ("teslim_adt", "teslim listesi yanlış toplanıyor", t_teslim_adt),
     ("teslim_abapgit", "ZIP hash'i teslim ile abapGit onayında farklı", t_teslim_and_abapgit_zip),
     ("abapgit_transport", "paket varsa transport gerekli (I2)", t_abapgit_transport_needed),
+    ("abapgit_paket_only", "paket-only çalıştırmalar transport istenmez (bootstrap/aktivasyon)", t_abapgit_paket_only_no_transport),
     ("zip_type_valid", "ZIP nesne tipi doğrulanmadığında SQL sorgusu yapılmaz (I3)", t_zip_type_validation),
 ]
 

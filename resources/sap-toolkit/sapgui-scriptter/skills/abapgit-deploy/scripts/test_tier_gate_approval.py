@@ -163,7 +163,7 @@ def bekliyor_stdoutta_approval_pending_ve_3():
 
 @test
 def ret_ve_mod_hatalari_2():
-    for error in ("approval_denied", "yerel_mod", "mod_secilmedi", "kalite_kaydi_yok", "approval_unavailable"):
+    for error in ("approval_denied", "yerel_mod", "mod_secilmedi", "kalite_kaydi_yok", "approval_unavailable", "transport_belirsiz"):
         with fresh():
             FAKE.reply(200, {"ok": False, "error": error, "message": "m"})
             rc, out, err = run(lambda: tg.require_write_approval("gui_import_zip.py"))
@@ -211,6 +211,56 @@ def proxy_tanimliyken_loopback_dogrudan():
         FAKE.reply(200, {"ok": True, "onay_id": "p1"})
         rc, _, err = run(lambda: tg.require_write_approval("gui_import_zip.py"))
         assert rc is None, err
+
+
+@test
+def ham_tcp_cevab_cikis_2():
+    # Sahte sunucu: ham TCP sunucu (HTTP olmayan protokol) garbage ile çıkıyor
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(("127.0.0.1", 0))
+    sock.listen(1)
+    port = sock.getsockname()[1]
+
+    def accept_garbage():
+        client, _ = sock.accept()
+        client.send(b"garbage\r\n\r\n")
+        client.close()
+
+    import threading
+    thread = threading.Thread(target=accept_garbage, daemon=True)
+    thread.start()
+
+    with fresh():
+        rc, _, err = run(lambda: tg.require_write_approval("gui_import_zip.py", url=f"http://127.0.0.1:{port}"))
+        assert rc == 2 and "GR_APPROVAL" in err, err
+
+    sock.close()
+
+
+@test
+def gui_import_zip_transport_gidiyor():
+    mod = importlib.import_module("gui_import_zip")
+    with tempfile.TemporaryDirectory() as tmp, fresh():
+        d = Path(tmp)
+        _dev_dir(d)
+        FAKE.reply(200, {"ok": False, "error": "approval_pending", "approval_id": "x", "message": "bekle"})
+        cwd, old_argv = os.getcwd(), sys.argv
+        os.chdir(d)
+        sys.argv = ["gui_import_zip.py", "--offline-repo", "Z", "--zip", str(d / "p.zip"), "--transport", "ds4k900001"]
+        try:
+            rc, out, err = run(mod.main)
+        finally:
+            os.chdir(cwd)
+            sys.argv = old_argv
+        assert rc == 3, (rc, out, err)
+        assert "approval_pending: bekle" in out, out
+        assert len(FAKE.calls) == 1, FAKE.calls
+        b = FAKE.calls[0]["body"]
+        assert b["script"] == "gui_import_zip.py", b
+        assert b["transport"] == "ds4k900001", b
+        assert b["zip_dosyasi"] == str((d / "p.zip").resolve()), b
 
 
 # --- 9 script: onay beklerken SAP GUI'ye dokunulmuyor ------------------------------

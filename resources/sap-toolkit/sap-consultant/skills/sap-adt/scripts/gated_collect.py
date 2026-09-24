@@ -48,6 +48,12 @@ MSG_TRANSPORT_BELIRSIZ = (
     "(adt_list_transports), sonra transport argümanıyla tekrar çağır."
 )
 
+MSG_TRANSPORT_BELIRSIZ_ABAPGIT = (
+    "ZIP içe aktarımının hangi transport'a yazılacağı belli değil ve paket yerel değil. "
+    "Kullanıcıya transport'u sor (adt_list_transports), sonra scripti --transport <TR> ile "
+    "yeniden çalıştır; abapGit transport sorarsa aynı transport seçilmeli."
+)
+
 
 class CollectError(Exception):
     def __init__(self, reason: str, message: str):
@@ -450,9 +456,11 @@ def collect_abapgit(sap, project_dir, script, paket="", transport="", zip_dosyas
     objs = []
     if zip_dosyasi:
         objs, abapgit["zip_sha256"] = _zip_nesneler(sap, project_dir, zip_dosyasi, pk)
-    # I2: Paket varsa ya da ZIP varsa, yerel olmayan paket transport ister
-    if (pk or zip_dosyasi) and not tr and not _local(pk):
-        raise CollectError("transport_belirsiz", MSG_TRANSPORT_BELIRSIZ)
+    # I2: Transport yalnızca ZIP içe aktarılırken gerekir (nesne yazılır). Paket-only çalıştırmalar
+    # (bootstrap = SAP'tan okuma, aktivasyon = zaten kayıtlı nesneler) transport seçmez; transport ""
+    # ile gider ve politika yerel olmayan pakette yalnızca "bu seferlik" onay sunar.
+    if zip_dosyasi and not tr and not _local(pk):
+        raise CollectError("transport_belirsiz", MSG_TRANSPORT_BELIRSIZ_ABAPGIT)
     out = _result(sap, objs, tr, paket=pk, kalite=bool(zip_dosyasi))
     out["abapgit"] = abapgit
     return out
