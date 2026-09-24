@@ -12,7 +12,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import type { Choice, Decision, SapWriteState, WorkMode } from "../../shared/sapWriteTypes";
-import { appendDecisionLog, factLogFields, resultLogFields } from "./log";
+import { appendDecisionLog, atcLogFields, factLogFields, resultLogFields } from "./log";
 import {
   canSession,
   decide,
@@ -166,6 +166,8 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       send(res, 404, { hata: "bulunamadi" });
       return;
     }
+    // atc de sap_sonucu gibi kırpılır: Python tarafı bugün yalnızca sayı gönderiyor, yarın ne gönderirse göndersin.
+    const atc = atcLogFields(b.atc);
     appendDecisionLog(
       state.projectDir,
       {
@@ -174,7 +176,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
         arac: rec.fact.arac,
         transport: rec.fact.transport,
         sap_sonucu: resultLogFields(b.sap_sonucu),
-        ...(b.atc !== undefined ? { atc: b.atc } : {}),
+        ...(atc ? { atc } : {}),
         ...identityFields(state),
       },
       now,

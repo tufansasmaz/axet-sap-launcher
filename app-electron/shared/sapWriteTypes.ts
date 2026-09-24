@@ -48,6 +48,10 @@ export interface WriteFact {
   teslim?: { yontem: string; zip_sha256?: string };
   abapgit?: { script: string; zip_sha256?: string; paket?: string };
   ust_onay?: string;
+  /** Mod seçen araçlarda seçilen işlem: generate_screen/adobe `mode`, message_class `action`. */
+  islem?: string;
+  /** Doğru geçilmiş yıkıcı bayraklar (recreate, replace, recursive, remove_locked_objects). */
+  secenekler?: Record<string, boolean>;
 }
 
 export interface SessionView {

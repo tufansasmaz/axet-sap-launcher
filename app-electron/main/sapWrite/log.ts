@@ -31,6 +31,8 @@ export function factLogFields(fact: WriteFact): Record<string, unknown> {
     ...(fact.teslim ? { teslim: fact.teslim } : {}),
     ...(fact.abapgit ? { abapgit: fact.abapgit } : {}),
     ...(fact.ust_onay ? { ust_onay: fact.ust_onay } : {}),
+    ...(fact.islem ? { islem: fact.islem } : {}),
+    ...(fact.secenekler ? { secenekler: fact.secenekler } : {}),
   };
 }
 
@@ -45,6 +47,32 @@ export function resultLogFields(x: unknown): Record<string, unknown> {
     out[key] = typeof v === "string" ? v.slice(0, MAX_TEXT) : typeof v === "boolean" || typeof v === "number" ? v : String(v).slice(0, MAX_TEXT);
   }
   return out;
+}
+
+const MAX_ATC = 10;
+
+/** ATC özeti: en çok 10 nesne, yalnızca bilinen alanlar; metinler kırpılır, sayılar sayı kalır. */
+export function atcLogFields(x: unknown): Record<string, unknown>[] | undefined {
+  if (!Array.isArray(x)) return undefined;
+  const text = (v: unknown) => String(v).slice(0, MAX_TEXT);
+  return x
+    .filter((e): e is Record<string, unknown> => typeof e === "object" && e !== null && !Array.isArray(e))
+    .slice(0, MAX_ATC)
+    .map((e) => {
+      const out: Record<string, unknown> = {};
+      if (e.nesne !== undefined) out.nesne = text(e.nesne);
+      if (e.tip !== undefined) out.tip = text(e.tip);
+      if (typeof e.toplam === "number" && Number.isFinite(e.toplam)) out.toplam = e.toplam;
+      if (typeof e.oncelik === "object" && e.oncelik !== null && !Array.isArray(e.oncelik)) {
+        const oncelik: Record<string, number> = {};
+        for (const [k, v] of Object.entries(e.oncelik).slice(0, MAX_ATC)) {
+          if (typeof v === "number" && Number.isFinite(v)) oncelik[k.slice(0, 20)] = v;
+        }
+        out.oncelik = oncelik;
+      }
+      if (e.hata !== undefined) out.hata = text(e.hata);
+      return out;
+    });
 }
 
 export function appendDecisionLog(projectDir: string, entry: Record<string, unknown>, now: number = Date.now()): void {

@@ -162,6 +162,12 @@ describe("oturum izni", () => {
     expect(canSession("dogrudan", fact({ nesneler: [], paket: "" }))).toBe(false);
   });
 
+  it("canSession: transport'suz oturum izni $TMP dışındaki yerel ($) paketlerde de geçerli", () => {
+    expect(canSession("dogrudan", fact({ transport: "", nesneler: [obj({ paket: "$ZLOCAL" })] }))).toBe(true);
+    expect(canSession("dogrudan", fact({ transport: "", nesneler: [], paket: "$ZDENEME" }))).toBe(true);
+    expect(canSession("dogrudan", fact({ transport: "", nesneler: [obj({ paket: "ZPKG" })] }))).toBe(false);
+  });
+
   it("canSession false iken oturum cevabı reddedilir", () => {
     const s = session();
     decide(s, fact({ sinif: "HER_SEFER", arac: "adt_delete_object" }), T0, ids());
@@ -239,6 +245,27 @@ describe("yerel mod ve teslim", () => {
     expect(decide(s, ag(H("y"), "4"), T0, next).karar).toBe("yerel_mod");
   });
 
+  it("yerel modda ZIP'siz (yalnız paketli) abapGit çağrısı tek seferlik pencere açar; ZIP içe aktarma yerel_mod", () => {
+    const s = session("yerel");
+    const next = ids();
+    const paketli = fact({
+      arac: "axet_abapgit_onay",
+      nesneler: [],
+      arg_hash: H("3"),
+      abapgit: { script: "gui_run_zabapgit_auto", paket: "ZPKG" },
+    });
+    expect(decide(s, paketli, T0, next)).toMatchObject({ karar: "bekliyor", created: true });
+    expect(canSession("yerel", paketli)).toBe(false);
+    expect(respond(s, "id1", "oturum", T0)).toEqual({ ok: false, error: "oturum_izni_verilemez" });
+    const zipli = fact({
+      arac: "axet_abapgit_onay",
+      nesneler: [],
+      arg_hash: H("4"),
+      abapgit: { script: "gui_import_zip", paket: "ZPKG", zip_sha256: H("c") },
+    });
+    expect(decide(s, zipli, T0, next).karar).toBe("yerel_mod");
+  });
+
   it("abapGit teslimi ZIP'siz script'te paketle eşleşir", () => {
     const s = session("yerel");
     const next = ids();
@@ -247,8 +274,9 @@ describe("yerel mod ve teslim", () => {
     const ag = (paket: string, h: string) =>
       fact({ arac: "axet_abapgit_onay", nesneler: [], arg_hash: H(h), abapgit: { script: "gui_import_zip", paket } });
     expect(decide(s, ag("ZPKG", "3"), T0, next).karar).toBe("izinli");
-    expect(decide(s, ag("", "4"), T0, next).karar).toBe("yerel_mod");
-    expect(decide(s, ag("ZDIGER", "5"), T0, next).karar).toBe("yerel_mod");
+    // Kapsanmayan ZIP'siz çağrı reddedilmez, tek seferlik pencereye gider (M9).
+    expect(decide(s, ag("", "4"), T0, next)).toMatchObject({ karar: "bekliyor", created: true });
+    expect(decide(s, ag("ZDIGER", "5"), T0, next)).toMatchObject({ karar: "bekliyor", created: true });
   });
 });
 
@@ -278,6 +306,22 @@ describe("üst onay zinciri (abapgit_deploy alt adımları)", () => {
     respond(s, pushId, "bu_seferlik", T0);
     expect(decide(s, ag({ arg_hash: H("5"), ust_onay: pushId }), T0, next).karar).toBe("bekliyor");
   });
+
+  it("ebeveyn ZIP'e bağlıysa alt adım aynı ZIP'i taşımalı", () => {
+    const s = session();
+    const next = ids();
+    const zip = { script: "abapgit_deploy", paket: "ZPKG", zip_sha256: H("c") };
+    decide(s, ag({ arg_hash: H("1"), abapgit: zip }), T0, next);
+    respond(s, "id1", "bu_seferlik", T0);
+    decide(s, ag({ arg_hash: H("1"), abapgit: zip }), T0, next);
+    // abapgit_deploy'un kendi akışı: alt adım aynı ZIP'le gelir, pencere açmaz.
+    const ayni = ag({ arg_hash: H("2"), abapgit: { ...zip, script: "gui_run_zabapgit_auto" }, ust_onay: "id1" });
+    expect(decide(s, ayni, T0, next)).toMatchObject({ karar: "izinli", kaynak: "ust_onay" });
+    const baska = ag({ arg_hash: H("3"), abapgit: { ...zip, script: "gui_import_zip", zip_sha256: H("d") }, ust_onay: "id1" });
+    expect(decide(s, baska, T0, next).karar).toBe("bekliyor");
+    const zipsiz = ag({ arg_hash: H("4"), abapgit: { script: "gui_import_zip", paket: "ZPKG" }, ust_onay: "id1" });
+    expect(decide(s, zipsiz, T0, next).karar).toBe("bekliyor");
+  });
 });
 
 describe("validateFact", () => {
@@ -296,5 +340,28 @@ describe("validateFact", () => {
     expect(validateFact({ ...fact(), nesneler: [obj({ kaynak_sha256: ["kisa"] })] })).toBe(false);
     expect(validateFact({ ...fact(), transport: 5 })).toBe(false);
     expect(validateFact({ ...fact(), transport_bilgi: { aciklama: "x" } })).toBe(false);
+  });
+
+  it("kritik bulgulu nesne ve bozuk ZIP hash'i kabul edilmez", () => {
+    const k = (kritik: number) => ({ kritik, yuksek: 0, orta: 0, dusuk: 0 });
+    expect(validateFact(fact({ nesneler: [obj({ kalite: k(0) })] }))).toBe(true);
+    expect(validateFact(fact({ nesneler: [obj({ kalite: k(1) })] }))).toBe(false);
+    expect(validateFact(fact({ abapgit: { script: "gui_import_zip", zip_sha256: H("a") } }))).toBe(true);
+    expect(validateFact(fact({ abapgit: { script: "gui_import_zip", zip_sha256: "" } }))).toBe(true);
+    expect(validateFact(fact({ abapgit: { script: "gui_import_zip", zip_sha256: "abc" } }))).toBe(false);
+    expect(validateFact(fact({ abapgit: { script: "gui_import_zip", zip_sha256: H("Z") } }))).toBe(false);
+    expect(validateFact(fact({ teslim: { yontem: "abapgit", zip_sha256: H("b") } }))).toBe(true);
+    expect(validateFact(fact({ teslim: { yontem: "abapgit", zip_sha256: "kisa" } }))).toBe(false);
+  });
+
+  it("islem ve secenekler: isteğe bağlı, kısa metin ve düz boolean nesnesi", () => {
+    expect(validateFact(fact({ islem: "DELETE", secenekler: { recreate: true } }))).toBe(true);
+    expect(validateFact(fact({ islem: "write" }))).toBe(true);
+    expect(validateFact({ ...fact(), islem: 5 })).toBe(false);
+    expect(validateFact({ ...fact(), islem: "" })).toBe(false);
+    expect(validateFact({ ...fact(), islem: "X".repeat(41) })).toBe(false);
+    expect(validateFact({ ...fact(), secenekler: { recreate: "evet" } })).toBe(false);
+    expect(validateFact({ ...fact(), secenekler: { recreate: { a: true } } })).toBe(false);
+    expect(validateFact({ ...fact(), secenekler: [true] })).toBe(false);
   });
 });

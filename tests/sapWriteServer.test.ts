@@ -194,6 +194,32 @@ describe("onay ucu", () => {
     for (const l of lines) expect(typeof l.zaman).toBe("string");
   });
 
+  it("günlük: /results'taki atc de kırpılıyor (en çok 10 nesne, bilinen alanlar, 500 karakter)", async () => {
+    const s = await openWriteSession(dir, ID);
+    setWriteMode(s.sessionId, "dogrudan");
+    const r = await call(s.url, s.token, "POST", "/approvals", fact());
+    respondToApproval(r.json.id, "bu_seferlik");
+    await call(s.url, s.token, "POST", "/approvals", fact());
+    const atc = Array.from({ length: 30 }, (_, i) => ({
+      nesne: `ZCL_${i}`,
+      tip: "class",
+      toplam: 2,
+      oncelik: { "1": 1, "2": 1 },
+      hata: "h".repeat(2000),
+      kaynak: "GIZLI_KAYNAK_SATIRI",
+    }));
+    await call(s.url, s.token, "POST", "/results", { id: r.json.id, sap_sonucu: { success: true }, atc });
+    const raw = readFileSync(path.join(dir, LOG_FILE), "utf8");
+    expect(raw).not.toContain("GIZLI_KAYNAK_SATIRI");
+    const sonuc = logLines().find((l) => l.tur === "sonuc") as Record<string, unknown>;
+    const logged = sonuc.atc as Record<string, unknown>[];
+    expect(logged).toHaveLength(10);
+    expect(logged[0]).toEqual({ nesne: "ZCL_0", tip: "class", toplam: 2, oncelik: { "1": 1, "2": 1 }, hata: "h".repeat(500) });
+    await call(s.url, s.token, "POST", "/results", { id: r.json.id, sap_sonucu: {}, atc: "x".repeat(5000) });
+    const son = logLines().filter((l) => l.tur === "sonuc").pop() as Record<string, unknown>;
+    expect(son.atc).toBeUndefined();
+  });
+
   it("aynı istek tekrar geldikçe günlüğe yeni 'bekliyor' satırı yazılmıyor", async () => {
     const s = await openWriteSession(dir, ID);
     setWriteMode(s.sessionId, "dogrudan");

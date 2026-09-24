@@ -93,8 +93,9 @@ export function canSession(mode: WorkMode | null, fact: WriteFact): boolean {
   if (fact.sinif !== "TRANSPORT_ONAYLI" || fact.arac === "axet_teslim") return false;
   const pk = factPackages(fact);
   if (pk.length !== 1 || !pk[0]) return false;
-  // Transport'suz oturum izni yalnızca yerel ($TMP) pakette: orada transport kaydı yok.
-  return fact.transport !== "" || pk[0] === "$TMP";
+  // Transport'suz oturum izni yalnızca yerel ($ ile başlayan) pakette: orada transport kaydı yok.
+  // gated_collect de her $… paketini yerel sayıyor; ikisi aynı kuralı izlemeli.
+  return fact.transport !== "" || pk[0].startsWith("$");
 }
 
 function sessionCovers(state: WriteSessionState, fact: WriteFact): boolean {
@@ -145,6 +146,9 @@ function ustOnayValid(state: WriteSessionState, fact: WriteFact, now: number): b
   if (!parent || parent.status !== "onaylandi" || parent.fact.arac !== "axet_abapgit_onay") return false;
   if (now - (parent.decidedAt ?? parent.createdAt) >= UST_ONAY_TTL_MS) return false;
   if (fact.transport && parent.fact.transport && fact.transport !== parent.fact.transport) return false;
+  // Ebeveyn bir ZIP'e onay aldıysa alt adım yalnızca o ZIP'i yükleyebilir: onay başka ZIP'e taşınmaz.
+  const parentZip = parent.fact.abapgit?.zip_sha256;
+  if (parentZip && fact.abapgit?.zip_sha256 !== parentZip) return false;
   return true;
 }
 
@@ -223,7 +227,11 @@ export function decide(
   if (state.mode === "dogrudan" && sessionCovers(state, fact)) {
     return grantRecord(state, fact, now, "oturum_izni", newId);
   }
-  if (state.mode === "yerel" && fact.sinif === "TRANSPORT_ONAYLI" && fact.arac !== "axet_teslim") {
+  // Yerel modda ZIP'siz abapGit çağrısı (yalnız paket: işe başlamak için SAP'tan kod çekmek)
+  // reddedilmez, tek seferlik pencereye gider; oturum izni yerel modda zaten verilemiyor.
+  // ZIP içe aktarma ise reddedilir: teslim axet_teslim üzerinden yapılır.
+  const zipsizAbapgit = fact.arac === "axet_abapgit_onay" && !fact.abapgit?.zip_sha256;
+  if (state.mode === "yerel" && fact.sinif === "TRANSPORT_ONAYLI" && fact.arac !== "axet_teslim" && !zipsizAbapgit) {
     return { karar: "yerel_mod", id: null, kaynak: null, created: false };
   }
 
@@ -275,8 +283,20 @@ function validObject(o: unknown): boolean {
   if (o.kalite !== undefined) {
     const k = o.kalite;
     if (!isObj(k) || !isNum(k.kritik) || !isNum(k.yuksek) || !isNum(k.orta) || !isNum(k.dusuk)) return false;
+    // Kritik bulgulu nesne kalite kapısında durmalıydı; buraya gelmişse bilgi tutarsız.
+    if (k.kritik > 0) return false;
   }
   return true;
+}
+
+const ISLEM_RE = /^[A-Za-z_]{1,40}$/;
+const isZipHash = (v: unknown): boolean => v === undefined || (isStr(v) && (v === "" || HASH_RE.test(v)));
+
+/** Yıkıcı bayraklar: düz nesne, kısa adlar, değerler yalnızca boolean. */
+function validOptions(v: unknown): boolean {
+  if (!isObj(v)) return false;
+  const entries = Object.entries(v);
+  return entries.length <= 10 && entries.every(([k, b]) => ISLEM_RE.test(k) && typeof b === "boolean");
 }
 
 /** Python tarafından gelen bilginin şekli. Tutmayan istek pencere açmaz, 400 döner. */
@@ -294,14 +314,16 @@ export function validateFact(x: unknown): x is WriteFact {
   if (!isStr(x.arg_hash) || !HASH_RE.test(x.arg_hash)) return false;
   if (x.teslim !== undefined) {
     const t = x.teslim;
-    if (!isObj(t) || !isStr(t.yontem) || (t.zip_sha256 !== undefined && !isStr(t.zip_sha256))) return false;
+    if (!isObj(t) || !isStr(t.yontem) || !isZipHash(t.zip_sha256)) return false;
   }
   if (x.abapgit !== undefined) {
     const a = x.abapgit;
     if (!isObj(a) || !isStr(a.script) || !a.script) return false;
-    if (a.zip_sha256 !== undefined && !isStr(a.zip_sha256)) return false;
+    if (!isZipHash(a.zip_sha256)) return false;
     if (a.paket !== undefined && !isStr(a.paket)) return false;
   }
   if (x.ust_onay !== undefined && !isStr(x.ust_onay)) return false;
+  if (x.islem !== undefined && (!isStr(x.islem) || !ISLEM_RE.test(x.islem))) return false;
+  if (x.secenekler !== undefined && !validOptions(x.secenekler)) return false;
   return true;
 }
