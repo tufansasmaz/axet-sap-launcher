@@ -141,6 +141,25 @@ def t_push_arg_owner_check_raises():
                                                      project({"zcl_a.clas.abap": NEW_SRC})))
 
 
+def t_cds_create_existing_owner_differs():
+    """Var olan CDS görünümü: argüman transport'u sahip transport'tan farklıysa reddet."""
+    sap = FakeSap(tadir={("DDLS", "ZI_V"): "ZPKG"}, owners={"ZI_V": TR}, sources={"zi_v": ""})
+    exc = refused("transport_belirsiz", lambda: gc.collect(sap, "adt_create_cds_view",
+                                                            {"name": "ZI_V", "package": "ZPKG", "description": "x",
+                                                             "transport": TR2.lower(), "source_file": "x.ddls"},
+                                                            project({"x.ddls": b"define view entity ZI_V..."})))
+    assert TR in exc.message
+
+
+def t_cds_create_existing_owner_injected():
+    """Var olan CDS: transport verisi yoksa sahip transport enjekte edilir."""
+    sap = FakeSap(tadir={("DDLS", "ZI_V"): "ZPKG"}, owners={"ZI_V": TR}, sources={"zi_v": ""})
+    r = gc.collect(sap, "adt_create_cds_view", {"name": "ZI_V", "package": "ZPKG", "description": "x",
+                                                 "source_file": "x.ddls"},
+                   project({"x.ddls": b"define view entity ZI_V..."}))
+    assert r["transport"] == TR and r["enjekte_transport"] == TR
+
+
 def t_push_session_fallback():
     sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"}, sources={"zcl_a": ""}, session_transport=TR2)
     r = gc.collect(sap, "adt_push", push_args(), project({"zcl_a.clas.abap": NEW_SRC}))
@@ -370,6 +389,8 @@ TESTS = [
     ("push_arg_differs", "argüman transport'u nesnenin sahip transport'undan farklıysa reddet", t_push_arg_differs_from_owner),
     ("push_arg_matches", "argüman transport'u nesnenin sahip transport'una eşit ve kabul edilir", t_push_arg_matches_owner),
     ("push_arg_owner_check_error", "sahip transport doğrulaması başarısız", t_push_arg_owner_check_raises),
+    ("cds_create_owner_differs", "var olan CDS'de argüman transport'u sahip transport'tan farklıysa reddet", t_cds_create_existing_owner_differs),
+    ("cds_create_owner_injected", "var olan CDS'de transport yoksa sahip transport enjekte edilir", t_cds_create_existing_owner_injected),
     ("push_session", "oturuma sabitlenmiş transport pencerede görünmüyor", t_push_session_fallback),
     ("push_belirsiz", "transport'u belirsiz yazma pencereye transport'suz gidiyor", t_push_transport_belirsiz),
     ("push_local", "$TMP'de transport isteniyor", t_push_local_package),

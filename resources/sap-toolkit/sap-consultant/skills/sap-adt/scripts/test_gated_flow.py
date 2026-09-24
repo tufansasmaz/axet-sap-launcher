@@ -188,7 +188,8 @@ def t_arg_hash_changes():
 
 def t_classify():
     assert gs.classify("adt_generate_screen", {"mode": "write"}) == "TRANSPORT_ONAYLI"
-    assert gs.classify("adt_generate_screen", {"mode": " read "}) == "SERBEST"
+    assert gs.classify("adt_generate_screen", {"mode": " read "}) == "mod_belirtilmeli", "satır başında/sonunda boşluk"
+    assert gs.classify("adt_message_class", {"action": "read\n"}) == "mod_belirtilmeli", "satır sonunda newline"
     assert gs.classify("adt_generate_adobe", {"mode": "SET_LAYOUT"}) == "TRANSPORT_ONAYLI"
     assert gs.classify("adt_generate_adobe", {"mode": "YENI_MOD"}) == "HER_SEFER", "tanınmayan mod gevşek"
     assert gs.classify("adt_message_class", {"action": "READ"}) == "SERBEST"

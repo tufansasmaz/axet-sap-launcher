@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import functools
 import hashlib
+import http.client
 import inspect
 import json
 import os
@@ -173,9 +174,9 @@ def classify(arac: str, raw_kwargs: dict) -> str:
     if arac in KARMA:
         param, norm, table = KARMA[arac]
         raw = raw_kwargs.get(param)
-        if not isinstance(raw, str) or not raw.strip():
+        if not isinstance(raw, str) or not raw.strip() or raw != raw.strip():
             return "mod_belirtilmeli"
-        return table.get(norm(raw.strip()), H_S)
+        return table.get(norm(raw), H_S)
     if arac in HER_SEFER:
         return H_S
     if arac in TRANSPORT_ONAYLI:
@@ -246,7 +247,7 @@ def _launcher(method: str, path: str, body: dict | None = None) -> dict:
             text = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         raise ApprovalUnavailable(f"onay ucu {exc.code} döndü")
-    except (urllib.error.URLError, OSError) as exc:
+    except (urllib.error.URLError, OSError, http.client.HTTPException, UnicodeDecodeError) as exc:
         raise ApprovalUnavailable(f"onay ucuna ulaşılamadı: {exc}")
     try:
         out = json.loads(text)
@@ -261,7 +262,7 @@ def _post_quiet(path: str, body: dict) -> None:
     """Günlük bildirimi: başarısızlığı yazmayı durdurmaz, stderr'e not düşer."""
     try:
         _launcher("POST", path, body)
-    except ApprovalUnavailable as exc:
+    except Exception as exc:  # noqa: BLE001
         sys.stderr.write(f"[adt-gated] günlük bildirimi gitmedi ({path}): {exc}\n")
 
 
@@ -378,7 +379,10 @@ def make_wrapper(arac: str, orig):
             return _fail(exc.reason, exc.message)
         except Exception as exc:  # noqa: BLE001 — SAP'a bağlanılamadı: bilgi yoksa onay yok
             return _fail("bilgi_toplanamadi", f"SAP'tan bilgi okunamadı: {exc}")
-        refused = quality_gate(arac, info, pd)
+        try:
+            refused = quality_gate(arac, info, pd)
+        except Exception as exc:  # noqa: BLE001
+            return _fail("bilgi_toplanamadi", f"Kalite kapısı okunamadı: {exc}")
         if refused:
             return refused
         grant, refused = ask(build_fact(arac, sinif, args, info))
@@ -408,7 +412,8 @@ def make_wrapper(arac: str, orig):
                 result["axet_atc"] = atc
                 body["atc"] = atc
             corrnr = str(result.get("corrnr") or "").upper()
-            if corrnr and info["transport"] and corrnr != info["transport"]:
+            transport_approved = str(info["transport"] or "").upper()
+            if corrnr and transport_approved and corrnr != transport_approved:
                 result["axet_uyari"] = (f"Onaylanan transport {info['transport']}, SAP'ın kaydettiği "
                                         f"{corrnr}. Kullanıcıya söyle.")
         _post_quiet("/results", body)
@@ -516,7 +521,7 @@ class Heartbeat:
     def tick(self) -> bool:
         try:
             ok = _launcher("GET", "/health").get("ok") is True
-        except ApprovalUnavailable:
+        except Exception:  # noqa: BLE001
             ok = False
         self.misses = 0 if ok else self.misses + 1
         if self.misses >= self.max_miss:

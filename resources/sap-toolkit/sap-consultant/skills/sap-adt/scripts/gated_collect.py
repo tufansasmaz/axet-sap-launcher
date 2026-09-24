@@ -190,15 +190,9 @@ def _existing(sap, tip, ad, fallback_paket=""):
     return (paket or fallback_paket), paket is None
 
 
-# --- araç başına toplayıcılar ------------------------------------------------
-def _push(sap, pd, a):
-    ad, ot = _name(a.get("name"), "name"), a.get("object_type")
-    tip = r3tr(ot)
-    if tip == "FUNC":
-        raise CollectError("bilgi_toplanamadi",
-                           "Fonksiyon modülü adt_push ile yazılmaz; adt_write_function_module kullan.")
-    paket, yeni = _existing(sap, tip, ad)
-    arg_tr = _tr(a.get("transport"))
+def _owner_resolve(sap, ad, ot, arg, paket, yeni) -> tuple[str, str]:
+    """Var olan nesnenin sahip transport'unu doğrula ve çöz (push ve CDS create için)."""
+    arg_tr = _tr(arg)
     # I1: Argüman transport varsa ve nesne mevcutsa, motorun yazacağı transport'u doğrula
     if arg_tr and not yeni:
         try:
@@ -209,7 +203,18 @@ def _push(sap, pd, a):
             raise CollectError("transport_belirsiz",
                              f"{ad} {eng} transport'unda kayıtlı; motor oraya yazar. transport={eng} ile tekrar dene.")
     owner = "" if yeni else owner_transport(sap, ad, ot)
-    tr, enj = _resolve(sap, arg_tr, owner, paket)
+    return _resolve(sap, arg_tr, owner, paket)
+
+
+# --- araç başına toplayıcılar ------------------------------------------------
+def _push(sap, pd, a):
+    ad, ot = _name(a.get("name"), "name"), a.get("object_type")
+    tip = r3tr(ot)
+    if tip == "FUNC":
+        raise CollectError("bilgi_toplanamadi",
+                           "Fonksiyon modülü adt_push ile yazılmaz; adt_write_function_module kullan.")
+    paket, yeni = _existing(sap, tip, ad)
+    tr, enj = _owner_resolve(sap, ad, ot, a.get("transport"), paket, yeni)
     obj = source_object(sap, pd, a.get("source_file"), ad, ot, tip, paket, yeni)
     return _result(sap, [obj], tr, enjekte=enj, kalite=True)
 
@@ -238,7 +243,11 @@ def _create(sap, pd, a, arac):
     else:  # adt_create, adt_create_ddic_shell
         tip = r3tr(a.get("object_type"))
     paket, yeni = _existing(sap, tip, ad, pk)
-    tr, enj = _resolve(sap, a.get("transport"), "", paket)
+    # CDS görünümleri: varsa sahip transport doğrulaması gerekli
+    if arac == "adt_create_cds_view":
+        tr, enj = _owner_resolve(sap, ad, "cds", a.get("transport"), paket, yeni)
+    else:
+        tr, enj = _resolve(sap, a.get("transport"), "", paket)
     if arac in SOURCE_CREATES:
         obj = source_object(sap, pd, a.get("source_file"), ad, tip, tip, paket, yeni)
         return _result(sap, [obj], tr, enjekte=enj, kalite=True)
