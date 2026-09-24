@@ -108,6 +108,48 @@ describe("abapgit-deploy — SAP GUI sürücülerinde DEV kapısı", () => {
     expect(body.slice(parsed, gate)).not.toMatch(/attach_scripting_engine|_run_step|subprocess/);
     expect(body.slice(gate)).toMatch(/if refused:\s*\n\s*print\(refused, file=sys\.stderr\)\s*\n\s*return 2/);
   });
+
+  // NTT Studio — SAP DEV yazma onayı (2026-09-24). DEV kapısından sonra her
+  // yazma, SAP GUI'ye dokunmadan önce 8787'deki onaylı sunucuya soruyor.
+  // Davranış `test_tier_gate_approval.py`'de sahte 8787 ile ölçülüyor
+  // (`py -3`); burada kapının varlığı ve yeri kilitleniyor.
+  it("require_write_approval 8787'ye soruyor, launcher'a doğrudan gitmiyor, kapalı başarısız", () => {
+    const gate = read(...dir, "tier_gate.py");
+    const fn = pyFunction(gate, "require_write_approval");
+    expect(gate).toContain('ADT_HTTP_URL = "http://127.0.0.1:8787"');
+    expect(fn).toContain('"/tool/axet_abapgit_onay"');
+    expect(fn).toContain('os.environ.get("ABAP_HTTP_TOKEN"');
+    expect(fn).toContain("ProxyHandler({})");
+    // Yalnızca tam 'ok: True' + kimlik geçiriyor; kimlik alt adımlara ortamla gidiyor.
+    expect(fn).toMatch(/if out\.get\("ok"\) is True and isinstance\(onay_id, str\) and onay_id:\s*\n\s*os\.environ\[APPROVAL_ENV\] = onay_id\s*\n\s*return None/);
+    expect(gate).toContain('APPROVAL_ENV = "AXET_ABAPGIT_ONAY_ID"');
+    expect(gate).toContain("EXIT_PENDING = 3");
+    expect(fn).toContain('print(f"approval_pending: {message}", flush=True)');
+    // Onay ucunun adresi ve token'ı yalnızca sunucuda; script'ler onları görmüyor.
+    expect(gate).not.toMatch(/ADT_APPROVAL_(URL|TOKEN)/);
+  });
+
+  const APPROVAL = /from tier_gate import require_write_approval\s*\n\s*rc = require_write_approval\(__file__[\s\S]*?\)\s*\n\s*if rc is not None:\s*\n\s*return rc/;
+
+  it.each(WRITERS.filter((f) => f !== "abapgit_deploy.py"))("%s DEV kapısından hemen sonra onay istiyor", (file) => {
+    const body = pyFunction(read(...dir, file), "main");
+    const gate = body.indexOf("require_dev_tier(");
+    const approval = body.search(APPROVAL);
+    expect(approval, "onay çağrısı yok").toBeGreaterThan(gate);
+    // DEV kapısı ile onay arasında SAP'a giden hiçbir şey yok.
+    expect(body.slice(gate, approval)).not.toMatch(/attach_scripting_engine\(|_run_step\(|subprocess\./);
+  });
+
+  it("abapgit_deploy.py ZIP belli olunca ve login'den ÖNCE onay istiyor", () => {
+    const body = pyFunction(read(...dir, "abapgit_deploy.py"), "main");
+    const zip = body.indexOf('print(f"      ZIP: {zip_path}")');
+    const approval = body.search(APPROVAL);
+    const login = body.indexOf('"gui_login.py"');
+    expect(zip).toBeGreaterThanOrEqual(0);
+    expect(approval).toBeGreaterThan(zip);
+    expect(login).toBeGreaterThan(approval);
+    expect(body.slice(approval)).toMatch(/require_write_approval\(__file__, paket=args\.package, transport=args\.transport,\s*zip_dosyasi=str\(zip_path\)\)/);
+  });
 });
 
 describe("ajana giden not — GR_TIER reddi arıza değil", () => {

@@ -120,6 +120,12 @@ def main() -> int:
         print(refused, file=sys.stderr)
         return 2
 
+    # NTT Studio — SAP DEV yazma onayı: SAP'a dokunmadan önce NTT Studio penceresine sor.
+    from tier_gate import require_write_approval
+    rc = require_write_approval(__file__, transport=args.transport, zip_dosyasi=args.zip)
+    if rc is not None:
+        return rc
+
     zip_path = Path(args.zip).resolve()
     if not zip_path.exists():
         print(f"FAIL: ZIP not found: {zip_path}", file=sys.stderr)

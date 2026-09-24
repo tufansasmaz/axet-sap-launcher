@@ -167,6 +167,15 @@ def main() -> int:
         zip_path = str(zips[0])
     print(f"      ZIP: {zip_path}")
 
+    # NTT Studio — SAP DEV yazma onayı. ZIP ancak export'tan sonra belli (export
+    # yereldir, SAP'a dokunmaz); onay ZIP'in kendisine veriliyor, login'den önce.
+    # Onay kimliği AXET_ABAPGIT_ONAY_ID ile alt adımlara geçer; onlar yeniden sormaz.
+    from tier_gate import require_write_approval
+    rc = require_write_approval(__file__, paket=args.package, transport=args.transport,
+                                zip_dosyasi=str(zip_path))
+    if rc is not None:
+        return rc
+
     # ---- 2/4: ensure SAPGUI session ----
     if not args.no_login:
         rc, _ = _run_step(f"[2/4] gui_login.py --system {args.system!r}",

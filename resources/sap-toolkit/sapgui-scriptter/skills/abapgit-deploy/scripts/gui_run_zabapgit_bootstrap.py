@@ -107,6 +107,12 @@ def main() -> int:
         print(refused, file=sys.stderr)
         return 2
 
+    # NTT Studio — SAP DEV yazma onayı: SAP'a dokunmadan önce NTT Studio penceresine sor.
+    from tier_gate import require_write_approval
+    rc = require_write_approval(__file__, paket=args.package)
+    if rc is not None:
+        return rc
+
     out_path = Path(args.out).resolve()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     if out_path.exists():

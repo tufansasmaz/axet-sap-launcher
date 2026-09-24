@@ -121,6 +121,12 @@ def main() -> int:
         print(refused, file=sys.stderr)
         return 2
 
+    # NTT Studio — SAP DEV yazma onayı: SAP'a dokunmadan önce NTT Studio penceresine sor.
+    from tier_gate import require_write_approval
+    rc = require_write_approval(__file__)
+    if rc is not None:
+        return rc
+
     objs_path = Path(args.objs).resolve()
     if not objs_path.exists():
         print(f"FAIL: picks file not found: {objs_path}", file=sys.stderr)

@@ -173,6 +173,12 @@ def main() -> int:
         print(refused, file=sys.stderr)
         return 2
 
+    # NTT Studio — SAP DEV yazma onayı: SAP'a dokunmadan önce NTT Studio penceresine sor.
+    from tier_gate import require_write_approval
+    rc = require_write_approval(__file__, paket=args.package)
+    if rc is not None:
+        return rc
+
     try:
         app = attach_scripting_engine()
         session = get_session(app, args.connection_index, args.session_index)
