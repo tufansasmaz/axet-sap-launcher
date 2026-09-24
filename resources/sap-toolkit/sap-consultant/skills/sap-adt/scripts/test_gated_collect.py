@@ -421,9 +421,12 @@ def t_abapgit_transport_needed():
     # ZIP + paket yok + no transport → da refused
     exc = refused("transport_belirsiz", lambda: gc.collect_abapgit(sap, pd, "gui_import_zip.py", "", "", name))
     assert "--transport" in exc.message
-    # $TMP (yerel) + zip + no transport → geçer
-    r = gc.collect_abapgit(sap, pd, "script.py", "$TMP", "", name)
-    assert r["transport"] == "" and r["kalite"] is True
+    # $TMP iddiası + ZIP'teki nesne SAP'ta ZPKG'de → transport yine gerekir (paket iddiası yetmez)
+    refused("transport_belirsiz", lambda: gc.collect_abapgit(sap, pd, "gui_import_zip.py", "$TMP", "", name))
+    # $TMP (yerel) + zip + nesneler SAP'ta yok ya da yerel pakette → geçer
+    for tadir in ({}, {("CLAS", "ZCL_A"): "$TMP"}):
+        r = gc.collect_abapgit(FakeSap(tadir=tadir), pd, "script.py", "$TMP", "", name)
+        assert r["transport"] == "" and r["kalite"] is True
 
 
 def t_abapgit_paket_only_no_transport():

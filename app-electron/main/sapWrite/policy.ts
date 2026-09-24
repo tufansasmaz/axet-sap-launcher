@@ -146,9 +146,11 @@ function ustOnayValid(state: WriteSessionState, fact: WriteFact, now: number): b
   if (!parent || parent.status !== "onaylandi" || parent.fact.arac !== "axet_abapgit_onay") return false;
   if (now - (parent.decidedAt ?? parent.createdAt) >= UST_ONAY_TTL_MS) return false;
   if (fact.transport && parent.fact.transport && fact.transport !== parent.fact.transport) return false;
-  // Ebeveyn bir ZIP'e onay aldıysa alt adım yalnızca o ZIP'i yükleyebilir: onay başka ZIP'e taşınmaz.
+  // ZIP'li alt adım yalnızca aynı ZIP'e onay almış bir ebeveynle geçer: ZIP'siz bir onay
+  // (ör. bootstrap, yerel modda da açılır) hiçbir ZIP'i SAP'a taşıyamaz, onay başka ZIP'e taşınmaz.
   const parentZip = parent.fact.abapgit?.zip_sha256;
-  if (parentZip && fact.abapgit?.zip_sha256 !== parentZip) return false;
+  const childZip = fact.abapgit?.zip_sha256;
+  if ((parentZip || childZip) && childZip !== parentZip) return false;
   return true;
 }
 

@@ -495,7 +495,9 @@ def collect_abapgit(sap, project_dir, script, paket="", transport="", zip_dosyas
     # I2: Transport yalnızca ZIP içe aktarılırken gerekir (nesne yazılır). Paket-only çalıştırmalar
     # (bootstrap = SAP'tan okuma, aktivasyon = zaten kayıtlı nesneler) transport seçmez; transport ""
     # ile gider ve politika yerel olmayan pakette yalnızca "bu seferlik" onay sunar.
-    if zip_dosyasi and not tr and not _local(pk):
+    # Paket iddiası yetmez: ZIP'teki nesnelerden biri SAP'ta zaten yerel olmayan bir paketteyse
+    # transport o nesne için kaydedilecek demektir (_adobe'daki kuralın aynısı).
+    if zip_dosyasi and not tr and (not _local(pk) or any(not _local(o["paket"]) for o in objs)):
         raise CollectError("transport_belirsiz", MSG_TRANSPORT_BELIRSIZ_ABAPGIT)
     out = _result(sap, objs, tr, paket=pk, kalite=bool(zip_dosyasi))
     out["abapgit"] = abapgit

@@ -322,6 +322,17 @@ describe("üst onay zinciri (abapgit_deploy alt adımları)", () => {
     const zipsiz = ag({ arg_hash: H("4"), abapgit: { script: "gui_import_zip", paket: "ZPKG" }, ust_onay: "id1" });
     expect(decide(s, zipsiz, T0, next).karar).toBe("bekliyor");
   });
+
+  it("ZIP'siz ebeveyn ZIP'li alt adıma onay taşımaz; yerel modda ZIP içe aktarma yerel_mod kalır", () => {
+    for (const mode of ["dogrudan", "yerel"] as const) {
+      const s = session(mode);
+      const next = ids();
+      decide(s, ag({ arg_hash: H("1") }), T0, next);
+      expect(respond(s, "id1", "bu_seferlik", T0)).toMatchObject({ ok: true });
+      const zipli = ag({ arg_hash: H("2"), abapgit: { script: "gui_import_zip", paket: "ZPKG", zip_sha256: H("c") }, ust_onay: "id1" });
+      expect(decide(s, zipli, T0 + 1000, next).karar).toBe(mode === "yerel" ? "yerel_mod" : "bekliyor");
+    }
+  });
 });
 
 describe("validateFact", () => {
