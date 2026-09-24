@@ -315,6 +315,61 @@ def t_karma_tools():
     assert r["nesneler"][0]["paket"] == "ZPKG" and r["transport"] == TR
 
 
+def t_adobe_existing_real_package():
+    # Var olan nesnede transport ihtiyacı devclass argümanından değil, SAP'taki paketten (M2).
+    sap = FakeSap(tadir={("SFPI", "ZIF_F"): "ZPKG", ("SFPF", "ZF_L"): "$ZLOCAL"})
+    e = refused("transport_belirsiz", lambda: gc.collect(sap, "adt_generate_adobe", {
+        "interface": "ZIF_F", "devclass": "$TMP", "transport": ""}, project()))
+    assert "transport" in e.message
+    r = gc.collect(sap, "adt_generate_adobe", {"interface": "ZIF_F", "devclass": "$TMP", "transport": TR},
+                   project())
+    assert r["nesneler"][0]["paket"] == "ZPKG" and r["transport"] == TR
+    # Var olan yerel nesne: devclass ZPKG yazılmış olsa da transport istenmez.
+    r = gc.collect(sap, "adt_generate_adobe", {"form": "ZF_L", "devclass": "ZPKG", "transport": ""}, project())
+    assert [(o["paket"], o["yeni"]) for o in r["nesneler"]] == [("$ZLOCAL", False)] and r["transport"] == ""
+    # Yeni form ZPKG'ye, var olan arayüz yerelde: yeni nesne transport ister.
+    refused("transport_belirsiz", lambda: gc.collect(sap, "adt_generate_adobe", {
+        "interface": "ZNEW_IF", "form": "ZF_L", "devclass": "ZPKG", "transport": ""}, project()))
+
+
+def t_generator_fm_name():
+    import os
+    saved = {k: os.environ.pop(k, None) for k in ("ABAP_SCREEN_GEN_FM", "ABAP_SCREEN_FIELDS_FM",
+                                                   "ABAP_ADOBE_GEN_FM")}
+    try:
+        f = gc.generator_fm
+        assert f("adt_generate_screen", {"fm_name": "", "screen_type": "DOCKING"}) == "ZND_FM_SCREEN_GEN"
+        assert f("adt_generate_screen", {"fm_name": "zmy_gen", "screen_type": "CONTAINER"}) == "ZMY_GEN"
+        # FIELDS ekranı ayrı üreteç kullanır; motor fm_name'i oraya geçirmiyor.
+        assert f("adt_generate_screen", {"fm_name": "ZMY_GEN", "screen_type": "fields"}) == "ZND_FM_SCREEN_FIELDS"
+        assert f("adt_generate_adobe", {"fm_name": ""}) == "ZND_FM_ADOBE_GEN"
+        assert f("adt_generate_adobe", {"fm_name": "ZMY_ADOBE"}) == "ZMY_ADOBE"
+        os.environ["ABAP_ADOBE_GEN_FM"] = "ZENV_ADOBE"
+        os.environ["ABAP_SCREEN_GEN_FM"] = "ZENV_SCREEN"
+        assert f("adt_generate_adobe", {"fm_name": ""}) == "ZENV_ADOBE"
+        assert f("adt_generate_screen", {"fm_name": ""}) == "ZENV_SCREEN"
+    finally:
+        for k, v in saved.items():
+            os.environ.pop(k, None)
+            if v is not None:
+                os.environ[k] = v
+
+
+def t_generator_missing():
+    sap = FakeSap(tfdir={"ZND_FM_SCREEN_GEN": "SAPLZND_FG_AUTO_GEN"})
+    assert gc.generator_missing(sap, "ZND_FM_SCREEN_GEN") is False
+    assert gc.generator_missing(sap, "ZND_FM_ADOBE_GEN") is True
+    assert any("FROM tfdir WHERE funcname = 'ZND_FM_ADOBE_GEN'" in q for q in sap.queries), sap.queries
+    refused("bilgi_toplanamadi", lambda: gc.generator_missing(FakeSap(fail_sql=True), "ZND_FM_SCREEN_GEN"))
+    bad = FakeSap()
+    refused("gecersiz_ad", lambda: gc.generator_missing(bad, "X' OR '1'='1"))
+    assert bad.queries == [], "süzülmemiş FM adı SQL'e gitmemeli"
+    info = gc.collect_generator("ZND_FM_SCREEN_GEN")
+    assert info["nesneler"] == [{"ad": "ZND_FM_SCREEN_GEN", "tip": "FUNC", "paket": "$TMP", "yeni": True}], info
+    assert info["transport"] == "" and info["transport_bilgi"] is None and info["kalite"] is False
+    assert info["enjekte_transport"] == "" and info["islem"] == "JENERATOR_KUR"
+
+
 def t_teslim_adt():
     sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"}, sources={"zcl_a": "eski\n"})
     pd = project({"zcl_a.clas.abap": NEW_SRC})
@@ -424,6 +479,11 @@ TESTS = [
     ("objectless", "nesnesiz araçların bilgisi eksik", t_objectless_tools),
     ("delete_object", "silme sahip transport'a değil hayalet transport'a kaydediliyor", t_delete_object_injects_owner),
     ("karma", "ekran/adobe/mesaj sınıfı bilgisi yanlış", t_karma_tools),
+    ("adobe_real_package", "var olan Adobe nesnesinde transport ihtiyacı devclass argümanından okunuyor (M2)",
+     t_adobe_existing_real_package),
+    ("generator_fm_name", "okumada denetlenen üreteç FM'i motorun çağıracağından farklı (M1)", t_generator_fm_name),
+    ("generator_missing", "üreteç FM'i TFDIR'dan okunmuyor / okunamayınca serbest geçiyor (M1)",
+     t_generator_missing),
     ("teslim_adt", "teslim listesi yanlış toplanıyor", t_teslim_adt),
     ("teslim_abapgit", "ZIP hash'i teslim ile abapGit onayında farklı", t_teslim_and_abapgit_zip),
     ("abapgit_transport", "paket varsa transport gerekli (I2)", t_abapgit_transport_needed),

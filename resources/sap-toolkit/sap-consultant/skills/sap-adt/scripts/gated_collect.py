@@ -14,6 +14,7 @@ Okunamayan bilgi onaysız geçmez: CollectError fırlatılır, çağrı reddedil
 """
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
@@ -318,9 +319,44 @@ def _adobe(sap, pd, a):
     if not nesneler:
         raise CollectError("bilgi_toplanamadi", "interface ya da form gerekli.")
     tr = _tr(a.get("transport"))
-    if not tr and not _local(pk):
+    # Transport ihtiyacı her nesnenin gerçek paketinden: var olanda TADIR, yenide devclass.
+    # devclass=$TMP yazılmış olması ZPKG'deki var olan formu transport'suz yapmaz.
+    if not tr and any(not _local(o["paket"]) for o in nesneler):
         raise CollectError("transport_belirsiz", MSG_TRANSPORT_BELIRSIZ)
     return _result(sap, nesneler, tr)
+
+
+# --- üreteç FM'leri (okuma modunda da SAP'a yazabilir) -----------------------
+# Motor, üreteç FM'i yoksa varsayılan adla çağrıldığında onu $TMP'ye kurar
+# (ZND_FG_AUTO_GEN fonksiyon grubu + FM). Okuma modu da bunu tetikler; bu yüzden
+# okuma yalnızca FM TFDIR'da varsa serbest. Adlar motorun çözdüğü sırayla çözülür.
+GENERATOR_FUGR = "ZND_FG_AUTO_GEN"
+
+
+def generator_fm(arac: str, args: dict) -> str:
+    """Motorun bu çağrıda çağıracağı üreteç FM'inin adı (büyük harf)."""
+    if arac == "adt_generate_screen":
+        if str(args.get("screen_type") or "DOCKING").strip().upper() == "FIELDS":
+            # FIELDS ayrı üreteç kullanır; adt_generate_screen fm_name'i oraya geçirmiyor.
+            return os.getenv("ABAP_SCREEN_FIELDS_FM", "ZND_FM_SCREEN_FIELDS").upper()
+        return str(args.get("fm_name") or os.getenv("ABAP_SCREEN_GEN_FM", "ZND_FM_SCREEN_GEN")).upper()
+    if arac == "adt_generate_adobe":
+        return str(args.get("fm_name") or os.getenv("ABAP_ADOBE_GEN_FM", "ZND_FM_ADOBE_GEN")).upper()
+    raise CollectError("bilgi_toplanamadi", f"{arac} üreteç kullanmıyor.")
+
+
+def generator_missing(sap, fm: str) -> bool:
+    """FM TFDIR'da yoksa True. Okunamazsa CollectError (çağıran pencereye gönderir)."""
+    ad = _name(fm, "fm_name")
+    return _select_one(sap, f"SELECT funcname FROM tfdir WHERE funcname = '{ad}'") is None
+
+
+def collect_generator(fm: str) -> dict:
+    """Üreteç kurulumunun pencere bilgisi. SAP'a gitmez: kurulum $TMP'ye, transport'suz."""
+    ad = _name(fm, "fm_name")
+    return {"nesneler": [{"ad": ad, "tip": "FUNC", "paket": "$TMP", "yeni": True}],
+            "transport": "", "transport_bilgi": None, "enjekte_transport": "", "kalite": False,
+            "islem": "JENERATOR_KUR"}
 
 
 def _msag(sap, pd, a):

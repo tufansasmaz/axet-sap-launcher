@@ -39,6 +39,7 @@ import http.client
 import inspect
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -56,6 +57,18 @@ _SCRIPTS_DIR = Path(__file__).resolve().parent
 if str(_SCRIPTS_DIR) in sys.path:
     sys.path.remove(str(_SCRIPTS_DIR))
 sys.path.insert(0, str(_SCRIPTS_DIR))
+
+
+def _read_approval_env() -> tuple[str, str]:
+    """Onay ucunun adresi ve token'ı: launcher'ın bu sürecin ortamına koyduğu değerler."""
+    return (os.environ.get("ADT_APPROVAL_URL", "").strip().rstrip("/"),
+            os.environ.get("ADT_APPROVAL_TOKEN", "").strip())
+
+
+# Motor içe aktarılmadan ÖNCE, bir kez okunur. sap_adt_lib içe aktarılırken .conn_adt'yi
+# ortama yükler, sistem değişiminde override=True ile yeniden yükler: .conn_adt'ye yazılmış
+# bir ADT_APPROVAL_* anahtarı onayları sessizce başka bir uca yönlendirmesin.
+_APPROVAL = _read_approval_env()
 
 import adt_mcp_server as engine  # noqa: E402
 import gated_collect as gc  # noqa: E402
@@ -106,6 +119,13 @@ KARMA = {
         "DELETE": H_S}),
     "adt_message_class": ("action", str.lower, {"read": S, "create": T_O, "write": T_O}),
 }
+# Okuma modu da üreteç FM'ini çağırır; FM yoksa motor onu $TMP'ye kurar (bkz. _generator_install).
+GENERATOR_TOOLS = ("adt_generate_screen", "adt_generate_adobe")
+# Doğru geçildiğinde pencerede ayrıca uyarı olarak gösterilen yıkıcı bayraklar.
+DESTRUCTIVE_FLAGS = ("recreate", "replace", "recursive", "remove_locked_objects")
+_ISLEM_RE = re.compile(r"^[A-Za-z_]{1,40}$")
+# gated_collect._zip_nesneler'in ZIP'teki tipe uyguladığı biçim.
+_R3TR_RE = re.compile(r"^[A-Z0-9]{4}$")
 AXET_TOOLS = ("axet_teslim", "axet_abapgit_onay", "axet_inceleme_kaydet")
 # Kaynağı satır içi taşıyabilen argümanlar: kalite kapısı dosya hash'ine bağlı, bunlar reddedilir.
 INLINE_SOURCE_ARGS = ("source", "types_and_constants")
@@ -229,8 +249,8 @@ _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
 def _approval_env() -> tuple[str, str]:
-    url = os.environ.get("ADT_APPROVAL_URL", "").strip().rstrip("/")
-    token = os.environ.get("ADT_APPROVAL_TOKEN", "").strip()
+    """Başlangıçta yakalanan değerler; çağrı anındaki os.environ'a bakılmaz."""
+    url, token = _APPROVAL
     if not url or not token:
         raise ApprovalUnavailable("ADT_APPROVAL_URL / ADT_APPROVAL_TOKEN yok")
     return url, token
@@ -327,6 +347,20 @@ def build_fact(arac: str, sinif: str, args: dict, info: dict) -> dict:
     for key in ("paket", "teslim", "abapgit"):
         if info.get(key) is not None:
             fact[key] = info[key]
+    # İşlem: KARMA araçta seçilen mod (pencere etiketi buna göre); toplayıcı kendi işlemini
+    # verdiyse (üreteç kurulumu) o geçer. Launcher'ın kabul etmeyeceği biçim BILINMEYEN olur.
+    islem = info.get("islem")
+    if not islem and arac in KARMA:
+        param, norm, _table = KARMA[arac]
+        raw = args.get(param)
+        if isinstance(raw, str) and raw.strip():
+            islem = norm(raw.strip())
+    if islem:
+        fact["islem"] = islem if _ISLEM_RE.match(islem) else "BILINMEYEN"
+    # Motor bayrağı doğruluk değerine göre okur; pencere de öyle göstermeli.
+    secenekler = {k: True for k in DESTRUCTIVE_FLAGS if args.get(k)}
+    if secenekler:
+        fact["secenekler"] = secenekler
     return fact
 
 
@@ -355,6 +389,25 @@ def run_atc(arac: str, args: dict) -> list | None:
     return None
 
 
+def _generator_install(arac: str, args: dict) -> tuple[dict | None, dict | None]:
+    """(bilgi, ret) — okuma modundaki üreteç çağrısı.
+
+    Üreteç FM TFDIR'da varsa (None, None): okuma serbest. Yoksa motor onu $TMP'ye kurar
+    (ZND_FG_AUTO_GEN + FM), yani okuma bir yazmaya dönüşür: kurulum bilgisi döner, çağrı
+    HER_SEFER penceresine gider. TFDIR okunamazsa da pencere; serbest geçmez.
+    """
+    try:
+        fm = gc.generator_fm(arac, args)
+        if not gc.generator_missing(_sap(), fm):
+            return None, None
+    except gc.CollectError as exc:
+        if exc.reason == "gecersiz_ad":
+            return None, _fail(exc.reason, exc.message)
+    except Exception:  # noqa: BLE001 — SAP'a bağlanılamadı: denetlenemeyen okuma pencereye
+        pass
+    return gc.collect_generator(fm), None
+
+
 def make_wrapper(arac: str, orig):
     sig = inspect.signature(orig)
 
@@ -367,18 +420,26 @@ def make_wrapper(arac: str, orig):
         bound = sig.bind(**kwargs)  # bilinmeyen/eksik argüman: TypeError → HTTP 400 bad_args
         bound.apply_defaults()
         args = dict(bound.arguments)
+        info = None
+        if sinif == S and arac in GENERATOR_TOOLS:
+            info, refused = _generator_install(arac, args)
+            if refused:
+                return refused
+            if info is not None:
+                sinif = H_S
         if sinif == S or is_preview(arac, args):
             return orig(**kwargs)
         for key in INLINE_SOURCE_ARGS:
             if str(args.get(key) or "").strip():
                 return _fail("kaynak_dosyasi_gerekli")
         pd = _project_dir()
-        try:
-            info = gc.collect(_sap(), arac, args, pd)
-        except gc.CollectError as exc:
-            return _fail(exc.reason, exc.message)
-        except Exception as exc:  # noqa: BLE001 — SAP'a bağlanılamadı: bilgi yoksa onay yok
-            return _fail("bilgi_toplanamadi", f"SAP'tan bilgi okunamadı: {exc}")
+        if info is None:
+            try:
+                info = gc.collect(_sap(), arac, args, pd)
+            except gc.CollectError as exc:
+                return _fail(exc.reason, exc.message)
+            except Exception as exc:  # noqa: BLE001 — SAP'a bağlanılamadı: bilgi yoksa onay yok
+                return _fail("bilgi_toplanamadi", f"SAP'tan bilgi okunamadı: {exc}")
         try:
             refused = quality_gate(arac, info, pd)
         except Exception as exc:  # noqa: BLE001
@@ -490,7 +551,14 @@ def axet_inceleme_kaydet(nesne: str, tip: str, kaynak_dosyalari: list, bulgular:
     pd = _project_dir()
     try:
         ad = gc._name(nesne, "nesne")
-        r3 = gc.r3tr(tip)
+        try:
+            r3 = gc.r3tr(tip)
+        except gc.CollectError:
+            # object_types'ın tanımadığı tipler (ENHO ...) abapGit ZIP'inde ham R3TR tipiyle
+            # gelir; kalite kapısı da ZIP'teki tipi kullanır. 4 harfli ham tip kabul.
+            r3 = str(tip or "").strip().upper()
+            if not _R3TR_RE.match(r3):
+                raise
         rec = gq.write_review(pd, ad, r3, kaynak_dosyalari, bulgular, rapor=rapor, skill=skill)
     except gc.CollectError as exc:
         return _fail(exc.reason, exc.message)

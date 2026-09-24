@@ -101,6 +101,8 @@ class FakeLauncher:
 LAUNCHER = FakeLauncher()
 os.environ["ADT_APPROVAL_URL"] = LAUNCHER.url
 os.environ["ADT_APPROVAL_TOKEN"] = TOKEN
+# Sunucu değerleri başlangıçta bir kez okur (Rec A); test ortamı sonradan kurduğu için yeniden okut.
+gs._APPROVAL = gs._read_approval_env()
 
 
 class Env:
@@ -367,13 +369,54 @@ def t_delete_preview_passes():
 
 def t_env_missing_unavailable():
     Env(tadir={("DOMA", "ZD"): "ZPAKET"}, session_transport="DS4K900111")
-    saved = os.environ.pop("ADT_APPROVAL_TOKEN")
+    saved = gs._APPROVAL
+    gs._APPROVAL = (LAUNCHER.url, "")
     try:
         fn, fake = gated("adt_create_domain")
         out = fn(name="ZD", package="ZPAKET", description="x", datatype="CHAR", length=10)
     finally:
-        os.environ["ADT_APPROVAL_TOKEN"] = saved
+        gs._APPROVAL = saved
     assert out["error"] == "approval_unavailable" and not fake.calls and not LAUNCHER.requests
+
+
+def t_approval_env_captured():
+    # Başlangıçta okunan değer geçerli: sonradan ortama yazılan (.conn_adt yeniden yüklemesi) yönlendirmez.
+    Env(tadir={("DOMA", "ZD"): "ZPAKET"}, session_transport="DS4K900111")
+    saved = {k: os.environ.get(k) for k in ("ADT_APPROVAL_URL", "ADT_APPROVAL_TOKEN")}
+    os.environ["ADT_APPROVAL_URL"] = "http://127.0.0.1:9"
+    os.environ["ADT_APPROVAL_TOKEN"] = "baska"
+    try:
+        assert gs._approval_env() == (LAUNCHER.url, TOKEN), gs._approval_env()
+        fn, fake = gated("adt_create_domain")
+        fn(name="ZD", package="ZPAKET", description="x", datatype="CHAR", length=10)
+        assert fake.calls and LAUNCHER.requests[0][2] == f"Bearer {TOKEN}", LAUNCHER.requests
+    finally:
+        for k, v in saved.items():
+            os.environ[k] = v
+    # Ayrı süreç: ortamda yok, proje klasörünün .conn_adt'sinde var. Motor ilk SAP çağrısında
+    # (_get_client → set_explicit_working_dir) .conn_adt'yi override=True ile ortama yükler;
+    # sunucunun yakaladığı değer yine boş kalmalı, onay ucu .conn_adt'deki adrese dönmemeli.
+    import subprocess
+    d = Path(tempfile.mkdtemp(prefix="gf-env-"))
+    (d / ".conn_adt").write_text("ADT_SAP_URL=http://sap.invalid:8000\n"
+                                 "ADT_APPROVAL_URL=http://127.0.0.1:9\nADT_APPROVAL_TOKEN=conn-adt-token\n",
+                                 encoding="utf-8")
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("ADT_APPROVAL_URL", "ADT_APPROVAL_TOKEN", "INIT_CWD", "COPILOT_CWD", "PWD")}
+    env.update({"CLAUDE_CWD": str(d), "PYTHONIOENCODING": "utf-8"})
+    code = ("import json, os, sys; sys.path.insert(0, sys.argv[1]); import adt_gated_server as gs; "
+            "import sap_adt_lib; sap_adt_lib.set_explicit_working_dir(sys.argv[2])\n"
+            "try:\n    gs._approval_env(); hedef = 'var'\n"
+            "except gs.ApprovalUnavailable:\n    hedef = 'yok'\n"
+            "print('SONUC ' + json.dumps([list(gs._APPROVAL), os.environ.get('ADT_APPROVAL_TOKEN'), hedef]))")
+    out = subprocess.run([sys.executable, "-c", code, str(_SCRIPTS_DIR), str(d)], cwd=str(d), env=env,
+                         capture_output=True, text=True, encoding="utf-8", timeout=120)
+    # Sunucu MCP protokolünü korumak için print'i stderr'e yönlendiriyor; iki akışa da bak.
+    lines = [ln for ln in (out.stdout + "\n" + out.stderr).splitlines() if ln.startswith("SONUC ")]
+    assert out.returncode == 0 and lines, (out.returncode, out.stdout[-1000:], out.stderr[-2000:])
+    captured, loaded, hedef = json.loads(lines[-1][len("SONUC "):])
+    assert loaded == "conn-adt-token", f".conn_adt yüklenmedi, test anlamsız: {loaded!r}"
+    assert captured == ["", ""] and hedef == "yok", f".conn_adt onay ucunu yönlendirdi: {captured} {hedef}"
 
 
 def t_launcher_401_is_unavailable():
@@ -454,6 +497,93 @@ def t_abapgit_onay():
     assert gs.axet_abapgit_onay(script="../x.sh")["error"] == "gecersiz_ad"
 
 
+def t_inceleme_raw_r3tr():
+    # object_types'ın tanımadığı tip (ENHO): ham 4 harfli R3TR kabul, kalite kapısı aynı dosyayı bulur (M3).
+    e = Env({"zenh.enho.xml": b"<enh/>\n"})
+    out = gs.axet_inceleme_kaydet("zenh_x", "enho", ["zenh.enho.xml"], {"kritik": 0, "orta": 1})
+    assert out["ok"] and out["kayit"].endswith("ENHO_ZENH_X.json"), out
+    reason, kalite = gq.check(e.pd, "ENHO", "ZENH_X", out["kaynak_sha256"])
+    assert reason is None and kalite["orta"] == 1, (reason, kalite)
+    for bad in ("enh", "EN-O", "ENHOX"):
+        res = gs.axet_inceleme_kaydet("ZENH_X", bad, ["zenh.enho.xml"], {"kritik": 0})
+        assert res.get("error") == "bilgi_toplanamadi", (bad, res)
+    assert not LAUNCHER.requests
+
+
+def t_generator_read_free_when_installed():
+    Env(tfdir={"ZND_FM_SCREEN_GEN": "SAPLZND_FG_AUTO_GEN", "ZND_FM_ADOBE_GEN": "SAPLZND_FG_AUTO_GEN"})
+    fn, fake = gated("adt_generate_screen")
+    fn(program="ZREP", mode="READ")
+    fa, fake_a = gated("adt_generate_adobe")
+    fa(interface="ZIF_X", mode="STATUS")
+    assert len(fake.calls) == 1 and len(fake_a.calls) == 1 and not LAUNCHER.requests, LAUNCHER.paths()
+
+
+def t_generator_read_missing_opens_window():
+    # Üreteç yoksa motor onu $TMP'ye kurar: okuma bile olsa her seferinde pencere (M1).
+    e = Env()
+    LAUNCHER.karar = "bekliyor"
+    fn, fake = gated("adt_generate_screen")
+    out = fn(program="ZREP", mode="READ")
+    assert out["error"] == "approval_pending" and not fake.calls, out
+    fact = LAUNCHER.bodies("/approvals")[0]
+    assert fact["sinif"] == "HER_SEFER" and fact["islem"] == "JENERATOR_KUR", fact
+    assert fact["nesneler"] == [{"ad": "ZND_FM_SCREEN_GEN", "tip": "FUNC", "paket": "$TMP", "yeni": True}]
+    assert fact["transport"] == "" and "secenekler" not in fact
+    assert any("FROM tfdir WHERE funcname = 'ZND_FM_SCREEN_GEN'" in q for q in e.sap.queries), e.sap.queries
+    # Başka adla kurulu üreteç: o ad denetlenir.
+    Env(tfdir={"ZMY_GEN": "SAPLZMY"})
+    fn(program="ZREP", mode="READ", fm_name="zmy_gen")
+    assert fake.calls and not LAUNCHER.requests
+    # TFDIR okunamadı: serbest değil, pencere.
+    Env(fail_sql=True)
+    LAUNCHER.karar = "izinli"
+    fa, fake_a = gated("adt_generate_adobe")
+    fa(form="ZF_X", mode="GET_LAYOUT")
+    fact = LAUNCHER.bodies("/approvals")[0]
+    assert fact["islem"] == "JENERATOR_KUR" and fact["nesneler"][0]["ad"] == "ZND_FM_ADOBE_GEN", fact
+    assert len(fake_a.calls) == 1, "onaydan sonra motor çağrılmadı"
+    # Süzülmeyen FM adı SQL'e gitmez, reddedilir.
+    e = Env()
+    out = fa(form="ZF_X", mode="READ", fm_name="X' OR '1'='1")
+    assert out["error"] == "gecersiz_ad" and not e.sap.queries and not LAUNCHER.requests, out
+    # message_class okuması üreteç kullanmıyor: SQL yok, pencere yok.
+    e = Env()
+    fm, fake_m = gated("adt_message_class")
+    fm(name="ZMSG", action="read")
+    assert fake_m.calls and not e.sap.queries and not LAUNCHER.requests
+
+
+def t_fact_islem_secenekler():
+    # Pencere hangi işlemin ve hangi yıkıcı bayrağın onaylandığını görmeli (I1).
+    Env(tadir={("PROG", "ZREP"): "ZPKG", ("MSAG", "ZMSG"): "ZPKG", ("SFPF", "ZF_X"): "ZPKG"},
+        owners={"ZREP": "DS4K900111", "ZMSG": "DS4K900111"})
+    LAUNCHER.karar = "bekliyor"
+    fs, _ = gated("adt_generate_screen")
+    fs(program="ZREP", mode="DELETE")
+    fs(program="ZREP", mode="write", recreate=True)
+    fm, _ = gated("adt_message_class")
+    fm(name="ZMSG", action="write", messages=[{"number": "001", "text": "x"}], replace=True)
+    fm(name="ZMSG", action="create", package="ZPKG")
+    fa, _ = gated("adt_generate_adobe")
+    fa(form="ZF_X", mode="delete", transport="DS4K900111")
+    fd, _ = gated("adt_delete_transport")
+    fd(transport="DS4K900111", confirm_transport="DS4K900111", force=True, recursive=True,
+       remove_locked_objects=True)
+    got = [(b["arac"], b["sinif"], b.get("islem"), b.get("secenekler")) for b in LAUNCHER.bodies("/approvals")]
+    assert got == [
+        ("adt_generate_screen", "HER_SEFER", "DELETE", None),
+        ("adt_generate_screen", "TRANSPORT_ONAYLI", "WRITE", {"recreate": True}),
+        ("adt_message_class", "TRANSPORT_ONAYLI", "write", {"replace": True}),
+        ("adt_message_class", "TRANSPORT_ONAYLI", "create", None),
+        ("adt_generate_adobe", "HER_SEFER", "DELETE", None),
+        ("adt_delete_transport", "HER_SEFER", None, {"recursive": True, "remove_locked_objects": True}),
+    ], got
+    fact = gs.build_fact("adt_generate_adobe", "HER_SEFER", {"mode": "YENİ-MOD"},
+                         {"nesneler": [], "transport": "", "transport_bilgi": None})
+    assert fact["islem"] == "BILINMEYEN", fact
+
+
 def t_heartbeat():
     Env()
     dead = []
@@ -518,6 +648,12 @@ TESTS = [
     ("delete_preview", "önizleme silme pencere açıyor ya da eşleşmeyen confirm onaysız geçiyor",
      t_delete_preview_passes),
     ("env_missing", "onay ucu yokken yazılıyor", t_env_missing_unavailable),
+    ("approval_env_captured", ".conn_adt ya da sonradan değişen ortam onayları başka uca yönlendiriyor",
+     t_approval_env_captured),
+    ("inceleme_raw_r3tr", "ENHO gibi tanınmayan tiplerde inceleme kaydı yazılamıyor", t_inceleme_raw_r3tr),
+    ("generator_read_free", "kurulu üreteçle okuma pencere açıyor", t_generator_read_free_when_installed),
+    ("generator_read_missing", "üreteci $TMP'ye kuran okuma onaysız geçiyor", t_generator_read_missing_opens_window),
+    ("fact_islem_secenekler", "pencere işlemi (mod) ve yıkıcı bayrakları göstermiyor", t_fact_islem_secenekler),
     ("launcher_401", "401/bozuk cevap izin sayılıyor", t_launcher_401_is_unavailable),
     ("collect_error", "geçersiz argüman/okunamayan SAP bilgisiyle onay soruluyor", t_collect_error_and_bad_args),
     ("namespace_review", "namespace'li nesnenin incelemesi bulunamıyor", t_namespace_review_path),
