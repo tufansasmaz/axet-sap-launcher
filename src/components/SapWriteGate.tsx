@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Check, FolderCode, PenLine, ShieldAlert } from "lucide-react";
 import type { ApprovalView, Choice, FactObject, SapWriteState, SessionView, WorkMode } from "../../app-electron/shared/sapWriteTypes";
 import { useT, type TranslateFn } from "../i18n";
@@ -6,10 +6,15 @@ import type { TranslationKey } from "../i18n/tr";
 import { btn, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 import TierBadge from "./TierBadge";
 
+// Cevap gönderildikten sonra sıradaki istek aynı yerde açılıyor; çift tıklamanın
+// ikinci kliği görülmemiş bir isteği onaylamasın diye onay düğmeleri kısa süre kapalı.
+export const ARM_DELAY_MS = 600;
+
 interface Props {
   state: SapWriteState;
   onSetMode: (sessionId: string, mode: WorkMode) => Promise<boolean>;
   onRespond: (id: string, choice: Choice) => Promise<{ ok: boolean; error?: string }>;
+  armDelayMs?: number;
 }
 
 /**
@@ -29,11 +34,11 @@ interface Props {
  * "oturum izni verilebilir mi" gibi her şey `ApprovalView.canSession` ile
  * main'den geliyor.
  */
-export default function SapWriteGate({ state, onSetMode, onRespond }: Props) {
+export default function SapWriteGate({ state, onSetMode, onRespond, armDelayMs = ARM_DELAY_MS }: Props) {
   const modeSession = state.sessions.find((s) => s.mode === null);
   if (modeSession) return <ModeChooser key={modeSession.id} session={modeSession} onSetMode={onSetMode} />;
   const head = state.pending[0];
-  if (head) return <ApprovalDialog key={head.id} item={head} total={state.pending.length} onRespond={onRespond} />;
+  if (head) return <ApprovalDialog key={head.id} item={head} total={state.pending.length} onRespond={onRespond} armDelayMs={armDelayMs} />;
   return null;
 }
 
@@ -164,11 +169,19 @@ function operationKey(arac: string): TranslationKey {
   return OPERATION[arac] ?? (arac.startsWith("adt_create") ? "sapWrite.op.create" : "sapWrite.op.other");
 }
 
-function ApprovalDialog({ item, total, onRespond }: { item: ApprovalView; total: number; onRespond: Props["onRespond"] }) {
+function ApprovalDialog({ item, total, onRespond, armDelayMs = ARM_DELAY_MS }: { item: ApprovalView; total: number; onRespond: Props["onRespond"]; armDelayMs?: number }) {
   const t = useT();
   const { fact } = item;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [armed, setArmed] = useState(armDelayMs <= 0);
+
+  useEffect(() => {
+    if (armDelayMs <= 0) return;
+    setArmed(false);
+    const timer = setTimeout(() => setArmed(true), armDelayMs);
+    return () => clearTimeout(timer);
+  }, [item.id, armDelayMs]);
 
   async function answer(choice: Choice) {
     setBusy(true);
@@ -264,11 +277,11 @@ function ApprovalDialog({ item, total, onRespond }: { item: ApprovalView; total:
           {t("sapWrite.approval.reject")}
         </button>
         {item.canSession && (
-          <button type="button" disabled={busy} onClick={() => void answer("oturum")} className={btn("neutral", "lg")}>
+          <button type="button" disabled={busy || !armed} onClick={() => void answer("oturum")} className={btn("neutral", "lg")}>
             {t("sapWrite.approval.session", { transport: fact.transport || "$TMP" })}
           </button>
         )}
-        <button type="button" disabled={busy} onClick={() => void answer("bu_seferlik")} className={btn("primary", "lg")}>
+        <button type="button" disabled={busy || !armed} onClick={() => void answer("bu_seferlik")} className={btn("primary", "lg")}>
           {t("sapWrite.approval.once")}
         </button>
       </div>

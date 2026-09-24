@@ -148,4 +148,14 @@ describe("sap-write IPC", () => {
     const r = await ask(s.url, s.token, fact({ arg_hash: H("b") }));
     expect(r.karar).toBe("bekliyor");
   });
+
+  it("sap-write:changed taşıyıcı payload'ı token içermiyor", async () => {
+    const { ipc, invoke } = fakeIpc();
+    const { win, sent } = fakeWindow(false);
+    registerSapWriteIpc(ipc, () => win);
+    const s = await openWriteSession(dir, ID);
+    invoke("sap-write:set-mode", s.sessionId, "dogrudan");
+    await ask(s.url, s.token, fact());
+    expect(JSON.stringify(sent.at(-1))).not.toContain("token");
+  });
 });

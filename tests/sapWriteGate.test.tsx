@@ -13,7 +13,7 @@
 //     görünüyor.** Silme, yayınlama, transport/paket açma her seferinde sorulur.
 //   - **İstekler tek tek, en eskisi önce.** Kuyrukta kaç tane olduğu yazıyor.
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApprovalView, Choice, SapWriteState, SessionView, WorkMode, WriteFact } from "../app-electron/shared/sapWriteTypes";
 import SapWriteGate from "../src/components/SapWriteGate";
@@ -60,7 +60,7 @@ function mount(
   const onRespond = vi.fn(respond);
   render(
     <LanguageProvider language="tr">
-      <SapWriteGate state={state} onSetMode={onSetMode} onRespond={onRespond} />
+      <SapWriteGate state={state} onSetMode={onSetMode} onRespond={onRespond} armDelayMs={0} />
     </LanguageProvider>
   );
   return { onSetMode, onRespond };
@@ -232,5 +232,60 @@ describe("SapWriteGate — onay", () => {
     mount({ sessions: [session()], pending: [approval({ fact: fact({ arac: "adt_gelecekteki_arac" }) })] });
     expect(screen.getByText("SAP'a yazan işlem")).toBeTruthy();
     expect(screen.getByText("adt_gelecekteki_arac")).toBeTruthy();
+  });
+
+  it("yeni istek açılınca onay düğmeleri kısa süre kapalı; Reddet açık", () => {
+    vi.useFakeTimers();
+    try {
+      const onRespond = vi.fn();
+      render(
+        <LanguageProvider language="tr">
+          <SapWriteGate state={{ sessions: [session()], pending: [approval()] }} onSetMode={vi.fn()} onRespond={onRespond} />
+        </LanguageProvider>
+      );
+      expect(button("Bu seferlik onayla").hasAttribute("disabled")).toBe(true);
+      expect(button("Bu oturumda DS4K900001'ye izin ver").hasAttribute("disabled")).toBe(true);
+      expect(button("Reddet").hasAttribute("disabled")).toBe(false);
+      fireEvent.click(button("Bu seferlik onayla"));
+      expect(onRespond).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(button("Bu seferlik onayla").hasAttribute("disabled")).toBe(false);
+      cleanup();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("kuyrukta sıradaki istek öne gelince yeniden kilitleniyor", () => {
+    vi.useFakeTimers();
+    try {
+      const onRespond = vi.fn();
+      const { rerender } = render(
+        <LanguageProvider language="tr">
+          <SapWriteGate
+            state={{ sessions: [session()], pending: [approval({ id: "a1" }), approval({ id: "a2", createdAt: 2 })] }}
+            onSetMode={vi.fn()}
+            onRespond={onRespond}
+          />
+        </LanguageProvider>
+      );
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(button("Bu seferlik onayla").hasAttribute("disabled")).toBe(false);
+      rerender(
+        <LanguageProvider language="tr">
+          <SapWriteGate state={{ sessions: [session()], pending: [approval({ id: "a2", createdAt: 2 })] }} onSetMode={vi.fn()} onRespond={onRespond} />
+        </LanguageProvider>
+      );
+      expect(button("Bu seferlik onayla").hasAttribute("disabled")).toBe(true);
+      fireEvent.click(button("Bu seferlik onayla"));
+      expect(onRespond).not.toHaveBeenCalled();
+      cleanup();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
