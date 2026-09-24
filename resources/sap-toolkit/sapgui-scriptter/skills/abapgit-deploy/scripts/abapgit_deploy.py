@@ -194,6 +194,8 @@ def main() -> int:
         "--offline-repo", args.offline_repo,
         "--zip", str(zip_path),
         "--transport", args.transport,
+        # NTT Studio — onay paketi bilmeli: yerel pakette ($TMP) transport'suz import reddedilmesin.
+        "--package", args.package,
         "--connection-index", str(args.connection_index),
         "--session-index", str(args.session_index),
         "--timeout", str(args.timeout),

@@ -36,7 +36,12 @@ This skill teaches Claude how to drive the **autonomous deploy loop** via SAPGUI
 >   Kullanıcıya transport'u sor (`adt_list_transports`), komutu `--transport <TR>` ile yeniden
 >   yazdır (ZIP'i içe aktaran script: `abapgit_deploy.py`, `gui_run_zabapgit_auto.py`,
 >   `gui_run_zabapgit_deploy_multi.py` zaten ister; `gui_import_zip.py` için ekle). Paketi
->   tahmin etme.
+>   tahmin etme. Paket yerelse (`$TMP` ya da `$` ile başlayan) transport gerekmez; onay
+>   paketi bilmediği için reddediyor: komutu `--package '$TMP'` (paketin gerçek adıyla, TEK
+>   tırnakla — tırnaksız `$TMP`'yi PowerShell de bash de ortam değişkeni sanıp boşaltır)
+>   ekleyerek yeniden yazdır — `abapgit_deploy.py`, `gui_run_zabapgit_auto.py` ve
+>   `gui_import_zip.py` kabul eder. `--transport`'u zorunlu tutan ilk ikisinde boş transport'u
+>   `--transport=` biçiminde yaz (PowerShell 5.1 `""` argümanını düşürür).
 > - Onay kimliği alt adımlara `AXET_ABAPGIT_ONAY_ID` ortam değişkeniyle geçer; elle verme,
 >   silme.
 > - ZIP'teki her kaynaklı nesne için güncel bir `%abap-code-review` kaydı gerekir

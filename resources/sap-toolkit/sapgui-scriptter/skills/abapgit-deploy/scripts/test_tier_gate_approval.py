@@ -113,6 +113,9 @@ def token_yoksa_sorulmadan_ret():
         rc, out, err = run(lambda: tg.require_write_approval("gui_import_zip.py"))
         assert rc == 2 and not FAKE.calls, (rc, FAKE.calls)
         assert "REFUSED [GR_APPROVAL] approval_unavailable" in err, err
+        # İki terminal de sayılıyor: ajan terminali ve NTT Studio'nun terminali; harici olanlarda yok.
+        assert "ajan terminalinden" in err and "NTT Studio'nun terminalinden" in err, err
+        assert "harici terminallerde" in err, err
 
 
 @test
@@ -330,6 +333,108 @@ def _script_test(name, argv, expect):
 
 for _n, (_a, _e) in SCRIPTS.items():
     test(_script_test(_n, _a, _e))
+
+
+# --- yerel paket ($TMP): transport'suz ZIP importu transport_belirsiz ile reddedilmiyor ---
+# Karar onaylı sunucunun toplayıcısında (gated_collect.collect_abapgit) veriliyor; script
+# paketi göndermezse `$TMP` bilinemez ve transport'suz ZIP reddedilir. Gövde script'ten
+# alınıp toplayıcıya SAP'sız (package_of → None: yeni nesne) veriliyor.
+_SAP_ADT_SCRIPTS = HERE.parents[3] / "sap-consultant" / "skills" / "sap-adt" / "scripts"
+
+
+def _abapgit_collect(body):
+    if str(_SAP_ADT_SCRIPTS) not in sys.path:
+        sys.path.append(str(_SAP_ADT_SCRIPTS))
+    gc = importlib.import_module("gated_collect")
+    old = gc.package_of
+    gc.package_of = lambda sap, tip, ad: None
+    try:
+        return gc.collect_abapgit(None, str(Path(body["zip_dosyasi"]).parent), body["script"],
+                                  body["paket"], body["transport"], body["zip_dosyasi"])
+    finally:
+        gc.package_of = old
+
+
+def _main_body(name, argv, d):
+    """Script'in main()'i onay beklerken 3 döner; sunucuya giden gövdeyi verir."""
+    mod = importlib.import_module(name[:-3])
+    FAKE.reply(200, {"ok": False, "error": "approval_pending", "approval_id": "x", "message": "bekle"})
+    cwd, old_argv = os.getcwd(), sys.argv
+    os.chdir(d)
+    sys.argv = [name] + argv
+    try:
+        rc, out, err = run(mod.main)
+    finally:
+        os.chdir(cwd)
+        sys.argv = old_argv
+    assert rc == 3, (name, rc, out, err)
+    return FAKE.calls[-1]["body"]
+
+
+@test
+def gui_import_zip_tmp_paketi_transport_istemiyor():
+    with tempfile.TemporaryDirectory() as tmp, fresh():
+        d = Path(tmp)
+        _dev_dir(d)
+        body = _main_body("gui_import_zip.py", ["--offline-repo", "Z", "--zip", str(d / "p.zip"), "--package", "$TMP"], d)
+        assert body["paket"] == "$TMP" and body["transport"] == "", body
+        info = _abapgit_collect(body)
+        assert info["transport"] == "" and info["abapgit"]["paket"] == "$TMP", info
+        # Kontrol: paket gitmeseydi aynı çağrı transport_belirsiz ile reddedilirdi.
+        body_eski = dict(body, paket="")
+        try:
+            _abapgit_collect(body_eski)
+        except Exception as exc:  # noqa: BLE001
+            assert getattr(exc, "reason", "") == "transport_belirsiz", exc
+        else:
+            raise AssertionError("paketsiz transport'suz ZIP reddedilmedi: test anlamsız")
+
+
+class _AltAdim(Exception):
+    pass
+
+
+@test
+def abapgit_deploy_paketi_alt_adima_geciriyor():
+    mod = importlib.import_module("abapgit_deploy")
+    seen = []
+
+    def step(label, cmd):
+        seen.append(cmd)
+        raise _AltAdim()
+
+    old_step = mod._run_step
+    mod._run_step = step
+    with tempfile.TemporaryDirectory() as tmp, fresh():
+        d = Path(tmp)
+        _dev_dir(d)
+        subprocess.run(["git", "init", "-q", str(d)], check=True)
+        # Üst onay verilmiş: script alt adımı kuruyor (SAP GUI yerine burada durduruluyor).
+        FAKE.reply(200, {"ok": True, "onay_id": "ust-1"})
+        cwd, old_argv = os.getcwd(), sys.argv
+        os.chdir(d)
+        sys.argv = ["abapgit_deploy.py", "--offline-repo", "ZREPO", "--package", "$TMP", "--transport", "",
+                    "--no-export", "--zip", str(d / "p.zip"), "--no-login"]
+        try:
+            try:
+                run(mod.main)
+            except _AltAdim:
+                pass
+        finally:
+            os.chdir(cwd)
+            sys.argv = old_argv
+            mod._run_step = old_step
+        assert len(seen) == 1, seen
+        cmd = seen[0]
+        assert Path(cmd[1]).name == "gui_run_zabapgit_auto.py", cmd
+        assert cmd[cmd.index("--package") + 1] == "$TMP", cmd
+        assert FAKE.calls[0]["body"]["paket"] == "$TMP", FAKE.calls[0]
+        # Alt adım aynı komutla: üst onay ortamda, paket gövdede.
+        assert os.environ.get(tg.APPROVAL_ENV) == "ust-1"
+        body = _main_body("gui_run_zabapgit_auto.py", cmd[2:], d)
+        assert body["paket"] == "$TMP" and body["transport"] == "" and body["ust_onay"] == "ust-1", body
+        info = _abapgit_collect(body)
+        assert info["transport"] == "", info
 
 
 @test

@@ -112,6 +112,9 @@ def main() -> int:
                         help="Commit message (informational - logged in output)")
     parser.add_argument("--no-activate", action="store_true",
                         help="Skip activation; only deserialise (objects stay inactive)")
+    parser.add_argument("--package", default="",
+                        help="SAP package the ZIP goes into; for a local package ($TMP, $...) "
+                             "no transport is needed (NTT Studio onayında gösterilir)")
     parser.add_argument("--connection-index", type=int, default=0)
     parser.add_argument("--session-index", type=int, default=0)
     parser.add_argument("--timeout", type=int, default=COMPLETION_TIMEOUT,
@@ -128,7 +131,8 @@ def main() -> int:
 
     # NTT Studio — SAP DEV yazma onayı: SAP'a dokunmadan önce NTT Studio penceresine sor.
     from tier_gate import require_write_approval
-    rc = require_write_approval(__file__, transport=args.transport, zip_dosyasi=args.zip)
+    rc = require_write_approval(__file__, paket=args.package, transport=args.transport,
+                                zip_dosyasi=args.zip)
     if rc is not None:
         return rc
 

@@ -121,8 +121,13 @@ def require_write_approval(script: str, paket: str = "", transport: str = "",
     token = os.environ.get("ABAP_HTTP_TOKEN", "")
     if not token:
         return _refuse("approval_unavailable",
-                       "ABAP_HTTP_TOKEN ortamda yok. Bu script NTT Studio'nun DEV oturumundaki "
-                       "ajan terminalinden çalıştırılmalı.")
+                       # Token NTT Studio'nun kendi sürecinin ortamında; ondan açılan her terminal
+                       # (ajan terminali de, NTT Studio'nun terminali de) miras alıyor. Yalnızca
+                       # NTT Studio dışında açılmış terminallerde yok.
+                       "ABAP_HTTP_TOKEN ortamda yok: script NTT Studio dışındaki bir terminalden "
+                       "çalıştırılmış. NTT Studio'da DEV sistemine bağlıyken ajan terminalinden ya da "
+                       "NTT Studio'nun terminalinden çalıştır; harici terminallerde (Windows Terminal, "
+                       "VS Code vb.) bu değişken yoktur.")
     zip_abs = str(Path(zip_dosyasi).resolve()) if zip_dosyasi else ""
     body = {"script": Path(script).name, "paket": paket or "", "transport": transport or "",
             "zip_dosyasi": zip_abs, "ust_onay": os.environ.get(APPROVAL_ENV, "")}
