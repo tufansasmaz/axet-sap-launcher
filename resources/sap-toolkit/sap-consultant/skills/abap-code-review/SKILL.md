@@ -70,6 +70,31 @@ this skill never edits or pushes code, it only produces a review report.
    [references/SAP_HELP_VERSION_LOOKUP.md](references/SAP_HELP_VERSION_LOOKUP.md))
    and verify against the release-matched SAP ABAP Keyword Documentation
    instead of assuming or using the "latest" docs blindly.
+8. **NTT Studio uyarlaması — inceleme kaydı (SAP DEV yazma onayı).** NTT Studio'da
+   SAP DEV'e yazılan her kaynak için güncel bir inceleme kaydı gerekiyor; kayıt yoksa ya da
+   kaynak incelemeden sonra değiştiyse yazma `inceleme_yok` / `inceleme_eski` ile reddedilir.
+   Raporu verdikten sonra, incelediğin **her nesne için** kaydı yaz:
+
+   ```bash
+   python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.post('http://127.0.0.1:8787/tool/axet_inceleme_kaydet', json={'nesne': 'ZCL_ORNEK', 'tip': 'class', 'kaynak_dosyalari': ['src/zcl_ornek.clas.abap', 'src/zcl_ornek.clas.locals_imp.abap'], 'bulgular': {'kritik': 0, 'yuksek': 0, 'orta': 2, 'dusuk': 1}, 'rapor': 'Executive Summary: ...'}, headers=h).json())"
+   ```
+
+   - `bulgular`: raporun **Critical Issues** maddeleri `"kritik"`; güvenlik/performans/hata
+     yönetimi gibi yayına engel olmayan ama önemli bulgular `"yuksek"`; **Clean Code
+     Improvements** maddeleri `"orta"`; biçim/isimlendirme ayrıntıları `"dusuk"`. Sayıları
+     rapordan say, yuvarlama ya da eksiltme yapma: `"kritik"` > 0 ise kayıt yazılır ama o
+     kaynak SAP'a **gönderilemez** (`kritik_bulgu`, kesin engel). Düzelt, yeniden incele,
+     yeniden kaydet.
+   - `kaynak_dosyalari`: incelediğin dosyalar, proje klasörüne göre yol. Nesnenin bütün
+     `.abap` kaynaklarını ver (sınıfta `locals_*`/`testclasses` dahil). Hash'i sunucu
+     hesaplar; sen hash yazma. SAP'a giden dosya bu dosyanın aynısı olmalı (`source_file`).
+   - `tip`: `class`, `interface`, `program`, `include`, `function` (tek function module,
+     ADT'nin `adt_write_function_module` yolu), `functiongroup` (abapGit ZIP'te grup tek
+     nesnedir: `<grup>.fugr.*.abap` dosyalarının hepsini ver). ZIP ile teslimde function
+     module kaydı sayılmaz, grup kaydı gerekir.
+   - Token ortamda duruyor (`ABAP_HTTP_TOKEN`); değerini ekrana basma, dosyaya yazma. 8787
+     cevap vermiyorsa (QA/PRD'de kayıt aracı yoktur) bu adımı atla — orada zaten SAP'a
+     yazılmıyor.
 
 ## Program header / künye (mandatory, top of main program)
 

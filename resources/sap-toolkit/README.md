@@ -114,8 +114,8 @@ Repo layout (each `skills/<name>` folder is installed into a project's `.axet-co
 ```
 sap-toolkit/
 ├── sap-consultant/skills/{sap-adt, sap-adt-readonly, sap-adt-router-bridge, clean-core, sap-docs, abap-code-checker, abap-code-review, sap-incident, sap-cr-scope, sap-cr-handover, fs-generator, ts-generator, ...}/
-│   ├── sap-adt/scripts/adt_mcp_server.py                 # the engine, 33 tools (DEV only)
-│   ├── sap-adt-readonly/scripts/adt_readonly_server.py   # the wrapper, 17 tools — imports the engine next door
+│   ├── sap-adt/scripts/adt_gated_server.py               # the engine (50 tools) behind NTT Studio write approval, 53 tools (DEV only)
+│   ├── sap-adt-readonly/scripts/adt_readonly_server.py   # the wrapper, 19 tools — imports the engine next door
 │   ├── fs-generator/scripts/{extract_pdf.js, render_pdf.py}  # requirements → FS → branded PDF
 │   └── ts-generator/scripts/{extract_pdf.js, merge_and_pdf.py}  # FS→TS: PDF in, branded PDF out
 ├── abapgit-bridge/skills/{abapgit-workflow, abapgit-export-zip, ...}/
@@ -278,8 +278,8 @@ becomes a different server with the same name.
 
 | Entrypoint | Surface | Default port |
 |---|---|---|
-| `sap-consultant/skills/sap-adt/scripts/adt_mcp_server.py` | the engine's full 33 tools | 8787 |
-| `sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py` | 17, and never a write | 8790 |
+| `sap-consultant/skills/sap-adt/scripts/adt_gated_server.py` | 53: the engine's 50, every write asks NTT Studio, + 3 `axet_*` | 8787 |
+| `sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py` | 19, and never a write | 8790 |
 
 The launcher starts whichever one the role and the tier call for, always on **8787**.
 
@@ -288,12 +288,12 @@ The launcher starts whichever one the role and the tier call for, always on **87
 | Lock | Mechanism |
 |---|---|
 | **Belt** | It forces `ADT_READONLY=true` into the environment before the engine loads, so every write path (`push`/`create`/`activate`/`delete`/…) refuses with `GR_READONLY`. |
-| **Suspenders** | The 13 tools that can write are **removed from the registry before the transport starts**, so they are neither listed nor callable: `POST /tool/adt_push` → `404 unknown_tool`. Unsetting `ADT_READONLY` afterwards does not bring them back — they do not exist in that process. |
+| **Suspenders** | The 28 tools that can write are **removed from the registry before the transport starts**, so they are neither listed nor callable: `POST /tool/adt_push` → `404 unknown_tool`. Unsetting `ADT_READONLY` afterwards does not bring them back — they do not exist in that process. |
 
 Belt alone would not be enough: with the write tools still advertised, the model plans a
 push, spends the turn on it, and only then learns it was refused.
 
-**Surface: 17 tools on install, 20 with all three gates open.** Three read tools are
+**Surface: 19 tools on install, 22 with all three gates open.** Three read tools are
 gated behind their own variable because "read-only" reads as "harmless" and these are not:
 
 | Tool | Variable | Why gated |
@@ -422,7 +422,7 @@ Invoke with `%skill-name`.
 ### SAP
 | Skill | What it does |
 |---|---|
-| `%sap-adt` | The full ADT surface, 33 tools. **Installed only for the technical-consultant role, and only serves writes on a `DEV` system.** |
+| `%sap-adt` | The full ADT surface, 53 tools, every write approved in NTT Studio. **Installed only for the technical-consultant role, and only serves writes on a `DEV` system.** |
 | `%sap-adt-readonly` | The same engine behind a surface that cannot write: source, SELECT-only SQL, search, ATC, syntax check, where-used, revisions, packages, transports, dumps. |
 | `%clean-core` | Clean Core / ABAP Cloud compatibility reference (knowledge, no SAP writes). |
 | `%sap-docs` | SAP documentation search & reference (knowledge). |
@@ -476,8 +476,8 @@ cmd /c dir ".axet-code\skills"           # Windows
 
 # which surface is on 8787? read `server` and `tool_count`, never assume:
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())"
-# read-only  -> {"ok": true, "server": "abaper-sap-adt-readonly-http", "readonly": true, "tool_count": 17, ...}
-# write      -> the full engine, 33 tools
+# read-only  -> {"ok": true, "server": "abaper-sap-adt-readonly-http", "readonly": true, "tool_count": 19, ...}
+# write      -> the gated engine, 53 tools
 
 # on the read-only surface a write tool is refused:
 python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_push', json={}).status_code)"
@@ -518,7 +518,7 @@ agentic AI workflows on business data. This toolkit is scoped accordingly:
   **abapgit-workflow** path (manual abapGit ZIP cycle, each step executed by the
   developer) — never the SAP server.
 - Every write needs a **named human's approval and a transport they confirmed**. That
-  rule is not one of the three gates; it is the one the gates cannot enforce for you.
+  rule is what the NTT Studio approval window asks for; the window asks, the human decides.
 
 By using this toolkit you accept responsibility for compliance with your own SAP
 agreement.

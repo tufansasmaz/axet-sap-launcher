@@ -21,7 +21,7 @@ single file.
 Until 2026-09-23 this toolkit could not write to SAP at all. That changed by user
 decision (*"artık sap sistemlerindeki readonly modu kaldırabiliriz dev sistemde
 geliştirme, deploy gibi işlemleri yapabiliriz"*) — but the gate did not disappear, it
-**moved**, and there are now three of them. They are deliberately redundant; do not
+**moved**, and there are now four of them. They are deliberately redundant; do not
 collapse them into one.
 
 | # | Gate | Where | What it sees |
@@ -29,6 +29,7 @@ collapse them into one.
 | 1 | which skills are installed | `planSkills()` in the launcher's `skillProfiles.ts` | role + tier |
 | 2 | which server is started on 8787 | `adtServerScriptFor()` in `launcher.ts`, fed from `SkillInstallResult.adtWriteSurface` | role + tier |
 | 3 | the engine's own `require_writable()` | `sap-adt/scripts/guardrails.py`, `_WRITABLE_TIERS = {"DEV"}` | tier only |
+| 4 | NTT Studio write approval | `sap-adt/scripts/adt_gated_server.py` (28 write tools) and `abapgit-deploy/scripts/tier_gate.py` (`require_write_approval`) ask the launcher's approval endpoint (`app-electron/main/sapWrite/`) | every single write: work mode, transport, review record |
 
 Gate 3 **cannot see the role**, which is why gate 2 has to exist: skills are documentation
 the agent reads, but the HTTP port is the surface it actually calls. If those two were
@@ -51,7 +52,7 @@ preserve its two internal locks:
 
 - **Belt** — `ADT_READONLY=true` is set *before* the engine is imported, so every write
   path refuses at source (`GR_READONLY`).
-- **Suspenders** — the 13 write-capable tools are removed from the registry before the
+- **Suspenders** — the 28 write-capable tools are removed from the registry before the
   transport starts, so they are neither listed nor callable (`404 unknown_tool`).
   Unsetting `ADT_READONLY` afterwards does not bring them back.
 
@@ -60,7 +61,7 @@ ALLOW / GATED / DENY, and an unclassified one makes the server refuse to start, 
 A new upstream write tool therefore cannot silently inherit "exposed".
 
 The engine under `sap-adt/scripts/` is **vendored verbatim** from upstream. Do not edit it
-to add features here — both servers wrap it unchanged, and the read-only one imports it
+to add features here — the read-only and the gated server both wrap it unchanged and import it
 from its sibling folder rather than keeping a second copy.
 
 ## How SAP is reached (the MCP workaround)
@@ -69,11 +70,13 @@ aXet.code can't speak MCP stdio, so SAP ADT runs behind a localhost HTTP server 
 **one persistent SAP session**. Two entrypoints, one engine, exactly one running:
 
 ```bash
-# Read-only surface — 17 tools. NOTE: --http is mandatory; without it this speaks MCP stdio.
+# Read-only surface — 19 tools. NOTE: --http is mandatory; without it this speaks MCP stdio.
 ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py --http --port 8787
 
-# Write surface — the engine's 33 tools. Technical consultant + DEV only.
-ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt/scripts/adt_mcp_server.py --http --port 8787
+# Write surface — 53 tools: the engine's 50 behind the approval layer, + 3 axet_* tools.
+# Technical consultant + DEV only. The LAUNCHER starts it with ADT_APPROVAL_URL/ADT_APPROVAL_TOKEN;
+# started by hand it has neither, and refuses every write with approval_unavailable.
+ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt/scripts/adt_gated_server.py --http --port 8787
 
 # Health / auth — /health names the surface and lists the tools. Ask it; never guess.
 python -c "import requests; print(requests.get('http://127.0.0.1:8787/health').json())"
@@ -226,7 +229,8 @@ Where a transport is not the vehicle, use the `abapgit-workflow` skill: Claude e
 developer-in-the-loop by design; there is no SAP-side automation.
 
 None of this replaces the older rule: **every SAP write needs a named human's approval and
-a transport they confirmed.** The three gates cannot enforce that one for you.
+a transport they confirmed.** Gate 4 is the window where that human says yes; it asks, it
+does not decide for them — the agent still confirms transport and package in the chat.
 
 ## Upstream'den AYRILAN dosyalar (yenilerken üstüne yazma)
 
@@ -242,7 +246,9 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 
 | Dosya | Ne degistirildi | Neden |
 | --- | --- | --- |
-| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil") | 2026-09-24, MAYA: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` kilitliyor |
+| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil"); ardindan "SAP DEV yazma onayi" blogu (mod, `approval_pending`, `source_file`, `kritik_bulgu`) | 2026-09-24, MAYA: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` + `tests/sapWriteGateContract.test.ts` kilitliyor |
+| `.../sap-adt/scripts/adt_gated_server.py`, `gated_collect.py`, `gated_quality.py` + `test_gated_quality.py`, `test_gated_collect.py`, `test_gated_flow.py` | YENI dosyalar (yukari akista yok): motoru import edip 28 yazan araci NTT Studio onayina bagliyor; `axet_teslim`, `axet_abapgit_onay`, `axet_inceleme_kaydet` | 2026-09-24 kullanici karari: DEV'e her yazma onaylanir, kritik inceleme bulgusu kesin engel. Motor degismedi. `py -3 test_gated_*.py` + `tests/sapWriteGateContract.test.ts` |
+| `.../abap-code-review/SKILL.md` | 8. adim: inceleme bitince `axet_inceleme_kaydet` (bulgu sayilari, kaynak dosyalari; FUGR/FUNC notu) | Kalite kapisi inceleme kaydi olmadan yazdirmiyor |
 | `sap-consultant/skills/sap-adt-readonly/SKILL.md` | Ayni blok + "8790 degil 8787" + `/tools` (sap-adt kurulu olmayabilir) | 1.6.7'deki "aXet.code edition" d2cb667 senkronunda ezilmisti; ayni test |
 | `.../screen-gen/SKILL.md`, `.../sap-object-transfer/SKILL.md` | MCP araci/oturumu = 8787'ye POST; transfer icin `--port 8787` | `transfer_deploy.py` varsayilani 8786 |
 | `.../sap-adt-router-bridge/scripts/adt_rfc_bridge.py` + SKILL.md basi | Script: yukari akisinki DEGIL, launcher'la sahada calisan eski surum (`.conn_adt`'ten `ADT_RFC_*`, `--port`, `/health`, router'siz calisma). SKILL.md: "launcher baslatir, 8788, `.env`/8410/`selftest` burada gecersiz" blogu | 2026-09-24, LED: d2cb667 senkronu script'i `.env`'den `RFC_ASHOST` bekleyen, router'i zorunlu tutan, 8410'da dinleyen ve `/health`'i olmayan surumle degistirdi; router'li her sistem "RFC_ASHOST is not set" ile bagli degil kaldi (v1.6.8 dahil). `tests/rfcBridgeContract.test.ts` kilitliyor |
@@ -259,6 +265,9 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 | `.../test-scenarios/scripts/scan_doc_types.py` | ADT motoru import'u -> `ReadOnlyHttpClient` | `../../sap-adt/scripts` kurulu agacta HIC yok (`excludeDirs`) |
 | `.../sap-enduser-doc/SKILL.md` | MCP -> HTTP + npm bagimliligi uyarisi | ayni |
 | `.../fs-generator/SKILL.md`, `.../ts-generator/SKILL.md` | `${CLAUDE_PLUGIN_ROOT}` notu | Eklenti koku yok |
+| `sapgui-scriptter/skills/abapgit-deploy/scripts/tier_gate.py` + yazan 9 script (`abapgit_deploy.py`, `abapgit_bootstrap.py`, `gui_import_zip.py`, `gui_activate_package.py`, `gui_stage_commit.py`, `gui_run_zabapgit_auto.py`, `gui_run_zabapgit_bootstrap.py`, `gui_run_zabapgit_bootstrap_multi.py`, `gui_run_zabapgit_deploy_multi.py`) | `require_dev_tier` (DEV kapisi) + `require_write_approval`: SAP GUI'ye dokunmadan once 8787'ye `axet_abapgit_onay` sorusu; cikis 3 = onay bekliyor, 2 = ret | Yazma yalnizca DEV'de ve onayla. `tests/tierWriteGates.test.ts` |
+| `.../abapgit-deploy/scripts/test_tier_gate_approval.py` | YENI: sahte 8787 ile onay davranisi (`py -3`) | CI'da Python yok |
+| `sapgui-scriptter/skills/abapgit-deploy/SKILL.md` | "SAP DEV yazma onayi" blogu (cikis 3 + `approval_pending:`, cikis 2 + `REFUSED [GR_APPROVAL]`, FUGR incelemesi) | Ajan cikis 3'u ariza sanip dolanmasin |
 | `sapgui-scriptter/skills/sapgui-screenshots/SKILL.md` | "PRD'de sadece goruntuleme" kurali | Tus basabiliyor, yanlislikla kaydedebilir; ADT tier kapisi buraya UZANMIYOR |
 | `requirements.txt`, `CLAUDE.md`, `README.md`, `toolkit-version.json` | Bu dagitima ait | Yukari akista yok |
 

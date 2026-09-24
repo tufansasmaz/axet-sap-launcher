@@ -308,7 +308,7 @@ interface ReadonlyServerOutcome {
 // İkisi de aynı `.conn_adt`'ı okuyup aynı 127.0.0.1:8787 sözleşmesini
 // (`GET /health`, `POST /tool/<ad>`) sunuyor: sohbet bağlamındaki komutlar
 // değişmiyor, yalnızca /health'in saydığı araç sayısı değişiyor (53'e karşı
-// 17).
+// 19).
 //
 // DEV'de açılan motorun kendisi (`adt_mcp_server.py`) DEĞİL, onu içeri alıp 28
 // yazan aracını sarmalayan onay katmanı (`adt_gated_server.py`): her yazma
@@ -322,7 +322,7 @@ interface ReadonlyServerOutcome {
 function adtServerScriptFor(writeSurface: boolean): { rel: string[]; label: string } {
   return writeSurface
     ? { rel: ["sap-adt", "scripts", "adt_gated_server.py"], label: "ADT sunucusu (onaylı yazma, 53 araç)" }
-    : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (17 araç)" };
+    : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (19 araç)" };
 }
 
 async function attemptReadonlyServerAutoStart(
@@ -704,23 +704,27 @@ function buildContextMarkdown(
 - SAP'a **yazmayan** skiller ayrıca genel klasörde duruyor: \`${getGlobalAxetRoot()}\\skills\` — orada olanlar bu projede de geçerli, ikinci kez kurulmaları gerekmez. Bir skill'i burada göremiyorsan önce orada ara.
 ${
         writable
-          ? `- **\`%sap-adt\`** — bu sistem **DEV** olarak işaretli, yani ADT motoru **yazma açık** çalışıyor: 33 araç, \`adt_push\`/\`adt_activate\`/\`adt_create\`/\`adt_create_transport\` dahil. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
-  - **Her yazmadan önce transport'u kullanıcıya doğrulat** (\`adt_list_transports\` ile göster, hangisi olduğunu SOR). Paket adını asla tahmin etme, sor.
-  - Motorun kendi kapısı \`.conn_adt\`'taki \`ADT_SAP_TIER\`'a bakıyor. Bir yazma "GR_TIER" ile reddedilirse bu bir arıza değil: bağlı olduğun sistem DEV değil demektir, \`.conn_adt\`'ı düzeltmeye kalkma, kullanıcıya söyle.`
-          : `- **\`%sap-adt-readonly\`** — bu sistem **${tier ?? "işaretlenmemiş"}**, yani ADT motoru **salt okunur** yüzeyle çalışıyor: yazan 13 araç MCP kaydına hiç girmiyor. 17 araç var (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.); \`adt_sql\`, \`adt_dumps\` ve \`adt_unit_test\` ayrıca kendi izin değişkenleriyle kapalı. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir.
+          ? `- **\`%sap-adt\`** — bu sistem **DEV** olarak işaretli, yani ADT sunucusu **onaylı yazma** ile çalışıyor: 53 araç (motorun 50 aracı + \`axet_teslim\`, \`axet_abapgit_onay\`, \`axet_inceleme_kaydet\`). Okuyan araçlar serbest; SAP'a yazan her çağrı NTT Studio'da kullanıcının önüne bir **onay penceresi** açar. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
+  - **Çalışma modunu kullanıcı seçer** (NTT Studio, oturum başına): "doğrudan DEV'e yaz" ya da "önce yerelde çalış, sonra teslim et". Mod seçilmeden yazma \`mod_secilmedi\` ile reddedilir — kullanıcıdan NTT Studio'da seçmesini iste, modu sen seçme.
+  - Yazan bir çağrı \`approval_pending\` dönerse: kullanıcıya NTT Studio'daki onay penceresini söyle; onayladıktan sonra **AYNI çağrıyı AYNI argümanlarla** tekrar gönder. \`approval_denied\` → dur, başka bir yoldan deneme, kullanıcıya ne istediğini sor. \`approval_unavailable\` → NTT Studio'nun açık olduğunu sor; onay yoksa yazma yok.
+  - \`yerel_mod\` → bu oturum yerelde çalışıyor: \`src/\` altında geliştir, iş bitince \`axet_teslim\` ile tek pencerede teslim onayı iste, sonra aynı nesneleri aynı kaynak dosyalarıyla ve aynı transport'la yaz.
+  - **Kod yazan her işte önce \`%abap-code-review\`**, ardından \`axet_inceleme_kaydet\` ile kaydet (hash'i sunucu hesaplar). Kaynak satır içi gönderilmez: dosyaya yaz, \`source_file\` ile ver. \`inceleme_yok\` / \`inceleme_eski\` → incelemeyi bu kaynakla yeniden çalıştır. \`kritik_bulgu\` **kesin engel**: aşma yolu yok, kodu düzelt ve yeniden incele.
+  - \`transport_belirsiz\` → hangi transport olduğunu kullanıcıya SOR (\`adt_list_transports\` ile göster). Paket adını asla tahmin etme, sor.
+  - \`adt-tool.ps1\` ile SAP'a YAZMA; kabuktan, \`generate_screen.py\`/\`generate_adobe.py\` script'lerini doğrudan çalıştırarak ya da SAP GUI'den dolanarak da yazma. Ekran/Adobe üretimi DEV'de 8787'deki \`adt_generate_screen\`/\`adt_generate_adobe\` araçlarından geçer — onay penceresinin amacı her yazmayı kullanıcının görmesi.`
+          : `- **\`%sap-adt-readonly\`** — bu sistem **${tier ?? "işaretlenmemiş"}**, yani ADT motoru **salt okunur** yüzeyle çalışıyor: yazan 28 araç MCP kaydına hiç girmiyor. 19 araç var (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.); \`adt_sql\`, \`adt_dumps\` ve \`adt_unit_test\` ayrıca kendi izin değişkenleriyle kapalı. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir.
   - Bir push/activate aracı ARAMA: yok. Kullanıcı bu sistemde geliştirme istiyorsa yapılacak şey sistemi NTT Studio'da DEV olarak işaretlemesi, senin bir yolunu bulman değil.`
       }
 - \`%clean-core\`, \`%sap-docs\` — ABAP Cloud/Clean Core ve SAP dokümantasyon referans skilleri (SAP'a bağlanmaz, salt bilgi).
 - \`%abapgit-workflow\` ve kardeşleri — abapGit ZIP döngüsü${
         writable
-          ? " (geliştirici SAPGUI'de import eder). DEV'de doğrudan `adt_push` da mümkün; hangisinin istendiğini kullanıcıya sor — ekibin teslim akışı senin tercihin değil."
+          ? " (geliştirici SAPGUI'de import eder). DEV'de doğrudan yazmak mı, yerelde çalışıp teslim etmek mi — bunu NTT Studio'da kullanıcının seçtiği çalışma modu belirler; ekibin teslim akışı senin tercihin değil."
           : ". Bu sistemde SAP'a doğrudan yazma yolu zaten yok."
       }${
         writeSkillsInstalled.length === 0
           ? ""
           : writable
             ? `
-- Yazan skill'ler: ${writeSkillsInstalled.map((n) => `\`%${n}\``).join(", ")} — bu sistem DEV, yazma açık. Her yazmadan önce transport'u ve paketi kullanıcıya doğrulat.`
+- Yazan skill'ler: ${writeSkillsInstalled.map((n) => `\`%${n}\``).join(", ")} — bu sistem DEV, yazma açık ama onaylı. Her yazmadan önce transport'u ve paketi kullanıcıya doğrulat. \`%abapgit-deploy\` script'leri SAP GUI'ye dokunmadan önce NTT Studio onayı ister: \`approval_pending:\` satırı ve çıkış kodu 3 → kullanıcıya pencereyi söyle, onaydan sonra AYNI komutu yeniden ver; \`REFUSED [GR_APPROVAL]\` ve çıkış kodu 2 → dur, başka yoldan deneme.`
             : `
 - Yazan skill'ler (${writeSkillsInstalled.map((n) => `\`%${n}\``).join(", ")}) kurulu ama bu sistem DEV değil: SAP'a yazmaya kalktıkları anda \`REFUSED [GR_TIER]\` / \`guardrail_violation\` ile reddederler. Bu bir arıza DEĞİL, bilinçli kapı (kullanıcı kararı: yazma yalnızca DEV sistemde). Kapıyı aşmaya, \`.conn_adt\`'ı düzenlemeye ya da aynı işi genel SAP GUI komutlarıyla yapmaya KALKMA. Okuyan modlar (ör. screen-gen/adobe-gen \`READ\`) serbest. Kullanıcı bu sistemde geliştirme istiyorsa sistemi NTT Studio'da DEV olarak işaretlemesi gerekir.`
       }
@@ -738,6 +742,9 @@ ${
       return readonlyOutcome.alreadyRunning
         ? "- **Sunucu zaten çalışıyordu ✓** (http://127.0.0.1:8787) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır. Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` başlığı gerekiyor (`/health` dahil; değer ortamda, asla dosyaya yazma)."
         : "- **Sunucu OTOMATİK başlatıldı ✓** (http://127.0.0.1:8787, launcher tarafından — bu klasördeki `adt-readonly.log`'a bak) — hiçbir şey başlatmana gerek yok, doğrudan `POST /tool/<ad>` çağır. Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` başlığı gerekiyor (`/health` dahil; değer ortamda, asla dosyaya yazma).";
+    }
+    if (writable) {
+      return `- **Otomatik başlatma BAŞARISIZ**: ${readonlyOutcome.detailNote}\n  Bu sistem DEV: sunucuyu elle başlatma (onay ucu olmadan her yazma reddedilir). Kullanıcıdan sistemi NTT Studio'da yeniden bağlamasını iste.`;
     }
     return `- **Otomatik başlatma BAŞARISIZ**: ${readonlyOutcome.detailNote}\n  Elle başlatman gerekiyor (aşağıdaki bash bloğuna bak) — Python bağımlılıkları kurulu değilse önce \`pip install -r "${skillInstall.toolkitRoot ?? "<sap-toolkit>"}\\requirements.txt"\` çalıştır.`;
   })();
@@ -856,8 +863,8 @@ ${connectionStatusBlock}
 ### Yöntem 1 — \`%${adtSkillName}\` (tercih edilen, tam özellikli)
 Python tabanlı gerçek ADT engine${
         writable
-          ? ", 33 tool (okuma + yazma: adt_push, adt_activate, adt_create*, adt_create_transport, …)"
-          : ", 17 read-only tool (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.)"
+          ? ", 53 tool (okuma + onaylı yazma: adt_push, adt_activate, adt_create*, adt_create_transport, … + axet_teslim, axet_abapgit_onay, axet_inceleme_kaydet)"
+          : ", 19 read-only tool (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.)"
       }. Detaylar için \`%${adtSkillName}\` skill'ini oku (SKILL.md).
 
 **Otomatik başlatma durumu (launcher tarafından, bu bağlanışta):**
@@ -867,7 +874,7 @@ ${readonlyServerStatusLine}
 # Her istek token ister (/health dahil) — token ortamda: $ABAP_HTTP_TOKEN. Değerini ASLA bir dosyaya yazma.
 # Sunucu ayakta mı? (yukarıdaki durum "BAŞARISIZ" değilse zaten ayakta olmalı)
 python -c "import os, requests; print(requests.get('http://127.0.0.1:8787/health', headers={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}).json())" 2>/dev/null || echo "NOT RUNNING"
-# SADECE yukarıdaki durum "BAŞARISIZ" ise elle başlat (run_in_background: true).
+# SADECE yukarıdaki durum "BAŞARISIZ" ise ve sistem DEV DEĞİLSE elle başlat (run_in_background: true).
 # --http ŞART: bayraksız çalıştırırsan stdio MCP modunda açılır ve /health olmaz.
 # Token ortamdan kalıtımla geçer; ABAP_HTTP_TOKEN'ı değiştirme ya da silme.
 ADT_CWD=$(pwd) py "${skillInstall.toolkitRoot ?? "<sap-toolkit bulunamadı>"}/sap-consultant/skills/${adtServerScript}" --http --port 8787
@@ -876,8 +883,8 @@ python -c "import os, requests; print(requests.post('http://127.0.0.1:8787/tool/
 \`\`\`
 ${
         writable
-          ? `Bu sistem DEV: server yazma araçlarını da sunuyor. Yazmadan önce transport'u kullanıcıya doğrulat, paket adını sor. QA/PRD'ye bağlıyken aynı server hiç açılmaz — onun yerine 17 araçlık sarmalayıcı açılır.`
-          : `Bu server SAP'a yazmayı **yüzeyden** engelliyor: yazan 13 araç MCP kaydına hiç girmiyor, yani 404 bile dönmüyor — öyle bir araç yok. Bir yolunu arama.`
+          ? `Bu sistem DEV: server yazma araçlarını da sunuyor, her yazma NTT Studio'nun onayından geçer (yukarıdaki \`%sap-adt\` maddesine bak). **DEV'de sunucuyu ELLE BAŞLATMA**: onay ucunun adresi ve anahtarı yalnızca NTT Studio'nun başlattığı sunucuya verilir; elle açılan sunucu her yazmayı \`approval_unavailable\` ile reddeder. Otomatik başlatma başarısızsa kullanıcıdan sistemi NTT Studio'da yeniden bağlamasını iste. QA/PRD'ye bağlıyken bu server hiç açılmaz — onun yerine 19 araçlık sarmalayıcı açılır.`
+          : `Bu server SAP'a yazmayı **yüzeyden** engelliyor: yazan 28 araç MCP kaydına hiç girmiyor, yani 404 bile dönmüyor — öyle bir araç yok. Bir yolunu arama.`
       }
 
 ### Yöntem 2 — \`adt-tool.ps1\` (basit fallback, Python yoksa)

@@ -28,7 +28,7 @@ allowed-tools: Bash(python:*), Bash(cd:*), Read, Write, Edit, Grep, Glob
 > - Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` gerekiyor, `/health` dahil.
 >   Token ortamda duruyor; değerini ekrana basma, hiçbir dosyaya yazma.
 > - İlk iş `GET /health`: `tools` listesi o an hangi yüzeyin ayakta olduğunu söylüyor.
->   DEV'de 33 araç (`adt_push`/`adt_activate` dahil); diğer sistemlerde 17, yazanlar
+>   DEV'de 53 araç (`adt_push`/`adt_activate` ve onay araçları dahil); diğer sistemlerde 19, yazanlar
 >   `404 unknown_tool` döner. Hangisinin açık olduğunu varsayma, sor.
 > - Sunucuyu kendin başlatma, `adt_mcp_server.py`'yi doğrudan çalıştırma: ikinci süreç
 >   ikinci SAP oturumu demek. Durum için proje klasöründeki `sap-context.md`'ye bak;
@@ -42,6 +42,38 @@ allowed-tools: Bash(python:*), Bash(cd:*), Read, Write, Edit, Grep, Glob
 > python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.get('http://127.0.0.1:8787/health', headers=h).json())"
 > python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.post('http://127.0.0.1:8787/tool/adt_logon', json={}, headers=h).json())"
 > ```
+
+> **NTT Studio uyarlaması — SAP DEV yazma onayı.** DEV'de 8787'deki sunucu motorun
+> kendisi değil, onu saran onay katmanı (`adt_gated_server.py`). Okuyan araçlar olduğu
+> gibi çalışır; SAP'a yazan her çağrı NTT Studio'da kullanıcının önüne bir onay
+> penceresi açar. Aşağıdaki "confirm the transport with the user" kuralları geçerli,
+> pencere onların yerine geçmiyor — üstüne ekleniyor.
+>
+> - **Çalışma modunu kullanıcı seçer** (oturum başına): doğrudan DEV'e yazmak ya da
+>   önce yerelde çalışıp sonra teslim etmek. Seçilmemişse yazma `mod_secilmedi` döner;
+>   kullanıcıdan NTT Studio'da seçmesini iste, modu sen seçme.
+> - `approval_pending` → kullanıcıya NTT Studio'daki onay penceresini söyle; onayladıktan
+>   sonra **aynı çağrıyı aynı argümanlarla** tekrar gönder. Argümanı değiştirirsen bu yeni
+>   bir yazmadır ve yeni pencere açar.
+> - `approval_denied` → dur. Aynı işi başka araçla, kabuktan ya da SAP GUI'den dolanarak
+>   yapmaya kalkma; kullanıcıya ne istediğini sor. `approval_unavailable` → NTT Studio'ya
+>   ulaşılamıyor: onay yoksa yazma yok, kullanıcıya NTT Studio'nun açık olduğunu sor.
+> - `yerel_mod` → bu oturum yerelde çalışıyor. `src/` altında geliştir; iş bitince
+>   `axet_teslim` ile tek pencerede teslim onayı iste (`nesneler`, `paket`, `transport`;
+>   abapGit için `yontem="abapgit"` ve `zip_dosyasi`), ardından aynı nesneleri aynı kaynak
+>   dosyalarıyla ve aynı transport'la yaz — o çağrılar pencere açmadan geçer.
+> - **Kaynak her zaman dosyadan:** `adt_push` ve kardeşlerine kaynağı satır içi `source`
+>   olarak verme, dosyaya yaz ve `source_file` ile ver (`kaynak_dosyasi_gerekli`). Kalite
+>   kapısı dosyanın hash'ini inceleme kaydıyla eşliyor.
+> - **Kod yazan her işte önce `%abap-code-review`**, sonra `axet_inceleme_kaydet`.
+>   `inceleme_yok` / `inceleme_eski` → incelemeyi bu kaynakla yeniden çalıştır.
+>   `kritik_bulgu` **kesin engel**: aşma yolu yok; kodu düzelt, yeniden incele, yeniden kaydet.
+> - `transport_belirsiz` → transport'u kullanıcıya sor (`adt_list_transports`). Paket adını
+>   asla tahmin etme.
+> - Başarılı bir yazmanın cevabında `axet_atc` (ATC özeti) ve `axet_uyari` olabilir;
+>   kullanıcıya ilet.
+> - Sunucuyu elle başlatma: onay ucunun adresi yalnızca NTT Studio'nun başlattığı sunucuda;
+>   elle açılan sunucu her yazmayı reddeder.
 
 SAP ABAP development and analysis through the ADT REST API. **Every SAP operation goes
 through the MCP tools (`adt_*`)** — one long-lived server, one persistent authenticated
@@ -99,7 +131,7 @@ Claude Code's own process env.
 ### Read-only entrypoint — the `sap-adt-readonly` skill
 
 For a system that must be unwriteable: a second entrypoint onto **this same engine**
-that never registers the write tools (**17 tools instead of 33**; `ADT_READONLY` alone
+that never registers the write tools (**19 tools instead of 50**; `ADT_READONLY` alone
 is only a call-time belt). `adt_unit_test`, `adt_sql` and `adt_dumps` are additionally
 gated behind individual opt-in variables. Surface table, rationale and fail-closed
 matrix: [`../sap-adt-readonly/SKILL.md`](../sap-adt-readonly/SKILL.md).

@@ -5,7 +5,7 @@ description: >
   an audit, a code review board, a demo, a training session, or a consultant who should
   not be able to push. Starts the same ADT engine as sap-adt with the write tools removed
   from the MCP registry, so push, create, activate, delete, transport creation and lock
-  clearing are not listed and cannot be called. 17 tools instead of 33, with SQL, dumps
+  clearing are not listed and cannot be called. 19 tools instead of 50, with SQL, dumps
   and unit-test execution each behind their own opt-in.
   Triggers in Turkish or English: "read-only", "salt okunur", "sadece okuma",
   "yazma yapmasın", "PRD'ye bağlan ama dokunma", "QA connection", "production system",
@@ -43,7 +43,7 @@ allowed-tools: Bash(python:*), Bash(py:*), Read, Grep, Glob
 > ```
 
 Same engine as [`sap-adt`](../sap-adt/SKILL.md), same persistent session, same
-`.conn_adt`, same guardrails. **17 tools instead of 33**, because the write tools are
+`.conn_adt`, same guardrails. **19 tools instead of 50**, because the write tools are
 never registered — not listed, not callable, and not restored by unsetting an
 environment variable.
 
@@ -67,7 +67,7 @@ about what is exposed and why.
 ## Why this exists, when `ADT_READONLY=true` already does something
 
 `ADT_READONLY` is a **belt**. `guardrails.require_writable()` reads it at call time, so
-all 33 tools stay advertised and a write is refused only once the agent has decided to
+all 50 tools stay advertised and a write is refused only once the agent has decided to
 write, assembled the push, and spent the turn. That is right for a DEV connection
 someone froze for an afternoon. It is wrong when the system must not be writeable at
 all, for two reasons:
@@ -88,13 +88,14 @@ continue on suspenders alone.
 
 ## The surface
 
-**17 tools on install. 20 with all three gates open. Out of 33.**
+**19 tools on install. 22 with all three gates open. Out of 50.**
 
 | Group | Tools |
 |---|---|
-| Session / diagnostics | `ping`, `adt_doctor`, `adt_logon` |
+| Session / diagnostics | `ping`, `adt_doctor`, `adt_logon`, `adt_capabilities` |
 | Source and repository | `adt_get_source`, `adt_list_package`, `adt_search`, `adt_code_search`, `adt_revisions`, `adt_inactive_objects`, `adt_badi_discovery`, `adt_where_used` |
 | Static analysis | `adt_syntax_check`, `adt_atc_check` |
+| Services (read) | `adt_service_binding_status` |
 | Transports (read) | `adt_list_transports`, `adt_transport_status`, `adt_transport_check`, `adt_check_scatter` |
 
 **Gated, each off by default and each with its own variable:**
@@ -255,7 +256,7 @@ Point a client at this file **instead of** `adt_mcp_server.py`:
 }
 ```
 
-If both servers are registered at once, the agent sees the union — 33 tools — and this
+If both servers are registered at once, the agent sees the union — 50 tools or more — and this
 skill has bought you nothing. Run one or the other.
 
 ---

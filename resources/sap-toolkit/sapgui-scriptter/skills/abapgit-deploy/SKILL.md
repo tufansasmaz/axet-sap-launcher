@@ -14,6 +14,33 @@ description: >
 
 This skill teaches Claude how to drive the **autonomous deploy loop** via SAPGUI scripting. The developer asks for a feature; Claude edits the source, deploys, watches activation, fixes errors, iterates - all without the developer touching SAPGUI.
 
+> **NTT Studio uyarlaması — SAP DEV yazma onayı.** Bu klasördeki SAP'a yazan her script
+> (`abapgit_deploy.py`, `abapgit_bootstrap.py`, `gui_import_zip.py`,
+> `gui_activate_package.py`, `gui_stage_commit.py`, `gui_run_zabapgit_*.py`) önce DEV
+> kapısından (`REFUSED [GR_TIER]`), sonra NTT Studio onayından geçer: SAP GUI'ye dokunmadan
+> önce 8787'deki sunucuya (`axet_abapgit_onay`) sorar, NTT Studio'da kullanıcının önüne bir
+> pencere açılır. Aşağıdaki "agent prints, developer runs" kuralı aynen geçerli.
+>
+> - Çıktıda `approval_pending:` satırı ve **çıkış kodu 3** → onay bekleniyor. Geliştiriciye
+>   NTT Studio'daki pencereyi onaylamasını söyle, sonra **aynı komutu** (aynı argümanlarla)
+>   yeniden yazdır. `approval_pending:` satırı yoksa çıkış 3, `abapgit_deploy.py`'nin kendi
+>   ZIP dışa aktarma hatasıdır — onay değil.
+> - `REFUSED [GR_APPROVAL]` ve **çıkış kodu 2** → reddedildi ya da NTT Studio'ya
+>   ulaşılamadı. Dur; aynı işi başka script'le, genel SAP GUI komutlarıyla ya da ADT'den
+>   dolanarak yapmaya kalkma. Kullanıcıya ne yapmak istediğini sor.
+> - `REFUSED [GR_APPROVAL] transport_belirsiz` → ZIP içe aktarımının transport'u belli değil.
+>   Kullanıcıya transport'u sor (`adt_list_transports`), komutu `--transport <TR>` ile yeniden
+>   yazdır (`abapgit_deploy.py` zaten ister; `gui_import_zip.py` için ekle). Paketi tahmin etme.
+> - Onay kimliği alt adımlara `AXET_ABAPGIT_ONAY_ID` ortam değişkeniyle geçer; elle verme,
+>   silme.
+> - ZIP'teki her kaynaklı nesne için güncel bir `%abap-code-review` kaydı gerekir
+>   (`axet_inceleme_kaydet`, bkz. abap-code-review SKILL.md). Hata döngüsünde `src/`'yi
+>   her düzelttiğinde değişen nesneleri yeniden incele ve kaydet, sonra bir sonraki turun
+>   komutunu yazdır. Kritik bulgu kesin engel: düzeltmeden komut yazdırma.
+> - Function group ZIP'te tek nesnedir (FUGR): incelemeyi `tip="functiongroup"` ile ve
+>   grubun bütün `<ad>.fugr.*.abap` kaynak dosyalarını vererek kaydet; tek tek function
+>   module (`tip="function"`) kaydı ZIP için sayılmaz.
+
 ## Hard rule: agent prints, developer runs (every SAPGUI command)
 
 SAP's API usage policy (April 2026) permits agent-driven SAPGUI scripting **only when the developer has explicitly approved that specific run**. To comply unambiguously, this plugin uses a stricter rule: **Claude never invokes the SAPGUI-driving scripts itself.** The developer runs each one by hand.
@@ -181,6 +208,8 @@ When the user says "deploy", "ship", "make it green", or similar:
 4. **Wait.** Do not run the command yourself. The developer executes it.
 5. **When the developer reports back** (or `.abapgit-status/` shows a fresh entry):
    - **Exit 0** → report success with the commit SHA and transport (if visible).
+   - **Exit 3 with an `approval_pending:` line** → the NTT Studio approval window is open; ask the developer to approve it, then print the **same** command again.
+   - **Exit 2 with `REFUSED [GR_APPROVAL]`** → refused or NTT Studio unreachable; stop and ask the user (see the NTT Studio block at the top).
    - **Exit 1** →
      a. Read `.abapgit-status/<latest>` (the deploy script just wrote it).
      b. Parse the error — which object, which line, which type of error.

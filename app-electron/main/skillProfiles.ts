@@ -50,9 +50,9 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   // Yukarı akış 2026-09'da tek parça `sap-adt-readonly`'yi ÜÇE BÖLDÜ; biz de
   // aynısını yapıyoruz çünkü bölünmenin sebebi doğru:
   //
-  //   sap-adt              motorun kendisi, 33 araç, yazma dahil
+  //   sap-adt              motor (50 araç) + onay katmanı, 53 araç, onaylı yazma dahil
   //   sap-adt-readonly     4 dosyalık sarmalayıcı — motoru YANDAN import edip
-  //                        13 yazan aracı MCP kaydından siliyor (17 araç kalır)
+  //                        28 yazan aracı MCP kaydından siliyor (19 araç kalır)
   //   sap-adt-router-bridge  ADT'yi RFC'ye çeviren shim (adt_rfc_bridge.py);
   //                        router arkasındaki, HTTP portu kapalı sistemler için
   //
@@ -356,7 +356,7 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
   // veriliyor: "bu zaten yapılmış mı?" sorusunu soracak tek rol bu.
   "module-consultant": [
     // Modül danışmanı SADECE sarmalayıcıyı görür. Bu, bir bayrak değil bir
-    // yüzey: yazan 13 araç MCP kaydına hiç girmiyor, yani ajan bir push
+    // yüzey: yazan 28 araç MCP kaydına hiç girmiyor, yani ajan bir push
     // planlayıp reddedilmiyor — böyle bir araç onun dünyasında yok.
     "sap-adt-readonly",
     "sap-adt-router-bridge",
@@ -380,7 +380,7 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
   // teknik danışmandan çıkarılmış), buna karşılık kod denetimi, ekran
   // üretimi ve abapGit var.
   "technical-consultant": [
-    // Teknik danışman motorun TAMAMINI alır — 33 araç, push/activate/transport
+    // Teknik danışman motorun TAMAMINI alır — 53 araç, push/activate/transport
     // dahil (kullanıcı, 2026-09-23: *"artık sap sistemlerindeki readonly modu
     // kaldırabiliriz dev sistemde geliştirme, deploy gibi işlemleri
     // yapabiliriz"*). Kapı kalkmadı, YER DEĞİŞTİRDİ: artık rolde değil
@@ -476,7 +476,7 @@ export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
  * kullanıcının gördüğü liste ile diske yazılan liste aynı koddan çıkar.
  *
  * ADT motoru burada TAKAS ediliyor, engellenmiyor: yazma yüzeyi isteyen bir rol
- * DEV dışı bir sistemde `sap-adt-readonly`'ye düşer (17 araç). Engelleseydik
+ * DEV dışı bir sistemde `sap-adt-readonly`'ye düşer (19 araç). Engelleseydik
  * PRD'ye bağlanan bir teknik danışmanın elinde hiç ADT kalmazdı — yazamamak
  * okuyamamak demek değil. İkisi aynı anda kurulmuyor: aynı klasörde iki ADT
  * skill'i, ajana "hangi sunucu" diye cevabı olmayan bir soru sordurur.
@@ -484,7 +484,7 @@ export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
  * TAKAS TEK YÖNLÜ — yalnızca AŞAĞI. Rolün listesinde `sap-adt-readonly`
  * yazıyorsa orada kalır, sistem DEV olsa bile yükseltilmez. Bu tek satır,
  * modül danışmanının ADT yüzeyini tutan şey: liste iki yönlü eşleşseydi bir
- * modül danışmanı DEV'e bağlandığı anda 33 araçlık yazan motoru alırdı
+ * modül danışmanı DEV'e bağlandığı anda 53 araçlık yazan sunucuyu alırdı
  * (kullanıcı, 2026-09-23: *"modül danışmanları asla geliştirme
  * yapamasınlar"*). Rol yükseltmesi rolün listesinden geçer, tier'dan değil.
  *
@@ -500,7 +500,7 @@ export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
  * arıyor. Senkron o kapıları silerse `tests/tierWriteGates.test.ts` kırılır.
  *
  * ADT takası yine duruyor: yazan motor DEV dışında hiç başlatılmıyor, çünkü
- * onun 33 aracının her birine ayrı kapı koymak yerine sunucunun kendisini
+ * onun 28 yazan aracının her birine ayrı kapı koymak yerine sunucunun kendisini
  * değiştirmek tek hamlede kapatıyor.
  */
 export function planSkills(profile: SkillProfile, tier: SystemTier | null): SkillPlanEntry[] {
