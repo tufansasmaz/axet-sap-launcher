@@ -165,8 +165,40 @@ const OPERATION: Record<string, TranslationKey> = {
   axet_abapgit_onay: "sapWrite.op.abapgit",
 };
 
-function operationKey(arac: string): TranslationKey {
-  return OPERATION[arac] ?? (arac.startsWith("adt_create") ? "sapWrite.op.create" : "sapWrite.op.other");
+// Modlu araçlarda asıl işi `islem` söylüyor: aynı adt_generate_adobe bir form
+// yazabilir de silebilir de. Silme başlığı ancak buradan gelebilir; tanınmayan
+// işlem aracın genel başlığına düşer, işlem adı yine alttaki küçük yazıda.
+const OPERATION_BY_MODE: Record<string, Record<string, TranslationKey>> = {
+  adt_generate_screen: {
+    WRITE: "sapWrite.op.screenWrite",
+    DELETE: "sapWrite.op.screenDelete",
+    JENERATOR_KUR: "sapWrite.op.installGenerator",
+  },
+  adt_generate_adobe: {
+    WRITE: "sapWrite.op.adobeWrite",
+    DELETE: "sapWrite.op.adobeDelete",
+    SET_LAYOUT: "sapWrite.op.adobeSetLayout",
+    SET_PARAMS: "sapWrite.op.adobeSetParams",
+    SYNC_CONTEXT: "sapWrite.op.adobeSyncContext",
+    JENERATOR_KUR: "sapWrite.op.installGenerator",
+  },
+  adt_message_class: {
+    create: "sapWrite.op.messageClassCreate",
+    write: "sapWrite.op.messageClassWrite",
+  },
+};
+
+// Yıkıcı bayrakların uyarı metni; listede olmayan bayrak genel metinle, adıyla gösterilir.
+const FLAG: Record<string, TranslationKey> = {
+  recreate: "sapWrite.flag.recreate",
+  replace: "sapWrite.flag.replace",
+  recursive: "sapWrite.flag.recursive",
+  remove_locked_objects: "sapWrite.flag.removeLockedObjects",
+};
+
+function operationKey(arac: string, islem?: string): TranslationKey {
+  const byMode = islem ? OPERATION_BY_MODE[arac]?.[islem] : undefined;
+  return byMode ?? OPERATION[arac] ?? (arac.startsWith("adt_create") ? "sapWrite.op.create" : "sapWrite.op.other");
 }
 
 function ApprovalDialog({ item, total, onRespond, armDelayMs = ARM_DELAY_MS }: { item: ApprovalView; total: number; onRespond: Props["onRespond"]; armDelayMs?: number }) {
@@ -208,9 +240,25 @@ function ApprovalDialog({ item, total, onRespond, armDelayMs = ARM_DELAY_MS }: {
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
         <section>
-          <div className="text-sm font-medium text-white">{t(operationKey(fact.arac))}</div>
-          <div className="mt-0.5 font-mono text-2xs text-slate-500">{fact.arac}</div>
+          <div className="text-sm font-medium text-white">{t(operationKey(fact.arac, fact.islem))}</div>
+          <div className="mt-0.5 font-mono text-2xs text-slate-500">
+            {fact.arac}
+            {fact.islem ? ` · ${fact.islem}` : ""}
+          </div>
         </section>
+
+        {Object.entries(fact.secenekler ?? {})
+          .filter(([, on]) => on)
+          .map(([flag]) => (
+            <div
+              key={flag}
+              data-testid="sap-write-flag"
+              className="flex items-start gap-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]"
+            >
+              <ShieldAlert size={14} className="mt-0.5 shrink-0" />
+              <span>{FLAG[flag] ? t(FLAG[flag]) : t("sapWrite.flag.other", { flag })}</span>
+            </div>
+          ))}
 
         {fact.sinif === "HER_SEFER" && (
           <div className="flex items-start gap-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]">

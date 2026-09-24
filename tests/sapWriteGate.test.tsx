@@ -234,6 +234,51 @@ describe("SapWriteGate — onay", () => {
     expect(screen.getByText("adt_gelecekteki_arac")).toBeTruthy();
   });
 
+  it("modlu araçta başlık işleme göre: Adobe silme SİL diyor, yazma demiyor", () => {
+    const cases: [string, string, string][] = [
+      ["adt_generate_adobe", "DELETE", "Adobe form/arayüzünü SİL"],
+      ["adt_generate_adobe", "WRITE", "Adobe form/arayüz oluştur ve aktive et"],
+      ["adt_generate_screen", "WRITE", "Dynpro ekranı üret"],
+      ["adt_generate_screen", "DELETE", "Dynpro ekranını SİL"],
+      ["adt_generate_screen", "JENERATOR_KUR", "Okuma için üreteç fonksiyon modülünü $TMP'ye kur (ZND_FG_AUTO_GEN)"],
+      ["adt_message_class", "create", "Mesaj sınıfı oluştur"],
+      ["adt_message_class", "write", "Mesaj sınıfının metinlerini yaz"],
+      // Tanınmayan işlem aracın genel başlığına düşüyor; işlem adı küçük yazıda duruyor.
+      ["adt_generate_adobe", "BILINMEYEN", "Adobe form/arayüz yaz"],
+    ];
+    for (const [arac, islem, label] of cases) {
+      mount({ sessions: [session()], pending: [approval({ fact: fact({ arac, islem }) })] });
+      expect(screen.getByText(label)).toBeTruthy();
+      expect(screen.getByText(`${arac} · ${islem}`)).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("yıkıcı bayraklar ayrı uyarı satırı olarak görünüyor", () => {
+    mount({
+      sessions: [session()],
+      pending: [
+        approval({
+          canSession: false,
+          fact: fact({ arac: "adt_delete_transport", sinif: "HER_SEFER", secenekler: { recursive: true, remove_locked_objects: true, yeni_bayrak: true, kapali: false } }),
+        }),
+      ],
+    });
+    const flags = screen.getAllByTestId("sap-write-flag");
+    expect(flags.map((f) => f.textContent)).toEqual([
+      "recursive: transport'un görevleri de SİLİNECEK.",
+      "remove_locked_objects: kayıtlı nesne girdileri transport'tan çıkarılacak.",
+      "yeni_bayrak: yıkıcı seçenek açık.",
+    ]);
+    for (const f of flags) {
+      expect(f.className).toContain("--status-warning-border");
+      expect(f.className).not.toContain("lime");
+    }
+    cleanup();
+    mount({ sessions: [session()], pending: [approval()] });
+    expect(screen.queryAllByTestId("sap-write-flag")).toHaveLength(0);
+  });
+
   it("yeni istek açılınca onay düğmeleri kısa süre kapalı; Reddet açık", () => {
     vi.useFakeTimers();
     try {

@@ -65,6 +65,31 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
   });
 });
 
+describe("olgu alanları — Python'un yazdığını launcher ve pencere aynı adla okuyor", () => {
+  const types = read("app-electron", "shared", "sapWriteTypes.ts");
+  const policy = read("app-electron", "main", "sapWrite", "policy.ts");
+  const gate = read("src", "components", "SapWriteGate.tsx");
+
+  it("islem ve secenekler: build_fact yazıyor, tip ve doğrulayıcı tanıyor, pencere gösteriyor", () => {
+    expect(gated).toContain('fact["islem"]');
+    expect(gated).toContain('fact["secenekler"]');
+    expect(types).toMatch(/islem\?: string;/);
+    expect(types).toMatch(/secenekler\?: Record<string, boolean>;/);
+    expect(policy).toContain("x.islem");
+    expect(policy).toContain("x.secenekler");
+    expect(gate).toContain("fact.islem");
+    expect(gate).toContain("fact.secenekler");
+  });
+
+  it("yıkıcı bayrakların her birinin pencerede kendi uyarı metni var", () => {
+    const m = gated.match(/DESTRUCTIVE_FLAGS = \(([^)]*)\)/);
+    expect(m).not.toBeNull();
+    const flags = [...m![1].matchAll(/"([a-z_]+)"/g)].map((x) => x[1]);
+    expect(flags.length).toBeGreaterThan(0);
+    for (const f of flags) expect(gate).toMatch(new RegExp(`\\b${f}: "sapWrite\\.flag\\.`));
+  });
+});
+
 describe("sap-context.md — DEV'de ajana onay akışı anlatılıyor", () => {
   const dev = launcher.slice(launcher.indexOf("function buildContextMarkdown("));
 
