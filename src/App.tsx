@@ -50,6 +50,8 @@ import TierPromptModal from "./components/TierPromptModal";
 import { guessTier } from "./lib/tier";
 import AddSystemModal, { type EditingManualSystem } from "./components/AddSystemModal";
 import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePromptModal";
+import SapWriteGate from "./components/SapWriteGate";
+import type { SapWriteState } from "../app-electron/shared/sapWriteTypes";
 import ConfirmDialog from "./components/ConfirmDialog";
 import Toast, { type ToastMsg } from "./components/Toast";
 import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPanel";
@@ -141,6 +143,7 @@ export default function App() {
   const [readinessFault, setReadinessFault] = useState(false);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle" });
   const [updatePromptMode, setUpdatePromptMode] = useState<UpdatePromptMode>("hidden");
+  const [sapWriteState, setSapWriteState] = useState<SapWriteState>({ sessions: [], pending: [] });
   const [dismissedUpdateVersion, setDismissedUpdateVersion] = useState<string | null>(null);
   const scanGenerationRef = useRef(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -444,6 +447,14 @@ export default function App() {
     window.api.getLastUpdateStatus().then(setUpdateStatus);
     const unsubscribe = window.api.onUpdateStatus(setUpdateStatus);
     return unsubscribe;
+  }, []);
+
+  // SAP DEV yazma onayı: main her değişikliği (oturum açıldı/kapandı, mod
+  // seçildi, istek geldi/cevaplandı/süresi doldu) tam durum olarak yayınlıyor.
+  // Mount'ta bir kez çekiliyor — pencere açılmadan önce gelen istek kaybolmasın.
+  useEffect(() => {
+    window.api.getSapWriteState().then(setSapWriteState);
+    return window.api.onSapWriteChanged(setSapWriteState);
   }, []);
 
   // `updateStatus.phase`'e göre modal modu türetiliyor — kullanıcı "Daha
@@ -1448,6 +1459,12 @@ export default function App() {
           status={updateStatus}
           onAccept={handleAcceptUpdate}
           onDismiss={handleDismissUpdate}
+        />
+
+        <SapWriteGate
+          state={sapWriteState}
+          onSetMode={window.api.setSapWriteMode}
+          onRespond={window.api.respondSapWrite}
         />
 
         <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">

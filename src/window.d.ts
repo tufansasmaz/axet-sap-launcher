@@ -75,6 +75,7 @@ import type {
   TerminalMode,
   UpdateStatus
 } from "../app-electron/shared/types";
+import type { Choice, SapWriteState, WorkMode } from "../app-electron/shared/sapWriteTypes";
 
 export interface AxetApi {
   getLandscape: () => Promise<SapLandscape>;
@@ -269,6 +270,10 @@ export interface AxetApi {
     userText?: string
   ) => Promise<GuiScriptAgentStepResult>;
   cancelGuiScriptAgentStep: (requestId: string) => Promise<{ ok: boolean }>;
+  getSapWriteState: () => Promise<SapWriteState>;
+  setSapWriteMode: (sessionId: string, mode: WorkMode) => Promise<boolean>;
+  respondSapWrite: (id: string, choice: Choice) => Promise<{ ok: boolean; error?: string }>;
+  onSapWriteChanged: (callback: (state: SapWriteState) => void) => () => void;
 }
 
 declare global {

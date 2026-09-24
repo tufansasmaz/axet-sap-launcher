@@ -33,6 +33,8 @@ import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
+import { stopApprovalServer } from "./sapWrite/server";
+import { registerSapWriteIpc } from "./sapWrite/ipc";
 import { appLog, appLogPath } from "./appLog";
 import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
 import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
@@ -1059,6 +1061,10 @@ function registerIpc(): void {
 
   ipcMain.handle("updates:getLastStatus", () => getLastUpdateStatus());
 
+  // SAP DEV yazma onayı: mod seçimi ve bekleyen isteklerin cevabı. Onay ucunun
+  // kendisi (127.0.0.1, rastgele port) ilk DEV bağlantısında açılıyor.
+  registerSapWriteIpc(ipcMain, () => mainWindow);
+
   ipcMain.handle("axetModels:list", () => listAxetModels());
   ipcMain.handle("axetModels:getCurrent", () => getAxetModelConfig());
   ipcMain.handle("axetModels:setCurrent", (_event, kind: AxetModelKind, entry: AxetModelEntry) => setAxetModel(kind, entry));
@@ -1560,6 +1566,7 @@ app.on("window-all-closed", () => {
   stopAllWatches();
   stopAllRfcBridges();
   stopAllReadonlyServers();
+  stopApprovalServer().catch(() => {});
   stopGuiScriptBridge();
   cancelAllChatMessages();
   cancelAllSapGuiAgentSteps();
@@ -1573,6 +1580,7 @@ app.on("before-quit", () => {
   stopAllWatches();
   stopAllRfcBridges();
   stopAllReadonlyServers();
+  stopApprovalServer().catch(() => {});
   stopGuiScriptBridge();
   cancelAllChatMessages();
   cancelAllSapGuiAgentSteps();

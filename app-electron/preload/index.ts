@@ -60,6 +60,7 @@ import type {
   TerminalMode,
   UpdateStatus
 } from "../shared/types";
+import type { Choice, SapWriteState, WorkMode } from "../shared/sapWriteTypes";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -370,7 +371,19 @@ const api = {
     userText?: string
   ): Promise<GuiScriptAgentStepResult> => ipcRenderer.invoke("sapGuiScript:agentStep", requestId, prompt, model, userText),
   cancelGuiScriptAgentStep: (requestId: string): Promise<{ ok: boolean }> =>
-    ipcRenderer.invoke("sapGuiScript:cancelAgentStep", requestId)
+    ipcRenderer.invoke("sapGuiScript:cancelAgentStep", requestId),
+  // SAP DEV yazma onayı (main/sapWrite): oturumların modu ve bekleyen istekler.
+  // Karar yalnızca bu iki çağrıyla veriliyor; pencere gösterimi `onSapWriteChanged`.
+  getSapWriteState: (): Promise<SapWriteState> => ipcRenderer.invoke("sap-write:state"),
+  setSapWriteMode: (sessionId: string, mode: WorkMode): Promise<boolean> =>
+    ipcRenderer.invoke("sap-write:set-mode", sessionId, mode),
+  respondSapWrite: (id: string, choice: Choice): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("sap-write:respond", id, choice),
+  onSapWriteChanged: (callback: (state: SapWriteState) => void) => {
+    const listener = (_event: unknown, state: SapWriteState) => callback(state);
+    ipcRenderer.on("sap-write:changed", listener);
+    return () => ipcRenderer.removeListener("sap-write:changed", listener);
+  }
 };
 
 contextBridge.exposeInMainWorld("api", api);
