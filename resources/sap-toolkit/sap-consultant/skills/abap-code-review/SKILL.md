@@ -79,9 +79,11 @@ this skill never edits or pushes code, it only produces a review report.
    python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.post('http://127.0.0.1:8787/tool/axet_inceleme_kaydet', json={'nesne': 'ZCL_ORNEK', 'tip': 'class', 'kaynak_dosyalari': ['src/zcl_ornek.clas.abap', 'src/zcl_ornek.clas.locals_imp.abap'], 'bulgular': {'kritik': 0, 'yuksek': 0, 'orta': 2, 'dusuk': 1}, 'rapor': 'Executive Summary: ...'}, headers=h).json())"
    ```
 
-   - `bulgular`: raporun **Critical Issues** maddeleri `"kritik"`; güvenlik/performans/hata
-     yönetimi gibi yayına engel olmayan ama önemli bulgular `"yuksek"`; **Clean Code
-     Improvements** maddeleri `"orta"`; biçim/isimlendirme ayrıntıları `"dusuk"`. Sayıları
+   - `bulgular`: raporun **Critical Issues** bölümündeki her madde `"kritik"` — güvenlik,
+     sözdizimi, Clean Core ihlali ve eksik künye dahil; hiçbir maddeyi Critical'dan çıkarıp
+     başka sınıfa taşıma. Critical'da olmayan ama önemli bulgular (ör. performans, hata
+     yönetimi) `"yuksek"`; **Clean Code Improvements** maddeleri `"orta"`; biçim/isimlendirme
+     ayrıntıları `"dusuk"`. Sayıları
      rapordan say, yuvarlama ya da eksiltme yapma: `"kritik"` > 0 ise kayıt yazılır ama o
      kaynak SAP'a **gönderilemez** (`kritik_bulgu`, kesin engel). Düzelt, yeniden incele,
      yeniden kaydet.
@@ -93,7 +95,8 @@ this skill never edits or pushes code, it only produces a review report.
      nesnedir: `<grup>.fugr.*.abap` dosyalarının hepsini ver). ZIP ile teslimde function
      module kaydı sayılmaz, grup kaydı gerekir.
    - Token ortamda duruyor (`ABAP_HTTP_TOKEN`); değerini ekrana basma, dosyaya yazma. 8787
-     cevap vermiyorsa (QA/PRD'de kayıt aracı yoktur) bu adımı atla — orada zaten SAP'a
+     cevap vermiyorsa ya da `404 unknown_tool` dönüyorsa (QA/PRD'de kayıt aracı yoktur) bu
+     adımı atla — orada zaten SAP'a
      yazılmıyor.
 
 ## Program header / künye (mandatory, top of main program)

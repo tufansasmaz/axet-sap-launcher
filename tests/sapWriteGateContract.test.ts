@@ -55,6 +55,7 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
       read("app-electron", "main", "sapToolkit.ts"),
       read("app-electron", "main", "skillProfiles.ts"),
       read("resources", "sap-toolkit", "CLAUDE.md"),
+      read("resources", "sap-toolkit", "README.md"),
       read(...SKILLS, "sap-adt", "SKILL.md"),
       read(...SKILLS, "sap-adt-readonly", "SKILL.md")
     ];
@@ -90,6 +91,16 @@ describe("sap-context.md — DEV'de ajana onay akışı anlatılıyor", () => {
 
   it("DEV'de sunucuyu elle başlatma deniyor (onay ortamı olmadan her yazma reddedilir)", () => {
     expect(dev).toContain("DEV'de sunucuyu ELLE BAŞLATMA");
+    // Otomatik başlatma başarısız olduğunda da DEV'e "elle başlat" denmiyor.
+    const status = launcher.slice(launcher.indexOf("const readonlyServerStatusLine"));
+    const devBranch = status.slice(status.indexOf("if (writable)"), status.indexOf("})();"));
+    expect(devBranch).toContain("Bu sistem DEV: sunucuyu elle başlatma");
+    expect(launcher).toContain("ve sistem DEV DEĞİLSE elle başlat");
+  });
+
+  it("abapGit exit 2'de kodun nedeni okunuyor; komut ajan tarafından çalıştırılmıyor", () => {
+    expect(dev).toContain("AYNI komutu yeniden yazdır (sen çalıştırma)");
+    expect(dev).toContain("ardından gelen kod nedeni söyler");
   });
 
   it("adt-tool.ps1 DEV'de yazma için kullanılmıyor", () => {
@@ -121,6 +132,9 @@ describe("SKILL.md — onay blokları", () => {
     expect(deploy).toContain("**Exit 3 with an `approval_pending:` line**");
     expect(deploy).toContain("**Exit 2 with `REFUSED [GR_APPROVAL]`**");
     expect(deploy).toContain('tip="functiongroup"');
+    // Exit 2'nin ardından gelen kod: inceleme_* yeniden incelenir, ret durur.
+    expect(deploy).toContain("> - `REFUSED [GR_APPROVAL] transport_belirsiz`");
+    expect(deploy).toContain("`inceleme_eski` → değişen nesneleri yeniden incele ve kaydet");
   });
 
   it("abap-code-review: inceleme axet_inceleme_kaydet ile kaydediliyor, token ortamdan", () => {
@@ -129,6 +143,12 @@ describe("SKILL.md — onay blokları", () => {
     for (const s of ["kaynak_dosyalari", "bulgular", '"kritik"', "functiongroup"]) {
       expect(review).toContain(s);
     }
+    // Kritik kesin engel: güvenlik bulgusu "yuksek"e indirilmesin.
+    expect(review).toContain("hiçbir maddeyi Critical'dan çıkarıp");
+    expect(review).toMatch(/`"kritik"` — güvenlik,\s+sözdizimi, Clean Core ihlali/);
+    expect(review).not.toMatch(/güvenlik[^\n]*`"yuksek"`/);
+    expect(review).toContain('`"kritik"` > 0 ise kayıt yazılır ama o');
+    expect(review).toContain("**gönderilemez** (`kritik_bulgu`, kesin engel)");
   });
 });
 

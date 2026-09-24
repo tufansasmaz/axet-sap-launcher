@@ -509,9 +509,9 @@ python -c "import requests; print(requests.post('http://127.0.0.1:8787/tool/adt_
 SAP's API Policy v1.1 (May 2026) treats ADT APIs as SAP-internal and not permitted for
 agentic AI workflows on business data. This toolkit is scoped accordingly:
 
-- **Writing is confined to DEV**, and to the technical-consultant role, by three
-  independent gates (which skills are installed, which server is started, and the
-  engine's own tier check). Everywhere else the surface cannot write at all.
+- **Writing is confined to DEV**, and to the technical-consultant role, by four
+  independent gates (which skills are installed, which server is started, the
+  engine's own tier check, and NTT Studio's write approval on DEV). Everywhere else the surface cannot write at all.
 - **QA and production are reached by transport, never by `adt_push`.** A direct write
   desynchronises the system from the request that is supposed to describe it.
 - To **deliver** ABAP changes to any customer/production system, use the compliant

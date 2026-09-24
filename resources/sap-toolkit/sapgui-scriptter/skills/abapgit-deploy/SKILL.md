@@ -23,14 +23,20 @@ This skill teaches Claude how to drive the **autonomous deploy loop** via SAPGUI
 >
 > - Çıktıda `approval_pending:` satırı ve **çıkış kodu 3** → onay bekleniyor. Geliştiriciye
 >   NTT Studio'daki pencereyi onaylamasını söyle, sonra **aynı komutu** (aynı argümanlarla)
->   yeniden yazdır. `approval_pending:` satırı yoksa çıkış 3, `abapgit_deploy.py`'nin kendi
->   ZIP dışa aktarma hatasıdır — onay değil.
-> - `REFUSED [GR_APPROVAL]` ve **çıkış kodu 2** → reddedildi ya da NTT Studio'ya
->   ulaşılamadı. Dur; aynı işi başka script'le, genel SAP GUI komutlarıyla ya da ADT'den
->   dolanarak yapmaya kalkma. Kullanıcıya ne yapmak istediğini sor.
+>   yeniden yazdır. `approval_pending:` satırı yoksa çıkış 3, script'in kendi adım hatasıdır (ZIP dışa
+>   aktarma, oturum açma, GUI adımı — çıktıdaki hata satırını oku) — onay değil.
+> - `REFUSED [GR_APPROVAL]` ve **çıkış kodu 2** → SAP'a hiçbir şey yazılmadı; ardından gelen
+>   kod nedeni söyler. `approval_denied`, `approval_unavailable`, `yerel_mod`,
+>   `mod_secilmedi` → dur; aynı işi başka script'le, genel SAP GUI komutlarıyla ya da ADT'den
+>   dolanarak yapmaya kalkma. Kullanıcıya ne yapmak istediğini sor. `inceleme_yok` /
+>   `inceleme_eski` → değişen nesneleri yeniden incele ve kaydet, sonra aynı komutu yeniden
+>   yazdır. `kritik_bulgu` → kesin engel: kodu düzelt, yeniden incele, yeniden kaydet.
+>   `sap_session_busy` → biraz sonra aynı komutu yeniden yazdır.
 > - `REFUSED [GR_APPROVAL] transport_belirsiz` → ZIP içe aktarımının transport'u belli değil.
 >   Kullanıcıya transport'u sor (`adt_list_transports`), komutu `--transport <TR>` ile yeniden
->   yazdır (`abapgit_deploy.py` zaten ister; `gui_import_zip.py` için ekle). Paketi tahmin etme.
+>   yazdır (ZIP'i içe aktaran script: `abapgit_deploy.py`, `gui_run_zabapgit_auto.py`,
+>   `gui_run_zabapgit_deploy_multi.py` zaten ister; `gui_import_zip.py` için ekle). Paketi
+>   tahmin etme.
 > - Onay kimliği alt adımlara `AXET_ABAPGIT_ONAY_ID` ortam değişkeniyle geçer; elle verme,
 >   silme.
 > - ZIP'teki her kaynaklı nesne için güncel bir `%abap-code-review` kaydı gerekir
@@ -209,7 +215,7 @@ When the user says "deploy", "ship", "make it green", or similar:
 5. **When the developer reports back** (or `.abapgit-status/` shows a fresh entry):
    - **Exit 0** → report success with the commit SHA and transport (if visible).
    - **Exit 3 with an `approval_pending:` line** → the NTT Studio approval window is open; ask the developer to approve it, then print the **same** command again.
-   - **Exit 2 with `REFUSED [GR_APPROVAL]`** → refused or NTT Studio unreachable; stop and ask the user (see the NTT Studio block at the top).
+   - **Exit 2 with `REFUSED [GR_APPROVAL]`** → nothing was written; the code after it names the reason. Refused or NTT Studio unreachable → stop and ask the user; `inceleme_yok`/`inceleme_eski` → re-review, record, print the same command again (see the NTT Studio block at the top).
    - **Exit 1** →
      a. Read `.abapgit-status/<latest>` (the deploy script just wrote it).
      b. Parse the error — which object, which line, which type of error.
