@@ -202,4 +202,42 @@ describe("onay ucu", () => {
     await call(s.url, s.token, "POST", "/approvals", fact());
     expect(logLines().filter((l) => l.tur === "karar")).toHaveLength(1);
   });
+
+  it("günlük: arg_hash ve kaynak_sha256 var; fark ve kaynak YOK", async () => {
+    const s = await openWriteSession(dir, ID);
+    setWriteMode(s.sessionId, "dogrudan");
+    const f = fact();
+    await call(s.url, s.token, "POST", "/approvals", f);
+    const raw = readFileSync(path.join(dir, LOG_FILE), "utf8");
+    expect(raw).not.toContain("GIZLI_KAYNAK_SATIRI");
+    const lines = logLines();
+    const karar = lines.find((l) => l.tur === "karar");
+    expect(karar).toBeDefined();
+    expect(karar?.arg_hash).toBe(f.arg_hash);
+    const nesneler = karar?.nesneler as Array<Record<string, unknown>> | undefined;
+    expect(nesneler?.[0]?.kaynak_sha256).toBeDefined();
+    expect(nesneler?.[0]?.kaynak_sha256).toEqual(f.nesneler[0].kaynak_sha256);
+  });
+
+  it("sure_doldu handler'da yakalanırsa günlüğe yazılır ve bildirim gönderilir", async () => {
+    const s = await openWriteSession(dir, ID);
+    setWriteMode(s.sessionId, "dogrudan");
+    const r = await call(s.url, s.token, "POST", "/approvals", fact());
+    const id = r.json.id;
+
+    // Sweep aralığını atla, ama handler'ı tetikle
+    const now = Date.now();
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(now + 10 * 60_000 + 1);
+    try {
+      const notify = vi.fn();
+      setWriteNotifier(notify);
+      await call(s.url, s.token, "POST", "/approvals", fact());
+      expect(notify).toHaveBeenCalled();
+      const lines = logLines();
+      const expired = lines.find((l) => l.tur === "karar" && l.karar === "sure_doldu" && l.id === id);
+      expect(expired).toBeDefined();
+    } finally {
+      nowSpy.mockRestore();
+    }
+  });
 });

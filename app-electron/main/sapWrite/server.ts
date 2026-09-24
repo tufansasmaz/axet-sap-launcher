@@ -143,6 +143,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       send(res, 400, { hata: "gecersiz_bilgi" });
       return;
     }
+    sweepNow(now);
     const r = decide(state, body, now);
     // Aynı bekleyen isteğin tekrarı (ajan yoklarken) günlüğü şişirmesin.
     if (!(r.karar === "bekliyor" && !r.created)) {
@@ -206,7 +207,8 @@ async function ensureServer(): Promise<void> {
   if (starting) return starting;
   starting = new Promise<void>((resolve, reject) => {
     const srv = createServer((req, res) => {
-      handle(req, res).catch(() => {
+      handle(req, res).catch((err) => {
+        console.warn(`[sap-yazma] onay ucu hatası: ${String(err)}`);
         if (!res.headersSent) send(res, 500, { hata: "ic_hata" });
       });
     });
@@ -265,10 +267,12 @@ export function setWriteMode(sessionId: string, mode: WorkMode): boolean {
 }
 
 export function respondToApproval(id: string, choice: Choice): { ok: boolean; error?: string } {
+  const now = Date.now();
+  sweepNow(now);
   for (const s of sessions.values()) {
     const rec = s.state.records.find((r) => r.id === id);
     if (!rec) continue;
-    const r = respond(s.state, id, choice, Date.now());
+    const r = respond(s.state, id, choice, now);
     if (r.ok) {
       appendDecisionLog(s.state.projectDir, {
         tur: "cevap",
