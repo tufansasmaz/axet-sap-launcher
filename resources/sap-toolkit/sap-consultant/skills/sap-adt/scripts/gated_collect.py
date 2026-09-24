@@ -198,8 +198,18 @@ def _push(sap, pd, a):
         raise CollectError("bilgi_toplanamadi",
                            "Fonksiyon modülü adt_push ile yazılmaz; adt_write_function_module kullan.")
     paket, yeni = _existing(sap, tip, ad)
+    arg_tr = _tr(a.get("transport"))
+    # I1: Argüman transport varsa ve nesne mevcutsa, motorun yazacağı transport'u doğrula
+    if arg_tr and not yeni:
+        try:
+            eng = (sap._find_existing_transport(ad, normalize_object_type(ot), arg_tr) or "").upper()
+        except Exception as exc:  # noqa: BLE001
+            raise CollectError("bilgi_toplanamadi", f"{ad} için transport doğrulanamadı: {exc}")
+        if eng and eng != arg_tr:
+            raise CollectError("transport_belirsiz",
+                             f"{ad} {eng} transport'unda kayıtlı; motor oraya yazar. transport={eng} ile tekrar dene.")
     owner = "" if yeni else owner_transport(sap, ad, ot)
-    tr, enj = _resolve(sap, a.get("transport"), owner, paket)
+    tr, enj = _resolve(sap, arg_tr, owner, paket)
     obj = source_object(sap, pd, a.get("source_file"), ad, ot, tip, paket, yeni)
     return _result(sap, [obj], tr, enjekte=enj, kalite=True)
 
@@ -376,8 +386,12 @@ def _zip_nesneler(sap, project_dir, zip_dosyasi, paket) -> tuple[list[dict], str
     nesneler = []
     for o in objs:
         ad = _name(o["ad"], "ZIP'teki nesne adı")
-        sap_paket, yeni = _existing(sap, o["tip"], ad, paket)
-        nesneler.append({"ad": ad, "tip": o["tip"], "paket": sap_paket, "yeni": yeni,
+        # I3: Nesne tipi doğrulaması - SQL sorgusundan ÖNCE
+        tip = o["tip"]
+        if not re.fullmatch(r"[A-Z0-9]{4}", tip):
+            raise CollectError("gecersiz_ad", f"ZIP'teki nesne tipi geçersiz: {tip!r}")
+        sap_paket, yeni = _existing(sap, tip, ad, paket)
+        nesneler.append({"ad": ad, "tip": tip, "paket": sap_paket, "yeni": yeni,
                          "kaynak_sha256": o["kaynak_sha256"]})
     return nesneler, zip_sha
 
@@ -427,6 +441,9 @@ def collect_abapgit(sap, project_dir, script, paket="", transport="", zip_dosyas
     objs = []
     if zip_dosyasi:
         objs, abapgit["zip_sha256"] = _zip_nesneler(sap, project_dir, zip_dosyasi, pk)
+    # I2: Paket varsa ya da ZIP varsa, yerel olmayan paket transport ister
+    if (pk or zip_dosyasi) and not tr and not _local(pk):
+        raise CollectError("transport_belirsiz", MSG_TRANSPORT_BELIRSIZ)
     out = _result(sap, objs, tr, paket=pk, kalite=bool(zip_dosyasi))
     out["abapgit"] = abapgit
     return out

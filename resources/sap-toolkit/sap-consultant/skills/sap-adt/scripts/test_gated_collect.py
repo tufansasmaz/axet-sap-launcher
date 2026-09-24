@@ -43,13 +43,14 @@ class FakeSap:
     """SAPClient'ın gated_collect'in kullandığı yüzü. Okumaları kaydeder."""
 
     def __init__(self, tadir=None, tfdir=None, owners=None, sources=None, session_transport=None,
-                 fail_sql=False):
+                 fail_sql=False, raise_owner=False):
         self.tadir = tadir or {}          # (R3TR, AD) → paket
         self.tfdir = tfdir or {}          # FM → PNAME
         self.owners = owners or {}        # AD → transport
         self.sources = sources or {}      # URL'deki küçük harfli ad → aktif kaynak
         self.session_transport = session_transport
         self.fail_sql = fail_sql
+        self.raise_owner = raise_owner    # _find_existing_transport hatası
         self.queries, self.source_urls = [], []
         self.adt_client = self
 
@@ -66,6 +67,8 @@ class FakeSap:
         return {"columns": ["X"], "data": [[v]] if v else [], "total_rows": 1 if v else 0}
 
     def _find_existing_transport(self, name, otype, requested):
+        if self.raise_owner:
+            raise RuntimeError("Doğrulama başarısız")
         return self.owners.get(name, requested)
 
     def get_transport_info(self, tr):
@@ -119,10 +122,23 @@ def t_push_existing():
     assert "paket" not in r
 
 
-def t_push_arg_wins():
+def t_push_arg_differs_from_owner():
     sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"}, owners={"ZCL_A": TR}, sources={"zcl_a": ""})
-    r = gc.collect(sap, "adt_push", push_args(transport=TR2.lower()), project({"zcl_a.clas.abap": NEW_SRC}))
-    assert r["transport"] == TR2 and r["enjekte_transport"] == ""
+    exc = refused("transport_belirsiz", lambda: gc.collect(sap, "adt_push", push_args(transport=TR2.lower()),
+                                                            project({"zcl_a.clas.abap": NEW_SRC})))
+    assert TR in exc.message
+
+
+def t_push_arg_matches_owner():
+    sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"}, owners={"ZCL_A": TR}, sources={"zcl_a": ""})
+    r = gc.collect(sap, "adt_push", push_args(transport=TR.lower()), project({"zcl_a.clas.abap": NEW_SRC}))
+    assert r["transport"] == TR and r["enjekte_transport"] == ""
+
+
+def t_push_arg_owner_check_raises():
+    sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"}, owners={"ZCL_A": TR}, sources={"zcl_a": ""}, raise_owner=True)
+    refused("bilgi_toplanamadi", lambda: gc.collect(sap, "adt_push", push_args(transport=TR.lower()),
+                                                     project({"zcl_a.clas.abap": NEW_SRC})))
 
 
 def t_push_session_fallback():
@@ -320,9 +336,40 @@ def t_teslim_and_abapgit_zip():
     refused("kaynak_dosyasi_yok", lambda: gc.collect_abapgit(sap, pd, "abapgit_deploy.py", "", "", "yok.zip"))
 
 
+def t_abapgit_transport_needed():
+    # I2: paket varsa ve transport yoksa, yerel olmadığı sürece hata
+    sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"})
+    pd = project()
+    name = _zip(pd)
+    refused("transport_belirsiz", lambda: gc.collect_abapgit(sap, pd, "abapgit_deploy.py", "zpkg", "", name))
+    # Yerel paket ise sorun yok
+    r = gc.collect_abapgit(sap, pd, "script.py", "$TMP", "", name)
+    assert r["transport"] == "" and r["kalite"] is True
+
+
+def t_zip_type_validation():
+    # I3: ZIP'teki nesne tipi geçersiz → gecersiz_ad ve SQL sorgusu yapılmaz
+    d = Path(tempfile.mkdtemp(prefix="gc-"))
+    # Geçersiz tip (örn. "XXX" 3 hane, ya da uygunsuz şey)
+    with zipfile.ZipFile(d / "bad.zip", "w") as z:
+        z.writestr("src/zcl_a.xxx.abap", b"code")  # xxx geçersiz
+    sap = FakeSap()
+    refused("gecersiz_ad", lambda: gc.collect_teslim(sap, d, None, "ZPKG", TR, "abapgit", "bad.zip"))
+    assert sap.queries == [], "geçersiz tip SQL sorgusuna gitmemeli"
+
+    # İnjeksiyon denemesi: SQL karakter dizisi
+    with zipfile.ZipFile(d / "inject.zip", "w") as z:
+        z.writestr("src/zcl_a.CLA' OR '1'='1.abap", b"code")
+    sap = FakeSap()
+    refused("gecersiz_ad", lambda: gc.collect_teslim(sap, d, None, "ZPKG", TR, "abapgit", "inject.zip"))
+    assert sap.queries == [], "enjeksiyonlu tip SQL'e gitmemeli"
+
+
 TESTS = [
     ("push_existing", "paket beyandan geliyor / fark yok / motorun çözeceği transport görünmüyor", t_push_existing),
-    ("push_arg_wins", "ajanın verdiği transport sahip transport'la eziliyor", t_push_arg_wins),
+    ("push_arg_differs", "argüman transport'u nesnenin sahip transport'undan farklıysa reddet", t_push_arg_differs_from_owner),
+    ("push_arg_matches", "argüman transport'u nesnenin sahip transport'una eşit ve kabul edilir", t_push_arg_matches_owner),
+    ("push_arg_owner_check_error", "sahip transport doğrulaması başarısız", t_push_arg_owner_check_raises),
     ("push_session", "oturuma sabitlenmiş transport pencerede görünmüyor", t_push_session_fallback),
     ("push_belirsiz", "transport'u belirsiz yazma pencereye transport'suz gidiyor", t_push_transport_belirsiz),
     ("push_local", "$TMP'de transport isteniyor", t_push_local_package),
@@ -341,6 +388,8 @@ TESTS = [
     ("karma", "ekran/adobe/mesaj sınıfı bilgisi yanlış", t_karma_tools),
     ("teslim_adt", "teslim listesi yanlış toplanıyor", t_teslim_adt),
     ("teslim_abapgit", "ZIP hash'i teslim ile abapGit onayında farklı", t_teslim_and_abapgit_zip),
+    ("abapgit_transport", "paket varsa transport gerekli (I2)", t_abapgit_transport_needed),
+    ("zip_type_valid", "ZIP nesne tipi doğrulanmadığında SQL sorgusu yapılmaz (I3)", t_zip_type_validation),
 ]
 
 
