@@ -17,6 +17,30 @@
 // el sıkışmayı yapan iş parçacığında çağırıyor ve orada PowerShell runspace'i
 // yoksa scriptblock "There is no Runspace available" ile düşüyor. Eski
 // `TrustAllCertsPolicy` de aynı nedenle C#'tı.
+//
+// SALT OKUMA (GET/HEAD). Betik her sisteme, QA ve PRD dahil, yazılıyor.
+// Eskiden `-Method POST/PUT/DELETE -Body ...` ile CSRF token'ını kendisi alıp
+// SAP'ye yazabiliyordu: DEV'deki onay penceresinin (8787 + NTT Studio) de,
+// motorun kademe kapısının da tamamen dışında kalan bir yazma yolu. Artık:
+//   * GET/HEAD dışındaki her `-Method` ve boş olmayan her `-Body`, `.conn_adt`
+//     okunmadan ve hiçbir ağ isteği gitmeden exit 2 ile reddediliyor. Kontrol
+//     `param`'dan hemen sonra, parola belleğe alınmadan önce yapılıyor.
+//   * CSRF token alma kodu yok. SAP'de yazma CSRF ister; betikte token
+//     alan satır olmadığı için bir düzenleme hatası yazmayı kazara geri getirmez.
+//   * Her `Invoke-WebRequest` çağrısında yöntem sabit: `-Method GET` ya da
+//     `-Method HEAD`. Değişkenden yöntem geçen satır yok (testte kilitli).
+//   * `package` eylemi eskiden POST isteyen `nodestructure`'ı çağırıyordu;
+//     artık GET ile `informationsystem/search` (quickSearch + packageName).
+//   * `raw` eyleminde yol "/" ile başlamak zorunda: `@baska.host/...` gibi bir
+//     yol, taban adresle birleşince URL'nin kullanıcı-bilgisi kısmına düşüp
+//     isteği (Basic Auth başlığıyla) başka sunucuya gönderirdi.
+// `-Method` ve `-Body` parametreleri bilerek duruyor: eski talimatla çağıran
+// ajan PowerShell'in "parametre bulunamadı" hatası yerine ne yapacağını
+// söyleyen mesajı görsün.
+//
+// Çalışma anında basılan mesajlar ASCII (Türkçe harfler çevrilmiş): dosya
+// BOM'suz UTF-8 yazılıyor ve Windows PowerShell 5.1 böyle bir dosyayı ANSI
+// kod sayfasıyla okuyor; "ş" gibi harfler bozuk görünürdü. Yorumlarda sorun yok.
 export function buildAdtToolScript(): string {
   return `param(
     [Parameter(Mandatory=$true)][ValidateSet("package","raw","ping")]$Action,
@@ -24,8 +48,17 @@ export function buildAdtToolScript(): string {
     [string]$Path,
     [string]$Method = "GET",
     [string]$QueryString = "",
-    [string]$Body = ""
+    [string]$Body = "",
+    [int]$MaxResults = 200
 )
+
+# SALT OKUMA KAPISI: .conn_adt okunmadan, parola belleğe alınmadan ve hiçbir ağ
+# isteği gitmeden önce. SAP'ye yazma bu betiğin işi değil.
+$verb = ([string]$Method).Trim().ToUpperInvariant()
+if (($verb -ne "GET" -and $verb -ne "HEAD") -or $Body) {
+    [Console]::Error.WriteLine("REDDEDILDI: adt-tool.ps1 salt okunur; yalnizca GET/HEAD gonderir (istenen: '$Method'" + $(if ($Body) { " + -Body" } else { "" }) + "). Hicbir istek gonderilmedi. SAP'ye yazma yalnizca 8787'deki ADT sunucusu uzerinden yapilir, yalnizca DEV sistemde ve NTT Studio'nun onay penceresiyle. Bu sistemde 8787 yazmaya acik degilse yazma yapilamaz; kullaniciya bildir. .conn_adt'deki parola ile kendi HTTP istegini kurma.")
+    exit 2
+}
 
 $ErrorActionPreference = "Stop"
 [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
@@ -90,16 +123,6 @@ $sec = New-Object System.Security.SecureString
 foreach ($__ch in $pass.ToCharArray()) { $sec.AppendChar($__ch) }
 $sec.MakeReadOnly()
 $cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-$script:sess = $null
-
-function Get-CsrfToken {
-    $discUrl = if ($clientQuery) { "$base/sap/bc/adt/discovery?$clientQuery" } else { "$base/sap/bc/adt/discovery" }
-    $r = Invoke-WebRequest -Uri $discUrl -Method GET \`
-        -Credential $cred -Headers @{ Accept = '*/*'; 'X-CSRF-Token' = 'Fetch' } \`
-        -SessionVariable sessLocal -UseBasicParsing
-    $script:sess = $sessLocal
-    return $r.Headers['x-csrf-token']
-}
 
 switch ($Action) {
     "ping" {
@@ -108,28 +131,30 @@ switch ($Action) {
         Write-Output "PING_OK $($r.StatusCode)"
     }
     "package" {
-        if (-not $Package) { Write-Error "Package parametresi gerekli"; exit 1 }
-        $csrf = Get-CsrfToken
-        $url = "$base/sap/bc/adt/repository/nodestructure?parent_type=DEVC%2FK&parent_name=$Package&withShortDescriptions=true"
+        if (-not $Package) { [Console]::Error.WriteLine("Package parametresi gerekli"); exit 1 }
+        # nodestructure POST istiyor; bu betik POST gondermiyor. quickSearch GET
+        # ile paketteki nesneleri (adtcore:objectReference) donduruyor.
+        $pkg = [uri]::EscapeDataString($Package.Trim().ToUpperInvariant())
+        $url = "$base/sap/bc/adt/repository/informationsystem/search?operation=quickSearch&query=*&maxResults=$MaxResults&packageName=$pkg"
         if ($clientQuery) { $url += "&$clientQuery" }
-        $r = Invoke-WebRequest -Uri $url -Method POST -WebSession $script:sess \`
-            -Headers @{ 'X-CSRF-Token' = $csrf; Accept = '*/*' } \`
-            -ContentType 'application/vnd.sap.as+xml; charset=UTF-8; dataname=null' -Body '' -UseBasicParsing
+        $r = Invoke-WebRequest -Uri $url -Method GET -Credential $cred -Headers @{ Accept = '*/*' } -UseBasicParsing
         Write-Output $r.Content
     }
     "raw" {
-        if (-not $Path) { Write-Error "Path parametresi gerekli"; exit 1 }
+        if (-not $Path) { [Console]::Error.WriteLine("Path parametresi gerekli"); exit 1 }
+        if (-not $Path.StartsWith('/')) {
+            [Console]::Error.WriteLine("Path '/' ile baslamali (ornek: /sap/bc/adt/discovery). Hicbir istek gonderilmedi.")
+            exit 1
+        }
         $sep = if ($QueryString) { if ($QueryString.StartsWith('?')) { '' } else { '?' } } else { '' }
         $url = "$base$Path$sep$QueryString"
-        if ($Method -eq "GET") {
-            $r = Invoke-WebRequest -Uri $url -Method GET -Credential $cred -Headers @{ Accept = '*/*' } -UseBasicParsing
+        if ($verb -eq "HEAD") {
+            $r = Invoke-WebRequest -Uri $url -Method HEAD -Credential $cred -Headers @{ Accept = '*/*' } -UseBasicParsing
+            Write-Output "HEAD $($r.StatusCode)"
         } else {
-            $csrf = Get-CsrfToken
-            $r = Invoke-WebRequest -Uri $url -Method $Method -WebSession $script:sess \`
-                -Headers @{ 'X-CSRF-Token' = $csrf; Accept = '*/*' } \`
-                -ContentType 'application/xml' -Body $Body -UseBasicParsing
+            $r = Invoke-WebRequest -Uri $url -Method GET -Credential $cred -Headers @{ Accept = '*/*' } -UseBasicParsing
+            Write-Output $r.Content
         }
-        Write-Output $r.Content
     }
 }
 `;

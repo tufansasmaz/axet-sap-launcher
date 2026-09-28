@@ -115,10 +115,17 @@ export function buildContextPreamble(cwd: string): string {
   if (!sap.verified) {
     lines.push("- DİKKAT: bu bağlantı doğrulanamadı; ADT çağrıları başarısız olabilir.");
   }
-  if (sap.tier === "QA" || sap.tier === "PRD") {
+  if (sap.tier === "DEV") {
+    lines.push("- SAP'a yazma yalnızca 8787 üzerinden, NTT Studio'nun onay penceresiyle. adt-tool.ps1 salt okunur; .conn_adt parolasıyla kendi isteğini kurma.");
+  } else {
     // Kullanıcının kendi kuralı (bkz. PROJE-BILGI.md / SAP araç seti):
-    // QA/PRD'de yazma yok, taşıma isteği olmadan hiçbir değişiklik yok.
-    lines.push(`- Bu bir ${sap.tier} sistemi: yazma işlemi yapma, önce kullanıcıya sor.`);
+    // yazma yalnızca DEV'de. Eski metin "yazma işlemi yapma, önce kullanıcıya
+    // sor" diyordu; kullanıcı "evet" deyince ajanın yazabileceğini ima
+    // ediyordu. QA/PRD'de onay yolu da yok. İşaretsiz sistem (tier null)
+    // `.conn_adt`'de QA yazılıyor (buildConnAdt), burada da öyle sayılıyor.
+    lines.push(
+      `- Bu bir ${sap.tier ?? "işaretsiz (QA sayılır)"} sistemi: SALT OKUNUR. Kullanıcı istese bile SAP'a yazma yok; yazma yalnızca DEV'de, 8787 üzerinden onay penceresiyle.`
+    );
   }
   if (gui) {
     const where = gui.transaction ? `işlem ${gui.transaction}` : gui.program ? `program ${gui.program}` : "bilinmeyen ekran";

@@ -74,6 +74,11 @@ allowed-tools: Bash(python:*), Bash(cd:*), Read, Write, Edit, Grep, Glob
 >   kullanıcıya ilet.
 > - Sunucuyu elle başlatma: onay ucunun adresi yalnızca NTT Studio'nun başlattığı sunucuda;
 >   elle açılan sunucu her yazmayı reddeder.
+> - **SAP'a tek yazma yolu 8787'deki bu sunucu.** `references/` ve `DDIC_OBJECTS.md` içindeki
+>   `POST/PUT /sap/bc/adt/...` satırları motorun iç işleyişini anlatıyor, elle izlenecek
+>   tarif değil. Proje klasöründeki `adt-tool.ps1` salt okunur (yalnızca GET/HEAD);
+>   `.conn_adt`'deki parolayla kendi HTTP isteğini kurma. Kademeyi NTT Studio veriyor;
+>   `.conn_adt`'deki `ADT_SAP_TIER` onu yalnızca daha kısıtlayıcı yöne çekebilir.
 
 SAP ABAP development and analysis through the ADT REST API. **Every SAP operation goes
 through the MCP tools (`adt_*`)** — one long-lived server, one persistent authenticated

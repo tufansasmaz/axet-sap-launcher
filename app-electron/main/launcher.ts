@@ -334,6 +334,9 @@ interface ReadonlyServerOutcome {
 // kurulumundaki kapının ikizi — biri kalkarsa diğeri hâlâ duruyor. Üçüncü kapı
 // motorun kendi `require_writable()`'ı, o da `.conn_adt`'taki ADT_SAP_TIER'a
 // bakıyor; o kapı rolü görmüyor, o yüzden rol kapısının burada olması şart.
+// `.conn_adt`'yi ajan düzenleyebildiği için sarmalayıcılar kademeyi ayrıca
+// çocuğun ortamından (`NTT_STUDIO_SAP_TIER`, bkz. attemptReadonlyServerAutoStart)
+// alıyor ve ikisinin daha kısıtlayıcı olanını kullanıyor (`ntt_tier.py`).
 function adtServerScriptFor(writeSurface: boolean): { rel: string[]; label: string } {
   return writeSurface
     ? { rel: ["sap-adt", "scripts", "adt_gated_server.py"], label: "ADT sunucusu (onaylı yazma, 53 araç)" }
@@ -344,7 +347,8 @@ async function attemptReadonlyServerAutoStart(
   skillInstall: SkillInstallResult,
   projectDir: string,
   port: number,
-  identity: Identity
+  identity: Identity,
+  tier: SystemTier
 ): Promise<ReadonlyServerOutcome> {
   const writeSurface = skillInstall.adtWriteSurface;
   const { rel: scriptRel, label } = adtServerScriptFor(writeSurface);
@@ -389,7 +393,8 @@ async function attemptReadonlyServerAutoStart(
     pythonPath: "py",
     port,
     expectWritable: writeSurface,
-    gate
+    gate,
+    tier
   });
   if (!startResult.ok) {
     if (gate) closeWriteSession(projectDir);
@@ -634,8 +639,8 @@ ${
   - \`yerel_mod\` → bu oturum yerelde çalışıyor: \`src/\` altında geliştir, iş bitince \`axet_teslim\` ile tek pencerede teslim onayı iste, sonra aynı nesneleri aynı kaynak dosyalarıyla ve aynı transport'la yaz.
   - **Kod yazan her işte önce \`%abap-code-review\`**, ardından \`axet_inceleme_kaydet\` ile kaydet (hash'i sunucu hesaplar). Kaynak satır içi gönderilmez: dosyaya yaz, \`source_file\` ile ver. \`inceleme_yok\` / \`inceleme_eski\` → incelemeyi bu kaynakla yeniden çalıştır. \`kritik_bulgu\` **kesin engel**: aşma yolu yok, kodu düzelt ve yeniden incele.
   - \`transport_belirsiz\` → hangi transport olduğunu kullanıcıya SOR (\`adt_list_transports\` ile göster). Paket adını asla tahmin etme, sor.
-  - \`adt-tool.ps1\` ile SAP'a YAZMA; kabuktan, \`generate_screen.py\`/\`generate_adobe.py\` script'lerini doğrudan çalıştırarak ya da SAP GUI'den dolanarak da yazma. Ekran/Adobe üretimi DEV'de 8787'deki \`adt_generate_screen\`/\`adt_generate_adobe\` araçlarından geçer — onay penceresinin amacı her yazmayı kullanıcının görmesi.
-  - Motorun kendi kapısı \`.conn_adt\`'taki \`ADT_SAP_TIER\`'a bakıyor. Bir yazma "GR_TIER" ile reddedilirse bu bir arıza değil: bağlı olduğun sistem DEV değil demektir, \`.conn_adt\`'ı düzeltmeye kalkma, kullanıcıya söyle.`
+  - \`adt-tool.ps1\` ile SAP'a YAZMA (zaten salt okunur: yalnızca GET/HEAD gönderir, başka yöntemi istek göndermeden reddeder); kabuktan, \`generate_screen.py\`/\`generate_adobe.py\` script'lerini doğrudan çalıştırarak ya da SAP GUI'den dolanarak da yazma. Ekran/Adobe üretimi DEV'de 8787'deki \`adt_generate_screen\`/\`adt_generate_adobe\` araçlarından geçer — onay penceresinin amacı her yazmayı kullanıcının görmesi.
+  - Motorun kademe kapısı kademeyi NTT Studio'nun sunucuya verdiği değerden alıyor; \`.conn_adt\`'taki \`ADT_SAP_TIER\` onu yalnızca daha kısıtlayıcı yöne çekebilir. Bir yazma "GR_TIER" ile reddedilirse bu bir arıza değil: bağlı olduğun sistem DEV değil demektir, \`.conn_adt\`'ı düzeltmeye kalkma, kullanıcıya söyle.`
           : `- **\`%sap-adt-readonly\`** — bu sistem **${tier ?? "işaretlenmemiş"}**, yani ADT motoru **salt okunur** yüzeyle çalışıyor: yazan 28 araç MCP kaydına hiç girmiyor. 19 araç var (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.); \`adt_sql\`, \`adt_dumps\` ve \`adt_unit_test\` ayrıca kendi izin değişkenleriyle kapalı. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir.
   - Bir push/activate aracı ARAMA: yok. Kullanıcı bu sistemde geliştirme istiyorsa yapılacak şey sistemi NTT Studio'da DEV olarak işaretlemesi, senin bir yolunu bulman değil.`
       }
@@ -655,7 +660,7 @@ ${
       }
 - \`%office-*\` skilleri (excel, pdf, pptx, docx, slides, manual) — Office doküman üretimi/analizi. Kurulan kopyadan çalıştırılabilirler: paylaşılan \`lib/\` ve \`scripts/\` klasörleri artık skill'lerin yanına kuruluyor, yani göreli \`lib/redact.py\` çağrısı kurulu yolda da çözülüyor. (\`--redact-pii\` bu yüzden sessizce devre dışı kalmıyor; TCKN/vergi no maskelemesi ona bağlı.)
 - Python bağımlılıkları kurulu değilse (\`ModuleNotFoundError\`), kullanıcıya \`pip install -r "${skillInstall.toolkitRoot}\\requirements.txt"\` çalıştırmasını söyle.`
-    : `- SAP Toolkit bulunamadı — skill kurulumu atlandı. Sadece \`.conn_adt\` + \`adt-tool.ps1\` (PowerShell tabanlı, sınırlı) kullanılabilir.`;
+    : `- SAP Toolkit bulunamadı — skill kurulumu atlandı. Sadece \`.conn_adt\` + \`adt-tool.ps1\` (PowerShell tabanlı, sınırlı, salt okunur) kullanılabilir; SAP'a yazma yolu yok.`;
 
   // adt_readonly_server.py artık RFC bridge ile aynı desende launcher
   // tarafından OTOMATIK başlatılıyor (attemptReadonlyServerAutoStart) —
@@ -812,26 +817,29 @@ ${
           : `Bu server SAP'a yazmayı **yüzeyden** engelliyor: yazan 28 araç MCP kaydına hiç girmiyor, yani 404 bile dönmüyor — öyle bir araç yok. Bir yolunu arama.`
       }
 
-### Yöntem 2 — \`adt-tool.ps1\` (basit fallback, Python yoksa)
-Bu klasörde hazır bir PowerShell script var: **\`adt-tool.ps1\`**. Kimlik doğrulama, CSRF token, Accept header, sertifika bypass gibi tüm detayları o halleder — sen tekrar icat etmeye çalışma.
+### Yöntem 2 — \`adt-tool.ps1\` (basit fallback, Python yoksa — SALT OKUNUR)
+Bu klasörde hazır bir PowerShell script var: **\`adt-tool.ps1\`**. Kimlik doğrulama, Accept header, sertifika doğrulaması (zincir ya da NTT Studio'da onaylanan parmak izi) gibi detayları o halleder — sen tekrar icat etmeye çalışma.
+
+**Script yalnızca OKUR: yalnızca GET/HEAD gönderir.** Başka bir \`-Method\` ya da bir \`-Body\` verirsen hiçbir istek göndermeden çıkış kodu 2 ile durur — bu bir arıza değil, bilinçli kapı. SAP'a yazma yalnızca 8787 üzerinden, DEV'de onay penceresiyle yapılır; bu sistemde o yol yoksa yazma yoktur, kullanıcıya söyle.
 
 1. **Bir paketteki (DEVC) nesneleri listelemek** için:
    \`\`\`
    powershell -NoProfile -ExecutionPolicy Bypass -File "adt-tool.ps1" -Action package -Package "ZPM003"
    \`\`\`
-   Çıktı XML'dir, içinde \`<OBJECT_TYPE>\`, \`<OBJECT_NAME>\`, \`<DESCRIPTION>\` alanları olan node listesi vardır.
+   Çıktı ADT arama sonucu XML'idir: her nesne bir \`<adtcore:objectReference>\` (\`adtcore:type\`, \`adtcore:name\`, \`adtcore:description\`, \`adtcore:uri\`). Varsayılan en çok 200 sonuç; gerekirse \`-MaxResults 500\`.
 
-2. **Herhangi bir ADT endpoint'ine serbest istek** için (örn. bir sınıfın kaynak kodu, bir CDS view tanımı vs.):
+2. **Herhangi bir ADT endpoint'ini okumak** için (örn. bir sınıfın kaynak kodu, bir CDS view tanımı vs.):
    \`\`\`
-   powershell -NoProfile -ExecutionPolicy Bypass -File "adt-tool.ps1" -Action raw -Path "/sap/bc/adt/oo/classes/ZPM003_CL_AVLB_AMDP/source/main" -Method GET
+   powershell -NoProfile -ExecutionPolicy Bypass -File "adt-tool.ps1" -Action raw -Path "/sap/bc/adt/oo/classes/ZPM003_CL_AVLB_AMDP/source/main"
    \`\`\`
-   POST/PUT gerekiyorsa \`-Method POST -Body "<xml>..."\` şeklinde ver, script CSRF token'ı otomatik halleder.
+   \`-Path\` "/" ile başlamalı. Sorgu dizesi için \`-QueryString "a=1&b=2"\`; yalnızca durum kodu için \`-Method HEAD\`.
 
 3. Script'in okuduğu bilgiler bu klasördeki \`.conn_adt\` dosyasından gelir — kullanıcıdan tekrar host/port/kimlik bilgisi isteme, zaten doğrulanmış durumda.
 4. 401/403 alırsan kullanıcıya "kimlik bilgileri artık geçersiz, yeniden bağlan" de — TLS/DNS/port kombinasyonlarını rastgele denemeye başlama, bu sorun değil.
 
 ## Talimatlar
 - \`.conn_adt\` içindeki kullanıcı adı/şifreyi asla loglama, ekrana basma veya başka bir dosyaya kopyalama.
+- SAP'a yazma yalnızca 8787'deki ADT sunucusu üzerinden, yalnızca DEV sistemde ve NTT Studio'nun onay penceresiyle yapılır. \`.conn_adt\`'taki parolayla kendi HTTP isteğini kurma (Invoke-WebRequest, curl, requests…) — onaysız yazma yolu aramak da bu kapıyı aşmaktır.
 - ABAP Cloud / Clean Core prensiplerine göre çalış (bkz. ana kimlik dosyası).
 - Bu sistemle ilgili ADT REST API, RAP/CDS nesneleri veya diğer teknik detaylar hakkında kullanıcı soru sorarsa bu bağlam bilgisini kullan.
 
@@ -1258,7 +1266,10 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       sid: req.service.systemId,
       client: credentials.client.trim(),
       user: credentials.username.trim().toUpperCase()
-    });
+    }, systemTier ?? "QA");
+    // Kademe `.conn_adt`'deki satırla aynı kuraldan (`buildConnAdt`: işaretsiz
+    // sistem QA) ama sunucuya ortamdan gidiyor: `.conn_adt`'yi ajan
+    // düzenleyebiliyor, sunucunun ortamını düzenleyemiyor.
     allNotes.push(readonlyOutcome.detailNote);
   }
 
