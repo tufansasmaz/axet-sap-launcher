@@ -112,8 +112,17 @@ import ntt_tier  # noqa: E402
 
 _ENV_TIER = ntt_tier.capture_env_tier()
 
+# NTT Studio: bağlandığı sistem de aynı sebeple motordan ÖNCE yakalanıyor. Okuma
+# yüzeyinde yazma yok ama kademe tabanı bağlanılan sistemin kademesi: ajan
+# `.conn_adt`'yi PRD'ye çevirip bu sunucunun okuma araçlarını kullansa KVKK
+# kapısı (GR_PII) DEV kademesiyle karar verirdi (bkz. sap-adt/scripts/ntt_binding.py).
+import ntt_binding  # noqa: E402
+
+_ENV_BINDING = ntt_binding.capture_env_binding()
+
 import adt_mcp_server as engine  # noqa: E402  (must follow the env var + sys.path)
 import guardrails  # noqa: E402
+import sap_adt_lib  # noqa: E402
 
 
 def _assert_origin(mod, expected: Path) -> None:
@@ -137,6 +146,8 @@ def _assert_origin(mod, expected: Path) -> None:
 _assert_origin(engine, _ENGINE_DIR / "adt_mcp_server.py")
 _assert_origin(guardrails, _ENGINE_DIR / "guardrails.py")
 _assert_origin(ntt_tier, _ENGINE_DIR / "ntt_tier.py")
+_assert_origin(ntt_binding, _ENGINE_DIR / "ntt_binding.py")
+_assert_origin(sap_adt_lib, _ENGINE_DIR / "sap_adt_lib.py")
 
 # NTT Studio: kademe. guardrails ADT_SAP_TIER'ı ajanın düzenleyebildiği
 # `.conn_adt`'den okuyor; bu yüzeyde o değer KVKK/PII okuma kapısına (GR_PII)
@@ -411,7 +422,30 @@ def build():
     # Names only — the engine must not be able to open a gate, only describe one.
     engine._HTTP_GATED_TOOLS = {name: dict(gate) for name, gate in closed}
 
+    # NTT Studio: bağlantı denetimi, kalan her aracın modül global'ine. Yalnızca
+    # HTTP yolunu kapsıyor (araç getattr(engine, ad) ile bulunuyor); stdio yolu
+    # kayıt tablosundan çağırıyor ama NTT Studio bu sunucuyu yalnızca --http ile
+    # başlatıyor, beklenen bağlantıyı da yalnızca o ortama koyuyor.
+    if ntt_binding.install(engine, sorted(keep), _ENV_BINDING, lib=sap_adt_lib,
+                           live_client=lambda: engine._client,
+                           on_mismatch=_report_binding_mismatch):
+        sys.stderr.write("[adt-ro] bağlantı sabitlendi: araçlar yalnızca NTT Studio'nun "
+                         "bağladığı sistemle konuşur.\n")
+    else:
+        sys.stderr.write(f"[adt-ro] UYARI: {ntt_binding.ENV_URL} yok; bağlantı sabitlenmedi. "
+                         f"Sunucu `.conn_adt` hangi sistemi gösteriyorsa ona gider.\n")
+    sys.stderr.flush()
+
     return keep
+
+
+def _report_binding_mismatch(tool: str, found: dict) -> None:
+    # Bu sunucunun onay ucu yok (launcher'a bildirecek adresi/token'ı bilmiyor);
+    # iz, launcher'ın adt-readonly.log'a yönlendirdiği stderr'de kalıyor.
+    sys.stderr.write(f"[adt-ro] {tool}: bağlantı NTT Studio'nun bağladığı sistemden farklı "
+                     f"(alanlar: {', '.join(found['alanlar'])}; kaynak: "
+                     f"{', '.join(found['kaynaklar'])}); çağrı SAP'a gönderilmedi.\n")
+    sys.stderr.flush()
 
 
 def main():

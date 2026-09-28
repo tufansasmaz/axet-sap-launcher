@@ -71,6 +71,17 @@ function identityFields(s: WriteSessionState): Record<string, unknown> {
   return { sid: s.identity.sid, client: s.identity.client, kullanici: s.identity.user, mod: s.mode };
 }
 
+// Olay gövdesindeki listeler günlüğe olduğu gibi gitmesin: metin olmayanlar
+// atılır, sayı ve boy sınırlanır (günlük dosyası şişirilemesin).
+function shortStrings(value: unknown, maxItems: number, maxLen: number): string[] {
+  return Array.isArray(value)
+    ? value
+        .filter((v): v is string => typeof v === "string")
+        .slice(0, maxItems)
+        .map((v) => v.slice(0, maxLen))
+    : [];
+}
+
 function findSession(req: IncomingMessage): Session | null {
   const header = req.headers.authorization ?? "";
   const got = Buffer.from(header);
@@ -187,6 +198,27 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
 
   // /events — yalnızca günlük; hiçbir izin vermez.
   const b = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
+  if (b.tur === "baglanti_uyusmazligi" && typeof b.arac === "string") {
+    // Ajanın `.conn_adt`'yi NTT Studio'nun bağladığı sistemden başkasına
+    // çevirdiği an (ntt_binding.py). Çağrı SAP'a gitmeden reddedildi; günlükte
+    // görünmesi, "onayladığım yazma neden olmadı" sorusunun cevabı. Gövde
+    // gated sunucudan geliyor ama o da ajanın yazdığı dosyayı okuyor: yalnızca
+    // kısa metin listeleri, boyu kırpılarak.
+    appendDecisionLog(
+      state.projectDir,
+      {
+        tur: "baglanti_uyusmazligi",
+        arac: b.arac.slice(0, 100),
+        alanlar: shortStrings(b.alanlar, 10, 40),
+        kaynaklar: shortStrings(b.kaynaklar, 10, 40),
+        gozlenen_adresler: shortStrings(b.gozlenen_adresler, 5, 200),
+        ...identityFields(state),
+      },
+      now,
+    );
+    send(res, 200, { ok: true });
+    return;
+  }
   if (b.tur !== "kalite_reddi" || typeof b.arac !== "string") {
     send(res, 400, { hata: "gecersiz_olay" });
     return;
