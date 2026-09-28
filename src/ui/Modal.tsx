@@ -1,0 +1,283 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode
+} from "react";
+import { createPortal } from "react-dom";
+import { AlertTriangle, X } from "lucide-react";
+import { useT } from "../i18n";
+import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON, iconBtn } from "./buttons";
+
+// Uygulamadaki bütün pencerelerin ortak iskeleti (spec §6).
+//
+// Neden tek bileşen: beş pencere Escape'i, odağı ve "Değişiklikleri at?"
+// onayını ayrı ayrı yönetiyordu ve her birinde başka bir eksik vardı —
+// odak pencerenin dışındayken Escape çalışmıyor, onay kutusunda Escape
+// alttaki pencereyi de kapatıyor, Tab pencereden kaçıyordu. Kurallar artık
+// burada bir kez yazılı:
+//   - Klavyeyi yalnızca EN ÜSTTEKİ pencere dinliyor (katman sırası
+//     modal < confirm < critical; eşitlikte en son açılan).
+//   - Escape `document`'ta yakalama aşamasında dinleniyor: odak nerede
+//     olursa olsun çalışıyor ve eski `onKeyDown` işleyicilerine ulaşmıyor.
+//   - `dirty` iken kapatma isteği önce onay açıyor; onay bir üst katmanda
+//     ayrı bir `Modal`.
+//   - Arka plana tıklamak KAPATMIYOR: yanlışlıkla dışarı tıklayan kullanıcı
+//     yazdıklarını kaybetmesin.
+
+export type ModalLayer = "modal" | "confirm" | "critical";
+
+const LAYER_RANK: Record<ModalLayer, number> = { modal: 1, confirm: 2, critical: 3 };
+const LAYER_CLASS: Record<ModalLayer, string> = {
+  modal: "z-modal",
+  confirm: "z-confirm",
+  critical: "z-critical"
+};
+
+// Açık pencerelerin yığını. Modül düzeyinde: pencereler birbirinin
+// bileşen ağacında olmak zorunda değil (ör. App'teki bir onay ile
+// SettingsModal).
+interface StackEntry {
+  id: number;
+  rank: number;
+}
+const stack: StackEntry[] = [];
+let nextId = 1;
+
+function isTop(id: number): boolean {
+  let top: StackEntry | undefined;
+  for (const entry of stack) {
+    if (!top || entry.rank > top.rank || (entry.rank === top.rank && entry.id > top.id)) top = entry;
+  }
+  return top?.id === id;
+}
+
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+function focusables(root: HTMLElement | null): HTMLElement[] {
+  if (!root) return [];
+  return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => !(el as HTMLButtonElement).disabled && el.tabIndex >= 0
+  );
+}
+
+interface ModalContextValue {
+  requestClose: () => void;
+}
+const ModalContext = createContext<ModalContextValue | null>(null);
+
+/** Pencere ayağındaki "İptal". İçinde bulunduğu pencerenin kapatma isteğini
+ *  çağırıyor — yani değişiklik varsa önce onay açılıyor. */
+export function ModalCancelButton({ label, autoFocus }: { label?: string; autoFocus?: boolean }) {
+  const t = useT();
+  const ctx = useContext(ModalContext);
+  return (
+    <button type="button" onClick={ctx?.requestClose} className={DIALOG_CANCEL_BUTTON} autoFocus={autoFocus}>
+      {label ?? t("common.cancel")}
+    </button>
+  );
+}
+
+export interface ModalProps {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  /** Kaydedilmemiş değişiklik var mı. Doğruysa kapatma isteği önce onay açar. */
+  dirty?: boolean;
+  layer?: ModalLayer;
+  /** Panel genişliği (px). Dar pencerede ekrandan taşmıyor. */
+  width?: number;
+  icon?: ReactNode;
+  subtitle?: ReactNode;
+  footer?: ReactNode;
+  children?: ReactNode;
+}
+
+export function Modal(props: ModalProps) {
+  if (!props.open) return null;
+  return createPortal(<ModalPanel {...props} />, document.body);
+}
+
+function ModalPanel({
+  onClose,
+  title,
+  dirty = false,
+  layer = "modal",
+  width = 480,
+  icon,
+  subtitle,
+  footer,
+  children
+}: ModalProps) {
+  const t = useT();
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const footerRef = useRef<HTMLDivElement | null>(null);
+  // İlk çizimdeki odak = pencereyi açan öğe (autoFocus çizimden SONRA çalışıyor).
+  const [opener] = useState(() => document.activeElement);
+  const [id] = useState(() => nextId++);
+  const [confirming, setConfirming] = useState(false);
+
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  const requestClose = useCallback(() => {
+    if (dirtyRef.current) setConfirming(true);
+    else onCloseRef.current();
+  }, []);
+
+  useLayoutEffect(() => {
+    const entry: StackEntry = { id, rank: LAYER_RANK[layer] };
+    stack.push(entry);
+    return () => {
+      const index = stack.indexOf(entry);
+      if (index >= 0) stack.splice(index, 1);
+    };
+  }, [id, layer]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!isTop(id) || e.isComposing) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        requestClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const items = focusables(panel);
+      if (items.length === 0) {
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!(active instanceof HTMLElement) || !panel.contains(active) || active === panel) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [id, requestClose]);
+
+  // İlk odak. StrictMode efektleri iki kez çalıştırıyor ve arada aşağıdaki
+  // temizlik odağı açan öğeye geri veriyor; ilk seçilen öğe hatırlanıp
+  // ikinci turda ona dönülüyor (yoksa `autoFocus` kaybolurdu).
+  const initialFocusRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+    const remembered = initialFocusRef.current;
+    if (remembered && remembered.isConnected && panel.contains(remembered)) {
+      remembered.focus();
+      return;
+    }
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && panel.contains(active)) {
+      initialFocusRef.current = active;
+      return;
+    }
+    const target = focusables(bodyRef.current)[0] ?? focusables(footerRef.current)[0] ?? panel;
+    initialFocusRef.current = target;
+    target.focus();
+  }, []);
+
+  // Kapanışta odak açan öğeye dönüyor — o öğe hâlâ sayfadaysa.
+  useEffect(
+    () => () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    },
+    [opener]
+  );
+
+  return (
+    <ModalContext.Provider value={{ requestClose }}>
+      <div
+        className={`fixed inset-0 ${LAYER_CLASS[layer]} flex items-center justify-center bg-[var(--overlay-scrim)] p-4 animate-backdrop-fade-in`}
+      >
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          tabIndex={-1}
+          className="animate-modal-pop-in flex max-h-[88vh] flex-col overflow-hidden rounded-xl border border-line bg-card shadow-elev-2 outline-none"
+          style={{ width, maxWidth: "calc(100vw - 32px)" }}
+        >
+          <div className="flex items-start gap-3 px-6 pb-3 pt-5">
+            {icon && (
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-control text-accent-400">
+                {icon}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <h2 id={titleId} className="text-base font-semibold text-white">
+                {title}
+              </h2>
+              {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+            </div>
+            <button type="button" onClick={requestClose} aria-label={t("common.close")} className={iconBtn("ghost", "sm")}>
+              <X size={16} />
+            </button>
+          </div>
+          <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+            {children}
+          </div>
+          {footer && (
+            <div ref={footerRef} className="flex items-center justify-end gap-2 border-t border-line-subtle px-6 py-4">
+              {footer}
+            </div>
+          )}
+        </div>
+      </div>
+      {confirming && (
+        <Modal
+          open
+          layer={layer === "modal" ? "confirm" : "critical"}
+          title={t("settingsModal.discardTitle")}
+          width={400}
+          icon={<AlertTriangle size={18} className="text-[var(--status-warning-text)]" />}
+          onClose={() => setConfirming(false)}
+          footer={
+            <>
+              <ModalCancelButton autoFocus />
+              <button
+                type="button"
+                className={DIALOG_CONFIRM_BUTTON}
+                onClick={() => {
+                  setConfirming(false);
+                  onCloseRef.current();
+                }}
+              >
+                {t("settingsModal.discardConfirm")}
+              </button>
+            </>
+          }
+        >
+          <p className="text-sm text-slate-400">{t("settingsModal.discardMessage")}</p>
+        </Modal>
+      )}
+    </ModalContext.Provider>
+  );
+}
