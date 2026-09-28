@@ -1,7 +1,7 @@
 import {
-  cloneElement,
+  createContext,
   forwardRef,
-  isValidElement,
+  useContext,
   useId,
   type InputHTMLAttributes,
   type ReactNode,
@@ -12,9 +12,20 @@ import {
 // Etiket + girdi + ipucu + hata, tek düzende (spec §6.3).
 //
 // `Field` içindeki girdiye `id`, `aria-describedby` ve (hata varsa)
-// `aria-invalid`'i cloneElement ile veriyor; çağıranın bunları elle kurması
-// gerekmiyor. Girdiye elle verilen `id` ve `aria-describedby` korunuyor:
-// `id` onunki kalıyor, açıklamalar birleştiriliyor.
+// `aria-invalid`'i bağlam (context) üzerinden veriyor; çağıranın bunları
+// elle kurması gerekmiyor. Girdiye elle verilen `id` ve `aria-describedby`
+// korunuyor: `id` onunki kalıyor, açıklamalar birleştiriliyor.
+//
+// Girdinin kendi id'si varsa Field'ın sağladığı contextId'si yerine o kullanılır.
+// Label htmlFor, girdinin gerçek id'sini (kendi mi context mi) alır.
+
+interface FieldContextValue {
+  id: string;
+  describedBy?: string;
+  invalid: boolean;
+}
+
+const FieldContext = createContext<FieldContextValue | null>(null);
 
 export interface ControlAria {
   id?: string;
@@ -22,9 +33,23 @@ export interface ControlAria {
   "aria-invalid"?: boolean | "true" | "false" | "grammar" | "spelling";
 }
 
-/** Girdinin kendi niteliklerini Field'dan gelenlerle birleştirir (Field dışında). */
+/**
+ * Girdinin kendi niteliklerini Field'dan gelenlerle birleştirir.
+ *
+ * Field içindeyse: girdiye id/aria-describedby/aria-invalid bağlar.
+ * Field dışındaysa: prop'ları olduğu gibi döndürür.
+ * Girdinin kendi değerleri her zaman Field'ının önüne gelir.
+ */
 export function useFieldControl<P extends ControlAria>(props: P): P {
-  return props;
+  const ctx = useContext(FieldContext);
+  if (!ctx) return props;
+  const describedBy = [props["aria-describedby"], ctx.describedBy].filter(Boolean).join(" ") || undefined;
+  return {
+    ...props,
+    id: props.id ?? ctx.id,
+    "aria-describedby": describedBy,
+    "aria-invalid": props["aria-invalid"] ?? (ctx.invalid ? true : undefined)
+  };
 }
 
 export function Field({
@@ -44,45 +69,34 @@ export function Field({
   const contextId = `${base}-control`;
   const hintId = `${base}-hint`;
   const errorId = `${base}-error`;
+  // Girdinin kendi id'si varsa onu kullan, yoksa contextId
+  const id =
+    typeof children === "object" &&
+    children !== null &&
+    "props" in children &&
+    typeof children.props.id === "string"
+      ? children.props.id
+      : contextId;
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
-
-  // Children'ı clone et ve aria niteliklerini ekle
-  let childId = contextId;
-  let enhancedChild = children;
-
-  if (isValidElement(children)) {
-    childId = children.props.id ?? contextId;
-    const childAriaDescribedBy = [
-      children.props["aria-describedby"],
-      describedBy
-    ]
-      .filter(Boolean)
-      .join(" ") || undefined;
-
-    enhancedChild = cloneElement(children, {
-      id: childId,
-      "aria-describedby": childAriaDescribedBy,
-      "aria-invalid": children.props["aria-invalid"] ?? (error ? true : undefined)
-    });
-  }
-
   return (
-    <div className={`flex flex-col gap-1.5${className ? ` ${className}` : ""}`}>
-      <label htmlFor={childId} className="text-xs font-medium text-slate-300">
-        {label}
-      </label>
-      {enhancedChild}
-      {hint && (
-        <p id={hintId} className="text-xs text-slate-400">
-          {hint}
-        </p>
-      )}
-      {error && (
-        <p id={errorId} className="text-xs text-[var(--status-danger-text)]">
-          {error}
-        </p>
-      )}
-    </div>
+    <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error) }}>
+      <div className={`flex flex-col gap-1.5${className ? ` ${className}` : ""}`}>
+        <label htmlFor={id} className="text-xs font-medium text-slate-300">
+          {label}
+        </label>
+        {children}
+        {hint ? (
+          <p id={hintId} className="text-xs text-slate-400">
+            {hint}
+          </p>
+        ) : null}
+        {error ? (
+          <p id={errorId} className="text-xs text-[var(--status-danger-text)]">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    </FieldContext.Provider>
   );
 }
 
@@ -102,12 +116,12 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
   { className, ...props },
   ref
 ) {
-  return <input ref={ref} className={join(`h-10 ${INPUT_CLASS}`, className)} {...props} />;
+  return <input ref={ref} className={join(`h-10 ${INPUT_CLASS}`, className)} {...useFieldControl(props)} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   function Textarea({ className, ...props }, ref) {
-    return <textarea ref={ref} className={join(`py-2 ${INPUT_CLASS}`, className)} {...props} />;
+    return <textarea ref={ref} className={join(`py-2 ${INPUT_CLASS}`, className)} {...useFieldControl(props)} />;
   }
 );
 
@@ -115,5 +129,5 @@ export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSel
   { className, ...props },
   ref
 ) {
-  return <select ref={ref} className={join(`h-10 ${INPUT_CLASS}`, className)} {...props} />;
+  return <select ref={ref} className={join(`h-10 ${INPUT_CLASS}`, className)} {...useFieldControl(props)} />;
 });
