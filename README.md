@@ -87,7 +87,7 @@ gibi aXet bağlayıcıları), tema, dil ve ayarlar.
 
 ## Teknoloji Yığını
 
-Electron 33 + React 18 + TypeScript, Tailwind CSS, `electron-vite` build
+Electron 44 + React 18 + TypeScript, Tailwind CSS, `electron-vite` build
 sistemi, `@lydell/node-pty` + `@xterm/xterm` (gömülü terminal),
 `better-sqlite3` (axet-code oturum veritabanını okumak için),
 `fast-xml-parser`, `mammoth` (docx önizleme), `reactflow`.

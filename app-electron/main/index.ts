@@ -349,8 +349,10 @@ function createWindow(): void {
   });
 
   if (isDev) {
-    win.webContents.on("console-message", (_event, _level, message) => {
-      console.log("[renderer]", message);
+    // Ayrı `level/message` argümanları Electron 35'ten beri kullanımdan
+    // kalktı; mesaj artık olay nesnesinin üzerinde.
+    win.webContents.on("console-message", (event) => {
+      console.log("[renderer]", event.message);
     });
   }
 
@@ -1112,9 +1114,11 @@ function registerIpc(): void {
   // her şeye (şifreler dahil) erişim demek ve renderer'ın buna ihtiyacı yok.
   // Gömülü terminalin okuma ihtiyacı ayrı bir yoldan, tarayıcının kendi
   // izin akışıyla karşılanıyor (bkz. EmbeddedTerminal.tsx).
-  ipcMain.handle("clipboard:writeText", (_event, text: string) => {
+  // Electron 44'ten beri `clipboard.writeText` bir Promise döndürüyor;
+  // beklenmezse `ok: true` yazma bitmeden gidiyor ve hata hiç görülmüyor.
+  ipcMain.handle("clipboard:writeText", async (_event, text: string) => {
     if (typeof text !== "string") return { ok: false, error: mt("app.clipboardNotAString") };
-    clipboard.writeText(text);
+    await clipboard.writeText(text);
     return { ok: true };
   });
 
