@@ -1,6 +1,7 @@
 import { BrowserWindow, session as electronSession, type Cookie } from "electron";
 import { verifyWithCookies } from "./adtDiscovery";
 import { isFlowSandboxWindow } from "./flowSandbox";
+import { allowedAutofillOrigins, autofillDecision, firstHopOrigin, samlCertVerdict } from "./samlPolicy";
 
 // ============================================================================
 // SAML SSO girişi — tarayıcıyı BİZ açıyoruz.
@@ -57,6 +58,10 @@ export interface SamlLoginResult {
   // "unverified" = oturum çerezi toplandı ama ADT onu kabul etmedi.
   reason: "ok" | "cancelled" | "timeout" | "certificate" | "error" | "unverified";
   message: string;
+  // SAP'nin bu akışta yönlendirdiği ilk dış origin (IdP). Giriş başarılıysa
+  // çağıran bunu sistemin IdP listesine kaydediyor; sonraki girişlerde
+  // otomatik doldurmanın izin listesi o oluyor.
+  idpOrigin?: string | null;
 }
 
 // IdP oturumu zaten açıksa akış bu süre içinde kendiliğinden biter ve pencere
@@ -207,12 +212,19 @@ interface AutofillOutcome {
   note: string;
 }
 
-function buildAutofillScript(username: string, password: string): string {
+function buildAutofillScript(username: string, password: string, allowedOrigins: readonly string[]): string {
   // Kimlik bilgileri JSON.stringify ile gömülüyor — içindeki tırnak/ters bölü
   // script'i bozmasın diye.
   const u = JSON.stringify(username);
   const p = JSON.stringify(password);
+  const allowed = JSON.stringify(allowedOrigins);
+  // Origin denetimi script'in içinde de tekrarlanıyor: ana süreç kararı
+  // verdiği anla script'in sayfada çalıştığı an arasında çerçeve başka bir
+  // yere gitmiş olabilir. Karar anındaki URL değil, çalışılan sayfa sayılıyor.
   return `(() => {
+  if (!${allowed}.includes(String(location.origin).toLowerCase())) {
+    return { outcome: 'nofields', note: 'origin izin listesinde değil' };
+  }
   const visible = (el) => !el.disabled && !el.readOnly && (el.offsetParent !== null || el.getClientRects().length > 0);
   // DOLU bir alana asla dokunulmuyor. İki sebep: (1) pencere gösterildikten
   // sonra da doldurma çalışmaya devam ediyor ve kullanıcı o sırada yazıyor
@@ -292,7 +304,12 @@ export interface SamlLoginOptions {
   // Onaylı sertifika parmak izleri (`host:port` → SHA-256). Akışın sonunda
   // çerezle yapılan ADT doğrulaması da çerezi taşıdığı için aynı kurala
   // tabi: zincir geçerli ya da parmak izi burada kayıtlı olanla aynı.
+  // Pencere de aynı pin'le açılıyor (bkz. `samlCertVerdict`).
   trustedCertificates?: Record<string, string>;
+  // Bu sistem için daha önceki başarılı girişlerde kaydedilmiş IdP
+  // origin'leri. Doluysa otomatik doldurma YALNIZCA bunlara (ve SAP'nin
+  // kendisine) yazıyor — bkz. `allowedAutofillOrigins`.
+  knownIdpOrigins?: string[];
 }
 
 const MSG = {
@@ -351,10 +368,23 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
   // Sertifika HATASI sessizce yutulmuyor. Bu pencerede kullanıcı parolasını
   // CANLI olarak bir sayfaya yazıyor; doğrulanmayan bir sertifikaya karşı
   // pencere açmak, tam olarak ortadaki-adam saldırısının istediği şey olurdu.
-  // Burada sabitlenmiş parmak izine de izin verilmiyor: IdP sayfası
-  // (Chromium) Windows deposunu kullanıyor, kurumsal CA orada zaten var.
-  // Çerezle yapılan ADT doğrulaması ise tlsPin.ts kuralından geçiyor
-  // (zincir ya da onaylı parmak izi) — bkz. verifyWithCookies.
+  // IdP sayfaları Chromium'un kendi doğrulamasından geçiyor (Windows deposu,
+  // kurumsal CA orada zaten var). Kendinden imzalı sertifikalı bir SAP ise
+  // artık o depoya kurulmuyor (bkz. adtDiscovery.ts); pencere onu yalnızca
+  // SAP host'unda ve kullanıcının onayladığı pin'le eşleşiyorsa kabul ediyor.
+  // Pin'siz ya da eşleşmeyen her sertifikada karar yine Chromium'un.
+  // Çerezle yapılan ADT doğrulaması da aynı kuraldan geçiyor — bkz.
+  // verifyWithCookies.
+  ses.setCertificateVerifyProc((request, callback) => {
+    callback(
+      samlCertVerdict({
+        hostname: request.hostname,
+        certificatePem: request.certificate.data,
+        sapBaseUrl: baseUrl,
+        trustedCertificates: opts.trustedCertificates
+      })
+    );
+  });
   let certificateFailed = false;
 
   const win = new BrowserWindow({
@@ -401,10 +431,23 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
   };
   win.webContents.on("certificate-error", onCertError);
 
+  // SAP'nin yönlendirdiği ilk dış origin — otomatik doldurmanın, kayıtlı IdP
+  // listesi olmayan sistemlerde güvendiği tek IdP. Başlangıç da yönlendirme
+  // de dinleniyor: 302 `did-redirect-navigation`, SAML HTTP-POST bağlamasının
+  // kendiliğinden gönderilen formu `did-start-navigation` olarak geliyor.
+  let idpOrigin: string | null = null;
+  const onNavigation = (details: Electron.Event<{ url: string; isMainFrame: boolean }>) => {
+    const before = idpOrigin;
+    idpOrigin = firstHopOrigin(idpOrigin, baseUrl, details.url, details.isMainFrame);
+    if (idpOrigin !== before) log(`ilk IdP origin'i: ${idpOrigin}`);
+  };
+  win.webContents.on("did-start-navigation", onNavigation);
+  win.webContents.on("did-redirect-navigation", onNavigation);
+
   const finish = (result: SamlLoginResult): SamlLoginResult => {
     settled = true;
     if (!win.isDestroyed()) win.destroy();
-    return result;
+    return { ...result, idpOrigin };
   };
 
   // İstemci sorgu parametresi tarayıcıya da veriliyor — oturum, doğrulamanın
@@ -447,57 +490,63 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
   let probing = false;
   let probeAttempts = 0;
   let lastProbeMessage = "";
-  const autofillScript = buildAutofillScript(opts.username, opts.password);
+  // Reddedilen origin'ler tanılama için BİR KEZ loglanıyor (parola asla).
+  const skippedOrigins = new Set<string>();
 
   const tryAutofill = async (): Promise<void> => {
     if (passwordSubmitted || autofillSubmits >= MAX_AUTOFILL_SUBMITS) return;
     if (userTyped || win.isDestroyed()) return;
-    // Parola HTTPS OLMAYAN bir sayfaya asla yazılmaz. Yönlendirme zinciri
-    // beklenmedik bir yere giderse doldurma sessizce durur ve pencere
-    // kullanıcıya gösterilir — kararı o verir.
-    const url = win.webContents.getURL();
-    if (!url.startsWith("https://")) return;
-    // Giriş formu bir iframe içinde olabiliyor; ana çerçeve + alt çerçeveler
-    // birlikte taranıyor.
-    let frames: Electron.WebFrameMain[] = [];
+    // Yalnızca ANA çerçeve, yalnızca izinli bir https origin'i. Eskiden
+    // `framesInSubtree`'deki HER çerçeveye enjekte ediliyordu: IdP sayfasına
+    // gömülü üçüncü taraf bir iframe (analitik, reklam, destek sohbeti) de
+    // parolayı alan bir script çalıştırıyordu. Formu iframe'de olan IdP'lerde
+    // doldurma artık yok; pencere kullanıcıya açılıyor ve kararı o veriyor.
+    let frame: Electron.WebFrameMain;
+    let frameUrl = "";
     try {
-      frames = win.webContents.mainFrame.framesInSubtree;
+      frame = win.webContents.mainFrame;
+      frameUrl = frame.url;
     } catch {
       return;
     }
-    for (const frame of frames) {
-      let result: AutofillOutcome | null = null;
-      try {
-        result = (await frame.executeJavaScript(autofillScript, true)) as AutofillOutcome;
-      } catch (err) {
-        // Sıkı bir CSP (Okta, Azure AD) ana dünyada script çalıştırmayı
-        // "unsafe-eval" gerekçesiyle reddedebiliyor. İZOLE DÜNYA bu kısıttan
-        // muaf ve DOM'u paylaşıyor — yani atadığımız değeri sayfanın kendi
-        // React/Angular kodu yine görüyor. Bu yol yalnızca ANA çerçeve için
-        // var (`webContents` üzerinde); `WebFrameMain`'in izole dünya API'si
-        // yok, dolayısıyla CSP'li bir iframe'de doldurma yapılamıyor ve
-        // pencere kullanıcıya açılıyor.
-        try {
-          if (frame !== win.webContents.mainFrame) throw err;
-          result = (await win.webContents.executeJavaScriptInIsolatedWorld(AUTOFILL_WORLD_ID, [
-            { code: autofillScript }
-          ])) as AutofillOutcome;
-        } catch {
-          // Çerçeve gitmiş/erişilemez olabilir — sıradakine geç.
-          log(`script çalışmadı (${frameLabel(frame)}): ${(err as Error).message}`);
-          continue;
-        }
+    const allowedOrigins = allowedAutofillOrigins(baseUrl, opts.knownIdpOrigins, idpOrigin);
+    const decision = autofillDecision({ sapBaseUrl: baseUrl, frameUrl, isMainFrame: true, allowedOrigins });
+    if (!decision.allow) {
+      const key = `${decision.reason}|${decision.origin ?? ""}`;
+      if (!skippedOrigins.has(key)) {
+        skippedOrigins.add(key);
+        log(`otomatik doldurma yapılmadı (${decision.reason}): ${decision.origin ?? frameLabel(frame)}`);
       }
-      if (!result || typeof result !== "object") continue;
-      if (result.outcome === "password" || result.outcome === "username") {
-        autofillSubmits += 1;
-        lastActionAt = Date.now();
-        if (result.outcome === "password") passwordSubmitted = true;
-        log(`dolduruldu [${result.outcome}] ${frameLabel(frame)} — ${result.note}`);
+      return;
+    }
+    const autofillScript = buildAutofillScript(opts.username, opts.password, allowedOrigins);
+    let result: AutofillOutcome | null = null;
+    try {
+      result = (await frame.executeJavaScript(autofillScript, true)) as AutofillOutcome;
+    } catch (err) {
+      // Sıkı bir CSP (Okta, Azure AD) ana dünyada script çalıştırmayı
+      // "unsafe-eval" gerekçesiyle reddedebiliyor. İZOLE DÜNYA bu kısıttan
+      // muaf ve DOM'u paylaşıyor — yani atadığımız değeri sayfanın kendi
+      // React/Angular kodu yine görüyor.
+      try {
+        result = (await win.webContents.executeJavaScriptInIsolatedWorld(AUTOFILL_WORLD_ID, [
+          { code: autofillScript }
+        ])) as AutofillOutcome;
+      } catch {
+        // Çerçeve gitmiş/erişilemez olabilir — bir sonraki turda yeniden.
+        log(`script çalışmadı (${frameLabel(frame)}): ${(err as Error).message}`);
         return;
       }
-      lastNote = `${frameLabel(frame)}: ${result.note}`;
     }
+    if (!result || typeof result !== "object") return;
+    if (result.outcome === "password" || result.outcome === "username") {
+      autofillSubmits += 1;
+      lastActionAt = Date.now();
+      if (result.outcome === "password") passwordSubmitted = true;
+      log(`dolduruldu [${result.outcome}] ${frameLabel(frame)} — ${result.note}`);
+      return;
+    }
+    lastNote = `${frameLabel(frame)}: ${result.note}`;
   };
 
   for (;;) {

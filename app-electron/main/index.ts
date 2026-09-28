@@ -834,7 +834,8 @@ function registerIpc(): void {
     "connectorIntegrations",
     "connectorAutoDisabled",
     "lastCredentials",
-    "trustedCertificates"
+    "trustedCertificates",
+    "samlIdpOrigins"
   ];
 
   ipcMain.handle("config:save", (_event, partial: Partial<AppConfig>) => {

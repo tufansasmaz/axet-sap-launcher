@@ -14,6 +14,7 @@ import {
 import { buildAdtToolScript } from "./adtToolScript";
 import { pinForUrl } from "./tlsPin";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
+import { saveSamlIdpOrigin } from "./store";
 import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
 import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
@@ -1135,8 +1136,20 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       client: credentials.client,
       partitionKey: req.service.uuid,
       language,
-      trustedCertificates: trustedCertificatesUpdate ?? config.trustedCertificates
+      trustedCertificates: trustedCertificatesUpdate ?? config.trustedCertificates,
+      knownIdpOrigins: config.samlIdpOrigins?.[req.service.uuid]
     });
+    // Başarılı girişte SAP'nin yönlendirdiği IdP kaydediliyor: sonraki
+    // girişlerde otomatik doldurmanın izin listesi bu (bkz. samlPolicy.ts).
+    // `ok` yalnızca ADT'nin çerezi kabul ettiği hâlde true, yani IdP'nin
+    // gerçekten bu sistemin oturumunu açtığı biliniyor.
+    if (samlLogin.ok && samlLogin.idpOrigin) {
+      try {
+        saveSamlIdpOrigin(req.service.uuid, samlLogin.idpOrigin);
+      } catch (err) {
+        allNotes.push(`SAML IdP adresi kaydedilemedi: ${(err as Error).message}`);
+      }
+    }
 
     if (samlLogin.ok && samlLogin.jar) {
       const jar = samlLogin.jar;
