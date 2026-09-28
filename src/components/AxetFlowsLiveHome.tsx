@@ -321,9 +321,19 @@ export default function AxetFlowsLiveHome() {
             ERR_CONNECTION_REFUSED sayfası görünürdü — ve o sayfa `load`
             tetiklediği için (ölçüldü) uygulama bunu BAŞARI sanardı. */}
         {activeUrl && reachable === true && (
+          // sandbox: iframe'in içeriği (Node-RED editörü ve kullanıcının
+          // flow'ları) ana pencerenin preload'unu taşıyan sayfayı götüremesin
+          // ve yeni pencere açamasın. allow-same-origin editörün kendi
+          // origin'ine (admin API, localStorage) erişmesi için; iframe'in
+          // origin'i uygulamanınkinden farklı olduğu için sandbox'ı kaldırmaya
+          // yetmiyor. allow-forms/allow-downloads: içe/dışa flow aktarma.
+          // allow-modals: confirm() olmadan silme gibi onaylar sessizce
+          // "hayır" dönerdi. allow-popups ve allow-top-navigation BİLEREK
+          // yok; dışarıda açmak için üstteki "tarayıcıda aç" düğmesi var.
           <iframe
             key={reloadKey}
             src={activeUrl}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-downloads allow-modals"
             title="axet.flows (Live)"
             className="h-full w-full border-0 bg-white"
             onLoad={() => {

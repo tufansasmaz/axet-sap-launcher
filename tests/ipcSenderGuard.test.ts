@@ -1,7 +1,7 @@
 import { EventEmitter } from "node:events";
 import { describe, expect, it, vi } from "vitest";
 import type { IpcMain, WebContents } from "electron";
-import { installIpcSenderGuard } from "../app-electron/main/ipcSenderGuard";
+import { installIpcSenderGuard, isMainWindowSenderUntrusted } from "../app-electron/main/ipcSenderGuard";
 
 // ipcMain'in taklidi: on/once/removeListener için gerçek EventEmitter,
 // handle için kanal → işleyici haritası (Electron'daki gibi tek işleyici).
@@ -25,7 +25,7 @@ const sandbox = { id: 2 } as unknown as WebContents;
 
 function setup() {
   const ipc = new FakeIpcMain();
-  installIpcSenderGuard(ipc as unknown as IpcMain, (sender) => sender === sandbox);
+  installIpcSenderGuard(ipc as unknown as IpcMain, (event) => event?.sender === sandbox);
   return ipc;
 }
 
@@ -93,13 +93,60 @@ describe("installIpcSenderGuard", () => {
 
   it("zincirleme çağrı (ipcMain.on(...).on(...)) bozulmuyor ve iki kez kurmak iki kez sarmıyor", () => {
     const ipc = new FakeIpcMain();
-    const isUntrusted = vi.fn((sender: unknown) => sender === sandbox);
+    const isUntrusted = vi.fn((event: { sender?: unknown } | null | undefined) => event?.sender === sandbox);
     installIpcSenderGuard(ipc as unknown as IpcMain, isUntrusted);
     installIpcSenderGuard(ipc as unknown as IpcMain, isUntrusted);
     const fn = vi.fn();
     expect(ipc.on("k", fn)).toBe(ipc);
     ipc.emit("k", { sender: trusted });
     expect(isUntrusted).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("isMainWindowSenderUntrusted", () => {
+  const appUrl = "file:///C:/app/resources/app.asar/dist/index.html";
+  const policy = {
+    isFlowSandboxSender: (sender: WebContents | null | undefined) => sender === sandbox,
+    isAppUrl: (url: string) => url === appUrl
+  };
+  const mainFrame = (url: string) => ({ url, parent: null });
+
+  it("uygulama sayfasındaki ana çerçeve güvenilir", () => {
+    expect(isMainWindowSenderUntrusted({ sender: trusted, senderFrame: mainFrame(appUrl) }, policy)).toBe(false);
+  });
+
+  it("ana pencere yabancı bir sayfaya götürülmüşse reddediliyor", () => {
+    expect(isMainWindowSenderUntrusted({ sender: trusted, senderFrame: mainFrame("https://saldirgan.example/") }, policy)).toBe(true);
+  });
+
+  it("alt çerçeveden (iframe) gelen mesaj reddediliyor, URL uygulamanınki olsa bile", () => {
+    expect(isMainWindowSenderUntrusted({ sender: trusted, senderFrame: { url: appUrl, parent: {} } }, policy)).toBe(true);
+  });
+
+  it("flow sandbox'ı, çerçevesi olmayan ve çerçevesi okunamayan gönderen reddediliyor", () => {
+    expect(isMainWindowSenderUntrusted({ sender: sandbox, senderFrame: mainFrame(appUrl) }, policy)).toBe(true);
+    expect(isMainWindowSenderUntrusted({ sender: trusted, senderFrame: null }, policy)).toBe(true);
+    expect(isMainWindowSenderUntrusted({ sender: null, senderFrame: mainFrame(appUrl) }, policy)).toBe(true);
+    expect(isMainWindowSenderUntrusted(undefined, policy)).toBe(true);
+    const disposed = {
+      parent: null,
+      get url(): string {
+        throw new Error("Render frame was disposed");
+      }
+    };
+    expect(isMainWindowSenderUntrusted({ sender: trusted, senderFrame: disposed }, policy)).toBe(true);
+  });
+
+  it("bekçiyle birlikte: yabancı sayfadan gelen invoke reddediliyor", () => {
+    const ipc = new FakeIpcMain();
+    installIpcSenderGuard(ipc as unknown as IpcMain, (event) => isMainWindowSenderUntrusted(event, policy));
+    const fn = vi.fn(() => "parola");
+    ipc.handle("credentials:getDefaults", fn);
+    expect(ipc.invoke("credentials:getDefaults", { sender: trusted, senderFrame: mainFrame(appUrl) })).toBe("parola");
+    expect(() =>
+      ipc.invoke("credentials:getDefaults", { sender: trusted, senderFrame: mainFrame("https://saldirgan.example/") })
+    ).toThrow(/IPC reddedildi/);
     expect(fn).toHaveBeenCalledTimes(1);
   });
 });

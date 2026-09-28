@@ -1,8 +1,9 @@
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { basename, resolve } from "node:path";
 import type { Plugin } from "vite";
+import { relaxCspForDev } from "./app-electron/shared/devCsp";
 
 // Flow sandbox penceresinin preload'u elle yazılmış CommonJS: `sandbox: true`
 // olan bir pencerede preload ESM olamıyor, paketlenmesine de gerek yok
@@ -22,6 +23,21 @@ function copyFlowSandboxPreload(): Plugin {
   };
 }
 
+// index.html'deki CSP paketlenmiş uygulamanın politikası. Vite geliştirme
+// sunucusu satır içi react-refresh betiği ve HMR websocket'i istiyor; yalnızca
+// `serve` kipinde gevşetiliyor, derleme çıktısı sıkı kalıyor. flow-sandbox.html
+// bilerek dışarıda: onun politikası geliştirmede de gevşemesin.
+function devContentSecurityPolicy(): Plugin {
+  return {
+    name: "dev-content-security-policy",
+    apply: "serve",
+    transformIndexHtml: {
+      order: "pre",
+      handler: (html, ctx) => (basename(ctx.filename) === "index.html" ? relaxCspForDev(html) : html)
+    }
+  };
+}
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: ["fast-xml-parser"] })],
@@ -37,13 +53,17 @@ export default defineConfig({
     build: {
       outDir: "dist-electron/preload",
       rollupOptions: {
-        input: "app-electron/preload/index.ts"
+        input: "app-electron/preload/index.ts",
+        // Ana pencere `sandbox: true` (bkz. app-electron/main/index.ts):
+        // sandbox'lı pencerede preload ESM olamıyor. Paket `type: module`
+        // olduğu için electron-vite varsayılan olarak .mjs üretiyordu.
+        output: { format: "cjs", entryFileNames: "[name].cjs" }
       }
     }
   },
   renderer: {
     root: ".",
-    plugins: [react()],
+    plugins: [react(), devContentSecurityPolicy()],
     build: {
       outDir: "dist",
       rollupOptions: {

@@ -80,10 +80,13 @@ describe("flowSandbox.ts — pencere ve oturum ayarları", () => {
   });
 
   it("index.ts ipcMain bekçisini IPC kayıtlarından önce kuruyor", () => {
-    const guard = indexTs.indexOf("installIpcSenderGuard(ipcMain, isFlowSandboxSender);");
+    const guard = indexTs.indexOf("installIpcSenderGuard(ipcMain,");
     const register = indexTs.indexOf("registerIpc();", guard);
     expect(guard).toBeGreaterThan(0);
     expect(register).toBeGreaterThan(guard);
+    // Bekçinin kararı flow sandbox göndericisini hâlâ içeriyor (çerçeve/URL
+    // denetimi onun üstüne eklendi, bkz. isMainWindowSenderUntrusted).
+    expect(indexTs.slice(guard, register)).toMatch(/isMainWindowSenderUntrusted\(event, \{ isFlowSandboxSender,/);
     expect(indexTs).toContain("sandbox: flowSandbox");
   });
 });
