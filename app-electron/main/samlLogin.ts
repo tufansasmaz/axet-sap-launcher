@@ -1,5 +1,6 @@
 import { BrowserWindow, session as electronSession, type Cookie } from "electron";
 import { verifyWithCookies } from "./adtDiscovery";
+import { isFlowSandboxWindow } from "./flowSandbox";
 
 // ============================================================================
 // SAML SSO girişi — tarayıcıyı BİZ açıyoruz.
@@ -354,7 +355,9 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
     width: 520,
     height: 680,
     show: false,
-    parent: BrowserWindow.getAllWindows()[0] ?? undefined,
+    // Gizli flow sandbox penceresi ebeveyn olamaz: giriş penceresi görünmez
+    // bir pencereye bağlanırdı.
+    parent: BrowserWindow.getAllWindows().find((w) => !isFlowSandboxWindow(w)) ?? undefined,
     autoHideMenuBar: true,
     title: "SAP SAML SSO",
     webPreferences: {

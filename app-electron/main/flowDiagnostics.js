@@ -276,9 +276,13 @@ function hasReachableType(startId, targetType, nodesById, seen = new Set()) {
 
 const ERROR_PATTERNS = [
   {
-    test: (msg) => /Script execution timed out/i.test(msg),
+    // Function node artık sandbox penceresinde koşuyor ve tek bir 10 sn
+    // sınırı var (flowSandboxHost.ts); vm'in "Script execution timed out"
+    // iletisi eski kayıtlar için kalıyor. Bu kalıp NETWORK_TIMEOUT'tan önce
+    // durmalı — o da "zaman asimina ugradi"yı yakalıyor.
+    test: (msg) => /Script execution timed out|Function node zaman asimina ugradi/i.test(msg),
     code: 'TIMEOUT',
-    cause: () => 'Kod 3 saniyeden uzun surdu (sonsuz dongu veya cok agir bir islem olabilir).',
+    cause: () => 'Kod 10 saniyeden uzun surdu (sonsuz dongu, cok agir bir islem ya da hic cozulmeyen bir Promise/await olabilir).',
     suggestion: () => 'Kod icindeki dongu kosullarini kontrol et; buyuk veri isliyorsan islemi kucuk parcalara bol.'
   },
   {

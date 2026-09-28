@@ -1,20 +1,19 @@
 import http from "node:http";
 import https from "node:https";
-import vm from "node:vm";
 import net from "node:net";
 import { randomUUID, createHash } from "node:crypto";
-import { createRequire } from "node:module";
 import { XMLParser } from "fast-xml-parser";
 import { validateFlow, diagnoseError } from "./flowDiagnostics.js";
 
-// `xlsx`/`xlsx-populate` (SheetJS/XlsxPopulate) node_modules'ten gercek CJS
-// paketleri olarak kalıyor (electron.vite.config.ts'teki externalizeDepsPlugin
-// sadece fast-xml-parser'i bundle'a gomuyor, digerleri gibi bunlar da
-// paketlenmis exe'de node_modules'ten gercek bir `require()` ile
-// cozumleniyor) - proje ESM ("type":"module") oldugu icin bu dosyada da
-// senkron bir `require` gerekiyor, `createRequire` ile elde ediliyor
-// (asagidaki `_run*ExcelNode` metodlari bu sekilde degismeden kalabiliyor).
-const require = createRequire(import.meta.url);
+// Function node kodu ve xlsx ayrıştırma/yazma bu süreçte ÇALIŞMIYOR: ikisi de
+// güvenilmeyen girdiyi (kullanıcının yazdığı kod, dışarıdan gelen .xlsx)
+// işliyor ve ana süreç tam Node yetkisine sahip. Eskiden kod burada `node:vm`
+// ile koşuyordu; vm bir güvenlik sınırı değil —
+// `msg.constructor.constructor('return process')()` ana sürecin `process`'ini
+// veriyordu. Artık ikisi de Chromium sandbox'lı gizli bir pencerede koşuyor
+// (flowSandbox.ts / flowSandboxHost.ts); bu dosya yalnızca oraya istek
+// gönderiyor. Burada `vm`, `xlsx` ya da `xlsx-populate` içe aktarmak bu
+// sınırı yeniden deler (tests/flowSandboxSource.test.ts bunu yakalıyor).
 
 // aXet.flows AI Builder - Mini Flow Runtime
 // =========================================
@@ -117,8 +116,8 @@ const SIMULATED_TYPES = new Set([
 // ek secenektir), 'json-to-excel'/'excel-to-json' (2026-08-29'da GERCEK
 // `deptapps-flows-contrib-excel-utils` paketinin (aXet.flows Canlı host'unda
 // kurulu) kaynak koduna karsi DOGRULANDI ve xlsx-populate/xlsx kutuphaneleriyle
-// BIREBIR AYNI davranisa gore yeniden yazildi - asagidaki xlsx* yardimci
-// fonksiyonlarina bak). Bunlarin HEPSI aXet.flows'un GERCEK Node-RED
+// BIREBIR AYNI davranisa gore yeniden yazildi - yardımcı fonksiyonlar artık
+// sandbox'ta: src/flowSandbox/xlsxOps.js). Bunlarin HEPSI aXet.flows'un GERCEK Node-RED
 // cekirdeginde/paletinde var olan tiplerdir (once burada hallusinasyon olan
 // 'http-request' (tirali)/'smtp-mail-send'/'smtp-config' tipleri
 // kullaniliyordu - bunlar KALDIRILDI, gercek 'http request' (bosluklu,
@@ -234,6 +233,32 @@ function coerceType(value, targetType) {
   }
 }
 
+// Sekme/subflow/global-config `env` listesindeki tek bir kaydın değeri.
+// Node-RED'in 'env' türü değeri başka bir ortam değişkeninden, yani
+// `process.env`'den okur — function node'dan ana sürecin ortamına açılan
+// kapı tam da buydu; 'cred' de gizli bilgi. İkisi (ve bilinmeyen türler)
+// bilerek `undefined`.
+function envEntryValue(item) {
+  const type = item.type || 'str';
+  const value = item.value;
+  switch (type) {
+    case 'str':
+      return value == null ? '' : String(value);
+    case 'num':
+      return Number(value);
+    case 'bool':
+      return value === true || value === 'true';
+    case 'json':
+      try {
+        return typeof value === 'string' ? JSON.parse(value) : value;
+      } catch {
+        return undefined;
+      }
+    default:
+      return undefined;
+  }
+}
+
 function getByPath(obj, path) {
   if (!path) return undefined;
   const parts = String(path).split('.');
@@ -289,174 +314,10 @@ function evalRule(rule, subject) {
   }
 }
 
-// =====================================================================
-// json-to-excel / excel-to-json - GERCEK deptapps-flows-contrib-excel-utils
-// paketinin (aXet.flows Canlı host'unda kurulu, C:\Users\...\axet-flows\
-// .deptapps-desktop\electron-releases\...\resources\app\node_modules\
-// deptapps-flows-contrib-excel-utils) KAYNAK KODUNDAN birebir port edilmis
-// yardimci fonksiyonlar. Onceki surum bu iki node'u SheetJS'in basit
-// json_to_sheet/sheet_to_json API'siyle YAKLASIK taklit ediyordu - GERCEK
-// node xlsx-populate kutuphanesiyle calisiyor ve TAMAMEN farkli bir payload
-// sozlesmesi (sheet-adi -> satir dizisi haritasi) kullaniyor; bu fark canli
-// bir kullanicinin "bizim editor hata vermedi ama Canli host verdi" bulgusuyla
-// ortaya cikti (bkz. PROJE-BILGI.md). Asagidaki fonksiyonlar gercek
-// src/utils/excel-write-helper.js + src/utils/settings-helper.js dosyalarinin
-// mantigini DEGISTIRMEDEN tasir - sadece lodash `has/get/isDate` yerine bu
-// dosyadaki esdegerleri (getByPath, Array.isArray/instanceof Date) kullanir.
-// =====================================================================
-
-const XLSX_POPULATE_HEADER_TYPE = { DEFAULT: 'default', ARRAY: 'array', COLUMN: 'column', DEFINED: 'defined' };
-
-function xlsxPopulateGetHeaderType(header) {
-  if (header === undefined) return XLSX_POPULATE_HEADER_TYPE.DEFAULT;
-  if (header === 1) return XLSX_POPULATE_HEADER_TYPE.ARRAY;
-  if (header === 'A') return XLSX_POPULATE_HEADER_TYPE.COLUMN;
-  if (Array.isArray(header)) return XLSX_POPULATE_HEADER_TYPE.DEFINED;
-  throw new Error('Not supported header type.');
-}
-
-function xlsxGetSheetSettings(config, callerCallback) {
-  return function (sheetName) {
-    let matched;
-    for (const [sheetNameOrRegexp, sheetSetting] of Object.entries(config)) {
-      const exact = sheetName === sheetNameOrRegexp;
-      let regExpMatch = false;
-      try {
-        regExpMatch = new RegExp(sheetNameOrRegexp.split('/').filter(Boolean).join('')).test(sheetName);
-      } catch {
-        regExpMatch = false;
-      }
-      if (exact || regExpMatch) {
-        matched = sheetSetting;
-        break;
-      }
-    }
-    return matched !== undefined ? callerCallback(matched)() : undefined;
-  };
-}
-
-function xlsxGetHeaderSettings(headerConfig) {
-  if (!headerConfig || headerConfig === 'auto') return () => undefined;
-  if (headerConfig === 'column') return () => 'A';
-  if (['2D', 'array'].includes(headerConfig)) return () => 1;
-  if (Array.isArray(headerConfig)) return () => headerConfig;
-  if (typeof headerConfig === 'object' && !Array.isArray(headerConfig)) return xlsxGetSheetSettings(headerConfig, xlsxGetHeaderSettings);
-  return () => undefined;
-}
-
-function xlsxGetOffsetSettings(offsetConfig) {
-  if (!offsetConfig) return () => undefined;
-  if (Number.isInteger(offsetConfig)) return () => +offsetConfig;
-  if (typeof offsetConfig === 'object') return xlsxGetSheetSettings(offsetConfig, xlsxGetOffsetSettings);
-  return () => undefined;
-}
-
-// GERCEK excel-write-helper.js `addHeaderAndTransformRows` - excel-to-json'un
-// urettigi "non-null" (bos hucreler icin key hic yok) satirlari, TUM
-// satirlarin anahtar birlesiminden olusan sabit bir sutun setine tamamlar.
-function xlsxAddHeaderAndTransformRows(rows) {
-  if (!rows || rows.length === 0) return [];
-  const headerRow = {};
-  for (const row of rows) {
-    for (const key of Object.keys(row)) {
-      headerRow[key] = /^__EMPTY(?:_\d+)?$/.test(key) ? undefined : key;
-    }
-  }
-  const headerKeys = Object.keys(headerRow);
-  const mapRow = (row) => {
-    const out = {};
-    for (const k of headerKeys) out[k] = row[k];
-    return out;
-  };
-  return [headerRow, ...rows.map(mapRow)];
-}
-
-function xlsxSetCellValue(cell, val) {
-  if (typeof val === 'function') {
-    cell.formula(val());
-  } else if (typeof val === 'string' || typeof val === 'number' || typeof val === 'boolean' || val instanceof Date) {
-    cell.value(val);
-  }
-}
-
-function xlsxWriteValueInCell(val, cell) {
-  if (val instanceof Date) {
-    cell.value(val).style('numberFormat', 'dd/MM/yyyy');
-  } else if (val !== null && typeof val === 'object') {
-    if (Object.prototype.hasOwnProperty.call(val, 'value')) {
-      xlsxSetCellValue(cell, val.value);
-      if (Object.prototype.hasOwnProperty.call(val, 'style')) {
-        for (const [key, value] of Object.entries(val.style)) cell.style(key, value);
-      }
-      if (Object.prototype.hasOwnProperty.call(val, 'hyperlink')) cell.hyperlink(val.hyperlink);
-    } else {
-      xlsxSetCellValue(cell, '');
-    }
-  } else {
-    xlsxSetCellValue(cell, val);
-  }
-}
-
-function xlsxDrawWithDefaultHeader({ sheet, data, config }) {
-  const { offset } = config;
-  xlsxAddHeaderAndTransformRows(data).forEach((row, r) => {
-    Object.keys(row).forEach((colName, c) => {
-      xlsxWriteValueInCell(row[colName], sheet.cell(r + 1 + offset, c + 1));
-    });
-  });
-}
-
-function xlsxDrawWithArrayHeader({ sheet, data, config }) {
-  const { offset } = config;
-  data.forEach((row, r) => {
-    row.forEach((val, c) => xlsxWriteValueInCell(val, sheet.cell(r + 1 + offset, c + 1)));
-  });
-}
-
-function xlsxDrawWithColumnHeader({ sheet, data, config }) {
-  const { offset } = config;
-  data.forEach((row, r) => {
-    Object.entries(row)
-      .sort(([a], [b]) => (a.length === b.length ? (a > b ? 1 : -1) : a.length > b.length ? 1 : -1))
-      .forEach(([col, val]) => xlsxWriteValueInCell(val, sheet.cell(r + 1 + offset, col)));
-  });
-}
-
-function xlsxDrawWithDefinedHeader({ sheet, data, config }) {
-  const { header, offset } = config;
-  const headerOrdinals = {};
-  header.forEach((c, i) => { headerOrdinals[c] = i; });
-  data.forEach((row, r) => {
-    Object.entries(row)
-      .map(([k, v]) => [k, v, headerOrdinals[k]])
-      .sort(([, , a], [, , b]) => a - b)
-      .forEach(([, val, c]) => xlsxWriteValueInCell(val, sheet.cell(r + 1 + offset, c + 1)));
-  });
-}
-
-const XLSX_POPULATE_DRAW_METHODS = {
-  [XLSX_POPULATE_HEADER_TYPE.DEFAULT]: xlsxDrawWithDefaultHeader,
-  [XLSX_POPULATE_HEADER_TYPE.ARRAY]: xlsxDrawWithArrayHeader,
-  [XLSX_POPULATE_HEADER_TYPE.COLUMN]: xlsxDrawWithColumnHeader,
-  [XLSX_POPULATE_HEADER_TYPE.DEFINED]: xlsxDrawWithDefinedHeader
-};
-
-// GERCEK excel-write-helper.js `fillWorkbook` - payload SADECE bir obje
-// olabilir: her key bir sayfa adi, her value o sayfanin satir (obje) dizisi.
-// Duz bir dizi (`[{...}, {...}]`) GECERSIZDIR - gercek node'da da Object.keys()
-// uzerinden indekslere ("0","1",...) doner ve calismaz, biz de aynen o hatayi
-// uretiyoruz (asagidaki _runJsonToExcelNode'daki kontrol).
-function xlsxFillWorkbook(payload, workbook, config = {}) {
-  Object.keys(payload).forEach((sheetName) => {
-    const sheet = workbook.sheet(sheetName) || workbook.addSheet(sheetName);
-    const data = payload[sheetName];
-    const rawOffset = xlsxGetOffsetSettings(config.offset)(sheetName);
-    const offset = Number.isNaN(+rawOffset) ? 0 : +rawOffset;
-    const header = xlsxGetHeaderSettings(config.header)(sheetName);
-    const headerType = xlsxPopulateGetHeaderType(header);
-    XLSX_POPULATE_DRAW_METHODS[headerType]({ sheet, data, config: { header, offset } });
-  });
-}
+// json-to-excel / excel-to-json yardımcıları (gerçek
+// deptapps-flows-contrib-excel-utils paketinden birebir port) sandbox
+// sayfasına taşındı: src/flowSandbox/xlsxOps.js. Ana süreçte yalnızca
+// Buffer taşınıyor, çalışma kitabı burada hiç açılmıyor.
 
 // GERCEK src/utils/checksum.js `checksum-buffer` (multihash sha1) kullaniyor -
 // bu paket IPFS multihash formatinda bir prefix+digest byte dizisi uretiyor,
@@ -471,7 +332,11 @@ function xlsxChecksumFromBuffer(buffer) {
 }
 
 class FlowRuntime {
-  constructor({ onDebug, onStatus, onLog, onTrace, onValidate } = {}) {
+  // `sandbox`: function node ve xlsx işlerini yürüten FlowSandboxHost
+  // (flowSandboxHost.ts). Kurucu parametresi, çünkü sandbox Electron penceresi
+  // demek; testler aynı arayüzü sahte bir sayfayla veriyor.
+  constructor({ onDebug, onStatus, onLog, onTrace, onValidate, sandbox } = {}) {
+    this.sandbox = sandbox || null;
     this.onDebug = onDebug || (() => {});
     this.onStatus = onStatus || (() => {});
     this.onLog = onLog || (() => {});
@@ -618,6 +483,10 @@ class FlowRuntime {
   async stop() {
     this.timers.forEach((t) => clearInterval(t) || clearTimeout(t));
     this.timers = [];
+    // Function node'ların setTimeout/setInterval'leri artık sandbox sayfasında
+    // yaşıyor; `this.timers` onları görmüyor. Sayfayı atmak hepsini birden
+    // durduruyor ve bir sonraki deploy'u temiz bir realm'de başlatıyor.
+    if (this.sandbox) this.sandbox.reset('Flow durduruldu.');
     if (this.httpServer) {
       await new Promise((resolve) => this.httpServer.close(resolve));
       this.httpServer = null;
@@ -1028,125 +897,69 @@ class FlowRuntime {
     return store;
   }
 
-  // Gercek Node-RED context/flow/global API'siyle AYNI senkron sozlesme:
-  // `.get(key)` / `.set(key, value)` (varsayilan "memory" context modulu
-  // de senkrondur, Promise dondurmez) + kolaylik icin `.keys()`.
-  _makeContextApi(store) {
-    return {
-      get: (key) => store[key],
-      set: (key, value) => {
-        store[key] = value;
-      },
-      keys: () => Object.keys(store)
+  // `env.get(name)` için görünen değişkenler — gerçek Node-RED'in sırası:
+  // global-config node'unun env listesi, üstüne node'un sekmesinin/
+  // subflow'unun env listesi, en üstte NR_* yerleşikleri. Eskiden doğrudan
+  // `process.env` veriliyordu; bu, kullanıcının flow kodu üzerinden ana
+  // sürecin bütün ortam değişkenlerini (yollar, kullanıcı adı, belirteçler)
+  // okuyabilmesi demekti. Artık yalnızca flow'un kendi tanımladığı değerler.
+  _functionEnv(node) {
+    const env = {};
+    const apply = (list) => {
+      if (!Array.isArray(list)) return;
+      for (const item of list) {
+        if (!item || typeof item.name !== 'string' || !item.name) continue;
+        const value = envEntryValue(item);
+        if (value !== undefined) env[item.name] = value;
+      }
     };
+    Object.values(this.nodesById)
+      .filter((n) => n && n.type === 'global-config')
+      .forEach((n) => apply(n.env));
+    const tab = node.z ? this.nodesById[node.z] : null;
+    if (tab) apply(tab.env);
+    env.NR_NODE_ID = node.id;
+    env.NR_NODE_NAME = node.name || '';
+    if (tab) {
+      env.NR_FLOW_ID = tab.id;
+      env.NR_FLOW_NAME = tab.label || tab.name || '';
+    }
+    return env;
   }
 
-  async _runFunctionNode(node, msg) {
-    const sandboxConsole = {
-      log: (...args) => this.onLog({ level: 'info', text: `[${node.name || 'function'}] ${args.map(String).join(' ')}`, nodeId: node.id }),
-      warn: (...args) => this.onLog({ level: 'warn', text: `[${node.name || 'function'}] ${args.map(String).join(' ')}`, nodeId: node.id }),
-      error: (...args) => this.onLog({ level: 'error', text: `[${node.name || 'function'}] ${args.map(String).join(' ')}`, nodeId: node.id })
-    };
-    // `node.send(msg, cloneMsg)`/`node.warn(msg)`/`node.error(msg, origMsg)`/
-    // `node.log(msg)`/`node.done()`/`node.status(status)` - gercek Node-RED
-    // function node'unun `node` API'siyle AYNI isimler/imzalar. `node.send()`
-    // burada senkron olarak `pendingSends` dizisine biriktiriliyor, GERCEK
-    // sevkiyat script bittikten sonra `_emit()` icinde yapiliyor (bkz. o
-    // metoddaki not) - boylece `node.send(msg); return null;` ve
-    // `return msg;` desenlerinin IKISI DE calisir, gercek Node-RED'deki gibi.
-    const pendingSends = [];
-    const sandboxNode = {
-      id: node.id,
-      name: node.name,
-      send: (sendMsg, cloneMsg) => {
-        if (sendMsg == null) return;
-        pendingSends.push(cloneMsg === false ? sendMsg : cloneMessage(sendMsg));
-      },
-      warn: (m) => this.onLog({ level: 'warn', text: `[${node.name || 'function'}] ${typeof m === 'string' ? m : previewValue(m)}`, nodeId: node.id }),
-      error: (m, origMsg) => {
-        this.onLog({ level: 'error', text: `[${node.name || 'function'}] ${typeof m === 'string' ? m : previewValue(m)}`, nodeId: node.id });
-      },
-      log: (m) => this.onLog({ level: 'info', text: `[${node.name || 'function'}] ${typeof m === 'string' ? m : previewValue(m)}`, nodeId: node.id }),
-      done: () => {},
-      status: () => {} // Debug panelinde canli node status noktasi bu motorda yok, sessizce yut - gercek Node-RED'de sadece gorsel bir yan etki, akisi degistirmez.
-    };
-    const nodeContext = this._makeContextApi(this._getContextStore(this.nodeContextStore, node.id));
-    const flowContext = this._makeContextApi(this._getContextStore(this.flowContextStore, node.z || 'global'));
-    const globalContext = this._makeContextApi(this.globalContextStore);
-    const sandbox = {
-      msg: cloneMessage(msg),
-      node: sandboxNode,
-      context: nodeContext,
-      flow: flowContext,
-      global: globalContext,
-      env: { get: (name) => process.env[name] },
-      console: sandboxConsole,
-      Buffer,
-      Date,
-      JSON,
-      Math,
-      Promise,
-      RegExp,
-      Array,
-      Object,
-      Error,
-      // Gercek Node-RED function node sandbox'i setTimeout/setInterval'i
-      // DOGRUDAN saglar (orn `await new Promise((r) => setTimeout(r, 100))`
-      // cok yaygin bir desendir) - bu motorda eksikti, ReferenceError
-      // firlatiyordu. Olusturulan handle'lar `this.timers`'a (inject
-      // node'larinin da kullandigi AYNI liste) eklenir ki stop()/redeploy
-      // sirasinda sarkan (leaked) bir timer process'i canli tutmasin.
-      setTimeout: (fn, ms, ...args) => {
-        const handle = setTimeout(fn, ms, ...args);
-        this.timers.push(handle);
-        return handle;
-      },
-      clearTimeout: (handle) => clearTimeout(handle),
-      setInterval: (fn, ms, ...args) => {
-        const handle = setInterval(fn, ms, ...args);
-        this.timers.push(handle);
-        return handle;
-      },
-      clearInterval: (handle) => clearInterval(handle),
-      __result: undefined
-    };
-    // Gercek Node-RED, function node kodunu bir ASYNC fonksiyon olarak
-    // sarmalar - bu, kullanicinin kod icinde ust seviyede `await` kullanmasina
-    // izin verir (orn `await someAsyncCall()`). Onceki surum burada SENKRON
-    // bir sarmalayici kullaniyordu; bu hem `await` iceren kodu SyntaxError ile
-    // patlatiyordu (gercek host'ta calisirken) HEM DE bazi async-bagimli
-    // hatalarin bu motorda hic yakalanmamasina yol aciyordu.
-    const code = `__result = (async function(msg){\n${node.func || 'return msg;'}\n})(msg);`;
-    const vmContext = vm.createContext(sandbox);
-    const script = new vm.Script(code, { filename: `${node.name || node.id}.function.js` });
-    script.runInContext(vmContext, { timeout: 3000 });
-    // `__result` senkron calisirken bir Promise'e ATANIR (async fonksiyon
-    // cagrisi hemen bir Promise dondurur) - GERCEK cozumleme/hata script
-    // bittikten SONRA (mikro-gorev kuyrugunda) olusur, bu yuzden burada
-    // `await` ediliyor. `vm.Script`'in `timeout` secenegi SADECE senkron
-    // calismayi sinirlar (Promise'in cozulmesini beklemez) - kullanicinin
-    // kodu asla cozulmeyen bir Promise'i `await` ederse motor sonsuza kadar
-    // asilmasin diye ayrica 10 saniyelik bir "yaris" (race) zaman asimi
-    // ekleniyor.
-    let result;
-    let timeoutHandle;
-    try {
-      const asyncTimeout = new Promise((_resolve, reject) => {
-        timeoutHandle = setTimeout(() => {
-          reject(new Error('Function node zaman asimina ugradi (10s) - kod icinde hic cozulmeyen bir Promise/await olabilir.'));
-        }, 10000);
-      });
-      result = await Promise.race([vmContext.__result, asyncTimeout]);
-    } catch (err) {
-      if (pendingSends.length) node.__pendingSends = pendingSends;
-      throw err;
-    } finally {
-      clearTimeout(timeoutHandle);
+  _requireSandbox() {
+    if (!this.sandbox) {
+      throw new Error('Flow sandbox kurulmamis - function/excel node\'lari calistirilamiyor.');
     }
-    if (pendingSends.length) node.__pendingSends = pendingSends;
-    if (result === undefined) return null;
-    if (Array.isArray(result)) return result;
-    return result;
+    return this.sandbox;
+  }
+
+  // Kod sandbox sayfasında koşuyor (bkz. dosya başındaki not). Anlamı
+  // eskisiyle aynı: kod async bir fonksiyonun gövdesi, `node.send()` ile
+  // biriktirilenler `_emit`'te dönüş değerinden ÖNCE sevk ediliyor,
+  // `undefined` dönüşü `null` sayılıyor. Farklar: msg süreç sınırını
+  // yapılandırılmış klonla geçiyor (fonksiyonlar düşüyor), `context.get`
+  // canlı referans değil kopya veriyor, zaman sınırı senkron/async ayrımı
+  // olmadan tek bir 10 sn.
+  async _runFunctionNode(node, msg) {
+    const prefix = `[${node.name || 'function'}]`;
+    const { result, sends } = await this._requireSandbox().runFunction({
+      code: node.func || 'return msg;',
+      msg,
+      node: { id: node.id, name: node.name || '' },
+      env: this._functionEnv(node),
+      stores: {
+        node: this._getContextStore(this.nodeContextStore, node.id),
+        flow: this._getContextStore(this.flowContextStore, node.z || 'global'),
+        global: this.globalContextStore
+      },
+      log: (level, text) => this.onLog({ level, text: `${prefix} ${text}`, nodeId: node.id })
+    });
+    // Hata durumunda send'ler bilerek bırakılıyor: `_emit` hatada erken
+    // dönüyor, burada bırakılanlar bir sonraki çalışmanın mesajlarına
+    // karışıyordu.
+    if (sends.length) node.__pendingSends = sends;
+    return result === undefined ? null : result;
   }
 
   _runChangeNode(node, msg) {
@@ -1285,13 +1098,11 @@ class FlowRuntime {
   // gecerli degerleri "auto"/"blank"/"buffer" - "base64" GERCEK node'da hic
   // YOK (nodeCatalog.js'teki secenek listesi de bu turda duzeltildi).
   async _runJsonToExcelNode(node, msg) {
-    const XlsxPopulate = require('xlsx-populate');
     const AUTO_TYPE = 'auto';
     const BLANK_KIND = 'blank';
     const BUFFER_KIND = 'buffer';
     const BUFFER_PROP_DEFAULT = 'payload.buffer';
     const DATA_PROP_DEFAULT = 'payload.data';
-    const SHEET_TBD_MARK = '_ToBeDeleted#';
 
     let kind = node.kind || AUTO_TYPE;
     let bufferProp = node.bufferProp || BUFFER_PROP_DEFAULT;
@@ -1308,35 +1119,29 @@ class FlowRuntime {
       kind = getByPath(msg, BUFFER_PROP_DEFAULT) !== undefined ? BUFFER_KIND : BLANK_KIND;
     }
 
-    let workbook;
-    if (kind === BLANK_KIND) {
-      workbook = await XlsxPopulate.fromBlankAsync();
-    } else if (kind === BUFFER_KIND) {
-      const bufferValue = getByPath(msg, bufferProp);
+    let bufferValue = null;
+    if (kind === BUFFER_KIND) {
+      bufferValue = getByPath(msg, bufferProp);
       if (bufferValue === undefined) throw new Error('json-to-excel: Buffer not exists.');
-      workbook = await XlsxPopulate.fromDataAsync(bufferValue);
-    } else {
+    } else if (kind !== BLANK_KIND) {
       throw new Error(`json-to-excel: "Write into ${kind}" option not supported.`);
     }
 
-    if (kind === BLANK_KIND) {
-      const sheet1 = workbook.sheet('Sheet1');
-      if (sheet1) sheet1.name(`${sheet1.name()}${SHEET_TBD_MARK}`);
-    }
-
+    // Şablon artık sandbox'ta açılıyor; bu kontrol onu açmadan önce yapılıyor.
+    // Yalnızca hem şablonun hem veri nesnesinin bozuk olduğu durumda hangi
+    // hatanın görüneceği değişiyor (eskiden şablon hatası öndeydi).
     const payload = getByPath(msg, payloadProp);
     if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new Error(`json-to-excel: msg.${payloadProp} bir obje olmali - her key bir sayfa adi, her value o sayfanin satir (obje) dizisi ("{ Sheet1: [{...}] }"), duz bir dizi DEGIL (gercek node'un sozlesmesi budur, bkz. json-to-excel.html "Data" aciklamasi).`);
     }
     const excelConfig = msg.payload && msg.payload.config ? msg.payload.config : {};
-    xlsxFillWorkbook(payload, workbook, excelConfig);
 
-    workbook.sheets()
-      .map((sheet) => sheet.name())
-      .filter((name) => name.endsWith(SHEET_TBD_MARK))
-      .forEach((name) => workbook.deleteSheet(name));
-
-    const outputBuffer = await workbook.outputAsync();
+    const outputBuffer = await this._requireSandbox().xlsxWrite({
+      data: payload,
+      config: excelConfig,
+      blank: kind === BLANK_KIND,
+      templateBuffer: bufferValue
+    });
     return { ...msg, payload: outputBuffer };
   }
 
@@ -1349,22 +1154,16 @@ class FlowRuntime {
   // `bufferProp` varsayilanlarinin (payload.data/payload.buffer) bekledigi
   // sekildir (iki node'un round-trip sozlesmesi budur).
   async _runExcelToJsonNode(node, msg) {
-    const XLSX = require('xlsx');
     const input = msg.payload;
     if (!Buffer.isBuffer(input)) {
       throw new Error('excel-to-json: msg.payload must be a Buffer');
     }
     const buffer = input;
     const checksum = xlsxChecksumFromBuffer(buffer);
-    const workbook = XLSX.read(buffer, { type: 'buffer', cellDates: true });
-    const data = {};
-    for (const sheetName of workbook.SheetNames) {
-      data[sheetName] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-        range: xlsxGetOffsetSettings(msg.offset)(sheetName),
-        header: xlsxGetHeaderSettings(msg.header)(sheetName),
-        blankrows: true
-      });
-    }
+    // Ayrıştırma sandbox'ta (bkz. dosya başındaki not): SheetJS'in
+    // ayrıştırıcısı dışarıdan gelen bir dosyayı işliyor ve geçmişte
+    // prototip kirletme/ReDoS açıkları çıktı.
+    const data = await this._requireSandbox().xlsxRead(buffer, { offset: msg.offset, header: msg.header });
     return {
       ...msg,
       payload: {
