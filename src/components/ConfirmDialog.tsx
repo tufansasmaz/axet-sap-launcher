@@ -1,10 +1,7 @@
 import { AlertTriangle } from "lucide-react";
 import { useT } from "../i18n";
-import {
-  DIALOG_CANCEL_BUTTON,
-  DIALOG_CONFIRM_BUTTON,
-  DIALOG_DANGER_BUTTON,
-} from "../ui/buttons";
+import { Button } from "../ui/Button";
+import { Modal, ModalCancelButton } from "../ui/Modal";
 
 interface Props {
   open: boolean;
@@ -17,6 +14,8 @@ interface Props {
   onCancel: () => void;
 }
 
+// Evet/hayır onayı. Ortak `Modal`'ın `confirm` katmanında: açık bir pencerenin
+// üstünde de açılabiliyor ve Escape yalnızca bunu kapatıyor, alttakini değil.
 export default function ConfirmDialog({
   open,
   title,
@@ -28,38 +27,30 @@ export default function ConfirmDialog({
   onCancel
 }: Props) {
   const t = useT();
-  if (!open) return null;
-
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)] "
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onCancel();
-      }}
-    >
-      <div className="w-[380px] rounded-xl border border-line bg-card p-6">
-        <div className="mb-3 flex items-center gap-2">
-          <AlertTriangle size={18} className={danger ? "text-[var(--status-danger-text)]" : "text-accent-400"} />
-          <h3 className="text-base font-semibold text-white">{title}</h3>
-        </div>
-        <p className="mb-5 text-sm text-slate-400">{message}</p>
-        {/* Düğmeler tek yerden: `src/ui/buttons.ts`. Onay düğmesi DÜZ DOLGU
-            (yeni tasarım dili: gradyan/gölge yok, saydam "hayalet" dolgu da
-            yok). Yıkıcı hâlde vurgu yerine `--status-danger-solid` dolduruyor
-            — kullanıcı kırmızıya basarken neye bastığını rengin kendisinden
-            görüyor, ince bir kenarlıktan değil. */}
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className={DIALOG_CANCEL_BUTTON} autoFocus>
-            {cancelLabel ?? t("common.cancel")}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={danger ? DIALOG_DANGER_BUTTON : DIALOG_CONFIRM_BUTTON}
-          >
+    <Modal
+      open={open}
+      layer="confirm"
+      width={400}
+      title={title}
+      icon={<AlertTriangle size={18} className={danger ? "text-[var(--status-danger-text)]" : "text-accent-400"} />}
+      onClose={onCancel}
+      footer={
+        <>
+          {/* Düğmeler tek yerden: `src/ui/buttons.ts` (`Button` onu kullanıyor).
+              Onay düğmesi DÜZ DOLGU (yeni tasarım dili: gradyan/gölge yok,
+              saydam "hayalet" dolgu da yok). Yıkıcı hâlde vurgu yerine
+              `--status-danger-solid` dolduruyor — kullanıcı kırmızıya basarken
+              neye bastığını rengin kendisinden görüyor, ince bir kenarlıktan
+              değil. */}
+          <ModalCancelButton label={cancelLabel} autoFocus />
+          <Button variant={danger ? "danger" : "primary"} onClick={onConfirm}>
             {confirmLabel ?? t("confirmDialog.confirm")}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-slate-400">{message}</p>
+    </Modal>
   );
 }

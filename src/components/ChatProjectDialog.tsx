@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { FolderOpen, Trash2 } from "lucide-react";
 import type { ChatProject } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
-import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
-import ConfirmDialog from "./ConfirmDialog";
+import { Button } from "../ui/Button";
+import { Field, Input, Textarea } from "../ui/Field";
+import { Modal, ModalCancelButton } from "../ui/Modal";
 
 // Bir projenin TÜM ayarları tek kutuda: adı, kalıcı talimatı ve silme.
 //
@@ -12,9 +13,8 @@ import ConfirmDialog from "./ConfirmDialog";
 // sil) sığdırmak 272px'lik bir sütunu okunmaz hâle getiriyordu. Ad ve talimat
 // zaten aynı kararın iki parçası, ikisi de burada.
 //
-// Silme onayı bu kutunun İÇİNDE iki aşamalı — `ConfirmDialog`'u üstüne
-// açmak iki modalı üst üste bindirirdi (ikisi de `z-[60]`), ve arkadaki
-// kutunun hangi projeye ait olduğu kaybolurdu.
+// Silme onayı bu kutunun İÇİNDE, ayakta iki aşamalı — üstüne ikinci bir
+// pencere açmak arkadaki kutunun hangi projeye ait olduğunu gizlerdi.
 //
 // `ChatInstructionsDialog` ile KARIŞTIRILMAMALI: o kutu klasöre ait
 // `AGENTS.md` dosyasını düzenliyor (axet-code onu süreç açılışında kendisi
@@ -33,7 +33,6 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   // Kutu her açılışta O projenin değerleriyle doluyor. Bağımlılık `project.id`
   // değil `project`: aynı projeyi kapatıp açmak da alanları tazelemeli.
@@ -42,21 +41,16 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
     setName(project.name);
     setInstructions(project.instructions);
     setConfirmingDelete(false);
-    setConfirmDiscard(false);
   }, [project]);
 
   if (!project) return null;
 
   const trimmedName = name.trim();
 
-  // Kapatma isteği tek kapıdan geçiyor (Escape, Vazgeç). Kaydedilmemiş
-  // değişiklik varsa sessizce atılmıyor — Ayarlar kutusundaki kalıbın aynısı.
-  // Escape metin kutusunun İÇİNDEYKEN de buraya düşüyor; eskiden yazılan
-  // talimat tek tuşla gidiyordu.
-  const requestClose = () => {
-    if (name !== project.name || instructions !== project.instructions) setConfirmDiscard(true);
-    else onClose();
-  };
+  // Kaydedilmemiş değişiklik. `Modal` her kapatma isteğinde (Escape — metin
+  // kutusunun İÇİNDEYKEN de —, X, İptal) buna bakıp önce soruyor; eskiden
+  // yazılan talimat tek tuşla gidiyordu.
+  const dirty = name !== project.name || instructions !== project.instructions;
 
   const save = () => {
     // Adsız proje kenar çubuğunda tıklanamaz bir boşluk olurdu; eski ad
@@ -66,119 +60,78 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
   };
 
   return (
-    <>
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)]"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") requestClose();
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      dirty={dirty}
+      title={t("chatProject.title")}
+      icon={<FolderOpen size={18} />}
+      width={560}
+      footer={
+        confirmingDelete ? (
+          <>
+            <span className="mr-auto min-w-0 flex-1 text-xs leading-snug text-slate-400">
+              {t("chatProject.deleteConfirm")}
+            </span>
+            <Button variant="danger" onClick={onDelete}>
+              {t("chatProject.deleteYes")}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
+              {t("common.cancel")}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="ghost" onClick={() => setConfirmingDelete(true)} className="mr-auto">
+              <Trash2 size={14} />
+              {t("chatProject.delete")}
+            </Button>
+            <ModalCancelButton />
+            <Button variant="primary" onClick={save}>
+              {t("common.save")}
+            </Button>
+          </>
+        )
+      }
     >
-      <div className="flex max-h-[80vh] w-[560px] flex-col rounded-xl border border-line bg-card p-6">
-        <div className="mb-4 flex items-center gap-2">
-          <FolderOpen size={18} className="text-accent-400" />
-          <h3 className="text-base font-semibold text-white">{t("chatProject.title")}</h3>
-        </div>
+      <div className="flex flex-col gap-4">
+        <Field label={t("chatProject.nameLabel")}>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            // Ana süreçteki `chatStore.ts` adı 80 karakterde KESİYOR. Sınır
+            // burada yoksa kullanıcının yazdığı ad kaydedilmiş görünür, sonraki
+            // açılışta sessizce kısalırdı.
+            maxLength={80}
+            autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                save();
+              }
+            }}
+            placeholder={t("chatProject.namePlaceholder")}
+          />
+        </Field>
 
-        <label className="mb-1 text-[12px] font-medium text-slate-300">{t("chatProject.nameLabel")}</label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          // Ana süreçteki `chatStore.ts` adı 80 karakterde KESİYOR. Sınır
-          // burada yoksa kullanıcının yazdığı ad kaydedilmiş görünür, sonraki
-          // açılışta sessizce kısalırdı.
-          maxLength={80}
-          autoFocus
-          onFocus={(e) => e.currentTarget.select()}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              save();
-            }
-          }}
-          placeholder={t("chatProject.namePlaceholder")}
-          className="mb-4 rounded-md border border-line bg-app px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
-        />
+        <Field label={t("chatProject.instructionsLabel")} hint={t("chatProject.instructionsHint")}>
+          <Textarea
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            // Aynı gerekçe: talimat diskte 8000 karakterde kesiliyor.
+            maxLength={8000}
+            spellCheck={false}
+            placeholder={t("chatProject.instructionsPlaceholder")}
+            className="chat-scroll min-h-[180px] resize-y font-mono"
+          />
+        </Field>
 
-        <label className="mb-1 text-[12px] font-medium text-slate-300">
-          {t("chatProject.instructionsLabel")}
-        </label>
-        <p className="mb-2 text-[11px] leading-relaxed text-slate-500">{t("chatProject.instructionsHint")}</p>
-        <textarea
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          // Aynı gerekçe: talimat diskte 8000 karakterde kesiliyor.
-          maxLength={8000}
-          spellCheck={false}
-          placeholder={t("chatProject.instructionsPlaceholder")}
-          className="chat-scroll min-h-[180px] flex-1 resize-none rounded-md border border-line bg-app p-3 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
-        />
         {/* İki yönerge mekanizmasının karıştırılması en olası yanlış anlama:
             kullanıcı buraya "her cevabı Türkçe yaz" yazıp terminalde neden
             geçerli olmadığını sorabilir. */}
-        <p className="mt-2 text-[11px] text-slate-500">{t("chatProject.folderNote")}</p>
-
-        <div className="mt-4 flex items-center gap-2">
-          {confirmingDelete ? (
-            <>
-              <span className="min-w-0 flex-1 text-[11px] leading-tight text-slate-400">
-                {t("chatProject.deleteConfirm")}
-              </span>
-              <button
-                onClick={onDelete}
-                className="shrink-0 cursor-pointer rounded-md border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 text-[12px] font-medium text-[var(--status-danger-text)]"
-              >
-                {t("chatProject.deleteYes")}
-              </button>
-              <button
-                onClick={() => setConfirmingDelete(false)}
-                className="shrink-0 cursor-pointer rounded-md px-3 py-2 text-[12px] text-slate-300 hover:bg-active"
-              >
-                {t("common.cancel")}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                title={t("chatProject.delete")}
-                className="flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-2 text-[12px] text-slate-500 transition hover:text-[var(--status-danger-text)]"
-              >
-                <Trash2 size={13} />
-                {t("chatProject.delete")}
-              </button>
-              <div className="flex-1" />
-              <button
-                onClick={requestClose}
-                className={DIALOG_CANCEL_BUTTON}
-              >
-                {t("common.cancel")}
-              </button>
-              <button
-                onClick={save}
-                className={DIALOG_CONFIRM_BUTTON}
-              >
-                {t("common.save")}
-              </button>
-            </>
-          )}
-        </div>
+        <p className="text-2xs text-slate-500">{t("chatProject.folderNote")}</p>
       </div>
-    </div>
-
-    {/* Kutunun DIŞINDA, kardeş olarak — içine konsaydı onaydaki Escape yukarı
-        kabarıp bu kutunun `onKeyDown`'ına düşer ve onayı yeniden açardı. */}
-    <ConfirmDialog
-      open={confirmDiscard}
-      danger={false}
-      title={t("settingsModal.discardTitle")}
-      message={t("settingsModal.discardMessage")}
-      confirmLabel={t("settingsModal.discardConfirm")}
-      onConfirm={() => {
-        setConfirmDiscard(false);
-        onClose();
-      }}
-      onCancel={() => setConfirmDiscard(false)}
-    />
-    </>
+    </Modal>
   );
 }

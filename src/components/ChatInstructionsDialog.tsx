@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Loader2 } from "lucide-react";
 import { useT } from "../i18n";
-import ConfirmDialog from "./ConfirmDialog";
-import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import { Button } from "../ui/Button";
+import { Textarea } from "../ui/Field";
+import { Modal, ModalCancelButton } from "../ui/Modal";
 
 // Proje yönergeleri = çalışma klasöründeki `AGENTS.md`. Kendi icat ettiğimiz
 // bir mekanizma DEĞİL: axet-code bu dosyayı kendi bağlam dosyası olarak
@@ -52,7 +53,6 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
   // yazdığı için var olan dosyanın üstüne BOŞ metin giderdi — 2026-09-28'e
   // kadar tam olarak böyleydi. Artık metin kutusu hiç çizilmiyor, Kaydet kapalı.
   const [readError, setReadError] = useState<string | null>(null);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   useEffect(() => {
     if (!cwd) return;
@@ -60,7 +60,6 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
     setLoading(true);
     setError(null);
     setReadError(null);
-    setConfirmDiscard(false);
     const open = (content: string) => {
       setText(content);
       setInitialText(content);
@@ -97,12 +96,10 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
 
   if (!cwd) return null;
 
-  // Kapatma isteği tek kapıdan geçiyor (X yok; Escape ve Vazgeç). Kaydedilmemiş
-  // değişiklik varsa sessizce atılmıyor — Ayarlar kutusundaki kalıbın aynısı.
-  const requestClose = () => {
-    if (!loading && !readError && text !== initialText) setConfirmDiscard(true);
-    else onClose();
-  };
+  // Kaydedilmemiş değişiklik. `Modal` her kapatma isteğinde (Escape — metin
+  // kutusunun İÇİNDEYKEN de —, X, İptal) buna bakıp önce "Değişiklikleri at?"
+  // diye soruyor. Yüklenirken ya da dosya okunamamışken sorulacak bir şey yok.
+  const dirty = !loading && !readError && text !== initialText;
 
   const save = async () => {
     if (readError || truncated) return;
@@ -118,89 +115,68 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
       return;
     }
     onSaved(cwd);
+    // Kaydedilmiş bir şey "atılamaz": onay kapısından geçmeden kapanıyor.
     onClose();
   };
 
+  const filePath = joinPath(cwd, FILE_NAME);
+
   return (
-    <>
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)]"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") requestClose();
-      }}
-    >
-      <div className="flex max-h-[80vh] w-[620px] flex-col rounded-xl border border-line bg-card p-6">
-        <div className="mb-1 flex items-center gap-2">
-          <BookOpen size={18} className="text-accent-400" />
-          <h3 className="text-base font-semibold text-white">{t("chatInstructions.title")}</h3>
-        </div>
-        <p className="mb-1 text-sm text-slate-400">{t("chatInstructions.description")}</p>
-        <p className="mb-4 truncate font-mono text-[11px] text-slate-500" title={joinPath(cwd, FILE_NAME)}>
-          {joinPath(cwd, FILE_NAME)}
-        </p>
-
-        {loading ? (
-          <div className="flex h-40 items-center justify-center text-slate-500">
-            <Loader2 size={18} className="animate-spin" />
-          </div>
-        ) : readError !== null ? (
-          <div className="rounded-md border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-[12px] leading-relaxed text-[var(--status-danger-text)]">
-            {t("chatInstructions.readFailed", { error: readError })}
-          </div>
-        ) : (
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            autoFocus
-            spellCheck={false}
-            placeholder={t("chatInstructions.placeholder")}
-            className="chat-scroll min-h-[220px] flex-1 resize-none rounded-md border border-line bg-app p-3 font-mono text-xs text-slate-200 outline-none placeholder:text-slate-600 focus:border-accent-500/50"
-          />
-        )}
-
-        {/* Yeniden başlatma uyarısı ÖLÇÜLMÜŞ bir davranışa dayanıyor: bağlam
-            dosyaları süreç açılışında okunuyor, çalışan bir oturuma sonradan
-            yazılan AGENTS.md'yi o oturum GÖRMÜYOR (2026-09-05 ölçümü: aynı
-            süreçte ZZQ7 yok, yeni süreçte var). Bu yüzden kaydettikten sonra
-            etkilenen sohbetlerin oturumları bırakılıyor. */}
-        <p className="mt-3 text-[11px] text-slate-500">
-          {truncated ? t("chatInstructions.tooLarge") : t("chatInstructions.restartNote")}
-        </p>
-        {error && <p className="mt-2 text-[12px] text-[var(--status-danger-text)]">{error}</p>}
-
-        <div className="mt-4 flex justify-end gap-2">
-          <button
-            onClick={requestClose}
-            className={DIALOG_CANCEL_BUTTON}
-          >
-            {t("common.cancel")}
-          </button>
-          <button
+    <Modal
+      open
+      onClose={onClose}
+      dirty={dirty}
+      title={t("chatInstructions.title")}
+      subtitle={t("chatInstructions.description")}
+      icon={<BookOpen size={18} />}
+      width={620}
+      footer={
+        <>
+          <ModalCancelButton />
+          <Button
+            variant="primary"
             onClick={() => void save()}
             disabled={loading || saving || truncated || readError !== null}
             title={truncated ? t("chatInstructions.tooLarge") : undefined}
-            className={DIALOG_CONFIRM_BUTTON}
           >
             {saving ? t("chatInstructions.saving") : t("common.save")}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </>
+      }
+    >
+      <p className="mb-3 truncate font-mono text-2xs text-slate-500" title={filePath}>
+        {filePath}
+      </p>
 
-    {/* Kutunun DIŞINDA, kardeş olarak — içine konsaydı onaydaki Escape yukarı
-        kabarıp bu kutunun `onKeyDown`'ına düşer ve onayı yeniden açardı. */}
-    <ConfirmDialog
-      open={confirmDiscard}
-      danger={false}
-      title={t("settingsModal.discardTitle")}
-      message={t("settingsModal.discardMessage")}
-      confirmLabel={t("settingsModal.discardConfirm")}
-      onConfirm={() => {
-        setConfirmDiscard(false);
-        onClose();
-      }}
-      onCancel={() => setConfirmDiscard(false)}
-    />
-    </>
+      {loading ? (
+        <div className="flex h-40 items-center justify-center text-slate-500">
+          <Loader2 size={18} className="animate-spin" />
+        </div>
+      ) : readError !== null ? (
+        <div className="rounded-md border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-xs leading-relaxed text-[var(--status-danger-text)]">
+          {t("chatInstructions.readFailed", { error: readError })}
+        </div>
+      ) : (
+        <Textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          autoFocus
+          spellCheck={false}
+          aria-label={t("chatInstructions.title")}
+          placeholder={t("chatInstructions.placeholder")}
+          className="chat-scroll min-h-[240px] resize-y font-mono"
+        />
+      )}
+
+      {/* Yeniden başlatma uyarısı ÖLÇÜLMÜŞ bir davranışa dayanıyor: bağlam
+          dosyaları süreç açılışında okunuyor, çalışan bir oturuma sonradan
+          yazılan AGENTS.md'yi o oturum GÖRMÜYOR (2026-09-05 ölçümü: aynı
+          süreçte ZZQ7 yok, yeni süreçte var). Bu yüzden kaydettikten sonra
+          etkilenen sohbetlerin oturumları bırakılıyor. */}
+      <p className="mt-3 text-2xs text-slate-500">
+        {truncated ? t("chatInstructions.tooLarge") : t("chatInstructions.restartNote")}
+      </p>
+      {error && <p className="mt-2 text-xs text-[var(--status-danger-text)]">{error}</p>}
+    </Modal>
   );
 }

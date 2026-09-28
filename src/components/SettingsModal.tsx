@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  X,
   FolderOpen,
   Download,
   Upload,
@@ -18,10 +17,10 @@ import {
   Type
 } from "lucide-react";
 import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
-import ConfirmDialog from "./ConfirmDialog";
+import { Modal, ModalCancelButton } from "../ui/Modal";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
-import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import { Button } from "../ui/Button";
 
 interface Props {
   open: boolean;
@@ -47,7 +46,7 @@ function Section({
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-500/15 text-[var(--accent-soft-text)]">
           <Icon size={13} />
         </span>
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{title}</span>
+        <span className="text-2xs font-semibold uppercase tracking-wide text-slate-500">{title}</span>
       </div>
       <div className="space-y-4 p-4">{children}</div>
     </div>
@@ -57,7 +56,7 @@ function Section({
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">{label}</label>
+      <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-slate-500">{label}</label>
       {children}
       {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
     </div>
@@ -220,12 +219,10 @@ export default function SettingsModal({
   const [form, setForm] = useState<AppConfig | null>(config);
   const [appVersion, setAppVersion] = useState<string>("");
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ phase: "idle" });
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [pathCheck, setPathCheck] = useState<{ landscape: boolean | null; sapShcut: boolean | null }>({
     landscape: null,
     sapShcut: null
   });
-  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setForm(config), [config]);
 
@@ -237,23 +234,17 @@ export default function SettingsModal({
     return unsubscribe;
   }, [open]);
 
-  // Escape'in ÇALIŞMASININ şartı. `onKeyDown` odaklanamayan bir `div`'de
-  // duruyor ve React'te tuş olayları odaklı elemandan yukarı kabarır — kutu
-  // açıldığında odak hâlâ onu açan butonda, yani dışarıda kaldığı için tuş bu
-  // ağaca hiç girmiyordu. Kutunun içine tıklanana kadar Escape ölüydü.
-  // Buradaki çözüm `autoFocus` DEĞİL (öbür kutularda öyle): ayarlarda belirgin
-  // bir "ilk alan" yok, rastgele bir metin kutusuna odaklanmak yanlış olurdu.
-  // Onun yerine panelin kendisi odaklanıyor.
+  // Kutuyu her açılışta SIFIRLIYOR. Bileşen kapanınca `null` döndürüyor ama
+  // SÖKÜLMÜYOR — state olduğu gibi duruyor. Sıfırlama olmadan, kaydetmeden
+  // çıkılan bir düzenleme bir sonraki açılışta hâlâ ekranda duruyordu (ve
+  // "kaydedilmemiş" uyarısını da tetiklerdi).
   //
-  // Aynı efekt kutuyu her açılışta SIFIRLIYOR. Bileşen kapanınca `null`
-  // döndürüyor ama SÖKÜLMÜYOR — state olduğu gibi duruyor. Sıfırlama olmadan,
-  // kaydetmeden çıkılan bir düzenleme bir sonraki açılışta hâlâ ekranda
-  // duruyordu (ve artık "kaydedilmemiş" uyarısını da tetiklerdi).
+  // Escape ve ilk odak artık ortak `Modal`'da: Escape `document`'ta
+  // dinleniyor (odak dışarıdayken de çalışıyor), ilk odak gövdenin ilk
+  // öğesine gidiyor. Eskiden panelin kendisine elle odaklanılıyordu.
   useEffect(() => {
     if (!open) return;
     setForm(config);
-    setConfirmDiscard(false);
-    panelRef.current?.focus();
   }, [open, config]);
 
   // Yazarken doğrulama, kaydederken değil — kaydettikten SONRA "bu yol yok"
@@ -292,13 +283,6 @@ export default function SettingsModal({
 
   if (!open || !form) return null;
 
-  // Kapatma isteği tek kapıdan geçiyor (X, Escape, Vazgeç). Kaydedilmemiş
-  // değişiklik varsa sessizce atılmıyor.
-  const requestClose = () => {
-    if (isDirty) setConfirmDiscard(true);
-    else onClose();
-  };
-
   const pickFolder = async () => {
     const dir = await window.api.pickFolder();
     if (dir) setForm({ ...form, projectsBaseDir: dir });
@@ -324,38 +308,29 @@ export default function SettingsModal({
   const updateStatusNode = renderUpdateStatus(updateStatus, t);
 
   return (
-    <>
-    <div
-      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") requestClose();
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      dirty={isDirty}
+      title={t("settingsModal.title")}
+      subtitle={t("settingsModal.subtitle")}
+      icon={<SlidersHorizontal size={18} />}
+      width={560}
+      footer={
+        <>
+          {isDirty && (
+            <span className="mr-auto text-xs text-[var(--status-warning-text)]">
+              {t("settingsModal.unsavedBadge")}
+            </span>
+          )}
+          <ModalCancelButton />
+          <Button variant="primary" onClick={() => void save()}>
+            {t("common.save")}
+          </Button>
+        </>
+      }
     >
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className="animate-modal-pop-in flex max-h-[88vh] w-[560px] flex-col overflow-hidden rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50 outline-none"
-      >
-
-        <div className="relative shrink-0 px-6 pb-4 pt-5">
-          <button
-            onClick={requestClose}
-            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-active hover:text-slate-200"
-          >
-            <X size={16} />
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
-              <SlidersHorizontal size={20} className="text-accent-400" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-lg font-semibold leading-tight text-white">{t("settingsModal.title")}</h3>
-              <p className="truncate text-xs text-slate-500">{t("settingsModal.subtitle")}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+        <div className="space-y-4">
           <Section icon={Languages} title={t("settingsModal.sectionGeneral")}>
             <Field label={t("settingsModal.languageLabel")}>
               <SegmentedControl
@@ -581,44 +556,6 @@ export default function SettingsModal({
                 açmıyor. Aynı şeyi iki yerde göstermek de gereksiz. */}
           </Section>
         </div>
-
-        <div className="flex shrink-0 items-center justify-end gap-2 border-t border-line-subtle px-6 py-4">
-          {isDirty && (
-            <span className="mr-auto text-xs text-[var(--status-warning-text)]">
-              {t("settingsModal.unsavedBadge")}
-            </span>
-          )}
-          <button
-            onClick={requestClose}
-            className={DIALOG_CANCEL_BUTTON}
-          >
-            {t("common.cancel")}
-          </button>
-          <button
-            onClick={save}
-            className={DIALOG_CONFIRM_BUTTON}
-          >
-            {t("common.save")}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    {/* Ayarlar kutusunun DIŞINDA, kardeş olarak — içine konsaydı buradaki
-        Escape yukarı kabarıp ayarların `onKeyDown`'ına da düşer ve az önce
-        kapattığımız onayı yeniden açardı. */}
-    <ConfirmDialog
-      open={confirmDiscard}
-      danger={false}
-      title={t("settingsModal.discardTitle")}
-      message={t("settingsModal.discardMessage")}
-      confirmLabel={t("settingsModal.discardConfirm")}
-      onConfirm={() => {
-        setConfirmDiscard(false);
-        onClose();
-      }}
-      onCancel={() => setConfirmDiscard(false)}
-    />
-    </>
+    </Modal>
   );
 }

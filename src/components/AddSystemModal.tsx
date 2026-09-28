@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { X, ServerCog, Cloud, Loader2, CheckCircle2 } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { ServerCog, Cloud, Loader2, CheckCircle2 } from "lucide-react";
 import type { ManualSystemType } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
-import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
-import ConfirmDialog from "./ConfirmDialog";
+import { Button } from "../ui/Button";
+import { Field, Input } from "../ui/Field";
+import { Modal, ModalCancelButton } from "../ui/Modal";
 
 export interface EditingManualSystem {
   id: string;
@@ -36,8 +37,12 @@ interface Props {
   onAdded: (id: string | null) => void;
 }
 
+const TYPE_BUTTON =
+  "flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition";
+
 export default function AddSystemModal({ open, editing, onClose, onAdded }: Props) {
   const t = useT();
+  const formId = useId();
   const [type, setType] = useState<ManualSystemType>("onprem");
   const [name, setName] = useState("");
   const [systemId, setSystemId] = useState("");
@@ -46,7 +51,6 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
   const [adtUrl, setAdtUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const isEditing = Boolean(editing);
 
@@ -60,7 +64,6 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
     setDiagPort(init.diagPort);
     setAdtUrl(init.adtUrl);
     setError(null);
-    setConfirmDiscard(false);
   }, [open, editing?.id]);
 
   if (!open) return null;
@@ -80,22 +83,18 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
     onClose();
   };
 
-  // Kullanıcının kapatma isteği (Escape, X, Vazgeç) tek kapıdan geçiyor.
-  // Yazılmış bir host/ADT adresi tek tuşla sessizce gitmiyor — Ayarlar
-  // kutusundaki kalıbın aynısı. Başarılı kayıttan sonraki kapanış bu kapıdan
-  // GEÇMİYOR (`handleClose`): kaydedilmiş bir şey "atılamaz".
-  const requestClose = () => {
-    const init = initialValues(editing);
-    const dirty =
-      type !== init.type ||
-      name !== init.name ||
-      systemId !== init.systemId ||
-      host !== init.host ||
-      diagPort !== init.diagPort ||
-      adtUrl !== init.adtUrl;
-    if (dirty) setConfirmDiscard(true);
-    else handleClose();
-  };
+  // Kaydedilmemiş değişiklik. `Modal` her kapatma isteğinde (Escape, X, İptal)
+  // buna bakıp önce soruyor — yazılmış bir host/ADT adresi tek tuşla sessizce
+  // gitmiyor. Başarılı kayıttan sonraki kapanış bu kapıdan GEÇMİYOR
+  // (`handleClose` doğrudan): kaydedilmiş bir şey "atılamaz".
+  const init = initialValues(editing);
+  const dirty =
+    type !== init.type ||
+    name !== init.name ||
+    systemId !== init.systemId ||
+    host !== init.host ||
+    diagPort !== init.diagPort ||
+    adtUrl !== init.adtUrl;
 
   // DIAG portu: boş bırakılabilir ama yazıldıysa geçerli bir port olmalı.
   // Eskiden `Number("abc")` → NaN → JSON'a `null` olarak yazılıyordu; kullanıcı
@@ -153,172 +152,117 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
     }
   };
 
-  return (
-    <>
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] "
-      onKeyDown={(e) => {
-        if (e.key === "Escape") requestClose();
-      }}
-    >
-      <form onSubmit={handleSubmit} className="w-[460px] rounded-xl border border-line bg-card p-6">
-        <div className="mb-5 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-white">
-            {isEditing ? t("addSystemModal.editTitle") : t("addSystemModal.addTitle")}
-          </h3>
-          <button
-            type="button"
-            onClick={requestClose}
-            className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-active"
-          >
-            <X size={18} />
-          </button>
-        </div>
+  const typeClass = (value: ManualSystemType) =>
+    `${TYPE_BUTTON} ${
+      type === value ? "border-accent-500 bg-accent-500/15 text-white" : "border-line-strong text-slate-400 hover:bg-active"
+    }`;
 
-        <div className="mb-5 flex gap-2">
+  return (
+    <Modal
+      open
+      onClose={handleClose}
+      dirty={dirty}
+      title={isEditing ? t("addSystemModal.editTitle") : t("addSystemModal.addTitle")}
+      width={460}
+      footer={
+        <>
+          <ModalCancelButton />
+          <Button type="submit" form={formId} variant="primary" disabled={!canSubmit}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
+            {isEditing ? t("addSystemModal.update") : t("addSystemModal.add")}
+          </Button>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <div className="flex gap-2">
           <button
             type="button"
+            aria-pressed={type === "onprem"}
             onClick={() => setType("onprem")}
-            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition ${
-              type === "onprem"
-                ? "border-accent-500 bg-accent-500/15 text-white"
-                : "border-line-strong text-slate-400 hover:bg-active"
-            }`}
+            className={typeClass("onprem")}
           >
             <ServerCog size={16} />
             {t("addSystemModal.onprem")}
           </button>
           <button
             type="button"
+            aria-pressed={type === "cloud"}
             onClick={() => setType("cloud")}
-            className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-md border px-3 py-2.5 text-sm transition ${
-              type === "cloud"
-                ? "border-accent-500 bg-accent-500/15 text-white"
-                : "border-line-strong text-slate-400 hover:bg-active"
-            }`}
+            className={typeClass("cloud")}
           >
             <Cloud size={16} />
             {t("addSystemModal.cloud")}
           </button>
         </div>
 
-        <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.displayName")}</label>
-        {/* autoFocus sadece kolaylık değil, Escape'in ÇALIŞMASININ şartı:
-            aşağıdaki onKeyDown odaklanamayan bir div'de duruyor, tuş oraya
-            ancak odak modalın içindeyken kabararak ulaşıyor. Odak dışarıdayken
-            Escape hiçbir şey yapmıyordu. */}
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t("addSystemModal.displayNamePlaceholder")}
-          autoFocus
-          className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
-        />
+        <Field label={t("addSystemModal.displayName")}>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t("addSystemModal.displayNamePlaceholder")}
+            autoFocus
+          />
+        </Field>
 
-        <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.systemId")}</label>
-        <input
-          value={systemId}
-          onChange={(e) => setSystemId(e.target.value.toUpperCase())}
-          placeholder={t("addSystemModal.systemIdPlaceholder")}
-          maxLength={8}
-          className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm uppercase text-slate-100 outline-none focus:border-accent-500"
-        />
+        <Field label={t("addSystemModal.systemId")}>
+          <Input
+            value={systemId}
+            onChange={(e) => setSystemId(e.target.value.toUpperCase())}
+            placeholder={t("addSystemModal.systemIdPlaceholder")}
+            maxLength={8}
+            className="uppercase"
+          />
+        </Field>
 
         {type === "onprem" ? (
           <>
-            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.host")}</label>
-            <input
-              value={host}
-              onChange={(e) => setHost(e.target.value)}
-              placeholder={t("addSystemModal.hostPlaceholder")}
-              className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
-            />
-            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.diagPort")}</label>
-            <input
-              value={diagPort}
-              onChange={(e) => setDiagPort(e.target.value)}
-              placeholder={t("addSystemModal.diagPortPlaceholder")}
-              inputMode="numeric"
-              className={`mb-1 w-full rounded-md border bg-control px-3 py-2 text-sm text-slate-100 outline-none ${
-                diagPortValid ? "border-line-strong focus:border-accent-500" : "border-[var(--status-danger-border)]"
-              }`}
-            />
-            {!diagPortValid && (
-              <p className="mb-3 text-xs" style={{ color: "var(--status-danger-text)" }}>
-                {t("addSystemModal.diagPortInvalid")}
-              </p>
-            )}
-            <p className="mb-4 mt-3 text-xs text-slate-500">{t("addSystemModal.diagHelper")}</p>
-
-            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.adtUrlOnprem")}</label>
-            <input
-              value={adtUrl}
-              onChange={(e) => setAdtUrl(e.target.value)}
-              placeholder={t("addSystemModal.adtUrlOnpremPlaceholder")}
-              className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
-            />
-            <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.adtUrlOnpremHelper")}</p>
+            <Field label={t("addSystemModal.host")}>
+              <Input
+                value={host}
+                onChange={(e) => setHost(e.target.value)}
+                placeholder={t("addSystemModal.hostPlaceholder")}
+              />
+            </Field>
+            <Field
+              label={t("addSystemModal.diagPort")}
+              hint={t("addSystemModal.diagHelper")}
+              error={diagPortValid ? undefined : t("addSystemModal.diagPortInvalid")}
+            >
+              <Input
+                value={diagPort}
+                onChange={(e) => setDiagPort(e.target.value)}
+                placeholder={t("addSystemModal.diagPortPlaceholder")}
+                inputMode="numeric"
+              />
+            </Field>
+            <Field label={t("addSystemModal.adtUrlOnprem")} hint={t("addSystemModal.adtUrlOnpremHelper")}>
+              <Input
+                value={adtUrl}
+                onChange={(e) => setAdtUrl(e.target.value)}
+                placeholder={t("addSystemModal.adtUrlOnpremPlaceholder")}
+              />
+            </Field>
           </>
         ) : (
-          <>
-            <label className="mb-1 block text-xs text-slate-400">{t("addSystemModal.adtUrl")}</label>
-            <input
+          <Field label={t("addSystemModal.adtUrl")} hint={t("addSystemModal.adtUrlHelper")}>
+            <Input
               value={adtUrl}
               onChange={(e) => setAdtUrl(e.target.value)}
               placeholder={t("addSystemModal.adtUrlPlaceholder")}
-              className="mb-4 w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none focus:border-accent-500"
             />
-            <p className="mb-4 text-xs text-slate-500">{t("addSystemModal.adtUrlHelper")}</p>
-          </>
+          </Field>
         )}
 
         {error && (
           <div
-            className="mb-4 rounded-md border px-3 py-2 text-xs"
-            style={{
-              borderColor: "var(--status-danger-border)",
-              backgroundColor: "var(--status-danger-bg)",
-              color: "var(--status-danger-text)"
-            }}
+            role="alert"
+            className="rounded-md border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] px-3 py-2 text-xs text-[var(--status-danger-text)]"
           >
             {error}
           </div>
         )}
-
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={requestClose}
-            className={DIALOG_CANCEL_BUTTON}
-          >
-            {t("common.cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className={DIALOG_CONFIRM_BUTTON}
-          >
-            {saving ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-            {isEditing ? t("addSystemModal.update") : t("addSystemModal.add")}
-          </button>
-        </div>
       </form>
-    </div>
-
-    {/* Kutunun DIŞINDA, kardeş olarak — içine konsaydı onaydaki Escape yukarı
-        kabarıp bu kutunun `onKeyDown`'ına düşer ve onayı yeniden açardı. */}
-    <ConfirmDialog
-      open={confirmDiscard}
-      danger={false}
-      title={t("settingsModal.discardTitle")}
-      message={t("settingsModal.discardMessage")}
-      confirmLabel={t("settingsModal.discardConfirm")}
-      onConfirm={() => {
-        setConfirmDiscard(false);
-        handleClose();
-      }}
-      onCancel={() => setConfirmDiscard(false)}
-    />
-    </>
+    </Modal>
   );
 }
