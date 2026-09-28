@@ -2839,10 +2839,12 @@ kolaylaştırdı).
   kapalı bırakıldı, bu dosyalar tip kontrolünden geçmiyor, kaynak JS
   olarak KALDI çünkü flow node şekli çok esnek/JSON-tabanlı, TypeScript'e
   taşımak orantısız bir efor olurdu): `FlowRuntime` sınıfı — deploy edilen
-  bir flow'u GERÇEKTEN çalıştırır (`function` node'u gerçek JS, `vm` modülü
-  3sn timeout ile; `axetflows-http-in`/`http in` gerçek bir yerel HTTP
-  sunucusu; `http request` gerçek dış HTTP/HTTPS isteği; `json-to-excel`/
-  `excel-to-json` `xlsx` kütüphanesiyle gerçek .xlsx üretimi/okunması).
+  bir flow'u GERÇEKTEN çalıştırır (`function` node'u gerçek JS;
+  `axetflows-http-in`/`http in` gerçek bir yerel HTTP sunucusu; `http
+  request` gerçek dış HTTP/HTTPS isteği; `json-to-excel`/`excel-to-json`
+  gerçek .xlsx üretimi/okunması). **Güncel (2026-09-28):** `function` kodu ve
+  xlsx işleri artık ana süreçte `vm` ile değil, Chromium sandbox'lı gizli bir
+  pencerede koşuyor — bkz. "Flow sandbox" bölümü (dosyanın sonu).
   Kimlik bilgisi/kurumsal entegrasyon gerektiren node'lar (AI/LLM, MS Graph
   mail, shell, DB, UI-form) GÜVENLİK nedeniyle SIMÜLE edilir (gerçek dış
   çağrı yapılmaz, "[SIMULATED]" etiketiyle loglanır) — bu ayrım kaynak
@@ -10546,3 +10548,54 @@ satırın taşıdığı iki farklı hata sınıfından biri sistemin tamamını 
 Bir kanaryayı sustururken, o kanaryanın başka ne söylediğine bakmak gerekiyor.
 
 Kapı: 197/197 test, 21 dosya, typecheck temiz, electron-vite build temiz.
+
+## Flow sandbox: function node ve xlsx ana süreçten çıktı (2026-09-28)
+
+### Sorun
+
+axet.flows `function` node'unun kodu ana süreçte `node:vm` ile koşuyordu. `vm`
+bir güvenlik sınırı değil: `msg.constructor.constructor('return process')()`
+tek satırda tam Node yetkisi veriyordu (dosya sistemi, alt süreç, kullanıcının
+SAP oturum bilgileri). `env.get()` bütün `process.env`'i okuyordu. Dışarıdan
+gelen .xlsx dosyaları da ana süreçte SheetJS 0.18.5 ile ayrıştırılıyordu
+(bilinen prototip kirletme / ReDoS açıkları).
+
+### Mimari
+
+- **Gizli pencere** (`app-electron/main/flowSandbox.ts`): ilk function/xlsx
+  çalışmasında tembel kuruluyor. `sandbox`, `contextIsolation`, Node yok,
+  `devTools:false`, bellekte kalan ayrı oturum (`partition: "flow-sandbox"`,
+  `persist:` yok). Oturum filtresi yalnızca `dist/` altındaki paket dosyalarına
+  izin veriyor; bütün izinler, gezinme, yeni pencere, webview ve indirme
+  kapalı. Sayfanın CSP'si `default-src 'none'; script-src 'self' 'unsafe-eval'`
+  (`flow-sandbox.html`).
+- **Ana süreç tarafı** (`flowSandboxHost.ts`, Electron'suz saf mantık): istek
+  kuyruğu, 10 sn zaman aşımı (xlsx için 60 sn), sayfa ölünce/takılınca
+  yeniden kurma ve sayfadan gelen her girdinin doğrulanması. Sonsuz döngüde
+  sayfanın süreci öldürülüyor; ana süreç hiç bloklanmıyor. Flow durdurulunca
+  (`FlowRuntime.stop`) sayfa atılıyor — kullanıcı kodunun bıraktığı
+  zamanlayıcılar da onunla gidiyor.
+- **Sayfa tarafı** (`src/flowSandbox/`): `runner.ts` kodu eski sarmalayıcıyla
+  aynı biçimde derliyor (`const node = …` gibi eski kod hâlâ geçerli),
+  `xlsxOps.js` eski yardımcıların değiştirilmeden taşınmış hali.
+- **Preload** (`app-electron/preload/flowSandbox.cjs`): elle yazılmış CJS,
+  paketlenmeden kopyalanıyor. Yalnızca bağlam oku/yaz/listele, log, sonuç,
+  hazır sinyali; köprü bir kez alınabiliyor.
+- **ipcMain bekçisi** (`ipcSenderGuard.ts`): uygulamanın bütün ipcMain
+  kanalları sandbox penceresinden gelen mesajları reddediyor (sonradan eklenen
+  kanallar da kendiliğinden).
+- `xlsx` 0.20.3'e yükseltildi (SheetJS CDN tarball'u); yeni bağımlılık
+  `buffer` (sayfadaki Buffer polyfill'i). Ana süreç artık xlsx import etmiyor,
+  yalnızca Buffer taşıyor.
+
+### Davranış farkları
+
+- msg süreç sınırını yapılandırılmış klonla geçiyor: msg içindeki
+  fonksiyonlar düşüyor, `context.get` canlı referans değil kopya veriyor.
+- `env.get` yalnızca global-config + sekme env listesini ve `NR_*`
+  yerleşiklerini görüyor; `process.env` artık yok.
+- Zaman sınırı senkron/async ayrımı olmadan tek bir 10 sn; aşılırsa sayfa
+  yeniden kuruluyor ve o an bekleyen diğer çalışmalar da hata alıyor.
+
+Testler: `flowSandboxHost`, `flowSandboxXlsx`, `flowRuntimeSandbox`,
+`flowSandboxSource`, `ipcSenderGuard` (Electron açmadan, sahte sayfayla).
