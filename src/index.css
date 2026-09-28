@@ -135,8 +135,9 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
    "#hex" YAZMA. (Hex değerli `--*-text` değişkenleri bunun dışında; onlar
    Tailwind'e değil doğrudan CSS'e gidiyor.) */
 
-/* Sohbet ekranının okuma konforu — kullanıcı ayarından geliyor (Ayarlar >
-   Sohbet görünümü). Buradaki değerler yalnızca İLK BOYAMA için: `App.tsx`
+/* Sohbet ekranının okuma konforu — kullanıcı ayarından geliyor (yazı boyutu
+   ve karşılama: Ayarlar > Görünüm; mesaj aralığı: Ayarlar > Sohbet
+   görünümü). Buradaki değerler yalnızca İLK BOYAMA için: `App.tsx`
    config yüklenir yüklenmez bunları `<html>` üzerine yazar. Temadan bağımsız
    oldukları için koyu/açık bloklarının DIŞINDA duruyorlar. */
 :root {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   FolderOpen,
   Download,
@@ -14,9 +14,11 @@ import {
   ChevronRight,
   Terminal,
   Sparkles,
-  Type
+  Type,
+  Palette
 } from "lucide-react";
-import type { AppConfig, UpdateStatus } from "../../app-electron/shared/types";
+import type { AppConfig, AppPalette, AppTheme, UpdateStatus } from "../../app-electron/shared/types";
+import { THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
 import { Modal, ModalCancelButton } from "../ui/Modal";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
@@ -41,7 +43,7 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-lg border border-line bg-card/40">
+    <section aria-label={title} className="overflow-hidden rounded-lg border border-line bg-card/40">
       <div className="flex items-center gap-2 border-b border-line/70 px-4 py-2.5">
         <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-500/15 text-[var(--accent-soft-text)]">
           <Icon size={13} />
@@ -49,7 +51,7 @@ function Section({
         <span className="text-2xs font-semibold uppercase tracking-wide text-slate-500">{title}</span>
       </div>
       <div className="space-y-4 p-4">{children}</div>
-    </div>
+    </section>
   );
 }
 
@@ -78,6 +80,7 @@ function SegmentedControl<T extends string>({
         <button
           key={option.key}
           type="button"
+          aria-pressed={value === option.key}
           onClick={() => onChange(option.key)}
           className={`cursor-pointer rounded-[5px] px-3 py-1.5 text-sm font-medium transition ${
             value === option.key
@@ -88,6 +91,91 @@ function SegmentedControl<T extends string>({
           {option.label}
         </button>
       ))}
+    </div>
+  );
+}
+
+const PALETTES: AppPalette[] = ["indigo", "warm"];
+
+// Palet seçimi: iki kart, her birinde o paletin üç rengi (zemin, kart, vurgu).
+// Renkler CSS değişkeninden DEĞİL `THEME_SURFACES`'ten geliyor: seçili olmayan
+// paletin değişkenleri o an sayfada tanımlı değil. Örnekler formdaki Koyu/Açık
+// seçimini izliyor, yani kullanıcı Kaydet'e basmadan neyi seçtiğini görüyor.
+//
+// Klavye, radyo grubu kalıbında: Tab grupta yalnızca seçili karta duruyor, ok
+// tuşları seçimi ve odağı birlikte taşıyor (sondan başa sarıyor).
+function PalettePicker({
+  value,
+  theme,
+  label,
+  names,
+  onChange
+}: {
+  value: AppPalette;
+  theme: AppTheme;
+  label: string;
+  names: Record<AppPalette, { name: string; description: string }>;
+  onChange: (palette: AppPalette) => void;
+}) {
+  const baseId = useId();
+  const refs = useRef<Partial<Record<AppPalette, HTMLButtonElement | null>>>({});
+
+  const move = (from: AppPalette, step: number) => {
+    const next = PALETTES[(PALETTES.indexOf(from) + step + PALETTES.length) % PALETTES.length];
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+
+  return (
+    <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-3">
+      {PALETTES.map((palette) => {
+        const surface = THEME_SURFACES[palette][theme];
+        const checked = value === palette;
+        return (
+          <button
+            key={palette}
+            ref={(el) => {
+              refs.current[palette] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={checked}
+            aria-labelledby={`${baseId}-${palette}-name`}
+            aria-describedby={`${baseId}-${palette}-desc`}
+            tabIndex={checked ? 0 : -1}
+            onClick={() => onChange(palette)}
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                e.preventDefault();
+                move(palette, 1);
+              } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                e.preventDefault();
+                move(palette, -1);
+              }
+            }}
+            className={`flex cursor-pointer flex-col gap-2 rounded-lg border p-3 text-left transition ${
+              checked ? "border-accent-500 bg-accent-500/10" : "border-line hover:bg-hover"
+            }`}
+          >
+            <span className="flex gap-1.5" aria-hidden="true">
+              {[surface.app, surface.card, surface.accent].map((color, index) => (
+                <span
+                  key={index}
+                  data-swatch
+                  className="size-6 rounded-md border border-line"
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </span>
+            <span id={`${baseId}-${palette}-name`} className="text-sm font-medium text-slate-100">
+              {names[palette].name}
+            </span>
+            <span id={`${baseId}-${palette}-desc`} className="text-xs text-slate-500">
+              {names[palette].description}
+            </span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -194,6 +282,11 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
  */
 const EDITED_FIELDS = [
   "language",
+  // Görünüm (2026-09-28). `theme` soldaki güneş/ay düğmesiyle de değişiyor;
+  // Ayarlar açıkken o düğmeye ulaşılamıyor (pencere modal), yani iki yazar
+  // aynı anda çalışmıyor.
+  "palette",
+  "theme",
   "projectsBaseDir",
   "axetWorkspaceDir",
   "chatDisplayName",
@@ -363,6 +456,51 @@ export default function SettingsModal({
             </Field>
           </Section>
 
+          <Section icon={Palette} title={t("settingsModal.sectionAppearance")}>
+            <Field label={t("settingsModal.paletteLabel")}>
+              <PalettePicker
+                value={form.palette}
+                theme={form.theme}
+                label={t("settingsModal.paletteLabel")}
+                names={{
+                  indigo: {
+                    name: t("settingsModal.paletteIndigo"),
+                    description: t("settingsModal.paletteIndigoDesc")
+                  },
+                  warm: {
+                    name: t("settingsModal.paletteWarm"),
+                    description: t("settingsModal.paletteWarmDesc")
+                  }
+                }}
+                onChange={(palette) => setForm({ ...form, palette })}
+              />
+            </Field>
+            <Field label={t("settingsModal.themeLabel")}>
+              <SegmentedControl
+                value={form.theme}
+                onChange={(theme) => setForm({ ...form, theme })}
+                options={[
+                  { key: "dark", label: t("settingsModal.themeDark") },
+                  { key: "light", label: t("settingsModal.themeLight") }
+                ]}
+              />
+            </Field>
+            {/* "Sohbet görünümü"nden buraya taşındı (spec §7): yazı boyutu
+                okuma konforu, yani görünüm ayarı. İpucu kapsamını söylüyor —
+                uygulamanın geri kalanı bu ayarla büyümüyor. */}
+            <Field label={t("settingsModal.chatFontSizeLabel")} hint={t("settingsModal.chatFontSizeHint")}>
+              <SegmentedControl
+                value={form.chatFontSize}
+                onChange={(size) => setForm({ ...form, chatFontSize: size })}
+                options={[
+                  { key: "sm", label: t("settingsModal.chatFontSizeSm") },
+                  { key: "md", label: t("settingsModal.chatFontSizeMd") },
+                  { key: "lg", label: t("settingsModal.chatFontSizeLg") }
+                ]}
+              />
+            </Field>
+          </Section>
+
           <Section icon={Sparkles} title={t("settingsModal.sectionAxetCode")}>
             <Field label={t("settingsModal.axetWorkspaceDirLabel")}>
               <div className="flex gap-2">
@@ -413,17 +551,6 @@ export default function SettingsModal({
                 onChange={(e) => setForm({ ...form, chatDisplayName: e.target.value })}
                 placeholder={t("settingsModal.chatDisplayNamePlaceholder")}
                 className={inputClass}
-              />
-            </Field>
-            <Field label={t("settingsModal.chatFontSizeLabel")}>
-              <SegmentedControl
-                value={form.chatFontSize}
-                onChange={(size) => setForm({ ...form, chatFontSize: size })}
-                options={[
-                  { key: "sm", label: t("settingsModal.chatFontSizeSm") },
-                  { key: "md", label: t("settingsModal.chatFontSizeMd") },
-                  { key: "lg", label: t("settingsModal.chatFontSizeLg") }
-                ]}
               />
             </Field>
             <Field label={t("settingsModal.chatDensityLabel")} hint={t("settingsModal.chatDensityHint")}>

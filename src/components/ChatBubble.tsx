@@ -75,7 +75,7 @@ export interface ChatMessage {
 //     için bu asimetri bilinçli.
 //   - Eylem düğmeleri (kopyala) hover'a GİZLENMİYOR — Gemini'de her zaman
 //     görünürler; gizli bir düğme, varlığı bilinmediği için kullanılmıyor.
-// Gövde metni boyutu kullanıcı ayarından (Ayarlar > Sohbet görünümü) geliyor;
+// Gövde metni boyutu kullanıcı ayarından (Ayarlar > Görünüm) geliyor;
 // `App.tsx` sembolik ayarı `--chat-font-size`'a çeviriyor. Tailwind'de bir CSS
 // değişkenini font boyutu olarak kullanmak `text-[length:var(...)]` yazımını
 // GEREKTİRİR — `text-[var(...)]` yazılırsa Tailwind onu RENK sanır ve boyut
