@@ -176,6 +176,32 @@ describe("onay ucu", () => {
     expect(logLines().find((l) => l.tur === "kalite_reddi")).toMatchObject({ arac: "adt_push", sebep: "kritik_bulgu" });
   });
 
+  it("bağlantı uyuşmazlığı olayı günlüğe yazılır; listeler kırpılır, kimlik eklenir", async () => {
+    const s = await openWriteSession(dir, ID);
+    const ok = await call(s.url, s.token, "POST", "/events", {
+      tur: "baglanti_uyusmazligi",
+      arac: "adt_push",
+      alanlar: ["url", 7, "x".repeat(100)],
+      kaynaklar: ["conn_adt"],
+      gozlenen_adresler: ["https://prd.example.test:44300"],
+      baska: "yok sayılır",
+    });
+    expect(ok.status).toBe(200);
+    const line = logLines().find((l) => l.tur === "baglanti_uyusmazligi");
+    expect(line).toMatchObject({
+      arac: "adt_push",
+      alanlar: ["url", "x".repeat(40)],
+      kaynaklar: ["conn_adt"],
+      gozlenen_adresler: ["https://prd.example.test:44300"],
+      sid: "DS4",
+      client: "100",
+      kullanici: "DEV1",
+    });
+    expect(line).not.toHaveProperty("baska");
+    // arac zorunlu: eksikse diğer olaylar gibi 400.
+    expect((await call(s.url, s.token, "POST", "/events", { tur: "baglanti_uyusmazligi" })).status).toBe(400);
+  });
+
   it("günlük: kimlik ve karar var; kaynak farkı ve token YOK", async () => {
     const s = await openWriteSession(dir, ID);
     setWriteMode(s.sessionId, "dogrudan");

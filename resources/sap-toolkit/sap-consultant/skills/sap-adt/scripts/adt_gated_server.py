@@ -17,6 +17,9 @@ NE YAPAR
     kapısını çalıştırır (gated_quality), launcher'a sorar, yalnızca `izinli`
     cevabında motoru çağırır, sonucu launcher günlüğüne bildirir.
   - Üç araç ekler: axet_teslim, axet_abapgit_onay, axet_inceleme_kaydet.
+  - Her aracın (okuyanlar dahil) en dışına bağlantı denetimi konur: `.conn_adt`
+    ya da ortam NTT Studio'nun bağladığı sistemden başkasını gösteriyorsa çağrı
+    motora gitmeden `binding_mismatch` ile döner (ntt_binding.py).
 
 NEDEN YALNIZCA --http
   stdio MCP yolu araçları kendi kayıt tablosundan çağırır, modül global'lerinden
@@ -76,10 +79,18 @@ import ntt_tier  # noqa: E402
 
 _ENV_TIER = ntt_tier.capture_env_tier()
 
+# Bağlandığı sistem de: NTT Studio'nun `.conn_adt`'ye yazdığı adres/client/kullanıcı
+# ortamda da var. `.conn_adt`'ye yazılmış aynı adlı bir satır ya da `ADT_CWD`
+# satırı motor yüklenirken ortamı ezmeden ÖNCE yakalanıyor (bkz. ntt_binding.py).
+import ntt_binding  # noqa: E402
+
+_ENV_BINDING = ntt_binding.capture_env_binding()
+
 import adt_mcp_server as engine  # noqa: E402
 import gated_collect as gc  # noqa: E402
 import gated_quality as gq  # noqa: E402
 import guardrails  # noqa: E402
+import sap_adt_lib  # noqa: E402
 
 
 def _assert_origin(mod, expected: Path) -> None:
@@ -96,6 +107,8 @@ _assert_origin(gc, _SCRIPTS_DIR / "gated_collect.py")
 _assert_origin(gq, _SCRIPTS_DIR / "gated_quality.py")
 _assert_origin(guardrails, _SCRIPTS_DIR / "guardrails.py")
 _assert_origin(ntt_tier, _SCRIPTS_DIR / "ntt_tier.py")
+_assert_origin(ntt_binding, _SCRIPTS_DIR / "ntt_binding.py")
+_assert_origin(sap_adt_lib, _SCRIPTS_DIR / "sap_adt_lib.py")
 
 # Kademe: motorun kapısı `.conn_adt`'deki ADT_SAP_TIER'a bakıyor ve o dosyayı
 # ajan yazabiliyor. Launcher'ın ortama koyduğu değer alt sınır: `.conn_adt`
@@ -644,6 +657,17 @@ def _die() -> None:
 
 
 # --- kurulum ------------------------------------------------------------------------
+def _report_binding_mismatch(arac: str, found: dict) -> None:
+    """Bağlantı uyuşmazlığını stderr'e ve NTT Studio günlüğüne yaz (parola/token yok)."""
+    adresler = sorted({p["adres"] for p in found["ayrinti"] if p.get("adres")})
+    sys.stderr.write(f"[adt-gated] {arac}: bağlantı NTT Studio'nun bağladığı sistemden farklı "
+                     f"(alanlar: {', '.join(found['alanlar'])}; kaynak: "
+                     f"{', '.join(found['kaynaklar'])}); çağrı SAP'a gönderilmedi.\n")
+    _post_quiet("/events", {"tur": "baglanti_uyusmazligi", "arac": arac,
+                            "alanlar": found["alanlar"], "kaynaklar": found["kaynaklar"],
+                            "gozlenen_adresler": adresler})
+
+
 def build() -> set:
     """Sınıflamayı doğrula, yazan araçları sarmala, axet araçlarını kaydet. Araç kümesini döner."""
     mcp = engine.mcp
@@ -653,7 +677,15 @@ def build() -> set:
         setattr(engine, name, make_wrapper(name, getattr(engine, name)))
     for fn in (axet_teslim, axet_abapgit_onay, axet_inceleme_kaydet):
         setattr(engine, fn.__name__, mcp.tool()(fn))
-    return _registered_names(mcp)
+    names = _registered_names(mcp)
+    # Bağlantı denetimi EN DIŞ katman ve SERBEST araçlar dahil hepsinde: onay
+    # sarmalayıcısı launcher'a sormadan önce SAP'tan transport/paket bilgisi
+    # topluyor; denetim onun içinde kalsa pencereye başka sistemin bilgisi
+    # giderdi. Canlı oturum her çağrıda `engine._client`'tan okunuyor: motor
+    # oturumu ilk SAP çağrısında kuruyor.
+    ntt_binding.install(engine, sorted(names), _ENV_BINDING, lib=sap_adt_lib,
+                        live_client=lambda: engine._client, on_mismatch=_report_binding_mismatch)
+    return names
 
 
 def main(argv=None):
@@ -688,6 +720,9 @@ def main(argv=None):
     except ApprovalUnavailable:
         sys.stderr.write("[adt-gated] UYARI: ADT_APPROVAL_URL/ADT_APPROVAL_TOKEN yok; her yazma "
                          "approval_unavailable ile reddedilecek.\n")
+    if _ENV_BINDING is None:
+        sys.stderr.write(f"[adt-gated] UYARI: {ntt_binding.ENV_URL} yok; bağlantı sabitlenmedi. "
+                         f"Sunucu `.conn_adt` hangi sistemi gösteriyorsa ona gider.\n")
     sys.stderr.write(f"[adt-gated] onaylı yüzey: {len(tools)} araç "
                      f"({len(TRANSPORT_ONAYLI | HER_SEFER | set(KARMA))} yazan araç onaya bağlı)\n")
     sys.stderr.flush()

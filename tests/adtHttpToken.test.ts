@@ -78,6 +78,13 @@ http.createServer((req, res) => {
     approvalUrl: process.env.ADT_APPROVAL_URL || null,
     approvalToken: process.env.ADT_APPROVAL_TOKEN || null,
     sapTier: process.env.NTT_STUDIO_SAP_TIER || null,
+    sapUrl: process.env.NTT_STUDIO_SAP_URL ?? null,
+    sapClient: process.env.NTT_STUDIO_SAP_CLIENT ?? null,
+    sapUser: process.env.NTT_STUDIO_SAP_USER ?? null,
+    // Değerler değil ADLAR: parola taşıyan bir değişken var mı, motorun
+    // bağlantı anahtarlarından miras kalan var mı.
+    passwordKeys: Object.keys(process.env).filter((k) => /PASSWORD|PASSWD/i.test(k)),
+    engineKeys: Object.keys(process.env).filter((k) => /^ADT_SAP_(URL|CLIENT|USER|PASSWORD)$/i.test(k)),
     cwd: process.cwd(),
     adtCwd: process.env.ADT_CWD || null
   }));
@@ -250,6 +257,122 @@ describe("kademe çocuğun ortamında (ntt_tier.py alt sınırı)", () => {
       delete process.env.NTT_STUDIO_SAP_TIER;
     }
   }, 20_000);
+});
+
+describe("bağlantı çocuğun ortamında (ntt_binding.py)", () => {
+  // Launcher'ın `.conn_adt`'ye yazdığı nesnenin aynısı (sapBindingFor); burada
+  // elle kuruluyor çünkü yönetici değeri opak taşıyor.
+  const BINDING = { url: "https://dev.example.invalid:44300", client: "100", user: "DEVUSER" };
+  const INHERITED = {
+    NTT_STUDIO_SAP_URL: "https://prd.example.invalid",
+    NTT_STUDIO_SAP_CLIENT: "999",
+    NTT_STUDIO_SAP_USER: "PRDUSER",
+    ADT_SAP_URL: "https://prd.example.invalid",
+    ADT_SAP_CLIENT: "999",
+    ADT_SAP_USER: "PRDUSER",
+    ADT_SAP_PASSWORD: "miras-kalan-deger"
+  } as const;
+
+  function withInherited<T>(fn: () => Promise<T>): Promise<T> {
+    Object.assign(process.env, INHERITED);
+    return fn().finally(() => {
+      for (const key of Object.keys(INHERITED)) delete process.env[key];
+    });
+  }
+
+  it("adres, client, kullanıcı NTT_STUDIO_SAP_* olarak gidiyor; parola gitmiyor", async () => {
+    const port = await freePort();
+    const result = await startReadonlyServer({
+      projectDir: projectDir("binding-env"),
+      scriptPath: fakeGatedScript,
+      pythonPath: process.execPath,
+      port,
+      expectWritable: true,
+      gate: GATE_A,
+      tier: "DEV",
+      binding: BINDING
+    });
+    expect(result.ok).toBe(true);
+    const { body } = await health(port);
+    expect([body.sapUrl, body.sapClient, body.sapUser]).toEqual([BINDING.url, BINDING.client, BINDING.user]);
+    expect(body.passwordKeys).toEqual([]);
+  }, 20_000);
+
+  it("launcher'ın ortamından miras kalan bağlantı ve motor anahtarları silinip yalnızca bizimki konuyor", async () => {
+    await withInherited(async () => {
+      const port = await freePort();
+      const result = await startReadonlyServer({
+        projectDir: projectDir("binding-inherit"),
+        scriptPath: fakeGatedScript,
+        pythonPath: process.execPath,
+        port,
+        expectWritable: true,
+        gate: GATE_A,
+        binding: BINDING
+      });
+      expect(result.ok).toBe(true);
+      const { body } = await health(port);
+      expect([body.sapUrl, body.sapClient, body.sapUser]).toEqual([BINDING.url, BINDING.client, BINDING.user]);
+      // Miras ADT_SAP_* motorun içe aktarımında `.conn_adt`'nin önüne geçerdi.
+      expect(body.engineKeys).toEqual([]);
+      expect(body.passwordKeys).toEqual([]);
+    });
+  }, 20_000);
+
+  it("bağlantı verilmezse mirastan gelen değer NTT Studio'nun bağlantısı sanılmıyor", async () => {
+    await withInherited(async () => {
+      const port = await freePort();
+      const result = await startReadonlyServer({
+        projectDir: projectDir("binding-none"),
+        scriptPath: fakeGatedScript,
+        pythonPath: process.execPath,
+        port,
+        expectWritable: true,
+        gate: GATE_A
+      });
+      expect(result.ok).toBe(true);
+      const { body } = await health(port);
+      expect([body.sapUrl, body.sapClient, body.sapUser]).toEqual([null, null, null]);
+      expect(body.engineKeys).toEqual([]);
+    });
+  }, 20_000);
+
+  it("boş client ortama boş değer olarak gitmiyor (BTP)", async () => {
+    const port = await freePort();
+    const result = await startReadonlyServer({
+      projectDir: projectDir("binding-noclient"),
+      scriptPath: fakeGatedScript,
+      pythonPath: process.execPath,
+      port,
+      expectWritable: true,
+      gate: GATE_A,
+      binding: { ...BINDING, client: "" }
+    });
+    expect(result.ok).toBe(true);
+    const { body } = await health(port);
+    expect(body.sapClient).toBeNull();
+    expect(body.sapUrl).toBe(BINDING.url);
+  }, 20_000);
+
+  it("aynı bağlantı: yeniden kullanılıyor; başka bağlantı ya da kademe: yeniden başlıyor", async () => {
+    const port = await freePort();
+    const dir = projectDir("binding-reuse");
+    const base = { projectDir: dir, scriptPath: fakeGatedScript, pythonPath: process.execPath, port, expectWritable: true, gate: GATE_A };
+    expect((await startReadonlyServer({ ...base, tier: "DEV", binding: BINDING })).ok).toBe(true);
+    expect((await startReadonlyServer({ ...base, tier: "DEV", binding: { ...BINDING } })).alreadyRunning).toBe(true);
+
+    // Aynı projeye başka kullanıcıyla: eski süreç eski kullanıcıyı sabitlemişti.
+    const other = { ...BINDING, user: "OTHER" };
+    const next = await startReadonlyServer({ ...base, tier: "DEV", binding: other });
+    expect(next.ok).toBe(true);
+    expect(next.alreadyRunning).toBe(false);
+    expect((await health(port)).body.sapUser).toBe("OTHER");
+
+    const retiered = await startReadonlyServer({ ...base, tier: "QA", binding: other });
+    expect(retiered.ok).toBe(true);
+    expect(retiered.alreadyRunning).toBe(false);
+    expect((await health(port)).body.sapTier).toBe("QA");
+  }, 60_000);
 });
 
 describe("onaylı (gated) sunucu", () => {

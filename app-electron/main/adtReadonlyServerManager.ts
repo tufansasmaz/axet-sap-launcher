@@ -6,6 +6,7 @@ import { getAdtHttpToken } from "./adtHttpToken";
 import { withNttPythonSite } from "./pythonSiteEnv";
 import { mt } from "./i18n";
 import type { SystemTier } from "../shared/types";
+import { applySapBindingEnv, sapBindingKey, type SapBinding } from "./sapBinding";
 
 // `adt_readonly_server.py`'yi (bkz. resources/sap-toolkit/sap-consultant/skills/sap-adt-readonly/scripts)
 // launcher'ın kendisi başlatır — RFC bridge otomatik başlatmasıyla (rfcBridgeManager.ts)
@@ -48,6 +49,13 @@ export interface ReadonlyServerStartOptions {
    */
   tier?: SystemTier;
   /**
+   * NTT Studio'nun `.conn_adt`'ye yazdığı bağlantı (adres/client/kullanıcı),
+   * aynı nesneden (`sapBindingFor`). Çocuğun ortamına `NTT_STUDIO_SAP_*`
+   * olarak konuyor; sarmalayıcı sunucular (`ntt_binding.py`) `.conn_adt` başka
+   * bir sistemi gösterirse çağrıyı SAP'a göndermiyor. Parola yok.
+   */
+  binding?: SapBinding;
+  /**
    * Gated modda portta token'ını bilmediğimiz (401) bir sunucu varsa, önceki
    * launcher'dan kalmış gated sunucunun kalp atışıyla kapanması bu kadar
    * beklenir. Yalnızca testler kısaltır.
@@ -77,6 +85,11 @@ interface RunningServer {
   external: boolean;
   /** Bu process'e verilen onay oturumu token'ı; gated değilse null. */
   gateToken: string | null;
+  /**
+   * Bu process'in ortamına verilen kademe + bağlantı (`envKeyFor`). Devralınan
+   * (external) sunucuda bilinmiyor: null.
+   */
+  envKey: string | null;
 }
 
 /**
@@ -208,6 +221,17 @@ async function waitPortFree(port: number, timeoutMs: number): Promise<boolean> {
   }
 }
 
+/**
+ * Çocuğun ortamından okunan ve sonradan değiştirilemeyen iki değer: kademe ve
+ * bağlantı. İkisi de süreç açılırken bir kez yakalanıyor (`ntt_tier.py`,
+ * `ntt_binding.py`); aynı projeye başka kullanıcı, başka köprü portu ya da
+ * başka kademeyle yeniden bağlanınca eski süreç eski değerlerle çalışmaya
+ * devam ederdi. Anahtar farklıysa süreç yeniden başlatılıyor.
+ */
+function envKeyFor(opts: ReadonlyServerStartOptions): string {
+  return JSON.stringify([opts.tier ?? "", sapBindingKey(opts.binding)]);
+}
+
 /** Ayaktaki sunucu bu isteğin yüzeyini mi sunuyor? */
 function surfaceMatches(info: HealthInfo, opts: ReadonlyServerStartOptions): boolean {
   if (opts.gate) return info.gated;
@@ -246,7 +270,10 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     // Gated'da yüzey yetmez, oturum da tutmalı: process'in ortamındaki token
     // eski oturumunsa her yazması 401 → approval_unavailable olur.
     const sameGate = opts.gate ? existing.gateToken === opts.gate.token : existing.gateToken === null;
-    if (info.alive && surfaceMatches(info, opts) && sameGate) {
+    // Devralınan sunucunun ortamını bilmiyoruz; onun için karar eskisi gibi
+    // yüzeye göre (aşağıdaki yoklama da aynısını yapardı).
+    const sameEnv = existing.external || existing.envKey === envKeyFor(opts);
+    if (info.alive && surfaceMatches(info, opts) && sameGate && sameEnv) {
       return { ok: true, alreadyRunning: true, external: existing.external, message: mt("adtServer.alreadyRunning") };
     }
     // Ayakta ama YANLIŞ yüzey: kullanıcı bu proje klasörünü başka bir tier'la
@@ -318,7 +345,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
         })
       };
     }
-    running.set(key, { proc: null, port: opts.port, logStream: null, tail: [], exited: false, exitInfo: "", external: true, gateToken: null });
+    running.set(key, { proc: null, port: opts.port, logStream: null, tail: [], exited: false, exitInfo: "", external: true, gateToken: null, envKey: null });
     return { ok: true, alreadyRunning: true, external: true, message: mt("adtServer.externalOnPort") };
   }
 
@@ -337,7 +364,8 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     exited: false,
     exitInfo: "",
     external: false,
-    gateToken: opts.gate?.token ?? null
+    gateToken: opts.gate?.token ?? null,
+    envKey: envKeyFor(opts)
   };
 
   // ADT_CWD: motor `.conn_adt`'ı (gated katman `.sap-review/`'u) buradan
@@ -361,6 +389,9 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // ya hiç.
   delete env.NTT_STUDIO_SAP_TIER;
   if (opts.tier) env.NTT_STUDIO_SAP_TIER = opts.tier;
+  // Bağlantı da aynı desenle: miras silinir, yalnızca `.conn_adt`'ye yazılan
+  // değerin aynısı konur. Parola ortama girmez (bkz. sapBinding.ts).
+  applySapBindingEnv(env, opts.binding);
 
   let proc: ChildProcess;
   try {
