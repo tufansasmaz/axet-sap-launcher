@@ -5251,6 +5251,89 @@ düzeltme öncesi/sonrası iki görüntü. Öncesi "BAĞLANTILAR" (boş) → son
 **"BAĞLANTILAR 2"** ve iki `SID-G1 [<ip-G1>]` satırı, **tek bir tıklama
 olmadan**.
 
+## SAP GUI Scripting Köprüsü — Kimlik Doğrulama ve PRD Yazma Kapısı (2026-09-28)
+
+Güvenlik incelemesinin bulgusu: köprü (`sap_gui_scripting_bridge.py`, 8790)
+kimlik sormuyordu. SAP GUI'nin "script bağlanıyor" onayı oturum başına bir
+kez verildikten sonra 127.0.0.1:8790'a ulaşan HER süreç — ya da tarayıcıdaki
+bir sayfa — kullanıcının SAP oturumunda alan doldurup tuşa basabiliyordu,
+canlı sistemde de. Launcher da portta bulduğu yabancı köprüyü "external"
+diye benimsiyordu.
+
+### Kapı (köprü tarafı)
+
+- **Bearer token.** Launcher her başlatışta `crypto.randomBytes(32)` ile yeni
+  token üretiyor ve köprüye YALNIZCA ortam değişkeniyle veriyor
+  (`NTT_GUI_BRIDGE_TOKEN`; argv süreç listesinde görünür). Köprü token'ı
+  okuyup kendi ortamından siliyor; token yoksa hiç açılmıyor. `/health`
+  dışındaki her GET/POST `Authorization: Bearer <token>` istiyor,
+  karşılaştırma `hmac.compare_digest`. Eksik/yanlış token → 401, gövde
+  okunmuyor, COM'a dokunulmuyor. Token hiçbir yere yazılmıyor, loglanmıyor;
+  ADT token'ından farklı olarak `process.env`'e de KONMUYOR (ajan köprüye
+  IPC üzerinden gidiyor, token'ı eline alırsa kapıyı atlardı).
+- **Yalnızca 127.0.0.1.** `--host` başka bir değerse köprü açılmıyor.
+- **POST yalnızca `Content-Type: application/json`** (aksi 415) ve 1 MB
+  tavan. `Origin` başlığı taşıyan her istek 403 — tarayıcı dışı istemciler
+  Origin göndermiyor, tarayıcı gönderiyor.
+- **PRD yazma kapısı.** Her aksiyondan (`setText`, `press`, `select`,
+  `sendVKey`, `selectContextMenuItem`, `doubleClick`, `navigate`,
+  `popupChoice` — hepsi yazar ya da tetikler) önce oturumun
+  `Info.SystemName` + `Info.Client`'ı okunuyor; PRD listesindeyse 403.
+  Liste doluyken SID okunamıyorsa da 403 (kapalı kalan yöne hata). Okumalar
+  (`GET`) serbest: canlı sistemde görüntüleme yasak değil.
+
+### PRD listesi (launcher tarafı)
+
+- Kaynak ADT kapısınınkiyle aynı: `config.systemTiers` (anahtar
+  `SapService.uuid`), landscape + elle eklenen sistemlerden SID'e
+  çevriliyor (`guiScriptPrdSystems.ts`).
+- **Yalnızca "PRD" işaretli sistemler.** İşaretlenmemiş sistem projede QA'ya
+  düşüyor (`launcher.ts` `tier ?? "QA"`), PRD'ye değil; köprü onu kapatmıyor.
+- **Mandant boş gönderiliyor** → PRD SID'inin HER mandantı kapalı. Elimizdeki
+  tek mandant, son ADT girişinin mandantı; onu göndermek aynı sistemin 000'ını
+  açık bırakırdı.
+- Başlangıçta `NTT_GUI_BRIDGE_PRD_SYSTEMS` (JSON) ile veriliyor; sonradan
+  token korumalı `POST /config/prd` ile tazeleniyor (tier değişince, elle
+  sistem eklenip/silinince, landscape yolu değişince, landscape okununca).
+  Yeniden başlatma seçilmedi: SAP GUI referansı düşer, kullanıcı "script
+  bağlanıyor" onayını yeniden görür ve yarıdaki aksiyon kesilir. Tazeleme
+  başarısız olursa köprü durduruluyor — eski listeyle açık kalmak yanlış
+  yöne hata olurdu.
+
+### Yabancı köprü
+
+Portta `/health`'i cevaplayan ama bizim başlatmadığımız (PID tutmayan) bir
+köprü artık benimsenmiyor: token'ını bilmiyoruz, ve token'sız eski bir köprüyü
+benimsemek açığı geri getirirdi. Süreç öldürülmüyor (sahibi biz değiliz);
+kullanıcıya PID'iyle `guiScriptManager.foreignBridge` mesajı dönüyor.
+
+### Elle deneme
+
+Köprüye elle istek atmak artık token istiyor; token yalnızca köprü sürecinin
+ortamında ve launcher'ın belleğinde. Teşhis için yalnızca `/health` açık:
+
+```
+curl http://127.0.0.1:8790/health
+curl -H "Authorization: Bearer <token>" http://127.0.0.1:8790/connections
+```
+
+### Kapının DIŞINDA kalanlar
+
+`sapgui-screenshots` ve `abapgit-deploy` betikleri SAP GUI'ye köprü
+üzerinden değil doğrudan COM ile (`GetObject("SAPGUI")`) bağlanıyor; bu kapı
+onları görmüyor. Onların kuralı SKILL.md'deki "canlı sistemde yalnızca
+görüntüleme" talimatı ve `abapgit-deploy`'un kendi tier kapısı.
+
+### Doğrulama
+
+- `tests/python/test_gui_bridge_security.py` — gerçek köprü handler'ı,
+  win32com sahte: 401 (token yok / yanlış / "Bearer" öneki yok), `/health`
+  token'sız 200, 415, Origin 403, PRD'de 8 aksiyonun hepsi 403, okumalar
+  serbest, SID okunamazsa 403, `/config/prd`, `main()` açılış reddi.
+- `tests/guiScriptBridgeAuth.test.ts` — token üretimi/ortamla aktarım, her
+  başlatışta farklı token, istemcinin başlığı, yabancı köprünün reddi,
+  `collectPrdSystems`.
+
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
 
 ### Canlı bulgu (kullanıcı, gerçek axet.flows Canlı host'una deploy ederken)

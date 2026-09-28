@@ -103,7 +103,8 @@ export const MAIN_TR = {
   "guiScriptManager.exitedEarly": "process erken sonlandı ({detail}).",
   "guiScriptManager.pythonMissing": "gömülü Python çalıştırılabilir bulunamadı — uygulama kurulumu bozuk olabilir.",
   "guiScriptManager.alreadyRunning": "SAP GUI Scripting bridge zaten çalışıyor.",
-  "guiScriptManager.externalOnPort": "SAP GUI Scripting bridge bu portta zaten (başka bir process tarafından) çalışıyor",
+  "guiScriptManager.foreignBridge":
+    "{port} portunda NTT Studio'nun başlatmadığı bir SAP GUI Scripting köprüsü çalışıyor (PID {pid}). Erişim anahtarı bilinmediği için bu köprü kullanılmıyor. Görev Yöneticisi'nden o süreci kapatıp köprüyü yeniden başlat.",
   "guiScriptManager.spawnFailed": "SAP GUI Scripting bridge process başlatılamadı ({pythonPath}): {detail}",
   "guiScriptManager.didNotStart": "SAP GUI Scripting bridge {port} portunda ayağa kalkmadı. {detail}",
   "guiScriptManager.started": "SAP GUI Scripting bridge başlatıldı (http://127.0.0.1:{port}).",
@@ -238,6 +239,8 @@ export const MAIN_TR = {
   "guiScript.runtimeMissing":
     "Gömülü SAP GUI Scripting runtime'ı (resources/guiscript-runtime) bulunamadı — uygulama kurulumu eksik/bozuk olabilir.",
   "guiScript.bridgeNotRunning": "Bridge çalışmıyor — önce başlat.",
+  "guiScript.prdListFailed":
+    "PRD olarak işaretli sistemlerin listesi okunamadı ({detail}). Canlı sistemlere yazma kapısı kurulamayacağı için köprü başlatılmadı.",
 
   // --- index.ts: işletim sistemi dosya diyalogları ---
   // Diyaloğun BAŞLIĞI uygulama arayüzüdür; dışa aktarılan dosyanın İÇERİĞİ

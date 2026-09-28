@@ -58,7 +58,14 @@ import { runFlowsAgentStep } from "./axetFlowsAgent";
 import { discoverAxetFlowsLiveUrl } from "./axetFlowsLiveDiscovery";
 import { saveFlowToLiveHost } from "./axetFlowsLiveSave";
 import { getEmbeddedGuiScriptRuntime } from "./embeddedRuntime";
-import { startGuiScriptBridge, stopGuiScriptBridge, isGuiScriptBridgeRunning, getGuiScriptBridgePort } from "./sapGuiScriptManager";
+import {
+  startGuiScriptBridge,
+  stopGuiScriptBridge,
+  isGuiScriptBridgeRunning,
+  getGuiScriptBridgePort,
+  getGuiScriptBridgeEndpoint,
+  type GuiScriptPrdSystem
+} from "./sapGuiScriptManager";
 import {
   guiScriptListConnections,
   guiScriptListSessions,
@@ -66,8 +73,10 @@ import {
   guiScriptPerformAction,
   guiScriptPreflight,
   guiScriptGetScreen,
-  guiScriptScreenshot
+  guiScriptScreenshot,
+  guiScriptSetPrdSystems
 } from "./sapGuiScriptClient";
+import { collectPrdSystems } from "./guiScriptPrdSystems";
 import { runSapGuiAgentStep, cancelSapGuiAgentStep, cancelAllSapGuiAgentSteps } from "./sapGuiScriptAgent";
 import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js";
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
@@ -359,6 +368,39 @@ async function resolveCredentialDefaults(config: AppConfig, serviceUuid: string)
   };
 }
 
+// SAP GUI Scripting köprüsünün PRD listesi — kaynak `config.systemTiers` +
+// landscape (bkz. guiScriptPrdSystems.ts). `landscape:get` ile AYNI birleşim:
+// manuel eklenen bir sistem de PRD işaretlenebiliyor.
+async function loadGuiScriptPrdSystems(): Promise<GuiScriptPrdSystem[]> {
+  const config = loadConfig();
+  if (!Object.values(config.systemTiers ?? {}).includes("PRD")) return [];
+  const landscape = mergeManualSystems(await loadLandscape(config.landscapePathOverride), loadManualSystems(), config.language);
+  return collectPrdSystems(landscape, config.systemTiers);
+}
+
+// Sistem işaretlemeleri değişince çalışan köprüye bildirilir. İLETİLEMEZSE
+// köprü DURDURULUYOR: eski listeyle çalışmaya devam etmek, kullanıcının az
+// önce PRD işaretlediği sisteme yazmayı serbest bırakmak olurdu. Kullanıcı
+// köprüyü yeniden başlattığında liste başlangıçta ENV ile güncel gider.
+async function refreshGuiScriptPrdSystems(reason: string): Promise<void> {
+  const bridge = getGuiScriptBridgeEndpoint();
+  if (!bridge) return;
+  try {
+    const systems = await loadGuiScriptPrdSystems();
+    const result = await guiScriptSetPrdSystems(bridge, systems);
+    if (result.ok) {
+      appLog("guiScript:prd:tazelendi", { neden: reason, sayi: systems.length });
+      return;
+    }
+    appLog("guiScript:prd:iletilemedi", { neden: reason, hata: result.error ?? "" });
+  } catch (err) {
+    appLog("guiScript:prd:okunamadi", { neden: reason, hata: String(err) });
+  }
+  // Arada köprü yeniden başlatıldıysa yenisi zaten güncel listeyle doğdu;
+  // onu durdurmak gereksiz olurdu.
+  if (getGuiScriptBridgeEndpoint()?.token === bridge.token) stopGuiScriptBridge();
+}
+
 // Sohbeti PDF'e basar. HTML belgesi renderer'da üretiliyor (bkz.
 // src/lib/chatPrint.ts); burada yalnızca "belgeyi bir sayfaya yerleştir ve
 // kağıda dök" adımı var.
@@ -435,19 +477,28 @@ function registerIpc(): void {
     const config = loadConfig();
     const landscape = await loadLandscape(config.landscapePathOverride);
     const manualSystems = loadManualSystems();
+    // SAP Logon'da bir girdinin SID'i değişmiş olabilir; köprünün PRD listesi
+    // landscape her okunduğunda tazeleniyor.
+    void refreshGuiScriptPrdSystems("landscape");
     return mergeManualSystems(landscape, manualSystems, config.language);
   });
 
   ipcMain.handle("manualSystems:add", (_event, input: AddManualSystemInput) => {
-    return addManualSystem(input);
+    const result = addManualSystem(input);
+    void refreshGuiScriptPrdSystems("manualSystems:add");
+    return result;
   });
 
   ipcMain.handle("manualSystems:remove", (_event, id: string) => {
-    return removeManualSystem(id);
+    const result = removeManualSystem(id);
+    void refreshGuiScriptPrdSystems("manualSystems:remove");
+    return result;
   });
 
   ipcMain.handle("manualSystems:update", (_event, id: string, input: AddManualSystemInput) => {
-    return updateManualSystem(id, input);
+    const result = updateManualSystem(id, input);
+    void refreshGuiScriptPrdSystems("manualSystems:update");
+    return result;
   });
 
   ipcMain.handle("manualSystems:exportToFile", async () => {
@@ -480,6 +531,7 @@ function registerIpc(): void {
     }
     try {
       const summary = importManualSystemsFromFile(result.filePaths[0]);
+      void refreshGuiScriptPrdSystems("manualSystems:import");
       return { ok: true, ...summary };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
@@ -487,7 +539,11 @@ function registerIpc(): void {
   });
 
   ipcMain.handle("systemTiers:set", (_event, serviceUuid: string, tier: SystemTier | null) => {
-    return saveSystemTier(serviceUuid, tier);
+    const saved = saveSystemTier(serviceUuid, tier);
+    // Bir sistem PRD işaretlendiği (ya da işareti kalktığı) anda çalışan
+    // SAP GUI Scripting köprüsü de bilmeli — yeniden başlatılmasını beklemeden.
+    void refreshGuiScriptPrdSystems("systemTiers:set");
+    return saved;
   });
 
   // Rol seçim ekranının önizlemesi. Ekranda gösterilen liste ile diske yazılan
@@ -757,6 +813,11 @@ function registerIpc(): void {
     // görünmemesi demekti.
     if (saved.skillProfile && saved.skillProfile !== before.skillProfile) {
       syncGlobalSkills(saved);
+    }
+    // Landscape dosyası değişince aynı uuid başka bir SID'e çıkabilir; köprünün
+    // PRD listesi eski dosyanın SID'lerinde kalmasın.
+    if (saved.landscapePathOverride !== before.landscapePathOverride) {
+      void refreshGuiScriptPrdSystems("config:landscapePath");
     }
     return saved;
   });
@@ -1396,11 +1457,30 @@ function registerIpc(): void {
         message: mt("guiScript.runtimeMissing")
       };
     }
+    // PRD listesi köprü AÇILIRKEN ortam değişkeniyle veriliyor: köprü ilk
+    // isteği aldığı anda kapı kurulu olmalı. Liste okunamıyorsa köprü hiç
+    // açılmıyor — boş listeyle açmak PRD'yi sessizce yazmaya açardı.
+    let prdSystems: GuiScriptPrdSystem[];
+    try {
+      prdSystems = await loadGuiScriptPrdSystems();
+    } catch (err) {
+      return {
+        ok: false,
+        running: false,
+        port: null,
+        message: mt("guiScript.prdListFailed", { detail: (err as Error).message })
+      };
+    }
     const result = await startGuiScriptBridge({
       pythonPath: runtime.pythonPath,
       scriptPath: runtime.bridgeScriptPath,
-      port: DEFAULT_GUI_SCRIPT_BRIDGE_PORT
+      port: DEFAULT_GUI_SCRIPT_BRIDGE_PORT,
+      prdSystems
     });
+    // Liste okunduktan sonra, köprü ayağa kalkana kadar bir tier değişmiş
+    // olabilir (o sırada endpoint henüz yoktu, tazeleme boşa düştü). Bir kez
+    // daha gönderip bu pencereyi kapatıyoruz.
+    if (result.ok && !result.alreadyRunning) await refreshGuiScriptPrdSystems("start");
     return { ok: result.ok, running: result.ok, port: result.ok ? result.port : null, message: result.message };
   });
 
@@ -1410,6 +1490,7 @@ function registerIpc(): void {
   });
 
   ipcMain.handle("sapGuiScript:status", async () => {
+    // `external` artık hep false: token'ı bilinmeyen köprü benimsenmiyor.
     return { running: isGuiScriptBridgeRunning(), port: getGuiScriptBridgePort(), external: false };
   });
 
@@ -1417,33 +1498,33 @@ function registerIpc(): void {
   // pencere sayısı vs. scripting oturum sayısı). Ekran, "scripting kapalı"
   // ile "SAP açık değil" ayrımını buradan yapıyor.
   ipcMain.handle("sapGuiScript:preflight", async () => {
-    const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
-    return guiScriptPreflight(port);
+    const bridge = getGuiScriptBridgeEndpoint();
+    if (!bridge) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
+    return guiScriptPreflight(bridge);
   });
 
   ipcMain.handle("sapGuiScript:getScreen", async (_event, connIdx: number, sessIdx: number) => {
-    const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
-    return guiScriptGetScreen(port, connIdx, sessIdx);
+    const bridge = getGuiScriptBridgeEndpoint();
+    if (!bridge) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
+    return guiScriptGetScreen(bridge, connIdx, sessIdx);
   });
 
   ipcMain.handle("sapGuiScript:screenshot", async (_event, connIdx: number | null, sessIdx: number | null, method: GuiScriptScreenshotMethod) => {
-    const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
-    return guiScriptScreenshot(port, connIdx, sessIdx, method);
+    const bridge = getGuiScriptBridgeEndpoint();
+    if (!bridge) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
+    return guiScriptScreenshot(bridge, connIdx, sessIdx, method);
   });
 
   ipcMain.handle("sapGuiScript:listConnections", async () => {
-    const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
-    return guiScriptListConnections(port);
+    const bridge = getGuiScriptBridgeEndpoint();
+    if (!bridge) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
+    return guiScriptListConnections(bridge);
   });
 
   ipcMain.handle("sapGuiScript:listSessions", async (_event, connIdx: number) => {
-    const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
-    return guiScriptListSessions(port, connIdx);
+    const bridge = getGuiScriptBridgeEndpoint();
+    if (!bridge) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
+    return guiScriptListSessions(bridge, connIdx);
   });
 
   ipcMain.handle("sapGuiScript:getNode", async (
@@ -1453,15 +1534,15 @@ function registerIpc(): void {
     elementId: string | null,
     window?: { rows?: number; rowOffset?: number }
   ) => {
-    const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
-    return guiScriptGetNode(port, connIdx, sessIdx, elementId, window);
+    const bridge = getGuiScriptBridgeEndpoint();
+    if (!bridge) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
+    return guiScriptGetNode(bridge, connIdx, sessIdx, elementId, window);
   });
 
   ipcMain.handle("sapGuiScript:performAction", async (_event, connIdx: number, sessIdx: number, payload: GuiScriptActionPayload) => {
-    const port = getGuiScriptBridgePort();
-    if (!port) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
-    return guiScriptPerformAction(port, connIdx, sessIdx, payload);
+    const bridge = getGuiScriptBridgeEndpoint();
+    if (!bridge) return { ok: false, error: mt("guiScript.bridgeNotRunning") };
+    return guiScriptPerformAction(bridge, connIdx, sessIdx, payload);
   });
 
   // Faz 2 — Kayıt + Tekrar Oynatma: script'i JSON olarak diske kaydet/aç.

@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { request as httpRequest } from "node:http";
 import { mt } from "./i18n";
 
@@ -11,17 +12,42 @@ import { mt } from "./i18n";
 // SAP Logon oturumuna bağlanıyor, proje kavramı yok — bu yüzden TEK bir
 // global (singleton) process yönetiliyor.
 
+// KİMLİK (2026-09 güvenlik incelemesi): köprü `/health` dışındaki her istekte
+// bearer token istiyor. SAP GUI'nin "script bağlanıyor" onayı oturum başına
+// bir kez çıkıyor; onaydan sonra 127.0.0.1:8790'a ulaşan HER süreç — ya da
+// bir web sayfası — kullanıcının SAP oturumunda tuşa basabiliyordu.
+//
+// Token her başlatışta yeniden üretiliyor ve YALNIZCA köprü sürecinin
+// ortamına veriliyor. `adtHttpToken.ts`'teki ADT token'ından bilerek farklı:
+// o `process.env`'e yazılıyor ki ajan terminalleri kalıtımla alsın. Bu köprüye
+// ajan doğrudan değil, ana süreç üzerinden (IPC) gidiyor; token'ı ajanın
+// ortamına koymak, onun SAP GUI'ye kapıyı atlayarak yazabilmesi demek olurdu.
+export const GUI_BRIDGE_TOKEN_ENV = "NTT_GUI_BRIDGE_TOKEN";
+export const GUI_BRIDGE_PRD_ENV = "NTT_GUI_BRIDGE_PRD_SYSTEMS";
+
+/** Köprünün yazmayı reddedeceği sistem. `client` boşsa SID'in her mandantı. */
+export interface GuiScriptPrdSystem {
+  sid: string;
+  client: string;
+}
+
+/** İstemcinin köprüye konuşmak için bilmesi gereken her şey. */
+export interface GuiScriptBridgeEndpoint {
+  port: number;
+  token: string;
+}
+
 export interface GuiScriptBridgeStartOptions {
   pythonPath: string;
   scriptPath: string;
   port: number;
+  prdSystems: GuiScriptPrdSystem[];
   logFilePath?: string;
 }
 
 export interface GuiScriptBridgeStartResult {
   ok: boolean;
   alreadyRunning: boolean;
-  external: boolean;
   port: number;
   message: string;
 }
@@ -29,10 +55,10 @@ export interface GuiScriptBridgeStartResult {
 interface RunningBridge {
   proc: ChildProcess | null;
   port: number;
+  token: string;
   tail: string[];
   exited: boolean;
   exitInfo: string;
-  external: boolean;
 }
 
 let current: RunningBridge | null = null;
@@ -44,8 +70,7 @@ function pushTail(bridge: RunningBridge, chunk: Buffer): void {
 
 // "2xx döndü" YETMEZ — cevabın BİZİM köprümüzden geldiği doğrulanır.
 // Aksi halde 8790'da oturan alakasız bir servis "bridge çalışıyor" diye
-// benimsenir (aşağıdaki `external` yolu) ve sonraki her çağrı anlaşılmaz
-// bir hatayla düşer. Köprü artık `/health`'te kendi adını ve PID'ini
+// benimsenir ve sonraki her çağrı anlaşılmaz bir hatayla düşer. Köprü artık `/health`'te kendi adını ve PID'ini
 // söylüyor; PID de "cevaplayan, benim başlattığım çocuk mu" sorusunun
 // tek gerçek cevabı (aynı porta iki köprü bağlanabiliyordu — bkz.
 // bridge'teki `_Server`).
@@ -107,39 +132,51 @@ function describeFailure(bridge: RunningBridge): string {
 }
 
 export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): Promise<GuiScriptBridgeStartResult> {
-  if (current && current.port === opts.port && (current.external || (!current.proc?.killed && !current.exited))) {
-    const alive = (await healthCheck(current.port)).ok;
-    if (alive) {
-      return { ok: true, alreadyRunning: true, external: current.external, port: current.port, message: mt("guiScriptManager.alreadyRunning") };
+  if (current && current.port === opts.port && !current.proc?.killed && !current.exited) {
+    // PID de tutmalı: cevap veren, bizim çocuğumuz değilse token'ımızı
+    // bilmiyordur ve "zaten çalışıyor" demek her sonraki çağrıyı 401'e
+    // gönderirdi.
+    const health = await healthCheck(current.port);
+    if (health.ok && health.pid === current.proc?.pid) {
+      return { ok: true, alreadyRunning: true, port: current.port, message: mt("guiScriptManager.alreadyRunning") };
     }
     stopGuiScriptBridge();
   }
 
-  // Kullanıcı elle başlattıysa veya önceki bir oturumdan process hâlâ
-  // ayaktaysa - ikinci bir process açıp EADDRINUSE'a düşme (adtReadonlyServerManager.ts
-  // ile AYNI "external" tespiti).
+  // Portta başka bir köprü var (elle başlatılmış ya da önceki bir oturumdan
+  // kalmış). Eskiden "external" diye BENİMSENİYORDU; artık token'ını
+  // bilmediğimiz bir köprü kullanılamaz — her istek 401 alırdı. Daha kötüsü:
+  // token'sız çalışan eski sürüm bir köprüyü benimsemek, tam da kapatılan
+  // açığı geri getirmek olurdu. Süreci öldürmüyoruz, çünkü sahibi biz değiliz;
+  // kullanıcıya PID'iyle söylüyoruz.
   const foreign = await healthCheck(opts.port);
   if (foreign.ok) {
-    current = { proc: null, port: opts.port, tail: [], exited: false, exitInfo: "", external: true };
     return {
-      ok: true,
-      alreadyRunning: true,
-      external: true,
+      ok: false,
+      alreadyRunning: false,
       port: opts.port,
-      message: mt("guiScriptManager.externalOnPort") + (foreign.pid ? ` (PID ${foreign.pid}).` : ".")
+      message: mt("guiScriptManager.foreignBridge", { port: opts.port, pid: foreign.pid ?? "?" })
     };
   }
 
-  const bridge: RunningBridge = { proc: null, port: opts.port, tail: [], exited: false, exitInfo: "", external: false };
+  const token = randomBytes(32).toString("base64url");
+  const bridge: RunningBridge = { proc: null, port: opts.port, token, tail: [], exited: false, exitInfo: "" };
 
   let proc: ChildProcess;
   try {
     proc = spawn(opts.pythonPath, [opts.scriptPath, "--port", String(opts.port)], {
       windowsHide: true,
-      stdio: ["ignore", "pipe", "pipe"]
+      stdio: ["ignore", "pipe", "pipe"],
+      // Token ve PRD listesi argv'de DEĞİL: argv süreç listesinde aynı
+      // kullanıcının her sürecine görünür.
+      env: {
+        ...process.env,
+        [GUI_BRIDGE_TOKEN_ENV]: token,
+        [GUI_BRIDGE_PRD_ENV]: JSON.stringify(opts.prdSystems)
+      }
     });
   } catch (err) {
-    return { ok: false, alreadyRunning: false, external: false, port: opts.port, message: mt("guiScriptManager.spawnFailed", { pythonPath: opts.pythonPath, detail: (err as Error).message }) };
+    return { ok: false, alreadyRunning: false, port: opts.port, message: mt("guiScriptManager.spawnFailed", { pythonPath: opts.pythonPath, detail: (err as Error).message }) };
   }
 
   bridge.proc = proc;
@@ -162,7 +199,10 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
   let healthy = false;
   while (Date.now() < deadline) {
     if (bridge.exited) break;
-    if ((await healthCheck(opts.port, 1200)).ok) {
+    // Yalnızca KENDİ çocuğumuzun cevabı sayılır: arada porta başka bir köprü
+    // oturduysa o bizim token'ımızı bilmez.
+    const health = await healthCheck(opts.port, 1200);
+    if (health.ok && health.pid === proc.pid) {
       healthy = true;
       break;
     }
@@ -172,28 +212,36 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
   if (!healthy) {
     const message = mt("guiScriptManager.didNotStart", { port: opts.port, detail: describeFailure(bridge) });
     stopGuiScriptBridge();
-    return { ok: false, alreadyRunning: false, external: false, port: opts.port, message };
+    return { ok: false, alreadyRunning: false, port: opts.port, message };
   }
 
-  return { ok: true, alreadyRunning: false, external: false, port: opts.port, message: mt("guiScriptManager.started", { port: opts.port }) };
+  return { ok: true, alreadyRunning: false, port: opts.port, message: mt("guiScriptManager.started", { port: opts.port }) };
 }
 
 export function stopGuiScriptBridge(): void {
   if (!current) return;
-  if (!current.external) {
-    try {
-      current.proc?.kill();
-    } catch {
-      // best effort
-    }
+  try {
+    current.proc?.kill();
+  } catch {
+    // best effort
   }
   current = null;
 }
 
 export function isGuiScriptBridgeRunning(): boolean {
-  return Boolean(current && (current.external || (!current.proc?.killed && !current.exited)));
+  return Boolean(current && !current.proc?.killed && !current.exited);
 }
 
 export function getGuiScriptBridgePort(): number | null {
   return current?.port ?? null;
+}
+
+/**
+ * Köprüye konuşmak için port + token. Köprü ayakta değilse `null`; token
+ * yalnızca bu modülde ve istemcinin o anki isteğinde yaşar, hiçbir yere
+ * yazılmaz.
+ */
+export function getGuiScriptBridgeEndpoint(): GuiScriptBridgeEndpoint | null {
+  if (!current || current.proc?.killed || current.exited) return null;
+  return { port: current.port, token: current.token };
 }

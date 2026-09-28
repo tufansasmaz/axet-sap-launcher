@@ -99,7 +99,8 @@ export const MAIN_EN = {
   "guiScriptManager.exitedEarly": "the process exited early ({detail}).",
   "guiScriptManager.pythonMissing": "the bundled Python executable was not found — the app installation may be broken.",
   "guiScriptManager.alreadyRunning": "The SAP GUI Scripting bridge is already running.",
-  "guiScriptManager.externalOnPort": "A SAP GUI Scripting bridge is already running on this port (started by another process)",
+  "guiScriptManager.foreignBridge":
+    "A SAP GUI Scripting bridge that NTT Studio did not start is running on port {port} (PID {pid}). Its access key is unknown, so it will not be used. Close that process in Task Manager and start the bridge again.",
   "guiScriptManager.spawnFailed": "The SAP GUI Scripting bridge process could not be started ({pythonPath}): {detail}",
   "guiScriptManager.didNotStart": "The SAP GUI Scripting bridge did not come up on port {port}. {detail}",
   "guiScriptManager.started": "SAP GUI Scripting bridge started (http://127.0.0.1:{port}).",
@@ -229,6 +230,8 @@ export const MAIN_EN = {
     "The embedded SAP GUI Scripting runtime (resources/guiscript-runtime) was not found — the app installation may be " +
     "incomplete or damaged.",
   "guiScript.bridgeNotRunning": "The bridge is not running — start it first.",
+  "guiScript.prdListFailed":
+    "The list of systems marked PRD could not be read ({detail}). The bridge was not started, because the write block for production systems could not be set up.",
 
   // --- index.ts: operating-system file dialogs ---
   // The dialog TITLE is app UI; the CONTENT of the exported file
