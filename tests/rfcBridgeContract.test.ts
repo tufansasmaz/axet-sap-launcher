@@ -1,6 +1,6 @@
 // Launcher ile adt_rfc_bridge.py arasındaki sözleşme — senkron script'i değiştirirse bu test kırılsın.
 //
-// Ölçülen olay (2026-09-24, LED, router'lı sistem): bağlanınca "RFC bridge 8788
+// Ölçülen olay (2026-09-24, SID-E, router'lı sistem): bağlanınca "RFC bridge 8788
 // portunda ayağa kalkmadı. ERROR: RFC_ASHOST is not set." Yukarı akışın d2cb667
 // senkronu köprüyü başka bir script'le değiştirmişti: ayarları `.env`'den
 // `RFC_ASHOST` adıyla okuyor, router'ı zorunlu tutuyor, portu BRIDGE_PORT'tan

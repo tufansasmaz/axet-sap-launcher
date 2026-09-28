@@ -607,7 +607,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
       });
       if (result.screen) setScreen(result.screen);
       // ADIMLAR ARASINDA UYKU YOK. Burada 350 ms'lik sabit bir bekleme vardı;
-      // canlı ölçüm (S4D/SE16N, 2026-09-03) bunun tamamen ölü zaman olduğunu
+      // canlı ölçüm (SID-G1/SE16N, 2026-09-03) bunun tamamen ölü zaman olduğunu
       // gösterdi: sıfır beklemeyle arka arkaya gönderilen 10 adımın hepsi
       // geçti, ekran geçişleri doğru, ve köprünün `busySeen` raporu BİR KEZ
       // bile doğru olmadı — SAP GUI Scripting çağrısı senkron, sunucu turu

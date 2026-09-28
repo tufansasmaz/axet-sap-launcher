@@ -26,12 +26,12 @@ what it syncs. How to sync it lives in the department's setup document.
 
 Layout
 ------
-    Projects/<project>/<ITEM>/<KIND>/          e.g. beta-enerji/SD007/FS/
+    Projects/<project>/<ITEM>/<KIND>/          e.g. musteri-k-enerji/SD007/FS/
     Projects/<project>/_Listesiz/<KIND>/       no list loaded, or no item given
     Projects/<project>/_liste.json             the development list (Orbit)
 
 One folder per development ITEM, a KIND folder always inside it, because the
-work ships per item: Beta Enerji's flow carries six deliverables for a single
+work ships per item: Customer K's flow carries six deliverables for a single
 development (FS, TS, ABAP, two tests, user doc) and a kind-first layout filed
 one job in six places. The list lives in the STORE rather than in the project
 brief: the brief ships with the catalog, and a new catalog stamp rewrites every
@@ -71,7 +71,7 @@ from pathlib import Path
 STORE_MARKER = ".ntt-projects.json"
 PIN_NAME = ".ntt-profile.yaml"
 # The development list names the kinds; this is the fallback when no list
-# is loaded. Beta Enerji's flow alone has six (FS, TS, ABAP, two tests, user doc).
+# is loaded. Customer K's flow alone has six (FS, TS, ABAP, two tests, user doc).
 DEFAULT_KINDS = ("FS", "TS", "BBP")
 LIST_NAME = "_liste.json"
 # Everything lands here until a list says otherwise. Leading underscore so it
@@ -480,7 +480,7 @@ def cmd_save(args) -> int:
         return EXIT_NOT_SYNCED
 
     # One folder per development item, a kind folder always inside it. The work
-    # ships per item -- Beta Enerji alone carries six deliverables for one --
+    # ships per item -- Customer K alone carries six deliverables for one --
     # so splitting an item across <code>/FS and <code>/TS filed one job twice.
     lst = read_list(store, code)
     kind = resolve_kind(list_kinds(lst), args.kind)

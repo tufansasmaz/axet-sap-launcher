@@ -246,12 +246,12 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 
 | Dosya | Ne degistirildi | Neden |
 | --- | --- | --- |
-| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil"); ardindan "SAP DEV yazma onayi" blogu (mod, `approval_pending`, `source_file`, `kritik_bulgu`) | 2026-09-24, MAYA: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` + `tests/sapWriteGateContract.test.ts` kilitliyor |
+| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil"); ardindan "SAP DEV yazma onayi" blogu (mod, `approval_pending`, `source_file`, `kritik_bulgu`) | 2026-09-24, SID-I: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` + `tests/sapWriteGateContract.test.ts` kilitliyor |
 | `.../sap-adt/scripts/adt_gated_server.py`, `gated_collect.py`, `gated_quality.py` + `test_gated_quality.py`, `test_gated_collect.py`, `test_gated_flow.py` | YENI dosyalar (yukari akista yok): motoru import edip 28 yazan araci NTT Studio onayina bagliyor; `axet_teslim`, `axet_abapgit_onay`, `axet_inceleme_kaydet` | 2026-09-24 kullanici karari: DEV'e her yazma onaylanir, kritik inceleme bulgusu kesin engel. Motor degismedi. `py -3 test_gated_*.py` + `tests/sapWriteGateContract.test.ts` |
 | `.../abap-code-review/SKILL.md` | 8. adim: inceleme bitince `axet_inceleme_kaydet` (bulgu sayilari, kaynak dosyalari; FUGR/FUNC notu) | Kalite kapisi inceleme kaydi olmadan yazdirmiyor |
 | `sap-consultant/skills/sap-adt-readonly/SKILL.md` | Ayni blok + "8790 degil 8787" + `/tools` (sap-adt kurulu olmayabilir) | 1.6.7'deki "aXet.code edition" d2cb667 senkronunda ezilmisti; ayni test |
 | `.../screen-gen/SKILL.md`, `.../sap-object-transfer/SKILL.md` | MCP araci/oturumu = 8787'ye POST; transfer icin `--port 8787` | `transfer_deploy.py` varsayilani 8786 |
-| `.../sap-adt-router-bridge/scripts/adt_rfc_bridge.py` + SKILL.md basi | Script: yukari akisinki DEGIL, launcher'la sahada calisan eski surum (`.conn_adt`'ten `ADT_RFC_*`, `--port`, `/health`, router'siz calisma). SKILL.md: "launcher baslatir, 8788, `.env`/8410/`selftest` burada gecersiz" blogu | 2026-09-24, LED: d2cb667 senkronu script'i `.env`'den `RFC_ASHOST` bekleyen, router'i zorunlu tutan, 8410'da dinleyen ve `/health`'i olmayan surumle degistirdi; router'li her sistem "RFC_ASHOST is not set" ile bagli degil kaldi (v1.6.8 dahil). `tests/rfcBridgeContract.test.ts` kilitliyor |
+| `.../sap-adt-router-bridge/scripts/adt_rfc_bridge.py` + SKILL.md basi | Script: yukari akisinki DEGIL, launcher'la sahada calisan eski surum (`.conn_adt`'ten `ADT_RFC_*`, `--port`, `/health`, router'siz calisma). SKILL.md: "launcher baslatir, 8788, `.env`/8410/`selftest` burada gecersiz" blogu | 2026-09-24, SID-E: d2cb667 senkronu script'i `.env`'den `RFC_ASHOST` bekleyen, router'i zorunlu tutan, 8410'da dinleyen ve `/health`'i olmayan surumle degistirdi; router'li her sistem "RFC_ASHOST is not set" ile bagli degil kaldi (v1.6.8 dahil). `tests/rfcBridgeContract.test.ts` kilitliyor |
 | `.../abap-code-checker/SKILL.md` | MCP -> HTTP; hangi yuzey acik; `adt_unit_test` kapisi; `${CLAUDE_PLUGIN_ROOT}` | aXet.code MCP konusamiyor; yuzey role+tier'a gore degisiyor |
 | `.../as-built-doc/SKILL.md` | ayni sekil, `adt_sql` kapisi | ayni |
 | `.../sap-cr-scope/SKILL.md` | ayni sekil + `case.py` notu | ayni |
@@ -270,18 +270,19 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 | `sapgui-scriptter/skills/abapgit-deploy/SKILL.md` | "SAP DEV yazma onayi" blogu (cikis 3 + `approval_pending:`, cikis 2 + `REFUSED [GR_APPROVAL]`, FUGR incelemesi) | Ajan cikis 3'u ariza sanip dolanmasin |
 | `sapgui-scriptter/skills/sapgui-screenshots/SKILL.md` | "PRD'de sadece goruntuleme" kurali | Tus basabiliyor, yanlislikla kaydedebilir; ADT tier kapisi buraya UZANMIYOR |
 | `requirements.txt`, `CLAUDE.md`, `README.md`, `toolkit-version.json` | Bu dagitima ait | Yukari akista yok |
+| `.../fast-scan-question-generator/SKILL.md`, `.../project-store/SKILL.md` + `scripts/project_store.py`, `.../ts-generator/references/NAMING_STANDARD.md` + `NAMING_STANDARD_HISTORY.md`, `.../sap-adt/references/RAP_CDS_OBJECTS.md` + `WORKFLOWS.md` | Musteri adlari, proje kodlari, SID'ler ve bir transport numarasi yer tutucuya cevrildi (`musteri-k-enerji`, `Customer K`, `SID-J`, `XXXK901433`); anlatilan olcum ve kural ayni | **Bu depo PUBLIC** (2026-09-28 temizligi). Yukari akistan tazelerken gercek adlar geri gelir: senkrondan sonra bu dosyalari yeniden tara. `sap-adt/scripts/` altindaki motor dosyalarinda kalanlar bilerek duzenlenmedi |
 
 ### Alinmayanlar ve sebepleri
 
 | Alinmayan | Neden |
 | --- | --- |
-| `project-kb/*` (beta-enerji, kibar-americas, ozak-tekstil, sun-tekstil-jimmy-key) | Musteriye ait gercek sistem verisi: tablo adlari, sirket kodlari, sure ve kapsam kayitlari. **Bu depo PUBLIC.** Kullanici karari (2026-09-23: *"alma paketleme onlari"*). Yapisi degil, ICERIGI engel -- ayni skill kabugu musterinin kendi ortaminda kurulabilir. |
+| `project-kb/*` (musteri-k-enerji, musteri-l, musteri-m-tekstil, musteri-n-musteri-o) | Musteriye ait gercek sistem verisi: tablo adlari, sirket kodlari, sure ve kapsam kayitlari. **Bu depo PUBLIC.** Kullanici karari (2026-09-23: *"alma paketleme onlari"*). Yapisi degil, ICERIGI engel -- ayni skill kabugu musterinin kendi ortaminda kurulabilir. |
 | `sap-adt-mcp` | MCP istemcisi; aXet.code MCP konusamiyor, yani kurulsa da calismaz. Kullanici karari: *"Simdilik alma"*. |
 | `abapgit-adt` | ADT uzerinden abapGit surer. Yazma artik var ama bu skill'in yolu `adt_*` ile SAP'a abapGit repo'su kurmak -- bizim teslim yolumuz `abapgit-workflow` (gelistirici-donguyu-kapatir) ve ikisi ayni isi iki farkli sozlesmeyle yapiyor. Ikisi birden kuruluysa ajan hangisini sececegini bilmiyor. |
 | `ntt-skill-setup` | Rakip kurulumcu: projeye skill kuran bir skill. Bu isi uygulamanin kendisi yapiyor (`installSkillsIntoProject`) ve rol kapisi orada. Ajanin elinde kendi skill'lerini kurabilecegi bir arac olmasi, 1. kapiyi anlamsiz kilar. |
 | `sap-bw`, `sap-sac` | Skill degil, vendor'lanmis MCP sunuculari. |
 
-Bilerek AYRISAN (alindi ama birebir degil): `sap-adt` (yalnizca `__pycache__` farki),
+Bilerek AYRISAN (alindi ama birebir degil): `sap-adt` (`__pycache__` farki + iki referans belgesindeki musteri yer tutuculari),
 `sap-adt-router-bridge` (bizde fazladan `adt_rfc_probe.py` var -- yukari akista yok),
 `axet-flows` (yalnizca bir `.pyc` disarida), `fs2ts` (HIC alinmiyor: `ts-generator`'in
 2026-08-02 oncesi adi; ikisi ayni ifadelerle tetikleniyor).

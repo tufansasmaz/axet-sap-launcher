@@ -27,7 +27,7 @@ function preview(overrides: Partial<SapContextPreview> = {}): SapContextPreview 
   return {
     path: "C:\\proje\\.axet-code\\sap-context.md",
     exists: true,
-    content: "# SAP baglami\n\nSistem: IED\n",
+    content: "# SAP baglami\n\nSistem: NPL\n",
     lineCount: 3,
     modifiedAt: "2026-09-07T21:00:00.000Z",
     hasUserNotes: false,
@@ -55,7 +55,7 @@ afterEach(cleanup);
 describe("SapContextSection", () => {
   it("dosyanin icerigini oldugu gibi gosterir", async () => {
     mountWith(preview());
-    expect(await screen.findByText(/Sistem: IED/)).toBeTruthy();
+    expect(await screen.findByText(/Sistem: NPL/)).toBeTruthy();
   });
 
   it("DUZENLENEBILIR alan YOK", async () => {
@@ -63,7 +63,7 @@ describe("SapContextSection", () => {
     // eklenmis bir metin kutusu, bir sonraki baglantida sessizce silinirdi.
     const { container } = { container: document.body };
     mountWith(preview());
-    await screen.findByText(/Sistem: IED/);
+    await screen.findByText(/Sistem: NPL/);
     expect(container.querySelector("textarea")).toBeNull();
     expect(container.querySelector("input")).toBeNull();
   });
@@ -89,7 +89,7 @@ describe("SapContextSection", () => {
 
   it("notlar yoksa rozet YOK", async () => {
     mountWith(preview({ hasUserNotes: false }));
-    await screen.findByText(/Sistem: IED/);
+    await screen.findByText(/Sistem: NPL/);
     expect(screen.queryByText(/[Nn]otlar/)).toBeNull();
   });
 

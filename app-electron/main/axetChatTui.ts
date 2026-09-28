@@ -432,7 +432,7 @@ interface TuiSession {
    * Bağlam önsözü (bkz. axetChat.ts `buildPrompt`) yalnızca oturumun İLK
    * mesajına giriyor. Eski oturuma bağlanınca o ilk mesaj çoktan geride:
    * oturum belki sisteme bağlanmadan, belki başka bir tier'dayken açılmıştı.
-   * 2026-09-24, MAYA: bağlanılan oturumda ajana yalnızca kullanıcının mesajı
+   * 2026-09-24, SID-I: bağlanılan oturumda ajana yalnızca kullanıcının mesajı
    * gitti, ajan hangi sistemde olduğunu bilmeden "bağlı değilim" dedi. Bağlandıktan
    * sonraki ilk mesaj bu yüzden bağlamı bir kez daha taşıyor.
    */

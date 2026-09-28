@@ -1,6 +1,6 @@
 // ADT skill'lerindeki "MCP değil, HTTP" uyarlaması — senkron silerse bu test kırılsın.
 //
-// Ölçülen olay (2026-09-24, MAYA, DEV, 8787'de 33 araçlık sunucu ayakta): ajan
+// Ölçülen olay (2026-09-24, SID-I, DEV, 8787'de 33 araçlık sunucu ayakta): ajan
 // "bu oturumda hiçbir SAP ADT aracı mevcut değil, bağlı değilim" dedi ve tek
 // araç çağrısı yapmadı. Kurulu `sap-adt` SKILL.md'si yukarı akışın Claude Code
 // metniydi — "Every SAP operation goes through the MCP tools (`adt_*`)" — ve

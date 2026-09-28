@@ -138,7 +138,7 @@ function describeRfcEndpointFailure(message: string): string {
   // bu porta ait bir kural bulamayıp paketi TCP/firewall seviyesinde
   // sessizce yutuyor olabilir (yanıt yok, ne NI_PONG ne NI_RTERR). Eskiden bu
   // dal sadece İngilizce "timed? ?out" arıyordu, launcher varsayılan dili
-  // Türkçe ("Zaman aşımı") olduğu için bu bulgu (Occlutech/OEQ canlı test)
+  // Türkçe ("Zaman aşımı") olduğu için bu bulgu (müşteri D/SID-D canlı test)
   // hiçbir zaman tetiklenmiyordu — kullanıcı "Zaman aşımı" mesajını hiçbir
   // ek açıklama/yönlendirme olmadan görüyordu.
   // Kalıp artık İngilizce karşılığını da tanıyor. Mesajın kendisi çevrildiği
@@ -197,7 +197,7 @@ interface RfcBridgeOutcome {
 // eder (rfcBridgeManager.ts), /health ile ayakta olduğunu doğrular, sonra
 // bridge üzerinden GERÇEK bir kimlik doğrulama isteği (verifyCredentials,
 // http://127.0.0.1:<port>) atarak RFC/router zincirinin uçtan uca çalıştığını
-// kanıtlar — Limak sisteminde elle izlenen adımların (bkz. PROJE-BILGI.md)
+// kanıtlar — müşteri E sisteminde elle izlenen adımların (bkz. PROJE-BILGI.md)
 // otomatikleştirilmiş hali.
 async function attemptRfcBridgeAutoStart(
   skillInstall: SkillInstallResult,
@@ -240,7 +240,7 @@ async function attemptRfcBridgeAutoStart(
   // 20s'ten 45s'e çıkarıldı — SAProuter üzerinden ilk RFC bağlantısının
   // açılması (pyrfc.Connection(), TCP connect + native NI_ROUTE + RFC logon)
   // düz HTTPS'ten belirgin şekilde daha uzun sürebiliyor (canlı bulgu:
-  // Occlutech/OEQ). Eski 20s'lik süre, bağlantı aslında yavaş-ama-çalışır
+  // müşteri D/SID-D). Eski 20s'lik süre, bağlantı aslında yavaş-ama-çalışır
   // durumdayken bile bizim tarafımızda erken "Zaman aşımı" üretebiliyordu —
   // bu da adt_rfc_bridge.py'deki tek global lock'un ARKASINDA sıraya giren
   // sıradaki isteğin de aynı yanıltıcı sonucu almasına yol açıyordu (bkz.
@@ -1063,7 +1063,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // looksLikeSamlLoginPage) için ayrı bir dal — RFC bridge GEREKMİYOR, çözüm
   // tarayıcı tabanlı bir SAML akışı. Önceden bu durumda da diğer TÜM
   // "!verify.ok" durumlarıyla aynı jenerik dala düşülüp .conn_adt/
-  // sap-context.md HİÇ yazılmıyordu (canlı bulgu, 2026-09-02, "test"/DA8
+  // sap-context.md HİÇ yazılmıyordu (canlı bulgu, 2026-09-02, "test"/SID-H
   // S/4HANA Cloud sistemi); sonra dosyalar yazılır oldu ama giriş akışını
   // kullanıcının/ajanın ELLE çalıştırması bekleniyordu. 2026-09-06'dan beri
   // akışı launcher'ın kendisi çalıştırıyor (performSamlLogin) — Playwright
@@ -1101,7 +1101,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   } else if (!verify.ok && !routerString && verify.status === null && host) {
     // SAProuter YOK ama tüm ADT/HTTPS portları ağ/firewall seviyesinde
     // tamamen erişilemez (verify.status===null → hiçbir port HTTP yanıtı
-    // vermedi, sadece 401/başka status DEĞİL). Canlı kanıt (Exeltis/QUB,
+    // vermedi, sadece 401/başka status DEĞİL). Canlı kanıt (müşteri F/SID-F,
     // 2026-09-02): bu durumda SAP'ın DIAG portu (host+diagPort) VE gateway
     // portu (aynı + 100, SAP'ın kendi 32xx/33xx kuralı) hâlâ açık olabiliyor
     // — Eclipse ADT'nin "SAP GUI connection" tabanlı projeleri tam olarak bu

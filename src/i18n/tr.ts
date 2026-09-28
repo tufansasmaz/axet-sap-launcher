@@ -616,7 +616,7 @@ export const tr = {
   "addSystemModal.systemId": "Sistem ID (SID)",
   "addSystemModal.systemIdPlaceholder": "örn. PRD",
   "addSystemModal.host": "Host (IP veya hostname)",
-  "addSystemModal.hostPlaceholder": "örn. 10.70.70.28 veya sap.musteri.com",
+  "addSystemModal.hostPlaceholder": "örn. 192.0.2.10 veya sap.example.com",
   "addSystemModal.diagPort": "SAPGUI Dispatcher (DIAG) Portu",
   "addSystemModal.diagPortPlaceholder": "örn. 3200",
   "addSystemModal.diagHelper": "ADT/ICM HTTPS portu bu DIAG port bilgisinden otomatik keşfedilecek (aynı SAP Logon sistemlerinde olduğu gibi).",

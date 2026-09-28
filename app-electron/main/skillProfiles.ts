@@ -526,7 +526,7 @@ export function planSkills(profile: SkillProfile, tier: SystemTier | null): Skil
  * yapılıyordu. Bir sisteme bağlanmadan açılan düz sohbet ise
  * `Documents\aXet Code Sessions` klasöründe çalışıyor (bkz. `store.ts`
  * `axetWorkspaceDir`) ve oraya hiçbir zaman yetenek kurulmuyordu — ajanın
- * dünyasında hiçbir skill yoktu. Ölçüldü: IED projesinde 26, PRD'de 21,
+ * dünyasında hiçbir skill yoktu. Ölçüldü: SID-J projesinde 26, PRD'de 21,
  * sohbet klasöründe 0.
  *
  * Hepsini global'e koymak kolay olurdu ama PRD kapısını işlevsiz bırakırdı:

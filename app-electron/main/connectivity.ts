@@ -101,7 +101,7 @@ function checkRouter(routerString: string, host: string, port: number, uuid: str
       // izinlidir — bu yüzden erişilebilirlik pinglemesi için de bunu
       // kullanıyoruz. Bu, gerçek ADT bağlantısının (NI_RAW_IO gerektirir)
       // de başarılı olacağını garanti ETMEZ; sadece router+ağ erişimini
-      // doğrular (bkz. PROJE-BILGI.md "BONY" bulgu notu).
+      // doğrular (bkz. PROJE-BILGI.md "müşteri A" bulgu notu).
       const socket = await connectThroughRouter(hops, timeoutMs, ROUTER_TALK_MODE_NI_MSG_IO);
       socket.destroy();
       return {

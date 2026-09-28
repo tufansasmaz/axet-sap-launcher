@@ -131,7 +131,7 @@ function summarizeBody(raw: string): string {
   return trimmed.length > MAX_BODY_SNIPPET ? `${trimmed.slice(0, MAX_BODY_SNIPPET)}…` : trimmed;
 }
 
-// KÖK SEBEP DÜZELTMESİ (canlı bulgu — Simpro/S4Q, 2026-09-02): bazı
+// KÖK SEBEP DÜZELTMESİ (canlı bulgu — müşteri G/SID-G2, 2026-09-02): bazı
 // hata durumlarında (403/404 vb.) SAP'ın ICM'i kendi HTML hata sayfasını
 // (örn. SICF'te aktive edilmemiş bir servise erişilince "Service cannot be
 // reached") döndürüyor. Eski kod bu HTML'i olduğu gibi (etiketler dahil,

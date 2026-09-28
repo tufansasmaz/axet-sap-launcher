@@ -27,7 +27,7 @@
 - Kaynak yorumları tam Türkçe karakterlerle; commit mesajları ASCII'leştirilmiş Türkçe, sonunda `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 - `release-1.6.8/`, `release-pub/`, `resources/rfc-runtime`, `resources/guiscript-runtime` asla `git add` edilmez. Her commit'te dosyalar tek tek eklenir (`git add -A` yok).
 - Push, yayın, sürüm artırma yok (her biri ayrıca açık onay ister).
-- Müşteri sistemlerine (MAYA, LED ve diğerleri) ADT çağrısı yok; SAP'lı doğrulama yalnızca DS4'te, kullanıcıyla.
+- Müşteri sistemlerine (SID-I, SID-E ve diğerleri) ADT çağrısı yok; SAP'lı doğrulama yalnızca DS4'te, kullanıcıyla.
 - `abapgit-deploy`'da "ajan basar, geliştirici çalıştırır" kuralı sürer.
 - Paket adı tahmin edilmez; transport kullanıcıya onaylatılmadan yazılmaz.
 
@@ -4135,7 +4135,7 @@ Bu task Task 1-2'nin dosyalarına (`sapWrite/server.ts`, `sapWrite/policy.ts`) b
 ```ts
 // 8787'deki yazma sunucusuyla bearer token sözleşmesi.
 //
-// Yeniden üretilen arıza (2026-09-23, MAYA, DEV + teknik danışman): yazan motor
+// Yeniden üretilen arıza (2026-09-23, SID-I, DEV + teknik danışman): yazan motor
 // (`adt_mcp_server.py --http`) `ABAP_HTTP_TOKEN` verilmezse kendi token'ını
 // üretiyor ve `/health` DAHİL her isteğe token'sız 401 dönüyor. Launcher onu
 // token'sız başlatıp token'sız yokluyordu; 401'i "ölü" sayıp 15 sn sonra
@@ -7491,13 +7491,13 @@ index a4b7d99..f77bfb3 100644
  
  | Dosya | Ne degistirildi | Neden |
  | --- | --- | --- |
--| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil") | 2026-09-24, MAYA: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` kilitliyor |
-+| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil"); ardindan "SAP DEV yazma onayi" blogu (mod, `approval_pending`, `source_file`, `kritik_bulgu`) | 2026-09-24, MAYA: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` + `tests/sapWriteGateContract.test.ts` kilitliyor |
+-| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil") | 2026-09-24, SID-I: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` kilitliyor |
++| `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil"); ardindan "SAP DEV yazma onayi" blogu (mod, `approval_pending`, `source_file`, `kritik_bulgu`) | 2026-09-24, SID-I: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` + `tests/sapWriteGateContract.test.ts` kilitliyor |
 +| `.../sap-adt/scripts/adt_gated_server.py`, `gated_collect.py`, `gated_quality.py` + `test_gated_quality.py`, `test_gated_collect.py`, `test_gated_flow.py` | YENI dosyalar (yukari akista yok): motoru import edip 28 yazan araci NTT Studio onayina bagliyor; `axet_teslim`, `axet_abapgit_onay`, `axet_inceleme_kaydet` | 2026-09-24 kullanici karari: DEV'e her yazma onaylanir, kritik inceleme bulgusu kesin engel. Motor degismedi. `py -3 test_gated_*.py` + `tests/sapWriteGateContract.test.ts` |
 +| `.../abap-code-review/SKILL.md` | 8. adim: inceleme bitince `axet_inceleme_kaydet` (bulgu sayilari, kaynak dosyalari; FUGR/FUNC notu) | Kalite kapisi inceleme kaydi olmadan yazdirmiyor |
  | `sap-consultant/skills/sap-adt-readonly/SKILL.md` | Ayni blok + "8790 degil 8787" + `/tools` (sap-adt kurulu olmayabilir) | 1.6.7'deki "aXet.code edition" d2cb667 senkronunda ezilmisti; ayni test |
  | `.../screen-gen/SKILL.md`, `.../sap-object-transfer/SKILL.md` | MCP araci/oturumu = 8787'ye POST; transfer icin `--port 8787` | `transfer_deploy.py` varsayilani 8786 |
- | `.../sap-adt-router-bridge/scripts/adt_rfc_bridge.py` + SKILL.md basi | Script: yukari akisinki DEGIL, launcher'la sahada calisan eski surum (`.conn_adt`'ten `ADT_RFC_*`, `--port`, `/health`, router'siz calisma). SKILL.md: "launcher baslatir, 8788, `.env`/8410/`selftest` burada gecersiz" blogu | 2026-09-24, LED: d2cb667 senkronu script'i `.env`'den `RFC_ASHOST` bekleyen, router'i zorunlu tutan, 8410'da dinleyen ve `/health`'i olmayan surumle degistirdi; router'li her sistem "RFC_ASHOST is not set" ile bagli degil kaldi (v1.6.8 dahil). `tests/rfcBridgeContract.test.ts` kilitliyor |
+ | `.../sap-adt-router-bridge/scripts/adt_rfc_bridge.py` + SKILL.md basi | Script: yukari akisinki DEGIL, launcher'la sahada calisan eski surum (`.conn_adt`'ten `ADT_RFC_*`, `--port`, `/health`, router'siz calisma). SKILL.md: "launcher baslatir, 8788, `.env`/8410/`selftest` burada gecersiz" blogu | 2026-09-24, SID-E: d2cb667 senkronu script'i `.env`'den `RFC_ASHOST` bekleyen, router'i zorunlu tutan, 8410'da dinleyen ve `/health`'i olmayan surumle degistirdi; router'li her sistem "RFC_ASHOST is not set" ile bagli degil kaldi (v1.6.8 dahil). `tests/rfcBridgeContract.test.ts` kilitliyor |
 @@ -259,6 +265,9 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
  | `.../test-scenarios/scripts/scan_doc_types.py` | ADT motoru import'u -> `ReadOnlyHttpClient` | `../../sap-adt/scripts` kurulu agacta HIC yok (`excludeDirs`) |
  | `.../sap-enduser-doc/SKILL.md` | MCP -> HTTP + npm bagimliligi uyarisi | ayni |
@@ -7844,7 +7844,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 **Files:** yok (kod değişmez). Bulunan her hata kendi task'ında testle birlikte düzeltilir, burada değil.
 
-**Önkoşul:** Task 1-8 commit'li, `npx vitest run` ve Python testleri yeşil, `npm run dev` ile NTT Studio açık. **Yalnızca DS4.** Müşteri sistemlerine (MAYA, LED ve diğerleri) hiçbir çağrı yok. Test paketini ve transport'u KULLANICI verir; paket adı tahmin edilmez, transport kullanıcı onaylamadan kullanılmaz. Test nesneleri kullanıcının verdiği pakette `Z` ile başlayan, adında `AXET_ONAY_TEST` geçen nesnelerdir; iş bitince kullanıcıya silinip silinmeyeceği sorulur.
+**Önkoşul:** Task 1-8 commit'li, `npx vitest run` ve Python testleri yeşil, `npm run dev` ile NTT Studio açık. **Yalnızca DS4.** Müşteri sistemlerine (SID-I, SID-E ve diğerleri) hiçbir çağrı yok. Test paketini ve transport'u KULLANICI verir; paket adı tahmin edilmez, transport kullanıcı onaylamadan kullanılmaz. Test nesneleri kullanıcının verdiği pakette `Z` ile başlayan, adında `AXET_ONAY_TEST` geçen nesnelerdir; iş bitince kullanıcıya silinip silinmeyeceği sorulur.
 
 - [ ] **Step 1: Kurulum**
 

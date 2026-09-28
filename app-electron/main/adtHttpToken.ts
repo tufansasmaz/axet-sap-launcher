@@ -12,7 +12,7 @@ import { randomBytes } from "node:crypto";
 //
 // Launcher bunu bilmiyordu. Sunucuyu token'sız başlatıp token'sız yokluyordu,
 // 401'i "ayakta değil" sayıyordu ve 15 sn sonra sunucuyu kendi eliyle
-// öldürüyordu. MAYA'da (DEV + teknik danışman) log "listening" yazarken ajan
+// öldürüyordu. SID-I'da (DEV + teknik danışman) log "listening" yazarken ajan
 // "SAP aracı yok" dedi. 1.6.7'de görünmüyordu: o sürüm her sistemde token
 // istemeyen salt-okur sunucuyu açıyordu.
 //

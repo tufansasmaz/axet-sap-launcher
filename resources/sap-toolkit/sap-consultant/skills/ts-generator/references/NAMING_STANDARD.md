@@ -163,7 +163,7 @@ gerçek ad sanılır, son ikisi ikame edilecek yeri belirsiz bırakır.
 > Hiyerarşi dört katmandır. TS üretiminde pratikte kullanacağımız katman **kalem paketi**
 > (`ZSD001` gibi) — Root/Module katmanları sistemde zaten var olan, TS başına yeniden
 > oluşturulmayan idari üst paketlerdir. Kök paketin adı **`ZROOT`**; alt çizgili `Z_ROOT`
-> kullanılmaz (bazı sistemlerde ikisi birden bulunur, ör. Beta Enerji)
+> kullanılmaz (bazı sistemlerde ikisi birden bulunur, ör. müşteri K)
 > → [H1](NAMING_STANDARD_HISTORY.md#h1).
 
 | Tip | Paket | Açıklama |
@@ -581,7 +581,7 @@ ZND_ROOT
 
 **[P] v1.1 listesi — sistemlerde fiilen duran paketler (eski adlandırma).** Kılavuzdan değil,
 sistem taramalarından. Aşağıdaki 15 paketin v2.0'da karşılığı yok; emekli mi edildiler yoksa
-sayılmadılar mı belli değil, ama sistemlerde duruyorlar (Beta Enerji'de bu ailenin 23 paketi
+sayılmadılar mı belli değil, ama sistemlerde duruyorlar (müşteri K'da bu ailenin 23 paketi
 var, en dolusu `ZNT_011`, 93 nesne). **Okuma amaçlıdır** — yeni geliştirme buraya yönlendirilmez.
 
 | Alt Paket (eski) | Alan |

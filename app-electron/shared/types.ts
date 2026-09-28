@@ -930,7 +930,7 @@ export interface StoredChatSession {
   // çalışırsa görüyor. Yoksa genel çalışma alanı (`config.axetWorkspaceDir`)
   // kullanılır; eski geçmiş dosyalarında bu alan hiç yok, o yüzden opsiyonel.
   cwd?: string;
-  // Yalnızca GÖRSEL etiket ("Müşteri · S4D") — sohbetin tepesindeki rozette
+  // Yalnızca GÖRSEL etiket ("Müşteri · SID-G1") — sohbetin tepesindeki rozette
   // hangi sisteme bağlı olduğunu göstermek için. Bağlantı kimliği değil.
   sapLabel?: string;
   // Kullanıcının elle oluşturduğu projeye aidiyet (bkz. ChatProject). SAP
@@ -1350,7 +1350,7 @@ export interface GuiScriptActionResult {
    * Köprünün aksiyondan sonraki HAZIR OLMA beklemesi (bkz. bridge'teki
    * `_settle`). Beklemenin köprüde yapılması gerekiyor: oturum nesnesi orada
    * ve HTTP turu yok. Oynatıcı bunun üzerine adımlar arasına ayrıca uyku
-   * KOYMAZ — canlı ölçümde (S4D/SE16N, 2026-09-03) sıfır beklemeyle arka
+   * KOYMAZ — canlı ölçümde (SID-G1/SE16N, 2026-09-03) sıfır beklemeyle arka
    * arkaya gönderilen 10 adımın tamamı geçti ve `busySeen` bir kez bile
    * doğru olmadı: SAP GUI Scripting çağrısı zaten senkron, sunucu turu
    * çağrının İÇİNDE bitiyor.

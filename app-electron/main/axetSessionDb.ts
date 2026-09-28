@@ -222,7 +222,7 @@ export function sessionDbLoadError(): string {
 // hiç gelmemiş gibi görünür.
 //
 // KLASÖR VARSA YUKARI ÇIKILMIYOR — dosya henüz yazılmamış olsa bile.
-// Ölçülmüş arıza (2026-09-07, IED): proje klasörü 14:11'de açıldı, skiller
+// Ölçülmüş arıza (2026-09-07, SID-J): proje klasörü 14:11'de açıldı, skiller
 // `<cwd>/.axet-code/skills/` altına 14:12'de kuruldu, ama axet-code kendi
 // `axet-code.db` dosyasını ancak spawn olunca (14:14:24) yarattı. Oturum
 // kurulumu ondan ÖNCE çözdüğü için tarama yukarı çıkıp ortak ata klasördeki

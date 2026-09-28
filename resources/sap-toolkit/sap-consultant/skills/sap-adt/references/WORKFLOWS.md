@@ -117,7 +117,7 @@ result = client.create_object(
     package_name='ZAI',
     description='Report for history table',
     package_path='/sap/bc/adt/packages/zai',
-    transport='FIDK901433'
+    transport='XXXK901433'
 )
 # Method automatically retries with up to 10 different combinations
 ```
