@@ -1,4 +1,4 @@
-import { useFieldControl } from "./Field";
+import { useFieldControl, useInField } from "./Field";
 
 // Açma/kapama anahtarı (spec §6.3). `role="switch"` + `aria-checked`: ekran
 // okuyucu "açık/kapalı" diye okuyor, onay kutusu gibi "işaretli" diye değil.
@@ -8,7 +8,8 @@ import { useFieldControl } from "./Field";
 // `--accent-on-rgb`). Kapalıyken nötr kontrol zemini.
 //
 // Erişilebilir ad: `Field` içindeyse etiketi oradan, değilse `label`
-// niteliğinden gelir.
+// niteliğinden gelir. Field içindeyken `label` prop'u aria-label olmaması için
+// `useInField` kontrol edilir.
 
 export function Toggle({
   checked,
@@ -24,12 +25,13 @@ export function Toggle({
   id?: string;
 }) {
   const aria = useFieldControl({ id });
+  const inField = useInField();
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
-      aria-label={label}
+      aria-label={inField ? undefined : label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
       {...aria}

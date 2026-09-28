@@ -184,4 +184,45 @@ describe("Toggle", () => {
     const toggle = screen.getByRole("switch", { name: "Otomatik güncelle" });
     expect(describedTexts(toggle)).toEqual(["Açılışta denetler"]);
   });
+
+  it("Field içinde label verilmeyince label prop'u kullanmıyor", () => {
+    wrap(
+      <Field label="Bildirimler" hint="Açılışta denetler">
+        <Toggle checked={false} onChange={vi.fn()} />
+      </Field>
+    );
+    const toggle = screen.getByRole("switch", { name: "Bildirimler" });
+    expect(toggle).toBeTruthy();
+  });
+
+  it("Field dışında label prop'u aria-label olarak gidiyor", () => {
+    wrap(<Toggle checked={false} onChange={vi.fn()} label="Bildirimler" />);
+    const toggle = screen.getByRole("switch", { name: "Bildirimler" });
+    expect(toggle).toBeTruthy();
+  });
+});
+
+describe("Field erişilebilirlik (iç içe ve kenar durumları)", () => {
+  it("iç içe: <Field><div><Input /></div></Field> etiket girdiye bağlı ve ipucu aria-describedby'da", () => {
+    wrap(
+      <Field label="Ad" hint="İpucu">
+        <div>
+          <Input />
+        </div>
+      </Field>
+    );
+    const input = screen.getByLabelText("Ad");
+    expect(input.tagName).toBe("INPUT");
+    expect(describedTexts(input)).toEqual(["İpucu"]);
+  });
+
+  it("hint boşken ipucu <p> yok ve aria-describedby yok", () => {
+    wrap(
+      <Field label="Ad" hint="">
+        <Input />
+      </Field>
+    );
+    const input = screen.getByLabelText("Ad");
+    expect(input.hasAttribute("aria-describedby")).toBe(false);
+  });
 });

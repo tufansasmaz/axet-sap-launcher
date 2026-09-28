@@ -1,6 +1,7 @@
 import {
   createContext,
   forwardRef,
+  isValidElement,
   useContext,
   useId,
   type InputHTMLAttributes,
@@ -52,6 +53,11 @@ export function useFieldControl<P extends ControlAria>(props: P): P {
   };
 }
 
+/** Field içinde olup olmadığını algılar; erişilebilir ad kaynağını seçmek için kullanılır. */
+export function useInField(): boolean {
+  return useContext(FieldContext) !== null;
+}
+
 export function Field({
   label,
   hint,
@@ -69,14 +75,9 @@ export function Field({
   const contextId = `${base}-control`;
   const hintId = `${base}-hint`;
   const errorId = `${base}-error`;
-  // Girdinin kendi id'si varsa onu kullan, yoksa contextId
-  const id =
-    typeof children === "object" &&
-    children !== null &&
-    "props" in children &&
-    typeof children.props.id === "string"
-      ? children.props.id
-      : contextId;
+  // Çocuk kendi id'sini verdiyse onu kullan, yoksa Field'ın sağladığı contextId'sini.
+  // Bu sayede label htmlFor ve context id'si senkron olur.
+  const id = isValidElement<{ id?: unknown }>(children) && typeof children.props.id === "string" ? children.props.id : contextId;
   const describedBy = [hint ? hintId : null, error ? errorId : null].filter(Boolean).join(" ") || undefined;
   return (
     <FieldContext.Provider value={{ id, describedBy, invalid: Boolean(error) }}>
