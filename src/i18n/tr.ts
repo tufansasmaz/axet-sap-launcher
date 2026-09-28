@@ -632,6 +632,28 @@ export const tr = {
 
   "confirmDialog.confirm": "Onayla",
 
+  "certTrust.untrustedTitle": "SAP sertifikası doğrulanamadı",
+  "certTrust.changedTitle": "SAP sertifikası değişti",
+  "certTrust.untrustedMessage":
+    "{endpoint} sunucusunun TLS sertifikası tanınan bir kök sertifikaya bağlanamadı (kurum içi CA ya da kendinden imzalı). Kullanıcı adı ve şifre GÖNDERİLMEDİ.",
+  "certTrust.changedMessage":
+    "{endpoint} sunucusu, bu sistem için daha önce onayladığınızdan FARKLI bir sertifika sundu. Kullanıcı adı ve şifre GÖNDERİLMEDİ.",
+  "certTrust.untrustedWarning":
+    "Güvenmeden önce parmak izini SAP Basis ekibinin verdiği değerle (STRUST) karşılaştırın. Onaylarsanız bu sunucuya yalnızca bu sertifikayla bağlanılır.",
+  "certTrust.changedWarning":
+    "Sertifika yenilenmiş olabilir — ya da bağlantınızın arasına biri girmiş olabilir. Yenilendiğini SAP Basis ekibinden teyit etmeden onaylamayın.",
+  "certTrust.fingerprint": "SHA-256 parmak izi",
+  "certTrust.previousFingerprint": "Önceki parmak izi",
+  "certTrust.newFingerprint": "Yeni parmak izi",
+  "certTrust.subject": "Konu",
+  "certTrust.issuer": "Veren",
+  "certTrust.selfSigned": "kendinden imzalı",
+  "certTrust.validity": "Geçerlilik",
+  "certTrust.reason": "Doğrulama hatası",
+  "certTrust.trust": "Bu sertifikaya güven ve bağlan",
+  "certTrust.approveFailed":
+    "Sertifika onayı kaydedilemedi: sunucunun sunduğu sertifika onay penceresindekinden farklı. Lütfen yeniden bağlanın.",
+
   "toast.dismissTitle": "Kapatmak için tıkla",
 
   "terminalPanel.resizeTitle": "Boyutu değiştir",

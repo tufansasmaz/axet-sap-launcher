@@ -81,6 +81,7 @@ export interface AxetApi {
   getLandscape: () => Promise<SapLandscape>;
   checkConnectivity: (service: SapService) => Promise<ConnectivityResult>;
   connect: (req: ConnectRequest) => Promise<ConnectResult>;
+  approveCertificate: (key: string, fingerprint: string) => Promise<boolean>;
   getCredentialDefaults: (serviceUuid: string) => Promise<CredentialDefaults>;
   // Aktif bağlam — üç ekranın ortak "neredeyiz" bilgisi
   // (bkz. app-electron/main/activeContext.ts).

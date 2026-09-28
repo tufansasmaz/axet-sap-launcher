@@ -74,6 +74,12 @@ function checkHttpsUrl(rawUrl: string, uuid: string, timeoutMs: number): Promise
       settled = true;
       resolve(result);
     };
+    // `rejectUnauthorized: false` BİLEREK ve güvenli: bu yalnızca "sunucu
+    // ayakta mı" yoklaması — el sıkışma bitince soket hiçbir veri yazılmadan
+    // kapanıyor, kimlik bilgisi ya da başka bir istek gitmiyor. Doğrulasaydık
+    // kurum içi CA'lı her SAP sistemi listede "erişilemez" görünürdü. Kimlik
+    // bilgisi taşıyan bağlantılar tlsPin.ts kuralından geçiyor (zincir ya da
+    // onaylı parmak izi), bkz. adtDiscovery.ts verifyCredentials.
     const socket = tlsConnect(
       { host: parsed.hostname, port, rejectUnauthorized: false, timeout: timeoutMs, servername: isIp ? undefined : parsed.hostname },
       () => {

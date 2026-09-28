@@ -129,6 +129,17 @@ def _assert_origin(mod, expected: Path) -> None:
 _assert_origin(engine, _ENGINE_DIR / "adt_mcp_server.py")
 _assert_origin(guardrails, _ENGINE_DIR / "guardrails.py")
 
+# NTT Studio: TLS. The engine's session does not verify certificates by default
+# (verify=False), so the Basic Auth header could reach any interposed server.
+# Without touching the engine, every SAPADTClient session gets the rule "chain
+# verifies, or the certificate matches the pin approved in NTT Studio"
+# (ADT_SAP_CERT_SHA256; see sap-adt/scripts/ntt_tls_pin.py). Read-only does not
+# make credentials less secret.
+import ntt_tls_pin  # noqa: E402
+
+_assert_origin(ntt_tls_pin, _ENGINE_DIR / "ntt_tls_pin.py")
+ntt_tls_pin.install()
+
 
 # --- the classification ------------------------------------------------------
 # Every name here is a tool in adt_mcp_server.py. ALLOW | GATED | DENY must equal

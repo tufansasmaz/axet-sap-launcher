@@ -184,6 +184,8 @@ describe("CLAUDE.md — uyarlama tablosu", () => {
     "adt_gated_server.py",
     "gated_collect.py",
     "gated_quality.py",
+    "ntt_tls_pin.py",
+    "adt_readonly_server.py",
     "tier_gate.py",
     "test_tier_gate_approval.py",
     "abap-code-review/SKILL.md",

@@ -66,6 +66,10 @@ const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
   checkConnectivity: (service: SapService) => ipcRenderer.invoke("connectivity:check", service),
   connect: (req: ConnectRequest) => ipcRenderer.invoke("system:connect", req),
+  // Sertifika onayı: yalnızca ana sürecin bağlanırken ölçtüğü parmak izi
+  // kaydedilebiliyor (bkz. main/index.ts "certs:approve").
+  approveCertificate: (key: string, fingerprint: string): Promise<boolean> =>
+    ipcRenderer.invoke("certs:approve", key, fingerprint),
   getCredentialDefaults: (serviceUuid: string) => ipcRenderer.invoke("credentials:getDefaults", serviceUuid),
   // Aktif bağlam — üç ekranın ortak "neredeyiz" bilgisi (bkz.
   // main/activeContext.ts). Renderer SAP tarafını YAZAMIYOR, sadece okuyor

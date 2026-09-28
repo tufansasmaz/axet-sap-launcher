@@ -169,6 +169,10 @@ Menu.setApplicationMenu(
 
 let mainWindow: BrowserWindow | null = null;
 
+// Kullanıcı onayı bekleyen TLS sertifikaları: `host:port` → bağlanırken
+// ölçülen SHA-256 parmak izi (bkz. "system:connect" ve "certs:approve").
+const pendingCertPrompts = new Map<string, string>();
+
 // axet.flows'un mini deploy/debug motoru (bkz. flowRuntime.js) — tek bir
 // örnek, uygulama ömrü boyunca yaşar (SAP Launcher'ın terminal/RFC-bridge
 // süreçleriyle aynı desende — bkz. "before-quit"/"window-all-closed"
@@ -719,6 +723,12 @@ function registerIpc(): void {
     if (result.trustedCertificates) {
       saveTrustedCertificates(result.trustedCertificates);
     }
+    if (result.certPrompt) {
+      // Onay bekleyen sertifika ANA süreçte tutuluyor: renderer'ın onaylayıp
+      // kaydettirebileceği tek parmak izi, bağlanma sırasında sunucudan
+      // gerçekten ölçülen bu. Bkz. "certs:approve".
+      pendingCertPrompts.set(result.certPrompt.key, result.certPrompt.fingerprint);
+    }
     if (result.ok) {
       // Şifre de kullanıcı adı/client gibi otomatik doldurulsun diye
       // saklanıyor — bu, .conn_adt'ın kendisinin de aynı sistemde zaten düz
@@ -748,6 +758,23 @@ function registerIpc(): void {
       });
     }
     return result;
+  });
+
+  // Kullanıcı sertifika onay penceresinde "Güven" dedi. Kaydedilen parmak
+  // izi renderer'dan gelen değer DEĞİL, ana sürecin bağlanırken ölçüp
+  // beklettiği değer; ikisi eşleşmezse (pencere eski bir ölçümü gösteriyorsa
+  // ya da renderer keyfi bir pin yazdırmaya çalışıyorsa) hiçbir şey
+  // kaydedilmiyor. trustedCertificates config:save'den de korunuyor
+  // (MAIN_OWNED), yani pin'in tek yazma yolu bu ve bağlanma akışı.
+  ipcMain.handle("certs:approve", (_event, key: string, fingerprint: string): boolean => {
+    const pending = typeof key === "string" ? pendingCertPrompts.get(key) : undefined;
+    if (!pending || typeof fingerprint !== "string" || pending !== fingerprint.toLowerCase()) {
+      return false;
+    }
+    pendingCertPrompts.delete(key);
+    saveTrustedCertificates({ [key]: pending });
+    appLog("tls:pin:onay", { anahtar: key, parmakIzi: pending });
+    return true;
   });
 
   // ---------------------------- Aktif Bağlam ----------------------------

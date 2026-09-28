@@ -88,6 +88,15 @@ _assert_origin(engine, _SCRIPTS_DIR / "adt_mcp_server.py")
 _assert_origin(gc, _SCRIPTS_DIR / "gated_collect.py")
 _assert_origin(gq, _SCRIPTS_DIR / "gated_quality.py")
 
+# TLS: motorun oturumu varsayılan olarak sertifika doğrulamıyor (verify=False);
+# Basic Auth başlığı araya giren herhangi bir sunucuya gidebiliyordu. Motor
+# dosyasına dokunmadan, her SAPADTClient oturumuna "zincir ya da NTT Studio'da
+# onaylı pin" kuralı monte ediliyor (bkz. ntt_tls_pin.py).
+import ntt_tls_pin  # noqa: E402
+
+_assert_origin(ntt_tls_pin, _SCRIPTS_DIR / "ntt_tls_pin.py")
+ntt_tls_pin.install()
+
 
 # --- sınıflar -----------------------------------------------------------------
 SERBEST = {
