@@ -69,7 +69,7 @@ ActivityBar + iki aktiviteyi (axetCode/sapLauncher) koşullu render edecek
 
 ## Teknoloji Yığını
 
-- **Electron 33** (main + preload + renderer üç ayrı build hedefi,
+- **Electron 44** (main + preload + renderer üç ayrı build hedefi,
   `electron-vite` ile derleniyor — `electron.vite.config.ts`).
 - **React 18 + TypeScript**, Tailwind CSS (CSS custom property tabanlı
   dark/light tema — `src/index.css`, `tailwind.config.js`).
@@ -8196,17 +8196,23 @@ Saf JS/WASM okuyucular (denendi: `node-sqlite3-wasm`) **WAL yüzünden**
 kullanılamıyor: paylaşımlı belleği kuramadıkları için var olan her dosyada
 "unable to open database file" veriyorlar. Native sürüm zorunlu.
 
-- Sürüm **12.4.1'e sabitli**. 13.x, `engines: node>=22` yüzünden Electron 33'ün
-  Node 20'sinde `new Database`'te süreci sert çökertiyor (crashpad).
+- Sürüm **13.0.3'e sabitli** (2026-09-28, Electron 44 yükseltmesiyle). 13.x
+  N-API'li: ikili paketin İÇİNDE (`prebuilds/win32-x64.node`) geliyor ve
+  Electron ABI'sine bağlı değil — Electron yükseltmesi artık sqlite ikilisini
+  değiştirmiyor. Eskiden 12.4.1'e sabitliydi, çünkü 13.x `engines: node>=22`
+  istiyor ve Electron 33'ün Node 20'sinde `new Database`'te süreci sert
+  çökertiyordu (crashpad); Electron 44'ün Node'u 24.
 - Bu makinede kurumsal npm kurulum script'lerini engelliyor ve Visual Studio
-  derleme araçları YOK — yani ne indirilebiliyor ne derlenebiliyor. Paket
-  `--ignore-scripts` ile kuruluyor; ikiliyi `build/ensureSqlite.cjs` indiriyor
-  (Electron ABI'si için hazır prebuild, derleme değil).
-- Bu script `npm run build`'in **prebuild** aşamasında otomatik çalışıyor.
-  Kasıtlı: eksik ikilinin belirtisi SESSİZ ("sohbet yine yavaş") olurdu.
-- `npmRebuild: false` — bu ortamda rebuild garanti patlar.
-- Paketleme: `files`'a `better-sqlite3`, `bindings`, `file-uri-to-path`
-  eklendi; `asarUnpack`'teki `**/*.node` zaten `.node`'u asar dışına çıkarıyor.
+  derleme araçları YOK. Paketler `--ignore-scripts` ile kuruluyor; 13.x'in
+  zaten kurulum script'i yok, indirme de derleme de gerekmiyor.
+- `build/ensureSqlite.cjs` `npm run build`'in **prebuild** aşamasında
+  ikilinin yerinde olduğunu yokluyor, yoksa derlemeyi durduruyor. Kasıtlı:
+  eksik ikilinin belirtisi SESSİZ ("sohbet yine yavaş") olurdu.
+- `npmRebuild: false` — bu ortamda rebuild garanti patlar; N-API ikilisi
+  zaten rebuild istemiyor.
+- Paketleme: `files`'ta `better-sqlite3` var, Windows dışı prebuild'ler
+  hariç tutuluyor; `asarUnpack`'teki `**/*.node` `.node`'u asar dışına
+  çıkarıyor.
 
 ### Açılış el sıkışması
 

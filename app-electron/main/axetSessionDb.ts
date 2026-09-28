@@ -172,7 +172,7 @@ interface MessageRow {
 // olarak çıkar.
 type DatabaseCtor = new (path: string, options?: Record<string, unknown>) => SqliteDatabase;
 
-// STATİK import DEĞİL, bilinçli olarak: ikili eksikse (bkz.
+// STATİK import DEĞİL, bilinçli olarak: ikili eksik ya da yüklenemezse (bkz.
 // build/ensureSqlite.cjs) statik bir import main process'i AÇILIŞTA düşürürdü.
 // Burada ise yalnızca bu özellik kapanıyor ve sohbet `run` yoluna düşüyor.
 //
@@ -184,14 +184,15 @@ const nodeRequire = createRequire(import.meta.url);
 let ctor: DatabaseCtor | null = null;
 let loadError = "";
 
+// better-sqlite3 13'ten beri ikili N-API'li ve paketin İÇİNDE geliyor
+// (`prebuilds/<platform>-<mimari>.node`); `build/Release` artık hiç oluşmuyor.
 function unpackedBindingPath(): string {
   return join(
     app.getAppPath().replace("app.asar", "app.asar.unpacked"),
     "node_modules",
     "better-sqlite3",
-    "build",
-    "Release",
-    "better_sqlite3.node"
+    "prebuilds",
+    `${process.platform}-${process.arch}.node`
   );
 }
 
