@@ -162,6 +162,12 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
   const token = randomBytes(32).toString("base64url");
   const bridge: RunningBridge = { proc: null, port: opts.port, token, tail: [], exited: false, exitInfo: "" };
 
+  // Ana sürecin ortamı ADT sunucusunun token'ını taşıyor (ajan terminalleri
+  // kalıtımla alsın diye). Köprünün ona ihtiyacı yok; köprüde çalışan bir
+  // hata ya da döküm onu dışarı taşımasın.
+  const baseEnv: NodeJS.ProcessEnv = { ...process.env };
+  for (const k of ["ABAP_HTTP_TOKEN", "ADT_APPROVAL_TOKEN", "ADT_APPROVAL_URL"]) delete baseEnv[k];
+
   let proc: ChildProcess;
   try {
     proc = spawn(opts.pythonPath, [opts.scriptPath, "--port", String(opts.port)], {
@@ -170,7 +176,7 @@ export async function startGuiScriptBridge(opts: GuiScriptBridgeStartOptions): P
       // Token ve PRD listesi argv'de DEĞİL: argv süreç listesinde aynı
       // kullanıcının her sürecine görünür.
       env: {
-        ...process.env,
+        ...baseEnv,
         [GUI_BRIDGE_TOKEN_ENV]: token,
         [GUI_BRIDGE_PRD_ENV]: JSON.stringify(opts.prdSystems)
       }
