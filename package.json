@@ -15,7 +15,7 @@
     "prebuild": "node build/ensureSqlite.cjs && node build/genToolkitVersion.cjs",
     "build": "electron-vite build",
     "build:win": "npm run build && electron-builder --win",
-    "release": "npm run build && electron-builder --win --publish always",
+    "release": "node build/signUpdate.cjs --check-key && npm run build && electron-builder --win --publish always",
     "preview": "electron-vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.node.json"
@@ -117,6 +117,7 @@
       "releaseType": "release"
     },
     "afterPack": "build/afterPack.cjs",
+    "afterAllArtifactBuild": "build/signUpdate.cjs",
     "nsis": {
       "oneClick": false,
       "perMachine": false,

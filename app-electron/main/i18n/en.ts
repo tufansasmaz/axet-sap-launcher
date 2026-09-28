@@ -19,6 +19,10 @@ export const MAIN_EN = {
 
   // --- updater.ts ---
   "updater.devModeOnly": "Update checks only work in the packaged app (not in dev mode).",
+  "updater.signatureMissing": "The update's signature file was not found; an update whose signature cannot be verified was not installed.",
+  "updater.signatureUnavailable": "The update's signature file could not be downloaded; an update whose signature cannot be verified was not installed.{detail}",
+  "updater.signatureInvalid": "The update signature could not be verified; the file is not the one the publisher signed, so it was not installed.",
+  "updater.notVerified": "The update signature has not been verified, so nothing was installed. Download the update again.",
 
   // --- chatAttachments.ts ---
   "chatAttachments.readFailed": "File contents could not be read.",

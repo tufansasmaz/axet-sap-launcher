@@ -22,6 +22,10 @@ export const MAIN_TR = {
 
   // --- updater.ts ---
   "updater.devModeOnly": "Güncelleme kontrolü sadece paketlenmiş uygulamada çalışır (dev modda değil).",
+  "updater.signatureMissing": "Güncellemenin imza dosyası bulunamadı; imzası doğrulanamayan güncelleme kurulmadı.",
+  "updater.signatureUnavailable": "Güncellemenin imza dosyası indirilemedi; imzası doğrulanamayan güncelleme kurulmadı.{detail}",
+  "updater.signatureInvalid": "Güncelleme imzası doğrulanamadı; dosya yayıncının imzaladığı dosya değil, kurulmadı.",
+  "updater.notVerified": "Güncelleme imzası doğrulanmadı; kurulum yapılmadı. Güncellemeyi yeniden indir.",
 
   // --- chatAttachments.ts ---
   "chatAttachments.readFailed": "Dosya içeriği okunamadı.",

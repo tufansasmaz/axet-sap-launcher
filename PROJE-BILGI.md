@@ -1006,6 +1006,9 @@ almak istiyorsa NSIS installer'ı kullanması gerektiği söylenmeli).
 2. `GH_TOKEN` ortam değişkenini `repo` yetkili bir PAT ile set et.
 3. `npm run release` çalıştır — bu hem build alır hem GitHub Releases'e
    yükler (repo private olduğu için `GH_TOKEN`'ın bu repoya erişimi olmalı).
+   (1.7.0 sonrası: güncelleme imza anahtarı yoksa `npm run release` derlemeye
+   başlamadan durur; `.sig` yayına kendiliğinden eklenir. Elle yüklüyorsan
+   `.sig`'i de yükle — bkz. bölüm 16 ve "Güncelleme imzası".)
 4. Kullanıcılar Ayarlar'daki "Şimdi Kontrol Et" ile (veya otomatik açılış
    kontrolüyle) yeni sürümü görüp indirip kurabilir.
 
@@ -9823,6 +9826,13 @@ gündeme getirilmez.**
   electron-updater onu arıyor. Boşluklu adla (`NTT Studio Setup X.Y.Z.exe`)
   yüklenirse güncelleme 404 alır. `latest.yml` ve `.blockmap` da release'e
   eklenmeli.
+- **`.sig` dosyasını da yükle (1.7.0 sonrası ZORUNLU):** `release/` altında
+  `NTT-Studio-Setup-X.Y.Z.exe.sig` üretiliyor (zaten tireli ad — olduğu gibi
+  yükle). Uygulama güncellemeyi indirince bu dosyayı
+  `releases/download/vX.Y.Z/<latest.yml url>.sig` adresinden alıp gömülü Ed25519
+  genel anahtarla doğruluyor; `.sig` yoksa ya da tutmuyorsa güncelleme
+  KURULMUYOR. Ayrıntı ve anahtar yönetimi: aşağıdaki "Güncelleme imzası"
+  bölümü.
 - **Çalışan paketlenmiş uygulama build'i kilitliyor:** `release/win-unpacked/
   d3dcompiler_47.dll` üzerinde `Access is denied` →
   `ERR_ELECTRON_BUILDER_CANNOT_EXECUTE`. `build:win` öncesi "NTT Studio.exe"
@@ -9832,6 +9842,35 @@ gündeme getirilmez.**
 - Güncelleme **token gerektirmiyor** (depo public). `updateToken` alanı
   kaynaktan tamamen kaldırıldı; `README.md` ve `KULLANIM-REHBERI.md` buna göre
   düzeltildi.
+
+### 17. Güncelleme imzası (Ed25519)
+
+Kurulum Authenticode ile imzalanmıyor (`signAndEditExecutable: false`, bilinçli)
+ve `latest.yml`'deki SHA-512 bir imza değil: GitHub sürümüne yazabilen biri exe
+ile `latest.yml`'i birlikte değiştirirse eski uygulama sahte kurulumu
+çalıştırıyordu. Artık her güncelleme kendi Ed25519 anahtarımızla imzalanıyor.
+
+- **Özel anahtar** depo dışında: `~/.ntt-studio-keys/update-ed25519.pem`
+  (başka yer için `NTT_STUDIO_UPDATE_KEY`). Asla commit edilmez, loglanmaz.
+  **YEDEKLE** (şifreli, makine dışında): kaybolursa kurulu uygulamalar yeni
+  hiçbir güncellemeyi kabul etmez, kullanıcılar yeni anahtarlı sürümü elle
+  kurmak zorunda kalır. Sızarsa da aynı: yeni anahtar, yeni sürüm, elle kurulum.
+- **Genel anahtar** `app-electron/main/updateSignature.ts` içinde
+  `UPDATE_PUBLIC_KEY_PEM`.
+- **İmzalanan metin** (UTF-8): `ntt-studio-update\n<version>\n<latest.yml url>\n<sha512 base64>`.
+  Üreten `build/signUpdate.cjs` (`afterAllArtifactBuild` kancası), doğrulayan
+  `updateSignature.ts`; iki taraf birlikte `tests/updateSignature.test.ts`'te.
+- **Derleme:** `build:win` anahtar yoksa uyarır ve `.sig` üretmez;
+  `npm run release` (`--publish always`) anahtar yoksa derlemeye başlamadan
+  durur (`node build/signUpdate.cjs --check-key`), kanca da hata verir.
+- **Uygulama:** `update-downloaded` sonrası `.sig` indiriliyor, dosyanın gerçek
+  SHA-512'si hem `latest.yml`'le hem imzayla karşılaştırılıyor; tutmazsa
+  "downloaded" durumu hiç gönderilmiyor, `quitAndInstall` çağrılmıyor.
+  `autoInstallOnAppQuit = false` (kapanışta sessiz kurulum doğrulamayı
+  atlardı). Kurulumdan hemen önce özet bir kez daha alınıyor.
+- **Sınır:** bu kodu taşımayan kurulu sürümler (1.7.0'dan öncekiler; 1.7.0
+  bu kod olmadan yayınlandıysa o da) imzasız güncellemeyi hâlâ kabul eder. Koruma, kullanıcı imzalı ilk sürüme geçtikten
+  sonra başlar.
 
 ---
 

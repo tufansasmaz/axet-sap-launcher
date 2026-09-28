@@ -1055,8 +1055,8 @@ function registerIpc(): void {
     await downloadUpdate();
   });
 
-  ipcMain.handle("updates:install", () => {
-    installUpdate();
+  ipcMain.handle("updates:install", async () => {
+    await installUpdate();
   });
 
   ipcMain.handle("updates:getLastStatus", () => getLastUpdateStatus());
