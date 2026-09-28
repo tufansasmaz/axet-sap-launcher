@@ -230,8 +230,8 @@ Her sistem için oluşturulan proje klasöründe:
 - **`.conn_adt`**: Doğrulanmış bağlantı bilgileri (ADT URL, kullanıcı,
   şifre, client). **Asla paylaşma / commit etme** — otomatik `.gitignore`'a
   eklenir.
-- **`adt-tool.ps1`**: PowerShell ile SAP'a ADT isteği atmak için basit bir
-  yardımcı script (fallback).
+- **`adt-tool.ps1`**: PowerShell ile SAP'tan ADT üzerinden OKUMAK için basit bir
+  yardımcı script (fallback). Salt okunur: yalnızca GET/HEAD gönderir.
 - **`sap-context.md`**: axet.code'un session başında okuyacağı, sistemle
   ilgili tüm bilgiyi (müşteri, sistem, doğrulama notları, kullanılabilir
   skill'ler) içeren dosya. Sen bu dosyanın en altındaki "Notlar" bölümüne

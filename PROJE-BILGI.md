@@ -148,8 +148,8 @@ resources/sap-toolkit/    # abapGit bridge, ADT read-only Python server,
    e. Doğrulama başarısızsa burada durur, terminal AÇILMAZ, hata mesajı
       renderer'a döner.
    f. Başarılıysa: `.conn_adt` (plaintext kimlik + doğrulanmış URL) ve
-      `adt-tool.ps1` (PowerShell ADT client, TLS bypass + CSRF token
-      otomatik) yazılır, `.gitignore`'a `.conn_adt` eklenir.
+      `adt-tool.ps1` (PowerShell ADT client, SALT OKUNUR: yalnızca GET/HEAD;
+      sertifika zincir ya da onaylı parmak iziyle doğrulanıyor) yazılır, `.gitignore`'a `.conn_adt` eklenir.
    g. `testAdtToolScript()` — yazılan PS script'i gerçekten çalıştırıp
       self-test yapar (Node.js'in TLS doğrulamasıyla PowerShell'in TLS
       davranışı farklı olabildiği için).

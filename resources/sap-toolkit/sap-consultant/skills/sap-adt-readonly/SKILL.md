@@ -36,6 +36,10 @@ allowed-tools: Bash(python:*), Bash(py:*), Read, Grep, Glob
 > - Sunucuyu kendin başlatma, script'leri doğrudan çalıştırma: ikinci süreç ikinci SAP
 >   oturumu demek ve kapıyı atlar. Durum için proje klasöründeki `sap-context.md`'ye bak;
 >   `/health` cevap vermiyorsa kullanıcıdan NTT Studio'da sisteme yeniden bağlanmasını iste.
+> - Bu sistemde SAP'a yazma yolu yok. Yazma yalnızca DEV'de, 8787 üzerinden NTT Studio'nun
+>   onay penceresiyle. motor belgelerindeki (`sap-adt/references/`) `POST/PUT /sap/bc/adt/...`
+>   satırları motorun iç işleyişi, tarif değil; `adt-tool.ps1` salt okunur (yalnızca GET/HEAD);
+>   `.conn_adt`'deki parolayla kendi HTTP isteğini kurma.
 >
 > ```bash
 > python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.get('http://127.0.0.1:8787/health', headers=h).json())"

@@ -70,9 +70,16 @@ def _read_approval_env() -> tuple[str, str]:
 # bir ADT_APPROVAL_* anahtarı onayları sessizce başka bir uca yönlendirmesin.
 _APPROVAL = _read_approval_env()
 
+# Kademe de aynı sebeple motordan ÖNCE yakalanıyor: `.conn_adt`'ye yazılmış bir
+# NTT_STUDIO_SAP_TIER satırı launcher'ın verdiği değeri ezmesin (bkz. ntt_tier.py).
+import ntt_tier  # noqa: E402
+
+_ENV_TIER = ntt_tier.capture_env_tier()
+
 import adt_mcp_server as engine  # noqa: E402
 import gated_collect as gc  # noqa: E402
 import gated_quality as gq  # noqa: E402
+import guardrails  # noqa: E402
 
 
 def _assert_origin(mod, expected: Path) -> None:
@@ -87,6 +94,13 @@ def _assert_origin(mod, expected: Path) -> None:
 _assert_origin(engine, _SCRIPTS_DIR / "adt_mcp_server.py")
 _assert_origin(gc, _SCRIPTS_DIR / "gated_collect.py")
 _assert_origin(gq, _SCRIPTS_DIR / "gated_quality.py")
+_assert_origin(guardrails, _SCRIPTS_DIR / "guardrails.py")
+_assert_origin(ntt_tier, _SCRIPTS_DIR / "ntt_tier.py")
+
+# Kademe: motorun kapısı `.conn_adt`'deki ADT_SAP_TIER'a bakıyor ve o dosyayı
+# ajan yazabiliyor. Launcher'ın ortama koyduğu değer alt sınır: `.conn_adt`
+# ondan daha gevşek bir kademe söyleyemez (bkz. ntt_tier.py).
+ntt_tier.install(guardrails, _ENV_TIER)
 
 # TLS: motorun oturumu varsayılan olarak sertifika doğrulamıyor (verify=False);
 # Basic Auth başlığı araya giren herhangi bir sunucuya gidebiliyordu. Motor
@@ -660,6 +674,14 @@ def main(argv=None):
             sinif = "AXET" if name in AXET_TOOLS else ("KARMA" if name in KARMA else classify(name, {}))
             sys.stdout.write(f"{name}  [{sinif}]\n")
         return
+    # Launcher bu sunucuyu yalnızca DEV'de başlatıyor. Ortam başka bir kademe
+    # söylüyorsa bir şey karışmıştır; yazan yüzeyi hiç açmamak, her yazmanın
+    # GR_TIER ile düşmesini beklemekten daha açık bir cevap.
+    pinned = ntt_tier.pinned_tier(guardrails)
+    if pinned is not None and pinned != "DEV":
+        raise SystemExit(f"[adt-gated] BAŞLAMIYOR: NTT Studio bu sistemi {pinned} olarak "
+                         f"işaretlemiş ({ntt_tier.ENV_KEY}). Onaylı yazma sunucusu yalnızca "
+                         f"DEV'de çalışır; salt okunur sunucu adt_readonly_server.py.\n")
     try:
         _approval_env()
         Heartbeat().start()
