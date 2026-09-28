@@ -35,6 +35,11 @@ describe("isAppUrl", () => {
     expect(isAppUrl("http://localhost:5173/", prod)).toBe(false);
   });
 
+  it("görünüm sorgusu (?palette=…&theme=…) sayfayı yabancı yapmıyor", () => {
+    expect(isAppUrl(`${base}/dist/index.html?palette=warm&theme=light`, prod)).toBe(true);
+    expect(isAppUrl("http://localhost:5173/?palette=warm&theme=light", dev)).toBe(true);
+  });
+
   it("Windows'ta sürücü harfi büyük/küçük farkı sayfayı yabancı yapmıyor", () => {
     if (!win) return;
     expect(isAppUrl("file:///c:/app/resources/app.asar/dist/index.html", prod)).toBe(true);

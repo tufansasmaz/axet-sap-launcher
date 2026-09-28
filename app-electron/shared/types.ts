@@ -305,6 +305,11 @@ export type TerminalMode = "cmd" | "powershell";
 
 export type AppTheme = "dark" | "light";
 
+// Renk paleti. Koyu/açık hâlden (`AppTheme`) BAĞIMSIZ: her palet iki hâlde de
+// var, dört görünüm `src/index.css`'te dört ayrı blok (bkz. tasarım belgesi
+// docs/superpowers/specs/2026-09-28-tasarim-sistemi-temeli-design.md).
+export type AppPalette = "indigo" | "warm";
+
 export type AppLanguage = "tr" | "en";
 
 // axet.code sohbet ekranının okuma konforu ayarları. Değerler kasten
@@ -347,6 +352,7 @@ export interface AppConfig {
    */
   globalSkillOverrides: Record<string, boolean>;
   theme: AppTheme;
+  palette: AppPalette;
   language: AppLanguage;
   autoCheckUpdates: boolean;
   axetWorkspaceDir: string;

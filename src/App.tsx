@@ -61,6 +61,7 @@ import FileExplorer from "./components/FileExplorer";
 import FileViewer from "./components/FileViewer";
 import { flattenLandscape } from "./lib/landscape";
 import { btn, iconBtn, tintBtn } from "./ui/buttons";
+import { applyAppearance } from "./ui/appearance";
 import { useActiveContext } from "./lib/useActiveContext";
 import { LanguageProvider, translate } from "./i18n";
 
@@ -313,26 +314,19 @@ export default function App() {
     refresh();
   }, [language, refresh]);
 
-  // Tema değişimi. `theme-transition` sınıfı SADECE geçiş süresince ekleniyor
-  // (bkz. src/index.css) — geçiş yumuşak olsun ama o CSS kuralının maliyeti
-  // (sayfadaki her elemana bg/border/color animasyonu) uygulamanın geri
-  // kalanında ödenmesin diye. İlk yüklemede sınıf eklenmez, sadece kullanıcı
-  // temayı değiştirdiğinde.
-  const previousThemeRef = useRef<string | null>(null);
+  // Görünüm değişimi (palet ve koyu/açık). `theme-transition` sınıfı SADECE
+  // kullanıcı değiştirdiğinde ve geçiş süresince ekleniyor (bkz.
+  // src/ui/appearance.ts) — ilk yüklemede `src/main.tsx` aynı değerleri zaten
+  // yazdı, burada yeniden yazmak görünür bir şey değiştirmiyor.
+  const previousAppearanceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!config?.theme) return;
-    const isSwitch = previousThemeRef.current !== null && previousThemeRef.current !== config.theme;
-    previousThemeRef.current = config.theme;
-    if (!isSwitch) {
-      document.documentElement.setAttribute("data-theme", config.theme);
-      return;
-    }
-    const root = document.documentElement;
-    root.classList.add("theme-transition");
-    root.setAttribute("data-theme", config.theme);
-    const timer = window.setTimeout(() => root.classList.remove("theme-transition"), 260);
-    return () => window.clearTimeout(timer);
-  }, [config?.theme]);
+    const palette = config.palette ?? "indigo";
+    const key = `${palette}/${config.theme}`;
+    const isSwitch = previousAppearanceRef.current !== null && previousAppearanceRef.current !== key;
+    previousAppearanceRef.current = key;
+    return applyAppearance(document.documentElement, palette, config.theme, isSwitch);
+  }, [config?.palette, config?.theme]);
 
   // Sohbet okuma konforu ayarlarını CSS değişkenlerine çevirir. Neden prop
   // olarak geçirilmiyor: değerlerin ihtiyaç duyulduğu yer AxetCodeHome >

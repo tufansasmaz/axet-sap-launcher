@@ -249,6 +249,11 @@ function preferredWindowSize(): { width: number; height: number } {
 
 function createWindow(): void {
   const { width, height } = preferredWindowSize();
+  // Görünüm seçimi sayfaya adres sorgusuyla gidiyor (`?palette=…&theme=…`):
+  // `src/main.tsx` React çizilmeden ÖNCE `<html>`'e yazıyor. IPC ile sormak
+  // bir tur beklemek demekti; o arada sayfa varsayılan (İndigo koyu) renkle
+  // boyanır, açık temada bir kare koyu görünürdü.
+  const cfg = loadConfig();
   const win = new BrowserWindow({
     width,
     height,
@@ -371,9 +376,14 @@ function createWindow(): void {
   }
 
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
-    win.loadURL(process.env.ELECTRON_RENDERER_URL);
+    const devUrl = new URL(process.env.ELECTRON_RENDERER_URL);
+    devUrl.searchParams.set("palette", cfg.palette);
+    devUrl.searchParams.set("theme", cfg.theme);
+    win.loadURL(devUrl.toString());
   } else {
-    win.loadFile(path.join(__dirname, "../../dist/index.html"));
+    win.loadFile(path.join(__dirname, "../../dist/index.html"), {
+      query: { palette: cfg.palette, theme: cfg.theme }
+    });
   }
 
   if (isDev) {
