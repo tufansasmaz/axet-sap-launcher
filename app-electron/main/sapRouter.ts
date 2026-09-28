@@ -1,6 +1,11 @@
 import { Socket } from "node:net";
-import { connect as tlsConnect, type TLSSocket } from "node:tls";
+import type { TLSSocket } from "node:tls";
 import { mt } from "./i18n";
+import { openTls, type TlsTrustPolicy } from "./tlsPin";
+
+// `sniFor` tlsPin.ts'e taşındı (orası Electron'a bağımlı değil, testte
+// doğrudan yükleniyor); eski içe aktarımlar kırılmasın diye buradan da veriliyor.
+export { sniFor } from "./tlsPin";
 
 export interface RouterHop {
   host: string;
@@ -9,18 +14,6 @@ export interface RouterHop {
 }
 
 const HOP_REGEX = /\/[hH]\/([\w.\-]+)(?:\/[sS]\/(\w+))?(?:\/[pP][wW]?\/([\w.]+))?/g;
-
-// TLS SNI'ya IP yazılamaz (RFC 6066). Node bunu DEP0123 ile uyarıyor ve
-// ileride yok sayacağını söylüyor. Dört ayrı TLS/HTTPS çağrısı (buradaki
-// `tlsConnectThroughRouter` + `adtDiscovery.ts`'teki üç istek) bunu ayrı ayrı
-// düşünmek zorundaydı ve yalnızca ikisi düşünmüştü; ötekiler IP'li bir host'ta
-// (SAP Logon kayıtlarında sık) uyarı üretiyordu. Artık tek yerden.
-// IPv6 de kapsanıyor — iki nokta içeren bir host adı zaten geçerli bir DNS
-// adı değil.
-export function sniFor(host: string): string | undefined {
-  const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.includes(":");
-  return isIp ? undefined : host;
-}
 
 export function parseRouteString(routeString: string): RouterHop[] {
   const hops: RouterHop[] = [];
@@ -219,29 +212,35 @@ export function connectThroughRouter(
   });
 }
 
+/**
+ * `trust` ZORUNLU ve varsayılanı yok: router'ın ardındaki sunucuya parola
+ * gidecekse çağıran `verify` demek zorunda, yalnızca sertifika/realm
+ * okunacaksa `probe`. Varsayılan olsaydı, kimlik bilgisi taşıyan yeni bir
+ * çağrı yeri doğrulamasız soketi farkında olmadan kullanabilirdi.
+ */
 export async function tlsConnectThroughRouter(
   routerString: string,
   finalHost: string,
   finalPort: number,
+  trust: TlsTrustPolicy,
   timeoutMs = 8000
 ): Promise<TLSSocket> {
   const hops = buildFullRoute(routerString, finalHost, finalPort);
   const rawSocket = await connectThroughRouter(hops, timeoutMs);
 
-  return new Promise((resolve, reject) => {
-    const tlsSocket = tlsConnect({
+  try {
+    return await openTls({
       socket: rawSocket,
-      servername: sniFor(finalHost),
-      rejectUnauthorized: false,
-      timeout: timeoutMs
+      host: finalHost,
+      port: finalPort,
+      trust,
+      timeoutMs,
+      timeoutMessage: mt("sapRouter.tlsTimeout")
     });
-    tlsSocket.once("secureConnect", () => resolve(tlsSocket));
-    tlsSocket.once("error", (err) => reject(err));
-    tlsSocket.once("timeout", () => {
-      tlsSocket.destroy();
-      reject(new Error(mt("sapRouter.tlsTimeout")));
-    });
-  });
+  } catch (err) {
+    rawSocket.destroy();
+    throw err;
+  }
 }
 
 export interface RouterHttpResponse {

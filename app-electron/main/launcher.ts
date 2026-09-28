@@ -2,8 +2,17 @@ import { execFile } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from "node:fs";
 import { Socket } from "node:net";
 import path from "node:path";
-import type { AppConfig, ConnectRequest, ConnectResult, SystemCredentials, SystemTier } from "../shared/types";
-import { discoverAdtEndpoint, verifyCredentials, verifyWithCookies, normalizeAdtBaseUrl, guessInstanceNumber } from "./adtDiscovery";
+import type { AppConfig, CertTrustPrompt, ConnectRequest, ConnectResult, SystemCredentials, SystemTier } from "../shared/types";
+import {
+  assessEndpointCertificate,
+  discoverAdtEndpoint,
+  verifyCredentials,
+  verifyWithCookies,
+  normalizeAdtBaseUrl,
+  guessInstanceNumber
+} from "./adtDiscovery";
+import { buildAdtToolScript } from "./adtToolScript";
+import { pinForUrl } from "./tlsPin";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
 import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
 import { startRfcBridge } from "./rfcBridgeManager";
@@ -38,7 +47,9 @@ function connectMsg(
     | "samlAutoVerified"
     | "samlAutoVerifiedSilent"
     | "verifiedOpening"
-    | "verifiedButSelfTestFailed",
+    | "verifiedButSelfTestFailed"
+    | "certChanged"
+    | "certUntrusted",
   params?: { error?: string; skillNote?: string; url?: string; detail?: string }
 ): string {
   const skillNote = params?.skillNote ?? "";
@@ -60,7 +71,9 @@ function connectMsg(
     // Eski metin ("adt-tool.ps1 self-test başarısız — sap-context.md'de detay
     // var") iki dosya adı sayıp ne olduğunu söylemiyordu (kullanıcı,
     // 2026-09-07: *"sapcontext ne alaka onu anlamadım"*).
-    verifiedButSelfTestFailed: `Bağlantı doğrulandı, sohbet açılıyor${skillNote} — yedek PowerShell aracı bu makinede çalışmadı, ADT erişimi bundan etkilenmiyor.`
+    verifiedButSelfTestFailed: `Bağlantı doğrulandı, sohbet açılıyor${skillNote} — yedek PowerShell aracı bu makinede çalışmadı, ADT erişimi bundan etkilenmiyor.`,
+    certChanged: `${params?.url} sunucusunun sertifikası bu sistem için daha önce onaylanandan farklı — kimlik bilgileri gönderilmedi, onayınız bekleniyor.`,
+    certUntrusted: `${params?.url} sunucusunun sertifikası doğrulanamadı — kimlik bilgileri gönderilmedi, onayınız bekleniyor.`
   };
   const en = {
     projectDirFailed: `Could not create project folder: ${params?.error}`,
@@ -74,7 +87,9 @@ function connectMsg(
     samlAutoVerified: `SAML SSO login completed and verified with the session cookie${skillNote}, opening chat (${params?.url})`,
     samlAutoVerifiedSilent: `SAML SSO login completed in the background (your identity provider session was already open) and verified with the session cookie${skillNote}, opening chat (${params?.url})`,
     verifiedOpening: `Connection verified, opening chat${skillNote} (${params?.url})`,
-    verifiedButSelfTestFailed: `Connection verified, opening chat${skillNote} — the fallback PowerShell tool did not run on this machine; ADT access is unaffected.`
+    verifiedButSelfTestFailed: `Connection verified, opening chat${skillNote} — the fallback PowerShell tool did not run on this machine; ADT access is unaffected.`,
+    certChanged: `The certificate of ${params?.url} differs from the one previously approved for this system — credentials were not sent, waiting for your approval.`,
+    certUntrusted: `The certificate of ${params?.url} could not be verified — credentials were not sent, waiting for your approval.`
   };
   return (language === "en" ? en : tr)[key];
 }
@@ -415,7 +430,8 @@ function buildConnAdt(
   verifiedUrl: string,
   rfcBridge?: RfcBridgeConfig | null,
   samlCookiesFile?: string | null,
-  tier?: SystemTier | null
+  tier?: SystemTier | null,
+  certPin?: string | null
 ): string {
   const { service } = req;
   const clientLine = credentials.client.trim() ? `ADT_SAP_CLIENT=${credentials.client.trim()}\n` : "";
@@ -506,6 +522,19 @@ ADT_SAML_COOKIES_FILE=${samlCookiesFile}
 `
     : "";
 
+  // Satır pin YOKKEN de boş değerle yazılıyor: Python motoru `.conn_adt`'yi
+  // `override=True` ile ortama yüklüyor; satır hiç olmasaydı aynı süreçte
+  // önceki bir bağlantıdan kalan eski pin ortamda yaşamaya devam ederdi.
+  // RFC köprüsünde (http://127.0.0.1) TLS yok, satırın anlamı da yok.
+  const certBlock = rfcBridge
+    ? ""
+    : `
+# Sunucu sertifikasının NTT Studio'da onaylanmış SHA-256 parmak izi (DER).
+# adt-tool.ps1 ve ADT sunucusu zincir doğrulanmıyorsa YALNIZCA bu sertifikayı
+# kabul ediyor; boşsa yalnızca zinciri doğrulanan sertifika kabul ediliyor.
+ADT_SAP_CERT_SHA256=${certPin ?? ""}
+`;
+
   return `# ============================================================================
 # .conn_adt — NTT Studio tarafından doğrulanmış bağlantıyla oluşturuldu/güncellendi (${new Date().toISOString()})
 # Sistem: ${service.name} (${service.systemId}) — aXet.code'un yerel ADT connector'ı bunu okur.
@@ -524,112 +553,7 @@ ADT_SAP_PASSWORD=${credentials.password}
 # gerekçelendiren bir sistem çıkarsa aşağıdaki satırın yorumunu kaldır:
 # ADT_SAP_PW_CHARSET=iso-8859-9
 ${clientComment}${clientLine}ADT_SAP_LANGUAGE=EN
-${rfcBlock}${samlBlock}${tierBlock}`;
-}
-
-function buildAdtToolScript(): string {
-  return `param(
-    [Parameter(Mandatory=$true)][ValidateSet("package","raw","ping")]$Action,
-    [string]$Package,
-    [string]$Path,
-    [string]$Method = "GET",
-    [string]$QueryString = "",
-    [string]$Body = ""
-)
-
-$ErrorActionPreference = "Stop"
-[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-
-if (-not ([System.Management.Automation.PSTypeName]'TrustAllCertsPolicy').Type) {
-    Add-Type @"
-using System.Net;
-using System.Net.Security;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy {
-    public static bool ValidateAll(object sender, X509Certificate cert, X509Chain chain, SslPolicyErrors errors) {
-        return true;
-    }
-}
-"@
-}
-$__method = [TrustAllCertsPolicy].GetMethod('ValidateAll')
-$__delegate = [Delegate]::CreateDelegate([System.Net.Security.RemoteCertificateValidationCallback], $__method)
-[System.Net.ServicePointManager]::ServerCertificateValidationCallback = $__delegate
-
-$connFile = Join-Path $PSScriptRoot ".conn_adt"
-$conn = @{}
-Get-Content $connFile | ForEach-Object {
-    if ($_ -match '^\\s*#' -or $_ -match '^\\s*$') { return }
-    if ($_ -match '^([A-Z_]+)=(.*)$') { $conn[$matches[1]] = $matches[2] }
-}
-$base = $conn['ADT_SAP_URL']
-$user = $conn['ADT_SAP_USER']
-$pass = $conn['ADT_SAP_PASSWORD']
-$client = $conn['ADT_SAP_CLIENT']
-$clientQuery = if ($client) { "sap-client=$client" } else { "" }
-
-# SecureString DÜZ .NET ile kuruluyor, ConvertTo-SecureString ile DEĞİL.
-#
-# O cmdlet Microsoft.PowerShell.Security modülünde ve bu modül PowerShell 7
-# kurulu makinelerde yüklenemiyor: PS7'nin modül klasörleri PSModulePath'e
-# giriyor, Windows PowerShell 5.1 oradaki tip dosyasını da okuyor ve
-# "System.Security.AccessControl.ObjectSecurity ... member is already present"
-# çakışmasıyla modülü hiç açamıyor. Sonuç, script'in ilk satırlarında
-# "The 'ConvertTo-SecureString' command was found ... but the module could not
-# be loaded" — ölçüldü (2026-09-07, PS 5.1.26100 + PS 7.6.5 yan yana).
-#
-# Bu, self-test'in "BAŞARISIZ" demesinin gerçek sebebiydi ve sebebi SAP'ta,
-# TLS'te ya da yetkide sanan herkesi yanlış yöne gönderiyordu.
-#
-# Aşağıdaki üç satır hiçbir modüle ihtiyaç duymuyor; SecureString ve
-# PSCredential ikisi de çekirdek .NET tipleri.
-$sec = New-Object System.Security.SecureString
-foreach ($__ch in $pass.ToCharArray()) { $sec.AppendChar($__ch) }
-$sec.MakeReadOnly()
-$cred = New-Object System.Management.Automation.PSCredential($user, $sec)
-$script:sess = $null
-
-function Get-CsrfToken {
-    $discUrl = if ($clientQuery) { "$base/sap/bc/adt/discovery?$clientQuery" } else { "$base/sap/bc/adt/discovery" }
-    $r = Invoke-WebRequest -Uri $discUrl -Method GET \`
-        -Credential $cred -Headers @{ Accept = '*/*'; 'X-CSRF-Token' = 'Fetch' } \`
-        -SessionVariable sessLocal -UseBasicParsing
-    $script:sess = $sessLocal
-    return $r.Headers['x-csrf-token']
-}
-
-switch ($Action) {
-    "ping" {
-        $discUrl = if ($clientQuery) { "$base/sap/bc/adt/discovery?$clientQuery" } else { "$base/sap/bc/adt/discovery" }
-        $r = Invoke-WebRequest -Uri $discUrl -Method GET -Credential $cred -Headers @{ Accept = '*/*' } -UseBasicParsing
-        Write-Output "PING_OK $($r.StatusCode)"
-    }
-    "package" {
-        if (-not $Package) { Write-Error "Package parametresi gerekli"; exit 1 }
-        $csrf = Get-CsrfToken
-        $url = "$base/sap/bc/adt/repository/nodestructure?parent_type=DEVC%2FK&parent_name=$Package&withShortDescriptions=true"
-        if ($clientQuery) { $url += "&$clientQuery" }
-        $r = Invoke-WebRequest -Uri $url -Method POST -WebSession $script:sess \`
-            -Headers @{ 'X-CSRF-Token' = $csrf; Accept = '*/*' } \`
-            -ContentType 'application/vnd.sap.as+xml; charset=UTF-8; dataname=null' -Body '' -UseBasicParsing
-        Write-Output $r.Content
-    }
-    "raw" {
-        if (-not $Path) { Write-Error "Path parametresi gerekli"; exit 1 }
-        $sep = if ($QueryString) { if ($QueryString.StartsWith('?')) { '' } else { '?' } } else { '' }
-        $url = "$base$Path$sep$QueryString"
-        if ($Method -eq "GET") {
-            $r = Invoke-WebRequest -Uri $url -Method GET -Credential $cred -Headers @{ Accept = '*/*' } -UseBasicParsing
-        } else {
-            $csrf = Get-CsrfToken
-            $r = Invoke-WebRequest -Uri $url -Method $Method -WebSession $script:sess \`
-                -Headers @{ 'X-CSRF-Token' = $csrf; Accept = '*/*' } \`
-                -ContentType 'application/xml' -Body $Body -UseBasicParsing
-        }
-        Write-Output $r.Content
-    }
-}
-`;
+${certBlock}${rfcBlock}${samlBlock}${tierBlock}`;
 }
 
 function testAdtToolScript(projectDir: string, timeoutMs = 15000): Promise<{ ok: boolean; detail: string }> {
@@ -992,6 +916,18 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   let trustedCertificatesUpdate: Record<string, string> | undefined;
   let verify: Awaited<ReturnType<typeof verifyCredentials>>;
 
+  // Sertifika sorusu kimlik bilgisi GÖNDERİLMEDEN dönülüyor: kullanıcı
+  // onaylarsa (index.ts `certs:approve`) pin yazılıyor ve renderer bağlanmayı
+  // baştan tekrarlıyor; ikinci turda pin eşleştiği için soru çıkmıyor.
+  const certPromptResult = (prompt: CertTrustPrompt): ConnectResult => ({
+    ok: false,
+    verified: false,
+    projectDir,
+    message: connectMsg(language, prompt.kind === "changed" ? "certChanged" : "certUntrusted", { url: `${prompt.host}:${prompt.port}` }),
+    trustedCertificates: trustedCertificatesUpdate,
+    certPrompt: prompt
+  });
+
   if (manualUrl) {
     const normalizedUrl = normalizeAdtBaseUrl(manualUrl);
     if (normalizedUrl !== manualUrl) {
@@ -1010,6 +946,26 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     if (manualRouterString) {
       allNotes.push(`SAProuter tanımlı: ${manualRouterString} — manuel ADT URL'i router üzerinden tünellenecek.`);
     }
+    // Keşif bu dalda çalışmıyor, sertifika değerlendirmesi de onunla birlikte
+    // atlanıyordu: manuel URL'li sistemlerde pin hiç yazılmıyor ve
+    // karşılaştırılmıyordu. Artık iki dal aynı değerlendirmeden geçiyor.
+    let manualParsed: URL | null = null;
+    try {
+      manualParsed = new URL(normalizedUrl);
+    } catch {
+      manualParsed = null;
+    }
+    if (manualParsed && manualParsed.protocol === "https:") {
+      const assessment = await assessEndpointCertificate(
+        manualParsed.hostname,
+        manualParsed.port ? Number(manualParsed.port) : 443,
+        config.trustedCertificates,
+        manualRouterString
+      );
+      allNotes.push(...assessment.notes);
+      trustedCertificatesUpdate = assessment.trustedCertificates;
+      if (assessment.prompt) return certPromptResult(assessment.prompt);
+    }
     verify = await verifyCredentials(
       normalizedUrl,
       credentials.username,
@@ -1017,7 +973,8 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       credentials.client,
       undefined,
       manualRouterString,
-      language
+      language,
+      trustedCertificatesUpdate ?? config.trustedCertificates
     );
   } else {
     const routerString = req.service.routerString;
@@ -1034,6 +991,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     allNotes.push(...discovery.notes);
     trustedCertificatesUpdate = discovery.trustedCertificates;
     finalUrl = discovery.url;
+    if (discovery.certPrompt) return certPromptResult(discovery.certPrompt);
 
     verify = await verifyCredentials(
       discovery.url,
@@ -1042,12 +1000,26 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       credentials.client,
       undefined,
       routerString,
-      language
+      language,
+      trustedCertificatesUpdate
     );
 
-    if (!verify.ok && verify.status !== 401 && discovery.alternateUrl && !routerString) {
+    // Sertifikası reddedilen birincil adres "ağ hatası" sayılmıyor: kullanıcı
+    // alternatif adresin ilgisiz hatasını değil, sertifika mesajını görmeli.
+    // Alternatif denendiğinde de aynı kabul kuralından geçiyor (o adresin
+    // pin'i yoksa yalnızca zinciri doğrulanırsa bağlanılıyor).
+    if (!verify.ok && verify.status !== 401 && !verify.tlsRejected && discovery.alternateUrl && !routerString) {
       allNotes.push(`Birincil URL (${discovery.url}) ağ seviyesinde başarısız oldu, alternatif deneniyor: ${discovery.alternateUrl}`);
-      const altVerify = await verifyCredentials(discovery.alternateUrl, credentials.username, credentials.password, credentials.client, undefined, undefined, language);
+      const altVerify = await verifyCredentials(
+        discovery.alternateUrl,
+        credentials.username,
+        credentials.password,
+        credentials.client,
+        undefined,
+        undefined,
+        language,
+        trustedCertificatesUpdate
+      );
       if (altVerify.ok || altVerify.status === 401) {
         verify = altVerify;
         finalUrl = discovery.alternateUrl;
@@ -1098,7 +1070,10 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
         "RFC bridge moduna geçiliyor (bkz. sap-context.md). Kimlik bilgileri bu launcher tarafından " +
         "HTTP ile doğrulanamadı; gerçek doğrulama RFC bridge kurulumu sırasında yapılmalı."
     );
-  } else if (!verify.ok && !routerString && verify.status === null && host) {
+  } else if (!verify.ok && !routerString && verify.status === null && !verify.tlsRejected && host) {
+    // `!tlsRejected`: sertifikası reddedilen sunucu "erişilemez" DEĞİL; aynı
+    // şifreyi başka bir kanaldan (RFC) denemek, kullanıcıya sertifika
+    // sorununu göstermek yerine üstünü örterdi.
     // SAProuter YOK ama tüm ADT/HTTPS portları ağ/firewall seviyesinde
     // tamamen erişilemez (verify.status===null → hiçbir port HTTP yanıtı
     // vermedi, sadece 401/başka status DEĞİL). Canlı kanıt (Exeltis/QUB,
@@ -1159,7 +1134,8 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       // soracağı istemcide açılsın (bkz. SamlLoginOptions.client).
       client: credentials.client,
       partitionKey: req.service.uuid,
-      language
+      language,
+      trustedCertificates: trustedCertificatesUpdate ?? config.trustedCertificates
     });
 
     if (samlLogin.ok && samlLogin.jar) {
@@ -1183,7 +1159,14 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
         const cookieHeader = Object.entries(jar.cookies)
           .map(([name, value]) => `${name}=${value}`)
           .join("; ");
-        const cookieVerify = await verifyWithCookies(finalUrl, cookieHeader, credentials.client, undefined, language);
+        const cookieVerify = await verifyWithCookies(
+          finalUrl,
+          cookieHeader,
+          credentials.client,
+          undefined,
+          language,
+          trustedCertificatesUpdate ?? config.trustedCertificates
+        );
         if (cookieVerify.ok) {
           samlVerified = true;
           allNotes.push(
@@ -1219,7 +1202,8 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
 
   const connAdtPath = path.join(projectDir, ".conn_adt");
   try {
-    writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge, samlCookiesFile, systemTier), "utf-8");
+    const certPin = pinForUrl(trustedCertificatesUpdate ?? config.trustedCertificates, finalUrl);
+    writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge, samlCookiesFile, systemTier, certPin), "utf-8");
   } catch (err) {
     return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "connAdtWriteFailed", { error: (err as Error).message }) };
   }

@@ -1,14 +1,23 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
-import { connect as tlsConnect } from "node:tls";
+import { connect as tlsConnect, checkServerIdentity, type PeerCertificate } from "node:tls";
 import { execFileSync } from "node:child_process";
 import { writeFileSync, unlinkSync } from "node:fs";
-import { createHash } from "node:crypto";
 import path from "node:path";
 import os from "node:os";
-import { tlsConnectThroughRouter, httpRequestOverSocket, sniFor } from "./sapRouter";
+import { tlsConnectThroughRouter, httpRequestOverSocket } from "./sapRouter";
+import {
+  certFingerprint,
+  certKeyFor,
+  isTlsTrustError,
+  normalizeFingerprint,
+  pinForUrl,
+  sniFor,
+  verifiedConnection,
+  type TlsTrustError
+} from "./tlsPin";
 import { encodeBasicCredentials, nonAsciiChars } from "./basicAuth";
-import type { AppLanguage } from "../shared/types";
+import type { AppLanguage, CertTrustPrompt } from "../shared/types";
 
 // Kimlik doğrulama sonucunun kısa mesajı (`CredentialVerifyResult.message`)
 // doğrudan renderer'da toast/hata metni olarak gösteriliyor (bkz.
@@ -48,7 +57,9 @@ function verifyMsg(
     | "connectionError"
     | "connectionErrorRouter"
     | "unauthorizedNonAscii"
-    | "samlLoginDetected",
+    | "samlLoginDetected"
+    | "tlsUntrusted"
+    | "tlsPinMismatch",
   params?: {
     sid?: string;
     client?: string;
@@ -57,6 +68,7 @@ function verifyMsg(
     body?: string;
     title?: string;
     chars?: string;
+    endpoint?: string;
   }
 ): string {
   const tr = {
@@ -74,7 +86,9 @@ function verifyMsg(
     timeout: "Zaman aşımı",
     connectionError: `Bağlantı hatası: ${params?.message}`,
     connectionErrorRouter: `Bağlantı hatası (SAProuter): ${params?.message}`,
-    samlLoginDetected: "HTTP 200 döndü ama yanıt beklenen ADT XML'i değil, bir SAML/SSO giriş sayfası (HTML) — kimlik bilgileri Basic Auth ile hiç kontrol edilmedi, bu sistem SAML SSO gerektiriyor. Kullanıcı adı/şifre doğru veya yanlış olsun bu sonuç aynı görünür; %sap-adt skill'indeki SAML giriş akışını (login_saml_sso.py) izlemen gerekiyor."
+    samlLoginDetected: "HTTP 200 döndü ama yanıt beklenen ADT XML'i değil, bir SAML/SSO giriş sayfası (HTML) — kimlik bilgileri Basic Auth ile hiç kontrol edilmedi, bu sistem SAML SSO gerektiriyor. Kullanıcı adı/şifre doğru veya yanlış olsun bu sonuç aynı görünür; %sap-adt skill'indeki SAML giriş akışını (login_saml_sso.py) izlemen gerekiyor.",
+    tlsUntrusted: `${params?.endpoint} sunucusunun sertifikası doğrulanamadı ve bu sistem için onaylanmış bir sertifika yok — kimlik bilgileri GÖNDERİLMEDİ. Bağlanmayı yeniden deneyin; uygulama sertifikayı size gösterip onayınızı isteyecek.`,
+    tlsPinMismatch: `${params?.endpoint} sunucusunun sertifikası bu sistem için onaylanan sertifikayla eşleşmiyor — kimlik bilgileri GÖNDERİLMEDİ. Sunucuda sertifika yenilenmiş olabilir ya da araya giren bir taraf (MITM) olabilir. Bağlanmayı yeniden deneyin; uygulama yeni sertifikayı size onaylatacak.`
   };
   const en = {
     verified: "Credentials verified",
@@ -91,7 +105,9 @@ function verifyMsg(
     timeout: "Timed out",
     connectionError: `Connection error: ${params?.message}`,
     connectionErrorRouter: `Connection error (SAProuter): ${params?.message}`,
-    samlLoginDetected: "Got HTTP 200 but the response is not the expected ADT XML — it's a SAML/SSO login page (HTML). Credentials were never actually checked via Basic Auth; this system requires SAML SSO. Right or wrong username/password produces the same result here — follow the SAML login flow (login_saml_sso.py) in the %sap-adt skill."
+    samlLoginDetected: "Got HTTP 200 but the response is not the expected ADT XML — it's a SAML/SSO login page (HTML). Credentials were never actually checked via Basic Auth; this system requires SAML SSO. Right or wrong username/password produces the same result here — follow the SAML login flow (login_saml_sso.py) in the %sap-adt skill.",
+    tlsUntrusted: `The certificate of ${params?.endpoint} could not be verified and no certificate has been approved for this system — credentials were NOT sent. Try connecting again; the app will show you the certificate and ask for your approval.`,
+    tlsPinMismatch: `The certificate of ${params?.endpoint} does not match the one approved for this system — credentials were NOT sent. The server's certificate may have been renewed, or someone may be intercepting the connection (MITM). Try connecting again; the app will ask you to approve the new certificate.`
   };
   return (language === "en" ? en : tr)[key];
 }
@@ -115,6 +131,23 @@ function unauthorizedMessage(
     return verifyMsg(language, "unauthorizedNonAscii", { sid: sid ?? "?", client, chars: nonAscii.join(" ") });
   }
   return sid ? verifyMsg(language, "unauthorizedWithSid", { sid, client }) : verifyMsg(language, "unauthorized");
+}
+
+/**
+ * Sertifika kabul kuralı tutmadığı için istek gönderilmediğinde dönen sonuç.
+ * `tlsRejected` ayrı bir bayrak, çünkü `status: null` başka yerde "ağ hatası"
+ * diye okunuyor (launcher.ts RFC köprüsüne düşme kararı) — sertifikası
+ * reddedilen bir sunucu için başka kanala geçip aynı şifreyi denemek yanlış.
+ */
+function tlsRejectedResult(language: AppLanguage, err: TlsTrustError): CredentialVerifyResult {
+  const endpoint = `${err.host}:${err.port}`;
+  return {
+    ok: false,
+    status: null,
+    sid: null,
+    tlsRejected: true,
+    message: verifyMsg(language, err.code === "TLS_PIN_MISMATCH" ? "tlsPinMismatch" : "tlsUntrusted", { endpoint })
+  };
 }
 
 // Bir doğrulama isteği 200/401 dışında bir durum döndürdüğünde, yanıt
@@ -242,6 +275,12 @@ function probeRealm(host: string, port: number, timeoutMs = 6000, routerString?:
     return probeRealmThroughRouter(routerString, host, port, timeoutMs);
   }
   return new Promise((resolve) => {
+    // Doğrulamasız OLMASI bilinçli: bu, hangi portun hangi sisteme çıktığını
+    // (realm'deki SID) bulan ilk temas yoklaması ve üzerinden YALNIZCA
+    // `Accept` başlığı gidiyor — Authorization/Cookie yok. Kimlik bilgisi
+    // taşıyan istekler aşağıdaki `verifyCredentials`/`verifyWithCookies`'te
+    // tlsPin.ts'in kabul kuralından geçiyor. Buraya bir kimlik başlığı
+    // eklenirse o kural atlanmış olur.
     const req = httpsRequest(
       {
         host,
@@ -276,7 +315,8 @@ async function probeRealmThroughRouter(
   timeoutMs: number
 ): Promise<ProbeResult> {
   try {
-    const socket = await tlsConnectThroughRouter(routerString, host, port, timeoutMs);
+    // `probe`: kimlik bilgisi gitmiyor (bkz. probeRealm'deki not).
+    const socket = await tlsConnectThroughRouter(routerString, host, port, { mode: "probe" }, timeoutMs);
     try {
       const res = await httpRequestOverSocket(socket, {
         path: "/sap/bc/adt/discovery",
@@ -302,6 +342,18 @@ interface PeerCertInfo {
   /** Issuer == Subject. Kurulum kararının DAYANDIĞI alan — bkz. `trustCertInWindowsStore`. */
   selfSigned: boolean;
   issuerCN: string | null;
+  /**
+   * Kabul kuralının (a) kolu: zincir doğrulandı VE host adı sertifikayla
+   * eşleşiyor. `authorized` tek başına yetmiyor — geçerli bir sertifikası olan
+   * başka bir alan adı da `authorized` görünür.
+   */
+  trustedByChain: boolean;
+  /** Onay penceresinde gösterilecek hâl: zincir hatası kodu ya da host adı hatası. */
+  reason: string | null;
+  subject: string;
+  issuer: string;
+  validFrom: string;
+  validTo: string;
 }
 
 /** DN nesnesini karşılaştırılabilir tek bir dizeye indirger (anahtar sırası garanti değil). */
@@ -320,21 +372,37 @@ function firstCN(dn: Record<string, unknown> | undefined | null): string | null 
 }
 
 /** Ham peer sertifikasından karar için gereken alanları çıkarır. Sertifika yoksa null. */
-function describeCert(cert: { raw?: Buffer; subject?: Record<string, unknown>; issuer?: Record<string, unknown> } | null, authorized: boolean): PeerCertInfo | null {
-  if (!cert || !cert.raw) return null;
+function describeCert(
+  cert: PeerCertificate | null,
+  authorized: boolean,
+  authorizationError: unknown,
+  host: string
+): PeerCertInfo | null {
+  if (!cert || !cert.raw || cert.raw.length === 0) return null;
   const b64 = cert.raw.toString("base64");
-  const subject = dnString(cert.subject);
-  const issuer = dnString(cert.issuer);
+  const subject = dnString(cert.subject as unknown as Record<string, unknown>);
+  const issuer = dnString(cert.issuer as unknown as Record<string, unknown>);
+  const hostError = authorized ? checkServerIdentity(host, cert) : undefined;
   return {
     pem: `-----BEGIN CERTIFICATE-----\n${b64.match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----\n`,
     authorized,
-    subjectCN: firstCN(cert.subject),
-    issuerCN: firstCN(cert.issuer),
-    fingerprint: createHash("sha256").update(cert.raw).digest("hex"),
-    selfSigned: subject !== "" && subject === issuer
+    subjectCN: firstCN(cert.subject as unknown as Record<string, unknown>),
+    issuerCN: firstCN(cert.issuer as unknown as Record<string, unknown>),
+    fingerprint: certFingerprint(cert.raw),
+    selfSigned: subject !== "" && subject === issuer,
+    trustedByChain: authorized && !hostError,
+    reason: hostError ? hostError.message : authorized ? null : String(authorizationError ?? "UNKNOWN"),
+    subject,
+    issuer,
+    validFrom: cert.valid_from ?? "",
+    validTo: cert.valid_to ?? ""
   };
 }
 
+// Doğrulamasız OLMASI bilinçli: amaç sertifikayı OKUYUP kabul kuralına göre
+// değerlendirmek ya da kullanıcıya göstermek. Bu soket üzerinden hiç uygulama
+// verisi yazılmıyor (handshake biter bitmez `end()`), yani kimlik bilgisi
+// gitmiyor.
 function getPeerCertPem(host: string, port: number, timeoutMs = 5000, routerString?: string | null): Promise<PeerCertInfo | null> {
   if (routerString) {
     return getPeerCertPemThroughRouter(routerString, host, port, timeoutMs);
@@ -349,7 +417,7 @@ function getPeerCertPem(host: string, port: number, timeoutMs = 5000, routerStri
         servername: sniFor(host)
       },
       () => {
-        resolve(describeCert(socket.getPeerCertificate(), socket.authorized));
+        resolve(describeCert(socket.getPeerCertificate(), socket.authorized, socket.authorizationError, host));
         socket.end();
       }
     );
@@ -368,9 +436,9 @@ async function getPeerCertPemThroughRouter(
   timeoutMs: number
 ): Promise<PeerCertInfo | null> {
   try {
-    const socket = await tlsConnectThroughRouter(routerString, host, port, timeoutMs);
+    const socket = await tlsConnectThroughRouter(routerString, host, port, { mode: "probe" }, timeoutMs);
     // authorized soketi kapatmadan ÖNCE okunmalı.
-    const info = describeCert(socket.getPeerCertificate(), socket.authorized);
+    const info = describeCert(socket.getPeerCertificate(), socket.authorized, socket.authorizationError, host);
     socket.destroy();
     return info;
   } catch {
@@ -388,6 +456,12 @@ async function getPeerCertPemThroughRouter(
  * (bkz. `PeerCertInfo.selfSigned`) — handshake `rejectUnauthorized: false` ile
  * yapıldığından, o filtre olmadan araya giren bir proxy'nin sahte sertifikası da
  * buraya girebilirdi.
+ *
+ * Çalıştığı TEK hâl (bkz. `assessEndpointCertificate`): Windows, sertifika
+ * zincirle doğrulanmıyor, kendinden imzalı, ve bu `host:port` için kayıtlı pin
+ * YOK (ilk bağlantı). Kayıtlı pin değişmişse kurulum yapılmıyor, kullanıcıya
+ * soruluyor. Bu TOFU davranışı bilinçli olarak değiştirilmedi; riskleri
+ * güvenlik raporunda (S3) yazılı.
  */
 function trustCertInWindowsStore(pem: string): boolean {
   if (process.platform !== "win32") return false;
@@ -419,6 +493,107 @@ export interface AdtDiscoveryResult {
   sidVerified: boolean;
   notes: string[];
   trustedCertificates: Record<string, string>;
+  /** Doluysa kimlik bilgisi gönderilmeden önce kullanıcı onayı gerekiyor. */
+  certPrompt: CertTrustPrompt | null;
+}
+
+export interface CertAssessment {
+  notes: string[];
+  trustedCertificates: Record<string, string>;
+  prompt: CertTrustPrompt | null;
+}
+
+/**
+ * Kimlik bilgisi gidecek uç noktanın sertifikasını, bağlanmadan ÖNCE kabul
+ * kuralına göre değerlendirir. Kendisi hiçbir kimlik bilgisi göndermiyor.
+ *
+ *   - Kayıtlı pin eşleşiyor → hiçbir şey yapılmaz.
+ *   - Zincir + host adı doğrulanıyor → pin yazılır/yenilenir. Yenileme
+ *     sessiz, çünkü bu hâlde kural (a) zaten tutuyor; pin yalnızca
+ *     adt-tool.ps1 ve Python sarmalayıcılarına aynı sertifikayı taşımak için.
+ *   - Kayıtlı pin FARKLI ve zincir tutmuyor → `changed` sorusu, pin
+ *     DEĞİŞMEZ. Sertifika yenilemesi ile MITM ağdan ayırt edilemiyor.
+ *   - Pin yok, kendinden imzalı, Windows → eski TOFU davranışı (kullanıcı
+ *     Root deposuna kur + pin'le). Kurulamazsa `untrusted` sorusu.
+ *   - Pin yok, kendinden imzalı değil (kurum içi CA ya da proxy) →
+ *     `untrusted` sorusu; trust store'a hiçbir şey eklenmez.
+ */
+export async function assessEndpointCertificate(
+  host: string,
+  port: number,
+  trustedCertificates: Record<string, string>,
+  routerString?: string | null
+): Promise<CertAssessment> {
+  const notes: string[] = [];
+  const updated = { ...trustedCertificates };
+  const certKey = certKeyFor(host, port);
+  const stored = normalizeFingerprint(trustedCertificates[certKey]);
+  const certInfo = await getPeerCertPem(host, port, undefined, routerString);
+
+  if (!certInfo) {
+    notes.push("TLS handshake başarısız oldu / sertifika alınamadı.");
+    return { notes, trustedCertificates: updated, prompt: null };
+  }
+
+  const promptOf = (kind: CertTrustPrompt["kind"]): CertTrustPrompt => ({
+    kind,
+    key: certKey,
+    host,
+    port,
+    fingerprint: certInfo.fingerprint,
+    previousFingerprint: stored,
+    subject: certInfo.subject,
+    issuer: certInfo.issuer,
+    validFrom: certInfo.validFrom,
+    validTo: certInfo.validTo,
+    selfSigned: certInfo.selfSigned,
+    reason: certInfo.reason
+  });
+
+  if (stored && stored === certInfo.fingerprint) {
+    notes.push("Sertifika daha önce onaylanmış (kayıtlı parmak iziyle eşleşti), tekrar kurulmuyor.");
+    return { notes, trustedCertificates: updated, prompt: null };
+  }
+
+  if (certInfo.trustedByChain) {
+    notes.push(
+      stored
+        ? "Sertifika değişmiş ama zinciri ve host adı doğrulanıyor — kayıtlı parmak izi yenilendi."
+        : "Sertifika zaten güvenilir (zincir ve host adı doğrulandı)."
+    );
+    updated[certKey] = certInfo.fingerprint;
+    return { notes, trustedCertificates: updated, prompt: null };
+  }
+
+  if (stored) {
+    notes.push(
+      `Sertifika, bu sistem için daha önce onaylanandan FARKLI (CN=${certInfo.subjectCN ?? "?"}, veren=${certInfo.issuerCN ?? "?"}) — ` +
+        "kimlik bilgisi gönderilmeden durduruldu, kullanıcı onayı bekleniyor."
+    );
+    return { notes, trustedCertificates: updated, prompt: promptOf("changed") };
+  }
+
+  if (!certInfo.selfSigned) {
+    // Güvenilmeyen AMA kendinden imzalı OLMAYAN sertifika: kurum içi bir CA
+    // (Electron'un Node'u Windows deposunu okumuyor, kurumun kökünü bilmiyor)
+    // ya da araya giren bir proxy. Köke kurmak, proxy'nin ürettiği HER sahte
+    // sertifikayı güvenilir yapardı; bu yüzden yalnızca bu host:port için
+    // pin, o da kullanıcı onayıyla.
+    notes.push(
+      `Sertifika güvenilir değil ve kendinden imzalı da değil (CN=${certInfo.subjectCN ?? "?"}, veren=${certInfo.issuerCN ?? "?"}) — ` +
+        "trust store'a EKLENMEDİ; kimlik bilgisi gönderilmeden önce kullanıcı onayı bekleniyor."
+    );
+    return { notes, trustedCertificates: updated, prompt: promptOf("untrusted") };
+  }
+
+  notes.push(`Sertifika sistem tarafından güvenilir değil (CN=${certInfo.subjectCN ?? "?"}) — kullanıcı trust store'una ekleniyor.`);
+  const trusted = trustCertInWindowsStore(certInfo.pem);
+  notes.push(trusted ? "Sertifika Windows kullanıcı trust store'una eklendi." : "Sertifika trust store'a eklenemedi.");
+  if (trusted) {
+    updated[certKey] = certInfo.fingerprint;
+    return { notes, trustedCertificates: updated, prompt: null };
+  }
+  return { notes, trustedCertificates: updated, prompt: promptOf("untrusted") };
 }
 
 export async function discoverAdtEndpoint(
@@ -531,38 +706,16 @@ export async function discoverAdtEndpoint(
 
   const alternate = probeResults.find((r) => r.candidate !== chosen && r.probe.reachable)?.candidate ?? candidates.find((c) => c !== chosen) ?? null;
 
-  const certKey = `${chosen.host}:${chosen.port}`;
-  const updatedTrustedCertificates = { ...trustedCertificates };
-  const certInfo = await getPeerCertPem(chosen.host, chosen.port, undefined, routerString);
-  if (certInfo && trustedCertificates[certKey] === certInfo.fingerprint) {
-    notes.push("Sertifika daha önce zaten güvenilir listesine eklenmiş, tekrar kurulmuyor.");
-  } else if (certInfo && !certInfo.authorized && !certInfo.selfSigned) {
-    // Güvenilmeyen AMA kendinden imzalı OLMAYAN sertifika = araya giren bir taraf.
-    // Kendi barındırılan bir SAP sunucusunun sertifikası kendinden imzalıdır (Issuer == Subject);
-    // kurumsal bir MITM proxy'sinin ürettiği sahte sertifika ise kurumun CA'sı tarafından imzalanır.
-    // Böyle bir sertifikayı köke kurmak, proxy'nin ürettiği HER sahte sertifikayı güvenilir yapar.
-    notes.push(
-      `Sertifika güvenilir değil ve kendinden imzalı da değil (CN=${certInfo.subjectCN ?? "?"}, veren=${certInfo.issuerCN ?? "?"}) — ` +
-        "araya giren bir proxy'ye işaret ediyor, trust store'a EKLENMEDİ. Ağ ayarlarını kontrol edin."
-    );
-  } else if (certInfo && !certInfo.authorized) {
-    notes.push(`Sertifika sistem tarafından güvenilir değil (CN=${certInfo.subjectCN ?? "?"}) — kullanıcı trust store'una ekleniyor.`);
-    const trusted = trustCertInWindowsStore(certInfo.pem);
-    notes.push(trusted ? "Sertifika Windows kullanıcı trust store'una eklendi." : "Sertifika trust store'a eklenemedi.");
-    if (trusted) updatedTrustedCertificates[certKey] = certInfo.fingerprint;
-  } else if (certInfo && certInfo.authorized) {
-    notes.push("Sertifika zaten güvenilir.");
-    updatedTrustedCertificates[certKey] = certInfo.fingerprint;
-  } else {
-    notes.push("TLS handshake başarısız oldu / sertifika alınamadı.");
-  }
+  const assessment = await assessEndpointCertificate(chosen.host, chosen.port, trustedCertificates, routerString);
+  notes.push(...assessment.notes);
 
   return {
     url: chosen.url,
     alternateUrl: alternate?.url ?? null,
     sidVerified,
     notes,
-    trustedCertificates: updatedTrustedCertificates
+    trustedCertificates: assessment.trustedCertificates,
+    certPrompt: assessment.prompt
   };
 }
 
@@ -576,8 +729,16 @@ export interface CredentialVerifyResult {
   // yaz ki kullanıcı login_saml_sso.py akışını takip edebilsin" kararı
   // artık İngilizce/Türkçe mesaj metnine bakmadan bu alana bakıyor.
   samlDetected?: boolean;
+  /** Sertifika kabul kuralı tutmadı; istek (ve kimlik bilgisi) hiç gönderilmedi. */
+  tlsRejected?: boolean;
 }
 
+/**
+ * `trustedCertificates`: kayıtlı pin'ler (`host:port` → SHA-256). URL'nin
+ * pin'i buradan bulunuyor; zincir + host adı doğrulanmıyorsa ve pin de
+ * tutmuyorsa Authorization başlığı HİÇ yazılmadan bağlantı kesiliyor
+ * (bkz. tlsPin.ts).
+ */
 export function verifyCredentials(
   url: string,
   username: string,
@@ -585,7 +746,8 @@ export function verifyCredentials(
   client: string,
   timeoutMs = 15000,
   routerString?: string | null,
-  language: AppLanguage = "tr"
+  language: AppLanguage = "tr",
+  trustedCertificates: Record<string, string> = {}
 ): Promise<CredentialVerifyResult> {
   let parsed: URL;
   try {
@@ -607,9 +769,10 @@ export function verifyCredentials(
   const isPlainHttp = parsed.protocol === "http:";
   const port = parsed.port ? Number(parsed.port) : isPlainHttp ? 80 : 443;
   const requestFn = isPlainHttp ? httpRequest : httpsRequest;
+  const pin = pinForUrl(trustedCertificates, url);
 
   if (routerString) {
-    return verifyCredentialsThroughRouter(routerString, host, port, discoveryPath, auth, client, timeoutMs, language, nonAscii);
+    return verifyCredentialsThroughRouter(routerString, host, port, discoveryPath, auth, client, timeoutMs, language, nonAscii, pin);
   }
 
   return new Promise((resolve) => {
@@ -620,11 +783,9 @@ export function verifyCredentials(
         path: discoveryPath,
         method: "GET",
         timeout: timeoutMs,
-        rejectUnauthorized: false,
-        checkServerIdentity: () => undefined,
-        // Düz http dalında (yerel RFC bridge) SNI'nın karşılığı yok, zaten
-        // yok sayılıyor.
-        servername: isPlainHttp ? undefined : sniFor(host),
+        // Soket, `ClientRequest` başlıkları yazmadan önce kabul kuralından
+        // geçiyor; tutmazsa `error` olayına TlsTrustError düşüyor.
+        ...(isPlainHttp ? {} : { createConnection: verifiedConnection({ host, port, trust: { mode: "verify", pin }, timeoutMs }) }),
         headers: { Authorization: `Basic ${auth}`, Accept: "*/*" }
       },
       (res) => {
@@ -657,7 +818,13 @@ export function verifyCredentials(
         });
       }
     );
-    req.on("error", (err) => resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "connectionError", { message: err.message }) }));
+    req.on("error", (err) =>
+      resolve(
+        isTlsTrustError(err)
+          ? tlsRejectedResult(language, err)
+          : { ok: false, status: null, sid: null, message: verifyMsg(language, "connectionError", { message: err.message }) }
+      )
+    );
     req.on("timeout", () => {
       req.destroy();
       resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "timeout") });
@@ -681,7 +848,8 @@ export function verifyWithCookies(
   cookieHeader: string,
   client: string,
   timeoutMs = 15000,
-  language: AppLanguage = "tr"
+  language: AppLanguage = "tr",
+  trustedCertificates: Record<string, string> = {}
 ): Promise<CredentialVerifyResult> {
   let parsed: URL;
   try {
@@ -694,6 +862,7 @@ export function verifyWithCookies(
     : "/sap/bc/adt/discovery";
   const host = parsed.hostname;
   const port = parsed.port ? Number(parsed.port) : 443;
+  const pin = pinForUrl(trustedCertificates, url);
 
   return new Promise((resolve) => {
     const req = httpsRequest(
@@ -703,9 +872,8 @@ export function verifyWithCookies(
         path: discoveryPath,
         method: "GET",
         timeout: timeoutMs,
-        rejectUnauthorized: false,
-        checkServerIdentity: () => undefined,
-        servername: sniFor(host),
+        // SAML oturum çerezi parola kadar değerli: aynı kabul kuralı.
+        createConnection: verifiedConnection({ host, port, trust: { mode: "verify", pin }, timeoutMs }),
         headers: { Cookie: cookieHeader, Accept: "*/*" }
       },
       (res) => {
@@ -732,7 +900,13 @@ export function verifyWithCookies(
         });
       }
     );
-    req.on("error", (err) => resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "connectionError", { message: err.message }) }));
+    req.on("error", (err) =>
+      resolve(
+        isTlsTrustError(err)
+          ? tlsRejectedResult(language, err)
+          : { ok: false, status: null, sid: null, message: verifyMsg(language, "connectionError", { message: err.message }) }
+      )
+    );
     req.on("timeout", () => {
       req.destroy();
       resolve({ ok: false, status: null, sid: null, message: verifyMsg(language, "timeout") });
@@ -750,12 +924,14 @@ async function verifyCredentialsThroughRouter(
   client: string,
   timeoutMs: number,
   language: AppLanguage = "tr",
-  nonAscii: string[] = []
+  nonAscii: string[] = [],
+  pin: string | null = null
 ): Promise<CredentialVerifyResult> {
   let socket;
   try {
-    socket = await tlsConnectThroughRouter(routerString, host, port, timeoutMs);
+    socket = await tlsConnectThroughRouter(routerString, host, port, { mode: "verify", pin }, timeoutMs);
   } catch (err) {
+    if (isTlsTrustError(err)) return tlsRejectedResult(language, err);
     return { ok: false, status: null, sid: null, message: verifyMsg(language, "connectionErrorRouter", { message: (err as Error).message }) };
   }
   try {

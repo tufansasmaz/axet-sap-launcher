@@ -425,6 +425,34 @@ export interface ConnectRequest {
   credentials: SystemCredentials;
 }
 
+/**
+ * Kimlik bilgisi gönderilmeden ÖNCE kullanıcıya sorulması gereken sertifika.
+ *
+ * `changed`: bu sistem için daha önce onaylanmış (pin'lenmiş) sertifika
+ * değişmiş. Sunucuda sertifika yenilemesi de olabilir, araya giren bir taraf
+ * (MITM) da — ikisini ağdan ayırt etmenin yolu yok, bu yüzden pin sessizce
+ * değiştirilmiyor.
+ * `untrusted`: sertifika uygulamanın güven deposuna göre doğrulanmıyor ve
+ * kayıtlı bir pin de yok (kurum içi CA'lı SAP sistemlerinde olağan).
+ */
+export interface CertTrustPrompt {
+  kind: "changed" | "untrusted";
+  /** `trustedCertificates` anahtarı: `${host}:${port}`. */
+  key: string;
+  host: string;
+  port: number;
+  /** SHA-256 (DER), küçük harf onaltılık. */
+  fingerprint: string;
+  previousFingerprint: string | null;
+  subject: string;
+  issuer: string;
+  validFrom: string;
+  validTo: string;
+  selfSigned: boolean;
+  /** Node'un zincir hatası kodu (ör. UNABLE_TO_VERIFY_LEAF_SIGNATURE) ya da host adı hatası. */
+  reason: string | null;
+}
+
 export interface ConnectResult {
   ok: boolean;
   projectDir: string;
@@ -432,6 +460,8 @@ export interface ConnectResult {
   verified: boolean;
   trustedCertificates?: Record<string, string>;
   effectiveClient?: string;
+  /** Doluysa bağlantı kimlik bilgisi gönderilmeden durdu; renderer onay soruyor. */
+  certPrompt?: CertTrustPrompt;
 }
 
 export interface CredentialDefaults {

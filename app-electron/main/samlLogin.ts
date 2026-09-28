@@ -288,6 +288,10 @@ export interface SamlLoginOptions {
   // kullanıcıyla bağlanmak, birinin çerezini ötekine taşımamalı.
   partitionKey: string;
   language?: "tr" | "en";
+  // Onaylı sertifika parmak izleri (`host:port` → SHA-256). Akışın sonunda
+  // çerezle yapılan ADT doğrulaması da çerezi taşıdığı için aynı kurala
+  // tabi: zincir geçerli ya da parmak izi burada kayıtlı olanla aynı.
+  trustedCertificates?: Record<string, string>;
 }
 
 const MSG = {
@@ -343,11 +347,13 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
   ses.removeAllListeners("will-download");
   ses.on("will-download", (event) => event.preventDefault());
 
-  // Sertifika HATASI sessizce yutulmuyor. Uygulamanın geri kalanı ADT
-  // isteklerinde `rejectUnauthorized: false` kullanıyor, ama orada gönderilen
-  // şey zaten bilinen bir kimlik bilgisi; burada kullanıcı parolasını CANLI
-  // olarak yabancı bir sayfaya yazıyor. Doğrulanmayan bir sertifikaya karşı
+  // Sertifika HATASI sessizce yutulmuyor. Bu pencerede kullanıcı parolasını
+  // CANLI olarak bir sayfaya yazıyor; doğrulanmayan bir sertifikaya karşı
   // pencere açmak, tam olarak ortadaki-adam saldırısının istediği şey olurdu.
+  // Burada sabitlenmiş parmak izine de izin verilmiyor: IdP sayfası
+  // (Chromium) Windows deposunu kullanıyor, kurumsal CA orada zaten var.
+  // Çerezle yapılan ADT doğrulaması ise tlsPin.ts kuralından geçiyor
+  // (zincir ya da onaylı parmak izi) — bkz. verifyWithCookies.
   let certificateFailed = false;
 
   const win = new BrowserWindow({
@@ -528,7 +534,7 @@ export async function performSamlLogin(opts: SamlLoginOptions): Promise<SamlLogi
         probedSignature = signature;
         probing = true;
         try {
-          const probe = await verifyWithCookies(baseUrl, cookieHeaderOf(cookies), client, PROBE_TIMEOUT_MS, lang);
+          const probe = await verifyWithCookies(baseUrl, cookieHeaderOf(cookies), client, PROBE_TIMEOUT_MS, lang, opts.trustedCertificates ?? {});
           probeAttempts += 1;
           if (probe.ok) {
             log(`oturum çerezi ADT tarafından kabul edildi (${probeAttempts}. yoklama)`);
