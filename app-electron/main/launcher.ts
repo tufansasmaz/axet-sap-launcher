@@ -19,6 +19,7 @@ import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } 
 import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
+import { sapBindingFor, type SapBinding } from "./sapBinding";
 import { closeAllWriteSessions, closeWriteSession, openWriteSession } from "./sapWrite/server";
 import type { Identity } from "./sapWrite/policy";
 import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
@@ -349,7 +350,8 @@ async function attemptReadonlyServerAutoStart(
   projectDir: string,
   port: number,
   identity: Identity,
-  tier: SystemTier
+  tier: SystemTier,
+  binding: SapBinding
 ): Promise<ReadonlyServerOutcome> {
   const writeSurface = skillInstall.adtWriteSurface;
   const { rel: scriptRel, label } = adtServerScriptFor(writeSurface);
@@ -395,7 +397,8 @@ async function attemptReadonlyServerAutoStart(
     port,
     expectWritable: writeSurface,
     gate,
-    tier
+    tier,
+    binding
   });
   if (!startResult.ok) {
     if (gate) closeWriteSession(projectDir);
@@ -430,9 +433,13 @@ export function computeProjectDir(config: AppConfig, customerPath: string[], ser
   return path.join(config.projectsBaseDir, ...segments, systemSegment);
 }
 
+// `binding`: adres/client/kullanıcı satırları buradan yazılıyor, sunucunun
+// ortamına da aynı nesne gidiyor (bkz. sapBinding.ts). İkisi burada ayrı ayrı
+// hesaplansaydı biri değişip öbürü değişmediğinde meşru bağlantı da reddedilirdi.
 function buildConnAdt(
   req: ConnectRequest,
   credentials: SystemCredentials,
+  binding: SapBinding,
   verifiedUrl: string,
   rfcBridge?: RfcBridgeConfig | null,
   samlCookiesFile?: string | null,
@@ -440,12 +447,13 @@ function buildConnAdt(
   certPin?: string | null
 ): string {
   const { service } = req;
-  const clientLine = credentials.client.trim() ? `ADT_SAP_CLIENT=${credentials.client.trim()}\n` : "";
-  const clientComment = credentials.client.trim()
+  const clientLine = binding.client ? `ADT_SAP_CLIENT=${binding.client}\n` : "";
+  const clientComment = binding.client
     ? ""
-    : "# Bu sistemde client belirtilmedi (BTP/Cloud sistemlerde genelde gerekmez).\n# Bir SAP server bunu isterse: SU01/SICF'te veya sistem yöneticisinden öğrenip\n# aşağıya \"ADT_SAP_CLIENT=xxx\" satırı olarak ekle.\n";
+    : "# Bu sistemde client belirtilmedi (BTP/Cloud sistemlerde genelde gerekmez).\n# Bir SAP server bunu isterse: SU01/SICF'te veya sistem yöneticisinden öğrenip\n# NTT Studio'da sistemin client alanına yaz ve yeniden bağlan (buraya elle\n# eklenen client'ı 8787'deki ADT sunucusu bağlantı uyuşmazlığı sayar).\n";
 
-  const effectiveUrl = rfcBridge ? `http://127.0.0.1:${rfcBridge.bridgePort}` : verifiedUrl;
+  // RFC köprüsünde yerel köprü adresi, değilse doğrulanan adres (sapBindingFor).
+  const effectiveUrl = binding.url;
 
   // ADT_SAP_TIER artık YORUM DEĞİL, gerçek satır.
   //
@@ -549,7 +557,7 @@ ADT_SAP_CERT_SHA256=${certPin ?? ""}
 
 # ADT_SAP_URL ${rfcBridge ? "yerel RFC bridge'e işaret ediyor (bkz. aşağıdaki RFC BRIDGE MODU notu)" : "otomatik keşif + kimlik doğrulama testiyle (HTTP 200) DOĞRULANDI"}.
 ADT_SAP_URL=${effectiveUrl}
-ADT_SAP_USER=${credentials.username}
+ADT_SAP_USER=${binding.user}
 ADT_SAP_PASSWORD=${credentials.password}
 # Şifre Basic Auth'ta UTF-8 baytlarıyla taşınır (launcher ve Python motoru aynı).
 # ÖLÇÜLDÜ 2026-09-23 (DS4): ASCII dışı karakter içeren bir şifreyle SAP GUI
@@ -641,9 +649,11 @@ ${
   - **Kod yazan her işte önce \`%abap-code-review\`**, ardından \`axet_inceleme_kaydet\` ile kaydet (hash'i sunucu hesaplar). Kaynak satır içi gönderilmez: dosyaya yaz, \`source_file\` ile ver. \`inceleme_yok\` / \`inceleme_eski\` → incelemeyi bu kaynakla yeniden çalıştır. \`kritik_bulgu\` **kesin engel**: aşma yolu yok, kodu düzelt ve yeniden incele.
   - \`transport_belirsiz\` → hangi transport olduğunu kullanıcıya SOR (\`adt_list_transports\` ile göster). Paket adını asla tahmin etme, sor.
   - \`adt-tool.ps1\` ile SAP'a YAZMA (zaten salt okunur: yalnızca GET/HEAD gönderir, başka yöntemi istek göndermeden reddeder); kabuktan, \`generate_screen.py\`/\`generate_adobe.py\` script'lerini doğrudan çalıştırarak ya da SAP GUI'den dolanarak da yazma. Ekran/Adobe üretimi DEV'de 8787'deki \`adt_generate_screen\`/\`adt_generate_adobe\` araçlarından geçer — onay penceresinin amacı her yazmayı kullanıcının görmesi.
-  - Motorun kademe kapısı kademeyi NTT Studio'nun sunucuya verdiği değerden alıyor; \`.conn_adt\`'taki \`ADT_SAP_TIER\` onu yalnızca daha kısıtlayıcı yöne çekebilir. Bir yazma "GR_TIER" ile reddedilirse bu bir arıza değil: bağlı olduğun sistem DEV değil demektir, \`.conn_adt\`'ı düzeltmeye kalkma, kullanıcıya söyle.`
+  - Motorun kademe kapısı kademeyi NTT Studio'nun sunucuya verdiği değerden alıyor; \`.conn_adt\`'taki \`ADT_SAP_TIER\` onu yalnızca daha kısıtlayıcı yöne çekebilir. Bir yazma "GR_TIER" ile reddedilirse bu bir arıza değil: bağlı olduğun sistem DEV değil demektir, \`.conn_adt\`'ı düzeltmeye kalkma, kullanıcıya söyle.
+  - Sunucu yalnızca NTT Studio'nun bağlandığı sisteme (adres, client, kullanıcı) gider. \`.conn_adt\` başka bir sistemi gösterirse her araç \`binding_mismatch\` ile reddedilir; başka bir sisteme geçmek için kullanıcı NTT Studio'da o sisteme bağlanır, sen \`.conn_adt\`'ı değiştirme.`
           : `- **\`%sap-adt-readonly\`** — bu sistem **${tier ?? "işaretlenmemiş"}**, yani ADT motoru **salt okunur** yüzeyle çalışıyor: yazan 28 araç MCP kaydına hiç girmiyor. 19 araç var (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.); \`adt_sql\`, \`adt_dumps\` ve \`adt_unit_test\` ayrıca kendi izin değişkenleriyle kapalı. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir.
-  - Bir push/activate aracı ARAMA: yok. Kullanıcı bu sistemde geliştirme istiyorsa yapılacak şey sistemi NTT Studio'da DEV olarak işaretlemesi, senin bir yolunu bulman değil.`
+  - Bir push/activate aracı ARAMA: yok. Kullanıcı bu sistemde geliştirme istiyorsa yapılacak şey sistemi NTT Studio'da DEV olarak işaretlemesi, senin bir yolunu bulman değil.
+  - Sunucu yalnızca NTT Studio'nun bağlandığı sisteme gider; \`.conn_adt\` başka bir sistemi gösterirse araçlar \`binding_mismatch\` ile reddedilir. Başka sisteme geçmek için kullanıcı NTT Studio'da o sisteme bağlanır.`
       }
 - \`%clean-core\`, \`%sap-docs\` — ABAP Cloud/Clean Core ve SAP dokümantasyon referans skilleri (SAP'a bağlanmaz, salt bilgi).
 - \`%abapgit-workflow\` ve kardeşleri — abapGit ZIP döngüsü${
@@ -725,7 +735,7 @@ ${
 }
 - Bu yüzden \`.conn_adt\`'taki \`ADT_SAP_URL\` gerçek SAP'a değil, yerel bir **RFC bridge**'e (\`http://127.0.0.1:${rfcBridge.bridgePort}\`) işaret ediyor — bu bridge \`SADT_REST_RFC_ENDPOINT\` üzerinden ${rfcBridge.saprouter ? "router'ın izin verdiği RFC kanalıyla" : "doğrudan (router'sız) RFC bağlantısıyla"} gerçek SAP'a bağlanıyor, \`%${adtSkillName}\` tamamen **değişmeden** çalışıyor.
 ${rfcAutoStartLines}
-- Gerçek keşfedilen (ama şu an erişilemeyen) HTTPS URL: **${verifiedUrl}** — ${rfcBridge.saprouter ? "Basis ekibi ileride \`saprouttab\`'a bu makinenin IP'sinden yukarıdaki URL'in host:port'una bir \`P\` (permit, native değil) satırı eklerse" : "network/Basis ekibi bu makinenin IP'sinden yukarıdaki URL'in host:port'una firewall/VPN'de erişim açarsa"}, \`.conn_adt\`'ta \`ADT_RFC_MODE=false\` yapıp \`ADT_SAP_URL\`'i bu adrese çevirebilirsin — doğrudan HTTPS daha basit ve daha güvenilir.
+- Gerçek keşfedilen (ama şu an erişilemeyen) HTTPS URL: **${verifiedUrl}** — ${rfcBridge.saprouter ? "Basis ekibi ileride \`saprouttab\`'a bu makinenin IP'sinden yukarıdaki URL'in host:port'una bir \`P\` (permit, native değil) satırı eklerse" : "network/Basis ekibi bu makinenin IP'sinden yukarıdaki URL'in host:port'una firewall/VPN'de erişim açarsa"}, kullanıcı NTT Studio'da sisteme yeniden bağlansın: bağlanma HTTPS'i yeniden dener ve \`.conn_adt\`'ı kendisi yazar. \`.conn_adt\`'taki \`ADT_SAP_URL\`/\`ADT_RFC_MODE\`'u elle değiştirme — 8787'deki ADT sunucusu NTT Studio'nun bağlandığı adresten farklı bir adresi \`binding_mismatch\` ile reddeder.
 - Aktivasyon gibi çok-adımlı stateful akışlar RFC bridge üzerinden güvenilir çalışmaz${
   writable
     ? " — bu sistemde yazma açık olsa bile (`adt_push`/`adt_activate` var) bir push'u bridge üzerinden denemeden önce kullanıcıya bunu SÖYLE: lock/PUT/activate zinciri yarıda kalabilir ve nesne inaktif kalır. Okuma araçları sorunsuz."
@@ -1221,10 +1231,16 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
   // çıksın diye. İkisi ayrı okunsaydı biri DEV diğeri QA diyebilirdi.
   const systemTier: SystemTier | null = config.systemTiers?.[req.service.uuid] ?? null;
 
+  // Beklenen bağlantı tek yerden: `.conn_adt`'ye yazılan adres/client/kullanıcı
+  // ile 8787'deki sunucunun ortamına verilen değer bu nesnenin kendisi. Sunucu
+  // her araç çağrısında ikisini karşılaştırıyor (`ntt_binding.py`); ayrı
+  // hesaplansalardı meşru bir bağlantıda da farklı çıkabilirlerdi.
+  const sapBinding = sapBindingFor(credentials, finalUrl, rfcBridge?.bridgePort);
+
   const connAdtPath = path.join(projectDir, ".conn_adt");
   try {
     const certPin = pinForUrl(trustedCertificatesUpdate ?? config.trustedCertificates, finalUrl);
-    writeFileSync(connAdtPath, buildConnAdt(req, credentials, finalUrl, rfcBridge, samlCookiesFile, systemTier, certPin), "utf-8");
+    writeFileSync(connAdtPath, buildConnAdt(req, credentials, sapBinding, finalUrl, rfcBridge, samlCookiesFile, systemTier, certPin), "utf-8");
   } catch (err) {
     return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "connAdtWriteFailed", { error: (err as Error).message }) };
   }
@@ -1279,7 +1295,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
       sid: req.service.systemId,
       client: credentials.client.trim(),
       user: credentials.username.trim().toUpperCase()
-    }, systemTier ?? "QA");
+    }, systemTier ?? "QA", sapBinding);
     // Kademe `.conn_adt`'deki satırla aynı kuraldan (`buildConnAdt`: işaretsiz
     // sistem QA) ama sunucuya ortamdan gidiyor: `.conn_adt`'yi ajan
     // düzenleyebiliyor, sunucunun ortamını düzenleyemiyor.
