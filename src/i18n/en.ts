@@ -574,6 +574,28 @@ export const en: Record<TranslationKey, string> = {
 
   "confirmDialog.confirm": "Confirm",
 
+  "certTrust.untrustedTitle": "SAP certificate could not be verified",
+  "certTrust.changedTitle": "SAP certificate has changed",
+  "certTrust.untrustedMessage":
+    "The TLS certificate of {endpoint} does not chain to a recognised root (internal CA or self-signed). Your user name and password were NOT sent.",
+  "certTrust.changedMessage":
+    "{endpoint} presented a DIFFERENT certificate from the one you previously approved for this system. Your user name and password were NOT sent.",
+  "certTrust.untrustedWarning":
+    "Before trusting it, compare the fingerprint with the value from your SAP Basis team (STRUST). Once approved, this server is only accepted with this exact certificate.",
+  "certTrust.changedWarning":
+    "The certificate may have been renewed — or someone may be intercepting your connection. Do not approve until your SAP Basis team confirms the renewal.",
+  "certTrust.fingerprint": "SHA-256 fingerprint",
+  "certTrust.previousFingerprint": "Previous fingerprint",
+  "certTrust.newFingerprint": "New fingerprint",
+  "certTrust.subject": "Subject",
+  "certTrust.issuer": "Issuer",
+  "certTrust.selfSigned": "self-signed",
+  "certTrust.validity": "Validity",
+  "certTrust.reason": "Verification error",
+  "certTrust.trust": "Trust this certificate and connect",
+  "certTrust.approveFailed":
+    "The certificate approval was not saved: the server's certificate differs from the one shown in the dialog. Please connect again.",
+
   "toast.dismissTitle": "Click to dismiss",
 
   "terminalPanel.resizeTitle": "Resize",

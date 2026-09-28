@@ -16,6 +16,7 @@ import {
 import type {
   AppConfig,
   AppTheme,
+  CertTrustPrompt,
   ConnectivityState,
   DoctorReport,
   FsEntry,
@@ -53,6 +54,7 @@ import UpdatePromptModal, { type UpdatePromptMode } from "./components/UpdatePro
 import SapWriteGate from "./components/SapWriteGate";
 import type { SapWriteState } from "../app-electron/shared/sapWriteTypes";
 import ConfirmDialog from "./components/ConfirmDialog";
+import CertTrustDialog from "./components/CertTrustDialog";
 import Toast, { type ToastMsg } from "./components/Toast";
 import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPanel";
 import FileExplorer from "./components/FileExplorer";
@@ -106,6 +108,17 @@ export default function App() {
   const [tierPromptTarget, setTierPromptTarget] = useState<Selection | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  // Bağlanma, SAP sertifikası doğrulanamadığı ya da değiştiği için kimlik
+  // bilgisi GÖNDERİLMEDEN durdu; kullanıcı onaylarsa aynı bilgilerle yeniden
+  // deneniyor. Kimlik bilgisi burada, açık olan kimlik penceresinin zaten
+  // tuttuğundan fazla bir yerde tutulmuyor ve pencere kapanınca siliniyor.
+  const [certPrompt, setCertPrompt] = useState<{
+    prompt: CertTrustPrompt;
+    username: string;
+    password: string;
+    client: string;
+  } | null>(null);
+  const [certApproving, setCertApproving] = useState(false);
   // Rol seciminin beklettigi kimlik bilgileri. Rol ekrani artik ACILISTA
   // aciliyor (bkz. roleGateOpen); bu alan yalnizca "rolsuz kullanici bir sekilde
   // baglanti akisina girdi" durumunda bagalantiyi bekletmek icin duruyor.
@@ -935,11 +948,37 @@ export default function App() {
         }
       } else {
         setConnectError(result.message);
+        if (result.certPrompt) {
+          setCertPrompt({ prompt: result.certPrompt, username, password, client });
+        }
       }
     } catch (err) {
       setConnectError((err as Error).message);
     } finally {
       setConnecting(false);
+    }
+  };
+
+  // Sertifika onayı. Kaydedilen parmak izi ana sürecin ölçtüğü değer; eşleşmezse
+  // (ör. arada başka bir bağlanma denemesi yeni bir ölçüm getirdiyse) kayıt
+  // yapılmıyor ve kullanıcıdan yeniden bağlanması isteniyor.
+  const handleCertTrust = async () => {
+    if (!certPrompt) return;
+    setCertApproving(true);
+    try {
+      const saved = await window.api.approveCertificate(certPrompt.prompt.key, certPrompt.prompt.fingerprint);
+      const creds = certPrompt;
+      setCertPrompt(null);
+      if (!saved) {
+        setConnectError(t("certTrust.approveFailed"));
+        return;
+      }
+      await runConnect(creds.username, creds.password, creds.client);
+    } catch (err) {
+      setCertPrompt(null);
+      setConnectError((err as Error).message);
+    } finally {
+      setCertApproving(false);
     }
   };
 
@@ -1424,9 +1463,19 @@ export default function App() {
           service={credentialsTarget?.service ?? null}
           connecting={connecting}
           errorMessage={connectError}
-          onClose={() => setCredentialsTarget(null)}
+          onClose={() => {
+            setCredentialsTarget(null);
+            setCertPrompt(null);
+          }}
           onSubmit={handleCredentialsSubmit}
           loadDefaults={(uuid) => window.api.getCredentialDefaults(uuid)}
+        />
+
+        <CertTrustDialog
+          prompt={credentialsTarget ? certPrompt?.prompt ?? null : null}
+          busy={certApproving || connecting}
+          onTrust={() => void handleCertTrust()}
+          onCancel={() => setCertPrompt(null)}
         />
 
         <TierPromptModal
