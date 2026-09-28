@@ -268,6 +268,62 @@ def t_no_secret_in_result():
         assert "prd.example.test" in text, "gözlenen adres görünmeli"
 
 
+def _multiline_evil(target=PRD, decoy=DEV):
+    # dotenv çift tırnaklı değeri satırlara yayıyor: NOTE'un içindeki satır
+    # dotenv için değer, satır satır okuyan için bir atama (R2 Y-1).
+    return conn_text(url=target, extra=['NOTE="', f"ADT_SAP_URL={decoy}", '"'])
+
+
+def t_multiline_quote_divergence():
+    with Tmp(_multiline_evil()) as t:
+        env = binding_env(t.d)
+        env["ADT_SAP_URL"], env["ADT_SAP_CLIENT"], env["ADT_SAP_USER"] = DEV, "100", "DEVUSER"
+        found = nb.check(nb.capture_env_binding(env), environ=env)
+        assert found is not None and "url" in found["alanlar"], f"çok satırlı tırnak kaçtı: {found}"
+    # Ayrıştırıcılar ayrışıyorsa hangisi haklı olursa olsun red: `export	`, `${...}`.
+    for extra, url in ((["export	ADT_SAP_URL=%s" % PRD], DEV), ([], "${NTT_YOK}" + DEV)):
+        with Tmp(conn_text(url=url, extra=extra)) as t:
+            env = binding_env(t.d)
+            found = nb.check(nb.capture_env_binding(env), environ=env)
+            assert found is not None, f"ayrışma kaçtı: {extra or url}"
+    # Meşru dosyada yanlış alarm yok: launcher parolayı tırnaksız yazıyor.
+    for parola in ("Ab\"c#d$e'f", '"basta-tirnak', "${HOME}x", "a #b"):
+        text = conn_text().replace(f"ADT_SAP_PASSWORD={PAROLA}", f"ADT_SAP_PASSWORD={parola}")
+        with Tmp(text + "ADT_SAP_LANGUAGE=EN\nADT_SAP_CERT_SHA256=\n") as t:
+            env = binding_env(t.d)
+            found = nb.check(nb.capture_env_binding(env), environ=env)
+            assert found is None, f"parola {parola!r} ile meşru dosya reddedildi: {found}"
+
+
+def t_wrapper_builds_client_first():
+    # İstemci henüz kurulmamışken denetim canlı oturumu göremiyordu; kurulum
+    # (motorun .conn_adt'yi override=True ile yeniden yüklemesi) denetimden ÖNCE.
+    with Tmp(conn_text()) as t:
+        env = binding_env(t.d)
+        state = {"client": None, "orig": 0}
+
+        def ensure():
+            state["client"] = types.SimpleNamespace(adt_client=types.SimpleNamespace(
+                url=PRD, client="100", user="DEVUSER"))
+            return state["client"]
+
+        def orig(**kw):
+            state["orig"] += 1
+            return {"ok": True}
+
+        g = nb.wrap("adt_push", orig, nb.capture_env_binding(env), environ=env,
+                    live_client=lambda: state["client"], ensure_client=ensure)
+        res = g(name="ZX")
+        assert res.get("error") == "binding_mismatch" and "oturum" in res["kaynaklar"], res
+        assert state["orig"] == 0, "motor çağrıldı"
+
+        def boom():
+            raise RuntimeError("kurulamadı")
+        g = nb.wrap("adt_push", orig, nb.capture_env_binding(env), environ=env,
+                    live_client=lambda: None, ensure_client=boom)
+        assert g(name="ZX") == {"ok": True}, "kurulum hatası denetimi kırmamalı; motor kendi hatasını verir"
+
+
 # --- sunucular (alt süreç) --------------------------------------------------------
 
 class FakeLauncher:
@@ -466,6 +522,18 @@ def t_readonly_same_check():
     assert not o["wrapped"] and o["r2"].get("fake") == "adt_get_source", o
     assert "sabitlenmedi" in o["stderr"], o["stderr"][-600:]
 
+def t_gated_multiline_after_start():
+    # R2 Y-1: sunucu açıldıktan sonra ajan .conn_adt'yi çok satırlı tırnakla
+    # yazıyor; satır satır okuyan DEV, motor PRD görüyordu. İlk yazma PRD'ye gidiyordu.
+    for kind in ("gated", "readonly"):
+        o = _probe(kind, conn_text(), scen={"rewrite": _multiline_evil()})
+        assert o["r1"].get("fake") == "adt_get_source", f"{kind}: {o['r1']}"
+        assert _refused(o["r2"]) and _refused(o["search"]), f"{kind}: {o['r2']} / {o['search']}"
+        if kind == "gated":
+            assert _refused(o["push"]), o["push"]
+        assert o["calls"] == ["adt_get_source"], f"{kind}: motor/SAP çağrıldı: {o['calls']}"
+
+
 
 def t_server_source_order():
     gated = (_SCRIPTS_DIR / "adt_gated_server.py").read_text(encoding="utf-8")
@@ -500,6 +568,9 @@ check("onaylı sunucu: .conn_adt'ye NTT_STUDIO_SAP_URL yazmak etkisiz", "yakalam
 check("onaylı sunucu: .conn_adt'deki ADT_CWD satırı → red", "motoru başka klasörün dosyasına çevirmek", t_gated_adt_cwd_redirect)
 check("onaylı sunucu: ortam yoksa eski davranış", "elle başlatılan sunucunun kırılması", t_gated_no_env_old_behaviour)
 check("salt okunur sunucu: aynı denetim, ortam yoksa uyarı", "PRD'den okumak (GR_PII DEV kademesiyle)", t_readonly_same_check)
+check(".conn_adt motorla aynı ayrıştırıcıyla okunuyor; ayrışma → red", "R2 Y-1: çok satırlı tırnakla sabitlemeyi DEV'e kandırmak", t_multiline_quote_divergence)
+check("sarmalayıcı: istemci denetimden önce kuruluyor", "R2 Y-1: ilk çağrıda canlı oturumun karşılaştırılmaması", t_wrapper_builds_client_first)
+check("iki sunucu: açılıştan sonra çok satırlı .conn_adt → red", "R2 Y-1: ilk yazmanın PRD'ye gitmesi", t_gated_multiline_after_start)
 check("iki sunucuda sıra: yakala < motor < kur, denetim en dışta", "yakalamanın geç, denetimin içte kalması", t_server_source_order)
 
 passed = sum(1 for r in RESULTS if r[0] == "PASS")

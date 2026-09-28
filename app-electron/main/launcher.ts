@@ -25,6 +25,7 @@ import type { Identity } from "./sapWrite/policy";
 import { getEmbeddedRfcRuntime } from "./embeddedRuntime";
 import { syncBriefIntoContext } from "./projectBrief";
 import { mt } from "./i18n";
+import { pickServerScript } from "./serverScriptPath";
 
 const NOTES_MARKER = "<!-- axet-sap-launcher:notes -->";
 const INVALID_CHARS = /[<>:"/\\|?*]/g;
@@ -228,9 +229,7 @@ async function attemptRfcBridgeAutoStart(
   // Yukarı akış 2026-09'da bu script'i `sap-adt-readonly`'den `sap-adt-router-bridge`
   // skill'ine taşıdı (ADT motoru üçe bölündü). Eski yol artık hiçbir kurulumda yok.
   const scriptRel = ["sap-adt-router-bridge", "scripts", "adt_rfc_bridge.py"];
-  const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
-  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "sap-consultant", "skills", ...scriptRel) : null;
-  const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
+  const scriptPath = pickServerScript(projectDir, skillInstall.toolkitRoot, scriptRel);
 
   if (!scriptPath) {
     return {
@@ -355,12 +354,9 @@ async function attemptReadonlyServerAutoStart(
 ): Promise<ReadonlyServerOutcome> {
   const writeSurface = skillInstall.adtWriteSurface;
   const { rel: scriptRel, label } = adtServerScriptFor(writeSurface);
-  // Proje kopyasına artık hiçbir ADT script'i gitmiyor (`excludeDirs:
-  // ["scripts"]`), ama proje yolu önce deneniyor: kullanıcı elle bir kopya
-  // koymuşsa onunki kazansın.
-  const projectScript = path.join(projectDir, ".axet-code", "skills", ...scriptRel);
-  const toolkitScript = skillInstall.toolkitRoot ? path.join(skillInstall.toolkitRoot, "sap-consultant", "skills", ...scriptRel) : null;
-  const scriptPath = existsSync(projectScript) ? projectScript : toolkitScript && existsSync(toolkitScript) ? toolkitScript : null;
+  // Proje kopyasına hiçbir ADT script'i gitmiyor (`excludeDirs: ["scripts"]`);
+  // toolkit'inki önce, bkz. serverScriptPath.ts.
+  const scriptPath = pickServerScript(projectDir, skillInstall.toolkitRoot, scriptRel);
 
   if (!scriptPath) {
     return {
