@@ -49,7 +49,10 @@ export function runFlowsAgentStep(prompt: string, model: string | null, useConne
           // kur" derse ajanın posta kutusuna bakabilmesi gerekiyor. MCP araç
           // çağrıları axet-code'un kendi döngüsünde olup bittiği için
           // stdout'a yine sadece nihai JSON düşüyor; protokol bozulmuyor.
-          child = spawn("axet-code", args, { cwd: dir, shell: true, windowsHide: true, env: axetSpawnEnv(useConnectors) });
+          // Kabuksuz: `shell: true` argümanları (model adı dahil) cmd.exe'nin
+          // komut satırına yapıştırıyordu, `&` gibi bir karakter orada komut
+          // olurdu. Kabuksuz desen sapGuiScriptAgent.ts'te canlı doğrulandı.
+          child = spawn("axet-code", args, { cwd: dir, windowsHide: true, stdio: ["pipe", "pipe", "pipe"], env: axetSpawnEnv(useConnectors) });
         } catch (err) {
           reject(err as Error);
           return;

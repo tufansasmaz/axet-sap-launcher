@@ -51,7 +51,7 @@ export function runSapGuiAgentStep(
 
         let child: ChildProcess;
         try {
-          // NOT: axetFlowsAgent.ts'teki `shell: true` BİLEREK BURAYA
+          // NOT: axetFlowsAgent.ts'te o zaman duran `shell: true` BİLEREK BURAYA
           // TAŞINMADI — canlı test SIRASINDA (bu dosyanın smoke-test'i)
           // gerçek bir bug ORTAYA ÇIKTI: Windows'ta `shell:true` ile spawn
           // edilen process'te `child.kill()` sadece ARA `cmd.exe`
