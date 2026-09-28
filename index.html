@@ -2,6 +2,26 @@
 <html lang="tr" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      Ana pencerenin CSP'si. Bu sayfa preload'un `window.api`'sini taşıyor;
+      buraya sızan tek bir betik kullanıcının yetkisiyle kod çalıştırabilir.
+      - script-src 'self': yalnızca paketin kendi dosyaları; satır içi betik
+        ve eval yok (paket bunlara ihtiyaç duymuyor, derleme çıktısında
+        eval / new Function / Worker yok).
+      - style-src 'unsafe-inline': React Flow ve xterm çalışma anında <style>
+        ekliyor.
+      - img-src data:/blob:: ekran görüntüleri, ek önizlemeleri ve DOCX
+        görselleri data URI olarak geliyor.
+      - connect-src / frame-src localhost: gömülü aXet.flows (Node-RED)
+        Designer'ı. Portu her çalıştırmada değiştiği için port serbest.
+      Geliştirmede (Vite) satır içi react-refresh betiği ve HMR websocket'i
+      için gevşetiliyor: bkz. app-electron/shared/devCsp.ts. frame-ancestors
+      meta etiketinde geçersiz; pencere zaten çerçevelenmiyor.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:*; frame-src http://localhost:*; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
     <title>NTT Studio</title>

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, screen } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, screen, session } from "electron";
 import path from "node:path";
 import { promises as fs, existsSync } from "node:fs";
 import { request as httpRequest } from "node:http";
@@ -80,7 +80,8 @@ import { collectPrdSystems } from "./guiScriptPrdSystems";
 import { runSapGuiAgentStep, cancelSapGuiAgentStep, cancelAllSapGuiAgentSteps } from "./sapGuiScriptAgent";
 import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js";
 import { createFlowSandbox, isFlowSandboxSender, isFlowSandboxWindow } from "./flowSandbox";
-import { installIpcSenderGuard } from "./ipcSenderGuard";
+import { installIpcSenderGuard, isMainWindowSenderUntrusted } from "./ipcSenderGuard";
+import { installWindowGuards, isAppUrl, isExternalOpenAllowed, type AppOrigin } from "./windowGuard";
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
@@ -191,6 +192,14 @@ const flowSandbox = createFlowSandbox({
   mainDir: __dirname,
   devServerUrl: isDev && process.env.ELECTRON_RENDERER_URL ? process.env.ELECTRON_RENDERER_URL : null
 });
+
+// Ana pencerenin yüklediği sayfa — createWindow'daki loadURL/loadFile ile
+// AYNI karar. Navigasyon kilidi ve IPC bekçisi "uygulamanın kendi sayfası"nı
+// buna göre tanıyor (bkz. windowGuard.ts).
+const appOrigin: AppOrigin = {
+  distDir: path.join(__dirname, "../../dist"),
+  devOrigin: isDev && process.env.ELECTRON_RENDERER_URL ? process.env.ELECTRON_RENDERER_URL : null
+};
 const flowRuntime = new FlowRuntime({
   sandbox: flowSandbox,
   onDebug: (entry: FlowJsonValue) => mainWindow?.webContents.send("flows:runtime:debug", entry),
@@ -253,10 +262,15 @@ function createWindow(): void {
     show: false,
     icon: resolveIconPath(),
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.mjs"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      // Renderer süreci işletim sistemi sandbox'ında: sayfada bir açık
+      // bulunsa bile Node'a ve dosya sistemine doğrudan erişim yok. Preload
+      // yalnızca `electron`'un sandbox'ta da olan parçalarını (contextBridge,
+      // ipcRenderer, webUtils) kullanıyor; bunun için CommonJS derleniyor
+      // (bkz. electron.vite.config.ts).
+      sandbox: true,
       backgroundThrottling: false,
       // Electron 32.3'ten itibaren document.execCommand("paste") (Ctrl+V'nin
       // ve sağ-tık "Yapıştır"ın dayandığı senkron pano okuma yolu) varsayılan
@@ -1099,9 +1113,13 @@ function registerIpc(): void {
   // yollarını açar (isPathAllowed) — bu KASITLI OLARAK farklı bir kanal:
   // sadece http(s):// URL'lerine izin verir, dosya sistemi izin listesine
   // hiç bakmaz (URL bir dosya yolu değil).
+  //
+  // `mailto:` da kabul ediliyor: DOCX önizlemesindeki e-posta bağlantıları bu
+  // kanaldan açılıyor. Şema kararı pencere korumalarıyla ortak
+  // (isExternalOpenAllowed) — iki ayrı liste zamanla birbirinden kopardı.
   ipcMain.handle("shell:openUrl", async (_event, url: string) => {
-    if (typeof url !== "string" || !/^https?:\/\//i.test(url)) {
-      return { ok: false, error: "Sadece http:// veya https:// URL'lerine izin verilir." };
+    if (!isExternalOpenAllowed(url)) {
+      return { ok: false, error: "Sadece http://, https:// veya mailto: URL'lerine izin verilir." };
     }
     await shell.openExternal(url);
     return { ok: true };
@@ -1674,8 +1692,21 @@ app.whenReady().then(() => {
   appLog("acilis", { surum: app.getVersion(), platform: process.platform, elektron: process.versions.electron });
   console.log("[gunluk] dosya:", appLogPath());
   // Kayıtlardan ÖNCE: bekçi ipcMain.handle/on'u sarıyor, sonradan kaydedilen
-  // her kanal flow sandbox penceresine kapalı doğuyor (bkz. ipcSenderGuard.ts).
-  installIpcSenderGuard(ipcMain, isFlowSandboxSender);
+  // her kanal flow sandbox penceresine, alt çerçevelere ve uygulamanın kendi
+  // sayfası dışındaki her sayfaya kapalı doğuyor (bkz. ipcSenderGuard.ts).
+  installIpcSenderGuard(ipcMain, (event) =>
+    isMainWindowSenderUntrusted(event, { isFlowSandboxSender, isAppUrl: (url) => isAppUrl(url, appOrigin) })
+  );
+  // İlk pencereden ÖNCE: korumalar `web-contents-created` ile kuruluyor,
+  // ana pencere de dahil her webContents korumalı doğuyor.
+  installWindowGuards({
+    app,
+    shell,
+    defaultSession: () => session.defaultSession,
+    origin: appOrigin,
+    isFlowSandbox: (contents) => isFlowSandboxSender(contents),
+    log: (tag, fields) => appLog(tag, fields)
+  });
   registerIpc();
   createWindow();
 

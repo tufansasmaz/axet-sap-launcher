@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { FileWarning, FolderOpen, ExternalLink, Pencil, Save } from "lucide-react";
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
+import { resolveDocxLink, sanitizeDocxHtml } from "../lib/sanitizeDocxHtml";
 
 interface Props {
   path: string;
@@ -42,6 +43,25 @@ function extOf(name: string): string {
   return idx === -1 ? "" : name.slice(idx).toLowerCase();
 }
 
+// DOCX önizlemesindeki bağlantılar tarayıcının kendi davranışına
+// bırakılmıyor: bir http(s) bağlantısı ana pencereyi — `window.api` ile
+// birlikte — başka bir sayfaya götürürdü, orta tık yeni pencere açardı.
+// Sayfa içi bağlantı önizlemede kalıyor, web/e-posta sistem tarayıcısına
+// gidiyor (bkz. resolveDocxLink).
+function handleDocxLinkClick(event: MouseEvent<HTMLDivElement>) {
+  const anchor = (event.target as Element | null)?.closest?.("a");
+  if (!anchor || !event.currentTarget.contains(anchor)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const action = resolveDocxLink(anchor.getAttribute("href"));
+  if (action.kind === "anchor") {
+    const target = Array.from(event.currentTarget.querySelectorAll("[id]")).find((el) => el.id === action.id);
+    target?.scrollIntoView({ block: "start" });
+  } else if (action.kind === "external") {
+    window.api.openExternalUrl(action.url).catch(() => {});
+  }
+}
+
 export default function FileViewer({ path, name, editable = false, reloadToken = 0 }: Props) {
   const t = useT();
   const [state, setState] = useState<LoadState>({ kind: "loading" });
@@ -73,7 +93,7 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
         if (cancelled) return;
         setState(
           result.ok
-            ? { kind: "docx", html: result.html ?? "" }
+            ? { kind: "docx", html: sanitizeDocxHtml(result.html ?? "") }
             : { kind: "error", message: result.error ?? t("fileViewer.docxReadError") }
         );
         return;
@@ -173,7 +193,12 @@ export default function FileViewer({ path, name, editable = false, reloadToken =
       // koyu üstüne koyu, okunamayan bir sayfa.
       <div className="h-full overflow-y-auto bg-[#ffffff] px-10 py-8">
         <div className="mx-auto max-w-3xl text-[#1a1a1a] [&_h1]:mb-3 [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:text-xl [&_h2]:font-semibold [&_p]:mb-3 [&_table]:border-collapse [&_td]:border [&_td]:border-[#d4d4d4] [&_td]:p-1.5 [&_th]:border [&_th]:border-[#d4d4d4] [&_th]:p-1.5">
-          <div dangerouslySetInnerHTML={{ __html: state.html }} />
+          {/* state.html sanitizeDocxHtml'den geçmiş hâli (yükleme sırasında). */}
+          <div
+            onClick={handleDocxLinkClick}
+            onAuxClick={handleDocxLinkClick}
+            dangerouslySetInnerHTML={{ __html: state.html }}
+          />
         </div>
       </div>
     );
