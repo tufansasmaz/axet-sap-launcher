@@ -20,9 +20,10 @@
 // aynı sınıf 11px yazıyla 26px, 13px yazıyla 30px düğme üretiyor — ikisi yan
 // yana geldiğinde şerit hizası bozuluyor.
 //
-//   sm → h-7  (28px) · 11px yazı · araç panelleri, satır içi eylemler
-//   md → h-8  (32px) · 12px yazı · panel/modal üst şeritleri, form eylemleri
-//   lg → h-9  (36px) · 13px yazı · modal ayak düğmeleri, birincil eylemler
+//   sm → h-8  (32px) · 12.5px yazı · araç panelleri, satır içi eylemler
+//   md → h-9  (36px) · 13px yazı   · panel/modal üst şeritleri, form eylemleri
+//   lg → h-10 (40px) · 14px yazı   · modal ayak düğmeleri, birincil eylemler
+//   (2026-09-28 "Ferah" yoğunluk; öncesi 28/32/36px.)
 //
 // --- Ton kademeleri -------------------------------------------------------
 //   neutral → varsayılan. Kenarlıklı, bir kademe açık zemin.
@@ -51,17 +52,17 @@ const SHELL =
   "disabled:cursor-default";
 
 const SIZE: Record<BtnSize, string> = {
-  sm: "h-7 gap-1.5 px-2.5 text-[11px]",
-  md: "h-8 gap-1.5 px-3 text-[12px]",
-  lg: "h-9 gap-2 px-4 text-[13px]",
+  sm: "h-8 gap-1.5 px-3 text-xs",
+  md: "h-9 gap-2 px-3.5 text-[13px]",
+  lg: "h-10 gap-2 px-4 text-sm",
 };
 
 // İkon-tek düğmelerde yatay dolgu yok, genişlik yüksekliğe eşit — yoksa kare
 // olması gereken düğme dikdörtgen çıkıyor.
 const ICON_SIZE: Record<BtnSize, string> = {
-  sm: "h-7 w-7",
-  md: "h-8 w-8",
-  lg: "h-9 w-9",
+  sm: "h-8 w-8",
+  md: "h-9 w-9",
+  lg: "h-10 w-10",
 };
 
 // Sönük hâl tonla değişiyor: dolgulu düğmelerde 0.6 hâlâ okunuyor, kenarlıklı
@@ -152,15 +153,15 @@ export function iconBtn(
 // `ICON_BUTTON`, ...) çünkü o ekranda düzinelerce yerde geçiyorlar ve isim
 // değişikliği bu dosyanın çözdüğü soruna hiçbir şey katmazdı.
 
-/** Araç panelindeki dar metinli düğme (28px). */
+/** Araç panelindeki dar metinli düğme (32px). */
 export const TOOL_BUTTON = btn("neutral", "sm");
-/** Araç panelindeki kare ikon düğmesi (28px). */
+/** Araç panelindeki kare ikon düğmesi (32px). */
 export const ICON_BUTTON = iconBtn("neutral", "sm");
 /** Kenarlıksız satır içi ikon düğmesi — liste satırlarındaki eylemler (24px). */
 export const GHOST_ICON_BUTTON =
   "inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-500 " +
   "transition hover:bg-hover hover:text-white disabled:cursor-default disabled:opacity-40";
-/** Araç panelindeki vurgu düğmesi (28px). */
+/** Araç panelindeki vurgu düğmesi (32px). */
 export const PRIMARY_BUTTON = btn("primary", "sm");
 
 /** Modal ayağındaki düğme çifti — "Vazgeç" tarafı. */

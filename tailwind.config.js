@@ -98,8 +98,9 @@ export default {
       // kart yan yana durabiliyordu.
       //
       // Bunları tek tek değiştirmek yerine ÖLÇEĞİN KENDİSİ daraltıldı:
-      // Tailwind'in varsayılan 2/4/6/8/12/16/24 merdiveni 4/6/6/8/10/12/16'ya
-      // çekildi. Sonuç: hiçbir bileşene dokunmadan tüm uygulama aynı dile
+      // Tailwind'in varsayılan 2/4/6/8/12/16/24 merdiveni önce 4/6/6/8/10/12/16'ya
+      // çekildi; 2026-09-28'de "Ferah" yoğunlukla 6/8/8/10/12/16/20 oldu
+      // (kontrol 8px, kart ve pencere 12px). Sonuç: hiçbir bileşene dokunmadan tüm uygulama aynı dile
       // geçti ve bundan sonra hangi sınıf yazılırsa yazılsın sonuç dilin
       // içinde kalıyor. `rounded` ile `rounded-md`nin AYNI değeri vermesi
       // kasıtlı — ikisi arasındaki seçim artık görsel bir fark yaratmıyor.
@@ -107,13 +108,42 @@ export default {
       // `full` dokunulmadı: rozetler, avatarlar ve durum noktaları hap
       // biçiminde kalmalı.
       borderRadius: {
-        sm: "4px",
-        DEFAULT: "6px",
-        md: "6px",
-        lg: "8px",
-        xl: "10px",
-        "2xl": "12px",
-        "3xl": "16px"
+        sm: "6px",
+        DEFAULT: "8px",
+        md: "8px",
+        lg: "10px",
+        xl: "12px",
+        "2xl": "16px",
+        "3xl": "20px"
+      },
+      // Yazı ölçeği de aynı yolla: sınıf adları aynı, değerler "Ferah"
+      // yoğunluğa göre (spec §5). Gövde 14px (`text-sm`); `text-2xs` yalnızca
+      // çip ve küçük etiketler için. Satır aralığı gövdede 1.5, başlıklarda 1.3.
+      fontSize: {
+        "2xs": ["11px", { lineHeight: "1.5" }],
+        xs: ["12.5px", { lineHeight: "1.5" }],
+        sm: ["14px", { lineHeight: "1.5" }],
+        base: ["15px", { lineHeight: "1.5" }],
+        lg: ["17px", { lineHeight: "1.3" }],
+        xl: ["20px", { lineHeight: "1.3" }],
+        "2xl": ["24px", { lineHeight: "1.3" }]
+      },
+      // Katmanlar adla: `z-[60]` gibi elle yazılmış sayılar hangi pencerenin
+      // hangisinin üstünde durduğunu okunmaz yapıyordu. Bildirim (`toast`) en
+      // üstte — eskiden `z-50`'deydi ve açık bir pencerenin ARKASINDA kalıyordu.
+      zIndex: {
+        dropdown: "40",
+        modal: "50",
+        confirm: "60",
+        critical: "70",
+        toast: "80"
+      },
+      // Gölge değerleri temaya göre değişiyor (koyu ve açık ayrı), bu yüzden
+      // CSS değişkeninden okunuyor; bkz. src/index.css `--elev-*`.
+      boxShadow: {
+        "elev-1": "var(--elev-1)",
+        "elev-2": "var(--elev-2)",
+        "elev-3": "var(--elev-3)"
       }
     }
   },
