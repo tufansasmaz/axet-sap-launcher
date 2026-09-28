@@ -4,6 +4,7 @@ import { request as httpRequest } from "node:http";
 import { connect as netConnect } from "node:net";
 import { getAdtHttpToken } from "./adtHttpToken";
 import { mt } from "./i18n";
+import type { SystemTier } from "../shared/types";
 
 // `adt_readonly_server.py`'yi (bkz. resources/sap-toolkit/sap-consultant/skills/sap-adt-readonly/scripts)
 // launcher'ın kendisi başlatır — RFC bridge otomatik başlatmasıyla (rfcBridgeManager.ts)
@@ -37,6 +38,14 @@ export interface ReadonlyServerStartOptions {
    * için hiçbir sebep yok.
    */
   gate?: ApprovalGate;
+  /**
+   * Sistemin kademesi, NTT Studio'nun kendi yapılandırmasından. Çocuğun
+   * ortamına `NTT_STUDIO_SAP_TIER` olarak konuyor; sarmalayıcı sunucular
+   * (`ntt_tier.py`) bunu `.conn_adt`'deki `ADT_SAP_TIER`'ın alt sınırı yapıyor.
+   * `.conn_adt` ajanın klasöründe, ajan onu değiştirebiliyor; bu ortamı
+   * değiştiremiyor.
+   */
+  tier?: SystemTier;
   /**
    * Gated modda portta token'ını bilmediğimiz (401) bir sunucu varsa, önceki
    * launcher'dan kalmış gated sunucunun kalp atışıyla kapanması bu kadar
@@ -338,6 +347,11 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     env.ADT_APPROVAL_URL = opts.gate.url;
     env.ADT_APPROVAL_TOKEN = opts.gate.token;
   }
+  // Launcher'ın kendi ortamından miras kalmış bir değer (kullanıcının ortam
+  // değişkeni gibi) yapılandırmadaki kademe gibi görünmesin: ya bizim değerimiz
+  // ya hiç.
+  delete env.NTT_STUDIO_SAP_TIER;
+  if (opts.tier) env.NTT_STUDIO_SAP_TIER = opts.tier;
 
   let proc: ChildProcess;
   try {

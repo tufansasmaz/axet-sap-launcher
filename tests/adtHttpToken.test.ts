@@ -77,6 +77,7 @@ http.createServer((req, res) => {
     ok: true, tool_count: 3, tools: ["adt_get_source", "adt_push", "axet_teslim"],
     approvalUrl: process.env.ADT_APPROVAL_URL || null,
     approvalToken: process.env.ADT_APPROVAL_TOKEN || null,
+    sapTier: process.env.NTT_STUDIO_SAP_TIER || null,
     cwd: process.cwd(),
     adtCwd: process.env.ADT_CWD || null
   }));
@@ -208,6 +209,47 @@ describe("yazma sunucusu ayağa kalkıyor", () => {
     expect(result.external).toBe(true);
     expect(result.message).toContain("adtServer.foreignToken");
   });
+});
+
+describe("kademe çocuğun ortamında (ntt_tier.py alt sınırı)", () => {
+  it("yapılandırmadaki kademe NTT_STUDIO_SAP_TIER olarak gidiyor", async () => {
+    const port = await freePort();
+    const result = await startReadonlyServer({
+      projectDir: projectDir("tier-env"),
+      scriptPath: fakeGatedScript,
+      pythonPath: process.execPath,
+      port,
+      // Sahte onaylı sunucu (ortamı /health'te gösteren tek sahte) — yöneticinin
+      // yüzey denetimi için yazma beklentisi ve onay ucu gerekiyor. Kademe
+      // değeri yöneticiye göre opak: ne verilirse çocuğa o gidiyor.
+      expectWritable: true,
+      gate: GATE_A,
+      tier: "QA"
+    });
+    expect(result.ok).toBe(true);
+    expect((await health(port)).body.sapTier).toBe("QA");
+  }, 20_000);
+
+  it("launcher'ın ortamından miras kalan değer kademe gibi geçmiyor", async () => {
+    // Kullanıcının makinesinde ortam değişkeni olarak duran bir DEV,
+    // yapılandırmada kademesi verilmemiş bir sunucuya DEV diye gitmesin.
+    process.env.NTT_STUDIO_SAP_TIER = "DEV";
+    try {
+      const port = await freePort();
+      const result = await startReadonlyServer({
+        projectDir: projectDir("tier-inherit"),
+        scriptPath: fakeGatedScript,
+        pythonPath: process.execPath,
+        port,
+        expectWritable: true,
+        gate: GATE_A
+      });
+      expect(result.ok).toBe(true);
+      expect((await health(port)).body.sapTier).toBeNull();
+    } finally {
+      delete process.env.NTT_STUDIO_SAP_TIER;
+    }
+  }, 20_000);
 });
 
 describe("onaylı (gated) sunucu", () => {

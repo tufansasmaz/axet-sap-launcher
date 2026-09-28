@@ -104,6 +104,14 @@ for _p in (str(_SCRIPTS_DIR), str(_ENGINE_DIR)):
         sys.path.remove(_p)
     sys.path.insert(0, _p)
 
+# NTT Studio: kademe, launcher'ın bu sürecin ortamına koyduğu değer; motor içe
+# aktarılmadan ÖNCE yakalanıyor. Motor `.conn_adt`'yi override=True ile ortama
+# yüklüyor — `.conn_adt`'ye yazılmış bir NTT_STUDIO_SAP_TIER satırı sonradan
+# okunsa launcher'ın değerini ezerdi (bkz. sap-adt/scripts/ntt_tier.py).
+import ntt_tier  # noqa: E402
+
+_ENV_TIER = ntt_tier.capture_env_tier()
+
 import adt_mcp_server as engine  # noqa: E402  (must follow the env var + sys.path)
 import guardrails  # noqa: E402
 
@@ -128,6 +136,13 @@ def _assert_origin(mod, expected: Path) -> None:
 
 _assert_origin(engine, _ENGINE_DIR / "adt_mcp_server.py")
 _assert_origin(guardrails, _ENGINE_DIR / "guardrails.py")
+_assert_origin(ntt_tier, _ENGINE_DIR / "ntt_tier.py")
+
+# NTT Studio: kademe. guardrails ADT_SAP_TIER'ı ajanın düzenleyebildiği
+# `.conn_adt`'den okuyor; bu yüzeyde o değer KVKK/PII okuma kapısına (GR_PII)
+# karar veriyor. Launcher'ın değeri alt sınır: `.conn_adt` onu yalnızca
+# daha kısıtlayıcı yapabilir.
+ntt_tier.install(guardrails, _ENV_TIER)
 
 # NTT Studio: TLS. The engine's session does not verify certificates by default
 # (verify=False), so the Basic Auth header could reach any interposed server.
