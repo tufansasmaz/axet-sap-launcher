@@ -428,6 +428,7 @@ def build():
     # başlatıyor, beklenen bağlantıyı da yalnızca o ortama koyuyor.
     if ntt_binding.install(engine, sorted(keep), _ENV_BINDING, lib=sap_adt_lib,
                            live_client=lambda: engine._client,
+                           ensure_client=lambda: engine._get_client(),
                            on_mismatch=_report_binding_mismatch):
         sys.stderr.write("[adt-ro] bağlantı sabitlendi: araçlar yalnızca NTT Studio'nun "
                          "bağladığı sistemle konuşur.\n")

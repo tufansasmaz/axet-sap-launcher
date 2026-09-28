@@ -681,10 +681,13 @@ def build() -> set:
     # Bağlantı denetimi EN DIŞ katman ve SERBEST araçlar dahil hepsinde: onay
     # sarmalayıcısı launcher'a sormadan önce SAP'tan transport/paket bilgisi
     # topluyor; denetim onun içinde kalsa pencereye başka sistemin bilgisi
-    # giderdi. Canlı oturum her çağrıda `engine._client`'tan okunuyor: motor
-    # oturumu ilk SAP çağrısında kuruyor.
+    # giderdi. Canlı oturum her çağrıda `engine._client`'tan okunuyor; motor onu
+    # ilk SAP çağrısında kurduğu için denetim önce `_get_client`'ı çağırıyor
+    # (kurulum `.conn_adt`'yi yeniden yüklüyor, sonra kalsa denetim onu görmezdi).
     ntt_binding.install(engine, sorted(names), _ENV_BINDING, lib=sap_adt_lib,
-                        live_client=lambda: engine._client, on_mismatch=_report_binding_mismatch)
+                        live_client=lambda: engine._client,
+                        ensure_client=lambda: engine._get_client(),
+                        on_mismatch=_report_binding_mismatch)
     return names
 
 

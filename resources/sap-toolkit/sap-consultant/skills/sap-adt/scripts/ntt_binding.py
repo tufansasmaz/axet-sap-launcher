@@ -41,7 +41,8 @@ Kullanım (sarmalayıcı sunucular):
     import sap_adt_lib
     ...
     ntt_binding.install(engine, names, _ENV_BINDING, lib=sap_adt_lib,
-                        live_client=lambda: engine._client, on_mismatch=...)
+                        live_client=lambda: engine._client,
+                        ensure_client=engine._get_client, on_mismatch=...)
 """
 
 from __future__ import annotations
@@ -62,6 +63,10 @@ ENV_CWD = "ADT_CWD"
 CONN_KEYS = {"url": "ADT_SAP_URL", "client": "ADT_SAP_CLIENT", "kullanici": "ADT_SAP_USER"}
 
 _DEFAULT_PORTS = {"http": 80, "https": 443}
+
+# `_read_conn` sonucunda iki ayrıştırıcının ayrıştığı alanlar. Dizgi değil: dosyadaki
+# hiçbir anahtar onunla çakışamaz.
+_AYRISMA = object()
 
 MESSAGE = ("Etkin SAP bağlantısı NTT Studio'nun bağladığı sistemden farklı ({alanlar}; "
            "kaynak: {kaynak}). Çağrı SAP'a gönderilmedi. `.conn_adt`'yi düzenlemek yerine "
@@ -177,11 +182,47 @@ def _conn_path_for(cwd: Optional[str]) -> Path:
     return (Path(cwd) if cwd else Path.cwd()) / ".conn_adt"
 
 
-def _read_conn(path: Path) -> Optional[dict]:
+def _engine_view(path: Path) -> Optional[dict]:
+    """Dosyanın motorun gördüğü hali: motorun kendi ayrıştırıcısı (python-dotenv).
+
+    Motor `.conn_adt`'yi `load_dotenv` ile yüklüyor; dotenv çift tırnaklı bir
+    değeri satırlara yayabiliyor, `${VAR}` genişletiyor. Satır satır bir okuma
+    tırnağın içindeki `ADT_SAP_URL=...` satırını atama sayar, dotenv saymaz:
+    denetim DEV'i görürken motor başka sisteme bağlanır (R2 Y-1). Denetimin
+    motorla aynı ayrıştırıcıyı kullanması bu ayrışmanın ta kendisini kapatıyor.
+    dotenv yoksa motor da yüklenemiyor; None.
+    """
     try:
-        return parse_conn(path.read_text(encoding="utf-8-sig", errors="replace"))
-    except (OSError, ValueError):
+        from dotenv import dotenv_values
+    except ImportError:
         return None
+    try:
+        return dict(dotenv_values(dotenv_path=path))
+    except Exception:  # noqa: BLE001 — okunamayan dosya çağıranda eksik sayılıyor
+        return None
+
+
+def _read_conn(path: Path) -> Optional[dict]:
+    """Motorun göreceği değerler; iki ayrıştırıcı bağlantı anahtarlarında
+    ayrışıyorsa `_AYRISMA` anahtarında hangi alanlar olduğu.
+
+    Ayrışma, hangi ayrıştırıcı haklı olursa olsun ret sebebi: NTT Studio'nun
+    yazdığı dosya düz `ANAHTAR=değer` satırları; iki okumanın farklı sonuç
+    verdiği bir dosyayı ancak biri özellikle öyle yazmış olabilir.
+    """
+    try:
+        text = path.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+        return None
+    simple = parse_conn(text)
+    engine = _engine_view(path)
+    if engine is None:
+        return simple
+    ayrisma = [name for name, key in CONN_KEYS.items() if simple.get(key) != engine.get(key)]
+    if ayrisma:
+        engine = dict(engine)
+        engine[_AYRISMA] = ayrisma
+    return engine
 
 
 def _diff(binding: Binding, url: Optional[str], client: Optional[str], user: Optional[str],
@@ -221,7 +262,8 @@ def check(binding: Optional[Binding], environ: Optional[Mapping[str, str]] = Non
       * `ADT_CWD`: `.conn_adt` içindeki bir `ADT_CWD=` satırı override=True ile
         ortama girer ve motoru (ör. adt_doctor) başka klasörün dosyasına çevirir.
       * `ADT_CWD` altındaki `.conn_adt` — yoksa ya da anahtar eksikse RED:
-        motor dosyayı bulamazsa başka klasörlerde arıyor.
+        motor dosyayı bulamazsa başka klasörlerde arıyor. Motorun
+        ayrıştırıcısıyla okunuyor; basit okumayla ayrışan alan da RED.
       * motorun o an bulacağı `.conn_adt` (`lib.find_conn_file()`), farklıysa.
       * `os.environ` ve motorun modül değişkenleri (`lib.ADT_SAP_URL` ...): yeni
         oturumlar bunlardan kuruluyor. Eksik değer burada fark sayılmıyor.
@@ -252,6 +294,7 @@ def check(binding: Optional[Binding], environ: Optional[Mapping[str, str]] = Non
             continue
         fields = _diff(binding, conn.get(CONN_KEYS["url"]), conn.get(CONN_KEYS["client"]),
                        conn.get(CONN_KEYS["kullanici"]), missing_is_mismatch=True)
+        fields = sorted(set(fields) | set(conn.get(_AYRISMA, [])))
         if fields:
             problems.append({"kaynak": "conn_adt", "alanlar": fields, "dosya": str(path),
                              "adres": _display_url(conn.get(CONN_KEYS["url"]))})
@@ -299,11 +342,25 @@ def mismatch_result(found: dict) -> dict:
 
 
 def wrap(name: str, orig: Callable, binding: Binding, *, environ=None, lib=None,
-         live_client=None, on_mismatch: Optional[Callable[[str, dict], None]] = None) -> Callable:
-    """`orig`'i, önce bağlantıyı denetleyen bir işlevle sar (imza korunur)."""
+         live_client=None, ensure_client: Optional[Callable[[], object]] = None,
+         on_mismatch: Optional[Callable[[str, dict], None]] = None) -> Callable:
+    """`orig`'i, önce bağlantıyı denetleyen bir işlevle sar (imza korunur).
+
+    `ensure_client` (motorun `_get_client`'ı) denetimden ÖNCE çağrılıyor. Motor
+    oturumu ilk SAP çağrısında kuruyor ve kurarken `.conn_adt`'yi override=True
+    ile yeniden yüklüyor; kurulum denetimden sonra kalsa ilk çağrı denetimin
+    hiç görmediği değerlerle SAP'a giderdi (R2 Y-1). Önce kurunca canlı oturum
+    her çağrıda karşılaştırılıyor. Kurucu ağa çıkmıyor (yalnızca istemci
+    nesnesi); kurulamazsa denetim yine yapılıyor, motor kendi hatasını veriyor.
+    """
 
     @functools.wraps(orig)
     def guarded(**kwargs):
+        if ensure_client is not None:
+            try:
+                ensure_client()
+            except Exception:  # noqa: BLE001 — kurulum hatası denetimi kırmasın
+                pass
         found = check(binding, environ=environ, lib=lib, live_client=live_client)
         if found is not None:
             if on_mismatch is not None:
