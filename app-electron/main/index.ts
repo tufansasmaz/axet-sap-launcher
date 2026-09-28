@@ -79,6 +79,8 @@ import {
 import { collectPrdSystems } from "./guiScriptPrdSystems";
 import { runSapGuiAgentStep, cancelSapGuiAgentStep, cancelAllSapGuiAgentSteps } from "./sapGuiScriptAgent";
 import { FlowRuntime, validateFlow as validateFlowArray } from "./flowRuntime.js";
+import { createFlowSandbox, isFlowSandboxSender, isFlowSandboxWindow } from "./flowSandbox";
+import { installIpcSenderGuard } from "./ipcSenderGuard";
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
@@ -181,7 +183,16 @@ const pendingCertPrompts = new Map<string, string>();
 // olarak bağlanmadı — `deploy()` invoke çağrısı zaten `{blocked, issues}`
 // döndürüyor, ayrı bir push event'ine gerek yok (axetflow orijinalindeki
 // gibi).
+//
+// Function node kodu ve xlsx işleri bu süreçte değil, gizli ve sandbox'lı bir
+// pencerede koşuyor (bkz. flowSandbox.ts). Pencere ilk ihtiyaçta kuruluyor;
+// burada yalnızca nasıl kurulacağı veriliyor.
+const flowSandbox = createFlowSandbox({
+  mainDir: __dirname,
+  devServerUrl: isDev && process.env.ELECTRON_RENDERER_URL ? process.env.ELECTRON_RENDERER_URL : null
+});
 const flowRuntime = new FlowRuntime({
+  sandbox: flowSandbox,
   onDebug: (entry: FlowJsonValue) => mainWindow?.webContents.send("flows:runtime:debug", entry),
   onStatus: (status: FlowJsonValue) => mainWindow?.webContents.send("flows:runtime:status", status),
   onLog: (entry: FlowJsonValue) => mainWindow?.webContents.send("flows:runtime:log", { ...entry, timestamp: Date.now() }),
@@ -301,6 +312,9 @@ function createWindow(): void {
   });
 
   mainWindow = win;
+  // macOS'ta pencere kapanıp yeniden açılabiliyor; kapanışta durdurulan
+  // sandbox yeni pencereyle birlikte yeniden kullanılabilir olsun.
+  flowSandbox.resume();
 
   // Aktif bağlam yayını (bkz. activeContext.ts). Emitter burada kuruluyor
   // çünkü pencereyi bilen tek yer burası — o modül `electron`'a hiç
@@ -329,6 +343,9 @@ function createWindow(): void {
   win.on("unmaximize", () => win.webContents.send("window:state-changed", false));
   win.on("closed", () => {
     if (mainWindow === win) mainWindow = null;
+    // Gizli sandbox penceresi açık kalırsa "window-all-closed" gelmez ve
+    // uygulama arka planda yaşamaya devam eder.
+    flowSandbox.dispose();
   });
 
   if (isDev) {
@@ -1583,7 +1600,10 @@ function registerIpc(): void {
   // Diyalog SAHİBİ pencere: odaklı pencere yoksa ilk pencere. Eskiden
   // `undefined as any` geçiliyordu — o durumda diyalog sahipsiz açılıyor ve
   // uygulamanın ARKASINDA kalabiliyor; kullanıcı donmuş bir pencere görüyor.
-  const dialogOwner = () => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null;
+  // Gizli flow sandbox penceresi de bir BrowserWindow; listede ilk o çıkarsa
+  // diyalog görünmez bir pencereye bağlanırdı.
+  const dialogOwner = () =>
+    BrowserWindow.getFocusedWindow() ?? mainWindow ?? BrowserWindow.getAllWindows().find((w) => !isFlowSandboxWindow(w)) ?? null;
 
   ipcMain.handle("sapGuiScript:saveScript", async (_event, jsonText: string, suggestedName?: string) => {
     // DOSYA İŞLEMİ TRY İÇİNDE. `GuiScriptJsonFileResult.error` alanı en baştan
@@ -1652,6 +1672,9 @@ app.whenReady().then(() => {
   // her arıza satırı hangi sürümde olduğunu yanında taşısın.
   appLog("acilis", { surum: app.getVersion(), platform: process.platform, elektron: process.versions.electron });
   console.log("[gunluk] dosya:", appLogPath());
+  // Kayıtlardan ÖNCE: bekçi ipcMain.handle/on'u sarıyor, sonradan kaydedilen
+  // her kanal flow sandbox penceresine kapalı doğuyor (bkz. ipcSenderGuard.ts).
+  installIpcSenderGuard(ipcMain, isFlowSandboxSender);
   registerIpc();
   createWindow();
 
@@ -1665,7 +1688,9 @@ app.whenReady().then(() => {
   }
 
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    // Gizli flow sandbox penceresi sayılmıyor: yalnız o açıksa kullanıcının
+    // göreceği bir pencere yok demektir.
+    if (!BrowserWindow.getAllWindows().some((w) => !isFlowSandboxWindow(w))) createWindow();
   });
 });
 
