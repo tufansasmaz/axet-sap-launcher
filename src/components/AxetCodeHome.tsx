@@ -2836,7 +2836,7 @@ export default function AxetCodeHome({
             yaptığı bir bakışta okunmazdı (bkz. --project-500-rgb).
 
             "Yeni sohbet" artık YIKAMA değil DOLGU (kullanıcı isteği,
-            2026-09-06: *"#B7F34A rengini özellikle Yeni sohbet ... için
+            2026-09-06: *"[o günkü limon vurgu] rengini özellikle Yeni sohbet ... için
             kullanırdım"*, çünkü *"şu an ekranda lime çok az görünüyor"*).
             Yıkama hâlinde (accent-500/10 + accent-400 metin) düğme yan
             komşusuyla aynı ağırlıktaydı; ikisi de "bir seçenek" gibi

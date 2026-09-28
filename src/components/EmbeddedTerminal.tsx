@@ -28,15 +28,14 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       fontSize: 13,
       fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",
       cursorBlink: true,
-      // xterm kendi tuvalini boyuyor, CSS değişkenlerini okumuyor — bu yüzden
-      // renkler burada elle tutuluyor ve koyu temanın yüzey/ink jetonlarıyla
-      // AYNI değerde olmaları gerekiyor (--surface-app-rgb / --ink-100-rgb /
-      // --accent-400-rgb). Palet değişirse burası da değişmeli; bağ otomatik
-      // değil.
+      // xterm kendi tuvalini boyuyor, CSS değişkenlerini okumuyor. Değerler
+      // Sakin İndigo koyu jetonlarıyla aynı (--surface-app-rgb / --ink-100-rgb /
+      // --accent-500-rgb). GEÇİCİ: bir sonraki adımda paleti izleyen
+      // `THEME_SURFACES`'tan okunacak.
       theme: {
-        background: "#0b0c10",
-        foreground: "#f1f3f5",
-        cursor: "#a9e13f"
+        background: "#121418",
+        foreground: "#e8eaee",
+        cursor: "#8b93ff"
       }
     });
     const fit = new FitAddon();

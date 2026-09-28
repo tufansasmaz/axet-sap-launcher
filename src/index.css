@@ -108,24 +108,27 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
   outline: none;
 }
 
-/* NTT Studio — "Premium AI Engineering Workspace" tasarım dili (kullanıcı
-   kararı, 2026-09-06; öncesi "Modern SaaS / Dark Developer UI", 2026-09-05).
-   Kuralları tek cümlede: SOĞUK grafit zemin, saç teli inceliğinde kenarlıklar,
-   6px köşeler, sık yerleşim, düz dolgulu düğmeler, gölge yok.
+/* NTT Studio tasarım dili (2026-09-28, "Tasarım sistemi temeli"; öncesi
+   "Premium AI Engineering Workspace", 2026-09-06).
+   Kuralları tek cümlede: sakin zemin, ince kenarlıklar, ferah ölçü (gövde
+   14px, kontrol 40px, kart/pencere köşesi 12px), düz dolgulu düğmeler.
 
-   Vurgu: LIME (#b7f34a), tek kimlik rengi. İki kademeli kullanılıyor — parlak
-   ton yalnızca dolgu ve küçük işaret, işlevsel (koyulaştırılmış) ton metin ve
-   kenarlık. Gerekçesi ve ölçülen kontrastlar aşağıda, --accent-* bloğunda.
+   İKİ PALET × İKİ HÂL = DÖRT AÇIK BLOK. Palet `<html data-palette>`
+   (`indigo` | `warm`), koyu/açık `<html data-theme>` (`dark` | `light`).
+   Her blok bütün jetonları kendisi tanımlıyor; birinden ötekine miras yok.
+   `tests/themeTokens.test.ts` dört bloğu okuyup ölçüyor: jeton kümeleri
+   aynı mı, metin/durum renkleri en zayıf yüzeyde ≥ 4.5:1 mi, yüzey
+   sıralaması doğru mu. Bir rengi değiştirirken önce o testi çalıştır.
 
-   RENK BİLGİ MİMARİSİNİN PARÇASI, DEKORASYON DEĞİL. Lime dışındaki her renk
+   RENK BİLGİ MİMARİSİNİN PARÇASI, DEKORASYON DEĞİL. Vurgu dışındaki her renk
    bir ANLAM taşıyor ve o anlamın dışında kullanılmıyor:
-     lime   → birincil eylem / seçili
+     vurgu  → birincil eylem / seçili  (--accent-*: İndigo'da indigo, Sıcak'ta kiremit)
      mavi   → sistem, bilgi           (--module-sap, --status-info-*, --navy-icon)
      mor    → yapay zekâ / model      (--module-code, --project-*)
      turuncu→ eylem / uyarı           (--module-guiscript, --status-warning-*)
      kırmızı→ hata                    (--status-danger-*)
-   Durum yeşili (`--status-success-*`) turkuaza kaydırılmış hâlde kalıyor: lime
-   ile yan yana geldiğinde biri "seçili", diğeri "başarılı" okunabilsin.
+   Durum yeşili (`--status-success-*`) vurgudan ayrı bir tonda: biri "seçili",
+   diğeri "başarılı" okunabilsin.
 
    Renkler "R G B" tripleti (bkz. tailwind.config.js withOpacity()) — bu format
    opacity varyantlarının (bg-accent-500/10 vb.) doğru derlenmesi için gerekli,
@@ -143,70 +146,32 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
 }
 
 :root,
-html[data-theme="dark"] {
-  /* Chromium'un YERLİ kontrolleri (açılır `<select>` listesi, kaydırma
-     çubukları, tarih seçici) CSS ile boyanamıyor — sistem paletini
-     kullanıyorlar. `color-scheme` olmadan koyu temada bile bembeyaz bir liste
-     açılıyordu; SAP GUI ekranındaki vkey seçicisi bunun en görünür örneğiydi.
-     Renk değişkenleriyle birlikte temaya bağlı olması bu yüzden şart. */
+html[data-palette="indigo"][data-theme="dark"] {
+  /* Sakin İndigo · koyu. `:root` bu blokla AYNI blok: nitelikler henüz yazılmamışken
+     (ilk kare) de doğru renk olsun diye. Jeton gerekçeleri yalnızca bu blokta
+     yazılı; öbür üç blok aynı jeton kümesini kendi değerleriyle tanımlıyor. */
   color-scheme: dark;
-  /* SOĞUK GRAFİT — ROLE göre bölünmüş yüzeyler (kullanıcı kararı, 2026-09-06).
-     Bundan önce tek bir nötr merdiven vardı (`--base-950…600`) ve her basamak
-     birden fazla işi görüyordu; en görünür sonucu şuydu: bir ikonun arkasındaki
-     kap ile onu çevreleyen kartın kenarlığı AYNI renkti, çünkü ikisi de
-     `--base-800`di. "Her şey aynı gri" şikâyetinin kaynağı bu birleşiklikti,
-     merdivenin dar olması değil — basamaklar arası fark zaten 6-7 birimdi.
+  /* Yüzeyler ROLE göre: app (pencere) · sidebar · card · raised · hover ·
+     control (girdi, çip, seçili satır) · active (basılı).
+     SIRALAMA KURALI (test denetliyor): koyu temada `hover` ve `control`
+     `border-subtle`dan, `active` `border-line`dan koyu; açık temada `control`
+     ve `hover` `border-subtle`dan açık. Bozulursa ince kenarlıklı kartın
+     üstüne gelindiğinde dolgu kenarlığı yutar.
+     `app` değeri `app-electron/shared/themeSurfaces.ts` içinde de duruyor
+     (pencere zemini, terminal); ikisini bir test eşliyor. */
+  --surface-app-rgb: 18 20 24;
+  --surface-sidebar-rgb: 22 25 30;
+  --surface-card-rgb: 27 30 36;
+  --surface-raised-rgb: 31 34 41;
+  --surface-hover-rgb: 33 37 44;
+  --surface-control-rgb: 34 38 45;
+  --surface-active-rgb: 46 51 61;
 
-     İki şey birden değişti:
+  --border-subtle-rgb: 40 44 53;
+  --border-line-rgb: 52 57 69;
+  --border-strong-rgb: 68 74 87;
 
-     (1) TİNT. Rampa nötrken metin merdiveni Tailwind'in `slate`ine bağlıydı ve
-     o BELİRGİN mavi (#94a3b8). Yani soğuk metin, nötr zeminin üstüne
-     yapıştırılmış gibi duruyordu. Şimdi ikisi aynı hue ailesinde (~h222,
-     doygunluk %15-18): zemin de metin de aynı yöne bakıyor.
-
-     (2) ROL AYRIMI. Her yüzeyin kendi jetonu var; ikisi bugün yakın değerde
-     olabilir ama artık birbirinden BAĞIMSIZ ayarlanıyor.
-
-       app      #0b0c10  pencere / sohbet zemini
-       sidebar  #0f1116  sol raylar, panel kolonu
-       card     #14161c  kart, composer, açılır kutu
-       raised   #191c23  yükseltilmiş / odaklanmış yüzey
-       hover    #1b1f27  fare üstündeyken
-       control  #1e222b  girdi, ikon kabı, çip, seçili satır (DİNLENME hâli)
-       active   #2a2f3b  basılı / güçlü hover / nötr düğme dolgusu
-
-       border-subtle #262b36  neredeyse görünmez ayrım
-       border-line   #333a48  SAÇ TELİ — 1px çizgilerin varsayılanı
-       border-strong #434b5c  vurgulu / hover kenarlık
-
-     SIRALAMA KURALI, bozulmasın diye yazılı: `hover` ve `control`, HER ZAMAN
-     `border-subtle`den KOYU kalmalı. Aksi hâlde ince kenarlıklı bir kartın
-     üstüne gelindiğinde dolgu kenarlığı geçer ve çerçeve kaybolur. Aynı
-     gerekçeyle `active` (#2a2f3b) `border-line`dan (#333a48) koyu.
-
-     AYNA NOKTALARI — `app` değeri iki yerde daha ELLE duruyor, biri unutulursa
-     açılışta ya da terminalde eski renk bir kare olarak görünür:
-       app-electron/main/index.ts  → BrowserWindow backgroundColor
-       src/components/EmbeddedTerminal.tsx → xterm theme.background */
-  --surface-app-rgb: 11 12 16;
-  --surface-sidebar-rgb: 15 17 22;
-  --surface-card-rgb: 20 22 28;
-  --surface-raised-rgb: 25 28 35;
-  --surface-hover-rgb: 27 31 39;
-  --surface-control-rgb: 30 34 43;
-  --surface-active-rgb: 42 47 59;
-
-  --border-subtle-rgb: 38 43 54;
-  --border-line-rgb: 51 58 72;
-  --border-strong-rgb: 67 75 92;
-
-  /* ESKİ HAM MERDİVEN — yalnızca `src/flows/flows.css` için. O ekran kendi
-     tasarım dilinde ve `var(--base-700)` gibi doğrudan CSS değişkenleri
-     kullanıyor (157 yerde); jetonları semantiğe bağlamak, iki ekranı tek bir
-     dokunuşta değiştirmek demek olurdu. Tailwind tarafında `base-*` sınıfları
-     ARTIK YOK (bkz. tailwind.config.js) — yani uygulama kodunda yeniden
-     `bg-base-800` yazılamıyor, bu takma adlar sadece flows'un altını
-     dolduruyor. */
+  /* Eski ham merdiven — yalnızca `src/flows/flows.css` kullanıyor. */
   --base-950-rgb: var(--surface-app-rgb);
   --base-900-rgb: var(--surface-card-rgb);
   --base-850-rgb: var(--surface-raised-rgb);
@@ -214,260 +179,107 @@ html[data-theme="dark"] {
   --base-700-rgb: var(--border-line-rgb);
   --base-600-rgb: var(--border-strong-rgb);
 
-  /* Metin merdiveni de aynı soğuk aileye çekildi. Kontrastlar `card`
-     (#14161c) üstünde ölçüldü:
-       ink-300 (#8b919d) → 5.9:1  ikincil metin
-       ink-400 (#7c838f) → 4.5:1  meta / yer tutucu
-       ink-500 (#5f6672) → 3.1:1  yalnızca etiket/ikon, düz metin DEĞİL
-     `app` (#0b0c10) üstünde üçü de bir tık yükseliyor. */
-  --ink-100-rgb: 241 243 245;
-  --ink-200-rgb: 203 209 218;
-  --ink-300-rgb: 139 145 157;
-  --ink-400-rgb: 124 131 143;
-  --ink-500-rgb: 95 102 114;
-  --ink-600-rgb: 74 81 92;
+  /* Metin: 100 ana · 200 ikincil · 300/400 ipucu ve üst bilgi (≥ 4.5:1) ·
+     500 yer tutucu, devre dışı (≥ 3:1) · 600 yalnız süs, okunacak metinde
+     KULLANILMAZ. Ölçüm `app`/`card`/`control`ın en zayıfına karşı. */
+  --ink-100-rgb: 232 234 238;
+  --ink-200-rgb: 180 185 195;
+  --ink-300-rgb: 138 145 160;
+  --ink-400-rgb: 138 145 160;
+  --ink-500-rgb: 111 118 134;
+  --ink-600-rgb: 75 81 96;
   --ink-strong-rgb: 255 255 255;
 
-  --scrollbar-thumb: #2e3440;
-  --scrollbar-thumb-hover: #3f4756;
+  --scrollbar-thumb: #343945;
+  --scrollbar-thumb-hover: #444a57;
 
-  /* LIME vurgu — NTT Studio'nun kimlik rengi (kullanıcı kararı, 2026-09-06).
-     Öncesinde sönük bir zeytin (#5c7a31, doygunluk %46) vardı; kimlik rengi
-     olacak kadar sesi yoktu ve ekranda "yeşilimsi gri" olarak okunuyordu.
-
-     İKİ KADEMELİ, ve bu ayrım pazarlık dışı — parlak lime her yerde
-     kullanılamaz:
-       500 = PARLAK LIME (#b7f34a). Yalnızca DOLGU ve küçük işaret: gönder
-             düğmesi, birincil CTA, aktif nav çizgisi, odak halkası, durum
-             noktası. Üstündeki metin `text-accent-on`.
-       400 = İŞLEVSEL LIME (#a9e13f). Metin, ikon, kenarlık. Koyu temada
-             parlaktan yalnızca bir tık sönük — asıl işini AÇIK temada
-             görüyor, orada koyu bir limeye dönüyor (#4c7016).
-       600 = dolgunun basılı/hover hâli.
-
-     ÖLÇÜLEN KONTRASTLAR (koyu tema, `card` #14161c üstünde):
-       accent-400 metin olarak            → 11.4:1 (AAA)
-       accent-500 üstünde accent-on metin → 14.7:1 (AAA)
-
-     `--accent-on-rgb` BEYAZDAN SİYAHA DÖNDÜ ve dönmek ZORUNDAYDI: parlak lime
-     üstünde beyaz 1.5:1 veriyor, yani okunmuyor. Bu yüzden değer artık her iki
-     temada da `app` zeminiyle aynı yakın-siyah. Kural değişmedi, sadece rengi
-     değişti: accent zeminli HER yerde `text-accent-on` kullan, `text-white`
-     DEĞİL — `text-white` (`--ink-strong-rgb`) koyu temada bembeyazdır ve
-     parlak lime üstünde kaybolur. */
-  --accent-600-rgb: 155 209 48;
-  --accent-500-rgb: 183 243 74;
-  --accent-400-rgb: 169 225 63;
-  --accent-on-rgb: 11 12 16;
-  --accent-cyan-rgb: 183 243 74;
-
-  /* KOYU/GÜÇLÜ DOLGU üstündeki metin ve ikon (`text-on-solid`). Accent'ten
-     AYRI bir jeton, çünkü ayrı bir rol: kırmızı `--status-danger-solid`
-     düğmesi, resmin üstündeki gerçek siyah örtü gibi yerler.
-
-     Bu jeton `--accent-on-rgb` siyaha döndüğü gün doğdu (2026-09-06). O güne
-     kadar üç yer accent-on'u "güçlü dolgu üstündeki yazı" diye ÖDÜNÇ
-     alıyordu — o sırada beyaz olduğu için çalışıyordu, ama anlamı bu değildi.
-     Siyaha dönünce üçü birden kırıldı: kırmızıda 2.4:1, siyah örtüde
-     görünmez. `text-white` de çözüm değil, o `--ink-strong-rgb`'ye bağlı ve
-     açık temada koyuya düşüyor. Yani rol gerçekten üçüncü bir jeton
-     istiyordu. Değer HER İKİ temada da beyaz ve öyle kalmalı: bağlı olduğu
-     zeminler tema ile değişmiyor. */
+  /* Vurgu: 500 dolgu (üstündeki yazı `text-accent-on`) · 400 metin, ikon,
+     kenarlık, odak halkası · 600 dolgunun basılı hâli. `--accent-cyan-rgb`
+     eski adıyla duruyor, değeri 500 ile aynı. */
+  --accent-600-rgb: 122 130 245;
+  --accent-500-rgb: 139 147 255;
+  --accent-400-rgb: 160 166 255;
+  --accent-on-rgb: 15 16 32;
+  --accent-cyan-rgb: 139 147 255;
+  /* Kırmızı dolgu ya da resim üstü siyah örtü gibi, temadan bağımsız koyu
+     zeminlerin üstündeki yazı. Dört blokta da beyaz. */
   --on-solid-rgb: 255 255 255;
-  /* 0.25'ten 0.16'ya indi: aynı alfa, parlak limede zeytinin iki katı ses
-     çıkarıyordu (flows ekranında düzinelerce yerde zemin yıkaması olarak
-     kullanılıyor). */
-  --accent-glow: rgba(183, 243, 74, 0.16);
-  --accent-soft-text: #bfe38c;
+  --accent-glow: rgba(139, 147, 255, 0.16);
+  --accent-soft-text: #c3c7ff;
 
-  /* Sohbet ekranındaki karşılama başlığının degradesi. Neden AYRI üç değişken:
-     `--accent-cyan-rgb` her iki temada da `--accent-500-rgb` ile AYNI değer, yani
-     accent jetonlarından kurulan bir degrade düpedüz düz çıkıyor.
+  /* Sohbet karşılama başlığının degradesi: ana metin → yumuşak vurgu → vurgu. */
+  --chat-hero-from: #e8eaee;
+  --chat-hero-via: #c3c7ff;
+  --chat-hero-to: #8b93ff;
 
-     2026-09-06'ya kadar burada logonun mor→camgöbeği gradyanı (#6d5efc →
-     #22d3ee) duruyordu. Yeni tasarım dilinde tek renkli vurgu kuralı var ve
-     nötr-zeytin bir ekranın ortasındaki mor-turkuaz başlık tek başına başka
-     bir uygulamadan kopyalanmış gibi duruyordu. Şimdi degrade PALET İÇİNDE:
-     en açık metin tonundan vurgu yeşiline doğru sessiz bir geçiş. Logonun
-     kendi renkleri değişmedi — `src/assets/logo.svg` olduğu gibi duruyor,
-     marka işareti hâlâ mor/camgöbeği. */
-  --chat-hero-from: #f1f3f5;
-  --chat-hero-via: #cde9a0;
-  --chat-hero-to: #a9e13f;
-
-  /* Sistem/sunucu ikonlarının rengi. Vurgu ailesinden AYRI olması bilinçli:
-     bunlar bir seçim/aksiyon değil, sadece tür göstergesi. Çelik mavisi
-     zeytinle yarışmıyor.
-
-     2026-09-06: doygunluk ve parlaklık artırıldı (#6b7b8c → #8aa4bd, kullanıcı
-     isteği: *"sistemlerin yanındaki simgenin rengi biraz daha belirgin
-     olsun"*). Eski ton, tema koyulaştıktan sonra ikincil metin grisinden
-     (`--ink-300`) neredeyse ayırt edilemiyordu — mavi olduğu ancak yan yana
-     konunca fark ediliyordu. Yeni ton `--module-sap` ile AYNI aile ama bir
-     tık soluk: sistem satırı SAP modülünün akrabası, kendisi değil. */
-  --navy-icon: #8faac6;
-
-  /* MODÜL RENKLERİ — sol şeritteki (ActivityBar) her ekranın kendi kimliği.
-     Kullanıcı isteği, 2026-09-06: *"sol paneldeki tüm ekranlar logoların
-     rengi olsun, seçili olan ayrı renkte gözüksün"*.
-
-     Bu, "renk yalnızca vurguda" kuralına bilinçli bir istisna ve tek bir
-     yerle sınırlı: sol şerit bir NAVİGASYON, yani ekrandaki tek yer ki
-     kullanıcının "nerede olduğunu" değil "nereye gidebileceğini" gösteriyor.
-     Üç tek renkli gri ikon arasından doğru olanı bulmak her seferinde
-     okumayı gerektiriyordu; renk, ikonu tanınabilir kılıyor.
-
-     SEÇİLİ hâl bu renklerin HİÇBİRİ değil — vurgu yeşili. Yani renk "hangi
-     modül" sorusunu, yeşil "hangisi açık" sorusunu cevaplıyor; ikisi
-     birbirine karışmıyor. Seçili ikonun kendi rengini kaybetmesi bir kayıp
-     değil, kasıt: o an zaten o ekrandasınız.
-
-     Tonlar modüllerin kendi kaynaklarından:
-       code       → logonun moru (src/assets/logo.svg gradyanının başı)
-       sap        → SAP marka mavisinin HUE'su, sönümlenmiş doygunlukta.
-                    Kullanıcı kararı, 2026-09-06: *"sap logondan getir"*.
-                    Alınan sadece RENK; ikon hâlâ düz bir lucide `Server`,
-                    çünkü SAP logosunun kendisi tescilli bir marka işareti ve
-                    bu uygulamanın içine gömülmesi ayrı bir karar.
-       guiscript  → otomasyon/kayıt çağrışımlı sıcak kehribar; klasör
-                    sarısından (`--folder-icon`) yeterince uzak tutuldu.
-
-     DOYGUNLUK BANDI (2026-09-06, kullanıcı: *"renkler çok parlak"*): bu üç
-     ton bir kez markanın/ikonun kendi ham renginden alınmıştı ve ölçünce
-     sorun net göründü — `--module-sap` %100, `--module-code` %100 doygunluk
-     taşıyordu, oysa uygulamanın VURGU rengi `--accent-500` yalnızca %46.
-     Yani kimlik renkleri, ekranın en önemli rengi olan vurgudan daha yüksek
-     sesle konuşuyordu; renkli düğmeler eklenince bu bir "canlı palet" değil
-     doğrudan parlama olarak okundu.
-
-     Kural o gün şu oldu: kimlik renkleri accent ile AYNI bantta durur —
-     doygunluk %45-55, base-800 üstünde kontrast 5.0-6.3 arası (accent'in kendisi
-     5.11). Hue'lar değişmedi, yani hiçbir renk kimliğini kaybetmedi;
-     yalnızca ses seviyeleri eşitlendi. SAP mavisi bu yüzden artık markanın
-     birebir hex'i değil, marka hue'sunun bandımıza oturtulmuş hâli —
-     alternatif, ham marka rengini korumak ve ekrandaki en parlak şey
-     olmasına razı olmaktı.
-
-     guiscript ayrıca hue tarafında da bir tık turuncuya kaydı (h34 → h24):
-     doygunluk düşünce `--folder-icon` (h35) ile arasındaki mesafe yalnızca
-     doygunluk farkına kalıyordu ve ikisi ayırt edilemez hâle geliyordu.
-
-     BANT AYNI GÜN İKİNCİ KEZ, BU SEFER YUKARI TAŞINDI. Vurgu artık parlak lime; %45-55'lik
-     eski bant, yanında duran her kimlik rengini cılız gösteriyordu — kural
-     "accent ile aynı bantta dur" olduğu için accent taşındığında bandın da
-     taşıması gerekiyordu, aksi hâlde kural kendi gerekçesini kaybediyordu.
-     YENİ BANT: doygunluk %65-75, `card` (#14161c) üstünde kontrast 6.0-8.0.
-     Hue'lar yine değişmedi. */
-  --module-code: #a392e8;
-  --module-sap: #56a8db;
-  --module-guiscript: #e09055;
-
-  /* Klasör ikonlarının rengi (dosya gezgini, sohbet dosya paneli, ağaç).
-     Dört ayrı bileşende `text-[#d99a4e]` olarak gömülüydü; açık temada kırık
-     beyaz üstünde soluklaşıyordu. Tür göstergesi olduğu için vurgu ailesinin
-     dışında — "seçili" ile karışmamalı. */
-  --folder-icon: #d9a055;
-
-  /* "Yeni proje" düğmesi. Kenar çubuğunun tepesinde "Yeni sohbet"in YANINDA
-     duruyor; ikisi de vurgu yeşili olsaydı hangisinin ne yaptığı bir bakışta
-     okunmazdı — kullanıcı bu düğmenin renkli olmasını açıkça istedi
-     (2026-09-06). Tek renk kuralının bilinçli tek istisnası; doygunluğu
-     zeytinle aynı seviyede tutulmuş mat bir mor, logonun morunun sönümlenmiş
-     hâli. */
-  --project-500-rgb: 122 107 199;
-  --project-soft-text: #b3a9ee;
+  /* Tür gösterge renkleri — seçim değil, "bu ne" bilgisi. Sol şeritteki
+     modül ikonları kendi rengini taşıyor; SEÇİLİ olan vurgu rengine dönüyor.
+     Anlam haritası: mavi sistem/bilgi · mor yapay zekâ ve proje · turuncu
+     eylem/otomasyon · kırmızı hata. */
+  --navy-icon: #8fb0d6;
+  --module-code: #c0a4f2;
+  --module-sap: #5eaee0;
+  --module-guiscript: #e39a62;
+  --folder-icon: #d9a55a;
+  --project-500-rgb: 146 128 224;
+  --project-soft-text: #c4b5f5;
 
   --app-bg-image: none;
-  --overlay-scrim: rgba(0, 0, 0, 0.6);
+  --overlay-scrim: rgba(0, 0, 0, 0.55);
 
-  --status-danger-bg: rgba(60, 12, 20, 0.45);
-  --status-danger-border: rgba(140, 32, 48, 0.5);
-  --status-danger-text: #f0717f;
-  /* DOLU zemin olarak kullanılacak tehlike rengi (başlık çubuğundaki kapat
-     düğmesi, yıkıcı eylem düğmeleri). `--status-danger-text` bunun yerine
-     kullanılamaz: o, koyu zemin üstünde OKUNSUN diye açık bir pembe — zemin
-     olarak kullanıldığında üstündeki beyaz ikon 2.5:1'de kayboluyor. Bu ton
-     beyazla 5.5:1 veriyor. */
+  /* Durum ve ortam renkleri: zemin aynı rengin %12'si (açıkta %9), kenarlık
+     %28'i (açıkta %26). DEV = bilgi mavisi, QA = uyarı kehribarı, PRD = hata
+     kırmızısı. `--status-danger-solid` dolgu olarak kullanılıyor; üstündeki
+     beyaz yazı ≥ 4.5:1. */
+  --status-danger-bg: rgba(240, 138, 149, 0.12);
+  --status-danger-border: rgba(240, 138, 149, 0.28);
+  --status-danger-text: #f08a95;
   --status-danger-solid: #c2334a;
-  --status-warning-bg: rgba(58, 36, 8, 0.45);
-  --status-warning-border: rgba(122, 78, 20, 0.5);
-  --status-warning-text: #e5a94a;
-  /* Başarı yeşili TURKUAZA kaydırıldı. Vurgu rengi artık zeytin olduğu için
-     klasik bir yaprak yeşili (#4ade95) "seçili öğe" ile "başarılı işlem"i
-     ayırt edilemez hâle getiriyordu; bu ton belirgin biçimde daha mavi.
+  --status-warning-bg: rgba(230, 184, 102, 0.12);
+  --status-warning-border: rgba(230, 184, 102, 0.28);
+  --status-warning-text: #e6b866;
+  --status-success-bg: rgba(92, 200, 168, 0.12);
+  --status-success-border: rgba(92, 200, 168, 0.28);
+  --status-success-text: #5cc8a8;
+  --status-info-text: #7fb2ff;
 
-     Bu ikisi (`success`, `info`) 2026-09-06'da kimlik renkleriyle aynı banda
-     çekildi, çünkü ARTIK yalnızca durum bildirimi değiller: yeşil terminal
-     düğmesinin ve fişin, mavi de dil düğmesinin rengi. Durgun hâlde ekranda
-     duran bir renk, bir toast'ta bir saniye görünen renkle aynı ses
-     seviyesinde olamaz. `danger` ve `warning` BİLEREK dokunulmadan bırakıldı
-     — onlar hâlâ yalnızca uyarı bağlamında çıkıyor ve orada yüksek sesli
-     olmaları işin kendisi. */
-  --status-success-bg: rgba(6, 52, 44, 0.45);
-  --status-success-border: rgba(12, 110, 92, 0.5);
-  --status-success-text: #45c4a0;
-  /* Bilgi (SAP durum çubuğundaki "I" tipi mesajlar). Kırmızı/sarı/yeşil
-     üçlüsünün dışında dördüncü bir durum; nötr bir çelik mavisi, vurgu
-     zeytiniyle çakışmıyor. */
-  --status-info-text: #7ba5d6;
+  /* İkincil eylem kartının (SAP Logon'da Aç) tonu — uyarı değil, eşdeğer bir
+     seçenek. rgb üçlüsü, çünkü kart opaklık merdiveni kullanıyor. */
+  --action-amber-rgb: 220 168 108;
+  --action-amber-text: #dca86c;
 
-  /* İkincil aksiyon kartının (SAP Logon'da Aç) tonu — accent'in yanında
-     ayırt edilsin diye kehribar. `--status-warning-*` DEĞİL: bu bir uyarı
-     değil, eşdeğer bir seçenek. rgb üçlüsü olarak duruyor çünkü kart accent
-     dalıyla birebir aynı opaklık merdivenini (0.1/0.18/0.25/0.35/0.6)
-     kullanıyor. Eskiden bu değerler SystemPanel.tsx'e gömülüydü ve tema
-     değiştiğinde olduğu yerde kalıyordu. */
-  --action-amber-rgb: 169 122 63;
-  --action-amber-text: #d9a566;
+  --tier-dev-bg: rgba(127, 178, 255, 0.12);
+  --tier-dev-border: rgba(127, 178, 255, 0.28);
+  --tier-dev-text: #7fb2ff;
+  --tier-qa-bg: rgba(230, 184, 102, 0.12);
+  --tier-qa-border: rgba(230, 184, 102, 0.28);
+  --tier-qa-text: #e6b866;
+  --tier-prd-bg: rgba(240, 138, 149, 0.12);
+  --tier-prd-border: rgba(240, 138, 149, 0.28);
+  --tier-prd-text: #f08a95;
 
-  --tier-dev-bg: rgba(56, 150, 220, 0.12);
-  --tier-dev-border: rgba(56, 150, 220, 0.35);
-  --tier-dev-text: #6cb4ea;
-  --tier-qa-bg: rgba(220, 160, 40, 0.12);
-  --tier-qa-border: rgba(220, 160, 40, 0.35);
-  --tier-qa-text: #e0b452;
-  --tier-prd-bg: rgba(220, 70, 90, 0.12);
-  --tier-prd-border: rgba(220, 70, 90, 0.35);
-  --tier-prd-text: #ea8090;
+  /* Gölge: 1 açılır menü · 2 pencere · 3 bildirim. Koyu temada derinliği asıl
+     kenarlık ve bir basamak açık yüzey veriyor; gölge yardımcı. */
+  --elev-1: 0 4px 12px rgb(0 0 0 / 0.35);
+  --elev-2: 0 16px 40px rgb(0 0 0 / 0.45);
+  --elev-3: 0 8px 24px rgb(0 0 0 / 0.4);
 }
 
-html[data-theme="light"] {
-  /* Açık temanın referansı Notion: sayfa BEYAZ, kenar çubuğu bir tık kırık
-     beyaz, ayırıcılar saç teli. AYNI SEMANTİK JETONLAR, ters yönde — koyu
-     temada "yükselmek" açılmak demek, burada koyulaşmak. Nötrlük kuralı
-     kalktı: koyu tema soğuk grafit olduğu için açık tema da aynı hue
-     ailesinde (~h215, doygunluk %15-25), yoksa tema değiştirmek uygulamanın
-     kimliğini de değiştirirdi.
-
-       app      #f4f5f7  ← koyu temanın tersine EN KOYU olan
-       sidebar  #fafbfc
-       card     #ffffff
-       raised   #f7f8fa
-       hover    #f1f3f6
-       control  #f4f6f9
-       active   #e4e8ee
-
-       border-subtle #e9ecf1
-       border-line   #d9dee6  SAÇ TELİ
-       border-strong #c3cad5
-
-     Koyu temadaki sıralama kuralının karşılığı burada da geçerli: `hover` ve
-     `control`, `border-subtle`den AÇIK kalmalı (yani daha az koyu), yoksa
-     hover dolgusu kenarlığı yutar. */
+html[data-palette="indigo"][data-theme="light"] {
+  /* Sakin İndigo · açık. Jeton gerekçeleri İndigo koyu blokta. */
   color-scheme: light;
-  --surface-app-rgb: 244 245 247;
-  --surface-sidebar-rgb: 250 251 252;
+  --surface-app-rgb: 245 246 248;
+  --surface-sidebar-rgb: 251 251 252;
   --surface-card-rgb: 255 255 255;
-  --surface-raised-rgb: 247 248 250;
+  --surface-raised-rgb: 248 249 250;
   --surface-hover-rgb: 241 243 246;
-  --surface-control-rgb: 244 246 249;
-  --surface-active-rgb: 228 232 238;
+  --surface-control-rgb: 238 240 244;
+  --surface-active-rgb: 227 230 236;
 
-  --border-subtle-rgb: 233 236 241;
-  --border-line-rgb: 217 222 230;
-  --border-strong-rgb: 195 202 213;
+  --border-subtle-rgb: 232 234 239;
+  --border-line-rgb: 220 223 230;
+  --border-strong-rgb: 196 201 211;
 
-  /* Eski ham merdiven — gerekçesi koyu temada yazılı (flows.css). */
   --base-950-rgb: var(--surface-app-rgb);
   --base-900-rgb: var(--surface-card-rgb);
   --base-850-rgb: var(--surface-raised-rgb);
@@ -475,112 +287,243 @@ html[data-theme="light"] {
   --base-700-rgb: var(--border-line-rgb);
   --base-600-rgb: var(--border-strong-rgb);
 
-  --ink-100-rgb: 26 29 35;
-  --ink-200-rgb: 59 65 75;
-  --ink-300-rgb: 92 99 111;
-  /* ink-400 DÜZ METİN taşıyor (meta satırları, yer tutucular), yani AA'nın
-     4.5:1 eşiği bağlayıcı. Ölçüm KARTA göre değil, jetonun altına düşebilen
-     EN KOYU DURGUN yüzeye göre yapıldı — beyaz `card`ta geçip `hover`da
-     kalan bir değer, "AA geçti" demenin yanlış yolu:
-       hover (#f1f3f6) 4.56:1 · control 4.68 · app 4.64 · raised 4.77
-       sidebar 4.89 · card (beyaz) 5.06
-     Tek istisna `active` (#e4e8ee) — orada 4.12 kalıyor ama o yüzey yalnızca
-     basılı/seçili anın kısa hâli ve üstünde ikon var, düz metin değil; ikon
-     eşiği 3:1 ve rahat geçiyor. */
-  --ink-400-rgb: 103 111 125;
-  --ink-500-rgb: 154 161 173;
-  --ink-600-rgb: 188 194 204;
+  --ink-100-rgb: 26 29 36;
+  --ink-200-rgb: 71 77 91;
+  --ink-300-rgb: 100 107 120;
+  --ink-400-rgb: 100 107 120;
+  --ink-500-rgb: 127 133 145;
+  --ink-600-rgb: 180 185 195;
   --ink-strong-rgb: 18 21 26;
 
-  --scrollbar-thumb: #d3d8e0;
-  --scrollbar-thumb-hover: #bec5cf;
+  --scrollbar-thumb: #d4d8e0;
+  --scrollbar-thumb-hover: #bfc5cf;
 
-  /* İKİ KADEMELİ LIME'IN AÇIK TEMA KARŞILIĞI — ve ayrımın asıl işini gördüğü
-     yer burası. Parlak lime beyaz zeminde METİN OLARAK KULLANILAMAZ: #b7f34a
-     beyaz üstünde 1.4:1 verir. O yüzden:
-       500 = DOLGU olarak kalır, bir tık koyulaştırılmış (#9bd62f). Üstündeki
-             `accent-on` yine yakın-siyah, kontrast 12.6:1.
-       400 = METİN/İKON/KENARLIK için koyu lime (#4c7016), beyaz üstünde
-             5.7:1 (AA). Odak halkası da bunu kullanıyor — parlak lime bir
-             halka beyaz zeminde görünmezdi.
-       600 = dolgunun hover'ı, 500'den koyu.
-     Yani koyu temada 400 ile 500 komşuyken, burada bilinçli olarak birbirinden
-     uzaklar; `text-accent-500` yazmak açık temayı kırar (bu yüzden koddaki üç
-     kullanım 400'e taşındı). */
-  --accent-600-rgb: 134 188 34;
-  --accent-500-rgb: 155 214 47;
-  --accent-400-rgb: 76 112 22;
-  /* Yakın-siyah, koyu temayla AYNI: lime her iki temada da açık bir dolgu. */
-  --accent-on-rgb: 11 12 16;
-  --accent-cyan-rgb: 155 214 47;
-  /* Koyu temayla AYNI beyaz — bu jetonun zeminleri (kırmızı dolgu, resim
-     üstündeki siyah örtü) temaya göre değişmiyor. */
+  --accent-600-rgb: 68 73 196;
+  --accent-500-rgb: 79 85 217;
+  --accent-400-rgb: 74 80 210;
+  --accent-on-rgb: 255 255 255;
+  --accent-cyan-rgb: 79 85 217;
   --on-solid-rgb: 255 255 255;
-  --accent-glow: rgba(155, 214, 47, 0.14);
-  --accent-soft-text: #3f5c14;
+  --accent-glow: rgba(79, 85, 217, 0.14);
+  --accent-soft-text: #3f44b0;
 
-  /* Aynı sessiz degrade, açık zemin için ters yönde: en koyu metin tonundan
-     işlevsel limeye (bkz. koyu temadaki --chat-hero-from notu). */
-  --chat-hero-from: #1a1d23;
-  --chat-hero-via: #6e8f35;
-  --chat-hero-to: #4c7016;
+  --chat-hero-from: #1a1d24;
+  --chat-hero-via: #3f44b0;
+  --chat-hero-to: #4f55d9;
 
-  /* Koyu temadaki belirginlik artışının açık tema karşılığı: burada "belirgin"
-     daha parlak değil daha KOYU demek. */
-  --navy-icon: #35678f;
-
-  /* Modül renkleri, kırık beyaz zemin için koyulaştırıldı (bkz. koyu temadaki
-     not). Koyu temadaki tonlar burada 3:1'in altına düşüyordu — 17px'lik bir
-     ikon için o eşik, düz metinden daha az değil daha çok önemli.
-
-     `sap` ve `code` 2026-09-06'da doygunluk bandına çekildi (koyu temadaki
-     bandın açık tema karşılığı): ikisi de %90'a yakın doygunlukla beyaz
-     zeminde çiğ duruyordu. `guiscript` zaten bandın içindeydi, dokunulmadı.
-     Kontrast beyaz üstünde 5.0 (sap) / 7.0 (code) ile korundu. */
-  --module-code: #5137c9;
-  --module-sap: #1a6fbf;
-  --module-guiscript: #a56d18;
-
-  /* Beyaz zeminde okunacak kadar koyulaştırılmış klasör sarısı. */
-  --folder-icon: #9c6b1f;
-
-  /* Aynı mor, beyaz zemin için koyulaştırılmış (bkz. koyu temadaki not). */
+  --navy-icon: #3a6690;
+  --module-code: #6a45c2;
+  --module-sap: #1d68b0;
+  --module-guiscript: #9a5a1c;
+  --folder-icon: #8f6420;
   --project-500-rgb: 91 79 191;
   --project-soft-text: #5b4fbf;
 
   --app-bg-image: none;
   --overlay-scrim: rgba(24, 24, 27, 0.35);
 
-  --status-danger-bg: #fdf2f3;
-  --status-danger-border: #f0d5d8;
-  --status-danger-text: #a33b48;
-  /* Dolu zemin tehlike rengi — gerekçesi koyu temada yazılı. */
-  --status-danger-solid: #b52d42;
-  --status-warning-bg: #fbf3e4;
-  --status-warning-border: #ebdbb4;
-  --status-warning-text: #7a5a18;
-  /* Turkuaza kaydırılmış başarı yeşili — gerekçesi koyu temada yazılı.
-     `text` bir tık koyulaştı (#16805f -> #157859): eskisi KENDİ zemininde
-     4.37:1 veriyordu, yani AA'nın altında — ve bu jeton rozet metni
-     taşıyor, süs değil. Yeni değer aynı rengin %94'ü, yani ton kaymıyor:
-     kendi zemininde 4.85:1 · beyaz kartta 5.44 · `hover`da 4.89. */
-  --status-success-bg: #e8f5f0;
-  --status-success-border: #b9decf;
-  --status-success-text: #157859;
-  --status-info-text: #2f5f91;
+  --status-danger-bg: rgba(190, 52, 70, 0.09);
+  --status-danger-border: rgba(190, 52, 70, 0.26);
+  --status-danger-text: #be3446;
+  --status-danger-solid: #be3446;
+  --status-warning-bg: rgba(138, 90, 6, 0.09);
+  --status-warning-border: rgba(138, 90, 6, 0.26);
+  --status-warning-text: #8a5a06;
+  --status-success-bg: rgba(18, 120, 90, 0.09);
+  --status-success-border: rgba(18, 120, 90, 0.26);
+  --status-success-text: #12785a;
+  --status-info-text: #2360c4;
 
-  --action-amber-rgb: 138 100 45;
-  --action-amber-text: #7a5a1c;
+  --action-amber-rgb: 128 87 28;
+  --action-amber-text: #80571c;
 
-  --tier-dev-bg: rgba(70, 130, 180, 0.1);
-  --tier-dev-border: rgba(70, 130, 180, 0.28);
-  --tier-dev-text: #45708f;
-  --tier-qa-bg: rgba(180, 140, 60, 0.1);
-  --tier-qa-border: rgba(180, 140, 60, 0.28);
-  --tier-qa-text: #83601f;
-  --tier-prd-bg: rgba(180, 80, 90, 0.1);
-  --tier-prd-border: rgba(180, 80, 90, 0.28);
-  --tier-prd-text: #914957;
+  --tier-dev-bg: rgba(35, 96, 196, 0.09);
+  --tier-dev-border: rgba(35, 96, 196, 0.26);
+  --tier-dev-text: #2360c4;
+  --tier-qa-bg: rgba(138, 90, 6, 0.09);
+  --tier-qa-border: rgba(138, 90, 6, 0.26);
+  --tier-qa-text: #8a5a06;
+  --tier-prd-bg: rgba(190, 52, 70, 0.09);
+  --tier-prd-border: rgba(190, 52, 70, 0.26);
+  --tier-prd-text: #be3446;
+
+  --elev-1: 0 4px 12px rgb(16 20 30 / 0.08);
+  --elev-2: 0 16px 40px rgb(16 20 30 / 0.14);
+  --elev-3: 0 8px 24px rgb(16 20 30 / 0.12);
+}
+
+html[data-palette="warm"][data-theme="dark"] {
+  /* Sıcak Nötr · koyu. Jeton gerekçeleri İndigo koyu blokta. */
+  color-scheme: dark;
+  --surface-app-rgb: 22 21 20;
+  --surface-sidebar-rgb: 27 26 24;
+  --surface-card-rgb: 32 31 29;
+  --surface-raised-rgb: 36 35 33;
+  --surface-hover-rgb: 38 36 34;
+  --surface-control-rgb: 41 39 37;
+  --surface-active-rgb: 53 50 47;
+
+  --border-subtle-rgb: 46 44 41;
+  --border-line-rgb: 58 55 51;
+  --border-strong-rgb: 74 70 65;
+
+  --base-950-rgb: var(--surface-app-rgb);
+  --base-900-rgb: var(--surface-card-rgb);
+  --base-850-rgb: var(--surface-raised-rgb);
+  --base-800-rgb: var(--surface-control-rgb);
+  --base-700-rgb: var(--border-line-rgb);
+  --base-600-rgb: var(--border-strong-rgb);
+
+  --ink-100-rgb: 236 233 228;
+  --ink-200-rgb: 189 183 174;
+  --ink-300-rgb: 151 143 133;
+  --ink-400-rgb: 151 143 133;
+  --ink-500-rgb: 122 115 106;
+  --ink-600-rgb: 84 79 73;
+  --ink-strong-rgb: 255 255 255;
+
+  --scrollbar-thumb: #3a3733;
+  --scrollbar-thumb-hover: #4a4641;
+
+  --accent-600-rgb: 207 122 80;
+  --accent-500-rgb: 224 138 95;
+  --accent-400-rgb: 232 150 108;
+  --accent-on-rgb: 26 15 9;
+  --accent-cyan-rgb: 224 138 95;
+  --on-solid-rgb: 255 255 255;
+  --accent-glow: rgba(224, 138, 95, 0.16);
+  --accent-soft-text: #f0b99c;
+
+  --chat-hero-from: #ece9e4;
+  --chat-hero-via: #f0b99c;
+  --chat-hero-to: #e08a5f;
+
+  --navy-icon: #9db4cc;
+  --module-code: #bca6e0;
+  --module-sap: #74acd6;
+  --module-guiscript: #e0a070;
+  --folder-icon: #d6a860;
+  --project-500-rgb: 160 138 210;
+  --project-soft-text: #c6b6e8;
+
+  --app-bg-image: none;
+  --overlay-scrim: rgba(0, 0, 0, 0.55);
+
+  --status-danger-bg: rgba(232, 140, 140, 0.12);
+  --status-danger-border: rgba(232, 140, 140, 0.28);
+  --status-danger-text: #e88c8c;
+  --status-danger-solid: #b83838;
+  --status-warning-bg: rgba(220, 183, 106, 0.12);
+  --status-warning-border: rgba(220, 183, 106, 0.28);
+  --status-warning-text: #dcb76a;
+  --status-success-bg: rgba(140, 196, 154, 0.12);
+  --status-success-border: rgba(140, 196, 154, 0.28);
+  --status-success-text: #8cc49a;
+  --status-info-text: #8fb4d9;
+
+  --action-amber-rgb: 214 173 116;
+  --action-amber-text: #d6ad74;
+
+  --tier-dev-bg: rgba(143, 180, 217, 0.12);
+  --tier-dev-border: rgba(143, 180, 217, 0.28);
+  --tier-dev-text: #8fb4d9;
+  --tier-qa-bg: rgba(220, 183, 106, 0.12);
+  --tier-qa-border: rgba(220, 183, 106, 0.28);
+  --tier-qa-text: #dcb76a;
+  --tier-prd-bg: rgba(232, 140, 140, 0.12);
+  --tier-prd-border: rgba(232, 140, 140, 0.28);
+  --tier-prd-text: #e88c8c;
+
+  --elev-1: 0 4px 12px rgb(0 0 0 / 0.35);
+  --elev-2: 0 16px 40px rgb(0 0 0 / 0.45);
+  --elev-3: 0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+html[data-palette="warm"][data-theme="light"] {
+  /* Sıcak Nötr · açık. Jeton gerekçeleri İndigo koyu blokta. */
+  color-scheme: light;
+  --surface-app-rgb: 246 244 241;
+  --surface-sidebar-rgb: 251 250 248;
+  --surface-card-rgb: 255 255 255;
+  --surface-raised-rgb: 249 248 246;
+  --surface-hover-rgb: 242 239 235;
+  --surface-control-rgb: 239 235 230;
+  --surface-active-rgb: 229 224 217;
+
+  --border-subtle-rgb: 235 231 225;
+  --border-line-rgb: 224 218 210;
+  --border-strong-rgb: 203 195 184;
+
+  --base-950-rgb: var(--surface-app-rgb);
+  --base-900-rgb: var(--surface-card-rgb);
+  --base-850-rgb: var(--surface-raised-rgb);
+  --base-800-rgb: var(--surface-control-rgb);
+  --base-700-rgb: var(--border-line-rgb);
+  --base-600-rgb: var(--border-strong-rgb);
+
+  --ink-100-rgb: 31 28 24;
+  --ink-200-rgb: 79 72 63;
+  --ink-300-rgb: 109 101 90;
+  --ink-400-rgb: 109 101 90;
+  --ink-500-rgb: 133 125 113;
+  --ink-600-rgb: 189 181 170;
+  --ink-strong-rgb: 22 19 16;
+
+  --scrollbar-thumb: #d9d2c8;
+  --scrollbar-thumb-hover: #c5bcaf;
+
+  --accent-600-rgb: 150 66 29;
+  --accent-500-rgb: 173 78 36;
+  --accent-400-rgb: 164 74 34;
+  --accent-on-rgb: 255 255 255;
+  --accent-cyan-rgb: 173 78 36;
+  --on-solid-rgb: 255 255 255;
+  --accent-glow: rgba(173, 78, 36, 0.14);
+  --accent-soft-text: #8f3f1c;
+
+  --chat-hero-from: #1f1c18;
+  --chat-hero-via: #8f3f1c;
+  --chat-hero-to: #ad4e24;
+
+  --navy-icon: #446482;
+  --module-code: #6c4ab0;
+  --module-sap: #2a649e;
+  --module-guiscript: #9a4f1e;
+  --folder-icon: #855f1f;
+  --project-500-rgb: 97 80 176;
+  --project-soft-text: #6150b0;
+
+  --app-bg-image: none;
+  --overlay-scrim: rgba(31, 28, 24, 0.35);
+
+  --status-danger-bg: rgba(176, 54, 54, 0.09);
+  --status-danger-border: rgba(176, 54, 54, 0.26);
+  --status-danger-text: #b03636;
+  --status-danger-solid: #b03636;
+  --status-warning-bg: rgba(133, 90, 14, 0.09);
+  --status-warning-border: rgba(133, 90, 14, 0.26);
+  --status-warning-text: #855a0e;
+  --status-success-bg: rgba(45, 116, 68, 0.09);
+  --status-success-border: rgba(45, 116, 68, 0.26);
+  --status-success-text: #2d7444;
+  --status-info-text: #35649a;
+
+  --action-amber-rgb: 125 86 32;
+  --action-amber-text: #7d5620;
+
+  --tier-dev-bg: rgba(53, 100, 154, 0.09);
+  --tier-dev-border: rgba(53, 100, 154, 0.26);
+  --tier-dev-text: #35649a;
+  --tier-qa-bg: rgba(133, 90, 14, 0.09);
+  --tier-qa-border: rgba(133, 90, 14, 0.26);
+  --tier-qa-text: #855a0e;
+  --tier-prd-bg: rgba(176, 54, 54, 0.09);
+  --tier-prd-border: rgba(176, 54, 54, 0.26);
+  --tier-prd-text: #b03636;
+
+  --elev-1: 0 4px 12px rgb(31 24 16 / 0.08);
+  --elev-2: 0 16px 40px rgb(31 24 16 / 0.14);
+  --elev-3: 0 8px 24px rgb(31 24 16 / 0.12);
 }
 
 body {
@@ -598,6 +541,18 @@ body {
      satırlar daha sıkışık okunuyor. Küçük ama gövde metninde hissedilen bir
      nefes payı. */
   letter-spacing: -0.006em;
+}
+
+/* JS çalışmadan önce (`src/main.tsx` `data-palette`'i yazana kadar) sayfa
+   boyanmasın: arkada ana sürecin ayardaki temaya göre seçtiği pencere rengi
+   (`BrowserWindow.backgroundColor`, bkz. app-electron/shared/themeSurfaces.ts)
+   görünsün. `:root`'taki `color-scheme: dark` bu arada tuvali koyuya boyardı;
+   açık temada açılışta bir kare koyu çerçeve görünüyordu. */
+html:not([data-palette]) {
+  color-scheme: normal;
+}
+html:not([data-palette]) body {
+  background-color: transparent;
 }
 
 /* Metin seçimi. `--accent-glow` KULLANILMIYOR — o değişken axet.flows'ta
