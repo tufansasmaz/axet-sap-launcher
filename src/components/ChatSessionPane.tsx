@@ -1066,7 +1066,7 @@ export default function ChatSessionPane({
 
                 durgun → `line-subtle`   (neredeyse görünmez, ekranı yormuyor)
                 hover  → `line`          (fare yaklaşınca kutu kendini gösterir)
-                odak   → lime kenarlık + `--accent-glow` halesi
+                odak   → vurgu kenarlık + `--accent-glow` halesi
 
               Hale `shadow`, `ring` DEĞİL: `ring` kenarlığın ÜSTÜNE keskin bir
               ikinci çizgi koyuyor ve iki hatlı bir çerçeve gibi okunuyor;
@@ -1078,7 +1078,7 @@ export default function ChatSessionPane({
               indirilmiş olmasının bütün kazancını geri verirdi.
 
               HOVER NEDEN `:not(:focus-within)` İLE KOŞULLU: düz `hover:` ile
-              yazıldığında lime kenarlık ÇOĞU ZAMAN hiç görünmüyor. Tailwind
+              yazıldığında vurgu kenarlık ÇOĞU ZAMAN hiç görünmüyor. Tailwind
               `hover:` kurallarını `focus-within:` kurallarından SONRA basıyor
               ve ikisinin özgüllüğü eşit — yani kutu hem odaklı hem fare
               üstündeyken kazanan gri `line` oluyor. Ve bu istisnai bir durum

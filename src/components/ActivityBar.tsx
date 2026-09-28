@@ -110,7 +110,7 @@ export default function ActivityBar({
   // taşınırken sessizce bir "hangi ekrandayım" göstergesi kaybolurdu.
   //
   // Kimlik renkleri için YENİ BİR HUE UYDURULMADI. index.css'in tepesindeki
-  // palet sözleşmesinde dört anlam var (lime/mavi/mor/turuncu/kırmızı) ve bu
+  // palet sözleşmesinde dört anlam var (vurgu/mavi/mor/turuncu/kırmızı) ve bu
   // ekran tam olarak "sistem, bilgi" ailesine düşüyor — ama SAP Launcher'ın
   // doygun mavisiyle aynı rayda karışmaması gerekiyordu. `--navy-icon` bu
   // yüzden seçildi: aynı mavi ailesinin nötr, çelik tonu, zaten "bunlardan
@@ -136,9 +136,9 @@ export default function ActivityBar({
         title={item.label}
         className="group relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl transition-colors"
       >
-        {/* Şerit PARLAK lime (`accent-500`), fonksiyonel ton değil:
+        {/* Şerit vurgu DOLGUSU (`accent-500`), metin tonu değil:
             kullanıcının "aktif navigation" için istediği yer tam burası
-            ve iki katmanlı lime kuralında küçük durum göstergesi parlak
+            ve iki katmanlı vurgu kuralında küçük durum göstergesi dolgu
             tondan beslenir. İkon ise metin/ikon rolünde olduğu için
             `accent-400`'de kalıyor. */}
         <span

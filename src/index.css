@@ -150,6 +150,7 @@ html[data-palette="indigo"][data-theme="dark"] {
   /* Sakin İndigo · koyu. `:root` bu blokla AYNI blok: nitelikler henüz yazılmamışken
      (ilk kare) de doğru renk olsun diye. Jeton gerekçeleri yalnızca bu blokta
      yazılı; öbür üç blok aynı jeton kümesini kendi değerleriyle tanımlıyor. */
+  /* Chromium'un yerleşik denetimleri (`<select>` açılır listesi, kaydırma çubuğu) CSS ile değil `color-scheme`'e göre boyanıyor; bu satır olmadan koyu temada beyaz liste açılır. */
   color-scheme: dark;
   /* Yüzeyler ROLE göre: app (pencere) · sidebar · card · raised · hover ·
      control (girdi, çip, seçili satır) · active (basılı).

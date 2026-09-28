@@ -204,4 +204,16 @@ describe("limon yeşili kalmadı", () => {
     }
     expect(hits).toEqual([]);
   });
+
+  // `tailwind.config.js` renkleri `extend` altında tanımlıyor; Tailwind'in
+  // varsayılan `lime` paleti hâlâ derleniyor. Jetonlardan limonu kaldırmak
+  // yetmiyor, `border-lime-400` gibi doğrudan sınıflar ekranı yine boyuyor.
+  it("Tailwind lime-* sınıfı kalmadı", () => {
+    const hits: string[] = [];
+    for (const file of walk(path.join(ROOT, "src"))) {
+      const m = /\blime-\d{2,3}\b/.exec(readFileSync(file, "utf8"));
+      if (m) hits.push(`${path.relative(ROOT, file)}: ${m[0]}`);
+    }
+    expect(hits).toEqual([]);
+  });
 });

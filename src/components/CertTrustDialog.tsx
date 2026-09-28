@@ -10,7 +10,7 @@ import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 //
 // ConfirmDialog'un kalıbı, iki farkla: parmak izleri tam gösterilsin diye
 // geniş, ve renk uyarı tonu (`--status-warning-*`) — bu bir karar anı,
-// seçim değil (lime yalnızca seçim içindir).
+// seçim değil (vurgu rengi yalnızca seçim içindir).
 interface Props {
   prompt: CertTrustPrompt | null;
   busy?: boolean;

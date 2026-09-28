@@ -2840,7 +2840,7 @@ export default function AxetCodeHome({
             kullanırdım"*, çünkü *"şu an ekranda lime çok az görünüyor"*).
             Yıkama hâlinde (accent-500/10 + accent-400 metin) düğme yan
             komşusuyla aynı ağırlıktaydı; ikisi de "bir seçenek" gibi
-            duruyordu. Şimdi ayrım İKİ eksende: dolgu-yıkama ve lime-mor.
+            duruyordu. Şimdi ayrım İKİ eksende: dolgu-yıkama ve vurgu-mor.
             Yan taraftaki "Yeni proje" bilerek yıkama olarak kaldı — iki
             dolgu yan yana olsaydı hiyerarşi yine düzleşirdi.
 
@@ -3212,8 +3212,8 @@ export default function AxetCodeHome({
                           }`}
                         >
                           {/* Şerit ray'daki aktif sekme şeridiyle AYNI dil:
-                              uygulamada "burasısın" hep soldaki 2-3px parlak
-                              lime çizgi. */}
+                              uygulamada "burasısın" hep soldaki 2-3px'lik
+                              vurgu çizgisi. */}
                           {connected && (
                             <span className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-accent-500" />
                           )}

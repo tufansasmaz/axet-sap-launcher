@@ -107,15 +107,15 @@ function ModeChooser({ session, onSetMode }: { session: SessionView; onSetMode: 
               onClick={() => setMode(id)}
               className={`flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
                 selected
-                  ? "border-lime-400/60 bg-lime-400/10"
+                  ? "border-accent-400/60 bg-accent-400/10"
                   : "border-line/60 bg-control/40 hover:border-line hover:bg-control/70"
               }`}
             >
-              <Icon size={15} className={`mt-0.5 shrink-0 ${selected ? "text-lime-300" : "text-slate-400"}`} />
+              <Icon size={15} className={`mt-0.5 shrink-0 ${selected ? "text-accent-400" : "text-slate-400"}`} />
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="text-sm font-medium text-white">{t(`sapWrite.mode.option.${id}`)}</span>
-                  {selected && <Check size={13} className="text-lime-300" />}
+                  {selected && <Check size={13} className="text-accent-400" />}
                 </span>
                 <span className="mt-0.5 block text-xs leading-relaxed text-slate-400">{t(`sapWrite.mode.desc.${id}`)}</span>
               </span>
