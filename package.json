@@ -101,7 +101,11 @@
       },
       {
         "from": "resources/sap-gui-scripting",
-        "to": "sap-gui-scripting"
+        "to": "sap-gui-scripting",
+        "filter": [
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
       },
       {
         "from": "build/icon.png",
