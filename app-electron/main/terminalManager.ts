@@ -2,6 +2,7 @@ import type { BrowserWindow } from "electron";
 import * as pty from "@lydell/node-pty";
 import { mkdirSync } from "node:fs";
 import { getAdtHttpToken } from "./adtHttpToken";
+import { withNttPythonSite } from "./pythonSiteEnv";
 
 // node-pty (ConPTY üzerinden, N-API tabanlı, prebuilt binary — el yazımı
 // koffi/Win32 FFI DEĞİL) ile gerçek bir Windows konsol pseudo-terminal'i
@@ -110,8 +111,9 @@ export function createTerminal(
     cols: cols > 0 ? cols : 80,
     rows: rows > 0 ? rows : 24,
     cwd: resolvedCwd,
-    // Terminalde çalışan ajan 8787'ye token'la konuşuyor (bkz. adtHttpToken.ts).
-    env: { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() } as Record<string, string>
+    // Terminalde çalışan ajan 8787'ye token'la konuşuyor (bkz. adtHttpToken.ts);
+    // PYTHONPATH, oradan çalışan Python'a TLS kuralını veriyor (pythonSiteEnv.ts).
+    env: withNttPythonSite({ ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() }) as Record<string, string>
   });
 
   const session: TerminalSession = {

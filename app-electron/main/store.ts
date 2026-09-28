@@ -4,6 +4,7 @@ import { userInfo } from "node:os";
 import path from "node:path";
 import { encryptSecret } from "./secureStorage";
 import { isSkillProfile } from "./skillProfiles";
+import { rememberIdpOrigin } from "./samlPolicy";
 import type {
   AppConfig,
   ConnectionHistoryEntry,
@@ -188,6 +189,7 @@ export function loadConfig(): AppConfig {
         : fallback.connectorAutoDisabled,
       lastCredentials: { ...fallback.lastCredentials, ...(parsed.lastCredentials ?? {}) },
       trustedCertificates: { ...fallback.trustedCertificates, ...(parsed.trustedCertificates ?? {}) },
+      samlIdpOrigins: sanitizeSamlIdpOrigins(parsed.samlIdpOrigins),
       connectionHistory: Array.isArray(parsed.connectionHistory) ? parsed.connectionHistory : fallback.connectionHistory,
       systemTiers: { ...fallback.systemTiers, ...(parsed.systemTiers ?? {}) },
       systemComments: { ...fallback.systemComments, ...(parsed.systemComments ?? {}) },
@@ -233,6 +235,30 @@ export function saveTrustedCertificates(updated: Record<string, string>): AppCon
   const current = loadConfig();
   const trustedCertificates = { ...current.trustedCertificates, ...updated };
   return saveConfig({ trustedCertificates });
+}
+
+// Bu liste parolanın otomatik yazılacağı yerleri belirliyor; elle bozulmuş
+// ya da https olmayan bir değer izin listesine hiç girmemeli.
+function sanitizeSamlIdpOrigins(value: unknown): Record<string, string[]> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, string[]> = {};
+  for (const [uuid, list] of Object.entries(value as Record<string, unknown>)) {
+    if (!Array.isArray(list)) continue;
+    const clean = rememberIdpOrigin(
+      list.filter((x): x is string => typeof x === "string"),
+      null
+    );
+    if (clean.length > 0) out[uuid] = clean;
+  }
+  return out;
+}
+
+/** Başarılı bir SAML girişinde SAP'nin yönlendirdiği IdP origin'ini sistemin listesine ekler. */
+export function saveSamlIdpOrigin(serviceUuid: string, origin: string): AppConfig {
+  const current = loadConfig();
+  const all = { ...(current.samlIdpOrigins ?? {}) };
+  all[serviceUuid] = rememberIdpOrigin(all[serviceUuid], origin);
+  return saveConfig({ samlIdpOrigins: all });
 }
 
 export function pushConnectionHistory(serviceUuid: string): AppConfig {

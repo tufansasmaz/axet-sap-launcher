@@ -1,4 +1,5 @@
 import { getAdtHttpToken } from "./adtHttpToken";
+import { withNttPythonSite } from "./pythonSiteEnv";
 
 // ---------------------------------------------------------------------------
 // axet-code alt-process'lerine verilecek ortam — ölçülmüş gerekçe (2026-09-02)
@@ -52,7 +53,9 @@ const FAST_FAIL_MCP_BASE_URL = "http://127.0.0.1:9";
 export function axetSpawnEnv(useConnectors: boolean): NodeJS.ProcessEnv {
   // Ajan 8787'deki ADT sunucusuna `os.environ['ABAP_HTTP_TOKEN']` ile
   // konuşuyor; token'ı ortama koyan çağrı bu (bkz. adtHttpToken.ts).
-  const env = { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() };
+  // PYTHONPATH: ajanın çalıştırdığı skill script'lerinde `verify=False`
+  // yerine pin/zincir (bkz. pythonSiteEnv.ts).
+  const env = withNttPythonSite({ ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() });
   if (useConnectors) return env;
   return { ...env, AXET_MCP_BASE_URL: FAST_FAIL_MCP_BASE_URL };
 }

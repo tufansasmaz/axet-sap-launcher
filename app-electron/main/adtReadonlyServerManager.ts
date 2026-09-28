@@ -3,6 +3,7 @@ import { createWriteStream, type WriteStream } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { connect as netConnect } from "node:net";
 import { getAdtHttpToken } from "./adtHttpToken";
+import { withNttPythonSite } from "./pythonSiteEnv";
 import { mt } from "./i18n";
 import type { SystemTier } from "../shared/types";
 
@@ -342,7 +343,15 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // ADT_CWD: motor `.conn_adt`'ı (gated katman `.sap-review/`'u) buradan
   // okuyor. Launcher'ın ortamından miras kalan bir değer başka projenin
   // sistemine bağlardı; cwd ile aynı olduğu için açıkça veriyoruz.
-  const env: NodeJS.ProcessEnv = { ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken(), ADT_CWD: opts.projectDir };
+  // PYTHONPATH (python-site): sunucu `install()` ile yalnızca motorun
+  // oturumunu koruyor; motorun içinden çağrılan JWT sağlayıcısı istemci
+  // sırrını ayrı bir `requests.post(verify=False)` ile gönderiyor. Süreç geneli
+  // kural onu da kapsıyor (pythonSiteEnv.ts).
+  const env: NodeJS.ProcessEnv = withNttPythonSite({
+    ...process.env,
+    ABAP_HTTP_TOKEN: getAdtHttpToken(),
+    ADT_CWD: opts.projectDir
+  });
   if (opts.gate) {
     env.ADT_APPROVAL_URL = opts.gate.url;
     env.ADT_APPROVAL_TOKEN = opts.gate.token;

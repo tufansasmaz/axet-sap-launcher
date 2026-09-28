@@ -139,8 +139,9 @@ resources/sap-toolkit/    # abapGit bridge, ADT read-only Python server,
         (`32XX` formatı) HTTPS ICM portunu tahmin eder (`443XX`), HTTP
         redirect'i takip eder, `WWW-Authenticate` header'ından SID'i okuyup
         beklenen SID ile eşleştirir (yanlış host/DNS'i böyle yakalar), TLS
-        sertifikasını alır ve güvenilir değilse Windows kullanıcı sertifika
-        deposuna (`certutil -user -addstore Root`) ekler.
+        sertifikasını alır ve güvenilir değilse kullanıcıya parmak iziyle
+        sorar (`CertTrustDialog`); onaylanırsa yalnızca pin kaydedilir.
+        Windows sertifika deposuna artık HİÇBİR ŞEY kurulmuyor (2026-09-28).
    d. **Kimlik doğrulama**: `verifyCredentials()` — gerçek bir
       `GET /sap/bc/adt/discovery` isteği, Basic Auth ile. 200 = başarılı,
       401 = kimlik hatası, diğer = beklenmeyen. Birincil URL ağ hatası
@@ -171,8 +172,8 @@ resources/sap-toolkit/    # abapGit bridge, ADT read-only Python server,
 5. `index.ts`de `result.ok` ise `saveLastCredential()` ile kullanıcı adı ve
    **gerçekte kullanılan client** (`effectiveClient` — cloud default
    uygulanmışsa "100") persist edilir; bir dahaki bağlanışta otomatik dolar.
-   `trustedCertificates` varsa `store.ts`'e kaydedilir (aynı sertifikayı
-   tekrar trust store'a eklemeye çalışmamak için).
+   `trustedCertificates` varsa `store.ts`'e kaydedilir (onaylı pin'ler;
+   Node, adt-tool.ps1, Python ve SAML penceresi bunlarla doğruluyor).
 
 ## Önemli Tasarım Kararları / Gotcha'lar
 
@@ -9620,6 +9621,24 @@ bizim uygulamamız için değil, makinedeki her şey için.
 
 **Bu daraltma geri alınmamalı.** "Bir müşteride sertifika kurulmuyor" diye
 koşulu gevşetmek, kurumsal proxy'yi kök otorite yapmaya geri döner.
+
+**Güncelleme (2026-09-28, güvenlik turu 2 / O1): kurulum tamamen kaldırıldı.**
+Kendinden imzalı sertifikaların çoğu CA:TRUE; ilk temasta sorulmadan Root'a
+kurulan böyle bir sertifikanın anahtarını tutan, kullanıcının makinesinde HER
+site adına geçerli sertifika üretebiliyordu. Artık hiçbir sertifika depoya
+girmiyor: ilk temasta da `untrusted` onay penceresi (parmak izi) çıkıyor,
+onaylanınca yalnızca pin yazılıyor. Kendi bağlantılarımızın hepsi pin'le
+doğruluyor (Node `verifiedConnection`, adt-tool.ps1, Python `ntt_tls_pin`);
+depoya dayanan tek bileşen olan SAML penceresi `session.setCertificateVerifyProc`
+ile aynı pin'i kullanıyor (`samlPolicy.ts` `samlCertVerdict`). Bedeli:
+kullanıcının kendi tarayıcısı/Eclipse'i yeni eklenen kendinden imzalı SAP
+host'larına artık bizim sayemizde güvenmiyor.
+
+Daha önce kurulmuş sertifikalar SİLİNMEDİ (kullanıcının başka bir aracı onlara
+dayanıyor olabilir). Elle temizlemek için: `certmgr.msc` → Güvenilen Kök
+Sertifika Yetkilileri → Sertifikalar'da SAP host adını (CN) taşıyan, kendinden
+imzalı girdiyi sil; ya da `certutil -user -viewstore Root` ile bulup
+`certutil -user -delstore Root <seri numarası>`.
 
 ### 4. "Cevap hiç görünmüyor" — bayat veritabanı
 

@@ -152,6 +152,70 @@ function findFreePort(preferred) {
   });
 }
 
+// http-in sunucusu kimlik doğrulamasız ve yerel: yalnızca bu makinedeki
+// araçlar (curl, Postman, betikler) ya da flow'un KENDİ sunduğu sayfa
+// konuşabilmeli. Dinleme adresi 127.0.0.1 olsa da kullanıcının tarayıcısı
+// da bu makinede — ziyaret edilen herhangi bir site `fetch("http://127.0.0.1:
+// 1788x/...", {mode:"no-cors"})` ile flow'u tetikleyebilir, DNS rebinding ile
+// yanıtı da okuyabilirdi. Üç denetim bunu kapatıyor, hiçbiri curl/Postman
+// gibi Origin göndermeyen yerel istemcileri etkilemiyor:
+//   - Host: tarayıcı saldırganın alan adını yollar, bizimkini değil (8787
+//     sunucusundaki `_host_ok` ile aynı desen).
+//   - Origin: tarayıcı çapraz kaynaklı her POST'ta gönderiyor; "null"
+//     (sandbox'lı iframe, file://) da dahil, flow'un kendi kaynağı dışındaki
+//     her değer reddediliyor.
+//   - Sec-Fetch-Site: Origin'siz giden çapraz siteli GET'ler (<img src>) de
+//     bu başlığı taşıyor; yalnızca "same-origin" ve "none" (adres çubuğu)
+//     kabul. "same-site" bilinçli olarak dışarıda: localhost'ta port farkı
+//     "aynı site" sayılıyor, yani başka bir yerel web uygulaması.
+const HTTP_IN_MAX_BODY_BYTES = 4 * 1024 * 1024;
+
+function checkHttpInRequest(req, port) {
+  const raw = req.rawHeaders || [];
+  const hostValues = [];
+  for (let i = 0; i < raw.length; i += 2) {
+    if (String(raw[i]).toLowerCase() === 'host') hostValues.push(String(raw[i + 1] || '').trim().toLowerCase());
+  }
+  const allowedHosts = [`127.0.0.1:${port}`, `localhost:${port}`];
+  if (hostValues.length !== 1 || !allowedHosts.includes(hostValues[0])) {
+    return { ok: false, status: 403, reason: `Host başlığı bu sunucuya ait değil (${hostValues.join(', ') || 'yok'})` };
+  }
+  const origin = req.headers.origin;
+  if (origin !== undefined) {
+    const allowedOrigins = allowedHosts.map((h) => `http://${h}`);
+    if (!allowedOrigins.includes(String(origin).trim().toLowerCase())) {
+      return { ok: false, status: 403, reason: `Origin kabul edilmedi (${origin})` };
+    }
+  }
+  const fetchSite = req.headers['sec-fetch-site'];
+  if (fetchSite !== undefined && fetchSite !== 'same-origin' && fetchSite !== 'none') {
+    return { ok: false, status: 403, reason: `Tarayıcıdan çapraz siteli istek (Sec-Fetch-Site: ${fetchSite})` };
+  }
+  return { ok: true };
+}
+
+// Reddedilen isteğin gövdesi okunmuyor. Soketi yanıtın hemen ardından
+// kapatmak işe yaramıyor: okunmamış veri varken kapanan TCP soketi RST
+// gönderiyor ve istemci 403/413'ü okumadan ECONNRESET alıyor (Windows'ta,
+// Node 20 ve 26'da ölçüldü). Node, gövdesi bitmemiş istekte ya da
+// `Connection: close` başlığında soketi yanıt biter bitmez kendisi kapatıyor;
+// `shouldKeepAlive = true` bunu engelliyor. Ardından akış durduruluyor
+// (çekirdek tamponu dolunca TCP penceresi kapanıyor, yani okuma gerçekten
+// kesiliyor), yazma yönü FIN ile kapatılıyor ve soket kısa süre sonra
+// bırakılıyor. Node bu özelliği bir gün yok sayarsa sonuç yalnızca eski RST
+// davranışı olur; güvenlik tarafı (okumanın kesilmesi) değişmez.
+function endAndStopReading(req, res, body) {
+  res.shouldKeepAlive = true;
+  res.end(body, () => {
+    req.pause();
+    const sock = req.socket;
+    if (sock && !sock.destroyed) {
+      sock.end();
+      setTimeout(() => sock.destroy(), 2000).unref();
+    }
+  });
+}
+
 function safeJsonClone(value) {
   try {
     return JSON.parse(JSON.stringify(value));
@@ -562,6 +626,14 @@ class FlowRuntime {
   }
 
   _handleHttpRequest(req, res, httpNodes) {
+    const guard = checkHttpInRequest(req, this.port);
+    if (!guard.ok) {
+      this.onLog({ level: 'warn', text: `[http in] İstek reddedildi (${guard.status}): ${guard.reason} — ${req.method} ${(req.url || '/').split('?')[0]}` });
+      res.statusCode = guard.status;
+      res.setHeader('Content-Type', 'application/json');
+      endAndStopReading(req, res, JSON.stringify({ error: 'forbidden' }));
+      return;
+    }
     const urlPath = (req.url || '/').split('?')[0];
     const method = (req.method || 'GET').toLowerCase();
     const node = httpNodes.find((n) => n.url === urlPath && (n.method || 'get').toLowerCase() === method);
@@ -571,9 +643,36 @@ class FlowRuntime {
       res.end(JSON.stringify({ error: `Bilinmeyen route: ${method.toUpperCase()} ${urlPath}` }));
       return;
     }
+    // Gövde sınırı: aşıldığı anda 413 dönülüyor ve soket kapatılıyor. Yalnızca
+    // yanıt vermek yetmiyor — Node, tüketilmemiş gövdeyi yanıttan sonra da
+    // okuyup atmaya devam ediyor (onay sunucusundaki D11 bulgusunun aynısı).
     const chunks = [];
-    req.on('data', (c) => chunks.push(c));
+    let tooLarge = false;
+    const rejectTooLarge = () => {
+      tooLarge = true;
+      chunks.length = 0;
+      this.onLog({ level: 'warn', text: `[http in] İstek reddedildi (413): gövde ${HTTP_IN_MAX_BODY_BYTES} baytı aşıyor — ${req.method} ${urlPath}` });
+      res.statusCode = 413;
+      res.setHeader('Content-Type', 'application/json');
+      endAndStopReading(req, res, JSON.stringify({ error: 'payload_too_large', limitBytes: HTTP_IN_MAX_BODY_BYTES }));
+    };
+    const declared = Number(req.headers['content-length']);
+    if (Number.isFinite(declared) && declared > HTTP_IN_MAX_BODY_BYTES) {
+      rejectTooLarge();
+      return;
+    }
+    let received = 0;
+    req.on('data', (c) => {
+      if (tooLarge) return;
+      received += c.length;
+      if (received > HTTP_IN_MAX_BODY_BYTES) {
+        rejectTooLarge();
+        return;
+      }
+      chunks.push(c);
+    });
     req.on('end', () => {
+      if (tooLarge) return;
       const bodyRaw = Buffer.concat(chunks).toString('utf-8');
       let payload = bodyRaw;
       const contentType = req.headers['content-type'] || '';
@@ -1180,4 +1279,4 @@ class FlowRuntime {
   // ortamda guvenle "gercekten" calistirilamazlar.
 }
 
-export { FlowRuntime, findFreePort, validateFlow, diagnoseError };
+export { FlowRuntime, findFreePort, validateFlow, diagnoseError, checkHttpInRequest, HTTP_IN_MAX_BODY_BYTES };

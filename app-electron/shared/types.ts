@@ -322,6 +322,13 @@ export interface AppConfig {
   sapShcutPathOverride: string | null;
   lastCredentials: Record<string, LastCredential>;
   trustedCertificates: Record<string, string>;
+  /**
+   * Sistem (service uuid) başına, başarılı SAML girişlerinde görülen IdP
+   * origin'leri (`https://idp.example.com`). SAML penceresinin parolayı
+   * otomatik yazabileceği tek yerler bunlar ve SAP'nin kendisi — bkz.
+   * samlPolicy.ts. Ana süreç yazıyor; renderer yamasında yok sayılıyor.
+   */
+  samlIdpOrigins?: Record<string, string[]>;
   connectionHistory: ConnectionHistoryEntry[];
   systemTiers: Record<string, SystemTier>;
   systemComments: Record<string, string>;

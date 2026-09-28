@@ -1,10 +1,6 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { connect as tlsConnect, checkServerIdentity, type PeerCertificate } from "node:tls";
-import { execFileSync } from "node:child_process";
-import { writeFileSync, unlinkSync } from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import { tlsConnectThroughRouter, httpRequestOverSocket } from "./sapRouter";
 import {
   certFingerprint,
@@ -335,11 +331,10 @@ async function probeRealmThroughRouter(
 }
 
 interface PeerCertInfo {
-  pem: string;
   authorized: boolean;
   subjectCN: string | null;
   fingerprint: string;
-  /** Issuer == Subject. Kurulum kararının DAYANDIĞI alan — bkz. `trustCertInWindowsStore`. */
+  /** Issuer == Subject. Yalnızca onay penceresinde bilgi olarak gösteriliyor. */
   selfSigned: boolean;
   issuerCN: string | null;
   /**
@@ -379,12 +374,10 @@ function describeCert(
   host: string
 ): PeerCertInfo | null {
   if (!cert || !cert.raw || cert.raw.length === 0) return null;
-  const b64 = cert.raw.toString("base64");
   const subject = dnString(cert.subject as unknown as Record<string, unknown>);
   const issuer = dnString(cert.issuer as unknown as Record<string, unknown>);
   const hostError = authorized ? checkServerIdentity(host, cert) : undefined;
   return {
-    pem: `-----BEGIN CERTIFICATE-----\n${b64.match(/.{1,64}/g)!.join("\n")}\n-----END CERTIFICATE-----\n`,
     authorized,
     subjectCN: firstCN(cert.subject as unknown as Record<string, unknown>),
     issuerCN: firstCN(cert.issuer as unknown as Record<string, unknown>),
@@ -446,40 +439,17 @@ async function getPeerCertPemThroughRouter(
   }
 }
 
-/**
- * Sertifikayı Windows KULLANICI "Trusted Root" deposuna kurar.
- *
- * Etki alanı bu uygulamayla sınırlı DEĞİL: aynı depoyu Chromium, .NET ve
- * `-Declipse.platform.mergeTrust=true` ile çalışan Eclipse/Java da okur. Yani buraya
- * yazılan her sertifika, kullanıcının bütün araçlarında kök otorite hâline gelir.
- * Bu yüzden çağrı yeri yalnızca KENDİNDEN İMZALI sertifikalara izin verir
- * (bkz. `PeerCertInfo.selfSigned`) — handshake `rejectUnauthorized: false` ile
- * yapıldığından, o filtre olmadan araya giren bir proxy'nin sahte sertifikası da
- * buraya girebilirdi.
- *
- * Çalıştığı TEK hâl (bkz. `assessEndpointCertificate`): Windows, sertifika
- * zincirle doğrulanmıyor, kendinden imzalı, ve bu `host:port` için kayıtlı pin
- * YOK (ilk bağlantı). Kayıtlı pin değişmişse kurulum yapılmıyor, kullanıcıya
- * soruluyor. Bu TOFU davranışı bilinçli olarak değiştirilmedi; riskleri
- * güvenlik raporunda (S3) yazılı.
- */
-function trustCertInWindowsStore(pem: string): boolean {
-  if (process.platform !== "win32") return false;
-  const tmpFile = path.join(os.tmpdir(), `axet-sap-cert-${Date.now()}.cer`);
-  try {
-    writeFileSync(tmpFile, pem, "utf-8");
-    execFileSync("certutil", ["-user", "-addstore", "Root", tmpFile], { timeout: 10000, windowsHide: true });
-    return true;
-  } catch {
-    return false;
-  } finally {
-    try {
-      unlinkSync(tmpFile);
-    } catch {
-      // best effort
-    }
-  }
-}
+// Kendinden imzalı sertifikalar eskiden ilk temasta, sorulmadan Windows
+// kullanıcı "Trusted Root" deposuna kuruluyordu (`certutil -user -addstore
+// Root`). O depoyu Chromium, .NET, PowerShell ve mergeTrust'lı Eclipse de
+// okuyor; kendinden imzalı sertifikaların çoğu CA:TRUE taşıdığı için anahtarın
+// sahibi kullanıcının makinesinde HER site adına geçerli sertifika
+// üretebiliyordu. Kurulum artık yok: uygulamanın kendi bağlantılarının hepsi
+// (Node `verifiedConnection`, adt-tool.ps1, Python `ntt_tls_pin`) ve SAML
+// penceresi (`samlLogin.ts` `setCertificateVerifyProc`) kayıtlı pin'le
+// doğruluyor, pin de yalnızca kullanıcı parmak izini onaylayınca yazılıyor.
+// Daha önce kurulmuş sertifikalara dokunulmuyor (kullanıcının başka bir aracı
+// onlara dayanıyor olabilir); temizliği PROJE-BILGI.md'de anlatılıyor.
 
 export interface AdtCandidate {
   host: string;
@@ -513,10 +483,9 @@ export interface CertAssessment {
  *     adt-tool.ps1 ve Python sarmalayıcılarına aynı sertifikayı taşımak için.
  *   - Kayıtlı pin FARKLI ve zincir tutmuyor → `changed` sorusu, pin
  *     DEĞİŞMEZ. Sertifika yenilemesi ile MITM ağdan ayırt edilemiyor.
- *   - Pin yok, kendinden imzalı, Windows → eski TOFU davranışı (kullanıcı
- *     Root deposuna kur + pin'le). Kurulamazsa `untrusted` sorusu.
- *   - Pin yok, kendinden imzalı değil (kurum içi CA ya da proxy) →
- *     `untrusted` sorusu; trust store'a hiçbir şey eklenmez.
+ *   - Pin yok ve zincir tutmuyor (kendinden imzalı, kurum içi CA ya da
+ *     proxy) → `untrusted` sorusu; trust store'a hiçbir şey eklenmez, pin
+ *     yalnızca kullanıcı onaylarsa (`certs:approve`) yazılır.
  */
 export async function assessEndpointCertificate(
   host: string,
@@ -551,7 +520,7 @@ export async function assessEndpointCertificate(
   });
 
   if (stored && stored === certInfo.fingerprint) {
-    notes.push("Sertifika daha önce onaylanmış (kayıtlı parmak iziyle eşleşti), tekrar kurulmuyor.");
+    notes.push("Sertifika daha önce onaylanmış (kayıtlı parmak iziyle eşleşti).");
     return { notes, trustedCertificates: updated, prompt: null };
   }
 
@@ -586,13 +555,13 @@ export async function assessEndpointCertificate(
     return { notes, trustedCertificates: updated, prompt: promptOf("untrusted") };
   }
 
-  notes.push(`Sertifika sistem tarafından güvenilir değil (CN=${certInfo.subjectCN ?? "?"}) — kullanıcı trust store'una ekleniyor.`);
-  const trusted = trustCertInWindowsStore(certInfo.pem);
-  notes.push(trusted ? "Sertifika Windows kullanıcı trust store'una eklendi." : "Sertifika trust store'a eklenemedi.");
-  if (trusted) {
-    updated[certKey] = certInfo.fingerprint;
-    return { notes, trustedCertificates: updated, prompt: null };
-  }
+  // Kendinden imzalı, ilk temas: kurum içi CA'lı dalla aynı soru. İlk temasta
+  // da sessiz kabul yok — aradaki biri tam bu anda kendi sertifikasını
+  // sunuyorsa, pin'lenecek olan onunki olurdu.
+  notes.push(
+    `Sertifika güvenilir değil, kendinden imzalı (CN=${certInfo.subjectCN ?? "?"}) — ` +
+      "trust store'a EKLENMEDİ; kimlik bilgisi gönderilmeden önce kullanıcının parmak izini onaylaması bekleniyor."
+  );
   return { notes, trustedCertificates: updated, prompt: promptOf("untrusted") };
 }
 
