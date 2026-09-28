@@ -25,6 +25,13 @@ bağlanmadı, tamamen bağımsız bir Activity/IPC namespace'i olarak yaşıyor.
      → Scripting → "Enable scripting" + iki "Notify" kutusu kapalı.
 Değişiklik YENİ oturumlarda geçerli olur — mevcut oturumdan çıkıp tekrar gir.
 
+GÜVENLİK: `/health` dışındaki her istek `Authorization: Bearer <token>` ister;
+token'ı launcher her başlatışta üretip `NTT_GUI_BRIDGE_TOKEN` ortam
+değişkeniyle verir, token yoksa köprü başlamaz. POST yalnızca
+`application/json` kabul eder, `Origin` taşıyan (tarayıcıdan gelen) istekler
+reddedilir. NTT Studio'da PRD işaretli sistemlerin oturumlarına yazan
+aksiyonlar 403 ile reddedilir (bkz. `refuse_if_prd`).
+
 TEŞHİS (/preflight): "neden çalışmıyor" sorusunu TAHMİN ETMEK YERİNE ÖLÇER.
 Win32 seviyesinde `SAP_FRONTEND_SESSION` sınıfındaki pencereleri sayar, ayrı
 olarak scripting engine'in oturum sayısını okur ve İKİSİNİ KARŞILAŞTIRIR:
@@ -45,6 +52,7 @@ from __future__ import annotations
 
 import base64
 import ctypes
+import hmac
 import io
 import json
 import os
@@ -118,6 +126,99 @@ if sys.platform == "win32":
 class SapGuiScriptingError(Exception):
     """Kullanıcıya gösterilecek, teşhis edilmiş bir hata (HTTP body'sine
     olduğu gibi yazılır) - ham COM hata mesajlarından daha anlaşılır."""
+
+
+class PrdWriteRefused(SapGuiScriptingError):
+    """PRD olarak işaretli bir oturuma yazma denemesi - HTTP 403 olarak döner.
+
+    Ayrı bir sınıf, çünkü 502 ("SAP tarafında bir şey ters gitti") ile bu
+    ("köprü bilerek reddetti") aynı durum değil; istemci ikisini ayırt
+    edebilmeli."""
+
+
+# ----------------------------------------------------------------------------
+# Kimlik doğrulama ve PRD yazma kapısı
+# ----------------------------------------------------------------------------
+#
+# NEDEN TOKEN: SAP GUI'nin "bir script bağlanıyor" onayı oturum başına BİR KEZ
+# çıkıyor ve `get_application()` o referansı önbellekte tutuyor. Onaydan sonra
+# köprüye ulaşan her istek kullanıcının SAP oturumunda tuşa basabiliyordu -
+# 127.0.0.1 bir yetki sınırı değil: aynı makinedeki her süreç, hatta ziyaret
+# edilen bir web sayfası bile oraya istek atabilir. Token'ı launcher her
+# başlatışta üretip YALNIZCA bu sürecin ortamına koyuyor (argv değil: argv
+# süreç listesinde herkese görünür).
+TOKEN_ENV = "NTT_GUI_BRIDGE_TOKEN"
+
+# PRD sistemleri: `[{"sid": "PRD", "client": "100"}, ...]`. `client` boşsa o
+# SID'in her mandantı PRD sayılır. Launcher başlangıçta ENV ile verir, sistem
+# işaretlemeleri değişince `POST /config/prd` ile tazeler.
+PRD_ENV = "NTT_GUI_BRIDGE_PRD_SYSTEMS"
+
+_PRD_SYSTEMS: list[tuple[str, str]] = []
+
+
+def parse_prd_systems(raw) -> list[tuple[str, str]]:
+    """PRD listesini doğrular. Bozuk girdi SESSİZCE boş listeye DÜŞMEZ:
+    boş liste "hiçbir sistem PRD değil" demek, yani kapıyı açık bırakmak."""
+    if isinstance(raw, str):
+        raw = json.loads(raw or "[]")
+    if not isinstance(raw, list):
+        raise ValueError("PRD listesi bir JSON dizisi olmalı.")
+    out: list[tuple[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise ValueError(f"PRD listesinde geçersiz öğe: {item!r}")
+        sid = item.get("sid")
+        client = item.get("client") or ""
+        if not isinstance(sid, str) or not sid.strip() or not isinstance(client, str):
+            raise ValueError(f"PRD listesinde geçersiz öğe: {item!r}")
+        out.append((sid.strip().upper(), client.strip()))
+    return out
+
+
+def set_prd_systems(systems: list[tuple[str, str]]) -> None:
+    global _PRD_SYSTEMS
+    _PRD_SYSTEMS = list(systems)
+
+
+def is_prd_system(sid: str, client: str) -> bool:
+    sid = (sid or "").strip().upper()
+    client = (client or "").strip()
+    return any(p_sid == sid and (not p_client or p_client == client) for p_sid, p_client in _PRD_SYSTEMS)
+
+
+def refuse_if_prd(session, action: str) -> None:
+    """Yazan/tetikleyen bir aksiyondan ÖNCE çağrılır.
+
+    Sistem adı okunamazsa ve PRD listesi doluysa reddeder: hangi sisteme
+    yazdığını bilmediği bir oturumda "PRD değildir" varsaymak, kapıyı tam
+    bilinmezlik anında açmak olurdu."""
+    if not _PRD_SYSTEMS:
+        return
+    info = _try(lambda: session.Info)
+    sid = str(_try(lambda: info.SystemName, "") or "") if info is not None else ""
+    client = str(_try(lambda: info.Client, "") or "") if info is not None else ""
+    if not sid.strip():
+        raise PrdWriteRefused(
+            f"'{action}' reddedildi: oturumun sistem adı okunamadı, bu yüzden PRD olup "
+            "olmadığı bilinemiyor. NTT Studio'da PRD işaretli sistem varken kimliği "
+            "belirsiz bir oturuma yazılmaz."
+        )
+    if is_prd_system(sid, client):
+        raise PrdWriteRefused(
+            f"'{action}' reddedildi: {sid.strip().upper()}/{client.strip()} NTT Studio'da PRD "
+            "olarak işaretli. Canlı sistemde SAP GUI Scripting yalnızca görüntüleme "
+            "(ekran okuma, ekran görüntüsü) için kullanılabilir."
+        )
+
+
+def bearer_ok(header: str | None, token: str) -> bool:
+    """Sabit zamanlı karşılaştırma: `==` ilk farklı baytta durur ve token'ı
+    zamanlamayla bayt bayt tahmin etmeye kapı açar."""
+    if not token:
+        return False
+    expected = ("Bearer " + token).encode("utf-8")
+    return hmac.compare_digest((header or "").encode("utf-8", "replace"), expected)
 
 
 # GERÇEK SAP GUI Scripting COM hata kodları (win32com com_error.args[0]) -
@@ -1431,6 +1532,13 @@ def handle_action(application, conn_idx: int, sess_idx: int, payload: dict) -> d
     if action not in ALLOWED_ACTIONS:
         raise SapGuiScriptingError(f"Bilinmeyen aksiyon: {action!r}. Desteklenen: {sorted(ALLOWED_ACTIONS)}.")
     session = resolve_session(application, conn_idx, sess_idx)
+    # ALLOWED_ACTIONS'taki aksiyonların HEPSİ yazıyor ya da SAP'ta bir şey
+    # tetikliyor: setText alanı değiştirir; press/select/doubleClick/
+    # selectContextMenuItem/popupChoice bir fonksiyon kodu çalıştırabilir
+    # (Kaydet de bir buton); sendVKey Ctrl+S dahil her tuşu gönderir; navigate
+    # işlem kodu çağırır. "Yalnızca okuyan" bir aksiyon burada yok - okumalar
+    # GET uçlarında. Bu yüzden kapı aksiyon türüne bakmadan her aksiyonda.
+    refuse_if_prd(session, str(action))
     element_id = payload.get("id")
 
     try:
@@ -1506,8 +1614,9 @@ def handle_action(application, conn_idx: int, sess_idx: int, payload: dict) -> d
     return {"screen": screen, "settle": settle}
 
 
-def run_bridge(host: str, port: int) -> None:
-    pythoncom.CoInitialize()
+def build_handler(token: str):
+    """HTTP handler sınıfını üretir. `run_bridge`'den ayrı, çünkü kimlik ve
+    PRD kapısı COM'suz, gerçek SAP GUI'ye dokunmadan test edilebilmeli."""
 
     class _Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -1515,16 +1624,40 @@ def run_bridge(host: str, port: int) -> None:
         def log_message(self, *a):
             pass
 
-        def _send_json(self, status: int, payload) -> None:
+        def _send_json(self, status: int, payload, extra_headers: dict | None = None) -> None:
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
             self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(body)))
+            for key, value in (extra_headers or {}).items():
+                self.send_header(key, value)
             self.end_headers()
             self.wfile.write(body)
 
-        def _send_error(self, status: int, message: str) -> None:
-            self._send_json(status, {"ok": False, "error": message})
+        def _send_error(self, status: int, message: str, extra_headers: dict | None = None) -> None:
+            self._send_json(status, {"ok": False, "error": message}, extra_headers)
+
+        def _refuse_request(self) -> bool:
+            """`/health` dışındaki her istekte ilk iş. True = cevap gönderildi,
+            istek işlenmemeli.
+
+            Cevap gövde OKUNMADAN veriliyor; HTTP/1.1 bağlantısı açık kalsaydı
+            okunmamış gövde bir sonraki istek gibi ayrıştırılırdı - o yüzden
+            bağlantı kapatılıyor."""
+            if not bearer_ok(self.headers.get("Authorization"), token):
+                self.close_connection = True
+                self._send_error(401, "Yetkisiz: geçerli bir 'Authorization: Bearer <token>' başlığı gerekli.",
+                                 {"WWW-Authenticate": "Bearer"})
+                return True
+            # Token'a EK savunma: launcher Node `http.request` ile konuşuyor ve
+            # Origin göndermiyor. Origin taşıyan bir istek bir tarayıcıdan
+            # gelir - token'ı bir şekilde ele geçirmiş bir sayfa olsa bile
+            # buradan geçemez.
+            if self.headers.get("Origin") is not None:
+                self.close_connection = True
+                self._send_error(403, "Tarayıcıdan gelen isteklere (Origin başlığı) izin verilmiyor.")
+                return True
+            return False
 
         def do_GET(self):  # noqa: N802 (BaseHTTPRequestHandler sözleşmesi)
             parsed = urlsplit(self.path)
@@ -1535,9 +1668,14 @@ def run_bridge(host: str, port: int) -> None:
                 # `pid` KİMİN cevapladığını söyler. Aynı porta iki köprünün
                 # bağlanabildiği ortaya çıkınca (Windows'ta SO_REUSEADDR bunu
                 # sessizce yapıyor) "cevap veren, benim başlattığım süreç mi"
-                # sorusunun BAŞKA bir cevabı yoktu.
+                # sorusunun BAŞKA bir cevabı yoktu. Token'sız, çünkü launcher
+                # köprünün ayağa kalktığını token'dan bağımsız görebilmeli ve
+                # SAP'a dair hiçbir şey söylemiyor.
                 self._send_json(200, {"ok": True, "server": "sap-gui-scripting-bridge",
                                       "pid": os.getpid()})
+                return
+
+            if self._refuse_request():
                 return
 
             # BİLEREK `get_application()` guard'ının DIŞINDA: teşhis uç
@@ -1630,12 +1768,43 @@ def run_bridge(host: str, port: int) -> None:
             parsed = urlsplit(self.path)
             path = parsed.path
             parts = [p for p in path.split("/") if p]
-            clen = int(self.headers.get("Content-Length", 0) or 0)
+            if self._refuse_request():
+                return
+            # Gövde, türüne bakılmadan JSON diye ayrıştırılıyordu. Bir
+            # tarayıcı `text/plain` gövdeyi ön kontrol (preflight) OLMADAN
+            # gönderebilir; `application/json` ise ön kontrol ister ve bu köprü
+            # ona hiç cevap vermiyor.
+            if self.headers.get_content_type() != "application/json":
+                self.close_connection = True
+                self._send_error(415, "Yalnızca 'Content-Type: application/json' kabul ediliyor.")
+                return
+            try:
+                clen = int(self.headers.get("Content-Length", 0) or 0)
+            except ValueError:
+                clen = -1
+            if clen < 0 or clen > 1024 * 1024:
+                self.close_connection = True
+                self._send_error(400, "Gecersiz Content-Length.")
+                return
             raw = self.rfile.read(clen) if clen else b"{}"
             try:
                 payload = json.loads(raw.decode("utf-8") or "{}")
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, UnicodeDecodeError):
                 self._send_error(400, "Gecersiz JSON govde.")
+                return
+
+            # COM'a dokunmaz: SAP Logon kapalıyken de listenin tazelenebilmesi
+            # gerekiyor, yoksa sonradan açılan bir PRD oturumu eski listeyle
+            # karşılanırdı.
+            if path == "/config/prd":
+                systems = payload.get("systems") if isinstance(payload, dict) else None
+                try:
+                    parsed_systems = parse_prd_systems(systems)
+                except (ValueError, json.JSONDecodeError) as exc:
+                    self._send_error(400, f"PRD listesi geçersiz: {exc}")
+                    return
+                set_prd_systems(parsed_systems)
+                self._send_json(200, {"ok": True, "count": len(parsed_systems)})
                 return
 
             try:
@@ -1647,10 +1816,19 @@ def run_bridge(host: str, port: int) -> None:
                     self._send_json(200, {"ok": True, **result})
                     return
                 self._send_error(404, f"Bilinmeyen yol: {path}")
+            except PrdWriteRefused as exc:
+                self._send_error(403, str(exc))
             except SapGuiScriptingError as exc:
                 self._send_error(502, str(exc))
             except Exception as exc:  # noqa: BLE001
                 self._send_error(500, f"Beklenmeyen hata: {exc}")
+
+    return _Handler
+
+
+def run_bridge(host: str, port: int, token: str) -> None:
+    pythoncom.CoInitialize()
+    _Handler = build_handler(token)
 
     class _Server(HTTPServer):
         """PORT PAYLASILMAZ.
@@ -1713,6 +1891,8 @@ def run_bridge(host: str, port: int) -> None:
     sys.stderr.write(
         f"[sap-gui-scripting-bridge] listening on http://{host}:{port} (pid {os.getpid()})\n"
         f"[sap-gui-scripting-bridge] GET /health icin liveness kontrolu, GET /preflight icin teshis.\n"
+        f"[sap-gui-scripting-bridge] /health disindaki her istek 'Authorization: Bearer' ister; "
+        f"PRD olarak isaretli sistem sayisi: {len(_PRD_SYSTEMS)}.\n"
     )
     try:
         srv.serve_forever()
@@ -1743,7 +1923,31 @@ def main() -> None:
             pythoncom.CoUninitialize()
         return
 
-    run_bridge(args.host, args.port)
+    # Yalnızca loopback. `--host 0.0.0.0` kullanıcının SAP oturumunu ağa
+    # açardı; token olsa bile bu yüzeyin makineden çıkması için bir sebep yok.
+    if args.host != "127.0.0.1":
+        sys.stderr.write(f"[sap-gui-scripting-bridge] FAIL: yalnizca 127.0.0.1'e baglanilir (istenen: {args.host}).\n")
+        sys.exit(2)
+
+    # Token'sız açık bir köprü hiç olmamalı: token yoksa BAŞLAMA. Değer
+    # ortamdan hemen siliniyor ki bu sürecin başlatacağı bir alt süreç onu
+    # kalıtımla almasın. Token hiçbir yere yazılmıyor.
+    token = os.environ.pop(TOKEN_ENV, "").strip()
+    if not token:
+        sys.stderr.write(
+            f"[sap-gui-scripting-bridge] FAIL: {TOKEN_ENV} ortam degiskeni yok. Kopru token'siz "
+            "calismaz; NTT Studio'nun SAP GUI Scripting ekranindan baslat.\n"
+        )
+        sys.exit(2)
+
+    try:
+        set_prd_systems(parse_prd_systems(os.environ.get(PRD_ENV, "") or "[]"))
+    except (ValueError, json.JSONDecodeError) as exc:
+        # Bozuk liste boş listeye düşürülmez: boş liste kapıyı açık bırakır.
+        sys.stderr.write(f"[sap-gui-scripting-bridge] FAIL: {PRD_ENV} gecersiz: {exc}\n")
+        sys.exit(2)
+
+    run_bridge(args.host, args.port, token)
 
 
 if __name__ == "__main__":
