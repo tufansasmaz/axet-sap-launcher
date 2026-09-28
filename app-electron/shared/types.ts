@@ -606,6 +606,10 @@ export interface FsReadTextResult {
   content?: string;
   truncated?: boolean;
   error?: string;
+  /** Node'un hata kodu (`ENOENT`, `EPERM`, `EBUSY`…). "Dosya yok" ile "dosya
+   *  var ama okunamadı"yı ayırmanın tek güvenilir yolu: ikincisini birincisi
+   *  sanan bir çağıran, var olan dosyanın üstüne boş içerik yazar. */
+  code?: string;
 }
 
 export interface FsWriteTextResult {

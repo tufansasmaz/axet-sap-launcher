@@ -743,6 +743,8 @@ export const tr = {
   "chatInstructions.restartNote":
     "Yönergeler oturum açılırken okunuyor. Kaydedince bu klasördeki sohbetlerin oturumları kapatılır; sonraki mesajda yeni yönergelerle yeniden başlarlar.",
   "chatInstructions.saving": "Kaydediliyor…",
+  "chatInstructions.readFailed":
+    "AGENTS.md okunamadı ({error}). Var olan dosyanın üstüne boş metin yazmamak için kaydetme kapalı; dosyaya erişimi düzeltip kutuyu yeniden aç.",
   "chatInstructions.tooLarge":
     "Bu dosya 2 MB'ın üstünde ve buraya kesilerek okundu; kaydetmek gerisini silerdi. Dosyayı bir metin düzenleyicide açman gerekiyor.",
 

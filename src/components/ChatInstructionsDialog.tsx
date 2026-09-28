@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { BookOpen, Loader2 } from "lucide-react";
 import { useT } from "../i18n";
+import ConfirmDialog from "./ConfirmDialog";
 import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
 
 // Proje yönergeleri = çalışma klasöründeki `AGENTS.md`. Kendi icat ettiğimiz
@@ -44,25 +45,48 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
   // boyuta ulaşması gerçekçi değil, ama olsaydı kaydetmek dosyanın kalanını
   // sessizce silerdi — o yüzden kesilmiş içerik kaydedilemiyor.
   const [truncated, setTruncated] = useState(false);
+  // Açılıştaki içerik — "kaydedilmemiş değişiklik var mı" bununla ölçülüyor.
+  const [initialText, setInitialText] = useState("");
+  // Dosya VAR ama okunamadı (izin, kilit, OneDrive'da inmemiş dosya…). Bu
+  // durumda kutu boş açılıp Kaydet'e izin verseydi, `save` oluşturma izniyle
+  // yazdığı için var olan dosyanın üstüne BOŞ metin giderdi — 2026-09-28'e
+  // kadar tam olarak böyleydi. Artık metin kutusu hiç çizilmiyor, Kaydet kapalı.
+  const [readError, setReadError] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   useEffect(() => {
     if (!cwd) return;
     let alive = true;
     setLoading(true);
     setError(null);
+    setReadError(null);
+    setConfirmDiscard(false);
+    const open = (content: string) => {
+      setText(content);
+      setInitialText(content);
+    };
     // Dosya YOKSA hata değil: yönergesi olmayan bir klasör normal durum, kutu
     // boş açılıyor ve kaydedince dosya oluşturuluyor (bkz. `save`, allowCreate).
+    // "Yok" YALNIZCA ENOENT demek; başka her başarısızlık okuma hatası.
     window.api
       .readTextFile(joinPath(cwd, FILE_NAME))
       .then((res) => {
         if (!alive) return;
-        setText(res.ok ? (res.content ?? "") : "");
+        if (res.ok) {
+          open(res.content ?? "");
+        } else if (res.code === "ENOENT") {
+          open("");
+        } else {
+          open("");
+          setReadError(res.error ?? t("common.unknownError"));
+        }
         setTruncated(res.ok && res.truncated === true);
         setLoading(false);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (!alive) return;
-        setText("");
+        open("");
+        setReadError(err instanceof Error ? err.message : String(err));
         setTruncated(false);
         setLoading(false);
       });
@@ -73,7 +97,15 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
 
   if (!cwd) return null;
 
+  // Kapatma isteği tek kapıdan geçiyor (X yok; Escape ve Vazgeç). Kaydedilmemiş
+  // değişiklik varsa sessizce atılmıyor — Ayarlar kutusundaki kalıbın aynısı.
+  const requestClose = () => {
+    if (!loading && !readError && text !== initialText) setConfirmDiscard(true);
+    else onClose();
+  };
+
   const save = async () => {
+    if (readError || truncated) return;
     setSaving(true);
     setError(null);
     // Üçüncü argüman OLMAZSA OLMAZ: `writeTextFile` varsayılan olarak var olmayan
@@ -90,10 +122,11 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
   };
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)]"
       onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === "Escape") requestClose();
       }}
     >
       <div className="flex max-h-[80vh] w-[620px] flex-col rounded-xl border border-line bg-card p-6">
@@ -109,6 +142,10 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
         {loading ? (
           <div className="flex h-40 items-center justify-center text-slate-500">
             <Loader2 size={18} className="animate-spin" />
+          </div>
+        ) : readError !== null ? (
+          <div className="rounded-md border border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] p-3 text-[12px] leading-relaxed text-[var(--status-danger-text)]">
+            {t("chatInstructions.readFailed", { error: readError })}
           </div>
         ) : (
           <textarea
@@ -133,14 +170,14 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
 
         <div className="mt-4 flex justify-end gap-2">
           <button
-            onClick={onClose}
+            onClick={requestClose}
             className={DIALOG_CANCEL_BUTTON}
           >
             {t("common.cancel")}
           </button>
           <button
             onClick={() => void save()}
-            disabled={loading || saving || truncated}
+            disabled={loading || saving || truncated || readError !== null}
             title={truncated ? t("chatInstructions.tooLarge") : undefined}
             className={DIALOG_CONFIRM_BUTTON}
           >
@@ -149,5 +186,21 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
         </div>
       </div>
     </div>
+
+    {/* Kutunun DIŞINDA, kardeş olarak — içine konsaydı onaydaki Escape yukarı
+        kabarıp bu kutunun `onKeyDown`'ına düşer ve onayı yeniden açardı. */}
+    <ConfirmDialog
+      open={confirmDiscard}
+      danger={false}
+      title={t("settingsModal.discardTitle")}
+      message={t("settingsModal.discardMessage")}
+      confirmLabel={t("settingsModal.discardConfirm")}
+      onConfirm={() => {
+        setConfirmDiscard(false);
+        onClose();
+      }}
+      onCancel={() => setConfirmDiscard(false)}
+    />
+    </>
   );
 }

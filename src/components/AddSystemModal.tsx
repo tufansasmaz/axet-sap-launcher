@@ -3,6 +3,7 @@ import { X, ServerCog, Cloud, Loader2, CheckCircle2 } from "lucide-react";
 import type { ManualSystemType } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import ConfirmDialog from "./ConfirmDialog";
 
 export interface EditingManualSystem {
   id: string;
@@ -12,6 +13,20 @@ export interface EditingManualSystem {
   host: string | null;
   diagPort: number | null;
   adtUrl: string | null;
+}
+
+// Kutunun açılıştaki değerleri. Hem alanları doldurmak hem de "kaydedilmemiş
+// değişiklik var mı" ölçmek için TEK kaynak — ikisi ayrı yazılsaydı biri
+// değiştiğinde öbürü unutulur, kutu hiç dokunulmamışken "atılsın mı?" sorardı.
+function initialValues(editing: EditingManualSystem | null | undefined) {
+  return {
+    type: editing?.type ?? ("onprem" as ManualSystemType),
+    name: editing?.name ?? "",
+    systemId: editing?.systemId ?? "",
+    host: editing?.host ?? "",
+    diagPort: editing?.diagPort ? String(editing.diagPort) : "3200",
+    adtUrl: editing?.adtUrl ?? ""
+  };
 }
 
 interface Props {
@@ -31,27 +46,21 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
   const [adtUrl, setAdtUrl] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const isEditing = Boolean(editing);
 
   useEffect(() => {
     if (!open) return;
-    if (editing) {
-      setType(editing.type);
-      setName(editing.name);
-      setSystemId(editing.systemId);
-      setHost(editing.host ?? "");
-      setDiagPort(editing.diagPort ? String(editing.diagPort) : "3200");
-      setAdtUrl(editing.adtUrl ?? "");
-    } else {
-      setType("onprem");
-      setName("");
-      setSystemId("");
-      setHost("");
-      setDiagPort("3200");
-      setAdtUrl("");
-    }
+    const init = initialValues(editing);
+    setType(init.type);
+    setName(init.name);
+    setSystemId(init.systemId);
+    setHost(init.host);
+    setDiagPort(init.diagPort);
+    setAdtUrl(init.adtUrl);
     setError(null);
+    setConfirmDiscard(false);
   }, [open, editing?.id]);
 
   if (!open) return null;
@@ -69,6 +78,23 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
   const handleClose = () => {
     reset();
     onClose();
+  };
+
+  // Kullanıcının kapatma isteği (Escape, X, Vazgeç) tek kapıdan geçiyor.
+  // Yazılmış bir host/ADT adresi tek tuşla sessizce gitmiyor — Ayarlar
+  // kutusundaki kalıbın aynısı. Başarılı kayıttan sonraki kapanış bu kapıdan
+  // GEÇMİYOR (`handleClose`): kaydedilmiş bir şey "atılamaz".
+  const requestClose = () => {
+    const init = initialValues(editing);
+    const dirty =
+      type !== init.type ||
+      name !== init.name ||
+      systemId !== init.systemId ||
+      host !== init.host ||
+      diagPort !== init.diagPort ||
+      adtUrl !== init.adtUrl;
+    if (dirty) setConfirmDiscard(true);
+    else handleClose();
   };
 
   // DIAG portu: boş bırakılabilir ama yazıldıysa geçerli bir port olmalı.
@@ -128,10 +154,11 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
   };
 
   return (
+    <>
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] "
       onKeyDown={(e) => {
-        if (e.key === "Escape") handleClose();
+        if (e.key === "Escape") requestClose();
       }}
     >
       <form onSubmit={handleSubmit} className="w-[460px] rounded-xl border border-line bg-card p-6">
@@ -141,7 +168,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
           </h3>
           <button
             type="button"
-            onClick={handleClose}
+            onClick={requestClose}
             className="cursor-pointer rounded-md p-1 text-slate-400 hover:bg-active"
           >
             <X size={18} />
@@ -261,7 +288,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
         <div className="flex justify-end gap-2">
           <button
             type="button"
-            onClick={handleClose}
+            onClick={requestClose}
             className={DIALOG_CANCEL_BUTTON}
           >
             {t("common.cancel")}
@@ -277,5 +304,21 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
         </div>
       </form>
     </div>
+
+    {/* Kutunun DIŞINDA, kardeş olarak — içine konsaydı onaydaki Escape yukarı
+        kabarıp bu kutunun `onKeyDown`'ına düşer ve onayı yeniden açardı. */}
+    <ConfirmDialog
+      open={confirmDiscard}
+      danger={false}
+      title={t("settingsModal.discardTitle")}
+      message={t("settingsModal.discardMessage")}
+      confirmLabel={t("settingsModal.discardConfirm")}
+      onConfirm={() => {
+        setConfirmDiscard(false);
+        handleClose();
+      }}
+      onCancel={() => setConfirmDiscard(false)}
+    />
+    </>
   );
 }

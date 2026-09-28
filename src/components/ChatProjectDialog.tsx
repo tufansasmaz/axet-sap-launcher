@@ -3,6 +3,7 @@ import { FolderOpen, Trash2 } from "lucide-react";
 import type { ChatProject } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import ConfirmDialog from "./ConfirmDialog";
 
 // Bir projenin TÜM ayarları tek kutuda: adı, kalıcı talimatı ve silme.
 //
@@ -32,6 +33,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
   const [name, setName] = useState("");
   const [instructions, setInstructions] = useState("");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   // Kutu her açılışta O projenin değerleriyle doluyor. Bağımlılık `project.id`
   // değil `project`: aynı projeyi kapatıp açmak da alanları tazelemeli.
@@ -40,11 +42,21 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
     setName(project.name);
     setInstructions(project.instructions);
     setConfirmingDelete(false);
+    setConfirmDiscard(false);
   }, [project]);
 
   if (!project) return null;
 
   const trimmedName = name.trim();
+
+  // Kapatma isteği tek kapıdan geçiyor (Escape, Vazgeç). Kaydedilmemiş
+  // değişiklik varsa sessizce atılmıyor — Ayarlar kutusundaki kalıbın aynısı.
+  // Escape metin kutusunun İÇİNDEYKEN de buraya düşüyor; eskiden yazılan
+  // talimat tek tuşla gidiyordu.
+  const requestClose = () => {
+    if (name !== project.name || instructions !== project.instructions) setConfirmDiscard(true);
+    else onClose();
+  };
 
   const save = () => {
     // Adsız proje kenar çubuğunda tıklanamaz bir boşluk olurdu; eski ad
@@ -54,10 +66,11 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
   };
 
   return (
+    <>
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)]"
       onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
+        if (e.key === "Escape") requestClose();
       }}
     >
       <div className="flex max-h-[80vh] w-[560px] flex-col rounded-xl border border-line bg-card p-6">
@@ -135,7 +148,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
               </button>
               <div className="flex-1" />
               <button
-                onClick={onClose}
+                onClick={requestClose}
                 className={DIALOG_CANCEL_BUTTON}
               >
                 {t("common.cancel")}
@@ -151,5 +164,21 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
         </div>
       </div>
     </div>
+
+    {/* Kutunun DIŞINDA, kardeş olarak — içine konsaydı onaydaki Escape yukarı
+        kabarıp bu kutunun `onKeyDown`'ına düşer ve onayı yeniden açardı. */}
+    <ConfirmDialog
+      open={confirmDiscard}
+      danger={false}
+      title={t("settingsModal.discardTitle")}
+      message={t("settingsModal.discardMessage")}
+      confirmLabel={t("settingsModal.discardConfirm")}
+      onConfirm={() => {
+        setConfirmDiscard(false);
+        onClose();
+      }}
+      onCancel={() => setConfirmDiscard(false)}
+    />
+    </>
   );
 }

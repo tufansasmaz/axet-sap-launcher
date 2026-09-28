@@ -675,6 +675,8 @@ export const en: Record<TranslationKey, string> = {
   "chatInstructions.restartNote":
     "Instructions are read when a session starts. Saving closes the sessions of chats in this folder; they restart with the new instructions on your next message.",
   "chatInstructions.saving": "Saving…",
+  "chatInstructions.readFailed":
+    "AGENTS.md could not be read ({error}). Saving is disabled so an existing file is not overwritten with empty text; fix access to the file and reopen this dialog.",
   "chatInstructions.tooLarge":
     "This file is over 2 MB and was read here truncated; saving would delete the rest. Open it in a text editor instead.",
 

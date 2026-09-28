@@ -133,7 +133,7 @@ export async function readTextFile(filePath: string): Promise<FsReadTextResult> 
       await fd.close();
     }
   } catch (err) {
-    return { ok: false, error: (err as Error).message };
+    return { ok: false, error: (err as Error).message, code: (err as NodeJS.ErrnoException).code };
   }
 }
 
