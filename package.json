@@ -65,6 +65,12 @@
       "output": "release"
     },
     "npmRebuild": false,
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "onlyLoadAppFromAsar": true
+    },
     "files": [
       "dist",
       "dist-electron",

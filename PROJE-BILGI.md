@@ -832,6 +832,21 @@ metadata'sını değiştirmek gerekirse `build/afterPack.cjs`'i genişlet
 (`resedit`'in `Resource.VersionInfo` API'siyle ProductName/FileDescription
 de aynı hook'ta ayarlanabilir, henüz yapılmadı çünkü gerek yoktu).
 
+**Electron sigortaları (`build.electronFuses`, 1.7.0)**: `runAsNode`,
+`enableNodeOptionsEnvironmentVariable`, `enableNodeCliInspectArguments`
+kapalı, `onlyLoadAppFromAsar` açık. Sebep: sigortasız exe
+`ELECTRON_RUN_AS_NODE=1`, `NODE_OPTIONS` ya da `--inspect` ile başlatılınca
+kullanıcının oturumunda (DPAPI ile saklanan SAP parolalarına erişen) rastgele
+Node kodu çalıştırıyordu. Uygulama kendi exe'sini hiçbir yerde Node olarak
+çalıştırmıyor (grep: `ELECTRON_RUN_AS_NODE`, `process.execPath`, `fork`), o
+yüzden kapatmak işlev kaybettirmiyor. Sigortalar `afterPack`'ten SONRA
+çevriliyor (electron-builder `doAddElectronFuses`), ikon gömmeyle çakışmıyor.
+`enableEmbeddedAsarIntegrityValidation` AÇILMAZ: Windows'ta bütünlük özeti
+exe'ye kaynak olarak gömülüyor, o adım `signAndEditExecutable: false` ile
+atlanıyor; sigorta açılırsa uygulama hiç başlamaz. Paketlenmiş exe'de
+`ELECTRON_RUN_AS_NODE=1` ile yerel modül yükleyerek test etmek artık
+çalışmaz — bu beklenen.
+
 ## Dosya Gezgini + Dosya Önizleme Paneli (2026-08-19, TAMAMLANDI)
 
 Kullanıcı talebi: "VS Code'daki explorer gibi bir dosya ağacı ve dosyaları
