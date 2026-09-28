@@ -2425,19 +2425,41 @@ export default function AxetCodeHome({
     return { projectGroups, sapGroups, general };
   }, [normalizedQuery, projects, visibleSessions]);
 
-  // Yalnızca DARALTILMIŞ olanlar tutuluyor: varsayılan açık. Daraltma isteğe
-  // bağlı bir sadeleştirme, açılışta gizlenmesi gereken bir şey değil.
-  // Kalıcı değil (oturum içi) — kenar çubuğunun açık/kapalı durumu gibi.
-  const [collapsedGroups, setCollapsedGroups] = useState<
-    Record<string, boolean>
-  >({});
+  // Yalnızca AÇILMIŞ olanlar tutuluyor: varsayılan kapalı. Açık gelen ağaç
+  // bütün sohbetleri bir anda döküyordu; kullanıcı yalnızca başlıkları görüp
+  // istediği düğümü açmak istedi. Kalıcı değil (oturum içi) — kenar çubuğunun
+  // açık/kapalı durumu gibi.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const toggleGroup = useCallback((key: string) => {
-    setCollapsedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
   // Arama sırasında daraltma YOK SAYILIYOR: eşleşen bir sohbet kapalı bir
   // grubun içinde kalsaydı arama bozuk görünürdü.
   const groupOpen = (key: string) =>
-    Boolean(normalizedQuery) || !collapsedGroups[key];
+    Boolean(normalizedQuery) || Boolean(openGroups[key]);
+  // Etkin sohbetin yolu açılıyor: yeni açılan ya da seçilen sohbet kapalı bir
+  // grubun içinde kalsaydı listede kaybolmuş görünürdü. Yalnızca etkin sohbet
+  // DEĞİŞİNCE çalışıyor — kullanıcı o grubu sonradan kapatırsa kapalı kalıyor.
+  // Anahtarlar `sessionGroups`'taki gruplamanın aynısı. Açılışta `activeId`
+  // boş olduğu için ağaç tamamen kapalı başlıyor.
+  useEffect(() => {
+    const s = activeSession;
+    if (!s) return;
+    const keys: string[] = [];
+    if (s.projectId && projects.some((p) => p.id === s.projectId)) {
+      keys.push(PROJECTS_SECTION_KEY, s.projectId);
+    } else if (!s.cwd || s.keepInGeneral) {
+      keys.push(GENERAL_GROUP_KEY);
+    } else {
+      keys.push(SAP_SECTION_KEY, s.cwd.toLowerCase());
+    }
+    setOpenGroups((prev) =>
+      keys.every((k) => prev[k])
+        ? prev
+        : { ...prev, ...Object.fromEntries(keys.map((k) => [k, true])) },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.id]);
 
   // Klavye kısayolları. Ctrl+N (yeni sohbet) yukarıda, sohbet İÇİ arama (Ctrl+F)
   // ChatSessionPane'de — buradakiler sohbetler ARASI olanlar.
