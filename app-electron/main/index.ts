@@ -26,6 +26,7 @@ import {
   readToolkitVersion
 } from "./sapToolkit";
 import { loadConfig, saveConfig, saveLastCredential, saveTrustedCertificates, pushConnectionHistory, saveSystemTier, saveSystemComment } from "./store";
+import { THEME_SURFACES } from "../shared/themeSurfaces";
 import { mt, refreshMainLanguage } from "./i18n";
 import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
@@ -260,9 +261,11 @@ function createWindow(): void {
     minWidth: 980,
     minHeight: 640,
     // Pencerenin İLK BOYAMA rengi — React yüklenene kadar görünen zemin.
-    // Koyu temanın `--surface-app-rgb` değeriyle aynı tutuluyor; farklı olursa
-    // açılışta bir kare boyunca yanlış renkte bir çerçeve görünüyor.
-    backgroundColor: "#0b0c10",
+    // Kullanıcının seçtiği görünümün `--surface-app-rgb` değeri; farklı olursa
+    // açılışta bir kare boyunca yanlış renkte bir çerçeve görünüyor. Sayfa da
+    // nitelikler yazılana kadar kendini boyamıyor (bkz. src/index.css
+    // `html:not([data-palette])`), yani ilk karede görünen bu renk.
+    backgroundColor: THEME_SURFACES[cfg.palette][cfg.theme].app,
     frame: false,
     show: false,
     icon: resolveIconPath(),

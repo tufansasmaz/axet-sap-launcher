@@ -4,6 +4,8 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { quotePathIfNeeded } from "../lib/paths";
 import { useT } from "../i18n";
+import { THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
+import { useAppearance } from "../ui/useAppearance";
 
 interface Props {
   sessionId: string;
@@ -19,6 +21,12 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const termRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
+  // Görünüm de `t` gibi ref'ten okunuyor: kurulum efektinin bağımlılığı
+  // olsaydı palet değişince terminal sıfırdan kurulur, çıktı silinirdi.
+  // Açık terminal aşağıdaki ayrı efektle yeniden boyanıyor.
+  const appearance = useAppearance();
+  const appearanceRef = useRef(appearance);
+  appearanceRef.current = appearance;
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -28,15 +36,10 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       fontSize: 13,
       fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",
       cursorBlink: true,
-      // xterm kendi tuvalini boyuyor, CSS değişkenlerini okumuyor. Değerler
-      // Sakin İndigo koyu jetonlarıyla aynı (--surface-app-rgb / --ink-100-rgb /
-      // --accent-500-rgb). GEÇİCİ: bir sonraki adımda paleti izleyen
-      // `THEME_SURFACES`'tan okunacak.
-      theme: {
-        background: "#121418",
-        foreground: "#e8eaee",
-        cursor: "#8b93ff"
-      }
+      // xterm kendi tuvalini boyuyor, CSS değişkenlerini okumuyor; renkler
+      // `THEME_SURFACES`'tan. Açık temada da koyu kalıyor (standart ANSI sarı
+      // ve yeşil beyaz zeminde okunmuyor) ama paleti izliyor.
+      theme: { ...THEME_SURFACES[appearanceRef.current.palette][appearanceRef.current.theme].terminal }
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -231,6 +234,13 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       window.api.resizeTerminal(sessionId, term.cols, term.rows);
     }
   }, [active, sessionId]);
+
+  // Palet değişince açık terminal kurulum yeniden yapılmadan boyanıyor.
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term) return;
+    term.options.theme = { ...THEME_SURFACES[appearance.palette][appearance.theme].terminal };
+  }, [appearance.palette, appearance.theme]);
 
   return <div ref={containerRef} className="h-full w-full overflow-hidden" />;
 }

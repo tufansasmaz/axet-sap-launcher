@@ -13,6 +13,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { THEME_SURFACES } from "../app-electron/shared/themeSurfaces";
 
 const ROOT = path.join(__dirname, "..");
 
@@ -215,5 +216,39 @@ describe("limon yeşili kalmadı", () => {
       if (m) hits.push(`${path.relative(ROOT, file)}: ${m[0]}`);
     }
     expect(hits).toEqual([]);
+  });
+});
+
+describe("THEME_SURFACES CSS ile aynı", () => {
+  const hex = ([r, g, b]: [number, number, number]) =>
+    "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
+
+  it.each(Object.keys(VIEWS) as View[])("%s", (view) => {
+    const [palette, theme] = view.split("/") as ["indigo" | "warm", "dark" | "light"];
+    const decls = blockFor(view).decls;
+    const surface = THEME_SURFACES[palette][theme];
+    expect(surface.app).toBe(hex(rgbOf(decls, decls.get("--surface-app-rgb"))));
+    expect(surface.card).toBe(hex(rgbOf(decls, decls.get("--surface-card-rgb"))));
+    expect(surface.accent).toBe(hex(rgbOf(decls, decls.get("--accent-500-rgb"))));
+  });
+
+  it("terminal o paletin koyu yüzeyinde, koyu metniyle", () => {
+    for (const palette of ["indigo", "warm"] as const) {
+      const decls = blockFor(`${palette}/dark` as View).decls;
+      const terminal = THEME_SURFACES[palette].dark.terminal;
+      expect(terminal.background).toBe(hex(rgbOf(decls, decls.get("--surface-app-rgb"))));
+      expect(terminal.foreground).toBe(hex(rgbOf(decls, decls.get("--ink-100-rgb"))));
+      expect(terminal.cursor).toBe(hex(rgbOf(decls, decls.get("--accent-500-rgb"))));
+    }
+  });
+
+  it("pencere zemini ve terminal elle yazılmış renk taşımıyor", () => {
+    const read = (...parts: string[]) => readFileSync(path.join(ROOT, ...parts), "utf8");
+    const main = read("app-electron", "main", "index.ts");
+    expect(main).toContain("backgroundColor: THEME_SURFACES[cfg.palette][cfg.theme].app");
+    const terminal = read("src", "components", "EmbeddedTerminal.tsx");
+    expect(terminal).toContain("useAppearance()");
+    expect(terminal.match(/THEME_SURFACES\[/g)?.length).toBe(2);
+    expect(terminal).not.toMatch(/#[0-9a-f]{6}/i);
   });
 });
