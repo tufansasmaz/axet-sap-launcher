@@ -297,7 +297,7 @@ def preflight() -> dict:
     biri, ikisini de kontrol et" demek zorunda kalıyor; oysa bu bayrak True
     iken istemci ayarı zaten AÇIK demektir (aksi halde bağlantı listesi hiç
     okunamazdı) ve sorun yalnızca `sapgui/user_scripting` parametresidir.
-    2026-09-03'te canlı bir sistemde (LED) ölçülerek doğrulandı: engine
+    2026-09-03'te canlı bir sistemde (SID-E) ölçülerek doğrulandı: engine
     bağlanılabiliyor, Connections.Count=1, Children.Count=0,
     DisabledByServer=True.
     """
@@ -925,7 +925,7 @@ def _ensure_png(data: bytes) -> tuple[bytes, str]:
     """HardCopy çıktısını PNG'ye çevirir; `(bayt, mime)` döner.
 
     SAP GUI 8000.257.1.17'de `HardCopy(path, "PNG")` istenen biçimi YOK
-    SAYIP 24-bit BMP yazıyor. Canlı ölçüm (S4D, 2026-09-03): 1650x1032'lik
+    SAYIP 24-bit BMP yazıyor. Canlı ölçüm (SID-G1, 2026-09-03): 1650x1032'lik
     bir ekran için 5.110.518 bayt = 54 baytlık BMP başlığı + 4 bayta
     hizalanmış satırlar; ilk iki bayt `BM`.
 
@@ -1206,7 +1206,7 @@ def _collect_menus(comp, acc: list, depth: int = 0) -> None:
 def read_context_menu(session, element_id: str | None) -> dict:
     """TESHIS: bir elemanin sag tik menusunu acar ve ICINDEKILERI okumayi dener.
 
-    SONUC (canli olcum, S4D / SE16N ALV grid, 2026-09-03): SAP BIR BAGLAM
+    SONUC (canli olcum, SID-G1 / SE16N ALV grid, 2026-09-03): SAP BIR BAGLAM
     MENUSUNU BILESEN AGACINDA HIC GOSTERMIYOR. `contextMenu()` basariyla
     donuyor, oturum duruluyor, sonra elemanin/aktif pencerenin/ana pencerenin
     ALTINDA menu tipinde tek bir yeni dugum bile cikmiyor (`component: 0`).
@@ -1306,7 +1306,7 @@ def _apply_context_menu(comp, payload: dict) -> None:
     (`SelectContextMenuItemByText`) veya sirasiyla
     (`SelectContextMenuItemByPosition`) secmek.
 
-    UCU DE CANLI DOGRULANDI (S4D / SE16N ALV grid, 2026-09-03) - hepsi
+    UCU DE CANLI DOGRULANDI (SID-G1 / SE16N ALV grid, 2026-09-03) - hepsi
     GOZLENEBILIR bir sonuc uretti, yani "OK dondu" ile yetinilmedi:
       code     "&XXL"     -> "Export As" popup'i
       position "6"        -> "Ara..." popup'i;  "8" -> filtre;  "11" -> Export As

@@ -31,9 +31,9 @@ function writeContext(body: string): void {
 
 describe("splitContext", () => {
   it("isaretci yoksa her sey uretilmis kisimdir", () => {
-    const split = splitContext("# SAP Baglami\nSistem: IED\n");
+    const split = splitContext("# SAP Baglami\nSistem: NPL\n");
     expect(split.notes).toBe("");
-    expect(split.generated).toContain("Sistem: IED");
+    expect(split.generated).toContain("Sistem: NPL");
   });
 
   it("isaretciden sonrasi notlardir", () => {

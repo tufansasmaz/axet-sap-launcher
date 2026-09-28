@@ -2,7 +2,7 @@
 
 ## Discovery Summary
 
-Live testing against SAP system IED (Client 400) confirmed that the following RAP/CDS object types are fully supported via ADT REST API. All creation endpoints returned **409** (transport not found) rather than 404/405, proving the endpoints accept the XML payloads and would create objects with a valid transport.
+Live testing against SAP system SID-J (Client 400) confirmed that the following RAP/CDS object types are fully supported via ADT REST API. All creation endpoints returned **409** (transport not found) rather than 404/405, proving the endpoints accept the XML payloads and would create objects with a valid transport.
 
 ## Confirmed Object Types
 
@@ -348,4 +348,4 @@ POST /sap/bc/adt/activation
 | DDLX | Yes | Yes (409) | Yes* | Untested (no objects) |
 | DDLA | Yes | N/A | Untested | Yes (404 = not found, not invalid) |
 
-*409 = "Transport FIDK901433 does not exist in system IED" - proves the endpoint accepted the payload and tried to process it, failing only on the invalid transport number.
+*409 = "Transport XXXK901433 does not exist in system SID-J" - proves the endpoint accepted the payload and tried to process it, failing only on the invalid transport number.

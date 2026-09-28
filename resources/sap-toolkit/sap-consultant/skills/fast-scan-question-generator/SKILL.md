@@ -51,19 +51,19 @@ contradiction — then raise the contradiction as a question, because the brief
 can be the stale one.
 
 **Target history is not rare — it is already here.** Of four current project
-briefs, two are in the past-project library: `ozak-tekstil` and
-`sun-tekstil-jimmy-key`, and the second maps to **two** registry rows. So the
+briefs, two are in the past-project library: `musteri-m-tekstil` and
+`musteri-n-musteri-o`, and the second maps to **two** registry rows. So the
 brief carries a LIST:
 
 ```yaml
-registry_ids: [sun-tekstil-ekoten-rise-donusum-projesi, jimmy-key-retail-projesi]
+registry_ids: [musteri-n-rise-donusum-projesi, musteri-o-retail-projesi]
 registry_ids: []      # checked, this customer is not in the library
 ```
 
 Match a library row to the target **only** by `Projects_Master.Project ID`
 appearing in that list. Never by name similarity — measured 2026-09-21, the
-library holds `vergo-enerji-s4-hana-rise-projesi` while a current project is
-called `beta-enerji`; a fuzzy match would have handed one energy customer
+library holds `musteri-p-enerji-s4-hana-rise-projesi` while a current project is
+called `musteri-k-enerji`; a fuzzy match would have handed one energy customer
 another one's history as its own. `registry_ids: []` means *checked and absent*.
 A brief with **no** `registry_ids` key at all means nobody looked: say so, and
 treat every row as reference.
@@ -115,8 +115,8 @@ Measured 2026-09-21 against the real workbook (94 projects, 4,482 document rows)
 | `Project_Industry_Mapping` | 123 names, **29 ids absent from `Projects_Master`** | industry filtering only — verify against the master before using a row |
 
 The industry sheet is the dirty one, and it is dirty in a way that will fool you:
-it contains short codes identical to our own brief codes — `beta-enerji`,
-`ozak-tekstil` — that have **no `Projects_Master` row, no modules and no
+it contains short codes identical to our own brief codes — `musteri-k-enerji`,
+`musteri-m-tekstil` — that have **no `Projects_Master` row, no modules and no
 documents**. Finding your project there means nothing. Evidence exists only
 where `Project_Document_Links` has rows.
 

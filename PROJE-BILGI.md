@@ -325,13 +325,13 @@ yapar (`checkRouter`). `launcher.ts` `connectToSystem()` bu parametreyi
 length prefix'i taşıması gerekirdi, bu da düz HTTPS/TLS için uygun değildir.
 Bu detayı değiştirme.
 
-### Gerçek BONY müşterisiyle canlı doğrulama (2026-08-07) — bulgu ve KESİN sınır
+### Gerçek müşteri A ile canlı doğrulama (2026-08-07) — bulgu ve KESİN sınır
 
-BONY sistemleri (`BED`/`BEP`, router `/H/185.201.212.226`) üzerinde gerçek,
+Müşteri A sistemleri (`SID-A1`/`SID-A2`, router `/H/<router-A>`) üzerinde gerçek,
 canlı bir SAProuter'a karşı bizzat test edildi (VPN kapalı, ofis ağından).
 Sonuç **kod tarafında bir hata değil, altyapı/izin (ACL) kısıtı**:
 
-- `NI_RAW_IO` (talk_mode=1) ile `10.6.11.2:3200` VE `10.6.11.2:44300`
+- `NI_RAW_IO` (talk_mode=1) ile `<ip-A>:3200` VE `<ip-A>:44300`
   (ADT'nin gerçek HTTPS/ICM hedefi) rotası router tarafından **`-94`
   (`NIEROUT_PERM_DENIED`) ile REDDEDİLDİ** — router paketi doğru parse etti
   (temiz, doğru host/port'lu bir `NI_RTERR` döndü), yani protokol
@@ -419,8 +419,8 @@ yeniden dağıtımı yasaklıyor). Kullanıcı kendi S-user'ıyla
 `SKILL.md`'nin "Router-only sistemler (RFC bridge)" bölümünde detaylı.
 
 **Test durumu**: `sapRouter.ts`/`adtDiscovery.ts`/`connectivity.ts` gerçek
-BONY router'ına karşı canlı test edildi (yukarıdaki bulgu). `launcher.ts`'in
-RFC-bridge dallanması da BONY'nin gerçek parametreleriyle (`tsx` +
+Müşteri A router'ına karşı canlı test edildi (yukarıdaki bulgu). `launcher.ts`'in
+RFC-bridge dallanması da müşteri A'nın gerçek parametreleriyle (`tsx` +
 geçici `electron` stub'ıyla, Electron çalışma zamanı dışında) end-to-end
 çalıştırılıp `.conn_adt`/`sap-context.md` çıktısı doğrulandı. **Ancak
 `adt_rfc_bridge.py`/`adt_rfc_probe.py`'nin kendisi gerçek bir SAP NW RFC
@@ -459,12 +459,12 @@ organizasyonel — kod tarafında bekleyen bir şey yok):
    `support.sap.com/en/product/connectors/nwrfcsdk.html`'den SAP NW RFC
    SDK indirilip `pip install pyrfc` yapılabilir, `adt_rfc_probe.py` zaten
    hazır ve bekliyor.
-2. Basis/network ekibine BONY router'ının `saprouttab`'ına bu makinenin
+2. Basis/network ekibine müşteri A router'ının `saprouttab`'ına bu makinenin
    genel IP'sinden hedef `host:44300`'e (ADT/ICM HTTPS portu) bir **`P`
    (permit, `S` DEĞİL)** satırı ekletmek — bu muhtemelen RFC SDK
    zincirinden daha hızlı, tek config satırı. Eklenirse `.conn_adt`'ta
    `ADT_RFC_MODE=false` yapıp `ADT_SAP_URL`'i doğrudan keşfedilen HTTPS
-   adresine (`https://10.6.11.2:44300` gibi, `sap-context.md`'de yazılı)
+   adresine (`https://<ip-A>:44300` gibi, `sap-context.md`'de yazılı)
    çevirmek yeterli — RFC bridge'e hiç ihtiyaç kalmaz.
 
 **Şu anki kod durumu** (her ikisi de tam çalışır, hiçbir şeyin
@@ -474,14 +474,14 @@ tamamlanmasını beklemiyor):
   test edildi.
 - `launcher.ts` — `-94` tespit edilince RFC bridge moduna otomatik geçiş,
   `.conn_adt`/`sap-context.md` yazımı: TAMAMLANDI, canlı test edildi
-  (BONY parametreleriyle end-to-end).
+  (müşteri A parametreleriyle end-to-end).
 - `adt_rfc_probe.py`, `adt_rfc_bridge.py` — yazıldı, syntax-check geçti,
   **ama gerçek pyrfc/SAP NW RFC SDK kurulumuna karşı hiç çalıştırılmadı**
   (kullanıcıda SDK yok). `SADT_REST_RFC_ENDPOINT`'in alan adları
   (`REQUEST_LINE`/`HEADER_FIELDS`/`MESSAGE_BODY`/`STATUS_LINE`) topluluk
   kaynağından (`adt-rfc-bridge` GitHub projesi) alındı, resmi SAP API'si
   değil — `adt_rfc_probe.py`'nin `RFC_GET_FUNCTION_INTERFACE` çıktısıyla
-  BONY sisteminde doğrulanması gerekiyor, henüz yapılamadı.
+  müşteri A sisteminde doğrulanması gerekiyor, henüz yapılamadı.
 
 **Sonraki oturumda yapılacaklar (kullanıcı yetki/izin haberi verince)**:
 - Yol 1 gerçekleşirse: kullanıcıya SDK indirme + `SAPNWRFC_HOME` +
@@ -500,7 +500,7 @@ tamamlanmasını beklemiyor):
 
 ## SAProuter İzin Reddi -93 de Görülebiliyor, Sadece -94 DEĞİL (2026-08-24, TAMAMLANDI) — canlı bulgu
 
-**Şikayet**: Limak'ın router'ına bağlanılabiliyordu (RFC bridge otomatik
+**Şikayet**: Müşteri E'nin router'ına bağlanılabiliyordu (RFC bridge otomatik
 başlatma -94 tespitiyle çalışıyordu) ama başka bir router'lı sistemde
 `Bağlantı hatası (SAProuter): SAProuter rotayı reddetti (return_code=-93).
 Detay: STWDPWDPA1: route permission denied (...)` hatasıyla terminal hiç
@@ -1015,10 +1015,10 @@ bu oturumda test edilmedi (henüz hiçbir sürüm GitHub Releases'e
 yayınlanmadı) — `npm run release` ilk kez çalıştırıldığında bu akış
 doğrulanmalı.
 
-## ADT Keşfinde Çoklu Port Denemesi (v1.3.2, TAMAMLANDI) — "Ev Yap" müşterisi canlı bulgusu
+## ADT Keşfinde Çoklu Port Denemesi (v1.3.2, TAMAMLANDI) — müşteri B canlı bulgusu
 
-**Şikayet**: "Ev Yap" müşterisinin `HNP` sistemine bağlanılamıyor,
-`Bağlantı hatası: connect ECONNREFUSED 10.10.20.61:44300` hatası alınıyordu
+**Şikayet**: Müşteri B'nin `SID-B` sistemine bağlanılamıyor,
+`Bağlantı hatası: connect ECONNREFUSED <ip-B>:44300` hatası alınıyordu
 — guide (sap-context.md) açılıyordu ama gerçek ADT bağlantısı kurulamıyordu.
 
 **Kök sebep**: `discoverAdtEndpoint()` (`adtDiscovery.ts`) DIAG portundan
@@ -1028,7 +1028,7 @@ deniyordu. Canlı testte doğrulandı: bu müşteride Basis, ICM'nin HTTPS
 dinleyicisini standart olmayan şekilde doğrudan **443**'e konfigüre etmiş
 (ICM monitörü: `HTTP 8003`, `HTTPS 443`, port `44300` hiç tanımlı değil) —
 VPN/ağ sorunu değil, port tahmininin bu spesifik sistemde yanlış çıkması.
-`Test-NetConnection` ile doğrulandı: `10.10.20.61:3200` ✓, `:443` ✓, `:8003`
+`Test-NetConnection` ile doğrulandı: `<ip-B>:3200` ✓, `:443` ✓, `:8003`
 ✓, `:50000` ✓, ama `:44300` ✗ (ECONNREFUSED).
 
 **Çözüm — tek tahmin yerine paralel çoklu port deneme (genel, tüm
@@ -1066,7 +1066,7 @@ portun gerçek adresine karşı çalışır — davranışı değişmedi.
   port listesi kullanılıyor — her port `probeRealmThroughRouter` ile router
   tünelinden denenir.
 
-**Canlı doğrulama**: `10.10.20.61`/`HNP` (Ev Yap) parametreleriyle gerçek bir
+**Canlı doğrulama**: `<ip-B>`/`SID-B` (müşteri B) parametreleriyle gerçek bir
 `tsx` script'i çalıştırıldı (geçici, test sonrası silindi) —
 `44300`/`8443`/`50000`/`4443` reddedildi, **`443` doğru bulundu**, sertifika
 otomatik Windows kullanıcı trust store'una eklendi. `npm run typecheck` ve
@@ -1198,13 +1198,13 @@ tercih `AppConfig.language` olarak diskte kalıcı.
   string'i şu an ölü kod/sadece debug amaçlı.
 - `npm run typecheck` ve `npm run build` temiz geçti.
 
-## RFC Bridge Otomatik Başlatma — Router-only Sistemler (2026-08-21, TAMAMLANDI) — Limak canlı doğrulaması
+## RFC Bridge Otomatik Başlatma — Router-only Sistemler (2026-08-21, TAMAMLANDI) — müşteri E canlı doğrulaması
 
 Kullanıcı, Enrico Andreoli'nin SAP Community blog yazısındaki
 ("Using Claude for SAP ABAP development on RFC-only/SAProuter systems",
 `community.sap.com/t5/abap-blog-posts/.../ba-p/14414381`, aynı yazarın
 `github.com/enricoandreoli/adt-rfc-bridge` deposu) yaklaşımı elle izleyerek
-**Limak** müşterisinin router-only bir sistemine gerçekten bağlanabildi —
+**müşteri E**'nin router-only bir sistemine gerçekten bağlanabildi —
 bu, `adt_rfc_bridge.py`/`adt_rfc_probe.py`'nin (`SADT_REST_RFC_ENDPOINT`
 üzerinden RFC-over-SAProuter, HEAD→GET dönüşümü, sahte X-CSRF-Token —
 zaten bizim koddaki tasarımla birebir aynı) canlı bir müşteride ilk kez
@@ -1269,16 +1269,16 @@ aktivasyon ihtiyacı yok, sadece elle `py adt_rfc_bridge.py --port ...`
   önermek zorunda değil, önce bu bölümü okuyup gerçek durumu görüyor.
 - **`SKILL.md`** ("Router-only sistemler" bölümü) güncellendi: elle kurulum
   artık "sadece otomatik başlatma başarısız olursa" başlığı altında,
-  otomatik başlatmanın varlığı ve Limak'ta canlı doğrulandığı not edildi.
+  otomatik başlatmanın varlığı ve müşteri E'de canlı doğrulandığı not edildi.
 - **Bilinçli olarak DEĞİŞTİRİLMEYEN**: `adt_rfc_bridge.py`/`adt_rfc_probe.py`
   scriptlerinin kendisi (SADT_REST_RFC_ENDPOINT marshalling, HEAD→GET,
-  placeholder CSRF) — Limak'ta blogdaki yaklaşımla birebir aynı mantıkla
+  placeholder CSRF) — müşteri E'de blogdaki yaklaşımla birebir aynı mantıkla
   çalıştığı için hiç dokunulmadı, sadece başlatma/yaşam döngüsü
   otomatikleştirildi.
 - `npm run typecheck` ve `npm run build` temiz geçti. Gerçek bir GUI
-  penceresinde/Limak'ın kendi router'ına karşı bu otomatik başlatma akışının
+  penceresinde/müşteri E'nin kendi router'ına karşı bu otomatik başlatma akışının
   ucuca testi bu ortamda yapılamadı (SDK/pyrfc bu makinede yok) —
-  kullanıcının bir dahaki Limak bağlantısında doğrulaması gerekiyor; scriptin
+  kullanıcının bir dahaki müşteri E bağlantısında doğrulaması gerekiyor; scriptin
   kendisi zaten elle çalıştırıldığında doğrulanmıştı, değişen sadece
   process'in kim tarafından/ne zaman başlatıldığı.
 
@@ -1565,15 +1565,15 @@ hatası vb.) kullanıcıya/agent'a **hiçbir zaman ulaşmıyordu**, sadece çıp
   kullanıcının bir dahaki router-only bağlantısında `sap-context.md`'deki
   yeni notu ve toast mesajını görmesi gerekiyor.
 
-## ADT Read-Only Sunucusu (%sap-adt-readonly, port 8787) da RFC Bridge ile Aynı Desende Otomatik Başlatılıyor (2026-08-23, TAMAMLANDI) — Limak canlı oturumundan çıkan istek
+## ADT Read-Only Sunucusu (%sap-adt-readonly, port 8787) da RFC Bridge ile Aynı Desende Otomatik Başlatılıyor (2026-08-23, TAMAMLANDI) — müşteri E canlı oturumundan çıkan istek
 
-**İstek**: Limak sisteminde RFC bridge'in (8788) canlı olarak çalıştığı
+**İstek**: Müşteri E sisteminde RFC bridge'in (8788) canlı olarak çalıştığı
 doğrulandıktan sonra kullanıcı şunu istedi: "bu bağlantının routerli olan her
 sistemde otomatik olarak işliyor olması lazım, routerli olmayan sistemlerde ise
 varolan process ile otomatik axet açılınca sisteme bağlı açılması gerekiyor."
 Yani iki madde:
 1. Router'lı sistemlerde RFC bridge otomatik başlatması zaten **genel** bir
-   mekanizma (`isRouterPermissionDenied()` her sistemde tetiklenir, Limak'a
+   mekanizma (`isRouterPermissionDenied()` her sistemde tetiklenir, müşteri E'ye
    özel bir kod yolu yok) — bu zaten karşılanıyordu, ek bir değişiklik
    gerekmedi.
 2. **Eksik olan kısım**: `%sap-adt-readonly`'nin arkasındaki gerçek Python
@@ -1649,16 +1649,16 @@ process için**:
   yapılmadı, kapsam dışı bırakıldı — kullanıcı bunu istemedi, sadece
   "otomatik başlatma" istedi, "kurulum gerektirmesin" değil).
 - `npm run typecheck` ve `npm run build` temiz geçti. Gerçek bir GUI
-  penceresinde/Limak'ın kendi router'ına karşı bu otomatik başlatmanın
+  penceresinde/müşteri E'nin kendi router'ına karşı bu otomatik başlatmanın
   (özellikle RFC bridge + read-only server'ın birlikte, doğru sırada, aynı
   proje klasöründe ayağa kalkması) ucuca canlı testi bu oturumda yapılamadı —
   kullanıcının bir dahaki bağlantısında (router'lı VEYA router'sız herhangi
   bir sistemde) doğrulaması gerekiyor; `%sap-adt-readonly`'ye ilk soru
   sorulduğunda artık "NOT RUNNING" değil doğrudan bir yanıt beklenir.
 
-## v1.4.1 Release Exe'si Eski Kaynak Koduyla Paketlenmişti — DEQ Canlı Bulgusu (v1.4.2, TAMAMLANDI)
+## v1.4.1 Release Exe'si Eski Kaynak Koduyla Paketlenmişti — SID-C Canlı Bulgusu (v1.4.2, TAMAMLANDI)
 
-**Şikayet**: DEQ müşterisinin (`dherpqasa1.dilerhld.com`, router `/H/212.174.101.230`)
+**Şikayet**: SID-C müşterisinin (`<host-C>`, router `/H/<router-C>`)
 sisteminde `-93 "route permission denied"` alındı ama RFC bridge fallback'i
 **tetiklenmedi** — `isPermissionDeniedDetail()` düzeltmesi (bkz. yukarıdaki
 "-93 de Görülebiliyor" bölümü) kaynakta olmasına rağmen davranış eski
@@ -1691,7 +1691,7 @@ o kaynaktan alındığını** kanıtlamaz, bunlar ayrı adımlar.
 
 - `npm run typecheck` ve `npm run build:win` bu turda temiz geçti,
   yeniden build alınan `release/win-unpacked/aXet SAP Launcher.exe`
-  ile DEQ sistemine karşı manuel test kullanıcı tarafından yapılacak.
+  ile SID-C sistemine karşı manuel test kullanıcı tarafından yapılacak.
 
 ## Kimlik Doğrulama Her Zaman "Başarılı" Görünüyordu (SAML/SSO Sistemleri) — KÖK SEBEP BULUNDU VE DÜZELTİLDİ (2026-08-26)
 
@@ -1740,15 +1740,15 @@ bir teşhise düşürülmüyor.
   yanlış pozitif üretebilir, ama bu SAP ADT discovery endpoint'i için
   hiç görülmemiş/beklenmeyen bir davranış; canlı SAML sistemlerindeki
   gerçek davranışla (HTML login sayfası) eşleşen durumu yakalamak öncelik.
-- `npm run typecheck` ve `npm run build` temiz geçti. Occlutech sistemine
+- `npm run typecheck` ve `npm run build` temiz geçti. Müşteri D sistemine
   karşı canlı doğrulama bu oturumda yapılamadı (SAML IdP'ye gerçek erişim
   bu ortamda yok) — kullanıcının bir dahaki bağlantı denemesinde artık
   "kimlik bilgileri doğrulanamadı, SAML SSO gerekiyor" mesajını görmesi ve
   yanlış şifreyle artık terminalin AÇILMAMASI beklenir.
 
-## Router-Only Sistemde RFC Bridge "Zaman Aşımı" İle Sürekli Başarısız Oluyordu — Occlutech (OEQ) Canlı Bulgusu (2026-08-26, TAMAMLANDI)
+## Router-Only Sistemde RFC Bridge "Zaman Aşımı" İle Sürekli Başarısız Oluyordu — müşteri D (SID-D) Canlı Bulgusu (2026-08-26, TAMAMLANDI)
 
-**Şikayet**: Occlutech'in `OEQ` sistemi (router `/H/hermes.itelligence.pl`)
+**Şikayet**: Müşteri D'nin `SID-D` sistemi (router `/H/<router-D>`)
 için RFC bridge otomatik başlatıldı, `/health` (8788) ve read-only gate
 (8787) ayaktaydı, ama gerçek kimlik doğrulaması (`adt_logon`) hem launcher
 kurulumunda hem tekrar denendiğinde **aynı şekilde "Zaman aşımı" ile
@@ -1820,7 +1820,7 @@ bağlanamıyordu.
   azından HIZLI ve NET bir şekilde söylüyor, sonsuz/yanıltıcı bir bekleme
   yerine.
 - `npm run typecheck`, `npm run build` ve `adt_rfc_bridge.py`'nin
-  `ast.parse` ile syntax kontrolü temiz geçti. Occlutech/OEQ'nun gerçek
+  `ast.parse` ile syntax kontrolü temiz geçti. Müşteri D/SID-D'nin gerçek
   router'ına karşı canlı yeniden test bu oturumda yapılamadı (SDK/pyrfc bu
   ortamda yok) — kullanıcının bir dahaki bağlantısında hem yeni
   "gateway portu" teşhis notunu hem de (eğer ilk deneme hâlâ asılıysa) yeni
@@ -4175,7 +4175,7 @@ bir görev (örn. "VA01'e git") yazarak doğrulaması gerekiyor.
 > **2026-09-04 — bu madde KAPANDI: agent'ın araç katmanı canlı bir SAP
 > oturumunda koşturuldu.**
 >
-> Kullanıcının DEV sistemi (S4D/100, SE16N/VBFA) açıkken `src/lib/sapGuiAgent/
+> Kullanıcının DEV sistemi (SID-G1/100, SE16N/VBFA) açıkken `src/lib/sapGuiAgent/
 > tools.ts` ve `app-electron/main/sapGuiScriptClient.ts` esbuild ile bundle'lanıp
 > Node'da birleştirildi; `window.api` doğrudan 8790'daki köprüye bağlandı. Yani
 > **agent'ın gerçekten çağırdığı kod**, gerçek COM üzerinden gerçek ekrana
@@ -4364,10 +4364,10 @@ etkisi yok. Yine de import yumuşak (soft) guard'landı: Pillow olmasa bile
 köprü açılıyor, sadece HardCopy ile çalışıyor ve preflight bunu
 `screenshotFallback:false` olarak bildiriyor.
 
-### Canlı test — SAP LIMAK / LED (2026-09-03)
+### Canlı test — müşteri E / SID-E (2026-09-03)
 
-Kullanıcı gerçek bir oturum açtı (LED, `172.16.6.112`, SAProuter
-`212.12.155.132`, kullanıcı LMKERPDEV, mandant 100, GUI `8000.257.1.17`)
+Kullanıcı gerçek bir oturum açtı (SID-E, `<ip-E>`, SAProuter
+`<router-E>`, kullanıcı `<kullanıcı-E>`, mandant 100, GUI `8000.257.1.17`)
 ve iki şey ortaya çıktı.
 
 #### Bulgu 1 — `DisabledByServer`: teşhis ikiye bölündü
@@ -4396,7 +4396,7 @@ düşürür.
 bildirmiyor" demek, "kapalı değil" DEĞİL. Panel bunu ayrı bir "bilinmiyor"
 metniyle gösteriyor; ikisini birbirine karıştırmak yanlış teşhis üretirdi.
 
-**LED'de `sapgui/user_scripting` KAPALI. Uygulama bunu açmıyor ve
+**SID-E'de `sapgui/user_scripting` KAPALI. Uygulama bunu açmıyor ve
 açmamalı** — müşterinin change control'ü altındaki bir Basis işi. Panel
 adımları yazıyor, uygulamıyor.
 
@@ -4404,7 +4404,7 @@ adımları yazıyor, uygulamıyor.
 
 `window` yakalamanın tek varlık sebebi COM'a dokunmadan çalışabilmesiydi,
 ama HTTP rotası `/session/<c>/<s>/screenshot` idi ve önce oturum
-çözüyordu. LED'de `sessions == 0` olduğu için **yetenek tam ihtiyaç
+çözüyordu. SID-E'de `sessions == 0` olduğu için **yetenek tam ihtiyaç
 duyulduğu anda erişilemezdi** (`502 Oturum index'i geçersiz`).
 
 Eklenen: `GET /screenshot?method=window`, `/preflight` gibi bilerek
@@ -4416,14 +4416,14 @@ yapmaktansa reddetmek doğru. TS tarafında `captureGuiScriptScreenshot`
 oturum seçilemiyorsa bir kez kendiliğinden oturumsuz yakalama deniyor.
 
 Canlı doğrulandı: 1650×1032 PNG (51 KB), `originLeft:105, originTop:0`,
-görüntüde LED'in gerçek SAP Easy Access ekranı — scripting SUNUCUDA
+görüntüde SID-E'nin gerçek SAP Easy Access ekranı — scripting SUNUCUDA
 KAPALIYKEN. Karşılaştırma için aynı anda `/session/0/0/screenshot` hâlâ
 502 dönüyor; oturumsuz rota tam da bu boşluğu kapatıyor.
 
-### Canlı test — Simpro / S4D, scripting AÇIK (2026-09-03)
+### Canlı test — müşteri G / SID-G1, scripting AÇIK (2026-09-03)
 
-Aynı gün kullanıcı ikinci bir sistem açtı: **S4D `192.168.1.246`**
-(Simpro Elektronik, mandant 100). Orada da `disabledByServer: true`
+Aynı gün kullanıcı ikinci bir sistem açtı: **SID-G1 `<ip-G1>`**
+(müşteri G, mandant 100). Orada da `disabledByServer: true`
 çıktı — tesadüf değil, çünkü **`sapgui/user_scripting` SAP'de varsayılan
 olarak FALSE**. Basis bilerek açmadıysa her sistemde kapalıdır.
 
@@ -4476,7 +4476,7 @@ Pillow yoksa yalan etiket yapıştırmak yerine doğru MIME ile geçiyor.
 
 Düzeltme sonrası ölçüm: **5.110.518 → 89.910 bayt (57×), PNG imzası
 geçerli, görüntü doğru.** Bu hata yalnızca canlı oturumla görülebilirdi —
-LED'de scripting kapalı olduğu için HardCopy hiç çalışmamıştı.
+SID-E'de scripting kapalı olduğu için HardCopy hiç çalışmamıştı.
 
 Yan bulgu: HardCopy görüntüsü menü çubuğunu içeriyor, `window` yakalaması
 ise pencere başlığını — yani ikisinin içerik geometrisi FARKLI. Bu,
@@ -4498,7 +4498,7 @@ bir ağacı açmak onlarca onay üretebiliyordu.
 Eski gerekçe DOĞRU BİR KAYGIYI YANLIŞ ÇÖZÜYORDU: liste gerçekten
 değişebilir, ama bu yeniden BAĞLANMAYI gerektirmiyor. `GuiApplication`
 canlı bir COM nesnesi ve `Connections` her erişimde SAP tarafında
-yeniden değerlendiriliyor. Ölçerek doğrulandı (S4D, canlı):
+yeniden değerlendiriliyor. Ölçerek doğrulandı (SID-G1, canlı):
 
 ```
 30 x get_application()            → gerçek COM attach sayısı: 1
@@ -4714,7 +4714,7 @@ Test sonunda kullanıcının ekranı **SAP Easy Access'e temiz bırakıldı**.
 
 ### DOĞRULANAN / DOĞRULANMAYAN
 
-Doğrulandı (canlı, S4D, scripting AÇIK): preflight karar tablosu +
+Doğrulandı (canlı, SID-G1, scripting AÇIK): preflight karar tablosu +
 `DisabledByServer` ayrımı, `guiVersion`, bağlantı/oturum listeleme,
 `describe_screen`, eleman ağacı, eleman özellikleri + geometri,
 `window` yakalama, `hardcopy` yakalama (düzeltmeden sonra), çerçeve
@@ -4731,7 +4731,7 @@ düğmelere fiilî tıklama ve dosya diyalogları kaldı.)*
 
 #### Açık maddeler canlıda denendi — dördü de kusurluydu (2026-09-03)
 
-Canlı S4D/SE16N'de VBFA listesi (500 satır, 42 sütun) üzerinde
+Canlı SID-G1/SE16N'de VBFA listesi (500 satır, 42 sütun) üzerinde
 denendi. Hiçbiri "çalışmıyor" diye raporlanmamıştı; **hiçbiri
 gerçekte denenmemişti**, ve dördü de ilk temasta patladı.
 
@@ -4852,7 +4852,7 @@ oynatılıyorsa…". `handle_action` de doğrudan `session.findById`
 çağırmayı bırakıp `resolve_component`'e geçti — yoksa aksiyon yolu bu
 mesajı almıyordu (ilk düzeltmeden sonra canlıda görüldü).
 
-**Doğrulama (canlı S4D, SE16N/VBFA).** Dosya diyaloglarına
+**Doğrulama (canlı SID-G1, SE16N/VBFA).** Dosya diyaloglarına
 tıklayamadığım için aynı veri yolu birebir tekrar edildi
 (`.tmp-replay.cjs`): `handleSaveScript`'in ürettiği JSON diske yazıldı,
 `handleOpenScript`'in doğrulaması uygulandı, `handlePlayScript`'in
@@ -5030,7 +5030,7 @@ yeni adım `… / Confirm` oluyor. Etiketi kalıcı saklamak yerine her render'd
 
 `selectContextMenuItem`'in üç yöntemi (`code`/`text`/`position`) bugüne
 kadar "SAP'ye ulaşıyor" seviyesinde bırakılmıştı — hiçbiri **gözlenebilir**
-bir sonuçla teyit edilmemişti. Canlı ALV'de (SE16N/VBFA, S4D) üçü de
+bir sonuçla teyit edilmemişti. Canlı ALV'de (SE16N/VBFA, SID-G1) üçü de
 teyit edildi:
 
 | yöntem | değer | gözlenen sonuç |
@@ -5124,7 +5124,7 @@ yoktu. Önce **köprü ne beklediğini raporlar** hale getirildi — `_settle()`
 artık `{waitedMs, busySeen, settled}` döndürüyor ve `handle_action` bunu
 cevaba koyuyor (`GuiScriptActionResult.settle`).
 
-Canlı ölçüm (S4D / SE16N-VBFA, sıfır istemci beklemesiyle arka arkaya
+Canlı ölçüm (SID-G1 / SE16N-VBFA, sıfır istemci beklemesiyle arka arkaya
 **22 adım**: F3/F8 turları + `navigate`+`setText`+Enter+F8 senaryosu):
 
 | Ölçüm | Sonuç |
@@ -5245,7 +5245,7 @@ yenile ikonu zaten duruyor.
 
 Doğrulama, bulgunun kendisiyle aynı yöntemle: aynı pencere, aynı koşullar,
 düzeltme öncesi/sonrası iki görüntü. Öncesi "BAĞLANTILAR" (boş) → sonrası
-**"BAĞLANTILAR 2"** ve iki `S4D [192.168.1.246]` satırı, **tek bir tıklama
+**"BAĞLANTILAR 2"** ve iki `SID-G1 [<ip-G1>]` satırı, **tek bir tıklama
 olmadan**.
 
 ## axet.flows — Tüm Node/Config Tiplerinde Zorunlu Alan (Required Field) Doğrulaması (2026-08-29, TAMAMLANDI) — canlı bulgu
@@ -6138,10 +6138,10 @@ Outlook/SharePoint connector'larıyla hiç ilgilenmiyor, gereksiz prompt
 şişkinliği olurdu) — sadece kullanıcının gerçekten etkileşime girdiği
 genel sohbet + connector test akışı kapsandı.
 
-## Router'sız Sistemlerde de RFC Bridge — Exeltis (QUB) Canlı Bulgusu: "Eclipse Bağlanıyor Ama Biz Bağlanamıyoruz" (2026-09-02, TAMAMLANDI)
+## Router'sız Sistemlerde de RFC Bridge — müşteri F (SID-F) Canlı Bulgusu: "Eclipse Bağlanıyor Ama Biz Bağlanamıyoruz" (2026-09-02, TAMAMLANDI)
 
-**Şikayet**: Kullanıcı Exeltis müşterisinin `QUB` sistemine (host
-`SAPS4QUBIS.INSUDPHARMA.COM`, **SAProuter TANIMLI DEĞİL** — doğrudan bağlantı)
+**Şikayet**: Kullanıcı müşteri F'nin `SID-F` sistemine (host
+`<host-F>`, **SAProuter TANIMLI DEĞİL** — doğrudan bağlantı)
 VPN açıkken bağlanamıyordu, "zaman aşımı" hatası alıyordu — ama Eclipse'te
 (ADT) aynı sisteme AYNI VPN üzerinden sorunsuz bağlanabiliyordu.
 
@@ -6154,7 +6154,7 @@ VPN açıkken bağlanamıyordu, "zaman aşımı" hatası alıyordu — ama Eclip
 - SAP Logon'un DIAG portu (3200) VE **gateway portu (3300, DIAG+100)**
   ise erişilebilir (`Test-NetConnection` ile canlı doğrulandı).
 - `netstat`/`Get-NetTCPConnection` ile **KESİN kanıt**: çalışan `eclipse.exe`
-  process'i bu sisteme (`10.166.30.95`) sadece **port 3300**'den bağlıydı,
+  process'i bu sisteme (`<ip-F>`) sadece **port 3300**'den bağlıydı,
   hiçbir HTTP(S) portuna bağlı DEĞİLDİ. Yani Eclipse ADT, bu sistemde HTTPS
   KULLANMIYOR — "SAP GUI connection'dan oluştur" tipi ADT projeleri, HTTP(S)
   erişilemezken `SADT_REST_RFC_ENDPOINT` üzerinden **RFC/gateway portu ile**
@@ -6200,13 +6200,13 @@ tamamen engelli sistemler için hiçbir fallback yoktu, kullanıcı sadece çıp
   `RfcBridgeConfig.saprouter: string` tipiydi, boş string ile de sorunsuz
   akıyor, router-specific bir mantık taşımıyordu.
 
-**Canlı doğrulama (bu makinede, gerçek Exeltis/QUB parametreleriyle)**:
+**Canlı doğrulama (bu makinede, gerçek müşteri F/SID-F parametreleriyle)**:
 - `discoverAdtEndpoint`/`verifyCredentials` gerçek host'a karşı çalıştırılıp
   `verify.status === null` (hiçbir port yanıt vermedi) olduğu ve yeni dalın
   gerçekten tetikleneceği doğrulandı.
 - `probeTcpPort(host, 3300)` gerçekten `true` döndü (gateway portu açık),
   `guessInstanceNumber(3200)` → `"00"` — üretilecek `rfcBridge` config'i
-  tam olarak beklenen: `{ashost: "SAPS4QUBIS.INSUDPHARMA.COM", sysnr:"00",
+  tam olarak beklenen: `{ashost: "<host-F>", sysnr:"00",
   saprouter:"", bridgePort:8788}`.
 - `adt_rfc_bridge.py`'nin `load_rfc_config()`'i (pyrfc gerektirmeyen kısım)
   hem `ADT_RFC_SAPROUTER` YOKKEN (`saprouter: None`, `pyrfc.Connection`
@@ -6215,10 +6215,10 @@ tamamen engelli sistemler için hiçbir fallback yoktu, kullanıcı sadece çıp
   test edildi, ikisi de PASS.
 - `npm run typecheck`, `npm run build`, `npx electron-builder --win dir`
   temiz geçti; `release/win-unpacked` güncel kaynaktan yeniden paketlendi.
-- **Test EDİLEMEYEN**: gerçek Exeltis kimlik bilgileriyle uçtan uca RFC
+- **Test EDİLEMEYEN**: gerçek müşteri F kimlik bilgileriyle uçtan uca RFC
   logon + `%sap-adt-readonly` çağrısı (kullanıcının gerçek şifresi bu
   oturumda kullanılmadı/istenmedi) — kullanıcının kendi makinesinde SAP
-  Logon ağacındaki **gerçek "Exeltis" sistemine** (manuel BTP girişine
+  Logon ağacındaki **gerçek "müşteri F" sistemine** (manuel BTP girişine
   DEĞİL — o ayrı bir path, host bilgisi olmadığı için bu fallback'i
   tetiklemez) tıklayıp normal şekilde bağlanmayı denemesi gerekiyor; artık
   "Zaman aşımı" ile durmayıp otomatik RFC bridge moduna geçmesi ve terminalin
@@ -6231,10 +6231,10 @@ portla bağlı olduğuna bak; DIAG/gateway (32xx/33xx) ise muhtemelen bizim de
 zaten sahip olduğumuz RFC bridge mekanizması (router'lı veya router'sız)
 devreye girmeli, illa SAProuter aranmasın.
 
-## SAML SSO Tespit Edilen Cloud Sistemlerde `.conn_adt`/`sap-context.md` HİÇ Yazılmıyordu — "test"/DA8 Canlı Bulgusu (2026-09-02, TAMAMLANDI)
+## SAML SSO Tespit Edilen Cloud Sistemlerde `.conn_adt`/`sap-context.md` HİÇ Yazılmıyordu — "test"/SID-H Canlı Bulgusu (2026-09-02, TAMAMLANDI)
 
 **Şikayet**: Kullanıcı manuel eklediği bir cloud test sistemine
-(`https://my431455.s4hana.cloud.sap`, "test"/DA8) bağlanmaya çalışınca
+(`https://<tenant-H>.s4hana.cloud.sap`, "test"/SID-H) bağlanmaya çalışınca
 `samlLoginDetected` mesajını (bkz. yukarıdaki "Kimlik Doğrulama Her Zaman
 'Başarılı' Görünüyordu" bölümü, 2026-08-26'da eklenen tespit mekanizması)
 aldı — mesaj doğru teşhis koyuyordu ("bu sistem SAML SSO gerektiriyor,
@@ -6282,8 +6282,8 @@ tespitinin dahil edilmemiş olmasıydı.
   doğru şekilde SAML akışına yönlendirilir (router-permission-denied dalı
   zaten kendi koşuluyla önce kontrol ediliyor, SAML'i asla ezmiyor).
 
-**Canlı doğrulama (bu makinede, gerçek "test"/DA8 sistemine karşı)**:
-- `verifyCredentials()` gerçek `https://my431455.s4hana.cloud.sap`'e karşı
+**Canlı doğrulama (bu makinede, gerçek "test"/SID-H sistemine karşı)**:
+- `verifyCredentials()` gerçek `https://<tenant-H>.s4hana.cloud.sap`'e karşı
   çalıştırılıp `samlDetected: true`, `status: 200`, `ok: false` döndüğü ve
   launcher.ts'in karar zincirinin artık doğru şekilde "SAML_SETUP_NEEDED"
   dalına düştüğü (eskiden düşülen "generic-fail" dalı değil) doğrulandı.
@@ -6292,7 +6292,7 @@ tespitinin dahil edilmemiş olmasıydı.
 - **Test EDİLEMEYEN**: `connectToSystem()`'ın tam ucuçtan uca akışı (Electron
   `app` singleton'ına bağımlı olduğu için `tsx` ile bağımsız çalıştırılamadı)
   — mantık zinciri elle/statik olarak izlendi (hiçbir early-return yeni dalı
-  atlamıyor), ama gerçek bir GUI'de "test"/DA8'e tıklayıp `.conn_adt`/
+  atlamıyor), ama gerçek bir GUI'de "test"/SID-H'ye tıklayıp `.conn_adt`/
   `sap-context.md`'nin gerçekten oluştuğunu ve terminalin "SAML SSO gerekli"
   mesajıyla açıldığını kullanıcının doğrulaması gerekiyor.
 
@@ -6342,14 +6342,14 @@ minimal bir düzeltme.
   kendi (üçüncü parti, değiştirilemeyen) minified kaynak kodundan kanıtlandığı
   için düzeltmenin doğruluğu yüksek güvenle biliniyor.
 
-## Beklenmeyen HTTP Durumlarında Ham HTML Dökülüyordu — Simpro/S4Q Canlı Bulgusu (2026-09-02, TAMAMLANDI)
+## Beklenmeyen HTTP Durumlarında Ham HTML Dökülüyordu — müşteri G/SID-G2 Canlı Bulgusu (2026-09-02, TAMAMLANDI)
 
-**Şikayet**: Kullanıcı "Simpro QA" sistemine bağlanmaya çalışırken hata
+**Şikayet**: Kullanıcı "müşteri G QA" sistemine bağlanmaya çalışırken hata
 mesajında şu görünüyordu: `Beklenmeyen HTTP durumu: 403 —
 <html><head><meta http-equiv="content-type" ...` — okunamaz, ham HTML kodu
 kullanıcıya doğrudan gösteriliyordu.
 
-**Kök sebep araştırması (canlı, gerçek Simpro/S4Q — `192.168.1.244:44300` —
+**Kök sebep araştırması (canlı, gerçek müşteri G/SID-G2 — `<ip-G2>:44300` —
 sistemine karşı)**: Birden fazla path canlı test edildi:
 - `/sap/public/icman/ping` → **200 OK** ("server on host s4qasapp system
   s4qasapp_S4Q_00 successfully reached")
@@ -6392,8 +6392,8 @@ gösteren bir çıktı.
   doğrudan ve router üzerinden giden dalları) artık `content-type`
   header'ını da bu fonksiyona geçiriyor.
 
-**Canlı doğrulama (bu makinede, gerçek Simpro/S4Q'ya karşı, hem TR hem EN)**:
-- `verifyCredentials("https://192.168.1.244:44300", ...)` gerçek 403 +
+**Canlı doğrulama (bu makinede, gerçek müşteri G/SID-G2'ye karşı, hem TR hem EN)**:
+- `verifyCredentials("https://<ip-G2>:44300", ...)` gerçek 403 +
   "Service cannot be reached" HTML sayfasına karşı çalıştırıldı — dönen
   mesaj artık: `HTTP 403 — "Service cannot be reached". Bu, SAP ICM'in kendi
   hata sayfası ve genelde şu anlama gelir: bu sistemde /sap/bc/adt servisi
@@ -7974,7 +7974,7 @@ sahip olurdu.
 ### Prompt bloğunun sınırı (bilinçli)
 
 Blok YALNIZCA sohbetin çalışma klasörü aktif bağlamın proje klasörüyse
-ekleniyor. Genel bir sohbette "S4D'ye bağlısın" demek, kullanıcının hiç
+ekleniyor. Genel bir sohbette "SID-G1'e bağlısın" demek, kullanıcının hiç
 sormadığı bir bağlamı her cevaba sızdırmak olurdu. Gevşetmek isteyen
 `buildContextPreamble`'daki tek `if`'i değiştirir.
 
@@ -8247,7 +8247,7 @@ mesajda yeniden kuruluyor — yani eski davranış.
 ## Bağlantıdan sonra sohbetin ilk balonu (2026-09-06)
 
 **Kullanıcının bildirdiği davranış**: bir sisteme bağlanıldıktan sonra sohbet
-BOMBOŞ açılıyordu. Kullanıcı "MAYA sistemine bağlı mısın" diye sormak zorunda
+BOMBOŞ açılıyordu. Kullanıcı "SID-I sistemine bağlı mısın" diye sormak zorunda
 kalıyor, ajan da 4 komut çalıştırıp durumu sıfırdan keşfediyordu ("Hayır,
 gerçek anlamda bağlı değilim — SAML SSO giriş sayfası döndü"). Cevap DOĞRUYDU,
 ama bir tur jetona, birkaç saniyeye ve kullanıcının soru sormasına mal
@@ -8916,7 +8916,7 @@ yan yana görünüyordu. `refresh` artık `SapLandscape | null` döndürüyor.
 
 ## SAML SSO girişi: bitiş koşulu artık ADT'nin cevabı (2026-09-06, canlı doğrulandı)
 
-MAYA (`my431433.s4hana.cloud.sap`, client 100) ile canlı bulgu. Otomatik SAML
+SID-I (`<tenant-I>.s4hana.cloud.sap`, client 100) ile canlı bulgu. Otomatik SAML
 girişi "SAML SSO girişi arka planda tamamlandı (kimlik sağlayıcı oturumu zaten
 açıktı)" diyor, hemen ardından aynı çerez ADT'ye sorulduğunda giriş sayfası
 dönüyordu.
@@ -8972,8 +8972,8 @@ bir onay olarak duruyor, diskteki jar'ın gerçekten yazıldığı hâliyle
 ### Canlı doğrulama
 
 ```
-[saml] ...my431433.s4hana.cloud.sap/sap/bc/adt/discovery: pw=0 user=0
-[saml] ...a0ckcsl6m.accounts.cloud.sap/saml2/idp/sso/...: pw=0 user=0
+[saml] ...<tenant-I>.s4hana.cloud.sap/sap/bc/adt/discovery: pw=0 user=0
+[saml] ...<ias-tenant-I>.accounts.cloud.sap/saml2/idp/sso/...: pw=0 user=0
 [saml] dolduruldu [password] ...accounts.cloud.sap... — kullanıcı parola form.submit
 [saml] oturum çerezi ADT tarafından kabul edildi (1. yoklama)
 ```
@@ -9542,7 +9542,7 @@ klasöründe dosya henüz yok, tarama yukarı çıkıp **ata klasördeki**
 (`...\aXet SAP Projects\.axet-code`) bayat veritabanına bağlanıyordu. `dbPath`
 bir daha hiç yeniden çözülmüyordu.
 
-Ölçüm (IED): cevap **7 saniyede** hazırdı (`end_turn`, 54 karakter, 0 araç);
+Ölçüm (SID-J): cevap **7 saniyede** hazırdı (`end_turn`, 54 karakter, 0 araç);
 kılıf beş dakikalık zaman aşımını doldurdu ve turu yeniden gönderdi. Kanıt
 zarifti: ata klasörün `.db`/`-wal` dosyaları 18 Ağustos'tan beri yazılmamışken
 `-shm` damgası 14:14:28 — oraya yalnızca bir **okuyucu** bağlanmıştı, o da
@@ -9581,7 +9581,7 @@ Burada ayrı bir ders var: tavan ve sessizlik tek çeviri anahtarıyla
 yazıldığında, mutlak tavan *"hiçbir belirti vermedi"* diyordu — tam tersi
 doğruyken. İki ayrı cümle oldu (`chatTui.turnRanTooLong`).
 
-**Adım 3 — sessizlik de turu ÖLDÜRMEMELİ.** Ölçüm (IED, 18:06 turu):
+**Adım 3 — sessizlik de turu ÖLDÜRMEMELİ.** Ölçüm (SID-J, 18:06 turu):
 axet-code soğuk ilk turda **320 saniye** boyunca ne veritabanına ne günlüğüne
 tek satır yazdı. Sayaç 300'de doldu, tur `ok: false` ile kapandı ve cevap
 **20 saniye sonra eksiksiz geldi** — 1.839 karakter, axet-code'un
@@ -9704,7 +9704,7 @@ bilinçli bir tercih (kullanıcı bunu açıkça istemişti).
 Kullanıcı: *"Bağlantı doğrulandı ama adt-tool.ps1 self-test başarısız diyor bu
 ne oluyo ... sapcontext ne alaka onu anlamadım."*
 
-Kök sebep ölçüldü (IED): script'in ilk satırlarındaki `ConvertTo-SecureString`
+Kök sebep ölçüldü (SID-J): script'in ilk satırlarındaki `ConvertTo-SecureString`
 `Microsoft.PowerShell.Security` modülünde ve bu modül makinede açılmıyor —
 **PowerShell 7 de kurulu olduğu için** PS7'nin modül klasörleri
 `PSModulePath`'e giriyor, Windows PowerShell 5.1 oradaki tip dosyasını okuyor
@@ -9712,7 +9712,7 @@ ve *"ObjectSecurity ... member is already present"* çakışmasıyla modülü hi
 yükleyemiyor. SAP, ağ, TLS ya da yetkiyle ilgisi yok.
 
 - Kimlik artık düz .NET ile kuruluyor (`SecureString` + `AppendChar`), hiçbir
-  modül gerekmiyor. IED'de doğrulandı: `PING_OK 200`.
+  modül gerekmiyor. SID-J'de doğrulandı: `PING_OK 200`.
 - `sap-context.md`'deki teşhis metni **TLS'i sebep göstermeyi bıraktı** — ham
   hatayı öne koyuyor, ölçülmüş örneği anlatıyor ve bu yolun **yedek** olduğunu
   söylüyor (asıl yol `%sap-adt-readonly`).
@@ -9807,7 +9807,7 @@ Aynı desendeki diğer üç kutu (`ConfirmDialog`, `ChatProjectDialog`,
 | **1.6.6** | aXet.flows yeteneği · marketplace hizalaması (27 → 45 yetenek) · paylaşılan `lib/` ve `scripts/` artık kuruluyor: `--redact-pii` maskelemesi sessizce kapanmıyor · yetenekler iki kapsama ayrıldı: 41 yetenek genel klasöre (düz sohbetlerde de geçerli), SAP'a yazan 4 yetenek sistem başına (PRD kapısı korunuyor) · "Genel yetenekler" penceresi: küme küme liste, rol dışı satırlar kilitli · açık soru kutusu varken yazılan mesaj artık oturumu öldürmüyor (sarkan `tool_use` → 400) · başarısız turlar günlüğe düşüyor · sonsuz "Düşünüyor" giderildi: oturum etiketi tekilleştiriliyor, istem başka oturuma düşerse takip ediliyor, bozulmuş geçmiş (sarkan `tool_use`) yeni oturumla değiştiriliyor. **Yayınlandı (2026-09-09, `v1.6.6`)** — NSIS kurulumu ve taşınabilir sürüm GitHub Release'de, `latest.yml` güncellemeyi 1.6.6'ya işaret ediyor |
 | **1.6.7** | 403 kurtarması artık gerçekten tetikleniyor: turun kendi yetki arızası veritabanındaki `finish` parçasından okunuyor, günlükteki tek kanıt olan başlık üretimi satırı susturma filtresinden çıkarıldı · ikinci deneme 15 saniye bekliyor (403 penceresi dakikalarca açık kalıyor, anında tekrar deneme aynı kapalı kapıya çarpıyordu) · kullanıcıya "uygulamayı kapat aç" yerine ölçümle uyumlu tavsiye veriliyor. **Yayınlandı (2026-09-09, `v1.6.7`)** |
 | **1.6.8** | Rol kapısı katalogda da geçerli, `onedrive.py` paketleniyor · Dosya Gezgini'nde seçilen klasör artık ajanın da çalışma klasörü oluyor (yetenekler oraya rol+tier'a göre kuruluyor, oturum yeni klasörde yeniden başlıyor; SAP bağlantısı etkilenmiyor) · soldaki dosya listesinden sohbete sürükle-bırak çalışıyor (yol artık taslağa yazı olarak düşmüyor) · yazı kutusu: gönder düğmesi hep duruyor (ilk harfte satır kaymıyor), yükseklik genişlik değişince de yeniden ölçülüyor · ASCII dışı şifre: teşhis var, sessiz tahmin YOK. Şifrede `ı`, `ş`, `ö` gibi bir karakter varsa kimlik penceresi bağlanmadan ÖNCE uyarıyor, 401 metni de bu ihtimali ayrıca anlatıyor · ÖLÇÜLDÜ (2026-09-23, DS4): SAP GUI'nin kabul ettiği Türkçe karakterli şifre HTTP/ADT kanalında hem UTF-8 hem ISO-8859-9 baytlarıyla 401 aldı, kullanıcı kilitli değildi — yani kod sayfasını değiştirmek bu sorunu ÇÖZMÜYOR. Kısa süre denenen ISO-8859-9 seçimi bu yüzden geri alındı; baytlar her zaman UTF-8 (`.conn_adt`'taki `ADT_SAP_PW_CHARSET` satırı yorumlu bir kaçış kapısı olarak duruyor) · Python motorundaki `.encode('ascii')` çökmesi bundan bağımsız, gerçek bir hataydı: ASCII dışı şifrede bağlanmak şöyle dursun `UnicodeEncodeError` veriyordu, düzeltmesi kaldı · 401 metni "initial şifre" ihtimalini de söylüyor: SU01'den ATANAN şifreyi GUI kabul eder, HTTP reddeder · **Yayınlandı (2026-09-23, `v1.6.8`)** |
-| **1.6.9** | ADT yazma sunucusu artık öldürülmüyor: launcher kendi başlattığı sunucunun bearer token'ını biliyor, token yalnızca ortam değişkeninde (diske, günlüğe, `sap-context.md`'ye yazılmıyor) · Yazma skill'leri her sistemde kuruluyor, SAP'a yazma yalnızca DEV'de açılıyor: DEV'de `sap-adt` (33 araç), diğer sistemlerde `sap-adt-readonly` (17 araç), yazan araç 404 · Ajan ADT'ye yeniden HTTP'den gidiyor: MAYA'da (DEV, sunucu ayakta) ajan "adt_* aracı yok, bağlı değilim" deyip tek çağrı yapmamıştı; kurulan SKILL.md'ler yukarı akışın Claude Code/MCP metniydi, d2cb667 senkronu eski uyarlamayı ezmişti. sap-adt, sap-adt-readonly, screen-gen, sap-object-transfer'e "MCP değil, HTTP (8787)" blokları, `tests/skillHttpAdaptation.test.ts` bunları kilitliyor · Eski axet-code oturumuna bağlanınca bağlam önsözü hiç gitmiyordu; bağlandıktan sonraki ilk mesaj onu bir kez taşıyor · **Router'lı sistemler yeniden bağlanıyor** (1.6.8'de hiçbiri bağlanamıyordu): d2cb667 senkronu RFC köprüsünü launcher'la uyuşmayan yukarı akış sürümüyle değiştirmişti (`.env`'den `RFC_ASHOST` bekliyor, router'ı zorunlu tutuyor, 8410'da dinleyip `--port`'u yok sayıyor, `/health` ucu yok). LED'de "RFC_ASHOST is not set" olarak görüldü. Launcher'la sahada çalışmış sürüm geri kondu, `tests/rfcBridgeContract.test.ts` sözleşmeyi kilitliyor |
+| **1.6.9** | ADT yazma sunucusu artık öldürülmüyor: launcher kendi başlattığı sunucunun bearer token'ını biliyor, token yalnızca ortam değişkeninde (diske, günlüğe, `sap-context.md`'ye yazılmıyor) · Yazma skill'leri her sistemde kuruluyor, SAP'a yazma yalnızca DEV'de açılıyor: DEV'de `sap-adt` (33 araç), diğer sistemlerde `sap-adt-readonly` (17 araç), yazan araç 404 · Ajan ADT'ye yeniden HTTP'den gidiyor: SID-I'da (DEV, sunucu ayakta) ajan "adt_* aracı yok, bağlı değilim" deyip tek çağrı yapmamıştı; kurulan SKILL.md'ler yukarı akışın Claude Code/MCP metniydi, d2cb667 senkronu eski uyarlamayı ezmişti. sap-adt, sap-adt-readonly, screen-gen, sap-object-transfer'e "MCP değil, HTTP (8787)" blokları, `tests/skillHttpAdaptation.test.ts` bunları kilitliyor · Eski axet-code oturumuna bağlanınca bağlam önsözü hiç gitmiyordu; bağlandıktan sonraki ilk mesaj onu bir kez taşıyor · **Router'lı sistemler yeniden bağlanıyor** (1.6.8'de hiçbiri bağlanamıyordu): d2cb667 senkronu RFC köprüsünü launcher'la uyuşmayan yukarı akış sürümüyle değiştirmişti (`.env`'den `RFC_ASHOST` bekliyor, router'ı zorunlu tutuyor, 8410'da dinleyip `--port`'u yok sayıyor, `/health` ucu yok). SID-E'de "RFC_ASHOST is not set" olarak görüldü. Launcher'la sahada çalışmış sürüm geri kondu, `tests/rfcBridgeContract.test.ts` sözleşmeyi kilitliyor |
 | **1.7.0** | **SAP DEV yazma onayı**: DEV'de 8787'deki sunucu artık `adt_gated_server.py` (53 araç; diğer sistemlerde salt okunur 19 araç) · oturum başına çalışma modu (doğrudan DEV / yerelde çalış + abapGit ile teslim) · normal yazma transport başına bir kez, riskli yazma (silme, yayın, Adobe/ekran üretimi…) her seferinde NTT Studio onay penceresinden geçiyor · kalite kapısı: `abap-code-review` incelemesi kaydedilmeden yazma yok, kritik bulgu kesin engel · abapGit deploy script'leri aynı kapıdan geçiyor (onay bekliyorsa çıkış 3, ret 2) · onay token'ı yalnızca ortam değişkeninde · Kenar çubuğundaki sohbet ağacı kapalı açılıyor: yalnızca başlıklar görünüyor, seçilen/yeni açılan sohbetin grubu kendiliğinden açılıyor, arama bütün grupları açıyor |
 
 İptal edilen Faz 0-4 planının iki belgesi
@@ -10276,7 +10276,7 @@ Kullanıcı kendi sohbetinde ajanın **hiçbir yeteneği göremediğini** görd�
 
 | Klasör | Kurulu yetenek |
 | --- | --- |
-| `…\Local\I\Index\IED\.axet-code\skills` | 26 |
+| `…\Local\<klasör>\<müşteri J>\SID-J\.axet-code\skills` | 26 |
 | `…\Manuel Eklenen Sistemler\PRD\.axet-code\skills` | 21 |
 | `…\Documents\aXet Code Sessions\.axet-code\skills` | **0** |
 | `%LOCALAPPDATA%\axet-code\skills` | 1 (elle kopyalanmış) |

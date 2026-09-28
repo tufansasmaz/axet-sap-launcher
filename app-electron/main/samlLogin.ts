@@ -100,7 +100,7 @@ function frameLabel(frame: Electron.WebFrameMain): string {
 // Oturum çerezinin VARLIĞI. Dikkat: bu bir başarı ölçütü DEĞİL, yalnızca
 // "sormaya değer bir çerez oluştu mu" sorusunun cevabı.
 //
-// Bir zamanlar akışı bitiren koşul buydu ve YANLIŞTI (canlı bulgu, MAYA/
+// Bir zamanlar akışı bitiren koşul buydu ve YANLIŞTI (canlı bulgu, SID-I/
 // client 100, 2026-09-06). Dosyanın eski notu "IdP'ye yönlendiren ilk istek
 // de çerez bırakıyor, o yüzden özellikle SAP_SESSIONID'ye bakıyoruz" diyordu;
 // gerçek şu ki SAP'ın ICF'i SAML akışının KENDİ durumunu (RelayState) tutmak

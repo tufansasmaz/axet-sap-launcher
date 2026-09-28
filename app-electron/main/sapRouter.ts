@@ -78,7 +78,7 @@ const PERMISSION_DENIED_TAG = "ROUTER_PERM_DENIED";
 // bildirebiliyor — kod farklı olsa da router'ın kendi metni ("route
 // permission denied") aynı kalıyor. Bu yüzden kod numarasına değil, ayrıca
 // yanıt metnine de bakıyoruz; sadece "-94 mü değil mi" kontrolü tek bir
-// müşteride bile kırılgan çıktı (Limak'ta -94, başka bir sistemde -93).
+// müşteride bile kırılgan çıktı (müşteri E'de -94, başka bir sistemde -93).
 function isPermissionDeniedDetail(returnCode: number | null, detail: string): boolean {
   return returnCode === -94 || /permission denied/i.test(detail);
 }

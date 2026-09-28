@@ -93,7 +93,7 @@ function sameGui(a: ActiveGuiContext | null, b: ActiveGuiContext | null): boolea
 export function buildContextPreamble(cwd: string): string {
   const { sap, gui } = current;
   // Bağlam YALNIZCA o sisteme bağlı sohbetlere giriyor: sohbetin çalışma
-  // klasörü bağlantının proje klasörüyse. Genel bir sohbette "S4D'ye
+  // klasörü bağlantının proje klasörüyse. Genel bir sohbette "SID-G1'e
   // bağlısın" demek, kullanıcının hiç sormadığı bir bağlamı her cevaba
   // sızdırmak olurdu.
   if (!sap || !cwd || normalize(cwd) !== normalize(sap.projectDir)) return "";
@@ -106,7 +106,7 @@ export function buildContextPreamble(cwd: string): string {
     `- Client ${sap.client} · kullanıcı ${sap.username}`,
     `- Proje klasörü: ${sap.projectDir} (bağlantı ayrıntıları .conn_adt ve sap-context.md dosyalarında)`,
     // Bu satır 2026-09-24'te eklendi. Ajan araç listesinde `adt_*` göremeyince
-    // MAYA'da (DEV, sunucu ayakta) "bu oturumda ADT aracı yok, bağlı değilim"
+    // SID-I'da (DEV, sunucu ayakta) "bu oturumda ADT aracı yok, bağlı değilim"
     // dedi ve tek araç çağrısı yapmadı. Çünkü okuduğu SKILL.md "her şey MCP
     // araçlarıyla" diyordu. Skill metni onarıldı, ama o metni okumadan cevap
     // veren ajanı bu satır yakalıyor.

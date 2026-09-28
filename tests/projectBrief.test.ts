@@ -41,7 +41,7 @@ function contextFile(): string {
 
 /** Launcher'ın ürettiğine benzeyen bir bağlam dosyası. */
 function writeContext(notes = "Kullanicinin kendi notu."): void {
-  writeFileSync(contextFile(), ["# SAP Baglami", "", "Sistem: IED", "", NOTES_MARKER, "", notes, ""].join("\n"), "utf-8");
+  writeFileSync(contextFile(), ["# SAP Baglami", "", "Sistem: NPL", "", NOTES_MARKER, "", notes, ""].join("\n"), "utf-8");
 }
 
 describe("readProjectBrief", () => {
@@ -110,7 +110,7 @@ describe("syncBriefIntoContext", () => {
   });
 
   it("notlar isaretcisi yoksa sonuna ekler", () => {
-    writeFileSync(contextFile(), "# SAP Baglami\n\nSistem: IED\n", "utf-8");
+    writeFileSync(contextFile(), "# SAP Baglami\n\nSistem: NPL\n", "utf-8");
     syncBriefIntoContext(dir, emptyBrief());
     expect(readFileSync(contextFile(), "utf-8")).toContain(BLOCK_START);
   });

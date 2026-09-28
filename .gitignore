@@ -1,7 +1,9 @@
 node_modules/
 dist/
 dist-electron/
-release/
+# Yayın çıktıları sürüm adlı klasörlere de düşüyor (release-1.6.8/, release-pub/);
+# yalnızca `release/` yazmak onları açıkta bırakıyordu.
+release*/
 *.log
 # Teşhis sırasında üretilen tek kullanımlık dosyalar (ekran yakalama script'i,
 # köprü günlüğü, ham JSON yanıtları). Depoya girmezler.
@@ -11,6 +13,16 @@ Thumbs.db
 .axet-code/
 *.conn_adt
 sap-context.md
+# Depo PUBLIC: kimlik ve oturum taşıyan dosyalar yanlışlıkla eklenmesin.
+# SAML çerezi `.conn_adt` kadar gizli; eski sürümler adına host da koyuyordu.
+.saml_cookies*.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
 resources/rfc-runtime/
 resources/guiscript-runtime/
 # ~200 MB'lik ikili çalışma zamanı (whisper.cpp + konuşma modeli). Diğer

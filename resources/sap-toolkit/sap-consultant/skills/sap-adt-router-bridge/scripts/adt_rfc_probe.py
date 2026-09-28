@@ -3,7 +3,7 @@
 """RFC-over-SAProuter connectivity probe for systems where the SAProuter's
 saprouttab permits native/message-mode SAP protocol traffic (DIAG, RFC) but
 DENIES raw/native TCP tunneling to the ICM HTTP(S) port (error -94,
-NIEROUT_PERM_DENIED). See PROJE-BILGI.md "BONY" bulgusu for the full story.
+NIEROUT_PERM_DENIED). See PROJE-BILGI.md "müşteri A" bulgusu for the full story.
 
 WHY THIS EXISTS
     SAP GUI reaches these systems fine because its DIAG connection is native

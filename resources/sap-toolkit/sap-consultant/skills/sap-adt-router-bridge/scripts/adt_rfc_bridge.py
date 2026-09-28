@@ -5,12 +5,12 @@
 # RFC_ASHOST/RFC_SYSNR/RFC_SAPROUTER'ı .env'den okuyor, router'ı zorunlu tutuyor,
 # portu BRIDGE_PORT'tan (8410) alıp --port'u yok sayıyor ve /health ucu yok. Launcher
 # ise ADT_RFC_*'ı .conn_adt'e yazıp köprüyü `--port 8788` ile başlatıyor ve /health'e
-# bakıyor — sonuç: router'lı her sistemde "RFC_ASHOST is not set" (LED, 2026-09-24).
+# bakıyor — sonuç: router'lı her sistemde "RFC_ASHOST is not set" (SID-E, 2026-09-24).
 # Bu dosya launcher'la sahada çalışmış sürümdür; senkronda üzerine YAZILMAMALI
 # (tests/rfcBridgeContract.test.ts kilitliyor, resources/sap-toolkit/CLAUDE.md tablosu).
 """HTTP-to-RFC bridge for ADT access through a SAProuter that denies raw/native
 TCP tunneling to the ICM HTTP(S) port but permits native SAP-protocol traffic
-(DIAG, RFC). See adt_rfc_probe.py's docstring and PROJE-BILGI.md "BONY" bulgusu
+(DIAG, RFC). See adt_rfc_probe.py's docstring and PROJE-BILGI.md "müşteri A" bulgusu
 for the full background on why this exists.
 
 WHAT THIS IS

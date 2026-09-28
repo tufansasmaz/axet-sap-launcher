@@ -21,7 +21,7 @@ every file, so a later edit is detectable.
 
 ```
 Projects/
-└── beta-enerji/                 <- the project code, from the workspace pin
+└── musteri-k-enerji/            <- the project code, from the workspace pin
     ├── _liste.json              <- the development list (Orbit export)
     ├── SD007/                   <- one folder per development ITEM
     │   ├── FS/
@@ -34,7 +34,7 @@ Projects/
 ```
 
 One folder per development item, and a kind folder **always** inside it. The
-work ships per item — Beta Enerji carries six deliverables for a single
+work ships per item — Customer K carries six deliverables for a single
 development — so a kind-first layout filed one job in six places.
 
 The item folder is the item **id**, never its title. The store already sits

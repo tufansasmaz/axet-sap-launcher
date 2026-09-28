@@ -558,7 +558,7 @@ export const en: Record<TranslationKey, string> = {
   "addSystemModal.systemId": "System ID (SID)",
   "addSystemModal.systemIdPlaceholder": "e.g. PRD",
   "addSystemModal.host": "Host (IP or hostname)",
-  "addSystemModal.hostPlaceholder": "e.g. 10.70.70.28 or sap.customer.com",
+  "addSystemModal.hostPlaceholder": "e.g. 192.0.2.10 or sap.example.com",
   "addSystemModal.diagPort": "SAPGUI Dispatcher (DIAG) Port",
   "addSystemModal.diagPortPlaceholder": "e.g. 3200",
   "addSystemModal.diagHelper": "The ADT/ICM HTTPS port will be auto-discovered from this DIAG port (same as SAP Logon systems).",

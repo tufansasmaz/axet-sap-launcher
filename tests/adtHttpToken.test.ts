@@ -1,6 +1,6 @@
 // 8787'deki yazma sunucusuyla bearer token sözleşmesi.
 //
-// Yeniden üretilen arıza (2026-09-23, MAYA, DEV + teknik danışman): yazan motor
+// Yeniden üretilen arıza (2026-09-23, SID-I, DEV + teknik danışman): yazan motor
 // (`adt_mcp_server.py --http`) `ABAP_HTTP_TOKEN` verilmezse kendi token'ını
 // üretiyor ve `/health` DAHİL her isteğe token'sız 401 dönüyor. Launcher onu
 // token'sız başlatıp token'sız yokluyordu; 401'i "ölü" sayıp 15 sn sonra

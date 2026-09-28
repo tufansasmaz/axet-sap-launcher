@@ -13,7 +13,7 @@ import type { SapService, SapLogonOpenResult } from "../shared/types";
 // **Kesin çözüm — `SAPgui.exe`'yi `sapshcut.exe`/`.sap` shortcut'ı hiç
 // kullanmadan DOĞRUDAN çağırmak, İKİ AYRI pozisyonel argümanla**:
 //   `SAPgui.exe "<routeString>" "<instanceNr>"`
-// Bu, gerçek bir müşteri SAProuter'ına (Limak, `/H/<router>/S/3299`) karşı
+// Bu, gerçek bir müşteri SAProuter'ına (müşteri E, `/H/<router>/S/3299`) karşı
 // canlı test edilip ekran görüntüsüyle DOĞRULANDI — Client alanı önceden
 // dolu ("100"), User/Password boş (SAP GUI'nin kendi native davranışı,
 // Eclipse ADT'de de aynı), gerçek "New password"/klasik logon ekranı.

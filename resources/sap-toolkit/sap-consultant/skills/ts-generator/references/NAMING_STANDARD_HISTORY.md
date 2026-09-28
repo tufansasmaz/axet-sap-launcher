@@ -34,7 +34,7 @@ Kılavuz v1.1 üç katman tanımlıyordu (Root / Module / Cloud). v2.0 araya **m
 koydu: `ZSD000` "Module General Package", kalem paketleri `001`'den başlıyor.
 
 Kök paketin adı da düzeldi: **`ZROOT`**, alt çizgili `Z_ROOT` değil. İkisi sahada bir arada
-bulunabiliyor — Beta Enerji sisteminde her ikisi de var.
+bulunabiliyor — müşteri K sisteminde her ikisi de var.
 
 `Z<Modül>000`'ın **içine ne gireceği kılavuzda yazmıyor**; kapsam kuralı bizimdir (§2, [P]):
 yalnızca tek bir WRICEF kalemine ait olmayan genel geliştirmeler — BAdI, enhancement, ek alan.
@@ -175,7 +175,7 @@ tanımlarını, ikisi dynpro'yu gösteriyordu — yani atıfların dörtte biri 
 gönderiyordu.
 
 Numara belge sırasına göre düzeltildi: dynpro **3.2** kaldı, obje tanımları **3.3** oldu. Tanımları
-kasteden altı atıf yeniden yönlendirildi (`ozak-tekstil`, `kibar-americas`, `beta-enerji`,
+kasteden altı atıf yeniden yönlendirildi (`musteri-m-tekstil`, `musteri-l`, `musteri-k-enerji`,
 `spec-reviewer`, `sap-adt/SKILL.md`, `sap-adt/references/WINDOWS_ENCODING.md`). Dynpro'yu kasteden
 ikisine (`screen-gen`, `spec-reviewer`'ın `0RCG` satırı) dokunulmadı.
 
