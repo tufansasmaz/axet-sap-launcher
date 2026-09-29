@@ -64,6 +64,10 @@ function TabsHarness({ onChange }: { onChange?: (v: Section) => void }) {
   );
 }
 
+function NullTabs({ onChange }: { onChange: (v: Section) => boolean | void }) {
+  return <Tabs label="Modlar" items={ITEMS} value={null} onChange={onChange} stretch />;
+}
+
 describe("Tabs", () => {
   it("roller ve bağlar: tablist etiketi, seçili sekme paneli etiketliyor", () => {
     wrap(<TabsHarness />);
@@ -121,6 +125,44 @@ describe("Tabs", () => {
     fireEvent.keyDown(screen.getAllByRole("tab")[0], { key: "a" });
     fireEvent.keyDown(screen.getAllByRole("tab")[0], { key: "ArrowDown" });
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("değer yokken hiçbir sekme seçili değil ama ilk sekme Tab ile odaklanabiliyor", () => {
+    wrap(<NullTabs onChange={() => {}} />);
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.filter((tab) => tab.getAttribute("aria-selected") === "true")).toHaveLength(0);
+    expect(tabs.map((tab) => tab.tabIndex)).toEqual([0, -1, -1]);
+  });
+
+  it("değer yokken sağ ok ilk sekmeyi, sol ok ve End son sekmeyi seçiyor", () => {
+    const onChange = vi.fn();
+    wrap(<NullTabs onChange={onChange} />);
+    const list = screen.getByRole("tablist");
+    fireEvent.keyDown(list, { key: "ArrowRight" });
+    fireEvent.keyDown(list, { key: "ArrowLeft" });
+    fireEvent.keyDown(list, { key: "End" });
+    fireEvent.keyDown(list, { key: "Home" });
+    expect(onChange.mock.calls.map((call) => call[0])).toEqual(["genel", "gelismis", "gelismis", "genel"]);
+  });
+
+  it("onChange false dönerse odak kaymıyor", () => {
+    wrap(<NullTabs onChange={() => false} />);
+    const [first] = screen.getAllByRole("tab");
+    first.focus();
+    fireEvent.keyDown(screen.getByRole("tablist"), { key: "End" });
+    expect(document.activeElement).toBe(first);
+  });
+
+  it("children yoksa panel ve aria-controls yok", () => {
+    wrap(<NullTabs onChange={() => {}} />);
+    expect(screen.queryByRole("tabpanel")).toBeNull();
+    for (const tab of screen.getAllByRole("tab")) expect(tab.getAttribute("aria-controls")).toBeNull();
+  });
+
+  it("stretch şeridi tam genişlik yapıyor, sekmeler eşit bölünüyor", () => {
+    wrap(<NullTabs onChange={() => {}} />);
+    expect(screen.getByRole("tablist").className).toContain("w-full");
+    for (const tab of screen.getAllByRole("tab")) expect(tab.className).toContain("flex-1");
   });
 });
 
