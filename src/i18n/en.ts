@@ -47,6 +47,7 @@ export const en: Record<TranslationKey, string> = {
   "app.terminalCreateFailed": "Could not open terminal: {message}",
   "app.terminalSessionEnded": "[Session ended — you can close this terminal]",
   "app.settingsSaved": "Settings saved",
+  "app.settingsSaveFailed": "Setting could not be saved: {message}",
   "app.systemDeleted": "System deleted",
   "app.manualExported": "Manual systems exported: {path}",
   "app.exportFailed": "Export failed",

@@ -52,6 +52,7 @@ export const tr = {
   "app.terminalCreateFailed": "Terminal açılamadı: {message}",
   "app.terminalSessionEnded": "[Oturum sonlandı — terminali kapatabilirsin]",
   "app.settingsSaved": "Ayarlar kaydedildi",
+  "app.settingsSaveFailed": "Ayar kaydedilemedi: {message}",
   "app.systemDeleted": "Sistem silindi",
   "app.manualExported": "Manuel sistemler dışa aktarıldı: {path}",
   "app.exportFailed": "Dışa aktarma başarısız",

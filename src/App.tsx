@@ -996,13 +996,31 @@ export default function App() {
   const sidebarWidth = config?.sidebarWidth ?? SIDEBAR_DEFAULT_WIDTH;
   const sidebarCollapsed = config?.sidebarCollapsed ?? false;
 
-  const handleSidebarWidthCommit = useCallback(async (width: number) => {
-    setConfig(await window.api.saveConfig({ sidebarWidth: width }));
-  }, []);
+  // Yazma reddedilirse bildirim çıkıyor: yoksa işlenmemiş bir reddetme olur,
+  // kenar çubuğu sürüklenen genişliği gösterirken diskte eskisi kalırdı ve
+  // kullanıcı bunu bir sonraki açılışta fark ederdi. `pushToast` yalnızca
+  // setter kullanıyor, bağımlılık olmasına gerek yok.
+  const saveSidebarConfig = useCallback(
+    async (partial: Partial<AppConfig>) => {
+      try {
+        setConfig(await window.api.saveConfig(partial));
+      } catch (err) {
+        pushToast("error", t("app.settingsSaveFailed", { message: (err as Error).message }));
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [t]
+  );
 
-  const handleSidebarCollapsedChange = useCallback(async (collapsed: boolean) => {
-    setConfig(await window.api.saveConfig({ sidebarCollapsed: collapsed }));
-  }, []);
+  const handleSidebarWidthCommit = useCallback(
+    (width: number) => saveSidebarConfig({ sidebarWidth: width }),
+    [saveSidebarConfig]
+  );
+
+  const handleSidebarCollapsedChange = useCallback(
+    (collapsed: boolean) => saveSidebarConfig({ sidebarCollapsed: collapsed }),
+    [saveSidebarConfig]
+  );
 
   // Logon terminali tam ekranken kenar çubuğu çizilmiyor (bkz. <Sidebar>).
   const sidebarHidden = activity === "sapLauncher" && terminalFullscreen;
