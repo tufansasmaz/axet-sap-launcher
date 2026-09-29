@@ -108,8 +108,16 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
     // Üçüncü argüman OLMAZSA OLMAZ: `writeTextFile` varsayılan olarak var olmayan
     // bir dosyaya yazmayı reddediyor (ENOENT) ve bir klasörün İLK yönergesi tanım
     // gereği henüz yok — yani izinsiz hâli tam da en sık durumda patlıyordu.
-    const res = await window.api.writeTextFile(joinPath(cwd, FILE_NAME), text, true);
-    setSaving(false);
+    // Kayıt sürerken pencere kilitli (`closeDisabled`); istek hata fırlatırsa
+    // kilit kalkmazsa pencere Escape, X ve İptal'e kapalı kalırdı.
+    let res: { ok: boolean; error?: string };
+    try {
+      res = await window.api.writeTextFile(joinPath(cwd, FILE_NAME), text, true);
+    } catch (err) {
+      res = { ok: false, error: err instanceof Error ? err.message : String(err) };
+    } finally {
+      setSaving(false);
+    }
     if (!res.ok) {
       setError(res.error ?? t("common.unknownError"));
       return;

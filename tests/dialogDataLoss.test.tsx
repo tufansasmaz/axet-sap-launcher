@@ -220,6 +220,21 @@ describe("kaydederken kapanma kilidi", () => {
     pending.resolve({ ok: true });
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
+
+  it("ChatInstructionsDialog: yazma isteği hata fırlatırsa kilit kalkıyor, hata görünüyor", async () => {
+    const api = mockApi({ ok: true, content: "A" });
+    api.writeTextFile = vi.fn(() => Promise.reject(new Error("IPC koptu")));
+    const { onClose } = mountInstructions();
+    const box = await screen.findByRole("textbox");
+    fireEvent.change(box, { target: { value: "AB" } });
+    fireEvent.click(saveButton());
+
+    await screen.findByText(/IPC koptu/);
+    // Kilit kalktı: X yine çalışıyor ve kirli olduğu için önce soruyor.
+    fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
+    expect(screen.getByText(DISCARD_TITLE)).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+  });
 });
 
 // Yıkıcı onayda güvenli seçenek önde ve odakta: yanlışlıkla basılan Enter
