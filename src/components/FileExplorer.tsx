@@ -12,6 +12,7 @@ import {
 import type { FsEntry, FsImportFilesResult } from "../../app-electron/shared/types";
 import { AXET_PATH_MIME } from "../lib/attachments";
 import { useT } from "../i18n";
+import { ActiveLine } from "../shell/SidebarFooter";
 import { fileKind } from "../ui/fileIcons";
 
 // --- Yol yardımcıları ---
@@ -346,11 +347,13 @@ export default function FileExplorer({
           e.dataTransfer.setData("text/plain", entry.path);
         }}
         title={entry.name}
-        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left text-sm ${
-          isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
+        aria-current={isSelected ? "true" : undefined}
+        className={`relative flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1 pr-2 text-left text-sm ${
+          isSelected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-300 hover:bg-active/60"
         }`}
         style={{ paddingLeft }}
       >
+        {isSelected && <ActiveLine />}
         {/* İkon ve rengi dosya TÜRÜNDEN geliyor (bkz. src/ui/fileIcons.ts).
             Seçili satırda renk verilmiyor: seçim zemini zaten accent tonunda
             ve üstüne gelen renkli bir ikon o zemine karışıyordu. */}

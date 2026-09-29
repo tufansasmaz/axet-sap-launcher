@@ -5,6 +5,7 @@ import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import { resolveTier } from "../lib/tier";
 import { useT } from "../i18n";
+import { ActiveLine } from "../shell/SidebarFooter";
 
 interface TreeProps {
   nodes: SapNode[];
@@ -130,7 +131,7 @@ function TreeNode({
       <button
         ref={(el) => registerRowRef(node.uuid, el)}
         onClick={() => toggleExpand(node.uuid, depth)}
-        className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1.5 text-left text-sm text-slate-300 hover:bg-active/60 ${
+        className={`flex h-7 w-full cursor-pointer items-center gap-1.5 rounded-md px-2 text-left text-sm text-slate-300 hover:bg-active/60 ${
           isFolderFocused ? "ring-1 ring-inset ring-accent-400/70" : ""
         }`}
         style={{ paddingLeft: `${depth * 14 + 8}px` }}
@@ -174,11 +175,14 @@ function TreeNode({
                 key={item.uuid}
                 ref={(el) => registerRowRef(item.uuid, el)}
                 onClick={() => onSelect(path, service, item.uuid)}
-                className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
-                  isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
+                aria-current={isSelected ? "true" : undefined}
+                // Satır ölçüsü ve seçim Sohbet listesiyle aynı (spec §6.5).
+                className={`relative flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm transition-colors ${
+                  isSelected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-300 hover:bg-active/60"
                 } ${isFocused ? "ring-1 ring-inset ring-accent-400/70" : ""}`}
                 style={{ paddingLeft: `${(depth + 1) * 14 + 8}px` }}
               >
+                {isSelected && <ActiveLine />}
                 <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
                 <span className="truncate">{service.name}</span>
                 {tier && <TierBadge tier={tier} />}

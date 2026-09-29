@@ -92,6 +92,45 @@ describe("LogonSidebar", () => {
     expect(screen.queryByText("Son Bağlanılanlar")).toBeNull();
   });
 
+  it("ağaç ve son bağlanılanlar Sohbet'in satır ölçüsünü ve seçim dilini kullanıyor (spec §6.5)", () => {
+    renderSidebar({ selectedUuid: "item-1" });
+    // Aynı sistem iki listede de var: önce son bağlanılanlar, sonra ağaç.
+    const rows = screen.getAllByRole("button", { name: /S4D Geliştirme/ });
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.getAttribute("aria-current")).toBe("true");
+      expect(row.querySelector("[data-active-line]")).not.toBeNull();
+      for (const cls of ["h-7", "rounded-md", "relative", "bg-[var(--accent-glow)]"]) {
+        expect(row.classList.contains(cls)).toBe(true);
+      }
+      expect(row.classList.contains("bg-accent-500/20")).toBe(false);
+    }
+    expect(screen.getByRole("button", { name: "Test Müşteri" }).classList.contains("h-7")).toBe(true);
+    cleanup();
+
+    renderSidebar();
+    for (const row of screen.getAllByRole("button", { name: /S4D Geliştirme/ })) {
+      expect(row.getAttribute("aria-current")).toBeNull();
+      expect(row.querySelector("[data-active-line]")).toBeNull();
+    }
+  });
+
+  it("dosya görünümünde seçili dosya da aynı seçim dilinde", async () => {
+    const entry = { name: "rapor.abap", path: "C:/proje/rapor.abap", isDir: false, size: 1, modifiedAt: "" };
+    (window as unknown as { api: unknown }).api = new Proxy(
+      {},
+      {
+        get: (_t, k: string) =>
+          k === "listDir" ? async () => ({ ok: true, entries: [entry] }) : k.startsWith("on") ? () => () => {} : () => new Promise(() => {})
+      }
+    );
+    renderSidebar({ files: { ...FILES, selectedPath: entry.path }, mode: "files" });
+    const row = (await screen.findByText("rapor.abap")).closest("button")!;
+    expect(row.getAttribute("aria-current")).toBe("true");
+    expect(row.querySelector("[data-active-line]")).not.toBeNull();
+    expect(row.classList.contains("bg-[var(--accent-glow)]")).toBe(true);
+  });
+
   it("liste ilk kez yüklenirken yükleniyor yazıyor", () => {
     renderSidebar({ loading: true, customers: [] });
     expect(screen.getByText("Yükleniyor…")).toBeTruthy();

@@ -56,4 +56,21 @@ describe("Script ağacı (taşıma öncesi davranış)", () => {
     expect(await screen.findByText("RS38M-PROGRAMM")).toBeTruthy();
     expect(api.getGuiScriptNode).toHaveBeenCalledWith(0, 0, "wnd[0]/usr", undefined);
   });
+
+  it("seçili oturum ve öğe kenar çubuğunun seçim diliyle çiziliyor (spec §6.5)", async () => {
+    renderScript();
+    await openSession();
+    const session = screen.getByRole("button", { name: /^SE38 S4D/ });
+    expect(session.getAttribute("aria-current")).toBe("true");
+    expect(session.querySelector("[data-active-line]")).not.toBeNull();
+    expect(session.classList.contains("bg-[var(--accent-glow)]")).toBe(true);
+    expect(session.classList.contains("border-l-2")).toBe(false);
+
+    const row = (await screen.findAllByText("wnd[0]"))[0].parentElement!;
+    expect(row.querySelector("[data-active-line]")).toBeNull();
+    fireEvent.click(row);
+    const selected = screen.getAllByText("wnd[0]")[0].parentElement!;
+    expect(selected.getAttribute("aria-current")).toBe("true");
+    expect(selected.querySelector("[data-active-line]")).not.toBeNull();
+  });
 });

@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronRight, ListTree, Network, Plug } from "lucide-react";
 import { useT } from "../i18n";
+import { ActiveLine } from "../shell/SidebarFooter";
 import { useScriptCommands, useScriptStore } from "../stores/scriptStore";
 import { nodeKey } from "../stores/scriptTypes";
 import type { GuiScriptComponentSummary } from "../../app-electron/shared/types";
@@ -41,12 +42,14 @@ export default function ScriptSidebar() {
     return (
       <div key={summary.id || key}>
         <div
-          className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left ${
-            isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
+          aria-current={isSelected ? "true" : undefined}
+          className={`relative flex w-full cursor-pointer items-center gap-1.5 rounded-md py-1 pr-2 text-left ${
+            isSelected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-300 hover:bg-active/60"
           }`}
           style={{ paddingLeft }}
           onClick={() => commands.selectElement(summary.id)}
         >
+          {isSelected && <ActiveLine />}
           {summary.hasChildren ? (
             <button
               onClick={(e) => {
@@ -138,12 +141,14 @@ export default function ScriptSidebar() {
                               key={session.index}
                               onClick={() => commands.selectSession(conn.index, session.index)}
                               aria-current={isActive ? "true" : undefined}
-                              className={`flex w-full cursor-pointer flex-col gap-0.5 border-l-2 py-1.5 pl-5 pr-2.5 text-left ${
-                                isActive
-                                  ? "border-accent-500 bg-accent-500/10 text-white"
-                                  : "border-transparent text-slate-300 hover:bg-hover"
+                              // Seçim kenar çubuğunun öteki listeleriyle aynı:
+                              // zemin ve soldaki çizgi (spec §6.5). İki satırlık
+                              // yükseklik kalıyor; alt satır sistem/istemci/kullanıcı.
+                              className={`relative flex w-full cursor-pointer flex-col gap-0.5 rounded-md py-1.5 pl-5 pr-2.5 text-left ${
+                                isActive ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-300 hover:bg-hover"
                               }`}
                             >
+                              {isActive && <ActiveLine />}
                               <span className="truncate text-2xs font-medium">
                                 {session.info.Transaction || session.info.Program || `Session ${session.index}`}
                               </span>

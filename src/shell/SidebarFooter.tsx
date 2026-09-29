@@ -38,8 +38,9 @@ export function selectedClass(selected: boolean) {
   return selected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-400 hover:bg-hover/60 hover:text-slate-300";
 }
 
+// Kenar çubuğunun bütün listelerinde aynı çizgi (Sohbet, Logon ağacı, Script).
 export function ActiveLine() {
-  return <span aria-hidden className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent-400" />;
+  return <span data-active-line aria-hidden className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent-400" />;
 }
 
 export default function SidebarFooter({

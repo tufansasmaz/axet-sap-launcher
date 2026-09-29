@@ -35,6 +35,7 @@ import {
   SAP_SECTION_KEY,
 } from "../lib/chatSessionGroups";
 import { resolveTier } from "../lib/tier";
+import { ActiveLine } from "../shell/SidebarFooter";
 import { useChatCommands, useChatStore } from "../stores/chatStore";
 import type { ChatSession, RecentEntry } from "../stores/chatTypes";
 import { Eyebrow } from "../ui/Eyebrow";
@@ -233,13 +234,7 @@ export default function ChatSidebar({
             : "text-slate-400 hover:bg-hover/60 hover:text-slate-300"
         }`}
       >
-        {isActive && (
-          <span
-            data-active-line
-            aria-hidden
-            className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent-400"
-          />
-        )}
+        {isActive && <ActiveLine />}
         {/* Sohbet ikonu KALDIRILDI (kullanıcı isteği, 2026-09-06: *"chat
             kısmında sohbetlerin yanındaki iconu kaldıralım"*). Bir sohbet
             listesinde her satıra "bu bir sohbettir" ikonu koymak bilgi

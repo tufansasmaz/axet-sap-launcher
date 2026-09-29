@@ -5,6 +5,7 @@ import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import { resolveTier } from "../lib/tier";
 import { useT } from "../i18n";
+import { ActiveLine } from "../shell/SidebarFooter";
 
 interface RecentEntry {
   path: string[];
@@ -82,10 +83,13 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
               key={entry.itemUuid}
               onClick={() => onSelect(entry.path, entry.service, entry.itemUuid)}
               title={entry.path.join(" / ")}
-              className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm transition-colors ${
-                isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
+              aria-current={isSelected ? "true" : undefined}
+              // Satır ölçüsü ve seçim Sohbet listesiyle aynı (spec §6.5).
+              className={`relative flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm transition-colors ${
+                isSelected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-300 hover:bg-active/60"
               }`}
             >
+              {isSelected && <ActiveLine />}
               <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
               <span className="truncate">{entry.service.name}</span>
               {tier && <TierBadge tier={tier} />}
