@@ -585,7 +585,7 @@ describe("görünüm ayarı", () => {
   });
 ```
 
-2. Kalan iki testte `"warm"` → `"amber"`, beklenen metinlerde `warm/` → `amber/` (dört yer: `setAttribute("data-palette", "warm")` iki kez, `"warm/light"` iki kez, `"warm/dark"` bir kez).
+2. Kalan iki testte `"warm"` → `"amber"`, beklenen metinlerde `warm/` → `amber/` (beş yer: `setAttribute("data-palette", "warm")` iki kez, `"warm/light"` iki kez, `"warm/dark"` bir kez).
 
 3. `it("tanınmayan değer varsayılana düşüyor"` testinde beklenen `"indigo/dark"` → `"ntt/dark"`. Hemen altına ekle:
 
@@ -2230,7 +2230,7 @@ Dosyanın tamamı (CRLF koru):
 ```tsx
 import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 
-// Sekmeler (spec §6.4), WAI-ARIA "tabs" kalıbı, otomatik etkinleştirme:
+// Sekmeler (spec §6.2), WAI-ARIA "tabs" kalıbı, otomatik etkinleştirme:
 // ok tuşu seçimi ve odağı birlikte taşıyor. Yalnızca seçili sekme Tab
 // sırasında (gezici tabindex) — Tab tuşu sekme şeridinden panele atlıyor,
 // her sekmede durmuyor.
@@ -3511,7 +3511,7 @@ Sohbet listesi `AxetCodeHome`'dan kendi bileşenine taşınıyor (spec §5.1). V
 
 Bu görevde kabuk henüz değişmiyor: `App` sohbet ekranının solunda geçici bir `aside` içinde `ChatSidebar`'ı çiziyor. Genişlik ayarı ve daraltma Görev 15'te geliyor, bu yüzden bugünkü daraltma düğmesi bu görevde **kalkıyor** ve kenar çubuğu 264px'te sabit duruyor. `config.chatSidebarOpen` Görev 15'e kadar okunmuyor.
 
-Bu görevde satırlar da yeni yoğunluğa geçiyor (spec §6.6): 28px yükseklik, kenarlıksız, seçili satırda solda 2px'lik bir çizgi ve hafif vurgu zemini.
+Bu görevde satırlar da yeni yoğunluğa geçiyor (spec §6.5): 28px yükseklik, kenarlıksız, seçili satırda solda 2px'lik bir çizgi ve hafif vurgu zemini.
 
 Görev 9'un davranış testleri gövdeleri değişmeden yeşil kalmalı. Yalnızca `renderChatHome` yardımcısı iki bileşeni birlikte çiziyor.
 
@@ -3873,7 +3873,7 @@ Ayrıca:
 
 - [ ] **Adım 5: Satırı yeni yoğunlukta yaz**
 
-`renderSessionRow`'u şu kodla doldur. Yeniden adlandırma kutusu ve dört düğme bugünküyle aynı davranıyor; değişen, satırın ölçüsü ve seçili gösterimi (spec §6.6). Bugünkü satırdaki "Keskin köşe", "Kenarlık HER satırda var", "Sohbet ikonu KALDIRILDI", "Projeye taşı", "Dışa aktarma yalnızca DOLU sohbetlerde" ve `focus-visible:opacity-100` yorumlarından artık doğru olmayan ilk ikisi siliniyor, diğerleri kalıyor:
+`renderSessionRow`'u şu kodla doldur. Yeniden adlandırma kutusu ve dört düğme bugünküyle aynı davranıyor; değişen, satırın ölçüsü ve seçili gösterimi (spec §6.5). Bugünkü satırdaki "Keskin köşe", "Kenarlık HER satırda var", "Sohbet ikonu KALDIRILDI", "Projeye taşı", "Dışa aktarma yalnızca DOLU sohbetlerde" ve `focus-visible:opacity-100` yorumlarından artık doğru olmayan ilk ikisi siliniyor, diğerleri kalıyor:
 
 ```tsx
   const renderSessionRow = (session: ChatSession) => {
@@ -3919,7 +3919,7 @@ Ayrıca:
         }}
         title={session.title}
         aria-current={isActive ? "true" : undefined}
-        // 28px satır (spec §6.6): eskiden 36px'ti ve kenarlıklıydı. Seçili
+        // 28px satır (spec §6.5): eskiden 36px'ti ve kenarlıklıydı. Seçili
         // satır zeminden ve soldaki çizgiden tanınıyor; kenarlık yok, yani
         // seçim satırın ölçüsünü değiştirmiyor.
         className={`group relative flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-sm transition-colors ${
@@ -4358,16 +4358,17 @@ async function openSession() {
   fireEvent.click(await screen.findByRole("button", { name: /^SE38 S4D/ }));
 }
 
-// Ağaç satırındaki açma oku: adın durduğu satırın ilk düğmesi.
+// Ağaç satırındaki açma oku: adın durduğu satırın ilk düğmesi. Ad birden
+// fazla yerde çıkabiliyor (kökün adı denetçide de yazıyor); ağaç DOM'da önce.
 function chevronOf(name: string) {
-  return screen.getByText(name).parentElement!.querySelector("button")!;
+  return screen.getAllByText(name)[0].parentElement!.querySelector("button")!;
 }
 
 describe("Script ağacı (taşıma öncesi davranış)", () => {
   it("oturum seçilince ağacın kökü o oturumdan okunuyor", async () => {
     renderScript();
     await openSession();
-    expect(await screen.findByText("wnd[0]")).toBeTruthy();
+    expect((await screen.findAllByText("wnd[0]"))[0]).toBeTruthy();
     expect(api.getGuiScriptNode).toHaveBeenCalledWith(0, 0, null, undefined);
     expect(api.getGuiScriptScreen).toHaveBeenCalledWith(0, 0);
   });
@@ -4375,7 +4376,7 @@ describe("Script ağacı (taşıma öncesi davranış)", () => {
   it("düğüm açılınca çocukları okunuyor", async () => {
     renderScript();
     await openSession();
-    await screen.findByText("wnd[0]");
+    await screen.findAllByText("wnd[0]");
     fireEvent.click(chevronOf("wnd[0]"));
     expect(await screen.findByText("usr")).toBeTruthy();
     fireEvent.click(chevronOf("usr"));
@@ -4385,14 +4386,20 @@ describe("Script ağacı (taşıma öncesi davranış)", () => {
 });
 ```
 
+**Kök düğümün adı (`wnd[0]`) ekranda üç kez çıkıyor.** Ağaçta bir kez, sağdaki öğe denetçisinde iki kez (`ElementInspector`'da ad ve kimlik). Denetçi varsayılan olarak açık (`inspectorOpen`). Seçili öğe boşken de kökü gösteriyor, çünkü `selectedNode` köke düşüyor. Bu yüzden tekil `findByText("wnd[0]")` / `getByText("wnd[0]")` "multiple elements" hatası fırlatır.
+
+Kural: birden fazla yerde çıkabilen bir düğüm adı her zaman `(await screen.findAllByText(ad))[0]` ya da `screen.getAllByText(ad)[0]` ile aranıyor. Bu kural bu dosyada, `chevronOf`'ta ve Adım 4'teki `scriptStore` testinde geçerli. İlk eleman ağacınki, çünkü ağaç DOM'da denetçiden önce geliyor:
+- Taşımadan önce sol panel, çalışma alanı satırında `ScreenViewer`'dan ve denetçiden önce çiziliyor.
+- Taşımadan sonra `ScriptSidebar` ekrandan önce çiziliyor. Bu testlerde de `App`'te de böyle.
+
+`usr` ve `RS38M-PROGRAMM` yalnızca ağaçta çıkıyor, çünkü denetçi çocukları listelemiyor. `chevronOf` yine de aynı yolu kullanıyor.
+
 - [ ] **Adım 2: Testin bugünkü kodla GEÇTİĞİNİ gör**
 
 Çalıştır: `npx vitest run tests/scriptBehaviour.test.tsx`
 Beklenen: PASS (2 test). Bu testler kırılan test değil; bugünkü davranışı çiviliyor.
 
-Kırılırsa kodu değil testi düzelt. Muhtemel sebepler:
-- Düğmenin erişilebilir adı farklı. Bugün bağlantı düğmesi `conn.description`, oturum düğmesi "işlem + sistem · istemci · kullanıcı".
-- `wnd[0]` metni ekranda iki yerde çıkıyor.
+Kırılırsa kodu değil testi düzelt. Muhtemel sebep: düğmenin erişilebilir adı farklı. Bugün bağlantı düğmesi `conn.description`, oturum düğmesi "işlem + sistem · istemci · kullanıcı". Bir düğüm adı "multiple elements" hatası veriyorsa, yukarıdaki kurala uymayan bir sorgu kalmış demektir.
 
 Kodda bir şeyi değiştirmen gerekiyorsa DUR ve sor.
 
@@ -4407,7 +4414,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 - [ ] **Adım 4: Store için kırılan testi yaz**
 
-`tests/scriptStore.test.tsx`:
+`tests/scriptStore.test.tsx`. Adım 1'in altındaki `wnd[0]` kuralı burada da geçerli: kökün adı her zaman `findAllByText`/`getAllByText` ile aranıyor ve ilk eleman alınıyor.
 
 ```tsx
 // @vitest-environment jsdom
@@ -4460,7 +4467,7 @@ afterEach(cleanup);
 async function openSession() {
   fireEvent.click(await screen.findByRole("button", { name: "S4D Geliştirme" }));
   fireEvent.click(await screen.findByRole("button", { name: /^SE38 S4D/ }));
-  await screen.findByText("wnd[0]");
+  await screen.findAllByText("wnd[0]");
 }
 
 const noop: ScriptCommands = {
@@ -4537,8 +4544,9 @@ describe("Script'ten çıkıp dönmek", () => {
     api.setActiveGuiContext.mockClear();
     view.rerender(<Harness show />);
 
-    // Eski ağaç istek beklemeden görünüyor.
-    expect(screen.getByText("wnd[0]")).toBeTruthy();
+    // Eski ağaç istek beklemeden görünüyor. Denetçi de kökün adını yazdığı
+    // için metnin varlığı yetmiyor: ilk eşleşme, açma oku olan ağaç satırı.
+    expect(screen.getAllByText("wnd[0]")[0].parentElement!.querySelector("button")).toBeTruthy();
     await waitFor(() => expect(api.getGuiScriptScreen).toHaveBeenCalledWith(0, 0));
     await waitFor(() =>
       expect(api.setActiveGuiContext).toHaveBeenCalledWith(
@@ -4553,7 +4561,7 @@ describe("Script'ten çıkıp dönmek", () => {
   it("seçili oturum arada kapandıysa seçim temizleniyor ve eski oturuma istek gitmiyor", async () => {
     const view = render(<Harness show />);
     await openSession();
-    fireEvent.click(screen.getByText("wnd[0]"));
+    fireEvent.click(screen.getAllByText("wnd[0]")[0]);
     await waitFor(() => expect(store.selectedElementId).toBe("wnd[0]"));
     view.rerender(<Harness show={false} />);
 
@@ -5069,14 +5077,14 @@ import { ScriptStoreProvider } from "./stores/scriptStore";
 3. `sapGuiScripting` dalını (bugün ~1107–1108):
 
 ```tsx
-        ) : activity === "sapGuiScripting" ? (
+        {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome activeSap={activeContext.sap} />
 ```
 
-şöyle yap (dalın başındaki `{activity === "axetCode" ? null :` aynen kalıyor):
+şöyle yap. İlk satır değişmiyor; `{` ile başlıyor, önünde `)` yok:
 
 ```tsx
-        ) : activity === "sapGuiScripting" ? (
+        {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
           // Geçici: Görev 14'te kabuğun `Sidebar`'ı bu `aside`'ın yerini alıyor.
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <aside className="flex w-[264px] shrink-0 flex-col border-r border-line-subtle bg-sidebar">
@@ -6133,10 +6141,10 @@ import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./sh
 
 Üstündeki uzun "axet.code HER ZAMAN mount" yorumuna dokunma.
 
-8. Script dalını Görev 12'den önceki hâline döndür (geçici yorum, sarmalayıcı `div` ve `aside` gidiyor):
+8. Script dalını Görev 12'den önceki hâline döndür (geçici yorum, sarmalayıcı `div` ve `aside` gidiyor; ilk satır aynen kalıyor):
 
 ```tsx
-        ) : activity === "sapGuiScripting" ? (
+        {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome activeSap={activeContext.sap} />
 ```
 
@@ -6170,7 +6178,7 @@ git rm src/components/ActivityBar.tsx
 Kontrol:
 
 Çalıştır: `grep -rn "ActivityBar" src tests`
-Beklenen: yalnızca `AppConnectionsModal.tsx:16` ve `AxetFlowsHome.tsx:11`.
+Beklenen: yalnızca üç yorum: `AppConnectionsModal.tsx:16`, `AxetFlowsHome.tsx:11` ve Adım 4'te yazılan `src/shell/activity.ts`'in baş yorumu ("Değerler `ActivityBar`'dan aynen taşındı").
 
 - [ ] **Adım 10: Bütün takımı çalıştır**
 
@@ -6203,7 +6211,7 @@ Sınırlar ve okuma kuralı hem ana süreçte hem arayüzde gerekiyor. Bu yüzde
 **Dosyalar:**
 - Oluştur: `app-electron/shared/sidebarLayout.ts`
 - Değiştir: `app-electron/shared/types.ts:366-368` (`chatSidebarOpen` ve yorumu)
-- Değiştir: `app-electron/main/store.ts`: import'lar (~1–21), varsayılan (~109), okuma (~176–184)
+- Değiştir: `app-electron/main/store.ts`: import'lar (~1–21), varsayılan (~109), okuma (~176–184), eski alan silme (~216–220)
 - Değiştir: `src/shell/Sidebar.tsx`, `src/shell/SidebarFooter.tsx` (Görev 14)
 - Değiştir: `src/App.tsx`: import'lar, Ctrl+F efekti, `<Sidebar>` (Görev 14)
 - Değiştir: `src/components/SettingsModal.tsx:312,623-630`
@@ -6218,6 +6226,7 @@ Sınırlar ve okuma kuralı hem ana süreçte hem arayüzde gerekiyor. Bu yüzde
   - `AppConfig.sidebarWidth: number`, `AppConfig.sidebarCollapsed: boolean`; `AppConfig.chatSidebarOpen` yok.
   - `SidebarProps`'a eklenen: `width: number; collapsed: boolean; onWidthCommit: (width: number) => void; onCollapsedChange: (collapsed: boolean) => void`.
   - `SidebarFooter`'ın ikinci prop kümesi (yalnızca `Sidebar` veriyor): `collapsed?: boolean; onCollapse?: () => void`.
+  - `src/shell/SidebarFooter.tsx`'ten adlı dışa aktarımlar (daraltılmış şeridin ortak parçaları, `Sidebar` da kullanıyor): `STRIP_BTN: string`, `selectedClass(selected: boolean): string`, `ActiveLine()` (seçili satırın solundaki 2px çizgi).
   - `App`'te `sidebarCollapsed` (config'ten türetilmiş) ve `handleSidebarCollapsedChange(collapsed: boolean): Promise<void>`. Görev 16 ikisini kısayollarda kullanıyor.
   - Çeviri: `shell.collapseSidebar`, `shell.expandSidebar` (eski `axetCodeHome.*` anahtarlarından taşınıyor), `shell.resizeWidth`.
 
@@ -6388,25 +6397,22 @@ import { SIDEBAR_DEFAULT_WIDTH, clampSidebarWidth, readSidebarCollapsed } from "
     sidebarCollapsed: false,
 ```
 
-   - `loadConfig()`'te `const merged: AppConfig = {` satırının hemen üstüne:
-
-```ts
-    // `chatSidebarOpen` artık yok (bkz. readSidebarCollapsed). Birleştirmeye
-    // girmesin diye ayıklanıyor; yoksa `...parsed` onu taşır ve her kayıtta
-    // dosyaya geri yazılırdı.
-    const rest = { ...parsed };
-    delete rest.chatSidebarOpen;
-```
-
-   - `merged`'deki `...parsed,` satırını `...rest,` yap.
-   - `chatSidebarOpen: typeof parsed.chatSidebarOpen === …` satırını şununla değiştir:
+   - `merged`'deki `chatSidebarOpen: typeof parsed.chatSidebarOpen === …` satırını şununla değiştir:
 
 ```ts
       sidebarWidth: clampSidebarWidth(parsed.sidebarWidth),
       sidebarCollapsed: readSidebarCollapsed(parsed),
 ```
 
-`parsed` `JSON.parse`'tan geldiği için `any`; `rest` de öyle, `delete` tip hatası vermiyor.
+   - `merged`'in hemen altındaki eski alan silme bloğuna (`const dead = merged as unknown as Record<string, unknown>;`, altında `delete dead.chatUseConnectors;` ve `delete dead.chatConnectorMode;`), `delete dead.chatConnectorMode;` satırının altına:
+
+```ts
+    // `chatSidebarOpen` yukarıda `sidebarCollapsed`'a göç etti (bkz.
+    // readSidebarCollapsed); `...parsed` onu taşımasın, kayıtta düşsün.
+    delete dead.chatSidebarOpen;
+```
+
+Sıra doğru: `readSidebarCollapsed(parsed)` `merged` kurulurken `parsed`'tan okuyor. Silme ondan sonra ve `parsed`'a değil `merged`'e yapılıyor. `saveConfig` `loadConfig`'ten okuduğu için eski alan ilk kayıtta dosyadan da düşüyor.
 
 - [ ] **Adım 5: Testi çalıştır**
 
@@ -6447,7 +6453,7 @@ sed -i '/"settingsModal\.chatSidebarOpenLabel"/d; /"app\.expandSidebar"/d; /"app
 Kontrol:
 
 Çalıştır: `grep -rn "chatSidebarOpen" src app-electron tests`
-Beklenen: yalnızca `app-electron/shared/sidebarLayout.ts`, `app-electron/main/store.ts` (göç) ve `tests/sidebarConfig.test.ts`.
+Beklenen: yalnızca `app-electron/shared/sidebarLayout.ts`, `app-electron/main/store.ts` (göç), `app-electron/shared/types.ts` (Adım 4'te yazılan `sidebarCollapsed` yorumu) ve `tests/sidebarConfig.test.ts`.
 
 - [ ] **Adım 7: Kenar çubuğunun başarısız testlerini yaz**
 
@@ -6623,14 +6629,16 @@ const ROW =
 const ICON_BTN =
   "flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-hover hover:text-slate-100";
 // Daraltılmış şeridin kare düğmesi: 48px şeritte iki yanda 6px boşluk.
-const STRIP_BTN =
+// Bu üçü `Sidebar`'ın şeridindeki mod ikonlarında da kullanılıyor; iki
+// kopya olsa seçili hâl biri ötekinden kayardı.
+export const STRIP_BTN =
   "relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-md transition-colors";
 
-function selectedClass(selected: boolean) {
+export function selectedClass(selected: boolean) {
   return selected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-400 hover:bg-hover/60 hover:text-slate-300";
 }
 
-function ActiveLine() {
+export function ActiveLine() {
   return <span aria-hidden className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent-400" />;
 }
 
@@ -6788,7 +6796,7 @@ import {
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import { Tabs } from "../ui/Tabs";
-import SidebarFooter, { type SidebarFooterProps } from "./SidebarFooter";
+import SidebarFooter, { ActiveLine, STRIP_BTN, selectedClass, type SidebarFooterProps } from "./SidebarFooter";
 import { SIDEBAR_MODES, type SidebarMode } from "./activity";
 
 export interface SidebarProps {
@@ -6825,9 +6833,6 @@ const MODE_NAME: Record<SidebarMode, TranslationKey> = {
   sapLauncher: "shell.sapLauncher",
   sapGuiScripting: "shell.sapGuiScripting"
 };
-
-const STRIP_BTN =
-  "relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-md transition-colors";
 
 export default function Sidebar({
   mode,
@@ -6925,15 +6930,9 @@ export default function Sidebar({
                   aria-label={t(MODE_NAME[value])}
                   title={t(MODE_NAME[value])}
                   aria-current={current ? "page" : undefined}
-                  className={`${STRIP_BTN} ${
-                    current
-                      ? "bg-[var(--accent-glow)] text-slate-100"
-                      : "text-slate-400 hover:bg-hover/60 hover:text-slate-300"
-                  }`}
+                  className={`${STRIP_BTN} ${selectedClass(current)}`}
                 >
-                  {current && (
-                    <span aria-hidden className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-accent-400" />
-                  )}
+                  {current && <ActiveLine />}
                   <Icon size={16} aria-hidden />
                 </button>
               );
@@ -7084,6 +7083,7 @@ Kısayollar tek bir kancada toplanıyor (spec §6.4):
 - **`/`:** o modun arama kutusunu (`[data-sidebar-search]`, Görev 11 ve 13) odaklıyor. Odak bir yazı alanındaysa (input, textarea, select, contenteditable, xterm) hiçbir şey olmuyor. Sohbet kutusundaki `/` menüsü de bu yüzden etkilenmiyor. Script'te arama yok, orada da bir şey olmuyor. Kenar çubuğu daraltılmışsa önce açılıyor, odak açıldıktan sonra veriliyor.
 - **Ctrl+F:** bugünkü gibi her ekranda tarayıcının bul çubuğunu engelliyor; Logon'daysa arama kutusunu odaklıyor. Görev 15'te App'e eklenen efekt buraya taşınıyor.
 - **Ctrl+B yok:** gömülü terminalde axet-code'un kendi kısayolu.
+- **Açık pencere:** ekranda `aria-modal="true"` bir öğe varsa (`Modal`, `SapWriteGate`, `AttachmentLightbox`) Ctrl+F yalnızca bul çubuğunu engelliyor, başka hiçbir kısayol çalışmıyor. Mod değişmiyor, arama kutusu odaklanmıyor, daraltılmış kenar çubuğu açılmıyor. Spec bu durumu tanımlamıyor. Kural olmasa `/` odağı pencerenin arkasındaki arama kutusuna kaçırır, Ctrl+1/2/3 de modu pencerenin arkasında değiştirirdi. `Modal` yalnızca Tab'i tutuyor.
 
 Logon'un terminali tam ekrandayken kenar çubuğu gizli (Görev 14). O sırada `/` ve Ctrl+F kutuyu aramıyor, daraltılmış kenar çubuğunu da açmıyor.
 
@@ -7098,7 +7098,7 @@ Kanca dinleyiciyi bir kez kuruyor, güncel değerleri bir ref'ten okuyor. Böyle
 - Tüketir: `SIDEBAR_MODES`, `SidebarMode` (Görev 14, `src/shell/activity.ts`); `data-sidebar-search` niteliği (Görev 11 `ChatSidebar`, Görev 13 `LogonSidebar`); App'teki `listMode` (Görev 14), `sidebarCollapsed` ve `handleSidebarCollapsedChange` (Görev 15).
 - Üretir:
   - `export interface ShellShortcutOptions { listMode: SidebarMode; sidebarCollapsed: boolean; sidebarHidden: boolean; onModeChange: (mode: SidebarMode) => void; onExpandSidebar: () => Promise<void> }`
-  - `export function useShellShortcuts(options: ShellShortcutOptions): void`
+  - `export function useShellShortcuts(options: ShellShortcutOptions): void`. `document.querySelector('[aria-modal="true"]')` bir şey buluyorsa Ctrl+F'te yalnızca `preventDefault`, başka hiçbir şey yapmıyor.
   - `export function isInTerminal(target: EventTarget | null): boolean`
   - `export function isTypingTarget(target: EventTarget | null): boolean`
 
@@ -7275,6 +7275,24 @@ describe("Ctrl+F", () => {
   });
 });
 
+describe("açık bir pencere (aria-modal) varken", () => {
+  it("yalnızca Ctrl+F engelleniyor; mod değişmiyor, arama odaklanmıyor", () => {
+    const { props } = setup({ listMode: "sapLauncher" });
+    render(
+      <div aria-modal="true">
+        <button type="button">Penceredeki düğme</button>
+      </div>
+    );
+    const inDialog = screen.getByRole("button", { name: "Penceredeki düğme" });
+    inDialog.focus();
+    expect(fireEvent.keyDown(inDialog, { key: "/" })).toBe(true);
+    expect(fireEvent.keyDown(inDialog, { key: "2", ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(inDialog, { key: "f", ctrlKey: true })).toBe(false);
+    expect(props.onModeChange).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(inDialog);
+  });
+});
+
 describe("isTypingTarget", () => {
   it("yazı alanlarını ve terminali tanıyor, düğmeyi değil", () => {
     setup();
@@ -7355,6 +7373,16 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
     const onKeyDown = (e: KeyboardEvent) => {
       const { listMode, sidebarHidden, onModeChange } = latest.current;
       const mod = e.ctrlKey || e.metaKey;
+      const isFind = mod && !e.altKey && e.key.toLowerCase() === "f";
+
+      // Açık bir pencere (`aria-modal`) varken kabuk susuyor: `/` odağı
+      // pencerenin arkasındaki arama kutusuna kaçırır, Ctrl+1/2/3 modu
+      // pencerenin arkasında değiştirirdi. `Modal` yalnızca Tab'i tutuyor.
+      // Tarayıcının bul çubuğu yine engelleniyor.
+      if (document.querySelector('[aria-modal="true"]')) {
+        if (isFind) e.preventDefault();
+        return;
+      }
 
       if (mod && !e.altKey && !e.shiftKey && /^[1-3]$/.test(e.key)) {
         if (isInTerminal(e.target)) return;
@@ -7365,7 +7393,7 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
 
       // Tarayıcının bul çubuğu bu uygulamada anlamsız; her ekranda
       // engelleniyor (bugünkü davranış). Kutu yalnızca Logon'da.
-      if (mod && !e.altKey && e.key.toLowerCase() === "f") {
+      if (isFind) {
         e.preventDefault();
         if (listMode === "sapLauncher" && !sidebarHidden) openSearch();
         return;
@@ -7389,7 +7417,7 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
 - [ ] **Adım 4: Testi çalıştır**
 
 Çalıştır: `npx vitest run tests/shellShortcuts.test.tsx`
-Beklenen: PASS, 14 test.
+Beklenen: PASS, 15 test.
 
 - [ ] **Adım 5: `App.tsx`'i bağla**
 
@@ -7474,7 +7502,7 @@ Beklenen: PASS.
 Beklenen: hepsi PASS, tip hatası yok; `tests/dialogDataLoss.test.tsx` dahil.
 
 Çalıştır: `grep -rn "ActivityBar\|chatSidebarOpen" src app-electron`
-Beklenen: `ActivityBar` yalnızca iki yorumda (`AppConnectionsModal.tsx`, `AxetFlowsHome.tsx`; Görev 14); `chatSidebarOpen` yalnızca göç kodunda (`app-electron/shared/sidebarLayout.ts`, `app-electron/main/store.ts`; Görev 15).
+Beklenen: `ActivityBar` yalnızca üç yorumda (`AppConnectionsModal.tsx`, `AxetFlowsHome.tsx`, `src/shell/activity.ts`; Görev 14); `chatSidebarOpen` yalnızca göç kodunda (`app-electron/shared/sidebarLayout.ts`, `app-electron/main/store.ts`) ve `app-electron/shared/types.ts`'teki `sidebarCollapsed` yorumunda (Görev 15).
 
 - [ ] **Adım 3: Cırcırı commit et**
 
@@ -7501,7 +7529,7 @@ Ayarlar → Görünüm'den sırayla NTT mavisi, İndigo, Amber × Koyu, Açık. 
 - **Hazırlık:** açıkken hiçbir sekme seçili değil, liste son modun; listeye tıklamak o moda dönüyor. Tab ile sekmelere ulaşılıyor.
 - **Genişlik:** tutamacı sürükle; 220 ve 420'de duruyor. Tutamaca Tab ile gel, oklarla ve Shift+oklarla değiştir. Uygulamayı kapatıp aç: genişlik kalmış.
 - **Daraltma:** 48px şerit; üç mod ikonu (ipucu modun adı), Hazırlık, Bağlantılar, Ayarlar. Açma düğmesi geri getiriyor. Kapatıp aç: hâl kalmış.
-- **Kısayollar:** Ctrl+1/2/3 modu değiştiriyor, gömülü terminalin içindeyken değiştirmiyor. `/` Sohbet'te ve Logon'da arama kutusunu odaklıyor; sohbet kutusunda yazarken `/` menüsü eskisi gibi açılıyor. Ctrl+F Logon'da aramayı odaklıyor. Daraltılmışken `/` önce açıyor.
+- **Kısayollar:** Ctrl+1/2/3 modu değiştiriyor, gömülü terminalin içindeyken değiştirmiyor. `/` Sohbet'te ve Logon'da arama kutusunu odaklıyor; sohbet kutusunda yazarken `/` menüsü eskisi gibi açılıyor. Ctrl+F Logon'da aramayı odaklıyor. Daraltılmışken `/` önce açıyor. Ayarlar açıkken `/` ve Ctrl+1/2/3 hiçbir şey yapmıyor, odak pencerede kalıyor.
 - **Logon terminali tam ekran:** kenar çubuğu gizleniyor, çıkınca geri geliyor.
 - **Script:** bir oturum seçip Sohbet'e geç, geri dön; seçim duruyor. Oturum o arada SAP'de kapandıysa seçim temizlenmiş (Görev 12).
 - **Genel:** taşan ya da kesilen metin (uzun sistem adları, uzun sohbet başlıkları, 220px'te); soluk gri üstünde soluk gri; eski renk kalıntısı.
