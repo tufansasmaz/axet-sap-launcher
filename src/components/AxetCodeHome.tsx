@@ -48,6 +48,7 @@ import { baseName, promptWithAttachments, toAttachments } from "../lib/attachmen
 import { chatToMarkdown, safeFileName } from "../lib/chatExport";
 import { chatToPrintHtml } from "../lib/chatPrint";
 import { useT } from "../i18n";
+import { Eyebrow } from "../ui/Eyebrow";
 
 // Kullanıcı yazmayı bu kadar duraklattıktan sonra alt süreç ısıtılıyor. Her
 // tuşta ısıtmak süreç açıp kapatmaktan başka bir şey yapmazdı; yarım saniye,
@@ -2897,19 +2898,16 @@ export default function AxetCodeHome({
                   <button
                     onClick={() => toggleGroup(PROJECTS_SECTION_KEY)}
                     aria-expanded={groupOpen(PROJECTS_SECTION_KEY)}
-                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-2 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
+                    className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-2 text-left text-slate-400 transition hover:text-slate-200"
                   >
                     {groupOpen(PROJECTS_SECTION_KEY) ? (
                       <ChevronDown size={12} className="shrink-0" />
                     ) : (
                       <ChevronRight size={12} className="shrink-0" />
                     )}
-                    <span className="min-w-0 flex-1 truncate">
+                    <Eyebrow as="span" count={projects.length} className="min-w-0 flex-1 group-hover:text-slate-200">
                       {t("axetCodeHome.projectsTitle")}
-                    </span>
-                    <span className="shrink-0 normal-case tracking-normal">
-                      {projects.length}
-                    </span>
+                    </Eyebrow>
                   </button>
                   <div
                     className={
@@ -3011,19 +3009,16 @@ export default function AxetCodeHome({
                   <button
                     onClick={() => toggleGroup(SAP_SECTION_KEY)}
                     aria-expanded={groupOpen(SAP_SECTION_KEY)}
-                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
+                    className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-slate-400 transition hover:text-slate-200"
                   >
                     {groupOpen(SAP_SECTION_KEY) ? (
                       <ChevronDown size={12} className="shrink-0" />
                     ) : (
                       <ChevronRight size={12} className="shrink-0" />
                     )}
-                    <span className="min-w-0 flex-1 truncate">
+                    <Eyebrow as="span" count={sessionGroups.sapGroups.length} className="min-w-0 flex-1 group-hover:text-slate-200">
                       {t("axetCodeHome.sapChatsTitle")}
-                    </span>
-                    <span className="shrink-0 normal-case tracking-normal">
-                      {sessionGroups.sapGroups.length}
-                    </span>
+                    </Eyebrow>
                   </button>
                   <div
                     className={
@@ -3117,19 +3112,16 @@ export default function AxetCodeHome({
                   <button
                     onClick={() => toggleGroup(GENERAL_GROUP_KEY)}
                     aria-expanded={groupOpen(GENERAL_GROUP_KEY)}
-                    className="flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500 transition hover:text-slate-300"
+                    className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-slate-400 transition hover:text-slate-200"
                   >
                     {groupOpen(GENERAL_GROUP_KEY) ? (
                       <ChevronDown size={12} className="shrink-0" />
                     ) : (
                       <ChevronRight size={12} className="shrink-0" />
                     )}
-                    <span className="min-w-0 flex-1 truncate">
+                    <Eyebrow as="span" count={sessionGroups.general.length} className="min-w-0 flex-1 group-hover:text-slate-200">
                       {t("axetCodeHome.generalChatsTitle")}
-                    </span>
-                    <span className="shrink-0 normal-case tracking-normal">
-                      {sessionGroups.general.length}
-                    </span>
+                    </Eyebrow>
                   </button>
                   {groupOpen(GENERAL_GROUP_KEY) && (
                     <div className="space-y-0.5">
@@ -3164,9 +3156,7 @@ export default function AxetCodeHome({
                 (kullanıcı isteği, 2026-09-06). Buradaki satırlar sohbet
                 DEĞİL: tıklayınca bağlanıyorlar. */}
             <div className="shrink-0 border-t border-line-subtle p-2.5 pt-2">
-              <div className="px-0.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                {t("axetCodeHome.systemsTitle")}
-              </div>
+              <Eyebrow className="px-0.5 pb-1.5">{t("axetCodeHome.systemsTitle")}</Eyebrow>
               {recentEntries.length > 0 ? (
                 <div className="space-y-0.5">
                   {recentEntries.slice(0, 3).map((entry) => {

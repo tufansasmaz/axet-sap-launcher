@@ -46,6 +46,7 @@ import ModelSelector from "./ModelSelector";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import { useT } from "../i18n";
+import { Eyebrow } from "../ui/Eyebrow";
 import { btn } from "../ui/buttons";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
@@ -809,9 +810,7 @@ export default function ChatSessionPane({
                 *"bunu büyük bir başlık yapmazdım, 10-12px muted text
                 yeterli"*. Aşağıdaki "SON ÇALIŞMALAR" başlığıyla aynı biçimde
                 yazılıyor, böylece ekranda iki bölüm olduğu okunuyor. */}
-            <div className="mt-8 pb-2.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              {t("axetCodeHome.quickStart")}
-            </div>
+            <Eyebrow className="mt-8 pb-2.5">{t("axetCodeHome.quickStart")}</Eyebrow>
 
             {/* Dar pencerede tek sütuna iniyor: sabit üç sütunda kartlar
                 ~140px'e sıkışıp metinleri dört-beş satıra bölünüyordu. */}
