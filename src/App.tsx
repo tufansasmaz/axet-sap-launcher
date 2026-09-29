@@ -6,8 +6,6 @@ import {
   Download,
   X,
   TerminalSquare,
-  PanelLeftClose,
-  PanelLeftOpen,
   FileText
 } from "lucide-react";
 import type {
@@ -24,7 +22,8 @@ import type {
   UpdateStatus
 } from "../app-electron/shared/types";
 import TitleBar from "./components/TitleBar";
-import ActivityBar, { type Activity } from "./components/ActivityBar";
+import Sidebar from "./shell/Sidebar";
+import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./shell/activity";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
 // axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
@@ -33,8 +32,8 @@ import ChatSidebar from "./components/ChatSidebar";
 // (AxetFlowsHome.tsx, AxetFlowsLiveHome.tsx, src/flows/**,
 // src/components/flows/**, app-electron/main/axetFlows*.ts, flowRuntime.js)
 // diskte DURUYOR, yalnızca import/route/rayları kaldırıldı — geri açmak
-// bu üç yeri (import, ActivityBar girdisi, aşağıdaki route dalı) geri
-// eklemekten ibaret.
+// bu üç yeri (import, kenar çubuğundaki mod sekmesi (src/shell/activity.ts),
+// aşağıdaki route dalı) geri eklemekten ibaret.
 import SapGuiScriptingHome from "./components/SapGuiScriptingHome";
 import ScriptSidebar from "./components/ScriptSidebar";
 import { ScriptStoreProvider } from "./stores/scriptStore";
@@ -68,10 +67,6 @@ import { LanguageProvider, translate } from "./i18n";
 const MIN_TERMINAL_HEIGHT = 160;
 const MAX_TERMINAL_HEIGHT = 720;
 const DEFAULT_TERMINAL_HEIGHT = 320;
-const MIN_SIDEBAR_WIDTH = 200;
-const MAX_SIDEBAR_WIDTH = 560;
-const DEFAULT_SIDEBAR_WIDTH = 320;
-const COLLAPSED_SIDEBAR_WIDTH = 44;
 // Yenileme animasyonunun EN AZ görünür kalacağı süre. Yerel XML okuması
 // ~15ms; bayrağı hemen indirmek dönme animasyonunu hiç çizdirmiyordu ve
 // düğme ölü görünüyordu. 450ms "bir şey oldu" demeye yetiyor, beklemeye
@@ -94,6 +89,13 @@ const CONNECTIVITY_SCAN_CONCURRENCY = 5;
 
 export default function App() {
   const [activity, setActivity] = useState<Activity>("axetCode");
+  // Kenar çubuğunun ortasında duran liste. Hazırlık açılınca son modunki
+  // kalıyor (spec §6.2), bu yüzden son mod ayrıca tutuluyor.
+  const [lastListMode, setLastListMode] = useState<SidebarMode>("axetCode");
+  useEffect(() => {
+    if (isSidebarMode(activity)) setLastListMode(activity);
+  }, [activity]);
+  const listMode = listModeOf(activity, lastListMode);
   const [landscape, setLandscape] = useState<SapLandscape | null>(null);
   const [config, setConfig] = useState<AppConfig | null>(null);
   const [loading, setLoading] = useState(true);
@@ -143,8 +145,6 @@ export default function App() {
   const [terminalPanelOpen, setTerminalPanelOpen] = useState(false);
   const [terminalPanelHeight, setTerminalPanelHeight] = useState(DEFAULT_TERMINAL_HEIGHT);
   const [terminalFullscreen, setTerminalFullscreen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [projectDir, setProjectDir] = useState<string | null>(null);
   const [leftPanelMode, setLeftPanelMode] = useState<"systems" | "files">("systems");
   const [openFiles, setOpenFiles] = useState<OpenFileTab[]>([]);
@@ -436,9 +436,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
-        // Arama kutusu kenar çubuğunda: daraltılmışsa önce açılıyor, odak
-        // kutu çizildikten sonra veriliyor.
-        setSidebarCollapsed(false);
+        // Arama kutusu kenar çubuğunda (`LogonSidebar`); odak bir kare sonra.
         requestAnimationFrame(() => searchInputRef.current?.focus());
       }
     };
@@ -816,30 +814,6 @@ export default function App() {
     [terminalPanelHeight]
   );
 
-  const handleToggleSidebar = useCallback(() => {
-    setSidebarCollapsed((prev) => !prev);
-  }, []);
-
-  const handleSidebarResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      if (sidebarCollapsed) return;
-      e.preventDefault();
-      const startX = e.clientX;
-      const startWidth = sidebarWidth;
-      const onMove = (ev: MouseEvent) => {
-        const delta = ev.clientX - startX;
-        setSidebarWidth(Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, startWidth + delta)));
-      };
-      const onUp = () => {
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    },
-    [sidebarCollapsed, sidebarWidth]
-  );
-
   /**
    * Rol henüz seçilmemişse bağlantıyı DURDURUP rol ekranını açar.
    *
@@ -1069,18 +1043,68 @@ export default function App() {
       <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
-        <ActivityBar
-          activity={activity}
-          onChange={setActivity}
-          theme={config?.theme ?? "dark"}
-          language={language.toUpperCase()}
-          onToggleTheme={handleToggleTheme}
-          onToggleLanguage={handleToggleLanguage}
-          onOpenSettings={() => setSettingsOpen(true)}
-          onOpenConnections={() => setConnectionsOpen(true)}
-          connectorsConnected={Object.values(config?.connectorEnabled ?? {}).some(Boolean)}
-          readinessFault={readinessFault}
-        />
+        {/* Terminal tam ekranı (Logon) kenar çubuğunu da gizliyor (spec §6.3).
+            `terminalFullscreen` Logon'un durumu; başka ekrana geçince
+            kenar çubuğu geri geliyor. */}
+        {!(activity === "sapLauncher" && terminalFullscreen) && (
+          <Sidebar
+            mode={listMode}
+            readinessOpen={activity === "readiness"}
+            onModeChange={setActivity}
+            footer={{
+              readinessOpen: activity === "readiness",
+              readinessFault,
+              onOpenReadiness: () => setActivity("readiness"),
+              connectorCount: Object.values(config?.connectorEnabled ?? {}).filter(Boolean).length,
+              onOpenConnections: () => setConnectionsOpen(true),
+              theme: config?.theme ?? "dark",
+              language: language.toUpperCase(),
+              onToggleTheme: handleToggleTheme,
+              onToggleLanguage: handleToggleLanguage,
+              onOpenSettings: () => setSettingsOpen(true)
+            }}
+          >
+            {listMode === "axetCode" ? (
+              <ChatSidebar
+                recentEntries={recentEntries}
+                connectivity={connectivity}
+                tierOverrides={config?.systemTiers ?? {}}
+                activeSap={activeContext.sap}
+                onOpenSapLauncher={() => setActivity("sapLauncher")}
+                onQuickConnectSap={handleQuickConnectSap}
+              />
+            ) : listMode === "sapLauncher" ? (
+              <LogonSidebar
+                search={search}
+                onSearchChange={setSearch}
+                searchInputRef={searchInputRef}
+                mode={leftPanelMode}
+                onModeChange={setLeftPanelMode}
+                files={
+                  selection && projectDir
+                    ? {
+                        rootDir: projectDir,
+                        rootLabel: selection.service.systemId || selection.service.name,
+                        selectedPath: activeFilePath,
+                        onSelectFile: handleOpenFile,
+                        onImportComplete: handleImportComplete,
+                        onRootPicked: handleExplorerRootPicked
+                      }
+                    : null
+                }
+                loading={loading && !landscape}
+                customers={landscape?.customers ?? []}
+                recentEntries={recentEntries}
+                selectedUuid={selection?.itemUuid ?? null}
+                connectivity={connectivity}
+                tierOverrides={config?.systemTiers ?? {}}
+                onSelect={handleSelect}
+              />
+            ) : (
+              <ScriptSidebar />
+            )}
+          </Sidebar>
+        )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* axet.code HER ZAMAN mount — gizlenirken CSS ile gizleniyor, koşullu
             render EDİLMİYOR (kullanıcı isteği, 2026-09-04: *"eğer açıksa ve
@@ -1095,40 +1119,19 @@ export default function App() {
             gürültüsü — o yüzden O kaldırıldı, bu KALIYOR).
             Ek fayda: model listesi/sohbet geçmişi her sekme geçişinde değil
             uygulama ömründe bir kez yükleniyor. */}
-        <div className={activity === "axetCode" ? "flex min-h-0 flex-1 overflow-hidden" : "hidden"}>
-          {/* Geçici: Görev 14'te kabuğun `Sidebar`'ı bu `aside`'ın yerini alıyor. */}
-          <aside className="flex w-[264px] shrink-0 flex-col border-r border-line-subtle bg-sidebar">
-            <ChatSidebar
-              recentEntries={recentEntries}
-              connectivity={connectivity}
-              tierOverrides={config?.systemTiers ?? {}}
-              activeSap={activeContext.sap}
-              onOpenSapLauncher={() => setActivity("sapLauncher")}
-              onQuickConnectSap={handleQuickConnectSap}
-            />
-          </aside>
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            <AxetCodeHome
-              active={activity === "axetCode"}
-              config={config}
-              pushToast={pushToast}
-              recentEntries={recentEntries}
-              sapChatRequest={sapChatRequest}
-              workDirRequest={workDirRequest}
-              activeSap={activeContext.sap}
-            />
-          </div>
+        <div className={activity === "axetCode" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
+          <AxetCodeHome
+            active={activity === "axetCode"}
+            config={config}
+            pushToast={pushToast}
+            recentEntries={recentEntries}
+            sapChatRequest={sapChatRequest}
+            workDirRequest={workDirRequest}
+            activeSap={activeContext.sap}
+          />
         </div>
         {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
-          // Geçici: Görev 14'te kabuğun `Sidebar`'ı bu `aside`'ın yerini alıyor.
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <aside className="flex w-[264px] shrink-0 flex-col border-r border-line-subtle bg-sidebar">
-              <ScriptSidebar />
-            </aside>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-              <SapGuiScriptingHome activeSap={activeContext.sap} />
-            </div>
-          </div>
+          <SapGuiScriptingHome activeSap={activeContext.sap} />
         ) : activity === "readiness" ? (
           // Yetenek profili burada FORM DEĞİL, doğrudan kaydediliyor: bu ekranın
           // "Kaydet" düğmesi yok ve olmamalı — üç bölümün ikisi (teşhis,
@@ -1231,59 +1234,6 @@ export default function App() {
         )}
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          {!terminalFullscreen && (
-            <aside
-              style={{ width: sidebarCollapsed ? COLLAPSED_SIDEBAR_WIDTH : sidebarWidth }}
-              className="flex shrink-0 cursor-default flex-col overflow-hidden border-r border-line bg-sidebar"
-            >
-              <div className="flex items-center gap-2 p-2">
-                <button
-                  onClick={handleToggleSidebar}
-                  title={sidebarCollapsed ? t("app.expandSidebar") : t("app.collapseSidebar")}
-                  className="cursor-pointer rounded-sm p-1.5 text-slate-400 hover:bg-active hover:text-white"
-                >
-                  {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-                </button>
-              </div>
-              {!sidebarCollapsed && (
-                <LogonSidebar
-                  search={search}
-                  onSearchChange={setSearch}
-                  searchInputRef={searchInputRef}
-                  mode={leftPanelMode}
-                  onModeChange={setLeftPanelMode}
-                  files={
-                    selection && projectDir
-                      ? {
-                          rootDir: projectDir,
-                          rootLabel: selection.service.systemId || selection.service.name,
-                          selectedPath: activeFilePath,
-                          onSelectFile: handleOpenFile,
-                          onImportComplete: handleImportComplete,
-                          onRootPicked: handleExplorerRootPicked
-                        }
-                      : null
-                  }
-                  loading={loading && !landscape}
-                  customers={landscape?.customers ?? []}
-                  recentEntries={recentEntries}
-                  selectedUuid={selection?.itemUuid ?? null}
-                  connectivity={connectivity}
-                  tierOverrides={config?.systemTiers ?? {}}
-                  onSelect={handleSelect}
-                />
-              )}
-            </aside>
-          )}
-
-          {!terminalFullscreen && !sidebarCollapsed && (
-            <div
-              onMouseDown={handleSidebarResizeStart}
-              title={t("app.resizeWidthTitle")}
-              className="w-1 shrink-0 cursor-col-resize hover:bg-accent-500/50"
-            />
-          )}
-
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             {!terminalFullscreen && (
               <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1381,7 +1331,7 @@ export default function App() {
           projectDir={projectDir}
           // Modal kapanırken config yeniden okunuyor: bağlan/kes main
           // process'te kaydediliyor, App.tsx'in kopyası bunu bilmiyor —
-          // yoksa ActivityBar'daki nokta bir sonraki açılışa kadar bayat
+          // yoksa kenar çubuğundaki nokta bir sonraki açılışa kadar bayat
           // kalırdı.
           onClose={() => {
             setConnectionsOpen(false);

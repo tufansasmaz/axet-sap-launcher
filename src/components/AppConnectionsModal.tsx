@@ -13,8 +13,8 @@ interface Props {
 
 // Uygulama Bağlantıları — kullanıcı isteğiyle (2026-08-29, aynı gün ikinci
 // tur) Ayarlar modal'ının İÇİNDEN çıkarıldı: "ayarların içinde değil de
-// ayarlar butonunun üstünde de olsun" — yani ActivityBar'ın alt köşesinde
-// (dil/tema/ayarlar butonlarının olduğu dikey sırada) Ayarlar butonunun
+// ayarlar butonunun üstünde de olsun" — yani o günkü ActivityBar'ın alt
+// köşesinde (2026-09-29'dan beri kenar çubuğunun dibinde) (dil/tema/ayarlar butonlarının olduğu dikey sırada) Ayarlar butonunun
 // TAM ÜSTÜNDE ayrı bir buton, kendi bağımsız modal'ını açıyor. İçerik
 // (`AppConnectionsSection.tsx`) DEĞİŞMEDİ — sadece bu modal'ın kendi
 // başlık/kapatma çerçevesi `SettingsModal.tsx`'in modal kabuğuyla AYNI
@@ -26,7 +26,7 @@ export default function AppConnectionsModal({ open, onClose, onOpenProjectTermin
 
   // Escape'in ÇALIŞMASININ şartı. Aşağıdaki `onKeyDown` odaklanamayan bir
   // `div`'de duruyor ve React'te tuş olayları odaklı elemandan yukarı kabarıyor
-  // — kutu açıldığında odak hâlâ onu açan ActivityBar butonunda, yani DIŞARIDA
+  // — kutu açıldığında odak hâlâ onu açan kenar çubuğu düğmesinde, yani DIŞARIDA
   // kaldığı için tuş bu ağaca hiç girmiyordu. Escape ölüydü (kullanıcı bildirdi,
   // 2026-09-07); tek çıkış X butonuydu.
   //

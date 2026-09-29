@@ -389,10 +389,11 @@ function freshSuggestionSeed(): number {
 // geçerken kaldırıldı: referans arayüzde liste tek ve düz bir "Son" listesi;
 // 240px'lik bir sütunda her birkaç satırda bir gelen başlık, listeyi asıl
 // içerikten çok ayraçla dolduruyordu. Sıralama zaten `updatedAt`'e göre, yani
-// "en yeni üstte" bilgisi başlık olmadan da duruyor.
+// "en yeni üstte" bilgisi başlık olmadan da duruyor. (Liste 2026-09-29'dan
+// beri `ChatSidebar.tsx`'te.)
 
-// axet.code'un ana ekranı — sol tarafta sohbet listesi, sağda TEK bir sohbet
-// yüzeyi.
+// axet.code'un ana ekranı — TEK bir sohbet yüzeyi. Sohbet listesi bu
+// dosyada değil: kabuğun kenar çubuğunda (`ChatSidebar`, src/shell/Sidebar.tsx).
 //
 // BURADA ESKİDEN BİR "DASHBOARD" VARDI (istatistik kartları: aktif sohbet
 // sayısı / SAP sistemi sayısı / sürüm, iki büyük buton, son sohbet kartları,
@@ -420,7 +421,8 @@ function freshSuggestionSeed(): number {
 // bkz. PROJE-BILGI.md Faz 4): kenarlık yerine dolgu, hap köşeler. KENAR
 // ÇUBUĞUNDA bu artık geçerli DEĞİL — aynı gün gelen ikinci geri bildirimle
 // (*"soldaki paneli daha profesyonel şekilde düzenleyelim, borderler daha
-// keskin olsun"*) burası gerçek kenarlıklara ve `rounded-md` köşelere geçti.
+// keskin olsun"*) kenar çubuğu (bugün `ChatSidebar`) gerçek kenarlıklara ve
+// `rounded-md` köşelere geçti.
 // Sohbet yüzeyi (ChatSessionPane) hâlâ büyük ölçüde yumuşak dilde.
 //
 // Model seçici bu dosyadan değil ChatSessionPane'in COMPOSER'INDAN yönetiliyor

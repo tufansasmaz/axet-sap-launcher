@@ -126,7 +126,7 @@ export const tr = {
   "sapLogon.sapShcutNotFound": "sapshcut.exe bulunamadı. SAP GUI kurulu olduğundan emin ol veya Ayarlar'dan yolunu belirt.",
   "sapLogon.spawnError": "SAP GUI açılamadı: {detail}",
 
-  "activityBar.axetCode": "Axet Chat",
+  "shell.axetCode": "Axet Chat",
   // "aXet SAP Logon" (kullanıcı isteği, 2026-09-06). Bir ara sadece "SAP
   // Launcher" idi — gerekçe, platformun adı "Studio" olunca modülün ön eke
   // ihtiyacı kalmadığıydı. Kullanıcı tersini istedi ve "Launcher" yerine
@@ -134,12 +134,12 @@ export const tr = {
   // oradan bağlanmak, yani kullanıcının SAP tarafında zaten bildiği ismin
   // aynısı. Ön ek de bu yüzden geri geldi — "SAP Logon" tek başına SAP'nin
   // kendi programının adı olurdu.
-  "activityBar.sapLauncher": "aXet SAP Logon",
-  "activityBar.axetFlows": "axet.flows",
-  "activityBar.axetFlowsLive": "axet.flows (Canlı)",
-  "activityBar.theme": "Tema",
-  "activityBar.language": "Dil",
-  "activityBar.settings": "Ayarlar",
+  "shell.sapLauncher": "aXet SAP Logon",
+  "shell.axetFlows": "axet.flows",
+  "shell.axetFlowsLive": "axet.flows (Canlı)",
+  "shell.theme": "Tema",
+  "shell.language": "Dil",
+  "shell.settings": "Ayarlar",
 
   // Yön BELİRTEN iki ayrı etiket: tek bir "Menü" tooltip'i, düğmenin o an
   // hangi işi yapacağını söylemiyordu.
@@ -794,8 +794,8 @@ export const tr = {
   "axetFlowsLive.manualHint": "aXet.flows masaüstü uygulamasının çalıştığından emin ol, sonra tekrar Otomatik Bul'a tıkla — veya yukarıya URL'sini elle yaz.",
   "axetFlowsLive.retrying": "Arka planda otomatik olarak yeniden deneniyor…",
 
-  "activityBar.readiness": "Hazırlık",
-  "activityBar.readinessFault": "çözülmesi gereken bir şey var",
+  "shell.readiness": "Hazırlık",
+  "shell.readinessFault": "çözülmesi gereken bir şey var",
   "readiness.title": "Hazırlık",
   "readiness.subtitle": "Ajan neyi bilecek, neyi yapabilecek ve makine bunu taşıyabiliyor mu.",
   "readiness.sectionContext": "Ajan ne görüyor",
@@ -807,8 +807,14 @@ export const tr = {
   "sapContext.updated": "Güncellendi: {time}",
   "sapContext.notesKept": "Kendi notların korunuyor",
   "sapContext.truncated": "Dosya uzun; burada yalnızca başı gösteriliyor.",
-  "activityBar.sapGuiScripting": "SAP GUI Scripting",
-  "activityBar.connections": "Uygulama Bağlantıları",
+  "shell.sapGuiScripting": "SAP GUI Scripting",
+  "shell.connections": "Uygulama Bağlantıları",
+  "shell.sidebar": "Kenar çubuğu",
+  "shell.modes": "Modlar",
+  "shell.modeChat": "Sohbet",
+  "shell.modeLogon": "Logon",
+  "shell.modeScript": "Script",
+  "shell.connectorsOpen": "{count} açık",
 
   "sapGuiScripting.title": "SAP GUI Scripting",
   "sapGuiScripting.subtitle": "Açık bir SAP Logon/SAP GUI oturumuna bağlanıp ekran ağacını gezin, alanları oku/yaz, elemanlara tıkla.",

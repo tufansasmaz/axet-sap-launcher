@@ -135,7 +135,7 @@ interface ActionExtra {
 // Bu ekran, `connectToSystem()`/.conn_adt akışına HİÇ bağlı değil — kullanıcının
 // o an AÇIK olan bir SAP Logon/SAP GUI penceresine, gömülü Python+pywin32
 // köprüsü (`sap_gui_scripting_bridge.py`, bkz. sapGuiScriptManager.ts)
-// üzerinden bağlanır. Bağımsız bir Activity (bkz. ActivityBar.tsx/App.tsx).
+// üzerinden bağlanır. Bağımsız bir Activity (bkz. src/shell/activity.ts, App.tsx).
 //
 // EKRAN DÜZENİ (sıfırdan kuruldu, bkz. PROJE-BILGI.md):
 //   üst      → köprü kontrolleri (bağlan/kes, teşhis, rehber)
