@@ -1,6 +1,6 @@
 # Grafit kimlik ve kabuk — tasarım belgesi
 
-Tarih: 2026-09-29 · Dal: `tasarim/grafit` (`tasarim/temel`'den açıldı) · Durum: kullanıcı incelemesinde
+Tarih: 2026-09-29 · Dal: `tasarim/grafit` (`tasarim/temel`'den açıldı) · Durum: onaylandı
 
 ## 1. Amaç
 
@@ -288,9 +288,9 @@ not ediliyor ya da o anda düzeltiliyor. Kullanıcı bakmadan 1b başlamıyor.
   yok**.
 - Geri dönüşte: eski ağaç hemen görünüyor, bağlantılar yeniden okunuyor.
   Seçili oturum yeni listede yoksa seçim, düğümler ve seçili öğe temizleniyor.
-- Ekrandan çıkarken bugün aktif GUI bağlamı temizleniyor
-  (`setActiveGuiContext(null)`). Bu kalıyor; dönüşte oturum hâlâ varsa bağlam
-  yeniden yayımlanıyor.
+- Ekrandan çıkarken aktif GUI bağlamı bilerek silinmiyor (sohbete geçen
+  kullanıcı tam o anda ona ihtiyaç duyuyor). Bu kalıyor; dönüşte oturum hâlâ
+  varsa bağlam yeniden yayımlanıyor.
 - `src/components/ScriptSidebar.tsx`: Bağlantılar → oturumlar ağacı, altında
   ekran öğeleri ağacı. Köprü kapalıyken ya da hazırlık ekranı gösterilirken
   boş durum ("Köprü kapalı") çiziliyor.
