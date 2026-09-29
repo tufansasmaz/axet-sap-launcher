@@ -14,8 +14,9 @@ interface Props {
 // Uygulama Bağlantıları — kullanıcı isteğiyle (2026-08-29, aynı gün ikinci
 // tur) Ayarlar modal'ının İÇİNDEN çıkarıldı: "ayarların içinde değil de
 // ayarlar butonunun üstünde de olsun" — yani o günkü ActivityBar'ın alt
-// köşesinde (2026-09-29'dan beri kenar çubuğunun dibinde) (dil/tema/ayarlar butonlarının olduğu dikey sırada) Ayarlar butonunun
-// TAM ÜSTÜNDE ayrı bir buton, kendi bağımsız modal'ını açıyor. İçerik
+// köşesinde, dil/tema/ayarlar butonlarının sırasında (2026-09-29'dan beri
+// kenar çubuğunun dibinde, Ayarlar'ın durduğu ikon sırasının üstünde) ayrı
+// bir buton, kendi bağımsız modal'ını açıyor. İçerik
 // (`AppConnectionsSection.tsx`) DEĞİŞMEDİ — sadece bu modal'ın kendi
 // başlık/kapatma çerçevesi `SettingsModal.tsx`'in modal kabuğuyla AYNI
 // görsel dili (gradient üst çizgi, X kapatma butonu, ortalanmış backdrop)
