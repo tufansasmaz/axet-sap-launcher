@@ -90,11 +90,13 @@ describe("bildirim katmanı", () => {
 });
 
 describe("cırcır: elle yazılmış px yazı boyu", () => {
-  it("205'i geçmiyor", () => {
+  // 207 → 205 (Görev 1, düğme boyları) → 191 (Görev 8, taşınan beş pencere).
+  // Sınır ölçülen değer: bir ekran ölçeğe taşındıkça burası da aşağı çekilir.
+  it("191'i geçmiyor", () => {
     let count = 0;
     for (const file of walk(SRC)) {
       count += (readFileSync(file, "utf8").match(/text-\[[0-9.]+px\]/g) ?? []).length;
     }
-    expect(count).toBeLessThanOrEqual(205);
+    expect(count).toBeLessThanOrEqual(191);
   });
 });

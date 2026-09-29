@@ -1,6 +1,6 @@
 # Tasarım sistemi temeli — tasarım belgesi
 
-Tarih: 2026-09-28 · Dal: `tasarim/temel` · Durum: incelemede
+Tarih: 2026-09-28 · Dal: `tasarim/temel` · Durum: onaylandı
 
 ## 1. Amaç
 
@@ -50,7 +50,8 @@ Bu iş dört alt projeye bölündü. Bu belge yalnızca **1. alt projeyi** anlat
   değişmeden** renkler değişebiliyor.
 - Tema `html[data-theme="dark|light"]` ile seçiliyor (`src/App.tsx:327`).
 - Yazı boyutları dağınık: 10 farklı boyut, elle yazılmış `text-[Npx]` sınıfı
-  **202** yerde, 10px yazı 59 yerde.
+  **207** yerde (`src/` altında `text-\[[0-9.]+px\]` ile sayıldı; ilk
+  incelemede 202 yazılmıştı), 10px yazı 59 yerde.
 - **15 elle yazılmış pencere** var; yalnız 2'sinde `role="dialog"`, hiçbirinde
   odak tutma yok. Escape yalnızca odak pencerenin içindeyken çalışıyor.
 - Bildirim kutusu `z-50` (`src/App.tsx:1519`), pencereler `z-[60]`–`z-[71]`:
@@ -177,8 +178,9 @@ Test bu sıralamayı da denetliyor (§8).
 Metin ve durum renkleri, üç dinlenme yüzeyinin (`app`, `card`, `control`)
 **en zayıfına** karşı ölçüldü. Tasarım sırasında koyu temalardaki ipucu metni
 (`ink-300`) `control` üstünde 4.0:1 çıktı; değer yükseltildi (İndigo `#8a91a0`
-→ 4.80, Sıcak `#978f85` → 4.67). En düşük sonuç: Sıcak açık vurgu, `control`
-üstünde 4.55:1.
+→ 4.80, Sıcak `#978f85` → 4.67). Plan yazılırken dört blok yeniden ölçüldü;
+her bloğun en düşüğü: İndigo koyu `ink-300` 4.80, İndigo açık `folder-icon`
+4.59, Sıcak koyu `ink-300` 4.67, Sıcak açık `success-text` 4.79.
 
 ## 5. Ölçüler (Ferah)
 
@@ -197,9 +199,10 @@ değere kayıyor.
 
 Bildirim kutusu `z-toast`a taşınıyor; artık açık pencerelerin üstünde.
 
-Elle yazılmış 202 `text-[Npx]` kullanımı **bu alt projede taşınmıyor**; 2. alt
-projede ekran ekran temizlenecek. O zamana kadar sayının artmaması için bir
-"cırcır" testi var (§8).
+Elle yazılmış `text-[Npx]` kullanımları (207) **bu alt projede toplu
+taşınmıyor**; yalnızca düğme boyları ve ortak `Modal`'a taşınan beş pencere
+ölçeğe geçiyor (207 → 191). Geri kalanı 2. alt projede ekran ekran
+temizlenecek. O zamana kadar sayının artmaması için bir "cırcır" testi var (§8).
 
 Sohbet okuma boyutu ayarı (`--chat-font-size`: 14 / 15 / 17) aynen kalıyor.
 
@@ -274,13 +277,19 @@ Yalnızca ortak parçanın gerçekten çalıştığını kanıtlayan beş pencer
 - **Renklerin tek kaynağı:** `app-electron/shared/themeSurfaces.ts`
 
   ```ts
-  export type AppPalette = "indigo" | "warm";
-  export const THEME_SURFACES: Record<AppPalette, Record<AppTheme, {
+  export interface ThemeSurface {
     app: string;                       // pencere arka planı, "#rrggbb"
+    card: string;                      // kart yüzeyi (Ayarlar'daki renk örneği)
+    accent: string;                    // vurgu 500 (Ayarlar'daki renk örneği)
     terminal: { background: string; foreground: string; cursor: string };
-  }>>;
+  }
+  export const THEME_SURFACES: Record<AppPalette, Record<AppTheme, ThemeSurface>>;
   ```
 
+  - `card` ve `accent` Ayarlar → Görünüm'deki palet kartlarının renk örnekleri
+    için: seçili olmayan paletin CSS değişkenleri o an sayfada tanımlı değil.
+    Test dördünü de CSS'teki `--surface-app-rgb`, `--surface-card-rgb`,
+    `--accent-500-rgb` ile eşliyor.
   - Ana süreç pencereyi açarken ayardaki palet ve temaya göre `backgroundColor`
     alıyor → açılıştaki koyu kare gidiyor.
   - Terminal aynı tablodan okuyor ve palet değişince `term.options.theme`'i
@@ -300,7 +309,7 @@ Yalnızca ortak parçanın gerçekten çalıştığını kanıtlayan beş pencer
 | Sıralama | §4.2'deki yüzey/kenarlık sıralaması dört blokta |
 | Limon kalmadı | Eski limon değerleri (`183 243 74`, `169 225 63`, `155 209 48`, `#a9e13f`, `#b7f34a`) `src/` ve `app-electron/` altında hiçbir dosyada yok (testin kendisi hariç) |
 | Tek kaynak | `THEME_SURFACES` değerleri CSS'teki `--surface-app-rgb` ile eşleşiyor |
-| Cırcır | Elle yazılmış `text-[Npx]` sayısı 202'yi geçmiyor |
+| Cırcır | Elle yazılmış `text-[Npx]` sayısı ölçülen değeri geçmiyor: başlangıçta 205, alt proje sonunda 191; yalnızca aşağı çekilir |
 | `Modal` | Odak tutma (Tab sarması), Escape yalnız en üstteki, kapanınca odağın dönmesi, `dirty` onayı, `role`/`aria-*` |
 | `Field` | Hata metni `aria-describedby` ve `aria-invalid` ile bağlı |
 | `Tabs` | Ok tuşlarıyla gezinme, rolleri |
@@ -319,6 +328,10 @@ Bitmiş sayılma: tüm test takımı yeşil, `npm run typecheck` temiz, dört g�
   düzeltiliyor ya da not ediliyor.
 - **`:root` ile İndigo koyu bloğunun birleşmesi** yanlışlıkla ayrışırsa ilk
   karede yanlış renk görünür. Test "eksiksizlik" bunu yakalıyor.
-- **Açık tema daha önce az kullanıldı;** gözden kaçan sabit renkler (9 yerde
-  `.tsx` içinde hex var) açık temada göze batabilir. Plan bu 9 yeri tek tek
-  jetona bağlamayı içeriyor.
+- **Açık tema daha önce az kullanıldı;** gözden kaçan sabit renkler açık
+  temada göze batabilir. `.tsx` içindeki hex'ler tek tek ölçüldü: gerçek
+  renk olanlar `EmbeddedTerminal`'in üç değeri (artık `THEME_SURFACES`'ten
+  geliyor). `AxetCodeHome`, `PreflightPanel` ve `SystemPanel`'dekiler yalnızca
+  yorum. `FileViewer`'daki beyaz DOCX sayfası **bilerek sabit kalıyor**:
+  önizleme her iki temada da kâğıt sayfası gibi görünmeli, gerekçesi
+  dosyadaki yorumda.
