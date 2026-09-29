@@ -187,6 +187,10 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     clearSelection,
     registerScriptCommands
   } = useScriptStore();
+  // Dönüş doğrulamasının sonunda "şu an hangi bağlantılar açık" sorusu için
+  // (bkz. `revalidateAfterReturn`); oradaki `expandedConn` mount anınınki.
+  const expandedConnRef = useRef(expandedConn);
+  expandedConnRef.current = expandedConn;
 
   const [screen, setScreen] = useState<GuiScriptScreenState | null>(null);
   const [shot, setShot] = useState<GuiScriptScreenshotResult | null>(null);
@@ -443,9 +447,17 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     if (stale()) return;
     // Birleştiriliyor, üzerine yazılmıyor: doğrulama sürerken kullanıcının
     // açtığı bir bağlantının oturum listesi kaybolmasın. Kapanmış
-    // bağlantılar ayıklanıyor.
+    // bağlantılar ayıklanıyor. Ne yeniden okunan ne de ŞU AN açık olan
+    // bağlantının eski listesi de atılıyor: `toggleConn` yalnızca liste
+    // yokken yüklediği için, sonradan açılınca önceki ziyaretin listesi
+    // görünürdü.
     setSessionsByConn((prev) =>
-      Object.fromEntries(Object.entries({ ...prev, ...lists }).filter(([idx]) => alive.has(Number(idx))))
+      Object.fromEntries(
+        Object.entries({ ...prev, ...lists }).filter(([key]) => {
+          const idx = Number(key);
+          return alive.has(idx) && (idx in lists || Boolean(expandedConnRef.current[idx]));
+        })
+      )
     );
     setExpandedConn((prev) => Object.fromEntries(Object.entries(prev).filter(([idx]) => alive.has(Number(idx)))));
     if (!selected) return;
