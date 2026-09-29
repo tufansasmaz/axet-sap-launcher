@@ -2,8 +2,6 @@ import { memo, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Check,
-  ChevronDown,
-  ChevronRight,
   CornerDownLeft,
   Pencil,
   RefreshCw
@@ -17,7 +15,7 @@ import { renderMarkdownLite } from "../lib/markdownLite";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import AttachmentChip from "./AttachmentChip";
 import CopyButton from "./CopyButton";
-import { StepDetail, useToolLabel } from "./ChatToolRun";
+import ChatToolRun, { useToolLabel } from "./ChatToolRun";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 
@@ -68,14 +66,13 @@ export interface ChatMessage {
 // düzeltme notu). Artık metin GERÇEKTEN üretildiği hızda akıyor; sahte bir
 // animasyon hem gereksiz hem de gerçek akışın üstüne binerek onu geciktirir.
 //
-// GEMİNİ DÜZENİ (kullanıcı kararı — bkz. PROJE-BILGI.md Faz 4):
-//   - Kullanıcı istemi SAĞDA, dolgun ve çok yuvarlak bir hap balon.
-//   - Cevap SOLDA, balonsuz; solunda 28px'lik bir ✦ oluğu var. Bir ara
-//     avatarlar tamamen kaldırılmıştı; Gemini SADECE cevap tarafında bir
-//     simge kullanıyor (istem tarafında kullanmıyor) ve referans o olduğu
-//     için bu asimetri bilinçli.
-//   - Eylem düğmeleri (kopyala) hover'a GİZLENMİYOR — Gemini'de her zaman
-//     görünürler; gizli bir düğme, varlığı bilinmediği için kullanılmıyor.
+// DÜZEN (bkz. docs/superpowers/specs/2026-09-29-sohbet-ekrani-design.md):
+//   - Kullanıcı istemi SAĞDA, `bg-raised` silik bir balon; saat, Düzenle ve
+//     Kopyala hover'da balonun altında.
+//   - Cevap SOLDA ve balonsuz, avatarsız.
+//   - Turun araç çağrıları cevabın ÜSTÜNDE tek satırda (`ChatToolRun`).
+//   - Cevabın altında simge düğmeler: SON cevapta hep görünür ve Yeniden
+//     üret'i taşır, öteki cevaplarda hover'a kadar gizli.
 // Gövde metni boyutu kullanıcı ayarından (Ayarlar > Görünüm) geliyor;
 // `App.tsx` sembolik ayarı `--chat-font-size`'a çeviriyor. Tailwind'de bir CSS
 // değişkenini font boyutu olarak kullanmak `text-[length:var(...)]` yazımını
@@ -99,14 +96,15 @@ function formatClock(ts: number): string {
 //   1. `message` nesnesinin kimliği değişmemeli. AxetCodeHome akış sırasında
 //      yalnızca akan mesajı yeni nesneyle değiştiriyor, geri kalanı aynı
 //      referansla taşıyor.
-//   2. `onEdit` ve `onContinue` kararlı olmalı — ikisi de `useCallback`
-//      (`handleEditMessage`, `handleContinue`). Buraya satır içi ok
+//   2. `onEdit`, `onContinue` ve `onRegenerate` kararlı olmalı — üçü de
+//      `useCallback` (`handleEditMessage`, `handleContinue`, `handleRegenerate`). Buraya satır içi ok
 //      fonksiyonu (`onEdit={(id, c) => ...}`) verilirse memo tamamen
 //      ETKİSİZLEŞİR.
 function ChatBubble({
   message,
   onEdit,
   onContinue,
+  onRegenerate,
   searchState
 }: {
   message: ChatMessage;
@@ -117,6 +115,10 @@ function ChatBubble({
   // Yarıda kalmış cevaba devam ettir. Verilmezse düğme çizilmiyor — çağıran
   // yalnızca SON mesaj için veriyor. `onEdit` gibi kararlı olmalı (memo).
   onContinue?: () => void;
+  // Son cevabı sil ve yeniden üret. Verilmezse düğme çizilmiyor — çağıran
+  // yalnızca SON cevap için ve yeniden üretme mümkünken veriyor. `onEdit`
+  // gibi kararlı olmalı (memo).
+  onRegenerate?: () => void;
   // Sohbet içi aramanın (Ctrl+F) sonucu: `hit` eşleşen mesaj, `current` o an
   // gezinilen eşleşme. Arama kapalıyken `undefined` — memo'yu bozmaması için
   // ChatSessionPane bu durumda hiç değer üretmiyor.
@@ -132,23 +134,6 @@ function ChatBubble({
     () => (message.role === "assistant" ? renderMarkdownLite(message.content) : null),
     [message.role, message.content]
   );
-  // Araç dökümü VARSAYILAN OLARAK KAPALI. Cevabın kendisi asıl içerik; her
-  // balonun üstünde açık duran on satırlık bir döküm, sohbeti okunmaz hâle
-  // getirirdi. Kapalıyken tek satır, tıklanınca açılıyor.
-  const [stepsOpen, setStepsOpen] = useState(false);
-  // Hangi adımların AYRINTISI açık. Küme, çünkü birden fazla adımın farkını
-  // yan yana görmek isteniyor — tek bir "açık adım" olsaydı ikinci tıklama
-  // birincisini kapatırdı.
-  const [openSteps, setOpenSteps] = useState<Set<string>>(() => new Set());
-  const toggleStep = (key: string) =>
-    setOpenSteps((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-  const toolLabel = useToolLabel();
-
   // Arama vurgusu `outline` ile çiziliyor (bkz. index.css) — kenarlıktan
   // farklı olarak yer kaplamadığı için vurgu gelip gittikçe liste oynamıyor.
   const searchClass =
@@ -157,7 +142,7 @@ function ChatBubble({
   if (message.role === "user") {
     const attachments = message.attachments ?? [];
     return (
-      <div data-mid={message.id} className={`group flex flex-col items-end gap-1${searchClass}`}>
+      <div data-mid={message.id} className={`group relative flex flex-col items-end gap-1 pb-5${searchClass}`}>
         {/* Ekler balonun ÜSTÜNDE ve balonun dışında — hem sadece ek gönderilen
             (metinsiz) bir mesajda boş bir balon kalmasın, hem de görseller
             balonun dolgusuyla kırpılmasın diye. `justify-end`: istem tarafı
@@ -170,7 +155,7 @@ function ChatBubble({
           </div>
         )}
         {message.content && (
-          <div className={`max-w-[80%] rounded-3xl bg-control px-5 py-3 text-slate-100 ${BODY}`}>
+          <div className={`max-w-[80%] rounded-2xl bg-raised px-4 py-2.5 text-slate-100 ${BODY}`}>
             {/* `@dosya` bahisleri balonda da VURGULU: composer'da renkli
                 görünen bir yol, gönderilince düz metne dönseydi kullanıcı
                 bahsin tutmadığını sanırdı. */}
@@ -180,15 +165,15 @@ function ChatBubble({
           </div>
         )}
         {/* İstem tarafındaki düğmeler hover'da: bir cevabı kopyalamak sık, kendi
-            yazdığını kopyalamak nadir. `opacity-0` kullanılıyor `hidden` değil —
-            aksi hâlde fareyi mesajın üstüne getirmek listeyi kaydırırdı. */}
-        <div className="flex h-6 items-center gap-0.5 pr-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-          <span className="mr-1 text-[11px] text-slate-500">{formatClock(message.createdAt)}</span>
+            yazdığını kopyalamak nadir. Satır MUTLAK konumlu ve yerini dış
+            div'in `pb-5`'i ayırıyor: hover'da hiçbir şey kaymıyor. */}
+        <div className="absolute bottom-0 right-0 flex h-5 items-center gap-0.5 pr-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          <span className="mr-1 text-2xs text-slate-500">{formatClock(message.createdAt)}</span>
           {onEdit && (
             <button
               onClick={() => onEdit(message.id, message.content)}
               title={t("axetCodeHome.editMessage")}
-              className="cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-hover hover:text-slate-200"
+              className="cursor-pointer rounded-md p-1 text-slate-400 transition hover:bg-hover hover:text-slate-200"
             >
               <Pencil size={13} />
             </button>
@@ -200,16 +185,12 @@ function ChatBubble({
   }
 
   // Cevap tarafında AVATAR YOK (kullanıcı geri bildirimi, 2026-09-02:
-  // *"chatte hâlâ logo gözüküyor cevaplarda"*). Bir ara burada 26px'lik bir
-  // logo oluğu vardı ve düzenin geri kalanı ona göre hizalanmıştı — kaldıran
-  // biri, ChatSessionPane'deki "Yeniden üret" düğmesinin `ml-[42px]`
-  // girintisini de kaldırmalı, yoksa düğme cevap metninden içeride kalır.
-  // Kim kimden ayrılıyor artık hizadan belli: istem sağda ve balonlu, cevap
+  // *"chatte hâlâ logo gözüküyor cevaplarda"*). Kim kimden ayrılıyor artık hizadan belli: istem sağda ve balonlu, cevap
   // solda ve balonsuz.
   const steps = message.steps ?? [];
 
   return (
-    <div data-mid={message.id} className={`min-w-0${searchClass}`}>
+    <div data-mid={message.id} className={`group min-w-0${searchClass}`}>
       {/* ARAÇ DÖKÜMÜ — cevabın ÜSTÜNDE, katlanır.
           Neden cevabın üstünde: olaylar cevaptan ÖNCE oldu; altına konsaydı
           okuma sırası tersine dönerdi. Neden kalıcı: eskiden bu bilgi sadece
@@ -219,70 +200,8 @@ function ChatBubble({
           Akış sürerken çizilmiyor: o sırada canlı gösterge zaten aynı bilgiyi
           gösteriyor, ikisi birden ekranda olsa aynı şey iki kere yazılırdı. */}
       {steps.length > 0 && !message.streaming && (
-        <div className="mb-2 text-[11px]">
-          <button
-            onClick={() => setStepsOpen((v) => !v)}
-            className="flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-slate-500 transition hover:bg-hover hover:text-slate-300"
-          >
-            {stepsOpen ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            <span>{t("chatBubble.stepsToggle", { count: String(steps.length) })}</span>
-            {/* Kapalıyken de bir ipucu: hangi araçlar çalıştı. Tekrarlar
-                ayıklanıyor — aynı aracın on kez geçtiği bir liste bilgi
-                vermiyor, gürültü yapıyor. */}
-            {!stepsOpen && (
-              <span className="truncate text-slate-600">
-                {Array.from(new Set(steps.map((s) => toolLabel(s.tool ?? "")))).join(", ")}
-              </span>
-            )}
-          </button>
-          {stepsOpen && (
-            <div className="mt-1 flex flex-col gap-1 rounded-lg border border-[rgb(var(--base-700-rgb)/0.55)] bg-control px-2 py-1.5">
-              {steps.map((step, i) => {
-                const key = step.callId ?? String(i);
-                // Ayrıntısı olan adım TIKLANABİLİR. Olmayanı tıklanabilir
-                // göstermek boş bir söz olurdu — imleç değişir, bir şey açılmaz.
-                const detail = step.diff || step.output || "";
-                const open = openSteps.has(key);
-                return (
-                  <div key={key} className="min-w-0">
-                    <div
-                      role={detail ? "button" : undefined}
-                      onClick={detail ? () => toggleStep(key) : undefined}
-                      className={`flex min-w-0 items-baseline gap-1.5 rounded px-0.5 ${
-                        detail ? "cursor-pointer hover:bg-[rgb(var(--base-700-rgb)/0.5)]" : ""
-                      }`}
-                    >
-                      <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-400"}>
-                        {detail ? (open ? "▾" : "▸") : "·"}
-                      </span>
-                      <span className="shrink-0 text-slate-500">{toolLabel(step.tool ?? "")}</span>
-                      {step.target && (
-                        <span className="truncate font-mono text-[10px] text-slate-600" title={step.target}>
-                          {step.target}
-                        </span>
-                      )}
-                      {step.result && (
-                        <span
-                          className={`flex min-w-0 items-baseline gap-1 ${
-                            step.failed ? "text-[var(--status-warning-text)]" : "text-slate-600"
-                          }`}
-                          title={step.result}
-                        >
-                          <span className="shrink-0">↳</span>
-                          <span className="truncate font-mono text-[10px]">
-                            {step.extraLines
-                              ? t("axetCodeHome.toolMoreLines", { count: String(step.extraLines) })
-                              : step.result}
-                          </span>
-                        </span>
-                      )}
-                    </div>
-                    {open && detail && <StepDetail diff={step.diff} output={step.output} />}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+        <div className="mb-2">
+          <ChatToolRun steps={steps} status="done" />
         </div>
       )}
       <div
@@ -336,17 +255,34 @@ function ChatBubble({
           )}
         </div>
       )}
-      {/* Akış sürerken gizli — yarım bir cevabı kopyalatmanın anlamı yok. */}
-      {!message.streaming && !message.error && (
-        <div className="mt-1 flex h-7 items-center gap-2">
-          <CopyButton value={message.content} title={t("copyButton.copyAnswer")} />
-          {/* Cevabın saati. İstem tarafında (yukarıda) baştan beri vardı,
-              cevap tarafında yoktu — uzun bir sohbette "bu cevap ne zaman
-              geldi" sorusunun karşılığı hiçbir yerde kalmıyordu (kullanıcı
-              bulgusu 2026-09-05). İstemdekinden farkı, hover'a bağlı
-              OLMAMASI: bu satır zaten kalıcı ve kopyala düğmesiyle aynı
-              şeritte duruyor. */}
-          <span className="text-[11px] text-slate-500">{formatClock(message.createdAt)}</span>
+      {/* Akış sürerken gizli — yarım bir cevabı kopyalatmanın anlamı yok.
+          SON cevabın satırı hep görünür ve Yeniden üret'i taşıyor; öteki
+          cevaplarınki hover'a kadar gizli ama yer ayrılı (`opacity-0`, `hidden`
+          değil) — fare üstüne gelince liste kaymasın. Hata cevabında
+          kopyalanacak bir şey yok; yalnız Yeniden üret anlamlı. */}
+      {!message.streaming && (!message.error || onRegenerate) && (
+        <div
+          data-testid="answer-row"
+          className={`mt-1 flex h-7 items-center gap-0.5${
+            onRegenerate ? "" : " opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+          }`}
+        >
+          {!message.error && <CopyButton value={message.content} title={t("copyButton.copyAnswer")} />}
+          {onRegenerate && (
+            <button
+              type="button"
+              onClick={onRegenerate}
+              title={t("axetCodeHome.regenerateTitle")}
+              className="cursor-pointer rounded-md p-1 text-slate-500 transition hover:bg-active hover:text-slate-200"
+            >
+              <RefreshCw size={13} />
+            </button>
+          )}
+          {/* Cevabın saati — uzun bir sohbette "bu cevap ne zaman geldi"
+              sorusunun karşılığı (kullanıcı bulgusu 2026-09-05). */}
+          {!message.error && (
+            <span className="ml-1.5 text-2xs text-slate-600">{formatClock(message.createdAt)}</span>
+          )}
           {/* BURAYA "Uygulama bağlantıları" ROZETİ GERİ EKLENMESİN.
               Cevabın altında, bağlayıcılar açıkken her seferinde basılan bir
               rozet vardı; gerekçesi "tahmin yanılırsa sessiz kalmasın" idi.
