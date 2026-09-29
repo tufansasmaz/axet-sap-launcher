@@ -46,14 +46,17 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
             kimliği, adı değiştirmek eski kurulumları öksüz bırakır. */}
         <span className="font-semibold text-slate-200">NTT Studio</span>
         <span className="text-slate-600">·</span>
-        <span className="text-slate-500">by tsasmaz</span>
+        <span className="text-2xs text-slate-500">by tsasmaz</span>
       </div>
 
       {/* Aktif bağlam. Bağlantı yoksa rozet HİÇ ÇİZİLMİYOR — "bağlı değil"
-          yazan boş bir rozet, olmayan bir durumu varmış gibi gösterirdi. */}
+          yazan boş bir rozet, olmayan bir durumu varmış gibi gösterirdi.
+          Temizle düğmesi yalnızca rozetin üstüne gelince ya da odak rozetin
+          içindeyken görünüyor (`group`); DOM'da her zaman duruyor, Tab ile
+          ulaşılıyor. */}
       {context.sap && (
         <div
-          className="flex min-w-0 items-center gap-1.5 rounded-sm border border-line bg-control px-2 py-0.5"
+          className="group flex min-w-0 items-center gap-1.5 rounded-sm border border-line bg-control px-2 py-0.5"
           style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
         >
           <span
@@ -63,7 +66,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           <button
             onClick={onShowSystem}
             title={t("activeContext.showSystem", { path: context.sap.customerPath.join(" › ") })}
-            className="flex min-w-0 cursor-pointer items-center gap-1.5 text-xs text-slate-300 hover:text-white"
+            className="flex min-w-0 cursor-pointer items-center gap-1.5 font-mono text-xs text-slate-300 hover:text-white"
           >
             <span className="truncate font-semibold">{context.sap.systemId}</span>
             <span className="shrink-0 text-slate-500">·</span>
@@ -89,7 +92,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
           <button
             onClick={onClearSap}
             title={t("activeContext.clear")}
-            className="ml-0.5 shrink-0 cursor-pointer rounded-sm p-0.5 text-slate-500 hover:bg-active hover:text-slate-200"
+            className="ml-0.5 shrink-0 cursor-pointer rounded-sm p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-focus-within:opacity-100 group-hover:opacity-100"
           >
             <Unplug size={12} />
           </button>
@@ -100,14 +103,14 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
         <button
           onClick={handleMinimize}
           title={t("titleBar.minimize")}
-          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-active hover:text-white"
+          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-hover hover:text-white"
         >
           <Minus size={14} />
         </button>
         <button
           onClick={handleToggleMaximize}
           title={isMaximized ? t("titleBar.restore") : t("titleBar.maximize")}
-          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-active hover:text-white"
+          className="flex h-9 w-11 items-center justify-center text-slate-400 hover:bg-hover hover:text-white"
         >
           {isMaximized ? <Copy size={12} /> : <Square size={12} />}
         </button>
