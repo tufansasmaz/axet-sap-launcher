@@ -1,3 +1,4 @@
+import { configure } from "@testing-library/react";
 import { vi } from "vitest";
 import type {
   GuiScriptBridgeStatus,
@@ -12,6 +13,15 @@ import type {
 // duran bir oturum ve üç katlı bir ekran ağacı var. `window.api`'de burada
 // tanımlanmayan her işlev hiç dönmeyen bir söz veriyor; `on…` abonelikleri
 // boş bir iptal döndürüyor.
+
+// Script ekranı ağır bir bileşen: ilk bağlantı düğmesi birkaç çizim turundan
+// sonra çıkıyor. `npm test` bütün dosyaları paralel koşturunca bu, `findBy…`
+// sorgularının varsayılan 1 saniyesini aşabiliyordu. Tek başına koşan dosya
+// hep geçiyordu, yani sebep davranış değil zamanlama. Bu dosyayı import eden
+// her test dosyası daha uzun bekliyor. Birkaç bekleme art arda gelen testler
+// vitest'in 5 saniyelik test süresini de aşabildiği için o da uzatılıyor.
+configure({ asyncUtilTimeout: 3000 });
+vi.setConfig({ testTimeout: 15000 });
 
 export const CONNECTION: GuiScriptConnectionInfo = { index: 0, description: "S4D Geliştirme", sessionCount: 1 };
 

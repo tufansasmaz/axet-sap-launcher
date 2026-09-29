@@ -254,9 +254,23 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     }
   }, []);
 
+  // Dönüş doğrulamasının kuşağı (bkz. `revalidateAfterReturn`). Kullanıcının
+  // ağaca dokunan her kararı (oturum seçmek, köprüyü durdurmak, ağacı
+  // temizlemek) ve ekrandan çıkmak bunu artırıyor. Doğrulama her `await`
+  // sonrasında kendi kuşağına bakıyor; değişmişse sonucunu yazmadan
+  // çekiliyor, yoksa eski bir cevap kullanıcının yeni seçimini ezerdi.
+  const revalidationGen = useRef(0);
+  useEffect(
+    () => () => {
+      revalidationGen.current += 1;
+    },
+    []
+  );
+
   // Köprü yokken ağaç da yok. Durdurma düğmesi ve dönüşte köprünün
   // kapanmış bulunması aynı temizliği yapıyor.
   const clearTree = useCallback(() => {
+    revalidationGen.current += 1;
     setConnections(null);
     setSessionsByConn({});
     setExpandedConn({});
@@ -300,6 +314,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
   }, [loadConnections, runPreflight]);
 
   const handleStop = useCallback(async () => {
+    revalidationGen.current += 1;
     await window.api.stopGuiScriptBridge();
     setStatus({ running: false, port: null, external: false });
     clearTree();
@@ -391,9 +406,21 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
   // aktif GUI bağlamını yeniden yayımlıyor. `activeSession` ve
   // `expandedConn` mount anındaki değerler: doğrulanan şey tam olarak
   // kullanıcının bıraktığı durum.
+  //
+  // Doğrulama sürerken kenar çubuğu tıklanabilir. `gen`, doğrulamanın
+  // başladığı andaki `revalidationGen`: kullanıcı arada başka bir oturum
+  // seçtiyse (ya da köprüyü durdurduysa, ekrandan çıktıysa) her `await`
+  // sonrasındaki denetim doğrulamayı sessizce bitiriyor.
+  //
+  // Oturum kimliği yalnızca sıra numarası (`sessIdx`). SAP kapanan bir
+  // oturumun numarasını yeni açılan bir oturuma verebiliyor; o durumda
+  // "hâlâ açık" denetimi geçiyor ve tazelenen ekran bilgisi yeni oturumun
+  // oluyor. Köprü oturumun kalıcı bir kimliğini vermediği için bu kabul.
   const returning = useRef(connections !== null);
-  const revalidateAfterReturn = async () => {
+  const revalidateAfterReturn = async (gen: number) => {
+    const stale = () => revalidationGen.current !== gen;
     const result = await window.api.listGuiScriptConnections();
+    if (stale()) return;
     if (!result.ok || !result.connections) {
       setConnections("error");
       clearSelection();
@@ -413,7 +440,13 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
         lists[idx] = r.ok && r.sessions ? r.sessions : "error";
       })
     );
-    setSessionsByConn(lists);
+    if (stale()) return;
+    // Birleştiriliyor, üzerine yazılmıyor: doğrulama sürerken kullanıcının
+    // açtığı bir bağlantının oturum listesi kaybolmasın. Kapanmış
+    // bağlantılar ayıklanıyor.
+    setSessionsByConn((prev) =>
+      Object.fromEntries(Object.entries({ ...prev, ...lists }).filter(([idx]) => alive.has(Number(idx))))
+    );
     setExpandedConn((prev) => Object.fromEntries(Object.entries(prev).filter(([idx]) => alive.has(Number(idx)))));
     if (!selected) return;
     const sessions = lists[selected.connIdx];
@@ -426,10 +459,13 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
   };
 
   useEffect(() => {
+    // Kuşak burada, `await`'ten ÖNCE alınıyor: StrictMode'un çift mount'unda
+    // ilk çalıştırma, aradaki unmount'un artırdığı kuşak yüzünden çekiliyor.
+    const gen = revalidationGen.current;
     (async () => {
       const next = await refreshStatus();
-      if (!returning.current) return;
-      if (next.running) await revalidateAfterReturn();
+      if (!returning.current || revalidationGen.current !== gen) return;
+      if (next.running) await revalidateAfterReturn(gen);
       else clearTree();
     })();
     // Yalnızca mount'ta: dönüş bir kez doğrulanıyor.
@@ -473,6 +509,7 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
 
   const handleSelectSession = useCallback(
     (connIdx: number, sessIdx: number) => {
+      revalidationGen.current += 1;
       const next = { connIdx, sessIdx };
       setActiveSession(next);
       setSelectedElementId("");

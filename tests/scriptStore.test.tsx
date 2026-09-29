@@ -11,7 +11,8 @@ import {
   type ScriptCommands,
   type ScriptStore
 } from "../src/stores/scriptStore";
-import { installScriptApi, type ScriptApiFake } from "./scriptApiFake";
+import { SESSION, installScriptApi, type ScriptApiFake } from "./scriptApiFake";
+import type { GuiScriptScreenState, GuiScriptSessionInfo } from "../app-electron/shared/types";
 
 let store: ScriptStore;
 let commands: ScriptCommands;
@@ -175,4 +176,71 @@ describe("Script'ten çıkıp dönmek", () => {
     expect(store.activeSession).toBeNull();
     expect(await screen.findByText("Köprü kapalı")).toBeTruthy();
   });
+});
+
+// Dönüş doğrulaması sürerken kenar çubuğu tıklanabilir. Kullanıcı o arada
+// başka bir oturum seçerse, doğrulamanın cevabı bu yeni seçimi ne silmeli ne
+// de eski oturumun ekran bilgisini yeni oturumun adına yayımlamalı.
+describe("Dönüş doğrulaması sürerken başka oturum seçmek", () => {
+  const SESSION_B: GuiScriptSessionInfo = {
+    index: 1,
+    id: "/app/con[0]/ses[1]",
+    busy: false,
+    info: { Transaction: "VA01", Program: "SAPMV45A", SystemName: "S4D", Client: "100", User: "TESTUSER" }
+  };
+  const screenOf = (sessIdx: number): GuiScriptScreenState =>
+    sessIdx === 1
+      ? { systemName: "S4D", client: "100", user: "TESTUSER", transaction: "VA01", program: "SAPMV45A", title: "Satış" }
+      : { systemName: "S4D", client: "100", user: "TESTUSER", transaction: "SE38", program: "SAPLWBABAP", title: "ABAP Editörü" };
+
+  for (const [label, sessionsAfter] of [
+    ["eski oturum hâlâ açık", [SESSION, SESSION_B]],
+    ["eski oturum arada kapanmış", [SESSION_B]]
+  ] as const) {
+    it(`yeni seçim korunuyor, bağlam yeni oturumun (${label})`, async () => {
+      api.listGuiScriptSessions.mockResolvedValue({ ok: true, sessions: [SESSION, SESSION_B] });
+      api.getGuiScriptScreen.mockImplementation((_connIdx: number, sessIdx: number) =>
+        Promise.resolve({ ok: true, screen: screenOf(sessIdx) })
+      );
+      const view = render(<Harness show />);
+      await openSession();
+      view.rerender(<Harness show={false} />);
+
+      // Doğrulamanın oturum listesi okuması kullanıcı tıklayana kadar bekliyor.
+      let release = () => {};
+      api.listGuiScriptSessions.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            release = () => resolve({ ok: true, sessions: [...sessionsAfter] });
+          })
+      );
+      api.listGuiScriptSessions.mockClear();
+      view.rerender(<Harness show />);
+      await waitFor(() => expect(api.listGuiScriptSessions).toHaveBeenCalled());
+
+      api.getGuiScriptScreen.mockClear();
+      api.setActiveGuiContext.mockClear();
+      fireEvent.click(screen.getByRole("button", { name: /^VA01 S4D/ }));
+      await waitFor(() =>
+        expect(api.setActiveGuiContext).toHaveBeenCalledWith(
+          expect.objectContaining({ sessionIndex: 1, transaction: "VA01" })
+        )
+      );
+
+      await act(async () => {
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      expect(store.activeSession).toEqual({ connIdx: 0, sessIdx: 1 });
+      expect(screen.getByRole("button", { name: /^VA01 S4D/ }).getAttribute("aria-current")).toBe("true");
+      // Eski oturumun ekranı hiç istenmiyor; yayımlanan her bağlam yeni oturumun.
+      expect(api.getGuiScriptScreen).not.toHaveBeenCalledWith(0, 0);
+      const published = api.setActiveGuiContext.mock.calls.map((call) => call[0]).filter(Boolean);
+      expect(published.length).toBeGreaterThan(0);
+      for (const gui of published) {
+        expect(gui).toEqual(expect.objectContaining({ sessionIndex: 1, transaction: "VA01" }));
+      }
+    });
+  }
 });
