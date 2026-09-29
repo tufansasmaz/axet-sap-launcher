@@ -77,7 +77,7 @@ var.
   üstteki şeritte; Ctrl+F onu odaklıyor.
 - **Script listesi** `SapGuiScriptingHome.tsx` içinde, 264px sabit, yalnızca
   köprü çalışırken çiziliyor. Ekran mod değişince **kaldırılıyor**; seçili
-  oturum ve ağaç kayboluyor. Ekranda 36 durum var, listeyi ilgilendiren 7.
+  oturum ve ağaç kayboluyor. Listeyi ilgilendiren 7 durum var.
 - **Hazırlık** ayrı bir tam ekran, sol listesi yok.
 - **Yazı:** yalnızca Inter gömülü. `font-mono` Tailwind'in varsayılan
   yığınına düşüyor; 26 dosya kullanıyor. Elle yazılmış büyük harfli bölüm
