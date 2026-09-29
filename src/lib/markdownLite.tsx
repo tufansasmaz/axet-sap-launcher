@@ -105,21 +105,18 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
   return nodes;
 }
 
-// Kod bloğu: üstte dil rozeti + kopyala butonu olan bir başlık şeridi. Kopyala
-// SADECE hover'da beliriyor (uzun cevaplarda her bloğun üstünde sabit bir
-// ikon görsel gürültü olurdu) ama `focus-within` ile klavyeden de erişilebilir.
+// Kod bloğu: başlık şeridi YOK — dil adı bilgi taşımıyordu, renklendirme
+// zaten dili gösteriyor. Kopyala sağ üst köşede ve SADECE hover'da beliriyor
+// (uzun cevaplarda her bloğun üstünde sabit bir ikon görsel gürültü olurdu)
+// ama `focus-within` ile klavyeden de erişilebilir. `pr-10`: düğme ilk
+// satırın sonunu örtmesin.
 function CodeBlock({ code, lang }: { code: string; lang: string }) {
   return (
-    <div className="group/code overflow-hidden rounded-lg border border-line bg-app">
-      <div className="flex items-center justify-between border-b border-line bg-card/60 px-3 py-1">
-        {/* lang="en": kod bloğu dil etiketi ("typescript", "javascript") İngilizce ve
-            `uppercase` büyütmesi dile özgü — Türkçe arayüzde "TYPESCRİPT" çizilirdi. */}
-        <span lang="en" className="font-mono text-[10px] uppercase tracking-wide text-slate-500">{lang || "text"}</span>
-        <span className="opacity-0 transition-opacity focus-within:opacity-100 group-hover/code:opacity-100">
-          <CopyButton value={code} />
-        </span>
-      </div>
-      <pre className="overflow-x-auto p-3 font-mono text-xs text-slate-200">
+    <div className="group/code relative overflow-hidden rounded-lg border border-line bg-app">
+      <span className="absolute right-2 top-2 opacity-0 transition-opacity focus-within:opacity-100 group-hover/code:opacity-100">
+        <CopyButton value={code} />
+      </span>
+      <pre className="overflow-x-auto p-3 pr-10 font-mono text-xs text-slate-200">
         <code className={lang ? `language-${lang}` : undefined}>{highlightCode(code, lang)}</code>
       </pre>
     </div>
