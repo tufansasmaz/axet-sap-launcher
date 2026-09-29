@@ -24,6 +24,7 @@ import type {
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./shell/Sidebar";
 import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./shell/activity";
+import { useShellShortcuts } from "./shell/useShellShortcuts";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
 // axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
@@ -1003,23 +1004,16 @@ export default function App() {
     setConfig(await window.api.saveConfig({ sidebarCollapsed: collapsed }));
   }, []);
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        const focusSearch = () => requestAnimationFrame(() => searchInputRef.current?.focus());
-        // Arama kutusu kenar çubuğunda (`LogonSidebar`). Daraltılmışsa kutu
-        // çizili değil: önce açılıyor, odak config güncellenince veriliyor.
-        if (sidebarCollapsed && listMode === "sapLauncher") {
-          void handleSidebarCollapsedChange(false).then(focusSearch);
-          return;
-        }
-        focusSearch();
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [sidebarCollapsed, listMode, handleSidebarCollapsedChange]);
+  // Logon terminali tam ekranken kenar çubuğu çizilmiyor (bkz. <Sidebar>).
+  const sidebarHidden = activity === "sapLauncher" && terminalFullscreen;
+
+  useShellShortcuts({
+    listMode,
+    sidebarCollapsed,
+    sidebarHidden,
+    onModeChange: setActivity,
+    onExpandSidebar: () => handleSidebarCollapsedChange(false)
+  });
 
   const handleSetTier = async (service: SapService, tier: SystemTier | null) => {
     const next = await window.api.setSystemTier(service.uuid, tier);
@@ -1066,7 +1060,7 @@ export default function App() {
         {/* Terminal tam ekranı (Logon) kenar çubuğunu da gizliyor (spec §6.3).
             `terminalFullscreen` Logon'un durumu; başka ekrana geçince
             kenar çubuğu geri geliyor. */}
-        {!(activity === "sapLauncher" && terminalFullscreen) && (
+        {!sidebarHidden && (
           <Sidebar
             mode={listMode}
             readinessOpen={activity === "readiness"}
