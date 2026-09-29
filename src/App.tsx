@@ -63,6 +63,7 @@ import { flattenLandscape } from "./lib/landscape";
 import { btn, iconBtn, tintBtn } from "./ui/buttons";
 import { applyAppearance } from "./ui/appearance";
 import { useActiveContext } from "./lib/useActiveContext";
+import { useDocumentLanguage } from "./ui/useDocumentLanguage";
 import { LanguageProvider, translate } from "./i18n";
 
 const MIN_TERMINAL_HEIGHT = 160;
@@ -173,6 +174,7 @@ export default function App() {
   const activeContext = useActiveContext();
 
   const language = config?.language ?? "tr";
+  useDocumentLanguage(language);
   const t = useCallback(
     (key: Parameters<typeof translate>[1], params?: Parameters<typeof translate>[2]) =>
       translate(language, key, params),
