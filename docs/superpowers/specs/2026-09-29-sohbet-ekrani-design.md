@@ -138,7 +138,9 @@ zorunda.
   Hemen ardından çıkan geri al şeridi (`editUndo`) kalıyor.
 - Yarıda kalmış son cevapta "Devam et" düğmesi. Oturum yenilendi notu
   (`restartedReason`).
-- Yeniden üret yalnız son, bitmiş, hatasız cevapta. Tur sürerken yok.
+- Yeniden üret yalnız son, bitmiş cevapta; tur sürerken yok. Son cevap
+  hataysa da bugünkü gibi kalıyor: hata cevabının satırında yalnız Yeniden
+  üret var (Kopyala ve saat yok).
 - Hata cevabının kırmızı kutusu.
 - Aşağı in düğmesi (`!atBottom && !isEmpty`) ve dipteyken otomatik kaydırma.
   Gösterge artık listenin sonunda olduğu için dipteyken görünür kalıyor.
@@ -214,7 +216,8 @@ jest-dom ve user-event yok).
   - iki adımın ayrıntısı aynı anda açık kalabiliyor.
 - Cevap satırı:
   - Yeniden üret yalnız `onRegenerate` verilen balonda;
-  - akış sürerken ve hata cevabında satır yok;
+  - akış sürerken satır yok; hata cevabında `onRegenerate` yoksa satır yok,
+    varsa yalnız Yeniden üret;
   - öteki cevapların satırı `opacity-0` ile gizli ama DOM'da (yer ayrılı).
 - `CodeBlock`: başlık şeridi yok, Kopyala düğmesi var.
 - `ChatComposer`:
