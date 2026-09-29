@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   ChevronDown,
@@ -25,7 +25,6 @@ import type {
 } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import {
-  activeGroupKeys,
   filterSessions,
   groupSessions,
   normalizeSessionQuery,
@@ -76,7 +75,10 @@ export default function ChatSidebar({
     activeId,
     setActiveId,
     projects,
-    searchResetKey,
+    sidebarQuery: query,
+    setSidebarQuery: setQuery,
+    openGroups,
+    setOpenGroups,
     renameSession,
     moveSession,
     createProject,
@@ -84,7 +86,9 @@ export default function ChatSidebar({
   } = useChatStore();
   const commands = useChatCommands();
 
-  const [query, setQuery] = useState("");
+  // Arama metni ve açık gruplar store'da (bkz. `ChatStore.sidebarQuery`):
+  // bu bileşen mod değişince unmount oluyor. Yarım kalan ad değiştirme ve
+  // taşıma menüsü ise BİLEREK yerel — ekrandan çıkınca iptal olmaları doğru.
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -92,14 +96,6 @@ export default function ChatSidebar({
   // çubuğunun kaydırılan listesinin içinde açılsaydı, listeyle birlikte
   // kayar ve `overflow-hidden` sınırında kırpılırdı.
   const [moveMenu, setMoveMenu] = useState<{ sessionId: string; x: number; y: number } | null>(null);
-
-  // Sohbet ekranı aramayı temizlemek istediğinde (yeni sohbet, SAP'den
-  // gelen sohbet) sayacı artırıyor. İlk çizimde de çalışıyor, zararsız.
-  useEffect(() => {
-    setQuery("");
-  }, [searchResetKey]);
-
-  const activeSession = sessions.find((s) => s.id === activeId) ?? null;
 
   const orderedSessions = useMemo(() => orderSessions(sessions), [sessions]);
   const normalizedQuery = normalizeSessionQuery(query);
@@ -121,32 +117,16 @@ export default function ChatSidebar({
   // Yalnızca AÇILMIŞ olanlar tutuluyor: varsayılan kapalı. Açık gelen ağaç
   // bütün sohbetleri bir anda döküyordu; kullanıcı yalnızca başlıkları görüp
   // istediği düğümü açmak istedi. Kalıcı değil (oturum içi) — kenar çubuğunun
-  // açık/kapalı durumu gibi.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  // açık/kapalı durumu gibi. State store'da (bkz. yukarıdaki arama notu).
   const toggleGroup = useCallback((key: string) => {
     setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
+  }, [setOpenGroups]);
   // Arama sırasında daraltma YOK SAYILIYOR: eşleşen bir sohbet kapalı bir
   // grubun içinde kalsaydı arama bozuk görünürdü.
   const groupOpen = (key: string) =>
     Boolean(normalizedQuery) || Boolean(openGroups[key]);
-  // Etkin sohbetin yolu açılıyor: yeni açılan ya da seçilen sohbet kapalı bir
-  // grubun içinde kalsaydı listede kaybolmuş görünürdü. Yalnızca etkin sohbet
-  // DEĞİŞİNCE çalışıyor — kullanıcı o grubu sonradan kapatırsa kapalı kalıyor.
-  // Anahtarları `src/lib/chatSessionGroups.ts`'teki `activeGroupKeys`
-  // hesaplıyor (kuralı `groupSessions`'la aynı). Açılışta `activeId` boş
-  // olduğu için ağaç tamamen kapalı başlıyor.
-  useEffect(() => {
-    const s = activeSession;
-    if (!s) return;
-    const keys = activeGroupKeys(s, projects);
-    setOpenGroups((prev) =>
-      keys.every((k) => prev[k])
-        ? prev
-        : { ...prev, ...Object.fromEntries(keys.map((k) => [k, true])) },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSession?.id]);
+  // Etkin sohbetin yolunu açan etki store'da: burada dursaydı her mount'ta
+  // yeniden çalışır, kullanıcının kapattığı grubu dönüşte yine açardı.
 
   const commitRename = useCallback(() => {
     const id = renamingId;

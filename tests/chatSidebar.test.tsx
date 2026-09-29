@@ -12,22 +12,30 @@ function Probe() {
   return null;
 }
 
-function renderSidebar() {
-  return render(
+// `show` false: kenar çubuğu unmount (mod değişti ya da kenar çubuğu daraldı),
+// store ise yerinde — App'teki düzen.
+function tree(show = true) {
+  return (
     <LanguageProvider language="tr">
       <ChatStoreProvider pushToast={() => {}}>
         <Probe />
-        <ChatSidebar
-          recentEntries={[]}
-          connectivity={{}}
-          tierOverrides={{}}
-          activeSap={null}
-          onOpenSapLauncher={() => {}}
-          onQuickConnectSap={() => {}}
-        />
+        {show && (
+          <ChatSidebar
+            recentEntries={[]}
+            connectivity={{}}
+            tierOverrides={{}}
+            activeSap={null}
+            onOpenSapLauncher={() => {}}
+            onQuickConnectSap={() => {}}
+          />
+        )}
       </ChatStoreProvider>
     </LanguageProvider>
   );
+}
+
+function renderSidebar() {
+  return render(tree());
 }
 
 function session(id: string, title: string): ChatSession {
@@ -117,6 +125,37 @@ describe("ChatSidebar", () => {
     expect(input.value).toBe("fatura");
     act(() => store.resetSearch());
     expect(input.value).toBe("");
+  });
+
+  it("arama metni ve açılan grup kenar çubuğu gidip gelince korunuyor", () => {
+    const { rerender } = renderSidebar();
+    act(() => store.setSessions([session("a", "Birinci"), session("b", "İkinci")]));
+    const general = () => screen.getByText("Sohbetler").closest("button")!;
+    expect(general().getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(general());
+    fireEvent.change(screen.getByPlaceholderText("Sohbetlerde ara…"), { target: { value: "Birinci" } });
+
+    rerender(tree(false));
+    rerender(tree(true));
+
+    const input = screen.getByPlaceholderText("Sohbetlerde ara…") as HTMLInputElement;
+    expect(input.value).toBe("Birinci");
+    // Arama grupları zorla açıyor; açık grubun korunduğu ancak arama
+    // temizlenince görünüyor.
+    fireEvent.change(input, { target: { value: "" } });
+    expect(general().getAttribute("aria-expanded")).toBe("true");
+    expect(rowOf("İkinci")).toBeDefined();
+  });
+
+  it("kullanıcının kapattığı etkin sohbet grubu dönüşte yeniden açılmıyor", () => {
+    const { rerender } = renderSidebar();
+    seed();
+    const general = () => screen.getByText("Sohbetler").closest("button")!;
+    expect(general().getAttribute("aria-expanded")).toBe("true");
+    fireEvent.click(general());
+    rerender(tree(false));
+    rerender(tree(true));
+    expect(general().getAttribute("aria-expanded")).toBe("false");
   });
 
   it("arama kutusu kısayolun bulacağı işareti taşıyor", () => {

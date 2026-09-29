@@ -175,10 +175,14 @@ describe("ChatStore", () => {
     expect(b).toHaveBeenCalledTimes(1);
   });
 
-  it("resetSearch searchResetKey'i artırıyor", () => {
+  it("resetSearch arama metnini boşaltıyor, açık gruplara dokunmuyor", () => {
     renderStore();
-    const before = store.searchResetKey;
+    act(() => {
+      store.setSidebarQuery("fatura");
+      store.setOpenGroups({ general: true });
+    });
     act(() => store.resetSearch());
-    expect(store.searchResetKey).toBe(before + 1);
+    expect(store.sidebarQuery).toBe("");
+    expect(store.openGroups).toEqual({ general: true });
   });
 });

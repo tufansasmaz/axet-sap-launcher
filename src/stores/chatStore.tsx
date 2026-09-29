@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -13,6 +14,7 @@ import type { ChatProject } from "../../app-electron/shared/types";
 import { chatToMarkdown, safeFileName } from "../lib/chatExport";
 import { chatToPrintHtml } from "../lib/chatPrint";
 import { useT } from "../i18n";
+import { activeGroupKeys } from "../lib/chatSessionGroups";
 import { deriveTitle, type ChatSession } from "./chatTypes";
 
 // Sohbet verisinin tek sahibi (grafit, spec §5.1). `AxetCodeHome` ve sohbet
@@ -45,9 +47,15 @@ export interface ChatStore {
   setProjects: Dispatch<SetStateAction<ChatProject[]>>;
   sessionsLoaded: boolean;
   setSessionsLoaded: Dispatch<SetStateAction<boolean>>;
-  // Arama metni kenar çubuğunda duruyor; sohbet ekranı onu temizlemek
-  // istediğinde (yeni sohbet, SAP'den gelen sohbet) bu sayacı artırıyor.
-  searchResetKey: number;
+  // Kenar çubuğunun arama metni ve açık grupları BURADA: `ChatSidebar` mod
+  // değişince ve kenar çubuğu daralınca unmount oluyor, kendi state'inde
+  // tutsaydı her dönüşte arama silinir, açılan gruplar kapanırdı. Kalıcı
+  // değil (oturum içi). Sohbet ekranı aramayı temizlemek istediğinde (yeni
+  // sohbet, SAP'den gelen sohbet) `resetSearch`'ü çağırıyor.
+  sidebarQuery: string;
+  setSidebarQuery: Dispatch<SetStateAction<string>>;
+  openGroups: Record<string, boolean>;
+  setOpenGroups: Dispatch<SetStateAction<Record<string, boolean>>>;
   resetSearch(): void;
   renameSession(id: string, title: string): void;
   moveSession(id: string, projectId: string | null): void;
@@ -75,14 +83,36 @@ export function ChatStoreProvider({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [projects, setProjects] = useState<ChatProject[]>([]);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
-  const [searchResetKey, setSearchResetKey] = useState(0);
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
   // `App`'in `pushToast`'u her çizimde yeni bir fonksiyon. Bağımlılık
   // yapılsaydı store'un bütün işlemleri her çizimde yenilenirdi.
   const pushToastRef = useRef(pushToast);
   pushToastRef.current = pushToast;
 
-  const resetSearch = useCallback(() => setSearchResetKey((k) => k + 1), []);
+  const resetSearch = useCallback(() => setSidebarQuery(""), []);
+
+  // Etkin sohbetin yolu açılıyor: yeni açılan ya da seçilen sohbet kapalı bir
+  // grubun içinde kalsaydı listede kaybolmuş görünürdü. Yalnızca etkin sohbet
+  // DEĞİŞİNCE çalışıyor — kullanıcı o grubu sonradan kapatırsa kapalı kalıyor.
+  // Kenar çubuğunda değil burada, çünkü store hiç unmount olmuyor: orada her
+  // dönüşte yeniden çalışır, kapatılan grubu yine açardı. Anahtarları
+  // `src/lib/chatSessionGroups.ts`'teki `activeGroupKeys` hesaplıyor (kuralı
+  // `groupSessions`'la aynı). Açılışta `activeId` boş olduğu için ağaç
+  // tamamen kapalı başlıyor.
+  const activeSession = sessions.find((s) => s.id === activeId) ?? null;
+  useEffect(() => {
+    const s = activeSession;
+    if (!s) return;
+    const keys = activeGroupKeys(s, projects);
+    setOpenGroups((prev) =>
+      keys.every((k) => prev[k])
+        ? prev
+        : { ...prev, ...Object.fromEntries(keys.map((k) => [k, true])) }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSession?.id]);
 
   const renameSession = useCallback((id: string, title: string) => {
     const next = title.trim();
@@ -178,7 +208,10 @@ export function ChatStoreProvider({
       setProjects,
       sessionsLoaded,
       setSessionsLoaded,
-      searchResetKey,
+      sidebarQuery,
+      setSidebarQuery,
+      openGroups,
+      setOpenGroups,
       resetSearch,
       renameSession,
       moveSession,
@@ -193,7 +226,8 @@ export function ChatStoreProvider({
       activeId,
       projects,
       sessionsLoaded,
-      searchResetKey,
+      sidebarQuery,
+      openGroups,
       resetSearch,
       renameSession,
       moveSession,
