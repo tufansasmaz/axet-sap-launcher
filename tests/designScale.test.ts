@@ -92,13 +92,14 @@ describe("bildirim katmanı", () => {
 describe("cırcır: elle yazılmış px yazı boyu", () => {
   // 207 → 205 (Görev 1, düğme boyları) → 191 (Görev 8, taşınan beş pencere)
   // → 186 (grafit Görev 4, beş bölüm başlığı Eyebrow'a)
-  // → 154 (grafit Görev 17, kenar çubukları kabuğa taşındı).
+  // → 154 (grafit Görev 17, kenar çubukları kabuğa taşındı)
+  // → 152 (grafit Görev 17, Son Bağlanılanlar başlığı Eyebrow'a).
   // Sınır ölçülen değer: bir ekran ölçeğe taşındıkça burası da aşağı çekilir.
-  it("154'ü geçmiyor", () => {
+  it("152'yi geçmiyor", () => {
     let count = 0;
     for (const file of walk(SRC)) {
       count += (readFileSync(file, "utf8").match(/text-\[[0-9.]+px\]/g) ?? []).length;
     }
-    expect(count).toBeLessThanOrEqual(154);
+    expect(count).toBeLessThanOrEqual(152);
   });
 });

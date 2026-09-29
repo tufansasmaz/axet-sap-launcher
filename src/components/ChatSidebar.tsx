@@ -402,14 +402,19 @@ export default function ChatSidebar({
 
           Ctrl+N rozeti düğmenin YÜZÜNDEN kalktı, yalnızca tooltip'te: dar
           kenar çubuğunda iki yazılı düğme + rozet aynı satıra sığmıyor,
-          rozeti bırakmak "Yeni sohbet" yazısını kırpardı. */}
-      <div className="flex shrink-0 gap-1.5 px-2.5 pb-2.5">
+          rozeti bırakmak "Yeni sohbet" yazısını kırpardı.
+
+          `min-w-28` + `flex-wrap`: "Yeni sohbet" düğmesi 107px istiyor. Kenar
+          çubuğu 220px'e inince yan yana ikisine 97'şer px kalıyor ve yazı
+          "Yeni so…" oluyordu (ölçüldü, 2026-09-29); o genişlikte alt alta
+          diziliyorlar, 250px ve üstünde yan yana. */}
+      <div className="flex shrink-0 flex-wrap gap-1.5 px-2.5 pb-2.5">
         {/* onClick'teki sarmalayıcı ok fonksiyonu şart: `newSession`'ı
             doğrudan geçmek MouseEvent'i `binding` argümanı sanardı. */}
         <button
           onClick={() => commands.newSession()}
           title={`${t("axetCodeHome.newSession")} (Ctrl+N)`}
-          className="flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-500 px-2 text-xs font-semibold text-accent-on transition hover:bg-accent-600"
+          className="flex h-9 min-w-28 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-accent-500 px-2 text-xs font-semibold text-accent-on transition hover:bg-accent-600"
         >
           <Plus size={15} className="shrink-0" />
           <span className="min-w-0 truncate">{t("axetCodeHome.newSession")}</span>
@@ -417,7 +422,7 @@ export default function ChatSidebar({
         <button
           onClick={handleCreateProject}
           title={t("axetCodeHome.newProject")}
-          className="flex h-9 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-[rgb(var(--project-500-rgb)/0.35)] bg-[rgb(var(--project-500-rgb)/0.12)] px-2 text-xs font-medium text-[var(--project-soft-text)] transition hover:border-[rgb(var(--project-500-rgb)/0.6)] hover:bg-[rgb(var(--project-500-rgb)/0.22)]"
+          className="flex h-9 min-w-28 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-[rgb(var(--project-500-rgb)/0.35)] bg-[rgb(var(--project-500-rgb)/0.12)] px-2 text-xs font-medium text-[var(--project-soft-text)] transition hover:border-[rgb(var(--project-500-rgb)/0.6)] hover:bg-[rgb(var(--project-500-rgb)/0.22)]"
         >
           <FolderPlus size={15} className="shrink-0" />
           <span className="min-w-0 truncate">{t("axetCodeHome.newProject")}</span>

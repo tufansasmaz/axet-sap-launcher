@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Clock, Server } from "lucide-react";
+import { ChevronDown, ChevronRight, Server } from "lucide-react";
 import type { ConnectivityState, SapService, SystemTier } from "../../app-electron/shared/types";
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
 import { resolveTier } from "../lib/tier";
 import { useT } from "../i18n";
 import { ActiveLine } from "../shell/SidebarFooter";
+import { Eyebrow } from "../ui/Eyebrow";
 
 interface RecentEntry {
   path: string[];
@@ -58,20 +59,23 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
     <div className="mb-3 border-b border-line pb-3">
       {/* Ok CSS döndürmesiyle değil AYRI İKONLA (ChevronRight/ChevronDown) —
           uygulamanın geri kalanındaki daraltılabilir başlıklarla aynı desen.
-          Sayı rozeti kapalıyken de duruyor: daraltılmış bir listenin kaç satır
+          Sayı kapalıyken de duruyor: daraltılmış bir listenin kaç satır
           sakladığını göstermek, açıp bakma ihtiyacını çoğu zaman ortadan
-          kaldırıyor. */}
+          kaldırıyor.
+
+          Başlık Sohbet'in grup başlıklarıyla aynı: ok + `Eyebrow` (spec §6.5).
+          Eskiden saat ikonu ve sayı rozeti de vardı; 220px kenar çubuğunda
+          başlık onlarla iki satıra kırılıyordu (ölçüldü, 2026-09-29). */}
       <button
         onClick={toggle}
         title={collapsed ? t("recentSystems.expand") : t("recentSystems.collapse")}
-        className="mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-slate-500 transition-colors hover:text-slate-300"
+        aria-expanded={!collapsed}
+        className="group mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-slate-400 transition hover:text-slate-200"
       >
         {collapsed ? <ChevronRight size={12} className="shrink-0" /> : <ChevronDown size={12} className="shrink-0" />}
-        <Clock size={12} className="shrink-0 text-[var(--navy-icon)]" />
-        {t("recentSystems.heading")}
-        <span className="ml-auto shrink-0 rounded-full bg-control px-1.5 text-[10px] font-semibold normal-case tracking-normal text-slate-400">
-          {entries.length}
-        </span>
+        <Eyebrow as="span" count={entries.length} className="min-w-0 flex-1 group-hover:text-slate-200">
+          {t("recentSystems.heading")}
+        </Eyebrow>
       </button>
       <div className={collapsed ? "hidden" : "space-y-0.5"}>
         {entries.map((entry) => {

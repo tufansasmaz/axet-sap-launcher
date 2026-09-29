@@ -79,6 +79,17 @@ describe("ChatSidebar", () => {
     expect(other.querySelector("[data-active-line]")).toBeNull();
   });
 
+  it("alt düğmeler dar kenar çubuğunda kesilmek yerine alt alta diziliyor", () => {
+    // jsdom ölçemiyor; ölçü ChatSidebar.tsx'teki yorumda. Burada sınıf sabitleniyor.
+    renderSidebar();
+    const buttons = [screen.getByTitle("Yeni sohbet (Ctrl+N)"), screen.getByTitle("Yeni proje")];
+    for (const button of buttons) {
+      expect(button.classList.contains("min-w-28")).toBe(true);
+      expect(button.classList.contains("min-w-0")).toBe(false);
+    }
+    expect(buttons[0].parentElement!.classList.contains("flex-wrap")).toBe(true);
+  });
+
   it("Yeni sohbet, Sohbeti sil ve kısayollar kayıtlı komutlara gidiyor", () => {
     renderSidebar();
     seed();

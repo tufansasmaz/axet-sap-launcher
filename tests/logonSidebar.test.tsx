@@ -131,6 +131,18 @@ describe("LogonSidebar", () => {
     expect(row.classList.contains("bg-[var(--accent-glow)]")).toBe(true);
   });
 
+  it("son bağlanılanlar başlığı Eyebrow: tek satır, sayı sağda, açık/kapalı bildiriliyor", () => {
+    renderSidebar();
+    const label = screen.getByText("Son Bağlanılanlar");
+    expect(label.classList.contains("truncate")).toBe(true);
+    expect(label.parentElement!.classList.contains("font-mono")).toBe(true);
+    expect(label.nextElementSibling?.textContent).toBe("1");
+    const header = label.closest("button")!;
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+    // Eski başlıkta saat ikonu vardı; 220px'te başlığı iki satıra kıran oydu.
+    expect(header.querySelectorAll("svg")).toHaveLength(1);
+  });
+
   it("liste ilk kez yüklenirken yükleniyor yazıyor", () => {
     renderSidebar({ loading: true, customers: [] });
     expect(screen.getByText("Yükleniyor…")).toBeTruthy();
