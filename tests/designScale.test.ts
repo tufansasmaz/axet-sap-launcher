@@ -93,13 +93,14 @@ describe("cırcır: elle yazılmış px yazı boyu", () => {
   // 207 → 205 (Görev 1, düğme boyları) → 191 (Görev 8, taşınan beş pencere)
   // → 186 (grafit Görev 4, beş bölüm başlığı Eyebrow'a)
   // → 154 (grafit Görev 17, kenar çubukları kabuğa taşındı)
-  // → 152 (grafit Görev 17, Son Bağlanılanlar başlığı Eyebrow'a).
+  // → 152 (grafit Görev 17, Son Bağlanılanlar başlığı Eyebrow'a)
+  // → 132 (sohbet ekranı, 2026-09-29: composer, araç satırı, boş ekran).
   // Sınır ölçülen değer: bir ekran ölçeğe taşındıkça burası da aşağı çekilir.
-  it("152'yi geçmiyor", () => {
+  it("132'yi geçmiyor", () => {
     let count = 0;
     for (const file of walk(SRC)) {
       count += (readFileSync(file, "utf8").match(/text-\[[0-9.]+px\]/g) ?? []).length;
     }
-    expect(count).toBeLessThanOrEqual(152);
+    expect(count).toBeLessThanOrEqual(132);
   });
 });

@@ -193,7 +193,6 @@ export const tr = {
   "axetCodeHome.attachmentOpen": "Bilgisayarda aç",
   "axetCodeHome.attachmentClose": "Kapat",
   "axetCodeHome.composerPlaceholder": "axet.code'a bir şey sor…",
-  "axetCodeHome.disclaimer": "axet.code hata yapabilir; önemli bilgileri doğrula.",
   "axetCodeHome.send": "Gönder",
   "axetCodeHome.stopGenerating": "Durdur",
   "axetCodeHome.chatGenericError": "Cevap alınamadı, tekrar dener misin?",
@@ -263,9 +262,6 @@ export const tr = {
   // Araç sonucunun ilk satırı gösteriliyor; gerisi sayı olarak. Tam metin
   // satırın `title`'ında duruyor — sohbeti ezmeden erişilebilir kalsın.
   "axetCodeHome.toolMoreLines": "+{count} satır",
-  // Canlı göstergedeki araç satırının ipucu: tıklanınca o adımın tam çıktısı
-  // altında açılıyor ve sonraki adımlarda da açık kalıyor.
-  "axetCodeHome.toolDetailToggle": "Ayrıntıyı aç/kapat",
   "axetCodeHome.dropFilesHint": "Eklemek için dosyaları buraya bırak",
   "axetCodeHome.contextFiles": "Dosyalar",
   "axetCodeHome.contextFilesHint": "Bu klasörün dosyalarını yan panelde aç/kapat",
@@ -302,7 +298,6 @@ export const tr = {
   "axetCodeHome.deleteConfirmButton": "Sil",
   "axetCodeHome.historyCorrupt": "Sohbet geçmişi dosyası okunamadı. Bozuk dosya bir kenara alındı, geçmiş sıfırdan başlatıldı.",
   "axetCodeHome.historyLoadFailed": "Sohbet geçmişi yüklenemedi: {message}",
-  "axetCodeHome.regenerate": "Yeniden üret",
   "axetCodeHome.regenerateTitle": "Son cevabı sil ve yeniden üret",
   "axetCodeHome.editMessage": "Mesajı düzenle",
   "axetCodeHome.jumpToBottom": "En alta in",
@@ -715,8 +710,6 @@ export const tr = {
   // Yarım cevabın yanındaki düğme. "Yeniden üret" DEĞİL: üretilmiş metin
   // atılmıyor, ajandan kaldığı yerden sürdürmesi isteniyor.
   "chatBubble.continueAnswer": "Devam et",
-  // Cevabın üstündeki katlanır araç dökümünün başlığı.
-  "chatBubble.stepsToggle": "{count} işlem",
 
   // --- Araç satırı (bkz. ChatToolRun) ---
   "chatToolRun.count": "{count} araç işlemi",

@@ -166,7 +166,6 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.attachmentOpen": "Open on this computer",
   "axetCodeHome.attachmentClose": "Close",
   "axetCodeHome.composerPlaceholder": "Ask axet.code anything…",
-  "axetCodeHome.disclaimer": "axet.code can make mistakes; verify important information.",
   "axetCodeHome.send": "Send",
   "axetCodeHome.stopGenerating": "Stop",
   "axetCodeHome.chatGenericError": "Could not get a response, want to try again?",
@@ -215,7 +214,6 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.toolMcp": "App connection: {name}",
   "axetCodeHome.toolGeneric": "Running {name}",
   "axetCodeHome.toolMoreLines": "+{count} lines",
-  "axetCodeHome.toolDetailToggle": "Show/hide detail",
   "axetCodeHome.dropFilesHint": "Drop files here to attach",
   "axetCodeHome.contextFiles": "Files",
   "axetCodeHome.contextFilesHint": "Show or hide this folder's files in the side panel",
@@ -249,7 +247,6 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.deleteConfirmButton": "Delete",
   "axetCodeHome.historyCorrupt": "The chat history file could not be read. The corrupt file was set aside and history was started fresh.",
   "axetCodeHome.historyLoadFailed": "Chat history could not be loaded: {message}",
-  "axetCodeHome.regenerate": "Regenerate",
   "axetCodeHome.regenerateTitle": "Discard the last answer and generate it again",
   "axetCodeHome.editMessage": "Edit message",
   "axetCodeHome.jumpToBottom": "Jump to latest",
@@ -651,7 +648,6 @@ export const en: Record<TranslationKey, string> = {
   "chatBubble.interrupted":
     "This answer was cut short: generation was still running when the app closed. The text was recovered as far as it had got.",
   "chatBubble.continueAnswer": "Continue",
-  "chatBubble.stepsToggle": "{count} steps",
 
   // --- Tool run row (see ChatToolRun) ---
   "chatToolRun.count": "{count} tool calls",

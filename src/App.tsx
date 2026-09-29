@@ -348,12 +348,15 @@ export default function App() {
     // görüldükten sonra *"biraz daha büyük olsun"*). Gövde ölçeği DEĞİŞMEDİ:
     // karşılama açılış ekranının tek başlığı ve orada rakibi yok, gövde ise
     // her mesajda okunan metin — ikisini birlikte büyütmek okuma konforu
-    // ayarını bozardı. Alt başlık bu değerin %48'i (bkz. ChatSessionPane),
-    // yani 60px'te ~29px: hiyerarşi oran olarak korunuyor.
+    // ayarını bozardı.
+    // NOT (2026-09-29): boş ekran sadeleşti, `--chat-hero-size`ı artık hiçbir
+    // şey okumuyor. Değişken Ayarlar ekranı ele alınınca kaldırılacak.
     const heroSize = { sm: "50px", md: "60px", lg: "70px" }[config.chatFontSize];
     // Mesajlar arası dikey boşluk. "Yoğun" ekrana daha çok mesaj sığdırır,
-    // "rahat" uzun cevapların birbirine karışmasını önler.
-    const gap = config.chatDensity === "compact" ? "20px" : "32px";
+    // "rahat" uzun cevapların birbirine karışmasını önler. 32px→16px
+    // (2026-09-29): cevaplar artık balonsuz, araç satırı ve cevap satırı
+    // aralarında zaten ritim kuruyor; 32px konuşmayı dağıtıyordu.
+    const gap = config.chatDensity === "compact" ? "12px" : "16px";
     root.style.setProperty("--chat-font-size", fontSize);
     root.style.setProperty("--chat-hero-size", heroSize);
     root.style.setProperty("--chat-message-gap", gap);

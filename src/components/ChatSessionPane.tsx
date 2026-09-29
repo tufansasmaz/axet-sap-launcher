@@ -755,6 +755,9 @@ export default function ChatSessionPane({
  * Varsayılan olarak KAPALI değil, ÖZET açık: tek satırda "3/7 madde" ve
  * o an çalışılan maddenin adı. Yedi maddelik bir listeyi composer'ın üstünde
  * sürekli açık tutmak ekranın yarısını yerdi.
+ *
+ * ÇERÇEVESİZ (2026-09-29): kutunun üstünde düz bir satır. Çerçeveli kart,
+ * hemen altındaki yazma kutusuyla iki kutu gibi yarışıyordu.
  */
 function PlanPanel({ todos }: { todos: AxetTodo[] }) {
   const t = useT();
@@ -762,10 +765,10 @@ function PlanPanel({ todos }: { todos: AxetTodo[] }) {
   const done = todos.filter((todo) => todo.status === "completed").length;
   const active = todos.find((todo) => todo.status === "in_progress");
   return (
-    <div className="mb-2 rounded-xl border border-line-subtle bg-card/70 text-[12px]">
+    <div className="mb-1 text-[12px]">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left text-slate-400 transition hover:text-slate-200"
+        className="flex w-full cursor-pointer items-center gap-2 px-1 py-1 text-left text-slate-400 transition hover:text-slate-200"
       >
         <ListChecks size={13} className="shrink-0" />
         <span className="shrink-0 font-medium text-slate-300">
@@ -777,7 +780,7 @@ function PlanPanel({ todos }: { todos: AxetTodo[] }) {
         <span className="ml-auto shrink-0 text-slate-500">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
-        <ul className="chat-scroll max-h-48 overflow-auto border-t border-line-subtle px-3 py-2">
+        <ul className="chat-scroll max-h-48 overflow-auto px-1 pb-1">
           {todos.map((todo, i) => (
             <li
               key={i}
@@ -789,7 +792,7 @@ function PlanPanel({ todos }: { todos: AxetTodo[] }) {
                     : "text-slate-400"
               }`}
             >
-              <span className="mt-[1px] shrink-0 font-mono text-[11px]">
+              <span className="mt-[1px] shrink-0 font-mono text-2xs">
                 {todo.status === "completed" ? "✓" : todo.status === "in_progress" ? "▸" : "·"}
               </span>
               <span className="min-w-0 break-words">{todo.content}</span>

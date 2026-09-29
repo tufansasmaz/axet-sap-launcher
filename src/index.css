@@ -176,7 +176,7 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
 :root {
   --chat-font-size: 15px;
   --chat-hero-size: 60px;
-  --chat-message-gap: 32px;
+  --chat-message-gap: 16px;
 }
 
 :root,
