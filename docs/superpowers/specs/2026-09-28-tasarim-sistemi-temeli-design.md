@@ -336,3 +336,14 @@ Bitmiş sayılma: tüm test takımı yeşil, `npm run typecheck` temiz, dört g�
   yorum. `FileViewer`'daki beyaz DOCX sayfası **bilerek sabit kalıyor**:
   önizleme her iki temada da kâğıt sayfası gibi görünmeli, gerekçesi
   dosyadaki yorumda.
+
+## 10. Gözle kontrol notları (2026-09-29)
+
+Kullanıcı dört görünümü (İndigo/Sıcak × koyu/açık) çalışan uygulamada gezdi.
+
+Taşma, okunmayan metin ya da kalan limon bulunmadı.
+
+Kapatıp açma denetimleri (ilk karede renk parlaması, seçimin kalıcılığı) bu
+turda uygulama yeniden başlatılarak ayrıca denenmedi; kalıcılık
+`tests/settingsAppearance.test.tsx` ile, ilk kare rengi `THEME_SURFACES`
+testleriyle korunuyor.
