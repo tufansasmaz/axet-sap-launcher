@@ -73,6 +73,24 @@ describe("chatSessionGroups", () => {
     expect(groupSessions([], [P1, P2], true).projectGroups).toHaveLength(0);
   });
 
+  it("gruplar en yeni sohbetlerine göre sıralanıyor; sohbetsiz proje createdAt'iyle yarışıyor", () => {
+    // Girdi bilerek ters: eski SAP grubu ve eski proje önce geliyor.
+    const g = groupSessions(
+      [
+        s("eski1", { cwd: "C:\\sap\\ESK", updatedAt: 3 }),
+        s("eski2", { cwd: "C:\\sap\\ESK", updatedAt: 1 }),
+        s("yeni", { cwd: "C:\\sap\\YEN", updatedAt: 9 }),
+        s("proje", { projectId: "p1", updatedAt: 30 })
+      ],
+      [P2, P1],
+      false
+    );
+    expect(g.sapGroups.map((x) => x.key)).toEqual(["c:\\sap\\yen", "c:\\sap\\esk"]);
+    // P1'in createdAt'i (10) P2'ninkinden (20) eski, ama P1'in en yeni
+    // sohbeti (30) P2'nin createdAt'inden yeni: P1 önce.
+    expect(g.projectGroups.map((x) => x.key)).toEqual(["p1", "p2"]);
+  });
+
   it("etkin sohbetin açılması gereken grup anahtarları", () => {
     expect(activeGroupKeys(s("a", { projectId: "p1" }), [P1])).toEqual([PROJECTS_SECTION_KEY, "p1"]);
     expect(activeGroupKeys(s("a", { projectId: "gone" }), [P1])).toEqual([GENERAL_GROUP_KEY]);

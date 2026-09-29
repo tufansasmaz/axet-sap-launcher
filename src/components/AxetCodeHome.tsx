@@ -2373,8 +2373,9 @@ export default function AxetCodeHome({
   // Etkin sohbetin yolu açılıyor: yeni açılan ya da seçilen sohbet kapalı bir
   // grubun içinde kalsaydı listede kaybolmuş görünürdü. Yalnızca etkin sohbet
   // DEĞİŞİNCE çalışıyor — kullanıcı o grubu sonradan kapatırsa kapalı kalıyor.
-  // Anahtarlar `sessionGroups`'taki gruplamanın aynısı. Açılışta `activeId`
-  // boş olduğu için ağaç tamamen kapalı başlıyor.
+  // Anahtarları `src/lib/chatSessionGroups.ts`'teki `activeGroupKeys`
+  // hesaplıyor (kuralı `groupSessions`'la aynı). Açılışta `activeId` boş
+  // olduğu için ağaç tamamen kapalı başlıyor.
   useEffect(() => {
     const s = activeSession;
     if (!s) return;
