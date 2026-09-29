@@ -279,7 +279,7 @@ describe("SettingsModal", () => {
 
   it("değişiklik varken rozet çıkıyor; odak dışarıdayken Escape soruyor; At ve Kapat kaydetmeden kapatıyor", () => {
     const { onClose, onSave } = mount();
-    fireEvent.change(screen.getByDisplayValue("Deneme"), { target: { value: "Yeni" } });
+    fireEvent.change(screen.getByDisplayValue("axet"), { target: { value: "axet-yeni" } });
     expect(screen.getByText("Kaydedilmemiş değişiklik var")).toBeTruthy();
     const outside = outsideButton();
     outside.focus();
@@ -293,11 +293,11 @@ describe("SettingsModal", () => {
 
   it("Kaydet yalnızca düzenlenen alanları yolluyor ve kapatıyor", async () => {
     const { onClose, onSave } = mount();
-    fireEvent.change(screen.getByDisplayValue("Deneme"), { target: { value: "Yeni" } });
+    fireEvent.change(screen.getByDisplayValue("axet"), { target: { value: "axet-yeni" } });
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     const patch = (onSave.mock.calls[0] as unknown[])[0] as Partial<AppConfig>;
-    expect(patch.chatDisplayName).toBe("Yeni");
+    expect(patch.axetCommand).toBe("axet-yeni");
     expect("connectorEnabled" in patch).toBe(false);
   });
 });

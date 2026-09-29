@@ -87,18 +87,18 @@ describe("Ayarlar — açıkken config değişince", () => {
     expect(screen.getByText(UNSAVED)).toBeTruthy();
 
     // Ana süreçten gelen yeni config: düzenlenmeyen iki alan değişmiş.
-    rerender(true, { ...CONFIG, chatDisplayName: "Başka", axetCommand: "axet2" } as AppConfig);
+    rerender(true, { ...CONFIG, axetWorkspaceDir: "D:\\baska", axetCommand: "axet2" } as AppConfig);
 
     expect(screen.getByDisplayValue("D:\\yeni")).toBeTruthy();
     expect(screen.getByText(UNSAVED)).toBeTruthy();
-    expect(screen.getByDisplayValue("Başka")).toBeTruthy();
+    expect(screen.getByDisplayValue("D:\\baska")).toBeTruthy();
     expect(screen.getByDisplayValue("axet2")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     const patch = onSave.mock.calls[0][0];
     expect(patch.projectsBaseDir).toBe("D:\\yeni");
-    expect(patch.chatDisplayName).toBe("Başka");
+    expect(patch.axetWorkspaceDir).toBe("D:\\baska");
     expect(patch.axetCommand).toBe("axet2");
   });
 

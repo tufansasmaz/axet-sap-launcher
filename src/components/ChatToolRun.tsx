@@ -210,6 +210,21 @@ export default function ChatToolRun({
     setOpenSteps((prev) => (prev.has(lastKey) ? prev : new Set(prev).add(lastKey)));
   }, [lastKey, status, lastHasDetail]);
 
+  // Açık liste 320px'te kendi içinde kayıyor; canlı turda yeni adım altta
+  // görünmez kalmasın diye liste dipteyse dipte TUTULUYOR. Kullanıcı yukarı
+  // kaydırdıysa bırakılıyor — okuduğu yerden çekilmemeli.
+  const listRef = useRef<HTMLDivElement>(null);
+  const listAtBottomRef = useRef(true);
+  const onListScroll = () => {
+    const el = listRef.current;
+    if (el) listAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+  };
+  useEffect(() => {
+    const el = listRef.current;
+    if (!open || status !== "running" || !el || !listAtBottomRef.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [steps.length, open, status]);
+
   const kinds = useMemo(() => summarizeKinds(steps), [steps]);
   const failed = steps.some((s) => s.failed);
   const runStatus: RunStatus = failed ? "failed" : status === "running" ? "running" : "done";
@@ -239,6 +254,8 @@ export default function ChatToolRun({
       {open && (
         <div
           data-testid="tool-run-list"
+          ref={listRef}
+          onScroll={onListScroll}
           className="chat-scroll ml-1.5 mt-1 flex max-h-[320px] flex-col gap-1 overflow-auto border-l border-line pl-3"
         >
           {steps.map((step, i) => {

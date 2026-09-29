@@ -153,3 +153,15 @@ describe("Ayarlar → Görünüm", () => {
     expect(screen.queryByText("Kaydedilmemiş değişiklik var")).toBeNull();
   });
 });
+
+// Karşılama başlığı sohbet ekranından kalktı (2026-09-29); onu besleyen ad
+// alanı ve "karşılama başlığını büyütür" ipucu artık olmayan bir şeyi vaat
+// ediyordu. `chatDisplayName` yapılandırmada duruyor — Ayarlar ekranı
+// yenilenirken kalkacak — ama kullanıcıya gösterilmiyor.
+describe("Ayarlar — karşılama kalıntısı", () => {
+  it("karşılama adı alanı yok, hiçbir ipucu karşılamadan söz etmiyor", () => {
+    mount();
+    expect(screen.queryByDisplayValue("Deneme")).toBeNull();
+    expect(document.body.textContent ?? "").not.toMatch(/karşılama/i);
+  });
+});

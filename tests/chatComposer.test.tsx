@@ -133,6 +133,9 @@ describe("ChatComposer", () => {
       cls.split(/\s+/).filter((c) => /^(py-|pt-|pb-|leading-|text-\[length)/.test(c)).sort();
     expect(pick(overlay.className)).toEqual(pick(box.className));
     for (const el of [overlay, box]) expect(el.className).not.toMatch(/(^|\s)(px|pl)-/);
+    // Katman `absolute inset-0` ile ORTAK EBEVEYNİN dolgu kutusuna oturuyor;
+    // ebeveynde yatay dolgu olursa katman yazı alanından geniş kalır ve kayar.
+    expect(box.parentElement!.className).not.toMatch(/(^|\s)(px|pl|pr)-/);
   });
 });
 

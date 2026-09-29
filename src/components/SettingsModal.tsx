@@ -309,7 +309,8 @@ const EDITED_FIELDS = [
   "theme",
   "projectsBaseDir",
   "axetWorkspaceDir",
-  "chatDisplayName",
+  // `chatDisplayName` burada değil: karşılama başlığı kalktı (2026-09-29),
+  // alan formda gösterilmiyor; Kaydet ona dokunmuyor.
   "chatFontSize",
   "chatDensity",
   "axetCommand",
@@ -606,14 +607,6 @@ export default function SettingsModal({
               aynı kutuda olsaydı görünüm ayarları teknik ayarların arasında
               kaybolurdu. */}
           <Section icon={Type} title={t("settingsModal.sectionChatAppearance")}>
-            <Field label={t("settingsModal.chatDisplayNameLabel")} hint={t("settingsModal.chatDisplayNameHint")}>
-              <input
-                value={form.chatDisplayName}
-                onChange={(e) => setForm({ ...form, chatDisplayName: e.target.value })}
-                placeholder={t("settingsModal.chatDisplayNamePlaceholder")}
-                className={inputClass}
-              />
-            </Field>
             <Field label={t("settingsModal.chatDensityLabel")} hint={t("settingsModal.chatDensityHint")}>
               <SegmentedControl
                 value={form.chatDensity}

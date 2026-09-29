@@ -343,7 +343,7 @@ export default function ChatComposer({
             seçim görünür). İkisinin yazı boyu/satır yüksekliği/dolgusu
             ve sarma kuralı BİREBİR aynı olmak zorunda — ayrışırlarsa
             yazılan metinle görünen metin kayar. */}
-        <div className="relative min-w-0 px-1">
+        <div className="relative min-w-0">
           <div
             ref={overlayRef}
             aria-hidden

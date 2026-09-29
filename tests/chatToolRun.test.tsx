@@ -89,6 +89,39 @@ describe("ChatToolRun", () => {
     expect(screen.getByText("34 araç işlemi")).toBeTruthy();
   });
 
+  // jsdom yerleşim yapmıyor: ölçüler ve kaydırma konumu elle veriliyor.
+  const fakeScroll = (el: HTMLElement, top: number) => {
+    Object.defineProperty(el, "scrollHeight", { configurable: true, value: 1000 });
+    Object.defineProperty(el, "clientHeight", { configurable: true, value: 320 });
+    Object.defineProperty(el, "scrollTop", { configurable: true, writable: true, value: top });
+    fireEvent.scroll(el);
+  };
+  const liveSteps = (n: number) => Array.from({ length: n }, (_, i) => step("view", { target: `f${i}.ts` }, `c${i}`));
+  const rerenderLive = (rerender: (ui: React.ReactElement) => void, n: number) =>
+    rerender(
+      <LanguageProvider language="tr">
+        <ChatToolRun steps={liveSteps(n)} status="running" />
+      </LanguageProvider>
+    );
+
+  it("canlı turda liste dipteyken yeni adım gelince dipte kalıyor", () => {
+    const { rerender } = renderRun(liveSteps(30), "running");
+    fireEvent.click(header());
+    const list = screen.getByTestId("tool-run-list");
+    fakeScroll(list, 680);
+    rerenderLive(rerender, 31);
+    expect(list.scrollTop).toBe(1000);
+  });
+
+  it("canlı turda kullanıcı listeyi yukarı kaydırdıysa yeni adım onu çekmiyor", () => {
+    const { rerender } = renderRun(liveSteps(30), "running");
+    fireEvent.click(header());
+    const list = screen.getByTestId("tool-run-list");
+    fakeScroll(list, 100);
+    rerenderLive(rerender, 31);
+    expect(list.scrollTop).toBe(100);
+  });
+
   it("canlı turda kullanıcı bir ayrıntı açtıysa yeni son adımın ayrıntısı da açılıyor", () => {
     const first = [step("bash", { output: "birinci" }, "c1")];
     const { rerender } = renderRun(first, "running");
