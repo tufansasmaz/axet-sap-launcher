@@ -59,6 +59,7 @@ import Toast, { type ToastMsg } from "./components/Toast";
 import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPanel";
 import FileExplorer from "./components/FileExplorer";
 import FileViewer from "./components/FileViewer";
+import { ChatStoreProvider } from "./stores/chatStore";
 import { flattenLandscape } from "./lib/landscape";
 import { btn, iconBtn, tintBtn } from "./ui/buttons";
 import { applyAppearance } from "./ui/appearance";
@@ -1062,6 +1063,7 @@ export default function App() {
 
   return (
     <LanguageProvider language={language}>
+      <ChatStoreProvider pushToast={pushToast}>
       <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1521,6 +1523,7 @@ export default function App() {
           ))}
         </div>
       </div>
+      </ChatStoreProvider>
     </LanguageProvider>
   );
 }

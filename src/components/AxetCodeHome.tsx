@@ -23,10 +23,8 @@ import type {
   ActiveSapContext,
   AppConfig,
   AxetChatActivity,
-  AxetChatActivityPhase,
   AxetChatMessage,
   AxetModelEntry,
-  AxetTodo,
   ChatAttachment,
   ChatProject,
   ChatSessionsState,
@@ -45,8 +43,6 @@ import TierBadge from "./TierBadge";
 import SystemHoverCard from "./SystemHoverCard";
 import { resolveTier } from "../lib/tier";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
-import { chatToMarkdown, safeFileName } from "../lib/chatExport";
-import { chatToPrintHtml } from "../lib/chatPrint";
 import {
   activeGroupKeys,
   filterSessions,
@@ -59,6 +55,8 @@ import {
 } from "../lib/chatSessionGroups";
 import { useT } from "../i18n";
 import { Eyebrow } from "../ui/Eyebrow";
+import { useChatStore } from "../stores/chatStore";
+import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
 
 // Kullanıcı yazmayı bu kadar duraklattıktan sonra alt süreç ısıtılıyor. Her
 // tuşta ısıtmak süreç açıp kapatmaktan başka bir şey yapmazdı; yarım saniye,
@@ -72,91 +70,6 @@ const CHAT_OPEN_PREWARM_MS = 1_500;
 // Yirmi saniye, ilk oturumun açılıp pankartı bize göstermesine yetiyor ve
 // kullanıcıyı ekranı yenilemeye zorlamıyor.
 const AXET_UPDATE_POLL_MS = 20_000;
-
-// Bir düzenlemenin geri alınması için gereken HER ŞEY: kesilen mesajlar ve
-// composer'ın o andaki hâli. Yalnızca mesajları saklamak yetmezdi — geri
-// alındığında düzenlenmek üzere kutuya konan metnin de gitmesi gerekiyor,
-// yoksa aynı mesaj hem listede hem composer'da durur.
-export interface EditUndo {
-  messages: ChatMessage[];
-  draft: string;
-  attachments: ChatAttachment[];
-}
-
-interface ChatSession {
-  id: string;
-  title: string;
-  messages: ChatMessage[];
-  model: AxetModelEntry | null;
-  draft: string;
-  // Henüz gönderilmemiş ekler (bkz. shared/types.ts `ChatAttachment`).
-  attachments: ChatAttachment[];
-  pending: boolean;
-  requestId: string | null;
-  // Cevap beklenirken alt sürecin bildirdiği son aşama (bkz. axetChat.ts).
-  // Diske YAZILMIYOR: bekleyen bir istek yeniden başlatmayı atlatmıyor.
-  activity: AxetChatActivityPhase | null;
-  // Bu turda çağrılan araçlar, ÇAĞRI SIRASIYLA — terminaldeki gibi bir
-  // döküm. Sonuçlar geldikçe aynı satırın üzerine yazılıyor (eşleşme
-  // `callId` ile), yeni satır açılmıyor.
-  activitySteps: AxetChatActivity[];
-  // Kaç dakikadır axet-code'dan hiçbir belirti gelmediği. `0` = akış normal.
-  // Yalnızca `stalled` aşamasında dolu; ilk belirtide sıfırlanıyor.
-  stalledMinutes: number;
-  // Ajanın ŞU AN sorduğu soru (`ask_user`). Doluyken tur, kullanıcı bir
-  // seçenek seçene kadar DURUYOR — cevap TUI'deki soru kutusuna tuş olarak
-  // gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`).
-  //
-  // Diske YAZILMIYOR: bekleyen bir soru, süreciyle birlikte yaşıyor. Uygulama
-  // kapanınca cevaplanacak bir kutu kalmıyor, kayıtlı bir soru ise sonsuza
-  // kadar tıklanabilir ama etkisiz bir düğme olurdu.
-  pendingAsk: AxetChatActivity | null;
-  // Ajanın KENDİ planı (axet-code'un `todos` aracı). Bizim ürettiğimiz bir
-  // şey değil, oturum veritabanından okunuyor — bkz. axetSessionDb.ts
-  // `sessionTodos`. Tur bittiğinde SİLİNMİYOR: plan bir sonraki turda da
-  // geçerli, ajan onu güncelleyene kadar duruyor.
-  todos: AxetTodo[];
-  // Bağlam doluluğu — son isteğin jeton sayısı ve pencerenin büyüklüğü.
-  // `0` = henüz ölçüm yok.
-  contextTokens: number;
-  contextLimit: number;
-  // "Mesajı düzenle"nin kestiği kuyruk. Düzenleme, o mesajdan SONRASINI
-  // siliyor ve bu geri ALINAMIYORDU: tek bir kalem tıklamasıyla yarım sohbet,
-  // uyarısız, kalıcı olarak gidiyordu (diske de öyle yazılıyor). Kesme
-  // davranışı doğru — düzeltilmiş soruya ait olmayan cevaplar bağlamda
-  // kalmamalı — eksik olan geri dönüş yoluydu.
-  //
-  // Diske YAZILMIYOR: geri alma o anki düzenlemeye ait, uygulama kapanınca
-  // anlamı kalmaz.
-  editUndo: EditUndo | null;
-  // "Durdur"a basıldı ama tur DURMADI — ajan arkada üretmeye devam ediyor
-  // (bkz. axetChatTui.ts `cancelTui`, shared/types.ts `AxetChatCancelVerdict`).
-  //
-  // Bu bayrak iptalden 1–4 saniye SONRA geliyor: esc yazılıyor, sonra
-  // axet-code'un veritabanına bakılıp turun gerçekten kesilip kesilmediği
-  // doğrulanıyor. Eskiden doğrulamanın sonucu yalnızca günlüğe yazılıyordu,
-  // yani kullanıcı "durdurdum" sanırken jeton harcanmaya devam ediyordu.
-  //
-  // Diske YAZILMIYOR: uygulama kapanınca pty de ölüyor, yani arkada süren
-  // bir tur kalmıyor — kaydedilmiş bir uyarı sonsuza kadar yalan söylerdi.
-  cancelStuck: boolean;
-  createdAt: number;
-  // Listedeki sıralama bunun üzerinden — sohbetler artık diskte kalıcı
-  // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz
-  // hâle geliyor (en eski sohbet en üstte kalırdı).
-  updatedAt: number;
-  // Bu sohbetin bağlı olduğu SAP proje klasörü (bkz. shared/types.ts
-  // `StoredChatSession.cwd`). `null` = genel çalışma alanı.
-  cwd: string | null;
-  sapLabel: string | null;
-  // Kullanıcının elle kurduğu projeye aidiyet (bkz. shared/types.ts
-  // `ChatProject`). `cwd`'den BAĞIMSIZ: bir SAP sohbeti de bir projeye
-  // konabilir, o zaman kenar çubuğunda proje altında görünüyor.
-  projectId: string | null;
-  // "SAP sohbetleri" altına değil "Sohbetler" altına düşsün (bkz.
-  // shared/types.ts `StoredChatSession.keepInGeneral`). `cwd` dolu olsa bile.
-  keepInGeneral: boolean;
-}
 
 // SAP'a bağlanınca App.tsx'in "bu sisteme bağlı bir sohbet aç" isteği.
 // `nonce` şart: aynı sisteme arka arkaya bağlanmak AYNI projectDir/label
@@ -186,13 +99,6 @@ export interface WorkDirRequest {
   /** Kullanıcıya gösterilecek özet (klasör + kurulan yetenek sayısı). */
   notice: string;
   nonce: number;
-}
-
-interface RecentEntry {
-  path: string[];
-  service: SapService;
-  itemUuid: string;
-  connectedAt: string;
 }
 
 interface Props {
@@ -247,14 +153,6 @@ function greetingKey(): "morning" | "afternoon" | "evening" | "night" {
   return "evening";
 }
 
-const TITLE_MAX_LEN = 42;
-
-function deriveTitle(text: string): string {
-  const trimmed = text.trim().replace(/\s+/g, " ");
-  if (trimmed.length <= TITLE_MAX_LEN) return trimmed;
-  return `${trimmed.slice(0, TITLE_MAX_LEN)}…`;
-}
-
 // `axet-code run` her çağrıda TÜM geçmişi transkript olarak yeniden
 // gönderiyor (bkz. axetChat.ts) — CLI'nin kendisi oturum hafızası
 // tutmadığı için bu şart, ama sohbet uzadıkça hem gönderilen prompt boyutu
@@ -282,12 +180,6 @@ const MAX_HISTORY_CHARS = 12_000;
 // "Yeni sohbet"e üst üste basan kullanıcı, listeyi hiç kullanılmamış boş
 // kayıtlarla dolduruyordu.
 const NEW_SESSION_ID = "__new__";
-
-// Proje sayısının tavanı. Ana süreçteki `chatStore.ts` ile AYNI olmalı: orada
-// fazlası kesiliyor, burada ise daha oluşturulmadan söyleniyor — sınırın
-// diskte sessizce uygulanması, kullanıcının kurduğu projenin bir sonraki
-// açılışta yok olması demek olurdu.
-const MAX_PROJECTS = 40;
 
 // "Projeye taşı" menüsünün en fazla kaplayacağı yükseklik (px). Hem menünün
 // kendi `max-h` sınıfı hem de ekranın altına taşmasını engelleyen sıkıştırma
@@ -597,8 +489,21 @@ export default function AxetCodeHome({
   activeSap,
 }: Props) {
   const t = useT();
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const {
+    sessions,
+    setSessions,
+    activeId,
+    setActiveId,
+    projects,
+    setProjects,
+    sessionsLoaded,
+    setSessionsLoaded,
+    renameSession,
+    moveSession,
+    createProject,
+    deleteProject,
+    exportSession
+  } = useChatStore();
   // Bir sonraki YENİ sohbetin kimliği, doğmadan önce. Kalıcı axet-code
   // oturumu kullanıcı yazarken bu kimlikle ısıtılıyor; sohbet oluşunca aynı
   // kimliği devralıyor (bkz. handleSendNew).
@@ -631,8 +536,8 @@ export default function AxetCodeHome({
   // Kullanıcının kendi kurduğu projeler (bkz. shared/types.ts `ChatProject`).
   // Sohbetlerle AYNI dosyada saklanıyorlar (chat-sessions.json): proje bir
   // sohbet düzenlemesi, ayrı bir dosya iki kaynağın birbirinden kayması
-  // (silinmiş bir projeye ait sohbetler) demek olurdu.
-  const [projects, setProjects] = useState<ChatProject[]>([]);
+  // (silinmiş bir projeye ait sohbetler) demek olurdu. Durum `ChatStore`'da
+  // (`projects`).
   // Ayar kutusu açık olan projenin kimliği (ad + talimat + silme).
   const [projectDialogId, setProjectDialogId] = useState<string | null>(null);
   // "Projeye taşı" menüsü. Konum SABİT (viewport) koordinat: menü kenar
@@ -714,7 +619,7 @@ export default function AxetCodeHome({
   const loadedRef = useRef(false);
   // Aynı bilginin DURUM hâli: ref bir yeniden çizim tetiklemiyor, kurtarma
   // effect'inin (aşağıda) yükleme bittikten sonra çalışması ise buna bağlı.
-  const [sessionsLoaded, setSessionsLoaded] = useState(false);
+  // Durum `ChatStore`'da (`sessionsLoaded`).
   // Öneri kartlarının tohumu — her "yeni sohbet"te yenileniyor (bkz.
   // SUGGESTION_POOL). Diske yazılmıyor: açılışta zaten yeni bir tohum
   // isteniyor.
@@ -1208,35 +1113,6 @@ export default function AxetCodeHome({
     [handleDeleteSession, sessions],
   );
 
-  // Sohbeti dosyaya aktar — PDF ya da Markdown. İÇERİK burada üretiliyor,
-  // kaydetme diyaloğu ve yazma ana süreçte (`chat:export`). İptal sessiz —
-  // kullanıcının diyaloğu kapatması bir hata değil.
-  //
-  // İKİ BİÇİM DE ÜRETİLİP GÖNDERİLİYOR, çünkü hangisinin isteneceği ancak
-  // kaydetme kutusu kapandığında belli oluyor (biçim, kutunun kendi "dosya
-  // türü" listesinden seçiliyor). İkisini de kurmak saf metin işi — en uzun
-  // sohbette bile milisaniyeler; kutuyu açmadan önce kullanıcıya bir soru daha
-  // sormaya değmez.
-  const handleExportSession = useCallback(
-    async (id: string) => {
-      const target = sessions.find((s) => s.id === id);
-      if (!target || target.messages.length === 0) return;
-      const input = {
-        title: target.title,
-        messages: target.messages,
-        contextPath: target.cwd,
-        contextLabel: target.sapLabel,
-      };
-      // Hata bildirimi ana süreçte (`dialog.showErrorBox`): sohbet listesinde
-      // bu işlemin sonucunu gösterecek bir yer yok.
-      await window.api.exportChat(safeFileName(target.title, "pdf"), {
-        markdown: chatToMarkdown(input),
-        html: chatToPrintHtml(input),
-      });
-    },
-    [sessions],
-  );
-
   // Proje yönergeleri kaydedildikten sonra: O KLASÖRDE çalışan her sohbetin
   // kalıcı axet-code oturumu bırakılıyor. Ölçüm (2026-09-05): bağlam dosyaları
   // süreç açılışında okunuyor, çalışan bir oturum sonradan yazılan AGENTS.md'yi
@@ -1266,18 +1142,9 @@ export default function AxetCodeHome({
   const commitRename = useCallback(() => {
     const id = renamingId;
     if (!id) return;
-    const next = renameDraft.trim();
     setRenamingId(null);
-    // Boş ada izin verilmiyor — sohbet listede görünmez hâle gelirdi.
-    if (!next) return;
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? { ...s, title: deriveTitle(next), updatedAt: Date.now() }
-          : s,
-      ),
-    );
-  }, [renameDraft, renamingId]);
+    renameSession(id, renameDraft);
+  }, [renameDraft, renamingId, renameSession]);
 
   // --- Projeler ---
   //
@@ -1289,24 +1156,9 @@ export default function AxetCodeHome({
   // Yeni proje HEMEN ayar kutusunu açıyor: varsayılan adıyla ("Yeni proje")
   // bırakılan bir proje, ikinci projeden itibaren ayırt edilemez olurdu.
   const handleCreateProject = useCallback(() => {
-    if (projects.length >= MAX_PROJECTS) {
-      pushToast(
-        "error",
-        t("axetCodeHome.projectLimit", { count: MAX_PROJECTS }),
-      );
-      return;
-    }
-    const now = Date.now();
-    const project: ChatProject = {
-      id: crypto.randomUUID(),
-      name: t("axetCodeHome.newProjectName"),
-      instructions: "",
-      createdAt: now,
-      updatedAt: now,
-    };
-    setProjects((prev) => [...prev, project]);
-    setProjectDialogId(project.id);
-  }, [projects.length, pushToast, t]);
+    const project = createProject();
+    if (project) setProjectDialogId(project.id);
+  }, [createProject]);
 
   const handleSaveProject = useCallback(
     (id: string, name: string, instructions: string) => {
@@ -1319,32 +1171,25 @@ export default function AxetCodeHome({
     [],
   );
 
-  // Proje silmek SOHBETLERİ SİLMİYOR — yalnızca aidiyeti kopuyor ve sohbetler
-  // "Sohbetler" başlığına düşüyor. Aksi hâlde tek bir çöp kutusu düğmesi, bir
-  // klasör dolusu konuşmayı uyarısız yok ederdi; kullanıcının silmek istediği
-  // şey düzenlemenin kendisi, içeriği değil.
-  const handleDeleteProject = useCallback((id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    setSessions((prev) =>
-      prev.map((s) => (s.projectId === id ? { ...s, projectId: null } : s)),
-    );
-    setNewProjectId((current) => (current === id ? null : current));
-    setProjectDialogId(null);
-  }, []);
+  // Silme kuralı (sohbetler silinmiyor, projeden çıkıyor) store'da; burada
+  // yalnızca ekranın kendi durumu temizleniyor: taslağın projesi ve pencere.
+  const handleDeleteProject = useCallback(
+    (id: string) => {
+      deleteProject(id);
+      setNewProjectId((current) => (current === id ? null : current));
+      setProjectDialogId(null);
+    },
+    [deleteProject],
+  );
 
-  // Var olan bir sohbeti bir projeye taşı / projeden çıkar.
-  //
-  // `updatedAt` BİLEREK dokunulmuyor: taşımak bir konuşma değil, listeyi
-  // yeniden sıralamak istenmiyor — taşınan sohbet birdenbire en üste
-  // zıplasaydı kullanıcı onu kaybederdi.
+  // Var olan bir sohbeti bir projeye taşı / projeden çıkar (bkz. store'daki
+  // `moveSession`: `updatedAt` bilerek dokunulmuyor).
   const handleMoveSession = useCallback(
     (sessionId: string, projectId: string | null) => {
-      setSessions((prev) =>
-        prev.map((s) => (s.id === sessionId ? { ...s, projectId } : s)),
-      );
+      moveSession(sessionId, projectId);
       setMoveMenu(null);
     },
-    [],
+    [moveSession],
   );
 
   const handleSelectModel = useCallback(
@@ -2622,7 +2467,7 @@ export default function AxetCodeHome({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              void handleExportSession(session.id);
+              void exportSession(session.id);
             }}
             title={t("axetCodeHome.exportTitle")}
             className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
