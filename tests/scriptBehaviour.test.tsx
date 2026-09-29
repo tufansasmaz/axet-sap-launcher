@@ -3,6 +3,8 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import SapGuiScriptingHome from "../src/components/SapGuiScriptingHome";
+import ScriptSidebar from "../src/components/ScriptSidebar";
+import { ScriptStoreProvider } from "../src/stores/scriptStore";
 import { installScriptApi, type ScriptApiFake } from "./scriptApiFake";
 
 // Taşıma (Görev 12) yalnızca bu fonksiyonu değiştiriyor; `it` gövdeleri
@@ -10,7 +12,10 @@ import { installScriptApi, type ScriptApiFake } from "./scriptApiFake";
 function renderScript() {
   return render(
     <LanguageProvider language="tr">
-      <SapGuiScriptingHome activeSap={null} />
+      <ScriptStoreProvider>
+        <ScriptSidebar />
+        <SapGuiScriptingHome activeSap={null} />
+      </ScriptStoreProvider>
     </LanguageProvider>
   );
 }

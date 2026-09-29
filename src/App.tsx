@@ -39,6 +39,8 @@ import ChatSidebar from "./components/ChatSidebar";
 // bu üç yeri (import, ActivityBar girdisi, aşağıdaki route dalı) geri
 // eklemekten ibaret.
 import SapGuiScriptingHome from "./components/SapGuiScriptingHome";
+import ScriptSidebar from "./components/ScriptSidebar";
+import { ScriptStoreProvider } from "./stores/scriptStore";
 import Tree from "./components/Tree";
 import RecentSystems from "./components/RecentSystems";
 import SystemPanel from "./components/SystemPanel";
@@ -1065,6 +1067,7 @@ export default function App() {
   return (
     <LanguageProvider language={language}>
       <ChatStoreProvider pushToast={pushToast}>
+      <ScriptStoreProvider>
       <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1119,7 +1122,15 @@ export default function App() {
           </div>
         </div>
         {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
-          <SapGuiScriptingHome activeSap={activeContext.sap} />
+          // Geçici: Görev 14'te kabuğun `Sidebar`'ı bu `aside`'ın yerini alıyor.
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <aside className="flex w-[264px] shrink-0 flex-col border-r border-line-subtle bg-sidebar">
+              <ScriptSidebar />
+            </aside>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <SapGuiScriptingHome activeSap={activeContext.sap} />
+            </div>
+          </div>
         ) : activity === "readiness" ? (
           // Yetenek profili burada FORM DEĞİL, doğrudan kaydediliyor: bu ekranın
           // "Kaydet" düğmesi yok ve olmamalı — üç bölümün ikisi (teşhis,
@@ -1533,6 +1544,7 @@ export default function App() {
           ))}
         </div>
       </div>
+      </ScriptStoreProvider>
       </ChatStoreProvider>
     </LanguageProvider>
   );

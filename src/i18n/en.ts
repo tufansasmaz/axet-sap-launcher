@@ -745,6 +745,7 @@ export const en: Record<TranslationKey, string> = {
   "sapGuiScripting.title": "SAP GUI Scripting",
   "sapGuiScripting.subtitle": "Attach to an open SAP Logon/SAP GUI session, browse the screen tree, read/write fields, click elements.",
   "sapGuiScripting.bridgeStopped": "Bridge stopped",
+  "sapGuiScripting.bridgeOff": "Bridge is off",
   "sapGuiScripting.bridgeStarting": "Starting bridge…",
   "sapGuiScripting.bridgeRunning": "Bridge running (port {port})",
   "sapGuiScripting.startBridge": "Connect",

@@ -813,6 +813,7 @@ export const tr = {
   "sapGuiScripting.title": "SAP GUI Scripting",
   "sapGuiScripting.subtitle": "Açık bir SAP Logon/SAP GUI oturumuna bağlanıp ekran ağacını gezin, alanları oku/yaz, elemanlara tıkla.",
   "sapGuiScripting.bridgeStopped": "Köprü durduruldu",
+  "sapGuiScripting.bridgeOff": "Köprü kapalı",
   "sapGuiScripting.bridgeStarting": "Köprü başlatılıyor…",
   "sapGuiScripting.bridgeRunning": "Köprü çalışıyor (port {port})",
   "sapGuiScripting.startBridge": "Bağlan",

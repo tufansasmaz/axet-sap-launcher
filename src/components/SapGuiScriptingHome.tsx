@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Bot,
   Check,
-  ChevronDown,
-  ChevronRight,
   Circle,
   FolderOpen,
   GraduationCap,
@@ -11,7 +9,6 @@ import {
   ListTree,
   Loader2,
   MousePointerClick,
-  Network,
   PanelRightClose,
   PanelRightOpen,
   Play,
@@ -32,34 +29,23 @@ import GuidePanel from "./sapgui/GuidePanel";
 import PreflightPanel from "./sapgui/PreflightPanel";
 import ScreenViewer from "./sapgui/ScreenViewer";
 import StatusBarStrip from "./sapgui/StatusBarStrip";
-import { CountBadge, EmptyState, GHOST_ICON_BUTTON, ICON_BUTTON, PRIMARY_BUTTON, PanelHeader, Pill, TOOL_BUTTON } from "./sapgui/ui";
+import { CountBadge, GHOST_ICON_BUTTON, ICON_BUTTON, PRIMARY_BUTTON, PanelHeader, Pill, TOOL_BUTTON } from "./sapgui/ui";
 import { btn } from "../ui/buttons";
 import { vkeyLabel } from "../lib/sapGui/vkeys";
+import { useScriptStore, type ScriptCommands, type SessionsByConn } from "../stores/scriptStore";
+import { nodeKey, type NodeState, type SelectedSession } from "../stores/scriptTypes";
 import type {
   ActiveSapContext,
   GuiScriptActionKind,
   GuiScriptBridgeStatus,
-  GuiScriptComponentDetail,
-  GuiScriptComponentSummary,
-  GuiScriptConnectionInfo,
   GuiScriptPlaybackStepResult,
   GuiScriptPreflight,
   GuiScriptRecordedStep,
   GuiScriptScreenState,
   GuiScriptScreenshotMethod,
   GuiScriptScreenshotResult,
-  GuiScriptScript,
-  GuiScriptSessionInfo
+  GuiScriptScript
 } from "../../app-electron/shared/types";
-
-type NodeState = GuiScriptComponentDetail | "loading" | "error";
-
-interface SelectedSession {
-  connIdx: number;
-  sessIdx: number;
-}
-
-const ROOT_KEY = "__root__";
 
 // Diskten açılan bir script'in adımlarını doğrulamak için TANINAN aksiyonlar.
 // `Record<GuiScriptActionKind, true>` üzerinden türetiliyor: birliğe yeni bir
@@ -86,10 +72,6 @@ function sameSystem(screen: GuiScriptScreenState, sap: ActiveSapContext): boolea
   if (!sidMatch) return false;
   if (!screen.client) return true;
   return screen.client.trim() === sap.client.trim();
-}
-
-function nodeKey(connIdx: number, sessIdx: number, elementId: string): string {
-  return `${connIdx}:${sessIdx}:${elementId || ROOT_KEY}`;
 }
 
 // Faz 2 — Kayıt + Tekrar Oynatma: kaydedilen bir adımın kısa, insan-okunur
@@ -160,7 +142,8 @@ interface ActionExtra {
 //   teşhis   → köprü çalışıyor ama scripting hazır değilse ÖNÜNE geçer
 //   komut    → tcode (/n) + fonksiyon tuşları + Kaydet/Script/AI Agent
 //   panel    → script kaydedici | AI agent (komut çubuğunun hemen altında)
-//   sol      → oturumlar (üst) + COM eleman ağacı (alt)
+//   sol      → oturumlar (üst) + COM eleman ağacı (alt); ekranın dışında,
+//              kenar çubuğunda (`ScriptSidebar`, veri `ScriptStore`'da)
 //   orta     → CANLI EKRAN GÖRÜNTÜSÜ (seçili elemanın çerçevesiyle)
 //   sağ      → eleman denetçisi (tüm özellikler + aksiyonlar + grid)
 //   alt şerit→ popup + SAP durum çubuğu (aksiyonun GERÇEKTEN kabul edilip
@@ -183,14 +166,27 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [bypassPreflight, setBypassPreflight] = useState(false);
 
-  const [connections, setConnections] = useState<GuiScriptConnectionInfo[] | "loading" | "error" | null>(null);
-  const [sessionsByConn, setSessionsByConn] = useState<Record<number, GuiScriptSessionInfo[] | "loading" | "error">>({});
-  const [expandedConn, setExpandedConn] = useState<Record<number, boolean>>({});
-
-  const [activeSession, setActiveSession] = useState<SelectedSession | null>(null);
-  const [nodesByKey, setNodesByKey] = useState<Record<string, NodeState>>({});
-  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
-  const [selectedElementId, setSelectedElementId] = useState<string>("");
+  // Ağaç verisi store'da (grafit, spec §5.2): bu ekran başka bir moda
+  // geçilince unmount oluyor, seçili oturum ve açık düğümler dönüşte
+  // yerinde dursun.
+  const {
+    connections,
+    setConnections,
+    sessionsByConn,
+    setSessionsByConn,
+    expandedConn,
+    setExpandedConn,
+    activeSession,
+    setActiveSession,
+    nodesByKey,
+    setNodesByKey,
+    setExpandedNodes,
+    selectedElementId,
+    setSelectedElementId,
+    setTreeVisible,
+    clearSelection,
+    registerScriptCommands
+  } = useScriptStore();
 
   const [screen, setScreen] = useState<GuiScriptScreenState | null>(null);
   const [shot, setShot] = useState<GuiScriptScreenshotResult | null>(null);
@@ -220,15 +216,16 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     setSteps((prev) => [...prev, step]);
   }, []);
 
+  // Durum bir kez okunmadan kenar çubuğuna "görünür/görünmez" yazılmıyor
+  // (bkz. `treeVisible` efekti). Aksi hâlde dönüşte ağaç bir kare
+  // "Köprü kapalı"ya düşüp geri gelirdi.
+  const [statusKnown, setStatusKnown] = useState(false);
   const refreshStatus = useCallback(async () => {
     const next = await window.api.getGuiScriptBridgeStatus();
     setStatus(next);
+    setStatusKnown(true);
     return next;
   }, []);
-
-  useEffect(() => {
-    refreshStatus();
-  }, [refreshStatus]);
 
   const runPreflight = useCallback(async () => {
     setPreflightLoading(true);
@@ -256,6 +253,15 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
       setStartError(result.error ?? null);
     }
   }, []);
+
+  // Köprü yokken ağaç da yok. Durdurma düğmesi ve dönüşte köprünün
+  // kapanmış bulunması aynı temizliği yapıyor.
+  const clearTree = useCallback(() => {
+    setConnections(null);
+    setSessionsByConn({});
+    setExpandedConn({});
+    clearSelection();
+  }, [setConnections, setSessionsByConn, setExpandedConn, clearSelection]);
 
   // Köprü ZATEN çalışırken bu ekrana gelindiğinde bağlantılar KENDİLİĞİNDEN
   // yüklenir. Önceden `loadConnections` yalnızca "Bağlan" düğmesinden, küçük
@@ -296,18 +302,13 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
   const handleStop = useCallback(async () => {
     await window.api.stopGuiScriptBridge();
     setStatus({ running: false, port: null, external: false });
-    setConnections(null);
-    setSessionsByConn({});
-    setActiveSession(null);
-    setNodesByKey({});
-    setExpandedNodes({});
-    setSelectedElementId("");
+    clearTree();
     setScreen(null);
     setShot(null);
     setPreflight(null);
     setBypassPreflight(false);
     setShowPreflight(false);
-  }, []);
+  }, [clearTree]);
 
   const loadSessions = useCallback(async (connIdx: number) => {
     setSessionsByConn((prev) => ({ ...prev, [connIdx]: "loading" }));
@@ -376,6 +377,64 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     },
     [activeSession]
   );
+
+  // DÖNÜŞ: mount anında store'da bir bağlantı listesi (ya da yarım kalmış
+  // bir yükleme, ya da hatası) varsa kullanıcı bu ekrana daha önce gelmiş,
+  // başka bir moda geçip dönmüş demektir. Eski
+  // ağaç hemen görünüyor, arada SAP tarafında olanlar burada doğrulanıyor.
+  // Liste "loading"e çekilmiyor: doğrulama sürerken eski liste görünür
+  // kalsın.
+  //
+  // Seçili oturum arada kapandıysa (SAP'de pencere kapatıldı, SAP Logon
+  // yeniden açıldı) ona İSTEK GİTMİYOR. Seçim, düğümler ve seçili öğe
+  // temizleniyor. Oturum hâlâ duruyorsa ekran bilgisi tazeleniyor, bu da
+  // aktif GUI bağlamını yeniden yayımlıyor. `activeSession` ve
+  // `expandedConn` mount anındaki değerler: doğrulanan şey tam olarak
+  // kullanıcının bıraktığı durum.
+  const returning = useRef(connections !== null);
+  const revalidateAfterReturn = async () => {
+    const result = await window.api.listGuiScriptConnections();
+    if (!result.ok || !result.connections) {
+      setConnections("error");
+      clearSelection();
+      return;
+    }
+    const alive = new Set(result.connections.map((c) => c.index));
+    setConnections(result.connections);
+    const selected = activeSession;
+    const toRead = Object.keys(expandedConn)
+      .map(Number)
+      .filter((idx) => expandedConn[idx] && alive.has(idx));
+    if (selected && alive.has(selected.connIdx) && !toRead.includes(selected.connIdx)) toRead.push(selected.connIdx);
+    const lists: SessionsByConn = {};
+    await Promise.all(
+      toRead.map(async (idx) => {
+        const r = await window.api.listGuiScriptSessions(idx);
+        lists[idx] = r.ok && r.sessions ? r.sessions : "error";
+      })
+    );
+    setSessionsByConn(lists);
+    setExpandedConn((prev) => Object.fromEntries(Object.entries(prev).filter(([idx]) => alive.has(Number(idx)))));
+    if (!selected) return;
+    const sessions = lists[selected.connIdx];
+    if (!Array.isArray(sessions) || !sessions.some((s) => s.index === selected.sessIdx)) {
+      clearSelection();
+      return;
+    }
+    refreshScreen(selected);
+    refreshScreenshot(selected);
+  };
+
+  useEffect(() => {
+    (async () => {
+      const next = await refreshStatus();
+      if (!returning.current) return;
+      if (next.running) await revalidateAfterReturn();
+      else clearTree();
+    })();
+    // Yalnızca mount'ta: dönüş bir kez doğrulanıyor.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Aktif bağlamın GUI tarafını yayınlar (bkz. app-electron/main/activeContext.ts).
   // Böylece sohbet ajanı, kullanıcının SAP GUI'de hangi işlemde olduğunu
@@ -465,6 +524,33 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     const key = nodeKey(activeSession.connIdx, activeSession.sessIdx, elementId);
     if (!nodesByKey[key]) loadNode(activeSession.connIdx, activeSession.sessIdx, elementId);
   };
+
+  // Kenar çubuğunun çağırdığı işler (bkz. stores/scriptStore.tsx
+  // `ScriptCommands`). Ref üzerinden: kayıt bir kere yapılıyor, her çağrı o
+  // anki fonksiyona gidiyor. Kayıt `useLayoutEffect`'te, yani ilk boyamadan
+  // önce: kullanıcı ilk karede tıklasa da komut boşa düşmüyor.
+  const commandsRef = useRef<ScriptCommands>({
+    selectSession: handleSelectSession,
+    toggleConn,
+    toggleNode,
+    selectElement: handleSelectElement
+  });
+  commandsRef.current = {
+    selectSession: handleSelectSession,
+    toggleConn,
+    toggleNode,
+    selectElement: handleSelectElement
+  };
+  useLayoutEffect(
+    () =>
+      registerScriptCommands({
+        selectSession: (connIdx, sessIdx) => commandsRef.current.selectSession(connIdx, sessIdx),
+        toggleConn: (connIdx) => commandsRef.current.toggleConn(connIdx),
+        toggleNode: (elementId) => commandsRef.current.toggleNode(elementId),
+        selectElement: (elementId) => commandsRef.current.selectElement(elementId)
+      }),
+    [registerScriptCommands]
+  );
 
   const selectedNode: NodeState | null = activeSession
     ? nodesByKey[nodeKey(activeSession.connIdx, activeSession.sessIdx, selectedElementId)] ?? null
@@ -624,68 +710,6 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
     setPlayIndex(null);
   }, [activeSession, steps, playing, autoRefresh, refreshScreenshot]);
 
-  const renderTreeNode = (summary: GuiScriptComponentSummary, depth: number) => {
-    if (!activeSession) return null;
-    const key = nodeKey(activeSession.connIdx, activeSession.sessIdx, summary.id);
-    const isExpanded = expandedNodes[key] ?? false;
-    const isSelected = selectedElementId === summary.id;
-    const state = nodesByKey[key];
-    const paddingLeft = depth * 12 + 8;
-
-    return (
-      <div key={summary.id || key}>
-        <div
-          className={`flex w-full cursor-pointer items-center gap-1.5 rounded-sm py-1 pr-2 text-left ${
-            isSelected ? "bg-accent-500/20 text-white" : "text-slate-300 hover:bg-active/60"
-          }`}
-          style={{ paddingLeft }}
-          onClick={() => handleSelectElement(summary.id)}
-        >
-          {summary.hasChildren ? (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleNode(summary.id);
-              }}
-              className="shrink-0 cursor-pointer text-slate-500 hover:text-slate-200"
-            >
-              {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </button>
-          ) : (
-            <span className="w-[12px] shrink-0" />
-          )}
-          <span className="shrink-0 truncate font-mono text-[10px] text-accent-400">
-            {(summary.type || t("sapGuiScripting.unknown")).replace(/^Gui/, "")}
-          </span>
-          <span className="truncate text-[11px]">{summary.name || summary.text || summary.id}</span>
-        </div>
-        {isExpanded && (
-          <div>
-            {state === "loading" && (
-              <div className="py-1 text-[11px] text-slate-500" style={{ paddingLeft: paddingLeft + 20 }}>
-                {t("sapGuiScripting.treeLoading")}
-              </div>
-            )}
-            {state === "error" && (
-              <div className="py-1 text-[11px] text-[var(--status-danger-text)]" style={{ paddingLeft: paddingLeft + 20 }}>
-                {t("sapGuiScripting.treeError")}
-              </div>
-            )}
-            {state && typeof state !== "string" && state.children.length === 0 && (
-              <div className="py-1 text-[11px] text-slate-500" style={{ paddingLeft: paddingLeft + 20 }}>
-                {t("sapGuiScripting.treeEmpty")}
-              </div>
-            )}
-            {state && typeof state !== "string" && state.children.map((child) => renderTreeNode(child, depth + 1))}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const rootKey = activeSession ? nodeKey(activeSession.connIdx, activeSession.sessIdx, "") : "";
-  const rootState = activeSession ? nodesByKey[rootKey] : null;
-
   const activeSessionInfo = activeSession
     ? (() => {
         const sessions = sessionsByConn[activeSession.connIdx];
@@ -699,6 +723,11 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
   // yanlış olabilir diye değil, bir kenar durumu bu ekranı kilitlemesin diye.
   const preflightBlocking = Boolean(preflight && preflight.recommendation !== "ready" && !bypassPreflight);
   const preflightVisible = status.running && (showPreflight || preflightBlocking);
+
+  // Kenar çubuğu ağacı yalnızca çalışma alanı açıkken gösteriyor.
+  useEffect(() => {
+    if (statusKnown) setTreeVisible(status.running && !preflightVisible);
+  }, [statusKnown, status.running, preflightVisible, setTreeVisible]);
 
   const dockTab = (active: boolean) =>
     `flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs font-medium ${
@@ -1023,97 +1052,6 @@ export default function SapGuiScriptingHome({ activeSap }: { activeSap: ActiveSa
           )}
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            {/* Sol: oturumlar (üst) + eleman ağacı (alt) */}
-            <div className="flex w-[264px] shrink-0 flex-col overflow-hidden border-r border-line bg-sidebar">
-              <div className="flex max-h-[45%] min-h-0 flex-col overflow-hidden">
-                <PanelHeader
-                  icon={<Network size={12} className="text-slate-500" />}
-                  title={t("sapGuiScripting.connectionsTitle")}
-                >
-                  <CountBadge value={Array.isArray(connections) ? connections.length : 0} />
-                </PanelHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto py-1">
-                  {connections === "loading" && <div className="px-3 py-2 text-[11px] text-slate-500">{t("sapGuiScripting.treeLoading")}</div>}
-                  {(connections === "error" || (Array.isArray(connections) && connections.length === 0)) && (
-                    <div className="px-3 py-2 text-[11px] leading-relaxed text-slate-500">{t("sapGuiScripting.connectionsEmpty")}</div>
-                  )}
-                  {Array.isArray(connections) &&
-                    connections.map((conn) => {
-                      const isExpanded = expandedConn[conn.index] ?? false;
-                      const sessions = sessionsByConn[conn.index];
-                      return (
-                        <div key={conn.index}>
-                          <button
-                            onClick={() => toggleConn(conn.index)}
-                            className="flex w-full cursor-pointer items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-medium text-slate-300 hover:bg-hover"
-                          >
-                            {isExpanded ? (
-                              <ChevronDown size={12} className="shrink-0 text-slate-500" />
-                            ) : (
-                              <ChevronRight size={12} className="shrink-0 text-slate-500" />
-                            )}
-                            <span className="truncate">{conn.description || `#${conn.index}`}</span>
-                          </button>
-                          {isExpanded && (
-                            <div>
-                              {sessions === "loading" && <div className="px-6 py-1 text-xs text-slate-500">{t("sapGuiScripting.treeLoading")}</div>}
-                              {sessions === "error" && <div className="px-6 py-1 text-xs text-slate-500">{t("sapGuiScripting.treeError")}</div>}
-                              {Array.isArray(sessions) && sessions.length === 0 && (
-                                <div className="px-6 py-1 text-xs text-slate-500">{t("sapGuiScripting.sessionsEmpty")}</div>
-                              )}
-                              {Array.isArray(sessions) &&
-                                sessions.map((session) => {
-                                  const isActive = activeSession?.connIdx === conn.index && activeSession?.sessIdx === session.index;
-                                  return (
-                                    <button
-                                      key={session.index}
-                                      onClick={() => handleSelectSession(conn.index, session.index)}
-                                      className={`flex w-full cursor-pointer flex-col gap-0.5 border-l-2 py-1.5 pl-5 pr-2.5 text-left ${
-                                        isActive
-                                          ? "border-accent-500 bg-accent-500/10 text-white"
-                                          : "border-transparent text-slate-300 hover:bg-hover"
-                                      }`}
-                                    >
-                                      <span className="truncate text-[11px] font-medium">
-                                        {session.info.Transaction || session.info.Program || `Session ${session.index}`}
-                                      </span>
-                                      <span className="truncate text-[10px] text-slate-500">
-                                        {[session.info.SystemName, session.info.Client, session.info.User].filter(Boolean).join(" · ")}
-                                      </span>
-                                    </button>
-                                  );
-                                })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-line">
-                <PanelHeader icon={<ListTree size={12} className="text-slate-500" />} title={t("sapGuiScripting.treeTitle")} />
-                <div className="min-h-0 flex-1 overflow-y-auto px-1 py-1">
-                  {!activeSession && <EmptyState icon={<ListTree size={20} />} text={t("sapGuiScripting.selectSession")} />}
-                  {activeSession && rootState === "loading" && <div className="px-2 py-2 text-[11px] text-slate-500">{t("sapGuiScripting.treeLoading")}</div>}
-                  {activeSession && rootState === "error" && <div className="px-2 py-2 text-[11px] text-slate-500">{t("sapGuiScripting.treeError")}</div>}
-                  {activeSession &&
-                    rootState &&
-                    typeof rootState !== "string" &&
-                    renderTreeNode(
-                      {
-                        id: rootState.id,
-                        type: rootState.type,
-                        name: rootState.name,
-                        text: rootState.text,
-                        hasChildren: rootState.children.length > 0
-                      },
-                      0
-                    )}
-                </div>
-              </div>
-            </div>
-
             {/* Orta: canlı ekran */}
             <ScreenViewer
               shot={shot}
