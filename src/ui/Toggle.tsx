@@ -35,7 +35,7 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       {...aria}
-      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/20 focus-visible:border-accent-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:border-accent-500 disabled:cursor-not-allowed disabled:opacity-50 ${
         checked ? "border-accent-500 bg-accent-500" : "border-line-strong bg-control"
       }`}
     >

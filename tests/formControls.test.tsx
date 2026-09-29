@@ -200,6 +200,15 @@ describe("Toggle", () => {
     const toggle = screen.getByRole("switch", { name: "Bildirimler" });
     expect(toggle).toBeTruthy();
   });
+
+  it("klavye odak halkası görünür yoğunlukta (/20 değil /50)", () => {
+    // /20 koyu zeminde neredeyse seçilmiyordu; klavyeyle gezen kullanıcı
+    // odağın nerede olduğunu göremiyordu.
+    wrap(<Toggle checked={false} onChange={vi.fn()} label="Bildirimler" />);
+    const classes = screen.getByRole("switch").className.split(/\s+/);
+    expect(classes).toContain("focus-visible:ring-accent-500/50");
+    expect(classes).not.toContain("focus-visible:ring-accent-500/20");
+  });
 });
 
 describe("Field erişilebilirlik (iç içe ve kenar durumları)", () => {

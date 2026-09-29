@@ -26,7 +26,7 @@ import {
   readToolkitVersion
 } from "./sapToolkit";
 import { loadConfig, saveConfig, saveLastCredential, saveTrustedCertificates, pushConnectionHistory, saveSystemTier, saveSystemComment } from "./store";
-import { THEME_SURFACES } from "../shared/themeSurfaces";
+import { THEME_SURFACES, windowBackgroundChange } from "../shared/themeSurfaces";
 import { mt, refreshMainLanguage } from "./i18n";
 import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
@@ -880,6 +880,15 @@ function registerIpc(): void {
     // config.json okumamak için). Kullanıcı dili değiştirdiğinde tazelenmezse
     // arayüz İngilizce'ye geçerken ana sürecin hata mesajları Türkçe kalırdı.
     refreshMainLanguage(saved.language);
+
+    // Pencerenin arka plan rengi açılışta görünüme göre veriliyor (bkz.
+    // `createWindow`, `backgroundColor`). Görünüm değişince o da değişmeli:
+    // yoksa yeniden boyutlanma ve yeniden yükleme anlarında kenarlarda eski
+    // paletin/temanın rengi beliriyor.
+    const background = windowBackgroundChange(before, saved);
+    if (background && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.setBackgroundColor(background);
+    }
 
     // Rol ilk kez seçildiğinde (ya da değiştiğinde) global yetenekler HEMEN
     // kuruluyor: kullanıcının beklentisi "kurulur kurulmaz aktif olsun".

@@ -173,7 +173,10 @@ html[data-palette="indigo"][data-theme="dark"] {
   --border-line-rgb: 52 57 69;
   --border-strong-rgb: 68 74 87;
 
-  /* Eski ham merdiven — yalnızca `src/flows/flows.css` kullanıyor. */
+  /* Eski ham merdiven. Kullananlar: `src/flows/flows.css` (buradan `--base-*`
+     türetiyor; `FlowCanvas.jsx`, `RadialGauge.jsx` o türevleri okuyor),
+     `ChatBubble.tsx` (`--base-700-rgb`), `ChatSessionPane.tsx`
+     (`--base-950-rgb`). */
   --base-950-rgb: var(--surface-app-rgb);
   --base-900-rgb: var(--surface-card-rgb);
   --base-850-rgb: var(--surface-raised-rgb);

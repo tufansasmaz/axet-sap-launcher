@@ -61,3 +61,18 @@ export function parseAppearance(search: string): { palette: AppPalette; theme: A
     theme: THEMES.find((t) => t === theme) ?? "dark"
   };
 }
+
+/**
+ * Görünüm (palet ya da tema) değiştiyse pencerenin yeni arka plan rengi,
+ * değişmediyse `null`. Ana süreç `config:save`'de bununla
+ * `BrowserWindow.setBackgroundColor` çağırıyor: açılışta verilen renk,
+ * kullanıcı görünümü değiştirdikten sonra da yeniden boyutlanma ve yeniden
+ * yükleme anlarında ekranda görünüyor — eski görünümde kalmamalı.
+ */
+export function windowBackgroundChange(
+  before: { palette: AppPalette; theme: AppTheme },
+  after: { palette: AppPalette; theme: AppTheme }
+): string | null {
+  if (before.palette === after.palette && before.theme === after.theme) return null;
+  return THEME_SURFACES[after.palette][after.theme].app;
+}

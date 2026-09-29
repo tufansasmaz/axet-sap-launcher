@@ -6,7 +6,7 @@
 // varsayılana dönüyor.
 
 import { describe, expect, it } from "vitest";
-import { THEME_SURFACES, parseAppearance } from "../app-electron/shared/themeSurfaces";
+import { THEME_SURFACES, parseAppearance, windowBackgroundChange } from "../app-electron/shared/themeSurfaces";
 
 describe("parseAppearance", () => {
   it("geçerli sorguyu okuyor", () => {
@@ -40,5 +40,24 @@ describe("THEME_SURFACES", () => {
     for (const palette of ["indigo", "warm"] as const) {
       expect(THEME_SURFACES[palette].light.terminal).toEqual(THEME_SURFACES[palette].dark.terminal);
     }
+  });
+});
+
+// Ana süreç pencerenin arka plan rengini açılışta veriyordu ama ayar
+// kaydedilince güncellemiyordu: palet/tema değiştikten sonra pencere yeniden
+// boyutlanırken ya da sayfa yeniden yüklenirken kenarlarda ESKİ görünümün
+// rengi beliriyordu. `config:save` bu yardımcıyla karar veriyor.
+describe("windowBackgroundChange", () => {
+  it("palet ya da tema değiştiyse yeni görünümün app rengi", () => {
+    expect(
+      windowBackgroundChange({ palette: "indigo", theme: "dark" }, { palette: "warm", theme: "dark" })
+    ).toBe(THEME_SURFACES.warm.dark.app);
+    expect(
+      windowBackgroundChange({ palette: "indigo", theme: "dark" }, { palette: "indigo", theme: "light" })
+    ).toBe(THEME_SURFACES.indigo.light.app);
+  });
+
+  it("görünüm aynıysa null — gereksiz yeniden boyama yok", () => {
+    expect(windowBackgroundChange({ palette: "warm", theme: "light" }, { palette: "warm", theme: "light" })).toBeNull();
   });
 });
