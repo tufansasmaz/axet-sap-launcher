@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -23,7 +23,6 @@ import {
   MousePointerClick,
   Package,
   Paperclip,
-  RefreshCw,
   Rocket,
   Search,
   Server,
@@ -42,12 +41,12 @@ import type {
 } from "../../app-electron/shared/types";
 import AttachmentChip from "./AttachmentChip";
 import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./ChatBubble";
+import ChatToolRun from "./ChatToolRun";
 import ModelSelector from "./ModelSelector";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import { useT } from "../i18n";
 import { Eyebrow } from "../ui/Eyebrow";
-import { btn } from "../ui/buttons";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
 // gelirse `Sparkles`'a düşer, yani yeni öneri eklemek bu haritayı
@@ -320,12 +319,6 @@ export default function ChatSessionPane({
   // Hatalı bir cevap da yeniden üretilebilir olmalı — asıl işe yaradığı
   // durumlardan biri zaten "cevap alınamadı" balonu.
   const canRegenerate = !session.pending && !streaming && lastMessage?.role === "assistant";
-  // Çalışma göstergesi hangi mesajın ARDINA giriyor: son kullanıcı mesajının.
-  // Böylece bu turun cevabı göstergenin ALTINDA büyüyor, gösterge de büyüyen
-  // metinle birlikte aşağı sürüklenmiyor (bkz. render'daki gerekçe).
-  // Kullanıcı mesajı yoksa (yeniden üretme) listenin sonuna düşüyor.
-  const lastUserIndex = session.messages.map((m) => m.role).lastIndexOf("user");
-  const indicatorAfter = lastUserIndex >= 0 ? lastUserIndex : session.messages.length - 1;
 
   useEffect(() => {
     if (!stickToBottomRef.current) return;
@@ -334,8 +327,15 @@ export default function ChatSessionPane({
       if (el) el.scrollTop = el.scrollHeight;
     });
     // Akan cevapta mesaj SAYISI değişmiyor, sadece son mesajın metni uzuyor —
-    // bu yüzden içerik uzunluğu da bağımlılık listesinde.
-  }, [session.messages.length, session.pending, lastMessage?.content.length]);
+    // bu yüzden içerik uzunluğu da bağımlılık listesinde. Canlı tur listenin
+    // sonunda durduğu için yeni araç adımı ve soru kartı da listeyi uzatıyor.
+  }, [
+    session.messages.length,
+    session.pending,
+    lastMessage?.content.length,
+    session.activitySteps.length,
+    session.pendingAsk
+  ]);
 
   // Gizli bir panelin (`display:none`) `scrollHeight`'i 0 olduğu için yukarıdaki
   // efekt o sırada hiçbir işe yaramıyor; sohbete geri dönüldüğünde liste EN
@@ -745,7 +745,12 @@ export default function ChatSessionPane({
           `max-w-*` ile ortalanıyor (bkz. COLUMN), yani geniş pencerede yanlarda
           zaten yüzlerce piksel boşluk var. Buradaki 24px yalnızca pencere
           daraldığında devreye giren ASGARİ pay. */}
-      <div ref={messagesRef} onScroll={handleScroll} className="chat-scroll min-h-0 flex-1 overflow-y-auto px-6">
+      <div
+        ref={messagesRef}
+        data-testid="chat-messages"
+        onScroll={handleScroll}
+        className="chat-scroll min-h-0 flex-1 overflow-y-auto px-6"
+      >
         {isEmpty ? (
           // --- AÇILIŞ: sola yaslı degradeli karşılama + öneri kartları ---
           // `min-h-full` + `justify-center`: içerik dikeyde ortalanır ama
@@ -865,90 +870,47 @@ export default function ChatSessionPane({
         ) : (
           <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] pb-8 pt-8`}>
             {session.messages.map((message, index) => (
-              <Fragment key={message.id}>
-                <ChatBubble
-                  message={message}
-                  onEdit={message.role === "user" && !session.pending ? onEditMessage : undefined}
-                  // "Devam et" YALNIZCA son mesajda: ortadaki yarım bir cevaba
-                  // devam etmek, arkasındaki soru-cevapları geçersiz kılardı.
-                  onContinue={
-                    message.interrupted &&
-                    !session.pending &&
-                    index === session.messages.length - 1
-                      ? onContinue
-                      : undefined
-                  }
-                  searchState={
-                    currentHitId === message.id ? "current" : hitSet?.has(message.id) ? "hit" : undefined
-                  }
-                />
-                {/* Gösterge, istek BİTENE kadar duruyor — akış başladıktan
-                    sonra da. Eskiden ilk parçada kayboluyordu, ama ajan metin
-                    yazdıktan SONRA da araç çağırıyor (canlı ölçüm: mail
-                    turunda iki çağrı ilk cümleden sonra) ve o anlar yine
-                    karanlıkta kalıyordu.
-
-                    KONUM: akan cevabın ALTINDA değil, ÜSTÜNDE — son kullanıcı
-                    mesajının hemen ardında. Altta dururken cevap büyüdükçe
-                    gösterge de onunla birlikte aşağı iniyordu (kullanıcı
-                    kararı, 2026-09-04: *"düşünüyor ve altında çıkan kısımlar
-                    aşağı doğru kaymasın, cevap yazılırken en üstte dursun en
-                    son kaybolsun"*). Yapışkanlık da bu yüzden `bottom-0`
-                    değil `top-0`: cevap altından akıp giderken gösterge
-                    panelin üst kenarına tutunuyor ve ancak tur gerçekten
-                    bittiğinde (`pending` düşünce) kayboluyor.
-
-                    Degrade bir KUTU değil, bir geçiş: altından akan metin
-                    göstergeye değmeden soluyor, böylece iki katman üst üste
-                    binmiş gibi okunmuyor. */}
-                {session.pending && index === indicatorAfter && (
-                  <div className="sticky top-0 z-10 -mx-1 -mb-2 flex flex-col gap-2 bg-gradient-to-b from-[rgb(var(--base-950-rgb))] from-60% to-transparent px-1 pb-4 pt-1">
-                    <ThinkingBubble
-                      phase={session.activity}
-                      steps={session.activitySteps}
-                      stalledMinutes={session.stalledMinutes}
-                    />
-                    {/* Soru kutusu göstergenin ALTINDA: gösterge "cevabını
-                        bekliyor" diyor, kart da neyi beklediğini soruyor. */}
-                    {session.pendingAsk && (
-                      <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />
-                    )}
-                  </div>
-                )}
-              </Fragment>
+              <ChatBubble
+                key={message.id}
+                message={message}
+                onEdit={message.role === "user" && !session.pending ? onEditMessage : undefined}
+                // "Devam et" YALNIZCA son mesajda: ortadaki yarım bir cevaba
+                // devam etmek, arkasındaki soru-cevapları geçersiz kılardı.
+                onContinue={
+                  message.interrupted &&
+                  !session.pending &&
+                  index === session.messages.length - 1
+                    ? onContinue
+                    : undefined
+                }
+                // "Yeniden üret" de YALNIZCA son cevapta; `onRegenerate`
+                // AxetCodeHome'da `useCallback`, memo bozulmuyor.
+                onRegenerate={canRegenerate && index === session.messages.length - 1 ? onRegenerate : undefined}
+                searchState={
+                  currentHitId === message.id ? "current" : hitSet?.has(message.id) ? "hit" : undefined
+                }
+              />
             ))}
-            {/* Hiç mesaj yokken gösterge yukarıdaki döngüye giremez; boş bir
-                sohbette "pending" görünmesi olası olmasa da, göstergenin
-                tamamen kaybolmasındansa burada durması yeğ. */}
-            {session.pending && session.messages.length === 0 && (
-              <div className="flex flex-col gap-2">
+            {/* CANLI TUR — konuşmanın SONUNDA, yapışık değil. Eskiden gösterge
+                son istemin altına yapışıyordu; araç adımları ayrı bir satıra
+                (`ChatToolRun`) taşınınca en doğal yeri, cevabın geleceği yer
+                oldu. Gösterge istek BİTENE kadar duruyor — akış başladıktan
+                sonra da, çünkü ajan metin yazdıktan SONRA da araç çağırıyor.
+                Otomatik kaydırma adım sayısını da izliyor (yukarıda). */}
+            {session.pending && (
+              <div data-testid="turn-live" className="flex flex-col gap-2">
+                {session.activitySteps.length > 0 && (
+                  <ChatToolRun steps={session.activitySteps} status="running" />
+                )}
                 <ThinkingBubble
                   phase={session.activity}
                   steps={session.activitySteps}
                   stalledMinutes={session.stalledMinutes}
                 />
-                {session.pendingAsk && (
-                  <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />
-                )}
+                {/* Soru kutusu göstergenin ALTINDA: gösterge "cevabını
+                    bekliyor" diyor, kart da neyi beklediğini soruyor. */}
+                {session.pendingAsk && <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />}
               </div>
-            )}
-            {/* "Yeniden üret" sohbetin SONUNDA, sadece son mesaj bitmiş bir
-                asistan cevabıysa — her cevapta değil yalnızca sonuncusunda
-                anlamlı. Cevap tarafında artık avatar oluğu olmadığı için
-                girinti de yok: düğme cevap metniyle aynı sol kenardan
-                başlıyor. */}
-            {canRegenerate && (
-              <button
-                onClick={onRegenerate}
-                title={t("axetCodeHome.regenerateTitle")}
-                // Üstteki cevaba yaklaşsın diye negatif üst boşluk, ama sabit
-                // bir piksel DEĞİL: mesaj aralığı kullanıcı ayarıyla
-                // değiştiği için ona oranlı.
-                className={btn("neutral", "md", "mt-[calc(var(--chat-message-gap)*-0.6)] self-start")}
-              >
-                <RefreshCw size={12} />
-                {t("axetCodeHome.regenerate")}
-              </button>
             )}
           </div>
         )}

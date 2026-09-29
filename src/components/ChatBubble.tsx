@@ -15,7 +15,7 @@ import { renderMarkdownLite } from "../lib/markdownLite";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import AttachmentChip from "./AttachmentChip";
 import CopyButton from "./CopyButton";
-import ChatToolRun, { useToolLabel } from "./ChatToolRun";
+import ChatToolRun from "./ChatToolRun";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 
@@ -319,21 +319,12 @@ export default memo(ChatBubble);
 //     cevabın altındaki boşluğu her araç çağrısında yeniden büyütüyor ve
 //     sohbeti aşağı itiyordu.
 //
-// Şimdiki düzen (2026-09-04) SABİT YÜKSEKLİKTE, iki satır:
+//  5. (2026-09-29) Araç satırı göstergeden ayrıldı. Adımlar artık
+//     `ChatToolRun`'da, konuşmanın sonunda duruyor. Gösterge yalnız durum,
+//     adım sayısı ve süre.
 //
-//   ┌────────────────────────────────────────┐
-//   │ ◜  Düşünüyor              3. adım · 14sn│
-//   │ ▸ İçerikte arıyor  composer  ↳ +12 satır│
-//   └────────────────────────────────────────┘
-//
-// Yani geçmiş BİRİKMİYOR: en yeni adım bir öncekinin YERİNE geçiyor, sayaç da
-// kaçıncı adımda olduğunu söylüyor. İki satır her zaman çiziliyor (henüz araç
-// çağrılmamışken alt satır boş duruyor), böylece kutu ilk kareden son kareye
-// kadar aynı yüksekliği tutuyor ve altındaki hiçbir şey zıplamıyor.
-//
-// Bilginin kaynağı axet-code'un kendi oturum veritabanı (bkz.
-// main/axetSessionDb.ts); araç adı, girdisi ve sonucun ilk satırı oradan
-// geliyor.
+// Adımların kaynağı axet-code'un kendi oturum veritabanı (bkz.
+// main/axetSessionDb.ts).
 //
 // Gösterge glifi: NEFES ALAN bir nokta (`.chat-breathe`, bkz. index.css).
 //
@@ -395,7 +386,6 @@ export function ThinkingBubble({
   stalledMinutes?: number;
 }) {
   const t = useT();
-  const toolLabel = useToolLabel();
   // Geçen süre. Sayaç bileşenin KENDİ ömrüne bağlı: gösterge tam olarak isteğin
   // sürdüğü aralıkta mount kalıyor, yani ayrı bir başlangıç zamanı taşımaya
   // gerek yok. Nefes animasyonunun ayrı bir zamanlayıcısı YOK — o tamamen CSS,
@@ -406,8 +396,8 @@ export function ThinkingBubble({
     return () => clearInterval(timer);
   }, []);
 
-  // Üst satır ARAÇ ADINI TEKRARLAMIYOR: araç zaten alt satırda duruyor, üstte
-  // ikinci kez yazmak göstergeyi gereksizce gürültülü yapardı.
+  // Durum satırı ARAÇ ADINI TEKRARLAMIYOR: araç zaten hemen üstteki
+  // `ChatToolRun` satırında duruyor, ikinci kez yazmak gürültü olurdu.
   //
   // `connectors` aşaması da "Düşünüyor" diye yazılıyor (kullanıcı kararı,
   // 2026-09-04: *"Uygulama bağlantıları bu yazmasına gerek yok"*). Bağlantıların
@@ -422,110 +412,22 @@ export function ThinkingBubble({
       ? t("axetCodeHome.phaseStalled", { minutes: String(stalledMinutes ?? 0) })
       : t(PHASE_KEYS[quiet ? "thinking" : phase ?? "starting"]);
   const all = steps ?? [];
-  const step = all.length > 0 ? all[all.length - 1] : null;
-  // Canlı ayrıntı: araç satırına tıklanınca o adımın TAM çıktısı (ya da farkı)
-  // altında açılıyor. Tercih YAPIŞKAN — adım adım değil, bir kez açılıyor ve
-  // sonraki adımlarda da açık kalıyor. Kullanıcı isteği (2026-09-07): *"ordaki
-  // dalları falan da görebilsek anlık olarak yaptığı şeyi"*. Her yeni araç
-  // çağrısında kapansaydı, canlı izlemek için saniyede bir tıklamak gerekirdi.
-  //
-  // Varsayılan KAPALI ve kapalıyken gösterge bir piksel bile büyümüyor: kutunun
-  // kendiliğinden büyümesi daha önce açıkça yadırganmıştı (bkz. yukarıdaki
-  // "elenen tasarımlar" notu, madde 4).
-  const [detailOpen, setDetailOpen] = useState(false);
-  const detail = step ? step.diff || step.output || "" : "";
 
   return (
     // Cevap metniyle aynı sol kenardan başlıyor — cevap tarafında avatar oluğu
     // yok. `role="status"` + `aria-label`: glif tamamen görsel, ekran okuyucuya
-    // aşama metni gidiyor.
-    <div className="flex flex-col gap-1 text-[11px]" role="status" aria-label={label}>
-      {/* Durum satırı KUTUSUZ (kullanıcı kararı, 2026-09-04: *"düşünüyor falan
-          şeyini kutunun içersine almışsın alma onu da"*). Zaten kalıcı bir bilgi
-          değil, bir nefes — çerçevelenince sohbete yerleşmiş bir kart gibi
-          duruyordu. Saydam kutu yalnızca ALTTAKİ araç satırında kalıyor: orada
-          gerçekten ayrı bir bilgi var ve ayrışması gerekiyor. */}
-      <div className="flex items-center gap-2">
-        <span className="chat-breathe block h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />
-        <span className="text-slate-400">{label}</span>
-        <span className="flex items-center gap-1.5 pl-1 tabular-nums text-slate-600">
-          {/* Adım sayacı, biriken satırların yerini tutuyor: geçmiş artık
-              ekranda durmuyor ama kaçıncı adımda olduğumuz görünüyor. */}
-          {all.length > 1 && <span>{t("axetCodeHome.phaseStepCount", { count: String(all.length) })}</span>}
-          {/* Sayaç ilk saniyede yazılmıyor: hemen dönen bir cevapta "0 sn" bir
-              an görünüp kaybolurdu ve bu, gösterge yerine bir titremeye
-              benziyordu. */}
-          {seconds > 0 && <span>{t("axetCodeHome.phaseElapsed", { seconds: String(seconds) })}</span>}
-        </span>
-      </div>
-      {/* Araç satırı.
-          Araç yokken de çiziliyor (`min-h`, içi boş, çerçevesiz): göstergenin
-          yüksekliği ilk kareden itibaren sabit kalsın, ilk araç çağrısı gelince
-          altındaki sohbet zıplamasın.
-          BURAYA `backdrop-blur` GERİ EKLENMESİN. Bir ara zemin yarı saydam +
-          `backdrop-blur-sm` idi; gösterge `sticky top-0` yapıldıktan sonra bu,
-          akan cevap kaydıkça HER KAREDE altındaki metni yeniden bulanıklaştıran
-          bir katman hâline geldi (kullanıcı: *"cevabı çok kasarak yavaş
-          yazıyor"*). Zemin artık opak — zaten sticky sarmalayıcının kendi
-          `--base-950` gradyanı arkada duruyor, saydamlıktan görsel olarak
-          kazanılan bir şey yoktu. */}
-      <div
-        className={`flex w-fit max-w-full flex-col rounded-lg ${
-          step ? "border border-[rgb(var(--base-700-rgb)/0.55)] bg-control" : ""
-        }`}
-      >
-        <div
-          role={detail ? "button" : undefined}
-          onClick={detail ? () => setDetailOpen((v) => !v) : undefined}
-          title={detail ? t("axetCodeHome.toolDetailToggle") : undefined}
-          className={`flex min-h-[22px] min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 ${
-            detail ? "cursor-pointer hover:bg-[rgb(var(--base-700-rgb)/0.5)]" : ""
-          }`}
-        >
-        {step && (
-          <>
-            <span className={step.failed ? "text-[var(--status-warning-text)]" : "text-accent-400"}>
-              {detail ? (detailOpen ? "▾" : "▸") : "▸"}
-            </span>
-            <span className="shrink-0 text-slate-500">{toolLabel(step.tool ?? "")}</span>
-            {/* Hedef (dosya yolu, komut, desen) tek satırda ve kırpılarak —
-                uzun bir bash komutu göstergeyi sarmalayıp kutuyu büyütmesin. */}
-            {step.target && (
-              <span className="truncate font-mono text-[10px] text-slate-600" title={step.target}>
-                {step.target}
-              </span>
-            )}
-            {/* Sonuç AYNI SATIRDA, alta inmiyor. Yeni bir satır açmak kutuyu
-                büyütür ve kullanıcının yadırgadığı şey tam olarak buydu. */}
-            {step.result && (
-              <span
-                className={`flex min-w-0 items-center gap-1 ${
-                  step.failed ? "text-[var(--status-warning-text)]" : "text-slate-600"
-                }`}
-                title={step.result}
-              >
-                <span className="shrink-0 text-slate-600">↳</span>
-                <span className="truncate font-mono text-[10px]">
-                  {step.extraLines
-                    ? t("axetCodeHome.toolMoreLines", { count: String(step.extraLines) })
-                    : step.result}
-                </span>
-              </span>
-            )}
-          </>
-        )}
-        </div>
-        {/* Canlı döküm. `max-h-40` (160 px) BİLEREK dar: amaç terminali sohbete
-            taşımak değil, o an ne okunduğunu/ne çalıştırıldığını görmek. Metin
-            aktıkça kutu büyümüyor, kendi içinde kayıyor. */}
-        {detailOpen && detail && (
-          <div className="border-t border-[rgb(var(--base-700-rgb)/0.55)] px-2 pb-1.5">
-            <pre className="chat-scroll mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md bg-app p-2 font-mono text-[10px] leading-[1.5] text-slate-400">
-              {detail}
-            </pre>
-          </div>
-        )}
-      </div>
+    // aşama metni gidiyor. KUTUSUZ (kullanıcı kararı, 2026-09-04: *"düşünüyor
+    // falan şeyini kutunun içersine almışsın alma onu da"*).
+    <div className="flex items-center gap-2 text-2xs" role="status" aria-label={label}>
+      <span className="chat-breathe block h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />
+      <span className="text-slate-400">{label}</span>
+      <span className="flex items-center gap-1.5 pl-1 tabular-nums text-slate-600">
+        {all.length > 1 && <span>{t("axetCodeHome.phaseStepCount", { count: String(all.length) })}</span>}
+        {/* Sayaç ilk saniyede yazılmıyor: hemen dönen bir cevapta "0 sn" bir
+            an görünüp kaybolurdu ve bu, gösterge yerine bir titremeye
+            benziyordu. */}
+        {seconds > 0 && <span>{t("axetCodeHome.phaseElapsed", { seconds: String(seconds) })}</span>}
+      </span>
     </div>
   );
 }
@@ -607,9 +509,9 @@ export function AskUserCard({
           göndermiyor. Tek seçimliyle aynı görünen bir kartın farklı çalışması,
           söylenmezse "düğmem çalışmadı" olarak okunurdu. */}
       {multi && (
-        <span className="-mt-0.5 text-[11px] text-slate-500">{t("axetCodeHome.askUserMultiHint")}</span>
+        <span className="-mt-0.5 text-2xs text-slate-500">{t("axetCodeHome.askUserMultiHint")}</span>
       )}
-      <div className="flex flex-wrap gap-1.5">
+      <div className="flex flex-col gap-1.5">
         {options.map((option, index) => {
           const isChosen = multi ? picked.includes(index) : chosen === index;
           // Sönükleştirme yalnızca cevap gittikten SONRA: çoklu seçimde
@@ -630,10 +532,10 @@ export function AskUserCard({
                 setSent(true);
                 onAnswer(index);
               }}
-              className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12.5px] leading-tight transition-all duration-150 ${
+              className={`flex w-full items-center gap-1.5 rounded-lg border px-3 py-1.5 text-left text-xs leading-tight transition-colors ${
                 isChosen
                   ? "border-accent-500 bg-accent-500/25 text-[var(--accent-soft-text)]"
-                  : "border-line bg-raised/70 text-slate-300 hover:-translate-y-px hover:border-accent-500/60 hover:bg-accent-500/10 hover:text-[var(--accent-soft-text)]"
+                  : "border-line bg-raised/70 text-slate-300 hover:border-accent-500/60 hover:bg-accent-500/10 hover:text-[var(--accent-soft-text)]"
               } ${dimmed ? "opacity-35" : ""} disabled:cursor-default`}
             >
               {multi && (
@@ -652,11 +554,15 @@ export function AskUserCard({
             </button>
           );
         })}
+      </div>
+      {/* Serbest cevap ve çoklu seçimin Gönder düğmesi şıklardan AYRI satırda:
+          şıklar alt alta dizilirken bunlar onların arasına karışmasın. */}
+      <div className="flex flex-wrap gap-1.5">
         {!customOpen && (
           <button
             disabled={sent}
             onClick={() => setCustomOpen(true)}
-            className={`rounded-full border border-dashed border-line bg-transparent px-3 py-1 text-[12.5px] leading-tight text-slate-400 transition-all duration-150 hover:-translate-y-px hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] ${
+            className={`rounded-lg border border-dashed border-line bg-transparent px-3 py-1 text-xs leading-tight text-slate-400 transition-colors hover:border-accent-500/60 hover:text-[var(--accent-soft-text)] ${
               sent ? "opacity-35" : ""
             } disabled:cursor-default`}
           >
@@ -671,7 +577,7 @@ export function AskUserCard({
           <button
             disabled={sent || picked.length === 0}
             onClick={sendPicked}
-            className="flex items-center gap-1.5 rounded-full border border-accent-500/60 bg-accent-500/15 px-3 py-1 text-[12.5px] leading-tight text-[var(--accent-soft-text)] transition-all duration-150 hover:-translate-y-px hover:bg-accent-500/25 disabled:cursor-default disabled:opacity-35 disabled:hover:translate-y-0"
+            className="flex items-center gap-1.5 rounded-lg border border-accent-500/60 bg-accent-500/15 px-3 py-1 text-xs leading-tight text-[var(--accent-soft-text)] transition-colors hover:bg-accent-500/25 disabled:cursor-default disabled:opacity-35"
           >
             <CornerDownLeft size={12} />
             {picked.length > 0
