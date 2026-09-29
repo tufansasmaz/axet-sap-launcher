@@ -17,7 +17,7 @@ import {
   Type,
   Palette
 } from "lucide-react";
-import type { AppConfig, AppPalette, AppTheme, UpdateStatus } from "../../app-electron/shared/types";
+import type { AppConfig, AppPalette, UpdateStatus } from "../../app-electron/shared/types";
 import { PALETTES, THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
 import { Modal, ModalCancelButton } from "../ui/Modal";
 import { useT } from "../i18n";
@@ -112,22 +112,22 @@ function SegmentedControl<T extends string>({
   );
 }
 
-// Vurgu seçimi: üç kart, her birinde o vurgunun üç rengi (zemin, kart, vurgu).
-// Renkler CSS değişkeninden DEĞİL `THEME_SURFACES`'ten geliyor: seçili olmayan
-// paletin değişkenleri o an sayfada tanımlı değil. Örnekler formdaki Koyu/Açık
-// seçimini izliyor, yani kullanıcı Kaydet'e basmadan neyi seçtiğini görüyor.
+// Vurgu seçimi: üç kart; her kartta o vurgunun iki sırası — üstte koyu, altta
+// açık — ve her sırada üç renk (zemin, kart, vurgu). Renkler CSS
+// değişkeninden DEĞİL `THEME_SURFACES`'ten geliyor: seçili olmayan vurgunun ve
+// öbür temanın değişkenleri o an sayfada tanımlı değil. İki sıra da her zaman
+// görünüyor; kullanıcı bir vurguyu seçerken iki temadaki hâlini birlikte
+// görüyor (grafit spec §3.4).
 //
 // Klavye, radyo grubu kalıbında: Tab grupta yalnızca seçili karta duruyor, ok
 // tuşları seçimi ve odağı birlikte taşıyor (sondan başa sarıyor).
 function PalettePicker({
   value,
-  theme,
   label,
   names,
   onChange
 }: {
   value: AppPalette;
-  theme: AppTheme;
   label: string;
   names: Record<AppPalette, { name: string; description: string }>;
   onChange: (palette: AppPalette) => void;
@@ -144,7 +144,6 @@ function PalettePicker({
   return (
     <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-3">
       {PALETTES.map((palette) => {
-        const surface = THEME_SURFACES[palette][theme];
         const checked = value === palette;
         return (
           <button
@@ -172,15 +171,21 @@ function PalettePicker({
               checked ? "border-accent-500 bg-accent-500/10" : "border-line hover:bg-hover"
             }`}
           >
-            <span className="flex gap-1.5" aria-hidden="true">
-              {[surface.app, surface.card, surface.accent].map((color, index) => (
-                <span
-                  key={index}
-                  data-swatch
-                  className="size-6 rounded-md border border-line"
-                  style={{ backgroundColor: color }}
-                />
-              ))}
+            <span className="flex flex-col gap-1" aria-hidden="true">
+              {(["dark", "light"] as const).map((theme) => {
+                const surface = THEME_SURFACES[palette][theme];
+                return (
+                  <span key={theme} data-swatch={theme} className="flex gap-1">
+                    {[surface.app, surface.card, surface.accent].map((color, index) => (
+                      <span
+                        key={index}
+                        className="h-4 flex-1 rounded-sm border border-line"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </span>
+                );
+              })}
             </span>
             <span id={`${baseId}-${palette}-name`} className="text-sm font-medium text-slate-100">
               {names[palette].name}
@@ -514,7 +519,6 @@ export default function SettingsModal({
             <Field label={t("settingsModal.paletteLabel")}>
               <PalettePicker
                 value={form.palette}
-                theme={form.theme}
                 label={t("settingsModal.paletteLabel")}
                 names={{
                   ntt: {

@@ -68,8 +68,11 @@ function rgb(hex: string): string {
   return `rgb(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255})`;
 }
 
-function swatches(radio: HTMLElement): string[] {
-  return Array.from(radio.querySelectorAll<HTMLElement>("[data-swatch]")).map((el) => el.style.backgroundColor);
+/** Kartın bir sırasındaki (`dark` ya da `light`) üç kutunun rengi. */
+function swatchRow(radio: HTMLElement, theme: "dark" | "light"): string[] {
+  const row = radio.querySelector<HTMLElement>(`[data-swatch="${theme}"]`);
+  if (!row) return [];
+  return Array.from(row.children).map((el) => (el as HTMLElement).style.backgroundColor);
 }
 
 describe("Ayarlar → Görünüm", () => {
@@ -109,11 +112,22 @@ describe("Ayarlar → Görünüm", () => {
     expect(document.activeElement).toBe(amber);
   });
 
-  it("renk örnekleri THEME_SURFACES'ten geliyor", () => {
+  it("her kart koyu ve açık önizlemeyi birlikte gösteriyor; Koyu/Açık seçimi örnekleri değiştirmiyor", () => {
     mount();
+    for (const [name, palette] of [
+      ["NTT mavisi", "ntt"],
+      ["İndigo", "indigo"],
+      ["Amber", "amber"]
+    ] as const) {
+      const radio = screen.getByRole("radio", { name });
+      const { dark, light } = THEME_SURFACES[palette];
+      expect(swatchRow(radio, "dark")).toEqual([rgb(dark.app), rgb(dark.card), rgb(dark.accent)]);
+      expect(swatchRow(radio, "light")).toEqual([rgb(light.app), rgb(light.card), rgb(light.accent)]);
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Açık" }));
     const amber = screen.getByRole("radio", { name: "Amber" });
-    const dark = THEME_SURFACES.amber.dark;
-    expect(swatches(amber)).toEqual([rgb(dark.app), rgb(dark.card), rgb(dark.accent)]);
+    expect(swatchRow(amber, "dark")[2]).toBe(rgb(THEME_SURFACES.amber.dark.accent));
+    expect(swatchRow(amber, "light")[2]).toBe(rgb(THEME_SURFACES.amber.light.accent));
   });
 
   it("vurgu ve tema değişince rozet çıkıyor; Kaydet ikisini de yolluyor", async () => {
