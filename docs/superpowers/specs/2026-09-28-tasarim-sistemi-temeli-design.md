@@ -277,6 +277,7 @@ Yalnızca ortak parçanın gerçekten çalıştığını kanıtlayan beş pencer
 - **Renklerin tek kaynağı:** `app-electron/shared/themeSurfaces.ts`
 
   ```ts
+  export type AppPalette = "indigo" | "warm";
   export interface ThemeSurface {
     app: string;                       // pencere arka planı, "#rrggbb"
     card: string;                      // kart yüzeyi (Ayarlar'daki renk örneği)
