@@ -5,10 +5,10 @@
 // yerini aldı: eski dosyada yalnızca o varsa ondan türetiliyor, ilk kayıtta
 // da dosyadan düşüyor.
 
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clampSidebarWidth, readSidebarCollapsed } from "../app-electron/shared/sidebarLayout";
 
 let userData = "";
@@ -21,6 +21,11 @@ vi.mock("electron", () => ({
 beforeEach(() => {
   userData = mkdtempSync(path.join(tmpdir(), "store-"));
   vi.resetModules();
+});
+
+// Her test kendi geçici klasörünü açıyor; kalırsa her koşuda birikirdi.
+afterEach(() => {
+  rmSync(userData, { recursive: true, force: true });
 });
 
 async function store(raw: Record<string, unknown> | null) {

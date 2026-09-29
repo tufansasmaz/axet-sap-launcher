@@ -6,7 +6,30 @@ import { LanguageProvider } from "../src/i18n";
 import LogonSidebar, { type LogonSidebarProps } from "../src/components/LogonSidebar";
 import type { SapNode, SapService } from "../app-electron/shared/types";
 
-afterEach(cleanup);
+// Bazı testler `window.api`'yi sahtesiyle değiştiriyor; sonraki testlere
+// sızmasın diye her testten sonra eskisi geri konuyor.
+const win = window as unknown as { api: unknown };
+const originalApi = win.api;
+afterEach(() => {
+  cleanup();
+  win.api = originalApi;
+});
+
+// Tanımlanmayan her işlev hiç dönmeyen bir söz veriyor, `on…` abonelikleri
+// boş bir iptal. Symbol anahtarları (`then`, inspect) için `undefined`:
+// `k.startsWith` onlarda patlıyordu.
+function fakeApi(impl: Record<string, unknown> = {}) {
+  return new Proxy(
+    {},
+    {
+      get: (_t, k) => {
+        if (typeof k !== "string") return undefined;
+        if (k in impl) return impl[k];
+        return k.startsWith("on") ? () => () => {} : () => new Promise(() => {});
+      }
+    }
+  );
+}
 
 const SERVICE: SapService = {
   uuid: "svc-1",
@@ -117,13 +140,7 @@ describe("LogonSidebar", () => {
 
   it("dosya görünümünde seçili dosya da aynı seçim dilinde", async () => {
     const entry = { name: "rapor.abap", path: "C:/proje/rapor.abap", isDir: false, size: 1, modifiedAt: "" };
-    (window as unknown as { api: unknown }).api = new Proxy(
-      {},
-      {
-        get: (_t, k: string) =>
-          k === "listDir" ? async () => ({ ok: true, entries: [entry] }) : k.startsWith("on") ? () => () => {} : () => new Promise(() => {})
-      }
-    );
+    win.api = fakeApi({ listDir: async () => ({ ok: true, entries: [entry] }) });
     renderSidebar({ files: { ...FILES, selectedPath: entry.path }, mode: "files" });
     const row = (await screen.findByText("rapor.abap")).closest("button")!;
     expect(row.getAttribute("aria-current")).toBe("true");
@@ -164,10 +181,7 @@ describe("LogonSidebar", () => {
 
   it("dosyalar görünümünde aramaya yazmak sistemlere geçiriyor", () => {
     // `FileExplorer` açılışta klasörü okuyor; cevap hiç gelmiyor, konumuz değil.
-    (window as unknown as { api: unknown }).api = new Proxy(
-      {},
-      { get: (_t, k: string) => (k.startsWith("on") ? () => () => {} : () => new Promise(() => {})) }
-    );
+    win.api = fakeApi();
     const props = renderSidebar({ files: FILES, mode: "files" });
     expect(screen.queryByText("Test Müşteri")).toBeNull();
     fireEvent.change(searchBox(), { target: { value: "s4d" } });
