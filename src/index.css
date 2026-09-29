@@ -108,27 +108,33 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
   outline: none;
 }
 
-/* NTT Studio tasarım dili (2026-09-28, "Tasarım sistemi temeli"; öncesi
-   "Premium AI Engineering Workspace", 2026-09-06).
-   Kuralları tek cümlede: sakin zemin, ince kenarlıklar, ferah ölçü (gövde
-   14px, kontrol 40px, kart/pencere köşesi 12px), düz dolgulu düğmeler.
+/* NTT Studio tasarım dili — grafit (2026-09-29, "Grafit kimlik ve kabuk";
+   öncesi "Tasarım sistemi temeli", 2026-09-28).
+   Tek cümlede: tek renkli grafit yüzeyler; renk yalnızca seçili öğede, ana
+   düğmede, odak halkasında ve bağlantıda; geri kalan her şey gri.
 
-   İKİ PALET × İKİ HÂL = DÖRT AÇIK BLOK. Palet `<html data-palette>`
-   (`indigo` | `warm`), koyu/açık `<html data-theme>` (`dark` | `light`).
-   Her blok bütün jetonları kendisi tanımlıyor; birinden ötekine miras yok.
-   `tests/themeTokens.test.ts` dört bloğu okuyup ölçüyor: jeton kümeleri
-   aynı mı, metin/durum renkleri en zayıf yüzeyde ≥ 4.5:1 mi, yüzey
-   sıralaması doğru mu. Bir rengi değiştirirken önce o testi çalıştır.
+   İKİ YÜZEY BLOĞU + ALTI VURGU BLOĞU. `<html data-theme>` (`dark` | `light`)
+   yüzeyleri, kenarlıkları, metni, durum ve ortam renklerini, gölgeleri
+   seçiyor. Vurgu `<html data-palette>` (`ntt` | `indigo` | `amber`) ile
+   temanın BİRLİKTE seçtiği blokta; o blok yalnızca dokuz vurgu jetonunu
+   tanımlıyor. Sırayı seçici ağırlığı kuruyor: vurgu bloğu (0,2,1) hem yüzey
+   bloklarını hem `:root`'u, açık yüzey bloğu (0,1,1) `:root`'u yeniyor.
+   `tests/themeTokens.test.ts` blokları okuyup altı görünümü ölçüyor: jeton
+   kümeleri eksiksiz mi, metin/durum renkleri en zayıf yüzeyde (app, card,
+   control, sidebar) ≥ 4.5:1 mi, yüzey sıralaması doğru mu. Bir rengi
+   değiştirirken önce o testi çalıştır.
 
    RENK BİLGİ MİMARİSİNİN PARÇASI, DEKORASYON DEĞİL. Vurgu dışındaki her renk
    bir ANLAM taşıyor ve o anlamın dışında kullanılmıyor:
-     vurgu  → birincil eylem / seçili  (--accent-*: İndigo'da indigo, Sıcak'ta kiremit)
-     mavi   → sistem, bilgi           (--module-sap, --status-info-*, --navy-icon)
-     mor    → yapay zekâ / model      (--module-code, --project-*)
-     turuncu→ eylem / uyarı           (--module-guiscript, --status-warning-*)
-     kırmızı→ hata                    (--status-danger-*)
-   Durum yeşili (`--status-success-*`) vurgudan ayrı bir tonda: biri "seçili",
-   diğeri "başarılı" okunabilsin.
+     vurgu    → birincil eylem / seçili  (--accent-*)
+     mavi     → sistem, bilgi, DEV       (--status-info-*, --tier-dev-*, --navy-icon)
+     kehribar → uyarı, QA                (--status-warning-*, --tier-qa-*)
+     kırmızı  → hata, PRD                (--status-danger-*, --tier-prd-*)
+     yeşil    → başarılı                 (--status-success-*)
+     mor      → proje                    (--project-*)
+   NTT mavisi DEV mavisine, Amber QA kehribarına yakın; bu yüzden ortam her
+   zaman yazıyla da gösteriliyor (DEV/QA/PRD), renk tek başına anlam
+   taşımıyor.
 
    Renkler "R G B" tripleti (bkz. tailwind.config.js withOpacity()) — bu format
    opacity varyantlarının (bg-accent-500/10 vb.) doğru derlenmesi için gerekli,
@@ -147,31 +153,34 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
 }
 
 :root,
-html[data-palette="indigo"][data-theme="dark"] {
-  /* Sakin İndigo · koyu. `:root` bu blokla AYNI blok: nitelikler henüz yazılmamışken
-     (ilk kare) de doğru renk olsun diye. Jeton gerekçeleri yalnızca bu blokta
-     yazılı; öbür üç blok aynı jeton kümesini kendi değerleriyle tanımlıyor. */
+html[data-theme="dark"] {
+  /* Grafit · koyu yüzey bloğu. `:root` bu blokla AYNI blok: nitelikler henüz
+     yazılmamışken (ilk kare) de doğru renk olsun diye. Jeton gerekçeleri
+     yalnızca bu blokta yazılı; açık blok aynı jeton kümesini kendi
+     değerleriyle tanımlıyor. Vurgu jetonları burada DEĞİL, aşağıdaki vurgu
+     bloklarında. */
   /* Chromium'un yerleşik denetimleri (`<select>` açılır listesi, kaydırma çubuğu) CSS ile değil `color-scheme`'e göre boyanıyor; bu satır olmadan koyu temada beyaz liste açılır. */
   color-scheme: dark;
   /* Yüzeyler ROLE göre: app (pencere) · sidebar · card · raised · hover ·
-     control (girdi, çip, seçili satır) · active (basılı).
+     control (girdi, çip) · active (basılı).
      SIRALAMA KURALI (test denetliyor): koyu temada `hover` ve `control`
      `border-subtle`dan, `active` `border-line`dan koyu; açık temada `control`
      ve `hover` `border-subtle`dan açık. Bozulursa ince kenarlıklı kartın
      üstüne gelindiğinde dolgu kenarlığı yutar.
-     `app` değeri `app-electron/shared/themeSurfaces.ts` içinde de duruyor
-     (pencere zemini, terminal); ikisini bir test eşliyor. */
-  --surface-app-rgb: 18 20 24;
-  --surface-sidebar-rgb: 22 25 30;
-  --surface-card-rgb: 27 30 36;
-  --surface-raised-rgb: 31 34 41;
-  --surface-hover-rgb: 33 37 44;
-  --surface-control-rgb: 34 38 45;
-  --surface-active-rgb: 46 51 61;
+     `app` ve `card` değerleri `app-electron/shared/themeSurfaces.ts` içinde de
+     duruyor (pencere zemini, terminal, Ayarlar önizlemesi); ikisini bir test
+     eşliyor. */
+  --surface-app-rgb: 14 15 17;
+  --surface-sidebar-rgb: 19 20 23;
+  --surface-card-rgb: 23 25 28;
+  --surface-raised-rgb: 27 29 33;
+  --surface-hover-rgb: 31 33 37;
+  --surface-control-rgb: 29 31 35;
+  --surface-active-rgb: 40 43 48;
 
-  --border-subtle-rgb: 40 44 53;
-  --border-line-rgb: 52 57 69;
-  --border-strong-rgb: 68 74 87;
+  --border-subtle-rgb: 37 39 43;
+  --border-line-rgb: 46 49 54;
+  --border-strong-rgb: 65 69 75;
 
   /* Eski ham merdiven. Kullananlar: `src/flows/flows.css` (buradan `--base-*`
      türetiyor; `FlowCanvas.jsx`, `RadialGauge.jsx` o türevleri okuyor),
@@ -184,47 +193,36 @@ html[data-palette="indigo"][data-theme="dark"] {
   --base-700-rgb: var(--border-line-rgb);
   --base-600-rgb: var(--border-strong-rgb);
 
-  /* Metin: 100 ana · 200 ikincil · 300/400 ipucu ve üst bilgi (≥ 4.5:1) ·
-     500 yer tutucu, devre dışı (≥ 3:1) · 600 yalnız süs, okunacak metinde
-     KULLANILMAZ. Ölçüm `app`/`card`/`control`ın en zayıfına karşı. */
-  --ink-100-rgb: 232 234 238;
-  --ink-200-rgb: 180 185 195;
-  --ink-300-rgb: 138 145 160;
-  --ink-400-rgb: 138 145 160;
-  --ink-500-rgb: 111 118 134;
-  --ink-600-rgb: 75 81 96;
+  /* Metin: 100 ana · 200 ikincil · 300/400 ipucu, üst bilgi, bölüm etiketi
+     (≥ 4.5:1) · 500 yer tutucu, devre dışı (≥ 3:1) · 600 yalnız süs, okunacak
+     metinde KULLANILMAZ. Ölçüm `app`/`card`/`control`/`sidebar`ın en
+     zayıfına karşı. */
+  --ink-100-rgb: 236 236 238;
+  --ink-200-rgb: 180 184 191;
+  --ink-300-rgb: 141 146 155;
+  --ink-400-rgb: 141 146 155;
+  --ink-500-rgb: 108 113 122;
+  --ink-600-rgb: 70 74 81;
   --ink-strong-rgb: 255 255 255;
 
-  --scrollbar-thumb: #343945;
-  --scrollbar-thumb-hover: #444a57;
+  --scrollbar-thumb: #33363c;
+  --scrollbar-thumb-hover: #45494f;
 
-  /* Vurgu: 500 dolgu (üstündeki yazı `text-accent-on`) · 400 metin, ikon,
-     kenarlık, odak halkası · 600 dolgunun basılı hâli. `--accent-cyan-rgb`
-     eski adıyla duruyor, değeri 500 ile aynı. */
-  --accent-600-rgb: 122 130 245;
-  --accent-500-rgb: 139 147 255;
-  --accent-400-rgb: 160 166 255;
-  --accent-on-rgb: 15 16 32;
-  --accent-cyan-rgb: 139 147 255;
   /* Kırmızı dolgu ya da resim üstü siyah örtü gibi, temadan bağımsız koyu
-     zeminlerin üstündeki yazı. Dört blokta da beyaz. */
+     zeminlerin üstündeki yazı. İki blokta da beyaz. */
   --on-solid-rgb: 255 255 255;
-  --accent-glow: rgba(139, 147, 255, 0.16);
-  --accent-soft-text: #c3c7ff;
 
-  /* Sohbet karşılama başlığının degradesi: ana metin → yumuşak vurgu → vurgu. */
+  /* Sohbet karşılama başlığının degradesi: ana metin → yumuşak vurgu → vurgu.
+     Son ikisi vurgu bloklarında. */
   --chat-hero-from: #e8eaee;
-  --chat-hero-via: #c3c7ff;
-  --chat-hero-to: #8b93ff;
 
-  /* Tür gösterge renkleri — seçim değil, "bu ne" bilgisi. Sol şeritteki
-     modül ikonları kendi rengini taşıyor; SEÇİLİ olan vurgu rengine dönüyor.
-     Anlam haritası: mavi sistem/bilgi · mor yapay zekâ ve proje · turuncu
-     eylem/otomasyon · kırmızı hata. */
+  /* Tür gösterge renkleri. Modül ikonları grafitte renk taşımıyor (ink-300):
+     seçili olan zaten vurgu rengine dönüyor, gerisi gri. Klasör ve proje
+     "bu ne" bilgisi olarak renkli kalıyor. */
   --navy-icon: #8fb0d6;
-  --module-code: #c0a4f2;
-  --module-sap: #5eaee0;
-  --module-guiscript: #e39a62;
+  --module-code: #8d929b;
+  --module-sap: #8d929b;
+  --module-guiscript: #8d929b;
   --folder-icon: #d9a55a;
   --project-500-rgb: 146 128 224;
   --project-soft-text: #c4b5f5;
@@ -270,20 +268,20 @@ html[data-palette="indigo"][data-theme="dark"] {
   --elev-3: 0 8px 24px rgb(0 0 0 / 0.4);
 }
 
-html[data-palette="indigo"][data-theme="light"] {
-  /* Sakin İndigo · açık. Jeton gerekçeleri İndigo koyu blokta. */
+html[data-theme="light"] {
+  /* Grafit · açık yüzey bloğu. Jeton gerekçeleri koyu blokta. */
   color-scheme: light;
-  --surface-app-rgb: 245 246 248;
-  --surface-sidebar-rgb: 251 251 252;
+  --surface-app-rgb: 246 247 248;
+  --surface-sidebar-rgb: 239 240 242;
   --surface-card-rgb: 255 255 255;
-  --surface-raised-rgb: 248 249 250;
-  --surface-hover-rgb: 241 243 246;
-  --surface-control-rgb: 238 240 244;
-  --surface-active-rgb: 227 230 236;
+  --surface-raised-rgb: 250 251 251;
+  --surface-hover-rgb: 236 238 241;
+  --surface-control-rgb: 241 242 244;
+  --surface-active-rgb: 226 229 233;
 
-  --border-subtle-rgb: 232 234 239;
-  --border-line-rgb: 220 223 230;
-  --border-strong-rgb: 196 201 211;
+  --border-subtle-rgb: 230 232 235;
+  --border-line-rgb: 218 221 226;
+  --border-strong-rgb: 195 199 206;
 
   --base-950-rgb: var(--surface-app-rgb);
   --base-900-rgb: var(--surface-card-rgb);
@@ -292,34 +290,25 @@ html[data-palette="indigo"][data-theme="light"] {
   --base-700-rgb: var(--border-line-rgb);
   --base-600-rgb: var(--border-strong-rgb);
 
-  --ink-100-rgb: 26 29 36;
-  --ink-200-rgb: 71 77 91;
-  --ink-300-rgb: 100 107 120;
-  --ink-400-rgb: 100 107 120;
-  --ink-500-rgb: 127 133 145;
-  --ink-600-rgb: 180 185 195;
-  --ink-strong-rgb: 18 21 26;
+  --ink-100-rgb: 22 24 27;
+  --ink-200-rgb: 71 76 85;
+  --ink-300-rgb: 98 103 111;
+  --ink-400-rgb: 98 103 111;
+  --ink-500-rgb: 128 133 141;
+  --ink-600-rgb: 185 189 196;
+  --ink-strong-rgb: 15 17 20;
 
-  --scrollbar-thumb: #d4d8e0;
-  --scrollbar-thumb-hover: #bfc5cf;
+  --scrollbar-thumb: #d3d6db;
+  --scrollbar-thumb-hover: #bec2c9;
 
-  --accent-600-rgb: 68 73 196;
-  --accent-500-rgb: 79 85 217;
-  --accent-400-rgb: 74 80 210;
-  --accent-on-rgb: 255 255 255;
-  --accent-cyan-rgb: 79 85 217;
   --on-solid-rgb: 255 255 255;
-  --accent-glow: rgba(79, 85, 217, 0.14);
-  --accent-soft-text: #3f44b0;
 
   --chat-hero-from: #1a1d24;
-  --chat-hero-via: #3f44b0;
-  --chat-hero-to: #4f55d9;
 
   --navy-icon: #3a6690;
-  --module-code: #6a45c2;
-  --module-sap: #1d68b0;
-  --module-guiscript: #9a5a1c;
+  --module-code: #62676f;
+  --module-sap: #62676f;
+  --module-guiscript: #62676f;
   --folder-icon: #8f6420;
   --project-500-rgb: 91 79 191;
   --project-soft-text: #5b4fbf;
@@ -357,178 +346,86 @@ html[data-palette="indigo"][data-theme="light"] {
   --elev-3: 0 8px 24px rgb(16 20 30 / 0.12);
 }
 
-html[data-palette="warm"][data-theme="dark"] {
-  /* Sıcak Nötr · koyu. Jeton gerekçeleri İndigo koyu blokta. */
-  color-scheme: dark;
-  --surface-app-rgb: 22 21 20;
-  --surface-sidebar-rgb: 27 26 24;
-  --surface-card-rgb: 32 31 29;
-  --surface-raised-rgb: 36 35 33;
-  --surface-hover-rgb: 38 36 34;
-  --surface-control-rgb: 41 39 37;
-  --surface-active-rgb: 53 50 47;
-
-  --border-subtle-rgb: 46 44 41;
-  --border-line-rgb: 58 55 51;
-  --border-strong-rgb: 74 70 65;
-
-  --base-950-rgb: var(--surface-app-rgb);
-  --base-900-rgb: var(--surface-card-rgb);
-  --base-850-rgb: var(--surface-raised-rgb);
-  --base-800-rgb: var(--surface-control-rgb);
-  --base-700-rgb: var(--border-line-rgb);
-  --base-600-rgb: var(--border-strong-rgb);
-
-  --ink-100-rgb: 236 233 228;
-  --ink-200-rgb: 189 183 174;
-  --ink-300-rgb: 151 143 133;
-  --ink-400-rgb: 151 143 133;
-  --ink-500-rgb: 122 115 106;
-  --ink-600-rgb: 84 79 73;
-  --ink-strong-rgb: 255 255 255;
-
-  --scrollbar-thumb: #3a3733;
-  --scrollbar-thumb-hover: #4a4641;
-
-  --accent-600-rgb: 207 122 80;
-  --accent-500-rgb: 224 138 95;
-  --accent-400-rgb: 232 150 108;
-  --accent-on-rgb: 26 15 9;
-  --accent-cyan-rgb: 224 138 95;
-  --on-solid-rgb: 255 255 255;
-  --accent-glow: rgba(224, 138, 95, 0.16);
-  --accent-soft-text: #f0b99c;
-
-  --chat-hero-from: #ece9e4;
-  --chat-hero-via: #f0b99c;
-  --chat-hero-to: #e08a5f;
-
-  --navy-icon: #9db4cc;
-  --module-code: #bca6e0;
-  --module-sap: #74acd6;
-  --module-guiscript: #e0a070;
-  --folder-icon: #d6a860;
-  --project-500-rgb: 160 138 210;
-  --project-soft-text: #c6b6e8;
-
-  --app-bg-image: none;
-  --overlay-scrim: rgba(0, 0, 0, 0.55);
-
-  --status-danger-bg: rgba(232, 140, 140, 0.12);
-  --status-danger-border: rgba(232, 140, 140, 0.28);
-  --status-danger-text: #e88c8c;
-  --status-danger-solid: #b83838;
-  --status-warning-bg: rgba(220, 183, 106, 0.12);
-  --status-warning-border: rgba(220, 183, 106, 0.28);
-  --status-warning-text: #dcb76a;
-  --status-success-bg: rgba(140, 196, 154, 0.12);
-  --status-success-border: rgba(140, 196, 154, 0.28);
-  --status-success-text: #8cc49a;
-  --status-info-text: #8fb4d9;
-
-  --action-amber-rgb: 214 173 116;
-  --action-amber-text: #d6ad74;
-
-  --tier-dev-bg: rgba(143, 180, 217, 0.12);
-  --tier-dev-border: rgba(143, 180, 217, 0.28);
-  --tier-dev-text: #8fb4d9;
-  --tier-qa-bg: rgba(220, 183, 106, 0.12);
-  --tier-qa-border: rgba(220, 183, 106, 0.28);
-  --tier-qa-text: #dcb76a;
-  --tier-prd-bg: rgba(232, 140, 140, 0.12);
-  --tier-prd-border: rgba(232, 140, 140, 0.28);
-  --tier-prd-text: #e88c8c;
-
-  --elev-1: 0 4px 12px rgb(0 0 0 / 0.35);
-  --elev-2: 0 16px 40px rgb(0 0 0 / 0.45);
-  --elev-3: 0 8px 24px rgb(0 0 0 / 0.4);
+/* VURGU BLOKLARI. Her birinde aynı dokuz jeton:
+     500 dolgu (üstündeki yazı `text-accent-on`) · 400 metin, ikon, seçili
+     satır çizgisi, odak halkası · 600 dolgunun basılı hâli ·
+     `--accent-cyan-rgb` eski adıyla duruyor, değeri 500 · `--accent-glow`
+     seçili zemin, 500'ün koyuda %13'ü, açıkta %10'u · `--accent-soft-text`
+     yumuşak vurgu metni · `--chat-hero-via` = soft-text, `--chat-hero-to` =
+     500.
+   NTT koyu dolgusu bilerek görece koyu: daha parlak bir mavinin üstünde beyaz
+   yazı 4.5:1'in altına düşüyor. `:root` NTT koyu ile aynı blok (ilk kare). */
+:root,
+html[data-palette="ntt"][data-theme="dark"] {
+  --accent-600-rgb: 29 99 179;
+  --accent-500-rgb: 37 116 204;
+  --accent-400-rgb: 90 162 238;
+  --accent-on-rgb: 255 255 255;
+  --accent-cyan-rgb: 37 116 204;
+  --accent-glow: rgba(37, 116, 204, 0.13);
+  --accent-soft-text: #9cc6f5;
+  --chat-hero-via: #9cc6f5;
+  --chat-hero-to: #2574cc;
 }
 
-html[data-palette="warm"][data-theme="light"] {
-  /* Sıcak Nötr · açık. Jeton gerekçeleri İndigo koyu blokta. */
-  color-scheme: light;
-  --surface-app-rgb: 246 244 241;
-  --surface-sidebar-rgb: 251 250 248;
-  --surface-card-rgb: 255 255 255;
-  --surface-raised-rgb: 249 248 246;
-  --surface-hover-rgb: 242 239 235;
-  --surface-control-rgb: 239 235 230;
-  --surface-active-rgb: 229 224 217;
-
-  --border-subtle-rgb: 235 231 225;
-  --border-line-rgb: 224 218 210;
-  --border-strong-rgb: 203 195 184;
-
-  --base-950-rgb: var(--surface-app-rgb);
-  --base-900-rgb: var(--surface-card-rgb);
-  --base-850-rgb: var(--surface-raised-rgb);
-  --base-800-rgb: var(--surface-control-rgb);
-  --base-700-rgb: var(--border-line-rgb);
-  --base-600-rgb: var(--border-strong-rgb);
-
-  --ink-100-rgb: 31 28 24;
-  --ink-200-rgb: 79 72 63;
-  --ink-300-rgb: 109 101 90;
-  --ink-400-rgb: 109 101 90;
-  --ink-500-rgb: 133 125 113;
-  --ink-600-rgb: 189 181 170;
-  --ink-strong-rgb: 22 19 16;
-
-  --scrollbar-thumb: #d9d2c8;
-  --scrollbar-thumb-hover: #c5bcaf;
-
-  --accent-600-rgb: 150 66 29;
-  --accent-500-rgb: 173 78 36;
-  --accent-400-rgb: 164 74 34;
+html[data-palette="ntt"][data-theme="light"] {
+  --accent-600-rgb: 24 90 163;
+  --accent-500-rgb: 31 111 196;
+  --accent-400-rgb: 27 102 182;
   --accent-on-rgb: 255 255 255;
-  --accent-cyan-rgb: 173 78 36;
-  --on-solid-rgb: 255 255 255;
-  --accent-glow: rgba(173, 78, 36, 0.14);
-  --accent-soft-text: #8f3f1c;
+  --accent-cyan-rgb: 31 111 196;
+  --accent-glow: rgba(31, 111, 196, 0.1);
+  --accent-soft-text: #185aa3;
+  --chat-hero-via: #185aa3;
+  --chat-hero-to: #1f6fc4;
+}
 
-  --chat-hero-from: #1f1c18;
-  --chat-hero-via: #8f3f1c;
-  --chat-hero-to: #ad4e24;
+html[data-palette="indigo"][data-theme="dark"] {
+  --accent-600-rgb: 122 130 245;
+  --accent-500-rgb: 139 147 255;
+  --accent-400-rgb: 160 166 255;
+  --accent-on-rgb: 15 16 32;
+  --accent-cyan-rgb: 139 147 255;
+  --accent-glow: rgba(139, 147, 255, 0.13);
+  --accent-soft-text: #c3c7ff;
+  --chat-hero-via: #c3c7ff;
+  --chat-hero-to: #8b93ff;
+}
 
-  --navy-icon: #446482;
-  --module-code: #6c4ab0;
-  --module-sap: #2a649e;
-  --module-guiscript: #9a4f1e;
-  --folder-icon: #855f1f;
-  --project-500-rgb: 97 80 176;
-  --project-soft-text: #6150b0;
+html[data-palette="indigo"][data-theme="light"] {
+  --accent-600-rgb: 68 73 196;
+  --accent-500-rgb: 79 85 217;
+  --accent-400-rgb: 74 80 210;
+  --accent-on-rgb: 255 255 255;
+  --accent-cyan-rgb: 79 85 217;
+  --accent-glow: rgba(79, 85, 217, 0.1);
+  --accent-soft-text: #3f44b0;
+  --chat-hero-via: #3f44b0;
+  --chat-hero-to: #4f55d9;
+}
 
-  --app-bg-image: none;
-  --overlay-scrim: rgba(31, 28, 24, 0.35);
+html[data-palette="amber"][data-theme="dark"] {
+  --accent-600-rgb: 201 143 46;
+  --accent-500-rgb: 224 163 63;
+  --accent-400-rgb: 235 184 95;
+  --accent-on-rgb: 26 18 4;
+  --accent-cyan-rgb: 224 163 63;
+  --accent-glow: rgba(224, 163, 63, 0.13);
+  --accent-soft-text: #f3d08f;
+  --chat-hero-via: #f3d08f;
+  --chat-hero-to: #e0a33f;
+}
 
-  --status-danger-bg: rgba(176, 54, 54, 0.09);
-  --status-danger-border: rgba(176, 54, 54, 0.26);
-  --status-danger-text: #b03636;
-  --status-danger-solid: #b03636;
-  --status-warning-bg: rgba(133, 90, 14, 0.09);
-  --status-warning-border: rgba(133, 90, 14, 0.26);
-  --status-warning-text: #855a0e;
-  --status-success-bg: rgba(45, 116, 68, 0.09);
-  --status-success-border: rgba(45, 116, 68, 0.26);
-  --status-success-text: #2d7444;
-  --status-info-text: #35649a;
-
-  --action-amber-rgb: 125 86 32;
-  --action-amber-text: #7d5620;
-
-  --tier-dev-bg: rgba(53, 100, 154, 0.09);
-  --tier-dev-border: rgba(53, 100, 154, 0.26);
-  --tier-dev-text: #35649a;
-  --tier-qa-bg: rgba(133, 90, 14, 0.09);
-  --tier-qa-border: rgba(133, 90, 14, 0.26);
-  --tier-qa-text: #855a0e;
-  --tier-prd-bg: rgba(176, 54, 54, 0.09);
-  --tier-prd-border: rgba(176, 54, 54, 0.26);
-  --tier-prd-text: #b03636;
-
-  --elev-1: 0 4px 12px rgb(31 24 16 / 0.08);
-  --elev-2: 0 16px 40px rgb(31 24 16 / 0.14);
-  --elev-3: 0 8px 24px rgb(31 24 16 / 0.12);
+html[data-palette="amber"][data-theme="light"] {
+  --accent-600-rgb: 130 82 12;
+  --accent-500-rgb: 154 98 16;
+  --accent-400-rgb: 143 90 12;
+  --accent-on-rgb: 255 255 255;
+  --accent-cyan-rgb: 154 98 16;
+  --accent-glow: rgba(154, 98, 16, 0.1);
+  --accent-soft-text: #7a4c0a;
+  --chat-hero-via: #7a4c0a;
+  --chat-hero-to: #9a6210;
 }
 
 body {

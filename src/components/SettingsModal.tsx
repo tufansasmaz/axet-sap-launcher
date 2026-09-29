@@ -18,7 +18,7 @@ import {
   Palette
 } from "lucide-react";
 import type { AppConfig, AppPalette, AppTheme, UpdateStatus } from "../../app-electron/shared/types";
-import { THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
+import { PALETTES, THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
 import { Modal, ModalCancelButton } from "../ui/Modal";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
@@ -112,9 +112,7 @@ function SegmentedControl<T extends string>({
   );
 }
 
-const PALETTES: AppPalette[] = ["indigo", "warm"];
-
-// Palet seçimi: iki kart, her birinde o paletin üç rengi (zemin, kart, vurgu).
+// Vurgu seçimi: üç kart, her birinde o vurgunun üç rengi (zemin, kart, vurgu).
 // Renkler CSS değişkeninden DEĞİL `THEME_SURFACES`'ten geliyor: seçili olmayan
 // paletin değişkenleri o an sayfada tanımlı değil. Örnekler formdaki Koyu/Açık
 // seçimini izliyor, yani kullanıcı Kaydet'e basmadan neyi seçtiğini görüyor.
@@ -144,7 +142,7 @@ function PalettePicker({
   };
 
   return (
-    <div role="radiogroup" aria-label={label} className="grid grid-cols-2 gap-3">
+    <div role="radiogroup" aria-label={label} className="grid grid-cols-3 gap-3">
       {PALETTES.map((palette) => {
         const surface = THEME_SURFACES[palette][theme];
         const checked = value === palette;
@@ -519,13 +517,17 @@ export default function SettingsModal({
                 theme={form.theme}
                 label={t("settingsModal.paletteLabel")}
                 names={{
+                  ntt: {
+                    name: t("settingsModal.paletteNtt"),
+                    description: t("settingsModal.paletteNttDesc")
+                  },
                   indigo: {
                     name: t("settingsModal.paletteIndigo"),
                     description: t("settingsModal.paletteIndigoDesc")
                   },
-                  warm: {
-                    name: t("settingsModal.paletteWarm"),
-                    description: t("settingsModal.paletteWarmDesc")
+                  amber: {
+                    name: t("settingsModal.paletteAmber"),
+                    description: t("settingsModal.paletteAmberDesc")
                   }
                 }}
                 onChange={(palette) => setForm({ ...form, palette })}

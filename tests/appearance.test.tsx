@@ -19,8 +19,8 @@ function freshRoot(): HTMLElement {
 describe("applyAppearance", () => {
   it("geçişsiz: nitelikleri yazıyor, sınıf eklemiyor", () => {
     const root = freshRoot();
-    applyAppearance(root, "warm", "light", false);
-    expect(root.getAttribute("data-palette")).toBe("warm");
+    applyAppearance(root, "amber", "light", false);
+    expect(root.getAttribute("data-palette")).toBe("amber");
     expect(root.getAttribute("data-theme")).toBe("light");
     expect(root.classList.contains("theme-transition")).toBe(false);
   });
@@ -40,7 +40,7 @@ describe("applyAppearance", () => {
   it("temizlik zamanlayıcıyı iptal edip sınıfı hemen kaldırıyor", () => {
     vi.useFakeTimers();
     const root = freshRoot();
-    const cleanup = applyAppearance(root, "warm", "dark", true);
+    const cleanup = applyAppearance(root, "amber", "dark", true);
     cleanup();
     expect(root.classList.contains("theme-transition")).toBe(false);
     expect(vi.getTimerCount()).toBe(0);

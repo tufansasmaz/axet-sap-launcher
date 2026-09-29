@@ -1,32 +1,61 @@
-// Pencere ve terminal renklerinin tek kaynağı (spec §7).
+// Pencere ve terminal renklerinin tek kaynağı (grafit kimlik, spec §3.4).
 //
 // `parseAppearance` ana sürecin pencere adresine koyduğu `?palette=…&theme=…`
 // sorgusunu okuyor. Sorgu elle değiştirilebilir ya da eski bir sürümden
 // gelebilir; geçersiz değer hiçbir CSS bloğuyla eşleşmeyeceği için
-// varsayılana dönüyor.
+// varsayılana dönüyor. `warm` tasarim/temel dalının Sıcak Nötr'ü: o dalda
+// kaydedilmiş bir ayar Amber'e geçiyor.
 
 import { describe, expect, it } from "vitest";
-import { THEME_SURFACES, parseAppearance, windowBackgroundChange } from "../app-electron/shared/themeSurfaces";
+import {
+  PALETTES,
+  THEME_SURFACES,
+  normalizePalette,
+  parseAppearance,
+  windowBackgroundChange
+} from "../app-electron/shared/themeSurfaces";
+
+describe("normalizePalette", () => {
+  it("üç vurgu olduğu gibi", () => {
+    expect(normalizePalette("ntt")).toBe("ntt");
+    expect(normalizePalette("indigo")).toBe("indigo");
+    expect(normalizePalette("amber")).toBe("amber");
+  });
+
+  it("eski warm → amber", () => {
+    expect(normalizePalette("warm")).toBe("amber");
+  });
+
+  it("yok, geçersiz ya da yanlış tip → ntt", () => {
+    for (const value of [undefined, null, "", "lime", "NTT", 3, {}]) expect(normalizePalette(value)).toBe("ntt");
+  });
+});
 
 describe("parseAppearance", () => {
   it("geçerli sorguyu okuyor", () => {
-    expect(parseAppearance("?palette=warm&theme=light")).toEqual({ palette: "warm", theme: "light" });
+    expect(parseAppearance("?palette=amber&theme=light")).toEqual({ palette: "amber", theme: "light" });
   });
 
-  it("sorgu yoksa Sakin İndigo koyu", () => {
-    expect(parseAppearance("")).toEqual({ palette: "indigo", theme: "dark" });
+  it("sorgu yoksa NTT mavisi koyu", () => {
+    expect(parseAppearance("")).toEqual({ palette: "ntt", theme: "dark" });
   });
 
-  it("geçersiz değerler ayrı ayrı varsayılana dönüyor", () => {
-    expect(parseAppearance("?palette=lime&theme=blue")).toEqual({ palette: "indigo", theme: "dark" });
-    expect(parseAppearance("?theme=light")).toEqual({ palette: "indigo", theme: "light" });
-    expect(parseAppearance("?palette=warm&theme=")).toEqual({ palette: "warm", theme: "dark" });
+  it("geçersiz değerler ayrı ayrı varsayılana dönüyor, warm amber oluyor", () => {
+    expect(parseAppearance("?palette=lime&theme=blue")).toEqual({ palette: "ntt", theme: "dark" });
+    expect(parseAppearance("?theme=light")).toEqual({ palette: "ntt", theme: "light" });
+    expect(parseAppearance("?palette=warm&theme=")).toEqual({ palette: "amber", theme: "dark" });
+    expect(parseAppearance("?palette=indigo&theme=light")).toEqual({ palette: "indigo", theme: "light" });
   });
 });
 
 describe("THEME_SURFACES", () => {
+  it("üç vurgu, sıra ntt · indigo · amber", () => {
+    expect(PALETTES).toEqual(["ntt", "indigo", "amber"]);
+    expect(Object.keys(THEME_SURFACES).sort()).toEqual(["amber", "indigo", "ntt"]);
+  });
+
   it("renkler #rrggbb biçiminde", () => {
-    for (const palette of ["indigo", "warm"] as const) {
+    for (const palette of PALETTES) {
       for (const theme of ["dark", "light"] as const) {
         const s = THEME_SURFACES[palette][theme];
         for (const value of [s.app, s.card, s.accent, s.terminal.background, s.terminal.foreground, s.terminal.cursor]) {
@@ -36,28 +65,36 @@ describe("THEME_SURFACES", () => {
     }
   });
 
-  it("terminal açık temada da o paletin koyu renklerinde kalıyor", () => {
-    for (const palette of ["indigo", "warm"] as const) {
+  it("zemin ve kart bir temada üç vurgu için aynı", () => {
+    for (const theme of ["dark", "light"] as const) {
+      for (const palette of PALETTES) {
+        expect(THEME_SURFACES[palette][theme].app).toBe(THEME_SURFACES.ntt[theme].app);
+        expect(THEME_SURFACES[palette][theme].card).toBe(THEME_SURFACES.ntt[theme].card);
+      }
+    }
+  });
+
+  it("terminal açık temada da o vurgunun koyu renklerinde kalıyor", () => {
+    for (const palette of PALETTES) {
       expect(THEME_SURFACES[palette].light.terminal).toEqual(THEME_SURFACES[palette].dark.terminal);
     }
   });
 });
 
-// Ana süreç pencerenin arka plan rengini açılışta veriyordu ama ayar
-// kaydedilince güncellemiyordu: palet/tema değiştikten sonra pencere yeniden
-// boyutlanırken ya da sayfa yeniden yüklenirken kenarlarda ESKİ görünümün
-// rengi beliriyordu. `config:save` bu yardımcıyla karar veriyor.
+// Ana süreç pencerenin arka plan rengini `config:save`'de bu yardımcıyla
+// güncelliyor: yeniden boyutlanma ve yeniden yükleme anlarında ESKİ
+// görünümün rengi belirmesin.
 describe("windowBackgroundChange", () => {
-  it("palet ya da tema değiştiyse yeni görünümün app rengi", () => {
+  it("vurgu ya da tema değiştiyse yeni görünümün app rengi", () => {
     expect(
-      windowBackgroundChange({ palette: "indigo", theme: "dark" }, { palette: "warm", theme: "dark" })
-    ).toBe(THEME_SURFACES.warm.dark.app);
+      windowBackgroundChange({ palette: "ntt", theme: "dark" }, { palette: "amber", theme: "dark" })
+    ).toBe(THEME_SURFACES.amber.dark.app);
     expect(
-      windowBackgroundChange({ palette: "indigo", theme: "dark" }, { palette: "indigo", theme: "light" })
-    ).toBe(THEME_SURFACES.indigo.light.app);
+      windowBackgroundChange({ palette: "ntt", theme: "dark" }, { palette: "ntt", theme: "light" })
+    ).toBe(THEME_SURFACES.ntt.light.app);
   });
 
   it("görünüm aynıysa null — gereksiz yeniden boyama yok", () => {
-    expect(windowBackgroundChange({ palette: "warm", theme: "light" }, { palette: "warm", theme: "light" })).toBeNull();
+    expect(windowBackgroundChange({ palette: "amber", theme: "light" }, { palette: "amber", theme: "light" })).toBeNull();
   });
 });

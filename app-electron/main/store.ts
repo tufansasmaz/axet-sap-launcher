@@ -5,6 +5,7 @@ import path from "node:path";
 import { encryptSecret } from "./secureStorage";
 import { isSkillProfile } from "./skillProfiles";
 import { rememberIdpOrigin } from "./samlPolicy";
+import { normalizePalette } from "../shared/themeSurfaces";
 import type {
   AppConfig,
   ConnectionHistoryEntry,
@@ -15,7 +16,6 @@ import type {
   ChatFontSize,
   ChatDensity,
   AppTheme,
-  AppPalette,
   ConnectorMode
 } from "../shared/types";
 
@@ -27,7 +27,6 @@ const VALID_CHAT_FONT_SIZES: ChatFontSize[] = ["sm", "md", "lg"];
 const VALID_CHAT_DENSITIES: ChatDensity[] = ["compact", "comfortable"];
 const VALID_CONNECTOR_MODES: ConnectorMode[] = ["auto", "always"];
 const VALID_THEMES: AppTheme[] = ["dark", "light"];
-const VALID_PALETTES: AppPalette[] = ["indigo", "warm"];
 
 function configPath(): string {
   return path.join(app.getPath("userData"), "config.json");
@@ -96,7 +95,7 @@ function defaultConfig(): AppConfig {
     skillNoticeAcceptedAt: null,
     globalSkillOverrides: {},
     theme: "dark",
-    palette: "indigo",
+    palette: "ntt",
     language: "tr",
     autoCheckUpdates: true,
     axetWorkspaceDir: path.join(app.getPath("documents"), "aXet Code Sessions"),
@@ -166,10 +165,10 @@ export function loadConfig(): AppConfig {
       : fallback.chatDensity;
     // Görünüm de aynı muameleyi görüyor: değer doğrudan `<html data-palette /
     // data-theme>`'e yazılıyor ve hiçbir CSS bloğuyla eşleşmeyen bir değer
-    // uygulamayı renksiz açardı. `palette` 2026-09-28'de eklendi; daha eski
-    // dosyalarda hiç yok ve varsayılana ("indigo") düşüyor.
+    // uygulamayı renksiz açardı. `palette` yoksa, geçersizse ya da
+    // tasarim/temel'in `"warm"`ıysa `normalizePalette` karar veriyor.
     const theme = VALID_THEMES.includes(parsed.theme) ? parsed.theme : fallback.theme;
-    const palette = VALID_PALETTES.includes(parsed.palette) ? parsed.palette : fallback.palette;
+    const palette = normalizePalette(parsed.palette);
     const merged: AppConfig = {
       ...fallback,
       ...parsed,

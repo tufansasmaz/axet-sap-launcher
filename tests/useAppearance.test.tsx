@@ -23,34 +23,40 @@ afterEach(() => {
 });
 
 describe("useAppearance", () => {
-  it("nitelik yoksa İndigo koyu", () => {
+  it("nitelik yoksa NTT mavisi koyu", () => {
     render(<Probe />);
-    expect(screen.getByTestId("probe").textContent).toBe("indigo/dark");
+    expect(screen.getByTestId("probe").textContent).toBe("ntt/dark");
   });
 
   it("ilk çizimde nitelikleri okuyor", () => {
-    root.setAttribute("data-palette", "warm");
+    root.setAttribute("data-palette", "amber");
     root.setAttribute("data-theme", "light");
     render(<Probe />);
-    expect(screen.getByTestId("probe").textContent).toBe("warm/light");
+    expect(screen.getByTestId("probe").textContent).toBe("amber/light");
   });
 
   it("nitelik değişince yeniden çiziliyor", async () => {
     render(<Probe />);
     await act(async () => {
-      root.setAttribute("data-palette", "warm");
+      root.setAttribute("data-palette", "amber");
     });
-    expect(screen.getByTestId("probe").textContent).toBe("warm/dark");
+    expect(screen.getByTestId("probe").textContent).toBe("amber/dark");
     await act(async () => {
       root.setAttribute("data-theme", "light");
     });
-    expect(screen.getByTestId("probe").textContent).toBe("warm/light");
+    expect(screen.getByTestId("probe").textContent).toBe("amber/light");
   });
 
   it("tanınmayan değer varsayılana düşüyor", () => {
     root.setAttribute("data-palette", "lime");
     root.setAttribute("data-theme", "blue");
     render(<Probe />);
-    expect(screen.getByTestId("probe").textContent).toBe("indigo/dark");
+    expect(screen.getByTestId("probe").textContent).toBe("ntt/dark");
+  });
+
+  it("eski warm niteliği amber okunuyor", () => {
+    root.setAttribute("data-palette", "warm");
+    render(<Probe />);
+    expect(screen.getByTestId("probe").textContent).toBe("amber/dark");
   });
 });

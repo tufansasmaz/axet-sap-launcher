@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { AppPalette, AppTheme } from "../../app-electron/shared/types";
+import { normalizePalette } from "../../app-electron/shared/themeSurfaces";
 
 // CSS değişkenini okuyamayan bileşenler için (xterm kendi tuvalini boyuyor)
 // o an EKRANDAKİ görünüm. Kaynak ayar nesnesi değil `<html>`'in
@@ -14,7 +15,7 @@ export interface Appearance {
 function read(): Appearance {
   const root = document.documentElement;
   return {
-    palette: root.getAttribute("data-palette") === "warm" ? "warm" : "indigo",
+    palette: normalizePalette(root.getAttribute("data-palette")),
     theme: root.getAttribute("data-theme") === "light" ? "light" : "dark"
   };
 }

@@ -305,10 +305,11 @@ export type TerminalMode = "cmd" | "powershell";
 
 export type AppTheme = "dark" | "light";
 
-// Renk paleti. Koyu/açık hâlden (`AppTheme`) BAĞIMSIZ: her palet iki hâlde de
-// var, dört görünüm `src/index.css`'te dört ayrı blok (bkz. tasarım belgesi
-// docs/superpowers/specs/2026-09-28-tasarim-sistemi-temeli-design.md).
-export type AppPalette = "indigo" | "warm";
+// Vurgu rengi. Koyu/açık hâlden (`AppTheme`) BAĞIMSIZ: her vurgu iki hâlde de
+// var; `src/index.css`'te iki yüzey bloğu ve altı vurgu bloğu (bkz. tasarım
+// belgesi docs/superpowers/specs/2026-09-29-grafit-kimlik-ve-kabuk-design.md).
+// Alanın adı `palette` olarak kaldı; okurken `normalizePalette` doğruluyor.
+export type AppPalette = "ntt" | "indigo" | "amber";
 
 export type AppLanguage = "tr" | "en";
 

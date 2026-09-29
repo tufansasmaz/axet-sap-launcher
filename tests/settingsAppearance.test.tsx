@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 //
-// Ayarlar → Görünüm (tasarım sistemi temeli, spec §7). Sabitlenenler:
-// palet kartları gerçek bir radyo grubu (ok tuşları, gezici tabindex),
-// renk örnekleri tek kaynaktan (`THEME_SURFACES`) geliyor ve seçili
-// koyu/açık hâli izliyor, seçim Kaydet'le `palette`/`theme` olarak gidiyor,
-// yazı boyutu bu bölüme taşınmış.
+// Ayarlar → Görünüm (grafit kimlik, spec §3.4). Sabitlenenler: vurgu kartları
+// gerçek bir radyo grubu (ok tuşları, gezici tabindex), renk örnekleri tek
+// kaynaktan (`THEME_SURFACES`) geliyor, seçim Kaydet'le `palette`/`theme`
+// olarak gidiyor, yazı boyutu bu bölümde.
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -20,7 +19,7 @@ afterEach(() => {
 
 const CONFIG = {
   language: "tr",
-  palette: "indigo",
+  palette: "ntt",
   theme: "dark",
   projectsBaseDir: "C:\\projeler",
   axetWorkspaceDir: "C:\\axet",
@@ -74,49 +73,53 @@ function swatches(radio: HTMLElement): string[] {
 }
 
 describe("Ayarlar → Görünüm", () => {
-  it("palet grubu iki kartlı, seçili olan işaretli; yazı boyutu burada, Sohbet görünümünde değil", () => {
+  it("vurgu grubu üç kartlı, seçili olan işaretli; yazı boyutu burada, Sohbet görünümünde değil", () => {
     mount();
     const section = screen.getByRole("region", { name: "Görünüm" });
-    const group = within(section).getByRole("radiogroup", { name: "Renk paleti" });
+    const group = within(section).getByRole("radiogroup", { name: "Vurgu rengi" });
     const radios = within(group).getAllByRole("radio");
-    expect(radios).toHaveLength(2);
-    expect(within(group).getByRole("radio", { name: "Sakin İndigo" }).getAttribute("aria-checked")).toBe("true");
-    expect(within(group).getByRole("radio", { name: "Sıcak Nötr" }).getAttribute("aria-checked")).toBe("false");
+    expect(radios).toHaveLength(3);
+    expect(within(group).getByRole("radio", { name: "NTT mavisi" }).getAttribute("aria-checked")).toBe("true");
+    expect(within(group).getByRole("radio", { name: "İndigo" }).getAttribute("aria-checked")).toBe("false");
+    expect(within(group).getByRole("radio", { name: "Amber" }).getAttribute("aria-checked")).toBe("false");
     expect(within(section).getByText("Yazı boyutu")).toBeTruthy();
     const chat = screen.getByRole("region", { name: "Sohbet görünümü" });
     expect(within(chat).queryByText("Yazı boyutu")).toBeNull();
   });
 
-  it("yalnızca seçili kart Tab sırasında; ok tuşu seçimi ve odağı birlikte taşıyor", () => {
+  it("yalnızca seçili kart Tab sırasında; ok tuşu seçimi ve odağı birlikte taşıyor, uçta başa sarıyor", () => {
     mount();
-    const indigo = screen.getByRole("radio", { name: "Sakin İndigo" });
-    const warm = screen.getByRole("radio", { name: "Sıcak Nötr" });
-    expect(indigo.getAttribute("tabindex")).toBe("0");
-    expect(warm.getAttribute("tabindex")).toBe("-1");
-    indigo.focus();
-    fireEvent.keyDown(indigo, { key: "ArrowRight" });
-    expect(warm.getAttribute("aria-checked")).toBe("true");
-    expect(document.activeElement).toBe(warm);
-    // İki kart var: sağdan devam etmek başa sarıyor.
-    fireEvent.keyDown(warm, { key: "ArrowDown" });
+    const ntt = screen.getByRole("radio", { name: "NTT mavisi" });
+    const indigo = screen.getByRole("radio", { name: "İndigo" });
+    const amber = screen.getByRole("radio", { name: "Amber" });
+    expect(ntt.getAttribute("tabindex")).toBe("0");
+    expect(indigo.getAttribute("tabindex")).toBe("-1");
+    expect(amber.getAttribute("tabindex")).toBe("-1");
+    ntt.focus();
+    fireEvent.keyDown(ntt, { key: "ArrowRight" });
     expect(indigo.getAttribute("aria-checked")).toBe("true");
     expect(document.activeElement).toBe(indigo);
+    fireEvent.keyDown(indigo, { key: "ArrowDown" });
+    expect(amber.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(amber);
+    fireEvent.keyDown(amber, { key: "ArrowRight" });
+    expect(ntt.getAttribute("aria-checked")).toBe("true");
+    fireEvent.keyDown(ntt, { key: "ArrowLeft" });
+    expect(amber.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(amber);
   });
 
-  it("renk örnekleri THEME_SURFACES'ten geliyor ve Koyu/Açık seçimini izliyor", () => {
+  it("renk örnekleri THEME_SURFACES'ten geliyor", () => {
     mount();
-    const warm = screen.getByRole("radio", { name: "Sıcak Nötr" });
-    const dark = THEME_SURFACES.warm.dark;
-    expect(swatches(warm)).toEqual([rgb(dark.app), rgb(dark.card), rgb(dark.accent)]);
-    fireEvent.click(screen.getByRole("button", { name: "Açık" }));
-    const light = THEME_SURFACES.warm.light;
-    expect(swatches(warm)).toEqual([rgb(light.app), rgb(light.card), rgb(light.accent)]);
+    const amber = screen.getByRole("radio", { name: "Amber" });
+    const dark = THEME_SURFACES.amber.dark;
+    expect(swatches(amber)).toEqual([rgb(dark.app), rgb(dark.card), rgb(dark.accent)]);
   });
 
-  it("palet ve tema değişince rozet çıkıyor; Kaydet ikisini de yolluyor", async () => {
+  it("vurgu ve tema değişince rozet çıkıyor; Kaydet ikisini de yolluyor", async () => {
     const { onClose, onSave } = mount();
     expect(screen.queryByText("Kaydedilmemiş değişiklik var")).toBeNull();
-    fireEvent.click(screen.getByRole("radio", { name: "Sıcak Nötr" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Amber" }));
     const light = screen.getByRole("button", { name: "Açık" });
     fireEvent.click(light);
     expect(light.getAttribute("aria-pressed")).toBe("true");
@@ -124,16 +127,16 @@ describe("Ayarlar → Görünüm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     const patch = (onSave.mock.calls[0] as unknown[])[0] as Partial<AppConfig>;
-    expect(patch.palette).toBe("warm");
+    expect(patch.palette).toBe("amber");
     expect(patch.theme).toBe("light");
     expect(patch.chatFontSize).toBe("md");
   });
 
   it("eski seçime dönülünce değişiklik sayılmıyor", () => {
     mount();
-    fireEvent.click(screen.getByRole("radio", { name: "Sıcak Nötr" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Amber" }));
     expect(screen.getByText("Kaydedilmemiş değişiklik var")).toBeTruthy();
-    fireEvent.click(screen.getByRole("radio", { name: "Sakin İndigo" }));
+    fireEvent.click(screen.getByRole("radio", { name: "NTT mavisi" }));
     expect(screen.queryByText("Kaydedilmemiş değişiklik var")).toBeNull();
   });
 });

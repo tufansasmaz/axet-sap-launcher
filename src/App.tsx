@@ -321,7 +321,7 @@ export default function App() {
   const previousAppearanceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!config?.theme) return;
-    const palette = config.palette ?? "indigo";
+    const palette = config.palette ?? "ntt";
     const key = `${palette}/${config.theme}`;
     const isSwitch = previousAppearanceRef.current !== null && previousAppearanceRef.current !== key;
     previousAppearanceRef.current = key;

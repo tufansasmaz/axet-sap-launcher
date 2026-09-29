@@ -1,11 +1,13 @@
-// Renk jetonlarının ölçümü (tasarım sistemi temeli, 2026-09-28; spec §4).
+// Renk jetonlarının ölçümü (grafit kimlik, 2026-09-29; spec §3).
 //
-// `src/index.css` metin olarak okunuyor, dört görünüm bloğu ayrıştırılıyor ve
-// her blok için:
-//   - jeton kümesi öbür bloklarla AYNI mı (bir blokta unutulan jeton o
-//     görünümde sessizce boş kalır, tarayıcı hata vermez);
-//   - metin ve durum renkleri en zayıf yüzeyde (app / card / control)
-//     WCAG AA 4.5:1'i geçiyor mu;
+// `src/index.css` metin olarak okunuyor. İki yüzey bloğu (koyu, açık) ve
+// altı vurgu bloğu (ntt/indigo/amber × koyu/açık) ayrıştırılıyor; bir
+// görünüm = o temanın yüzey bloğu + o vurgunun o temadaki bloğu. Ölçülenler:
+//   - yüzey blokları aynı jeton kümesini, vurgu blokları tam olarak dokuz
+//     vurgu jetonunu tanımlıyor mu (unutulan jeton o görünümde sessizce boş
+//     kalır, tarayıcı hata vermez);
+//   - altı görünümde metin, vurgu ve durum renkleri en zayıf dinlenme
+//     yüzeyinde (app / card / control / sidebar) WCAG AA 4.5:1'i geçiyor mu;
 //   - yüzey/kenarlık sıralaması doğru mu (yanlışsa hover dolgusu ince
 //     kenarlığı yutuyor).
 // Bir rengi değiştirmeden önce bu testi çalıştır; ölçmeden renk değiştirme.
@@ -44,19 +46,47 @@ for (const m of CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   RULES.push({ selectors, decls });
 }
 
-const VIEWS = {
-  "indigo/dark": 'html[data-palette="indigo"][data-theme="dark"]',
-  "indigo/light": 'html[data-palette="indigo"][data-theme="light"]',
-  "warm/dark": 'html[data-palette="warm"][data-theme="dark"]',
-  "warm/light": 'html[data-palette="warm"][data-theme="light"]'
-} as const;
-type View = keyof typeof VIEWS;
+const THEMES = ["dark", "light"] as const;
+const PALETTES = ["ntt", "indigo", "amber"] as const;
+type Theme = (typeof THEMES)[number];
+type Palette = (typeof PALETTES)[number];
+type View = `${Palette}/${Theme}`;
+const VIEW_NAMES: View[] = PALETTES.flatMap((p) => THEMES.map((t) => `${p}/${t}` as View));
 
-function blockFor(view: View): Rule {
-  const found = RULES.filter((r) => r.selectors.includes(VIEWS[view]));
-  if (found.length !== 1) throw new Error(`${view}: ${found.length} blok bulundu, 1 bekleniyordu`);
+const surfaceSelector = (theme: Theme) => `html[data-theme="${theme}"]`;
+const accentSelector = (palette: Palette, theme: Theme) =>
+  `html[data-palette="${palette}"][data-theme="${theme}"]`;
+
+function ruleFor(selector: string): Rule {
+  const found = RULES.filter((r) => r.selectors.includes(selector));
+  if (found.length !== 1) throw new Error(`${selector}: ${found.length} blok bulundu, 1 bekleniyordu`);
   return found[0];
 }
+
+// Vurgu bloğunun tanımladığı jetonlar — ne eksik ne fazla.
+const ACCENT_KEYS = [
+  "--accent-600-rgb",
+  "--accent-500-rgb",
+  "--accent-400-rgb",
+  "--accent-on-rgb",
+  "--accent-cyan-rgb",
+  "--accent-glow",
+  "--accent-soft-text",
+  "--chat-hero-via",
+  "--chat-hero-to"
+].sort();
+
+function split(view: View): [Palette, Theme] {
+  return view.split("/") as [Palette, Theme];
+}
+
+/** Görünümün etkin jetonları: yüzey bloğu, üstüne vurgu bloğu. */
+function declsFor(view: View): Decls {
+  const [palette, theme] = split(view);
+  return new Map([...ruleFor(surfaceSelector(theme)).decls, ...ruleFor(accentSelector(palette, theme)).decls]);
+}
+
+const tokens = (decls: Decls) => [...decls.keys()].filter((k) => k.startsWith("--")).sort();
 
 type Rgb = [number, number, number];
 
@@ -90,7 +120,8 @@ function contrast(a: Rgb, b: Rgb): number {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-const SURFACES = ["--surface-app-rgb", "--surface-card-rgb", "--surface-control-rgb"];
+// Kenar çubuğu artık listelerin tamamını taşıyor; yazının en çok durduğu yer.
+const SURFACES = ["--surface-app-rgb", "--surface-card-rgb", "--surface-control-rgb", "--surface-sidebar-rgb"];
 
 // Metin olarak okunan her jeton — en zayıf yüzeyde ≥ 4.5:1.
 const TEXT = [
@@ -121,24 +152,44 @@ function weakest(decls: Decls, token: string): number {
   return Math.min(...SURFACES.map((s) => contrast(color, rgbOf(decls, decls.get(s)))));
 }
 
-const VIEW_NAMES = Object.keys(VIEWS) as View[];
-
-describe("dört görünüm bloğu", () => {
-  it("her görünüm tam bir blokta, İndigo koyu aynı zamanda :root", () => {
-    for (const view of VIEW_NAMES) blockFor(view);
-    expect(blockFor("indigo/dark").selectors).toContain(":root");
+describe("iki yüzey bloğu, altı vurgu bloğu", () => {
+  it("her tema ve her vurgu tam bir blokta; koyu yüzey ve NTT koyu aynı zamanda :root", () => {
+    for (const theme of THEMES) ruleFor(surfaceSelector(theme));
+    for (const view of VIEW_NAMES) ruleFor(accentSelector(...split(view)));
+    expect(ruleFor(surfaceSelector("dark")).selectors).toContain(":root");
+    expect(ruleFor(accentSelector("ntt", "dark")).selectors).toContain(":root");
   });
 
-  it("dört blok aynı jeton kümesini tanımlıyor", () => {
-    const names = (view: View) => [...blockFor(view).decls.keys()].filter((k) => k.startsWith("--")).sort();
-    const reference = names("indigo/dark");
-    expect(reference.length).toBeGreaterThan(60);
-    for (const view of VIEW_NAMES) expect(names(view)).toEqual(reference);
+  it("iki yüzey bloğu aynı jeton kümesini tanımlıyor ve vurgu jetonu taşımıyor", () => {
+    const dark = tokens(ruleFor(surfaceSelector("dark")).decls);
+    expect(dark.length).toBeGreaterThan(50);
+    expect(tokens(ruleFor(surfaceSelector("light")).decls)).toEqual(dark);
+    for (const key of ACCENT_KEYS) expect(dark).not.toContain(key);
+  });
+
+  it("altı vurgu bloğu yalnızca dokuz vurgu jetonunu tanımlıyor", () => {
+    for (const view of VIEW_NAMES) {
+      expect(tokens(ruleFor(accentSelector(...split(view))).decls)).toEqual(ACCENT_KEYS);
+    }
+  });
+
+  it.each(VIEW_NAMES)("%s: eş jetonlar birbiriyle tutarlı", (view) => {
+    const decls = declsFor(view);
+    const hex = (token: string) => rgbOf(decls, decls.get(token));
+    // Eski adıyla duran cyan 500'ün kendisi; degrade yumuşak vurgu → vurgu.
+    expect(hex("--accent-cyan-rgb")).toEqual(hex("--accent-500-rgb"));
+    expect(hex("--chat-hero-via")).toEqual(hex("--accent-soft-text"));
+    expect(hex("--chat-hero-to")).toEqual(hex("--accent-500-rgb"));
+    // Seçili zemin: 500'ün koyuda %13, açıkta %10'u.
+    const glow = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/.exec(decls.get("--accent-glow") ?? "");
+    expect(glow).not.toBeNull();
+    expect([Number(glow![1]), Number(glow![2]), Number(glow![3])]).toEqual(hex("--accent-500-rgb"));
+    expect(Number(glow![4])).toBe(view.endsWith("/dark") ? 0.13 : 0.1);
   });
 });
 
 describe.each(VIEW_NAMES)("kontrast: %s", (view) => {
-  const decls = blockFor(view).decls;
+  const decls = declsFor(view);
 
   it.each(TEXT)("%s en zayıf yüzeyde ≥ 4.5", (token) => {
     expect(weakest(decls, token)).toBeGreaterThanOrEqual(4.5);
@@ -220,25 +271,24 @@ describe("limon yeşili kalmadı", () => {
 });
 
 describe("THEME_SURFACES CSS ile aynı", () => {
-  const hex = ([r, g, b]: [number, number, number]) =>
-    "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
+  const hex = ([r, g, b]: Rgb) => "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
 
-  it.each(Object.keys(VIEWS) as View[])("%s", (view) => {
-    const [palette, theme] = view.split("/") as ["indigo" | "warm", "dark" | "light"];
-    const decls = blockFor(view).decls;
+  it.each(VIEW_NAMES)("%s", (view) => {
+    const [palette, theme] = split(view);
+    const decls = declsFor(view);
     const surface = THEME_SURFACES[palette][theme];
     expect(surface.app).toBe(hex(rgbOf(decls, decls.get("--surface-app-rgb"))));
     expect(surface.card).toBe(hex(rgbOf(decls, decls.get("--surface-card-rgb"))));
     expect(surface.accent).toBe(hex(rgbOf(decls, decls.get("--accent-500-rgb"))));
   });
 
-  it("terminal o paletin koyu yüzeyinde, koyu metniyle", () => {
-    for (const palette of ["indigo", "warm"] as const) {
-      const decls = blockFor(`${palette}/dark` as View).decls;
+  it("terminal koyu grafit zeminde, imleç o vurgunun koyu accent-400'ü", () => {
+    for (const palette of PALETTES) {
+      const decls = declsFor(`${palette}/dark`);
       const terminal = THEME_SURFACES[palette].dark.terminal;
       expect(terminal.background).toBe(hex(rgbOf(decls, decls.get("--surface-app-rgb"))));
       expect(terminal.foreground).toBe(hex(rgbOf(decls, decls.get("--ink-100-rgb"))));
-      expect(terminal.cursor).toBe(hex(rgbOf(decls, decls.get("--accent-500-rgb"))));
+      expect(terminal.cursor).toBe(hex(rgbOf(decls, decls.get("--accent-400-rgb"))));
     }
   });
 
