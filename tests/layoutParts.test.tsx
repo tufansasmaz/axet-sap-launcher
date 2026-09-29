@@ -127,6 +127,18 @@ describe("Tabs", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("gerilen şeritte yan boşluk dar: 220px kenar çubuğunda etiket kesilmiyor", () => {
+    // jsdom ölçemiyor; ölçü Tabs.tsx'teki yorumda. Burada sınıf sabitleniyor.
+    wrap(<NullTabs onChange={() => {}} />);
+    for (const tab of screen.getAllByRole("tab")) {
+      expect(tab.classList.contains("px-1.5")).toBe(true);
+      expect(tab.classList.contains("px-3")).toBe(false);
+    }
+    cleanup();
+    wrap(<TabsHarness />);
+    expect(screen.getAllByRole("tab")[0].classList.contains("px-3")).toBe(true);
+  });
+
   it("değer yokken hiçbir sekme seçili değil ama ilk sekme Tab ile odaklanabiliyor", () => {
     wrap(<NullTabs onChange={() => {}} />);
     const tabs = screen.getAllByRole("tab");

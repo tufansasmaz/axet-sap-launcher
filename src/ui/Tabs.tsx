@@ -84,7 +84,10 @@ export function Tabs<T extends string>({
               aria-controls={selected && hasPanel ? panelId : undefined}
               tabIndex={index === focusIndex ? 0 : -1}
               onClick={() => onChange(item.value)}
-              className={`h-8 rounded-md px-3 text-sm font-medium transition ${stretch ? "min-w-0 flex-1 truncate" : ""} ${
+              // Gerilen şeritte yan boşluk 6px: kenar çubuğu 220px'e inince sekme
+              // 62px kalıyor, "Sohbet" 47px istiyor. `px-3` ile 38px kalıyor ve
+              // üç etiket de "So…" diye kesiliyordu (ölçüldü, 2026-09-29).
+              className={`h-8 rounded-md text-sm font-medium transition ${stretch ? "min-w-0 flex-1 truncate px-1.5" : "px-3"} ${
                 selected ? "bg-card text-white shadow-elev-1" : "text-slate-400 hover:bg-hover hover:text-slate-100"
               }`}
             >
