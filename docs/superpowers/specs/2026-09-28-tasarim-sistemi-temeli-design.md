@@ -344,6 +344,6 @@ Kullanıcı dört görünümü (İndigo/Sıcak × koyu/açık) çalışan uygula
 Taşma, okunmayan metin ya da kalan limon bulunmadı.
 
 Kapatıp açma denetimleri (ilk karede renk parlaması, seçimin kalıcılığı) bu
-turda uygulama yeniden başlatılarak ayrıca denenmedi; kalıcılık
-`tests/settingsAppearance.test.tsx` ile, ilk kare rengi `THEME_SURFACES`
-testleriyle korunuyor.
+turda uygulama yeniden başlatılarak ayrıca denenmedi. Kayıtlı seçimin geri
+okunması `tests/appearanceConfig.test.ts` ile korunuyor; ilk kare gözle
+bakılmadı, NTT Studio'nun sonraki olağan açılışında görülecek.
