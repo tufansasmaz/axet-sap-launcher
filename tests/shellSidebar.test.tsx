@@ -4,7 +4,8 @@
 // son modun listesine dokununca o moda dönülmesi ve dip bloğun eylemleri.
 // `App` burada çizilmiyor; `listModeOf` App'in "hangi liste görünüyor"
 // kararının kendisi.
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import Sidebar from "../src/shell/Sidebar";
@@ -193,6 +194,66 @@ describe("Sidebar genişliği", () => {
     expect(onWidthCommit).toHaveBeenCalledWith(420);
     fireEvent.mouseMove(window, { clientX: 100 });
     expect(separator().getAttribute("aria-valuenow")).toBe("420");
+  });
+
+  it("sürüklerken kenar çubuğu kaybolursa pencere dinleyicileri de gidiyor", () => {
+    const { onWidthCommit } = renderSidebar({ width: 264 });
+    const removed = vi.spyOn(window, "removeEventListener");
+    fireEvent.mouseDown(separator(), { clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 150 });
+    cleanup();
+    expect(removed.mock.calls.map(([type]) => type)).toEqual(expect.arrayContaining(["mousemove", "mouseup"]));
+    fireEvent.mouseUp(window);
+    expect(onWidthCommit).not.toHaveBeenCalled();
+    removed.mockRestore();
+  });
+});
+
+// `collapsed`'ı gerçekten değiştiren sarmalayıcı: App'teki gibi değer
+// config'ten geri geliyor. `expand` kısayolun (Ctrl+F) yolu.
+function CollapsibleHarness({ onReady }: { onReady: (expand: () => void) => void }) {
+  const [collapsed, setCollapsed] = useState(false);
+  onReady(() => setCollapsed(false));
+  return (
+    <LanguageProvider language="tr">
+      <Sidebar
+        mode="axetCode"
+        readinessOpen={false}
+        onModeChange={() => {}}
+        footer={footerProps()}
+        width={264}
+        collapsed={collapsed}
+        onWidthCommit={() => {}}
+        onCollapsedChange={setCollapsed}
+      >
+        <button type="button">Liste satırı</button>
+      </Sidebar>
+    </LanguageProvider>
+  );
+}
+
+describe("Sidebar daraltma odağı", () => {
+  it("daraltınca odak şeritteki genişlet düğmesine, genişletince daralt düğmesine geçiyor", () => {
+    render(<CollapsibleHarness onReady={() => {}} />);
+    const collapse = screen.getByRole("button", { name: "Kenar çubuğunu daralt" });
+    collapse.focus();
+    fireEvent.click(collapse);
+    const expand = screen.getByRole("button", { name: "Kenar çubuğunu genişlet" });
+    expect(document.activeElement).toBe(expand);
+    fireEvent.click(expand);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Kenar çubuğunu daralt" }));
+  });
+
+  it("kısayolla genişletmede odağa dokunulmuyor", () => {
+    let expand = () => {};
+    render(<CollapsibleHarness onReady={(fn) => (expand = fn)} />);
+    fireEvent.click(screen.getByRole("button", { name: "Kenar çubuğunu daralt" }));
+    const outside = document.createElement("input");
+    document.body.appendChild(outside);
+    outside.focus();
+    act(() => expand());
+    expect(document.activeElement).toBe(outside);
+    outside.remove();
   });
 });
 

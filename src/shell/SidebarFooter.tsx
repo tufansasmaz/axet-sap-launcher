@@ -166,6 +166,7 @@ export default function SidebarFooter({
           <button
             type="button"
             onClick={onCollapse}
+            data-sidebar-toggle
             aria-label={t("shell.collapseSidebar")}
             title={t("shell.collapseSidebar")}
             className={`${ICON_BTN} ml-auto`}

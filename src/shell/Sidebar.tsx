@@ -89,11 +89,17 @@ export default function Sidebar({
     const startX = e.clientX;
     const startWidth = liveRef.current;
     const onMove = (ev: MouseEvent) => setLive(startWidth + ev.clientX - startX);
-    const onUp = () => {
+    const detach = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      dragCleanupRef.current = null;
+    };
+    const onUp = () => {
+      detach();
       commit();
     };
+    dragCleanupRef.current?.();
+    dragCleanupRef.current = detach;
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
   }
@@ -109,6 +115,29 @@ export default function Sidebar({
     if (e.key === "ArrowLeft" || e.key === "ArrowRight") commit();
   }
 
+  // Daraltma/genişletme düğmesine basılınca o düğme kendi dalıyla birlikte
+  // unmount oluyor ve odak `<body>`'ye düşüyordu. Beklenen durum burada;
+  // config'ten o değer geri gelince karşı düğme (şeritte genişlet, altta
+  // daralt) odaklanıyor. Kısayolla genişletmede (Ctrl+F) iz yok, odağa
+  // dokunulmuyor.
+  const asideRef = useRef<HTMLElement>(null);
+  const pendingToggleRef = useRef<boolean | null>(null);
+  function toggleCollapsed(next: boolean) {
+    pendingToggleRef.current = next;
+    onCollapsedChange(next);
+  }
+  useEffect(() => {
+    if (pendingToggleRef.current !== collapsed) return;
+    pendingToggleRef.current = null;
+    asideRef.current?.querySelector<HTMLElement>("[data-sidebar-toggle]")?.focus();
+  }, [collapsed]);
+
+  // Sürüklerken kenar çubuğu kaybolursa (klavyeyle terminal tam ekranı)
+  // pencere dinleyicileri bir sonraki mouseup'a kadar yaşıyor ve unmount
+  // olmuş bileşende `commit` çağırıyordu. Temizlik burada tutuluyor.
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => dragCleanupRef.current?.(), []);
+
   // Hazırlık açıkken ortadaki liste son modun. Ona dokunmak o moda dönüyor:
   // listede seçilen şeyin ekranı görünsün diye, ve Script ekranı yalnızca
   // aktifken mount olduğu için `ScriptSidebar`'ın komutlarını karşılayan
@@ -119,6 +148,7 @@ export default function Sidebar({
   if (collapsed) {
     return (
       <aside
+        ref={asideRef}
         aria-label={t("shell.sidebar")}
         style={{ width: SIDEBAR_COLLAPSED_WIDTH }}
         className="flex shrink-0 flex-col items-center overflow-hidden border-r border-line-subtle bg-sidebar"
@@ -126,7 +156,8 @@ export default function Sidebar({
         <div className="flex flex-col items-center gap-1 py-2">
           <button
             type="button"
-            onClick={() => onCollapsedChange(false)}
+            onClick={() => toggleCollapsed(false)}
+            data-sidebar-toggle
             aria-label={t("shell.expandSidebar")}
             title={t("shell.expandSidebar")}
             className={`${STRIP_BTN} text-slate-400 hover:bg-hover hover:text-slate-100`}
@@ -162,6 +193,7 @@ export default function Sidebar({
 
   return (
     <aside
+      ref={asideRef}
       aria-label={t("shell.sidebar")}
       style={{ width: liveWidth }}
       className="relative flex shrink-0 flex-col overflow-hidden border-r border-line-subtle bg-sidebar"
@@ -182,7 +214,7 @@ export default function Sidebar({
       >
         {children}
       </div>
-      <SidebarFooter {...footer} onCollapse={() => onCollapsedChange(true)} />
+      <SidebarFooter {...footer} onCollapse={() => toggleCollapsed(true)} />
       {/* Tutamaç kenar çubuğunun sağ kenarında, içeride: `overflow-hidden`
           dışarı taşanı kesiyor. 4px geniş, fare ve klavyeyle kullanılıyor. */}
       <div
