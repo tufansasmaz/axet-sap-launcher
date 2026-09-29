@@ -312,7 +312,6 @@ const EDITED_FIELDS = [
   "chatDisplayName",
   "chatFontSize",
   "chatDensity",
-  "chatSidebarOpen",
   "axetCommand",
   "terminal",
   "landscapePathOverride",
@@ -625,15 +624,6 @@ export default function SettingsModal({
                 ]}
               />
             </Field>
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={form.chatSidebarOpen}
-                onChange={(e) => setForm({ ...form, chatSidebarOpen: e.target.checked })}
-                className="h-4 w-4 cursor-pointer accent-accent-500"
-              />
-              {t("settingsModal.chatSidebarOpenLabel")}
-            </label>
           </Section>
 
           <Section icon={TerminalSquare} title={t("settingsModal.sectionTerminal")}>

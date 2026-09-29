@@ -30,9 +30,17 @@ function footerProps(over: Partial<SidebarFooterProps> = {}): SidebarFooterProps
 }
 
 function renderSidebar(
-  opts: { mode?: SidebarMode; readinessOpen?: boolean; footer?: Partial<SidebarFooterProps> } = {}
+  opts: {
+    mode?: SidebarMode;
+    readinessOpen?: boolean;
+    footer?: Partial<SidebarFooterProps>;
+    width?: number;
+    collapsed?: boolean;
+  } = {}
 ) {
   const onModeChange = vi.fn();
+  const onWidthCommit = vi.fn();
+  const onCollapsedChange = vi.fn();
   const footer = footerProps({ readinessOpen: opts.readinessOpen ?? false, ...opts.footer });
   render(
     <LanguageProvider language="tr">
@@ -41,12 +49,16 @@ function renderSidebar(
         readinessOpen={opts.readinessOpen ?? false}
         onModeChange={onModeChange}
         footer={footer}
+        width={opts.width ?? 264}
+        collapsed={opts.collapsed ?? false}
+        onWidthCommit={onWidthCommit}
+        onCollapsedChange={onCollapsedChange}
       >
         <button type="button">Liste satırı</button>
       </Sidebar>
     </LanguageProvider>
   );
-  return { onModeChange, footer };
+  return { onModeChange, onWidthCommit, onCollapsedChange, footer };
 }
 
 describe("listModeOf", () => {
@@ -133,5 +145,96 @@ describe("SidebarFooter", () => {
   it("dil düğmesi dilin kısa adını gösteriyor", () => {
     renderSidebar({ footer: { language: "EN" } });
     expect(screen.getByRole("button", { name: "Dil" }).textContent).toBe("EN");
+  });
+});
+
+describe("Sidebar genişliği", () => {
+  const separator = () => screen.getByRole("separator", { name: "Kenar çubuğunun genişliği" });
+
+  it("tutamaç değerini ve sınırlarını söylüyor", () => {
+    renderSidebar({ width: 300 });
+    expect(separator().getAttribute("aria-valuenow")).toBe("300");
+    expect(separator().getAttribute("aria-valuemin")).toBe("220");
+    expect(separator().getAttribute("aria-valuemax")).toBe("420");
+    expect(separator().getAttribute("aria-orientation")).toBe("vertical");
+    expect(separator().tabIndex).toBe(0);
+  });
+
+  it("ok 8px, Shift ile 32px; tuş bırakılınca bir kez kaydediliyor", () => {
+    const { onWidthCommit } = renderSidebar({ width: 264 });
+    fireEvent.keyDown(separator(), { key: "ArrowRight" });
+    expect(separator().getAttribute("aria-valuenow")).toBe("272");
+    fireEvent.keyDown(separator(), { key: "ArrowLeft", shiftKey: true });
+    expect(separator().getAttribute("aria-valuenow")).toBe("240");
+    expect(onWidthCommit).not.toHaveBeenCalled();
+    fireEvent.keyUp(separator(), { key: "ArrowLeft" });
+    expect(onWidthCommit).toHaveBeenCalledTimes(1);
+    expect(onWidthCommit).toHaveBeenCalledWith(240);
+  });
+
+  it("sınırda ok değeri değiştirmiyor, değişmeyen genişlik kaydedilmiyor", () => {
+    const { onWidthCommit } = renderSidebar({ width: 220 });
+    fireEvent.keyDown(separator(), { key: "ArrowLeft", shiftKey: true });
+    expect(separator().getAttribute("aria-valuenow")).toBe("220");
+    fireEvent.keyUp(separator(), { key: "ArrowLeft" });
+    expect(onWidthCommit).not.toHaveBeenCalled();
+  });
+
+  it("sürüklerken kırpılıyor, yalnızca bırakınca kaydediliyor", () => {
+    const { onWidthCommit } = renderSidebar({ width: 264 });
+    fireEvent.mouseDown(separator(), { clientX: 100 });
+    fireEvent.mouseMove(window, { clientX: 150 });
+    expect(separator().getAttribute("aria-valuenow")).toBe("314");
+    fireEvent.mouseMove(window, { clientX: 900 });
+    expect(separator().getAttribute("aria-valuenow")).toBe("420");
+    expect(onWidthCommit).not.toHaveBeenCalled();
+    fireEvent.mouseUp(window);
+    expect(onWidthCommit).toHaveBeenCalledTimes(1);
+    expect(onWidthCommit).toHaveBeenCalledWith(420);
+    fireEvent.mouseMove(window, { clientX: 100 });
+    expect(separator().getAttribute("aria-valuenow")).toBe("420");
+  });
+});
+
+describe("Sidebar daraltılmış", () => {
+  it("daraltma düğmesi daraltılmış hâli istiyor", () => {
+    const { onCollapsedChange } = renderSidebar();
+    fireEvent.click(screen.getByRole("button", { name: "Kenar çubuğunu daralt" }));
+    expect(onCollapsedChange).toHaveBeenCalledWith(true);
+  });
+
+  it("şeritte mod ikonları ve dipte üç düğme var; liste, sekmeler ve tutamaç yok", () => {
+    const { onModeChange, onCollapsedChange, footer } = renderSidebar({ collapsed: true, mode: "sapLauncher" });
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.queryByRole("separator")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Liste satırı" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Tema" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dil" })).toBeNull();
+
+    expect(screen.getByRole("button", { name: "aXet SAP Logon" }).getAttribute("aria-current")).toBe("page");
+    expect(screen.getByRole("button", { name: "Axet Chat" }).getAttribute("aria-current")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "SAP GUI Scripting" }));
+    expect(onModeChange).toHaveBeenCalledWith("sapGuiScripting");
+
+    fireEvent.click(screen.getByRole("button", { name: "Hazırlık" }));
+    fireEvent.click(screen.getByRole("button", { name: "Uygulama Bağlantıları" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ayarlar" }));
+    expect(footer.onOpenReadiness).toHaveBeenCalledTimes(1);
+    expect(footer.onOpenConnections).toHaveBeenCalledTimes(1);
+    expect(footer.onOpenSettings).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Kenar çubuğunu genişlet" }));
+    expect(onCollapsedChange).toHaveBeenCalledWith(false);
+  });
+
+  it("Hazırlık açıkken şeritte mod seçili değil, Hazırlık seçili; adlar arıza ve sayıyı taşıyor", () => {
+    renderSidebar({ collapsed: true, readinessOpen: true, footer: { readinessFault: true, connectorCount: 1 } });
+    for (const name of ["Axet Chat", "aXet SAP Logon", "SAP GUI Scripting"]) {
+      expect(screen.getByRole("button", { name }).getAttribute("aria-current")).toBeNull();
+    }
+    expect(
+      screen.getByRole("button", { name: "Hazırlık — çözülmesi gereken bir şey var" }).getAttribute("aria-current")
+    ).toBe("page");
+    expect(screen.getByRole("button", { name: "Uygulama Bağlantıları — 1 açık" })).toBeTruthy();
   });
 });

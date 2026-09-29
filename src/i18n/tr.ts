@@ -28,11 +28,8 @@ export const tr = {
   "app.languageToggleTitle": "Dili değiştir",
   "app.settingsTitle": "Ayarlar",
   "app.noLandscapeFile": "SAPUILandscape.xml bulunamadı ({file}). Ayarlardan yolu manuel belirtebilirsin.",
-  "app.expandSidebar": "Sistem listesini genişlet",
-  "app.collapseSidebar": "Sistem listesini daralt",
   "app.systemsMode": "Sistem listesi",
   "app.filesMode": "Dosya gezgini",
-  "app.resizeWidthTitle": "Genişliği değiştir",
   "app.systemDetailTab": "Sistem Detayı",
   "app.closeTabTitle": "Sekmeyi kapat",
   "app.fileImportFailed": "Dosya eklenemedi: {error}",
@@ -143,8 +140,8 @@ export const tr = {
 
   // Yön BELİRTEN iki ayrı etiket: tek bir "Menü" tooltip'i, düğmenin o an
   // hangi işi yapacağını söylemiyordu.
-  "axetCodeHome.collapseSidebar": "Kenar çubuğunu daralt",
-  "axetCodeHome.expandSidebar": "Kenar çubuğunu genişlet",
+  "shell.collapseSidebar": "Kenar çubuğunu daralt",
+  "shell.expandSidebar": "Kenar çubuğunu genişlet",
   // Kenar çubuğu bölümleri. SAP sohbetleri sistem başına gruplanıyor, bu
   // yüzden başlık "sistemler" değil "SAP sohbetleri": altındaki her satır
   // bir sistem değil, o sisteme ait sohbetlerin başlığı.
@@ -572,7 +569,6 @@ export const tr = {
   "settingsModal.chatDensityHint": "Yoğun: ekrana daha çok mesaj sığar. Rahat: uzun cevaplar birbirine karışmaz.",
   "settingsModal.chatDensityComfortable": "Rahat",
   "settingsModal.chatDensityCompact": "Yoğun",
-  "settingsModal.chatSidebarOpenLabel": "Açılışta sohbet listesi açık olsun",
   "settingsModal.sectionTerminal": "Terminal",
   "settingsModal.sectionAdvanced": "Gelişmiş Yollar",
   "settingsModal.sectionManual": "Manuel Sistemler",
@@ -815,6 +811,7 @@ export const tr = {
   "shell.modeLogon": "Logon",
   "shell.modeScript": "Script",
   "shell.connectorsOpen": "{count} açık",
+  "shell.resizeWidth": "Kenar çubuğunun genişliği",
 
   "sapGuiScripting.title": "SAP GUI Scripting",
   "sapGuiScripting.subtitle": "Açık bir SAP Logon/SAP GUI oturumuna bağlanıp ekran ağacını gezin, alanları oku/yaz, elemanlara tıkla.",

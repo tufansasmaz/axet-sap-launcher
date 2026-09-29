@@ -364,9 +364,13 @@ export interface AppConfig {
   chatDisplayName: string;
   chatFontSize: ChatFontSize;
   chatDensity: ChatDensity;
-  // Kenar çubuğunun AÇILIŞTAKİ hâli. Oturum içinde ☰ ile değiştirmek burayı
-  // yazmaz — geçici daraltma kalıcı bir tercih değil.
-  chatSidebarOpen: boolean;
+  // Kabuğun kenar çubuğu (2026-09-29), üç modda ortak. Genişlik piksel,
+  // okunurken 220–420'ye kırpılıyor (bkz. shared/sidebarLayout.ts).
+  // `sidebarCollapsed` eski `chatSidebarOpen`'ın yerini aldı; eski dosyada
+  // o alan okunup göç ettiriliyor. İkisi de kenar çubuğundan değişince
+  // hemen yazılıyor, Ayarlar'da karşılıkları yok.
+  sidebarWidth: number;
+  sidebarCollapsed: boolean;
   // Bağlayıcılar açıkken NE ZAMAN kurulacağı. Bkz. `ConnectorMode`. Eski
   // adları: `chatUseConnectors` (boolean) → `chatConnectorMode` → bu. İkinci
   // ad yanıltıcıydı: ayar artık sadece sohbeti değil, yapay zekâyla

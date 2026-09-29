@@ -44,6 +44,7 @@ import AppConnectionsModal from "./components/AppConnectionsModal";
 import CredentialsModal from "./components/CredentialsModal";
 import ReadinessHome from "./components/ReadinessHome";
 import { hasDoctorFault } from "../app-electron/shared/doctorSeverity";
+import { SIDEBAR_DEFAULT_WIDTH } from "../app-electron/shared/sidebarLayout";
 import RoleModal from "./components/RoleModal";
 import TierPromptModal from "./components/TierPromptModal";
 import { guessTier } from "./lib/tier";
@@ -431,18 +432,6 @@ export default function App() {
       setPendingSelectUuid(null);
     }
   }, [pendingSelectUuid, flatSystems]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
-        e.preventDefault();
-        // Arama kutusu kenar çubuğunda (`LogonSidebar`); odak bir kare sonra.
-        requestAnimationFrame(() => searchInputRef.current?.focus());
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
 
   // Güncelleme durumu — `main/index.ts`'teki açılıştan 3sn sonraki otomatik
   // kontrolün (veya Ayarlar'daki "Şimdi Kontrol Et"in) sonucu buraya, tüm
@@ -1001,6 +990,37 @@ export default function App() {
     setConfig(next);
   };
 
+  // Kenar çubuğunun genişliği ve daraltması config'te duruyor; bileşen
+  // değer değişince bir kez haber veriyor, burada doğrudan yazılıyor.
+  const sidebarWidth = config?.sidebarWidth ?? SIDEBAR_DEFAULT_WIDTH;
+  const sidebarCollapsed = config?.sidebarCollapsed ?? false;
+
+  const handleSidebarWidthCommit = useCallback(async (width: number) => {
+    setConfig(await window.api.saveConfig({ sidebarWidth: width }));
+  }, []);
+
+  const handleSidebarCollapsedChange = useCallback(async (collapsed: boolean) => {
+    setConfig(await window.api.saveConfig({ sidebarCollapsed: collapsed }));
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        const focusSearch = () => requestAnimationFrame(() => searchInputRef.current?.focus());
+        // Arama kutusu kenar çubuğunda (`LogonSidebar`). Daraltılmışsa kutu
+        // çizili değil: önce açılıyor, odak config güncellenince veriliyor.
+        if (sidebarCollapsed && listMode === "sapLauncher") {
+          void handleSidebarCollapsedChange(false).then(focusSearch);
+          return;
+        }
+        focusSearch();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [sidebarCollapsed, listMode, handleSidebarCollapsedChange]);
+
   const handleSetTier = async (service: SapService, tier: SystemTier | null) => {
     const next = await window.api.setSystemTier(service.uuid, tier);
     setConfig(next);
@@ -1063,6 +1083,10 @@ export default function App() {
               onToggleLanguage: handleToggleLanguage,
               onOpenSettings: () => setSettingsOpen(true)
             }}
+            width={sidebarWidth}
+            collapsed={sidebarCollapsed}
+            onWidthCommit={handleSidebarWidthCommit}
+            onCollapsedChange={handleSidebarCollapsedChange}
           >
             {listMode === "axetCode" ? (
               <ChatSidebar

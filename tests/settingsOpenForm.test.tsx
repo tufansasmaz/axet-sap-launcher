@@ -33,7 +33,6 @@ const CONFIG = {
   chatDisplayName: "Deneme",
   chatFontSize: "md",
   chatDensity: "comfortable",
-  chatSidebarOpen: true,
   axetCommand: "axet",
   terminal: "cmd",
   landscapePathOverride: null,

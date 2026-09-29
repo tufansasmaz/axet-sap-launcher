@@ -18,6 +18,7 @@ import type {
   AppTheme,
   ConnectorMode
 } from "../shared/types";
+import { SIDEBAR_DEFAULT_WIDTH, clampSidebarWidth, readSidebarCollapsed } from "../shared/sidebarLayout";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
 const MAX_CONNECTION_HISTORY = 10;
@@ -105,7 +106,8 @@ function defaultConfig(): AppConfig {
     chatDisplayName: safeUserName(),
     chatFontSize: "md",
     chatDensity: "comfortable",
-    chatSidebarOpen: true,
+    sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
+    sidebarCollapsed: false,
     // Bkz. `ConnectorMode`. Bu bir aç/kapa değil, maliyet ayarı — açma/kapama
     // `connectorEnabled` ile, kullanıcının "Bağlan"/"Bağlantıyı Kes"
     // düğmesinden yapılıyor.
@@ -180,7 +182,8 @@ export function loadConfig(): AppConfig {
       theme,
       palette,
       chatDisplayName: typeof parsed.chatDisplayName === "string" ? parsed.chatDisplayName : fallback.chatDisplayName,
-      chatSidebarOpen: typeof parsed.chatSidebarOpen === "boolean" ? parsed.chatSidebarOpen : fallback.chatSidebarOpen,
+      sidebarWidth: clampSidebarWidth(parsed.sidebarWidth),
+      sidebarCollapsed: readSidebarCollapsed(parsed),
       connectorMode: readConnectorMode(parsed, fallback.connectorMode),
       connectorEnabled: readConnectorEnabled(parsed.connectorEnabled),
       connectorLastResults:
@@ -217,6 +220,9 @@ export function loadConfig(): AppConfig {
     const dead = merged as unknown as Record<string, unknown>;
     delete dead.chatUseConnectors;
     delete dead.chatConnectorMode;
+    // `chatSidebarOpen` yukarıda `sidebarCollapsed`'a göç etti (bkz.
+    // readSidebarCollapsed); `...parsed` onu taşımasın, kayıtta düşsün.
+    delete dead.chatSidebarOpen;
     return merged;
   } catch {
     return fallback;
