@@ -51,8 +51,8 @@ describe("Eyebrow", () => {
 });
 
 describe("elle yazılmış bölüm başlığı kalmadı", () => {
-  it("AxetCodeHome ve ChatSessionPane'de eski kalıp yok, Eyebrow kullanılıyor", () => {
-    for (const name of ["AxetCodeHome.tsx", "ChatSessionPane.tsx"]) {
+  it("ChatSidebar ve ChatSessionPane'de eski kalıp yok, Eyebrow kullanılıyor", () => {
+    for (const name of ["ChatSidebar.tsx", "ChatSessionPane.tsx"]) {
       const text = readFileSync(path.join(__dirname, "..", "src", "components", name), "utf8");
       expect(text).not.toContain("text-[10px] font-semibold uppercase tracking-wider");
       expect(text).toContain("<Eyebrow");

@@ -29,6 +29,7 @@ import type {
 import TitleBar from "./components/TitleBar";
 import ActivityBar, { type Activity } from "./components/ActivityBar";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
+import ChatSidebar from "./components/ChatSidebar";
 // axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
 // isteği, 2026-09-04): uygulama GitHub'a açılırken bu iki modül henüz hazır
 // değil ve akıbetleri sonra kararlaştırılacak. Kaynak dosyalar
@@ -1093,20 +1094,29 @@ export default function App() {
             gürültüsü — o yüzden O kaldırıldı, bu KALIYOR).
             Ek fayda: model listesi/sohbet geçmişi her sekme geçişinde değil
             uygulama ömründe bir kez yükleniyor. */}
-        <div className={activity === "axetCode" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
-          <AxetCodeHome
-            active={activity === "axetCode"}
-            config={config}
-            pushToast={pushToast}
-            recentEntries={recentEntries}
-            connectivity={connectivity}
-            tierOverrides={config?.systemTiers ?? {}}
-            onOpenSapLauncher={() => setActivity("sapLauncher")}
-            onQuickConnectSap={handleQuickConnectSap}
-            sapChatRequest={sapChatRequest}
-            workDirRequest={workDirRequest}
-            activeSap={activeContext.sap}
-          />
+        <div className={activity === "axetCode" ? "flex min-h-0 flex-1 overflow-hidden" : "hidden"}>
+          {/* Geçici: Görev 14'te kabuğun `Sidebar`'ı bu `aside`'ın yerini alıyor. */}
+          <aside className="flex w-[264px] shrink-0 flex-col border-r border-line-subtle bg-sidebar">
+            <ChatSidebar
+              recentEntries={recentEntries}
+              connectivity={connectivity}
+              tierOverrides={config?.systemTiers ?? {}}
+              activeSap={activeContext.sap}
+              onOpenSapLauncher={() => setActivity("sapLauncher")}
+              onQuickConnectSap={handleQuickConnectSap}
+            />
+          </aside>
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <AxetCodeHome
+              active={activity === "axetCode"}
+              config={config}
+              pushToast={pushToast}
+              recentEntries={recentEntries}
+              sapChatRequest={sapChatRequest}
+              workDirRequest={workDirRequest}
+              activeSap={activeContext.sap}
+            />
+          </div>
         </div>
         {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome activeSap={activeContext.sap} />

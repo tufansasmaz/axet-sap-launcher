@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import AxetCodeHome from "../src/components/AxetCodeHome";
+import ChatSidebar from "../src/components/ChatSidebar";
 import { ChatStoreProvider } from "../src/stores/chatStore";
 
 // Görev 10 ve 11 YALNIZCA bu yardımcıyı değiştiriyor; aşağıdaki `it`
@@ -11,15 +12,19 @@ function renderChatHome() {
   return render(
     <LanguageProvider language="tr">
       <ChatStoreProvider pushToast={() => {}}>
+        <ChatSidebar
+          recentEntries={[]}
+          connectivity={{}}
+          tierOverrides={{}}
+          activeSap={null}
+          onOpenSapLauncher={() => {}}
+          onQuickConnectSap={() => {}}
+        />
         <AxetCodeHome
           active
           config={null}
           pushToast={() => {}}
           recentEntries={[]}
-          connectivity={{}}
-          tierOverrides={{}}
-          onOpenSapLauncher={() => {}}
-          onQuickConnectSap={() => {}}
           sapChatRequest={null}
           workDirRequest={null}
           activeSap={null}

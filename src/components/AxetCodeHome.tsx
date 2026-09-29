@@ -1,24 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Plus,
-  X,
-  PanelLeft,
-  PanelLeftClose,
-  Link2,
-  Server,
-  ArrowUpRight,
-  Search,
-  Pencil,
-  Download,
-  Trash2,
-  Keyboard,
-  ChevronRight,
-  ChevronDown,
-  FolderOpen,
-  FolderPlus,
-  FolderInput,
-  Settings2,
-} from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type {
   ActiveSapContext,
   AppConfig,
@@ -28,9 +8,6 @@ import type {
   ChatAttachment,
   ChatProject,
   ChatSessionsState,
-  ConnectivityState,
-  SapService,
-  SystemTier,
 } from "../../app-electron/shared/types";
 import ChatSessionPane from "./ChatSessionPane";
 import ChatFilesPanel from "./ChatFilesPanel";
@@ -38,23 +15,9 @@ import ConfirmDialog from "./ConfirmDialog";
 import ChatInstructionsDialog from "./ChatInstructionsDialog";
 import ChatProjectDialog from "./ChatProjectDialog";
 import type { ChatMessage } from "./ChatBubble";
-import StatusDot from "./StatusDot";
-import TierBadge from "./TierBadge";
-import SystemHoverCard from "./SystemHoverCard";
-import { resolveTier } from "../lib/tier";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
-import {
-  activeGroupKeys,
-  filterSessions,
-  GENERAL_GROUP_KEY,
-  groupSessions,
-  normalizeSessionQuery,
-  orderSessions,
-  PROJECTS_SECTION_KEY,
-  SAP_SECTION_KEY
-} from "../lib/chatSessionGroups";
+import { orderSessions } from "../lib/chatSessionGroups";
 import { useT } from "../i18n";
-import { Eyebrow } from "../ui/Eyebrow";
 import { useChatStore } from "../stores/chatStore";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
 
@@ -113,14 +76,6 @@ interface Props {
   config: AppConfig | null;
   pushToast: (kind: "success" | "error", text: string) => void;
   recentEntries: RecentEntry[];
-  connectivity: Record<string, ConnectivityState>;
-  tierOverrides: Record<string, SystemTier>;
-  onOpenSapLauncher: () => void;
-  onQuickConnectSap: (
-    path: string[],
-    service: SapService,
-    itemUuid: string,
-  ) => void;
   /**
    * SAP bağlantısı başarılı olduğunda App.tsx buraya bir istek bırakıyor;
    * bu bileşen boş bir sohbete geçip onu o projeye bağlıyor. Bağlantı artık
@@ -180,11 +135,6 @@ const MAX_HISTORY_CHARS = 12_000;
 // "Yeni sohbet"e üst üste basan kullanıcı, listeyi hiç kullanılmamış boş
 // kayıtlarla dolduruyordu.
 const NEW_SESSION_ID = "__new__";
-
-// "Projeye taşı" menüsünün en fazla kaplayacağı yükseklik (px). Hem menünün
-// kendi `max-h` sınıfı hem de ekranın altına taşmasını engelleyen sıkıştırma
-// bu sayıyı kullanıyor — ikisinin ayrışması menüyü yarım gösterirdi.
-const MOVE_MENU_MAX_H = 280;
 
 /**
  * Proje talimatını gönderilecek mesajın başına ekler.
@@ -480,10 +430,6 @@ export default function AxetCodeHome({
   config,
   pushToast,
   recentEntries,
-  connectivity,
-  tierOverrides,
-  onOpenSapLauncher,
-  onQuickConnectSap,
   sapChatRequest,
   workDirRequest,
   activeSap,
@@ -498,11 +444,9 @@ export default function AxetCodeHome({
     setProjects,
     sessionsLoaded,
     setSessionsLoaded,
-    renameSession,
-    moveSession,
-    createProject,
     deleteProject,
-    exportSession
+    resetSearch,
+    registerChatCommands
   } = useChatStore();
   // Bir sonraki YENİ sohbetin kimliği, doğmadan önce. Kalıcı axet-code
   // oturumu kullanıcı yazarken bu kimlikle ısıtılıyor; sohbet oluşunca aynı
@@ -540,14 +484,6 @@ export default function AxetCodeHome({
   // (`projects`).
   // Ayar kutusu açık olan projenin kimliği (ad + talimat + silme).
   const [projectDialogId, setProjectDialogId] = useState<string | null>(null);
-  // "Projeye taşı" menüsü. Konum SABİT (viewport) koordinat: menü kenar
-  // çubuğunun kaydırılan listesinin içinde açılsaydı, listeyle birlikte
-  // kayar ve `overflow-hidden` sınırında kırpılırdı.
-  const [moveMenu, setMoveMenu] = useState<{
-    sessionId: string;
-    x: number;
-    y: number;
-  } | null>(null);
   // Kimlik SABİT, her render'da `crypto.randomUUID()` DEĞİL: id React `key`
   // olarak kullanılıyor, her render'da değişseydi balon her tuş vuruşunda
   // sökülüp yeniden kurulurdu (bkz. CONNECT_NOTICE_ID).
@@ -585,29 +521,10 @@ export default function AxetCodeHome({
   const [modelsError, setModelsError] = useState<string | null>(null);
   const [defaultModel, setDefaultModel] = useState<AxetModelEntry | null>(null);
   const [attaching, setAttaching] = useState(false);
-  const [query, setQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   // Kısayol listesi (F1). Kısayollar keşfedilemezse yok sayılır; TUI'nin
   // kendi karşılığı ctrl+g ile açılan yardım şeridi.
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  // Kenar çubuğu daraltılabilir (Gemini deseni). Kapalıyken tamamen
-  // kaybolmuyor, ikon şeridine iniyor — "yeni sohbet" ve geri açma düğmesi
-  // her zaman elin altında kalsın diye.
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  // Açılış hâli Ayarlar'dan geliyor ama SADECE BİR KEZ uygulanıyor: `config`
-  // asenkron yüklendiği için ilk render'da `null`, o yüzden `useState`'in
-  // başlangıç değeri olarak kullanılamıyor. Bayrak olmadan, config her
-  // değiştiğinde (tema/dil dâhil) kullanıcının o an ☰ ile yaptığı daraltma
-  // geri alınırdı.
-  const sidebarInitRef = useRef(false);
-  useEffect(() => {
-    if (sidebarInitRef.current || !config) return;
-    sidebarInitRef.current = true;
-    setSidebarOpen(config.chatSidebarOpen);
-  }, [config]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Akış kuyruğu — istek kimliği -> henüz ekrana basılmamış metin.
   // Neden var: aşağıdaki `drainStreams` açıklamasına bak.
@@ -917,12 +834,12 @@ export default function AxetCodeHome({
       // `effectiveNewBinding`) — ajan o klasörde çalışsın, ama listede
       // sistemin altına gömülmesin.
       setNewKeepInGeneral(binding === null);
-      setQuery("");
+      resetSearch();
       // Boş ekrana her dönüşte kartlar yenileniyor — "sürekli değişen" burada.
       setSuggestionSeed(freshSuggestionSeed());
       requestAnimationFrame(() => textareaRef.current?.focus());
     },
-    [],
+    [resetSearch],
   );
 
   // --- "Sisteme bağlan" → sohbet ---
@@ -971,7 +888,7 @@ export default function AxetCodeHome({
 
     setActiveId(prior.id);
     setNewNotice(null);
-    setQuery("");
+    resetSearch();
     setSessions((prev) =>
       prev.map((s) =>
         s.id === prior.id
@@ -996,7 +913,7 @@ export default function AxetCodeHome({
       ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sapChatRequest?.nonce]);
+  }, [sapChatRequest?.nonce, resetSearch]);
 
   // --- Dosya Gezgini'nde seçilen klasör → ajanın çalışma klasörü ---
   // Kullanıcı isteği (2026-09-23): *"ordan yol seçince axet in çalışma yolu da
@@ -1113,6 +1030,33 @@ export default function AxetCodeHome({
     [handleDeleteSession, sessions],
   );
 
+  // Kenar çubuğunun çağırdığı işler (bkz. stores/chatStore.tsx
+  // `ChatCommands`). Ref üzerinden: kayıt bir kere yapılıyor, her çağrı
+  // o anki fonksiyona gidiyor. Kayıt `useLayoutEffect`'te, yani ilk
+  // boyamadan önce: kullanıcı ilk karede tıklasa da komut boşa düşmüyor.
+  const commandsRef = useRef({
+    newSession: handleNewSession,
+    requestDelete: requestDeleteSession,
+    openProjectDialog: setProjectDialogId,
+    openShortcuts: () => setShortcutsOpen(true),
+  });
+  commandsRef.current = {
+    newSession: handleNewSession,
+    requestDelete: requestDeleteSession,
+    openProjectDialog: setProjectDialogId,
+    openShortcuts: () => setShortcutsOpen(true),
+  };
+  useLayoutEffect(
+    () =>
+      registerChatCommands({
+        newSession: (...args) => commandsRef.current.newSession(...args),
+        requestDelete: (id) => commandsRef.current.requestDelete(id),
+        openProjectDialog: (id) => commandsRef.current.openProjectDialog(id),
+        openShortcuts: () => commandsRef.current.openShortcuts(),
+      }),
+    [registerChatCommands],
+  );
+
   // Proje yönergeleri kaydedildikten sonra: O KLASÖRDE çalışan her sohbetin
   // kalıcı axet-code oturumu bırakılıyor. Ölçüm (2026-09-05): bağlam dosyaları
   // süreç açılışında okunuyor, çalışan bir oturum sonradan yazılan AGENTS.md'yi
@@ -1139,27 +1083,13 @@ export default function AxetCodeHome({
     [sessions, config?.axetWorkspaceDir],
   );
 
-  const commitRename = useCallback(() => {
-    const id = renamingId;
-    if (!id) return;
-    setRenamingId(null);
-    renameSession(id, renameDraft);
-  }, [renameDraft, renamingId, renameSession]);
-
   // --- Projeler ---
   //
   // Kullanıcı isteği (2026-09-06): *"chat ekranının kısmında chat gpt deki
   // projeler yapısını ekleyelim"* → seçilen biçim: kendi kurduğun, adlandırdığın
   // ve KENDİ TALİMATI olan projeler. SAP sistem grupları bundan bağımsız ve
-  // otomatik olarak durmaya devam ediyor.
-  //
-  // Yeni proje HEMEN ayar kutusunu açıyor: varsayılan adıyla ("Yeni proje")
-  // bırakılan bir proje, ikinci projeden itibaren ayırt edilemez olurdu.
-  const handleCreateProject = useCallback(() => {
-    const project = createProject();
-    if (project) setProjectDialogId(project.id);
-  }, [createProject]);
-
+  // otomatik olarak durmaya devam ediyor. Proje kurma ve taşıma kenar
+  // çubuğunda (`ChatSidebar`), ayar penceresi burada.
   const handleSaveProject = useCallback(
     (id: string, name: string, instructions: string) => {
       setProjects((prev) =>
@@ -1180,16 +1110,6 @@ export default function AxetCodeHome({
       setProjectDialogId(null);
     },
     [deleteProject],
-  );
-
-  // Var olan bir sohbeti bir projeye taşı / projeden çıkar (bkz. store'daki
-  // `moveSession`: `updatedAt` bilerek dokunulmuyor).
-  const handleMoveSession = useCallback(
-    (sessionId: string, projectId: string | null) => {
-      moveSession(sessionId, projectId);
-      setMoveMenu(null);
-    },
-    [moveSession],
   );
 
   const handleSelectModel = useCallback(
@@ -1848,16 +1768,6 @@ export default function AxetCodeHome({
     }
   }, [activeId, addAttachments, pushToast, t]);
 
-  // Arama kutusu artık HEP AÇIK (kullanıcı isteği, 2026-09-04: *"arama
-  // kutusu açık olarak gelsin, kapanmasına gerek yok"*) — 2026-09-02'de
-  // istenen açılır/kapanır davranış kaldırıldı. Geriye kalan tek eylem
-  // metni temizlemek; kenar çubuğu daraltılırken de bu çağrılıyor, çünkü
-  // görünmeyen bir süzgeç listeyi süzmeye devam ederse kullanıcı
-  // sohbetlerinin neden eksik göründüğünü anlayamaz.
-  const clearSearch = useCallback(() => {
-    setQuery("");
-  }, []);
-
   const handleDraftChange = useCallback(
     (value: string) => {
       if (!activeId) {
@@ -2178,61 +2088,6 @@ export default function AxetCodeHome({
   // ekleme sırası (eskiler üstte) birkaç gün içinde kullanılamaz hâle gelir.
   const orderedSessions = useMemo(() => orderSessions(sessions), [sessions]);
 
-  // `toLocaleLowerCase("tr")`: "İ"/"I" Türkçede ASCII kurallarıyla
-  // küçültülemez — düz `toLowerCase()` ile "İSTEK" araması "istek" başlıklı
-  // sohbeti bulamazdı.
-  const normalizedQuery = normalizeSessionQuery(query);
-  const visibleSessions = useMemo(
-    () => filterSessions(orderedSessions, normalizedQuery),
-    [normalizedQuery, orderedSessions],
-  );
-
-  // --- Kenar çubuğu grupları (ChatGPT'nin "projeler" yapısı) ---
-  //
-  // Kullanıcı isteği (2026-09-06): *"sisteme bağlantı yaptığımız sohbetlerle
-  // normal sohbetlerin başlıkları ayrı olsun ayrı başlıklar altında olsunlar
-  // ve daraltıp genişletme olayı olsun"*. Önceden liste tamamen düzdü ve bir
-  // SAP sohbetiyle sıradan bir sohbet aynı görünüyordu.
-  //
-  // Gruplama anahtarı `cwd` — sohbette sistem uuid'si yok, proje klasörü ise
-  // sisteme özel ve kalıcı. Etiket olarak `sapLabel` kullanılıyor, yoksa
-  // klasör adına düşülüyor: eski (etiketi diske yazılmadan önce kaydedilmiş)
-  // sohbetler bile grupsuz kalmıyor.
-  const sessionGroups = useMemo(
-    () => groupSessions(visibleSessions, projects, Boolean(normalizedQuery)),
-    [normalizedQuery, projects, visibleSessions],
-  );
-
-  // Yalnızca AÇILMIŞ olanlar tutuluyor: varsayılan kapalı. Açık gelen ağaç
-  // bütün sohbetleri bir anda döküyordu; kullanıcı yalnızca başlıkları görüp
-  // istediği düğümü açmak istedi. Kalıcı değil (oturum içi) — kenar çubuğunun
-  // açık/kapalı durumu gibi.
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
-  const toggleGroup = useCallback((key: string) => {
-    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }));
-  }, []);
-  // Arama sırasında daraltma YOK SAYILIYOR: eşleşen bir sohbet kapalı bir
-  // grubun içinde kalsaydı arama bozuk görünürdü.
-  const groupOpen = (key: string) =>
-    Boolean(normalizedQuery) || Boolean(openGroups[key]);
-  // Etkin sohbetin yolu açılıyor: yeni açılan ya da seçilen sohbet kapalı bir
-  // grubun içinde kalsaydı listede kaybolmuş görünürdü. Yalnızca etkin sohbet
-  // DEĞİŞİNCE çalışıyor — kullanıcı o grubu sonradan kapatırsa kapalı kalıyor.
-  // Anahtarları `src/lib/chatSessionGroups.ts`'teki `activeGroupKeys`
-  // hesaplıyor (kuralı `groupSessions`'la aynı). Açılışta `activeId` boş
-  // olduğu için ağaç tamamen kapalı başlıyor.
-  useEffect(() => {
-    const s = activeSession;
-    if (!s) return;
-    const keys = activeGroupKeys(s, projects);
-    setOpenGroups((prev) =>
-      keys.every((k) => prev[k])
-        ? prev
-        : { ...prev, ...Object.fromEntries(keys.map((k) => [k, true])) },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSession?.id]);
-
   // Klavye kısayolları. Ctrl+N (yeni sohbet) yukarıda, sohbet İÇİ arama (Ctrl+F)
   // ChatSessionPane'de — buradakiler sohbetler ARASI olanlar.
   //
@@ -2300,11 +2155,6 @@ export default function AxetCodeHome({
   const projectDialog = projectDialogId
     ? (projects.find((p) => p.id === projectDialogId) ?? null)
     : null;
-  // "Projeye taşı" menüsünün açık olduğu sohbet — o an hangi projede olduğunu
-  // (ve "projeden çıkar"ın gösterilip gösterilmeyeceğini) buradan okuyor.
-  const moveTarget = moveMenu
-    ? (sessions.find((s) => s.id === moveMenu.sessionId) ?? null)
-    : null;
 
   // Sohbete özel klasörü olmayan sohbetlerin kökü/çalışma klasörü.
   const workspaceDir = config?.axetWorkspaceDir ?? "";
@@ -2349,673 +2199,8 @@ export default function AxetCodeHome({
     cancelStuck: false,
   };
 
-  // Kenar çubuğundaki tek satır. Ayrı bir fonksiyon çünkü artık iki kat
-  // (grup > satır) içinde çağrılıyor ve JSX'i yerinde bırakmak listeyi
-  // okunmaz hâle getiriyordu.
-  const renderSessionRow = (session: ChatSession) => {
-    const isActive = activeId === session.id;
-    if (renamingId === session.id) {
-      return (
-        <div
-          key={session.id}
-          className="flex items-center gap-2 rounded-md border border-line bg-control px-2.5 py-1.5"
-        >
-          <input
-            autoFocus
-            value={renameDraft}
-            onChange={(e) => setRenameDraft(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commitRename();
-              } else if (e.key === "Escape") {
-                e.preventDefault();
-                // Escape'te `commitRename` çalışmamalı; blur onu yine
-                // tetiklemesin diye önce state kapatılıyor.
-                setRenamingId(null);
-              }
-            }}
-            onFocus={(e) => e.currentTarget.select()}
-            className="min-w-0 flex-1 rounded bg-app px-2 py-0.5 text-[13px] text-slate-100 outline-none ring-1 ring-accent-500/50"
-          />
-        </div>
-      );
-    }
-    return (
-      <div
-        key={session.id}
-        role="button"
-        tabIndex={0}
-        onClick={() => setActiveId(session.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            setActiveId(session.id);
-          }
-        }}
-        title={session.title}
-        aria-current={isActive ? "true" : undefined}
-        // Keskin köşe (`rounded-md`) + seçilide görünür kenarlık — kullanıcı
-        // isteği, 2026-09-02: *"soldaki paneli daha profesyonel şekilde
-        // düzenleyelim, borderler daha keskin olsun"*. Önceki hap biçim
-        // kaldırıldı.
-        //
-        // Kenarlık HER satırda var, seçili olmayanlarda `transparent`: sadece
-        // seçiliye eklenseydi satır seçildiğinde 2px uzar, liste zıplardı.
-        className={`group flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-[13px] transition-colors ${
-          isActive
-            ? "border-line bg-control text-slate-100"
-            : "border-transparent text-slate-400 hover:bg-hover/60 hover:text-slate-300"
-        }`}
-      >
-        {/* Sohbet ikonu KALDIRILDI (kullanıcı isteği, 2026-09-06: *"chat
-            kısmında sohbetlerin yanındaki iconu kaldıralım"*). Bir sohbet
-            listesinde her satıra "bu bir sohbettir" ikonu koymak bilgi
-            taşımıyordu; kalkınca başlıklar da ~22px daha geniş yer buldu,
-            yani daha azı kırpılıyor. Seçili satırın işareti zaten kendi
-            zemini + kenarlığı. */}
-        <span className="min-w-0 flex-1 truncate">{session.title}</span>
-        {session.pending && (
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-400 opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-400" />
-          </span>
-        )}
-        {/* "Projeye taşı" — yalnızca gidecek bir proje varsa. Proje kurmamış
-            kullanıcıya boş bir menü açan düğme göstermenin anlamı yok.
-            Menü SABİT konumlu (bkz. `moveMenu`): kaydırılan listenin içinde
-            açılsaydı listeyle kayar ve kenar çubuğunun sınırında kırpılırdı. */}
-        {projects.length > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              const rect = e.currentTarget.getBoundingClientRect();
-              // Alt kenara sıkıştırma: listenin en altındaki bir sohbette menü
-              // ekranın dışında açılır ve tıklanamaz olurdu.
-              setMoveMenu({
-                sessionId: session.id,
-                x: rect.left,
-                y: Math.min(
-                  rect.bottom + 4,
-                  window.innerHeight - MOVE_MENU_MAX_H - 8,
-                ),
-              });
-            }}
-            title={t("axetCodeHome.moveToProject")}
-            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <FolderInput size={12} />
-          </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setRenameDraft(session.title);
-            setRenamingId(session.id);
-          }}
-          title={t("axetCodeHome.renameTitle")}
-          className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <Pencil size={12} />
-        </button>
-        {/* Dışa aktarma yalnızca DOLU sohbetlerde: boş bir sohbetin dosyası
-            yalnızca başlıktan ibaret olurdu. Biçim seçimi burada DEĞİL,
-            kaydetme kutusunun kendi "dosya türü" listesinde — bu şeride ikinci
-            bir ikon koymak gürültü olurdu. */}
-        {session.messages.length > 0 && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              void exportSession(session.id);
-            }}
-            title={t("axetCodeHome.exportTitle")}
-            className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100"
-          >
-            <Download size={12} />
-          </button>
-        )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            requestDeleteSession(session.id);
-          }}
-          title={t("axetCodeHome.deleteTitle")}
-          // `focus-visible:opacity-100` olmadan bu buton klavyeyle gezildiğinde
-          // odaklanıyor ama GÖRÜNMÜYORDU.
-          className="shrink-0 cursor-pointer rounded p-1 text-slate-500 opacity-0 transition hover:bg-active hover:text-[var(--status-danger-text)] focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
-    );
-  };
-
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      {/* Kenar çubuğu. Kullanıcı isteğiyle (2026-09-02: *"soldaki paneli daha
-          profesyonel şekilde düzenleyelim, borderler daha keskin olsun"*)
-          Gemini'nin yumuşak/haplı dili burada BİRAKILDI:
-            - sohbet yüzeyinden ton farkıyla değil GERÇEK bir `border-r` ile
-              ayrılıyor,
-            - köşeler `rounded-md`, hap değil.
-          Bölümler arasındaki AYIRICI ÇİZGİLER kaldırıldı (kullanıcı isteği,
-          2026-09-02: *"panelde ayraç lineları olmasa da olur"*) — üç yatay
-          çizgi, 272px'lik bir sütunu dört kutuya bölüp panelin kendisinden
-          çok ızgarasını öne çıkarıyordu. Bölümleri artık boşluk ayırıyor.
-          Genişlik geçişi animasyonlu, çünkü daraltma tek tıkla ve sık yapılan
-          bir hareket. */}
-      <aside
-        className={`flex shrink-0 flex-col overflow-hidden border-r border-line-subtle bg-sidebar transition-[width] duration-200 ${
-          sidebarOpen ? "w-[272px]" : "w-[60px]"
-        }`}
-      >
-        {/* Başlık şeridi: ARAMA + daralt/genişlet. İKİSİ DE SAĞDA (kullanıcı
-            isteği: *"kenar çubuğunu kapatma açma sağ tarafta olsun, yanında
-            arama çubuğu falan olabilir"* → *"sol paneldeki arama ve kenar
-            çubuğu butonları sağ tarafta olacak, solda değil"*) — eskiden solda
-            tek başına bir ☰ vardı ve arama listenin içinde ayrı bir satırdı.
-
-            Arama HEP AÇIK (kullanıcı isteği, 2026-09-04: *"arama kutusu açık
-            olarak gelsin, kapanmasına gerek yok"*). 2026-09-02'de istenen
-            açılır/kapanır büyüteç kaldırıldı — bir tık kazanmak için kutunun
-            varlığını gizlemeye değmiyordu; büyüteç artık sadece bir ikon. */}
-        <div className="flex h-[54px] shrink-0 items-center gap-1.5 px-2.5">
-          {sidebarOpen && (
-            <div className="flex min-w-0 flex-1 items-center rounded-lg bg-control ring-1 ring-inset ring-line focus-within:ring-accent-500/40">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-500">
-                <Search size={14} />
-              </span>
-              <input
-                ref={searchInputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  // Escape metni temizliyor. Kutu artık kapanmadığı için
-                  // "boşsa kapat" dalı da yok. `preventDefault` şart: Escape
-                  // artık süren turu da durduruyor (pencere düzeyinde), aramayı
-                  // temizlerken cevabı iptal etmek istemiyoruz.
-                  if (e.key === "Escape") {
-                    e.preventDefault();
-                    setQuery("");
-                  }
-                }}
-                placeholder={t("axetCodeHome.searchPlaceholder")}
-                title={t("axetCodeHome.searchTitle")}
-                className="min-w-0 flex-1 bg-transparent text-[12px] text-slate-200 outline-none placeholder:text-slate-500"
-              />
-              {query && (
-                <button
-                  onClick={clearSearch}
-                  title={t("axetCodeHome.searchClear")}
-                  className="mr-1 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-active hover:text-slate-300"
-                >
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-          )}
-          {/* Kısayol listesinin GÖRÜNÜR kapısı. F1 tek başına keşfedilemez
-              bir kısayol: bilmeyen kimse denemez. Daralmış şeritte çizilmiyor,
-              çünkü 60px'e iki düğme sığmıyor ve daraltma düğmesinin `mx-auto`
-              ortalaması bozulurdu. */}
-          {sidebarOpen && (
-            <button
-              onClick={() => setShortcutsOpen(true)}
-              title={t("axetCodeHome.shortcutsTitle")}
-              className="flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-hover hover:text-slate-200"
-            >
-              <Keyboard size={16} />
-            </button>
-          )}
-          <button
-            onClick={() => {
-              // Daraltırken süzgeci temizle: 60px'lik şeritte kutu zaten
-              // çizilmiyor, açık kalan süzgeç geri açılınca sürpriz olurdu.
-              if (sidebarOpen) clearSearch();
-              setSidebarOpen((v) => !v);
-            }}
-            title={
-              sidebarOpen
-                ? t("axetCodeHome.collapseSidebar")
-                : t("axetCodeHome.expandSidebar")
-            }
-            className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-hover hover:text-slate-200 ${
-              sidebarOpen ? "" : "mx-auto"
-            }`}
-          >
-            {/* İkon YÖN gösteriyor: kapalıyken "aç", açıkken "kapat". Tek bir
-                ☰ ikonu, düğmenin ne yapacağını söylemiyordu. */}
-            {sidebarOpen ? (
-              <PanelLeftClose size={16} />
-            ) : (
-              <PanelLeft size={16} />
-            )}
-          </button>
-        </div>
-
-        {/* "Yeni sohbet" — TAM GENİŞLİK ve birincil eylem gibi görünüyor
-            (kullanıcı geri bildirimi: *"yeni sohbet çok çirkin yerde
-            duruyor"*). Eskiden başlığın altında sola sıkışmış, zemin
-            rengiyle aynı tonda dar bir haptı; ekranın en sık kullanılan
-            düğmesi olduğu hâlde sıradan bir satır gibi duruyordu.
-            Daraltılmışken metin gidiyor, düğme kalıyor. */}
-        {/* İki eylem YAN YANA, ikisi de renkli ve yazılı (kullanıcı isteği,
-            2026-09-06). Proje kurma eskiden "PROJELER" başlığının içindeki
-            küçük bir "+"tı: hem zor görülüyordu hem de bölümü daraltmamak için
-            tıklamayı durdurmak zorundaydı.
-
-            İkinci renk şart: iki düğme de vurgu mavisi olsaydı hangisinin ne
-            yaptığı bir bakışta okunmazdı (bkz. --project-500-rgb).
-
-            "Yeni sohbet" artık YIKAMA değil DOLGU (kullanıcı isteği,
-            2026-09-06: *"[o günkü limon vurgu] rengini özellikle Yeni sohbet ... için
-            kullanırdım"*, çünkü *"şu an ekranda lime çok az görünüyor"*).
-            Yıkama hâlinde (accent-500/10 + accent-400 metin) düğme yan
-            komşusuyla aynı ağırlıktaydı; ikisi de "bir seçenek" gibi
-            duruyordu. Şimdi ayrım İKİ eksende: dolgu-yıkama ve vurgu-mor.
-            Yan taraftaki "Yeni proje" bilerek yıkama olarak kaldı — iki
-            dolgu yan yana olsaydı hiyerarşi yine düzleşirdi.
-
-            src/ui/buttons.ts'teki "ekranda tek `primary`" kuralına göre bu
-            ekrandaki tek dolgu bu; composer'ın gönder düğmesi de dolgu ama o
-            yalnızca gönderilecek bir şey varken görünüyor, yani durgun
-            ekranda ikisi aynı anda bulunmuyor. */}
-        {/* Sınıf dizesi elde yazılıyor (buttons.ts'in `btn()` kuralının
-            istisnası): daraltılmış hâlde genişlik/padding/hizalama değişiyor,
-            `btn()`'in sabit `px-4`'ü ile çakışırdı.
-
-            Ctrl+N rozeti düğmenin YÜZÜNDEN kalktı, yalnızca tooltip'te: 272px
-            kenar çubuğunda iki yazılı düğme + rozet aynı satıra sığmıyor,
-            rozeti bırakmak "Yeni sohbet" yazısını kırpardı. Daraltılmışken
-            ikisi alt alta 9x9 simge. */}
-        <div className={`flex shrink-0 gap-1.5 px-2.5 pb-2.5 ${sidebarOpen ? "" : "flex-col"}`}>
-          {/* onClick'teki sarmalayıcı ok fonksiyonu şart: `handleNewSession`'ı
-              doğrudan geçmek MouseEvent'i `binding` argümanı sanardı. */}
-          <button
-            onClick={() => handleNewSession()}
-            title={`${t("axetCodeHome.newSession")} (Ctrl+N)`}
-            className={`flex h-9 cursor-pointer items-center rounded-md bg-accent-500 text-[12px] font-semibold text-accent-on transition hover:bg-accent-600 ${
-              sidebarOpen ? "min-w-0 flex-1 justify-center gap-1.5 px-2" : "mx-auto w-9 justify-center"
-            }`}
-          >
-            <Plus size={15} className="shrink-0" />
-            {sidebarOpen && <span className="min-w-0 truncate">{t("axetCodeHome.newSession")}</span>}
-          </button>
-          <button
-            onClick={handleCreateProject}
-            title={t("axetCodeHome.newProject")}
-            className={`flex h-9 cursor-pointer items-center rounded-md border border-[rgb(var(--project-500-rgb)/0.35)] bg-[rgb(var(--project-500-rgb)/0.12)] text-[12px] font-medium text-[var(--project-soft-text)] transition hover:border-[rgb(var(--project-500-rgb)/0.6)] hover:bg-[rgb(var(--project-500-rgb)/0.22)] ${
-              sidebarOpen ? "min-w-0 flex-1 justify-center gap-1.5 px-2" : "mx-auto w-9 justify-center"
-            }`}
-          >
-            <FolderPlus size={15} className="shrink-0" />
-            {sidebarOpen && <span className="min-w-0 truncate">{t("axetCodeHome.newProject")}</span>}
-          </button>
-        </div>
-
-        {/* Daraltılmışken listenin tamamı gizli: 60px'e sığdırılmış kırpık
-            başlıklar okunmuyor, sadece gürültü oluyordu. */}
-        {sidebarOpen && (
-          <>
-            <div className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-2">
-              {/* Projeler — kullanıcının kendi kurduğu, kendi talimatını
-                  taşıyan gruplar (ChatGPT'nin "Projects" karşılığı, kullanıcı
-                  isteği 2026-09-06). SAP grupları bunun ALTINDA ve otomatik.
-                  Proje yokken bölüm hiç çizilmiyor: kurma düğmesi artık "Yeni
-                  sohbet"in yanında, yani boş başlık bir keşif kapısı değil
-                  sadece gürültü olurdu. */}
-              {sessionGroups.projectGroups.length > 0 && (
-                <>
-                  <button
-                    onClick={() => toggleGroup(PROJECTS_SECTION_KEY)}
-                    aria-expanded={groupOpen(PROJECTS_SECTION_KEY)}
-                    className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-2 text-left text-slate-400 transition hover:text-slate-200"
-                  >
-                    {groupOpen(PROJECTS_SECTION_KEY) ? (
-                      <ChevronDown size={12} className="shrink-0" />
-                    ) : (
-                      <ChevronRight size={12} className="shrink-0" />
-                    )}
-                    <Eyebrow as="span" count={projects.length} className="min-w-0 flex-1 group-hover:text-slate-200">
-                      {t("axetCodeHome.projectsTitle")}
-                    </Eyebrow>
-                  </button>
-                  <div
-                    className={
-                      groupOpen(PROJECTS_SECTION_KEY) ? "space-y-0.5" : "hidden"
-                    }
-                  >
-                    {sessionGroups.projectGroups.map((group) => {
-                      const open = groupOpen(group.key);
-                      return (
-                        <div key={group.key}>
-                          <div
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => toggleGroup(group.key)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
-                                toggleGroup(group.key);
-                              }
-                            }}
-                            aria-expanded={open}
-                            title={group.project.name}
-                            className="group/proj flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
-                          >
-                            {open ? (
-                              <ChevronDown
-                                size={12}
-                                className="shrink-0 text-slate-500"
-                              />
-                            ) : (
-                              <ChevronRight
-                                size={12}
-                                className="shrink-0 text-slate-500"
-                              />
-                            )}
-                            <FolderOpen
-                              size={12}
-                              className="shrink-0 text-accent-400"
-                            />
-                            <span className="min-w-0 flex-1 truncate font-medium">
-                              {group.project.name}
-                            </span>
-                            {/* Projede yeni sohbet: sohbet, projenin talimatını
-                            devralarak doğuyor (bkz. handleSendNew). */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleNewSession(null, null, group.project.id);
-                              }}
-                              title={t("axetCodeHome.newChatInProject")}
-                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
-                            >
-                              <Plus size={12} />
-                            </button>
-                            {/* Ad, talimat ve silme TEK kutuda (ChatProjectDialog):
-                            başlığa dört düğme sığmıyordu. */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setProjectDialogId(group.project.id);
-                              }}
-                              title={t("axetCodeHome.projectSettings")}
-                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover/proj:opacity-100"
-                            >
-                              <Settings2 size={12} />
-                            </button>
-                            <span className="shrink-0 text-[10px] text-slate-500">
-                              {group.sessions.length}
-                            </span>
-                          </div>
-                          {open && (
-                            <div className="ml-2 space-y-0.5 border-l border-line-subtle pl-1.5">
-                              {group.sessions.length > 0 ? (
-                                group.sessions.map(renderSessionRow)
-                              ) : (
-                                <div className="px-2 py-1.5 text-[11px] leading-relaxed text-slate-500">
-                                  {t("axetCodeHome.projectEmpty")}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              {/* SAP sohbetleri: sistem başına bir daraltılabilir grup.
-                  Bölüm etiketi yalnızca gerçekten SAP sohbeti varsa
-                  görünüyor — tek bir sisteme bile bağlanmamış kullanıcıya
-                  boş bir başlık göstermenin anlamı yok. */}
-              {sessionGroups.sapGroups.length > 0 && (
-                <>
-                  {/* Bölüm başlığı da daraltılabilir — "Sohbetler" öyleyken
-                      bunun düz bir etiket kalması tutarsızdı (kullanıcı
-                      bildirimi). Buradaki daraltma sistemleri TEK TEK değil,
-                      SAP bölümünün tamamını kapatıyor. */}
-                  <button
-                    onClick={() => toggleGroup(SAP_SECTION_KEY)}
-                    aria-expanded={groupOpen(SAP_SECTION_KEY)}
-                    className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-slate-400 transition hover:text-slate-200"
-                  >
-                    {groupOpen(SAP_SECTION_KEY) ? (
-                      <ChevronDown size={12} className="shrink-0" />
-                    ) : (
-                      <ChevronRight size={12} className="shrink-0" />
-                    )}
-                    <Eyebrow as="span" count={sessionGroups.sapGroups.length} className="min-w-0 flex-1 group-hover:text-slate-200">
-                      {t("axetCodeHome.sapChatsTitle")}
-                    </Eyebrow>
-                  </button>
-                  <div
-                    className={
-                      groupOpen(SAP_SECTION_KEY) ? "space-y-0.5" : "hidden"
-                    }
-                  >
-                    {sessionGroups.sapGroups.map((group) => {
-                      const open = groupOpen(group.key);
-                      return (
-                        <div key={group.key}>
-                          <button
-                            onClick={() => toggleGroup(group.key)}
-                            aria-expanded={open}
-                            title={group.label}
-                            className="group/sys flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-left text-[12px] text-slate-400 transition hover:bg-hover hover:text-slate-200"
-                          >
-                            {open ? (
-                              <ChevronDown
-                                size={12}
-                                className="shrink-0 text-slate-500"
-                              />
-                            ) : (
-                              <ChevronRight
-                                size={12}
-                                className="shrink-0 text-slate-500"
-                              />
-                            )}
-                            <Server
-                              size={12}
-                              className="shrink-0 text-[var(--navy-icon)]"
-                            />
-                            <span className="min-w-0 flex-1 truncate font-medium">
-                              {group.label}
-                            </span>
-                            {/* Bu sistemde yeni sohbet. Elle açılan "Yeni
-                                sohbet" artık "Sohbetler"e düştüğü için, bir
-                                sistemin altına bilerek sohbet eklemenin TEK
-                                yolu bu. `span role="button"`: satırın kendisi
-                                zaten bir <button>, iç içe düğme geçersiz HTML
-                                (proje başlığındaki "+" ile aynı gerekçe). */}
-                            <span
-                              role="button"
-                              tabIndex={0}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleNewSession({
-                                  cwd: group.cwd,
-                                  label: group.label,
-                                });
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  handleNewSession({
-                                    cwd: group.cwd,
-                                    label: group.label,
-                                  });
-                                }
-                              }}
-                              title={t("axetCodeHome.newChatInSystem")}
-                              className="shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover/sys:opacity-100"
-                            >
-                              <Plus size={12} />
-                            </span>
-                            <span className="shrink-0 text-[10px] text-slate-500">
-                              {group.sessions.length}
-                            </span>
-                          </button>
-                          {/* Sol kenar çizgisi: satırların hangi gruba ait
-                              olduğunu daraltma durumundan bağımsız gösteriyor. */}
-                          {open && (
-                            <div className="ml-2 space-y-0.5 border-l border-line-subtle pl-1.5">
-                              {group.sessions.map(renderSessionRow)}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              {/* Sisteme bağlı olmayan sohbetler. Kendi başlığı var ve o da
-                  daraltılabilir — SAP grupları daraltılıp bu bırakılsaydı
-                  tutarsız olurdu. */}
-              {sessionGroups.general.length > 0 && (
-                <div
-                  className={sessionGroups.sapGroups.length > 0 ? "mt-1" : ""}
-                >
-                  <button
-                    onClick={() => toggleGroup(GENERAL_GROUP_KEY)}
-                    aria-expanded={groupOpen(GENERAL_GROUP_KEY)}
-                    className="group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-0.5 pb-1.5 pt-3 text-left text-slate-400 transition hover:text-slate-200"
-                  >
-                    {groupOpen(GENERAL_GROUP_KEY) ? (
-                      <ChevronDown size={12} className="shrink-0" />
-                    ) : (
-                      <ChevronRight size={12} className="shrink-0" />
-                    )}
-                    <Eyebrow as="span" count={sessionGroups.general.length} className="min-w-0 flex-1 group-hover:text-slate-200">
-                      {t("axetCodeHome.generalChatsTitle")}
-                    </Eyebrow>
-                  </button>
-                  {groupOpen(GENERAL_GROUP_KEY) && (
-                    <div className="space-y-0.5">
-                      {sessionGroups.general.map(renderSessionRow)}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {sessions.length > 0 && visibleSessions.length === 0 && (
-                <div className="mt-1 rounded-md border border-line-subtle bg-app px-3 py-3 text-center text-[12px] text-slate-500">
-                  {t("axetCodeHome.searchEmpty", { query: query.trim() })}
-                </div>
-              )}
-
-              {sessions.length === 0 && (
-                <div className="mt-1 rounded-md border border-line-subtle bg-app px-3 py-3 text-center">
-                  <div className="text-[12px] font-medium text-slate-400">
-                    {t("axetCodeHome.emptyTitle")}
-                  </div>
-                  <div className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                    {t("axetCodeHome.emptyHint")}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* SAP bağlantıları dip bloğu. Eskiden başlıksızdı ve listeden
-                yalnızca boşlukla ayrılıyordu; sohbetler artık kendi
-                başlıklarının altında gruplandığı için bu blok da onlardan
-                biri gibi görünmeye başladı — üstüne çizgi ve başlık kondu
-                (kullanıcı isteği, 2026-09-06). Buradaki satırlar sohbet
-                DEĞİL: tıklayınca bağlanıyorlar. */}
-            <div className="shrink-0 border-t border-line-subtle p-2.5 pt-2">
-              <Eyebrow className="px-0.5 pb-1.5">{t("axetCodeHome.systemsTitle")}</Eyebrow>
-              {recentEntries.length > 0 ? (
-                <div className="space-y-0.5">
-                  {recentEntries.slice(0, 3).map((entry) => {
-                    const state = connectivity[entry.service.uuid] ?? "unknown";
-                    const tier = resolveTier(entry.service, tierOverrides);
-                    // ŞU AN BAĞLI OLUNAN sistem. `StatusDot`'tan bambaşka bir
-                    // şey söylüyor ve ikisi karıştırılmamalı: nokta "bu sunucu
-                    // ayakta mı" (sağlık), bu ise "oturum bunun üzerinde"
-                    // (aktiflik). Erişilebilir üç sistem varken hangisine
-                    // bağlı olduğun satırda hiç görünmüyordu — yalnızca hover
-                    // kartını açınca.
-                    //
-                    // Vurgu rengi tam da bu yüzden BURADA doğru: accent yeşili
-                    // uygulamanın her yerinde "seçili/aktif" demek, sağlık
-                    // yeşili (`--status-success-text`) ise noktanın işi. İki
-                    // anlam iki renkte kalıyor.
-                    const connected = activeSap != null && activeSap.uuid === entry.service.uuid;
-                    const connect = () =>
-                      onQuickConnectSap(
-                        entry.path,
-                        entry.service,
-                        entry.itemUuid,
-                      );
-                    return (
-                      // `title={path}` yerine gerçek bir kart: satırda yalnızca
-                      // ad/tier/durum sığıyor, host-port-router-client ise
-                      // bağlanmadan hiç görünmüyordu (bkz. SystemHoverCard).
-                      <SystemHoverCard
-                        key={entry.itemUuid}
-                        service={entry.service}
-                        path={entry.path}
-                        tier={tier}
-                        state={state}
-                        activeSap={activeSap}
-                        onConnect={connect}
-                      >
-                        <button
-                          onClick={connect}
-                          className={`relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-[12px] transition ${
-                            connected
-                              ? "bg-accent-500/10 text-slate-100"
-                              : "text-slate-400 hover:bg-hover hover:text-slate-200"
-                          }`}
-                        >
-                          {/* Şerit ray'daki aktif sekme şeridiyle AYNI dil:
-                              uygulamada "burasısın" hep soldaki 2-3px'lik
-                              vurgu çizgisi. */}
-                          {connected && (
-                            <span className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-accent-500" />
-                          )}
-                          <Server
-                            size={13}
-                            className={`shrink-0 ${connected ? "text-accent-400" : "text-[var(--navy-icon)]"}`}
-                          />
-                          <span
-                            className={`min-w-0 flex-1 truncate ${connected ? "font-medium" : ""}`}
-                          >
-                            {entry.service.name}
-                          </span>
-                          {tier && <TierBadge tier={tier} />}
-                          <StatusDot state={state} />
-                        </button>
-                      </SystemHoverCard>
-                    );
-                  })}
-                  <button
-                    onClick={onOpenSapLauncher}
-                    className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[11px] text-slate-500 transition hover:bg-hover hover:text-slate-300"
-                  >
-                    {t("axetCodeHome.viewAllConnections")}
-                    <ArrowUpRight size={12} />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={onOpenSapLauncher}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded-md border border-line-subtle bg-app px-3 py-2.5 text-[12px] text-slate-500 transition hover:border-line hover:bg-hover hover:text-slate-300"
-                >
-                  <Link2 size={14} className="shrink-0" />
-                  {t("axetCodeHome.connectionsEmpty")}
-                </button>
-              )}
-            </div>
-          </>
-        )}
-      </aside>
-
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-app">
         {sessions.map((session) => (
           <ChatSessionPane
@@ -3177,64 +2362,6 @@ export default function AxetCodeHome({
         }
         onDelete={() => projectDialog && handleDeleteProject(projectDialog.id)}
       />
-
-      {/* "Projeye taşı" menüsü. Arkasındaki saydam katman dışarı tıklamayı
-          yakalıyor — menü, kaydırılan listenin dışında (sabit konumda)
-          çizildiği için listenin kendi tıklamalarıyla kapanmazdı. */}
-      {moveMenu && (
-        <>
-          <div
-            className="fixed inset-0 z-[70]"
-            onClick={() => setMoveMenu(null)}
-          />
-          <div
-            className="chat-scroll fixed z-[71] w-[200px] overflow-y-auto rounded-md border border-line bg-card p-1 shadow-xl"
-            style={{
-              left: moveMenu.x,
-              top: moveMenu.y,
-              maxHeight: MOVE_MENU_MAX_H,
-            }}
-          >
-            {projects.map((project) => {
-              const current = moveTarget?.projectId === project.id;
-              return (
-                <button
-                  key={project.id}
-                  onClick={() =>
-                    handleMoveSession(moveMenu.sessionId, project.id)
-                  }
-                  disabled={current}
-                  title={project.name}
-                  className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-[12px] transition ${
-                    current
-                      ? "cursor-default bg-control text-slate-300"
-                      : "cursor-pointer text-slate-400 hover:bg-hover hover:text-slate-200"
-                  }`}
-                >
-                  <FolderOpen size={12} className="shrink-0 text-accent-400" />
-                  <span className="min-w-0 flex-1 truncate">
-                    {project.name}
-                  </span>
-                </button>
-              );
-            })}
-            {/* Yalnızca bir projedeyken görünüyor: projesiz bir sohbette
-                "projeden çıkar" tıklanacak ama hiçbir şey yapmayan bir satır
-                olurdu. */}
-            {moveTarget?.projectId && (
-              <button
-                onClick={() => handleMoveSession(moveMenu.sessionId, null)}
-                className="mt-1 flex w-full cursor-pointer items-center gap-2 rounded border-t border-line-subtle px-2 py-1.5 pt-2 text-left text-[12px] text-slate-500 transition hover:bg-hover hover:text-slate-300"
-              >
-                <X size={12} className="shrink-0" />
-                <span className="min-w-0 flex-1 truncate">
-                  {t("axetCodeHome.removeFromProject")}
-                </span>
-              </button>
-            )}
-          </div>
-        </>
-      )}
 
       {shortcutsOpen && (
         <div
