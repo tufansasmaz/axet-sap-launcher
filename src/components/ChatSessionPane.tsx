@@ -40,7 +40,7 @@ import ChatComposer from "./ChatComposer";
 import ChatToolRun from "./ChatToolRun";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
 import { useT } from "../i18n";
-import { Eyebrow } from "../ui/Eyebrow";
+import logo from "../assets/logo.svg";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
 // gelirse `Sparkles`'a düşer, yani yeni öneri eklemek bu haritayı
@@ -133,9 +133,6 @@ interface Props {
   modelsLoading: boolean;
   modelsError: string | null;
   attaching: boolean;
-  // Açılış ekranındaki karşılama başlığı ("Günaydın, Tufan" vb.) — saat ve
-  // kullanıcı adı AxetCodeHome tarafında hesaplanıyor, bu bileşen gösteriyor.
-  greeting: string;
   // axet-code'un kendi güncelleme duyurusu; yoksa `null`. Yalnızca AÇILIŞ
   // ekranında gösteriliyor — süren bir sohbetin ortasına sürüm haberi
   // düşürmek, kullanıcının o an baktığı şeyle ilgisiz olurdu.
@@ -199,8 +196,9 @@ interface Props {
 //      alan desen (ChatGPT/Claude) BİLİNÇLİ olarak kullanılmıyor: Gemini'de
 //      yazı kutusu ilk andan itibaren aynı yerde durur, ilk mesajdan sonra
 //      aşağı "zıplamaz".
-//   2. Karşılama SOLA yaslı, büyük ve degradeli (`--chat-hero-*`).
-//   3. Öneriler çip değil KART, ikon kartın sağ altında bir daire içinde.
+//   2. Karşılama ORTALI ve sade: logo + tek soru (2026-09-29; önceden sola
+//      yaslı, degradeli bir selamlamaydı — `--chat-hero-*`).
+//   3. Öneriler çip değil KART; ikon metnin solunda, dairesiz (2026-09-29).
 //
 // Bu kuralların İKİSİ kullanıcı isteğiyle sonradan DEĞİŞTİ (2026-09-02) —
 // geri alınmasınlar diye yazılı:
@@ -220,7 +218,6 @@ export default function ChatSessionPane({
   modelsLoading,
   modelsError,
   attaching,
-  greeting,
   axetUpdate,
   registerTextarea,
   onDraftChange,
@@ -527,44 +524,21 @@ export default function ChatSessionPane({
         className="chat-scroll min-h-0 flex-1 overflow-y-auto px-6"
       >
         {isEmpty ? (
-          // --- AÇILIŞ: sola yaslı degradeli karşılama + öneri kartları ---
-          // `min-h-full` + `justify-center`: içerik dikeyde ortalanır ama
-          // pencere kısaldığında kaymak yerine normal şekilde kaydırılır.
-          <div className={`${COLUMN} animate-panel-fade-in flex min-h-full flex-col justify-center py-10`}>
-            {/* BAŞLIK İKİLİSİ. 2026-09-06'ya kadar iki satır da aynı boyuttaydı
-                (`--chat-hero-size`, yani 40px) ve aynı ağırlıktaydı; tek
-                farkları renkti. Sonuç, ekranın tepesinde 80 piksellik iki eşit
-                ağırlıklı metin bloğuydu — hangisinin başlık hangisinin alt
-                başlık olduğu okunmuyordu, ikisi birlikte "bir duvar" gibi
-                duruyordu (kullanıcı isteği: *"balonun üstündeki yazı ... daha
-                iyi olsun"*).
-
-                Şimdi bir HİYERARŞİ var: selam tam boyda ve yarı kalın, soru
-                onun %48'i ve normal ağırlıkta. Oran sabit bir piksel DEĞİL
-                çünkü başlık boyutu kullanıcı ayarından geliyor (Ayarlar >
-                Görünüm) — 50px'te de 70px'te de aynı ilişki kuruluyor.
-
-                `tracking-tight`: Inter'in geniş harf aralığı büyük puntoda
-                başlığı dağıtıyor; bu boyda -0.02em kelimeleri birbirine
-                bağlayıp tek bir cümle gibi okutuyor.
-
-                Degrade renkleri logonun kendi `mark` gradyanından geliyor
-                (bkz. index.css `--chat-hero-*`). */}
-            <h1 className="bg-gradient-to-r from-[var(--chat-hero-from)] via-[var(--chat-hero-via)] to-[var(--chat-hero-to)] bg-clip-text text-[length:var(--chat-hero-size)] font-semibold leading-[1.1] tracking-tight text-transparent">
-              {greeting}
-            </h1>
-            <p className="mt-2 text-[length:calc(var(--chat-hero-size)*0.48)] font-normal leading-snug tracking-tight text-slate-400">
-              {t("axetCodeHome.heroSubtitle")}
-            </p>
+          // BOŞ EKRAN — ortalı: logo, tek soru, düz kartlar. Renk geçişli
+          // büyük selamlama ve "Hızlı başlangıç" etiketi kalktı (2026-09-29):
+          // yazma kutusu zaten ekranın dibinde bekliyor, üstündeki her şey
+          // yalnız bir başlangıç önerisi. `min-h-full` + `justify-center`:
+          // içerik dikeyde ortalanır ama pencere kısaldığında kaydırılır.
+          <div
+            className={`${COLUMN} animate-panel-fade-in flex min-h-full flex-col items-center justify-center py-10 text-center`}
+          >
+            <img src={logo} alt="" width={40} height={40} className="mb-4 rounded-xl" />
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-100">{t("axetCodeHome.heroSubtitle")}</h1>
 
             {/* axet-code GÜNCELLEMESİ. Kullanıcı isteğiyle (2026-09-07) Ayarlar
                 yerine buraya taşındı: Ayarlar'ı kimse güncelleme haberi için
                 açmıyor, oysa açılış ekranı her sohbet başlangıcında görülüyor.
-
-                Kutu DEĞİL, tek satır. Ekranın bu bölümünün ritmi belli —
-                başlık, altyazı, sonra "HIZLI BAŞLANGIÇ" etiketi ve kartlar; araya
-                çerçeveli bir uyarı kutusu koymak hiyerarşiyi bozardı. Rengi
-                taşıyor, ağırlığı taşımıyor.
+                Kutu DEĞİL, tek satır: rengi taşıyor, ağırlığı taşımıyor.
 
                 Düğme yok: kurulumu bu uygulama yapamıyor, Intune Company Portal
                 dağıtıyor. Tıklanacak bir şey göstermek yanlış söz vermek olurdu. */}
@@ -582,61 +556,25 @@ export default function ChatSessionPane({
               </div>
             )}
 
-            {/* BAĞLAYICI ETİKET. Selamlama ile kartlar arasında 40 piksellik
-                boşluk vardı ve kartlar havada duruyordu: "Bugün ne yapalım?"
-                sorusuyla altındaki üçlü arasında görsel bir bağ yoktu
-                (kullanıcı geri bildirimi, 2026-09-06: *"başlık güzel ama fazla
-                yalnız"*). Bilerek KÜÇÜK ve sessiz — aynı geri bildirimde
-                *"bunu büyük bir başlık yapmazdım, 10-12px muted text
-                yeterli"*. Aşağıdaki "SON ÇALIŞMALAR" başlığıyla aynı biçimde
-                yazılıyor, böylece ekranda iki bölüm olduğu okunuyor. */}
-            <Eyebrow className="mt-8 pb-2.5">{t("axetCodeHome.quickStart")}</Eyebrow>
-
             {/* Dar pencerede tek sütuna iniyor: sabit üç sütunda kartlar
                 ~140px'e sıkışıp metinleri dört-beş satıra bölünüyordu. */}
-            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <div className="mt-6 grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-3">
               {suggestionKeys.map((key, i) => {
                 const Icon = SUGGESTION_ICONS[key] ?? Sparkles;
-                // İkon rengi modül paletinden sırayla dönüyor. Kartların
-                // hangisi olduğu metinden okunuyor zaten; renk, üç kartı tek bir
-                // gri blok olmaktan çıkarıp birbirinden ayırıyor. Sıraya bağlı
-                // olması bilinçli: öneri anahtarları bağlama göre değişiyor
-                // (SAP'lı sohbette başka, boş klasörde başka), yani anahtar
-                // başına sabit bir renk tablosu hem eksik kalırdı hem de bakımı
-                // imkânsız olurdu.
+                // İkon rengi modül paletinden sırayla dönüyor: öneri anahtarları
+                // bağlama göre değişiyor, anahtar başına sabit renk tablosu hem
+                // eksik kalırdı hem bakımı imkânsız olurdu.
                 const tint = SUGGESTION_TINTS[i % SUGGESTION_TINTS.length];
                 return (
                   <button
                     key={key}
+                    type="button"
+                    data-suggestion={key}
                     onClick={() => onSuggestionClick(key)}
-                    // SABİT YÜKSEKLİK KALKTI. `h-[136px]` tek satırlık bir öneri
-                    // için fazlasıyla boştu; kartın içinde metin tepede, ikon
-                    // dipte, arada 70 piksel hiçlik duruyordu. Grid satırları
-                    // zaten varsayılan olarak eşit yükseklikte (`stretch`), yani
-                    // üç kart en uzun metne göre hizalanmaya sabit boy olmadan
-                    // da devam ediyor.
-                    //
-                    // OKUMA SIRASI da düzeldi: ikon artık sağ altta değil sol
-                    // üstte. Göz karta soldan üstten giriyor, önce "ne tür bir
-                    // şey" sonra "ne diyor" okuyor.
-                    //
-                    // Zemin TAM `bg-card`, `/60` DEĞİL: yeni açılmış palette
-                    // 950 ile 900 arasında zaten 7 birim var, %60 saydamlık bunu
-                    // 4'e indiriyor ve kart zeminden ayrılmıyor.
-                    className="group flex cursor-pointer flex-col items-start gap-3 rounded-xl border border-line-subtle bg-card p-4 text-left transition-colors hover:border-line-strong hover:bg-raised"
+                    className="flex cursor-pointer items-start gap-2 rounded-lg border border-line-subtle bg-card px-3 py-2.5 text-sm text-slate-300 transition hover:border-line hover:bg-hover hover:text-slate-100"
                   >
-                    {/* İkon kutusu 28 -> 32px, ikon 14 -> 16px: kartın
-                        içindeki tek görsel çapa buydu ve metnin yanında
-                        cılız kalıyordu. */}
-                    <span
-                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-control transition-colors group-hover:bg-[color-mix(in_srgb,currentColor_16%,transparent)]"
-                      style={{ color: tint }}
-                    >
-                      <Icon size={16} />
-                    </span>
-                    <span className="text-[13px] font-medium leading-snug text-slate-200 transition-colors group-hover:text-white">
-                      {t(`axetCodeHome.${key}` as Parameters<typeof t>[0])}
-                    </span>
+                    <Icon size={15} className="mt-0.5 shrink-0" style={{ color: tint }} />
+                    <span>{t(`axetCodeHome.${key}` as Parameters<typeof t>[0])}</span>
                   </button>
                 );
               })}

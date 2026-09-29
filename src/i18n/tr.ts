@@ -176,7 +176,6 @@ export const tr = {
   "systemCard.reconnect": "Yeniden bağlan",
 
   // Selamlama ile öneri kartları arasındaki küçük bağlayıcı etiket.
-  "axetCodeHome.quickStart": "Hızlı başlangıç",
   // axet-code'un KENDİ güncellemesi (bu uygulamanınki ayrı, o Ayarlar'da).
   // Kurulumu bu uygulama yapamıyor; cümle kullanıcıyı doğru kapıya
   // yönlendiriyor, tıklanacak bir şey vaat etmiyor.
@@ -186,11 +185,6 @@ export const tr = {
     "axet-code {latest} yayınlandı (kurulu: {installed}) — Intune Company Portal üzerinden güncelleyebilirsiniz.",
   "axetCodeHome.emptyTitle": "Henüz bir sohbet yok",
   "axetCodeHome.emptyHint": "axet.code ile konuşmaya başlamak için yeni bir sohbet aç.",
-  "axetCodeHome.greeting.morning": "Günaydın",
-  "axetCodeHome.greeting.afternoon": "İyi günler",
-  "axetCodeHome.greeting.evening": "İyi akşamlar",
-  "axetCodeHome.greeting.night": "İyi geceler",
-  "axetCodeHome.greetingWithName": "{greeting}, {name}",
   "axetCodeHome.heroSubtitle": "Bugün ne yapalım?",
   "axetCodeHome.attachTitle": "Dosya/Görsel Ekle",
   "axetCodeHome.attachFailed": "Dosya eklenemedi: {message}",

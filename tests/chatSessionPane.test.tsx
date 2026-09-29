@@ -61,7 +61,6 @@ const baseProps = () => ({
   modelsLoading: false,
   modelsError: null,
   attaching: false,
-  greeting: "Merhaba",
   axetUpdate: null,
   registerTextarea: vi.fn(),
   onDraftChange: vi.fn(),
@@ -169,5 +168,21 @@ describe("ChatSessionPane liste", () => {
     expect(document.querySelector(".top-9")).toBeNull();
     fireEvent.keyDown(window, { key: "f", ctrlKey: true });
     expect(screen.getByPlaceholderText(/Sohbette ara/).closest(".top-2")).toBeTruthy();
+  });
+});
+
+describe("boş ekran", () => {
+  it("selamlama ve Hızlı başlangıç yok, soru başlığı var", () => {
+    renderPane({ suggestionKeys: ["sgArchitecture", "sgTests", "sgDebug"] });
+    expect(screen.queryByText("Hızlı başlangıç")).toBeNull();
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Bugün ne yapalım?");
+  });
+
+  it("karta tıklamak metni kutuya koyuyor, göndermiyor", () => {
+    const { props } = renderPane({ suggestionKeys: ["sgArchitecture", "sgTests", "sgDebug"] });
+    const card = screen.getAllByRole("button").find((b) => b.dataset.suggestion === "sgArchitecture")!;
+    fireEvent.click(card);
+    expect(props.onSuggestionClick).toHaveBeenCalledTimes(1);
+    expect(props.onSend).not.toHaveBeenCalled();
   });
 });

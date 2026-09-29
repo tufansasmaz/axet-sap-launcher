@@ -51,11 +51,13 @@ describe("Eyebrow", () => {
 });
 
 describe("elle yazılmış bölüm başlığı kalmadı", () => {
-  it("ChatSidebar ve ChatSessionPane'de eski kalıp yok, Eyebrow kullanılıyor", () => {
+  it("ChatSidebar ve ChatSessionPane'de eski kalıp yok, kenar çubuğu Eyebrow kullanıyor", () => {
     for (const name of ["ChatSidebar.tsx", "ChatSessionPane.tsx"]) {
       const text = readFileSync(path.join(__dirname, "..", "src", "components", name), "utf8");
       expect(text).not.toContain("text-[10px] font-semibold uppercase tracking-wider");
-      expect(text).toContain("<Eyebrow");
+      // ChatSessionPane'de artık bölüm başlığı yok: "Hızlı başlangıç" etiketi
+      // boş ekran sadeleşirken bilerek kalktı (2026-09-29).
+      if (name === "ChatSidebar.tsx") expect(text).toContain("<Eyebrow");
     }
   });
 });

@@ -101,14 +101,6 @@ interface Props {
   activeSap: ActiveSapContext | null;
 }
 
-function greetingKey(): "morning" | "afternoon" | "evening" | "night" {
-  const hour = new Date().getHours();
-  if (hour < 6) return "night";
-  if (hour < 12) return "morning";
-  if (hour < 18) return "afternoon";
-  return "evening";
-}
-
 // `axet-code run` her çağrıda TÜM geçmişi transkript olarak yeniden
 // gönderiyor (bkz. axetChat.ts) — CLI'nin kendisi oturum hafızası
 // tutmadığı için bu şart, ama sohbet uzadıkça hem gönderilen prompt boyutu
@@ -2034,8 +2026,6 @@ export default function AxetCodeHome({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prewarmKey]);
 
-  const greeting = useMemo(greetingKey, []);
-
   // axet-code'un güncelleme duyurusu. Değer config'ten geliyor (bkz.
   // axetChatTui.ts `detectUpdateAvailable`), yani uygulama daha hiç oturum
   // açmamışken de dolu olabiliyor. Ana süreç ayrıca kurulu sürümü sondalayıp
@@ -2162,22 +2152,6 @@ export default function AxetCodeHome({
   // Sohbete özel klasörü olmayan sohbetlerin kökü/çalışma klasörü.
   const workspaceDir = config?.axetWorkspaceDir ?? "";
 
-  // "Günaydın" yerine "Günaydın, Tufan". Ad, Ayarlar'daki `chatDisplayName`
-  // (varsayılanı Windows oturum adı); BOŞ bırakılırsa adsız hâle düşüyor —
-  // ekranı başkasına gösteren biri adını kaldırabilmeli. Ayrıca oturum adı
-  // bazı kurumlarda sicil numarası oluyor ("10134570, günaydın" saçma olurdu),
-  // o yüzden ad kullanıcı tarafından düzeltilebilir olmak zorunda.
-  const baseGreeting = t(
-    `axetCodeHome.greeting.${greeting}` as Parameters<typeof t>[0],
-  );
-  const displayName = config?.chatDisplayName?.trim() ?? "";
-  const greetingText = displayName
-    ? t("axetCodeHome.greetingWithName", {
-        greeting: baseGreeting,
-        name: displayName,
-      })
-    : baseGreeting;
-
   // Boş "yeni sohbet" yüzeyi. Gerçek bir kayıt değil — sadece ChatSessionPane'in
   // beklediği şekle bürünmüş bir taslak, böylece açılış ekranı ile sohbet ekranı
   // AYNI bileşen (ve aynı composer) oluyor.
@@ -2214,7 +2188,6 @@ export default function AxetCodeHome({
             modelsLoading={modelsLoading}
             modelsError={modelsError}
             attaching={attaching}
-            greeting={greetingText}
 
             axetUpdate={axetUpdate}
             registerTextarea={(el) => {
@@ -2282,7 +2255,6 @@ export default function AxetCodeHome({
           modelsLoading={modelsLoading}
           modelsError={modelsError}
           attaching={attaching}
-          greeting={greetingText}
 
           axetUpdate={axetUpdate}
           registerTextarea={(el) => {

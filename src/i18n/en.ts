@@ -152,18 +152,12 @@ export const en: Record<TranslationKey, string> = {
   "systemCard.connect": "Connect",
   "systemCard.reconnect": "Reconnect",
 
-  "axetCodeHome.quickStart": "Quick start",
   "axetCodeHome.axetCodeUpdate":
     "axet-code {latest} is out — update it from the Intune Company Portal.",
   "axetCodeHome.axetCodeUpdateVersions":
     "axet-code {latest} is out (installed: {installed}) — update it from the Intune Company Portal.",
   "axetCodeHome.emptyTitle": "No chats yet",
   "axetCodeHome.emptyHint": "Start a new chat to begin talking with axet.code.",
-  "axetCodeHome.greeting.morning": "Good morning",
-  "axetCodeHome.greeting.afternoon": "Good afternoon",
-  "axetCodeHome.greeting.evening": "Good evening",
-  "axetCodeHome.greeting.night": "Good night",
-  "axetCodeHome.greetingWithName": "{greeting}, {name}",
   "axetCodeHome.heroSubtitle": "What are we building today?",
   "axetCodeHome.attachTitle": "Attach File/Image",
   "axetCodeHome.attachFailed": "Could not attach file: {message}",
