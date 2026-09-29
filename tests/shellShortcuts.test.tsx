@@ -102,6 +102,15 @@ describe("/", () => {
     expect(document.activeElement).toBe(search());
   });
 
+  it("Türkçe Q'da Shift+7 ile gelen `/` da odaklıyor", () => {
+    // Türkçe klavyede `/` Shift+7; Shift'e bakan bir koşul kısayolu bozar.
+    setup({ listMode: "sapLauncher" });
+    const button = screen.getByRole("button", { name: "Düğme" });
+    button.focus();
+    expect(fireEvent.keyDown(button, { key: "/", code: "Digit7", shiftKey: true })).toBe(false);
+    expect(document.activeElement).toBe(search());
+  });
+
   it("yazı alanlarında ve terminalde karışmıyor", () => {
     setup();
     for (const name of ["Mesaj", "Terminal girdisi", "Ara"]) {
