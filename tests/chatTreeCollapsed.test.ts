@@ -29,8 +29,6 @@ describe("sohbet ağacı — varsayılan kapalı", () => {
     const effect = src.slice(src.indexOf("const s = activeSession;"));
     const body = effect.slice(0, effect.indexOf("}, [activeSession?.id]);"));
     expect(body.length).toBeGreaterThan(0);
-    for (const key of ["PROJECTS_SECTION_KEY", "GENERAL_GROUP_KEY", "SAP_SECTION_KEY"]) {
-      expect(body).toContain(key);
-    }
+    expect(body).toContain("activeGroupKeys(");
   });
 });

@@ -47,6 +47,16 @@ import { resolveTier } from "../lib/tier";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
 import { chatToMarkdown, safeFileName } from "../lib/chatExport";
 import { chatToPrintHtml } from "../lib/chatPrint";
+import {
+  activeGroupKeys,
+  filterSessions,
+  GENERAL_GROUP_KEY,
+  groupSessions,
+  normalizeSessionQuery,
+  orderSessions,
+  PROJECTS_SECTION_KEY,
+  SAP_SECTION_KEY
+} from "../lib/chatSessionGroups";
 import { useT } from "../i18n";
 import { Eyebrow } from "../ui/Eyebrow";
 
@@ -763,7 +773,7 @@ export default function AxetCodeHome({
         // Projeler sohbetlerden AYRI bir liste ama aynı dosyada. Artık var
         // olmayan bir projeye işaret eden sohbet kaybolmuyor: gruplama
         // bilinmeyen `projectId`'yi yok sayıp sohbeti "Sohbetler"e düşürüyor
-        // (bkz. sessionGroups).
+        // (bkz. src/lib/chatSessionGroups.ts).
         setProjects(result.state.projects ?? []);
         // `result.state.activeId` BİLEREK yok sayılıyor (kullanıcı isteği,
         // 2026-09-04): uygulama her açılışta boş sohbet ekranıyla karşılasın,
@@ -2321,27 +2331,16 @@ export default function AxetCodeHome({
 
   // En son dokunulan sohbet en üstte. Sohbetler artık kalıcı olduğu için
   // ekleme sırası (eskiler üstte) birkaç gün içinde kullanılamaz hâle gelir.
-  const orderedSessions = useMemo(
-    () => sessions.slice().sort((a, b) => b.updatedAt - a.updatedAt),
-    [sessions],
-  );
+  const orderedSessions = useMemo(() => orderSessions(sessions), [sessions]);
 
   // `toLocaleLowerCase("tr")`: "İ"/"I" Türkçede ASCII kurallarıyla
   // küçültülemez — düz `toLowerCase()` ile "İSTEK" araması "istek" başlıklı
   // sohbeti bulamazdı.
-  const normalizedQuery = query.trim().toLocaleLowerCase("tr");
-  const visibleSessions = useMemo(() => {
-    if (!normalizedQuery) return orderedSessions;
-    return orderedSessions.filter(
-      (s) =>
-        s.title.toLocaleLowerCase("tr").includes(normalizedQuery) ||
-        // Başlık ilk mesajdan türetildiği için başlık araması tek başına
-        // yetmiyor — sohbetin İÇİNDE geçen bir terimle de bulunabilmeli.
-        s.messages.some((m) =>
-          m.content.toLocaleLowerCase("tr").includes(normalizedQuery),
-        ),
-    );
-  }, [normalizedQuery, orderedSessions]);
+  const normalizedQuery = normalizeSessionQuery(query);
+  const visibleSessions = useMemo(
+    () => filterSessions(orderedSessions, normalizedQuery),
+    [normalizedQuery, orderedSessions],
+  );
 
   // --- Kenar çubuğu grupları (ChatGPT'nin "projeler" yapısı) ---
   //
@@ -2354,77 +2353,10 @@ export default function AxetCodeHome({
   // sisteme özel ve kalıcı. Etiket olarak `sapLabel` kullanılıyor, yoksa
   // klasör adına düşülüyor: eski (etiketi diske yazılmadan önce kaydedilmiş)
   // sohbetler bile grupsuz kalmıyor.
-  // Bölüm başlıklarının kendi anahtarları. `cwd` hiçbir zaman bu biçimde
-  // olamayacağı için sistem gruplarıyla çakışmıyorlar.
-  const GENERAL_GROUP_KEY = "__general__";
-  const SAP_SECTION_KEY = "__sap__";
-  const PROJECTS_SECTION_KEY = "__projects__";
-  const sessionGroups = useMemo(() => {
-    const byProject = new Map<string, ChatSession[]>();
-    const sap = new Map<
-      string,
-      { key: string; cwd: string; label: string; sessions: ChatSession[] }
-    >();
-    const general: ChatSession[] = [];
-    // Silinmiş bir projeye işaret eden `projectId` YOK SAYILIYOR: sohbet
-    // görünmez bir grubun içinde kaybolmak yerine sistemine/geneline düşüyor.
-    const knownProjects = new Set(projects.map((p) => p.id));
-    for (const s of visibleSessions) {
-      // Proje, `cwd`'yi YENİYOR: proje bilinçli bir seçim, `cwd` ise
-      // bağlantının yan ürünü. Bir SAP sohbeti bir projeye taşındıysa
-      // kullanıcı onu orada görmek istiyor demektir.
-      if (s.projectId && knownProjects.has(s.projectId)) {
-        const list = byProject.get(s.projectId);
-        if (list) list.push(s);
-        else byProject.set(s.projectId, [s]);
-        continue;
-      }
-      const cwd = s.cwd ?? "";
-      // `keepInGeneral`: elle "Yeni sohbet" ile açılmış sohbet. `cwd`'si olsa
-      // bile sistem grubuna girmiyor — bkz. shared/types.ts.
-      if (!cwd || s.keepInGeneral) {
-        general.push(s);
-        continue;
-      }
-      const key = cwd.toLowerCase();
-      const existing = sap.get(key);
-      if (existing) {
-        existing.sessions.push(s);
-      } else {
-        sap.set(key, {
-          key,
-          // Anahtar küçük harfe çevrilmiş; grubun "+" düğmesinin yeni sohbete
-          // vereceği klasör yolu ise ÖZGÜN hâliyle gerekiyor.
-          cwd,
-          label: s.sapLabel || cwd.split(/[\\/]/).filter(Boolean).pop() || cwd,
-          sessions: [s],
-        });
-      }
-    }
-    // `visibleSessions` zaten en yeniden eskiye sıralı, dolayısıyla her grubun
-    // ilk üyesi o grubun en tazesi — gruplar da ona göre sıralanıyor.
-    const sapGroups = Array.from(sap.values()).sort(
-      (a, b) => b.sessions[0].updatedAt - a.sessions[0].updatedAt,
-    );
-    // Projeler SOHBETSİZ de listeleniyor (SAP gruplarının aksine): yeni
-    // kurulan bir proje boş doğuyor ve görünmeseydi kullanıcı onu kurduğunu
-    // sanıp içine sohbet açamazdı. Ama ARAMA sırasında boşlar gizleniyor —
-    // aramanın sonucu, eşleşmesi olmayan başlıklarla dolmamalı.
-    const searching = Boolean(normalizedQuery);
-    const projectGroups = projects
-      .map((project) => ({
-        key: project.id,
-        project,
-        sessions: byProject.get(project.id) ?? [],
-      }))
-      .filter((g) => !searching || g.sessions.length > 0)
-      .sort(
-        (a, b) =>
-          (b.sessions[0]?.updatedAt ?? b.project.createdAt) -
-          (a.sessions[0]?.updatedAt ?? a.project.createdAt),
-      );
-    return { projectGroups, sapGroups, general };
-  }, [normalizedQuery, projects, visibleSessions]);
+  const sessionGroups = useMemo(
+    () => groupSessions(visibleSessions, projects, Boolean(normalizedQuery)),
+    [normalizedQuery, projects, visibleSessions],
+  );
 
   // Yalnızca AÇILMIŞ olanlar tutuluyor: varsayılan kapalı. Açık gelen ağaç
   // bütün sohbetleri bir anda döküyordu; kullanıcı yalnızca başlıkları görüp
@@ -2446,14 +2378,7 @@ export default function AxetCodeHome({
   useEffect(() => {
     const s = activeSession;
     if (!s) return;
-    const keys: string[] = [];
-    if (s.projectId && projects.some((p) => p.id === s.projectId)) {
-      keys.push(PROJECTS_SECTION_KEY, s.projectId);
-    } else if (!s.cwd || s.keepInGeneral) {
-      keys.push(GENERAL_GROUP_KEY);
-    } else {
-      keys.push(SAP_SECTION_KEY, s.cwd.toLowerCase());
-    }
+    const keys = activeGroupKeys(s, projects);
     setOpenGroups((prev) =>
       keys.every((k) => prev[k])
         ? prev
@@ -2624,6 +2549,7 @@ export default function AxetCodeHome({
           }
         }}
         title={session.title}
+        aria-current={isActive ? "true" : undefined}
         // Keskin köşe (`rounded-md`) + seçilide görünür kenarlık — kullanıcı
         // isteği, 2026-09-02: *"soldaki paneli daha profesyonel şekilde
         // düzenleyelim, borderler daha keskin olsun"*. Önceki hap biçim
