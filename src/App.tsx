@@ -976,10 +976,13 @@ export default function App() {
     }
   };
 
-  const handleSaveConfig = async (partial: Partial<AppConfig>) => {
+  // `silent`: Ayarlar'ın ara kayıtları (güncelleme kontrolünden önce
+  // `autoCheckUpdates`) bildirim çıkarmıyor — kullanıcı Kaydet'e basmadı,
+  // "Ayarlar kaydedildi" formdaki öteki düzenlemeleri de kaydedilmiş sandırırdı.
+  const handleSaveConfig = async (partial: Partial<AppConfig>, options?: { silent?: boolean }) => {
     const next = await window.api.saveConfig(partial);
     setConfig(next);
-    pushToast("success", t("app.settingsSaved"));
+    if (!options?.silent) pushToast("success", t("app.settingsSaved"));
   };
 
   const handleDeleteManual = (service: SapService) => {

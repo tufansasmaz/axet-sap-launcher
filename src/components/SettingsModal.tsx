@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   FolderOpen,
   Download,
@@ -28,7 +28,10 @@ interface Props {
   open: boolean;
   onClose: () => void;
   config: AppConfig | null;
-  onSave: (partial: Partial<AppConfig>) => Promise<void>;
+  /** `silent`: "Ayarlar kaydedildi" bildirimi çıkmasın — kullanıcı Kaydet'e
+   *  basmadığı ara kayıtlar için (ör. güncelleme kontrolünden önce
+   *  `autoCheckUpdates`). */
+  onSave: (partial: Partial<AppConfig>, options?: { silent?: boolean }) => Promise<void>;
   onExportManualSystems: () => Promise<void>;
   onImportManualSystems: () => Promise<void>;
 }
@@ -55,11 +58,20 @@ function Section({
   );
 }
 
+// `Field`'ın görünen başlığının kimliği. `SegmentedControl` grubunu bu
+// başlıkla adlandırıyor: ekran okuyucu "Tema, grup" diyor, yalnızca "Koyu,
+// düğme, basılı" değil. Bağlam, çünkü başlık ile kontrol aynı `Field`'da ve
+// kimliği elle taşımak her kullanımda ayrı ayrı unutulabilirdi.
+const FieldLabelContext = createContext<string | undefined>(undefined);
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  const labelId = useId();
   return (
     <div>
-      <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-slate-500">{label}</label>
-      {children}
+      <label id={labelId} className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </label>
+      <FieldLabelContext.Provider value={labelId}>{children}</FieldLabelContext.Provider>
       {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
     </div>
   );
@@ -74,8 +86,13 @@ function SegmentedControl<T extends string>({
   options: { key: T; label: string }[];
   onChange: (key: T) => void;
 }) {
+  const labelledBy = useContext(FieldLabelContext);
   return (
-    <div className="inline-flex items-center gap-0.5 rounded-md border border-line bg-app/40 p-0.5">
+    <div
+      role="group"
+      aria-labelledby={labelledBy}
+      className="inline-flex items-center gap-0.5 rounded-md border border-line bg-app/40 p-0.5"
+    >
       {options.map((option) => (
         <button
           key={option.key}
@@ -170,7 +187,7 @@ function PalettePicker({
             <span id={`${baseId}-${palette}-name`} className="text-sm font-medium text-slate-100">
               {names[palette].name}
             </span>
-            <span id={`${baseId}-${palette}-desc`} className="text-xs text-slate-500">
+            <span id={`${baseId}-${palette}-desc`} className="text-xs text-slate-400">
               {names[palette].description}
             </span>
           </button>
@@ -300,6 +317,28 @@ const EDITED_FIELDS = [
   "autoCheckUpdates"
 ] as const satisfies readonly (keyof AppConfig)[];
 
+/**
+ * Pencere AÇIKKEN gelen yeni `config`'i forma katar, kullanıcının
+ * düzenlemesini ezmeden.
+ *
+ * NEDEN: açık pencerede `config`'i değiştiren yollar var — "Güncellemeleri
+ * Şimdi Kontrol Et" `autoCheckUpdates`'i kaydediyor, "İçe aktar" listeyi
+ * yeniliyor; ikisi de App'te `setConfig` demek. Eskiden form her `config`
+ * değişiminde baştan dolduruluyordu ve kaydedilmemiş düzenleme sessizce
+ * gidiyordu.
+ *
+ * Kural: `previous` (formun en son eşitlendiği `config`) ile formu farklı olan
+ * alan kullanıcının düzenlemesi, o korunuyor. Geri kalan her şey — dokunulmamış
+ * alanlar ve ana sürecin alanları — yeni değeri alıyor.
+ */
+function mergeIntoForm(form: AppConfig, previous: AppConfig, next: AppConfig): AppConfig {
+  const merged: AppConfig = { ...next };
+  for (const field of EDITED_FIELDS) {
+    if (form[field] !== previous[field]) merged[field] = form[field] as never;
+  }
+  return merged;
+}
+
 export default function SettingsModal({
   open,
   onClose,
@@ -317,8 +356,6 @@ export default function SettingsModal({
     sapShcut: null
   });
 
-  useEffect(() => setForm(config), [config]);
-
   useEffect(() => {
     if (!open) return;
     window.api.getAppVersion().then(setAppVersion);
@@ -327,17 +364,32 @@ export default function SettingsModal({
     return unsubscribe;
   }, [open]);
 
-  // Kutuyu her açılışta SIFIRLIYOR. Bileşen kapanınca `null` döndürüyor ama
-  // SÖKÜLMÜYOR — state olduğu gibi duruyor. Sıfırlama olmadan, kaydetmeden
-  // çıkılan bir düzenleme bir sonraki açılışta hâlâ ekranda duruyordu (ve
-  // "kaydedilmemiş" uyarısını da tetiklerdi).
+  // Kutuyu her AÇILIŞTA (kapalı → açık) SIFIRLIYOR. Bileşen kapanınca `null`
+  // döndürüyor ama SÖKÜLMÜYOR — state olduğu gibi duruyor. Sıfırlama olmadan,
+  // kaydetmeden çıkılan bir düzenleme bir sonraki açılışta hâlâ ekranda
+  // duruyordu (ve "kaydedilmemiş" uyarısını da tetiklerdi).
   //
-  // Escape ve ilk odak artık ortak `Modal`'da: Escape `document`'ta
-  // dinleniyor (odak dışarıdayken de çalışıyor), ilk odak gövdenin ilk
-  // öğesine gidiyor. Eskiden panelin kendisine elle odaklanılıyordu.
+  // Açıkken gelen yeni `config` ise formu SIFIRLAMIYOR, `mergeIntoForm` ile
+  // katılıyor (bkz. orada). `syncedRef` formun en son eşitlendiği `config`:
+  // düzenlenmiş alanı düzenlenmemişten ayırmanın ölçüsü.
+  //
+  // Escape ve ilk odak ortak `Modal`'da. İlk odak pencerenin kendisine
+  // (`initialFocus="dialog"`): gövdenin ilk öğesi dil seçimi ve oraya inen
+  // odakta Enter dili değiştiriyordu.
+  const wasOpenRef = useRef(false);
+  const syncedRef = useRef<AppConfig | null>(null);
   useEffect(() => {
+    const wasOpen = wasOpenRef.current;
+    wasOpenRef.current = open;
     if (!open) return;
-    setForm(config);
+    const previous = syncedRef.current;
+    syncedRef.current = config;
+    if (!wasOpen) {
+      setForm(config);
+      return;
+    }
+    if (!config || config === previous) return;
+    setForm((current) => (current && previous ? mergeIntoForm(current, previous, config) : config));
   }, [open, config]);
 
   // Yazarken doğrulama, kaydederken değil — kaydettikten SONRA "bu yol yok"
@@ -393,8 +445,11 @@ export default function SettingsModal({
     onClose();
   };
 
+  // `autoCheckUpdates` kontrolden önce kaydediliyor ama SESSİZ: kullanıcı
+  // Kaydet'e basmadı, "Ayarlar kaydedildi" bildirimi yanıltıcı olurdu (ve
+  // formdaki öteki düzenlemeler kaydedilmiş sanılırdı).
   const handleCheckForUpdates = async () => {
-    await onSave({ autoCheckUpdates: form.autoCheckUpdates });
+    await onSave({ autoCheckUpdates: form.autoCheckUpdates }, { silent: true });
     await window.api.checkForUpdates();
   };
 
@@ -405,6 +460,7 @@ export default function SettingsModal({
       open
       onClose={onClose}
       dirty={isDirty}
+      initialFocus="dialog"
       title={t("settingsModal.title")}
       subtitle={t("settingsModal.subtitle")}
       icon={<SlidersHorizontal size={18} />}
