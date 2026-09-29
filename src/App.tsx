@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import {
-  Search,
   RefreshCw,
   AlertTriangle,
   Plus,
@@ -9,9 +8,7 @@ import {
   TerminalSquare,
   PanelLeftClose,
   PanelLeftOpen,
-  FileText,
-  Server,
-  FolderTree
+  FileText
 } from "lucide-react";
 import type {
   AppConfig,
@@ -41,8 +38,7 @@ import ChatSidebar from "./components/ChatSidebar";
 import SapGuiScriptingHome from "./components/SapGuiScriptingHome";
 import ScriptSidebar from "./components/ScriptSidebar";
 import { ScriptStoreProvider } from "./stores/scriptStore";
-import Tree from "./components/Tree";
-import RecentSystems from "./components/RecentSystems";
+import LogonSidebar from "./components/LogonSidebar";
 import SystemPanel from "./components/SystemPanel";
 import SettingsModal from "./components/SettingsModal";
 import AppConnectionsModal from "./components/AppConnectionsModal";
@@ -60,7 +56,6 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import CertTrustDialog from "./components/CertTrustDialog";
 import Toast, { type ToastMsg } from "./components/Toast";
 import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPanel";
-import FileExplorer from "./components/FileExplorer";
 import FileViewer from "./components/FileViewer";
 import { ChatStoreProvider } from "./stores/chatStore";
 import { flattenLandscape } from "./lib/landscape";
@@ -441,7 +436,10 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
         e.preventDefault();
-        searchInputRef.current?.focus();
+        // Arama kutusu kenar çubuğunda: daraltılmışsa önce açılıyor, odak
+        // kutu çizildikten sonra veriliyor.
+        setSidebarCollapsed(false);
+        requestAnimationFrame(() => searchInputRef.current?.focus());
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -1155,10 +1153,7 @@ export default function App() {
               2. Yükseklik: `py-1.5`ten TÜREYEN yükseklik yerine sabit `h-9`.
                  Dolgudan türeyen yükseklik yazı boyuna göre düğmeden düğmeye
                  1-2px kayıyordu (bkz. src/ui/buttons.ts başlığı).
-              3. Arama kutusu: kenarlık yerine `ring-1 ring-inset` + odakta
-                 vurgu halkası — axet.code kenar çubuğundaki kutunun aynısı.
-                 `ring-inset` şart: dıştan halka, kutuyu komşu düğmelerden 1px
-                 daha uzun gösteriyordu.
+              3. Arama kutusu 2026-09-29'da kenar çubuğuna indi (`LogonSidebar`).
 
             Metinli düğmelerde renk gövdenin KENDİSİNDE (kullanıcı isteği,
             2026-09-06): önceki hâlde renk sadece ikondaydı, gövde nötrdü —
@@ -1201,30 +1196,8 @@ export default function App() {
             <Download size={15} className={`shrink-0 ${loading ? "animate-pulse" : ""}`} />
             {t("app.refetch")}
           </button>
-          <div className="flex h-9 min-w-0 flex-1 items-center rounded-lg bg-control ring-1 ring-inset ring-line focus-within:ring-accent-500/40">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center text-slate-500">
-              <Search size={14} />
-            </span>
-            <input
-              ref={searchInputRef}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" && search) setSearch("");
-              }}
-              placeholder={t("app.searchPlaceholder")}
-              className="min-w-0 flex-1 bg-transparent text-[12px] text-slate-200 outline-none placeholder:text-slate-500"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                title={t("app.clearSearch")}
-                className="mr-1.5 shrink-0 cursor-pointer rounded p-1 text-slate-500 transition hover:bg-active hover:text-slate-300"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          {/* Arama kenar çubuğunda (`LogonSidebar`); boşluk düğmeleri iki yana yaslıyor. */}
+          <div className="min-w-0 flex-1" />
 
           <button
             onClick={handleToggleTerminalPanel}
@@ -1271,69 +1244,34 @@ export default function App() {
                 >
                   {sidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
                 </button>
-                {!sidebarCollapsed && selection && projectDir && (
-                  <div className="ml-auto flex items-center gap-1 rounded-sm border border-line p-0.5">
-                    <button
-                      onClick={() => setLeftPanelMode("systems")}
-                      title={t("app.systemsMode")}
-                      className={`cursor-pointer rounded-sm p-1.5 ${
-                        leftPanelMode === "systems" ? "bg-active text-white" : "text-slate-400 hover:bg-active"
-                      }`}
-                    >
-                      <Server size={14} />
-                    </button>
-                    <button
-                      onClick={() => setLeftPanelMode("files")}
-                      title={t("app.filesMode")}
-                      className={`cursor-pointer rounded-sm p-1.5 ${
-                        leftPanelMode === "files" ? "bg-active text-white" : "text-slate-400 hover:bg-active"
-                      }`}
-                    >
-                      <FolderTree size={14} />
-                    </button>
-                  </div>
-                )}
               </div>
-              {!sidebarCollapsed && leftPanelMode === "files" && selection && projectDir ? (
-                <div className="flex-1 overflow-hidden">
-                  <FileExplorer
-                    rootDir={projectDir}
-                    rootLabel={selection.service.systemId || selection.service.name}
-                    selectedPath={activeFilePath}
-                    onSelectFile={handleOpenFile}
-                    onImportComplete={handleImportComplete}
-                    onRootPicked={handleExplorerRootPicked}
-                    browsable
-                  />
-                </div>
-              ) : (
-                !sidebarCollapsed && (
-                  <div className="flex-1 overflow-y-auto p-3 pt-0">
-                    {loading && !landscape ? (
-                      <div className="px-3 py-6 text-center text-sm text-slate-500">{t("common.loading")}</div>
-                    ) : (
-                      <>
-                        {!search.trim() && (
-                          <RecentSystems
-                            entries={recentEntries}
-                            selectedUuid={selection?.itemUuid ?? null}
-                            connectivity={connectivity}
-                            tierOverrides={config?.systemTiers ?? {}}
-                            onSelect={handleSelect}
-                          />
-                        )}
-                        <Tree
-                          nodes={landscape?.customers ?? []}
-                          search={search}
-                          selectedUuid={selection?.itemUuid ?? null}
-                          connectivity={connectivity}
-                          tierOverrides={config?.systemTiers ?? {}}
-                          onSelect={handleSelect}
-                        />
-                      </>
-                    )}
-                  </div>
-                )
+              {!sidebarCollapsed && (
+                <LogonSidebar
+                  search={search}
+                  onSearchChange={setSearch}
+                  searchInputRef={searchInputRef}
+                  mode={leftPanelMode}
+                  onModeChange={setLeftPanelMode}
+                  files={
+                    selection && projectDir
+                      ? {
+                          rootDir: projectDir,
+                          rootLabel: selection.service.systemId || selection.service.name,
+                          selectedPath: activeFilePath,
+                          onSelectFile: handleOpenFile,
+                          onImportComplete: handleImportComplete,
+                          onRootPicked: handleExplorerRootPicked
+                        }
+                      : null
+                  }
+                  loading={loading && !landscape}
+                  customers={landscape?.customers ?? []}
+                  recentEntries={recentEntries}
+                  selectedUuid={selection?.itemUuid ?? null}
+                  connectivity={connectivity}
+                  tierOverrides={config?.systemTiers ?? {}}
+                  onSelect={handleSelect}
+                />
               )}
             </aside>
           )}
