@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   ArrowDown,
-  ArrowUp,
   ArrowUpCircle,
   BookOpen,
   Bug,
@@ -22,12 +21,10 @@ import {
   Mail,
   MousePointerClick,
   Package,
-  Paperclip,
   Rocket,
   Search,
   Server,
   Sparkles,
-  Square,
   UploadCloud,
   X
 } from "lucide-react";
@@ -36,15 +33,12 @@ import type {
   AxetChatActivityPhase,
   AxetModelEntry,
   AxetTodo,
-  ChatAttachment,
-  FsSearchFilesEntry
+  ChatAttachment
 } from "../../app-electron/shared/types";
-import AttachmentChip from "./AttachmentChip";
 import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./ChatBubble";
+import ChatComposer from "./ChatComposer";
 import ChatToolRun from "./ChatToolRun";
-import ModelSelector from "./ModelSelector";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
-import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import { useT } from "../i18n";
 import { Eyebrow } from "../ui/Eyebrow";
 
@@ -92,23 +86,6 @@ const SUGGESTION_ICONS: Record<string, LucideIcon> = {
 // dönemiyor. Kademeler Tailwind'in kendi kırılma noktalarında: xl (1280px) →
 // 896px, 2xl (1536px) → 1024px. Üstü artık büyümüyor.
 const COLUMN = "mx-auto w-full max-w-3xl xl:max-w-4xl 2xl:max-w-5xl";
-
-// Yazı alanının büyüyebileceği en fazla yükseklik. Sınıftaki `max-h-52` ile
-// AYNI değer olmak zorunda (13rem = 208px): biri CSS'te kırpıyor, diğeri
-// ölçülen yüksekliği kırpıyor ve ayrışırlarsa kutu ya erken duruyor ya da
-// içeride gizli bir kaydırma bırakıyor.
-const COMPOSER_MAX_PX = 208;
-
-// İmlecin SOLUNDA yarım kalmış bir `@dosya` bahsi var mı? Başındaki
-// `(?:^|\s)`, bir e-posta adresinin (`biri@yer.com`) menüyü açmasını engelliyor;
-// `[^\s@]*` ise bahsin boşlukla bittiğini, yani tamamlanmış bir bahsin menüyü
-// yeniden açmadığını söylüyor.
-const MENTION_RE = /(?:^|\s)@([^\s@]*)$/;
-
-// Arama, her tuşta değil bu kadar sessizlik sonrasında yapılıyor. Arama diskte
-// yürüyor (bkz. fsExplorer.searchFiles) — hızlı yazan birinde her harf için bir
-// dizin taraması başlatmak, sonucu ilk harfe ait olan bir yarışa dönerdi.
-const MENTION_DEBOUNCE_MS = 120;
 
 export interface ChatSessionData {
   id: string;
@@ -274,25 +251,6 @@ export default function ChatSessionPane({
   // Aynı bilgi state olarak da tutuluyor: "dibe in" düğmesinin görünürlüğü
   // render'a bağlı, ref tek başına yeniden render tetiklemez.
   const [atBottom, setAtBottom] = useState(true);
-  // Yazı alanının KENDİ referansı. `registerTextarea` yukarıya (AxetCodeHome'a,
-  // odaklanmak için) veriliyor ama yalnızca AKTİF sohbet için — bu bileşenin
-  // yüksekliği kendi başına ayarlaması gerektiğinden burada ayrı bir referans
-  // tutuluyor.
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  // Yazı alanının ARKASINDAKİ boyama katmanı (bkz. composer'daki gerekçe).
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-
-  // --- `@` dosya bahsi ---
-  // `start`, taslaktaki `@` işaretinin indeksi: seçim yapıldığında bahsin
-  // TAMAMININ (işaret dâhil) yerine yol yazılabilsin diye saklanıyor.
-  const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
-  const [mentionItems, setMentionItems] = useState<FsSearchFilesEntry[]>([]);
-  const [mentionIndex, setMentionIndex] = useState(0);
-  // Esc'le kapatılan bahsin `start`'ı. Bu olmadan, kapattıktan sonra yazılan bir
-  // sonraki harf aynı bahsi yeniden açardı — Esc'in hiçbir anlamı kalmazdı.
-  const dismissedStartRef = useRef<number | null>(null);
-  const mentionOpen = mention !== null && mentionItems.length > 0;
-
   // --- sohbet içi arama (Ctrl+F) ---
   // Eşleşme MESAJ düzeyinde: eşleşen balona kaydırılıyor ve balon çerçeveleniyor,
   // metnin içindeki kelime ayrıca boyanmıyor. Boyamak için cevap gövdesindeki
@@ -319,6 +277,13 @@ export default function ChatSessionPane({
   // Hatalı bir cevap da yeniden üretilebilir olmalı — asıl işe yaradığı
   // durumlardan biri zaten "cevap alınamadı" balonu.
   const canRegenerate = !session.pending && !streaming && lastMessage?.role === "assistant";
+
+  // ↑ ile geri çağrılacak son istem. Composer mesaj listesini bilmiyor.
+  const recallText = useMemo(() => {
+    for (let i = session.messages.length - 1; i >= 0; i--)
+      if (session.messages[i].role === "user") return session.messages[i].content;
+    return "";
+  }, [session.messages]);
 
   useEffect(() => {
     if (!stickToBottomRef.current) return;
@@ -391,132 +356,6 @@ export default function ChatSessionPane({
   const currentHitId = searchOpen && searchHits.length > 0 ? searchHits[Math.min(searchIndex, searchHits.length - 1)] : null;
   const hitSet = searchOpen ? new Set(searchHits) : null;
 
-  // Yazı alanının yüksekliği. Bu ölçüm ESKİDEN `onInput`'taydı ve orada
-  // OLMAMASI gerekiyordu: `onInput` yalnızca kullanıcı klavyeyle yazdığında
-  // ateşleniyor. Gönderdikten sonra taslağı React `""` yapıyor, `onInput`
-  // ateşlenmiyor ve inline `style.height`'e yazılmış eski değer olduğu gibi
-  // kalıyordu — kutu, gönderilen çok satırlı mesajın yüksekliğinde ASILI
-  // kalıyordu (kullanıcı bildirimi, 2026-09-04).
-  //
-  // Aynı kör nokta TERS yönde de vardı ve fark edilmemişti: dikte, öneri
-  // kartı, sürüklenen düz metin ve "mesajı düzenle" taslağı PROGRAMATİK
-  // yazıyor, dolayısıyla uzun bir metin kutuya girdiğinde kutu büyümüyordu.
-  // Taslağı tek doğruluk kaynağı yapmak ikisini birden kapatıyor.
-  const measureComposer = useCallback(() => {
-    const el = textareaRef.current;
-    // Gizli panelde `scrollHeight` 0 — o anda ölçmek kutuyu en küçük boya
-    // çökertirdi. Panel görünür olduğu anda `active` değişip yeniden ölçülüyor.
-    if (!el || !active) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
-  }, [active]);
-
-  useEffect(() => {
-    measureComposer();
-  }, [session.draft, measureComposer]);
-
-  // GENİŞLİK değişince de yeniden ölçülmeli, taslak hiç değişmemiş olsa bile.
-  // Yukarıdaki efekt yalnızca taslağa bakıyordu ve şunları kaçırıyordu: dosya
-  // panelinin açılıp kapanması (380px), kenar çubuğunun daraltılması, pencere
-  // boyutlandırma. Üçünde de metin yeniden sarılıyor ama yükseklik eski
-  // kalıyordu — kutu ya metni kırpıyor ya boşuna büyük duruyordu
-  // (kullanıcı bildirimi, 2026-09-23).
-  //
-  // Yalnız genişlik: yüksekliği ZATEN biz yazıyoruz, ona tepki vermek
-  // gözlemciyi kendi kendini besleyen bir döngüye sokardı.
-  const lastWidthRef = useRef(0);
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width ?? 0;
-      if (width === lastWidthRef.current) return;
-      lastWidthRef.current = width;
-      measureComposer();
-    });
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [measureComposer]);
-
-  // Taslak dışarıdan boşaltıldığında (gönderme, yeni sohbet) menü de kapanmalı:
-  // bahsin dayandığı metin artık yok.
-  useEffect(() => {
-    if (session.draft.length === 0) {
-      setMention(null);
-      setMentionItems([]);
-      dismissedStartRef.current = null;
-    }
-  }, [session.draft.length]);
-
-  // Bahis aranıyor. Bağlam klasörü yoksa (`contextPath` null) arama yapılacak
-  // bir kök de yok — menü hiç açılmıyor, `@` düz metin olarak kalıyor.
-  useEffect(() => {
-    const root = contextPath;
-    if (!mention || !root) {
-      setMentionItems([]);
-      return;
-    }
-    let alive = true;
-    const timer = window.setTimeout(async () => {
-      const res = await window.api.searchFiles(root, mention.query);
-      if (!alive) return;
-      setMentionItems(res.ok ? res.entries : []);
-      setMentionIndex(0);
-    }, MENTION_DEBOUNCE_MS);
-    return () => {
-      alive = false;
-      window.clearTimeout(timer);
-    };
-  }, [mention?.query, mention?.start, contextPath]);
-
-  const syncMention = (value: string, caret: number) => {
-    const match = MENTION_RE.exec(value.slice(0, caret));
-    if (!match) {
-      dismissedStartRef.current = null;
-      setMention(null);
-      return;
-    }
-    const start = caret - match[1].length - 1;
-    if (dismissedStartRef.current === start) return; // Esc'le kapatılmıştı
-    dismissedStartRef.current = null;
-    setMention({ query: match[1], start });
-  };
-
-  const applyMention = (entry: FsSearchFilesEntry) => {
-    if (!mention) return;
-    const el = textareaRef.current;
-    const caret = el?.selectionStart ?? session.draft.length;
-    const before = session.draft.slice(0, mention.start);
-    const after = session.draft.slice(caret);
-    // Ters bölü ileri bölüye çevriliyor: yol PROMPT METNİNE giriyor ve `\s`
-    // gibi bir dizi kaçış dizisi gibi okunabilir. İleri bölüyü Windows da
-    // kabul ediyor.
-    //
-    // Sondaki BOŞLUK zorunlu, süs değil: axet-code'un kendi TUI'si `@`
-    // görünce bir tamamlama menüsü açıyor ve menü açıkken Enter göndermiyor
-    // (ölçüm ve kalıcı düzeltme: axetChatTui.ts `closeMentionMenus`).
-    const inserted = `@${entry.rel.replace(/\\/g, "/")} `;
-    onDraftChange(`${before}${inserted}${after}`);
-    setMention(null);
-    setMentionItems([]);
-    dismissedStartRef.current = null;
-    // Bir sonraki boyamada: imleç eklenen yolun ARDINA konuyor, yoksa metnin
-    // başına düşer ve yazmaya devam etmek imkânsız olur.
-    requestAnimationFrame(() => {
-      const node = textareaRef.current;
-      if (!node) return;
-      const pos = before.length + inserted.length;
-      node.focus();
-      node.setSelectionRange(pos, pos);
-    });
-  };
-
-  const dismissMention = () => {
-    if (mention) dismissedStartRef.current = mention.start;
-    setMention(null);
-    setMentionItems([]);
-  };
-
   const handleScroll = () => {
     const el = messagesRef.current;
     if (!el) return;
@@ -572,17 +411,6 @@ export default function ChatSessionPane({
     // "ek" muamelesi görüyordu, çünkü ekler zaten metne yazılıyordu.)
     const text = dt.getData("text/plain");
     if (text) onDraftChange(session.draft ? `${session.draft} ${text}` : text);
-  };
-
-  // Gönderilecek bir şey var mı: yazı ya da tek başına bir ek.
-  const canSend = session.draft.trim().length > 0 || session.attachments.length > 0;
-
-  const handlePaste = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const files = e.clipboardData?.files;
-    if (!files || files.length === 0) return; // düz metin yapıştırma — textarea'nın native davranışına bırak
-    e.preventDefault();
-    const paths = await resolveFilesToPaths(Array.from(files));
-    onFilesResolved(paths);
   };
 
   return (
@@ -989,268 +817,31 @@ export default function ChatSessionPane({
           </div>
         )}
 
-        {/* `relative`: `@` menüsü composer kutusuna göre, ONUN ÜSTÜNDE
-            konumlanıyor. */}
-        <div className={`${COLUMN} relative`}>
-          {mentionOpen && (
-            <MentionMenu
-              items={mentionItems}
-              index={mentionIndex}
-              onHover={setMentionIndex}
-              onPick={applyMention}
-            />
-          )}
-          {/* Composer — TEK SATIR, tek kutunun içinde:
-                [ataç] [yazı alanı] [mikrofon] [model] [gönder]
-              Bir ara yazı alanı ile araç çubuğu ayrı satırlardaydı; kullanıcı
-              geri aldırdı (2026-09-02: *"chat box çok kalın, tek box'ın içine
-              gömülü şekilde tek satıra indir"*). İki satırlı hâl kutuyu boş
-              bir sohbette ~90px yüksekliğe çıkarıyordu.
-
-              Tek satırın bedeli, model seçicisinin dar pencerede yazı
-              alanından yer çalması. Karşılığı `ghost` varyantının dar etiketi
-              (bkz. ModelSelector) — kutuyu inceltmek bundan daha önemli.
-
-              Ekler kutunun İÇİNDE, ayrı bir üst satırda: kullanıcı geri
-              bildirimi, 2026-09-02 — *"yolu gitmesin, chatte yukarıda
-              gözüksün"*. Kutunun dışında ayrı bir şerit olsaydı gönderilecek
-              şeyle görsel bağı kopardı.
-
-              `items-end`: yazı alanı büyüdükçe düğmeler dipte kalır, satırın
-              ortasında asılı kalmaz.
-
-              KİMLİĞİ BİLEŞENDEN DEĞİL DURUMDAN ALIYOR (kullanıcı kararı,
-              2026-09-06: *"daha fazla komponent değil, daha iyi state'ler"*).
-              Kutu ekranın en önemli öğesi ama durgun hâlde bir karttan farksız
-              görünüyordu; ayrımı yükseklik ya da yeni düğmeler ekleyerek değil
-              üç kademeli bir geri bildirimle kuruyoruz:
-
-                durgun → `line-subtle`   (neredeyse görünmez, ekranı yormuyor)
-                hover  → `line`          (fare yaklaşınca kutu kendini gösterir)
-                odak   → vurgu kenarlık + `--accent-glow` halesi
-
-              Hale `shadow`, `ring` DEĞİL: `ring` kenarlığın ÜSTÜNE keskin bir
-              ikinci çizgi koyuyor ve iki hatlı bir çerçeve gibi okunuyor;
-              gölge dışa doğru yumuşayıp "aydınlanma" etkisi veriyor. 3px ve
-              %16 alfa kasıtlı — kutunun dikkat çekmesi yeter, parlaması değil.
-
-              Yükseklik HİÇBİR durumda değişmiyor: kenarlık kalınlığı sabit,
-              gölge yer kaplamıyor. Odaklanınca zıplayan bir kutu, tek satıra
-              indirilmiş olmasının bütün kazancını geri verirdi.
-
-              HOVER NEDEN `:not(:focus-within)` İLE KOŞULLU: düz `hover:` ile
-              yazıldığında vurgu kenarlık ÇOĞU ZAMAN hiç görünmüyor. Tailwind
-              `hover:` kurallarını `focus-within:` kurallarından SONRA basıyor
-              ve ikisinin özgüllüğü eşit — yani kutu hem odaklı hem fare
-              üstündeyken kazanan gri `line` oluyor. Ve bu istisnai bir durum
-              değil, ana yol: kullanıcı kutuya tıklayarak odaklanıyor, fare de
-              doğal olarak orada kalıyor. */}
-          <div className="rounded-2xl border border-line-subtle bg-card px-2 py-1.5 transition [&:hover:not(:focus-within)]:border-line focus-within:border-accent-500 focus-within:bg-raised focus-within:shadow-[0_0_0_3px_var(--accent-glow)]">
-            {session.attachments.length > 0 && (
-              <div className="flex flex-wrap gap-2 px-1 pb-2 pt-1">
-                {session.attachments.map((a) => (
-                  <AttachmentChip key={a.id} attachment={a} variant="composer" onRemove={onRemoveAttachment} />
-                ))}
-              </div>
-            )}
-            <div className="flex items-end gap-1">
-              <button
-                onClick={onAttachFiles}
-                disabled={attaching}
-                title={t("axetCodeHome.attachTitle")}
-                className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-slate-400 transition hover:bg-hover hover:text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Paperclip size={16} />
-              </button>
-              {/* Yazı alanı + BOYAMA KAPLAMASI.
-                  Bir `textarea`nın içindeki metnin bir parçası tek başına
-                  renklendirilemez; standart çözüm, aynı yazı ölçüleriyle
-                  çizilmiş bir katmanı arkasına koymak. Metni GÖSTEREN bu
-                  katman, `textarea`nın kendi metni saydam (yalnızca imleç ve
-                  seçim görünür). İkisinin yazı boyu/satır yüksekliği/dolgusu
-                  ve sarma kuralı BİREBİR aynı olmak zorunda — ayrışırlarsa
-                  yazılan metinle görünen metin kayar. */}
-              <div className="relative min-w-0 flex-1">
-                <div
-                  ref={overlayRef}
-                  aria-hidden
-                  // `pr-[10px]` kaydırma çubuğunun karşılığı: yazı alanı
-                  // `overflow-y-scroll` ile o 10px'i HER ZAMAN ayırıyor
-                  // (bkz. index.css `::-webkit-scrollbar`). Çubuk yalnızca
-                  // taslak uzayınca çıksaydı, çıktığı anda yazı alanının satır
-                  // genişliği 10px daralır, kaplamanınki daralmaz ve boyama
-                  // metinden kayardı.
-                  className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words py-[7px] pr-[10px] text-[length:var(--chat-font-size)] leading-[22px] text-slate-200"
-                >
-                  {renderWithMentions(session.draft, MENTION_CLASS)}
-                </div>
-                <textarea
-                  ref={(el) => {
-                    textareaRef.current = el;
-                    registerTextarea(el);
-                  }}
-                  // Kutu kendi içinde kaydığında (uzun taslak) kaplama da aynı
-                  // kadar kaymalı, yoksa boyama metnin gerisinde kalır.
-                  onScroll={(e) => {
-                    if (overlayRef.current) overlayRef.current.scrollTop = e.currentTarget.scrollTop;
-                  }}
-                  value={session.draft}
-                  onChange={(e) => {
-                    onDraftChange(e.target.value);
-                    syncMention(e.target.value, e.target.selectionStart ?? e.target.value.length);
-                  }}
-                  // İmleci klavyeyle/fareyle taşımak da bahsi değiştirir: yazmayı
-                  // bırakıp sola gitmek yarım bir bahsin içine düşebiliyor.
-                  onSelect={(e) => {
-                    const el = e.currentTarget;
-                    syncMention(el.value, el.selectionStart ?? el.value.length);
-                  }}
-                  onKeyDown={(e) => {
-                    // Menü açıkken ok tuşları ve Enter MENÜNÜN — Enter'ın burada
-                    // göndermemesi kritik: kullanıcı bir dosya seçmek üzere.
-                    if (mentionOpen) {
-                      if (e.key === "ArrowDown") {
-                        e.preventDefault();
-                        setMentionIndex((i) => (i + 1) % mentionItems.length);
-                        return;
-                      }
-                      if (e.key === "ArrowUp") {
-                        e.preventDefault();
-                        setMentionIndex((i) => (i - 1 + mentionItems.length) % mentionItems.length);
-                        return;
-                      }
-                      if (e.key === "Enter" || e.key === "Tab") {
-                        e.preventDefault();
-                        applyMention(mentionItems[mentionIndex] ?? mentionItems[0]);
-                        return;
-                      }
-                      if (e.key === "Escape") {
-                        e.preventDefault();
-                        dismissMention();
-                        return;
-                      }
-                    }
-                    // Kutu BOŞKEN yukarı ok = son mesajın metnini GERİ ÇAĞIR.
-                    // Terminaldeki geçmiş çağırma gibi: metin kutuya gelir,
-                    // sohbetten SİLİNMEZ.
-                    //
-                    // Önce düzenleme kipini (kalem düğmesi) açıyordu ve
-                    // kullanıcı bunu haklı olarak yanlış buldu (2026-09-05:
-                    // *"yukarı basınca mesajı geri alarak son yazdığımı aşağı
-                    // alıyor"*): tek bir ok tuşunun sohbetin kuyruğunu kesmesi
-                    // ağır bir yan etki. Düzenleme kalem düğmesinde kaldı.
-                    //
-                    // Boşluk şartı pazarlık dışı: taslak varken ↑ imleci
-                    // taşımalı, yoksa çok satırlı bir metinde gezinmek
-                    // imkânsızlaşır. Bunun bir sonucu, art arda basıp geçmişte
-                    // geri geri yürümenin olmaması — ilk basışta kutu doluyor.
-                    if (e.key === "ArrowUp" && !e.shiftKey && session.draft === "" && !session.pending) {
-                      const last = [...session.messages].reverse().find((m) => m.role === "user");
-                      if (last?.content) {
-                        e.preventDefault();
-                        onDraftChange(last.content);
-                        // İmleç sona: kullanıcı çoğunlukla eklemek için çağırır.
-                        requestAnimationFrame(() => {
-                          const el = textareaRef.current;
-                          if (el) el.setSelectionRange(el.value.length, el.value.length);
-                        });
-                        return;
-                      }
-                    }
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      onSend();
-                    }
-                  }}
-                  onPaste={handlePaste}
-                  placeholder={t("axetCodeHome.composerPlaceholder")}
-                  rows={1}
-                  // Yazdığın metin okuduğun metinle AYNI boyutta olmalı — yazı
-                  // boyutu ayarı composer'ı da kapsıyor. `min-h`/dikey boşluk,
-                  // yandaki 36px'lik düğmelerle aynı yüksekliği tutturuyor.
-                  // Yükseklik burada DEĞİL, taslağa bakan bir efektte ayarlanıyor
-                  // (bkz. yukarıdaki not) — `onInput` klavye dışındaki taslak
-                  // değişikliklerini görmüyordu.
-                  // `text-transparent`: metni kaplama çiziyor. `caret-slate-200`
-                  // ŞART — saydam metinle birlikte imleç de kaybolurdu.
-                  // `placeholder:` kuralı daha özgül olduğu için yer tutucu
-                  // saydamlıktan etkilenmiyor.
-                  //
-                  // `block` PAZARLIK DIŞI (kullanıcı isteği, 2026-09-06:
-                  // *"sohbet boxının içindeki butonlar yazılar ortalanmış
-                  // değil"*). Tailwind'in preflight'ı `textarea`yı `block`
-                  // YAPMIYOR — satır içi bir kutu olarak kalıyor ve satır
-                  // kutusunun taban çizgisinin ALTINDA ~4px'lik iniş boşluğu
-                  // bırakıyor. Sonuç: sarmalayıcı 36px değil 40px oluyordu,
-                  // satır `items-end` hizalandığı için düğmeler dibe
-                  // yapışırken yazı 4px yukarıda asılı kalıyordu. Gözle
-                  // "biraz kaymış" görünen buydu; `block` satır kutusunu
-                  // tamamen ortadan kaldırıyor.
-                  className="relative block max-h-52 min-h-[36px] w-full resize-none overflow-y-scroll bg-transparent py-[7px] text-[length:var(--chat-font-size)] leading-[22px] text-transparent caret-slate-200 outline-none placeholder:text-slate-500"
-                />
-              </div>
-              {/* Buradaki mikrofon düğmesi 2026-09-07'de KALDIRILDI: tanıma
-                  güvenilir çalışmıyordu ve gömülü whisper.cpp çalışma zamanı
-                  kuruluma tek başına ~297 MB ekliyordu. Geri istenirse
-                  6c42f8f öncesindeki sürümde duruyor. */}
-              <ModelSelector
-                models={models}
-                current={session.model}
-                loading={modelsLoading}
-                error={modelsError}
-                onSelect={onSelectModel}
-                // Tetikleyici ekranın DİBİNDE — menü yukarı açılmalı.
-                direction="up"
-                variant="ghost"
-              />
-              {/* Sağdaki düğme HER ZAMAN çiziliyor — durdur ya da gönder,
-                  ikisi de 36px.
-
-                  2026-09-23'e kadar gönder düğmesi gönderilecek bir şey
-                  yokken hiç çizilmiyordu (Gemini deseni). Bedeli satırın
-                  GENİŞLİĞİYDİ: ilk harfte düğme satıra giriyor, yazı alanı
-                  ~40px daralıyor ve yazılmakta olan metin yeniden sarılıyordu.
-                  Aynı sıçrama taslak boşalınca ve cevap bitip durdur düğmesi
-                  kaybolunca ters yönde tekrarlanıyordu — kullanıcının
-                  "kaymalar oluyor" dediği şey buydu (2026-09-23).
-
-                  Boşken soluk ve tıklanamaz duruyor; yer kaplamasının bedeli
-                  36px, kaymasının bedeli yazarken zıplayan bir kutuydu. Tek
-                  başına bir ek de gönderilebilir — bir görsel bırakıp "bu ne?"
-                  yazmadan göndermek meşru bir kullanım. */}
-              {session.pending ? (
-                <button
-                  onClick={onCancel}
-                  title={t("axetCodeHome.stopGenerating")}
-                  className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md bg-active text-slate-200 transition hover:bg-active"
-                >
-                  <Square size={13} />
-                </button>
-              ) : (
-                <button
-                  onClick={onSend}
-                  disabled={!canSend}
-                  title={t("axetCodeHome.send")}
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition ${
-                    canSend
-                      ? "cursor-pointer bg-accent-500 text-accent-on hover:bg-accent-600"
-                      : "cursor-not-allowed bg-active text-slate-600"
-                  }`}
-                >
-                  <ArrowUp size={16} />
-                </button>
-              )}
-            </div>
-          </div>
+        <div className={COLUMN}>
+          <ChatComposer
+            active={active}
+            draft={session.draft}
+            attachments={session.attachments}
+            pending={session.pending}
+            recallText={recallText}
+            models={models}
+            model={session.model}
+            modelsLoading={modelsLoading}
+            modelsError={modelsError}
+            onSelectModel={onSelectModel}
+            attaching={attaching}
+            onAttachFiles={onAttachFiles}
+            onRemoveAttachment={onRemoveAttachment}
+            onFilesResolved={onFilesResolved}
+            registerTextarea={registerTextarea}
+            onDraftChange={onDraftChange}
+            onSend={onSend}
+            onCancel={onCancel}
+            contextPath={contextPath}
+            contextTokens={session.contextTokens}
+            contextLimit={session.contextLimit}
+          />
         </div>
-
-        {/* Feragat satırı + bağlam doluluğu. Doluluk AYRI bir şeride
-            konmadı: ekranın dibinde ikinci bir satır açmak, composer'ın
-            zaten dar olan alanını yiyordu. */}
-        <p className="mt-2 text-center text-[11px] text-slate-500">
-          {t("axetCodeHome.disclaimer")}
-          <ContextMeter tokens={session.contextTokens} limit={session.contextLimit} />
-        </p>
       </div>
       </div>
 
@@ -1258,65 +849,6 @@ export default function ChatSessionPane({
           kademeli genişliğiyle (bkz. COLUMN) çakışırdı — sohbetin genişliği
           zaten pencereye göre ayarlanıyor. */}
       {filesPanelOpen && filesPanel && <div className="w-[380px] shrink-0">{filesPanel}</div>}
-    </div>
-  );
-}
-
-/**
- * `@` ile açılan dosya listesi — composer'ın ÜSTÜNDE.
- *
- * Aşağı açılmıyor: kutu zaten ekranın dibinde, aşağıda yer yok.
- *
- * Fare seçimi `onMouseDown` üzerinde ve `preventDefault`'lu: `onClick`
- * beklenseydi, tıklamanın başında yazı alanı odağı kaybeder, imleç konumu
- * (`selectionStart`) belirsizleşir ve yol yanlış yere eklenirdi.
- */
-function MentionMenu({
-  items,
-  index,
-  onHover,
-  onPick
-}: {
-  items: FsSearchFilesEntry[];
-  index: number;
-  onHover: (i: number) => void;
-  onPick: (entry: FsSearchFilesEntry) => void;
-}) {
-  const listRef = useRef<HTMLDivElement | null>(null);
-  // Klavyeyle seçilen satır kırpılan alanın dışına çıkabiliyor; ok tuşuyla
-  // ilerlerken listenin kendiliğinden kaymaması "menü dondu" gibi okunuyor.
-  useEffect(() => {
-    const el = listRef.current?.children[index] as HTMLElement | undefined;
-    el?.scrollIntoView({ block: "nearest" });
-  }, [index]);
-  return (
-    <div
-      ref={listRef}
-      className="chat-scroll absolute bottom-full left-0 right-0 z-20 mb-2 max-h-64 overflow-auto rounded-xl border border-line bg-card py-1 shadow-lg"
-    >
-      {items.map((entry, i) => {
-        const rel = entry.rel.replace(/\\/g, "/");
-        const slash = rel.lastIndexOf("/");
-        const name = slash >= 0 ? rel.slice(slash + 1) : rel;
-        const dir = slash >= 0 ? rel.slice(0, slash) : "";
-        return (
-          <div
-            key={entry.path}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              onPick(entry);
-            }}
-            onMouseEnter={() => onHover(i)}
-            className={`flex cursor-pointer items-baseline gap-2 px-3 py-1.5 text-[12px] ${
-              i === index ? "bg-control text-slate-100" : "text-slate-300"
-            }`}
-          >
-            <FileCode size={12} className="shrink-0 self-center text-slate-500" />
-            <span className="shrink-0">{name}</span>
-            {dir && <span className="truncate text-[11px] text-slate-500">{dir}</span>}
-          </div>
-        );
-      })}
     </div>
   );
 }
@@ -1376,43 +908,5 @@ function PlanPanel({ todos }: { todos: AxetTodo[] }) {
         </ul>
       )}
     </div>
-  );
-}
-
-/**
- * Bağlam doluluğu — feragat satırının devamında tek bir yüzde.
- *
- * NEDEN YÜZDE, NEDEN JETON DEĞİL: ham sayı ("128.884 jeton") kullanıcıya
- * hiçbir şey söylemiyor; anlamlı olan pencerenin ne kadarının dolduğu, çünkü
- * %80'de oturum kendiliğinden yenileniyor (bkz. axetChatTui.ts
- * `CONTEXT_ROTATE_AT`) ve o an sohbetin belleği sıfırlanıyor. Kullanıcının
- * bunun geldiğini görebilmesi gerekiyor.
- *
- * MALİYET GÖSTERİLMİYOR. `sessions.cost` canlı veritabanında her oturumda 0
- * (ölçüm 2026-09-05, 8 oturum): kurumsal portal üzerinden sağlayıcı fiyat
- * bildirmiyor. Ekranda kalıcı bir "0,00 $" göstermek bilgi değil, uydurma
- * bir rakam olurdu — bu yüzden alan hiç okunmuyor.
- *
- * %60'a kadar sessiz gri; üstünde uyarı, %80'de tehlike rengine geçiyor.
- */
-function ContextMeter({ tokens, limit }: { tokens: number; limit: number }) {
-  const t = useT();
-  // Ölçüm gelmeden hiçbir şey yazılmıyor: "%0" ile "henüz bilmiyoruz" aynı
-  // şey değil ve ilki yanlış bir güven veriyor.
-  if (limit <= 0 || tokens <= 0) return null;
-  const pct = Math.min(100, Math.round((tokens / limit) * 100));
-  const tone =
-    pct >= 80
-      ? "text-[var(--status-danger-text)]"
-      : pct >= 60
-        ? "text-[var(--status-warning-text)]"
-        : "text-slate-500";
-  return (
-    <>
-      <span className="text-slate-600"> · </span>
-      <span className={tone} title={t("chatPlan.contextTitle", { tokens: tokens.toLocaleString() })}>
-        {t("chatPlan.context", { pct: String(pct) })}
-      </span>
-    </>
   );
 }

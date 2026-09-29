@@ -2,7 +2,7 @@ import { Fragment, type ReactNode } from "react";
 
 // `@dosya/yol` bahsi. `(^|\s)` başı, e-posta adreslerinin (`biri@yer.com`) bahis
 // sanılmasını engelliyor; `[^\s@]+` de bahsin ilk boşlukta bittiğini söylüyor.
-// ChatSessionPane'deki `MENTION_RE` ile aynı kural — ama o, imlecin solunda
+// ChatComposer'daki `MENTION_RE` ile aynı kural — ama o, imlecin solunda
 // YARIM KALMIŞ bir bahsi arıyor (`*` ve `$` ile), bu ise metindeki TAMAMLANMIŞ
 // bahisleri buluyor. Aynı ifadeyi paylaşamıyorlar.
 const MENTION_G = /(^|\s)(@[^\s@]+)/g;
