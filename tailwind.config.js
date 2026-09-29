@@ -128,6 +128,12 @@ export default {
         xl: ["20px", { lineHeight: "1.3" }],
         "2xl": ["24px", { lineHeight: "1.3" }]
       },
+      // Mono yığını: gömülü JetBrains Mono (bkz. src/index.css), yoksa
+      // sistemin mono yazı tipi. Terminal (xterm) bunu kullanmıyor, kendi
+      // yığını var (EmbeddedTerminal.tsx).
+      fontFamily: {
+        mono: ["JetBrains Mono Variable", "ui-monospace", "Cascadia Mono", "Consolas", "monospace"]
+      },
       // Katmanlar adla: `z-[60]` gibi elle yazılmış sayılar hangi pencerenin
       // hangisinin üstünde durduğunu okunmaz yapıyordu. Bildirim (`toast`) en
       // üstte — eskiden `z-50`'deydi ve açık bir pencerenin ARKASINDA kalıyordu.
