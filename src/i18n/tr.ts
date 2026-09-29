@@ -724,6 +724,20 @@ export const tr = {
   // Cevabın üstündeki katlanır araç dökümünün başlığı.
   "chatBubble.stepsToggle": "{count} işlem",
 
+  // --- Araç satırı (bkz. ChatToolRun) ---
+  "chatToolRun.count": "{count} araç işlemi",
+  "chatToolRun.running": "çalışıyor",
+  "chatToolRun.kind.view": "Okuma",
+  "chatToolRun.kind.edit": "Düzenleme",
+  "chatToolRun.kind.write": "Yazma",
+  "chatToolRun.kind.bash": "Komut",
+  "chatToolRun.kind.glob": "Dosya arama",
+  "chatToolRun.kind.grep": "İçerik arama",
+  "chatToolRun.kind.ls": "Klasör",
+  "chatToolRun.kind.fetch": "İnternet",
+  "chatToolRun.kind.agent": "Alt ajan",
+  "chatToolRun.kind.todo": "Görev listesi",
+
   // --- Ajanın planı ve bağlam doluluğu (bkz. ChatSessionPane PlanPanel) ---
   "chatPlan.progress": "Plan {done}/{total}",
   "chatPlan.context": "Bağlam %{pct}",

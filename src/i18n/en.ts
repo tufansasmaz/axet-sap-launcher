@@ -659,6 +659,20 @@ export const en: Record<TranslationKey, string> = {
   "chatBubble.continueAnswer": "Continue",
   "chatBubble.stepsToggle": "{count} steps",
 
+  // --- Tool run row (see ChatToolRun) ---
+  "chatToolRun.count": "{count} tool calls",
+  "chatToolRun.running": "running",
+  "chatToolRun.kind.view": "Read",
+  "chatToolRun.kind.edit": "Edit",
+  "chatToolRun.kind.write": "Write",
+  "chatToolRun.kind.bash": "Command",
+  "chatToolRun.kind.glob": "File search",
+  "chatToolRun.kind.grep": "Content search",
+  "chatToolRun.kind.ls": "Folder",
+  "chatToolRun.kind.fetch": "Web",
+  "chatToolRun.kind.agent": "Subagent",
+  "chatToolRun.kind.todo": "Todo list",
+
   // --- Agent plan and context usage (see ChatSessionPane PlanPanel) ---
   "chatPlan.progress": "Plan {done}/{total}",
   "chatPlan.context": "Context {pct}%",

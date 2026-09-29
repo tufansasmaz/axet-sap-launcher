@@ -17,6 +17,7 @@ import { renderMarkdownLite } from "../lib/markdownLite";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import AttachmentChip from "./AttachmentChip";
 import CopyButton from "./CopyButton";
+import { StepDetail, useToolLabel } from "./ChatToolRun";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 
@@ -363,47 +364,6 @@ function ChatBubble({
 
 export default memo(ChatBubble);
 
-/**
- * Bir araç adımının ayrıntısı: dosya farkı ya da tam çıktı.
- *
- * FARK ÖNCELİKLİ. Bir `edit` çağrısında aracın kendi çıktısı yalnızca
- * "Content replaced in file: …" diyor — yani en az bilgi veren metin. Asıl
- * merak edilen NE değiştiği ve o, girdiden üretilen farkta duruyor.
- *
- * Yükseklik sınırlı ve kendi içinde kaydırılıyor: 4000 karakterlik bir çıktı
- * sohbeti aşağı doğru metrelerce iterdi.
- */
-function StepDetail({ diff, output }: { diff?: string; output?: string }) {
-  if (diff) {
-    const lines = diff.split("\n");
-    return (
-      <pre className="chat-scroll mt-1 max-h-64 overflow-auto rounded-md bg-app p-2 font-mono text-[10px] leading-[1.5]">
-        {lines.map((line, i) => (
-          <div
-            key={i}
-            className={
-              line.startsWith("+")
-                ? "text-[var(--status-success-text)]"
-                : line.startsWith("-")
-                  ? "text-[var(--status-danger-text)]"
-                  : "text-slate-500"
-            }
-          >
-            {/* Boş satır da bir satır: yüksekliği çökmesin diye sıfır genişlikli
-                boşlukla dolduruluyor. */}
-            {line || "​"}
-          </div>
-        ))}
-      </pre>
-    );
-  }
-  return (
-    <pre className="chat-scroll mt-1 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-app p-2 font-mono text-[10px] leading-[1.5] text-slate-400">
-      {output}
-    </pre>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Bekleme göstergesi — terminaldeki döküm
 // ---------------------------------------------------------------------------
@@ -487,43 +447,6 @@ const RESTART_KEYS: Record<NonNullable<ChatMessage["restartedReason"]>, Translat
   context: "chatBubble.restartedContext",
   provider: "chatBubble.restartedProvider"
 };
-
-// axet-code'un araç adları → okunur metin. Liste KAPALI DEĞİL: bilinmeyen bir
-// ad çeviriye zorlanmıyor, `toolGeneric` ile ham hâliyle gösteriliyor. Yeni
-// bir araç eklendiğinde gösterge yanlış bir şey söylemektense sade bir şey
-// söylüyor.
-const TOOL_KEYS: Record<string, TranslationKey> = {
-  view: "axetCodeHome.toolView",
-  read: "axetCodeHome.toolView",
-  edit: "axetCodeHome.toolEdit",
-  write: "axetCodeHome.toolWrite",
-  bash: "axetCodeHome.toolBash",
-  glob: "axetCodeHome.toolGlob",
-  grep: "axetCodeHome.toolGrep",
-  ls: "axetCodeHome.toolLs",
-  fetch: "axetCodeHome.toolFetch",
-  download: "axetCodeHome.toolFetch",
-  agent: "axetCodeHome.toolAgent",
-  todo: "axetCodeHome.toolTodo"
-};
-
-/** Araç adının okunur karşılığı. Bilinmeyen ad ham hâliyle geçiyor. */
-function useToolLabel(): (tool: string) => string {
-  const t = useT();
-  return useMemo(
-    () => (tool: string) => {
-      // MCP araçlarında "Uygulama bağlantısı:" ÖN EKİ YOK (kullanıcı kararı,
-      // 2026-09-04: *"Uygulama bağlantıları bu yazmasına gerek yok"*). Adın
-      // kendisi zaten hangi uygulama olduğunu söylüyor (`outlook list emails`);
-      // önüne bir de kategori adı koymak, dar bir satırda asıl bilgiyi
-      // kırpılmaya itiyordu.
-      if (tool.startsWith("mcp:")) return tool.slice(4).replace(/_/g, " ");
-      const key = TOOL_KEYS[tool];
-      return key ? t(key) : t("axetCodeHome.toolGeneric", { name: tool });
-    },
-    [t]
-  );
-}
 
 export function ThinkingBubble({
   phase,
