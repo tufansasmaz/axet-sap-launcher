@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ArrowUpRight,
   ChevronDown,
@@ -89,7 +89,6 @@ export default function ChatSidebar({
   // Arama metni ve açık gruplar store'da (bkz. `ChatStore.sidebarQuery`):
   // bu bileşen mod değişince unmount oluyor. Yarım kalan ad değiştirme ve
   // taşıma menüsü ise BİLEREK yerel — ekrandan çıkınca iptal olmaları doğru.
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
   // "Projeye taşı" menüsü. Konum SABİT (viewport) koordinat: menü kenar
@@ -311,7 +310,6 @@ export default function ChatSidebar({
             <Search size={14} />
           </span>
           <input
-            ref={searchInputRef}
             data-sidebar-search
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -718,18 +716,17 @@ export default function ChatSidebar({
                 >
                   <button
                     onClick={connect}
+                    aria-current={connected ? "true" : undefined}
                     className={`relative flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition ${
                       connected
-                        ? "bg-accent-500/10 text-slate-100"
+                        ? "bg-[var(--accent-glow)] text-slate-100"
                         : "text-slate-400 hover:bg-hover hover:text-slate-200"
                     }`}
                   >
-                    {/* Şerit ray'daki aktif sekme şeridiyle AYNI dil:
-                        uygulamada "burasısın" hep soldaki 2-3px'lik
-                        vurgu çizgisi. */}
-                    {connected && (
-                      <span className="absolute left-0 top-1/2 h-4 w-[2px] -translate-y-1/2 rounded-full bg-accent-500" />
-                    )}
+                    {/* Öbür listelerdeki seçimle AYNI zemin ve çizgi (spec
+                        §6.5): anlamı "bağlı" ama "burasısın" demek, ikinci
+                        bir renk ya da çizgi boyu yalnızca kafa karıştırırdı. */}
+                    {connected && <ActiveLine />}
                     <Server
                       size={13}
                       className={`shrink-0 ${connected ? "text-accent-400" : "text-[var(--navy-icon)]"}`}

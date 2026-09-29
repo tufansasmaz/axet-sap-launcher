@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import ChatSidebar from "../src/components/ChatSidebar";
 import { ChatStoreProvider, useChatStore, type ChatStore } from "../src/stores/chatStore";
-import type { ChatSession } from "../src/stores/chatTypes";
+import type { ChatSession, RecentEntry } from "../src/stores/chatTypes";
+import type { ActiveSapContext, SapService } from "../app-electron/shared/types";
 
 let store: ChatStore;
 function Probe() {
@@ -14,17 +15,17 @@ function Probe() {
 
 // `show` false: kenar çubuğu unmount (mod değişti ya da kenar çubuğu daraldı),
 // store ise yerinde — App'teki düzen.
-function tree(show = true) {
+function tree(show = true, systems: { recentEntries?: RecentEntry[]; activeSap?: ActiveSapContext | null } = {}) {
   return (
     <LanguageProvider language="tr">
       <ChatStoreProvider pushToast={() => {}}>
         <Probe />
         {show && (
           <ChatSidebar
-            recentEntries={[]}
+            recentEntries={systems.recentEntries ?? []}
             connectivity={{}}
             tierOverrides={{}}
-            activeSap={null}
+            activeSap={systems.activeSap ?? null}
             onOpenSapLauncher={() => {}}
             onQuickConnectSap={() => {}}
           />
@@ -156,6 +157,29 @@ describe("ChatSidebar", () => {
     rerender(tree(false));
     rerender(tree(true));
     expect(general().getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("SİSTEMLER'de bağlı sistem öbür listelerle aynı seçim dilini kullanıyor", () => {
+    const service = (uuid: string, name: string): SapService => ({
+      uuid, systemId: uuid, name, type: "SAPGUI", host: null, port: null, raw: "", routerId: null,
+      routerString: null, username: null
+    });
+    const entry = (uuid: string, name: string): RecentEntry => ({
+      path: ["Müşteri"], service: service(uuid, name), itemUuid: `${uuid}-i`, connectedAt: "2026-09-29"
+    });
+    const activeSap: ActiveSapContext = {
+      uuid: "s1", systemId: "S1", systemName: "Birinci sistem", customerPath: ["Müşteri"], host: null,
+      client: "100", username: "u", tier: null, projectDir: "", connectedAt: "2026-09-29",
+      verified: true
+    };
+    render(tree(true, { recentEntries: [entry("s1", "Birinci sistem"), entry("s2", "İkinci sistem")], activeSap }));
+    const connected = screen.getByText("Birinci sistem").closest("button")!;
+    const other = screen.getByText("İkinci sistem").closest("button")!;
+    expect(connected.getAttribute("aria-current")).toBe("true");
+    expect(connected.className).toContain("bg-[var(--accent-glow)]");
+    expect(connected.querySelector("[data-active-line]")).not.toBeNull();
+    expect(other.getAttribute("aria-current")).toBeNull();
+    expect(other.querySelector("[data-active-line]")).toBeNull();
   });
 
   it("arama kutusu kısayolun bulacağı işareti taşıyor", () => {
