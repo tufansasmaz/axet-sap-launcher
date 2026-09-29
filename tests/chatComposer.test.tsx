@@ -135,3 +135,53 @@ describe("ChatComposer", () => {
     for (const el of [overlay, box]) expect(el.className).not.toMatch(/(^|\s)(px|pl)-/);
   });
 });
+
+describe("sistem sekmesi", () => {
+  // TierBadge'in kökünde işaret özniteliği yok; rozet metniyle aranıyor.
+  it("rozet yalnız contextTier varken; klasör adı son parça, tam yol title'da", () => {
+    renderComposer({ contextPath: "C:/Proj/P01", contextLabel: "P01 Üretim" });
+    const tab = screen.getByTestId("system-tab");
+    expect(tab.textContent).toContain("P01 Üretim");
+    expect(screen.getByTitle("C:/Proj/P01").textContent).toBe("P01");
+    expect(screen.queryByText("PRD")).toBeNull();
+    cleanup();
+    renderComposer({ contextPath: "C:/Proj/P01", contextLabel: "P01 Üretim", contextTier: "PRD" });
+    expect(screen.getByTestId("system-tab").contains(screen.getByText("PRD"))).toBe(true);
+  });
+
+  it("Dosyalar ve Talimatlar geri çağrıları", () => {
+    const onToggleFilesPanel = vi.fn();
+    const onOpenInstructions = vi.fn();
+    renderComposer({ contextPath: "C:/p", onToggleFilesPanel, onOpenInstructions });
+    fireEvent.click(screen.getByText("Dosyalar"));
+    fireEvent.click(screen.getByText("Yönergeler"));
+    expect(onToggleFilesPanel).toHaveBeenCalledTimes(1);
+    expect(onOpenInstructions).toHaveBeenCalledTimes(1);
+  });
+
+  it("klasör yoksa sekme yok", () => {
+    renderComposer({ contextPath: null });
+    expect(screen.queryByTestId("system-tab")).toBeNull();
+  });
+
+  // Review Focus 2
+  it("uzun adlar kırpılıyor, sekme kutudan geniş olmuyor, düğmeler küçülmüyor", () => {
+    renderComposer({
+      contextPath: "C:/" + "cok-uzun-klasor-".repeat(10),
+      contextLabel: "Çok uzun bir sistem adı ".repeat(5),
+      onToggleFilesPanel: vi.fn(),
+      onOpenInstructions: vi.fn()
+    });
+    const tab = screen.getByTestId("system-tab");
+    expect(tab.className).toContain("max-w-full");
+    expect(tab.className).toContain("min-w-0");
+    const label = screen.getByTestId("system-tab-label");
+    const folder = screen.getByTestId("system-tab-folder");
+    for (const el of [label, folder]) {
+      expect(el.className).toContain("truncate");
+      expect(el.className).toContain("min-w-0");
+    }
+    for (const text of ["Dosyalar", "Yönergeler"])
+      expect(screen.getByText(text).closest("button")!.className).toContain("shrink-0");
+  });
+});

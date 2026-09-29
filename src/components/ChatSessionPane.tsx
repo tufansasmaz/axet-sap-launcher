@@ -12,7 +12,6 @@ import {
   FileCode,
   Files,
   FlaskConical,
-  FolderOpen,
   FolderTree,
   GitBranch,
   History,
@@ -33,7 +32,8 @@ import type {
   AxetChatActivityPhase,
   AxetModelEntry,
   AxetTodo,
-  ChatAttachment
+  ChatAttachment,
+  SystemTier
 } from "../../app-electron/shared/types";
 import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./ChatBubble";
 import ChatComposer from "./ChatComposer";
@@ -168,14 +168,17 @@ interface Props {
   onSuggestionClick: (key: string) => void;
   // --- SAP bağlamı ---
   // Bu sohbet bir SAP bağlantısının proje klasöründe çalışıyorsa, hangisi
-  // olduğu tepede bir şeritle gösteriliyor. Görünmezse kullanıcı, aynı görünen
-  // iki sohbetin farklı sistemlere konuştuğunu anlayamaz. `null` = bağlamsız
-  // sohbet, şerit hiç çizilmiyor.
+  // olduğu yazma kutusuna yapışık sekmede gösteriliyor (2026-09-29; önceden
+  // tepede şeritti). Görünmezse kullanıcı, aynı görünen iki sohbetin farklı
+  // sistemlere konuştuğunu anlayamaz. `null` = bağlamsız sohbet, sekme yok.
   contextLabel?: string | null;
   contextPath?: string | null;
+  // Sekmedeki seviye rozeti. Yalnız sohbetin klasörü BAĞLI sistemin klasörüyse
+  // dolu — bkz. src/lib/contextTier.ts.
+  contextTier?: SystemTier | null;
   // TERMİNAL DÜĞMESİ KALDIRILDI (2026-09-05, kullanıcı isteği). Konsol
   // uygulamadan silinmedi — SAP Launcher ekranının alt panelinde duruyor.
-  // Klasördeki `AGENTS.md`'yi düzenleyen kutuyu açar. Şeritte duruyor çünkü
+  // Klasördeki `AGENTS.md`'yi düzenleyen kutuyu açar. Sekmede duruyor çünkü
   // yönerge sohbete değil BU KLASÖRE ait — bkz. ChatInstructionsDialog.
   onOpenInstructions?: () => void;
   // Sağdaki dosya paneli. Bu bileşen İÇERİĞİNİ bilmiyor, sadece yerini
@@ -237,6 +240,7 @@ export default function ChatSessionPane({
   onSuggestionClick,
   contextLabel = null,
   contextPath = null,
+  contextTier = null,
   onOpenInstructions,
   filesPanel,
   filesPanelOpen = false,
@@ -440,69 +444,12 @@ export default function ChatSessionPane({
           ve şerit tamamen kaldırıldı — tek bir düğme için ekranın tepesinden
           52px ayırmak, sohbete ayrılan yeri boşuna kısaltıyordu. */}
 
-      {/* Bağlam şeridi. Klasör YOLU yazılı olmak zorunda: ajanın dosyaları
-          nereye yazdığı tahmin edilecek bir şey olmamalı — kullanıcı isteğinin
-          (*"kendi gidip txt vs yazıyor direkt göreyim"*) ilk adımı bu.
-          SAP'a bağlı sohbetlerde sistem adı da var; bağlamsız sohbetlerde
-          etiket "Çalışma alanı"na düşüyor ve ikon sönük kalıyor. */}
-      {contextPath && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-line-subtle bg-card/60 px-6 py-1.5 text-[11px]">
-          <Server
-            size={12}
-            className={`shrink-0 ${contextLabel ? "text-[var(--navy-icon)]" : "text-slate-600"}`}
-          />
-          <span className="shrink-0 font-medium text-slate-300">
-            {contextLabel ?? t("axetCodeHome.contextWorkspace")}
-          </span>
-          <span className="min-w-0 flex-1 truncate font-mono text-slate-500" title={contextPath}>
-            {contextPath}
-          </span>
-          {/* İKONLAR RENKLİ, YAZI NÖTR (kullanıcı isteği, 2026-09-06:
-              *"dosyalar yönergeler kısımlarındaki simgelerde renkli olsun"*).
-              Renk ikonun kendi türünün rengi — klasör sarısı ve doküman
-              mavisi; uygulamanın geri kalanında da aynı iki jeton kullanılıyor
-              (bkz. `src/ui/fileIcons.ts`). Etiketin gri kalması bilinçli: bu
-              şerit bir araç çubuğu değil bir bilgi satırı, iki renkli etiket
-              yan yana durunca satır ortasındaki YOL'dan daha çok bağırıyordu.
-              "Dosyalar" açıkken vurgu yeşiline geçiyor, çünkü orada renk
-              türü değil DURUMU söylüyor. */}
-          {onToggleFilesPanel && (
-            <button
-              onClick={onToggleFilesPanel}
-              className={`flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 transition hover:bg-hover hover:text-slate-200 ${
-                filesPanelOpen ? "text-accent-400" : "text-slate-500"
-              }`}
-              title={t("axetCodeHome.contextFilesHint")}
-            >
-              <FolderOpen
-                size={12}
-                className={filesPanelOpen ? undefined : "text-[var(--folder-icon)]"}
-              />
-              {t("axetCodeHome.contextFiles")}
-            </button>
-          )}
-          {onOpenInstructions && (
-            <button
-              onClick={onOpenInstructions}
-              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-hover hover:text-slate-200"
-              title={t("chatInstructions.title")}
-            >
-              <BookOpen size={12} className="text-[var(--status-info-text)]" />
-              {t("chatInstructions.button")}
-            </button>
-          )}
-        </div>
-      )}
-
       {/* ARAMA ÇUBUĞU — akış içinde değil, ÜSTÜNDE duruyor: akışa eklenseydi
           açılıp kapandıkça mesaj listesi zıplardı ve kullanıcı okuduğu yeri
-          kaybederdi. Bağlam şeridi varsa onun altına iniyor. */}
+          kaybederdi. Sistem bilgisi artık kutunun sekmesinde (2026-09-29),
+          tepede şerit yok; çubuk hep aynı yerde. */}
       {searchOpen && (
-        <div
-          className={`absolute right-4 z-30 flex items-center gap-1 rounded-xl border border-line bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur ${
-            contextPath ? "top-9" : "top-2"
-          }`}
-        >
+        <div className="absolute right-4 top-2 z-30 flex items-center gap-1 rounded-xl border border-line bg-card/95 px-2 py-1.5 shadow-lg backdrop-blur">
           <Search size={13} className="shrink-0 text-slate-500" />
           <input
             ref={searchInputRef}
@@ -838,6 +785,11 @@ export default function ChatSessionPane({
             onSend={onSend}
             onCancel={onCancel}
             contextPath={contextPath}
+            contextLabel={contextLabel}
+            contextTier={contextTier}
+            onOpenInstructions={onOpenInstructions}
+            filesPanelOpen={filesPanelOpen}
+            onToggleFilesPanel={onToggleFilesPanel}
             contextTokens={session.contextTokens}
             contextLimit={session.contextLimit}
           />

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import ChatSessionPane, { type ChatSessionData } from "../src/components/ChatSessionPane";
 import type { ChatMessage } from "../src/components/ChatBubble";
@@ -162,5 +162,12 @@ describe("ChatSessionPane liste", () => {
       ]
     });
     expect(list.scrollTop).toBe(200);
+  });
+
+  it("bağlam şeridi yok, arama katmanı top-2", () => {
+    renderPane({ contextPath: "C:/p", contextLabel: "P01" });
+    expect(document.querySelector(".top-9")).toBeNull();
+    fireEvent.keyDown(window, { key: "f", ctrlKey: true });
+    expect(screen.getByPlaceholderText(/Sohbette ara/).closest(".top-2")).toBeTruthy();
   });
 });

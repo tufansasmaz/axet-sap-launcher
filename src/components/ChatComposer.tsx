@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowUp, FileCode, Plus, Square } from "lucide-react";
-import type { AxetModelEntry, ChatAttachment, FsSearchFilesEntry } from "../../app-electron/shared/types";
+import { ArrowUp, BookOpen, FileCode, FolderOpen, Plus, Square } from "lucide-react";
+import type { AxetModelEntry, ChatAttachment, FsSearchFilesEntry, SystemTier } from "../../app-electron/shared/types";
 import AttachmentChip from "./AttachmentChip";
 import ModelSelector from "./ModelSelector";
+import TierBadge from "./TierBadge";
 import { resolveFilesToPaths } from "../lib/attachments";
 import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import { useT } from "../i18n";
@@ -23,6 +24,9 @@ const MENTION_RE = /(?:^|\s)@([^\s@]*)$/;
 // yürüyor (bkz. fsExplorer.searchFiles) — hızlı yazan birinde her harf için bir
 // dizin taraması başlatmak, sonucu ilk harfe ait olan bir yarışa dönerdi.
 const MENTION_DEBOUNCE_MS = 120;
+
+// Sekmede tam yol değil klasörün adı; tam yol `title`da.
+const basename = (p: string) => p.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || p;
 
 export interface ChatComposerProps {
   active: boolean;
@@ -46,6 +50,13 @@ export interface ChatComposerProps {
   onCancel: () => void;
   /** Bahis araması bu klasörde yapılıyor; yoksa `@` menüsü açılmıyor. */
   contextPath?: string | null;
+  /** Sekmedeki sistem adı; yoksa "Çalışma alanı". */
+  contextLabel?: string | null;
+  /** Rozet yalnız sohbetin klasörü bağlı sistemin klasörüyse (bkz. contextTierFor). */
+  contextTier?: SystemTier | null;
+  onOpenInstructions?: () => void;
+  filesPanelOpen?: boolean;
+  onToggleFilesPanel?: () => void;
   contextTokens: number;
   contextLimit: number;
 }
@@ -73,6 +84,11 @@ export default function ChatComposer({
   onSend,
   onCancel,
   contextPath = null,
+  contextLabel = null,
+  contextTier = null,
+  onOpenInstructions,
+  filesPanelOpen = false,
+  onToggleFilesPanel,
   contextTokens,
   contextLimit
 }: ChatComposerProps) {
@@ -265,7 +281,53 @@ export default function ChatComposer({
           özgüllüğü eşit — kutu hem odaklı hem fare üstündeyken kazanan gri
           `line` oluyordu. Bu da ana yol: kullanıcı kutuya tıklayarak
           odaklanıyor, fare de orada kalıyor. */}
-      <div className="rounded-2xl border border-line-subtle bg-card px-3 pb-2 pt-2.5 transition [&:hover:not(:focus-within)]:border-line focus-within:border-accent-500 focus-within:bg-raised focus-within:shadow-[0_0_0_3px_var(--accent-glow)]">
+      {/* SİSTEM SEKMESİ — kutuya yapışık (taslakta seçilen A). Eskiden
+          sohbetin tepesinde dolgulu bir şerit vardı; yazarken göz kutuda,
+          PROD'da olunduğu tam oraya yazılmalı. Klasör yoksa sekme de yok.
+          Dar pencerede ad ve klasör kırpılıyor, düğmeler küçülmüyor.
+          İkonlar eski şeritteki gibi RENKLİ, yazı nötr (kullanıcı isteği,
+          2026-09-06): klasör sarısı ve doküman mavisi; "Dosyalar" açıkken
+          renk türü değil DURUMU söylüyor ve vurguya geçiyor. */}
+      {contextPath && (
+        <div
+          data-testid="system-tab"
+          className="flex w-fit min-w-0 max-w-full items-center gap-2 rounded-t-lg border border-b-0 border-line-subtle bg-card px-2.5 py-1 text-2xs"
+        >
+          {contextTier && <TierBadge tier={contextTier} className="shrink-0" />}
+          <span data-testid="system-tab-label" className="min-w-0 truncate font-medium text-slate-200">
+            {contextLabel ?? t("axetCodeHome.contextWorkspace")}
+          </span>
+          <span data-testid="system-tab-folder" title={contextPath} className="min-w-0 truncate font-mono text-slate-500">
+            {basename(contextPath)}
+          </span>
+          {onToggleFilesPanel && (
+            <button
+              type="button"
+              onClick={onToggleFilesPanel}
+              title={t("axetCodeHome.contextFilesHint")}
+              aria-pressed={filesPanelOpen}
+              className={`flex shrink-0 cursor-pointer items-center gap-1 rounded px-1 transition hover:text-slate-200 ${
+                filesPanelOpen ? "text-accent-400" : "text-slate-400"
+              }`}
+            >
+              <FolderOpen size={12} className={filesPanelOpen ? undefined : "text-[var(--folder-icon)]"} />
+              {t("axetCodeHome.contextFiles")}
+            </button>
+          )}
+          {onOpenInstructions && (
+            <button
+              type="button"
+              onClick={onOpenInstructions}
+              title={t("chatInstructions.title")}
+              className="flex shrink-0 cursor-pointer items-center gap-1 rounded px-1 text-slate-400 transition hover:text-slate-200"
+            >
+              <BookOpen size={12} className="text-[var(--status-info-text)]" />
+              {t("chatInstructions.button")}
+            </button>
+          )}
+        </div>
+      )}
+      <div className={`rounded-2xl ${contextPath ? "rounded-tl-none " : ""}border border-line-subtle bg-card px-3 pb-2 pt-2.5 transition [&:hover:not(:focus-within)]:border-line focus-within:border-accent-500 focus-within:bg-raised focus-within:shadow-[0_0_0_3px_var(--accent-glow)]`}>
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-1 pb-2 pt-1">
             {attachments.map((a) => (

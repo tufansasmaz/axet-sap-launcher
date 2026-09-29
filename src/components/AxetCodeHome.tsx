@@ -17,6 +17,7 @@ import ChatProjectDialog from "./ChatProjectDialog";
 import type { ChatMessage } from "./ChatBubble";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
 import { orderSessions } from "../lib/chatSessionGroups";
+import { contextTierFor } from "../lib/contextTier";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
@@ -2242,6 +2243,7 @@ export default function AxetCodeHome({
             }
             contextLabel={session.sapLabel}
             contextPath={session.cwd || workspaceDir}
+            contextTier={contextTierFor(session.cwd || workspaceDir, activeSap)}
             onOpenInstructions={
               session.cwd || workspaceDir
                 ? () => setInstructionsCwd(session.cwd || workspaceDir)
@@ -2309,6 +2311,7 @@ export default function AxetCodeHome({
           }
           contextLabel={effectiveNewBinding?.label ?? null}
           contextPath={effectiveNewBinding?.cwd || workspaceDir}
+          contextTier={contextTierFor(effectiveNewBinding?.cwd || workspaceDir, activeSap)}
           onOpenInstructions={
             effectiveNewBinding?.cwd || workspaceDir
               ? () =>
