@@ -29,6 +29,8 @@ import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON, iconBtn } from "./buttons"
 //     ayrı bir `Modal`.
 //   - Arka plana tıklamak KAPATMIYOR: yanlışlıkla dışarı tıklayan kullanıcı
 //     yazdıklarını kaybetmesin.
+//   - `closeDisabled` iken (ör. kayıt sürüyor) hiçbir yoldan kapanmıyor,
+//     onay da açılmıyor.
 
 export type ModalLayer = "modal" | "confirm" | "critical";
 
@@ -68,6 +70,7 @@ function focusables(root: HTMLElement | null): HTMLElement[] {
 
 interface ModalContextValue {
   requestClose: () => void;
+  closeDisabled: boolean;
 }
 const ModalContext = createContext<ModalContextValue | null>(null);
 
@@ -77,7 +80,13 @@ export function ModalCancelButton({ label, autoFocus }: { label?: string; autoFo
   const t = useT();
   const ctx = useContext(ModalContext);
   return (
-    <button type="button" onClick={ctx?.requestClose} className={DIALOG_CANCEL_BUTTON} autoFocus={autoFocus}>
+    <button
+      type="button"
+      onClick={ctx?.requestClose}
+      disabled={ctx?.closeDisabled}
+      className={DIALOG_CANCEL_BUTTON}
+      autoFocus={autoFocus}
+    >
       {label ?? t("common.cancel")}
     </button>
   );
@@ -89,6 +98,14 @@ export interface ModalProps {
   title: string;
   /** Kaydedilmemiş değişiklik var mı. Doğruysa kapatma isteği önce onay açar. */
   dirty?: boolean;
+  /** Doğruysa pencere kapanmıyor: Escape, X ve İptal etkisiz, kirli-çıkış
+   *  onayı da açılmıyor. Kayıt sürerken kullanılıyor — kayıt başarısız olursa
+   *  hatayı gösterecek pencere yerinde kalmalı. */
+  closeDisabled?: boolean;
+  /** İlk odak nereye: `"content"` (varsayılan) gövdenin ilk öğesine,
+   *  `"dialog"` pencerenin kendisine. Gövdenin ilk öğesi Enter'la bir şey
+   *  DEĞİŞTİRİYORSA (Ayarlar'daki dil seçimi gibi) `"dialog"` kullanılmalı. */
+  initialFocus?: "content" | "dialog";
   layer?: ModalLayer;
   /** Panel genişliği (px). Dar pencerede ekrandan taşmıyor. */
   width?: number;
@@ -107,6 +124,8 @@ function ModalPanel({
   onClose,
   title,
   dirty = false,
+  closeDisabled = false,
+  initialFocus = "content",
   layer = "modal",
   width = 480,
   icon,
@@ -126,10 +145,13 @@ function ModalPanel({
 
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
+  const closeDisabledRef = useRef(closeDisabled);
+  closeDisabledRef.current = closeDisabled;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
   const requestClose = useCallback(() => {
+    if (closeDisabledRef.current) return;
     if (dirtyRef.current) setConfirming(true);
     else onCloseRef.current();
   }, []);
@@ -198,7 +220,10 @@ function ModalPanel({
       initialFocusRef.current = active;
       return;
     }
-    const target = focusables(bodyRef.current)[0] ?? focusables(footerRef.current)[0] ?? panel;
+    const target =
+      initialFocus === "dialog"
+        ? panel
+        : focusables(bodyRef.current)[0] ?? focusables(footerRef.current)[0] ?? panel;
     initialFocusRef.current = target;
     target.focus();
   }, []);
@@ -212,7 +237,7 @@ function ModalPanel({
   );
 
   return (
-    <ModalContext.Provider value={{ requestClose }}>
+    <ModalContext.Provider value={{ requestClose, closeDisabled }}>
       <div
         className={`fixed inset-0 ${LAYER_CLASS[layer]} flex items-center justify-center bg-[var(--overlay-scrim)] p-4 animate-backdrop-fade-in`}
       >
@@ -237,7 +262,13 @@ function ModalPanel({
               </h2>
               {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
             </div>
-            <button type="button" onClick={requestClose} aria-label={t("common.close")} className={iconBtn("ghost", "sm")}>
+            <button
+              type="button"
+              onClick={requestClose}
+              disabled={closeDisabled}
+              aria-label={t("common.close")}
+              className={iconBtn("ghost", "sm")}
+            >
               <X size={16} />
             </button>
           </div>

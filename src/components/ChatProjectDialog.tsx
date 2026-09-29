@@ -73,11 +73,13 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
             <span className="mr-auto min-w-0 flex-1 text-xs leading-snug text-slate-400">
               {t("chatProject.deleteConfirm")}
             </span>
+            {/* Güvenli seçenek önde ve odakta: onay belirdiği anda basılan
+                Enter projeyi silmiyor, onaydan vazgeçiyor. */}
+            <Button variant="ghost" onClick={() => setConfirmingDelete(false)} autoFocus>
+              {t("common.cancel")}
+            </Button>
             <Button variant="danger" onClick={onDelete}>
               {t("chatProject.deleteYes")}
-            </Button>
-            <Button variant="ghost" onClick={() => setConfirmingDelete(false)}>
-              {t("common.cancel")}
             </Button>
           </>
         ) : (

@@ -126,6 +126,9 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
       open
       onClose={onClose}
       dirty={dirty}
+      // Yazma sürerken kapanmıyor: yazma başarısız olursa hata bu pencerede
+      // gösteriliyor, yarım kalmış bir kayıt için "atılsın mı?" da sorulmuyor.
+      closeDisabled={saving}
       title={t("chatInstructions.title")}
       subtitle={t("chatInstructions.description")}
       icon={<BookOpen size={18} />}

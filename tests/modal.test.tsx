@@ -245,3 +245,70 @@ describe("Modal — odak", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "İptal" }));
   });
 });
+
+describe("Modal — ilk odak pencerenin kendisinde (initialFocus=\"dialog\")", () => {
+  // Ayarlar'da gövdenin ilk öğesi dil seçimiydi: açılışta Enter dili
+  // değiştiriyordu. Böyle pencerelerde ilk odak zararsız bir yere, pencerenin
+  // kendisine iniyor; Tab oradan belge sırasıyla devam ediyor (önce X).
+  it("açılışta odak pencerede, Tab pencerenin ilk öğesine (belge sırası)", () => {
+    wrap(
+      <Modal open onClose={vi.fn()} title="Başlık" initialFocus="dialog">
+        <button type="button">Dil</button>
+      </Modal>
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(document.activeElement).toBe(dialog);
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Kapat" }));
+  });
+
+  it("StrictMode'da da pencerede kalıyor", () => {
+    render(
+      <StrictMode>
+        <LanguageProvider language="tr">
+          <Modal open onClose={vi.fn()} title="Başlık" initialFocus="dialog">
+            <button type="button">Dil</button>
+          </Modal>
+        </LanguageProvider>
+      </StrictMode>
+    );
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+  });
+});
+
+describe("Modal — kapanma kilidi (closeDisabled)", () => {
+  // Kaydetme sürerken pencere kapanmamalı: kapanırsa hata mesajı kimseye
+  // gösterilemiyor, kirli-çıkış onayı da yarım kalmış bir kaydı "at" diye
+  // soruyor.
+  it("Escape, X ve İptal kapatmıyor; kirli olsa da onay açılmıyor", () => {
+    const onClose = vi.fn();
+    wrap(
+      <Modal open dirty closeDisabled onClose={onClose} title="Başlık" footer={<ModalCancelButton />}>
+        <input aria-label="ad" />
+      </Modal>
+    );
+    fireEvent.keyDown(screen.getByLabelText("ad"), { key: "Escape" });
+    const close = screen.getByRole("button", { name: "Kapat" });
+    const cancel = screen.getByRole("button", { name: "İptal" });
+    expect(close.hasAttribute("disabled")).toBe(true);
+    expect(cancel.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(close);
+    fireEvent.click(cancel);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText(DISCARD_TITLE)).toBeNull();
+  });
+
+  it("kilit kalkınca kapatma yine çalışıyor", () => {
+    const onClose = vi.fn();
+    const view = wrap(<Modal open closeDisabled onClose={onClose} title="Başlık" />);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+    view.rerender(
+      <LanguageProvider language="tr">
+        <Modal open onClose={onClose} title="Başlık" />
+      </LanguageProvider>
+    );
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

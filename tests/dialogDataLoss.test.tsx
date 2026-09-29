@@ -167,3 +167,77 @@ describe("AddSystemModal kapatma", () => {
     expect(screen.getByText(DISCARD_TITLE)).toBeTruthy();
   });
 });
+
+// Kaydetme sürerken kapanma kilitli (son düzeltme turu 2026-09-29). Eskiden
+// kayıt sürerken Escape pencereyi kapatabiliyor (ya da kirli-çıkış onayını
+// açıyordu): kayıt başarısız olursa hata mesajı gösterilecek bir pencere
+// kalmıyordu.
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+describe("kaydederken kapanma kilidi", () => {
+  it("AddSystemModal: kayıt sürerken Escape/X/İptal kapatmıyor, onay açılmıyor", async () => {
+    const pending = deferred<{ id: string }>();
+    (window as unknown as { api: unknown }).api = {
+      addManualSystem: vi.fn(() => pending.promise)
+    };
+    const { onClose } = mountAddSystem();
+    const [nameBox, sidBox, hostBox] = screen.getAllByRole("textbox");
+    fireEvent.change(nameBox, { target: { value: "Müşteri DEV" } });
+    fireEvent.change(sidBox, { target: { value: "DEV" } });
+    fireEvent.change(hostBox, { target: { value: "10.0.0.1" } });
+    fireEvent.submit(nameBox.closest("form")!);
+
+    fireEvent.keyDown(nameBox, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
+    fireEvent.click(screen.getByRole("button", { name: "İptal" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText(DISCARD_TITLE)).toBeNull();
+
+    pending.resolve({ id: "yeni" });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it("ChatInstructionsDialog: kayıt sürerken Escape kapatmıyor, onay açılmıyor", async () => {
+    const pending = deferred<{ ok: boolean }>();
+    const api = mockApi({ ok: true, content: "A" });
+    api.writeTextFile = vi.fn(() => pending.promise);
+    const { onClose } = mountInstructions();
+    const box = await screen.findByRole("textbox");
+    fireEvent.change(box, { target: { value: "AB" } });
+    fireEvent.click(saveButton());
+
+    fireEvent.keyDown(box, { key: "Escape" });
+    fireEvent.click(screen.getByRole("button", { name: "Kapat" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.queryByText(DISCARD_TITLE)).toBeNull();
+
+    pending.resolve({ ok: true });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+});
+
+// Yıkıcı onayda güvenli seçenek önde ve odakta: yanlışlıkla basılan Enter
+// projeyi silmesin (son düzeltme turu 2026-09-29).
+describe("ChatProjectDialog silme onayı", () => {
+  it("İptal önce geliyor ve odak onda", () => {
+    const onDelete = vi.fn();
+    render(
+      <LanguageProvider language="tr">
+        <ChatProjectDialog project={PROJECT} onClose={vi.fn()} onSave={vi.fn()} onDelete={onDelete} />
+      </LanguageProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Projeyi sil" }));
+    const cancel = screen.getByRole("button", { name: "İptal" });
+    const confirm = screen.getByRole("button", { name: "Evet, sil" });
+    expect(document.activeElement).toBe(cancel);
+    // Belge sırasında İptal, "Evet, sil"den önce.
+    expect(cancel.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(onDelete).not.toHaveBeenCalled();
+  });
+});

@@ -162,6 +162,10 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
       open
       onClose={handleClose}
       dirty={dirty}
+      // Kayıt sürerken kapanmıyor: ana süreç hata döndürürse mesajı bu
+      // pencere gösteriyor, yarım kalmış bir kayıt için "atılsın mı?" da
+      // sorulmuyor.
+      closeDisabled={saving}
       title={isEditing ? t("addSystemModal.editTitle") : t("addSystemModal.addTitle")}
       width={460}
       footer={
