@@ -85,7 +85,7 @@ describe("TerminalPaneView", () => {
   it("başlık: tür büyük harf, uzun klasör ortadan kısalıyor, tam yol title'da", () => {
     const cwd = "C:\\Users\\kullanici\\projeler\\cok-uzun-bir-klasor-adi\\alt\\son-klasor";
     renderPane({ state: "running", ptyId: "t1" }, { kind: "powershell", cwd });
-    expect(screen.getByText("powershell").className).toContain("uppercase");
+    expect(screen.getByText("PowerShell").className).toContain("uppercase");
     const label = screen.getByTitle(cwd);
     expect(label.textContent).toContain("…");
     expect(label.textContent!.endsWith("son-klasor")).toBe(true);
@@ -156,6 +156,11 @@ describe("TerminalPaneView", () => {
     const c = renderPane({ state: "running", ptyId: "t1" });
     fireEvent.mouseDown(screen.getByTestId("xterm-t1"));
     expect(c.focusPane).toHaveBeenCalledWith("p1");
+  });
+
+  it("axet bölmesinin başlığı ürün adını gösteriyor", () => {
+    renderPane({ state: "running", ptyId: "t1" }, { kind: "axet" });
+    expect(screen.getByText("axet-code").className).toContain("uppercase");
   });
 
   it("cmd bölmesi sormadan kapanıyor", () => {

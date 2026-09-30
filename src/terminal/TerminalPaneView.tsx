@@ -7,6 +7,7 @@ import { useTerminalStore } from "../stores/terminalStoreContext";
 import { paneTone } from "../stores/terminalReducer";
 import type { TerminalPane } from "../stores/terminalTypes";
 import { middleEllipsis } from "../lib/paths";
+import { KIND_LABEL } from "./NewPaneDialog";
 import { GHOST_ICON_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 
 // Izgaradaki tek bölme: başlık şeridi + gövde (spec §5.3). Gövde sürecin
@@ -59,7 +60,7 @@ export default function TerminalPaneView({
       <div className="flex h-7 shrink-0 items-center gap-2 border-b border-line px-2">
         <span data-tone={tone} className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_CLASS[tone]}`} />
         <span className="shrink-0 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-slate-300">
-          {pane.kind}
+          {t(KIND_LABEL[pane.kind])}
         </span>
         <span title={pane.cwd} className="min-w-0 flex-1 truncate font-mono text-2xs text-slate-500">
           {middleEllipsis(pane.cwd, 40)}
