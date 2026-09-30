@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { X, KeyRound, Loader2, AlertTriangle, Eye, EyeOff, User, Lock, Hash, Globe, Server, ShieldCheck } from "lucide-react";
+import { useEffect, useId, useState } from "react";
+import { AlertTriangle, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import type { SapService } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
-import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import { Button } from "../ui/Button";
+import { Field, Input } from "../ui/Field";
+import { Modal, ModalCancelButton } from "../ui/Modal";
 
 interface Props {
   open: boolean;
@@ -24,6 +26,7 @@ export default function CredentialsModal({
   loadDefaults
 }: Props) {
   const t = useT();
+  const formId = useId();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [client, setClient] = useState("");
@@ -66,181 +69,126 @@ export default function CredentialsModal({
     onSubmit(username.trim(), password, client.trim());
   };
 
-  const fieldClass =
-    "w-full rounded-lg border border-line-strong bg-control/70 py-2.5 pl-10 pr-3 text-sm text-slate-100 outline-none transition focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 disabled:opacity-50";
-
   return (
-    <div
-      className="animate-backdrop-fade-in fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onClose();
-      }}
+    <Modal
+      open
+      onClose={onClose}
+      // Doğrulama sürerken kapanmıyor: sonuç (hata satırı ya da sertifika
+      // sorusu) bu pencereye dönüyor.
+      closeDisabled={connecting}
+      width={440}
+      icon={<KeyRound size={18} />}
+      title={t("credentialsModal.title")}
+      subtitle={
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate">
+            {service.name}
+            {service.systemId && ` (${service.systemId})`}
+          </span>
+          {(service.manualAdtUrl || service.host) && (
+            <>
+              <span aria-hidden>·</span>
+              <span className="truncate font-mono">{address}</span>
+            </>
+          )}
+        </span>
+      }
+      footer={
+        <>
+          <ModalCancelButton />
+          <Button type="submit" form={formId} variant="primary" disabled={!canSubmit}>
+            {connecting && <Loader2 size={14} className="animate-spin" />}
+            {connecting ? t("credentialsModal.verifying") : t("credentialsModal.connect")}
+          </Button>
+        </>
+      }
     >
-      <form
-        onSubmit={handleSubmit}
-        className="animate-modal-pop-in relative w-[440px] overflow-hidden rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50"
-      >
+      <form id={formId} onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <Field label={t("credentialsModal.username")}>
+          <Input value={username} onChange={(e) => setUsername(e.target.value)} disabled={disabled} />
+        </Field>
 
-        <div className="px-6 pb-5 pt-5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-4 top-4 cursor-pointer rounded-full p-1.5 text-slate-400 transition hover:bg-active hover:text-slate-200"
-          >
-            <X size={16} />
-          </button>
-
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
-              <KeyRound size={20} className="text-accent-400" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-lg font-semibold leading-tight text-white">{t("credentialsModal.title")}</h3>
-              <p className="flex items-center gap-1 text-xs text-slate-500">
-                <ShieldCheck size={12} className="text-accent-400" />
-                {t("credentialsModal.username")} · {t("credentialsModal.password")}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-control/70 px-2.5 py-1 text-xs text-slate-300">
-              <Server size={12} className="shrink-0 text-slate-500" />
-              <span className="truncate font-medium">{service.name}</span>
-              {service.systemId && <span className="text-slate-500">({service.systemId})</span>}
-            </span>
-            {(service.manualAdtUrl || service.host) && (
-              <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-line-strong bg-control/70 px-2.5 py-1 text-xs text-slate-400">
-                <Globe size={12} className="shrink-0 text-slate-500" />
-                <span className="truncate font-mono">{address}</span>
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-4 px-6 pb-2">
-          <div>
-            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
-              {t("credentialsModal.username")}
-            </label>
+        <div className="flex flex-col gap-2">
+          <Field label={t("credentialsModal.password")}>
             <div className="relative">
-              <User size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                disabled={disabled}
-                autoFocus
-                className={fieldClass}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
-              {t("credentialsModal.password")}
-            </label>
-            <div className="relative">
-              <Lock size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
+              <Input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type={showPassword ? "text" : "password"}
                 disabled={disabled}
-                className={`${fieldClass} pr-10`}
+                className="pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? t("credentialsModal.hidePassword") : t("credentialsModal.showPassword")}
                 title={showPassword ? t("credentialsModal.hidePassword") : t("credentialsModal.showPassword")}
                 className="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer rounded-md p-1.5 text-slate-500 transition hover:bg-active hover:text-slate-200"
               >
                 {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
               </button>
             </div>
-            {/* Şifrede ASCII dışı karakter varsa DENEMEDEN uyar. Ölçüm
-                (2026-09-23, DS4) böyle bir şifrenin SAP GUI'de kabul edilip
-                HTTP/ADT kanalında — hem UTF-8 hem ISO-8859-9 baytlarıyla —
-                401 aldığını gösterdi; kod sayfası değiştirmek çözmüyor (bkz.
-                app-electron/main/basicAuth.ts). Uyarı bağlantıyı ENGELLEMİYOR:
-                şifre gerçekten çalışıyor olabilir ve tek ölçüm tek sistemde. */}
-            {passwordNonAscii.length > 0 && (
-              <div
-                className="mt-2 flex items-start gap-2 rounded-lg border border-l-[3px] px-3 py-2.5 text-xs"
-                style={{
-                  borderColor: "var(--status-warning-border)",
-                  backgroundColor: "var(--status-warning-bg)",
-                  color: "var(--status-warning-text)"
-                }}
-              >
-                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-                <span>{t("credentialsModal.passwordNonAscii", { chars: passwordNonAscii.join(" ") })}</span>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="mb-1.5 flex items-center gap-1.5">
-              {/* lang="en": "Client" Türkçe sözlükte de İngilizce kalıyor (SAP
-                  terimi), etiket ise `uppercase` çiziliyor ve büyütme DİLE
-                  ÖZGÜ — `<html lang="tr">` altında "CLİENT" oluyordu. */}
-              <label lang="en" className="block text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                {t("credentialsModal.client")}
-              </label>
-              {isCloud && (
-                <span className="rounded-full border border-line-strong px-1.5 py-0.5 text-[10px] leading-none text-slate-500">
-                  {t("credentialsModal.optional").trim()}
-                </span>
-              )}
-            </div>
-            <div className="relative">
-              <Hash size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input
-                value={client}
-                onChange={(e) => setClient(e.target.value)}
-                placeholder={
-                  isCloud ? t("credentialsModal.clientPlaceholderCloud") : t("credentialsModal.clientPlaceholderOnprem")
-                }
-                disabled={disabled}
-                className={fieldClass}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 pt-4">
-          {errorMessage && (
+          </Field>
+          {/* Şifrede ASCII dışı karakter varsa DENEMEDEN uyar. Ölçüm
+              (2026-09-23, DS4) böyle bir şifrenin SAP GUI'de kabul edilip
+              HTTP/ADT kanalında — hem UTF-8 hem ISO-8859-9 baytlarıyla —
+              401 aldığını gösterdi; kod sayfası değiştirmek çözmüyor (bkz.
+              app-electron/main/basicAuth.ts). Uyarı bağlantıyı ENGELLEMİYOR:
+              şifre gerçekten çalışıyor olabilir ve tek ölçüm tek sistemde. */}
+          {passwordNonAscii.length > 0 && (
             <div
-              className="animate-alert-slide-in mb-2 flex items-start gap-2 rounded-lg border border-l-[3px] px-3 py-2.5 text-xs"
+              className="flex items-start gap-2 rounded-lg border border-l-[3px] px-3 py-2.5 text-xs"
               style={{
-                borderColor: "var(--status-danger-border)",
-                backgroundColor: "var(--status-danger-bg)",
-                color: "var(--status-danger-text)"
+                borderColor: "var(--status-warning-border)",
+                backgroundColor: "var(--status-warning-bg)",
+                color: "var(--status-warning-text)"
               }}
             >
               <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-              <span>{errorMessage}</span>
+              <span>{t("credentialsModal.passwordNonAscii", { chars: passwordNonAscii.join(" ") })}</span>
             </div>
           )}
         </div>
 
-        <div className="mt-2 flex justify-end gap-2 border-t border-line-subtle px-6 py-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className={DIALOG_CANCEL_BUTTON}
+        <Field
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              {/* lang="en": "Client" Türkçe sözlükte de İngilizce kalıyor (SAP
+                  terimi); ekran okuyucu onu İngilizce okusun. */}
+              <span lang="en">{t("credentialsModal.client")}</span>
+              {isCloud && (
+                <span className="rounded-full border border-line-strong px-1.5 py-0.5 text-2xs leading-none text-slate-500">
+                  {t("credentialsModal.optional").trim()}
+                </span>
+              )}
+            </span>
+          }
+        >
+          <Input
+            value={client}
+            onChange={(e) => setClient(e.target.value)}
+            placeholder={
+              isCloud ? t("credentialsModal.clientPlaceholderCloud") : t("credentialsModal.clientPlaceholderOnprem")
+            }
+            disabled={disabled}
+          />
+        </Field>
+
+        {errorMessage && (
+          <div
+            role="alert"
+            className="animate-alert-slide-in flex items-start gap-2 rounded-lg border border-l-[3px] px-3 py-2.5 text-xs"
+            style={{
+              borderColor: "var(--status-danger-border)",
+              backgroundColor: "var(--status-danger-bg)",
+              color: "var(--status-danger-text)"
+            }}
           >
-            {t("common.cancel")}
-          </button>
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className={DIALOG_CONFIRM_BUTTON}
-          >
-            {connecting && <Loader2 size={14} className="animate-spin" />}
-            {connecting ? t("credentialsModal.verifying") : t("credentialsModal.connect")}
-          </button>
-        </div>
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
       </form>
-    </div>
+    </Modal>
   );
 }
