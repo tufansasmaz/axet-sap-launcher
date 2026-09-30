@@ -50,7 +50,7 @@ Satır yüksekliği (`h-7`) ve seçim görünümü zaten sohbetle aynı. Değiş
   - Ağacın üstüne aynı biçimde (`Eyebrow`, ok, sayı) açılıp kapanabilen bir **"MÜŞTERİLER"** başlığı ekleniyor.
   - Sayı, müşteri klasörü sayısı değil, sistem sayısı. Arama yapılırken eşleşen sistem sayısı.
   - Kapalıyken ağaç gizleniyor.
-  - Açık/kapalı durumu oturum içinde tutuluyor. Kalıcı olması gerekmiyor, "SON KULLANILANLAR" nasıl tutuyorsa öyle.
+  - Açık/kapalı durumu "SON KULLANILANLAR" ile aynı yolla, `localStorage`'da tutuluyor. Anahtarı `axet.customerTree.collapsed`.
   - Arama yapılırken başlık kapalı olsa bile sonuçlar görünüyor. Aramada ağaç her zaman açık.
 - **Satırlar (ağaç ve son kullanılanlar aynı):**
   - Lacivert `Server` simgesi kalkıyor.
