@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { useT } from "../i18n";
+import { MAX_TERMINAL_WORKSPACES } from "../../app-electron/shared/terminalLayout";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import { liveCount, workspaceDot } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
@@ -12,7 +13,6 @@ import ConfirmDialog from "./ConfirmDialog";
 // Terminal modunun kenar çubuğu: çalışma alanı listesi (spec §5.1).
 // Bölmeler burada değil, sağ tarafta; bu liste yalnız alan seçip yönetiyor.
 
-const WORKSPACE_LIMIT = 6;
 // Menünün yaklaşık ölçüsü: pencerenin kenarına sıkıştırmak için. Ölçüp
 // yerleştirmek yerine sabit, çünkü menüde hep iki satır var.
 const MENU_W = 176;
@@ -27,7 +27,7 @@ export default function TerminalSidebar() {
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
-  const full = state.workspaces.length >= WORKSPACE_LIMIT;
+  const full = state.workspaces.length >= MAX_TERMINAL_WORKSPACES;
   // Geri yükleme şeridi açıkken yeni alan açılmıyor: şerit "son düzen mi,
   // boş mu" sorusunu soruyor ve cevabı henüz yok.
   const canAdd = state.phase === "ready" && !full;
@@ -152,6 +152,7 @@ export default function TerminalSidebar() {
       {menu && menuTarget && (
         <>
           <div
+            aria-hidden
             className="fixed inset-0 z-dropdown"
             onClick={() => setMenu(null)}
             onContextMenu={(e) => {

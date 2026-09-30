@@ -41,10 +41,10 @@ export default function AppConnectionsModal({ open, onClose, onOpenProjectTermin
 
   if (!open) return null;
 
-  // "AXET Projesi Seç" tıklanınca hem terminal açılıyor hem bu modal
-  // KAPATILIYOR — aksi halde modal'ın z-50 backdrop'u, App.tsx'in normal
-  // akışta (özel bir z-index olmadan) render ettiği TerminalPanel'i
-  // görünmez şekilde ÖRTERDİ, kullanıcı proje seçim ekranını hiç göremezdi.
+  // "AXET Projesi Seç" tıklanınca hem Terminal moduna geçilip AXET bölmesi
+  // ekleniyor hem bu modal KAPATILIYOR — aksi halde modal'ın z-50 backdrop'u
+  // Terminal modunu görünmez şekilde ÖRTERDİ, kullanıcı yeni bölmeyi hiç
+  // göremezdi.
   const handleOpenProjectTerminal = () => {
     onOpenProjectTerminal();
     onClose();

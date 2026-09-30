@@ -47,8 +47,8 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
     termRef.current = term;
     fitRef.current = fit;
 
-    // Bu component artık panel açılıp kapandığında unmount edilmiyor
-    // (bkz. TerminalPanel.tsx) — sadece gerçekten kapatılan bir sekme
+    // Bu component mod değişince unmount edilmiyor (Terminal modu hep
+    // takılı kalıyor, bkz. App.tsx) — sadece gerçekten kapatılan bir bölme
     // için unmount olur. Ama xterm/main-process arasındaki async IPC
     // çağrıları (getTerminalBuffer) unmount SIRASINDA hâlâ havada
     // olabilir; bu yüzden her yazma öncesi `disposed` bayrağını kontrol
