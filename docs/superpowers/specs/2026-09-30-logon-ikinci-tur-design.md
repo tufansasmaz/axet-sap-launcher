@@ -48,7 +48,7 @@ Satır yüksekliği (`h-7`) ve seçim görünümü zaten sohbetle aynı. Değiş
 - **Bölüm başlıkları:**
   - "SON KULLANILANLAR" aynı kalıyor.
   - Ağacın üstüne aynı biçimde (`Eyebrow`, ok, sayı) açılıp kapanabilen bir **"MÜŞTERİLER"** başlığı ekleniyor.
-  - Sayı, müşteri klasörü sayısı değil, görünen sistem sayısı.
+  - Sayı, müşteri klasörü sayısı değil, sistem sayısı. Arama yapılırken eşleşen sistem sayısı.
   - Kapalıyken ağaç gizleniyor.
   - Açık/kapalı durumu oturum içinde tutuluyor. Kalıcı olması gerekmiyor, "SON KULLANILANLAR" nasıl tutuyorsa öyle.
   - Arama yapılırken başlık kapalı olsa bile sonuçlar görünüyor. Aramada ağaç her zaman açık.
@@ -72,7 +72,7 @@ Satır yüksekliği (`h-7`) ve seçim görünümü zaten sohbetle aynı. Değiş
 
 ## Test
 
-- Var olan `systemPanel`, `logonSidebar`, `tree`, `recentSystems` testleri geçmeye devam ediyor.
+- Var olan `tests/systemPanel.test.tsx` ve `tests/logonSidebar.test.tsx` testleri geçmeye devam ediyor.
 - **Yeni testler:**
   - İki sütunlu panelde de ekranda tek birincil düğme var.
   - "MÜŞTERİLER" başlığı görünen sistem sayısını gösteriyor. Kapatınca ağaç gizleniyor, arama yazılınca sonuçlar yine görünüyor.
