@@ -1111,6 +1111,7 @@ export const tr = {
   "terminal.close": "Kapat",
   "terminal.closeWorkspaceTitle": "Çalışma alanı kapatılsın mı?",
   "terminal.closeWorkspaceBody": "Bu alandaki {count} terminal kapanacak.",
+  "terminal.closeWorkspaceConfirm": "Alanı kapat",
   "terminal.closePaneTitle": "axet-code kapatılsın mı?",
   "terminal.closePaneBody": "Çalışan axet-code oturumu sonlanacak.",
   "terminal.paneCount": "{count} / 9 bölme",

@@ -1024,6 +1024,7 @@ export const en: Record<TranslationKey, string> = {
   "terminal.close": "Close",
   "terminal.closeWorkspaceTitle": "Close workspace?",
   "terminal.closeWorkspaceBody": "{count} terminals in this workspace will be closed.",
+  "terminal.closeWorkspaceConfirm": "Close workspace",
   "terminal.closePaneTitle": "Close axet-code?",
   "terminal.closePaneBody": "The running axet-code session will end.",
   "terminal.paneCount": "{count} / 9 panes",
