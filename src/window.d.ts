@@ -124,7 +124,15 @@ export interface AxetApi {
   windowClose: () => Promise<void>;
   windowIsMaximized: () => Promise<boolean>;
   onWindowStateChanged: (callback: (isMaximized: boolean) => void) => () => void;
-  createTerminal: (cwd: string, cols: number, rows: number, shell: TerminalMode, initialCommand?: string) => Promise<string>;
+  createTerminal: (
+    cwd: string,
+    cols: number,
+    rows: number,
+    shell: TerminalMode,
+    initialCommand?: string,
+    options?: { createDir?: boolean }
+  ) => Promise<string>;
+  disposeAllTerminals: () => Promise<void>;
   writeTerminal: (id: string, data: string) => void;
   resizeTerminal: (id: string, cols: number, rows: number) => void;
   disposeTerminal: (id: string) => Promise<void>;

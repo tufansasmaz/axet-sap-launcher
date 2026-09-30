@@ -135,8 +135,15 @@ const api = {
     ipcRenderer.on("window:state-changed", listener);
     return () => ipcRenderer.removeListener("window:state-changed", listener);
   },
-  createTerminal: (cwd: string, cols: number, rows: number, shell: TerminalMode, initialCommand?: string) =>
-    ipcRenderer.invoke("terminal:create", cwd, cols, rows, shell, initialCommand),
+  createTerminal: (
+    cwd: string,
+    cols: number,
+    rows: number,
+    shell: TerminalMode,
+    initialCommand?: string,
+    options?: { createDir?: boolean }
+  ) => ipcRenderer.invoke("terminal:create", cwd, cols, rows, shell, initialCommand, options),
+  disposeAllTerminals: () => ipcRenderer.invoke("terminal:disposeAll"),
   writeTerminal: (id: string, data: string) => ipcRenderer.send("terminal:write", id, data),
   resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.send("terminal:resize", id, cols, rows),
   disposeTerminal: (id: string) => ipcRenderer.invoke("terminal:dispose", id),

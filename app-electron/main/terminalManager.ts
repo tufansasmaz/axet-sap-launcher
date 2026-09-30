@@ -1,6 +1,6 @@
 import type { BrowserWindow } from "electron";
 import * as pty from "@lydell/node-pty";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, statSync } from "node:fs";
 import { getAdtHttpToken } from "./adtHttpToken";
 import { withNttPythonSite } from "./pythonSiteEnv";
 
@@ -62,6 +62,14 @@ function resolveShellArgs(shell: "cmd" | "powershell"): string[] {
   return shell === "powershell" ? ["-NoLogo"] : [];
 }
 
+function isDirectory(dir: string): boolean {
+  try {
+    return statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function appendToBuffer(session: TerminalSession, data: string): void {
   session.buffer.push(data);
   session.bufferLen += data.length;
@@ -90,8 +98,13 @@ export function createTerminal(
   cols: number,
   rows: number,
   shell: "cmd" | "powershell",
-  initialCommand?: string
-): void {
+  initialCommand?: string,
+  options: { createDir?: boolean } = {}
+): boolean {
+  // Terminal modu bölmeleri klasör YARATMIYOR (spec §5.1): kayıtlı düzendeki
+  // silinmiş bir klasör sessizce yeniden oluşmasın, bölme "Klasör bulunamadı"
+  // desin. Süreç açılmadan `false`; IPC işleyicisi bunu hataya çeviriyor.
+  if (options.createDir === false && !(cwd && cwd.trim() && isDirectory(cwd))) return false;
   const hasInitialCommand = Boolean(initialCommand && initialCommand.trim());
   const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
   // axet.code ana ekranındaki genel-amaçlı sohbetler (bkz. AxetCodeHome.tsx)
@@ -101,10 +114,12 @@ export function createTerminal(
   // `connectToSystem()` içinde oluşturulduğu için burası onlar için no-op
   // (klasör zaten var), ama axet.code'un varsayılan klasörü için tek
   // güvenli oluşturma noktası burası.
-  try {
-    mkdirSync(resolvedCwd, { recursive: true });
-  } catch {
-    // Oluşturulamazsa pty.spawn zaten aşağıda anlamlı bir hatayla patlar.
+  if (options.createDir !== false) {
+    try {
+      mkdirSync(resolvedCwd, { recursive: true });
+    } catch {
+      // Oluşturulamazsa pty.spawn zaten aşağıda anlamlı bir hatayla patlar.
+    }
   }
   const proc = pty.spawn(resolveShellPath(shell), resolveShellArgs(shell), {
     name: "xterm-color",
@@ -153,6 +168,7 @@ export function createTerminal(
     // hemen "hazır" say ki renderer tab'ı gecikmeden açsın.
     setImmediate(() => markReady(session));
   }
+  return true;
 }
 
 export function getTerminalBuffer(id: string): string {

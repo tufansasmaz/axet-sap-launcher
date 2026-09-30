@@ -32,6 +32,7 @@ import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
+import { TERMINAL_MISSING_DIR } from "../shared/terminalLayout";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { stopApprovalServer } from "./sapWrite/server";
@@ -958,13 +959,31 @@ function registerIpc(): void {
 
   ipcMain.handle(
     "terminal:create",
-    (_event, cwd: string, cols: number, rows: number, shell: TerminalMode, initialCommand?: string) => {
+    (
+      _event,
+      cwd: string,
+      cols: number,
+      rows: number,
+      shell: TerminalMode,
+      initialCommand?: string,
+      options?: { createDir?: boolean }
+    ) => {
       if (!mainWindow) throw new Error(mt("app.windowNotReady"));
       const id = randomUUID();
-      createTerminal(mainWindow, id, cwd, cols, rows, shell, initialCommand);
+      // Klasör yoksa ve yaratılmaması istendiyse süreç açılmadı. Metin bir
+      // işaret: renderer `includes(TERMINAL_MISSING_DIR)` ile tanıyor.
+      if (!createTerminal(mainWindow, id, cwd, cols, rows, shell, initialCommand, options ?? {})) {
+        throw new Error(TERMINAL_MISSING_DIR);
+      }
       return id;
     }
   );
+
+  // Renderer açılır açılmaz çağırıyor (spec §5.2): Ctrl+R sonrası öksüz
+  // kalan kabuklar kapanıyor. Sohbetin TUI'si ayrı yönetici, etkilenmiyor.
+  ipcMain.handle("terminal:disposeAll", () => {
+    disposeAllTerminals();
+  });
 
   ipcMain.on("terminal:write", (_event, id: string, data: string) => {
     writeTerminal(id, data);
