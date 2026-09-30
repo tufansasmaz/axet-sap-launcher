@@ -1031,7 +1031,6 @@ export default function App() {
   useShellShortcuts({
     listMode,
     sidebarCollapsed,
-    sidebarHidden,
     onModeChange: setActivity,
     onExpandSidebar: () => handleSidebarCollapsedChange(false)
   });
@@ -1139,9 +1138,9 @@ export default function App() {
                 tierOverrides={config?.systemTiers ?? {}}
                 onSelect={handleSelect}
               />
-            ) : (
+            ) : listMode === "sapGuiScripting" ? (
               <ScriptSidebar />
-            )}
+            ) : null}
           </Sidebar>
         )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1169,7 +1168,7 @@ export default function App() {
             activeSap={activeContext.sap}
           />
         </div>
-        {activity === "axetCode" ? null : activity === "sapGuiScripting" ? (
+        {activity === "axetCode" || activity === "terminal" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome activeSap={activeContext.sap} />
         ) : activity === "readiness" ? (
           // Yetenek profili burada FORM DEĞİL, doğrudan kaydediliyor: bu ekranın

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { MousePointerClick, PanelLeftOpen, Server, Sparkles, type LucideIcon } from "lucide-react";
+import { MousePointerClick, PanelLeftOpen, Server, Sparkles, TerminalSquare, type LucideIcon } from "lucide-react";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_KEY_STEP,
@@ -26,14 +26,15 @@ export interface SidebarProps {
   // Sürükleme bitince ya da ok tuşu bırakılınca, değer değiştiyse bir kez.
   onWidthCommit: (width: number) => void;
   onCollapsedChange: (collapsed: boolean) => void;
-  // Modun listesi: `ChatSidebar`, `LogonSidebar` ya da `ScriptSidebar`.
+  // Modun listesi: `ChatSidebar`, `LogonSidebar`, `ScriptSidebar` ya da `TerminalSidebar`.
   children: ReactNode;
 }
 
 const MODE_LABEL: Record<SidebarMode, TranslationKey> = {
   axetCode: "shell.modeChat",
   sapLauncher: "shell.modeLogon",
-  sapGuiScripting: "shell.modeScript"
+  sapGuiScripting: "shell.modeScript",
+  terminal: "shell.modeTerminal"
 };
 
 // Daraltılmış şeritte sekme yok, ikon var; ipucu ve erişilebilir ad modun
@@ -41,12 +42,14 @@ const MODE_LABEL: Record<SidebarMode, TranslationKey> = {
 const MODE_ICON: Record<SidebarMode, LucideIcon> = {
   axetCode: Sparkles,
   sapLauncher: Server,
-  sapGuiScripting: MousePointerClick
+  sapGuiScripting: MousePointerClick,
+  terminal: TerminalSquare
 };
 const MODE_NAME: Record<SidebarMode, TranslationKey> = {
   axetCode: "shell.axetCode",
   sapLauncher: "shell.sapLauncher",
-  sapGuiScripting: "shell.sapGuiScripting"
+  sapGuiScripting: "shell.sapGuiScripting",
+  terminal: "shell.terminal"
 };
 
 export default function Sidebar({

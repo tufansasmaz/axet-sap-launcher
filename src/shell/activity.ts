@@ -7,12 +7,14 @@ export type Activity =
   | "axetFlows"
   | "axetFlowsLive"
   | "sapGuiScripting"
+  | "terminal"
   | "readiness";
 
 // Kenar çubuğunda listesi olan ekranlar; mod seçicinin sekmeleri bu sırada.
-export type SidebarMode = "axetCode" | "sapLauncher" | "sapGuiScripting";
+// Terminal sonda: Ctrl+1/2/3 alışkanlığı bozulmasın (terminal spec'i §3.1).
+export type SidebarMode = "axetCode" | "sapLauncher" | "sapGuiScripting" | "terminal";
 
-export const SIDEBAR_MODES: SidebarMode[] = ["axetCode", "sapLauncher", "sapGuiScripting"];
+export const SIDEBAR_MODES: SidebarMode[] = ["axetCode", "sapLauncher", "sapGuiScripting", "terminal"];
 
 export function isSidebarMode(activity: Activity): activity is SidebarMode {
   return (SIDEBAR_MODES as Activity[]).includes(activity);

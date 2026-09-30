@@ -42,7 +42,6 @@ function setup(over: Partial<ShellShortcutOptions> = {}) {
   const props: ShellShortcutOptions = {
     listMode: "axetCode",
     sidebarCollapsed: false,
-    sidebarHidden: false,
     onModeChange: vi.fn(),
     onExpandSidebar: vi.fn(async () => {}),
     ...over
@@ -53,10 +52,10 @@ function setup(over: Partial<ShellShortcutOptions> = {}) {
 
 const search = () => screen.getByRole("textbox", { name: "Ara" });
 
-describe("Ctrl+1 / 2 / 3", () => {
-  it("sırayla Sohbet, Logon, Script", () => {
+describe("Ctrl+1 / 2 / 3 / 4", () => {
+  it("sırayla Sohbet, Logon, Script, Terminal", () => {
     const { props } = setup();
-    const modes: SidebarMode[] = ["axetCode", "sapLauncher", "sapGuiScripting"];
+    const modes: SidebarMode[] = ["axetCode", "sapLauncher", "sapGuiScripting", "terminal"];
     modes.forEach((mode, i) => {
       expect(fireEvent.keyDown(document.body, { key: String(i + 1), ctrlKey: true })).toBe(false);
       expect(props.onModeChange).toHaveBeenLastCalledWith(mode);
@@ -69,10 +68,11 @@ describe("Ctrl+1 / 2 / 3", () => {
     expect(props.onModeChange).toHaveBeenCalledWith("sapLauncher");
   });
 
-  it("terminalin içinden gelince dokunulmuyor", () => {
+  it("terminalin içinden gelince dokunulmuyor (Ctrl+4 dahil)", () => {
     const { props } = setup();
     const terminal = screen.getByRole("textbox", { name: "Terminal girdisi" });
     expect(fireEvent.keyDown(terminal, { key: "2", ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(terminal, { key: "4", ctrlKey: true })).toBe(true);
     expect(props.onModeChange).not.toHaveBeenCalled();
   });
 
@@ -80,7 +80,7 @@ describe("Ctrl+1 / 2 / 3", () => {
     const { props } = setup();
     fireEvent.keyDown(document.body, { key: "1", ctrlKey: true, shiftKey: true });
     fireEvent.keyDown(document.body, { key: "1", ctrlKey: true, altKey: true });
-    fireEvent.keyDown(document.body, { key: "4", ctrlKey: true });
+    fireEvent.keyDown(document.body, { key: "5", ctrlKey: true });
     fireEvent.keyDown(document.body, { key: "1" });
     expect(props.onModeChange).not.toHaveBeenCalled();
   });
@@ -123,15 +123,13 @@ describe("/", () => {
     expect(fireEvent.keyDown(editable, { key: "/" })).toBe(true);
   });
 
-  it("Script'te ve kenar çubuğu gizliyken hiçbir şey olmuyor", () => {
-    setup({ listMode: "sapGuiScripting" });
-    expect(fireEvent.keyDown(document.body, { key: "/" })).toBe(true);
-    expect(document.activeElement).not.toBe(search());
-    cleanup();
-
-    const { props } = setup({ listMode: "sapLauncher", sidebarHidden: true, sidebarCollapsed: true });
-    expect(fireEvent.keyDown(document.body, { key: "/" })).toBe(true);
-    expect(props.onExpandSidebar).not.toHaveBeenCalled();
+  it("Script'te ve Terminal'de hiçbir şey olmuyor", () => {
+    for (const listMode of ["sapGuiScripting", "terminal"] as const) {
+      const { props } = setup({ listMode, sidebarCollapsed: true });
+      expect(fireEvent.keyDown(document.body, { key: "/" })).toBe(true);
+      expect(props.onExpandSidebar).not.toHaveBeenCalled();
+      cleanup();
+    }
   });
 
   it("kenar çubuğu daraltılmışsa önce açıyor, sonra odaklıyor", async () => {
@@ -154,7 +152,6 @@ describe("/", () => {
     const props: ShellShortcutOptions = {
       listMode: "axetCode",
       sidebarCollapsed: true,
-      sidebarHidden: false,
       onModeChange: vi.fn(),
       onExpandSidebar: vi.fn(async () => {})
     };
@@ -194,16 +191,17 @@ describe("Ctrl+F", () => {
     expect(document.activeElement).not.toBe(search());
   });
 
-  it("Logon'da daraltılmışsa önce açıyor; gizliyken açmıyor", async () => {
-    const first = setup({ listMode: "sapLauncher", sidebarCollapsed: true });
+  it("Logon'da daraltılmışsa önce açıyor, sonra odaklıyor", async () => {
+    const { props } = setup({ listMode: "sapLauncher", sidebarCollapsed: true });
     fireEvent.keyDown(document.body, { key: "f", ctrlKey: true });
-    expect(first.props.onExpandSidebar).toHaveBeenCalledTimes(1);
+    expect(props.onExpandSidebar).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(document.activeElement).toBe(search()));
-    cleanup();
+  });
 
-    const second = setup({ listMode: "sapLauncher", sidebarCollapsed: true, sidebarHidden: true });
+  it("Terminal'de yalnızca tarayıcının bul çubuğunu engelliyor", () => {
+    const { props } = setup({ listMode: "terminal", sidebarCollapsed: true });
     expect(fireEvent.keyDown(document.body, { key: "f", ctrlKey: true })).toBe(false);
-    expect(second.props.onExpandSidebar).not.toHaveBeenCalled();
+    expect(props.onExpandSidebar).not.toHaveBeenCalled();
   });
 });
 

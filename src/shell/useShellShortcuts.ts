@@ -6,8 +6,6 @@ export interface ShellShortcutOptions {
   // kastedildiğini buradan biliyor.
   listMode: SidebarMode;
   sidebarCollapsed: boolean;
-  // Logon terminali tam ekranken kenar çubuğu hiç çizilmiyor.
-  sidebarHidden: boolean;
   onModeChange: (mode: SidebarMode) => void;
   // Config'e yazıp döndüğünde kutu çizilmiş oluyor; odak ondan sonra.
   onExpandSidebar: () => Promise<void>;
@@ -65,12 +63,12 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      const { listMode, sidebarHidden, onModeChange } = latest.current;
+      const { listMode, onModeChange } = latest.current;
       const mod = e.ctrlKey || e.metaKey;
       const isFind = mod && !e.altKey && e.key.toLowerCase() === "f";
 
       // Açık bir pencere (`aria-modal`) varken kabuk susuyor: `/` odağı
-      // pencerenin arkasındaki arama kutusuna kaçırır, Ctrl+1/2/3 modu
+      // pencerenin arkasındaki arama kutusuna kaçırır, Ctrl+1–4 modu
       // pencerenin arkasında değiştirirdi. `Modal` yalnızca Tab'i tutuyor.
       // Tarayıcının bul çubuğu yine engelleniyor.
       if (document.querySelector('[aria-modal="true"]')) {
@@ -78,7 +76,7 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
         return;
       }
 
-      if (mod && !e.altKey && !e.shiftKey && /^[1-3]$/.test(e.key)) {
+      if (mod && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) {
         if (isInTerminal(e.target)) return;
         e.preventDefault();
         onModeChange(SIDEBAR_MODES[Number(e.key) - 1]);
@@ -89,12 +87,13 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
       // engelleniyor (bugünkü davranış). Kutu yalnızca Logon'da.
       if (isFind) {
         e.preventDefault();
-        if (listMode === "sapLauncher" && !sidebarHidden) openSearch();
+        if (listMode === "sapLauncher") openSearch();
         return;
       }
 
       if (e.key === "/" && !mod && !e.altKey) {
-        if (sidebarHidden || listMode === "sapGuiScripting" || isTypingTarget(e.target)) return;
+        // Script'te ve Terminal'de kenar çubuğunda arama kutusu yok.
+        if (listMode === "sapGuiScripting" || listMode === "terminal" || isTypingTarget(e.target)) return;
         e.preventDefault();
         openSearch();
       }
