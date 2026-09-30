@@ -244,5 +244,6 @@ export const MAIN_EN = {
   "dialog.openFlowJson": "Open aXet.flows JSON file",
   "dialog.exportDebugJson": "Export debug recording as JSON",
   "dialog.saveGuiScriptJson": "Save SAP GUI Scripting recording as JSON",
-  "dialog.openGuiScriptJson": "Open SAP GUI Scripting recording"
+  "dialog.openGuiScriptJson": "Open SAP GUI Scripting recording",
+  "terminal.workspaceName": "Workspace {n}"
 } as const;

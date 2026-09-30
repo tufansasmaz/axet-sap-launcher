@@ -303,6 +303,24 @@ export interface DoctorReport {
 
 export type TerminalMode = "cmd" | "powershell";
 
+// Terminal modundaki bir bölmenin türü (spec §4.1). `axet`, seçilen kabukta
+// `config.axetCommand`'ı başlangıç komutu olarak çalıştırıyor.
+export type TerminalPaneKind = "axet" | "cmd" | "powershell";
+
+// Diske yalnız düzen yazılıyor: ad, tür, klasör. Çıktı, oran ve süreç
+// kimliği yazılmıyor.
+export interface SavedTerminalPane {
+  id: string;
+  kind: TerminalPaneKind;
+  cwd: string;
+}
+
+export interface SavedTerminalWorkspace {
+  id: string;
+  name: string;
+  panes: SavedTerminalPane[];
+}
+
 export type AppTheme = "dark" | "light";
 
 // Vurgu rengi. Koyu/açık hâlden (`AppTheme`) BAĞIMSIZ: her vurgu iki hâlde de
@@ -371,6 +389,10 @@ export interface AppConfig {
   // hemen yazılıyor, Ayarlar'da karşılıkları yok.
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  // Terminal modunun kayıtlı düzeni (spec §4.1). Okurken `store.ts`
+  // ayıklıyor; yazma yalnız yapı değişince (bkz. terminalStore.tsx).
+  terminalWorkspaces: SavedTerminalWorkspace[];
+  terminalActiveWorkspaceId: string | null;
   // Bağlayıcılar açıkken NE ZAMAN kurulacağı. Bkz. `ConnectorMode`. Eski
   // adları: `chatUseConnectors` (boolean) → `chatConnectorMode` → bu. İkinci
   // ad yanıltıcıydı: ayar artık sadece sohbeti değil, yapay zekâyla

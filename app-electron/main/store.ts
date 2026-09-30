@@ -19,6 +19,9 @@ import type {
   ConnectorMode
 } from "../shared/types";
 import { SIDEBAR_DEFAULT_WIDTH, clampSidebarWidth, readSidebarCollapsed } from "../shared/sidebarLayout";
+import { MAIN_TR } from "./i18n/tr";
+import { MAIN_EN } from "./i18n/en";
+import { normalizeActiveWorkspaceId, normalizeTerminalWorkspaces } from "../shared/terminalLayout";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
 const MAX_CONNECTION_HISTORY = 10;
@@ -108,6 +111,8 @@ function defaultConfig(): AppConfig {
     chatDensity: "comfortable",
     sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
     sidebarCollapsed: false,
+    terminalWorkspaces: [],
+    terminalActiveWorkspaceId: null,
     // Bkz. `ConnectorMode`. Bu bir aç/kapa değil, maliyet ayarı — açma/kapama
     // `connectorEnabled` ile, kullanıcının "Bağlan"/"Bağlantıyı Kes"
     // düğmesinden yapılıyor.
@@ -171,6 +176,12 @@ export function loadConfig(): AppConfig {
     // tasarim/temel'in `"warm"`ıysa `normalizePalette` karar veriyor.
     const theme = VALID_THEMES.includes(parsed.theme) ? parsed.theme : fallback.theme;
     const palette = normalizePalette(parsed.palette);
+    // Boş adlı alan "Çalışma alanı N" oluyor. `mt()` burada KULLANILMIYOR:
+    // `i18n/index.ts` `loadConfig`'i içe aktarıyor, döngü olurdu. Sözlükler
+    // içe aktarması olmayan düz nesneler.
+    const nameFor = (n: number) =>
+      (language === "en" ? MAIN_EN : MAIN_TR)["terminal.workspaceName"].replace("{n}", String(n));
+    const terminalWorkspaces = normalizeTerminalWorkspaces(parsed.terminalWorkspaces, nameFor);
     const merged: AppConfig = {
       ...fallback,
       ...parsed,
@@ -184,6 +195,8 @@ export function loadConfig(): AppConfig {
       chatDisplayName: typeof parsed.chatDisplayName === "string" ? parsed.chatDisplayName : fallback.chatDisplayName,
       sidebarWidth: clampSidebarWidth(parsed.sidebarWidth),
       sidebarCollapsed: readSidebarCollapsed(parsed),
+      terminalWorkspaces,
+      terminalActiveWorkspaceId: normalizeActiveWorkspaceId(parsed.terminalActiveWorkspaceId, terminalWorkspaces),
       connectorMode: readConnectorMode(parsed, fallback.connectorMode),
       connectorEnabled: readConnectorEnabled(parsed.connectorEnabled),
       connectorLastResults:

@@ -253,5 +253,6 @@ export const MAIN_TR = {
   "dialog.openFlowJson": "aXet.flows JSON dosyası aç",
   "dialog.exportDebugJson": "Debug kaydını JSON olarak dışa aktar",
   "dialog.saveGuiScriptJson": "SAP GUI Scripting kaydını JSON olarak kaydet",
-  "dialog.openGuiScriptJson": "SAP GUI Scripting kaydı aç"
+  "dialog.openGuiScriptJson": "SAP GUI Scripting kaydı aç",
+  "terminal.workspaceName": "Çalışma alanı {n}"
 } as const;
