@@ -176,6 +176,17 @@ describe("Tabs", () => {
     expect(screen.getByRole("tablist").className).toContain("w-full");
     for (const tab of screen.getAllByRole("tab")) expect(tab.className).toContain("flex-1");
   });
+
+  it("columns verilince şerit ızgara oluyor, ok tuşu sırayla gezmeye devam ediyor", () => {
+    const onChange = vi.fn();
+    wrap(<Tabs label="Modlar" items={ITEMS} value={ITEMS[0].value} onChange={onChange} columns={2} />);
+    const tablist = screen.getByRole("tablist");
+    expect(tablist.className).toContain("grid");
+    expect(tablist.className).toContain("grid-cols-2");
+    for (const tab of screen.getAllByRole("tab")) expect(tab.className).toContain("truncate");
+    fireEvent.keyDown(tablist, { key: "ArrowRight" });
+    expect(onChange).toHaveBeenCalledWith(ITEMS[1].value);
+  });
 });
 
 describe("EmptyState", () => {

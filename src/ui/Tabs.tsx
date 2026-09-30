@@ -13,6 +13,13 @@ import { useId, useRef, type KeyboardEvent, type ReactNode } from "react";
 // şeride klavyeyle hiç ulaşılamazdı. `onChange` `false` dönerse çağıran
 // değişikliği reddetmiş demek, odak yerinde kalıyor. `children` verilmezse
 // panel çizilmiyor: mod seçicinin "paneli" kenar çubuğunun kendisi.
+//
+// `columns` şeridi eşit sütunlu bir ızgaraya çeviriyor: sekmeler tek satıra
+// sığmayınca alt satıra iniyor. Ok tuşları yine sırayla geziyor.
+
+// Tailwind sınıf adlarını kaynakta tam haliyle görmeli; birleştirilerek
+// üretilen ad CSS'e girmiyor.
+const GRID_COLUMNS = { 2: "grid-cols-2", 3: "grid-cols-3" } as const;
 
 export interface TabItem<T extends string> {
   value: T;
@@ -26,7 +33,8 @@ export function Tabs<T extends string>({
   onChange,
   children,
   className,
-  stretch = false
+  stretch = false,
+  columns
 }: {
   label: string;
   items: TabItem<T>[];
@@ -35,6 +43,7 @@ export function Tabs<T extends string>({
   children?: ReactNode;
   className?: string;
   stretch?: boolean;
+  columns?: keyof typeof GRID_COLUMNS;
 }) {
   const base = useId();
   const tabId = (v: T) => `${base}-tab-${v}`;
@@ -43,6 +52,12 @@ export function Tabs<T extends string>({
   const hasPanel = children !== undefined;
   const selectedIndex = items.findIndex((item) => item.value === value);
   const focusIndex = selectedIndex >= 0 ? selectedIndex : 0;
+  const layout = columns
+    ? `grid w-full ${GRID_COLUMNS[columns]}`
+    : stretch
+      ? "flex w-full items-center"
+      : "inline-flex items-center";
+  const tabWidth = columns ? "min-w-0 truncate px-1.5" : stretch ? "min-w-0 flex-1 truncate px-1.5" : "px-3";
 
   function selectAt(index: number) {
     const item = items[(index + items.length) % items.length];
@@ -66,7 +81,7 @@ export function Tabs<T extends string>({
         role="tablist"
         aria-label={label}
         onKeyDown={onKeyDown}
-        className={`${stretch ? "flex w-full" : "inline-flex"} items-center gap-1 rounded-lg border border-line bg-control p-1`}
+        className={`${layout} gap-1 rounded-lg border border-line bg-control p-1`}
       >
         {items.map((item, index) => {
           const selected = item.value === value;
@@ -87,7 +102,7 @@ export function Tabs<T extends string>({
               // Gerilen şeritte yan boşluk 6px: kenar çubuğu 220px'e inince sekme
               // 62px kalıyor, "Sohbet" 47px istiyor. `px-3` ile 38px kalıyor ve
               // üç etiket de "So…" diye kesiliyordu (ölçüldü, 2026-09-29).
-              className={`h-8 rounded-md text-sm font-medium transition ${stretch ? "min-w-0 flex-1 truncate px-1.5" : "px-3"} ${
+              className={`h-8 rounded-md text-sm font-medium transition ${tabWidth} ${
                 selected ? "bg-card text-white shadow-elev-1" : "text-slate-400 hover:bg-hover hover:text-slate-100"
               }`}
             >

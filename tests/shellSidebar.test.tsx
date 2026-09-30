@@ -127,6 +127,11 @@ describe("Sidebar", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
     expect(onModeChange).toHaveBeenCalledWith("terminal");
   });
+
+  it("dört sekme iki satır: Terminal yazısı dar kenar çubuğunda kesilmiyor", () => {
+    renderSidebar({ mode: "axetCode" });
+    expect(screen.getByRole("tablist", { name: "Modlar" }).className).toContain("grid-cols-2");
+  });
 });
 
 describe("SidebarFooter", () => {
