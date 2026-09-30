@@ -309,7 +309,11 @@ describe("taşınan dosyalar", () => {
     "ChatInstructionsDialog.tsx",
     "ChatProjectDialog.tsx",
     "AddSystemModal.tsx",
-    "SettingsModal.tsx"
+    "SettingsModal.tsx",
+    "CredentialsModal.tsx",
+    "CertTrustDialog.tsx",
+    "TierPromptModal.tsx",
+    "RoleModal.tsx"
   ];
 
   it("kendi arka planını, katmanını ve px yazı boyunu taşımıyor", () => {
