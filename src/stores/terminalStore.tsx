@@ -109,6 +109,8 @@ export function TerminalStoreProvider({
    * tetiklemek için gerekli (ref değişimi etki bağımlılık listesini uyandırmıyor).
    */
   const [bootingAxetCount, setBootingAxetCount] = useState(0);
+  /** `createTerminal` dönmeden gelen terminal:ready kimlikleri (earlyExits gibi). */
+  const earlyReady = useRef(new Set<string>());
   /**
    * Başlangıç aşamasındaki pty kimlikleri: bu dönemde gelen çıktı okunmadı
    * noktası koymaz (spec §4). axet için terminal:ready, cmd/powershell için
@@ -154,7 +156,17 @@ export function TerminalStoreProvider({
     });
     // axet-code ekranını çizince (ya da 8 s sonra) ana süreç bu sinyali gönderir.
     const offReady = window.api.onTerminalReady((ptyId) => {
-      if (!bootingAxetPtyIds.current.delete(ptyId)) return; // bilinmeyen kimlik
+      if (!bootingAxetPtyIds.current.delete(ptyId)) {
+        // Henüz sahiplenilmemiş kimlik: createTerminal dönünce yuva hiç tutulmasın.
+        if (!ptyOwners.current.has(ptyId)) {
+          if (earlyReady.current.size >= EARLY_EXIT_LIMIT) {
+            const oldest = earlyReady.current.values().next().value;
+            if (oldest !== undefined) earlyReady.current.delete(oldest);
+          }
+          earlyReady.current.add(ptyId);
+        }
+        return;
+      }
       setBootingAxetCount((c) => c - 1);
       // axet başlangıç kipi sona erdi; artık çıktı okunmadı işareti koyabilir.
       startupPtyIds.current.delete(ptyId);
@@ -208,7 +220,16 @@ export function TerminalStoreProvider({
             spawnTokens.current.delete(pane.id);
             ptyOwners.current.set(ptyId, pane.id);
             dispatch({ type: "spawnSucceeded", paneId: pane.id, token, ptyId });
+            const code = earlyExits.current.get(ptyId);
+            const readyEarly = earlyReady.current.delete(ptyId);
+            if (code !== undefined) {
+              // Süreç çoktan kapandı: başlangıç kipi de yuva da tutulmuyor.
+              earlyExits.current.delete(ptyId);
+              dispatch({ type: "ptyExit", ptyId, code });
+              return;
+            }
             // Başlangıç kipi: bu sürede çıktı okunmadı işareti koymaz (spec §4).
+            if (isAxet && readyEarly) return; // axet zaten hazır; yuva tutulmuyor
             startupPtyIds.current.add(ptyId);
             if (isAxet) {
               // axet için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
@@ -217,11 +238,6 @@ export function TerminalStoreProvider({
             } else {
               // cmd/powershell için STARTUP_GRACE_MS sonra başlangıç kipi biter.
               setTimeout(() => startupPtyIds.current.delete(ptyId), STARTUP_GRACE_MS);
-            }
-            const code = earlyExits.current.get(ptyId);
-            if (code !== undefined) {
-              earlyExits.current.delete(ptyId);
-              dispatch({ type: "ptyExit", ptyId, code });
             }
           },
           (error: unknown) => {

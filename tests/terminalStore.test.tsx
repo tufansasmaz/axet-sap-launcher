@@ -212,6 +212,28 @@ describe("başlatma", () => {
     expect(api.createTerminal).toHaveBeenCalledTimes(3);
   });
 
+  it("createTerminal dönmeden gelen ready ya da çıkış axet yuvasını kilitli bırakmıyor", async () => {
+    await ready();
+    act(() => {
+      store.commands.addPane("axet", "C:\\a");
+      store.commands.addPane("axet", "C:\\b");
+      store.commands.addPane("axet", "C:\\c");
+      store.commands.addPane("axet", "C:\\d");
+    });
+    await flush();
+    expect(api.createTerminal).toHaveBeenCalledTimes(2);
+
+    // pty-1'in ready'si, pty-2'nin çıkışı kimlikler sahiplenilmeden geliyor.
+    await emitReady("pty-1");
+    emitExit("pty-2", 0);
+    await act(async () => { creates[0].resolve("pty-1"); });
+    await flush();
+    await act(async () => { creates[1].resolve("pty-2"); });
+    await flush();
+    // İki yuva da boşalmış olmalı: üçüncü ve dördüncü başlıyor.
+    expect(api.createTerminal).toHaveBeenCalledTimes(4);
+  });
+
   it("klasör yoksa bölme missingDir oluyor, başka hata mesajıyla failed", async () => {
     await ready();
     act(() => {
