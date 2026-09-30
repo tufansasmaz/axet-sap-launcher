@@ -9,14 +9,12 @@ export const tr = {
   "common.unknownError": "bilinmeyen hata",
 
   "app.landscapeLoadError": "Landscape yüklenemedi: {message}",
-  "app.addSystemTitle": "Yeni SAP sistemi ekle",
   "app.addSystem": "Sistem Ekle",
   // Sayı BİLEREK var: dosya değişmediyse ekranda hiçbir şey kıpırdamıyor ve
   // düğme bozuk sanılıyordu. Sayının aynı kalması "okundu ama değişmemiş"
   // demenin en kısa yolu.
   "app.refreshedFromSapLogon": "SAP Logon'dan {count} sistem yüklendi",
   "app.listReloaded": "Liste yenilendi — {count} sistem",
-  "app.refetchTitle": "Sistemleri SAP Logon'dan yeniden getir",
   "app.refetch": "SAP Logon'dan Getir",
   "app.searchPlaceholder": "Müşteri veya sistem ara… (Ctrl+F)",
   "app.clearSearch": "Aramayı temizle",

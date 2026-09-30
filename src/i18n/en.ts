@@ -11,11 +11,9 @@ export const en: Record<TranslationKey, string> = {
   "common.unknownError": "unknown error",
 
   "app.landscapeLoadError": "Failed to load landscape: {message}",
-  "app.addSystemTitle": "Add a new SAP system",
   "app.addSystem": "Add System",
   "app.refreshedFromSapLogon": "Loaded {count} systems from SAP Logon",
   "app.listReloaded": "List refreshed — {count} systems",
-  "app.refetchTitle": "Reload systems from SAP Logon",
   "app.refetch": "Refetch from SAP Logon",
   "app.searchPlaceholder": "Search customer or system… (Ctrl+F)",
   "app.clearSearch": "Clear search",

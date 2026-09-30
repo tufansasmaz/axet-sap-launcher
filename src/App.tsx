@@ -1,12 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import {
-  RefreshCw,
-  AlertTriangle,
-  Plus,
-  Download,
-  X,
-  FileText
-} from "lucide-react";
+import { X, FileText } from "lucide-react";
 import type {
   AppConfig,
   AppTheme,
@@ -61,7 +54,6 @@ import { TerminalStoreProvider } from "./stores/terminalStore";
 import FileViewer from "./components/FileViewer";
 import { ChatStoreProvider } from "./stores/chatStore";
 import { flattenLandscape } from "./lib/landscape";
-import { btn, iconBtn, tintBtn } from "./ui/buttons";
 import { applyAppearance } from "./ui/appearance";
 import { useActiveContext } from "./lib/useActiveContext";
 import { useDocumentLanguage } from "./ui/useDocumentLanguage";
@@ -1081,84 +1073,6 @@ export default function App() {
           />
         ) : (
           <>
-        {/* Başlık şeridi, axet.code ekranının diline çekildi (kullanıcı isteği,
-            2026-09-06: *"ordaki butonlar arama kutularının şekilleri axet.code
-            ekranındaki buton ve arama kutuları gibi olsun"*). Değişen üç şey:
-
-              1. Köşeler: `rounded-sm` (4px) → `rounded-md`/`rounded-lg`. Bu
-                 ekran, 4px köşeleri hâlâ kullanan son yerdi.
-              2. Yükseklik: `py-1.5`ten TÜREYEN yükseklik yerine sabit `h-9`.
-                 Dolgudan türeyen yükseklik yazı boyuna göre düğmeden düğmeye
-                 1-2px kayıyordu (bkz. src/ui/buttons.ts başlığı).
-              3. Arama kutusu 2026-09-29'da kenar çubuğuna indi (`LogonSidebar`).
-
-            Metinli düğmelerde renk gövdenin KENDİSİNDE (kullanıcı isteği,
-            2026-09-06): önceki hâlde renk sadece ikondaydı, gövde nötrdü —
-            15px'lik renkli bir ikon nötr bir düğmenin içinde kaybolduğu için
-            düğmeler pratikte üç tane aynı gri kutuydu. Şimdi şeride bakınca
-            hangisinin neye dokunduğu okunuyor: ekleme accent, "SAP Logon'dan
-            Getir" SAP mavisi, terminal durum yeşili.
-
-            "SİSTEM EKLE" DOLGULU (kullanıcı isteği, 2026-09-07: *"SAP
-            logondaki sistem ekle butonu aynı chat ekranındaki yeni sohbet
-            butonu gibi olsun"*), diğer ikisi soluk-dolgu ailesinde kaldı. Bu
-            AYRIM kuralın kendisi: `btn("primary")` "ekranda en fazla bir tane"
-            (bkz. src/ui/buttons.ts) ve bu şeridin cevabı gerçekten o —
-            sistemsiz bir listede yapılacak tek şey sistem eklemek. Diğer ikisi
-            de dolgu olsaydı kural çiğnenir ve şerit üç tane "asıl eylem benim"
-            diyen düğmeye dönerdi; `tintBtn` tam bu yüzden var, kimlik veriyor
-            ama sıra istemiyor. Kenar çubuğundaki "Yeni sohbet" ile aynı ilişki:
-            orada da tek dolgu o.
-
-            Sağdaki yenile düğmesi bilerek nötr kaldı: konusu kendi başına bir
-            şey değil, şeridin tamamı. */}
-        <header className="flex items-center gap-2 border-b border-line bg-sidebar px-4 py-2.5">
-          <button
-            onClick={() => setAddSystemOpen(true)}
-            title={t("app.addSystemTitle")}
-            // Kenar çubuğundaki "Yeni sohbet" ile aynı deri: dolgulu accent,
-            // 36px boy, yarı kalın 12px yazı. Boy/punto komşularıyla aynı
-            // kalıyor (`lg` + 12px), yalnızca ton dolguya geçiyor — `lg`nin
-            // kendi 13px'i bırakılsaydı düğme şeritteki tek uzun yazı olurdu.
-            className={btn("primary", "lg", "gap-1.5 px-3 text-[12px] font-semibold")}
-          >
-            <Plus size={15} className="shrink-0" />
-            {t("app.addSystem")}
-          </button>
-          <button
-            onClick={() => refreshWithToast("app.refreshedFromSapLogon")}
-            title={t("app.refetchTitle")}
-            className={tintBtn("sap", "lg", "gap-1.5 px-3 text-[12px]")}
-          >
-            <Download size={15} className={`shrink-0 ${loading ? "animate-pulse" : ""}`} />
-            {t("app.refetch")}
-          </button>
-          {/* Arama kenar çubuğunda (`LogonSidebar`); boşluk düğmeleri iki yana yaslıyor. */}
-          <div className="min-w-0 flex-1" />
-
-          <button
-            onClick={() => refreshWithToast("app.listReloaded")}
-            title={t("app.reloadListTitle")}
-            className={iconBtn("neutral", "lg")}
-          >
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
-        </header>
-
-        {noLandscapeFile && (
-          <div
-            className="flex items-center gap-2 border-b px-4 py-2 text-sm"
-            style={{
-              borderColor: "var(--status-warning-border)",
-              backgroundColor: "var(--status-warning-bg)",
-              color: "var(--status-warning-text)"
-            }}
-          >
-            <AlertTriangle size={14} />
-            {t("app.noLandscapeFile", { file: landscape?.sourceFile ?? "" })}
-          </div>
-        )}
-
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
             <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -1214,6 +1128,11 @@ export default function App() {
                       onEditManual={handleEditManual}
                       onDeleteManual={handleDeleteManual}
                       onSetTier={handleSetTier}
+                      listEmpty={!!noLandscapeFile}
+                      emptyHint={
+                        noLandscapeFile ? t("app.noLandscapeFile", { file: landscape?.sourceFile ?? "" }) : undefined
+                      }
+                      onAddSystem={() => setAddSystemOpen(true)}
                     />
                   )}
                 </div>
