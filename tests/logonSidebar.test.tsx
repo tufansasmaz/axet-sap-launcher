@@ -351,6 +351,15 @@ describe("LogonSidebar üst şerit ve Müşteriler bölümü", () => {
     expect(screen.getByText("Müşteriler").nextElementSibling?.textContent).toBe("1");
   });
 
+  it("arama sürerken Müşteriler başlığı tıklanamıyor, kayıtlı tercih değişmiyor", () => {
+    localStorage.setItem("axet.customerTree.collapsed", "1");
+    renderSidebar({ search: "s4d" });
+    const header = screen.getByText("Müşteriler").closest("button")!;
+    expect(header.disabled).toBe(true);
+    fireEvent.click(header);
+    expect(localStorage.getItem("axet.customerTree.collapsed")).toBe("1");
+  });
+
   it("Son Bağlanılanlar da aynı başlık bileşenini kullanıyor", () => {
     renderSidebar();
     const recent = screen.getByText("Son Bağlanılanlar").closest("button")!;

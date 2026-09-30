@@ -230,6 +230,7 @@ export default function LogonSidebar({
                 count={countVisibleServices(customers, search)}
                 collapsed={treeHidden}
                 onToggle={toggleCustomers}
+                disabled={search.trim() !== ""}
               />
               {/* `hidden` ile gizleniyor, unmount değil: ağacın açık klasörleri
                   ve klavye odağı bölüm yeniden açılınca yerinde duruyor. */}

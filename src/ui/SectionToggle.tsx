@@ -43,24 +43,29 @@ export function SectionToggle({
   label,
   count,
   collapsed,
-  onToggle
+  onToggle,
+  disabled = false
 }: {
   label: string;
   count: number;
   collapsed: boolean;
   onToggle: () => void;
+  // Bölüm o an zorla açıkken (ör. arama sürerken): tıklamak ekranda hiçbir
+  // şey değiştirmeyip yalnız kayıtlı tercihi çevirirdi.
+  disabled?: boolean;
 }) {
   const t = useT();
   return (
     <button
       type="button"
       onClick={onToggle}
-      title={collapsed ? t("recentSystems.expand") : t("recentSystems.collapse")}
+      disabled={disabled}
+      title={disabled ? undefined : collapsed ? t("recentSystems.expand") : t("recentSystems.collapse")}
       aria-expanded={!collapsed}
-      className="group mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-slate-400 transition hover:text-slate-200"
+      className="group mb-1.5 flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-slate-400 transition hover:text-slate-200 disabled:cursor-default disabled:hover:text-slate-400"
     >
       {collapsed ? <ChevronRight size={12} className="shrink-0" /> : <ChevronDown size={12} className="shrink-0" />}
-      <Eyebrow as="span" count={count} className="min-w-0 flex-1 group-hover:text-slate-200">
+      <Eyebrow as="span" count={count} className="min-w-0 flex-1 group-hover:text-slate-200 group-disabled:text-slate-400">
         {label}
       </Eyebrow>
     </button>
