@@ -58,3 +58,18 @@ describe("TierPromptModal", () => {
     expect(screen.getByText(/Müşteri · D01 henüz işaretlenmemiş/)).toBeTruthy();
   });
 });
+
+describe("TierPromptModal — ortak pencere", () => {
+  it("dialog adı başlık, ilk odak pencerede (seçenek düğmesinde değil)", () => {
+    mount();
+    const dialog = screen.getByRole("dialog", { name: "Bu sistem hangisi?" });
+    expect(document.activeElement).toBe(dialog);
+  });
+
+  it("Escape 'Şimdi değil' ile aynı: tier seçmeden geçiyor", () => {
+    const { onChoose, onSkip } = mount("DEV");
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onSkip).toHaveBeenCalledTimes(1);
+    expect(onChoose).not.toHaveBeenCalled();
+  });
+});

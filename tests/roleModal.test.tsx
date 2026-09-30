@@ -87,3 +87,13 @@ describe("RoleModal — zorunlu rol kapisi", () => {
     expect(screen.queryByText(/KALICIDIR/)).toBeNull();
   });
 });
+
+describe("RoleModal — ortak pencere", () => {
+  it("dialog adı başlık, Escape pencereyi kapatmıyor", () => {
+    const { onConfirm } = mount();
+    const dialog = screen.getByRole("dialog", { name: "Hangi danışmansın?" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "Hangi danışmansın?" })).toBeTruthy();
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+});
