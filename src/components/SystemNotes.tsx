@@ -1,6 +1,6 @@
 import { Check, Circle, Loader2 } from "lucide-react";
 import type { SystemCommentState } from "./useSystemComment";
-import { btn, PANEL_TITLE } from "../ui/buttons";
+import { btn, PANEL_TITLE, tintBtn } from "../ui/buttons";
 import { useT } from "../i18n";
 
 export default function SystemNotes({ note }: { note: SystemCommentState }) {
@@ -66,7 +66,11 @@ export default function SystemNotes({ note }: { note: SystemCommentState }) {
               onClick={() => void save()}
               disabled={commentSaving || commentLoading || !isDirty}
               title={t("systemPanel.commentHint")}
-              className={btn(isDirty && !commentSaving ? "primary" : "neutral", "sm", "gap-1.5")}
+              // Kaydedilmemiş not var: dolgulu değil soluk vurgu. Ekrandaki tek
+              // birincil düğme başlıktaki "aXet'te Aç" (bkz. buttons.ts).
+              className={
+                isDirty && !commentSaving ? tintBtn("accent", "sm", "gap-1.5") : btn("neutral", "sm", "gap-1.5")
+              }
             >
               {commentSaving ? (
                 <>

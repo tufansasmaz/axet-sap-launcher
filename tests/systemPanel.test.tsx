@@ -181,6 +181,14 @@ describe("SystemPanel — bugünkü davranış", () => {
     rerender({ selection: selectionOf(SERVICE_A) });
     expect(await screen.findByDisplayValue("taslak")).toBeTruthy();
   });
+
+  it("not düzenlenirken de ekranda tek birincil düğme var (aXet'te Aç)", async () => {
+    renderPanel();
+    const box = await notesReady();
+    fireEvent.change(box, { target: { value: "yeni not" } });
+    const primaries = screen.getAllByRole("button").filter((b) => b.classList.contains("bg-accent-500"));
+    expect(primaries).toHaveLength(1);
+  });
 });
 
 describe("SystemPanel — yeni düzen", () => {
