@@ -9,6 +9,12 @@ import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
 import { resolveTier } from "../lib/tier";
 import { useT } from "../i18n";
+import { PANEL_TITLE } from "../ui/buttons";
+
+// Sağ panelin kartı. Zemin `bg-app` yalnızca kartların arasında ve çevresinde
+// ince bir boşluk olarak görünüyor; eskiden dar sütunun iki yanı boş ve
+// simsiyah kalıyordu (kullanıcı, 2026-09-30).
+const PANEL_CARD = "flex flex-col gap-3 rounded-xl border border-line bg-card p-5";
 
 interface Selection {
   path: string[];
@@ -98,7 +104,7 @@ export default function SystemPanel({
     <div className="h-full overflow-y-auto">
       <div
         key={selection.itemUuid}
-        className="animate-panel-fade-in mx-auto flex w-full max-w-[720px] flex-col gap-6 px-6 py-8"
+        className="animate-panel-fade-in mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-8 py-8"
       >
         <SystemHeader
           path={path}
@@ -112,13 +118,24 @@ export default function SystemPanel({
           onEditManual={() => onEditManual(service)}
           onDeleteManual={() => onDeleteManual(service)}
         />
-        <SystemInfoList
-          service={service}
-          tier={tier}
-          explicitTier={explicitTier}
-          onSetTier={(next) => onSetTier(service, next)}
-        />
-        <SystemNotes note={note} />
+        {/* İki sütun, ama eşik pencerenin değil kabın genişliği: kenar
+            çubuğu ve dosya sekmeleri alanı daraltıyor. Kap ~980px'in altına
+            inince `auto-fit` tek sütuna düşüyor; `min(100%,…)` dar kapta
+            yatay taşmayı önlüyor. */}
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5">
+          <section data-panel-card className={PANEL_CARD}>
+            <h3 className={PANEL_TITLE}>{t("systemPanel.detailsHeading")}</h3>
+            <SystemInfoList
+              service={service}
+              tier={tier}
+              explicitTier={explicitTier}
+              onSetTier={(next) => onSetTier(service, next)}
+            />
+          </section>
+          <div data-panel-card className={PANEL_CARD}>
+            <SystemNotes note={note} />
+          </div>
+        </div>
       </div>
     </div>
   );

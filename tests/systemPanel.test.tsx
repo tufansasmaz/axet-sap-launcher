@@ -293,3 +293,47 @@ describe("SystemPanel — dosya kuralları", () => {
     });
   }
 });
+
+describe("SystemPanel — iki sütun (ikinci tur)", () => {
+  it("bağlantı bilgileri ve notlar ayrı kartlarda, ikisi aynı ızgarada", async () => {
+    renderPanel();
+    await notesReady();
+    const infoCard = screen.getByRole("heading", { name: "Bağlantı Bilgileri" }).closest("[data-panel-card]");
+    const notesCard = screen.getByRole("textbox").closest("[data-panel-card]");
+    expect(infoCard).not.toBeNull();
+    expect(notesCard).not.toBeNull();
+    expect(infoCard).not.toBe(notesCard);
+    for (const card of [infoCard!, notesCard!]) {
+      for (const cls of ["bg-card", "border", "border-line", "rounded-xl"]) {
+        expect(card.classList.contains(cls)).toBe(true);
+      }
+    }
+    const grid = infoCard!.parentElement!;
+    expect(notesCard!.parentElement).toBe(grid);
+    expect(grid.classList.contains("grid")).toBe(true);
+    // Sütun sayısını pencere değil kabın kendi genişliği belirliyor.
+    expect(grid.className).toContain("minmax(min(100%,480px),1fr)");
+  });
+
+  it("başlık kartların dışında, üstte", async () => {
+    renderPanel();
+    await notesReady();
+    const title = screen.getByRole("heading", { name: "D01 Geliştirme" });
+    expect(title.closest("[data-panel-card]")).toBeNull();
+  });
+
+  it("not alanı yan yana düzende kartını dolduruyor", async () => {
+    renderPanel();
+    const box = await notesReady();
+    expect(box.classList.contains("grow")).toBe(true);
+    expect(box.classList.contains("shrink-0")).toBe(true);
+    expect(box.parentElement!.classList.contains("flex-1")).toBe(true);
+    expect(box.closest("section")!.classList.contains("flex-1")).toBe(true);
+  });
+
+  it("720px'lik dar sütun sınırı kalktı", () => {
+    const src = readFileSync("src/components/SystemPanel.tsx", "utf8");
+    expect(src).not.toContain("max-w-[720px]");
+    expect(src).toContain("max-w-[1280px]");
+  });
+});

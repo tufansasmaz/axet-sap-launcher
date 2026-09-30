@@ -9,7 +9,7 @@ export default function SystemNotes({ note }: { note: SystemCommentState }) {
     note;
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-1 flex-col gap-2">
       <div className="flex items-center justify-between gap-2">
         <h3 className={PANEL_TITLE}>{t("systemPanel.commentLabel")}</h3>
         {isDirty && !commentSaving && (
@@ -24,7 +24,10 @@ export default function SystemNotes({ note }: { note: SystemCommentState }) {
           </span>
         )}
       </div>
-      <div className="rounded-lg border border-line bg-card focus-within:border-line-strong">
+      <div className="flex flex-1 flex-col rounded-lg border border-line bg-card focus-within:border-line-strong">
+        {/* Yükseklik `useSystemComment`'te içeriğe göre 140–420px arası
+            ayarlanıyor; `grow` yan yana düzende kartın kalanını dolduruyor,
+            `shrink-0` ayarlanan yüksekliğin altına inmesini engelliyor. */}
         <textarea
           ref={textareaRef}
           value={comment}
@@ -38,7 +41,7 @@ export default function SystemNotes({ note }: { note: SystemCommentState }) {
           disabled={commentLoading}
           aria-label={t("systemPanel.commentLabel")}
           placeholder={commentLoading ? "" : t("systemPanel.commentPlaceholder")}
-          className="block w-full resize-none border-none bg-transparent px-3 py-2.5 text-sm leading-relaxed text-slate-100 outline-none placeholder:text-slate-500/70 focus:ring-0 disabled:opacity-60"
+          className="block w-full grow shrink-0 resize-none border-none bg-transparent px-3 py-2.5 text-sm leading-relaxed text-slate-100 outline-none placeholder:text-slate-500/70 focus:ring-0 disabled:opacity-60"
           style={{ boxShadow: "none" }}
         />
         <div className="flex items-center justify-between gap-2 border-t border-line-subtle px-3 py-2">
