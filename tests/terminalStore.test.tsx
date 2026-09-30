@@ -128,6 +128,13 @@ describe("açılış temizliği", () => {
     await flush();
     expect(api.createTerminal).toHaveBeenCalledTimes(1);
   });
+
+  it("terminal alanları olmayan config (eski ana süreç) çökertmiyor, boş alanla açılıyor", async () => {
+    const { terminalWorkspaces: _w, terminalActiveWorkspaceId: _a, ...eski } = baseConfig as AppConfig;
+    await ready({ config: eski as AppConfig });
+    expect(store.state.phase).toBe("ready");
+    expect(store.state.workspaces).toHaveLength(1);
+  });
 });
 
 describe("başlatma", () => {

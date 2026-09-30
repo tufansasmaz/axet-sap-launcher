@@ -185,13 +185,17 @@ export function TerminalStoreProvider({
   // Mod ilk kez görününce kayıtlı düzen okunuyor.
   useEffect(() => {
     if (!visible || !config || state.phase !== "closed") return;
+    // Alanlar yeniden başlatılmamış eski bir ana süreçten gelen config'te yok;
+    // boş liste gibi davranılıyor, mod çökmüyor.
+    const saved = Array.isArray(config.terminalWorkspaces) ? config.terminalWorkspaces : [];
+    const activeId = config.terminalActiveWorkspaceId ?? null;
     if (lastWritten.current === null) {
-      lastWritten.current = signature(config.terminalWorkspaces, config.terminalActiveWorkspaceId);
+      lastWritten.current = signature(saved, activeId);
     }
     dispatch({
       type: "open",
-      saved: config.terminalWorkspaces,
-      activeId: config.terminalActiveWorkspaceId,
+      saved,
+      activeId,
       freshId: crypto.randomUUID(),
       nameFor: nameForRef.current
     });
