@@ -1,7 +1,8 @@
 import { ShieldAlert } from "lucide-react";
 import type { CertTrustPrompt } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
-import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import { Button } from "../ui/Button";
+import { Modal, ModalCancelButton } from "../ui/Modal";
 
 // SAP sunucusunun TLS sertifikası doğrulanamadığında (kurumsal CA, kendinden
 // imzalı) ya da daha önce onaylanan sertifika DEĞİŞTİĞİNDE gösterilir.
@@ -31,38 +32,43 @@ export default function CertTrustDialog({ prompt, busy = false, onTrust, onCance
   const endpoint = `${prompt.host}:${prompt.port}`;
 
   return (
-    <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay-scrim)]"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") onCancel();
-      }}
+    <Modal
+      open
+      onClose={onCancel}
+      // Onay ya da bağlantı sürerken kapanmıyor.
+      closeDisabled={busy}
+      width={560}
+      icon={<ShieldAlert size={18} className="text-[var(--status-warning-text)]" />}
+      title={changed ? t("certTrust.changedTitle") : t("certTrust.untrustedTitle")}
+      footer={
+        <>
+          {/* Varsayılan odak İptal'de: Enter'a refleksle basan kullanıcı
+              sertifikaya güvenmiş olmasın. */}
+          <ModalCancelButton autoFocus />
+          <Button variant="primary" onClick={onTrust} disabled={busy}>
+            {t("certTrust.trust")}
+          </Button>
+        </>
+      }
     >
-      <div className="w-[560px] max-w-[92vw] rounded-xl border border-line bg-card p-6">
-        <div className="mb-3 flex items-center gap-2">
-          <ShieldAlert size={18} className="text-[var(--status-warning-text)]" />
-          <h3 className="text-base font-semibold text-white">
-            {changed ? t("certTrust.changedTitle") : t("certTrust.untrustedTitle")}
-          </h3>
-        </div>
-        <p className="mb-3 text-sm text-slate-400">
-          {changed
-            ? t("certTrust.changedMessage", { endpoint })
-            : t("certTrust.untrustedMessage", { endpoint })}
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-slate-400">
+          {changed ? t("certTrust.changedMessage", { endpoint }) : t("certTrust.untrustedMessage", { endpoint })}
         </p>
-        <div className="mb-3 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]">
+        <div className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-xs text-[var(--status-warning-text)]">
           {changed ? t("certTrust.changedWarning") : t("certTrust.untrustedWarning")}
         </div>
-        <dl className="mb-5 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-xs">
           {changed && prompt.previousFingerprint && (
             <>
               <dt className="text-slate-500">{t("certTrust.previousFingerprint")}</dt>
-              <dd className="break-all font-mono text-[11px] text-slate-400">
+              <dd className="break-all font-mono text-2xs text-slate-400">
                 {groupFingerprint(prompt.previousFingerprint)}
               </dd>
             </>
           )}
           <dt className="text-slate-500">{changed ? t("certTrust.newFingerprint") : t("certTrust.fingerprint")}</dt>
-          <dd className="break-all font-mono text-[11px] text-slate-200">{groupFingerprint(prompt.fingerprint)}</dd>
+          <dd className="break-all font-mono text-2xs text-slate-200">{groupFingerprint(prompt.fingerprint)}</dd>
           <dt className="text-slate-500">{t("certTrust.subject")}</dt>
           <dd className="break-all text-slate-300">{prompt.subject || "—"}</dd>
           <dt className="text-slate-500">{t("certTrust.issuer")}</dt>
@@ -81,17 +87,7 @@ export default function CertTrustDialog({ prompt, busy = false, onTrust, onCance
             </>
           )}
         </dl>
-        {/* Varsayılan odak "Vazgeç"te: Enter'a refleksle basan kullanıcı
-            sertifikaya güvenmiş olmasın. */}
-        <div className="flex justify-end gap-2">
-          <button onClick={onCancel} className={DIALOG_CANCEL_BUTTON} autoFocus disabled={busy}>
-            {t("common.cancel")}
-          </button>
-          <button onClick={onTrust} className={DIALOG_CONFIRM_BUTTON} disabled={busy}>
-            {t("certTrust.trust")}
-          </button>
-        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
