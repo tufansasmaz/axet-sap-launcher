@@ -11,6 +11,7 @@ import {
   isWorkspaceVisible,
   nextToStart,
   paneByPty,
+  SPAWN_CONCURRENCY,
   terminalReducer,
   toSaved
 } from "./terminalReducer";
@@ -91,6 +92,17 @@ export function TerminalStoreProvider({
   const lastWritten = useRef<string | null>(null);
   const handledProjectRequest = useRef(projectRequest);
   const seenLimitHits = useRef(0);
+  /**
+   * terminal:ready sinyali beklenen axet pty kimlikleri.
+   * Bu kümede kalan her kimlik SPAWN_CONCURRENCY sınırına bir yuva olarak sayılır
+   * (spec §5.1): createTerminal çabuk döner ama asıl axet-code başlangıcı gecikmeli.
+   */
+  const bootingAxetPtyIds = useRef(new Set<string>());
+  /**
+   * bootingAxetPtyIds küme boyutunun durum kopyası; spawn etkisini yeniden
+   * tetiklemek için gerekli (ref değişimi etki bağımlılık listesini uyandırmıyor).
+   */
+  const [bootingAxetCount, setBootingAxetCount] = useState(0);
 
   // 1. Ctrl+R sonrası eski kabuklar: ref, StrictMode'un ikinci çalıştırmasında da tutuyor.
   useEffect(() => {
@@ -113,6 +125,10 @@ export function TerminalStoreProvider({
     const offExit = window.api.onTerminalExit((ptyId, code) => {
       if (ptyOwners.current.has(ptyId)) {
         dispatch({ type: "ptyExit", ptyId, code });
+        // Çıkan pty hâlâ önyükleme aşamasındaysa yuvayı serbest bırak.
+        if (bootingAxetPtyIds.current.delete(ptyId)) {
+          setBootingAxetCount((c) => c - 1);
+        }
         return;
       }
       if (earlyExits.current.size >= EARLY_EXIT_LIMIT) {
@@ -121,9 +137,15 @@ export function TerminalStoreProvider({
       }
       earlyExits.current.set(ptyId, code);
     });
+    // axet-code ekranını çizince (ya da 8 s sonra) ana süreç bu sinyali gönderir.
+    const offReady = window.api.onTerminalReady((ptyId) => {
+      if (!bootingAxetPtyIds.current.delete(ptyId)) return; // bilinmeyen kimlik
+      setBootingAxetCount((c) => c - 1);
+    });
     return () => {
       offData();
       offExit();
+      offReady();
     };
   }, []);
 
@@ -149,11 +171,13 @@ export function TerminalStoreProvider({
   // 2. Başlatma.
   useEffect(() => {
     if (!cleaned || !config) return;
-    for (const pane of nextToStart(state)) {
+    // bootingAxetCount: "running" ama terminal:ready henüz gelmemiş axet sayısı.
+    for (const pane of nextToStart(state, SPAWN_CONCURRENCY, bootingAxetCount)) {
       if (spawnTokens.current.has(pane.id)) continue;
       const token = ++spawnSeq.current;
       spawnTokens.current.set(pane.id, token);
       dispatch({ type: "spawnStarted", paneId: pane.id, token });
+      const isAxet = pane.kind === "axet";
       const shell = pane.kind === "axet" ? config.terminal : pane.kind;
       const command = pane.kind === "axet" ? config.axetCommand || "axet-code -y" : undefined;
       window.api
@@ -167,6 +191,11 @@ export function TerminalStoreProvider({
             spawnTokens.current.delete(pane.id);
             ptyOwners.current.set(ptyId, pane.id);
             dispatch({ type: "spawnSucceeded", paneId: pane.id, token, ptyId });
+            // axet için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
+            if (isAxet) {
+              bootingAxetPtyIds.current.add(ptyId);
+              setBootingAxetCount((c) => c + 1);
+            }
             const code = earlyExits.current.get(ptyId);
             if (code !== undefined) {
               earlyExits.current.delete(ptyId);
@@ -187,7 +216,7 @@ export function TerminalStoreProvider({
           }
         );
     }
-  }, [state, cleaned, config]);
+  }, [state, cleaned, config, bootingAxetCount]);
 
   // 4. Kalıcılık: yalnız düzen değişince.
   useEffect(() => {
@@ -230,6 +259,10 @@ export function TerminalStoreProvider({
       if (!ptyId) return;
       ptyOwners.current.delete(ptyId);
       void window.api.disposeTerminal(ptyId).catch(() => {});
+      // Kapatılan/yeniden başlatılan bölmenin axet önyükleme yuvası temizleniyor.
+      if (bootingAxetPtyIds.current.delete(ptyId)) {
+        setBootingAxetCount((c) => c - 1);
+      }
     };
     return {
       restore: () => dispatch({ type: "restore", nameFor: nameForRef.current }),

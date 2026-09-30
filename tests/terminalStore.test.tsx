@@ -23,6 +23,7 @@ let creates: PendingCreate[];
 let finishDisposeAll: () => void;
 let dataListeners: Set<(id: string, data: string) => void>;
 let exitListeners: Set<(id: string, code: number) => void>;
+let readyListeners: Set<(id: string) => void>;
 let api: Record<string, ReturnType<typeof vi.fn>>;
 let prevApi: unknown;
 let store: TerminalStoreValue;
@@ -40,6 +41,7 @@ beforeEach(() => {
   creates = [];
   dataListeners = new Set();
   exitListeners = new Set();
+  readyListeners = new Set();
   api = {
     createTerminal: vi.fn(
       (cwd: string, _cols: number, _rows: number, shell: string, initialCommand?: string, options?: unknown) =>
@@ -54,6 +56,10 @@ beforeEach(() => {
     onTerminalExit: vi.fn((cb: (id: string, code: number) => void) => {
       exitListeners.add(cb);
       return () => exitListeners.delete(cb);
+    }),
+    onTerminalReady: vi.fn((cb: (id: string) => void) => {
+      readyListeners.add(cb);
+      return () => readyListeners.delete(cb);
     }),
     saveConfig: vi.fn(async (partial: Partial<AppConfig>) => ({ ...baseConfig, ...partial }))
   };
@@ -107,6 +113,7 @@ async function ready(props: Parameters<typeof Harness>[0] = {}) {
 const panes = () => store.state.workspaces.flatMap((w) => w.panes);
 const emitData = (id: string) => act(() => dataListeners.forEach((cb) => cb(id, "x")));
 const emitExit = (id: string, code: number) => act(() => exitListeners.forEach((cb) => cb(id, code)));
+const emitReady = (id: string) => act(() => readyListeners.forEach((cb) => cb(id)));
 
 describe("açılış temizliği", () => {
   it("StrictMode'da bir kez çalışıyor ve bitmeden bölme başlamıyor", async () => {
@@ -179,6 +186,30 @@ describe("başlatma", () => {
     await flush();
     expect(api.disposeTerminal).toHaveBeenCalledWith("pty-eski");
     expect(panes()[0].run).toEqual({ state: "running", ptyId: "pty-yeni" });
+  });
+
+  it("axet bölmelerde yuva terminal:ready gelene kadar tutulur, üçüncü önce başlamaz", async () => {
+    await ready();
+    act(() => {
+      store.commands.addPane("axet", "C:\\a");
+      store.commands.addPane("axet", "C:\\b");
+      store.commands.addPane("axet", "C:\\c");
+    });
+    await flush();
+    // İlk iki bölme başladı; üçüncü createTerminal bekliyor.
+    expect(api.createTerminal).toHaveBeenCalledTimes(2);
+
+    // İki pty çözüldü — ama terminal:ready gelmeden yuva serbest bırakılmamalı.
+    await act(async () => { creates[0].resolve("pty-1"); });
+    await flush();
+    await act(async () => { creates[1].resolve("pty-2"); });
+    await flush();
+    expect(api.createTerminal).toHaveBeenCalledTimes(2);
+
+    // terminal:ready pty-1 için gelince yuva açılıyor ve üçüncü başlıyor.
+    await emitReady("pty-1");
+    await flush();
+    expect(api.createTerminal).toHaveBeenCalledTimes(3);
   });
 
   it("klasör yoksa bölme missingDir oluyor, başka hata mesajıyla failed", async () => {

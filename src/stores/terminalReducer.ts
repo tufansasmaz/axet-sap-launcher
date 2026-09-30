@@ -252,8 +252,9 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
   }
 }
 
-/** Şimdi başlatılabilecek bölmeler: seçili alan önce, sınır `limit`. */
-export function nextToStart(state: TerminalState, limit = SPAWN_CONCURRENCY): TerminalPane[] {
+/** Şimdi başlatılabilecek bölmeler: seçili alan önce, sınır `limit`.
+ * `extraOccupied`: axet pty'lerinin "hazır" olana kadar tuttuğu ek yuva sayısı. */
+export function nextToStart(state: TerminalState, limit = SPAWN_CONCURRENCY, extraOccupied = 0): TerminalPane[] {
   if (state.phase !== "ready") return [];
   const ordered = [
     ...state.workspaces.filter((w) => w.id === state.activeWorkspaceId),
@@ -267,7 +268,7 @@ export function nextToStart(state: TerminalState, limit = SPAWN_CONCURRENCY): Te
       else if (pane.run.state === "queued") queued.push(pane);
     }
   }
-  return queued.slice(0, Math.max(0, limit - starting));
+  return queued.slice(0, Math.max(0, limit - starting - extraOccupied));
 }
 
 /** Kapatınca ölecek süreç sayısı (onay metni için). */
