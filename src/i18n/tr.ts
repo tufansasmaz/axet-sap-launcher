@@ -20,8 +20,6 @@ export const tr = {
   "app.refetch": "SAP Logon'dan Getir",
   "app.searchPlaceholder": "Müşteri veya sistem ara… (Ctrl+F)",
   "app.clearSearch": "Aramayı temizle",
-  "app.toggleTerminalTitle": "Terminal panelini aç/kapat",
-  "app.terminal": "Terminal",
   "app.reloadListTitle": "Listeyi yeniden yükle",
   "app.switchToDark": "Koyu temaya geç",
   "app.switchToLight": "Açık temaya geç",
@@ -48,8 +46,6 @@ export const tr = {
   "workDir.skills": "{count} yetenek bu klasöre kuruldu.",
   "workDir.blockedByTier": "Kapı yüzünden kaldırılan katalog yetenekleri (PRD ya da rol): {names}",
   "workDir.failed": "Çalışma klasörü değiştirilemedi: {message}",
-  "app.terminalDefaultTitle": "Terminal {n}",
-  "app.terminalCreateFailed": "Terminal açılamadı: {message}",
   "app.terminalSessionEnded": "[Oturum sonlandı — terminali kapatabilirsin]",
   "app.settingsSaved": "Ayarlar kaydedildi",
   "app.settingsSaveFailed": "Ayar kaydedilemedi: {message}",
@@ -651,16 +647,6 @@ export const tr = {
 
   "toast.dismissTitle": "Kapatmak için tıkla",
 
-  "terminalPanel.resizeTitle": "Boyutu değiştir",
-  "terminalPanel.closePanel": "Terminal panelini kapat",
-  "terminalPanel.openPanel": "Terminal panelini aç",
-  "terminalPanel.closeTabTitle": "Terminali kapat",
-  "terminalPanel.noSessions": "Henüz terminal yok",
-  "terminalPanel.newTerminalTitle": "Yeni terminal ekle",
-  "terminalPanel.exitFullscreen": "Tam ekrandan çık",
-  "terminalPanel.enterFullscreen": "Terminali tam ekran yap",
-  "terminalPanel.emptyStateHint": "Sağ üstteki + ile yeni bir terminal ekleyebilirsin.",
-
   "fileExplorer.readError": "Okunamadı.",
   "fileExplorer.empty": "Boş.",
   "fileExplorer.addFileTitle": "Bu klasöre dosya ekle",
@@ -1045,7 +1031,6 @@ export const tr = {
     "Bağlanılamadı. Bu genelde aXet Agentic portalında çözülür: bu sağlayıcı için entegrasyonun var mı, yetkilendirmesi hâlâ geçerli mi bir bak.",
   "appConnections.selectProjectHint": "Bu connector'lar bir AXET Project seçilmesini gerektiriyor — bu sadece axet-code'un interaktif (tam ekran) modunda yapılabilir.",
   "appConnections.openProjectTerminal": "AXET Projesi Seç",
-  "appConnections.projectTerminalTitle": "AXET Projesi Seç",
   "appConnections.integrationErrorHint": "Bu sağlayıcı için kayıtlı entegrasyon(lar) 'ERROR' durumunda görünüyor. Genelde ajan çalışan başka bir entegrasyonu otomatik bulur — hepsi bozuksa aXet Agentic portalından yeniden yetkilendirmen/temizlemen gerekebilir.",
   // "Hiç yok" ile "var ama bozuk" farklı şeyler: ilkinin çaresi yeniden
   // yetkilendirmek değil, portalden İLK KEZ eklemek. Ekran eskiden ikisini de

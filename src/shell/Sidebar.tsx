@@ -135,7 +135,7 @@ export default function Sidebar({
     asideRef.current?.querySelector<HTMLElement>("[data-sidebar-toggle]")?.focus();
   }, [collapsed]);
 
-  // Sürüklerken kenar çubuğu kaybolursa (klavyeyle terminal tam ekranı)
+  // Sürüklerken kenar çubuğu unmount olursa
   // pencere dinleyicileri bir sonraki mouseup'a kadar yaşıyor ve unmount
   // olmuş bileşende `commit` çağırıyordu. Temizlik burada tutuluyor.
   const dragCleanupRef = useRef<(() => void) | null>(null);

@@ -5,7 +5,6 @@ import {
   Plus,
   Download,
   X,
-  TerminalSquare,
   FileText
 } from "lucide-react";
 import type {
@@ -56,7 +55,9 @@ import type { SapWriteState } from "../app-electron/shared/sapWriteTypes";
 import ConfirmDialog from "./components/ConfirmDialog";
 import CertTrustDialog from "./components/CertTrustDialog";
 import Toast, { type ToastMsg } from "./components/Toast";
-import TerminalPanel, { type TerminalSessionInfo } from "./components/TerminalPanel";
+import TerminalSidebar from "./components/TerminalSidebar";
+import TerminalMode from "./terminal/TerminalMode";
+import { TerminalStoreProvider } from "./stores/terminalStore";
 import FileViewer from "./components/FileViewer";
 import { ChatStoreProvider } from "./stores/chatStore";
 import { flattenLandscape } from "./lib/landscape";
@@ -66,9 +67,6 @@ import { useActiveContext } from "./lib/useActiveContext";
 import { useDocumentLanguage } from "./ui/useDocumentLanguage";
 import { LanguageProvider, translate } from "./i18n";
 
-const MIN_TERMINAL_HEIGHT = 160;
-const MAX_TERMINAL_HEIGHT = 720;
-const DEFAULT_TERMINAL_HEIGHT = 320;
 // Yenileme animasyonunun EN AZ görünür kalacağı süre. Yerel XML okuması
 // ~15ms; bayrağı hemen indirmek dönme animasyonunu hiç çizdirmiyordu ve
 // düğme ölü görünüyordu. 450ms "bir şey oldu" demeye yetiyor, beklemeye
@@ -142,11 +140,8 @@ export default function App() {
   const [editingSystem, setEditingSystem] = useState<EditingManualSystem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<SapService | null>(null);
   const [pendingSelectUuid, setPendingSelectUuid] = useState<string | null>(null);
-  const [terminalSessions, setTerminalSessions] = useState<TerminalSessionInfo[]>([]);
-  const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null);
-  const [terminalPanelOpen, setTerminalPanelOpen] = useState(false);
-  const [terminalPanelHeight, setTerminalPanelHeight] = useState(DEFAULT_TERMINAL_HEIGHT);
-  const [terminalFullscreen, setTerminalFullscreen] = useState(false);
+  // "AXET Projesi Seç" sayacı: her artışta Terminal modunda bir AXET bölmesi (Görev 5).
+  const [projectTerminalRequest, setProjectTerminalRequest] = useState(0);
   const [projectDir, setProjectDir] = useState<string | null>(null);
   const [leftPanelMode, setLeftPanelMode] = useState<"systems" | "files">("systems");
   const [openFiles, setOpenFiles] = useState<OpenFileTab[]>([]);
@@ -165,9 +160,6 @@ export default function App() {
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const pendingConnectivityRef = useRef<Record<string, ConnectivityState>>({});
   const flushTimerRef = useRef<number | null>(null);
-  const pendingTerminalTitlesRef = useRef<Map<string, string>>(new Map());
-  const manualTerminalCounterRef = useRef(0);
-
   // Aktif bağlam TEK KEZ burada okunuyor ve prop olarak dağıtılıyor. Hook'u
   // her ihtiyaç duyan bileşende ayrı ayrı çağırmak, aynı yayına N ayrı abone
   // ve N ayrı kopya demek olurdu — "tek bir yerde toplama" isteğinin tam
@@ -688,124 +680,17 @@ export default function App() {
     [t]
   );
 
-  // SOHBET EKRANINDA TERMİNAL YOK (2026-09-05, kullanıcı isteği: *"chat
-  // ekranındaki terminali kaldıralım"*). Bir zamanlar bağlanınca terminal
-  // açılıyordu, sonra rozetteki bir düğmeye indi, şimdi de kalktı: sohbet
-  // ekranının işi sohbet, konsol işi SAP Launcher ekranındaki alt panelde
-  // duruyor (`TerminalPanel`) ve orada duruyor olmaya devam ediyor.
-
-  useEffect(() => {
-    const unsubscribe = window.api.onTerminalReady((id) => {
-      const title = pendingTerminalTitlesRef.current.get(id);
-      pendingTerminalTitlesRef.current.delete(id);
-      setTerminalSessions((prev) => {
-        if (prev.some((s) => s.id === id)) return prev;
-        return [...prev, { id, title: title ?? t("app.terminalDefaultTitle", { n: prev.length + 1 }) }];
-      });
-      setActiveTerminalId(id);
-      setTerminalPanelOpen(true);
-    });
-    return unsubscribe;
-  }, [t]);
-
-  const handleNewTerminal = useCallback(async () => {
-    const shell = config?.terminal ?? "cmd";
-    const cwd = config?.projectsBaseDir ?? "";
-    try {
-      manualTerminalCounterRef.current += 1;
-      const id = await window.api.createTerminal(cwd, 80, 24, shell);
-      pendingTerminalTitlesRef.current.set(id, t("app.terminalDefaultTitle", { n: manualTerminalCounterRef.current }));
-    } catch (err) {
-      pushToast("error", t("app.terminalCreateFailed", { message: (err as Error).message }));
-    }
-  }, [config?.terminal, config?.projectsBaseDir, t]);
-
-  // Uygulama Bağlantıları — "AXET Projesi Seç" butonu (bkz.
-  // AppConnectionsSection.tsx). `axet-code` (argümansız, interaktif),
-  // Connector/MCP araçlarının gerektirdiği "AXET Project" seçim diyaloğunu
-  // açan GERÇEK TUI'nin kendisi — CLI'nın kendi hata mesajı da bunu
-  // doğruluyor: "No project selected, launch axet-code in interactive mode
-  // first." Bu yüzden komut vererek terminal açan yolun (READY_PATTERNS/8sn
-  // fallback bekleyen, axet.code'un TAM EKRAN sohbet arayüzü için
-  // tasarlanmış) yolunu KULLANMIYORUZ — `handleNewTerminal`'la AYNI "manuel
-  // terminal" yolu (hemen hazır sayılır, tab anında açılır) + hazır olur
-  // olmaz komutu stdin'e yazan bir `writeTerminal` çağrısı yeterli;
-  // kullanıcı TUI'de normal şekilde etkileşime girer, bizim tarafımızdan
-  // ekstra bir tuş vuruşu simüle edilmez.
-  // ("Terminalde Giriş Yap" yolu 2026-09-04'te kullanıcı isteğiyle
-  // kaldırıldı — başarısızlıkların çaresi artık doğrudan aXet Agentic
-  // portalı.)
-  const openConnectorHelperTerminal = useCallback(
-    async (command: string, title: string) => {
-      const shell = config?.terminal ?? "cmd";
-      const cwd = config?.axetWorkspaceDir || config?.projectsBaseDir || "";
-      try {
-        manualTerminalCounterRef.current += 1;
-        const id = await window.api.createTerminal(cwd, 80, 24, shell);
-        pendingTerminalTitlesRef.current.set(id, title);
-        window.api.writeTerminal(id, `${command}\r\n`);
-      } catch (err) {
-        pushToast("error", t("app.terminalCreateFailed", { message: (err as Error).message }));
-      }
-    },
-    [config?.terminal, config?.axetWorkspaceDir, config?.projectsBaseDir, t]
-  );
-
-  const handleOpenProjectTerminal = useCallback(
-    () => openConnectorHelperTerminal(config?.axetCommand || "axet-code -y", t("appConnections.projectTerminalTitle")),
-    [openConnectorHelperTerminal, config?.axetCommand, t]
-  );
-
-  const handleCloseTerminal = useCallback((id: string) => {
-    window.api.disposeTerminal(id).catch(() => {
-      // process zaten kapanmış olabilir, göz ardı et
-    });
-    setTerminalSessions((prev) => {
-      const next = prev.filter((s) => s.id !== id);
-      setActiveTerminalId((current) => {
-        if (current !== id) return current;
-        return next.length > 0 ? next[next.length - 1].id : null;
-      });
-      return next;
-    });
+  // Terminal yalnız Terminal modunda (2026-09-29, spec §1). Sohbet ekranında
+  // terminal yok (2026-09-05 kararı), Logon'un alttaki paneli de kalktı.
+  //
+  // Uygulama Bağlantıları — "AXET Projesi Seç": `axet-code` etkileşimli
+  // açılınca Connector/MCP araçlarının istediği proje seçim ekranını
+  // gösteriyor. Terminal moduna geçip sağlayıcıya bir AXET bölmesi açtırıyoruz;
+  // hangi alana ve hangi klasörde açılacağına sağlayıcı karar veriyor.
+  const handleOpenProjectTerminal = useCallback(() => {
+    setActivity("terminal");
+    setProjectTerminalRequest((n) => n + 1);
   }, []);
-
-  const handleToggleTerminalPanel = useCallback(() => {
-    setTerminalPanelOpen((prev) => !prev);
-  }, []);
-
-  // Tam ekran modu, sidebar'ı ve ana içerik (SystemPanel/FileViewer) panelini
-  // tamamen render'dan çıkarıp terminale App'in kalan TÜM dikey/yatay alanını
-  // veriyor (VS Code'un "Maximize Panel" davranışına benzer) — üstteki arama/
-  // ayarlar çubuğu bilerek görünür bırakıldı, sadece TerminalPanel içindeki
-  // buton ile çıkılabiliyor. Panel kapalıyken tam ekrana geçilmeye çalışılırsa
-  // önce paneli açıyoruz, aksi halde "tam ekran" boş bir alan gösterirdi.
-  const handleToggleTerminalFullscreen = useCallback(() => {
-    setTerminalFullscreen((prev) => {
-      const next = !prev;
-      if (next) setTerminalPanelOpen(true);
-      return next;
-    });
-  }, []);
-
-  const handleTerminalResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      const startY = e.clientY;
-      const startHeight = terminalPanelHeight;
-      const onMove = (ev: MouseEvent) => {
-        const delta = startY - ev.clientY;
-        setTerminalPanelHeight(Math.min(MAX_TERMINAL_HEIGHT, Math.max(MIN_TERMINAL_HEIGHT, startHeight + delta)));
-      };
-      const onUp = () => {
-        window.removeEventListener("mousemove", onMove);
-        window.removeEventListener("mouseup", onUp);
-      };
-      window.addEventListener("mousemove", onMove);
-      window.addEventListener("mouseup", onUp);
-    },
-    [terminalPanelHeight]
-  );
 
   /**
    * Rol henüz seçilmemişse bağlantıyı DURDURUP rol ekranını açar.
@@ -1025,9 +910,6 @@ export default function App() {
     [saveSidebarConfig]
   );
 
-  // Logon terminali tam ekranken kenar çubuğu çizilmiyor (bkz. <Sidebar>).
-  const sidebarHidden = activity === "sapLauncher" && terminalFullscreen;
-
   useShellShortcuts({
     listMode,
     sidebarCollapsed,
@@ -1074,14 +956,17 @@ export default function App() {
     <LanguageProvider language={language}>
       <ChatStoreProvider pushToast={pushToast}>
       <ScriptStoreProvider>
+      <TerminalStoreProvider
+        config={config}
+        visible={activity === "terminal"}
+        projectRequest={projectTerminalRequest}
+        pushToast={pushToast}
+        onConfigSaved={setConfig}
+      >
       <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Terminal tam ekranı (Logon) kenar çubuğunu da gizliyor (spec §6.3).
-            `terminalFullscreen` Logon'un durumu; başka ekrana geçince
-            kenar çubuğu geri geliyor. */}
-        {!sidebarHidden && (
-          <Sidebar
+        <Sidebar
             mode={listMode}
             readinessOpen={activity === "readiness"}
             onModeChange={setActivity}
@@ -1140,9 +1025,10 @@ export default function App() {
               />
             ) : listMode === "sapGuiScripting" ? (
               <ScriptSidebar />
-            ) : null}
+            ) : (
+              <TerminalSidebar />
+            )}
           </Sidebar>
-        )}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         {/* axet.code HER ZAMAN mount — gizlenirken CSS ile gizleniyor, koşullu
             render EDİLMİYOR (kullanıcı isteği, 2026-09-04: *"eğer açıksa ve
@@ -1167,6 +1053,13 @@ export default function App() {
             workDirRequest={workDirRequest}
             activeSap={activeContext.sap}
           />
+        </div>
+        {/* Terminal de HER ZAMAN takılı (spec §4): mod değişince pty'ler ve
+            xterm tamponları yaşamaya devam ediyor. Görünürlüğü sağlayıcıya
+            `visible` ile ayrıca söylüyoruz; gizliyken gelen çıktı alanı
+            "okunmadı" yapıyor. */}
+        <div className={activity === "terminal" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
+          <TerminalMode />
         </div>
         {activity === "axetCode" || activity === "terminal" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome activeSap={activeContext.sap} />
@@ -1241,14 +1134,6 @@ export default function App() {
           <div className="min-w-0 flex-1" />
 
           <button
-            onClick={handleToggleTerminalPanel}
-            title={t("app.toggleTerminalTitle")}
-            className={tintBtn("terminal", "lg", "gap-1.5 px-3 text-[12px]")}
-          >
-            <TerminalSquare size={15} className="shrink-0" />
-            {t("app.terminal")}
-          </button>
-          <button
             onClick={() => refreshWithToast("app.listReloaded")}
             title={t("app.reloadListTitle")}
             className={iconBtn("neutral", "lg")}
@@ -1273,8 +1158,7 @@ export default function App() {
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            {!terminalFullscreen && (
-              <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
                 {openFiles.length > 0 && (
                   <div className="flex h-9 w-full min-w-0 shrink-0 items-center gap-1 overflow-x-auto border-b border-line bg-sidebar px-2">
                     <button
@@ -1331,23 +1215,6 @@ export default function App() {
                   )}
                 </div>
               </main>
-            )}
-
-            {(terminalPanelOpen || terminalSessions.length > 0) && (
-              <TerminalPanel
-                sessions={terminalSessions}
-                activeId={activeTerminalId}
-                open={terminalPanelOpen}
-                height={terminalPanelHeight}
-                fullscreen={terminalFullscreen}
-                onSelect={setActiveTerminalId}
-                onClose={handleCloseTerminal}
-                onToggleOpen={handleToggleTerminalPanel}
-                onResizeStart={handleTerminalResizeStart}
-                onNewTerminal={handleNewTerminal}
-                onToggleFullscreen={handleToggleTerminalFullscreen}
-              />
-            )}
           </div>
         </div>
           </>
@@ -1470,6 +1337,7 @@ export default function App() {
           ))}
         </div>
       </div>
+      </TerminalStoreProvider>
       </ScriptStoreProvider>
       </ChatStoreProvider>
     </LanguageProvider>
