@@ -1097,7 +1097,10 @@ export const tr = {
   "sapGuiAgent.turnCancelled": "Tur kullanıcı tarafından durduruldu.",
   "sapGuiAgent.callFailed": "axet-code çağrısı başarısız oldu.",
   "sapGuiAgent.invalidOutput": "Geçersiz çıktı (JSON action bulunamadı):",
-  "sapGuiAgent.maxIterations": "Maksimum adım sayısına ulaşıldı, tur durduruldu."
+  "sapGuiAgent.maxIterations": "Maksimum adım sayısına ulaşıldı, tur durduruldu.",
+
+  "terminal.workspaceName": "Çalışma alanı {n}",
+  "terminal.workspaceLimitReached": "Yer kalmadı: 6 çalışma alanının hepsi dolu (her birinde 9 terminal). Bir bölme kapatıp yeniden deneyin."
 };
 
 

@@ -1010,5 +1010,8 @@ export const en: Record<TranslationKey, string> = {
   "sapGuiAgent.turnCancelled": "The turn was stopped by the user.",
   "sapGuiAgent.callFailed": "The axet-code call failed.",
   "sapGuiAgent.invalidOutput": "Invalid output (no JSON action found):",
-  "sapGuiAgent.maxIterations": "The maximum number of steps was reached; the turn was stopped."
+  "sapGuiAgent.maxIterations": "The maximum number of steps was reached; the turn was stopped.",
+
+  "terminal.workspaceName": "Workspace {n}",
+  "terminal.workspaceLimitReached": "No room left: all 6 workspaces are full (9 terminals each). Close a pane and try again."
 };
