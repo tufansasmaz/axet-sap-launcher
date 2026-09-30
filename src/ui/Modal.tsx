@@ -107,6 +107,10 @@ export interface ModalProps {
    *  DEĞİŞTİRİYORSA (Ayarlar'daki dil seçimi gibi) `"dialog"` kullanılmalı. */
   initialFocus?: "content" | "dialog";
   layer?: ModalLayer;
+  /** Doğruysa başlıktaki X düğmesi çizilmiyor. Zorunlu seçim pencereleri
+   *  için (ör. RoleModal): kullanıcının kapatabileceği izlenimi vermemeli.
+   *  Escape yine `onClose`'u çağırıyor; zorunlu pencere onu boş veriyor. */
+  hideClose?: boolean;
   /** Panel genişliği (px). Dar pencerede ekrandan taşmıyor. */
   width?: number;
   icon?: ReactNode;
@@ -127,6 +131,7 @@ function ModalPanel({
   closeDisabled = false,
   initialFocus = "content",
   layer = "modal",
+  hideClose = false,
   width = 480,
   icon,
   subtitle,
@@ -262,15 +267,17 @@ function ModalPanel({
               </h2>
               {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
             </div>
-            <button
-              type="button"
-              onClick={requestClose}
-              disabled={closeDisabled}
-              aria-label={t("common.close")}
-              className={iconBtn("ghost", "sm")}
-            >
-              <X size={16} />
-            </button>
+            {!hideClose && (
+              <button
+                type="button"
+                onClick={requestClose}
+                disabled={closeDisabled}
+                aria-label={t("common.close")}
+                className={iconBtn("ghost", "sm")}
+              >
+                <X size={16} />
+              </button>
+            )}
           </div>
           <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
             {children}

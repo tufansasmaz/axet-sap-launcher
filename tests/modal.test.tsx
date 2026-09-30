@@ -312,3 +312,18 @@ describe("Modal — kapanma kilidi (closeDisabled)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("Modal — hideClose", () => {
+  it("varsayılan olarak başlıkta Kapat düğmesi var", () => {
+    wrap(<Modal open onClose={vi.fn()} title="Başlık" />);
+    expect(screen.getByRole("button", { name: "Kapat" })).toBeTruthy();
+  });
+
+  it("hideClose verilince başlıkta Kapat düğmesi yok, Escape yine onClose'u çağırıyor", () => {
+    const onClose = vi.fn();
+    wrap(<Modal open onClose={onClose} title="Başlık" hideClose />);
+    expect(screen.queryByRole("button", { name: "Kapat" })).toBeNull();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
