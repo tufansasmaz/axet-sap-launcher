@@ -1114,6 +1114,7 @@ export const tr = {
   "terminal.closeWorkspaceConfirm": "Alanı kapat",
   "terminal.closePaneTitle": "axet-code kapatılsın mı?",
   "terminal.closePaneBody": "Çalışan axet-code oturumu sonlanacak.",
+  "terminal.closePaneConfirm": "Oturumu kapat",
   "terminal.paneCount": "{count} / 9 bölme",
   "terminal.addPane": "Bölme",
   "terminal.paneMax": "En fazla 9 bölme",
