@@ -65,6 +65,9 @@ function renderSidebar(overrides: Partial<LogonSidebarProps> = {}) {
     connectivity: {},
     tierOverrides: {},
     onSelect: vi.fn(),
+    onAddSystem: vi.fn(),
+    onRefreshFromSapLogon: vi.fn(),
+    onReloadList: vi.fn(),
     ...overrides
   };
   render(
@@ -187,5 +190,82 @@ describe("LogonSidebar", () => {
     fireEvent.change(searchBox(), { target: { value: "s4d" } });
     expect(props.onModeChange).toHaveBeenCalledWith("systems");
     expect(props.onSearchChange).toHaveBeenCalledWith("s4d");
+  });
+});
+
+describe("LogonSidebar ＋ menüsü", () => {
+  const openMenu = () => {
+    fireEvent.click(screen.getByRole("button", { name: "Sistem ekle ve yenile" }));
+    return screen.getByRole("menu");
+  };
+
+  it("açılıyor, üç seçenek var, ilki odakta", () => {
+    renderSidebar();
+    const trigger = screen.getByRole("button", { name: "Sistem ekle ve yenile" });
+    expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    openMenu();
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((i) => i.textContent)).toEqual(["Sistem Ekle", "SAP Logon'dan Getir", "Listeyi yeniden yükle"]);
+    expect(document.activeElement).toBe(items[0]);
+  });
+
+  it("her seçenek kendi işlevini çağırıyor ve menüyü kapatıyor", () => {
+    const props = renderSidebar();
+    const cases: [string, ReturnType<typeof vi.fn>][] = [
+      ["Sistem Ekle", props.onAddSystem as ReturnType<typeof vi.fn>],
+      ["SAP Logon'dan Getir", props.onRefreshFromSapLogon as ReturnType<typeof vi.fn>],
+      ["Listeyi yeniden yükle", props.onReloadList as ReturnType<typeof vi.fn>]
+    ];
+    for (const [label, fn] of cases) {
+      openMenu();
+      fireEvent.click(screen.getByRole("menuitem", { name: label }));
+      expect(fn).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("menu")).toBeNull();
+    }
+  });
+
+  it("Escape kapatıyor ve odağı ＋ düğmesine geri veriyor", () => {
+    renderSidebar();
+    const menu = openMenu();
+    fireEvent.keyDown(menu, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Sistem ekle ve yenile" }));
+  });
+
+  it("ok tuşları seçenekler arasında dönerek geziyor", () => {
+    renderSidebar();
+    const menu = openMenu();
+    const items = screen.getAllByRole("menuitem");
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items[1]);
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items[2]);
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items[0]);
+  });
+
+  it("dışarı tıklama kapatıyor, hiçbir işlev çağrılmıyor", () => {
+    const props = renderSidebar();
+    openMenu();
+    const overlay = document.querySelector("[data-menu-overlay]") as HTMLElement;
+    fireEvent.click(overlay);
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(props.onAddSystem).not.toHaveBeenCalled();
+  });
+
+  it("pencere kenarına taşmıyor", () => {
+    renderSidebar();
+    const trigger = screen.getByRole("button", { name: "Sistem ekle ve yenile" });
+    trigger.getBoundingClientRect = () =>
+      ({ left: 1010, right: 1034, top: 736, bottom: 760, width: 24, height: 24, x: 1010, y: 736 }) as DOMRect;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 1024 });
+    Object.defineProperty(window, "innerHeight", { configurable: true, value: 768 });
+    const menu = openMenu();
+    // 1024 - 176 - 8 = 840 ; 768 - 104 - 8 = 656
+    expect(menu.style.left).toBe("840px");
+    expect(menu.style.top).toBe("656px");
   });
 });

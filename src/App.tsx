@@ -1022,6 +1022,9 @@ export default function App() {
                 connectivity={connectivity}
                 tierOverrides={config?.systemTiers ?? {}}
                 onSelect={handleSelect}
+                onAddSystem={() => setAddSystemOpen(true)}
+                onRefreshFromSapLogon={() => refreshWithToast("app.refreshedFromSapLogon")}
+                onReloadList={() => refreshWithToast("app.listReloaded")}
               />
             ) : listMode === "sapGuiScripting" ? (
               <ScriptSidebar />

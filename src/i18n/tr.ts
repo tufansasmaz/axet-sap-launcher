@@ -21,6 +21,7 @@ export const tr = {
   "app.searchPlaceholder": "Müşteri veya sistem ara… (Ctrl+F)",
   "app.clearSearch": "Aramayı temizle",
   "app.reloadListTitle": "Listeyi yeniden yükle",
+  "logonSidebar.addMenu": "Sistem ekle ve yenile",
   "app.switchToDark": "Koyu temaya geç",
   "app.switchToLight": "Açık temaya geç",
   "app.languageToggleTitle": "Dili değiştir",

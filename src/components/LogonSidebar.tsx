@@ -1,5 +1,5 @@
-import type { RefObject } from "react";
-import { FolderTree, Search, Server, X } from "lucide-react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+import { Download, FolderTree, Plus, RefreshCw, Search, Server, X } from "lucide-react";
 import type {
   ConnectivityState,
   FsEntry,
@@ -9,10 +9,17 @@ import type {
   SystemTier
 } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
+import { GHOST_ICON_BUTTON } from "../ui/buttons";
 import type { RecentEntry } from "../stores/chatTypes";
 import FileExplorer from "./FileExplorer";
 import RecentSystems from "./RecentSystems";
 import Tree from "./Tree";
+
+// ＋ menüsünün yaklaşık ölçüsü: pencerenin kenarına sıkıştırmak için. Terminal
+// kenar çubuğundaki menüyle aynı yöntem; burada hep üç satır var.
+const MENU_W = 176;
+const MENU_H = 104;
+const EDGE = 8;
 
 export type LogonPanelMode = "systems" | "files";
 
@@ -42,6 +49,11 @@ export interface LogonSidebarProps {
   connectivity: Record<string, ConnectivityState>;
   tierOverrides: Record<string, SystemTier>;
   onSelect(path: string[], service: SapService, itemUuid: string): void;
+  // ＋ menüsünün üç eylemi. IPC ve bildirimler App'te; kenar çubuğu yalnız
+  // hangisinin seçildiğini söylüyor.
+  onAddSystem(): void;
+  onRefreshFromSapLogon(): void;
+  onReloadList(): void;
 }
 
 // Logon modunun kenar çubuğu (grafit, spec §5.3): arama, Sistemler/Dosyalar
@@ -60,10 +72,55 @@ export default function LogonSidebar({
   selectedUuid,
   connectivity,
   tierOverrides,
-  onSelect
+  onSelect,
+  onAddSystem,
+  onRefreshFromSapLogon,
+  onReloadList
 }: LogonSidebarProps) {
   const t = useT();
   const showFiles = mode === "files" && files !== null;
+
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  const openMenu = () => {
+    const rect = addButtonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setMenu({ x: rect.left, y: rect.bottom + 4 });
+  };
+
+  const closeMenu = (refocus: boolean) => {
+    setMenu(null);
+    if (refocus) addButtonRef.current?.focus();
+  };
+
+  // Seçilen eylem menü kapandıktan SONRA çalışıyor: "Sistem Ekle" bir pencere
+  // açıyor ve odağı o pencere alıyor; menü açık kalsaydı odak ona dönmeye
+  // çalışırdı.
+  const choose = (action: () => void) => {
+    setMenu(null);
+    action();
+  };
+
+  const menuItems: { label: string; icon: JSX.Element; action: () => void }[] = [
+    { label: t("app.addSystem"), icon: <Plus size={13} />, action: onAddSystem },
+    { label: t("app.refetch"), icon: <Download size={13} />, action: onRefreshFromSapLogon },
+    { label: t("app.reloadListTitle"), icon: <RefreshCw size={13} />, action: onReloadList }
+  ];
+
+  const moveFocus = (step: number) => {
+    const items = itemRefs.current.filter((el): el is HTMLButtonElement => el !== null);
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const next = (current + step + items.length) % items.length;
+    items[next]?.focus();
+  };
+
+  // Menü açılınca odak ilk seçeneğe. Yalnız açılışta: `menu` konum nesnesi
+  // açılış başına bir kez oluşuyor.
+  useEffect(() => {
+    if (menu) itemRefs.current[0]?.focus();
+  }, [menu]);
 
   const modeButton = (value: LogonPanelMode, label: string, icon: JSX.Element) => (
     <button
@@ -120,6 +177,18 @@ export default function LogonSidebar({
             {modeButton("files", t("app.filesMode"), <FolderTree size={14} />)}
           </div>
         )}
+        <button
+          ref={addButtonRef}
+          type="button"
+          onClick={() => (menu ? closeMenu(false) : openMenu())}
+          aria-haspopup="menu"
+          aria-expanded={menu !== null}
+          aria-label={t("logonSidebar.addMenu")}
+          title={t("logonSidebar.addMenu")}
+          className={GHOST_ICON_BUTTON}
+        >
+          <Plus size={14} />
+        </button>
       </div>
       {showFiles ? (
         <div className="flex-1 overflow-hidden">
@@ -159,6 +228,60 @@ export default function LogonSidebar({
             </>
           )}
         </div>
+      )}
+      {/* Menü SABİT konumlu: kenar çubuğunun içinde açılsaydı taşan kısmı
+          kırpılırdı. Dış tıklama katmanı ekran okuyucudan gizli. */}
+      {menu && (
+        <>
+          <div
+            aria-hidden
+            data-menu-overlay
+            className="fixed inset-0 z-dropdown"
+            onClick={() => closeMenu(false)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              closeMenu(false);
+            }}
+          />
+          <div
+            role="menu"
+            aria-label={t("logonSidebar.addMenu")}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                e.preventDefault();
+                closeMenu(true);
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                moveFocus(1);
+              } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                moveFocus(-1);
+              }
+            }}
+            className="fixed z-dropdown rounded-md border border-line bg-card p-1 shadow-xl outline-none"
+            style={{
+              width: MENU_W,
+              left: Math.max(EDGE, Math.min(menu.x, window.innerWidth - MENU_W - EDGE)),
+              top: Math.max(EDGE, Math.min(menu.y, window.innerHeight - MENU_H - EDGE))
+            }}
+          >
+            {menuItems.map((item, i) => (
+              <button
+                key={item.label}
+                ref={(el) => {
+                  itemRefs.current[i] = el;
+                }}
+                type="button"
+                role="menuitem"
+                onClick={() => choose(item.action)}
+                className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-hover hover:text-slate-100 focus:bg-hover focus:text-slate-100 focus:outline-none"
+              >
+                <span className="text-slate-500">{item.icon}</span>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
