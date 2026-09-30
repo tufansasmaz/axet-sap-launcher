@@ -5,15 +5,15 @@ import { LanguageProvider } from "../src/i18n";
 import SystemPanel from "../src/components/SystemPanel";
 import type { ConnectivityState, SapService, SystemTier } from "../app-electron/shared/types";
 
-// Sag taraf yeniden yazilmadan ONCE bugunki davranisi sabitliyor (plan,
-// gorev 1). Testler yalnizca yeni duzende de gecerli olan seylere bakiyor:
-// erisilebilir ad, metin ve cagrilan islev. Sinif adina bakan test yok.
+// Sağ taraf yeniden yazılmadan ÖNCE bugünkü davranışı sabitliyor (plan,
+// görev 1). Testler yalnızca yeni düzende de geçerli olan şeylere bakıyor:
+// erişilebilir ad, metin ve çağrılan işlev. Sınıf adına bakan test yok.
 
 const win = window as unknown as { api: unknown };
 const originalApi = win.api;
 
-// Tanimlanmayan her islev hic donmeyen bir soz veriyor, `on...` abonelikleri
-// bos bir iptal (logonSidebar.test ile ayni sahte).
+// Tanımlanmayan her işlev hiç dönmeyen bir söz veriyor, `on…` abonelikleri
+// boş bir iptal (logonSidebar.test ile aynı sahte).
 function fakeApi(impl: Record<string, unknown> = {}) {
   return new Proxy(
     {},
@@ -43,7 +43,7 @@ afterEach(() => {
 const SERVICE_A: SapService = {
   uuid: "svc-a",
   systemId: "D01",
-  name: "D01 Gelistirme",
+  name: "D01 Geliştirme",
   type: "SAPGUI",
   host: "d01.example.test",
   port: 3200,
@@ -56,7 +56,7 @@ const SERVICE_A: SapService = {
 const SERVICE_B: SapService = { ...SERVICE_A, uuid: "svc-b", systemId: "Q01", name: "Q01 Kalite" };
 
 function selectionOf(service: SapService, itemUuid = `item-${service.uuid}`) {
-  return { path: ["Test Musteri"], service, itemUuid };
+  return { path: ["Test Müşteri"], service, itemUuid };
 }
 
 type PanelProps = Parameters<typeof SystemPanel>[0];
@@ -89,15 +89,15 @@ function renderPanel(overrides: Partial<PanelProps> = {}) {
   return { props, rerender };
 }
 
-// Not alani yukleme bitene kadar devre disi; yazmadan once beklenmeli.
+// Not alanı yükleme bitene kadar devre dışı; yazmadan önce beklenmeli.
 async function notesReady(): Promise<HTMLTextAreaElement> {
   const box = screen.getByRole("textbox") as HTMLTextAreaElement;
   await waitFor(() => expect(box.disabled).toBe(false));
   return box;
 }
 
-describe("SystemPanel — bugunki davranis", () => {
-  it("acilista bir kez denetliyor, yeniden denetle dugmesi tekrar cagiriyor", async () => {
+describe("SystemPanel — bugünkü davranış", () => {
+  it("açılışta bir kez denetliyor, yeniden denetle düğmesi tekrar çağırıyor", async () => {
     const { props } = renderPanel();
     expect(props.onCheck).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: /Yeniden Kontrol Et/ }));
