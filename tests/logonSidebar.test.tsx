@@ -5,13 +5,28 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import LogonSidebar, { type LogonSidebarProps } from "../src/components/LogonSidebar";
 import type { SapNode, SapService } from "../app-electron/shared/types";
+import { countVisibleServices } from "../src/components/Tree";
 
 // Bazı testler `window.api`'yi sahtesiyle değiştiriyor; sonraki testlere
 // sızmasın diye her testten sonra eskisi geri konuyor.
 const win = window as unknown as { api: unknown };
 const originalApi = win.api;
+
+// Bölümlerin açık/kapalı hâli localStorage'da. Node 26 kendi `localStorage`
+// genelini (--localstorage-file olmadan `undefined`) jsdom'unkinin üstüne
+// koyuyor, yani testte depo yok; bellekte basit bir tane veriliyor.
+const store = new Map<string, string>();
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, String(v)),
+  removeItem: (k: string) => void store.delete(k),
+  clear: () => store.clear()
+});
+
 afterEach(() => {
   cleanup();
+  // Testler birbirine sızmasın.
+  localStorage.clear();
   win.api = originalApi;
 });
 
@@ -288,5 +303,86 @@ describe("LogonSidebar ＋ menüsü", () => {
     // 1024 - 176 - 8 = 840 ; 768 - 104 - 8 = 656
     expect(menu.style.left).toBe("840px");
     expect(menu.style.top).toBe("656px");
+  });
+});
+
+describe("LogonSidebar üst şerit ve Müşteriler bölümü", () => {
+  it("arama şeridi Sohbet'le aynı yükseklikte ve yan boşlukta", () => {
+    renderSidebar();
+    const strip = searchBox().closest("[data-sidebar-header]")!;
+    expect(strip).not.toBeNull();
+    for (const cls of ["h-[54px]", "shrink-0", "px-2.5"]) {
+      expect(strip.classList.contains(cls)).toBe(true);
+    }
+  });
+
+  it("Sistemler/Dosyalar geçişi çerçeveli kutuda değil", () => {
+    renderSidebar({ files: FILES });
+    const systems = screen.getByRole("button", { name: "Sistem listesi" });
+    expect(systems.parentElement!.classList.contains("border")).toBe(false);
+    expect(systems.classList.contains("bg-active")).toBe(true);
+    expect(systems.className).not.toContain("accent");
+  });
+
+  it("Müşteriler başlığı sistem sayısını gösteriyor; kapatınca ağaç gizleniyor ve bu hatırlanıyor", () => {
+    renderSidebar();
+    const label = screen.getByText("Müşteriler");
+    expect(label.nextElementSibling?.textContent).toBe("1");
+    const header = label.closest("button")!;
+    expect(header.getAttribute("aria-expanded")).toBe("true");
+    const folder = screen.getByRole("button", { name: "Test Müşteri" });
+    expect(folder.closest(".hidden")).toBeNull();
+
+    fireEvent.click(header);
+    expect(header.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByRole("button", { name: "Test Müşteri" }).closest(".hidden")).not.toBeNull();
+    expect(localStorage.getItem("axet.customerTree.collapsed")).toBe("1");
+
+    cleanup();
+    renderSidebar();
+    expect(screen.getByText("Müşteriler").closest("button")!.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("Müşteriler kapalıyken arama yapılınca sonuçlar yine görünüyor", () => {
+    localStorage.setItem("axet.customerTree.collapsed", "1");
+    renderSidebar({ search: "s4d" });
+    const row = screen.getByRole("button", { name: /S4D Geliştirme/ });
+    expect(row.closest(".hidden")).toBeNull();
+    expect(screen.getByText("Müşteriler").nextElementSibling?.textContent).toBe("1");
+  });
+
+  it("Son Bağlanılanlar da aynı başlık bileşenini kullanıyor", () => {
+    renderSidebar();
+    const recent = screen.getByText("Son Bağlanılanlar").closest("button")!;
+    const customers = screen.getByText("Müşteriler").closest("button")!;
+    expect(recent.className).toBe(customers.className);
+  });
+});
+
+describe("countVisibleServices", () => {
+  const svc = (uuid: string, name: string, systemId: string): SapService => ({ ...SERVICE, uuid, name, systemId });
+  const NODES: SapNode[] = [
+    {
+      uuid: "a",
+      name: "Müşteri A",
+      nodes: [{ uuid: "a1", name: "Alt Grup", nodes: [], items: [{ uuid: "i2", service: svc("s2", "D02 Geliştirme", "D02") }] }],
+      items: [{ uuid: "i1", service: svc("s1", "D01 Geliştirme", "D01") }]
+    },
+    { uuid: "b", name: "Müşteri B", nodes: [], items: [{ uuid: "i3", service: svc("s3", "Q01 Kalite", "Q01") }] }
+  ];
+
+  it("arama yokken iç içe klasörler dahil bütün sistemleri sayıyor", () => {
+    expect(countVisibleServices(NODES, "")).toBe(3);
+  });
+
+  it("aramada yalnızca eşleşenleri sayıyor", () => {
+    expect(countVisibleServices(NODES, "q01")).toBe(1);
+    expect(countVisibleServices(NODES, "zzz")).toBe(0);
+  });
+
+  it("müşteri adı eşleşince o müşterinin doğrudan sistemleri sayılıyor", () => {
+    // Ağaç da böyle çiziyor: klasör adı eşleşirse doğrudan öğeleri görünür,
+    // alt klasörler ise ancak kendileri eşleşirse.
+    expect(countVisibleServices(NODES, "müşteri b")).toBe(1);
   });
 });

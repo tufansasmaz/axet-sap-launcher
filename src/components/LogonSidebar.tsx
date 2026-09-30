@@ -13,13 +13,17 @@ import { GHOST_ICON_BUTTON } from "../ui/buttons";
 import type { RecentEntry } from "../stores/chatTypes";
 import FileExplorer from "./FileExplorer";
 import RecentSystems from "./RecentSystems";
-import Tree from "./Tree";
+import Tree, { countVisibleServices } from "./Tree";
+import { SectionToggle, usePersistentCollapse } from "../ui/SectionToggle";
 
 // ＋ menüsünün yaklaşık ölçüsü: pencerenin kenarına sıkıştırmak için. Terminal
 // kenar çubuğundaki menüyle aynı yöntem; burada hep üç satır var.
 const MENU_W = 176;
 const MENU_H = 104;
 const EDGE = 8;
+
+// "Müşteriler" bölümünün açık/kapalı hâli; Son Bağlanılanlar'la aynı yol.
+const CUSTOMERS_COLLAPSE_KEY = "axet.customerTree.collapsed";
 
 export type LogonPanelMode = "systems" | "files";
 
@@ -79,6 +83,9 @@ export default function LogonSidebar({
 }: LogonSidebarProps) {
   const t = useT();
   const showFiles = mode === "files" && files !== null;
+  const [customersCollapsed, toggleCustomers] = usePersistentCollapse(CUSTOMERS_COLLAPSE_KEY);
+  // Arama yapılırken ağaç kapalı olsa bile açık: sonuçlar görünmeli.
+  const treeHidden = customersCollapsed && !search.trim();
 
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
@@ -128,8 +135,8 @@ export default function LogonSidebar({
       title={label}
       aria-label={label}
       aria-pressed={mode === value}
-      className={`cursor-pointer rounded-sm p-1.5 ${
-        mode === value ? "bg-active text-white" : "text-slate-400 hover:bg-active"
+      className={`flex h-8 w-8 cursor-pointer items-center justify-center rounded-md transition ${
+        mode === value ? "bg-active text-slate-100" : "text-slate-400 hover:bg-hover hover:text-slate-200"
       }`}
     >
       {icon}
@@ -138,7 +145,8 @@ export default function LogonSidebar({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex items-center gap-1.5 px-2 pb-2">
+      {/* Sohbet ve Terminal kenar çubuklarıyla aynı ölçü: ekran değiştirince üst çizgi zıplamıyor. */}
+      <div data-sidebar-header className="flex h-[54px] shrink-0 items-center gap-1.5 px-2.5">
         <div className="flex h-8 min-w-0 flex-1 items-center rounded-lg bg-control ring-1 ring-inset ring-line focus-within:ring-accent-500/40">
           <span className="flex h-8 w-8 shrink-0 items-center justify-center text-slate-500">
             <Search size={14} />
@@ -172,7 +180,7 @@ export default function LogonSidebar({
           )}
         </div>
         {files && (
-          <div className="flex shrink-0 items-center gap-1 rounded-sm border border-line p-0.5">
+          <div className="flex shrink-0 items-center gap-0.5">
             {modeButton("systems", t("app.systemsMode"), <Server size={14} />)}
             {modeButton("files", t("app.filesMode"), <FolderTree size={14} />)}
           </div>
@@ -203,7 +211,7 @@ export default function LogonSidebar({
           />
         </div>
       ) : (
-        <div className="flex-1 overflow-y-auto p-3 pt-0">
+        <div className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2.5 pb-2">
           {loading ? (
             <div className="px-3 py-6 text-center text-sm text-slate-500">{t("common.loading")}</div>
           ) : (
@@ -217,14 +225,24 @@ export default function LogonSidebar({
                   onSelect={onSelect}
                 />
               )}
-              <Tree
-                nodes={customers}
-                search={search}
-                selectedUuid={selectedUuid}
-                connectivity={connectivity}
-                tierOverrides={tierOverrides}
-                onSelect={onSelect}
+              <SectionToggle
+                label={t("logonSidebar.customers")}
+                count={countVisibleServices(customers, search)}
+                collapsed={treeHidden}
+                onToggle={toggleCustomers}
               />
+              {/* `hidden` ile gizleniyor, unmount değil: ağacın açık klasörleri
+                  ve klavye odağı bölüm yeniden açılınca yerinde duruyor. */}
+              <div className={treeHidden ? "hidden" : undefined}>
+                <Tree
+                  nodes={customers}
+                  search={search}
+                  selectedUuid={selectedUuid}
+                  connectivity={connectivity}
+                  tierOverrides={tierOverrides}
+                  onSelect={onSelect}
+                />
+              </div>
             </>
           )}
         </div>

@@ -20,6 +20,7 @@ export const tr = {
   "app.clearSearch": "Aramayı temizle",
   "app.reloadListTitle": "Listeyi yeniden yükle",
   "logonSidebar.addMenu": "Sistem ekle ve yenile",
+  "logonSidebar.customers": "Müşteriler",
   "app.switchToDark": "Koyu temaya geç",
   "app.switchToLight": "Açık temaya geç",
   "app.languageToggleTitle": "Dili değiştir",

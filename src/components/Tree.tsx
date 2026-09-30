@@ -53,6 +53,16 @@ function getVisibleChildren(node: SapNode, search: string): SapNode[] {
     .sort((a, b) => a.name.localeCompare(b.name, "tr", { sensitivity: "base" }));
 }
 
+// "Müşteriler" başlığındaki sayı: ağacın aynı aramayla göstereceği sistem
+// sayısı. Klasörler kapalı olsa bile sayılıyor — başlık, açınca ne
+// göreceğini söylüyor.
+export function countVisibleServices(nodes: SapNode[], search: string): number {
+  const countNode = (node: SapNode): number =>
+    getVisibleItems(node, search).length +
+    getVisibleChildren(node, search).reduce((sum, child) => sum + countNode(child), 0);
+  return nodes.filter((n) => nodeMatches(n, search)).reduce((sum, n) => sum + countNode(n), 0);
+}
+
 function getVisibleItems(node: SapNode, search: string) {
   const hasSearch = search.trim().length > 0;
   const lower = search.toLowerCase();

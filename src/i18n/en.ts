@@ -19,6 +19,7 @@ export const en: Record<TranslationKey, string> = {
   "app.clearSearch": "Clear search",
   "app.reloadListTitle": "Reload the list",
   "logonSidebar.addMenu": "Add and refresh systems",
+  "logonSidebar.customers": "Customers",
   "app.switchToDark": "Switch to dark theme",
   "app.switchToLight": "Switch to light theme",
   "app.languageToggleTitle": "Switch language",
