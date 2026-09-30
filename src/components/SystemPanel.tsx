@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { useSystemComment } from "./useSystemComment";
 import {
   Cable,
   RefreshCw,
@@ -188,26 +189,8 @@ export default function SystemPanel({
   onSetTier
 }: Props) {
   const t = useT();
-  const [comment, setComment] = useState("");
-  const [originalComment, setOriginalComment] = useState("");
-  const [commentSource, setCommentSource] = useState<"saved" | "sapLogon" | "none">("none");
-  const [commentLoading, setCommentLoading] = useState(false);
-  const [commentSaving, setCommentSaving] = useState(false);
-  const [commentSaved, setCommentSaved] = useState(false);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  // Kaydedilmemiş yorum taslakları, sistem uuid'i başına. Kullanıcı yazarken
-  // ağaçtan başka bir sisteme tıklarsa o metin HENÜZ diskte değil, sadece
-  // `comment` state'inde duruyor — aşağıdaki yükleme efekti onu koşulsuz
-  // ezerse yazılan şey sessizce kaybolur, üstelik arayüz tam o sırada
-  // "Kaydedilmemiş değişiklik" rozetini gösterirken. Bu yüzden geçişte taslak
-  // buraya alınıyor ve sisteme geri dönüldüğünde yerine konuyor.
-  const draftsRef = useRef<Map<string, string>>(new Map());
-  // Yükleme efektinin temizlik fonksiyonu çalıştığı anda `comment`/
-  // `originalComment` state'leri hâlâ ESKİ sisteme ait, ama efektin kendi
-  // kapanışı bayat olabilir — o yüzden en güncel değerler bir ref'te
-  // aynalanıyor. Efekt sırası: önce tüm temizlikler, sonra tüm efektler;
-  // yani temizlik okuduğunda bu ref hâlâ eski sistemi gösteriyor.
-  const liveRef = useRef<{ uuid: string; comment: string; original: string } | null>(null);
+  const note = useSystemComment(selection);
+  const { comment, setComment, commentSource, commentLoading, commentSaving, commentSaved, isDirty, textareaRef } = note;
 
   // Seçimde erişim kontrolü — ama 30 sn'lik bir pencereyle. App.tsx zaten
   // açılışta 5 işçilik bir tarama yapıyor; bu efekt onun üstüne biniyordu ve
@@ -225,50 +208,6 @@ export default function SystemPanel({
     onCheck(selection.service);
   }, [selection?.itemUuid]);
 
-  useEffect(() => {
-    if (!selection) return;
-    liveRef.current = { uuid: selection.service.uuid, comment, original: originalComment };
-  }, [selection?.service.uuid, comment, originalComment]);
-
-  useEffect(() => {
-    if (!selection) return;
-    const uuid = selection.service.uuid;
-    let cancelled = false;
-    setCommentLoading(true);
-    setCommentSaved(false);
-    window.api
-      .getSystemCommentDefault(uuid)
-      .then((result) => {
-        if (cancelled) return;
-        const draft = draftsRef.current.get(uuid);
-        // Taslak varsa metin olarak o geri geliyor, ama `originalComment`
-        // diskteki hâl olarak kalıyor — böylece "kaydedilmemiş" rozeti ve
-        // Kaydet butonu doğru şekilde açık kalıyor.
-        setComment(draft ?? result.comment);
-        setOriginalComment(result.comment);
-        setCommentSource(result.source);
-        setCommentLoading(false);
-      })
-      .catch(() => {
-        // Yutulan reddediş `commentLoading`'i sonsuza kadar true bırakıyordu:
-        // yorum kartı hep iskelet hâlinde kalır, kullanıcı sebebini göremezdi.
-        if (cancelled) return;
-        setCommentLoading(false);
-      });
-    return () => {
-      cancelled = true;
-      const live = liveRef.current;
-      if (live && live.comment !== live.original) draftsRef.current.set(live.uuid, live.comment);
-    };
-  }, [selection?.itemUuid]);
-
-  useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(Math.max(el.scrollHeight, 140), 420)}px`;
-  }, [comment, commentLoading]);
-
   if (!selection) {
     return (
       <div className="flex h-full flex-col items-center justify-center text-slate-500">
@@ -284,7 +223,6 @@ export default function SystemPanel({
   const state = connectivity[service.uuid] ?? "unknown";
   const tier = resolveTier(service, tierOverrides);
   const explicitTier = tierOverrides[service.uuid] ?? null;
-  const isDirty = comment !== originalComment;
 
   const avatarClass = tier
     ? "flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border text-lg font-bold"
@@ -304,28 +242,6 @@ export default function SystemPanel({
     ? `${service.host}${service.port ? `:${service.port}` : ""}`
     : (service.manualAdtUrl ?? "");
   const extraAdtUrl = service.host && service.manualAdtUrl ? service.manualAdtUrl : null;
-
-  const handleSaveComment = async () => {
-    if (commentSaving || commentLoading) return;
-    setCommentSaving(true);
-    try {
-      await window.api.setSystemComment(service.uuid, comment);
-    } catch {
-      // Yazma başarısızsa taslak DURUYOR (silinmiyor) ve `originalComment`
-      // değişmiyor — yani metin ekranda kalıyor, rozet "kaydedilmemiş"
-      // demeye devam ediyor. Eskiden buradaki reddediş `commentSaving`'i
-      // kilitli bırakıp Kaydet butonunu kalıcı olarak devre dışı bırakıyordu.
-      setCommentSaving(false);
-      return;
-    }
-    // Artık diskte — taslağın yaşaması için bir sebep kalmadı.
-    draftsRef.current.delete(service.uuid);
-    setOriginalComment(comment);
-    setCommentSource("saved");
-    setCommentSaving(false);
-    setCommentSaved(true);
-    setTimeout(() => setCommentSaved(false), 2000);
-  };
 
   return (
     <div className="h-full overflow-y-auto">
@@ -592,7 +508,7 @@ export default function SystemPanel({
                 onKeyDown={(e) => {
                   if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                     e.preventDefault();
-                    handleSaveComment();
+                    note.save();
                   }
                 }}
                 disabled={commentLoading}
@@ -626,7 +542,7 @@ export default function SystemPanel({
                   </span>
                 )}
                 <button
-                  onClick={handleSaveComment}
+                  onClick={() => { void note.save(); }}
                   disabled={commentSaving || commentLoading || !isDirty}
                   title={t("systemPanel.commentHint")}
                   className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition disabled:cursor-default ${
