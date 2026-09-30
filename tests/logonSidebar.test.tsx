@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { createRef } from "react";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import LogonSidebar, { type LogonSidebarProps } from "../src/components/LogonSidebar";
@@ -190,6 +190,27 @@ describe("LogonSidebar", () => {
     fireEvent.change(searchBox(), { target: { value: "s4d" } });
     expect(props.onModeChange).toHaveBeenCalledWith("systems");
     expect(props.onSearchChange).toHaveBeenCalledWith("s4d");
+  });
+
+  it("sistem satırında sunucu simgesi yok; durum noktası addan önce, SID en sonda", () => {
+    renderSidebar();
+    for (const row of screen.getAllByRole("button", { name: /S4D Geliştirme/ })) {
+      expect(row.querySelector(".lucide-server")).toBeNull();
+      const slot = row.querySelector("[data-status-slot]");
+      expect(slot).not.toBeNull();
+      const name = within(row).getByText("S4D Geliştirme");
+      expect(slot!.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(row.lastElementChild!.textContent).toBe("S4D");
+    }
+  });
+
+  it("klasör simgesi gri, alt seviye girintisi 12px", () => {
+    renderSidebar();
+    const folder = screen.getByRole("button", { name: "Test Müşteri" });
+    expect(folder.querySelector(".lucide-folder")!.classList.contains("text-slate-500")).toBe(true);
+    // İlk satır son bağlanılanlar, ikincisi ağaç: 1 seviye × 12 + 8.
+    const treeRow = screen.getAllByRole("button", { name: /S4D Geliştirme/ })[1];
+    expect(treeRow.style.paddingLeft).toBe("20px");
   });
 });
 

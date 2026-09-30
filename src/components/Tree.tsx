@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from "react";
-import { ChevronRight, ChevronDown, Folder, Server } from "lucide-react";
+import { ChevronRight, ChevronDown, Folder } from "lucide-react";
 import type { ConnectivityState, SapNode, SapService, SystemTier } from "../../app-electron/shared/types";
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
@@ -23,6 +23,10 @@ type RegisterRowRef = (uuid: string, el: HTMLElement | null) => void;
 type FlatRow =
   | { kind: "folder"; uuid: string; depth: number }
   | { kind: "item"; uuid: string; depth: number; service: SapService; path: string[] };
+
+// Seviye başına girinti. 14px'ti; durum noktası satırın başına gelince
+// derin müşteri ağaçlarında ad fazla sağa kayıyordu.
+const INDENT = 12;
 
 // Aramanın bir sistemde neye baktığı: ad, SID ve ADRES. Adres eskiden kapsam
 // dışındaydı — sunucu adını hatırlayıp sistem adını hatırlamayan kullanıcı
@@ -134,14 +138,14 @@ function TreeNode({
         className={`flex h-7 w-full cursor-pointer items-center gap-1.5 rounded-md px-2 text-left text-sm text-slate-300 hover:bg-active/60 ${
           isFolderFocused ? "ring-1 ring-inset ring-accent-400/70" : ""
         }`}
-        style={{ paddingLeft: `${depth * 14 + 8}px` }}
+        style={{ paddingLeft: `${depth * INDENT + 8}px` }}
       >
         {isExpanded ? (
           <ChevronDown size={14} className="text-slate-500" />
         ) : (
           <ChevronRight size={14} className="text-slate-500" />
         )}
-        <Folder size={14} className="text-[var(--folder-icon)]" />
+        <Folder size={14} className="shrink-0 text-slate-500" />
         <span className="truncate">{node.name}</span>
       </button>
 
@@ -180,17 +184,21 @@ function TreeNode({
                 className={`relative flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm transition-colors ${
                   isSelected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-300 hover:bg-active/60"
                 } ${isFocused ? "ring-1 ring-inset ring-accent-400/70" : ""}`}
-                style={{ paddingLeft: `${(depth + 1) * 14 + 8}px` }}
+                style={{ paddingLeft: `${(depth + 1) * INDENT + 8}px` }}
               >
                 {isSelected && <ActiveLine />}
-                <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
-                <span className="truncate">{service.name}</span>
+                {/* Durum en başta, sabit genişlikte: noktalar alt alta hizalı,
+                    ad hep aynı yerden başlıyor. Sunucu simgesi kalktı —
+                    her satırda aynı olduğu için bilgi taşımıyordu. */}
+                <span data-status-slot className="flex w-2.5 shrink-0 justify-center">
+                  <StatusDot state={state} />
+                </span>
+                <span className="min-w-0 flex-1 truncate">{service.name}</span>
                 {tier && <TierBadge tier={tier} />}
                 {/* lang="en": SID teknik bir kimlik, Türkçe büyütme kuralına tabi değil. */}
-                <span lang="en" className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
+                <span lang="en" className="shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
                   {service.systemId}
                 </span>
-                <StatusDot state={state} />
               </button>
             );
           })}

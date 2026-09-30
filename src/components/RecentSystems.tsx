@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Server } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import type { ConnectivityState, SapService, SystemTier } from "../../app-electron/shared/types";
 import StatusDot from "./StatusDot";
 import TierBadge from "./TierBadge";
@@ -94,15 +94,17 @@ export default function RecentSystems({ entries, selectedUuid, connectivity, tie
               }`}
             >
               {isSelected && <ActiveLine />}
-              <Server size={13} className="shrink-0 text-[var(--navy-icon)]" />
-              <span className="truncate">{entry.service.name}</span>
+              {/* Ağaçla aynı satır: durum başta, sunucu simgesi yok. */}
+              <span data-status-slot className="flex w-2.5 shrink-0 justify-center">
+                <StatusDot state={state} />
+              </span>
+              <span className="min-w-0 flex-1 truncate">{entry.service.name}</span>
               {tier && <TierBadge tier={tier} />}
               {/* lang="en": SID teknik bir kimlik, Türkçe değil — küçük harfli
                   kaydedilmiş bir SID Türkçe büyütme kuralıyla bozulurdu. */}
-              <span lang="en" className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
+              <span lang="en" className="shrink-0 text-[10px] uppercase tracking-wide text-slate-500">
                 {entry.service.systemId}
               </span>
-              <StatusDot state={state} />
             </button>
           );
         })}
