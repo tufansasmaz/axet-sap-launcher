@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { readFileSync } from "node:fs";
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
@@ -180,4 +181,107 @@ describe("SystemPanel — bugünkü davranış", () => {
     rerender({ selection: selectionOf(SERVICE_A) });
     expect(await screen.findByDisplayValue("taslak")).toBeTruthy();
   });
+});
+
+describe("SystemPanel — yeni düzen", () => {
+  it("seçim yokken boş durum ve Sistem Ekle düğmesi", () => {
+    const onAddSystem = vi.fn();
+    renderPanel({ selection: null, onAddSystem });
+    expect(screen.getByText("Soldan bir sistem seç.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Sistem Ekle/ }));
+    expect(onAddSystem).toHaveBeenCalledTimes(1);
+  });
+
+  it("liste boşken 'Henüz sistem yok' ve landscape dosyası uyarısı", () => {
+    renderPanel({ selection: null, listEmpty: true, emptyHint: "SAPUILandscape.xml bulunamadı (x)." });
+    expect(screen.getByText("Henüz sistem yok")).toBeTruthy();
+    expect(screen.getByText("SAPUILandscape.xml bulunamadı (x).")).toBeTruthy();
+  });
+
+  it("onAddSystem verilmezse boş durumda düğme yok", () => {
+    renderPanel({ selection: null });
+    expect(screen.queryByRole("button", { name: /Sistem Ekle/ })).toBeNull();
+  });
+
+  it("durum düğmesi denetim sürerken devre dışı ve çağırmıyor", async () => {
+    const { props } = renderPanel({ connectivity: { "svc-a": "checking" } });
+    const status = screen.getByRole("button", { name: /Yeniden Kontrol Et/ }) as HTMLButtonElement;
+    expect(status.disabled).toBe(true);
+    expect(status.getAttribute("aria-label")).toContain("Kontrol ediliyor…");
+    const before = (props.onCheck as ReturnType<typeof vi.fn>).mock.calls.length;
+    fireEvent.click(status);
+    expect(props.onCheck).toHaveBeenCalledTimes(before);
+    await notesReady();
+  });
+
+  it("el ile eklenmemiş sistemde düzenle ve sil yok", async () => {
+    renderPanel();
+    expect(screen.queryByRole("button", { name: "Düzenle" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Sil" })).toBeNull();
+    await notesReady();
+  });
+
+  it("host'u olmayan bulut sistemde alt satırda boş parça yok", async () => {
+    renderPanel({
+      selection: selectionOf({ ...SERVICE_A, type: "BTP/CLOUD", host: null, port: null, manualAdtUrl: null })
+    });
+    expect(screen.getByText("BTP/CLOUD · Henüz bağlanılmadı")).toBeTruthy();
+    await notesReady();
+  });
+
+  it("alt satır adres, tür ve son bağlantıyı birleştiriyor", async () => {
+    renderPanel({ lastConnectedAt: new Date().toISOString() });
+    expect(screen.getByText(/^d01\.example\.test:3200 · SAPGUI · Son bağlantı: /)).toBeTruthy();
+    await notesReady();
+  });
+
+  it("değeri olmayan bilgi satırı çizilmiyor", async () => {
+    renderPanel({ selection: selectionOf({ ...SERVICE_A, systemId: "" }) });
+    expect(screen.queryByText("Sistem ID")).toBeNull();
+    expect(screen.queryByText("ADT Adresi")).toBeNull();
+    expect(screen.getByText("UUID")).toBeTruthy();
+    await notesReady();
+  });
+
+  it("ADT adresi yalnızca host'tan ayrı girilmişse ayrı satır", async () => {
+    renderPanel({ selection: selectionOf({ ...SERVICE_A, manualAdtUrl: "https://d01.example.test:44300" }) });
+    expect(screen.getByText("ADT Adresi")).toBeTruthy();
+    expect(screen.getByText("https://d01.example.test:44300")).toBeTruthy();
+    await notesReady();
+  });
+
+  it("addan tahmin edilen ortamda '(otomatik tahmin)' ve basılı düğme yok", async () => {
+    renderPanel({ selection: selectionOf({ ...SERVICE_A, name: "D01 DEV" }) });
+    expect(screen.getByText("(otomatik tahmin)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "DEV" }).getAttribute("aria-pressed")).toBe("false");
+    await notesReady();
+  });
+
+  it("açıkça seçilen ortamda düğme basılı ve Temizle var", async () => {
+    const { props } = renderPanel({ tierOverrides: { "svc-a": "QA" } });
+    expect(screen.getByRole("button", { name: "QA" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Temizle" }));
+    expect(props.onSetTier).toHaveBeenCalledWith(SERVICE_A, null);
+    await notesReady();
+  });
+
+  it("uzun sistem adı tek satırda kesiliyor, tam ad title'da", async () => {
+    const long = "D01 Geliştirme ".repeat(12).trim();
+    renderPanel({ selection: selectionOf({ ...SERVICE_A, name: long }) });
+    const heading = screen.getByRole("heading", { level: 2 });
+    expect(heading.getAttribute("title")).toBe(long);
+    expect(heading.className).toContain("truncate");
+    await notesReady();
+  });
+});
+
+describe("SystemPanel — dosya kuralları", () => {
+  const FILES = ["SystemPanel.tsx", "SystemHeader.tsx", "SystemInfoList.tsx", "SystemNotes.tsx"];
+  for (const file of FILES) {
+    it(`${file}: sabit piksel yazı boyu ve eski kart parçaları yok`, () => {
+      const src = readFileSync(`src/components/${file}`, "utf8");
+      expect(src).not.toMatch(/text-\[\d+px\]/);
+      expect(src).not.toMatch(/StatTile|ActionCard|avatarLabel/);
+    });
+  }
 });
