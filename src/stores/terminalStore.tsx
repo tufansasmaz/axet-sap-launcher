@@ -23,6 +23,12 @@ const INITIAL_COLS = 120;
 const INITIAL_ROWS = 30;
 /** Sahibi belli olmadan gelen çıkışlardan en çok bu kadarı tutulur. */
 const EARLY_EXIT_LIMIT = 100;
+/**
+ * cmd/powershell bölmeler için başlangıç süresi (ms).
+ * Bu süre dolmadan gelen çıktı okunmadı noktası koymaz (spec §4).
+ * axet bölmelerde terminal:ready sinyali bu rolü üstlenir.
+ */
+export const STARTUP_GRACE_MS = 1500;
 
 interface TerminalStoreProviderProps {
   config: AppConfig | null;
@@ -103,6 +109,12 @@ export function TerminalStoreProvider({
    * tetiklemek için gerekli (ref değişimi etki bağımlılık listesini uyandırmıyor).
    */
   const [bootingAxetCount, setBootingAxetCount] = useState(0);
+  /**
+   * Başlangıç aşamasındaki pty kimlikleri: bu dönemde gelen çıktı okunmadı
+   * noktası koymaz (spec §4). axet için terminal:ready, cmd/powershell için
+   * STARTUP_GRACE_MS geçince kümeden çıkarılır.
+   */
+  const startupPtyIds = useRef(new Set<string>());
 
   // 1. Ctrl+R sonrası eski kabuklar: ref, StrictMode'un ikinci çalıştırmasında da tutuyor.
   useEffect(() => {
@@ -120,12 +132,15 @@ export function TerminalStoreProvider({
       const current = stateRef.current;
       const found = paneByPty(current, ptyId);
       if (!found || found.workspace.unread || isWorkspaceVisible(current, found.workspace.id)) return;
+      // Başlangıç aşamasındaki çıktı okunmadı işareti koymaz (spec §4).
+      if (startupPtyIds.current.has(ptyId)) return;
       dispatch({ type: "ptyData", ptyId });
     });
     const offExit = window.api.onTerminalExit((ptyId, code) => {
       if (ptyOwners.current.has(ptyId)) {
         dispatch({ type: "ptyExit", ptyId, code });
-        // Çıkan pty hâlâ önyükleme aşamasındaysa yuvayı serbest bırak.
+        // Çıkan pty hâlâ önyükleme/başlangıç aşamasındaysa temizle.
+        startupPtyIds.current.delete(ptyId);
         if (bootingAxetPtyIds.current.delete(ptyId)) {
           setBootingAxetCount((c) => c - 1);
         }
@@ -141,6 +156,8 @@ export function TerminalStoreProvider({
     const offReady = window.api.onTerminalReady((ptyId) => {
       if (!bootingAxetPtyIds.current.delete(ptyId)) return; // bilinmeyen kimlik
       setBootingAxetCount((c) => c - 1);
+      // axet başlangıç kipi sona erdi; artık çıktı okunmadı işareti koyabilir.
+      startupPtyIds.current.delete(ptyId);
     });
     return () => {
       offData();
@@ -191,10 +208,15 @@ export function TerminalStoreProvider({
             spawnTokens.current.delete(pane.id);
             ptyOwners.current.set(ptyId, pane.id);
             dispatch({ type: "spawnSucceeded", paneId: pane.id, token, ptyId });
-            // axet için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
+            // Başlangıç kipi: bu sürede çıktı okunmadı işareti koymaz (spec §4).
+            startupPtyIds.current.add(ptyId);
             if (isAxet) {
+              // axet için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
               bootingAxetPtyIds.current.add(ptyId);
               setBootingAxetCount((c) => c + 1);
+            } else {
+              // cmd/powershell için STARTUP_GRACE_MS sonra başlangıç kipi biter.
+              setTimeout(() => startupPtyIds.current.delete(ptyId), STARTUP_GRACE_MS);
             }
             const code = earlyExits.current.get(ptyId);
             if (code !== undefined) {
@@ -259,7 +281,8 @@ export function TerminalStoreProvider({
       if (!ptyId) return;
       ptyOwners.current.delete(ptyId);
       void window.api.disposeTerminal(ptyId).catch(() => {});
-      // Kapatılan/yeniden başlatılan bölmenin axet önyükleme yuvası temizleniyor.
+      // Kapatılan/yeniden başlatılan bölmenin başlangıç kipi ve önyükleme yuvası temizleniyor.
+      startupPtyIds.current.delete(ptyId);
       if (bootingAxetPtyIds.current.delete(ptyId)) {
         setBootingAxetCount((c) => c - 1);
       }

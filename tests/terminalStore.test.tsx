@@ -5,7 +5,7 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import { TerminalStoreProvider } from "../src/stores/terminalStore";
+import { STARTUP_GRACE_MS, TerminalStoreProvider } from "../src/stores/terminalStore";
 import { useTerminalStore, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { TERMINAL_MISSING_DIR } from "../app-electron/shared/terminalLayout";
 import type { AppConfig } from "../app-electron/shared/types";
@@ -232,22 +232,35 @@ describe("başlatma", () => {
 
 describe("olaylar", () => {
   it("görünmeyen alandaki çıktı okunmadı işareti koyuyor, alana geçince siliniyor", async () => {
-    await ready();
-    act(() => store.commands.addPane("cmd", "C:\\a"));
-    await flush();
-    await act(async () => creates[0].resolve("pty-1"));
-    await flush();
-    const first = store.state.workspaces[0].id;
+    // cmd bölmesi başlangıç süresinden sonra çıktı alınca okunmadı işareti koymalı.
+    vi.useFakeTimers();
+    try {
+      await ready();
+      act(() => store.commands.addPane("cmd", "C:\\a"));
+      await flush();
+      await act(async () => creates[0].resolve("pty-1"));
+      await flush();
+      const first = store.state.workspaces[0].id;
 
-    emitData("pty-1");
-    expect(store.state.workspaces[0].unread).toBe(false); // görünürken işaret yok
+      emitData("pty-1");
+      expect(store.state.workspaces[0].unread).toBe(false); // görünürken işaret yok
 
-    act(() => store.commands.addWorkspace());
-    emitData("pty-1");
-    expect(store.state.workspaces[0].unread).toBe(true);
+      act(() => store.commands.addWorkspace());
 
-    act(() => store.commands.selectWorkspace(first));
-    expect(store.state.workspaces[0].unread).toBe(false);
+      // Başlangıç süresi bitmeden: işaret konmaz.
+      emitData("pty-1");
+      expect(store.state.workspaces[0].unread).toBe(false);
+
+      // Başlangıç süresi geçince: işaret konuyor.
+      act(() => vi.advanceTimersByTime(STARTUP_GRACE_MS));
+      emitData("pty-1");
+      expect(store.state.workspaces[0].unread).toBe(true);
+
+      act(() => store.commands.selectWorkspace(first));
+      expect(store.state.workspaces[0].unread).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("createTerminal dönmeden gelen çıkış kaybolmuyor", async () => {
@@ -319,5 +332,69 @@ describe("proje bölmesi", () => {
     utils.rerender(<Harness projectRequest={1} toasts={toasts} />);
     await flush();
     expect(toasts).toEqual(["Yer kalmadı: 6 çalışma alanının hepsi dolu (her birinde 9 terminal). Bir bölme kapatıp yeniden deneyin."]);
+  });
+});
+
+describe("başlangıç çıktısı: okunmadı nokta basılmaz", () => {
+  /** axet bölmesi olan, aktif olmayan bir alan kurar; bölme running durumuna geçer. */
+  async function hiddenAxetPane() {
+    await ready();
+    act(() => store.commands.addPane("axet", "C:\\a"));
+    await flush();
+    // İkinci alan seçilince axet bölmesinin alanı gizli olur.
+    act(() => store.commands.addWorkspace());
+    await act(async () => { creates[0].resolve("pty-axet"); });
+    await flush();
+  }
+
+  it("axet bölmesi terminal:ready gelmeden gelen çıktı okunmadı yapmaz", async () => {
+    await hiddenAxetPane();
+    // terminal:ready henüz gelmedi; başlangıç kipi devam ediyor.
+    await emitData("pty-axet");
+    expect(store.state.workspaces[0].unread).toBe(false);
+  });
+
+  it("axet bölmesi terminal:ready sonrası gelen çıktı okunmadı yapar", async () => {
+    await hiddenAxetPane();
+    // terminal:ready ile başlangıç kipi bitiyor.
+    await emitReady("pty-axet");
+    await flush();
+    await emitData("pty-axet");
+    expect(store.state.workspaces[0].unread).toBe(true);
+  });
+
+  it("cmd bölmesi STARTUP_GRACE_MS içinde gelen çıktı okunmadı yapmaz", async () => {
+    vi.useFakeTimers();
+    try {
+      await ready();
+      act(() => store.commands.addPane("cmd", "C:\\a"));
+      await flush();
+      act(() => store.commands.addWorkspace());
+      await act(async () => { creates[0].resolve("pty-cmd"); });
+      await flush();
+      // Başlangıç süresi içinde.
+      await emitData("pty-cmd");
+      expect(store.state.workspaces[0].unread).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cmd bölmesi STARTUP_GRACE_MS sonra gelen çıktı okunmadı yapar", async () => {
+    vi.useFakeTimers();
+    try {
+      await ready();
+      act(() => store.commands.addPane("cmd", "C:\\a"));
+      await flush();
+      act(() => store.commands.addWorkspace());
+      await act(async () => { creates[0].resolve("pty-cmd"); });
+      await flush();
+      // Süre doluyor.
+      act(() => vi.advanceTimersByTime(STARTUP_GRACE_MS));
+      await emitData("pty-cmd");
+      expect(store.state.workspaces[0].unread).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
