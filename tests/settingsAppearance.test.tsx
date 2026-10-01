@@ -12,6 +12,8 @@ import type { AppConfig } from "../app-electron/shared/types";
 import SettingsModal from "../src/components/SettingsModal";
 import { LanguageProvider } from "../src/i18n";
 
+const goTo = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
+
 afterEach(() => {
   cleanup();
   document.body.innerHTML = "";
@@ -77,7 +79,8 @@ function swatchRow(radio: HTMLElement, theme: "dark" | "light"): string[] {
 describe("Ayarlar → Görünüm", () => {
   it("vurgu grubu üç kartlı, seçili olan işaretli; yazı boyutu burada, Sohbet görünümünde değil", () => {
     mount();
-    const section = screen.getByRole("region", { name: "Görünüm" });
+    goTo("Görünüm");
+    const section = screen.getByRole("tabpanel", { name: "Görünüm" });
     const group = within(section).getByRole("radiogroup", { name: "Vurgu rengi" });
     const radios = within(group).getAllByRole("radio");
     expect(radios).toHaveLength(3);
@@ -85,12 +88,14 @@ describe("Ayarlar → Görünüm", () => {
     expect(within(group).getByRole("radio", { name: "İndigo" }).getAttribute("aria-checked")).toBe("false");
     expect(within(group).getByRole("radio", { name: "Amber" }).getAttribute("aria-checked")).toBe("false");
     expect(within(section).getByText("Yazı boyutu")).toBeTruthy();
-    const chat = screen.getByRole("region", { name: "Sohbet görünümü" });
+    goTo("Sohbet görünümü");
+    const chat = screen.getByRole("tabpanel", { name: "Sohbet görünümü" });
     expect(within(chat).queryByText("Yazı boyutu")).toBeNull();
   });
 
   it("yalnızca seçili kart Tab sırasında; ok tuşu seçimi ve odağı birlikte taşıyor, uçta başa sarıyor", () => {
     mount();
+    goTo("Görünüm");
     const ntt = screen.getByRole("radio", { name: "NTT mavisi" });
     const indigo = screen.getByRole("radio", { name: "İndigo" });
     const amber = screen.getByRole("radio", { name: "Amber" });
@@ -113,6 +118,7 @@ describe("Ayarlar → Görünüm", () => {
 
   it("her kart koyu ve açık önizlemeyi birlikte gösteriyor; Koyu/Açık seçimi örnekleri değiştirmiyor", () => {
     mount();
+    goTo("Görünüm");
     for (const [name, palette] of [
       ["NTT mavisi", "ntt"],
       ["İndigo", "indigo"],
@@ -131,6 +137,7 @@ describe("Ayarlar → Görünüm", () => {
 
   it("vurgu ve tema değişince rozet çıkıyor; Kaydet ikisini de yolluyor", async () => {
     const { onClose, onSave } = mount();
+    goTo("Görünüm");
     expect(screen.queryByText("Kaydedilmemiş değişiklik var")).toBeNull();
     fireEvent.click(screen.getByRole("radio", { name: "Amber" }));
     const light = screen.getByRole("button", { name: "Açık" });
@@ -147,6 +154,7 @@ describe("Ayarlar → Görünüm", () => {
 
   it("eski seçime dönülünce değişiklik sayılmıyor", () => {
     mount();
+    goTo("Görünüm");
     fireEvent.click(screen.getByRole("radio", { name: "Amber" }));
     expect(screen.getByText("Kaydedilmemiş değişiklik var")).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: "NTT mavisi" }));
@@ -161,7 +169,10 @@ describe("Ayarlar → Görünüm", () => {
 describe("Ayarlar — karşılama kalıntısı", () => {
   it("karşılama adı alanı yok, hiçbir ipucu karşılamadan söz etmiyor", () => {
     mount();
-    expect(screen.queryByDisplayValue("Deneme")).toBeNull();
-    expect(document.body.textContent ?? "").not.toMatch(/karşılama/i);
+    for (const tab of screen.getAllByRole("tab")) {
+      fireEvent.click(tab);
+      expect(screen.queryByDisplayValue("Deneme")).toBeNull();
+      expect(document.body.textContent ?? "").not.toMatch(/karşılama/i);
+    }
   });
 });

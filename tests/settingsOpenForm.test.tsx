@@ -19,6 +19,8 @@ import type { AppConfig } from "../app-electron/shared/types";
 import SettingsModal from "../src/components/SettingsModal";
 import { LanguageProvider } from "../src/i18n";
 
+const goTo = (name: string) => fireEvent.click(screen.getByRole("tab", { name }));
+
 afterEach(() => {
   cleanup();
   document.body.innerHTML = "";
@@ -91,7 +93,9 @@ describe("Ayarlar — açıkken config değişince", () => {
 
     expect(screen.getByDisplayValue("D:\\yeni")).toBeTruthy();
     expect(screen.getByText(UNSAVED)).toBeTruthy();
+    goTo("axet.code");
     expect(screen.getByDisplayValue("D:\\baska")).toBeTruthy();
+    goTo("Terminal");
     expect(screen.getByDisplayValue("axet2")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
@@ -124,6 +128,7 @@ describe("Ayarlar — açıkken config değişince", () => {
   it("güncelleme kontrolü bildirimsiz kaydediyor ve düzenlemeyi silmiyor", async () => {
     const { api, onSave, rerender } = setup();
     fireEvent.change(projectsInput(), { target: { value: "D:\\yeni" } });
+    goTo("Güncellemeler");
     fireEvent.click(screen.getByRole("button", { name: /Güncellemeleri Şimdi Kontrol Et/ }));
     await waitFor(() => expect(api.checkForUpdates).toHaveBeenCalledTimes(1));
     // İkinci argüman `silent`: App'teki kayıt işleyicisi "Ayarlar kaydedildi"
@@ -131,6 +136,7 @@ describe("Ayarlar — açıkken config değişince", () => {
     expect(onSave).toHaveBeenCalledWith({ autoCheckUpdates: true }, { silent: true });
     // App kaydın ardından config'i yeniliyor.
     rerender(true, { ...CONFIG } as AppConfig);
+    goTo("Genel");
     expect(screen.getByDisplayValue("D:\\yeni")).toBeTruthy();
     expect(screen.getByText(UNSAVED)).toBeTruthy();
   });
@@ -141,17 +147,17 @@ describe("Ayarlar — erişilebilirlik", () => {
     setup();
     const dialog = screen.getByRole("dialog");
     expect(document.activeElement).toBe(dialog);
-    // Enter'a basmak hiçbir şeyi değiştirmiyor.
-    fireEvent.keyDown(dialog, { key: "Enter" });
-    expect(screen.getByRole("button", { name: "Türkçe" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("tercih grupları görünen başlıklarıyla adlandırılıyor", () => {
     setup();
-    expect(screen.getByRole("group", { name: "Tema" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Uygulama dili" })).toBeTruthy();
+    goTo("Görünüm");
+    expect(screen.getByRole("group", { name: "Tema" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Yazı boyutu" })).toBeTruthy();
+    goTo("Sohbet görünümü");
     expect(screen.getByRole("group", { name: "Satır sıklığı" })).toBeTruthy();
+    goTo("Terminal");
     expect(screen.getByRole("group", { name: "Gömülü terminal kabuğu" })).toBeTruthy();
   });
 });

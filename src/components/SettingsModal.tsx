@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import {
   FolderOpen,
   Download,
@@ -7,15 +7,9 @@ import {
   CheckCircle2,
   AlertCircle,
   SlidersHorizontal,
-  Languages,
-  TerminalSquare,
-  Wrench,
-  Database,
   ChevronRight,
   Terminal,
-  Sparkles,
-  Type,
-  Palette
+  Circle
 } from "lucide-react";
 import type { AppConfig, AppPalette, UpdateStatus } from "../../app-electron/shared/types";
 import { PALETTES, THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
@@ -23,6 +17,11 @@ import { Modal, ModalCancelButton } from "../ui/Modal";
 import { useT } from "../i18n";
 import type { TranslateFn } from "../i18n";
 import { Button } from "../ui/Button";
+import { Input } from "../ui/Field";
+import { Toggle } from "../ui/Toggle";
+import { btn, iconBtn, tintBtn } from "../ui/buttons";
+import SettingsNav from "./settings/SettingsNav";
+import { SETTINGS_SECTIONS, EDITED_FIELDS, dirtySections, type SettingsSectionId } from "./settings/settingsSections";
 
 interface Props {
   open: boolean;
@@ -36,28 +35,6 @@ interface Props {
   onImportManualSystems: () => Promise<void>;
 }
 
-function Section({
-  icon: Icon,
-  title,
-  children
-}: {
-  icon: typeof SlidersHorizontal;
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section aria-label={title} className="overflow-hidden rounded-lg border border-line bg-card/40">
-      <div className="flex items-center gap-2 border-b border-line/70 px-4 py-2.5">
-        <span className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-500/15 text-[var(--accent-soft-text)]">
-          <Icon size={13} />
-        </span>
-        <span className="text-2xs font-semibold uppercase tracking-wide text-slate-500">{title}</span>
-      </div>
-      <div className="space-y-4 p-4">{children}</div>
-    </section>
-  );
-}
-
 // `Field`'ın görünen başlığının kimliği. `SegmentedControl` grubunu bu
 // başlıkla adlandırıyor: ekran okuyucu "Tema, grup" diyor, yalnızca "Koyu,
 // düğme, basılı" değil. Bağlam, çünkü başlık ile kontrol aynı `Field`'da ve
@@ -68,13 +45,20 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   const labelId = useId();
   return (
     <div>
-      <label id={labelId} className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-slate-500">
+      <label id={labelId} className="mb-1.5 block text-xs font-medium text-slate-300">
         {label}
       </label>
       <FieldLabelContext.Provider value={labelId}>{children}</FieldLabelContext.Provider>
       {hint && <p className="mt-1.5 text-xs text-slate-500">{hint}</p>}
     </div>
   );
+}
+
+// Ortak `Input`, adını üstteki `Field` başlığından alıyor. Elle çizilmiş
+// girdilerin adı yoktu: ekran okuyucu yalnızca "düzenleme alanı" diyordu.
+function FieldInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const labelledBy = useContext(FieldLabelContext);
+  return <Input aria-labelledby={labelledBy} {...props} />;
 }
 
 function SegmentedControl<T extends string>({
@@ -211,9 +195,6 @@ function PathMissing({ text }: { text: string }) {
   );
 }
 
-const inputClass =
-  "w-full rounded-md border border-line-strong bg-control px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20";
-
 function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
   switch (updateStatus.phase) {
     case "checking":
@@ -229,8 +210,9 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
             <Download size={12} /> {t("settingsModal.updateAvailable", { version: updateStatus.version ?? "" })}
           </span>
           <button
+            type="button"
             onClick={() => window.api.downloadUpdate()}
-            className="cursor-pointer rounded-md border border-accent-500/40 bg-accent-500/15 px-2.5 py-1 text-xs font-medium text-[var(--accent-soft-text)] hover:bg-accent-500/25"
+            className={tintBtn("accent", "sm")}
           >
             {t("settingsModal.download")}
           </button>
@@ -255,16 +237,13 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
             <CheckCircle2 size={12} /> {t("settingsModal.downloaded", { version: updateStatus.version ?? "" })}
           </span>
           <button
+            type="button"
             onClick={() => window.api.installUpdate()}
-            // Zemin `bg-emerald-600` DEĞİL artık: o, temadan bağımsız sabit bir
-            // Tailwind rengiydi. Bu satırın birincil eylemi olduğu için düz
-            // vurgu dolgusu kullanıyor — satırın metni zaten "başarı" tonunda,
-            // düğmenin de yeşil olması ikisini birbirine karıştırıyordu.
-            // `text-white` DEĞİL: o token temaya bağlı (`--ink-strong-rgb`) ve
-            // açık temada koyu griye düşüyor — dolu zemin üstünde ~3.9:1
-            // kontrast, AA'nın altında. `text-accent-on` her iki temada da
-            // gerçek beyaz (bkz. index.css).
-            className="cursor-pointer rounded-md bg-accent-500 px-2.5 py-1 text-xs font-medium text-accent-on hover:bg-accent-600"
+            // Soluk vurgu, dolgulu değil: pencerenin tek birincil düğmesi
+            // alttaki Kaydet (bkz. buttons.ts). Sabit `bg-emerald-600` de
+            // kullanılmıyor — satırın metni zaten "başarı" tonunda, düğmenin de
+            // yeşil olması ikisini birbirine karıştırıyordu.
+            className={tintBtn("accent", "sm")}
           >
             {t("settingsModal.restartAndInstall")}
           </button>
@@ -280,45 +259,6 @@ function renderUpdateStatus(updateStatus: UpdateStatus, t: TranslateFn) {
       return null;
   }
 }
-
-/**
- * Bu kutunun GERÇEKTEN düzenlediği alanlar — kaydederken yalnızca bunlar
- * gönderiliyor.
- *
- * NEDEN bir liste: `form`, kutu açıldığında alınmış bir `AppConfig`
- * ANLIK GÖRÜNTÜSÜ. Eskiden `onSave(form)` bu görüntünün TAMAMINI yolluyordu ve
- * `saveConfig` gelen nesneyi diskteki hâlin üstüne yaydığı için, kutu açıkken
- * ANA SÜRECİN yazdığı her alan sessizce eski değerine dönüyordu.
- *
- * Ana sürecin sahibi olduğu alanlar az değil: `connectorIntegrations`,
- * `connectorAutoDisabled` (bkz. connectorHealth.ts), `connectorEnabled`,
- * `lastCredentials`, `trustedCertificates`. Bunlar kullanıcı ayarı değil,
- * ÖLÇÜM sonucu — geri alınmaları hiçbir yerde görünmüyor, yalnızca etkisi
- * görünüyor (ölçüm 2026-09-05: kapatılmış iki bağlayıcı kendiliğinden geri
- * açıldı, tur başına ~24k jeton yeniden ~153k oldu).
- *
- * Buraya yeni bir alan eklerken listeye de eklemek gerekiyor; unutulursa alan
- * kaydedilmez — sessizce başka bir ayarı bozmasından iyidir.
- */
-const EDITED_FIELDS = [
-  "language",
-  // Görünüm (2026-09-28). `theme` soldaki güneş/ay düğmesiyle de değişiyor;
-  // Ayarlar açıkken o düğmeye ulaşılamıyor (pencere modal), yani iki yazar
-  // aynı anda çalışmıyor.
-  "palette",
-  "theme",
-  "projectsBaseDir",
-  "axetWorkspaceDir",
-  // `chatDisplayName` burada değil: karşılama başlığı kalktı (2026-09-29),
-  // alan formda gösterilmiyor; Kaydet ona dokunmuyor.
-  "chatFontSize",
-  "chatDensity",
-  "axetCommand",
-  "terminal",
-  "landscapePathOverride",
-  "sapShcutPathOverride",
-  "autoCheckUpdates"
-] as const satisfies readonly (keyof AppConfig)[];
 
 /**
  * Pencere AÇIKKEN gelen yeni `config`'i forma katar, kullanıcının
@@ -358,6 +298,8 @@ export default function SettingsModal({
     landscape: null,
     sapShcut: null
   });
+  const [section, setSection] = useState<SettingsSectionId>("general");
+  const baseId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -372,28 +314,29 @@ export default function SettingsModal({
   // kaydetmeden çıkılan bir düzenleme bir sonraki açılışta hâlâ ekranda
   // duruyordu (ve "kaydedilmemiş" uyarısını da tetiklerdi).
   //
+  // Sıfırlama ÇİZİM SIRASINDA, efektte değil: efekt ilk çizimden SONRA
+  // çalışıyordu ve yeniden açılışın ilk karesinde bir an eski form
+  // görünüyordu. React çizim sırasındaki `setState`'i ekrana basmadan önce
+  // yeniden çizerek uyguluyor.
+  //
   // Açıkken gelen yeni `config` ise formu SIFIRLAMIYOR, `mergeIntoForm` ile
-  // katılıyor (bkz. orada). `syncedRef` formun en son eşitlendiği `config`:
-  // düzenlenmiş alanı düzenlenmemişten ayırmanın ölçüsü.
+  // katılıyor (bkz. orada). `synced.config` formun en son eşitlendiği
+  // `config`: düzenlenmiş alanı düzenlenmemişten ayırmanın ölçüsü.
   //
   // Escape ve ilk odak ortak `Modal`'da. İlk odak pencerenin kendisine
   // (`initialFocus="dialog"`): gövdenin ilk öğesi dil seçimi ve oraya inen
   // odakta Enter dili değiştiriyordu.
-  const wasOpenRef = useRef(false);
-  const syncedRef = useRef<AppConfig | null>(null);
-  useEffect(() => {
-    const wasOpen = wasOpenRef.current;
-    wasOpenRef.current = open;
-    if (!open) return;
-    const previous = syncedRef.current;
-    syncedRef.current = config;
-    if (!wasOpen) {
+  const [synced, setSynced] = useState<{ open: boolean; config: AppConfig | null }>({ open: false, config: null });
+  if (open !== synced.open || (open && config !== synced.config)) {
+    setSynced({ open, config });
+    if (open && !synced.open) {
       setForm(config);
-      return;
+      setSection("general");
+    } else if (open && config) {
+      const previous = synced.config;
+      setForm((current) => (current && previous ? mergeIntoForm(current, previous, config) : config));
     }
-    if (!config || config === previous) return;
-    setForm((current) => (current && previous ? mergeIntoForm(current, previous, config) : config));
-  }, [open, config]);
+  }
 
   // Yazarken doğrulama, kaydederken değil — kaydettikten SONRA "bu yol yok"
   // demek geç kalmış olurdu, kutu çoktan kapanmış olur. Yazma sırasında her
@@ -424,21 +367,25 @@ export default function SettingsModal({
   // Yalnızca bu kutunun düzenlediği alanlar karşılaştırılıyor — ana sürecin
   // arka planda yazdığı alanlar (`connectorAutoDisabled` vb.) `form`'u
   // "kirli" göstermemeli, bkz. EDITED_FIELDS.
-  const isDirty = useMemo(() => {
-    if (!form || !config) return false;
-    return EDITED_FIELDS.some((field) => form[field] !== config[field]);
-  }, [form, config]);
+  const dirty = dirtySections(form, config);
+  const isDirty = dirty.size > 0;
 
   if (!open || !form) return null;
 
+  // Formu değiştiren her yer buradan geçiyor. İşlevsel güncelleme: klasör
+  // seçici `await`'ten sonra yazıyor ve o arada yapılan düzenleme, formun
+  // eski kopyası yayılınca sessizce siliniyordu.
+  const update = (patch: Partial<AppConfig>) =>
+    setForm((current) => (current ? { ...current, ...patch } : current));
+
   const pickFolder = async () => {
     const dir = await window.api.pickFolder();
-    if (dir) setForm({ ...form, projectsBaseDir: dir });
+    if (dir) update({ projectsBaseDir: dir });
   };
 
   const pickAxetWorkspaceDir = async () => {
     const dir = await window.api.pickFolder();
-    if (dir) setForm({ ...form, axetWorkspaceDir: dir });
+    if (dir) update({ axetWorkspaceDir: dir });
   };
 
   const save = async () => {
@@ -457,37 +404,32 @@ export default function SettingsModal({
   };
 
   const updateStatusNode = renderUpdateStatus(updateStatus, t);
+  const current = SETTINGS_SECTIONS.find((s) => s.id === section) ?? SETTINGS_SECTIONS[0];
+  const CARD = "space-y-4 rounded-xl border border-line bg-card p-5";
 
-  return (
-    <Modal
-      open
-      onClose={onClose}
-      dirty={isDirty}
-      initialFocus="dialog"
-      title={t("settingsModal.title")}
-      subtitle={t("settingsModal.subtitle")}
-      icon={<SlidersHorizontal size={18} />}
-      size="lg"
-      footer={
-        <>
-          {isDirty && (
-            <span className="mr-auto text-xs text-[var(--status-warning-text)]">
-              {t("settingsModal.unsavedBadge")}
-            </span>
-          )}
-          <ModalCancelButton />
-          <Button variant="primary" onClick={() => void save()}>
-            {t("common.save")}
-          </Button>
-        </>
-      }
+  const browseButton = (onClick: () => void) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={t("settingsModal.browseFolder")}
+      aria-label={t("settingsModal.browseFolder")}
+      className={iconBtn("neutral", "md")}
     >
-        <div className="space-y-4">
-          <Section icon={Languages} title={t("settingsModal.sectionGeneral")}>
+      <FolderOpen size={16} />
+    </button>
+  );
+
+  // Yalnız seçili bölüm çiziliyor (spec §2): uzun kaydırma yok, bölümler
+  // landmark değil. Form tek; bölüm değişince düzenleme kaybolmuyor.
+  const renderSection = (): ReactNode => {
+    switch (section) {
+      case "general":
+        return (
+          <div className={CARD}>
             <Field label={t("settingsModal.languageLabel")}>
               <SegmentedControl
                 value={form.language}
-                onChange={(lang) => setForm({ ...form, language: lang })}
+                onChange={(language) => update({ language })}
                 options={[
                   { key: "tr", label: t("settingsModal.languageTr") },
                   { key: "en", label: t("settingsModal.languageEn") }
@@ -498,49 +440,36 @@ export default function SettingsModal({
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <FolderOpen size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input
+                  <FieldInput
                     value={form.projectsBaseDir}
-                    onChange={(e) => setForm({ ...form, projectsBaseDir: e.target.value })}
-                    className={`${inputClass} pl-9`}
+                    onChange={(e) => update({ projectsBaseDir: e.target.value })}
+                    className="pl-9"
                   />
                 </div>
-                <button
-                  onClick={pickFolder}
-                  title={t("settingsModal.browseFolder")}
-                  className="cursor-pointer rounded-md border border-line-strong px-3 text-slate-300 transition hover:bg-active"
-                >
-                  <FolderOpen size={16} />
-                </button>
+                {browseButton(pickFolder)}
               </div>
             </Field>
-          </Section>
-
-          <Section icon={Palette} title={t("settingsModal.sectionAppearance")}>
+          </div>
+        );
+      case "appearance":
+        return (
+          <div className={CARD}>
             <Field label={t("settingsModal.paletteLabel")}>
               <PalettePicker
                 value={form.palette}
                 label={t("settingsModal.paletteLabel")}
                 names={{
-                  ntt: {
-                    name: t("settingsModal.paletteNtt"),
-                    description: t("settingsModal.paletteNttDesc")
-                  },
-                  indigo: {
-                    name: t("settingsModal.paletteIndigo"),
-                    description: t("settingsModal.paletteIndigoDesc")
-                  },
-                  amber: {
-                    name: t("settingsModal.paletteAmber"),
-                    description: t("settingsModal.paletteAmberDesc")
-                  }
+                  ntt: { name: t("settingsModal.paletteNtt"), description: t("settingsModal.paletteNttDesc") },
+                  indigo: { name: t("settingsModal.paletteIndigo"), description: t("settingsModal.paletteIndigoDesc") },
+                  amber: { name: t("settingsModal.paletteAmber"), description: t("settingsModal.paletteAmberDesc") }
                 }}
-                onChange={(palette) => setForm({ ...form, palette })}
+                onChange={(palette) => update({ palette })}
               />
             </Field>
             <Field label={t("settingsModal.themeLabel")}>
               <SegmentedControl
                 value={form.theme}
-                onChange={(theme) => setForm({ ...form, theme })}
+                onChange={(theme) => update({ theme })}
                 options={[
                   { key: "dark", label: t("settingsModal.themeDark") },
                   { key: "light", label: t("settingsModal.themeLight") }
@@ -553,7 +482,7 @@ export default function SettingsModal({
             <Field label={t("settingsModal.chatFontSizeLabel")} hint={t("settingsModal.chatFontSizeHint")}>
               <SegmentedControl
                 value={form.chatFontSize}
-                onChange={(size) => setForm({ ...form, chatFontSize: size })}
+                onChange={(chatFontSize) => update({ chatFontSize })}
                 options={[
                   { key: "sm", label: t("settingsModal.chatFontSizeSm") },
                   { key: "md", label: t("settingsModal.chatFontSizeMd") },
@@ -561,26 +490,22 @@ export default function SettingsModal({
                 ]}
               />
             </Field>
-          </Section>
-
-          <Section icon={Sparkles} title={t("settingsModal.sectionAxetCode")}>
+          </div>
+        );
+      case "axetCode":
+        return (
+          <div className={CARD}>
             <Field label={t("settingsModal.axetWorkspaceDirLabel")}>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <FolderOpen size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                  <input
+                  <FieldInput
                     value={form.axetWorkspaceDir}
-                    onChange={(e) => setForm({ ...form, axetWorkspaceDir: e.target.value })}
-                    className={`${inputClass} pl-9`}
+                    onChange={(e) => update({ axetWorkspaceDir: e.target.value })}
+                    className="pl-9"
                   />
                 </div>
-                <button
-                  onClick={pickAxetWorkspaceDir}
-                  title={t("settingsModal.browseFolder")}
-                  className="cursor-pointer rounded-md border border-line-strong px-3 text-slate-300 transition hover:bg-active"
-                >
-                  <FolderOpen size={16} />
-                </button>
+                {browseButton(pickAxetWorkspaceDir)}
               </div>
             </Field>
             {/* Bağlayıcı kipi ("Sohbette uygulama bağlantıları") BURADAN
@@ -590,83 +515,91 @@ export default function SettingsModal({
                 kaynağıydı. Açık/kapalı artık Uygulama Bağlantıları
                 ekranındaki Bağlan/Bağlantıyı Kes butonu, ne zaman
                 yükleneceği de yine orada; tek yer, tek doğruluk kaynağı. */}
-          </Section>
-
-          {/* Yetenek profili, proje reçetesi ve Ortam Hazırlık BURADAN
-              KALDIRILDI (2026-09-07) — hepsi kenar çubuğundaki "Hazırlık"
-              ekranına taşındı (bkz. ReadinessHome.tsx). Buraya bir kısayol
-              bile konmadı: aynı şeyi iki yerden göstermek, bağlayıcı kipinde
-              yaşanan "iki ekran iki farklı şey söylüyor" sorununun aynısını
-              üretirdi (yukarıdaki nota bakınız). `skillProfile` bu yüzden
-              EDITED_FIELDS listesinden de çıkarıldı: burada düzenlenmeyen bir
-              alanın Kaydet'e basıldığında form değerine geri yazılması,
-              Hazırlık ekranında yapılan seçimi sessizce geri alırdı. */}
-
-          {/* Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI
-              bir bölüm: burası "nasıl çalışsın" değil "nasıl görünsün" — ikisi
-              aynı kutuda olsaydı görünüm ayarları teknik ayarların arasında
-              kaybolurdu. */}
-          <Section icon={Type} title={t("settingsModal.sectionChatAppearance")}>
+            {/* Yetenek profili, proje reçetesi ve Ortam Hazırlık BURADAN
+                KALDIRILDI (2026-09-07) — hepsi kenar çubuğundaki "Hazırlık"
+                ekranına taşındı (bkz. ReadinessHome.tsx). Buraya bir kısayol
+                bile konmadı: aynı şeyi iki yerden göstermek, bağlayıcı kipinde
+                yaşanan "iki ekran iki farklı şey söylüyor" sorununun aynısını
+                üretirdi (yukarıdaki nota bakınız). `skillProfile` bu yüzden
+                EDITED_FIELDS listesinden de çıkarıldı: burada düzenlenmeyen bir
+                alanın Kaydet'e basıldığında form değerine geri yazılması,
+                Hazırlık ekranında yapılan seçimi sessizce geri alırdı. */}
+          </div>
+        );
+      case "chatAppearance":
+        // Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI
+        // bir bölüm: burası "nasıl çalışsın" değil "nasıl görünsün" — ikisi
+        // aynı kutuda olsaydı görünüm ayarları teknik ayarların arasında
+        // kaybolurdu.
+        return (
+          <div className={CARD}>
             <Field label={t("settingsModal.chatDensityLabel")} hint={t("settingsModal.chatDensityHint")}>
               <SegmentedControl
                 value={form.chatDensity}
-                onChange={(density) => setForm({ ...form, chatDensity: density })}
+                onChange={(chatDensity) => update({ chatDensity })}
                 options={[
                   { key: "comfortable", label: t("settingsModal.chatDensityComfortable") },
                   { key: "compact", label: t("settingsModal.chatDensityCompact") }
                 ]}
               />
             </Field>
-          </Section>
-
-          <Section icon={TerminalSquare} title={t("settingsModal.sectionTerminal")}>
+          </div>
+        );
+      case "terminal":
+        return (
+          <div className={CARD}>
             <Field label={t("settingsModal.axetCommandLabel")}>
               <div className="relative">
                 <Terminal size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-                <input
+                <FieldInput
                   value={form.axetCommand}
-                  onChange={(e) => setForm({ ...form, axetCommand: e.target.value })}
-                  className={`${inputClass} pl-9`}
+                  onChange={(e) => update({ axetCommand: e.target.value })}
+                  className="pl-9"
                 />
               </div>
             </Field>
             <Field label={t("settingsModal.shellLabel")} hint={t("settingsModal.shellHelper")}>
               <SegmentedControl
                 value={form.terminal}
-                onChange={(shell) => setForm({ ...form, terminal: shell })}
+                onChange={(terminal) => update({ terminal })}
                 options={[
                   { key: "cmd", label: t("settingsModal.shellCmd") },
                   { key: "powershell", label: t("settingsModal.shellPowershell") }
                 ]}
               />
             </Field>
-          </Section>
-
-          <Section icon={Wrench} title={t("settingsModal.sectionAdvanced")}>
+          </div>
+        );
+      case "advanced":
+        return (
+          <div className={CARD}>
             <Field label={t("settingsModal.landscapePathLabel")}>
-              <input
+              <FieldInput
                 value={form.landscapePathOverride ?? ""}
-                onChange={(e) => setForm({ ...form, landscapePathOverride: e.target.value || null })}
+                onChange={(e) => update({ landscapePathOverride: e.target.value || null })}
                 placeholder="C:\Users\...\AppData\Roaming\SAP\Common\SAPUILandscape.xml"
-                className={`${inputClass} ${pathCheck.landscape === false ? "border-[var(--status-danger-border)]" : ""}`}
+                aria-invalid={pathCheck.landscape === false || undefined}
               />
               {pathCheck.landscape === false && <PathMissing text={t("settingsModal.pathMissing")} />}
             </Field>
             <Field label={t("settingsModal.sapShcutPathLabel")}>
-              <input
+              <FieldInput
                 value={form.sapShcutPathOverride ?? ""}
-                onChange={(e) => setForm({ ...form, sapShcutPathOverride: e.target.value || null })}
+                onChange={(e) => update({ sapShcutPathOverride: e.target.value || null })}
                 placeholder="C:\Program Files (x86)\SAP\FrontEnd\SapGui\sapshcut.exe"
-                className={`${inputClass} ${pathCheck.sapShcut === false ? "border-[var(--status-danger-border)]" : ""}`}
+                aria-invalid={pathCheck.sapShcut === false || undefined}
               />
               {pathCheck.sapShcut === false && <PathMissing text={t("settingsModal.pathMissing")} />}
             </Field>
-          </Section>
-
-          <Section icon={Database} title={t("settingsModal.sectionManual")}>
+          </div>
+        );
+      case "manual":
+        return (
+          <div className={CARD}>
             <p className="text-xs text-slate-500">{t("settingsModal.manualSystemsHelper")}</p>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
+                type="button"
                 onClick={onExportManualSystems}
                 className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border border-line bg-app/30 p-3 text-left transition-colors hover:border-line-strong hover:bg-hover/60"
               >
@@ -680,6 +613,7 @@ export default function SettingsModal({
                 <ChevronRight size={15} className="shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-slate-400" />
               </button>
               <button
+                type="button"
                 onClick={onImportManualSystems}
                 className="group flex flex-1 cursor-pointer items-center gap-3 rounded-lg border border-line bg-app/30 p-3 text-left transition-colors hover:border-line-strong hover:bg-hover/60"
               >
@@ -693,32 +627,23 @@ export default function SettingsModal({
                 <ChevronRight size={15} className="shrink-0 text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-slate-400" />
               </button>
             </div>
-          </Section>
-
-          <Section icon={Download} title={t("settingsModal.sectionUpdates")}>
-            <div className="flex items-center justify-between">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={form.autoCheckUpdates}
-                  onChange={(e) => setForm({ ...form, autoCheckUpdates: e.target.checked })}
-                  className="cursor-pointer accent-accent-500"
-                />
-                {t("settingsModal.autoCheckLabel")}
-              </label>
-              <span className="text-xs text-slate-500">
-                {t("settingsModal.versionText", { version: appVersion || "…" })}
-              </span>
+          </div>
+        );
+      case "updates":
+        return (
+          <div className={CARD}>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-slate-200">{t("settingsModal.autoCheckLabel")}</span>
+              <Toggle
+                checked={form.autoCheckUpdates}
+                onChange={(autoCheckUpdates) => update({ autoCheckUpdates })}
+                label={t("settingsModal.autoCheckLabel")}
+              />
             </div>
-
-            <button
-              onClick={handleCheckForUpdates}
-              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-md border border-line-strong px-3 py-2 text-sm text-slate-300 transition hover:bg-active"
-            >
+            <button type="button" onClick={handleCheckForUpdates} className={btn("neutral", "md", "w-full gap-2")}>
               <RefreshCw size={14} />
               {t("settingsModal.checkNow")}
             </button>
-
             {updateStatusNode && (
               <div className="rounded-md border border-line/60 bg-app/30 px-3 py-2">{updateStatusNode}</div>
             )}
@@ -726,8 +651,54 @@ export default function SettingsModal({
                 AÇILIŞ ekranında gösteriliyor (bkz. ChatSessionPane). Kullanıcı
                 kararı (2026-09-07): Ayarlar'ı kimse güncelleme haberi için
                 açmıyor. Aynı şeyi iki yerde göstermek de gereksiz. */}
-          </Section>
-        </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      dirty={isDirty}
+      initialFocus="dialog"
+      title={t("settingsModal.title")}
+      subtitle={t("settingsModal.subtitle")}
+      icon={<SlidersHorizontal size={18} />}
+      size="xl"
+      bare
+      footer={
+        <>
+          {isDirty && (
+            <span className="mr-auto flex items-center gap-1.5 text-xs text-[var(--status-warning-text)]">
+              <Circle size={6} className="fill-current" />
+              {t("settingsModal.unsavedBadge")}
+            </span>
+          )}
+          <ModalCancelButton />
+          <Button variant="primary" onClick={() => void save()}>
+            {t("common.save")}
+          </Button>
+        </>
+      }
+    >
+      <SettingsNav
+        value={section}
+        onChange={setSection}
+        dirty={dirty}
+        idPrefix={baseId}
+        footer={t("settingsModal.versionText", { version: appVersion || "…" })}
+      />
+      <div
+        role="tabpanel"
+        id={`${baseId}-panel`}
+        aria-labelledby={`${baseId}-tab-${section}`}
+        className="min-h-0 flex-1 overflow-y-auto p-6"
+      >
+        <h3 className="text-base font-semibold text-white">{t(current.titleKey)}</h3>
+        <p className="mt-1 text-sm text-slate-400">{t(current.descKey)}</p>
+        <div className="mt-5 space-y-4">{renderSection()}</div>
+      </div>
     </Modal>
   );
 }
