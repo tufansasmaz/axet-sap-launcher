@@ -16,10 +16,11 @@ import {
 } from "../app-electron/shared/themeSurfaces";
 
 describe("normalizePalette", () => {
-  it("üç vurgu olduğu gibi", () => {
+  it("dört vurgu olduğu gibi", () => {
     expect(normalizePalette("ntt")).toBe("ntt");
     expect(normalizePalette("indigo")).toBe("indigo");
     expect(normalizePalette("amber")).toBe("amber");
+    expect(normalizePalette("graphite")).toBe("graphite");
   });
 
   it("eski warm → amber", () => {
@@ -49,9 +50,9 @@ describe("parseAppearance", () => {
 });
 
 describe("THEME_SURFACES", () => {
-  it("üç vurgu, sıra ntt · indigo · amber", () => {
-    expect(PALETTES).toEqual(["ntt", "indigo", "amber"]);
-    expect(Object.keys(THEME_SURFACES).sort()).toEqual(["amber", "indigo", "ntt"]);
+  it("dört vurgu, sıra ntt · indigo · amber · graphite", () => {
+    expect(PALETTES).toEqual(["ntt", "indigo", "amber", "graphite"]);
+    expect(Object.keys(THEME_SURFACES).sort()).toEqual(["amber", "graphite", "indigo", "ntt"]);
   });
 
   it("renkler #rrggbb biçiminde", () => {

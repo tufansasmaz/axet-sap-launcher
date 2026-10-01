@@ -47,7 +47,7 @@ for (const m of CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
 }
 
 const THEMES = ["dark", "light"] as const;
-const PALETTES = ["ntt", "indigo", "amber"] as const;
+const PALETTES = ["ntt", "indigo", "amber", "graphite"] as const;
 type Theme = (typeof THEMES)[number];
 type Palette = (typeof PALETTES)[number];
 type View = `${Palette}/${Theme}`;

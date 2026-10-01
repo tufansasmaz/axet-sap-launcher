@@ -324,10 +324,10 @@ export interface SavedTerminalWorkspace {
 export type AppTheme = "dark" | "light";
 
 // Vurgu rengi. Koyu/açık hâlden (`AppTheme`) BAĞIMSIZ: her vurgu iki hâlde de
-// var; `src/index.css`'te iki yüzey bloğu ve altı vurgu bloğu (bkz. tasarım
+// var; `src/index.css`'te iki yüzey bloğu ve sekiz vurgu bloğu (bkz. tasarım
 // belgesi docs/superpowers/specs/2026-09-29-grafit-kimlik-ve-kabuk-design.md).
 // Alanın adı `palette` olarak kaldı; okurken `normalizePalette` doğruluyor.
-export type AppPalette = "ntt" | "indigo" | "amber";
+export type AppPalette = "ntt" | "indigo" | "amber" | "graphite";
 
 export type AppLanguage = "tr" | "en";
 

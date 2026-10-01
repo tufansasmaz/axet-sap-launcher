@@ -461,7 +461,8 @@ export default function SettingsModal({
                 names={{
                   ntt: { name: t("settingsModal.paletteNtt"), description: t("settingsModal.paletteNttDesc") },
                   indigo: { name: t("settingsModal.paletteIndigo"), description: t("settingsModal.paletteIndigoDesc") },
-                  amber: { name: t("settingsModal.paletteAmber"), description: t("settingsModal.paletteAmberDesc") }
+                  amber: { name: t("settingsModal.paletteAmber"), description: t("settingsModal.paletteAmberDesc") },
+                  graphite: { name: t("settingsModal.paletteGraphite"), description: t("settingsModal.paletteGraphiteDesc") }
                 }}
                 onChange={(palette) => update({ palette })}
               />

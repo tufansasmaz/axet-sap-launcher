@@ -142,7 +142,7 @@ input:is([type="text"], [type="password"], [type="search"], [type="number"], [ty
 
    İKİ YÜZEY BLOĞU + ALTI VURGU BLOĞU. `<html data-theme>` (`dark` | `light`)
    yüzeyleri, kenarlıkları, metni, durum ve ortam renklerini, gölgeleri
-   seçiyor. Vurgu `<html data-palette>` (`ntt` | `indigo` | `amber`) ile
+   seçiyor. Vurgu `<html data-palette>` (`ntt` | `indigo` | `amber` | `graphite`) ile
    temanın BİRLİKTE seçtiği blokta; o blok yalnızca dokuz vurgu jetonunu
    tanımlıyor. Sırayı seçici ağırlığı kuruyor: vurgu bloğu (0,2,1) hem yüzey
    bloklarını hem `:root`'u, açık yüzey bloğu (0,1,1) `:root`'u yeniyor.
@@ -453,6 +453,33 @@ html[data-palette="amber"][data-theme="light"] {
   --accent-soft-text: #7a4c0a;
   --chat-hero-via: #7a4c0a;
   --chat-hero-to: #9a6210;
+}
+
+/* Grafit: renksiz vurgu (kullanıcı isteği, 2026-10-01). Ana düğme koyuda
+   kırık beyaz, açıkta kömür; seçili satır açık gri zemin. Renk yalnızca
+   durum noktalarında kalıyor. */
+html[data-palette="graphite"][data-theme="dark"] {
+  --accent-600-rgb: 200 202 207;
+  --accent-500-rgb: 228 229 232;
+  --accent-400-rgb: 214 216 221;
+  --accent-on-rgb: 18 19 22;
+  --accent-cyan-rgb: 228 229 232;
+  --accent-glow: rgba(228, 229, 232, 0.13);
+  --accent-soft-text: #f2f3f5;
+  --chat-hero-via: #f2f3f5;
+  --chat-hero-to: #e4e5e8;
+}
+
+html[data-palette="graphite"][data-theme="light"] {
+  --accent-600-rgb: 20 21 24;
+  --accent-500-rgb: 36 38 43;
+  --accent-400-rgb: 52 55 61;
+  --accent-on-rgb: 255 255 255;
+  --accent-cyan-rgb: 36 38 43;
+  --accent-glow: rgba(36, 38, 43, 0.1);
+  --accent-soft-text: #1a1c20;
+  --chat-hero-via: #1a1c20;
+  --chat-hero-to: #24262b;
 }
 
 body {

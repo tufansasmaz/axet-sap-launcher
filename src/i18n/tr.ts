@@ -536,6 +536,8 @@ export const tr = {
   "settingsModal.paletteIndigoDesc": "Yumuşak mavi-mor",
   "settingsModal.paletteAmber": "Amber",
   "settingsModal.paletteAmberDesc": "Sıcak kehribar",
+  "settingsModal.paletteGraphite": "Grafit",
+  "settingsModal.paletteGraphiteDesc": "Renksiz; renk yalnız durumlarda",
   "settingsModal.themeLabel": "Tema",
   "settingsModal.themeDark": "Koyu",
   "settingsModal.themeLight": "Açık",

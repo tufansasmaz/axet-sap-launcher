@@ -77,16 +77,17 @@ function swatchRow(radio: HTMLElement, theme: "dark" | "light"): string[] {
 }
 
 describe("Ayarlar → Görünüm", () => {
-  it("vurgu grubu üç kartlı, seçili olan işaretli; yazı boyutu burada, Sohbet görünümünde değil", () => {
+  it("vurgu grubu dört kartlı, seçili olan işaretli; yazı boyutu burada, Sohbet görünümünde değil", () => {
     mount();
     goTo("Görünüm");
     const section = screen.getByRole("tabpanel", { name: "Görünüm" });
     const group = within(section).getByRole("radiogroup", { name: "Vurgu rengi" });
     const radios = within(group).getAllByRole("radio");
-    expect(radios).toHaveLength(3);
+    expect(radios).toHaveLength(4);
     expect(within(group).getByRole("radio", { name: "NTT mavisi" }).getAttribute("aria-checked")).toBe("true");
     expect(within(group).getByRole("radio", { name: "İndigo" }).getAttribute("aria-checked")).toBe("false");
     expect(within(group).getByRole("radio", { name: "Amber" }).getAttribute("aria-checked")).toBe("false");
+    expect(within(group).getByRole("radio", { name: "Grafit" }).getAttribute("aria-checked")).toBe("false");
     expect(within(section).getByText("Yazı boyutu")).toBeTruthy();
     goTo("Sohbet görünümü");
     const chat = screen.getByRole("tabpanel", { name: "Sohbet görünümü" });
@@ -109,11 +110,14 @@ describe("Ayarlar → Görünüm", () => {
     fireEvent.keyDown(indigo, { key: "ArrowDown" });
     expect(amber.getAttribute("aria-checked")).toBe("true");
     expect(document.activeElement).toBe(amber);
+    const graphite = screen.getByRole("radio", { name: "Grafit" });
     fireEvent.keyDown(amber, { key: "ArrowRight" });
+    expect(graphite.getAttribute("aria-checked")).toBe("true");
+    fireEvent.keyDown(graphite, { key: "ArrowRight" });
     expect(ntt.getAttribute("aria-checked")).toBe("true");
     fireEvent.keyDown(ntt, { key: "ArrowLeft" });
-    expect(amber.getAttribute("aria-checked")).toBe("true");
-    expect(document.activeElement).toBe(amber);
+    expect(graphite.getAttribute("aria-checked")).toBe("true");
+    expect(document.activeElement).toBe(graphite);
   });
 
   it("her kart koyu ve açık önizlemeyi birlikte gösteriyor; Koyu/Açık seçimi örnekleri değiştirmiyor", () => {
@@ -122,7 +126,8 @@ describe("Ayarlar → Görünüm", () => {
     for (const [name, palette] of [
       ["NTT mavisi", "ntt"],
       ["İndigo", "indigo"],
-      ["Amber", "amber"]
+      ["Amber", "amber"],
+      ["Grafit", "graphite"]
     ] as const) {
       const radio = screen.getByRole("radio", { name });
       const { dark, light } = THEME_SURFACES[palette];

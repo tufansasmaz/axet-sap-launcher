@@ -480,6 +480,8 @@ export const en: Record<TranslationKey, string> = {
   "settingsModal.paletteIndigoDesc": "Soft blue-violet",
   "settingsModal.paletteAmber": "Amber",
   "settingsModal.paletteAmberDesc": "Warm amber",
+  "settingsModal.paletteGraphite": "Graphite",
+  "settingsModal.paletteGraphiteDesc": "Colourless; colour only for status",
   "settingsModal.themeLabel": "Theme",
   "settingsModal.themeDark": "Dark",
   "settingsModal.themeLight": "Light",

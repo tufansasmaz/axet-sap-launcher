@@ -43,7 +43,7 @@ describe("görünüm ayarı", () => {
   });
 
   it("kayıtlı seçim olduğu gibi okunuyor", async () => {
-    for (const palette of ["ntt", "indigo", "amber"]) {
+    for (const palette of ["ntt", "indigo", "amber", "graphite"]) {
       vi.resetModules();
       const cfg = await load({ palette, theme: "light" });
       expect(cfg.palette).toBe(palette);
