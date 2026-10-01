@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AlertCircle, Download, Globe, Lock, RefreshCw, Trash2 } from "lucide-react";
 import type { CatalogSkillList, SkillProfile, SkillStatus } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
-import { btn } from "../ui/buttons";
+import { btn, iconBtn } from "../ui/buttons";
 import GlobalSkillsModal from "./GlobalSkillsModal";
 
 interface Props {
@@ -108,7 +108,7 @@ export default function SkillsSection({ profile, projectDir }: Props) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="mb-1.5 block text-[11px] font-medium uppercase tracking-wide text-slate-500">
+        <label className="mb-1.5 block text-2xs font-medium uppercase tracking-wide text-slate-500">
           {t("skillsSection.roleLabel")}
         </label>
         {/* SEÇİM DEĞİL, GÖSTERİM. Rol ilk açılışta bir kere seçiliyor ve
@@ -146,7 +146,7 @@ export default function SkillsSection({ profile, projectDir }: Props) {
         <button
           type="button"
           onClick={() => setGlobalOpen(true)}
-          className={`${btn("neutral", "sm")} shrink-0`}
+          className={btn("neutral", "sm", "shrink-0")}
         >
           <Globe size={12} />
           {t("globalSkills.manage")}
@@ -170,7 +170,7 @@ export default function SkillsSection({ profile, projectDir }: Props) {
               type="button"
               onClick={reinstall}
               disabled={busy}
-              className={`${btn("neutral", "sm")} shrink-0 disabled:cursor-not-allowed disabled:opacity-50`}
+              className={btn("neutral", "sm", "shrink-0")}
             >
               <RefreshCw size={12} className={busy ? "animate-spin" : undefined} />
               {t("skillsSection.update")}
@@ -265,7 +265,7 @@ export default function SkillsSection({ profile, projectDir }: Props) {
                           onClick={() =>
                             void runCatalog(skill.id, () => window.api.installCatalogSkill(projectDir, skill.id))
                           }
-                          className={`${btn("neutral", "sm")} disabled:cursor-not-allowed disabled:opacity-50`}
+                          className={btn("neutral", "sm")}
                         >
                           <Download size={12} className={pending === skill.id ? "animate-pulse" : undefined} />
                           {t(skill.installed ? "catalogSkills.reinstall" : "catalogSkills.install")}
@@ -275,12 +275,13 @@ export default function SkillsSection({ profile, projectDir }: Props) {
                             type="button"
                             disabled={pending !== null}
                             title={t("catalogSkills.remove")}
+                            aria-label={t("catalogSkills.remove")}
                             onClick={() =>
                               void runCatalog(`rm:${skill.id}`, () =>
                                 window.api.removeCatalogSkill(projectDir, skill.name)
                               )
                             }
-                            className={`${btn("neutral", "sm")} disabled:cursor-not-allowed disabled:opacity-50`}
+                            className={iconBtn("neutral", "sm")}
                           >
                             <Trash2 size={12} />
                           </button>

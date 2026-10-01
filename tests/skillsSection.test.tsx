@@ -12,11 +12,13 @@
 // çağrısı KİMLİĞİ değil ADI göndermeli — ikisi farklı ve karışması yanlış
 // klasörü silerdi).
 
+import { readFileSync } from "node:fs";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CatalogSkill, CatalogSkillList, SkillStatus } from "../app-electron/shared/types";
 import SkillsSection from "../src/components/SkillsSection";
 import { LanguageProvider } from "../src/i18n";
+import { iconBtn } from "../src/ui/buttons";
 
 /** JSX'te dize niteliği kaçış YAPMIYOR — sabit tutulmazsa çift ters bölü gider. */
 const PROJECT = "C:\\proje";
@@ -118,6 +120,19 @@ describe("SkillsSection — katalog kutusu", () => {
   it("katalog klasoru yoksa ne yapilacagini yazar", async () => {
     mountWith(catalog([], null));
     expect(await screen.findByText(/OneDrive'a kısayol ekle|OneDrive'a kisayol ekle/)).toBeTruthy();
+  });
+
+  it("Kaldır düğmesi ortak kare ikon düğmesi ve adı var", async () => {
+    mountWith(catalog([skill({ installed: true, removable: true })]));
+    const remove = await screen.findByRole("button", { name: "Kaldır" });
+    expect(remove.getAttribute("aria-label")).toBe("Kaldır");
+    expect(remove.className).toBe(iconBtn("neutral", "sm"));
+  });
+
+  it("kaynakta elle devre dışı sınıfı ve 11px yazı kalmadı", () => {
+    const source = readFileSync("src/components/SkillsSection.tsx", "utf8");
+    expect(source).not.toContain("disabled:cursor-not-allowed");
+    expect(source).not.toContain("text-[11px]");
   });
 });
 
