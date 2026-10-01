@@ -9,6 +9,8 @@ export interface ShellShortcutOptions {
   onModeChange: (mode: SidebarMode) => void;
   // Config'e yazıp döndüğünde kutu çizilmiş oluyor; odak ondan sonra.
   onExpandSidebar: () => Promise<void>;
+  // Ctrl+K: komut paleti.
+  onOpenPalette?: () => void;
 }
 
 // Gömülü terminal (xterm) kendi tuşlarını kendi işliyor; axet-code'un TUI'si
@@ -63,7 +65,7 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      const { listMode, onModeChange } = latest.current;
+      const { listMode, onModeChange, onOpenPalette } = latest.current;
       const mod = e.ctrlKey || e.metaKey;
       const isFind = mod && !e.altKey && e.key.toLowerCase() === "f";
 
@@ -83,6 +85,15 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
         if (isInTerminal(e.target)) return;
         e.preventDefault();
         onModeChange(SIDEBAR_MODES[modeIndex]);
+        return;
+      }
+
+      // Ctrl+K yazı alanından da açıyor (palet bir "her yerden git" kapısı);
+      // terminalde değil — kabukta satırın sonunu siliyor.
+      if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "k" && onOpenPalette) {
+        if (isInTerminal(e.target)) return;
+        e.preventDefault();
+        onOpenPalette();
         return;
       }
 

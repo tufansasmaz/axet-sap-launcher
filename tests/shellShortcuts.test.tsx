@@ -207,6 +207,28 @@ describe("Ctrl+F", () => {
   });
 });
 
+describe("Ctrl+K", () => {
+  it("yazı alanından bile komut paletini açıyor", () => {
+    const { props } = setup({ onOpenPalette: vi.fn() });
+    const message = screen.getByRole("textbox", { name: "Mesaj" });
+    expect(fireEvent.keyDown(message, { key: "k", ctrlKey: true })).toBe(false);
+    expect(fireEvent.keyDown(document.body, { key: "K", ctrlKey: true })).toBe(false);
+    expect(props.onOpenPalette).toHaveBeenCalledTimes(2);
+  });
+
+  it("terminalde, Shift/Alt ile ya da pencere açıkken karışmıyor", () => {
+    const { props } = setup({ onOpenPalette: vi.fn() });
+    // Kabukta Ctrl+K satırın sonunu siliyor; terminal kendi işlesin.
+    const terminal = screen.getByRole("textbox", { name: "Terminal girdisi" });
+    expect(fireEvent.keyDown(terminal, { key: "k", ctrlKey: true })).toBe(true);
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true, shiftKey: true });
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true, altKey: true });
+    render(<div aria-modal="true" />);
+    expect(fireEvent.keyDown(document.body, { key: "k", ctrlKey: true })).toBe(true);
+    expect(props.onOpenPalette).not.toHaveBeenCalled();
+  });
+});
+
 describe("açık bir pencere (aria-modal) varken", () => {
   it("yalnızca Ctrl+F engelleniyor; mod değişmiyor, arama odaklanmıyor", () => {
     const { props } = setup({ listMode: "sapLauncher" });

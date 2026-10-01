@@ -17,6 +17,7 @@ import TitleBar from "./components/TitleBar";
 import Sidebar from "./shell/Sidebar";
 import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./shell/activity";
 import { useShellShortcuts } from "./shell/useShellShortcuts";
+import AppCommandPalette from "./components/AppCommandPalette";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
 // axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
@@ -95,6 +96,7 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [connectivity, setConnectivity] = useState<Record<string, ConnectivityState>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
@@ -906,7 +908,8 @@ export default function App() {
     listMode,
     sidebarCollapsed,
     onModeChange: setActivity,
-    onExpandSidebar: () => handleSidebarCollapsedChange(false)
+    onExpandSidebar: () => handleSidebarCollapsedChange(false),
+    onOpenPalette: () => setPaletteOpen(true)
   });
 
   const handleSetTier = async (service: SapService, tier: SystemTier | null) => {
@@ -1245,6 +1248,17 @@ export default function App() {
           status={updateStatus}
           onAccept={handleAcceptUpdate}
           onDismiss={handleDismissUpdate}
+        />
+
+        <AppCommandPalette
+          open={paletteOpen}
+          onClose={() => setPaletteOpen(false)}
+          systems={flatSystems}
+          setActivity={setActivity}
+          onSelectSystem={setPendingSelectUuid}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onToggleTheme={handleToggleTheme}
+          onToggleLanguage={handleToggleLanguage}
         />
 
         <SapWriteGate
