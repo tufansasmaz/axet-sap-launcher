@@ -21,7 +21,7 @@ function list(rows: GlobalSkillRow[]): GlobalSkillList {
   return { profile: "module-consultant", root: "C:\\Users\\x\\AppData\\Local\\axet-code", rows };
 }
 
-function mountWith(value: GlobalSkillList) {
+function mountWith(value: GlobalSkillList, onClose = () => {}) {
   const api = {
     listGlobalSkills: vi.fn().mockResolvedValue(value),
     setGlobalSkill: vi.fn().mockResolvedValue(value)
@@ -29,7 +29,7 @@ function mountWith(value: GlobalSkillList) {
   (window as unknown as { api: unknown }).api = api;
   render(
     <LanguageProvider language="tr">
-      <GlobalSkillsModal open onClose={() => {}} />
+      <GlobalSkillsModal open onClose={onClose} />
     </LanguageProvider>
   );
   return api;
@@ -73,5 +73,15 @@ describe("GlobalSkillsModal", () => {
     mountWith({ profile: null, root: "C:\\x", rows: [row()] });
     expect(await screen.findByText(/rolünüzü seçin/)).toBeTruthy();
     expect(screen.queryByRole("switch")).toBeNull();
+  });
+
+  it("ortak çerçeve: Escape kapatıyor, boy lg", async () => {
+    const onClose = vi.fn();
+    mountWith(list([row()]), onClose);
+    await screen.findByRole("switch", { name: "sap-adt-readonly" });
+    const dialog = screen.getByRole("dialog", { name: "Genel yetenekler" });
+    expect(dialog.style.width).toBe("640px");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
