@@ -186,6 +186,16 @@ describe("boş ekran", () => {
     expect(props.onSuggestionClick).toHaveBeenCalledTimes(1);
     expect(props.onSend).not.toHaveBeenCalled();
   });
+
+  it("ilk açılışta üç satırlık tanıtım var, sonra yok", () => {
+    const { unmount } = renderPane({ firstRun: true });
+    const intro = screen.getByTestId("chat-onboarding");
+    expect(intro.querySelectorAll("li")).toHaveLength(3);
+    expect(intro.textContent).toContain("Ctrl");
+    unmount();
+    renderPane({});
+    expect(screen.queryByTestId("chat-onboarding")).toBeNull();
+  });
 });
 
 describe("ChatSessionPane gün ayırıcıları", () => {

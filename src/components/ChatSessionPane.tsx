@@ -171,6 +171,9 @@ interface Props {
   onRemoveAttachment: (attachmentId: string) => void;
   suggestionKeys: readonly string[];
   onSuggestionClick: (key: string) => void;
+  // Hiç sohbeti olmayan kullanıcı: boş ekranda üç satırlık "neler
+  // yapabilirsin". İlk mesajla birlikte kendiliğinden gidiyor.
+  firstRun?: boolean;
   // --- SAP bağlamı ---
   // Bu sohbet bir SAP bağlantısının proje klasöründe çalışıyorsa, hangisi
   // olduğu yazma kutusuna yapışık sekmede gösteriliyor (2026-09-29; önceden
@@ -245,6 +248,7 @@ export default function ChatSessionPane({
   onRemoveAttachment,
   suggestionKeys,
   onSuggestionClick,
+  firstRun = false,
   contextLabel = null,
   contextPath = null,
   contextTier = null,
@@ -568,6 +572,34 @@ export default function ChatSessionPane({
                     : t("axetCodeHome.axetCodeUpdate", { latest: axetUpdate.latest })}
                 </span>
               </div>
+            )}
+
+            {/* İLK AÇILIŞ — kart değil, sessiz bir liste: öneri kartları
+                hâlâ ekranın asıl işi, bu yalnızca yolu gösteriyor. Ayrı bir
+                "gördüm" ayarı yok; ilk sohbet açılınca bir daha görünmüyor. */}
+            {firstRun && (
+              <ul
+                data-testid="chat-onboarding"
+                aria-label={t("axetCodeHome.introLabel")}
+                className="mt-6 flex w-full max-w-md flex-col gap-2 text-left text-sm text-slate-400"
+              >
+                <li className="flex items-start gap-2.5">
+                  <Server size={14} className="mt-0.5 shrink-0 text-slate-500" aria-hidden />
+                  <span>{t("axetCodeHome.introSap")}</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Sparkles size={14} className="mt-0.5 shrink-0 text-slate-500" aria-hidden />
+                  <span>{t("axetCodeHome.introAsk")}</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Search size={14} className="mt-0.5 shrink-0 text-slate-500" aria-hidden />
+                  <span>
+                    <kbd className="rounded border border-line-strong px-1 font-sans text-2xs text-slate-300">Ctrl</kbd>{" "}
+                    <kbd className="rounded border border-line-strong px-1 font-sans text-2xs text-slate-300">K</kbd>{" "}
+                    {t("axetCodeHome.introPalette")}
+                  </span>
+                </li>
+              </ul>
             )}
 
             {/* Dar pencerede tek sütuna iniyor: sabit üç sütunda kartlar

@@ -2392,6 +2392,9 @@ export default function AxetCodeHome({
               t(`axetCodeHome.${key}` as Parameters<typeof t>[0]),
             )
           }
+          // Yükleme bitmeden değil: diskte sohbetleri olan biri açılışta bir
+          // anlığına tanıtımı görmesin.
+          firstRun={sessionsLoaded && sessions.length === 0}
           contextLabel={effectiveNewBinding?.label ?? null}
           contextPath={effectiveNewBinding?.cwd || workspaceDir}
           contextTier={contextTierFor(effectiveNewBinding?.cwd || workspaceDir, activeSap)}

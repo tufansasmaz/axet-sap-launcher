@@ -318,3 +318,17 @@ describe("mesaj kuyruğu", () => {
     });
   });
 });
+
+describe("ilk açılış tanıtımı", () => {
+  it("yükleme bitmeden yok; hiç sohbet yoksa var, sohbet varsa yok", async () => {
+    renderChatHome();
+    expect(screen.queryByTestId("chat-onboarding")).toBeNull();
+    await load({ activeId: null, projects: [], sessions: [] });
+    expect(screen.getByTestId("chat-onboarding")).toBeTruthy();
+    cleanup();
+
+    renderChatHome();
+    await load({ activeId: null, projects: [], sessions: [session("a", "Birinci")] });
+    expect(screen.queryByTestId("chat-onboarding")).toBeNull();
+  });
+});
