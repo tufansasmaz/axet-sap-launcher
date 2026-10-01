@@ -42,6 +42,7 @@ import {
 } from "./axetCodeLog";
 import { connectorGuidance, learnConnectorHealth, noteLiveConnectors } from "./connectorHealth";
 import { buildContextPreamble } from "./activeContext";
+import { toolInputComplete } from "./toolCallInput";
 
 // ---------------------------------------------------------------------------
 // KALICI OTURUM — axet-code'un gerçek TUI'si bir pty içinde
@@ -1838,6 +1839,9 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     // `bash` çağrısı da meşru — canlı denemede (2026-09-04) ad karşılaştırması
     // saniyede dört kez aynı aracı bildirdi.
     const seenTools = new Set<string>();
+    // Satırı açılmış ama girdisi o an henüz akıyordu: hedef ve fark, girdi
+    // tamamlanınca bir güncellemeyle gönderilecek (bkz. toolCallInput.ts).
+    const pendingInputs = new Set<string>();
     // Sonuçlar da tekilleniyor: yoklama aynı `tool` mesajını tekrar tekrar
     // okuyor ve aynı sonuç satırı arayüzde çoğalırdı.
     const seenResults = new Set<string>();
@@ -2130,7 +2134,20 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
             if (part.type !== "tool_call") continue;
             const name = normalizeToolName(part.data?.name ?? "");
             const callId = part.data?.id ?? `${message.id}:${name}`;
-            if (!name || seenTools.has(callId)) continue;
+            if (!name) continue;
+            if (seenTools.has(callId)) {
+              // Girdisi yarımken açılmış satır: tamamlandıysa aynı `callId` ile
+              // hedef ve fark gönderiliyor, arayüz mevcut satıra işliyor.
+              if (pendingInputs.has(callId) && toolInputComplete(part.data?.input, part.data?.finished)) {
+                pendingInputs.delete(callId);
+                const diff = buildDiff(name, part.data?.input);
+                const target = summarizeToolInput(part.data?.input);
+                if (target || diff) {
+                  args.onActivity({ phase: "tool", callId, tool: name, target, ...(diff ? { diff } : {}) });
+                }
+              }
+              continue;
+            }
             // Soru kutusu: araç satırı olarak GÖSTERİLMİYOR — kullanıcının
             // göreceği şey bir araç adı değil, sorunun kendisi.
             if (name === ASK_USER_TOOL) {
@@ -2193,6 +2210,7 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
               continue;
             }
             seenTools.add(callId);
+            if (!toolInputComplete(part.data?.input, part.data?.finished)) pendingInputs.add(callId);
             toolCount += 1;
             if (!firstSignalAt) firstSignalAt = Date.now();
             alive();
@@ -2201,7 +2219,9 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
               phase: "tool",
               callId,
               tool: name,
-              target: summarizeToolInput(part.data?.input),
+              // Yarım girdi hedef olarak gösterilmiyor (`{"file_path": "C:/pro`
+              // gibi bir metin çıkardı); tamamlanınca güncelleme geliyor.
+              target: pendingInputs.has(callId) ? "" : summarizeToolInput(part.data?.input),
               // Yalnızca düzenleme araçlarında dolu; diğerlerinde alan hiç
               // gönderilmiyor ki geçmiş dosyasına boş dizeler yazılmasın.
               ...(diff ? { diff } : {})

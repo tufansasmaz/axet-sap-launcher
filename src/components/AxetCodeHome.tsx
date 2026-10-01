@@ -18,6 +18,7 @@ import type { ChatMessage } from "./ChatBubble";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
 import { orderSessions } from "../lib/chatSessionGroups";
 import { contextTierFor } from "../lib/contextTier";
+import { mergeToolStep } from "../lib/toolSteps";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
@@ -274,13 +275,14 @@ function applyActivity(
   // (cevap işlendi) ya da bittiğini gösteriyor. Kalsaydı, artık bir kutu
   // yokken tuş gönderen ölü bir düğme olurdu.
   if (activity.phase === "tool") {
-    // Main tarafı çağrıları zaten tekilliyor; bu ikinci kapı, olayın yeniden
-    // bağlanan bir pencereye tekrar düşmesine karşı.
-    if (
-      activity.callId &&
-      session.activitySteps.some((step) => step.callId === activity.callId)
-    ) {
-      return session;
+    // Aynı çağrının ikinci olayı yeni satır AÇMIYOR: ya girdisi tamamlanınca
+    // gelen hedef/fark güncellemesi ya da yeniden bağlanan pencereye düşen
+    // bir kopya. İkisi de mevcut satıra işleniyor (bkz. lib/toolSteps.ts).
+    const merged = mergeToolStep(session.activitySteps, activity);
+    if (merged) {
+      return merged === session.activitySteps
+        ? session
+        : { ...session, activitySteps: merged };
     }
     return {
       ...session,
