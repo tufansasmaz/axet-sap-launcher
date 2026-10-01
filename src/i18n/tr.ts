@@ -725,6 +725,9 @@ export const tr = {
   "chatPlan.contextTitle": "{tokens} jeton kullanılıyor. %80'de oturum kendiliğinden yenilenir.",
   "chatEditUndo.removed": "Düzenleme, sonrasındaki {count} mesajı kaldırdı.",
   "chatEditUndo.undo": "Geri al",
+  "chatQueue.label": "Sırada",
+  "chatQueue.restore": "Kutuya geri al",
+  "chatQueue.drop": "Sıradan çıkar",
   // Ajanın kendi veritabanına bakılarak DOĞRULANMIŞ bir uyarı, tahmin değil.
   // "Durdur"un tutmadığı hâli sessizce geçiştirmek, kullanıcıya farkında
   // olmadığı bir jeton faturası çıkarmak demekti.

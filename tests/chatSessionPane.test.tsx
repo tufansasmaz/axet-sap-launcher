@@ -52,7 +52,8 @@ const baseSession = (): ChatSessionData => ({
   contextTokens: 0,
   contextLimit: 0,
   editUndo: null,
-  cancelStuck: false
+  cancelStuck: false,
+  queued: null
 });
 
 const baseProps = () => ({

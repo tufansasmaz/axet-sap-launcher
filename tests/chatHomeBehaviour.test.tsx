@@ -173,3 +173,108 @@ describe("sohbet listesi (taşıma öncesi davranış)", () => {
     expect(saveChatSessions).toHaveBeenCalled();
   });
 });
+
+describe("mesaj kuyruğu", () => {
+  // Her çağrı ayrı bir söz; testi bitirmek testin elinde.
+  function setupSend() {
+    const calls: { prompt: string; resolve: (v: unknown) => void }[] = [];
+    const api = (window as unknown as { api: Record<string, unknown> }).api;
+    const send = vi.fn(
+      (_r: string, _s: string, _c: string, _m: unknown, _h: unknown, prompt: string) =>
+        new Promise((resolve) => calls.push({ prompt, resolve }))
+    );
+    (window as unknown as { api: unknown }).api = new Proxy(api, {
+      get: (target, k: string) => (k === "sendChatMessage" ? send : (target as Record<string, unknown>)[k])
+    });
+    return { calls, send };
+  }
+
+  async function openChat() {
+    renderChatHome();
+    await load({ activeId: null, projects: [], sessions: [session("c", "Sohbetim")] });
+    fireEvent.click(screen.getByText("Sohbetler"));
+    fireEvent.click(rowOf("Sohbetim"));
+    // Sohbet panelleri önce, gizli "yeni sohbet" paneli en sonda çiziliyor.
+    const boxes = screen.getAllByPlaceholderText("axet.code'a bir şey sor…") as HTMLTextAreaElement[];
+    return boxes[0];
+  }
+
+  function type(box: HTMLTextAreaElement, text: string) {
+    fireEvent.change(box, { target: { value: text } });
+    fireEvent.keyDown(box, { key: "Enter" });
+  }
+
+  it("cevap sürerken yazılan sıraya giriyor, tur bitince kendiliğinden gidiyor", async () => {
+    const { calls, send } = setupSend();
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    expect(send).toHaveBeenCalledTimes(1);
+
+    type(box, "ikinci");
+    type(box, "üçüncü");
+    expect(box.value).toBe("");
+    expect(screen.getByTestId("chat-queued").textContent).toContain("ikinci");
+    expect(send).toHaveBeenCalledTimes(1);
+
+    await act(async () => calls[0].resolve({ ok: true, text: "cevap" }));
+    await wait(0);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(calls[1].prompt).toContain("ikinci\n\nüçüncü");
+    expect(screen.queryByTestId("chat-queued")).toBeNull();
+  });
+
+  it("tur durdurulursa sıradaki gönderilmiyor, kutuya geri dönüyor", async () => {
+    const { calls, send } = setupSend();
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    type(box, "ikinci");
+
+    await act(async () => calls[0].resolve({ ok: false, cancelled: true, text: "" }));
+    await wait(0);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(box.value).toBe("ikinci");
+    expect(screen.queryByTestId("chat-queued")).toBeNull();
+  });
+
+  it("tur hatayla biterse de sıradaki gönderilmiyor, kutuya geri dönüyor", async () => {
+    const { calls, send } = setupSend();
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    type(box, "ikinci");
+
+    await act(async () => calls[0].resolve({ ok: false, error: "bağlantı koptu", text: "" }));
+    await wait(0);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(box.value).toBe("ikinci");
+  });
+
+  it("şeritten silinebiliyor ya da kutuya geri alınabiliyor", async () => {
+    setupSend();
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    type(box, "ikinci");
+    fireEvent.click(screen.getByTitle("Kutuya geri al"));
+    expect(box.value).toBe("ikinci");
+    expect(screen.queryByTestId("chat-queued")).toBeNull();
+
+    type(box, "ikinci");
+    fireEvent.click(screen.getByTitle("Sıradan çıkar"));
+    expect(screen.queryByTestId("chat-queued")).toBeNull();
+    expect(box.value).toBe("");
+  });
+
+  it("diske yazılırken sıradaki taslağa katılıyor", async () => {
+    setupSend();
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    type(box, "ikinci");
+    await wait(700);
+    const saved = saveChatSessions.mock.calls.at(-1) as unknown as [{ sessions: { id: string; draft: string }[] }];
+    expect(saved[0].sessions.find((s) => s.id === "c")?.draft).toBe("ikinci");
+  });
+});

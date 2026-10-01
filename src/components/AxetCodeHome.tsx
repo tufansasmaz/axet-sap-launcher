@@ -19,6 +19,7 @@ import { baseName, promptWithAttachments, toAttachments } from "../lib/attachmen
 import { orderSessions } from "../lib/chatSessionGroups";
 import { contextTierFor } from "../lib/contextTier";
 import { mergeToolStep } from "../lib/toolSteps";
+import { enqueuePrompt, mergeQueuedIntoDraft, type QueuedPrompt } from "../lib/chatQueue";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
@@ -580,6 +581,7 @@ export default function AxetCodeHome({
             contextLimit: 0,
             editUndo: null,
             cancelStuck: false,
+            queued: null,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
             sapLabel: s.sapLabel ?? null,
@@ -717,43 +719,48 @@ export default function AxetCodeHome({
     const timer = setTimeout(() => {
       const state: ChatSessionsState = {
         activeId,
-        sessions: sessions.map((s) => ({
-          id: s.id,
-          title: s.title,
-          // Yarım kalmış (akan) mesaj diske yazılmaz — nihai metni zaten
-          // akış bitince gelen `invoke` cevabı belirliyor.
-          messages: s.messages
-            .filter((m) => !m.streaming)
-            .map((m) => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              ...(m.error ? { error: true } : {}),
-              // Yalnızca dolu olduğunda yazılıyor — eklerin BÜYÜK çoğunluğu
-              // yok ve her mesaja boş bir dizi koymak geçmiş dosyasını
-              // gereksiz şişirirdi.
-              ...(m.attachments && m.attachments.length > 0
-                ? { attachments: m.attachments }
-                : {}),
-              // Araç dökümü — aynı gerekçeyle yalnızca doluysa yazılıyor.
-              ...(m.steps && m.steps.length > 0 ? { steps: m.steps } : {}),
-              // "Yarıda kaldı" notu diske de gidiyor: bir kez gösterilip
-              // kaybolsaydı, kırpılmış cevap bir sonraki açılışta tam bir cevap
-              // gibi görünürdü.
-              ...(m.interrupted ? { interrupted: true } : {}),
-              createdAt: m.createdAt,
-            })),
-          model: s.model,
-          draft: s.draft,
-          ...(s.attachments.length > 0 ? { attachments: s.attachments } : {}),
-          // Bağlamsız sohbetler geçmiş dosyasını boş alanlarla şişirmesin.
-          ...(s.cwd ? { cwd: s.cwd } : {}),
-          ...(s.sapLabel ? { sapLabel: s.sapLabel } : {}),
-          ...(s.projectId ? { projectId: s.projectId } : {}),
-          ...(s.keepInGeneral ? { keepInGeneral: true } : {}),
-          createdAt: s.createdAt,
-          updatedAt: s.updatedAt,
-        })),
+        sessions: sessions.map((s) => {
+          // Sıradaki mesaj ayrı alan olarak yazılmıyor, taslağa katılıyor
+          // (bkz. chatTypes.ts `queued`).
+          const composer = mergeQueuedIntoDraft(s.draft, s.attachments, s.queued);
+          return {
+            id: s.id,
+            title: s.title,
+            // Yarım kalmış (akan) mesaj diske yazılmaz — nihai metni zaten
+            // akış bitince gelen `invoke` cevabı belirliyor.
+            messages: s.messages
+              .filter((m) => !m.streaming)
+              .map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.content,
+                ...(m.error ? { error: true } : {}),
+                // Yalnızca dolu olduğunda yazılıyor — eklerin BÜYÜK çoğunluğu
+                // yok ve her mesaja boş bir dizi koymak geçmiş dosyasını
+                // gereksiz şişirirdi.
+                ...(m.attachments && m.attachments.length > 0
+                  ? { attachments: m.attachments }
+                  : {}),
+                // Araç dökümü — aynı gerekçeyle yalnızca doluysa yazılıyor.
+                ...(m.steps && m.steps.length > 0 ? { steps: m.steps } : {}),
+                // "Yarıda kaldı" notu diske de gidiyor: bir kez gösterilip
+                // kaybolsaydı, kırpılmış cevap bir sonraki açılışta tam bir cevap
+                // gibi görünürdü.
+                ...(m.interrupted ? { interrupted: true } : {}),
+                createdAt: m.createdAt,
+              })),
+            model: s.model,
+            draft: composer.draft,
+            ...(composer.attachments.length > 0 ? { attachments: composer.attachments } : {}),
+            // Bağlamsız sohbetler geçmiş dosyasını boş alanlarla şişirmesin.
+            ...(s.cwd ? { cwd: s.cwd } : {}),
+            ...(s.sapLabel ? { sapLabel: s.sapLabel } : {}),
+            ...(s.projectId ? { projectId: s.projectId } : {}),
+            ...(s.keepInGeneral ? { keepInGeneral: true } : {}),
+            createdAt: s.createdAt,
+            updatedAt: s.updatedAt,
+          };
+        }),
         projects,
       };
       window.api.saveChatSessions(state).catch(() => {});
@@ -802,6 +809,9 @@ export default function AxetCodeHome({
   // bekliyor, çünkü o an kapatmak yarım cevabı öldürürdü (bkz. aşağıdaki
   // `workDirRequest` efekti).
   const restartAfterPendingRef = useRef<Set<string>>(new Set());
+
+  // Turu biten, sırasında mesaj olabilecek sohbetler (bkz. `runPrompt` sonu).
+  const flushQueueRef = useRef<Set<string>>(new Set());
 
   // "Yeni sohbet" artık kayıt OLUŞTURMUYOR — sadece boş composer'a dönüyor.
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
@@ -1237,12 +1247,20 @@ export default function AxetCodeHome({
           const steps = s.activitySteps.filter((step) => step.phase === "tool");
           const withSteps = steps.length > 0 ? { steps } : {};
 
+          // Tur başarısız bitince sıradaki mesaj GÖNDERİLMİYOR, kutuya geri
+          // dönüyor: durdurmak "bekle" demek, hatadan sonra da kullanıcı
+          // muhtemelen ne yazacağını değiştirecek. Başarıda ise yerinde
+          // kalıyor ve aşağıdaki efekt onu gönderiyor.
+          const restoreQueued = s.queued
+            ? { ...mergeQueuedIntoDraft(s.draft, s.attachments, s.queued), queued: null }
+            : {};
+
           if (result.cancelled) {
             // Kullanıcı durdurdu. Ekranda GÖRÜNEN yarım metni silmiyoruz —
             // kullanıcı onu zaten okudu, kaybolması "bir şey ters gitti"
             // hissi verirdi (ChatGPT de durdurulan cevabı bırakır). Hiç metin
             // gelmediyse yarım mesajı tamamen kaldır, boş balon kalmasın.
-            if (!streamed) return { ...s, ...done };
+            if (!streamed) return { ...s, ...done, ...restoreQueued };
             const partial = streamed.content.trim();
             return {
               ...s,
@@ -1259,6 +1277,7 @@ export default function AxetCodeHome({
                   )
                 : s.messages.filter((m) => m.id !== streamed.id),
               ...done,
+              ...restoreQueued,
             };
           }
 
@@ -1299,6 +1318,7 @@ export default function AxetCodeHome({
                   : m,
               ),
               ...done,
+              ...(failed ? restoreQueued : {}),
             };
           }
           const assistantMessage: ChatMessage = {
@@ -1311,9 +1331,18 @@ export default function AxetCodeHome({
             restartedReason: result.restartedReason,
             ...withSteps,
           };
-          return { ...s, messages: [...s.messages, assistantMessage], ...done };
+          return {
+            ...s,
+            messages: [...s.messages, assistantMessage],
+            ...done,
+            ...(failed ? restoreQueued : {}),
+          };
         }),
       );
+      // Sırada bir şey kaldıysa (yalnızca başarılı turda kalır) tur bitti
+      // diye işaretleniyor; gönderim aşağıdaki efektte, yeni durum çizildikten
+      // sonra yapılıyor.
+      flushQueueRef.current.add(sessionId);
     },
     [config?.axetWorkspaceDir, projects, t],
   );
@@ -1364,6 +1393,7 @@ export default function AxetCodeHome({
       contextLimit: 0,
       editUndo: null,
       cancelStuck: false,
+      queued: null,
       createdAt: now,
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.
@@ -1406,12 +1436,13 @@ export default function AxetCodeHome({
     runPrompt,
   ]);
 
-  const handleSend = useCallback(async () => {
-    if (!activeId) return handleSendNew();
-    const session = sessions.find((s) => s.id === activeId);
-    if (!session || session.pending) return;
-    const text = session.draft.trim();
-    const attachments = session.attachments;
+  // Var olan sohbette bir tur başlat. Metin ya kutudan (`fromQueue` yok) ya
+  // sıradan geliyor; fark yalnızca neyin boşaltıldığı — sıradan giderken
+  // kullanıcının o arada kutuya yazmaya başladığı metin silinmemeli.
+  const sendTurn = useCallback(async (session: ChatSession, queued?: QueuedPrompt) => {
+    const sessionId = session.id;
+    const text = (queued ? queued.text : session.draft).trim();
+    const attachments = queued ? queued.attachments : session.attachments;
     if (!text && attachments.length === 0) return;
 
     // Geçmiş de `promptWithAttachments`ten geçiyor: geçmemesi hâlinde ajan,
@@ -1429,15 +1460,14 @@ export default function AxetCodeHome({
 
     setSessions((prev) =>
       prev.map((s) =>
-        s.id === activeId
+        s.id === sessionId
           ? {
               ...s,
               title: isFirstMessage
                 ? deriveTitle(text || attachments[0].name)
                 : s.title,
               messages: [...s.messages, userMessage],
-              draft: "",
-              attachments: [],
+              ...(queued ? { queued: null } : { draft: "", attachments: [] }),
               // Düzeltilmiş soru gönderildi: artık geri alınacak bir düzenleme
               // yok. Şerit burada silinmeseydi, kesilen kuyruğu yeni cevabın
               // ARDINA yapıştıran bir düğme olarak kalırdı.
@@ -1459,16 +1489,70 @@ export default function AxetCodeHome({
     // tek tuşa indirdiği için bu yanlışlıkla çok kolay tetiklenir hâle
     // gelmişti.
     if (session.editUndo)
-      await window.api.resetChatHistory(activeId).catch(() => false);
+      await window.api.resetChatHistory(sessionId).catch(() => false);
     await runPrompt(
-      activeId,
+      sessionId,
       promptWithAttachments(text, attachments),
       historyForCall,
       session.model,
       session.cwd,
       session.projectId,
     );
-  }, [activeId, handleSendNew, runPrompt, sessions]);
+  }, [runPrompt]);
+
+  const handleSend = useCallback(async () => {
+    if (!activeId) return handleSendNew();
+    const session = sessions.find((s) => s.id === activeId);
+    if (!session) return;
+    if (session.pending) {
+      // Cevap sürerken Enter mesajı SIRAYA koyuyor; tur başarıyla bitince
+      // kendiliğinden gidiyor (bkz. `runPrompt` sonu ve aşağıdaki efekt).
+      if (!session.draft.trim() && session.attachments.length === 0) return;
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.id === activeId
+            ? {
+                ...s,
+                queued: enqueuePrompt(s.queued, s.draft, s.attachments),
+                draft: "",
+                attachments: [],
+              }
+            : s,
+        ),
+      );
+      return;
+    }
+    await sendTurn(session);
+  }, [activeId, handleSendNew, sendTurn, sessions]);
+
+  // Tur bitti: sırada mesaj varsa gönder. `runPrompt` işaretliyor, gönderim
+  // burada — yeni durum (`pending: false`, cevap listede) çizildikten sonra,
+  // yoksa geçmiş az önce gelen cevabı içermezdi.
+  useEffect(() => {
+    for (const id of [...flushQueueRef.current]) {
+      const session = sessions.find((s) => s.id === id);
+      if (session?.pending) continue;
+      flushQueueRef.current.delete(id);
+      if (session?.queued) void sendTurn(session, session.queued);
+    }
+  }, [sessions, sendTurn]);
+
+  // Sıradaki mesajı kutuya geri al (değiştirmek için) ya da tamamen at.
+  const handleUnqueue = useCallback(() => {
+    if (!activeId) return;
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeId && s.queued
+          ? { ...s, ...mergeQueuedIntoDraft(s.draft, s.attachments, s.queued), queued: null }
+          : s,
+      ),
+    );
+  }, [activeId]);
+
+  const handleDropQueued = useCallback(() => {
+    if (!activeId) return;
+    setSessions((prev) => prev.map((s) => (s.id === activeId ? { ...s, queued: null } : s)));
+  }, [activeId]);
 
   // Gönderilmiş bir kullanıcı mesajını düzenle: metni composer'a geri koy ve
   // sohbeti O MESAJDAN İTİBAREN kes. Sonrasındaki cevap(lar) düzeltilmiş
@@ -2176,6 +2260,7 @@ export default function AxetCodeHome({
     contextLimit: 0,
     editUndo: null,
     cancelStuck: false,
+    queued: null,
   };
 
   return (
@@ -2205,6 +2290,8 @@ export default function AxetCodeHome({
             onEditMessage={handleEditMessage}
             onUndoEdit={handleUndoEdit}
             onDismissCancelStuck={handleDismissCancelStuck}
+            onUnqueue={handleUnqueue}
+            onDropQueued={handleDropQueued}
             onAttachFiles={handleAttachFiles}
             onFilesResolved={(paths) => addAttachments(session.id, paths)}
             onRemoveAttachment={(attachmentId) =>
@@ -2272,6 +2359,8 @@ export default function AxetCodeHome({
           onEditMessage={handleEditMessage}
           onUndoEdit={handleUndoEdit}
           onDismissCancelStuck={handleDismissCancelStuck}
+          onUnqueue={handleUnqueue}
+          onDropQueued={handleDropQueued}
           onAttachFiles={handleAttachFiles}
           onFilesResolved={(paths) => addAttachments(NEW_SESSION_ID, paths)}
           onRemoveAttachment={(attachmentId) =>

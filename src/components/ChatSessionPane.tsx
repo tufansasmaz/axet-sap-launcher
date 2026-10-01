@@ -8,6 +8,8 @@ import {
   Bug,
   ChevronDown,
   ChevronUp,
+  Clock,
+  CornerUpLeft,
   Code2,
   FileCode,
   Files,
@@ -125,6 +127,8 @@ export interface ChatSessionData {
    * (bkz. AxetCodeHome `cancelStuck`, axetChatTui.ts `cancelTui`).
    */
   cancelStuck: boolean;
+  /** Cevap sürerken yazılan, tur bitince gidecek mesaj (bkz. lib/chatQueue.ts). */
+  queued: { text: string; attachments: ChatAttachment[] } | null;
 }
 
 interface Props {
@@ -159,6 +163,9 @@ interface Props {
   onUndoEdit: () => void;
   /** "Durduramadım" uyarısını kapatır (bkz. `cancelStuck`). */
   onDismissCancelStuck: () => void;
+  /** Sıradaki mesajı kutuya geri koyar / tamamen atar (bkz. `queued`). */
+  onUnqueue: () => void;
+  onDropQueued: () => void;
   onAttachFiles: () => void;
   onFilesResolved: (paths: string[]) => void;
   onRemoveAttachment: (attachmentId: string) => void;
@@ -231,6 +238,8 @@ export default function ChatSessionPane({
   onEditMessage,
   onUndoEdit,
   onDismissCancelStuck,
+  onUnqueue,
+  onDropQueued,
   onAttachFiles,
   onFilesResolved,
   onRemoveAttachment,
@@ -707,6 +716,44 @@ export default function ChatSessionPane({
               >
                 <X size={13} />
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Sıradaki mesaj. Gönderilmiş gibi listeye girmiyor — henüz gitmedi
+            ve ajan onu bu turda görmüyor; listede durursa cevabın ona ait
+            olduğu sanılırdı. Composer'ın üstünde, geri alma şeridiyle aynı
+            dilde. */}
+        {session.queued && (
+          <div className={COLUMN}>
+            <div
+              data-testid="chat-queued"
+              className="mb-2 flex items-center gap-2 rounded-xl border border-line-subtle bg-card/70 px-3 py-2 text-[12px] text-slate-400"
+            >
+              <Clock size={13} className="shrink-0" />
+              <span className="shrink-0 font-medium text-slate-300">{t("chatQueue.label")}</span>
+              <span className="min-w-0 truncate">
+                {session.queued.text ||
+                  session.queued.attachments.map((a) => a.name).join(", ")}
+              </span>
+              <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                <button
+                  onClick={onUnqueue}
+                  title={t("chatQueue.restore")}
+                  aria-label={t("chatQueue.restore")}
+                  className="cursor-pointer rounded-md p-1 transition hover:bg-hover hover:text-slate-200"
+                >
+                  <CornerUpLeft size={13} />
+                </button>
+                <button
+                  onClick={onDropQueued}
+                  title={t("chatQueue.drop")}
+                  aria-label={t("chatQueue.drop")}
+                  className="cursor-pointer rounded-md p-1 transition hover:bg-hover hover:text-slate-200"
+                >
+                  <X size={13} />
+                </button>
+              </div>
             </div>
           </div>
         )}

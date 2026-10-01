@@ -37,7 +37,7 @@ function session(id: string, over: Partial<ChatSession> = {}): ChatSession {
   return {
     id, title: id, messages: [], model: null, draft: "", attachments: [], pending: false, requestId: null,
     activity: null, activitySteps: [], stalledMinutes: 0, pendingAsk: null, todos: [], contextTokens: 0,
-    contextLimit: 0, editUndo: null, cancelStuck: false, createdAt: 1, updatedAt: 1, cwd: null, sapLabel: null,
+    contextLimit: 0, editUndo: null, cancelStuck: false, queued: null, createdAt: 1, updatedAt: 1, cwd: null, sapLabel: null,
     projectId: null, keepInGeneral: false, ...over
   };
 }

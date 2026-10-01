@@ -12,6 +12,7 @@ import type {
   SapService
 } from "../../app-electron/shared/types";
 import type { ChatMessage } from "../components/ChatBubble";
+import type { QueuedPrompt } from "../lib/chatQueue";
 
 // Bir düzenlemenin geri alınması için gereken HER ŞEY: kesilen mesajlar ve
 // composer'ın o andaki hâli. Yalnızca mesajları saklamak yetmezdi — geri
@@ -80,6 +81,13 @@ export interface ChatSession {
   // Diske YAZILMIYOR: uygulama kapanınca pty de ölüyor, yani arkada süren
   // bir tur kalmıyor — kaydedilmiş bir uyarı sonsuza kadar yalan söylerdi.
   cancelStuck: boolean;
+  // Cevap sürerken yazılan, tur bitince kendiliğinden gidecek mesaj (bkz.
+  // lib/chatQueue.ts). `null` = sırada bir şey yok.
+  //
+  // Ayrı alan olarak diske YAZILMIYOR — kaydederken taslağa katılıyor:
+  // uygulama tur ortasında kapanırsa yeniden açılışta tur yok, kendiliğinden
+  // gönderilecek bir şey de yok; ama yazılan metin kaybolmamalı.
+  queued: QueuedPrompt | null;
   createdAt: number;
   // Listedeki sıralama bunun üzerinden — sohbetler artık diskte kalıcı
   // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz

@@ -43,7 +43,7 @@ function session(id: string, title: string): ChatSession {
   return {
     id, title, model: null, draft: "", attachments: [], pending: false, requestId: null, activity: null,
     activitySteps: [], stalledMinutes: 0, pendingAsk: null, todos: [], contextTokens: 0, contextLimit: 0,
-    editUndo: null, cancelStuck: false, createdAt: 1, updatedAt: 1, cwd: null, sapLabel: null, projectId: null,
+    editUndo: null, cancelStuck: false, queued: null, createdAt: 1, updatedAt: 1, cwd: null, sapLabel: null, projectId: null,
     keepInGeneral: false,
     messages: [{ id: `${id}-m`, role: "user", content: `${title} içeriği`, createdAt: 1 }]
   };
