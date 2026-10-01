@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ApprovalView, Choice, SapWriteState, SessionView, WorkMode, WriteFact } from "../app-electron/shared/sapWriteTypes";
 import SapWriteGate from "../src/components/SapWriteGate";
 import { LanguageProvider } from "../src/i18n";
+import { Modal } from "../src/ui/Modal";
 
 const H = (c: string) => c.repeat(64);
 
@@ -332,5 +333,48 @@ describe("SapWriteGate — onay", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// Onay penceresi açık bir pencerenin (ör. Ayarlar) ÜSTÜNDE açılabiliyor.
+// Klavyenin sahibi o zaman onay penceresi olmalı: Escape arkadaki pencereyi
+// kapatmasın, Tab odağı arkadaki pencereye kaçırmasın.
+describe("SapWriteGate — açık bir pencerenin üstünde", () => {
+  function mountOver(state: SapWriteState) {
+    const onClose = vi.fn();
+    render(
+      <LanguageProvider language="tr">
+        <Modal open onClose={onClose} title="Arka pencere" footer={<button type="button">Arka düğme</button>}>
+          <input aria-label="Arka alan" />
+        </Modal>
+        <SapWriteGate state={state} onSetMode={vi.fn(async () => true)} onRespond={vi.fn(async () => ({ ok: true }))} armDelayMs={0} />
+      </LanguageProvider>
+    );
+    const gate = screen.getAllByRole("dialog").find((d) => !d.textContent?.includes("Arka pencere"))!;
+    return { onClose, gate };
+  }
+
+  it("Escape arkadaki pencereyi kapatmıyor, onay penceresi de yerinde", () => {
+    const { onClose } = mountOver({ sessions: [session()], pending: [approval()] });
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("SAP'a yazma onayı")).toBeTruthy();
+  });
+
+  it("Tab odağı onay penceresinin içinde döndürüyor", () => {
+    const { gate } = mountOver({ sessions: [session()], pending: [approval()] });
+    const inside = Array.from(gate.querySelectorAll<HTMLElement>("button")).filter((b) => !(b as HTMLButtonElement).disabled);
+    inside[inside.length - 1].focus();
+    fireEvent.keyDown(document.activeElement!, { key: "Tab" });
+    expect(document.activeElement).toBe(inside[0]);
+    inside[0].focus();
+    fireEvent.keyDown(document.activeElement!, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(inside[inside.length - 1]);
+  });
+
+  it("mod seçimi açılınca odak arkadaki pencereden onay penceresine geçiyor; hiçbir mod seçilmiyor", () => {
+    const { gate } = mountOver({ sessions: [session({ mode: null })], pending: [] });
+    expect(gate.contains(document.activeElement)).toBe(true);
+    expect(button("Bu modla başla").hasAttribute("disabled")).toBe(true);
   });
 });

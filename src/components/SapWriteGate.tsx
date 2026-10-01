@@ -1,9 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Check, FolderCode, PenLine, ShieldAlert } from "lucide-react";
 import type { ApprovalView, Choice, FactObject, SapWriteState, SessionView, WorkMode } from "../../app-electron/shared/sapWriteTypes";
 import { useT, type TranslateFn } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import { btn, DIALOG_CONFIRM_BUTTON } from "../ui/buttons";
+import { useModalStack } from "../ui/Modal";
 import TierBadge from "./TierBadge";
 
 // Cevap gönderildikten sonra sıradaki istek aynı yerde açılıyor; çift tıklamanın
@@ -42,19 +44,40 @@ export default function SapWriteGate({ state, onSetMode, onRespond, armDelayMs =
   return null;
 }
 
+// Pencere yığınında en üst katmanda (`critical`): başka bir pencerenin
+// (ör. Ayarlar) üstünde açılınca klavye onun. Escape yutuluyor ama hiçbir şey
+// yapmıyor — arkadaki pencereyi de kapatmıyor; Tab odağı içeride döndürüyor.
+// `body`'ye taşınıyor ki uygulamadaki bir istif bağlamı onu alta itmesin.
 function Shell({ children }: { children: ReactNode }) {
-  return (
-    <div className="animate-backdrop-fade-in fixed inset-0 z-[70] flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm">
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  useModalStack(panelRef, "critical", ignoreEscape);
+
+  // Açılışta odak pencereye: arkadaki pencerede kalırsa Enter oraya gider.
+  // İçeride zaten odaklanan bir öğe varsa (onayda Reddet) ona dokunulmuyor;
+  // yoksa panelin kendisi alıyor — bir seçeneğe odaklanmak onu seçilmiş
+  // gibi gösterirdi.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (panel && !panel.contains(document.activeElement)) panel.focus();
+  }, []);
+
+  return createPortal(
+    <div className="animate-backdrop-fade-in fixed inset-0 z-critical flex items-center justify-center bg-[var(--overlay-scrim)] backdrop-blur-sm">
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
-        className="animate-modal-pop-in flex max-h-[88vh] w-[640px] flex-col rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50"
+        tabIndex={-1}
+        className="animate-modal-pop-in flex max-h-[88vh] w-[640px] flex-col rounded-2xl border border-line/60 bg-card shadow-2xl shadow-black/50 outline-none"
       >
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
+
+function ignoreEscape(): void {}
 
 function IdentityLine({ sid, client, user }: { sid: string; client: string; user: string }) {
   return (

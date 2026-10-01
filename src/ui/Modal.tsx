@@ -7,7 +7,8 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type ReactNode
+  type ReactNode,
+  type RefObject
 } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, X } from "lucide-react";
@@ -87,6 +88,77 @@ function focusables(root: HTMLElement | null): HTMLElement[] {
       !el.closest(HIDDEN_ANCESTOR) &&
       isRendered(el, root)
   );
+}
+
+/**
+ * Pencereyi yığına kaydediyor ve en üstteyken klavyeyi ona veriyor: Escape
+ * `onEscape`'i çağırıyor (alttaki pencerelere ulaşmıyor), Tab odağı panelin
+ * içinde döndürüyor. `Modal`'ın kendi iskeletini kullanamayan pencereler
+ * (SAP yazma onayı) aynı kurallara bununla giriyor.
+ */
+export function useModalStack(
+  panelRef: RefObject<HTMLElement | null>,
+  layer: ModalLayer,
+  onEscape: () => void
+): void {
+  const [id] = useState(() => nextId++);
+  const onEscapeRef = useRef(onEscape);
+  onEscapeRef.current = onEscape;
+
+  useLayoutEffect(() => {
+    const entry: StackEntry = { id, rank: LAYER_RANK[layer] };
+    stack.push(entry);
+    return () => {
+      const index = stack.indexOf(entry);
+      if (index >= 0) stack.splice(index, 1);
+    };
+  }, [id, layer]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (!isTop(id) || e.isComposing) return;
+      if (e.key === "Escape") {
+        // Açık bir açılır liste ya da ışık kutusu Escape'in sahibi: önce o
+        // kapanmalı. Sahipler dinleyicilerini `document`'ta kabarma
+        // aşamasında tutuyor; bu dinleyici yakalama aşamasında ve her zaman
+        // ÖNCE çalışıyor, o yüzden `defaultPrevented`'a bakmak işe yaramıyor —
+        // sahibin varlığına bakılıyor. Olaya dokunulmuyor ki sahip onu alsın.
+        if (document.querySelector("[data-escape-owner]")) return;
+        e.preventDefault();
+        e.stopPropagation();
+        // Basılı tutulan Escape peş peşe pencere kapatmasın.
+        if (e.repeat) return;
+        onEscapeRef.current();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const items = focusables(panel);
+      if (items.length === 0) {
+        e.preventDefault();
+        panel.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!(active instanceof HTMLElement) || !panel.contains(active) || active === panel) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      if (e.shiftKey && active === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [id, panelRef]);
 }
 
 interface ModalContextValue {
@@ -180,7 +252,6 @@ function ModalPanel({
   const footerRef = useRef<HTMLDivElement | null>(null);
   // İlk çizimdeki odak = pencereyi açan öğe (autoFocus çizimden SONRA çalışıyor).
   const [opener] = useState(() => document.activeElement);
-  const [id] = useState(() => nextId++);
   const [confirming, setConfirming] = useState(false);
 
   const dirtyRef = useRef(dirty);
@@ -196,60 +267,7 @@ function ModalPanel({
     else onCloseRef.current();
   }, []);
 
-  useLayoutEffect(() => {
-    const entry: StackEntry = { id, rank: LAYER_RANK[layer] };
-    stack.push(entry);
-    return () => {
-      const index = stack.indexOf(entry);
-      if (index >= 0) stack.splice(index, 1);
-    };
-  }, [id, layer]);
-
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (!isTop(id) || e.isComposing) return;
-      if (e.key === "Escape") {
-        // Açık bir açılır liste ya da ışık kutusu Escape'in sahibi: önce o
-        // kapanmalı. Sahipler dinleyicilerini `document`'ta kabarma
-        // aşamasında tutuyor; bu dinleyici yakalama aşamasında ve her zaman
-        // ÖNCE çalışıyor, o yüzden `defaultPrevented`'a bakmak işe yaramıyor —
-        // sahibin varlığına bakılıyor. Olaya dokunulmuyor ki sahip onu alsın.
-        if (document.querySelector("[data-escape-owner]")) return;
-        e.preventDefault();
-        e.stopPropagation();
-        // Basılı tutulan Escape peş peşe pencere kapatmasın.
-        if (e.repeat) return;
-        requestClose();
-        return;
-      }
-      if (e.key !== "Tab") return;
-      const panel = panelRef.current;
-      if (!panel) return;
-      const items = focusables(panel);
-      if (items.length === 0) {
-        e.preventDefault();
-        panel.focus();
-        return;
-      }
-      const first = items[0];
-      const last = items[items.length - 1];
-      const active = document.activeElement;
-      if (!(active instanceof HTMLElement) || !panel.contains(active) || active === panel) {
-        e.preventDefault();
-        (e.shiftKey ? last : first).focus();
-        return;
-      }
-      if (e.shiftKey && active === first) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && active === last) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown, true);
-    return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [id, requestClose]);
+  useModalStack(panelRef, layer, requestClose);
 
   // İlk odak. StrictMode efektleri iki kez çalıştırıyor ve arada aşağıdaki
   // temizlik odağı açan öğeye geri veriyor; ilk seçilen öğe hatırlanıp
