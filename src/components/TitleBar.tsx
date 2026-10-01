@@ -34,7 +34,9 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
 
   return (
     <div
-      className="flex h-9 shrink-0 items-center justify-between border-b border-line bg-sidebar pl-3"
+      // Alt çizgi yok, zemin uygulamanınki: başlık ana ekranla tek parça,
+      // kenar çubuğu kartı ikisinin üstünde duruyor (kullanıcı isteği, 2026-10-01).
+      className="flex h-9 shrink-0 items-center justify-between bg-app pl-3"
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
       <div className="flex items-center gap-2 text-xs font-medium text-slate-400">

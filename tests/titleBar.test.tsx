@@ -49,6 +49,15 @@ function mount(context: ActiveContext) {
 }
 
 describe("TitleBar", () => {
+  it("ana ekranla bir bütün: alt çizgi yok, zemin uygulamanınki", () => {
+    mount({ sap: null, gui: null });
+    const bar = screen.getByText("NTT Studio").closest(".h-9");
+    const cls = (bar?.className ?? "").split(/\s+/);
+    expect(cls).toContain("bg-app");
+    expect(cls).not.toContain("border-b");
+    expect(cls).not.toContain("bg-sidebar");
+  });
+
   it("bağlam yokken rozet ve temizle düğmesi yok", () => {
     mount({ sap: null, gui: null });
     expect(screen.queryByTitle("Sistemi göster · Müşteri › S4D")).toBeNull();
