@@ -52,6 +52,14 @@ const MODE_NAME: Record<SidebarMode, TranslationKey> = {
   terminal: "shell.terminal"
 };
 
+// Kenar çubuğu ana ekranın üstünde duran bir kart (kullanıcı isteği,
+// 2026-10-01): her yandan 8px boşluk, 16px yumuşak köşe, ince kenar. Gölge
+// yok: denendi, kullanıcı beğenmedi. Keskin `border-r` çizgisi de yok; ayrımı
+// boşluk ve zemin farkı yapıyor. Genişlik (`width`) kartın kendisi, boşluklar
+// onun dışında.
+const CARD =
+  "m-2 flex shrink-0 flex-col overflow-hidden rounded-2xl border border-line-subtle bg-sidebar";
+
 export default function Sidebar({
   mode,
   readinessOpen,
@@ -154,7 +162,7 @@ export default function Sidebar({
         ref={asideRef}
         aria-label={t("shell.sidebar")}
         style={{ width: SIDEBAR_COLLAPSED_WIDTH }}
-        className="flex shrink-0 flex-col items-center overflow-hidden border-r border-line-subtle bg-sidebar"
+        className={`${CARD} items-center`}
       >
         <div className="flex flex-col items-center gap-1 py-2">
           <button
@@ -199,7 +207,7 @@ export default function Sidebar({
       ref={asideRef}
       aria-label={t("shell.sidebar")}
       style={{ width: liveWidth }}
-      className="relative flex shrink-0 flex-col overflow-hidden border-r border-line-subtle bg-sidebar"
+      className={`${CARD} relative`}
     >
       {/* Üç sekme tek satır. Dört sekmeyle 264px'te sekme başına ~44px yazı
           alanı kalıyor, "Terminal" ~56px istediği için kesiliyordu (ölçüldü,

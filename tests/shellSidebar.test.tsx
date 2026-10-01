@@ -313,3 +313,17 @@ describe("Sidebar daraltılmış", () => {
     expect(screen.getByRole("button", { name: "Uygulama Bağlantıları — 1 açık" })).toBeTruthy();
   });
 });
+
+describe("yüzen kart", () => {
+  // Kenar çubuğu ana ekranın üstünde duran yuvarlak bir kart: çevresinde
+  // boşluk, yumuşak köşe, gölge; ana ekranla arasında keskin çizgi yok.
+  for (const collapsed of [false, true]) {
+    it(collapsed ? "daraltılmışken de kart" : "açıkken kart", () => {
+      renderSidebar({ collapsed });
+      const cls = screen.getByRole("complementary", { name: "Kenar çubuğu" }).className.split(/\s+/);
+      for (const c of ["m-2", "rounded-2xl", "border", "bg-sidebar"]) expect(cls).toContain(c);
+      expect(cls).not.toContain("border-r");
+      expect(cls.some((c) => c.startsWith("shadow-"))).toBe(false);
+    });
+  }
+});
