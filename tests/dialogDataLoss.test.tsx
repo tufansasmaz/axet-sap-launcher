@@ -166,6 +166,31 @@ describe("AddSystemModal kapatma", () => {
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByText(DISCARD_TITLE)).toBeTruthy();
   });
+
+  it("düzenleme modunda değişiklik yokken Escape soru sormadan kapatıyor", () => {
+    const onClose = vi.fn();
+    render(
+      <LanguageProvider language="tr">
+        <AddSystemModal
+          open
+          onClose={onClose}
+          editing={{
+            id: "m1",
+            name: "Test",
+            systemId: "TST",
+            type: "onprem",
+            host: "10.0.0.1",
+            diagPort: null,
+            adtUrl: null
+          }}
+          onAdded={() => {}}
+        />
+      </LanguageProvider>
+    );
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText("Değişiklikleri at?")).toBeNull();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });
 
 // Kaydetme sürerken kapanma kilitli (son düzeltme turu 2026-09-29). Eskiden
