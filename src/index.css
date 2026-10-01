@@ -197,8 +197,8 @@ html[data-theme="dark"] {
      `app` ve `card` değerleri `app-electron/shared/themeSurfaces.ts` içinde de
      duruyor (pencere zemini, terminal, Ayarlar önizlemesi); ikisini bir test
      eşliyor. */
-  --surface-app-rgb: 17 19 22;
-  --surface-sidebar-rgb: 20 22 25;
+  --surface-app-rgb: 15 17 20;
+  --surface-sidebar-rgb: 19 21 24;
   --surface-card-rgb: 23 25 28;
   --surface-raised-rgb: 27 29 33;
   --surface-hover-rgb: 31 33 37;

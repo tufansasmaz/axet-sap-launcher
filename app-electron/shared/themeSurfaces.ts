@@ -30,7 +30,7 @@ export interface ThemeSurface {
   terminal: { background: string; foreground: string; cursor: string };
 }
 
-const DARK = { app: "#111316", card: "#17191c" };
+const DARK = { app: "#0f1114", card: "#17191c" };
 const LIGHT = { app: "#f6f7f8", card: "#ffffff" };
 
 function accentPair(darkAccent: string, lightAccent: string, cursor: string): Record<AppTheme, ThemeSurface> {
