@@ -331,6 +331,19 @@ describe("SystemPanel — iki sütun (ikinci tur)", () => {
     expect(box.closest("section")!.classList.contains("flex-1")).toBe(true);
   });
 
+  it("kartlar panelin altına kadar uzuyor, altta boş şerit kalmıyor", async () => {
+    renderPanel();
+    await notesReady();
+    const grid = screen.getByRole("heading", { name: "Bağlantı Bilgileri" }).closest("[data-panel-card]")!
+      .parentElement!;
+    // Izgara kalan yüksekliği alıyor; kabı en az panel boyu kadar.
+    expect(grid.classList.contains("flex-1")).toBe(true);
+    const column = grid.parentElement!;
+    expect(column.classList.contains("min-h-full")).toBe(true);
+    expect(column.classList.contains("flex-col")).toBe(true);
+    expect(column.parentElement!.classList.contains("h-full")).toBe(true);
+  });
+
   it("720px'lik dar sütun sınırı kalktı", () => {
     const src = readFileSync("src/components/SystemPanel.tsx", "utf8");
     expect(src).not.toContain("max-w-[720px]");

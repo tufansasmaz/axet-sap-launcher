@@ -104,7 +104,7 @@ export default function SystemPanel({
     <div className="h-full overflow-y-auto">
       <div
         key={selection.itemUuid}
-        className="animate-panel-fade-in mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-8 py-8"
+        className="animate-panel-fade-in mx-auto flex min-h-full w-full max-w-[1280px] flex-col gap-6 px-8 py-8"
       >
         <SystemHeader
           path={path}
@@ -121,8 +121,10 @@ export default function SystemPanel({
         {/* İki sütun, ama eşik pencerenin değil kabın genişliği: kenar
             çubuğu ve dosya sekmeleri alanı daraltıyor. Kap ~980px'in altına
             inince `auto-fit` tek sütuna düşüyor; `min(100%,…)` dar kapta
-            yatay taşmayı önlüyor. */}
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5">
+            yatay taşmayı önlüyor. `flex-1` + kaptaki `min-h-full`: kartlar
+            panelin altına kadar uzuyor; içerik kısayken altta boş siyah
+            şerit kalıyordu (kullanıcı, 2026-10-01). */}
+        <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5">
           <section data-panel-card className={PANEL_CARD}>
             <h3 className={PANEL_TITLE}>{t("systemPanel.detailsHeading")}</h3>
             <SystemInfoList
