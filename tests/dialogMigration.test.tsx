@@ -307,26 +307,40 @@ describe("SettingsModal", () => {
 });
 
 describe("taşınan dosyalar", () => {
-  const DIR = path.join(__dirname, "..", "src", "components");
+  const ROOT = path.join(__dirname, "..", "src");
   const FILES = [
-    "ConfirmDialog.tsx",
-    "ChatInstructionsDialog.tsx",
-    "ChatProjectDialog.tsx",
-    "AddSystemModal.tsx",
-    "SettingsModal.tsx",
-    "CredentialsModal.tsx",
-    "CertTrustDialog.tsx",
-    "TierPromptModal.tsx",
-    "RoleModal.tsx"
+    "components/ConfirmDialog.tsx",
+    "components/ChatInstructionsDialog.tsx",
+    "components/ChatProjectDialog.tsx",
+    "components/AddSystemModal.tsx",
+    "components/SettingsModal.tsx",
+    "components/CredentialsModal.tsx",
+    "components/CertTrustDialog.tsx",
+    "components/TierPromptModal.tsx",
+    "components/RoleModal.tsx",
+    // Bu turda ortak Modal'a taşınanlar (spec §3).
+    "components/AppConnectionsModal.tsx",
+    "components/GlobalSkillsModal.tsx",
+    "components/UpdatePromptModal.tsx",
+    "terminal/NewPaneDialog.tsx"
   ];
 
   it("kendi arka planını, katmanını ve px yazı boyunu taşımıyor", () => {
     for (const file of FILES) {
-      const src = readFileSync(path.join(DIR, file), "utf8");
+      const src = readFileSync(path.join(ROOT, file), "utf8");
       expect(src, file).not.toMatch(/text-\[[0-9.]+px\]/);
       expect(src, file).not.toMatch(/fixed inset-0/);
       expect(src, file).not.toMatch(/z-\[\d+\]/);
       expect(src, file).not.toMatch(/import ConfirmDialog/);
+    }
+  });
+
+  // Boy `size` ölçeğinden geliyor (sm/md/lg/xl); elle piksel genişlik,
+  // pencereleri yeniden birbirinden farklı boylara dağıtırdı.
+  it("genişliği elle vermiyor", () => {
+    for (const file of FILES) {
+      const src = readFileSync(path.join(ROOT, file), "utf8");
+      expect(src, file).not.toMatch(/\swidth=\{/);
     }
   });
 });
