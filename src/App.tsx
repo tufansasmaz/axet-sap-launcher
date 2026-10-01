@@ -20,6 +20,7 @@ import { useShellShortcuts } from "./shell/useShellShortcuts";
 import AppCommandPalette from "./components/AppCommandPalette";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
+import ChatModeBadge from "./components/ChatModeBadge";
 // axet.flows ve axet.flows Live ekranları arayüzden ÇIKARILDI (kullanıcı
 // isteği, 2026-09-04): uygulama GitHub'a açılırken bu iki modül henüz hazır
 // değil ve akıbetleri sonra kararlaştırılacak. Kaynak dosyalar
@@ -981,6 +982,9 @@ export default function App() {
             collapsed={sidebarCollapsed}
             onWidthCommit={handleSidebarWidthCommit}
             onCollapsedChange={handleSidebarCollapsedChange}
+            // Sohbet ekranındayken satır noktaları zaten görünüyor; sekmede
+            // ikinci bir nokta yalnızca başka moddayken anlam taşıyor.
+            modeBadges={activity === "axetCode" ? undefined : { axetCode: <ChatModeBadge /> }}
           >
             {listMode === "axetCode" ? (
               <ChatSidebar

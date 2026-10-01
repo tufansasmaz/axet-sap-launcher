@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import ChatSidebar from "../src/components/ChatSidebar";
+import ChatModeBadge from "../src/components/ChatModeBadge";
 import { ChatStoreProvider, useChatStore, type ChatStore } from "../src/stores/chatStore";
 import type { ChatSession, RecentEntry } from "../src/stores/chatTypes";
 import type { ActiveSapContext, SapService } from "../app-electron/shared/types";
@@ -43,7 +44,7 @@ function session(id: string, title: string): ChatSession {
   return {
     id, title, model: null, draft: "", attachments: [], pending: false, requestId: null, activity: null,
     activitySteps: [], stalledMinutes: 0, pendingAsk: null, todos: [], contextTokens: 0, contextLimit: 0,
-    editUndo: null, cancelStuck: false, queued: null, createdAt: 1, updatedAt: 1, cwd: null, sapLabel: null, projectId: null,
+    editUndo: null, cancelStuck: false, queued: null, unseen: false, createdAt: 1, updatedAt: 1, cwd: null, sapLabel: null, projectId: null,
     keepInGeneral: false,
     messages: [{ id: `${id}-m`, role: "user", content: `${title} içeriği`, createdAt: 1 }]
   };
@@ -185,5 +186,39 @@ describe("ChatSidebar", () => {
   it("arama kutusu kısayolun bulacağı işareti taşıyor", () => {
     renderSidebar();
     expect(document.querySelector("[data-sidebar-search]")).toBe(screen.getByPlaceholderText("Sohbetlerde ara…"));
+  });
+
+  it("soru soran ajan, çalışandan ayrı bir noktayla işaretleniyor", () => {
+    renderSidebar();
+    const ask = { callId: "q", tool: "ask_user", phase: "ask" } as unknown as ChatSession["pendingAsk"];
+    act(() => {
+      store.setSessions([
+        { ...session("a", "Birinci"), pending: true, pendingAsk: ask },
+        { ...session("b", "İkinci"), pending: true }
+      ]);
+      store.setActiveId("a");
+    });
+    const dot = (title: string) => rowOf(title).querySelector("[data-attention]");
+    expect(dot("Birinci")?.getAttribute("data-attention")).toBe("asking");
+    expect(dot("Birinci")?.textContent).toBe("Cevabını bekliyor");
+    expect(dot("İkinci")?.getAttribute("data-attention")).toBe("working");
+  });
+});
+
+describe("ChatModeBadge", () => {
+  it("sohbetlerin en acil hâlini gösteriyor, sessizken hiçbir şey", () => {
+    render(
+      <LanguageProvider language="tr">
+        <ChatStoreProvider pushToast={() => {}}>
+          <Probe />
+          <ChatModeBadge />
+        </ChatStoreProvider>
+      </LanguageProvider>
+    );
+    const badge = () => document.querySelector("[data-attention]");
+    act(() => store.setSessions([session("a", "Birinci")]));
+    expect(badge()).toBeNull();
+    act(() => store.setSessions([{ ...session("a", "Birinci"), pending: true }, { ...session("b", "İkinci"), unseen: true }]));
+    expect(badge()?.getAttribute("data-attention")).toBe("unseen");
   });
 });

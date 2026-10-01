@@ -88,6 +88,12 @@ export interface ChatSession {
   // uygulama tur ortasında kapanırsa yeniden açılışta tur yok, kendiliğinden
   // gönderilecek bir şey de yok; ama yazılan metin kaybolmamalı.
   queued: QueuedPrompt | null;
+  // Tur, kullanıcı bu sohbete bakmıyorken bitti: kenar çubuğunda "yeni
+  // cevap" noktası (bkz. lib/chatAttention.ts). Sohbet açılınca kalkıyor.
+  //
+  // Diske YAZILMIYOR: uygulamayı yeniden açan kullanıcı listeye zaten baştan
+  // bakıyor; hangi cevabı okuduğunu kaydetmeye değecek bir bilgi değil.
+  unseen: boolean;
   createdAt: number;
   // Listedeki sıralama bunun üzerinden — sohbetler artık diskte kalıcı
   // olduğu için "en son dokunulan üstte" olmadan liste hızla kullanılamaz

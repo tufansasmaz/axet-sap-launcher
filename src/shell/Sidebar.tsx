@@ -28,6 +28,9 @@ export interface SidebarProps {
   onCollapsedChange: (collapsed: boolean) => void;
   // Modun listesi: `ChatSidebar`, `LogonSidebar`, `ScriptSidebar` ya da `TerminalSidebar`.
   children: ReactNode;
+  // Sekmenin (daraltılmışken ikonun) yanındaki küçük işaret — başka moddayken
+  // o modda olan biteni haber veriyor (bkz. components/ChatModeBadge.tsx).
+  modeBadges?: Partial<Record<SidebarMode, ReactNode>>;
 }
 
 const MODE_LABEL: Record<SidebarMode, TranslationKey> = {
@@ -69,10 +72,25 @@ export default function Sidebar({
   collapsed,
   onWidthCommit,
   onCollapsedChange,
-  children
+  children,
+  modeBadges
 }: SidebarProps) {
   const t = useT();
-  const items = SIDEBAR_MODES.map((value) => ({ value, label: t(MODE_LABEL[value]) }));
+  const items = SIDEBAR_MODES.map((value) => {
+    const badge = modeBadges?.[value];
+    const text = t(MODE_LABEL[value]);
+    return {
+      value,
+      label: badge ? (
+        <span className="inline-flex items-center gap-1.5">
+          {text}
+          {badge}
+        </span>
+      ) : (
+        text
+      )
+    };
+  });
 
   // Gösterilen genişlik. Sürüklerken her harekette değişiyor ama config'e
   // yalnızca bırakınca gidiyor (spec §6.3); ref, pencere dinleyicilerinin
@@ -191,6 +209,7 @@ export default function Sidebar({
                 >
                   {current && <ActiveLine />}
                   <Icon size={16} aria-hidden />
+                  {modeBadges?.[value] && <span className="absolute right-1.5 top-1.5">{modeBadges[value]}</span>}
                 </button>
               );
             })}

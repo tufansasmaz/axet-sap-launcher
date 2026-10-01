@@ -582,6 +582,7 @@ export default function AxetCodeHome({
             editUndo: null,
             cancelStuck: false,
             queued: null,
+            unseen: false,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
             cwd: s.cwd ?? null,
             sapLabel: s.sapLabel ?? null,
@@ -809,6 +810,22 @@ export default function AxetCodeHome({
   // bekliyor, çünkü o an kapatmak yarım cevabı öldürürdü (bkz. aşağıdaki
   // `workDirRequest` efekti).
   const restartAfterPendingRef = useRef<Set<string>>(new Set());
+
+  // Kullanıcının ŞU AN baktığı sohbet: sohbet ekranı açık ve o sohbet seçili.
+  // Tur bittiğinde buna bakılıyor — bakılmayan sohbette biten cevap kenar
+  // çubuğunda "yeni cevap" noktası bırakıyor (bkz. chatTypes.ts `unseen`).
+  const watchingRef = useRef<string | null>(null);
+  watchingRef.current = active ? activeId : null;
+
+  // Sohbet açıldı (ya da sohbet ekranına dönüldü): noktası kalkıyor.
+  useEffect(() => {
+    if (!active || !activeId) return;
+    setSessions((prev) =>
+      prev.some((s) => s.id === activeId && s.unseen)
+        ? prev.map((s) => (s.id === activeId ? { ...s, unseen: false } : s))
+        : prev,
+    );
+  }, [active, activeId, setSessions]);
 
   // Turu biten, sırasında mesaj olabilecek sohbetler (bkz. `runPrompt` sonu).
   const flushQueueRef = useRef<Set<string>>(new Set());
@@ -1227,6 +1244,7 @@ export default function AxetCodeHome({
             | "activitySteps"
             | "stalledMinutes"
             | "pendingAsk"
+            | "unseen"
             | "updatedAt"
           > = {
             pending: false,
@@ -1235,6 +1253,7 @@ export default function AxetCodeHome({
             activitySteps: [],
             stalledMinutes: 0,
             pendingAsk: null,
+            unseen: watchingRef.current !== sessionId,
             updatedAt: Date.now(),
           };
 
@@ -1394,6 +1413,7 @@ export default function AxetCodeHome({
       editUndo: null,
       cancelStuck: false,
       queued: null,
+      unseen: false,
       createdAt: now,
       updatedAt: now,
       // Taslakta bekleyen SAP bağlamı burada kalıcılaşıyor.

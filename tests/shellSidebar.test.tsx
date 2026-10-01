@@ -5,7 +5,7 @@
 // `App` burada çizilmiyor; `listModeOf` App'in "hangi liste görünüyor"
 // kararının kendisi.
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "../src/i18n";
 import Sidebar from "../src/shell/Sidebar";
@@ -37,6 +37,7 @@ function renderSidebar(
     footer?: Partial<SidebarFooterProps>;
     width?: number;
     collapsed?: boolean;
+    modeBadges?: Partial<Record<SidebarMode, ReactNode>>;
   } = {}
 ) {
   const onModeChange = vi.fn();
@@ -54,6 +55,7 @@ function renderSidebar(
         collapsed={opts.collapsed ?? false}
         onWidthCommit={onWidthCommit}
         onCollapsedChange={onCollapsedChange}
+        modeBadges={opts.modeBadges}
       >
         <button type="button">Liste satırı</button>
       </Sidebar>
@@ -350,5 +352,20 @@ describe("açıkken düğme yerleri", () => {
     expect(buttons[0]).toBe(screen.getByRole("button", { name: "Dil" }));
     expect(buttons[buttons.length - 1]).toBe(settings);
     expect(settings.className.split(/\s+/)).toContain("ml-auto");
+  });
+});
+
+describe("mod rozeti", () => {
+  const badge = <span data-testid="rozet" />;
+
+  it("açıkken sekmenin içinde, yalnızca verilen modda", () => {
+    renderSidebar({ mode: "terminal", modeBadges: { axetCode: badge } });
+    expect(screen.getByRole("tab", { name: /Sohbet/ }).contains(screen.getByTestId("rozet"))).toBe(true);
+    expect(screen.getAllByTestId("rozet")).toHaveLength(1);
+  });
+
+  it("daraltılmışken ikon düğmesinin içinde", () => {
+    renderSidebar({ mode: "terminal", collapsed: true, modeBadges: { axetCode: badge } });
+    expect(screen.getByRole("button", { name: "Axet Chat" }).contains(screen.getByTestId("rozet"))).toBe(true);
   });
 });

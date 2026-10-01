@@ -728,6 +728,9 @@ export const tr = {
   "chatQueue.label": "Sırada",
   "chatQueue.restore": "Kutuya geri al",
   "chatQueue.drop": "Sıradan çıkar",
+  "chatAttention.working": "Çalışıyor",
+  "chatAttention.unseen": "Yeni cevap",
+  "chatAttention.asking": "Cevabını bekliyor",
   // Ajanın kendi veritabanına bakılarak DOĞRULANMIŞ bir uyarı, tahmin değil.
   // "Durdur"un tutmadığı hâli sessizce geçiştirmek, kullanıcıya farkında
   // olmadığı bir jeton faturası çıkarmak demekti.

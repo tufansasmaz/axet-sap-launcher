@@ -666,6 +666,9 @@ export const en: Record<TranslationKey, string> = {
   "chatQueue.label": "Queued",
   "chatQueue.restore": "Move back to input",
   "chatQueue.drop": "Remove from queue",
+  "chatAttention.working": "Working",
+  "chatAttention.unseen": "New reply",
+  "chatAttention.asking": "Waiting for your answer",
   "chatCancelStuck.notice":
     "The stop request did not take: the agent is finishing this turn in the background. The answer will not appear, but tokens keep being spent.",
   "chatCancelStuck.dismiss": "Dismiss",

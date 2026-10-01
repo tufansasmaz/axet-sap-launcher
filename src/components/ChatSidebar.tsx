@@ -34,6 +34,8 @@ import {
   SAP_SECTION_KEY,
 } from "../lib/chatSessionGroups";
 import { resolveTier } from "../lib/tier";
+import { sessionAttention } from "../lib/chatAttention";
+import AttentionDot from "./AttentionDot";
 import { ActiveLine } from "../shell/SidebarFooter";
 import { useChatCommands, useChatStore } from "../stores/chatStore";
 import type { ChatSession, RecentEntry } from "../stores/chatTypes";
@@ -190,6 +192,7 @@ export default function ChatSidebar({
     }
     const actionClass =
       "shrink-0 cursor-pointer rounded p-0.5 text-slate-500 opacity-0 transition hover:bg-active hover:text-slate-200 focus-visible:opacity-100 group-hover:opacity-100";
+    const attention = sessionAttention(session);
     return (
       <div
         key={session.id}
@@ -219,12 +222,7 @@ export default function ChatSidebar({
             listesinde her satıra "bu bir sohbettir" ikonu koymak bilgi
             taşımıyordu; kalkınca başlıklar da daha geniş yer buldu. */}
         <span className="min-w-0 flex-1 truncate">{session.title}</span>
-        {session.pending && (
-          <span className="relative flex h-2 w-2 shrink-0">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-400 opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-400" />
-          </span>
-        )}
+        {attention && <AttentionDot attention={attention} />}
         {/* "Projeye taşı" — yalnızca gidecek bir proje varsa. Proje kurmamış
             kullanıcıya boş bir menü açan düğme göstermenin anlamı yok.
             Menü SABİT konumlu (bkz. `moveMenu`): kaydırılan listenin içinde

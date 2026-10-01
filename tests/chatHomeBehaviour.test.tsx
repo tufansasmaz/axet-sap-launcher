@@ -277,4 +277,44 @@ describe("mesaj kuyruğu", () => {
     const saved = saveChatSessions.mock.calls.at(-1) as unknown as [{ sessions: { id: string; draft: string }[] }];
     expect(saved[0].sessions.find((s) => s.id === "c")?.draft).toBe("ikinci");
   });
+
+  // Kenar çubuğundaki satır noktası: çalışıyor / bitti ama bakılmadı.
+  describe("dikkat noktası", () => {
+    async function openTwo() {
+      renderChatHome();
+      await load({ activeId: null, projects: [], sessions: [session("a", "Birinci"), session("b", "İkinci")] });
+      fireEvent.click(screen.getByText("Sohbetler"));
+      fireEvent.click(rowOf("Birinci"));
+      // Gönderim etkin sohbete gidiyor; hangi panelin kutusu olduğu önemsiz.
+      return (screen.getAllByPlaceholderText("axet.code'a bir şey sor…") as HTMLTextAreaElement[])[0];
+    }
+    const dot = (title: string) => rowOf(title).querySelector("[data-attention]")?.getAttribute("data-attention") ?? null;
+
+    it("başka sohbetteyken biten tur 'bakılmadı' bırakıyor, açınca kalkıyor", async () => {
+      const { calls } = setupSend();
+      const box = await openTwo();
+      type(box, "soru");
+      await wait(0);
+      expect(dot("Birinci")).toBe("working");
+
+      fireEvent.click(rowOf("İkinci"));
+      await act(async () => calls[0].resolve({ ok: true, text: "cevap" }));
+      await wait(0);
+      expect(dot("Birinci")).toBe("unseen");
+
+      fireEvent.click(rowOf("Birinci"));
+      await wait(0);
+      expect(dot("Birinci")).toBeNull();
+    });
+
+    it("açık sohbette biten tur nokta bırakmıyor", async () => {
+      const { calls } = setupSend();
+      const box = await openTwo();
+      type(box, "soru");
+      await wait(0);
+      await act(async () => calls[0].resolve({ ok: true, text: "cevap" }));
+      await wait(0);
+      expect(dot("Birinci")).toBeNull();
+    });
+  });
 });
