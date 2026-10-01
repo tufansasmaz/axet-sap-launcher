@@ -167,7 +167,7 @@ export default function AddSystemModal({ open, editing, onClose, onAdded }: Prop
       // sorulmuyor.
       closeDisabled={saving}
       title={isEditing ? t("addSystemModal.editTitle") : t("addSystemModal.addTitle")}
-      width={460}
+      size="md"
       footer={
         <>
           <ModalCancelButton />

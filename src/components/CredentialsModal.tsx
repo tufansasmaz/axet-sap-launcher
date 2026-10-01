@@ -76,7 +76,7 @@ export default function CredentialsModal({
       // Doğrulama sürerken kapanmıyor: sonuç (hata satırı ya da sertifika
       // sorusu) bu pencereye dönüyor.
       closeDisabled={connecting}
-      width={440}
+      size="md"
       icon={<KeyRound size={18} />}
       title={t("credentialsModal.title")}
       subtitle={

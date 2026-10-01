@@ -57,7 +57,7 @@ export default function NewPaneDialog({
   };
 
   return (
-    <Modal open={open} onClose={onCancel} title={t("terminal.newPaneTitle")} width={420}>
+    <Modal open={open} onClose={onCancel} title={t("terminal.newPaneTitle")} size="sm">
       <form onSubmit={submit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-slate-400">{t("terminal.kindLabel")}</span>

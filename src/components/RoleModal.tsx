@@ -109,7 +109,7 @@ export default function RoleModal({ open, tier, systemLabel, onConfirm }: Props)
       // Her şeyin üstünde: uygulama ilk açılışta, başka her pencereden önce
       // soruluyor ve cevaplanmadan hiçbir şey yapılamamalı.
       layer="critical"
-      width={620}
+      size="lg"
       // İlk öğe bir rol düğmesi; kalıcı bir seçim Enter'la yapılmasın.
       initialFocus="dialog"
       title={t("roleModal.title")}

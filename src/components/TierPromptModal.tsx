@@ -57,7 +57,7 @@ export default function TierPromptModal({ open, systemLabel, guess, onChoose, on
       // Escape ve İptal "Şimdi değil" ile aynı: hiçbir şey kaydetmeden,
       // salt okunur geçiyor.
       onClose={onSkip}
-      width={520}
+      size="md"
       // İlk öğe bir seçenek düğmesi; Enter'a refleksle basan kullanıcı bir
       // ortam seçmiş olmasın.
       initialFocus="dialog"

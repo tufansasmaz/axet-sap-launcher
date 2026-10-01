@@ -31,7 +31,7 @@ export default function ConfirmDialog({
     <Modal
       open={open}
       layer="confirm"
-      width={400}
+      size="sm"
       title={title}
       icon={<AlertTriangle size={18} className={danger ? "text-[var(--status-danger-text)]" : "text-accent-400"} />}
       onClose={onCancel}

@@ -140,7 +140,7 @@ export default function ChatInstructionsDialog({ cwd, onClose, onSaved }: Props)
       title={t("chatInstructions.title")}
       subtitle={t("chatInstructions.description")}
       icon={<BookOpen size={18} />}
-      width={620}
+      size="lg"
       footer={
         <>
           <ModalCancelButton />

@@ -467,7 +467,7 @@ export default function SettingsModal({
       title={t("settingsModal.title")}
       subtitle={t("settingsModal.subtitle")}
       icon={<SlidersHorizontal size={18} />}
-      width={560}
+      size="lg"
       footer={
         <>
           {isDirty && (

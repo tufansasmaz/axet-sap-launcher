@@ -37,7 +37,7 @@ export default function CertTrustDialog({ prompt, busy = false, onTrust, onCance
       onClose={onCancel}
       // Onay ya da bağlantı sürerken kapanmıyor.
       closeDisabled={busy}
-      width={560}
+      size="lg"
       icon={<ShieldAlert size={18} className="text-[var(--status-warning-text)]" />}
       title={changed ? t("certTrust.changedTitle") : t("certTrust.untrustedTitle")}
       footer={

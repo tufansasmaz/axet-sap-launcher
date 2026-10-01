@@ -34,6 +34,12 @@ import { DIALOG_CANCEL_BUTTON, DIALOG_CONFIRM_BUTTON, iconBtn } from "./buttons"
 
 export type ModalLayer = "modal" | "confirm" | "critical";
 
+export type ModalSize = "sm" | "md" | "lg" | "xl";
+
+// Boy ölçeği (spec §1). Pencereler sayı değil ad veriyor: aynı türden iki
+// pencere aynı boyda dursun, yeni pencere ölçeğin dışına çıkmasın.
+const MODAL_WIDTH: Record<ModalSize, number> = { sm: 420, md: 520, lg: 640, xl: 960 };
+
 const LAYER_RANK: Record<ModalLayer, number> = { modal: 1, confirm: 2, critical: 3 };
 const LAYER_CLASS: Record<ModalLayer, string> = {
   modal: "z-modal",
@@ -111,8 +117,13 @@ export interface ModalProps {
    *  için (ör. RoleModal): kullanıcının kapatabileceği izlenimi vermemeli.
    *  Escape yine `onClose`'u çağırıyor; zorunlu pencere onu boş veriyor. */
   hideClose?: boolean;
-  /** Panel genişliği (px). Dar pencerede ekrandan taşmıyor. */
-  width?: number;
+  /** Pencere boyu: `sm` 420, `md` 520 (varsayılan), `lg` 640, `xl` 960 px.
+   *  Dar pencerede ekrandan taşmıyor. `xl` sabit yükseklikte (Ayarlar:
+   *  bölüm değişince pencere zıplamasın). */
+  size?: ModalSize;
+  /** Doğruysa gövde iç boşluksuz ve kaydırmasız bir esnek kap: içerik kendi
+   *  sütunlarını ve kaydırma alanlarını kuruyor (Ayarlar'ın bölüm listesi). */
+  bare?: boolean;
   icon?: ReactNode;
   subtitle?: ReactNode;
   footer?: ReactNode;
@@ -132,7 +143,8 @@ function ModalPanel({
   initialFocus = "content",
   layer = "modal",
   hideClose = false,
-  width = 480,
+  size = "md",
+  bare = false,
   icon,
   subtitle,
   footer,
@@ -244,7 +256,7 @@ function ModalPanel({
   return (
     <ModalContext.Provider value={{ requestClose, closeDisabled }}>
       <div
-        className={`fixed inset-0 ${LAYER_CLASS[layer]} flex items-center justify-center bg-[var(--overlay-scrim)] p-4 animate-backdrop-fade-in`}
+        className={`fixed inset-0 ${LAYER_CLASS[layer]} flex items-center justify-center bg-[var(--overlay-scrim)] p-4 backdrop-blur-sm animate-backdrop-fade-in`}
       >
         <div
           ref={panelRef}
@@ -252,8 +264,10 @@ function ModalPanel({
           aria-modal="true"
           aria-labelledby={titleId}
           tabIndex={-1}
-          className="animate-modal-pop-in flex max-h-[88vh] flex-col overflow-hidden rounded-xl border border-line bg-card shadow-elev-2 outline-none"
-          style={{ width, maxWidth: "calc(100vw - 32px)" }}
+          className={`animate-modal-pop-in flex ${
+            size === "xl" ? "h-[min(80vh,720px)]" : "max-h-[88vh]"
+          } flex-col overflow-hidden rounded-xl border border-line bg-card shadow-elev-2 outline-none`}
+          style={{ width: MODAL_WIDTH[size], maxWidth: "calc(100vw - 32px)" }}
         >
           <div className="flex items-start gap-3 px-6 pb-3 pt-5">
             {icon && (
@@ -262,10 +276,10 @@ function ModalPanel({
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <h2 id={titleId} className="text-base font-semibold text-white">
+              <h2 id={titleId} className="text-lg font-semibold leading-tight text-white">
                 {title}
               </h2>
-              {subtitle && <p className="mt-0.5 text-xs text-slate-400">{subtitle}</p>}
+              {subtitle && <p className="mt-1 text-sm leading-relaxed text-slate-400">{subtitle}</p>}
             </div>
             {!hideClose && (
               <button
@@ -279,7 +293,10 @@ function ModalPanel({
               </button>
             )}
           </div>
-          <div ref={bodyRef} className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          <div
+            ref={bodyRef}
+            className={bare ? "flex min-h-0 flex-1" : "min-h-0 flex-1 overflow-y-auto px-6 py-4"}
+          >
             {children}
           </div>
           {footer && (
@@ -294,7 +311,7 @@ function ModalPanel({
           open
           layer={layer === "modal" ? "confirm" : "critical"}
           title={t("settingsModal.discardTitle")}
-          width={400}
+          size="sm"
           icon={<AlertTriangle size={18} className="text-[var(--status-warning-text)]" />}
           onClose={() => setConfirming(false)}
           footer={

@@ -66,7 +66,7 @@ export default function ChatProjectDialog({ project, onClose, onSave, onDelete }
       dirty={dirty}
       title={t("chatProject.title")}
       icon={<FolderOpen size={18} />}
-      width={560}
+      size="lg"
       footer={
         confirmingDelete ? (
           <>
