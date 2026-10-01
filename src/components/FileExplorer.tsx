@@ -126,8 +126,11 @@ export default function FileExplorer({
       .catch(() => setAllowedRoots([]));
   }, [browsable]);
 
+  // Zaten yüklü bir klasör yeniden okunurken "loading"e DÜŞÜRÜLMÜYOR: canlı
+  // yenilemede eski liste yenisi gelene kadar yerinde kalıyor, yoksa ağaç her
+  // disk olayında yanıp sönüyordu.
   const loadDir = useCallback(async (dirPath: string) => {
-    setChildrenByPath((prev) => ({ ...prev, [dirPath]: "loading" }));
+    setChildrenByPath((prev) => (Array.isArray(prev[dirPath]) ? prev : { ...prev, [dirPath]: "loading" }));
     try {
       const result = await window.api.listDir(dirPath);
       setChildrenByPath((prev) => ({ ...prev, [dirPath]: result.ok && result.entries ? result.entries : "error" }));
@@ -158,11 +161,13 @@ export default function FileExplorer({
 
   // Kök + O AN AÇIK olan klasörler yeniden okunuyor; kapalı klasörlerin
   // içeriğini tazelemek görünmeyen bir şey için disk okumak olurdu.
+  // Kök `expanded`'da da duruyor; Set onu iki kez okumayı önlüyor.
   const refresh = useCallback(() => {
-    loadDir(currentRoot);
+    const dirs = new Set([currentRoot]);
     for (const dirPath of Object.keys(expandedRef.current)) {
-      if (expandedRef.current[dirPath]) loadDir(dirPath);
+      if (expandedRef.current[dirPath]) dirs.add(dirPath);
     }
+    for (const dirPath of dirs) loadDir(dirPath);
   }, [loadDir, currentRoot]);
 
   // Canlı tazeleme. Debounce main tarafında (bkz. fsExplorer WATCH_DEBOUNCE_MS),

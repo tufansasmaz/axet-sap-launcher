@@ -287,7 +287,16 @@ export async function searchFiles(root: string, query: string): Promise<FsSearch
 const WATCH_DEBOUNCE_MS = 300;
 // Kendi kendine sürekli değişen, kullanıcıyı ilgilendirmeyen klasörler. Bunlar
 // filtrelenmezse bir `git` komutu ya da npm kurulumu ağacı durmadan tazeletir.
-const WATCH_IGNORED = [".git", "node_modules", ".venv", "__pycache__"];
+// `.axet-code`: ajanın kendi veritabanı sohbet klasörünün İÇİNDE duruyor ve ajan
+// her adımda `axet-code.db-wal`'a yazıyor — filtrelenmezse ajan çalıştıkça panel
+// durmadan yenileniyordu (ölçüldü, 2026-10-01).
+const WATCH_IGNORED = [".git", "node_modules", ".venv", "__pycache__", ".axet-code"];
+
+/** İzleyicinin bildirdiği (köke göre) yol, yok sayılan bir klasörün altında mı. */
+export function watchIgnored(filename: string): boolean {
+  const parts = filename.split(/[\\/]/);
+  return WATCH_IGNORED.some((ignored) => parts.includes(ignored));
+}
 
 interface WatchEntry {
   watcher: import("node:fs").FSWatcher;
@@ -300,8 +309,7 @@ export function startWatch(id: string, dirPath: string, onChange: () => void): {
   stopWatch(id);
   try {
     const watcher = watchSync(dirPath, { recursive: true }, (_event, filename) => {
-      const name = typeof filename === "string" ? filename : "";
-      if (WATCH_IGNORED.some((ignored) => name.split(/[\\/]/).includes(ignored))) return;
+      if (watchIgnored(typeof filename === "string" ? filename : "")) return;
       const entry = watchers.get(id);
       if (!entry) return;
       if (entry.timer) clearTimeout(entry.timer);
