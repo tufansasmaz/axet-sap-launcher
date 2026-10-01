@@ -20,8 +20,17 @@ import type {
 // hep geçiyordu, yani sebep davranış değil zamanlama. Bu dosyayı import eden
 // her test dosyası daha uzun bekliyor. Birkaç bekleme art arda gelen testler
 // vitest'in 5 saniyelik test süresini de aşabildiği için o da uzatılıyor.
-configure({ asyncUtilTimeout: 3000 });
-vi.setConfig({ testTimeout: 15000 });
+//
+// 3 saniye de yetmedi (2026-10-01, ölçüldü): dosyanın ilk testi tek başına
+// ~1 sn sürüyor, tam takımda 2,5–7 sn. 11 işçi 12 çekirdeği dolduruyor ve
+// süre her koşuda değişiyor; işçi sayısını 6'ya ya da 8'e indirmek bunu
+// düzeltmedi. Düşen koşudaki ekran ("Köprü çalışıyor" başlığının yanında
+// kenar çubuğunda "Köprü kapalı") bir yarış değil, zaman aşımına denk gelen
+// ara kare: durum okunmuş, kenar çubuğunu açan efekt henüz çalışmamış.
+// Bekleme koşul gelir gelmez bitiyor, yani üst sınırı yükseltmek geçen
+// koşuları yavaşlatmıyor.
+configure({ asyncUtilTimeout: 10000 });
+vi.setConfig({ testTimeout: 30000 });
 
 export const CONNECTION: GuiScriptConnectionInfo = { index: 0, description: "S4D Geliştirme", sessionCount: 1 };
 
