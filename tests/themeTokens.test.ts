@@ -153,11 +153,11 @@ function weakest(decls: Decls, token: string): number {
 }
 
 describe("iki yüzey bloğu, altı vurgu bloğu", () => {
-  it("her tema ve her vurgu tam bir blokta; koyu yüzey ve NTT koyu aynı zamanda :root", () => {
+  it("her tema ve her vurgu tam bir blokta; koyu yüzey ve Amber koyu aynı zamanda :root", () => {
     for (const theme of THEMES) ruleFor(surfaceSelector(theme));
     for (const view of VIEW_NAMES) ruleFor(accentSelector(...split(view)));
     expect(ruleFor(surfaceSelector("dark")).selectors).toContain(":root");
-    expect(ruleFor(accentSelector("ntt", "dark")).selectors).toContain(":root");
+    expect(ruleFor(accentSelector("amber", "dark")).selectors).toContain(":root");
   });
 
   it("iki yüzey bloğu aynı jeton kümesini tanımlıyor ve vurgu jetonu taşımıyor", () => {

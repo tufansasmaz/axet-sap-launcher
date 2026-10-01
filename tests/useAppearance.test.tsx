@@ -23,9 +23,9 @@ afterEach(() => {
 });
 
 describe("useAppearance", () => {
-  it("nitelik yoksa NTT mavisi koyu", () => {
+  it("nitelik yoksa Amber koyu", () => {
     render(<Probe />);
-    expect(screen.getByTestId("probe").textContent).toBe("ntt/dark");
+    expect(screen.getByTestId("probe").textContent).toBe("amber/dark");
   });
 
   it("ilk çizimde nitelikleri okuyor", () => {
@@ -51,7 +51,7 @@ describe("useAppearance", () => {
     root.setAttribute("data-palette", "lime");
     root.setAttribute("data-theme", "blue");
     render(<Probe />);
-    expect(screen.getByTestId("probe").textContent).toBe("ntt/dark");
+    expect(screen.getByTestId("probe").textContent).toBe("amber/dark");
   });
 
   it("eski warm niteliği amber okunuyor", () => {

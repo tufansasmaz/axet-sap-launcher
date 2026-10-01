@@ -5,7 +5,7 @@ import path from "node:path";
 import { encryptSecret } from "./secureStorage";
 import { isSkillProfile } from "./skillProfiles";
 import { rememberIdpOrigin } from "./samlPolicy";
-import { normalizePalette } from "../shared/themeSurfaces";
+import { DEFAULT_PALETTE, normalizePalette } from "../shared/themeSurfaces";
 import type {
   AppConfig,
   ConnectionHistoryEntry,
@@ -99,7 +99,7 @@ function defaultConfig(): AppConfig {
     skillNoticeAcceptedAt: null,
     globalSkillOverrides: {},
     theme: "dark",
-    palette: "ntt",
+    palette: DEFAULT_PALETTE,
     language: "tr",
     autoCheckUpdates: true,
     axetWorkspaceDir: path.join(app.getPath("documents"), "aXet Code Sessions"),

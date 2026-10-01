@@ -253,7 +253,7 @@ function createWindow(): void {
   const { width, height } = preferredWindowSize();
   // Görünüm seçimi sayfaya adres sorgusuyla gidiyor (`?palette=…&theme=…`):
   // `src/main.tsx` React çizilmeden ÖNCE `<html>`'e yazıyor. IPC ile sormak
-  // bir tur beklemek demekti; o arada sayfa varsayılan (İndigo koyu) renkle
+  // bir tur beklemek demekti; o arada sayfa varsayılan (Amber koyu) renkle
   // boyanır, açık temada bir kare koyu görünürdü.
   const cfg = loadConfig();
   const win = new BrowserWindow({

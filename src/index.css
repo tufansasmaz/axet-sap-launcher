@@ -381,8 +381,8 @@ html[data-theme="light"] {
      yumuşak vurgu metni · `--chat-hero-via` = soft-text, `--chat-hero-to` =
      500.
    NTT koyu dolgusu bilerek görece koyu: daha parlak bir mavinin üstünde beyaz
-   yazı 4.5:1'in altına düşüyor. `:root` NTT koyu ile aynı blok (ilk kare). */
-:root,
+   yazı 4.5:1'in altına düşüyor. `:root` varsayılan vurgu olan Amber koyu
+   ile aynı blok (ilk kare). */
 html[data-palette="ntt"][data-theme="dark"] {
   --accent-600-rgb: 29 99 179;
   --accent-500-rgb: 37 116 204;
@@ -431,6 +431,7 @@ html[data-palette="indigo"][data-theme="light"] {
   --chat-hero-to: #4f55d9;
 }
 
+:root,
 html[data-palette="amber"][data-theme="dark"] {
   --accent-600-rgb: 201 143 46;
   --accent-500-rgb: 224 163 63;

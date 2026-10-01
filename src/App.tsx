@@ -57,6 +57,7 @@ import FileViewer from "./components/FileViewer";
 import { ChatStoreProvider } from "./stores/chatStore";
 import { flattenLandscape } from "./lib/landscape";
 import { applyAppearance } from "./ui/appearance";
+import { DEFAULT_PALETTE } from "../app-electron/shared/themeSurfaces";
 import { useActiveContext } from "./lib/useActiveContext";
 import { useDocumentLanguage } from "./ui/useDocumentLanguage";
 import { LanguageProvider, translate } from "./i18n";
@@ -311,7 +312,7 @@ export default function App() {
   const previousAppearanceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!config?.theme) return;
-    const palette = config.palette ?? "ntt";
+    const palette = config.palette ?? DEFAULT_PALETTE;
     const key = `${palette}/${config.theme}`;
     const isSwitch = previousAppearanceRef.current !== null && previousAppearanceRef.current !== key;
     previousAppearanceRef.current = key;

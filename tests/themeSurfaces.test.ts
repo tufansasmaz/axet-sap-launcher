@@ -27,8 +27,8 @@ describe("normalizePalette", () => {
     expect(normalizePalette("warm")).toBe("amber");
   });
 
-  it("yok, geçersiz ya da yanlış tip → ntt", () => {
-    for (const value of [undefined, null, "", "lime", "NTT", 3, {}]) expect(normalizePalette(value)).toBe("ntt");
+  it("yok, geçersiz ya da yanlış tip → amber", () => {
+    for (const value of [undefined, null, "", "lime", "NTT", 3, {}]) expect(normalizePalette(value)).toBe("amber");
   });
 });
 
@@ -37,13 +37,13 @@ describe("parseAppearance", () => {
     expect(parseAppearance("?palette=amber&theme=light")).toEqual({ palette: "amber", theme: "light" });
   });
 
-  it("sorgu yoksa NTT mavisi koyu", () => {
-    expect(parseAppearance("")).toEqual({ palette: "ntt", theme: "dark" });
+  it("sorgu yoksa Amber koyu", () => {
+    expect(parseAppearance("")).toEqual({ palette: "amber", theme: "dark" });
   });
 
   it("geçersiz değerler ayrı ayrı varsayılana dönüyor, warm amber oluyor", () => {
-    expect(parseAppearance("?palette=lime&theme=blue")).toEqual({ palette: "ntt", theme: "dark" });
-    expect(parseAppearance("?theme=light")).toEqual({ palette: "ntt", theme: "light" });
+    expect(parseAppearance("?palette=lime&theme=blue")).toEqual({ palette: "amber", theme: "dark" });
+    expect(parseAppearance("?theme=light")).toEqual({ palette: "amber", theme: "light" });
     expect(parseAppearance("?palette=warm&theme=")).toEqual({ palette: "amber", theme: "dark" });
     expect(parseAppearance("?palette=indigo&theme=light")).toEqual({ palette: "indigo", theme: "light" });
   });
@@ -103,6 +103,6 @@ describe("windowBackgroundChange", () => {
     // Ekran tarafı canlı yenilenip ana süreç eski derlemede kaldığında yeni
     // bir vurgu adı buraya tanınmadan geliyor; `config:save` atmamalı.
     const unknown = { palette: "yeni" as never, theme: "dark" as const };
-    expect(windowBackgroundChange({ palette: "ntt", theme: "light" }, unknown)).toBe(THEME_SURFACES.ntt.dark.app);
+    expect(windowBackgroundChange({ palette: "ntt", theme: "light" }, unknown)).toBe(THEME_SURFACES.amber.dark.app);
   });
 });

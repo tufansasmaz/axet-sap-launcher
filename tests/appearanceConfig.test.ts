@@ -30,15 +30,15 @@ async function load(raw: Record<string, unknown> | null) {
 }
 
 describe("görünüm ayarı", () => {
-  it("ayar dosyası yoksa NTT mavisi koyu", async () => {
+  it("ayar dosyası yoksa Amber koyu", async () => {
     const cfg = await load(null);
-    expect(cfg.palette).toBe("ntt");
+    expect(cfg.palette).toBe("amber");
     expect(cfg.theme).toBe("dark");
   });
 
-  it("eski dosyada palet yoksa ntt geliyor, kayıtlı tema korunuyor", async () => {
+  it("eski dosyada palet yoksa amber geliyor, kayıtlı tema korunuyor", async () => {
     const cfg = await load({ theme: "light" });
-    expect(cfg.palette).toBe("ntt");
+    expect(cfg.palette).toBe("amber");
     expect(cfg.theme).toBe("light");
   });
 
@@ -58,13 +58,13 @@ describe("görünüm ayarı", () => {
 
   it("geçersiz değerler varsayılana dönüyor", async () => {
     const cfg = await load({ palette: "lime", theme: "blue" });
-    expect(cfg.palette).toBe("ntt");
+    expect(cfg.palette).toBe("amber");
     expect(cfg.theme).toBe("dark");
   });
 
   it("yanlış tipteki değerler de varsayılana dönüyor", async () => {
     const cfg = await load({ palette: 3, theme: null });
-    expect(cfg.palette).toBe("ntt");
+    expect(cfg.palette).toBe("amber");
     expect(cfg.theme).toBe("dark");
   });
 });

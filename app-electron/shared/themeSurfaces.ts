@@ -50,20 +50,26 @@ export const THEME_SURFACES: Record<AppPalette, Record<AppTheme, ThemeSurface>> 
   graphite: accentPair("#e4e5e8", "#24262b", "#d6d8dd")
 };
 
-/** Ayarlar'daki sıra; ilki varsayılan. */
+/** Ayarlar'daki sıra. */
 export const PALETTES: readonly AppPalette[] = ["ntt", "indigo", "amber", "graphite"];
+
+/**
+ * Ayar dosyası yokken ya da kayıtlı değer tanınmadığında gelen vurgu
+ * (kullanıcı kararı, 2026-10-01). CSS'teki `:root` da bu vurgunun koyu bloğu.
+ */
+export const DEFAULT_PALETTE: AppPalette = "amber";
 const THEMES: readonly AppTheme[] = ["dark", "light"];
 
 /**
  * Kayıtlı ya da adresten gelen vurgu değerini geçerli bir değere çevirir.
  * `"warm"` tasarim/temel dalının Sıcak Nötr'ü; o dal yayımlanmadı ama
  * geliştirme makinelerindeki ayar dosyalarında kalmış olabilir, en yakın
- * vurgu olan Amber'e geçiyor. Bilinmeyen her değer varsayılana (`ntt`)
+ * vurgu olan Amber'e geçiyor. Bilinmeyen her değer varsayılana (`DEFAULT_PALETTE`)
  * dönüyor: hiçbir CSS bloğuyla eşleşmeyen bir değer sayfayı renksiz bırakırdı.
  */
 export function normalizePalette(value: unknown): AppPalette {
   if (value === "warm") return "amber";
-  return PALETTES.find((p) => p === value) ?? "ntt";
+  return PALETTES.find((p) => p === value) ?? DEFAULT_PALETTE;
 }
 
 /**
