@@ -92,5 +92,7 @@ export function windowBackgroundChange(
   after: { palette: AppPalette; theme: AppTheme }
 ): string | null {
   if (before.palette === after.palette && before.theme === after.theme) return null;
-  return THEME_SURFACES[after.palette][after.theme].app;
+  // Tanınmayan vurgu (ekran ana süreçten yeni derlemedeyken olur) kaydı
+  // çökertmesin: dosya o an yazılmış oluyor, atarsak ekran "kaydedilmedi" sanıyor.
+  return THEME_SURFACES[normalizePalette(after.palette)][after.theme].app;
 }

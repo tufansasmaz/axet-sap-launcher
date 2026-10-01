@@ -98,4 +98,11 @@ describe("windowBackgroundChange", () => {
   it("görünüm aynıysa null — gereksiz yeniden boyama yok", () => {
     expect(windowBackgroundChange({ palette: "amber", theme: "light" }, { palette: "amber", theme: "light" })).toBeNull();
   });
+
+  it("tanınmayan vurgu kaydı çökertmiyor, varsayılanın rengine düşüyor", () => {
+    // Ekran tarafı canlı yenilenip ana süreç eski derlemede kaldığında yeni
+    // bir vurgu adı buraya tanınmadan geliyor; `config:save` atmamalı.
+    const unknown = { palette: "yeni" as never, theme: "dark" as const };
+    expect(windowBackgroundChange({ palette: "ntt", theme: "light" }, unknown)).toBe(THEME_SURFACES.ntt.dark.app);
+  });
 });
