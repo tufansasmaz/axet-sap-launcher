@@ -26,7 +26,7 @@ export default function SystemNotes({ note }: { note: SystemCommentState }) {
       </div>
       <div className="flex flex-1 flex-col rounded-lg border border-line bg-card focus-within:border-line-strong">
         {/* Yükseklik `useSystemComment`'te içeriğe göre 140–420px arası
-            ayarlanıyor; `grow` yan yana düzende kartın kalanını dolduruyor,
+            ayarlanıyor; `grow` kartın kalanını panelin altına kadar dolduruyor,
             `shrink-0` ayarlanan yüksekliğin altına inmesini engelliyor. */}
         <textarea
           ref={textareaRef}

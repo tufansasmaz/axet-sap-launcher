@@ -39,7 +39,10 @@ function Row({
   copyTitle?: string;
 }) {
   return (
-    <div className="group flex min-h-8 items-center gap-3 border-b border-line-subtle py-1.5 last:border-b-0">
+    // `-mb-px`: alt çizgi listenin dışına bir piksel taşıyor, `dl`'deki
+    // `overflow-hidden` son satırın(ların) çizgisini kesiyor. İki sütunda son
+    // sıra bir ya da iki hücre olabildiği için `last:` yetmiyor.
+    <div className="group -mb-px flex min-h-8 min-w-0 items-center gap-3 border-b border-line-subtle py-1.5">
       <dt className="w-24 shrink-0 text-xs text-slate-500">{label}</dt>
       <dd className="flex min-w-0 flex-1 items-center gap-2 font-mono text-xs text-slate-200">{children}</dd>
       {copyValue && (
@@ -69,8 +72,10 @@ export default function SystemInfoList({
   const adtUrl = extraAdtUrl(service);
 
   // Değeri olmayan satır hiç çizilmiyor ("—" yok). UUID her sistemde var.
+  // Geniş kartta satırlar iki sütuna yayılıyor; eşik pencerenin değil kartın
+  // genişliği, `min(100%,…)` dar kartta yatay taşmayı önlüyor.
   return (
-    <dl className="flex flex-col">
+    <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] gap-x-8 overflow-hidden">
       {service.systemId && <Row label={t("systemPanel.systemId")}>{service.systemId}</Row>}
       {address && (
         <Row label={t("systemPanel.addressLabel")} copyValue={address} copyTitle={t("systemPanel.copyAddress")}>

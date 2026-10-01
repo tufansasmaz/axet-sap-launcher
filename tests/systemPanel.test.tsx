@@ -294,25 +294,50 @@ describe("SystemPanel — dosya kuralları", () => {
   }
 });
 
-describe("SystemPanel — iki sütun (ikinci tur)", () => {
-  it("bağlantı bilgileri ve notlar ayrı kartlarda, ikisi aynı ızgarada", async () => {
+describe("SystemPanel — üst-alt düzen (ikinci tur)", () => {
+  const cards = () => ({
+    infoCard: screen.getByRole("heading", { name: "Bağlantı Bilgileri" }).closest("[data-panel-card]") as HTMLElement,
+    notesCard: screen.getByRole("textbox").closest("[data-panel-card]") as HTMLElement
+  });
+
+  it("bağlantı bilgileri üstte, notlar altta; ikisi ayrı kart", async () => {
     renderPanel();
     await notesReady();
-    const infoCard = screen.getByRole("heading", { name: "Bağlantı Bilgileri" }).closest("[data-panel-card]");
-    const notesCard = screen.getByRole("textbox").closest("[data-panel-card]");
+    const { infoCard, notesCard } = cards();
     expect(infoCard).not.toBeNull();
     expect(notesCard).not.toBeNull();
     expect(infoCard).not.toBe(notesCard);
-    for (const card of [infoCard!, notesCard!]) {
+    for (const card of [infoCard, notesCard]) {
       for (const cls of ["bg-card", "border", "border-line", "rounded-xl"]) {
         expect(card.classList.contains(cls)).toBe(true);
       }
     }
-    const grid = infoCard!.parentElement!;
-    expect(notesCard!.parentElement).toBe(grid);
-    expect(grid.classList.contains("grid")).toBe(true);
-    // Sütun sayısını pencere değil kabın kendi genişliği belirliyor.
-    expect(grid.className).toContain("minmax(min(100%,480px),1fr)");
+    const column = infoCard.parentElement!;
+    expect(notesCard.parentElement).toBe(column);
+    expect(column.classList.contains("flex-col")).toBe(true);
+    expect(infoCard.nextElementSibling).toBe(notesCard);
+  });
+
+  it("bağlantı kartı içeriği kadar, notlar kartı kalan yüksekliği alıyor", async () => {
+    renderPanel();
+    await notesReady();
+    const { infoCard, notesCard } = cards();
+    expect(infoCard.classList.contains("flex-1")).toBe(false);
+    expect(infoCard.classList.contains("shrink-0")).toBe(true);
+    expect(notesCard.classList.contains("flex-1")).toBe(true);
+    // Kap en az panel boyu kadar: içerik kısayken altta boş şerit kalmıyor.
+    const column = infoCard.parentElement!;
+    expect(column.classList.contains("min-h-full")).toBe(true);
+    expect(column.parentElement!.classList.contains("h-full")).toBe(true);
+  });
+
+  it("bağlantı satırları geniş kartta iki sütuna yayılıyor", async () => {
+    renderPanel();
+    await notesReady();
+    const list = cards().infoCard.querySelector("dl")!;
+    expect(list.classList.contains("grid")).toBe(true);
+    // Sütun sayısını pencere değil kartın kendi genişliği belirliyor.
+    expect(list.className).toContain("minmax(min(100%,320px),1fr)");
   });
 
   it("başlık kartların dışında, üstte", async () => {
@@ -322,26 +347,13 @@ describe("SystemPanel — iki sütun (ikinci tur)", () => {
     expect(title.closest("[data-panel-card]")).toBeNull();
   });
 
-  it("not alanı yan yana düzende kartını dolduruyor", async () => {
+  it("not alanı kartını dolduruyor", async () => {
     renderPanel();
     const box = await notesReady();
     expect(box.classList.contains("grow")).toBe(true);
     expect(box.classList.contains("shrink-0")).toBe(true);
     expect(box.parentElement!.classList.contains("flex-1")).toBe(true);
     expect(box.closest("section")!.classList.contains("flex-1")).toBe(true);
-  });
-
-  it("kartlar panelin altına kadar uzuyor, altta boş şerit kalmıyor", async () => {
-    renderPanel();
-    await notesReady();
-    const grid = screen.getByRole("heading", { name: "Bağlantı Bilgileri" }).closest("[data-panel-card]")!
-      .parentElement!;
-    // Izgara kalan yüksekliği alıyor; kabı en az panel boyu kadar.
-    expect(grid.classList.contains("flex-1")).toBe(true);
-    const column = grid.parentElement!;
-    expect(column.classList.contains("min-h-full")).toBe(true);
-    expect(column.classList.contains("flex-col")).toBe(true);
-    expect(column.parentElement!.classList.contains("h-full")).toBe(true);
   });
 
   it("720px'lik dar sütun sınırı kalktı", () => {

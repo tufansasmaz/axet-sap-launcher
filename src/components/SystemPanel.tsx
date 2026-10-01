@@ -118,25 +118,21 @@ export default function SystemPanel({
           onEditManual={() => onEditManual(service)}
           onDeleteManual={() => onDeleteManual(service)}
         />
-        {/* İki sütun, ama eşik pencerenin değil kabın genişliği: kenar
-            çubuğu ve dosya sekmeleri alanı daraltıyor. Kap ~980px'in altına
-            inince `auto-fit` tek sütuna düşüyor; `min(100%,…)` dar kapta
-            yatay taşmayı önlüyor. `flex-1` + kaptaki `min-h-full`: kartlar
-            panelin altına kadar uzuyor; içerik kısayken altta boş siyah
-            şerit kalıyordu (kullanıcı, 2026-10-01). */}
-        <div className="grid flex-1 grid-cols-[repeat(auto-fit,minmax(min(100%,480px),1fr))] gap-5">
-          <section data-panel-card className={PANEL_CARD}>
-            <h3 className={PANEL_TITLE}>{t("systemPanel.detailsHeading")}</h3>
-            <SystemInfoList
-              service={service}
-              tier={tier}
-              explicitTier={explicitTier}
-              onSetTier={(next) => onSetTier(service, next)}
-            />
-          </section>
-          <div data-panel-card className={PANEL_CARD}>
-            <SystemNotes note={note} />
-          </div>
+        {/* Üst-alt: bağlantı kartı içeriği kadar, notlar kalan yüksekliğin
+            tamamını alıyor (kaptaki `min-h-full` ile panelin altına kadar).
+            Yan yana düzende kısa bağlantı kartı notların boyuna uzuyor ve
+            yarısı boş kalıyordu (kullanıcı, 2026-10-01). */}
+        <section data-panel-card className={`${PANEL_CARD} shrink-0`}>
+          <h3 className={PANEL_TITLE}>{t("systemPanel.detailsHeading")}</h3>
+          <SystemInfoList
+            service={service}
+            tier={tier}
+            explicitTier={explicitTier}
+            onSetTier={(next) => onSetTier(service, next)}
+          />
+        </section>
+        <div data-panel-card className={`${PANEL_CARD} flex-1`}>
+          <SystemNotes note={note} />
         </div>
       </div>
     </div>
