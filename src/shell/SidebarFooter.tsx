@@ -1,4 +1,4 @@
-import { Moon, PanelLeftClose, Plug, Settings, Stethoscope, Sun } from "lucide-react";
+import { Moon, Plug, Settings, Stethoscope, Sun } from "lucide-react";
 import type { AppTheme } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 
@@ -16,17 +16,18 @@ export interface SidebarFooterProps {
   onOpenSettings: () => void;
 }
 
-// Bunları App değil `Sidebar` veriyor: daraltma kenar çubuğunun kendi işi.
+// Bunu App değil `Sidebar` veriyor: daraltma kenar çubuğunun kendi işi.
+// Daralt düğmesi burada değil, `Sidebar`'ın sekme satırında.
 interface ShellOnlyProps {
   collapsed?: boolean;
-  onCollapse?: () => void;
 }
 
 // Satırlar kenar çubuğunun listeleriyle aynı ölçüde: 28px, 8px yatay boşluk,
 // seçili satır `--accent-glow` zemini ve solda 2px çizgi (spec §6.5).
 const ROW =
   "relative flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-sm transition-colors";
-const ICON_BTN =
+// `Sidebar`'ın sekme satırındaki daralt düğmesi de bu ölçüde.
+export const ICON_BTN =
   "flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-hover hover:text-slate-100";
 // Daraltılmış şeridin kare düğmesi: 48px şeritte iki yanda 6px boşluk.
 // Bu üçü `Sidebar`'ın şeridindeki mod ikonlarında da kullanılıyor; iki
@@ -54,8 +55,7 @@ export default function SidebarFooter({
   onToggleTheme,
   onToggleLanguage,
   onOpenSettings,
-  collapsed = false,
-  onCollapse
+  collapsed = false
 }: SidebarFooterProps & ShellOnlyProps) {
   const t = useT();
   const readinessName = readinessFault
@@ -145,11 +145,8 @@ export default function SidebarFooter({
           </span>
         )}
       </button>
+      {/* Dil sol altta, ayarlar sağ altta (kullanıcı isteği, 2026-10-01). */}
       <div className="mt-1 flex items-center gap-1 px-1">
-        {/* Düğme "hangisine geçersin"i gösteriyor: koyu temadayken güneş. */}
-        <button type="button" onClick={onToggleTheme} aria-label={t("shell.theme")} title={t("shell.theme")} className={ICON_BTN}>
-          {theme === "light" ? <Moon size={14} aria-hidden /> : <Sun size={14} aria-hidden />}
-        </button>
         <button
           type="button"
           onClick={onToggleLanguage}
@@ -159,21 +156,19 @@ export default function SidebarFooter({
         >
           {language}
         </button>
-        <button type="button" onClick={onOpenSettings} aria-label={t("shell.settings")} title={t("shell.settings")} className={ICON_BTN}>
+        {/* Düğme "hangisine geçersin"i gösteriyor: koyu temadayken güneş. */}
+        <button type="button" onClick={onToggleTheme} aria-label={t("shell.theme")} title={t("shell.theme")} className={ICON_BTN}>
+          {theme === "light" ? <Moon size={14} aria-hidden /> : <Sun size={14} aria-hidden />}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          aria-label={t("shell.settings")}
+          title={t("shell.settings")}
+          className={`${ICON_BTN} ml-auto`}
+        >
           <Settings size={14} aria-hidden />
         </button>
-        {onCollapse && (
-          <button
-            type="button"
-            onClick={onCollapse}
-            data-sidebar-toggle
-            aria-label={t("shell.collapseSidebar")}
-            title={t("shell.collapseSidebar")}
-            className={`${ICON_BTN} ml-auto`}
-          >
-            <PanelLeftClose size={14} aria-hidden />
-          </button>
-        )}
       </div>
     </div>
   );

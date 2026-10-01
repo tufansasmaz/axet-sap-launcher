@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { MousePointerClick, PanelLeftOpen, Server, Sparkles, TerminalSquare, type LucideIcon } from "lucide-react";
+import { MousePointerClick, PanelLeftClose, PanelLeftOpen, Server, Sparkles, TerminalSquare, type LucideIcon } from "lucide-react";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_KEY_STEP,
@@ -11,7 +11,7 @@ import {
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import { Tabs } from "../ui/Tabs";
-import SidebarFooter, { ActiveLine, STRIP_BTN, selectedClass, type SidebarFooterProps } from "./SidebarFooter";
+import SidebarFooter, { ActiveLine, ICON_BTN, STRIP_BTN, selectedClass, type SidebarFooterProps } from "./SidebarFooter";
 import { SIDEBAR_MODES, type SidebarMode } from "./activity";
 
 export interface SidebarProps {
@@ -209,17 +209,29 @@ export default function Sidebar({
       style={{ width: liveWidth }}
       className={`${CARD} relative`}
     >
-      {/* Üç sekme tek satır. Dört sekmeyle 264px'te sekme başına ~44px yazı
-          alanı kalıyor, "Terminal" ~56px istediği için kesiliyordu (ölçüldü,
-          2026-09-30); üçle ~63px kalıyor (aynı ölçümden hesap). */}
-      <div className="shrink-0 p-2">
+      {/* Üç sekme ve daralt düğmesi tek satır: daraltılmış şeritte genişlet
+          de üstte, ikisi aynı yerde (kullanıcı isteği, 2026-10-01). Düğme
+          sekmelerden ~32px alıyor; 264px'te "Terminal" kesilebilir (hesap:
+          ~53px yer, ~56px gerekiyor), kullanıcı bunu bilerek seçti. */}
+      <div className="flex shrink-0 items-center gap-1 p-2">
         <Tabs
+          className="min-w-0 flex-1"
           label={t("shell.modes")}
           items={items}
           value={readinessOpen ? null : mode}
           onChange={onModeChange}
           columns={3}
         />
+        <button
+          type="button"
+          onClick={() => toggleCollapsed(true)}
+          data-sidebar-toggle
+          aria-label={t("shell.collapseSidebar")}
+          title={t("shell.collapseSidebar")}
+          className={`${ICON_BTN} shrink-0`}
+        >
+          <PanelLeftClose size={14} aria-hidden />
+        </button>
       </div>
       <div
         className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -228,7 +240,7 @@ export default function Sidebar({
       >
         {children}
       </div>
-      <SidebarFooter {...footer} onCollapse={() => toggleCollapsed(true)} />
+      <SidebarFooter {...footer} />
       {/* Tutamaç kenar çubuğunun sağ kenarında, içeride: `overflow-hidden`
           dışarı taşanı kesiyor. 4px geniş, fare ve klavyeyle kullanılıyor. */}
       <div

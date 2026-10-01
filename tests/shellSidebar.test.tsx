@@ -327,3 +327,28 @@ describe("yüzen kart", () => {
     });
   }
 });
+
+describe("açıkken düğme yerleri", () => {
+  // Kullanıcı isteği (2026-10-01): daralt düğmesi sekmelerle aynı satırda en
+  // sağda (daraltılmış şeritte genişlet de üstte), dil sol altta, ayarlar sağ
+  // altta.
+  it("daralt sekmelerle aynı satırda, sekmelerden sonra", () => {
+    renderSidebar();
+    const collapse = screen.getByRole("button", { name: "Kenar çubuğunu daralt" });
+    const tabs = screen.getByRole("tablist");
+    expect(collapse.parentElement).toBe(tabs.parentElement!.parentElement);
+    expect(tabs.compareDocumentPosition(collapse) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Dipteki satırda değil.
+    expect(collapse.parentElement!.contains(screen.getByRole("button", { name: "Ayarlar" }))).toBe(false);
+  });
+
+  it("dip satırında dil ilk, ayarlar son", () => {
+    renderSidebar();
+    const settings = screen.getByRole("button", { name: "Ayarlar" });
+    const row = settings.parentElement!;
+    const buttons = Array.from(row.querySelectorAll("button"));
+    expect(buttons[0]).toBe(screen.getByRole("button", { name: "Dil" }));
+    expect(buttons[buttons.length - 1]).toBe(settings);
+    expect(settings.className.split(/\s+/)).toContain("ml-auto");
+  });
+});
