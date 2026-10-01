@@ -644,6 +644,7 @@ export const en: Record<TranslationKey, string> = {
 
   // --- Tool run row (see ChatToolRun) ---
   "chatToolRun.count": "{count} tool calls",
+  "chatEditedFiles.count": "{count} files changed",
   "chatToolRun.running": "running",
   "chatToolRun.kind.view": "Read",
   "chatToolRun.kind.edit": "Edit",

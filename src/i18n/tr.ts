@@ -706,6 +706,7 @@ export const tr = {
 
   // --- Araç satırı (bkz. ChatToolRun) ---
   "chatToolRun.count": "{count} araç işlemi",
+  "chatEditedFiles.count": "{count} dosya değişti",
   "chatToolRun.running": "çalışıyor",
   "chatToolRun.kind.view": "Okuma",
   "chatToolRun.kind.edit": "Düzenleme",

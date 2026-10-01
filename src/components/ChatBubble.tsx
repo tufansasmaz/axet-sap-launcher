@@ -16,6 +16,7 @@ import { MENTION_CLASS, renderWithMentions } from "../lib/mentions";
 import AttachmentChip from "./AttachmentChip";
 import CopyButton from "./CopyButton";
 import ChatToolRun from "./ChatToolRun";
+import ChatEditedFiles from "./ChatEditedFiles";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 
@@ -222,6 +223,11 @@ function ChatBubble({
           )}
         </div>
       </div>
+      {/* DEĞİŞEN DOSYALAR — cevabın ALTINDA, araç dökümünün aksine: döküm
+          "ne yaptı" (olaylar cevaptan önce), bu ise "ne bıraktı" — cevabı
+          okuyup bitiren kullanıcının bir sonraki sorusu. Akış sürerken yok:
+          tur bitmeden liste eksik olurdu. */}
+      {steps.length > 0 && !message.streaming && <ChatEditedFiles steps={steps} />}
       {/* Oturum yenilendiyse SÖYLENİYOR. Hata balonunda da görünüyor (meta
           satırının aksine): "yeniden başlattık, yine olmadı" ile "hiç
           denemedik" arasındaki fark kullanıcı için büyük. Rozet değil satır,
