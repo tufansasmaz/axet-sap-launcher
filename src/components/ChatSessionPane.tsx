@@ -43,7 +43,7 @@ import ChatToolRun from "./ChatToolRun";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
 import { useLanguage, useT } from "../i18n";
 import { dayLabel, daySeparatorBefore } from "../lib/chatDays";
-import logo from "../assets/logo.svg";
+import AppLogo from "./AppLogo";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
 // gelirse `Sparkles`'a düşer, yani yeni öneri eklemek bu haritayı
@@ -550,7 +550,7 @@ export default function ChatSessionPane({
           <div
             className={`${COLUMN} animate-panel-fade-in flex min-h-full flex-col items-center justify-center py-10 text-center`}
           >
-            <img src={logo} alt="" width={40} height={40} className="mb-4 rounded-xl" />
+            <AppLogo size={40} className="mb-4" />
             <h1 className="text-2xl font-semibold tracking-tight text-slate-100">{t("axetCodeHome.heroSubtitle")}</h1>
 
             {/* axet-code GÜNCELLEMESİ. Kullanıcı isteğiyle (2026-09-07) Ayarlar

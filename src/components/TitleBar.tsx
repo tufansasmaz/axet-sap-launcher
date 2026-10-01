@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Minus, Square, Copy, X, MonitorPlay, Unplug } from "lucide-react";
 import type { ActiveContext } from "../../app-electron/shared/types";
-import logo from "../assets/logo.svg";
+import AppLogo from "./AppLogo";
 import TierBadge from "./TierBadge";
 import { useT } from "../i18n";
 
@@ -40,7 +40,7 @@ export default function TitleBar({ context, onShowSystem, onClearSap }: Props) {
       style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
     >
       <div className="flex items-center gap-2 text-xs font-medium text-slate-400">
-        <img src={logo} alt="" width={16} height={16} className="rounded-[3px]" />
+        <AppLogo size={16} />
         {/* "NTT Studio" (kullanıcı isteği, 2026-09-06). Ürünün adı; modül
             adları (axet.code, aXet SAP Logon…) i18n'de ayrı duruyor.
             `appId` DEĞİŞMEDİ (`com.nttdata.axet.saplauncher`) — bkz.
