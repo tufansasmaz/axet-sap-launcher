@@ -738,7 +738,8 @@ export default function ChatSessionPane({
       {/* Genişlik sabit: sürüklenebilir bir ayırıcı, okuma sütununun kendi
           kademeli genişliğiyle (bkz. COLUMN) çakışırdı — sohbetin genişliği
           zaten pencereye göre ayarlanıyor. */}
-      {filesPanelOpen && filesPanel && <div className="w-[380px] shrink-0">{filesPanel}</div>}
+      {/* Kartın çevresindeki 8px boşluk: soldaki kenar çubuğunun `m-2`'siyle aynı. */}
+      {filesPanelOpen && filesPanel && <div className="w-[380px] shrink-0 p-2">{filesPanel}</div>}
     </div>
   );
 }
