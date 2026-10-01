@@ -201,15 +201,16 @@ export default function Sidebar({
       style={{ width: liveWidth }}
       className="relative flex shrink-0 flex-col overflow-hidden border-r border-line-subtle bg-sidebar"
     >
-      {/* Dört sekme 2×2: tek satırda 264px'te sekme başına ~44px yazı alanı
-          kalıyor, "Terminal" ~56px istiyor ve kesiliyordu (ölçüldü, 2026-09-30). */}
+      {/* Üç sekme tek satır. Dört sekmeyle 264px'te sekme başına ~44px yazı
+          alanı kalıyor, "Terminal" ~56px istediği için kesiliyordu (ölçüldü,
+          2026-09-30); üçle ~63px kalıyor (aynı ölçümden hesap). */}
       <div className="shrink-0 p-2">
         <Tabs
           label={t("shell.modes")}
           items={items}
           value={readinessOpen ? null : mode}
           onChange={onModeChange}
-          columns={2}
+          columns={3}
         />
       </div>
       <div

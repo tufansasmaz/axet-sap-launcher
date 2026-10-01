@@ -52,10 +52,10 @@ function setup(over: Partial<ShellShortcutOptions> = {}) {
 
 const search = () => screen.getByRole("textbox", { name: "Ara" });
 
-describe("Ctrl+1 / 2 / 3 / 4", () => {
-  it("sırayla Sohbet, Logon, Script, Terminal", () => {
+describe("Ctrl+1 / 2 / 3", () => {
+  it("sırayla Sohbet, Logon, Terminal", () => {
     const { props } = setup();
-    const modes: SidebarMode[] = ["axetCode", "sapLauncher", "sapGuiScripting", "terminal"];
+    const modes: SidebarMode[] = ["axetCode", "sapLauncher", "terminal"];
     modes.forEach((mode, i) => {
       expect(fireEvent.keyDown(document.body, { key: String(i + 1), ctrlKey: true })).toBe(false);
       expect(props.onModeChange).toHaveBeenLastCalledWith(mode);
@@ -68,11 +68,11 @@ describe("Ctrl+1 / 2 / 3 / 4", () => {
     expect(props.onModeChange).toHaveBeenCalledWith("sapLauncher");
   });
 
-  it("terminalin içinden gelince dokunulmuyor (Ctrl+4 dahil)", () => {
+  it("terminalin içinden gelince dokunulmuyor (Ctrl+3 dahil)", () => {
     const { props } = setup();
     const terminal = screen.getByRole("textbox", { name: "Terminal girdisi" });
     expect(fireEvent.keyDown(terminal, { key: "2", ctrlKey: true })).toBe(true);
-    expect(fireEvent.keyDown(terminal, { key: "4", ctrlKey: true })).toBe(true);
+    expect(fireEvent.keyDown(terminal, { key: "3", ctrlKey: true })).toBe(true);
     expect(props.onModeChange).not.toHaveBeenCalled();
   });
 
@@ -80,6 +80,8 @@ describe("Ctrl+1 / 2 / 3 / 4", () => {
     const { props } = setup();
     fireEvent.keyDown(document.body, { key: "1", ctrlKey: true, shiftKey: true });
     fireEvent.keyDown(document.body, { key: "1", ctrlKey: true, altKey: true });
+    // Ctrl+4 eskiden Terminal'di; Script gizlenince boşta kaldı.
+    fireEvent.keyDown(document.body, { key: "4", ctrlKey: true });
     fireEvent.keyDown(document.body, { key: "5", ctrlKey: true });
     fireEvent.keyDown(document.body, { key: "1" });
     expect(props.onModeChange).not.toHaveBeenCalled();

@@ -68,7 +68,7 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
       const isFind = mod && !e.altKey && e.key.toLowerCase() === "f";
 
       // Açık bir pencere (`aria-modal`) varken kabuk susuyor: `/` odağı
-      // pencerenin arkasındaki arama kutusuna kaçırır, Ctrl+1–4 modu
+      // pencerenin arkasındaki arama kutusuna kaçırır, Ctrl+1–3 modu
       // pencerenin arkasında değiştirirdi. `Modal` yalnızca Tab'i tutuyor.
       // Tarayıcının bul çubuğu yine engelleniyor.
       if (document.querySelector('[aria-modal="true"]')) {
@@ -76,10 +76,13 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
         return;
       }
 
-      if (mod && !e.altKey && !e.shiftKey && /^[1-4]$/.test(e.key)) {
+      // Rakam aralığı listeden geliyor: gizli mod için boşta kalan Ctrl+4
+      // yutulmuyor, `undefined` bir mod da istenmiyor.
+      const modeIndex = /^[1-9]$/.test(e.key) ? Number(e.key) - 1 : -1;
+      if (mod && !e.altKey && !e.shiftKey && modeIndex >= 0 && modeIndex < SIDEBAR_MODES.length) {
         if (isInTerminal(e.target)) return;
         e.preventDefault();
-        onModeChange(SIDEBAR_MODES[Number(e.key) - 1]);
+        onModeChange(SIDEBAR_MODES[modeIndex]);
         return;
       }
 

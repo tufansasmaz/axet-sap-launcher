@@ -11,13 +11,19 @@ export type Activity =
   | "readiness";
 
 // Kenar çubuğunda listesi olan ekranlar; mod seçicinin sekmeleri bu sırada.
-// Terminal sonda: Ctrl+1/2/3 alışkanlığı bozulmasın (terminal spec'i §3.1).
+//
+// Script (`sapGuiScripting`) kullanıcı kararıyla gizli (2026-10-01): kodu,
+// tipi ve listesi duruyor, yalnız seçiciye ve Ctrl+N kısayoluna girmiyor.
+// Geri açmak için diziye Logon'dan sonra eklemek yetiyor.
 export type SidebarMode = "axetCode" | "sapLauncher" | "sapGuiScripting" | "terminal";
 
-export const SIDEBAR_MODES: SidebarMode[] = ["axetCode", "sapLauncher", "sapGuiScripting", "terminal"];
+export const SIDEBAR_MODES: SidebarMode[] = ["axetCode", "sapLauncher", "terminal"];
+
+// Tip koruması gizli modu da tanıyor; yoksa `SidebarMode` tipiyle çelişirdi.
+const ALL_SIDEBAR_MODES: SidebarMode[] = ["axetCode", "sapLauncher", "sapGuiScripting", "terminal"];
 
 export function isSidebarMode(activity: Activity): activity is SidebarMode {
-  return (SIDEBAR_MODES as Activity[]).includes(activity);
+  return (ALL_SIDEBAR_MODES as Activity[]).includes(activity);
 }
 
 // Kenar çubuğunun ortasında hangi modun listesi duruyor. Hazırlık gibi
