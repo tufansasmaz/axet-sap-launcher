@@ -26,6 +26,8 @@ export default function AttachmentLightbox({
 
   // Escape ile kapanma. `document` seviyesinde çünkü odak, katmanın içindeki
   // bir düğmede olmayabilir (kullanıcı doğrudan görsele bakıyor olabilir).
+  // Kökteki `data-escape-owner` altındaki pencerenin Escape'i bize bırakmasını
+  // sağlıyor; yoksa tek Escape hem ışık kutusunu hem pencereyi kapatırdı.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -41,6 +43,7 @@ export default function AttachmentLightbox({
     <div
       role="dialog"
       aria-modal="true"
+      data-escape-owner=""
       aria-label={attachment.name}
       onClick={onClose}
       className="animate-backdrop-fade-in fixed inset-0 z-[60] flex flex-col bg-[var(--overlay-scrim)] backdrop-blur-sm"

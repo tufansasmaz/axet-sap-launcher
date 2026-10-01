@@ -67,10 +67,25 @@ function isTop(id: number): boolean {
 
 const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
+// Görünmeyen ya da etkisiz alandaki öğeler Tab sırasına girmiyor: odak
+// görünmez bir düğmeye düşerse kullanıcı nerede olduğunu kaybediyor.
+const HIDDEN_ANCESTOR = "[hidden], [aria-hidden='true'], [inert], fieldset[disabled]";
+
+function isRendered(el: HTMLElement, root: HTMLElement): boolean {
+  for (let node: HTMLElement | null = el; node && node !== root; node = node.parentElement) {
+    if (getComputedStyle(node).display === "none") return false;
+  }
+  return true;
+}
+
 function focusables(root: HTMLElement | null): HTMLElement[] {
   if (!root) return [];
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (el) => !(el as HTMLButtonElement).disabled && el.tabIndex >= 0
+    (el) =>
+      !(el as HTMLButtonElement).disabled &&
+      el.tabIndex >= 0 &&
+      !el.closest(HIDDEN_ANCESTOR) &&
+      isRendered(el, root)
   );
 }
 
@@ -124,6 +139,11 @@ export interface ModalProps {
   /** Doğruysa gövde iç boşluksuz ve kaydırmasız bir esnek kap: içerik kendi
    *  sütunlarını ve kaydırma alanlarını kuruyor (Ayarlar'ın bölüm listesi). */
   bare?: boolean;
+  /** `"alertdialog"`: kullanıcının karar vermesi gereken uyarı
+   *  (ör. "Değişiklikleri at?"). Ekran okuyucu açıklamayı hemen okuyor. */
+  role?: "dialog" | "alertdialog";
+  /** Açıklama metninin id'si; panelin `aria-describedby`'ı oluyor. */
+  describedBy?: string;
   icon?: ReactNode;
   subtitle?: ReactNode;
   footer?: ReactNode;
@@ -145,6 +165,8 @@ function ModalPanel({
   hideClose = false,
   size = "md",
   bare = false,
+  role = "dialog",
+  describedBy,
   icon,
   subtitle,
   footer,
@@ -152,6 +174,7 @@ function ModalPanel({
 }: ModalProps) {
   const t = useT();
   const titleId = useId();
+  const discardDescId = useId();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const footerRef = useRef<HTMLDivElement | null>(null);
@@ -186,8 +209,16 @@ function ModalPanel({
     const onKeyDown = (e: KeyboardEvent) => {
       if (!isTop(id) || e.isComposing) return;
       if (e.key === "Escape") {
+        // Açık bir açılır liste ya da ışık kutusu Escape'in sahibi: önce o
+        // kapanmalı. Sahipler dinleyicilerini `document`'ta kabarma
+        // aşamasında tutuyor; bu dinleyici yakalama aşamasında ve her zaman
+        // ÖNCE çalışıyor, o yüzden `defaultPrevented`'a bakmak işe yaramıyor —
+        // sahibin varlığına bakılıyor. Olaya dokunulmuyor ki sahip onu alsın.
+        if (document.querySelector("[data-escape-owner]")) return;
         e.preventDefault();
         e.stopPropagation();
+        // Basılı tutulan Escape peş peşe pencere kapatmasın.
+        if (e.repeat) return;
         requestClose();
         return;
       }
@@ -260,9 +291,10 @@ function ModalPanel({
       >
         <div
           ref={panelRef}
-          role="dialog"
+          role={role}
           aria-modal="true"
           aria-labelledby={titleId}
+          aria-describedby={describedBy}
           tabIndex={-1}
           className={`animate-modal-pop-in flex ${
             size === "xl" ? "h-[min(80vh,720px)]" : "max-h-[88vh]"
@@ -310,6 +342,8 @@ function ModalPanel({
         <Modal
           open
           layer={layer === "modal" ? "confirm" : "critical"}
+          role="alertdialog"
+          describedBy={discardDescId}
           title={t("settingsModal.discardTitle")}
           size="sm"
           icon={<AlertTriangle size={18} className="text-[var(--status-warning-text)]" />}
@@ -330,7 +364,7 @@ function ModalPanel({
             </>
           }
         >
-          <p className="text-sm text-slate-400">{t("settingsModal.discardMessage")}</p>
+          <p id={discardDescId} className="text-sm text-slate-400">{t("settingsModal.discardMessage")}</p>
         </Modal>
       )}
     </ModalContext.Provider>

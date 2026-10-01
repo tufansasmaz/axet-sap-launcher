@@ -89,8 +89,10 @@ export default function ModelSelector({
 
   const currentLabel = current ? formatModelLabel(current) : null;
 
+  // Liste açıkken Escape'in sahibi bu bileşen: içinde bulunduğu pencere
+  // Escape'i ona bırakıyor (bkz. Modal). Kapanınca öznitelik kalkıyor.
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative" data-escape-owner={open ? "" : undefined}>
       <button
         onClick={() => setOpen((v) => !v)}
         disabled={loading}
