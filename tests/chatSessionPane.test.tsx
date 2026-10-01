@@ -186,3 +186,18 @@ describe("boş ekran", () => {
     expect(props.onSend).not.toHaveBeenCalled();
   });
 });
+
+describe("ChatSessionPane gün ayırıcıları", () => {
+  it("dünkü konuşma bugün sürünce önce 'Dün', sonra 'Bugün' satırı", () => {
+    const day = 24 * 60 * 60 * 1000;
+    const old = { ...msg("u0", "user"), createdAt: Date.now() - day };
+    const oldReply = { ...msg("a0", "assistant"), createdAt: Date.now() - day };
+    renderPane({}, { messages: [old, oldReply, msg("u1", "user"), msg("a1", "assistant")] });
+    expect(screen.getAllByRole("separator").map((s) => s.getAttribute("aria-label"))).toEqual(["Dün", "Bugün"]);
+  });
+
+  it("yalnızca bugünkü bir sohbette satır yok", () => {
+    renderPane({}, { messages: [msg("u1", "user"), msg("a1", "assistant")] });
+    expect(screen.queryAllByRole("separator")).toHaveLength(0);
+  });
+});

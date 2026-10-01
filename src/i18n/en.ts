@@ -705,6 +705,10 @@ export const en: Record<TranslationKey, string> = {
   "errorBoundary.reload": "Reload App",
 
   "time.justNow": "just now",
+
+  "time.today": "Today",
+
+  "time.yesterday": "Yesterday",
   "time.minutesAgo": "{count} minute(s) ago",
   "time.hoursAgo": "{count} hour(s) ago",
   "time.daysAgo": "{count} day(s) ago",

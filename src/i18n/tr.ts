@@ -770,6 +770,10 @@ export const tr = {
   "errorBoundary.reload": "Uygulamayı Yeniden Yükle",
 
   "time.justNow": "az önce",
+
+  "time.today": "Bugün",
+
+  "time.yesterday": "Dün",
   "time.minutesAgo": "{count} dakika önce",
   "time.hoursAgo": "{count} saat önce",
   "time.daysAgo": "{count} gün önce",

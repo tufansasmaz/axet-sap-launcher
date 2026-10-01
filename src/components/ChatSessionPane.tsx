@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
@@ -39,7 +39,8 @@ import ChatBubble, { AskUserCard, ThinkingBubble, type ChatMessage } from "./Cha
 import ChatComposer from "./ChatComposer";
 import ChatToolRun from "./ChatToolRun";
 import { readDraggedPaths, resolveFilesToPaths } from "../lib/attachments";
-import { useT } from "../i18n";
+import { useLanguage, useT } from "../i18n";
+import { dayLabel, daySeparatorBefore } from "../lib/chatDays";
 import logo from "../assets/logo.svg";
 
 // Açılış ekranındaki öneri kartlarının ikonları. Bilinmeyen bir anahtar
@@ -244,6 +245,10 @@ export default function ChatSessionPane({
   onToggleFilesPanel
 }: Props) {
   const t = useT();
+  const language = useLanguage();
+  // Gün ayırıcıları için "bugün". Render anında okunuyor; gece yarısını
+  // geçen açık bir sohbet bir sonraki çizimde düzeliyor.
+  const now = Date.now();
   const [dragOver, setDragOver] = useState(false);
   const messagesRef = useRef<HTMLDivElement | null>(null);
   // Kullanıcı listeyi yukarı kaydırıp eski bir mesajı okuyorsa, akan cevap
@@ -583,8 +588,11 @@ export default function ChatSessionPane({
         ) : (
           <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] pb-8 pt-8`}>
             {session.messages.map((message, index) => (
+              <Fragment key={message.id}>
+              {daySeparatorBefore(session.messages[index - 1]?.createdAt, message.createdAt, now) && (
+                <DaySeparator label={dayLabel(message.createdAt, now, t, language)} />
+              )}
               <ChatBubble
-                key={message.id}
                 message={message}
                 onEdit={message.role === "user" && !session.pending ? onEditMessage : undefined}
                 // "Devam et" YALNIZCA son mesajda: ortadaki yarım bir cevaba
@@ -603,6 +611,7 @@ export default function ChatSessionPane({
                   currentHitId === message.id ? "current" : hitSet?.has(message.id) ? "hit" : undefined
                 }
               />
+              </Fragment>
             ))}
             {/* CANLI TUR — konuşmanın SONUNDA, yapışık değil. Eskiden gösterge
                 son istemin altına yapışıyordu; araç adımları ayrı bir satıra
@@ -801,6 +810,18 @@ function PlanPanel({ todos }: { todos: AxetTodo[] }) {
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+// Mesajlar arasında gün değişince giren satır (bkz. lib/chatDays.ts). Soluk ve
+// ince: konuşmanın akışını bölmeden "bu artık başka gün" diyor.
+function DaySeparator({ label }: { label: string }) {
+  return (
+    <div role="separator" aria-label={label} className="flex items-center gap-3 py-1 text-2xs font-medium text-slate-500">
+      <span aria-hidden className="h-px flex-1 bg-line-subtle" />
+      <span>{label}</span>
+      <span aria-hidden className="h-px flex-1 bg-line-subtle" />
     </div>
   );
 }
