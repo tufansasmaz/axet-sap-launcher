@@ -367,8 +367,13 @@ export default function ChatSidebar({
           Yıkama hâlinde (accent-500/10 + accent-400 metin) düğme yan
           komşusuyla aynı ağırlıktaydı; ikisi de "bir seçenek" gibi
           duruyordu. Şimdi ayrım İKİ eksende: dolgu-yıkama ve vurgu-mor.
-          Yan taraftaki "Yeni proje" bilerek yıkama olarak kaldı — iki
-          dolgu yan yana olsaydı hiyerarşi yine düzleşirdi.
+          Yan taraftaki "Yeni proje" bilerek dolgusuz — iki dolgu yan yana
+          olsaydı hiyerarşi yine düzleşirdi.
+
+          "Yeni proje" mor yıkamadan NÖTR düğmeye döndü (kullanıcı geri
+          bildirimi, 2026-10-01: *"rengi falan kötü duruyor"*). Ayrım zaten
+          dolgu-kenarlık ekseninde yapılıyor; ikinci renk artık yalnız
+          simgede, düğmenin konusunu söylemeye yetiyor.
 
           src/ui/buttons.ts'teki "ekranda tek `primary`" kuralına göre bu
           ekrandaki tek dolgu bu; composer'ın gönder düğmesi de dolgu ama o
@@ -400,9 +405,9 @@ export default function ChatSidebar({
         <button
           onClick={handleCreateProject}
           title={t("axetCodeHome.newProject")}
-          className="flex h-9 min-w-28 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-[rgb(var(--project-500-rgb)/0.35)] bg-[rgb(var(--project-500-rgb)/0.12)] px-2 text-xs font-medium text-[var(--project-soft-text)] transition hover:border-[rgb(var(--project-500-rgb)/0.6)] hover:bg-[rgb(var(--project-500-rgb)/0.22)]"
+          className="flex h-9 min-w-28 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-line bg-control px-2 text-xs font-medium text-slate-200 transition hover:border-line-strong hover:bg-active hover:text-white"
         >
-          <FolderPlus size={15} className="shrink-0" />
+          <FolderPlus size={15} className="shrink-0 text-[var(--project-soft-text)]" />
           <span className="min-w-0 truncate">{t("axetCodeHome.newProject")}</span>
         </button>
       </div>
