@@ -268,6 +268,11 @@ function createWindow(): void {
     // `html:not([data-palette])`), yani ilk karede görünen bu renk.
     backgroundColor: THEME_SURFACES[cfg.palette][cfg.theme].app,
     frame: false,
+    // Windows 11 "başlık çubuklarında ve pencere kenarlarında vurgu rengini
+    // göster" açıkken çerçevesiz pencerenin 1px kenarını sistem vurgu
+    // rengiyle boyuyor (ölçüldü 2026-10-01: DWM ColorPrevalence=1, vurgu
+    // rgb(143,108,80), turuncu bir çizgi). `false` yalnız bu pencerede kapatıyor.
+    accentColor: false,
     show: false,
     icon: resolveIconPath(),
     webPreferences: {
