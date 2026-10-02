@@ -27,6 +27,7 @@ import {
   renameSession,
   resolveSessionDb,
   sessionDbLoadError,
+  sessionHasUnansweredToolCall,
   sessionTitle,
   sessionTodos,
   sessionTokens,
@@ -890,6 +891,27 @@ async function attachToBoundSession(session: TuiSession): Promise<boolean> {
       oturum: binding.sessionId.slice(0, 8),
       beklenen: binding.title,
       bulunan: title
+    });
+    clearBinding(session.chatId);
+    return false;
+  }
+
+  // CEVAPSIZ ÇAĞRI TAŞIYAN OTURUMA BAĞLANILMIYOR. Sağlayıcı o geçmişi topluca
+  // reddediyor: bağlanırsak ilk mesaj 1 saniyede 400 alıyor, ardından hata,
+  // oturum yenileme ve geçmişin yeniden gönderilmesi geliyor. Ölçülen olay
+  // (2026-10-02, DA8): sabahki tur `ask_user` sorusuyla bitmişti (süreç
+  // kapatıldı, bağ kaldı); öğleden sonra 47 karakterlik soru 13:44:41'de gitti,
+  // cevap 13:47:50'de geldi — modelin payı 6 saniye. Burada vazgeçince sohbet
+  // ilk mesajda geçmişi taşıyarak (tohumlama) tek turda devam ediyor.
+  if (sessionHasUnansweredToolCall(session.dbPath, binding.sessionId)) {
+    console.log("[axetChatTui] bagli oturumda cevapsiz arac cagrisi, tohumlamaya donuluyor", {
+      chatId: session.chatId,
+      oturum: binding.sessionId.slice(0, 8)
+    });
+    appLog("tui.bag-gecersiz", {
+      sohbet: session.chatId,
+      oturum: binding.sessionId.slice(0, 8),
+      sebep: "cevapsiz-arac"
     });
     clearBinding(session.chatId);
     return false;

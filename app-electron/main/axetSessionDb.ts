@@ -575,6 +575,42 @@ export function sessionTodos(dbPath: string, sessionId: string): AxetTodo[] {
 }
 
 /** Bir oturumun, verilen andan sonraki mesajları (eskiden yeniye). */
+/**
+ * Geçmişte sonucu GELMEMİŞ bir araç çağrısı var mı?
+ *
+ * Varsa sağlayıcı bu geçmişi topluca reddediyor (bkz. `finishPoisonsHistory`)
+ * ve oturuma yazılan HER mesaj 400 alıyor. En sık sebep ajanın `ask_user`
+ * sorusuyla biten tur: soru cevaplanmadan süreç kapatılıyor (bkz.
+ * axetChatTui.ts `askedUser`), ya da uygulama soru açıkken kapanıyor.
+ *
+ * Sıraya bakılmıyor, kimlikler eşleniyor: `created_at` saniye çözünürlüklü ve
+ * sonuç çağrıyla aynı saniyede, ondan önce sıralanabiliyor. Kimliği olmayan
+ * bir çağrı (bozuk kayıt) eşlenemeyeceği için sayılmıyor — yanlış alarm,
+ * işleyen bir oturumu boşuna bırakmak demek.
+ *
+ * Yalnızca TAMAMLANMIŞ (`finished: true`) çağrılar sayılıyor. Akarken kesilen
+ * çağrı sonucsuz kalıyor ama axet-code onu sağlayıcıya göndermiyor: canlı
+ * veride (2026-09-24) böyle iki `ask_user` taşıyan oturum günlerce sorunsuz
+ * kullanıldı. 400'ü doğuran olayda çağrı tamamlanmıştı.
+ */
+export function hasUnansweredToolCall(messages: AxetDbMessage[]): boolean {
+  const calls = new Set<string>();
+  const results = new Set<string>();
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (part.type === "tool_call" && part.data?.id && part.data.finished === true) calls.add(part.data.id);
+      else if (part.type === "tool_result" && part.data?.tool_call_id) results.add(part.data.tool_call_id);
+    }
+  }
+  for (const id of calls) if (!results.has(id)) return true;
+  return false;
+}
+
+/** `hasUnansweredToolCall`'un veritabanı üstündeki hâli; okunamazsa `false`. */
+export function sessionHasUnansweredToolCall(dbPath: string, sessionId: string): boolean {
+  return hasUnansweredToolCall(readMessagesSince(dbPath, sessionId, 0));
+}
+
 export function readMessagesSince(dbPath: string, sessionId: string, sinceEpochSec: number): AxetDbMessage[] {
   const db = openDb(dbPath);
   if (!db) return [];
