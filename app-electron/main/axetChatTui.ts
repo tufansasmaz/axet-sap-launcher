@@ -1150,7 +1150,15 @@ async function ensureSession(
     // oturum boyunca kullanılıyor, ve ön-ısıtma sayesinde bedeli çoğu zaman
     // kullanıcı yazarken ödeniyor. Başarısızlığı turu düşürmüyor — bağ
     // kurulamazsa sohbet eski yoldan (geçmişi tohumlayarak) devam ediyor.
-    await attachToBoundSession(session).catch(() => false);
+    const attachStarted = Date.now();
+    const attached = await attachToBoundSession(session).catch(() => false);
+    // Bağlanamadıysa sıradaki mesaj sohbetin TAMAMINI taşıyor (tohumlama);
+    // "yavaş ama doğru" yolun ne sıklıkla seçildiği buradan okunuyor.
+    appLog("tui.baglanma", {
+      sohbet: chatId,
+      bagli: attached,
+      saniye: ((Date.now() - attachStarted) / 1000).toFixed(1)
+    });
     return session;
   })();
   pendingSetup.set(chatId, setup);
@@ -1799,6 +1807,13 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
       bagli: session.attached,
       baglayici: args.useConnectors
     });
+    appLog("tui.yazildi", {
+      sohbet: session.chatId,
+      karakter: wire.length,
+      tohumlanmis: session.seeded,
+      bagli: session.attached,
+      baglayici: args.useConnectors
+    });
     session.seeded = true;
     session.contextPending = false;
 
@@ -1991,6 +2006,12 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
       if (Date.now() > deadline) {
         deadline = Date.now() + TURN_TIMEOUT_MS;
         stalledFor += TURN_TIMEOUT_MS;
+        appLog("tui.sessiz", {
+          sohbet: session.chatId,
+          saniye: ((Date.now() - started) / 1000).toFixed(1),
+          promptDustu: promptLanded,
+          arac: toolCount
+        });
         console.log("[axetChatTui] tur sessiz, beklemeye devam", {
           chatId: session.chatId,
           saniye: ((Date.now() - started) / 1000).toFixed(1),
@@ -2352,6 +2373,15 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
           }
           // Yavaşlık şikâyeti ölçülebilir olsun diye: her turun süresi ve kaç
           // araç çalıştığı log'a düşüyor.
+          appLog("tui.tur", {
+            sohbet: session.chatId,
+            saniye: ((Date.now() - started) / 1000).toFixed(1),
+            istemIndi: promptLandedAt ? ((promptLandedAt - started) / 1000).toFixed(1) : "-",
+            ilkBelirti: firstSignalAt ? ((firstSignalAt - started) / 1000).toFixed(1) : "-",
+            ilkHarf: firstCharAt ? ((firstCharAt - started) / 1000).toFixed(1) : "-",
+            arac: toolCount,
+            baglayici: session.useConnectors
+          });
           console.log("[axetChatTui] tur bitti", {
             chatId: session.chatId,
             saniye: ((Date.now() - started) / 1000).toFixed(1),
@@ -2448,6 +2478,14 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
       saniye: (ensureMs / 1000).toFixed(1)
     });
   }
+  // Diske HER turda: "cevap geç başlıyor" şikâyetinde (2026-10-02) bu süre
+  // kurulu uygulamada hiçbir yerde görünmüyordu. Sıcak ve hızlı turun satırı
+  // da lazım — yavaş turla karşılaştırılacak olan o.
+  appLog("tui.hazirlik", {
+    sohbet: args.chatId,
+    sicak: warm,
+    saniye: (ensureMs / 1000).toFixed(1)
+  });
   if (!session) {
     // Zorunlu güncelleme engeli: `null` dönmek `run` kipine düşürürdü ve o da
     // aynı kutuya çarpıp sessizce zaman aşımına uğrardı. Sebep biliniyorken
