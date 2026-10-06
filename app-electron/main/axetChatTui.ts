@@ -44,6 +44,7 @@ import {
 import { connectorGuidance, learnConnectorHealth, noteLiveConnectors } from "./connectorHealth";
 import { buildContextPreamble } from "./activeContext";
 import { toolInputComplete } from "./toolCallInput";
+import { pasteSequence } from "./tuiPaste";
 
 // ---------------------------------------------------------------------------
 // KALICI OTURUM — axet-code'un gerçek TUI'si bir pty içinde
@@ -351,6 +352,9 @@ const AUTH_RETRY_BACKOFF_MS = 15_000;
  * üç katına çıkan yoklama sayısı ölçülebilir bir yük getirmiyor.
  */
 const POLL_MS = 90;
+
+/** İstem parçaları arasındaki bekleme (bkz. tuiPaste.ts; ölçüm bu aralıkla yapıldı). */
+const PASTE_GAP_MS = 20;
 /**
  * Plan (`sessions.todos`) ve bağlam doluluğu ne sıklıkla okunsun.
  *
@@ -1808,10 +1812,23 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
     // o satırı kaçırma ihtimali demek.
     let logCursor = logOffset(session.cwd);
 
-    // TUI'de Enter (\r) gönderir, ctrl+j (\n) satır atlar — yani metindeki
-    // satır sonlarını olduğu gibi yazabiliyoruz, sonuna tek \r koymak yeterli.
+    // TUI'de Enter (\r) gönderir, ctrl+j (\n) satır atlar.
+    //
+    // İstem YAPIŞTIRILIYOR, tuş tuş yazılmıyor (bkz. tuiPaste.ts): tuş tuş
+    // yazımda axet-code her karakterde kutuyu yeniden hesaplıyordu ve uzun
+    // istem (tohumlama, bağlam önsözü) dakikalar sürüyordu — bugün takılan
+    // sohbetin gerçek 13.038 karakterlik istemi tuş tuş 287 sn, yapıştırarak
+    // 3,8 sn (2026-10-06, kutu içeriği ikisinde de birebir). Enter en sonda,
+    // yapıştırmaların DIŞINDA: içeride bir \r metin sayılırdı.
     const wire = escapeTuiMenus(text.replace(/\r/g, ""));
-    session.proc.write(`${wire}\r`);
+    const writes = pasteSequence(wire);
+    for (const chunk of writes) {
+      if (session.exited || session.disposed) break;
+      session.proc.write(chunk);
+      // Ölçülen ayar bu aralıkla yapıldı; parçalar sırayla işleniyor.
+      await delay(PASTE_GAP_MS);
+    }
+    if (!session.exited && !session.disposed) session.proc.write("\r");
     // Yazmanın KENDİSİ günlüğe düşüyor. 2026-09-07'de bir mesaj (ME22N metni)
     // ne veritabanına ne de axet-code'un günlüğüne ulaştı; geriye dönük hiçbir
     // kayıt "yazıldı mı, yazılmadı mı" sorusunu cevaplayamadı. Bu satır o
