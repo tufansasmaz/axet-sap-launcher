@@ -65,6 +65,8 @@ export const MAIN_TR = {
   "chatTui.restartStillFailing": "axet-code oturumu yenilendi ama hata sürüyor ({failure}).",
   "chatTui.restartStillFailingAuth":
     "aXet portalı isteği yetki hatasıyla reddediyor (403). Süreç yenilendi, bir kez daha denendi, hata sürüyor. Bu arıza portal tarafında ve geçici: kendiliğinden açılıp kapanıyor. Birkaç dakika sonra aynı mesajı tekrar gönderin — uygulamayı kapatıp açmak hızlandırmıyor. Saatlerce sürerse portaldeki model yetkinizi kontrol ettirin.",
+  "chatTui.policyBlocked":
+    "aXet portalının güvenlik politikası bu isteği içeriği yüzünden engelledi (request_blocked). Mesaj tekrar gönderilmedi: aynı içerik yine engellenir ve portal her denemeyi incelemeye kaydediyor. Engel mesajda ya da sohbetin geçmişinde duran bir içerikten kaynaklanıyor olabilir (ör. şifre, gizli anahtar, kişisel veri). Bu sohbette devam etmek de engellenebilir; yeni bir sohbet açıp o içeriği çıkararak deneyin.",
   "chatTui.updateRequired":
     "aXet.Code zorunlu bir güncelleme bekliyor ve güncellenene kadar hiçbir mesajı yanıtlayamıyor. Başlat menüsünden Company Portal'ı açın, \"aXet.code\" aratıp yeni sürümü kurun ve uygulamayı yeniden başlatın.",
   "chatTui.updateRequiredVersions":

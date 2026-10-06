@@ -61,6 +61,8 @@ export const MAIN_EN = {
   "chatTui.restartStillFailing": "The axet-code session was restarted but the error persists ({failure}).",
   "chatTui.restartStillFailingAuth":
     "The aXet portal is rejecting the request with an authorization error (403). The process was restarted and the message retried, but the error persists. This fault is on the portal side and transient: it opens and closes on its own. Send the same message again in a few minutes — restarting the app does not speed it up. If it lasts for hours, have your model entitlement checked on the portal.",
+  "chatTui.policyBlocked":
+    "The aXet portal's security policy blocked this request because of its content (request_blocked). The message was not resent: the same content would be blocked again, and the portal logs every attempt for review. The block may come from something in the message or in this chat's history (e.g. a password, secret key or personal data). Continuing in this chat may be blocked as well; start a new chat and try again without that content.",
   "chatTui.updateRequired":
     "aXet.Code is waiting for a mandatory update and cannot answer any message until it is installed. Open Company Portal from your Start menu, search for \"aXet.code\", install the new version and restart the application.",
   "chatTui.updateRequiredVersions":

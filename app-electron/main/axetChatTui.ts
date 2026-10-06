@@ -19,6 +19,7 @@ import {
   closeSessionDbs,
   findSessionByPrompt,
   finishAuthFailure,
+  finishPolicyBlock,
   finishPoisonsHistory,
   latestMessageTime,
   matchKey,
@@ -2355,6 +2356,20 @@ async function runTurn(session: TuiSession, args: TuiSendArgs): Promise<TurnResu
           // yenileniyor, mesaj bir kez daha gidiyor, geçmiş tohumlamayla
           // taşınıyor. Elde metin varsa BIRAKILMIYOR — kısmi bir cevap,
           // yeniden denemenin üstüne yazılmasa da teşhis için değerli.
+          // POLİTİKA ENGELİ — yetki denetiminden ÖNCE, çünkü o da 403.
+          // Süreç yenilenmiyor: aynı içerik yine engellenir ve portal her
+          // denemeyi incelemeye kaydediyor (bkz. `finishPolicyBlock`).
+          if (finishPolicyBlock(lastFinish)) {
+            console.log("[axetChatTui] PORTAL POLITIKA ENGELI (request_blocked)", {
+              chatId: session.chatId,
+              oturum: session.axetSessionId?.slice(0, 8) ?? "?"
+            });
+            appLog("sohbet.politika-engeli", {
+              sohbet: session.chatId,
+              oturum: session.axetSessionId?.slice(0, 8) ?? "-"
+            });
+            return { ok: false, text: answer, failure: "blocked" };
+          }
           if (finishAuthFailure(lastFinish)) {
             console.log("[axetChatTui] TASIYICI KIMLIGI DUSTU (403), surec yenilenecek", {
               chatId: session.chatId,
@@ -2598,7 +2613,7 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
   // --- Jeton sınırı denetimi, turdan ÖNCE --------------------------------
   // Ölçüm bir SQL satırı: canlı veritabanında 0 ms. Sınıra çarpıp turu çöpe
   // atmaktansa, dolmuş bir oturumu daha başlamadan değiştiriyoruz.
-  let rotated: TurnResult["failure"] | undefined;
+  let rotated: AxetChatSendResult["restartedReason"];
   if (session.axetSessionId) {
     const tokens = sessionTokens(session.dbPath, session.axetSessionId);
     if (tokens >= CONTEXT_ROTATE_AT) {
@@ -2627,6 +2642,21 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
     // kurmanın da anlamı: bir sonraki açılışta bağlanacak bir şey olmazdı.
     bindSessionToChat(session);
     return rotated ? { ...first, restartedReason: rotated } : first;
+  }
+
+  // --- Politika engeli: yenileme YOK -----------------------------------------
+  // Engel içeriğe bağlı. Süreci yenileyip mesajı tekrar göndermek (eski
+  // davranış) aynı içeriği bir daha portala götürüyordu: yine engellendi,
+  // yine incelemeye kaydedildi (2026-10-06, iki deneme art arda). Kullanıcıya
+  // sebebi söylüyoruz; geçmişte de duran içerik bu sohbette sonraki mesajları
+  // da engelleyebileceği için yeni sohbet öneriliyor (metin i18n'de).
+  if (first.failure === "blocked") {
+    return {
+      ok: false,
+      text: first.text,
+      error: mt("chatTui.policyBlocked"),
+      usedConnectors: session.useConnectors
+    };
   }
 
   // --- Arıza: bilgi ver, oturumu yenile, bir kez daha dene ------------------
@@ -2663,9 +2693,11 @@ export async function sendViaTui(args: TuiSendArgs): Promise<AxetChatSendResult 
       // model bu kullanıcıya kapanmış. "hata sürüyor (auth)" demek,
       // kullanıcıyı yapacak bir şeyi yokken denemeye devam ettiriyordu.
       error:
-        second.failure === "auth"
-          ? mt("chatTui.restartStillFailingAuth")
-          : mt("chatTui.restartStillFailing", { failure: second.failure }),
+        second.failure === "blocked"
+          ? mt("chatTui.policyBlocked")
+          : second.failure === "auth"
+            ? mt("chatTui.restartStillFailingAuth")
+            : mt("chatTui.restartStillFailing", { failure: second.failure }),
       restartedReason: first.failure
     };
   }

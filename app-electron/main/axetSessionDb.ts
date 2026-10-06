@@ -140,8 +140,31 @@ function finishErrorText(part: AxetPart | undefined): string {
  */
 export function finishAuthFailure(part: AxetPart | undefined): boolean {
   if (part?.data?.reason !== "error") return false;
-  return RE_FINISH_AUTH.test(finishErrorText(part));
+  const text = finishErrorText(part);
+  // Politika engeli de 403 dönüyor ama kimlikle ilgisi yok: süreci yenileyip
+  // aynı içeriği tekrar göndermek onu kaldırmaz (bkz. `finishPolicyBlock`).
+  if (RE_POLICY_BLOCK.test(text)) return false;
+  return RE_FINISH_AUTH.test(text);
 }
+
+/**
+ * Portalın güvenlik politikası bu isteği İÇERİĞİ yüzünden mi reddetti?
+ *
+ *   403 Forbidden {"error":"request_blocked","message":"This request is not
+ *   allowed under the current security policy. The event has been logged for
+ *   review."}
+ *
+ * Ölçülen olay (2026-10-06, DA8): uygulama bunu yetki hatası sayıp süreci
+ * yeniledi ve aynı içeriği bir kez daha gönderdi — yine engellendi, yine
+ * incelemeye kaydedildi. Engel içeriğe bağlı; tekrar denemek kaldırmıyor.
+ */
+export function finishPolicyBlock(part: AxetPart | undefined): boolean {
+  if (part?.data?.reason !== "error") return false;
+  return RE_POLICY_BLOCK.test(finishErrorText(part));
+}
+
+/** Bkz. `axetCodeLog.ts` — ölçüt bilerek aynı. */
+const RE_POLICY_BLOCK = /request_blocked|not allowed under the current security policy/i;
 
 /** Bkz. `axetCodeLog.ts` `RE_AUTH` — ölçüt bilerek aynı. */
 const RE_FINISH_AUTH =

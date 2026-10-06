@@ -258,8 +258,17 @@ export function readLiveConnectors(cwd: string): string[] | null {
  * `context`   — bağlam sınırı aşıldı. Aynı oturumda devam edilemiyor.
  * `provider`  — sağlayıcı geçici olarak veremedi (5xx, tekrarlar tükendi).
  *               Yeni bir oturumda genellikle geçiyor.
+ * `blocked`   — portalın güvenlik politikası isteği İÇERİĞİ yüzünden
+ *               reddetti (`request_blocked`). Yeniden denemek kaldırmıyor;
+ *               süreç yenilenmiyor, aynı içerik tekrar gönderilmiyor.
  */
-export type AxetFailureKind = "auth" | "context" | "provider";
+export type AxetFailureKind = "auth" | "context" | "provider" | "blocked";
+
+/**
+ * Politika engeli de "403 Forbidden" dönüyor; `RE_AUTH`'tan ÖNCE bakılmalı.
+ * Bkz. axetSessionDb.ts `finishPolicyBlock` — ölçüt bilerek aynı.
+ */
+const RE_POLICY_BLOCK = /request_blocked|not allowed under the current security policy/i;
 
 // 403/401'i SAYI OLARAK aramak yeterli değil, tehlikeli de: bir dosya adında
 // ya da bir çıktı satırında geçebilir. Bu yüzden ölçüt, HTTP durum satırının
@@ -300,6 +309,9 @@ export function classifyFailure(line: AxetLogLine): AxetFailureKind | null {
   // arka plan işi sayıp atıyordu, yani kanaryayı susturmuş oluyorduk.
   // Başlık üretiminin 503'ü gerçekten zararsız (kendi yedeğine geçiyor);
   // 403'ü değil — turun kendisi de aynı anda aynı duvara çarpıyor.
+  // Politika engeli de 403 taşıyor; yetki sanılırsa süreç yenilenip AYNI
+  // içerik tekrar gönderiliyordu (2026-10-06 ölçümü).
+  if (RE_POLICY_BLOCK.test(text)) return "blocked";
   if (RE_AUTH.test(text)) return "auth";
   // Bağlayıcı/beceri senkronizasyonu ve başlık üretimi bir TUR arızası değil:
   // ilki bağlayıcılar kapalıyken her açılışta bir kez düşüyor (canlı günlükte
