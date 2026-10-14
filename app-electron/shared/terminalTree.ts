@@ -173,3 +173,96 @@ export function normalizeLayout(raw: unknown, ids: readonly string[]): LayoutNod
   for (const id of ids) if (!seen.has(id)) layout = insertPane(layout, id, null);
   return layout;
 }
+
+export type LayoutPath = number[];
+
+export function nodeAt(layout: LayoutNode | null, path: LayoutPath): LayoutNode | null {
+  let node = layout;
+  for (const i of path) {
+    if (!node || node.type !== "split" || !Number.isInteger(i) || i < 0 || i >= node.children.length) return null;
+    node = node.children[i];
+  }
+  return node;
+}
+
+function replaceAt(layout: LayoutNode, path: LayoutPath, next: LayoutNode): LayoutNode {
+  if (path.length === 0) return next;
+  if (layout.type !== "split") return layout;
+  const [head, ...rest] = path;
+  return { ...layout, children: layout.children.map((c, i) => (i === head ? replaceAt(c, rest, next) : c)) };
+}
+
+export function swapPanes(layout: LayoutNode | null, a: string, b: string): LayoutNode | null {
+  if (!layout || a === b) return layout;
+  const ids = leafIds(layout);
+  if (!ids.includes(a) || !ids.includes(b)) return layout;
+  return mapLeaves(layout, (id) => pane(id === a ? b : id === b ? a : id));
+}
+
+export function movePane(layout: LayoutNode | null, dragId: string, targetId: string, zone: DropZone): LayoutNode | null {
+  if (!layout || dragId === targetId) return layout;
+  const ids = leafIds(layout);
+  if (!ids.includes(dragId) || !ids.includes(targetId)) return layout;
+  if (zone === "center") return swapPanes(layout, dragId, targetId);
+  return insertPane(removePane(layout, dragId), dragId, { paneId: targetId, side: zone });
+}
+
+/** `index` ile `index+1` arasındaki ayırıcı `delta` (pay) kadar kayınca. */
+export function dragSizes(sizes: readonly number[], index: number, delta: number, min: number): number[] {
+  const next = [...sizes];
+  if (!Number.isInteger(index) || index < 0 || index >= sizes.length - 1 || !Number.isFinite(delta)) return next;
+  const total = sizes[index] + sizes[index + 1];
+  if (total <= 2 * min) return next;
+  const first = Math.min(total - min, Math.max(min, sizes[index] + delta));
+  next[index] = first;
+  next[index + 1] = total - first;
+  return next;
+}
+
+export function resizeSplit(layout: LayoutNode | null, path: LayoutPath, index: number, delta: number, min: number): LayoutNode | null {
+  const node = nodeAt(layout, path);
+  if (!layout || !node || node.type !== "split") return layout;
+  const sizes = dragSizes(node.sizes, index, delta, min);
+  if (sizes.every((s, i) => s === node.sizes[i])) return layout;
+  return replaceAt(layout, path, { ...node, sizes });
+}
+
+export function equalizeSplit(layout: LayoutNode | null, path: LayoutPath): LayoutNode | null {
+  const node = nodeAt(layout, path);
+  if (!layout || !node || node.type !== "split") return layout;
+  return replaceAt(layout, path, { ...node, sizes: equal(node.children.length) });
+}
+
+function firstLeaf(node: LayoutNode): string {
+  return node.type === "pane" ? node.paneId : firstLeaf(node.children[0]);
+}
+function lastLeaf(node: LayoutNode): string {
+  return node.type === "pane" ? node.paneId : lastLeaf(node.children[node.children.length - 1]);
+}
+
+/** Bölme ağaçtan çekilmeden önce dönüş adresi: en yakın kardeşin hangi tarafı. */
+export function homeOf(layout: LayoutNode | null, paneId: string): PaneHome | null {
+  const find = (node: LayoutNode): PaneHome | null => {
+    if (node.type === "pane") return null;
+    const i = node.children.findIndex((c) => c.type === "pane" && c.paneId === paneId);
+    if (i >= 0) {
+      const next = node.children[i + 1];
+      if (next) return { siblingPaneId: firstLeaf(next), side: node.dir === "row" ? "left" : "top" };
+      const prev = node.children[i - 1];
+      return { siblingPaneId: lastLeaf(prev), side: node.dir === "row" ? "right" : "bottom" };
+    }
+    for (const c of node.children) {
+      const found = find(c);
+      if (found) return found;
+    }
+    return null;
+  };
+  return layout ? find(layout) : null;
+}
+
+/** Küçültülmüş bölmeyi geri koyar; kardeşi yoksa `fallbackPaneId`'nin sağına. */
+export function restoreInto(layout: LayoutNode | null, paneId: string, home: PaneHome | null, fallbackPaneId: string | null): LayoutNode {
+  const ids = leafIds(layout);
+  if (home && ids.includes(home.siblingPaneId)) return insertPane(layout, paneId, { paneId: home.siblingPaneId, side: home.side });
+  return insertPane(layout, paneId, fallbackPaneId && ids.includes(fallbackPaneId) ? { paneId: fallbackPaneId, side: "right" } : null);
+}
