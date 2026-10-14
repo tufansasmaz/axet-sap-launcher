@@ -311,7 +311,13 @@ describe("kalıcılık", () => {
     const calls = api.saveConfig.mock.calls.length;
     expect(api.saveConfig).toHaveBeenLastCalledWith({
       terminalWorkspaces: [
-        { id: store.state.workspaces[0].id, name: "Çalışma alanı 1", panes: [{ id: panes()[0].id, kind: "cmd", cwd: "C:\\a" }] }
+        {
+          id: store.state.workspaces[0].id,
+          name: "Çalışma alanı 1",
+          panes: [{ id: panes()[0].id, kind: "cmd", cwd: "C:\\a" }],
+          layout: { type: "pane", paneId: panes()[0].id },
+          minimized: []
+        }
       ],
       terminalActiveWorkspaceId: store.state.workspaces[0].id
     });

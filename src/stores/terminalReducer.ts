@@ -7,9 +7,28 @@ import type { SavedTerminalWorkspace } from "../../app-electron/shared/types";
 import {
   MAX_TERMINAL_PANES,
   MAX_TERMINAL_WORKSPACES,
-  firstFreeWorkspaceNumber
+  clampPaneFontSize,
+  cleanPaneTitle,
+  firstFreeWorkspaceNumber,
+  isTerminalPaneColor
 } from "../../app-electron/shared/terminalLayout";
+import {
+  equalizeSplit,
+  fromLegacy,
+  homeOf,
+  insertPane,
+  leafIds,
+  movePane as moveInTree,
+  normalizeLayout,
+  removePane,
+  resizeSplit,
+  restoreInto,
+  type EdgeSide,
+  type LayoutNode,
+  type SplitDir
+} from "../../app-electron/shared/terminalTree";
 import type {
+  MinimizedPane,
   NameFor,
   PaneRun,
   PendingProjectPane,
@@ -35,11 +54,30 @@ export const initialTerminalState: TerminalState = {
 };
 
 function emptyWorkspace(id: string, name: string): TerminalWorkspace {
-  return { id, name, panes: [], focusedPaneId: null, maximizedPaneId: null, unread: false, error: false };
+  return { id, name, panes: [], focusedPaneId: null, maximizedPaneId: null, unread: false, error: false, layout: null, minimized: [] };
 }
 
 export function isWorkspaceVisible(state: TerminalState, workspaceId: string): boolean {
   return state.visible && state.activeWorkspaceId === workspaceId;
+}
+
+export function minimizedOf(workspace: TerminalWorkspace): MinimizedPane[] {
+  return workspace.minimized ?? [];
+}
+
+/** Alanın ağacı. Tanımsızsa (elle kurulmuş durum) görünür bölmelerden. */
+export function layoutOf(workspace: TerminalWorkspace): LayoutNode | null {
+  if (workspace.layout !== undefined) return workspace.layout;
+  const hidden = new Set(minimizedOf(workspace).map((m) => m.paneId));
+  return fromLegacy(workspace.panes.filter((p) => !hidden.has(p.id)).map((p) => p.id));
+}
+
+function isMinimized(workspace: TerminalWorkspace, paneId: string): boolean {
+  return minimizedOf(workspace).some((m) => m.paneId === paneId);
+}
+
+function updatePane(workspace: TerminalWorkspace, paneId: string, patch: Partial<TerminalPane>): TerminalWorkspace {
+  return { ...workspace, panes: workspace.panes.map((p) => (p.id === paneId ? { ...p, ...patch } : p)) };
 }
 
 export function findPane(state: TerminalState, paneId: string): { workspace: TerminalWorkspace; pane: TerminalPane } | null {
@@ -85,8 +123,20 @@ function clearVisibleFlags(state: TerminalState): TerminalState {
   return replaceWorkspace(state, { ...active, unread: false, error: false });
 }
 
-function withPane(workspace: TerminalWorkspace, pane: TerminalPane): TerminalWorkspace {
-  return { ...workspace, panes: [...workspace.panes, pane], focusedPaneId: pane.id, maximizedPaneId: null };
+function withPane(workspace: TerminalWorkspace, pane: TerminalPane, split?: { targetPaneId: string; dir: SplitDir }): TerminalWorkspace {
+  const layout = layoutOf(workspace);
+  const visible = leafIds(layout);
+  // Hedef küçültülmüş ya da kapanmışsa odaktaki bölme; o da yoksa son yaprak.
+  const anchor = [split?.targetPaneId, workspace.focusedPaneId].find((id): id is string => !!id && visible.includes(id));
+  const side: EdgeSide = split?.dir === "column" ? "bottom" : "right";
+  return {
+    ...workspace,
+    panes: [...workspace.panes, pane],
+    layout: insertPane(layout, pane.id, anchor ? { paneId: anchor, side } : null),
+    minimized: minimizedOf(workspace),
+    focusedPaneId: pane.id,
+    maximizedPaneId: null
+  };
 }
 
 function placeProjectPane(state: TerminalState, item: PendingProjectPane, nameFor: NameFor): TerminalState {
@@ -116,10 +166,25 @@ function becomeReady(state: TerminalState, workspaces: TerminalWorkspace[], acti
 }
 
 function fromSaved(saved: SavedTerminalWorkspace): TerminalWorkspace {
+  const ids = saved.panes.map((p) => p.id);
+  const minimized = (saved.minimized ?? []).filter((m) => ids.includes(m.paneId)).map((m) => ({ paneId: m.paneId, home: m.home }));
+  const hidden = new Set(minimized.map((m) => m.paneId));
+  // Ağaçsız eski kayıt: normalizeLayout `fromLegacy`'ye düşüyor.
+  const layout = normalizeLayout(saved.layout, ids.filter((id) => !hidden.has(id)));
   return {
     ...emptyWorkspace(saved.id, saved.name),
-    panes: saved.panes.map((p) => ({ id: p.id, kind: p.kind, cwd: p.cwd, run: { state: "queued" } })),
-    focusedPaneId: saved.panes[0]?.id ?? null
+    panes: saved.panes.map((p) => ({
+      id: p.id,
+      kind: p.kind,
+      cwd: p.cwd,
+      title: p.title,
+      color: p.color,
+      fontSize: p.fontSize,
+      run: { state: "queued" }
+    })),
+    layout,
+    minimized,
+    focusedPaneId: leafIds(layout)[0] ?? null
   };
 }
 
@@ -184,7 +249,7 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
         return state;
       }
       const pane: TerminalPane = { id: action.paneId, kind: action.kind, cwd: action.cwd, run: { state: "queued" } };
-      return replaceWorkspace(state, withPane(workspace, pane));
+      return replaceWorkspace(state, withPane(workspace, pane, action.split));
     }
     case "addProjectPane": {
       const item = { paneId: action.paneId, spareWorkspaceId: action.spareWorkspaceId, cwd: action.cwd };
@@ -195,12 +260,22 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       const found = findPane(state, action.paneId);
       if (!found) return state;
       const { workspace } = found;
-      const index = workspace.panes.findIndex((p) => p.id === action.paneId);
-      const panes = workspace.panes.filter((p) => p.id !== action.paneId);
+      const before = leafIds(layoutOf(workspace));
+      const layout = removePane(layoutOf(workspace), action.paneId);
+      const after = leafIds(layout);
+      const index = before.indexOf(action.paneId);
       const focusedPaneId =
-        workspace.focusedPaneId === action.paneId ? (panes[Math.min(index, panes.length - 1)]?.id ?? null) : workspace.focusedPaneId;
-      const maximizedPaneId = workspace.maximizedPaneId === action.paneId ? null : workspace.maximizedPaneId;
-      return replaceWorkspace(state, { ...workspace, panes, focusedPaneId, maximizedPaneId });
+        workspace.focusedPaneId === action.paneId
+          ? (after[Math.min(Math.max(index, 0), after.length - 1)] ?? null)
+          : workspace.focusedPaneId;
+      return replaceWorkspace(state, {
+        ...workspace,
+        panes: workspace.panes.filter((p) => p.id !== action.paneId),
+        layout,
+        minimized: minimizedOf(workspace).filter((m) => m.paneId !== action.paneId),
+        focusedPaneId,
+        maximizedPaneId: workspace.maximizedPaneId === action.paneId ? null : workspace.maximizedPaneId
+      });
     }
     case "restartPane": {
       const found = findPane(state, action.paneId);
@@ -210,12 +285,12 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     }
     case "focusPane": {
       const found = findPane(state, action.paneId);
-      if (!found || found.workspace.focusedPaneId === action.paneId) return state;
+      if (!found || found.workspace.focusedPaneId === action.paneId || isMinimized(found.workspace, action.paneId)) return state;
       return replaceWorkspace(state, { ...found.workspace, focusedPaneId: action.paneId });
     }
     case "toggleMaximize": {
       const found = findPane(state, action.paneId);
-      if (!found) return state;
+      if (!found || isMinimized(found.workspace, action.paneId)) return state;
       const maximizedPaneId = found.workspace.maximizedPaneId === action.paneId ? null : action.paneId;
       return replaceWorkspace(state, { ...found.workspace, maximizedPaneId, focusedPaneId: action.paneId });
     }
@@ -246,8 +321,86 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     case "ptyData": {
       const found = paneByPty(state, action.ptyId);
       if (!found) return state;
-      const workspace = flag(state, found.workspace, "unread");
+      let workspace = flag(state, found.workspace, "unread");
+      // Küçültülmüş bölmeye çıktı: şeritteki sekmede nokta.
+      const entry = minimizedOf(workspace).find((m) => m.paneId === found.pane.id);
+      if (entry && !entry.unread) {
+        workspace = { ...workspace, minimized: minimizedOf(workspace).map((m) => (m === entry ? { ...m, unread: true } : m)) };
+      }
       return workspace === found.workspace ? state : replaceWorkspace(state, workspace);
+    }
+    case "movePane": {
+      const found = findPane(state, action.paneId);
+      if (!found || !found.workspace.panes.some((p) => p.id === action.targetPaneId)) return state;
+      const before = layoutOf(found.workspace);
+      const layout = moveInTree(before, action.paneId, action.targetPaneId, action.zone);
+      if (layout === before) return state;
+      return replaceWorkspace(state, { ...found.workspace, layout, focusedPaneId: action.paneId, maximizedPaneId: null });
+    }
+    case "resizeSplit":
+    case "equalizeSplit": {
+      const workspace = state.workspaces.find((w) => w.id === action.workspaceId);
+      if (!workspace) return state;
+      const before = layoutOf(workspace);
+      const layout =
+        action.type === "resizeSplit"
+          ? resizeSplit(before, action.path, action.index, action.delta, action.min)
+          : equalizeSplit(before, action.path);
+      if (layout === before) return state;
+      return replaceWorkspace(state, { ...workspace, layout });
+    }
+    case "minimizePane": {
+      const found = findPane(state, action.paneId);
+      if (!found || isMinimized(found.workspace, action.paneId)) return state;
+      const workspace = found.workspace;
+      const before = layoutOf(workspace);
+      const home = homeOf(before, action.paneId);
+      const layout = removePane(before, action.paneId);
+      const visible = leafIds(layout);
+      // Odak hiçbir zaman küçültülmüş bölmede durmuyor.
+      const focusedPaneId =
+        workspace.focusedPaneId !== action.paneId
+          ? workspace.focusedPaneId
+          : home && visible.includes(home.siblingPaneId)
+            ? home.siblingPaneId
+            : (visible[0] ?? null);
+      return replaceWorkspace(state, {
+        ...workspace,
+        layout,
+        minimized: [...minimizedOf(workspace), { paneId: action.paneId, home }],
+        focusedPaneId,
+        maximizedPaneId: workspace.maximizedPaneId === action.paneId ? null : workspace.maximizedPaneId
+      });
+    }
+    case "restorePane": {
+      const found = findPane(state, action.paneId);
+      const entry = found ? minimizedOf(found.workspace).find((m) => m.paneId === action.paneId) : undefined;
+      if (!found || !entry) return state;
+      const workspace = found.workspace;
+      return replaceWorkspace(state, {
+        ...workspace,
+        layout: restoreInto(layoutOf(workspace), action.paneId, entry.home, workspace.focusedPaneId),
+        minimized: minimizedOf(workspace).filter((m) => m !== entry),
+        focusedPaneId: action.paneId,
+        maximizedPaneId: null
+      });
+    }
+    case "renamePane": {
+      const found = findPane(state, action.paneId);
+      const title = cleanPaneTitle(action.title) ?? undefined;
+      if (!found || found.pane.title === title) return state;
+      return replaceWorkspace(state, updatePane(found.workspace, action.paneId, { title }));
+    }
+    case "setPaneColor": {
+      const found = findPane(state, action.paneId);
+      if (!found || !isTerminalPaneColor(action.color) || found.pane.color === action.color) return state;
+      return replaceWorkspace(state, updatePane(found.workspace, action.paneId, { color: action.color }));
+    }
+    case "setPaneFontSize": {
+      const found = findPane(state, action.paneId);
+      const fontSize = action.fontSize === null ? undefined : (clampPaneFontSize(action.fontSize) ?? undefined);
+      if (!found || found.pane.fontSize === fontSize) return state;
+      return replaceWorkspace(state, updatePane(found.workspace, action.paneId, { fontSize }));
     }
   }
 }
@@ -293,7 +446,16 @@ export function toSaved(state: TerminalState): { workspaces: SavedTerminalWorksp
     workspaces: state.workspaces.map((w) => ({
       id: w.id,
       name: w.name,
-      panes: w.panes.map((p) => ({ id: p.id, kind: p.kind, cwd: p.cwd }))
+      panes: w.panes.map((p) => ({
+        id: p.id,
+        kind: p.kind,
+        cwd: p.cwd,
+        ...(p.title ? { title: p.title } : {}),
+        ...(p.color ? { color: p.color } : {}),
+        ...(p.fontSize !== undefined ? { fontSize: p.fontSize } : {})
+      })),
+      layout: layoutOf(w),
+      minimized: minimizedOf(w).map((m) => ({ paneId: m.paneId, home: m.home }))
     })),
     activeId: state.activeWorkspaceId
   };
