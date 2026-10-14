@@ -6,12 +6,29 @@ import TerminalMode from "../src/terminal/TerminalMode";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalState, TerminalWorkspace } from "../src/stores/terminalTypes";
+import type { LayoutNode } from "../app-electron/shared/terminalTree";
 
-vi.mock("../src/components/EmbeddedTerminal", () => ({
-  default: ({ sessionId, active }: { sessionId: string; active: boolean }) => (
-    <div data-testid={`xterm-${sessionId}`} data-active={String(active)} />
-  )
-}));
+// Taşımada xterm'in yeniden kurulmadığını saymak için (spec §6.2).
+const mounts = vi.hoisted(() => ({ count: 0 }));
+vi.mock("../src/components/EmbeddedTerminal", async () => {
+  const { useEffect } = await vi.importActual<typeof import("react")>("react");
+  return {
+    default: function FakeTerminal({ sessionId, active }: { sessionId: string; active: boolean }) {
+      useEffect(() => {
+        mounts.count += 1;
+      }, []);
+      return <div data-testid={`xterm-${sessionId}`} data-active={String(active)} />;
+    }
+  };
+});
+
+const leaf = (paneId: string): LayoutNode => ({ type: "pane", paneId });
+const split = (dir: "row" | "column", ids: string[], sizes?: number[]): LayoutNode => ({
+  type: "split",
+  dir,
+  children: ids.map(leaf),
+  sizes: sizes ?? ids.map(() => 1 / ids.length)
+});
 
 let prevApi: unknown;
 let pick: ReturnType<typeof vi.fn>;
@@ -143,14 +160,15 @@ describe("TerminalMode", () => {
     expect((screen.getByRole("button", { name: "cmd" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("üst şerit: ad, sayı; + Bölme pencereyi açıyor ve ekliyor", () => {
+  it("üst şerit: ad, sayı; + Bölme pencereyi açıyor ve odaktaki bölmeyi bölüyor", () => {
     const { commands } = setup({ workspaces: [ws("a", 2)], activeWorkspaceId: "a" });
     expect(screen.getByText("Alan a")).toBeTruthy();
     expect(screen.getByText("2 / 9 bölme")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Bölme" }));
     expect(screen.getByText("Yeni bölme")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Aç" }));
-    expect(commands.addPane).toHaveBeenCalledWith("cmd", "C:\\a");
+    // jsdom'da kutular 0×0: genişlik yükseklikten büyük değil → alta.
+    expect(commands.addPane).toHaveBeenCalledWith("cmd", "C:\\a", { targetPaneId: "a-p1", dir: "column" });
     expect(screen.queryByText("Yeni bölme")).toBeNull();
   });
 
@@ -161,11 +179,12 @@ describe("TerminalMode", () => {
     expect(add.title).toBe("En fazla 9 bölme");
   });
 
-  it("3 bölme: soldaki iki satırı kaplıyor", () => {
+  it("3 bölme: solda tek, sağda üst üste iki yer tutucu (eski ızgaraya benzer)", () => {
     setup({ workspaces: [ws("a", 3)], activeWorkspaceId: "a" });
-    expect(cell("a-p1").style.gridRow).toBe("1 / span 2");
-    expect(cell("a-p2").style.gridColumn).toBe("2");
-    expect(cell("a-p3").style.gridRow).toBe("2 / span 1");
+    const root = document.querySelector('[data-workspace="a"] [data-split="row"]') as HTMLElement;
+    expect(root.querySelector(':scope > [data-slot="a-p1"]')).toBeTruthy();
+    const right = root.querySelector(':scope > [data-split="column"]') as HTMLElement;
+    expect([...right.querySelectorAll("[data-slot]")].map((el) => el.getAttribute("data-slot"))).toEqual(["a-p2", "a-p3"]);
   });
 
   it("xterm odağı: yalnız görünür + seçili alan + odaktaki bölme", () => {
@@ -193,7 +212,8 @@ describe("TerminalMode", () => {
     expect(cell("a-p1").style.display).toBe("none");
     expect(cell("a-p3").style.display).toBe("none");
     expect(screen.getByTestId("xterm-a-t1")).toBeTruthy();
-    expect(cell("a-p2").style.gridColumn).toBe("1 / -1");
+    expect(cell("a-p2").style.left).toBe("0px");
+    expect(cell("a-p2").style.right).toBe("0px");
     expect(screen.queryAllByRole("separator")).toHaveLength(0);
   });
 
@@ -203,23 +223,37 @@ describe("TerminalMode", () => {
     expect(screen.queryByTitle("Büyüt")).toBeNull();
   });
 
-  it("ayırıcı ok tuşlarıyla kayıyor; bölme sayısı değişince oranlar eşitleniyor", () => {
-    const { rerender } = setup({ workspaces: [ws("a", 2)], activeWorkspaceId: "a" });
-    const sep = () => screen.getByRole("separator", { name: "Sütun genişliği" });
-    expect(sep().getAttribute("aria-valuenow")).toBe("50");
-    fireEvent.keyDown(sep(), { key: "ArrowRight" });
-    expect(sep().getAttribute("aria-valuenow")).toBe("52");
-    fireEvent.keyDown(sep(), { key: "ArrowLeft" });
-    fireEvent.keyDown(sep(), { key: "ArrowLeft" });
-    expect(sep().getAttribute("aria-valuenow")).toBe("48");
-    rerender({ workspaces: [ws("a", 3)], activeWorkspaceId: "a" });
-    expect(sep().getAttribute("aria-valuenow")).toBe("50");
-    expect(screen.getByRole("separator", { name: "Satır yüksekliği" })).toBeTruthy();
+  it("ayırıcı: değer ağaçtaki paydan; ok tuşu ve çift tık komut gönderiyor", () => {
+    const { commands } = setup({
+      workspaces: [ws("a", 2, { layout: split("row", ["a-p1", "a-p2"], [0.7, 0.3]) })],
+      activeWorkspaceId: "a"
+    });
+    const sep = screen.getByRole("separator", { name: "Sütun genişliği" });
+    expect(sep.getAttribute("aria-valuenow")).toBe("70");
+    fireEvent.keyDown(sep, { key: "ArrowRight" });
+    expect(commands.resizeSplit).toHaveBeenCalledWith("a", [], 0, 0.02, expect.any(Number));
+    fireEvent.keyDown(sep, { key: "ArrowUp" }); // yatay ayırıcıda dikey ok: yok sayılıyor
+    expect(commands.resizeSplit).toHaveBeenCalledTimes(1);
+    fireEvent.doubleClick(sep);
+    expect(commands.equalizeSplit).toHaveBeenCalledWith("a", []);
   });
 
-  it("4 bölme: bir sütun, bir satır ayırıcısı", () => {
+  it("4 bölme: iki satır kabında birer sütun ayırıcısı, kökte bir satır ayırıcısı", () => {
     setup({ workspaces: [ws("a", 4)], activeWorkspaceId: "a" });
-    expect(screen.getAllByRole("separator", { name: "Sütun genişliği" })).toHaveLength(1);
+    expect(screen.getAllByRole("separator", { name: "Sütun genişliği" })).toHaveLength(2);
     expect(screen.getAllByRole("separator", { name: "Satır yüksekliği" })).toHaveLength(1);
+  });
+
+  it("ağaç değişince (takas, yön, küçültme) xterm yeniden kurulmuyor (spec §6.2)", () => {
+    const { rerender } = setup({ workspaces: [ws("a", 2, { layout: split("row", ["a-p1", "a-p2"]) })], activeWorkspaceId: "a" });
+    const before = mounts.count;
+    rerender({ workspaces: [ws("a", 2, { layout: split("column", ["a-p2", "a-p1"]) })], activeWorkspaceId: "a" });
+    rerender({
+      workspaces: [ws("a", 2, { layout: leaf("a-p1"), minimized: [{ paneId: "a-p2", home: null }] })],
+      activeWorkspaceId: "a"
+    });
+    expect(mounts.count).toBe(before);
+    expect(cell("a-p2").style.display).toBe("none");
+    expect(screen.getByTestId("xterm-a-t2")).toBeTruthy();
   });
 });

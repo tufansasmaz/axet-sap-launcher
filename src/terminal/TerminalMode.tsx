@@ -1,29 +1,42 @@
-import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type RefObject } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { FolderOpen, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
+import { layoutOf } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
 import type { TerminalPaneKind } from "../../app-electron/shared/types";
 import { MAX_TERMINAL_PANES, TERMINAL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
-import { dragRatios, equalRatios, gridLayout } from "./gridLayout";
+import { leafIds, type SplitDir } from "../../app-electron/shared/terminalTree";
 import { middleEllipsis } from "../lib/paths";
 import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import TerminalPaneView from "./TerminalPaneView";
 import NewPaneDialog, { KIND_LABEL } from "./NewPaneDialog";
+import LayoutView from "./LayoutView";
+import type { Box } from "./dropZone";
 
 // Terminal modunun sağ tarafı (spec §3, §5). Bütün alanlar HEP takılı:
 // seçili olmayanlar `hidden`. Alan değiştirince xterm'ler yeniden kurulmuyor,
 // çıktı kaybolmuyor (Sohbet'teki hep-takılı düzenin aynısı).
 
-const GAP = 6;
-const KEY_STEP = 0.02;
+type PaneSplit = { targetPaneId: string; dir: SplitDir };
 
 export default function TerminalMode() {
   const t = useT();
   const { state, commands, defaultKind, defaultCwd } = useTerminalStore();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // Açıkken hangi bölmenin bölüneceği (yoksa odaktakinin sağı).
+  const [dialog, setDialog] = useState<{ split?: PaneSplit } | null>(null);
+  // Alan başına son ölçülen bölme kutuları: "Bölme" düğmesi uzun kenardan
+  // bölsün diye (spec 2026-10-14 §3.2).
+  const rects = useRef<Record<string, Record<string, Box>>>({});
 
   if (state.phase === "closed") return null;
+
+  const splitFor = (w: TerminalWorkspace): PaneSplit | undefined => {
+    const target = w.focusedPaneId;
+    if (!target || !leafIds(layoutOf(w)).includes(target)) return undefined;
+    const box = rects.current[w.id]?.[target];
+    return { targetPaneId: target, dir: box && box.width > box.height ? "row" : "column" };
+  };
 
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId) ?? null;
   const full = (active?.panes.length ?? 0) >= MAX_TERMINAL_PANES;
@@ -54,7 +67,7 @@ export default function TerminalMode() {
           <span className="flex-1" />
           <button
             type="button"
-            onClick={() => setDialogOpen(true)}
+            onClick={() => setDialog({ split: splitFor(active) })}
             disabled={full}
             title={full ? t("terminal.paneMax") : undefined}
             className={`${TOOL_BUTTON} disabled:cursor-default disabled:opacity-40`}
@@ -75,21 +88,28 @@ export default function TerminalMode() {
             {w.panes.length === 0 ? (
               <EmptyWorkspace defaultCwd={defaultCwd} onPick={(kind, cwd) => commands.addPane(kind, cwd)} />
             ) : (
-              <WorkspaceGrid workspace={w} focusable={state.visible && w.id === state.activeWorkspaceId} />
+              <WorkspaceLayout
+                workspace={w}
+                focusable={state.visible && w.id === state.activeWorkspaceId}
+                onRects={(next) => {
+                  rects.current[w.id] = next;
+                }}
+              />
             )}
           </div>
         ))}
       </div>
 
       <NewPaneDialog
-        open={dialogOpen}
+        open={dialog !== null}
         defaultKind={defaultKind}
         defaultCwd={defaultCwd}
         onOpen={(kind, cwd) => {
-          setDialogOpen(false);
-          commands.addPane(kind, cwd);
+          const split = dialog?.split;
+          setDialog(null);
+          commands.addPane(kind, cwd, split);
         }}
-        onCancel={() => setDialogOpen(false)}
+        onCancel={() => setDialog(null)}
       />
     </div>
   );
@@ -143,173 +163,57 @@ function EmptyWorkspace({
   );
 }
 
-/** Oranlar bölme sayısına bağlı: sayı değişince eşitleniyor (spec §3.3). */
-function useRatios(count: number, n: number) {
-  const [stored, setStored] = useState<{ count: number; ratios: number[] } | null>(null);
-  const ratios = stored && stored.count === count && stored.ratios.length === n ? stored.ratios : equalRatios(n);
-  return [ratios, (next: number[]) => setStored({ count, ratios: next })] as const;
+/**
+ * Bölmenin yeri. Bölmeler ağaçtan bağımsız, `paneId` anahtarıyla bir kez
+ * çiziliyor; ağaç yalnız kutuyu veriyor (spec §6.2). Ağaçta olmayan
+ * (küçültülmüş) ya da başka bölme büyütülmüşken gizli ama takılı.
+ */
+function paneStyle(paneId: string, visible: readonly string[], maximized: string | null, rects: Record<string, Box>): CSSProperties {
+  if (maximized === paneId) return { position: "absolute", left: 0, top: 0, right: 0, bottom: 0 };
+  const box = rects[paneId];
+  if (maximized || !visible.includes(paneId) || !box) return { display: "none" };
+  return { position: "absolute", left: box.left, top: box.top, width: box.width, height: box.height };
 }
 
-function WorkspaceGrid({ workspace, focusable }: { workspace: TerminalWorkspace; focusable: boolean }) {
+function WorkspaceLayout({
+  workspace,
+  focusable,
+  onRects
+}: {
+  workspace: TerminalWorkspace;
+  focusable: boolean;
+  onRects: (rects: Record<string, Box>) => void;
+}) {
   const t = useT();
-  const gridRef = useRef<HTMLDivElement | null>(null);
-  const count = workspace.panes.length;
-  const layout = gridLayout(count);
-  const [colRatios, setColRatios] = useRatios(count, layout.cols);
-  const [rowRatios, setRowRatios] = useRatios(count, layout.rows);
+  const { commands } = useTerminalStore();
+  const [rects, setRects] = useState<Record<string, Box>>({});
+  const layout = layoutOf(workspace);
+  const visible = leafIds(layout);
   const maximized = workspace.maximizedPaneId;
 
-  const gridStyle: CSSProperties = {
-    display: "grid",
-    gap: GAP,
-    gridTemplateColumns: maximized ? "1fr" : colRatios.map((r) => `${r}fr`).join(" "),
-    gridTemplateRows: maximized ? "1fr" : rowRatios.map((r) => `${r}fr`).join(" ")
-  };
-
   return (
-    <div ref={gridRef} className="relative h-full min-h-0" style={gridStyle}>
-      {workspace.panes.map((pane, i) => {
-        const c = layout.cells[i];
-        const style: CSSProperties =
-          maximized === pane.id
-            ? { gridColumn: "1 / -1", gridRow: "1 / -1" }
-            : maximized
-              ? { display: "none" }
-              : { gridColumn: `${c.col + 1}`, gridRow: `${c.row + 1} / span ${c.rowSpan}` };
-        return (
-          <div key={pane.id} data-pane={pane.id} className="min-h-0 min-w-0" style={style}>
-            <TerminalPaneView
-              pane={pane}
-              active={focusable && workspace.focusedPaneId === pane.id}
-              canMaximize={count > 1}
-              maximized={maximized === pane.id}
-            />
-          </div>
-        );
-      })}
-
-      {!maximized &&
-        colRatios.slice(0, -1).map((_, i) => (
-          <Divider
-            key={`c${i}`}
-            axis="x"
-            index={i}
-            ratios={colRatios}
-            onChange={setColRatios}
-            gridRef={gridRef}
-            label={t("terminal.resizeColumns")}
-            startOffset={null}
+    <div className="relative h-full min-h-0">
+      <LayoutView
+        layout={layout}
+        dividers={!maximized}
+        onRects={(next) => {
+          setRects(next);
+          onRects(next);
+        }}
+        onResize={(path, index, delta, min) => commands.resizeSplit(workspace.id, path, index, delta, min)}
+        onEqualize={(path) => commands.equalizeSplit(workspace.id, path)}
+        labels={{ row: t("terminal.resizeColumns"), column: t("terminal.resizeRows") }}
+      />
+      {workspace.panes.map((pane) => (
+        <div key={pane.id} data-pane={pane.id} className="min-h-0 min-w-0" style={paneStyle(pane.id, visible, maximized, rects)}>
+          <TerminalPaneView
+            pane={pane}
+            active={focusable && workspace.focusedPaneId === pane.id}
+            canMaximize={visible.length > 1}
+            maximized={maximized === pane.id}
           />
-        ))}
-      {!maximized &&
-        rowRatios.slice(0, -1).map((_, i) => (
-          <Divider
-            key={`r${i}`}
-            axis="y"
-            index={i}
-            ratios={rowRatios}
-            onChange={setRowRatios}
-            gridRef={gridRef}
-            label={t("terminal.resizeRows")}
-            startOffset={
-              layout.rowDividerStartCol === 0
-                ? null
-                : edgeCalc(colRatios, layout.rowDividerStartCol - 1, layout.cols, 1)
-            }
-          />
-        ))}
+        </div>
+      ))}
     </div>
-  );
-}
-
-/**
- * `index`'inci ayırıcının ortası, CSS `calc` olarak. `fr` payları aralıklar
- * düşüldükten sonraki alanı paylaşıyor: konum = pay × (100% − aralıklar)
- * + önceki aralıklar + yarım aralık. `half = 1` ise yarım yerine tam aralık
- * (satır ayırıcısının başladığı sütunun sol kenarı için).
- */
-function edgeCalc(ratios: readonly number[], index: number, n: number, half: 0.5 | 1 = 0.5): string {
-  const share = ratios.slice(0, index + 1).reduce((a, b) => a + b, 0);
-  return `calc(${share} * (100% - ${GAP * (n - 1)}px) + ${(index + half) * GAP}px)`;
-}
-
-function Divider({
-  axis,
-  index,
-  ratios,
-  onChange,
-  gridRef,
-  label,
-  startOffset
-}: {
-  axis: "x" | "y";
-  index: number;
-  ratios: number[];
-  onChange: (next: number[]) => void;
-  gridRef: RefObject<HTMLDivElement | null>;
-  label: string;
-  /** Satır ayırıcısı yalnız bir sütundan başlıyorsa soldaki kenar. */
-  startOffset: string | null;
-}) {
-  const drag = useRef<{ start: number; ratios: number[]; size: number } | null>(null);
-  const share = ratios.slice(0, index + 1).reduce((a, b) => a + b, 0);
-  const pos = edgeCalc(ratios, index, ratios.length);
-
-  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
-    const rect = gridRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const total = axis === "x" ? rect.width : rect.height;
-    const size = total - GAP * (ratios.length - 1);
-    if (size <= 0) return;
-    e.preventDefault();
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-    drag.current = { start: axis === "x" ? e.clientX : e.clientY, ratios, size };
-  };
-
-  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
-    const d = drag.current;
-    if (!d) return;
-    const now = axis === "x" ? e.clientX : e.clientY;
-    onChange(dragRatios(d.ratios, index, (now - d.start) / d.size));
-  };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const back = axis === "x" ? "ArrowLeft" : "ArrowUp";
-    const fwd = axis === "x" ? "ArrowRight" : "ArrowDown";
-    if (e.key !== back && e.key !== fwd) return;
-    e.preventDefault();
-    onChange(dragRatios(ratios, index, e.key === fwd ? KEY_STEP : -KEY_STEP));
-  };
-
-  // 6px'lik tutamaç aralığın tam üstünde; görünür çizgi yok, üstüne gelince
-  // vurgu rengi (spec §3.3).
-  const style: CSSProperties =
-    axis === "x"
-      ? { left: pos, top: 0, bottom: 0, width: GAP, transform: "translateX(-50%)" }
-      : { top: pos, left: startOffset ?? 0, right: 0, height: GAP, transform: "translateY(-50%)" };
-
-  return (
-    <div
-      role="separator"
-      aria-orientation={axis === "x" ? "vertical" : "horizontal"}
-      aria-label={label}
-      aria-valuenow={Math.round(share * 100)}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      tabIndex={0}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={() => {
-        drag.current = null;
-      }}
-      onPointerCancel={() => {
-        drag.current = null;
-      }}
-      onKeyDown={onKeyDown}
-      className={`absolute z-10 rounded-full outline-none transition-colors hover:bg-accent-400/40 focus-visible:bg-accent-400/60 ${
-        axis === "x" ? "cursor-col-resize" : "cursor-row-resize"
-      }`}
-      style={style}
-    />
   );
 }
