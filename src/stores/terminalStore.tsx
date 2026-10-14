@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { AppConfig, TerminalPaneKind } from "../../app-electron/shared/types";
 import { TERMINAL_MISSING_DIR } from "../../app-electron/shared/terminalLayout";
+import { fromLegacy } from "../../app-electron/shared/terminalTree";
 import type { ToastMsg } from "../components/Toast";
 import { useT } from "../i18n";
 import {
@@ -44,11 +45,26 @@ interface TerminalStoreProviderProps {
 /** Kaydedilen düzenin karşılaştırma imzası; alan sırası sabit. */
 function signature(workspaces: AppConfig["terminalWorkspaces"], activeId: string | null): string {
   return JSON.stringify({
-    workspaces: workspaces.map((w) => ({
-      id: w.id,
-      name: w.name,
-      panes: w.panes.map((p) => ({ id: p.id, kind: p.kind, cwd: p.cwd }))
-    })),
+    workspaces: workspaces.map((w) => {
+      const minimized = (w.minimized ?? []).map((m) => ({ paneId: m.paneId, home: m.home }));
+      const hidden = new Set(minimized.map((m) => m.paneId));
+      return {
+        id: w.id,
+        name: w.name,
+        panes: w.panes.map((p) => ({
+          id: p.id,
+          kind: p.kind,
+          cwd: p.cwd,
+          title: p.title ?? null,
+          color: p.color ?? null,
+          fontSize: p.fontSize ?? null
+        })),
+        // Ağaçsız eski kayıt, geri yüklenince kurulan ağaçla aynı sayılıyor:
+        // yalnız geri yüklemek diske yazma tetiklemiyor.
+        layout: w.layout !== undefined ? w.layout : fromLegacy(w.panes.filter((p) => !hidden.has(p.id)).map((p) => p.id)),
+        minimized
+      };
+    }),
     activeId
   });
 }
@@ -317,11 +333,11 @@ export function TerminalStoreProvider({
         panesOf(stateRef.current, id).forEach(release);
         dispatch({ type: "closeWorkspace", id, freshId: crypto.randomUUID(), nameFor: nameForRef.current });
       },
-      addPane: (kind, cwd) => {
+      addPane: (kind, cwd, split) => {
         const workspaceId = stateRef.current.activeWorkspaceId;
         if (!workspaceId) return;
         setLastKind(kind);
-        dispatch({ type: "addPane", workspaceId, paneId: crypto.randomUUID(), kind, cwd });
+        dispatch({ type: "addPane", workspaceId, paneId: crypto.randomUUID(), kind, cwd, split });
       },
       closePane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
@@ -334,7 +350,16 @@ export function TerminalStoreProvider({
         dispatch({ type: "restartPane", paneId, cwd });
       },
       focusPane: (paneId) => dispatch({ type: "focusPane", paneId }),
-      toggleMaximize: (paneId) => dispatch({ type: "toggleMaximize", paneId })
+      toggleMaximize: (paneId) => dispatch({ type: "toggleMaximize", paneId }),
+      // Küçültmede süreç kapanmıyor: `release` yok.
+      movePane: (paneId, targetPaneId, zone) => dispatch({ type: "movePane", paneId, targetPaneId, zone }),
+      resizeSplit: (workspaceId, path, index, delta, min) => dispatch({ type: "resizeSplit", workspaceId, path, index, delta, min }),
+      equalizeSplit: (workspaceId, path) => dispatch({ type: "equalizeSplit", workspaceId, path }),
+      minimizePane: (paneId) => dispatch({ type: "minimizePane", paneId }),
+      restorePane: (paneId) => dispatch({ type: "restorePane", paneId }),
+      renamePane: (paneId, title) => dispatch({ type: "renamePane", paneId, title }),
+      setPaneColor: (paneId, color) => dispatch({ type: "setPaneColor", paneId, color }),
+      setPaneFontSize: (paneId, fontSize) => dispatch({ type: "setPaneFontSize", paneId, fontSize })
     };
   }, []);
 

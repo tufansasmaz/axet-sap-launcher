@@ -9,6 +9,8 @@ import { STARTUP_GRACE_MS, TerminalStoreProvider } from "../src/stores/terminalS
 import { useTerminalStore, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { TERMINAL_MISSING_DIR } from "../app-electron/shared/terminalLayout";
 import type { AppConfig } from "../app-electron/shared/types";
+import { layoutOf, minimizedOf } from "../src/stores/terminalReducer";
+import { leafIds } from "../app-electron/shared/terminalTree";
 
 interface PendingCreate {
   cwd: string;
@@ -431,5 +433,53 @@ describe("başlangıç çıktısı: okunmadı nokta basılmaz", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("bölme ağacı komutları (spec 2026-10-14)", () => {
+  const ws = () => store.state.workspaces[0];
+
+  it("böl, küçült, geri getir, taşı, eşitle; her biri diske yazılıyor", async () => {
+    await ready();
+    act(() => store.commands.addPane("cmd", "C:\\a"));
+    const [p1] = panes().map((p) => p.id);
+    act(() => store.commands.addPane("cmd", "C:\\a", { targetPaneId: p1, dir: "column" }));
+    const p2 = panes()[1].id;
+    expect(layoutOf(ws())).toMatchObject({ type: "split", dir: "column" });
+
+    let calls = api.saveConfig.mock.calls.length;
+    act(() => store.commands.minimizePane(p2));
+    await flush();
+    expect(minimizedOf(ws()).map((m) => m.paneId)).toEqual([p2]);
+    expect(api.saveConfig.mock.calls.length).toBeGreaterThan(calls);
+
+    act(() => store.commands.restorePane(p2));
+    act(() => store.commands.movePane(p1, p2, "center"));
+    expect(leafIds(layoutOf(ws()))).toEqual([p2, p1]);
+
+    calls = api.saveConfig.mock.calls.length;
+    act(() => store.commands.resizeSplit(ws().id, [], 0, 0.2, 0.1));
+    await flush();
+    expect(api.saveConfig.mock.calls.length).toBe(calls + 1);
+    act(() => store.commands.equalizeSplit(ws().id, []));
+    const root = layoutOf(ws());
+    expect(root?.type === "split" && root.sizes).toEqual([0.5, 0.5]);
+  });
+
+  it("ad, renk, yazı boyutu değişince yazılıyor; süreç yeniden başlamıyor", async () => {
+    await ready();
+    act(() => store.commands.addPane("cmd", "C:\\a"));
+    await act(async () => creates[0].resolve("pty-1"));
+    await flush();
+    const id = panes()[0].id;
+    const createsBefore = api.createTerminal.mock.calls.length;
+    act(() => store.commands.renamePane(id, "derleme"));
+    act(() => store.commands.setPaneColor(id, "blue"));
+    act(() => store.commands.setPaneFontSize(id, 16));
+    await flush();
+    expect(panes()[0]).toMatchObject({ title: "derleme", color: "blue", fontSize: 16, run: { state: "running" } });
+    const last = api.saveConfig.mock.calls.at(-1)?.[0] as Partial<AppConfig>;
+    expect(last.terminalWorkspaces?.[0].panes[0]).toEqual({ id, kind: "cmd", cwd: "C:\\a", title: "derleme", color: "blue", fontSize: 16 });
+    expect(api.createTerminal.mock.calls.length).toBe(createsBefore);
   });
 });
