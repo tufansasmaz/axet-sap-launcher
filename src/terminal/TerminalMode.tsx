@@ -6,13 +6,14 @@ import { layoutOf } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
 import type { TerminalPaneKind } from "../../app-electron/shared/types";
 import { MAX_TERMINAL_PANES, TERMINAL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
-import { leafIds, type SplitDir } from "../../app-electron/shared/terminalTree";
+import { leafIds, type DropZone, type SplitDir } from "../../app-electron/shared/terminalTree";
 import { middleEllipsis } from "../lib/paths";
 import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import TerminalPaneView from "./TerminalPaneView";
 import NewPaneDialog, { KIND_LABEL } from "./NewPaneDialog";
 import LayoutView from "./LayoutView";
-import type { Box } from "./dropZone";
+import { zoneBox, type Box } from "./dropZone";
+import { usePaneDrag } from "./usePaneDrag";
 
 // Terminal modunun sağ tarafı (spec §3, §5). Bütün alanlar HEP takılı:
 // seçili olmayanlar `hidden`. Alan değiştirince xterm'ler yeniden kurulmuyor,
@@ -187,12 +188,30 @@ function WorkspaceLayout({
   const t = useT();
   const { commands } = useTerminalStore();
   const [rects, setRects] = useState<Record<string, Box>>({});
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const rectsRef = useRef(rects);
+  rectsRef.current = rects;
+  const workspaceRef = useRef(workspace);
+  workspaceRef.current = workspace;
   const layout = layoutOf(workspace);
   const visible = leafIds(layout);
   const maximized = workspace.maximizedPaneId;
 
+  const { drag, start } = usePaneDrag({
+    containerRef,
+    rectsRef,
+    // Bırakma anındaki durum: sürüklerken kapanan/küçültülen bölmeye bırakılmıyor.
+    canDrop: (paneId, targetId) => {
+      const now = leafIds(layoutOf(workspaceRef.current));
+      return now.includes(paneId) && now.includes(targetId);
+    },
+    onDrop: (paneId: string, targetId: string, zone: DropZone) => commands.movePane(paneId, targetId, zone)
+  });
+  const canDrag = !maximized && visible.length > 1;
+  const ghost = drag?.active && drag.target && drag.zone && rects[drag.target] ? zoneBox(rects[drag.target], drag.zone) : null;
+
   return (
-    <div className="relative h-full min-h-0">
+    <div ref={containerRef} className="relative h-full min-h-0">
       <LayoutView
         layout={layout}
         dividers={!maximized}
@@ -211,9 +230,18 @@ function WorkspaceLayout({
             active={focusable && workspace.focusedPaneId === pane.id}
             canMaximize={visible.length > 1}
             maximized={maximized === pane.id}
+            onDragStart={canDrag ? (e) => start(pane.id, e) : undefined}
+            dragging={drag?.active === true && drag.paneId === pane.id}
           />
         </div>
       ))}
+      {ghost && (
+        <div
+          data-drop-ghost={drag?.zone ?? ""}
+          className="pointer-events-none absolute z-20 rounded-md border border-accent-400/70 bg-accent-400/15 transition-all duration-75"
+          style={{ left: ghost.left, top: ghost.top, width: ghost.width, height: ghost.height }}
+        />
+      )}
     </div>
   );
 }

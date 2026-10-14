@@ -54,7 +54,7 @@ function commandsMock(): TerminalCommands {
 
 function renderPane(
   run: PaneRun,
-  opts: { kind?: TerminalPaneKind; cwd?: string; active?: boolean; canMaximize?: boolean; maximized?: boolean } = {}
+  opts: { kind?: TerminalPaneKind; cwd?: string; active?: boolean; canMaximize?: boolean; maximized?: boolean; onDragStart?: () => void } = {}
 ) {
   const commands = commandsMock();
   const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run };
@@ -68,6 +68,7 @@ function renderPane(
           active={opts.active ?? false}
           canMaximize={opts.canMaximize ?? true}
           maximized={opts.maximized ?? false}
+          onDragStart={opts.onDragStart}
         />
       </TerminalStoreContext.Provider>
     </LanguageProvider>
@@ -190,5 +191,16 @@ describe("TerminalPaneView", () => {
     const c = renderPane({ state: "exited", ptyId: "t1", code: 0 }, { kind: "axet" });
     fireEvent.click(screen.getByTitle("Kapat"));
     expect(c.closePane).toHaveBeenCalledWith("p1");
+  });
+});
+
+describe("sürükleme tutamağı (spec 2026-10-14 §3.4)", () => {
+  it("başlıktan tutunca sürükleme başlıyor, düğmeden tutunca başlamıyor", () => {
+    const onDragStart = vi.fn();
+    renderPane({ state: "running", ptyId: "t1" }, { onDragStart, canMaximize: true });
+    fireEvent.pointerDown(screen.getByText("cmd"), { button: 0 });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Büyüt" }), { button: 0 });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
   });
 });

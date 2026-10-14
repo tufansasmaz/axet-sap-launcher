@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Maximize2, Minimize2, RotateCw, X } from "lucide-react";
 import { useT } from "../i18n";
 import EmbeddedTerminal from "../components/EmbeddedTerminal";
@@ -23,12 +23,17 @@ export default function TerminalPaneView({
   pane,
   active,
   canMaximize,
-  maximized
+  maximized,
+  onDragStart,
+  dragging = false
 }: {
   pane: TerminalPane;
   active: boolean;
   canMaximize: boolean;
   maximized: boolean;
+  /** Yoksa başlık sürüklenmiyor (tek bölme, büyütülmüş). */
+  onDragStart?: (e: ReactPointerEvent<HTMLDivElement>) => void;
+  dragging?: boolean;
 }) {
   const t = useT();
   const { commands } = useTerminalStore();
@@ -55,9 +60,16 @@ export default function TerminalPaneView({
       onFocusCapture={() => commands.focusPane(pane.id)}
       className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-card ${
         active ? "border-accent-500/60" : "border-line"
-      }`}
+      } ${dragging ? "opacity-50" : ""}`}
     >
-      <div className="flex h-7 shrink-0 items-center gap-2 border-b border-line px-2">
+      <div
+        onPointerDown={(e) => {
+          // Düğmeler ve ad kutusu kendi işini yapsın.
+          if (!onDragStart || (e.target as HTMLElement).closest("button, input")) return;
+          onDragStart(e);
+        }}
+        className={`flex h-7 shrink-0 items-center gap-2 border-b border-line px-2 ${onDragStart ? "cursor-grab" : ""}`}
+      >
         <span data-tone={tone} className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_CLASS[tone]}`} />
         <span className="shrink-0 font-mono text-2xs font-medium uppercase tracking-[0.08em] text-slate-300">
           {t(KIND_LABEL[pane.kind])}
