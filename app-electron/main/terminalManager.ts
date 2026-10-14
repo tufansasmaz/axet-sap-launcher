@@ -3,6 +3,7 @@ import * as pty from "@lydell/node-pty";
 import { mkdirSync, statSync } from "node:fs";
 import { getAdtHttpToken } from "./adtHttpToken";
 import { withNttPythonSite } from "./pythonSiteEnv";
+import { appLog } from "./appLog";
 
 // node-pty (ConPTY üzerinden, N-API tabanlı, prebuilt binary — el yazımı
 // koffi/Win32 FFI DEĞİL) ile gerçek bir Windows konsol pseudo-terminal'i
@@ -158,6 +159,7 @@ export function createTerminal(
       window.webContents.send("terminal:exit", id, exitCode);
     }
     sessions.delete(id);
+    forgetResize(id);
   });
 
   if (hasInitialCommand) {
@@ -179,10 +181,38 @@ export function writeTerminal(id: string, data: string): void {
   sessions.get(id)?.proc.write(data);
 }
 
+// Kayma teşhisi (spec 2026-10-14 §5): kabuğa bildirilen her GERÇEK boyut
+// değişikliği günlüğe. Aynı boyut tekrarı yazılmıyor; bölme başına saniyede en
+// fazla RESIZE_LOG_PER_SEC satır (sürükleme sırasında yüzlerce olay gelir).
+// İçerik yok: kimliğin ilk 8 karakteri, sütun, satır.
+const RESIZE_LOG_PER_SEC = 4;
+const lastSize = new Map<string, string>();
+const logWindow = new Map<string, { start: number; count: number }>();
+
+function logResize(id: string, cols: number, rows: number): void {
+  const key = `${cols}x${rows}`;
+  if (lastSize.get(id) === key) return;
+  lastSize.set(id, key);
+  const now = Date.now();
+  const win = logWindow.get(id);
+  if (!win || now - win.start >= 1000) logWindow.set(id, { start: now, count: 1 });
+  else if (win.count >= RESIZE_LOG_PER_SEC) return;
+  else win.count += 1;
+  appLog("terminal.boyut", { bolme: id.slice(0, 8), sutun: cols, satir: rows });
+}
+
+function forgetResize(id: string): void {
+  lastSize.delete(id);
+  logWindow.delete(id);
+}
+
 export function resizeTerminal(id: string, cols: number, rows: number): void {
   if (cols <= 0 || rows <= 0) return;
+  const session = sessions.get(id);
+  if (!session) return;
+  logResize(id, cols, rows);
   try {
-    sessions.get(id)?.proc.resize(cols, rows);
+    session.proc.resize(cols, rows);
   } catch {
     // process az önce kapanmış olabilir, göz ardı et
   }
@@ -198,6 +228,7 @@ export function disposeTerminal(id: string): void {
     // zaten kapalı
   }
   sessions.delete(id);
+  forgetResize(id);
 }
 
 export function disposeAllTerminals(): void {
