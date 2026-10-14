@@ -9,8 +9,8 @@ import type { PaneRun, TerminalPane } from "../src/stores/terminalTypes";
 import type { TerminalPaneColor, TerminalPaneKind } from "../app-electron/shared/types";
 
 vi.mock("../src/components/EmbeddedTerminal", () => ({
-  default: ({ sessionId, active }: { sessionId: string; active: boolean }) => (
-    <div data-testid={`xterm-${sessionId}`} data-active={String(active)} />
+  default: ({ sessionId, active, fontSize }: { sessionId: string; active: boolean; fontSize?: number }) => (
+    <div data-testid={`xterm-${sessionId}`} data-active={String(active)} data-font={String(fontSize ?? "")} />
   )
 }));
 
@@ -65,10 +65,11 @@ function renderPane(
     onDragStart?: () => void;
     onSplit?: (dir: "row" | "column") => void;
     canSplit?: boolean;
+    fontSize?: number;
   } = {}
 ) {
   const commands = commandsMock();
-  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run, title: opts.title, color: opts.color };
+  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run, title: opts.title, color: opts.color, fontSize: opts.fontSize };
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider
@@ -268,5 +269,52 @@ describe("başlık: ad, renk, böl, şeride indir (spec 2026-10-14 §4)", () => 
     const commands = renderPane({ state: "running", ptyId: "t1" });
     fireEvent.click(screen.getByRole("button", { name: "Şeride indir" }));
     expect(commands.minimizePane).toHaveBeenCalledWith("p1");
+  });
+});
+
+describe("yazı boyutu (spec 2026-10-14 §4)", () => {
+  it("bölmenin boyutu terminale gidiyor", () => {
+    renderPane({ state: "running", ptyId: "t1" }, { fontSize: 16 });
+    expect(screen.getByTestId("xterm-t1").getAttribute("data-font")).toBe("16");
+  });
+
+  it("Ctrl+tekerlek büyütüp küçültüyor; Ctrl'siz tekerlek terminalde kalıyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" });
+    const body = screen.getByTestId("xterm-t1");
+    const up = new WheelEvent("wheel", { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => {
+      body.dispatchEvent(up);
+    });
+    expect(up.defaultPrevented).toBe(true);
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", 14);
+    act(() => {
+      body.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, ctrlKey: true, bubbles: true, cancelable: true }));
+    });
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", 12);
+    const plain = new WheelEvent("wheel", { deltaY: 100, bubbles: true, cancelable: true });
+    act(() => {
+      body.dispatchEvent(plain);
+    });
+    expect(plain.defaultPrevented).toBe(false);
+    expect(commands.setPaneFontSize).toHaveBeenCalledTimes(2);
+  });
+
+  it("Ctrl+= / Ctrl+- / Ctrl+0; sınırda çağrı yok; başka Ctrl tuşları terminale gidiyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" }, { fontSize: 24 });
+    const body = screen.getByTestId("xterm-t1");
+    const key = (k: string) => {
+      const e = new KeyboardEvent("keydown", { key: k, ctrlKey: true, bubbles: true, cancelable: true });
+      act(() => {
+        body.dispatchEvent(e);
+      });
+      return e;
+    };
+    expect(key("=").defaultPrevented).toBe(true); // 24'te üst sınır: yutuluyor ama çağrı yok
+    expect(commands.setPaneFontSize).not.toHaveBeenCalled();
+    key("-");
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", 23);
+    key("0");
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", null);
+    expect(key("c").defaultPrevented).toBe(false);
   });
 });

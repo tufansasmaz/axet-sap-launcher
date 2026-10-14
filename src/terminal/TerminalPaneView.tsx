@@ -8,7 +8,7 @@ import { paneTone } from "../stores/terminalReducer";
 import type { TerminalPane } from "../stores/terminalTypes";
 import { middleEllipsis } from "../lib/paths";
 import { KIND_LABEL } from "./NewPaneDialog";
-import { PANE_TITLE_MAX, TERMINAL_PANE_COLORS } from "../../app-electron/shared/terminalLayout";
+import { PANE_FONT_DEFAULT, PANE_TITLE_MAX, TERMINAL_PANE_COLORS, clampPaneFontSize } from "../../app-electron/shared/terminalLayout";
 import type { SplitDir } from "../../app-electron/shared/terminalTree";
 import { PANE_COLOR_LABEL, PANE_COLOR_VAR } from "./paneColors";
 import { GHOST_ICON_BUTTON, TOOL_BUTTON } from "../ui/buttons";
@@ -21,6 +21,13 @@ const TONE_CLASS = {
   error: "bg-[var(--status-danger-solid)]",
   stopped: "bg-slate-500"
 } as const;
+
+/** Ctrl+tekerlek / Ctrl+tuş sonrası yeni boyut; `null` = varsayılana dön. Sınırdaysa aynı değer. */
+export function nextFontSize(current: number | undefined, key: "up" | "down" | "reset"): number | null {
+  if (key === "reset") return null;
+  const base = current ?? PANE_FONT_DEFAULT;
+  return clampPaneFontSize(base + (key === "up" ? 1 : -1)) ?? base;
+}
 
 export default function TerminalPaneView({
   pane,
@@ -52,6 +59,44 @@ export default function TerminalPaneView({
   const skipCommit = useRef(false);
   const [picker, setPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const fontRef = useRef(pane.fontSize);
+  fontRef.current = pane.fontSize;
+
+  // Bölme içinde Ctrl+tekerlek ve Ctrl+= / Ctrl+- / Ctrl+0 (spec §4). Yerli
+  // dinleyici: React'in tekerlek dinleyicisi pasif, `preventDefault` orada
+  // çalışmıyor. Yakalama aşaması: xterm'in textarea'sından önce.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    // Sınırda (yeni = mevcut) ve varsayılandayken Ctrl+0'da (null ↔ tanımsız) çağrı yok.
+    const apply = (key: "up" | "down" | "reset") => {
+      const current = fontRef.current;
+      const next = nextFontSize(current, key);
+      const same = next === null ? current === undefined : next === (current ?? PANE_FONT_DEFAULT);
+      if (!same) commands.setPaneFontSize(pane.id, next);
+    };
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey || e.deltaY === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      apply(e.deltaY < 0 ? "up" : "down");
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (!e.ctrlKey || e.altKey || e.metaKey) return;
+      const key = e.key === "=" || e.key === "+" ? "up" : e.key === "-" ? "down" : e.key === "0" ? "reset" : null;
+      if (!key) return;
+      e.preventDefault();
+      e.stopPropagation();
+      apply(key);
+    };
+    root.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    root.addEventListener("keydown", onKey, true);
+    return () => {
+      root.removeEventListener("wheel", onWheel, true);
+      root.removeEventListener("keydown", onKey, true);
+    };
+  }, [commands, pane.id]);
   const colorVar = PANE_COLOR_VAR[pane.color ?? "gray"];
   const kindLabel = t(KIND_LABEL[pane.kind]);
 
@@ -82,6 +127,7 @@ export default function TerminalPaneView({
 
   return (
     <div
+      ref={rootRef}
       onMouseDownCapture={() => commands.focusPane(pane.id)}
       onFocusCapture={() => commands.focusPane(pane.id)}
       className={`flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-md border bg-card ${
@@ -239,7 +285,7 @@ export default function TerminalPaneView({
       <div className="relative min-h-0 flex-1">
         {ptyId !== null && (
           <div className="absolute inset-0 p-1">
-            <EmbeddedTerminal sessionId={ptyId} active={active} />
+            <EmbeddedTerminal sessionId={ptyId} active={active} fontSize={pane.fontSize} />
           </div>
         )}
         {run.state === "exited" && (
