@@ -48,6 +48,7 @@ function verifyMsg(
     | "unexpectedStatusHtml"
     | "unexpectedStatusHtmlWithTitle"
     | "unexpectedStatusSicfInactive"
+    | "noAdtAuthorization"
     | "invalidUrl"
     | "timeout"
     | "connectionError"
@@ -77,6 +78,7 @@ function verifyMsg(
     unexpectedStatusWithBody: `Beklenmeyen HTTP durumu: ${params?.status} — ${params?.body}`,
     unexpectedStatusHtml: `Beklenmeyen HTTP durumu: ${params?.status} (yanıt bir HTML sayfası — SAP bu durumda genelde ICM'in kendi hata sayfasını döndürür, ADT yanıtı değildir)`,
     unexpectedStatusHtmlWithTitle: `Beklenmeyen HTTP durumu: ${params?.status} — "${params?.title}" (SAP'ın kendi HTML hata sayfası, ADT yanıtı değil)`,
+    noAdtAuthorization: `403 — SAP seni tanıdı (kullanıcı adın ve şifren doğru), ama bu kullanıcının ADT'ye (SAP geliştirme araçları arayüzü, /sap/bc/adt) erişim yetkisi yok. Bu uygulamanın hatası değil, SAP tarafında rol eksikliği — özellikle canlı (production) sistemlerde bu yetki bilerek verilmez. Basis ekibinden bu kullanıcıya S_ADT_RES yetki nesnesini (kaynak: /sap/bc/adt/*; okuma için yeterli) içeren bir rol iste. SAP'ın cevabı: "${params?.body}"`,
     unexpectedStatusSicfInactive: `HTTP ${params?.status} — "${params?.title}". Bu, SAP ICM'in kendi hata sayfası ve genelde şu anlama gelir: bu sistemde /sap/bc/adt servisi SICF'te henüz aktive edilmemiş (kullanıcı adı/şifre veya ağ/VPN sorunu DEĞİL). Basis ekibine SICF (t-code SICF) üzerinden default_host/sap/bc/adt düğümünü "Service/Host Activate" ile aktive etmesini iste.`,
     invalidUrl: "Geçersiz ADT URL",
     timeout: "Zaman aşımı",
@@ -96,6 +98,7 @@ function verifyMsg(
     unexpectedStatusWithBody: `Unexpected HTTP status: ${params?.status} — ${params?.body}`,
     unexpectedStatusHtml: `Unexpected HTTP status: ${params?.status} (response is an HTML page — SAP usually returns ICM's own error page in this case, not an ADT response)`,
     unexpectedStatusHtmlWithTitle: `Unexpected HTTP status: ${params?.status} — "${params?.title}" (SAP's own HTML error page, not an ADT response)`,
+    noAdtAuthorization: `403 — SAP recognized you (your username and password are correct), but this user has no authorization for ADT (the SAP development tools interface, /sap/bc/adt). This is not an error in this app but a missing role on the SAP side — on production systems in particular this authorization is withheld on purpose. Ask the Basis team for a role containing the authorization object S_ADT_RES (resource: /sap/bc/adt/*; read access is enough). SAP's answer: "${params?.body}"`,
     unexpectedStatusSicfInactive: `HTTP ${params?.status} — "${params?.title}". This is SAP ICM's own error page and usually means the /sap/bc/adt service has not been activated in SICF on this system yet (not a username/password or network/VPN issue). Ask the Basis team to activate the default_host/sap/bc/adt node via SICF (t-code SICF, "Service/Host Activate").`,
     invalidUrl: "Invalid ADT URL",
     timeout: "Timed out",
@@ -184,7 +187,23 @@ function extractHtmlTitle(body: string): string {
 
 const SICF_INACTIVE_TITLE_PATTERN = /service cannot be reached|resource\/service.*not (available|found)|404.*not found|service .* not (active|available)/i;
 
-function unexpectedStatusMessage(language: AppLanguage, status: number | null, body: string, contentType?: string): string {
+// ŞİFRE DOĞRU, ADT YETKİSİ YOK (canlı bulgu, 2026-10-14 — NTT'nin canlı ERP'si,
+// bütün kullanıcılarda): SAP 403 ile kendi istisnasını döndürüyor,
+// `ExceptionResourceNoAuthorization`. Ham XML "beklenmeyen durum" diye
+// gösteriliyordu ve kullanıcı ne yapacağını bilemiyordu. Sebep SAP rolü
+// (S_ADT_RES), uygulama değil — mesaj bunu ve kime gidileceğini söylüyor.
+const ADT_NO_AUTH_PATTERN = /ExceptionResourceNoAuthorization/;
+
+/** SAP ADT istisnasının `<message>` metni; yoksa boş. */
+function sapExceptionText(body: string): string {
+  const match = body.match(/<message[^>]*>([\s\S]*?)<\/message>/i);
+  return match ? match[1].replace(/\s+/g, " ").trim() : "";
+}
+
+export function unexpectedStatusMessage(language: AppLanguage, status: number | null, body: string, contentType?: string): string {
+  if (status === 403 && ADT_NO_AUTH_PATTERN.test(body)) {
+    return verifyMsg(language, "noAdtAuthorization", { body: sapExceptionText(body) || "No authorization" });
+  }
   if (isHtmlBody(contentType, body)) {
     const title = extractHtmlTitle(body);
     if (title && SICF_INACTIVE_TITLE_PATTERN.test(title)) {
