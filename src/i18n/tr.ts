@@ -1164,7 +1164,21 @@ export const tr = {
   "terminal.changeFolder": "Değiştir",
   "terminal.open": "Aç",
   "terminal.resizeColumns": "Sütun genişliği",
-  "terminal.resizeRows": "Satır yüksekliği"
+  "terminal.resizeRows": "Satır yüksekliği",
+  "terminal.splitRight": "Sağa böl",
+  "terminal.splitDown": "Alta böl",
+  "terminal.minimize": "Şeride indir",
+  "terminal.restorePane": "Geri getir",
+  "terminal.minimizedStrip": "Şeritteki bölmeler",
+  "terminal.paneName": "Bölme adı",
+  "terminal.renameHint": "Adı değiştirmek için çift tıkla",
+  "terminal.paneColor": "Renk",
+  "terminal.colorGray": "Renksiz",
+  "terminal.colorBlue": "Mavi",
+  "terminal.colorGreen": "Yeşil",
+  "terminal.colorAmber": "Kehribar",
+  "terminal.colorRed": "Kırmızı",
+  "terminal.colorViolet": "Mor"
 };
 
 

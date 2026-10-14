@@ -2,7 +2,7 @@ import { useRef, useState, type CSSProperties } from "react";
 import { FolderOpen, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
-import { layoutOf } from "../stores/terminalReducer";
+import { layoutOf, minimizedOf } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
 import type { TerminalPaneKind } from "../../app-electron/shared/types";
 import { MAX_TERMINAL_PANES, TERMINAL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
@@ -14,6 +14,7 @@ import NewPaneDialog, { KIND_LABEL } from "./NewPaneDialog";
 import LayoutView from "./LayoutView";
 import { zoneBox, type Box } from "./dropZone";
 import { usePaneDrag } from "./usePaneDrag";
+import { PANE_COLOR_VAR } from "./paneColors";
 
 // Terminal modunun sağ tarafı (spec §3, §5). Bütün alanlar HEP takılı:
 // seçili olmayanlar `hidden`. Alan değiştirince xterm'ler yeniden kurulmuyor,
@@ -86,17 +87,26 @@ export default function TerminalMode() {
             data-workspace={w.id}
             className={`${w.id === state.activeWorkspaceId ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
           >
-            {w.panes.length === 0 ? (
-              <EmptyWorkspace defaultCwd={defaultCwd} onPick={(kind, cwd) => commands.addPane(kind, cwd)} />
-            ) : (
-              <WorkspaceLayout
-                workspace={w}
-                focusable={state.visible && w.id === state.activeWorkspaceId}
-                onRects={(next) => {
-                  rects.current[w.id] = next;
-                }}
-              />
-            )}
+            <div className="relative min-h-0 flex-1">
+              {w.panes.length > 0 && (
+                <WorkspaceLayout
+                  workspace={w}
+                  focusable={state.visible && w.id === state.activeWorkspaceId}
+                  canSplit={w.panes.length < MAX_TERMINAL_PANES}
+                  onSplit={(paneId, dir) => setDialog({ split: { targetPaneId: paneId, dir } })}
+                  onRects={(next) => {
+                    rects.current[w.id] = next;
+                  }}
+                />
+              )}
+              {/* Hiç bölme yoksa ya da hepsi şeritteyse. Bölmelerin üstünde: tıklamayı onlar almasın. */}
+              {leafIds(layoutOf(w)).length === 0 && (
+                <div className="absolute inset-0 z-10">
+                  <EmptyWorkspace defaultCwd={defaultCwd} onPick={(kind, cwd) => commands.addPane(kind, cwd)} />
+                </div>
+              )}
+            </div>
+            <MinimizedStrip workspace={w} />
           </div>
         ))}
       </div>
@@ -179,10 +189,14 @@ function paneStyle(paneId: string, visible: readonly string[], maximized: string
 function WorkspaceLayout({
   workspace,
   focusable,
+  canSplit,
+  onSplit,
   onRects
 }: {
   workspace: TerminalWorkspace;
   focusable: boolean;
+  canSplit: boolean;
+  onSplit: (paneId: string, dir: SplitDir) => void;
   onRects: (rects: Record<string, Box>) => void;
 }) {
   const t = useT();
@@ -211,7 +225,7 @@ function WorkspaceLayout({
   const ghost = drag?.active && drag.target && drag.zone && rects[drag.target] ? zoneBox(rects[drag.target], drag.zone) : null;
 
   return (
-    <div ref={containerRef} className="relative h-full min-h-0">
+    <div ref={containerRef} className="absolute inset-0">
       <LayoutView
         layout={layout}
         dividers={!maximized}
@@ -232,6 +246,8 @@ function WorkspaceLayout({
             maximized={maximized === pane.id}
             onDragStart={canDrag ? (e) => start(pane.id, e) : undefined}
             dragging={drag?.active === true && drag.paneId === pane.id}
+            onSplit={(dir) => onSplit(pane.id, dir)}
+            canSplit={canSplit}
           />
         </div>
       ))}
@@ -242,6 +258,37 @@ function WorkspaceLayout({
           style={{ left: ghost.left, top: ghost.top, width: ghost.width, height: ghost.height }}
         />
       )}
+    </div>
+  );
+}
+
+/** Küçültülen bölmeler: ad + renk, çıktı geldiyse nokta; tık → geri gelir (spec §4). */
+function MinimizedStrip({ workspace }: { workspace: TerminalWorkspace }) {
+  const t = useT();
+  const { commands } = useTerminalStore();
+  const items = minimizedOf(workspace);
+  if (items.length === 0) return null;
+  return (
+    <div role="toolbar" aria-label={t("terminal.minimizedStrip")} className="mt-1.5 flex h-7 shrink-0 items-center gap-1 overflow-x-auto">
+      {items.map((m) => {
+        const pane = workspace.panes.find((p) => p.id === m.paneId);
+        if (!pane) return null;
+        const color = PANE_COLOR_VAR[pane.color ?? "gray"];
+        return (
+          <button
+            key={m.paneId}
+            type="button"
+            data-minimized={m.paneId}
+            onClick={() => commands.restorePane(m.paneId)}
+            title={t("terminal.restorePane")}
+            className={`${TOOL_BUTTON} h-6 max-w-[14rem]`}
+          >
+            <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
+            <span className="min-w-0 truncate font-mono text-2xs">{pane.title ?? t(KIND_LABEL[pane.kind])}</span>
+            {m.unread && <span data-unread="" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />}
+          </button>
+        );
+      })}
     </div>
   );
 }

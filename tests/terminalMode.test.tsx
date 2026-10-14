@@ -256,4 +256,56 @@ describe("TerminalMode", () => {
     expect(cell("a-p2").style.display).toBe("none");
     expect(screen.getByTestId("xterm-a-t2")).toBeTruthy();
   });
+
+  it("şerit: küçültülen bölme sekme olarak, okunmadı noktasıyla; tıklayınca geri geliyor", () => {
+    const { commands } = setup({
+      workspaces: [ws("a", 2, { layout: leaf("a-p1"), minimized: [{ paneId: "a-p2", home: null, unread: true }] })],
+      activeWorkspaceId: "a"
+    });
+    const strip = screen.getByRole("toolbar", { name: "Şeritteki bölmeler" });
+    const tab = strip.querySelector('[data-minimized="a-p2"]') as HTMLElement;
+    expect(tab.textContent).toContain("cmd");
+    expect(tab.querySelector("[data-unread]")).toBeTruthy();
+    fireEvent.click(tab);
+    expect(commands.restorePane).toHaveBeenCalledWith("a-p2");
+  });
+
+  it("şerit yoksa çizilmiyor", () => {
+    setup({ workspaces: [ws("a", 2)], activeWorkspaceId: "a" });
+    expect(screen.queryByRole("toolbar", { name: "Şeritteki bölmeler" })).toBeNull();
+  });
+
+  it("hepsi küçültülünce boş-durum metni, xterm'ler takılı, ekleme çalışıyor (inceleme odağı 3)", () => {
+    const { commands } = setup({
+      workspaces: [
+        ws("a", 2, {
+          layout: null,
+          focusedPaneId: null,
+          minimized: [
+            { paneId: "a-p1", home: null },
+            { paneId: "a-p2", home: null }
+          ]
+        })
+      ],
+      activeWorkspaceId: "a"
+    });
+    expect(screen.getByText("Bu alanda terminal yok")).toBeTruthy();
+    expect(screen.getByTestId("xterm-a-t1")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "PowerShell" }));
+    expect(commands.addPane).toHaveBeenCalledWith("powershell", "C:\\a");
+  });
+
+  it("başlıktaki Sağa böl pencereyi açıyor, o bölmeyi sağdan bölüyor", () => {
+    const { commands } = setup({ workspaces: [ws("a", 2)], activeWorkspaceId: "a" });
+    const pane2 = cell("a-p2");
+    fireEvent.click(pane2.querySelector('[aria-label="Sağa böl"]') as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: "Aç" }));
+    expect(commands.addPane).toHaveBeenCalledWith("cmd", "C:\\a", { targetPaneId: "a-p2", dir: "row" });
+  });
+
+  it("9 bölmede böl düğmeleri kapalı", () => {
+    setup({ workspaces: [ws("a", 9)], activeWorkspaceId: "a" });
+    const right = cell("a-p1").querySelector('[aria-label="Sağa böl"]') as HTMLButtonElement;
+    expect(right.disabled).toBe(true);
+  });
 });

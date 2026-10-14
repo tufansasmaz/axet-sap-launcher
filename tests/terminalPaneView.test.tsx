@@ -6,7 +6,7 @@ import TerminalPaneView from "../src/terminal/TerminalPaneView";
 import { TerminalStoreContext, type TerminalCommands } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalPane } from "../src/stores/terminalTypes";
-import type { TerminalPaneKind } from "../app-electron/shared/types";
+import type { TerminalPaneColor, TerminalPaneKind } from "../app-electron/shared/types";
 
 vi.mock("../src/components/EmbeddedTerminal", () => ({
   default: ({ sessionId, active }: { sessionId: string; active: boolean }) => (
@@ -54,10 +54,21 @@ function commandsMock(): TerminalCommands {
 
 function renderPane(
   run: PaneRun,
-  opts: { kind?: TerminalPaneKind; cwd?: string; active?: boolean; canMaximize?: boolean; maximized?: boolean; onDragStart?: () => void } = {}
+  opts: {
+    kind?: TerminalPaneKind;
+    cwd?: string;
+    active?: boolean;
+    canMaximize?: boolean;
+    maximized?: boolean;
+    title?: string;
+    color?: TerminalPaneColor;
+    onDragStart?: () => void;
+    onSplit?: (dir: "row" | "column") => void;
+    canSplit?: boolean;
+  } = {}
 ) {
   const commands = commandsMock();
-  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run };
+  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run, title: opts.title, color: opts.color };
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider
@@ -69,6 +80,8 @@ function renderPane(
           canMaximize={opts.canMaximize ?? true}
           maximized={opts.maximized ?? false}
           onDragStart={opts.onDragStart}
+          onSplit={opts.onSplit}
+          canSplit={opts.canSplit}
         />
       </TerminalStoreContext.Provider>
     </LanguageProvider>
@@ -202,5 +215,58 @@ describe("sürükleme tutamağı (spec 2026-10-14 §3.4)", () => {
     expect(onDragStart).toHaveBeenCalledTimes(1);
     fireEvent.pointerDown(screen.getByRole("button", { name: "Büyüt" }), { button: 0 });
     expect(onDragStart).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("başlık: ad, renk, böl, şeride indir (spec 2026-10-14 §4)", () => {
+  it("ad yoksa tür; çift tık düzenliyor, Enter kaydediyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" });
+    fireEvent.doubleClick(screen.getByText("cmd"));
+    const input = screen.getByRole("textbox", { name: "Bölme adı" }) as HTMLInputElement;
+    expect(input.maxLength).toBe(40);
+    fireEvent.change(input, { target: { value: "derleme" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(commands.renamePane).toHaveBeenCalledWith("p1", "derleme");
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("Esc vazgeçiyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" }, { title: "derleme" });
+    fireEvent.doubleClick(screen.getByText("derleme"));
+    const input = screen.getByRole("textbox", { name: "Bölme adı" });
+    fireEvent.change(input, { target: { value: "başka" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(commands.renamePane).not.toHaveBeenCalled();
+    expect(screen.getByText("derleme")).toBeTruthy();
+  });
+
+  it("renk seçici altı renk; seçince komut, başlıkta şerit", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" }, { color: "blue" });
+    const header = screen.getByText("cmd").closest("[data-pane-header]") as HTMLElement;
+    expect(header.style.boxShadow).toContain("var(--status-info-text)");
+    fireEvent.click(screen.getByRole("button", { name: "Renk" }));
+    expect(screen.getAllByRole("menuitemradio")).toHaveLength(6);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Mor" }));
+    expect(commands.setPaneColor).toHaveBeenCalledWith("p1", "violet");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("böl düğmeleri yönü veriyor; sınırda kapalı", () => {
+    const onSplit = vi.fn();
+    renderPane({ state: "running", ptyId: "t1" }, { onSplit });
+    fireEvent.click(screen.getByRole("button", { name: "Sağa böl" }));
+    fireEvent.click(screen.getByRole("button", { name: "Alta böl" }));
+    expect(onSplit.mock.calls).toEqual([["row"], ["column"]]);
+    cleanup();
+    renderPane({ state: "running", ptyId: "t1" }, { onSplit, canSplit: false });
+    const right = screen.getByRole("button", { name: "Sağa böl" }) as HTMLButtonElement;
+    expect(right.disabled).toBe(true);
+    expect(right.title).toBe("En fazla 9 bölme");
+  });
+
+  it("şeride indir", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" });
+    fireEvent.click(screen.getByRole("button", { name: "Şeride indir" }));
+    expect(commands.minimizePane).toHaveBeenCalledWith("p1");
   });
 });
