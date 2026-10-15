@@ -24,7 +24,9 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash(py:*), Bash(python:*)
 > `scripts/scan_doc_types.py` bunu kendisi yapıyor: yukarı akıştaki gibi ADT motorunu
 > `sys.path`'e EKLEMİYOR, çünkü o yol kurulu ağaçta hiç yok — üç ADT skill'i de projeye
 > `scripts/` olmadan kopyalanıyor ve motor `resources/sap-toolkit` altında kalıyor.
-> `ADT_RO_ALLOW_SQL=true` kapısı aynen duruyor: kapalıysa script hiç bağlanmadan çıkıyor.
+> Tablo okuma kararı sunucunun: script `/health`'teki araç listesine bakıyor, `adt_sql`
+> yoksa SAP'a sormadan çıkıyor (kod 2). NTT Studio salt okunur yüzeyde `adt_sql`'i açık
+> başlatıyor (2026-10-15); anahtar ajanın ortamındaki `ABAP_HTTP_TOKEN`.
 > Gerekirse sunucu adresi `--server` ya da `ADT_RO_URL` ile değiştirilir.
 
 A test plan written from a module name covers the document types someone
@@ -62,10 +64,10 @@ Satınalma siparişi  (EKKO.BSART)  14 document type(s) in use
    ...
 ```
 
-**Needs `ADT_RO_ALLOW_SQL=true`** and refuses without it. That gate is a
-per-profile decision about letting an agent read business and personal data;
-`conversion-consultant` opens it, other roles do not, and a customer-production
-workspace pins it shut regardless.
+**Needs `adt_sql` on the server** and refuses without it (the script reads the
+server's `/health` tool list). Opening it is the server's decision
+(`ADT_RO_ALLOW_SQL` on the read-only wrapper); NTT Studio opens it on the
+read-only surface (2026-10-15).
 
 ### 2. Write the scenarios
 

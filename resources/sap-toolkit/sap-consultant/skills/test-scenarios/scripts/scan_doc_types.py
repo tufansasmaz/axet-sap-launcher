@@ -14,12 +14,16 @@ One row per document type, with its customising description and its record
 count, ordered by count. The agent turns those rows into scenarios -- see the
 skill's SKILL.md; that half is judgement and does not belong in a script.
 
-REQUIRES ADT_RO_ALLOW_SQL=true. That gate is a per-profile decision about
-letting an agent read business and personal data out of any table the SAP user
-can see, and a CLI script that quietly ignored it would make the decision
-meaningless wherever it was taken. conversion-consultant opens it (2026-09-04,
-the team's own request); a customer-production workspace pins it shut and
-nothing here can override that.
+REQUIRES `adt_sql` ON THE SERVER. Whether an agent may read business and
+personal data out of any table the SAP user can see is the server's decision
+(ADT_RO_ALLOW_SQL in the read-only wrapper's environment), and this script
+asks the server rather than its own environment.
+
+NTT Studio: the launcher sets that variable on the 8787 server only, not in the
+agent's terminal (user decision 2026-10-15: table reads open on the read-only
+surface). The old check read the script's own environment and refused even
+where the server served `adt_sql`. The bearer token is ABAP_HTTP_TOKEN, the
+name NTT Studio gives the agent; ADT_RO_TOKEN is still read as a fallback.
 """
 from __future__ import annotations
 
@@ -103,10 +107,12 @@ class ReadOnlyHttpClient:
     def __init__(self, base: str, timeout: float = 120.0) -> None:
         self.base = base.rstrip("/")
         self.timeout = timeout
-        self.token = os.environ.get("ADT_RO_TOKEN", "").strip()
+        self.token = (os.environ.get("ABAP_HTTP_TOKEN") or os.environ.get("ADT_RO_TOKEN") or "").strip()
         health = self._call("GET", "/health", None)
         if not health.get("ok"):
             raise RuntimeError(f"/health: {health}")
+        # Tablo okuma kararı sunucunun: araç listesinde yoksa kapalı.
+        self.serves_sql = "adt_sql" in [str(t) for t in health.get("tools") or []]
 
     def sql(self, query: str, max_rows: int) -> dict:
         res = self._call("POST", "/tool/adt_sql", {"query": query, "max_rows": max_rows})
@@ -153,13 +159,6 @@ def main() -> int:
                     help="read-only ADT HTTP gate (default http://127.0.0.1:8787)")
     args = ap.parse_args()
 
-    if (os.getenv("ADT_RO_ALLOW_SQL", "").strip().lower() != "true"):
-        print("[FAIL] ADT_RO_ALLOW_SQL is not 'true'.")
-        print("[INFO] This scan reads business tables. The gate is a decision your")
-        print("       profile takes, not one this script may take for it.")
-        print("       conversion-consultant sets it; other roles do not.")
-        return 2
-
     # NTT Studio uyarlaması: motoru import ETMİYORUZ, HTTP kapısına konuşuyoruz.
     # Yukarı akış burada `../../sap-adt/scripts`'i `sys.path`'e ekliyor. O yol bu
     # dağıtımda ASLA çözülmüyor: her üç ADT skill'i de projeye `scripts/` olmadan
@@ -175,6 +174,11 @@ def main() -> int:
         print(f"[INFO] Beklenen adres: {args.server}")
         print("[INFO] Sunucuyu NTT Studio başlatır; SAP bağlantısı kurulu mu diye bak.")
         return 1
+    if not client.serves_sql:
+        print("[FAIL] adt_sql bu sunucuda açık değil.")
+        print("[INFO] Bu tarama iş tablolarını okuyor. Açıp açmamak sunucunun")
+        print("       kararı (ADT_RO_ALLOW_SQL); bu script onu kendisi veremez.")
+        return 2
 
     out = {"module": args.module, "language": args.language, "kinds": []}
     for spec in MODULES[args.module]:

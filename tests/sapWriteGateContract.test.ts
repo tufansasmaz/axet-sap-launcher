@@ -29,7 +29,7 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
     expect(body).toContain('"adt_gated_server.py"');
     expect(body).not.toContain("adt_mcp_server.py");
     expect(body).toContain("53 araç");
-    expect(body).toContain("(19 araç)");
+    expect(body).toContain("(21 araç)");
   });
 
   it("onay ucunun adresi ve token'ı yalnızca onaylı sunucunun ortamına gidiyor", () => {
@@ -44,8 +44,15 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
     expect(tierGate).not.toMatch(/ADT_APPROVAL_(URL|TOKEN)/);
   });
 
-  it("/health sayısı yüzeyle uyuşmazsa beklenen 53 / 19", () => {
-    expect(manager).toContain('expected: opts.expectWritable ? "53" : "19"');
+  it("sap-context.md salt okunur yüzeyde tablo ve dump okumayı açık, birim testini kapalı söylüyor", () => {
+    // Kullanıcı kararı 2026-10-15; ajan "kapalı" okursa denemez bile.
+    expect(launcher).not.toContain("ve \\`adt_unit_test\\` ayrıca kendi izin değişkenleriyle kapalı");
+    expect(launcher).toContain("\\`adt_sql\\` (tablo okuma) ve \\`adt_dumps\\` (ST22) açık");
+    expect(launcher).toContain("\\`adt_unit_test\\` kapalı");
+  });
+
+  it("/health sayısı yüzeyle uyuşmazsa beklenen 53 / 21", () => {
+    expect(manager).toContain('expected: opts.expectWritable ? "53" : "21"');
   });
 
   it("hiçbir yerde eski 33 / 17 / 13 araç sayısı kalmadı", () => {
@@ -185,6 +192,8 @@ describe("CLAUDE.md — uyarlama tablosu", () => {
     "gated_collect.py",
     "gated_quality.py",
     "ntt_tls_pin.py",
+    "ntt_ns_url.py",
+    "test_scan_doc_types_gate.py",
     "ntt_tier.py",
     "test_ntt_tier.py",
     "ntt_binding.py",

@@ -26,7 +26,7 @@ export interface ReadonlyServerStartOptions {
   pythonPath: string;
   port: number;
   /**
-   * DEV sistemde onaylı yazma sunucusunu (53 araç), aksi hâlde sarmalayıcıyı (19 araç)
+   * DEV sistemde onaylı yazma sunucusunu (53 araç), aksi hâlde sarmalayıcıyı (21 araç)
    * başlatıyoruz. Bu bayrak, portta ZATEN duran bir sunucuyu sahiplenmeden
    * önce onun gerçekten doğru yüzey olduğunu doğrulamak için gerekiyor —
    * bkz. `probeHealth`/`surfaceMismatch`.
@@ -131,9 +131,15 @@ interface HealthInfo {
    * `writable` ikisini ayırmıyor.
    */
   gated: boolean;
+  /**
+   * Tablo okuma (`adt_sql`) listede mi. Salt okunur sarmalayıcı onu yalnız
+   * `ADT_RO_ALLOW_SQL=true` ile kaydediyor; bu sürümden önce başlamış bir
+   * sarmalayıcı (19 araç) listelemez ve devralınmamalı.
+   */
+  readsData: boolean;
 }
 
-const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false, gated: false };
+const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false, gated: false, readsData: false };
 
 function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
   return new Promise((resolve) => {
@@ -175,7 +181,8 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
               writable: tools.includes("adt_push"),
               toolCount: typeof parsed.tool_count === "number" ? parsed.tool_count : tools.length,
               unauthorized: false,
-              gated: tools.includes("axet_teslim")
+              gated: tools.includes("axet_teslim"),
+              readsData: tools.includes("adt_sql")
             });
           } catch {
             // Ayakta ama cevabı okunamıyor: sahiplenmek için yeterli değil.
@@ -235,7 +242,8 @@ function envKeyFor(opts: ReadonlyServerStartOptions): string {
 /** Ayaktaki sunucu bu isteğin yüzeyini mi sunuyor? */
 function surfaceMatches(info: HealthInfo, opts: ReadonlyServerStartOptions): boolean {
   if (opts.gate) return info.gated;
-  return !info.gated && info.writable === opts.expectWritable;
+  // Salt okunur yüzey tablo okumayı da sunmalı (kullanıcı kararı 2026-10-15).
+  return !info.gated && info.writable === opts.expectWritable && (opts.expectWritable || info.readsData);
 }
 
 function describeFailure(server: RunningServer): string {
@@ -308,7 +316,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // tek bir sunucu vardı, dolayısıyla cevap da tekti. Artık iki sunucu var:
   // DEV'de bırakılmış YAZAN bir sunucu, ardından PRD'ye bağlanıldığında sessizce
   // sahiplenilir ve canlı sisteme push edilebilir bir oturum açardı. Tersi de
-  // yanlış ama zararsız: DEV'de 19 araçlık sunucuyu devralıp "neden push yok"
+  // yanlış ama zararsız: DEV'de 21 araçlık sunucuyu devralıp "neden push yok"
   // sorusunu doğurur. İkisini de reddediyoruz; sahibi olmadığımız bir process'i
   // öldürmek yerine durumu söylüyoruz.
   //
@@ -341,7 +349,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
         message: mt("adtServer.surfaceMismatch", {
           port: opts.port,
           found: String(onPort.toolCount),
-          expected: opts.expectWritable ? "53" : "19"
+          expected: opts.expectWritable ? "53" : "21"
         })
       };
     }
@@ -380,6 +388,15 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
     ABAP_HTTP_TOKEN: getAdtHttpToken(),
     ADT_CWD: opts.projectDir
   });
+  // Salt okunur sarmalayıcının veri okuma kapıları (adt_readonly_server.py
+  // GATED). Kullanıcı kararı 2026-10-15: tablo ve dump okuma her kademede
+  // açık — modül danışmanı read-only yüzeyde hatanın kaynağına bakamıyordu.
+  // `adt_unit_test` ABAP ÇALIŞTIRIYOR; kapalı kalıyor, launcher'ın ortamından
+  // miras kalan bir "true" da onu açmıyor. Onaylı yazma sunucusu bu
+  // değişkenleri okumuyor (motorun bütün araçları zaten onda).
+  env.ADT_RO_ALLOW_SQL = "true";
+  env.ADT_RO_ALLOW_DUMPS = "true";
+  delete env.ADT_RO_ALLOW_UNIT_TEST;
   if (opts.gate) {
     env.ADT_APPROVAL_URL = opts.gate.url;
     env.ADT_APPROVAL_TOKEN = opts.gate.token;

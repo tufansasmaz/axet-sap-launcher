@@ -110,6 +110,13 @@ continue on suspenders alone.
 | `adt_sql` | `ADT_RO_ALLOW_SQL` | Reads business and personal data from any table the SAP user can see |
 | `adt_dumps` | `ADT_RO_ALLOW_DUMPS` | Short-dump text routinely contains field values |
 
+> **NTT Studio (2026-10-15):** the server NTT Studio starts on 8787 opens `adt_sql` and
+> `adt_dumps` on every tier (user decision: a module consultant could not read a single
+> table or dump to find a fault) and keeps `adt_unit_test` closed, even if the variable is
+> inherited. That surface is **21 tools**; `/health` lists them. Do not try to open or close
+> a gate yourself. On QA/PRD a sensitive table still answers `GR_PII`: ask the user, and
+> only an explicit "onay" from them goes into `approval_text` — never supply it yourself.
+
 **Not registered (13):** `adt_push`, `adt_create`, `adt_activate`, `adt_delete_object`,
 `adt_create_package`, `adt_create_transport`, `adt_delete_transport`,
 `adt_remove_from_transport`, `adt_set_transport`, `adt_clear_lock`,

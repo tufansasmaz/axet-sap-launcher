@@ -52,7 +52,7 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   //
   //   sap-adt              motor (50 araç) + onay katmanı, 53 araç, onaylı yazma dahil
   //   sap-adt-readonly     4 dosyalık sarmalayıcı — motoru YANDAN import edip
-  //                        28 yazan aracı MCP kaydından siliyor (19 araç kalır)
+  //                        28 yazan aracı MCP kaydından siliyor (21 araç kalır)
   //   sap-adt-router-bridge  ADT'yi RFC'ye çeviren shim (adt_rfc_bridge.py);
   //                        router arkasındaki, HTTP portu kapalı sistemler için
   //
@@ -476,7 +476,7 @@ export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
  * kullanıcının gördüğü liste ile diske yazılan liste aynı koddan çıkar.
  *
  * ADT motoru burada TAKAS ediliyor, engellenmiyor: yazma yüzeyi isteyen bir rol
- * DEV dışı bir sistemde `sap-adt-readonly`'ye düşer (19 araç). Engelleseydik
+ * DEV dışı bir sistemde `sap-adt-readonly`'ye düşer (21 araç). Engelleseydik
  * PRD'ye bağlanan bir teknik danışmanın elinde hiç ADT kalmazdı — yazamamak
  * okuyamamak demek değil. İkisi aynı anda kurulmuyor: aynı klasörde iki ADT
  * skill'i, ajana "hangi sunucu" diye cevabı olmayan bir soru sordurur.

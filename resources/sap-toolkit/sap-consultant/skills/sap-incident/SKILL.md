@@ -40,13 +40,15 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 > `adt_atc_check`, `adt_inactive_objects`, `adt_badi_discovery`, `adt_list_transports`,
 > `adt_transport_check`.
 >
-> **Üç araç read-only yüzeyde AYRICA kapalı** ve her biri kendi ortam değişkenini
-> istiyor — `adt_dumps` (`ADT_RO_ALLOW_DUMPS`; dump metni alan değerleri taşır),
-> `adt_sql` (`ADT_RO_ALLOW_SQL`; iş ve kişisel veri) ve `adt_unit_test`
-> (`ADT_RO_ALLOW_UNIT_TEST`; hedefte ABAP koşturur). Bir vakada bunlar ilk elden
-> kanıt olduğu için kapalı olmaları sık: `404 unknown_tool` görürsen bunu bir arıza
-> gibi raporlama, danışmana hangi sistemde olduğunu söyleyip açılmasını iste ya da
-> o adımı bir **limit** olarak kaydet.
+> **Üç araç read-only yüzeyde kendi ortam değişkeniyle açılıyor** — `adt_dumps`
+> (`ADT_RO_ALLOW_DUMPS`; dump metni alan değerleri taşır), `adt_sql` (`ADT_RO_ALLOW_SQL`;
+> iş ve kişisel veri) ve `adt_unit_test` (`ADT_RO_ALLOW_UNIT_TEST`; hedefte ABAP koşturur).
+> **NTT Studio'da `adt_dumps` ve `adt_sql` açık, `adt_unit_test` kapalı** (2026-10-15):
+> vakaya ST22 dumpı ve ilgili tablolarla başla. QA/PRD'de kişisel veri taşıyan tablo
+> `GR_PII` ile reddedilir; kullanıcıya hangi tabloyu neden okuyacağını söyle, açık "onay"
+> gelirse `acknowledge_risk=true` + onun cevabıyla (`approval_text`) tekrar dene — onayı
+> kendin verme. Bir araç yine de `404 unknown_tool` dönerse arıza gibi raporlama; o adımı
+> bir **limit** olarak kaydet.
 >
 > **`${CLAUDE_PLUGIN_ROOT}` de yok.** Aşağıda `${CLAUDE_PLUGIN_ROOT}/scripts/` geçen her
 > yerde proje kökündeki **`.axet-code/scripts/`** oku — `case.py` oraya kuruluyor.
