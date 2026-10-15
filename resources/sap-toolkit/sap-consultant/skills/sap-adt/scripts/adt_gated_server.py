@@ -124,6 +124,13 @@ import ntt_tls_pin  # noqa: E402
 _assert_origin(ntt_tls_pin, _SCRIPTS_DIR / "ntt_tls_pin.py")
 ntt_tls_pin.install()
 
+# Ad alanlı nesne (`/ITETR/...`): motor yolu `classes//itetr/...` kuruyor, ADT
+# `%2fitetr%2f` bekliyor ve 404 dönüyor (bkz. ntt_ns_url.py).
+import ntt_ns_url  # noqa: E402
+
+_assert_origin(ntt_ns_url, _SCRIPTS_DIR / "ntt_ns_url.py")
+ntt_ns_url.install()
+
 
 # --- sınıflar -----------------------------------------------------------------
 SERBEST = {

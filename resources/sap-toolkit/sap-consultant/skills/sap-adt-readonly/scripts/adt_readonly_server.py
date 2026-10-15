@@ -166,6 +166,14 @@ import ntt_tls_pin  # noqa: E402
 _assert_origin(ntt_tls_pin, _ENGINE_DIR / "ntt_tls_pin.py")
 ntt_tls_pin.install()
 
+# NTT Studio: namespaced objects (`/ITETR/...`). The engine builds the path as
+# `classes//itetr/...`; ADT expects `%2fitetr%2f` and answers the other form
+# with 404 (see sap-adt/scripts/ntt_ns_url.py).
+import ntt_ns_url  # noqa: E402
+
+_assert_origin(ntt_ns_url, _ENGINE_DIR / "ntt_ns_url.py")
+ntt_ns_url.install()
+
 
 # --- the classification ------------------------------------------------------
 # Every name here is a tool in adt_mcp_server.py. ALLOW | GATED | DENY must equal
