@@ -33,19 +33,22 @@ type ChildLike = {
 };
 export type SpawnLike = (cmd: string, args: string[], opts: { env: NodeJS.ProcessEnv; windowsHide: boolean }) => ChildLike;
 
+/** "timeout" ayrı: Outlook'ta bir güvenlik sorusu açık kalmış olabilir, kullanıcıya söyleniyor. */
+export type DraftOutcome = "opened" | "failed" | "timeout";
+
 export function openOutlookDraft(
   mail: DraftMail,
   spawnImpl: SpawnLike = spawn as unknown as SpawnLike,
   timeoutMs = DRAFT_TIMEOUT_MS
-): Promise<boolean> {
+): Promise<DraftOutcome> {
   return new Promise((resolve) => {
     let done = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
-    const finish = (ok: boolean) => {
+    const finish = (outcome: DraftOutcome) => {
       if (done) return;
       done = true;
       if (timer) clearTimeout(timer);
-      resolve(ok);
+      resolve(outcome);
     };
     let child: ChildLike;
     try {
@@ -60,7 +63,7 @@ export function openOutlookDraft(
         windowsHide: true
       });
     } catch {
-      finish(false);
+      finish("failed");
       return;
     }
     timer = setTimeout(() => {
@@ -69,18 +72,19 @@ export function openOutlookDraft(
       } catch {
         // zaten bitmiş olabilir
       }
-      finish(false);
+      finish("timeout");
     }, timeoutMs);
-    child.on("exit", (code) => finish(code === 0));
-    child.on("error", () => finish(false));
+    child.on("exit", (code) => finish(code === 0 ? "opened" : "failed"));
+    child.on("error", () => finish("failed"));
   });
 }
 
 export async function deliverBundle(
   mail: DraftMail,
-  deps: { openDraft: (m: DraftMail) => Promise<boolean>; showInFolder: (p: string) => void }
-): Promise<"outlook" | "folder"> {
-  if (await deps.openDraft(mail)) return "outlook";
+  deps: { openDraft: (m: DraftMail) => Promise<DraftOutcome>; showInFolder: (p: string) => void }
+): Promise<{ draft: "outlook" | "folder"; outlookTimedOut: boolean }> {
+  const outcome = await deps.openDraft(mail);
+  if (outcome === "opened") return { draft: "outlook", outlookTimedOut: false };
   deps.showInFolder(mail.attachment);
-  return "folder";
+  return { draft: "folder", outlookTimedOut: outcome === "timeout" };
 }

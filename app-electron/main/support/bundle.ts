@@ -34,10 +34,9 @@ interface Candidate {
 }
 
 function candidates(src: Pick<BundleSources, "appLogPath" | "projectDir">): Candidate[] {
-  const list: Candidate[] = [
-    { name: "ntt-studio.log", path: src.appLogPath, expected: true },
-    { name: "ntt-studio.log.1", path: `${src.appLogPath}.1`, expected: false }
-  ];
+  const list: Candidate[] = [{ name: "ntt-studio.log", path: src.appLogPath, expected: true }];
+  // Yol boşsa (günlük klasörü çözülemedi) ".1" çalışma klasörüne göre aranırdı.
+  if (src.appLogPath) list.push({ name: "ntt-studio.log.1", path: `${src.appLogPath}.1`, expected: false });
   if (src.projectDir) {
     list.push({ name: "axet-code.log", path: path.join(src.projectDir, ".axet-code", "logs", "axet-code.log"), expected: true });
     list.push({ name: "adt-sunucu.log", path: path.join(src.projectDir, "adt-readonly.log"), expected: true });

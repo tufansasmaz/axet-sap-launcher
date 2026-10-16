@@ -104,6 +104,7 @@ export const tr = {
   "support.failed": "Paket oluşturulamadı: {message}",
   "support.doneOutlook": "Destek paketi Outlook taslağına eklendi.",
   "support.doneFolder": "Destek paketi kaydedildi: {path}",
+  "support.doneFolderTimeout": "Outlook 20 saniyede yanıt vermedi (açık bir güvenlik sorusu olabilir). Destek paketi kaydedildi: {path}",
   "support.emailLabel": "Destek e-posta adresi",
   "support.emailHelper": "\"Sorun bildir\" taslağının alıcısı. Boşsa taslak alıcısız açılır.",
   "support.openAction": "Sorun bildir…",

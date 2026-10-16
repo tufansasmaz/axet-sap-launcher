@@ -18,7 +18,7 @@ import Sidebar from "./shell/Sidebar";
 import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./shell/activity";
 import { useShellShortcuts } from "./shell/useShellShortcuts";
 import AppCommandPalette from "./components/AppCommandPalette";
-import { SupportDialogHost } from "./components/SupportDialog";
+import { SupportDialogHost, supportDoneMessage } from "./components/SupportDialog";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
 import ChatModeBadge from "./components/ChatModeBadge";
@@ -1276,12 +1276,7 @@ export default function App() {
         <SupportDialogHost
           open={supportOpen}
           onClose={() => setSupportOpen(false)}
-          onDone={(r) =>
-            pushToast(
-              "success",
-              r.draft === "outlook" ? t("support.doneOutlook") : t("support.doneFolder", { path: r.zipPath })
-            )
-          }
+          onDone={(r) => pushToast("success", supportDoneMessage(t, r))}
         />
 
         <SapWriteGate

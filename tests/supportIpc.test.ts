@@ -46,10 +46,10 @@ vi.mock("../app-electron/main/support/outlookDraft", async () => {
   const real = await vi.importActual<typeof import("../app-electron/main/support/outlookDraft")>(
     "../app-electron/main/support/outlookDraft"
   );
-  return { ...real, openOutlookDraft: async () => false };
+  return { ...real, openOutlookDraft: async () => "timeout" as const };
 });
 
-const { createSupportBundle, registerSupportIpc } = await import("../app-electron/main/support/ipc");
+const { MAX_CHAT_CHARS, createSupportBundle, registerSupportIpc } = await import("../app-electron/main/support/ipc");
 
 /** Zip'in merkezi dizininden adlar ve açılmış içerikler. */
 function unzip(file: string): Record<string, string> {
@@ -86,6 +86,7 @@ describe("createSupportBundle", () => {
     expect(path.dirname(result.zipPath)).toBe(path.join(h.root, "documents", "NTT Studio Destek"));
     expect(path.basename(result.zipPath)).toMatch(/^ntt-studio-destek-\d{8}-\d{6}\.zip$/);
     expect(result.draft).toBe("folder");
+    expect(result.outlookTimedOut).toBe(true);
     expect(h.showItemInFolder).toHaveBeenCalledWith(result.zipPath);
     const files = unzip(result.zipPath);
     expect(Object.keys(files)).toEqual(["bilgi.json", "ntt-studio.log", "sohbet-zamanlari.json", "not.txt"]);
@@ -95,6 +96,15 @@ describe("createSupportBundle", () => {
     const info = JSON.parse(files["bilgi.json"]);
     expect(info).toMatchObject({ uygulama: "9.9.9", rol: "module-consultant", sistem: { sid: "D01", kademe: "DEV" } });
     expect(info.adtSunucu).toEqual({ calisiyor: true, yetkisiz: false, aracSayisi: 2 });
+  });
+
+  it("çok uzun sohbet metni sondan kırpılıyor — inceleme M5", async () => {
+    const result = await createSupportBundle({ note: "", chatMarkdown: "a".repeat(MAX_CHAT_CHARS + 1000) + "SON" });
+    if (!result.ok) throw new Error(result.message);
+    const md = unzip(result.zipPath)["sohbet.md"];
+    expect(md.length).toBeLessThan(MAX_CHAT_CHARS + 100);
+    expect(md.endsWith("SON")).toBe(true);
+    expect(md.startsWith("…")).toBe(true);
   });
 
   it("IPC: önizleme listesi ve oluşturma kayıtlı", async () => {

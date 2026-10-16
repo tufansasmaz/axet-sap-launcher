@@ -1,8 +1,8 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { LifeBuoy } from "lucide-react";
 import { Modal, ModalCancelButton } from "../ui/Modal";
 import { Button } from "../ui/Button";
-import { useT } from "../i18n";
+import { useT, type TranslateFn } from "../i18n";
 import { chatToMarkdown, type ChatExportInput } from "../lib/chatExport";
 import { useChatStore } from "../stores/chatStore";
 
@@ -10,11 +10,23 @@ import { useChatStore } from "../stores/chatStore";
 // listesi ana süreçten geliyor, sohbet metni yalnız kutu işaretliyse gidiyor.
 // Paketi oluşturan ve maskeleyen ana süreç (support/ipc.ts).
 
+export interface SupportDone {
+  zipPath: string;
+  draft: "outlook" | "folder";
+  outlookTimedOut: boolean;
+}
+
+/** Bildirim metni. Outlook zaman aşımı ayrı: açık kalmış bir güvenlik sorusu olabilir. */
+export function supportDoneMessage(t: TranslateFn, r: SupportDone): string {
+  if (r.draft === "outlook") return t("support.doneOutlook");
+  return t(r.outlookTimedOut ? "support.doneFolderTimeout" : "support.doneFolder", { path: r.zipPath });
+}
+
 interface Props {
   open: boolean;
   onClose: () => void;
   chat: ChatExportInput | null;
-  onDone: (result: { zipPath: string; draft: "outlook" | "folder" }) => void;
+  onDone: (result: SupportDone) => void;
 }
 
 export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
@@ -26,10 +38,7 @@ export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const chatAvailable = !!chat && chat.messages.length > 0;
-  const chatMarkdown = useMemo(
-    () => (includeChat && chatAvailable && chat ? chatToMarkdown(chat) : null),
-    [includeChat, chatAvailable, chat]
-  );
+  const withChat = includeChat && chatAvailable;
   const hasNote = note.trim().length > 0;
 
   useEffect(() => {
@@ -44,7 +53,8 @@ export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
   useEffect(() => {
     if (!open) return;
     let disposed = false;
-    window.api.supportPreview({ note: hasNote ? "x" : "", chatMarkdown }).then((names) => {
+    // Önizlemeye yalnız işaretler gidiyor; sohbet metni oluşturulurken bir kez çevriliyor.
+    window.api.supportPreview({ note: hasNote ? "x" : "", chatMarkdown: withChat ? "x" : null }).then((names) => {
       if (!disposed) setFiles(names);
     }, () => {
       if (!disposed) setFiles([]);
@@ -52,7 +62,7 @@ export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
     return () => {
       disposed = true;
     };
-  }, [open, hasNote, chatMarkdown]);
+  }, [open, hasNote, withChat]);
 
   const create = async () => {
     if (busy) return;
@@ -61,6 +71,7 @@ export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
     // IPC reddederse de meşgul kalmasın: pencere `closeDisabled` ile kilitlenirdi.
     let result: Awaited<ReturnType<typeof window.api.supportCreate>>;
     try {
+      const chatMarkdown = withChat && chat ? chatToMarkdown(chat) : null;
       result = await window.api.supportCreate({ note: note.trim(), chatMarkdown });
     } catch (err) {
       result = { ok: false, message: (err as Error).message };
@@ -71,7 +82,7 @@ export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
       setError(t("support.failed", { message: result.message }));
       return;
     }
-    onDone({ zipPath: result.zipPath, draft: result.draft });
+    onDone({ zipPath: result.zipPath, draft: result.draft, outlookTimedOut: result.outlookTimedOut });
     onClose();
   };
 

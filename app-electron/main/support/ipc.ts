@@ -26,6 +26,8 @@ import { buildZip } from "./zipWriter";
 
 const ADT_PORT = 8787;
 const MAX_NOTE = 4000;
+/** Sohbet metni üst sınırı; aşan kısım BAŞTAN kırpılıyor (son mesajlar kalsın). */
+export const MAX_CHAT_CHARS = 2 * 1024 * 1024;
 
 export interface SupportCreateRequest {
   note: string;
@@ -36,7 +38,12 @@ function normalize(raw: unknown): BundleRequest {
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   return {
     note: typeof r.note === "string" ? r.note.slice(0, MAX_NOTE) : "",
-    chatMarkdown: typeof r.chatMarkdown === "string" && r.chatMarkdown ? r.chatMarkdown : null
+    chatMarkdown:
+      typeof r.chatMarkdown === "string" && r.chatMarkdown
+        ? r.chatMarkdown.length > MAX_CHAT_CHARS
+          ? `…(baştan kırpıldı)\n${r.chatMarkdown.slice(-MAX_CHAT_CHARS)}`
+          : r.chatMarkdown
+        : null
   };
 }
 
@@ -98,7 +105,7 @@ export async function createSupportBundle(raw: unknown): Promise<SupportCreateRe
 
     const system = sap ? ` — ${sap.systemId} (${sap.tier ?? "?"})` : "";
     const note = redact(req.note.trim(), secrets).text;
-    const draft = await deliverBundle(
+    const delivered = await deliverBundle(
       {
         to: config.supportEmail ?? "",
         subject: `NTT Studio sorun bildirimi — ${app.getVersion()}${system}`,
@@ -109,7 +116,7 @@ export async function createSupportBundle(raw: unknown): Promise<SupportCreateRe
       },
       { openDraft: (m) => openOutlookDraft(m), showInFolder: (p) => shell.showItemInFolder(p) }
     );
-    return { ok: true, zipPath, draft };
+    return { ok: true, zipPath, ...delivered };
   } catch (err) {
     return { ok: false, message: (err as Error).message };
   }

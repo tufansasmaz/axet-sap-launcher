@@ -30,7 +30,7 @@ function fakeSpawn(behave: "ok" | "fail" | "error" | "hang") {
 describe("openOutlookDraft", () => {
   it("değerler ortamda; komut satırında ne adres ne konu ne gövde var", async () => {
     const f = fakeSpawn("ok");
-    expect(await openOutlookDraft(MAIL, f.impl as never)).toBe(true);
+    expect(await openOutlookDraft(MAIL, f.impl as never)).toBe("opened");
     const { cmd, args, env } = f.calls[0];
     expect(cmd.toLowerCase()).toContain("powershell");
     expect(args).toContain(OUTLOOK_SCRIPT);
@@ -42,14 +42,14 @@ describe("openOutlookDraft", () => {
     expect(env.NTT_MAIL_ATTACHMENT).toBe(MAIL.attachment);
   });
 
-  it("çıkış kodu 0 değilse ya da başlatılamazsa false", async () => {
-    expect(await openOutlookDraft(MAIL, fakeSpawn("fail").impl as never)).toBe(false);
-    expect(await openOutlookDraft(MAIL, fakeSpawn("error").impl as never)).toBe(false);
+  it("çıkış kodu 0 değilse ya da başlatılamazsa failed", async () => {
+    expect(await openOutlookDraft(MAIL, fakeSpawn("fail").impl as never)).toBe("failed");
+    expect(await openOutlookDraft(MAIL, fakeSpawn("error").impl as never)).toBe("failed");
   });
 
-  it("takılırsa zaman aşımında öldürülüp false (inceleme odağı 4)", async () => {
+  it("takılırsa zaman aşımında öldürülüp timeout (inceleme odağı 4, M7)", async () => {
     const f = fakeSpawn("hang");
-    expect(await openOutlookDraft(MAIL, f.impl as never, 30)).toBe(false);
+    expect(await openOutlookDraft(MAIL, f.impl as never, 30)).toBe("timeout");
     expect(f.kill).toHaveBeenCalled();
   });
 });
@@ -57,9 +57,11 @@ describe("openOutlookDraft", () => {
 describe("deliverBundle", () => {
   it("Outlook açılırsa outlook; açılmazsa klasör gösteriliyor", async () => {
     const showInFolder = vi.fn();
-    expect(await deliverBundle(MAIL, { openDraft: async () => true, showInFolder })).toBe("outlook");
+    expect(await deliverBundle(MAIL, { openDraft: async () => "opened", showInFolder })).toEqual({ draft: "outlook", outlookTimedOut: false });
     expect(showInFolder).not.toHaveBeenCalled();
-    expect(await deliverBundle(MAIL, { openDraft: async () => false, showInFolder })).toBe("folder");
+    expect(await deliverBundle(MAIL, { openDraft: async () => "failed", showInFolder })).toEqual({ draft: "folder", outlookTimedOut: false });
     expect(showInFolder).toHaveBeenCalledWith(MAIL.attachment);
+    // Zaman aşımı ayrı bildiriliyor: Outlook'ta bir güvenlik sorusu açık kalmış olabilir.
+    expect(await deliverBundle(MAIL, { openDraft: async () => "timeout", showInFolder })).toEqual({ draft: "folder", outlookTimedOut: true });
   });
 });

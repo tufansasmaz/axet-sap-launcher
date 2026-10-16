@@ -61,6 +61,22 @@ describe("redact", () => {
     expect(redact("bearer abcdefgh12345678", []).text).not.toContain("abcdefgh12345678");
   });
 
+  it("tırnaklı, boşluklu değerin tamamı gidiyor; tırnaklar kalıyor — inceleme M1", () => {
+    const r = redact(`password = "a b c" ve token='x y z' son`, []);
+    expect(r.text).toBe(`password = "${MASK}" ve token='${MASK}' son`);
+    expect(r.counts.keyValue).toBe(2);
+  });
+
+  it("bilinen değerin JSON ve URL kaçışlı biçimi de — inceleme M2", () => {
+    const secret = 'Sif"re\\99 &x';
+    const json = JSON.stringify({ p: secret });
+    const url = `https://h/?p=${encodeURIComponent(secret)}`;
+    const r = redact(`${json} ${url}`, [secret]);
+    expect(r.text).not.toContain(JSON.stringify(secret).slice(1, -1));
+    expect(r.text).not.toContain(encodeURIComponent(secret));
+    expect(r.counts.known).toBe(2);
+  });
+
   it("addCounts topluyor", () => {
     const total: Record<string, number> = { known: 1 };
     addCounts(total, { known: 2, jwt: 1 });

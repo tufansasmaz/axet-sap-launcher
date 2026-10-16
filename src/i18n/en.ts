@@ -98,6 +98,7 @@ export const en: Record<TranslationKey, string> = {
   "support.failed": "Could not create the package: {message}",
   "support.doneOutlook": "The support package was attached to an Outlook draft.",
   "support.doneFolder": "Support package saved: {path}",
+  "support.doneFolderTimeout": "Outlook did not respond within 20 seconds (a security prompt may be open). Support package saved: {path}",
   "support.emailLabel": "Support e-mail address",
   "support.emailHelper": "Recipient of the \"Report a problem\" draft. If empty, the draft has no recipient.",
   "support.openAction": "Report a problem…",

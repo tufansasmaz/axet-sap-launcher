@@ -1556,5 +1556,5 @@ export type ConnectorMode = "auto" | "always";
 
 /** "Sorun bildir" sonucu (support:create). */
 export type SupportCreateResult =
-  | { ok: true; zipPath: string; draft: "outlook" | "folder" }
+  | { ok: true; zipPath: string; draft: "outlook" | "folder"; outlookTimedOut: boolean }
   | { ok: false; message: string };

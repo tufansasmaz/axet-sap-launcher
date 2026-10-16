@@ -16,7 +16,7 @@ const MIN_SECRET = 8;
 // solda harf/rakam olmaması lookbehind ile isteniyor. `_` serbest:
 // access_token, client_secret, AZURE_OPENAI_API_KEY de yakalansın.
 const KEY_VALUE =
-  /(?<![A-Za-z0-9])(password|passwd|pwd|parola|şifre|token|secret|api[_-]?key|ADT_SAP_PASSWORD|ABAP_HTTP_TOKEN|ADT_APPROVAL_TOKEN)(["']?\s*[=:]\s*["']?)([^\s"',;}]+)/giu;
+  /(?<![A-Za-z0-9])(password|passwd|pwd|parola|şifre|token|secret|api[_-]?key|ADT_SAP_PASSWORD|ABAP_HTTP_TOKEN|ADT_APPROVAL_TOKEN)(["']?\s*[=:]\s*)("[^"\n]*"|'[^'\n]*'|[^\s"',;}]+)/giu;
 
 const PATTERNS: { name: string; re: RegExp; replace: (match: string, ...groups: string[]) => string }[] = [
   {
@@ -42,8 +42,17 @@ function bump(counts: Record<string, number>, name: string): void {
 export function redact(text: string, secrets: readonly string[]): RedactResult {
   const counts: Record<string, number> = {};
   let out = text;
-  // Uzun değer önce: biri ötekinin parçasıysa kısası uzunu bölmesin.
-  for (const secret of [...new Set(secrets)].filter((s) => s.length >= MIN_SECRET).sort((a, b) => b.length - a.length)) {
+  // Günlükte değer JSON içinde (`"` → `\"`) ya da URL'de kodlanmış geçebilir;
+  // üç biçim de aranıyor. Uzun değer önce: biri ötekinin parçasıysa kısası
+  // uzunu bölmesin.
+  const variants = new Set<string>();
+  for (const s of secrets) {
+    if (s.length < MIN_SECRET) continue;
+    variants.add(s);
+    variants.add(JSON.stringify(s).slice(1, -1));
+    variants.add(encodeURIComponent(s));
+  }
+  for (const secret of [...variants].sort((a, b) => b.length - a.length)) {
     const parts = out.split(secret);
     if (parts.length > 1) {
       counts.known = (counts.known ?? 0) + parts.length - 1;
@@ -59,9 +68,12 @@ export function redact(text: string, secrets: readonly string[]): RedactResult {
     });
   }
   out = out.replace(KEY_VALUE, (match: string, name: string, sep: string, value: string) => {
-    if (value === MASK || value.startsWith(MASK)) return match;
+    // Tırnaklı değer kapanış tırnağına kadar gidiyor (boşluklu şifre yarım kalmasın); tırnaklar kalıyor.
+    const quote = value[0] === '"' || value[0] === "'" ? value[0] : "";
+    const inner = quote ? value.slice(1, -1) : value;
+    if (!inner || inner === MASK || inner.startsWith(MASK)) return match;
     bump(counts, "keyValue");
-    return `${name}${sep}${MASK}`;
+    return `${name}${sep}${quote}${MASK}${quote}`;
   });
   return { text: out, counts };
 }

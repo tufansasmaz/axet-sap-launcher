@@ -11,7 +11,9 @@ vi.mock("node:fs", async () => {
     if (String(p).includes("kilitli")) throw Object.assign(new Error("EBUSY: resource busy or locked"), { code: "EBUSY" });
     return (real.openSync as (...a: unknown[]) => number)(p, ...rest);
   }) as typeof real.openSync;
-  return { ...real, default: { ...real, openSync }, openSync };
+  // Göreli ".1": günlük yolu boş dönünce aranmamalı (inceleme M6); varmış gibi davranıyor.
+  const existsSync = ((p: string) => p === ".1" || real.existsSync(p)) as typeof real.existsSync;
+  return { ...real, default: { ...real, openSync, existsSync }, openSync, existsSync };
 });
 import { MAX_LOG_BYTES, buildBundleEntries, bundleFileNames, readTail } from "../app-electron/main/support/bundle";
 import type { ChatSessionsState } from "../app-electron/shared/types";
@@ -124,6 +126,14 @@ describe("buildBundleEntries", () => {
     const { entries } = buildBundleEntries(src({ appLogPath: locked }), { note: "", chatMarkdown: null });
     expect(entries.map((e) => e.name)).not.toContain("ntt-studio.log");
     expect(JSON.parse(text(entries, "bilgi.json")).eksik.join(" ")).toContain("ntt-studio.log (okunamadı");
+  });
+
+  it("günlük yolu boşsa uygulama günlüğü aranmıyor, eksik'e yazılıyor — inceleme M6", () => {
+    const s = src({ appLogPath: "" });
+    expect(bundleFileNames(s, { note: "", chatMarkdown: null })).not.toContain("ntt-studio.log.1");
+    const { entries } = buildBundleEntries(s, { note: "", chatMarkdown: null });
+    expect(entries.map((e) => e.name)).not.toContain("ntt-studio.log.1");
+    expect(JSON.parse(text(entries, "bilgi.json")).eksik).toContain("ntt-studio.log");
   });
 
   it("ön izleme listesi paketle aynı", () => {
