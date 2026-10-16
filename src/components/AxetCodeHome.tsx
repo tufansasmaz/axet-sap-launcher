@@ -18,6 +18,7 @@ import type { ChatMessage } from "./ChatBubble";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
 import { orderSessions } from "../lib/chatSessionGroups";
 import { contextTierFor } from "../lib/contextTier";
+import { ipcErrorMessage } from "../lib/ipcErrorMessage";
 import { mergeToolStep } from "../lib/toolSteps";
 import { enqueuePrompt, mergeQueuedIntoDraft, type QueuedPrompt } from "../lib/chatQueue";
 import { settleAnswer } from "../lib/settleAnswer";
@@ -1163,7 +1164,8 @@ export default function AxetCodeHome({
       try {
         await window.api.saveConfig({ chatDefaultModel: entry });
       } catch (err) {
-        pushToast("error", t("modelSelector.saveFailed", { message: err instanceof Error ? err.message : String(err) }));
+        // Electron öneki ve dosya yolu (kullanıcı adı) bildirimde gösterilmiyor.
+        pushToast("error", t("modelSelector.saveFailed", { message: ipcErrorMessage(err) || "?" }));
         return;
       }
       pushToast("success", t("modelSelector.switched", { model: entry.model }));

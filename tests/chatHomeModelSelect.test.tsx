@@ -12,7 +12,13 @@ let saveConfig: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   pushToast.mockClear();
-  saveConfig = vi.fn(() => Promise.reject(new Error("EACCES: disk")));
+  saveConfig = vi.fn(() =>
+    Promise.reject(
+      new Error(
+        "Error invoking remote method 'config:save': Error: EACCES: disk, open 'C:\\Users\\kisi\\AppData\\Roaming\\x\\config.json'"
+      )
+    )
+  );
   const impl: Record<string, unknown> = {
     loadChatSessions: () => Promise.resolve({ ok: true, state: { activeId: null, projects: [], sessions: [] } }),
     saveChatSessions: () => Promise.resolve({ ok: true }),
@@ -64,7 +70,11 @@ describe("model seçimi kaydedilemezse", () => {
     const kinds = pushToast.mock.calls.map((c) => c[0]);
     expect(kinds).toContain("error");
     expect(kinds).not.toContain("success");
-    expect(String(pushToast.mock.calls.find((c) => c[0] === "error")?.[1])).toContain("EACCES: disk");
+    const shown = String(pushToast.mock.calls.find((c) => c[0] === "error")?.[1]);
+    expect(shown).toContain("EACCES: disk");
+    // Electron öneki ve kullanıcı adı taşıyan yol bildirimde yok.
+    expect(shown).not.toContain("invoking remote method");
+    expect(shown).not.toContain("kisi");
     // Seçim bu oturumda geçerli: seçici yeni modeli gösteriyor.
     expect(screen.getAllByText("GPT Beta").length).toBeGreaterThan(0);
   });
