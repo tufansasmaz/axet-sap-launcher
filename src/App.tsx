@@ -1061,6 +1061,7 @@ export default function App() {
             workDirRequest={workDirRequest}
             activeSap={activeContext.sap}
             onOpenShortcuts={() => setShortcutsOpen(true)}
+            onSwitchToChat={() => setActivity("axetCode")}
           />
         </div>
         {/* Terminal de HER ZAMAN takılı (spec §4): mod değişince pty'ler ve

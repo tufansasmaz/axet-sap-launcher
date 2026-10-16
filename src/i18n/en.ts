@@ -257,7 +257,6 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.shortcutEditLast": "Recall your last message (empty composer)",
   "axetCodeHome.shortcutSend": "Send",
   "axetCodeHome.shortcutNewline": "New line",
-  "axetCodeHome.shortcutHelp": "Toggle this list",
   "axetCodeHome.phaseFinishing": "Finishing",
   "axetCodeHome.phaseStalled": "Still thinking ({minutes} min)",
   "axetCodeHome.phaseElapsed": "{seconds}s",
@@ -1185,6 +1184,8 @@ export const en: Record<TranslationKey, string> = {
   "shortcuts.groupChat": "Chat",
   "shortcuts.groupFile": "File",
   "shortcuts.openShortcuts": "Keyboard shortcuts",
+  "shortcuts.sidebarSearch": "Search in system list",
+  "shortcuts.logonSearch": "Search in system list (Logon screen)",
 
   // --- Notification setting (İş B — 2026-10-17) ---
   "settingsModal.chatNotificationsLabel": "Show notification when turn ends",

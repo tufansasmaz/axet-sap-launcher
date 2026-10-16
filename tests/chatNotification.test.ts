@@ -52,4 +52,15 @@ describe("notificationFor", () => {
     const n = notificationFor("answer", false, true, "");
     expect(n!.title).toBe("NTT Studio");
   });
+
+  it("lang='en' ise İngilizce metin döner", () => {
+    const n = notificationFor("answer", false, true, "Project", "en");
+    expect(n).not.toBeNull();
+    expect(n!.body).toBe("Answer ready");
+  });
+
+  it("lang='tr' ise Türkçe metin döner", () => {
+    const n = notificationFor("answer", false, true, "Proje", "tr");
+    expect(n!.body).toBe("Cevap hazır");
+  });
 });

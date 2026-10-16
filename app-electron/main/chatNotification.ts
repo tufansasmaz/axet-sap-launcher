@@ -16,7 +16,7 @@ export interface NotificationPayload {
 
 // Gövde metinleri iki dilde. Ana süreç i18n'ini doğrudan buraya çekmiyor —
 // döngüsel bağımlılık riski var (store → i18n → store). Sabit metinler yeterli;
-// bildirim gövdesi uzun bir mesaj değil, VARLIGI önemli olan kısa bir uyarı.
+// bildirim gövdesi uzun bir mesaj değil, VARLIĞI önemli olan kısa bir uyarı.
 const BODY: Record<"tr" | "en", Record<Exclude<NotificationKind, "cancelled">, string>> = {
   tr: {
     answer: "Cevap hazır",
@@ -30,19 +30,6 @@ const BODY: Record<"tr" | "en", Record<Exclude<NotificationKind, "cancelled">, s
   }
 };
 
-// Dil yükleme bağımlılığını kırmak için: ilk çağrıda config'den okunuyor,
-// ardından sabit tutuluyor. Bildirim metni dil değişince doğal olarak güncellenir
-// çünkü her bildirim yeni bir çağrıda oluşturuluyor.
-let _lang: "tr" | "en" | null = null;
-
-export function setNotificationLang(lang: "tr" | "en"): void {
-  _lang = lang;
-}
-
-function lang(): "tr" | "en" {
-  return _lang ?? "tr";
-}
-
 /**
  * Bildirim oluşturulmalı mı? Saf fonksiyon — Electron'a dokunmuyor.
  *
@@ -50,19 +37,20 @@ function lang(): "tr" | "en" {
  * @param focused  - Pencere şu an odakta veya görünür mü?
  * @param enabled  - Kullanıcı ayarı (AppConfig.chatNotifications).
  * @param title    - Sohbet başlığı; boşsa "NTT Studio" kullanılır.
+ * @param lang     - Bildirim dili ("tr" | "en"). Varsayılan "tr".
  * @returns        Bildirim içeriği ya da null (bildirim gösterilmeyecek).
  */
 export function notificationFor(
   kind: NotificationKind,
   focused: boolean,
   enabled: boolean,
-  title: string
+  title: string,
+  lang: "tr" | "en" = "tr"
 ): NotificationPayload | null {
   // İptal, odak veya ayar kapalı → bildirim yok.
   if (kind === "cancelled" || focused || !enabled) return null;
 
-  const l = lang();
-  const body = BODY[l][kind as Exclude<NotificationKind, "cancelled">];
+  const body = BODY[lang][kind as Exclude<NotificationKind, "cancelled">];
   return {
     title: title.trim() || "NTT Studio",
     body

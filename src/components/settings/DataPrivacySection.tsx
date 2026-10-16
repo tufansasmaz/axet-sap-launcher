@@ -75,7 +75,8 @@ export default function DataPrivacySection() {
       const result = await window.api.dataPrivacyClear(kind);
       if (!result.ok) {
         // result.error bir i18n anahtarıdır; t() ile insanca okunabilir metne çevir.
-        const msg = result.error ? t(result.error) : t("veri.ipc.hatasi");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const msg = result.error ? t(result.error as any) : t("veri.ipc.hatasi");
         if (kind === "chat") setChatError(t("dataPrivacy.clearError", { error: msg }));
         else setLogError(t("dataPrivacy.clearError", { error: msg }));
       } else if (kind === "chat") {

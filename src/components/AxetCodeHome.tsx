@@ -106,6 +106,8 @@ interface Props {
    * F1 ve Ctrl+/ bu callback'i çağırıyor; pencere App.tsx'te render ediliyor.
    */
   onOpenShortcuts?: () => void;
+  /** Bildirim tiklandiktan chat ekranina gec: App.tsx setActivity("axetCode") cagirir. */
+  onSwitchToChat?: () => void;
 }
 
 // `axet-code run` her çağrıda TÜM geçmişi transkript olarak yeniden
@@ -421,6 +423,7 @@ export default function AxetCodeHome({
   workDirRequest,
   activeSap,
   onOpenShortcuts,
+  onSwitchToChat,
 }: Props) {
   const t = useT();
   const {
@@ -1993,9 +1996,11 @@ export default function AxetCodeHome({
   // dinleyici uygulama ömrü boyunca aktif.
   useEffect(() => {
     return window.api.onChatOpen((chatId) => {
+      // Logon/Terminal ekranındaysa chat ekranına geç, ardından sohbeti seç.
+      onSwitchToChat?.();
       setActiveId(chatId);
     });
-  }, [setActiveId]);
+  }, [setActiveId, onSwitchToChat]);
 
   useEffect(() => {
     return window.api.onChatProgress((requestId, progress) => {
@@ -2184,16 +2189,10 @@ export default function AxetCodeHome({
         setActiveId(orderedSessions[next].id);
         return;
       }
-      // F1 (kullanıcı seçimi, 2026-09-05). Ctrl+/ da aynı pencereyi açıyor
-      // (useShellShortcuts üzerinden). Modal App.tsx'te; onOpenShortcuts prop'u.
-      if (e.key === "F1") {
-        e.preventDefault();
-        onOpenShortcuts?.();
-      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, activeId, orderedSessions, sessions, onOpenShortcuts]);
+  }, [active, activeId, orderedSessions, sessions]);
 
   const deleteTarget = deleteId
     ? (sessions.find((s) => s.id === deleteId) ?? null)

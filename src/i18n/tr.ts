@@ -295,7 +295,6 @@ export const tr = {
   "axetCodeHome.shortcutEditLast": "Son mesajını geri çağır (kutu boşken)",
   "axetCodeHome.shortcutSend": "Gönder",
   "axetCodeHome.shortcutNewline": "Alt satıra geç",
-  "axetCodeHome.shortcutHelp": "Bu listeyi aç/kapat",
   "axetCodeHome.phaseFinishing": "Tamamlanıyor",
   // Uzun sessizlik. Bilerek "yanıt vermiyor" değil "düşünüyor" deniyor: ölçüldü,
   // bu bir arıza değil — sağlayıcı sırası uzayınca axet-code dakikalarca tek
@@ -1271,6 +1270,8 @@ export const tr = {
   "shortcuts.groupChat": "Sohbet",
   "shortcuts.groupFile": "Dosya",
   "shortcuts.openShortcuts": "Klavye kısayolları",
+  "shortcuts.sidebarSearch": "Sistem listesinde ara",
+  "shortcuts.logonSearch": "Sistem listesinde ara (Logon ekranı)",
 
   // --- Bildirim ayarı (İş B — 2026-10-17) ---
   "settingsModal.chatNotificationsLabel": "Tur bitince bildirim göster",

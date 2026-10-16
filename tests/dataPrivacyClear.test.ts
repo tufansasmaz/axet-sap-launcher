@@ -10,7 +10,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { FsAdapter } from "../app-electron/main/dataPrivacy";
-import type { ChatSessionsState } from "../shared/types";
+import type { ChatSessionsState } from "../app-electron/shared/types";
 import {
   clearChatHistoryCore,
   clearAppLogCore

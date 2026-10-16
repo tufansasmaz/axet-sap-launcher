@@ -1,5 +1,5 @@
 // İş C — Klavye kısayolları penceresi (2026-10-17).
-// Açılış: Ctrl+/ (useShellShortcuts) + F1 (AxetCodeHome) + komut paleti.
+// Açılış: Ctrl+/ (useShellShortcuts) + F1 (useShellShortcuts) + komut paleti.
 // src/ui/Modal.tsx çerçevesini kullanır — Tab tuzağı, Escape ve odak kuralları
 // orada. Gövde: iki sütunlu, gruplara bölünmüş sade liste; tuşlar <kbd>'de.
 
@@ -43,9 +43,10 @@ export default function ShortcutsModal({ open, onClose }: Props) {
             <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
               {t(GROUP_KEY[group])}
             </h4>
+            {/* İki sütunlu liste: her öğe kendi hücresinde, desc+kbd flex-row. */}
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5">
               {items.map((s) => (
-                <div key={s.keys} className="col-span-2 flex items-center justify-between gap-4">
+                <div key={s.keys} className="flex items-center justify-between gap-4">
                   <dt className="text-[12.5px] text-slate-400">{t(s.descKey)}</dt>
                   <dd className="shrink-0">
                     <kbd className="rounded border border-line bg-surface px-1.5 py-0.5 font-mono text-[11px] text-slate-300">

@@ -32,6 +32,10 @@ export const SHORTCUTS: Shortcut[] = [
   // Not: Türkçe klavyede `/` = Shift+7 → Ctrl+/ fiilen Ctrl+Shift+7 olarak
   // kaydedilir; tuş basılabilir ama Türkçe düzende güç. Kod çakışması yok.
   { keys: "F1 / Ctrl+/", descKey: "shortcuts.shortcutList", group: "nav" },
+  // Kaynak: useShellShortcuts.ts → openSearch (satır 132: e.key === "/")
+  { keys: "/", descKey: "shortcuts.sidebarSearch", group: "nav" },
+  // Kaynak: useShellShortcuts.ts → isFind + sapLauncher (satır 126-128)
+  { keys: "Ctrl+F", descKey: "shortcuts.logonSearch", group: "nav" },
 
   // --- Sohbet (chat) ---
   // Kaynak: AxetCodeHome.tsx → Ctrl+N handler

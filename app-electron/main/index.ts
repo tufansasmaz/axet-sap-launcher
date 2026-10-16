@@ -94,7 +94,7 @@ import { installWindowGuards, isAppUrl, isExternalOpenAllowed, type AppOrigin } 
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
-import { notificationFor, setNotificationLang } from "./chatNotification";
+import { notificationFor } from "./chatNotification";
 import type { ActiveGuiContext, AddManualSystemInput, AdoptWorkDirResult, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 // ADT sunucusunun portu (launcher.ts DEFAULT_READONLY_SERVER_PORT ile aynı).
@@ -198,6 +198,10 @@ function getChatTitle(chatId: string): string {
   }
 }
 
+// Windows GC'nin click handler'ı düşürmemesi için yaşayan bildirimleri sakla.
+// 'click' | 'close' | 'failed' olayında kaldırılır.
+const _liveNotifications = new Set<InstanceType<typeof Notification>>();
+
 function showChatNotification(chatId: string, kind: Parameters<typeof notificationFor>[0]): void {
   try {
     if (!Notification.isSupported()) return;
@@ -205,11 +209,19 @@ function showChatNotification(chatId: string, kind: Parameters<typeof notificati
     const enabled = cfg.chatNotifications !== false;
     // Pencere küçültülmüşse veya odak yoksa bildirim göster.
     const isFocusedAndVisible = (mainWindow?.isFocused() ?? false) && !(mainWindow?.isMinimized() ?? true);
-    const payload = notificationFor(kind, isFocusedAndVisible, enabled, getChatTitle(chatId));
+    const lang = (cfg.language === "en" ? "en" : "tr") as "tr" | "en";
+    const payload = notificationFor(kind, isFocusedAndVisible, enabled, getChatTitle(chatId), lang);
     if (!payload) return;
     const n = new Notification({ title: payload.title, body: payload.body, silent: false });
+    _liveNotifications.add(n);
+    const cleanup = () => _liveNotifications.delete(n);
+    n.on("close", cleanup);
+    n.on("failed", cleanup);
     n.on("click", () => {
+      cleanup();
       if (!mainWindow || mainWindow.isDestroyed()) return;
+      // show() önce: bildirim alanından kaldır, sonra pencereyi öne getir.
+      n.show();
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
       mainWindow.webContents.send("chat:open", chatId);
@@ -939,7 +951,6 @@ function registerIpc(): void {
     // config.json okumamak için). Kullanıcı dili değiştirdiğinde tazelenmezse
     // arayüz İngilizce'ye geçerken ana sürecin hata mesajları Türkçe kalırdı.
     refreshMainLanguage(saved.language);
-    setNotificationLang(saved.language as "tr" | "en");
 
     // Pencerenin arka plan rengi açılışta görünüme göre veriliyor (bkz.
     // `createWindow`, `backgroundColor`). Görünüm değişince o da değişmeli:
@@ -1332,11 +1343,16 @@ function registerIpc(): void {
       history: AxetChatMessage[],
       message: string
     ) => {
-      // askUser bildirimi: ajan soru sorarken pencere odakta değilse bildir.
+      // askUser bildirimi: tur başına en fazla bir bildirim (callId tekrarı yok).
+      const notifiedAskUserCallIds = new Set<string>();
       const onActivity: Parameters<typeof sendChatMessage>[7] = (activity) => {
         mainWindow?.webContents.send("axetChat:activity", requestId, activity);
         if (activity.phase === "askUser") {
-          showChatNotification(chatId, "askUser");
+          const callId = (activity as { callId?: string }).callId ?? "";
+          if (!notifiedAskUserCallIds.has(callId)) {
+            notifiedAskUserCallIds.add(callId);
+            showChatNotification(chatId, "askUser");
+          }
         }
       };
 

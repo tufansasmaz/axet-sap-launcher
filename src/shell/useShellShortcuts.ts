@@ -112,6 +112,15 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
         return;
       }
 
+      // F1: kisayol penceresi. Metin alanindayken de aciyor (erisebilirlik).
+      // Terminalde degil: kabuk F1 kullaniyor olabilir.
+      if (e.key === "F1" && !mod && !e.altKey && !e.shiftKey && onOpenShortcuts) {
+        if (isInTerminal(e.target)) return;
+        e.preventDefault();
+        onOpenShortcuts();
+        return;
+      }
+
       // Tarayıcının bul çubuğu bu uygulamada anlamsız; her ekranda
       // engelleniyor (bugünkü davranış). Kutu yalnızca Logon'da.
       if (isFind) {
