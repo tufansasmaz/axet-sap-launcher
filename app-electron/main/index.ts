@@ -220,8 +220,8 @@ function showChatNotification(chatId: string, kind: Parameters<typeof notificati
     n.on("click", () => {
       cleanup();
       if (!mainWindow || mainWindow.isDestroyed()) return;
-      // show() önce: bildirim alanından kaldır, sonra pencereyi öne getir.
-      n.show();
+      // Pencereyi öne getir: show() (gizliyse) → restore() (küçültülmüşse) → focus().
+      mainWindow.show();
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.focus();
       mainWindow.webContents.send("chat:open", chatId);

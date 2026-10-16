@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { AdtCapabilities } from "../shared/adtCapabilities";
+import type { DataClearError } from "../shared/types";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -413,7 +414,7 @@ const api = {
   }> => ipcRenderer.invoke("data:summary"),
   dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite" | "axetDb"): Promise<void> =>
     ipcRenderer.invoke("data:reveal", kind),
-  dataPrivacyClear: (kind: "chat" | "log"): Promise<{ ok: boolean; error?: string }> =>
+  dataPrivacyClear: (kind: "chat" | "log"): Promise<{ ok: boolean; error?: DataClearError }> =>
     ipcRenderer.invoke("data:clear", kind),
 
   // İş B — bildirim tıklandığında ana süreç bu olayı gönderir (chat:open).

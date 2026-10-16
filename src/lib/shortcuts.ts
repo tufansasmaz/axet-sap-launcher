@@ -28,7 +28,7 @@ export const SHORTCUTS: Shortcut[] = [
   { keys: "Ctrl+1", descKey: "shortcuts.modeChat", group: "nav" },
   { keys: "Ctrl+2", descKey: "shortcuts.modeLogon", group: "nav" },
   { keys: "Ctrl+3", descKey: "shortcuts.modeTerminal", group: "nav" },
-  // Kaynak: AxetCodeHome.tsx → F1 handler + Ctrl+/ handler (bu dosya)
+  // Kaynak: useShellShortcuts.ts → F1 handler + Ctrl+/ handler (her ekranda)
   // Not: Türkçe klavyede `/` = Shift+7 → Ctrl+/ fiilen Ctrl+Shift+7 olarak
   // kaydedilir; tuş basılabilir ama Türkçe düzende güç. Kod çakışması yok.
   { keys: "F1 / Ctrl+/", descKey: "shortcuts.shortcutList", group: "nav" },

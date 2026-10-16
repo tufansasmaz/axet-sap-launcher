@@ -302,7 +302,7 @@ export interface AxetApi {
     axetDb: { count: number; bytes: number };
   }>;
   dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite" | "axetDb") => Promise<void>;
-  dataPrivacyClear: (kind: "chat" | "log") => Promise<{ ok: boolean; error?: string }>;
+  dataPrivacyClear: (kind: "chat" | "log") => Promise<{ ok: boolean; error?: DataClearError }>;
   // İş B — bildirim tıklandığında ana süreç "chat:open" gönderir.
   onChatOpen: (callback: (chatId: string) => void) => () => void;
 }

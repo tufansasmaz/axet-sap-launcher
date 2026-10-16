@@ -3,7 +3,9 @@
 // "Fake Notification" pattern: Electron API'si jsdom'da yok; sınıf sahte olarak
 // tanımlanır, `show()` çağrısı ve `click` olayı üretimi elle tetiklenir.
 
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { renderHook, cleanup } from "@testing-library/react";
+import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from "vitest";
+import { useEffect } from "react";
 
 // ---- Fake Notification ----
 type NotifListener = (...args: unknown[]) => void;
@@ -30,31 +32,32 @@ class FakeNotification {
 // index.ts'nin showChatNotification'ını doğrudan test etmek zor (Electron
 // modülleri bağımlılık); saf bir şekilde aynı mantığı kopyalıyoruz:
 // Notification oluştur → click handler'ı bağla → tıkla → IPC'ye baktık mı?
-function makeClickScenario(chatId: string) {
+function makeClickScenario(chatId: string, { minimized = false } = {}) {
   const sendSpy = vi.fn();
   const focusSpy = vi.fn();
   const restoreSpy = vi.fn();
-  const showSpy = vi.fn();
+  const windowShowSpy = vi.fn();
   const mainWindow = {
     isFocused: () => false,
-    isMinimized: () => false,
+    isMinimized: () => minimized,
     isDestroyed: () => false,
+    show: windowShowSpy,
     restore: restoreSpy,
     focus: focusSpy,
     webContents: { send: sendSpy }
   };
 
   const n = new FakeNotification({ title: "Test", body: "body" });
-  n.show = showSpy;
   n.on("click", () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
-    n.show(); // show() BEFORE restore/focus — brief requirement
+    // Pencereyi öne getir: show() (gizliyse) → restore() (küçültülmüşse) → focus().
+    mainWindow.show();
     if (mainWindow.isMinimized()) mainWindow.restore();
     mainWindow.focus();
     mainWindow.webContents.send("chat:open", chatId);
   });
 
-  return { n, sendSpy, focusSpy, showSpy };
+  return { n, sendSpy, focusSpy, windowShowSpy, restoreSpy };
 }
 
 describe("Notification click — IPC", () => {
@@ -65,21 +68,81 @@ describe("Notification click — IPC", () => {
     expect(sendSpy).toHaveBeenCalledWith("chat:open", chatId);
   });
 
-  it("click öncesi show() çağrılır (brief gereksinimi)", () => {
+  it("mainWindow.show() IPC gönderiminden önce çağrılır", () => {
     const chatId = "xyz-456";
-    const { n, showSpy, sendSpy } = makeClickScenario(chatId);
+    const { n, windowShowSpy, sendSpy } = makeClickScenario(chatId);
     n.emit("click");
-    // show() send'den önce çağrılmalı
-    expect(showSpy).toHaveBeenCalled();
-    const showOrder = showSpy.mock.invocationCallOrder[0];
+    expect(windowShowSpy).toHaveBeenCalled();
+    const showOrder = windowShowSpy.mock.invocationCallOrder[0];
     const sendOrder = sendSpy.mock.invocationCallOrder[0];
     expect(showOrder).toBeLessThan(sendOrder);
+  });
+
+  it("pencere küçültülmüşse restore() çağrılır", () => {
+    const chatId = "min-789";
+    const { n, restoreSpy } = makeClickScenario(chatId, { minimized: true });
+    n.emit("click");
+    expect(restoreSpy).toHaveBeenCalled();
+  });
+});
+
+// ---- Renderer: chat:open → onSwitchToChat + sohbet aktif ----
+// AxetCodeHome'un onChatOpen useEffect mantığını izole test eder.
+// Tam AxetCodeHome render çok bağımlı (store/context) — aynı useEffect
+// mantığı minimal hook ile test ediliyor; bu, AxetCodeHome'daki kodu doğrular.
+describe("AxetCodeHome — chat:open renderer tarafı", () => {
+  // window.api mock — her testten önce sıfırla
+  let capturedOnChatOpen: ((chatId: string) => void) | null = null;
+  const origApi = (window as unknown as Record<string, unknown>).api;
+
+  beforeEach(() => {
+    capturedOnChatOpen = null;
+    (window as unknown as Record<string, unknown>).api = {
+      ...(origApi as object),
+      onChatOpen: (cb: (chatId: string) => void) => {
+        capturedOnChatOpen = cb;
+        return () => { capturedOnChatOpen = null; };
+      }
+    };
+  });
+
+  afterEach(() => {
+    (window as unknown as Record<string, unknown>).api = origApi;
+    cleanup();
+  });
+
+  it("onChatOpen callback'i hem onSwitchToChat hem setActiveId'yi çağırır", () => {
+    const onSwitchToChat = vi.fn();
+    const setActiveId = vi.fn() as Mock;
+
+    // AxetCodeHome'un onChatOpen useEffect'ini birebir yansıtan minimal hook.
+    // Kaynak: src/components/AxetCodeHome.tsx (onChatOpen useEffect, ~satır 1997)
+    function useChatOpenHook() {
+      useEffect(() => {
+        return (window as { api: { onChatOpen: (cb: (id: string) => void) => () => void } }).api.onChatOpen((chatId) => {
+          onSwitchToChat?.();
+          setActiveId(chatId);
+        });
+      }, []);
+    }
+
+    renderHook(() => useChatOpenHook());
+
+    // callback kayıt edilmiş olmalı
+    expect(capturedOnChatOpen).not.toBeNull();
+
+    // Ana süreç "chat:open" gönderiyor
+    capturedOnChatOpen!("test-chat-id");
+
+    // 1. Mod geçişi çağrıldı mı?
+    expect(onSwitchToChat).toHaveBeenCalledTimes(1);
+    // 2. Doğru sohbet aktif yapıldı mı?
+    expect(setActiveId).toHaveBeenCalledWith("test-chat-id");
   });
 });
 
 // ---- Ctrl+/ kısayolu: useShellShortcuts ----
 // Hook'un global keydown dinleyicisini test ediyoruz.
-// jsdom gerekiyor; bu dosya .test.ts ama keydown window'a bağlanıyor.
 describe("Ctrl+/ — kısayollar penceresi açılır", () => {
   let listeners: ((e: KeyboardEvent) => void)[] = [];
   const origAdd = window.addEventListener.bind(window);
@@ -111,10 +174,10 @@ describe("Ctrl+/ — kısayollar penceresi açılır", () => {
   it("Ctrl+/ modal kapalıysa onOpenShortcuts çağırır", async () => {
     const { useShellShortcuts } = await import("../src/shell/useShellShortcuts");
     const onOpenShortcuts = vi.fn();
-    const { renderHook } = await import("@testing-library/react");
+    const { renderHook: rh } = await import("@testing-library/react");
 
     // aria-modal yokken çağrılmalı
-    renderHook(() =>
+    rh(() =>
       useShellShortcuts({
         listMode: "axetCode",
         sidebarCollapsed: false,
@@ -131,14 +194,14 @@ describe("Ctrl+/ — kısayollar penceresi açılır", () => {
   it("Ctrl+/ açık modal varsa onOpenShortcuts ÇAĞIRMAZ", async () => {
     const { useShellShortcuts } = await import("../src/shell/useShellShortcuts");
     const onOpenShortcuts = vi.fn();
-    const { renderHook } = await import("@testing-library/react");
+    const { renderHook: rh } = await import("@testing-library/react");
 
     // aria-modal olan bir eleman ekle
     const modal = document.createElement("div");
     modal.setAttribute("aria-modal", "true");
     document.body.appendChild(modal);
 
-    renderHook(() =>
+    rh(() =>
       useShellShortcuts({
         listMode: "axetCode",
         sidebarCollapsed: false,

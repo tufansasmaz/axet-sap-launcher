@@ -1567,3 +1567,11 @@ export type ConnectorMode = "auto" | "always";
 export type SupportCreateResult =
   | { ok: true; zipPath: string; draft: "outlook" | "folder"; outlookTimedOut: boolean }
   | { ok: false; message: string };
+
+
+/** Veri ve gizlilik temizleme işlemlerinin i18n hata kodları (IPC sınırında tip güvenliği). */
+export type DataClearError =
+  | "veri.chat.oku-hatasi"
+  | "veri.chat.kaydet-hatasi"
+  | "veri.gunluk.sil-hatasi"
+  | "veri.ipc.hatasi";

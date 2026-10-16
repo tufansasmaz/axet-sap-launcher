@@ -7,6 +7,7 @@
 // ekranda kullanıcı adı geçen tam yol görünmez.
 
 import { existsSync, readFileSync, statSync, readdirSync, unlinkSync } from "node:fs";
+import type { ChatSessionsState, DataClearError } from "../shared/types";
 import path from "node:path";
 import { shell } from "electron";
 import { appLogPath, appLog } from "./appLog";
@@ -15,7 +16,7 @@ import { saveChatSessions } from "./chatStore";
 import { cancelAllChatMessages, dropAllPrewarmed } from "./axetChat";
 import { clearAllBindings } from "./axetSessionBinding";
 import { LOG_FILE as SAP_LOG_FILE } from "./sapWrite/log";
-import type { ChatSessionsState } from "../shared/types";
+
 
 // ─────────────────────────────────────────────────────────────
 // Dosya sistemi adaptörü (birim testler için ayrıştırılmış)
@@ -273,7 +274,7 @@ export function clearChatHistoryCore(
   dropPool: () => void,
   clearBindings: () => void,
   fs: FsAdapter = realFs
-): { ok: boolean; error?: string } {
+): { ok: boolean; error?: DataClearError } {
   // Önce oku — dosya varsa ama bozuksa/geçersizse ABORT, yan etki olmadan.
   let projects: unknown[] = [];
   if (fs.exists(chatPath)) {
@@ -307,7 +308,7 @@ export function clearChatHistoryCore(
 }
 
 /** Gerçek çalışmada: Electron + chatStore.saveChatSessions. */
-export function clearChatHistory(): { ok: boolean; error?: string } {
+export function clearChatHistory(): { ok: boolean; error?: DataClearError } {
   return clearChatHistoryCore(
     chatFilePath(),
     (p) => readFileSync(p, "utf8"),
@@ -350,7 +351,7 @@ export function clearAppLogCore(
 }
 
 /** Gerçek çalışmada: node:fs. */
-export function clearAppLog(): { ok: boolean; error?: string } {
+export function clearAppLog(): { ok: boolean; error?: DataClearError } {
   const logPath = appLogPath();
   const result = clearAppLogCore(logPath, {
     exists: (p) => existsSync(p),
@@ -360,7 +361,7 @@ export function clearAppLog(): { ok: boolean; error?: string } {
     // Temizleme kaydı: çok kısa bir satır, kurala uygun.
     try { appLog("veri.gunluk-temizlendi"); } catch { /* devam */ }
   }
-  return result;
+  return { ok: result.ok, ...(result.ok ? {} : { error: "veri.gunluk.sil-hatasi" as const }) };
 }
 
 // ─────────────────────────────────────────────────────────────
