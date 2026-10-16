@@ -4,6 +4,7 @@ import type { ConnectivityState, SapService, SystemTier } from "../../app-electr
 import SystemHeader from "./SystemHeader";
 import SystemInfoList from "./SystemInfoList";
 import SystemNotes from "./SystemNotes";
+import AgentCapabilities from "./AgentCapabilities";
 import { useSystemComment } from "./useSystemComment";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
@@ -130,6 +131,8 @@ export default function SystemPanel({
             explicitTier={explicitTier}
             onSetTier={(next) => onSetTier(service, next)}
           />
+          {/* Yalnız bağlı olunan sistemde; araç listesi 8787'den. */}
+          <AgentCapabilities systemUuid={service.uuid} />
         </section>
         <div data-panel-card className={`${PANEL_CARD} flex-1`}>
           <SystemNotes note={note} />

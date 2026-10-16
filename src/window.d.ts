@@ -1,3 +1,4 @@
+import type { AdtCapabilities } from "../app-electron/shared/adtCapabilities";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -86,6 +87,8 @@ export interface AxetApi {
   // Aktif bağlam — üç ekranın ortak "neredeyiz" bilgisi
   // (bkz. app-electron/main/activeContext.ts).
   getActiveContext: () => Promise<ActiveContext>;
+  /** Bağlı sistemde ajanın neyi yapabildiği (8787'nin araç listesinden); bağlantı yoksa null. */
+  getAdtCapabilities: () => Promise<AdtCapabilities | null>;
   clearActiveSapContext: () => Promise<ActiveContext>;
   setActiveGuiContext: (gui: ActiveGuiContext | null) => Promise<ActiveContext>;
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => () => void;

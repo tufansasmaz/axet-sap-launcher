@@ -362,3 +362,31 @@ describe("SystemPanel — üst-alt düzen (ikinci tur)", () => {
     expect(src).toContain("max-w-[1280px]");
   });
 });
+
+describe("SystemPanel — ajan bu sistemde (2026-10-16)", () => {
+  it("bağlı olunan sistemde öbek bağlantı bilgileri kartında görünüyor", async () => {
+    win.api = fakeApi({
+      getSystemCommentDefault: () => Promise.resolve({ comment: "", source: "none" }),
+      setSystemComment,
+      getActiveContext: () =>
+        Promise.resolve({ sap: { uuid: "svc-a", tier: "DEV", connectedAt: "2026-10-16T10:00:00Z" }, gui: null }),
+      getAdtCapabilities: () =>
+        Promise.resolve({ systemUuid: "svc-a", server: "running", rows: [{ id: "tables", state: "yes", reason: null }] })
+    });
+    renderPanel();
+    const heading = await screen.findByText("Ajan bu sistemde");
+    expect(heading.closest("[data-panel-card]")?.textContent).toContain("Bağlantı Bilgileri");
+  });
+
+  it("bağlı olunmayan sistemde öbek yok", async () => {
+    win.api = fakeApi({
+      getSystemCommentDefault: () => Promise.resolve({ comment: "", source: "none" }),
+      getActiveContext: () => Promise.resolve({ sap: { uuid: "svc-b", connectedAt: "x" }, gui: null })
+    });
+    renderPanel();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.queryByText("Ajan bu sistemde")).toBeNull();
+  });
+});

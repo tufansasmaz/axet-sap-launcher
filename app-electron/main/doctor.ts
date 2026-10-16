@@ -21,6 +21,7 @@ import { findCatalogFolders } from "./catalogFolder";
 import { getToolkitRoot, readToolkitVersion } from "./sapToolkit";
 import type { DoctorReport, DoctorRow } from "../shared/types";
 import { mt } from "./i18n";
+import { probeAdtTools } from "./adtReadonlyServerManager";
 
 /** Kurulu olması gereken pip paketleri: pip adı -> import adı. */
 export const REQUIRED_PACKAGES: Record<string, string> = {
@@ -181,7 +182,9 @@ export async function runDoctor(): Promise<DoctorReport> {
     rows.push({ id: "packages", status: "unknown", detail: mt("doctor.needsPython") });
   }
 
-  const adtAlive = await httpOk(ADT_PORT, "/health");
+  // 8787 `/health`'i de anahtarın arkasında tutuyor: anahtarsız soru 401
+  // alıyor ve çalışan sunucu "kapalı" görünüyordu.
+  const adtAlive = (await probeAdtTools(ADT_PORT)).alive;
   rows.push({
     id: "adtServer",
     status: adtAlive ? "ok" : "warn",

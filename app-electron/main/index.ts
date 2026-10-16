@@ -40,6 +40,7 @@ import { registerSapWriteIpc } from "./sapWrite/ipc";
 import { appLog, appLogPath } from "./appLog";
 import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
 import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
+import { readAdtCapabilities } from "./adtCapabilities";
 import { checkForUpdates, downloadUpdate, installUpdate, getLastUpdateStatus } from "./updater";
 import { openInSapLogon } from "./sapLogon";
 import { listAxetModels, getAxetModelConfig, setAxetModel } from "./axetModels";
@@ -88,6 +89,9 @@ import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor 
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
 import type { ActiveGuiContext, AddManualSystemInput, AdoptWorkDirResult, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
+
+// ADT sunucusunun portu (launcher.ts DEFAULT_READONLY_SERVER_PORT ile aynı).
+const ADT_SERVER_PORT = 8787;
 
 const DEFAULT_GUI_SCRIPT_BRIDGE_PORT = 8790;
 
@@ -831,6 +835,14 @@ function registerIpc(): void {
 
   // ---------------------------- Aktif Bağlam ----------------------------
   ipcMain.handle("context:get", () => getActiveContext());
+
+  // "Ajan bu sistemde" öbeği: bağlı sistem için 8787'ye anahtarla sorulup
+  // araç listesinden kuruluyor (bkz. adtCapabilities.ts).
+  ipcMain.handle("adt:capabilities", () => {
+    const sap = getActiveContext().sap;
+    if (!sap) return null;
+    return readAdtCapabilities(ADT_SERVER_PORT, sap, loadConfig().skillProfile ?? null);
+  });
 
   // Temizleme yalnızca SAP tarafı için var ve kullanıcı eylemi (başlık
   // çubuğundaki rozetin çarpısı). GUI tarafı kendi kendini yönetiyor:

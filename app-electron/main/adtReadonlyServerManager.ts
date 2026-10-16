@@ -137,9 +137,11 @@ interface HealthInfo {
    * sarmalayıcı (19 araç) listelemez ve devralınmamalı.
    */
   readsData: boolean;
+  /** Sunucunun saydığı araç adları (ekrandaki "Ajan bu sistemde" öbeği bunlardan kuruluyor). */
+  tools: string[];
 }
 
-const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false, gated: false, readsData: false };
+const DEAD: HealthInfo = { alive: false, writable: false, toolCount: 0, unauthorized: false, gated: false, readsData: false, tools: [] };
 
 function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
   return new Promise((resolve) => {
@@ -182,7 +184,8 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
               toolCount: typeof parsed.tool_count === "number" ? parsed.tool_count : tools.length,
               unauthorized: false,
               gated: tools.includes("axet_teslim"),
-              readsData: tools.includes("adt_sql")
+              readsData: tools.includes("adt_sql"),
+              tools
             });
           } catch {
             // Ayakta ama cevabı okunamıyor: sahiplenmek için yeterli değil.
@@ -199,6 +202,19 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
     });
     req.end();
   });
+}
+
+/**
+ * 8787'deki sunucunun araç listesi, anahtarla. Doktor ve "Ajan bu sistemde"
+ * öbeği için: sunucu `/health`'i de anahtarın arkasında tutuyor, anahtarsız
+ * soran çalışan sunucuyu kapalı sanıyor.
+ */
+export async function probeAdtTools(
+  port: number,
+  timeoutMs = 1500
+): Promise<{ alive: boolean; unauthorized: boolean; tools: string[] }> {
+  const info = await probeHealth(port, timeoutMs);
+  return { alive: info.alive, unauthorized: info.unauthorized, tools: info.tools };
 }
 
 /**

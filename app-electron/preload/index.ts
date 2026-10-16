@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
+import type { AdtCapabilities } from "../shared/adtCapabilities";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -75,6 +76,8 @@ const api = {
   // main/activeContext.ts). Renderer SAP tarafını YAZAMIYOR, sadece okuyor
   // ve temizleyebiliyor; tek yazar başarılı bağlantının kendisi.
   getActiveContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:get"),
+  // Bağlı sistemde ajanın neyi yapabildiği; 8787'nin araç listesinden. Bağlantı yoksa null.
+  getAdtCapabilities: (): Promise<AdtCapabilities | null> => ipcRenderer.invoke("adt:capabilities"),
   clearActiveSapContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:clearSap"),
   setActiveGuiContext: (gui: ActiveGuiContext | null): Promise<ActiveContext> => ipcRenderer.invoke("context:setGui", gui),
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => {
