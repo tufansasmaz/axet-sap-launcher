@@ -5,6 +5,7 @@ import SystemHeader from "./SystemHeader";
 import SystemInfoList from "./SystemInfoList";
 import SystemNotes from "./SystemNotes";
 import AgentCapabilities from "./AgentCapabilities";
+import WriteHistory from "./WriteHistory";
 import { useSystemComment } from "./useSystemComment";
 import { Button } from "../ui/Button";
 import { EmptyState } from "../ui/EmptyState";
@@ -133,6 +134,8 @@ export default function SystemPanel({
           />
           {/* Yalnız bağlı olunan sistemde; araç listesi 8787'den. */}
           <AgentCapabilities systemUuid={service.uuid} />
+          {/* Bağlı olmasa da: kayıt sistemin proje klasöründe. Boşsa hiç çizilmiyor. */}
+          <WriteHistory path={path} service={service} />
         </section>
         <div data-panel-card className={`${PANEL_CARD} flex-1`}>
           <SystemNotes note={note} />
