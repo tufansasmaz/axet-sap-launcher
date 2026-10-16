@@ -11,7 +11,7 @@ import path from "node:path";
 import { shell } from "electron";
 import { appLogPath, appLog } from "./appLog";
 import { loadConfig } from "./store";
-import { loadChatSessions, saveChatSessions } from "./chatStore";
+import { saveChatSessions } from "./chatStore";
 import { cancelAllChatMessages, dropAllPrewarmed } from "./axetChat";
 import { clearAllBindings } from "./axetSessionBinding";
 import { LOG_FILE as SAP_LOG_FILE } from "./sapWrite/log";
@@ -274,23 +274,28 @@ export function clearChatHistoryCore(
   clearBindings: () => void,
   fs: FsAdapter = realFs
 ): { ok: boolean; error?: string } {
-  // Çalışan turları durdur ve havuzu bırak — bu kısım her zaman çalışır.
-  cancelAll();
-  dropPool();
-  clearBindings();
-
-  // Projeleri koruyarak oku — ama dosya varsa ve okunamıyorsa ABORT.
+  // Önce oku — dosya varsa ama bozuksa/geçersizse ABORT, yan etki olmadan.
   let projects: unknown[] = [];
   if (fs.exists(chatPath)) {
-    let raw: Record<string, unknown>;
+    let parsed: unknown;
     try {
-      raw = JSON.parse(readFile(chatPath)) as Record<string, unknown>;
+      parsed = JSON.parse(readFile(chatPath));
     } catch {
       // Bozuk/okunamaz → geri al: projeleri yok etme riski var.
       return { ok: false, error: "veri.chat.oku-hatasi" };
     }
+    // null, dizi veya primitive → geçersiz yapı, abort.
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return { ok: false, error: "veri.chat.oku-hatasi" };
+    }
+    const raw = parsed as Record<string, unknown>;
     if (Array.isArray(raw.projects)) projects = raw.projects;
   }
+
+  // Yan etkiler: yalnızca okuma başarılı olduktan sonra çalışır.
+  cancelAll();
+  dropPool();
+  clearBindings();
 
   const state: ChatSessionsState = { activeId: null, sessions: [], projects: projects as ChatSessionsState["projects"] };
   const result = save(state);

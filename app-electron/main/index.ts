@@ -1296,12 +1296,21 @@ function registerIpc(): void {
   registerWriteHistoryIpc(ipcMain);
 
   // Veri ve gizlilik (Is A — 2026-10-17)
-  ipcMain.handle("data:summary", () => buildSummary());
-  ipcMain.handle("data:reveal", (_event, kind: "chat" | "log" | "sapWrite") => revealData(kind));
+  ipcMain.handle("data:summary", () => {
+    try { return buildSummary(); }
+    catch { return null; }
+  });
+  ipcMain.handle("data:reveal", (_event, kind: "chat" | "log" | "sapWrite" | "axetDb") =>
+    revealData(kind).catch(() => {})
+  );
   ipcMain.handle("data:clear", (_event, kind: "chat" | "log") => {
-    if (kind === "chat") return clearChatHistory();
-    if (kind === "log") return clearAppLog();
-    return { ok: false, error: `Bilinmeyen tür: ${kind}` };
+    try {
+      if (kind === "chat") return clearChatHistory();
+      if (kind === "log") return clearAppLog();
+      return { ok: false, error: "veri.ipc.hatasi" };
+    } catch {
+      return { ok: false, error: "veri.ipc.hatasi" };
+    }
   });
 
   ipcMain.handle("axetModels:list", () => listAxetModels());

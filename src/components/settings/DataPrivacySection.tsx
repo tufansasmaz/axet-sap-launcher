@@ -74,8 +74,10 @@ export default function DataPrivacySection() {
     try {
       const result = await window.api.dataPrivacyClear(kind);
       if (!result.ok) {
-        if (kind === "chat") setChatError(t("dataPrivacy.clearError", { error: result.error ?? "?" }));
-        else setLogError(t("dataPrivacy.clearError", { error: result.error ?? "?" }));
+        // result.error bir i18n anahtarıdır; t() ile insanca okunabilir metne çevir.
+        const msg = result.error ? t(result.error) : t("veri.ipc.hatasi");
+        if (kind === "chat") setChatError(t("dataPrivacy.clearError", { error: msg }));
+        else setLogError(t("dataPrivacy.clearError", { error: msg }));
       } else if (kind === "chat") {
         // Renderer store'u da temizle: ekran anında boşalsın.
         chatCtx?.setSessions([]);
@@ -83,9 +85,11 @@ export default function DataPrivacySection() {
       }
       // Her iki durumda da özeti yenile.
       await loadSummary();
-    } catch (err) {
-      if (kind === "chat") setChatError(t("dataPrivacy.clearError", { error: (err as Error).message }));
-      else setLogError(t("dataPrivacy.clearError", { error: (err as Error).message }));
+    } catch {
+      // Yol/dahili bilgi sızdırmamak için genel hata metni göster.
+      const msg = t("veri.ipc.hatasi");
+      if (kind === "chat") setChatError(t("dataPrivacy.clearError", { error: msg }));
+      else setLogError(t("dataPrivacy.clearError", { error: msg }));
     } finally {
       if (mountedRef.current) setClearing(false);
     }

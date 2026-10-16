@@ -1169,6 +1169,10 @@ export const en: Record<TranslationKey, string> = {
   "dataPrivacy.databases": "{count} databases",
   "dataPrivacy.loading": "Calculating…",
   "dataPrivacy.clearError": "Clear failed: {error}",
+  "veri.chat.oku-hatasi": "Chat file could not be read",
+  "veri.chat.kaydet-hatasi": "Chat file could not be saved",
+  "veri.gunluk.sil-hatasi": "Log file could not be deleted",
+  "veri.ipc.hatasi": "An error occurred during the operation",
 
   // --- Shortcuts window (İş C — 2026-10-17) ---
   "shortcuts.palette": "Open command palette",

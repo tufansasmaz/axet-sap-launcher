@@ -1255,6 +1255,10 @@ export const tr = {
   "dataPrivacy.databases": "{count} veritabanı",
   "dataPrivacy.loading": "Hesaplanıyor…",
   "dataPrivacy.clearError": "Temizleme başarısız: {error}",
+  "veri.chat.oku-hatasi": "Sohbet dosyası okunamadı",
+  "veri.chat.kaydet-hatasi": "Sohbet dosyası kaydedilemedi",
+  "veri.gunluk.sil-hatasi": "Günlük dosyası silinemedi",
+  "veri.ipc.hatasi": "İşlem sırasında hata oluştu",
 
   // --- Kısayollar penceresi (İş C — 2026-10-17) ---
   "shortcuts.palette": "Komut paletini aç",

@@ -2,13 +2,15 @@
 // TDD: önce kırmızı.
 //
 // Kapsam:
-// - Bozuk/okunamaz dosya → abort, ok:false, dosya dokunulmaz
+// - Bozuk/okunamaz dosya → abort, ok:false, YAN ETKİ YOK (cancelAll vb. çağrılmaz)
+// - Geçerli JSON ama nesne değil (null, []) → abort, ok:false, yan etki yok
 // - Normal temizleme → projeler korunur, sessions boş, cancelAll + dropPool + clearBindings çağrılır
 // - Günlük temizleme → .log ve .log.1 ikisi de silinir
 // - Hata kodu yol barındırmaz (err.message değil sabit token)
 
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FsAdapter } from "../app-electron/main/dataPrivacy";
+import type { ChatSessionsState } from "../shared/types";
 import {
   clearChatHistoryCore,
   clearAppLogCore
@@ -45,12 +47,14 @@ describe("clearChatHistoryCore", () => {
   function makeDeps(overrides: {
     fileExists?: boolean;
     readable?: boolean;
+    rawContent?: string;
     rawProjects?: unknown[];
     saveResult?: { ok: boolean; error?: string };
   } = {}) {
     const {
       fileExists = true,
       readable = true,
+      rawContent,
       rawProjects = [{ id: "p1", name: "Proje" }],
       saveResult = { ok: true }
     } = overrides;
@@ -58,10 +62,12 @@ describe("clearChatHistoryCore", () => {
     const cancelAll = vi.fn();
     const dropPool = vi.fn();
     const clearBindings = vi.fn();
-    const save = vi.fn(() => saveResult);
+    // Mock tiplendirilmiş: save.mock.calls[0][0] ChatSessionsState olarak okunabilir
+    const save = vi.fn((_state: ChatSessionsState) => saveResult);
 
-    function readFile(p: string): string {
+    function readFile(_p: string): string {
       if (!readable) throw new Error("EPERM: C:\\Users\\tufan\\data\\chat-sessions.json");
+      if (rawContent !== undefined) return rawContent;
       return JSON.stringify({ sessions: [{ id: "s1" }, { id: "s2" }], projects: rawProjects });
     }
 
@@ -70,7 +76,7 @@ describe("clearChatHistoryCore", () => {
     return { cancelAll, dropPool, clearBindings, save, readFile, fs };
   }
 
-  it("bozuk/okunamaz dosya varsa → ok:false, save ÇAĞRILMAZ", () => {
+  it("bozuk/okunamaz dosya varsa → ok:false, save ÇAĞRILMAZ, yan etki YOK", () => {
     const { cancelAll, dropPool, clearBindings, save, readFile, fs } = makeDeps({ readable: false });
     const result = clearChatHistoryCore(CHAT_PATH, readFile, save, cancelAll, dropPool, clearBindings, fs);
     expect(result.ok).toBe(false);
@@ -79,6 +85,28 @@ describe("clearChatHistoryCore", () => {
     expect(result.error).not.toContain("tufan");
     expect(result.error).not.toContain("Users");
     expect(save).not.toHaveBeenCalled();
+    // Yan etki olmadan abort: cancelAll vb. çağrılmamalı
+    expect(cancelAll).not.toHaveBeenCalled();
+    expect(dropPool).not.toHaveBeenCalled();
+    expect(clearBindings).not.toHaveBeenCalled();
+  });
+
+  it("geçerli JSON ama nesne değil (null) → ok:false, yan etki YOK", () => {
+    const { cancelAll, dropPool, clearBindings, save, readFile, fs } = makeDeps({ rawContent: "null" });
+    const result = clearChatHistoryCore(CHAT_PATH, readFile, save, cancelAll, dropPool, clearBindings, fs);
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("veri.chat.oku-hatasi");
+    expect(save).not.toHaveBeenCalled();
+    expect(cancelAll).not.toHaveBeenCalled();
+  });
+
+  it("geçerli JSON ama dizi ([]) → ok:false, yan etki YOK", () => {
+    const { cancelAll, dropPool, clearBindings, save, readFile, fs } = makeDeps({ rawContent: "[]" });
+    const result = clearChatHistoryCore(CHAT_PATH, readFile, save, cancelAll, dropPool, clearBindings, fs);
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("veri.chat.oku-hatasi");
+    expect(save).not.toHaveBeenCalled();
+    expect(cancelAll).not.toHaveBeenCalled();
   });
 
   it("dosya yoksa → sessions boş, projeler [], save çağrılır", () => {
@@ -101,7 +129,7 @@ describe("clearChatHistoryCore", () => {
     expect(savedState.projects).toEqual(projs);
   });
 
-  it("cancelAll + dropPool + clearBindings çağrılır", () => {
+  it("cancelAll + dropPool + clearBindings çağrılır (başarılı akış)", () => {
     const { cancelAll, dropPool, clearBindings, save, readFile, fs } = makeDeps();
     clearChatHistoryCore(CHAT_PATH, readFile, save, cancelAll, dropPool, clearBindings, fs);
     expect(cancelAll).toHaveBeenCalledOnce();
@@ -151,7 +179,7 @@ describe("clearAppLogCore", () => {
   it("silme hatası → ok:false, hata kodu yol barındırmaz", () => {
     const result = clearAppLogCore(LOG_PATH, {
       exists: () => true,
-      unlink: (p) => { throw new Error(`EPERM: C:\\Users\\tufan\\logs\\ntt-studio.log`); }
+      unlink: (_p) => { throw new Error(`EPERM: C:\\Users\\tufan\\logs\\ntt-studio.log`); }
     });
     expect(result.ok).toBe(false);
     expect(result.error).not.toContain("tufan");
