@@ -128,7 +128,10 @@ function defaultConfig(): AppConfig {
     axetCodeLatestSeen: "",
     // Ölçülerek doldurulur (connectorHealth.ts); elle düzenlenen bir ayar değil.
     connectorIntegrations: {},
-    connectorAutoDisabled: []
+    connectorAutoDisabled: [],
+    // Varsayılan: açık. Yeni kullanıcılar odak dışındayken cevap olduğunu
+    // öğrenir; kapatmak isteyenler Ayarlar'dan kapayabilir.
+    chatNotifications: true
   };
 }
 
@@ -235,7 +238,9 @@ export function loadConfig(): AppConfig {
       // Dizi ve içinin dize olduğu süzülüyor; maksimum 5, tekrarsız.
       previousProjectsBaseDirs: Array.isArray(parsed.previousProjectsBaseDirs)
         ? [...new Set((parsed.previousProjectsBaseDirs as unknown[]).filter((x): x is string => typeof x === "string"))].slice(0, MAX_PREVIOUS_DIRS)
-        : []
+        : [],
+      // Göç: eski config'de alan yoksa → true (varsayılan açık).
+      chatNotifications: parsed.chatNotifications === false ? false : fallback.chatNotifications
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

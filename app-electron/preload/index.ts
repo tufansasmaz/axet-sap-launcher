@@ -414,7 +414,15 @@ const api = {
   dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite" | "axetDb"): Promise<void> =>
     ipcRenderer.invoke("data:reveal", kind),
   dataPrivacyClear: (kind: "chat" | "log"): Promise<{ ok: boolean; error?: string }> =>
-    ipcRenderer.invoke("data:clear", kind)
+    ipcRenderer.invoke("data:clear", kind),
+
+  // İş B — bildirim tıklandığında ana süreç bu olayı gönderir (chat:open).
+  // Renderer'da AxetCodeHome dinleyip sohbeti seçiyor.
+  onChatOpen: (callback: (chatId: string) => void) => {
+    const listener = (_event: unknown, chatId: string) => callback(chatId);
+    ipcRenderer.on("chat:open", listener);
+    return () => ipcRenderer.removeListener("chat:open", listener);
+  }
 };
 
 contextBridge.exposeInMainWorld("api", api);

@@ -447,6 +447,10 @@ export interface AppConfig {
   // kullanıcının kapatmasını geri açar ya da kendi kapatmamızı asla
   // kaldıramazdık. Bkz. connectorHealth.ts.
   connectorAutoDisabled: string[];
+  // Tur bitince Windows bildirimi göster (İş B — 2026-10-17). Pencere
+  // odaktaysa ya da kullanıcı turu durdurduysa bildirim gönderilmez.
+  // `undefined` → `true` (göç: eski config dosyalarında alan yoksa açık sayılır).
+  chatNotifications?: boolean;
 }
 
 export interface ConnectorIntegrationHealth {

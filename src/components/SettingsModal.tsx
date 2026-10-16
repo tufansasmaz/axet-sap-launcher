@@ -560,6 +560,13 @@ export default function SettingsModal({
                 ]}
               />
             </Field>
+            {/* İş B — bildirim ayarı */}
+            <Field label={t("settingsModal.chatNotificationsLabel")} hint={t("settingsModal.chatNotificationsHint")}>
+              <Toggle
+                checked={form.chatNotifications !== false}
+                onChange={(chatNotifications) => update({ chatNotifications })}
+              />
+            </Field>
           </div>
         );
       case "terminal":

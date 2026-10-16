@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, screen, session } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, screen, session, Notification } from "electron";
 import path from "node:path";
 import { promises as fs, existsSync } from "node:fs";
 import { request as httpRequest } from "node:http";
@@ -94,6 +94,7 @@ import { installWindowGuards, isAppUrl, isExternalOpenAllowed, type AppOrigin } 
 import { testConnector, cancelConnectorTest, cancelAllConnectorTests, mcpUrlFor } from "./agenticConnectors";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { forgetConnectorHealth } from "./connectorHealth";
+import { notificationFor, setNotificationLang } from "./chatNotification";
 import type { ActiveGuiContext, AddManualSystemInput, AdoptWorkDirResult, AppConfig, ConnectRequest, SapService, CredentialDefaults, ProjectBrief, SapContextPreview, ConnectorInventory, SystemCommentDefaults, SystemTier, SkillProfile, TerminalMode, AxetModelKind, AxetModelEntry, AxetChatMessage, ChatSessionsState, FlowJsonValue, FlowTestRequestPayload, GuiScriptActionPayload, GuiScriptScreenshotMethod, ConnectorProvider } from "../shared/types";
 
 // ADT sunucusunun portu (launcher.ts DEFAULT_READONLY_SERVER_PORT ile aynı).
@@ -183,6 +184,41 @@ Menu.setApplicationMenu(
 );
 
 let mainWindow: BrowserWindow | null = null;
+
+// İş B — Bildirim: sohbet başlığını disk'ten oku (en az değişiklik).
+// Sapma: loadChatSessions() tüm oturumları okuyor — tek bir chatId için
+// fazla. Performans baskısı yok: bildirim zaten seyrek olay.
+function getChatTitle(chatId: string): string {
+  try {
+    const r = loadChatSessions();
+    if (!r.ok) return "";
+    return r.state.sessions.find((s) => s.id === chatId)?.title ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function showChatNotification(chatId: string, kind: Parameters<typeof notificationFor>[0]): void {
+  try {
+    if (!Notification.isSupported()) return;
+    const cfg = loadConfig();
+    const enabled = cfg.chatNotifications !== false;
+    // Pencere küçültülmüşse veya odak yoksa bildirim göster.
+    const isFocusedAndVisible = (mainWindow?.isFocused() ?? false) && !(mainWindow?.isMinimized() ?? true);
+    const payload = notificationFor(kind, isFocusedAndVisible, enabled, getChatTitle(chatId));
+    if (!payload) return;
+    const n = new Notification({ title: payload.title, body: payload.body, silent: false });
+    n.on("click", () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send("chat:open", chatId);
+    });
+    n.show();
+  } catch {
+    // Ana süreçte yakalanmamış istisna bırakılmamalı.
+  }
+}
 
 // Kullanıcı onayı bekleyen TLS sertifikaları: `host:port` → bağlanırken
 // ölçülen SHA-256 parmak izi (bkz. "system:connect" ve "certs:approve").
@@ -903,6 +939,7 @@ function registerIpc(): void {
     // config.json okumamak için). Kullanıcı dili değiştirdiğinde tazelenmezse
     // arayüz İngilizce'ye geçerken ana sürecin hata mesajları Türkçe kalırdı.
     refreshMainLanguage(saved.language);
+    setNotificationLang(saved.language as "tr" | "en");
 
     // Pencerenin arka plan rengi açılışta görünüme göre veriliyor (bkz.
     // `createWindow`, `backgroundColor`). Görünüm değişince o da değişmeli:
@@ -1277,7 +1314,7 @@ function registerIpc(): void {
   // bile son metin doğru olur.
   ipcMain.handle(
     "axetChat:send",
-    (
+    async (
       _event,
       requestId: string,
       chatId: string,
@@ -1285,8 +1322,16 @@ function registerIpc(): void {
       model: AxetModelEntry | null,
       history: AxetChatMessage[],
       message: string
-    ) =>
-      sendChatMessage(
+    ) => {
+      // askUser bildirimi: ajan soru sorarken pencere odakta değilse bildir.
+      const onActivity: Parameters<typeof sendChatMessage>[7] = (activity) => {
+        mainWindow?.webContents.send("axetChat:activity", requestId, activity);
+        if (activity.phase === "askUser") {
+          showChatNotification(chatId, "askUser");
+        }
+      };
+
+      const result = await sendChatMessage(
         requestId,
         chatId,
         cwd,
@@ -1297,11 +1342,18 @@ function registerIpc(): void {
         // Alt sürecin aşaması + araç çağrıları/sonuçları (bkz. AxetChatActivity).
         // Eskiden cevap beklenirken arayüzde yalnızca yanıp sönen çubuklar
         // vardı ve hiçbir şey söylemiyorlardı.
-        (activity) => mainWindow?.webContents.send("axetChat:activity", requestId, activity),
+        onActivity,
         // Ajanın planı + bağlam doluluğu. Ayrı bir kanal: bunlar olay değil,
         // her seferinde tam DURUM (bkz. AxetChatProgress).
         (progress) => mainWindow?.webContents.send("axetChat:progress", requestId, progress)
-      )
+      );
+
+      // Tur sonu bildirimi. İptal edilmişse ve askUser sonradan bitmişse bildirim yok.
+      const kind = result.cancelled ? "cancelled" : result.ok ? "answer" : "error";
+      showChatNotification(chatId, kind);
+
+      return result;
+    }
   );
   // Isıtma (bkz. axetPrewarm.ts): taslak yazılırken/sohbet açılınca istemsiz
   // bir `run` süreci. Renderer geçmişin yalnız SON İKİ mesajını gönderiyor (kırpma

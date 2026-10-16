@@ -62,7 +62,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: Type,
     titleKey: "settingsModal.sectionChatAppearance",
     descKey: "settingsModal.descChatAppearance",
-    fields: ["chatDensity"]
+    fields: ["chatDensity", "chatNotifications"]
   },
   {
     id: "terminal",
