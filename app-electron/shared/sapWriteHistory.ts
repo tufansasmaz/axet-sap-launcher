@@ -238,3 +238,9 @@ export function toCsv(ops: readonly WriteOp[], language: CsvLanguage): string {
   }
   return rows.join("\r\n") + "\r\n";
 }
+
+export type WriteHistoryResult =
+  | { ok: true; ops: WriteOp[]; skipped: number; truncated: boolean }
+  | { ok: false; reason: "okunamadi" };
+
+export type WriteCsvResult = { ok: true; path: string; count: number } | { ok: false; canceled?: true; message?: string };

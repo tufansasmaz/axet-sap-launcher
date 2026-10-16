@@ -239,6 +239,7 @@ export const MAIN_EN = {
   // The dialog TITLE is app UI; the CONTENT of the exported file
   // (chatExport.ts / chatPrint.ts) is out of scope by user request.
   "dialog.exportManualSystems": "Export Manual Systems",
+  "dialog.exportWriteHistory": "Save SAP Write History",
   "dialog.importManualSystems": "Import Manual Systems",
   "dialog.exportChat": "Export chat",
   "dialog.exportChatFailed": "The chat could not be exported",

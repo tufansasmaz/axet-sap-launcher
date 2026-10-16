@@ -248,6 +248,7 @@ export const MAIN_TR = {
   // Diyaloğun BAŞLIĞI uygulama arayüzüdür; dışa aktarılan dosyanın İÇERİĞİ
   // (chatExport.ts / chatPrint.ts) kullanıcı isteğiyle kapsam dışı.
   "dialog.exportManualSystems": "Manuel Sistemleri Dışa Aktar",
+  "dialog.exportWriteHistory": "SAP Yazma Geçmişini Kaydet",
   "dialog.importManualSystems": "Manuel Sistemleri İçe Aktar",
   "dialog.exportChat": "Sohbeti dışa aktar",
   "dialog.exportChatFailed": "Sohbet dışa aktarılamadı",

@@ -77,6 +77,7 @@ import type {
   TerminalMode,
   UpdateStatus
 } from "../app-electron/shared/types";
+import type { WriteCsvResult, WriteHistoryResult } from "../app-electron/shared/sapWriteHistory";
 import type { Choice, SapWriteState, WorkMode } from "../app-electron/shared/sapWriteTypes";
 
 export interface AxetApi {
@@ -92,6 +93,8 @@ export interface AxetApi {
   getAdtCapabilities: () => Promise<AdtCapabilities | null>;
   supportPreview: (req: { note: string; chatMarkdown: string | null }) => Promise<string[]>;
   supportCreate: (req: { note: string; chatMarkdown: string | null }) => Promise<SupportCreateResult>;
+  getWriteHistory: (customerPath: string[], service: SapService) => Promise<WriteHistoryResult>;
+  exportWriteHistoryCsv: (customerPath: string[], service: SapService) => Promise<WriteCsvResult>;
   clearActiveSapContext: () => Promise<ActiveContext>;
   setActiveGuiContext: (gui: ActiveGuiContext | null) => Promise<ActiveContext>;
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => () => void;

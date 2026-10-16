@@ -62,6 +62,7 @@ import type {
   TerminalMode,
   UpdateStatus
 } from "../shared/types";
+import type { WriteCsvResult, WriteHistoryResult } from "../shared/sapWriteHistory";
 import type { Choice, SapWriteState, WorkMode } from "../shared/sapWriteTypes";
 
 const api = {
@@ -84,6 +85,11 @@ const api = {
     ipcRenderer.invoke("support:preview", req),
   supportCreate: (req: { note: string; chatMarkdown: string | null }): Promise<SupportCreateResult> =>
     ipcRenderer.invoke("support:create", req),
+  // "SAP'ye yazılanlar" (sistem paneli): kayıt okuma ve CSV (bkz. sapWrite/history.ts).
+  getWriteHistory: (customerPath: string[], service: SapService): Promise<WriteHistoryResult> =>
+    ipcRenderer.invoke("sapWrite:history", customerPath, service),
+  exportWriteHistoryCsv: (customerPath: string[], service: SapService): Promise<WriteCsvResult> =>
+    ipcRenderer.invoke("sapWrite:exportCsv", customerPath, service),
   clearActiveSapContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:clearSap"),
   setActiveGuiContext: (gui: ActiveGuiContext | null): Promise<ActiveContext> => ipcRenderer.invoke("context:setGui", gui),
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => {
