@@ -16,7 +16,7 @@ Yavaşlık şikâyetinde (1.8.x) kullanıcılar günlük dosyalarını gönderem
 
 - **Ayarlar → Gelişmiş:**
   - Tek eylem satırı: "Sorun bildir…".
-  - Yeni alan: "Destek e-posta adresi" (`config.supportEmail`, boş olabilir).
+  - Yeni alan: "Destek e-posta adresi" (`config.supportEmail`). Varsayılan `tufan.sasmaz@nttdata.com` (kullanıcı, 2026-10-16); boşaltılırsa taslak alıcısız açılır.
 - **Komut paleti:** "Sorun bildir" komutu.
 - **Pencere** (ortak `Modal`):
   - "Ne oldu?" çok satırlı kutu, isteğe bağlı, en fazla 4000 karakter.
