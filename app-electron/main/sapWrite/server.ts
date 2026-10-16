@@ -322,6 +322,11 @@ export function respondToApproval(id: string, choice: Choice): { ok: boolean; er
   return { ok: false, error: "bulunamadi" };
 }
 
+/** Açık onay oturumlarının anahtarları — yalnız destek paketini maskelemek için (bkz. support/ipc.ts). */
+export function activeApprovalTokens(): string[] {
+  return [...sessions.values()].map((s) => s.token);
+}
+
 export function listWriteState(): SapWriteState {
   const out: SapWriteState = { sessions: [], pending: [] };
   for (const s of sessions.values()) {

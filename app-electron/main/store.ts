@@ -90,6 +90,8 @@ function defaultConfig(): AppConfig {
     terminal: "powershell",
     landscapePathOverride: null,
     sapShcutPathOverride: null,
+    // Kullanıcı, 2026-10-16: destek paketleri ona gelsin.
+    supportEmail: "tufan.sasmaz@nttdata.com",
     lastCredentials: {},
     trustedCertificates: {},
     connectionHistory: [],
@@ -193,6 +195,7 @@ export function loadConfig(): AppConfig {
       theme,
       palette,
       chatDisplayName: typeof parsed.chatDisplayName === "string" ? parsed.chatDisplayName : fallback.chatDisplayName,
+      supportEmail: typeof parsed.supportEmail === "string" ? parsed.supportEmail.trim() : fallback.supportEmail,
       sidebarWidth: clampSidebarWidth(parsed.sidebarWidth),
       sidebarCollapsed: readSidebarCollapsed(parsed),
       terminalWorkspaces,

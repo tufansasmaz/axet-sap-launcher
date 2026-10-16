@@ -71,6 +71,7 @@ import type {
   CatalogInstallOutcome,
   GlobalSkillList,
   SkillStatus,
+  SupportCreateResult,
   SystemTier,
   SystemCommentDefaults,
   TerminalMode,
@@ -89,6 +90,8 @@ export interface AxetApi {
   getActiveContext: () => Promise<ActiveContext>;
   /** Bağlı sistemde ajanın neyi yapabildiği (8787'nin araç listesinden); bağlantı yoksa null. */
   getAdtCapabilities: () => Promise<AdtCapabilities | null>;
+  supportPreview: (req: { note: string; chatMarkdown: string | null }) => Promise<string[]>;
+  supportCreate: (req: { note: string; chatMarkdown: string | null }) => Promise<SupportCreateResult>;
   clearActiveSapContext: () => Promise<ActiveContext>;
   setActiveGuiContext: (gui: ActiveGuiContext | null) => Promise<ActiveContext>;
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => () => void;

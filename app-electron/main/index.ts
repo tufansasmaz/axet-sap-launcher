@@ -37,6 +37,7 @@ import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { stopApprovalServer } from "./sapWrite/server";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
+import { registerSupportIpc } from "./support/ipc";
 import { appLog, appLogPath } from "./appLog";
 import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
 import { getActiveContext, setActiveSap, setActiveGui, clearActiveSap, setActiveContextEmitter } from "./activeContext";
@@ -1250,6 +1251,7 @@ function registerIpc(): void {
   // SAP DEV yazma onayı: mod seçimi ve bekleyen isteklerin cevabı. Onay ucunun
   // kendisi (127.0.0.1, rastgele port) ilk DEV bağlantısında açılıyor.
   registerSapWriteIpc(ipcMain, () => mainWindow);
+  registerSupportIpc(ipcMain);
 
   ipcMain.handle("axetModels:list", () => listAxetModels());
   ipcMain.handle("axetModels:getCurrent", () => getAxetModelConfig());

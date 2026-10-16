@@ -56,6 +56,7 @@ import type {
   CatalogInstallOutcome,
   GlobalSkillList,
   SkillStatus,
+  SupportCreateResult,
   SystemTier,
   SystemCommentDefaults,
   TerminalMode,
@@ -78,6 +79,11 @@ const api = {
   getActiveContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:get"),
   // Bağlı sistemde ajanın neyi yapabildiği; 8787'nin araç listesinden. Bağlantı yoksa null.
   getAdtCapabilities: (): Promise<AdtCapabilities | null> => ipcRenderer.invoke("adt:capabilities"),
+  // "Sorun bildir": pakete girecek dosyalar ve paketi oluşturma (bkz. support/ipc.ts).
+  supportPreview: (req: { note: string; chatMarkdown: string | null }): Promise<string[]> =>
+    ipcRenderer.invoke("support:preview", req),
+  supportCreate: (req: { note: string; chatMarkdown: string | null }): Promise<SupportCreateResult> =>
+    ipcRenderer.invoke("support:create", req),
   clearActiveSapContext: (): Promise<ActiveContext> => ipcRenderer.invoke("context:clearSap"),
   setActiveGuiContext: (gui: ActiveGuiContext | null): Promise<ActiveContext> => ipcRenderer.invoke("context:setGui", gui),
   onActiveContextChanged: (callback: (context: ActiveContext) => void) => {

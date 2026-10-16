@@ -344,6 +344,8 @@ export interface AppConfig {
   terminal: TerminalMode;
   landscapePathOverride: string | null;
   sapShcutPathOverride: string | null;
+  /** "Sorun bildir" taslağının alıcısı; boşsa taslak alıcısız açılıyor. */
+  supportEmail: string;
   lastCredentials: Record<string, LastCredential>;
   trustedCertificates: Record<string, string>;
   /**
@@ -1552,3 +1554,7 @@ export interface ConnectorCheck {
  */
 export type ConnectorMode = "auto" | "always";
 
+/** "Sorun bildir" sonucu (support:create). */
+export type SupportCreateResult =
+  | { ok: true; zipPath: string; draft: "outlook" | "folder" }
+  | { ok: false; message: string };
