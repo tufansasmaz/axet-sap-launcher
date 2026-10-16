@@ -133,7 +133,7 @@ describe("CommandPalette — Modal ile yığın etkileşimi (Is 5)", () => {
     expect(onModalClose).not.toHaveBeenCalled();
   });
 
-  it("Tab odak paletin içinde kalır", () => {
+  it("Tab odak paletin içinde kalır (dışarıdan çekiyor)", () => {
     render(
       <LanguageProvider language="tr">
         <CommandPalette open items={ITEMS} onClose={vi.fn()} />
@@ -145,6 +145,30 @@ describe("CommandPalette — Modal ile yığın etkileşimi (Is 5)", () => {
     expect(document.activeElement).toBe(outside);
     fireEvent.keyDown(outside, { key: "Tab" });
     expect(document.activeElement).toBe(screen.getByRole("combobox"));
+  });
+
+  it("combobox odaktayken Tab paletin içinde kalıyor (tek odaklanabilir öğe kendisine dönüyor)", () => {
+    render(
+      <LanguageProvider language="tr">
+        <CommandPalette open items={ITEMS} onClose={vi.fn()} />
+      </LanguageProvider>
+    );
+    const input = screen.getByRole("combobox");
+    input.focus();
+    fireEvent.keyDown(input, { key: "Tab" });
+    expect(document.activeElement).toBe(input);
+  });
+
+  it("combobox odaktayken Shift+Tab da paletin içinde kalıyor", () => {
+    render(
+      <LanguageProvider language="tr">
+        <CommandPalette open items={ITEMS} onClose={vi.fn()} />
+      </LanguageProvider>
+    );
+    const input = screen.getByRole("combobox");
+    input.focus();
+    fireEvent.keyDown(input, { key: "Tab", shiftKey: true });
+    expect(document.activeElement).toBe(input);
   });
 });
 
