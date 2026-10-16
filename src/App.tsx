@@ -18,6 +18,7 @@ import Sidebar from "./shell/Sidebar";
 import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./shell/activity";
 import { useShellShortcuts } from "./shell/useShellShortcuts";
 import AppCommandPalette from "./components/AppCommandPalette";
+import ShortcutsModal from "./components/ShortcutsModal";
 import { SupportDialogHost, supportDoneMessage } from "./components/SupportDialog";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
@@ -101,6 +102,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
@@ -913,7 +915,8 @@ export default function App() {
     sidebarCollapsed,
     onModeChange: setActivity,
     onExpandSidebar: () => handleSidebarCollapsedChange(false),
-    onOpenPalette: () => setPaletteOpen(true)
+    onOpenPalette: () => setPaletteOpen(true),
+    onOpenShortcuts: () => setShortcutsOpen(true)
   });
 
   const handleSetTier = async (service: SapService, tier: SystemTier | null) => {
@@ -1057,6 +1060,7 @@ export default function App() {
             sapChatRequest={sapChatRequest}
             workDirRequest={workDirRequest}
             activeSap={activeContext.sap}
+            onOpenShortcuts={() => setShortcutsOpen(true)}
           />
         </div>
         {/* Terminal de HER ZAMAN takılı (spec §4): mod değişince pty'ler ve
@@ -1271,7 +1275,11 @@ export default function App() {
           onReportProblem={() => setSupportOpen(true)}
           onToggleTheme={handleToggleTheme}
           onToggleLanguage={handleToggleLanguage}
+          onOpenShortcuts={() => setShortcutsOpen(true)}
         />
+
+        {/* İş C — klavye kısayolları penceresi */}
+        <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
 
         <SupportDialogHost
           open={supportOpen}

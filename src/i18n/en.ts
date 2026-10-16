@@ -1168,5 +1168,21 @@ export const en: Record<TranslationKey, string> = {
   "dataPrivacy.projects": "{count} projects",
   "dataPrivacy.databases": "{count} databases",
   "dataPrivacy.loading": "Calculating…",
-  "dataPrivacy.clearError": "Clear failed: {error}"
+  "dataPrivacy.clearError": "Clear failed: {error}",
+
+  // --- Shortcuts window (İş C — 2026-10-17) ---
+  "shortcuts.palette": "Open command palette",
+  "shortcuts.modeChat": "Switch to chat screen",
+  "shortcuts.modeLogon": "Switch to system list",
+  "shortcuts.modeTerminal": "Switch to terminal",
+  "shortcuts.shortcutList": "Show keyboard shortcuts",
+  "shortcuts.fileSave": "Save file (in file viewer)",
+  "shortcuts.groupNav": "Navigation",
+  "shortcuts.groupChat": "Chat",
+  "shortcuts.groupFile": "File",
+  "shortcuts.openShortcuts": "Keyboard shortcuts",
+
+  // --- Notification setting (İş B — 2026-10-17) ---
+  "settingsModal.chatNotificationsLabel": "Show notification when turn ends",
+  "settingsModal.chatNotificationsHint": "Shows a Windows notification when the window is not focused or is minimized."
 };

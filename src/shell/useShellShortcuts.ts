@@ -11,6 +11,9 @@ export interface ShellShortcutOptions {
   onExpandSidebar: () => Promise<void>;
   // Ctrl+K: komut paleti.
   onOpenPalette?: () => void;
+  // Ctrl+/ (ve F1): klavye kısayolları penceresi.
+  // Metin girişindeyken de çalışır — Ctrl+K gibi evrensel bir giriş noktası.
+  onOpenShortcuts?: () => void;
 }
 
 // Gömülü terminal (xterm) kendi tuşlarını kendi işliyor; axet-code'un TUI'si
@@ -65,7 +68,7 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      const { listMode, onModeChange, onOpenPalette } = latest.current;
+      const { listMode, onModeChange, onOpenPalette, onOpenShortcuts } = latest.current;
       const mod = e.ctrlKey || e.metaKey;
       const isFind = mod && !e.altKey && e.key.toLowerCase() === "f";
 
@@ -94,6 +97,18 @@ export function useShellShortcuts(options: ShellShortcutOptions): void {
         if (isInTerminal(e.target)) return;
         e.preventDefault();
         onOpenPalette();
+        return;
+      }
+
+      // Ctrl+/ kısayol penceresi. Metin girişindeyken de açıyor — Ctrl+K gibi
+      // evrensel. Terminalde değil: kabukta Ctrl+_ (undo) ile çakışır.
+      // Not: Türkçe klavyede `/` = Shift+7, yani bu kısayol Ctrl+Shift+7 olarak
+      // kaydedilir. Kodda başka bir Ctrl+/ yok (grep doğruladı). F1 de aynı
+      // pencereyi açıyor ve Türkçe kullanıcılar için daha erişilebilir.
+      if (mod && !e.altKey && e.key === "/" && onOpenShortcuts) {
+        if (isInTerminal(e.target)) return;
+        e.preventDefault();
+        onOpenShortcuts();
         return;
       }
 

@@ -101,6 +101,11 @@ interface Props {
    * bir sohbete düşürüyordu.
    */
   activeSap: ActiveSapContext | null;
+  /**
+   * Klavye kısayolları penceresini açar (İş C — 2026-10-17).
+   * F1 ve Ctrl+/ bu callback'i çağırıyor; pencere App.tsx'te render ediliyor.
+   */
+  onOpenShortcuts?: () => void;
 }
 
 // `axet-code run` her çağrıda TÜM geçmişi transkript olarak yeniden
@@ -335,24 +340,8 @@ const SUGGESTION_POOL: readonly { key: string; scope: SuggestionScope }[] = [
 
 const SUGGESTION_COUNT = 3;
 
-/**
- * F1 ile açılan listede gösterilen kısayollar.
- *
- * Liste ELLE tutuluyor, kısayolları bağlayan koddan türetilmiyor: bağlar üç
- * ayrı yerde (burada, ChatSessionPane'de, composer'da) ve türetmeye çalışmak
- * onları tek bir yere toplamayı gerektirirdi. Bedeli: yeni bir kısayol
- * eklerken bu listeye de yazmak.
- */
-const SHORTCUTS = [
-  ["Ctrl+N", "axetCodeHome.shortcutNewChat"],
-  ["Ctrl+↑ / Ctrl+↓", "axetCodeHome.shortcutSwitchChat"],
-  ["Ctrl+F", "axetCodeHome.shortcutFind"],
-  ["Esc", "axetCodeHome.shortcutStop"],
-  ["↑", "axetCodeHome.shortcutEditLast"],
-  ["Enter", "axetCodeHome.shortcutSend"],
-  ["Shift+Enter", "axetCodeHome.shortcutNewline"],
-  ["F1", "axetCodeHome.shortcutHelp"],
-] as const;
+// Kısayol verileri src/lib/shortcuts.ts'e taşındı (İş C — 2026-10-17).
+// Kısayol listesi artık App.tsx → ShortcutsModal üzerinden gösteriliyor.
 
 // Tohumlanmış karıştırma (mulberry32). Düz `Math.random()` kullanılmıyor,
 // çünkü seçim bir `useMemo` içinde yapılıyor: React aynı bağımlılıklarla
@@ -431,6 +420,7 @@ export default function AxetCodeHome({
   sapChatRequest,
   workDirRequest,
   activeSap,
+  onOpenShortcuts,
 }: Props) {
   const t = useT();
   const {
@@ -520,9 +510,8 @@ export default function AxetCodeHome({
   const [defaultModel, setDefaultModel] = useState<AxetModelEntry | null>(null);
   const [attaching, setAttaching] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  // Kısayol listesi (F1). Kısayollar keşfedilemezse yok sayılır; TUI'nin
-  // kendi karşılığı ctrl+g ile açılan yardım şeridi.
-  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  // Kısayol listesi artık App.tsx'teki ShortcutsModal'da (İş C — 2026-10-17).
+  // Açılış: F1 (buradaki handler) veya Ctrl+/ (useShellShortcuts) → onOpenShortcuts.
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   // Akış kuyruğu — istek kimliği -> henüz ekrana basılmamış metin.
   // Neden var: aşağıdaki `drainStreams` açıklamasına bak.
@@ -1078,13 +1067,13 @@ export default function AxetCodeHome({
     newSession: handleNewSession,
     requestDelete: requestDeleteSession,
     openProjectDialog: setProjectDialogId,
-    openShortcuts: () => setShortcutsOpen(true),
+    openShortcuts: () => onOpenShortcuts?.(),
   });
   commandsRef.current = {
     newSession: handleNewSession,
     requestDelete: requestDeleteSession,
     openProjectDialog: setProjectDialogId,
-    openShortcuts: () => setShortcutsOpen(true),
+    openShortcuts: () => onOpenShortcuts?.(),
   };
   useLayoutEffect(
     () =>
@@ -1999,6 +1988,15 @@ export default function AxetCodeHome({
   // olaylar saniyede bir ve yalnızca DEĞİŞTİĞİNDE geliyor (bkz.
   // axetHeadless.ts ilerleme yayını), etkinlik akışına karıştırılsalardı araç
   // dökümünü anlamsız satırlarla doldururlardı.
+  // İş B — bildirim tıklandığında ana süreç "chat:open" gönderir.
+  // AxetCodeHome her zaman takılı (CSS hidden, değil unmount) olduğu için
+  // dinleyici uygulama ömrü boyunca aktif.
+  useEffect(() => {
+    return window.api.onChatOpen((chatId) => {
+      setActiveId(chatId);
+    });
+  }, [setActiveId]);
+
   useEffect(() => {
     return window.api.onChatProgress((requestId, progress) => {
       setSessions((prev) =>
@@ -2162,13 +2160,7 @@ export default function AxetCodeHome({
       const session = activeId
         ? (sessions.find((s) => s.id === activeId) ?? null)
         : null;
-      // Liste açıkken Esc ÖNCE listeyi kapatır — arkada bir tur sürüyorsa
-      // yardım kutusunu kapatmak isterken cevabı iptal etmiş olmayalım.
-      if (e.key === "Escape" && shortcutsOpen) {
-        e.preventDefault();
-        setShortcutsOpen(false);
-        return;
-      }
+      // Kısayol penceresi artık App.tsx'teki Modal — Escape orada yakalanıyor.
       if (e.key === "Escape" && session?.pending && session.requestId) {
         e.preventDefault();
         window.api.cancelChatMessage(session.requestId).catch(() => {});
@@ -2192,18 +2184,16 @@ export default function AxetCodeHome({
         setActiveId(orderedSessions[next].id);
         return;
       }
-      // F1 (kullanıcı seçimi, 2026-09-05). Önce Ctrl+/ idi ve TÜRKÇE KLAVYEDE
-      // `/` = Shift+7, yani kısayol gerçekte Ctrl+Shift+7 oluyordu — çalışıyor
-      // ama basılmıyor. Modifier'sız F1 hem klasik "yardım" tuşu hem de
-      // düzen-bağımsız.
+      // F1 (kullanıcı seçimi, 2026-09-05). Ctrl+/ da aynı pencereyi açıyor
+      // (useShellShortcuts üzerinden). Modal App.tsx'te; onOpenShortcuts prop'u.
       if (e.key === "F1") {
         e.preventDefault();
-        setShortcutsOpen((open) => !open);
+        onOpenShortcuts?.();
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, activeId, orderedSessions, sessions, shortcutsOpen]);
+  }, [active, activeId, orderedSessions, sessions, onOpenShortcuts]);
 
   const deleteTarget = deleteId
     ? (sessions.find((s) => s.id === deleteId) ?? null)
@@ -2408,36 +2398,7 @@ export default function AxetCodeHome({
         onDelete={() => projectDialog && handleDeleteProject(projectDialog.id)}
       />
 
-      {shortcutsOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay-scrim)] p-6"
-          onClick={() => setShortcutsOpen(false)}
-        >
-          <div
-            className="w-full max-w-md rounded-xl border border-line bg-card p-5 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="mb-3 text-sm font-semibold text-slate-200">
-              {t("axetCodeHome.shortcutsTitle")}
-            </h3>
-            <dl className="flex flex-col gap-1.5">
-              {SHORTCUTS.map(([keys, labelKey]) => (
-                <div
-                  key={keys}
-                  className="flex items-center justify-between gap-4"
-                >
-                  <dt className="text-[12.5px] text-slate-400">
-                    {t(labelKey)}
-                  </dt>
-                  <dd className="shrink-0 font-mono text-[11px] text-slate-300">
-                    {keys}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-        </div>
-      )}
+      {/* Kısayollar penceresi App.tsx'e taşındı (İş C — ShortcutsModal). */}
     </div>
   );
 }

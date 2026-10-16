@@ -1254,7 +1254,23 @@ export const tr = {
   "dataPrivacy.projects": "{count} proje",
   "dataPrivacy.databases": "{count} veritabanı",
   "dataPrivacy.loading": "Hesaplanıyor…",
-  "dataPrivacy.clearError": "Temizleme başarısız: {error}"
+  "dataPrivacy.clearError": "Temizleme başarısız: {error}",
+
+  // --- Kısayollar penceresi (İş C — 2026-10-17) ---
+  "shortcuts.palette": "Komut paletini aç",
+  "shortcuts.modeChat": "Sohbet ekranına geç",
+  "shortcuts.modeLogon": "Sistem listesine geç",
+  "shortcuts.modeTerminal": "Terminal ekranına geç",
+  "shortcuts.shortcutList": "Klavye kısayollarını göster",
+  "shortcuts.fileSave": "Dosyayı kaydet (dosya görüntüleyicide)",
+  "shortcuts.groupNav": "Gezinme",
+  "shortcuts.groupChat": "Sohbet",
+  "shortcuts.groupFile": "Dosya",
+  "shortcuts.openShortcuts": "Klavye kısayolları",
+
+  // --- Bildirim ayarı (İş B — 2026-10-17) ---
+  "settingsModal.chatNotificationsLabel": "Tur bitince bildirim göster",
+  "settingsModal.chatNotificationsHint": "Pencere odak dışındayken veya küçültülmüşken Windows bildirimi gösterir."
 };
 
 
