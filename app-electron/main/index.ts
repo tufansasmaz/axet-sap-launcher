@@ -55,6 +55,7 @@ import {
   resetChatHistory
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
+import { readBinding } from "./axetSessionBinding";
 import { axetUpdateAvailable, persistUpdateSeen } from "./axetCodeVersion";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
@@ -1291,7 +1292,10 @@ function registerIpc(): void {
   // sohbet için bir kez çağrılıyor.
   ipcMain.handle(
     "axetChat:recoverAnswer",
-    (_event, cwd: string, prompt: string, promptAtMs: number) => recoverAnswer(cwd, prompt, promptAtMs)
+    (_event, cwd: string, prompt: string, promptAtMs: number, chatId?: string) => {
+      const binding = chatId ? readBinding(chatId) : null;
+      return recoverAnswer(cwd, prompt, promptAtMs, binding && binding.cwd === cwd ? binding.sessionId : null);
+    }
   );
   // Ajanın sorusunun cevabı: aynı oturuma yeni bir tur olarak gidiyor (bkz. axetChat.ts).
   ipcMain.handle(

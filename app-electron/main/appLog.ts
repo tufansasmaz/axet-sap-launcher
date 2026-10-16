@@ -59,11 +59,8 @@ export function formatLogLine(tag: string, fields: Record<string, LogValue>, now
 }
 
 let logDir: string | null = null;
-/** Dosya yazılamıyorsa (salt okunur profil, disk dolu) bir daha denenmiyor. */
-let disabled = false;
 
 function resolveDir(): string | null {
-  if (disabled) return null;
   if (logDir) return logDir;
   try {
     const dir = join(app.getPath("userData"), "logs");
@@ -71,7 +68,6 @@ function resolveDir(): string | null {
     logDir = dir;
     return dir;
   } catch {
-    disabled = true;
     return null;
   }
 }
@@ -116,6 +112,6 @@ export function appLog(tag: string, fields: Record<string, LogValue> = {}): void
   try {
     appendFileSync(path, formatLogLine(tag, fields, new Date()), "utf8");
   } catch {
-    disabled = true;
+    /* bu satır kayıp; sonrakiler yine denenecek */
   }
 }

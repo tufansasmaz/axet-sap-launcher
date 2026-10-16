@@ -310,4 +310,10 @@ describe("sendChatMessage", () => {
       vi.useRealTimers();
     }
   });
+
+  it("closeChatSession bağı siliyor (sohbet silindi)", () => {
+    h.bindings.set("chat-1", { sessionId: "S0", cwd: "C:/p" });
+    chat.closeChatSession("chat-1");
+    expect(h.bindings.has("chat-1")).toBe(false);
+  });
 });

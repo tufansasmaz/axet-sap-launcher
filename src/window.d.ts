@@ -202,7 +202,8 @@ export interface AxetApi {
   recoverChatAnswer: (
     cwd: string,
     prompt: string,
-    promptAtMs: number
+    promptAtMs: number,
+    chatId?: string
   ) => Promise<{ text: string; finished: boolean } | null>;
   /**
    * Ajanın `askUser` aşamasında sorduğu sorunun cevabı; `-1` (ya da boş dizi)

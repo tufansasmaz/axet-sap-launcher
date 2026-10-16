@@ -358,6 +358,7 @@ export const tr = {
   "axetCodeHome.deleteConfirmMessage": "\"{title}\" sohbeti ve içindeki {count} mesaj kalıcı olarak silinecek. Bu işlem geri alınamaz.",
   "axetCodeHome.deleteConfirmButton": "Sil",
   "axetCodeHome.historyCorrupt": "Sohbet geçmişi dosyası okunamadı. Bozuk dosya bir kenara alındı, geçmiş sıfırdan başlatıldı.",
+  "axetCodeHome.historySaveFailed": "Sohbet geçmişi diske yazılamadı: {message}. Uygulamayı kapatırsanız son değişiklikler kaybolabilir.",
   "axetCodeHome.historyLoadFailed": "Sohbet geçmişi yüklenemedi: {message}",
   "axetCodeHome.regenerateTitle": "Son cevabı sil ve yeniden üret",
   "axetCodeHome.editMessage": "Mesajı düzenle",

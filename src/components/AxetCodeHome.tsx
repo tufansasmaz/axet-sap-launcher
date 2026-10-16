@@ -21,6 +21,7 @@ import { contextTierFor } from "../lib/contextTier";
 import { mergeToolStep } from "../lib/toolSteps";
 import { enqueuePrompt, mergeQueuedIntoDraft, type QueuedPrompt } from "../lib/chatQueue";
 import { settleAnswer } from "../lib/settleAnswer";
+import { saveDelay } from "../lib/saveDelay";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
@@ -645,6 +646,8 @@ export default function AxetCodeHome({
   // bulamazsa hiçbir şey yapılmıyor — bu normal bir sonuç (tur hiç başlamamış,
   // klasör değişmiş ya da veritabanı silinmiş olabilir).
   const recoveredRef = useRef(false);
+  const dirtySinceRef = useRef<number | null>(null);
+  const saveFailedRef = useRef(false);
   useEffect(() => {
     if (recoveredRef.current || !loadedRef.current || !config) return;
     recoveredRef.current = true;
@@ -659,11 +662,7 @@ export default function AxetCodeHome({
         const cwd = session.cwd || workspace;
         if (!cwd) continue;
         try {
-          const answer = await window.api.recoverChatAnswer(
-            cwd,
-            last.content,
-            last.createdAt,
-          );
+          const answer = await window.api.recoverChatAnswer(cwd, last.content, last.createdAt, session.id);
           if (!answer) continue;
           found.push({
             sessionId: session.id,
@@ -705,12 +704,13 @@ export default function AxetCodeHome({
   }, [config, sessionsLoaded]);
 
   // --- Değişiklikleri diske yaz (debounce'lu) ---
-  // 600ms'lik gecikme aynı zamanda akış sırasında yazmayı da engelliyor:
-  // parçalar ~50ms aralıklarla geldiği için zamanlayıcı sürekli sıfırlanıyor,
-  // kayıt ancak cevap bittikten sonra bir kez çalışıyor.
+  // bkz. src/lib/saveDelay.ts
   useEffect(() => {
     if (!loadedRef.current) return;
+    if (dirtySinceRef.current === null) dirtySinceRef.current = Date.now();
+    const delay = saveDelay(Date.now(), dirtySinceRef.current);
     const timer = setTimeout(() => {
+      dirtySinceRef.current = null;
       const state: ChatSessionsState = {
         activeId,
         sessions: sessions.map((s) => {
@@ -758,13 +758,23 @@ export default function AxetCodeHome({
         }),
         projects,
       };
-      window.api.saveChatSessions(state).catch(() => {});
-    }, 600);
+      window.api
+        .saveChatSessions(state)
+        .then((result) => {
+          // Hata BİR KEZ söyleniyor; düzelince tekrar söylenebilir hâle geliyor.
+          if (result.ok) saveFailedRef.current = false;
+          else if (!saveFailedRef.current) {
+            saveFailedRef.current = true;
+            pushToast("error", t("axetCodeHome.historySaveFailed", { message: result.error ?? "" }));
+          }
+        })
+        .catch(() => {});
+    }, delay);
     return () => clearTimeout(timer);
     // `projects` bağımlılıkta: bir projenin adını/talimatını değiştirmek
     // sohbet listesine dokunmuyor, bu olmadan değişiklik ancak bir sonraki
     // mesajla diske inerdi (ve arada kapatılırsa hiç inmezdi).
-  }, [sessions, activeId, projects]);
+  }, [sessions, activeId, projects, pushToast, t]);
 
   useEffect(() => {
     let cancelled = false;

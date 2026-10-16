@@ -250,9 +250,10 @@ const api = {
   recoverChatAnswer: (
     cwd: string,
     prompt: string,
-    promptAtMs: number
+    promptAtMs: number,
+    chatId?: string
   ): Promise<{ text: string; finished: boolean } | null> =>
-    ipcRenderer.invoke("axetChat:recoverAnswer", cwd, prompt, promptAtMs),
+    ipcRenderer.invoke("axetChat:recoverAnswer", cwd, prompt, promptAtMs, chatId),
   // `optionIndex` DİZİ olabiliyor: çoklu seçimli soru kutusunda birden fazla
   // şık işaretlenebiliyor (bkz. axetChat.ts).
   answerChatQuestion: (

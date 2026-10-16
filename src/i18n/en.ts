@@ -307,6 +307,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.deleteConfirmMessage": "The chat \"{title}\" and its {count} messages will be permanently deleted. This cannot be undone.",
   "axetCodeHome.deleteConfirmButton": "Delete",
   "axetCodeHome.historyCorrupt": "The chat history file could not be read. The corrupt file was set aside and history was started fresh.",
+  "axetCodeHome.historySaveFailed": "Chat history could not be saved: {message}. Closing the app may lose the latest changes.",
   "axetCodeHome.historyLoadFailed": "Chat history could not be loaded: {message}",
   "axetCodeHome.regenerateTitle": "Discard the last answer and generate it again",
   "axetCodeHome.editMessage": "Edit message",

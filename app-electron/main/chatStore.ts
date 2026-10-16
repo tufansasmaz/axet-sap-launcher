@@ -280,6 +280,23 @@ function sanitizeProjects(raw: unknown): ChatProject[] {
 
 const EMPTY: ChatSessionsState = { activeId: null, sessions: [], projects: [] };
 
+/**
+ * En son GÜNCELLENEN `max` sohbet; sıraları korunuyor. Eskiden `slice(-max)`
+ * listenin başını atıyordu — yeni sohbetler sona eklendiği için bu en eski
+ * OLUŞTURULANI atmak demekti, her gün kullanılan bir sohbet de olabilirdi.
+ */
+export function trimSessions<T extends { updatedAt: number }>(sessions: T[], max: number): T[] {
+  if (sessions.length <= max) return sessions;
+  const keep = new Set(
+    sessions
+      .map((s, i) => ({ i, at: s.updatedAt || 0 }))
+      .sort((a, b) => b.at - a.at || b.i - a.i)
+      .slice(0, max)
+      .map((x) => x.i)
+  );
+  return sessions.filter((_, i) => keep.has(i));
+}
+
 export function loadChatSessions(): ChatSessionsLoadResult {
   const file = storePath();
   if (!existsSync(file)) return { ok: true, state: EMPTY };
@@ -292,7 +309,7 @@ export function loadChatSessions(): ChatSessionsLoadResult {
   try {
     const parsed = JSON.parse(text) as Record<string, unknown>;
     const sessions = Array.isArray(parsed.sessions)
-      ? (parsed.sessions.map(sanitizeSession).filter(Boolean) as StoredChatSession[]).slice(-MAX_SESSIONS)
+      ? trimSessions(parsed.sessions.map(sanitizeSession).filter(Boolean) as StoredChatSession[], MAX_SESSIONS)
       : [];
     const rawActive = asString(parsed.activeId);
     return {
@@ -325,7 +342,7 @@ export function saveChatSessions(state: ChatSessionsState): { ok: boolean; error
   const sessions = (Array.isArray(state?.sessions) ? state.sessions : [])
     .map(sanitizeSession)
     .filter(Boolean) as StoredChatSession[];
-  const trimmed = sessions.slice(-MAX_SESSIONS);
+  const trimmed = trimSessions(sessions, MAX_SESSIONS);
   const projects = sanitizeProjects(state?.projects);
   const payload = JSON.stringify(
     {
