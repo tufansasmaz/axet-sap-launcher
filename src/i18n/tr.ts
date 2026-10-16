@@ -371,7 +371,6 @@ export const tr = {
   "modelSelector.empty": "Kullanılabilir model bulunamadı",
   "modelSelector.appliesNextChatHint": "Seçim bu sohbetin sonraki mesajlarında ve yeni sohbetlerde geçerli olur.",
   "modelSelector.switched": "Model değiştirildi: {model}",
-  "modelSelector.switchFailed": "Model değiştirilemedi: {message}",
 
   "settingsModal.sectionSkills": "Yapay zekâ yetenekleri",
   "skillsSection.roleLabel": "Rolüm",

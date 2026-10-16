@@ -30,8 +30,7 @@ const MAX_MESSAGE_CHARS = 200_000;
 const MAX_ATTACHMENTS = 20;
 // Bir cevaba iliştirilen araç dökümünün üst sınırları. Tek bir turda 40'tan
 // fazla araç çalıştığı görülmedi; çıktı ve fark main tarafında zaten 4000
-// karakterde kırpılıyor (axetChatTui.ts), buradaki kırpma o katman
-// atlandığında (elle düzenlenmiş dosya) devreye giren ikinci kapı.
+// karakterde kırpılıyor (axetChatAnswer.ts), buradaki kırpma ikinci kapı.
 const MAX_STEPS_PER_MESSAGE = 40;
 const MAX_STEP_DETAIL_CHARS = 4_000;
 // Proje sayısı ve proje talimatının uzunluğu. Talimat HER sohbetin ilk

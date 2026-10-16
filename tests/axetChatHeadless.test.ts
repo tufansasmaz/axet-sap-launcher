@@ -203,7 +203,7 @@ describe("sendChatMessage", () => {
     expect(r.text).toContain("Paket?");
   });
 
-  it("iptal: çalışan tur durduruluyor, karar hemen 'durdu'", async () => {
+  it("iptal: çalışan tur durduruluyor ve cancelled döner", async () => {
     script(() => new Promise(() => {}));
     const pending = send();
     await vi.waitFor(() => expect(calls).toHaveLength(1));
@@ -272,7 +272,7 @@ describe("sendChatMessage", () => {
     expect(JSON.stringify(h.logs)).not.toContain("gizli");
   });
 
-  it("sürüm denetimi sırasında iptal: tur başlamıyor, karar 'iptal', karar geri bildirimi geldi", async () => {
+  it("sürüm denetimi sırasında iptal: tur başlamıyor, cancelled döner", async () => {
     // Düzeltme 1: run, await axetBinaryStatus() ÖNCE kaydedilmeli ki iptal
     // pencerede kaybolmasın.
     let unblockStatus!: () => void;

@@ -25,10 +25,6 @@ import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
 
-// Kullanıcı yazmayı bu kadar duraklattıktan sonra alt süreç ısıtılıyor. Her
-// tuşta ısıtmak süreç açıp kapatmaktan başka bir şey yapmazdı; yarım saniye,
-// "yazmayı bıraktı" ile "hâlâ yazıyor"u ayıracak kadar uzun ve kazancı
-// (~2–4 saniye) yemeyecek kadar kısa.
 // axet-code güncelleme duyurusu için yoklama aralığı. Duyuru bulunana kadar
 // çalışıp sonra duruyor; bulunmadığı sürece yaptığı tek şey bir config okuması.
 // Yirmi saniye, ilk oturumun açılıp pankartı bize göstermesine yetiyor ve
@@ -1665,10 +1661,8 @@ export default function AxetCodeHome({
       ),
     );
     // BEKLENİYOR ama beklediği şey sıfırlamanın BİTMESİ değil, BAŞLAMASI:
-    // çağrı, palet tuşu yazılır yazılmaz dönüyor. Tuşlar ile istem arasındaki
-    // ~1,6 saniyelik payı ana süreç tutuyor (bkz. axetChat.ts).
-    // Buradaki await'in işi sıralama: sıfırlama IPC'si gönderim IPC'sinden
-    // sonra varsa palet, istem gittikten SONRA açılırdı.
+    // sıfırlama IPC'si gönderim IPC'sinden önce gitmeli, yoksa yeni mesaj
+    // eski oturuma gidip tarih de silinmemiş olurdu.
     await window.api.resetChatHistory(activeId).catch(() => false);
     await runPrompt(
       activeId,
@@ -1763,11 +1757,10 @@ export default function AxetCodeHome({
     window.api.cancelChatMessage(activeSession.requestId).catch(() => {});
   }, [activeSession]);
 
-  // Ajanın sorduğu sorunun cevabı. Kartı hemen kaldırıyoruz: tuşlar TUI'deki
-  // kutuya gidiyor ve kutu kapanıyor — açık kalan bir kart, artık var olmayan
-  // bir kutuya tuş gönderen ölü bir düğme olurdu. Ana süreç de kendi tarafında
-  // aynı korumayı yapıyor (bkz. axetChat.ts `answerChatQuestion`), bu sadece
-  // kullanıcının gördüğü gecikmeyi kapatıyor.
+  // Ajanın sorduğu sorunun cevabı. Kartı hemen kaldırıyoruz: cevap stdin'e
+  // gidiyor ve tur devam ediyor — açık kalan bir kart ölü bir düğme olurdu.
+  // Ana süreç de kendi tarafında aynı korumayı yapıyor
+  // (bkz. axetChat.ts `answerChatQuestion`).
   const handleAnswerQuestion = useCallback(
     (index: number | number[], customText?: string) => {
       const requestId = activeSession?.requestId;

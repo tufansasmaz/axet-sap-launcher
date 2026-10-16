@@ -13,6 +13,8 @@
 // yeniden denemek bu engeli kaldırmaz, sebep de kimlik değil içerik.
 
 import { describe, expect, it, vi } from "vitest";
+import { MAIN_EN as en } from "../app-electron/main/i18n/en";
+import { MAIN_TR as tr } from "../app-electron/main/i18n/tr";
 
 vi.mock("electron", () => ({ app: { getPath: () => "" } }));
 
@@ -68,6 +70,22 @@ describe("günlük satırı", () => {
     expect(classifyFailure(line("Error generating title with small model; trying big model", "forbidden: POST x: 403 Forbidden "))).toBe(
       "auth"
     );
+  });
+});
+
+describe("i18n mesajı iki dilde de var ve yetki hatası demiyor", () => {
+  it("EN mesajı 'authorization' içermiyor, 'policy' içeriyor", () => {
+    const msg: string = en["chatTui.policyBlocked"];
+    expect(msg).toBeTruthy();
+    expect(msg.toLowerCase()).not.toContain("authorization");
+    expect(msg.toLowerCase()).toContain("policy");
+  });
+
+  it("TR mesajı 'yetki hatası' içermiyor, 'politika' içeriyor", () => {
+    const msg: string = tr["chatTui.policyBlocked"];
+    expect(msg).toBeTruthy();
+    expect(msg.toLowerCase()).not.toContain("yetki hatas");
+    expect(msg.toLowerCase()).toContain("politika");
   });
 });
 

@@ -157,7 +157,7 @@ export function bindingTag(chatId: string): string {
  * yazılıyor. Seçici ekranında etiketi yazmak bir FİLTRE olduğu için, iki
  * satır kalan bir filtrede Enter yanlış oturumu seçiyor (2026-09-08: üç
  * oturum aynı etiketi taşıyordu, tur hiç bitmedi). Çözüm eskilerden etiketi
- * sökmek — bkz. axetChatTui.ts `makeTagUnique`.
+ * sökmek.
  *
  * Boş dönebilir: başlık etiketten ibaretse geriye yazılacak bir şey kalmıyor.
  * Karar çağırana bırakılıyor, çünkü "ne yazılsın" bu modülün bileceği şey

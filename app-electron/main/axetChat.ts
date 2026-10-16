@@ -60,8 +60,8 @@ const CONNECTOR_RETRY_REMINDER =
 // kullanıcı 105 saniye "Düşünüyor" görüp hiç cevap alamadı. O dönemde buradaki
 // metin ajandan aracı HİÇ kullanmamasını istiyordu.
 //
-// ARTIK DEĞİL: kutuyu cevaplayabiliyoruz (bkz. axetChatTui.ts
-// `answerTuiQuestion` — seçenek dizini kadar `↓`, sonra `enter`; ölçümde
+// ARTIK DEĞİL: soruyu cevaplayabiliyoruz (bkz. axetChat.ts
+// `answerChatQuestion` — soru kartındaki seçim stdin'e yazılıyor; ölçümde
 // axet-code `✓ The user selected: ...` yazıp aynı turda devam etti). Soru,
 // sohbette tıklanabilir bir kart olarak çiziliyor.
 //

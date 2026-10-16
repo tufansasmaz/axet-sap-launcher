@@ -3,8 +3,8 @@
 // Bu kaydin tek isi, bir sohbetin gecmisinin hangi axet-code oturumunda
 // durdugunu hatirlamak. Degeri de riski de ayni yerde: yanlis bir bag,
 // sohbeti BASKA BIRININ oturumuna baglar ve o oturumun mesajlari bu
-// sohbetin cevabi gibi gorunur. axetChatTui.ts'te bunun iki ayri bicimi
-// olculu olarak yaziyor (`spawnedAt` ve `preexisting` notlari).
+// sohbetin cevabi gibi gorunur. Axet bag siniflari bu riski onlemek icin
+// tasarlanmistir (`spawnedAt` ve `preexisting` notlari).
 //
 // O yuzden buradaki testlerin agirligi "yaziyor mu okuyor mu" degil,
 // EKSIK BIR KAYDIN KABUL EDILMEMESI: dordu de (chatId, sessionId, title,

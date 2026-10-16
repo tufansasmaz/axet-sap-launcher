@@ -111,8 +111,8 @@ export interface ChatSessionData {
    */
   stalledMinutes: number;
   /**
-   * Ajanın ŞU AN sorduğu soru. Doluyken tur DURUYOR; cevap, TUI'deki soru
-   * kutusuna tuş olarak gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+   * Ajanın ŞU AN sorduğu soru. Doluyken tur DURUYOR; cevap stdin'e
+   * yazılıyor (bkz. axetChat.ts `answerChatQuestion`).
    */
   pendingAsk: AxetChatActivity | null;
   /** Ajanın kendi planı (axet-code `todos` aracı). Boşsa panel hiç çizilmiyor. */

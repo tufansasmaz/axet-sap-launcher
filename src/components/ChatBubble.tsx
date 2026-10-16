@@ -448,15 +448,15 @@ export function ThinkingBubble({
 /**
  * Ajanın sorduğu sorunun kartı — seçenekler tıklanabilir düğmeler.
  *
- * Bu kart bir SÜS değil, turun tek çıkışı: seçim, TUI'deki soru kutusuna tuş
- * olarak gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`) ve tur oradan devam
+ * Bu kart bir SÜS değil, turun tek çıkışı: seçim stdin'e yazılıyor
+ * (bkz. axetChat.ts `answerChatQuestion`) ve tur oradan devam
  * ediyor. Seçilmediği sürece ajan bekliyor.
  *
- * Düğme SIRASI dizinle birebir: dizin, kutuda kaç kez aşağı okuna basılacağını
- * belirliyor. Bu yüzden burada sıralama/filtreleme YAPILMIYOR.
+ * Düğme SIRASI dizinle birebir: axet-code seçeneği indeksiyle tanıyor.
+ * Bu yüzden burada sıralama/filtreleme YAPILMIYOR.
  *
- * Şıkların yanında SERBEST METİN de var: TUI kutusunun kendi "Other" satırı
- * bunu kabul ediyor (bkz. axetChatTui.ts `answerTuiQuestion`). Şıklar ajanın
+ * Şıkların yanında SERBEST METİN de var: axet-code bunu kabul ediyor
+ * (bkz. axetChat.ts `answerChatQuestion`). Şıklar ajanın
  * tahmini; kullanıcının aklındaki cevap listede olmayabilir ve o durumda tek
  * çıkışın "vazgeç" olması turu boşa harcardı.
  *
@@ -479,8 +479,7 @@ export function AskUserCard({
   // gittiği görünüyor.
   const [chosen, setChosen] = useState<number | null>(null);
   // Çoklu seçimde İŞARETLİ dizinler. Burada sıralanmıyor — ana süreç zaten
-  // sıralıyor, çünkü sıra orada teknik bir zorunluluk: imleç yalnızca aşağı
-  // yürüyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+  // sıralıyor (bkz. axetChat.ts `answerChatQuestion`).
   const [picked, setPicked] = useState<number[]>([]);
   // Cevap YOLA ÇIKTI mı. Çoklu seçimde `chosen` tek başına yetmiyor: orada
   // tıklamak göndermek değil, sadece işaretlemek.

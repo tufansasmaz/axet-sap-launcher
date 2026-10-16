@@ -1,7 +1,6 @@
 // axet-code oturum veritabanındaki araç çağrılarını ve sonuçlarını sohbet
-// olaylarına çeviren SAF yardımcılar. Eskiden axetChatTui.ts'in içindeydi;
-// başsız köprü (axetHeadless.ts) de aynılarını kullanıyor, terminal kodu
-// silinince de yaşamaları gerekiyor (spec 2026-10-16 basiz-kopru).
+// olaylarına çeviren SAF yardımcılar. Başsız köprü (axetHeadless.ts) ve
+// axetChat.ts tarafından paylaşılıyor (spec 2026-10-16 basiz-kopru).
 import { mt } from "./i18n";
 
 // ---------------------------------------------------------------------------

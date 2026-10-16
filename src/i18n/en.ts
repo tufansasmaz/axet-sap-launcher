@@ -320,7 +320,6 @@ export const en: Record<TranslationKey, string> = {
   "modelSelector.empty": "No models available",
   "modelSelector.appliesNextChatHint": "Applies to this chat's next messages and to new chats.",
   "modelSelector.switched": "Switched model: {model}",
-  "modelSelector.switchFailed": "Could not switch model: {message}",
 
   "settingsModal.sectionSkills": "AI skills",
   "skillsSection.roleLabel": "My role",

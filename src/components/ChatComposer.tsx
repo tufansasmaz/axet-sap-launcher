@@ -213,9 +213,8 @@ export default function ChatComposer({
     // gibi bir dizi kaçış dizisi gibi okunabilir. İleri bölüyü Windows da
     // kabul ediyor.
     //
-    // Sondaki BOŞLUK zorunlu, süs değil: axet-code'un kendi TUI'si `@`
-    // görünce bir tamamlama menüsü açıyor ve menü açıkken Enter göndermiyor
-    // (renderer'ın kendi tamamlama menüsü; @ ile başlayan @dosya sözdizimi).
+    // Sondaki BOŞLUK zorunlu, süs değil: boşluk olmasa axet-code yolu ile
+    // peşinden gelen sözcüğü tek parça olarak okuyabilir.
     const inserted = `@${entry.rel.replace(/\\/g, "/")} `;
     onDraftChange(`${before}${inserted}${after}`);
     setMention(null);
@@ -593,8 +592,8 @@ function MentionMenu({
  * Bağlam doluluğu — küçük bir halka. Yüzde yalnız üzerine gelince (`title`)
  * okunuyor: sürekli görünen bir sayı, çoğu zaman önemsiz olan bir bilgiyi
  * gözün önünde tutardı. Renk %60'ta uyarıya, %80'de tehlikeye dönüyor —
- * %80'de oturum kendiliğinden yenileniyor (bkz. axetChat.ts
- * `CONTEXT_ROTATE_AT`) ve kullanıcının bunun geldiğini görebilmesi gerekiyor.
+ * %80'de oturum kendiliğinden yenileniyor; kullanıcının bunun
+ * geldiğini görebilmesi gerekiyor.
  *
  * Ölçüm yokken (yeni oturum, ya da model sınırını bildirmedi) hiç çizilmiyor:
  * "%0" ile "henüz bilmiyoruz" aynı şey değil. Maliyet gösterilmiyor —

@@ -423,9 +423,8 @@ export interface AppConfig {
   // gönderdikten sonra belirir ve tam da görülmesi gereken ekranda hiç
   // görünmezdi.
   //
-  // Boş dizgi "duyuru yok" demek. Gösterilip gösterilmeyeceğine kurulu sürümle
-  // EŞİTLİK'e bakılarak karar veriliyor; sürüm dizgileri sayıya çevrilmiyor,
-  // çünkü biçim değiştiğinde sessizce yanlış cevap veren bir kod olurdu.
+  // Boş dizgi "duyuru yok" demek. Gösterilip gösterilmeyeceğine `compareVersions`
+  // ile karar veriliyor (bkz. axetCodeVersion.ts `persistUpdateSeen`).
   axetCodeLatestSeen: string;
   // Yeni sohbetlerin modeli. axet-code'un global ayarı (`large`) yalnızca
   // bu boşken varsayılan; sohbet her turda modelini `-m` ile kendisi veriyor.
@@ -841,10 +840,8 @@ export type AxetChatActivity = {
   /**
    * `askUser` aşamasında: ajanın sorusu ve seçenekleri.
    *
-   * `options` SIRASI ÖNEMLİ — arayüzdeki düğmenin dizini, TUI'deki soru
-   * kutusunda kaç kez aşağı okuna basılacağını belirliyor (ölçüm: kutu ilk
-   * satır seçili açılıyor, `↓ next` bir satır ilerletiyor, `enter confirm`
-   * onaylıyor — seçeneklerin sırası ÖNEMLİ (bkz. axetToolEvents.ts).
+   * `options` SIRASI ÖNEMLİ — arayüzdeki düğmenin dizini, stdin'e yazılan
+   * seçenek indeksiyle birebir eşleşiyor (bkz. axetToolEvents.ts).
    */
   question?: string;
   /** Sorunun kısa başlığı (`ask_user` girdisindeki `header`); olmayabilir. */
@@ -892,17 +889,6 @@ export interface AxetChatProgress {
   contextTokens: number;
   /** Modelin bağlam penceresi — yüzdeyi arayüzde hesaplamak için. */
   contextLimit: number;
-}
-
-/**
- * "Durdur"un gerçekte ne yaptığı (bkz. axetChat.ts `cancelChatMessage`).
- * Süreç ağacı öldürülüyor; iptal senkron.
- */
-export interface AxetChatCancelVerdict {
-  /** Tur gerçekten durdu mu? `false` = arkada üretmeye devam ediyor. */
-  stopped: boolean;
-  /** Veritabanındaki bitiş sebebi (`canceled` / `end_turn` / ...), yoksa `null`. */
-  reason: string | null;
 }
 
 export interface AxetChatSendResult {

@@ -68,15 +68,34 @@ describe("güncelleme satırı", () => {
 });
 
 describe("güncelleme duyurusu kalıcı", () => {
-  it("görülen en son sürüm kaydediliyor; yeni açılışta kurulu sürümle karşılaştırılıp dönüyor", async () => {
+  it("görülen en son sürüm kaydediliyor; güncel sürümde duyuru yok", async () => {
     let saved = "";
     const mod = await import("../app-electron/main/axetCodeVersion");
     mod.persistUpdateSeen({ load: () => saved, save: (v) => (saved = v) });
     mod.noteUpdateLine("INFO Update check done component=bgjob job=auto-update current=1.4.1 latest=1.4.2 minimum=1.3.0");
     expect(saved).toBe("1.4.2");
-    // "yeni açılış": bellek boş, kalıcı değer duruyor
     mod.noteUpdateLine("INFO Update check done component=bgjob job=auto-update current=1.4.2 latest=1.4.2 minimum=1.3.0");
-    expect(mod.axetUpdateAvailable()).toBeNull(); // güncellendi → duyuru yok
+    expect(mod.axetUpdateAvailable()).toBeNull(); // güncel → duyuru yok
+    mod.persistUpdateSeen(null);
+  });
+
+  it("geri dönüş yolu: bellekte updateInfo yok, kalıcı latest kurulu sürümden yeniyse duyuru döner", async () => {
+    vi.resetModules();
+    const mod = await import("../app-electron/main/axetCodeVersion");
+    // Önceki oturumdan kalan: latest 1.4.3; bu oturumda henüz updateInfo yok
+    mod.persistUpdateSeen({ load: () => "1.4.3", save: () => {} });
+    // Tur koştu, kurulu sürüm öğrenildi (== latest → updateInfo null)
+    mod.noteUpdateLine("INFO Update check done component=bgjob job=auto-update current=1.4.2 latest=1.4.2 minimum=1.3.0");
+    expect(mod.axetUpdateAvailable()).toEqual({ installed: "1.4.2", latest: "1.4.3" });
+    mod.persistUpdateSeen(null);
+  });
+
+  it("geri dönüş yolu: kurulu sürüm bilinmiyorsa (lastSeen null) kalıcı değer olsa bile null", async () => {
+    vi.resetModules();
+    const mod = await import("../app-electron/main/axetCodeVersion");
+    mod.persistUpdateSeen({ load: () => "1.4.3", save: () => {} });
+    // noteUpdateLine çağrılmadı — lastSeen null
+    expect(mod.axetUpdateAvailable()).toBeNull();
     mod.persistUpdateSeen(null);
   });
 });
