@@ -16,7 +16,7 @@ import { existsSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import path from "node:path";
 import { app } from "electron";
-import { axetCodeVersion } from "./axetCodeVersion";
+import { axetBinaryMessage, axetBinaryStatus } from "./axetCodeVersion";
 import { findCatalogFolders } from "./catalogFolder";
 import { getToolkitRoot, readToolkitVersion } from "./sapToolkit";
 import type { DoctorReport, DoctorRow } from "../shared/types";
@@ -213,11 +213,12 @@ export async function runDoctor(): Promise<DoctorReport> {
     detail: existsSync(rfcRuntime) ? rfcRuntime : mt("doctor.rfcRuntimeMissing")
   });
 
-  const axetVersion = axetCodeVersion();
+  // Sürüm ve SAĞLAMLIK: sohbet 1.4+ ister, güncelleyici exe'yi boşaltabiliyor.
+  const axetStatus = await axetBinaryStatus(true);
   rows.push(
-    axetVersion
-      ? { id: "axetCode", status: "ok", detail: axetVersion }
-      : { id: "axetCode", status: "warn", detail: mt("doctor.axetUnknown") }
+    axetStatus.kind === "ok"
+      ? { id: "axetCode", status: "ok", detail: axetStatus.version }
+      : { id: "axetCode", status: "fail", detail: axetBinaryMessage(axetStatus) ?? mt("doctor.axetUnknown") }
   );
 
   const toolkitRoot = getToolkitRoot();

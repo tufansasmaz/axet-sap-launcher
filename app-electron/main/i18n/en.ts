@@ -45,6 +45,12 @@ export const MAIN_EN = {
   "flowsLiveSave.saveFailed": "Could not save to Live: {detail}",
   "flowsLiveSave.saveRejected": "The Live host rejected the save (HTTP {status}){detail}.",
 
+  // --- axetCodeVersion.ts (binary status) ---
+  "chat.axetTooOld": "Chat needs axet-code {min} or later; installed version is {version}. Please update axet-code.",
+  "chat.axetMissing": "axet-code was not found. Please install axet-code.",
+  "chat.axetBroken":
+    "The axet-code program file is broken (an update may have been interrupted). If %TEMP%\\axet-code-update.msi exists, run via Win+R: msiexec /fa \"%TEMP%\\axet-code-update.msi\" — otherwise reinstall axet-code.",
+
   // --- axetChatTui.ts ---
   "chat.emptyAnswerTui":
     "axet-code finished the turn without producing any answer text. Try the same message once more with \"Regenerate\"; if it keeps happening, update axet-code from Company Portal.",

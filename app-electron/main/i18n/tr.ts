@@ -48,6 +48,12 @@ export const MAIN_TR = {
   "flowsLiveSave.saveFailed": "Canlıya kaydedilemedi: {detail}",
   "flowsLiveSave.saveRejected": "Canlı host kaydı reddetti (HTTP {status}){detail}.",
 
+  // --- axetCodeVersion.ts (ikili durum) ---
+  "chat.axetTooOld": "Sohbet için axet-code {min} veya üstü gerekiyor; kurulu sürüm {version}. axet-code'u güncelleyin.",
+  "chat.axetMissing": "axet-code bulunamadı. axet-code'u kurun.",
+  "chat.axetBroken":
+    "axet-code program dosyası bozuk (güncelleme yarıda kalmış olabilir). %TEMP%\\axet-code-update.msi varsa Win+R ile çalıştırın: msiexec /fa \"%TEMP%\\axet-code-update.msi\" — yoksa axet-code'u yeniden kurun.",
+
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":
     "axet-code turu bitirdi ama hiçbir cevap metni üretmedi. Aynı mesajı \"Yeniden üret\" ile bir kez daha deneyin; tekrarlıyorsa axet-code sürümünüzü Company Portal'dan güncelleyin.",
