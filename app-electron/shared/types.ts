@@ -800,6 +800,8 @@ export type AxetChatActivityPhase =
  * yeni bir alan eklemek imza değiştirmeyi gerektirmiyor.
  */
 export interface AxetChatActivity {
+  /** Ek alanlar için kaçış kapısı — test harness ve genişletilmiş olaylar. */
+  [key: string]: unknown;
   phase: AxetChatActivityPhase;
   /**
    * Araç çağrısının kimliği (`toolu_bdrk_…`). `toolResult` satırını kendi
