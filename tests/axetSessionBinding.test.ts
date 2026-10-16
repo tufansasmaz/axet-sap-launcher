@@ -117,9 +117,13 @@ describe("bag deposu", () => {
   it("EKSIK alanli bag hic yazilmiyor", () => {
     // "Baglan" deyip nereye baglanacagini soylemeyen bir kayit.
     writeBinding("chat-1", binding({ sessionId: "" }));
-    writeBinding("chat-1", binding({ title: "" }));
     writeBinding("chat-1", binding({ cwd: "" }));
     expect(readBinding("chat-1")).toBeNull();
+  });
+
+  it("basliksiz bag yaziliyor (basiz kopru basligi kullanmiyor)", () => {
+    writeBinding("chat-1", { sessionId: "S1", cwd: "C:\\proje" });
+    expect(readBinding("chat-1")).toMatchObject({ sessionId: "S1", cwd: "C:\\proje" });
   });
 
   it("cwd de saklaniyor", () => {
@@ -145,10 +149,11 @@ describe("bag deposu", () => {
   });
 
   it("EKSIK alanli satir dosyadan okunurken de eleniyor", async () => {
-    // Dosya elle de duzenlenebiliyor.
+    // Dosya elle de duzenlenebiliyor; sessionId veya cwd eksikse elenmelidir.
+    // title artik zorunlu degil (basiz kopru basligi kullanmiyor).
     writeFileSync(
       FILE(),
-      JSON.stringify({ bindings: [{ chatId: "chat-1", sessionId: "x", cwd: "C:\\p" }] }),
+      JSON.stringify({ bindings: [{ chatId: "chat-1", sessionId: "", cwd: "C:\\p" }] }),
       "utf8"
     );
     vi.resetModules();

@@ -930,6 +930,12 @@ export interface AxetChatSendResult {
    * Metin DEĞİL anahtar taşınıyor; çeviri arayüzde yapılıyor.
    */
   restartedReason?: "auth" | "context" | "provider";
+  /**
+   * Tur bir hatayla bitti ama ajan araç ÇALIŞTIRMIŞTI: otomatik yeniden
+   * gönderme aynı yazmayı iki kez yapabilirdi (analiz 2026-10-16, bulgu 2).
+   * Arayüz "Devam et" düğmesi gösteriyor; düğme aynı oturuma devam istiyor.
+   */
+  canContinue?: boolean;
 }
 
 // --- Sohbet geçmişinin DİSKTE saklanan hâli (bkz. chatStore.ts) ---

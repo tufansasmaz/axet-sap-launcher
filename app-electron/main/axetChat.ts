@@ -1,56 +1,36 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync } from "node:fs";
+// Sohbet ekranının axet-code yüzü (spec 2026-10-16 basiz-kopru).
+//
+// Her mesaj kendi kısa ömürlü `axet-code run` sürecinde çalışıyor (bkz.
+// axetHeadless.ts). Oturum hafızası axet-code'da: sohbet → oturum kimliği
+// bağlaması (axetSessionBinding) ile sonraki mesaj `--resume` ediyor. Eskiden
+// burada görünmez bir terminal (PTY + TUI) vardı; hangi oturumun bu sohbete
+// ait olduğu ve turun ne zaman bittiği ekrandan ve mesaj metninden TAHMİN
+// ediliyordu. Bu tahminler 46 düzeltmenin çoğunun kaynağıydı.
+//
+// Renderer'a göre bir "tur" tek bir `sendChatMessage` çağrısı. Ajan soru
+// sorarsa (ya `secenekler` bloğu ya da `ask_user` ağı) tur AÇIK kalıyor, soru
+// kartı çıkıyor ve cevap aynı oturuma YENİ bir `run` olarak gidiyor — ama
+// renderer bunu aynı turun devamı olarak görüyor.
+
 import type {
   AxetChatActivity,
-  AxetChatActivityPhase,
   AxetChatCancelVerdict,
-  AxetChatProgress,
   AxetChatMessage,
+  AxetChatProgress,
   AxetChatSendResult,
   AxetModelEntry
 } from "../shared/types";
-import { axetSpawnEnv } from "./axetSpawnEnv";
+import { buildContextPreamble } from "./activeContext";
 import { appLog } from "./appLog";
 import { isSilentEmptyAnswer } from "./axetChatAnswer";
-import { buildContextPreamble } from "./activeContext";
-import { shouldUseConnectors } from "./connectorPolicy";
+import { axetBinaryMessage, axetBinaryStatus } from "./axetCodeVersion";
+import { startHeadlessTurn, type HeadlessTurn, type HeadlessTurnResult } from "./axetHeadless";
+import { clearBinding, readBinding, writeBinding } from "./axetSessionBinding";
+import { resolveSessionDb, sessionHasUnansweredToolCall } from "./axetSessionDb";
+import { askUserAsText, splitOptionsBlock, type AskUserRequest } from "./axetToolEvents";
 import { connectorGuidance } from "./connectorHealth";
+import { shouldUseConnectors } from "./connectorPolicy";
 import { mt } from "./i18n";
-import {
-  answerTuiQuestion,
-  cancelTui,
-  closeAllTuiSessions,
-  closeTuiSession,
-  prewarmTui,
-  resetTuiHistory,
-  sendViaTui,
-  tuiBusy,
-  tuiUnavailableReason
-} from "./axetChatTui";
-
-// axet.code'un ana ekranındaki özgün sohbet arayüzü — gerçek interaktif TUI
-// DEĞİL, her mesaj için `axet-code run` (stateless, tek-atış, non-interactive)
-// modunu bir kere spawn edip tam metin cevabı bekleyen bir model. Bu modun
-// CLI seviyesinde bir oturum hafızası YOK (canlı doğrulandı — aynı `-D` veri
-// dizinine karşı iki ayrı `run` çağrısı birbirini hiç hatırlamıyor), bu yüzden
-// bağlamı burada, önceki mesajları düz metin bir transkript olarak yeni
-// prompt'un başına ekleyerek biz koruyoruz. Araç kullanımı (dosya okuma/
-// yazma) `run` modunda hiçbir onay istemeden (yolo/otomatik) çalışıyor —
-// canlı doğrulandı, bu modun kendi tasarımı (non-interactive = TTY'siz, onay
-// isteyecek bir yer yok).
-//
-// BU MODELİN SINIRI: `run`'ın `--resume`/`--session` gibi bir devam bayrağı
-// YOK (`run --help` ile doğrulandı). Yani araç SONUÇLARI mesajlar arasında
-// kayboluyor — ajan 1. mesajda bir dosya okuduysa, 2. mesajın transkriptinde
-// yalnızca metin cevabı var, okuduğu içerik yok. Gerçek TUI bunu tutuyor.
-//
-// 2026-09-04 (2. adım): bu yüzden ARTIK ÖNCE kalıcı TUI oturumu deneniyor
-// (axetChatTui.ts) — gerçek interaktif axet-code, bir pty içinde, sohbet
-// başına bir oturum. Bu dosyadaki `run` yolu KALDIRILMADI, YEDEK oldu: TUI
-// kurulamazsa (native sqlite yüklenemedi, açılış diyalogları değişti, pty
-// açılmadı) mesaj sessizce buradan gider. Yani en kötü durum, dünkü davranış.
-
-const running = new Map<string, ChildProcess>();
 
 // Canlı bulgu (2026-08-30): kullanıcı "Uygulama Bağlantıları"ndan Outlook'u
 // bağladı (o ekranın "Bağlantıyı Test Et"i BAŞARILI oldu — bkz.
@@ -115,12 +95,6 @@ const NO_UNASKED_WRITE_HINT =
   "Dosyaya yazmanın gerektiğini düşünüyorsan önce bunu tek cümleyle söyle ve kullanıcının " +
   "istemesini bekle.";
 
-const ASK_FORMAT_HINT =
-  "Not: Gerçekten bir tercihe ihtiyacın varsa soru sorma aracını (ask_user) kullanabilirsin; " +
-  "sorman gerekmiyorsa en makul varsayımla devam et ve varsayımını tek cümleyle söyle. " +
-  "Sorarken EN AZ İKİ seçenek ver — bu arayüz seçeneksiz soruyu gösteremiyor. " +
-  "Çoklu seçim (multi_select) serbest.";
-
 // Bağlayıcıların NE ZAMAN açılacağı artık burada değil — karar üç yüzeyde de
 // aynı olsun diye `connectorPolicy.ts`'e taşındı (bkz. oradaki gerekçe).
 // Buradan geçilen metin: yeni mesaj + SON İKİ mesaj. Zincir yüzünden:
@@ -132,364 +106,119 @@ function decideConnectors(history: AxetChatMessage[], message: string): boolean 
   return shouldUseConnectors([message, ...history.slice(-2).map((m) => m.content)]);
 }
 
-// `useConnectors` false ise hatırlatma EKLENMİYOR: ortada bağlayıcı yokken
-// ajana "alternatif entegrasyonu dene" demek hem anlamsız hem de var olmayan
-// bir yetenek varmış izlenimi veriyor.
-function buildPrompt(history: AxetChatMessage[], message: string, useConnectors: boolean, cwd: string): string {
-  // Aktif SAP bağlamı (bkz. activeContext.ts). Sohbet bir sisteme BAĞLIYSA
-  // ajan hangi sistemde/hangi ekranda olduğumuzu bilmeden cevap veriyordu:
-  // proje klasöründe duran `.conn_adt` ve `sap-context.md`'yi ancak tesadüfen
-  // okurdu. Sohbet bağlı değilse bu blok boş döner ve prompt eskisiyle
-  // birebir aynı kalır.
-  const contextBlock = buildContextPreamble(cwd);
-  // Hatırlatma bozuk entegrasyonu KURTARIYOR (ajan alternatifi deniyor), sağlık
-  // kaydı ise ONU HİÇ DENEMEMESİNİ sağlıyor — ölçülen kazanç tur başına ~6 sn.
-  // İkisi birlikte duruyor: kayıt boşken (ilk kullanım, ya da kayıtlar
-  // eskidiğinde) kurtarma yine devrede.
-  // `ASK_FORMAT_HINT` bağlayıcılardan BAĞIMSIZ: soru sorma her mesajda olabilir
-  // (ölçülen olay bağlayıcısız bir ABAP sorusunda yaşandı).
-  const preamble =
-    contextBlock +
-    `${NO_UNASKED_WRITE_HINT}\n\n` +
-    `${ASK_FORMAT_HINT}\n\n` +
-    (useConnectors ? `${CONNECTOR_RETRY_REMINDER}\n\n${connectorGuidance()}` : "");
-  if (history.length === 0) return `${preamble}Kullanıcı mesajı: ${message}`;
-  const transcript = history
-    .map((m) => `${m.role === "user" ? "Kullanıcı" : "Sen"}: ${m.content}`)
-    .join("\n\n");
+// Başsız modda `ask_user` kullanıcıya ULAŞMIYOR: axet-code "No interactive
+// user… use your best judgment" dönüyor ve ajan kendi seçiyor (ölçüm
+// 2026-10-16). Transport/paket gibi kararlarda bu kabul edilemez. Bu yüzden
+// soru turun SONUNDA bir blokla isteniyor; aracı yine çağırırsa
+// axetHeadless.ts süreci durduruyor ve soru yine buraya geliyor.
+const ASK_RULE =
+  "Not: ask_user aracını KULLANMA — bu arayüzde cevaplanamıyor. Kullanıcıdan bir karar gerekiyorsa turu " +
+  "sorunla bitir ve seçenekleri cevabının EN SONUNDA şu blokla ver (en az iki seçenek):\n" +
+  "```secenekler\n- Seçenek 1\n- Seçenek 2\n```\n" +
+  "Gerekmiyorsa en makul varsayımla devam et ve varsayımını tek cümleyle söyle.";
+
+export const AUTH_RETRY_MS = 15_000;
+
+function preamble(useConnectors: boolean, cwd: string): string {
   return (
-    preamble +
+    buildContextPreamble(cwd) +
+    `${NO_UNASKED_WRITE_HINT}\n\n` +
+    `${ASK_RULE}\n\n` +
+    (useConnectors ? `${CONNECTOR_RETRY_REMINDER}\n\n${connectorGuidance()}` : "")
+  );
+}
+
+/** Yeni oturum: geçmiş metin olarak tohumlanıyor (bağlam ajanın hafızasında yok). */
+function seedPrompt(history: AxetChatMessage[], message: string, useConnectors: boolean, cwd: string): string {
+  const pre = preamble(useConnectors, cwd);
+  if (history.length === 0) return `${pre}Kullanıcı mesajı: ${message}`;
+  const transcript = history.map((m) => `${m.role === "user" ? "Kullanıcı" : "Sen"}: ${m.content}`).join("\n\n");
+  return (
+    pre +
     `Önceki konuşma:\n${transcript}\n\n` +
     `Yeni kullanıcı mesajı: ${message}\n\n` +
     `Lütfen SADECE en son kullanıcı mesajına, önceki konuşmayı bağlam olarak kullanarak cevap ver.`
   );
 }
 
-// Gelen stdout parçaları renderer'a HAM hâlleriyle değil, bu aralıkta
-// biriktirilip toplu gönderiliyor. Canlı ölçümde tek bir cevap 178 ayrı
-// `data` event'i üretebiliyor (bkz. PROJE-BILGI.md düzeltme notu) — her biri
-// ayrı bir IPC mesajı + ayrı bir React render'ı demek olurdu. 50ms'lik
-// pencere, göz için hâlâ "anlık" (60fps'de 3 kare) ama IPC/render trafiğini
-// bir kat azaltıyor.
-const CHUNK_FLUSH_MS = 50;
-
-// Bir cevabın bekletilebileceği en uzun süre. Eskiden TAVAN YOKTU: axet-code
-// takılırsa (ağ yutulması, yanıtsız bir MCP sunucusu) sohbet sonsuza kadar
-// "düşünüyor"da kalıyordu ve tek çıkış kullanıcının Durdur'a basmasıydı.
-//
-// Artık MUTLAK SÜRE DEĞİL, SESSİZLİK ölçülüyor: sayaç, süreçten stdout ya da
-// stderr'e her satır düştüğünde sıfırlanıyor. Gerekçe (2026-09-07, ekip geri
-// bildirimi): *"tarıyor tarıyor ama cevap yazacak 300 oldu diyor"* — gerçekten
-// çalışan uzun bir tur da bu duvara çarpıyordu. "Uzun sürmesi" arıza değil,
-// "hiçbir şey olmaması" arıza. Yorumdaki eski varsayım ("ölçülen en uzun
-// gerçek cevap bunun onda biri bile değil") artık geçerli değil: araç
-// zincirleri ölçülebilir şekilde uzadı.
-const CHAT_TIMEOUT_MS = 5 * 60_000;
-/**
- * Sessizlik sayacı ne kadar tazelenirse tazelensin turun mutlak sonu.
- * 6 saat — gerekçe için bkz. axetChatTui.ts `TURN_HARD_CAP_MS`.
- */
-const CHAT_HARD_CAP_MS = 6 * 60 * 60_000;
-
-// ---------------------------------------------------------------------------
-// Ön-ısıtma (pre-warm) — ölçülmüş gerekçe (2026-09-04)
-// ---------------------------------------------------------------------------
-// Kullanıcı şikâyeti: *"chat aynı zamanda çok yavaş çalışıyor, chatteki
-// bekleme süresi aşırı çok"*.
-//
-// Ölçüm: `(sleep 9; echo prompt) | axet-code run -v` çalıştırıldığında
-// `skillsmarket.sync.complete` satırı, prompt gönderilmeden DOKUZ SANİYE ÖNCE
-// düştü. Yani axet-code açılış işinin çoğunu (auth, config, skills kataloğu)
-// stdin'i BEKLERKEN yapıyor. Prompt geldikten sonraki sabit maliyet ise
-// yalnızca ~0.47 s (agent resolve → oturum → kod grafiği → denetim kaydı).
-//
-// Sonuç: süreci kullanıcı YAZARKEN başlatırsak mesaj başına ~2–4 saniye
-// tamamen görünmez oluyor. İnsanların yazma süresi bundan uzun.
-//
-// NEDEN TEK BİR ISITILMIŞ SÜREÇ: ikisi aynı anda beklerse ikinci kullanıcı
-// yok, ikisi de aynı kişinin. Havuz tutmak bellek ve süreç sayısı demek,
-// karşılığı yok.
-//
-// NEDEN BAĞLAYICILAR KAPALI ISITILIYOR: bağlayıcıların açılıp açılmayacağı
-// MESAJIN METNİNE bağlı (bkz. connectorPolicy) ve ısıtma anında metin henüz
-// yok. Yaygın durum kapalı; karar "açık" çıkarsa ısıtılmış süreç atılıp
-// yenisi kuruluyor. Yanlış tahminin bedeli, eskiden her mesajda ödenen şeyin
-// aynısı — yani kötüleşme yok.
-const WARM_IDLE_MS = 3 * 60_000;
-
-interface ProcChannel {
-  proc: ChildProcess;
-  cwd: string;
-  modelKey: string;
-  /** Şu ana kadar biriken cevap metni (ısıtma sırasında boş kalır). */
-  stdout: string;
-  /** Ham log çıktısı — hata mesajı üretmek için saklanıyor. */
-  stderr: string;
-  /** Satıra bölünmemiş stderr artığı. */
-  stderrTail: string;
-  exited: boolean;
-  onStdout: ((text: string) => void) | null;
-  onStderrLine: ((line: string) => void) | null;
-  onExit: ((code: number | null) => void) | null;
-  onSpawnError: ((message: string) => void) | null;
+/** Devam eden oturum: hafıza axet-code'da; yalnızca kurallar ve mesaj. */
+function resumePrompt(message: string, useConnectors: boolean, cwd: string): string {
+  return `${preamble(useConnectors, cwd)}Kullanıcı mesajı: ${message}`;
 }
 
-interface WarmEntry {
-  channel: ProcChannel;
-  idleTimer: NodeJS.Timeout;
+interface ChatRun {
+  chatId: string;
+  turn: HeadlessTurn | null;
+  cancelled: boolean;
+  pendingAsk: AskUserRequest | null;
+  answerAsk: ((answer: string | null) => void) | null;
+  turns: number;
 }
 
-let warm: WarmEntry | null = null;
+const runs = new Map<string, ChatRun>(); // requestId → çalışan tur
+let turnStarter: typeof startHeadlessTurn = startHeadlessTurn;
 
-function modelKeyOf(model: AxetModelEntry | null): string {
-  return model ? `${model.provider}/${model.model}` : "";
+export function __setTurnStarter(fn: typeof startHeadlessTurn | null): void {
+  turnStarter = fn ?? startHeadlessTurn;
+}
+
+export function chatBusy(chatId: string): boolean {
+  for (const run of runs.values()) if (run.chatId === chatId) return true;
+  return false;
+}
+
+/** Bağlı oturuma devam edilebilir mi? Klasör aynı ve sonuçsuz araç çağrısı yok. */
+function resumableSession(chatId: string, cwd: string): string | null {
+  const binding = readBinding(chatId);
+  if (!binding) return null;
+  const dbPath = resolveSessionDb(cwd);
+  if (binding.cwd !== cwd || !dbPath || sessionHasUnansweredToolCall(dbPath, binding.sessionId)) {
+    // Sonuçsuz bir araç çağrısı (tur bir aracın ortasında öldürüldü) bu oturumu
+    // sağlayıcı için geçersiz kılıyor: 400 "tool_use without tool_result"
+    // (bkz. 32d4952). Yeni oturum + geçmiş tohumu.
+    appLog("kopru.bag-dustu", { sohbet: chatId, sebep: binding.cwd !== cwd ? "klasor" : "sonucsuz-arac" });
+    clearBinding(chatId);
+    return null;
+  }
+  return binding.sessionId;
+}
+
+function answerText(ask: AskUserRequest, optionIndex: number | number[], customText?: string): string | null {
+  if (customText && customText.trim()) return customText.trim();
+  const indexes = (Array.isArray(optionIndex) ? optionIndex : [optionIndex]).filter((i) => i >= 0 && i < ask.options.length);
+  if (indexes.length === 0) return null;
+  return indexes.map((i) => ask.options[i]).join(", ");
+}
+
+const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+// Zorunlu güncelleme `run` kipini de durduruyor ve çıkış kodu bunu anlatmıyor;
+// süreç ne yazdıysa onun içinde aranıyor (eski run yolundaki kalıp, aynen).
+const RE_UPDATE_BLOCK = /Mandatory update required|new version of aXet\.Code is available/i;
+function isUpdateBlock(error: string | undefined): boolean {
+  return !!error && RE_UPDATE_BLOCK.test(error);
 }
 
 /**
- * `axet-code run` sürecini başlatır ve çıktı borularını tek bir kanala bağlar.
- * Prompt BURADA yazılmıyor — süreç stdin'i bekleyerek açılıyor, çünkü
- * ön-ısıtmanın tüm kazancı tam olarak bu bekleyişte (bkz. yukarıdaki not).
+ * Kullanıcıya gösterilecek hata. Sınıfı belli arızalar için eski TUI yolunun
+ * açıklayıcı metinleri korunuyor (politika engeli, kalıcı 403, zorunlu
+ * güncelleme, 6 saat sınırı); geri kalanında sağlayıcının kendi cümlesi.
  */
-function createChannel(cwd: string, modelKey: string, useConnectors: boolean): ProcChannel {
-  // `-v` (Show logs) ARTIK `-q` yerine: `-q` yalnızca spinner'ı gizliyordu ve
-  // karşılığında hiçbir ilerleme bilgisi vermiyordu. `-v` aşamaları stderr'e
-  // CANLI yazıyor (zaman damgalarıyla doğrulandı) ve stdout'u kirletmiyor —
-  // cevap metni eskisi gibi tertemiz geliyor.
-  const args = ["run", "-v"];
-  if (modelKey) args.push("-m", modelKey);
-
-  const channel: ProcChannel = {
-    proc: spawn("axet-code", args, {
-      cwd,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "pipe"],
-      // Bağlayıcılar kapalıyken MCP kurulumu/yıkımı atlanıyor — mesaj
-      // başına ~8 saniye ve istek gövdesinde 317 KB (ölçüm ve gerekçe:
-      // axetSpawnEnv.ts).
-      env: axetSpawnEnv(useConnectors)
-    }),
-    cwd,
-    modelKey,
-    stdout: "",
-    stderr: "",
-    stderrTail: "",
-    exited: false,
-    onStdout: null,
-    onStderrLine: null,
-    onExit: null,
-    onSpawnError: null
-  };
-
-  // stdin yazarken process çoktan ölmüş olabilir (kullanıcı hemen "Durdur"a
-  // bastıysa, ya da ısıtılmış süreç bu arada düştüyse) — o durumda EPIPE
-  // fırlar ve yakalanmazsa main process'i düşürür.
-  channel.proc.stdin?.on("error", () => {});
-
-  channel.proc.stdout?.on("data", (chunk: Buffer) => {
-    const text = chunk.toString("utf-8");
-    channel.stdout += text;
-    channel.onStdout?.(text);
-  });
-
-  channel.proc.stderr?.on("data", (chunk: Buffer) => {
-    const text = chunk.toString("utf-8");
-    channel.stderr += text;
-    if (!channel.onStderrLine) return;
-    // Satır satır işleniyor: bir `data` event'i satırın ORTASINDA bitebilir,
-    // yarım satırdan aşama okumaya kalkmak yanlış aşama üretirdi.
-    const parts = (channel.stderrTail + text).split(/\r?\n/);
-    channel.stderrTail = parts.pop() ?? "";
-    for (const line of parts) {
-      if (line.trim()) channel.onStderrLine(line);
-    }
-  });
-
-  channel.proc.on("error", (err) => {
-    channel.exited = true;
-    channel.onSpawnError?.(err.message);
-  });
-
-  channel.proc.on("close", (code) => {
-    channel.exited = true;
-    channel.onExit?.(code);
-  });
-
-  return channel;
-}
-
-function killTree(proc: ChildProcess): void {
-  const pid = proc.pid;
-  // `proc.kill()` Windows'ta YALNIZCA o süreci öldürüyor; axet-code'un
-  // başlattığı MCP istemcileri torun süreç olarak hayatta kalıyordu.
-  // `taskkill /T` ağacın tamamını alıyor.
-  if (pid && process.platform === "win32") {
-    try {
-      spawn("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
-      return;
-    } catch {
-      // taskkill yoksa aşağıdaki normal kill'e düşülüyor
-    }
+function userError(result: HeadlessTurnResult, retried: boolean): string {
+  const raw = result.error ?? "";
+  if (isUpdateBlock(raw)) {
+    const installed = /Installed version:\s*([0-9][\w.+-]*)/i.exec(raw)?.[1] ?? "";
+    const latest = /New version:\s*([0-9][\w.+-]*)/i.exec(raw)?.[1] ?? "";
+    return latest
+      ? mt("chatTui.updateRequiredVersions", { installed: installed || "?", latest })
+      : mt("chatTui.updateRequired");
   }
-  try {
-    proc.kill();
-  } catch {
-    // süreç zaten kapanmış olabilir
-  }
+  if (result.failure === "blocked") return mt("chatTui.policyBlocked");
+  if (result.timedOut) return mt("chatTui.turnRanTooLong", { hours: "6" });
+  if (result.failure === "auth" && retried) return mt("chatTui.restartStillFailingAuth");
+  return raw || mt("chat.emptyAnswerTui");
 }
 
-function disposeWarm(): void {
-  if (!warm) return;
-  const { channel, idleTimer } = warm;
-  warm = null;
-  clearTimeout(idleTimer);
-  // Bırakılan sürecin olay kancaları da temizleniyor: `onExit` hâlâ bağlıyken
-  // ölürse, çoktan `null`'lanmış `warm`'a dokunmaya çalışırdı.
-  channel.onExit = null;
-  channel.onSpawnError = null;
-  if (!channel.exited) killTree(channel.proc);
-}
-
-/**
- * Kullanıcı yazmaya başladığında çağrılır: bir sonraki mesajın süreci şimdiden
- * açılıp stdin'de bekletilir. Zaten uygun bir süreç ısınıyorsa yalnızca
- * boşta-kalma sayacı tazelenir.
- */
-export function prewarmChat(
-  cwd: string,
-  model: AxetModelEntry | null,
-  chatId?: string,
-  draft?: string
-): void {
-  const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
-  // TUI kipi kullanılabiliyorsa ısıtılacak şey ODUR: `run` süreci o mesajda
-  // zaten kullanılmayacak, ısıtmak boşuna bir axet-code süreci demek.
-  if (chatId && !tuiUnavailableReason(resolvedCwd)) {
-    disposeWarm();
-    // Bağlayıcı kararı, YAZILMAKTA OLAN metne bakılarak şimdiden veriliyor.
-    // Bunsuz ısıtma her zaman bağlayıcısız kuruluyordu ve "mail" geçen ilk
-    // mesajda oturum baştan kuruluyordu: 3,5 s el sıkışması + 2,5 s bağlayıcı
-    // beklemesi, kullanıcının GÖZÜ ÖNÜNDE (ölçüldü, 2026-09-04). Taslakta
-    // "mail" görür görmez doğru oturumu kurarsak bu altı saniye yazma
-    // süresinin içinde eriyor.
-    //
-    // Yanlış tahminin bedeli sınırlı: metin sonradan bağlayıcı gerektirmezse
-    // oturum olduğu gibi kullanılıyor (yapışkan kural), gerektirir de biz
-    // kaçırmışsak eski davranışa, yani o mesajda yeniden kuruluma dönüyoruz.
-    prewarmTui(chatId, resolvedCwd, model, shouldUseConnectors([draft]));
-    return;
-  }
-  const key = modelKeyOf(model);
-  if (warm && !warm.channel.exited && warm.channel.cwd === resolvedCwd && warm.channel.modelKey === key) {
-    clearTimeout(warm.idleTimer);
-    warm.idleTimer = setTimeout(disposeWarm, WARM_IDLE_MS);
-    return;
-  }
-  // Klasör ya da model değiştiyse eldeki ısıtılmış süreç işe yaramaz: ikisi de
-  // spawn anında sabitleniyor.
-  disposeWarm();
-  try {
-    mkdirSync(resolvedCwd, { recursive: true });
-  } catch {
-    // klasör açılamıyorsa ısıtma da yapılmıyor; asıl gönderim anlamlı bir
-    // hatayla patlayacak
-    return;
-  }
-  let channel: ProcChannel;
-  try {
-    channel = createChannel(resolvedCwd, key, false);
-  } catch {
-    // axet-code kurulu değilse ısıtma sessizce vazgeçiyor — kullanıcıya hata
-    // göstermek için doğru an, gerçekten bir mesaj gönderdiği an.
-    return;
-  }
-  warm = { channel, idleTimer: setTimeout(disposeWarm, WARM_IDLE_MS) };
-  // Isınırken ölürse (auth düşmüş, axet-code güncelleniyor) eldeki referans
-  // çöpe dönüyor; bu ilk gönderimde fark edilmesin diye hemen bırakılıyor.
-  const forget = () => {
-    if (warm?.channel !== channel) return;
-    clearTimeout(warm.idleTimer);
-    warm = null;
-  };
-  channel.onExit = forget;
-  channel.onSpawnError = forget;
-}
-
-/** Isıtılmış süreç bu isteğe uyuyorsa devral, yoksa `null`. */
-function takeWarm(cwd: string, modelKey: string, useConnectors: boolean): ProcChannel | null {
-  // Bağlayıcılar İSTENİYORSA ısıtılmış süreç kullanılamaz: MCP adresi spawn
-  // anında ortam değişkeniyle sabitleniyor (bkz. axetSpawnEnv.ts).
-  if (useConnectors) return null;
-  if (!warm) return null;
-  const { channel, idleTimer } = warm;
-  if (channel.exited || channel.cwd !== cwd || channel.modelKey !== modelKey) return null;
-  clearTimeout(idleTimer);
-  warm = null;
-  channel.onExit = null;
-  channel.onSpawnError = null;
-  return channel;
-}
-
-// Aşamaların GÖRÜNME sırası — canlı log'dan okunmuş hâli, alfabetik ya da
-// tahmini değil. Bağlayıcılar açıkken `connector.sync` "Running in
-// non-interactive mode"dan ÖNCE düşüyor, bu yüzden `connectors` listede
-// `starting`'in hemen ardında.
-//
-// Neye yarıyor: gösterge GERİ SIÇRAMASIN. İki ayrı sebeple sıçrardı — (1)
-// ısıtılmış süreçte açılış satırları prompt'tan sonra tekrar akıyor, (2)
-// bağlayıcılar açıkken "MCP client initialized" satırları denetim kaydından
-// sonra da gelebiliyor. "Düşünüyor"dan "Başlatılıyor"a dönen bir gösterge,
-// olmayan bir yeniden başlatmayı anlatırdı.
-const PHASE_ORDER: readonly AxetChatActivityPhase[] = [
-  "starting",
-  "connectors",
-  "skills",
-  "agent",
-  "session",
-  "indexing",
-  "thinking",
-  "finishing"
-];
-
-/** stderr log satırından arayüze gösterilecek aşamayı çıkarır. */
-function phaseFromLogLine(line: string): AxetChatActivityPhase | null {
-  if (line.includes("connector.sync") || line.includes("MCP client")) return "connectors";
-  if (line.includes("skillsmarket.sync")) return "skills";
-  if (line.includes("Running in non-interactive mode")) return "starting";
-  if (line.includes("Agent resolved")) return "agent";
-  if (line.includes("Created session")) return "session";
-  if (line.includes("Code graph")) return "indexing";
-  // Denetim kaydından SONRA axet-code cevap gelene kadar hiçbir şey yazmıyor —
-  // bu satır pratikte "artık model çalışıyor" demek.
-  if (line.includes("Audit logged")) return "thinking";
-  if (line.includes("agent turn finished")) return "finishing";
-  return null;
-}
-
-/**
- * Hata mesajı için stderr'i temizler. `-v` açık olduğu için stderr artık
- * NORMAL çalışmada da dolu — ham hâliyle gösterilseydi her hata "INFO
- * skillsmarket.sync.complete..." diye başlayan bir log yığını olurdu.
- */
-function extractError(stderr: string): string {
-  const noise = /^(INFO|DEBU|DEBUG|WARN)\b/;
-  const lines = stderr
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l && !noise.test(l));
-  return lines.join("\n").trim();
-}
-
-/**
- * Bir mesaj gönderir.
- *
- * ÖNCE kalıcı TUI oturumu denenir (axetChatTui.ts): açılış maliyeti bir kez
- * ödenir, oturum hafızası CLI'ın kendisinde durur ve arka plandaki araç
- * çağrıları canlı görünür. Kurulamazsa aşağıdaki `run` yoluna düşülür.
- *
- * `chatId` sohbetin kalıcı kimliği (renderer'daki `session.id`) — TUI
- * oturumları bununla eşleniyor. `requestId` ise TEK BİR mesaja ait; iptal
- * onunla yapılıyor.
- */
 export async function sendChatMessage(
   requestId: string,
   chatId: string,
@@ -499,423 +228,206 @@ export async function sendChatMessage(
   message: string,
   onChunk?: (text: string) => void,
   onActivity?: (activity: AxetChatActivity) => void,
-  // `run` yolunda KARŞILIĞI YOK: ayrı bir süreç kendi oturumunu veritabanına
-  // yazana kadar okuyacak bir plan da yok. Bu yüzden yalnızca TUI kipinde
-  // bağlanıyor, ve arayüz bilginin gelmemesine dayanıklı.
   onProgress?: (progress: AxetChatProgress) => void
 ): Promise<AxetChatSendResult> {
   const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
-  // Ayar HER MESAJDA okunuyor (tek küçük JSON dosyası, `shouldUseConnectors`
-  // içinde) — kullanıcı "Uygulama Bağlantıları"ndan bağlanıp kestiğinde etkisi
-  // bir sonraki mesajda görünsün diye; saniyelerle ölçülen bir işlemin yanında
-  // bu okumanın maliyeti ölçülemez.
-  const useConnectors = decideConnectors(history, message);
-  // TUI kipinin KAPALI olma sebebi (varsa) burada bir kez okunuyor: aşağıdaki
-  // boş-cevap kapısı, hangi kipte kalındığını kullanıcıya söyleyebilsin diye.
-  const fallbackReason = tuiUnavailableReason(resolvedCwd);
-
-  /**
-   * Metinsiz bir tur BAŞARILI SAYILMAZ (bkz. axetChatAnswer.ts).
-   *
-   * Kapı tek çıkışta duruyor çünkü boş cevap iki ayrı yoldan gelebiliyor ve
-   * ikisini de aynı şey birleştiriyor: arayüz `ok` görünce metni olduğu gibi
-   * balona yazıyor, boşsa boş balon çiziyordu.
-   */
-  const guard = (result: AxetChatSendResult, mode: "tui" | "run"): AxetChatSendResult => {
-    // BAŞARISIZ TUR DA DİSKE DÜŞÜYOR — yalnızca "sessiz boş cevap" değil.
-    //
-    // 2026-09-08'de en pahalı iki arıza (sağlayıcının 400'ü, ardından ölen
-    // oturum) günlüğe HİÇ düşmedi: ikisi de `ok:false` + hata metni ile
-    // döndüğü için aşağıdaki sessiz-boş kapısına takılmadılar. Teşhis
-    // veritabanını elle okumayı gerektirdi. Bir satır o boşluğu kapatıyor.
-    //
-    // İçerik kuralı korunuyor: kullanıcının yazdığı ya da ajanın ürettiği
-    // metin YAZILMIYOR — yalnızca kip, iptal bayrağı ve hata metni (zaten
-    // bizim ürettiğimiz ya da sağlayıcıdan gelen teşhis cümlesi, `appLog`
-    // tarafından kırpılıyor).
-    if (!result.ok && !result.cancelled) {
-      appLog("sohbet.tur-hatasi", {
-        sohbet: chatId || "-",
-        kip: mode,
-        yedekSebebi: fallbackReason || "-",
-        hata: result.error || "-"
-      });
-    }
-    if (!isSilentEmptyAnswer(result)) return result;
-    // Sebebi log'a: kullanıcı ekranda ne olduğunu görecek, biz NEREDE
-    // olduğunu. İkisi ayrı sorular ve tek satırla ikisi de cevaplanmalı.
-    console.log("[axetChat] BOS CEVAP, tur basarisiz sayildi", {
-      chatId,
-      kip: mode,
-      yedekSebebi: fallbackReason || "-",
-      klasor: resolvedCwd
-    });
-    // Diske düşen sürümde KLASÖR YOLU YOK: yol kullanıcının adını ve müşteri
-    // proje adlarını taşıyabiliyor, teşhis için ise "seçilmiş mi" yetiyor.
-    appLog("sohbet.bos-cevap", {
-      sohbet: chatId || "-",
-      kip: mode,
-      yedekSebebi: fallbackReason || "-",
-      klasorSecili: Boolean(resolvedCwd)
-    });
-    return {
-      ...result,
-      ok: false,
-      error:
-        mode === "run"
-          ? mt("chat.emptyAnswerRun", { reason: fallbackReason || mt("chat.emptyAnswerNoReason") })
-          : mt("chat.emptyAnswerTui")
-    };
-  };
-
-  if (chatId && !fallbackReason) {
-    tuiRequests.set(requestId, chatId);
+  const safe = <T>(fn: ((x: T) => void) | undefined) => (x: T) => {
     try {
-      const result = await sendViaTui({
-        chatId,
-        cwd: resolvedCwd,
-        model,
-        history,
-        message,
-        useConnectors,
-        buildSeedPrompt: (h, m) => buildPrompt(h, m, useConnectors, resolvedCwd),
-        buildFirstPrompt: (m) => buildPrompt([], m, useConnectors, resolvedCwd),
-        onChunk: (text) => {
-          try {
-            onChunk?.(text);
-          } catch {
-            // renderer penceresi kapanmış olabilir
-          }
-        },
-        onActivity: (activity) => {
-          try {
-            onActivity?.(activity);
-          } catch {
-            // pencere kapanmış olabilir
-          }
-        },
-        onProgress: (progress) => {
-          try {
-            onProgress?.(progress);
-          } catch {
-            // pencere kapanmış olabilir
-          }
-        }
-      });
-      if (result) return guard(result, "tui");
+      fn?.(x);
     } catch {
-      // TUI tarafındaki beklenmedik bir hata mesajı düşürmemeli — `run` yolu
-      // duruyor.
-    } finally {
-      tuiRequests.delete(requestId);
+      // pencere kapanmış olabilir
     }
-    // Buraya düşmek = TUI bu mesaj için kurulamadı. Oturumu bırakıyoruz ki
-    // bir sonraki mesaj yarım kalmış bir pty'ye yazmaya çalışmasın.
-    //
-    // MEŞGULSE DOKUNMUYORUZ: aynı sohbete ikinci bir mesaj gelmişse (arayüz
-    // buna izin vermiyor ama IPC seviyesinde mümkün) süren turun oturumunu
-    // kapatmak, cevabını bekleyen İLK mesajı öldürürdü.
-    if (!tuiBusy(chatId)) closeTuiSession(chatId);
+  };
+  const emitChunk = safe(onChunk);
+  const emitActivity = safe(onActivity);
+  const emitProgress = safe(onProgress);
+
+  // Ön koşul: axet-code 1.4+ ve sağlam program dosyası (kullanıcı kararı 2026-10-16).
+  const status = await axetBinaryStatus();
+  const blocked = axetBinaryMessage(status);
+  if (blocked) {
+    appLog("kopru.surum", { surum: "version" in status ? status.version : "-", durum: status.kind });
+    return { ok: false, text: "", error: blocked };
   }
 
-  const runResult = await sendViaRun(
-    requestId,
-    resolvedCwd,
-    model,
-    history,
-    message,
-    useConnectors,
-    onChunk,
-    onActivity
-  );
-  return guard(runResult, "run");
-}
+  const useConnectors = decideConnectors(history, message);
+  const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0 };
+  runs.set(requestId, run);
+  const started = Date.now();
+  let resumeId = resumableSession(chatId, resolvedCwd);
+  const startedResumed = resumeId !== null;
+  let prompt = resumeId ? resumePrompt(message, useConnectors, resolvedCwd) : seedPrompt(history, message, useConnectors, resolvedCwd);
+  let text = "";
+  let restartedReason: AxetChatSendResult["restartedReason"];
+  let retried = false;
+  let totalTools = 0;
+  let turns = 0;
+  let firstChunkAt = 0;
 
-/** İptalin doğru yere gitmesi için: hangi istek hangi TUI sohbetinde. */
-const tuiRequests = new Map<string, string>();
+  const runOnce = async (): Promise<HeadlessTurnResult> => {
+    turns += 1;
+    run.turns = turns;
+    // Soru cevabından sonraki turun ilk parçası önceki metne yapışmasın.
+    let first = true;
+    const turn = turnStarter({
+      cwd: resolvedCwd,
+      model,
+      prompt,
+      resumeId,
+      useConnectors,
+      onSessionId: (id) => writeBinding(chatId, { sessionId: id, cwd: resolvedCwd }),
+      onChunk: (piece) => {
+        if (!piece) return;
+        if (first && text) emitChunk("\n\n");
+        first = false;
+        if (!firstChunkAt) firstChunkAt = Date.now();
+        emitChunk(piece);
+      },
+      onActivity: emitActivity,
+      onProgress: emitProgress
+    });
+    run.turn = turn;
+    const result = await turn.done;
+    run.turn = null;
+    if (result.sessionId) writeBinding(chatId, { sessionId: result.sessionId, cwd: resolvedCwd });
+    totalTools += result.toolCount;
+    return result;
+  };
 
-function sendViaRun(
-  requestId: string,
-  cwd: string,
-  model: AxetModelEntry | null,
-  history: AxetChatMessage[],
-  message: string,
-  useConnectors: boolean,
-  // Cevap metni ÜRETİLDİKÇE çağrılır (yalnızca YENİ gelen parça, birikmiş
-  // metnin tamamı değil). Verilmezse davranış eskisiyle birebir aynı: sadece
-  // sonuçta tam metin döner.
-  onChunk?: (text: string) => void,
-  // Alt süreç aşama değiştirdikçe çağrılır (bkz. AxetChatActivityPhase).
-  // Bu kipte YALNIZCA aşama var: `run -v`'nin stderr'i araç çağrılarını hiç
-  // yazmıyor, dolayısıyla `tool`/`toolResult` olayları buradan çıkmıyor.
-  onActivity?: (activity: AxetChatActivity) => void
-): Promise<AxetChatSendResult> {
-  return new Promise((resolve) => {
-    const resolvedCwd = cwd;
-    const key = modelKeyOf(model);
+  try {
+    for (;;) {
+      if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
+      const result = await runOnce();
+      if (result.cancelled || run.cancelled) return { ok: false, text: text + result.text, cancelled: true, usedConnectors: useConnectors };
 
-    let channel = takeWarm(resolvedCwd, key, useConnectors);
-    const wasWarm = channel !== null;
-    if (!channel) {
-      // Isıtılmış süreç bu isteğe uymuyorsa (klasör/model/bağlayıcı farkı) ya
-      // da hiç yoksa: eskisi gibi şimdi başlat. Uymayan ısıtılmış süreç boşuna
-      // bekliyor demektir, bırakılıyor.
-      disposeWarm();
-      try {
-        mkdirSync(resolvedCwd, { recursive: true });
-      } catch {
-        // spawn zaten aşağıda anlamlı bir hatayla patlar
+      if (result.spawnFailed) {
+        // Süreç açılamadı: program bozulmuş/silinmiş olabilir — durumu tazele.
+        const msg = axetBinaryMessage(await axetBinaryStatus(true));
+        return { ok: false, text, error: msg ?? result.error ?? mt("chat.emptyAnswerTui"), usedConnectors: useConnectors };
       }
-      try {
-        channel = createChannel(resolvedCwd, key, useConnectors);
-      } catch (err) {
-        resolve({ ok: false, text: "", error: (err as Error).message });
-        return;
-      }
-    }
 
-    const active = channel;
-    running.set(requestId, active.proc);
-
-    let settled = false;
-    let killedByUser = false;
-    let lastPhase: AxetChatActivityPhase | null = null;
-
-    // --- parça biriktirme (bkz. CHUNK_FLUSH_MS) ---
-    let pending = "";
-    let flushTimer: NodeJS.Timeout | null = null;
-    const clearFlush = () => {
-      if (flushTimer) {
-        clearTimeout(flushTimer);
-        flushTimer = null;
-      }
-    };
-    const flush = () => {
-      clearFlush();
-      if (!pending) return;
-      const text = pending;
-      pending = "";
-      try {
-        onChunk?.(text);
-      } catch {
-        // renderer penceresi kapanmış olabilir — akış hatası çağrıyı
-        // düşürmemeli, tam metin yine de `close`'da dönecek
-      }
-    };
-
-    const startedAt = Date.now();
-    // `capped`: mutlak tavan mı doldu, yoksa süreç mi sustu. İki sebebin
-    // cümlesi ayrı — bkz. axetChatTui.ts'teki aynı ayrım.
-    const giveUp = (capped: boolean) => {
-      if (settled) return;
-      killTree(active.proc);
-      finish({
-        ok: false,
-        text: active.stdout.trim(),
-        error: capped
-          ? mt("chatTui.turnRanTooLong", {
-              hours: String(Math.round(CHAT_HARD_CAP_MS / 3_600_000))
-            })
-          : mt("chatTui.turnTimedOut", {
-              minutes: String(Math.round(CHAT_TIMEOUT_MS / 60_000))
-            }),
-        usedConnectors: useConnectors
-      });
-    };
-    // Sessizlik sayacı: her çıktı satırında yeniden kuruluyor.
-    let timeoutTimer = setTimeout(() => giveUp(false), CHAT_TIMEOUT_MS);
-    const hardCapTimer = setTimeout(() => giveUp(true), CHAT_HARD_CAP_MS);
-    /** "Süreç çalışıyor" işareti — sessizlik sayacını sıfırlar. */
-    const alive = () => {
-      if (settled) return;
-      clearTimeout(timeoutTimer);
-      const left = CHAT_HARD_CAP_MS - (Date.now() - startedAt);
-      if (left <= 0) return;
-      timeoutTimer = setTimeout(() => giveUp(false), Math.min(CHAT_TIMEOUT_MS, left));
-    };
-
-    const finish = (result: AxetChatSendResult) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeoutTimer);
-      clearTimeout(hardCapTimer);
-      clearFlush();
-      running.delete(requestId);
-      resolve(result);
-    };
-
-    const report = (phase: AxetChatActivityPhase) => {
-      if (phase === lastPhase) return;
-      // Geriye gitmiyor (bkz. PHASE_ORDER).
-      if (lastPhase && PHASE_ORDER.indexOf(phase) < PHASE_ORDER.indexOf(lastPhase)) return;
-      lastPhase = phase;
-      try {
-        onActivity?.({ phase });
-      } catch {
-        // pencere kapanmış olabilir
-      }
-    };
-
-    active.onStdout = (text) => {
-      alive();
-      if (!onChunk) return;
-      pending += text;
-      if (!flushTimer) flushTimer = setTimeout(flush, CHUNK_FLUSH_MS);
-    };
-
-    active.onStderrLine = (line) => {
-      // `-v` günlüğü stderr'e akıyor: araç çağrıları, MCP trafiği, denetim
-      // kaydı. Faz eşleşmese bile satırın kendisi "süreç diri" demek.
-      alive();
-      const phase = phaseFromLogLine(line);
-      if (phase) report(phase);
-    };
-
-    active.onSpawnError = (msg) => {
-      finish({ ok: false, text: "", error: msg });
-    };
-
-    active.onExit = (code) => {
-      // Bekleyen parça BİLEREK gönderilmiyor: hemen ardından dönen sonuç
-      // zaten metnin TAMAMINI taşıyor ve renderer akış mesajını onunla
-      // sonlandırıyor. Son bir parça daha göndermek gereksiz bir render.
-      if (killedByUser) {
-        finish({ ok: false, text: active.stdout.trim(), cancelled: true });
-        return;
-      }
-      if (code === 0) {
-        finish({ ok: true, text: active.stdout.trim(), usedConnectors: useConnectors });
-        return;
-      }
-      // Zorunlu güncelleme `run` kipini de durduruyor ve çıkış kodu bunu
-      // anlatmıyor. TUI yolunda ekrandan yakalanıyor (bkz. axetChatTui
-      // `detectUpdateBlock`); burada süreç ne yazdıysa onun içinde aranıyor.
-      const blocked = `${active.stdout}\n${active.stderr}`;
-      if (/Mandatory update required|new version of aXet\.Code is available/i.test(blocked)) {
-        const installed = /Installed version:\s*([0-9][\w.+-]*)/i.exec(blocked)?.[1] ?? "";
-        const latest = /New version:\s*([0-9][\w.+-]*)/i.exec(blocked)?.[1] ?? "";
-        console.log("[axetChat] ZORUNLU GUNCELLEME ekrani (run kipi)", { installed, latest });
-        finish({
-          ok: false,
-          text: "",
-          error: latest
-            ? mt("chatTui.updateRequiredVersions", { installed: installed || "?", latest })
-            : mt("chatTui.updateRequired"),
-          usedConnectors: useConnectors
+      if (result.ok) {
+        const split = splitOptionsBlock(result.text);
+        const ask = result.ask ?? split.ask;
+        const piece = result.ask ? result.text : split.text;
+        text = text ? (piece ? `${text}\n\n${piece}` : text) : piece;
+        if (!ask) break;
+        // Soru: kart çıkıyor, tur açık kalıyor.
+        run.pendingAsk = ask;
+        emitActivity({
+          phase: "askUser",
+          callId: ask.callId,
+          question: ask.question,
+          ...(ask.header ? { header: ask.header } : {}),
+          options: ask.options,
+          ...(ask.multiSelect ? { multiSelect: true } : {})
         });
-        return;
+        appLog("kopru.soru", { sohbet: chatId, katman: result.ask ? "ag" : "metin", secenek: ask.options.length });
+        const answer = await new Promise<string | null>((resolve) => {
+          run.answerAsk = resolve;
+        });
+        run.pendingAsk = null;
+        run.answerAsk = null;
+        if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
+        if (answer === null) {
+          // Vazgeçildi: soru metni cevapta kalsın, kullanıcı kendisi yazar.
+          if (!text.includes(ask.question) || !ask.question) text = text ? `${text}\n\n${askUserAsText(ask)}` : askUserAsText(ask);
+          break;
+        }
+        resumeId = result.sessionId;
+        prompt = `${mt("chat.headlessAnswerLabel")}: ${answer}`;
+        continue;
       }
-      finish({
+
+      // --- Hata ---
+      const canAutoRetry = result.toolCount === 0 && !retried && !result.timedOut && !isUpdateBlock(result.error);
+      if (result.failure === "context" || result.failure === "poisoned") {
+        if (canAutoRetry) {
+          retried = true;
+          restartedReason = "context";
+          resumeId = null;
+          clearBinding(chatId);
+          prompt = seedPrompt(history, message, useConnectors, resolvedCwd);
+          continue;
+        }
+      } else if (canAutoRetry && result.failure !== "blocked") {
+        retried = true;
+        restartedReason = result.failure === "auth" ? "auth" : "provider";
+        if (result.failure === "auth") await delay(AUTH_RETRY_MS);
+        if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
+        resumeId = result.sessionId ?? resumeId;
+        if (!resumeId) prompt = seedPrompt(history, message, useConnectors, resolvedCwd);
+        continue;
+      }
+      appLog("kopru.hata", { sohbet: chatId, sinif: result.failure ?? "-", aracCalisti: result.toolCount > 0, yenidenDenendi: retried });
+      return {
         ok: false,
-        text: active.stdout.trim(),
-        error: extractError(active.stderr) || mt("axetCode.exitCode", { code }),
-        usedConnectors: useConnectors
-      });
-    };
-
-    // Isıtılmış süreçte açılış (auth, config, yetenek kataloğu) ZATEN geçti;
-    // prompt'tan sonra gelen ilk gerçek adım ajanın seçilmesi. "Başlatılıyor"
-    // demek, olmayan bir bekleyişi anlatmak olurdu.
-    report(wasWarm ? "agent" : "starting");
-
-    // Süreç ısıtma sırasında ölmüş olabilir; `takeWarm` bunu kontrol ediyor
-    // ama devralma ile stdin yazımı arasında da ölebilir. `stdin.on("error")`
-    // yutuyor, gerçek sonuç `close`'dan geliyor.
-    try {
-      active.proc.stdin?.end(buildPrompt(history, message, useConnectors, resolvedCwd), "utf-8");
-    } catch {
-      // yukarıdaki 'error' handler'ı zaten devrede
+        text: text + result.text,
+        error: userError(result, retried),
+        usedConnectors: useConnectors,
+        ...(result.toolCount > 0 ? { canContinue: true } : {})
+      };
     }
 
-    (active.proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled = () => {
-      killedByUser = true;
-    };
-  });
+    const out: AxetChatSendResult = { ok: true, text, usedConnectors: useConnectors, ...(restartedReason ? { restartedReason } : {}) };
+    appLog("kopru.tur", {
+      sohbet: chatId,
+      oturum: startedResumed && !restartedReason ? "surdu" : "yeni",
+      saniye: Math.round((Date.now() - started) / 100) / 10,
+      ilkHarf: firstChunkAt ? Math.round((firstChunkAt - started) / 100) / 10 : null,
+      arac: totalTools,
+      baglayici: useConnectors,
+      model: model ? `${model.provider}/${model.model}` : "-",
+      sonuc: "ok"
+    });
+    if (isSilentEmptyAnswer(out)) return { ...out, ok: false, error: mt("chat.emptyAnswerTui") };
+    return out;
+  } finally {
+    runs.delete(requestId);
+  }
 }
 
-/**
- * Süren turu iptal eder.
- *
- * `onVerdict` YALNIZCA TUI kipinde çağrılıyor, çünkü "gerçekten durdu mu"
- * sorusunu ancak orada cevaplayabiliyoruz: iptalden sonra axet-code'un kendi
- * veritabanına bakılıyor (bkz. axetChatTui.ts `cancelTui`). `run` kipinde
- * süreç öldürülüyor, yani soru zaten yok.
- *
- * `chatId` geri veriliyor çünkü karar 1–4 saniye SONRA geliyor ve o noktada
- * `requestId` arayüzde ölü: istek iptalle birlikte çözülüyor ve oturumun
- * `requestId`'si `null`'a çekiliyor. Sohbet kimliği ise kalıcı.
- */
 export function cancelChatMessage(
   requestId: string,
   onVerdict?: (chatId: string, verdict: AxetChatCancelVerdict) => void
 ): void {
-  // TUI kipinde iptal süreci ÖLDÜRMÜYOR: oturum kalıcı, esc sadece süren turu
-  // kesiyor. Süreci öldürmek bir sonraki mesajda açılış maliyetini geri
-  // getirirdi — yani iptalin bedeli, iptal edilen mesajdan büyük olurdu.
-  const chatId = tuiRequests.get(requestId);
-  if (chatId) {
-    tuiRequests.delete(requestId);
-    cancelTui(chatId, onVerdict ? (verdict) => onVerdict(chatId, verdict) : undefined);
-    return;
-  }
-  const proc = running.get(requestId);
-  if (!proc) {
-    // SESSİZ DEĞİL: bu dal, iptalin hiçbir sürece ulaşmadığı yer. Arayüz yine de
-    // duruyor, yani kullanıcı "durdurdum" diyor ve tur arkada üretmeye devam
-    // ediyor — 2026-09-05'te tam olarak bu oldu ve nedenini bulmak, jeton
-    // sayaçlarını iki ayrı veritabanından karşılaştırmayı gerektirdi.
-    console.log("[axetChat] iptal edilecek istek bulunamadi", {
-      requestId,
-      tuiIstekleri: tuiRequests.size,
-      calisanSurecler: running.size
-    });
-    return;
-  }
-  (proc as ChildProcess & { __markCancelled?: () => void }).__markCancelled?.();
-  killTree(proc);
-  running.delete(requestId);
+  const run = runs.get(requestId);
+  if (!run) return;
+  run.cancelled = true;
+  run.turn?.cancel();
+  run.answerAsk?.(null);
+  appLog("kopru.iptal", { sohbet: run.chatId, turNo: run.turns });
+  // Süreç ağacı öldürülüyor; "durmadı" diye bir durum yok (eski TUI'de Esc
+  // tutmayabiliyordu, bkz. cancelStuck).
+  onVerdict?.(run.chatId, { stopped: true, reason: "canceled" });
 }
 
-/**
- * Ajanın sorduğu soruyu cevaplar (`index < 0` = vazgeç). `customText` doluysa
- * şıklar yerine kutunun "Other" satırındaki serbest metin alanı kullanılıyor.
- *
- * `requestId` üzerinden gidiyor çünkü arayüzün elindeki kimlik bu: soru,
- * etkinlik akışında `askUser` aşaması olarak o kimlikle geliyor. `run` kipinde
- * soru kutusu diye bir şey yok, orada `false` dönüyor.
- */
-export function answerChatQuestion(
-  requestId: string,
-  optionIndex: number | number[],
-  customText?: string
-): boolean {
-  const chatId = tuiRequests.get(requestId);
-  if (!chatId) return false;
-  return answerTuiQuestion(chatId, optionIndex, customText);
+export function answerChatQuestion(requestId: string, optionIndex: number | number[], customText?: string): boolean {
+  const run = runs.get(requestId);
+  if (!run?.pendingAsk || !run.answerAsk) return false;
+  run.answerAsk(answerText(run.pendingAsk, optionIndex, customText));
+  return true;
 }
 
-/** Bir sohbet silindiğinde/kapatıldığında onun TUI oturumunu da bırak. */
+/** Sohbet silindi ya da klasörü değişti: bağlı oturum bırakılır (çalışmıyorsa). */
 export function closeChatSession(chatId: string): void {
-  closeTuiSession(chatId);
+  if (!chatBusy(chatId)) clearBinding(chatId);
 }
 
 /**
- * Sohbeti DALLANDIR: ajanın hafızasını sıfırla, süreci kapatmadan.
- *
- * Arayüz bunu mesaj düzenlendiğinde ve cevap yeniden üretildiğinde çağırıyor.
- * `false` dönmesi hata değil: ayakta bir TUI oturumu yoksa sıfırlanacak bir
- * hafıza da yok, sonraki gönderim zaten sıfırdan başlıyor.
+ * Sohbeti DALLANDIR (mesaj düzenlendi / yeniden üretildi): bağ düşer, bir
+ * sonraki tur yeni oturumda geçmişi renderer'ın verdiği hâliyle tohumlar.
+ * Eskiden bu TUI'de palet tuşlarıyla yapılıyordu ve 12 olayın 10'unda
+ * axet-code'u çökertti (analiz 2026-10-16, bulgu 4).
  */
 export function resetChatHistory(chatId: string): boolean {
-  return resetTuiHistory(chatId);
+  clearBinding(chatId);
+  return true;
 }
 
+/** Artık ısıtılacak süreç yok; IPC Görev 6'da kalkıyor. */
+export function prewarmChat(_cwd: string, _model: AxetModelEntry | null, _chatId?: string, _draft?: string): void {}
+
 export function cancelAllChatMessages(): void {
-  for (const id of Array.from(running.keys())) cancelChatMessage(id);
-  // Isıtılmış süreç de bırakılmalı: uygulama kapanırken stdin'de bekleyen bir
-  // axet-code'u arkada bırakmak, kullanıcının göremediği bir süreç demek.
-  disposeWarm();
-  // Kalıcı TUI oturumları da öyle — bunlar tam bir interaktif axet-code.
-  closeAllTuiSessions();
-  tuiRequests.clear();
+  for (const id of Array.from(runs.keys())) cancelChatMessage(id);
 }

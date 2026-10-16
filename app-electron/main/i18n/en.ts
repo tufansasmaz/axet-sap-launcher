@@ -51,6 +51,10 @@ export const MAIN_EN = {
   "chat.axetBroken":
     "The axet-code program file is broken (an update may have been interrupted). If %TEMP%\\axet-code-update.msi exists, run via Win+R: msiexec /fa \"%TEMP%\\axet-code-update.msi\" — otherwise reinstall axet-code.",
 
+  // --- axetChat.ts (headless bridge) ---
+  "chat.headlessAnswerLabel": "The user's answer",
+  "chat.continuePrompt": "Continue from where you left off.",
+
   // --- axetChatTui.ts ---
   "chat.emptyAnswerTui":
     "axet-code finished the turn without producing any answer text. Try the same message once more with \"Regenerate\"; if it keeps happening, update axet-code from Company Portal.",

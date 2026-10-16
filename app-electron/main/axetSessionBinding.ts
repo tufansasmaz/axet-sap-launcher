@@ -29,8 +29,8 @@ import path from "node:path";
 export interface AxetSessionBinding {
   /** axet-code'un oturum kimliği (sessions.id). */
   sessionId: string;
-  /** Oturumun BİZİM koyduğumuz başlığı — `ctrl+s` içinde aranan metin bu. */
-  title: string;
+  /** eski TUI ctrl+s etiketi; başsız köprü kullanmıyor */
+  title?: string;
   /** Bağın kurulduğu çalışma klasörü; veritabanı buna göre çözülüyor. */
   cwd: string;
   updatedAt: number;
@@ -72,9 +72,8 @@ function load(): Map<string, AxetSessionBinding> {
     const sessionId = typeof e.sessionId === "string" ? e.sessionId : "";
     const title = typeof e.title === "string" ? e.title : "";
     const cwd = typeof e.cwd === "string" ? e.cwd : "";
-    // Dördü de zorunlu: eksik bir kayıt "bağlan" diyip nereye bağlanacağını
-    // söylemeyen bir kayıt olurdu.
-    if (!chatId || !sessionId || !title || !cwd) continue;
+    // chatId, sessionId ve cwd zorunlu; title isteğe bağlı (başsız köprü kullanmıyor).
+    if (!chatId || !sessionId || !cwd) continue;
     map.set(chatId, {
       sessionId,
       title,
@@ -119,7 +118,7 @@ export function readBinding(chatId: string): AxetSessionBinding | null {
 }
 
 export function writeBinding(chatId: string, binding: Omit<AxetSessionBinding, "updatedAt">): void {
-  if (!chatId || !binding.sessionId || !binding.title || !binding.cwd) return;
+  if (!chatId || !binding.sessionId || !binding.cwd) return;
   const map = load();
   map.set(chatId, { ...binding, updatedAt: Date.now() });
   persist(map);

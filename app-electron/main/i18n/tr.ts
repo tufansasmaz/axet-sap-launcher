@@ -54,6 +54,10 @@ export const MAIN_TR = {
   "chat.axetBroken":
     "axet-code program dosyası bozuk (güncelleme yarıda kalmış olabilir). %TEMP%\\axet-code-update.msi varsa Win+R ile çalıştırın: msiexec /fa \"%TEMP%\\axet-code-update.msi\" — yoksa axet-code'u yeniden kurun.",
 
+  // --- axetChat.ts (başsız köprü) ---
+  "chat.headlessAnswerLabel": "Kullanıcının cevabı",
+  "chat.continuePrompt": "Kaldığın yerden devam et.",
+
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":
     "axet-code turu bitirdi ama hiçbir cevap metni üretmedi. Aynı mesajı \"Yeniden üret\" ile bir kez daha deneyin; tekrarlıyorsa axet-code sürümünüzü Company Portal'dan güncelleyin.",
