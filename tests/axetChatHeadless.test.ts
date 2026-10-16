@@ -493,6 +493,35 @@ describe("küçükler (2026-10-16)", () => {
     expect(calls[1].prompt).toContain("ZATEN çalıştırıldı");
   });
 
+  it("R1: zorunlu güncelleme + toolsUnknown → güncelleme hatası, Devam et yok", async () => {
+    script(() => ({
+      ok: false,
+      error: "Mandatory update required. Installed version: 1.4.1 New version: 1.5.0",
+      failure: null,
+      toolCount: 0,
+      toolsUnknown: true,
+      sessionId: null
+    }));
+    const r = await send();
+    expect(calls).toHaveLength(1);
+    expect(r.ok).toBe(false);
+    expect(r.error).toMatch(/^chatTui\.updateRequired/);
+    expect(r.canContinue).toBeUndefined();
+  });
+
+  it("R4: ask_user vazgeçildi, soru ve bazı seçenekler metinde → yalnız eksik seçenekler ekleniyor", async () => {
+    script(() => ({
+      text: "Hangi paket? ZA en uygunu görünüyor.",
+      sessionId: "S1",
+      ask: { callId: "q1", question: "Hangi paket?", header: "", options: ["ZA", "ZB"], multiSelect: false }
+    }));
+    const pending = send();
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    chat.answerChatQuestion("r1", -1);
+    const r = await pending;
+    expect(r.text).toBe("Hangi paket? ZA en uygunu görünüyor.\n\n- ZB");
+  });
+
   it("19: araçsız turda tohumda bu not yok", async () => {
     script(
       () => ({ text: "Bakıyorum.", sessionId: "S1", toolCount: 0, ask: ASK }),

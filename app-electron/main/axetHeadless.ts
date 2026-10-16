@@ -112,14 +112,15 @@ export function buildRunArgs(args: Pick<HeadlessTurnArgs, "cwd" | "model" | "res
 // düşüyorlar ve turu öldürmemeliler (analiz 2026-10-16, bulgu 10).
 const RE_IGNORED = /connector\.sync|MCP client/i;
 // HTTP durum kodu YALNIZ HTTP bağlamında sayılıyor: "status 403", "status
-// code: 401", "HTTP/1.1 502", "…/messages: 529 {…}", "403 Forbidden". Çıplak
+// code: 401", "HTTP/1.1 502", "…/messages: 529 {…}", `"code":403}`,
+// "403 Forbidden". Çıplak
 // sayı ("line 403", "took 503 ms") başka bir şey olabilir; turu yanlış
 // sınıflamak boşuna bir bekleme ya da yeniden deneme demek.
 const RE_AUTH =
-  /\b(?:status(?:[ _]?code)?|http(?:\/[\d.]+)?)\s*[:=]?\s*(?:401|403)\b|:\s*(?:401|403)(?=[\s"'{(\[,]|$)|unauthori[sz]ed|forbidden|invalid[_ ]?token|token (has )?expired/i;
+  /\b(?:status(?:[ _]?code)?|http(?:\/[\d.]+)?)\s*[:=]?\s*(?:401|403)\b|:\s*(?:401|403)(?=[\s"'{}()[\],.;]|$)|unauthori[sz]ed|forbidden|invalid[_ ]?token|token (has )?expired/i;
 const RE_CONTEXT = /context (length|window)|too many tokens|prompt is too long|maximum context/i;
 const RE_PROVIDER =
-  /\b(?:status(?:[ _]?code)?|http(?:\/[\d.]+)?)\s*[:=]?\s*(?:429|5\d\d)\b|:\s*(?:429|5\d\d)(?=[\s"'{(\[,]|$)|\b(?:429|5\d\d)\s+(?:too many requests|internal server error|bad gateway|service unavailable|gateway time-?out)|overloaded|rate.?limit|service unavailable/i;
+  /\b(?:status(?:[ _]?code)?|http(?:\/[\d.]+)?)\s*[:=]?\s*(?:429|5\d\d)\b|:\s*(?:429|5\d\d)(?=[\s"'{}()[\],.;]|$)|\b(?:429|5\d\d)\s+(?:too many requests|internal server error|bad gateway|service unavailable|gateway time-?out)|overloaded|rate.?limit|service unavailable/i;
 
 export function classifyStderr(lines: string[]): HeadlessFailure | null {
   for (const line of lines) {
@@ -220,9 +221,10 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   //
   // Veritabanı okumaları ATMAMALI: zamanlayıcıdan ya da akış olayından kaçan
   // bir istisna Electron ana sürecinde yakalanmamış hata olur. Okunamayan
-  // yoklama atlanıyor (bir sonraki yeniden deniyor); okuma hâlâ başarısızken
-  // tur biterse araç sayısı güvenilmez sayılıyor (`toolsUnknown`).
-  let dbReadFailing = false;
+  // yoklama atlanıyor (bir sonraki yeniden deniyor). Bir okuma tur içinde
+  // BİR KEZ bile başarısız olduysa araç sayısı tur sonuna kadar güvenilmez
+  // sayılıyor (`toolsUnknown`): sonraki başarılı okuma bu işareti silmiyor.
+  let dbReadFailed = false;
   const findDb = (): string | null => {
     try {
       return deps.dbPath(args.cwd);
@@ -232,11 +234,9 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   };
   const readSafe = (db: string, sid: string, since: number): AxetDbMessage[] | null => {
     try {
-      const rows = deps.readMessages(db, sid, since);
-      dbReadFailing = false;
-      return rows;
+      return deps.readMessages(db, sid, since);
     } catch {
-      dbReadFailing = true;
+      dbReadFailed = true;
       return null;
     }
   };
@@ -253,6 +253,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
     if (!old) return;
     preexistingPending = false;
     // İlk anda her şey eski; geç bulunduysa tur başından öncekiler zamanla ayrılıyor.
+    // Geç yolda kesim saniye çözünürlüklü (−2 sn payıyla): tur başına çok yakın eski bir mesaj yeni sayılabilir; bilinen ve kabul edilen sınır.
     for (const m of old) if (early || m.createdAt < sinceSec) preexisting.add(m.id);
   };
   if (dbPath) loadPreexisting(dbPath, true);
@@ -414,7 +415,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
     } catch {
       // Beklenmedik bir yoklama hatası bu turu bırakır, zamanlayıcıyı değil;
       // sayım bu yüzden güvenilmez.
-      dbReadFailing = true;
+      dbReadFailed = true;
     }
     const now = deps.now();
     if (!timedOut && now - startedAt >= deps.hardCapMs) {
@@ -466,7 +467,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
         poll();
       } catch {
         // okuma hatası sonucu bozmamalı
-        dbReadFailing = true;
+        dbReadFailed = true;
       }
       const jsonLine = stdout
         .split(/\r?\n/)
@@ -488,14 +489,19 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
           poll();
         } catch {
           // okuma hatası sonucu bozmamalı
-          dbReadFailing = true;
+          dbReadFailed = true;
         }
       }
-      // Araç sayısı güvenilmez: veritabanı hiç bulunamadı, son okuma da
-      // başarısızdı, ya da süreç ne `-v` satırını ne JSON'u bırakıp düştü
-      // (çöküş, biçim değişikliği) — o arada araç çalışmış olabilir.
+      // Araç sayısı güvenilmez: veritabanı hiç bulunamadı, tur içinde bir
+      // okuma başarısız oldu, ya da süreç ne `-v` satırını ne JSON'u ne de
+      // herhangi bir hata metni bırakıp düştü (sessiz çöküş, biçim değişikliği).
+      // Oturum yok ama süreç düz bir hata bastıysa (zorunlu güncelleme, açılış/
+      // ayar hatası) oturum hiç kurulmadı: araç da çalışmadı, temiz hata gösterilsin.
+      const saidSomething = !!plainStdout(stdout) || !!cleanStderr(stderr);
       const toolsUnknown =
-        (sessionId !== null && !dbPath) || dbReadFailing || (sessionId === null && !doc && !spawnFailed);
+        (sessionId !== null && !dbPath) ||
+        dbReadFailed ||
+        (sessionId === null && !doc && !spawnFailed && !saidSomething);
       const base = {
         sessionId,
         cancelled,

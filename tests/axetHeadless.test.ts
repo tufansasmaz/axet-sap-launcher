@@ -383,13 +383,53 @@ describe("veritabanı okuma hatası (zamanlayıcıdan kaçmamalı)", () => {
 });
 
 describe("toolsUnknown: sayım güvenilmez", () => {
-  it("oturum kimliği de JSON da yok (çöküş) → toolsUnknown", async () => {
+  it("oturum kimliği de JSON da yok, hiçbir çıktı da yok (sessiz çöküş) → toolsUnknown", async () => {
     const h = harness();
     const turn = startHeadlessTurn(h.base, h.deps as never);
-    h.child.err("ERROR panic: beklenmedik");
     h.child.exit(2);
     const r = await turn.done;
     expect(r.sessionId).toBeNull();
+    expect(r.toolsUnknown).toBe(true);
+  });
+
+  it("açılış hatası (oturum yok, stderr'de hata): hiçbir şey çalışmadı, toolsUnknown yok", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.err("INFO Running in non-interactive mode");
+    h.child.err('ERROR failed to start error="unknown model: openai/yok-boyle"');
+    h.child.exit(1);
+    const r = await turn.done;
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("unknown model");
+    expect(r.toolsUnknown).toBeFalsy();
+  });
+
+  it("zorunlu güncelleme (oturum yok, düz stdout): toolsUnknown yok", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.exit(1, "Mandatory update required. Installed version: 1.4.1 New version: 1.5.0\n");
+    const r = await turn.done;
+    expect(r.toolsUnknown).toBeFalsy();
+  });
+
+  it("tur ortasında bir okuma başarısız olduysa sonraki başarılı okuma toolsUnknown'u silmiyor", async () => {
+    const h = harness();
+    let n = 0;
+    const deps = {
+      ...h.deps,
+      readMessages: (p: string, sid: string) => {
+        if (++n === 2) throw new Error("SQLITE_BUSY");
+        return h.deps.readMessages(p, sid);
+      }
+    };
+    const turn = startHeadlessTurn(h.base, deps as never);
+    h.child.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    h.db[SID] = [msg("a1", "assistant", [text("tamam"), finish("end_turn")])];
+    await tick(60);
+    expect(n).toBeGreaterThan(2);
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "tamam", is_error: false }));
+    const r = await turn.done;
+    expect(r.ok).toBe(true);
     expect(r.toolsUnknown).toBe(true);
   });
 
@@ -442,6 +482,13 @@ describe("classifyStderr", () => {
     expect(classifyStderr(["ERROR HTTP/1.1 502 Bad Gateway"])).toBe("provider");
     expect(classifyStderr(['ERROR POST https://x/v1/messages: 529 {"type":"error"}'])).toBe("provider");
     expect(classifyStderr(["ERROR got status=429"])).toBe("provider");
+    // JSON gövdesi ve cümle sonu
+    expect(classifyStderr(['ERROR body={"code":403}'])).toBe("auth");
+    expect(classifyStderr(['ERROR body={"status":529}'])).toBe("provider");
+    expect(classifyStderr(["ERROR upstream (code: 503)"])).toBe("provider");
+    expect(classifyStderr(["ERROR codes [x: 429]"])).toBe("provider");
+    expect(classifyStderr(["ERROR request failed: 401."])).toBe("auth");
+    expect(classifyStderr(["ERROR request failed: 502; retrying"])).toBe("provider");
     expect(classifyStderr(["WARN 500 Internal Server Error"])).toBe("provider");
   });
 

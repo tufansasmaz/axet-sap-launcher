@@ -386,9 +386,13 @@ export async function sendChatMessage(
         if (answer === null) {
           // Vazgeçildi: soru ve SEÇENEKLER cevapta kalsın, kullanıcı kendisi
           // yazar. `secenekler` bloğunda soru metnin kendisi, blok ise metinden
-          // atılmıştı: yalnız seçenek listesi geri ekleniyor.
+          // atılmıştı: yalnız seçenek listesi geri ekleniyor. Ajan seçenekleri
+          // düzyazıda zaten saymışsa onlar tekrarlanmıyor.
           if (!ask.question || !text.includes(ask.question)) text = joinText(text, askUserAsText(ask));
-          else if (ask.options.length) text = joinText(text, ask.options.map((opt) => `- ${opt}`).join("\n"));
+          else {
+            const missing = ask.options.filter((opt) => !text.includes(opt));
+            if (missing.length) text = joinText(text, missing.map((opt) => `- ${opt}`).join("\n"));
+          }
           break;
         }
         const answerPrompt = `${mt("chat.headlessAnswerLabel")}: ${answer}`;
@@ -455,7 +459,9 @@ export async function sendChatMessage(
         text: joinText(text, result.text),
         error: userError(result, retried),
         usedConnectors: useConnectors,
-        ...(toolsRan ? { canContinue: true } : {})
+        // Zorunlu güncellemede "Devam et" aynı duvara çarpar: gösterilecek
+        // şey güncelleme hatasının kendisi.
+        ...(toolsRan && !isUpdateBlock(result.error) ? { canContinue: true } : {})
       };
     }
 
