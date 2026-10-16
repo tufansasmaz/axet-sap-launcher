@@ -24,7 +24,9 @@ export function settleAnswer(
 ): SettledAnswer {
   const answer = result.text.trim() || streamedText.trim();
   if (result.ok) return answer ? { content: answer, error: false } : { content: genericError, error: true };
-  const reason = result.error || genericError;
+  // Boş ya da yalnız boşluk olan hata metni BİLEREK genel metne dönüyor: boş
+  // bir hata balonu kullanıcıya hiçbir şey söylemez.
+  const reason = result.error?.trim() || genericError;
   if (result.canContinue) return { content: answer || reason, error: false, interrupted: true, haltReason: reason };
   return { content: reason, error: true };
 }

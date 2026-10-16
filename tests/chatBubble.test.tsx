@@ -16,26 +16,6 @@ const renderBubble = (message: ChatMessage, onRegenerate?: () => void) =>
     </LanguageProvider>
   );
 
-describe("ChatBubble yarıda kalan cevap", () => {
-  it("haltReason varsa not hatayı söylüyor, 'uygulama kapandı' demiyor", () => {
-    const onContinue = vi.fn();
-    render(
-      <LanguageProvider language="tr">
-        <ChatBubble message={answer({ interrupted: true, haltReason: "529 overloaded" })} onContinue={onContinue} />
-      </LanguageProvider>
-    );
-    expect(screen.getByText(/529 overloaded/)).toBeTruthy();
-    expect(screen.queryByText(/uygulama kapandığında/)).toBeNull();
-    fireEvent.click(screen.getByText("Devam et"));
-    expect(onContinue).toHaveBeenCalledTimes(1);
-  });
-
-  it("haltReason yoksa eski not", () => {
-    renderBubble(answer({ interrupted: true }));
-    expect(screen.getByText(/uygulama kapandığında/)).toBeTruthy();
-  });
-});
-
 describe("ChatBubble cevap satırı", () => {
   it("Yeniden üret yalnız onRegenerate verilen balonda, satır da görünür", () => {
     const onRegenerate = vi.fn();
@@ -70,5 +50,25 @@ describe("ChatBubble cevap satırı", () => {
   it("biten cevabın araç dökümü ChatToolRun ile çiziliyor", () => {
     renderBubble(answer({ steps: [{ phase: "tool", tool: "view", callId: "c1" }] }));
     expect(screen.getByText("1 araç işlemi")).toBeTruthy();
+  });
+});
+
+describe("ChatBubble yarıda kalan cevap", () => {
+  it("haltReason varsa not hatayı söylüyor, 'uygulama kapandı' demiyor", () => {
+    const onContinue = vi.fn();
+    render(
+      <LanguageProvider language="tr">
+        <ChatBubble message={answer({ interrupted: true, haltReason: "529 overloaded" })} onContinue={onContinue} />
+      </LanguageProvider>
+    );
+    expect(screen.getByText(/529 overloaded/)).toBeTruthy();
+    expect(screen.queryByText(/uygulama kapandığında/)).toBeNull();
+    fireEvent.click(screen.getByText("Devam et"));
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
+  it("haltReason yoksa eski not", () => {
+    renderBubble(answer({ interrupted: true }));
+    expect(screen.getByText(/uygulama kapandığında/)).toBeTruthy();
   });
 });

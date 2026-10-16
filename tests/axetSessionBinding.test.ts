@@ -151,6 +151,19 @@ describe("bag deposu", () => {
   it("EKSIK alanli satir dosyadan okunurken de eleniyor", async () => {
     // Dosya elle de duzenlenebiliyor; sessionId veya cwd eksikse elenmelidir.
     // title artik zorunlu degil (basiz kopru basligi kullanmiyor).
+    // Alan HIC yok (bos dize degil): chat-1'de sessionId, chat-2'de cwd.
+    writeFileSync(
+      FILE(),
+      JSON.stringify({ bindings: [{ chatId: "chat-1", cwd: "C:\\p" }, { chatId: "chat-2", sessionId: "S1" }] }),
+      "utf8"
+    );
+    vi.resetModules();
+    const fresh = await import("../app-electron/main/axetSessionBinding");
+    expect(fresh.readBinding("chat-1")).toBeNull();
+    expect(fresh.readBinding("chat-2")).toBeNull();
+  });
+
+  it("BOS sessionId'li satir da eleniyor", async () => {
     writeFileSync(
       FILE(),
       JSON.stringify({ bindings: [{ chatId: "chat-1", sessionId: "", cwd: "C:\\p" }] }),

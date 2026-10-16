@@ -39,4 +39,15 @@ describe("settleAnswer", () => {
       haltReason: "529"
     });
   });
+
+  it("boş ya da yalnız boşluktan oluşan hata metni genel hataya dönüyor", () => {
+    expect(settleAnswer({ ok: false, text: "", error: "" }, "", G)).toEqual({ content: G, error: true });
+    expect(settleAnswer({ ok: false, text: "", error: "  \n " }, "", G)).toEqual({ content: G, error: true });
+    expect(settleAnswer({ ok: false, text: "yarım", error: " ", canContinue: true }, "", G)).toEqual({
+      content: "yarım",
+      error: false,
+      interrupted: true,
+      haltReason: G
+    });
+  });
 });

@@ -796,6 +796,8 @@ export default function AxetCodeHome({
       }
       // Kullanıcının sohbet için seçtiği varsayılan önce; yoksa axet-code'un kendi ayarı.
       const chosen = (await window.api.getConfig().catch(() => null))?.chatDefaultModel ?? null;
+      // getConfig beklenirken bileşen kapanmış olabilir.
+      if (cancelled) return;
       if (chosen) setDefaultModel(chosen);
       else if (configResult.ok && configResult.config) setDefaultModel(configResult.config.large);
       setModelsLoading(false);
@@ -1156,7 +1158,14 @@ export default function AxetCodeHome({
           prev.map((s) => (s.id === activeId ? { ...s, model: entry } : s)),
         );
       }
-      await window.api.saveConfig({ chatDefaultModel: entry }).catch(() => undefined);
+      // Kaydedilemezse seçim bu oturumda yine geçerli (yukarıda uygulandı),
+      // ama başarı bildirimi yalan olurdu: kullanıcı kalıcı olmadığını bilmeli.
+      try {
+        await window.api.saveConfig({ chatDefaultModel: entry });
+      } catch (err) {
+        pushToast("error", t("modelSelector.saveFailed", { message: err instanceof Error ? err.message : String(err) }));
+        return;
+      }
       pushToast("success", t("modelSelector.switched", { model: entry.model }));
     },
     [activeId, pushToast, t],
