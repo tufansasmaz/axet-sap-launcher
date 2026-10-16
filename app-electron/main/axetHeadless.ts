@@ -144,7 +144,8 @@ function killTreeDefault(child: ChildLike): void {
   // hayatta kalıyordu. `taskkill /T` ağacın tamamını alıyor.
   if (pid && process.platform === "win32") {
     try {
-      spawn("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" });
+      // İşlenmemiş 'error' olayı Electron ana sürecini çökertir; dinleyici ekliyoruz.
+      spawn("taskkill", ["/PID", String(pid), "/T", "/F"], { windowsHide: true, stdio: "ignore" }).on("error", () => {});
       return;
     } catch {
       // aşağıdaki kill'e düş
@@ -266,7 +267,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
             pendingInputs.delete(callId);
             const diff = buildDiff(name, part.data?.input);
             const target = summarizeToolInput(part.data?.input);
-            if (target || diff) args.onActivity({ phase: "tool", callId, tool: name, target, ...(diff ? { diff } : {}) } as AxetChatActivity);
+            if (target || diff) args.onActivity({ phase: "tool", callId, tool: name, target, ...(diff ? { diff } : {}) });
           }
           continue;
         }
@@ -281,7 +282,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
           tool: name,
           target: pendingInputs.has(callId) ? "" : summarizeToolInput(part.data?.input),
           ...(diff ? { diff } : {})
-        } as AxetChatActivity);
+        });
       }
     }
     for (const message of messages) {
@@ -302,7 +303,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
           continue;
         }
         signal();
-        args.onActivity({ phase: "toolResult", callId, ...summarizeToolResult(part.data?.content, part.data?.is_error) } as AxetChatActivity);
+        args.onActivity({ phase: "toolResult", callId, ...summarizeToolResult(part.data?.content, part.data?.is_error) });
       }
     }
     const now = deps.now();
@@ -321,14 +322,14 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
     if (finished) return;
     poll();
     const now = deps.now();
-    if (now - startedAt >= deps.hardCapMs) {
+    if (!timedOut && now - startedAt >= deps.hardCapMs) {
       timedOut = true;
       kill();
       return;
     }
     if (now - lastStalledAt >= deps.silenceMs) {
       lastStalledAt = now;
-      args.onActivity({ phase: "stalled", minutes: Math.max(1, Math.round((now - lastSignalAt) / 60_000)) } as AxetChatActivity);
+      args.onActivity({ phase: "stalled", minutes: Math.max(1, Math.round((now - lastSignalAt) / 60_000)) });
     }
   }, deps.pollMs);
 

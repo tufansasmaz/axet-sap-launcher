@@ -799,9 +799,9 @@ export type AxetChatActivityPhase =
  * olması: çağrı satırı + altında sonuç satırı. Bu yüzden olay artık bir nesne;
  * yeni bir alan eklemek imza değiştirmeyi gerektirmiyor.
  */
-export interface AxetChatActivity {
-  /** Ek alanlar için kaçış kapısı — test harness ve genişletilmiş olaylar. */
-  [key: string]: unknown;
+// type alias: Record<string, unknown>'a interface'ten farklı olarak örtülü
+// atanabilir; indeks imzası gerekmez, fazla özellik denetimi korunur.
+export type AxetChatActivity = {
   phase: AxetChatActivityPhase;
   /**
    * Araç çağrısının kimliği (`toolu_bdrk_…`). `toolResult` satırını kendi
