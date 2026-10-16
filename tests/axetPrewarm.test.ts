@@ -29,7 +29,8 @@ function harness() {
   const spawned: { args: string[]; env: NodeJS.ProcessEnv }[] = [];
   const killed: FakeChild[] = [];
   const timers: { fn: () => void; ms: number; cleared: boolean }[] = [];
-  const logs: { chatId: string; sonuc: string }[] = [];
+  const logs: { chatId: string; sonuc: string; kod?: number | null }[] = [];
+  const clock = { t: 0 };
   const pool = createPrewarmPool({
     spawn: (_cmd, args, opts) => {
       const c = new FakeChild();
@@ -49,9 +50,10 @@ function harness() {
     clearTimer: (t) => {
       (t as { cleared: boolean }).cleared = true;
     },
-    log: (chatId, sonuc) => logs.push({ chatId, sonuc })
+    now: () => clock.t,
+    log: (chatId, sonuc, kod) => logs.push({ chatId, sonuc, ...(kod !== undefined ? { kod } : {}) })
   });
-  return { pool, children, spawned, killed, timers, logs };
+  return { pool, children, spawned, killed, timers, logs, clock };
 }
 
 const KEY = { chatId: "c1", cwd: "C:/p", model: "openai/gpt-5", resumeId: null, useConnectors: false };
@@ -78,13 +80,63 @@ describe("axetPrewarm", () => {
     expect(h.killed).toHaveLength(0);
   });
 
-  it("aynı sohbet, farklı anahtar: eski öldürülüyor, yenisi açılıyor", () => {
+  it("aynı sohbet, farklı anahtar: eski öldürülüyor (uyusmadi), yenisi açılıyor", () => {
     const h = harness();
     h.pool.prewarm(KEY);
+    h.clock.t = 6_000;
     h.pool.prewarm({ ...KEY, useConnectors: true });
     expect(h.spawned).toHaveLength(2);
     expect(h.killed).toEqual([h.children[0]]);
     expect(h.pool.size()).toBe(1);
+    expect(h.logs.map((l) => l.sonuc)).toEqual(["acildi", "uyusmadi", "acildi"]);
+  });
+
+  it("bekleme: yalnız bağlayıcı kararı değiştiyse 5 sn'den genç süreç değiştirilmiyor", () => {
+    const h = harness();
+    h.pool.prewarm(KEY);
+    h.clock.t = 1_000;
+    h.pool.prewarm({ ...KEY, useConnectors: true });
+    h.clock.t = 4_000;
+    h.pool.prewarm(KEY);
+    h.pool.prewarm({ ...KEY, useConnectors: true });
+    expect(h.spawned).toHaveLength(1);
+    expect(h.killed).toHaveLength(0);
+    // 5 sn dolunca değiştiriliyor
+    h.clock.t = 5_000;
+    h.pool.prewarm({ ...KEY, useConnectors: true });
+    expect(h.spawned).toHaveLength(2);
+    // yeni süreç de genç: geri dönüş bekliyor
+    h.clock.t = 6_000;
+    h.pool.prewarm(KEY);
+    expect(h.spawned).toHaveLength(2);
+  });
+
+  it("bekleme: klasör/model/oturum değiştiyse genç süreç de hemen değiştiriliyor", () => {
+    const h = harness();
+    h.pool.prewarm(KEY);
+    h.pool.prewarm({ ...KEY, model: "openai/baska" });
+    h.pool.prewarm({ ...KEY, model: "openai/baska", cwd: "C:/q" });
+    h.pool.prewarm({ ...KEY, model: "openai/baska", cwd: "C:/q", resumeId: "S9" });
+    expect(h.spawned).toHaveLength(4);
+    expect(h.killed).toHaveLength(3);
+  });
+
+  it("sahiplenmeden kendiliğinden kapanan süreç çıkış koduyla günlüğe yazılıyor", () => {
+    const h = harness();
+    h.pool.prewarm(KEY);
+    h.children[0].emit("close", 3);
+    expect(h.logs).toEqual([
+      { chatId: "c1", sonuc: "acildi" },
+      { chatId: "c1", sonuc: "kendiliginden-kapandi", kod: 3 }
+    ]);
+  });
+
+  it("öldürülen sürecin sonradan gelen kapanışı ayrıca günlüğe yazılmıyor", () => {
+    const h = harness();
+    h.pool.prewarm(KEY);
+    h.pool.drop("c1");
+    h.children[0].emit("close", null);
+    expect(h.logs.map((l) => l.sonuc)).toEqual(["acildi"]);
   });
 
   it("toplam en fazla 2: üçüncü sohbet en eskiyi öldürüyor", () => {

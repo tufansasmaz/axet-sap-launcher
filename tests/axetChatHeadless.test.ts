@@ -607,7 +607,7 @@ describe("ısınmış süreç (İş 1)", () => {
       () => ({ ok: false, error: "529 overloaded", failure: "provider", toolCount: 0 }),
       () => ({ ok: true, text: "kurtardı" })
     );
-    // ikinci tur başlamadan aynı anahtarla yeniden ısıtılmış olsa bile
+    // ilk tur ısınmış süreci aldı; yeniden deneme her zaman kendi sürecini açıyor
     const pending = sendWith(null);
     await pending;
     expect(calls).toHaveLength(2);
@@ -668,5 +668,42 @@ describe("ısınmış süreç (İş 1)", () => {
     unblock();
     expect((await pending).cancelled).toBe(true);
     chat.cancelAllChatMessages();
+  });
+
+  it("sürüm beklenirken sohbet kapatılırsa ısıtma süreç açmıyor", async () => {
+    let unblock!: () => void;
+    h.statusBlock = new Promise<void>((r) => { unblock = r; });
+    const pending = chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    chat.closeChatSession("chat-1");
+    unblock();
+    await pending;
+    expect(spawned).toHaveLength(0);
+  });
+
+  it("sürüm beklenirken dropAll (yetenek değişikliği) olursa ısıtma süreç açmıyor; sonrakiler açıyor", async () => {
+    let unblock!: () => void;
+    h.statusBlock = new Promise<void>((r) => { unblock = r; });
+    const pending = chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    chat.dropAllPrewarmed();
+    unblock();
+    await pending;
+    expect(spawned).toHaveLength(0);
+    h.statusBlock = null;
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    expect(spawned).toHaveLength(1);
+  });
+
+  it("kapanıştan (stopPrewarming) sonra hiçbir ısıtma süreç açmıyor, bekleyen de", async () => {
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    let unblock!: () => void;
+    h.statusBlock = new Promise<void>((r) => { unblock = r; });
+    const pending = chat.prewarmChat("chat-2", "C:/p", null, "", []);
+    chat.stopPrewarming();
+    expect(warm[0].killed).toBe(true);
+    unblock();
+    await pending;
+    h.statusBlock = null;
+    await chat.prewarmChat("chat-3", "C:/p", null, "", []);
+    expect(spawned).toHaveLength(1);
   });
 });

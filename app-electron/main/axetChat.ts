@@ -171,6 +171,11 @@ export function __setTurnStarter(fn: typeof startHeadlessTurn | null): void {
 type PoolDeps = Pick<PrewarmDeps, "spawn" | "env" | "killTree" | "setTimer" | "clearTimer">;
 let poolDeps: PoolDeps | null = null;
 let pool: PrewarmPool | null = null;
+// Bırakma kuşağı: her drop/dropAll artırıyor. prewarmChat sürüm denetimini
+// beklerken sohbet kapandıysa ya da havuz boşaltıldıysa süreç açmıyor; yoksa
+// sahipsiz bir süreç axet-code.exe'yi kilitli tutardı. Kapanıştan sonra hiç.
+let prewarmGen = 0;
+let prewarmStopped = false;
 
 function prewarmPool(): PrewarmPool {
   if (pool) return pool;
@@ -189,7 +194,10 @@ function prewarmPool(): PrewarmPool {
       clearTimer: (t: unknown) => clearTimeout(t as NodeJS.Timeout)
     };
   })();
-  pool = createPrewarmPool({ ...d, log: (chatId, sonuc) => appLog("kopru.isitma", { sohbet: chatId, sonuc }) });
+  pool = createPrewarmPool({
+    ...d,
+    log: (chatId, sonuc, kod) => appLog("kopru.isitma", { sohbet: chatId, sonuc, ...(kod !== undefined ? { kod } : {}) })
+  });
   return pool;
 }
 
@@ -197,6 +205,8 @@ export function __setPrewarmDeps(deps: PoolDeps | null): void {
   pool?.dropAll();
   pool = null;
   poolDeps = deps;
+  prewarmGen += 1;
+  prewarmStopped = false;
 }
 
 function prewarmKey(
@@ -211,6 +221,7 @@ function prewarmKey(
 
 /** Bir sohbetin ısıtılmış sürecini bırakır (sohbet kapandı/dallandı/iptal). */
 function dropPrewarm(chatId: string): void {
+  prewarmGen += 1;
   try {
     pool?.drop(chatId);
   } catch {
@@ -220,11 +231,18 @@ function dropPrewarm(chatId: string): void {
 
 /** Tüm ısıtılmış süreçler (kapanış, yetenek değişikliği: süreç onları açılışta okuyor). */
 export function dropAllPrewarmed(): void {
+  prewarmGen += 1;
   try {
     pool?.dropAll();
   } catch {
     // bkz. dropPrewarm
   }
+}
+
+/** Uygulama kapanıyor: havuz boşaltılıyor ve bundan sonra hiçbir ısıtma süreç açmıyor. */
+export function stopPrewarming(): void {
+  prewarmStopped = true;
+  dropAllPrewarmed();
 }
 
 export function chatBusy(chatId: string): boolean {
@@ -284,11 +302,13 @@ export async function prewarmChat(
   history: AxetChatMessage[]
 ): Promise<void> {
   try {
-    if (!chatId || chatBusy(chatId)) return;
+    if (prewarmStopped || !chatId || chatBusy(chatId)) return;
+    const gen = prewarmGen;
     const status = await axetBinaryStatus();
     if (axetBinaryMessage(status)) return;
-    // Sürüm denetimi beklenirken tur başlamış olabilir.
-    if (chatBusy(chatId)) return;
+    // Sürüm denetimi beklenirken tur başlamış, sohbet kapanmış, havuz
+    // boşaltılmış ya da uygulama kapanmaya başlamış olabilir.
+    if (prewarmStopped || gen !== prewarmGen || chatBusy(chatId)) return;
     const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
     const useConnectors = decideConnectors(history ?? [], draft ?? "");
     const { sessionId } = resumeDecision(chatId, resolvedCwd);

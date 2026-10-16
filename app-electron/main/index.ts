@@ -53,6 +53,7 @@ import {
   cancelAllChatMessages,
   closeChatSession,
   dropAllPrewarmed,
+  stopPrewarming,
   prewarmChat,
   resetChatHistory
 } from "./axetChat";
@@ -1293,13 +1294,13 @@ function registerIpc(): void {
       )
   );
   // Isıtma (bkz. axetPrewarm.ts): taslak yazılırken/sohbet açılınca istemsiz
-  // bir `run` süreci. Geçmişin yalnız SON İKİ mesajı geliyor: bağlayıcı
-  // kararı (`decideConnectors`) yalnız onlara bakıyor ve gönderimdeki kararla
-  // aynı olmalı, yoksa anahtar tutmaz. Ateşle-unut; prewarmChat atmıyor.
+  // bir `run` süreci. Renderer geçmişin yalnız SON İKİ mesajını gönderiyor (kırpma
+  // orada, tek yerde): bağlayıcı kararı (`decideConnectors`) yalnız onlara bakıyor
+  // ve gönderimdeki kararla aynı olmalı. Ateşle-unut; prewarmChat atmıyor.
   ipcMain.handle(
     "axetChat:prewarm",
     (_event, chatId: string, cwd: string, model: AxetModelEntry | null, draft: string, history: AxetChatMessage[]) =>
-      prewarmChat(chatId, cwd, model, draft, Array.isArray(history) ? history.slice(-2) : [])
+      prewarmChat(chatId, cwd, model, draft, Array.isArray(history) ? history : [])
   );
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
     // Süreç ağacı öldürülüyor; "durdu mu" diye ayrı bir karar kanalı yok.
@@ -1814,6 +1815,8 @@ app.on("before-quit", () => {
   stopApprovalServer().catch(() => {});
   stopGuiScriptBridge();
   cancelAllChatMessages();
+  // Kapanırken açılacak bir ısıtma axet-code.exe'yi kilitli bırakırdı.
+  stopPrewarming();
   cancelAllSapGuiAgentSteps();
   cancelAllConnectorTests();
   flowRuntime.stop().catch(() => {});

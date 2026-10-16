@@ -2061,7 +2061,7 @@ export default function AxetCodeHome({
       // dahil taslak + geçmişin son iki mesajı (bkz. axetChat.ts decideConnectors).
       const text = withProjectInstructions(draft, projects.find((p) => p.id === projectId) ?? null);
       const history = buildHistoryForCall(messages).slice(-2);
-      window.api.prewarmChat?.(chatId, cwd, model, text, history)?.catch(() => {});
+      window.api.prewarmChat(chatId, cwd, model, text, history).catch(() => {});
     } catch {
       // ısıtma bir iyileştirme; gönderim yolunu etkilemez
     }

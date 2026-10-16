@@ -29,7 +29,7 @@ export interface PrewarmKey {
   useConnectors: boolean;
 }
 
-export type PrewarmOutcome = "acildi" | "kullanildi" | "uyusmadi" | "bosta-kapandi";
+export type PrewarmOutcome = "acildi" | "kullanildi" | "uyusmadi" | "bosta-kapandi" | "kendiliginden-kapandi";
 
 export interface PrewarmDeps {
   spawn(cmd: string, args: string[], opts: { cwd: string; env: NodeJS.ProcessEnv }): ChildLike;
@@ -37,9 +37,13 @@ export interface PrewarmDeps {
   killTree(child: ChildLike): void;
   setTimer(fn: () => void, ms: number): unknown;
   clearTimer(handle: unknown): void;
-  log?(chatId: string, outcome: PrewarmOutcome): void;
+  /** `code`: yalnız "kendiliginden-kapandi" için çıkış kodu. */
+  log?(chatId: string, outcome: PrewarmOutcome, code?: number | null): void;
+  now?(): number;
   idleMs?: number;
   maxTotal?: number;
+  /** Yalnız bağlayıcı kararı değişen genç süreç bu süre dolmadan değiştirilmez. */
+  replaceCooldownMs?: number;
 }
 
 export interface PrewarmPool {
@@ -52,6 +56,7 @@ export interface PrewarmPool {
 
 export const PREWARM_IDLE_MS = 90_000;
 export const PREWARM_MAX_TOTAL = 2;
+export const PREWARM_REPLACE_COOLDOWN_MS = 5_000;
 
 function sameKey(a: PrewarmKey, b: PrewarmKey): boolean {
   return (
@@ -93,16 +98,26 @@ interface Entry {
   flushed: boolean;
   queue: (() => void)[];
   timer: unknown;
+  bornAt: number;
 }
 
 export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
   const idleMs = deps.idleMs ?? PREWARM_IDLE_MS;
   const maxTotal = deps.maxTotal ?? PREWARM_MAX_TOTAL;
+  const cooldownMs = deps.replaceCooldownMs ?? PREWARM_REPLACE_COOLDOWN_MS;
+  const now = () => {
+    try {
+      return deps.now ? deps.now() : Date.now();
+    } catch {
+      return Date.now();
+    }
+  };
   const entries = new Map<string, Entry>(); // chatId → süreç; sıra = açılış sırası
 
-  const log = (chatId: string, outcome: PrewarmOutcome) => {
+  const log = (chatId: string, outcome: PrewarmOutcome, code?: number | null) => {
     try {
-      deps.log?.(chatId, outcome);
+      if (code === undefined) deps.log?.(chatId, outcome);
+      else deps.log?.(chatId, outcome, code);
     } catch {
       // günlük yazılamadı: ısıtma bundan etkilenmemeli
     }
@@ -143,7 +158,17 @@ export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
   function prewarm(key: PrewarmKey): void {
     const existing = entries.get(key.chatId);
     if (existing && sameKey(existing.key, key)) return;
-    if (existing) discard(existing);
+    if (existing) {
+      // Taslakta bir bağlayıcı kelimesi belirip kaybolursa karar her
+      // debounce'ta dönebilir: genç süreç yalnız bunun için değiştirilmiyor
+      // (gönderimde anahtar tutmazsa tur kendi sürecini açar). Klasör/model/
+      // oturum değiştiyse eski süreç zaten kullanılamaz, hemen değiştiriliyor.
+      const onlyConnectors =
+        existing.key.cwd === key.cwd && existing.key.model === key.model && existing.key.resumeId === key.resumeId;
+      if (onlyConnectors && now() - existing.bornAt < cooldownMs) return;
+      discard(existing);
+      log(key.chatId, "uyusmadi");
+    }
     while (entries.size >= maxTotal) {
       const oldest = entries.values().next().value as Entry;
       discard(oldest);
@@ -172,7 +197,8 @@ export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
       owned: false,
       flushed: false,
       queue: [],
-      timer: null
+      timer: null,
+      bornAt: now()
     };
     const deliver = (fn: () => void) => {
       if (entry.owned && entry.flushed) {
@@ -183,10 +209,13 @@ export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
         }
       } else entry.queue.push(fn);
     };
-    const ended = (fn: () => void) => {
+    const ended = (code: number | null, fn: () => void) => {
       if (!entry.owned) {
         // Sahiplenilmeden öldü: havuzdan düşüyor, kimseye verilmeyecek.
+        // Bizim öldürdüğümüz süreç (zaten havuzda değil) ayrıca yazılmıyor.
+        const inPool = entries.get(entry.key.chatId) === entry;
         remove(entry);
+        if (inPool) log(entry.key.chatId, "kendiliginden-kapandi", code);
         return;
       }
       deliver(fn);
@@ -195,8 +224,8 @@ export function createPrewarmPool(deps: PrewarmDeps): PrewarmPool {
     real.stdin?.on("error", () => {});
     real.stdout?.on("data", (chunk: Buffer) => deliver(() => entry.wrapper.stdout.emit("data", chunk)));
     real.stderr?.on("data", (chunk: Buffer) => deliver(() => entry.wrapper.stderr.emit("data", chunk)));
-    real.on("close", (code) => ended(() => entry.wrapper.emit("close", code)));
-    real.on("error", (err) => ended(() => entry.wrapper.emit("error", err)));
+    real.on("close", (code) => ended(code, () => entry.wrapper.emit("close", code)));
+    real.on("error", (err) => ended(null, () => entry.wrapper.emit("error", err)));
 
     try {
       entry.timer = deps.setTimer(() => {
