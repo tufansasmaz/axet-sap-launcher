@@ -301,7 +301,7 @@ export interface AxetApi {
     sapWrite: { projects: number; bytes: number };
     axetDb: { count: number; bytes: number };
   }>;
-  dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite") => Promise<void>;
+  dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite" | "axetDb") => Promise<void>;
   dataPrivacyClear: (kind: "chat" | "log") => Promise<{ ok: boolean; error?: string }>;
 }
 

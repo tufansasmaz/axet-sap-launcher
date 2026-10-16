@@ -1162,6 +1162,7 @@ export const en: Record<TranslationKey, string> = {
   "dataPrivacy.sapWrite.openBtn": "Open folder",
   "dataPrivacy.axetDb.name": "axet-code sessions",
   "dataPrivacy.axetDb.desc": "Owned by axet-code; chats resume through these.",
+  "dataPrivacy.axetDb.openBtn": "Open folder",
   "dataPrivacy.revealBtn": "Open folder",
   "dataPrivacy.sessions": "{count} sessions",
   "dataPrivacy.projects": "{count} projects",

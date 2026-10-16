@@ -411,7 +411,7 @@ const api = {
     sapWrite: { projects: number; bytes: number };
     axetDb: { count: number; bytes: number };
   }> => ipcRenderer.invoke("data:summary"),
-  dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite"): Promise<void> =>
+  dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite" | "axetDb"): Promise<void> =>
     ipcRenderer.invoke("data:reveal", kind),
   dataPrivacyClear: (kind: "chat" | "log"): Promise<{ ok: boolean; error?: string }> =>
     ipcRenderer.invoke("data:clear", kind)

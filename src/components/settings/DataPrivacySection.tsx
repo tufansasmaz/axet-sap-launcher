@@ -1,8 +1,9 @@
 // Veri ve gizlilik bölümü — Ayarlar penceresinin "dataPrivacy" paneli.
 //
-// Dört satır: sohbet geçmişi, uygulama günlüğü, SAP yazma günlükleri,
-// axet-code oturumları. Temizleme yalnızca ilk ikisinde var.
-// Yol renderer'a gönderilmiyor; "Klasörü aç" main sürece yetki veriyor.
+// Dört satır: sohbet geçmişi (temizle + klasörü aç), uygulama günlüğü
+// (temizle + klasörü aç), SAP yazma günlükleri (yalnız görüntüleme + klasörü
+// aç; denetim kaydı silinemez), axet-code oturumları (yalnız görüntüleme +
+// klasörü aç). Yol renderer'a GÖNDERİLMEZ; main süreç shell.openPath ile açar.
 
 import { useCallback, useContext, useEffect, useRef, useState } from "react";
 import { FolderOpen, Trash2 } from "lucide-react";
@@ -23,8 +24,6 @@ interface DataSummary {
   axetDb: { count: number; bytes: number };
 }
 
-// Props'ta artık geri çağrı olmayacak; chat store doğrudan erişilecek.
-
 // ─────────────────────────────────────────────────────────────
 // Bileşen
 // ─────────────────────────────────────────────────────────────
@@ -39,7 +38,9 @@ export default function DataPrivacySection() {
 
   const [confirmKind, setConfirmKind] = useState<"chat" | "log" | null>(null);
   const [clearing, setClearing] = useState(false);
-  const [clearError, setClearError] = useState<string | null>(null);
+  // Her satır için ayrı hata — yanlış satırda gösterilmesin.
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [logError, setLogError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => {
@@ -66,12 +67,16 @@ export default function DataPrivacySection() {
   const handleConfirm = useCallback(async () => {
     if (!confirmKind) return;
     setClearing(true);
-    setClearError(null);
+    setChatError(null);
+    setLogError(null);
+    const kind = confirmKind;
+    setConfirmKind(null);
     try {
-      const result = await window.api.dataPrivacyClear(confirmKind);
+      const result = await window.api.dataPrivacyClear(kind);
       if (!result.ok) {
-        setClearError(t("dataPrivacy.clearError", { error: result.error ?? "?" }));
-      } else if (confirmKind === "chat") {
+        if (kind === "chat") setChatError(t("dataPrivacy.clearError", { error: result.error ?? "?" }));
+        else setLogError(t("dataPrivacy.clearError", { error: result.error ?? "?" }));
+      } else if (kind === "chat") {
         // Renderer store'u da temizle: ekran anında boşalsın.
         chatCtx?.setSessions([]);
         chatCtx?.setActiveId(null);
@@ -79,16 +84,14 @@ export default function DataPrivacySection() {
       // Her iki durumda da özeti yenile.
       await loadSummary();
     } catch (err) {
-      setClearError(t("dataPrivacy.clearError", { error: (err as Error).message }));
+      if (kind === "chat") setChatError(t("dataPrivacy.clearError", { error: (err as Error).message }));
+      else setLogError(t("dataPrivacy.clearError", { error: (err as Error).message }));
     } finally {
-      if (mountedRef.current) {
-        setClearing(false);
-        setConfirmKind(null);
-      }
+      if (mountedRef.current) setClearing(false);
     }
   }, [confirmKind, loadSummary, chatCtx, t]);
 
-  const handleReveal = useCallback(async (kind: "chat" | "log" | "sapWrite") => {
+  const handleReveal = useCallback(async (kind: "chat" | "log" | "sapWrite" | "axetDb") => {
     try {
       await window.api.dataPrivacyReveal(kind);
     } catch {
@@ -132,7 +135,7 @@ export default function DataPrivacySection() {
               variant="neutral"
               size="sm"
               onClick={() => handleReveal("chat")}
-              title={t("dataPrivacy.revealBtn")}
+              aria-label={t("dataPrivacy.revealBtn")}
             >
               <FolderOpen size={14} />
             </Button>
@@ -140,15 +143,15 @@ export default function DataPrivacySection() {
               variant="danger"
               size="sm"
               disabled={clearing}
-              onClick={() => setConfirmKind("chat")}
+              onClick={() => { setChatError(null); setConfirmKind("chat"); }}
             >
               <Trash2 size={14} />
               {t("dataPrivacy.chatHistory.clearBtn")}
             </Button>
           </div>
         </div>
-        {clearError && confirmKind === null && (
-          <p className="text-xs text-[var(--status-danger-text)]">{clearError}</p>
+        {chatError && (
+          <p className="text-xs text-[var(--status-danger-text)]">{chatError}</p>
         )}
       </div>
 
@@ -176,7 +179,7 @@ export default function DataPrivacySection() {
               variant="neutral"
               size="sm"
               onClick={() => handleReveal("log")}
-              title={t("dataPrivacy.revealBtn")}
+              aria-label={t("dataPrivacy.revealBtn")}
             >
               <FolderOpen size={14} />
             </Button>
@@ -184,13 +187,16 @@ export default function DataPrivacySection() {
               variant="danger"
               size="sm"
               disabled={clearing}
-              onClick={() => setConfirmKind("log")}
+              onClick={() => { setLogError(null); setConfirmKind("log"); }}
             >
               <Trash2 size={14} />
               {t("dataPrivacy.appLog.clearBtn")}
             </Button>
           </div>
         </div>
+        {logError && (
+          <p className="text-xs text-[var(--status-danger-text)]">{logError}</p>
+        )}
       </div>
 
       {/* ─── SAP yazma günlükleri (yalnız görüntüleme) ─────────── */}
@@ -248,27 +254,39 @@ export default function DataPrivacySection() {
               <span className="text-xs text-slate-500">{summaryText}</span>
             )}
           </div>
+          <div className={ACTIONS}>
+            <Button
+              variant="neutral"
+              size="sm"
+              onClick={() => handleReveal("axetDb")}
+            >
+              <FolderOpen size={14} />
+              {t("dataPrivacy.axetDb.openBtn")}
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* ─── Onay diyaloğu ─────────────────────────────────────── */}
       <ConfirmDialog
         open={confirmKind === "chat"}
+        role="alertdialog"
         title={t("dataPrivacy.chatHistory.confirmTitle")}
         message={t("dataPrivacy.chatHistory.confirmMsg")}
         confirmLabel={t("dataPrivacy.chatHistory.clearBtn")}
         danger
         onConfirm={handleConfirm}
-        onCancel={() => { setConfirmKind(null); setClearError(null); }}
+        onCancel={() => { setConfirmKind(null); setChatError(null); }}
       />
       <ConfirmDialog
         open={confirmKind === "log"}
+        role="alertdialog"
         title={t("dataPrivacy.appLog.confirmTitle")}
         message={t("dataPrivacy.appLog.confirmMsg")}
         confirmLabel={t("dataPrivacy.appLog.clearBtn")}
         danger
         onConfirm={handleConfirm}
-        onCancel={() => { setConfirmKind(null); setClearError(null); }}
+        onCancel={() => { setConfirmKind(null); setLogError(null); }}
       />
     </>
   );

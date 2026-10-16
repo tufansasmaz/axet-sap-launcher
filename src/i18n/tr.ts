@@ -1248,9 +1248,10 @@ export const tr = {
   "dataPrivacy.sapWrite.openBtn": "Klasörü aç",
   "dataPrivacy.axetDb.name": "axet-code oturumları",
   "dataPrivacy.axetDb.desc": "axet-code'a ait; sohbetler bunlarla devam ediyor.",
+  "dataPrivacy.axetDb.openBtn": "Klasörü aç",
   "dataPrivacy.revealBtn": "Klasörü aç",
   "dataPrivacy.sessions": "{count} oturum",
-  "dataPrivacy.projects": "{count} projede",
+  "dataPrivacy.projects": "{count} proje",
   "dataPrivacy.databases": "{count} veritabanı",
   "dataPrivacy.loading": "Hesaplanıyor…",
   "dataPrivacy.clearError": "Temizleme başarısız: {error}"

@@ -10,6 +10,8 @@ interface Props {
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  /** Erişilebilirlik rolü; yıkıcı onaylarda "alertdialog" geçirilmeli. Varsayılan "dialog". */
+  role?: "dialog" | "alertdialog";
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -23,6 +25,7 @@ export default function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   danger = true,
+  role = "dialog",
   onConfirm,
   onCancel
 }: Props) {
@@ -33,6 +36,7 @@ export default function ConfirmDialog({
       layer="confirm"
       size="sm"
       title={title}
+      role={role}
       icon={<AlertTriangle size={18} className={danger ? "text-[var(--status-danger-text)]" : "text-accent-400"} />}
       onClose={onCancel}
       footer={
