@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ExternalLink, X } from "lucide-react";
 import type { ChatAttachment } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import { btn, iconBtn } from "../ui/buttons";
+import { useModalStack } from "../ui/Modal";
 
 // Bir görsel ekin TAM BOY önizlemesi. Sohbetteki küçük resim en fazla 176px
 // yüksekliğinde — bir ekran görüntüsündeki yazıyı okumaya yetmiyor, ki eki
@@ -11,6 +12,10 @@ import { btn, iconBtn } from "../ui/buttons";
 // Görsel `data:` URL'inden geliyor (bkz. AttachmentChip `usePreview`), yani
 // burada yeniden bir okuma YOK: çip zaten okumuş, önbellekte duruyor.
 // Büyütme, olmayan bir veriyi getirmiyor; sadece var olanı kırpmadan gösteriyor.
+//
+// Pencere davranışı artık Modal yığın kancası (useModalStack) üzerinden:
+// Escape, Tab tuzağı ve kapanış odağı altta açık pencerelerle aynı kurallara
+// uyuyor. Eski data-escape-owner + özel keydown dinleyici kaldırıldı.
 export default function AttachmentLightbox({
   attachment,
   dataUrl,
@@ -23,28 +28,27 @@ export default function AttachmentLightbox({
   onOpenExternal: () => void;
 }) {
   const t = useT();
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  // Açılış anındaki odaklı öğe — kapanınca buraya dönülüyor.
+  const [opener] = useState(() => document.activeElement);
 
-  // Escape ile kapanma. `document` seviyesinde çünkü odak, katmanın içindeki
-  // bir düğmede olmayabilir (kullanıcı doğrudan görsele bakıyor olabilir).
-  // Kökteki `data-escape-owner` altındaki pencerenin Escape'i bize bırakmasını
-  // sağlıyor; yoksa tek Escape hem ışık kutusunu hem pencereyi kapatırdı.
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useModalStack(panelRef, "modal", onClose);
+
+  // Kapanışta odak açan öğeye dönüyor — o öğe hâlâ sayfadaysa.
+  useEffect(
+    () => () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    },
+    [opener]
+  );
 
   return (
     <div
+      ref={panelRef}
       role="dialog"
       aria-modal="true"
-      data-escape-owner=""
       aria-label={attachment.name}
+      tabIndex={-1}
       onClick={onClose}
       className="animate-backdrop-fade-in fixed inset-0 z-[60] flex flex-col bg-[var(--overlay-scrim)] backdrop-blur-sm"
     >

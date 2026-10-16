@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { MessageSquare, Search, Server, Zap, type LucideIcon } from "lucide-react";
 import { filterPaletteItems, PALETTE_GROUPS, type PaletteGroup, type PaletteItem } from "../lib/commandPalette";
 import { useT } from "../i18n";
+import { useModalStack } from "../ui/Modal";
 
 interface Props {
   open: boolean;
@@ -17,9 +18,11 @@ const GROUP_ICON: Record<PaletteGroup, LucideIcon> = {
 };
 
 // Ctrl+K komut paleti. `Modal` KULLANILMIYOR: o başlık şeridi ve X düğmesi
-// çiziyor, palet ise tek bir arama kutusu. Pencere davranışından gereken iki
-// şey burada: `aria-modal` (kabuk kısayolları açık pencereyi böyle tanıyıp
-// susuyor) ve kapanınca odağın açan öğeye dönmesi.
+// çiziyor, palet ise tek bir arama kutusu. Pencere davranışından gereken her
+// şey artık useModalStack üzerinden: Escape yalnız paleti kapatıyor (alttaki
+// pencereye ulaşmıyor), Tab odağı palet içinde tutuyor, kapanınca odak açan
+// öğeye dönüyor. Eski arama-kutusu onKeyDown'daki Escape kaldırıldı —
+// useModalStack yakalama aşamasında önce işliyor.
 //
 // Klavye listbox deseniyle: odak HEP arama kutusunda kalıyor, seçili satır
 // `aria-activedescendant` ile bildiriliyor — oklar satırlar arasında odak
@@ -35,11 +38,14 @@ function PalettePanel({ items, onClose }: Omit<Props, "open">) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const [opener] = useState(() => document.activeElement);
 
   const results = useMemo(() => filterPaletteItems(items, query), [items, query]);
   const index = results.length === 0 ? -1 : Math.min(selected, results.length - 1);
+
+  useModalStack(panelRef, "modal", onClose);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -66,13 +72,10 @@ function PalettePanel({ items, onClose }: Omit<Props, "open">) {
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.nativeEvent.isComposing) return;
-    // Olay pencereye kabarmıyor: sohbet ekranının Escape'i (süren cevabı
-    // iptal) ve Ctrl+↑/↓'si (sohbet değiştir) palet açıkken çalışmamalı.
-    if (e.key === "Escape") {
-      e.preventDefault();
-      e.stopPropagation();
-      onClose();
-    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    // Olay pencereye kabarmıyor: sohbet ekranının Ctrl+↑/↓'si (sohbet değiştir)
+    // palet açıkken çalışmamalı. Escape artık useModalStack tarafından yakalama
+    // aşamasında işleniyor; buraya hiç ulaşmıyor.
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       e.stopPropagation();
       if (results.length === 0) return;
@@ -95,6 +98,7 @@ function PalettePanel({ items, onClose }: Omit<Props, "open">) {
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={t("palette.title")}

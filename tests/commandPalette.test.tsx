@@ -7,6 +7,7 @@ import { filterPaletteItems, type PaletteItem } from "../src/lib/commandPalette"
 import CommandPalette from "../src/components/CommandPalette";
 import { LanguageProvider } from "../src/i18n";
 import { buildPaletteItems } from "../src/components/AppCommandPalette";
+import { Modal } from "../src/ui/Modal";
 import type { ChatSession } from "../src/stores/chatTypes";
 import type { SapService } from "../app-electron/shared/types";
 
@@ -111,6 +112,39 @@ describe("CommandPalette", () => {
     expect(ITEMS[2].run).toHaveBeenCalled();
     fireEvent.change(input, { target: { value: "zzzz" } });
     expect(screen.getByText("Sonuç yok")).toBeTruthy();
+  });
+});
+
+describe("CommandPalette — Modal ile yığın etkileşimi (Is 5)", () => {
+  it("palet açıkken altta açık Modal varsa Escape yalnız paleti kapatır", () => {
+    const onModalClose = vi.fn();
+    const onPaletteClose = vi.fn();
+    render(
+      <LanguageProvider language="tr">
+        <Modal open title="Alt Modal" onClose={onModalClose}>
+          <button type="button">Modal içi</button>
+        </Modal>
+        <CommandPalette open items={ITEMS} onClose={onPaletteClose} />
+      </LanguageProvider>
+    );
+    const input = screen.getByRole("combobox");
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(onPaletteClose).toHaveBeenCalledTimes(1);
+    expect(onModalClose).not.toHaveBeenCalled();
+  });
+
+  it("Tab odak paletin içinde kalır", () => {
+    render(
+      <LanguageProvider language="tr">
+        <CommandPalette open items={ITEMS} onClose={vi.fn()} />
+      </LanguageProvider>
+    );
+    const outside = document.createElement("button");
+    document.body.appendChild(outside);
+    outside.focus();
+    expect(document.activeElement).toBe(outside);
+    fireEvent.keyDown(outside, { key: "Tab" });
+    expect(document.activeElement).toBe(screen.getByRole("combobox"));
   });
 });
 
