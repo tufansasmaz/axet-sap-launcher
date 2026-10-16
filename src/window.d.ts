@@ -293,6 +293,16 @@ export interface AxetApi {
   setSapWriteMode: (sessionId: string, mode: WorkMode) => Promise<boolean>;
   respondSapWrite: (id: string, choice: Choice) => Promise<{ ok: boolean; error?: string }>;
   onSapWriteChanged: (callback: (state: SapWriteState) => void) => () => void;
+
+  // Veri ve gizlilik (Is A — 2026-10-17)
+  dataPrivacySummary: () => Promise<{
+    chat: { count: number; bytes: number };
+    log: { bytes: number };
+    sapWrite: { projects: number; bytes: number };
+    axetDb: { count: number; bytes: number };
+  }>;
+  dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite") => Promise<void>;
+  dataPrivacyClear: (kind: "chat" | "log") => Promise<{ ok: boolean; error?: string }>;
 }
 
 declare global {

@@ -38,6 +38,7 @@ import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { stopApprovalServer } from "./sapWrite/server";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
 import { registerWriteHistoryIpc } from "./sapWrite/history";
+import { buildSummary, clearChatHistory, clearAppLog, revealData } from "./dataPrivacy";
 import { registerSupportIpc } from "./support/ipc";
 import { appLog, appLogPath } from "./appLog";
 import { isPathAllowed, listAllowedRoots, grantUserRoot, listDir, searchFiles, readTextFile, writeTextFile, readDocxFile, readImageDataUrl, openInExplorer, openExternal, importFiles, startWatch, stopWatch, stopAllWatches } from "./fsExplorer";
@@ -1256,6 +1257,15 @@ function registerIpc(): void {
   registerSapWriteIpc(ipcMain, () => mainWindow);
   registerSupportIpc(ipcMain);
   registerWriteHistoryIpc(ipcMain);
+
+  // Veri ve gizlilik (Is A — 2026-10-17)
+  ipcMain.handle("data:summary", () => buildSummary());
+  ipcMain.handle("data:reveal", (_event, kind: "chat" | "log" | "sapWrite") => revealData(kind));
+  ipcMain.handle("data:clear", (_event, kind: "chat" | "log") => {
+    if (kind === "chat") return clearChatHistory();
+    if (kind === "log") return clearAppLog();
+    return { ok: false, error: `Bilinmeyen tür: ${kind}` };
+  });
 
   ipcMain.handle("axetModels:list", () => listAxetModels());
   ipcMain.handle("axetModels:getCurrent", () => getAxetModelConfig());

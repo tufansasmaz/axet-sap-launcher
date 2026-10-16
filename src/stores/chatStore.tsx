@@ -69,7 +69,7 @@ interface ChatStoreContextValue extends ChatStore {
   commands: ChatCommands;
 }
 
-const ChatStoreContext = createContext<ChatStoreContextValue | null>(null);
+export const ChatStoreContext = createContext<ChatStoreContextValue | null>(null);
 
 export function ChatStoreProvider({
   pushToast,

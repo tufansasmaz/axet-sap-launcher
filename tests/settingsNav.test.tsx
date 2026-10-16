@@ -20,12 +20,12 @@ function Harness({ dirty = new Set<SettingsSectionId>() }: { dirty?: Set<Setting
 const tabs = () => screen.getAllByRole("tab");
 
 describe("SettingsNav", () => {
-  it("dikey sekme listesi, sekiz sekme, adı var", () => {
+  it("dikey sekme listesi, dokuz sekme, adı var", () => {
     render(<Harness />);
     const list = screen.getByRole("tablist");
     expect(list.getAttribute("aria-orientation")).toBe("vertical");
     expect(list.getAttribute("aria-label")).toBe("Ayar bölümleri");
-    expect(tabs()).toHaveLength(8);
+    expect(tabs()).toHaveLength(9);
     expect(tabs()[0].textContent).toContain("Genel");
     expect(screen.getByText("Sürüm 1.0")).toBeTruthy();
   });
@@ -54,12 +54,12 @@ describe("SettingsNav", () => {
     expect(document.activeElement).toBe(tabs()[1]);
     expect(tabs()[1].getAttribute("aria-selected")).toBe("true");
     fireEvent.keyDown(tabs()[1], { key: "End" });
-    expect(document.activeElement).toBe(tabs()[7]);
-    fireEvent.keyDown(tabs()[7], { key: "ArrowDown" });
+    expect(document.activeElement).toBe(tabs()[8]);
+    fireEvent.keyDown(tabs()[8], { key: "ArrowDown" });
     expect(document.activeElement).toBe(tabs()[0]);
     fireEvent.keyDown(tabs()[0], { key: "ArrowUp" });
-    expect(document.activeElement).toBe(tabs()[7]);
-    fireEvent.keyDown(tabs()[7], { key: "Home" });
+    expect(document.activeElement).toBe(tabs()[8]);
+    fireEvent.keyDown(tabs()[8], { key: "Home" });
     expect(document.activeElement).toBe(tabs()[0]);
   });
 

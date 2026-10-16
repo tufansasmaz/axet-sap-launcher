@@ -1228,7 +1228,32 @@ export const tr = {
   "terminal.changeFolder": "Değiştir",
   "terminal.open": "Aç",
   "terminal.resizeColumns": "Sütun genişliği",
-  "terminal.resizeRows": "Satır yüksekliği"
+  "terminal.resizeRows": "Satır yüksekliği",
+
+  // Veri ve gizlilik bölümü (Is A — 2026-10-17)
+  "settingsModal.sectionDataPrivacy": "Veri ve gizlilik",
+  "settingsModal.descDataPrivacy": "Sohbet geçmişi, günlükler ve yerel depolama.",
+  "dataPrivacy.chatHistory.name": "Sohbet geçmişi",
+  "dataPrivacy.chatHistory.desc": "Sohbet oturumları ve mesajlar.",
+  "dataPrivacy.chatHistory.clearBtn": "Sohbet geçmişini temizle",
+  "dataPrivacy.chatHistory.confirmTitle": "Sohbet geçmişini temizle?",
+  "dataPrivacy.chatHistory.confirmMsg": "Tüm sohbet oturumları ve mesajlar silinir. Projeler korunur. Bu işlem geri alınamaz.",
+  "dataPrivacy.appLog.name": "Uygulama günlüğü",
+  "dataPrivacy.appLog.desc": "Durum ve sayaç satırları; kullanıcı içeriği tutulmaz.",
+  "dataPrivacy.appLog.clearBtn": "Günlüğü temizle",
+  "dataPrivacy.appLog.confirmTitle": "Günlüğü temizle?",
+  "dataPrivacy.appLog.confirmMsg": "ntt-studio.log ve yedek dosyası silinir.",
+  "dataPrivacy.sapWrite.name": "SAP yazma günlükleri",
+  "dataPrivacy.sapWrite.desc": "Denetim kaydı olduğu için silinmez. Proje klasörlerindeki sap-yazma-gunlugu.jsonl dosyaları.",
+  "dataPrivacy.sapWrite.openBtn": "Klasörü aç",
+  "dataPrivacy.axetDb.name": "axet-code oturumları",
+  "dataPrivacy.axetDb.desc": "axet-code'a ait; sohbetler bunlarla devam ediyor.",
+  "dataPrivacy.revealBtn": "Klasörü aç",
+  "dataPrivacy.sessions": "{count} oturum",
+  "dataPrivacy.projects": "{count} projede",
+  "dataPrivacy.databases": "{count} veritabanı",
+  "dataPrivacy.loading": "Hesaplanıyor…",
+  "dataPrivacy.clearError": "Temizleme başarısız: {error}"
 };
 
 

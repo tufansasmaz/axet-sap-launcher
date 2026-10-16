@@ -3,6 +3,7 @@ import {
   Download,
   Languages,
   Palette,
+  ShieldCheck,
   Sparkles,
   TerminalSquare,
   Type,
@@ -18,6 +19,7 @@ export type SettingsSectionId =
   | "axetCode"
   | "chatAppearance"
   | "terminal"
+  | "dataPrivacy"
   | "advanced"
   | "manual"
   | "updates";
@@ -89,6 +91,13 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     titleKey: "settingsModal.sectionUpdates",
     descKey: "settingsModal.descUpdates",
     fields: ["autoCheckUpdates"]
+  },
+  {
+    id: "dataPrivacy",
+    icon: ShieldCheck,
+    titleKey: "settingsModal.sectionDataPrivacy",
+    descKey: "settingsModal.descDataPrivacy",
+    fields: []
   }
 ];
 

@@ -132,6 +132,15 @@ export function clearBinding(chatId: string): void {
 }
 
 /**
+ * Tüm sohbet–oturum bağlarını temizle.
+ * Sohbet geçmişi silme işleminde çağrılır; bağ dosyası boşaltılır ve önbellek sıfırlanır.
+ */
+export function clearAllBindings(): void {
+  cache = new Map();
+  persist(cache);
+}
+
+/**
  * Oturum başlığına eklenen TEKİL ek — `ctrl+s` arama kutusuna yazılan metin.
  *
  * Oturumun kendi başlığı KORUNUYOR, ek onun sonuna geliyor: kullanıcı kendi

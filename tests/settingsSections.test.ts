@@ -18,9 +18,9 @@ const base = {
 } as unknown as AppConfig;
 
 describe("settingsSections", () => {
-  it("sekiz bölüm, spec'teki sırayla", () => {
+  it("dokuz bölüm, spec'teki sırayla", () => {
     expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual([
-      "general", "appearance", "axetCode", "chatAppearance", "terminal", "advanced", "manual", "updates"
+      "general", "appearance", "axetCode", "chatAppearance", "terminal", "advanced", "manual", "updates", "dataPrivacy"
     ]);
   });
 

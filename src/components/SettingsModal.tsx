@@ -23,6 +23,7 @@ import { Toggle } from "../ui/Toggle";
 import { btn, iconBtn, tintBtn } from "../ui/buttons";
 import SettingsNav from "./settings/SettingsNav";
 import { SETTINGS_SECTIONS, EDITED_FIELDS, dirtySections, type SettingsSectionId } from "./settings/settingsSections";
+import DataPrivacySection from "./settings/DataPrivacySection";
 
 interface Props {
   open: boolean;
@@ -683,6 +684,8 @@ export default function SettingsModal({
                 açmıyor. Aynı şeyi iki yerde göstermek de gereksiz. */}
           </div>
         );
+      case "dataPrivacy":
+        return <DataPrivacySection />;
     }
   };
 

@@ -1142,5 +1142,30 @@ export const en: Record<TranslationKey, string> = {
   "terminal.changeFolder": "Change",
   "terminal.open": "Open",
   "terminal.resizeColumns": "Column width",
-  "terminal.resizeRows": "Row height"
+  "terminal.resizeRows": "Row height",
+
+  // Data and privacy section (Is A — 2026-10-17)
+  "settingsModal.sectionDataPrivacy": "Data & privacy",
+  "settingsModal.descDataPrivacy": "Chat history, logs, and local storage.",
+  "dataPrivacy.chatHistory.name": "Chat history",
+  "dataPrivacy.chatHistory.desc": "Chat sessions and messages.",
+  "dataPrivacy.chatHistory.clearBtn": "Clear chat history",
+  "dataPrivacy.chatHistory.confirmTitle": "Clear chat history?",
+  "dataPrivacy.chatHistory.confirmMsg": "All chat sessions and messages will be deleted. Projects are kept. This cannot be undone.",
+  "dataPrivacy.appLog.name": "Application log",
+  "dataPrivacy.appLog.desc": "Status and counter lines; no user content is stored.",
+  "dataPrivacy.appLog.clearBtn": "Clear log",
+  "dataPrivacy.appLog.confirmTitle": "Clear log?",
+  "dataPrivacy.appLog.confirmMsg": "ntt-studio.log and its backup file will be deleted.",
+  "dataPrivacy.sapWrite.name": "SAP write logs",
+  "dataPrivacy.sapWrite.desc": "Audit record — cannot be deleted. Files: sap-yazma-gunlugu.jsonl in project folders.",
+  "dataPrivacy.sapWrite.openBtn": "Open folder",
+  "dataPrivacy.axetDb.name": "axet-code sessions",
+  "dataPrivacy.axetDb.desc": "Owned by axet-code; chats resume through these.",
+  "dataPrivacy.revealBtn": "Open folder",
+  "dataPrivacy.sessions": "{count} sessions",
+  "dataPrivacy.projects": "{count} projects",
+  "dataPrivacy.databases": "{count} databases",
+  "dataPrivacy.loading": "Calculating…",
+  "dataPrivacy.clearError": "Clear failed: {error}"
 };

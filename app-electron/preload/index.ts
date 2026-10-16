@@ -402,7 +402,19 @@ const api = {
     const listener = (_event: unknown, state: SapWriteState) => callback(state);
     ipcRenderer.on("sap-write:changed", listener);
     return () => ipcRenderer.removeListener("sap-write:changed", listener);
-  }
+  },
+
+  // Veri ve gizlilik (Is A — 2026-10-17)
+  dataPrivacySummary: (): Promise<{
+    chat: { count: number; bytes: number };
+    log: { bytes: number };
+    sapWrite: { projects: number; bytes: number };
+    axetDb: { count: number; bytes: number };
+  }> => ipcRenderer.invoke("data:summary"),
+  dataPrivacyReveal: (kind: "chat" | "log" | "sapWrite"): Promise<void> =>
+    ipcRenderer.invoke("data:reveal", kind),
+  dataPrivacyClear: (kind: "chat" | "log"): Promise<{ ok: boolean; error?: string }> =>
+    ipcRenderer.invoke("data:clear", kind)
 };
 
 contextBridge.exposeInMainWorld("api", api);
