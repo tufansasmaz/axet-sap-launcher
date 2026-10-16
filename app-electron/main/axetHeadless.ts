@@ -52,6 +52,12 @@ export interface HeadlessTurnArgs {
   prompt: string;
   resumeId: string | null;
   useConnectors: boolean;
+  /**
+   * Önceden açılmış süreç (axetPrewarm.ts): verilirse `deps.spawn` çağrılmıyor.
+   * Argümanları ve ortamı bu turunkilerle aynı olmalı; havuz anahtarı bunu
+   * garanti ediyor. İlk `-v` satırları havuzun tamponundan normal yoldan geliyor.
+   */
+  prewarmed?: ChildLike | null;
   onSessionId(id: string): void;
   onChunk(text: string): void;
   onActivity(activity: AxetChatActivity): void;
@@ -170,7 +176,7 @@ function classifyText(text: string): HeadlessFailure | null {
   return null;
 }
 
-function killTreeDefault(child: ChildLike): void {
+export function killTreeDefault(child: ChildLike): void {
   const pid = child.pid;
   // `kill()` Windows'ta yalnız o süreci öldürüyor; axet-code'un MCP torunları
   // hayatta kalıyordu. `taskkill /T` ağacın tamamını alıyor.
@@ -287,7 +293,8 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   let lastFinish: AxetDbMessage["parts"][number] | undefined;
   let finished = false;
 
-  const child = deps.spawn("axet-code", buildRunArgs(args), { cwd: args.cwd, env: deps.env(args.useConnectors) });
+  const child =
+    args.prewarmed ?? deps.spawn("axet-code", buildRunArgs(args), { cwd: args.cwd, env: deps.env(args.useConnectors) });
 
   const signal = () => {
     lastSignalAt = deps.now();

@@ -501,3 +501,35 @@ describe("classifyStderr", () => {
     expect(classifyStderr(["WARN connector.sync.failed unauthorized"])).toBeNull();
   });
 });
+
+describe("ısınmış süreç (İş 1)", () => {
+  it("prewarmed: spawn yok, tampondaki stderr satırları (güncelleme satırı dahil) işleniyor, istem yazılıyor", async () => {
+    const { noteUpdateLine } = await import("../app-electron/main/axetCodeVersion");
+    const { createPrewarmPool } = await import("../app-electron/main/axetPrewarm");
+    vi.mocked(noteUpdateLine).mockClear();
+    const real = new FakeChild();
+    const pool = createPrewarmPool({
+      spawn: () => real as never,
+      env: () => ({}),
+      killTree: () => {},
+      setTimer: () => 0,
+      clearTimer: () => {}
+    });
+    const key = { chatId: "c1", cwd: "C:/p", model: null, resumeId: null, useConnectors: false };
+    pool.prewarm(key);
+    real.err("WARN A new version of aXet.Code is available: 1.5.0");
+    const prewarmed = pool.take(key)!;
+    const h = harness();
+    const turn = startHeadlessTurn({ ...h.base, prewarmed }, h.deps as never);
+    expect(h.spawned).toHaveLength(0);
+    expect(real.written).toBe("merhaba");
+    expect(real.ended).toBe(true);
+    real.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    await tick();
+    expect(noteUpdateLine).toHaveBeenCalledWith("WARN A new version of aXet.Code is available: 1.5.0");
+    expect(h.events.sessionIds).toEqual([SID]);
+    real.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "tamam", is_error: false }));
+    const r = await turn.done;
+    expect(r).toMatchObject({ ok: true, text: "tamam", sessionId: SID });
+  });
+});
