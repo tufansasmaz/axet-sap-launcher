@@ -80,6 +80,8 @@ export interface ProbeOutcome {
   errorCode: string | null;
   errorMessage: string;
   stdout: string;
+  /** Bir derleme `--version`'ı stderr'e basarsa sohbet herkese "bozuk" kalmasın. */
+  stderr?: string;
 }
 
 export function compareVersions(a: string, b: string): number {
@@ -94,11 +96,12 @@ export function compareVersions(a: string, b: string): number {
 
 export function statusFromProbe(p: ProbeOutcome): AxetBinaryStatus {
   if (p.errorCode === "ENOENT") return { kind: "missing" };
-  const m = /version\s+([0-9]+(?:\.[0-9]+)*)/i.exec(p.stdout);
+  const out = `${p.stdout}\n${p.stderr ?? ""}`.trim();
+  const m = /version\s+([0-9]+(?:\.[0-9]+)*)/i.exec(out);
   if (p.errorCode || !m) {
     // 0 baytlık exe Windows'ta "not a valid Win32 application" (UNKNOWN/EFTYPE)
     // veriyor ya da hiçbir şey basmıyor; ikisi de aynı şey: program bozuk.
-    return { kind: "broken", detail: (p.errorMessage || p.stdout || "boş çıktı").slice(0, 200) };
+    return { kind: "broken", detail: (p.errorMessage || out || "boş çıktı").slice(0, 200) };
   }
   const version = m[1];
   return compareVersions(version, MIN_AXET_VERSION) < 0 ? { kind: "old", version } : { kind: "ok", version };
@@ -106,12 +109,13 @@ export function statusFromProbe(p: ProbeOutcome): AxetBinaryStatus {
 
 function probeOutcome(): Promise<ProbeOutcome> {
   return new Promise((resolve) => {
-    execFile("axet-code.exe", ["--version"], { timeout: 5_000, windowsHide: true }, (err, stdout) => {
+    execFile("axet-code.exe", ["--version"], { timeout: 5_000, windowsHide: true }, (err, stdout, stderr) => {
       const e = err as (NodeJS.ErrnoException & { code?: string | number }) | null;
       resolve({
         errorCode: e ? String(e.code ?? "ERR") : null,
         errorMessage: e ? e.message : "",
-        stdout: String(stdout ?? "")
+        stdout: String(stdout ?? ""),
+        stderr: String(stderr ?? "")
       });
     });
   });

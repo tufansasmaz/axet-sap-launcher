@@ -32,6 +32,12 @@ describe("statusFromProbe", () => {
     });
   });
 
+  it("sürümü stderr'e basan derleme de tanınıyor (bozuk sayılmıyor)", () => {
+    expect(
+      statusFromProbe({ errorCode: null, errorMessage: "", stdout: "", stderr: "axet-code version 1.4.2\n" })
+    ).toEqual({ kind: "ok", version: "1.4.2" });
+  });
+
   it("bulunamadı: ENOENT", () => {
     expect(statusFromProbe({ errorCode: "ENOENT", errorMessage: "spawn axet-code.exe ENOENT", stdout: "" })).toEqual({
       kind: "missing"
