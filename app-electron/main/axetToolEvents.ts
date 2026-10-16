@@ -198,8 +198,7 @@ export function buildDiff(tool: string, input: string | undefined): string {
 // seçenekler liste hâlinde veriliyor. TUI'de bu kutu PTY üzerinden açılıyor,
 // çoklu seçim için `space toggle` satırı. `space`, imlecin ÜSTÜNDEKİ satırı
 // işaretliyor; `enter` işaretli olanların HEPSİNİ onaylıyor.
-const ASK_USER_TOOL = "ask_user";
-export { ASK_USER_TOOL };
+export const ASK_USER_TOOL = "ask_user";
 
 export interface AskUserRequest {
   callId: string;

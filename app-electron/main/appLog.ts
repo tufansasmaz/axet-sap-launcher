@@ -60,14 +60,25 @@ export function formatLogLine(tag: string, fields: Record<string, LogValue>, now
 
 let logDir: string | null = null;
 
+/**
+ * Klasör kurulamadıktan sonra (disk dolu, izin yok) yeniden denemeden önce
+ * beklenen süre. Beklemesiz her `appLog` bir `mkdirSync` daha yapıyordu;
+ * kalıcı susma da istenmiyor — süre dolunca yeniden deneniyor.
+ */
+const DIR_RETRY_MS = 30_000;
+let dirFailedAt: number | null = null;
+
 function resolveDir(): string | null {
   if (logDir) return logDir;
+  if (dirFailedAt !== null && Date.now() - dirFailedAt < DIR_RETRY_MS) return null;
   try {
     const dir = join(app.getPath("userData"), "logs");
     mkdirSync(dir, { recursive: true });
     logDir = dir;
+    dirFailedAt = null;
     return dir;
   } catch {
+    dirFailedAt = Date.now();
     return null;
   }
 }

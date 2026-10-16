@@ -105,3 +105,28 @@ describe("güncelleme duyurusu kalıcı", () => {
     mod.persistUpdateSeen(null);
   });
 });
+
+describe("compareVersions sayısal olmayan parça", () => {
+  it("sayı olmayan parça 0 sayılıyor (NaN karşılaştırmayı bozmuyor)", () => {
+    expect(compareVersions("1.x.0", "1.0.0")).toBe(0);
+    expect(compareVersions("1.4.beta", "1.4.1")).toBe(-1);
+    expect(compareVersions("abc", "0")).toBe(0);
+  });
+});
+
+describe("güncelleme satırı sürüm değişimini günlüğe yazıyor", () => {
+  it("kurulu sürüm değişince SURUM DEGISTI satırı basılıyor", async () => {
+    vi.resetModules();
+    const mod = await import("../app-electron/main/axetCodeVersion");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      mod.noteUpdateLine("INFO Update check done component=bgjob job=auto-update current=1.4.1 latest=1.4.1 minimum=1.3.0");
+      expect(log).toHaveBeenCalledWith("[axetCode] surum", { surum: "1.4.1" });
+      mod.noteUpdateLine("INFO Update check done component=bgjob job=auto-update current=1.4.2 latest=1.4.2 minimum=1.3.0");
+      expect(log).toHaveBeenCalledWith("[axetCode] SURUM DEGISTI", { onceki: "1.4.1", simdi: "1.4.2" });
+      expect(mod.axetCodeVersion()).toBe("1.4.2");
+    } finally {
+      log.mockRestore();
+    }
+  });
+});

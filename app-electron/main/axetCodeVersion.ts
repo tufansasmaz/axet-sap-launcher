@@ -45,13 +45,22 @@ export async function noteAxetCodeVersion(): Promise<string | null> {
   });
   const version = await inFlight;
   if (!version) return null;
+  recordVersion(version);
+  return version;
+}
+
+/**
+ * Kurulu sürümü öğrenen HER yol buradan geçiyor (sondaj, durum denetimi,
+ * `run -v`'nin güncelleme satırı): değişim hangisinden öğrenilirse öğrenilsin
+ * günlüğe düşsün.
+ */
+function recordVersion(version: string): void {
   if (lastSeen === null) {
     console.log("[axetCode] surum", { surum: version });
   } else if (lastSeen !== version) {
     console.log("[axetCode] SURUM DEGISTI", { onceki: lastSeen, simdi: version });
   }
   lastSeen = version;
-  return version;
 }
 
 /** En son görülen sürüm; henüz sondaj yapılmadıysa `null`. */
@@ -84,9 +93,15 @@ export interface ProbeOutcome {
   stderr?: string;
 }
 
+/** Sayı olmayan parça ("beta", "x") 0 sayılıyor; NaN karşılaştırmayı bozardı. */
+function versionPart(n: string): number {
+  const v = parseInt(n, 10);
+  return Number.isNaN(v) ? 0 : v;
+}
+
 export function compareVersions(a: string, b: string): number {
-  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
-  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  const pa = a.split(".").map(versionPart);
+  const pb = b.split(".").map(versionPart);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
     const d = (pa[i] ?? 0) - (pb[i] ?? 0);
     if (d !== 0) return d < 0 ? -1 : 1;
@@ -131,7 +146,7 @@ let cachedStatus: AxetBinaryStatus | null = null;
 export async function axetBinaryStatus(force = false): Promise<AxetBinaryStatus> {
   if (cachedStatus && !force) return cachedStatus;
   cachedStatus = statusFromProbe(await probeOutcome());
-  if (cachedStatus.kind === "ok" || cachedStatus.kind === "old") lastSeen = cachedStatus.version;
+  if (cachedStatus.kind === "ok" || cachedStatus.kind === "old") recordVersion(cachedStatus.version);
   return cachedStatus;
 }
 
@@ -152,6 +167,8 @@ export function axetBinaryMessage(status: AxetBinaryStatus): string | null {
 //   INFO Update check done component=bgjob job=auto-update current=1.4.1 latest=1.4.1 minimum=1.3.0 …
 // Eski TUI ekranındaki "new version available" yazısının yerine bu okunuyor.
 const RE_UPDATE_LINE = /Update check done\b.*?\bcurrent=([0-9][\w.+-]*)\s+latest=([0-9][\w.+-]*)/;
+// Modül düzeyinde TEK değer bilerek: makinede tek bir axet-code kurulumu var,
+// hangi sohbetin turu görürse görsün aynı kurulumu anlatıyor.
 let updateInfo: { installed: string; latest: string } | null = null;
 
 // Duyuru KALICI: yalnızca bir axet-code süreci çalışınca görülüyor, oysa
@@ -169,7 +186,7 @@ export function noteUpdateLine(line: string): void {
   if (!m) return;
   updateInfo = compareVersions(m[2], m[1]) > 0 ? { installed: m[1], latest: m[2] } : null;
   // Satır kurulu sürümü de söylüyor; sondaya gerek yok.
-  lastSeen = m[1];
+  recordVersion(m[1]);
   if (seenStore && seenStore.load() !== m[2]) seenStore.save(m[2]);
 }
 
