@@ -111,13 +111,19 @@ export function buildRunArgs(args: Pick<HeadlessTurnArgs, "cwd" | "model" | "res
 // uyarıları (connector.sync) yetki arızası SAYILMIYOR: bugün her açılışta
 // düşüyorlar ve turu öldürmemeliler (analiz 2026-10-16, bulgu 10).
 const RE_IGNORED = /connector\.sync|MCP client/i;
-const RE_AUTH = /\b(401|403)\b|unauthori[sz]ed|forbidden|invalid[_ ]?token|token (has )?expired/i;
+// HTTP durum kodu YALNIZ HTTP bağlamında sayılıyor: "status 403", "status
+// code: 401", "HTTP/1.1 502", "…/messages: 529 {…}", "403 Forbidden". Çıplak
+// sayı ("line 403", "took 503 ms") başka bir şey olabilir; turu yanlış
+// sınıflamak boşuna bir bekleme ya da yeniden deneme demek.
+const RE_AUTH =
+  /\b(?:status(?:[ _]?code)?|http(?:\/[\d.]+)?)\s*[:=]?\s*(?:401|403)\b|:\s*(?:401|403)(?=[\s"'{(\[,]|$)|unauthori[sz]ed|forbidden|invalid[_ ]?token|token (has )?expired/i;
 const RE_CONTEXT = /context (length|window)|too many tokens|prompt is too long|maximum context/i;
-const RE_PROVIDER = /\b(429|5\d\d)\b|overloaded|rate.?limit|service unavailable/i;
+const RE_PROVIDER =
+  /\b(?:status(?:[ _]?code)?|http(?:\/[\d.]+)?)\s*[:=]?\s*(?:429|5\d\d)\b|:\s*(?:429|5\d\d)(?=[\s"'{(\[,]|$)|\b(?:429|5\d\d)\s+(?:too many requests|internal server error|bad gateway|service unavailable|gateway time-?out)|overloaded|rate.?limit|service unavailable/i;
 
 export function classifyStderr(lines: string[]): HeadlessFailure | null {
   for (const line of lines) {
-    if (!/^\s*(\S+\s+\S+\s+)?(ERROR|WARN)\b/.test(line) && !/\b(ERROR|WARN)\b/.test(line)) continue;
+    if (!/\b(ERROR|WARN)\b/.test(line)) continue;
     if (RE_IGNORED.test(line)) continue;
     if (RE_CONTEXT.test(line)) return "context";
     if (RE_AUTH.test(line)) return "auth";
@@ -211,21 +217,49 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   // Yeni bir klasördeki ilk turda `.axet-code` henüz yok: axet-code açılınca
   // kuruluyor. Bulunana kadar her yoklamada yeniden aranıyor (`dbFor`);
   // bulunmazsa metin akışı, `ask_user` ağı ve araç sayımı kör kalırdı.
-  let dbPath = deps.dbPath(args.cwd);
+  //
+  // Veritabanı okumaları ATMAMALI: zamanlayıcıdan ya da akış olayından kaçan
+  // bir istisna Electron ana sürecinde yakalanmamış hata olur. Okunamayan
+  // yoklama atlanıyor (bir sonraki yeniden deniyor); okuma hâlâ başarısızken
+  // tur biterse araç sayısı güvenilmez sayılıyor (`toolsUnknown`).
+  let dbReadFailing = false;
+  const findDb = (): string | null => {
+    try {
+      return deps.dbPath(args.cwd);
+    } catch {
+      return null;
+    }
+  };
+  const readSafe = (db: string, sid: string, since: number): AxetDbMessage[] | null => {
+    try {
+      const rows = deps.readMessages(db, sid, since);
+      dbReadFailing = false;
+      return rows;
+    } catch {
+      dbReadFailing = true;
+      return null;
+    }
+  };
+  let dbPath = findDb();
 
   let sessionId: string | null = args.resumeId;
-  // Devam turunda oturumun ESKİ mesajları bu tura ait değil.
-  const preexisting = new Set<string>(
-    args.resumeId && dbPath ? deps.readMessages(dbPath, args.resumeId, 0).map((m) => m.id) : []
-  );
+  // Devam turunda oturumun ESKİ mesajları bu tura ait değil. Okunamadıkça
+  // bu turun mesajları da okunmuyor: yoksa eski cevaplar yeni gibi akardı.
+  const preexisting = new Set<string>();
+  let preexistingPending = !!args.resumeId;
+  const loadPreexisting = (db: string, early: boolean): void => {
+    if (!preexistingPending || !args.resumeId) return;
+    const old = readSafe(db, args.resumeId, 0);
+    if (!old) return;
+    preexistingPending = false;
+    // İlk anda her şey eski; geç bulunduysa tur başından öncekiler zamanla ayrılıyor.
+    for (const m of old) if (early || m.createdAt < sinceSec) preexisting.add(m.id);
+  };
+  if (dbPath) loadPreexisting(dbPath, true);
 
   const dbFor = (): string | null => {
-    if (dbPath) return dbPath;
-    dbPath = deps.dbPath(args.cwd);
-    if (dbPath && args.resumeId) {
-      // Geç bulundu: tur başından önceki mesajlar zamanla ayrılıyor.
-      for (const m of deps.readMessages(dbPath, args.resumeId, 0)) if (m.createdAt < sinceSec) preexisting.add(m.id);
-    }
+    if (!dbPath) dbPath = findDb();
+    if (dbPath) loadPreexisting(dbPath, false);
     return dbPath;
   };
 
@@ -270,8 +304,10 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   function poll(): void {
     if (!sessionId) return;
     const db = dbFor();
-    if (!db) return;
-    const messages = deps.readMessages(db, sessionId, sinceSec).filter((m) => !preexisting.has(m.id));
+    if (!db || preexistingPending) return;
+    const read = readSafe(db, sessionId, sinceSec);
+    if (!read) return;
+    const messages = read.filter((m) => !preexisting.has(m.id));
     for (const message of messages) {
       if (message.role !== "assistant") continue;
       const body = message.parts
@@ -297,9 +333,17 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
         const callId = part.data?.id ?? `${message.id}:${name}`;
         if (!name) continue;
         if (name === ASK_USER_TOOL) {
-          if (ask || part.data?.finished !== true) continue;
-          ask = parseAskUser(callId, part.data?.input);
+          if (ask || seenTools.has(callId) || part.data?.finished !== true) continue;
+          // Bir kez ayrıştırılıyor; sonuç ne olursa olsun çağrı işlenmiş sayılıyor.
           seenTools.add(callId);
+          ask = parseAskUser(callId, part.data?.input);
+          if (!ask) {
+            // Girdi ayrıştırılamadı: soru kartı çıkamaz, ajan kendi seçecek.
+            // Sıradan bir araç satırı olarak gösteriliyor; yoksa sonucu satırsız
+            // (yetim) bir `toolResult` olurdu. Sayılmıyor: dışarıda iz bırakmıyor.
+            signal();
+            args.onActivity({ phase: "tool", callId, tool: name, target: "" });
+          }
           continue;
         }
         if (seenTools.has(callId)) {
@@ -349,7 +393,12 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
     const now = deps.now();
     if (now - lastProgressAt >= deps.progressMs) {
       lastProgressAt = now;
-      const progress = deps.readProgress(db, sessionId);
+      let progress: AxetChatProgress;
+      try {
+        progress = deps.readProgress(db, sessionId);
+      } catch {
+        return; // yapılacaklar/jeton göstergesi bir sonraki sefere
+      }
       const key = JSON.stringify(progress);
       if (key !== lastProgressKey) {
         lastProgressKey = key;
@@ -360,7 +409,13 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
 
   const timer = setInterval(() => {
     if (finished) return;
-    poll();
+    try {
+      poll();
+    } catch {
+      // Beklenmedik bir yoklama hatası bu turu bırakır, zamanlayıcıyı değil;
+      // sayım bu yüzden güvenilmez.
+      dbReadFailing = true;
+    }
     const now = deps.now();
     if (!timedOut && now - startedAt >= deps.hardCapMs) {
       timedOut = true;
@@ -386,11 +441,16 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
       if (!line.trim()) continue;
       stderrLines.push(line);
       signal();
-      noteUpdateLine(line);
       const m = RE_CREATED.exec(line);
-      if (m && !sessionId) {
-        sessionId = m[1];
-        args.onSessionId(sessionId);
+      const fresh = m && !sessionId ? m[1] : null;
+      if (fresh) sessionId = fresh;
+      // Akış olayından kaçan bir istisna (config/bağ dosyası yazılamadı) ana
+      // süreçte yakalanmamış hata olurdu.
+      try {
+        noteUpdateLine(line);
+        if (fresh) args.onSessionId(fresh);
+      } catch {
+        // bağ bir sonraki fırsatta (tur sonunda) yeniden yazılıyor
       }
     }
   });
@@ -406,6 +466,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
         poll();
       } catch {
         // okuma hatası sonucu bozmamalı
+        dbReadFailing = true;
       }
       const jsonLine = stdout
         .split(/\r?\n/)
@@ -427,8 +488,14 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
           poll();
         } catch {
           // okuma hatası sonucu bozmamalı
+          dbReadFailing = true;
         }
       }
+      // Araç sayısı güvenilmez: veritabanı hiç bulunamadı, son okuma da
+      // başarısızdı, ya da süreç ne `-v` satırını ne JSON'u bırakıp düştü
+      // (çöküş, biçim değişikliği) — o arada araç çalışmış olabilir.
+      const toolsUnknown =
+        (sessionId !== null && !dbPath) || dbReadFailing || (sessionId === null && !doc && !spawnFailed);
       const base = {
         sessionId,
         cancelled,
@@ -436,7 +503,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
         spawnFailed,
         toolCount,
         ask: null as AskUserRequest | null,
-        ...(sessionId && !dbPath ? { toolsUnknown: true } : {})
+        ...(toolsUnknown ? { toolsUnknown: true } : {})
       };
       if (spawnFailed) {
         resolve({ ...base, ok: false, text: "", error: spawnError, failure: null });

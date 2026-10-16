@@ -7,6 +7,17 @@ import type { AxetDbMessage } from "../app-electron/main/axetSessionDb";
 vi.mock("electron", () => ({ app: { getPath: () => "", getAppPath: () => "" } }));
 vi.mock("../app-electron/main/i18n", () => ({ mt: (k: string) => k }));
 vi.mock("../app-electron/main/axetCodeVersion", () => ({ noteUpdateLine: vi.fn() }));
+const parseSpy = vi.hoisted(() => ({ calls: 0 }));
+vi.mock("../app-electron/main/axetToolEvents", async (orig) => {
+  const real = await orig<typeof import("../app-electron/main/axetToolEvents")>();
+  return {
+    ...real,
+    parseAskUser: (...a: Parameters<typeof real.parseAskUser>) => {
+      parseSpy.calls++;
+      return real.parseAskUser(...a);
+    }
+  };
+});
 
 const { buildRunArgs, classifyStderr, startHeadlessTurn } = await import("../app-electron/main/axetHeadless");
 
@@ -318,7 +329,122 @@ describe("startHeadlessTurn", () => {
   });
 });
 
+describe("veritabanı okuma hatası (zamanlayıcıdan kaçmamalı)", () => {
+  it("readMessages her seferinde atıyor: tur JSON'dan tamamlanıyor, atma yok, toolsUnknown", async () => {
+    const h = harness();
+    const deps = {
+      ...h.deps,
+      readMessages: () => {
+        throw new Error("SQLITE_BUSY");
+      }
+    };
+    const turn = startHeadlessTurn(h.base, deps as never);
+    h.child.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    await tick(40);
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "tamam", is_error: false }));
+    const r = await turn.done;
+    expect(r).toMatchObject({ ok: true, text: "tamam", sessionId: SID });
+    expect(r.toolsUnknown).toBe(true);
+  });
+
+  it("devam turunda ilk okuma atıyor: startHeadlessTurn atmıyor", async () => {
+    const h = harness();
+    const deps = {
+      ...h.deps,
+      readMessages: () => {
+        throw new Error("SQLITE_CORRUPT");
+      }
+    };
+    const turn = startHeadlessTurn({ ...h.base, resumeId: SID }, deps as never);
+    await tick();
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "tamam", is_error: false }));
+    const r = await turn.done;
+    expect(r.ok).toBe(true);
+    expect(r.toolsUnknown).toBe(true);
+  });
+
+  it("readProgress atıyor: yoklama sürüyor, metin akıyor", async () => {
+    const h = harness();
+    const deps = {
+      ...h.deps,
+      progressMs: 0,
+      readProgress: () => {
+        throw new Error("SQLITE_BUSY");
+      }
+    };
+    const turn = startHeadlessTurn(h.base, deps as never);
+    h.child.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    h.db[SID] = [msg("a1", "assistant", [text("Akıyor."), finish("end_turn")])];
+    await tick(40);
+    expect(h.events.chunks.join("")).toBe("Akıyor.");
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "Akıyor.", is_error: false }));
+    expect((await turn.done).ok).toBe(true);
+  });
+});
+
+describe("toolsUnknown: sayım güvenilmez", () => {
+  it("oturum kimliği de JSON da yok (çöküş) → toolsUnknown", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.err("ERROR panic: beklenmedik");
+    h.child.exit(2);
+    const r = await turn.done;
+    expect(r.sessionId).toBeNull();
+    expect(r.toolsUnknown).toBe(true);
+  });
+
+  it("süreç hiç açılamadıysa toolsUnknown yok", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.emit("error", Object.assign(new Error("spawn axet-code ENOENT"), { code: "ENOENT" }));
+    const r = await turn.done;
+    expect(r.toolsUnknown).toBeFalsy();
+  });
+});
+
+describe("ayrıştırılamayan ask_user", () => {
+  it("sıradan araç satırı olarak gösteriliyor, sonucu yetim değil, bir kez ayrıştırılıyor", async () => {
+    parseSpy.calls = 0;
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    h.db[SID] = [
+      msg("a1", "assistant", [
+        { type: "tool_call", data: { id: "q1", name: "ask_user", input: "{bozuk", finished: true } },
+        finish("tool_use")
+      ]),
+      msg("t1", "tool", [{ type: "tool_result", data: { tool_call_id: "q1", content: "No interactive user", is_error: true } }])
+    ];
+    await tick(60);
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "kendim seçtim", is_error: false }));
+    const r = await turn.done;
+    expect(r.ask).toBeNull();
+    expect(h.killed).toHaveLength(0);
+    const forQ1 = h.events.activities.filter((a) => a.callId === "q1");
+    expect(forQ1.map((a) => a.phase)).toEqual(["tool", "toolResult"]);
+    expect(forQ1[0].tool).toBe("ask_user");
+    expect(parseSpy.calls).toBe(1);
+  });
+});
+
 describe("classifyStderr", () => {
+  it("HTTP durum kodu yalnız HTTP bağlamında sayılıyor", () => {
+    // yanlış pozitifler: sıradan sayılar
+    expect(classifyStderr(["ERROR parse failed at line 403"])).toBeNull();
+    expect(classifyStderr(["ERROR request took 503 ms"])).toBeNull();
+    expect(classifyStderr(["ERROR retried 429 times, giving up"])).toBeNull();
+    expect(classifyStderr(["ERROR file has 401 entries"])).toBeNull();
+    // doğru pozitifler
+    expect(classifyStderr(["ERROR upstream status 403"])).toBe("auth");
+    expect(classifyStderr(['ERROR provider request failed error="POST https://x/v1/messages: 403 Forbidden"'])).toBe("auth");
+    expect(classifyStderr(["ERROR status code: 401"])).toBe("auth");
+    expect(classifyStderr(["ERROR HTTP 503"])).toBe("provider");
+    expect(classifyStderr(["ERROR HTTP/1.1 502 Bad Gateway"])).toBe("provider");
+    expect(classifyStderr(['ERROR POST https://x/v1/messages: 529 {"type":"error"}'])).toBe("provider");
+    expect(classifyStderr(["ERROR got status=429"])).toBe("provider");
+    expect(classifyStderr(["WARN 500 Internal Server Error"])).toBe("provider");
+  });
+
   it("yetki, bağlam, sağlayıcı", () => {
     expect(classifyStderr(["ERROR x 401 Unauthorized"])).toBe("auth");
     expect(classifyStderr(["ERROR prompt is too long: context length exceeded"])).toBe("context");
