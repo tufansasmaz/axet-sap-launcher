@@ -536,3 +536,137 @@ describe("küçükler (2026-10-16)", () => {
     expect(calls[1].prompt).not.toContain("ZATEN çalıştırıldı");
   });
 });
+
+describe("ısınmış süreç (İş 1)", () => {
+  type Warm = { pid: number; killed: boolean; stdin: null; stdout: null; stderr: null; on: () => void };
+  let spawned: { args: string[] }[] = [];
+  let warm: Warm[] = [];
+  const MODEL = { provider: "openai", model: "gpt-5" } as never;
+
+  beforeEach(() => {
+    spawned = [];
+    warm = [];
+    chat.__setPrewarmDeps({
+      spawn: (_cmd: string, args: string[]) => {
+        spawned.push({ args });
+        const w: Warm = { pid: 100 + warm.length, killed: false, stdin: null, stdout: null, stderr: null, on: () => {} };
+        warm.push(w);
+        return w as never;
+      },
+      env: () => ({}),
+      killTree: (c: unknown) => {
+        (c as Warm).killed = true;
+      },
+      setTimer: () => 0,
+      clearTimer: () => {}
+    });
+  });
+
+  const sendWith = (model: unknown, requestId = "r1", message = "merhaba") =>
+    chat.sendChatMessage(requestId, "chat-1", "C:/p", model as never, [], message, () => {}, () => {});
+
+  it("ısınmış süreç varken yeni spawn yok; tur o süreçle başlıyor; günlükte isinmis", async () => {
+    await chat.prewarmChat("chat-1", "C:/p", MODEL, "merh", []);
+    expect(spawned).toHaveLength(1);
+    expect(spawned[0].args).toContain("openai/gpt-5");
+    script(() => ({ text: "cevap", sessionId: "S1" }));
+    await sendWith(MODEL);
+    expect(spawned).toHaveLength(1);
+    expect(calls[0].prewarmed).toBeTruthy();
+    expect((calls[0].prewarmed as unknown as Warm).pid).toBe(100);
+    expect(h.logs.find((l) => l.tag === "kopru.tur")?.fields.isinmis).toBe(true);
+    const isitma = h.logs.filter((l) => l.tag === "kopru.isitma").map((l) => l.fields);
+    expect(isitma).toEqual([{ sohbet: "chat-1", sonuc: "acildi" }, { sohbet: "chat-1", sonuc: "kullanildi" }]);
+    expect(JSON.stringify(h.logs)).not.toContain("merh");
+  });
+
+  it("anahtar uyuşmazsa ısınmış süreç öldürülüyor, tur kendi sürecini açıyor", async () => {
+    await chat.prewarmChat("chat-1", "C:/p", MODEL, "merh", []);
+    script(() => ({ text: "cevap", sessionId: "S1" }));
+    await sendWith(null);
+    expect(calls[0].prewarmed ?? null).toBeNull();
+    expect(warm[0].killed).toBe(true);
+    expect(h.logs.find((l) => l.tag === "kopru.tur")?.fields.isinmis).toBe(false);
+  });
+
+  it("bağlı oturum: ısıtma --resume ile; ısıtma bağı silmiyor (sonuçsuz araçta bile)", async () => {
+    h.bindings.set("chat-1", { sessionId: "S0", cwd: "C:/p" });
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    expect(spawned[0].args).toContain("--resume");
+    expect(spawned[0].args).toContain("S0");
+    h.unanswered.add("S0");
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    expect(h.bindings.has("chat-1")).toBe(true);
+    expect(spawned).toHaveLength(2);
+    expect(spawned[1].args).not.toContain("--resume");
+  });
+
+  it("yeniden deneme turu havuzu kullanmıyor", async () => {
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    script(
+      () => ({ ok: false, error: "529 overloaded", failure: "provider", toolCount: 0 }),
+      () => ({ ok: true, text: "kurtardı" })
+    );
+    // ikinci tur başlamadan aynı anahtarla yeniden ısıtılmış olsa bile
+    const pending = sendWith(null);
+    await pending;
+    expect(calls).toHaveLength(2);
+    expect(calls[0].prewarmed).toBeTruthy();
+    expect(calls[1].prewarmed ?? null).toBeNull();
+  });
+
+  it("sürüm durumu ok değilse ısıtma yok", async () => {
+    h.status = { kind: "old", version: "1.3.0" };
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    expect(spawned).toHaveLength(0);
+  });
+
+  it("meşgul sohbette ısıtma yok", async () => {
+    script(() => new Promise(() => {}));
+    const pending = sendWith(null);
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    expect(spawned).toHaveLength(0);
+    chat.cancelChatMessage("r1");
+    await pending;
+  });
+
+  it("closeChatSession, resetChatHistory, iptal ve cancelAll havuzu boşaltıyor", async () => {
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    chat.closeChatSession("chat-1");
+    expect(warm[0].killed).toBe(true);
+
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    chat.resetChatHistory("chat-1");
+    expect(warm[1].killed).toBe(true);
+
+    script(() => new Promise(() => {}));
+    const pending = sendWith(null, "r9");
+    await vi.waitFor(() => expect(calls).toHaveLength(1));
+    // tur sürerken o sohbet ısıtılmıyor; başka sohbetinki kalıyor
+    await chat.prewarmChat("chat-2", "C:/p", null, "", []);
+    await chat.prewarmChat("chat-1", "C:/q", null, "", []);
+    chat.cancelChatMessage("r9");
+    await pending;
+    expect(warm[2].killed).toBe(false);
+
+    chat.cancelAllChatMessages();
+    expect(warm[2].killed).toBe(true);
+  });
+
+  it("iptal o sohbetin ısıtmasını öldürüyor, başka sohbetinkini değil", async () => {
+    await chat.prewarmChat("chat-1", "C:/p", null, "", []);
+    await chat.prewarmChat("chat-2", "C:/p", null, "", []);
+    let unblock!: () => void;
+    h.statusBlock = new Promise<void>((r) => { unblock = r; });
+    script(() => ({ text: "x" }));
+    const pending = sendWith(null, "r5");
+    await vi.waitFor(() => expect(chat.chatBusy("chat-1")).toBe(true));
+    chat.cancelChatMessage("r5");
+    expect(warm[0].killed).toBe(true);
+    expect(warm[1].killed).toBe(false);
+    unblock();
+    expect((await pending).cancelled).toBe(true);
+    chat.cancelAllChatMessages();
+  });
+});

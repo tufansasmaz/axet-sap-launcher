@@ -23,7 +23,14 @@ import { buildContextPreamble } from "./activeContext";
 import { appLog } from "./appLog";
 import { isSilentEmptyAnswer } from "./axetChatAnswer";
 import { axetBinaryMessage, axetBinaryStatus } from "./axetCodeVersion";
-import { startHeadlessTurn, type HeadlessTurn, type HeadlessTurnResult } from "./axetHeadless";
+import {
+  defaultHeadlessDeps,
+  startHeadlessTurn,
+  type ChildLike,
+  type HeadlessTurn,
+  type HeadlessTurnResult
+} from "./axetHeadless";
+import { createPrewarmPool, type PrewarmDeps, type PrewarmKey, type PrewarmPool } from "./axetPrewarm";
 import { clearBinding, readBinding, writeBinding } from "./axetSessionBinding";
 import { readMessagesSince, resolveSessionDb, sessionHasUnansweredToolCall, sessionTitle } from "./axetSessionDb";
 import { askUserAsText, splitOptionsBlock, type AskUserRequest } from "./axetToolEvents";
@@ -158,6 +165,68 @@ export function __setTurnStarter(fn: typeof startHeadlessTurn | null): void {
   turnStarter = fn ?? startHeadlessTurn;
 }
 
+// Isıtma havuzu (axetPrewarm.ts): istem gelmeden açılmış `run` süreçleri.
+// Yalnız bir turun İLK `run`'ı kullanıyor; yeniden deneme ve soru cevabı
+// turları her zaman kendi sürecini açıyor (anahtarları başka, beklemeleri yok).
+type PoolDeps = Pick<PrewarmDeps, "spawn" | "env" | "killTree" | "setTimer" | "clearTimer">;
+let poolDeps: PoolDeps | null = null;
+let pool: PrewarmPool | null = null;
+
+function prewarmPool(): PrewarmPool {
+  if (pool) return pool;
+  const d = poolDeps ?? (() => {
+    const h = defaultHeadlessDeps();
+    return {
+      spawn: h.spawn,
+      env: h.env,
+      killTree: h.killTree,
+      setTimer: (fn: () => void, ms: number) => {
+        const t = setTimeout(fn, ms);
+        // Bekleyen ısıtma uygulamanın kapanmasını geciktirmesin.
+        t.unref?.();
+        return t;
+      },
+      clearTimer: (t: unknown) => clearTimeout(t as NodeJS.Timeout)
+    };
+  })();
+  pool = createPrewarmPool({ ...d, log: (chatId, sonuc) => appLog("kopru.isitma", { sohbet: chatId, sonuc }) });
+  return pool;
+}
+
+export function __setPrewarmDeps(deps: PoolDeps | null): void {
+  pool?.dropAll();
+  pool = null;
+  poolDeps = deps;
+}
+
+function prewarmKey(
+  chatId: string,
+  cwd: string,
+  model: AxetModelEntry | null,
+  resumeId: string | null,
+  useConnectors: boolean
+): PrewarmKey {
+  return { chatId, cwd, model: model ? `${model.provider}/${model.model}` : null, resumeId, useConnectors };
+}
+
+/** Bir sohbetin ısıtılmış sürecini bırakır (sohbet kapandı/dallandı/iptal). */
+function dropPrewarm(chatId: string): void {
+  try {
+    pool?.drop(chatId);
+  } catch {
+    // havuz kendi istisnalarını yutuyor; yine de ana süreç çökmesin
+  }
+}
+
+/** Tüm ısıtılmış süreçler (kapanış, yetenek değişikliği: süreç onları açılışta okuyor). */
+export function dropAllPrewarmed(): void {
+  try {
+    pool?.dropAll();
+  } catch {
+    // bkz. dropPrewarm
+  }
+}
+
 export function chatBusy(chatId: string): boolean {
   for (const run of runs.values()) if (run.chatId === chatId) return true;
   return false;
@@ -179,18 +248,54 @@ function unsafeToResume(cwd: string, sessionId: string): string | null {
   return null;
 }
 
+/**
+ * Bağlı oturuma devam kararı, YAN ETKİSİZ: ısıtma da aynı kararı veriyor ama
+ * bağı silmiyor (silme kararı gönderimde verilir).
+ */
+function resumeDecision(chatId: string, cwd: string): { sessionId: string | null; reason: string | null } {
+  const binding = readBinding(chatId);
+  if (!binding) return { sessionId: null, reason: null };
+  const reason = binding.cwd !== cwd ? "klasor" : unsafeToResume(cwd, binding.sessionId);
+  return reason ? { sessionId: null, reason } : { sessionId: binding.sessionId, reason: null };
+}
+
 /** Bağlı oturuma devam edilebilir mi? Klasör aynı ve oturum güvenli. */
 function resumableSession(chatId: string, cwd: string): string | null {
-  const binding = readBinding(chatId);
-  if (!binding) return null;
-  const reason = binding.cwd !== cwd ? "klasor" : unsafeToResume(cwd, binding.sessionId);
+  const { sessionId, reason } = resumeDecision(chatId, cwd);
   if (reason) {
     // Yeni oturum + geçmiş tohumu.
     appLog("kopru.bag-dustu", { sohbet: chatId, sebep: reason });
     clearBinding(chatId);
     return null;
   }
-  return binding.sessionId;
+  return sessionId;
+}
+
+/**
+ * Taslak yazılırken/sohbet açılınca bir `run` sürecini istemsiz açar; ilk
+ * mesaj geldiğinde anahtarı tutarsa o süreç kullanılır (sendChatMessage).
+ * Ateşle-unut: hiçbir koşulda atmıyor, hiçbir bağı değiştirmiyor.
+ */
+export async function prewarmChat(
+  chatId: string,
+  cwd: string,
+  model: AxetModelEntry | null,
+  draft: string,
+  history: AxetChatMessage[]
+): Promise<void> {
+  try {
+    if (!chatId || chatBusy(chatId)) return;
+    const status = await axetBinaryStatus();
+    if (axetBinaryMessage(status)) return;
+    // Sürüm denetimi beklenirken tur başlamış olabilir.
+    if (chatBusy(chatId)) return;
+    const resolvedCwd = cwd && cwd.trim() ? cwd : process.cwd();
+    const useConnectors = decideConnectors(history ?? [], draft ?? "");
+    const { sessionId } = resumeDecision(chatId, resolvedCwd);
+    prewarmPool().prewarm(prewarmKey(chatId, resolvedCwd, model, sessionId, useConnectors));
+  } catch {
+    // ısıtma bir iyileştirme; başarısızlığı tur yolunu etkilemez
+  }
 }
 
 /**
@@ -299,6 +404,9 @@ export async function sendChatMessage(
   // Son alt turun başı (saniye, saat kayması payıyla): yeniden denemede
   // oturumdaki hangi mesajların bu alt tura ait olduğunu ayırıyor.
   let runSinceSec = 0;
+  // Havuzdan alınan süreç YALNIZ ilk `run` içindir; kullanılınca null olur.
+  let prewarmed: ChildLike | null = null;
+  let warmed = false;
 
   const runOnce = async (): Promise<HeadlessTurnResult> => {
     turns += 1;
@@ -306,12 +414,15 @@ export async function sendChatMessage(
     runSinceSec = Math.floor(Date.now() / 1000) - 2;
     // Soru cevabından sonraki turun ilk parçası önceki metne yapışmasın.
     let first = true;
+    const child = prewarmed;
+    prewarmed = null;
     const turn = turnStarter({
       cwd: resolvedCwd,
       model,
       prompt,
       resumeId,
       useConnectors,
+      ...(child ? { prewarmed: child } : {}),
       onSessionId: (id) => writeBinding(chatId, { sessionId: id, cwd: resolvedCwd }),
       onChunk: (piece) => {
         if (!piece) return;
@@ -348,6 +459,13 @@ export async function sendChatMessage(
     resumeId = resumableSession(chatId, resolvedCwd);
     startedResumed = resumeId !== null;
     prompt = resumeId ? resumePrompt(message, useConnectors, resolvedCwd) : seedPrompt(history, message, useConnectors, resolvedCwd);
+    // Anahtar tutarsa ısıtılmış süreç; tutmazsa havuz onu öldürüyor.
+    try {
+      prewarmed = pool ? pool.take(prewarmKey(chatId, resolvedCwd, model, resumeId, useConnectors)) : null;
+    } catch {
+      prewarmed = null;
+    }
+    warmed = prewarmed !== null;
 
     for (;;) {
       if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
@@ -474,6 +592,7 @@ export async function sendChatMessage(
       ilkHarf: firstChunkAt ? Math.round((firstChunkAt - started) / 100) / 10 : null,
       arac: totalTools,
       baglayici: useConnectors,
+      isinmis: warmed,
       model: model ? `${model.provider}/${model.model}` : "-",
       // Boş cevap aşağıda hataya çevriliyor; günlük gerçeği söylesin.
       sonuc: empty ? "bos" : "ok"
@@ -482,6 +601,16 @@ export async function sendChatMessage(
     return out;
   } finally {
     runs.delete(requestId);
+    // Alınıp kullanılmadan kalan süreç (tur başlamadan iptal) askıda kalmasın.
+    if (prewarmed) {
+      const left: ChildLike = prewarmed;
+      prewarmed = null;
+      try {
+        (poolDeps ?? defaultHeadlessDeps()).killTree(left);
+      } catch {
+        // zaten kapanmış
+      }
+    }
   }
 }
 
@@ -492,6 +621,7 @@ export function cancelChatMessage(requestId: string): void {
   run.turn?.cancel();
   run.answerAsk?.(null);
   run.wakeDelay?.();
+  dropPrewarm(run.chatId);
   appLog("kopru.iptal", { sohbet: run.chatId, turNo: run.turns });
   // Süreç ağacı öldürülüyor; "durdu mu" diye ayrı bir karar kanalı yok.
 }
@@ -505,6 +635,7 @@ export function answerChatQuestion(requestId: string, optionIndex: number | numb
 
 /** Sohbet silindi ya da klasörü değişti: bağlı oturum bırakılır (çalışmıyorsa). */
 export function closeChatSession(chatId: string): void {
+  dropPrewarm(chatId);
   if (!chatBusy(chatId)) clearBinding(chatId);
 }
 
@@ -515,10 +646,13 @@ export function closeChatSession(chatId: string): void {
  * axet-code'u çökertti (analiz 2026-10-16, bulgu 4).
  */
 export function resetChatHistory(chatId: string): boolean {
+  dropPrewarm(chatId);
   clearBinding(chatId);
   return true;
 }
 
 export function cancelAllChatMessages(): void {
   for (const id of Array.from(runs.keys())) cancelChatMessage(id);
+  // Kapanışta (before-quit) da çağrılıyor: bekleyen ısıtılmış süreç kalmasın.
+  dropAllPrewarmed();
 }
