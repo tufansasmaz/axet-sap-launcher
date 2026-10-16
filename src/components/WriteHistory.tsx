@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import type { WriteOp, WriteHistoryResult } from "../../app-electron/shared/sapWriteHistory";
 import type { SapService } from "../../app-electron/shared/types";
@@ -72,6 +72,14 @@ export default function WriteHistory({ path, service }: { path: string[]; servic
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const pathKey = path.join("\u0000");
+  // Bileşen monte/sökülme durumu: unmount sonrası setState'ten kaçın.
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   // Yükleme mantığı: seçim değişince tam sıfırlama, Yenile/focus'ta sessiz yenileme.
   const load = useCallback(
@@ -85,10 +93,10 @@ export default function WriteHistory({ path, service }: { path: string[]; servic
       let disposed = false;
       window.api.getWriteHistory(path, service).then(
         (next) => {
-          if (!disposed) setHistory(next);
+          if (!disposed && mountedRef.current) setHistory(next);
         },
         () => {
-          if (!disposed) setHistory({ ok: false, reason: "okunamadi" });
+          if (!disposed && mountedRef.current) setHistory({ ok: false, reason: "okunamadi" });
         }
       );
       return () => {

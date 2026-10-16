@@ -94,7 +94,7 @@ export async function exportWriteHistoryCsv(
   if (!target) return { ok: false, canceled: true };
   try {
     // BOM: Excel UTF-8'i ancak onunla tanıyor, yoksa Türkçe harfler bozuk açılıyor.
-    writeFileSync(target, "﻿" + toCsv(history.ops, language), "utf-8");
+    writeFileSync(target, "\uFEFF" + toCsv(history.ops, language), "utf-8");
     return { ok: true, path: target, count: history.ops.length };
   } catch (err) {
     return { ok: false, message: (err as Error).message };

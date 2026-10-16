@@ -150,6 +150,21 @@ describe("WriteHistory", () => {
     await waitFor(() => expect(getWriteHistory).toHaveBeenCalledTimes(2));
   });
 
+  it("unmount sonrası load yanıtı setState çağırmıyor", async () => {
+    // getWriteHistory asenkron: unmount'tan sonra resolve olursa setState uyarısı gelmemeli.
+    let resolve!: (v: unknown) => void;
+    const getWriteHistory = vi.fn(() => new Promise((r) => { resolve = r; }));
+    win.api = { getWriteHistory, exportWriteHistoryCsv: vi.fn(async () => ({ ok: true, path: "", count: 0 })) };
+    const { unmount } = render(
+      <LanguageProvider language="tr">
+        <WriteHistory path={["Müşteri"]} service={SERVICE} />
+      </LanguageProvider>
+    );
+    unmount();
+    // Unmount'tan SONRA promise'ı çözüyoruz — hata fırlatılmamalı.
+    expect(() => resolve({ ok: true, ops: [op(1)], skipped: 0, truncated: false })).not.toThrow();
+  });
+
   it("okunamadı ve kısmi okuma notları (inceleme odağı 5)", async () => {
     setup({ ok: false, reason: "okunamadi" });
     expect(await screen.findByText("Kayıt okunamadı.")).toBeTruthy();
