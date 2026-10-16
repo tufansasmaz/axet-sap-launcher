@@ -159,3 +159,82 @@ export function buildWriteHistory(lines: readonly string[]): { ops: WriteOp[]; s
   ops.sort((a, b) => b.zaman.localeCompare(a.zaman));
   return { ops, skipped };
 }
+
+export type CsvLanguage = "tr" | "en";
+
+export const APPROVAL_LABELS: Record<CsvLanguage, Record<WriteApproval, string>> = {
+  tr: {
+    onaylandi: "Onaylandı",
+    oturum: "Oturum izni",
+    ust_onay: "Üst onay",
+    teslim: "Teslim izni",
+    reddedildi: "Reddedildi",
+    sure_doldu: "Süresi doldu",
+    engellendi: "Engellendi",
+    kalite_reddi: "Kalite reddi",
+    yanitsiz: "Yanıtsız"
+  },
+  en: {
+    onaylandi: "Approved",
+    oturum: "Session grant",
+    ust_onay: "Prior approval",
+    teslim: "Delivery grant",
+    reddedildi: "Rejected",
+    sure_doldu: "Expired",
+    engellendi: "Blocked",
+    kalite_reddi: "Quality rejection",
+    yanitsiz: "No answer"
+  }
+};
+
+export const RESULT_LABELS: Record<CsvLanguage, Record<WriteResult, string>> = {
+  tr: { basarili: "Başarılı", hata: "Hata", yok: "Yok" },
+  en: { basarili: "Succeeded", hata: "Failed", yok: "None" }
+};
+
+const HEADERS: Record<CsvLanguage, string[]> = {
+  tr: ["Zaman", "Kullanıcı", "SID", "Client", "Mod", "Araç", "Nesneler", "Paket", "Transport", "Onay", "Sonuç", "SAP mesajı"],
+  en: ["Time", "User", "SID", "Client", "Mode", "Tool", "Objects", "Package", "Transport", "Approval", "Result", "SAP message"]
+};
+
+// Excel `=`, `+`, `-`, `@` ile (ve sekme/CR ile) başlayan hücreyi formül sayıyor;
+// kayıttaki metin (nesne adı, SAP mesajı) dışarıdan gelebilir.
+const FORMULA_START = /^[=+\-@\t\r]/;
+
+function cell(value: string | null): string {
+  let v = value ?? "";
+  if (FORMULA_START.test(v)) v = `'${v}`;
+  return /[;"\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+}
+
+function localTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+export function toCsv(ops: readonly WriteOp[], language: CsvLanguage): string {
+  const rows = [HEADERS[language].map(cell).join(";")];
+  for (const op of ops) {
+    rows.push(
+      [
+        localTime(op.zaman),
+        op.kullanici,
+        op.sid,
+        op.client,
+        op.mod,
+        op.arac,
+        op.nesneler.map((o) => (o.tip ? `${o.ad} (${o.tip})` : o.ad)).join(", "),
+        op.paket,
+        op.transport,
+        APPROVAL_LABELS[language][op.approval],
+        RESULT_LABELS[language][op.result],
+        op.sapMessage
+      ]
+        .map(cell)
+        .join(";")
+    );
+  }
+  return rows.join("\r\n") + "\r\n";
+}
