@@ -25,7 +25,9 @@ describe("toCsv", () => {
     expect(csv.charCodeAt(0)).not.toBe(0xfeff);
     const lines = csv.split("\r\n");
     expect(lines[0]).toBe("Zaman;Kullanıcı;SID;Client;Mod;Araç;Nesneler;Paket;Transport;SAP transport;Onay;Sonuç;SAP mesajı");
-    expect(lines[1]).toBe("2026-10-16 14:32:05;TSASMAZ;D01;100;dogrudan;adt_push;ZCL_A (CLAS), ZIF_B (INTF);ZPKG;D01K900123;;Onaylandı;Başarılı;");
+    // client "100" saf rakam → Excel'in metne dönüştürmesi için ="100" biçiminde.
+    // mod "dogrudan" → i18n etiketi "Doğrudan" (ham kod değil).
+    expect(lines[1]).toBe('2026-10-16 14:32:05;TSASMAZ;D01;="100";Doğrudan;adt_push;ZCL_A (CLAS), ZIF_B (INTF);ZPKG;D01K900123;;Onaylandı;Başarılı;');
     expect(csv.endsWith("\r\n")).toBe(true);
   });
 
@@ -33,6 +35,17 @@ describe("toCsv", () => {
     const lines = toCsv([{ ...OP, approval: "sure_doldu", result: "yok" }], "en").split("\r\n");
     expect(lines[0]).toBe("Time;User;SID;Client;Mode;Tool;Objects;Package;Transport;SAP transport;Approval;Result;SAP message");
     expect(lines[1]).toContain(";Expired;None;");
+  });
+
+  it("mod kodu CSV'de i18n etiketiyle; bilinmeyen ham kalıyor", () => {
+    const trLines = toCsv([{ ...OP, mod: "yerel" }], "tr").split("\r\n");
+    // mod sütunu 5. sütun (0-tabanlı: 4)
+    expect(trLines[1].split(";")[4]).toBe("Yerel");
+    const enLines = toCsv([{ ...OP, mod: "dogrudan" }], "en").split("\r\n");
+    expect(enLines[1].split(";")[4]).toBe("Direct");
+    // Bilinmeyen kod ham kalıyor.
+    const unkLines = toCsv([{ ...OP, mod: "ozel" }], "tr").split("\r\n");
+    expect(unkLines[1].split(";")[4]).toBe("ozel");
   });
 
   it("; tırnak ve satır sonu içeren hücre tırnaklanıyor", () => {
@@ -52,13 +65,24 @@ describe("toCsv", () => {
     expect(cells[12]).toBe("'@cmd");
   });
 
+  it("saf rakam hücre Excel'de metin olarak açılıyor — baştaki sıfır korunuyor", () => {
+    // client "001": saf rakam → ="001" (Excel metne dönüştürür, sıfır kalır).
+    const csv = toCsv([{ ...OP, client: "001" }], "tr");
+    const cells = csv.split("\r\n")[1].split(";");
+    expect(cells[3]).toBe('="001"');
+    // Harf içeren değerler değişmiyor.
+    expect(cells[2]).toBe("D01");   // SID: harf var
+    expect(cells[8]).toBe("D01K900123"); // transport: harf var
+  });
+
   it("SAP'nin kaydettiği transport ayrı sütunda (inceleme I2)", () => {
     expect(toCsv([{ ...OP, sapTransport: "D01K900130" }], "tr").split("\r\n")[1].split(";")[9]).toBe("D01K900130");
   });
 
   it("boş alanlar boş hücre; liste boşsa yalnız başlık", () => {
     const csv = toCsv([{ ...OP, kullanici: null, transport: null, nesneler: [] }], "tr");
-    expect(csv.split("\r\n")[1].split(";").slice(0, 9)).toEqual(["2026-10-16 14:32:05", "", "D01", "100", "dogrudan", "adt_push", "", "ZPKG", ""]);
+    // mod "dogrudan" → i18n etiketi (tr: "Doğrudan").
+    expect(csv.split("\r\n")[1].split(";").slice(0, 9)).toEqual(["2026-10-16 14:32:05", "", "D01", '="100"', "Doğrudan", "adt_push", "", "ZPKG", ""]);
     expect(toCsv([], "tr").split("\r\n").filter(Boolean)).toHaveLength(1);
   });
 });

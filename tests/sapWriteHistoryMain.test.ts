@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ BrowserWindow: { getFocusedWindow: () => null }, dialog: { showSaveDialog: vi.fn() } }));
 
-const { MAX_HISTORY_BYTES, csvFileName, exportWriteHistoryCsv, projectDirFrom, readWriteHistory } = await import(
+const { MAX_HISTORY_BYTES, csvFileName, exportWriteHistoryCsv, projectDirFrom, readWriteHistory, readWriteHistoryMerged } = await import(
   "../app-electron/main/sapWrite/history"
 );
 
@@ -96,5 +96,38 @@ describe("exportWriteHistoryCsv", () => {
 
   it("dosya adı güvenli", () => {
     expect(csvFileName("D/0:1", new Date(2026, 0, 2))).toBe("sap-yazma-D_0_1-20260102.csv");
+  });
+});
+
+describe("readWriteHistoryMerged — çoklu taban", () => {
+  it("iki tabandaki günlükler birleştiriliyor; aynı id tekrar etmiyor", () => {
+    const base1 = dir;
+    const base2 = mkdtempSync(path.join(tmpdir(), "yazma-eski-"));
+    // Her iki tabanda da aynı proje alt yolunu simüle etmek için doğrudan
+    // klasörlere yazıyoruz (projectDirFrom yerine ham dizinler).
+    writeFileSync(path.join(base1, "sap-yazma-gunlugu.jsonl"),
+      `${ROW("yeni", "2026-10-16T10:00:00Z")}\n${ROW("ortak", "2026-10-16T09:00:00Z")}\n`);
+    writeFileSync(path.join(base2, "sap-yazma-gunlugu.jsonl"),
+      `${ROW("eski", "2026-10-15T10:00:00Z")}\n${ROW("ortak", "2026-10-16T09:00:00Z")}\n`);
+    const r = readWriteHistoryMerged(base1, [base2]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // "ortak" yalnız bir kez (primary'den); "eski" de var
+    expect(r.ops.map((o) => o.key)).toEqual(["yeni", "ortak", "eski"]);
+  });
+
+  it("birincil klasör yoksa boş liste (hata değil)", () => {
+    const r = readWriteHistoryMerged(path.join(dir, "yok"), []);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.ops).toHaveLength(0);
+  });
+
+  it("önceki taban okunamazsa atlanıyor, birincil sonuç geçerli", () => {
+    writeFileSync(path.join(dir, "sap-yazma-gunlugu.jsonl"), `${ROW("a", "2026-10-16T10:00:00Z")}\n`);
+    const r = readWriteHistoryMerged(dir, [path.join(dir, "olmayan-taban")]);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.ops.map((o) => o.key)).toEqual(["a"]);
   });
 });

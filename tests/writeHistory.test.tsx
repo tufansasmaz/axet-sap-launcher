@@ -106,6 +106,50 @@ describe("WriteHistory", () => {
     expect(row.textContent).toContain("D01K900001 → D01K900199");
   });
 
+  it("kesilen kayıtta başlık sayı+ biçiminde", async () => {
+    // truncated: true → "SAP'ye yazılanlar (2+)" (ham sayı değil artı işaretli)
+    setup({ ok: true, ops: [op(1), op(2)], skipped: 0, truncated: true });
+    expect(await screen.findByText("SAP'ye yazılanlar (2+)")).toBeTruthy();
+    cleanup();
+    // truncated: false → "SAP'ye yazılanlar (1)" (artı yok)
+    setup({ ok: true, ops: [op(1)], skipped: 0, truncated: false });
+    expect(await screen.findByText("SAP'ye yazılanlar (1)")).toBeTruthy();
+  });
+
+  it("bilinen mod kodu i18n etiketiyle gösteriliyor; bilinmeyen ham kalıyor", async () => {
+    setup({
+      ok: true,
+      ops: [op(1, { mod: "dogrudan" }), op(2, { mod: "yerel" }), op(3, { mod: "ozel_mod" })],
+      skipped: 0,
+      truncated: false
+    });
+    // İlk satırı aç: mod "dogrudan" → "Doğrudan"
+    fireEvent.click(await screen.findByRole("button", { name: /ZCL_1/ }));
+    expect(screen.getByText("Doğrudan")).toBeTruthy();
+    // İkinci satırı aç: mod "yerel" → "Yerel"
+    fireEvent.click(screen.getByRole("button", { name: /ZCL_2/ }));
+    expect(screen.getByText("Yerel")).toBeTruthy();
+    // Üçüncü satırı aç: bilinmeyen mod → ham kod
+    fireEvent.click(screen.getByRole("button", { name: /ZCL_3/ }));
+    expect(screen.getByText("ozel_mod")).toBeTruthy();
+  });
+
+  it("Yenile düğmesi tıklanınca getWriteHistory ikinci kez çağrılıyor", async () => {
+    const { getWriteHistory } = setup({ ok: true, ops: [op(1)], skipped: 0, truncated: false });
+    await screen.findByText("SAP'ye yazılanlar (1)");
+    expect(getWriteHistory).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Yenile" }));
+    await waitFor(() => expect(getWriteHistory).toHaveBeenCalledTimes(2));
+  });
+
+  it("window focus olayında getWriteHistory sessizce yenileniyor", async () => {
+    const { getWriteHistory } = setup({ ok: true, ops: [op(1)], skipped: 0, truncated: false });
+    await screen.findByText("SAP'ye yazılanlar (1)");
+    expect(getWriteHistory).toHaveBeenCalledTimes(1);
+    window.dispatchEvent(new Event("focus"));
+    await waitFor(() => expect(getWriteHistory).toHaveBeenCalledTimes(2));
+  });
+
   it("okunamadı ve kısmi okuma notları (inceleme odağı 5)", async () => {
     setup({ ok: false, reason: "okunamadi" });
     expect(await screen.findByText("Kayıt okunamadı.")).toBeTruthy();

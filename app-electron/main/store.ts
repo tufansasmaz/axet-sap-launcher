@@ -148,6 +148,8 @@ function safeUserName(): string {
   }
 }
 
+const MAX_PREVIOUS_DIRS = 5;
+
 export function loadConfig(): AppConfig {
   const file = configPath();
   const fallback = defaultConfig();
@@ -229,7 +231,11 @@ export function loadConfig(): AppConfig {
         typeof parsed.skillNoticeAcceptedAt === "string"
           ? parsed.skillNoticeAcceptedAt
           : fallback.skillNoticeAcceptedAt,
-      globalSkillOverrides: sanitizeOverrides(parsed.globalSkillOverrides)
+      globalSkillOverrides: sanitizeOverrides(parsed.globalSkillOverrides),
+      // Dizi ve içinin dize olduğu süzülüyor; maksimum 5, tekrarsız.
+      previousProjectsBaseDirs: Array.isArray(parsed.previousProjectsBaseDirs)
+        ? [...new Set((parsed.previousProjectsBaseDirs as unknown[]).filter((x): x is string => typeof x === "string"))].slice(0, MAX_PREVIOUS_DIRS)
+        : []
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).
@@ -247,7 +253,19 @@ export function loadConfig(): AppConfig {
 
 export function saveConfig(partial: Partial<AppConfig>): AppConfig {
   const current = loadConfig();
-  const next: AppConfig = { ...current, ...partial };
+  // `projectsBaseDir` değişiyorsa eski değeri `previousProjectsBaseDirs`'a ekle.
+  let previousProjectsBaseDirs = current.previousProjectsBaseDirs ?? [];
+  if (
+    "projectsBaseDir" in partial &&
+    partial.projectsBaseDir !== undefined &&
+    partial.projectsBaseDir !== current.projectsBaseDir
+  ) {
+    previousProjectsBaseDirs = [
+      current.projectsBaseDir,
+      ...previousProjectsBaseDirs.filter((d) => d !== current.projectsBaseDir)
+    ].slice(0, MAX_PREVIOUS_DIRS);
+  }
+  const next: AppConfig = { ...current, ...partial, previousProjectsBaseDirs };
   const dir = path.dirname(configPath());
   mkdirSync(dir, { recursive: true });
   writeFileSync(configPath(), JSON.stringify(next, null, 2), "utf-8");

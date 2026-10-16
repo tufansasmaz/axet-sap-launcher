@@ -202,6 +202,12 @@ export const APPROVAL_LABELS: Record<CsvLanguage, Record<WriteApproval, string>>
   }
 };
 
+/** Bilinen çalışma modu kodları → okunabilir etiket. Bilinmeyen kod ham kalır. */
+export const MODE_LABELS: Record<CsvLanguage, Record<string, string>> = {
+  tr: { dogrudan: "Doğrudan", yerel: "Yerel" },
+  en: { dogrudan: "Direct", yerel: "Local" }
+};
+
 export const RESULT_LABELS: Record<CsvLanguage, Record<WriteResult, string>> = {
   tr: { basarili: "Başarılı", hata: "Hata", etkin_degil: "Yüklendi, etkinleştirilmedi", yok: "Yok" },
   en: { basarili: "Succeeded", hata: "Failed", etkin_degil: "Uploaded, not activated", yok: "None" }
@@ -215,11 +221,18 @@ const HEADERS: Record<CsvLanguage, string[]> = {
 // Excel `=`, `+`, `-`, `@` ile (ve sekme/CR ile) başlayan hücreyi formül sayıyor;
 // kayıttaki metin (nesne adı, SAP mesajı) dışarıdan gelebilir.
 const FORMULA_START = /^[=+\-@\t\r]/;
+// Saf rakam değerler (ör. client "001") Excel'de sayıya dönüşüp başındaki
+// sıfırı kaybeder. `="001"` biçimi Excel'i hücreyi metin olarak açmaya zorlar.
+// Yalnız BİZİM üreteceğimiz sabit kalıba uygulanıyor: kullanıcı verisi değil,
+// client/transport gibi alanlar; formül korumasıyla çakışmıyor.
+const PURE_DIGITS = /^\d+$/;
 
 function cell(value: string | null): string {
-  let v = value ?? "";
-  if (FORMULA_START.test(v)) v = `'${v}`;
-  return /[;"\r\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  const v = value ?? "";
+  if (PURE_DIGITS.test(v)) return `="${v}"`;
+  let s = v;
+  if (FORMULA_START.test(s)) s = `'${s}`;
+  return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
 function localTime(iso: string): string {
@@ -238,7 +251,7 @@ export function toCsv(ops: readonly WriteOp[], language: CsvLanguage): string {
         op.kullanici,
         op.sid,
         op.client,
-        op.mod,
+        op.mod !== null ? (MODE_LABELS[language][op.mod] ?? op.mod) : null,
         op.arac,
         op.nesneler.map((o) => (o.tip ? `${o.ad} (${o.tip})` : o.ad)).join(", "),
         op.paket,

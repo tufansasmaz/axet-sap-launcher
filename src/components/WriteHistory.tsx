@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import type { WriteOp, WriteHistoryResult } from "../../app-electron/shared/sapWriteHistory";
 import type { SapService } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
+
+const MODE_I18N_KEYS: Record<string, TranslationKey> = {
+  dogrudan: "writeHistory.mode.dogrudan",
+  yerel: "writeHistory.mode.yerel"
+};
 
 // "SAP'ye yazılanlar" (spec 2026-10-16 sap-yazma-gecmisi). Müşteri ya da
 // denetçi "yapay zekâ neyi değiştirdi, kim onayladı?" diye sorduğunda cevap
@@ -67,24 +73,43 @@ export default function WriteHistory({ path, service }: { path: string[]; servic
   const [notice, setNotice] = useState<string | null>(null);
   const pathKey = path.join("\u0000");
 
-  useEffect(() => {
-    setHistory(null);
-    setShowAll(false);
-    setOpenKey(null);
-    setNotice(null);
-    let disposed = false;
-    window.api.getWriteHistory(path, service).then(
-      (next) => {
-        if (!disposed) setHistory(next);
-      },
-      () => {
-        if (!disposed) setHistory({ ok: false, reason: "okunamadi" });
+  // Yükleme mantığı: seçim değişince tam sıfırlama, Yenile/focus'ta sessiz yenileme.
+  const load = useCallback(
+    (reset: boolean) => {
+      if (reset) {
+        setHistory(null);
+        setShowAll(false);
+        setOpenKey(null);
+        setNotice(null);
       }
-    );
-    return () => {
-      disposed = true;
-    };
-  }, [service.uuid, pathKey]);
+      let disposed = false;
+      window.api.getWriteHistory(path, service).then(
+        (next) => {
+          if (!disposed) setHistory(next);
+        },
+        () => {
+          if (!disposed) setHistory({ ok: false, reason: "okunamadi" });
+        }
+      );
+      return () => {
+        disposed = true;
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [service.uuid, pathKey]
+  );
+
+  useEffect(() => {
+    return load(true);
+  }, [load]);
+
+  // Pencere tekrar odağa gelince geçmişi sessizce tazelemek: ajan çalışırken
+  // pencerenin dışına çıkılmış olabilir; döndüğünde yeni kayıtlar görünsün.
+  useEffect(() => {
+    const refresh = () => load(false);
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, [load]);
 
   if (!history) return null;
   if (history.ok && history.ops.length === 0) return null;
@@ -105,7 +130,21 @@ export default function WriteHistory({ path, service }: { path: string[]; servic
   return (
     <div className="flex flex-col gap-2 border-t border-line-subtle pt-3">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-xs font-medium text-slate-300">{t("writeHistory.heading", { n: ops.length })}</h4>
+        <div className="flex items-center gap-2">
+          <h4 className="text-xs font-medium text-slate-300">
+            {history.ok && history.truncated
+              ? t("writeHistory.headingTruncated", { n: ops.length })
+              : t("writeHistory.heading", { n: ops.length })}
+          </h4>
+          <button
+            type="button"
+            aria-label={t("writeHistory.refresh")}
+            onClick={() => load(false)}
+            className="rounded p-0.5 text-slate-500 hover:bg-hover hover:text-slate-300"
+          >
+            <RefreshCw size={12} aria-hidden />
+          </button>
+        </div>
         {history.ok && (
           <button
             type="button"
@@ -154,7 +193,13 @@ export default function WriteHistory({ path, service }: { path: string[]; servic
                       <dt className="text-slate-500">{t("writeHistory.client")}</dt>
                       <dd className="text-slate-200">{op.client ?? "—"}</dd>
                       <dt className="text-slate-500">{t("writeHistory.mode")}</dt>
-                      <dd className="text-slate-200">{op.mod ?? "—"}</dd>
+                      <dd className="text-slate-200">
+                        {op.mod !== null
+                          ? MODE_I18N_KEYS[op.mod]
+                            ? t(MODE_I18N_KEYS[op.mod])
+                            : op.mod
+                          : "—"}
+                      </dd>
                       <dt className="text-slate-500">{t("writeHistory.tool")}</dt>
                       <dd className="font-mono text-slate-200">{op.arac ?? "—"}</dd>
                       <dt className="text-slate-500">{t("writeHistory.package")}</dt>

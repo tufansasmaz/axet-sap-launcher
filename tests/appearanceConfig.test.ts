@@ -68,3 +68,36 @@ describe("görünüm ayarı", () => {
     expect(cfg.theme).toBe("dark");
   });
 });
+
+describe("previousProjectsBaseDirs", () => {
+  async function save(partial: Record<string, unknown>) {
+    const { saveConfig } = await import("../app-electron/main/store");
+    return saveConfig(partial as never);
+  }
+
+  it("projectsBaseDir değişince eski değer listeye ekleniyor", async () => {
+    const cfg1 = await load({ projectsBaseDir: "/eski/yol" });
+    expect(cfg1.previousProjectsBaseDirs).toEqual([]);
+    vi.resetModules();
+    const cfg2 = await save({ projectsBaseDir: "/yeni/yol" });
+    expect(cfg2.previousProjectsBaseDirs).toContain("/eski/yol");
+    expect(cfg2.projectsBaseDir).toBe("/yeni/yol");
+  });
+
+  it("aynı değere yazılırsa liste değişmiyor", async () => {
+    await load({ projectsBaseDir: "/yol", previousProjectsBaseDirs: ["/onceki"] });
+    vi.resetModules();
+    const cfg = await save({ projectsBaseDir: "/yol" });
+    expect(cfg.previousProjectsBaseDirs).toEqual(["/onceki"]);
+  });
+
+  it("tekrarlı değerler listeye bir kez giriyor; en fazla 5", async () => {
+    await load({ projectsBaseDir: "/p6", previousProjectsBaseDirs: ["/p5", "/p4", "/p3", "/p2", "/p1"] });
+    vi.resetModules();
+    const cfg = await save({ projectsBaseDir: "/p7" });
+    // "/p6" eklendi ama liste en fazla 5 → "/p1" düştü
+    expect(cfg.previousProjectsBaseDirs?.length).toBe(5);
+    expect(cfg.previousProjectsBaseDirs?.[0]).toBe("/p6");
+    expect(cfg.previousProjectsBaseDirs).not.toContain("/p1");
+  });
+});

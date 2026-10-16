@@ -340,6 +340,12 @@ export type ChatDensity = "compact" | "comfortable";
 
 export interface AppConfig {
   projectsBaseDir: string;
+  /**
+   * Daha önce kullanılan proje taban klasörleri (en fazla 5, tekrarsız).
+   * `projectsBaseDir` değiştiğinde eski değer buraya eklenir; geçmiş okunurken
+   * eski klasörlerdeki günlükler de birleştirilerek gösterilir.
+   */
+  previousProjectsBaseDirs?: string[];
   axetCommand: string;
   terminal: TerminalMode;
   landscapePathOverride: string | null;
