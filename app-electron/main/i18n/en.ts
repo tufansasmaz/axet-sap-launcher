@@ -53,6 +53,7 @@ export const MAIN_EN = {
 
   // --- axetChat.ts (headless bridge) ---
   "chat.headlessAnswerLabel": "The user's answer",
+  "chat.headlessRetryPrompt": "The previous attempt was cut off by a provider error; please answer my last message.",
 
   // --- axetChat.ts (empty answer gate) ---
   "chat.emptyAnswerTui":

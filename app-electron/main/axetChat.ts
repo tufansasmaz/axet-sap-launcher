@@ -25,7 +25,7 @@ import { isSilentEmptyAnswer } from "./axetChatAnswer";
 import { axetBinaryMessage, axetBinaryStatus } from "./axetCodeVersion";
 import { startHeadlessTurn, type HeadlessTurn, type HeadlessTurnResult } from "./axetHeadless";
 import { clearBinding, readBinding, writeBinding } from "./axetSessionBinding";
-import { resolveSessionDb, sessionHasUnansweredToolCall, sessionTitle } from "./axetSessionDb";
+import { readMessagesSince, resolveSessionDb, sessionHasUnansweredToolCall, sessionTitle } from "./axetSessionDb";
 import { askUserAsText, splitOptionsBlock, type AskUserRequest } from "./axetToolEvents";
 import { connectorGuidance } from "./connectorHealth";
 import { shouldUseConnectors } from "./connectorPolicy";
@@ -109,9 +109,22 @@ function preamble(useConnectors: boolean, cwd: string): string {
   );
 }
 
+// Soru cevabı YENİ bir oturuma tohumlanıyor ama turun önceki adımlarında araç
+// çalışmıştı: transkript yalnız metni taşıyor, ajan "dosyayı yaz" isteğini
+// görüp yazmayı (ya da SAP'ye göndermeyi) yeniden yapabilirdi.
+const TOOLS_ALREADY_RAN =
+  "Not: Bu konuşmanın önceki adımlarındaki araç çağrıları (dosya yazma, SAP'ye gönderme vb.) ZATEN çalıştırıldı; " +
+  "onları TEKRARLAMA, kullanıcının cevabıyla kaldığın yerden devam et.\n\n";
+
 /** Yeni oturum: geçmiş metin olarak tohumlanıyor (bağlam ajanın hafızasında yok). */
-function seedPrompt(history: AxetChatMessage[], message: string, useConnectors: boolean, cwd: string): string {
-  const pre = preamble(useConnectors, cwd);
+function seedPrompt(
+  history: AxetChatMessage[],
+  message: string,
+  useConnectors: boolean,
+  cwd: string,
+  toolsRan = false
+): string {
+  const pre = preamble(useConnectors, cwd) + (toolsRan ? TOOLS_ALREADY_RAN : "");
   if (history.length === 0) return `${pre}Kullanıcı mesajı: ${message}`;
   const transcript = history.map((m) => `${m.role === "user" ? "Kullanıcı" : "Sen"}: ${m.content}`).join("\n\n");
   return (
@@ -178,6 +191,29 @@ function resumableSession(chatId: string, cwd: string): string | null {
     return null;
   }
   return binding.sessionId;
+}
+
+/**
+ * Düşen turun oturumunda SON saklı mesaj bizim kullanıcı mesajımız mı? axet-code
+ * mesajı sağlayıcıya göndermeden önce saklıyor; sağlayıcı düşerse mesaj
+ * oturumda kalıyor ve aynısını yeniden göndermek onu ajanın hafızasına İKİ kez
+ * yazardı. `sinceSec`: düşen turun başı (öncesindeki mesajlar sayılmıyor).
+ * Okunamazsa `false`: mesaj aynen yeniden gider (eski davranış).
+ */
+function userMessageStored(cwd: string, sessionId: string, sinceSec: number): boolean {
+  try {
+    const dbPath = resolveSessionDb(cwd);
+    if (!dbPath) return false;
+    const messages = readMessagesSince(dbPath, sessionId, sinceSec);
+    return messages[messages.length - 1]?.role === "user";
+  } catch {
+    return false;
+  }
+}
+
+/** İki metin parçasını boş satırla birleştirir; biri boşsa ayırıcı yok. */
+function joinText(a: string, b: string): string {
+  return a && b ? `${a}\n\n${b}` : a || b;
 }
 
 function answerText(ask: AskUserRequest, optionIndex: number | number[], customText?: string): string | null {
@@ -260,10 +296,14 @@ export async function sendChatMessage(
   let seedHistory: AxetChatMessage[] = history;
   let seedMessage = message;
   let textAtAnswer = 0;
+  // Son alt turun başı (saniye, saat kayması payıyla): yeniden denemede
+  // oturumdaki hangi mesajların bu alt tura ait olduğunu ayırıyor.
+  let runSinceSec = 0;
 
   const runOnce = async (): Promise<HeadlessTurnResult> => {
     turns += 1;
     run.turns = turns;
+    runSinceSec = Math.floor(Date.now() / 1000) - 2;
     // Soru cevabından sonraki turun ilk parçası önceki metne yapışmasın.
     let first = true;
     const turn = turnStarter({
@@ -312,7 +352,7 @@ export async function sendChatMessage(
     for (;;) {
       if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
       const result = await runOnce();
-      if (result.cancelled || run.cancelled) return { ok: false, text: text + result.text, cancelled: true, usedConnectors: useConnectors };
+      if (result.cancelled || run.cancelled) return { ok: false, text: joinText(text, result.text), cancelled: true, usedConnectors: useConnectors };
 
       if (result.spawnFailed) {
         // Süreç açılamadı: program bozulmuş/silinmiş olabilir — durumu tazele.
@@ -324,7 +364,7 @@ export async function sendChatMessage(
         const split = splitOptionsBlock(result.text);
         const ask = result.ask ?? split.ask;
         const piece = result.ask ? result.text : split.text;
-        text = text ? (piece ? `${text}\n\n${piece}` : text) : piece;
+        text = joinText(text, piece);
         if (!ask) break;
         // Soru: kart çıkıyor, tur açık kalıyor.
         run.pendingAsk = ask;
@@ -344,8 +384,11 @@ export async function sendChatMessage(
         run.answerAsk = null;
         if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
         if (answer === null) {
-          // Vazgeçildi: soru metni cevapta kalsın, kullanıcı kendisi yazar.
-          if (!text.includes(ask.question) || !ask.question) text = text ? `${text}\n\n${askUserAsText(ask)}` : askUserAsText(ask);
+          // Vazgeçildi: soru ve SEÇENEKLER cevapta kalsın, kullanıcı kendisi
+          // yazar. `secenekler` bloğunda soru metnin kendisi, blok ise metinden
+          // atılmıştı: yalnız seçenek listesi geri ekleniyor.
+          if (!ask.question || !text.includes(ask.question)) text = joinText(text, askUserAsText(ask));
+          else if (ask.options.length) text = joinText(text, ask.options.map((opt) => `- ${opt}`).join("\n"));
           break;
         }
         const answerPrompt = `${mt("chat.headlessAnswerLabel")}: ${answer}`;
@@ -364,7 +407,7 @@ export async function sendChatMessage(
           appLog("kopru.bag-dustu", { sohbet: chatId, sebep: unsafe, yer: "cevap" });
           clearBinding(chatId);
           resumeId = null;
-          prompt = seedPrompt(seedHistory, seedMessage, useConnectors, resolvedCwd);
+          prompt = seedPrompt(seedHistory, seedMessage, useConnectors, resolvedCwd, totalTools > 0 || toolsUnknown);
         } else {
           resumeId = result.sessionId;
           prompt = answerPrompt;
@@ -401,12 +444,15 @@ export async function sendChatMessage(
         if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
         resumeId = result.sessionId ?? resumeId;
         if (!resumeId) prompt = seedPrompt(seedHistory, seedMessage, useConnectors, resolvedCwd);
+        // Mesajımız oturumda zaten saklıysa aynısı ikinci kez gitmesin: kısa
+        // bir "son mesajıma cevap ver" yeterli. Saklı değilse mesaj aynen gider.
+        else if (userMessageStored(resolvedCwd, resumeId, runSinceSec)) prompt = mt("chat.headlessRetryPrompt");
         continue;
       }
       appLog("kopru.hata", { sohbet: chatId, sinif: result.failure ?? "-", aracCalisti: toolsRan, yenidenDenendi: retried });
       return {
         ok: false,
-        text: text + result.text,
+        text: joinText(text, result.text),
         error: userError(result, retried),
         usedConnectors: useConnectors,
         ...(toolsRan ? { canContinue: true } : {})
@@ -414,6 +460,7 @@ export async function sendChatMessage(
     }
 
     const out: AxetChatSendResult = { ok: true, text, usedConnectors: useConnectors, ...(restartedReason ? { restartedReason } : {}) };
+    const empty = isSilentEmptyAnswer(out);
     appLog("kopru.tur", {
       sohbet: chatId,
       oturum: startedResumed && !restartedReason ? "surdu" : "yeni",
@@ -422,9 +469,10 @@ export async function sendChatMessage(
       arac: totalTools,
       baglayici: useConnectors,
       model: model ? `${model.provider}/${model.model}` : "-",
-      sonuc: "ok"
+      // Boş cevap aşağıda hataya çevriliyor; günlük gerçeği söylesin.
+      sonuc: empty ? "bos" : "ok"
     });
-    if (isSilentEmptyAnswer(out)) return { ...out, ok: false, error: mt("chat.emptyAnswerTui") };
+    if (empty) return { ...out, ok: false, error: mt("chat.emptyAnswerTui") };
     return out;
   } finally {
     runs.delete(requestId);

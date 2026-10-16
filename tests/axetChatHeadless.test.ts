@@ -11,7 +11,9 @@ const h = vi.hoisted(() => ({
   status: { kind: "ok", version: "1.4.1" } as { kind: string; version?: string },
   logs: [] as { tag: string; fields: Record<string, unknown> }[],
   // surum denetimini bloke etmek icin: null = aninda don, Promise = bekleme
-  statusBlock: null as Promise<void> | null
+  statusBlock: null as Promise<void> | null,
+  // oturumda saklı mesajlar (yeniden denemede son mesaj bizim mi?)
+  stored: new Map<string, { id: string; role: string; parts: unknown[]; createdAt: number }[]>()
 }));
 
 vi.mock("electron", () => ({ app: { getPath: () => "", getAppPath: () => "" } }));
@@ -32,7 +34,8 @@ vi.mock("../app-electron/main/axetSessionBinding", () => ({
 vi.mock("../app-electron/main/axetSessionDb", () => ({
   resolveSessionDb: () => "C:/p/.axet-code/axet-code.db",
   sessionHasUnansweredToolCall: (_db: string, sid: string) => h.unanswered.has(sid),
-  sessionTitle: (_db: string, sid: string) => (h.missing.has(sid) ? null : "baslik")
+  sessionTitle: (_db: string, sid: string) => (h.missing.has(sid) ? null : "baslik"),
+  readMessagesSince: (_db: string, sid: string) => h.stored.get(sid) ?? []
 }));
 
 const chat = await import("../app-electron/main/axetChat");
@@ -71,6 +74,7 @@ beforeEach(() => {
   h.status = { kind: "ok", version: "1.4.1" };
   h.logs = [];
   h.statusBlock = null;
+  h.stored.clear();
   calls.length = 0;
   cancels = 0;
   activities = [];
@@ -397,5 +401,109 @@ describe("sendChatMessage", () => {
     const r = await send();
     expect(calls).toHaveLength(1);
     expect(r).toMatchObject({ ok: false, canContinue: true });
+  });
+});
+
+describe("küçükler (2026-10-16)", () => {
+  const ASK = { callId: "q1", question: "Hangi paket?", header: "", options: ["ZA", "ZB"], multiSelect: false };
+  const NOW = () => Math.floor(Date.now() / 1000);
+
+  it("7a: sağlayıcı hatası, mesajımız oturumda saklı → aynı oturuma kısa yeniden deneme istemi", async () => {
+    script(
+      () => {
+        h.stored.set("S1", [{ id: "u1", role: "user", parts: [{ type: "text", data: { text: "merhaba" } }], createdAt: NOW() }]);
+        return { ok: false, error: "529 overloaded", failure: "provider", toolCount: 0, sessionId: "S1" };
+      },
+      () => ({ ok: true, text: "kurtardı", sessionId: "S1" })
+    );
+    const r = await send("r1", "uzun mesajım");
+    expect(calls).toHaveLength(2);
+    expect(calls[1].resumeId).toBe("S1");
+    expect(calls[1].prompt).toBe("chat.headlessRetryPrompt");
+    expect(calls[1].prompt).not.toContain("uzun mesajım");
+    expect(r).toMatchObject({ ok: true, text: "kurtardı" });
+  });
+
+  it("7b: sağlayıcı hatası, mesajımız saklanmamış → mesaj aynen yeniden gidiyor", async () => {
+    script(
+      () => {
+        h.stored.set("S1", [
+          { id: "u0", role: "user", parts: [], createdAt: NOW() },
+          { id: "a0", role: "assistant", parts: [], createdAt: NOW() }
+        ]);
+        return { ok: false, error: "529 overloaded", failure: "provider", toolCount: 0, sessionId: "S1" };
+      },
+      () => ({ ok: true, text: "kurtardı", sessionId: "S1" })
+    );
+    await send("r1", "uzun mesajım");
+    expect(calls).toHaveLength(2);
+    expect(calls[1].resumeId).toBe("S1");
+    expect(calls[1].prompt).toBe(calls[0].prompt);
+    expect(calls[1].prompt).toContain("uzun mesajım");
+  });
+
+  it("8: soru sonrası tur hatayla biterse metinler boş satırla ayrılıyor", async () => {
+    script(
+      () => ({ text: "Önce sormam gerek.", sessionId: "S1", ask: ASK }),
+      () => ({ ok: false, text: "Yarıda kaldı.", error: "request_blocked", failure: "blocked", sessionId: "S1" })
+    );
+    const pending = send();
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    chat.answerChatQuestion("r1", 0);
+    const r = await pending;
+    expect(r.ok).toBe(false);
+    expect(r.text).toBe("Önce sormam gerek.\n\nYarıda kaldı.");
+  });
+
+  it("9: boş cevap kopru.tur'a 'bos' olarak yazılıyor", async () => {
+    script(() => ({ text: "", sessionId: "S1" }));
+    const r = await send();
+    expect(r.ok).toBe(false);
+    expect(h.logs.find((l) => l.tag === "kopru.tur")?.fields.sonuc).toBe("bos");
+  });
+
+  it("9: dolu cevap 'ok'", async () => {
+    script(() => ({ text: "cevap", sessionId: "S1" }));
+    await send();
+    expect(h.logs.find((l) => l.tag === "kopru.tur")?.fields.sonuc).toBe("ok");
+  });
+
+  it("10: secenekler sorusundan vazgeçilirse seçenekler metinde kalıyor", async () => {
+    const FENCE = "```";
+    script(() => ({ text: `Hangisi olsun?\n\n${FENCE}secenekler\n- K1\n- K2\n${FENCE}`, sessionId: "S1" }));
+    const pending = send();
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    chat.answerChatQuestion("r1", -1);
+    const r = await pending;
+    expect(r.ok).toBe(true);
+    expect(r.text).toBe("Hangisi olsun?\n\n- K1\n- K2");
+  });
+
+  it("19: araç çalışmış turda cevap yeni oturuma tohumlanırsa tohum araçları tekrarlama diyor", async () => {
+    script(
+      () => ({ text: "Dosyayı yazdım.", sessionId: "S1", toolCount: 2, ask: ASK }),
+      () => ({ ok: true, text: "ZA ile devam.", sessionId: "S7" })
+    );
+    const pending = send("r1", "dosyayı yaz ve paketi sor");
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    h.unanswered.add("S1");
+    chat.answerChatQuestion("r1", 0);
+    await pending;
+    expect(calls[1].resumeId).toBeNull();
+    expect(calls[1].prompt).toContain("ZATEN çalıştırıldı");
+  });
+
+  it("19: araçsız turda tohumda bu not yok", async () => {
+    script(
+      () => ({ text: "Bakıyorum.", sessionId: "S1", toolCount: 0, ask: ASK }),
+      () => ({ ok: true, text: "ZA ile devam.", sessionId: "S7" })
+    );
+    const pending = send("r1", "paket seç");
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    h.unanswered.add("S1");
+    chat.answerChatQuestion("r1", 0);
+    await pending;
+    expect(calls[1].resumeId).toBeNull();
+    expect(calls[1].prompt).not.toContain("ZATEN çalıştırıldı");
   });
 });

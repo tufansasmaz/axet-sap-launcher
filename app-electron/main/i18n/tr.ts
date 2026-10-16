@@ -56,6 +56,7 @@ export const MAIN_TR = {
 
   // --- axetChat.ts (başsız köprü) ---
   "chat.headlessAnswerLabel": "Kullanıcının cevabı",
+  "chat.headlessRetryPrompt": "Önceki deneme sağlayıcı hatasıyla yarıda kaldı; son mesajıma cevap ver.",
 
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":
