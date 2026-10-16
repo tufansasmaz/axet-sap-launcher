@@ -35,10 +35,10 @@ const ERROR_KEYS = {
  * hangi yetenekler kurulu?" ve "güncel mi?". Sürüm damgası (`.version`)
  * olmadan ikincisi tahmine kalıyordu.
  *
- * Güncelleme düğmesi kurulumdan sonra o projenin bosta duran sıcak
- * oturumlarını kapatıyor (ana süreçte, `skills:reinstall`) — axet-code
- * skill'leri süreç açılışında tarıyor, kapatmasak güncelleme bir sonraki
- * turda hiçbir şeyi değiştirmezdi.
+ * Güncelleme düğmesi skill'leri projeye yeniden kuruyor (ana süreçte,
+ * `skills:reinstall`). Ayakta bekleyen axet-code süreci yok — her sohbet
+ * mesajı kendi `axet-code run` sürecinde açılıyor — bu yüzden kurulan liste
+ * bir sonraki turda görülüyor.
  */
 export default function SkillsSection({ profile, projectDir }: Props) {
   const t = useT();

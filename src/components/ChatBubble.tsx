@@ -448,15 +448,16 @@ export function ThinkingBubble({
 /**
  * Ajanın sorduğu sorunun kartı — seçenekler tıklanabilir düğmeler.
  *
- * Bu kart bir SÜS değil, turun tek çıkışı: seçim stdin'e yazılıyor
- * (bkz. axetChat.ts `answerChatQuestion`) ve tur oradan devam
- * ediyor. Seçilmediği sürece ajan bekliyor.
+ * Bu kart bir SÜS değil, turun tek çıkışı: seçim aynı oturuma yeni bir
+ * `axet-code run --resume` olarak gidiyor (bkz. axetChat.ts
+ * `answerChatQuestion`) ve tur oradan devam ediyor. Seçilmediği sürece
+ * tur açık bekliyor (axet-code süreci bu arada kapalı).
  *
- * Düğme SIRASI dizinle birebir: axet-code seçeneği indeksiyle tanıyor.
+ * Düğme SIRASI dizinle birebir: ana süreç dizini seçenek metnine çeviriyor.
  * Bu yüzden burada sıralama/filtreleme YAPILMIYOR.
  *
- * Şıkların yanında SERBEST METİN de var: axet-code bunu kabul ediyor
- * (bkz. axetChat.ts `answerChatQuestion`). Şıklar ajanın
+ * Şıkların yanında SERBEST METİN de var: o da cevap olarak aynı yoldan
+ * gidiyor (bkz. axetChat.ts `answerChatQuestion`). Şıklar ajanın
  * tahmini; kullanıcının aklındaki cevap listede olmayabilir ve o durumda tek
  * çıkışın "vazgeç" olması turu boşa harcardı.
  *
@@ -583,8 +584,8 @@ export function AskUserCard({
         )}
         {/* Gönder düğmesi YALNIZCA çoklu seçimde: tek seçimlide tıklama zaten
             gönderiyor ve fazladan bir adım, kartın tek tıklık işini iki tıka
-            çıkarırdı. Hiçbir şey işaretli değilken kapalı — boş bir onay,
-            TUI'de hiçbir şey seçmeden `enter` basmak olurdu. */}
+            çıkarırdı. Hiçbir şey işaretli değilken kapalı — boş bir onay
+            ajana boş bir cevap göndermek olurdu. */}
         {multi && (
           <button
             disabled={sent || picked.length === 0}

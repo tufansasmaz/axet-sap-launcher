@@ -511,9 +511,9 @@ async function writeChatPdf(filePath: string, html: string): Promise<void> {
  * beklemiyor, çünkü düz sohbetler (`Documents\aXet Code Sessions`) hiçbir SAP
  * projesine ait değil ve eski kurgu orada TEK bir yetenek bile göremiyordu.
  *
- * Kurulumdan sonra sıcak oturumların HEPSİ kapatılıyor (projeye özel
- * `skills:reinstall`'daki gibi bir proje değil): global klasör tüm oturumları
- * ilgilendiriyor ve axet-code yetenekleri yalnızca süreç açılışında tarıyor.
+ * Kapatılacak sıcak oturum yok: her sohbet mesajı kendi `axet-code run`
+ * sürecinde açılıyor ve axet-code yetenekleri süreç açılışında tarıyor, yani
+ * kurulan liste bir sonraki turda görülüyor.
  */
 function syncGlobalSkills(config: AppConfig): void {
   if (!config.skillProfile) return;

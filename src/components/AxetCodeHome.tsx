@@ -134,9 +134,9 @@ const NEW_SESSION_ID = "__new__";
  *
  * HER TURDA ekleniyor, sadece ilk mesajda değil. Tek sefer denendiğinde üç
  * ayrı yoldan kayboluyordu: (1) geçmiş son `MAX_HISTORY_MESSAGES` mesajla
- * sınırlı, uzun sohbette ilk mesaj pencereden düşüyor; (2) kalıcı axet-code
- * oturumu uygulama kapanınca ölüyor ve yeniden tohumlanırken geçmiş ekrandaki
- * mesajlardan kuruluyor — talimat orada hiç yok; (3) var olan bir sohbet
+ * sınırlı, uzun sohbette ilk mesaj pencereden düşüyor; (2) axet-code oturum
+ * bağı düşünce (dallanma, bozuk oturum, klasör değişimi) yeni oturum ekrandaki
+ * mesajlardan tohumlanıyor — talimat orada hiç yok; (3) var olan bir sohbet
  * sonradan bir projeye taşınabiliyor, o sohbetin "ilk mesajı" çoktan gitmiş
  * oluyor. Bedeli her turda talimat kadar jeton; `chatStore.ts` bunu 8000
  * karakterle sınırlıyor ve tipik bir talimat birkaç yüz karakter.
@@ -402,10 +402,10 @@ function freshSuggestionSeed(): number {
 // Kullanıcı kararıyla artık gerçek `axet-code` TUI'sinin
 // terminal görünümü BURADA hiç görünmüyor (bkz. PROJE-BILGI.md). Motor
 // hâlâ gerçek `axet-code` — her mesaj `window.api.sendChatMessage` ile main
-// process'te bir `axet-code run -q` (stateless, tek-atış) çağrısı olarak
-// çalıştırılıyor (bkz. axetChat.ts); CLI seviyesinde oturum hafızası
-// olmadığı için bağlamı biz (önceki mesajları transkript olarak göndererek)
-// koruyoruz. SAP Launcher'ın kendi terminal panelinden TAMAMEN AYRI
+// process'te kendi kısa ömürlü `axet-code run` sürecinde çalıştırılıyor (bkz.
+// axetChat.ts, axetHeadless.ts). Oturum hafızası axet-code'da: sohbet bir
+// oturuma bağlı ve sonraki mesaj `--resume` ediyor; bağ düşerse yeni oturum
+// önceki mesajlarla tohumlanıyor. SAP Launcher'ın kendi terminal panelinden TAMAMEN AYRI
 // (kullanıcı kararı — bkz. PROJE-BILGI.md "kullanıcı kararları" bölümü).
 //
 // Görsel dil GEMİNİ referansına göre başladı (kullanıcı kararı, 2026-09-02 —
@@ -441,9 +441,9 @@ export default function AxetCodeHome({
     resetSearch,
     registerChatCommands
   } = useChatStore();
-  // Bir sonraki YENİ sohbetin kimliği, doğmadan önce. Kalıcı axet-code
-  // oturumu kullanıcı yazarken bu kimlikle ısıtılıyor; sohbet oluşunca aynı
-  // kimliği devralıyor (bkz. handleSendNew).
+  // Bir sonraki YENİ sohbetin kimliği, doğmadan önce. İlk mesajla doğan
+  // sohbet bu kimliği devralıyor (bkz. handleSendNew); axet-code oturumu ise
+  // ancak o ilk mesajın `run`'ında açılıyor — önceden ısıtılan süreç yok.
   const newChatIdRef = useRef<string>(crypto.randomUUID());
   // Henüz bir sohbete bağlanmamış taslak (bkz. NEW_SESSION_ID).
   const [newDraft, setNewDraft] = useState("");
@@ -648,6 +648,10 @@ export default function AxetCodeHome({
   const recoveredRef = useRef(false);
   const dirtySinceRef = useRef<number | null>(null);
   const saveFailedRef = useRef(false);
+  // App.tsx'in pushToast'ı her çizimde yeni; kayıt effect'i onu ref'ten okuyor,
+  // yoksa her App çizimi kaydı yeniden kurardı.
+  const pushToastRef = useRef(pushToast);
+  pushToastRef.current = pushToast;
   useEffect(() => {
     if (recoveredRef.current || !loadedRef.current || !config) return;
     recoveredRef.current = true;
@@ -765,7 +769,7 @@ export default function AxetCodeHome({
           if (result.ok) saveFailedRef.current = false;
           else if (!saveFailedRef.current) {
             saveFailedRef.current = true;
-            pushToast("error", t("axetCodeHome.historySaveFailed", { message: result.error ?? "" }));
+            pushToastRef.current("error", t("axetCodeHome.historySaveFailed", { message: result.error ?? "" }));
           }
         })
         .catch(() => {});
@@ -774,7 +778,7 @@ export default function AxetCodeHome({
     // `projects` bağımlılıkta: bir projenin adını/talimatını değiştirmek
     // sohbet listesine dokunmuyor, bu olmadan değişiklik ancak bir sonraki
     // mesajla diske inerdi (ve arada kapatılırsa hiç inmezdi).
-  }, [sessions, activeId, projects, pushToast, t]);
+  }, [sessions, activeId, projects, t]);
 
   useEffect(() => {
     let cancelled = false;
@@ -947,11 +951,11 @@ export default function AxetCodeHome({
   // --- Dosya Gezgini'nde seçilen klasör → ajanın çalışma klasörü ---
   // Kullanıcı isteği (2026-09-23): *"ordan yol seçince axet in çalışma yolu da
   // orası olsun"*. Yetenek kurulumu App.tsx'te bitmiş oluyor; burada sohbetin
-  // bağlamasını değiştirip çalışan CLI oturumunu bırakıyoruz.
+  // bağlamasını değiştirip sohbetin bağlı axet-code oturumunu bırakıyoruz.
   //
-  // Cevap AKARKEN oturum kapatılmıyor: `closeChatSession` o sohbetin
-  // axet-code sürecini öldürüyor, yani yarım kalmış cevap kaybolurdu. Böyle
-  // bir durumda sohbet kuyruğa alınıyor ve cevap biter bitmez bırakılıyor
+  // Cevap AKARKEN bağ bırakılmıyor: `closeChatSession` tur sürerken hiçbir şey
+  // yapmıyor (ana süreç bağı koruyor), yani çağrı boşa giderdi. Böyle bir
+  // durumda sohbet kuyruğa alınıyor ve cevap biter bitmez bırakılıyor
   // (aşağıdaki efekt). Klasör bilgisi yine de HEMEN yazılıyor — bir sonraki
   // mesaj zaten yeni klasöre gidecek.
   useEffect(() => {
@@ -1036,8 +1040,8 @@ export default function AxetCodeHome({
       if (target?.pending && target.requestId) {
         window.api.cancelChatMessage(target.requestId).catch(() => {});
       }
-      // Sohbetin kalıcı axet-code oturumu da kapanmalı — yoksa silinmiş bir
-      // konuşmanın süreci arkada, kullanıcının göremeyeceği bir yerde kalırdı.
+      // Sohbetin axet-code oturum bağı da düşmeli (spec §9: sohbet silinince
+      // bağlaması da silinir). Çalışan tur yukarıda iptal ediliyor.
       window.api.closeChatSession(id).catch(() => {});
       setSessions((prev) => prev.filter((s) => s.id !== id));
       setActiveId((current) => (current === id ? null : current));
@@ -1087,11 +1091,11 @@ export default function AxetCodeHome({
   );
 
   // Proje yönergeleri kaydedildikten sonra: O KLASÖRDE çalışan her sohbetin
-  // kalıcı axet-code oturumu bırakılıyor. Ölçüm (2026-09-05): bağlam dosyaları
-  // süreç açılışında okunuyor, çalışan bir oturum sonradan yazılan AGENTS.md'yi
-  // GÖRMÜYOR. Oturum bırakılmasaydı kullanıcı yönergesini kaydeder, hiçbir şey
-  // değişmez ve nedenini anlayamazdı. Sohbetin kendisi ve mesajları duruyor;
-  // yalnızca arkadaki süreç kapanıyor, sonraki mesajda yenisi açılıyor.
+  // axet-code oturum bağı bırakılıyor. Ölçüm (2026-09-05, eski kalıcı süreçte):
+  // bağlam dosyaları oturum açılışında okunuyordu, süren bir oturum sonradan
+  // yazılan AGENTS.md'yi GÖRMÜYORDU. `--resume` ile aynı oturuma dönmek bunu
+  // tekrarlayabilir; bağ düşünce sonraki mesaj yeni oturumda (geçmiş
+  // tohumlanarak) açılıyor. Sohbetin kendisi ve mesajları duruyor.
   //
   // `workspaceDir` DEĞİL `config?.axetWorkspaceDir` okunuyor: aynı değeri veren
   // o yardımcı değişken bu satırdan ÇOK SONRA tanımlanıyor ve bağımlılık dizisi
@@ -1195,9 +1199,9 @@ export default function AxetCodeHome({
       );
 
       const cwd = sessionCwd || config?.axetWorkspaceDir || "";
-      // `sessionId` main process'e de gidiyor: kalıcı axet-code oturumları
-      // sohbet başına tutuluyor (bkz. axetChat.ts), yani bir sohbetin
-      // hafızası CLI'ın kendisinde duruyor.
+      // `sessionId` main process'e de gidiyor: her sohbet bir axet-code
+      // oturumuna bağlı ve sonraki mesaj onu `--resume` ediyor (bkz.
+      // axetChat.ts), yani bir sohbetin hafızası CLI'ın kendisinde duruyor.
       // Proje talimatı TEK YERDE ekleniyor: gönder / yeniden üret / sürdür
       // yollarının üçü de buradan geçiyor, üç ayrı çağrı yerine burada
       // yapılması birinin unutulmasını imkânsız kılıyor.
@@ -1644,7 +1648,8 @@ export default function AxetCodeHome({
 
   // Son cevabı at, AYNI istemi yeniden çalıştır.
   //
-  // Ajanın hafızası da geri sarılıyor. Kalıcı TUI'de bu şart: sarılmazsa ajan
+  // Ajanın hafızası da geri sarılıyor (bağ düşüyor, yeni oturum geçmişle
+  // tohumlanıyor). Oturum `--resume` edildiği için bu şart: sarılmazsa ajan
   // az önceki cevabını hatırlıyor ve "yeniden üret" bir tekrar değil, kendi
   // cevabının üstüne konuşma oluyor — kullanıcının istediği şeyin tersi.
   const handleRegenerate = useCallback(async () => {
@@ -1687,8 +1692,9 @@ export default function AxetCodeHome({
   // Yarıda kalmış son cevabı KALDIĞI YERDEN sürdür (bkz. `interrupted`).
   //
   // `handleRegenerate`'in tersi: orada üretilmiş metin atılıyor, burada
-  // korunuyor. Kullanıcı uygulamayı cevap üretilirken kapattığında pty de
-  // ölüyor, yani tur kendiliğinden devam edemiyor (axetChatRecovery yalnızca
+  // korunuyor. Kullanıcı uygulamayı cevap üretilirken kapattığında
+  // `axet-code run` süreci de ölüyor, ya da tur bir araçtan sonra hatayla
+  // düşüyor; tur kendiliğinden devam edemiyor (axetChatRecovery yalnızca
   // o ana kadarki metni geri getirebiliyor). Sürdürmenin tek yolu yeni bir
   // tur — ama ajanın yarım metni görmesi şartıyla.
   const handleContinue = useCallback(async () => {
@@ -1767,8 +1773,9 @@ export default function AxetCodeHome({
     window.api.cancelChatMessage(activeSession.requestId).catch(() => {});
   }, [activeSession]);
 
-  // Ajanın sorduğu sorunun cevabı. Kartı hemen kaldırıyoruz: cevap stdin'e
-  // gidiyor ve tur devam ediyor — açık kalan bir kart ölü bir düğme olurdu.
+  // Ajanın sorduğu sorunun cevabı. Kartı hemen kaldırıyoruz: cevap aynı
+  // oturuma YENİ bir `axet-code run --resume` olarak gidiyor ve renderer için
+  // tur devam ediyor — açık kalan bir kart ölü bir düğme olurdu.
   // Ana süreç de kendi tarafında aynı korumayı yapıyor
   // (bkz. axetChat.ts `answerChatQuestion`).
   const handleAnswerQuestion = useCallback(

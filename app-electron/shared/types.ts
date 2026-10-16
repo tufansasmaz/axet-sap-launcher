@@ -742,10 +742,10 @@ export interface AxetModelConfigResult {
 
 // axet.code sohbet ekranı (bkz. AxetCodeHome.tsx) artık `axet-code`'un gerçek
 // interaktif TUI'sini (canlı terminal) göstermiyor — kullanıcı isteğiyle
-// (ChatGPT tarzı özgün bir arayüz), her mesaj `axet-code run` (stateless,
-// tek-atış) modu ile main process'te ayrı bir process olarak çalıştırılıyor.
-// Bu modda oturum hafızası CLI seviyesinde YOK — bu yüzden bağlamı biz
-// (transcript'i her çağrıda prompt'a gömerek) koruyoruz (bkz. axetChat.ts).
+// (ChatGPT tarzı özgün bir arayüz), her mesaj main process'te kendi kısa
+// ömürlü `axet-code run` süreciyle çalıştırılıyor. Oturum hafızası axet-code'da:
+// sohbet bir oturuma bağlı, sonraki mesaj `--resume` ediyor; bağ düşerse yeni
+// oturum bu mesajların transkriptiyle tohumlanıyor (bkz. axetChat.ts).
 export interface AxetChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -840,8 +840,9 @@ export type AxetChatActivity = {
   /**
    * `askUser` aşamasında: ajanın sorusu ve seçenekleri.
    *
-   * `options` SIRASI ÖNEMLİ — arayüzdeki düğmenin dizini, stdin'e yazılan
-   * seçenek indeksiyle birebir eşleşiyor (bkz. axetToolEvents.ts).
+   * `options` SIRASI ÖNEMLİ — arayüzdeki düğmenin dizini, ana sürecin
+   * cevap metnine çevirdiği seçenek indeksiyle birebir eşleşiyor
+   * (bkz. axetChat.ts `answerChatQuestion`).
    */
   question?: string;
   /** Sorunun kısa başlığı (`ask_user` girdisindeki `header`); olmayabilir. */

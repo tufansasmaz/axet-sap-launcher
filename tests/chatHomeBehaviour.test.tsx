@@ -172,6 +172,34 @@ describe("sohbet listesi (taşıma öncesi davranış)", () => {
     await wait(700);
     expect(saveChatSessions).toHaveBeenCalled();
   });
+
+  it("üst bileşen yeniden çizilince (yeni pushToast) değişiklik yoksa kayıt yeniden kurulmuyor", async () => {
+    // App.tsx'teki pushToast her çizimde yeni bir işlev; kayıt effect'i ona
+    // bağlıysa her App çizimi bir kayıt daha tetikliyordu.
+    const tree = (toast: () => void) => (
+      <LanguageProvider language="tr">
+        <ChatStoreProvider pushToast={() => {}}>
+          <AxetCodeHome
+            active
+            config={null}
+            pushToast={toast}
+            recentEntries={[]}
+            sapChatRequest={null}
+            workDirRequest={null}
+            activeSap={null}
+          />
+        </ChatStoreProvider>
+      </LanguageProvider>
+    );
+    const view = render(tree(() => {}));
+    await load({ activeId: null, projects: [], sessions: [session("c", "Var olan")] });
+    await wait(700);
+    saveChatSessions.mockClear();
+    view.rerender(tree(() => {}));
+    view.rerender(tree(() => {}));
+    await wait(700);
+    expect(saveChatSessions).not.toHaveBeenCalled();
+  });
 });
 
 describe("mesaj kuyruğu", () => {

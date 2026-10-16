@@ -32,7 +32,7 @@ interface Props {
   /** Sohbetin çalışma klasörü. `null` ise diyalog çizilmiyor. */
   cwd: string | null;
   onClose: () => void;
-  /** Kaydedildikten sonra: etkilenen sohbetlerin TUI oturumlarını bırak. */
+  /** Kaydedildikten sonra: etkilenen sohbetlerin axet-code oturum bağlarını bırak. */
   onSaved: (cwd: string) => void;
 }
 
