@@ -46,6 +46,8 @@ export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
     let disposed = false;
     window.api.supportPreview({ note: hasNote ? "x" : "", chatMarkdown }).then((names) => {
       if (!disposed) setFiles(names);
+    }, () => {
+      if (!disposed) setFiles([]);
     });
     return () => {
       disposed = true;
@@ -56,8 +58,15 @@ export default function SupportDialog({ open, onClose, chat, onDone }: Props) {
     if (busy) return;
     setBusy(true);
     setError(null);
-    const result = await window.api.supportCreate({ note: note.trim(), chatMarkdown });
-    setBusy(false);
+    // IPC reddederse de meşgul kalmasın: pencere `closeDisabled` ile kilitlenirdi.
+    let result: Awaited<ReturnType<typeof window.api.supportCreate>>;
+    try {
+      result = await window.api.supportCreate({ note: note.trim(), chatMarkdown });
+    } catch (err) {
+      result = { ok: false, message: (err as Error).message };
+    } finally {
+      setBusy(false);
+    }
     if (!result.ok) {
       setError(t("support.failed", { message: result.message }));
       return;

@@ -46,6 +46,21 @@ describe("redact", () => {
     expect(r.counts).toEqual({ known: 1 });
   });
 
+  it("önünde _ olan adlar da (access_token, client_secret, *_API_KEY) — inceleme I1", () => {
+    const r = redact('access_token=abcdef123456 client_secret: zzzzzzzz AZURE_OPENAI_API_KEY=sk-123456789 "refresh_token":"rrrrrr"', []);
+    expect(r.text).toBe(`access_token=${MASK} client_secret: ${MASK} AZURE_OPENAI_API_KEY=${MASK} "refresh_token":"${MASK}"`);
+  });
+
+  it("SAP oturum çerezleri — inceleme I2", () => {
+    const r = redact("Cookie: MYSAPSSO2=AjQxMDMBABhOAFQAVAA; SAP_SESSIONID_DEV_100=abc123xyz; sap-usercontext=sap-client=100", []);
+    expect(r.text).not.toMatch(/AjQxMDMB|abc123xyz|sap-client=100/);
+    expect(r.text).toContain("MYSAPSSO2=");
+  });
+
+  it("küçük harfli bearer — inceleme M3", () => {
+    expect(redact("bearer abcdefgh12345678", []).text).not.toContain("abcdefgh12345678");
+  });
+
   it("addCounts topluyor", () => {
     const total: Record<string, number> = { known: 1 };
     addCounts(total, { known: 2, jwt: 1 });

@@ -392,6 +392,17 @@ export default function SettingsModal({
     if (dir) update({ axetWorkspaceDir: dir });
   };
 
+  // Kirli formu önce kaydet: hemen üstteki destek adresini değiştirip buraya
+  // basan kullanıcının taslağı eski adrese gitmesin (son inceleme I4).
+  const reportProblem = async () => {
+    if (isDirty) {
+      const patch: Partial<AppConfig> = {};
+      for (const field of EDITED_FIELDS) patch[field] = form[field] as never;
+      await onSave(patch);
+    }
+    onReportProblem();
+  };
+
   const save = async () => {
     const patch: Partial<AppConfig> = {};
     for (const field of EDITED_FIELDS) patch[field] = form[field] as never;
@@ -605,7 +616,7 @@ export default function SettingsModal({
               />
             </Field>
             <div>
-              <Button onClick={onReportProblem}>
+              <Button onClick={() => void reportProblem()}>
                 <LifeBuoy size={14} />
                 {t("support.openAction")}
               </Button>

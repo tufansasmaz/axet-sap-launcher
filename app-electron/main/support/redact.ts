@@ -13,9 +13,10 @@ export interface RedactResult {
 const MIN_SECRET = 8;
 
 // Ad ve ayıraç kalıyor, değer gidiyor. `\b` Türkçe harfte (ş) çalışmadığı için
-// solda ASCII kelime karakteri olmaması lookbehind ile isteniyor.
+// solda harf/rakam olmaması lookbehind ile isteniyor. `_` serbest:
+// access_token, client_secret, AZURE_OPENAI_API_KEY de yakalansın.
 const KEY_VALUE =
-  /(?<![A-Za-z0-9_])(password|passwd|pwd|parola|şifre|token|secret|api[_-]?key|ADT_SAP_PASSWORD|ABAP_HTTP_TOKEN|ADT_APPROVAL_TOKEN)(["']?\s*[=:]\s*["']?)([^\s"',;}]+)/giu;
+  /(?<![A-Za-z0-9])(password|passwd|pwd|parola|şifre|token|secret|api[_-]?key|ADT_SAP_PASSWORD|ABAP_HTTP_TOKEN|ADT_APPROVAL_TOKEN)(["']?\s*[=:]\s*["']?)([^\s"',;}]+)/giu;
 
 const PATTERNS: { name: string; re: RegExp; replace: (match: string, ...groups: string[]) => string }[] = [
   {
@@ -23,7 +24,13 @@ const PATTERNS: { name: string; re: RegExp; replace: (match: string, ...groups: 
     re: /(Authorization["']?\s*[:=]\s*["']?)(?:Basic|Bearer)?\s*[A-Za-z0-9._~+/=-]{6,}/gi,
     replace: (_m, head) => `${head}${MASK}`
   },
-  { name: "bearer", re: /Bearer\s+[A-Za-z0-9._~+/=-]{8,}/g, replace: () => `Bearer ${MASK}` },
+  { name: "bearer", re: /Bearer\s+[A-Za-z0-9._~+/=-]{8,}/gi, replace: () => `Bearer ${MASK}` },
+  // SAP oturum çerezleri: MYSAPSSO2 çalışan bir SSO biletidir.
+  {
+    name: "sapCookie",
+    re: /\b(MYSAPSSO2|SAP_SESSIONID_[A-Za-z0-9_]+|sap-usercontext)=[^;\s"]+/gi,
+    replace: (_m, name) => `${name}=${MASK}`
+  },
   { name: "github", re: /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})/g, replace: () => MASK },
   { name: "jwt", re: /\beyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{5,}/g, replace: () => MASK }
 ];

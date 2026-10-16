@@ -112,7 +112,16 @@ export function buildBundleEntries(
       if (c.expected) missing.push(c.name);
       continue;
     }
-    entries.push({ name: c.name, data: utf8(clean(readTail(c.path))) });
+    // Kilitli ya da okunamayan günlük paketi düşürmesin: paket en çok işler
+    // bozukken lazım. Neden bilgi.json'a yazılıyor.
+    let body: string;
+    try {
+      body = readTail(c.path);
+    } catch (err) {
+      missing.push(`${c.name} (okunamadı: ${(err as NodeJS.ErrnoException).code ?? "?"})`);
+      continue;
+    }
+    entries.push({ name: c.name, data: utf8(clean(body)) });
   }
   entries.push({ name: "sohbet-zamanlari.json", data: utf8(JSON.stringify(chatTimings(src.chatState), null, 2)) });
   if (req.chatMarkdown) entries.push({ name: "sohbet.md", data: utf8(clean(req.chatMarkdown)) });

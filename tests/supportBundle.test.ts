@@ -2,7 +2,17 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Kilitli günlük (axet-code yazarken EBUSY): adı "kilitli" içeren yol açılamıyor.
+vi.mock("node:fs", async () => {
+  const real = await vi.importActual<typeof import("node:fs")>("node:fs");
+  const openSync = ((p: string, ...rest: unknown[]) => {
+    if (String(p).includes("kilitli")) throw Object.assign(new Error("EBUSY: resource busy or locked"), { code: "EBUSY" });
+    return (real.openSync as (...a: unknown[]) => number)(p, ...rest);
+  }) as typeof real.openSync;
+  return { ...real, default: { ...real, openSync }, openSync };
+});
 import { MAX_LOG_BYTES, buildBundleEntries, bundleFileNames, readTail } from "../app-electron/main/support/bundle";
 import type { ChatSessionsState } from "../app-electron/shared/types";
 
@@ -106,6 +116,14 @@ describe("buildBundleEntries", () => {
     const { entries } = buildBundleEntries(src({ projectDir: null }), { note: "", chatMarkdown: null });
     expect(entries.map((e) => e.name)).toEqual(["bilgi.json", "ntt-studio.log", "sohbet-zamanlari.json"]);
     expect(JSON.parse(text(entries, "bilgi.json")).eksik.join(" ")).toContain("proje");
+  });
+
+  it("okunamayan günlük paketi düşürmüyor, eksik'e yazılıyor — inceleme I3", () => {
+    const locked = path.join(root, "logs", "kilitli.log");
+    writeFileSync(locked, "x");
+    const { entries } = buildBundleEntries(src({ appLogPath: locked }), { note: "", chatMarkdown: null });
+    expect(entries.map((e) => e.name)).not.toContain("ntt-studio.log");
+    expect(JSON.parse(text(entries, "bilgi.json")).eksik.join(" ")).toContain("ntt-studio.log (okunamadı");
   });
 
   it("ön izleme listesi paketle aynı", () => {

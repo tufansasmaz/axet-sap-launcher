@@ -68,4 +68,14 @@ describe("SupportDialog", () => {
     expect(await screen.findByText("Paket oluşturulamadı: disk dolu")).toBeTruthy();
     expect(onDone).not.toHaveBeenCalled();
   });
+
+describe("SupportDialog — IPC reddi (inceleme M4)", () => {
+  it("supportCreate reddederse pencere meşgul kalmıyor, hata gösteriliyor", async () => {
+    const create = vi.fn(() => Promise.reject(new Error("ipc koptu")));
+    setup(null, create as never);
+    fireEvent.click(await screen.findByRole("button", { name: "Paketi oluştur" }));
+    expect(await screen.findByText("Paket oluşturulamadı: ipc koptu")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Paketi oluştur" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+});
 });
