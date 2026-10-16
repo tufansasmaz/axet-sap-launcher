@@ -153,6 +153,8 @@ interface ChatRun {
   pendingAsk: AskUserRequest | null;
   answerAsk: ((answer: string | null) => void) | null;
   turns: number;
+  /** AUTH_RETRY_MS beklentisini erken bitirir; cancelChatMessage tarafından çağrılır. */
+  wakeDelay: (() => void) | null;
 }
 
 const runs = new Map<string, ChatRun>(); // requestId → çalışan tur
@@ -189,8 +191,6 @@ function answerText(ask: AskUserRequest, optionIndex: number | number[], customT
   if (indexes.length === 0) return null;
   return indexes.map((i) => ask.options[i]).join(", ");
 }
-
-const delay = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // Zorunlu güncelleme `run` kipini de durduruyor ve çıkış kodu bunu anlatmıyor;
 // süreç ne yazdıysa onun içinde aranıyor (eski run yolundaki kalıp, aynen).
@@ -242,6 +242,10 @@ export async function sendChatMessage(
   const emitActivity = safe(onActivity);
   const emitProgress = safe(onProgress);
 
+  // Sürüm denetimi öncesinde kaydediyoruz: await sırasında gelen Durdur kayboluyor.
+  const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0, wakeDelay: null };
+  runs.set(requestId, run);
+
   // Ön koşul: axet-code 1.4+ ve sağlam program dosyası (kullanıcı kararı 2026-10-16).
   const status = await axetBinaryStatus();
   const blocked = axetBinaryMessage(status);
@@ -249,10 +253,9 @@ export async function sendChatMessage(
     appLog("kopru.surum", { surum: "version" in status ? status.version : "-", durum: status.kind });
     return { ok: false, text: "", error: blocked };
   }
+  if (run.cancelled) return { ok: false, text: "", cancelled: true };
 
   const useConnectors = decideConnectors(history, message);
-  const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0 };
-  runs.set(requestId, run);
   const started = Date.now();
   let resumeId = resumableSession(chatId, resolvedCwd);
   const startedResumed = resumeId !== null;
@@ -353,7 +356,14 @@ export async function sendChatMessage(
       } else if (canAutoRetry && result.failure !== "blocked") {
         retried = true;
         restartedReason = result.failure === "auth" ? "auth" : "provider";
-        if (result.failure === "auth") await delay(AUTH_RETRY_MS);
+        if (result.failure === "auth") {
+          // Beklentiyi iptal çağrısıyla erken bitirebilmek için wakeDelay saklıyoruz.
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, AUTH_RETRY_MS);
+            run.wakeDelay = () => { clearTimeout(timer); resolve(); };
+          });
+          run.wakeDelay = null;
+        }
         if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
         resumeId = result.sessionId ?? resumeId;
         if (!resumeId) prompt = seedPrompt(history, message, useConnectors, resolvedCwd);
@@ -396,6 +406,7 @@ export function cancelChatMessage(
   run.cancelled = true;
   run.turn?.cancel();
   run.answerAsk?.(null);
+  run.wakeDelay?.();
   appLog("kopru.iptal", { sohbet: run.chatId, turNo: run.turns });
   // Süreç ağacı öldürülüyor; "durmadı" diye bir durum yok (eski TUI'de Esc
   // tutmayabiliyordu, bkz. cancelStuck).

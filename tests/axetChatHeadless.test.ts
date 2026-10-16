@@ -7,7 +7,9 @@ const h = vi.hoisted(() => ({
   bindings: new Map<string, { sessionId: string; cwd: string }>(),
   unanswered: new Set<string>(),
   status: { kind: "ok", version: "1.4.1" } as { kind: string; version?: string },
-  logs: [] as { tag: string; fields: Record<string, unknown> }[]
+  logs: [] as { tag: string; fields: Record<string, unknown> }[],
+  // surum denetimini bloke etmek icin: null = aninda don, Promise = bekleme
+  statusBlock: null as Promise<void> | null
 }));
 
 vi.mock("electron", () => ({ app: { getPath: () => "", getAppPath: () => "" } }));
@@ -17,7 +19,7 @@ vi.mock("../app-electron/main/activeContext", () => ({ buildContextPreamble: () 
 vi.mock("../app-electron/main/connectorPolicy", () => ({ shouldUseConnectors: () => false }));
 vi.mock("../app-electron/main/connectorHealth", () => ({ connectorGuidance: () => "" }));
 vi.mock("../app-electron/main/axetCodeVersion", () => ({
-  axetBinaryStatus: async () => h.status,
+  axetBinaryStatus: async () => { if (h.statusBlock) await h.statusBlock; return h.status; },
   axetBinaryMessage: (s: { kind: string }) => (s.kind === "ok" ? null : `chat.axet:${s.kind}`)
 }));
 vi.mock("../app-electron/main/axetSessionBinding", () => ({
@@ -64,6 +66,7 @@ beforeEach(() => {
   h.unanswered.clear();
   h.status = { kind: "ok", version: "1.4.1" };
   h.logs = [];
+  h.statusBlock = null;
   calls.length = 0;
   cancels = 0;
   activities = [];
@@ -112,7 +115,7 @@ describe("sendChatMessage", () => {
     expect(calls[0].resumeId).toBeNull();
   });
 
-  it("araçsız hatada tek yeniden deneme; ikincisi de düşerse hata", async () => {
+  it("araçsız hatada tek yeniden deneme; başarılıysa sonuç tamam", async () => {
     script(
       () => ({ ok: false, error: "529 overloaded", failure: "provider", toolCount: 0 }),
       () => ({ ok: true, text: "kurtardı" })
@@ -120,6 +123,17 @@ describe("sendChatMessage", () => {
     const r = await send();
     expect(calls).toHaveLength(2);
     expect(r).toMatchObject({ ok: true, text: "kurtardı", restartedReason: "provider" });
+  });
+
+  it("araçsız hatada tek yeniden deneme; ikincisi de düşerse hata döner", async () => {
+    script(
+      () => ({ ok: false, error: "529 overloaded", failure: "provider", toolCount: 0 }),
+      () => ({ ok: false, error: "529 overloaded", failure: "provider", toolCount: 0 })
+    );
+    const r = await send();
+    expect(calls).toHaveLength(2);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("529 overloaded");
   });
 
   it("araç çalıştıysa yeniden gönderme yok; canContinue", async () => {
@@ -257,5 +271,47 @@ describe("sendChatMessage", () => {
     const tur = h.logs.find((l) => l.tag === "kopru.tur");
     expect(tur).toBeTruthy();
     expect(JSON.stringify(h.logs)).not.toContain("gizli");
+  });
+
+  it("sürüm denetimi sırasında iptal: tur başlamıyor, karar 'iptal', karar geri bildirimi geldi", async () => {
+    // Düzeltme 1: run, await axetBinaryStatus() ÖNCE kaydedilmeli ki iptal
+    // pencerede kaybolmasın.
+    let unblockStatus!: () => void;
+    h.statusBlock = new Promise<void>((r) => { unblockStatus = r; });
+    script(() => ({ text: "x" }));
+    const verdicts: unknown[] = [];
+    const pending = send("r1");
+    // run kayıtlı olduğu için chatBusy hemen true dönmeli
+    await vi.waitFor(() => expect(chat.chatBusy("chat-1")).toBe(true));
+    chat.cancelChatMessage("r1", (id, v) => verdicts.push([id, v]));
+    unblockStatus();
+    const r = await pending;
+    expect(r.cancelled).toBe(true);
+    expect(calls).toHaveLength(0);
+    expect(verdicts).toEqual([["chat-1", { stopped: true, reason: "canceled" }]]);
+  });
+
+  it("403 bekleme süresi iptal edilebiliyor: bekleme bitmeden sonuç iptal", async () => {
+    // Düzeltme 2: AUTH_RETRY_MS beklentisi run.wakeDelay aracılığıyla iptal
+    // çağrısında erken bitirilebilmeli; 15 s geçmeden promise kapanmalı.
+    vi.useFakeTimers({ toFake: ["setTimeout"] });
+    try {
+      script(
+        () => ({ ok: false, error: "403 Forbidden", failure: "auth", toolCount: 0 }),
+        () => ({ ok: true, text: "ikinci tur" })
+      );
+      const verdicts: unknown[] = [];
+      const pending = send("r1");
+      await vi.waitFor(() => expect(calls).toHaveLength(1));
+      // 15 s geçmeden iptal ediyoruz
+      chat.cancelChatMessage("r1", (id, v) => verdicts.push([id, v]));
+      const r = await pending;
+      // Zamanlayıcıyı ilerletmeden promise çözülmüş olmalı
+      expect(r.cancelled).toBe(true);
+      expect(calls).toHaveLength(1); // ikinci tur başlamamalı
+      expect(verdicts).toEqual([["chat-1", { stopped: true, reason: "canceled" }]]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
