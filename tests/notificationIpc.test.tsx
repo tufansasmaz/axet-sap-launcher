@@ -5,7 +5,6 @@
 
 import { renderHook, cleanup } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach, afterEach, type Mock } from "vitest";
-import { useEffect } from "react";
 
 // ---- Fake Notification ----
 type NotifListener = (...args: unknown[]) => void;
@@ -87,21 +86,24 @@ describe("Notification click — IPC", () => {
 });
 
 // ---- Renderer: chat:open → onSwitchToChat + sohbet aktif ----
-// AxetCodeHome'un onChatOpen useEffect mantığını izole test eder.
-// Tam AxetCodeHome render çok bağımlı (store/context) — aynı useEffect
-// mantığı minimal hook ile test ediliyor; bu, AxetCodeHome'daki kodu doğrular.
-describe("AxetCodeHome — chat:open renderer tarafı", () => {
+// Gerçek useChatOpen hook'u (src/lib/useChatOpen.ts) test ediliyor.
+// AxetCodeHome bu hook'u kullanır; test doğrudan ürün koduna bağlıdır.
+import { useChatOpen } from "../src/lib/useChatOpen";
+
+describe("useChatOpen — chat:open renderer tarafı", () => {
   // window.api mock — her testten önce sıfırla
   let capturedOnChatOpen: ((chatId: string) => void) | null = null;
+  let unsubscribeCalled = false;
   const origApi = (window as unknown as Record<string, unknown>).api;
 
   beforeEach(() => {
     capturedOnChatOpen = null;
+    unsubscribeCalled = false;
     (window as unknown as Record<string, unknown>).api = {
       ...(origApi as object),
       onChatOpen: (cb: (chatId: string) => void) => {
         capturedOnChatOpen = cb;
-        return () => { capturedOnChatOpen = null; };
+        return () => { unsubscribeCalled = true; capturedOnChatOpen = null; };
       }
     };
   });
@@ -115,18 +117,7 @@ describe("AxetCodeHome — chat:open renderer tarafı", () => {
     const onSwitchToChat = vi.fn();
     const setActiveId = vi.fn() as Mock;
 
-    // AxetCodeHome'un onChatOpen useEffect'ini birebir yansıtan minimal hook.
-    // Kaynak: src/components/AxetCodeHome.tsx (onChatOpen useEffect, ~satır 1997)
-    function useChatOpenHook() {
-      useEffect(() => {
-        return (window as { api: { onChatOpen: (cb: (id: string) => void) => () => void } }).api.onChatOpen((chatId) => {
-          onSwitchToChat?.();
-          setActiveId(chatId);
-        });
-      }, []);
-    }
-
-    renderHook(() => useChatOpenHook());
+    renderHook(() => useChatOpen({ onSwitchToChat, setActiveId }));
 
     // callback kayıt edilmiş olmalı
     expect(capturedOnChatOpen).not.toBeNull();
@@ -138,6 +129,15 @@ describe("AxetCodeHome — chat:open renderer tarafı", () => {
     expect(onSwitchToChat).toHaveBeenCalledTimes(1);
     // 2. Doğru sohbet aktif yapıldı mı?
     expect(setActiveId).toHaveBeenCalledWith("test-chat-id");
+  });
+
+  it("unmount'ta abonelik iptal edilir", () => {
+    const { unmount } = renderHook(() =>
+      useChatOpen({ onSwitchToChat: vi.fn(), setActiveId: vi.fn() })
+    );
+    expect(unsubscribeCalled).toBe(false);
+    unmount();
+    expect(unsubscribeCalled).toBe(true);
   });
 });
 

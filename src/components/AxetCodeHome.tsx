@@ -25,6 +25,7 @@ import { settleAnswer } from "../lib/settleAnswer";
 import { saveDelay } from "../lib/saveDelay";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
+import { useChatOpen } from "../lib/useChatOpen";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
 
 // axet-code güncelleme duyurusu için yoklama aralığı. Duyuru bulunana kadar
@@ -1994,13 +1995,7 @@ export default function AxetCodeHome({
   // İş B — bildirim tıklandığında ana süreç "chat:open" gönderir.
   // AxetCodeHome her zaman takılı (CSS hidden, değil unmount) olduğu için
   // dinleyici uygulama ömrü boyunca aktif.
-  useEffect(() => {
-    return window.api.onChatOpen((chatId) => {
-      // Logon/Terminal ekranındaysa chat ekranına geç, ardından sohbeti seç.
-      onSwitchToChat?.();
-      setActiveId(chatId);
-    });
-  }, [setActiveId, onSwitchToChat]);
+  useChatOpen({ onSwitchToChat, setActiveId });
 
   useEffect(() => {
     return window.api.onChatProgress((requestId, progress) => {
