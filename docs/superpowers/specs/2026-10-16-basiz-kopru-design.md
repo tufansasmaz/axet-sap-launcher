@@ -87,12 +87,12 @@ Uygulamanın **Terminal ekranına dokunulmaz.**
 **Seçenekli sorular:**
 - **İlk katman:** başsız turlarda istemin başına şu kural eklenir: "`ask_user` aracını kullanma. Kullanıcıdan karar gerekiyorsa turu sorunla bitir. Seçenekleri şu blokta ver:"
 
-  ```
-  \`\`\`secenekler
+  ~~~
+  ```secenekler
   - Seçenek 1
   - Seçenek 2
-  \`\`\`
   ```
+  ~~~
 
   Sohbet bu bloğu düğmelere çevirir, metinden çıkarır. Serbest cevap kutusu da kalır.
 - **Güvenlik ağı:** ajan yine `ask_user` çağırırsa köprü araç çağrısını veritabanında gördüğü anda süreci öldürür. Soru ve seçenekler aracın girdisinden okunur, bugünkü soru kutusu gösterilir. Böylece transport ya da paket gibi kararlar ajana bırakılmaz.
