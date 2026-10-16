@@ -243,23 +243,15 @@ export async function sendChatMessage(
   const emitProgress = safe(onProgress);
 
   // Sürüm denetimi öncesinde kaydediyoruz: await sırasında gelen Durdur kayboluyor.
+  // try/finally burayı kapsıyor; erken dönüşler runs.delete'i atlamaz.
   const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0, wakeDelay: null };
   runs.set(requestId, run);
 
-  // Ön koşul: axet-code 1.4+ ve sağlam program dosyası (kullanıcı kararı 2026-10-16).
-  const status = await axetBinaryStatus();
-  const blocked = axetBinaryMessage(status);
-  if (blocked) {
-    appLog("kopru.surum", { surum: "version" in status ? status.version : "-", durum: status.kind });
-    return { ok: false, text: "", error: blocked };
-  }
-  if (run.cancelled) return { ok: false, text: "", cancelled: true };
-
-  const useConnectors = decideConnectors(history, message);
-  const started = Date.now();
-  let resumeId = resumableSession(chatId, resolvedCwd);
-  const startedResumed = resumeId !== null;
-  let prompt = resumeId ? resumePrompt(message, useConnectors, resolvedCwd) : seedPrompt(history, message, useConnectors, resolvedCwd);
+  let useConnectors = false;
+  let started = 0;
+  let resumeId: string | null = null;
+  let startedResumed = false;
+  let prompt = "";
   let text = "";
   let restartedReason: AxetChatSendResult["restartedReason"];
   let retried = false;
@@ -298,6 +290,22 @@ export async function sendChatMessage(
   };
 
   try {
+    // Ön koşul: axet-code 1.4+ ve sağlam program dosyası (kullanıcı kararı 2026-10-16).
+    // try içinde: erken dönüşler finally'i atlayıp runs.set'i askıda bırakmıyor.
+    const status = await axetBinaryStatus();
+    const blocked = axetBinaryMessage(status);
+    if (blocked) {
+      appLog("kopru.surum", { surum: "version" in status ? status.version : "-", durum: status.kind });
+      return { ok: false, text: "", error: blocked };
+    }
+    if (run.cancelled) return { ok: false, text: "", cancelled: true };
+
+    useConnectors = decideConnectors(history, message);
+    started = Date.now();
+    resumeId = resumableSession(chatId, resolvedCwd);
+    startedResumed = resumeId !== null;
+    prompt = resumeId ? resumePrompt(message, useConnectors, resolvedCwd) : seedPrompt(history, message, useConnectors, resolvedCwd);
+
     for (;;) {
       if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
       const result = await runOnce();

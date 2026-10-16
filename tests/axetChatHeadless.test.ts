@@ -73,12 +73,13 @@ beforeEach(() => {
 });
 
 describe("sendChatMessage", () => {
-  it("1.4'ten eski axet-code: tur başlamıyor, açık hata", async () => {
+  it("1.4'ten eski axet-code: tur başlamıyor, açık hata, chatBusy false", async () => {
     h.status = { kind: "old", version: "1.3.0" };
     script(() => ({ text: "x" }));
     const r = await send();
     expect(r).toMatchObject({ ok: false, error: "chat.axet:old" });
     expect(calls).toHaveLength(0);
+    expect(chat.chatBusy("chat-1")).toBe(false);
   });
 
   it("ilk tur yeni oturum, kimlik bağlanıyor; ikinci tur --resume ve geçmiş tohumlanmıyor", async () => {
@@ -289,6 +290,7 @@ describe("sendChatMessage", () => {
     expect(r.cancelled).toBe(true);
     expect(calls).toHaveLength(0);
     expect(verdicts).toEqual([["chat-1", { stopped: true, reason: "canceled" }]]);
+    expect(chat.chatBusy("chat-1")).toBe(false);
   });
 
   it("403 bekleme süresi iptal edilebiliyor: bekleme bitmeden sonuç iptal", async () => {
