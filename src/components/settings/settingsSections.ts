@@ -74,7 +74,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: Wrench,
     titleKey: "settingsModal.sectionAdvanced",
     descKey: "settingsModal.descAdvanced",
-    fields: ["landscapePathOverride", "sapShcutPathOverride"]
+    fields: ["landscapePathOverride", "sapShcutPathOverride", "supportEmail"]
   },
   {
     id: "manual",

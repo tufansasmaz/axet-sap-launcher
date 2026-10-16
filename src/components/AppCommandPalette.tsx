@@ -14,6 +14,7 @@ export interface PaletteActions {
   openChat: (id: string) => void;
   selectSystem: (uuid: string) => void;
   openSettings: () => void;
+  reportProblem: () => void;
   toggleTheme: () => void;
   toggleLanguage: () => void;
 }
@@ -45,6 +46,7 @@ export function buildPaletteItems(
     goTo("terminal", t("shell.modeTerminal"), "terminal"),
     goTo("readiness", t("shell.readiness"), "readiness"),
     { id: "settings", group: "action", label: t("palette.openSettings"), run: actions.openSettings },
+    { id: "report-problem", group: "action", label: t("palette.reportProblem"), run: actions.reportProblem },
     { id: "theme", group: "action", label: t("palette.toggleTheme"), run: actions.toggleTheme },
     { id: "language", group: "action", label: t("palette.toggleLanguage"), run: actions.toggleLanguage }
   ];
@@ -79,6 +81,7 @@ interface Props {
   setActivity: (activity: Activity) => void;
   onSelectSystem: (uuid: string) => void;
   onOpenSettings: () => void;
+  onReportProblem: () => void;
   onToggleTheme: () => void;
   onToggleLanguage: () => void;
 }
@@ -92,6 +95,7 @@ export default function AppCommandPalette({
   setActivity,
   onSelectSystem,
   onOpenSettings,
+  onReportProblem,
   onToggleTheme,
   onToggleLanguage
 }: Props) {
@@ -120,6 +124,7 @@ export default function AppCommandPalette({
           onSelectSystem(uuid);
         },
         openSettings: onOpenSettings,
+        reportProblem: onReportProblem,
         toggleTheme: onToggleTheme,
         toggleLanguage: onToggleLanguage
       },
@@ -127,7 +132,7 @@ export default function AppCommandPalette({
       projects,
       systems
     );
-  }, [open, t, setActivity, commands, setActiveId, onSelectSystem, onOpenSettings, onToggleTheme, onToggleLanguage, sessions, projects, systems]);
+  }, [open, t, setActivity, commands, setActiveId, onSelectSystem, onOpenSettings, onReportProblem, onToggleTheme, onToggleLanguage, sessions, projects, systems]);
 
   return <CommandPalette open={open} items={items} onClose={onClose} />;
 }

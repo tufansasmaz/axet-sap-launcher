@@ -64,6 +64,7 @@ function setup(pickFolder: () => Promise<string | null> = () => Promise.resolve(
         onSave={() => Promise.resolve()}
         onExportManualSystems={() => Promise.resolve()}
         onImportManualSystems={() => Promise.resolve()}
+        onReportProblem={() => {}}
       />
       <FrameProbe seen={seen} />
     </LanguageProvider>

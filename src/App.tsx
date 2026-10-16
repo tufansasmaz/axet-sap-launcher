@@ -18,6 +18,7 @@ import Sidebar from "./shell/Sidebar";
 import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./shell/activity";
 import { useShellShortcuts } from "./shell/useShellShortcuts";
 import AppCommandPalette from "./components/AppCommandPalette";
+import { SupportDialogHost } from "./components/SupportDialog";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
 import ChatModeBadge from "./components/ChatModeBadge";
@@ -98,6 +99,7 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [connectivity, setConnectivity] = useState<Record<string, ConnectivityState>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
@@ -1159,6 +1161,10 @@ export default function App() {
           onSave={handleSaveConfig}
           onExportManualSystems={handleExportManualSystems}
           onImportManualSystems={handleImportManualSystems}
+          onReportProblem={() => {
+            setSettingsOpen(false);
+            setSupportOpen(true);
+          }}
         />
 
         <AppConnectionsModal
@@ -1262,8 +1268,20 @@ export default function App() {
           setActivity={setActivity}
           onSelectSystem={setPendingSelectUuid}
           onOpenSettings={() => setSettingsOpen(true)}
+          onReportProblem={() => setSupportOpen(true)}
           onToggleTheme={handleToggleTheme}
           onToggleLanguage={handleToggleLanguage}
+        />
+
+        <SupportDialogHost
+          open={supportOpen}
+          onClose={() => setSupportOpen(false)}
+          onDone={(r) =>
+            pushToast(
+              "success",
+              r.draft === "outlook" ? t("support.doneOutlook") : t("support.doneFolder", { path: r.zipPath })
+            )
+          }
         />
 
         <SapWriteGate

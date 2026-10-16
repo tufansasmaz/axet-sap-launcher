@@ -9,7 +9,8 @@ import {
   SlidersHorizontal,
   ChevronRight,
   Terminal,
-  Circle
+  Circle,
+  LifeBuoy
 } from "lucide-react";
 import type { AppConfig, AppPalette, UpdateStatus } from "../../app-electron/shared/types";
 import { PALETTES, THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
@@ -33,6 +34,8 @@ interface Props {
   onSave: (partial: Partial<AppConfig>, options?: { silent?: boolean }) => Promise<void>;
   onExportManualSystems: () => Promise<void>;
   onImportManualSystems: () => Promise<void>;
+  /** "Sorun bildir" penceresini açar (bkz. SupportDialog). */
+  onReportProblem: () => void;
 }
 
 // `Field`'ın görünen başlığının kimliği. `SegmentedControl` grubunu bu
@@ -288,7 +291,8 @@ export default function SettingsModal({
   config,
   onSave,
   onExportManualSystems,
-  onImportManualSystems
+  onImportManualSystems,
+  onReportProblem
 }: Props) {
   const t = useT();
   const [form, setForm] = useState<AppConfig | null>(config);
@@ -592,6 +596,20 @@ export default function SettingsModal({
               />
               {pathCheck.sapShcut === false && <PathMissing text={t("settingsModal.pathMissing")} />}
             </Field>
+            <Field label={t("support.emailLabel")} hint={t("support.emailHelper")}>
+              <FieldInput
+                type="email"
+                value={form.supportEmail ?? ""}
+                onChange={(e) => update({ supportEmail: e.target.value })}
+                placeholder="ad.soyad@nttdata.com"
+              />
+            </Field>
+            <div>
+              <Button onClick={onReportProblem}>
+                <LifeBuoy size={14} />
+                {t("support.openAction")}
+              </Button>
+            </div>
           </div>
         );
       case "manual":

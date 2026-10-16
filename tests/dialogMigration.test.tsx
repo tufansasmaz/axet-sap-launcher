@@ -267,6 +267,7 @@ describe("SettingsModal", () => {
         onSave={onSave}
         onExportManualSystems={vi.fn(() => Promise.resolve())}
         onImportManualSystems={vi.fn(() => Promise.resolve())}
+        onReportProblem={vi.fn()}
       />
     );
     return { onClose, onSave };

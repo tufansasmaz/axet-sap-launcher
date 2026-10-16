@@ -123,6 +123,7 @@ describe("buildPaletteItems", () => {
     openChat: vi.fn(),
     selectSystem: vi.fn(),
     openSettings: vi.fn(),
+    reportProblem: vi.fn(),
     toggleTheme: vi.fn(),
     toggleLanguage: vi.fn()
   };
