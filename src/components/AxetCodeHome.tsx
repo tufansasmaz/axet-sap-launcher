@@ -33,6 +33,10 @@ import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatT
 // kullanıcıyı ekranı yenilemeye zorlamıyor.
 const AXET_UPDATE_POLL_MS = 20_000;
 
+// Isıtma (axetPrewarm.ts): taslak durulunca ve sohbet açılınca.
+const PREWARM_DEBOUNCE_MS = 500;
+const CHAT_OPEN_PREWARM_MS = 1_500;
+
 // SAP'a bağlanınca App.tsx'in "bu sisteme bağlı bir sohbet aç" isteği.
 // `nonce` şart: aynı sisteme arka arkaya bağlanmak AYNI projectDir/label
 // nesnesini üretir ve effect bir daha tetiklenmezdi.
@@ -2013,6 +2017,77 @@ export default function AxetCodeHome({
       );
     });
   }, []);
+
+  // --- Isıtma (İş 1, 2026-10-16) ---
+  // `axet-code run` istem gelmeden açılış işini yapıyor (güncelleme denetimi,
+  // yetenek eşitleme, bağlayıcı kurulumu); süreç önceden açılıp stdin'de
+  // bekletilince ilk cevap ~1 sn (bağlayıcısız) / ~4 sn (bağlayıcılı) erken
+  // geliyor. Havuz ve kurallar ana süreçte (axetPrewarm.ts); anahtar tutmazsa
+  // gönderim kendi sürecini açıyor, yani buradaki her çağrı ateşle-unut.
+  //
+  // Hedef bir REF'te, efektlerin bağımlılık listesinde DEĞİL: `sessions` akan
+  // bir cevapta saniyede onlarca kez değişiyor ve efekti her seferinde söküp
+  // takmak debounce sayacını sürekli sıfırlardı. Yeni sohbette kimlik önceden
+  // üretilmiş `newChatIdRef`: ilk mesaj aynı kimlikle gidiyor ve ısıtmadan
+  // faydalanıyor.
+  const prewarmTargetRef = useRef<{
+    cwd: string;
+    model: AxetModelEntry | null;
+    chatId: string;
+    messages: ChatMessage[];
+    projectId: string | null;
+  }>({ cwd: "", model: null, chatId: "", messages: [], projectId: null });
+  const activeDraft = activeId
+    ? (sessions.find((s) => s.id === activeId)?.draft ?? "")
+    : newDraft;
+  useEffect(() => {
+    const session = activeId ? (sessions.find((s) => s.id === activeId) ?? null) : null;
+    prewarmTargetRef.current = {
+      // runPrompt ile aynı klasör kuralı: sohbetin klasörü yoksa çalışma alanı.
+      cwd: (session ? session.cwd : (effectiveNewBinding?.cwd ?? null)) || config?.axetWorkspaceDir || "",
+      model: session ? session.model : defaultModel,
+      chatId: session ? session.id : newChatIdRef.current,
+      // Yeni sohbet geçmişsiz gidiyor (handleSendNew); karşılama balonu sayılmaz.
+      messages: session ? session.messages : [],
+      projectId: session ? session.projectId : newProjectId,
+    };
+  });
+
+  const firePrewarm = useCallback((draft: string) => {
+    const { cwd, model, chatId, messages, projectId } = prewarmTargetRef.current;
+    if (!chatId) return;
+    try {
+      // Bağlayıcı kararı gönderimdekiyle aynı metinden çıksın: proje talimatı
+      // dahil taslak + geçmişin son iki mesajı (bkz. axetChat.ts decideConnectors).
+      const text = withProjectInstructions(draft, projects.find((p) => p.id === projectId) ?? null);
+      const history = buildHistoryForCall(messages).slice(-2);
+      window.api.prewarmChat?.(chatId, cwd, model, text, history)?.catch(() => {});
+    } catch {
+      // ısıtma bir iyileştirme; gönderim yolunu etkilemez
+    }
+  }, [projects]);
+
+  useEffect(() => {
+    // Boş taslak: açılış ısıtması (aşağıda) zaten çalışıyor.
+    if (!activeDraft.trim()) return;
+    const timer = setTimeout(() => firePrewarm(activeDraft), PREWARM_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+    // firePrewarm BİLEREK yok: proje listesi değişince sayaç sıfırlanmasın.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDraft]);
+
+  // Sohbet AÇILINCA da ısıt — yazmaya başlanmasını bekleme. Gecikme debounce'tan
+  // uzun: sohbetler arasında hızlı gezinmek her uğranan sohbet için süreç açmasın.
+  // Yeni sohbet ekranında bağlam (SAP sistemi ya da klasör) ŞART: uygulamayı
+  // hiçbir yere bağlanmadan açmak süreç açmıyor.
+  const prewarmOpenKey = activeId ?? (effectiveNewBinding?.cwd ? `yeni:${effectiveNewBinding.cwd}` : "");
+  useEffect(() => {
+    if (!prewarmOpenKey) return;
+    const timer = setTimeout(() => firePrewarm(activeDraft), CHAT_OPEN_PREWARM_MS);
+    return () => clearTimeout(timer);
+    // activeDraft BİLEREK yok: taslağa tepki vermek yukarıdaki efektin işi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prewarmOpenKey]);
 
   // axet-code'un güncelleme duyurusu. Değer her turun stderr'inden okunup
   // axetCodeLatestSeen'e kalıcı olarak yazılıyor (bkz. axetCodeVersion.ts

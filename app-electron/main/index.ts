@@ -52,6 +52,8 @@ import {
   cancelChatMessage,
   cancelAllChatMessages,
   closeChatSession,
+  dropAllPrewarmed,
+  prewarmChat,
   resetChatHistory
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
@@ -531,7 +533,9 @@ function syncGlobalSkills(config: AppConfig): void {
     appLog("skills:global:hata", { mesaj: String(error) });
     return;
   }
-  // Her tur yeni bir axet-code süreci: yetenek listesi bir sonraki turda zaten taze.
+  // Her tur yeni bir axet-code süreci: yetenek listesi bir sonraki turda zaten
+  // taze — ISITILMIŞ süreçler hariç: onlar listeyi açılışta okudu, bırakılıyor.
+  dropAllPrewarmed();
 }
 
 function registerIpc(): void {
@@ -673,6 +677,8 @@ function registerIpc(): void {
       profile: config.skillProfile ?? undefined,
       tier: serviceUuid ? (config.systemTiers?.[serviceUuid] ?? null) : null
     });
+    // Isıtılmış süreçler yetenekleri açılışta okudu: eski listeyle kalmasınlar.
+    dropAllPrewarmed();
     return {
       skills: listInstalledSkills(projectDir),
       stamp: readSkillVersionStamp(projectDir),
@@ -696,11 +702,14 @@ function registerIpc(): void {
   // yok (her tur yeni süreç); kurulan liste bir sonraki turda görülüyor.
   ipcMain.handle("catalogSkills:install", async (_event, projectDir: string, id: string) => {
     const result = await installCatalogSkill(projectDir, id, loadConfig().skillProfile ?? DEFAULT_PROFILE);
+    // Isıtılmış süreç (varsa) eski listeyle açıldı: bırakılıyor.
+    dropAllPrewarmed();
     return result;
   });
 
   ipcMain.handle("catalogSkills:remove", async (_event, projectDir: string, name: string) => {
     const result = await removeCatalogSkill(projectDir, name, loadConfig().skillProfile ?? DEFAULT_PROFILE);
+    dropAllPrewarmed();
     return result;
   });
 
@@ -1282,6 +1291,15 @@ function registerIpc(): void {
         // her seferinde tam DURUM (bkz. AxetChatProgress).
         (progress) => mainWindow?.webContents.send("axetChat:progress", requestId, progress)
       )
+  );
+  // Isıtma (bkz. axetPrewarm.ts): taslak yazılırken/sohbet açılınca istemsiz
+  // bir `run` süreci. Geçmişin yalnız SON İKİ mesajı geliyor: bağlayıcı
+  // kararı (`decideConnectors`) yalnız onlara bakıyor ve gönderimdeki kararla
+  // aynı olmalı, yoksa anahtar tutmaz. Ateşle-unut; prewarmChat atmıyor.
+  ipcMain.handle(
+    "axetChat:prewarm",
+    (_event, chatId: string, cwd: string, model: AxetModelEntry | null, draft: string, history: AxetChatMessage[]) =>
+      prewarmChat(chatId, cwd, model, draft, Array.isArray(history) ? history.slice(-2) : [])
   );
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
     // Süreç ağacı öldürülüyor; "durdu mu" diye ayrı bir karar kanalı yok.

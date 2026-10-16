@@ -263,6 +263,14 @@ const api = {
   ): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex, customText),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
+  // İstemsiz `run` süreci (bkz. axetPrewarm.ts); ateşle-unut.
+  prewarmChat: (
+    chatId: string,
+    cwd: string,
+    model: AxetModelEntry | null,
+    draft: string,
+    history: AxetChatMessage[]
+  ): Promise<void> => ipcRenderer.invoke("axetChat:prewarm", chatId, cwd, model, draft, history),
   // axet-code'un kendi güncelleme duyurusu (bizim uygulamamızınki AYRI, o
   // electron-updater'dan `onUpdateStatus` ile geliyor).
   axetUpdateAvailable: (): Promise<{ installed: string; latest: string } | null> =>

@@ -216,6 +216,17 @@ export interface AxetApi {
     customText?: string
   ) => Promise<boolean>;
   closeChatSession: (chatId: string) => Promise<void>;
+  /**
+   * İlk cevabı hızlandırmak için istemsiz bir `axet-code run` süreci açar
+   * (ateşle-unut). `history`: son iki mesaj yeterli (bağlayıcı kararı).
+   */
+  prewarmChat: (
+    chatId: string,
+    cwd: string,
+    model: AxetModelEntry | null,
+    draft: string,
+    history: AxetChatMessage[]
+  ) => Promise<void>;
   axetUpdateAvailable: () => Promise<{ installed: string; latest: string } | null>;
   /**
    * Ajanın hafızasını geri sarar (axet-code'da yeni oturum), süreci kapatmadan.
