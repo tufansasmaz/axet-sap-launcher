@@ -84,7 +84,9 @@ def t_covers_engine():
     # adt_create_type_group, adt_create_lock_object,
     # adt_unpublish_service_binding -- plus adt_capabilities (ALLOW, one GET on
     # /sap/bc/adt/discovery).
-    assert len(registered) == 50, f"engine registers {len(registered)} tools, expected 50"
+    # 51 since 2026-10-16: adt_dump_detail, registered by NTT Studio's own
+    # ntt_dump_detail.py (not upstream) -- GATED, reads one dump's sections.
+    assert len(registered) == 51, f"engine registers {len(registered)} tools, expected 51"
 
 
 # --- 2: default surface is reads only ----------------------------------------
@@ -145,7 +147,7 @@ def t_gate_opens():
     # All three together.
     ro = fresh(**{g["var"]: "true" for g in ro0.GATED.values()})
     keep = quiet(ro.build)
-    assert len(keep) == 22, f"expected 22 tools with every gate open, got {len(keep)}"
+    assert len(keep) == 23, f"expected 23 tools with every gate open, got {len(keep)}"
     assert not (ro.DENY & keep), "opening the gates exposed a write tool"
 
 
@@ -250,6 +252,22 @@ def t_refuses_without_registry():
     raise AssertionError("build() fell back to belt-only instead of refusing to start")
 
 
+
+# --- NTT Studio: adt_dump_detail -----------------------------------------------
+def t_dump_detail_gated():
+    """Our tool, behind its own variable; the served function is ours, not a shadow."""
+    ro = fresh()
+    gate = ro.GATED.get("adt_dump_detail")
+    assert gate and gate["var"] == "ADT_RO_ALLOW_DUMP_DETAIL", f"gate: {gate}"
+    keep = quiet(ro.build)
+    assert "adt_dump_detail" not in keep, "adt_dump_detail open with no variable set"
+    ro = fresh(ADT_RO_ALLOW_DUMP_DETAIL="true")
+    keep = quiet(ro.build)
+    assert "adt_dump_detail" in keep, "ADT_RO_ALLOW_DUMP_DETAIL=true did not open it"
+    fn = getattr(ro.engine, "adt_dump_detail", None)
+    assert fn is not None and fn.__module__ == "ntt_dump_detail", f"served: {fn!r}"
+
+
 CHECKS = [
     ("classification covers the engine", "a tool the engine has but nobody classified", t_covers_engine),
     ("default surface is the 19 reads", "an accidental change to the allowlist", t_default_surface),
@@ -265,6 +283,7 @@ CHECKS = [
     ("refuses without a registry", "mcp internals drift degrading this to belt-only", t_refuses_without_registry),
     ("classification is disjoint", "a write tool in ALLOW and DENY at once, exposed by ALLOW", t_classification_disjoint),
     ("engine is the sibling skill's", "pruning the registry of a same-named module that is not served", t_engine_identity),
+    ("dump detail behind its own gate", "dump field values handed out on a system nobody opted in for", t_dump_detail_gated),
 ]
 
 

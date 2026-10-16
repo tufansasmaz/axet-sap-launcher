@@ -131,6 +131,13 @@ import ntt_ns_url  # noqa: E402
 _assert_origin(ntt_ns_url, _SCRIPTS_DIR / "ntt_ns_url.py")
 ntt_ns_url.install()
 
+# Tek bir kısa dump'ın bölümleri ve kesildiği kaynak satırı (bkz. ntt_dump_detail.py).
+# Sınıflandırmadan ÖNCE kaydediliyor: kayma denetimi onu motorun aracı gibi görsün.
+import ntt_dump_detail  # noqa: E402
+
+_assert_origin(ntt_dump_detail, _SCRIPTS_DIR / "ntt_dump_detail.py")
+ntt_dump_detail.install(engine, guardrails)
+
 
 # --- sınıflar -----------------------------------------------------------------
 SERBEST = {
@@ -139,6 +146,7 @@ SERBEST = {
     "adt_service_binding_status", "adt_transport_check", "adt_check_scatter",
     "adt_syntax_check", "adt_atc_check", "adt_unit_test", "adt_search", "adt_code_search",
     "adt_revisions", "adt_inactive_objects", "adt_badi_discovery", "adt_dumps",
+    "adt_dump_detail",
 }
 TRANSPORT_ONAYLI = {
     "adt_set_transport", "adt_push", "adt_create_domain", "adt_create_data_element",

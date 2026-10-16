@@ -340,8 +340,8 @@ interface ReadonlyServerOutcome {
 // alıyor ve ikisinin daha kısıtlayıcı olanını kullanıyor (`ntt_tier.py`).
 function adtServerScriptFor(writeSurface: boolean): { rel: string[]; label: string } {
   return writeSurface
-    ? { rel: ["sap-adt", "scripts", "adt_gated_server.py"], label: "ADT sunucusu (onaylı yazma, 53 araç)" }
-    : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (21 araç)" };
+    ? { rel: ["sap-adt", "scripts", "adt_gated_server.py"], label: "ADT sunucusu (onaylı yazma, 54 araç)" }
+    : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (22 araç)" };
 }
 
 async function attemptReadonlyServerAutoStart(
@@ -638,7 +638,7 @@ function buildContextMarkdown(
 - SAP'a **yazmayan** skiller ayrıca genel klasörde duruyor: \`${getGlobalAxetRoot()}\\skills\` — orada olanlar bu projede de geçerli, ikinci kez kurulmaları gerekmez. Bir skill'i burada göremiyorsan önce orada ara.
 ${
         writable
-          ? `- **\`%sap-adt\`** — bu sistem **DEV** olarak işaretli, yani ADT sunucusu **onaylı yazma** ile çalışıyor: 53 araç (motorun 50 aracı + \`axet_teslim\`, \`axet_abapgit_onay\`, \`axet_inceleme_kaydet\`). Okuyan araçlar serbest (karma araçlarda — \`adt_generate_*\`, \`adt_message_class\` — modu açıkça ver, yoksa \`mod_belirtilmeli\`); SAP'a yazan her çağrı NTT Studio'da kullanıcının önüne bir **onay penceresi** açar. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
+          ? `- **\`%sap-adt\`** — bu sistem **DEV** olarak işaretli, yani ADT sunucusu **onaylı yazma** ile çalışıyor: 54 araç (motorun 50 aracı + \`adt_dump_detail\` + \`axet_teslim\`, \`axet_abapgit_onay\`, \`axet_inceleme_kaydet\`). Okuyan araçlar serbest (karma araçlarda — \`adt_generate_*\`, \`adt_message_class\` — modu açıkça ver, yoksa \`mod_belirtilmeli\`); SAP'a yazan her çağrı NTT Studio'da kullanıcının önüne bir **onay penceresi** açar. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
   - **Çalışma modunu kullanıcı seçer** (NTT Studio, oturum başına): "doğrudan DEV'e yaz" ya da "önce yerelde çalış, sonra teslim et". Mod seçilmeden yazma \`mod_secilmedi\` ile reddedilir — kullanıcıdan NTT Studio'da seçmesini iste, modu sen seçme.
   - Yazan bir çağrı \`approval_pending\` dönerse: kullanıcıya NTT Studio'daki onay penceresini söyle; onayladıktan sonra **AYNI çağrıyı AYNI argümanlarla** tekrar gönder. \`approval_denied\` → dur, başka bir yoldan deneme, kullanıcıya ne istediğini sor. \`approval_unavailable\` → NTT Studio'nun açık olduğunu sor; onay yoksa yazma yok.
   - \`yerel_mod\` → bu oturum yerelde çalışıyor: \`src/\` altında geliştir, iş bitince \`axet_teslim\` ile tek pencerede teslim onayı iste, sonra aynı nesneleri aynı kaynak dosyalarıyla ve aynı transport'la yaz.
@@ -647,7 +647,7 @@ ${
   - \`adt-tool.ps1\` ile SAP'a YAZMA (zaten salt okunur: yalnızca GET/HEAD gönderir, başka yöntemi istek göndermeden reddeder); kabuktan, \`generate_screen.py\`/\`generate_adobe.py\` script'lerini doğrudan çalıştırarak ya da SAP GUI'den dolanarak da yazma. Ekran/Adobe üretimi DEV'de 8787'deki \`adt_generate_screen\`/\`adt_generate_adobe\` araçlarından geçer — onay penceresinin amacı her yazmayı kullanıcının görmesi.
   - Motorun kademe kapısı kademeyi NTT Studio'nun sunucuya verdiği değerden alıyor; \`.conn_adt\`'taki \`ADT_SAP_TIER\` onu yalnızca daha kısıtlayıcı yöne çekebilir. Bir yazma "GR_TIER" ile reddedilirse bu bir arıza değil: bağlı olduğun sistem DEV değil demektir, \`.conn_adt\`'ı düzeltmeye kalkma, kullanıcıya söyle.
   - Sunucu yalnızca NTT Studio'nun bağlandığı sisteme (adres, client, kullanıcı) gider. \`.conn_adt\` başka bir sistemi gösterirse her araç \`binding_mismatch\` ile reddedilir; başka bir sisteme geçmek için kullanıcı NTT Studio'da o sisteme bağlanır, sen \`.conn_adt\`'ı değiştirme.`
-          : `- **\`%sap-adt-readonly\`** — bu sistem **${tier ?? "işaretlenmemiş"}**, yani ADT motoru **salt okunur** yüzeyle çalışıyor: yazan 28 araç MCP kaydına hiç girmiyor. 21 araç var (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.); \`adt_sql\` (tablo okuma) ve \`adt_dumps\` (ST22) açık, ABAP çalıştıran \`adt_unit_test\` kapalı. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir.
+          : `- **\`%sap-adt-readonly\`** — bu sistem **${tier ?? "işaretlenmemiş"}**, yani ADT motoru **salt okunur** yüzeyle çalışıyor: yazan 28 araç MCP kaydına hiç girmiyor. 22 araç var (adt_get_source, adt_search, adt_where_used, adt_syntax_check, adt_atc_check, adt_list_package, adt_revisions, adt_list_transports, vb.); \`adt_sql\` (tablo okuma), \`adt_dumps\` (ST22 listesi) ve \`adt_dump_detail\` (bir dump'ın içi) açık, ABAP çalıştıran \`adt_unit_test\` kapalı. **Bir dump görünce** \`adt_dumps\`'ın verdiği \`uri\`'yi \`adt_dump_detail\` ile oku: hata analizi, kaynak kod alıntısı ve hatanın düştüğü include + satır gelir; sonra o include'u \`adt_get_source\` ile aç. Alan değerleri (\`include_variables\`) QA/PRD'de GR_PII ister: kullanıcıya sor, onayı kendin verme. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir.
   - QA/PRD'de kişisel veri taşıyan bir tablo (KNA1, LFA1, BSEG, PA*, TCKN/VKN alanlı…) \`GR_PII\` ile reddedilir. Onayı KENDİN verme: kullanıcıya hangi tabloyu neden okuyacağını söyle, açık bir "onay" cevabı gelirse aynı sorguyu \`acknowledge_risk=true\` ve kullanıcının cevabıyla (\`approval_text\`) tekrar gönder. Gereken sütunları seç, \`max_rows\`'u küçük tut.
   - Bir push/activate aracı ARAMA: yok. Kullanıcı bu sistemde geliştirme istiyorsa yapılacak şey sistemi NTT Studio'da DEV olarak işaretlemesi, senin bir yolunu bulman değil.
   - Sunucu yalnızca NTT Studio'nun bağlandığı sisteme gider; \`.conn_adt\` başka bir sistemi gösterirse araçlar \`binding_mismatch\` ile reddedilir. Başka sisteme geçmek için kullanıcı NTT Studio'da o sisteme bağlanır.`
@@ -821,7 +821,7 @@ python -c "import os, requests; print(requests.post('http://127.0.0.1:8787/tool/
 \`\`\`
 ${
         writable
-          ? `Bu sistem DEV: server yazma araçlarını da sunuyor, her yazma NTT Studio'nun onayından geçer (yukarıdaki \`%sap-adt\` maddesine bak). **DEV'de sunucuyu ELLE BAŞLATMA**: onay ucunun adresi ve anahtarı yalnızca NTT Studio'nun başlattığı sunucuya verilir; elle açılan sunucu her yazmayı \`approval_unavailable\` ile reddeder. Otomatik başlatma başarısızsa kullanıcıdan sistemi NTT Studio'da yeniden bağlamasını iste. QA/PRD'ye bağlıyken bu server hiç açılmaz — onun yerine 21 araçlık sarmalayıcı açılır.`
+          ? `Bu sistem DEV: server yazma araçlarını da sunuyor, her yazma NTT Studio'nun onayından geçer (yukarıdaki \`%sap-adt\` maddesine bak). **DEV'de sunucuyu ELLE BAŞLATMA**: onay ucunun adresi ve anahtarı yalnızca NTT Studio'nun başlattığı sunucuya verilir; elle açılan sunucu her yazmayı \`approval_unavailable\` ile reddeder. Otomatik başlatma başarısızsa kullanıcıdan sistemi NTT Studio'da yeniden bağlamasını iste. QA/PRD'ye bağlıyken bu server hiç açılmaz — onun yerine 22 araçlık sarmalayıcı açılır.`
           : `Bu server SAP'a yazmayı **yüzeyden** engelliyor: yazan 28 araç MCP kaydına hiç girmiyor, yani 404 bile dönmüyor — öyle bir araç yok. Bir yolunu arama.`
       }
 

@@ -28,7 +28,7 @@ const http = require("node:http");
 const port = Number(process.argv[process.argv.indexOf("--port") + 1]);
 const token = (process.env.ABAP_HTTP_TOKEN || "").trim();
 const tools = ["adt_get_source", "adt_search"];
-for (const [name, v] of [["adt_sql", "ADT_RO_ALLOW_SQL"], ["adt_dumps", "ADT_RO_ALLOW_DUMPS"], ["adt_unit_test", "ADT_RO_ALLOW_UNIT_TEST"]]) {
+for (const [name, v] of [["adt_sql", "ADT_RO_ALLOW_SQL"], ["adt_dumps", "ADT_RO_ALLOW_DUMPS"], ["adt_dump_detail", "ADT_RO_ALLOW_DUMP_DETAIL"], ["adt_unit_test", "ADT_RO_ALLOW_UNIT_TEST"]]) {
   if (process.env[v] === "true") tools.push(name);
 }
 http.createServer((req, res) => {
@@ -102,13 +102,15 @@ describe("salt okunur sunucuda veri okuma kapıları", () => {
       const { tools } = await health(port);
       expect(tools).toContain("adt_sql");
       expect(tools).toContain("adt_dumps");
+      // Dump'ın içini okuyan araç da (2026-10-16): liste tek başına hatayı göstermiyor.
+      expect(tools).toContain("adt_dump_detail");
       expect(tools).not.toContain("adt_unit_test");
     } finally {
       delete process.env.ADT_RO_ALLOW_UNIT_TEST;
     }
   }, 20_000);
 
-  it("portta tablo okumayan eski bir salt okunur sunucu varsa devralınmıyor, beklenen 21", async () => {
+  it("portta tablo okumayan eski bir salt okunur sunucu varsa devralınmıyor, beklenen 22", async () => {
     const port = await freePort();
     const old = createServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -125,6 +127,6 @@ describe("salt okunur sunucuda veri okuma kapıları", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("adtServer.surfaceMismatch");
-    expect(result.message).toContain('"expected":"21"');
+    expect(result.message).toContain('"expected":"22"');
   }, 20_000);
 });

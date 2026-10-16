@@ -28,8 +28,8 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
     const body = fn.slice(0, fn.indexOf("\n}\n"));
     expect(body).toContain('"adt_gated_server.py"');
     expect(body).not.toContain("adt_mcp_server.py");
-    expect(body).toContain("53 araç");
-    expect(body).toContain("(21 araç)");
+    expect(body).toContain("54 araç");
+    expect(body).toContain("(22 araç)");
   });
 
   it("onay ucunun adresi ve token'ı yalnızca onaylı sunucunun ortamına gidiyor", () => {
@@ -47,12 +47,14 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
   it("sap-context.md salt okunur yüzeyde tablo ve dump okumayı açık, birim testini kapalı söylüyor", () => {
     // Kullanıcı kararı 2026-10-15; ajan "kapalı" okursa denemez bile.
     expect(launcher).not.toContain("ve \\`adt_unit_test\\` ayrıca kendi izin değişkenleriyle kapalı");
-    expect(launcher).toContain("\\`adt_sql\\` (tablo okuma) ve \\`adt_dumps\\` (ST22) açık");
+    expect(launcher).toContain("\\`adt_sql\\` (tablo okuma), \\`adt_dumps\\` (ST22 listesi) ve \\`adt_dump_detail\\` (bir dump'ın içi) açık");
+    // Dump görünce içini okuyup hata satırını açsın (2026-10-16).
+    expect(launcher).toContain("\\`adt_dump_detail\\` ile oku");
     expect(launcher).toContain("\\`adt_unit_test\\` kapalı");
   });
 
-  it("/health sayısı yüzeyle uyuşmazsa beklenen 53 / 21", () => {
-    expect(manager).toContain('expected: opts.expectWritable ? "53" : "21"');
+  it("/health sayısı yüzeyle uyuşmazsa beklenen 54 / 22", () => {
+    expect(manager).toContain('expected: opts.expectWritable ? "54" : "22"');
   });
 
   it("hiçbir yerde eski 33 / 17 / 13 araç sayısı kalmadı", () => {

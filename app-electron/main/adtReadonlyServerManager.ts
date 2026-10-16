@@ -26,7 +26,7 @@ export interface ReadonlyServerStartOptions {
   pythonPath: string;
   port: number;
   /**
-   * DEV sistemde onaylı yazma sunucusunu (53 araç), aksi hâlde sarmalayıcıyı (21 araç)
+   * DEV sistemde onaylı yazma sunucusunu (54 araç), aksi hâlde sarmalayıcıyı (22 araç)
    * başlatıyoruz. Bu bayrak, portta ZATEN duran bir sunucuyu sahiplenmeden
    * önce onun gerçekten doğru yüzey olduğunu doğrulamak için gerekiyor —
    * bkz. `probeHealth`/`surfaceMismatch`.
@@ -171,7 +171,7 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
         let body = "";
         res.setEncoding("utf-8");
         res.on("data", (chunk: string) => {
-          // 53 araç adı birkaç KB; sınırı aşan bir cevap bizim sunucumuz değil.
+          // 54 araç adı birkaç KB; sınırı aşan bir cevap bizim sunucumuz değil.
           if (body.length < 64_000) body += chunk;
         });
         res.on("end", () => {
@@ -184,7 +184,7 @@ function probeHealth(port: number, timeoutMs = 2000): Promise<HealthInfo> {
               toolCount: typeof parsed.tool_count === "number" ? parsed.tool_count : tools.length,
               unauthorized: false,
               gated: tools.includes("axet_teslim"),
-              readsData: tools.includes("adt_sql"),
+              readsData: tools.includes("adt_sql") && tools.includes("adt_dump_detail"),
               tools
             });
           } catch {
@@ -332,7 +332,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // tek bir sunucu vardı, dolayısıyla cevap da tekti. Artık iki sunucu var:
   // DEV'de bırakılmış YAZAN bir sunucu, ardından PRD'ye bağlanıldığında sessizce
   // sahiplenilir ve canlı sisteme push edilebilir bir oturum açardı. Tersi de
-  // yanlış ama zararsız: DEV'de 21 araçlık sunucuyu devralıp "neden push yok"
+  // yanlış ama zararsız: DEV'de 22 araçlık sunucuyu devralıp "neden push yok"
   // sorusunu doğurur. İkisini de reddediyoruz; sahibi olmadığımız bir process'i
   // öldürmek yerine durumu söylüyoruz.
   //
@@ -365,7 +365,7 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
         message: mt("adtServer.surfaceMismatch", {
           port: opts.port,
           found: String(onPort.toolCount),
-          expected: opts.expectWritable ? "53" : "21"
+          expected: opts.expectWritable ? "54" : "22"
         })
       };
     }
@@ -412,6 +412,10 @@ export async function startReadonlyServer(opts: ReadonlyServerStartOptions): Pro
   // değişkenleri okumuyor (motorun bütün araçları zaten onda).
   env.ADT_RO_ALLOW_SQL = "true";
   env.ADT_RO_ALLOW_DUMPS = "true";
+  // Dump'ın içi (bölümler + hatanın düştüğü satır; bkz. ntt_dump_detail.py).
+  // Liste tek başına hatayı göstermiyor (2026-10-16). Alan değerleri yine QA/PRD'de
+  // kullanıcının onayına bağlı (GR_PII).
+  env.ADT_RO_ALLOW_DUMP_DETAIL = "true";
   delete env.ADT_RO_ALLOW_UNIT_TEST;
   if (opts.gate) {
     env.ADT_APPROVAL_URL = opts.gate.url;

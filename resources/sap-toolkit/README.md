@@ -301,6 +301,7 @@ gated behind their own variable because "read-only" reads as "harmless" and thes
 | `adt_unit_test` | `ADT_RO_ALLOW_UNIT_TEST` | executes ABAP on the target; a badly isolated test can commit |
 | `adt_sql` | `ADT_RO_ALLOW_SQL` | business and personal data, any table the SAP user can see |
 | `adt_dumps` | `ADT_RO_ALLOW_DUMPS` | short-dump text, which carries field values |
+| `adt_dump_detail` | `ADT_RO_ALLOW_DUMP_DETAIL` | one dump's sections and its termination line (NTT Studio, `ntt_dump_detail.py`); field values on QA/PRD need the user's `GR_PII` approval |
 
 **Drift pin:** every tool the engine registers must be classified in the wrapper. A tool
 added upstream and left unclassified makes the read-only server **refuse to start**,

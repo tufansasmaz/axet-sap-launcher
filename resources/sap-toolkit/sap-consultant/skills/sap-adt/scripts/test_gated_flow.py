@@ -618,7 +618,9 @@ def t_build():
     real_sql = engine.adt_sql
     tools = gs.build()
     assert set(gs.AXET_TOOLS) <= tools, tools
-    assert len(tools) == 53, len(tools)
+    # 54 (2026-10-16): motorun 50'si + adt_dump_detail (ntt_dump_detail.py, SERBEST) + 3 axet_*.
+    assert len(tools) == 54, len(tools)
+    assert "adt_dump_detail" in tools and engine.adt_dump_detail.__module__ == "ntt_dump_detail"
     for name in gs.TRANSPORT_ONAYLI | gs.HER_SEFER | set(gs.KARMA):
         assert getattr(getattr(engine, name), "_axet_gated", False), f"{name} sarmalanmadı"
     for name in gs.SERBEST:

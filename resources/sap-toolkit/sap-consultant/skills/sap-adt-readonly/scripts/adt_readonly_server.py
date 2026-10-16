@@ -25,7 +25,7 @@ WHY A SECOND ENTRYPOINT INSTEAD OF AN ENV VAR
   in this process.
 
 WHAT IS EXPOSED
-  17 metadata/source/CTS reads always, plus three tools that each need their own
+  19 metadata/source/CTS reads always, plus four tools that each need their own
   variable set to exactly "true". None of the three writes anything — they are
   gated because "read-only" reads as "harmless" to the people this skill is for,
   and these three are not:
@@ -34,11 +34,13 @@ WHAT IS EXPOSED
     adt_sql        ADT_RO_ALLOW_SQL        business and personal data, any table the
                                            SAP user can see
     adt_dumps      ADT_RO_ALLOW_DUMPS      short-dump text, which carries field values
+    adt_dump_detail ADT_RO_ALLOW_DUMP_DETAIL one dump's sections (NTT Studio, ntt_dump_detail.py)
   A surface that cannot change the system but hands an agent the payroll table is
   not the thing an auditor means by read-only. Open each one per session, knowing
   which system you are on.
 
-  Surface: 17 tools on install, 20 with all three gates open, out of the engine's 33.
+  Surface: 19 tools on install, 23 with all four gates open, out of the engine's 50 + 1
+  (adt_dump_detail is registered by NTT Studio's ntt_dump_detail.py, not upstream).
 
 DRIFT PIN
   Every tool the engine registers must appear in exactly one of ALLOW / GATED /
@@ -174,6 +176,15 @@ import ntt_ns_url  # noqa: E402
 _assert_origin(ntt_ns_url, _ENGINE_DIR / "ntt_ns_url.py")
 ntt_ns_url.install()
 
+# NTT Studio: `adt_dump_detail` — one short dump's sections and the source line it
+# terminated on. adt_dumps only lists dumps, and the address it returns does not
+# open. Registered on the engine here, BEFORE the classification below runs, so
+# the drift pin sees it like any engine tool (see sap-adt/scripts/ntt_dump_detail.py).
+import ntt_dump_detail  # noqa: E402
+
+_assert_origin(ntt_dump_detail, _ENGINE_DIR / "ntt_dump_detail.py")
+ntt_dump_detail.install(engine, guardrails)
+
 
 # --- the classification ------------------------------------------------------
 # Every name here is a tool in adt_mcp_server.py. ALLOW | GATED | DENY must equal
@@ -225,6 +236,14 @@ GATED = {
     "adt_dumps": {
         "var": "ADT_RO_ALLOW_DUMPS",
         "why": "returns short-dump text, which routinely contains field values",
+    },
+    # NTT Studio (ntt_dump_detail.py). Field values ("Chosen Variables") are left
+    # out unless asked for, and on QA/PRD asking needs the user's GR_PII approval —
+    # but the rest of a dump still names users, programs and data, so it is gated
+    # like adt_dumps rather than allowed.
+    "adt_dump_detail": {
+        "var": "ADT_RO_ALLOW_DUMP_DETAIL",
+        "why": "returns one short dump's sections (error analysis, source extract, call stack)",
     },
 }
 

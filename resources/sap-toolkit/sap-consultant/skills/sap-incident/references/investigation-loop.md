@@ -78,7 +78,8 @@ Filter to objects that plausibly touch the symptom — do not print the whole tr
 
 ### Short dump
 
-1. `adt_dumps` → the entry, its exception class, program, include, line.
+1. `adt_dumps` → the entry; then `adt_dump_detail` with its `uri` (NTT Studio) → exception
+   class, error analysis, source extract, and the include + line it terminated on.
 2. `adt_get_source --method` on that unit.
 3. `adt_revisions` → did it change, or did its *input* change?
 4. `adt_where_used` on the failing method → which caller passes the bad value.

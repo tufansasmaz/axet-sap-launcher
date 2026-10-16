@@ -88,8 +88,8 @@ export interface SkillInstallResult {
    */
   blockedByTier: string[];
   /**
-   * Bu rol + bu sistem için YAZAN ADT motoru mu açılacak (`sap-adt`, onaylı yazma, 53 araç),
-   * yoksa sarmalayıcı mı (`sap-adt-readonly`, 21 araç)?
+   * Bu rol + bu sistem için YAZAN ADT motoru mu açılacak (`sap-adt`, onaylı yazma, 54 araç),
+   * yoksa sarmalayıcı mı (`sap-adt-readonly`, 22 araç)?
    *
    * Sunucuyu launcher başlatıyor ve gerçek yüzey O. Skill listesi ajana neyin
    * var olduğunu ANLATIYOR, ama 8787'de ne dinlediğini belirlemiyor — ikisi

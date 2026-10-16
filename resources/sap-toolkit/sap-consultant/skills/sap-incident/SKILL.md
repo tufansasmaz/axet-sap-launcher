@@ -44,7 +44,10 @@ author: "Beyhan Meyrali <beyhan.meyrali@nttdata.com>"
 > (`ADT_RO_ALLOW_DUMPS`; dump metni alan değerleri taşır), `adt_sql` (`ADT_RO_ALLOW_SQL`;
 > iş ve kişisel veri) ve `adt_unit_test` (`ADT_RO_ALLOW_UNIT_TEST`; hedefte ABAP koşturur).
 > **NTT Studio'da `adt_dumps` ve `adt_sql` açık, `adt_unit_test` kapalı** (2026-10-15):
-> vakaya ST22 dumpı ve ilgili tablolarla başla. QA/PRD'de kişisel veri taşıyan tablo
+> vakaya ST22 dumpı ve ilgili tablolarla başla. **Dump'ın içi `adt_dump_detail` ile**
+> (2026-10-16): `adt_dumps`'ın verdiği `uri`'yi geç; hata analizi, kaynak alıntısı ve
+> hatanın düştüğü include + satır gelir, o include'u `adt_get_source` ile aç. Alan
+> değerleri (`include_variables=true`) QA/PRD'de aynı `GR_PII` onayını ister. QA/PRD'de kişisel veri taşıyan tablo
 > `GR_PII` ile reddedilir; kullanıcıya hangi tabloyu neden okuyacağını söyle, açık "onay"
 > gelirse `acknowledge_risk=true` + onun cevabıyla (`approval_text`) tekrar dene — onayı
 > kendin verme. Bir araç yine de `404 unknown_tool` dönerse arıza gibi raporlama; o adımı

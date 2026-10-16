@@ -379,6 +379,7 @@ transport for a read.**
 | Look at the data | `adt_sql` (read-only SELECT, row-capped) |
 | Who changed it, when? | `adt_revisions` |
 | Recent runtime errors | `adt_dumps` |
+| Inside one dump: error analysis, source extract, include + line | `adt_dump_detail` (pass the `uri` from `adt_dumps`) |
 | What's inactive system-wide? | `adt_inactive_objects` |
 | Classic BAdI cross-reference | `adt_badi_discovery` |
 | Quality signal on existing code | `adt_atc_check`, `adt_syntax_check` |

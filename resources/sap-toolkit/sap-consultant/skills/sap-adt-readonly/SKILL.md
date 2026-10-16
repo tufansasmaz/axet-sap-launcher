@@ -109,11 +109,15 @@ continue on suspenders alone.
 | `adt_unit_test` | `ADT_RO_ALLOW_UNIT_TEST` | Executes ABAP on the target — it runs the object's test classes |
 | `adt_sql` | `ADT_RO_ALLOW_SQL` | Reads business and personal data from any table the SAP user can see |
 | `adt_dumps` | `ADT_RO_ALLOW_DUMPS` | Short-dump text routinely contains field values |
+| `adt_dump_detail` | `ADT_RO_ALLOW_DUMP_DETAIL` | One dump's sections and the source line it terminated on (NTT Studio's `ntt_dump_detail.py`, not upstream); field values only on request, and on QA/PRD only with the user's `GR_PII` approval |
 
 > **NTT Studio (2026-10-15):** the server NTT Studio starts on 8787 opens `adt_sql` and
 > `adt_dumps` on every tier (user decision: a module consultant could not read a single
 > table or dump to find a fault) and keeps `adt_unit_test` closed, even if the variable is
-> inherited. That surface is **21 tools**; `/health` lists them. Do not try to open or close
+> inherited. It also opens `adt_dump_detail` (2026-10-16): `adt_dumps` only lists dumps, and
+> the `uri` it returns does not open directly — pass that `uri` to `adt_dump_detail` to read
+> the error analysis, the source extract and the include + line it terminated on, then open
+> that include with `adt_get_source`. That surface is **22 tools**; `/health` lists them. Do not try to open or close
 > a gate yourself. On QA/PRD a sensitive table still answers `GR_PII`: ask the user, and
 > only an explicit "onay" from them goes into `approval_text` — never supply it yourself.
 
