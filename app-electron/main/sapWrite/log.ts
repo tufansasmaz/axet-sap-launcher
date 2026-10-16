@@ -41,7 +41,7 @@ export function resultLogFields(x: unknown): Record<string, unknown> {
   if (typeof x !== "object" || x === null) return {};
   const src = x as Record<string, unknown>;
   const out: Record<string, unknown> = {};
-  for (const key of ["ok", "success", "activated", "corrnr", "error", "error_type", "message"]) {
+  for (const key of ["ok", "success", "activated", "source_uploaded", "corrnr", "error", "error_type", "message"]) {
     const v = src[key];
     if (v === undefined) continue;
     out[key] = typeof v === "string" ? v.slice(0, MAX_TEXT) : typeof v === "boolean" || typeof v === "number" ? v : String(v).slice(0, MAX_TEXT);

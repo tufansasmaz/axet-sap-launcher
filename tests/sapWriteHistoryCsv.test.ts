@@ -15,7 +15,8 @@ const OP: WriteOp = {
   nesneler: [{ ad: "ZCL_A", tip: "CLAS" }, { ad: "ZIF_B", tip: "INTF" }],
   approval: "onaylandi",
   result: "basarili",
-  sapMessage: null
+  sapMessage: null,
+  sapTransport: null
 };
 
 describe("toCsv", () => {
@@ -23,14 +24,14 @@ describe("toCsv", () => {
     const csv = toCsv([OP], "tr");
     expect(csv.charCodeAt(0)).not.toBe(0xfeff);
     const lines = csv.split("\r\n");
-    expect(lines[0]).toBe("Zaman;Kullanıcı;SID;Client;Mod;Araç;Nesneler;Paket;Transport;Onay;Sonuç;SAP mesajı");
-    expect(lines[1]).toBe("2026-10-16 14:32:05;TSASMAZ;D01;100;dogrudan;adt_push;ZCL_A (CLAS), ZIF_B (INTF);ZPKG;D01K900123;Onaylandı;Başarılı;");
+    expect(lines[0]).toBe("Zaman;Kullanıcı;SID;Client;Mod;Araç;Nesneler;Paket;Transport;SAP transport;Onay;Sonuç;SAP mesajı");
+    expect(lines[1]).toBe("2026-10-16 14:32:05;TSASMAZ;D01;100;dogrudan;adt_push;ZCL_A (CLAS), ZIF_B (INTF);ZPKG;D01K900123;;Onaylandı;Başarılı;");
     expect(csv.endsWith("\r\n")).toBe(true);
   });
 
   it("İngilizce başlık ve etiketler", () => {
     const lines = toCsv([{ ...OP, approval: "sure_doldu", result: "yok" }], "en").split("\r\n");
-    expect(lines[0]).toBe("Time;User;SID;Client;Mode;Tool;Objects;Package;Transport;Approval;Result;SAP message");
+    expect(lines[0]).toBe("Time;User;SID;Client;Mode;Tool;Objects;Package;Transport;SAP transport;Approval;Result;SAP message");
     expect(lines[1]).toContain(";Expired;None;");
   });
 
@@ -48,7 +49,11 @@ describe("toCsv", () => {
     expect(cells[6]).toBe("'=SUM(A1) (CLAS)");
     expect(cells[7]).toBe("'+ZPKG");
     expect(cells[8]).toBe("'-K1");
-    expect(cells[11]).toBe("'@cmd");
+    expect(cells[12]).toBe("'@cmd");
+  });
+
+  it("SAP'nin kaydettiği transport ayrı sütunda (inceleme I2)", () => {
+    expect(toCsv([{ ...OP, sapTransport: "D01K900130" }], "tr").split("\r\n")[1].split(";")[9]).toBe("D01K900130");
   });
 
   it("boş alanlar boş hücre; liste boşsa yalnız başlık", () => {

@@ -94,6 +94,32 @@ describe("buildWriteHistory", () => {
     expect(ops[0]).toMatchObject({ result: "hata", sapMessage: "Syntax error in line 12" });
   });
 
+  it("onay kaydı hiç yoksa 'yanıtsız' değil 'bilinmiyor' (inceleme I1)", () => {
+    const { ops } = buildWriteHistory([
+      line({ zaman: "2026-10-16T06:00:00Z", tur: "sonuc", id: "z", arac: "adt_push", sap_sonucu: { success: true }, ...ID })
+    ]);
+    expect(ops[0]).toMatchObject({ approval: "bilinmiyor", result: "basarili" });
+  });
+
+  it("SAP'nin kaydettiği transport (corrnr) ayrı taşınıyor (inceleme I2)", () => {
+    const { ops } = buildWriteHistory([
+      line({ zaman: "2026-10-16T05:00:00Z", tur: "karar", id: "c", karar: "izinli", kaynak: "ust_onay", ...FACT, ...ID }),
+      line({ zaman: "2026-10-16T05:00:03Z", tur: "sonuc", id: "c", sap_sonucu: { success: true, corrnr: "D01K900130" }, ...ID })
+    ]);
+    expect(ops[0]).toMatchObject({ transport: "D01K900123", sapTransport: "D01K900130" });
+    const none = buildWriteHistory([line({ zaman: "2026-10-16T05:00:00Z", tur: "karar", id: "d", karar: "izinli", kaynak: "ust_onay", ...FACT, ...ID })]);
+    expect(none.ops[0].sapTransport).toBeNull();
+  });
+
+  it("yüklendi ama etkinleştirilmedi 'hata' ya da 'başarılı' görünmüyor (inceleme M7)", () => {
+    const { ops } = buildWriteHistory([
+      line({ zaman: "2026-10-16T04:00:00Z", tur: "sonuc", id: "u1", sap_sonucu: { success: false, source_uploaded: true, error: "Activation failed" }, ...ID }),
+      line({ zaman: "2026-10-16T04:01:00Z", tur: "sonuc", id: "u2", sap_sonucu: { ok: true, activated: false }, ...ID })
+    ]);
+    const byKey = Object.fromEntries(ops.map((o) => [o.key, o.result]));
+    expect(byKey).toEqual({ u1: "etkin_degil", u2: "etkin_degil" });
+  });
+
   it("bozuk satırlar sayılıyor; eksik alanlı eski kayıt çökmüyor (inceleme odağı 1); en yeni üstte", () => {
     const { ops, skipped } = buildWriteHistory([
       "bu json değil",

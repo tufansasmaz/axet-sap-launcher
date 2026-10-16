@@ -16,9 +16,13 @@ export type WriteApproval =
   | "sure_doldu"
   | "engellendi"
   | "kalite_reddi"
-  | "yanitsiz";
+  | "yanitsiz"
+  // Kayıtta bu işlemin isteği/onayı yok (günlük yazılamamış ya da 5 MB kesiminde kalmış):
+  // "yanıtsız" denirse denetçi onaysız yazma sanır.
+  | "bilinmiyor";
 
-export type WriteResult = "basarili" | "hata" | "yok";
+// etkin_degil: SAP'ye yüklendi ama etkinleştirilmedi — ne "başarılı" ne "hata".
+export type WriteResult = "basarili" | "hata" | "etkin_degil" | "yok";
 
 export interface WriteOpObject {
   ad: string;
@@ -39,6 +43,8 @@ export interface WriteOp {
   approval: WriteApproval;
   result: WriteResult;
   sapMessage: string | null;
+  /** SAP'nin kaydettiği transport (`corrnr`); onaylanandan farklı olabilir. */
+  sapTransport: string | null;
 }
 
 type Row = Record<string, unknown>;
@@ -79,6 +85,7 @@ function first(rows: Row[], key: string): string | null {
 }
 
 function approvalOf(rows: Row[]): WriteApproval {
+  if (!rows.some((r) => r.tur === "karar" || r.tur === "cevap" || r.tur === "kalite_reddi")) return "bilinmiyor";
   const answer = rows.find((r) => r.tur === "cevap");
   if (answer) {
     if (answer.secim === "reddet") return "reddedildi";
@@ -101,13 +108,19 @@ function approvalOf(rows: Row[]): WriteApproval {
   return "yanitsiz";
 }
 
-function resultOf(rows: Row[]): { result: WriteResult; sapMessage: string | null } {
+function resultOf(rows: Row[]): { result: WriteResult; sapMessage: string | null; sapTransport: string | null } {
   const res = rows.find((r) => r.tur === "sonuc");
-  if (!res) return { result: "yok", sapMessage: null };
+  if (!res) return { result: "yok", sapMessage: null, sapTransport: null };
   const sap = typeof res.sap_sonucu === "object" && res.sap_sonucu !== null ? (res.sap_sonucu as Row) : {};
   const ok = sap.ok === true || sap.success === true;
   const message = str(sap.message) ?? str(sap.error);
-  return { result: ok ? "basarili" : "hata", sapMessage: message ? message.slice(0, MAX_MESSAGE) : null };
+  // Yüklenip etkinleşmeyen sürüm SAP'de duruyor: "hata" denirse değişiklik yok sanılır.
+  const partial = (ok && sap.activated === false) || (!ok && sap.source_uploaded === true);
+  return {
+    result: partial ? "etkin_degil" : ok ? "basarili" : "hata",
+    sapMessage: message ? message.slice(0, MAX_MESSAGE) : null,
+    sapTransport: str(sap.corrnr)
+  };
 }
 
 function toOp(key: string, rows: Row[]): WriteOp {
@@ -172,7 +185,8 @@ export const APPROVAL_LABELS: Record<CsvLanguage, Record<WriteApproval, string>>
     sure_doldu: "Süresi doldu",
     engellendi: "Engellendi",
     kalite_reddi: "Kalite reddi",
-    yanitsiz: "Yanıtsız"
+    yanitsiz: "Yanıtsız",
+    bilinmiyor: "Onay kaydı yok"
   },
   en: {
     onaylandi: "Approved",
@@ -183,18 +197,19 @@ export const APPROVAL_LABELS: Record<CsvLanguage, Record<WriteApproval, string>>
     sure_doldu: "Expired",
     engellendi: "Blocked",
     kalite_reddi: "Quality rejection",
-    yanitsiz: "No answer"
+    yanitsiz: "No answer",
+    bilinmiyor: "No approval record"
   }
 };
 
 export const RESULT_LABELS: Record<CsvLanguage, Record<WriteResult, string>> = {
-  tr: { basarili: "Başarılı", hata: "Hata", yok: "Yok" },
-  en: { basarili: "Succeeded", hata: "Failed", yok: "None" }
+  tr: { basarili: "Başarılı", hata: "Hata", etkin_degil: "Yüklendi, etkinleştirilmedi", yok: "Yok" },
+  en: { basarili: "Succeeded", hata: "Failed", etkin_degil: "Uploaded, not activated", yok: "None" }
 };
 
 const HEADERS: Record<CsvLanguage, string[]> = {
-  tr: ["Zaman", "Kullanıcı", "SID", "Client", "Mod", "Araç", "Nesneler", "Paket", "Transport", "Onay", "Sonuç", "SAP mesajı"],
-  en: ["Time", "User", "SID", "Client", "Mode", "Tool", "Objects", "Package", "Transport", "Approval", "Result", "SAP message"]
+  tr: ["Zaman", "Kullanıcı", "SID", "Client", "Mod", "Araç", "Nesneler", "Paket", "Transport", "SAP transport", "Onay", "Sonuç", "SAP mesajı"],
+  en: ["Time", "User", "SID", "Client", "Mode", "Tool", "Objects", "Package", "Transport", "SAP transport", "Approval", "Result", "SAP message"]
 };
 
 // Excel `=`, `+`, `-`, `@` ile (ve sekme/CR ile) başlayan hücreyi formül sayıyor;
@@ -228,6 +243,7 @@ export function toCsv(ops: readonly WriteOp[], language: CsvLanguage): string {
         op.nesneler.map((o) => (o.tip ? `${o.ad} (${o.tip})` : o.ad)).join(", "),
         op.paket,
         op.transport,
+        op.sapTransport,
         APPROVAL_LABELS[language][op.approval],
         RESULT_LABELS[language][op.result],
         op.sapMessage

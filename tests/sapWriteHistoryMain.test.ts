@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ BrowserWindow: { getFocusedWindow: () => null }, dialog: { showSaveDialog: vi.fn() } }));
 
-const { MAX_HISTORY_BYTES, csvFileName, exportWriteHistoryCsv, readWriteHistory } = await import(
+const { MAX_HISTORY_BYTES, csvFileName, exportWriteHistoryCsv, projectDirFrom, readWriteHistory } = await import(
   "../app-electron/main/sapWrite/history"
 );
 
@@ -63,6 +63,30 @@ describe("exportWriteHistoryCsv", () => {
     const bytes = readFileSync(target);
     expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
     expect(bytes.toString("utf-8")).toContain("\r\n");
+  });
+
+  it("CSV kesilmiyor: 5 MB sınırı yalnız panel için (inceleme I3)", async () => {
+    const big = `${ROW("eski", "2026-01-01T00:00:00Z")}\n`.repeat(Math.ceil((MAX_HISTORY_BYTES + 1000) / 150));
+    writeFileSync(path.join(dir, "sap-yazma-gunlugu.jsonl"), `${ROW("ilk", "2025-01-01T00:00:00Z")}\n` + big + `${ROW("son", "2026-10-16T12:00:00Z")}\n`);
+    const target = path.join(dir, "tam.csv");
+    const r = await exportWriteHistoryCsv(dir, "D01", "tr", { pickPath: async () => target });
+    expect(r.ok).toBe(true);
+    const panel = readWriteHistory(dir);
+    expect(panel.ok && panel.truncated).toBe(true);
+    // En baştaki "ilk" satırı yalnız tam okumada var.
+    const csv = readFileSync(target, "utf-8");
+    expect(csv).toContain("2025-01-01");
+  });
+
+  it("proje klasörü yolu kök dışına çıkamıyor (inceleme M1)", () => {
+    const config = { projectsBaseDir: dir } as never;
+    expect(projectDirFrom(["..", ".."], { systemId: "D01", name: "D01" }, config)).toBeNull();
+    expect(projectDirFrom(["a", "..."], { systemId: "D01", name: "D01" }, config)).toBeNull();
+    expect(projectDirFrom(["Müşteri"], { systemId: "..", name: "x" }, config)).toBeNull();
+    expect(projectDirFrom(["Müşteri"], { systemId: "D01", name: "D01" }, config)).toEqual({
+      dir: path.join(dir, "Müşteri", "D01"),
+      sid: "D01"
+    });
   });
 
   it("iptal edilirse dosya yok", async () => {

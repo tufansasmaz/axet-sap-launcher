@@ -5,7 +5,7 @@
 import { existsSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { BrowserWindow, dialog } from "electron";
-import type { SapService } from "../../shared/types";
+import type { AppConfig, SapService } from "../../shared/types";
 import {
   buildWriteHistory,
   toCsv,
@@ -49,7 +49,8 @@ export async function exportWriteHistoryCsv(
   language: CsvLanguage,
   deps: { pickPath: (defaultName: string) => Promise<string | null>; now?: Date }
 ): Promise<WriteCsvResult> {
-  const history = readWriteHistory(projectDir);
+  // Sınırsız: denetçiye giden dosya tam olmalı; 5 MB sınırı yalnız panel için.
+  const history = readWriteHistory(projectDir, Number.POSITIVE_INFINITY);
   if (!history.ok) return { ok: false, message: history.reason };
   const target = await deps.pickPath(csvFileName(sid, deps.now ?? new Date()));
   if (!target) return { ok: false, canceled: true };
@@ -62,16 +63,27 @@ export async function exportWriteHistoryCsv(
   }
 }
 
-/** Renderer'dan gelen seçim: yol parçaları ve sistem; biçim tutmuyorsa null. */
-function projectDirFrom(customerPath: unknown, service: unknown): { dir: string; sid: string } | null {
+const DOTS_ONLY = /^\s*\.+\s*$/;
+
+/**
+ * Renderer'dan gelen seçim: yol parçaları ve sistem; biçim tutmuyorsa null.
+ * `..` gibi parçalar proje kökünün dışına çıkamasın (sanitizeSegment noktaları
+ * ayıklamıyor); sonuç yine de kökün altında mı diye ayrıca bakılıyor.
+ */
+export function projectDirFrom(
+  customerPath: unknown,
+  service: unknown,
+  config: Pick<AppConfig, "projectsBaseDir"> = loadConfig()
+): { dir: string; sid: string } | null {
   if (!Array.isArray(customerPath) || !customerPath.every((s) => typeof s === "string")) return null;
   if (typeof service !== "object" || service === null) return null;
   const s = service as Partial<SapService>;
   if (typeof s.systemId !== "string" || typeof s.name !== "string") return null;
-  return {
-    dir: computeProjectDir(loadConfig(), customerPath, { systemId: s.systemId, name: s.name }),
-    sid: s.systemId || s.name
-  };
+  if ([...customerPath, s.systemId || s.name].some((seg) => DOTS_ONLY.test(seg))) return null;
+  const dir = computeProjectDir(config as AppConfig, customerPath, { systemId: s.systemId, name: s.name });
+  const rel = path.relative(config.projectsBaseDir, dir);
+  if (!rel || rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return { dir, sid: s.systemId || s.name };
 }
 
 export function registerWriteHistoryIpc(ipc: { handle(channel: string, fn: (...args: any[]) => unknown): void }): void {

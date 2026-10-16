@@ -31,6 +31,7 @@ function op(i: number, over: Partial<WriteOp> = {}): WriteOp {
     approval: "onaylandi",
     result: "basarili",
     sapMessage: null,
+    sapTransport: null,
     ...over
   };
 }
@@ -99,6 +100,12 @@ describe("WriteHistory", () => {
     expect(await screen.findByText("Kaydedilemedi: erişim engellendi")).toBeTruthy();
   });
 
+  it("SAP başka transport'a kaydettiyse ikisi de görünüyor (inceleme I2)", async () => {
+    setup({ ok: true, ops: [op(1, { sapTransport: "D01K900199" })], skipped: 0, truncated: false });
+    const row = await screen.findByRole("button", { name: /ZCL_1/ });
+    expect(row.textContent).toContain("D01K900001 → D01K900199");
+  });
+
   it("okunamadı ve kısmi okuma notları (inceleme odağı 5)", async () => {
     setup({ ok: false, reason: "okunamadi" });
     expect(await screen.findByText("Kayıt okunamadı.")).toBeTruthy();
@@ -120,5 +127,10 @@ describe("opStatus", () => {
     expect(opStatus(op(1, { result: "yok", approval: "reddedildi" }))).toEqual({ key: "writeHistory.status.reddedildi", tone: "warning" });
     expect(opStatus(op(1, { result: "yok", approval: "yanitsiz" }))).toEqual({ key: "writeHistory.status.yanitsiz", tone: "neutral" });
     expect(opStatus(op(1, { result: "yok", approval: "kalite_reddi" })).tone).toBe("warning");
+    // inceleme M3: onaylı ama sonucu yok — "Onaylandı" tek başına yazılmıyor
+    expect(opStatus(op(1, { result: "yok", approval: "onaylandi" }))).toEqual({ key: "writeHistory.status.approvedNoResult", tone: "neutral" });
+    expect(opStatus(op(1, { result: "yok", approval: "oturum" })).key).toBe("writeHistory.status.approvedNoResult");
+    expect(opStatus(op(1, { result: "yok", approval: "bilinmiyor" }))).toEqual({ key: "writeHistory.status.bilinmiyor", tone: "warning" });
+    expect(opStatus(op(1, { result: "etkin_degil" }))).toEqual({ key: "writeHistory.status.etkin_degil", tone: "warning" });
   });
 });

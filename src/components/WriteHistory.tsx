@@ -22,12 +22,16 @@ const DOT: Record<Tone, string> = {
   neutral: "bg-slate-500"
 };
 
-const WARNING_APPROVALS = new Set(["reddedildi", "sure_doldu", "engellendi", "kalite_reddi"]);
+const WARNING_APPROVALS = new Set(["reddedildi", "sure_doldu", "engellendi", "kalite_reddi", "bilinmiyor"]);
+// Onay verilmiş ama SAP sonucu kayıtta yok: yazma olmuş da olabilir, olmamış da.
+const GRANTED = new Set(["onaylandi", "oturum", "ust_onay", "teslim"]);
 
 /** Tek kelimelik durum: SAP sonucu varsa o, yoksa onay. */
 export function opStatus(op: WriteOp): { key: TranslationKey; tone: Tone } {
   if (op.result === "basarili") return { key: "writeHistory.status.basarili", tone: "success" };
   if (op.result === "hata") return { key: "writeHistory.status.hata", tone: "danger" };
+  if (op.result === "etkin_degil") return { key: "writeHistory.status.etkin_degil", tone: "warning" };
+  if (GRANTED.has(op.approval)) return { key: "writeHistory.status.approvedNoResult", tone: "neutral" };
   return {
     key: `writeHistory.status.${op.approval}` as TranslationKey,
     tone: WARNING_APPROVALS.has(op.approval) ? "warning" : "neutral"
@@ -48,6 +52,12 @@ function objectsShort(op: WriteOp): string {
 }
 
 const baseName = (p: string) => p.split(/[\\/]/).pop() ?? p;
+
+/** Onaylanan transport; SAP başkasına kaydettiyse ikisi. */
+function transportLabel(op: WriteOp): string {
+  if (op.sapTransport && op.transport && op.sapTransport !== op.transport) return `${op.transport} → ${op.sapTransport}`;
+  return op.transport ?? op.sapTransport ?? "—";
+}
 
 export default function WriteHistory({ path, service }: { path: string[]; service: SapService }) {
   const t = useT();
@@ -129,7 +139,9 @@ export default function WriteHistory({ path, service }: { path: string[]; servic
                   >
                     <span className="w-20 shrink-0 tabular-nums text-slate-500">{shortTime(op.zaman)}</span>
                     <span className="min-w-0 flex-1 truncate font-mono text-slate-200">{objectsShort(op)}</span>
-                    <span className="w-28 shrink-0 truncate font-mono text-slate-400">{op.transport ?? "—"}</span>
+                    <span className="w-28 shrink-0 truncate font-mono text-slate-400" title={transportLabel(op)}>
+                      {transportLabel(op)}
+                    </span>
                     <span className="flex w-28 shrink-0 items-center gap-2 text-slate-200">
                       <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${DOT[status.tone]}`} />
                       <span className="truncate">{t(status.key)}</span>
