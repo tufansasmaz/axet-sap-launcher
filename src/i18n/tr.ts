@@ -801,13 +801,6 @@ export const tr = {
   "chatAttention.working": "Çalışıyor",
   "chatAttention.unseen": "Yeni cevap",
   "chatAttention.asking": "Cevabını bekliyor",
-  // Ajanın kendi veritabanına bakılarak DOĞRULANMIŞ bir uyarı, tahmin değil.
-  // "Durdur"un tutmadığı hâli sessizce geçiştirmek, kullanıcıya farkında
-  // olmadığı bir jeton faturası çıkarmak demekti.
-  "chatCancelStuck.notice":
-    "Durdurma isteği tutmadı: ajan bu turu arka planda tamamlıyor. Cevap tamamlandığında görünmeyecek, ama jeton harcanmaya devam ediyor.",
-  "chatCancelStuck.dismiss": "Uyarıyı kapat",
-
   "chatSearch.placeholder": "Sohbette ara…",
   "chatSearch.noResults": "yok",
   "chatSearch.prev": "Önceki eşleşme (Shift+Enter)",

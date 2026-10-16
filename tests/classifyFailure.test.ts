@@ -1,7 +1,7 @@
 // Gunluk satirindan TUR ARIZASI siniflandirmasi.
 //
 // Bu siniflandiricinin ciktisi dogrudan bir eyleme baglaniyor: "auth" ve
-// "context" axet-code SURECINI yeniletiyor (axetChatTui.ts `restartSession`).
+// "context" tur yeniden denemesini tetikliyor (axetChat.ts).
 // Yani yanlis pozitif saglam bir turu ~3 saniyelik acilis bedeliyle yeniden
 // baslatiyor; yanlis negatif ise kullaniciya ardarda BOS CEVAP gosteriyor.
 //

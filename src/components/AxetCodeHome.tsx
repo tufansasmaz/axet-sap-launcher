@@ -29,9 +29,6 @@ import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatT
 // tuşta ısıtmak süreç açıp kapatmaktan başka bir şey yapmazdı; yarım saniye,
 // "yazmayı bıraktı" ile "hâlâ yazıyor"u ayıracak kadar uzun ve kazancı
 // (~2–4 saniye) yemeyecek kadar kısa.
-const PREWARM_DEBOUNCE_MS = 500;
-/** Bir sohbet açıldıktan ne kadar sonra oturumu ısıtmaya başlayalım. */
-const CHAT_OPEN_PREWARM_MS = 1_500;
 // axet-code güncelleme duyurusu için yoklama aralığı. Duyuru bulunana kadar
 // çalışıp sonra duruyor; bulunmadığı sürece yaptığı tek şey bir config okuması.
 // Yirmi saniye, ilk oturumun açılıp pankartı bize göstermesine yetiyor ve
@@ -581,7 +578,6 @@ export default function AxetCodeHome({
             contextTokens: 0,
             contextLimit: 0,
             editUndo: null,
-            cancelStuck: false,
             queued: null,
             unseen: false,
             // Eski geçmişte bu alanlar yok — bağlamsız sohbet olarak açılıyorlar.
@@ -780,7 +776,7 @@ export default function AxetCodeHome({
     Promise.all([
       window.api.listAxetModels(),
       window.api.getAxetModelConfig(),
-    ]).then(([modelsResult, configResult]) => {
+    ]).then(async ([modelsResult, configResult]) => {
       if (cancelled) return;
       if (modelsResult.ok) {
         setModels(modelsResult.models);
@@ -788,9 +784,10 @@ export default function AxetCodeHome({
       } else {
         setModelsError(modelsResult.error ?? null);
       }
-      if (configResult.ok && configResult.config) {
-        setDefaultModel(configResult.config.large);
-      }
+      // Kullanıcının sohbet için seçtiği varsayılan önce; yoksa axet-code'un kendi ayarı.
+      const chosen = (await window.api.getConfig().catch(() => null))?.chatDefaultModel ?? null;
+      if (chosen) setDefaultModel(chosen);
+      else if (configResult.ok && configResult.config) setDefaultModel(configResult.config.large);
       setModelsLoading(false);
     });
     return () => {
@@ -1138,22 +1135,18 @@ export default function AxetCodeHome({
     [deleteProject],
   );
 
+  // Model SOHBETE ait ve her turda `-m` ile gidiyor (spec 2026-10-16 §7):
+  // axet-code'un global ayarına yazmak öteki sohbetlerin modelini de
+  // değiştiriyordu. Yeni sohbetlerin varsayılanı bizim config'imizde.
   const handleSelectModel = useCallback(
     async (entry: AxetModelEntry) => {
-      const result = await window.api.setAxetModel("large", entry);
-      if (!result.ok) {
-        pushToast(
-          "error",
-          t("modelSelector.switchFailed", { message: result.error ?? "" }),
-        );
-        return;
-      }
       setDefaultModel(entry);
       if (activeId) {
         setSessions((prev) =>
           prev.map((s) => (s.id === activeId ? { ...s, model: entry } : s)),
         );
       }
+      await window.api.saveConfig({ chatDefaultModel: entry }).catch(() => undefined);
       pushToast("success", t("modelSelector.switched", { model: entry.model }));
     },
     [activeId, pushToast, t],
@@ -1189,9 +1182,6 @@ export default function AxetCodeHome({
                 activitySteps: [],
                 stalledMinutes: 0,
                 pendingAsk: null,
-                // Yeni tur, yeni durum: "durduramadım" uyarısı bir önceki tura
-                // aitti ve orada asılı kalması yanıltıcı olurdu.
-                cancelStuck: false,
                 updatedAt: Date.now(),
               }
             : s,
@@ -1200,8 +1190,8 @@ export default function AxetCodeHome({
 
       const cwd = sessionCwd || config?.axetWorkspaceDir || "";
       // `sessionId` main process'e de gidiyor: kalıcı axet-code oturumları
-      // sohbet başına tutuluyor (bkz. axetChatTui.ts), yani bir sohbetin
-      // hafızası artık CLI'ın kendisinde duruyor.
+      // sohbet başına tutuluyor (bkz. axetChat.ts), yani bir sohbetin
+      // hafızası CLI'ın kendisinde duruyor.
       // Proje talimatı TEK YERDE ekleniyor: gönder / yeniden üret / sürdür
       // yollarının üçü de buradan geçiyor, üç ayrı çağrı yerine burada
       // yapılması birinin unutulmasını imkânsız kılıyor.
@@ -1374,9 +1364,7 @@ export default function AxetCodeHome({
     // Tek başına bir ek de gönderilebilir — bir görsel bırakıp hiçbir şey
     // yazmadan göndermek meşru bir kullanım.
     if (!text && attachments.length === 0) return;
-    // Kimlik ÜRETİLMİYOR, devralınıyor: kullanıcı yazarken ısıtılan kalıcı
-    // oturum bu kimlikle açıldı (bkz. prewarmTargetRef). Bir sonraki yeni
-    // sohbet için hemen taze bir kimlik hazırlanıyor.
+    // Kimlik önceden üretiliyor; yeni sohbet ilk mesajla bu kimlikle oluşuyor.
     const id = newChatIdRef.current;
     newChatIdRef.current = crypto.randomUUID();
     const now = Date.now();
@@ -1410,7 +1398,6 @@ export default function AxetCodeHome({
       contextTokens: 0,
       contextLimit: 0,
       editUndo: null,
-      cancelStuck: false,
       queued: null,
       unseen: false,
       createdAt: now,
@@ -1504,7 +1491,7 @@ export default function AxetCodeHome({
     // düzenlemeden vazgeçen kullanıcı (geri al) da bedeli ödüyordu — axet-code
     // oturumu kapanmış, o oturumdaki ARAÇ SONUÇLARI gitmiş oluyordu. Kalıcı
     // oturum mimarisinin var olma sebebi tam olarak o sonuçları korumak
-    // (bkz. axetChatTui.ts başlığı, madde 3). Yukarı ok da artık düzenlemeyi
+    // (bkz. axetHeadless.ts). Yukarı ok da artık düzenlemeyi
     // tek tuşa indirdiği için bu yanlışlıkla çok kolay tetiklenir hâle
     // gelmişti.
     if (session.editUndo)
@@ -1679,7 +1666,7 @@ export default function AxetCodeHome({
     );
     // BEKLENİYOR ama beklediği şey sıfırlamanın BİTMESİ değil, BAŞLAMASI:
     // çağrı, palet tuşu yazılır yazılmaz dönüyor. Tuşlar ile istem arasındaki
-    // ~1,6 saniyelik payı ana süreç tutuyor (bkz. axetChatTui.ts `resetting`).
+    // ~1,6 saniyelik payı ana süreç tutuyor (bkz. axetChat.ts).
     // Buradaki await'in işi sıralama: sıfırlama IPC'si gönderim IPC'sinden
     // sonra varsa palet, istem gittikten SONRA açılırdı.
     await window.api.resetChatHistory(activeId).catch(() => false);
@@ -1771,15 +1758,6 @@ export default function AxetCodeHome({
     );
   }, [activeId, runPrompt, sessions, t]);
 
-  // Uyarıyı kapat. Kalıcı bir şeridi kapatmanın yolu olmalı: bir sonraki
-  // mesaja kadar orada duruyor ve o mesaj hiç gelmeyebilir.
-  const handleDismissCancelStuck = useCallback(() => {
-    if (!activeId) return;
-    setSessions((prev) =>
-      prev.map((s) => (s.id === activeId ? { ...s, cancelStuck: false } : s)),
-    );
-  }, [activeId]);
-
   const handleCancel = useCallback(() => {
     if (!activeSession?.requestId) return;
     window.api.cancelChatMessage(activeSession.requestId).catch(() => {});
@@ -1788,7 +1766,7 @@ export default function AxetCodeHome({
   // Ajanın sorduğu sorunun cevabı. Kartı hemen kaldırıyoruz: tuşlar TUI'deki
   // kutuya gidiyor ve kutu kapanıyor — açık kalan bir kart, artık var olmayan
   // bir kutuya tuş gönderen ölü bir düğme olurdu. Ana süreç de kendi tarafında
-  // aynı korumayı yapıyor (bkz. axetChatTui.ts `answerTuiQuestion`), bu sadece
+  // aynı korumayı yapıyor (bkz. axetChat.ts `answerChatQuestion`), bu sadece
   // kullanıcının gördüğü gecikmeyi kapatıyor.
   const handleAnswerQuestion = useCallback(
     (index: number | number[], customText?: string) => {
@@ -1994,7 +1972,7 @@ export default function AxetCodeHome({
 
   // Ajanın planı + bağlam doluluğu. Ayrı bir kanal, ayrı bir abonelik: bu
   // olaylar saniyede bir ve yalnızca DEĞİŞTİĞİNDE geliyor (bkz.
-  // axetChatTui.ts `PROGRESS_MS`), etkinlik akışına karıştırılsalardı araç
+  // axetHeadless.ts ilerleme yayını), etkinlik akışına karıştırılsalardı araç
   // dökümünü anlamsız satırlarla doldururlardı.
   useEffect(() => {
     return window.api.onChatProgress((requestId, progress) => {
@@ -2015,127 +1993,10 @@ export default function AxetCodeHome({
     });
   }, []);
 
-  // "Durdur" gerçekten durdurdu mu? Karar iptalden 1–4 saniye SONRA geliyor,
-  // çünkü ana süreç esc'i yazdıktan sonra axet-code'un veritabanına bakıp
-  // doğruluyor (bkz. axetChatTui.ts `cancelTui`). Bu yüzden ayrı bir kanal ve
-  // `requestId` yerine `chatId`: istek çoktan çözülmüş, oturumun `requestId`'si
-  // `null`'lanmış oluyor.
-  //
-  // Sessiz kalmak bir seçenek değildi: iptal tutmadığında ekranda hiçbir iz
-  // olmuyor, kullanıcı "durdurdum" sanıyor, tur arkada üretmeye ve jeton
-  // harcamaya devam ediyordu.
-  useEffect(() => {
-    return window.api.onChatCancelResult((chatId, verdict) => {
-      if (verdict.stopped) return;
-      setSessions((prev) =>
-        prev.some((s) => s.id === chatId)
-          ? prev.map((s) => (s.id === chatId ? { ...s, cancelStuck: true } : s))
-          : prev,
-      );
-    });
-  }, []);
-
-  // --- Ön-ısıtma ---
-  // Kullanıcı yazarken bir sonraki mesajın alt süreci şimdiden açılıp stdin'de
-  // bekletiliyor; ölçüm ve gerekçe axetChat.ts'te (mesaj başına ~2–4 saniye).
-  //
-  // Hedef (klasör + model) bir REF'te tutuluyor, ısıtma efektinin bağımlılık
-  // listesinde DEĞİL: `sessions` akan bir cevapta saniyede onlarca kez
-  // değişiyor ve efekti her seferinde söküp takmak, debounce sayacını sürekli
-  // sıfırlayarak ısıtmanın hiç çalışmamasına yol açardı.
-  const prewarmTargetRef = useRef<{
-    cwd: string;
-    model: AxetModelEntry | null;
-    chatId: string;
-  }>({
-    cwd: "",
-    model: null,
-    chatId: "",
-  });
-  const activeDraft = activeId
-    ? (sessions.find((s) => s.id === activeId)?.draft ?? "")
-    : newDraft;
-  useEffect(() => {
-    const session = activeId
-      ? (sessions.find((s) => s.id === activeId) ?? null)
-      : null;
-    prewarmTargetRef.current = {
-      cwd:
-        (session ? session.cwd : (effectiveNewBinding?.cwd ?? null)) ||
-        config?.axetWorkspaceDir ||
-        "",
-      model: session ? session.model : defaultModel,
-      // Yeni sohbette kimlik henüz "yok" değil, ÖNCEDEN üretilmiş
-      // (newChatIdRef): ısıtılan kalıcı oturum ile birazdan oluşacak sohbet
-      // aynı kimliği paylaşsın diye. Paylaşmasalardı ilk mesaj ısıtmadan hiç
-      // faydalanamaz, ısınan oturum da sahipsiz kalırdı.
-      chatId: session ? session.id : newChatIdRef.current,
-    };
-  });
-
-  useEffect(() => {
-    // Boş taslak = ortada gönderilecek bir şey yok; süreç açmak boşuna.
-    if (!activeDraft.trim()) return;
-    const timer = setTimeout(() => {
-      const { cwd, model, chatId } = prewarmTargetRef.current;
-      // Taslak da gidiyor: bağlayıcıların (Outlook vb.) ısıtma sırasında
-      // kurulup kurulmayacağına metne bakılarak karar veriliyor. Kullanıcı
-      // "mail" yazdığı anda doğru oturum kurulmaya başlıyor, yoksa o kurulum
-      // Gönder'e basıldıktan SONRA yapılıyor ve altı saniye görünür oluyordu.
-      // Ateşle-unut: ısıtma başarısız olsa da asıl gönderim eskisi gibi
-      // çalışıyor, bu yüzden hatası kullanıcıya gösterilecek bir şey değil.
-      window.api.prewarmChat(cwd, model, chatId, activeDraft).catch(() => {});
-    }, PREWARM_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [activeDraft]);
-
-  // Sohbet AÇILDIĞINDA da ısıt — yazmaya başlanmasını bekleme.
-  //
-  // Yukarıdaki efekt taslağa bakıyor, yani ısıtma ancak ilk harfe basıldığında
-  // başlıyor. Ölçüm (2026-09-07): soğuk bir oturumun hazırlanması 6,5 saniye
-  // ve bu süre kullanıcının GÖZÜ ÖNÜNDE, Gönder'e bastıktan sonra geçiyordu.
-  // Oysa bir sohbeti açmak ile ilk mesajı yazıp göndermek arasında -- geçmişi
-  // okumak, ne soracağını düşünmek -- neredeyse her zaman o altı saniyeden
-  // fazlası var. Açılışta başlatınca kurulum o boşluğun içinde eriyor.
-  //
-  // Gecikme ısıtma debounce'undan uzun: sohbetler arasında ok tuşlarıyla hızlıca
-  // gezinmek, uğranılan her sohbet için bir axet-code süreci açmak anlamına
-  // gelmemeli. Bir buçuk saniye duran kullanıcı o sohbeti gerçekten açmıştır.
-  //
-  // YENİ SOHBET DE ISITILIYOR. Eskiden koşul `if (!activeId) return` idi, yani
-  // ısıtma yalnızca VAR OLAN bir sohbete girildiğinde çalışıyordu. Oysa en sık
-  // giriş noktası bu değil: bir SAP sistemine bağlanınca uygulama doğrudan
-  // "Ne yapmak istersin?" ekranına düşüyor ve orada `activeId` yok. Kullanıcı
-  // tam da o ekranda bildirimi okuyup ne soracağını düşünürken hiçbir şey
-  // ısınmıyordu; kurulum, ilk harfe basılana kadar bekliyordu (kullanıcı,
-  // 2026-09-07: *"bağlandığımızda arka planda axet.code halihazırda açılmış
-  // olmalı"*).
-  //
-  // Bağlam ŞART: `effectiveNewBinding` yalnızca bir SAP sistemi bağlıyken (ya
-  // da bir klasör seçiliyken) dolu. Böylece uygulamayı hiçbir yere bağlanmadan
-  // açmak hâlâ süreç açmıyor — ısıtma, gerçekten bir hedef varken başlıyor.
-  const prewarmKey = activeId ?? (effectiveNewBinding?.cwd ? `yeni:${effectiveNewBinding.cwd}` : "");
-  useEffect(() => {
-    if (!prewarmKey) return;
-    const timer = setTimeout(() => {
-      const { cwd, model, chatId } = prewarmTargetRef.current;
-      if (!chatId) return;
-      // Taslak da gidiyor: sohbette yarım kalmış bir metin varsa bağlayıcı
-      // kararı ondan çıkar. Yoksa boş -- bağlayıcısız kurulur ve metin
-      // gerektirirse oturum gönderim anında yeniden kurulur (eski davranış).
-      window.api.prewarmChat(cwd, model, chatId, activeDraft).catch(() => {});
-    }, CHAT_OPEN_PREWARM_MS);
-    return () => clearTimeout(timer);
-    // activeDraft BİLEREK bağımlılık değil: taslak her tuşta değişiyor ve bu
-    // efekt her seferinde sökülüp takılsa sayaç hiç dolmazdı. Taslağa tepki
-    // vermek yukarıdaki efektin işi.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prewarmKey]);
-
-  // axet-code'un güncelleme duyurusu. Değer config'ten geliyor (bkz.
-  // axetChatTui.ts `detectUpdateAvailable`), yani uygulama daha hiç oturum
-  // açmamışken de dolu olabiliyor. Ana süreç ayrıca kurulu sürümü sondalayıp
-  // güncelleme yapılmışsa `null` döndürüyor, o yüzden burada karşılaştırma yok.
+  // axet-code'un güncelleme duyurusu. Değer her turun stderr'inden okunup
+  // axetCodeLatestSeen'e kalıcı olarak yazılıyor (bkz. axetCodeVersion.ts
+  // `persistUpdateSeen`), yani uygulama daha hiç oturum açmamışken de dolu
+  // olabiliyor.
   //
   // DUYURU GELENE KADAR yokluyor, sonra duruyor. Tek seferlik sorma yetmiyordu:
   // pankartı ancak bir axet-code oturumu açılınca görüyoruz, oysa bu ekran ondan
@@ -2279,7 +2140,6 @@ export default function AxetCodeHome({
     contextTokens: 0,
     contextLimit: 0,
     editUndo: null,
-    cancelStuck: false,
     queued: null,
   };
 
@@ -2309,7 +2169,6 @@ export default function AxetCodeHome({
             onContinue={handleContinue}
             onEditMessage={handleEditMessage}
             onUndoEdit={handleUndoEdit}
-            onDismissCancelStuck={handleDismissCancelStuck}
             onUnqueue={handleUnqueue}
             onDropQueued={handleDropQueued}
             onAttachFiles={handleAttachFiles}
@@ -2378,7 +2237,6 @@ export default function AxetCodeHome({
           onContinue={handleContinue}
           onEditMessage={handleEditMessage}
           onUndoEdit={handleUndoEdit}
-          onDismissCancelStuck={handleDismissCancelStuck}
           onUnqueue={handleUnqueue}
           onDropQueued={handleDropQueued}
           onAttachFiles={handleAttachFiles}

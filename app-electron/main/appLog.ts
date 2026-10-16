@@ -16,7 +16,7 @@
 // 2026-09-08 — "aç, ama içerik yazma".)
 //
 // `console.log` çağrıları OLDUĞU GİBİ duruyor ve buraya bağlanmadı: bazıları
-// bilerek metin taşıyor (örneğin `axetChatTui`'deki `sonEkran`) ve hepsini
+// bilerek metin taşıyor ve hepsini
 // toptan dosyaya akıtmak tam da yazmamaya karar verdiğimiz şeyi yazmak
 // olurdu. Dosyaya düşecek satır, tek tek `appLog()` ile seçiliyor.
 //

@@ -414,8 +414,8 @@ export interface AppConfig {
   // cevap veremiyordu.
   connectorLastResults: Record<string, ConnectorCheck>;
   // axet-code'un açılışta duyurduğu EN SON sürüm. Kullanıcının düzenlediği bir
-  // ayar DEĞİL: TUI el sıkışması sırasında ekrandan okunup yazılıyor (bkz.
-  // axetChatTui.ts `detectUpdateAvailable`).
+  // ayar DEĞİL: her turun stderr'indeki güncelleme satırından yazılıyor (bkz.
+  // axetCodeVersion.ts `persistUpdateSeen`).
   //
   // Neden KALICI: duyuru yalnızca bir axet-code süreci açıldığında görülüyor,
   // oysa gösterilmek istenen yer sohbet AÇILIŞ ekranı — yani henüz hiçbir
@@ -427,6 +427,9 @@ export interface AppConfig {
   // EŞİTLİK'e bakılarak karar veriliyor; sürüm dizgileri sayıya çevrilmiyor,
   // çünkü biçim değiştiğinde sessizce yanlış cevap veren bir kod olurdu.
   axetCodeLatestSeen: string;
+  // Yeni sohbetlerin modeli. axet-code'un global ayarı (`large`) yalnızca
+  // bu boşken varsayılan; sohbet her turda modelini `-m` ile kendisi veriyor.
+  chatDefaultModel?: AxetModelEntry | null;
   // Entegrasyon (connection uuid) bazında ÖLÇÜLMÜŞ sağlık. Kullanıcının
   // düzenlediği bir ayar DEĞİL — turlar sırasında öğrenilip yazılıyor, bkz.
   // connectorHealth.ts. Amacı: aynı sağlayıcının bozuk kaydını her turda
@@ -763,9 +766,9 @@ export interface AxetChatMessage {
  * sessizlik). Yani bu, "bilmiyoruz"un dürüst adı — arayüz onun yanında geçen
  * süreyi sayıyor.
  *
- * `tool`/`toolResult` yalnızca KALICI OTURUM kipinde (axetChatTui.ts) düşüyor
- * ve tam olarak o sessizliği dolduruyor: `run -v`'nin stderr'i araç
- * çağrılarını hiç yazmaz, ama axet-code'un kendi oturum veritabanı yazar.
+ * `tool`/`toolResult` axet-code'un oturum veritabanından okunarak düşüyor
+ * (bkz. axetHeadless.ts): `run -v`'nin stderr'i araç çağrılarını yazmaz,
+ * ama axet-code'un kendi veritabanı yazar.
  */
 export type AxetChatActivityPhase =
   | "starting"
@@ -781,12 +784,12 @@ export type AxetChatActivityPhase =
   // bağlam sınırı) ve oturum yenilenip mesaj yeniden gönderiliyor.
   | "restarting"
   // Ajan `ask_user` aracıyla soru sordu; tur, kullanıcı bir seçenek seçene
-  // kadar DURUYOR (bkz. axetChatTui.ts `ASK_USER_TOOL`).
+  // kadar DURUYOR (bkz. axetHeadless.ts `ask_user` ağı).
   | "askUser"
   // axet-code uzun süredir hiçbir belirti vermiyor. ARIZA DEĞİL: tur sürüyor,
   // beklemeye devam ediliyor ve cevap geldiği an gösterilecek. Bu aşama
   // yalnızca kullanıcı boşluğa bakmasın diye var — durdurmak isterse
-  // durdurabilsin (bkz. axetChatTui.ts sessizlik bloğu).
+  // durdurabilsin (bkz. axetHeadless.ts sessizlik uyarısı).
   | "stalled"
   | "finishing";
 
@@ -830,7 +833,7 @@ export type AxetChatActivity = {
    *
    * Aracın SONUCU bunu vermiyor ("Content replaced in file: …" diyor, ne
    * değiştiğini söylemiyor); fark, araç GİRDİSİNDEKİ old_string/new_string
-   * çiftinden üretiliyor (bkz. axetChatTui.ts `buildDiff`).
+   * çiftinden üretiliyor (bkz. axetToolEvents.ts `buildDiff`).
    */
   diff?: string;
   /** Sonuç bir hata mı (araç patladı ya da entegrasyon bozuk). */
@@ -841,7 +844,7 @@ export type AxetChatActivity = {
    * `options` SIRASI ÖNEMLİ — arayüzdeki düğmenin dizini, TUI'deki soru
    * kutusunda kaç kez aşağı okuna basılacağını belirliyor (ölçüm: kutu ilk
    * satır seçili açılıyor, `↓ next` bir satır ilerletiyor, `enter confirm`
-   * onaylıyor). Yani sıra bozulursa yanlış seçenek onaylanır.
+   * onaylıyor — seçeneklerin sırası ÖNEMLİ (bkz. axetToolEvents.ts).
    */
   question?: string;
   /** Sorunun kısa başlığı (`ask_user` girdisindeki `header`); olmayabilir. */
@@ -850,7 +853,7 @@ export type AxetChatActivity = {
   /**
    * Birden fazla şık işaretlenebilir mi (`ask_user` girdisindeki
    * `multi_select`). Kart bu bayrakla kutucuklu çiziliyor ve cevap bir DİZİ
-   * dizin olarak dönüyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+   * dizin olarak dönüyor (bkz. axetChat.ts `answerChatQuestion`).
    */
   multiSelect?: boolean;
   /**
@@ -892,13 +895,8 @@ export interface AxetChatProgress {
 }
 
 /**
- * "Durdur"un gerçekte ne yaptığı (bkz. axetChatTui.ts `cancelTui`).
- *
- * Ayrı bir olay, çünkü cevabın kendisinden 1–4 saniye SONRA belli oluyor:
- * esc yazılıyor, sonra axet-code'un veritabanına bakılıp turun gerçekten
- * kesilip kesilmediği doğrulanıyor. Eskiden bu doğrulamanın sonucu yalnızca
- * günlüğe yazılıyordu — kullanıcı "durdurdum" sanırken tur arkada üretmeye
- * devam ediyor ve jeton harcıyordu.
+ * "Durdur"un gerçekte ne yaptığı (bkz. axetChat.ts `cancelChatMessage`).
+ * Süreç ağacı öldürülüyor; iptal senkron.
  */
 export interface AxetChatCancelVerdict {
   /** Tur gerçekten durdu mu? `false` = arkada üretmeye devam ediyor. */

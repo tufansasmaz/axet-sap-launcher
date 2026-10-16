@@ -45,8 +45,8 @@ export interface ChatSession {
   // Yalnızca `stalled` aşamasında dolu; ilk belirtide sıfırlanıyor.
   stalledMinutes: number;
   // Ajanın ŞU AN sorduğu soru (`ask_user`). Doluyken tur, kullanıcı bir
-  // seçenek seçene kadar DURUYOR — cevap TUI'deki soru kutusuna tuş olarak
-  // gidiyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+  // seçenek seçene kadar DURUYOR — cevap yeni bir `run` olarak gidiyor
+  // (bkz. axetChat.ts `answerChatQuestion`).
   //
   // Diske YAZILMIYOR: bekleyen bir soru, süreciyle birlikte yaşıyor. Uygulama
   // kapanınca cevaplanacak bir kutu kalmıyor, kayıtlı bir soru ise sonsuza
@@ -70,17 +70,6 @@ export interface ChatSession {
   // Diske YAZILMIYOR: geri alma o anki düzenlemeye ait, uygulama kapanınca
   // anlamı kalmaz.
   editUndo: EditUndo | null;
-  // "Durdur"a basıldı ama tur DURMADI — ajan arkada üretmeye devam ediyor
-  // (bkz. axetChatTui.ts `cancelTui`, shared/types.ts `AxetChatCancelVerdict`).
-  //
-  // Bu bayrak iptalden 1–4 saniye SONRA geliyor: esc yazılıyor, sonra
-  // axet-code'un veritabanına bakılıp turun gerçekten kesilip kesilmediği
-  // doğrulanıyor. Eskiden doğrulamanın sonucu yalnızca günlüğe yazılıyordu,
-  // yani kullanıcı "durdurdum" sanırken jeton harcanmaya devam ediyordu.
-  //
-  // Diske YAZILMIYOR: uygulama kapanınca pty de ölüyor, yani arkada süren
-  // bir tur kalmıyor — kaydedilmiş bir uyarı sonsuza kadar yalan söylerdi.
-  cancelStuck: boolean;
   // Cevap sürerken yazılan, tur bitince kendiliğinden gidecek mesaj (bkz.
   // lib/chatQueue.ts). `null` = sırada bir şey yok.
   //

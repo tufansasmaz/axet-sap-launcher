@@ -7,7 +7,6 @@ import type {
   AppConfig,
   AxetChatMessage,
   AxetChatActivity,
-  AxetChatCancelVerdict,
   AxetChatProgress,
   AxetChatSendResult,
   AxetModelConfigResult,
@@ -234,7 +233,7 @@ const api = {
   setAxetModel: (kind: AxetModelKind, entry: AxetModelEntry): Promise<AxetModelConfigResult> =>
     ipcRenderer.invoke("axetModels:setCurrent", kind, entry),
   // `chatId` sohbetin kalıcı kimliği — main process kalıcı axet-code
-  // oturumlarını bununla eşliyor (bkz. axetChatTui.ts). `requestId` tek bir
+  // oturumlarını bununla eşliyor (bkz. axetChat.ts). `requestId` tek bir
   // mesaja ait ve iptal onunla yapılıyor.
   sendChatMessage: (
     requestId: string,
@@ -255,7 +254,7 @@ const api = {
   ): Promise<{ text: string; finished: boolean } | null> =>
     ipcRenderer.invoke("axetChat:recoverAnswer", cwd, prompt, promptAtMs),
   // `optionIndex` DİZİ olabiliyor: çoklu seçimli soru kutusunda birden fazla
-  // şık işaretlenebiliyor (bkz. axetChatTui.ts `answerTuiQuestion`).
+  // şık işaretlenebiliyor (bkz. axetChat.ts).
   answerChatQuestion: (
     requestId: string,
     optionIndex: number | number[],
@@ -269,12 +268,6 @@ const api = {
     ipcRenderer.invoke("axetChat:updateAvailable"),
   resetChatHistory: (chatId: string): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:resetHistory", chatId),
-  // Kullanıcı yazmaya başlayınca: oturumu/süreci şimdiden açtır. Sonucu YOK,
-  // beklemek de gerekmiyor — kazanç tamamen zamanlamada.
-  // `draft` = o an yazılmakta olan metin. Bağlayıcıların ısıtma sırasında
-  // kurulup kurulmayacağı buna bakılarak kararlaştırılıyor.
-  prewarmChat: (cwd: string, model: AxetModelEntry | null, chatId?: string, draft?: string): Promise<void> =>
-    ipcRenderer.invoke("axetChat:prewarm", cwd, model, chatId, draft),
   // Cevap metni üretildikçe gelen parçalar (yalnızca YENİ parça, birikmiş
   // metin değil). `requestId` ile hangi sohbete ait olduğu ayırt ediliyor.
   onChatChunk: (callback: (requestId: string, text: string) => void) => {
@@ -297,15 +290,6 @@ const api = {
       callback(requestId, progress);
     ipcRenderer.on("axetChat:progress", listener);
     return () => ipcRenderer.removeListener("axetChat:progress", listener);
-  },
-  // "Durdur"un sonucu. `requestId` DEĞİL `chatId` taşıyor: karar iptalden
-  // 1–4 saniye sonra geliyor ve o noktada istek kimliği ölü (bkz.
-  // axetChatTui.ts `cancelTui`).
-  onChatCancelResult: (callback: (chatId: string, verdict: AxetChatCancelVerdict) => void) => {
-    const listener = (_event: unknown, chatId: string, verdict: AxetChatCancelVerdict) =>
-      callback(chatId, verdict);
-    ipcRenderer.on("axetChat:cancelResult", listener);
-    return () => ipcRenderer.removeListener("axetChat:cancelResult", listener);
   },
   saveChatAttachment: (fileName: string, base64Data: string): Promise<ChatAttachmentSaveResult> =>
     ipcRenderer.invoke("chatAttachments:save", fileName, base64Data),

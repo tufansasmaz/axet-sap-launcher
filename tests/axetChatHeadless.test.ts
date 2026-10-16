@@ -207,12 +207,10 @@ describe("sendChatMessage", () => {
     script(() => new Promise(() => {}));
     const pending = send();
     await vi.waitFor(() => expect(calls).toHaveLength(1));
-    const verdicts: unknown[] = [];
-    chat.cancelChatMessage("r1", (id, v) => verdicts.push([id, v]));
+    chat.cancelChatMessage("r1");
     const r = await pending;
     expect(cancels).toBe(1);
     expect(r.cancelled).toBe(true);
-    expect(verdicts).toEqual([["chat-1", { stopped: true, reason: "canceled" }]]);
   });
 
   it("soru beklerken iptal: tur iptal olarak kapanıyor", async () => {
@@ -280,16 +278,14 @@ describe("sendChatMessage", () => {
     let unblockStatus!: () => void;
     h.statusBlock = new Promise<void>((r) => { unblockStatus = r; });
     script(() => ({ text: "x" }));
-    const verdicts: unknown[] = [];
     const pending = send("r1");
     // run kayıtlı olduğu için chatBusy hemen true dönmeli
     await vi.waitFor(() => expect(chat.chatBusy("chat-1")).toBe(true));
-    chat.cancelChatMessage("r1", (id, v) => verdicts.push([id, v]));
+    chat.cancelChatMessage("r1");
     unblockStatus();
     const r = await pending;
     expect(r.cancelled).toBe(true);
     expect(calls).toHaveLength(0);
-    expect(verdicts).toEqual([["chat-1", { stopped: true, reason: "canceled" }]]);
     expect(chat.chatBusy("chat-1")).toBe(false);
   });
 
@@ -302,16 +298,14 @@ describe("sendChatMessage", () => {
         () => ({ ok: false, error: "403 Forbidden", failure: "auth", toolCount: 0 }),
         () => ({ ok: true, text: "ikinci tur" })
       );
-      const verdicts: unknown[] = [];
       const pending = send("r1");
       await vi.waitFor(() => expect(calls).toHaveLength(1));
       // 15 s geçmeden iptal ediyoruz
-      chat.cancelChatMessage("r1", (id, v) => verdicts.push([id, v]));
+      chat.cancelChatMessage("r1");
       const r = await pending;
       // Zamanlayıcıyı ilerletmeden promise çözülmüş olmalı
       expect(r.cancelled).toBe(true);
       expect(calls).toHaveLength(1); // ikinci tur başlamamalı
-      expect(verdicts).toEqual([["chat-1", { stopped: true, reason: "canceled" }]]);
     } finally {
       vi.useRealTimers();
     }

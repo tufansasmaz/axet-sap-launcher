@@ -12,7 +12,6 @@
 // "aXet portalı isteği yetki hatasıyla reddediyor" dedi. İkisi de yanlış:
 // yeniden denemek bu engeli kaldırmaz, sebep de kimlik değil içerik.
 
-import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ app: { getPath: () => "" } }));
@@ -72,36 +71,3 @@ describe("günlük satırı", () => {
   });
 });
 
-describe("tur arızası yolu", () => {
-  const src = readFileSync("app-electron/main/axetChatTui.ts", "utf8");
-
-  it("engel görülünce süreç YENİLENMİYOR, kullanıcıya politika mesajı dönüyor", () => {
-    const start = src.indexOf("const first = await runTurn(session, args);");
-    expect(start).toBeGreaterThan(-1);
-    const blocked = src.indexOf('first.failure === "blocked"', start);
-    const restart = src.indexOf("await restartSession(args)", start);
-    expect(blocked).toBeGreaterThan(-1);
-    // Engel denetimi yenilemeden ÖNCE.
-    expect(blocked).toBeLessThan(restart);
-    expect(src.slice(blocked, blocked + 400)).toContain('mt("chatTui.policyBlocked")');
-  });
-
-  it("finish parçasındaki engel turu 'blocked' olarak bitiriyor ve günlüğe yazıyor", () => {
-    const at = src.indexOf("finishPolicyBlock(lastFinish)");
-    expect(at).toBeGreaterThan(-1);
-    const body = src.slice(at, at + 700);
-    expect(body).toContain('failure: "blocked"');
-    expect(body).toContain('appLog("sohbet.politika-engeli"');
-    // Yetki denetiminden ÖNCE: aksi hâlde 403 olarak yakalanıp süreç yenilenirdi.
-    expect(at).toBeLessThan(src.indexOf("finishAuthFailure(lastFinish)"));
-  });
-
-  it("mesaj iki dilde de var ve yetki hatası demiyor", () => {
-    for (const file of ["app-electron/main/i18n/tr.ts", "app-electron/main/i18n/en.ts"]) {
-      const text = readFileSync(file, "utf8");
-      const at = text.indexOf('"chatTui.policyBlocked"');
-      expect(at, file).toBeGreaterThan(-1);
-      expect(text.slice(at, at + 400)).not.toMatch(/yetki|authoriz|authentic/i);
-    }
-  });
-});

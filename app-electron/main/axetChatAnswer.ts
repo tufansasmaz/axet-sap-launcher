@@ -10,13 +10,9 @@
 //
 // Boş bir turun `ok: true` dönebildiği İKİ yer var ve ikisi de gerçek:
 //
-//   1. `run` yedek kipi (axetChat.ts): süreç 0 ile çıkarsa cevap
-//      `stdout`'un tamamı sayılıyor. axet-code hiçbir şey yazmadan 0 ile
-//      çıkarsa sonuç "başarılı ve boş" oluyor.
-//   2. TUI kipi (axetChatTui.ts): tur, son asistan mesajındaki `finish`
-//      parçasına bakarak bitiyor. O mesajda metin parçası yoksa (parça tipi
-//      bir sürümde değişirse, ya da ajan gerçekten hiç metin üretmezse)
-//      biriken cevap boş kalıyor.
+// axetChat.ts akışında tur, JSON çıktısındaki mesajlara bakarak bitiyor.
+// axet-code hiçbir metin üretmeden 0 ile çıkarsa sonuç "başarılı ve boş"
+// oluyor (bkz. axetHeadless.ts).
 //
 // Kural bu yüzden sonuca bakıyor, sebebine değil: **metinsiz bir tur başarılı
 // değildir.** Sebep bilinmiyor olabilir; bilinmediğini söylemek, boş bir balon

@@ -7,7 +7,6 @@ import type {
   AppConfig,
   AxetChatMessage,
   AxetChatActivity,
-  AxetChatCancelVerdict,
   AxetChatProgress,
   AxetChatSendResult,
   AxetModelConfigResult,
@@ -222,12 +221,6 @@ export interface AxetApi {
    * `false` = sıfırlanacak ayakta oturum yoktu.
    */
   resetChatHistory: (chatId: string) => Promise<boolean>;
-  prewarmChat: (
-    cwd: string,
-    model: AxetModelEntry | null,
-    chatId?: string,
-    draft?: string
-  ) => Promise<void>;
   // Abonelikten çıkma fonksiyonu döner (diğer `on*` köprüleriyle aynı desen).
   onChatChunk: (callback: (requestId: string, text: string) => void) => () => void;
   onChatActivity: (
@@ -235,10 +228,6 @@ export interface AxetApi {
   ) => () => void;
   onChatProgress: (
     callback: (requestId: string, progress: AxetChatProgress) => void
-  ) => () => void;
-  /** "Durdur" gerçekten durdurdu mu? Karar iptalden 1–4 saniye SONRA geliyor. */
-  onChatCancelResult: (
-    callback: (chatId: string, verdict: AxetChatCancelVerdict) => void
   ) => () => void;
   saveChatAttachment: (fileName: string, base64Data: string) => Promise<ChatAttachmentSaveResult>;
   readChatAttachmentPreview: (filePath: string) => Promise<ChatAttachmentPreviewResult>;

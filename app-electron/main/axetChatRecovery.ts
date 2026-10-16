@@ -14,7 +14,7 @@
 // Sonuç: kullanıcı geri döndüğünde sorusunu görüyor, cevabın yerinde ise hiçbir
 // şey yok — ne metin, ne "yarıda kaldı" notu. Oysa metin KAYIP DEĞİL: axet-code
 // cevabı üretirken kendi veritabanına akıtıyor (zaten cevabı oradan okuyoruz,
-// bkz. axetChatTui.ts başlığı). Yani kurtarılacak yer belli.
+// bkz. axetHeadless.ts). Yani kurtarılacak yer belli.
 //
 // Burada YAZMA yok, yalnızca okuma: ölü bir oturumun veritabanına bakıp o
 // prompt'a verilmiş cevabı buluyoruz.
@@ -67,7 +67,7 @@ export function recoverAnswer(cwd: string, prompt: string, promptAtMs: number): 
 
   const sinceSec = Math.floor(promptAtMs / 1000) - WINDOW_BACK_SEC;
   const sessionId = findSessionByPrompt(dbPath, sinceSec, needle);
-  // `newestSessionSince`'e DÜŞMÜYORUZ (canlı turda düşülüyor, bkz. axetChatTui):
+  // `newestSessionSince`'e DÜŞMÜYORUZ (canlı turda düşülüyor, bkz. axetHeadless.ts):
   // orada hangi sohbetin turu olduğunu zaten biliyoruz, burada bilmiyoruz. En
   // yeni oturumu almak, aynı klasörde açık başka bir sohbetin cevabını buraya
   // taşıma riski demek.

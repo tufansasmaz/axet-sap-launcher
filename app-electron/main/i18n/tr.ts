@@ -56,23 +56,14 @@ export const MAIN_TR = {
 
   // --- axetChat.ts (başsız köprü) ---
   "chat.headlessAnswerLabel": "Kullanıcının cevabı",
-  "chat.continuePrompt": "Kaldığın yerden devam et.",
 
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":
     "axet-code turu bitirdi ama hiçbir cevap metni üretmedi. Aynı mesajı \"Yeniden üret\" ile bir kez daha deneyin; tekrarlıyorsa axet-code sürümünüzü Company Portal'dan güncelleyin.",
-  "chat.emptyAnswerRun":
-    "axet-code hiçbir cevap metni üretmeden kapandı. Sohbet yedek kipte çalıştı ({reason}) — bu kipte cevap kaybı görülebiliyor. Kalıcı kipin açılması için sol alttaki Hazırlık ekranından bir proje klasörü seçin.",
-  "chat.emptyAnswerNoReason": "sebep belirlenemedi",
 
-  // --- axetChatTui.ts ---
-  "chatTui.sessionDbUnreadable": "oturum veritabanı okunamıyor: {detail}",
-  "chatTui.sessionDbMissing": "bu klasör için axet-code oturum veritabanı yok",
+  // --- axetChat.ts (tur hataları) ---
   "chatTui.askFallbackQuestion": "Devam etmek için bir tercihine ihtiyacım var.",
-  "chatTui.sessionClosedUnexpectedly": "axet-code oturumu beklenmedik şekilde kapandı.",
-  "chatTui.turnTimedOut": "axet-code {minutes} dakikadır hiçbir belirti vermedi.",
   "chatTui.turnRanTooLong": "axet-code {hours} saattir aralıksız çalışıyor; tur burada kesildi.",
-  "chatTui.restartStillFailing": "axet-code oturumu yenilendi ama hata sürüyor ({failure}).",
   "chatTui.restartStillFailingAuth":
     "aXet portalı isteği yetki hatasıyla reddediyor (403). Süreç yenilendi, bir kez daha denendi, hata sürüyor. Bu arıza portal tarafında ve geçici: kendiliğinden açılıp kapanıyor. Birkaç dakika sonra aynı mesajı tekrar gönderin — uygulamayı kapatıp açmak hızlandırmıyor. Saatlerce sürerse portaldeki model yetkinizi kontrol ettirin.",
   "chatTui.policyBlocked":

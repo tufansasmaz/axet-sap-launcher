@@ -6,7 +6,7 @@
 // düzenleme/yazma adımının HİÇBİRİNDE dosya yolu ve fark yoktu, 227 okuma
 // adımının yalnızca 2'sinde yol vardı — çağrı ilk görüldüğü hâliyle yazılıp
 // bir daha bakılmıyordu. `ask_user` aynı tuzağa daha önce düşmüş ve orada
-// `finished` beklenerek kapatılmıştı (bkz. axetChatTui.ts `ASK_USER_TOOL`).
+// `finished` beklenerek kapatılmıştı (bkz. axetToolEvents.ts `ASK_USER_TOOL`).
 //
 // Satır yine HEMEN açılıyor (canlı gösterge beklemesin); yalnızca hedef ve
 // fark, girdi tamamlanınca bir güncellemeyle dolduruluyor.

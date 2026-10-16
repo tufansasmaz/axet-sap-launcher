@@ -150,12 +150,29 @@ export function axetBinaryMessage(status: AxetBinaryStatus): string | null {
 const RE_UPDATE_LINE = /Update check done\b.*?\bcurrent=([0-9][\w.+-]*)\s+latest=([0-9][\w.+-]*)/;
 let updateInfo: { installed: string; latest: string } | null = null;
 
+// Duyuru KALICI: yalnızca bir axet-code süreci çalışınca görülüyor, oysa
+// gösterildiği yer sohbet açılış ekranı — henüz hiçbir turun koşmadığı an
+// (eski gerekçe, bkz. AppConfig.axetCodeLatestSeen). Depo dışarıdan veriliyor:
+// bu modül config'i bilmiyor, testte de bilmemeli.
+let seenStore: { load(): string; save(latest: string): void } | null = null;
+
+export function persistUpdateSeen(store: { load(): string; save(latest: string): void } | null): void {
+  seenStore = store;
+}
+
 export function noteUpdateLine(line: string): void {
   const m = RE_UPDATE_LINE.exec(line);
   if (!m) return;
   updateInfo = compareVersions(m[2], m[1]) > 0 ? { installed: m[1], latest: m[2] } : null;
+  // Satır kurulu sürümü de söylüyor; sondaya gerek yok.
+  lastSeen = m[1];
+  if (seenStore && seenStore.load() !== m[2]) seenStore.save(m[2]);
 }
 
 export function axetUpdateAvailable(): { installed: string; latest: string } | null {
-  return updateInfo;
+  if (updateInfo) return updateInfo;
+  // Bu açılışta henüz tur koşmadı: kalıcı değeri bilinen kurulu sürümle karşılaştır.
+  const latest = seenStore?.load() ?? "";
+  if (!latest || !lastSeen) return null;
+  return compareVersions(latest, lastSeen) > 0 ? { installed: lastSeen, latest } : null;
 }

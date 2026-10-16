@@ -7,10 +7,10 @@ import type { Database as SqliteDatabase } from "better-sqlite3";
 // ---------------------------------------------------------------------------
 // axet-code'un KENDİ oturum veritabanı (salt-okunur)
 // ---------------------------------------------------------------------------
-// Kalıcı TUI kipinde (bkz. axetChatTui.ts) cevabı EKRANDAN okumuyoruz. Neden:
+// axetChat.ts cevabı EKRANDAN okumak yerine bu veritabanından okuyor. Neden:
 // axet-code'un TUI'si tam ekran bir Bubble Tea arayüzü; canlı ölçümde ANSI
 // dizileri temizlendikten sonra bile cevap, kenarlıklar/yan panel/spinner
-// artıklarıyla iç içe geçmiş okunamaz bir metin olarak çıkıyor (2026-09-04
+// artıklarıyla iç içe geçmiş okunamaz bir metin olarak çıkıyordu (2026-09-04
 // pty denemesi). Aynı cevap ise bu veritabanında tertemiz duruyor:
 //
 //   messages(id, session_id, role, parts TEXT, model, created_at, ...)
@@ -52,15 +52,15 @@ export interface AxetPart {
      *
      * Araç çağrısı veritabanına AKARKEN yazılıyor — ilk gördüğümüz hâlinde
      * `input` yarım bir JSON metni olabiliyor (`{"question": "Sevdi`). Girdiyi
-     * okuması gereken her yer bunu beklemeli (bkz. axetChatTui.ts `ask_user`).
+     * okuması gereken her yer bunu beklemeli (bkz. axetHeadless.ts yoklaması).
      */
     finished?: boolean;
     reason?: string;
     /**
      * `finish` için, `reason: "error"` olduğunda sağlayıcının kısa hata
      * başlığı (`"Bad Request"`) ve ayrıntısı. Ayrıntı bazen düz metin,
-     * bazen nesne geliyor — bozuk geçmiş teşhisi (bkz. axetChatTui.ts
-     * `poisoned`) ikisini de tarıyor.
+     * bazen nesne geliyor — bozuk geçmiş teşhisi (bkz. axetChatRecovery.ts)
+     * ikisini de tarıyor.
      */
     message?: string;
     details?: unknown;
@@ -604,7 +604,7 @@ export function sessionTodos(dbPath: string, sessionId: string): AxetTodo[] {
  * Varsa sağlayıcı bu geçmişi topluca reddediyor (bkz. `finishPoisonsHistory`)
  * ve oturuma yazılan HER mesaj 400 alıyor. En sık sebep ajanın `ask_user`
  * sorusuyla biten tur: soru cevaplanmadan süreç kapatılıyor (bkz.
- * axetChatTui.ts `askedUser`), ya da uygulama soru açıkken kapanıyor.
+ * axetHeadless.ts `ask_user` ağı), ya da uygulama soru açıkken kapanıyor.
  *
  * Sıraya bakılmıyor, kimlikler eşleniyor: `created_at` saniye çözünürlüklü ve
  * sonuç çağrıyla aynı saniyede, ondan önce sıralanabiliyor. Kimliği olmayan

@@ -14,7 +14,6 @@
 
 import type {
   AxetChatActivity,
-  AxetChatCancelVerdict,
   AxetChatMessage,
   AxetChatProgress,
   AxetChatSendResult,
@@ -405,10 +404,7 @@ export async function sendChatMessage(
   }
 }
 
-export function cancelChatMessage(
-  requestId: string,
-  onVerdict?: (chatId: string, verdict: AxetChatCancelVerdict) => void
-): void {
+export function cancelChatMessage(requestId: string): void {
   const run = runs.get(requestId);
   if (!run) return;
   run.cancelled = true;
@@ -416,9 +412,7 @@ export function cancelChatMessage(
   run.answerAsk?.(null);
   run.wakeDelay?.();
   appLog("kopru.iptal", { sohbet: run.chatId, turNo: run.turns });
-  // Süreç ağacı öldürülüyor; "durmadı" diye bir durum yok (eski TUI'de Esc
-  // tutmayabiliyordu, bkz. cancelStuck).
-  onVerdict?.(run.chatId, { stopped: true, reason: "canceled" });
+  // Süreç ağacı öldürülüyor; "durdu mu" diye ayrı bir karar kanalı yok.
 }
 
 export function answerChatQuestion(requestId: string, optionIndex: number | number[], customText?: string): boolean {
@@ -443,9 +437,6 @@ export function resetChatHistory(chatId: string): boolean {
   clearBinding(chatId);
   return true;
 }
-
-/** Artık ısıtılacak süreç yok; IPC Görev 6'da kalkıyor. */
-export function prewarmChat(_cwd: string, _model: AxetModelEntry | null, _chatId?: string, _draft?: string): void {}
 
 export function cancelAllChatMessages(): void {
   for (const id of Array.from(runs.keys())) cancelChatMessage(id);

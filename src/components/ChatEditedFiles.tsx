@@ -10,7 +10,7 @@ import { StepDetail } from "./ChatToolRun";
 // ve okumalarla, komutlarla karışık: "ajan bu turda neyi değiştirdi?" sorusunun
 // cevabı için 20 satırlık dökümü açıp düzenlemeleri tek tek bulmak gerekiyordu.
 // Bu liste o sorunun kendisi. Yeni veri yok: fark, araç girdisinden zaten
-// üretilip `steps` ile diske yazılıyor (bkz. axetChatTui.ts `buildDiff`).
+// üretilip `steps` ile diske yazılıyor (bkz. axetToolEvents.ts `buildDiff`).
 
 const EDIT_TOOLS = new Set(["edit", "multiedit", "write"]);
 

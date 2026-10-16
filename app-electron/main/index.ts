@@ -52,11 +52,10 @@ import {
   cancelChatMessage,
   cancelAllChatMessages,
   closeChatSession,
-  prewarmChat,
   resetChatHistory
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
-import { axetUpdateAvailable, closeAllTuiSessions, closeTuiSessionsForProject } from "./axetChatTui";
+import { axetUpdateAvailable, persistUpdateSeen } from "./axetCodeVersion";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { runFlowsAgentStep } from "./axetFlowsAgent";
@@ -531,7 +530,7 @@ function syncGlobalSkills(config: AppConfig): void {
     appLog("skills:global:hata", { mesaj: String(error) });
     return;
   }
-  closeAllTuiSessions();
+  // Her tur yeni bir axet-code süreci: yetenek listesi bir sonraki turda zaten taze.
 }
 
 function registerIpc(): void {
@@ -666,17 +665,13 @@ function registerIpc(): void {
 
   // "Bu projenin skill'lerini güncelle" düğmesi.
   //
-  // Kurulumdan SONRA o projenin sıcak oturumları kapatılıyor: axet-code
-  // skill'leri süreç açılışında tarıyor, kapatmazsak kullanıcı güncellemeyi
-  // yapar ama ajan bir sonraki turda hâlâ eski listeyle konuşur.
+  // Sıcak oturum yok (her tur yeni süreç); kurulan liste bir sonraki turda görülüyor.
   ipcMain.handle("skills:reinstall", (_event, projectDir: string, serviceUuid: string | null) => {
     const config = loadConfig();
     installSkillsIntoProject(projectDir, {
       profile: config.skillProfile ?? undefined,
       tier: serviceUuid ? (config.systemTiers?.[serviceUuid] ?? null) : null
     });
-    const closed = closeTuiSessionsForProject(projectDir);
-    if (closed > 0) console.log("[skills] guncelleme sonrasi oturum kapatildi", { projectDir, closed });
     return {
       skills: listInstalledSkills(projectDir),
       stamp: readSkillVersionStamp(projectDir),
@@ -696,19 +691,15 @@ function registerIpc(): void {
     listCatalogSkills(projectDir, loadConfig().skillProfile ?? DEFAULT_PROFILE)
   );
 
-  // Kurulan/kaldırılan yetenek ajanın gördüğü listeyi değiştiriyor ve axet-code
-  // o listeyi süreç açılışında tarıyor — sıcak oturumlar kapatılmazsa kullanıcı
-  // kurar ama ajan bir sonraki turda hâlâ eski listeyle konuşur (bkz.
-  // skills:reinstall).
+  // Kurulan/kaldırılan yetenek ajanın gördüğü listeyi değiştiriyor. Sıcak oturum
+  // yok (her tur yeni süreç); kurulan liste bir sonraki turda görülüyor.
   ipcMain.handle("catalogSkills:install", async (_event, projectDir: string, id: string) => {
     const result = await installCatalogSkill(projectDir, id, loadConfig().skillProfile ?? DEFAULT_PROFILE);
-    if (result.ok) closeTuiSessionsForProject(projectDir);
     return result;
   });
 
   ipcMain.handle("catalogSkills:remove", async (_event, projectDir: string, name: string) => {
     const result = await removeCatalogSkill(projectDir, name, loadConfig().skillProfile ?? DEFAULT_PROFILE);
-    if (result.ok) closeTuiSessionsForProject(projectDir);
     return result;
   });
 
@@ -1292,13 +1283,8 @@ function registerIpc(): void {
       )
   );
   ipcMain.handle("axetChat:cancel", (_event, requestId: string) => {
-    // İptalin GERÇEKTEN tutup tutmadığı ayrı bir olayla dönüyor: karar,
-    // isteğin kendisi çözüldükten 1–4 saniye sonra veriliyor (bkz.
-    // axetChatTui.ts `cancelTui`). Bu yüzden `requestId` değil `chatId` ile
-    // geliyor — o noktada arayüzdeki `requestId` çoktan `null`'lanmış oluyor.
-    cancelChatMessage(requestId, (chatId, verdict) => {
-      mainWindow?.webContents.send("axetChat:cancelResult", chatId, verdict);
-    });
+    // Süreç ağacı öldürülüyor; "durdu mu" diye ayrı bir karar kanalı yok.
+    cancelChatMessage(requestId);
   });
   // Uygulama tur ortasında kapandıysa cevabı axet-code'un kendi veritabanından
   // geri getirir (bkz. axetChatRecovery.ts). Açılışta, cevapsız kalmış her
@@ -1307,34 +1293,20 @@ function registerIpc(): void {
     "axetChat:recoverAnswer",
     (_event, cwd: string, prompt: string, promptAtMs: number) => recoverAnswer(cwd, prompt, promptAtMs)
   );
-  // Ajanın `ask_user` ile sorduğu sorunun cevabı. Tuşlar TUI'deki soru
-  // kutusuna gidiyor, yani tur DURMADAN devam ediyor (bkz. axetChatTui.ts).
+  // Ajanın sorusunun cevabı: aynı oturuma yeni bir tur olarak gidiyor (bkz. axetChat.ts).
   ipcMain.handle(
     "axetChat:answerQuestion",
     (_event, requestId: string, optionIndex: number | number[], customText?: string) =>
       answerChatQuestion(requestId, optionIndex, customText)
   );
-  // Sohbet silindiğinde kalıcı TUI oturumunu da bırak — yoksa arkada kullanıcı
-  // tarafından görülemeyen bir axet-code süreci kalırdı.
+  // Sohbet silindi: bağlı oturum bırakılıyor (axet-code veritabanındaki kayda dokunulmuyor).
   ipcMain.handle("axetChat:closeSession", (_event, chatId: string) => {
     closeChatSession(chatId);
   });
   // Mesaj düzenlendiğinde/cevap yeniden üretildiğinde ajanın hafızasını da
   // geri sar — yoksa dallandırma yalnızca ekranda olur.
   ipcMain.handle("axetChat:resetHistory", (_event, chatId: string) => resetChatHistory(chatId));
-  // Kullanıcı yazmaya başlayınca çağrılıyor: oturum/süreç şimdiden açılıyor
-  // (ölçüm ve gerekçe: axetChat.ts). Ateşle-unut — ısıtma başarısız olursa
-  // asıl gönderim yine de çalışıyor.
-  ipcMain.handle(
-    "axetChat:prewarm",
-    (_event, cwd: string, model: AxetModelEntry | null, chatId?: string, draft?: string) => {
-      prewarmChat(cwd, model, chatId, draft);
-    }
-  );
-  // axet-code için yeni sürüm duyurulmuş mu? Değeri TUI el sıkışması sırasında
-  // ekrandan yakalıyoruz (bkz. axetChatTui.ts), yani hiç sohbet açılmamışsa
-  // `null` döner — bu doğru cevap, "duyuru yok" ile "henüz bakmadık" aynı
-  // şekilde ele alınıyor: ikisinde de gösterilecek bir şey yok.
+  // Duyuru her turun stderr'inden okunuyor ve kalıcı (bkz. axetCodeVersion.ts).
   ipcMain.handle("axetChat:updateAvailable", () => axetUpdateAvailable());
   ipcMain.handle("chatAttachments:save", (_event, fileName: string, base64Data: string) =>
     saveClipboardAttachment(fileName, base64Data)
@@ -1772,6 +1744,12 @@ app.whenReady().then(() => {
     origin: appOrigin,
     isFlowSandbox: (contents) => isFlowSandboxSender(contents),
     log: (tag, fields) => appLog(tag, fields)
+  });
+  persistUpdateSeen({
+    load: () => loadConfig().axetCodeLatestSeen,
+    save: (latest) => {
+      saveConfig({ axetCodeLatestSeen: latest });
+    }
   });
   registerIpc();
   createWindow();

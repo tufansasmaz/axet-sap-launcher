@@ -66,3 +66,17 @@ describe("güncelleme satırı", () => {
     expect(axetUpdateAvailable()).toEqual({ installed: "1.4.1", latest: "1.4.2" });
   });
 });
+
+describe("güncelleme duyurusu kalıcı", () => {
+  it("görülen en son sürüm kaydediliyor; yeni açılışta kurulu sürümle karşılaştırılıp dönüyor", async () => {
+    let saved = "";
+    const mod = await import("../app-electron/main/axetCodeVersion");
+    mod.persistUpdateSeen({ load: () => saved, save: (v) => (saved = v) });
+    mod.noteUpdateLine("INFO Update check done component=bgjob job=auto-update current=1.4.1 latest=1.4.2 minimum=1.3.0");
+    expect(saved).toBe("1.4.2");
+    // "yeni açılış": bellek boş, kalıcı değer duruyor
+    mod.noteUpdateLine("INFO Update check done component=bgjob job=auto-update current=1.4.2 latest=1.4.2 minimum=1.3.0");
+    expect(mod.axetUpdateAvailable()).toBeNull(); // güncellendi → duyuru yok
+    mod.persistUpdateSeen(null);
+  });
+});

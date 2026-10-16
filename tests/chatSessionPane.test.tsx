@@ -52,7 +52,6 @@ const baseSession = (): ChatSessionData => ({
   contextTokens: 0,
   contextLimit: 0,
   editUndo: null,
-  cancelStuck: false,
   queued: null
 });
 
@@ -73,7 +72,6 @@ const baseProps = () => ({
   onContinue: vi.fn(),
   onEditMessage: vi.fn(),
   onUndoEdit: vi.fn(),
-  onDismissCancelStuck: vi.fn(),
   onAttachFiles: vi.fn(),
   onFilesResolved: vi.fn(),
   onRemoveAttachment: vi.fn(),

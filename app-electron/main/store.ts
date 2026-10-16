@@ -124,7 +124,7 @@ function defaultConfig(): AppConfig {
     // de kurumsal veriye (posta kutusu, SharePoint) sessizce erişim demektir.
     connectorEnabled: {},
     connectorLastResults: {},
-    // Ekrandan okunarak doldurulur (axetChatTui.ts); duyuru görülmediyse boş.
+    // Her turun stderr'indeki güncelleme satırından yazılır (bkz. axetCodeVersion.ts `persistUpdateSeen`); duyuru görülmediyse boş.
     axetCodeLatestSeen: "",
     // Ölçülerek doldurulur (connectorHealth.ts); elle düzenlenen bir ayar değil.
     connectorIntegrations: {},

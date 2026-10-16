@@ -737,10 +737,6 @@ export const en: Record<TranslationKey, string> = {
   "chatAttention.working": "Working",
   "chatAttention.unseen": "New reply",
   "chatAttention.asking": "Waiting for your answer",
-  "chatCancelStuck.notice":
-    "The stop request did not take: the agent is finishing this turn in the background. The answer will not appear, but tokens keep being spent.",
-  "chatCancelStuck.dismiss": "Dismiss",
-
   "chatSearch.placeholder": "Search in chat…",
   "chatSearch.noResults": "none",
   "chatSearch.prev": "Previous match (Shift+Enter)",

@@ -53,22 +53,14 @@ export const MAIN_EN = {
 
   // --- axetChat.ts (headless bridge) ---
   "chat.headlessAnswerLabel": "The user's answer",
-  "chat.continuePrompt": "Continue from where you left off.",
 
-  // --- axetChatTui.ts ---
+  // --- axetChat.ts (empty answer gate) ---
   "chat.emptyAnswerTui":
     "axet-code finished the turn without producing any answer text. Try the same message once more with \"Regenerate\"; if it keeps happening, update axet-code from Company Portal.",
-  "chat.emptyAnswerRun":
-    "axet-code closed without producing any answer text. The chat ran in fallback mode ({reason}), where answers can go missing. Pick a project folder from the Readiness screen to enable the persistent mode.",
-  "chat.emptyAnswerNoReason": "reason unknown",
 
-  "chatTui.sessionDbUnreadable": "session database cannot be read: {detail}",
-  "chatTui.sessionDbMissing": "there is no axet-code session database for this folder",
+  // --- axetChat.ts (turn errors) ---
   "chatTui.askFallbackQuestion": "I need you to make a choice before I can continue.",
-  "chatTui.sessionClosedUnexpectedly": "The axet-code session closed unexpectedly.",
-  "chatTui.turnTimedOut": "axet-code has shown no sign of activity for {minutes} minutes.",
   "chatTui.turnRanTooLong": "axet-code has been running non-stop for {hours} hours; the turn was cut off here.",
-  "chatTui.restartStillFailing": "The axet-code session was restarted but the error persists ({failure}).",
   "chatTui.restartStillFailingAuth":
     "The aXet portal is rejecting the request with an authorization error (403). The process was restarted and the message retried, but the error persists. This fault is on the portal side and transient: it opens and closes on its own. Send the same message again in a few minutes — restarting the app does not speed it up. If it lasts for hours, have your model entitlement checked on the portal.",
   "chatTui.policyBlocked":

@@ -11,7 +11,6 @@
 // Bu testler bağlanmadan ÖNCE yapılan denetimi koruyor: geçmişte sonucu
 // gelmemiş bir çağrı varsa o oturum sağlayıcıya göre geçersiz.
 
-import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("electron", () => ({ app: { getPath: () => "" } }));
@@ -90,26 +89,3 @@ describe("hasUnansweredToolCall", () => {
   });
 });
 
-// Bağlanma adımı denetimi GERÇEKTEN kullanıyor mu? axetChatTui.ts elektron ve
-// pty olmadan çalışmadığı için kaynak metni okunuyor.
-describe("eski oturuma bağlanma", () => {
-  const src = readFileSync("app-electron/main/axetChatTui.ts", "utf8");
-  const start = src.indexOf("async function attachToBoundSession");
-  const body = src.slice(start, src.indexOf("\nfunction ", start));
-
-  it("cevapsız çağrısı olan oturuma bağlanmadan bağı siliyor, seçiciyi açmadan önce", () => {
-    const check = body.indexOf("sessionHasUnansweredToolCall(");
-    expect(check).toBeGreaterThan(-1);
-    const after = body.slice(check, check + 600);
-    expect(after).toContain("clearBinding(");
-    expect(after).toContain("return false");
-    // Seçici (ctrl+s) açıldıktan sonra vazgeçmek, oturumu yine o geçmişe sokardı.
-    const picker = body.indexOf('write("\\x13")');
-    expect(picker).toBeGreaterThan(-1);
-    expect(check).toBeLessThan(picker);
-  });
-
-  it("vazgeçme günlüğe düşüyor (içeriksiz)", () => {
-    expect(body).toContain('appLog("tui.bag-gecersiz"');
-  });
-});
