@@ -46,7 +46,9 @@ export function Tabs<T extends string>({
   columns?: keyof typeof GRID_COLUMNS;
 }) {
   const base = useId();
-  const tabId = (v: T) => `${base}-tab-${v}`;
+  // Değer doğrudan id'ye girince boşluk/Türkçe karakter/özel sembol id'yi
+  // geçersiz kılar; encodeURIComponent + % yerine _ (% id'de yasak).
+  const tabId = (v: T) => `${base}-tab-${encodeURIComponent(v).replace(/%/g, "_")}`;
   const panelId = `${base}-panel`;
   const tabRefs = useRef(new Map<T, HTMLButtonElement>());
   const hasPanel = children !== undefined;

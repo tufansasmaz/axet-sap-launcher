@@ -121,7 +121,16 @@ function contrast(a: Rgb, b: Rgb): number {
 }
 
 // Kenar çubuğu artık listelerin tamamını taşıyor; yazının en çok durduğu yer.
-const SURFACES = ["--surface-app-rgb", "--surface-card-rgb", "--surface-control-rgb", "--surface-sidebar-rgb"];
+// `--surface-hover-rgb` ve `--surface-raised-rgb` her iki tema bloğunda tanımlı;
+// metin tokenlerinin bu yüzeylerde de 4.5:1'i geçmesi gerekiyor.
+const SURFACES = [
+  "--surface-app-rgb",
+  "--surface-card-rgb",
+  "--surface-control-rgb",
+  "--surface-sidebar-rgb",
+  "--surface-hover-rgb",
+  "--surface-raised-rgb"
+];
 
 // Metin olarak okunan her jeton — en zayıf yüzeyde ≥ 4.5:1.
 const TEXT = [
