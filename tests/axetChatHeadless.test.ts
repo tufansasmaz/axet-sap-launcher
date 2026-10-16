@@ -6,6 +6,8 @@ import type { HeadlessTurnArgs, HeadlessTurnResult } from "../app-electron/main/
 const h = vi.hoisted(() => ({
   bindings: new Map<string, { sessionId: string; cwd: string }>(),
   unanswered: new Set<string>(),
+  // veritabanında artık bulunmayan oturumlar (sessionTitle null döner)
+  missing: new Set<string>(),
   status: { kind: "ok", version: "1.4.1" } as { kind: string; version?: string },
   logs: [] as { tag: string; fields: Record<string, unknown> }[],
   // surum denetimini bloke etmek icin: null = aninda don, Promise = bekleme
@@ -29,7 +31,8 @@ vi.mock("../app-electron/main/axetSessionBinding", () => ({
 }));
 vi.mock("../app-electron/main/axetSessionDb", () => ({
   resolveSessionDb: () => "C:/p/.axet-code/axet-code.db",
-  sessionHasUnansweredToolCall: (_db: string, sid: string) => h.unanswered.has(sid)
+  sessionHasUnansweredToolCall: (_db: string, sid: string) => h.unanswered.has(sid),
+  sessionTitle: (_db: string, sid: string) => (h.missing.has(sid) ? null : "baslik")
 }));
 
 const chat = await import("../app-electron/main/axetChat");
@@ -64,6 +67,7 @@ let activities: Record<string, unknown>[] = [];
 beforeEach(() => {
   h.bindings.clear();
   h.unanswered.clear();
+  h.missing.clear();
   h.status = { kind: "ok", version: "1.4.1" };
   h.logs = [];
   h.statusBlock = null;
@@ -315,5 +319,83 @@ describe("sendChatMessage", () => {
     h.bindings.set("chat-1", { sessionId: "S0", cwd: "C:/p" });
     chat.closeChatSession("chat-1");
     expect(h.bindings.has("chat-1")).toBe(false);
+  });
+
+  const ASK = { callId: "q1", question: "Hangi paket?", header: "", options: ["ZA", "ZB"], multiSelect: false };
+
+  it("C1: araç çalıştı, soru cevaplandı, cevap turu bağlamla düştü → yeniden gönderme yok, canContinue", async () => {
+    script(
+      () => ({ text: "Dosyayı yazdım.", sessionId: "S1", toolCount: 2, ask: ASK }),
+      () => ({ ok: false, error: "context length exceeded", failure: "context", toolCount: 0, sessionId: "S1" }),
+      () => ({ ok: true, text: "ORIJINAL ISTEK YENIDEN" })
+    );
+    const pending = send("r1", "dosyayı yaz ve paketi sor");
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    chat.answerChatQuestion("r1", 1);
+    const r = await pending;
+    expect(calls).toHaveLength(2);
+    expect(r.ok).toBe(false);
+    expect(r.canContinue).toBe(true);
+    expect(r.error).toContain("context length exceeded");
+  });
+
+  it("C1: araçsız soru-cevap sonrası bağlam hatası → yeni oturum tohumu cevabı da taşıyor", async () => {
+    script(
+      () => ({ text: "Önce sormam gerek.", sessionId: "S1", toolCount: 0, ask: ASK }),
+      () => ({ ok: false, error: "context length exceeded", failure: "context", toolCount: 0, sessionId: "S1" }),
+      () => ({ ok: true, text: "ZB ile tamam.", sessionId: "S4" })
+    );
+    const pending = send("r1", "ilk istek", [{ role: "user", content: "eski" }, { role: "assistant", content: "eski cevap" }]);
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    chat.answerChatQuestion("r1", 1);
+    const r = await pending;
+    expect(calls).toHaveLength(3);
+    expect(calls[2].resumeId).toBeNull();
+    expect(calls[2].prompt).toContain("eski cevap");
+    expect(calls[2].prompt).toContain("ilk istek");
+    expect(calls[2].prompt).toContain("Önce sormam gerek.");
+    expect(calls[2].prompt).toContain("Hangi paket?");
+    expect(calls[2].prompt).toContain("ZB");
+    expect(r).toMatchObject({ ok: true, restartedReason: "context" });
+  });
+
+  it("I2: cevaptan önce oturumda sonuçsuz araç çağrısı varsa cevap yeni oturuma tohumla gidiyor", async () => {
+    script(
+      () => ({ text: "Bakıyorum.", sessionId: "S1", toolCount: 0, ask: ASK }),
+      () => ({ ok: true, text: "ZA ile devam.", sessionId: "S5" })
+    );
+    const pending = send("r1", "paket seç", [{ role: "user", content: "önceki" }, { role: "assistant", content: "önceki cevap" }]);
+    await vi.waitFor(() => expect(activities.some((a) => a.phase === "askUser")).toBe(true));
+    h.unanswered.add("S1");
+    chat.answerChatQuestion("r1", 0);
+    const r = await pending;
+    expect(calls).toHaveLength(2);
+    expect(calls[1].resumeId).toBeNull();
+    expect(calls[1].prompt).toContain("Önceki konuşma");
+    expect(calls[1].prompt).toContain("önceki cevap");
+    expect(calls[1].prompt).toContain("paket seç");
+    expect(calls[1].prompt).toContain("Bakıyorum.");
+    expect(calls[1].prompt).toContain("Hangi paket?");
+    expect(calls[1].prompt).toContain("ZA");
+    expect(r.ok).toBe(true);
+  });
+
+  it("I4: bağlı oturum veritabanında yoksa bağ düşüyor, geçmiş tohumlanıyor", async () => {
+    h.bindings.set("chat-1", { sessionId: "S0", cwd: "C:/p" });
+    h.missing.add("S0");
+    script(() => ({ text: "x", sessionId: "S6" }));
+    await send("r1", "devam", [{ role: "user", content: "eski soru" }, { role: "assistant", content: "eski cevap" }]);
+    expect(calls[0].resumeId).toBeNull();
+    expect(calls[0].prompt).toContain("eski soru");
+  });
+
+  it("I1: araç sayısı bilinmiyorsa (veritabanı görülmedi) yeniden gönderme yok, canContinue", async () => {
+    script(
+      () => ({ ok: false, error: "529 overloaded", failure: "provider", toolCount: 0, toolsUnknown: true }),
+      () => ({ ok: true, text: "tekrar" })
+    );
+    const r = await send();
+    expect(calls).toHaveLength(1);
+    expect(r).toMatchObject({ ok: false, canContinue: true });
   });
 });

@@ -230,6 +230,83 @@ describe("startHeadlessTurn", () => {
     expect(r).toMatchObject({ ok: false, spawnFailed: true });
   });
 
+  const toolTurn = () => [
+    msg("a1", "assistant", [
+      text("Yazıyorum."),
+      { type: "tool_call", data: { id: "c1", name: "write", input: '{"file_path":"C:/p/a.abap"}', finished: true } },
+      finish("tool_use")
+    ])
+  ];
+
+  it("I1: veritabanı ilk yoklamalarda yok, sonra oluşuyor → metin ve araç görülüyor", async () => {
+    const h = harness();
+    let asked = 0;
+    // Yeni klasörde ilk tur: `.axet-code` axet-code açıldıktan sonra kuruluyor.
+    const deps = { ...h.deps, dbPath: () => (++asked <= 3 ? null : "C:/p/.axet-code/axet-code.db") };
+    const turn = startHeadlessTurn(h.base, deps as never);
+    h.child.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    h.db[SID] = toolTurn();
+    await tick(60);
+    expect(h.events.chunks.join("")).toContain("Yazıyorum.");
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "ok", is_error: false }));
+    const r = await turn.done;
+    expect(r.toolCount).toBe(1);
+    expect(r.toolsUnknown).toBeFalsy();
+  });
+
+  it("I1: oturum kimliği yalnız JSON'da → onSessionId çağrılıyor, son yoklama araçları sayıyor", async () => {
+    const h = harness({ [SID]: toolTurn() });
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    await tick();
+    h.child.exit(1, JSON.stringify({ type: "result", session_id: SID, result: "529 overloaded", is_error: true }));
+    const r = await turn.done;
+    expect(h.events.sessionIds).toEqual([SID]);
+    expect(r.toolCount).toBe(1);
+    expect(r.ok).toBe(false);
+  });
+
+  it("I1: oturum belli ama veritabanı hiç bulunamadı → toolsUnknown", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, { ...h.deps, dbPath: () => null } as never);
+    h.child.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    await tick();
+    h.child.exit(1);
+    const r = await turn.done;
+    expect(r.toolsUnknown).toBe(true);
+  });
+
+  it("I3a: gösterilen hata bağlayıcı uyarılarını atıyor ve SONU tutuyor", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    for (let i = 0; i < 5; i++) h.child.err(`WARN connector.sync failed name=outlook-${i} error="token yok"`);
+    for (let i = 0; i < 40; i++) h.child.err(`ERROR adim ${i} ${"x".repeat(60)}`);
+    h.child.err("ERROR panic: asıl sebep burada");
+    h.child.exit(2);
+    const r = await turn.done;
+    expect(r.error).toContain("asıl sebep burada");
+    expect(r.error).not.toContain("connector.sync");
+  });
+
+  it("I3b: bağlayıcının unauthorized uyarısı turu yetki arızası yapmıyor", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.err('WARN connector.sync failed name=outlook error="401 unauthorized"');
+    h.child.err("ERROR panic: runtime error: invalid memory address");
+    h.child.exit(2);
+    const r = await turn.done;
+    expect(r.failure).not.toBe("auth");
+    expect(r.error).toContain("invalid memory address");
+  });
+
+  it("I3c: JSON olmayan stdout (zorunlu güncelleme) hata metnine giriyor", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.exit(1, "Mandatory update required. Installed version: 1.4.1 New version: 1.5.0\n");
+    const r = await turn.done;
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain("Mandatory update required");
+  });
+
   it("sessizlikte stalled olayı, tur öldürülmüyor", async () => {
     const h = harness();
     const turn = startHeadlessTurn(h.base, { ...h.deps, silenceMs: 15 } as never);

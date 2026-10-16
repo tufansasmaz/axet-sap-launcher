@@ -25,7 +25,7 @@ import { isSilentEmptyAnswer } from "./axetChatAnswer";
 import { axetBinaryMessage, axetBinaryStatus } from "./axetCodeVersion";
 import { startHeadlessTurn, type HeadlessTurn, type HeadlessTurnResult } from "./axetHeadless";
 import { clearBinding, readBinding, writeBinding } from "./axetSessionBinding";
-import { resolveSessionDb, sessionHasUnansweredToolCall } from "./axetSessionDb";
+import { resolveSessionDb, sessionHasUnansweredToolCall, sessionTitle } from "./axetSessionDb";
 import { askUserAsText, splitOptionsBlock, type AskUserRequest } from "./axetToolEvents";
 import { connectorGuidance } from "./connectorHealth";
 import { shouldUseConnectors } from "./connectorPolicy";
@@ -52,34 +52,16 @@ const CONNECTOR_RETRY_REMINDER =
   "olması yüzünden başarısız olursa ve aynı sağlayıcı/servis için BAŞKA bir araç/entegrasyon varsa, vazgeçmeden " +
   "önce o alternatif aracı bir kez dene.";
 
-// axet-code'un `ask_user` diye bir aracı var: ajan soruyu sorunca TUI bir soru
-// kutusu çiziyor ve cevabı BEKLİYOR.
+// Sorular: başsız `run` kipinde `ask_user` kullanıcıya ulaşmıyor, bu yüzden
+// ajandan aracı KULLANMAMASI isteniyor (bkz. aşağıdaki `ASK_RULE`). Soru turun
+// sonunda bir `secenekler` bloğuyla geliyor; ajan aracı yine çağırırsa
+// axetHeadless.ts süreci durduruyor. İki durumda da soru sohbette tıklanabilir
+// bir kart; kullanıcının seçimi (ya da serbest metni) aynı oturuma YENİ bir
+// `axet-code run --resume` olarak gidiyor (`answerChatQuestion`).
 //
-// ESKİDEN BU BİR TUZAKTI. Ölçüm (2026-09-05): "kısa bi abap kodu yaz" mesajına
-// ajan `ask_user` çağırdı, oturum veritabanında ondan sonra HİÇBİR kayıt yok,
-// kullanıcı 105 saniye "Düşünüyor" görüp hiç cevap alamadı. O dönemde buradaki
-// metin ajandan aracı HİÇ kullanmamasını istiyordu.
-//
-// ARTIK DEĞİL: soruyu cevaplayabiliyoruz (bkz. axetChat.ts
-// `answerChatQuestion` — soru kartındaki seçim stdin'e yazılıyor; ölçümde
-// axet-code `✓ The user selected: ...` yazıp aynı turda devam etti). Soru,
-// sohbette tıklanabilir bir kart olarak çiziliyor.
-//
-// Şıklar da tek yol değil: kutunun "Other" satırı serbest metin kabul ediyor
-// (ölçüm 2026-09-05: `✓ The user typed a custom answer: "Yesil"`), yani
-// kullanıcı hiçbir şıkka mahkûm değil — kartta kendi cevabını yazabiliyor.
-//
-// O YÜZDEN "SORMA" YASAĞI KALDIRILDI (kullanıcı testi, 2026-09-05: yasak
-// tuttuğu için kart hiç çıkmadı — ajan soruyu düz metinle sordu). Yerine, HANGİ
-// BİÇİMDE sorulacağını söyleyen bir not var, çünkü desteklenen tek biçim bu:
-// tek seçimli ve en az iki seçenekli. Çoklu seçim ile seçeneksiz soru
-// ölçülmedi; onlar hâlâ eski yoldan (turu soruyla bitir) gidiyor.
-//
-// Yumuşak önlem: metin bir kural değil, istek. Ajan yine de yanlış biçimde
-// sorabilir — ikinci katman orada devreye giriyor.
-// axet-code bir KODLAMA ajanı ve `-y` ile çalışıyor (kullanıcı kararı): onay
-// sormadan dosya yazabiliyor. Terminalde beklenen davranış bu; sohbet kılıfında
-// değil.
+// axet-code bir KODLAMA ajanı ve başsız `run` kipinde izinleri sormadan kabul
+// ediyor (ölçüm 2026-10-16): onay sormadan dosya yazabiliyor. Terminalde
+// beklenen davranış bu; sohbet kılıfında değil.
 //
 // ÖLÇÜM (2026-09-05, kullanıcı testi): "kısa bi abap kodu yaz" mesajına ajan
 // `hello.abap` diye bir DOSYA oluşturdu. Kullanıcının istediği bir cevaptı,
@@ -168,16 +150,30 @@ export function chatBusy(chatId: string): boolean {
   return false;
 }
 
-/** Bağlı oturuma devam edilebilir mi? Klasör aynı ve sonuçsuz araç çağrısı yok. */
+/**
+ * Bu oturuma `--resume` güvenli mi? Bulunmayan sebep, güvenliyse null.
+ * - Oturum veritabanında hâlâ var mı (`.axet-code` silinmiş/yeniden kurulmuş
+ *   olabilir; eski TUI yolu da bağı `sessionTitle` ile doğruluyordu).
+ * - Sonuçsuz bir araç çağrısı (tur bir aracın ortasında öldürüldü) oturumu
+ *   sağlayıcı için geçersiz kılıyor: 400 "tool_use without tool_result"
+ *   (bkz. 32d4952).
+ */
+function unsafeToResume(cwd: string, sessionId: string): string | null {
+  const dbPath = resolveSessionDb(cwd);
+  if (!dbPath) return "veritabani-yok";
+  if (sessionTitle(dbPath, sessionId) === null) return "oturum-yok";
+  if (sessionHasUnansweredToolCall(dbPath, sessionId)) return "sonucsuz-arac";
+  return null;
+}
+
+/** Bağlı oturuma devam edilebilir mi? Klasör aynı ve oturum güvenli. */
 function resumableSession(chatId: string, cwd: string): string | null {
   const binding = readBinding(chatId);
   if (!binding) return null;
-  const dbPath = resolveSessionDb(cwd);
-  if (binding.cwd !== cwd || !dbPath || sessionHasUnansweredToolCall(dbPath, binding.sessionId)) {
-    // Sonuçsuz bir araç çağrısı (tur bir aracın ortasında öldürüldü) bu oturumu
-    // sağlayıcı için geçersiz kılıyor: 400 "tool_use without tool_result"
-    // (bkz. 32d4952). Yeni oturum + geçmiş tohumu.
-    appLog("kopru.bag-dustu", { sohbet: chatId, sebep: binding.cwd !== cwd ? "klasor" : "sonucsuz-arac" });
+  const reason = binding.cwd !== cwd ? "klasor" : unsafeToResume(cwd, binding.sessionId);
+  if (reason) {
+    // Yeni oturum + geçmiş tohumu.
+    appLog("kopru.bag-dustu", { sohbet: chatId, sebep: reason });
     clearBinding(chatId);
     return null;
   }
@@ -255,8 +251,15 @@ export async function sendChatMessage(
   let restartedReason: AxetChatSendResult["restartedReason"];
   let retried = false;
   let totalTools = 0;
+  let toolsUnknown = false;
   let turns = 0;
   let firstChunkAt = 0;
+  // Yeni oturuma tohumlanacak konuşma. Soru cevaplandıktan sonra yalnız ilk
+  // mesajla tohumlamak isteği BAŞTAN yaptırır ve cevabı kaybeder; o yüzden her
+  // cevapta asistanın o ana kadarki metni + soru + cevap buraya ekleniyor.
+  let seedHistory: AxetChatMessage[] = history;
+  let seedMessage = message;
+  let textAtAnswer = 0;
 
   const runOnce = async (): Promise<HeadlessTurnResult> => {
     turns += 1;
@@ -285,6 +288,7 @@ export async function sendChatMessage(
     run.turn = null;
     if (result.sessionId) writeBinding(chatId, { sessionId: result.sessionId, cwd: resolvedCwd });
     totalTools += result.toolCount;
+    if (result.toolsUnknown) toolsUnknown = true;
     return result;
   };
 
@@ -344,20 +348,43 @@ export async function sendChatMessage(
           if (!text.includes(ask.question) || !ask.question) text = text ? `${text}\n\n${askUserAsText(ask)}` : askUserAsText(ask);
           break;
         }
-        resumeId = result.sessionId;
-        prompt = `${mt("chat.headlessAnswerLabel")}: ${answer}`;
+        const answerPrompt = `${mt("chat.headlessAnswerLabel")}: ${answer}`;
+        const sinceAnswer = text.slice(textAtAnswer);
+        const asked = ask.question && sinceAnswer.includes(ask.question)
+          ? sinceAnswer
+          : (sinceAnswer ? `${sinceAnswer}\n\n${askUserAsText(ask)}` : askUserAsText(ask));
+        seedHistory = [...seedHistory, { role: "user", content: seedMessage }, { role: "assistant", content: asked }];
+        seedMessage = answerPrompt;
+        textAtAnswer = text.length;
+        // Cevap da bir `--resume`: aynı kural geçerli. `ask_user` başka bir araçla
+        // paralel çağrıldıysa ya da öldürme anında yeni bir çağrı başladıysa
+        // oturumda sonuçsuz çağrı kalmış olabilir → yeni oturum, cevap dahil tohum.
+        const unsafe = result.sessionId ? unsafeToResume(resolvedCwd, result.sessionId) : "kimlik-yok";
+        if (unsafe) {
+          appLog("kopru.bag-dustu", { sohbet: chatId, sebep: unsafe, yer: "cevap" });
+          clearBinding(chatId);
+          resumeId = null;
+          prompt = seedPrompt(seedHistory, seedMessage, useConnectors, resolvedCwd);
+        } else {
+          resumeId = result.sessionId;
+          prompt = answerPrompt;
+        }
         continue;
       }
 
       // --- Hata ---
-      const canAutoRetry = result.toolCount === 0 && !retried && !result.timedOut && !isUpdateBlock(result.error);
+      // Araç sayımı TURUN TAMAMI için: soru öncesi alt turda çalışan bir
+      // `adt_push`, cevap alt turu araçsız düştü diye yeniden yaptırılmamalı.
+      // Veritabanı hiç görülmediyse sayı bilinmiyor; o da "çalışmış" sayılıyor.
+      const toolsRan = totalTools > 0 || toolsUnknown;
+      const canAutoRetry = !toolsRan && !retried && !result.timedOut && !isUpdateBlock(result.error);
       if (result.failure === "context" || result.failure === "poisoned") {
         if (canAutoRetry) {
           retried = true;
           restartedReason = "context";
           resumeId = null;
           clearBinding(chatId);
-          prompt = seedPrompt(history, message, useConnectors, resolvedCwd);
+          prompt = seedPrompt(seedHistory, seedMessage, useConnectors, resolvedCwd);
           continue;
         }
       } else if (canAutoRetry && result.failure !== "blocked") {
@@ -373,16 +400,16 @@ export async function sendChatMessage(
         }
         if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
         resumeId = result.sessionId ?? resumeId;
-        if (!resumeId) prompt = seedPrompt(history, message, useConnectors, resolvedCwd);
+        if (!resumeId) prompt = seedPrompt(seedHistory, seedMessage, useConnectors, resolvedCwd);
         continue;
       }
-      appLog("kopru.hata", { sohbet: chatId, sinif: result.failure ?? "-", aracCalisti: result.toolCount > 0, yenidenDenendi: retried });
+      appLog("kopru.hata", { sohbet: chatId, sinif: result.failure ?? "-", aracCalisti: toolsRan, yenidenDenendi: retried });
       return {
         ok: false,
         text: text + result.text,
         error: userError(result, retried),
         usedConnectors: useConnectors,
-        ...(result.toolCount > 0 ? { canContinue: true } : {})
+        ...(toolsRan ? { canContinue: true } : {})
       };
     }
 

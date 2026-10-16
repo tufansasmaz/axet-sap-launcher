@@ -67,6 +67,12 @@ export interface HeadlessTurnResult {
   timedOut: boolean;
   spawnFailed: boolean;
   toolCount: number;
+  /**
+   * Oturum kimliği belli ama veritabanı tur boyunca hiç bulunamadı: `toolCount`
+   * 0 görünse de araç çalışmış olabilir. Çağıran bunu "araç çalıştı" sayar
+   * (otomatik yeniden gönderme yok).
+   */
+  toolsUnknown?: boolean;
   ask: AskUserRequest | null;
   failure: HeadlessFailure | null;
 }
@@ -120,14 +126,33 @@ export function classifyStderr(lines: string[]): HeadlessFailure | null {
   return null;
 }
 
-/** Kullanıcıya gösterilecek stderr: INFO/DEBUG gürültüsü atılmış, kısaltılmış. */
+const SHOWN_ERROR_MAX = 1500;
+
+/**
+ * Kullanıcıya gösterilecek stderr: INFO/DEBUG ve bağlayıcı uyarısı gürültüsü
+ * atılmış, kısaltılmış. SONU tutuluyor: asıl hata en son basılıyor.
+ */
 export function cleanStderr(stderr: string): string {
   return stderr
     .split(/\r?\n/)
     .map((l) => l.trim())
-    .filter((l) => l && !/^(\S+\s+\S+\s+)?(INFO|DEBU|DEBUG)\b/.test(l))
+    .filter((l) => l && !/^(\S+\s+\S+\s+)?(INFO|DEBU|DEBUG)\b/.test(l) && !RE_IGNORED.test(l))
     .join("\n")
-    .slice(0, 1500)
+    .slice(-SHOWN_ERROR_MAX)
+    .trim();
+}
+
+/**
+ * stdout'un JSON olmayan satırları. axet-code ölümcül bir mesajı (ör. zorunlu
+ * güncelleme) stdout'a basabilir; eski run yolu stdout + stderr'de arıyordu.
+ */
+function plainStdout(stdout: string): string {
+  return stdout
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("{"))
+    .join("\n")
+    .slice(-SHOWN_ERROR_MAX)
     .trim();
 }
 
@@ -183,13 +208,26 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   const startedAt = deps.now();
   // Saat kayması payı: axet-code'un yazdığı `created_at` saniye çözünürlüklü.
   const sinceSec = Math.floor(startedAt / 1000) - 2;
-  const dbPath = deps.dbPath(args.cwd);
+  // Yeni bir klasördeki ilk turda `.axet-code` henüz yok: axet-code açılınca
+  // kuruluyor. Bulunana kadar her yoklamada yeniden aranıyor (`dbFor`);
+  // bulunmazsa metin akışı, `ask_user` ağı ve araç sayımı kör kalırdı.
+  let dbPath = deps.dbPath(args.cwd);
 
   let sessionId: string | null = args.resumeId;
   // Devam turunda oturumun ESKİ mesajları bu tura ait değil.
   const preexisting = new Set<string>(
     args.resumeId && dbPath ? deps.readMessages(dbPath, args.resumeId, 0).map((m) => m.id) : []
   );
+
+  const dbFor = (): string | null => {
+    if (dbPath) return dbPath;
+    dbPath = deps.dbPath(args.cwd);
+    if (dbPath && args.resumeId) {
+      // Geç bulundu: tur başından önceki mesajlar zamanla ayrılıyor.
+      for (const m of deps.readMessages(dbPath, args.resumeId, 0)) if (m.createdAt < sinceSec) preexisting.add(m.id);
+    }
+    return dbPath;
+  };
 
   const emitted = new Map<string, number>();
   const seenTools = new Set<string>();
@@ -230,8 +268,10 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   };
 
   function poll(): void {
-    if (!sessionId || !dbPath) return;
-    const messages = deps.readMessages(dbPath, sessionId, sinceSec).filter((m) => !preexisting.has(m.id));
+    if (!sessionId) return;
+    const db = dbFor();
+    if (!db) return;
+    const messages = deps.readMessages(db, sessionId, sinceSec).filter((m) => !preexisting.has(m.id));
     for (const message of messages) {
       if (message.role !== "assistant") continue;
       const body = message.parts
@@ -309,7 +349,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
     const now = deps.now();
     if (now - lastProgressAt >= deps.progressMs) {
       lastProgressAt = now;
-      const progress = deps.readProgress(dbPath, sessionId);
+      const progress = deps.readProgress(db, sessionId);
       const key = JSON.stringify(progress);
       if (key !== lastProgressKey) {
         lastProgressKey = key;
@@ -367,7 +407,37 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
       } catch {
         // okuma hatası sonucu bozmamalı
       }
-      const base = { sessionId, cancelled, timedOut, spawnFailed, toolCount, ask: null as AskUserRequest | null };
+      const jsonLine = stdout
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter((l) => l.startsWith("{"))
+        .pop();
+      let doc: { session_id?: string; result?: unknown; is_error?: boolean } | null = null;
+      try {
+        doc = jsonLine ? JSON.parse(jsonLine) : null;
+      } catch {
+        doc = null;
+      }
+      if (doc?.session_id && !sessionId) {
+        // Kimlik yalnız JSON'da geldi (`-v` satırı kaçtı): bağlamaya yazılıyor
+        // ve bu turun mesajları şimdi okunuyor — yoksa araçlar sayılmazdı.
+        sessionId = doc.session_id;
+        try {
+          args.onSessionId(sessionId);
+          poll();
+        } catch {
+          // okuma hatası sonucu bozmamalı
+        }
+      }
+      const base = {
+        sessionId,
+        cancelled,
+        timedOut,
+        spawnFailed,
+        toolCount,
+        ask: null as AskUserRequest | null,
+        ...(sessionId && !dbPath ? { toolsUnknown: true } : {})
+      };
       if (spawnFailed) {
         resolve({ ...base, ok: false, text: "", error: spawnError, failure: null });
         return;
@@ -380,21 +450,9 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
         resolve({ ...base, ok: true, text: answer, ask, failure: null });
         return;
       }
-      const jsonLine = stdout
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.startsWith("{"))
-        .pop();
-      let doc: { session_id?: string; result?: unknown; is_error?: boolean } | null = null;
-      try {
-        doc = jsonLine ? JSON.parse(jsonLine) : null;
-      } catch {
-        doc = null;
-      }
-      if (doc?.session_id && !sessionId) sessionId = doc.session_id;
       const resultText = typeof doc?.result === "string" ? doc.result : "";
       if (doc && doc.is_error !== true && !timedOut) {
-        resolve({ ...base, sessionId, ok: true, text: answer || resultText, failure: null });
+        resolve({ ...base, ok: true, text: answer || resultText, failure: null });
         return;
       }
       // Hata: sınıf ve metin. Önce veritabanının `finish` hatası (sağlayıcının
@@ -404,13 +462,21 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
       else if (finishAuthFailure(lastFinish)) failure = "auth";
       else if (finishPoisonsHistory(lastFinish)) failure = "poisoned";
       const finishMsg = lastFinish?.data?.reason === "error" ? String(lastFinish.data?.message ?? "") : "";
+      const primary = finishMsg || (doc?.is_error ? resultText : "");
+      const plainOut = plainStdout(stdout);
       const errorText =
-        finishMsg ||
-        (doc?.is_error ? resultText : "") ||
-        cleanStderr(stderr) ||
+        primary ||
+        [plainOut, cleanStderr(stderr)].filter(Boolean).join("\n") ||
         `axet-code çıkış kodu ${code ?? "?"}`;
-      failure = failure ?? classifyText(errorText) ?? classifyStderr(stderrLines);
-      resolve({ ...base, sessionId, ok: false, text: answer, error: errorText, failure });
+      // Sağlayıcının kendi cümlesi yoksa stderr YALNIZ satır satır
+      // sınıflanıyor: bağlayıcı uyarısındaki "unauthorized" turu yetki
+      // arızası yapmamalı (15 sn bekleme + yanlış "kalıcı 403").
+      failure =
+        failure ??
+        (primary ? classifyText(primary) : null) ??
+        classifyStderr(stderrLines) ??
+        (plainOut ? classifyText(plainOut) : null);
+      resolve({ ...base, ok: false, text: answer, error: errorText, failure });
     };
     child.on("close", (code) => finish(code));
     child.on("error", (err) => {
