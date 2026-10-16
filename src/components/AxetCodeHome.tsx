@@ -20,6 +20,7 @@ import { orderSessions } from "../lib/chatSessionGroups";
 import { contextTierFor } from "../lib/contextTier";
 import { mergeToolStep } from "../lib/toolSteps";
 import { enqueuePrompt, mergeQueuedIntoDraft, type QueuedPrompt } from "../lib/chatQueue";
+import { settleAnswer } from "../lib/settleAnswer";
 import { useT } from "../i18n";
 import { useChatStore } from "../stores/chatStore";
 import { deriveTitle, type ChatSession, type RecentEntry } from "../stores/chatTypes";
@@ -748,6 +749,7 @@ export default function AxetCodeHome({
                 // kaybolsaydı, kırpılmış cevap bir sonraki açılışta tam bir cevap
                 // gibi görünürdü.
                 ...(m.interrupted ? { interrupted: true } : {}),
+                ...(m.haltReason ? { haltReason: m.haltReason } : {}),
                 createdAt: m.createdAt,
               })),
             model: s.model,
@@ -1300,23 +1302,18 @@ export default function AxetCodeHome({
             };
           }
 
-          // EMNİYET AĞI — boş balon çizilmeyecek.
-          //
-          // Ana süreçte de bir kapı var (axetChat.ts `guard`), ama o kapı
-          // yalnızca `sendChatMessage`'ın çıkışını görüyor; buraya başka bir
-          // yoldan `ok: true` + boş metin gelirse yine üç boş balon çizilirdi
-          // (ölçülen arıza, 2026-09-08). İki kural:
-          //
-          //   1. Sonuç boş ama EKRANDA AKMIŞ metin varsa o metin kazanır —
-          //      kullanıcı onu zaten okudu, silmek düpedüz veri kaybı olurdu.
-          //   2. İkisi de boşsa bu bir başarı değil: hata metni yazılıyor ve
-          //      balon hata olarak işaretleniyor.
-          const streamedText = streamed ? streamed.content.trim() : "";
-          const answer = result.ok ? result.text.trim() || streamedText : "";
-          const failed = !result.ok || !answer;
-          const finalContent = failed
-            ? result.error || t("axetCodeHome.chatGenericError")
-            : answer;
+          // EMNİYET AĞI ve "Devam et" kuralı: bkz. src/lib/settleAnswer.ts.
+          const settled = settleAnswer(
+            result,
+            streamed ? streamed.content : "",
+            t("axetCodeHome.chatGenericError"),
+          );
+          // Sıradaki mesaj yalnızca TAM bir cevaptan sonra gidiyor; yarıda
+          // kalan tur da kullanıcıdan karar bekliyor.
+          const failed = settled.error || settled.interrupted === true;
+          const halt = settled.interrupted
+            ? { interrupted: true as const, haltReason: settled.haltReason }
+            : {};
           // Bağlayıcıların bu mesajda açık olup olmadığı cevaba İLİŞTİRİLİYOR:
           // "gerektiğinde" kipinde bu bir tahmin ve yanıldığında sebebi
           // görünür olmalı (bkz. ChatBubble `usedConnectors`).
@@ -1327,12 +1324,13 @@ export default function AxetCodeHome({
                 m.id === streamed.id
                   ? {
                       ...m,
-                      content: finalContent,
-                      error: failed,
+                      content: settled.content,
+                      error: settled.error,
                       streaming: false,
                       usedConnectors: result.usedConnectors,
                       restartedReason: result.restartedReason,
                       ...withSteps,
+                      ...halt,
                     }
                   : m,
               ),
@@ -1343,12 +1341,13 @@ export default function AxetCodeHome({
           const assistantMessage: ChatMessage = {
             id: crypto.randomUUID(),
             role: "assistant",
-            content: finalContent,
-            error: failed,
+            content: settled.content,
+            error: settled.error,
             createdAt: Date.now(),
             usedConnectors: result.usedConnectors,
             restartedReason: result.restartedReason,
             ...withSteps,
+            ...halt,
           };
           return {
             ...s,
@@ -1761,6 +1760,7 @@ export default function AxetCodeHome({
                     content: `${m.content.trimEnd()}\n\n${extra}`,
                     // Artık yarım değil: uyarı da düğme de kalkıyor.
                     interrupted: false,
+                    haltReason: undefined,
                     ...mergeSteps(m),
                   }
                 : m,

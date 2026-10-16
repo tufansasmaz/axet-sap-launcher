@@ -997,6 +997,12 @@ export interface StoredChatMessage {
    * yanlış bilgiyle değiştirmek olurdu.
    */
   interrupted?: boolean;
+  /**
+   * Yarıda kalmanın sebebi: tur bir hatayla düştü ama ajan araç çalıştırmıştı
+   * (bkz. AxetChatSendResult.canContinue). Yoksa ve `interrupted` varsa sebep
+   * uygulamanın kapanması.
+   */
+  haltReason?: string;
 }
 
 export interface StoredChatSession {

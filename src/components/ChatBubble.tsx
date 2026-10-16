@@ -57,6 +57,9 @@ export interface ChatMessage {
   // getirildi ve CÜMLENİN ORTASINDA bitiyor olabilir. Görünür olması şart —
   // aksi hâlde kırpılmış bir cevap tam bir cevap sanılır.
   interrupted?: boolean;
+  // Yarıda kalmanın sebebi: araç çalıştıktan sonra tur düştü (bkz. settleAnswer.ts).
+  // Yoksa not "uygulama kapandı" diyor.
+  haltReason?: string;
 }
 
 // NOT — burada eskiden bir SİMÜLE daktilo animasyonu vardı
@@ -246,7 +249,11 @@ function ChatBubble({
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-[var(--status-warning-text)]">
           <span className="flex items-center gap-1.5">
             <RefreshCw size={11} className="shrink-0" />
-            <span>{t("chatBubble.interrupted")}</span>
+            <span>
+              {message.haltReason
+                ? t("chatBubble.haltedByError", { error: message.haltReason })
+                : t("chatBubble.interrupted")}
+            </span>
           </span>
           {/* Notu OKUMAK yetmiyordu: kullanıcı yarım cevabı görüp ne
               yapacağını bilemiyordu (2026-09-05). Devam etmek, yeniden

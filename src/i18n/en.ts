@@ -706,6 +706,8 @@ export const en: Record<TranslationKey, string> = {
   "chatBubble.restartedProvider": "The provider did not respond, the session was restarted and the question resent.",
   "chatBubble.interrupted":
     "This answer was cut short: generation was still running when the app closed. The text was recovered as far as it had got.",
+  "chatBubble.haltedByError":
+    "This answer was cut short: {error}. The agent had already run tools in this turn, so it was not retried automatically.",
   "chatBubble.continueAnswer": "Continue",
 
   // --- Tool run row (see ChatToolRun) ---

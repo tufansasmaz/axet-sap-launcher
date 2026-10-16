@@ -766,6 +766,10 @@ export const tr = {
   "chatBubble.restartedProvider": "Sağlayıcı yanıt vermedi, oturum yenilendi ve soru yeniden gönderildi.",
   "chatBubble.interrupted":
     "Bu cevap yarıda kaldı: uygulama kapandığında üretim sürüyordu. Metin, o ana kadar üretilmiş olan kadarıyla geri getirildi.",
+  // Tur bir hatayla düştü ama ajan araç çalıştırmıştı — otomatik yeniden
+  // gönderilmedi (aynı yazma iki kez yapılmasın). Karar kullanıcıda.
+  "chatBubble.haltedByError":
+    "Bu cevap yarıda kaldı: {error}. Ajan bu turda araç çalıştırmıştı, bu yüzden otomatik yeniden denenmedi.",
   // Yarım cevabın yanındaki düğme. "Yeniden üret" DEĞİL: üretilmiş metin
   // atılmıyor, ajandan kaldığı yerden sürdürmesi isteniyor.
   "chatBubble.continueAnswer": "Devam et",
