@@ -7,7 +7,7 @@ import { TerminalStoreContext, type TerminalCommands } from "../src/stores/termi
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalPane } from "../src/stores/terminalTypes";
 import type { TerminalPaneColor, TerminalPaneKind } from "../app-electron/shared/types";
-import { LEGACY_AXET_AGENT, type AgentSpec } from "../app-electron/shared/agentTypes";
+import { AGENT_ENGINE_MISSING, LEGACY_AXET_AGENT, type AgentSpec } from "../app-electron/shared/agentTypes";
 
 vi.mock("../src/components/EmbeddedTerminal", () => ({
   default: ({ sessionId, active, fontSize }: { sessionId: string; active: boolean; fontSize?: number }) => (
@@ -210,6 +210,11 @@ describe("TerminalPaneView", () => {
     const c = renderPane({ state: "exited", ptyId: "t1", code: 0 }, { kind: "agent", agent: LEGACY_AXET_AGENT });
     fireEvent.click(screen.getByTitle("Kapat"));
     expect(c.closePane).toHaveBeenCalledWith("p1");
+  });
+
+  it("motoru kurulu olmayan ajan bölmesi 'kurulu değil' diyor", () => {
+    renderPane({ state: "failed", message: AGENT_ENGINE_MISSING }, { kind: "agent", agent: { engine: "claude", role: "", roleKind: "custom" } });
+    expect(screen.getByText("Bu ajanın motoru bu bilgisayarda kurulu değil. Kurup ↻ ile yeniden başlatın.")).toBeTruthy();
   });
 });
 

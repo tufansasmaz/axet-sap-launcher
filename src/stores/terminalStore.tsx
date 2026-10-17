@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { AppConfig, TerminalMode } from "../../app-electron/shared/types";
 import { TERMINAL_MISSING_DIR } from "../../app-electron/shared/terminalLayout";
-import { buildAgentCommand } from "../../app-electron/shared/agentEngines";
-import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
+import { buildAgentCommand, engineBinary } from "../../app-electron/shared/agentEngines";
+import { AGENT_ENGINE_MISSING, LEGACY_AXET_AGENT, type AgentEngineInfo, type AgentSpec } from "../../app-electron/shared/agentTypes";
+import { ENGINE_LABEL } from "../agents/agentLabels";
 import { fromLegacy } from "../../app-electron/shared/terminalTree";
 import type { ToastMsg } from "../components/Toast";
 import { useT } from "../i18n";
@@ -104,6 +105,12 @@ export function TerminalStoreProvider({
 
   const stateRef = useRef(state);
   stateRef.current = state;
+  const tRef = useRef(t);
+  tRef.current = t;
+  /** Kurulu motorlar (spec §3). `null`: henüz bilinmiyor → ajan bölmesi bekliyor. */
+  const [engines, setEngines] = useState<AgentEngineInfo[] | null>(null);
+  /** "+ Ajan" ile eklenen, henüz kaydı yapılmamış bölmeler (günlükte `ajan.eklendi`). */
+  const freshAgents = useRef(new Set<string>());
   const configRef = useRef(config);
   configRef.current = config;
   const nameForRef = useRef<NameFor>((n) => String(n));
@@ -204,6 +211,24 @@ export function TerminalStoreProvider({
     dispatch({ type: "setVisible", visible });
   }, [visible]);
 
+  // Motorların kurulu olup olmadığı. Sorulamazsa boş liste: hiçbir motor
+  // engellenmiyor (IPC arızası ajanları kilitlemesin; kabuk zaten hata söyler).
+  useEffect(() => {
+    if (!cleaned) return;
+    let alive = true;
+    window.api.agentEngines().then(
+      (list) => {
+        if (alive) setEngines(list);
+      },
+      () => {
+        if (alive) setEngines([]);
+      }
+    );
+    return () => {
+      alive = false;
+    };
+  }, [cleaned]);
+
   // Mod ilk kez görününce kayıtlı düzen okunuyor.
   useEffect(() => {
     if (!visible || !config || state.phase !== "closed") return;
@@ -226,20 +251,46 @@ export function TerminalStoreProvider({
   // 2. Başlatma.
   useEffect(() => {
     if (!cleaned || !config) return;
-    // bootingAgentCount: "running" ama terminal:ready henüz gelmemiş ajan sayısı.
     for (const pane of nextToStart(state, SPAWN_CONCURRENCY, bootingAgentCount)) {
       if (spawnTokens.current.has(pane.id)) continue;
+      // Motorların kurulu olup olmadığı bilinmeden ajan başlamıyor.
+      if (pane.kind === "agent" && engines === null) continue;
       const token = ++spawnSeq.current;
       spawnTokens.current.set(pane.id, token);
       dispatch({ type: "spawnStarted", paneId: pane.id, token });
       // Ajan bölmesi seçilen kabukta açılıyor, motorun komutu ilk satır
       // (spec 2026-10-17 ajan-alani §5): motor kapansa da bölme kabukta kalır.
-      const isAgent = pane.kind === "agent";
+      const spec: AgentSpec | null = pane.kind === "agent" ? (pane.agent ?? LEGACY_AXET_AGENT) : null;
+      const isAgent = spec !== null;
       const shell: TerminalMode = pane.kind === "agent" ? config.terminal : pane.kind;
-      const command = pane.kind === "agent" ? buildAgentCommand(pane.agent ?? LEGACY_AXET_AGENT, config.axetCommand || "") : undefined;
-      window.api
-        .createTerminal(pane.cwd, INITIAL_COLS, INITIAL_ROWS, shell, command, { createDir: false })
-        .then(
+      const command = spec ? buildAgentCommand(spec, config.axetCommand || "") : undefined;
+
+      const fail = (message: string) => {
+        if (spawnTokens.current.get(pane.id) !== token) return;
+        spawnTokens.current.delete(pane.id);
+        dispatch({ type: "spawnFailed", paneId: pane.id, token, message, missingDir: message.includes(TERMINAL_MISSING_DIR) });
+      };
+
+      const register = (ptyId: string) => {
+        if (!spec) return;
+        const owner = findPane(stateRef.current, pane.id);
+        void window.api
+          .agentRegister({
+            paneId: pane.id,
+            ptyId,
+            engine: spec.engine,
+            cwd: pane.cwd,
+            command: command ?? "",
+            name: pane.title ?? tRef.current(ENGINE_LABEL[spec.engine]),
+            roleKind: spec.roleKind,
+            sap: Boolean(owner?.workspace.sap),
+            added: freshAgents.current.delete(pane.id)
+          })
+          .catch(() => {});
+      };
+
+      const launch = () => {
+        window.api.createTerminal(pane.cwd, INITIAL_COLS, INITIAL_ROWS, shell, command, { createDir: false }).then(
           (ptyId) => {
             if (spawnTokens.current.get(pane.id) !== token) {
               void window.api.disposeTerminal(ptyId).catch(() => {});
@@ -256,11 +307,12 @@ export function TerminalStoreProvider({
               dispatch({ type: "ptyExit", ptyId, code });
               return;
             }
+            register(ptyId);
             // Başlangıç kipi: bu sürede çıktı okunmadı işareti koymaz (spec §4).
             if (isAgent && readyEarly) return; // ajan zaten hazır; yuva tutulmuyor
             startupPtyIds.current.add(ptyId);
             if (isAgent) {
-              // ajan için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
+              // Ajan için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
               bootingAgentPtyIds.current.add(ptyId);
               setBootingAgentCount((c) => c + 1);
             } else {
@@ -268,21 +320,26 @@ export function TerminalStoreProvider({
               setTimeout(() => startupPtyIds.current.delete(ptyId), STARTUP_GRACE_MS);
             }
           },
-          (error: unknown) => {
-            if (spawnTokens.current.get(pane.id) !== token) return;
-            spawnTokens.current.delete(pane.id);
-            const message = ipcMessage(error);
-            dispatch({
-              type: "spawnFailed",
-              paneId: pane.id,
-              token,
-              message,
-              missingDir: message.includes(TERMINAL_MISSING_DIR)
-            });
-          }
+          (error: unknown) => fail(ipcMessage(error))
         );
+      };
+
+      // Kurulu olmayan (ya da bozuk) motor: kabuk açılmıyor (spec §10).
+      if (spec && engines?.some((e) => e.id === spec.engine && e.blocked)) {
+        fail(AGENT_ENGINE_MISSING);
+        continue;
+      }
+      // Özel komut ajan başına farklı: ilk parçası PATH'te aranıyor.
+      if (spec?.engine === "ozel") {
+        window.api.agentWhich(engineBinary(spec) ?? "").then(
+          (found) => (found ? launch() : fail(AGENT_ENGINE_MISSING)),
+          () => launch()
+        );
+        continue;
+      }
+      launch();
     }
-  }, [state, cleaned, config, bootingAgentCount]);
+  }, [state, cleaned, config, bootingAgentCount, engines]);
 
   // 4. Kalıcılık: yalnız düzen değişince.
   useEffect(() => {
@@ -321,6 +378,7 @@ export function TerminalStoreProvider({
     /** Bölmenin süreci varsa kapatır, izlerini siler. */
     const release = (pane: TerminalPane) => {
       spawnTokens.current.delete(pane.id);
+      if (pane.kind === "agent") void window.api.agentUnregister(pane.id).catch(() => {});
       const ptyId = ptyOf(pane);
       if (!ptyId) return;
       ptyOwners.current.delete(ptyId);
@@ -350,10 +408,12 @@ export function TerminalStoreProvider({
       addAgent: (input, split) => {
         const workspaceId = stateRef.current.activeWorkspaceId;
         if (!workspaceId) return;
+        const paneId = crypto.randomUUID();
+        freshAgents.current.add(paneId);
         dispatch({
           type: "addPane",
           workspaceId,
-          paneId: crypto.randomUUID(),
+          paneId,
           kind: "agent",
           cwd: input.cwd,
           split,

@@ -1330,7 +1330,8 @@ export const tr = {
   "agents.engineClaude": "Claude Code",
   "agents.engineCodex": "Codex",
   "agents.engineGemini": "Gemini CLI",
-  "agents.engineCustom": "Özel komut"
+  "agents.engineCustom": "Özel komut",
+  "agents.engineMissing": "Bu ajanın motoru bu bilgisayarda kurulu değil. Kurup ↻ ile yeniden başlatın."
 };
 
 

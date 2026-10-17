@@ -1244,5 +1244,6 @@ export const en: Record<TranslationKey, string> = {
   "agents.engineClaude": "Claude Code",
   "agents.engineCodex": "Codex",
   "agents.engineGemini": "Gemini CLI",
-  "agents.engineCustom": "Custom command"
+  "agents.engineCustom": "Custom command",
+  "agents.engineMissing": "This agent's engine is not installed on this computer. Install it, then restart with ↻."
 };

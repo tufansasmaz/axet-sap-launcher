@@ -9,7 +9,7 @@ import { STARTUP_GRACE_MS, TerminalStoreProvider } from "../src/stores/terminalS
 import { useTerminalStore, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { TERMINAL_MISSING_DIR } from "../app-electron/shared/terminalLayout";
 import type { AppConfig } from "../app-electron/shared/types";
-import { LEGACY_AXET_AGENT } from "../app-electron/shared/agentTypes";
+import { AGENT_ENGINE_MISSING, LEGACY_AXET_AGENT } from "../app-electron/shared/agentTypes";
 import { layoutOf, minimizedOf } from "../src/stores/terminalReducer";
 import { leafIds } from "../app-electron/shared/terminalTree";
 
@@ -64,7 +64,11 @@ beforeEach(() => {
       readyListeners.add(cb);
       return () => readyListeners.delete(cb);
     }),
-    saveConfig: vi.fn(async (partial: Partial<AppConfig>) => ({ ...baseConfig, ...partial }))
+    saveConfig: vi.fn(async (partial: Partial<AppConfig>) => ({ ...baseConfig, ...partial })),
+    agentEngines: vi.fn(async () => [] as unknown[]),
+    agentWhich: vi.fn(async () => true),
+    agentRegister: vi.fn(async () => {}),
+    agentUnregister: vi.fn(async () => {})
   };
   prevApi = (window as unknown as { api?: unknown }).api;
   (window as unknown as { api: unknown }).api = api;
@@ -535,5 +539,103 @@ describe("ajan bölmeleri (spec 2026-10-17 ajan-alani §5)", () => {
         terminalWorkspaces: [expect.objectContaining({ root: "C:\\kok", sap: { uuid: "u1", label: "D01" } })]
       })
     );
+  });
+});
+
+describe("motor denetimi ve izleyici kaydı (spec 2026-10-17 ajan-alani §3, §6, §10)", () => {
+  it("kurulu olmayan motor: kabuk açılmıyor, bölme 'kurulu değil' hatasında", async () => {
+    api.agentEngines.mockResolvedValue([{ id: "claude", installed: false, blocked: true }]);
+    await ready();
+    act(() => store.commands.addAgent({ spec: { engine: "claude", role: "", roleKind: "custom" }, name: "", cwd: "C:\\p" }));
+    await flush();
+    expect(api.createTerminal).not.toHaveBeenCalled();
+    expect(panes()[0].run).toEqual({ state: "failed", message: AGENT_ENGINE_MISSING });
+  });
+
+  it("motor listesi gelmeden ajan bekliyor, düz kabuk başlıyor", async () => {
+    let resolveEngines: (value: unknown[]) => void = () => {};
+    api.agentEngines.mockImplementation(
+      () =>
+        new Promise<unknown[]>((resolve) => {
+          resolveEngines = resolve;
+        })
+    );
+    await ready();
+    act(() => {
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\p" });
+      store.commands.addPane("cmd", "C:\\a");
+    });
+    await flush();
+    expect(api.createTerminal).toHaveBeenCalledTimes(1);
+    expect(creates[0].initialCommand).toBeUndefined();
+    await act(async () => resolveEngines([]));
+    await flush();
+    expect(api.createTerminal).toHaveBeenCalledTimes(2);
+    expect(creates[1].initialCommand).toBe("axet-code -y");
+  });
+
+  it("kayıt: ilk başlatmada 'eklendi', yeniden başlatmada değil; ad ve komut gidiyor", async () => {
+    await ready();
+    act(() => store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "Ayşe", cwd: "C:\\p" }));
+    await flush();
+    await act(async () => creates[0].resolve("pty-1"));
+    await flush();
+    const paneId = panes()[0].id;
+    expect(api.agentRegister).toHaveBeenCalledWith({
+      paneId,
+      ptyId: "pty-1",
+      engine: "axet-code",
+      cwd: "C:\\p",
+      command: "axet-code -y",
+      name: "Ayşe",
+      roleKind: "custom",
+      sap: false,
+      added: true
+    });
+    act(() => store.commands.restartPane(paneId));
+    expect(api.agentUnregister).toHaveBeenCalledWith(paneId);
+    await flush();
+    await act(async () => creates[1].resolve("pty-2"));
+    await flush();
+    expect(api.agentRegister).toHaveBeenLastCalledWith(expect.objectContaining({ ptyId: "pty-2", added: false }));
+  });
+
+  it("adsız ajanın kaydında motorun adı", async () => {
+    await ready();
+    act(() => store.commands.addAgent({ spec: { engine: "codex", role: "", roleKind: "custom" }, name: "", cwd: "C:\\p" }));
+    await flush();
+    await act(async () => creates[0].resolve("pty-c"));
+    await flush();
+    expect(api.agentRegister).toHaveBeenCalledWith(expect.objectContaining({ name: "Codex", engine: "codex", command: "codex" }));
+  });
+
+  it("özel komut PATH'te yoksa açılmıyor", async () => {
+    api.agentWhich.mockResolvedValue(false);
+    await ready();
+    act(() =>
+      store.commands.addAgent({ spec: { engine: "ozel", role: "", roleKind: "custom", command: "kiro-cli chat" }, name: "", cwd: "C:\\p" })
+    );
+    await flush();
+    expect(api.agentWhich).toHaveBeenCalledWith("kiro-cli");
+    expect(api.createTerminal).not.toHaveBeenCalled();
+    expect(panes()[0].run).toEqual({ state: "failed", message: AGENT_ENGINE_MISSING });
+  });
+
+  it("ajan bölmesi kapanınca kayıt siliniyor; kabuk bölmesi kaydedilmiyor", async () => {
+    await ready();
+    act(() => {
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\p" });
+      store.commands.addPane("cmd", "C:\\a");
+    });
+    await flush();
+    await act(async () => {
+      creates[0].resolve("pty-a");
+      creates[1].resolve("pty-c");
+    });
+    await flush();
+    expect(api.agentRegister).toHaveBeenCalledTimes(1);
+    const agentPane = panes().find((p) => p.kind === "agent")!;
+    act(() => store.commands.closePane(agentPane.id));
+    expect(api.agentUnregister).toHaveBeenCalledWith(agentPane.id);
   });
 });

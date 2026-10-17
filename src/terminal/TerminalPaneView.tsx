@@ -9,6 +9,7 @@ import type { TerminalPane } from "../stores/terminalTypes";
 import { middleEllipsis } from "../lib/paths";
 import { paneLabel } from "../agents/agentLabels";
 import { PANE_FONT_DEFAULT, PANE_TITLE_MAX, TERMINAL_PANE_COLORS, clampPaneFontSize } from "../../app-electron/shared/terminalLayout";
+import { AGENT_ENGINE_MISSING } from "../../app-electron/shared/agentTypes";
 import type { SplitDir } from "../../app-electron/shared/terminalTree";
 import { PANE_COLOR_LABEL, PANE_COLOR_VAR } from "./paneColors";
 import { GHOST_ICON_BUTTON, TOOL_BUTTON } from "../ui/buttons";
@@ -299,7 +300,9 @@ export default function TerminalPaneView({
         )}
         {run.state === "failed" && (
           <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-xs text-[var(--status-danger-text)]">
-            <span className="break-all">{t("terminal.failed", { message: run.message })}</span>
+            <span className="break-all">
+              {run.message === AGENT_ENGINE_MISSING ? t("agents.engineMissing") : t("terminal.failed", { message: run.message })}
+            </span>
             <button
               type="button"
               onClick={() => commands.restartPane(pane.id)}
