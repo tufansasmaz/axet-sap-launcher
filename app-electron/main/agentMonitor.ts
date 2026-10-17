@@ -34,7 +34,7 @@ export const TYPING_GUARD_MS = 2_000;
  */
 export const PROMPT_ENTER_DELAY_MS = 150;
 
-export type AgentPromptResult = "ok" | "noAgent" | "notRunning" | "typing" | "invalid" | "writeFailed";
+export type AgentPromptResult = "ok" | "noAgent" | "notRunning" | "asking" | "typing" | "busy" | "invalid" | "writeFailed";
 
 /** Görev panosunun gördüğü ajan (spec 2026-10-18 gorev-panosu §5). */
 export interface AgentPresence {
@@ -69,7 +69,7 @@ export interface AgentMonitor {
   answer(paneId: string, callId: string, index: number): AgentAnswerResult;
   snapshot(): AgentStatusEvent[];
   agents(): AgentPresence[];
-  sendPrompt(paneId: string, text: string): AgentPromptResult;
+  sendPrompt(paneId: string, text: string, onSettled?: (outcome: "sent" | "aborted") => void): AgentPromptResult;
   dispose(): void;
 }
 
@@ -83,6 +83,8 @@ interface Entry {
   listAnswered: Set<string>;
   /** "asking" bildirimi gönderilen soru kimlikleri: dalgalanmada ikinci bildirim çıkmasın. */
   notifiedQuestions: Set<string>;
+  /** Pano istemi Enter bekliyor: ikinci sendPrompt reddedilsin. */
+  promptInFlight: boolean;
 }
 
 const SOURCE_LOG = { exact: "kesin", estimated: "tahmini" } as const;
@@ -144,6 +146,9 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
   function unregister(paneId: string): void {
     const entry = byPane.get(paneId);
     if (!entry) return;
+    // Uçuştaki Enter geri çağrısı byPane.get !== entry denetimiyle zaten yok sayar;
+    // promptInFlight temizleniyor ki yeniden kayıtta kilit kalmış gibi görünmesin.
+    entry.promptInFlight = false;
     byPane.delete(paneId);
     if (paneOfPty.get(entry.reg.ptyId) === paneId) paneOfPty.delete(entry.reg.ptyId);
     guard(() => entry.reader.dispose());
@@ -159,7 +164,8 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
         lastInputAt: 0,
         last: null,
         listAnswered: new Set(),
-        notifiedQuestions: new Set()
+        notifiedQuestions: new Set(),
+        promptInFlight: false
       };
       byPane.set(reg.paneId, entry);
       paneOfPty.set(reg.ptyId, reg.paneId);
@@ -227,34 +233,73 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
   // Görev panosunun istemi (spec 2026-10-18 gorev-panosu §5). Motor
   // çalışmıyorsa (kabuk istemi ekranda) HİÇBİR ŞEY yazılmıyor: yapay zekâ
   // metni asla cmd/PowerShell komutu olmamalı. Enter'dan önce yeniden bakılıyor.
-  function sendPrompt(paneId: string, text: string): AgentPromptResult {
+  function sendPrompt(
+    paneId: string,
+    text: string,
+    onSettled?: (outcome: "sent" | "aborted") => void
+  ): AgentPromptResult {
     const entry = byPane.get(paneId);
     if (!entry) return "noAgent";
-    if (!text || /[\u0000-\u001f\u007f]/.test(text)) return "invalid";
+    // C0 + DEL + C1 + Unicode satır/paragraf ayırıcıları denetim karakteri sayılıyor.
+    if (!text || text.length > 4_000 || /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(text)) return "invalid";
+    if (entry.promptInFlight) return "busy";
     let sentAt = 0;
     try {
       entry.reader.poll();
-      if (entry.reader.status().state === "finished") return "notRunning";
+      const state = entry.reader.status().state;
+      if (state === "finished") return "notRunning";
+      // Kararlar listesi ekranda: yazma yanlış seçeneği onaylardı (savunma derinliği).
+      if (state === "asking") return "asking";
       if (!inputIdle(entry)) return "typing";
       if (!deps.write(entry.reg.ptyId, text)) return "writeFailed";
       sentAt = deps.now();
     } catch {
       return "writeFailed";
     }
+    entry.promptInFlight = true;
     const enter = () =>
       guard(() => {
-        if (byPane.get(paneId) !== entry) return;
-        // Arada kullanıcı yazdıysa Enter onun satırını da gönderirdi: bırak.
-        if (entry.lastInputAt > sentAt || entry.input.hasDraft()) return;
-        entry.reader.poll();
-        if (entry.reader.status().state === "finished") {
-          deps.write(entry.reg.ptyId, "\x1b");
-          return;
+        try {
+          if (byPane.get(paneId) !== entry) {
+            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+            return;
+          }
+          // Arada kullanıcı yazdıysa Enter onun satırını da gönderirdi.
+          // Motor da aynı pencerede çıktıysa istem metni kabuk satırında kalır;
+          // \x1b ile temizle ki kullanıcının sonraki Enter'ı onu komut olarak çalıştırmasın.
+          if (entry.lastInputAt >= sentAt || entry.input.hasDraft()) {
+            entry.reader.poll();
+            if (entry.reader.status().state === "finished") {
+              deps.write(entry.reg.ptyId, "\x1b");
+            }
+            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+            return;
+          }
+          entry.reader.poll();
+          if (entry.reader.status().state === "finished") {
+            deps.write(entry.reg.ptyId, "\x1b");
+            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+            return;
+          }
+          if (deps.write(entry.reg.ptyId, "\r")) {
+            entry.reader.submitLine(text);
+            try { onSettled?.("sent"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+          } else {
+            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+          }
+        } finally {
+          entry.promptInFlight = false;
         }
-        if (deps.write(entry.reg.ptyId, "\r")) entry.reader.submitLine(text);
       });
-    if (deps.schedule) deps.schedule(enter, PROMPT_ENTER_DELAY_MS);
-    else setTimeout(enter, PROMPT_ENTER_DELAY_MS);
+    try {
+      if (deps.schedule) deps.schedule(enter, PROMPT_ENTER_DELAY_MS);
+      else setTimeout(enter, PROMPT_ENTER_DELAY_MS);
+    } catch {
+      // Zamanlayıcı fırlattı: metin TUI'de yarım kaldı, temizle.
+      entry.promptInFlight = false;
+      guard(() => deps.write(entry.reg.ptyId, "\x1b"));
+      return "writeFailed";
+    }
     return "ok";
   }
 
@@ -317,7 +362,8 @@ export function readAgentRegistration(raw: unknown): AgentRegistration | null {
   if (!paneId || !ptyId || !isAgentEngineId(record.engine) || !cwd.trim()) return null;
   const roleKind: AgentRoleKind =
     record.roleKind === "preset" || record.roleKind === "axetAgent" ? record.roleKind : "custom";
-  const workspaceId = text(record.workspaceId, 100).trim();
+  const workspaceIdRaw = text(record.workspaceId, 100).trim();
+  const workspaceId = /^[A-Za-z0-9_-]{1,100}$/.test(workspaceIdRaw) ? workspaceIdRaw : "";
   const role = text(record.role, 200).trim().slice(0, AGENT_ROLE_MAX).trim();
   return {
     paneId,

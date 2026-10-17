@@ -470,3 +470,163 @@ describe("Görev Panosu yüzü: agents() ve sendPrompt()", () => {
     expect("workspaceId" in r || "role" in r).toBe(false);
   });
 });
+
+describe("düzeltme turu 1: pano yüzü güvenlik ve sözleşme", () => {
+  function boardHarness() {
+    const clock = { ms: 1_000_000 };
+    const readers = new Map<string, FakeReader>();
+    const scheduled: { fn: () => void; ms: number }[] = [];
+    const write = vi.fn((_ptyId: string, _data: string) => true);
+    const monitor = createAgentMonitor({
+      now: () => clock.ms,
+      createReader: (r: AgentRegistration): AgentReader => {
+        const reader = new FakeReader();
+        readers.set(r.paneId, reader);
+        return reader;
+      },
+      emit: vi.fn(),
+      notify: vi.fn(),
+      write,
+      backlog: () => "",
+      log: vi.fn(),
+      schedule: (fn, ms) => {
+        scheduled.push({ fn, ms });
+      }
+    });
+    const flushEnter = () => {
+      for (const s of scheduled.splice(0)) s.fn();
+    };
+    return { clock, scheduled, write, monitor, flushEnter, reader: (id = "p1") => readers.get(id)! };
+  }
+  const finished: AgentStatus = { state: "finished", source: "estimated", lastActivity: 1 };
+
+  // 1: uçuştaki istem kilidi
+  it("uçuştaki istem kilidi: ikinci sendPrompt 'busy' döndürür, yazılmaz", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("p1", "a")).toBe("ok");
+    expect(h.monitor.sendPrompt("p1", "b")).toBe("busy");
+    expect(h.write.mock.calls).toEqual([["t1", "a"]]);
+    h.flushEnter();
+    expect(h.monitor.sendPrompt("p1", "b")).toBe("ok");
+  });
+
+  it("unregister uçuştaki kilidi temizliyor; yeniden kayıtta kilit yok", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.monitor.sendPrompt("p1", "istem");
+    h.monitor.unregister("p1");
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("p1", "x")).toBe("ok");
+  });
+
+  // 2: C1 denetim karakterleri
+  it("C1 denetim karakterleri geçersiz: \\x9b, \\x85, \\u2028", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("p1", "a\x9b2J")).toBe("invalid");
+    expect(h.monitor.sendPrompt("p1", "a\x85b")).toBe("invalid");
+    expect(h.monitor.sendPrompt("p1", "a\u2028b")).toBe("invalid");
+    expect(h.write).not.toHaveBeenCalled();
+  });
+
+  // 3: kullanıcı yazdı + motor kapandı → \x1b
+  it("arada kullanıcı yazdı ve motor kapandı → \\x1b yazılıyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.monitor.sendPrompt("p1", "istem");
+    h.clock.ms += 50;
+    h.monitor.onInput("t1", "a");
+    h.reader().current = finished;
+    h.flushEnter();
+    expect(h.write.mock.calls).toEqual([["t1", "istem"], ["t1", "\x1b"]]);
+    expect(h.reader().lines).toEqual([]);
+  });
+
+  // 4: workspaceId desen denetimi
+  it("readAgentRegistration: workspaceId desene uymuyorsa atılıyor", () => {
+    const bad = readAgentRegistration({ ...reg(), workspaceId: "../x" })!;
+    expect("workspaceId" in bad).toBe(false);
+    const good = readAgentRegistration({ ...reg(), workspaceId: "valid-id_1" })!;
+    expect(good.workspaceId).toBe("valid-id_1");
+  });
+
+  // 5: writeFailed ve typing yollarında zamanlama/yazım yok
+  it("writeFailed yolunda scheduled boş kalıyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.write.mockReturnValueOnce(false);
+    expect(h.monitor.sendPrompt("p1", "x")).toBe("writeFailed");
+    expect(h.scheduled).toEqual([]);
+    expect(h.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("typing yolunda hiçbir şey yazılmıyor, scheduled boş", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.monitor.onInput("t1", "abc");
+    expect(h.monitor.sendPrompt("p1", "x")).toBe("typing");
+    expect(h.write).not.toHaveBeenCalled();
+    expect(h.scheduled).toEqual([]);
+  });
+
+  // 6: onSettled geri bildirimi
+  it("onSettled: Enter yazılınca 'sent'", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    const settled: string[] = [];
+    h.monitor.sendPrompt("p1", "istem", (o) => settled.push(o));
+    expect(settled).toEqual([]);
+    h.flushEnter();
+    expect(settled).toEqual(["sent"]);
+  });
+
+  it("onSettled: bölme kapandıysa 'aborted'", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    const settled: string[] = [];
+    h.monitor.sendPrompt("p1", "istem", (o) => settled.push(o));
+    h.monitor.unregister("p1");
+    h.flushEnter();
+    expect(settled).toEqual(["aborted"]);
+  });
+
+  it("onSettled: kullanıcı yazdıysa 'aborted'", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    const settled: string[] = [];
+    h.monitor.sendPrompt("p1", "istem", (o) => settled.push(o));
+    h.clock.ms += 50;
+    h.monitor.onInput("t1", "a");
+    h.flushEnter();
+    expect(settled).toEqual(["aborted"]);
+  });
+
+  it("onSettled: Enter anında motor kapandıysa 'aborted'", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    const settled: string[] = [];
+    h.monitor.sendPrompt("p1", "istem", (o) => settled.push(o));
+    h.reader().current = finished;
+    h.flushEnter();
+    expect(settled).toEqual(["aborted"]);
+  });
+
+  // kesin asking durumu
+  it("sendPrompt: kesin asking durumunda 'asking' döndürür, yazılmaz", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.reader().current = asking();
+    expect(h.monitor.sendPrompt("p1", "x")).toBe("asking");
+    expect(h.write).not.toHaveBeenCalled();
+    expect(h.scheduled).toEqual([]);
+  });
+
+  // metin uzunluğu sınırı
+  it("metin > 4000 karakter → invalid", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("p1", "x".repeat(4001))).toBe("invalid");
+    expect(h.write).not.toHaveBeenCalled();
+  });
+});
