@@ -43,7 +43,7 @@ const RADIO_OFF = "text-slate-400 hover:text-slate-200";
 const INPUT =
   "h-7 w-full min-w-0 rounded border border-line bg-transparent px-2 text-xs text-slate-200 outline-none focus:border-accent-500/60";
 const INPUT_ERR =
-  "h-7 w-full min-w-0 rounded border border-[var(--status-error-border)] bg-transparent px-2 text-xs text-slate-200 outline-none focus:border-[var(--status-error-border)]";
+  "h-7 w-full min-w-0 rounded border border-[var(--status-danger-border)] bg-transparent px-2 text-xs text-slate-200 outline-none focus:border-[var(--status-danger-border)]";
 
 export default function AddAgentDialog({
   open,
@@ -109,15 +109,15 @@ export default function AddAgentDialog({
   const def = AGENT_ENGINES[engine];
   const info = engines?.find((e) => e.id === engine);
 
-  // Komuta girecek değerleri doğrula; geçersizse açık hata (sessizce düşürme yok).
-  const roleError = engine !== "axet-code" && role.trim() !== "" && !isSafeArg(role.trim());
+  // Model komuta --model <değer> olarak giriyor; isSafeArg geçmezse açık hata
+  // (sessizce düşürme yok). Rol axet-code dışındaki motorlarda komuta GİRMİYOR
+  // (serbest etiket), bu yüzden Türkçe/boşluklu roller geçerlidir.
   const modelError = def.modelFlag !== null && model.trim() !== "" && !isSafeArg(model.trim());
 
   const valid =
     name.trim() !== "" &&
     cwd !== "" &&
     (engine !== "ozel" || command.trim() !== "") &&
-    !roleError &&
     !modelError;
 
   const submit = (e: FormEvent) => {
@@ -204,13 +204,8 @@ export default function AddAgentDialog({
                 value={role}
                 maxLength={AGENT_ROLE_MAX}
                 onChange={(e) => setRole(e.target.value)}
-                className={roleError ? INPUT_ERR : INPUT}
+                className={INPUT}
               />
-              {roleError && (
-                <p role="alert" className="text-2xs text-[var(--status-error-text)]">
-                  {t("agents.argInvalid")}
-                </p>
-              )}
             </>
           )}
         </div>
@@ -227,7 +222,7 @@ export default function AddAgentDialog({
               className={modelError ? INPUT_ERR : INPUT}
             />
             {modelError && (
-              <p role="alert" className="text-2xs text-[var(--status-error-text)]">
+              <p role="alert" className="text-2xs text-[var(--status-danger-text)]">
                 {t("agents.argInvalid")}
               </p>
             )}

@@ -95,9 +95,9 @@ describe("AddAgentDialog", () => {
     const { onAdd } = renderDialog();
     await flush();
     fireEvent.click(within(engineGroup()).getByRole("radio", { name: "Claude Code" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "data-migration" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "Veri göçü" } });
     fireEvent.click(addButton());
-    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "claude", role: "data-migration", roleKind: "custom" } }));
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "claude", role: "Veri göçü", roleKind: "custom" } }));
   });
 
   it("özel komut: komut yazılmadan Ekle kapalı; model alanı yok", async () => {
@@ -159,21 +159,6 @@ describe("AddAgentDialog", () => {
     expect(onAdd).not.toHaveBeenCalled();
     // Düzelince hata gidiyor
     fireEvent.change(screen.getByLabelText("Model"), { target: { value: "sonnet" } });
-    expect(addButton().disabled).toBe(false);
-    expect(screen.queryByRole("alert")).toBeNull();
-  });
-
-  it("geçersiz rol Ekle'yi kapatıyor ve hata gösteriyor", async () => {
-    const { onAdd } = renderDialog();
-    await flush();
-    fireEvent.click(within(engineGroup()).getByRole("radio", { name: "Claude Code" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "veri göçü" } });
-    expect(addButton().disabled).toBe(true);
-    expect(screen.getByRole("alert")).toBeTruthy();
-    fireEvent.click(addButton());
-    expect(onAdd).not.toHaveBeenCalled();
-    // Düzelince hata gidiyor
-    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "migration" } });
     expect(addButton().disabled).toBe(false);
     expect(screen.queryByRole("alert")).toBeNull();
   });
