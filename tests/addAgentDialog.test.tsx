@@ -95,9 +95,9 @@ describe("AddAgentDialog", () => {
     const { onAdd } = renderDialog();
     await flush();
     fireEvent.click(within(engineGroup()).getByRole("radio", { name: "Claude Code" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "Veri göçü" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "data-migration" } });
     fireEvent.click(addButton());
-    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "claude", role: "Veri göçü", roleKind: "custom" } }));
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "claude", role: "data-migration", roleKind: "custom" } }));
   });
 
   it("özel komut: komut yazılmadan Ekle kapalı; model alanı yok", async () => {
@@ -146,5 +146,49 @@ describe("AddAgentDialog", () => {
     renderDialog(null);
     await flush();
     expect(within(engineGroup()).getAllByRole("radio")[0].textContent).toBe("axet-code");
+  });
+
+  it("geçersiz model Ekle'yi kapatıyor ve hata gösteriyor", async () => {
+    const { onAdd } = renderDialog();
+    await flush();
+    fireEvent.click(within(engineGroup()).getByRole("radio", { name: "Claude Code" }));
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "my model" } });
+    expect(addButton().disabled).toBe(true);
+    expect(screen.getByRole("alert")).toBeTruthy();
+    fireEvent.click(addButton());
+    expect(onAdd).not.toHaveBeenCalled();
+    // Düzelince hata gidiyor
+    fireEvent.change(screen.getByLabelText("Model"), { target: { value: "sonnet" } });
+    expect(addButton().disabled).toBe(false);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("geçersiz rol Ekle'yi kapatıyor ve hata gösteriyor", async () => {
+    const { onAdd } = renderDialog();
+    await flush();
+    fireEvent.click(within(engineGroup()).getByRole("radio", { name: "Claude Code" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "veri göçü" } });
+    expect(addButton().disabled).toBe(true);
+    expect(screen.getByRole("alert")).toBeTruthy();
+    fireEvent.click(addButton());
+    expect(onAdd).not.toHaveBeenCalled();
+    // Düzelince hata gidiyor
+    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "migration" } });
+    expect(addButton().disabled).toBe(false);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("ad alanı ilk odağı alıyor (autoFocus)", async () => {
+    renderDialog();
+    await flush();
+    expect(document.activeElement).toBe(screen.getByLabelText("Ad"));
+  });
+
+  it("çift gönderme: onAdd yalnız bir kez çağrılıyor", async () => {
+    const { onAdd } = renderDialog();
+    await flush();
+    fireEvent.click(addButton());
+    fireEvent.click(addButton());
+    expect(onAdd).toHaveBeenCalledTimes(1);
   });
 });

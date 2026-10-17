@@ -1273,5 +1273,6 @@ export const en: Record<TranslationKey, string> = {
   "agents.colorLabel": "Color",
   "agents.add": "Add",
   "agents.notInstalledShort": "not installed",
-  "agents.engineMissingHint": "This engine was not found on PATH; you can add it, but it won't start until installed."
+  "agents.engineMissingHint": "This engine was not found on PATH; you can add it, but it won't start until installed.",
+  "agents.argInvalid": "Invalid characters; only letters, digits and . : / @ - are allowed."
 };

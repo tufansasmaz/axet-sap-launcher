@@ -1359,7 +1359,8 @@ export const tr = {
   "agents.colorLabel": "Renk",
   "agents.add": "Ekle",
   "agents.notInstalledShort": "kurulu değil",
-  "agents.engineMissingHint": "Bu motor PATH'te bulunamadı; eklenebilir ama kurulana kadar başlamaz."
+  "agents.engineMissingHint": "Bu motor PATH'te bulunamadı; eklenebilir ama kurulana kadar başlamaz.",
+  "agents.argInvalid": "Geçersiz karakter; yalnız harf, rakam ve . : / @ - kullanılabilir."
 };
 
 

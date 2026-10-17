@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { FolderOpen } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
-import { AGENT_ENGINES } from "../../app-electron/shared/agentEngines";
+import { AGENT_ENGINES, isSafeArg } from "../../app-electron/shared/agentEngines";
 import {
   AGENT_COMMAND_MAX,
   AGENT_ENGINE_IDS,
@@ -42,6 +42,8 @@ const RADIO_ON = "bg-[var(--accent-glow)] text-slate-100";
 const RADIO_OFF = "text-slate-400 hover:text-slate-200";
 const INPUT =
   "h-7 w-full min-w-0 rounded border border-line bg-transparent px-2 text-xs text-slate-200 outline-none focus:border-accent-500/60";
+const INPUT_ERR =
+  "h-7 w-full min-w-0 rounded border border-[var(--status-error-border)] bg-transparent px-2 text-xs text-slate-200 outline-none focus:border-[var(--status-error-border)]";
 
 export default function AddAgentDialog({
   open,
@@ -69,6 +71,9 @@ export default function AddAgentDialog({
   const [cwd, setCwd] = useState(defaultCwd);
   const [color, setColor] = useState<TerminalPaneColor>("gray");
   const [axetAgents, setAxetAgents] = useState<AxetAgentEntry[]>([]);
+  // Çift göndermeyi önlemek için ref (React yeniden çizmeden önce etkili).
+  const submittedRef = useRef(false);
+  const [submitted, setSubmitted] = useState(false);
 
   // Her açılışta varsayılana dön (NewPaneDialog ile aynı kural).
   useEffect(() => {
@@ -81,6 +86,8 @@ export default function AddAgentDialog({
     setCommand("");
     setCwd(defaultCwd);
     setColor("gray");
+    submittedRef.current = false;
+    setSubmitted(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -101,11 +108,23 @@ export default function AddAgentDialog({
 
   const def = AGENT_ENGINES[engine];
   const info = engines?.find((e) => e.id === engine);
-  const valid = name.trim() !== "" && cwd !== "" && (engine !== "ozel" || command.trim() !== "");
+
+  // Komuta girecek değerleri doğrula; geçersizse açık hata (sessizce düşürme yok).
+  const roleError = engine !== "axet-code" && role.trim() !== "" && !isSafeArg(role.trim());
+  const modelError = def.modelFlag !== null && model.trim() !== "" && !isSafeArg(model.trim());
+
+  const valid =
+    name.trim() !== "" &&
+    cwd !== "" &&
+    (engine !== "ozel" || command.trim() !== "") &&
+    !roleError &&
+    !modelError;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!valid) return;
+    if (!valid || submittedRef.current) return;
+    submittedRef.current = true;
+    setSubmitted(true);
     const typedRole = role.trim().slice(0, AGENT_ROLE_MAX);
     const spec: AgentSpec =
       engine === "axet-code"
@@ -132,6 +151,7 @@ export default function AddAgentDialog({
             maxLength={PANE_TITLE_MAX}
             onChange={(e) => setName(e.target.value)}
             className={INPUT}
+            autoFocus
           />
         </div>
 
@@ -184,8 +204,13 @@ export default function AddAgentDialog({
                 value={role}
                 maxLength={AGENT_ROLE_MAX}
                 onChange={(e) => setRole(e.target.value)}
-                className={INPUT}
+                className={roleError ? INPUT_ERR : INPUT}
               />
+              {roleError && (
+                <p role="alert" className="text-2xs text-[var(--status-error-text)]">
+                  {t("agents.argInvalid")}
+                </p>
+              )}
             </>
           )}
         </div>
@@ -199,8 +224,13 @@ export default function AddAgentDialog({
               maxLength={AGENT_MODEL_MAX}
               placeholder={t("agents.modelHint")}
               onChange={(e) => setModel(e.target.value)}
-              className={INPUT}
+              className={modelError ? INPUT_ERR : INPUT}
             />
+            {modelError && (
+              <p role="alert" className="text-2xs text-[var(--status-error-text)]">
+                {t("agents.argInvalid")}
+              </p>
+            )}
           </div>
         )}
 
@@ -252,7 +282,7 @@ export default function AddAgentDialog({
 
         <div className="flex justify-end gap-2 pt-2">
           <ModalCancelButton />
-          <button type="submit" disabled={!valid} className={`${PRIMARY_BUTTON} disabled:cursor-default disabled:opacity-40`}>
+          <button type="submit" disabled={!valid || submitted} className={`${PRIMARY_BUTTON} disabled:cursor-default disabled:opacity-40`}>
             {t("agents.add")}
           </button>
         </div>
