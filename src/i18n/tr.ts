@@ -1360,7 +1360,19 @@ export const tr = {
   "agents.add": "Ekle",
   "agents.notInstalledShort": "kurulu değil",
   "agents.engineMissingHint": "Bu motor PATH'te bulunamadı; eklenebilir ama kurulana kadar başlamaz.",
-  "agents.argInvalid": "Geçersiz karakter; yalnız harf, rakam ve . : / @ - kullanılabilir."
+  "agents.argInvalid": "Geçersiz karakter; yalnız harf, rakam ve . : / @ - kullanılabilir.",
+  "agents.team": "Ekip",
+  "agents.addAgent": "Ajan",
+  "agents.addShell": "Terminal",
+  "agents.estimatedHint": "Bu motorun durumu terminal hareketinden tahmin ediliyor.",
+  "agents.emptyTitle": "Bu alanda ajan yok",
+  "agents.emptyBody": "Ajanlar kendi terminallerinde yan yana çalışır; soru sorduklarında Kararlar'da toplanır.",
+  "agents.addFirst": "İlk ajanını ekle",
+  "agents.installedEngines": "Kurulu motorlar: {list}",
+  "agents.noEngines": "Kurulu motor bulunamadı; özel komutla da ajan ekleyebilirsin.",
+  "agents.addShellLong": "Düz terminal aç",
+  "agents.allMinimized": "Bütün bölmeler alttaki şeritte.",
+  "agents.defaultName": "Ajan {n}"
 };
 
 

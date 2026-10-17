@@ -1274,5 +1274,17 @@ export const en: Record<TranslationKey, string> = {
   "agents.add": "Add",
   "agents.notInstalledShort": "not installed",
   "agents.engineMissingHint": "This engine was not found on PATH; you can add it, but it won't start until installed.",
-  "agents.argInvalid": "Invalid characters; only letters, digits and . : / @ - are allowed."
+  "agents.argInvalid": "Invalid characters; only letters, digits and . : / @ - are allowed.",
+  "agents.team": "Team",
+  "agents.addAgent": "Agent",
+  "agents.addShell": "Terminal",
+  "agents.estimatedHint": "This engine's status is estimated from terminal activity.",
+  "agents.emptyTitle": "No agents in this workspace",
+  "agents.emptyBody": "Agents work side by side in their own terminals; their questions gather in Decisions.",
+  "agents.addFirst": "Add your first agent",
+  "agents.installedEngines": "Installed engines: {list}",
+  "agents.noEngines": "No installed engine found; you can still add an agent with a custom command.",
+  "agents.addShellLong": "Open a plain terminal",
+  "agents.allMinimized": "All panes are in the strip below.",
+  "agents.defaultName": "Agent {n}"
 };

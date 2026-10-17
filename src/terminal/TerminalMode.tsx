@@ -1,35 +1,35 @@
+// Ajanlar ekranının sağ tarafı (spec 2026-10-17 ajan-alani §4): üstte ekip şeridi, ortada bölmeler. Bütün alanlar HEP takılı: seçili olmayanlar hidden.
 import { useRef, useState, type CSSProperties } from "react";
-import { FolderOpen, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import { layoutOf, minimizedOf } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
-import type { TerminalMode as ShellKind } from "../../app-electron/shared/types";
-import { MAX_TERMINAL_PANES, SHELL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
+import { MAX_TERMINAL_PANES } from "../../app-electron/shared/terminalLayout";
 import { leafIds, type DropZone, type SplitDir } from "../../app-electron/shared/terminalTree";
-import { middleEllipsis } from "../lib/paths";
 import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import TerminalPaneView from "./TerminalPaneView";
 import NewPaneDialog from "./NewPaneDialog";
-import { KIND_LABEL, paneLabel } from "../agents/agentLabels";
+import { paneLabel } from "../agents/agentLabels";
 import LayoutView from "./LayoutView";
 import { zoneBox, type Box } from "./dropZone";
 import { usePaneDrag } from "./usePaneDrag";
 import { PANE_COLOR_VAR } from "./paneColors";
-
-// Terminal modunun sağ tarafı (spec §3, §5). Bütün alanlar HEP takılı:
-// seçili olmayanlar `hidden`. Alan değiştirince xterm'ler yeniden kurulmuyor,
-// çıktı kaybolmuyor (Sohbet'teki hep-takılı düzenin aynısı).
+import { useAgentStatuses } from "../agents/agentStatusContext";
+import { agentPanes } from "../agents/agentView";
+import TeamStrip from "../agents/TeamStrip";
+import AgentsEmptyState from "../agents/AgentsEmptyState";
+import AddAgentDialog from "../agents/AddAgentDialog";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
 
 export default function TerminalMode() {
   const t = useT();
-  const { state, commands, defaultKind, defaultCwd } = useTerminalStore();
+  const { state, commands, defaultKind, defaultCwd, agentCwd } = useTerminalStore();
+  const { engines } = useAgentStatuses();
   // Açıkken hangi bölmenin bölüneceği (yoksa odaktakinin sağı).
   const [dialog, setDialog] = useState<{ split?: PaneSplit } | null>(null);
-  // Alan başına son ölçülen bölme kutuları: "Bölme" düğmesi uzun kenardan
-  // bölsün diye (spec 2026-10-14 §3.2).
+  const [agentDialog, setAgentDialog] = useState<{ split?: PaneSplit } | null>(null);
+  // Alan başına son ölçülen bölme kutuları: düğme uzun kenardan bölsün diye (spec 2026-10-14 §3.2).
   const rects = useRef<Record<string, Record<string, Box>>>({});
 
   if (state.phase === "closed") return null;
@@ -62,54 +62,49 @@ export default function TerminalMode() {
       )}
 
       {state.phase === "ready" && active && (
-        <div className="flex h-9 shrink-0 items-center gap-3 border-b border-line px-3">
-          <span className="min-w-0 truncate text-sm text-slate-200">{active.name}</span>
-          <span className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">
-            {t("terminal.paneCount", { count: active.panes.length })}
-          </span>
-          <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => setDialog({ split: splitFor(active) })}
-            disabled={full}
-            title={full ? t("terminal.paneMax") : undefined}
-            className={`${TOOL_BUTTON} disabled:cursor-default disabled:opacity-40`}
-          >
-            <Plus size={12} />
-            {t("terminal.addPane")}
-          </button>
-        </div>
+        <TeamStrip
+          workspace={active}
+          full={full}
+          onAddAgent={() => setAgentDialog({ split: splitFor(active) })}
+          onAddShell={() => setDialog({ split: splitFor(active) })}
+        />
       )}
 
-      <div className="relative min-h-0 flex-1">
-        {state.workspaces.map((w) => (
-          <div
-            key={w.id}
-            data-workspace={w.id}
-            className={`${w.id === state.activeWorkspaceId ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
-          >
-            <div className="relative min-h-0 flex-1">
-              {w.panes.length > 0 && (
-                <WorkspaceLayout
-                  workspace={w}
-                  focusable={state.visible && w.id === state.activeWorkspaceId}
-                  canSplit={w.panes.length < MAX_TERMINAL_PANES}
-                  onSplit={(paneId, dir) => setDialog({ split: { targetPaneId: paneId, dir } })}
-                  onRects={(next) => {
-                    rects.current[w.id] = next;
-                  }}
-                />
-              )}
-              {/* Hiç bölme yoksa ya da hepsi şeritteyse. Bölmelerin üstünde: tıklamayı onlar almasın. */}
-              {leafIds(layoutOf(w)).length === 0 && (
-                <div className="absolute inset-0 z-10">
-                  <EmptyWorkspace defaultCwd={defaultCwd} onPick={(kind, cwd) => commands.addPane(kind, cwd)} />
-                </div>
-              )}
+      <div className="flex min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1">
+          {state.workspaces.map((w) => (
+            <div
+              key={w.id}
+              data-workspace={w.id}
+              className={`${w.id === state.activeWorkspaceId ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
+            >
+              <div className="relative min-h-0 flex-1">
+                {w.panes.length > 0 && (
+                  <WorkspaceLayout
+                    workspace={w}
+                    focusable={state.visible && w.id === state.activeWorkspaceId}
+                    canSplit={w.panes.length < MAX_TERMINAL_PANES}
+                    onSplit={(paneId, dir) => setDialog({ split: { targetPaneId: paneId, dir } })}
+                    onRects={(next) => {
+                      rects.current[w.id] = next;
+                    }}
+                  />
+                )}
+                {/* Hiç bölme yoksa ya da hepsi şeritteyse. Bölmelerin üstünde: tıklamayı onlar almasın. */}
+                {leafIds(layoutOf(w)).length === 0 && (
+                  <div className="absolute inset-0 z-10">
+                    <AgentsEmptyState
+                      allMinimized={w.panes.length > 0}
+                      onAddAgent={() => setAgentDialog({})}
+                      onAddShell={() => setDialog({})}
+                    />
+                  </div>
+                )}
+              </div>
+              <MinimizedStrip workspace={w} />
             </div>
-            <MinimizedStrip workspace={w} />
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <NewPaneDialog
@@ -123,54 +118,19 @@ export default function TerminalMode() {
         }}
         onCancel={() => setDialog(null)}
       />
-    </div>
-  );
-}
 
-function EmptyWorkspace({
-  defaultCwd,
-  onPick
-}: {
-  defaultCwd: string;
-  onPick: (kind: ShellKind, cwd: string) => void;
-}) {
-  const t = useT();
-  const [picked, setPicked] = useState<string | null>(null);
-  const cwd = picked ?? defaultCwd;
-
-  const change = async () => {
-    const folder = await window.api.pickFolder();
-    if (folder) setPicked(folder);
-  };
-
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 px-6 text-center">
-      <div className="flex flex-col gap-1">
-        <p className="text-sm text-slate-200">{t("terminal.emptyTitle")}</p>
-        <p className="text-xs text-slate-500">{t("terminal.emptyHint")}</p>
-      </div>
-      <div className="flex gap-2">
-        {SHELL_PANE_KINDS.map((k) => (
-          <button
-            key={k}
-            type="button"
-            disabled={!cwd}
-            onClick={() => onPick(k, cwd)}
-            className={`${TOOL_BUTTON} disabled:cursor-default disabled:opacity-40`}
-          >
-            {t(KIND_LABEL[k])}
-          </button>
-        ))}
-      </div>
-      <div className="flex max-w-full items-center gap-2 text-xs">
-        <FolderOpen size={14} className="shrink-0 text-accent-400" />
-        <span title={cwd || undefined} className="min-w-0 truncate font-mono text-slate-400">
-          {cwd ? middleEllipsis(cwd, 56) : t("terminal.noFolder")}
-        </span>
-        <button type="button" onClick={() => void change()} className={TOOL_BUTTON}>
-          {t("terminal.changeFolder")}
-        </button>
-      </div>
+      <AddAgentDialog
+        open={agentDialog !== null}
+        defaultCwd={agentCwd}
+        defaultName={t("agents.defaultName", { n: (active ? agentPanes(active).length : 0) + 1 })}
+        engines={engines}
+        onAdd={(input) => {
+          const split = agentDialog?.split;
+          setAgentDialog(null);
+          commands.addAgent(input, split);
+        }}
+        onCancel={() => setAgentDialog(null)}
+      />
     </div>
   );
 }
