@@ -112,7 +112,7 @@ export interface AgentRegistration {
   added: boolean;
 }
 
-export type AgentAnswerFailure = "noAgent" | "closed" | "notAnswerable" | "typing" | "writeFailed";
+export type AgentAnswerFailure = "noAgent" | "closed" | "notAnswerable" | "typing" | "writeFailed" | "alreadyAnswered";
 
 export type AgentAnswerResult = { ok: true } | { ok: false; reason: AgentAnswerFailure };
 

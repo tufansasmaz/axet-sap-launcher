@@ -278,3 +278,76 @@ describe("readAgentRegistration", () => {
     expect(readAgentRegistration({ ...reg(), roleKind: "x", sap: "evet", added: 1 })).toMatchObject({ roleKind: "custom", sap: false, added: false });
   });
 });
+
+describe("düzeltme turu 1", () => {
+  it("aynı callId'e ikinci cevap reddediliyor; write bir kez çağrılıyor", () => {
+    if (!LIST_ANSWER_ENABLED) return;
+    const { deps, monitor, reader } = harness();
+    monitor.register(reg());
+    reader().current = asking();
+    monitor.tick();
+    const r1 = monitor.answer("p1", "c1", 0);
+    expect(r1).toEqual({ ok: true });
+    expect(deps.write).toHaveBeenCalledTimes(1);
+    const r2 = monitor.answer("p1", "c1", 0);
+    expect(r2).toEqual({ ok: false, reason: "alreadyAnswered" });
+    expect(deps.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("log patlarsa writeFailed dönmez", () => {
+    if (!LIST_ANSWER_ENABLED) return;
+    const { deps, monitor, reader } = harness();
+    monitor.register(reg());
+    reader().current = asking();
+    monitor.tick();
+    deps.log.mockImplementation((tag: string) => {
+      if (tag === "ajan.karar") throw new Error("log patladı");
+    });
+    const result = monitor.answer("p1", "c1", 0);
+    expect(result).toEqual({ ok: true });
+    expect(deps.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("tahmini kaynakta listeden cevap reddediliyor", () => {
+    const { deps, monitor, reader } = harness();
+    monitor.register(reg());
+    reader().current = { ...asking(), source: "estimated" };
+    const result = monitor.answer("p1", "c1", 0);
+    expect(result).toEqual({ ok: false, reason: "notAnswerable" });
+    expect(deps.write).not.toHaveBeenCalled();
+  });
+
+  it("motor çıkışı/çökmesi 'bitti' bildirimi çıkarmıyor", () => {
+    const { deps, monitor, reader } = harness();
+    monitor.register(reg());
+    reader().current = runningExact;
+    monitor.tick();
+    reader().current = { state: "finished", source: "exact", lastActivity: 5 };
+    monitor.tick();
+    expect(deps.notify).not.toHaveBeenCalled();
+  });
+
+  it("kesin→tahmini→kesin dalgalanmasında soru bildirimi bir kez", () => {
+    const { deps, monitor, reader } = harness();
+    monitor.register(reg());
+    reader().current = asking();
+    monitor.tick();
+    expect(deps.notify).toHaveBeenCalledTimes(1);
+    reader().current = { state: "running", source: "estimated", lastActivity: 2 };
+    monitor.tick();
+    reader().current = asking();
+    monitor.tick();
+    expect(deps.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it("aynı bölme yeniden register edilince eski okuyucu dispose ediliyor", () => {
+    const { monitor, reader } = harness();
+    monitor.register(reg());
+    const firstReader = reader("p1");
+    monitor.register(reg());
+    expect(firstReader.disposed).toBe(true);
+    const secondReader = reader("p1");
+    expect(secondReader).not.toBe(firstReader);
+    expect(secondReader.disposed).toBe(false);
+  });
+});

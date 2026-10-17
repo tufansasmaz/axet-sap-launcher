@@ -59,6 +59,8 @@ interface Entry {
   last: AgentStatus | null;
   /** Listeden cevaplanan soru kimlikleri: kapanınca "terminal" yazılmasın. */
   listAnswered: Set<string>;
+  /** "asking" bildirimi gönderilen soru kimlikleri: dalgalanmada ikinci bildirim çıkmasın. */
+  notifiedQuestions: Set<string>;
 }
 
 const SOURCE_LOG = { exact: "kesin", estimated: "tahmini" } as const;
@@ -98,12 +100,14 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       deps.log("ajan.durum", { motor, durum: next.state, kaynak: SOURCE_LOG[next.source] });
     }
     if (next.source === "exact") {
-      const newQuestion =
-        next.state === "asking" &&
-        (prev?.state !== "asking" || prev.question?.callId !== next.question?.callId);
-      if (newQuestion) deps.notify("asking", entry.reg);
+      const askCallId = next.state === "asking" ? next.question?.callId : undefined;
+      if (askCallId && !entry.notifiedQuestions.has(askCallId)) {
+        entry.notifiedQuestions.add(askCallId);
+        deps.notify("asking", entry.reg);
+      }
+      // Yalnız gerçek tur bitişi (idle): motor çıkışı/çökmesi (finished) duyurulmuyor.
       const finishedWork =
-        (next.state === "idle" || next.state === "finished") &&
+        next.state === "idle" &&
         prev?.state === "running" &&
         prev.source === "exact";
       if (finishedWork) deps.notify("done", entry.reg);
@@ -132,7 +136,8 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
         input: new InputLineBuffer(),
         lastInputAt: 0,
         last: null,
-        listAnswered: new Set()
+        listAnswered: new Set(),
+        notifiedQuestions: new Set()
       };
       byPane.set(reg.paneId, entry);
       paneOfPty.set(reg.ptyId, reg.paneId);
@@ -161,6 +166,13 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
         evaluate(entry);
         return { ok: false, reason: "closed" };
       }
+      if (entry.listAnswered.has(callId)) {
+        return { ok: false, reason: "alreadyAnswered" };
+      }
+      // Yalnız kesin kaynakta listeden cevap (tahmini okuyucu soru üretmiyor ama sözleşme burada denetleniyor).
+      if (status.source !== "exact") {
+        return { ok: false, reason: "notAnswerable" };
+      }
       if (
         !isListAnswerable(question) ||
         !Number.isInteger(index) ||
@@ -176,7 +188,11 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       }
       if (!deps.write(entry.reg.ptyId, optionKeys(index))) return { ok: false, reason: "writeFailed" };
       entry.listAnswered.add(callId);
-      deps.log("ajan.karar", { motor: entry.reg.engine, yol: "liste" });
+      try {
+        deps.log("ajan.karar", { motor: entry.reg.engine, yol: "liste" });
+      } catch {
+        // Log hatası sonucu değiştirmez: yazma başardı.
+      }
       return { ok: true };
     } catch {
       return { ok: false, reason: "writeFailed" };
