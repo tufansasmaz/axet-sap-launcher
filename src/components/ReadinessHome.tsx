@@ -69,8 +69,9 @@ export default function ReadinessHome({
   useEffect(() => {
     if (!projectsBaseDir) { setProjectsDirExists(false); return; }
     let cancelled = false;
-    window.api.listDir(projectsBaseDir).then(() => {
-      if (!cancelled) setProjectsDirExists(true);
+    window.api.listDir(projectsBaseDir).then((r) => {
+      // listDir asla reject etmez; {ok:false} ile hata bildirir.
+      if (!cancelled) setProjectsDirExists(r.ok === true);
     }).catch(() => {
       if (!cancelled) setProjectsDirExists(false);
     });
