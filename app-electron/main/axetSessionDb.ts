@@ -651,3 +651,44 @@ export function readMessagesSince(dbPath: string, sessionId: string, sinceEpochS
     return [];
   }
 }
+
+/**
+ * `findSessionByPrompt`'un çoğul hâli: iğneyi içeren kullanıcı mesajlarının
+ * oturumları, tekrarsız. Ajan Alanı belirsizliği görmek zorunda (spec
+ * 2026-10-17 ajan-alani §6.1): iki oturum eşleşiyorsa hiçbirine bağlanılmıyor.
+ * Okunamazsa `null` — boş liste "eşleşme yok" demek, ikisi ayrı şeyler.
+ */
+export function findSessionsByPrompt(dbPath: string, sinceEpochSec: number, needle: string): string[] | null {
+  const db = openDb(dbPath);
+  if (!db) return null;
+  try {
+    const rows = db
+      .prepare("SELECT session_id, parts FROM messages WHERE role='user' AND created_at>=? ORDER BY created_at DESC LIMIT 200")
+      .all(sinceEpochSec) as Array<{ session_id: string; parts: string }>;
+    const found = new Set<string>();
+    for (const row of rows) {
+      const text = parseParts(row.parts)
+        .filter((p) => p.type === "text")
+        .map((p) => p.data?.text ?? "")
+        .join("");
+      if (matchKey(text).includes(needle)) found.add(row.session_id);
+    }
+    return [...found];
+  } catch {
+    return null;
+  }
+}
+
+/** `readMessagesSince`'in arızayı ayırt eden hâli: okunamazsa `null`. */
+export function readSessionMessages(dbPath: string, sessionId: string, sinceEpochSec: number): AxetDbMessage[] | null {
+  const db = openDb(dbPath);
+  if (!db) return null;
+  try {
+    const rows = db
+      .prepare("SELECT id, role, parts, created_at FROM messages WHERE session_id=? AND created_at>=? ORDER BY created_at ASC")
+      .all(sessionId, sinceEpochSec) as MessageRow[];
+    return rows.map((row) => ({ id: row.id, role: row.role, parts: parseParts(row.parts), createdAt: row.created_at }));
+  } catch {
+    return null;
+  }
+}

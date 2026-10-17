@@ -1,0 +1,341 @@
+// axet-code kesin okuyucusu: oturum veritabanından durum ve istem→oturum
+// eşleme (spec 2026-10-17 ajan-alani §6.1). Veritabanı sahte; better-sqlite3
+// vitest'te yüklenmiyor.
+import { describe, expect, it, vi } from "vitest";
+import type { AxetDbMessage, AxetPart } from "../app-electron/main/axetSessionDb";
+import type { AgentRegistration } from "../app-electron/shared/agentTypes";
+
+vi.mock("electron", () => ({ app: { getPath: () => "", getAppPath: () => "" } }));
+vi.mock("../app-electron/main/i18n", () => ({ mt: (k: string) => k }));
+
+const { AxetReader, createSessionRegistry, deriveAxetState, keysOverlap, UNCONFIRMED_LIMIT_MS } = await import(
+  "../app-electron/main/agentAxetReader"
+);
+const { createAgentReader } = await import("../app-electron/main/agentReaders");
+const { GenericReader } = await import("../app-electron/main/agentGenericReader");
+const { matchKey } = await import("../app-electron/main/axetSessionDb");
+
+const T0 = 1_700_000_000; // sn
+const DB = "C:\\p\\.axet-code\\axet-code.db";
+
+type Row = AxetDbMessage & { sessionId: string };
+interface FakeDb {
+  rows: Row[];
+  broken: boolean;
+  throws: boolean;
+  missing: boolean;
+}
+
+let seq = 0;
+const text = (t: string): AxetPart => ({ type: "text", data: { text: t } });
+const finish = (reason: string): AxetPart => ({ type: "finish", data: { reason } });
+const askCall = (id: string, options = ["Kırmızı", "Mavi"], multi = false): AxetPart => ({
+  type: "tool_call",
+  data: { id, name: "ask_user", finished: true, input: JSON.stringify({ question: "Hangi renk?", options: options.map((label) => ({ label })), multi_select: multi }) }
+});
+const result = (callId: string): AxetPart => ({ type: "tool_result", data: { tool_call_id: callId, content: "ok" } });
+const msg = (sessionId: string, role: string, parts: AxetPart[], sec: number): Row => ({
+  id: `m${++seq}`,
+  sessionId,
+  role,
+  parts,
+  createdAt: sec
+});
+const textOf = (m: AxetDbMessage) => m.parts.filter((p) => p.type === "text").map((p) => p.data?.text ?? "").join("");
+
+function fakeDb(): FakeDb {
+  return { rows: [], broken: false, throws: false, missing: false };
+}
+
+function port(db: FakeDb) {
+  return {
+    resolveDb: () => (db.missing ? null : DB),
+    findSessions: (_path: string, since: number, needle: string) => {
+      if (db.throws) throw new Error("database is locked");
+      if (db.broken) return null;
+      const ids = new Set<string>();
+      for (const m of db.rows) if (m.role === "user" && m.createdAt >= since && matchKey(textOf(m)).includes(needle)) ids.add(m.sessionId);
+      return [...ids];
+    },
+    readMessages: (_path: string, sessionId: string, since: number) => {
+      if (db.throws) throw new Error("database is locked");
+      if (db.broken) return null;
+      return db.rows.filter((m) => m.sessionId === sessionId && m.createdAt >= since);
+    }
+  };
+}
+
+function scenario() {
+  const db = fakeDb();
+  const registry = createSessionRegistry();
+  const clock = { ms: (T0 + 10) * 1000 };
+  const make = (agentId: string) => {
+    const onMatch = vi.fn();
+    const generic = new GenericReader({ command: "axet-code -y", now: () => clock.ms });
+    const reader = new AxetReader({ agentId, cwd: "C:\\p", startedAtMs: T0 * 1000, port: port(db), registry, generic, now: () => clock.ms, onMatch });
+    return { reader, onMatch };
+  };
+  return { db, registry, clock, make };
+}
+
+describe("deriveAxetState", () => {
+  it("son mesaj kullanıcıdan ya da araç sonucuysa çalışıyor", () => {
+    expect(deriveAxetState([msg("S", "user", [text("iş")], T0)]).state).toBe("running");
+    expect(deriveAxetState([msg("S", "tool", [result("c0")], T0)]).state).toBe("running");
+  });
+
+  it("finish yok ya da tool_use ise çalışıyor; end_turn boşta; error hata", () => {
+    expect(deriveAxetState([msg("S", "assistant", [text("yazıyor")], T0)]).state).toBe("running");
+    expect(deriveAxetState([msg("S", "assistant", [finish("tool_use")], T0)]).state).toBe("running");
+    expect(deriveAxetState([msg("S", "assistant", [text("bitti"), finish("end_turn")], T0 + 5)])).toEqual({
+      state: "idle",
+      detail: "end_turn",
+      lastActivitySec: T0 + 5
+    });
+    expect(deriveAxetState([msg("S", "assistant", [finish("error")], T0)])).toMatchObject({ state: "error", detail: "error" });
+  });
+
+  it("sonucu gelmemiş tamamlanmış ask_user soru soruyor; seçenekler ve zaman", () => {
+    const d = deriveAxetState([msg("S", "user", [text("iş")], T0), msg("S", "assistant", [askCall("c1"), finish("tool_use")], T0 + 3)]);
+    expect(d.state).toBe("asking");
+    expect(d.question).toEqual({ callId: "c1", question: "Hangi renk?", header: "", options: ["Kırmızı", "Mavi"], multiSelect: false, askedAt: (T0 + 3) * 1000 });
+  });
+
+  it("cevaplanmış ya da arkasından kullanıcı mesajı gelmiş soru açık sayılmıyor", () => {
+    const asked = msg("S", "assistant", [askCall("c1"), finish("tool_use")], T0);
+    expect(deriveAxetState([asked, msg("S", "tool", [result("c1")], T0 + 1)]).state).toBe("running");
+    expect(deriveAxetState([asked, msg("S", "user", [text("yeni iş")], T0 + 9)]).state).toBe("running");
+  });
+
+  it("boş liste boşta", () => {
+    expect(deriveAxetState([])).toEqual({ state: "idle", lastActivitySec: null });
+  });
+});
+
+describe("AxetReader — eşleme", () => {
+  it("ilk istemden önce boşta ve tahmini", () => {
+    const { make } = scenario();
+    const { reader } = make("A");
+    reader.poll();
+    expect(reader.status()).toEqual({ state: "idle", source: "estimated", lastActivity: null });
+  });
+
+  it("istem yazılınca oturuma bağlanıyor; durum kesin", () => {
+    const { db, make } = scenario();
+    const { reader, onMatch } = make("A");
+    reader.submitLine("Raporu hazırla — lütfen");
+    db.rows.push(msg("S1", "user", [text("Raporu hazırla lütfen")], T0 + 11), msg("S1", "assistant", [text("tamam"), finish("end_turn")], T0 + 12));
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    expect(onMatch).toHaveBeenCalledWith("istem");
+    expect(reader.status()).toEqual({ state: "idle", source: "exact", lastActivity: (T0 + 12) * 1000, detail: "end_turn" });
+  });
+
+  it("aynı klasörde iki ajan: her biri kendi oturumuna", () => {
+    const { db, make } = scenario();
+    const a = make("A");
+    const b = make("B");
+    a.reader.submitLine("Birinci işi yap");
+    b.reader.submitLine("İkinci işi yap");
+    db.rows.push(
+      msg("S1", "user", [text("Birinci işi yap")], T0 + 11),
+      msg("S2", "user", [text("İkinci işi yap")], T0 + 11),
+      msg("S2", "assistant", [askCall("c9"), finish("tool_use")], T0 + 12)
+    );
+    a.reader.poll();
+    b.reader.poll();
+    expect(a.reader.binding()).toBe("S1");
+    expect(b.reader.binding()).toBe("S2");
+    expect(a.reader.status()).toMatchObject({ state: "running", source: "exact" });
+    expect(b.reader.status()).toMatchObject({ state: "asking", source: "exact", question: { callId: "c9" } });
+  });
+
+  it("aynı istem iki ajanda: hiçbirine bağlanmıyor; ayrışan istemle ikisi de doğru oturuma", () => {
+    const { db, make } = scenario();
+    const a = make("A");
+    const b = make("B");
+    a.reader.submitLine("Testleri çalıştır");
+    b.reader.submitLine("Testleri çalıştır");
+    db.rows.push(msg("S1", "user", [text("Testleri çalıştır")], T0 + 11), msg("S2", "user", [text("Testleri çalıştır")], T0 + 11));
+    a.reader.poll();
+    b.reader.poll();
+    expect(a.reader.binding()).toBeNull();
+    expect(b.reader.binding()).toBeNull();
+    expect(a.reader.status().source).toBe("estimated");
+    expect(a.onMatch).toHaveBeenCalledWith("belirsiz");
+
+    a.reader.submitLine("Yalnız birinci modül");
+    db.rows.push(msg("S1", "user", [text("Yalnız birinci modül")], T0 + 20));
+    a.reader.poll();
+    b.reader.poll();
+    expect(a.reader.binding()).toBe("S1");
+    expect(b.reader.binding()).toBe("S2");
+  });
+
+  it("rakibin aynı istemi bekliyorsa tek aday görünse bile bağlanmıyor (mesajı henüz düşmemiş rakip)", () => {
+    const { db, make } = scenario();
+    const a = make("A");
+    const b = make("B");
+    a.reader.submitLine("Merhaba ajan");
+    b.reader.submitLine("Merhaba ajan");
+    // Yalnız B'nin mesajı düştü; A'nınki henüz yazılmadı.
+    db.rows.push(msg("SB", "user", [text("Merhaba ajan")], T0 + 11));
+    a.reader.poll();
+    expect(a.reader.binding()).toBeNull();
+    expect(a.reader.status().source).toBe("estimated");
+  });
+
+  it("başka ajanın sahiplendiği oturum aday sayılmıyor", () => {
+    const { db, make } = scenario();
+    const a = make("A");
+    a.reader.submitLine("Ortak başlık uzun");
+    db.rows.push(msg("S1", "user", [text("Ortak başlık uzun")], T0 + 11));
+    a.reader.poll();
+    expect(a.reader.binding()).toBe("S1");
+    const b = make("B");
+    b.reader.submitLine("Ortak başlık uzun");
+    db.rows.push(msg("S2", "user", [text("Ortak başlık uzun")], T0 + 12));
+    b.reader.poll();
+    expect(b.reader.binding()).toBe("S2");
+  });
+
+  it("eğik çizgi komutları ve kısa satırlar istem sayılmıyor", () => {
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("/model");
+    reader.submitLine("ok");
+    db.rows.push(msg("S1", "user", [text("/model ok")], T0 + 11));
+    reader.poll();
+    expect(reader.binding()).toBeNull();
+    expect(reader.status()).toEqual({ state: "idle", source: "estimated", lastActivity: null });
+  });
+});
+
+describe("AxetReader — bağdan sonra", () => {
+  it("soru kutusuna yazılan cevap istem sayılmıyor, bağ bozulmuyor", () => {
+    const { db, clock, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("Renk sor bana");
+    db.rows.push(msg("S1", "user", [text("Renk sor bana")], T0 + 11), msg("S1", "assistant", [askCall("c1"), finish("tool_use")], T0 + 12));
+    reader.poll();
+    reader.submitLine("Turuncu olsun");
+    clock.ms += UNCONFIRMED_LIMIT_MS + 1_000;
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+  });
+
+  it("bağlı oturumda görünmeyen istem 30 sn sonra bağı çözüyor ve yeni oturuma bağlanıyor (Ctrl+N)", () => {
+    const { db, clock, make } = scenario();
+    const { reader, onMatch } = make("A");
+    reader.submitLine("Eski konu burada");
+    db.rows.push(msg("S1", "user", [text("Eski konu burada")], T0 + 11), msg("S1", "assistant", [finish("end_turn")], T0 + 12));
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    reader.submitLine("Yeni konu başlasın");
+    db.rows.push(msg("S3", "user", [text("Yeni konu başlasın")], T0 + 20));
+    clock.ms += UNCONFIRMED_LIMIT_MS + 1_000;
+    reader.poll();
+    expect(onMatch).toHaveBeenCalledWith("belirsiz");
+    reader.poll();
+    expect(reader.binding()).toBe("S3");
+  });
+
+  it("ajan çalışırken bekleyen istem süre saymıyor", () => {
+    const { db, clock, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("Uzun iş başlat");
+    db.rows.push(msg("S1", "user", [text("Uzun iş başlat")], T0 + 11), msg("S1", "assistant", [text("çalışıyor")], T0 + 12));
+    reader.poll();
+    reader.submitLine("Sıradaki istem");
+    clock.ms += UNCONFIRMED_LIMIT_MS * 3;
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    expect(reader.status()).toMatchObject({ state: "running", source: "exact" });
+  });
+
+  it("motor kapandı: bağlıysa kesin 'bitti'", () => {
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.feedOutput("C:\\p>axet-code -y\r\n");
+    reader.submitLine("Bir iş yap");
+    db.rows.push(msg("S1", "user", [text("Bir iş yap")], T0 + 11), msg("S1", "assistant", [finish("end_turn")], T0 + 12));
+    reader.poll();
+    reader.feedOutput("\r\nC:\\p>");
+    expect(reader.status()).toMatchObject({ state: "finished", source: "exact", detail: "end_turn" });
+  });
+});
+
+describe("AxetReader — veritabanı arızası", () => {
+  it("veritabanı okunamıyor: tahmini, hata fırlatmıyor", () => {
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.feedOutput("x");
+    reader.submitLine("Bir şey yap");
+    db.broken = true;
+    expect(() => reader.poll()).not.toThrow();
+    expect(reader.status()).toMatchObject({ state: "running", source: "estimated" });
+  });
+
+  it("sorgu hata fırlatıyor (kilit) ya da veritabanı yok: tahmini, hata fırlatmıyor", () => {
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("Bir şey yap");
+    db.throws = true;
+    expect(() => reader.poll()).not.toThrow();
+    expect(reader.status().source).toBe("estimated");
+    db.throws = false;
+    db.missing = true;
+    expect(() => reader.poll()).not.toThrow();
+    expect(reader.status().source).toBe("estimated");
+  });
+
+  it("bağlandıktan sonra okuma bozulursa tahminiye düşüyor, düzelince kesine dönüyor", () => {
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("Bir şey yap");
+    db.rows.push(msg("S1", "user", [text("Bir şey yap")], T0 + 11), msg("S1", "assistant", [finish("end_turn")], T0 + 12));
+    reader.poll();
+    db.broken = true;
+    reader.poll();
+    expect(reader.status().source).toBe("estimated");
+    db.broken = false;
+    reader.poll();
+    expect(reader.status().source).toBe("exact");
+  });
+
+  it("dispose sahipliği bırakıyor", () => {
+    const { db, registry, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("Bir şey yap");
+    db.rows.push(msg("S1", "user", [text("Bir şey yap")], T0 + 11));
+    reader.poll();
+    expect(registry.owner(DB, "S1")).toBe("A");
+    reader.dispose();
+    expect(registry.owner(DB, "S1")).toBeNull();
+  });
+});
+
+describe("oturum kaydı ve okuyucu seçimi", () => {
+  it("keysOverlap iki yönlü içerme", () => {
+    expect(keysOverlap("Merhaba ajan", "Merhaba")).toBe(true);
+    expect(keysOverlap("Merhaba", "Merhaba ajan")).toBe(true);
+    expect(keysOverlap("Birinci", "İkinci")).toBe(false);
+  });
+
+  it("axet-code kesin okuyucu, öteki motorlar genel okuyucu alıyor", () => {
+    const deps = { now: () => 0, port: port(fakeDb()), registry: createSessionRegistry(), onMatch: vi.fn() };
+    const reg = (engine: AgentRegistration["engine"]): AgentRegistration => ({
+      paneId: "p",
+      ptyId: "t",
+      engine,
+      cwd: "C:\\p",
+      command: engine,
+      name: "x",
+      roleKind: "custom",
+      sap: false,
+      added: false
+    });
+    expect(createAgentReader(reg("axet-code"), deps)).toBeInstanceOf(AxetReader);
+    expect(createAgentReader(reg("claude"), deps)).not.toBeInstanceOf(AxetReader);
+  });
+});
