@@ -1,17 +1,27 @@
+import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { ClipboardList, Eye, Sparkles, Stethoscope } from "lucide-react";
-import type { DoctorReport, SkillProfile } from "../../app-electron/shared/types";
+import { CheckCircle2, Circle, ClipboardList, Eye, Sparkles, Stethoscope } from "lucide-react";
+import type { AppConfig, DoctorReport, SkillProfile } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import DoctorSection from "./DoctorSection";
 import ProjectBriefSection from "./ProjectBriefSection";
 import SapContextSection from "./SapContextSection";
 import SkillsSection from "./SkillsSection";
+import { computeReadinessSteps, type ReadinessStep } from "../lib/readinessSteps";
+import type { SettingsSectionId } from "./settings/settingsSections";
+import { btn } from "../ui/buttons";
 
 interface Props {
   projectDir: string | null;
   skillProfile: SkillProfile | null;
   /** Teşhis sonucunu App'e taşır — kenar çubuğundaki arıza noktası bunu izliyor. */
   onDoctorReport?: (report: DoctorReport | null) => void;
+  // Hazırlık kartı için ekstra veriler (İş 4 — 2026-10-17).
+  config?: AppConfig | null;
+  everConnected?: boolean;
+  onOpenSettings?: (section?: SettingsSectionId) => void;
+  onOpenRoleModal?: () => void;
+  onGoToLogon?: () => void;
 }
 
 /**
@@ -31,8 +41,37 @@ interface Props {
  * Bölümlerin kendisi taşınmadı, olduğu gibi kullanılıyor: aynı bileşenler
  * Ayarlar'da da dursaydı iki ekran aynı durumu ayrı ayrı yazardı.
  */
-export default function ReadinessHome({ projectDir, skillProfile, onDoctorReport }: Props) {
+export default function ReadinessHome({
+  projectDir,
+  skillProfile,
+  onDoctorReport,
+  config,
+  everConnected = false,
+  onOpenSettings,
+  onOpenRoleModal,
+  onGoToLogon
+}: Props) {
   const t = useT();
+  // DoctorSection'dan gelen teşhis sonucu — ReadinessCard için de kullanılıyor.
+  const [localDoctorReport, setLocalDoctorReport] = useState<DoctorReport | null>(null);
+
+  const handleDoctorReport = (report: DoctorReport | null) => {
+    setLocalDoctorReport(report);
+    onDoctorReport?.(report);
+  };
+
+  // Hazırlık adımlarını hesapla
+  const readinessSteps = computeReadinessSteps({
+    language: config?.language ?? null,
+    skillProfile: config?.skillProfile ?? skillProfile,
+    projectsBaseDir: config?.projectsBaseDir ?? "",
+    // Fiziksel varlık kontrolü renderer'dan yapılamaz; non-empty yeterli.
+    projectsDirExists: (config?.projectsBaseDir ?? "").trim().length > 0,
+    doctorReport: localDoctorReport,
+    everConnected
+  });
+
+  const allDone = readinessSteps.every((s) => s.done);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -74,6 +113,18 @@ export default function ReadinessHome({ projectDir, skillProfile, onDoctorReport
           `items-start`: kartlar satır boyuna GERİLMİYOR — gerildiklerinde
           içeriği kısa olan kartın altında sebepsiz boşluk kalıyordu. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Hazırlık kartı: yalnızca eksik adım varsa görünür. */}
+        {!allDone && onOpenSettings && (
+          <div className="px-4 pt-4">
+            <ReadinessCard
+              steps={readinessSteps}
+              onOpenSettings={onOpenSettings}
+              onOpenRoleModal={onOpenRoleModal}
+              onGoToLogon={onGoToLogon}
+            />
+          </div>
+        )}
+
         <div className="grid w-full grid-cols-1 items-start gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
           <Card icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
             <ProjectBriefSection projectDir={projectDir} />
@@ -84,7 +135,7 @@ export default function ReadinessHome({ projectDir, skillProfile, onDoctorReport
           </Card>
 
           <Card icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>
-            <DoctorSection onReport={onDoctorReport} />
+            <DoctorSection onReport={handleDoctorReport} />
           </Card>
 
           <Card icon={Eye} title={t("readiness.sectionContext")} className="xl:col-span-2 2xl:col-span-3">
@@ -93,6 +144,59 @@ export default function ReadinessHome({ projectDir, skillProfile, onDoctorReport
         </div>
       </div>
     </div>
+  );
+}
+
+// --- Hazırlık kartı (İş 4 — 2026-10-17) ---
+
+interface ReadinessCardProps {
+  steps: ReadinessStep[];
+  onOpenSettings: (section?: SettingsSectionId) => void;
+  onOpenRoleModal?: () => void;
+  onGoToLogon?: () => void;
+}
+
+function ReadinessCard({ steps, onOpenSettings, onOpenRoleModal, onGoToLogon }: ReadinessCardProps) {
+  const t = useT();
+
+  function handleAction(step: ReadinessStep) {
+    const { action } = step;
+    if (action.kind === "settings") onOpenSettings(action.section);
+    else if (action.kind === "roleModal") onOpenRoleModal?.();
+    else if (action.kind === "navigate") onGoToLogon?.();
+  }
+
+  return (
+    <section
+      data-testid="readiness-card"
+      className="rounded-lg border border-line bg-card p-4"
+    >
+      <h2 className="mb-3 text-sm font-semibold text-slate-200">{t("readiness.stepsCardTitle")}</h2>
+      <ul className="space-y-2">
+        {steps.map((step) => (
+          <li key={step.titleKey} className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2 text-sm">
+              {step.done ? (
+                <CheckCircle2 size={15} className="shrink-0 text-[var(--status-success-text)]" aria-hidden />
+              ) : (
+                <Circle size={15} className="shrink-0 text-slate-600" aria-hidden />
+              )}
+              <span className={step.done ? "text-slate-400" : "text-slate-200"}>{t(step.titleKey)}</span>
+            </span>
+            {!step.done && (
+              <button
+                type="button"
+                data-step={step.titleKey}
+                onClick={() => handleAction(step)}
+                className={btn("neutral", "sm")}
+              >
+                {t("readiness.stepsDo")}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
