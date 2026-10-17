@@ -1245,5 +1245,14 @@ export const en: Record<TranslationKey, string> = {
   "agents.engineCodex": "Codex",
   "agents.engineGemini": "Gemini CLI",
   "agents.engineCustom": "Custom command",
-  "agents.engineMissing": "This agent's engine is not installed on this computer. Install it, then restart with ↻."
+  "agents.engineMissing": "This agent's engine is not installed on this computer. Install it, then restart with ↻.",
+  // State texts (Task 11)
+  "agents.stateRunning": "Working",
+  "agents.stateIdle": "Idle",
+  "agents.stateIdleFor": "Idle {min} min",
+  "agents.stateAsking": "Asking",
+  "agents.stateFinished": "Finished",
+  "agents.stateError": "Error",
+  "agents.stateUnknown": "Unknown",
+  "agents.notInstalled": "Not installed"
 };

@@ -1331,7 +1331,16 @@ export const tr = {
   "agents.engineCodex": "Codex",
   "agents.engineGemini": "Gemini CLI",
   "agents.engineCustom": "Özel komut",
-  "agents.engineMissing": "Bu ajanın motoru bu bilgisayarda kurulu değil. Kurup ↻ ile yeniden başlatın."
+  "agents.engineMissing": "Bu ajanın motoru bu bilgisayarda kurulu değil. Kurup ↻ ile yeniden başlatın.",
+  // Durum metinleri (Task 11)
+  "agents.stateRunning": "Çalışıyor",
+  "agents.stateIdle": "Boşta",
+  "agents.stateIdleFor": "Boşta {min} dk",
+  "agents.stateAsking": "Soru soruyor",
+  "agents.stateFinished": "Bitti",
+  "agents.stateError": "Hata",
+  "agents.stateUnknown": "Bilinmiyor",
+  "agents.notInstalled": "Kurulu değil"
 };
 
 
