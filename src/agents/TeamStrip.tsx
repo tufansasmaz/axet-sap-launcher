@@ -17,11 +17,15 @@ import { ENGINE_LABEL, agentName } from "./agentLabels";
 export default function TeamStrip({
   workspace,
   full,
+  view,
+  onView,
   onAddAgent,
   onAddShell
 }: {
   workspace: TerminalWorkspace;
   full: boolean;
+  view: "panes" | "board";
+  onView: (view: "panes" | "board") => void;
   onAddAgent: () => void;
   onAddShell: () => void;
 }) {
@@ -30,6 +34,23 @@ export default function TeamStrip({
   const agents = agentPanes(workspace);
   return (
     <div className="flex h-16 shrink-0 items-center gap-2 border-b border-line px-3">
+      {/* Bölmeler | Pano (spec 2026-10-18 gorev-panosu §8); seçim lime, alan başına hatırlanıyor. */}
+      <div role="radiogroup" aria-label={t("board.viewLabel")} className="flex shrink-0 gap-0.5 rounded-md bg-control p-0.5">
+        {(["panes", "board"] as const).map((v) => (
+          <button
+            key={v}
+            type="button"
+            role="radio"
+            aria-checked={view === v}
+            onClick={() => onView(v)}
+            className={`cursor-pointer rounded px-2 py-1 text-xs transition-colors ${
+              view === v ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {t(v === "panes" ? "board.viewPanes" : "board.viewBoard")}
+          </button>
+        ))}
+      </div>
       <div role="list" aria-label={t("agents.team")} className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-1">
         {agents.map((pane) => (
           <AgentCard

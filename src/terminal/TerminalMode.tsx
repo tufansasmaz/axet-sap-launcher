@@ -20,6 +20,7 @@ import TeamStrip from "../agents/TeamStrip";
 import AgentsEmptyState from "../agents/AgentsEmptyState";
 import AddAgentDialog from "../agents/AddAgentDialog";
 import DecisionsPanel from "../agents/DecisionsPanel";
+import BoardView from "../board/BoardView.tsx";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
 
@@ -45,6 +46,7 @@ export default function TerminalMode() {
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId) ?? null;
   const full = (active?.panes.length ?? 0) >= MAX_TERMINAL_PANES;
   const savedPanes = state.saved.reduce((sum, w) => sum + w.panes.length, 0);
+  const boardOpen = active?.view === "board";
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -66,6 +68,8 @@ export default function TerminalMode() {
         <TeamStrip
           workspace={active}
           full={full}
+          view={boardOpen ? "board" : "panes"}
+          onView={(view) => commands.setWorkspaceView(active.id, view)}
           onAddAgent={() => setAgentDialog({ split: splitFor(active) })}
           onAddShell={() => setDialog({ split: splitFor(active) })}
         />
@@ -77,7 +81,7 @@ export default function TerminalMode() {
             <div
               key={w.id}
               data-workspace={w.id}
-              className={`${w.id === state.activeWorkspaceId ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
+              className={`${w.id === state.activeWorkspaceId && !boardOpen ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
             >
               <div className="relative min-h-0 flex-1">
                 {w.panes.length > 0 && (
@@ -105,6 +109,11 @@ export default function TerminalMode() {
               <MinimizedStrip workspace={w} />
             </div>
           ))}
+          {state.phase === "ready" && active && boardOpen && (
+            <div className="absolute inset-0">
+              <BoardView workspace={active} />
+            </div>
+          )}
         </div>
         {state.phase === "ready" && <DecisionsPanel />}
       </div>

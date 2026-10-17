@@ -1432,7 +1432,27 @@ export const tr = {
   "board.failTyping": "Bu ajanın terminalinde yazıyorsun; satırı gönder ya da sil, sonra yeniden dene.",
   "board.failNoVerify": "Bu alanda doğrulama komutu yok; Onayla'yı kullan.",
   "board.failHasVerify": "Bu alanda doğrulama komutu var; Doğrula'yı kullan.",
-  "board.failWriteFailed": "Pano güncellenemedi."
+  "board.failWriteFailed": "Pano güncellenemedi.",
+  "board.viewLabel": "Görünüm",
+  "board.viewPanes": "Bölmeler",
+  "board.viewBoard": "Pano",
+  "board.boardLabel": "Görev panosu",
+  "board.addTask": "Görev",
+  "board.newTaskTitle": "Yeni görev",
+  "board.titleLabel": "Başlık",
+  "board.goalLabel": "Hedef",
+  "board.goalHint": "Ne yapılmasını istediğini yaz; lider bunu alt görevlere böler. Alt görevleri elle de ekleyebilirsin.",
+  "board.create": "Oluştur",
+  "board.empty": "Henüz görev yok. Bir görev ekleyip hedefini yaz; lider alt görevlere böler, sen onaylayınca ajanlara dağıtılır.",
+  "board.planning": "Lider planlıyor…",
+  "board.progress": "{done}/{total}",
+  "board.awaitingApproval": "Onay bekliyor",
+  "board.tagStuck": "Takıldı",
+  "board.stateHeld": "Beklemede",
+  "board.parallel": "Aynı klasörde paralel çalışıyor",
+  "board.recovered": "Pano dosyası bozuktu; {file} adıyla kenara alındı ve boş pano açıldı.",
+  "board.unreadable": "Pano dosyası okunamadı; üzerine yazılmıyor. Dosyayı tutan programı kapatıp uygulamayı yeniden başlat.",
+  "board.announce": "{title}: {state}"
 };
 
 
