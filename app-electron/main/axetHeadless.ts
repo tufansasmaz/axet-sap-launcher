@@ -176,7 +176,7 @@ function classifyText(text: string): HeadlessFailure | null {
   return null;
 }
 
-function killTreeDefault(child: ChildLike): void {
+export function killTreeDefault(child: ChildLike): void {
   const pid = child.pid;
   // `kill()` Windows'ta yalnız o süreci öldürüyor; axet-code'un MCP torunları
   // hayatta kalıyordu. `taskkill /T` ağacın tamamını alıyor.
