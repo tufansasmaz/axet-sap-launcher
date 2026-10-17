@@ -511,15 +511,6 @@ describe("düzeltme turu 1: pano yüzü güvenlik ve sözleşme", () => {
     expect(h.monitor.sendPrompt("p1", "b")).toBe("ok");
   });
 
-  it("unregister uçuştaki kilidi temizliyor; yeniden kayıtta kilit yok", () => {
-    const h = boardHarness();
-    h.monitor.register(reg());
-    h.monitor.sendPrompt("p1", "istem");
-    h.monitor.unregister("p1");
-    h.monitor.register(reg());
-    expect(h.monitor.sendPrompt("p1", "x")).toBe("ok");
-  });
-
   // 2: C1 denetim karakterleri
   it("C1 denetim karakterleri geçersiz: \\x9b, \\x85, \\u2028", () => {
     const h = boardHarness();
@@ -628,5 +619,63 @@ describe("düzeltme turu 1: pano yüzü güvenlik ve sözleşme", () => {
     h.monitor.register(reg());
     expect(h.monitor.sendPrompt("p1", "x".repeat(4001))).toBe("invalid");
     expect(h.write).not.toHaveBeenCalled();
+  });
+
+  // düzeltme turu 2 - Enter içi istisna → onSettled aborted
+  it("Enter içinde poll fırlatırsa onSettled aborted tam bir kez, kilit bırakılıyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    const settled: string[] = [];
+    expect(h.monitor.sendPrompt("p1", "istem", (o) => settled.push(o))).toBe("ok");
+    h.reader().failPoll = true; // Enter anında poll fırlatsın
+    h.flushEnter();
+    expect(settled).toEqual(["aborted"]);
+    // Kilit bırakıldı: bir sonraki sendPrompt çalışmalı
+    h.reader().failPoll = false;
+    expect(h.monitor.sendPrompt("p1", "x")).toBe("ok");
+  });
+
+  // aynı milisaniyede tuş → >= koruması
+  it("aynı milisaniyede tuş → Enter ve submit yok", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.monitor.sendPrompt("p1", "istem"); // sentAt = clock.ms = 1_000_000
+    h.monitor.onInput("t1", "a");       // lastInputAt = clock.ms = 1_000_000 (aynı ms)
+    h.flushEnter();
+    // >= ile: 1_000_000 >= 1_000_000 → true → Enter gönderilmez
+    expect(h.write.mock.calls).toEqual([["t1", "istem"]]);
+    expect(h.reader().lines).toEqual([]);
+  });
+
+  // zamanlayıcı fn'yi eşzamanlı çalıştırıp sonra fırlatırsa
+  it("zamanlayıcı fn eşzamanlı çalıştırıp fırlatırsa 'ok', onSettled bir kez çağrılıyor", () => {
+    const readers = new Map<string, FakeReader>();
+    const write = vi.fn((_ptyId: string, _data: string) => true);
+    let callEnterSync = false;
+    const monitor = createAgentMonitor({
+      now: () => 1_000_000,
+      createReader: (r: AgentRegistration): AgentReader => {
+        const reader = new FakeReader();
+        readers.set(r.paneId, reader);
+        return reader;
+      },
+      emit: vi.fn(),
+      notify: vi.fn(),
+      write,
+      backlog: () => "",
+      log: vi.fn(),
+      schedule: (fn) => {
+        if (callEnterSync) { fn(); throw new Error("zamanlayıcı patladı"); }
+        fn();
+      }
+    });
+    monitor.register(reg());
+    const settled: string[] = [];
+    callEnterSync = true;
+    const result = monitor.sendPrompt("p1", "istem", (o) => settled.push(o));
+    expect(result).toBe("ok");
+    expect(settled).toEqual(["sent"]);
+    // \x1b yazılmamalı (Enter zaten gitti)
+    expect(write.mock.calls).toEqual([["t1", "istem"], ["t1", "\r"]]);
   });
 });

@@ -146,9 +146,6 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
   function unregister(paneId: string): void {
     const entry = byPane.get(paneId);
     if (!entry) return;
-    // Uçuştaki Enter geri çağrısı byPane.get !== entry denetimiyle zaten yok sayar;
-    // promptInFlight temizleniyor ki yeniden kayıtta kilit kalmış gibi görünmesin.
-    entry.promptInFlight = false;
     byPane.delete(paneId);
     if (paneOfPty.get(entry.reg.ptyId) === paneId) paneOfPty.delete(entry.reg.ptyId);
     guard(() => entry.reader.dispose());
@@ -259,46 +256,53 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     entry.promptInFlight = true;
     const enter = () =>
       guard(() => {
+        // settled: onSettled tam bir kez çağrılsın (poll/write/submitLine fırlatırsa finally yakalasın).
+        let settled = false;
+        const settle = (outcome: "sent" | "aborted") => {
+          if (settled) return;
+          settled = true;
+          try { onSettled?.(outcome); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+        };
         try {
-          if (byPane.get(paneId) !== entry) {
-            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
-            return;
-          }
+          if (byPane.get(paneId) !== entry) { settle("aborted"); return; }
           // Arada kullanıcı yazdıysa Enter onun satırını da gönderirdi.
           // Motor da aynı pencerede çıktıysa istem metni kabuk satırında kalır;
           // \x1b ile temizle ki kullanıcının sonraki Enter'ı onu komut olarak çalıştırmasın.
           if (entry.lastInputAt >= sentAt || entry.input.hasDraft()) {
             entry.reader.poll();
-            if (entry.reader.status().state === "finished") {
-              deps.write(entry.reg.ptyId, "\x1b");
-            }
-            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+            if (entry.reader.status().state === "finished") deps.write(entry.reg.ptyId, "\x1b");
+            settle("aborted");
             return;
           }
           entry.reader.poll();
           if (entry.reader.status().state === "finished") {
             deps.write(entry.reg.ptyId, "\x1b");
-            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+            settle("aborted");
             return;
           }
           if (deps.write(entry.reg.ptyId, "\r")) {
             entry.reader.submitLine(text);
-            try { onSettled?.("sent"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+            settle("sent");
           } else {
-            try { onSettled?.("aborted"); } catch { /* geri çağrı hatası sonucu değiştirmez */ }
+            settle("aborted");
           }
         } finally {
           entry.promptInFlight = false;
+          // poll/write/submitLine fırlattıysa ve settle henüz çağrılmadıysa "aborted".
+          settle("aborted");
         }
       });
     try {
       if (deps.schedule) deps.schedule(enter, PROMPT_ENTER_DELAY_MS);
       else setTimeout(enter, PROMPT_ENTER_DELAY_MS);
     } catch {
-      // Zamanlayıcı fırlattı: metin TUI'de yarım kaldı, temizle.
-      entry.promptInFlight = false;
-      guard(() => deps.write(entry.reg.ptyId, "\x1b"));
-      return "writeFailed";
+      if (entry.promptInFlight) {
+        // Zamanlayıcı enter'ı çalıştırmadan fırlattı: metin TUI'de yarım kaldı, temizle.
+        entry.promptInFlight = false;
+        guard(() => deps.write(entry.reg.ptyId, "\x1b"));
+        return "writeFailed";
+      }
+      // enter eşzamanlı çalıştı (onSettled çağrıldı, kilit bırakıldı); sonuç geçerli.
     }
     return "ok";
   }
