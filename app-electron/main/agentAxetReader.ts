@@ -140,7 +140,10 @@ export interface AxetReaderOptions {
 
 interface Needle {
   key: string;
+  /** Pencerenin başlangıcı (60 sn dolunca iğne düşer). unbind'de şimdiye sıfırlanır. */
   atMs: number;
+  /** Veritabanı sorgusunun alt sınırı: istemin özgün yazılma anı. Hiç değişmez. */
+  submitMs: number;
 }
 
 export class AxetReader implements AgentReader {
@@ -168,7 +171,8 @@ export class AxetReader implements AgentReader {
     // Soru kutusuna yazılan serbest cevap yeni bir istem değil.
     if (this.session && this.derived?.state === "asking") return;
     this.prompted = true;
-    const needle = { key, atMs: this.opts.now() };
+    const nowMs = this.opts.now();
+    const needle = { key, atMs: nowMs, submitMs: nowMs };
     if (this.session) this.unconfirmed = [...this.unconfirmed, needle].slice(-PENDING_CAP);
     else this.needles = [...this.needles, needle].slice(-PENDING_CAP);
     this.publishPending();
@@ -238,8 +242,11 @@ export class AxetReader implements AgentReader {
       this.dbFailed = true;
       return;
     }
-    const sinceSec = Math.floor(this.opts.startedAtMs / 1000) - 2;
     for (const needle of [...this.needles].reverse()) {
+      // İstemin özgün yazılma anından itibaren ara (submitMs): ajanın başlangıcından
+      // bu yana açılmış yabancı (sohbet ekranı / başka axet-code) oturumlarını
+      // dışarıda bırakır ve Ctrl+N öncesindeki mesajların eşleşmesini önler.
+      const sinceSec = Math.floor(needle.submitMs / 1000) - 2;
       const found = this.opts.port.findSessions(dbPath, sinceSec, needle.key);
       if (found === null) {
         this.dbFailed = true;
@@ -280,7 +287,8 @@ export class AxetReader implements AgentReader {
     this.derived = null;
     this.messages.clear();
     this.lastSec = 0;
-    this.needles = this.unconfirmed.map((n) => ({ key: n.key, atMs: now }));
+    // submitMs (DB sorgusu için) özgün zamanda kalır; atMs pencereyi şimdiden yeniler.
+    this.needles = this.unconfirmed.map((n) => ({ key: n.key, atMs: now, submitMs: n.submitMs }));
     this.unconfirmed = [];
     this.ambiguous = true;
     this.publishPending();
@@ -313,13 +321,22 @@ export class AxetReader implements AgentReader {
 
   private confirm(ordered: AxetDbMessage[], now: number): void {
     if (this.unconfirmed.length === 0) return;
-    const texts = ordered.filter((m) => m.role === "user").map((m) => matchKey(textOf(m)));
     const before = this.unconfirmed.length;
-    const running = this.derived?.state === "running";
+    // Ajan çalışırken ya da soru beklenirken TUI istemi sıraya alıyor olabilir:
+    // süre o sırada işlemiyor (asking: Kararlar'daki soru düşmesin).
+    const frozen = this.derived?.state === "running" || this.derived?.state === "asking";
     this.unconfirmed = this.unconfirmed
-      .filter((n) => !texts.some((t) => t.includes(n.key)))
-      // Ajan çalışırken TUI istemi sıraya alıyor olabilir: süre o sırada işlemiyor.
-      .map((n) => (running ? { ...n, atMs: now } : n));
+      .filter((n) => {
+        // Yalnız istemin özgün yazılma anından (submitMs) sonraki kullanıcı
+        // mesajlarıyla doğrula: eski oturumdaki aynı metin (Ctrl+N öncesi)
+        // doğrulama sayılmasın.
+        const cutSec = Math.floor(n.submitMs / 1000) - 2;
+        const recentTexts = ordered
+          .filter((m) => m.role === "user" && m.createdAt >= cutSec)
+          .map((m) => matchKey(textOf(m)));
+        return !recentTexts.some((t) => t.includes(n.key));
+      })
+      .map((n) => (frozen ? { ...n, atMs: now } : n));
     if (this.unconfirmed.some((n) => now - n.atMs >= UNCONFIRMED_LIMIT_MS)) {
       this.unbind(now);
       return;

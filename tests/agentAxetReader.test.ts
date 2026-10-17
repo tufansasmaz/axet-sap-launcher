@@ -315,6 +315,77 @@ describe("AxetReader — veritabanı arızası", () => {
   });
 });
 
+describe("AxetReader — zaman penceresi düzeltmeleri", () => {
+  it("(a) yabancı oturumda istemden ÖNCE yazılmış aynı metin bağ kurmaz", () => {
+    // Registry dışı (sohbet ekranı / başka axet-code) eski oturum: ajanın
+    // iğneyi yazdığı andan ÖNCE yazılmış → sinceSec = needle.atMs/1000 - 2
+    // ile dışarıda kalmalı; tek aday görünse bile bağlanılmıyor.
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    // Yabancı oturum iğneden 5 sn önce yazılmış
+    db.rows.push(msg("S_FOREIGN", "user", [text("yabanci istem uzun")], T0 + 5));
+    // clock.ms = (T0+10)*1000; needle.atMs = (T0+10)*1000; sinceSec = T0+8
+    // S_FOREIGN mesajı T0+5 < T0+8 → bulunamaz → bağlanmıyor
+    reader.submitLine("yabanci istem uzun");
+    reader.poll();
+    expect(reader.binding()).toBeNull();
+    expect(reader.status().source).toBe("estimated");
+  });
+
+  it("(b) Ctrl+N sonrası eski oturumun önceki mesajı tekrar doğrulama sayılmıyor", () => {
+    // Bağlı oturumda daha önce yazılmış aynı metni tekrar yazan kullanıcı:
+    // doğrulama yalnız istemin YAZILDIĞI ANDAN sonraki mesajlarla yapılmalı.
+    const { db, clock, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("baslat uzun mesaj");
+    db.rows.push(
+      msg("S1", "user", [text("baslat uzun mesaj")], T0 + 11),
+      msg("S1", "assistant", [finish("end_turn")], T0 + 12)
+    );
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    // Bağlı iken kullanıcı aynı metni tekrar yazıyor (T0+20, clock=(T0+20)*1000)
+    clock.ms = (T0 + 20) * 1000;
+    reader.submitLine("baslat uzun mesaj");
+    // Bu metin S1'de T0+11'de var; ama istem T0+20'de yazıldı → sinceSec=T0+18
+    // T0+11 < T0+18 → eski mesaj doğrulama sayılmaz → UNCONFIRMED_LIMIT_MS sonra bağ çözülür
+    clock.ms += UNCONFIRMED_LIMIT_MS + 1_000;
+    reader.poll();
+    expect(reader.binding()).toBeNull();
+  });
+
+  it("(c) asking durumunda bekleyen istem 30 sn geçse de bağı çözMEZ", () => {
+    // Açık soru varken unconfirmed istemin sayacı işlememeli.
+    const { db, clock, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("asil istem burada");
+    db.rows.push(
+      msg("S1", "user", [text("asil istem burada")], T0 + 11),
+      msg("S1", "assistant", [askCall("c5"), finish("tool_use")], T0 + 12)
+    );
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    expect(reader.status().state).toBe("asking");
+    // Asking durumundayken yeni bir istem geldi (soru kutusunda değil, henüz running değil)
+    clock.ms = (T0 + 13) * 1000;
+    // submitLine asking'te return ediyor; unconfirmed oluşturmak için önce
+    // geçici running'e geçelim, ardından askCall yeniden açılsın
+    db.rows.push(msg("S1", "tool", [result("c5")], T0 + 13));
+    reader.poll(); // running
+    reader.submitLine("siradaki uzun istem");
+    // Şimdi tekrar asking'e geç
+    db.rows.push(msg("S1", "assistant", [askCall("c6"), finish("tool_use")], T0 + 14));
+    clock.ms = (T0 + 14) * 1000;
+    reader.poll(); // asking
+    expect(reader.status().state).toBe("asking");
+    // 30+ sn asking'te kal → bağ bozulmamalı
+    clock.ms += UNCONFIRMED_LIMIT_MS + 1_000;
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    expect(reader.status().state).toBe("asking");
+  });
+});
+
 describe("oturum kaydı ve okuyucu seçimi", () => {
   it("keysOverlap iki yönlü içerme", () => {
     expect(keysOverlap("Merhaba ajan", "Merhaba")).toBe(true);
