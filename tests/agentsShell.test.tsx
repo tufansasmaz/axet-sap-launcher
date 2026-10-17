@@ -76,6 +76,11 @@ describe("AgentOpenListener", () => {
     unmount();
     expect(openListener).toBeNull();
   });
+
+  it("window.api yokken render çökmüyor", () => {
+    (window as unknown as { api: unknown }).api = undefined;
+    expect(() => wrap(<AgentOpenListener onShow={vi.fn()} />)).not.toThrow();
+  });
 });
 
 describe("AgentsModeBadge", () => {

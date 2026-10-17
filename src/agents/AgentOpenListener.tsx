@@ -8,13 +8,12 @@ export default function AgentOpenListener({ onShow }: { onShow: () => void }) {
   const { commands } = useTerminalStore();
   const onShowRef = useRef(onShow);
   onShowRef.current = onShow;
-  useEffect(
-    () =>
-      window.api.onAgentOpen((paneId) => {
-        onShowRef.current();
-        commands.revealPane(paneId);
-      }),
-    [commands]
-  );
+  useEffect(() => {
+    const off = window.api?.onAgentOpen((paneId) => {
+      onShowRef.current();
+      commands.revealPane(paneId);
+    });
+    return off ?? (() => {});
+  }, [commands]);
   return null;
 }

@@ -172,12 +172,13 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
                 <span
                   data-asking={asking}
                   title={t("agents.askingCount", { count: asking })}
+                  aria-label={t("agents.askingCount", { count: asking })}
                   className="shrink-0 rounded-full bg-[var(--status-warning-bg)] px-1.5 font-mono text-2xs tabular-nums text-[var(--status-warning-text)]"
                 >
                   {asking}
                 </span>
               )}
-              <span title={t("agents.agentCount", { count: agents })} className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">
+              <span title={t("agents.agentCount", { count: agents })} aria-label={t("agents.agentCount", { count: agents })} className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">
                 {agents}
               </span>
             </div>

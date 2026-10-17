@@ -237,7 +237,15 @@ describe("TerminalSidebar", () => {
     const badge = row("API").querySelector("[data-asking]") as HTMLElement;
     expect(badge.textContent).toBe("1");
     expect(badge.getAttribute("title")).toBe("1 soru bekliyor");
+    expect(badge.getAttribute("aria-label")).toBe("1 soru bekliyor");
     expect(row("UI").querySelector("[data-asking]")).toBeNull();
+  });
+
+  it("ajan sayısı span'ı aria-label taşıyor", () => {
+    renderSidebar([agentWs("a", "API", 3)]);
+    const countSpan = row("API").querySelector("[title='3 ajan']") as HTMLElement;
+    expect(countSpan).toBeTruthy();
+    expect(countSpan.getAttribute("aria-label")).toBe("3 ajan");
   });
 
   it("menü: Kök klasör seçilen klasörü kök yapıyor (SAP bağı düşüyor)", async () => {

@@ -1002,9 +1002,9 @@ export default function App() {
         pushToast={pushToast}
         onConfigSaved={setConfig}
       >
-      <AgentStatusProvider>
-      <AgentOpenListener onShow={handleShowAgents} />
-      <div className="flex h-screen flex-col overflow-hidden">
+        <AgentStatusProvider>
+        <AgentOpenListener onShow={handleShowAgents} />
+        <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
@@ -1375,8 +1375,8 @@ export default function App() {
             <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />
           ))}
         </div>
-      </div>
-      </AgentStatusProvider>
+        </div>
+        </AgentStatusProvider>
       </TerminalStoreProvider>
       </ScriptStoreProvider>
       </ChatStoreProvider>
