@@ -43,6 +43,8 @@ describe("readBoardCommand", () => {
     expect(save([draft({ roleHint: "x".repeat(41) })])).toBeNull();
     expect(save([draft({ dependsOn: ["../x"] })])).toBeNull();
     expect(save([draft({ id: 3 })])).toBeNull();
+    // dependsOn seyrek dizi deliği (new Array(1)) — .every deliği atlıyor, Array.from reddediyor.
+    expect(save([draft({ dependsOn: new Array(1) })])).toBeNull();
   });
 
   it("taslakta boş başlık/istem kabul (onay ayrıca denetliyor)", () => {

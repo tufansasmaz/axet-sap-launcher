@@ -84,7 +84,8 @@ function readDraft(raw: unknown): SubtaskDraft | null {
   const prompt = text(r.prompt, SUBTASK_PROMPT_MAX);
   const roleHint = text(r.roleHint, ROLE_HINT_MAX);
   if (!isBoardId(r.id) || title === null || prompt === null || roleHint === null) return null;
-  if (!Array.isArray(r.dependsOn) || r.dependsOn.length > MAX_SUBTASKS || !r.dependsOn.every(isBoardId)) return null;
+  // Array.from seyrek dizilerin deliklerini undefined'a dönüştürür; .every deliği atlar (hata verir).
+  if (!Array.isArray(r.dependsOn) || r.dependsOn.length > MAX_SUBTASKS || !Array.from(r.dependsOn).every(isBoardId)) return null;
   return { id: r.id, title, prompt, roleHint, dependsOn: [...(r.dependsOn as string[])] };
 }
 
