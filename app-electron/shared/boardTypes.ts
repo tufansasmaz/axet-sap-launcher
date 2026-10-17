@@ -11,9 +11,9 @@ export type SubtaskState = "waiting" | "ready" | "running" | "asking" | "verifyi
 export const SUBTASK_STATES: readonly SubtaskState[] = ["waiting", "ready", "running", "asking", "verifying", "done", "failed"];
 
 /** Kartın küçük notu. Metin renderer'da i18n'den (spec §2 `note`). */
-export type SubtaskNote = "agentClosed" | "restarted" | "agentError" | "timeout" | "sentBack";
+export type SubtaskNote = "agentClosed" | "restarted" | "agentError" | "timeout" | "sentBack" | "promptAborted";
 
-export const SUBTASK_NOTES: readonly SubtaskNote[] = ["agentClosed", "restarted", "agentError", "timeout", "sentBack"];
+export const SUBTASK_NOTES: readonly SubtaskNote[] = ["agentClosed", "restarted", "agentError", "timeout", "sentBack", "promptAborted"];
 
 /** Lider neden plan üretemedi (spec §3, §7). */
 export type LeadErrorCode =
