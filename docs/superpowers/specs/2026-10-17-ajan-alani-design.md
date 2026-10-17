@@ -120,3 +120,11 @@ Mesaj, soru ya da terminal içeriği günlüğe yazılmaz.
 1. axet-code TUI'de oturumu baştan belirleme bayrağı (§6.1) — Görev 0 ölçümü.
 2. axet-code soru kutusunda seçenek seçiminin tuş dizisi 1.4.x TUI'de hâlâ aynı mı — Görev 0 ölçümü (eski köprüdeki dizi referans).
 3. Claude Code / Codex kesin okuyucuları — ayrı iş, o motorlar kurulu bir makinede ölçülerek.
+
+## 14. Görev 0 ölçümleri (2026-10-17, axet-code 1.4.1, `--help` ve alt komut yardımları)
+
+1. **Oturumu baştan belirleme bayrağı yok.** Etkileşimli kipte `--resume` yok (yalnız `run`'da). `-D/--data-dir` (özel veri klasörü) var, ama projeye kurulan yetenekler `<proje>/.axet-code/skills` altında; ajan başına ayrı veri klasörü bunları kaybettirir. Karar: §6.1'deki istem eşlemesi kullanılır; `-D` kullanılmaz.
+2. **axet-code'un yerel ajan sistemi var:** `--agent <ad>` (bu çalıştırmanın birincil ajanı), `axet-code agent list|create|validate|pack` (YAML başlıklı markdown ajan tanımları; genel klasör `%LOCALAPPDATA%\axet-code\agents`), `axet-code team init|show|validate` (proje veri klasöründe `team.json`: kim kime devredebilir, ortak politikalar), `--trust-project`. Hazır ajanlar: `agent-builder`, `coder`, `guide`, `security`, `task`.
+   - **Karar (§3/§5'e ek):** motor axet-code olduğunda "Rol" alanı serbest metin yerine `axet-code agent list` çıktısından (ad + izin kipi) doldurulur ve ajan `--agent <ad>` ile başlatılır; ajan adı kartta rol olarak görünür. Liste okunamazsa yalnız hazır beş ajan gösterilir. Diğer motorlarda rol serbest metin/etiket olarak kalır.
+   - S2 (pano + lider) için `team.json` ekip manifestosu doğal temel; S2 tasarımı bunu kullanır (ayrı ölçüm).
+3. **Henüz ölçülmedi:** soru kutusunda seçenek seçiminin tuş dizisi (1.4.x TUI) — plan Görev 1'de gerçek TUI ile ölçülür; tutmazsa sürüm 1'de Kararlar satırı yalnız "Terminale git" gösterir.
