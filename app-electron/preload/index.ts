@@ -64,7 +64,7 @@ import type {
 } from "../shared/types";
 import type { WriteCsvResult, WriteHistoryResult } from "../shared/sapWriteHistory";
 import type { Choice, SapWriteState, WorkMode } from "../shared/sapWriteTypes";
-import type { AgentEngineInfo, AxetAgentEntry } from "../shared/agentTypes";
+import type { AgentAnswerResult, AgentEngineInfo, AgentRegistration, AgentStatusEvent, AxetAgentEntry } from "../shared/agentTypes";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -167,6 +167,22 @@ const api = {
   agentEngines: (force?: boolean): Promise<AgentEngineInfo[]> => ipcRenderer.invoke("agents:engines", force === true),
   axetAgents: (cwd: string): Promise<AxetAgentEntry[]> => ipcRenderer.invoke("agents:axetAgents", cwd),
   agentWhich: (binary: string): Promise<boolean> => ipcRenderer.invoke("agents:which", binary),
+  agentRegister: (reg: AgentRegistration): Promise<void> => ipcRenderer.invoke("agents:register", reg),
+  agentUnregister: (paneId: string): Promise<void> => ipcRenderer.invoke("agents:unregister", paneId),
+  agentAnswer: (paneId: string, callId: string, index: number): Promise<AgentAnswerResult> =>
+    ipcRenderer.invoke("agents:answer", paneId, callId, index),
+  agentSnapshot: (): Promise<AgentStatusEvent[]> => ipcRenderer.invoke("agents:snapshot"),
+  onAgentStatus: (callback: (event: AgentStatusEvent) => void) => {
+    const listener = (_event: unknown, event: AgentStatusEvent) => callback(event);
+    ipcRenderer.on("agents:status", listener);
+    return () => ipcRenderer.removeListener("agents:status", listener);
+  },
+  // Ajan bildirimine tıklanınca (spec §9): Ajanlar ekranı ve o bölme.
+  onAgentOpen: (callback: (paneId: string) => void) => {
+    const listener = (_event: unknown, paneId: string) => callback(paneId);
+    ipcRenderer.on("agents:open", listener);
+    return () => ipcRenderer.removeListener("agents:open", listener);
+  },
   onTerminalData: (callback: (id: string, data: string) => void) => {
     const listener = (_event: unknown, id: string, data: string) => callback(id, data);
     ipcRenderer.on("terminal:data", listener);

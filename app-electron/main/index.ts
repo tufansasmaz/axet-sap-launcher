@@ -31,7 +31,11 @@ import { mt, refreshMainLanguage } from "./i18n";
 import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
-import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer } from "./terminalManager";
+import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, setTerminalTap } from "./terminalManager";
+import { createAgentMonitor, readAgentRegistration } from "./agentMonitor";
+import { agentNotificationFor, type AgentNotificationKind } from "./agentNotification";
+import { createAgentReader, liveAxetDbPort } from "./agentReaders";
+import { createSessionRegistry } from "./agentAxetReader";
 import { TERMINAL_MISSING_DIR } from "../shared/terminalLayout";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
@@ -232,6 +236,64 @@ function showChatNotification(chatId: string, kind: Parameters<typeof notificati
   } catch {
     // Ana süreçte yakalanmamış istisna bırakılmamalı.
   }
+}
+
+// Ajan Alanı bildirimi (spec 2026-10-17 ajan-alani §9). Sohbet bildirimiyle
+// aynı ayar (`chatNotifications`) ve aynı yaşam döngüsü; tıklayınca Ajanlar
+// ekranı ve o ajanın bölmesi açılıyor. Gövde sabit, içerik yok.
+function showAgentNotification(paneId: string, agentName: string, kind: AgentNotificationKind): void {
+  try {
+    if (!Notification.isSupported()) return;
+    const cfg = loadConfig();
+    const isFocusedAndVisible = (mainWindow?.isFocused() ?? false) && !(mainWindow?.isMinimized() ?? true);
+    const lang = cfg.language === "en" ? "en" : "tr";
+    const payload = agentNotificationFor(kind, isFocusedAndVisible, cfg.chatNotifications !== false, agentName, lang);
+    if (!payload) return;
+    const n = new Notification({ title: payload.title, body: payload.body, silent: false, icon: resolveIconPath() });
+    _liveNotifications.add(n);
+    const cleanup = () => _liveNotifications.delete(n);
+    n.on("close", cleanup);
+    n.on("failed", cleanup);
+    n.on("click", () => {
+      cleanup();
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.show();
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send("agents:open", paneId);
+    });
+    n.show();
+  } catch {
+    // Ana süreçte yakalanmamış istisna bırakılmamalı.
+  }
+}
+
+// Ajan izleyicisi (spec 2026-10-17 ajan-alani §6). Modül düzeyinde tek örnek;
+// zamanlayıcı registerIpc'de kuruluyor, kapanışta duruyor.
+const agentSessions = createSessionRegistry();
+const agentMonitor = createAgentMonitor({
+  now: () => Date.now(),
+  createReader: (reg) =>
+    createAgentReader(reg, {
+      now: () => Date.now(),
+      port: liveAxetDbPort,
+      registry: agentSessions,
+      onMatch: (r, sonuc) => appLog("ajan.eslesme", { motor: r.engine, sonuc })
+    }),
+  emit: (event) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("agents:status", event);
+  },
+  notify: (kind, reg) => showAgentNotification(reg.paneId, reg.name, kind),
+  write: (ptyId, data) => writeTerminal(ptyId, data),
+  backlog: (ptyId) => getTerminalBuffer(ptyId).slice(-4_000),
+  log: (tag, fields) => appLog(tag, fields)
+});
+let agentMonitorTimer: NodeJS.Timeout | null = null;
+
+function stopAgentMonitor(): void {
+  if (agentMonitorTimer) clearInterval(agentMonitorTimer);
+  agentMonitorTimer = null;
+  agentMonitor.dispose();
 }
 
 // Kullanıcı onayı bekleyen TLS sertifikaları: `host:port` → bağlanırken
@@ -1058,6 +1120,9 @@ function registerIpc(): void {
   });
 
   ipcMain.on("terminal:write", (_event, id: string, data: string) => {
+    // Kullanıcının tuşları ajan izleyicisine (istem eşleme, "yazıyor" kilidi);
+    // izleyicinin kendi yazdıkları (Kararlar cevabı) buradan geçmiyor.
+    agentMonitor.onInput(id, data);
     writeTerminal(id, data);
   });
 
@@ -1095,6 +1160,31 @@ function registerIpc(): void {
   ipcMain.handle("agents:axetAgents", (_event, cwd: unknown) => listAxetAgents(typeof cwd === "string" ? cwd : "", runAxetCode));
 
   ipcMain.handle("agents:which", (_event, binary: unknown) => whereOnPath(typeof binary === "string" ? binary : ""));
+
+  setTerminalTap({
+    onOutput: (id, data) => agentMonitor.onOutput(id, data),
+    onExit: (id) => agentMonitor.onExit(id)
+  });
+  if (!agentMonitorTimer) {
+    agentMonitorTimer = setInterval(() => agentMonitor.tick(), 1_000);
+  }
+
+  ipcMain.handle("agents:register", (_event, raw: unknown) => {
+    const reg = readAgentRegistration(raw);
+    if (reg) agentMonitor.register(reg);
+  });
+
+  ipcMain.handle("agents:unregister", (_event, paneId: unknown) => {
+    if (typeof paneId === "string") agentMonitor.unregister(paneId);
+  });
+
+  ipcMain.handle("agents:answer", (_event, paneId: unknown, callId: unknown, index: unknown) =>
+    typeof paneId === "string" && typeof callId === "string" && typeof index === "number"
+      ? agentMonitor.answer(paneId, callId, index)
+      : { ok: false, reason: "notAnswerable" }
+  );
+
+  ipcMain.handle("agents:snapshot", () => agentMonitor.snapshot());
 
   ipcMain.handle("project:resolveDir", (_event, customerPath: string[], service: SapService) => {
     const config = loadConfig();
@@ -1906,6 +1996,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  stopAgentMonitor();
   disposeAllTerminals();
   stopAllWatches();
   stopAllRfcBridges();
@@ -1920,6 +2011,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  stopAgentMonitor();
   disposeAllTerminals();
   stopAllWatches();
   stopAllRfcBridges();
