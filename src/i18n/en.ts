@@ -1227,8 +1227,9 @@ export const en: Record<TranslationKey, string> = {
   "promptSuggestions.tc2": "Explain what this program does: ",
   "promptSuggestions.tc3": "What is in this transport: ",
   "promptSuggestions.tc4": "Find where this table is used: ",
-  // SAP context hint
+  // SAP context hint (old: below dimmed chips; M9: below general cards)
   "promptSuggestions.sapHint": "Connect to a SAP system first",
+  "promptSuggestions.noSapHint": "Connect to a SAP system for SAP suggestions",
 
   // --- Readiness steps (İş 4 — 2026-10-17) ---
   "readiness.stepsCardTitle": "Ready?",

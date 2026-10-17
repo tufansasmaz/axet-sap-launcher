@@ -1,7 +1,7 @@
 // Tests for İş 3 — Rol bazlı hazır istemler
 
 import { describe, expect, it } from "vitest";
-import { getRoleChips } from "../src/lib/promptSuggestions";
+import { getRoleChips, appendChipText } from "../src/lib/promptSuggestions";
 import { tr } from "../src/i18n/tr";
 import { en } from "../src/i18n/en";
 
@@ -41,5 +41,23 @@ describe("i18n anahtar bütünlüğü", () => {
         expect(key in en, `en eksik: ${key}`).toBe(true);
       }
     }
+  });
+});
+
+describe("appendChipText", () => {
+  it("boş taslağa chip metni direkt yazar", () => {
+    expect(appendChipText("", "Bu tabloyu açıkla: ")).toBe("Bu tabloyu açıkla: ");
+  });
+
+  it("taslak boşlukla bitiyorsa direkt ekler", () => {
+    expect(appendChipText("merhaba ", "chip")).toBe("merhaba chip");
+  });
+
+  it("taslak boşlukla bitmiyorsa önce boşluk ekler", () => {
+    expect(appendChipText("merhaba", "chip")).toBe("merhaba chip");
+  });
+
+  it("taslak dolu ve chip boşsa boş string ekler", () => {
+    expect(appendChipText("merhaba", "")).toBe("merhaba ");
   });
 });

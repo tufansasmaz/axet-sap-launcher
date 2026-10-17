@@ -40,3 +40,16 @@ export function getRoleChips(profile: SkillProfile | null): readonly PromptChip[
   }
   return MODULE_CHIPS;
 }
+
+/**
+ * Mevcut taslak metnine çip metnini ekler.
+ * - Taslak boşsa çip metni direkt yazılır.
+ * - Taslak boşlukla bitmiyorsa önce boşluk eklenir (#8).
+ *
+ * Saf fonksiyon → izole test edilebilir.
+ */
+export function appendChipText(draft: string, chipText: string): string {
+  if (!draft) return chipText;
+  if (/\s$/.test(draft)) return draft + chipText;
+  return draft + " " + chipText;
+}

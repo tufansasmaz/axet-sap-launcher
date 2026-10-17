@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-// İş 3 bileşen testleri: ChatSessionPane rol çipleri.
+// İş 3 bileşen testleri: ChatSessionPane rol çipleri — M9 davranışı.
+// M9: SAP bağlamı varsa rol çipleri; yoksa genel kartlar + ipucu satırı.
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
@@ -16,7 +17,7 @@ beforeEach(() => {
   const orig = (window as unknown as Record<string, unknown>).api;
   (window as unknown as Record<string, unknown>).api = {
     ...(orig as object),
-    listDir: vi.fn().mockResolvedValue([]),
+    listDir: vi.fn().mockResolvedValue({ ok: false, error: "ENOENT" }),
     searchFiles: vi.fn().mockResolvedValue([]),
     watchDir: vi.fn().mockResolvedValue(undefined),
     unwatchDir: vi.fn().mockResolvedValue(undefined),
@@ -28,6 +29,8 @@ const ROLE_CHIPS = [
   { key: "promptSuggestions.mc1", text: "Bu tablonun alanlarını açıkla: ", needsSap: true },
   { key: "promptSuggestions.mc2", text: "Bu hata mesajı ne anlama geliyor: ", needsSap: true }
 ];
+
+const SUGGESTION_KEYS = ["axetCodeHome.suggestion1", "axetCodeHome.suggestion2"];
 
 function makeSession(overrides: Partial<ChatSessionData> = {}): ChatSessionData {
   return {
@@ -55,7 +58,8 @@ function mountPane({
   roleChips = ROLE_CHIPS,
   hasSapContext = false,
   onRoleChipClick = vi.fn(),
-  onSend = vi.fn()
+  onSend = vi.fn(),
+  suggestionKeys = [] as string[]
 } = {}) {
   render(
     <LanguageProvider language="tr">
@@ -82,7 +86,7 @@ function mountPane({
         onAttachFiles={vi.fn()}
         onFilesResolved={vi.fn()}
         onRemoveAttachment={vi.fn()}
-        suggestionKeys={[]}
+        suggestionKeys={suggestionKeys}
         onSuggestionClick={vi.fn()}
         roleChips={roleChips}
         hasSapContext={hasSapContext}
@@ -93,44 +97,63 @@ function mountPane({
   return { onRoleChipClick, onSend };
 }
 
-// Çip düğmesini `data-role-chip` attribute'u ile bul (metin sondaki boşluk nedeniyle
-// testing-library getByText normalizasyon sonrası eşleşmiyor).
+// Çip düğmesini `data-role-chip` attribute'u ile bul.
 function getChipButton(key: string) {
-  return document.querySelector(`[data-role-chip="${key}"]`) as HTMLElement;
+  return document.querySelector(`[data-role-chip="${key}"]`) as HTMLElement | null;
 }
 
-describe("Rol çipleri — boş ekran", () => {
-  it("çipler boş ekranda görünür", () => {
-    mountPane();
+describe("M9 — SAP bağlamı YOK: genel kartlar + ipucu", () => {
+  it("SAP yokken rol çipleri görünmez", () => {
+    mountPane({ hasSapContext: false });
+    expect(getChipButton(ROLE_CHIPS[0].key)).toBeNull();
+  });
+
+  it("SAP yokken genel öneri kartları görünür (suggestionKeys varsa)", () => {
+    mountPane({ hasSapContext: false, suggestionKeys: SUGGESTION_KEYS });
+    // data-suggestion attribute'u ile kart bul
+    const cards = document.querySelectorAll("[data-suggestion]");
+    expect(cards.length).toBe(SUGGESTION_KEYS.length);
+  });
+
+  it("SAP yokken ve roleChips varsa ipucu satırı görünür", () => {
+    mountPane({ hasSapContext: false });
+    expect(screen.getByText("SAP önerileri için önce bir sisteme bağlanın")).toBeTruthy();
+  });
+
+  it("SAP yokken ve roleChips yoksa ipucu satırı görünmez", () => {
+    mountPane({ hasSapContext: false, roleChips: [] });
+    expect(screen.queryByText("SAP önerileri için önce bir sisteme bağlanın")).toBeNull();
+  });
+});
+
+describe("M9 — SAP bağlamı VAR: rol çipleri", () => {
+  it("SAP varken çipler görünür", () => {
+    mountPane({ hasSapContext: true });
     expect(getChipButton(ROLE_CHIPS[0].key)).toBeTruthy();
   });
 
+  it("SAP varken ipucu satırı görünmez", () => {
+    mountPane({ hasSapContext: true });
+    expect(screen.queryByText("SAP önerileri için önce bir sisteme bağlanın")).toBeNull();
+  });
+
   it("çip tıklandığında onRoleChipClick çağrılır", () => {
-    const { onRoleChipClick } = mountPane();
-    fireEvent.click(getChipButton(ROLE_CHIPS[0].key));
+    const { onRoleChipClick } = mountPane({ hasSapContext: true });
+    fireEvent.click(getChipButton(ROLE_CHIPS[0].key)!);
     expect(onRoleChipClick).toHaveBeenCalledWith(ROLE_CHIPS[0].text);
   });
 
   it("çip tıklaması mesaj göndermez", () => {
-    const { onSend } = mountPane();
-    fireEvent.click(getChipButton(ROLE_CHIPS[0].key));
+    const { onSend } = mountPane({ hasSapContext: true });
+    fireEvent.click(getChipButton(ROLE_CHIPS[0].key)!);
     expect(onSend).not.toHaveBeenCalled();
-  });
-
-  it("SAP yokken needsSap çipler için ipucu görünür", () => {
-    mountPane({ hasSapContext: false });
-    expect(screen.getByText("Önce bir SAP sistemine bağlanın")).toBeTruthy();
-  });
-
-  it("SAP varken ipucu görünmez", () => {
-    mountPane({ hasSapContext: true });
-    expect(screen.queryByText("Önce bir SAP sistemine bağlanın")).toBeNull();
   });
 });
 
 describe("Rol çipleri — mesajlı sohbet", () => {
-  it("sohbette mesaj varsa çipler görünmez", () => {
+  it("sohbette mesaj varsa çipler görünmez (SAP olsa bile)", () => {
     mountPane({
+      hasSapContext: true,
       session: makeSession({
         id: "existing",
         messages: [

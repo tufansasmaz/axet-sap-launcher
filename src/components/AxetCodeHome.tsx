@@ -16,7 +16,7 @@ import ChatInstructionsDialog from "./ChatInstructionsDialog";
 import ChatProjectDialog from "./ChatProjectDialog";
 import type { ChatMessage } from "./ChatBubble";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
-import { getRoleChips } from "../lib/promptSuggestions";
+import { getRoleChips, appendChipText } from "../lib/promptSuggestions";
 import { orderSessions } from "../lib/chatSessionGroups";
 import { contextTierFor } from "../lib/contextTier";
 import { ipcErrorMessage } from "../lib/ipcErrorMessage";
@@ -2159,15 +2159,7 @@ export default function AxetCodeHome({
   // Rol çipi tıklandığında taslağa yazar (doluysa sonuna ekler).
   // Taslak boş değilse ve boşlukla bitmiyorsa önce boşluk eklenir (#8).
   const handleRoleChipClick = useCallback((text: string) => {
-    const current = newDraft;
-    let next: string;
-    if (!current) {
-      next = text;
-    } else if (/\s$/.test(current)) {
-      next = current + text;
-    } else {
-      next = current + " " + text;
-    }
+    const next = appendChipText(newDraft, text);
     handleDraftChange(next);
     // Küçük gecikme: state güncellemesi render'a düştükten sonra textarea'yı
     // odakla ve imleci sona taşı (#6).

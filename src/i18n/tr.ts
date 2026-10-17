@@ -1313,8 +1313,9 @@ export const tr = {
   "promptSuggestions.tc2": "Bu programın ne yaptığını açıkla: ",
   "promptSuggestions.tc3": "Bu transport'ta ne var: ",
   "promptSuggestions.tc4": "Bu tablonun nerede kullanıldığını bul: ",
-  // SAP yokken ipucu
+  // SAP yokken ipucu (eski: soluk çipler altında; M9: genel kartlar altında)
   "promptSuggestions.sapHint": "Önce bir SAP sistemine bağlanın",
+  "promptSuggestions.noSapHint": "SAP önerileri için önce bir sisteme bağlanın",
 
   // --- Hazırlık adımları (İş 4 — 2026-10-17) ---
   "readiness.stepsCardTitle": "Hazır mısın?",

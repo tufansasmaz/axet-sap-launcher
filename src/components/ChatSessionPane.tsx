@@ -605,59 +605,56 @@ export default function ChatSessionPane({
             )}
 
             {/* Rol bazlı hazır istemler + öneri kartları — İş 3 (2026-10-17).
-                Tasarım kararı: rol çipleri ve öneri kartları aynı amaca hizmet
-                eder (ilk isteği başlatmak). 7 sınırlı kutu yerine düz metin
-                çipler (pill) kullanıcının dikkatini metnin kendisine çeker;
-                roller çipler daha spesifik olduğu için kartların yerini alır.
-                SAP yoksa needsSap çipler soluk; altında tek satır ipucu. */}
-            {roleChips && roleChips.length > 0 && onRoleChipClick ? (
+                Tasarım kararı (M9, 2026-10-17):
+                - SAP bağlamı VAR → rol çipleri (daha spesifik öneriler, kart yok).
+                - SAP bağlamı YOK → genel öneri kartları + tek satır ipucu.
+                Soluk çip + 7 sınırlı kutu karışımı yerine net hiyerarşi. */}
+            {roleChips && roleChips.length > 0 && onRoleChipClick && hasSapContext ? (
+              /* SAP bağlamı var: rol bazlı pill çipler. */
               <div className="mt-6 w-full">
                 <div className="flex flex-wrap justify-center gap-2">
-                  {roleChips.map(({ key, text, needsSap }) => {
-                    const dim = needsSap && !hasSapContext;
+                  {roleChips.map(({ key, text }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      data-role-chip={key}
+                      onClick={() => onRoleChipClick(text)}
+                      className="cursor-pointer rounded-full border border-line-subtle px-3 py-1 text-xs text-slate-300 transition hover:border-line hover:bg-hover hover:text-slate-100"
+                    >
+                      {text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* SAP bağlamı yok (veya rol çipi tanımlı değil): genel öneri kartları. */
+              <div className="mt-6 w-full">
+                <div className="grid grid-cols-1 gap-2 text-left sm:grid-cols-3">
+                  {suggestionKeys.map((key, i) => {
+                    const Icon = SUGGESTION_ICONS[key] ?? Sparkles;
+                    // İkon rengi modül paletinden sırayla dönüyor: öneri anahtarları
+                    // bağlama göre değişiyor, anahtar başına sabit renk tablosu hem
+                    // eksik kalırdı hem bakımı imkânsız olurdu.
+                    const tint = SUGGESTION_TINTS[i % SUGGESTION_TINTS.length];
                     return (
                       <button
                         key={key}
                         type="button"
-                        data-role-chip={key}
-                        onClick={() => onRoleChipClick(text)}
-                        className={`cursor-pointer rounded-full border px-3 py-1 text-xs transition ${
-                          dim
-                            ? "border-line-subtle text-slate-500 hover:border-line hover:text-slate-400"
-                            : "border-line-subtle text-slate-300 hover:border-line hover:bg-hover hover:text-slate-100"
-                        }`}
+                        data-suggestion={key}
+                        onClick={() => onSuggestionClick(key)}
+                        className="flex cursor-pointer items-start gap-2 rounded-lg border border-line-subtle bg-card px-3 py-2.5 text-sm text-slate-300 transition hover:border-line hover:bg-hover hover:text-slate-100"
                       >
-                        {text}
+                        <Icon size={15} className="mt-0.5 shrink-0" style={{ color: tint }} />
+                        <span>{t(`axetCodeHome.${key}` as Parameters<typeof t>[0])}</span>
                       </button>
                     );
                   })}
                 </div>
-                {!hasSapContext && roleChips.some((c) => c.needsSap) && (
-                  <p className="mt-2 text-center text-xs text-slate-500">{t("promptSuggestions.sapHint")}</p>
+                {roleChips && roleChips.length > 0 && (
+                  <p className="mt-3 text-center text-xs text-slate-500">
+                    {t("promptSuggestions.noSapHint")}
+                  </p>
                 )}
-              </div>
-            ) : (
-              /* Rol çipi yoksa genel öneri kartları — dar pencerede tek sütuna iniyor. */
-              <div className="mt-6 grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-3">
-              {suggestionKeys.map((key, i) => {
-                const Icon = SUGGESTION_ICONS[key] ?? Sparkles;
-                // İkon rengi modül paletinden sırayla dönüyor: öneri anahtarları
-                // bağlama göre değişiyor, anahtar başına sabit renk tablosu hem
-                // eksik kalırdı hem bakımı imkânsız olurdu.
-                const tint = SUGGESTION_TINTS[i % SUGGESTION_TINTS.length];
-                return (
-                  <button
-                    key={key}
-                    type="button"
-                    data-suggestion={key}
-                    onClick={() => onSuggestionClick(key)}
-                    className="flex cursor-pointer items-start gap-2 rounded-lg border border-line-subtle bg-card px-3 py-2.5 text-sm text-slate-300 transition hover:border-line hover:bg-hover hover:text-slate-100"
-                  >
-                    <Icon size={15} className="mt-0.5 shrink-0" style={{ color: tint }} />
-                    <span>{t(`axetCodeHome.${key}` as Parameters<typeof t>[0])}</span>
-                  </button>
-                );
-              })}
               </div>
             )}
           </div>
