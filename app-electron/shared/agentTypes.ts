@@ -1,0 +1,134 @@
+// Ajan Alanı'nın ortak türleri (spec 2026-10-17 ajan-alani §3).
+//
+// Ana süreç ve renderer aynı türleri kullanıyor; bu yüzden `shared` altında.
+// Ajanın ADI, RENGİ ve KLASÖRÜ burada değil: ajan bir terminal bölmesi ve bu
+// üçü bölmenin kendi alanları (`title`, `color`, `cwd`). Burada yalnız
+// bölmeyi ajan yapan şey var: hangi motor, hangi rol.
+
+export type AgentEngineId = "axet-code" | "claude" | "codex" | "gemini" | "ozel";
+
+export const AGENT_ENGINE_IDS: readonly AgentEngineId[] = ["axet-code", "claude", "codex", "gemini", "ozel"];
+
+export function isAgentEngineId(value: unknown): value is AgentEngineId {
+  return typeof value === "string" && (AGENT_ENGINE_IDS as readonly string[]).includes(value);
+}
+
+/**
+ * Rol nereden geldi: hazır listeden (`preset`), kullanıcının yazdığı metin
+ * (`custom`) ya da axet-code'un kendi ajanı (`axetAgent`, `--agent <ad>` ile
+ * başlatılıyor; spec §14.2).
+ */
+export type AgentRoleKind = "preset" | "custom" | "axetAgent";
+
+export interface AgentSpec {
+  engine: AgentEngineId;
+  role: string;
+  roleKind: AgentRoleKind;
+  /** Yalnız model bayrağı bilinen motorlarda kullanılıyor (bkz. agentEngines.ts). */
+  model?: string;
+  /** Yalnız `ozel` motorda: kullanıcının yazdığı komut satırı. */
+  command?: string;
+}
+
+export const AGENT_ROLE_MAX = 40;
+export const AGENT_MODEL_MAX = 80;
+export const AGENT_COMMAND_MAX = 300;
+
+/** Eski `axet` bölmesinin dönüştüğü ajan: rolsüz axet-code. */
+export const LEGACY_AXET_AGENT: AgentSpec = { engine: "axet-code", role: "", roleKind: "custom" };
+
+/**
+ * Kayıttan (config dosyası, IPC) gelen ajan alanını doğrular. Bozuksa `null`;
+ * çağıran bölmeyi atlıyor. Dosya elle düzenlenebilir: hata fırlatmıyor.
+ */
+export function readAgentSpec(raw: unknown): AgentSpec | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  if (!isAgentEngineId(record.engine)) return null;
+  const roleKind: AgentRoleKind =
+    record.roleKind === "preset" || record.roleKind === "axetAgent" ? record.roleKind : "custom";
+  const role = typeof record.role === "string" ? record.role.trim().slice(0, AGENT_ROLE_MAX).trim() : "";
+  const spec: AgentSpec = { engine: record.engine, role, roleKind };
+  const model = typeof record.model === "string" ? record.model.trim().slice(0, AGENT_MODEL_MAX) : "";
+  if (model) spec.model = model;
+  if (record.engine === "ozel") {
+    const command = typeof record.command === "string" ? record.command.trim().slice(0, AGENT_COMMAND_MAX) : "";
+    if (!command) return null;
+    spec.command = command;
+  }
+  return spec;
+}
+
+/**
+ * Motoru kurulu olmayan ajan bölmesinin başlatma hatası. Renderer bu işareti
+ * görünce "Başlatılamadı" yerine "kurulu değil" yazıyor (spec §10).
+ */
+export const AGENT_ENGINE_MISSING = "AGENT_ENGINE_MISSING";
+
+export type AgentState = "running" | "idle" | "asking" | "finished" | "error" | "unknown";
+
+/** `exact`: motorun kendi kaydından · `estimated`: terminal hareketinden (spec §2.5). */
+export type AgentStatusSource = "exact" | "estimated";
+
+/** Ajanın cevap bekleyen sorusu. `askedAt`: sorunun kayda düştüğü an (ms). */
+export interface AgentQuestion {
+  callId: string;
+  question: string;
+  header: string;
+  options: string[];
+  multiSelect: boolean;
+  askedAt: number;
+}
+
+export interface AgentStatus {
+  state: AgentState;
+  source: AgentStatusSource;
+  /** Son etkinlik (ms); bilinmiyorsa null. */
+  lastActivity: number | null;
+  question?: AgentQuestion;
+  /** Kısa sebep (`end_turn`, `error`); içerik değil. */
+  detail?: string;
+}
+
+export interface AgentStatusEvent {
+  paneId: string;
+  status: AgentStatus;
+}
+
+/** Renderer'ın bir ajan bölmesini izleyiciye kaydettirmesi (bkz. agentMonitor.ts). */
+export interface AgentRegistration {
+  paneId: string;
+  ptyId: string;
+  engine: AgentEngineId;
+  cwd: string;
+  /** Bölmeye ilk satır olarak yazılan komut (yankısı "motor kapandı" tespitinde aranıyor). */
+  command: string;
+  /** Bildirim başlığı: ajanın adı ya da motorun adı. */
+  name: string;
+  roleKind: AgentRoleKind;
+  /** Alan bir SAP sistemine bağlı mı (yalnız günlük için). */
+  sap: boolean;
+  /** "+ Ajan" ile yeni eklendi mi (yeniden başlatma ya da geri yükleme değil). */
+  added: boolean;
+}
+
+export type AgentAnswerFailure = "noAgent" | "closed" | "notAnswerable" | "typing" | "writeFailed";
+
+export type AgentAnswerResult = { ok: true } | { ok: false; reason: AgentAnswerFailure };
+
+export interface AgentEngineInfo {
+  id: AgentEngineId;
+  installed: boolean;
+  /** Bölme açılmasın: kurulu değil ya da program bozuk. */
+  blocked: boolean;
+  /** Kartta gösterilecek kısa uyarı (ör. axet-code sürümü eski). */
+  note?: string;
+}
+
+/** `axet-code agent list --json` satırı (spec §14.2). */
+export interface AxetAgentEntry {
+  name: string;
+  scope: string;
+  permissions: string;
+  description: string;
+}
