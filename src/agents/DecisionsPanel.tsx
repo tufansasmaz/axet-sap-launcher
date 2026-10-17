@@ -61,6 +61,8 @@ export default function DecisionsPanel() {
           disabled={empty}
           title={label}
           aria-label={label}
+          aria-expanded={false}
+          aria-controls="decisions-panel-body"
           className={`${GHOST_ICON_BUTTON} disabled:cursor-default disabled:opacity-40`}
         >
           <Inbox size={14} />
@@ -81,19 +83,21 @@ export default function DecisionsPanel() {
           onClick={() => setCollapsed(true)}
           title={t("agents.hideDecisions")}
           aria-label={t("agents.hideDecisions")}
+          aria-expanded={true}
+          aria-controls="decisions-panel-body"
           className={GHOST_ICON_BUTTON}
         >
           <PanelRightClose size={14} />
         </button>
       </div>
-      <ul className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+      <ul id="decisions-panel-body" className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {rows.map((row) => {
           const callId = row.question.callId;
           const color = PANE_COLOR_VAR[row.pane.color ?? "gray"];
           const error = errors[callId];
           return (
             <li
-              key={callId}
+              key={`${row.paneId}:${callId}`}
               data-decision={row.paneId}
               className="mb-2 rounded-md border border-line bg-card p-2"
               style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}

@@ -128,4 +128,27 @@ describe("DecisionsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kararları göster" }));
     expect(screen.getByText("Hangi renk?")).toBeTruthy();
   });
+
+  it("katlama düğmesi aria-expanded ve aria-controls taşıyor", () => {
+    setup([ws("w1", [pane("a")])], { a: asking(question("c1")) });
+    const hideBtn = screen.getByRole("button", { name: "Kararları gizle" });
+    expect(hideBtn.getAttribute("aria-expanded")).toBe("true");
+    expect(hideBtn.getAttribute("aria-controls")).toBe("decisions-panel-body");
+    fireEvent.click(hideBtn);
+    const showBtn = screen.getByRole("button", { name: "Kararları göster" });
+    expect(showBtn.getAttribute("aria-expanded")).toBe("false");
+    expect(showBtn.getAttribute("aria-controls")).toBe("decisions-panel-body");
+  });
+
+  it("iki ajanın callId çakışması durumunda satır key'i paneId:callId ile tekil", () => {
+    setup(
+      [ws("w1", [pane("a"), pane("b")])],
+      {
+        a: asking(question("same-id", { question: "A sorusu" })),
+        b: asking(question("same-id", { question: "B sorusu" }))
+      }
+    );
+    expect(screen.getByText("A sorusu")).toBeTruthy();
+    expect(screen.getByText("B sorusu")).toBeTruthy();
+  });
 });
