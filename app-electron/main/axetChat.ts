@@ -436,6 +436,10 @@ export async function sendChatMessage(
     let first = true;
     const child = prewarmed;
     prewarmed = null;
+    // İlk `run`'da ısınmış süreç kullanıldıysa `warmed` true olarak sabitleniyor.
+    // Soru cevabı veya yeniden deneme turlarından bağımsız: tur geneli için
+    // "ilk run ısınmış mıydı?" sorusunun cevabı bu değişkende.
+    if (turns === 1 && child !== null) warmed = true;
     const turn = turnStarter({
       cwd: resolvedCwd,
       model,
@@ -485,7 +489,6 @@ export async function sendChatMessage(
     } catch {
       prewarmed = null;
     }
-    warmed = prewarmed !== null;
 
     for (;;) {
       if (run.cancelled) return { ok: false, text, cancelled: true, usedConnectors: useConnectors };

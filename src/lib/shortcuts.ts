@@ -6,11 +6,11 @@
 // Yeni kısayol eklenince bu dosyaya da eklenmeli.
 //
 // Grup açıklamaları için i18n: shortcuts.groupNav, shortcuts.groupChat,
-// shortcuts.groupFile.
+// shortcuts.groupFile, shortcuts.groupTerminal.
 
 import type { TranslationKey } from "../i18n/tr";
 
-export type ShortcutGroup = "nav" | "chat" | "file";
+export type ShortcutGroup = "nav" | "chat" | "file" | "terminal";
 
 export interface Shortcut {
   /** Ekranda gösterilen tuş etiketi (örn. "Ctrl+K", "Shift+Enter"). */
@@ -55,5 +55,11 @@ export const SHORTCUTS: Shortcut[] = [
 
   // --- Dosya gezgini (file) ---
   // Kaynak: FileViewer.tsx → Ctrl+S
-  { keys: "Ctrl+S", descKey: "shortcuts.fileSave", group: "file" }
+  { keys: "Ctrl+S", descKey: "shortcuts.fileSave", group: "file" },
+
+  // --- Terminal bölmesi (terminal) ---
+  // Kaynak: TerminalPaneView.tsx → onWheel + onKey (useEffect §4)
+  { keys: "Ctrl+Tekerlek  /  Ctrl+=", descKey: "shortcuts.terminalFontUp", group: "terminal" },
+  { keys: "Ctrl+-", descKey: "shortcuts.terminalFontDown", group: "terminal" },
+  { keys: "Ctrl+0", descKey: "shortcuts.terminalFontReset", group: "terminal" }
 ];

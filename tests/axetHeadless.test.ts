@@ -502,6 +502,55 @@ describe("classifyStderr", () => {
   });
 });
 
+describe("thinking fazı yayımı (hızlı ilk cevap)", () => {
+  it("yeni tur: Created session satırında thinking yayımlanıyor", async () => {
+    const h = harness();
+    const turn = startHeadlessTurn(h.base, h.deps as never);
+    h.child.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    await tick();
+    const phases = h.events.activities.map((a) => a.phase);
+    expect(phases).toContain("thinking");
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "ok", is_error: false }));
+    await turn.done;
+  });
+
+  it("devam turu (--resume): stdin yazılır yazılmaz thinking yayımlanıyor, Created session gelmeden", async () => {
+    const h = harness({ [SID]: [msg("eski", "assistant", [text("ESKI"), finish("end_turn")], 1)] });
+    const turn = startHeadlessTurn({ ...h.base, resumeId: SID }, h.deps as never);
+    // Henüz hiçbir stderr satırı gelmedi; stdin yazılır yazılmaz thinking bekliyoruz.
+    await tick();
+    const phases = h.events.activities.map((a) => a.phase);
+    expect(phases).toContain("thinking");
+    h.child.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "YENI", is_error: false }));
+    await turn.done;
+  });
+
+  it("ısınmış süreçte: tampondan gelen Created session satırından thinking yayımlanıyor", async () => {
+    const { createPrewarmPool } = await import("../app-electron/main/axetPrewarm");
+    const real = new FakeChild();
+    const pool = createPrewarmPool({
+      spawn: () => real as never,
+      env: () => ({}),
+      killTree: () => {},
+      setTimer: () => 0,
+      clearTimer: () => {}
+    });
+    const key = { chatId: "c2", cwd: "C:/p", model: null, resumeId: null, useConnectors: false };
+    pool.prewarm(key);
+    // Created session tampona düşüyor (sahiplenilmeden önce)
+    real.err(`INFO Created session for non-interactive run session_id=${SID}`);
+    const prewarmed = pool.take(key)!;
+    const h = harness();
+    const turn = startHeadlessTurn({ ...h.base, prewarmed }, h.deps as never);
+    await tick();
+    const phases = h.events.activities.map((a) => a.phase);
+    expect(phases).toContain("thinking");
+    real.exit(0, JSON.stringify({ type: "result", session_id: SID, result: "tamam", is_error: false }));
+    const r = await turn.done;
+    expect(r.ok).toBe(true);
+  });
+});
+
 describe("ısınmış süreç (İş 1)", () => {
   it("prewarmed: spawn yok, tampondaki stderr satırları (güncelleme satırı dahil) işleniyor, istem yazılıyor", async () => {
     const { noteUpdateLine } = await import("../app-electron/main/axetCodeVersion");

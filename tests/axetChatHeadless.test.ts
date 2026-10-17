@@ -580,6 +580,21 @@ describe("ısınmış süreç (İş 1)", () => {
     expect(JSON.stringify(h.logs)).not.toContain("merh");
   });
 
+  it("isinmis: soru-cevap akışında bile ilk tur ısınmışsa true kalıyor", async () => {
+    const ASK = { callId: "q1", question: "Hangi paket?", header: "", options: ["ZA", "ZB"], multiSelect: false };
+    await chat.prewarmChat("chat-1", "C:/p", MODEL, "merh", []);
+    script(
+      () => ({ text: "Sormam gerek.", sessionId: "S1", toolCount: 0, ask: ASK }),
+      () => ({ ok: true, text: "ZA ile tamam.", sessionId: "S1" })
+    );
+    const warmActs: Record<string, unknown>[] = [];
+    const pending = chat.sendChatMessage("r1", "chat-1", "C:/p", MODEL, [], "merhaba", () => {}, (a) => warmActs.push(a as never));
+    await vi.waitFor(() => expect(warmActs.some((a) => a.phase === "askUser")).toBe(true));
+    chat.answerChatQuestion("r1", 0);
+    await pending;
+    expect(h.logs.find((l) => l.tag === "kopru.tur")?.fields.isinmis).toBe(true);
+  });
+
   it("anahtar uyuşmazsa ısınmış süreç öldürülüyor, tur kendi sürecini açıyor", async () => {
     await chat.prewarmChat("chat-1", "C:/p", MODEL, "merh", []);
     script(() => ({ text: "cevap", sessionId: "S1" }));

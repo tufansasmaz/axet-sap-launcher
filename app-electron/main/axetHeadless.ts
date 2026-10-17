@@ -456,7 +456,14 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
       // süreçte yakalanmamış hata olurdu.
       try {
         noteUpdateLine(line);
-        if (fresh) args.onSessionId(fresh);
+        if (fresh) {
+          args.onSessionId(fresh);
+          // "Başlatılıyor" göstergesi aşılıyor: oturum kimliği gelir gelmez
+          // ajan düşünüyor sayılıyor. Ön ısıtmada tampondan gelen satır da
+          // bu yoldan geçiyor (startHeadlessTurn dinleyiciyi bağladıktan
+          // sonra buffer boşaltılıyor; sıra garantilidir).
+          args.onActivity({ phase: "thinking" });
+        }
       } catch {
         // bağ bir sonraki fırsatta (tur sonunda) yeniden yazılıyor
       }
@@ -569,6 +576,10 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
   try {
     child.stdin?.write(args.prompt, "utf-8");
     child.stdin?.end();
+    // Devam turunda (`--resume`) "Created session" satırı GELMIYOR: oturum
+    // zaten açık. Kimlik zaten biliniyor → en erken güvenilir sinyal
+    // stdin'e yazılması; hemen "thinking" yayımlıyoruz.
+    if (args.resumeId) args.onActivity({ phase: "thinking" });
   } catch {
     // süreç hemen öldüyse 'close'/'error' yolu sonucu veriyor
   }

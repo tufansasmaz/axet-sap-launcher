@@ -11,10 +11,11 @@ import type { TranslationKey } from "../i18n/tr";
 const GROUP_KEY: Record<ShortcutGroup, TranslationKey> = {
   nav: "shortcuts.groupNav",
   chat: "shortcuts.groupChat",
-  file: "shortcuts.groupFile"
+  file: "shortcuts.groupFile",
+  terminal: "shortcuts.groupTerminal"
 };
 
-const GROUP_ORDER: ShortcutGroup[] = ["nav", "chat", "file"];
+const GROUP_ORDER: ShortcutGroup[] = ["nav", "chat", "file", "terminal"];
 
 interface Props {
   open: boolean;
