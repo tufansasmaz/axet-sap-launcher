@@ -53,6 +53,9 @@ function commandsMock(): TerminalCommands {
     renameWorkspace: vi.fn(),
     closeWorkspace: vi.fn(),
     addPane: vi.fn(),
+    addAgent: vi.fn(),
+    revealPane: vi.fn(),
+    setWorkspaceRoot: vi.fn(),
     closePane: vi.fn(),
     restartPane: vi.fn(),
     focusPane: vi.fn(),
@@ -93,7 +96,8 @@ function setup(over: Partial<TerminalState> = {}, defaultCwd = "C:\\a") {
     state: { ...initialTerminalState, phase: "ready", visible: true, ...o },
     commands,
     defaultKind: "cmd",
-    defaultCwd
+    defaultCwd,
+    agentCwd: "C:\\axet"
   });
   const ui = (o: Partial<TerminalState>) => (
     <LanguageProvider language="tr">
@@ -127,7 +131,7 @@ describe("TerminalMode", () => {
       phase: "restorePrompt",
       saved: [
         { id: "a", name: "A", panes: [{ id: "x", kind: "cmd", cwd: "C:\\a" }] },
-        { id: "b", name: "B", panes: [{ id: "y", kind: "cmd", cwd: "C:\\a" }, { id: "z", kind: "axet", cwd: "C:\\a" }] }
+        { id: "b", name: "B", panes: [{ id: "y", kind: "cmd", cwd: "C:\\a" }, { id: "z", kind: "powershell", cwd: "C:\\a" }] }
       ]
     });
     expect(screen.getByText("Son düzen: 2 alan, 3 bölme")).toBeTruthy();
@@ -150,8 +154,8 @@ describe("TerminalMode", () => {
     pick.mockResolvedValueOnce("C:\\b");
     fireEvent.click(screen.getByRole("button", { name: "Değiştir" }));
     await flush();
-    fireEvent.click(screen.getByRole("button", { name: "axet-code" }));
-    expect(commands.addPane).toHaveBeenCalledWith("axet", "C:\\b");
+    fireEvent.click(screen.getByRole("button", { name: "cmd" }));
+    expect(commands.addPane).toHaveBeenCalledWith("cmd", "C:\\b");
   });
 
   it("boş alan: klasör yoksa tür düğmeleri kapalı", () => {

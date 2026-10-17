@@ -1196,8 +1196,8 @@ export const tr = {
   "terminal.closeWorkspaceTitle": "Çalışma alanı kapatılsın mı?",
   "terminal.closeWorkspaceBody": "Bu alandaki {count} terminal kapanacak.",
   "terminal.closeWorkspaceConfirm": "Alanı kapat",
-  "terminal.closePaneTitle": "axet-code kapatılsın mı?",
-  "terminal.closePaneBody": "Çalışan axet-code oturumu sonlanacak.",
+  "terminal.closePaneTitle": "Ajan kapatılsın mı?",
+  "terminal.closePaneBody": "Çalışan ajanın oturumu sonlanacak.",
   "terminal.closePaneConfirm": "Oturumu kapat",
   "terminal.paneCount": "{count} / 9 bölme",
   "terminal.addPane": "Bölme",
@@ -1217,7 +1217,7 @@ export const tr = {
   "terminal.startFresh": "Boş başla",
   "terminal.emptyTitle": "Bu alanda terminal yok",
   "terminal.emptyHint": "Bir tür seç; bölme aşağıdaki klasörde açılır.",
-  "terminal.kindAxet": "axet-code",
+  "terminal.kindAgent": "Ajan",
   "terminal.kindCmd": "cmd",
   "terminal.kindPowershell": "PowerShell",
   "terminal.newPaneTitle": "Yeni bölme",
@@ -1323,7 +1323,14 @@ export const tr = {
   "readiness.step1": "Dil ve rol seçildi",
   "readiness.step2": "Proje klasörü ayarlandı",
   "readiness.step3": "axet.code 1.4+ kurulu ve sağlam",
-  "readiness.step4": "En az bir SAP sistemine bağlanıldı"
+  "readiness.step4": "En az bir SAP sistemine bağlanıldı",
+
+  // --- Ajan Alanı (spec 2026-10-17 ajan-alani) ---
+  "agents.engineAxet": "axet-code",
+  "agents.engineClaude": "Claude Code",
+  "agents.engineCodex": "Codex",
+  "agents.engineGemini": "Gemini CLI",
+  "agents.engineCustom": "Özel komut"
 };
 
 

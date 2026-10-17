@@ -1,22 +1,13 @@
+// "+ Terminal" penceresi: düz kabuk türü + klasör. Ajan "+ Ajan"dan (AddAgentDialog) ekleniyor.
 import { useEffect, useState, type FormEvent } from "react";
 import { FolderOpen } from "lucide-react";
 import { useT } from "../i18n";
-import type { TranslationKey } from "../i18n/tr";
-import type { TerminalPaneKind } from "../../app-electron/shared/types";
-import { TERMINAL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
+import type { TerminalMode as ShellKind } from "../../app-electron/shared/types";
+import { SHELL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
+import { KIND_LABEL } from "../agents/agentLabels";
 import { middleEllipsis } from "../lib/paths";
 import { Modal, ModalCancelButton } from "../ui/Modal";
 import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
-
-// "+ Bölme" penceresi (spec §5.2): tür + klasör, iki alan. Düğmeler formun
-// İÇİNDE: Enter'la gönderim tarayıcının kendi form davranışı, ayrıca tuş
-// dinlemeye gerek yok.
-
-export const KIND_LABEL: Record<TerminalPaneKind, TranslationKey> = {
-  axet: "terminal.kindAxet",
-  cmd: "terminal.kindCmd",
-  powershell: "terminal.kindPowershell"
-};
 
 export default function NewPaneDialog({
   open,
@@ -26,13 +17,13 @@ export default function NewPaneDialog({
   onCancel
 }: {
   open: boolean;
-  defaultKind: TerminalPaneKind;
+  defaultKind: ShellKind;
   defaultCwd: string;
-  onOpen: (kind: TerminalPaneKind, cwd: string) => void;
+  onOpen: (kind: ShellKind, cwd: string) => void;
   onCancel: () => void;
 }) {
   const t = useT();
-  const [kind, setKind] = useState<TerminalPaneKind>(defaultKind);
+  const [kind, setKind] = useState<ShellKind>(defaultKind);
   const [cwd, setCwd] = useState(defaultCwd);
 
   // Her açılışta varsayılana dön. Varsayılan zaten "son eklenen bölme";
@@ -62,7 +53,7 @@ export default function NewPaneDialog({
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-slate-400">{t("terminal.kindLabel")}</span>
           <div role="radiogroup" aria-label={t("terminal.kindLabel")} className="flex gap-1 rounded-md bg-control p-0.5">
-            {TERMINAL_PANE_KINDS.map((k) => (
+            {SHELL_PANE_KINDS.map((k) => (
               <button
                 key={k}
                 type="button"

@@ -12,6 +12,7 @@ import {
   workspaceDot
 } from "../src/stores/terminalReducer";
 import type { TerminalAction, TerminalState } from "../src/stores/terminalTypes";
+import { LEGACY_AXET_AGENT, type AgentSpec } from "../app-electron/shared/agentTypes";
 
 const nameFor = (n: number) => `Alan ${n}`;
 
@@ -58,7 +59,7 @@ describe("açılış", () => {
 
   it("kayıtlı düzen varsa önce şerit; geri yükle bölmeleri sıraya koyuyor ve seçili alanı getiriyor", () => {
     const saved = [
-      { id: "a", name: "A", panes: [{ id: "p1", kind: "axet" as const, cwd: "C:\\a" }] },
+      { id: "a", name: "A", panes: [{ id: "p1", kind: "agent" as const, agent: LEGACY_AXET_AGENT, cwd: "C:\\a" }] },
       { id: "b", name: "B", panes: [{ id: "p2", kind: "cmd" as const, cwd: "C:\\b" }] }
     ];
     const prompt = run([{ type: "open", saved, activeId: "b", freshId: "x", nameFor }]);
@@ -320,9 +321,9 @@ describe("AXET projesi bölmesi (spec §5.5)", () => {
     nameFor
   });
 
-  it("seçili alana axet bölmesi ekliyor", () => {
+  it("seçili alana axet-code ajanı ekliyor", () => {
     const pane = terminalReducer(ready(), project("x", "s")).workspaces[0].panes[0];
-    expect(pane).toMatchObject({ id: "x", kind: "axet", cwd: "C:\\proje" });
+    expect(pane).toMatchObject({ id: "x", kind: "agent", agent: LEGACY_AXET_AGENT, cwd: "C:\\proje" });
   });
 
   it("alan doluysa yeni alan açıp oraya ekliyor", () => {
@@ -381,5 +382,55 @@ describe("toSaved", () => {
       ],
       activeId: "w1"
     });
+  });
+});
+
+describe("ajan bölmeleri (spec 2026-10-17 ajan-alani §3)", () => {
+  const claude: AgentSpec = { engine: "claude", role: "Test", roleKind: "preset", model: "sonnet" };
+  const addAgent = (paneId: string, agent?: AgentSpec): TerminalAction => ({
+    type: "addPane",
+    workspaceId: "w1",
+    paneId,
+    kind: "agent",
+    cwd: "C:\\p",
+    agent,
+    title: "  Ayşe ",
+    color: "blue"
+  });
+
+  it("ajan bölmesi tanımı, adı ve rengiyle ekleniyor; tanımsız ajan eklenmiyor", () => {
+    const s = terminalReducer(ready(), addAgent("a1", claude));
+    expect(s.workspaces[0].panes[0]).toMatchObject({ id: "a1", kind: "agent", agent: claude, title: "Ayşe", color: "blue" });
+    const same = ready();
+    expect(terminalReducer(same, addAgent("a2"))).toBe(same);
+  });
+
+  it("kayıt gidiş-dönüş: ajan, kök ve SAP bağı korunuyor", () => {
+    const s = run([addAgent("a1", claude), { type: "setWorkspaceRoot", id: "w1", root: "C:\\kok", sap: { uuid: "u1", label: "D01" } }], ready());
+    const saved = toSaved(s);
+    expect(saved.workspaces[0]).toMatchObject({ root: "C:\\kok", sap: { uuid: "u1", label: "D01" } });
+    expect(saved.workspaces[0].panes[0]).toMatchObject({ kind: "agent", agent: claude, title: "Ayşe" });
+    const back = run([
+      { type: "open", saved: saved.workspaces, activeId: "w1", freshId: "x", nameFor },
+      { type: "restore", nameFor }
+    ]);
+    expect(back.workspaces[0]).toMatchObject({ root: "C:\\kok", sap: { uuid: "u1", label: "D01" } });
+    expect(back.workspaces[0].panes[0]).toMatchObject({ kind: "agent", agent: claude, run: { state: "queued" } });
+  });
+
+  it("ajan alanı olmayan agent kaydı axet-code ajanı olarak açılıyor", () => {
+    const back = run([
+      { type: "open", saved: [{ id: "w", name: "W", panes: [{ id: "p", kind: "agent", cwd: "C:\\a" }] }], activeId: "w", freshId: "x", nameFor },
+      { type: "restore", nameFor }
+    ]);
+    expect(back.workspaces[0].panes[0].agent).toEqual(LEGACY_AXET_AGENT);
+  });
+
+  it("setWorkspaceRoot: boş kök kaldırılıyor, aynı değer aynı durum", () => {
+    const s = terminalReducer(ready(), { type: "setWorkspaceRoot", id: "w1", root: "C:\\k", sap: null });
+    expect(s.workspaces[0].root).toBe("C:\\k");
+    expect(terminalReducer(s, { type: "setWorkspaceRoot", id: "w1", root: "C:\\k", sap: null })).toBe(s);
+    const cleared = terminalReducer(s, { type: "setWorkspaceRoot", id: "w1", root: "  ", sap: null });
+    expect(cleared.workspaces[0].root).toBeUndefined();
   });
 });

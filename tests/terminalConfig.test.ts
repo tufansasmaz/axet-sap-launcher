@@ -30,7 +30,7 @@ describe("normalizeTerminalWorkspaces", () => {
   });
 
   it("geçerli düzen aynen kalıyor", () => {
-    const raw = [{ id: "w1", name: "D01", panes: [{ id: "p1", kind: "axet", cwd: "C:\\a" }] }];
+    const raw = [{ id: "w1", name: "D01", panes: [{ id: "p1", kind: "powershell", cwd: "C:\\a" }] }];
     expect(normalizeTerminalWorkspaces(raw, nameFor)).toEqual(raw);
   });
 
@@ -235,5 +235,43 @@ describe("normalizeTerminalWorkspaces — bölme ayarları ve ağaç (spec 2026-
   it("bütün bölmeler küçültülmüşse ağaç null", () => {
     const raw = [{ id: "w1", name: "A", panes: [p("p1")], layout: null, minimized: [{ paneId: "p1", home: null }] }];
     expect(normalizeTerminalWorkspaces(raw, nameFor)[0].layout).toBeNull();
+  });
+});
+
+describe("ajan bölmeleri ve eski axet göçü (spec 2026-10-17 ajan-alani §3)", () => {
+  it("eski axet bölmesi motoru axet-code olan ajana dönüşüyor; ad ve renk kalıyor", () => {
+    const raw = [{ id: "w1", name: "D01", panes: [{ id: "p1", kind: "axet", cwd: "C:\\a", title: "Eski", color: "green" }] }];
+    expect(normalizeTerminalWorkspaces(raw, nameFor)[0].panes).toEqual([
+      { id: "p1", kind: "agent", cwd: "C:\\a", title: "Eski", color: "green", agent: { engine: "axet-code", role: "", roleKind: "custom" } }
+    ]);
+  });
+
+  it("geçerli ajan bölmesi okunuyor; bozuk ajan alanı yalnız o bölmeyi atlatıyor", () => {
+    const raw = [
+      {
+        id: "w1",
+        name: "A",
+        panes: [
+          { id: "p1", kind: "agent", cwd: "C:\\a", agent: { engine: "claude", role: "Test", roleKind: "preset" } },
+          { id: "p2", kind: "agent", cwd: "C:\\a", agent: { engine: "bash" } },
+          { id: "p3", kind: "agent", cwd: "C:\\a" },
+          { id: "p4", kind: "cmd", cwd: "C:\\a" }
+        ]
+      }
+    ];
+    const panes = normalizeTerminalWorkspaces(raw, nameFor)[0].panes;
+    expect(panes.map((p) => p.id)).toEqual(["p1", "p4"]);
+    expect(panes[0].agent).toEqual({ engine: "claude", role: "Test", roleKind: "preset" });
+  });
+
+  it("alan kökü ve SAP bağı okunuyor; bozuksa atlanıyor", () => {
+    const raw = [
+      { id: "w1", name: "A", panes: [], root: "  C:\\kok ", sap: { uuid: "u1", label: " D01 " } },
+      { id: "w2", name: "B", panes: [], root: 5, sap: { uuid: "", label: "x" } }
+    ];
+    const [a, b] = normalizeTerminalWorkspaces(raw, nameFor);
+    expect(a).toMatchObject({ root: "C:\\kok", sap: { uuid: "u1", label: "D01" } });
+    expect(b.root).toBeUndefined();
+    expect(b.sap).toBeUndefined();
   });
 });

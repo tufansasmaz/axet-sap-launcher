@@ -31,6 +31,9 @@ function commandsMock(): TerminalCommands {
     renameWorkspace: vi.fn(),
     closeWorkspace: vi.fn(),
     addPane: vi.fn(),
+    addAgent: vi.fn(),
+    revealPane: vi.fn(),
+    setWorkspaceRoot: vi.fn(),
     closePane: vi.fn(),
     restartPane: vi.fn(),
     focusPane: vi.fn(),
@@ -56,7 +59,7 @@ function renderSidebar(workspaces: TerminalWorkspace[], over: Partial<TerminalSt
     activeWorkspaceId: workspaces[0]?.id ?? null,
     ...over
   };
-  const value: TerminalStoreValue = { state, commands, defaultKind: "cmd", defaultCwd: "C:\\a" };
+  const value: TerminalStoreValue = { state, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet" };
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider value={value}>

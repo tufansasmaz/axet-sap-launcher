@@ -1,8 +1,10 @@
 // Terminal modunun sağlayıcısı (spec §5): indirgeyiciyi ana süreçteki pty'lere
 // bağlar. Kararların hepsi indirgeyicide; burada yalnız yan etkiler var.
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
-import type { AppConfig, TerminalPaneKind } from "../../app-electron/shared/types";
+import type { AppConfig, TerminalMode } from "../../app-electron/shared/types";
 import { TERMINAL_MISSING_DIR } from "../../app-electron/shared/terminalLayout";
+import { buildAgentCommand } from "../../app-electron/shared/agentEngines";
+import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
 import { fromLegacy } from "../../app-electron/shared/terminalTree";
 import type { ToastMsg } from "../components/Toast";
 import { useT } from "../i18n";
@@ -10,6 +12,7 @@ import {
   findPane,
   initialTerminalState,
   isWorkspaceVisible,
+  minimizedOf,
   nextToStart,
   paneByPty,
   SPAWN_CONCURRENCY,
@@ -57,12 +60,15 @@ function signature(workspaces: AppConfig["terminalWorkspaces"], activeId: string
           cwd: p.cwd,
           title: p.title ?? null,
           color: p.color ?? null,
-          fontSize: p.fontSize ?? null
+          fontSize: p.fontSize ?? null,
+          agent: p.agent ?? null
         })),
         // Ağaçsız eski kayıt, geri yüklenince kurulan ağaçla aynı sayılıyor:
         // yalnız geri yüklemek diske yazma tetiklemiyor.
         layout: w.layout !== undefined ? w.layout : fromLegacy(w.panes.filter((p) => !hidden.has(p.id)).map((p) => p.id)),
-        minimized
+        minimized,
+        root: w.root ?? null,
+        sap: w.sap ?? null
       };
     }),
     activeId
@@ -94,7 +100,7 @@ export function TerminalStoreProvider({
   const t = useT();
   const [state, dispatch] = useReducer(terminalReducer, initialTerminalState);
   const [cleaned, setCleaned] = useState(false);
-  const [lastKind, setLastKind] = useState<TerminalPaneKind | null>(null);
+  const [lastKind, setLastKind] = useState<TerminalMode | null>(null);
 
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -226,9 +232,11 @@ export function TerminalStoreProvider({
       const token = ++spawnSeq.current;
       spawnTokens.current.set(pane.id, token);
       dispatch({ type: "spawnStarted", paneId: pane.id, token });
-      const isAxet = pane.kind === "axet";
-      const shell = pane.kind === "axet" ? config.terminal : pane.kind;
-      const command = pane.kind === "axet" ? config.axetCommand || "axet-code -y" : undefined;
+      // Ajan bölmesi seçilen kabukta açılıyor, motorun komutu ilk satır
+      // (spec 2026-10-17 ajan-alani §5): motor kapansa da bölme kabukta kalır.
+      const isAgent = pane.kind === "agent";
+      const shell: TerminalMode = pane.kind === "agent" ? config.terminal : pane.kind;
+      const command = pane.kind === "agent" ? buildAgentCommand(pane.agent ?? LEGACY_AXET_AGENT, config.axetCommand || "") : undefined;
       window.api
         .createTerminal(pane.cwd, INITIAL_COLS, INITIAL_ROWS, shell, command, { createDir: false })
         .then(
@@ -249,10 +257,10 @@ export function TerminalStoreProvider({
               return;
             }
             // Başlangıç kipi: bu sürede çıktı okunmadı işareti koymaz (spec §4).
-            if (isAxet && readyEarly) return; // axet zaten hazır; yuva tutulmuyor
+            if (isAgent && readyEarly) return; // ajan zaten hazır; yuva tutulmuyor
             startupPtyIds.current.add(ptyId);
-            if (isAxet) {
-              // axet için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
+            if (isAgent) {
+              // ajan için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
               bootingAxetPtyIds.current.add(ptyId);
               setBootingAxetCount((c) => c + 1);
             } else {
@@ -339,6 +347,29 @@ export function TerminalStoreProvider({
         setLastKind(kind);
         dispatch({ type: "addPane", workspaceId, paneId: crypto.randomUUID(), kind, cwd, split });
       },
+      addAgent: (input, split) => {
+        const workspaceId = stateRef.current.activeWorkspaceId;
+        if (!workspaceId) return;
+        dispatch({
+          type: "addPane",
+          workspaceId,
+          paneId: crypto.randomUUID(),
+          kind: "agent",
+          cwd: input.cwd,
+          split,
+          agent: input.spec,
+          title: input.name,
+          color: input.color
+        });
+      },
+      revealPane: (paneId) => {
+        const found = findPane(stateRef.current, paneId);
+        if (!found) return;
+        dispatch({ type: "selectWorkspace", id: found.workspace.id });
+        if (minimizedOf(found.workspace).some((m) => m.paneId === paneId)) dispatch({ type: "restorePane", paneId });
+        else dispatch({ type: "focusPane", paneId });
+      },
+      setWorkspaceRoot: (id, root, sap) => dispatch({ type: "setWorkspaceRoot", id, root, sap }),
       closePane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
         if (found) release(found.pane);
@@ -364,11 +395,13 @@ export function TerminalStoreProvider({
   }, []);
 
   const activePanes = panesOf(state, state.activeWorkspaceId ?? "");
-  const defaultKind: TerminalPaneKind = lastKind ?? config?.terminal ?? "cmd";
+  const defaultKind: TerminalMode = lastKind ?? config?.terminal ?? "cmd";
   const defaultCwd = activePanes[activePanes.length - 1]?.cwd ?? config?.projectsBaseDir ?? "";
+  const activeRoot = state.workspaces.find((w) => w.id === state.activeWorkspaceId)?.root;
+  const agentCwd = activeRoot || config?.axetWorkspaceDir || defaultCwd;
   const value = useMemo(
-    () => ({ state, commands, defaultKind, defaultCwd }),
-    [state, commands, defaultKind, defaultCwd]
+    () => ({ state, commands, defaultKind, defaultCwd, agentCwd }),
+    [state, commands, defaultKind, defaultCwd, agentCwd]
   );
 
   return <TerminalStoreContext.Provider value={value}>{children}</TerminalStoreContext.Provider>;

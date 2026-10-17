@@ -7,7 +7,7 @@ import { useTerminalStore } from "../stores/terminalStoreContext";
 import { paneTone } from "../stores/terminalReducer";
 import type { TerminalPane } from "../stores/terminalTypes";
 import { middleEllipsis } from "../lib/paths";
-import { KIND_LABEL } from "./NewPaneDialog";
+import { paneLabel } from "../agents/agentLabels";
 import { PANE_FONT_DEFAULT, PANE_TITLE_MAX, TERMINAL_PANE_COLORS, clampPaneFontSize } from "../../app-electron/shared/terminalLayout";
 import type { SplitDir } from "../../app-electron/shared/terminalTree";
 import { PANE_COLOR_LABEL, PANE_COLOR_VAR } from "./paneColors";
@@ -98,7 +98,7 @@ export default function TerminalPaneView({
     };
   }, [commands, pane.id]);
   const colorVar = PANE_COLOR_VAR[pane.color ?? "gray"];
-  const kindLabel = t(KIND_LABEL[pane.kind]);
+  const kindLabel = paneLabel(pane, t);
 
   // Seçici dışına tıklayınca kapanıyor.
   useEffect(() => {
@@ -114,9 +114,8 @@ export default function TerminalPaneView({
   const ptyId = run.state === "running" || run.state === "exited" ? run.ptyId : null;
 
   const requestClose = () => {
-    // Çalışan axet oturumunu kapatmak sohbeti de bitiriyor; tek tıkla
-    // kaybolmasın. Kabuklar sormadan kapanıyor.
-    if (pane.kind === "axet" && run.state === "running") setConfirmClose(true);
+    // Çalışan ajanı kapatmak oturumunu bitiriyor; tek tıkla kaybolmasın.
+    if (pane.kind === "agent" && run.state === "running") setConfirmClose(true);
     else commands.closePane(pane.id);
   };
 

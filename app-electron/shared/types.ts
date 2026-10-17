@@ -1,4 +1,5 @@
 import type { LayoutNode, PaneHome } from "./terminalTree";
+import type { AgentSpec } from "./agentTypes";
 
 export interface SapService {
   uuid: string;
@@ -305,9 +306,11 @@ export interface DoctorReport {
 
 export type TerminalMode = "cmd" | "powershell";
 
-// Terminal modundaki bir bölmenin türü (spec §4.1). `axet`, seçilen kabukta
-// `config.axetCommand`'ı başlangıç komutu olarak çalıştırıyor.
-export type TerminalPaneKind = "axet" | "cmd" | "powershell";
+// Terminal modundaki bir bölmenin türü. `agent`: bir motoru (axet-code,
+// Claude Code…) seçilen kabukta başlangıç komutu olarak çalıştıran ajan
+// bölmesi (spec 2026-10-17 ajan-alani §3). Eski `axet` türü okunurken
+// `agent`'a çevriliyor (bkz. terminalLayout.ts `readPaneKind`).
+export type TerminalPaneKind = "agent" | "cmd" | "powershell";
 
 // Terminal bölmesinin rengi (spec 2026-10-14 §4). `gray` = renksiz.
 export type TerminalPaneColor = "gray" | "blue" | "green" | "amber" | "red" | "violet";
@@ -322,11 +325,19 @@ export interface SavedTerminalPane {
   title?: string;
   color?: TerminalPaneColor;
   fontSize?: number;
+  /** Yalnız `agent` türünde: hangi motor, hangi rol. */
+  agent?: AgentSpec;
 }
 
 export interface SavedMinimizedPane {
   paneId: string;
   home: PaneHome | null;
+}
+
+/** Çalışma alanının bağlı olduğu SAP sistemi (yalnız kök ve günlük için). */
+export interface SavedWorkspaceSap {
+  uuid: string;
+  label: string;
 }
 
 export interface SavedTerminalWorkspace {
@@ -335,6 +346,9 @@ export interface SavedTerminalWorkspace {
   panes: SavedTerminalPane[];
   layout?: LayoutNode | null;
   minimized?: SavedMinimizedPane[];
+  /** Yeni ajanların varsayılan klasörü (spec §3). */
+  root?: string;
+  sap?: SavedWorkspaceSap;
 }
 
 export type AppTheme = "dark" | "light";

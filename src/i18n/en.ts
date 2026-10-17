@@ -1110,8 +1110,8 @@ export const en: Record<TranslationKey, string> = {
   "terminal.closeWorkspaceTitle": "Close workspace?",
   "terminal.closeWorkspaceBody": "{count} terminals in this workspace will be closed.",
   "terminal.closeWorkspaceConfirm": "Close workspace",
-  "terminal.closePaneTitle": "Close axet-code?",
-  "terminal.closePaneBody": "The running axet-code session will end.",
+  "terminal.closePaneTitle": "Close the agent?",
+  "terminal.closePaneBody": "The running agent's session will end.",
   "terminal.closePaneConfirm": "End session",
   "terminal.paneCount": "{count} / 9 panes",
   "terminal.addPane": "Pane",
@@ -1131,7 +1131,7 @@ export const en: Record<TranslationKey, string> = {
   "terminal.startFresh": "Start fresh",
   "terminal.emptyTitle": "No terminals in this workspace",
   "terminal.emptyHint": "Pick a type; the pane opens in the folder below.",
-  "terminal.kindAxet": "axet-code",
+  "terminal.kindAgent": "Agent",
   "terminal.kindCmd": "cmd",
   "terminal.kindPowershell": "PowerShell",
   "terminal.newPaneTitle": "New pane",
@@ -1237,5 +1237,12 @@ export const en: Record<TranslationKey, string> = {
   "readiness.step1": "Language and role selected",
   "readiness.step2": "Project folder configured",
   "readiness.step3": "axet.code 1.4+ installed and healthy",
-  "readiness.step4": "Connected to at least one SAP system"
+  "readiness.step4": "Connected to at least one SAP system",
+
+  // --- Agent Space ---
+  "agents.engineAxet": "axet-code",
+  "agents.engineClaude": "Claude Code",
+  "agents.engineCodex": "Codex",
+  "agents.engineGemini": "Gemini CLI",
+  "agents.engineCustom": "Custom command"
 };

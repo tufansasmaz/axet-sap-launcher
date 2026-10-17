@@ -9,6 +9,7 @@ import { STARTUP_GRACE_MS, TerminalStoreProvider } from "../src/stores/terminalS
 import { useTerminalStore, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { TERMINAL_MISSING_DIR } from "../app-electron/shared/terminalLayout";
 import type { AppConfig } from "../app-electron/shared/types";
+import { LEGACY_AXET_AGENT } from "../app-electron/shared/agentTypes";
 import { layoutOf, minimizedOf } from "../src/stores/terminalReducer";
 import { leafIds } from "../app-electron/shared/terminalTree";
 
@@ -158,7 +159,7 @@ describe("başlatma", () => {
 
   it("AXET bölmesi seçili kabukla ve komutla, klasör açmadan başlıyor", async () => {
     await ready({ config: { ...baseConfig, terminal: "powershell" } as AppConfig });
-    act(() => store.commands.addPane("axet", "C:\\w"));
+    act(() => store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\w" }));
     await flush();
     expect(api.createTerminal).toHaveBeenCalledWith("C:\\w", 120, 30, "powershell", "axet-code -y", { createDir: false });
   });
@@ -200,9 +201,9 @@ describe("başlatma", () => {
   it("axet bölmelerde yuva terminal:ready gelene kadar tutulur, üçüncü önce başlamaz", async () => {
     await ready();
     act(() => {
-      store.commands.addPane("axet", "C:\\a");
-      store.commands.addPane("axet", "C:\\b");
-      store.commands.addPane("axet", "C:\\c");
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\a" });
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\b" });
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\c" });
     });
     await flush();
     // İlk iki bölme başladı; üçüncü createTerminal bekliyor.
@@ -224,10 +225,10 @@ describe("başlatma", () => {
   it("createTerminal dönmeden gelen ready ya da çıkış axet yuvasını kilitli bırakmıyor", async () => {
     await ready();
     act(() => {
-      store.commands.addPane("axet", "C:\\a");
-      store.commands.addPane("axet", "C:\\b");
-      store.commands.addPane("axet", "C:\\c");
-      store.commands.addPane("axet", "C:\\d");
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\a" });
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\b" });
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\c" });
+      store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\d" });
     });
     await flush();
     expect(api.createTerminal).toHaveBeenCalledTimes(2);
@@ -347,7 +348,7 @@ describe("proje bölmesi", () => {
     utils.rerender(<Harness projectRequest={1} />);
     await flush();
     expect(panes()).toHaveLength(1);
-    expect(panes()[0]).toMatchObject({ kind: "axet", cwd: "C:\\axet" });
+    expect(panes()[0]).toMatchObject({ kind: "agent", agent: LEGACY_AXET_AGENT, cwd: "C:\\axet" });
   });
 
   it("6 alan × 9 bölme doluyken bildirim çıkıyor", async () => {
@@ -376,7 +377,7 @@ describe("başlangıç çıktısı: okunmadı nokta basılmaz", () => {
   /** axet bölmesi olan, aktif olmayan bir alan kurar; bölme running durumuna geçer. */
   async function hiddenAxetPane() {
     await ready();
-    act(() => store.commands.addPane("axet", "C:\\a"));
+    act(() => store.commands.addAgent({ spec: LEGACY_AXET_AGENT, name: "", cwd: "C:\\a" }));
     await flush();
     // İkinci alan seçilince axet bölmesinin alanı gizli olur.
     act(() => store.commands.addWorkspace());
@@ -481,5 +482,58 @@ describe("bölme ağacı komutları (spec 2026-10-14)", () => {
     const last = api.saveConfig.mock.calls.at(-1)?.[0] as Partial<AppConfig>;
     expect(last.terminalWorkspaces?.[0].panes[0]).toEqual({ id, kind: "cmd", cwd: "C:\\a", title: "derleme", color: "blue", fontSize: 16 });
     expect(api.createTerminal.mock.calls.length).toBe(createsBefore);
+  });
+});
+
+describe("ajan bölmeleri (spec 2026-10-17 ajan-alani §5)", () => {
+  it("Claude Code ajanı modeliyle, izin atlatma bayrağı olmadan başlıyor; ad başlık oluyor", async () => {
+    await ready();
+    act(() =>
+      store.commands.addAgent({
+        spec: { engine: "claude", role: "", roleKind: "custom", model: "sonnet" },
+        name: "Ayşe",
+        color: "blue",
+        cwd: "C:\\p"
+      })
+    );
+    await flush();
+    expect(api.createTerminal).toHaveBeenCalledWith("C:\\p", 120, 30, "cmd", "claude --model sonnet", { createDir: false });
+    expect(panes()[0]).toMatchObject({ kind: "agent", title: "Ayşe", color: "blue" });
+  });
+
+  it("axet-code ajanı ayarlardaki komutla ve --agent ile başlıyor", async () => {
+    await ready({ config: { ...baseConfig, axetCommand: "axet-code -y -d" } as AppConfig });
+    act(() => store.commands.addAgent({ spec: { engine: "axet-code", role: "coder", roleKind: "axetAgent" }, name: "", cwd: "C:\\p" }));
+    await flush();
+    expect(api.createTerminal).toHaveBeenCalledWith("C:\\p", 120, 30, "cmd", "axet-code -y -d --agent coder", { createDir: false });
+  });
+
+  it("revealPane: alanı seçiyor, şeritteki bölmeyi geri getirip odaklıyor", async () => {
+    await ready();
+    act(() => store.commands.addPane("cmd", "C:\\a"));
+    const first = panes()[0].id;
+    const firstWs = store.state.activeWorkspaceId;
+    act(() => store.commands.minimizePane(first));
+    act(() => store.commands.addWorkspace());
+    expect(store.state.activeWorkspaceId).not.toBe(firstWs);
+    act(() => store.commands.revealPane(first));
+    expect(store.state.activeWorkspaceId).toBe(firstWs);
+    const ws = store.state.workspaces.find((w) => w.id === firstWs)!;
+    expect(minimizedOf(ws)).toEqual([]);
+    expect(ws.focusedPaneId).toBe(first);
+  });
+
+  it("alan kökü kaydediliyor ve yeni ajanın varsayılan klasörü oluyor", async () => {
+    await ready();
+    expect(store.agentCwd).toBe("C:\\axet");
+    const id = store.state.activeWorkspaceId!;
+    act(() => store.commands.setWorkspaceRoot(id, "C:\\kok", { uuid: "u1", label: "D01" }));
+    await flush();
+    expect(store.agentCwd).toBe("C:\\kok");
+    expect(api.saveConfig).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        terminalWorkspaces: [expect.objectContaining({ root: "C:\\kok", sap: { uuid: "u1", label: "D01" } })]
+      })
+    );
   });
 });

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import NewPaneDialog from "../src/terminal/NewPaneDialog";
-import type { TerminalPaneKind } from "../app-electron/shared/types";
+import type { TerminalMode as ShellKind } from "../app-electron/shared/types";
 
 let prevApi: unknown;
 let pick: ReturnType<typeof vi.fn>;
@@ -19,7 +19,7 @@ afterEach(() => {
   (window as unknown as { api: unknown }).api = prevApi;
 });
 
-function renderDialog(defaultKind: TerminalPaneKind = "cmd", defaultCwd = "C:\\a") {
+function renderDialog(defaultKind: ShellKind = "cmd", defaultCwd = "C:\\a") {
   const onOpen = vi.fn();
   const onCancel = vi.fn();
   const ui = (open: boolean) => (
@@ -46,14 +46,14 @@ describe("NewPaneDialog", () => {
   });
 
   it("tür değişiyor, klasör Değiştir ile seçiliyor", async () => {
-    const { onOpen } = renderDialog();
-    fireEvent.click(screen.getByRole("radio", { name: "axet-code" }));
+    const { onOpen } = renderDialog("powershell");
+    fireEvent.click(screen.getByRole("radio", { name: "cmd" }));
     pick.mockResolvedValueOnce("C:\\b");
     fireEvent.click(screen.getByRole("button", { name: "Değiştir" }));
     await flush();
     expect(screen.getByTitle("C:\\b")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Aç" }));
-    expect(onOpen).toHaveBeenCalledWith("axet", "C:\\b");
+    expect(onOpen).toHaveBeenCalledWith("cmd", "C:\\b");
   });
 
   it("klasör seçimi iptal edilirse eski klasör kalıyor", async () => {
@@ -88,8 +88,13 @@ describe("NewPaneDialog", () => {
 
   it("yeniden açılınca seçimler varsayılana dönüyor", () => {
     const { reopen } = renderDialog("cmd");
-    fireEvent.click(screen.getByRole("radio", { name: "axet-code" }));
+    fireEvent.click(screen.getByRole("radio", { name: "PowerShell" }));
     reopen();
     expect(screen.getByRole("radio", { name: "cmd" }).getAttribute("aria-checked")).toBe("true");
+  });
+
+  it("pencere yalnız kabuk türlerini sunuyor; ajan '+ Ajan'dan ekleniyor", () => {
+    renderDialog();
+    expect(screen.getAllByRole("radio").map((r) => r.textContent)).toEqual(["cmd", "PowerShell"]);
   });
 });

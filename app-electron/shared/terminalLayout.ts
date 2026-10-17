@@ -4,7 +4,16 @@
 // `shared` altında. Dosya elle düzenlenebilir ya da eski bir sürümden
 // gelebilir: bozuk öğe hata fırlatmıyor, yalnızca atlanıyor.
 
-import type { SavedMinimizedPane, SavedTerminalPane, SavedTerminalWorkspace, TerminalPaneColor, TerminalPaneKind } from "./types";
+import type {
+  SavedMinimizedPane,
+  SavedTerminalPane,
+  SavedTerminalWorkspace,
+  SavedWorkspaceSap,
+  TerminalMode,
+  TerminalPaneColor,
+  TerminalPaneKind
+} from "./types";
+import { LEGACY_AXET_AGENT, readAgentSpec, type AgentSpec } from "./agentTypes";
 import { normalizeLayout, type EdgeSide, type PaneHome } from "./terminalTree";
 
 export const MAX_TERMINAL_PANES = 9;
@@ -15,10 +24,36 @@ export const MAX_TERMINAL_WORKSPACES = 6;
 // `includes` ile tanıyor.
 export const TERMINAL_MISSING_DIR = "TERMINAL_MISSING_DIR";
 
-export const TERMINAL_PANE_KINDS: readonly TerminalPaneKind[] = ["axet", "cmd", "powershell"];
+export const TERMINAL_PANE_KINDS: readonly TerminalPaneKind[] = ["agent", "cmd", "powershell"];
+
+/** "+ Terminal" penceresinin türleri: düz kabuklar. Ajan "+ Ajan"dan ekleniyor. */
+export const SHELL_PANE_KINDS: readonly TerminalMode[] = ["cmd", "powershell"];
 
 export function isTerminalPaneKind(value: unknown): value is TerminalPaneKind {
   return typeof value === "string" && (TERMINAL_PANE_KINDS as readonly string[]).includes(value);
+}
+
+/**
+ * Kayıttaki bölme türü. Eski `axet` bölmesi motoru axet-code olan rolsüz bir
+ * ajana dönüşüyor (spec 2026-10-17 ajan-alani §3). `agent` türünde ajan alanı
+ * bozuksa bölme atlanıyor; alanın geri kalanı yerinde kalıyor.
+ */
+export function readPaneKind(pane: Record<string, unknown>): { kind: TerminalPaneKind; agent?: AgentSpec } | null {
+  if (pane.kind === "axet") return { kind: "agent", agent: { ...LEGACY_AXET_AGENT } };
+  if (pane.kind === "agent") {
+    const agent = readAgentSpec(pane.agent);
+    return agent ? { kind: "agent", agent } : null;
+  }
+  if (pane.kind === "cmd" || pane.kind === "powershell") return { kind: pane.kind };
+  return null;
+}
+
+export function readWorkspaceSap(raw: unknown): SavedWorkspaceSap | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  if (!isId(record.uuid) || typeof record.label !== "string") return null;
+  const label = record.label.trim().slice(0, 40);
+  return label ? { uuid: record.uuid, label } : null;
 }
 
 function isId(value: unknown): value is string {
@@ -107,10 +142,17 @@ export function normalizeTerminalWorkspaces(raw: unknown, nameFor: (n: number) =
         if (!entry || typeof entry !== "object") continue;
         const pane = entry as Record<string, unknown>;
         if (!isId(pane.id) || paneIds.has(pane.id)) continue;
-        if (!isTerminalPaneKind(pane.kind)) continue;
+        const kind = readPaneKind(pane);
+        if (!kind) continue;
         if (typeof pane.cwd !== "string" || !pane.cwd.trim()) continue;
         paneIds.add(pane.id);
-        panes.push({ id: pane.id, kind: pane.kind, cwd: pane.cwd, ...readPaneExtras(pane) });
+        panes.push({
+          id: pane.id,
+          kind: kind.kind,
+          cwd: pane.cwd,
+          ...readPaneExtras(pane),
+          ...(kind.agent ? { agent: kind.agent } : {})
+        });
       }
     }
     workspaceIds.add(record.id);
@@ -119,6 +161,10 @@ export function normalizeTerminalWorkspaces(raw: unknown, nameFor: (n: number) =
       name: typeof record.name === "string" ? record.name.trim() : "",
       panes
     };
+    const root = typeof record.root === "string" ? record.root.trim() : "";
+    if (root) workspace.root = root;
+    const sap = readWorkspaceSap(record.sap);
+    if (sap) workspace.sap = sap;
     // Eski kayıtta bu iki anahtar yok; olduğu gibi bırakılıyor (ağacı
     // indirgeyici `fromLegacy` ile kuruyor). `normalizeLayout` eksik bölmeyi
     // ekliyor, fazlasını atıyor: hiçbir bölme kaybolmuyor.

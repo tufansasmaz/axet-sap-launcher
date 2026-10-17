@@ -4,13 +4,14 @@ import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import { layoutOf, minimizedOf } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
-import type { TerminalPaneKind } from "../../app-electron/shared/types";
-import { MAX_TERMINAL_PANES, TERMINAL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
+import type { TerminalMode as ShellKind } from "../../app-electron/shared/types";
+import { MAX_TERMINAL_PANES, SHELL_PANE_KINDS } from "../../app-electron/shared/terminalLayout";
 import { leafIds, type DropZone, type SplitDir } from "../../app-electron/shared/terminalTree";
 import { middleEllipsis } from "../lib/paths";
 import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import TerminalPaneView from "./TerminalPaneView";
-import NewPaneDialog, { KIND_LABEL } from "./NewPaneDialog";
+import NewPaneDialog from "./NewPaneDialog";
+import { KIND_LABEL, paneLabel } from "../agents/agentLabels";
 import LayoutView from "./LayoutView";
 import { zoneBox, type Box } from "./dropZone";
 import { usePaneDrag } from "./usePaneDrag";
@@ -131,7 +132,7 @@ function EmptyWorkspace({
   onPick
 }: {
   defaultCwd: string;
-  onPick: (kind: TerminalPaneKind, cwd: string) => void;
+  onPick: (kind: ShellKind, cwd: string) => void;
 }) {
   const t = useT();
   const [picked, setPicked] = useState<string | null>(null);
@@ -149,7 +150,7 @@ function EmptyWorkspace({
         <p className="text-xs text-slate-500">{t("terminal.emptyHint")}</p>
       </div>
       <div className="flex gap-2">
-        {TERMINAL_PANE_KINDS.map((k) => (
+        {SHELL_PANE_KINDS.map((k) => (
           <button
             key={k}
             type="button"
@@ -284,7 +285,7 @@ function MinimizedStrip({ workspace }: { workspace: TerminalWorkspace }) {
             className={`${TOOL_BUTTON} h-6 max-w-[14rem]`}
           >
             <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
-            <span className="min-w-0 truncate font-mono text-2xs">{pane.title ?? t(KIND_LABEL[pane.kind])}</span>
+            <span className="min-w-0 truncate font-mono text-2xs">{pane.title ?? paneLabel(pane, t)}</span>
             {m.unread && <span data-unread="" className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent-400" />}
           </button>
         );

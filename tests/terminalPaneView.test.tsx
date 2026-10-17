@@ -7,6 +7,7 @@ import { TerminalStoreContext, type TerminalCommands } from "../src/stores/termi
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalPane } from "../src/stores/terminalTypes";
 import type { TerminalPaneColor, TerminalPaneKind } from "../app-electron/shared/types";
+import { LEGACY_AXET_AGENT, type AgentSpec } from "../app-electron/shared/agentTypes";
 
 vi.mock("../src/components/EmbeddedTerminal", () => ({
   default: ({ sessionId, active, fontSize }: { sessionId: string; active: boolean; fontSize?: number }) => (
@@ -37,6 +38,9 @@ function commandsMock(): TerminalCommands {
     renameWorkspace: vi.fn(),
     closeWorkspace: vi.fn(),
     addPane: vi.fn(),
+    addAgent: vi.fn(),
+    revealPane: vi.fn(),
+    setWorkspaceRoot: vi.fn(),
     closePane: vi.fn(),
     restartPane: vi.fn(),
     focusPane: vi.fn(),
@@ -66,14 +70,15 @@ function renderPane(
     onSplit?: (dir: "row" | "column") => void;
     canSplit?: boolean;
     fontSize?: number;
+    agent?: AgentSpec;
   } = {}
 ) {
   const commands = commandsMock();
-  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run, title: opts.title, color: opts.color, fontSize: opts.fontSize };
+  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run, title: opts.title, color: opts.color, fontSize: opts.fontSize, agent: opts.agent };
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider
-        value={{ state: initialTerminalState, commands, defaultKind: "cmd", defaultCwd: "C:\\a" }}
+        value={{ state: initialTerminalState, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet" }}
       >
         <TerminalPaneView
           pane={pane}
@@ -181,8 +186,8 @@ describe("TerminalPaneView", () => {
     expect(c.focusPane).toHaveBeenCalledWith("p1");
   });
 
-  it("axet bölmesinin başlığı ürün adını gösteriyor", () => {
-    renderPane({ state: "running", ptyId: "t1" }, { kind: "axet" });
+  it("ajan bölmesinin başlığı ürün adını gösteriyor", () => {
+    renderPane({ state: "running", ptyId: "t1" }, { kind: "agent", agent: LEGACY_AXET_AGENT });
     expect(screen.getByText("axet-code").className).toContain("uppercase");
   });
 
@@ -192,17 +197,17 @@ describe("TerminalPaneView", () => {
     expect(c.closePane).toHaveBeenCalledWith("p1");
   });
 
-  it("çalışan axet bölmesi önce soruyor", () => {
-    const c = renderPane({ state: "running", ptyId: "t1" }, { kind: "axet" });
+  it("çalışan ajan bölmesi önce soruyor", () => {
+    const c = renderPane({ state: "running", ptyId: "t1" }, { kind: "agent", agent: LEGACY_AXET_AGENT });
     fireEvent.click(screen.getByTitle("Kapat"));
     expect(c.closePane).not.toHaveBeenCalled();
-    expect(screen.getByText("Çalışan axet-code oturumu sonlanacak.")).toBeTruthy();
+    expect(screen.getByText("Çalışan ajanın oturumu sonlanacak.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Oturumu kapat" }));
     expect(c.closePane).toHaveBeenCalledWith("p1");
   });
 
-  it("kapanmış axet bölmesi sormadan kapanıyor", () => {
-    const c = renderPane({ state: "exited", ptyId: "t1", code: 0 }, { kind: "axet" });
+  it("kapanmış ajan bölmesi sormadan kapanıyor", () => {
+    const c = renderPane({ state: "exited", ptyId: "t1", code: 0 }, { kind: "agent", agent: LEGACY_AXET_AGENT });
     fireEvent.click(screen.getByTitle("Kapat"));
     expect(c.closePane).toHaveBeenCalledWith("p1");
   });

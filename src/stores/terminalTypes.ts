@@ -1,7 +1,8 @@
 // Terminal modunun bellekteki durumu (spec §4.2). Diske yalnız `toSaved`'ın
 // çıkardığı düzen yazılıyor; buradaki çalışma durumu yazılmıyor.
 
-import type { SavedTerminalWorkspace, TerminalPaneColor, TerminalPaneKind } from "../../app-electron/shared/types";
+import type { SavedTerminalWorkspace, SavedWorkspaceSap, TerminalPaneColor, TerminalPaneKind } from "../../app-electron/shared/types";
+import type { AgentSpec } from "../../app-electron/shared/agentTypes";
 import type { DropZone, LayoutNode, LayoutPath, PaneHome, SplitDir } from "../../app-electron/shared/terminalTree";
 
 export type NameFor = (n: number) => string;
@@ -34,6 +35,8 @@ export interface TerminalPane {
   title?: string;
   color?: TerminalPaneColor;
   fontSize?: number;
+  /** Yalnız ajan bölmesinde (spec 2026-10-17 ajan-alani §3). */
+  agent?: AgentSpec;
 }
 
 export interface TerminalWorkspace {
@@ -49,6 +52,8 @@ export interface TerminalWorkspace {
   // `minimizedOf` kullanıyor; tanımsızsa görünür bölmelerden kuruluyor.
   layout?: LayoutNode | null;
   minimized?: MinimizedPane[];
+  root?: string;
+  sap?: SavedWorkspaceSap;
 }
 
 // "AXET Projesi Seç"ten gelen, yer bekleyen bölme. Kimlikler baştan
@@ -91,6 +96,9 @@ export type TerminalAction =
       cwd: string;
       // Hangi bölme, hangi yönde bölünsün. Yoksa odaktaki bölmenin sağı.
       split?: { targetPaneId: string; dir: SplitDir };
+      agent?: AgentSpec;
+      title?: string;
+      color?: TerminalPaneColor;
     }
   | { type: "addProjectPane"; paneId: string; spareWorkspaceId: string; cwd: string; nameFor: NameFor }
   | { type: "closePane"; paneId: string }
@@ -109,4 +117,5 @@ export type TerminalAction =
   | { type: "restorePane"; paneId: string }
   | { type: "renamePane"; paneId: string; title: string }
   | { type: "setPaneColor"; paneId: string; color: TerminalPaneColor }
-  | { type: "setPaneFontSize"; paneId: string; fontSize: number | null };
+  | { type: "setPaneFontSize"; paneId: string; fontSize: number | null }
+  | { type: "setWorkspaceRoot"; id: string; root: string | null; sap: SavedWorkspaceSap | null };

@@ -12,6 +12,7 @@ import {
   firstFreeWorkspaceNumber,
   isTerminalPaneColor
 } from "../../app-electron/shared/terminalLayout";
+import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
 import {
   equalizeSplit,
   fromLegacy,
@@ -140,7 +141,7 @@ function withPane(workspace: TerminalWorkspace, pane: TerminalPane, split?: { ta
 }
 
 function placeProjectPane(state: TerminalState, item: PendingProjectPane, nameFor: NameFor): TerminalState {
-  const pane: TerminalPane = { id: item.paneId, kind: "axet", cwd: item.cwd, run: { state: "queued" } };
+  const pane: TerminalPane = { id: item.paneId, kind: "agent", agent: { ...LEGACY_AXET_AGENT }, cwd: item.cwd, run: { state: "queued" } };
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (active && active.panes.length < MAX_TERMINAL_PANES) return replaceWorkspace(state, withPane(active, pane));
   if (state.workspaces.length < MAX_TERMINAL_WORKSPACES) {
@@ -173,6 +174,8 @@ function fromSaved(saved: SavedTerminalWorkspace): TerminalWorkspace {
   const layout = normalizeLayout(saved.layout, ids.filter((id) => !hidden.has(id)));
   return {
     ...emptyWorkspace(saved.id, saved.name),
+    ...(saved.root ? { root: saved.root } : {}),
+    ...(saved.sap ? { sap: saved.sap } : {}),
     panes: saved.panes.map((p) => ({
       id: p.id,
       kind: p.kind,
@@ -180,7 +183,9 @@ function fromSaved(saved: SavedTerminalWorkspace): TerminalWorkspace {
       title: p.title,
       color: p.color,
       fontSize: p.fontSize,
-      run: { state: "queued" }
+      // Ajan alanı eksik `agent` kaydı (elle düzenlenmiş): rolsüz axet-code.
+      ...(p.kind === "agent" ? { agent: p.agent ?? { ...LEGACY_AXET_AGENT } } : {}),
+      run: { state: "queued" as const }
     })),
     layout,
     minimized,
@@ -248,7 +253,18 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       if (state.phase !== "ready" || !workspace || workspace.panes.length >= MAX_TERMINAL_PANES || !action.cwd.trim()) {
         return state;
       }
-      const pane: TerminalPane = { id: action.paneId, kind: action.kind, cwd: action.cwd, run: { state: "queued" } };
+      // Ajan bölmesi tanımsız eklenmiyor: hangi motorun başlayacağı belli değil.
+      if (action.kind === "agent" && !action.agent) return state;
+      const title = cleanPaneTitle(action.title);
+      const pane: TerminalPane = {
+        id: action.paneId,
+        kind: action.kind,
+        cwd: action.cwd,
+        run: { state: "queued" },
+        ...(action.kind === "agent" && action.agent ? { agent: action.agent } : {}),
+        ...(title ? { title } : {}),
+        ...(action.color && isTerminalPaneColor(action.color) ? { color: action.color } : {})
+      };
       return replaceWorkspace(state, withPane(workspace, pane, action.split));
     }
     case "addProjectPane": {
@@ -402,6 +418,17 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       if (!found || found.pane.fontSize === fontSize) return state;
       return replaceWorkspace(state, updatePane(found.workspace, action.paneId, { fontSize }));
     }
+    case "setWorkspaceRoot": {
+      const workspace = state.workspaces.find((w) => w.id === action.id);
+      if (!workspace) return state;
+      const root = action.root?.trim() || undefined;
+      const sap = action.sap ?? undefined;
+      if (workspace.root === root && workspace.sap?.uuid === sap?.uuid && workspace.sap?.label === sap?.label) return state;
+      const next = { ...workspace };
+      delete next.root;
+      delete next.sap;
+      return replaceWorkspace(state, { ...next, ...(root ? { root } : {}), ...(sap ? { sap } : {}) });
+    }
   }
 }
 
@@ -452,10 +479,13 @@ export function toSaved(state: TerminalState): { workspaces: SavedTerminalWorksp
         cwd: p.cwd,
         ...(p.title ? { title: p.title } : {}),
         ...(p.color ? { color: p.color } : {}),
-        ...(p.fontSize !== undefined ? { fontSize: p.fontSize } : {})
+        ...(p.fontSize !== undefined ? { fontSize: p.fontSize } : {}),
+        ...(p.agent ? { agent: p.agent } : {})
       })),
       layout: layoutOf(w),
-      minimized: minimizedOf(w).map((m) => ({ paneId: m.paneId, home: m.home }))
+      minimized: minimizedOf(w).map((m) => ({ paneId: m.paneId, home: m.home })),
+      ...(w.root ? { root: w.root } : {}),
+      ...(w.sap ? { sap: w.sap } : {})
     })),
     activeId: state.activeWorkspaceId
   };
