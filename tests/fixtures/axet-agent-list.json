@@ -1,0 +1,37 @@
+[
+  {
+    "name": "agent-builder",
+    "scope": "builtin",
+    "model": "large",
+    "permissions": "ask (default)",
+    "description": "Creates and edits custom agents and the project's agent ecosystem."
+  },
+  {
+    "name": "coder",
+    "scope": "builtin",
+    "model": "large",
+    "permissions": "ask (default)",
+    "description": "An agent that helps with executing coding tasks."
+  },
+  {
+    "name": "guide",
+    "scope": "builtin",
+    "model": "large",
+    "permissions": "ask (default)",
+    "description": "Answers questions about configuring aXet.code itself: config files, options, permissions, skills, agents, connectors and environment variables."
+  },
+  {
+    "name": "security",
+    "scope": "builtin",
+    "model": "large",
+    "permissions": "ask (default)",
+    "description": "Reviews the security of the code: agentic attack-surface discovery, vulnerability analysis (CWE/OWASP/CVSS, taint chains), STRIDE/ATT&CK threat modeling and verified remediation fixes."
+  },
+  {
+    "name": "task",
+    "scope": "builtin",
+    "model": "large",
+    "permissions": "ask (default)",
+    "description": "An agent that helps with searching for context and finding implementation details."
+  }
+]

@@ -64,6 +64,7 @@ import type {
 } from "../shared/types";
 import type { WriteCsvResult, WriteHistoryResult } from "../shared/sapWriteHistory";
 import type { Choice, SapWriteState, WorkMode } from "../shared/sapWriteTypes";
+import type { AgentEngineInfo, AxetAgentEntry } from "../shared/agentTypes";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -163,6 +164,9 @@ const api = {
   resizeTerminal: (id: string, cols: number, rows: number) => ipcRenderer.send("terminal:resize", id, cols, rows),
   disposeTerminal: (id: string) => ipcRenderer.invoke("terminal:dispose", id),
   getTerminalBuffer: (id: string) => ipcRenderer.invoke("terminal:getBuffer", id),
+  agentEngines: (force?: boolean): Promise<AgentEngineInfo[]> => ipcRenderer.invoke("agents:engines", force === true),
+  axetAgents: (cwd: string): Promise<AxetAgentEntry[]> => ipcRenderer.invoke("agents:axetAgents", cwd),
+  agentWhich: (binary: string): Promise<boolean> => ipcRenderer.invoke("agents:which", binary),
   onTerminalData: (callback: (id: string, data: string) => void) => {
     const listener = (_event: unknown, id: string, data: string) => callback(id, data);
     ipcRenderer.on("terminal:data", listener);

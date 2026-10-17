@@ -60,7 +60,9 @@ import {
 } from "./axetChat";
 import { recoverAnswer } from "./axetChatRecovery";
 import { readBinding } from "./axetSessionBinding";
-import { axetUpdateAvailable, persistUpdateSeen } from "./axetCodeVersion";
+import { axetBinaryMessage, axetBinaryStatus, axetUpdateAvailable, persistUpdateSeen } from "./axetCodeVersion";
+import { detectEngines, listAxetAgents, runAxetCode, whereOnPath } from "./agentEngineProbe";
+import type { AgentEngineInfo } from "../shared/agentTypes";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
 import { runFlowsAgentStep } from "./axetFlowsAgent";
@@ -1070,6 +1072,29 @@ function registerIpc(): void {
   ipcMain.handle("terminal:getBuffer", (_event, id: string) => {
     return getTerminalBuffer(id);
   });
+
+  // Ajan Alanı (spec 2026-10-17 ajan-alani §3): kurulu motorlar. Sondaj
+  // `where` ve `axet-code --version` çağırıyor; 60 sn önbellek, `force` tazeler.
+  let engineCache: { at: number; value: AgentEngineInfo[] } | null = null;
+  ipcMain.handle("agents:engines", async (_event, force?: unknown) => {
+    const fresh = force === true;
+    if (!fresh && engineCache && Date.now() - engineCache.at < 60_000) return engineCache.value;
+    try {
+      const value = await detectEngines({
+        where: whereOnPath,
+        axetStatus: () => axetBinaryStatus(fresh),
+        axetMessage: axetBinaryMessage
+      });
+      engineCache = { at: Date.now(), value };
+      return value;
+    } catch {
+      return [];
+    }
+  });
+
+  ipcMain.handle("agents:axetAgents", (_event, cwd: unknown) => listAxetAgents(typeof cwd === "string" ? cwd : "", runAxetCode));
+
+  ipcMain.handle("agents:which", (_event, binary: unknown) => whereOnPath(typeof binary === "string" ? binary : ""));
 
   ipcMain.handle("project:resolveDir", (_event, customerPath: string[], service: SapService) => {
     const config = loadConfig();

@@ -1,4 +1,5 @@
 import type { AdtCapabilities } from "../app-electron/shared/adtCapabilities";
+import type { AgentEngineInfo, AxetAgentEntry } from "../app-electron/shared/agentTypes";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -145,6 +146,9 @@ export interface AxetApi {
   resizeTerminal: (id: string, cols: number, rows: number) => void;
   disposeTerminal: (id: string) => Promise<void>;
   getTerminalBuffer: (id: string) => Promise<string>;
+  agentEngines: (force?: boolean) => Promise<AgentEngineInfo[]>;
+  axetAgents: (cwd: string) => Promise<AxetAgentEntry[]>;
+  agentWhich: (binary: string) => Promise<boolean>;
   onTerminalData: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;
   onTerminalReady: (callback: (id: string) => void) => () => void;
