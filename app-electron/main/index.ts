@@ -36,7 +36,14 @@ import { createAgentMonitor, readAgentRegistration } from "./agentMonitor";
 import { agentNotificationFor, type AgentNotificationKind } from "./agentNotification";
 import { createAgentReader, liveAxetDbPort } from "./agentReaders";
 import { createSessionRegistry } from "./agentAxetReader";
-import { TERMINAL_MISSING_DIR } from "../shared/terminalLayout";
+import { TERMINAL_MISSING_DIR, boardWorkspaceInfo } from "../shared/terminalLayout";
+import { readBoardCommand } from "../shared/boardCommands";
+import { createBoardManager } from "./boardManager";
+import { boardNotificationFor, type BoardNotificationKind } from "./boardNotification";
+import { deleteBoardFile, listBoardIds, readBoardFile, writeBoardFile } from "./boardStore";
+import { runLead } from "./boardLead";
+import { runVerification } from "./boardVerify";
+import { boardsDir, liveLeadDeps, liveVerifyDeps } from "./boardLive";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { stopApprovalServer } from "./sapWrite/server";
@@ -268,6 +275,35 @@ function showAgentNotification(paneId: string, agentName: string, kind: AgentNot
   }
 }
 
+// Görev panosu bildirimi (spec 2026-10-18 gorev-panosu §8). Aynı ayar
+// (`chatNotifications`) ve yaşam döngüsü; tıklayınca o alanın panosu açılıyor.
+function showBoardNotification(workspaceId: string, taskTitle: string, kind: BoardNotificationKind): void {
+  try {
+    if (!Notification.isSupported()) return;
+    const cfg = loadConfig();
+    const isFocusedAndVisible = (mainWindow?.isFocused() ?? false) && !(mainWindow?.isMinimized() ?? true);
+    const lang = cfg.language === "en" ? "en" : "tr";
+    const payload = boardNotificationFor(kind, isFocusedAndVisible, cfg.chatNotifications !== false, taskTitle, lang);
+    if (!payload) return;
+    const n = new Notification({ title: payload.title, body: payload.body, silent: false, icon: resolveIconPath() });
+    _liveNotifications.add(n);
+    const cleanup = () => _liveNotifications.delete(n);
+    n.on("close", cleanup);
+    n.on("failed", cleanup);
+    n.on("click", () => {
+      cleanup();
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.show();
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+      mainWindow.webContents.send("board:open", workspaceId);
+    });
+    n.show();
+  } catch {
+    // Ana süreçte yakalanmamış istisna bırakılmamalı.
+  }
+}
+
 // Ajan izleyicisi (spec 2026-10-17 ajan-alani §6). Modül düzeyinde tek örnek;
 // zamanlayıcı registerIpc'de kuruluyor, kapanışta duruyor.
 const agentSessions = createSessionRegistry();
@@ -282,6 +318,8 @@ const agentMonitor = createAgentMonitor({
     }),
   emit: (event) => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("agents:status", event);
+    // Görev panosu her durum olayında da dağıtıyor (spec 2026-10-18 gorev-panosu §5).
+    queueBoardTick();
   },
   notify: (kind, reg) => showAgentNotification(reg.paneId, reg.name, kind),
   write: (ptyId, data) => writeTerminal(ptyId, data),
@@ -294,6 +332,54 @@ function stopAgentMonitor(): void {
   if (agentMonitorTimer) clearInterval(agentMonitorTimer);
   agentMonitorTimer = null;
   agentMonitor.dispose();
+}
+
+// Görev panosu yöneticisi (spec 2026-10-18 gorev-panosu). Doğrulama komutu ve
+// klasör YALNIZ config.json'daki alan kaydından okunuyor (boardWorkspaceInfo).
+const boardManager = createBoardManager({
+  now: () => Date.now(),
+  newId: () => randomUUID(),
+  store: {
+    read: (id) => readBoardFile(boardsDir(), id, Date.now()),
+    write: (id, tasks) => writeBoardFile(boardsDir(), id, tasks),
+    remove: (id) => deleteBoardFile(boardsDir(), id),
+    list: () => listBoardIds(boardsDir())
+  },
+  agents: () => agentMonitor.agents(),
+  sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
+  workspace: (id) => {
+    const cfg = loadConfig();
+    return boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, id);
+  },
+  startLead: (cwd, prompt) => runLead(cwd, prompt, liveLeadDeps()),
+  startVerify: (commands, cwd) => runVerification(commands, cwd, liveVerifyDeps()),
+  emit: (board) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("board:changed", board);
+  },
+  notify: (kind, workspaceId, title) => showBoardNotification(workspaceId, title, kind),
+  log: (tag, fields) => appLog(tag, fields)
+});
+let boardTimer: NodeJS.Timeout | null = null;
+let boardTickQueued = false;
+
+/** İzleyicinin durum olayından: aynı turdaki olaylar tek pano turunda toplanıyor; izleyicinin döngüsüne girilmiyor. */
+function queueBoardTick(): void {
+  if (boardTickQueued) return;
+  boardTickQueued = true;
+  setImmediate(() => {
+    boardTickQueued = false;
+    try {
+      boardManager.tick();
+    } catch {
+      // pano hatası izleyiciyi düşürmesin
+    }
+  });
+}
+
+function stopBoardManager(): void {
+  if (boardTimer) clearInterval(boardTimer);
+  boardTimer = null;
+  boardManager.dispose();
 }
 
 // Kullanıcı onayı bekleyen TLS sertifikaları: `host:port` → bağlanırken
@@ -1011,6 +1097,15 @@ function registerIpc(): void {
     }
     const before = loadConfig();
     const saved = saveConfig(clean);
+    // Alan silinince panosu da silinir (spec 2026-10-18 gorev-panosu §7).
+    // Yalnız renderer alan listesini yazdığında; açılışta toplu silme yok.
+    if (Array.isArray(clean.terminalWorkspaces)) {
+      try {
+        boardManager.prune(saved.terminalWorkspaces.map((w) => w.id));
+      } catch {
+        // budama bir sonraki kayıtta yeniden denenir
+      }
+    }
     // Ana sürecin çeviri katmanı dili önbellekte tutuyor (her mesajda
     // config.json okumamak için). Kullanıcı dili değiştirdiğinde tazelenmezse
     // arayüz İngilizce'ye geçerken ana sürecin hata mesajları Türkçe kalırdı.
@@ -1186,6 +1281,20 @@ function registerIpc(): void {
   );
 
   ipcMain.handle("agents:snapshot", () => agentMonitor.snapshot());
+
+  ipcMain.handle("board:get", (_event, workspaceId: unknown) =>
+    typeof workspaceId === "string" ? boardManager.get(workspaceId) : null
+  );
+
+  ipcMain.handle("board:command", (_event, workspaceId: unknown, raw: unknown) => {
+    const command = readBoardCommand(raw);
+    if (typeof workspaceId !== "string" || !command) return { ok: false, reason: "invalid" };
+    return boardManager.command(workspaceId, command);
+  });
+
+  if (!boardTimer) {
+    boardTimer = setInterval(() => boardManager.tick(), 1_000);
+  }
 
   ipcMain.handle("project:resolveDir", (_event, customerPath: string[], service: SapService) => {
     const config = loadConfig();
@@ -1997,6 +2106,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  stopBoardManager();
   stopAgentMonitor();
   disposeAllTerminals();
   stopAllWatches();
@@ -2012,6 +2122,7 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
+  stopBoardManager();
   stopAgentMonitor();
   disposeAllTerminals();
   stopAllWatches();

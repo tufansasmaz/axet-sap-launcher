@@ -1,5 +1,7 @@
 import type { AdtCapabilities } from "../app-electron/shared/adtCapabilities";
 import type { AgentAnswerResult, AgentEngineInfo, AgentRegistration, AgentStatusEvent, AxetAgentEntry } from "../app-electron/shared/agentTypes";
+import type { Board } from "../app-electron/shared/boardTypes";
+import type { BoardCommand, BoardCommandResult } from "../app-electron/shared/boardCommands";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -154,6 +156,10 @@ export interface AxetApi {
   agentAnswer: (paneId: string, callId: string, index: number) => Promise<AgentAnswerResult>;
   agentSnapshot: () => Promise<AgentStatusEvent[]>;
   onAgentStatus: (callback: (event: AgentStatusEvent) => void) => () => void;
+  boardGet: (workspaceId: string) => Promise<Board | null>;
+  boardCommand: (workspaceId: string, command: BoardCommand) => Promise<BoardCommandResult>;
+  onBoardChanged: (callback: (board: Board) => void) => () => void;
+  onBoardOpen: (callback: (workspaceId: string) => void) => () => void;
   onAgentOpen: (callback: (paneId: string) => void) => () => void;
   onTerminalData: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;

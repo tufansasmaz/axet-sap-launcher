@@ -65,6 +65,8 @@ import type {
 import type { WriteCsvResult, WriteHistoryResult } from "../shared/sapWriteHistory";
 import type { Choice, SapWriteState, WorkMode } from "../shared/sapWriteTypes";
 import type { AgentAnswerResult, AgentEngineInfo, AgentRegistration, AgentStatusEvent, AxetAgentEntry } from "../shared/agentTypes";
+import type { Board } from "../shared/boardTypes";
+import type { BoardCommand, BoardCommandResult } from "../shared/boardCommands";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -176,6 +178,20 @@ const api = {
     const listener = (_event: unknown, event: AgentStatusEvent) => callback(event);
     ipcRenderer.on("agents:status", listener);
     return () => ipcRenderer.removeListener("agents:status", listener);
+  },
+  boardGet: (workspaceId: string): Promise<Board | null> => ipcRenderer.invoke("board:get", workspaceId),
+  boardCommand: (workspaceId: string, command: BoardCommand): Promise<BoardCommandResult> =>
+    ipcRenderer.invoke("board:command", workspaceId, command),
+  onBoardChanged: (callback: (board: Board) => void) => {
+    const listener = (_event: unknown, board: Board) => callback(board);
+    ipcRenderer.on("board:changed", listener);
+    return () => ipcRenderer.removeListener("board:changed", listener);
+  },
+  // Pano bildirimine tıklanınca (spec 2026-10-18 gorev-panosu §8): o alanın panosu.
+  onBoardOpen: (callback: (workspaceId: string) => void) => {
+    const listener = (_event: unknown, workspaceId: string) => callback(workspaceId);
+    ipcRenderer.on("board:open", listener);
+    return () => ipcRenderer.removeListener("board:open", listener);
   },
   // Ajan bildirimine tıklanınca (spec §9): Ajanlar ekranı ve o bölme.
   onAgentOpen: (callback: (paneId: string) => void) => {
