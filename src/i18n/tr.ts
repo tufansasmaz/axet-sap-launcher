@@ -1295,7 +1295,34 @@ export const tr = {
   "terminal.colorGreen": "Yeşil",
   "terminal.colorAmber": "Kehribar",
   "terminal.colorRed": "Kırmızı",
-  "terminal.colorViolet": "Mor"
+  "terminal.colorViolet": "Mor",
+
+  // --- Yenilikler penceresi (İş 2 — 2026-10-17) ---
+  "whatsNew.title": "Yenilikler — {version}",
+  "whatsNew.close": "Tamam",
+  "whatsNew.paletteCommand": "Yenilikler",
+
+  // --- Rol bazlı hazır istemler (İş 3 — 2026-10-17) ---
+  // module-consultant
+  "promptSuggestions.mc1": "Bu tablonun alanlarını açıkla: ",
+  "promptSuggestions.mc2": "Bu hata mesajı ne anlama geliyor: ",
+  "promptSuggestions.mc3": "Bu işlemin müşteri ayarlarını nerede bulurum: ",
+  "promptSuggestions.mc4": "Bu raporun ne yaptığını özetle: ",
+  // technical-consultant / sandbox
+  "promptSuggestions.tc1": "Son dump'ı incele ve sebebini bul",
+  "promptSuggestions.tc2": "Bu programın ne yaptığını açıkla: ",
+  "promptSuggestions.tc3": "Bu transport'ta ne var: ",
+  "promptSuggestions.tc4": "Bu tablonun nerede kullanıldığını bul: ",
+  // SAP yokken ipucu
+  "promptSuggestions.sapHint": "Önce bir SAP sistemine bağlanın",
+
+  // --- Hazırlık adımları (İş 4 — 2026-10-17) ---
+  "readiness.stepsCardTitle": "Hazır mısın?",
+  "readiness.stepsDo": "Şimdi yap",
+  "readiness.step1": "Dil ve rol seçildi",
+  "readiness.step2": "Proje klasörü ayarlandı",
+  "readiness.step3": "axet.code 1.4+ kurulu ve sağlam",
+  "readiness.step4": "En az bir SAP sistemine bağlanıldı"
 };
 
 

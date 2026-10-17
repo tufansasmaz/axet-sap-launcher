@@ -234,7 +234,8 @@ describe("Komut paleti — kısayollar öğesi", () => {
       reportProblem: vi.fn(),
       toggleTheme: vi.fn(),
       toggleLanguage: vi.fn(),
-      openShortcuts
+      openShortcuts,
+      openWhatsNew: vi.fn()
     };
     const items = buildPaletteItems(t as Parameters<typeof buildPaletteItems>[0], actions, [], [], []);
     const shortcutsItem = items.find((i) => i.id === "shortcuts");

@@ -467,6 +467,11 @@ export interface AppConfig {
   // odaktaysa ya da kullanıcı turu durdurduysa bildirim gönderilmez.
   // `undefined` → `true` (göç: eski config dosyalarında alan yoksa açık sayılır).
   chatNotifications?: boolean;
+  // "Yenilikler" penceresinin en son gösterildiği sürüm (İş 2 — 2026-10-17).
+  // Boş dizgi: henüz hiç gösterilmedi ya da eski config'den yükseltme →
+  // pencere gösterilmez, yalnız mevcut sürüm yazılır. Ayarlar formuna
+  // girmez (kullanıcının düzenlediği bir ayar değil).
+  whatsNewSeenVersion: string;
 }
 
 export interface ConnectorIntegrationHealth {

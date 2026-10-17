@@ -37,6 +37,8 @@ interface Props {
   onImportManualSystems: () => Promise<void>;
   /** "Sorun bildir" penceresini açar (bkz. SupportDialog). */
   onReportProblem: () => void;
+  /** Açılışta hangi bölüme gidileceği (İş 4 — ReadinessCard). Yoksa "general". */
+  initialSection?: SettingsSectionId;
 }
 
 // `Field`'ın görünen başlığının kimliği. `SegmentedControl` grubunu bu
@@ -293,7 +295,8 @@ export default function SettingsModal({
   onSave,
   onExportManualSystems,
   onImportManualSystems,
-  onReportProblem
+  onReportProblem,
+  initialSection
 }: Props) {
   const t = useT();
   const [form, setForm] = useState<AppConfig | null>(config);
@@ -303,7 +306,7 @@ export default function SettingsModal({
     landscape: null,
     sapShcut: null
   });
-  const [section, setSection] = useState<SettingsSectionId>("general");
+  const [section, setSection] = useState<SettingsSectionId>(initialSection ?? "general");
   const baseId = useId();
 
   useEffect(() => {
@@ -336,7 +339,7 @@ export default function SettingsModal({
     setSynced({ open, config });
     if (open && !synced.open) {
       setForm(config);
-      setSection("general");
+      setSection(initialSection ?? "general");
     } else if (open && config) {
       const previous = synced.config;
       setForm((current) => (current && previous ? mergeIntoForm(current, previous, config) : config));

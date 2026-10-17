@@ -131,7 +131,9 @@ function defaultConfig(): AppConfig {
     connectorAutoDisabled: [],
     // Varsayılan: açık. Yeni kullanıcılar odak dışındayken cevap olduğunu
     // öğrenir; kapatmak isteyenler Ayarlar'dan kapayabilir.
-    chatNotifications: true
+    chatNotifications: true,
+    // Boş = ilk kurulum veya eski sürümden yükseltme → pencere gösterilmez.
+    whatsNewSeenVersion: ""
   };
 }
 
@@ -240,7 +242,12 @@ export function loadConfig(): AppConfig {
         ? [...new Set((parsed.previousProjectsBaseDirs as unknown[]).filter((x): x is string => typeof x === "string"))].slice(0, MAX_PREVIOUS_DIRS)
         : [],
       // Göç: eski config'de alan yoksa → true (varsayılan açık).
-      chatNotifications: parsed.chatNotifications === false ? false : fallback.chatNotifications
+      chatNotifications: parsed.chatNotifications === false ? false : fallback.chatNotifications,
+      // Boş dizgi: eski config'den yükseltme veya ilk kurulum.
+      whatsNewSeenVersion:
+        typeof parsed.whatsNewSeenVersion === "string"
+          ? parsed.whatsNewSeenVersion
+          : fallback.whatsNewSeenVersion
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

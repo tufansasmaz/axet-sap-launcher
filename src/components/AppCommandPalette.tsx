@@ -18,6 +18,7 @@ export interface PaletteActions {
   toggleTheme: () => void;
   toggleLanguage: () => void;
   openShortcuts: () => void;
+  openWhatsNew: () => void;
 }
 
 type T = ReturnType<typeof useT>;
@@ -51,7 +52,9 @@ export function buildPaletteItems(
     { id: "theme", group: "action", label: t("palette.toggleTheme"), run: actions.toggleTheme },
     { id: "language", group: "action", label: t("palette.toggleLanguage"), run: actions.toggleLanguage },
     // İş C — klavye kısayolları (2026-10-17)
-    { id: "shortcuts", group: "action", label: t("shortcuts.openShortcuts"), run: actions.openShortcuts }
+    { id: "shortcuts", group: "action", label: t("shortcuts.openShortcuts"), run: actions.openShortcuts },
+    // İş 2 — yenilikler penceresi (2026-10-17)
+    { id: "whats-new", group: "action", label: t("whatsNew.paletteCommand"), run: actions.openWhatsNew }
   ];
 
   const projectName = new Map(projects.map((p) => [p.id, p.name]));
@@ -88,6 +91,7 @@ interface Props {
   onToggleTheme: () => void;
   onToggleLanguage: () => void;
   onOpenShortcuts: () => void;
+  onOpenWhatsNew: () => void;
 }
 
 // App'in `ChatStoreProvider`'ın İÇİNDE çizdiği sarmalayıcı: sohbet listesi ve
@@ -102,7 +106,8 @@ export default function AppCommandPalette({
   onReportProblem,
   onToggleTheme,
   onToggleLanguage,
-  onOpenShortcuts
+  onOpenShortcuts,
+  onOpenWhatsNew
 }: Props) {
   const t = useT();
   const { sessions, projects, setActiveId } = useChatStore();
@@ -132,13 +137,14 @@ export default function AppCommandPalette({
         reportProblem: onReportProblem,
         toggleTheme: onToggleTheme,
         toggleLanguage: onToggleLanguage,
-        openShortcuts: onOpenShortcuts
+        openShortcuts: onOpenShortcuts,
+        openWhatsNew: onOpenWhatsNew
       },
       sessions,
       projects,
       systems
     );
-  }, [open, t, setActivity, commands, setActiveId, onSelectSystem, onOpenSettings, onReportProblem, onToggleTheme, onToggleLanguage, onOpenShortcuts, sessions, projects, systems]);
+  }, [open, t, setActivity, commands, setActiveId, onSelectSystem, onOpenSettings, onReportProblem, onToggleTheme, onToggleLanguage, onOpenShortcuts, onOpenWhatsNew, sessions, projects, systems]);
 
   return <CommandPalette open={open} items={items} onClose={onClose} />;
 }

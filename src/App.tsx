@@ -19,6 +19,8 @@ import { listModeOf, isSidebarMode, type Activity, type SidebarMode } from "./sh
 import { useShellShortcuts } from "./shell/useShellShortcuts";
 import AppCommandPalette from "./components/AppCommandPalette";
 import ShortcutsModal from "./components/ShortcutsModal";
+import WhatsNewModal from "./components/WhatsNewModal";
+import { shouldShowWhatsNew } from "./lib/whatsNew";
 import { SupportDialogHost, supportDoneMessage } from "./components/SupportDialog";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
@@ -100,9 +102,12 @@ export default function App() {
   const [selection, setSelection] = useState<Selection | null>(null);
   const [connectivity, setConnectivity] = useState<Record<string, ConnectivityState>>({});
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<import("./components/settings/settingsSections").SettingsSectionId | undefined>(undefined);
   const [supportOpen, setSupportOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const [appVersion, setAppVersion] = useState("");
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
@@ -296,6 +301,17 @@ export default function App() {
       .catch(() => setReadinessFault(false));
   }, []);
 
+  // "Yenilikler" penceresi — açılışta sürüm alınıp gösterim kararı verilir.
+  // shouldShowWhatsNew: seenVersion boşsa gösterme ama sürümü yaz (ilk
+  // kurulum / eski sürümden yükseltme ayrımı bu şekilde yapılıyor).
+  useEffect(() => {
+    void window.api.getAppVersion().then((v) => {
+      setAppVersion(v);
+      // Config henüz yüklenmediyse; refresh() tamamlandıktan sonra
+      // useEffect([config, appVersion]) aşağıda tekrar tetiklenir.
+    });
+  }, []);
+
   // Ağaçtaki "Manuel Eklenen Sistemler" başlığı main'de üretiliyor
   // (manualMerge.ts) ve dili landscape okunurken sabitleniyor — dil
   // değişince o başlık eski dilde kalırdı. İlk render atlanıyor: yukarıdaki
@@ -308,6 +324,22 @@ export default function App() {
     }
     refresh();
   }, [language, refresh]);
+
+  // Yenilikler penceresi: config ve sürüm ikisi de hazır olunca karar ver.
+  // `whatsNewShownRef` aynı oturumda birden fazla gösterimi önler.
+  const whatsNewShownRef = useRef(false);
+  useEffect(() => {
+    if (!config || !appVersion || whatsNewShownRef.current) return;
+    whatsNewShownRef.current = true;
+    const seen = config.whatsNewSeenVersion;
+    if (shouldShowWhatsNew({ seenVersion: seen, appVersion })) {
+      setWhatsNewOpen(true);
+    }
+    // seenVersion boşsa veya farklı sürümdeyse, mevcut sürümü kaydet.
+    if (seen !== appVersion) {
+      void window.api.saveConfig({ whatsNewSeenVersion: appVersion });
+    }
+  }, [config, appVersion]);
 
   // Görünüm değişimi (palet ve koyu/açık). `theme-transition` sınıfı SADECE
   // kullanıcı değiştirdiğinde ve geçiş süresince ekleniyor (bkz.
@@ -1085,6 +1117,20 @@ export default function App() {
             // değişmiyor, bu yüzden buraya bir "değiştir" sözü inmiyor.
             skillProfile={config?.skillProfile ?? null}
             onDoctorReport={handleDoctorReport}
+            config={config}
+            everConnected={(config?.connectionHistory?.length ?? 0) > 0}
+            onOpenSettings={(section) => {
+              setSettingsSection(section);
+              setSettingsOpen(true);
+            }}
+            onOpenRoleModal={() => {
+              // RoleModal zaten skillProfile===null olduğunda açılıyor;
+              // skillProfile dolu ama açmak istiyorsak zaten Ayarlar üzerinden.
+              // Burada sadece Ayarlar → general açmak yeterli.
+              setSettingsSection("general");
+              setSettingsOpen(true);
+            }}
+            onGoToLogon={() => setActivity("sapLauncher")}
           />
         ) : (
           <>
@@ -1170,6 +1216,7 @@ export default function App() {
             setSettingsOpen(false);
             setSupportOpen(true);
           }}
+          initialSection={settingsSection}
         />
 
         <AppConnectionsModal
@@ -1277,10 +1324,18 @@ export default function App() {
           onToggleTheme={handleToggleTheme}
           onToggleLanguage={handleToggleLanguage}
           onOpenShortcuts={() => setShortcutsOpen(true)}
+          onOpenWhatsNew={() => setWhatsNewOpen(true)}
         />
 
         {/* İş C — klavye kısayolları penceresi */}
         <ShortcutsModal open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+
+        {/* İş 2 — yenilikler penceresi */}
+        <WhatsNewModal
+          open={whatsNewOpen}
+          onClose={() => setWhatsNewOpen(false)}
+          appVersion={appVersion}
+        />
 
         <SupportDialogHost
           open={supportOpen}

@@ -1209,5 +1209,32 @@ export const en: Record<TranslationKey, string> = {
   "terminal.colorGreen": "Green",
   "terminal.colorAmber": "Amber",
   "terminal.colorRed": "Red",
-  "terminal.colorViolet": "Violet"
+  "terminal.colorViolet": "Violet",
+
+  // --- What's New window (İş 2 — 2026-10-17) ---
+  "whatsNew.title": "What's New — {version}",
+  "whatsNew.close": "OK",
+  "whatsNew.paletteCommand": "What's New",
+
+  // --- Role-based prompt suggestions (İş 3 — 2026-10-17) ---
+  // module-consultant
+  "promptSuggestions.mc1": "Explain the fields of this table: ",
+  "promptSuggestions.mc2": "What does this error message mean: ",
+  "promptSuggestions.mc3": "Where do I find the customer settings for this transaction: ",
+  "promptSuggestions.mc4": "Summarize what this report does: ",
+  // technical-consultant / sandbox
+  "promptSuggestions.tc1": "Check the latest dump and find the cause",
+  "promptSuggestions.tc2": "Explain what this program does: ",
+  "promptSuggestions.tc3": "What is in this transport: ",
+  "promptSuggestions.tc4": "Find where this table is used: ",
+  // SAP context hint
+  "promptSuggestions.sapHint": "Connect to a SAP system first",
+
+  // --- Readiness steps (İş 4 — 2026-10-17) ---
+  "readiness.stepsCardTitle": "Ready?",
+  "readiness.stepsDo": "Set up now",
+  "readiness.step1": "Language and role selected",
+  "readiness.step2": "Project folder configured",
+  "readiness.step3": "axet.code 1.4+ installed and healthy",
+  "readiness.step4": "Connected to at least one SAP system"
 };

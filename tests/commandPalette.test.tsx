@@ -184,7 +184,8 @@ describe("buildPaletteItems", () => {
     reportProblem: vi.fn(),
     toggleTheme: vi.fn(),
     toggleLanguage: vi.fn(),
-    openShortcuts: vi.fn()
+    openShortcuts: vi.fn(),
+    openWhatsNew: vi.fn()
   };
   const session = (id: string, title: string, updatedAt: number, projectId: string | null = null) =>
     ({ id, title, updatedAt, projectId }) as unknown as ChatSession;
