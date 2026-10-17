@@ -145,6 +145,12 @@ ekranda **bunun bir tahmin olduğu açıkça yazar**.
   sekme birikir. Sekmeye tıklayınca o terminale geçersin, X ile kapatırsın,
   panelin üstündeki oku tıklayarak paneli tamamen kapatıp açabilirsin,
   panelin üst kenarından sürükleyerek yüksekliğini ayarlayabilirsin.
+  **Terminal bölmeleri**: her terminal başlık çubuğundaki "Sağa böl" / "Alta
+  böl" düğmesiyle bölünebilir; bölmeleri başlıktan sürükleyip kenara bırakarak
+  yeniden düzenleyebilirsin. Her bölmeye ayrı **ad ve renk** verilebilir.
+  **Yazı boyutu**: Ctrl+Tekerlek ya da Ctrl+= / Ctrl+- / Ctrl+0 ile bölme
+  başına ayarlanır, diğer bölmeler etkilenmez. Küçültülen bölmeler altta
+  şerit hâlinde görünür.
 - **Sol panel — Son Bağlanılanlar**: Arama kutusu boşken sol panelin en
   üstünde en son bağlandığın (en fazla 5) sistem, en yeniden en eskiye
   görünür. Tıklayınca doğrudan o sisteme geçer.
@@ -278,15 +284,21 @@ Bir sisteme bağlandıktan sonra asıl çalışma burada yapılır. Sol kenar
 çubuğunda **Yeni sohbet** ve **Yeni proje** düğmeleri, altında sohbet
 listesi ve bağlanılan sistemler var.
 
-- **Her sohbetin kendi oturumu var.** Sohbete yazdığında o sohbete ait bir
-  axet-code oturumu açılır ve açık kalır. Aynı anda en fazla **5 oturum**
-  sıcak tutulur, **60 dakika** dokunulmayan oturum kapanır. Kapanmış bir
-  sohbete geri döndüğünde oturum yeniden kurulur — sohbet kaybolmaz.
-- **İlk mesaj sonrakilerden yavaştır.** İlk turda süreç başlar, uygulama
-  bağlayıcıları yüklenir ve ajan işi baştan kavrar; bu birkaç on saniye
-  sürebilir. Aynı sohbetteki sonraki mesajlar belirgin biçimde hızlıdır.
-  Bir sisteme bağlandığında oturum arka planda önceden ısıtılır, yani ilk
-  mesajın beklemesi kısalır.
+- **Her mesaj kısa ömürlü bir `axet-code run` süreciyle çalışır** (görünmez,
+  TUI/PTY yok). **axet-code 1.4.0 veya üstü** gereklidir; eski, eksik ya da
+  bozuk sürüm açık hata gösterir.
+- **İlk mesaj ~1 saniye içinde başlar.** Yazmaya başlayınca süreç arka planda
+  önceden hazırlanır; bağlayıcı gerektiren sistemlerde bağlayıcı yüklemesi ek
+  ~4 saniye alır. Süreç her turda ayrı başladığı için "oturum ısınması"
+  beklenmez.
+- **Araç çalıştıktan sonra düşen tur yeniden gönderilmez** — ekranda "Devam
+  et" butonu çıkar, tıklayınca ajan kaldığı yerden devam eder.
+- **Soru kartı**: Ajan seçenek sunduğunda (ask_user) ekranda seçenek butonları
+  görünür; tıklayarak ya da yazarak yanıt verebilirsin.
+- **Hazır istemler**: Sistem bağlandığında rolüne göre önerilen başlangıç
+  sorularını gösteren bir kart açılır.
+- **Windows bildirimi**: Uygulama arka plandayken ajan cevabını bitirince
+  bildirim gelir. Ayarlar'dan kapatılabilir.
 - **Arkada ne olduğunu görürsün.** Cevap beklenirken gösterge ajanın hangi
   aracı çalıştırdığını, hedefini, kaçıncı adımda olduğunu ve geçen süreyi
   yazar. Satıra tıklayarak aracın çıktısını açabilirsin.
@@ -323,6 +335,10 @@ listesi ve bağlanılan sistemler var.
   eklenmez (otomatik atlanır), sonunda kaç kayıt eklendiği/atlandığı
   bildirilir. Bu, manuel sistem tanımlarını takım arkadaşlarınla veya
   başka bir bilgisayarınla paylaşmak için kullanılır.
+- **Bildirimler**: Uygulama arka plandayken ajan cevabını bitirince Windows
+  bildirimi gönderilir; bu anahtarla kapatılabilir.
+- **Veri ve gizlilik**: Yerel sohbet geçmişini ve önbellek dosyalarını
+  temizleme seçenekleri bu bölümde yer alır.
 
 ## Dosya Gezgini ve Dosya Önizleme
 
@@ -383,6 +399,13 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
   uygulama kapanıp yeni sürümle yeniden açılır.
 - **Sadece Setup.exe ile kurulan sürümler güncelleme alabilir** — portable
   `.exe`'yi kullanıyorsan yeni sürümü elle indirip değiştirmen gerekir.
+- **Güncellendikten sonra Yenilikler penceresi** bir kez otomatik açılır ve
+  yeni sürümde neler değiştiğini özetler.
+
+## Klavye Kısayolları
+
+**Ctrl+/** (veya **F1**) tuşlarına basarak Klavye Kısayolları penceresini
+açabilirsin. Pencere uygulamadaki tüm kısayolları listeler.
 
 ## Sık Sorulan Sorunlar
 
