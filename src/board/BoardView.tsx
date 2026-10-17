@@ -18,7 +18,7 @@ import {
   taskColumn,
   taskProgress,
   type BoardColumn
-} from "./boardView";
+} from "./boardDisplay";
 import NewTaskDialog from "./NewTaskDialog";
 
 // Görev panosu (spec 2026-10-18 gorev-panosu §8): Taslak · Sırada ·

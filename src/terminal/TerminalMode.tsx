@@ -20,7 +20,7 @@ import TeamStrip from "../agents/TeamStrip";
 import AgentsEmptyState from "../agents/AgentsEmptyState";
 import AddAgentDialog from "../agents/AddAgentDialog";
 import DecisionsPanel from "../agents/DecisionsPanel";
-import BoardView from "../board/BoardView.tsx";
+import BoardView from "../board/BoardView";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
 

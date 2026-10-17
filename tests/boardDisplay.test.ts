@@ -14,7 +14,7 @@ import {
   taskColumn,
   taskCount,
   taskProgress
-} from "../src/board/boardView";
+} from "../src/board/boardDisplay";
 import { BOARD_FAILURES } from "../app-electron/shared/boardCommands";
 import { LEAD_ERROR_CODES, SUBTASK_NOTES, SUBTASK_STATES, type Board, type BoardTask, type Subtask } from "../app-electron/shared/boardTypes";
 import { tr } from "../src/i18n/tr";

@@ -5,7 +5,7 @@ import type { BoardCommandResult } from "../../app-electron/shared/boardCommands
 import { TASK_GOAL_MAX, TASK_TITLE_MAX } from "../../app-electron/shared/boardTypes";
 import { Modal, ModalCancelButton } from "../ui/Modal";
 import { PRIMARY_BUTTON } from "../ui/buttons";
-import { FAILURE_KEY } from "./boardView";
+import { FAILURE_KEY } from "./boardDisplay";
 
 // "+ Görev" (spec 2026-10-18 gorev-panosu §3): başlık + hedef. Gönderim
 // uçuştayken ikinci gönderim yok; pencere kapandıktan sonra durum yazılmıyor.
