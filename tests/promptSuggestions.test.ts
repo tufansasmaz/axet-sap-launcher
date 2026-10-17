@@ -23,8 +23,11 @@ describe("getRoleChips", () => {
     expect(sb).toEqual(tc);
   });
 
-  it("null profil için boş liste", () => {
-    expect(getRoleChips(null)).toHaveLength(0);
+  it("null profil için varsayılan profil (module-consultant) kullanılır", () => {
+    // Rol seçilmemiş kullanıcı çipleri görür; boş ekran daha az yardımcı olur.
+    const nullChips = getRoleChips(null).map((c) => c.key);
+    const defaultChips = getRoleChips("module-consultant").map((c) => c.key);
+    expect(nullChips).toEqual(defaultChips);
   });
 });
 

@@ -24,15 +24,18 @@ const TECHNICAL_CHIPS: PromptChip[] = [
   { key: "promptSuggestions.tc4", needsSap: true }
 ];
 
+// Rol seçilmediğinde varsayılan profil.
+const DEFAULT_PROFILE: SkillProfile = "module-consultant";
+
 /**
  * Seçili role göre hazır istem çiplerini döner.
  * - module-consultant: modül danışmanı önerileri
  * - technical-consultant / sandbox: teknik danışman önerileri
- * - null: boş liste (rol seçilmemiş, çip gösterilmez)
+ * - null: varsayılan profil (module-consultant) kullanılır
  */
 export function getRoleChips(profile: SkillProfile | null): readonly PromptChip[] {
-  if (profile === null) return [];
-  if (profile === "technical-consultant" || profile === "sandbox") {
+  const effective = profile ?? DEFAULT_PROFILE;
+  if (effective === "technical-consultant" || effective === "sandbox") {
     return TECHNICAL_CHIPS;
   }
   return MODULE_CHIPS;

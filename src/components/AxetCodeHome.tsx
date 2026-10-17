@@ -2150,14 +2150,33 @@ export default function AxetCodeHome({
     }));
   }, [config?.skillProfile, t]);
 
-  // Yeni sohbet için bir SAP sistemi bağlı mı?
-  const newSessionHasSap = effectiveNewBinding != null;
+  // Yeni sohbet için gerçek bir SAP bağlamı var mı?
+  // activeSap !== null → bağlı sistem var → SAP araçları kullanılabilir.
+  // effectiveNewBinding !== null yeterli değil: bir klasör seçimi de
+  // newBinding kurar ama SAP bağlantısı olmayabilir (bkz. workDirRequest).
+  const newSessionHasSap = activeSap !== null;
 
   // Rol çipi tıklandığında taslağa yazar (doluysa sonuna ekler).
+  // Taslak boş değilse ve boşlukla bitmiyorsa önce boşluk eklenir (#8).
   const handleRoleChipClick = useCallback((text: string) => {
     const current = newDraft;
-    const next = current.trim() ? current + text : text;
+    let next: string;
+    if (!current) {
+      next = text;
+    } else if (/\s$/.test(current)) {
+      next = current + text;
+    } else {
+      next = current + " " + text;
+    }
     handleDraftChange(next);
+    // Küçük gecikme: state güncellemesi render'a düştükten sonra textarea'yı
+    // odakla ve imleci sona taşı (#6).
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      ta.focus();
+      ta.setSelectionRange(ta.value.length, ta.value.length);
+    });
   }, [newDraft, handleDraftChange]);
 
   // En son dokunulan sohbet en üstte. Sohbetler artık kalıcı olduğu için

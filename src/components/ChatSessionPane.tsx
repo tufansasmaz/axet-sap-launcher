@@ -604,11 +604,15 @@ export default function ChatSessionPane({
               </ul>
             )}
 
-            {/* Rol bazlı hazır istemler (İş 3 — 2026-10-17).
-                SAP yoksa çip soluklaşır; altında tek satır ipucu. */}
-            {roleChips && roleChips.length > 0 && onRoleChipClick && (
+            {/* Rol bazlı hazır istemler + öneri kartları — İş 3 (2026-10-17).
+                Tasarım kararı: rol çipleri ve öneri kartları aynı amaca hizmet
+                eder (ilk isteği başlatmak). 7 sınırlı kutu yerine düz metin
+                çipler (pill) kullanıcının dikkatini metnin kendisine çeker;
+                roller çipler daha spesifik olduğu için kartların yerini alır.
+                SAP yoksa needsSap çipler soluk; altında tek satır ipucu. */}
+            {roleChips && roleChips.length > 0 && onRoleChipClick ? (
               <div className="mt-6 w-full">
-                <div className="grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-2">
+                <div className="flex flex-wrap justify-center gap-2">
                   {roleChips.map(({ key, text, needsSap }) => {
                     const dim = needsSap && !hasSapContext;
                     return (
@@ -617,27 +621,24 @@ export default function ChatSessionPane({
                         type="button"
                         data-role-chip={key}
                         onClick={() => onRoleChipClick(text)}
-                        className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                        className={`cursor-pointer rounded-full border px-3 py-1 text-xs transition ${
                           dim
-                            ? "border-line-subtle bg-card text-slate-500 hover:border-line hover:text-slate-400"
-                            : "border-line-subtle bg-card text-slate-300 hover:border-line hover:bg-hover hover:text-slate-100"
+                            ? "border-line-subtle text-slate-500 hover:border-line hover:text-slate-400"
+                            : "border-line-subtle text-slate-300 hover:border-line hover:bg-hover hover:text-slate-100"
                         }`}
                       >
-                        <span>{text}</span>
+                        {text}
                       </button>
                     );
                   })}
                 </div>
-                {/* SAP yokken çiplerin hepsi soluk — tek bir satır ipucu */}
                 {!hasSapContext && roleChips.some((c) => c.needsSap) && (
-                  <p className="mt-2 text-xs text-slate-500">{t("promptSuggestions.sapHint")}</p>
+                  <p className="mt-2 text-center text-xs text-slate-500">{t("promptSuggestions.sapHint")}</p>
                 )}
               </div>
-            )}
-
-            {/* Dar pencerede tek sütuna iniyor: sabit üç sütunda kartlar
-                ~140px'e sıkışıp metinleri dört-beş satıra bölünüyordu. */}
-            <div className="mt-6 grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-3">
+            ) : (
+              /* Rol çipi yoksa genel öneri kartları — dar pencerede tek sütuna iniyor. */
+              <div className="mt-6 grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-3">
               {suggestionKeys.map((key, i) => {
                 const Icon = SUGGESTION_ICONS[key] ?? Sparkles;
                 // İkon rengi modül paletinden sırayla dönüyor: öneri anahtarları
@@ -657,7 +658,8 @@ export default function ChatSessionPane({
                   </button>
                 );
               })}
-            </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className={`${COLUMN} flex flex-col gap-[var(--chat-message-gap)] pb-8 pt-8`}>
