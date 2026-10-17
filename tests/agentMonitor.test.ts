@@ -13,10 +13,12 @@ class FakeReader implements AgentReader {
   polls = 0;
   disposed = false;
   failPoll = false;
+  failSubmit = false;
   feedOutput(data: string) {
     this.output.push(data);
   }
   submitLine(line: string) {
+    if (this.failSubmit) throw new Error("okuyucu patladı");
     this.lines.push(line);
   }
   poll() {
@@ -633,6 +635,19 @@ describe("düzeltme turu 1: pano yüzü güvenlik ve sözleşme", () => {
     // Kilit bırakıldı: bir sonraki sendPrompt çalışmalı
     h.reader().failPoll = false;
     expect(h.monitor.sendPrompt("p1", "x")).toBe("ok");
+  });
+
+  // Enter yazıldıktan sonra submitLine fırlatırsa istem gitmiştir: sonuç "sent" olmalı,
+  // "aborted" yönetici alt görevi geri alıp çalışan işi ikinci kez dağıtırdı.
+  it("Enter yazıldıktan sonra submitLine fırlatırsa onSettled sent tam bir kez", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    const settled: string[] = [];
+    expect(h.monitor.sendPrompt("p1", "istem", (o) => settled.push(o))).toBe("ok");
+    h.reader().failSubmit = true;
+    h.flushEnter();
+    expect(h.write.mock.calls).toEqual([["t1", "istem"], ["t1", "\r"]]);
+    expect(settled).toEqual(["sent"]);
   });
 
   // aynı milisaniyede tuş → >= koruması

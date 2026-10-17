@@ -281,8 +281,9 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
             return;
           }
           if (deps.write(entry.reg.ptyId, "\r")) {
-            entry.reader.submitLine(text);
+            // Enter gitti: istem ajanda. Okuyucu hatası bunu "aborted"a çevirmemeli.
             settle("sent");
+            guard(() => entry.reader.submitLine(text));
           } else {
             settle("aborted");
           }
