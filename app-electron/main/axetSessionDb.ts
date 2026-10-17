@@ -653,7 +653,17 @@ export function readMessagesSince(dbPath: string, sessionId: string, sinceEpochS
 }
 
 /**
- * `findSessionByPrompt`'un çoğul hâli: iğneyi içeren kullanıcı mesajlarının
+ * Ajan Alanı eşlemesi: kullanıcı mesajı istemle BAŞLIYOR mu (iki taraf da
+ * `matchKey` biçiminde). TUI'de kullanıcı mesajı yazılan satırın kendisi;
+ * "içeriyor" denseydi sohbet ekranının istemi içeren uzun mesajı da eşleşir,
+ * ajan yabancı oturuma bağlanabilirdi.
+ */
+export function promptStartsWith(text: string, needle: string): boolean {
+  return matchKey(text).startsWith(needle);
+}
+
+/**
+ * `findSessionByPrompt`'un çoğul hâli: iğneyle BAŞLAYAN kullanıcı mesajlarının
  * oturumları, tekrarsız. Ajan Alanı belirsizliği görmek zorunda (spec
  * 2026-10-17 ajan-alani §6.1): iki oturum eşleşiyorsa hiçbirine bağlanılmıyor.
  * Okunamazsa `null` — boş liste "eşleşme yok" demek, ikisi ayrı şeyler.
@@ -671,7 +681,7 @@ export function findSessionsByPrompt(dbPath: string, sinceEpochSec: number, need
         .filter((p) => p.type === "text")
         .map((p) => p.data?.text ?? "")
         .join("");
-      if (matchKey(text).includes(needle)) found.add(row.session_id);
+      if (promptStartsWith(text, needle)) found.add(row.session_id);
     }
     return [...found];
   } catch {

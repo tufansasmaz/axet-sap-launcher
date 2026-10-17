@@ -13,7 +13,7 @@ const { AxetReader, createSessionRegistry, deriveAxetState, keysOverlap, UNCONFI
 );
 const { createAgentReader } = await import("../app-electron/main/agentReaders");
 const { GenericReader } = await import("../app-electron/main/agentGenericReader");
-const { matchKey } = await import("../app-electron/main/axetSessionDb");
+const { promptStartsWith } = await import("../app-electron/main/axetSessionDb");
 
 const T0 = 1_700_000_000; // sn
 const DB = "C:\\p\\.axet-code\\axet-code.db";
@@ -54,7 +54,7 @@ function port(db: FakeDb) {
       if (db.throws) throw new Error("database is locked");
       if (db.broken) return null;
       const ids = new Set<string>();
-      for (const m of db.rows) if (m.role === "user" && m.createdAt >= since && matchKey(textOf(m)).includes(needle)) ids.add(m.sessionId);
+      for (const m of db.rows) if (m.role === "user" && m.createdAt >= since && promptStartsWith(textOf(m), needle)) ids.add(m.sessionId);
       return [...ids];
     },
     readMessages: (_path: string, sessionId: string, since: number) => {
@@ -198,6 +198,51 @@ describe("AxetReader — eşleme", () => {
     db.rows.push(msg("S2", "user", [text("Ortak başlık uzun")], T0 + 12));
     b.reader.poll();
     expect(b.reader.binding()).toBe("S2");
+  });
+
+  it("defter dışı sohbet oturumunda istemi İÇEREN mesaj önce düşse de bağ kurulmuyor", () => {
+    // Sohbet ekranı aynı veritabanına yazıyor; mesajı ajanın istemini içeriyor
+    // ama onunla başlamıyor.
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("devam et");
+    db.rows.push(msg("SC", "user", [text("lütfen devam et ve raporu yaz")], T0 + 11));
+    reader.poll();
+    expect(reader.binding()).toBeNull();
+    expect(reader.status().source).toBe("estimated");
+  });
+
+  it("ajanın kendi mesajı düşünce, aynı anda istemi içeren sohbet mesajı olsa da kendi oturumuna bağlanıyor", () => {
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("devam et");
+    db.rows.push(msg("SC", "user", [text("lütfen devam et ve raporu yaz")], T0 + 11), msg("S1", "user", [text("devam et")], T0 + 11));
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+  });
+
+  it("em-dash içeren istem hâlâ eşleşiyor", () => {
+    const { db, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("Raporu hazırla — hemen");
+    db.rows.push(msg("S1", "user", [text("Raporu hazırla — hemen, ayrıntılı")], T0 + 11));
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+  });
+
+  it("bağı kuran istem bağlı oturumda doğrulanamazsa 30 sn sonra bağ çözülüyor", () => {
+    // Arama ile okuma tutarsızsa (aday oturumda istem kullanıcı mesajı olarak
+    // yok) bağ kalıcı olmamalı.
+    const { db, clock, make } = scenario();
+    const { reader } = make("A", { findSessions: () => ["SX"] });
+    reader.submitLine("Bir şey yap");
+    db.rows.push(msg("SX", "assistant", [text("bitti"), finish("end_turn")], T0 + 11));
+    reader.poll();
+    expect(reader.binding()).toBe("SX");
+    clock.ms += UNCONFIRMED_LIMIT_MS + 1_000;
+    reader.poll();
+    expect(reader.binding()).toBeNull();
+    expect(reader.status().source).toBe("estimated");
   });
 
   it("eğik çizgi komutları ve kısa satırlar istem sayılmıyor", () => {
@@ -464,10 +509,11 @@ describe("AxetReader — zaman penceresi düzeltmeleri", () => {
 });
 
 describe("oturum kaydı ve okuyucu seçimi", () => {
-  it("keysOverlap iki yönlü içerme", () => {
+  it("keysOverlap iki yönlü önek", () => {
     expect(keysOverlap("Merhaba ajan", "Merhaba")).toBe(true);
     expect(keysOverlap("Merhaba", "Merhaba ajan")).toBe(true);
     expect(keysOverlap("Birinci", "İkinci")).toBe(false);
+    expect(keysOverlap("lütfen devam et", "devam et")).toBe(false);
   });
 
   it("axet-code kesin okuyucu, öteki motorlar genel okuyucu alıyor", () => {

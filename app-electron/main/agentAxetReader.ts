@@ -5,7 +5,7 @@
 // aranıyor ve ajanın oturumu böyle bulunuyor. Kural: ASLA yanlış oturuma
 // bağlanma. Şunlardan biri varsa bağ kurulmuyor, kaynak "tahmini" kalıyor:
 //   - birden çok aday oturum,
-//   - aynı (ya da birbirini içeren) istemi bekleyen başka bir ajan — onun
+//   - aynı (ya da biri öbürünün öneki olan) istemi bekleyen başka bir ajan — onun
 //     mesajı henüz yazılmamış olabilir, tek aday yanıltıcı,
 //   - veritabanı yok/okunamıyor.
 // Bağdan sonra yazılan bir istem, ajan çalışmıyorken 30 sn içinde bağlı
@@ -14,20 +14,22 @@
 // yazılan satır da böyle: soru kapanırsa düşer, aynı soru 30 sn sonra hâlâ
 // açıksa ve satır oturumda görünmediyse bağ çözülür.
 import { ASK_USER_TOOL, parseAskUser } from "./axetToolEvents";
-import { matchKey, type AxetDbMessage, type AxetPart } from "./axetSessionDb";
+import { matchKey, promptStartsWith, type AxetDbMessage, type AxetPart } from "./axetSessionDb";
 import type { AgentQuestion, AgentState, AgentStatus } from "../shared/agentTypes";
 import type { AgentReader, GenericReader } from "./agentGenericReader";
 
 export interface AxetDbPort {
   resolveDb(cwd: string): string | null;
-  /** Bu andan sonra iğneyi içeren kullanıcı mesajlarının oturumları; okunamazsa null. */
+  /** Bu andan sonra iğneyle BAŞLAYAN kullanıcı mesajlarının oturumları; okunamazsa null. */
   findSessions(dbPath: string, sinceSec: number, needle: string): string[] | null;
   /** Okunamazsa null. */
   readMessages(dbPath: string, sessionId: string, sinceSec: number): AxetDbMessage[] | null;
 }
 
 export function keysOverlap(a: string, b: string): boolean {
-  return a.includes(b) || b.includes(a);
+  // Eşleme "ile başlıyor" olduğundan çakışma da önek ilişkisi: biri öbürünün
+  // önekiyse ikisi aynı mesajla eşleşebilir.
+  return a.startsWith(b) || b.startsWith(a);
 }
 
 /** Ajanlar arası ortak defter: hangi oturum kimin, kim hangi istemi bekliyor. */
@@ -271,7 +273,7 @@ export class AxetReader implements AgentReader {
       });
       if (free.length === 0) continue;
       if (free.length === 1 && !this.opts.registry.rivalPending(dbPath, this.opts.agentId, needle.key)) {
-        this.bind(dbPath, free[0]);
+        this.bind(dbPath, free[0], needle, now);
         return;
       }
       if (!this.ambiguous) {
@@ -281,10 +283,13 @@ export class AxetReader implements AgentReader {
     }
   }
 
-  private bind(dbPath: string, id: string): void {
+  private bind(dbPath: string, id: string, needle: Needle, now: number): void {
     this.session = { dbPath, id };
     this.opts.registry.claim(dbPath, id, this.opts.agentId);
     this.needles = [];
+    // Bağı kuran istem de doğrulanmalı: bağlı oturumda kullanıcı mesajı olarak
+    // görünmezse olağan 30 sn kuralıyla bağ çözülür.
+    this.unconfirmed = [...this.unconfirmed, { key: needle.key, atMs: now, submitMs: needle.submitMs }].slice(-PENDING_CAP);
     this.ambiguous = false;
     this.messages.clear();
     this.lastSec = 0;
@@ -343,10 +348,7 @@ export class AxetReader implements AgentReader {
         // Yalnız istemin özgün yazılma anından (submitMs) sonraki kullanıcı
         // mesajlarıyla doğrula: eski oturumdaki aynı metin doğrulama sayılmasın.
         const cutSec = Math.floor(n.submitMs / 1000) - 2;
-        const recentTexts = ordered
-          .filter((m) => m.role === "user" && m.createdAt >= cutSec)
-          .map((m) => matchKey(textOf(m)));
-        return !recentTexts.some((t) => t.includes(n.key));
+        return !ordered.some((m) => m.role === "user" && m.createdAt >= cutSec && promptStartsWith(textOf(m), n.key));
       })
       .map((n) => {
         // Çalışırken ya da asking'te (üst sınır dahilinde) sayaç dondurulur.
