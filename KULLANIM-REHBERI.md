@@ -10,7 +10,7 @@ elle tekrar tekrar yapmak zorunda kalmamak.
 > Launcher" aynı uygulamanın önceki adı; SAP Launcher artık uygulamanın
 > içindeki modüllerden biri.
 
-## Soldaki Ray — Üç Modül
+## Soldaki Ray — Dört Modül
 
 En soldaki ince dikey şeritten modüller arasında geçersin:
 
@@ -21,6 +21,9 @@ En soldaki ince dikey şeritten modüller arasında geçersin:
   klasörü. Bu rehberin büyük kısmı bu modülü anlatıyor.
 - **SAP GUI Scripting** (fare ikonu) — SAP GUI ekranlarını gezme, işlem
   kaydedip tekrar oynatma, doğal dille otomasyon.
+- **Ajanlar** (robot ikonu, **Ctrl+3**) — Eski Terminal ekranının yerini aldı.
+  Birden çok yapay zekâ ajanını kendi terminallerinde yan yana çalıştırırsın;
+  ayrıntı aşağıda, "Ajanlar Ekranı" bölümünde.
 
 Rayın altında **Hazırlık** (stetoskop ikonu), hemen altında **Uygulama
 Bağlantıları** (fiş ikonu — Outlook/SharePoint gibi aXet bağlayıcıları),
@@ -401,6 +404,42 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
   `.exe`'yi kullanıyorsan yeni sürümü elle indirip değiştirmen gerekir.
 - **Güncellendikten sonra Yenilikler penceresi** bir kez otomatik açılır ve
   yeni sürümde neler değiştiğini özetler.
+
+## Ajanlar Ekranı
+
+Birden çok yapay zekâ ajanının yan yana çalıştığı çalışma alanı. SAP'ye bağlı
+değil: herhangi bir klasörde ya da Git deposunda kullanılabilir.
+
+- **Ajan ekle**: üst şeritteki **Ajan** düğmesi. Ad, motor (axet-code, Claude
+  Code, Codex, Gemini CLI ya da kendi yazdığın bir komut), rol, klasör ve renk
+  seçersin. axet-code'da rol listesi axet-code'un kendi ajanlarından gelir
+  (`coder`, `task`, `guide`…); ajan o rolle başlar. Kurulu olmayan bir motor
+  seçilebilir ama kartında "Kurulu değil" yazar ve başlamaz.
+- **Ekip şeridi**: her ajanın kartı — ad, rol, motor ve durum (Çalışıyor, Soru
+  soruyor, Boşta 3 dk, Bitti, Hata). Karta tıklayınca o ajanın terminali öne
+  gelir. Durumun yanında **≈** varsa durum tahminidir: o motorun kendi kaydı
+  okunamıyor, terminal hareketinden tahmin ediliyor. axet-code ajanlarında
+  durum, ilk isteğini yazdıktan sonra axet-code'un kendi kaydından okunur.
+- **Kararlar**: sağdaki panel bütün ajanların cevap bekleyen sorularını
+  toplar. axet-code'un seçenekli sorusunu buradan tek tıkla cevaplayabilirsin;
+  o soruya terminalde dokunduysan ya da serbest metin/çok seçimli bir soruysa
+  **Terminale git** ile terminalden cevaplarsın.
+- **Bildirim**: pencere arka plandayken bir ajan soru sorarsa ya da işini
+  bitirirse Windows bildirimi gelir (Ayarlar'daki sohbet bildirimi ayarı). Yalnız
+  durumu kesin bilinen ajanlar için; tahmini durumda bildirim çıkmaz.
+- **Düz terminal**: **Terminal** düğmesi ya da bölme başlığındaki böl
+  düğmeleriyle cmd/PowerShell bölmesi açmaya devam edebilirsin.
+- **Çalışma alanının kökü**: kenar çubuğunda alana sağ tıklayıp **Kök klasör…**
+  ile yeni ajanların varsayılan klasörünü seçersin. Bir SAP sistemine bağlıyken
+  **Kökü {SID} proje klasörü yap** o sistemin proje klasörünü kök yapar. SAP
+  yazma onayı ve QA/PRD salt okunur kuralları ajanlar için de aynen geçerlidir.
+- Kenar çubuğunda her alanın yanında ajan sayısı, soru bekleyen ajan varsa
+  kehribar bir sayı görünür. Başka ekrandayken **Ajanlar** sekmesinde de nokta
+  belirir.
+- Bir alanda en fazla 9 bölme (ajanlar dahil), en fazla 6 alan olur. Eski
+  Terminal düzenin kaybolmaz: eski axet-code bölmeleri axet-code ajanı olarak
+  açılır. Bu dönüşüm tek yönlüdür: düzen yeni biçimde kaydedildikten sonra
+  daha eski bir sürüme (1.8.x) dönersen ajan bölmeleri o sürümde açılmaz.
 
 ## Klavye Kısayolları
 
