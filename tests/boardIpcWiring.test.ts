@@ -27,8 +27,10 @@ describe("Görev Panosu — IPC bağlantısı", () => {
   });
 
   it("zamanlayıcı kuruluyor ve kapanışta iki yerde de durduruluyor", () => {
-    expect(main).toMatch(/setInterval\(\s*\(\)\s*=>\s*boardManager\.tick\(\)/);
-    expect(main.match(/stopBoardManager\(\)/g)?.length ?? 0).toBeGreaterThanOrEqual(3);
+    // Zamanlayıcı try/catch sarmalıdır (queueBoardTick ile tutarlı).
+    expect(main).toMatch(/setInterval\(\s*\(\)\s*=>\s*\{[\s\S]{0,100}boardManager\.tick\(\)[\s\S]{0,100}\}/);
+    // Tanım satırı dışında en az iki çağrı yeri (window-all-closed + before-quit).
+    expect(main.match(/stopBoardManager\(\);/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
 
   it("ajan durum olayı panoyu da tetikliyor (ertelenmiş, tek seferde)", () => {
@@ -40,7 +42,18 @@ describe("Görev Panosu — IPC bağlantısı", () => {
     expect(main).toMatch(/"config:save"[\s\S]{0,1200}boardManager\.prune\(/);
   });
 
+  it("budama yalnız terminalWorkspaces dizi olduğunda çalışıyor", () => {
+    expect(main).toMatch(/Array\.isArray\(clean\.terminalWorkspaces\)[\s\S]{0,300}boardManager\.prune\(/);
+  });
+
   it("bildirim tıklaması board:open; ayar chatNotifications", () => {
-    expect(main).toMatch(/function showBoardNotification[\s\S]*chatNotifications !== false[\s\S]*"board:open"/);
+    expect(main).toMatch(/function showBoardNotification[\s\S]{0,600}chatNotifications !== false[\s\S]{0,700}"board:open"/);
+  });
+
+  it("board:get ve board:command kayıtlı olmayan alan workspaceId denetimi", () => {
+    // board:get: boardWorkspaceInfo kontrolü, yöneticiye gitmeden önce
+    expect(main).toMatch(/"board:get"[\s\S]{0,400}boardWorkspaceInfo\([\s\S]{0,200}boardManager\.get\(/);
+    // board:command: boardWorkspaceInfo kontrolü, yöneticiye gitmeden önce
+    expect(main).toMatch(/"board:command"[\s\S]{0,500}boardWorkspaceInfo\([\s\S]{0,300}boardManager\.command\(/);
   });
 });

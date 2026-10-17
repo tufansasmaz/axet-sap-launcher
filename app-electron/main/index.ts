@@ -1282,18 +1282,33 @@ function registerIpc(): void {
 
   ipcMain.handle("agents:snapshot", () => agentMonitor.snapshot());
 
-  ipcMain.handle("board:get", (_event, workspaceId: unknown) =>
-    typeof workspaceId === "string" ? boardManager.get(workspaceId) : null
-  );
+  ipcMain.handle("board:get", (_event, workspaceId: unknown) => {
+    if (typeof workspaceId !== "string") return null;
+    const cfg = loadConfig();
+    if (!boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, workspaceId)) return null;
+    return boardManager.get(workspaceId);
+  });
 
   ipcMain.handle("board:command", (_event, workspaceId: unknown, raw: unknown) => {
     const command = readBoardCommand(raw);
     if (typeof workspaceId !== "string" || !command) return { ok: false, reason: "invalid" };
-    return boardManager.command(workspaceId, command);
+    const cfg = loadConfig();
+    if (!boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, workspaceId)) return { ok: false, reason: "noBoard" };
+    try {
+      return boardManager.command(workspaceId, command);
+    } catch {
+      return { ok: false, reason: "writeFailed" };
+    }
   });
 
   if (!boardTimer) {
-    boardTimer = setInterval(() => boardManager.tick(), 1_000);
+    boardTimer = setInterval(() => {
+      try {
+        boardManager.tick();
+      } catch {
+        // pano zamanlayıcısı hatası yöneticinin çalışmasını durdurmaz
+      }
+    }, 1_000);
   }
 
   ipcMain.handle("project:resolveDir", (_event, customerPath: string[], service: SapService) => {

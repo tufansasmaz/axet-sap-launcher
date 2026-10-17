@@ -159,6 +159,8 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
 
   function load(workspaceId: string): Entry | null {
     if (!isBoardId(workspaceId)) return null;
+    // Kayıtlı alan kapısı: config'te olmayan id için bellek girişi açılmaz, diske yazılmaz.
+    if (!deps.workspace(workspaceId)) return null;
     let entry = boards.get(workspaceId);
     if (!entry) {
       const file = attempt<BoardFileResult>(() => deps.store.read(workspaceId), { tasks: [], unreadable: true });

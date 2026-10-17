@@ -555,6 +555,15 @@ describe("kimlik, okunamayan pano, uyarı, budama", () => {
     expect(h.written.size).toBe(0);
   });
 
+  it("kayıtlı olmayan alan: get null, createTask noBoard, diske yazılmıyor", () => {
+    const h = harness();
+    // harness workspace: (id) => id === "w1" ? info : null
+    // "w-kayitsiz" geçerli boardId deseni ama config'te kayıtlı değil.
+    expect(h.manager.get("w-kayitsiz")).toBeNull();
+    expect(h.manager.command("w-kayitsiz", { type: "createTask", title: "A", goal: "" })).toEqual({ ok: false, reason: "noBoard" });
+    expect(h.written.size).toBe(0); // diske yazılmadı
+  });
+
   it("bozuk dosya uyarısı panoda; kapatılınca gidiyor", () => {
     const h = harness({ files: { w1: { tasks: [], recoveredFrom: "w1.json.bozuk-5" } } });
     expect(h.board().recoveredFrom).toBe("w1.json.bozuk-5");
