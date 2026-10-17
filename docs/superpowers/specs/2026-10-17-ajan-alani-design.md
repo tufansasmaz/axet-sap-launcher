@@ -128,3 +128,15 @@ Mesaj, soru ya da terminal içeriği günlüğe yazılmaz.
    - **Karar (§3/§5'e ek):** motor axet-code olduğunda "Rol" alanı serbest metin yerine `axet-code agent list` çıktısından (ad + izin kipi) doldurulur ve ajan `--agent <ad>` ile başlatılır; ajan adı kartta rol olarak görünür. Liste okunamazsa yalnız hazır beş ajan gösterilir. Diğer motorlarda rol serbest metin/etiket olarak kalır.
    - S2 (pano + lider) için `team.json` ekip manifestosu doğal temel; S2 tasarımı bunu kullanır (ayrı ölçüm).
 3. **Henüz ölçülmedi:** soru kutusunda seçenek seçiminin tuş dizisi (1.4.x TUI) — plan Görev 1'de gerçek TUI ile ölçülür; tutmazsa sürüm 1'de Kararlar satırı yalnız "Terminale git" gösterir.
+
+## 15. Görev 1 ölçümleri — TUI (2026-10-17, axet-code 1.4.1)
+
+Gerçek TUI, ürünün yaptığı gibi cmd içinde (node-pty, 120×34) `axet-code -y` ile, bağlayıcılar kapalı, geçici klasörde açıldı (betik depoda değil).
+
+0. **Açılış diyalogları:** 1.4.1 her açılışta önce "Select Tool / Choose your development tool" kutusunu (aXet.Code / Codex) gösteriyor; yeni (daha önce açılmamış) klasörde ardından "Switch Model / choose a provider and model" kutusu geliyor. İkisi de vurgulu seçenek üzerinde Enter ile geçildi. Ajan ilk kez yeni bir klasörde açıldığında kullanıcı bu iki kutuyu terminalde görür; durum okuyucusu bu sırada istem/oturum beklememeli ("Boşta ≈").
+1. **Seçenek seçimi:** `↓ × i` + `Enter` TEK yazımda — tur 1 (i=1, "Mavi"): tuttu (`tool_result`: `The user selected: "Mavi"`); tur 2 (i=2, "Yeşil"): tuttu (`The user selected: "Yeşil"`). İkinci turda imleç yine ilk seçenekten başladı: evet. Aralıklı yazım gerekmedi, denenmedi. `ask_user` girdisi: `{"question":…, "options":[{"label":…}, …]}`.
+2. **İstem veritabanında:** yazılan istem, yazmaya başlandıktan 3029 ms / 3042 ms sonra (yaklaşık 180 karakterin 8 ms aralıklı yazımı dahil) `messages` tablosunda `role='user'` olarak göründü; `matchKey` ile aranan anahtar tuttu. Dikkat: istemdeki em-dash (`—`) saklanan metinde YOK (yerinde çift boşluk kaldı); Türkçe harfler aynen saklandı. Eşleme bu yüzden noktalamayı yok sayan `matchKey` ile yapılmalı, ham metin karşılaştırması tutmaz. İstemden önce açılmış oturum sayısı: 0 (oturum ilk istemle doğuyor). İki tur aynı oturumda: evet (toplam 1 oturum).
+3. **Motor kapanınca kabuk:** Ctrl+C ×2 sonrası ConPTY ekranı yeniden boyuyor: cmd başlığı (`Microsoft Windows [Version …]`), eski `C:\…\ajan-olcum-XXXX>axet-code -y` yankı satırı, boş satırlar ve en sonda `C:\Users\…\AppData\Local\Temp\ajan-olcum-XXXX>`. Yani çıkışta açılış yankısı ekranda yeniden görünüyor; "bitti" tespiti yankı satırını yeniden "başlangıç" saymamalı, son satırdaki istemi esas almalı.
+
+**Karar A (Kararlar'dan liste cevabı, sürüm 1):** VAR. Gerekçe: madde 1 (iki tur da tek yazımda doğru seçeneği seçti).
+**Karar B (kabuk istemi düzeni):** son satır `C:\Users\…\ajan-olcum-XXXX>` `^(?:PS )?[A-Za-z]:\\[^<>|"]*>$` düzenine uyuyor; düzen aynen kalır.
