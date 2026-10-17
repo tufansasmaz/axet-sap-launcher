@@ -165,6 +165,12 @@ interface Props {
   onRemoveAttachment: (attachmentId: string) => void;
   suggestionKeys: readonly string[];
   onSuggestionClick: (key: string) => void;
+  // Rol bazlı hazır istemler (İş 3 — 2026-10-17).
+  // Yalnızca boş sohbet ekranında, karşılama alanının altında görünür.
+  roleChips?: readonly { key: string; text: string; needsSap: boolean }[];
+  // Yeni sohbetin SAP bağlamı var mı — SAP gerektiren çipler bu olmadan soluklaşır.
+  hasSapContext?: boolean;
+  onRoleChipClick?: (text: string) => void;
   // Hiç sohbeti olmayan kullanıcı: boş ekranda üç satırlık "neler
   // yapabilirsin". İlk mesajla birlikte kendiliğinden gidiyor.
   firstRun?: boolean;
@@ -241,6 +247,9 @@ export default function ChatSessionPane({
   onRemoveAttachment,
   suggestionKeys,
   onSuggestionClick,
+  roleChips,
+  hasSapContext = false,
+  onRoleChipClick,
   firstRun = false,
   contextLabel = null,
   contextPath = null,
@@ -593,6 +602,37 @@ export default function ChatSessionPane({
                   </span>
                 </li>
               </ul>
+            )}
+
+            {/* Rol bazlı hazır istemler (İş 3 — 2026-10-17).
+                SAP yoksa çip soluklaşır; altında tek satır ipucu. */}
+            {roleChips && roleChips.length > 0 && onRoleChipClick && (
+              <div className="mt-6 w-full">
+                <div className="grid w-full grid-cols-1 gap-2 text-left sm:grid-cols-2">
+                  {roleChips.map(({ key, text, needsSap }) => {
+                    const dim = needsSap && !hasSapContext;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        data-role-chip={key}
+                        onClick={() => onRoleChipClick(text)}
+                        className={`flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                          dim
+                            ? "border-line-subtle bg-card text-slate-500 hover:border-line hover:text-slate-400"
+                            : "border-line-subtle bg-card text-slate-300 hover:border-line hover:bg-hover hover:text-slate-100"
+                        }`}
+                      >
+                        <span>{text}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* SAP yokken çiplerin hepsi soluk — tek bir satır ipucu */}
+                {!hasSapContext && roleChips.some((c) => c.needsSap) && (
+                  <p className="mt-2 text-xs text-slate-500">{t("promptSuggestions.sapHint")}</p>
+                )}
+              </div>
             )}
 
             {/* Dar pencerede tek sütuna iniyor: sabit üç sütunda kartlar

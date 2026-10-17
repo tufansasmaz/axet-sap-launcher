@@ -16,6 +16,7 @@ import ChatInstructionsDialog from "./ChatInstructionsDialog";
 import ChatProjectDialog from "./ChatProjectDialog";
 import type { ChatMessage } from "./ChatBubble";
 import { baseName, promptWithAttachments, toAttachments } from "../lib/attachments";
+import { getRoleChips } from "../lib/promptSuggestions";
 import { orderSessions } from "../lib/chatSessionGroups";
 import { contextTierFor } from "../lib/contextTier";
 import { ipcErrorMessage } from "../lib/ipcErrorMessage";
@@ -2138,6 +2139,27 @@ export default function AxetCodeHome({
       .map(({ key }) => key);
   }, [hasConnectorContext, hasSapContext, suggestionSeed]);
 
+  // Rol bazlı hazır istemler (İş 3 — 2026-10-17).
+  // Çipler role göre hesaplanır; i18n metni yeni sohbet anında çözülür.
+  const roleChips = useMemo(() => {
+    const chips = getRoleChips(config?.skillProfile ?? null);
+    return chips.map((c) => ({
+      key: c.key,
+      text: t(c.key as Parameters<typeof t>[0]),
+      needsSap: c.needsSap
+    }));
+  }, [config?.skillProfile, t]);
+
+  // Yeni sohbet için bir SAP sistemi bağlı mı?
+  const newSessionHasSap = effectiveNewBinding != null;
+
+  // Rol çipi tıklandığında taslağa yazar (doluysa sonuna ekler).
+  const handleRoleChipClick = useCallback((text: string) => {
+    const current = newDraft;
+    const next = current.trim() ? current + text : text;
+    handleDraftChange(next);
+  }, [newDraft, handleDraftChange]);
+
   // En son dokunulan sohbet en üstte. Sohbetler artık kalıcı olduğu için
   // ekleme sırası (eskiler üstte) birkaç gün içinde kullanılamaz hâle gelir.
   const orderedSessions = useMemo(() => orderSessions(sessions), [sessions]);
@@ -2330,6 +2352,9 @@ export default function AxetCodeHome({
               t(`axetCodeHome.${key}` as Parameters<typeof t>[0]),
             )
           }
+          roleChips={roleChips}
+          hasSapContext={newSessionHasSap}
+          onRoleChipClick={handleRoleChipClick}
           // Yükleme bitmeden değil: diskte sohbetleri olan biri açılışta bir
           // anlığına tanıtımı görmesin.
           firstRun={sessionsLoaded && sessions.length === 0}
