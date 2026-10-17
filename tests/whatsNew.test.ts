@@ -1,7 +1,7 @@
 // Tests for İş 2 — Yenilikler penceresi
 
-import { describe, expect, it } from "vitest";
-import { WHATS_NEW_DATA, shouldShowWhatsNew } from "../src/lib/whatsNew";
+import { describe, expect, it, vi } from "vitest";
+import { WHATS_NEW_DATA, shouldShowWhatsNew, buildWhatsNewCloseHandler } from "../src/lib/whatsNew";
 
 describe("whatsNew veri bütünlüğü", () => {
   it("her sürüm kaydında tr ve en madde sayısı eşit", () => {
@@ -42,5 +42,29 @@ describe("shouldShowWhatsNew", () => {
 
   it("veri dosyasında bu sürüm için kayıt yoksa açılmaz", () => {
     expect(shouldShowWhatsNew({ seenVersion: "1.7.0", appVersion: "9.9.9" })).toBe(false);
+  });
+});
+
+describe("buildWhatsNewCloseHandler", () => {
+  it("çağrıldığında close() çalışır", () => {
+    const close = vi.fn();
+    const saveConfig = vi.fn();
+    const handler = buildWhatsNewCloseHandler({ appVersion: "1.8.3", close, saveConfig });
+    handler();
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("kapanışta whatsNewSeenVersion kaydedilir", () => {
+    const saveConfig = vi.fn();
+    const handler = buildWhatsNewCloseHandler({ appVersion: "1.8.3", close: vi.fn(), saveConfig });
+    handler();
+    expect(saveConfig).toHaveBeenCalledWith({ whatsNewSeenVersion: "1.8.3" });
+  });
+
+  it("appVersion boşsa saveConfig çağrılmaz", () => {
+    const saveConfig = vi.fn();
+    const handler = buildWhatsNewCloseHandler({ appVersion: "", close: vi.fn(), saveConfig });
+    handler();
+    expect(saveConfig).not.toHaveBeenCalled();
   });
 });

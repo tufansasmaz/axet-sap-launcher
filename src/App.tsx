@@ -20,7 +20,7 @@ import { useShellShortcuts } from "./shell/useShellShortcuts";
 import AppCommandPalette from "./components/AppCommandPalette";
 import ShortcutsModal from "./components/ShortcutsModal";
 import WhatsNewModal from "./components/WhatsNewModal";
-import { shouldShowWhatsNew } from "./lib/whatsNew";
+import { shouldShowWhatsNew, buildWhatsNewCloseHandler } from "./lib/whatsNew";
 import { SupportDialogHost, supportDoneMessage } from "./components/SupportDialog";
 import AxetCodeHome, { type SapChatRequest, type WorkDirRequest } from "./components/AxetCodeHome";
 import ChatSidebar from "./components/ChatSidebar";
@@ -1339,14 +1339,11 @@ export default function App() {
         {/* İş 2 — yenilikler penceresi */}
         <WhatsNewModal
           open={whatsNewOpen}
-          onClose={() => {
-            setWhatsNewOpen(false);
-            // Kapanış anında sürümü yaz — crash/çıkış durumlarında kullanıcının
-            // pencereyi hiç okumadan "görüldü" sayılmaması için açılışta değil burada.
-            if (appVersion) {
-              void window.api.saveConfig({ whatsNewSeenVersion: appVersion });
-            }
-          }}
+          onClose={buildWhatsNewCloseHandler({
+            appVersion,
+            close: () => setWhatsNewOpen(false),
+            saveConfig: (cfg) => { void window.api.saveConfig(cfg); }
+          })}
           appVersion={appVersion}
         />
 

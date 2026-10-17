@@ -60,3 +60,23 @@ export function shouldShowWhatsNew({ seenVersion, appVersion }: ShouldShowArgs):
 export function getWhatsNewEntry(appVersion: string): WhatsNewEntry | null {
   return WHATS_NEW_DATA.find((e) => e.version === appVersion) ?? null;
 }
+
+/**
+ * WhatsNewModal kapanış işleyicisini oluşturur.
+ * close(): modal durumunu kapatır.
+ * saveConfig(): seenVersion'ı kaydeder — KAPANIŞTA, açılışta değil.
+ *
+ * Saf fonksiyon → izole test edilebilir.
+ */
+export function buildWhatsNewCloseHandler(params: {
+  appVersion: string;
+  close: () => void;
+  saveConfig: (cfg: { whatsNewSeenVersion: string }) => void;
+}): () => void {
+  return () => {
+    params.close();
+    if (params.appVersion) {
+      params.saveConfig({ whatsNewSeenVersion: params.appVersion });
+    }
+  };
+}
