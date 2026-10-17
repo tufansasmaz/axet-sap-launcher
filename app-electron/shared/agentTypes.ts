@@ -110,6 +110,10 @@ export interface AgentRegistration {
   sap: boolean;
   /** "+ Ajan" ile yeni eklendi mi (yeniden başlatma ya da geri yükleme değil). */
   added: boolean;
+  /** Bölmenin çalışma alanı (Görev Panosu dağıtımı; spec 2026-10-18 gorev-panosu §5). */
+  workspaceId?: string;
+  /** Ajanın rolü (rol ipucu eşleşmesi). */
+  role?: string;
 }
 
 export type AgentAnswerFailure = "noAgent" | "closed" | "notAnswerable" | "typing" | "writeFailed" | "alreadyAnswered";

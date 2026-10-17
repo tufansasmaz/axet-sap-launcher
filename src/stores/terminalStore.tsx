@@ -284,7 +284,9 @@ export function TerminalStoreProvider({
             name: pane.title ?? tRef.current(ENGINE_LABEL[spec.engine]),
             roleKind: spec.roleKind,
             sap: Boolean(owner?.workspace.sap),
-            added: freshAgents.current.delete(pane.id)
+            added: freshAgents.current.delete(pane.id),
+            role: spec.role,
+            ...(owner ? { workspaceId: owner.workspace.id } : {})
           })
           .catch(() => {});
       };

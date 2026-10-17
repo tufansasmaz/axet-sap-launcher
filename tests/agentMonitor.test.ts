@@ -1,7 +1,7 @@
 // Ajan izleyicisi: kayıt, girdi/çıktı, yoklama, Kararlar cevabı, bildirim ve
 // günlük (spec 2026-10-17 ajan-alani §6, §7, §9, §11). Okuyucular sahte.
 import { describe, expect, it, vi } from "vitest";
-import { TYPING_GUARD_MS, createAgentMonitor, readAgentRegistration } from "../app-electron/main/agentMonitor";
+import { PROMPT_ENTER_DELAY_MS, TYPING_GUARD_MS, createAgentMonitor, readAgentRegistration } from "../app-electron/main/agentMonitor";
 import type { AgentReader } from "../app-electron/main/agentGenericReader";
 import { LIST_ANSWER_ENABLED } from "../app-electron/shared/agentDecisions";
 import type { AgentQuestion, AgentRegistration, AgentStatus } from "../app-electron/shared/agentTypes";
@@ -349,5 +349,124 @@ describe("düzeltme turu 1", () => {
     const secondReader = reader("p1");
     expect(secondReader).not.toBe(firstReader);
     expect(secondReader.disposed).toBe(false);
+  });
+});
+
+describe("Görev Panosu yüzü: agents() ve sendPrompt()", () => {
+  function boardHarness() {
+    const clock = { ms: 1_000_000 };
+    const readers = new Map<string, FakeReader>();
+    const scheduled: { fn: () => void; ms: number }[] = [];
+    const write = vi.fn((_ptyId: string, _data: string) => true);
+    const monitor = createAgentMonitor({
+      now: () => clock.ms,
+      createReader: (r: AgentRegistration): AgentReader => {
+        const reader = new FakeReader();
+        readers.set(r.paneId, reader);
+        return reader;
+      },
+      emit: vi.fn(),
+      notify: vi.fn(),
+      write,
+      backlog: () => "",
+      log: vi.fn(),
+      schedule: (fn, ms) => {
+        scheduled.push({ fn, ms });
+      }
+    });
+    const flushEnter = () => {
+      for (const s of scheduled.splice(0)) s.fn();
+    };
+    return { clock, scheduled, write, monitor, flushEnter, reader: (id = "p1") => readers.get(id)! };
+  }
+  const finished: AgentStatus = { state: "finished", source: "estimated", lastActivity: 1 };
+
+  it("agents(): kayıt, alan, rol, son durum; taslak ya da yeni tuş varken yazmaya kapalı", () => {
+    const h = boardHarness();
+    h.monitor.register(reg({ workspaceId: "w1", role: "coder" }));
+    const [a] = h.monitor.agents();
+    expect(a.reg).toMatchObject({ paneId: "p1", workspaceId: "w1", role: "coder" });
+    expect(a.status).toEqual({ state: "idle", source: "estimated", lastActivity: null });
+    expect(a.inputIdle).toBe(true);
+    h.monitor.onInput("t1", "ya");
+    expect(h.monitor.agents()[0].inputIdle).toBe(false);
+    h.monitor.onInput("t1", "\x15");
+    expect(h.monitor.agents()[0].inputIdle).toBe(false);
+    h.clock.ms += TYPING_GUARD_MS;
+    expect(h.monitor.agents()[0].inputIdle).toBe(true);
+  });
+
+  it("sendPrompt: önce metin, 150 ms sonra Enter; satır okuyucuya Enter'da veriliyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("p1", "Tabloyu ekle.")).toBe("ok");
+    expect(h.write.mock.calls).toEqual([["t1", "Tabloyu ekle."]]);
+    expect(h.scheduled[0].ms).toBe(PROMPT_ENTER_DELAY_MS);
+    expect(h.reader().lines).toEqual([]);
+    h.flushEnter();
+    expect(h.write.mock.calls).toEqual([
+      ["t1", "Tabloyu ekle."],
+      ["t1", "\r"]
+    ]);
+    expect(h.reader().lines).toEqual(["Tabloyu ekle."]);
+  });
+
+  it("kabuk istemi ekrandayken yazmıyor (motor kapandı)", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.reader().current = finished;
+    expect(h.monitor.sendPrompt("p1", "dir")).toBe("notRunning");
+    expect(h.write).not.toHaveBeenCalled();
+    expect(h.scheduled).toEqual([]);
+  });
+
+  it("Enter anında motor kapandı → Enter yerine Esc, okuyucuya satır yok", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("p1", "del dosya")).toBe("ok");
+    h.reader().current = finished;
+    h.flushEnter();
+    expect(h.write.mock.calls).toEqual([
+      ["t1", "del dosya"],
+      ["t1", "\x1b"]
+    ]);
+    expect(h.reader().lines).toEqual([]);
+  });
+
+  it("arada kullanıcı tuşa bastıysa Enter gönderilmiyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.monitor.sendPrompt("p1", "istem");
+    h.clock.ms += 50;
+    h.monitor.onInput("t1", "a");
+    h.flushEnter();
+    expect(h.write.mock.calls).toEqual([["t1", "istem"]]);
+  });
+
+  it("bölme arada kapandıysa Enter gönderilmiyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.monitor.sendPrompt("p1", "istem");
+    h.monitor.unregister("p1");
+    h.flushEnter();
+    expect(h.write.mock.calls).toEqual([["t1", "istem"]]);
+  });
+
+  it("yazıyor / geçersiz / ajan yok / yazılamadı", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("yok", "x")).toBe("noAgent");
+    expect(h.monitor.sendPrompt("p1", "a\nb")).toBe("invalid");
+    expect(h.monitor.sendPrompt("p1", "")).toBe("invalid");
+    h.write.mockReturnValueOnce(false);
+    expect(h.monitor.sendPrompt("p1", "x")).toBe("writeFailed");
+    h.monitor.onInput("t1", "abc");
+    expect(h.monitor.sendPrompt("p1", "x")).toBe("typing");
+  });
+
+  it("readAgentRegistration alan ve rolü taşıyor; boş/bozuk olanı atıyor", () => {
+    expect(readAgentRegistration({ ...reg(), workspaceId: "w1", role: "  coder  " })).toMatchObject({ workspaceId: "w1", role: "coder" });
+    const r = readAgentRegistration({ ...reg(), workspaceId: 5, role: "" })!;
+    expect("workspaceId" in r || "role" in r).toBe(false);
   });
 });

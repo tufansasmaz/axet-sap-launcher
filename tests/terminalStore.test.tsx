@@ -590,7 +590,9 @@ describe("motor denetimi ve izleyici kaydı (spec 2026-10-17 ajan-alani §3, §6
       name: "Ayşe",
       roleKind: "custom",
       sap: false,
-      added: true
+      added: true,
+      role: "",
+      workspaceId: expect.any(String)
     });
     act(() => store.commands.restartPane(paneId));
     expect(api.agentUnregister).toHaveBeenCalledWith(paneId);

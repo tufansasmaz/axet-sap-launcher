@@ -12,6 +12,7 @@
 //     `↓ × i` yanlış seçeneği onaylardı.
 import { isListAnswerable, optionKeys } from "../shared/agentDecisions";
 import {
+  AGENT_ROLE_MAX,
   isAgentEngineId,
   type AgentAnswerResult,
   type AgentRegistration,
@@ -26,6 +27,23 @@ import type { AgentNotificationKind } from "./agentNotification";
 /** Son tuştan bu kadar süre geçmeden listeden cevap gönderilmiyor. */
 export const TYPING_GUARD_MS = 2_000;
 
+/**
+ * Pano istemi yazıldıktan sonra Enter'a kadar beklenen süre. Bazı TUI'ler
+ * tek parçada gelen "metin + Enter"i yapıştırma sayıp Enter'ı satır sonu
+ * yapabiliyor; Enter ayrı yazılıyor ve o anda motor yeniden denetleniyor.
+ */
+export const PROMPT_ENTER_DELAY_MS = 150;
+
+export type AgentPromptResult = "ok" | "noAgent" | "notRunning" | "typing" | "invalid" | "writeFailed";
+
+/** Görev panosunun gördüğü ajan (spec 2026-10-18 gorev-panosu §5). */
+export interface AgentPresence {
+  reg: AgentRegistration;
+  status: AgentStatus | null;
+  /** Taslak yok ve son tuş TYPING_GUARD_MS'den eski. */
+  inputIdle: boolean;
+}
+
 export type LogFields = Record<string, string | number | boolean>;
 
 export interface MonitorDeps {
@@ -37,6 +55,8 @@ export interface MonitorDeps {
   /** Kayıttan önce bölmeye düşmüş çıktı (komut yankısı kaçmasın). */
   backlog(ptyId: string): string;
   log(tag: string, fields: LogFields): void;
+  /** Gecikmeli iş (Enter). Yoksa setTimeout; testte enjekte. */
+  schedule?(fn: () => void, ms: number): void;
 }
 
 export interface AgentMonitor {
@@ -48,6 +68,8 @@ export interface AgentMonitor {
   tick(): void;
   answer(paneId: string, callId: string, index: number): AgentAnswerResult;
   snapshot(): AgentStatusEvent[];
+  agents(): AgentPresence[];
+  sendPrompt(paneId: string, text: string): AgentPromptResult;
   dispose(): void;
 }
 
@@ -199,6 +221,43 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     }
   }
 
+  const inputIdle = (entry: Entry): boolean =>
+    !entry.input.hasDraft() && deps.now() - entry.lastInputAt >= TYPING_GUARD_MS;
+
+  // Görev panosunun istemi (spec 2026-10-18 gorev-panosu §5). Motor
+  // çalışmıyorsa (kabuk istemi ekranda) HİÇBİR ŞEY yazılmıyor: yapay zekâ
+  // metni asla cmd/PowerShell komutu olmamalı. Enter'dan önce yeniden bakılıyor.
+  function sendPrompt(paneId: string, text: string): AgentPromptResult {
+    const entry = byPane.get(paneId);
+    if (!entry) return "noAgent";
+    if (!text || /[\u0000-\u001f\u007f]/.test(text)) return "invalid";
+    let sentAt = 0;
+    try {
+      entry.reader.poll();
+      if (entry.reader.status().state === "finished") return "notRunning";
+      if (!inputIdle(entry)) return "typing";
+      if (!deps.write(entry.reg.ptyId, text)) return "writeFailed";
+      sentAt = deps.now();
+    } catch {
+      return "writeFailed";
+    }
+    const enter = () =>
+      guard(() => {
+        if (byPane.get(paneId) !== entry) return;
+        // Arada kullanıcı yazdıysa Enter onun satırını da gönderirdi: bırak.
+        if (entry.lastInputAt > sentAt || entry.input.hasDraft()) return;
+        entry.reader.poll();
+        if (entry.reader.status().state === "finished") {
+          deps.write(entry.reg.ptyId, "\x1b");
+          return;
+        }
+        if (deps.write(entry.reg.ptyId, "\r")) entry.reader.submitLine(text);
+      });
+    if (deps.schedule) deps.schedule(enter, PROMPT_ENTER_DELAY_MS);
+    else setTimeout(enter, PROMPT_ENTER_DELAY_MS);
+    return "ok";
+  }
+
   return {
     register,
     unregister,
@@ -232,6 +291,12 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       }
       return out;
     },
+    agents() {
+      const out: AgentPresence[] = [];
+      for (const entry of byPane.values()) out.push({ reg: entry.reg, status: entry.last, inputIdle: inputIdle(entry) });
+      return out;
+    },
+    sendPrompt,
     dispose() {
       for (const paneId of [...byPane.keys()]) unregister(paneId);
     }
@@ -252,6 +317,8 @@ export function readAgentRegistration(raw: unknown): AgentRegistration | null {
   if (!paneId || !ptyId || !isAgentEngineId(record.engine) || !cwd.trim()) return null;
   const roleKind: AgentRoleKind =
     record.roleKind === "preset" || record.roleKind === "axetAgent" ? record.roleKind : "custom";
+  const workspaceId = text(record.workspaceId, 100).trim();
+  const role = text(record.role, 200).trim().slice(0, AGENT_ROLE_MAX).trim();
   return {
     paneId,
     ptyId,
@@ -261,6 +328,8 @@ export function readAgentRegistration(raw: unknown): AgentRegistration | null {
     name: text(record.name, 60),
     roleKind,
     sap: record.sap === true,
-    added: record.added === true
+    added: record.added === true,
+    ...(workspaceId ? { workspaceId } : {}),
+    ...(role ? { role } : {})
   };
 }
