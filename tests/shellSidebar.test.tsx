@@ -80,7 +80,7 @@ describe("Sidebar", () => {
     const { onModeChange } = renderSidebar({ mode: "axetCode" });
     expect(screen.getByRole("tablist", { name: "Modlar" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: "Sohbet" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("false");
+    expect(screen.getByRole("tab", { name: "Ajanlar" }).getAttribute("aria-selected")).toBe("false");
     fireEvent.click(screen.getByRole("tab", { name: "Logon" }));
     expect(onModeChange).toHaveBeenCalledWith("sapLauncher");
     expect(screen.getByRole("button", { name: "Liste satırı" })).toBeTruthy();
@@ -123,10 +123,10 @@ describe("Sidebar", () => {
     expect(onModeChange).not.toHaveBeenCalled();
   });
 
-  it("üç sekme: Script gizli, son sekme Terminal", () => {
+  it("üç sekme: Script gizli, son sekme Ajanlar", () => {
     const { onModeChange } = renderSidebar({ mode: "axetCode" });
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Sohbet", "Logon", "Terminal"]);
-    fireEvent.click(screen.getByRole("tab", { name: "Terminal" }));
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Sohbet", "Logon", "Ajanlar"]);
+    fireEvent.click(screen.getByRole("tab", { name: "Ajanlar" }));
     expect(onModeChange).toHaveBeenCalledWith("terminal");
   });
 
@@ -290,7 +290,7 @@ describe("Sidebar daraltılmış", () => {
     expect(screen.getByRole("button", { name: "aXet SAP Logon" }).getAttribute("aria-current")).toBe("page");
     expect(screen.getByRole("button", { name: "Axet Chat" }).getAttribute("aria-current")).toBeNull();
     expect(screen.queryByRole("button", { name: "SAP GUI Scripting" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Terminal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ajanlar" }));
     expect(onModeChange).toHaveBeenCalledWith("terminal");
 
     fireEvent.click(screen.getByRole("button", { name: "Hazırlık" }));
@@ -306,7 +306,7 @@ describe("Sidebar daraltılmış", () => {
 
   it("Hazırlık açıkken şeritte mod seçili değil, Hazırlık seçili; adlar arıza ve sayıyı taşıyor", () => {
     renderSidebar({ collapsed: true, readinessOpen: true, footer: { readinessFault: true, connectorCount: 1 } });
-    for (const name of ["Axet Chat", "aXet SAP Logon", "Terminal"]) {
+    for (const name of ["Axet Chat", "aXet SAP Logon", "Ajanlar"]) {
       expect(screen.getByRole("button", { name }).getAttribute("aria-current")).toBeNull();
     }
     expect(

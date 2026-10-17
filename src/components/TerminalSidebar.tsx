@@ -9,19 +9,22 @@ import { ActiveLine, selectedClass } from "../shell/SidebarFooter";
 import { Eyebrow } from "../ui/Eyebrow";
 import { GHOST_ICON_BUTTON } from "../ui/buttons";
 import ConfirmDialog from "./ConfirmDialog";
+import type { ActiveSapContext } from "../../app-electron/shared/types";
+import { useAgentStatuses } from "../agents/agentStatusContext";
+import { agentPanes, askingCount } from "../agents/agentView";
 
 // Terminal modunun kenar çubuğu: çalışma alanı listesi (spec §5.1).
 // Bölmeler burada değil, sağ tarafta; bu liste yalnız alan seçip yönetiyor.
 
-// Menünün yaklaşık ölçüsü: pencerenin kenarına sıkıştırmak için. Ölçüp
-// yerleştirmek yerine sabit, çünkü menüde hep iki satır var.
+// Menünün yaklaşık satır yüksekliği; madde sayısıyla çarpılıyor.
 const MENU_W = 176;
-const MENU_H = 72;
+const MENU_ITEM_H = 30;
 const EDGE = 8;
 
-export default function TerminalSidebar() {
+export default function TerminalSidebar({ activeSap = null }: { activeSap?: ActiveSapContext | null } = {}) {
   const t = useT();
   const { state, commands } = useTerminalStore();
+  const { statuses } = useAgentStatuses();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -54,7 +57,28 @@ export default function TerminalSidebar() {
     else commands.closeWorkspace(w.id);
   };
 
+  // Alanın kökü (spec 2026-10-17 ajan-alani §3): yeni ajanların klasörü.
+  // Elle seçilen kök SAP bağını düşürüyor: kök artık o sistemin klasörü değil.
+  const pickRoot = async (w: TerminalWorkspace) => {
+    setMenu(null);
+    const folder = await window.api.pickFolder();
+    if (folder) commands.setWorkspaceRoot(w.id, folder, null);
+  };
+
+  const linkSap = (w: TerminalWorkspace) => {
+    setMenu(null);
+    if (activeSap) commands.setWorkspaceRoot(w.id, activeSap.projectDir, { uuid: activeSap.uuid, label: activeSap.systemId });
+  };
+
+  const unlinkSap = (w: TerminalWorkspace) => {
+    setMenu(null);
+    commands.setWorkspaceRoot(w.id, w.root ?? null, null);
+  };
+
   const menuTarget = state.workspaces.find((w) => w.id === menu?.id) ?? null;
+
+  const canLinkSap = Boolean(activeSap && menuTarget && menuTarget.sap?.uuid !== activeSap.uuid);
+  const menuHeight = 8 + MENU_ITEM_H * (3 + (canLinkSap ? 1 : 0) + (menuTarget?.sap ? 1 : 0));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -103,13 +127,15 @@ export default function TerminalSidebar() {
           }
           const selected = state.activeWorkspaceId === w.id;
           const dot = workspaceDot(w);
+          const agents = agentPanes(w).length;
+          const asking = askingCount(w, statuses);
           return (
             <div
               key={w.id}
               role="button"
               tabIndex={0}
               aria-current={selected ? "true" : undefined}
-              title={w.name}
+              title={w.root ? `${w.name} — ${w.root}` : w.name}
               onClick={() => commands.selectWorkspace(w.id)}
               onDoubleClick={() => startRename(w)}
               onKeyDown={(e) => {
@@ -141,7 +167,19 @@ export default function TerminalSidebar() {
                 )}
               </span>
               <span className="min-w-0 flex-1 truncate">{w.name}</span>
-              <span className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">{w.panes.length}</span>
+              {w.sap && <span className="shrink-0 font-mono text-2xs text-slate-500">{w.sap.label}</span>}
+              {asking > 0 && (
+                <span
+                  data-asking={asking}
+                  title={t("agents.askingCount", { count: asking })}
+                  className="shrink-0 rounded-full bg-[var(--status-warning-bg)] px-1.5 font-mono text-2xs tabular-nums text-[var(--status-warning-text)]"
+                >
+                  {asking}
+                </span>
+              )}
+              <span title={t("agents.agentCount", { count: agents })} className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">
+                {agents}
+              </span>
             </div>
           );
         })}
@@ -174,7 +212,7 @@ export default function TerminalSidebar() {
             style={{
               width: MENU_W,
               left: Math.max(EDGE, Math.min(menu.x, window.innerWidth - MENU_W - EDGE)),
-              top: Math.max(EDGE, Math.min(menu.y, window.innerHeight - MENU_H - EDGE))
+              top: Math.max(EDGE, Math.min(menu.y, window.innerHeight - menuHeight - EDGE))
             }}
           >
             <button
@@ -185,6 +223,34 @@ export default function TerminalSidebar() {
             >
               {t("terminal.rename")}
             </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => void pickRoot(menuTarget)}
+              className="flex w-full cursor-pointer items-center rounded px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-hover hover:text-slate-100"
+            >
+              {t("agents.menuRoot")}
+            </button>
+            {canLinkSap && activeSap && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => linkSap(menuTarget)}
+                className="flex w-full cursor-pointer items-center rounded px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-hover hover:text-slate-100"
+              >
+                {t("agents.menuLinkSap", { sid: activeSap.systemId })}
+              </button>
+            )}
+            {menuTarget.sap && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => unlinkSap(menuTarget)}
+                className="flex w-full cursor-pointer items-center rounded px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-hover hover:text-slate-100"
+              >
+                {t("agents.menuUnlinkSap")}
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

@@ -19,13 +19,19 @@ describe("App — terminal modu bağlı", () => {
   it("sağlayıcı, kenar çubuğu listesi ve ekran App'te", () => {
     expect(app).toContain("<TerminalStoreProvider");
     expect(app).toMatch(/visible=\{activity === "terminal"\}/);
-    expect(app).toContain("<TerminalSidebar />");
+    expect(app).toContain("<TerminalSidebar activeSap={activeContext.sap} />");
     expect(app).toContain("<TerminalMode />");
   });
 
   it("proje terminali Terminal moduna geçip sayacı artırıyor", () => {
     expect(app).toContain('setActivity("terminal")');
     expect(app).toContain("setProjectTerminalRequest((n) => n + 1)");
+  });
+
+  it("Ajan Alanı: durum sağlayıcısı, bildirim dinleyicisi ve sekme rozeti", () => {
+    expect(app).toContain("<AgentStatusProvider>");
+    expect(app).toMatch(/<AgentOpenListener onShow=\{[^}]*\}\s*\/>/);
+    expect(app).toContain("terminal: <AgentsModeBadge />");
   });
 });
 

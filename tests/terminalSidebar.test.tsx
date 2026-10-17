@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import TerminalSidebar from "../src/components/TerminalSidebar";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalState, TerminalWorkspace } from "../src/stores/terminalTypes";
+import { AgentStatusContext } from "../src/agents/agentStatusContext";
+import { LEGACY_AXET_AGENT, type AgentStatus } from "../app-electron/shared/agentTypes";
+import type { ActiveSapContext } from "../app-electron/shared/types";
 
 afterEach(cleanup);
 
@@ -21,6 +24,34 @@ function ws(id: string, name: string, runs: PaneRun[] = [], extra: Partial<Termi
     ...extra
   };
 }
+
+function agentWs(id: string, name: string, count: number, extra: Partial<TerminalWorkspace> = {}): TerminalWorkspace {
+  return {
+    ...ws(id, name),
+    panes: Array.from({ length: count }, (_, i) => ({
+      id: `${id}-a${i}`,
+      kind: "agent" as const,
+      agent: LEGACY_AXET_AGENT,
+      cwd: "C:\\a",
+      run: { state: "running", ptyId: `${id}-t${i}` } as PaneRun
+    })),
+    ...extra
+  };
+}
+
+const SAP: ActiveSapContext = {
+  uuid: "u1",
+  systemId: "D01",
+  systemName: "Geliştirme",
+  customerPath: [],
+  host: null,
+  client: "100",
+  username: "u",
+  tier: null,
+  projectDir: "C:\\proj\\D01",
+  connectedAt: "",
+  verified: true
+};
 
 function commandsMock(): TerminalCommands {
   return {
@@ -49,7 +80,17 @@ function commandsMock(): TerminalCommands {
   };
 }
 
-function renderSidebar(workspaces: TerminalWorkspace[], over: Partial<TerminalState> = {}) {
+let pick: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  pick = vi.fn();
+  (window as unknown as { api: unknown }).api = { pickFolder: pick };
+});
+
+function renderSidebar(
+  workspaces: TerminalWorkspace[],
+  over: Partial<TerminalState> = {},
+  extra: { statuses?: Record<string, AgentStatus>; activeSap?: ActiveSapContext | null } = {}
+) {
   const commands = commandsMock();
   const state: TerminalState = {
     ...initialTerminalState,
@@ -63,7 +104,9 @@ function renderSidebar(workspaces: TerminalWorkspace[], over: Partial<TerminalSt
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider value={value}>
-        <TerminalSidebar />
+        <AgentStatusContext.Provider value={{ statuses: extra.statuses ?? {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) }}>
+          <TerminalSidebar activeSap={extra.activeSap ?? null} />
+        </AgentStatusContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
   );
@@ -77,8 +120,8 @@ function row(name: string): HTMLElement {
 }
 
 describe("TerminalSidebar", () => {
-  it("alanları sayısıyla listeliyor, seçiliyi işaretliyor", () => {
-    renderSidebar([ws("a", "API", [running, running]), ws("b", "UI")], { activeWorkspaceId: "b" });
+  it("alanları ajan sayısıyla listeliyor, seçiliyi işaretliyor", () => {
+    renderSidebar([agentWs("a", "API", 2), ws("b", "UI")], { activeWorkspaceId: "b" });
     expect(screen.getByText("Çalışma alanları")).toBeTruthy();
     expect(row("UI").getAttribute("aria-current")).toBe("true");
     expect(row("API").getAttribute("aria-current")).toBeNull();
@@ -180,5 +223,48 @@ describe("TerminalSidebar", () => {
       fireEvent.click(screen.getByRole("button", { name: "Alanı kapat" }));
     });
     expect(c.closeWorkspace).toHaveBeenCalledWith("a");
+  });
+
+  it("kabuk bölmeleri ajan sayılmıyor; soru bekleyen ajan rozeti", () => {
+    const asking: AgentStatus = {
+      state: "asking",
+      source: "exact",
+      lastActivity: 1,
+      question: { callId: "c", question: "?", header: "", options: ["A", "B"], multiSelect: false, askedAt: 1 }
+    };
+    renderSidebar([agentWs("a", "API", 2), ws("b", "UI", [running, running, running])], {}, { statuses: { "a-a1": asking } });
+    expect(row("UI").textContent).not.toContain("3");
+    const badge = row("API").querySelector("[data-asking]") as HTMLElement;
+    expect(badge.textContent).toBe("1");
+    expect(badge.getAttribute("title")).toBe("1 soru bekliyor");
+    expect(row("UI").querySelector("[data-asking]")).toBeNull();
+  });
+
+  it("menü: Kök klasör seçilen klasörü kök yapıyor (SAP bağı düşüyor)", async () => {
+    const c = renderSidebar([ws("a", "API", [], { sap: { uuid: "u1", label: "D01" }, root: "C:\\proj\\D01" })]);
+    fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
+    pick.mockResolvedValueOnce("C:\\kok");
+    fireEvent.click(screen.getByRole("menuitem", { name: "Kök klasör…" }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(c.setWorkspaceRoot).toHaveBeenCalledWith("a", "C:\\kok", null);
+  });
+
+  it("menü: aktif SAP sistemi varken kökü proje klasörü yapıyor; bağlıysa kaldırma seçeneği", () => {
+    const c = renderSidebar([ws("a", "API"), ws("b", "UI", [], { sap: { uuid: "u1", label: "D01" }, root: "C:\\proj\\D01" })], {}, { activeSap: SAP });
+    fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Kökü D01 proje klasörü yap" }));
+    expect(c.setWorkspaceRoot).toHaveBeenCalledWith("a", "C:\\proj\\D01", { uuid: "u1", label: "D01" });
+    fireEvent.contextMenu(row("UI"), { clientX: 10, clientY: 10 });
+    expect(screen.queryByRole("menuitem", { name: "Kökü D01 proje klasörü yap" })).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: "SAP bağını kaldır" }));
+    expect(c.setWorkspaceRoot).toHaveBeenLastCalledWith("b", "C:\\proj\\D01", null);
+  });
+
+  it("aktif SAP yokken SAP menü maddesi yok", () => {
+    renderSidebar([ws("a", "API")]);
+    fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
+    expect(screen.queryByRole("menuitem", { name: /proje klasörü yap/ })).toBeNull();
   });
 });

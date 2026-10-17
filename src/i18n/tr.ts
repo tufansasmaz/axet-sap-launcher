@@ -883,8 +883,8 @@ export const tr = {
   "shell.modeChat": "Sohbet",
   "shell.modeLogon": "Logon",
   "shell.modeScript": "Script",
-  "shell.modeTerminal": "Terminal",
-  "shell.terminal": "Terminal",
+  "shell.modeTerminal": "Ajanlar",
+  "shell.terminal": "Ajanlar",
   "shell.connectorsOpen": "{count} açık",
   "shell.resizeWidth": "Kenar çubuğunun genişliği",
   "palette.title": "Komut paleti",
@@ -1260,7 +1260,7 @@ export const tr = {
   "shortcuts.palette": "Komut paletini aç",
   "shortcuts.modeChat": "Sohbet ekranına geç",
   "shortcuts.modeLogon": "Sistem listesine geç",
-  "shortcuts.modeTerminal": "Terminal ekranına geç",
+  "shortcuts.modeTerminal": "Ajanlar ekranına geç",
   "shortcuts.shortcutList": "Klavye kısayollarını göster",
   "shortcuts.fileSave": "Dosyayı kaydet (dosya görüntüleyicide)",
   "shortcuts.groupNav": "Gezinme",
@@ -1378,7 +1378,12 @@ export const tr = {
   "agents.questionFallback": "Ajan bir tercih bekliyor.",
   "agents.answerTyping": "Bu soruya terminalde dokunuldu; cevabı terminalden verin.",
   "agents.answerNotAnswerable": "Bu soru listeden cevaplanamıyor; terminalden cevaplayın.",
-  "agents.answerFailed": "Cevap gönderilemedi; terminalden cevaplayın."
+  "agents.answerFailed": "Cevap gönderilemedi; terminalden cevaplayın.",
+  "agents.askingCount": "{count} soru bekliyor",
+  "agents.agentCount": "{count} ajan",
+  "agents.menuRoot": "Kök klasör…",
+  "agents.menuLinkSap": "Kökü {sid} proje klasörü yap",
+  "agents.menuUnlinkSap": "SAP bağını kaldır"
 };
 
 

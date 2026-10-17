@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { MousePointerClick, PanelLeftClose, PanelLeftOpen, Server, Sparkles, TerminalSquare, type LucideIcon } from "lucide-react";
+import { Bot, MousePointerClick, PanelLeftClose, PanelLeftOpen, Server, Sparkles, type LucideIcon } from "lucide-react";
 import {
   SIDEBAR_COLLAPSED_WIDTH,
   SIDEBAR_KEY_STEP,
@@ -46,7 +46,7 @@ const MODE_ICON: Record<SidebarMode, LucideIcon> = {
   axetCode: Sparkles,
   sapLauncher: Server,
   sapGuiScripting: MousePointerClick,
-  terminal: TerminalSquare
+  terminal: Bot
 };
 const MODE_NAME: Record<SidebarMode, TranslationKey> = {
   axetCode: "shell.axetCode",

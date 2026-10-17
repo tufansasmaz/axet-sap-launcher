@@ -819,8 +819,8 @@ export const en: Record<TranslationKey, string> = {
   "shell.modeChat": "Chat",
   "shell.modeLogon": "Logon",
   "shell.modeScript": "Script",
-  "shell.modeTerminal": "Terminal",
-  "shell.terminal": "Terminal",
+  "shell.modeTerminal": "Agents",
+  "shell.terminal": "Agents",
   "shell.connectorsOpen": "{count} on",
   "shell.resizeWidth": "Sidebar width",
   "palette.title": "Command palette",
@@ -1174,7 +1174,7 @@ export const en: Record<TranslationKey, string> = {
   "shortcuts.palette": "Open command palette",
   "shortcuts.modeChat": "Switch to chat screen",
   "shortcuts.modeLogon": "Switch to system list",
-  "shortcuts.modeTerminal": "Switch to terminal",
+  "shortcuts.modeTerminal": "Switch to agents",
   "shortcuts.shortcutList": "Show keyboard shortcuts",
   "shortcuts.fileSave": "Save file (in file viewer)",
   "shortcuts.groupNav": "Navigation",
@@ -1292,5 +1292,10 @@ export const en: Record<TranslationKey, string> = {
   "agents.questionFallback": "The agent is waiting for a choice.",
   "agents.answerTyping": "This question was touched in the terminal; answer it there.",
   "agents.answerNotAnswerable": "This question can't be answered from the list; answer it in the terminal.",
-  "agents.answerFailed": "The answer couldn't be sent; answer it in the terminal."
+  "agents.answerFailed": "The answer couldn't be sent; answer it in the terminal.",
+  "agents.askingCount": "{count} waiting for an answer",
+  "agents.agentCount": "{count} agents",
+  "agents.menuRoot": "Root folder…",
+  "agents.menuLinkSap": "Use the {sid} project folder as root",
+  "agents.menuUnlinkSap": "Remove SAP link"
 };

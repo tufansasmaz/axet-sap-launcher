@@ -57,6 +57,9 @@ import Toast, { type ToastMsg } from "./components/Toast";
 import TerminalSidebar from "./components/TerminalSidebar";
 import TerminalMode from "./terminal/TerminalMode";
 import { TerminalStoreProvider } from "./stores/terminalStore";
+import { AgentStatusProvider } from "./agents/agentStatusContext";
+import AgentOpenListener from "./agents/AgentOpenListener";
+import AgentsModeBadge from "./agents/AgentsModeBadge";
 import FileViewer from "./components/FileViewer";
 import { ChatStoreProvider } from "./stores/chatStore";
 import { flattenLandscape } from "./lib/landscape";
@@ -723,6 +726,9 @@ export default function App() {
     setProjectTerminalRequest((n) => n + 1);
   }, []);
 
+  // Ajan bildirimine tıklanınca (spec 2026-10-17 ajan-alani §9).
+  const handleShowAgents = useCallback(() => setActivity("terminal"), []);
+
   /**
    * Rol henüz seçilmemişse bağlantıyı DURDURUP rol ekranını açar.
    *
@@ -996,6 +1002,8 @@ export default function App() {
         pushToast={pushToast}
         onConfigSaved={setConfig}
       >
+      <AgentStatusProvider>
+      <AgentOpenListener onShow={handleShowAgents} />
       <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1021,7 +1029,10 @@ export default function App() {
             onCollapsedChange={handleSidebarCollapsedChange}
             // Sohbet ekranındayken satır noktaları zaten görünüyor; sekmede
             // ikinci bir nokta yalnızca başka moddayken anlam taşıyor.
-            modeBadges={activity === "axetCode" ? undefined : { axetCode: <ChatModeBadge /> }}
+            modeBadges={{
+              ...(activity === "axetCode" ? {} : { axetCode: <ChatModeBadge /> }),
+              ...(activity === "terminal" ? {} : { terminal: <AgentsModeBadge /> })
+            }}
           >
             {listMode === "axetCode" ? (
               <ChatSidebar
@@ -1065,7 +1076,7 @@ export default function App() {
             ) : listMode === "sapGuiScripting" ? (
               <ScriptSidebar />
             ) : (
-              <TerminalSidebar />
+              <TerminalSidebar activeSap={activeContext.sap} />
             )}
           </Sidebar>
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1365,6 +1376,7 @@ export default function App() {
           ))}
         </div>
       </div>
+      </AgentStatusProvider>
       </TerminalStoreProvider>
       </ScriptStoreProvider>
       </ChatStoreProvider>
