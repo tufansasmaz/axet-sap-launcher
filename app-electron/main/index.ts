@@ -65,7 +65,7 @@ import {
 import { recoverAnswer } from "./axetChatRecovery";
 import { readBinding } from "./axetSessionBinding";
 import { axetBinaryMessage, axetBinaryStatus, axetUpdateAvailable, persistUpdateSeen } from "./axetCodeVersion";
-import { detectEngines, listAxetAgents, runAxetCode, whereOnPath } from "./agentEngineProbe";
+import { createAxetAgentsCache, detectEngines, runAxetCode, whereOnPath } from "./agentEngineProbe";
 import type { AgentEngineInfo } from "../shared/agentTypes";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
@@ -1157,7 +1157,8 @@ function registerIpc(): void {
     }
   });
 
-  ipcMain.handle("agents:axetAgents", (_event, cwd: unknown) => listAxetAgents(typeof cwd === "string" ? cwd : "", runAxetCode));
+  const cachedAxetAgents = createAxetAgentsCache();
+  ipcMain.handle("agents:axetAgents", (_event, cwd: unknown) => cachedAxetAgents(typeof cwd === "string" ? cwd : "", runAxetCode));
 
   ipcMain.handle("agents:which", (_event, binary: unknown) => whereOnPath(typeof binary === "string" ? binary : ""));
 

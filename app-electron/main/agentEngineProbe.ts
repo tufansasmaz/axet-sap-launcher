@@ -121,6 +121,35 @@ export async function listAxetAgents(cwd: string, run: (args: string[]) => Promi
   return list.length > 0 ? list : BUILTIN_AXET_AGENTS;
 }
 
+/** axetAgents IPC önbelleği — 10 dk; hata ve boş liste alınmıyor (spec §14.2). */
+export const AXET_AGENTS_CACHE_MS = 10 * 60_000;
+
+type RunFn = (args: string[]) => Promise<string | null>;
+
+/**
+ * `listAxetAgents` çevresinde cwd başına önbellek. Aynı cwd için eşzamanlı
+ * çağrılar `engineCache.get(cwd)` yokken birinin bitmesini bekleyip
+ * önbellekten okuyamaz — mevcut engines kalıbı da bu kadar yapıyor.
+ * Hata fırlarsa (listAxetAgents içten yakalar, dışarıya boş dönmez;
+ * yine de guard var) ve boş liste dönerse önbelleğe alınmıyor.
+ */
+export function createAxetAgentsCache(
+  listFn: (cwd: string, run: RunFn) => Promise<AxetAgentEntry[]> = listAxetAgents
+): (cwd: string, run: RunFn) => Promise<AxetAgentEntry[]> {
+  const cache = new Map<string, { at: number; value: AxetAgentEntry[] }>();
+  return async (cwd: string, run: RunFn): Promise<AxetAgentEntry[]> => {
+    const entry = cache.get(cwd);
+    if (entry && Date.now() - entry.at < AXET_AGENTS_CACHE_MS) return entry.value;
+    try {
+      const value = await listFn(cwd, run);
+      if (value.length > 0) cache.set(cwd, { at: Date.now(), value });
+      return value;
+    } catch {
+      return [];
+    }
+  };
+}
+
 /** `axet-code <args>`; bağlayıcılar kapalı (liste okumak MCP gerektirmiyor). */
 export function runAxetCode(args: string[]): Promise<string | null> {
   return new Promise((resolve) => {
