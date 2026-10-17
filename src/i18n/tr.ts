@@ -1452,7 +1452,8 @@ export const tr = {
   "board.parallel": "Aynı klasörde paralel çalışıyor",
   "board.recovered": "Pano dosyası bozuktu; {file} adıyla kenara alındı ve boş pano açıldı.",
   "board.unreadable": "Pano dosyası okunamadı; üzerine yazılmıyor. Dosyayı tutan programı kapatıp uygulamayı yeniden başlat.",
-  "board.announce": "{title}: {state}"
+  "board.announce": "{title}: {state}",
+  "board.notSaved": "Alan henüz kaydedilmedi; birkaç saniye sonra yeniden deneyin."
 };
 
 

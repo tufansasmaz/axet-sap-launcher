@@ -108,7 +108,7 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
           <button
             type="button"
             onClick={() => setCreating(true)}
-            disabled={!board || board.unreadable === true}
+            disabled={!board || !!board.unreadable}
             className={`${TOOL_BUTTON} disabled:cursor-default disabled:opacity-40`}
           >
             <Plus size={12} />
@@ -143,6 +143,7 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
             {t("board.unreadable")}
           </div>
         )}
+        {!board && <p data-board-not-saved="" className="shrink-0 text-xs text-slate-400">{t("board.notSaved")}</p>}
         {board && !board.unreadable && tasks.length === 0 && <p className="shrink-0 text-xs text-slate-400">{t("board.empty")}</p>}
         <div className="grid min-h-0 flex-1 grid-cols-5 gap-2">
           {BOARD_COLUMNS.map((column) => {

@@ -1366,5 +1366,6 @@ export const en: Record<TranslationKey, string> = {
   "board.parallel": "Running in parallel in the same folder",
   "board.recovered": "The board file was damaged; it was set aside as {file} and an empty board was opened.",
   "board.unreadable": "The board file could not be read; it is not being overwritten. Close the program holding it and restart the app.",
-  "board.announce": "{title}: {state}"
+  "board.announce": "{title}: {state}",
+  "board.notSaved": "This workspace has not been saved yet; try again in a moment."
 };

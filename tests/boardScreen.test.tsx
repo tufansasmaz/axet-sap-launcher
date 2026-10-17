@@ -246,4 +246,9 @@ describe("yeni görev ve uyarı", () => {
     fireEvent.click(within(alert).getByRole("button", { name: "Kapat" }));
     expect(command).toHaveBeenCalledWith("a", { type: "dismissWarning" });
   });
+
+  it("pano yokken (alan henüz kaydedilmedi) kullanıcıya mesaj gösteriliyor", () => {
+    setup(workspace({ view: "board" })); // board sağlanmıyor → undefined
+    expect(document.querySelector("[data-board-not-saved]")).toBeTruthy();
+  });
 });
