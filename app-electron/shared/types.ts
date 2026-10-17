@@ -349,6 +349,10 @@ export interface SavedTerminalWorkspace {
   /** Yeni ajanların varsayılan klasörü (spec §3). */
   root?: string;
   sap?: SavedWorkspaceSap;
+  /** Görev panosunun doğrulama komutları; satır başına bir (spec 2026-10-18 gorev-panosu §2). */
+  verify?: string[];
+  /** Ajanlar ekranında son seçilen görünüm; yoksa bölmeler (spec 2026-10-18 gorev-panosu §8). */
+  view?: "board";
 }
 
 export type AppTheme = "dark" | "light";

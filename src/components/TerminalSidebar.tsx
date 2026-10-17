@@ -9,6 +9,7 @@ import { ActiveLine, selectedClass } from "../shell/SidebarFooter";
 import { Eyebrow } from "../ui/Eyebrow";
 import { GHOST_ICON_BUTTON } from "../ui/buttons";
 import ConfirmDialog from "./ConfirmDialog";
+import VerifyCommandsDialog from "../board/VerifyCommandsDialog";
 import type { ActiveSapContext } from "../../app-electron/shared/types";
 import { useAgentStatuses } from "../agents/agentStatusContext";
 import { agentPanes, askingCount } from "../agents/agentView";
@@ -29,12 +30,14 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
   const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [verifyId, setVerifyId] = useState<string | null>(null);
 
   const full = state.workspaces.length >= MAX_TERMINAL_WORKSPACES;
   // Geri yükleme şeridi açıkken yeni alan açılmıyor: şerit "son düzen mi,
   // boş mu" sorusunu soruyor ve cevabı henüz yok.
   const canAdd = state.phase === "ready" && !full;
   const confirmTarget = state.workspaces.find((w) => w.id === confirmId) ?? null;
+  const verifyTarget = state.workspaces.find((w) => w.id === verifyId) ?? null;
 
   const startRename = (w: TerminalWorkspace) => {
     setMenu(null);
@@ -78,7 +81,7 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
   const menuTarget = state.workspaces.find((w) => w.id === menu?.id) ?? null;
 
   const canLinkSap = Boolean(activeSap && menuTarget && menuTarget.sap?.uuid !== activeSap.uuid);
-  const menuHeight = 8 + MENU_ITEM_H * (3 + (canLinkSap ? 1 : 0) + (menuTarget?.sap ? 1 : 0));
+  const menuHeight = 8 + MENU_ITEM_H * (4 + (canLinkSap ? 1 : 0) + (menuTarget?.sap ? 1 : 0));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -232,6 +235,17 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
             >
               {t("agents.menuRoot")}
             </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenu(null);
+                setVerifyId(menuTarget.id);
+              }}
+              className="flex w-full cursor-pointer items-center rounded px-2 py-1.5 text-left text-xs text-slate-300 hover:bg-hover hover:text-slate-100"
+            >
+              {t("board.menuVerify")}
+            </button>
             {canLinkSap && activeSap && (
               <button
                 type="button"
@@ -274,6 +288,16 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
           setConfirmId(null);
         }}
         onCancel={() => setConfirmId(null)}
+      />
+      <VerifyCommandsDialog
+        open={verifyTarget !== null}
+        workspaceName={verifyTarget?.name ?? ""}
+        initial={verifyTarget?.verify ?? []}
+        onSave={(lines) => {
+          if (verifyTarget) commands.setWorkspaceVerify(verifyTarget.id, lines);
+          setVerifyId(null);
+        }}
+        onCancel={() => setVerifyId(null)}
       />
     </div>
   );

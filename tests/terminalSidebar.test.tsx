@@ -76,7 +76,9 @@ function commandsMock(): TerminalCommands {
     restorePane: vi.fn(),
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
-    setPaneFontSize: vi.fn()
+    setPaneFontSize: vi.fn(),
+    setWorkspaceVerify: vi.fn(),
+    setWorkspaceView: vi.fn()
   };
 }
 
@@ -274,5 +276,22 @@ describe("TerminalSidebar", () => {
     renderSidebar([ws("a", "API")]);
     fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
     expect(screen.queryByRole("menuitem", { name: /proje klasörü yap/ })).toBeNull();
+  });
+
+  it("menü: Doğrulama komutları… penceresi satırları alana kaydediyor; 5'i aşınca kaydetmiyor", () => {
+    const c = renderSidebar([ws("a", "API", [], { verify: ["npm test"] })]);
+    fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Doğrulama komutları…" }));
+    const box = screen.getByRole("textbox", { name: "Komutlar (satır başına bir)" }) as HTMLTextAreaElement;
+    expect(box.value).toBe("npm test");
+    fireEvent.change(box, { target: { value: "1\n2\n3\n4\n5\n6" } });
+    expect(screen.getByRole("alert").textContent).toBe("En fazla 5 komut.");
+    expect((screen.getByRole("button", { name: "Kaydet" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(box, { target: { value: "  npm run lint \n\nnpm test" } });
+    const save = screen.getByRole("button", { name: "Kaydet" });
+    fireEvent.click(save);
+    fireEvent.click(save);
+    expect(c.setWorkspaceVerify).toHaveBeenCalledTimes(1);
+    expect(c.setWorkspaceVerify).toHaveBeenCalledWith("a", ["npm run lint", "npm test"]);
   });
 });

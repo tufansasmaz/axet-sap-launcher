@@ -69,7 +69,9 @@ function signature(workspaces: AppConfig["terminalWorkspaces"], activeId: string
         layout: w.layout !== undefined ? w.layout : fromLegacy(w.panes.filter((p) => !hidden.has(p.id)).map((p) => p.id)),
         minimized,
         root: w.root ?? null,
-        sap: w.sap ?? null
+        sap: w.sap ?? null,
+        verify: w.verify ?? [],
+        view: w.view ?? null
       };
     }),
     activeId
@@ -432,6 +434,8 @@ export function TerminalStoreProvider({
         else dispatch({ type: "focusPane", paneId });
       },
       setWorkspaceRoot: (id, root, sap) => dispatch({ type: "setWorkspaceRoot", id, root, sap }),
+      setWorkspaceVerify: (id, verify) => dispatch({ type: "setWorkspaceVerify", id, verify }),
+      setWorkspaceView: (id, view) => dispatch({ type: "setWorkspaceView", id, view }),
       closePane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
         if (found) release(found.pane);

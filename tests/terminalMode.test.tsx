@@ -73,7 +73,9 @@ function commandsMock(): TerminalCommands {
     restorePane: vi.fn(),
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
-    setPaneFontSize: vi.fn()
+    setPaneFontSize: vi.fn(),
+    setWorkspaceVerify: vi.fn(),
+    setWorkspaceView: vi.fn()
   };
 }
 

@@ -1383,7 +1383,15 @@ export const tr = {
   "agents.agentCount": "{count} ajan",
   "agents.menuRoot": "Kök klasör…",
   "agents.menuLinkSap": "Kökü {sid} proje klasörü yap",
-  "agents.menuUnlinkSap": "SAP bağını kaldır"
+  "agents.menuUnlinkSap": "SAP bağını kaldır",
+  "board.menuVerify": "Doğrulama komutları…",
+  "board.verifyTitle": "Doğrulama komutları",
+  "board.verifyLabel": "Komutlar (satır başına bir)",
+  "board.verifyHelp": "Görev panosu bir alt görevi yalnız bu komutlar sırayla çalışıp hepsi başarıyla bitince kapatır. Komutlar alanın kökünde, gizli bir pencerede çalışır; yalnız buraya yazdığın metin çalıştırılır.",
+  "board.verifyTooMany": "En fazla {max} komut.",
+  "board.verifyTooLong": "Bir komut en fazla {max} karakter olabilir.",
+  "board.verifyEmptyHint": "Boş bırakırsan alt görevleri elle onaylarsın.",
+  "board.verifyCount": "{count} komut"
 };
 
 

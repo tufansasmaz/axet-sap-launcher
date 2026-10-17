@@ -1297,5 +1297,13 @@ export const en: Record<TranslationKey, string> = {
   "agents.agentCount": "{count} agents",
   "agents.menuRoot": "Root folder…",
   "agents.menuLinkSap": "Use the {sid} project folder as root",
-  "agents.menuUnlinkSap": "Remove SAP link"
+  "agents.menuUnlinkSap": "Remove SAP link",
+  "board.menuVerify": "Verification commands…",
+  "board.verifyTitle": "Verification commands",
+  "board.verifyLabel": "Commands (one per line)",
+  "board.verifyHelp": "The task board closes a subtask only when these commands run in order and all succeed. They run hidden in the workspace root; only the text you type here is ever run.",
+  "board.verifyTooMany": "At most {max} commands.",
+  "board.verifyTooLong": "A command can be at most {max} characters.",
+  "board.verifyEmptyHint": "Leave it empty to approve subtasks by hand.",
+  "board.verifyCount": "{count} commands"
 };

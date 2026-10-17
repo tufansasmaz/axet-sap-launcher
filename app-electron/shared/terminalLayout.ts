@@ -56,6 +56,36 @@ export function readWorkspaceSap(raw: unknown): SavedWorkspaceSap | null {
   return label ? { uuid: record.uuid, label } : null;
 }
 
+// Görev panosunun doğrulama komutları (spec 2026-10-18 gorev-panosu §2).
+// Kullanıcının kendi yazdığı metin; liderden ya da ajandan gelmez. 300'ü
+// aşan satır KIRPILMIYOR, atılıyor: kırpılmış komut başka bir komuttur.
+export const VERIFY_MAX_COMMANDS = 5;
+export const VERIFY_COMMAND_MAX = 300;
+
+export function readVerifyCommands(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const item of raw as unknown[]) {
+    if (out.length >= VERIFY_MAX_COMMANDS) break;
+    if (typeof item !== "string") continue;
+    const line = item.trim();
+    if (!line || line.length > VERIFY_COMMAND_MAX || /[\r\n\u0000]/.test(line)) continue;
+    out.push(line);
+  }
+  return out;
+}
+
+/** Pano için alanın klasörü (kök, yoksa yedek) ve doğrulama komutları; alan yoksa null. */
+export function boardWorkspaceInfo(
+  workspaces: readonly SavedTerminalWorkspace[],
+  fallbackDir: string,
+  workspaceId: string
+): { cwd: string; verify: string[] } | null {
+  const workspace = workspaces.find((w) => w.id === workspaceId);
+  if (!workspace) return null;
+  return { cwd: workspace.root?.trim() || fallbackDir, verify: readVerifyCommands(workspace.verify) };
+}
+
 function isId(value: unknown): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= 100;
 }
@@ -165,6 +195,9 @@ export function normalizeTerminalWorkspaces(raw: unknown, nameFor: (n: number) =
     if (root) workspace.root = root;
     const sap = readWorkspaceSap(record.sap);
     if (sap) workspace.sap = sap;
+    const verify = readVerifyCommands(record.verify);
+    if (verify.length) workspace.verify = verify;
+    if (record.view === "board") workspace.view = "board";
     // Eski kayıtta bu iki anahtar yok; olduğu gibi bırakılıyor (ağacı
     // indirgeyici `fromLegacy` ile kuruyor). `normalizeLayout` eksik bölmeyi
     // ekliyor, fazlasını atıyor: hiçbir bölme kaybolmuyor.

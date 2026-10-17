@@ -10,7 +10,8 @@ import {
   clampPaneFontSize,
   cleanPaneTitle,
   firstFreeWorkspaceNumber,
-  isTerminalPaneColor
+  isTerminalPaneColor,
+  readVerifyCommands
 } from "../../app-electron/shared/terminalLayout";
 import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
 import {
@@ -176,6 +177,8 @@ function fromSaved(saved: SavedTerminalWorkspace): TerminalWorkspace {
     ...emptyWorkspace(saved.id, saved.name),
     ...(saved.root ? { root: saved.root } : {}),
     ...(saved.sap ? { sap: saved.sap } : {}),
+    ...(saved.verify?.length ? { verify: [...saved.verify] } : {}),
+    ...(saved.view === "board" ? { view: "board" as const } : {}),
     panes: saved.panes.map((p) => ({
       id: p.id,
       kind: p.kind,
@@ -429,6 +432,22 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       delete next.sap;
       return replaceWorkspace(state, { ...next, ...(root ? { root } : {}), ...(sap ? { sap } : {}) });
     }
+    case "setWorkspaceVerify": {
+      const workspace = state.workspaces.find((w) => w.id === action.id);
+      if (!workspace) return state;
+      const verify = readVerifyCommands(action.verify);
+      if (JSON.stringify(workspace.verify ?? []) === JSON.stringify(verify)) return state;
+      const next = { ...workspace };
+      delete next.verify;
+      return replaceWorkspace(state, verify.length ? { ...next, verify } : next);
+    }
+    case "setWorkspaceView": {
+      const workspace = state.workspaces.find((w) => w.id === action.id);
+      if (!workspace || (workspace.view ?? "panes") === action.view) return state;
+      const next = { ...workspace };
+      delete next.view;
+      return replaceWorkspace(state, action.view === "board" ? { ...next, view: "board" } : next);
+    }
   }
 }
 
@@ -485,7 +504,9 @@ export function toSaved(state: TerminalState): { workspaces: SavedTerminalWorksp
       layout: layoutOf(w),
       minimized: minimizedOf(w).map((m) => ({ paneId: m.paneId, home: m.home })),
       ...(w.root ? { root: w.root } : {}),
-      ...(w.sap ? { sap: w.sap } : {})
+      ...(w.sap ? { sap: w.sap } : {}),
+      ...(w.verify?.length ? { verify: w.verify } : {}),
+      ...(w.view === "board" ? { view: "board" as const } : {})
     })),
     activeId: state.activeWorkspaceId
   };

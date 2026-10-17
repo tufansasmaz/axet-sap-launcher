@@ -43,6 +43,10 @@ export interface TerminalCommands {
   setPaneColor: (paneId: string, color: TerminalPaneColor) => void;
   /** `null` varsayılana döndürür. */
   setPaneFontSize: (paneId: string, fontSize: number | null) => void;
+  /** Görev panosunun doğrulama komutları (spec 2026-10-18 gorev-panosu §2). */
+  setWorkspaceVerify: (id: string, verify: string[]) => void;
+  /** Ajanlar ekranında Bölmeler | Pano (spec 2026-10-18 gorev-panosu §8). */
+  setWorkspaceView: (id: string, view: "panes" | "board") => void;
 }
 
 export interface TerminalStoreValue {
