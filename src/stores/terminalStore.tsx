@@ -125,12 +125,12 @@ export function TerminalStoreProvider({
    * Bu kümede kalan her kimlik SPAWN_CONCURRENCY sınırına bir yuva olarak sayılır
    * (spec §5.1): createTerminal çabuk döner ama asıl axet-code başlangıcı gecikmeli.
    */
-  const bootingAxetPtyIds = useRef(new Set<string>());
+  const bootingAgentPtyIds = useRef(new Set<string>());
   /**
-   * bootingAxetPtyIds küme boyutunun durum kopyası; spawn etkisini yeniden
+   * bootingAgentPtyIds küme boyutunun durum kopyası; spawn etkisini yeniden
    * tetiklemek için gerekli (ref değişimi etki bağımlılık listesini uyandırmıyor).
    */
-  const [bootingAxetCount, setBootingAxetCount] = useState(0);
+  const [bootingAgentCount, setBootingAgentCount] = useState(0);
   /** `createTerminal` dönmeden gelen terminal:ready kimlikleri (earlyExits gibi). */
   const earlyReady = useRef(new Set<string>());
   /**
@@ -165,8 +165,8 @@ export function TerminalStoreProvider({
         dispatch({ type: "ptyExit", ptyId, code });
         // Çıkan pty hâlâ önyükleme/başlangıç aşamasındaysa temizle.
         startupPtyIds.current.delete(ptyId);
-        if (bootingAxetPtyIds.current.delete(ptyId)) {
-          setBootingAxetCount((c) => c - 1);
+        if (bootingAgentPtyIds.current.delete(ptyId)) {
+          setBootingAgentCount((c) => c - 1);
         }
         return;
       }
@@ -178,7 +178,7 @@ export function TerminalStoreProvider({
     });
     // axet-code ekranını çizince (ya da 8 s sonra) ana süreç bu sinyali gönderir.
     const offReady = window.api.onTerminalReady((ptyId) => {
-      if (!bootingAxetPtyIds.current.delete(ptyId)) {
+      if (!bootingAgentPtyIds.current.delete(ptyId)) {
         // Henüz sahiplenilmemiş kimlik: createTerminal dönünce yuva hiç tutulmasın.
         if (!ptyOwners.current.has(ptyId)) {
           if (earlyReady.current.size >= EARLY_EXIT_LIMIT) {
@@ -189,7 +189,7 @@ export function TerminalStoreProvider({
         }
         return;
       }
-      setBootingAxetCount((c) => c - 1);
+      setBootingAgentCount((c) => c - 1);
       // axet başlangıç kipi sona erdi; artık çıktı okunmadı işareti koyabilir.
       startupPtyIds.current.delete(ptyId);
     });
@@ -226,8 +226,8 @@ export function TerminalStoreProvider({
   // 2. Başlatma.
   useEffect(() => {
     if (!cleaned || !config) return;
-    // bootingAxetCount: "running" ama terminal:ready henüz gelmemiş axet sayısı.
-    for (const pane of nextToStart(state, SPAWN_CONCURRENCY, bootingAxetCount)) {
+    // bootingAgentCount: "running" ama terminal:ready henüz gelmemiş ajan sayısı.
+    for (const pane of nextToStart(state, SPAWN_CONCURRENCY, bootingAgentCount)) {
       if (spawnTokens.current.has(pane.id)) continue;
       const token = ++spawnSeq.current;
       spawnTokens.current.set(pane.id, token);
@@ -261,8 +261,8 @@ export function TerminalStoreProvider({
             startupPtyIds.current.add(ptyId);
             if (isAgent) {
               // ajan için terminal:ready gelene kadar yuva meşgul kalıyor (spec §5.1).
-              bootingAxetPtyIds.current.add(ptyId);
-              setBootingAxetCount((c) => c + 1);
+              bootingAgentPtyIds.current.add(ptyId);
+              setBootingAgentCount((c) => c + 1);
             } else {
               // cmd/powershell için STARTUP_GRACE_MS sonra başlangıç kipi biter.
               setTimeout(() => startupPtyIds.current.delete(ptyId), STARTUP_GRACE_MS);
@@ -282,7 +282,7 @@ export function TerminalStoreProvider({
           }
         );
     }
-  }, [state, cleaned, config, bootingAxetCount]);
+  }, [state, cleaned, config, bootingAgentCount]);
 
   // 4. Kalıcılık: yalnız düzen değişince.
   useEffect(() => {
@@ -327,8 +327,8 @@ export function TerminalStoreProvider({
       void window.api.disposeTerminal(ptyId).catch(() => {});
       // Kapatılan/yeniden başlatılan bölmenin başlangıç kipi ve önyükleme yuvası temizleniyor.
       startupPtyIds.current.delete(ptyId);
-      if (bootingAxetPtyIds.current.delete(ptyId)) {
-        setBootingAxetCount((c) => c - 1);
+      if (bootingAgentPtyIds.current.delete(ptyId)) {
+        setBootingAgentCount((c) => c - 1);
       }
     };
     return {
