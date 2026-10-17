@@ -42,13 +42,13 @@ export interface ShouldShowArgs {
 /**
  * Yenilikler penceresinin gösterilip gösterilmeyeceğini hesaplar.
  *
- * - seenVersion boşsa → ilk kurulum veya eski sürümden yükseltme →
- *   pencere GÖSTERILMEZ, yalnız mevcut sürüm config'e yazılır (bkz. App.tsx).
- * - seenVersion mevcut sürüme eşitse → zaten gösterilmiş → GÖSTERILMEZ.
- * - Farklıysa ve veri dosyasında bu sürüm için kayıt varsa → GÖSTERILIR.
+ * - seenVersion === appVersion → zaten gösterilmiş → GÖSTERILMEZ.
+ *   (defaultConfig artık app.getVersion() yazar; ilk kurulumda bu eşit olur.)
+ * - seenVersion farklıysa (boş, "0", eski sürüm) ve veri dosyasında bu
+ *   sürüm için kayıt varsa → GÖSTERILIR.
+ *   (Eski sürümden yükseltme = "" veya eksik alan = "0"; her ikisi de gösterilmeli.)
  */
 export function shouldShowWhatsNew({ seenVersion, appVersion }: ShouldShowArgs): boolean {
-  if (!seenVersion) return false;
   if (seenVersion === appVersion) return false;
   return WHATS_NEW_DATA.some((e) => e.version === appVersion);
 }

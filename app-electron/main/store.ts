@@ -132,8 +132,10 @@ function defaultConfig(): AppConfig {
     // Varsayılan: açık. Yeni kullanıcılar odak dışındayken cevap olduğunu
     // öğrenir; kapatmak isteyenler Ayarlar'dan kapayabilir.
     chatNotifications: true,
-    // Boş = ilk kurulum veya eski sürümden yükseltme → pencere gösterilmez.
-    whatsNewSeenVersion: ""
+    // İlk kurulum: mevcut sürümü yaz — "zaten görüldü" anlamına geliyor.
+    // Bu sayede fresh install'da yenilikler penceresi açılmaz.
+    // Testlerde getVersion mevcut olmayabilir; "" ile güvenli başlangıç.
+    whatsNewSeenVersion: typeof app.getVersion === "function" ? app.getVersion() : ""
   };
 }
 
@@ -243,11 +245,14 @@ export function loadConfig(): AppConfig {
         : [],
       // Göç: eski config'de alan yoksa → true (varsayılan açık).
       chatNotifications: parsed.chatNotifications === false ? false : fallback.chatNotifications,
-      // Boş dizgi: eski config'den yükseltme veya ilk kurulum.
+      // Alan eksikse veya string değilse → sentinel "0":
+      // "yükseltme, henüz gösterilmedi" — shouldShowWhatsNew bunu yakalar.
+      // Alan varsa (eski sürümlerde "" olabilir) doğrudan kullan; "" de
+      // appVersion'dan farklı olduğu için shouldShowWhatsNew onu gösterir.
       whatsNewSeenVersion:
         typeof parsed.whatsNewSeenVersion === "string"
           ? parsed.whatsNewSeenVersion
-          : fallback.whatsNewSeenVersion
+          : "0"
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

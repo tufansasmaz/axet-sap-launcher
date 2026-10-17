@@ -212,7 +212,7 @@ function showChatNotification(chatId: string, kind: Parameters<typeof notificati
     const lang = (cfg.language === "en" ? "en" : "tr") as "tr" | "en";
     const payload = notificationFor(kind, isFocusedAndVisible, enabled, getChatTitle(chatId), lang);
     if (!payload) return;
-    const n = new Notification({ title: payload.title, body: payload.body, silent: false });
+    const n = new Notification({ title: payload.title, body: payload.body, silent: false, icon: resolveIconPath() });
     _liveNotifications.add(n);
     const cleanup = () => _liveNotifications.delete(n);
     n.on("close", cleanup);

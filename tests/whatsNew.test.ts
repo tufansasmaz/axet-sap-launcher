@@ -18,17 +18,26 @@ describe("whatsNew veri bütünlüğü", () => {
 });
 
 describe("shouldShowWhatsNew", () => {
-  it("sürüm görülmediyse (seenVersion farklı) açılır", () => {
-    expect(shouldShowWhatsNew({ seenVersion: "1.8.0", appVersion: "1.8.3" })).toBe(true);
-  });
+  // CRITICAL #1: "" artık "gösterme" değil, "henüz gösterilmedi" sinyali.
+  // defaultConfig artık app.getVersion() yazıyor; "" eski versiyondan yükseltme.
 
-  it("sürüm görüldüyse açılmaz", () => {
+  it("ilk kurulum: seenVersion === appVersion → gösterilmez", () => {
+    // defaultConfig artık app.getVersion() yazar; fresh install seenVersion === appVersion.
     expect(shouldShowWhatsNew({ seenVersion: "1.8.3", appVersion: "1.8.3" })).toBe(false);
   });
 
-  it("seenVersion boşsa (ilk kurulum veya eski sürüm) açılmaz ama yaz sinyali verilir", () => {
-    const result = shouldShowWhatsNew({ seenVersion: "", appVersion: "1.8.3" });
-    expect(result).toBe(false);
+  it("yükseltme: seenVersion farklı ve veri kayıt varsa → gösterilir", () => {
+    expect(shouldShowWhatsNew({ seenVersion: "1.8.0", appVersion: "1.8.3" })).toBe(true);
+  });
+
+  it("yükseltme: seenVersion '' (eski sürümden yükseltme) → gösterilir", () => {
+    // Eski sürümde whatsNewSeenVersion yoktu → "" ile yüklendi; yeni veri varsa göster.
+    expect(shouldShowWhatsNew({ seenVersion: "", appVersion: "1.8.3" })).toBe(true);
+  });
+
+  it("yükseltme: seenVersion '0' (alan hiç yazılmamış) → gösterilir", () => {
+    // loadConfig field eksikse "0" sentinel yazar; yeni veri varsa göster.
+    expect(shouldShowWhatsNew({ seenVersion: "0", appVersion: "1.8.3" })).toBe(true);
   });
 
   it("veri dosyasında bu sürüm için kayıt yoksa açılmaz", () => {

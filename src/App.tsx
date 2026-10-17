@@ -108,6 +108,7 @@ export default function App() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [whatsNewOpen, setWhatsNewOpen] = useState(false);
   const [appVersion, setAppVersion] = useState("");
+  const [forceRoleModalOpen, setForceRoleModalOpen] = useState(false);
   const [connectionsOpen, setConnectionsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
   const [credentialsTarget, setCredentialsTarget] = useState<Selection | null>(null);
@@ -309,7 +310,7 @@ export default function App() {
       setAppVersion(v);
       // Config henüz yüklenmediyse; refresh() tamamlandıktan sonra
       // useEffect([config, appVersion]) aşağıda tekrar tetiklenir.
-    });
+    }).catch(() => { /* sürüm alınamazsa pencere gösterilmez — sessiz hata */ });
   }, []);
 
   // Ağaçtaki "Manuel Eklenen Sistemler" başlığı main'de üretiliyor
@@ -331,13 +332,11 @@ export default function App() {
   useEffect(() => {
     if (!config || !appVersion || whatsNewShownRef.current) return;
     whatsNewShownRef.current = true;
-    const seen = config.whatsNewSeenVersion;
-    if (shouldShowWhatsNew({ seenVersion: seen, appVersion })) {
+    if (shouldShowWhatsNew({ seenVersion: config.whatsNewSeenVersion, appVersion })) {
       setWhatsNewOpen(true);
-    }
-    // seenVersion boşsa veya farklı sürümdeyse, mevcut sürümü kaydet.
-    if (seen !== appVersion) {
-      void window.api.saveConfig({ whatsNewSeenVersion: appVersion });
+      // Sürüm kaydı KAPANIŞTA yazılıyor (handleWhatsNewClose);
+      // açılış anında kaydetmek crash/çıkış durumlarında kullanıcının
+      // pencereyi hiç görmeden "görüldü" sayılmasına yol açardı.
     }
   }, [config, appVersion]);
 
@@ -1124,11 +1123,10 @@ export default function App() {
               setSettingsOpen(true);
             }}
             onOpenRoleModal={() => {
-              // RoleModal zaten skillProfile===null olduğunda açılıyor;
-              // skillProfile dolu ama açmak istiyorsak zaten Ayarlar üzerinden.
-              // Burada sadece Ayarlar → general açmak yeterli.
-              setSettingsSection("general");
-              setSettingsOpen(true);
+              // Hazırlık kartından "Şimdi yap" → gerçek RoleModal'ı aç.
+              // roleGateOpen zaten skillProfile===null ise otomatik açık;
+              // dolu ise forceRoleModalOpen ile zorla açıyoruz.
+              setForceRoleModalOpen(true);
             }}
             onGoToLogon={() => setActivity("sapLauncher")}
           />
@@ -1207,7 +1205,12 @@ export default function App() {
 
         <SettingsModal
           open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
+          onClose={() => {
+            setSettingsOpen(false);
+            // Kapandıktan sonra sıfırla — aksi takdirde sonraki açılış
+            // önceki bölümde açılır (kullanıcı "Genel"e gelmeyi bekler).
+            setSettingsSection(undefined);
+          }}
           config={config}
           onSave={handleSaveConfig}
           onExportManualSystems={handleExportManualSystems}
@@ -1294,7 +1297,7 @@ export default function App() {
         />
 
         <RoleModal
-          open={roleGateOpen}
+          open={roleGateOpen || forceRoleModalOpen}
           tier={
             credentialsTarget ? (config?.systemTiers?.[credentialsTarget.service.uuid] ?? null) : null
           }
@@ -1303,7 +1306,10 @@ export default function App() {
               ? `${credentialsTarget.service.name}${credentialsTarget.service.systemId ? ` · ${credentialsTarget.service.systemId}` : ""}`
               : undefined
           }
-          onConfirm={handleRoleConfirm}
+          onConfirm={(profile, noticeAccepted) => {
+            setForceRoleModalOpen(false);
+            void handleRoleConfirm(profile, noticeAccepted);
+          }}
         />
 
         <UpdatePromptModal
@@ -1333,7 +1339,14 @@ export default function App() {
         {/* İş 2 — yenilikler penceresi */}
         <WhatsNewModal
           open={whatsNewOpen}
-          onClose={() => setWhatsNewOpen(false)}
+          onClose={() => {
+            setWhatsNewOpen(false);
+            // Kapanış anında sürümü yaz — crash/çıkış durumlarında kullanıcının
+            // pencereyi hiç okumadan "görüldü" sayılmaması için açılışta değil burada.
+            if (appVersion) {
+              void window.api.saveConfig({ whatsNewSeenVersion: appVersion });
+            }
+          }}
           appVersion={appVersion}
         />
 
