@@ -69,10 +69,11 @@ function scenario() {
   const db = fakeDb();
   const registry = createSessionRegistry();
   const clock = { ms: (T0 + 10) * 1000 };
-  const make = (agentId: string) => {
+  const make = (agentId: string, override: Partial<ReturnType<typeof port>> = {}) => {
     const onMatch = vi.fn();
     const generic = new GenericReader({ command: "axet-code -y", now: () => clock.ms });
-    const reader = new AxetReader({ agentId, cwd: "C:\\p", startedAtMs: T0 * 1000, port: port(db), registry, generic, now: () => clock.ms, onMatch });
+    const dbPort = { ...port(db), ...override };
+    const reader = new AxetReader({ agentId, cwd: "C:\\p", startedAtMs: T0 * 1000, port: dbPort, registry, generic, now: () => clock.ms, onMatch });
     return { reader, onMatch };
   };
   return { db, registry, clock, make };
@@ -212,16 +213,59 @@ describe("AxetReader — eşleme", () => {
 });
 
 describe("AxetReader — bağdan sonra", () => {
-  it("soru kutusuna yazılan cevap istem sayılmıyor, bağ bozulmuyor", () => {
+  it("soru kutusuna yazılan cevap soruyu kapatınca bağ bozulmuyor", () => {
+    // Serbest metin cevap tool_result olarak düşer; soru kapanınca satır düşer.
     const { db, clock, make } = scenario();
     const { reader } = make("A");
     reader.submitLine("Renk sor bana");
     db.rows.push(msg("S1", "user", [text("Renk sor bana")], T0 + 11), msg("S1", "assistant", [askCall("c1"), finish("tool_use")], T0 + 12));
     reader.poll();
     reader.submitLine("Turuncu olsun");
+    db.rows.push(msg("S1", "tool", [result("c1")], T0 + 13));
+    reader.poll();
     clock.ms += UNCONFIRMED_LIMIT_MS + 1_000;
     reader.poll();
     expect(reader.binding()).toBe("S1");
+    expect(reader.status().source).toBe("exact");
+  });
+
+  it("soru açıkken yazılan satır oturumda görünmez ve soru açık kalırsa 30 sn sonra bağ çözülüyor (Ctrl+N)", () => {
+    const { db, clock, make } = scenario();
+    const { reader, onMatch } = make("A");
+    reader.submitLine("Renk sor bana");
+    db.rows.push(msg("S1", "user", [text("Renk sor bana")], T0 + 11), msg("S1", "assistant", [askCall("c1"), finish("tool_use")], T0 + 12));
+    reader.poll();
+    expect(reader.status()).toMatchObject({ state: "asking", source: "exact" });
+    clock.ms = (T0 + 13) * 1000;
+    reader.submitLine("Yeni oturumda iş yap");
+    db.rows.push(msg("S2", "user", [text("Yeni oturumda iş yap")], T0 + 14));
+    clock.ms = (T0 + 13) * 1000 + UNCONFIRMED_LIMIT_MS - 1_000;
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    clock.ms = (T0 + 13) * 1000 + UNCONFIRMED_LIMIT_MS + 1_000;
+    reader.poll();
+    expect(reader.binding()).toBeNull();
+    expect(reader.status().source).toBe("estimated");
+    expect(onMatch).toHaveBeenCalledWith("belirsiz");
+    // Satır yeniden aranıyor: yeni oturuma bağlanıyor.
+    reader.poll();
+    expect(reader.binding()).toBe("S2");
+  });
+
+  it("soru açıkken yazılan serbest metin bağlı oturumda kullanıcı mesajı olarak görünürse bağ korunuyor", () => {
+    const { db, clock, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("Renk sor bana");
+    db.rows.push(msg("S1", "user", [text("Renk sor bana")], T0 + 11), msg("S1", "assistant", [askCall("c1"), finish("tool_use")], T0 + 12));
+    reader.poll();
+    clock.ms = (T0 + 13) * 1000;
+    reader.submitLine("Mavi olsun lütfen");
+    db.rows.push(msg("S1", "user", [text("Mavi olsun lütfen")], T0 + 14));
+    reader.poll();
+    clock.ms += UNCONFIRMED_LIMIT_MS + 1_000;
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    expect(reader.status().source).toBe("exact");
   });
 
   it("bağlı oturumda görünmeyen istem 30 sn sonra bağı çözüyor ve yeni oturuma bağlanıyor (Ctrl+N)", () => {

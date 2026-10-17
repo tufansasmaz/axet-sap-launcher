@@ -10,7 +10,9 @@
 //   - veritabanı yok/okunamıyor.
 // Bağdan sonra yazılan bir istem, ajan çalışmıyorken 30 sn içinde bağlı
 // oturumda görünmezse (kullanıcı Ctrl+N ile yeni oturuma geçmiş olabilir)
-// bağ çözülüyor ve istem yeniden aranıyor (plan sapması 1).
+// bağ çözülüyor ve istem yeniden aranıyor (plan sapması 1). Soru açıkken
+// yazılan satır da böyle: soru kapanırsa düşer, aynı soru 30 sn sonra hâlâ
+// açıksa ve satır oturumda görünmediyse bağ çözülür.
 import { ASK_USER_TOOL, parseAskUser } from "./axetToolEvents";
 import { matchKey, type AxetDbMessage, type AxetPart } from "./axetSessionDb";
 import type { AgentQuestion, AgentState, AgentStatus } from "../shared/agentTypes";
@@ -146,6 +148,13 @@ interface Needle {
   atMs: number;
   /** Veritabanı sorgusunun alt sınırı: istemin özgün yazılma anı. Hiç değişmez. */
   submitMs: number;
+  /**
+   * Satır bağlı oturumda soru açıkken yazıldıysa o sorunun kimliği. Soru
+   * kapanınca (cevap geldi) satır düşer; soru açık kalır ve satır oturumda
+   * görünmezse sayaç dondurulmadan işler, 30 sn sonra bağ çözülür (kullanıcı
+   * soru açıkken yeni oturuma geçmiş olabilir).
+   */
+  askCallId?: string;
 }
 
 export class AxetReader implements AgentReader {
@@ -170,11 +179,12 @@ export class AxetReader implements AgentReader {
     const key = matchKey(trimmed).slice(0, NEEDLE_MAX).trim();
     // TUI komutları (`/model`) ve çok kısa satırlar istem değil.
     if (trimmed.startsWith("/") || key.length < NEEDLE_MIN) return;
-    // Soru kutusuna yazılan serbest cevap yeni bir istem değil.
-    if (this.session && this.derived?.state === "asking") return;
     this.prompted = true;
     const nowMs = this.opts.now();
-    const needle = { key, atMs: nowMs, submitMs: nowMs };
+    // Soru açıkken yazılan satır büyük olasılıkla soruya serbest cevap; yine de
+    // atılmıyor (yeni oturuma geçilmiş olabilir), sorunun kimliğiyle saklanıyor.
+    const askCallId = this.session && this.derived?.state === "asking" ? this.derived.question?.callId : undefined;
+    const needle: Needle = { key, atMs: nowMs, submitMs: nowMs, ...(askCallId ? { askCallId } : {}) };
     if (this.session) this.unconfirmed = [...this.unconfirmed, needle].slice(-PENDING_CAP);
     else this.needles = [...this.needles, needle].slice(-PENDING_CAP);
     this.publishPending();
@@ -325,7 +335,10 @@ export class AxetReader implements AgentReader {
     if (this.unconfirmed.length === 0) return;
     const before = this.unconfirmed.length;
     const state = this.derived?.state;
+    const openCallId = state === "asking" ? this.derived?.question?.callId : undefined;
     this.unconfirmed = this.unconfirmed
+      // Soru açıkken yazılan satır: o soru kapandıysa cevap yerine ulaşmış, düşür.
+      .filter((n) => n.askCallId === undefined || n.askCallId === openCallId)
       .filter((n) => {
         // Yalnız istemin özgün yazılma anından (submitMs) sonraki kullanıcı
         // mesajlarıyla doğrula: eski oturumdaki aynı metin doğrulama sayılmasın.
@@ -338,9 +351,11 @@ export class AxetReader implements AgentReader {
       .map((n) => {
         // Çalışırken ya da asking'te (üst sınır dahilinde) sayaç dondurulur.
         // Asking üst sınırı aşılırsa dondurma sona erer, normal 30 sn devreye girer.
+        // Soru açıkken yazılan satırın sayacı dondurulmaz: aynı soru hâlâ açıksa
+        // satır ne soruya ne bu oturuma ulaşmış demek.
         const frozen =
-          state === "running" ||
-          (state === "asking" && now - n.submitMs < ASKING_FREEZE_MAX_MS);
+          n.askCallId === undefined &&
+          (state === "running" || (state === "asking" && now - n.submitMs < ASKING_FREEZE_MAX_MS));
         return frozen ? { ...n, atMs: now } : n;
       });
     const shouldUnbind = this.unconfirmed.some((n) => {
