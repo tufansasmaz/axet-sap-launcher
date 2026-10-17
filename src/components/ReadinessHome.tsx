@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { CheckCircle2, Circle, ClipboardList, Eye, Sparkles, Stethoscope } from "lucide-react";
 import type { AppConfig, DoctorReport, SkillProfile } from "../../app-electron/shared/types";
@@ -53,6 +53,7 @@ export default function ReadinessHome({
 }: Props) {
   const t = useT();
   // DoctorSection'dan gelen teşhis sonucu — ReadinessCard için de kullanılıyor.
+  // null = henüz bilinmiyor (kart gösterilmez); DoctorSection rapor gelince set eder.
   const [localDoctorReport, setLocalDoctorReport] = useState<DoctorReport | null>(null);
 
   const handleDoctorReport = (report: DoctorReport | null) => {
@@ -60,17 +61,36 @@ export default function ReadinessHome({
     onDoctorReport?.(report);
   };
 
-  // Hazırlık adımlarını hesapla
+  // Adım 2: proje klasörü gerçekten var mı? IPC ile doğrula (#3).
+  // listDir başarıyla dönerse → true, hata verirse (klasör yok) → false.
+  // null = henüz bilinmiyor (kontrol sürüyor).
+  const projectsBaseDir = (config?.projectsBaseDir ?? "").trim();
+  const [projectsDirExists, setProjectsDirExists] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (!projectsBaseDir) { setProjectsDirExists(false); return; }
+    let cancelled = false;
+    window.api.listDir(projectsBaseDir).then(() => {
+      if (!cancelled) setProjectsDirExists(true);
+    }).catch(() => {
+      if (!cancelled) setProjectsDirExists(false);
+    });
+    return () => { cancelled = true; };
+  }, [projectsBaseDir]);
+
+  // Hazırlık adımlarını hesapla — projectsDirExists null ise (kontrol sürüyor)
+  // adım 2 "bilinmiyor" (false gibi davranır) ve kart flash atmaz.
   const readinessSteps = computeReadinessSteps({
     language: config?.language ?? null,
     skillProfile: config?.skillProfile ?? skillProfile,
-    projectsBaseDir: config?.projectsBaseDir ?? "",
-    // Fiziksel varlık kontrolü renderer'dan yapılamaz; non-empty yeterli.
-    projectsDirExists: (config?.projectsBaseDir ?? "").trim().length > 0,
+    projectsBaseDir,
+    projectsDirExists: projectsDirExists ?? false,
     doctorReport: localDoctorReport,
     everConnected
   });
 
+  // Kart: doktor raporu gelene kadar gösterme (#4).
+  // null = henüz ölçülmedi → flash'ı önle.
+  const doctorReady = localDoctorReport !== null;
   const allDone = readinessSteps.every((s) => s.done);
 
   return (
@@ -113,8 +133,8 @@ export default function ReadinessHome({
           `items-start`: kartlar satır boyuna GERİLMİYOR — gerildiklerinde
           içeriği kısa olan kartın altında sebepsiz boşluk kalıyordu. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Hazırlık kartı: yalnızca eksik adım varsa görünür. */}
-        {!allDone && onOpenSettings && (
+        {/* Hazırlık kartı: doktor raporu gelince ve eksik adım varsa görünür (#4). */}
+        {doctorReady && !allDone && onOpenSettings && (
           <div className="px-4 pt-4">
             <ReadinessCard
               steps={readinessSteps}
