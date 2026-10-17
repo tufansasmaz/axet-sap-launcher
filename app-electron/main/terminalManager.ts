@@ -25,6 +25,34 @@ interface TerminalSession {
 
 const sessions = new Map<string, TerminalSession>();
 
+/**
+ * Ajan izleyicisinin çıktı ve çıkış dinleyicisi (spec 2026-10-17 ajan-alani
+ * §6). Tek dinleyici. Dinleyici hata fırlatsa da terminal akışı sürüyor:
+ * izleyici bozulsa bile kullanıcının terminali çalışmaya devam etmeli.
+ * Girdi burada değil: `terminal:write` IPC'sinde dinleniyor (index.ts), çünkü
+ * izleyicinin kendi yazdığı tuşlar (Kararlar cevabı) kullanıcı girdisi sayılmamalı.
+ */
+export interface TerminalTap {
+  onOutput(id: string, data: string): void;
+  onExit(id: string): void;
+}
+
+let tap: TerminalTap | null = null;
+
+export function setTerminalTap(next: TerminalTap | null): void {
+  tap = next;
+}
+
+function tell(fn: (current: TerminalTap) => void): void {
+  const current = tap;
+  if (!current) return;
+  try {
+    fn(current);
+  } catch {
+    // İzleyici hatası terminali düşürmesin.
+  }
+}
+
 // Bir terminale "axet-code -y" gibi bir başlangıç komutu yazıldığında,
 // kabuk açılışı + komutun kendisinin yazılması + axet.code'un kendi
 // boot süreci arada görünürse kullanıcı "terminalde önce çirkin bir kabuk
@@ -148,6 +176,7 @@ export function createTerminal(
     if (!session.ready && READY_PATTERNS.some((p) => p.test(data))) {
       markReady(session);
     }
+    tell((t) => t.onOutput(id, data));
     if (!window.isDestroyed()) {
       window.webContents.send("terminal:data", id, data);
     }
@@ -155,6 +184,7 @@ export function createTerminal(
 
   proc.onExit(({ exitCode }: { exitCode: number }) => {
     markReady(session);
+    tell((t) => t.onExit(id));
     if (!window.isDestroyed()) {
       window.webContents.send("terminal:exit", id, exitCode);
     }
@@ -177,8 +207,16 @@ export function getTerminalBuffer(id: string): string {
   return sessions.get(id)?.buffer.join("") ?? "";
 }
 
-export function writeTerminal(id: string, data: string): void {
-  sessions.get(id)?.proc.write(data);
+export function writeTerminal(id: string, data: string): boolean {
+  const session = sessions.get(id);
+  if (!session) return false;
+  try {
+    session.proc.write(data);
+    return true;
+  } catch {
+    // Süreç az önce kapanmış olabilir.
+    return false;
+  }
 }
 
 // Kayma teşhisi (spec 2026-10-14 §5): kabuğa bildirilen her GERÇEK boyut
