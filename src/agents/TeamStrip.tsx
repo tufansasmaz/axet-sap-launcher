@@ -100,8 +100,8 @@ function AgentCard({
         } ${view.restartable ? "pr-8" : ""}`}
       >
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="min-w-0 truncate text-xs font-medium text-slate-200">{agentName(pane, t)}</span>
-          {pane.agent?.role && <span className="min-w-0 truncate text-2xs text-slate-500">{pane.agent.role}</span>}
+          <span title={agentName(pane, t)} className="min-w-0 truncate text-xs font-medium text-slate-200">{agentName(pane, t)}</span>
+          {pane.agent?.role && <span title={pane.agent.role} className="min-w-0 truncate text-2xs text-slate-500">{pane.agent.role}</span>}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 text-2xs">
           <span data-tone={view.tone} className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[view.tone]}`} />

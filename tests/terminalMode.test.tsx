@@ -211,6 +211,17 @@ describe("TerminalMode", () => {
     expect(screen.getByTestId("xterm-a-t1")).toBeTruthy();
   });
 
+  it("kartta kırpılan ad ve rol span'larında tam metin title'ı var", () => {
+    setup(
+      { workspaces: [agentWs([agentPane("x", { title: "Uzun Ajan Adı", agent: { engine: "claude", role: "Uzun Rol Metni", roleKind: "custom" } })])], activeWorkspaceId: "a" },
+      "C:\\a"
+    );
+    const nameSpan = card("x").querySelector("span.truncate.font-medium") as HTMLElement;
+    const roleSpan = card("x").querySelector("span.truncate.text-slate-500") as HTMLElement;
+    expect(nameSpan.getAttribute("title")).toBe("Uzun Ajan Adı");
+    expect(roleSpan.getAttribute("title")).toBe("Uzun Rol Metni");
+  });
+
   it("ekip şeridi: kartta ad, rol, motor ve durum; kabuk bölmesinin kartı yok; tıklayınca bölme öne geliyor", () => {
     const asking: AgentStatus = {
       state: "asking",
