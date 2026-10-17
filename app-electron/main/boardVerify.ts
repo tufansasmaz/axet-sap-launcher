@@ -122,7 +122,7 @@ export function runVerification(commands: readonly string[], cwd: string, deps: 
       }
     } catch {
       // beklenmedik: kanıt kırmızı
-      return { kind: "commands", commands: results, ok: false, at: Date.now() };
+      return { kind: "commands", commands: results, ok: false, at: deps.now() };
     }
     const ok =
       !cancelled &&

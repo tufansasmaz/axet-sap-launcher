@@ -133,7 +133,9 @@ describe("tailOf", () => {
   });
 
   it("8 KB'ı aşmıyor, sonu korunuyor, baştaki kırık karakter atılıyor", () => {
-    const long = "ğ".repeat(10_000) + "\nSON";
+    // "€" 3 bayttır (E2 82 AC); 3000 × 3 = 9000 bayt > 8192. Kesim noktası
+    // 9004 − 8192 = 812 = 270 × 3 + 2 → üçüncü bayttan kesiyor, kırık karakter üretiyor.
+    const long = "\u20ac".repeat(3_000) + "\nSON";
     const tail = tailOf(long);
     expect(Buffer.byteLength(tail, "utf-8")).toBeLessThanOrEqual(8192);
     expect(tail.endsWith("SON")).toBe(true);
