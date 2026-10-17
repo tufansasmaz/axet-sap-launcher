@@ -53,6 +53,7 @@ const draft = (id: string, over: Partial<SubtaskDraft> = {}): SubtaskDraft => ({
 function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResult> } = {}) {
   const clock = { ms: 1_000 };
   let seq = 0;
+  let writeCallCount = 0;
   const written = new Map<string, BoardTask[]>();
   const removed: string[] = [];
   const emitted: Board[] = [];
@@ -60,7 +61,13 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
   const logs: [string, LogFields][] = [];
   const prompts: [string, string][] = [];
   const settlers: ((outcome: "sent" | "aborted") => void)[] = [];
-  const state = { agents: [] as AgentPresence[], promptResult: "ok" as AgentPromptResult, agentsThrow: false };
+  const state = {
+    agents: [] as AgentPresence[],
+    promptResult: "ok" as AgentPromptResult,
+    agentsThrow: false,
+    /** true ise sendPrompt içinde onSettled("aborted") eşzamanlı çağrılır. */
+    promptAbortedSync: false
+  };
   const leads: { cwd: string; prompt: string; resolve: (o: LeadOutcome) => void; cancel: ReturnType<typeof vi.fn> }[] = [];
   const verifies: { commands: readonly string[]; cwd: string; resolve: (p: Proof) => void; cancel: ReturnType<typeof vi.fn> }[] = [];
   const info = { cwd: "C:\\kok", verify: opts.verify ?? ["npm test"] };
@@ -70,6 +77,7 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
     store: {
       read: (id) => opts.files?.[id] ?? { tasks: [] },
       write: (id, tasks) => {
+        writeCallCount++;
         written.set(id, JSON.parse(JSON.stringify(tasks)));
         return true;
       },
@@ -85,7 +93,13 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
     sendPrompt: (paneId, text, onSettled) => {
       if (state.promptResult === "ok") {
         prompts.push([paneId, text]);
-        if (onSettled) settlers.push(onSettled);
+        if (onSettled) {
+          if (state.promptAbortedSync) {
+            onSettled("aborted");
+          } else {
+            settlers.push(onSettled);
+          }
+        }
       }
       return state.promptResult;
     },
@@ -116,7 +130,8 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
   const task = (id = "id1") => board().tasks.find((t) => t.id === id)!;
   const save = (subtasks: SubtaskDraft[]) =>
     manager.command("w1", { type: "saveDraft", taskId: "id1", title: "İade akışı", goal: "Ödeme modülüne iade ekle", subtasks });
-  return { clock, manager, written, removed, emitted, notified, logs, prompts, settlers, state, leads, verifies, info, board, task, save };
+  const getWriteCount = () => writeCallCount;
+  return { clock, manager, written, removed, emitted, notified, logs, prompts, settlers, state, leads, verifies, info, board, task, save, getWriteCount };
 }
 
 type H = ReturnType<typeof harness>;
@@ -157,6 +172,15 @@ describe("görev, taslak, onay", () => {
     h.save([draft("a")]);
     h.manager.command("w1", { type: "approve", taskId: "id1" });
     expect(h.save([draft("a")])).toEqual({ ok: false, reason: "badState" });
+  });
+
+  it("saveDraft boş başlık reddediliyor", () => {
+    const h = harness();
+    h.manager.command("w1", { type: "createTask", title: "İade akışı", goal: "" });
+    expect(h.manager.command("w1", { type: "saveDraft", taskId: "id1", title: "   ", goal: "", subtasks: [draft("a")] })).toEqual({
+      ok: false,
+      reason: "invalid"
+    });
   });
 
   it("pano başına 50 görev", () => {
@@ -320,11 +344,19 @@ describe("dağıtım", () => {
     expect(h.prompts).toEqual([]);
   });
 
-  it("izleyici hatası panoyu düşürmüyor", () => {
+  it("izleyici fırlatırsa o turda reconcile atlanır, running alt görevler agentClosed olmaz ve diske yazılmaz", () => {
     const h = harness();
-    approvedTask(h);
+    approvedTask(h, [draft("a"), draft("b")]);
+    h.state.agents = [presence("p1", exact("idle")), presence("p2", exact("idle"))];
+    h.manager.tick(); // a → running(p1), b → running(p2)
+    expect(h.task().subtasks[0]).toMatchObject({ state: "running", paneId: "p1" });
+    expect(h.task().subtasks[1]).toMatchObject({ state: "running", paneId: "p2" });
+    const countBefore = h.getWriteCount();
     h.state.agentsThrow = true;
-    expect(() => h.manager.tick()).not.toThrow();
+    h.manager.tick(); // agents() fırlatıyor → reconcile atlanmalı
+    expect(h.task().subtasks[0]).toMatchObject({ state: "running", paneId: "p1" });
+    expect(h.task().subtasks[1]).toMatchObject({ state: "running", paneId: "p2" });
+    expect(h.getWriteCount()).toBe(countBefore);
   });
 
   it("promptAborted (oto): Enter gelmeyince alt görev ready + held + promptAborted", () => {
@@ -338,25 +370,42 @@ describe("dağıtım", () => {
     expect(h.task().subtasks[0]).toMatchObject({ state: "ready", held: true, paneId: null, note: "promptAborted" });
   });
 
+  it("promptAborted eşzamanlı (oto): sendPrompt anında aborted bildirirse alt görev ready+held+promptAborted", () => {
+    const h = harness();
+    approvedTask(h);
+    h.state.agents = [presence("p1", exact("idle"))];
+    h.state.promptAbortedSync = true;
+    h.manager.tick();
+    expect(h.task().subtasks[0]).toMatchObject({ state: "ready", held: true, paneId: null, note: "promptAborted" });
+  });
+
   it("promptAborted (elle): Ajana ver sonrası Enter gelmeyince ready + held + promptAborted", () => {
     const h = harness();
-    approvedTask(h, [draft("a"), draft("b")]);
-    h.state.agents = [presence("p1", exact("idle")), presence("p2", exact("idle"))];
-    h.manager.tick(); // "a"yı p1'e, "b"yi p2'ye gönderir
-    // Şimdi "b"yi elle p2'ye tekrar vermek badState (zaten running)
-    // Onun yerine yeni bir görev deneyelim
-    // Daha basit: tek alt görevli görev oluştur, elle ver
-    const h2 = harness();
-    approvedTask(h2, [draft("x"), draft("y")]);
-    h2.state.agents = [presence("p1", exact("idle"))]; // yalnız p1
-    h2.manager.tick(); // "x" p1'e gönderildi (p1 tek agent, "y" kalmada)
-    // "y" ready ama p1 meşgul; p2 ekle
-    h2.state.agents = [presence("p1", exact("running")), presence("p2", exact("idle"))];
-    expect(h2.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "y", paneId: "p2" })).toEqual({ ok: true, taskId: "id1" });
-    expect(h2.task("id1").subtasks.find((s) => s.id === "y")!.state).toBe("running");
-    const settler = h2.settlers.at(-1)!;
+    approvedTask(h, [draft("x"), draft("y")]);
+    h.state.agents = [presence("p1", exact("idle"))]; // yalnız p1
+    h.manager.tick(); // "x" p1'e gönderildi
+    h.state.agents = [presence("p1", exact("running")), presence("p2", exact("idle"))];
+    expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "y", paneId: "p2" })).toEqual({ ok: true, taskId: "id1" });
+    expect(h.task("id1").subtasks.find((s) => s.id === "y")!.state).toBe("running");
+    const settler = h.settlers.at(-1)!;
     settler("aborted");
-    expect(h2.task("id1").subtasks.find((s) => s.id === "y")).toMatchObject({ state: "ready", held: true, paneId: null, note: "promptAborted" });
+    expect(h.task("id1").subtasks.find((s) => s.id === "y")).toMatchObject({ state: "ready", held: true, paneId: null, note: "promptAborted" });
+  });
+
+  it("promptAborted eşzamanlı (elle): sendPrompt anında aborted bildirirse alt görev ready+held+promptAborted", () => {
+    const h = harness();
+    approvedTask(h, [draft("x"), draft("y")]);
+    h.state.agents = [presence("p1", exact("idle")), presence("p2", exact("idle"))];
+    h.manager.tick(); // "x" p1'e, "y" p2'ye oto
+    // Elle atama için başka bir harness kuralım
+    const h2 = harness();
+    approvedTask(h2, [draft("a"), draft("b")]);
+    h2.state.agents = [presence("p1", exact("idle"))];
+    h2.manager.tick(); // "a" p1'e
+    h2.state.agents = [presence("p1", exact("running")), presence("p2", exact("idle"))];
+    h2.state.promptAbortedSync = true;
+    expect(h2.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p2" })).toEqual({ ok: true, taskId: "id1" });
+    expect(h2.task("id1").subtasks.find((s) => s.id === "b")).toMatchObject({ state: "ready", held: true, paneId: null, note: "promptAborted" });
   });
 
   it("promptAborted (geri): Düzeltmeye geri gönder sonrası Enter gelmeyince ready + held + promptAborted", async () => {
@@ -372,6 +421,27 @@ describe("dağıtım", () => {
     const settler = h.settlers.at(-1)!;
     settler("aborted");
     expect(h.task().subtasks[0]).toMatchObject({ state: "ready", held: true, paneId: null, note: "promptAborted" });
+  });
+
+  it("promptAborted: aynı bölmeye yeni dispatchedAt ile yeniden gönderimde eski settler yok sayılıyor", () => {
+    const h = harness();
+    approvedTask(h);
+    h.state.agents = [presence("p1", exact("idle"))];
+    h.manager.tick(); // "a" → running(p1), dispatchedAt: 1_000
+    const oldSettler = h.settlers[0];
+    // Ajan kapandı → ready + held
+    h.state.agents = [];
+    h.manager.tick();
+    expect(h.task().subtasks[0]).toMatchObject({ state: "ready", held: true });
+    // Yeniden sıraya al; 2000'de p1 ile tekrar dağıt
+    h.clock.ms = 2_000;
+    h.manager.command("w1", { type: "requeue", taskId: "id1", subtaskId: "a" });
+    h.state.agents = [presence("p1", exact("idle"))];
+    h.manager.tick(); // "a" → running(p1), dispatchedAt: 2_000
+    expect(h.task().subtasks[0]).toMatchObject({ state: "running", paneId: "p1", dispatchedAt: 2_000 });
+    // Eski settler: dispatchedAt 1000 ≠ 2000 → yok say
+    oldSettler("aborted");
+    expect(h.task().subtasks[0].state).toBe("running");
   });
 
   it("promptAborted: alt görev artık running değilse eski onSettled yok sayılıyor", () => {
@@ -499,6 +569,16 @@ describe("kimlik, okunamayan pano, uyarı, budama", () => {
     expect(h.removed).toEqual([]);
     h.manager.prune(["w1"]);
     expect(h.removed).toEqual(["w2"]);
+  });
+
+  it("dispose sonrası tick ve command no-op", () => {
+    const h = harness();
+    approvedTask(h);
+    h.state.agents = [presence("p1", exact("idle"))];
+    h.manager.dispose();
+    h.manager.tick();
+    expect(h.prompts).toEqual([]);
+    expect(h.manager.command("w1", { type: "createTask", title: "X", goal: "" })).toEqual({ ok: false, reason: "writeFailed" });
   });
 
   it("diskten yüklenen onaylı görev 'draft' değil 'running' durumunda görünüyor", () => {

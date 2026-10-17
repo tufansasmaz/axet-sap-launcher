@@ -106,6 +106,10 @@ const LEAD_LOG: Record<LeadErrorCode | "ok", string> = {
   cycle: "gecersiz"
 };
 
+/** leadRaw ve leadDetail saklama sınırları (savunma derinliği). */
+const LEAD_RAW_MAX = 8192;
+const LEAD_DETAIL_MAX = 500;
+
 /** Doğrula / Onayla basılabilen durumlar ("her zaman da basılabilir", spec §6). */
 const CHECKABLE: ReadonlySet<SubtaskState> = new Set<SubtaskState>(["running", "asking", "verifying", "failed"]);
 
@@ -127,6 +131,8 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
   const planning = new Map<string, { workspaceId: string; cancel: () => void }>();
   /** Alt görev kimliği → çalışan doğrulama. */
   const verifying = new Map<string, { workspaceId: string; cancel: () => void }>();
+  /** dispose() çağrıldıktan sonra tick ve command no-op olur. */
+  let disposed = false;
 
   function attempt<T>(fn: () => T, fallback: T): T {
     try {
@@ -137,7 +143,19 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
   }
 
   const log = (tag: string, fields: LogFields) => attempt(() => deps.log(tag, fields), undefined);
-  const presenceList = (): AgentPresence[] => attempt(() => deps.agents(), [] as AgentPresence[]);
+
+  /**
+   * Ajan listesini döndürür. deps.agents() hata fırlatırsa null döner; null
+   * gelince o turda reconcile atlanır — çalışan alt görevler yanlışlıkla
+   * "ajan kapandı" sayılmaz.
+   */
+  function presenceList(): AgentPresence[] | null {
+    try {
+      return deps.agents();
+    } catch {
+      return null;
+    }
+  }
 
   function load(workspaceId: string): Entry | null {
     if (!isBoardId(workspaceId)) return null;
@@ -178,7 +196,9 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
   /** Yeni listeyi yerleştirir: değiştiyse diske yazar, bildirim kararını verir, yayınlar. */
   function commit(workspaceId: string, entry: Entry, next: BoardTask[], force = false): void {
     const prev = entry.tasks;
-    if (!force && JSON.stringify(prev) === JSON.stringify(next)) return;
+    // Referans karşılaştırması: applyAgentStatuses/advanceDependencies değişmeyenlerde
+    // aynı referansı koruduğu için çoğu turda stringify'dan kaçınılır.
+    if (!force && prev.length === next.length && prev.every((t, i) => t === next[i])) return;
     entry.tasks = next;
     if (!entry.unreadable) attempt(() => deps.store.write(workspaceId, next), false);
     notifyTransitions(workspaceId, prev, next);
@@ -262,16 +282,38 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       const sub = task?.subtasks.find((s) => s.id === d.subtaskId);
       if (!task || !sub) continue;
       const now = deps.now();
+      // Eşzamanlı "aborted" yarışı: onSettled sendPrompt dönmeden önce
+      // çağrılabilir; o anda alt görev henüz running değil. Bayrağı kaydedip
+      // atamadan hemen sonra uyguluyoruz.
+      let abortedSync = false;
       const result = attempt(
         () =>
           deps.sendPrompt(d.paneId, toPromptLine(sub.prompt), (outcome) => {
-            if (outcome === "aborted") onPromptAborted(workspaceId, d.taskId, d.subtaskId, d.paneId, now);
+            if (outcome === "aborted") {
+              if (tasks.find((t) => t.id === d.taskId)?.subtasks.find((s) => s.id === d.subtaskId)?.state === "running") {
+                onPromptAborted(workspaceId, d.taskId, d.subtaskId, d.paneId, now);
+              } else {
+                abortedSync = true;
+              }
+            }
           }),
         "writeFailed" as AgentPromptResult
       );
       if (result !== "ok") continue;
       const next = mapSubtask(task, sub.id, (s) => assignSubtask(s, d.paneId, now));
       if (next) tasks = replaceTask(tasks, next);
+      if (abortedSync) {
+        // assignSubtask çalıştı; şimdi geri alıyoruz.
+        const abortNext = mapSubtask(tasks.find((t) => t.id === d.taskId)!, d.subtaskId, (s): Subtask => ({
+          ...s,
+          state: "ready",
+          paneId: null,
+          held: true,
+          note: "promptAborted" as const,
+          sawBusy: false
+        }));
+        if (abortNext) tasks = replaceTask(tasks, abortNext);
+      }
       log("pano.dagitim", { altGorev: sub.id, bolme: d.paneId, yol: "oto" });
     }
     commit(workspaceId, entry, tasks);
@@ -279,7 +321,9 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
   }
 
   function reconcileNow(workspaceId: string, entry: Entry): void {
-    attempt(() => reconcile(workspaceId, entry, presenceList()), undefined);
+    const presence = presenceList();
+    if (presence === null) return;
+    attempt(() => reconcile(workspaceId, entry, presence), undefined);
   }
 
   function clearLead(task: BoardTask): BoardTask {
@@ -327,8 +371,8 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       if (outcome.changedFiles) next.leadChangedFiles = true;
     } else {
       next = { ...clearLead(task), leadError: outcome.error };
-      if (outcome.detail) next.leadDetail = outcome.detail;
-      if (outcome.raw) next.leadRaw = outcome.raw;
+      if (outcome.detail) next.leadDetail = outcome.detail.slice(0, LEAD_DETAIL_MAX);
+      if (outcome.raw) next.leadRaw = outcome.raw.slice(0, LEAD_RAW_MAX);
       if (outcome.changedFiles) next.leadChangedFiles = true;
     }
     commit(workspaceId, entry, replaceTask(entry.tasks, withDerivedState(next)), true);
@@ -337,7 +381,8 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
   function startLead(workspaceId: string, entry: Entry, task: BoardTask): BoardCommandResult {
     const info = attempt(() => deps.workspace(workspaceId), null);
     if (!info) return fail("noBoard");
-    const roles = presenceList()
+    const presence = presenceList() ?? [];
+    const roles = presence
       .filter((p) => p.reg.workspaceId === workspaceId)
       .map((p) => p.reg.role ?? "");
     const prompt = buildLeadPrompt({ title: task.title, goal: task.goal, roles });
@@ -373,10 +418,21 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
   ): BoardCommandResult {
     const now = deps.now();
     const taskId = task.id;
+    // Eşzamanlı "aborted" yarışı: onSettled sendPrompt dönmeden önce
+    // çağrılabilir; o anda alt görev henüz running değil. Bayrağı kaydedip
+    // atamadan hemen sonra uyguluyoruz.
+    let abortedSync = false;
     const result = attempt(
       () =>
         deps.sendPrompt(paneId, text, (outcome) => {
-          if (outcome === "aborted") onPromptAborted(workspaceId, taskId, subtaskId, paneId, now);
+          if (outcome === "aborted") {
+            const currentSub = entry.tasks.find((t) => t.id === taskId)?.subtasks.find((s) => s.id === subtaskId);
+            if (currentSub?.state === "running") {
+              onPromptAborted(workspaceId, taskId, subtaskId, paneId, now);
+            } else {
+              abortedSync = true;
+            }
+          }
         }),
       "writeFailed" as AgentPromptResult
     );
@@ -386,14 +442,33 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       if (note) assigned.note = note;
       return assigned;
     });
-    if (next) commit(workspaceId, entry, replaceTask(entry.tasks, next));
+    if (next) {
+      commit(workspaceId, entry, replaceTask(entry.tasks, next));
+      if (abortedSync) {
+        // Atama yapıldı; şimdi geri alıyoruz.
+        const latestTask = entry.tasks.find((t) => t.id === taskId);
+        if (latestTask) {
+          const abortNext = mapSubtask(latestTask, subtaskId, (s): Subtask => ({
+            ...s,
+            state: "ready",
+            paneId: null,
+            held: true,
+            note: "promptAborted" as const,
+            sawBusy: false
+          }));
+          if (abortNext) commit(workspaceId, entry, replaceTask(entry.tasks, abortNext));
+        }
+      }
+    }
     log("pano.dagitim", { altGorev: subtaskId, bolme: paneId, yol });
     return { ok: true, taskId: task.id };
   }
 
   /** Elle atama ve geri gönderme için ajan: bu alanda, kayıtlı, 2–5 (spec §5; 6 atlanıyor). */
   function manualAgent(workspaceId: string, entry: Entry, paneId: string): BoardFailure | null {
-    const agent = presenceList()
+    const presence = presenceList();
+    if (presence === null) return "notEligible";
+    const agent = presence
       .map(toInfo)
       .find((a) => a.paneId === paneId);
     if (!agent || agent.workspaceId !== workspaceId) return "notEligible";
@@ -430,6 +505,8 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
         return startLead(workspaceId, entry, task);
       case "saveDraft": {
         if (task.approvedAt !== undefined || planning.has(task.id)) return fail("badState");
+        const titleTrimmed = cmd.title.trim().slice(0, TASK_TITLE_MAX);
+        if (!titleTrimmed) return fail("invalid");
         const graph = graphError(cmd.subtasks);
         if (graph) return fail(graph);
         const old = new Map(task.subtasks.map((s) => [s.id, s]));
@@ -443,7 +520,7 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
             dependsOn: [...new Set(d.dependsOn)]
           })
         );
-        const next: BoardTask = { ...task, title: cmd.title.slice(0, TASK_TITLE_MAX), goal: cmd.goal.slice(0, TASK_GOAL_MAX), subtasks };
+        const next: BoardTask = { ...task, title: titleTrimmed, goal: cmd.goal.slice(0, TASK_GOAL_MAX), subtasks };
         delete next.leadError;
         delete next.leadDetail;
         delete next.leadRaw;
@@ -536,6 +613,7 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       return entry ? snapshot(workspaceId, entry) : null;
     },
     command(workspaceId, cmd) {
+      if (disposed) return fail("writeFailed");
       try {
         const entry = load(workspaceId);
         if (!entry) return fail("noBoard");
@@ -546,7 +624,9 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       }
     },
     tick() {
+      if (disposed) return;
       const presence = presenceList();
+      if (presence === null) return;
       for (const [workspaceId, entry] of boards) attempt(() => reconcile(workspaceId, entry, presence), undefined);
     },
     prune(keep) {
@@ -570,6 +650,7 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       }
     },
     dispose() {
+      disposed = true;
       for (const p of planning.values()) attempt(() => p.cancel(), undefined);
       for (const v of verifying.values()) attempt(() => v.cancel(), undefined);
       planning.clear();
