@@ -70,6 +70,8 @@ export function createSessionRegistry(): SessionRegistry {
 
 export const PROMPT_MATCH_WINDOW_MS = 60_000;
 export const UNCONFIRMED_LIMIT_MS = 30_000;
+/** Asking dondurmasının üst sınırı: bu süreden uzun soru açık kalırsa bağ çözülür. */
+export const ASKING_FREEZE_MAX_MS = 5 * 60_000;
 export const NEEDLE_MAX = 80;
 export const NEEDLE_MIN = 4;
 const MESSAGE_CAP = 400;
@@ -322,22 +324,31 @@ export class AxetReader implements AgentReader {
   private confirm(ordered: AxetDbMessage[], now: number): void {
     if (this.unconfirmed.length === 0) return;
     const before = this.unconfirmed.length;
-    // Ajan çalışırken ya da soru beklenirken TUI istemi sıraya alıyor olabilir:
-    // süre o sırada işlemiyor (asking: Kararlar'daki soru düşmesin).
-    const frozen = this.derived?.state === "running" || this.derived?.state === "asking";
+    const state = this.derived?.state;
     this.unconfirmed = this.unconfirmed
       .filter((n) => {
         // Yalnız istemin özgün yazılma anından (submitMs) sonraki kullanıcı
-        // mesajlarıyla doğrula: eski oturumdaki aynı metin (Ctrl+N öncesi)
-        // doğrulama sayılmasın.
+        // mesajlarıyla doğrula: eski oturumdaki aynı metin doğrulama sayılmasın.
         const cutSec = Math.floor(n.submitMs / 1000) - 2;
         const recentTexts = ordered
           .filter((m) => m.role === "user" && m.createdAt >= cutSec)
           .map((m) => matchKey(textOf(m)));
         return !recentTexts.some((t) => t.includes(n.key));
       })
-      .map((n) => (frozen ? { ...n, atMs: now } : n));
-    if (this.unconfirmed.some((n) => now - n.atMs >= UNCONFIRMED_LIMIT_MS)) {
+      .map((n) => {
+        // Çalışırken ya da asking'te (üst sınır dahilinde) sayaç dondurulur.
+        // Asking üst sınırı aşılırsa dondurma sona erer, normal 30 sn devreye girer.
+        const frozen =
+          state === "running" ||
+          (state === "asking" && now - n.submitMs < ASKING_FREEZE_MAX_MS);
+        return frozen ? { ...n, atMs: now } : n;
+      });
+    const shouldUnbind = this.unconfirmed.some((n) => {
+      // Asking'te ASKING_FREEZE_MAX_MS geçmişse hemen çöz (sayaç bekleme).
+      if (state === "asking" && now - n.submitMs >= ASKING_FREEZE_MAX_MS) return true;
+      return now - n.atMs >= UNCONFIRMED_LIMIT_MS;
+    });
+    if (shouldUnbind) {
       this.unbind(now);
       return;
     }

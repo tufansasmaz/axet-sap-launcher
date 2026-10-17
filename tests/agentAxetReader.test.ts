@@ -8,7 +8,7 @@ import type { AgentRegistration } from "../app-electron/shared/agentTypes";
 vi.mock("electron", () => ({ app: { getPath: () => "", getAppPath: () => "" } }));
 vi.mock("../app-electron/main/i18n", () => ({ mt: (k: string) => k }));
 
-const { AxetReader, createSessionRegistry, deriveAxetState, keysOverlap, UNCONFIRMED_LIMIT_MS } = await import(
+const { AxetReader, createSessionRegistry, deriveAxetState, keysOverlap, UNCONFIRMED_LIMIT_MS, ASKING_FREEZE_MAX_MS } = await import(
   "../app-electron/main/agentAxetReader"
 );
 const { createAgentReader } = await import("../app-electron/main/agentReaders");
@@ -318,13 +318,13 @@ describe("AxetReader — veritabanı arızası", () => {
 describe("AxetReader — zaman penceresi düzeltmeleri", () => {
   it("(a) yabancı oturumda istemden ÖNCE yazılmış aynı metin bağ kurmaz", () => {
     // Registry dışı (sohbet ekranı / başka axet-code) eski oturum: ajanın
-    // iğneyi yazdığı andan ÖNCE yazılmış → sinceSec = needle.atMs/1000 - 2
+    // iğneyi yazdığı andan ÖNCE yazılmış → sinceSec = needle.submitMs/1000 - 2
     // ile dışarıda kalmalı; tek aday görünse bile bağlanılmıyor.
     const { db, make } = scenario();
     const { reader } = make("A");
     // Yabancı oturum iğneden 5 sn önce yazılmış
     db.rows.push(msg("S_FOREIGN", "user", [text("yabanci istem uzun")], T0 + 5));
-    // clock.ms = (T0+10)*1000; needle.atMs = (T0+10)*1000; sinceSec = T0+8
+    // clock.ms = (T0+10)*1000; needle.submitMs = (T0+10)*1000; sinceSec = T0+8
     // S_FOREIGN mesajı T0+5 < T0+8 → bulunamaz → bağlanmıyor
     reader.submitLine("yabanci istem uzun");
     reader.poll();
@@ -332,7 +332,7 @@ describe("AxetReader — zaman penceresi düzeltmeleri", () => {
     expect(reader.status().source).toBe("estimated");
   });
 
-  it("(b) Ctrl+N sonrası eski oturumun önceki mesajı tekrar doğrulama sayılmıyor", () => {
+  it("(b) eski oturumdaki metin tekrar yazılınca bağ çözülür", () => {
     // Bağlı oturumda daha önce yazılmış aynı metni tekrar yazan kullanıcı:
     // doğrulama yalnız istemin YAZILDIĞI ANDAN sonraki mesajlarla yapılmalı.
     const { db, clock, make } = scenario();
@@ -383,6 +383,39 @@ describe("AxetReader — zaman penceresi düzeltmeleri", () => {
     reader.poll();
     expect(reader.binding()).toBe("S1");
     expect(reader.status().state).toBe("asking");
+  });
+
+  it("asking'te 4 dk bağ korunur, 5 dk+1 sn sonra çözülür (ASKING_FREEZE_MAX_MS)", () => {
+    // ASKING_FREEZE_MAX_MS aşılınca dondurma sona erer ve bağ çözülür.
+    const { db, clock, make } = scenario();
+    const { reader } = make("A");
+    reader.submitLine("ilk istem uzun");
+    db.rows.push(
+      msg("S1", "user", [text("ilk istem uzun")], T0 + 11),
+      msg("S1", "assistant", [askCall("c20"), finish("tool_use")], T0 + 12)
+    );
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+    // Asking'e geçmeden önce bir unconfirmed iğne oluşturmak gerekiyor:
+    // soru cevaplanıp running'e geçilsin, submitLine çağrılsın, tekrar asking
+    clock.ms = (T0 + 13) * 1000;
+    db.rows.push(msg("S1", "tool", [result("c20")], T0 + 13));
+    reader.poll(); // running
+    reader.submitLine("sira bekleyen uzun"); // submitMs = (T0+13)*1000
+    db.rows.push(msg("S1", "assistant", [askCall("c21"), finish("tool_use")], T0 + 14));
+    clock.ms = (T0 + 14) * 1000;
+    reader.poll(); // asking, unconfirmed iğne var
+    expect(reader.status().state).toBe("asking");
+
+    // 4 dakika → bağ korunmalı (240 sn < ASKING_FREEZE_MAX_MS/1000 = 300 sn)
+    clock.ms = (T0 + 13) * 1000 + ASKING_FREEZE_MAX_MS - 60_000;
+    reader.poll();
+    expect(reader.binding()).toBe("S1");
+
+    // 5 dakika + 1 saniye → bağ çözülmeli
+    clock.ms = (T0 + 13) * 1000 + ASKING_FREEZE_MAX_MS + 1_000;
+    reader.poll();
+    expect(reader.binding()).toBeNull();
   });
 });
 
