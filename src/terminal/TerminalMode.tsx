@@ -19,6 +19,7 @@ import { agentPanes } from "../agents/agentView";
 import TeamStrip from "../agents/TeamStrip";
 import AgentsEmptyState from "../agents/AgentsEmptyState";
 import AddAgentDialog from "../agents/AddAgentDialog";
+import DecisionsPanel from "../agents/DecisionsPanel";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
 
@@ -105,6 +106,7 @@ export default function TerminalMode() {
             </div>
           ))}
         </div>
+        {state.phase === "ready" && <DecisionsPanel />}
       </div>
 
       <NewPaneDialog

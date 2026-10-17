@@ -1369,7 +1369,16 @@ export const tr = {
   "agents.noEngines": "Kurulu motor bulunamadı; özel komutla da ajan ekleyebilirsin.",
   "agents.addShellLong": "Düz terminal aç",
   "agents.allMinimized": "Bütün bölmeler alttaki şeritte.",
-  "agents.defaultName": "Ajan {n}"
+  "agents.defaultName": "Ajan {n}",
+  "agents.decisions": "Kararlar",
+  "agents.noDecisions": "Bekleyen karar yok",
+  "agents.showDecisions": "Kararları göster",
+  "agents.hideDecisions": "Kararları gizle",
+  "agents.goToTerminal": "Terminale git",
+  "agents.questionFallback": "Ajan bir tercih bekliyor.",
+  "agents.answerTyping": "Bu soruya terminalde dokunuldu; cevabı terminalden verin.",
+  "agents.answerNotAnswerable": "Bu soru listeden cevaplanamıyor; terminalden cevaplayın.",
+  "agents.answerFailed": "Cevap gönderilemedi; terminalden cevaplayın."
 };
 
 

@@ -1283,5 +1283,14 @@ export const en: Record<TranslationKey, string> = {
   "agents.noEngines": "No installed engine found; you can still add an agent with a custom command.",
   "agents.addShellLong": "Open a plain terminal",
   "agents.allMinimized": "All panes are in the strip below.",
-  "agents.defaultName": "Agent {n}"
+  "agents.defaultName": "Agent {n}",
+  "agents.decisions": "Decisions",
+  "agents.noDecisions": "No pending decisions",
+  "agents.showDecisions": "Show decisions",
+  "agents.hideDecisions": "Hide decisions",
+  "agents.goToTerminal": "Go to terminal",
+  "agents.questionFallback": "The agent is waiting for a choice.",
+  "agents.answerTyping": "This question was touched in the terminal; answer it there.",
+  "agents.answerNotAnswerable": "This question can't be answered from the list; answer it in the terminal.",
+  "agents.answerFailed": "The answer couldn't be sent; answer it in the terminal."
 };
