@@ -6,13 +6,16 @@ import { quotePathIfNeeded } from "../lib/paths";
 import { useT } from "../i18n";
 import { THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
 import { useAppearance } from "../ui/useAppearance";
+import { PANE_FONT_DEFAULT } from "../../app-electron/shared/terminalLayout";
 
 interface Props {
   sessionId: string;
   active: boolean;
+  /** Bölmenin yazı boyutu (spec 2026-10-14 §4). Değişince terminal yeniden kurulmuyor. */
+  fontSize?: number;
 }
 
-export default function EmbeddedTerminal({ sessionId, active }: Props) {
+export default function EmbeddedTerminal({ sessionId, active, fontSize = PANE_FONT_DEFAULT }: Props) {
   const t = useT();
   // `t` ref üzerinden okunuyor: effect'in bağımlılığı yapılırsa dil değişince
   // terminal sıfırdan kurulur ve çalışan oturumun çıktısı silinir.
@@ -27,13 +30,20 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
   const appearance = useAppearance();
   const appearanceRef = useRef(appearance);
   appearanceRef.current = appearance;
+  // Kurulumda okunuyor; sonraki değişiklikleri aşağıdaki efekt uyguluyor
+  // (bağımlılık olsaydı terminal sıfırdan kurulur, çıktı silinirdi).
+  const fontSizeRef = useRef(fontSize);
+  fontSizeRef.current = fontSize;
+  // Kurulum efektinin içindeki "yeniden ölç + kabuğa bildir" adımı; yazı
+  // boyutu efekti de bunu çağırıyor.
+  const refitRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const term = new Terminal({
       convertEol: true,
-      fontSize: 13,
+      fontSize: fontSizeRef.current,
       fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",
       cursorBlink: true,
       // xterm kendi tuvalini boyuyor, CSS değişkenlerini okumuyor; renkler
@@ -159,13 +169,16 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
       }
     });
 
-    const resizeObserver = new ResizeObserver(() => {
+    const refit = () => {
       if (disposed) return;
       safeFit();
       if (term.cols > 0 && term.rows > 0) {
         window.api.resizeTerminal(sessionId, term.cols, term.rows);
       }
-    });
+    };
+    refitRef.current = refit;
+
+    const resizeObserver = new ResizeObserver(refit);
     resizeObserver.observe(containerRef.current);
 
     const container = containerRef.current;
@@ -207,6 +220,7 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
 
     return () => {
       disposed = true;
+      refitRef.current = () => {};
       dataDisposable.dispose();
       unsubscribeData();
       unsubscribeExit();
@@ -241,6 +255,15 @@ export default function EmbeddedTerminal({ sessionId, active }: Props) {
     if (!term) return;
     term.options.theme = { ...THEME_SURFACES[appearance.palette][appearance.theme].terminal };
   }, [appearance.palette, appearance.theme]);
+
+  // Yazı boyutu değişince aynı terminal yeniden ölçülüyor; satır/sütun
+  // değiştiyse kabuğa bildiriliyor.
+  useEffect(() => {
+    const term = termRef.current;
+    if (!term || term.options.fontSize === fontSize) return;
+    term.options.fontSize = fontSize;
+    refitRef.current();
+  }, [fontSize]);
 
   return <div ref={containerRef} className="h-full w-full overflow-hidden" />;
 }

@@ -1275,7 +1275,23 @@ export const tr = {
 
   // --- Bildirim ayarı (İş B — 2026-10-17) ---
   "settingsModal.chatNotificationsLabel": "Tur bitince bildirim göster",
-  "settingsModal.chatNotificationsHint": "Pencere odak dışındayken veya küçültülmüşken Windows bildirimi gösterir."
+  "settingsModal.chatNotificationsHint": "Pencere odak dışındayken veya küçültülmüşken Windows bildirimi gösterir.",
+
+  // --- Terminal bölme başlığı (terminal/bolme-agaci) ---
+  "terminal.splitRight": "Sağa böl",
+  "terminal.splitDown": "Alta böl",
+  "terminal.minimize": "Şeride indir",
+  "terminal.restorePane": "Geri getir",
+  "terminal.minimizedStrip": "Şeritteki bölmeler",
+  "terminal.paneName": "Bölme adı",
+  "terminal.renameHint": "Adı değiştirmek için çift tıkla",
+  "terminal.paneColor": "Renk",
+  "terminal.colorGray": "Renksiz",
+  "terminal.colorBlue": "Mavi",
+  "terminal.colorGreen": "Yeşil",
+  "terminal.colorAmber": "Kehribar",
+  "terminal.colorRed": "Kırmızı",
+  "terminal.colorViolet": "Mor"
 };
 
 

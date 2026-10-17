@@ -34,7 +34,15 @@ function commandsMock(): TerminalCommands {
     closePane: vi.fn(),
     restartPane: vi.fn(),
     focusPane: vi.fn(),
-    toggleMaximize: vi.fn()
+    toggleMaximize: vi.fn(),
+    movePane: vi.fn(),
+    resizeSplit: vi.fn(),
+    equalizeSplit: vi.fn(),
+    minimizePane: vi.fn(),
+    restorePane: vi.fn(),
+    renamePane: vi.fn(),
+    setPaneColor: vi.fn(),
+    setPaneFontSize: vi.fn()
   };
 }
 

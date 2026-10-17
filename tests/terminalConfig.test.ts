@@ -10,10 +10,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   MAX_TERMINAL_PANES,
   MAX_TERMINAL_WORKSPACES,
+  PANE_FONT_DEFAULT,
+  clampPaneFontSize,
+  cleanPaneTitle,
   firstFreeWorkspaceNumber,
+  isTerminalPaneColor,
   normalizeActiveWorkspaceId,
   normalizeTerminalWorkspaces
 } from "../app-electron/shared/terminalLayout";
+import { fromLegacy, leafIds } from "../app-electron/shared/terminalTree";
 
 const nameFor = (n: number) => `Alan ${n}`;
 
@@ -141,5 +146,94 @@ describe("loadConfig — terminal düzeni", () => {
   it("İngilizce arayüzde boş ad İngilizce", async () => {
     const { loadConfig } = await store({ language: "en", terminalWorkspaces: [{ id: "w1", name: "", panes: [] }] });
     expect(loadConfig().terminalWorkspaces[0].name).toBe("Workspace 1");
+  });
+});
+
+describe("normalizeTerminalWorkspaces — bölme ayarları ve ağaç (spec 2026-10-14 §4, §6.1)", () => {
+  const p = (id: string, extra: Record<string, unknown> = {}) => ({ id, kind: "cmd", cwd: "C:\\a", ...extra });
+
+  it("yardımcılar sınırları tutuyor", () => {
+    expect(clampPaneFontSize(5)).toBe(9);
+    expect(clampPaneFontSize(40)).toBe(24);
+    expect(clampPaneFontSize(13.6)).toBe(14);
+    expect(clampPaneFontSize("13")).toBeNull();
+    expect(clampPaneFontSize(Number.NaN)).toBeNull();
+    expect(cleanPaneTitle("  derleme  ")).toBe("derleme");
+    expect(cleanPaneTitle("x".repeat(60))).toHaveLength(40);
+    expect(cleanPaneTitle("   ")).toBeNull();
+    expect(cleanPaneTitle(7)).toBeNull();
+    expect(isTerminalPaneColor("violet")).toBe(true);
+    expect(isTerminalPaneColor("pink")).toBe(false);
+    expect(PANE_FONT_DEFAULT).toBe(13);
+  });
+
+  it("geçerli ad/renk/yazı boyutu kalıyor, bozukları düşüyor; bölme yine geliyor", () => {
+    const raw = [
+      {
+        id: "w1",
+        name: "A",
+        panes: [p("p1", { title: " derleme ", color: "blue", fontSize: 15 }), p("p2", { title: "", color: "pink", fontSize: "büyük" })]
+      }
+    ];
+    expect(normalizeTerminalWorkspaces(raw, nameFor)[0].panes).toEqual([
+      { id: "p1", kind: "cmd", cwd: "C:\\a", title: "derleme", color: "blue", fontSize: 15 },
+      { id: "p2", kind: "cmd", cwd: "C:\\a" }
+    ]);
+  });
+
+  it("geçerli ağaç ve küçültülen liste aynen kalıyor", () => {
+    const layout = fromLegacy(["p1", "p2"]);
+    const raw = [
+      {
+        id: "w1",
+        name: "A",
+        panes: [p("p1"), p("p2"), p("p3")],
+        layout,
+        minimized: [{ paneId: "p3", home: { siblingPaneId: "p2", side: "right" } }]
+      }
+    ];
+    expect(normalizeTerminalWorkspaces(raw, nameFor)).toEqual(raw);
+  });
+
+  it("ağaç bölme listesiyle uyuşmuyorsa onarılıyor: hiçbir bölme kaybolmuyor (inceleme odağı 1)", () => {
+    const raw = [
+      {
+        id: "w1",
+        name: "A",
+        panes: [p("p1"), p("p2"), p("p3")],
+        // p2 ağaçta yok, "hayalet" listede yok, p1 iki kez
+        layout: { type: "split", dir: "row", children: [{ type: "pane", paneId: "p1" }, { type: "pane", paneId: "hayalet" }, { type: "pane", paneId: "p1" }], sizes: [0.3, 0.3, 0.4] },
+        minimized: [{ paneId: "p3", home: null }]
+      }
+    ];
+    const [workspace] = normalizeTerminalWorkspaces(raw, nameFor);
+    const visible = leafIds(workspace.layout ?? null);
+    expect([...visible].sort()).toEqual(["p1", "p2"]);
+    expect(workspace.minimized).toEqual([{ paneId: "p3", home: null }]);
+  });
+
+  it("küçültülen listesi: bilinmeyen/yinelenen bölme ve bozuk adres düşüyor", () => {
+    const raw = [
+      {
+        id: "w1",
+        name: "A",
+        panes: [p("p1"), p("p2")],
+        layout: "çöp",
+        minimized: [
+          { paneId: "yok", home: null },
+          { paneId: "p2", home: { siblingPaneId: "p1", side: "çapraz" } },
+          { paneId: "p2", home: null },
+          "p1"
+        ]
+      }
+    ];
+    const [workspace] = normalizeTerminalWorkspaces(raw, nameFor);
+    expect(workspace.minimized).toEqual([{ paneId: "p2", home: null }]);
+    expect(workspace.layout).toEqual({ type: "pane", paneId: "p1" });
+  });
+
+  it("bütün bölmeler küçültülmüşse ağaç null", () => {
+    const raw = [{ id: "w1", name: "A", panes: [p("p1")], layout: null, minimized: [{ paneId: "p1", home: null }] }];
+    expect(normalizeTerminalWorkspaces(raw, nameFor)[0].layout).toBeNull();
   });
 });

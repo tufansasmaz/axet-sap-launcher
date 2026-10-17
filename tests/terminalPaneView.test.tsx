@@ -6,11 +6,11 @@ import TerminalPaneView from "../src/terminal/TerminalPaneView";
 import { TerminalStoreContext, type TerminalCommands } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalPane } from "../src/stores/terminalTypes";
-import type { TerminalPaneKind } from "../app-electron/shared/types";
+import type { TerminalPaneColor, TerminalPaneKind } from "../app-electron/shared/types";
 
 vi.mock("../src/components/EmbeddedTerminal", () => ({
-  default: ({ sessionId, active }: { sessionId: string; active: boolean }) => (
-    <div data-testid={`xterm-${sessionId}`} data-active={String(active)} />
+  default: ({ sessionId, active, fontSize }: { sessionId: string; active: boolean; fontSize?: number }) => (
+    <div data-testid={`xterm-${sessionId}`} data-active={String(active)} data-font={String(fontSize ?? "")} />
   )
 }));
 
@@ -40,16 +40,36 @@ function commandsMock(): TerminalCommands {
     closePane: vi.fn(),
     restartPane: vi.fn(),
     focusPane: vi.fn(),
-    toggleMaximize: vi.fn()
+    toggleMaximize: vi.fn(),
+    movePane: vi.fn(),
+    resizeSplit: vi.fn(),
+    equalizeSplit: vi.fn(),
+    minimizePane: vi.fn(),
+    restorePane: vi.fn(),
+    renamePane: vi.fn(),
+    setPaneColor: vi.fn(),
+    setPaneFontSize: vi.fn()
   };
 }
 
 function renderPane(
   run: PaneRun,
-  opts: { kind?: TerminalPaneKind; cwd?: string; active?: boolean; canMaximize?: boolean; maximized?: boolean } = {}
+  opts: {
+    kind?: TerminalPaneKind;
+    cwd?: string;
+    active?: boolean;
+    canMaximize?: boolean;
+    maximized?: boolean;
+    title?: string;
+    color?: TerminalPaneColor;
+    onDragStart?: () => void;
+    onSplit?: (dir: "row" | "column") => void;
+    canSplit?: boolean;
+    fontSize?: number;
+  } = {}
 ) {
   const commands = commandsMock();
-  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run };
+  const pane: TerminalPane = { id: "p1", kind: opts.kind ?? "cmd", cwd: opts.cwd ?? "C:\\a", run, title: opts.title, color: opts.color, fontSize: opts.fontSize };
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider
@@ -60,6 +80,9 @@ function renderPane(
           active={opts.active ?? false}
           canMaximize={opts.canMaximize ?? true}
           maximized={opts.maximized ?? false}
+          onDragStart={opts.onDragStart}
+          onSplit={opts.onSplit}
+          canSplit={opts.canSplit}
         />
       </TerminalStoreContext.Provider>
     </LanguageProvider>
@@ -182,5 +205,116 @@ describe("TerminalPaneView", () => {
     const c = renderPane({ state: "exited", ptyId: "t1", code: 0 }, { kind: "axet" });
     fireEvent.click(screen.getByTitle("Kapat"));
     expect(c.closePane).toHaveBeenCalledWith("p1");
+  });
+});
+
+describe("sürükleme tutamağı (spec 2026-10-14 §3.4)", () => {
+  it("başlıktan tutunca sürükleme başlıyor, düğmeden tutunca başlamıyor", () => {
+    const onDragStart = vi.fn();
+    renderPane({ state: "running", ptyId: "t1" }, { onDragStart, canMaximize: true });
+    fireEvent.pointerDown(screen.getByText("cmd"), { button: 0 });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Büyüt" }), { button: 0 });
+    expect(onDragStart).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("başlık: ad, renk, böl, şeride indir (spec 2026-10-14 §4)", () => {
+  it("ad yoksa tür; çift tık düzenliyor, Enter kaydediyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" });
+    fireEvent.doubleClick(screen.getByText("cmd"));
+    const input = screen.getByRole("textbox", { name: "Bölme adı" }) as HTMLInputElement;
+    expect(input.maxLength).toBe(40);
+    fireEvent.change(input, { target: { value: "derleme" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(commands.renamePane).toHaveBeenCalledWith("p1", "derleme");
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("Esc vazgeçiyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" }, { title: "derleme" });
+    fireEvent.doubleClick(screen.getByText("derleme"));
+    const input = screen.getByRole("textbox", { name: "Bölme adı" });
+    fireEvent.change(input, { target: { value: "başka" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(commands.renamePane).not.toHaveBeenCalled();
+    expect(screen.getByText("derleme")).toBeTruthy();
+  });
+
+  it("renk seçici altı renk; seçince komut, başlıkta şerit", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" }, { color: "blue" });
+    const header = screen.getByText("cmd").closest("[data-pane-header]") as HTMLElement;
+    expect(header.style.boxShadow).toContain("var(--status-info-text)");
+    fireEvent.click(screen.getByRole("button", { name: "Renk" }));
+    expect(screen.getAllByRole("menuitemradio")).toHaveLength(6);
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Mor" }));
+    expect(commands.setPaneColor).toHaveBeenCalledWith("p1", "violet");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("böl düğmeleri yönü veriyor; sınırda kapalı", () => {
+    const onSplit = vi.fn();
+    renderPane({ state: "running", ptyId: "t1" }, { onSplit });
+    fireEvent.click(screen.getByRole("button", { name: "Sağa böl" }));
+    fireEvent.click(screen.getByRole("button", { name: "Alta böl" }));
+    expect(onSplit.mock.calls).toEqual([["row"], ["column"]]);
+    cleanup();
+    renderPane({ state: "running", ptyId: "t1" }, { onSplit, canSplit: false });
+    const right = screen.getByRole("button", { name: "Sağa böl" }) as HTMLButtonElement;
+    expect(right.disabled).toBe(true);
+    expect(right.title).toBe("En fazla 9 bölme");
+  });
+
+  it("şeride indir", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" });
+    fireEvent.click(screen.getByRole("button", { name: "Şeride indir" }));
+    expect(commands.minimizePane).toHaveBeenCalledWith("p1");
+  });
+});
+
+describe("yazı boyutu (spec 2026-10-14 §4)", () => {
+  it("bölmenin boyutu terminale gidiyor", () => {
+    renderPane({ state: "running", ptyId: "t1" }, { fontSize: 16 });
+    expect(screen.getByTestId("xterm-t1").getAttribute("data-font")).toBe("16");
+  });
+
+  it("Ctrl+tekerlek büyütüp küçültüyor; Ctrl'siz tekerlek terminalde kalıyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" });
+    const body = screen.getByTestId("xterm-t1");
+    const up = new WheelEvent("wheel", { deltaY: -100, ctrlKey: true, bubbles: true, cancelable: true });
+    act(() => {
+      body.dispatchEvent(up);
+    });
+    expect(up.defaultPrevented).toBe(true);
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", 14);
+    act(() => {
+      body.dispatchEvent(new WheelEvent("wheel", { deltaY: 100, ctrlKey: true, bubbles: true, cancelable: true }));
+    });
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", 12);
+    const plain = new WheelEvent("wheel", { deltaY: 100, bubbles: true, cancelable: true });
+    act(() => {
+      body.dispatchEvent(plain);
+    });
+    expect(plain.defaultPrevented).toBe(false);
+    expect(commands.setPaneFontSize).toHaveBeenCalledTimes(2);
+  });
+
+  it("Ctrl+= / Ctrl+- / Ctrl+0; sınırda çağrı yok; başka Ctrl tuşları terminale gidiyor", () => {
+    const commands = renderPane({ state: "running", ptyId: "t1" }, { fontSize: 24 });
+    const body = screen.getByTestId("xterm-t1");
+    const key = (k: string) => {
+      const e = new KeyboardEvent("keydown", { key: k, ctrlKey: true, bubbles: true, cancelable: true });
+      act(() => {
+        body.dispatchEvent(e);
+      });
+      return e;
+    };
+    expect(key("=").defaultPrevented).toBe(true); // 24'te üst sınır: yutuluyor ama çağrı yok
+    expect(commands.setPaneFontSize).not.toHaveBeenCalled();
+    key("-");
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", 23);
+    key("0");
+    expect(commands.setPaneFontSize).toHaveBeenLastCalledWith("p1", null);
+    expect(key("c").defaultPrevented).toBe(false);
   });
 });

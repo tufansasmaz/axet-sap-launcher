@@ -1,7 +1,8 @@
 // Terminal modunun bellekteki durumu (spec §4.2). Diske yalnız `toSaved`'ın
 // çıkardığı düzen yazılıyor; buradaki çalışma durumu yazılmıyor.
 
-import type { SavedTerminalWorkspace, TerminalPaneKind } from "../../app-electron/shared/types";
+import type { SavedTerminalWorkspace, TerminalPaneColor, TerminalPaneKind } from "../../app-electron/shared/types";
+import type { DropZone, LayoutNode, LayoutPath, PaneHome, SplitDir } from "../../app-electron/shared/terminalTree";
 
 export type NameFor = (n: number) => string;
 
@@ -16,11 +17,23 @@ export type PaneRun =
   | { state: "failed"; message: string }
   | { state: "missingDir" };
 
+// Küçültülmüş bölme: ağaçta değil, alanın altındaki şeritte. `home` geri
+// gelirken nereye konacağı; `unread` şeritteki nokta (diske yazılmıyor).
+export interface MinimizedPane {
+  paneId: string;
+  home: PaneHome | null;
+  unread?: boolean;
+}
+
 export interface TerminalPane {
   id: string;
   kind: TerminalPaneKind;
   cwd: string;
   run: PaneRun;
+  // Bölme ayarları (spec 2026-10-14 §4). Tanımsız = varsayılan.
+  title?: string;
+  color?: TerminalPaneColor;
+  fontSize?: number;
 }
 
 export interface TerminalWorkspace {
@@ -32,6 +45,10 @@ export interface TerminalWorkspace {
   // Kenar çubuğundaki nokta: görünmezken çıktı geldi / bir süreç hatayla bitti.
   unread: boolean;
   error: boolean;
+  // Bölme ağacı ve küçültülenler. İsteğe bağlı: okuyan yer `layoutOf` /
+  // `minimizedOf` kullanıyor; tanımsızsa görünür bölmelerden kuruluyor.
+  layout?: LayoutNode | null;
+  minimized?: MinimizedPane[];
 }
 
 // "AXET Projesi Seç"ten gelen, yer bekleyen bölme. Kimlikler baştan
@@ -66,7 +83,15 @@ export type TerminalAction =
   | { type: "selectWorkspace"; id: string }
   | { type: "renameWorkspace"; id: string; name: string }
   | { type: "closeWorkspace"; id: string; freshId: string; nameFor: NameFor }
-  | { type: "addPane"; workspaceId: string; paneId: string; kind: TerminalPaneKind; cwd: string }
+  | {
+      type: "addPane";
+      workspaceId: string;
+      paneId: string;
+      kind: TerminalPaneKind;
+      cwd: string;
+      // Hangi bölme, hangi yönde bölünsün. Yoksa odaktaki bölmenin sağı.
+      split?: { targetPaneId: string; dir: SplitDir };
+    }
   | { type: "addProjectPane"; paneId: string; spareWorkspaceId: string; cwd: string; nameFor: NameFor }
   | { type: "closePane"; paneId: string }
   | { type: "restartPane"; paneId: string; cwd?: string }
@@ -76,4 +101,12 @@ export type TerminalAction =
   | { type: "spawnSucceeded"; paneId: string; token: number; ptyId: string }
   | { type: "spawnFailed"; paneId: string; token: number; message: string; missingDir: boolean }
   | { type: "ptyExit"; ptyId: string; code: number }
-  | { type: "ptyData"; ptyId: string };
+  | { type: "ptyData"; ptyId: string }
+  | { type: "movePane"; paneId: string; targetPaneId: string; zone: DropZone }
+  | { type: "resizeSplit"; workspaceId: string; path: LayoutPath; index: number; delta: number; min: number }
+  | { type: "equalizeSplit"; workspaceId: string; path: LayoutPath }
+  | { type: "minimizePane"; paneId: string }
+  | { type: "restorePane"; paneId: string }
+  | { type: "renamePane"; paneId: string; title: string }
+  | { type: "setPaneColor"; paneId: string; color: TerminalPaneColor }
+  | { type: "setPaneFontSize"; paneId: string; fontSize: number | null };

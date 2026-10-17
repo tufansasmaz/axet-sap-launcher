@@ -367,10 +367,18 @@ describe("AXET projesi bölmesi (spec §5.5)", () => {
 });
 
 describe("toSaved", () => {
-  it("yalnız ad, tür, klasör; çalışma durumu yok", () => {
+  it("ad, tür, klasör, ağaç; çalışma durumu yok", () => {
     const state = runningPane(withPanes(1), "p1", "t1");
     expect(toSaved(state)).toEqual({
-      workspaces: [{ id: "w1", name: "Alan 1", panes: [{ id: "p1", kind: "cmd", cwd: "C:\\a" }] }],
+      workspaces: [
+        {
+          id: "w1",
+          name: "Alan 1",
+          panes: [{ id: "p1", kind: "cmd", cwd: "C:\\a" }],
+          layout: { type: "pane", paneId: "p1" },
+          minimized: []
+        }
+      ],
       activeId: "w1"
     });
   });

@@ -1,3 +1,5 @@
+import type { LayoutNode, PaneHome } from "./terminalTree";
+
 export interface SapService {
   uuid: string;
   systemId: string;
@@ -307,18 +309,32 @@ export type TerminalMode = "cmd" | "powershell";
 // `config.axetCommand`'ı başlangıç komutu olarak çalıştırıyor.
 export type TerminalPaneKind = "axet" | "cmd" | "powershell";
 
-// Diske yalnız düzen yazılıyor: ad, tür, klasör. Çıktı, oran ve süreç
-// kimliği yazılmıyor.
+// Terminal bölmesinin rengi (spec 2026-10-14 §4). `gray` = renksiz.
+export type TerminalPaneColor = "gray" | "blue" | "green" | "amber" | "red" | "violet";
+
+// Diske yalnız düzen yazılıyor: ad, tür, klasör, bölme ayarları, ağaç.
+// Çıktı ve süreç kimliği yazılmıyor. Yeni alanlar isteğe bağlı: eski kayıt
+// olduğu gibi okunuyor.
 export interface SavedTerminalPane {
   id: string;
   kind: TerminalPaneKind;
   cwd: string;
+  title?: string;
+  color?: TerminalPaneColor;
+  fontSize?: number;
+}
+
+export interface SavedMinimizedPane {
+  paneId: string;
+  home: PaneHome | null;
 }
 
 export interface SavedTerminalWorkspace {
   id: string;
   name: string;
   panes: SavedTerminalPane[];
+  layout?: LayoutNode | null;
+  minimized?: SavedMinimizedPane[];
 }
 
 export type AppTheme = "dark" | "light";

@@ -1189,5 +1189,21 @@ export const en: Record<TranslationKey, string> = {
 
   // --- Notification setting (İş B — 2026-10-17) ---
   "settingsModal.chatNotificationsLabel": "Show notification when turn ends",
-  "settingsModal.chatNotificationsHint": "Shows a Windows notification when the window is not focused or is minimized."
+  "settingsModal.chatNotificationsHint": "Shows a Windows notification when the window is not focused or is minimized.",
+
+  // --- Terminal bölme başlığı (terminal/bolme-agaci) ---
+  "terminal.splitRight": "Split right",
+  "terminal.splitDown": "Split down",
+  "terminal.minimize": "Minimize to strip",
+  "terminal.restorePane": "Restore",
+  "terminal.minimizedStrip": "Minimized panes",
+  "terminal.paneName": "Pane name",
+  "terminal.renameHint": "Double-click to rename",
+  "terminal.paneColor": "Color",
+  "terminal.colorGray": "No color",
+  "terminal.colorBlue": "Blue",
+  "terminal.colorGreen": "Green",
+  "terminal.colorAmber": "Amber",
+  "terminal.colorRed": "Red",
+  "terminal.colorViolet": "Violet"
 };
