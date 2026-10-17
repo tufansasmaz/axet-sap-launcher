@@ -1254,5 +1254,24 @@ export const en: Record<TranslationKey, string> = {
   "agents.stateFinished": "Finished",
   "agents.stateError": "Error",
   "agents.stateUnknown": "Unknown",
-  "agents.notInstalled": "Not installed"
+  "agents.notInstalled": "Not installed",
+  // Add Agent dialog (Task 12)
+  "agents.addTitle": "Add agent",
+  "agents.nameLabel": "Name",
+  "agents.engineLabel": "Engine",
+  "agents.roleLabel": "Role",
+  "agents.roleDefault": "Default",
+  "agents.roleDeveloper": "Developer",
+  "agents.roleAnalyst": "Analyst",
+  "agents.roleTest": "Test",
+  "agents.roleReview": "Review",
+  "agents.modelLabel": "Model",
+  "agents.modelHint": "Empty: the engine's default",
+  "agents.commandLabel": "Command",
+  "agents.commandHint": "e.g. opencode",
+  "agents.folderLabel": "Folder",
+  "agents.colorLabel": "Color",
+  "agents.add": "Add",
+  "agents.notInstalledShort": "not installed",
+  "agents.engineMissingHint": "This engine was not found on PATH; you can add it, but it won't start until installed."
 };

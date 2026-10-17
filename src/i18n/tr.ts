@@ -1340,7 +1340,26 @@ export const tr = {
   "agents.stateFinished": "Bitti",
   "agents.stateError": "Hata",
   "agents.stateUnknown": "Bilinmiyor",
-  "agents.notInstalled": "Kurulu değil"
+  "agents.notInstalled": "Kurulu değil",
+  // Ekleme penceresi (Task 12)
+  "agents.addTitle": "Ajan ekle",
+  "agents.nameLabel": "Ad",
+  "agents.engineLabel": "Motor",
+  "agents.roleLabel": "Rol",
+  "agents.roleDefault": "Varsayılan",
+  "agents.roleDeveloper": "Geliştirici",
+  "agents.roleAnalyst": "Analist",
+  "agents.roleTest": "Test",
+  "agents.roleReview": "İnceleme",
+  "agents.modelLabel": "Model",
+  "agents.modelHint": "Boşsa motorun varsayılanı",
+  "agents.commandLabel": "Komut",
+  "agents.commandHint": "ör. opencode",
+  "agents.folderLabel": "Klasör",
+  "agents.colorLabel": "Renk",
+  "agents.add": "Ekle",
+  "agents.notInstalledShort": "kurulu değil",
+  "agents.engineMissingHint": "Bu motor PATH'te bulunamadı; eklenebilir ama kurulana kadar başlamaz."
 };
 
 
