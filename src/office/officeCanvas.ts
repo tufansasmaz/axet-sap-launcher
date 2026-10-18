@@ -534,6 +534,106 @@ export function drawProp(ctx: Ctx, plan: OfficePlan, p: Prop) {
       drawSprite(ctx, (p.x + p.y) % 2 ? SPRITES.mug : SPRITES.mugRed, x + w - 9, y + 2);
       return;
     }
+    case "overviewPanel": {
+      rect(ctx, "rack", x + 1, y, w - 2, h);
+      rect(ctx, "rackLight", x + 2, y + 1, w - 4, h - 2);
+      for (let i = 0; i < 3; i++) {
+        const sx2 = x + 3 + i * 10;
+        rect(ctx, "outline", sx2, y + 2, 8, h - 4);
+        rect(ctx, "monitor", sx2 + 1, y + 3, 6, h - 6);
+        rect(ctx, "screenOn", sx2 + 1, y + 3, 6, 1);
+        for (let r = 0; r < 3; r++) rect(ctx, "screenText", sx2 + 2, y + 5 + r, 4 - (r % 2), 1);
+      }
+      return;
+    }
+    case "meetingZone": {
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = PALETTE.blueprintGrid;
+      ctx.fillRect(x, y, w, h);
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = PALETTE.grayCheckA;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    case "rackCard": {
+      const colW = Math.floor(w / 3);
+      rect(ctx, "outline", x, y, w, h);
+      rect(ctx, "rack", x + 1, y + 1, w - 2, h - 2);
+      for (let i = 0; i < 3; i++) {
+        const cx = x + 1 + i * colW;
+        rect(ctx, "rackLight", cx, y + 2, colW - 1, h - 4);
+        rect(ctx, "ledGreen", cx + 1, y + 3, 2, 1);
+        for (let r = 0; r < 3; r++) rect(ctx, "ledAmber", cx + 1, y + 5 + r * 3, colW - 3, 1);
+      }
+      return;
+    }
+    case "arcadeMachine": {
+      rect(ctx, "arcadeBody", x + 2, y, w - 4, h);
+      rect(ctx, "outline", x + 2, y, w - 4, h);
+      rect(ctx, "arcadeScreen", x + 4, y + 2, w - 8, 8);
+      rect(ctx, "arcadeBtn", x + 5, y + 4, 1, 3);
+      rect(ctx, "arcadeBtn", x + 5, y + 4, 4, 1);
+      rect(ctx, "arcadeBtn", x + 4, y + 13, 3, 2);
+      rect(ctx, "arcadeBtn", x + 9, y + 13, 3, 2);
+      rect(ctx, "rack", x + 1, y + h - 4, w - 2, 3);
+      return;
+    }
+    case "targetBoard": {
+      const cx2 = x + Math.floor(w / 2);
+      const cy2 = y + 7;
+      ctx.fillStyle = PALETTE.targetBlue;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = PALETTE.targetWhite;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = PALETTE.targetRed;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 2, 0, Math.PI * 2); ctx.fill();
+      rect(ctx, "outline", cx2, cy2 - 1, 1, 1);
+      return;
+    }
+    case "holoDisk": {
+      const cx2 = x + 8;
+      const cy2 = y + 8;
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = PALETTE.holoRingGlow;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = PALETTE.holoRing;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 5, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = PALETTE.holoEmpty;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 3, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = PALETTE.holoCore;
+      ctx.beginPath(); ctx.arc(cx2, cy2, 1.5, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 1;
+      return;
+    }
+    case "holoRing": {
+      const cx2 = x + w / 2;
+      const cy2 = y + h / 2;
+      const r2 = Math.min(w, h) / 2 - 2;
+      ctx.globalAlpha = 0.3;
+      ctx.fillStyle = PALETTE.holoRingGlow;
+      ctx.beginPath(); ctx.arc(cx2, cy2, r2, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = PALETTE.holoRing;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.arc(cx2, cy2, r2, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.globalAlpha = 1;
+      return;
+    }
+    case "cabinet": {
+      rect(ctx, "machine", x + 2, y + 1, w - 4, h - 2);
+      rect(ctx, "machineLight", x + 2, y + 1, w - 4, 3);
+      rect(ctx, "outline", x + 2, y + 1 + Math.floor((h - 2) / 2), w - 4, 1);
+      rect(ctx, "rackLight", x + w / 2 - 1, y + 5, 2, 1);
+      rect(ctx, "rackLight", x + w / 2 - 1, y + 5 + Math.floor((h - 2) / 2), 2, 1);
+      return;
+    }
   }
 }
 
@@ -661,6 +761,16 @@ export function paintScene(ctx: Ctx, k: number, background: CanvasImageSource | 
   }
   items.sort((a, b) => a.z - b.z);
   for (const it of items) it.draw();
+
+  for (const rp of plan.props.filter((pp) => pp.kind === "rackCard")) {
+    const colW = Math.floor((rp.w * TILE) / 3);
+    for (let i = 0; i < 3; i++) {
+      if ((scene.tick + i * 3) % 6 < 3) {
+        ctx.fillStyle = PALETTE.ledRed;
+        ctx.fillRect(rp.x * TILE + 1 + i * colW + 1, rp.y * TILE + 3, 2, 1);
+      }
+    }
+  }
 
   for (const a of scene.actors) {
     if (!a.view.mark) continue;

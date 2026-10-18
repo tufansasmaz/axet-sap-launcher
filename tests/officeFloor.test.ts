@@ -140,6 +140,52 @@ describe("officePlan — masalar ve büyüme", () => {
   });
 });
 
+describe("officePlan — yeni esyalar (gorsel-yeniden)", () => {
+  it("rackCard sunucu odasinda", () => {
+    const plan = officePlan(4, WIDE.w, WIDE.h);
+    const rc = plan.props.find((p) => p.kind === "rackCard");
+    expect(rc).toBeDefined();
+    expect(plan.rooms[rc!.y][rc!.x]).toBe("server");
+    expect(rc!.w).toBeGreaterThanOrEqual(2);
+  });
+
+  it("overviewPanel lider odasinin ust duvari (y=1)", () => {
+    const plan = officePlan(4, WIDE.w, WIDE.h);
+    const op = plan.props.find((p) => p.kind === "overviewPanel");
+    expect(op).toBeDefined();
+    expect(op!.y).toBe(1);
+  });
+
+  it("holoDisk toplanti odasinda", () => {
+    const plan = officePlan(4, WIDE.w, WIDE.h);
+    const hd = plan.props.find((p) => p.kind === "holoDisk");
+    expect(hd).toBeDefined();
+    expect(plan.rooms[hd!.y][hd!.x]).toBe("meeting");
+  });
+
+  it("arcadeMachine ve targetBoard mutfakta", () => {
+    const plan = officePlan(4, WIDE.w, WIDE.h);
+    const am = plan.props.find((p) => p.kind === "arcadeMachine");
+    const tb = plan.props.find((p) => p.kind === "targetBoard");
+    expect(am).toBeDefined();
+    expect(tb).toBeDefined();
+  });
+
+  it("yon hesaplama: dx/dy -> Dir", () => {
+    type Dir = "down" | "up" | "left" | "right";
+    const dirOf = (dx: number, dy: number): Dir => {
+      if (Math.abs(dx) >= Math.abs(dy)) return dx >= 0 ? "right" : "left";
+      return dy >= 0 ? "down" : "up";
+    };
+    expect(dirOf(1, 0)).toBe("right");
+    expect(dirOf(-1, 0)).toBe("left");
+    expect(dirOf(0, 1)).toBe("down");
+    expect(dirOf(0, -1)).toBe("up");
+    expect(dirOf(2, 1)).toBe("right");
+    expect(dirOf(1, 2)).toBe("down");
+  });
+});
+
 describe("fitScale", () => {
   it("alana sığan en büyük tam sayı, 2-4 arası; ölçü yoksa 2", () => {
     const w = 25 * TILE;

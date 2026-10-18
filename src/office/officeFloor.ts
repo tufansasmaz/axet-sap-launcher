@@ -68,7 +68,15 @@ export type PropKind =
   | "cooler"
   | "desk"
   | "guestChair"
-  | "extinguisher";
+  | "extinguisher"
+  | "overviewPanel"
+  | "rackCard"
+  | "arcadeMachine"
+  | "targetBoard"
+  | "holoDisk"
+  | "holoRing"
+  | "cabinet"
+  | "meetingZone";
 
 export interface Prop {
   kind: PropKind;
@@ -251,8 +259,11 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
   prop("rack", sx + 1, top, 1, 2);
   prop("shelf", sx + 3, top, 1, 3);
   prop("shelf", sx, top + TOP_H - 2, 1, 2);
+  prop("rackCard", sx, top + 2, 3, 2, true);
 
   // Lider odası: masa, misafir sandalyesi, kitaplık, halı, bitki, küre.
+  prop("overviewPanel", lx + 1, 1, 3, 2, true);
+  prop("meetingZone", lx + 1, top + 1, 5, 4, false);
   const leadDesk = { x: lx + 2, y: top + 2 };
   prop("rug", lx + 1, top + 1, 5, 4, false, { variant: 0 });
   prop("bookshelf", lx, top, 2, 1);
@@ -274,6 +285,8 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
   prop("plant", mx + meetW - 1, top, 1, 1, true, { variant: 2 });
   prop("plant", mx + meetW - 1, top + TOP_H - 1, 1, 1, true, { variant: 0 });
   prop("plant", mx, top + TOP_H - 1, 1, 1, true, { variant: 1 });
+  prop("holoDisk", mx + meetW - 2, top + 1, 1, 2, true);
+  prop("holoRing", mx + meetW - 3, top + 3, 2, 2, false);
 
   // Mutfak: tezgâh (kahve makinesi, lavabo), buzdolabı, kanepe, sehpa, bitkiler.
   prop("counter", kx0, low, 5, 1);
@@ -296,9 +309,14 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
     ]
   };
 
+  // Mutfak duvarı ve köşe eşyaları.
+  prop("targetBoard", kx0, yW + 1, 1, 2, true);
+  prop("arcadeMachine", kx0 + KITCHEN_W - 2, low + 5, 1, 2, true);
+
   // Çalışma alanı: yazıcı, su sebili, kitaplık, bitkiler (kenar sütunlarında).
   prop("printer", workW, low);
   prop("cooler", workW, low + 2);
+  prop("cabinet", workW, low + 6, 1, 2, true);
   prop("plant", 1, low + lowH - 1, 1, 1, true, { variant: 0 });
   prop("plant", workW, low + lowH - 1, 1, 1, true, { variant: 2 });
 
