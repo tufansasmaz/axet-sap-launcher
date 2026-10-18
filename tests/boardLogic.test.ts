@@ -134,6 +134,17 @@ describe("applyAgentStatuses", () => {
     expect(apply(asked, exact("running")).task.subtasks[0]).toMatchObject({ state: "running", sawBusy: true });
   });
 
+  it("tahmini running sawBusy kurmuyor; sonraki kesin eski idle doğrulamayı erken başlatmıyor", () => {
+    const t = approved([running()]);
+    const echoed = applyAgentStatuses(t, new Map([["p1", estimated("running", 10_100)]]));
+    expect(echoed.task).toBe(t);
+    expect(echoed.task.subtasks[0].sawBusy).toBeUndefined();
+    const later = apply(echoed.task.subtasks[0], exact("idle", 9_000)).task.subtasks[0];
+    expect(later.state).toBe("running");
+    expect(apply(running({ state: "asking" }), estimated("running")).task.subtasks[0]).toMatchObject({ state: "running" });
+    expect(apply(running({ state: "asking" }), estimated("running")).task.subtasks[0].sawBusy).toBeUndefined();
+  });
+
   it("kesin: çalıştığı görüldükten sonra idle → verifying ve doğrulama listesine giriyor", () => {
     const result = apply(running({ sawBusy: true }), exact("idle", 1_000));
     expect(result.task.subtasks[0].state).toBe("verifying");

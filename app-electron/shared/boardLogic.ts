@@ -99,8 +99,13 @@ function applyOne(s: Subtask, agents: ReadonlyMap<string, AgentStatus | null>): 
   if (!status) return s;
   // `finished` iki okuyucuda da "kabuk istemi geri döndü": motor çıktı (spec §7).
   if (status.state === "finished") return releaseToQueue(s, "agentClosed");
-  if (status.state === "asking") return s.state === "asking" && s.sawBusy ? s : { ...s, state: "asking", sawBusy: true };
-  if (status.state === "running") return s.state === "running" && s.sawBusy ? s : { ...s, state: "running", sawBusy: true };
+  if (status.state === "asking" || status.state === "running") {
+    // sawBusy yalnız KESİN kaynaktan: tahmini "running" yazılan istemin yankısı
+    // da olabilir; okuma düzelince eski turun idle'ı doğrulamayı erken başlatırdı.
+    const busy = status.source === "exact";
+    if (s.state === status.state && (!busy || s.sawBusy)) return s;
+    return busy ? { ...s, state: status.state, sawBusy: true } : { ...s, state: status.state };
+  }
   // Tahmini durumdan kendiliğinden geçiş yok (spec §6): kullanıcı "Doğrula"ya basar.
   if (status.source !== "exact") return s;
   if (status.state !== "idle" && status.state !== "error") return s;
