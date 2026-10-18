@@ -443,8 +443,8 @@ değil: herhangi bir klasörde ya da Git deposunda kullanılabilir.
 
 ### Görev Panosu
 
-Üst şeritteki **Bölmeler | Pano | Ofis** geçişiyle alanın görev panosunu açarsın
-(seçim alan başına hatırlanır). Bir hedef yazarsın; **lider** onu alt
+Üst şeritteki **Bölmeler | Pano | Ofis | Değişiklikler** geçişiyle alanın
+görev panosunu açarsın (seçim alan başına hatırlanır). Bir hedef yazarsın; **lider** onu alt
 görevlere böler, sen onaylarsın, NTT Studio alt görevleri alandaki ajanlara
 dağıtır ve her alt görev ancak **kanıtla** kapanır. Ajanın "bitti" demesi
 hiçbir kartı kapatmaz. Ekip şeridi kartına, Kararlar'daki "Terminale git" bağlantısına veya ajan bildirimine Pano ya da Ofis görünümündeyken tıklarsan görünüm otomatik olarak Bölmeler'e döner.
@@ -500,7 +500,7 @@ hiçbir kartı kapatmaz. Ekip şeridi kartına, Kararlar'daki "Terminale git" ba
 
 ### Ofis görünümü
 
-Üst şeritteki **Bölmeler | Pano | Ofis** geçişinde **Ofis**, alandaki
+Üst şeritteki **Bölmeler | Pano | Ofis | Değişiklikler** geçişinde **Ofis**, alandaki
 ajanları masalarında oturan karakterler olarak gösterir (seçim alan başına
 hatırlanır). Yeni bir bilgi üretmez; ekip şeridindeki durumu ve panodaki
 alt görevi tek bakışta özetler.
@@ -524,6 +524,49 @@ alt görevi tek bakışta özetler.
   yoksa "Ofiste kimse yok" ve **Ajan** düğmesi çıkar.
 - Ofisteyken terminaller kapanmaz, yalnız gizlenir. Windows'ta "Animasyon
   efektlerini göster" kapalıysa (hareketi azalt) ofiste hiçbir şey kıpırdamaz.
+
+### Değişiklikler
+
+Üst şeritteki **Bölmeler | Pano | Ofis | Değişiklikler** geçişinde
+**Değişiklikler**, ajanların bu alanın klasöründe dosyalarda yaptığı
+değişiklikleri gösterir ve beğenmediğini geri almanı sağlar. Yalnız **Git
+deposu** olan klasörlerde çalışır (alanın kökü, yoksa ajanların varsayılan
+klasörü); depo değilse ya da Git kurulu değilse bunu açıkça söyler. Klasörü
+kendisi depoya çevirmez.
+
+- **Geri alma noktası** kendiliğinden alınır: bir ajana istem gönderdiğinde
+  (aynı ajan için en çok 30 saniyede bir), Görev Panosu bir alt görevi bir
+  ajana verdiğinde ve her geri almadan hemen önce. **Geri alma noktası
+  oluştur** ile elle de alabilirsin. Alan başına en yeni 200 nokta saklanır.
+- Solda noktalar yeniden eskiye sıralıdır: saat, ajan, istemin başı (ya da alt
+  görev başlığı), değişen dosya sayısı ve +/− satırlar, inceleme durumu. En
+  üstteki **Canlı** satırı son noktadan bu yana çalışma klasöründe ne
+  değiştiğini gösterir; görünüm açıkken birkaç saniyede bir tazelenir.
+- Bir noktayı seçince sağda o noktadan bir sonraki noktaya kadar (en
+  sonuncusunda: şu ana kadar) değişen dosyalar çıkar; dosyaya tıklayınca
+  satır numaralı fark görünür. İkili ve 200 KB'tan büyük dosyalarda yalnız
+  "değişti" yazar.
+- **Kabul et** yalnız bir işarettir, dosyalara dokunmaz. Başlıktaki "N
+  bekliyor" henüz incelemediğin noktaları sayar.
+- **Geri al**, o noktanın değişikliklerini geri alır: önce etkilenecek
+  dosyaları ve uyarıları gösterir (sonraki noktalar da bu dosyalara
+  dokunduysa adlarıyla; o sırada çalışan ajanlar varsa adlarıyla). Onaylarsan
+  önce şimdiki hâlin geri alma noktası alınır, sonra dosyalar eski hâline
+  döner; sonradan eklenmiş dosyalar **çöp kutusuna** taşınır, kalıcı
+  silinmez. Geri almayı geri almak için listedeki **Geri almadan önce**
+  noktasını seçip **Geri al**'a bas.
+- Geri alınacak bir dosyanın yerinde artık başka bir şey varsa (klasör,
+  kısayol/bağ ya da sonradan konmuş bir dosya) geri alma onun üstüne yazmaz;
+  durur ve o ana kadar ne yaptığını söyler.
+- Senin Git durumuna dokunulmaz: dalın, son commit'in, `git add` ile
+  hazırladıkların ve stash'lerin aynen kalır. `.gitignore`'daki dosyalar
+  izlenmez. Git eski nesneleri temizlediyse (yaklaşık iki hafta sonra) nokta
+  "Süresi doldu" der; farkı ve geri alması kapanır.
+- Görev Panosu'nda bir alt görevin satırındaki **Değişiklikler** bağlantısı
+  bu görünümü o alt görevin noktası seçili açar. **Terminale git** noktayı
+  oluşturan ajanın terminalini öne getirir.
+- SAP nesnelerindeki değişiklikler burada değil, **SAP yazma geçmişi**
+  panelindedir.
 
 ## Klavye Kısayolları
 
