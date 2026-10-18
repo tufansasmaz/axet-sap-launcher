@@ -12,6 +12,7 @@ import type {
   SnapshotResult
 } from "../app-electron/shared/changesTypes";
 import type { BrowserSendResult, BrowserShortcut } from "../app-electron/shared/browserLogic";
+import type { AgentSendResult } from "../app-electron/shared/agentMessage";
 import type { MemoryReadResult, MemoryWriteResult } from "../app-electron/shared/memoryLogic";
 import type {
   ActiveContext,
@@ -164,6 +165,7 @@ export interface AxetApi {
   agentWhich: (binary: string) => Promise<boolean>;
   agentRegister: (reg: AgentRegistration) => Promise<void>;
   agentUnregister: (paneId: string) => Promise<void>;
+  agentSend: (workspaceId: string, paneId: string, text: string) => Promise<AgentSendResult>;
   agentAnswer: (paneId: string, callId: string, index: number) => Promise<AgentAnswerResult>;
   agentSnapshot: () => Promise<AgentStatusEvent[]>;
   onAgentStatus: (callback: (event: AgentStatusEvent) => void) => () => void;

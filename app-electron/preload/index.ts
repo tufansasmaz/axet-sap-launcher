@@ -77,6 +77,7 @@ import type {
   SnapshotResult
 } from "../shared/changesTypes";
 import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic";
+import type { AgentSendResult } from "../shared/agentMessage";
 import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
 
 const api = {
@@ -182,6 +183,8 @@ const api = {
   agentWhich: (binary: string): Promise<boolean> => ipcRenderer.invoke("agents:which", binary),
   agentRegister: (reg: AgentRegistration): Promise<void> => ipcRenderer.invoke("agents:register", reg),
   agentUnregister: (paneId: string): Promise<void> => ipcRenderer.invoke("agents:unregister", paneId),
+  agentSend: (workspaceId: string, paneId: string, text: string): Promise<AgentSendResult> =>
+    ipcRenderer.invoke("agents:send", workspaceId, paneId, text),
   agentAnswer: (paneId: string, callId: string, index: number): Promise<AgentAnswerResult> =>
     ipcRenderer.invoke("agents:answer", paneId, callId, index),
   agentSnapshot: (): Promise<AgentStatusEvent[]> => ipcRenderer.invoke("agents:snapshot"),

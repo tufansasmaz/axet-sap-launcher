@@ -51,6 +51,7 @@ import { isSafeRelPath, readRevertPaths } from "../shared/changesLogic";
 import { browserWorkspace } from "../shared/browserLogic";
 import { configureBrowserSession, isBrowserGuestContents, type BrowserSessionLike } from "./browserGuard";
 import { createBrowserSender } from "./browserSend";
+import { createAgentSender } from "./agentSend";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
 import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
 import { createMemoryNotifier } from "./memoryNotifier";
@@ -418,6 +419,18 @@ const browserSender = createBrowserSender({
   removeScreenshot: removeBrowserScreenshot,
   sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
   now: () => Date.now(),
+  log: (tag, fields) => appLog(tag, fields)
+});
+
+// Akış'taki mesaj kutusu (spec 2026-10-18 ajanlar-yeniden §2): alan YALNIZ
+// config'teki kayıttan, ajan izleyiciden; istem Görev Panosu'nun yolundan.
+const agentSender = createAgentSender({
+  workspace: (id) => loadConfig().terminalWorkspaces.some((w) => w.id === id),
+  agent: (workspaceId, paneId) => {
+    const found = agentMonitor.agents().find((a) => a.reg.paneId === paneId && a.reg.workspaceId === workspaceId);
+    return found ? { status: found.status, inputIdle: found.inputIdle, engineReady: found.engineReady } : null;
+  },
+  sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
   log: (tag, fields) => appLog(tag, fields)
 });
 
@@ -1386,6 +1399,18 @@ function registerIpc(): void {
   );
 
   ipcMain.handle("agents:snapshot", () => agentMonitor.snapshot());
+
+  // Akış mesaj kutusu (spec 2026-10-18 ajanlar-yeniden §2): yalnız ana pencereden.
+  ipcMain.handle("agents:send", async (event, workspaceId: unknown, paneId: unknown, text: unknown) => {
+    if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+      return { ok: false, reason: "invalid" };
+    }
+    try {
+      return await agentSender.send(workspaceId, paneId, text);
+    } catch {
+      return { ok: false, reason: "writeFailed" };
+    }
+  });
 
   ipcMain.handle("board:get", (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== "string") return null;
