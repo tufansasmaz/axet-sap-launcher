@@ -1644,7 +1644,11 @@ export const tr = {
   "browser.fail.captureFailed": "Ekran görüntüsü alınamadı; hiçbir şey gönderilmedi.",
   "browser.fail.tooLarge": "Ekran görüntüsü 10 MB'tan büyük; hiçbir şey gönderilmedi.",
   "browser.fail.writeFailed": "Gönderilemedi: yazılamadı.",
-  "browser.fail.notSubmitted": "Metin ajanın satırına yazıldı ama gönderilmedi; kontrol edip Enter'a sen bas."
+  "browser.fail.notSubmitted": "Metin ajanın satırına yazıldı ama gönderilmedi; kontrol edip Enter'a sen bas.",
+  // Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4)
+  "agents.memoryLabel": "Kalıcı bellek",
+  "agents.memoryHint": "Ajan her açılışta kendi bellek dosyasını okur ve önemli şeyleri oraya yazar.",
+  "agents.memoryNoFolder": "Bellek için ajanın bir klasörü olmalı."
 };
 
 

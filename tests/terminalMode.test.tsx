@@ -304,6 +304,15 @@ describe("TerminalMode", () => {
     });
   });
 
+  it("+ Ajan: Kalıcı bellek işaretliyse addAgent'a memory: true gidiyor", async () => {
+    const { commands } = setup({ workspaces: [ws("a", 1)], activeWorkspaceId: "a" });
+    fireEvent.click(screen.getByRole("button", { name: "Ajan" }));
+    await flush();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Kalıcı bellek" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ekle" }));
+    expect(commands.addAgent).toHaveBeenCalledWith(expect.objectContaining({ memory: true }), expect.anything());
+  });
+
   it("9 bölmede + Ajan ve + Terminal kapalı ve nedenini söylüyor", () => {
     setup({ workspaces: [ws("a", 9)], activeWorkspaceId: "a" });
     for (const name of ["Ajan", "Terminal"]) {

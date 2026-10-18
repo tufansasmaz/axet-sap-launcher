@@ -176,4 +176,50 @@ describe("AddAgentDialog", () => {
     fireEvent.click(addButton());
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
+
+  it("Kalıcı bellek varsayılan kapalı ve açıklamalı; işaretlenince onAdd memory: true taşıyor", async () => {
+    const { onAdd } = renderDialog();
+    await flush();
+    const box = screen.getByRole("checkbox", { name: "Kalıcı bellek" }) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    expect(screen.getByText("Ajan her açılışta kendi bellek dosyasını okur ve önemli şeyleri oraya yazar.")).toBeTruthy();
+    fireEvent.click(box);
+    fireEvent.click(addButton());
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ name: "Ajan 2", cwd: "C:\\p", memory: true }));
+  });
+
+  it("işaretlenmezse çıktıda memory alanı hiç yok", async () => {
+    const { onAdd } = renderDialog();
+    await flush();
+    fireEvent.click(addButton());
+    expect("memory" in onAdd.mock.calls[0][0]).toBe(false);
+  });
+
+  it("klasör yoksa kutu kapalı ve sebebi yazılı", async () => {
+    render(
+      <LanguageProvider language="tr">
+        <AddAgentDialog open defaultCwd="" defaultName="Ajan 2" engines={ENGINES} onAdd={vi.fn()} onCancel={vi.fn()} />
+      </LanguageProvider>
+    );
+    await flush();
+    const box = screen.getByRole("checkbox", { name: "Kalıcı bellek" }) as HTMLInputElement;
+    expect(box.disabled).toBe(true);
+    expect(screen.getByText("Bellek için ajanın bir klasörü olmalı.")).toBeTruthy();
+  });
+
+  it("yeniden açılınca kutu yine kapalı", async () => {
+    const onAdd = vi.fn();
+    const view = (open: boolean) => (
+      <LanguageProvider language="tr">
+        <AddAgentDialog open={open} defaultCwd={"C:\\p"} defaultName="Ajan 2" engines={ENGINES} onAdd={onAdd} onCancel={vi.fn()} />
+      </LanguageProvider>
+    );
+    const { rerender } = render(view(true));
+    await flush();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Kalıcı bellek" }));
+    rerender(view(false));
+    rerender(view(true));
+    await flush();
+    expect((screen.getByRole("checkbox", { name: "Kalıcı bellek" }) as HTMLInputElement).checked).toBe(false);
+  });
 });

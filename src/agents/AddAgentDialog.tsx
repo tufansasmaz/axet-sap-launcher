@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { FolderOpen } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
@@ -70,6 +70,9 @@ export default function AddAgentDialog({
   const [command, setCommand] = useState("");
   const [cwd, setCwd] = useState(defaultCwd);
   const [color, setColor] = useState<TerminalPaneColor>("gray");
+  // Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4): varsayılan kapalı.
+  const [memory, setMemory] = useState(false);
+  const memoryHintId = useId();
   const [axetAgents, setAxetAgents] = useState<AxetAgentEntry[]>([]);
   // Çift göndermeyi önlemek için ref (React yeniden çizmeden önce etkili).
   const submittedRef = useRef(false);
@@ -86,6 +89,7 @@ export default function AddAgentDialog({
     setCommand("");
     setCwd(defaultCwd);
     setColor("gray");
+    setMemory(false);
     submittedRef.current = false;
     setSubmitted(false);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -132,7 +136,8 @@ export default function AddAgentDialog({
         : { engine, role: typedRole, roleKind: ROLE_PRESETS.some((k) => t(k) === typedRole) ? "preset" : "custom" };
     if (def.modelFlag && model.trim()) spec.model = model.trim().slice(0, AGENT_MODEL_MAX);
     if (engine === "ozel") spec.command = command.trim().slice(0, AGENT_COMMAND_MAX);
-    onAdd({ spec, name: name.trim().slice(0, PANE_TITLE_MAX), color, cwd });
+    // Yalnız işaretliyse alan var: işaretsiz ekleme eskisiyle bayt bayt aynı.
+    onAdd({ spec, name: name.trim().slice(0, PANE_TITLE_MAX), color, cwd, ...(memory && cwd ? { memory: true } : {}) });
   };
 
   const pick = async () => {
@@ -255,6 +260,25 @@ export default function AddAgentDialog({
             </button>
           </div>
         </div>
+
+        {/* Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4, §7): klasör yoksa kapalı ve sebebi yazılı. */}
+        <label className={`flex items-start gap-2 text-xs ${cwd ? "text-slate-200" : "text-slate-500"}`}>
+          <input
+            type="checkbox"
+            checked={memory && cwd !== ""}
+            disabled={!cwd}
+            aria-label={t("agents.memoryLabel")}
+            aria-describedby={memoryHintId}
+            onChange={(e) => setMemory(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span className="flex flex-col gap-0.5">
+            {t("agents.memoryLabel")}
+            <span id={memoryHintId} className="text-2xs text-slate-500">
+              {cwd ? t("agents.memoryHint") : t("agents.memoryNoFolder")}
+            </span>
+          </span>
+        </label>
 
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-slate-400">{t("agents.colorLabel")}</span>

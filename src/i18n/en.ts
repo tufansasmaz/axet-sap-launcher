@@ -1558,5 +1558,9 @@ export const en: Record<TranslationKey, string> = {
   "browser.fail.captureFailed": "The screenshot could not be taken; nothing was sent.",
   "browser.fail.tooLarge": "The screenshot is larger than 10 MB; nothing was sent.",
   "browser.fail.writeFailed": "Not sent: could not write.",
-  "browser.fail.notSubmitted": "The text was typed into the agent's line but not sent; check it and press Enter yourself."
+  "browser.fail.notSubmitted": "The text was typed into the agent's line but not sent; check it and press Enter yourself.",
+  // Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4)
+  "agents.memoryLabel": "Persistent memory",
+  "agents.memoryHint": "On every start the agent reads its own memory file and writes important things there.",
+  "agents.memoryNoFolder": "Memory needs a folder for the agent."
 };
