@@ -97,6 +97,19 @@ describe("GenericReader", () => {
     expect(bare.engineReady()).toBe(true);
   });
 
+  it("engineReady: kabuk istemi gorulunce false, motor yeniden acilip cikti gelince yeniden true", () => {
+    const { reader } = setup();
+    reader.feedOutput("C:\\proje>claude --model sonnet\r\n");
+    reader.feedOutput("  \u25cf Claude Code  ");
+    expect(reader.engineReady()).toBe(true);
+    reader.feedOutput("\x1b[?1049lC:\\proje>");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("C:\\proje>claude --model sonnet\r\n");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("  \u25cf Claude Code  ");
+    expect(reader.engineReady()).toBe(true);
+  });
+
   it("genericAgentReader sarmalayıcısı satırları yok sayıyor, durumu aktarıyor", () => {
     const { reader } = setup();
     const wrapped = genericAgentReader(reader);
