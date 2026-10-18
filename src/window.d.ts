@@ -12,6 +12,7 @@ import type {
   SnapshotResult
 } from "../app-electron/shared/changesTypes";
 import type { BrowserSendResult, BrowserShortcut } from "../app-electron/shared/browserLogic";
+import type { MemoryReadResult, MemoryWriteResult } from "../app-electron/shared/memoryLogic";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -183,6 +184,10 @@ export interface AxetApi {
   browserSend: (workspaceId: string, paneId: string, webContentsId: number, withScreenshot: boolean) => Promise<BrowserSendResult>;
   onBrowserDownloadBlocked: (callback: (webContentsId: number | null) => void) => () => void;
   onBrowserShortcut: (callback: (webContentsId: number, action: BrowserShortcut) => void) => () => void;
+  memoryRead: (workspaceId: string, paneId: string) => Promise<MemoryReadResult>;
+  memoryWrite: (workspaceId: string, paneId: string, content: string, stamp: string) => Promise<MemoryWriteResult>;
+  memoryReveal: (workspaceId: string, paneId: string) => Promise<boolean>;
+  memoryRenotify: (workspaceId: string, paneId: string) => Promise<boolean>;
   onAgentOpen: (callback: (paneId: string) => void) => () => void;
   onTerminalData: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;

@@ -52,6 +52,9 @@ import { browserWorkspace } from "../shared/browserLogic";
 import { configureBrowserSession, isBrowserGuestContents, type BrowserSessionLike } from "./browserGuard";
 import { createBrowserSender } from "./browserSend";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
+import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
+import { createMemoryNotifier } from "./memoryNotifier";
+import { createMemoryService } from "./memoryService";
 import { browserSession, liveBrowserGuest } from "./browserLive";
 import type { ChangesFailure } from "../shared/changesTypes";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
@@ -418,6 +421,44 @@ const browserSender = createBrowserSender({
   log: (tag, fields) => appLog(tag, fields)
 });
 
+// Ajan başına kalıcı bellek (spec 2026-10-18 ajan-bellegi). Anahtar ve kök
+// YALNIZ config'teki kayıttan (memoryTarget); bildirim Görev Panosu'nun
+// yolundan (agentMonitor.sendPrompt), pano turundan ÖNCE (tickMemoryNotifier).
+const memoryNotifier = createMemoryNotifier({
+  now: () => Date.now(),
+  agents: () => agentMonitor.agents(),
+  workspaces: () => loadConfig().terminalWorkspaces,
+  ensureFile: ensureMemoryFile,
+  sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
+  log: (tag, fields) => appLog(tag, fields)
+});
+
+const memoryService = createMemoryService({
+  workspaces: () => loadConfig().terminalWorkspaces,
+  ensure: ensureMemoryFile,
+  read: readMemoryFile,
+  write: writeMemoryFile,
+  absPath: memoryAbsPath,
+  reveal: (file) => shell.showItemInFolder(file),
+  notice: (paneId) => memoryNotifier.notice(paneId),
+  renotify: (paneId) => memoryNotifier.renotify(paneId),
+  log: (tag, fields) => appLog(tag, fields)
+});
+
+/** Bellek satırı pano turundan ÖNCE (spec §3): ikisi de bekliyorsa bellek gider, pano "busy" alıp sonraki tura kalır. */
+function tickMemoryNotifier(): void {
+  try {
+    memoryNotifier.tick();
+  } catch {
+    // bellek bildirimi hatası panoyu durdurmaz
+  }
+}
+
+/** Bellek IPC'si yalnız ana pencereden (spec §6). */
+function memoryFromMain(sender: unknown): boolean {
+  return !!mainWindow && !mainWindow.isDestroyed() && sender === mainWindow.webContents;
+}
+
 let boardTimer: NodeJS.Timeout | null = null;
 let boardTickQueued = false;
 
@@ -427,6 +468,7 @@ function queueBoardTick(): void {
   boardTickQueued = true;
   setImmediate(() => {
     boardTickQueued = false;
+    tickMemoryNotifier();
     try {
       boardManager.tick();
     } catch {
@@ -1493,8 +1535,24 @@ function registerIpc(): void {
     }
   );
 
+  // Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4, §6): yalnız ana pencereden;
+  // renderer yalnız (alan, bölme) kimliklerini yollar.
+  ipcMain.handle("memory:read", (event, workspaceId: unknown, paneId: unknown) =>
+    memoryFromMain(event.sender) ? memoryService.read(workspaceId, paneId) : { ok: false, reason: "invalid" }
+  );
+  ipcMain.handle("memory:write", (event, workspaceId: unknown, paneId: unknown, content: unknown, stamp: unknown) =>
+    memoryFromMain(event.sender) ? memoryService.write(workspaceId, paneId, content, stamp) : { ok: false, reason: "invalid" }
+  );
+  ipcMain.handle("memory:reveal", (event, workspaceId: unknown, paneId: unknown) =>
+    memoryFromMain(event.sender) ? memoryService.reveal(workspaceId, paneId) : false
+  );
+  ipcMain.handle("memory:renotify", (event, workspaceId: unknown, paneId: unknown) =>
+    memoryFromMain(event.sender) ? memoryService.renotify(workspaceId, paneId) : false
+  );
+
   if (!boardTimer) {
     boardTimer = setInterval(() => {
+      tickMemoryNotifier();
       try {
         boardManager.tick();
       } catch {

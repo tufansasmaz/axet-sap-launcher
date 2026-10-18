@@ -77,6 +77,7 @@ import type {
   SnapshotResult
 } from "../shared/changesTypes";
 import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic";
+import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -238,6 +239,11 @@ const api = {
     ipcRenderer.on("browser:shortcut", listener);
     return () => ipcRenderer.removeListener("browser:shortcut", listener);
   },
+  memoryRead: (workspaceId: string, paneId: string): Promise<MemoryReadResult> => ipcRenderer.invoke("memory:read", workspaceId, paneId),
+  memoryWrite: (workspaceId: string, paneId: string, content: string, stamp: string): Promise<MemoryWriteResult> =>
+    ipcRenderer.invoke("memory:write", workspaceId, paneId, content, stamp),
+  memoryReveal: (workspaceId: string, paneId: string): Promise<boolean> => ipcRenderer.invoke("memory:reveal", workspaceId, paneId),
+  memoryRenotify: (workspaceId: string, paneId: string): Promise<boolean> => ipcRenderer.invoke("memory:renotify", workspaceId, paneId),
   // Ajan bildirimine tıklanınca (spec §9): Ajanlar ekranı ve o bölme.
   onAgentOpen: (callback: (paneId: string) => void) => {
     const listener = (_event: unknown, paneId: string) => callback(paneId);
