@@ -2,14 +2,18 @@
 // olaylar mevcut kaynaklardan (ajan durumu, pano, Değişiklikler) iki anlık
 // görüntünün farkı olarak türetiliyor. İlk görüş TABAN sayılıyor: uygulama
 // açılırken ya da pano yüklenirken eski durumlar olay yağmuruna dönmesin.
-// Bellek içi, oturumluk; en çok FLOW_MAX olay, en yeni sonda.
+// Tur 4: çalışma alanı başına en çok FLOW_MAX olay, en yeni sonda; ana süreçte
+// kalıcı (flow-history), açılışta geri yükleniyor (mergeHistory).
 import type { AgentState, AgentStatus } from "../../app-electron/shared/agentTypes";
 import type { Board, SubtaskState } from "../../app-electron/shared/boardTypes";
 import type { ChangesState } from "../../app-electron/shared/changesTypes";
 
-export const FLOW_MAX = 200;
+import { FLOW_HISTORY_MAX, type FlowKind, type StoredFlowEvent } from "../../app-electron/shared/flowHistory";
 
-export type FlowKind = "started" | "finished" | "error" | "asked" | "assigned" | "verified" | "failed" | "checkpoint" | "message";
+export type { FlowKind };
+
+/** Çalışma alanı başına (kalıcı kayıtla aynı sınır). */
+export const FLOW_MAX = FLOW_HISTORY_MAX;
 
 export interface FlowEvent {
   id: number;
@@ -99,9 +103,46 @@ export function checkpointEvents(prev: ChangesState | undefined, next: ChangesSt
     .map((c) => ({ at, workspaceId: next.workspaceId, kind: "checkpoint" as const, paneId: c.paneId, name: c.agentName ?? "", detail: c.label }));
 }
 
+/** Alan başına en yeni FLOW_MAX olay kalır; sıra korunur. */
+function capPerWorkspace(list: FlowEvent[]): FlowEvent[] {
+  const counts = new Map<string, number>();
+  const keep: boolean[] = new Array(list.length);
+  for (let i = list.length - 1; i >= 0; i--) {
+    const n = (counts.get(list[i].workspaceId) ?? 0) + 1;
+    counts.set(list[i].workspaceId, n);
+    keep[i] = n <= FLOW_MAX;
+  }
+  return keep.every(Boolean) ? list : list.filter((_, i) => keep[i]);
+}
+
 export function appendFlow(list: readonly FlowEvent[], inputs: readonly FlowInput[]): FlowEvent[] {
   if (inputs.length === 0) return list as FlowEvent[];
   let id = list.length ? list[list.length - 1].id : 0;
-  const next = [...list, ...inputs.map((e) => ({ ...e, id: ++id }))];
-  return next.length > FLOW_MAX ? next.slice(next.length - FLOW_MAX) : next;
+  return capPerWorkspace([...list, ...inputs.map((e) => ({ ...e, id: ++id }))]);
+}
+
+/**
+ * Diskten gelen geçmiş, bu oturumda o alana düşmüş olaylardan ÖNCE yerleşiyor
+ * (zamana göre); kimlikler baştan veriliyor (yalnız anahtar).
+ */
+export function mergeHistory(list: readonly FlowEvent[], workspaceId: string, stored: readonly StoredFlowEvent[]): FlowEvent[] {
+  if (stored.length === 0) return list as FlowEvent[];
+  const history: FlowInput[] = stored.map((e) => ({ ...e, workspaceId }));
+  const merged = [...history, ...list].map((e) => e as FlowInput).sort((a, b) => a.at - b.at);
+  return capPerWorkspace(merged.map((e, i) => ({ ...e, id: i + 1 })));
+}
+
+/** Kalıcı kayda giden biçim (alan alanı dosya adında). */
+export function toStored(list: readonly FlowEvent[], workspaceId: string): StoredFlowEvent[] {
+  return list
+    .filter((e) => e.workspaceId === workspaceId)
+    .map((e) => ({
+      at: e.at,
+      kind: e.kind,
+      paneId: e.paneId,
+      name: e.name,
+      detail: e.detail,
+      ...(e.reply ? { reply: e.reply } : {}),
+      ...(e.exact ? { exact: true } : {})
+    }));
 }

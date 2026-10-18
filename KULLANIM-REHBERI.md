@@ -474,9 +474,14 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     Tıklayınca Terminal'de o ajanın terminali öne gelir. **≈** durumun tahmini
     olduğunu söyler (motorun kendi kaydı okunamıyor). axet-code açılışta
     "Choose your development tool" (yeni klasörde model) seçimi gösterir; bu
-    seçim terminalde yapılmadan ajan hazır sayılmaz: Akış mesajı ve pano işi
-    gönderilmez (gönderilseydi seçim penceresinde kaybolurdu). Seçimi yapıp ilk
-    mesajı gönderince durum kesinleşir. Satırın üstüne gelince
+    seçim terminalde yapılmadan ajan hazır sayılmaz: pano işi gönderilmez
+    (gönderilseydi seçim penceresinde kaybolurdu). Akış'tan yazdığın mesaj ise
+    **kuyruğa** girer: Akış'ta "araç seçimi bekleniyor" kartı çıkar
+    (**Terminalde aç**, **Vazgeç**); seçimi terminalde yapınca mesaj
+    kendiliğinden ve bir kez gider. O an gidemezse kart sebebini yazar,
+    **Yeniden gönder** senin tıklamanla bir kez daha dener. Uygulama seçimi
+    senin yerine yapmaz (axet-code'da bu pencereyi atlatan bir ayar
+    bulunamadı). Seçimi yapıp ilk mesajı gönderince durum kesinleşir. Satırın üstüne gelince
     kitap simgesi (kalıcı bellek) belirir; yeniden başlatma gerektiğinde ok
     simgesi hep görünür. Motor adı ipucundadır; axet-code sürüm uyarısı varsa
     satırda görünür. Ekipte hiç ajan yoksa burada **İlk ajanını ekle** çıkar.
@@ -488,7 +493,23 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     şifre/jeton benzeri değerler «gizli» diye maskelenir, en çok 600 karakter
     tutulur. Tahmini durumdaki ajanda "İşini bitirdi." ve **Terminalde aç**
     yazar. Gönderdiğin mesajlar "Sen → ajan" balonu olarak görünür. En yenisi
-    altta; yalnız bu oturum için, en çok 200 olay; kalıcı kayıt yok.
+    altta. Geçmiş **kalıcıdır**: ekip başına son 500 olay uygulama verisinde
+    saklanır (şifre/jeton benzeri değerler maskelenerek), uygulama yeniden
+    açılınca geri gelir. "Akış" başlığının yanındaki çöp kutusu, onay
+    sorduktan sonra o ekibin geçmişini siler; ekibi kapatınca geçmişi de
+    silinir.
+  - **Ajanlar birbirine soru sorabilir**: her ajanın terminalinde `ntt-team`
+    aracı vardır. `ntt-team list` ekip üyelerini (ad, rol, durum),
+    `ntt-team ask <ajan> "<soru>"` soruyu o ajana Akış yoluyla iletip
+    cevabını bekler ve döndürür (en çok 3 dk), `ntt-team feed` ekibin son
+    olaylarını gösterir. Ekipte iki ya da daha çok ajan varsa Akış'tan bir
+    ajana yazdığın ilk mesajın sonuna bu araç kısaca tanıtılır; yani "Ali'ye
+    raporun durumunu sor" demen yeter. Ajanlar arasındaki soru ve cevaplar
+    Akış'ta "Ayşe → Ali" kartı olarak görünür. Hedef ajan meşgulse, soru
+    bekliyorsa ya da açılış seçimindeyse soru gitmez ve soran ajana sebebi
+    söylenir. Araç yalnız bu bilgisayarda (127.0.0.1) ve yalnız o ajanın
+    terminaline özel, uygulama kapanınca geçersiz olan bir anahtarla çalışır;
+    anahtar diske yazılmaz.
   - **Soru kartları**: ekibin cevap bekleyen soruları. axet-code'un seçenekli
     sorusunu tek tıkla cevaplarsın; terminalde dokunduysan ya da serbest/çok
     seçimli bir soruysa **Terminale git**.

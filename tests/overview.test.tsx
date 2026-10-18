@@ -6,7 +6,7 @@ import { LanguageProvider } from "../src/i18n";
 import OverviewView from "../src/agents/OverviewView";
 import { overviewOf } from "../src/agents/overview";
 import { AgentStatusContext, type AgentStatusValue } from "../src/agents/agentStatusContext";
-import { FlowContext } from "../src/agents/flowContext";
+import { EMPTY_FLOW, FlowContext } from "../src/agents/flowContext";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -92,7 +92,7 @@ describe("OverviewView", () => {
       <LanguageProvider language="tr">
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={status}>
-            <FlowContext.Provider value={{ events, record: () => {} }}>
+            <FlowContext.Provider value={{ ...EMPTY_FLOW, events, record: () => {} }}>
               <OverviewView workspace={workspace} />
             </FlowContext.Provider>
           </AgentStatusContext.Provider>

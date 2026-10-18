@@ -5,10 +5,11 @@
 // kartta), soru kartları ve mesaj kutusu. Görünüm seçimi artık içerik
 // alanının sol kenarındaki dikey rayda (ViewRail).
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, RotateCw, X } from "lucide-react";
+import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, RotateCw, Trash2, X } from "lucide-react";
+import ConfirmDialog from "../components/ConfirmDialog";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
-import type { AgentAnswerFailure, AgentEngineInfo, AgentStatus } from "../../app-electron/shared/agentTypes";
+import { AXET_SETUP_DETAIL, type AgentAnswerFailure, type AgentEngineInfo, type AgentStatus } from "../../app-electron/shared/agentTypes";
 import type { AgentSendFailure } from "../../app-electron/shared/agentMessage";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
@@ -23,7 +24,7 @@ import { useBoards } from "../board/boardContext";
 import { activeSubtaskOf } from "../board/boardDisplay";
 import MemoryDialog from "./MemoryDialog";
 import { flowBody } from "./flowText";
-import { useFlow } from "./flowContext";
+import { useFlow, type QueuedSend } from "./flowContext";
 import type { FlowEvent, FlowKind } from "./flowEvents";
 import { matchAgents, mentionAt, removeMention, type Mention } from "./mention";
 import { requestAddAgent } from "./addAgentBus";
@@ -72,11 +73,13 @@ export default function FlowSidebar() {
   const t = useT();
   const { state } = useTerminalStore();
   const { statuses } = useAgentStatuses();
-  const { events } = useFlow();
+  const { events, queued, clear } = useFlow();
+  const [confirmClear, setConfirmClear] = useState(false);
   const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId) ?? null;
   const listRef = useRef<HTMLDivElement | null>(null);
   const shown = workspace ? events.filter((e) => e.workspaceId === workspace.id) : [];
   const decisions = workspace ? decisionsOf([workspace], statuses) : [];
+  const waiting = workspace ? queued.filter((q) => q.workspaceId === workspace.id) : [];
   const lastId = shown.length ? shown[shown.length - 1].id : 0;
 
   // En yeni altta: yeni olay ya da soru gelince sona kay.
@@ -93,6 +96,18 @@ export default function FlowSidebar() {
       <TeamSection workspace={workspace} />
       <div className="flex h-8 shrink-0 items-center border-t border-line px-3">
         <Eyebrow className="flex-1">{t("flow.title")}</Eyebrow>
+        {shown.length > 0 && (
+          <button
+            type="button"
+            data-flow-clear=""
+            onClick={() => setConfirmClear(true)}
+            aria-label={t("flow.clearHistory")}
+            title={t("flow.clearHistory")}
+            className={GHOST_ICON_BUTTON}
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
       <div ref={listRef} className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {shown.length === 0 && decisions.length === 0 && <p className="px-1 text-2xs text-slate-500">{t("flow.empty")}</p>}
@@ -101,6 +116,13 @@ export default function FlowSidebar() {
             <FlowEntry key={event.id} event={event} workspace={workspace} />
           ))}
         </ol>
+        {waiting.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-2">
+            {waiting.map((item) => (
+              <QueuedCard key={item.paneId} item={item} />
+            ))}
+          </ul>
+        )}
         {decisions.length > 0 && (
           <ul className="mt-2 flex flex-col gap-2">
             {decisions.map((row) => (
@@ -110,7 +132,47 @@ export default function FlowSidebar() {
         )}
       </div>
       <MessageBox key={workspace.id} workspace={workspace} />
+      <ConfirmDialog
+        open={confirmClear}
+        title={t("flow.clearHistory")}
+        message={t("flow.clearHistoryBody", { name: workspace.name })}
+        confirmLabel={t("flow.clearHistoryConfirm")}
+        onConfirm={() => {
+          clear(workspace.id);
+          setConfirmClear(false);
+        }}
+        onCancel={() => setConfirmClear(false)}
+      />
     </div>
+  );
+}
+
+/** Tur 4: açılış seçimindeki axet-code'a giden mesaj — seçim yapılınca kendiliğinden, bir kez gider. */
+function QueuedCard({ item }: { item: QueuedSend }) {
+  const t = useT();
+  const { commands } = useTerminalStore();
+  const { cancelQueued, retryQueued } = useFlow();
+  const failed = item.state === "failed";
+  return (
+    <li data-flow-queued={item.state} className="rounded-md border border-[var(--status-warning-border)] px-2 py-1.5">
+      <p className="text-2xs font-medium text-[var(--status-warning-text)]">
+        {failed ? t("flow.queue.failed", { name: item.name, reason: t(SEND_FAILURE[item.reason ?? "writeFailed"]) }) : t("flow.queue.waiting", { name: item.name })}
+      </p>
+      <p className="mt-0.5 line-clamp-2 break-words text-xs text-slate-300">{item.body}</p>
+      <div className="mt-1 flex items-center gap-3">
+        <button type="button" onClick={() => commands.revealPane(item.paneId)} className={LINK}>
+          {t("flow.openTerminal")}
+        </button>
+        {failed && (
+          <button type="button" onClick={() => retryQueued(item.paneId)} className={LINK}>
+            {t("flow.queue.retry")}
+          </button>
+        )}
+        <button type="button" onClick={() => cancelQueued(item.paneId)} className={LINK}>
+          {t("flow.queue.cancel")}
+        </button>
+      </div>
+    </li>
   );
 }
 
@@ -155,7 +217,8 @@ const KIND_TONE: Record<FlowKind, StatusTone> = {
   verified: "success",
   failed: "danger",
   checkpoint: "muted",
-  message: "muted"
+  message: "muted",
+  relay: "muted"
 };
 
 
@@ -167,6 +230,22 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
   const { commands } = useTerminalStore();
   const pane = event.paneId ? workspace.panes.find((p) => p.id === event.paneId) : undefined;
   const at = clock(event.at);
+
+  // Tur 4: ajandan ajana (ekip köprüsü) — "A → B" ve metin.
+  if (event.kind === "relay") {
+    const color = pane ? PANE_COLOR_VAR[pane.color ?? "gray"] : undefined;
+    return (
+      <li data-flow-event="relay" className="mr-4 rounded-md border border-line px-2 py-1.5">
+        <div className="flex min-w-0 items-center gap-1.5 text-2xs">
+          <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
+          <span className="min-w-0 truncate font-medium text-slate-200">{event.name}</span>
+          <Chip tone="muted">{t("flow.chip.relay")}</Chip>
+          <span className="ml-auto shrink-0 font-mono tabular-nums text-slate-600">{at}</span>
+        </div>
+        <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap break-words text-xs text-slate-200">{event.detail}</p>
+      </li>
+    );
+  }
 
   if (event.kind === "message") {
     return (
@@ -450,7 +529,8 @@ const TEAM_REASON: Partial<Record<AgentSendFailure, TranslationKey>> = {
 
 function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   const t = useT();
-  const { record } = useFlow();
+  const { record, queue } = useFlow();
+  const { statuses } = useAgentStatuses();
   const listId = useId();
   const [text, setText] = useState("");
   const [targetId, setTargetId] = useState<string | null>(null);
@@ -486,6 +566,13 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     // Satırlar ajana tek satır olarak gider (terminal istemi; satır sonu reddedilir).
     const body = text.replace(/\s+/g, " ").trim();
     if (!body) return;
+    if (target.id !== TEAM_ID && statuses[target.id]?.detail === AXET_SETUP_DETAIL) {
+      // Açılış seçimi açık: yazılsaydı kaybolurdu. Kuyrukta bekler, seçim yapılınca bir kez gider.
+      queue({ workspaceId: workspace.id, paneId: target.id, name: target.name, body });
+      setText("");
+      setNotice(t("flow.queue.queued", { name: target.name }));
+      return;
+    }
     setSending(true);
     if (target.id === TEAM_ID) {
       await sendTeam(body);
@@ -512,6 +599,11 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     const skipped: string[] = [];
     let sent = 0;
     for (const agent of agents) {
+      if (statuses[agent.id]?.detail === AXET_SETUP_DETAIL) {
+        queue({ workspaceId: workspace.id, paneId: agent.id, name: agent.name, body });
+        sent += 1;
+        continue;
+      }
       let result;
       try {
         result = await window.api.agentSend(workspace.id, agent.id, body);

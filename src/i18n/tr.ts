@@ -1861,7 +1861,16 @@ export const tr = {
   "flow.pickTarget": "Kime: ajan seç",
   "flow.pickTargetShort": "kime?",
   "flow.targetChange": "Kime: {name} — değiştir",
-  "flow.keysHint": "Enter gönder · Shift+Enter satır"
+  "flow.keysHint": "Enter gönder · Shift+Enter satır",
+  "flow.chip.relay": "ekip",
+  "flow.clearHistory": "Akış geçmişini temizle",
+  "flow.clearHistoryBody": "{name} ekibinin Akış geçmişi silinsin mi? Ajanlar, terminaller ve görevler etkilenmez.",
+  "flow.clearHistoryConfirm": "Temizle",
+  "flow.queue.waiting": "{name}: araç seçimi bekleniyor — terminalde seç; mesaj seçimden sonra kendiliğinden, bir kez gider.",
+  "flow.queue.failed": "{name}: kuyruktaki mesaj gönderilemedi — {reason}",
+  "flow.queue.retry": "Yeniden gönder",
+  "flow.queue.cancel": "Vazgeç",
+  "flow.queue.queued": "{name} açılış seçiminde; mesaj kuyrukta, seçim yapılınca gidecek."
 };
 
 

@@ -1775,5 +1775,14 @@ export const en: Record<TranslationKey, string> = {
   "flow.pickTarget": "To: pick an agent",
   "flow.pickTargetShort": "to?",
   "flow.targetChange": "To: {name} — change",
-  "flow.keysHint": "Enter send · Shift+Enter newline"
+  "flow.keysHint": "Enter send · Shift+Enter newline",
+  "flow.chip.relay": "team",
+  "flow.clearHistory": "Clear flow history",
+  "flow.clearHistoryBody": "Delete the flow history of {name}? Agents, terminals and tasks are not affected.",
+  "flow.clearHistoryConfirm": "Clear",
+  "flow.queue.waiting": "{name}: waiting for the tool choice — pick it in the terminal; the message is sent once, automatically, afterwards.",
+  "flow.queue.failed": "{name}: the queued message could not be sent — {reason}",
+  "flow.queue.retry": "Send again",
+  "flow.queue.cancel": "Discard",
+  "flow.queue.queued": "{name} is on the start-up choice; the message is queued and goes once it is made."
 };

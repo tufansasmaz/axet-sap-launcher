@@ -3,11 +3,11 @@
 // (ajan satırları), olaylar ve soru kartları (eski Kararlar paneli, spec
 // 2026-10-17 ajan-alani §4.3, §7), en altta `@ajan` mesaj kutusu.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import FlowSidebar from "../src/agents/FlowSidebar";
 import { AgentStatusContext, type AgentStatusValue } from "../src/agents/agentStatusContext";
-import { FlowContext } from "../src/agents/flowContext";
+import { EMPTY_FLOW, FlowContext, type QueuedSend } from "../src/agents/flowContext";
 import type { FlowEvent } from "../src/agents/flowEvents";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
@@ -58,7 +58,7 @@ const status = (state: AgentStatus["state"]): AgentStatus => ({ state, source: "
 function setup(
   workspaces: TerminalWorkspace[],
   statuses: Record<string, AgentStatus> = {},
-  extra: { answer?: AgentAnswerResult; events?: FlowEvent[] } = {}
+  extra: { answer?: AgentAnswerResult; events?: FlowEvent[]; queued?: QueuedSend[] } = {}
 ) {
   const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
   const store: TerminalStoreValue = {
@@ -71,18 +71,22 @@ function setup(
   const answer = vi.fn(async () => extra.answer ?? { ok: true as const });
   const agents: AgentStatusValue = { statuses, engines: [], now: 1, answer };
   const record = vi.fn();
+  const queue = vi.fn();
+  const clear = vi.fn();
+  const cancelQueued = vi.fn();
+  const retryQueued = vi.fn();
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider value={store}>
         <AgentStatusContext.Provider value={agents}>
-          <FlowContext.Provider value={{ events: extra.events ?? [], record }}>
+          <FlowContext.Provider value={{ ...EMPTY_FLOW, events: extra.events ?? [], record, queued: extra.queued ?? [], queue, clear, cancelQueued, retryQueued }}>
             <FlowSidebar />
           </FlowContext.Provider>
         </AgentStatusContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
   );
-  return { commands, answer, record };
+  return { commands, answer, record, queue, clear, cancelQueued, retryQueued };
 }
 
 async function flush() {
@@ -479,5 +483,55 @@ describe("Akış — mesaj kutusu (Tur 3)", () => {
     const { commands } = setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
     fireEvent.click(screen.getByRole("button", { name: "Kalıcı bellek" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("w1", "memory");
+  });
+});
+
+// Tur 4: ajandan ajana kart, kuyruk kartı, açılış seçimindeki ajana mesaj, geçmişi temizle.
+describe("Akış — Tur 4", () => {
+  it("ekip köprüsü mesajı 'A → B' kartı olarak", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" }), pane("b", { title: "Ali" })])], {}, {
+      events: [{ id: 1, at: 1, workspaceId: "w1", kind: "relay", paneId: "a", name: "Ayşe → Ali", detail: "Raporun durumu ne?" }]
+    });
+    const card = document.querySelector('[data-flow-event="relay"]') as HTMLElement;
+    expect(card.textContent).toContain("Ayşe → Ali");
+    expect(card.textContent).toContain("Raporun durumu ne?");
+  });
+
+  it("açılış seçimindeki ajana mesaj gönderilmiyor, kuyruğa alınıyor", async () => {
+    const statuses = { a: { state: "idle" as const, source: "estimated" as const, lastActivity: null, detail: "setup" } };
+    const { queue } = setup([ws("w1", [pane("a", { title: "Ayşe" })])], statuses);
+    fireEvent.change(box(), { target: { value: "@ay", selectionStart: 3 } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    fireEvent.change(box(), { target: { value: "derle" } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await flush();
+    expect(send).not.toHaveBeenCalled();
+    expect(queue).toHaveBeenCalledWith({ workspaceId: "w1", paneId: "a", name: "Ayşe", body: "derle" });
+    expect(box().value).toBe("");
+  });
+
+  it("kuyruk kartı: bekliyor / başarısız (Yeniden gönder, Vazgeç, Terminalde aç)", () => {
+    const { retryQueued, cancelQueued, commands } = setup([ws("w1", [pane("a", { title: "Ayşe" })])], {}, {
+      queued: [{ workspaceId: "w1", paneId: "a", name: "Ayşe", body: "derle", state: "failed", reason: "busy" }]
+    });
+    const card = document.querySelector("[data-flow-queued]") as HTMLElement;
+    expect(card.getAttribute("data-flow-queued")).toBe("failed");
+    expect(card.textContent).toContain("gönderilemedi");
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden gönder" }));
+    expect(retryQueued).toHaveBeenCalledWith("a");
+    fireEvent.click(screen.getByRole("button", { name: "Vazgeç" }));
+    expect(cancelQueued).toHaveBeenCalledWith("a");
+    fireEvent.click(within(card).getByRole("button", { name: "Terminalde aç" }));
+    expect(commands.revealPane).toHaveBeenCalledWith("a");
+  });
+
+  it("geçmişi temizle onay istiyor", () => {
+    const { clear } = setup([ws("w1", [pane("a", { title: "Ayşe" })])], {}, {
+      events: [{ id: 1, at: 1, workspaceId: "w1", kind: "started", paneId: "a", name: "Ayşe", detail: "" }]
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Akış geçmişini temizle" }));
+    expect(clear).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Temizle" }));
+    expect(clear).toHaveBeenCalledWith("w1");
   });
 });

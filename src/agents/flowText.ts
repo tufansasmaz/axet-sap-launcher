@@ -16,6 +16,7 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
     case "checkpoint":
       return t("flow.checkpoint", { label: event.detail });
     case "message":
+    case "relay":
       return event.detail;
   }
 }

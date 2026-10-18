@@ -7,7 +7,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { LanguageProvider } from "../src/i18n";
 import AgentsScreen from "../src/agents/AgentsScreen";
 import FlowSidebar from "../src/agents/FlowSidebar";
-import { FlowContext } from "../src/agents/flowContext";
+import { EMPTY_FLOW, FlowContext } from "../src/agents/flowContext";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -113,7 +113,7 @@ function setup(ws: TerminalWorkspace, withFlow = false) {
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={agents}>
             <BoardContext.Provider value={boards}>
-              <FlowContext.Provider value={{ events: [], record: () => {} }}>
+              <FlowContext.Provider value={{ ...EMPTY_FLOW, events: [], record: () => {} }}>
                 {withFlow && <FlowSidebar />}
                 <AgentsScreen chatActive={false} onShowAgents={vi.fn()} chat={null} />
               </FlowContext.Provider>
