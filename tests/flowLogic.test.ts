@@ -42,6 +42,26 @@ describe("statusEvents", () => {
     const out = statusEvents({ p1: st("idle"), p2: st("idle") }, { p1: st("running"), p2: st("running") }, panes, 5);
     expect(out).toEqual([{ at: 5, workspaceId: "w1", kind: "started", paneId: "p1", name: "Ayşe", detail: "" }]);
   });
+
+  // Ajanlar-ux §3: akışta ajanın cevabı.
+  it("bitti olayı son cevabı ve kaynağın kesinliğini taşıyor", () => {
+    const panes = new Map([["p1", { workspaceId: "w1", name: "Ayşe" }]]);
+    const out = statusEvents({ p1: st("running") }, { p1: { ...st("idle"), reply: "Rapor hazır." } }, panes, 5);
+    expect(out).toEqual([{ at: 5, workspaceId: "w1", kind: "finished", paneId: "p1", name: "Ayşe", detail: "", exact: true, reply: "Rapor hazır." }]);
+    const est = statusEvents({ p1: { ...st("running"), source: "estimated" } }, { p1: { ...st("idle"), source: "estimated" } }, panes, 6);
+    expect(est).toEqual([{ at: 6, workspaceId: "w1", kind: "finished", paneId: "p1", name: "Ayşe", detail: "", exact: false }]);
+  });
+
+  it("boştayken yeni cevap (çalışıyor görülmeden biten kısa tur) bitti olayı; aynı cevap ya da ilk görüş değil", () => {
+    const panes = new Map([["p1", { workspaceId: "w1", name: "Ayşe" }]]);
+    const a = { ...st("idle"), reply: "bir" };
+    const b = { ...st("idle"), reply: "iki" };
+    expect(statusEvents({ p1: a }, { p1: b }, panes, 7)).toEqual([
+      { at: 7, workspaceId: "w1", kind: "finished", paneId: "p1", name: "Ayşe", detail: "", exact: true, reply: "iki" }
+    ]);
+    expect(statusEvents({ p1: b }, { p1: b }, panes, 8)).toEqual([]);
+    expect(statusEvents({}, { p1: b }, panes, 9)).toEqual([]);
+  });
 });
 
 const sub = (id: string, state: Subtask["state"], over: Partial<Subtask> = {}): Subtask => ({

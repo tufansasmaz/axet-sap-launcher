@@ -81,7 +81,9 @@ export function readVerifyCommands(raw: unknown): string[] {
  * alan yine açılır, varsayılan görünümde (Ofis; ajanlar-yeniden §2). İleri sürümün
  * yazdığı değer de böyle düşer. "panes" artık kayda giriyor: varsayılan o değil. */
 export function readWorkspaceView(raw: unknown): WorkspaceView | undefined {
-  return raw === "panes" || raw === "board" || raw === "office" || raw === "changes" || raw === "browser" ? raw : undefined;
+  return raw === "panes" || raw === "board" || raw === "office" || raw === "changes" || raw === "browser" || raw === "memory"
+    ? raw
+    : undefined;
 }
 
 /** Pano için alanın klasörü (kök, yoksa yedek) ve doğrulama komutları; alan yoksa null. */

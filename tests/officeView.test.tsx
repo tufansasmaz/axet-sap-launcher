@@ -7,7 +7,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import OfficeView from "../src/office/OfficeView";
+import OfficeView, { fitOf } from "../src/office/OfficeView";
+import { ZOOMS } from "../src/office/officeSim";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -232,6 +233,7 @@ describe("OfficeView — kat planı ve HTML katmanı", () => {
     const { onAddAgent } = setup(workspace([shellPane("s1"), shellPane("s2")]));
     const office = screen.getByRole("region", { name: "Ofis görünümü" });
     expect(within(office).getByText("Ofiste kimse yok")).toBeTruthy();
+    expect(within(office).getByText("Ajan ekleyince masasına oturur; ne yaptığını buradan izlersin.")).toBeTruthy();
     fireEvent.click(within(office).getByRole("button", { name: "Ajan" }));
     expect(onAddAgent).toHaveBeenCalledTimes(1);
     expect(document.querySelector("[data-office-shells]")?.textContent).toBe("2 terminal");
@@ -336,19 +338,35 @@ describe("OfficeView — durum", () => {
 });
 
 describe("OfficeView — hareket", () => {
-  it("kesin çalışmada döngü var; tahminide yok; hareketi azaltta yok; görünmezken yok", () => {
+  // Ajanlar-ux §6 (bilinçli güncelleme): tahminide tam döngü yine yok ama ofis
+  // donuk da değil — ortam animasyonu (sunucu LED'leri) düşük hızda çalışıyor;
+  // hareketi azaltta ve görünmezken o da yok.
+  it("kesin çalışmada döngü var; tahminide yok ama ortam canlı; hareketi azaltta ve görünmezken ikisi de yok", () => {
     setup(workspace([agentPane("p1")]), { statuses: { p1: st("running") } });
     expect(stage().getAttribute("data-animated")).toBe("true");
+    expect(stage().getAttribute("data-ambient")).toBe("false");
     cleanup();
     setup(workspace([agentPane("p1")]), { statuses: { p1: st("running", "estimated") } });
     expect(stage().getAttribute("data-animated")).toBe("false");
+    expect(stage().getAttribute("data-ambient")).toBe("true");
     cleanup();
     setup(workspace([agentPane("p1")]), { statuses: { p1: st("running") }, visible: false });
     expect(stage().getAttribute("data-animated")).toBe("false");
+    expect(stage().getAttribute("data-ambient")).toBe("false");
     cleanup();
     reduceMotion();
-    setup(workspace([agentPane("p1")]), { statuses: { p1: st("running") } });
+    setup(workspace([agentPane("p1")]), { statuses: { p1: st("running", "estimated") } });
     expect(stage().getAttribute("data-animated")).toBe("false");
+    expect(stage().getAttribute("data-ambient")).toBe("false");
+  });
+
+  it("varsayılan yakınlık alanı dolduruyor (koyu şerit yok); en uzak/yakın kademede sınırlı", () => {
+    // 1600×900 dünya: geniş alan yüksekliği, dar alan genişliği taşırıyor.
+    expect(fitOf(1600, 450)).toBe(1);
+    expect(fitOf(800, 900)).toBe(1);
+    expect(fitOf(1600, 900)).toBe(1);
+    expect(fitOf(10, 10)).toBe(ZOOMS[0]);
+    expect(fitOf(100000, 100000)).toBe(ZOOMS[ZOOMS.length - 1]);
   });
 
   it("ışın: alt görev yeni atanınca ~800 ms; açılışta ve hareketi azaltta yok", () => {

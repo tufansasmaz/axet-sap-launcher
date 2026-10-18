@@ -1,32 +1,31 @@
-// Akış (spec 2026-10-18 ajanlar-yeniden §2, düzen rev.2): Ajanlar
-// sekmelerinde kenar çubuğu yuvası. Üstte ekibin SAP bağı, "Ekip" (ajan
-// satırları), olaylar ve soru kartları, mesaj kutusu; en altta görünüm
-// sekme grubu: Terminal | Görevler | Ofis | Değişiklikler | Tarayıcı
-// (Sohbet kaldırıldı — sol menüdeki Sohbet düğmesiyle erişiliyor).
+// Akış (spec 2026-10-18 ajanlar-yeniden §2; ajanlar-ux §2, §3): Ajanlar
+// sekmelerinde kenar çubuğu yuvası. Üstte ekibin başlığı (ad, kaç ajan
+// çalışıyor/soru soruyor, SAP bağı), "Ekip" (tek satırlık ajan satırları),
+// akış (ajan başına başlık + durum çipi + gövde; bitirince son cevabı
+// kartta), soru kartları ve mesaj kutusu. Görünüm seçimi artık içerik
+// alanının sol kenarındaki dikey rayda (ViewRail).
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, BookPlus, Building2, ClipboardList, GitBranch, Globe, RotateCw, Terminal, X } from "lucide-react";
+import { BookOpen, BookPlus, RotateCw, X } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import type { AgentAnswerFailure, AgentEngineInfo, AgentStatus } from "../../app-electron/shared/agentTypes";
 import type { AgentSendFailure } from "../../app-electron/shared/agentMessage";
 import { useTerminalStore } from "../stores/terminalStoreContext";
-import { workspaceViewOf } from "../stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
-import type { WorkspaceView } from "../../app-electron/shared/types";
-import type { LucideIcon } from "lucide-react";
 import { Eyebrow } from "../ui/Eyebrow";
 import { GHOST_ICON_BUTTON, PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import { selectedClass } from "../shell/SidebarFooter";
 import { PANE_COLOR_VAR } from "../terminal/paneColors";
 import { useAgentStatuses } from "./agentStatusContext";
-import { agentPanes, cardStatus, decisionsOf, TONE_DOT, type DecisionRow } from "./agentView";
+import { agentPanes, cardStatus, decisionsOf, TONE_DOT, type DecisionRow, type StatusTone } from "./agentView";
 import { ENGINE_LABEL, agentName } from "./agentLabels";
 import { useBoards } from "../board/boardContext";
 import { activeSubtaskOf } from "../board/boardDisplay";
 import MemoryDialog from "./MemoryDialog";
 import { useFlow } from "./flowContext";
-import type { FlowEvent } from "./flowEvents";
+import type { FlowEvent, FlowKind } from "./flowEvents";
 import { matchAgents, mentionAt, removeMention, type Mention } from "./mention";
+import { requestAddAgent } from "./addAgentBus";
 
 const ANSWER_ERROR: Record<Exclude<AgentAnswerFailure, "closed" | "alreadyAnswered">, TranslationKey> = {
   typing: "agents.answerTyping",
@@ -49,6 +48,22 @@ const SEND_FAILURE: Record<AgentSendFailure, TranslationKey> = {
 
 const clock = (at: number) => (at ? new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "");
 
+/** Durum çipi: zemin + metin aynı tondan; lime yok (yalnız seçim). */
+const CHIP: Record<StatusTone, string> = {
+  success: "border-[var(--status-success-border)] text-[var(--status-success-text)]",
+  warning: "border-[var(--status-warning-border)] text-[var(--status-warning-text)]",
+  danger: "border-[var(--status-danger-border)] text-[var(--status-danger-text)]",
+  muted: "border-line text-slate-400"
+};
+
+function Chip({ tone, children, title }: { tone: StatusTone; children: React.ReactNode; title?: string }) {
+  return (
+    <span data-chip={tone} title={title} className={`inline-flex h-4 shrink-0 items-center gap-1 rounded-full border px-1.5 text-2xs leading-none ${CHIP[tone]}`}>
+      {children}
+    </span>
+  );
+}
+
 export default function FlowSidebar() {
   const t = useT();
   const { state } = useTerminalStore();
@@ -70,18 +85,16 @@ export default function FlowSidebar() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-7 shrink-0 items-center gap-2 px-3 text-2xs text-slate-500">
-        <span className="min-w-0 truncate font-mono">{workspace.sap ? t("flow.sapLinked", { sid: workspace.sap.label }) : t("flow.sapNone")}</span>
-      </div>
+      <FlowHeader workspace={workspace} statuses={statuses} />
       <TeamSection workspace={workspace} />
-      <div className="flex h-8 shrink-0 items-center px-3">
+      <div className="flex h-8 shrink-0 items-center border-t border-line px-3">
         <Eyebrow className="flex-1">{t("flow.title")}</Eyebrow>
       </div>
       <div ref={listRef} className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
         {shown.length === 0 && decisions.length === 0 && <p className="px-1 text-2xs text-slate-500">{t("flow.empty")}</p>}
-        <ol className="flex flex-col gap-1">
+        <ol className="flex flex-col gap-1.5">
           {shown.map((event) => (
-            <FlowLine key={event.id} event={event} />
+            <FlowEntry key={event.id} event={event} workspace={workspace} />
           ))}
         </ol>
         {decisions.length > 0 && (
@@ -93,126 +106,137 @@ export default function FlowSidebar() {
         )}
       </div>
       <MessageBox key={workspace.id} workspace={workspace} />
-      <ViewTabBar workspace={workspace} />
     </div>
   );
 }
 
-// ---------------------------------------------------------------- görünüm sekme grubu
-
-const VIEW_TABS: readonly WorkspaceView[] = ["panes", "board", "office", "changes", "browser"];
-
-const VIEW_TAB_KEY: Record<WorkspaceView, TranslationKey> = {
-  panes: "tabs.terminal",
-  board: "tabs.tasks",
-  office: "office.view",
-  changes: "changes.view",
-  browser: "browser.view"
-};
-
-const VIEW_TAB_ICON: Record<WorkspaceView, LucideIcon> = {
-  panes: Terminal,
-  board: ClipboardList,
-  office: Building2,
-  changes: GitBranch,
-  browser: Globe
-};
-
-function ViewTabBar({ workspace }: { workspace: TerminalWorkspace }) {
+/** Ekibin başlığı: ad, kaç ajan çalışıyor / soru soruyor, SAP bağı. */
+function FlowHeader({ workspace, statuses }: { workspace: TerminalWorkspace; statuses: Record<string, AgentStatus> }) {
   const t = useT();
-  const { commands } = useTerminalStore();
-  const tabRefs = useRef(new Map<WorkspaceView, HTMLButtonElement>());
-  const current = workspaceViewOf(workspace);
-
-  const choose = (next: WorkspaceView, focus = false) => {
-    commands.setWorkspaceView(workspace.id, next);
-    if (focus) tabRefs.current.get(next)?.focus();
-  };
-
-  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    const index = VIEW_TABS.indexOf(current);
-    if (e.key === "ArrowRight") choose(VIEW_TABS[(index + 1) % VIEW_TABS.length], true);
-    else if (e.key === "ArrowLeft") choose(VIEW_TABS[(index - 1 + VIEW_TABS.length) % VIEW_TABS.length], true);
-    else if (e.key === "Home") choose(VIEW_TABS[0], true);
-    else if (e.key === "End") choose(VIEW_TABS[VIEW_TABS.length - 1], true);
-    else return;
-    e.preventDefault();
-  };
-
+  const live = agentPanes(workspace).filter((p) => p.run.state === "running");
+  const working = live.filter((p) => statuses[p.id]?.state === "running").length;
+  const asking = live.filter((p) => statuses[p.id]?.state === "asking").length;
   return (
-    <div
-      role="tablist"
-      aria-label={t("board.viewLabel")}
-      data-view-tabbar=""
-      onKeyDown={onKeyDown}
-      className="flex shrink-0 items-stretch border-t border-line"
-    >
-      {VIEW_TABS.map((v) => {
-        const selected = current === v;
-        const Icon = VIEW_TAB_ICON[v];
-        return (
-          <button
-            key={v}
-            ref={(el) => {
-              if (el) tabRefs.current.set(v, el);
-              else tabRefs.current.delete(v);
-            }}
-            type="button"
-            role="tab"
-            data-screen-tab={v}
-            aria-selected={selected}
-            aria-label={t(VIEW_TAB_KEY[v])}
-            tabIndex={selected ? 0 : -1}
-            title={t(VIEW_TAB_KEY[v])}
-            onClick={() => choose(v)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-1.5 text-center transition-colors ${
-              selected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-500 hover:text-slate-200"
-            }`}
-          >
-            <Icon size={13} />
-            <span className="text-2xs leading-none">{t(VIEW_TAB_KEY[v])}</span>
-          </button>
-        );
-      })}
+    <div data-flow-header="" className="flex h-9 shrink-0 items-center gap-1.5 border-b border-line px-3">
+      <span title={workspace.name} className="min-w-0 truncate text-sm font-medium text-slate-100">
+        {workspace.name}
+      </span>
+      {working > 0 && <Chip tone="success">{t("flow.working", { count: working })}</Chip>}
+      {asking > 0 && <Chip tone="warning">{t("flow.askingCount", { count: asking })}</Chip>}
+      <span className="ml-auto min-w-0 shrink truncate font-mono text-2xs text-slate-500">
+        {workspace.sap ? t("flow.sapLinked", { sid: workspace.sap.label }) : t("flow.sapNone")}
+      </span>
     </div>
   );
 }
 
-function flowText(event: FlowEvent, t: ReturnType<typeof useT>): string {
-  const name = event.name;
+const KIND_TONE: Record<FlowKind, StatusTone> = {
+  started: "muted",
+  finished: "success",
+  error: "danger",
+  asked: "warning",
+  assigned: "muted",
+  verified: "success",
+  failed: "danger",
+  checkpoint: "muted",
+  message: "muted"
+};
+
+function flowBody(event: FlowEvent, t: ReturnType<typeof useT>): string {
   switch (event.kind) {
     case "started":
     case "finished":
     case "error":
     case "asked":
-      return `${name} ${t(`flow.${event.kind}`)}`;
+      return t(`flow.${event.kind}`);
     case "assigned":
-      return `${name} ${t("flow.assigned", { title: event.detail })}`;
     case "verified":
     case "failed":
-      return t(`flow.${event.kind}`, { title: event.detail }) + (name ? ` · ${name}` : "");
+      return t(`flow.${event.kind}`, { title: event.detail });
     case "checkpoint":
-      return t("flow.checkpoint", { label: event.detail }) + (name ? ` · ${name}` : "");
+      return t("flow.checkpoint", { label: event.detail });
     case "message":
-      return t("flow.message", { name, text: event.detail });
+      return event.detail;
   }
 }
 
-const TONE_TEXT: Partial<Record<FlowEvent["kind"], string>> = {
-  error: "text-[var(--status-danger-text)]",
-  failed: "text-[var(--status-danger-text)]",
-  asked: "text-[var(--status-warning-text)]"
-};
+const LINK = "cursor-pointer text-2xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline";
 
-function FlowLine({ event }: { event: FlowEvent }) {
+/** Akışın bir satırı: kim (renk, ad, rol), ne (çip), ne zaman; altında gövde ya da cevap kartı. */
+function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: TerminalWorkspace }) {
   const t = useT();
+  const { commands } = useTerminalStore();
+  const pane = event.paneId ? workspace.panes.find((p) => p.id === event.paneId) : undefined;
+  const at = clock(event.at);
+
+  if (event.kind === "message") {
+    return (
+      <li data-flow-event="message" className="ml-6 rounded-md bg-control px-2 py-1.5">
+        <div className="flex items-center gap-2 text-2xs text-slate-400">
+          <span className="min-w-0 truncate">{t("flow.youTo", { name: event.name })}</span>
+          <span className="ml-auto shrink-0 font-mono tabular-nums text-slate-600">{at}</span>
+        </div>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-xs text-slate-100">{event.detail}</p>
+      </li>
+    );
+  }
+
+  const color = pane ? PANE_COLOR_VAR[pane.color ?? "gray"] : undefined;
+  const role = pane?.agent?.role;
+  const canOpen = pane !== undefined;
   return (
-    <li data-flow-event={event.kind} className="flex min-w-0 items-baseline gap-2 px-1 text-xs">
-      <span className="shrink-0 font-mono text-2xs tabular-nums text-slate-600">{clock(event.at)}</span>
-      <span className={`min-w-0 break-words ${TONE_TEXT[event.kind] ?? (event.kind === "message" ? "text-slate-200" : "text-slate-400")}`}>
-        {flowText(event, t)}
-      </span>
+    <li data-flow-event={event.kind} className="min-w-0 px-1">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
+        {event.name && <span className="max-w-[9rem] shrink-0 truncate text-xs font-medium text-slate-200">{event.name}</span>}
+        {role && <span className="min-w-0 truncate text-2xs text-slate-500">{role}</span>}
+        <Chip tone={KIND_TONE[event.kind]}>{t(`flow.chip.${event.kind}`)}</Chip>
+        <span className="ml-auto shrink-0 font-mono text-2xs tabular-nums text-slate-600">{at}</span>
+      </div>
+      {event.kind === "finished" && event.reply ? (
+        <ReplyCard reply={event.reply} onOpen={canOpen ? () => commands.revealPane(pane.id) : undefined} />
+      ) : (
+        <div className="mt-0.5 pl-3.5">
+          <p className={`break-words text-xs ${event.kind === "error" || event.kind === "failed" ? "text-[var(--status-danger-text)]" : "text-slate-300"}`}>
+            {flowBody(event, t)}
+          </p>
+          {event.kind === "finished" && event.exact === false && canOpen && (
+            <button type="button" data-reply-terminal="" title={t("flow.replyInTerminal")} onClick={() => commands.revealPane(pane.id)} className={LINK}>
+              {t("flow.openTerminal")}
+            </button>
+          )}
+        </div>
+      )}
     </li>
+  );
+}
+
+const CLAMP_CHARS = 220;
+const CLAMP_LINES = 4;
+
+/** Ajanın son cevabı: dört satıra kırpılı, "Devamını göster" ile açılıyor. */
+function ReplyCard({ reply, onOpen }: { reply: string; onOpen?: () => void }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const long = reply.length > CLAMP_CHARS || reply.split("\n").length > CLAMP_LINES;
+  return (
+    <div data-flow-reply="" className="ml-3.5 mt-1 rounded-md border border-line bg-card px-2 py-1.5">
+      <p className={`whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-200 ${long && !open ? "line-clamp-4" : ""}`}>{reply}</p>
+      {(long || onOpen) && (
+        <div className="mt-1 flex items-center gap-3">
+          {long && (
+            <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className={LINK}>
+              {open ? t("flow.less") : t("flow.more")}
+            </button>
+          )}
+          {onOpen && (
+            <button type="button" onClick={onOpen} className={LINK}>
+              {t("flow.openTerminal")}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -272,6 +296,7 @@ function DecisionCard({ row }: { row: DecisionRow }) {
   );
 }
 
+
 function TeamSection({ workspace }: { workspace: TerminalWorkspace }) {
   const t = useT();
   const { statuses, engines, now } = useAgentStatuses();
@@ -290,9 +315,15 @@ function TeamSection({ workspace }: { workspace: TerminalWorkspace }) {
         </Eyebrow>
       </div>
       {agents.length === 0 ? (
-        <p className="px-3 pb-2 text-2xs text-slate-500">{t("flow.noAgents")}</p>
+        <div data-flow-empty="" className="mx-2 mb-2 flex flex-col items-start gap-1.5 rounded-md border border-dashed border-line p-3">
+          <p className="text-xs text-slate-200">{t("flow.emptyTitle")}</p>
+          <p className="text-2xs text-slate-500">{t("flow.emptyBody")}</p>
+          <button type="button" onClick={requestAddAgent} className={`${PRIMARY_BUTTON} mt-1`}>
+            {t("agents.addFirst")}
+          </button>
+        </div>
       ) : (
-        <div role="list" aria-label={t("agents.team")} className="chat-scroll flex max-h-[40vh] flex-col gap-0.5 overflow-y-auto px-2 pb-2">
+        <div role="list" aria-label={t("agents.team")} className="chat-scroll flex max-h-[36vh] flex-col overflow-y-auto px-2 pb-2">
           {agents.map((pane) => (
             <AgentRow
               key={pane.id}
@@ -313,6 +344,12 @@ function TeamSection({ workspace }: { workspace: TerminalWorkspace }) {
   );
 }
 
+/**
+ * Ekipte bir ajan, TEK satır: renk çizgisi, ad, rol (varsa alt görevi), sağda
+ * durum çipi. Yeniden başlat gerektiğinde hep görünür; bellek düğmesi satırın
+ * üstüne gelince ya da klavye odağında belirir. Motor adı yalnız uyarı
+ * varsa görünür (değilse ipucunda).
+ */
 function AgentRow({
   pane,
   selected,
@@ -335,74 +372,68 @@ function AgentRow({
   const job = activeSubtaskOf(boards, pane.id);
   const color = PANE_COLOR_VAR[pane.color ?? "gray"];
   const name = agentName(pane, t);
+  const engineLabel = t(ENGINE_LABEL[pane.agent?.engine ?? "axet-code"]);
   return (
-    <div role="listitem" className="relative">
+    <div role="listitem" className="group flex min-w-0 items-center gap-0.5">
       <button
         type="button"
         data-agent-row={pane.id}
         aria-pressed={selected}
         onClick={() => commands.revealPane(pane.id)}
+        title={engine?.note ? undefined : engineLabel}
         style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-        className={`flex w-full flex-col gap-0.5 rounded-md py-1 pl-3 pr-14 text-left transition-colors ${selectedClass(selected)}`}
+        className={`flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md pl-3 pr-1.5 text-left transition-colors ${selectedClass(selected)}`}
       >
-        <span className="flex min-w-0 items-baseline gap-1.5">
-          <span title={name} className="min-w-0 truncate text-xs font-medium text-slate-200">
-            {name}
-          </span>
-          {pane.agent?.role && (
-            <span title={pane.agent.role} className="min-w-0 truncate text-2xs text-slate-500">
-              {pane.agent.role}
-            </span>
-          )}
+        <span title={name} className="max-w-[9rem] shrink-0 truncate text-xs font-medium text-slate-200">
+          {name}
         </span>
-        <span className="flex min-w-0 items-center gap-1.5 text-2xs">
-          <span data-tone={view.tone} className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[view.tone]}`} />
-          <span className="min-w-0 truncate text-slate-300">{t(view.key, view.params)}</span>
-          {view.estimated && (
-            <span data-estimated="" title={t("agents.estimatedHint")} className="shrink-0 text-slate-500">
-              ≈
-            </span>
-          )}
+        {pane.agent?.role && (
+          <span title={pane.agent.role} className="min-w-0 shrink-[2] truncate text-2xs text-slate-500">
+            {pane.agent.role}
+          </span>
+        )}
+        {/* Görev panosu (spec 2026-10-18 gorev-panosu §8): görevli ajanın alt görevi. */}
+        {job && (
+          <span data-agent-task="" title={job.subtask.title} className="min-w-0 shrink-[3] truncate text-2xs text-slate-500">
+            {job.subtask.title}
+          </span>
+        )}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
           {/* axet-code eski/bozuk (axetBinaryStatus, spec §10): motor adı uyarı renginde, mesaj ipucunda. */}
           <span
             data-engine-note={engine?.note ? "" : undefined}
             title={engine?.note}
-            className={`ml-auto shrink-0 truncate ${engine?.note ? "text-[var(--status-warning-text)]" : "text-slate-500"}`}
+            className={engine?.note ? "truncate text-2xs text-[var(--status-warning-text)]" : "sr-only"}
           >
-            {t(ENGINE_LABEL[pane.agent?.engine ?? "axet-code"])}
+            {engineLabel}
           </span>
+          <Chip tone={view.tone} title={view.estimated ? t("agents.estimatedHint") : undefined}>
+            <span data-tone={view.tone} className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[view.tone]}`} />
+            {t(view.key, view.params)}
+            {view.estimated && (
+              <span data-estimated="" title={t("agents.estimatedHint")} className="opacity-70">
+                ≈
+              </span>
+            )}
+          </Chip>
         </span>
-        {/* Görev panosu (spec 2026-10-18 gorev-panosu §8): görevli ajanın alt görevi. */}
-        {job && (
-          <span data-agent-task="" title={job.subtask.title} className="min-w-0 truncate text-2xs text-slate-500">
-            {job.subtask.title}
-          </span>
-        )}
       </button>
-      <div className="absolute right-1 top-1 flex gap-0.5">
-        {view.restartable && (
-          <button
-            type="button"
-            onClick={() => commands.restartPane(pane.id)}
-            title={t("terminal.restart")}
-            aria-label={t("terminal.restart")}
-            className={GHOST_ICON_BUTTON}
-          >
-            <RotateCw size={12} />
-          </button>
-        )}
-        {/* Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4): açıksa pencere, kapalıysa etkinleştirme. */}
-        <button
-          type="button"
-          data-agent-memory={pane.agent?.memory ? "on" : "off"}
-          onClick={() => (pane.agent?.memory ? onOpenMemory() : commands.enablePaneMemory(pane.id))}
-          title={t(pane.agent?.memory ? "memory.open" : "memory.enable")}
-          aria-label={t(pane.agent?.memory ? "memory.open" : "memory.enable")}
-          className={GHOST_ICON_BUTTON}
-        >
-          {pane.agent?.memory ? <BookOpen size={12} /> : <BookPlus size={12} />}
+      {view.restartable && (
+        <button type="button" onClick={() => commands.restartPane(pane.id)} title={t("terminal.restart")} aria-label={t("terminal.restart")} className={GHOST_ICON_BUTTON}>
+          <RotateCw size={12} />
         </button>
-      </div>
+      )}
+      {/* Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4): açıksa pencere, kapalıysa etkinleştirme. */}
+      <button
+        type="button"
+        data-agent-memory={pane.agent?.memory ? "on" : "off"}
+        onClick={() => (pane.agent?.memory ? onOpenMemory() : commands.enablePaneMemory(pane.id))}
+        title={t(pane.agent?.memory ? "memory.open" : "memory.enable")}
+        aria-label={t(pane.agent?.memory ? "memory.open" : "memory.enable")}
+        className={`${GHOST_ICON_BUTTON} opacity-0 focus-visible:opacity-100 group-hover:opacity-100`}
+      >
+        {pane.agent?.memory ? <BookOpen size={12} /> : <BookPlus size={12} />}
+      </button>
     </div>
   );
 }

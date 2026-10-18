@@ -175,10 +175,14 @@ describe("Akış — ekip ve olaylar", () => {
     });
     const items = Array.from(document.querySelectorAll("[data-flow-event]")).map((e) => e.textContent ?? "");
     expect(items).toHaveLength(4);
-    expect(items[0]).toContain("Ayşe çalışmaya başladı");
-    expect(items[1]).toContain("Ayşe iş aldı: Derle");
+    // Ajanlar-ux §2: başlıkta kim + çip, altında gövde.
+    expect(items[0]).toContain("Ayşe");
+    expect(items[0]).toContain("başladı");
+    expect(items[0]).toContain("Çalışmaya başladı.");
+    expect(items[1]).toContain("İş aldı: Derle");
     expect(items[2]).toContain("Değişiklik kaydı: istem");
-    expect(items[3]).toContain("Sen → Ayşe: selam");
+    expect(items[3]).toContain("Sen → Ayşe");
+    expect(items[3]).toContain("selam");
     cleanup();
     setup([ws("w1", [])]);
     expect(screen.getByText("Henüz olay yok")).toBeTruthy();
@@ -318,79 +322,88 @@ describe("Akış — ajan satırı (eski ekip kartı)", () => {
   });
 });
 
-describe("ViewTabBar — görünüm sekme grubu (düzen rev.2)", () => {
-  function setupTabBar(view: TerminalWorkspace["view"] = undefined) {
-    const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
-    const store: TerminalStoreValue = {
-      state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [ws("w1", [], { view })], activeWorkspaceId: "w1" },
-      commands,
-      defaultKind: "cmd",
-      defaultCwd: "C:\a",
-      agentCwd: "C:\axet"
-    };
-    const answer = vi.fn(async () => ({ ok: true as const }));
-    const agents: AgentStatusValue = { statuses: {}, engines: [], now: 1, answer };
-    render(
-      <LanguageProvider language="tr">
-        <TerminalStoreContext.Provider value={store}>
-          <AgentStatusContext.Provider value={agents}>
-            <FlowContext.Provider value={{ events: [], record: () => {} }}>
-              <FlowSidebar />
-            </FlowContext.Provider>
-          </AgentStatusContext.Provider>
-        </TerminalStoreContext.Provider>
-      </LanguageProvider>
-    );
-    return { commands };
-  }
-
-  it("beş sekme; sırası Terminal | Görevler | Ofis | Değişiklikler | Tarayıcı (Ofis ortada)", () => {
-    setupTabBar();
-    const group = screen.getByRole("tablist", { name: "Görünüm" });
-    const labels = Array.from(group.querySelectorAll("[role=tab]")).map((t) => t.getAttribute("aria-label"));
-    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı"]);
-  });
-
-  it("Ofis görünümündeyken Ofis seçili", () => {
-    setupTabBar("office");
-    expect(screen.getByRole("tab", { name: "Ofis" }).getAttribute("aria-selected")).toBe("true");
-    expect(screen.getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("false");
-  });
-
-  it("sekmeye tıklamak setWorkspaceView'u çağırıyor", () => {
-    const { commands } = setupTabBar("office");
-    fireEvent.click(screen.getByRole("tab", { name: "Görevler" }));
-    expect(commands.setWorkspaceView).toHaveBeenCalledWith("w1", "board");
-  });
-
-  it("ok tuşu sekmeler arasında geziyor; seçili sekme tabIndex=0", () => {
-    const { commands } = setupTabBar("panes");
-    expect(screen.getByRole("tab", { name: "Terminal" }).tabIndex).toBe(0);
-    expect(screen.getByRole("tab", { name: "Ofis" }).tabIndex).toBe(-1);
-    fireEvent.keyDown(screen.getByRole("tablist", { name: "Görünüm" }), { key: "ArrowRight" });
-    expect(commands.setWorkspaceView).toHaveBeenCalledWith("w1", "board");
-  });
-
-  it("Alan seçili değilken ViewTabBar görünmüyor", () => {
-    const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
-    const store: TerminalStoreValue = {
-      state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [], activeWorkspaceId: null },
-      commands,
-      defaultKind: "cmd",
-      defaultCwd: "C:\a",
-      agentCwd: "C:\axet"
-    };
-    render(
-      <LanguageProvider language="tr">
-        <TerminalStoreContext.Provider value={store}>
-          <AgentStatusContext.Provider value={{ statuses: {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) }}>
-            <FlowContext.Provider value={{ events: [], record: () => {} }}>
-              <FlowSidebar />
-            </FlowContext.Provider>
-          </AgentStatusContext.Provider>
-        </TerminalStoreContext.Provider>
-      </LanguageProvider>
-    );
+describe("Akış — görünüm seçimi", () => {
+  it("Akış'ta görünüm sekme grubu yok (içerik alanının dikey rayına taşındı; ajanlar-ux §4)", () => {
+    setup([ws("w1", [pane("a")])]);
     expect(screen.queryByRole("tablist", { name: "Görünüm" })).toBeNull();
+    expect(document.querySelector("[data-view-tabbar]")).toBeNull();
+  });
+});
+
+// Ajanlar-ux §2, §3, §6: tek satırlık ajan satırı, ekip başlığı, akışta ajanın cevabı, boş durum.
+describe("Akış — ajanın cevabı ve düzen", () => {
+  const fin = (id: number, over: Partial<FlowEvent> = {}): FlowEvent => ({ id, at: 0, workspaceId: "w1", kind: "finished", paneId: "a", name: "Ayşe", detail: "", ...over });
+
+  it("bitti olayında son cevap kartta; kısa cevapta 'Devamını göster' yok; 'Terminalde aç' bölmeyi öne getiriyor", () => {
+    const { commands } = setup([ws("w1", [pane("a", { title: "Ayşe" })])], {}, { events: [fin(1, { exact: true, reply: "Rapor hazır: 3 tablo eklendi." })] });
+    const card = document.querySelector("[data-flow-reply]") as HTMLElement;
+    expect(card.textContent).toContain("Rapor hazır: 3 tablo eklendi.");
+    expect(document.querySelector('[data-flow-event="finished"]')?.textContent).toContain("cevap");
+    expect(screen.queryByRole("button", { name: "Devamını göster" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Terminalde aç" }));
+    expect(commands.revealPane).toHaveBeenCalledWith("a");
+  });
+
+  it("uzun cevap dört satıra kırpılı; 'Devamını göster' açıyor, 'Daha az göster' kapatıyor", () => {
+    const reply = Array.from({ length: 8 }, (_, i) => `Satır ${i + 1}`).join("\n");
+    setup([ws("w1", [pane("a")])], {}, { events: [fin(1, { exact: true, reply })] });
+    const text = document.querySelector("[data-flow-reply] p") as HTMLElement;
+    expect(text.className).toContain("line-clamp-4");
+    const more = screen.getByRole("button", { name: "Devamını göster" });
+    expect(more.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(more);
+    expect(text.className).not.toContain("line-clamp-4");
+    fireEvent.click(screen.getByRole("button", { name: "Daha az göster" }));
+    expect(text.className).toContain("line-clamp-4");
+  });
+
+  it("tahmini kaynakta cevap yok: 'İşini bitirdi.' ve terminale yönlendiren bağ", () => {
+    const { commands } = setup([ws("w1", [pane("a")])], {}, { events: [fin(1, { exact: false })] });
+    expect(document.querySelector("[data-flow-reply]")).toBeNull();
+    expect(document.querySelector('[data-flow-event="finished"]')?.textContent).toContain("İşini bitirdi.");
+    const link = document.querySelector("[data-reply-terminal]") as HTMLElement;
+    expect(link.getAttribute("title")).toBe("Cevabı terminalde; bu motorun cevabı okunamıyor.");
+    fireEvent.click(link);
+    expect(commands.revealPane).toHaveBeenCalledWith("a");
+  });
+
+  it("ajan satırı TEK satır: ad, rol, durum çipi aynı satırda; motor adı yalnız uyarıda görünür", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe", agent: { engine: "axet-code", role: "Test", roleKind: "preset" } })])], { a: status("running") });
+    const row = document.querySelector('[data-agent-row="a"]') as HTMLElement;
+    expect(row.className.split(" ")).toEqual(expect.arrayContaining(["flex", "h-8", "items-center"]));
+    expect(row.className).not.toContain("flex-col");
+    expect(row.querySelector("[data-chip]")?.textContent).toContain("Çalışıyor");
+    expect((row.querySelector("[data-engine-note]") ?? row.querySelector(".sr-only"))?.className).toContain("sr-only");
+  });
+
+  it("bellek düğmesi satırın üstüne gelince/odakta beliriyor (gizli ama erişilebilir)", () => {
+    setup([ws("w1", [pane("a")])]);
+    const memory = screen.getByRole("button", { name: "Belleği etkinleştir" });
+    expect(memory.className).toContain("opacity-0");
+    expect(memory.className).toContain("group-hover:opacity-100");
+    expect(memory.className).toContain("focus-visible:opacity-100");
+  });
+
+  it("ekip başlığı: ad, kaç ajan çalışıyor ve soru soruyor", () => {
+    setup([ws("w1", [pane("a"), pane("b"), pane("c")], { name: "Satış" })], { a: status("running"), b: status("running"), c: asking(question("q1")) });
+    const header = document.querySelector("[data-flow-header]") as HTMLElement;
+    expect(header.textContent).toContain("Satış");
+    expect(header.textContent).toContain("2 çalışıyor");
+    expect(header.textContent).toContain("1 soru");
+  });
+
+  it("hiç ajan yokken net çağrı: 'İlk ajanını ekle' ekle isteğini yayınlıyor", () => {
+    const heard = vi.fn();
+    window.addEventListener("ntt:add-agent", heard);
+    setup([ws("w1", [])]);
+    expect(document.querySelector("[data-flow-empty]")?.textContent).toContain("Ekipte henüz ajan yok");
+    fireEvent.click(screen.getByRole("button", { name: "İlk ajanını ekle" }));
+    expect(heard).toHaveBeenCalledTimes(1);
+    window.removeEventListener("ntt:add-agent", heard);
+  });
+
+  it("mesaj kutusu demodaki gibi ekibe yazıyor: ipucu metni", () => {
+    setup([ws("w1", [pane("a")])]);
+    expect(box().getAttribute("placeholder")).toBe("Ekibe yaz… @ ile ajan seç");
   });
 });

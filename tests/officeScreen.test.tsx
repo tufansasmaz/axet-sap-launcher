@@ -131,18 +131,18 @@ function setup(ws: TerminalWorkspace, { board, language = "tr", withFlow = false
 const office = () => screen.queryByRole("region", { name: "Ofis görünümü" });
 const xterm = () => screen.getByTestId("xterm-t-p1");
 
-describe("görünüm sekmeleri: FlowSidebar ViewTabBar (düzen rev.2)", () => {
+describe("görünüm sekmeleri: dikey ray (ajanlar-ux §4)", () => {
   it("kaydı olmayan alan Ofis'te açılıyor (ajanlar-yeniden §2)", () => {
     setup(workspace());
     expect(office()).toBeTruthy();
   });
 
-  it("beş sekme (Sohbet yok); Terminal'deyken Ofis seçimi alana kaydediliyor", () => {
-    // Düzen rev.2: tablist FlowSidebar'da, Sohbet kaldırıldı.
+  it("altı sekme, dikey rayda (Sohbet yok); Terminal'deyken Ofis seçimi alana kaydediliyor", () => {
+    // Ajanlar-ux §4: tablist dikey rayda, Sohbet yok.
     const { commands } = setup(workspace({ view: "panes" }), { withFlow: true });
     const group = screen.getByRole("tablist", { name: "Görünüm" });
     const labels = within(group).getAllByRole("tab").map((r) => r.getAttribute("aria-label"));
-    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı"]);
+    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek"]);
     expect(within(group).getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(within(group).getByRole("tab", { name: "Ofis" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "office");

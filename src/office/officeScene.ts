@@ -13,6 +13,10 @@ export { nightFactor };
 
 type Ctx = CanvasRenderingContext2D;
 
+/** Açık ofisin etiketi: sol duvarda, monitör duvarının dışında. */
+export const HALL_TAG_X = 244;
+export const HALL_TAG_Y = 4;
+
 const images = new WeakMap<Art, HTMLCanvasElement | null>();
 
 /** Sprite'ın görüntüsü; belge ya da 2d bağlam yoksa null. */
@@ -208,7 +212,9 @@ export function paintBackground(g: Ctx, label: (room: Room) => string): void {
     const txt = label(room);
     if (!txt) continue;
     if (room.id === "hall") {
-      tagAt(txt, 760 - 50, 2);
+      // Monitör duvarının (704..896) üstüne binmesin: soldaki boş duvar
+      // parçasında, iki pencere çifti arasında (spec 2026-10-18 ajanlar-ux §6).
+      tagAt(txt, HALL_TAG_X, HALL_TAG_Y);
       continue;
     }
     // etiket sürgülü kapının önüne düşmesin

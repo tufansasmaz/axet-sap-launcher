@@ -1,10 +1,10 @@
-// Ajanlar ekranı (spec 2026-10-18 ajanlar-yeniden §2, §2a, düzen rev.2):
-// üstte ekip sekmeleri + sağda "+ Kabuk" / "+ Ajan". Görünüm sekmeleri
-// (Terminal | Görevler | Ofis | Değişiklikler | Tarayıcı) FlowSidebar'ın
-// alt kenarına taşındı; "Sohbet" sekmesi kaldırıldı (uygulama sol menüsüyle
-// erişiliyor). Sohbet bileşeni (`chat`) ve TerminalMode HER ZAMAN takılı,
+// Ajanlar ekranı (spec 2026-10-18 ajanlar-yeniden §2, §2a; ajanlar-ux §1):
+// üstte TEK alçak satır — ekip sekmeleri (taşarsa yatay kayar) + "+ Ekip",
+// sağda bölme sayısı, "+ Kabuk" / "+ Ajan". Görünüm seçimi içerik alanının
+// sol kenarındaki dikey rayda (ViewRail, TerminalMode içinde). "Sohbet"
+// sekmesi yok (uygulama sol menüsüyle erişiliyor). Sohbet bileşeni (`chat`) ve TerminalMode HER ZAMAN takılı,
 // yalnız görünürlükleri chatActive'e bağlı (akan cevap, taslak, pty'ler).
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
@@ -13,6 +13,7 @@ import type { ActiveSapContext } from "../../app-electron/shared/types";
 import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import TerminalMode, { type AddRequest } from "../terminal/TerminalMode";
 import TeamTabs from "./TeamTabs";
+import { onAddAgentRequest } from "./addAgentBus";
 
 export default function AgentsScreen({
   chatActive,
@@ -36,13 +37,18 @@ export default function AgentsScreen({
     onShowAgents();
     setAddRequest((prev) => ({ kind, seq: (prev?.seq ?? 0) + 1 }));
   };
+  // Akış ve Bellek boş durumlarındaki "İlk ajanını ekle" (ayrı ağaçlar; addAgentBus).
+  const requestAddRef = useRef(requestAdd);
+  requestAddRef.current = requestAdd;
+  useEffect(() => onAddAgentRequest(() => requestAddRef.current("agent")), []);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-col gap-0.5 border-b border-line px-3 pb-1.5 pt-1">
-        <TeamTabs activeSap={activeSap} onSelected={onShowAgents} />
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1" />
+      <div data-agents-strip="" className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-2">
+        <div className="min-w-0 flex-1">
+          <TeamTabs activeSap={activeSap} onSelected={onShowAgents} />
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
           {active && (
             <span className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">{t("terminal.paneCount", { count: active.panes.length })}</span>
           )}
@@ -50,7 +56,7 @@ export default function AgentsScreen({
             type="button"
             onClick={() => requestAdd("shell")}
             disabled={!ready || full}
-            title={full ? t("terminal.paneMax") : undefined}
+            title={full ? t("terminal.paneMax") : t("agents.addShellLong")}
             className={`${TOOL_BUTTON} disabled:cursor-default disabled:opacity-40`}
           >
             <Plus size={12} />
@@ -60,7 +66,7 @@ export default function AgentsScreen({
             type="button"
             onClick={() => requestAdd("agent")}
             disabled={!ready || full}
-            title={full ? t("terminal.paneMax") : undefined}
+            title={full ? t("terminal.paneMax") : t("agents.addTitle")}
             className={`${PRIMARY_BUTTON} disabled:cursor-default disabled:opacity-40`}
           >
             <Plus size={12} />

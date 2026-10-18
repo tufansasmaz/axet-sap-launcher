@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
 // Ajanlar ekranı (spec 2026-10-18 ajanlar-yeniden §2, düzen rev.2):
-// Sohbet bileşeni ve TerminalMode hep takılı; görünüm sekme grubu
-// FlowSidebar'a taşındı (agentsScreen artık yalnız ekip sekmeleri + butonlar).
+// Sohbet bileşeni ve TerminalMode hep takılı. Ajanlar-ux §1, §4: üst şerit
+// TEK satır (ekip sekmeleri + "+ Ekip" + "+ Kabuk" / "+ Ajan"); görünüm
+// seçimi içerik alanının sol kenarındaki dikey rayda.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { requestAddAgent } from "../src/agents/addAgentBus";
 import { LanguageProvider } from "../src/i18n";
 import AgentsScreen from "../src/agents/AgentsScreen";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
@@ -72,8 +74,27 @@ describe("AgentsScreen", () => {
     expect(onShowAgents).toHaveBeenCalled();
   });
 
-  it("üstte görünüm tablist YOK (FlowSidebar'a taşındı)", () => {
+  it("üst şerit tek satır: ekip sekmeleri, + Ekip, + Kabuk, + Ajan aynı alçak satırda; görünüm seçimi şeritte değil", () => {
     setup(false);
-    expect(screen.queryByRole("tablist", { name: "Görünüm" })).toBeNull();
+    const strip = document.querySelector("[data-agents-strip]") as HTMLElement;
+    expect(strip.className.split(" ")).toEqual(expect.arrayContaining(["flex", "h-9", "items-center"]));
+    expect(strip.className).not.toContain("flex-col");
+    expect(within(strip).getByRole("tablist", { name: "Ekipler" })).toBeTruthy();
+    for (const name of ["Ekip", "Kabuk", "Ajan"]) expect(within(strip).getByRole("button", { name })).toBeTruthy();
+    expect(within(strip).queryByRole("tablist", { name: "Görünüm" })).toBeNull();
+  });
+
+  it("görünüm rayı içerik alanında, dikey", () => {
+    setup(false);
+    const rail = screen.getByRole("tablist", { name: "Görünüm" });
+    expect(rail.getAttribute("aria-orientation")).toBe("vertical");
+    expect(rail.closest("[data-agents-strip]")).toBeNull();
+  });
+
+  it("boş durumlardaki 'İlk ajanını ekle' isteği ajan penceresini açıyor", () => {
+    const { onShowAgents } = setup(false);
+    act(() => requestAddAgent());
+    expect(onShowAgents).toHaveBeenCalled();
+    expect(screen.getByText("Ajan ekle")).toBeTruthy();
   });
 });

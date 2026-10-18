@@ -1,4 +1,4 @@
-// Ajanlar ekranının orta alanı (spec 2026-10-17 ajan-alani §4; ajanlar-yeniden §2): bölmeler (Terminal), Görevler, Ofis, Değişiklikler ya da Tarayıcı. Sekmeler ve ekle düğmeleri üstteki AgentsScreen'de; ekle istekleri `addRequest` ile geliyor. Bütün alanlar HEP takılı: seçili olmayanlar ve öbür görünümlerdeyken bölmeler hidden.
+// Ajanlar ekranının orta alanı (spec 2026-10-17 ajan-alani §4; ajanlar-yeniden §2; ajanlar-ux §4): solda dikey görünüm rayı, yanında bölmeler (Terminal), Görevler, Ofis, Değişiklikler, Tarayıcı ya da Bellek. Sekmeler ve ekle düğmeleri üstteki AgentsScreen'de; ekle istekleri `addRequest` ile geliyor. Bütün alanlar HEP takılı: seçili olmayanlar ve öbür görünümlerdeyken bölmeler hidden.
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
@@ -23,6 +23,8 @@ import OfficeView from "../office/OfficeView";
 import ChangesView from "../changes/ChangesView";
 import { ChangesFocusProvider } from "../changes/changesFocus";
 import BrowserView from "../browser/BrowserView";
+import ViewRail from "../agents/ViewRail";
+import MemoryView from "../agents/MemoryView";
 import type { WorkspaceView } from "../../app-electron/shared/types";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
@@ -93,7 +95,9 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
       )}
 
       <div className="flex min-h-0 flex-1">
-        <div className="relative min-h-0 flex-1">
+        {/* Görünüm rayı: içerik alanının sol kenarına gömülü, alt alta (spec 2026-10-18 ajanlar-ux §4). */}
+        {state.phase === "ready" && active && <ViewRail workspace={active} />}
+        <div className="relative min-h-0 min-w-0 flex-1">
           {state.workspaces.map((w) => (
             <div
               key={w.id}
@@ -134,6 +138,11 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
           {state.phase === "ready" && active && view === "office" && (
             <div className="absolute inset-0">
               <OfficeView workspace={active} visible={state.visible} onAddAgent={() => setAgentDialog({})} />
+            </div>
+          )}
+          {state.phase === "ready" && active && view === "memory" && (
+            <div className="absolute inset-0">
+              <MemoryView key={active.id} workspace={active} />
             </div>
           )}
           {state.phase === "ready" && active && view === "changes" && (

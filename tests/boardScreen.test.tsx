@@ -154,15 +154,15 @@ const mixed: Board = {
 };
 
 describe("Terminal | Görevler", () => {
-  it("geçiş: Görevler seçimi alana kaydediliyor (tablist FlowSidebar'da)", () => {
-    // Düzen rev.2: tablist FlowSidebar'ın ViewTabBar'ında (flow=true).
-    const { commands } = setup(workspace({ view: "panes" }), undefined, "tr", true);
+  it("geçiş: Görevler seçimi alana kaydediliyor (tablist dikey rayda)", () => {
+    // Ajanlar-ux §4: tablist içerik alanının sol kenarındaki dikey rayda (AgentsScreen).
+    const { commands } = setup(workspace({ view: "panes" }), undefined, "tr");
     const group = screen.getByRole("tablist", { name: "Görünüm" });
     expect(within(group).getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(within(group).getByRole("tab", { name: "Görevler" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "board");
     cleanup();
-    setup(workspace({ view: "board" }), undefined, "tr", true);
+    setup(workspace({ view: "board" }), undefined, "tr");
     expect(screen.getByRole("tab", { name: "Görevler" }).getAttribute("aria-selected")).toBe("true");
   });
 
@@ -175,7 +175,7 @@ describe("Terminal | Görevler", () => {
   });
 
   it("İngilizce: sekme ve sütun adları", () => {
-    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] }, "en", true);
+    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] }, "en");
     expect(screen.getByRole("tab", { name: "Tasks" })).toBeTruthy();
     cleanup();
     setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] }, "en");

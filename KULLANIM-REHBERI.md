@@ -414,7 +414,10 @@ ekranın parçası**: soldaki rayda **Axet Chat** ve **Ajanlar** aynı ekranı a
 (Sohbet sekmesi ya da ekibin son açık sekmesi). Sekme değiştirmek hiçbir şeyi
 kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
 
-- **Ekip sekmeleri** (en üst): her ekip bir çalışma alanıdır. Sekmede ad,
+- **Üst şerit** tek, alçak bir satırdır: solda ekip sekmeleri ve **+ Ekip**
+  (sekme çoksa satır yatay kayar), sağda bölme sayısı, **+ Kabuk** ve
+  **+ Ajan**.
+- **Ekip sekmeleri**: her ekip bir çalışma alanıdır. Sekmede ad,
   ajan sayısı ve gerekiyorsa kehribar (soru bekleyen ajan) ya da kırmızı
   (başarısız alt görev) bir sayı görünür. Tıkla ya da ok tuşlarıyla seç; çift
   tık ya da **F2** ile yeniden adlandır. Sağ tık ya da seçili sekmenin **…**
@@ -424,24 +427,34 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   geliştirici, test), **Analiz** (lider, analist), **Destek** (tek ajan).
   Şablon ajanları axet-code ile, ekibin varsayılan klasöründe açar; rol yalnız
   bir etikettir, rol kapısı ve SAP kuralları aynen geçerlidir.
-- **Görünüm sekme grubu** (Akış'ın alt kenarı): **Terminal | Görevler | Ofis |
-  Değişiklikler | Tarayıcı**. Sohbet bu gruptan kaldırıldı; Sohbet'e sol
-  menüdeki **Axet Chat** düğmesiyle dönülür. Seçim ekip başına hatırlanır;
-  yeni ekip **Ofis**'te açılır. Terminal bölme düzenidir (değişmedi). Sağdaki
-  **Kabuk** cmd/PowerShell bölmesi, **Ajan** yeni ajan açar: ad, motor
+- **Görünüm rayı** (içerik alanının sol kenarı, alt alta simgeler):
+  **Terminal, Görevler, Ofis, Değişiklikler, Tarayıcı, Bellek**. Simgenin
+  üstüne gelince adı görünür; seçili olanın solunda vurgu çizgisi vardır.
+  Klavyeyle yukarı/aşağı ok, Home/End. Sohbet'e sol menüdeki **Axet Chat**
+  düğmesiyle dönülür. Seçim ekip başına hatırlanır; yeni ekip **Ofis**'te
+  açılır. Terminal bölme düzenidir (değişmedi). Üst şeritteki **Kabuk**
+  cmd/PowerShell bölmesi, **Ajan** yeni ajan açar: ad, motor
   (axet-code, Claude Code, Codex, Gemini CLI ya da kendi komutun), rol,
   klasör, renk. axet-code'da rol listesi axet-code'un kendi ajanlarından
   gelir; kurulu olmayan motorun satırında "Kurulu değil" yazar ve başlamaz.
 - **Akış** (sol sütun; Sohbet sekmesinde yerini sohbet listesi alır):
-  - Üstte ekibin SAP bağı.
-  - **Ekip**: her ajan bir satır — ad, rol, durum (Çalışıyor, Soru soruyor,
-    Boşta 3 dk, Bitti, Hata), motor ve panodan aldığı iş. Tıklayınca Terminal
-    sekmesinde o ajanın terminali öne gelir. **≈** durumun tahmini olduğunu
-    söyler (motorun kendi kaydı okunamıyor). Satırdaki kitap simgesi kalıcı
-    belleği, ok simgesi yeniden başlatmayı açar.
-  - **Olaylar**: çalışmaya başladı, bitirdi, hata, soru sordu, iş aldı,
-    doğrulandı, başarısız, değişiklik kaydı ve gönderdiğin mesajlar; en yenisi
-    altta. Yalnız bu oturum için, en çok 200 olay; kalıcı kayıt yok.
+  - Üstte ekibin adı, kaç ajanın çalıştığı ve kaçının soru beklediği, SAP bağı.
+  - **Ekip**: her ajan TEK satır — renk çizgisi, ad, rol, panodan aldığı iş
+    ve sağda durum çipi (Çalışıyor, Soru soruyor, Boşta 3 dk, Bitti, Hata).
+    Tıklayınca Terminal'de o ajanın terminali öne gelir. **≈** durumun tahmini
+    olduğunu söyler (motorun kendi kaydı okunamıyor). Satırın üstüne gelince
+    kitap simgesi (kalıcı bellek) belirir; yeniden başlatma gerektiğinde ok
+    simgesi hep görünür. Motor adı ipucundadır; axet-code sürüm uyarısı varsa
+    satırda görünür. Ekipte hiç ajan yoksa burada **İlk ajanını ekle** çıkar.
+  - **Olaylar**: her satırda kim (renk, ad, rol), ne (başladı, cevap, hata,
+    soru, iş, doğrulandı, başarısız, kayıt çipi) ve saat; altında kısa açıklama.
+    Ajan işini bitirince **son cevabı** bir kartta görünür (en çok dört satır;
+    **Devamını göster** ile tamamı, **Terminalde aç** ile terminali). Cevap
+    yalnız durumu kesin bilinen ajanlarda (axet-code'un kendi kaydı) okunur;
+    şifre/jeton benzeri değerler «gizli» diye maskelenir, en çok 600 karakter
+    tutulur. Tahmini durumdaki ajanda "İşini bitirdi." ve **Terminalde aç**
+    yazar. Gönderdiğin mesajlar "Sen → ajan" balonu olarak görünür. En yenisi
+    altta; yalnız bu oturum için, en çok 200 olay; kalıcı kayıt yok.
   - **Soru kartları**: ekibin cevap bekleyen soruları. axet-code'un seçenekli
     sorusunu tek tıkla cevaplarsın; terminalde dokunduysan ya da serbest/çok
     seçimli bir soruysa **Terminale git**.
@@ -450,6 +463,20 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     karakter, `!` ile başlayamaz). Ajan çalışıyor, soru bekliyor ya da
     terminalinde yarım bir satır varsa gönderilmez, sebebi yazılır; kendiliğinden
     yeniden denenmez. Ajan seçmeden Enter: "Bir ajan seç (@)".
+- **Bellek** (raydaki kitap simgesi): solda ekibin ajanları, sağda seçili
+  ajanın kalıcı belleği. Düzenle, **Kaydet** ya da **Değişiklikleri at**.
+  Kaydedilmemiş bir metinle başka ajana geçersen metin taslak olarak saklanır
+  (listede "kaydedilmedi"), geri dönünce "geri getirildi" notuyla gelir.
+  Ajan bu arada dosyayı değiştirdiyse hiçbir şey ezilmez; **Yeniden yükle**
+  diskteki hâli getirir. Üstteki **Bellekte ara** kutusu bütün ajanların
+  belleğinde arar; sonuca tıklayınca o ajan açılır. Belleği kapalı ajanda
+  **Belleği etkinleştir** düğmesi vardır. Bellek dosyasına şifre ya da jeton
+  yazma.
+- **Ofis**: varsayılan yakınlık alanı doldurur; taşan kısmı sürükleyerek
+  kaydırırsın, sağ alttaki küçük harita yeri gösterir, **−/+** ile yakınlaşır,
+  ortadaki değere tıklayınca varsayılana dönersin. Ajanların durumu tahmini
+  olsa da sunucu ışıkları ve ekranlar yavaşça çalışır (Windows'ta "animasyon
+  efektleri" kapalıysa hareket yoktur).
 - **Bildirim**: pencere arka plandayken bir ajan soru sorarsa ya da işini
   bitirirse Windows bildirimi gelir (sohbet bildirimi ayarı); yalnız durumu
   kesin bilinen ajanlar için.

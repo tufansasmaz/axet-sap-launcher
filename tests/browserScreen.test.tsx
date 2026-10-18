@@ -130,12 +130,12 @@ function setup(ws: TerminalWorkspace, withFlow = false) {
 const hostOf = (el: Element | null) => el?.closest("[data-browser]") as HTMLElement;
 
 describe("Tarayıcı görünümü — geçiş", () => {
-  it("beş sekme (Sohbet yok); Tarayıcı seçimi alana kaydediliyor (tablist FlowSidebar'da)", () => {
-    // Düzen rev.2: tablist FlowSidebar'ın ViewTabBar'ında.
+  it("altı sekme, dikey rayda (Sohbet yok); Tarayıcı seçimi alana kaydediliyor (tablist dikey rayda)", () => {
+    // Ajanlar-ux §4: tablist içerik alanının sol kenarındaki dikey rayda.
     const { commands } = setup(workspace(), true);
     const group = screen.getByRole("tablist", { name: "Görünüm" });
     const labels = within(group).getAllByRole("tab").map((r) => r.getAttribute("aria-label"));
-    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı"]);
+    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek"]);
     fireEvent.click(within(group).getByRole("tab", { name: "Tarayıcı" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "browser");
   });

@@ -21,6 +21,13 @@ export interface FlowEvent {
   name: string;
   /** Alt görev başlığı, kayıt etiketi ya da gönderilen mesaj. */
   detail: string;
+  /**
+   * "finished": ajanın son cevabının özeti (yalnız kesin kaynakta; ana süreçte
+   * gizlisi süzülmüş, ≤ 600 karakter; spec 2026-10-18 ajanlar-ux §3).
+   */
+  reply?: string;
+  /** "finished": durum kesin kaynaktan mı (değilse cevap terminalde). */
+  exact?: boolean;
 }
 
 export type FlowInput = Omit<FlowEvent, "id">;
@@ -44,8 +51,17 @@ export function statusEvents(
   for (const [paneId, status] of Object.entries(next)) {
     const pane = panes.get(paneId);
     if (!pane) continue;
-    const kind = statusTransition(prev[paneId]?.state, status.state);
-    if (kind) out.push({ at, workspaceId: pane.workspaceId, kind, paneId, name: pane.name, detail: "" });
+    const before = prev[paneId];
+    const kind = statusTransition(before?.state, status.state);
+    const reply = status.reply ?? "";
+    if (kind === "finished") {
+      out.push({ at, workspaceId: pane.workspaceId, kind, paneId, name: pane.name, detail: "", exact: status.source === "exact", ...(reply ? { reply } : {}) });
+    } else if (kind) {
+      out.push({ at, workspaceId: pane.workspaceId, kind, paneId, name: pane.name, detail: "" });
+    } else if (before && status.state === "idle" && reply && before.reply !== reply) {
+      // İki yoklama arasında biten kısa tur: "çalışıyor" hiç görülmedi ama yeni bir cevap var.
+      out.push({ at, workspaceId: pane.workspaceId, kind: "finished", paneId, name: pane.name, detail: "", exact: true, reply });
+    }
   }
   return out;
 }

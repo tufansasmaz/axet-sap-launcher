@@ -90,9 +90,16 @@ function useOnScreen(ref: React.RefObject<HTMLElement | null>, active: boolean) 
   return pageVisible && intersecting;
 }
 
-/** Bütün ofisi gösteren yakınlık (kademesiz), en uzak kademeden az değil. */
-function fitOf(cw: number, ch: number): number {
-  return Math.max(ZOOMS[0], Math.min(ZOOMS[ZOOMS.length - 1], Math.min(cw / W, ch / H)));
+/** Ortam animasyonunun kare aralığı (ms). */
+const AMBIENT_MS = 250;
+
+/**
+ * Varsayılan yakınlık (kademesiz): alanı DOLDURUR (spec 2026-10-18 ajanlar-ux
+ * §6) — eskiden bütün ofisi sığdırıyor, bir kenarda koyu şerit bırakıyordu.
+ * Taşan kısım sürükleyerek kaydırılıyor; küçük harita yeri gösteriyor.
+ */
+export function fitOf(cw: number, ch: number): number {
+  return Math.max(ZOOMS[0], Math.min(ZOOMS[ZOOMS.length - 1], Math.max(cw / W, ch / H)));
 }
 
 function hitBox(x: number, y: number, low: boolean, cam: Camera, cw: number, ch: number) {
@@ -115,6 +122,8 @@ interface LoopState {
   reduced: boolean;
   live: boolean;
   animated: boolean;
+  /** Ortam animasyonu (sunucu LED'leri, ekranlar) düşük hızda: kimse hareket etmiyorken. */
+  ambient: boolean;
   zoom: number | null;
   selectedId: string | null;
   labels: string;
@@ -203,6 +212,9 @@ export default function OfficeView({
   for (const s of seats) if (s.view.question) questions.set(s.pane.id, s.view.question);
 
   const animated = live && !reduced && (shownBeams.length > 0 || inputs.some((i) => (i.pose === "typing" && i.motion) || i.pose === "resting"));
+  // Spec 2026-10-18 ajanlar-ux §6: bütün ajanlar "tahmini"yken ofis donuk
+  // kalmasın — hareketi azalt kapalıysa ortam ~4 kare/sn canlı.
+  const ambient = live && !reduced && !animated;
   const label = (room: Room) => (room.label ? t(room.label) : "");
 
   const loop = useRef<LoopState | null>(null);
@@ -215,6 +227,7 @@ export default function OfficeView({
     reduced,
     live,
     animated,
+    ambient,
     zoom: userZoom,
     selectedId: workspace.focusedPaneId,
     labels: ["hall", "coffee", "command", "server", "gym"].map((id) => t(`office.room.${id}` as Parameters<typeof t>[0])).join("|"),
@@ -236,12 +249,15 @@ export default function OfficeView({
     const mini = miniRef.current;
     const mctx = safeContext(mini);
     let raf = 0;
+    let idle: ReturnType<typeof setTimeout> | null = null;
     let last = Date.now();
     let bg: { key: string; image: HTMLCanvasElement | null; mini: HTMLCanvasElement | null } | null = null;
     const doors: number[] = [];
     const accent = accentColor();
     const frame = () => {
       raf = 0;
+      if (idle) clearTimeout(idle);
+      idle = null;
       const s = loop.current;
       if (!s) return;
       const time = Date.now();
@@ -334,6 +350,7 @@ export default function OfficeView({
         }
       }
       if (s.live && !s.reduced && (busy || s.animated) && typeof requestAnimationFrame === "function") raf = requestAnimationFrame(frame);
+      else if (s.ambient) idle = setTimeout(frame, AMBIENT_MS);
     };
     kick.current = () => {
       if (!raf) frame();
@@ -342,6 +359,7 @@ export default function OfficeView({
     return () => {
       kick.current = () => {};
       if (raf && typeof cancelAnimationFrame === "function") cancelAnimationFrame(raf);
+      if (idle) clearTimeout(idle);
     };
   }, [empty, live, reduced]);
 
@@ -392,6 +410,7 @@ export default function OfficeView({
       {empty ? (
         <div data-office-empty="" className="flex flex-1 flex-col items-center justify-center gap-3 p-4 text-center">
           <p className="text-sm text-slate-200">{t("office.empty")}</p>
+          <p className="max-w-sm text-xs text-slate-500">{t("office.emptyBody")}</p>
           <button type="button" onClick={onAddAgent} className={PRIMARY_BUTTON}>
             <Plus size={12} />
             {t("agents.addAgent")}
@@ -402,6 +421,7 @@ export default function OfficeView({
           ref={areaRef}
           data-office-stage=""
           data-animated={String(animated)}
+          data-ambient={String(ambient)}
           data-beams={shownBeams.length}
           className="relative min-h-0 flex-1 overflow-hidden"
           style={{ backgroundColor: "#0a0c10" }}
