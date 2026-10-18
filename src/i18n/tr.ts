@@ -1646,7 +1646,7 @@ export const tr = {
   "browser.fail.invalid": "Gönderilemedi: geçersiz istek.",
   "browser.fail.noWorkspace": "Gönderilemedi: alan bulunamadı.",
   "browser.fail.noAgent": "Gönderilemedi: ajan bu alanda değil ya da kapandı.",
-  "browser.fail.notRunning": "Ajan çalışmıyor; önce ajanı başlat.",
+  "browser.fail.notRunning": "Ajan çalışmıyor ya da açılış seçiminde bekliyor; terminalde ajanı başlat ya da seçimi tamamla.",
   "browser.fail.busy": "Ajan şu an meşgul; işi bitince yeniden gönder.",
   "browser.fail.asking": "Ajan bir soru bekliyor; önce Akış'taki soruyu cevapla.",
   "browser.fail.typing": "Ajanın terminalinde gönderilmemiş bir satır var; önce onu gönder ya da sil.",

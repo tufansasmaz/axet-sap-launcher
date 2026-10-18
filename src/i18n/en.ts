@@ -1560,7 +1560,7 @@ export const en: Record<TranslationKey, string> = {
   "browser.fail.invalid": "Not sent: invalid request.",
   "browser.fail.noWorkspace": "Not sent: workspace not found.",
   "browser.fail.noAgent": "Not sent: the agent is not in this workspace or has closed.",
-  "browser.fail.notRunning": "The agent is not running; start it first.",
+  "browser.fail.notRunning": "The agent is not running or is waiting on its startup choice; start it or finish the choice in the terminal.",
   "browser.fail.busy": "The agent is busy; send again when it finishes.",
   "browser.fail.asking": "The agent is waiting for an answer; answer it in the Flow first.",
   "browser.fail.typing": "There is an unsent line in the agent's terminal; send or clear it first.",

@@ -149,6 +149,36 @@ describe("AxetReader — eşleme", () => {
     expect(reader.engineReady()).toBe(true);
   });
 
+  // Ölçüm (Tur 2, .superpowers/olcum/gonder.cjs): axet-code 1.4.1 açılışta "Select
+  // Tool / Choose your development tool" (yeni klasörde model seçimi de) gösteriyor.
+  // O pencere açıkken yazılan istem kayboluyor: veritabanına hiç düşmüyor, okuyucu
+  // bağlanamıyor ve ajan hep "tahmini" kalıyor. Pencere açıkken motor hazır değil.
+  it("açılış seçim penceresi açıkken engineReady false; sohbet ekranı gelince true", () => {
+    const { make } = scenario();
+    const { reader } = make("A");
+    reader.feedOutput("C:\\p>axet-code -y\r\n");
+    reader.feedOutput("\x1b[2J Select Tool \x1b[3;1H Choose your development tool \x1b[4;1H aXet.Code \x1b[9;1H enter confirm");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("\x1b[5;1H Codex (OpenAI) not installed");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("\x1b[2J To start, let's choose a provider and model. \x1b[3;1H > Find your fave");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("\x1b[2J New Session \x1b[40;1H tab focus chat • ctrl+j newline • ctrl+p commands");
+    expect(reader.engineReady()).toBe(true);
+  });
+
+  it("seçim penceresi ve sohbet ekranı aynı parçadaysa sonuncusu geçerli; parça sınırı bölse de", () => {
+    const { make } = scenario();
+    const { reader } = make("A");
+    reader.feedOutput("C:\\p>axet-code -y\r\n");
+    reader.feedOutput("ctrl+j newline \x1b[2J Choose your development ");
+    reader.feedOutput("tool enter confirm");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("Choose your development tool \x1b[2J ctrl+p comm");
+    reader.feedOutput("ands");
+    expect(reader.engineReady()).toBe(true);
+  });
+
   it("istem yazılınca oturuma bağlanıyor; durum kesin", () => {
     const { db, make } = scenario();
     const { reader, onMatch } = make("A");

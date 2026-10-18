@@ -17,7 +17,32 @@ import { ASK_USER_TOOL, parseAskUser } from "./axetToolEvents";
 import { matchKey, promptStartsWith, type AxetDbMessage, type AxetPart } from "./axetSessionDb";
 import type { AgentQuestion, AgentState, AgentStatus } from "../shared/agentTypes";
 import { replySnippet } from "./agentReply";
-import type { AgentReader, GenericReader } from "./agentGenericReader";
+import { stripAnsi, type AgentReader, type GenericReader } from "./agentGenericReader";
+
+// axet-code 1.4.1 açılışta seçim penceresi gösteriyor ("Select Tool / Choose your
+// development tool"; yeni klasörde "choose a provider and model"). O pencere
+// açıkken yazılan istem KAYBOLUYOR (ölçüm Tur 2, .superpowers/olcum/gonder.cjs:
+// pencere açıkken gönderilen satır veritabanına hiç düşmedi, sohbet ekranında
+// düştü). Kayıp istem okuyucunun bağ kuracağı tek ipucu olduğundan ajan hep
+// "tahmini" kalıyordu. Pencere açıkken motor hazır sayılmıyor (Akış/pano yazmıyor).
+const SETUP_MARK = /Choose your development tool|choose a provider and model/gi;
+const CHAT_MARK = /ctrl\+j newline|tab focus chat|ctrl\+p commands/gi;
+const MARK_CARRY = 48;
+
+function lastMatchEnd(re: RegExp, text: string): number {
+  let end = -1;
+  re.lastIndex = 0;
+  for (let m = re.exec(text); m; m = re.exec(text)) end = m.index + m[0].length;
+  return end;
+}
+
+/** Çıktı parçasından sonra seçim penceresi açık mı (ikisi de yoksa önceki değer). */
+export function axetSetupOpen(previous: boolean, text: string): boolean {
+  const setup = lastMatchEnd(SETUP_MARK, text);
+  const chat = lastMatchEnd(CHAT_MARK, text);
+  if (setup < 0 && chat < 0) return previous;
+  return setup > chat;
+}
 
 export interface AxetDbPort {
   resolveDb(cwd: string): string | null;
@@ -184,11 +209,17 @@ export class AxetReader implements AgentReader {
   private messages = new Map<string, AxetDbMessage>();
   private lastSec = 0;
   private derived: DerivedAxetState | null = null;
+  private setupOpen = false;
+  private markCarry = "";
 
   constructor(private readonly opts: AxetReaderOptions) {}
 
   feedOutput(data: string): void {
     this.opts.generic.feedOutput(data);
+    // Parça sınırı işareti bölebilir: önceki parçanın sonu taşınıyor.
+    const window = this.markCarry + stripAnsi(data);
+    this.setupOpen = axetSetupOpen(this.setupOpen, window);
+    this.markCarry = window.slice(-MARK_CARRY);
   }
 
   submitLine(line: string): void {
@@ -247,7 +278,7 @@ export class AxetReader implements AgentReader {
 
   /** Motorun açıldığı genel okuyucunun yankı/çıktı bilgisinden. */
   engineReady(): boolean {
-    return this.opts.generic.engineReady();
+    return !this.setupOpen && this.opts.generic.engineReady();
   }
 
   binding(): string | null {
