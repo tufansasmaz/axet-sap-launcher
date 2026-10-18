@@ -2,8 +2,18 @@
 // dosya ve istem kapısıyla. Sıra: girdi → alan → ajan → sayfa → seçili metin
 // → (ekran görüntüsü) → ajan yeniden → istem.
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createBrowserSender, type BrowserGuestPort, type BrowserSenderDeps } from "../app-electron/main/browserSend";
-import { SCREENSHOT_MAX_BYTES, SELECTION_TIMEOUT_MS, type BrowserAgentPresence } from "../app-electron/shared/browserLogic";
+import {
+  PROMPT_SETTLE_TIMEOUT_MS,
+  createBrowserSender,
+  type BrowserGuestPort,
+  type BrowserSenderDeps
+} from "../app-electron/main/browserSend";
+import {
+  CAPTURE_TIMEOUT_MS,
+  SCREENSHOT_MAX_BYTES,
+  SELECTION_TIMEOUT_MS,
+  type BrowserAgentPresence
+} from "../app-electron/shared/browserLogic";
 import type { AgentStatus } from "../app-electron/shared/agentTypes";
 
 const NOW = new Date(2026, 9, 18, 14, 0, 0).getTime();
@@ -25,7 +35,11 @@ function harness(over: Partial<BrowserSenderDeps> = {}) {
     guest: vi.fn((id: number) => (id === 7 ? guest : null)),
     writeScreenshot: vi.fn(() => ({ ok: true as const, rel: SHOT })),
     removeScreenshot: vi.fn(),
-    sendPrompt: vi.fn(() => "ok" as const),
+    // agentMonitor gibi: "ok" döner, Enter sonucu (onSettled) daha sonra gelir.
+    sendPrompt: vi.fn((_pane: string, _text: string, onSettled: (outcome: "sent" | "aborted") => void) => {
+      queueMicrotask(() => onSettled("sent"));
+      return "ok" as const;
+    }),
     now: () => NOW,
     log: (tag, fields) => logs.push([tag, fields]),
     ...over
@@ -41,7 +55,7 @@ describe("metin gönderimi", () => {
   it("başlık, adres ve seçili metin tek satırda; ekran görüntüsü yok; günlükte içerik yok", async () => {
     const { sender, deps, guest, logs } = harness();
     await expect(sender.send("w1", "p1", 7, false)).resolves.toEqual({ ok: true, screenshot: null });
-    expect(deps.sendPrompt).toHaveBeenCalledWith("p1", '[Tarayici] SAP Yardım https://help.sap.com/docs?x=1 Secili metin: "seçili metin"');
+    expect(deps.sendPrompt).toHaveBeenCalledWith("p1", '[Tarayici] SAP Yardım https://help.sap.com/docs?x=1 Secili metin: "seçili metin"', expect.any(Function));
     expect(guest.capture).not.toHaveBeenCalled();
     expect(deps.writeScreenshot).not.toHaveBeenCalled();
     expect(logs).toEqual([["tarayici.gonder", { sonuc: "tamam", ekranGoruntusu: false }]]);
@@ -52,7 +66,7 @@ describe("metin gönderimi", () => {
     const { sender, deps, guest } = harness();
     guest.selection.mockResolvedValueOnce("");
     await sender.send("w1", "p1", 7, false);
-    expect(deps.sendPrompt).toHaveBeenCalledWith("p1", "[Tarayici] SAP Yardım https://help.sap.com/docs?x=1");
+    expect(deps.sendPrompt).toHaveBeenCalledWith("p1", "[Tarayici] SAP Yardım https://help.sap.com/docs?x=1", expect.any(Function));
   });
 });
 
@@ -131,7 +145,8 @@ describe("ekran görüntüsü (spec §3, §6)", () => {
     expect(deps.writeScreenshot).toHaveBeenCalledWith("C:\\proje", new Uint8Array([1, 2, 3]), new Date(NOW));
     expect(deps.sendPrompt).toHaveBeenCalledWith(
       "p1",
-      `[Tarayici] SAP Yardım https://help.sap.com/docs?x=1 Secili metin: "seçili metin" Ekran goruntusu: ${SHOT}`
+      `[Tarayici] SAP Yardım https://help.sap.com/docs?x=1 Secili metin: "seçili metin" Ekran goruntusu: ${SHOT}`,
+      expect.any(Function)
     );
     expect(logs).toEqual([["tarayici.gonder", { sonuc: "tamam", ekranGoruntusu: true }]]);
   });
@@ -207,5 +222,178 @@ describe("ekran görüntüsü (spec §3, §6)", () => {
     });
     vi.mocked(h.deps.sendPrompt).mockReturnValueOnce("typing");
     await expect(h.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: false, reason: "typing" });
+  });
+});
+
+/** Söz hâlâ bekliyor mu (zamanlayıcıyla ilerletirken). */
+function track<T>(promise: Promise<T>) {
+  const state = { done: false, value: undefined as T | undefined };
+  void promise.then((value) => {
+    state.done = true;
+    state.value = value;
+  });
+  return state;
+}
+
+describe("Enter sonucu (onSettled) — fix round 1", () => {
+  it("Enter 'aborted' (kullanıcı arada yazdı): typing, bu çağrının görüntüsü siliniyor", async () => {
+    const h = harness();
+    vi.mocked(h.deps.sendPrompt).mockImplementationOnce((_p, _t, onSettled) => {
+      queueMicrotask(() => onSettled?.("aborted"));
+      return "ok";
+    });
+    await expect(h.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: false, reason: "typing" });
+    expect(h.deps.removeScreenshot).toHaveBeenCalledWith("C:\\proje", SHOT);
+    expect(h.logs).toEqual([["tarayici.gonder", { sonuc: "typing", ekranGoruntusu: true }]]);
+  });
+
+  it("Enter 'sent' eşzamanlı gelse de (sendPrompt dönmeden) sonuç ok", async () => {
+    const h = harness();
+    vi.mocked(h.deps.sendPrompt).mockImplementationOnce((_p, _t, onSettled) => {
+      onSettled?.("sent");
+      return "ok";
+    });
+    await expect(h.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: true, screenshot: SHOT });
+    expect(h.deps.removeScreenshot).not.toHaveBeenCalled();
+  });
+
+  it("sonuç Enter kesinleşene kadar bekliyor", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    vi.mocked(h.deps.sendPrompt).mockImplementationOnce((_p, _t, onSettled) => {
+      setTimeout(() => onSettled?.("sent"), 150);
+      return "ok";
+    });
+    const state = track(h.sender.send("w1", "p1", 7, false));
+    await vi.advanceTimersByTimeAsync(149);
+    expect(state.done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(state.value).toEqual({ ok: true, screenshot: null });
+  });
+
+  it("Enter sonucu hiç gelmezse üst sürede ok (metin yazıldı); görüntü silinmiyor, geç gelen 'aborted' yok sayılıyor", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    let late: ((outcome: "sent" | "aborted") => void) | undefined;
+    vi.mocked(h.deps.sendPrompt).mockImplementationOnce((_p, _t, onSettled) => {
+      late = onSettled;
+      return "ok";
+    });
+    const state = track(h.sender.send("w1", "p1", 7, true));
+    await vi.advanceTimersByTimeAsync(PROMPT_SETTLE_TIMEOUT_MS - 1);
+    expect(state.done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(state.value).toEqual({ ok: true, screenshot: SHOT });
+    late?.("aborted");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.deps.removeScreenshot).not.toHaveBeenCalled();
+    expect(h.logs).toEqual([["tarayici.gonder", { sonuc: "tamam", ekranGoruntusu: true }]]);
+  });
+});
+
+describe("beklenmeyen istisnalar — fix round 1", () => {
+  it("seçim ya da yakalama eşzamanlı fırlatırsa: pageBusy / captureFailed", async () => {
+    const a = harness();
+    a.guest.selection.mockImplementationOnce(() => {
+      throw new Error("destroyed");
+    });
+    await expect(a.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: false, reason: "pageBusy" });
+    const b = harness();
+    b.guest.capture.mockImplementationOnce(() => {
+      throw new Error("destroyed");
+    });
+    await expect(b.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: false, reason: "captureFailed" });
+    expect(a.deps.sendPrompt).not.toHaveBeenCalled();
+    expect(b.deps.sendPrompt).not.toHaveBeenCalled();
+  });
+
+  it("alan / ajan / sayfa sorgusu fırlatırsa send reddedilmiyor, sebep dönüyor, günlüğe satır düşüyor", async () => {
+    const boom = () => {
+      throw new Error("boom");
+    };
+    for (const [over, reason] of [
+      [{ workspace: boom }, "noWorkspace"],
+      [{ agent: boom }, "noAgent"],
+      [{ guest: boom }, "noPage"]
+    ] as const) {
+      const h = harness(over);
+      await expect(h.sender.send("w1", "p1", 7, false), reason).resolves.toEqual({ ok: false, reason });
+      expect(h.logs, reason).toEqual([["tarayici.gonder", { sonuc: reason, ekranGoruntusu: false }]]);
+      expect(h.deps.sendPrompt).not.toHaveBeenCalled();
+    }
+  });
+
+  it("ikinci ajan sorgusu fırlatırsa noAgent ve görüntü siliniyor", async () => {
+    const h = harness();
+    vi.mocked(h.deps.agent)
+      .mockImplementationOnce(() => h.presence)
+      .mockImplementationOnce(() => {
+        throw new Error("boom");
+      });
+    await expect(h.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: false, reason: "noAgent" });
+    expect(h.deps.removeScreenshot).toHaveBeenCalledWith("C:\\proje", SHOT);
+    expect(h.deps.sendPrompt).not.toHaveBeenCalled();
+  });
+});
+
+describe("ikinci kapı ve süreler — fix round 1", () => {
+  it("görüntüsüz yolda: seçim okunurken ajan meşgul olursa gönderilmiyor", async () => {
+    const h = harness();
+    h.guest.selection.mockImplementationOnce(async () => {
+      h.presence.status = status("running");
+      return "x";
+    });
+    await expect(h.sender.send("w1", "p1", 7, false)).resolves.toEqual({ ok: false, reason: "busy" });
+    expect(h.deps.sendPrompt).not.toHaveBeenCalled();
+    expect(h.deps.removeScreenshot).not.toHaveBeenCalled();
+  });
+
+  it("seçim ve yakalama süreleri dolmadan vazgeçilmiyor; yakalama süresi dolunca captureFailed", async () => {
+    vi.useFakeTimers();
+    const h = harness();
+    let resolveSelection: (value: string) => void = () => {};
+    h.guest.selection.mockReturnValueOnce(new Promise<string>((resolve) => (resolveSelection = resolve)));
+    h.guest.capture.mockImplementationOnce(() => new Promise<Uint8Array<ArrayBuffer>>(() => {}));
+    const state = track(h.sender.send("w1", "p1", 7, true));
+    await vi.advanceTimersByTimeAsync(SELECTION_TIMEOUT_MS - 1);
+    expect(state.done).toBe(false);
+    resolveSelection("x");
+    await vi.advanceTimersByTimeAsync(CAPTURE_TIMEOUT_MS - 1);
+    expect(state.done).toBe(false);
+    expect(h.guest.capture).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(state.value).toEqual({ ok: false, reason: "captureFailed" });
+    expect(h.deps.writeScreenshot).not.toHaveBeenCalled();
+    expect(h.deps.sendPrompt).not.toHaveBeenCalled();
+  });
+});
+
+describe("eşzamanlı iki gönderim — fix round 1", () => {
+  // agentMonitor.sendPrompt'un promptInFlight kilidi gibi: Enter kesinleşene
+  // kadar ikinci istem "busy". Göndericinin kendi kilidi yok; bu kilide dayanıyor.
+  it("ilki gidiyor, ikincisi busy alıp yalnız KENDİ görüntüsünü siliyor", async () => {
+    vi.useFakeTimers();
+    const SHOT2 = ".ntt-studio/tarayici/20261018-140000-2.png";
+    let inFlight = false;
+    const rels = [SHOT, SHOT2];
+    const h = harness({
+      writeScreenshot: vi.fn(() => ({ ok: true as const, rel: rels.shift() ?? "x" })),
+      sendPrompt: vi.fn((_p: string, _t: string, onSettled: (outcome: "sent" | "aborted") => void) => {
+        if (inFlight) return "busy" as const;
+        inFlight = true;
+        setTimeout(() => {
+          inFlight = false;
+          onSettled("sent");
+        }, 150);
+        return "ok" as const;
+      })
+    });
+    const first = track(h.sender.send("w1", "p1", 7, true));
+    const second = track(h.sender.send("w1", "p1", 7, true));
+    await vi.advanceTimersByTimeAsync(200);
+    expect(first.value).toEqual({ ok: true, screenshot: SHOT });
+    expect(second.value).toEqual({ ok: false, reason: "busy" });
+    expect(h.deps.removeScreenshot).toHaveBeenCalledTimes(1);
+    expect(h.deps.removeScreenshot).toHaveBeenCalledWith("C:\\proje", SHOT2);
   });
 });

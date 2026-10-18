@@ -2,8 +2,15 @@
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "../app-electron/main/browserFiles";
+import { insideRootReal } from "../app-electron/main/changesFs";
+
+// Gerçek insideRootReal; yalnız "mkdir'den sonra dışarıya döndü" yarışını kurmak için tek seferlik cevap.
+vi.mock("../app-electron/main/changesFs", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../app-electron/main/changesFs")>();
+  return { ...real, insideRootReal: vi.fn(real.insideRootReal) };
+});
 
 const NOW = new Date(2026, 9, 18, 14, 0, 0);
 const dirs: string[] = [];
@@ -68,5 +75,40 @@ describe("removeBrowserScreenshot", () => {
     expect(existsSync(path.join(root, "a.txt"))).toBe(true);
     mkdirSync(path.join(root, ".ntt-studio", "tarayici"), { recursive: true });
     expect(() => removeBrowserScreenshot(root, ".ntt-studio/tarayici/yok.png")).not.toThrow();
+  });
+});
+
+describe("fix round 1: kilitler", () => {
+  it("mkdir'den sonra yol dışarıyı gösterirse (yarış) yazılmıyor", () => {
+    const root = temp();
+    vi.mocked(insideRootReal).mockReturnValueOnce(true).mockReturnValueOnce(false);
+    expect(writeBrowserScreenshot(root, new Uint8Array([1]), NOW)).toEqual({ ok: false, reason: "writeFailed" });
+    expect(readdirSync(path.join(root, ".ntt-studio", "tarayici"))).toEqual([]);
+  });
+
+  it("silme: tarayici klasörü dışarıyı gösteren bir bağsa dış dosyaya dokunmuyor", (ctx) => {
+    const root = temp();
+    const outside = temp();
+    writeFileSync(path.join(outside, "20261018-140000.png"), "x");
+    mkdirSync(path.join(root, ".ntt-studio"));
+    try {
+      symlinkSync(outside, path.join(root, ".ntt-studio", "tarayici"), "junction");
+    } catch {
+      ctx.skip();
+    }
+    removeBrowserScreenshot(root, ".ntt-studio/tarayici/20261018-140000.png");
+    expect(existsSync(path.join(outside, "20261018-140000.png"))).toBe(true);
+  });
+
+  it("silme: alt klasördeki ya da .png olmayan dosyaya dokunmuyor", () => {
+    const root = temp();
+    const dir = path.join(root, ".ntt-studio", "tarayici");
+    mkdirSync(path.join(dir, "alt"), { recursive: true });
+    writeFileSync(path.join(dir, "alt", "a.png"), "x");
+    writeFileSync(path.join(dir, "a.txt"), "x");
+    removeBrowserScreenshot(root, ".ntt-studio/tarayici/alt/a.png");
+    removeBrowserScreenshot(root, ".ntt-studio/tarayici/a.txt");
+    expect(existsSync(path.join(dir, "alt", "a.png"))).toBe(true);
+    expect(existsSync(path.join(dir, "a.txt"))).toBe(true);
   });
 });
