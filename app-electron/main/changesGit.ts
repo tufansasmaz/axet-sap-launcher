@@ -301,7 +301,7 @@ export function createGitPort(partial: Partial<Omit<GitPortDeps, "indexDir">> & 
         if (add.ok) break;
         if (add.missing) return { ok: false, reason: "noGit" };
         if (add.timedOut || deps.now() >= deadline) return { ok: false, reason: "timeout" };
-        const nested = NESTED_NO_COMMIT.exec(add.stderr)?.[1];
+        const nested = add.stderr.match(NESTED_NO_COMMIT)?.[1];
         if (nested !== undefined) {
           if (excluded.includes(nested) || excluded.length >= NESTED_EXCLUDE_MAX) return { ok: false, reason: "git" };
           excluded.push(nested);
