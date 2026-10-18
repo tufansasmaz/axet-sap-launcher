@@ -92,6 +92,8 @@ menüleri üstte kalır). Electron'un "webview güvenliği" önerileri ana süre
    bir webview olduğunu doğrular (`hostWebContents` + oturum), değilse reddeder.
 7. **Günlük**: `tarayici.gezinme` yalnız sonuç (izin/ret) ve şema; adres, başlık, seçili
    metin günlüğe yazılmaz. `tarayici.gonder` (sonuç, ekran görüntüsü var mı).
+   `tarayici.kural-hatasi` (yalnız sonuç): sayfanın kuralları kurulamadı, sayfa kilitlendi
+   (uygulama sırasında eklendi).
 8. **CSP / izinli kökler**: uygulamanın kendi CSP'si değişmez; webview kendi kökünde çalışır.
 
 ## 5. Veri
