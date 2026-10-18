@@ -140,7 +140,7 @@ function withoutCredentials(raw: string): string {
 }
 
 // C0, DEL, C1 ve Unicode satir/paragraf ayiricilari: sendPrompt bunlari reddediyor.
-const CONTROL = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
+const CONTROL = /[\u0000-\u001f\u007f-\u009f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2028\u2029\u2060-\u2064\u2066-\u2069\ufeff]/g;
 
 /** Denetim karakterleri bosluga, bosluklarteklestir, `max` kod noktasinda "…" ile kirpilir. */
 export function cleanText(text: string, max: number): string {

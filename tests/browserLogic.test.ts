@@ -122,6 +122,33 @@ describe("cleanText", () => {
     expect(cleanText("\u011f".repeat(10), 5).endsWith("\u2026")).toBe(true);
     expect(cleanText("k\u0131sa", 5)).toBe("k\u0131sa");
   });
+
+  it("bidi ve bicimlendirme karakterleri istemde yer almiyor (fix round 1)", () => {
+    // Her araliktan bir temsilci: U+061C, U+180E, U+200B-200F, U+202A-202E, U+2060-2064, U+2066-2069, U+FEFF
+    const bidiChars = [
+      "\u061c", // Arabic Letter Mark
+      "\u180e", // Mongolian Vowel Separator
+      "\u200b", // Zero Width Space
+      "\u200f", // Right-to-Left Mark
+      "\u202a", // Left-to-Right Embedding
+      "\u202e", // Right-to-Left Override
+      "\u2060", // Word Joiner
+      "\u2064", // Invisible Plus
+      "\u2066", // Left-to-Right Isolate
+      "\u2069", // Pop Directional Isolate
+      "\ufeff"  // BOM / Zero Width No-Break Space
+    ];
+    const BIDI_RE = /[\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff]/;
+    for (const ch of bidiChars) {
+      const result = cleanText(`kelime${ch}son`, 100);
+      expect(result, `U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4,"0")} kalmiyor`).not.toMatch(BIDI_RE);
+    }
+    // Toplu: baslik ve secim olarak geldiginde istemde de gozukmuyor
+    const bidiTitle = bidiChars.join("x");
+    const bidiSelection = bidiChars.join("y");
+    const prompt = buildBrowserPrompt({ title: bidiTitle, url: "https://help.sap.com/", selection: bidiSelection, screenshot: null });
+    expect(prompt).not.toMatch(BIDI_RE);
+  });
 });
 
 describe("buildBrowserPrompt (spec §3)", () => {
