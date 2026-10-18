@@ -255,7 +255,7 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
           <ExternalLink size={14} aria-hidden />
           {t("browser.openExternal")}
         </button>
-        <AgentSendMenu workspace={workspace} disabled={!page || sending} onSend={(paneId, name, shot) => void send(paneId, name, shot)} />
+        <AgentSendMenu workspace={workspace} disabled={!page} sending={sending} onSend={(paneId, name, shot) => void send(paneId, name, shot)} />
       </div>
       {notice && (
         <p role="status" className={`shrink-0 border-b border-line px-3 py-1 text-2xs ${NOTICE_TONE[notice.tone]}`}>

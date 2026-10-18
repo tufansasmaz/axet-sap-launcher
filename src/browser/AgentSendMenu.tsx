@@ -2,7 +2,9 @@
 // bölmeleri (kabuk yok) adı, rolü ve durumuyla. Menüde seçmek onaydır; ayrı
 // onay penceresi yok. "Ekran görüntüsü ekle" menüde bir onay kutusu; alanın
 // kök klasörü yoksa kapalı. Lime yalnız seçim: işaretli kutu.
-import { useState } from "react";
+// Erişilebilirlik: menü kapanınca odak düğmeye döner; ArrowDown/Up menüitem'ler
+// arasında gezinir; açılışta menüye odak verilir.
+import { useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { useT } from "../i18n";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
@@ -18,37 +20,46 @@ const ITEM =
 export default function AgentSendMenu({
   workspace,
   disabled,
+  sending,
   onSend
 }: {
   workspace: TerminalWorkspace;
   disabled: boolean;
+  sending: boolean;
   onSend: (paneId: string, name: string, withScreenshot: boolean) => void;
 }) {
   const t = useT();
   const { statuses, now } = useAgentStatuses();
   const [open, setOpen] = useState(false);
   const [withShot, setWithShot] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const agents = agentPanes(workspace);
   const canShot = !!workspace.root;
   const checked = withShot && canShot;
-  const close = () => setOpen(false);
+
+  const close = () => {
+    setOpen(false);
+    buttonRef.current?.focus();
+  };
 
   return (
     <div className="relative shrink-0">
       <button
+        ref={buttonRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
-        disabled={disabled}
+        aria-busy={sending || undefined}
+        disabled={disabled || sending}
         onClick={() => setOpen((value) => !value)}
         className={TOOL_BUTTON}
       >
         <Send size={14} aria-hidden />
-        {t("browser.send")}
+        {sending ? t("browser.sending") : t("browser.send")}
       </button>
       {open && (
         <>
-          <div aria-hidden className="fixed inset-0 z-dropdown" onClick={close} />
+          <div aria-hidden data-testid="menu-backdrop" className="fixed inset-0 z-dropdown" onClick={close} />
           <div
             role="menu"
             aria-label={t("browser.sendMenu")}
@@ -58,6 +69,20 @@ export default function AgentSendMenu({
               if (event.key === "Escape") {
                 event.preventDefault();
                 close();
+                return;
+              }
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                const allItems = Array.from(
+                  event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')
+                );
+                if (allItems.length === 0) return;
+                const idx = allItems.indexOf(document.activeElement as HTMLElement);
+                if (event.key === "ArrowDown") {
+                  allItems[idx < 0 ? 0 : (idx + 1) % allItems.length]?.focus();
+                } else {
+                  allItems[idx < 0 ? allItems.length - 1 : (idx - 1 + allItems.length) % allItems.length]?.focus();
+                }
               }
             }}
             className="absolute right-0 top-full z-dropdown mt-1 w-72 rounded-md border border-line bg-card p-1 shadow-xl outline-none"

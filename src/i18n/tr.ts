@@ -1624,6 +1624,7 @@ export const tr = {
   "shortcuts.browserAddress": "Tarayıcı: adres alanına git",
   "shortcuts.browserBackForward": "Tarayıcı: geri / ileri",
   "browser.send": "Ajana gönder",
+  "browser.sending": "Gönderiliyor…",
   "browser.sendMenu": "Gönderilecek ajan",
   "browser.noAgents": "Bu alanda ajan yok",
   "browser.withScreenshot": "Ekran görüntüsü ekle",

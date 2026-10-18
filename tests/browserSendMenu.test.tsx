@@ -265,6 +265,65 @@ describe("ekran g\u00f6r\u00fcnt\u00fcs\u00fc (spec \u00a73)", () => {
   });
 });
 
+describe("eri\u015filebilirlik: odak ve klavye", () => {
+  it("Esc kapaninca odak d\u00fc\u011fmeye d\u00f6n\u00fcyor", () => {
+    setup();
+    openMenu();
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(sendButton());
+  });
+
+  it("arka plan tiklamasiyla kapaninca men\u00fc kapaliyor ve odak d\u00fc\u011fmeye d\u00f6n\u00fcyor", () => {
+    setup();
+    openMenu();
+    fireEvent.click(screen.getByTestId("menu-backdrop"));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(sendButton());
+  });
+
+  it("ArrowDown ilk menuitem'e odak veriyor; ArrowDown tekrar sonrakine", () => {
+    setup();
+    openMenu();
+    const menu = screen.getByRole("menu");
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items()[0]);
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(items()[1]);
+  });
+
+  it("ArrowUp son \u00f6\u011feden \u00f6ncekine d\u00f6n\u00fcyor (sarmalama)", () => {
+    setup();
+    openMenu();
+    const menu = screen.getByRole("menu");
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items()[1]);
+    fireEvent.keyDown(menu, { key: "ArrowUp" });
+    expect(document.activeElement).toBe(items()[0]);
+  });
+});
+
+describe("g\u00f6nderim bekleme g\u00f6r\u00fcn\u00fcm\u00fc", () => {
+  it("g\u00f6nderim s\u00fcrerken d\u00fc\u011fme 'G\u00f6nderiliyor...' ve aria-busy; bittikten sonra normal", async () => {
+    let resolveResult: (v: { ok: true; screenshot: null }) => void = () => {};
+    api.browserSend.mockReturnValueOnce(new Promise<{ ok: true; screenshot: null }>((r) => { resolveResult = r; }));
+    setup();
+    openMenu();
+    fireEvent.click(items()[0]);
+    // Gonderim basliyor: menu kapaniyor, dugme busy
+    const busyBtn = document.querySelector('[aria-busy="true"]') as HTMLElement | null;
+    expect(busyBtn).toBeTruthy();
+    expect(busyBtn!.textContent).toContain("G\u00f6nderiliyor");
+    expect(busyBtn!.hasAttribute("disabled")).toBe(true);
+    // Cevap geliyor
+    await act(async () => { resolveResult({ ok: true, screenshot: null }); });
+    await flush();
+    expect(sendButton().getAttribute("aria-busy")).toBeNull();
+    expect(sendButton().textContent).toContain("Ajana g\u00f6nder");
+    expect(sendButton().hasAttribute("disabled")).toBe(false);
+  });
+});
+
 describe("\u0130ngilizce", () => {
   it("d\u00fc\u011fme, kutu ve bo\u015f men\u00fc", () => {
     setup({ ws: workspace({ panes: [] }), language: "en" });

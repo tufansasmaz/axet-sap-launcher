@@ -1538,6 +1538,7 @@ export const en: Record<TranslationKey, string> = {
   "shortcuts.browserAddress": "Browser: go to the address field",
   "shortcuts.browserBackForward": "Browser: back / forward",
   "browser.send": "Send to agent",
+  "browser.sending": "Sending…",
   "browser.sendMenu": "Agent to send to",
   "browser.noAgents": "No agents in this workspace",
   "browser.withScreenshot": "Include a screenshot",
