@@ -28,13 +28,15 @@ export default function BoardDetailPanel({
   task,
   subtaskId,
   onClose,
-  onSelectSubtask
+  onSelectSubtask,
+  onDirtyChange
 }: {
   workspace: TerminalWorkspace;
   task: BoardTask;
   subtaskId?: string;
   onClose: () => void;
   onSelectSubtask: (subtaskId: string) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const t = useT();
   const { command } = useBoards();
@@ -43,10 +45,25 @@ export default function BoardDetailPanel({
   const pendingRef = useRef(false);
   const [error, setError] = useState<TranslationKey | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const [editorDirty, setEditorDirty] = useState(false);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const mounted = useRef(true);
   const hasVerify = (workspace.verify?.length ?? 0) > 0;
   const panes = assignablePanes(workspace);
+
+  const handleDirtyChange = (dirty: boolean) => {
+    setEditorDirty(dirty);
+    onDirtyChange?.(dirty);
+  };
+
+  const requestClose = () => {
+    if (editorDirty) {
+      setConfirmClose(true);
+    } else {
+      onClose();
+    }
+  };
 
   useEffect(() => {
     mounted.current = true;
@@ -93,7 +110,7 @@ export default function BoardDetailPanel({
         <h2 title={task.title} className="min-w-0 flex-1 truncate text-sm font-medium text-slate-100">
           {task.title}
         </h2>
-        <button type="button" onClick={onClose} title={t("board.closeDetail")} aria-label={t("board.closeDetail")} className={GHOST_ICON_BUTTON}>
+        <button type="button" onClick={requestClose} title={t("board.closeDetail")} aria-label={t("board.closeDetail")} className={GHOST_ICON_BUTTON}>
           <X size={14} />
         </button>
       </div>
@@ -128,6 +145,7 @@ export default function BoardDetailPanel({
             onSave={(drafts) => run(saveCommand(drafts))}
             onSplit={() => void run({ type: "split", ...ids })}
             onApprove={(drafts) => void (drafts ? run(saveCommand(drafts), { type: "approve", ...ids }) : run({ type: "approve", ...ids }))}
+            onDirtyChange={handleDirtyChange}
           />
         ) : (
           <ol className="flex flex-col gap-2">
@@ -192,6 +210,7 @@ export default function BoardDetailPanel({
 
       <ConfirmDialog
         open={confirmDelete}
+        role="alertdialog"
         title={t("board.deleteTitle")}
         message={t("board.deleteBody", { title: task.title })}
         confirmLabel={t("common.delete")}
@@ -202,6 +221,20 @@ export default function BoardDetailPanel({
           });
         }}
         onCancel={() => setConfirmDelete(false)}
+      />
+      <ConfirmDialog
+        open={confirmClose}
+        role="alertdialog"
+        danger={false}
+        title={t("board.unsavedTitle")}
+        message={t("board.unsavedBody")}
+        confirmLabel={t("board.unsavedDiscard")}
+        cancelLabel={t("board.unsavedCancel")}
+        onConfirm={() => {
+          setConfirmClose(false);
+          onClose();
+        }}
+        onCancel={() => setConfirmClose(false)}
       />
     </aside>
   );
@@ -284,7 +317,7 @@ function SubtaskActions({
     </button>
   );
   const terminal = sub.paneId ? (
-    <button type="button" onClick={() => onTerminal(sub.paneId as string)} className={ACTION}>
+    <button type="button" disabled={busy} onClick={() => onTerminal(sub.paneId as string)} className={ACTION}>
       {t("board.goTerminal")}
     </button>
   ) : null;

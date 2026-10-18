@@ -31,13 +31,15 @@ export default function DraftEditor({
   busy,
   onSave,
   onSplit,
-  onApprove
+  onApprove,
+  onDirtyChange
 }: {
   task: BoardTask;
   busy: boolean;
   onSave: (drafts: SubtaskDraft[]) => Promise<boolean>;
   onSplit: () => void;
   onApprove: (drafts: SubtaskDraft[] | null) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const t = useT();
   const source = JSON.stringify(task.subtasks.map(toDraft));
@@ -52,6 +54,10 @@ export default function DraftEditor({
       mounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Liderden gelen yeni plan, kullanıcı düzenlemiyorsa ekrana geliyor.
   useEffect(() => {

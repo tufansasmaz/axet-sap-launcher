@@ -21,6 +21,7 @@ import {
 } from "./boardDisplay";
 import BoardDetailPanel from "./BoardDetailPanel";
 import NewTaskDialog from "./NewTaskDialog";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 // Görev panosu (spec 2026-10-18 gorev-panosu §8): Taslak · Sırada ·
 // Çalışıyor · Doğrulama · Bitti. Ana görev kartı ilerlemesiyle; alt görevler
@@ -48,6 +49,9 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
   const mounted = useRef(true);
   const parallel = sameFolderParallel(tasks, workspace);
   const selectedTask = selection ? tasks.find((task) => task.id === selection.taskId) : undefined;
+  const draftDirtyRef = useRef(false);
+  /** Kaydedilmemiş değişiklik onayı bekleyen geçiş; null = panel kapat. */
+  const [pendingChange, setPendingChange] = useState<{ selection: BoardSelection | null } | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -73,7 +77,17 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
     if (message) setAnnounce(message);
   }, [board, t]);
 
-  const select = (next: BoardSelection) => setSelection(next);
+  const applySelection = (next: BoardSelection | null) => {
+    setSelection(next);
+    draftDirtyRef.current = false;
+  };
+  const select = (next: BoardSelection) => {
+    if (draftDirtyRef.current && next.taskId !== selection?.taskId) {
+      setPendingChange({ selection: next });
+    } else {
+      applySelection(next);
+    }
+  };
   const isSelected = (taskId: string, subtaskId?: string) =>
     selection?.taskId === taskId && selection.subtaskId === subtaskId;
 
@@ -172,8 +186,26 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
           workspace={workspace}
           task={selectedTask}
           subtaskId={selection?.subtaskId}
-          onClose={() => setSelection(null)}
+          onClose={() => applySelection(null)}
           onSelectSubtask={(id) => setSelection({ taskId: selectedTask.id, subtaskId: id })}
+          onDirtyChange={(dirty) => { draftDirtyRef.current = dirty; }}
+        />
+      )}
+      {pendingChange !== null && (
+        <ConfirmDialog
+          open={true}
+          role="alertdialog"
+          danger={false}
+          title={t("board.unsavedTitle")}
+          message={t("board.unsavedBody")}
+          confirmLabel={t("board.unsavedDiscard")}
+          cancelLabel={t("board.unsavedCancel")}
+          onConfirm={() => {
+            const next = pendingChange.selection;
+            setPendingChange(null);
+            applySelection(next);
+          }}
+          onCancel={() => setPendingChange(null)}
         />
       )}
       <NewTaskDialog

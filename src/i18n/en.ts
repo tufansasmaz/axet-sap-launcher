@@ -1410,7 +1410,11 @@ export const en: Record<TranslationKey, string> = {
   "board.missingDir": "Folder not found",
   "board.spawnFailed": "Could not start",
   "board.deleteTitle": "Delete task",
-  "board.deleteBody": "\"{title}\" and its subtasks will be deleted; a running lead or verification is stopped.",
+  "board.deleteBody": "“{title}” and its subtasks will be deleted; a running lead or verification is stopped.",
+  "board.unsavedTitle": "Unsaved changes",
+  "board.unsavedBody": "Discard unsaved changes?",
+  "board.unsavedDiscard": "Discard",
+  "board.unsavedCancel": "Cancel",
   "board.failedCount": "{count} subtasks failed",
   "board.closeWorkspaceTasks": "The {count} tasks on this workspace's board will be deleted too."
 };

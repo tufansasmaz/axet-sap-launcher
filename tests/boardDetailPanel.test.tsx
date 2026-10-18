@@ -5,7 +5,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import BoardDetailPanel from "../src/board/BoardDetailPanel";
+import BoardView from "../src/board/BoardView";
 import { BoardContext } from "../src/board/boardContext";
+import type { Board } from "../app-electron/shared/boardTypes";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -252,12 +254,14 @@ describe("onaylı görev", () => {
     expect(screen.getByRole("alert").textContent).toBe("Bu ajanın terminalinde yazıyorsun; satırı gönder ya da sil, sonra yeniden dene.");
   });
 
-  it("Sil: onay penceresinden sonra deleteTask ve panel kapanıyor; panelin erişilebilir adı", async () => {
+  it("Sil: alertdialog ile onay sonra deleteTask ve panel kapanıyor; panelin erişilebilir adı", async () => {
     const { command, onClose } = setup(task("t1", [sub("s1")]));
     expect(screen.getByRole("complementary", { name: "Görev ayrıntısı" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Sil" }));
     expect(command).not.toHaveBeenCalled();
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Sil" }));
+    const dlg = screen.getByRole("alertdialog");
+    expect(dlg).toBeTruthy();
+    fireEvent.click(within(dlg).getByRole("button", { name: "Sil" }));
     await flush();
     expect(command).toHaveBeenCalledWith("a", { type: "deleteTask", taskId: "t1" });
     expect(onClose).toHaveBeenCalled();
@@ -267,5 +271,96 @@ describe("onaylı görev", () => {
     setup(task("t1", [sub("s1", { state: "running", paneId: "p1" })]), {}, "en");
     expect(screen.getByRole("button", { name: "Verify" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Go to terminal" })).toBeTruthy();
+  });
+
+  it("Terminale git busy iken kilitli", async () => {
+    let unblock!: () => void;
+    const blockingCmd = vi.fn(() => new Promise<BoardCommandResult>((res) => { unblock = () => res({ ok: true }); }));
+    const commands = commandsMock();
+    const ws: TerminalWorkspace = { id: "a", name: "Alan a", panes: [agentPane("p1", "Ayşe")], focusedPaneId: null, maximizedPaneId: null, unread: false, error: false, verify: ["npm test"] };
+    const store: TerminalStoreValue = { state: { ...initialTerminalState, phase: "ready", workspaces: [ws], activeWorkspaceId: "a" }, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\a" };
+    render(
+      <LanguageProvider language="tr">
+        <TerminalStoreContext.Provider value={store}>
+          <BoardContext.Provider value={{ boards: {}, command: blockingCmd }}>
+            <BoardDetailPanel workspace={ws} task={task("t1", [sub("s1", { state: "running", paneId: "p1" })])} onClose={vi.fn()} onSelectSubtask={vi.fn()} />
+          </BoardContext.Provider>
+        </TerminalStoreContext.Provider>
+      </LanguageProvider>
+    );
+    const row = document.querySelector('[data-detail-subtask="s1"]') as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Doğrula" }));
+    expect((within(row).getByRole("button", { name: "Terminale git" }) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { unblock(); });
+  });
+});
+
+function setupBoardView(tasks: BoardTask[], language: "tr" | "en" = "tr") {
+  const commands = commandsMock();
+  const command = vi.fn(async (_ws: string, _cmd: BoardCommand): Promise<BoardCommandResult> => ({ ok: true }));
+  const ws: TerminalWorkspace = {
+    id: "a",
+    name: "Alan a",
+    panes: [],
+    focusedPaneId: null,
+    maximizedPaneId: null,
+    unread: false,
+    error: false,
+    verify: ["npm test"]
+  };
+  const board: Board = { workspaceId: "a", tasks };
+  const store: TerminalStoreValue = {
+    state: { ...initialTerminalState, phase: "ready", workspaces: [ws], activeWorkspaceId: "a" },
+    commands,
+    defaultKind: "cmd",
+    defaultCwd: "C:\\a",
+    agentCwd: "C:\\a"
+  };
+  render(
+    <LanguageProvider language={language}>
+      <TerminalStoreContext.Provider value={store}>
+        <BoardContext.Provider value={{ boards: { a: board }, command }}>
+          <BoardView workspace={ws} />
+        </BoardContext.Provider>
+      </TerminalStoreContext.Provider>
+    </LanguageProvider>
+  );
+  return { commands, command };
+}
+
+describe("kaydedilmemis taslak korumasi", () => {
+  it("panel kapat: kirli iken alertdialog cikar; Vazgec panel acik kalir; At kapatir", async () => {
+    const t1 = task("t1", [sub("s1", { title: "Model", prompt: "Tabloyu ekle" })], { approvedAt: undefined, state: "awaitingApproval" });
+    const { onClose } = setup(t1);
+    fireEvent.change(screen.getByRole("textbox", { name: "İstem 1" }), { target: { value: "Değiştirildi" } });
+    fireEvent.click(screen.getByRole("button", { name: "Ayrıntıyı kapat" }));
+    const dlg = screen.getByRole("alertdialog");
+    expect(dlg).toBeTruthy();
+    fireEvent.click(within(dlg).getByRole("button", { name: "Vazgeç" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "İstem 1" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ayrıntıyı kapat" }));
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "At" }));
+    await flush();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("baska gorevi sec: kirli iken alertdialog cikar; Vazgec secim degismez; At yeni gorev secili", async () => {
+    const t1 = task("t1", [sub("s1", { title: "Model", prompt: "Tabloyu ekle" })], { approvedAt: undefined, state: "awaitingApproval" });
+    const t2 = task("t2", [sub("s2", { title: "Test", prompt: "Test yaz" })], { approvedAt: undefined, state: "awaitingApproval" });
+    setupBoardView([t1, t2]);
+    fireEvent.click(document.querySelector('[data-task-card="t1"]')!);
+    fireEvent.change(screen.getByRole("textbox", { name: "İstem 1" }), { target: { value: "Değiştirildi" } });
+    fireEvent.click(document.querySelector('[data-task-card="t2"]')!);
+    const dlg = screen.getByRole("alertdialog");
+    expect(dlg).toBeTruthy();
+    fireEvent.click(within(dlg).getByRole("button", { name: "Vazgeç" }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("textbox", { name: "İstem 1" })).toBeTruthy();
+    fireEvent.click(document.querySelector('[data-task-card="t2"]')!);
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "At" }));
+    await flush();
+    expect((screen.getByRole("textbox", { name: "Başlık 1" }) as HTMLInputElement).value).toBe("Test");
   });
 });
