@@ -630,6 +630,51 @@ seçince hemen gönderilir (ayrıca onay sorulmaz):
 - Ajan bu tarayıcıyı kendisi süremez (açma, okuma, tıklama yok); sayfayı sen
   açar, sen gönderirsin.
 
+### Kalıcı bellek
+
+Bir ajan kapanıp yeniden açıldığında (ya da ertesi gün) "nerede kalmıştık,
+neye karar vermiştik" bilgisi kaybolmasın diye her ajanın kendi **bellek
+dosyası** olabilir. Ajan her açılışta onu okur ve önemli şeyleri oraya
+yazar; sen de dosyayı uygulamadan açıp düzeltebilirsin.
+
+- **Ajan ekle** penceresinde **Kalıcı bellek** kutusunu işaretle (varsayılan
+  kapalı). Var olan bir ajanda ekip şeridindeki kartın sağ altındaki kitap
+  simgesine bas (**Belleği etkinleştir**); simge **Belleği aç**'a döner.
+- Dosya alanın kök klasörü altında `.ntt-studio/bellek/<ad>.md` olarak durur
+  (alanın kökü yoksa ajanın klasöründe). `<ad>` ajanın adından türetilir
+  (ör. "Ayşe Çağrı" → `ayse-cagri`); ajanın adını sonradan değiştirsen de
+  dosya aynı kalır. Aynı adlı ikinci ajan `-2`, `-3` eki alır.
+- Dosya yoksa ilk açılışta tek satırlık bir başlıkla yaratılır. Var olan
+  dosyaya uygulama asla kendiliğinden yazmaz, onu hiçbir zaman silmez.
+- Ajanın motoru hazır olup boşta beklediği ilk anda istem satırına bir kez
+  şu satır yazılıp Enter'a basılır: `[Bellek] Kalici bellegin:
+  .ntt-studio/bellek/<ad>.md …`. Ajan çalışıyorsa, soru soruyorsa ya da sen
+  terminale yazıyorsan beklenir. Görev Panosu'ndan iş bekleniyorsa bellek
+  satırı önce gider, pano işi bir sonraki turda. Ajanı yeniden başlatınca
+  bir kez daha gider. Ajan boşta göründüğü halde üç kez (10 sn arayla)
+  gönderilemezse vazgeçilir; pencerede "Bellek ajana bildirilemedi" ve
+  **Yeniden bildir** görünür. Satır yazıldığı halde Enter'a basılamadıysa
+  (o anda sen yazmaya başladıysan) satır ajanın istem satırında kalır ve
+  kendiliğinden yeniden denenmez: kontrol edip Enter'a sen bas ya da
+  **Yeniden bildir**'i kullan.
+- **Belleği aç** dosyayı bir pencerede gösterir; düzeltip **Kaydet**.
+  Pencere açıkken ajan dosyaya yazdıysa üzerine yazılmaz: "Dosya bu arada
+  değişti" uyarısı çıkar, senin metnin pencerede kalır. Gerekirse kopyala,
+  sonra **Yeniden yükle** (yüklenince pencerede yazdığın gider).
+- Kaydetmeden pencereyi kapatmak zorunda kalırsan (ör. Ajanlar ekranından
+  çıkarsan) yazdığın uygulama açık kaldıkça saklanır; aynı ajanın belleğini
+  yeniden açınca "Kaydedilmemiş taslağın geri getirildi" der. Uygulamayı
+  kapatırsan taslak gider.
+- Dosya 256 KB'tan büyükse ya da UTF-8 değilse pencerede düzenlenmez;
+  **Klasörde göster** ile bir düzenleyicide aç. Satır sonları (CRLF) ve
+  dosya başındaki BOM kaydederken korunur.
+- Alan bir Git deposuysa bellek dosyaları Değişiklikler görünümünde çıkar ve
+  Git ile taşınır; istemiyorsan `.gitignore`'a `.ntt-studio/` satırını ekle.
+  Değişiklikler'de bir ajan turunu geri alırsan o turda belleğe yazılanlar da
+  geri alınır.
+- Ajana belleğe şifre ya da token yazmaması söylenir, ama bu denetlenemez:
+  dosyaya ara sıra göz at. Uygulama dosyanın içeriğini günlüğe yazmaz.
+
 ## Klavye Kısayolları
 
 **Ctrl+/** (veya **F1**) tuşlarına basarak Klavye Kısayolları penceresini
