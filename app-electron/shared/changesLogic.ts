@@ -61,9 +61,9 @@ export function pendingCount(list: readonly Checkpoint[]): number {
 }
 
 // Yasak karakterler: C0 (\u0000-\u001f) + DEL+C1 (\u007f-\u009f), ters eğik çizgi,
-// ADS (:), sıfır genişlikli/bidi (​-‏, ‪-‮, ⁦-⁩),
-// BOM (﻿), yalnız surrogate (\ud800-\udfff).
-const UNSAFE_CHARS = /[\u0000-\u001f\u007f-\u009f\\:​-‏‪-‮⁦-⁩﻿\ud800-\udfff]/;
+// ADS (:), sıfır genişlikli/bidi (\u200b-\u200f, \u202a-\u202e, \u2066-\u2069),
+// BOM (\ufeff), yalnız surrogate (\ud800-\udfff).
+const UNSAFE_CHARS = /[\u0000-\u001f\u007f-\u009f\\:\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff\ud800-\udfff]/;
 
 // Windows ayrılmış adlar; uzantılı biçimi de (örn. con.txt, LPT1.log) kapsar.
 // ¹=üst1, ²=üst2, ³=üst3 (COM/LPT1-9 ve üst simge karşılıkları).
