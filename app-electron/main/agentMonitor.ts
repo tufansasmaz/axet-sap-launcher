@@ -42,6 +42,8 @@ export interface AgentPresence {
   status: AgentStatus | null;
   /** Taslak yok ve son tuş TYPING_GUARD_MS'den eski. */
   inputIdle: boolean;
+  /** Komut yankısından sonra motorun çıktısı görüldü; okuyucu hatasında false. */
+  engineReady: boolean;
 }
 
 export type LogFields = Record<string, string | number | boolean>;
@@ -227,6 +229,15 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
   const inputIdle = (entry: Entry): boolean =>
     !entry.input.hasDraft() && deps.now() - entry.lastInputAt >= TYPING_GUARD_MS;
 
+  // Kapalı-güvenli: okuyucu hata verirse motor görülmemiş sayılıyor.
+  const engineReady = (entry: Entry): boolean => {
+    try {
+      return entry.reader.engineReady();
+    } catch {
+      return false;
+    }
+  };
+
   // Görev panosunun istemi (spec 2026-10-18 gorev-panosu §5). Motor
   // çalışmıyorsa (kabuk istemi ekranda) HİÇBİR ŞEY yazılmıyor: yapay zekâ
   // metni asla cmd/PowerShell komutu olmamalı. Enter'dan önce yeniden bakılıyor.
@@ -346,7 +357,9 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     },
     agents() {
       const out: AgentPresence[] = [];
-      for (const entry of byPane.values()) out.push({ reg: entry.reg, status: entry.last, inputIdle: inputIdle(entry) });
+      for (const entry of byPane.values()) {
+        out.push({ reg: entry.reg, status: entry.last, inputIdle: inputIdle(entry), engineReady: engineReady(entry) });
+      }
       return out;
     },
     sendPrompt,

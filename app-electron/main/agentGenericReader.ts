@@ -18,6 +18,8 @@ export interface AgentReader {
   submitLine(line: string): void;
   poll(): void;
   status(): AgentStatus;
+  /** Motor açıldı: komut yankısından sonra motorun kendi çıktısı görüldü (Görev Panosu dağıtım koşulu). */
+  engineReady(): boolean;
   dispose(): void;
 }
 
@@ -67,6 +69,7 @@ export class GenericReader {
   private tail = "";
   private lastOutputAt: number | null = null;
   private sawEcho = false;
+  private sawEngineOutput = false;
   private readonly echo: RegExp | null;
 
   constructor(private readonly opts: GenericReaderOptions) {
@@ -76,8 +79,30 @@ export class GenericReader {
 
   feedOutput(data: string): void {
     this.lastOutputAt = this.opts.now();
-    this.tail = (this.tail + stripAnsi(data)).slice(-TAIL_MAX);
-    if (!this.sawEcho && this.echo?.test(this.tail)) this.sawEcho = true;
+    const clean = stripAnsi(data);
+    const echoedBefore = this.sawEcho;
+    this.tail = (this.tail + clean).slice(-TAIL_MAX);
+    if (echoedBefore) {
+      // Yankıdan sonraki görünür her çıktı motorun (yalnız denetim dizisi sayılmıyor).
+      if (/\S/.test(clean)) this.sawEngineOutput = true;
+      return;
+    }
+    const match = this.echo?.exec(this.tail);
+    if (!match) return;
+    this.sawEcho = true;
+    // Yankıyla aynı parçada gelen çıktı: yankı satırının sonundan sonrası.
+    const rest = this.tail.slice(match.index);
+    const lineEnd = rest.search(/\r|\n/);
+    if (lineEnd >= 0 && /\S/.test(rest.slice(lineEnd))) this.sawEngineOutput = true;
+  }
+
+  /**
+   * Motorun açıldığı görüldü mü. Açılış penceresinde (yankı geldi, TUI henüz
+   * ekranı almadı) yazılan istem konsol tamponuna düşer; motor açılırken
+   * çökerse cmd onu komut olarak okur. Komutu olmayan kayıtta ilk çıktı yeter.
+   */
+  engineReady(): boolean {
+    return this.echo === null ? this.lastOutputAt !== null : this.sawEngineOutput;
   }
 
   engineExited(): boolean {
@@ -100,6 +125,7 @@ export function genericAgentReader(reader: GenericReader): AgentReader {
     submitLine: () => {},
     poll: () => {},
     status: () => reader.status(),
+    engineReady: () => reader.engineReady(),
     dispose: () => {}
   };
 }

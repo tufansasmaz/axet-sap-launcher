@@ -21,6 +21,7 @@ const agent = (paneId: string, over: Partial<AgentInfo> = {}): AgentInfo => ({
   role: "",
   status: idleExact,
   inputIdle: true,
+  engineReady: true,
   ...over
 });
 const sub = (id: string, over: Partial<Subtask> = {}): Subtask => ({
@@ -74,6 +75,15 @@ describe("agentEligible", () => {
 
   it("5: kullanıcı o bölmede yazıyorsa uygun değil", () => {
     expect(agentEligible(agent("p1", { inputIdle: false }), none, "manual")).toBe(false);
+  });
+
+  it("motor görülmedi (engineReady false): 'boşta ≈' olsa da ne oto ne elle uygun; görülünce uygun", () => {
+    const fresh = { state: "idle", source: "estimated", lastActivity: null } as const;
+    expect(agentEligible(agent("p1", { status: fresh, engineReady: false }), none, "auto")).toBe(false);
+    expect(agentEligible(agent("p1", { status: fresh, engineReady: false }), none, "manual")).toBe(false);
+    expect(agentEligible(agent("p1", { engineReady: false }), none, "auto")).toBe(false);
+    expect(agentEligible(agent("p1", { status: fresh, engineReady: true }), none, "auto")).toBe(true);
+    expect(planDispatch([task("t", [sub("a")])], "w1", [agent("p1", { status: fresh, engineReady: false })])).toEqual([]);
   });
 });
 

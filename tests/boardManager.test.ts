@@ -15,7 +15,8 @@ const presence = (
   paneId: string,
   status: AgentStatus | null,
   over: Partial<AgentPresence["reg"]> = {},
-  inputIdle = true
+  inputIdle = true,
+  engineReady = true
 ): AgentPresence => ({
   reg: {
     paneId,
@@ -32,7 +33,8 @@ const presence = (
     ...over
   },
   status,
-  inputIdle
+  inputIdle,
+  engineReady
 });
 const proof = (ok: boolean): Proof => ({
   kind: "commands",
@@ -314,6 +316,22 @@ describe("dağıtım", () => {
     h.manager.tick();
     expect(h.prompts).toEqual([]);
     expect(h.task().subtasks[0].state).toBe("ready");
+  });
+
+  it("motor görülmedi (engineReady false): kayıtlı, boşta ≈ ajana ne oto ne elle istem; görülünce dağıtılıyor", () => {
+    const h = harness();
+    approvedTask(h);
+    const fresh: AgentStatus = { state: "idle", source: "estimated", lastActivity: null };
+    h.state.agents = [presence("p1", fresh, {}, true, false)];
+    h.manager.tick();
+    expect(h.prompts).toEqual([]);
+    expect(h.task().subtasks[0].state).toBe("ready");
+    expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "a", paneId: "p1" })).toEqual({ ok: false, reason: "notEligible" });
+    expect(h.prompts).toEqual([]);
+    h.state.agents = [presence("p1", fresh, {}, true, true)];
+    h.manager.tick();
+    expect(h.prompts).toHaveLength(1);
+    expect(h.task().subtasks[0]).toMatchObject({ state: "running", paneId: "p1" });
   });
 
   it("izleyici son anda reddederse (notRunning) alt görev ready kalıyor", () => {

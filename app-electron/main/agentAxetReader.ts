@@ -229,6 +229,11 @@ export class AxetReader implements AgentReader {
     return generic.status();
   }
 
+  /** Motorun açıldığı genel okuyucunun yankı/çıktı bilgisinden. */
+  engineReady(): boolean {
+    return this.opts.generic.engineReady();
+  }
+
   binding(): string | null {
     return this.session?.id ?? null;
   }

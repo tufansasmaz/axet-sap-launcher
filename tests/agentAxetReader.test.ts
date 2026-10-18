@@ -121,6 +121,16 @@ describe("AxetReader — eşleme", () => {
     expect(reader.status()).toEqual({ state: "idle", source: "estimated", lastActivity: null });
   });
 
+  it("engineReady genel okuyucudan: açılışta 'boşta ≈' olsa da motor çıktısı görülene kadar hazır değil", () => {
+    const { make } = scenario();
+    const { reader } = make("A");
+    reader.feedOutput("C:\\p>axet-code -y\r\n");
+    expect(reader.status().state).toBe("idle");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("\x1b[2J axet-code v1.4");
+    expect(reader.engineReady()).toBe(true);
+  });
+
   it("istem yazılınca oturuma bağlanıyor; durum kesin", () => {
     const { db, make } = scenario();
     const { reader, onMatch } = make("A");

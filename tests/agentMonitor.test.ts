@@ -8,6 +8,7 @@ import type { AgentQuestion, AgentRegistration, AgentStatus } from "../app-elect
 
 class FakeReader implements AgentReader {
   current: AgentStatus = { state: "idle", source: "estimated", lastActivity: null };
+  ready = true;
   lines: string[] = [];
   output: string[] = [];
   polls = 0;
@@ -27,6 +28,9 @@ class FakeReader implements AgentReader {
   }
   status() {
     return this.current;
+  }
+  engineReady() {
+    return this.ready;
   }
   dispose() {
     this.disposed = true;
@@ -396,6 +400,18 @@ describe("Görev Panosu yüzü: agents() ve sendPrompt()", () => {
     expect(h.monitor.agents()[0].inputIdle).toBe(false);
     h.clock.ms += TYPING_GUARD_MS;
     expect(h.monitor.agents()[0].inputIdle).toBe(true);
+  });
+
+  it("agents(): engineReady okuyucudan; okuyucu fırlatırsa false (kapalı-güvenli)", () => {
+    const h = boardHarness();
+    h.monitor.register(reg({ workspaceId: "w1" }));
+    expect(h.monitor.agents()[0].engineReady).toBe(true);
+    h.reader().ready = false;
+    expect(h.monitor.agents()[0].engineReady).toBe(false);
+    h.reader().engineReady = () => {
+      throw new Error("okuyucu patladı");
+    };
+    expect(h.monitor.agents()[0].engineReady).toBe(false);
   });
 
   it("sendPrompt: önce metin, 150 ms sonra Enter; satır okuyucuya Enter'da veriliyor", () => {

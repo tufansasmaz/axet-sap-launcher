@@ -74,6 +74,29 @@ describe("GenericReader", () => {
     expect(reader.status().state).toBe("running");
   });
 
+  it("engineReady: yankıdan önce ve yankının kendisi yetmiyor; yankıdan sonra motor çıktısı görülünce hazır", () => {
+    const { reader } = setup();
+    reader.feedOutput("Microsoft Windows [Version 10.0]\r\n\r\nC:\\proje>");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("claude --model sonnet\r\n");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("\x1b[?25l\x1b[2J");
+    expect(reader.engineReady()).toBe(false);
+    reader.feedOutput("\x1b[1;1H  ● Claude Code  ");
+    expect(reader.engineReady()).toBe(true);
+    expect(genericAgentReader(reader).engineReady()).toBe(true);
+  });
+
+  it("engineReady: yankı ve motor çıktısı aynı parçada gelince de hazır; komutsuz okuyucuda ilk çıktı yeter", () => {
+    const { reader } = setup("codex");
+    reader.feedOutput("PS C:\\proje> codex\r\n>_ OpenAI Codex");
+    expect(reader.engineReady()).toBe(true);
+    const bare = setup("").reader;
+    expect(bare.engineReady()).toBe(false);
+    bare.feedOutput("x");
+    expect(bare.engineReady()).toBe(true);
+  });
+
   it("genericAgentReader sarmalayıcısı satırları yok sayıyor, durumu aktarıyor", () => {
     const { reader } = setup();
     const wrapped = genericAgentReader(reader);

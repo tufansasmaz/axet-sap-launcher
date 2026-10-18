@@ -123,7 +123,14 @@ function promptFailure(result: AgentPromptResult): BoardFailure {
 }
 
 function toInfo(p: AgentPresence): AgentInfo {
-  return { paneId: p.reg.paneId, workspaceId: p.reg.workspaceId ?? "", role: p.reg.role ?? "", status: p.status, inputIdle: p.inputIdle };
+  return {
+    paneId: p.reg.paneId,
+    workspaceId: p.reg.workspaceId ?? "",
+    role: p.reg.role ?? "",
+    status: p.status,
+    inputIdle: p.inputIdle,
+    engineReady: p.engineReady
+  };
 }
 
 export function createBoardManager(deps: BoardManagerDeps): BoardManager {

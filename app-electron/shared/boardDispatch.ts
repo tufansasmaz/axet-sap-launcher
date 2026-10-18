@@ -14,6 +14,8 @@ export interface AgentInfo {
   status: AgentStatus | null;
   /** Kullanıcı o bölmede yazmıyor: Enter'a basılmamış taslak yok, son tuş TYPING_GUARD_MS'den eski. */
   inputIdle: boolean;
+  /** Komut yankısından sonra motor çıktısı görüldü: TUI açıldı, istem konsol tamponuna düşmez. */
+  engineReady: boolean;
 }
 
 export type AssignMode = "auto" | "manual";
@@ -24,9 +26,13 @@ export interface Dispatch {
   paneId: string;
 }
 
-/** 2. koşul: kayıtlı, durumu biliniyor ve motor kapanmamış (`finished` = kabuk istemi geri döndü). */
+/**
+ * 2. koşul: kayıtlı, durumu biliniyor, motor açıldığı görüldü (engineReady)
+ * ve kapanmamış (`finished` = kabuk istemi geri döndü). axet-code okuyucusu
+ * motor açılırken de "boşta ≈" diyor; engineReady o pencereyi kapatıyor.
+ */
 export function engineRunning(agent: AgentInfo): boolean {
-  return agent.status !== null && agent.status.state !== "finished";
+  return agent.engineReady && agent.status !== null && agent.status.state !== "finished";
 }
 
 /** 4. koşul: başka bir alt görevin üstünde çalışan/doğrulanan ajanlar. */
