@@ -443,11 +443,11 @@ değil: herhangi bir klasörde ya da Git deposunda kullanılabilir.
 
 ### Görev Panosu
 
-Üst şeritteki **Bölmeler | Pano** geçişiyle alanın görev panosunu açarsın
+Üst şeritteki **Bölmeler | Pano | Ofis** geçişiyle alanın görev panosunu açarsın
 (seçim alan başına hatırlanır). Bir hedef yazarsın; **lider** onu alt
 görevlere böler, sen onaylarsın, NTT Studio alt görevleri alandaki ajanlara
 dağıtır ve her alt görev ancak **kanıtla** kapanır. Ajanın "bitti" demesi
-hiçbir kartı kapatmaz.
+hiçbir kartı kapatmaz. Ekip şeridi kartına, Kararlar'daki "Terminale git" bağlantısına veya ajan bildirimine Pano ya da Ofis görünümündeyken tıklarsan görünüm otomatik olarak Bölmeler'e döner.
 
 - **Görev**: başlık ve hedef yazarsın. **Böl** lideri çalıştırır: axet-code
   alanın kökünde (yoksa ajanların varsayılan klasöründe) tek seferlik,
