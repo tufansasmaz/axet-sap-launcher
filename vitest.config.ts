@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // Vitest bugüne kadar yapılandırmasız çalışıyordu: testlerin tamamı ana süreç
 // modülleriydi, düz TypeScript'ti, varsayılanlar yetiyordu.
@@ -15,5 +15,7 @@ import { defineConfig } from "vitest/config";
 //     kalıyor, çünkü ana süreç testlerinin her birine bir tarayıcı ortamı
 //     kurmak onları yavaşlatır ve `node:fs` testlerine hiçbir şey katmaz.
 export default defineConfig({
-  esbuild: { jsx: "automatic" }
+  esbuild: { jsx: "automatic" },
+  // Ajan worktree'leri (.claude/worktrees) depo içinde: testleri ana takıma karışmasın.
+  test: { exclude: [...configDefaults.exclude, ".claude/**"] }
 });

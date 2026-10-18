@@ -133,7 +133,7 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
           )}
           {state.phase === "ready" && active && view === "office" && (
             <div className="absolute inset-0">
-              <OfficeView workspace={active} onAddAgent={() => setAgentDialog({})} />
+              <OfficeView workspace={active} visible={state.visible} onAddAgent={() => setAgentDialog({})} />
             </div>
           )}
           {state.phase === "ready" && active && view === "changes" && (
