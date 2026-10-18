@@ -561,6 +561,10 @@ kendisi depoya çevirmez.
   kısayol/bağ ya da sonradan konmuş bir dosya) geri alma onun üstüne yazmaz:
   bunu başlamadan görürse hiçbir dosyaya dokunmadan durur; ancak geri alma
   sürerken ortaya çıkarsa durur ve o ana kadar ne yaptığını söyler.
+- Git alt modülleri ve alanda commit'i olmayan iç içe depolar (ör. bir
+  ajanın `git init` yaptığı klasör) izlenmez ve geri alınmaz; pencere kaç alt
+  modülün atlanacağını söyler. 5000'den fazla dosya değişen bir aralık tek
+  seferde geri alınamaz.
 - Senin Git durumuna dokunulmaz: dalın, son commit'in, `git add` ile
   hazırladıkların ve stash'lerin aynen kalır. `.gitignore`'daki dosyalar
   izlenmez. Git eski nesneleri temizlediyse (yaklaşık iki hafta sonra) nokta

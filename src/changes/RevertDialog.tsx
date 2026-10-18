@@ -76,6 +76,11 @@ export default function RevertDialog({
           </div>
         )}
         {plan.conflictsPartial && <p className="text-2xs">{t("changes.conflictsPartial")}</p>}
+        {plan.submodules > 0 && (
+          <p data-revert-submodules="" className="text-2xs text-slate-400">
+            {t("changes.revertSubmodules", { count: plan.submodules })}
+          </p>
+        )}
         {plan.runningAgents.length > 0 && (
           <p data-revert-running="" className="text-2xs text-[var(--status-warning-text)]">
             {t("changes.revertRunning", { names: plan.runningAgents.join(", ") })}

@@ -44,6 +44,7 @@ import {
 import {
   CONFLICT_SCAN_MAX,
   MAX_CHECKPOINTS,
+  REVERT_PATHS_MAX,
   SNAPSHOT_TIMEOUT_MS,
   type ChangesCommandResult,
   type ChangesFailure,
@@ -577,7 +578,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       // Alan kökü denetimi (gerçek yol; junction/sembolik bağ) taşımadan hemen önce;
       // alan dışı → dosya atlanmıyor, işlem duruyor.
       if (!attempt(() => deps.insideRoot(ctx.cwd, rel), false)) {
-        stop("invalid", rel);
+        stop("outsideRoot", rel);
         break;
       }
       // Üst parçada bağ/junction: bağın içinden taşıma yok.
@@ -612,7 +613,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         }
       }
       if (!attempt(() => deps.insideRoot(ctx.cwd, rel), false)) {
-        stop("invalid", rel);
+        stop("outsideRoot", rel);
         break;
       }
       if (pathConflict(ctx.cwd, rel, byPath.get(rel)?.status === "deleted")) {
@@ -735,6 +736,8 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         if (!r.ok) return r;
         // Alt modül (gitlink) geri alınmıyor: etkilenecek dosyalara da çakışma taramasına da girmiyor.
         const files = r.files.filter((f) => !f.submodule);
+        if (files.length === 0) return fail("nothingToRevert");
+        if (files.length > REVERT_PATHS_MAX) return fail("tooMany");
         const paths = new Set(files.map((f) => f.path));
         const later = laterCheckpoints(entry.checkpoints, checkpointId, CONFLICT_SCAN_MAX);
         const totalLater = entry.checkpoints.length - 1 - r.range.index;
@@ -757,7 +760,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         const runningAgents = attempt(() => deps.agents(), [] as AgentPresence[])
           .filter((p) => p.reg.workspaceId === workspaceId && (p.status?.state === "running" || p.status?.state === "asking"))
           .map((p) => p.reg.name || p.reg.paneId);
-        return { ok: true, plan: { files, conflicts, conflictsPartial: totalLater > later.length, runningAgents } };
+        return { ok: true, plan: { files, conflicts, conflictsPartial: totalLater > later.length, runningAgents, submodules: r.files.length - files.length } };
       });
     },
 

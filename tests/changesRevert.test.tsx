@@ -82,6 +82,7 @@ const plan = (over: Partial<RevertPlan> = {}): RevertPlan => ({
   conflicts: [],
   conflictsPartial: false,
   runningAgents: [],
+  submodules: 0,
   ...over
 });
 
@@ -202,6 +203,31 @@ describe("Geri al (spec §6)", () => {
     await flush();
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(api.changesRevert).not.toHaveBeenCalled();
+  });
+
+  it("pencere: atlanacak alt modül varsa sayısını söylüyor, yoksa satır yok", async () => {
+    api.changesPrepareRevert.mockResolvedValueOnce({ ok: true, plan: plan({ submodules: 2 }) });
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    expect(screen.getByRole("alertdialog").querySelector("[data-revert-submodules]")?.textContent).toContain("2 alt modül geri alınmaz");
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "İptal" }));
+    await flush();
+    api.changesPrepareRevert.mockResolvedValueOnce({ ok: true, plan: plan() });
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    expect(screen.getByRole("alertdialog").querySelector("[data-revert-submodules]")).toBeNull();
+  });
+
+  it("hazırlık nothingToRevert dönünce pencere yerine sebep", async () => {
+    api.changesPrepareRevert.mockResolvedValueOnce({ ok: false, reason: "nothingToRevert" });
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(document.body.textContent).toContain("geri alınabilecek dosya yok");
   });
 
   it("pencere: aralıktaki değişikliklerin hangi ajandan gelirse gelsin geri alınacağını söylüyor", async () => {

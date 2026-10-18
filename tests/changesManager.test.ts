@@ -6,7 +6,7 @@ import type { GitPort, ProbeResult } from "../app-electron/main/changesGit";
 import type { CheckpointFileResult } from "../app-electron/main/changesStore";
 import type { AgentPresence, LogFields } from "../app-electron/main/agentMonitor";
 import type { AgentRegistration, AgentStatus } from "../app-electron/shared/agentTypes";
-import { MAX_CHECKPOINTS, type ChangesState, type Checkpoint, type FileChange } from "../app-electron/shared/changesTypes";
+import { MAX_CHECKPOINTS, REVERT_PATHS_MAX, type ChangesState, type Checkpoint, type FileChange } from "../app-electron/shared/changesTypes";
 
 const T = (n: number) => n.toString(16).padStart(40, "0");
 const change = (path: string, status: FileChange["status"] = "modified", added = 1, deleted = 1): FileChange => ({ path, status, added, deleted, binary: false });
@@ -451,7 +451,7 @@ describe("Kabul et ve Geri al (spec §5, §6)", () => {
     const h2 = harness();
     await twoCheckpoints(h2, [change("a.ts")]);
     h2.state.inside = (rel) => rel !== "a.ts";
-    expect(await h2.manager.revert("w1", "c1", ["a.ts"])).toMatchObject({ ok: false, reason: "invalid", failedPath: "a.ts", restored: [] });
+    expect(await h2.manager.revert("w1", "c1", ["a.ts"])).toMatchObject({ ok: false, reason: "outsideRoot", failedPath: "a.ts", restored: [] });
     expect(h2.events.filter((e) => e.startsWith("restore"))).toEqual([]);
     expect(await h2.manager.revert("w1", "c1", ["../x"])).toEqual({ ok: false, reason: "invalid", restored: [], trashed: [], skipped: [] });
     expect(await h2.manager.revert("w1", "c1", "a.ts")).toMatchObject({ ok: false, reason: "invalid" });
@@ -485,7 +485,8 @@ describe("Kabul et ve Geri al (spec §5, §6)", () => {
         files: [change("a.ts"), change("b.ts")],
         conflicts: [{ id: "c2", label: "ikinci istem", agentName: "Ayşe", reason: "prompt" }],
         conflictsPartial: false,
-        runningAgents: ["Ayşe", "Can"]
+        runningAgents: ["Ayşe", "Can"],
+        submodules: 0
       }
     });
     expect(h.events.filter((e) => !e.startsWith("snapshot"))).toEqual([]);
@@ -522,18 +523,18 @@ describe("Geri al güvenliği (Görev 3 incelemesi)", () => {
     const h = sub();
     await twoCheckpoints(h, [change("bag/a.ts"), change("ok.ts")]);
     const result = await h.manager.revert("w1", "c1", ["ok.ts", "bag/a.ts"]);
-    expect(result).toEqual({ ok: false, reason: "invalid", restored: ["ok.ts"], trashed: [], skipped: [], failedPath: "bag/a.ts", beforeRestoreId: "c3" });
+    expect(result).toEqual({ ok: false, reason: "outsideRoot", restored: ["ok.ts"], trashed: [], skipped: [], failedPath: "bag/a.ts", beforeRestoreId: "c3" });
     expect(h.events).not.toContain("restore:src/bag/a.ts");
     expect(h.insideCalls.map(([root]) => root)).toEqual(["C:/depo/src", "C:/depo/src"]);
     expect(h.last().checkpoints[0].reviewed).toBe("pending");
-    expect(h.logs).toContainEqual(["degisiklik.geriAl", { dosya: 1, sonuc: "invalid" }]);
+    expect(h.logs).toContainEqual(["degisiklik.geriAl", { dosya: 1, sonuc: "outsideRoot" }]);
 
     const h2 = sub();
     await twoCheckpoints(h2, [change("bag/yeni.txt", "added"), change("ok.ts")]);
     h2.state.exists.add("bag/yeni.txt");
     expect(await h2.manager.revert("w1", "c1", ["ok.ts", "bag/yeni.txt"])).toEqual({
       ok: false,
-      reason: "invalid",
+      reason: "outsideRoot",
       restored: [],
       trashed: [],
       skipped: [],
@@ -549,7 +550,7 @@ describe("Geri al güvenliği (Görev 3 incelemesi)", () => {
     h.state.inside = () => {
       throw new Error("realpath patladı");
     };
-    expect(await h.manager.revert("w1", "c1", ["a.ts"])).toMatchObject({ ok: false, reason: "invalid", failedPath: "a.ts", restored: [] });
+    expect(await h.manager.revert("w1", "c1", ["a.ts"])).toMatchObject({ ok: false, reason: "outsideRoot", failedPath: "a.ts", restored: [] });
     expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
   });
 
@@ -1050,5 +1051,37 @@ describe("Alt modül: geri alma planı", () => {
     await twoCheckpoints(h, [{ ...change("alt"), submodule: true }, change("a.ts")]);
     const prepared = await h.manager.prepareRevert("w1", "c1");
     expect(prepared.ok && prepared.plan.files.map((f) => f.path)).toEqual(["a.ts"]);
+  });
+});
+
+describe("Geri alma: 'Geçersiz istek' yerine gerçek sebep (ertelenenler)", () => {
+  it("yalnız alt modüllü aralık: plan nothingToRevert", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [{ ...change("alt"), submodule: true }]);
+    expect(await h.manager.prepareRevert("w1", "c1")).toEqual({ ok: false, reason: "nothingToRevert" });
+  });
+
+  it("karışık aralık: plan atlanacak alt modül sayısını söylüyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [{ ...change("alt"), submodule: true }, change("a.ts")]);
+    const prepared = await h.manager.prepareRevert("w1", "c1");
+    expect(prepared.ok && prepared.plan.submodules).toBe(1);
+  });
+
+  it("5000'den fazla dosya: plan tooMany", async () => {
+    const h = harness();
+    await twoCheckpoints(h, Array.from({ length: REVERT_PATHS_MAX + 1 }, (_, i) => change(`f${i}.ts`)));
+    expect(await h.manager.prepareRevert("w1", "c1")).toEqual({ ok: false, reason: "tooMany" });
+  });
+
+  it("alan dışını gösteren yol: outsideRoot (invalid değil), hiçbir şey taşınmıyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("dis", "added")]);
+    h.state.exists.add("dis");
+    h.state.inside = (rel) => rel !== "dis";
+    const result = await h.manager.revert("w1", "c1", ["dis"]);
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.reason).toBe("outsideRoot");
+    expect(h.events.filter((e) => e.startsWith("trash"))).toEqual([]);
   });
 });

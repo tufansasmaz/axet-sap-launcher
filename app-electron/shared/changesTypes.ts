@@ -63,7 +63,10 @@ export type ChangesFailure =
   | "busy"
   | "pathConflict"
   | "storeFailed"
-  | "alreadyReverted";
+  | "alreadyReverted"
+  | "outsideRoot"
+  | "tooMany"
+  | "nothingToRevert";
 
 export const CHANGES_FAILURES: readonly ChangesFailure[] = [
   "invalid",
@@ -82,7 +85,10 @@ export const CHANGES_FAILURES: readonly ChangesFailure[] = [
   "busy",
   "pathConflict",
   "storeFailed",
-  "alreadyReverted"
+  "alreadyReverted",
+  "outsideRoot",
+  "tooMany",
+  "nothingToRevert"
 ];
 
 /** Son görüntü alma hatası (görünümdeki uyarı satırı); başarılı görüntü siler. */
@@ -136,6 +142,8 @@ export interface RevertPlan {
   conflictsPartial: boolean;
   /** Alanda şu an çalışan ya da soru soran ajanlar (spec §6.6). */
   runningAgents: string[];
+  /** Aralıkta olup geri alınmayacak alt modül (gitlink) sayısı. */
+  submodules: number;
 }
 
 export type PrepareRevertResult = { ok: true; plan: RevertPlan } | { ok: false; reason: ChangesFailure };

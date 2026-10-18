@@ -33,7 +33,10 @@ export const FAILURE_KEY: Record<ChangesFailure, TranslationKey> = {
   busy: "changes.failBusy",
   pathConflict: "changes.failPathConflict",
   storeFailed: "changes.failStoreFailed",
-  alreadyReverted: "changes.failAlreadyReverted"
+  alreadyReverted: "changes.failAlreadyReverted",
+  outsideRoot: "changes.failOutsideRoot",
+  tooMany: "changes.failTooMany",
+  nothingToRevert: "changes.failNothingToRevert"
 };
 
 export const REPO_KEY: Record<"notRepo" | "noGit" | "missingDir", TranslationKey> = {
