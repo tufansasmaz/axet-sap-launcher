@@ -96,9 +96,9 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
       )}
 
       <div className="flex min-h-0 flex-1">
-        {/* Görünüm rayı: içerik alanının sol kenarına gömülü, alt alta (spec 2026-10-18 ajanlar-ux §4). */}
-        {state.phase === "ready" && active && <CountedViewRail workspace={active} />}
         <div className="relative min-h-0 min-w-0 flex-1">
+          {/* Görünüm rayı: içeriğin üstünde yüzen, sol kenarda ortalı; kapalıyken tek yuvarlak düğme, üzerine gelince açılır. */}
+          {state.phase === "ready" && active && <CountedViewRail workspace={active} />}
           {state.workspaces.map((w) => (
             <div
               key={w.id}

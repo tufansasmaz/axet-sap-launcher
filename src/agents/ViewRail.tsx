@@ -1,8 +1,8 @@
-// Görünüm rayı (spec 2026-10-18 ajanlar-ux §4): ana içerik alanının sol
-// kenarına gömülü, alt alta simge düğmeleri. Terminal | Görevler | Ofis |
-// Değişiklikler | Tarayıcı | Bellek — Ofis ortada. Seçili lime çizgi (lime
-// yalnız seçim); etiket ipucunda ve aria-label'da. Klavye: yukarı/aşağı ok,
-// Home/End; yalnız seçili düğme sekme sırasında.
+// Görünüm rayı: içeriğin üstünde yüzen, sol kenarda ortalı yarı saydam düğme grubu.
+// Kapalıyken yalnız seçili görünümün tek yuvarlak düğmesi; üzerine gelince ya da
+// klavye odağında köşeli panel olarak açılır (Terminal | Görevler | Ofis | Değişiklikler |
+// Tarayıcı | Bellek — Ofis ortada). Seçili lime ışıltı (lime yalnız seçim); etiket
+// ipucunda ve aria-label'da. Klavye: yukarı/aşağı ok, Home/End; yalnız seçili düğme sekme sırasında.
 import { useRef, type KeyboardEvent } from "react";
 import { BookOpen, Building2, ClipboardList, GitBranch, Globe, Terminal, type LucideIcon } from "lucide-react";
 import { useT } from "../i18n";
@@ -67,10 +67,12 @@ export default function ViewRail({ workspace, counts }: { workspace: TerminalWor
       aria-orientation="vertical"
       data-view-rail=""
       onKeyDown={onKeyDown}
-      className="flex w-10 shrink-0 flex-col items-center gap-1 border-r border-line py-1.5"
+      className="group absolute left-2 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-full bg-black/35 p-1 opacity-70 shadow-lg backdrop-blur-sm transition-all duration-150 hover:rounded-md hover:bg-black/60 hover:opacity-100 focus-within:rounded-md focus-within:bg-black/60 focus-within:opacity-100"
     >
       {VIEW_TABS.map((v) => {
         const selected = current === v;
+        // Kapalıyken yalnız seçili düğme görünür (tek yuvarlak düğme); üzerine gelince/odakta hepsi açılır.
+        const collapse = selected ? "" : "hidden group-hover:flex group-focus-within:flex";
         const Icon = VIEW_TAB_ICON[v];
         const count = counts?.[v] ?? 0;
         const countKey = COUNT_KEY[v];
@@ -91,11 +93,10 @@ export default function ViewRail({ workspace, counts }: { workspace: TerminalWor
             tabIndex={selected ? 0 : -1}
             title={label}
             onClick={() => choose(v)}
-            className={`relative flex h-8 w-8 items-center justify-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${
-              selected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-500 hover:bg-hover hover:text-slate-200"
+            className={`relative flex h-8 w-8 items-center justify-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 group-hover:rounded-md group-focus-within:rounded-md ${collapse} ${
+              selected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-400 hover:bg-white/10 hover:text-slate-100"
             }`}
           >
-            {selected && <span aria-hidden className="absolute -left-1 top-1.5 bottom-1.5 w-0.5 rounded-full bg-accent-400" />}
             <Icon size={15} />
             {count > 0 && countKey && (
               <span

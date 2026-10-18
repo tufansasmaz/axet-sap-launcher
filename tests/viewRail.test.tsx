@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-// Görünüm rayı (spec 2026-10-18 ajanlar-ux §4): içerik alanının sol kenarında
-// alt alta simge düğmeleri; dikey tablist, yukarı/aşağı ok, Home/End.
+// Görünüm rayı: içeriğin üstünde yüzen yarı saydam grup; kapalıyken tek yuvarlak
+// düğme, üzerine gelince/odakta açılır; dikey tablist, yukarı/aşağı ok, Home/End.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
@@ -35,24 +35,25 @@ function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr", co
 const rail = () => screen.getByRole("tablist", { name: "Görünüm" });
 
 describe("ViewRail", () => {
-  it("altı sekme alt alta; Ofis ortada; Bellek sonda; dikey ve dar", () => {
+  it("altı sekme alt alta; Ofis ortada; Bellek sonda; dikey, içeriğin üstünde yüzüyor", () => {
     setup("office");
     const labels = screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"));
     expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek"]);
     expect(rail().getAttribute("aria-orientation")).toBe("vertical");
-    expect(rail().className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "w-10"]));
+    expect(rail().className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "absolute", "rounded-full", "hover:rounded-md"]));
     // Etiket ipucunda: her düğmenin title'ı var.
     for (const tab of screen.getAllByRole("tab")) expect(tab.getAttribute("title")).toBe(tab.getAttribute("aria-label"));
   });
 
-  it("seçili sekme aria-selected + tabIndex 0; lime çizgi yalnız onda", () => {
+  it("seçili sekme aria-selected + tabIndex 0; kapalıyken yalnız seçili görünür", () => {
     setup("office");
     const office = screen.getByRole("tab", { name: "Ofis" });
     expect(office.getAttribute("aria-selected")).toBe("true");
     expect(office.tabIndex).toBe(0);
     expect(screen.getByRole("tab", { name: "Terminal" }).tabIndex).toBe(-1);
-    expect(document.querySelectorAll(".bg-accent-400")).toHaveLength(1);
-    expect(office.querySelector(".bg-accent-400")).toBeTruthy();
+    expect(office.className).not.toContain("hidden");
+    const terminal = screen.getByRole("tab", { name: "Terminal" });
+    expect(terminal.className.split(" ")).toEqual(expect.arrayContaining(["hidden", "group-hover:flex", "group-focus-within:flex"]));
   });
 
   it("aşağı/yukarı ok sırayla geziyor ve uçlarda dönüyor; Home/End; yatay oklar bir şey yapmıyor", () => {
