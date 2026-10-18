@@ -127,7 +127,7 @@ export default function TerminalMode() {
           )}
           {state.phase === "ready" && active && view === "changes" && (
             <div className="absolute inset-0">
-              <ChangesView workspace={active} />
+              <ChangesView key={active.id} workspace={active} />
             </div>
           )}
         </div>
@@ -158,7 +158,7 @@ export default function TerminalMode() {
         }}
         onCancel={() => setAgentDialog(null)}
       />
-    </div>
+      </div>
     </ChangesFocusProvider>
   );
 }

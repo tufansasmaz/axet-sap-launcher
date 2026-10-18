@@ -1570,7 +1570,12 @@ export const tr = {
   "changes.binaryChanged": "İkili dosya değişti.",
   "changes.largeChanged": "Büyük dosya değişti (200 KB üstü); diff gösterilmiyor.",
   "changes.diffLabel": "Diff",
-  "changes.diffTruncated": "Diff çok uzun; kırpıldı."
+  "changes.diffTruncated": "Diff çok uzun; kırpıldı.",
+  "changes.liveError": "Canlı durum alınamadı.",
+  "changes.diffColOld": "Eski no",
+  "changes.diffColNew": "Yeni no",
+  "changes.diffColSign": "İşaret",
+  "changes.diffColText": "Metin"
 };
 
 

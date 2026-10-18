@@ -355,3 +355,99 @@ describe("renk kuralı", () => {
     }
   });
 });
+
+describe("fix round 1: kararlılık ve doğruluk", () => {
+  it("görünüm sökülünce Canlı yoklaması duruyor", async () => {
+    await setup();
+    expect(api.changesLive).toHaveBeenCalledTimes(1);
+    cleanup();
+    await act(async () => { vi.advanceTimersByTime(10_000); });
+    expect(api.changesLive).toHaveBeenCalledTimes(1);
+  });
+
+  it("alan değişince eski Canlı dosyaları yeni alanda görünmüyor", async () => {
+    api.changesLive.mockResolvedValue(okRange([file("a.ts")], true));
+    await setup();
+    // Eski alan: 1 dosya görünüyor
+    expect(document.querySelector("[data-live-row]")?.textContent).toContain("1 dosya");
+    cleanup();
+    // Yeni alan: Canlı henüz yüklenmedi (istek asılı kalıyor)
+    const wsB: TerminalWorkspace = { ...ws, id: "b", name: "Alan b" };
+    api.changesLive.mockImplementation(() => new Promise(() => {}));
+    api.changesState.mockImplementation(async () => state({ workspaceId: "b" }));
+    const commands = commandsMock();
+    const store: TerminalStoreValue = {
+      state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [wsB], activeWorkspaceId: "b" },
+      commands,
+      defaultKind: "cmd",
+      defaultCwd: "C:\\a",
+      agentCwd: "C:\\a"
+    };
+    render(
+      <LanguageProvider language="tr">
+        <TerminalStoreContext.Provider value={store}>
+          <ChangesView workspace={wsB} />
+        </TerminalStoreContext.Provider>
+      </LanguageProvider>
+    );
+    await flush();
+    // Yeni alanda "1 dosya" olmamalı (eski alanın Canlı verisi taşınmamalı)
+    expect(document.querySelector("[data-live-row]")?.textContent).not.toContain("1 dosya");
+  });
+
+  it("Canlı seçiliyken yeni kayıt gelince açık diff temizleniyor", async () => {
+    api.changesState.mockResolvedValue(state({ checkpoints: [cp("c1", at(9, 0))] }));
+    api.changesLive.mockResolvedValue(okRange([file("a.ts")], true));
+    api.changesDiff.mockResolvedValue({
+      ok: true,
+      diff: { kind: "text", truncated: false, lines: [{ kind: "add", oldNo: null, newNo: 1, text: "merhaba" }] }
+    });
+    let push: (s: ChangesState) => void = () => {};
+    api.onChangesChanged.mockImplementation((cb: (s: ChangesState) => void) => {
+      push = cb;
+      return () => {};
+    });
+    await setup();
+    fireEvent.click(document.querySelector('[data-file="a.ts"]')!);
+    await flush();
+    expect(screen.queryByText("merhaba")).toBeTruthy();
+    // Yeni kayıt geliyor: diffTarget değişiyor
+    act(() => push(state({ checkpoints: [cp("c1", at(9, 0)), cp("c2", at(9, 30))] })));
+    await flush();
+    // Diff temizlendi: yükleniyor ya da hiçbir şey gösterilmiyor
+    expect(screen.queryByText("merhaba")).toBeNull();
+  });
+
+  it("aynı Canlı sonucu gelince setLive atlanıyor (JSON eşitliği); açık diff stabil kalıyor", async () => {
+    api.changesState.mockResolvedValue(state({ checkpoints: [cp("c1", at(9, 0))] }));
+    const identical = okRange([file("a.ts")], true);
+    let release1: (r: RangeResult) => void = () => {};
+    let release2: (r: RangeResult) => void = () => {};
+    api.changesLive
+      .mockImplementationOnce(() => new Promise<RangeResult>((r) => (release1 = r)))
+      .mockImplementationOnce(() => new Promise<RangeResult>((r) => (release2 = r)));
+    api.changesDiff.mockResolvedValue({
+      ok: true,
+      diff: { kind: "text", truncated: false, lines: [{ kind: "add", oldNo: null, newNo: 1, text: "satir1" }] }
+    });
+    await setup();
+    await act(async () => release1(identical));
+    await flush();
+    fireEvent.click(document.querySelector('[data-file="a.ts"]')!);
+    await flush();
+    expect(document.querySelectorAll("[data-line-kind]").length).toBe(1);
+    // İkinci identik sonuç
+    await act(async () => { vi.advanceTimersByTime(3_000); });
+    await act(async () => release2({ ...identical }));
+    await flush();
+    // Diff hâlâ gösteriliyor (bileşen gereksiz yere yeniden çizilmedi)
+    expect(document.querySelectorAll("[data-line-kind]").length).toBe(1);
+    expect(api.changesLive).toHaveBeenCalledTimes(2);
+  });
+
+  it("Canlı yoklama hatası uyarı satırı gösteriyor ([data-warning])", async () => {
+    api.changesLive.mockRejectedValue(new Error("ag hatasi"));
+    await setup();
+    expect(document.querySelector("[data-warning]")).toBeTruthy();
+  });
+});

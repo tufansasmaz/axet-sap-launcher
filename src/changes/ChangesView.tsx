@@ -44,6 +44,7 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
   const { state } = useChangesState(workspace.id);
   const [selected, setSelected] = useState<string>(LIVE);
   const [live, setLive] = useState<RangeResult | null>(null);
+  const [liveError, setLiveError] = useState(false);
   const [range, setRange] = useState<RangeResult | null>(null);
   const [file, setFile] = useState<string | null>(null);
   const [diff, setDiff] = useState<DiffResult | null>(null);
@@ -51,6 +52,7 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const diffRequest = useRef(0);
+  const inFlight = useRef(false);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -63,32 +65,44 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
   const checkpoints = state?.checkpoints ?? [];
   const expired = state?.expired ?? [];
   const latest = checkpoints.at(-1) ?? null;
+  const latestId = latest?.id ?? null;
   const repoOk = state?.repo === "ok";
   const visible = store.visible;
   const selectedCp = selected === LIVE ? null : (checkpoints.find((c) => c.id === selected) ?? null);
   const showsLive = selected === LIVE || (selectedCp !== null && selectedCp.id === latest?.id);
-  const diffTarget = selected === LIVE ? (latest?.id ?? null) : (selectedCp?.id ?? null);
+  const diffTarget = selected === LIVE ? latestId : (selectedCp?.id ?? null);
 
   // Seçili kayıt listeden düştüyse (200 sınırı) Canlı'ya dön.
   useEffect(() => {
     if (state && selected !== LIVE && !state.checkpoints.some((c) => c.id === selected)) setSelected(LIVE);
   }, [state, selected]);
 
+  // Yeni kayıt gelince eski Canlı sonucu ve diff sıfırlanır (yanlış taban gösterilmez).
+  useEffect(() => {
+    setLive(null);
+    setLiveError(false);
+  }, [workspace.id, latestId]);
+
   // Canlı (spec §5): yalnız görünüm görünürken 3 sn'de bir; uçuşta ikinci istek yok.
+  // inFlight ref: efekt yeniden kurulunca sıfırlanmaz, çakışmayı önler.
   useEffect(() => {
     if (!visible || !repoOk) return;
     let alive = true;
-    let inFlight = false;
+    inFlight.current = false;
     const poll = () => {
-      if (inFlight || document.visibilityState === "hidden") return;
-      inFlight = true;
+      if (inFlight.current || document.visibilityState === "hidden") return;
+      inFlight.current = true;
       window.api.changesLive(workspace.id).then(
         (r) => {
-          inFlight = false;
-          if (alive) setLive(r);
+          inFlight.current = false;
+          if (!alive) return;
+          setLiveError(false);
+          // Aynı içerik gelirse referansı koru; memo(DiffViewer) yeniden çizilmez.
+          setLive((prev) => (JSON.stringify(prev) === JSON.stringify(r) ? prev : r));
         },
         () => {
-          inFlight = false;
+          inFlight.current = false;
+          if (alive) setLiveError(true);
         }
       );
     };
@@ -98,11 +112,14 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
       alive = false;
       clearInterval(timer);
     };
-  }, [visible, repoOk, workspace.id, latest?.id]);
+  }, [visible, repoOk, workspace.id, latestId]);
 
   // Eski kaydın aralığı bir kez isteniyor; en son kayıt Canlı sonucunu kullanıyor.
+  // diffTarget bağımlılığı: Canlı seçiliyken yeni kayıt gelince (diffTarget değişir)
+  // açık file/diff temizlenir, bayat diff gösterilmez.
   const selectedId = selectedCp?.id ?? null;
   useEffect(() => {
+    diffRequest.current++;
     setFile(null);
     setDiff(null);
     setRange(null);
@@ -117,7 +134,7 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
     return () => {
       alive = false;
     };
-  }, [workspace.id, selectedId, showsLive]);
+  }, [workspace.id, selectedId, showsLive, diffTarget]);
 
   const shown: RangeResult | null = showsLive ? live : range;
 
@@ -195,6 +212,15 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
               className="rounded border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-1 text-2xs text-[var(--status-warning-text)]"
             >
               {t("changes.snapshotWarning", { reason: t(FAILURE_KEY[state.warning.code]) })}
+            </p>
+          )}
+          {liveError && (
+            <p
+              role="status"
+              data-warning=""
+              className="rounded border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-2 py-1 text-2xs text-[var(--status-warning-text)]"
+            >
+              {t("changes.liveError")}
             </p>
           )}
           {state.recoveredFrom && <p className="text-2xs text-[var(--status-warning-text)]">{t("changes.recovered", { file: state.recoveredFrom })}</p>}

@@ -1,6 +1,8 @@
 // Birleşik diff (spec 2026-10-18 degisiklikler §5): satır numaralı; eklenen ve
 // silinen satır mevcut durum tonlarıyla (yeni renk yok). İkili ve 200 KB üstü
-// dosyada yalnız bir satır; kırpılmışsa not.
+// dosyada yalnız bir satır; kırpılmışsa not. memo: Canlı yoklaması (3 sn) sırasında
+// diff prop'u değişmedikçe satırlar yeniden uzlaştırılmıyor.
+import { memo } from "react";
 import { useT } from "../i18n";
 import type { DiffLine, FileDiff } from "../../app-electron/shared/changesTypes";
 
@@ -12,7 +14,7 @@ const ROW: Record<DiffLine["kind"], string> = {
 };
 const SIGN: Record<DiffLine["kind"], string> = { hunk: "", context: " ", add: "+", del: "-" };
 
-export default function DiffViewer({ diff }: { diff: FileDiff }) {
+function DiffViewer({ diff }: { diff: FileDiff }) {
   const t = useT();
   if (diff.kind === "binary") {
     return (
@@ -30,6 +32,12 @@ export default function DiffViewer({ diff }: { diff: FileDiff }) {
   }
   return (
     <div role="table" aria-label={t("changes.diffLabel")} className="min-w-max font-mono text-2xs leading-5">
+      <div role="row" className="sr-only">
+        <span role="columnheader">{t("changes.diffColOld")}</span>
+        <span role="columnheader">{t("changes.diffColNew")}</span>
+        <span role="columnheader">{t("changes.diffColSign")}</span>
+        <span role="columnheader">{t("changes.diffColText")}</span>
+      </div>
       {diff.lines.map((line, i) => (
         <div key={i} role="row" data-line-kind={line.kind} className={`flex ${ROW[line.kind]}`}>
           <span role="cell" className="w-12 shrink-0 select-none pr-2 text-right tabular-nums text-slate-500">
@@ -54,3 +62,5 @@ export default function DiffViewer({ diff }: { diff: FileDiff }) {
     </div>
   );
 }
+
+export default memo(DiffViewer);
