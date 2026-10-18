@@ -3,7 +3,7 @@
 // geçiş; ofiste bölmeler gizli ama takılı ve xterm odak almıyor; Kararlar
 // yerinde; boş ofisten "+ Ajan" penceresi; Pano görünümü değişmedi.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import TerminalMode from "../src/terminal/TerminalMode";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
@@ -117,7 +117,7 @@ describe("Bölmeler | Pano | Ofis", () => {
   it("geçiş üç seçenekli; Ofis seçimi alana kaydediliyor", () => {
     const { commands } = setup(workspace());
     const group = screen.getByRole("radiogroup", { name: "Görünüm" });
-    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Bölmeler", "Pano", "Ofis"]);
+    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Bölmeler", "Pano", "Ofis", "Değişiklikler"]);
     expect(within(group).getByRole("radio", { name: "Bölmeler" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(within(group).getByRole("radio", { name: "Ofis" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "office");
@@ -166,5 +166,28 @@ describe("Bölmeler | Pano | Ofis", () => {
     setup(workspace({ view: "office" }), { language: "en" });
     expect(screen.getByRole("radio", { name: "Office" }).getAttribute("aria-checked")).toBe("true");
     expect(screen.getByRole("region", { name: "Office view" })).toBeTruthy();
+  });
+
+  it("Değişiklikler: seçince bölmeler gizli ama takılı, xterm active değil, görünüm bölgesi var, Kararlar yerinde", async () => {
+    (window as unknown as { api: Record<string, unknown> }).api = {
+      ...(window as unknown as { api: Record<string, unknown> }).api,
+      changesState: vi.fn(async () => ({ workspaceId: "a", repo: "ok", checkpoints: [], expired: [] })),
+      onChangesChanged: vi.fn(() => () => {}),
+      changesLive: vi.fn(async () => ({ ok: true, files: [], truncated: false, toWorkingTree: true, noCheckpoint: true }))
+    };
+    const { commands } = setup(workspace());
+    fireEvent.click(screen.getByRole("radio", { name: "Değişiklikler" }));
+    expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "changes");
+    cleanup();
+    setup(workspace({ view: "changes" }));
+    expect(screen.getByRole("radio", { name: "Değişiklikler" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("region", { name: "Değişiklikler görünümü" })).toBeTruthy();
+    const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;
+    expect((cell.closest("[data-workspace]") as HTMLElement).className.split(" ")).toContain("hidden");
+    expect(xterm().getAttribute("data-active")).toBe("false");
+    expect(screen.getByRole("complementary", { name: "Kararlar" })).toBeTruthy();
+    await act(async () => {
+      await Promise.resolve();
+    });
   });
 });

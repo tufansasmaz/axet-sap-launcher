@@ -16,9 +16,10 @@ import type { TranslationKey } from "../i18n/tr";
 const VIEW_KEY: Record<WorkspaceView, TranslationKey> = {
   panes: "board.viewPanes",
   board: "board.viewBoard",
-  office: "office.view"
+  office: "office.view",
+  changes: "changes.view"
 };
-const VIEWS: readonly WorkspaceView[] = ["panes", "board", "office"];
+const VIEWS: readonly WorkspaceView[] = ["panes", "board", "office", "changes"];
 
 // Ekip şeridi (spec 2026-10-17 ajan-alani §4): seçili alandaki ajanlar yan
 // yana. Kart: renk şeridi, ad, rol, motor, durum noktası + metni; tahmini
@@ -45,7 +46,7 @@ export default function TeamStrip({
   const agents = agentPanes(workspace);
   return (
     <div className="flex min-h-16 shrink-0 items-center gap-2 border-b border-line px-3">
-      {/* Bölmeler | Pano | Ofis (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2); seçim lime, alan başına hatırlanıyor. */}
+      {/* Bölmeler | Pano | Ofis | Değişiklikler (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5); seçim lime, alan başına hatırlanıyor. */}
       <div role="radiogroup" aria-label={t("board.viewLabel")} className="flex shrink-0 gap-0.5 rounded-md bg-control p-0.5">
         {VIEWS.map((v) => (
           <button

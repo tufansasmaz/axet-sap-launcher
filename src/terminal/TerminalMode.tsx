@@ -1,4 +1,4 @@
-// Ajanlar ekranının sağ tarafı (spec 2026-10-17 ajan-alani §4): üstte ekip şeridi, ortada bölmeler, Pano ya da Ofis (spec 2026-10-18). Bütün alanlar HEP takılı: seçili olmayanlar ve Pano/Ofis'teyken bölmeler hidden.
+// Ajanlar ekranının sağ tarafı (spec 2026-10-17 ajan-alani §4): üstte ekip şeridi, ortada bölmeler, Pano, Ofis ya da Değişiklikler (spec 2026-10-18). Bütün alanlar HEP takılı: seçili olmayanlar ve öbür görünümlerdeyken bölmeler hidden.
 import { useRef, useState, type CSSProperties } from "react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
@@ -22,6 +22,8 @@ import AddAgentDialog from "../agents/AddAgentDialog";
 import DecisionsPanel from "../agents/DecisionsPanel";
 import BoardView from "../board/BoardView";
 import OfficeView from "../office/OfficeView";
+import ChangesView from "../changes/ChangesView";
+import { ChangesFocusProvider } from "../changes/changesFocus";
 import type { WorkspaceView } from "../../app-electron/shared/types";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
@@ -52,7 +54,8 @@ export default function TerminalMode() {
   const view: WorkspaceView = active?.view ?? "panes";
 
   return (
-    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+    <ChangesFocusProvider>
+      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
       {state.phase === "restorePrompt" && (
         <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-2 text-sm text-slate-300">
           <span className="min-w-0 flex-1 truncate">
@@ -122,6 +125,11 @@ export default function TerminalMode() {
               <OfficeView workspace={active} onAddAgent={() => setAgentDialog({})} />
             </div>
           )}
+          {state.phase === "ready" && active && view === "changes" && (
+            <div className="absolute inset-0">
+              <ChangesView workspace={active} />
+            </div>
+          )}
         </div>
         {state.phase === "ready" && <DecisionsPanel />}
       </div>
@@ -151,6 +159,7 @@ export default function TerminalMode() {
         onCancel={() => setAgentDialog(null)}
       />
     </div>
+    </ChangesFocusProvider>
   );
 }
 

@@ -340,8 +340,8 @@ export interface SavedWorkspaceSap {
   label: string;
 }
 
-/** Ajanlar ekranının görünümü (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2). "panes" varsayılan; kayda yazılmaz. */
-export type WorkspaceView = "panes" | "board" | "office";
+/** Ajanlar ekranının görünümü (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5). "panes" varsayılan; kayda yazılmaz. */
+export type WorkspaceView = "panes" | "board" | "office" | "changes";
 
 export interface SavedTerminalWorkspace {
   id: string;
