@@ -1,50 +1,14 @@
 // Piksel ofisin zamanlaması (spec 2026-10-18 ajanlar-yeniden §2b, §3). SAF:
-// poz -> çizilecek kare, ~4 fps yazma, pano dağıtımında liderden ajana ışın.
-// Hareket yalnız kesin "çalışıyor"da ve hareketi azalt kapalıyken.
+// ~4 fps kare saati, pano dağıtımında liderden ajana ışın, liderin kısa
+// "konuşma" balonu, panonun lideri ofiste mi.
+import type { Board } from "../../app-electron/shared/boardTypes";
 import type { TerminalPane } from "../stores/terminalTypes";
-import type { OfficePose } from "./officeLayout";
-import type { CharacterFrame } from "./officeSprites";
 
 export const FRAME_MS = 250;
 export const BEAM_MS = 800;
+export const TALK_MS = 1500;
 /** Işının ucu sürenin bu kesrinde hedefe varıyor, kalanında sönüyor. */
 const BEAM_TRAVEL = 0.5;
-
-export interface SeatFrame {
-  /** null: motor yok, masa boş. */
-  body: CharacterFrame | null;
-  monitor: "on" | "off" | "error" | "none";
-  mark: "question" | "error" | null;
-  dim: boolean;
-  animated: boolean;
-}
-
-export function seatFrame(pose: OfficePose, motion: boolean, reduced: boolean, now: number): SeatFrame {
-  const still = { mark: null, dim: false, animated: false };
-  switch (pose) {
-    case "typing": {
-      const animated = motion && !reduced;
-      const odd = animated && Math.floor(now / FRAME_MS) % 2 === 1;
-      return { ...still, body: odd ? "typeB" : "typeA", monitor: "on", animated };
-    }
-    case "asking":
-      return { ...still, body: "typeA", monitor: "on", mark: "question" };
-    case "error":
-      return { ...still, body: "sit", monitor: "error", mark: "error" };
-    case "resting":
-      return { ...still, body: "rest", monitor: "off" };
-    case "absent":
-      return { ...still, body: null, monitor: "none" };
-    default:
-      return { ...still, body: "sit", monitor: "off", dim: true };
-  }
-}
-
-/** Çizim döngüsü gerekiyor mu: görünür, hareketi azalt kapalı ve (yazan ya da ışın) var. */
-export function needsAnimation(frames: readonly SeatFrame[], beams: number, visible: boolean, reduced: boolean): boolean {
-  if (!visible || reduced) return false;
-  return beams > 0 || frames.some((f) => f.animated);
-}
 
 /**
  * Pano olayı: bir bölmenin aktif alt görevi değişti ve yeni değer boş değil.
@@ -63,11 +27,21 @@ export function beamShape(start: number, now: number): { head: number; alpha: nu
   return { head: 1, alpha: 1 - (t - BEAM_TRAVEL) / (1 - BEAM_TRAVEL) };
 }
 
+/** Lider iş dağıtırken konuşuyor: son ışından sonra TALK_MS boyunca. */
+export function talking(beamStarts: readonly number[], now: number): boolean {
+  return beamStarts.some((s) => now >= s && now - s < TALK_MS);
+}
+
 const LEADER = /(^|[^\p{L}])(lider|lideri|leader|lead)([^\p{L}]|$)/iu;
 
-/** Rolü lider olan ilk ajan; yoksa null (ışın kapıdan çıkar). */
+/** Rolü lider olan ilk ajan; yoksa null. */
 export function leaderPane(panes: readonly TerminalPane[]): string | null {
   return panes.find((p) => LEADER.test(p.agent?.role ?? ""))?.id ?? null;
+}
+
+/** Panonun lideri iş başında mı: planlıyor, onay bekliyor ya da görev yürüyor. */
+export function boardLeadActive(board: Board | undefined): boolean {
+  return !!board?.tasks.some((t) => t.planning || t.state === "running" || t.state === "awaitingApproval");
 }
 
 /** Bresenham: uçlar dahil, aralıksız piksel dizisi. */

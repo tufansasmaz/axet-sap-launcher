@@ -1,100 +1,123 @@
-// Piksel ofisin kat planı (spec 2026-10-18 ajanlar-yeniden §3): ajan sayısı +
-// alan boyutu -> karo haritası, masa konumları, tam sayı ölçek. Saf; canvas yok.
+// Piksel ofisin kat planı (spec 2026-10-18 ajanlar-yeniden §3 + kalite turu):
+// odalar (açık çalışma, lider odası cam bölmeli, toplantı, mutfak, sunucu/
+// arşiv), kalın duvar, kapı aralıkları, zemin türleri; her oda bir kapıdan
+// erişilebilir (BFS); çalışma alanı ajan sayısıyla büyür, öteki odalar sabit.
 import { describe, expect, it } from "vitest";
-import {
-  CELL_H,
-  CELL_W,
-  MAX_DESKS,
-  ROOM_CAP,
-  TILE,
-  fitScale,
-  officePlan,
-  type OfficePlan
-} from "../src/office/officeFloor";
+import { CELL_H, CELL_W, MAX_DESKS, ROOM_CAP, TILE, fitScale, officePlan, type OfficePlan, type RoomId } from "../src/office/officeFloor";
+import { reachable } from "../src/office/officePath";
 
-const WIDE = { w: 1600, h: 420 };
-const TALL = { w: 520, h: 1200 };
+const WIDE = { w: 1800, h: 900 };
+const TALL = { w: 700, h: 1600 };
+const key = (x: number, y: number) => `${x},${y}`;
 
-function tileAt(plan: OfficePlan, x: number, y: number) {
-  return plan.tiles[y]?.[x];
+function roomTiles(plan: OfficePlan, room: RoomId): Array<[number, number]> {
+  const out: Array<[number, number]> = [];
+  plan.rooms.forEach((row, y) => row.forEach((r, x) => r === room && out.push([x, y])));
+  return out;
 }
 
-function checkShape(plan: OfficePlan) {
-  expect(plan.tiles).toHaveLength(plan.rows);
-  for (const row of plan.tiles) expect(row).toHaveLength(plan.cols);
-  // Masa hücreleri sınır içinde, üst üste binmiyor, zeminde (duvar/kapı/halı değil).
-  const seen = new Set<string>();
-  for (const d of plan.desks) {
-    expect(d.x).toBeGreaterThanOrEqual(0);
-    expect(d.y).toBeGreaterThanOrEqual(0);
-    expect(d.x + CELL_W).toBeLessThanOrEqual(plan.cols);
-    expect(d.y + CELL_H).toBeLessThanOrEqual(plan.rows);
-    for (let y = d.y; y < d.y + CELL_H; y++)
-      for (let x = d.x; x < d.x + CELL_W; x++) {
-        const key = `${x},${y}`;
-        expect(seen.has(key), key).toBe(false);
-        seen.add(key);
-        expect(tileAt(plan, x, y), key).toBe("floor");
+function spots(plan: OfficePlan) {
+  return [...plan.seats, plan.lead.seat, plan.lounge.coffee, ...plan.lounge.sofa, ...plan.lounge.stand];
+}
+
+describe("officePlan — odalar", () => {
+  it("beş oda var; zemin türleri: çalışma ahşap, mutfak karo, toplantı halı, sunucu beton", () => {
+    const plan = officePlan(5, WIDE.w, WIDE.h);
+    for (const room of ["work", "leader", "meeting", "kitchen", "server"] as const) expect(roomTiles(plan, room).length, room).toBeGreaterThan(0);
+    const floorOf = (room: RoomId) => new Set(roomTiles(plan, room).map(([x, y]) => plan.tiles[y][x]));
+    expect(floorOf("work")).toEqual(new Set(["wood"]));
+    expect(floorOf("kitchen")).toEqual(new Set(["tile"]));
+    expect(floorOf("meeting")).toEqual(new Set(["carpet"]));
+    expect(floorOf("server")).toEqual(new Set(["concrete"]));
+    expect(floorOf("leader")).toEqual(new Set(["wood"]));
+    expect(plan.tiles.flat()).toContain("glass");
+  });
+
+  it("dış kabuk duvar; üst duvar iki karo kalın (tepe + ön yüz)", () => {
+    const plan = officePlan(3, WIDE.w, WIDE.h);
+    expect(plan.tiles[0].every((t) => t === "wall")).toBe(true);
+    expect(plan.tiles[1].every((t) => t === "wall")).toBe(true);
+    expect(plan.tiles[plan.rows - 1].every((t) => t === "wall")).toBe(true);
+    for (const row of plan.tiles) {
+      expect(row[0]).toBe("wall");
+      expect(row[plan.cols - 1]).toBe("wall");
+    }
+  });
+
+  it("BFS: her oda kapıdan erişilebilir, bütün oturma/durma noktaları yürünebilir ve ulaşılabilir", () => {
+    for (const n of [1, 3, 7, 9, 14, 24]) {
+      const plan = officePlan(n, WIDE.w, WIDE.h);
+      const start = plan.seats[0] ?? plan.lead.seat;
+      const seen = reachable(plan.blocked, start);
+      for (const room of ["work", "leader", "meeting", "kitchen", "server"] as const) {
+        expect(roomTiles(plan, room).some(([x, y]) => seen.has(key(x, y))), `${n} ${room}`).toBe(true);
       }
-  }
-}
+      for (const s of spots(plan)) {
+        expect(plan.blocked[s.y][s.x], `${n} ${key(s.x, s.y)}`).toBe(false);
+        expect(seen.has(key(s.x, s.y)), `${n} ${key(s.x, s.y)}`).toBe(true);
+      }
+      // Kapılar duvar sırasında, yürünebilir.
+      const doors = plan.tiles.flatMap((row, y) => row.map((t, x) => (t === "door" ? [x, y] : null)).filter(Boolean)) as Array<[number, number]>;
+      expect(doors.length).toBeGreaterThanOrEqual(4);
+      for (const [x, y] of doors) expect(seen.has(key(x, y))).toBe(true);
+    }
+  });
 
-describe("officePlan", () => {
-  it("satır başına 4-6 masa; 1-4 ajan tek sıra, masa sayısı ajan sayısı", () => {
-    for (let n = 1; n <= 4; n++) {
+  it("noktalar benzersiz; masa koltukları yukarı (monitöre), lider aşağı bakıyor", () => {
+    const plan = officePlan(9, WIDE.w, WIDE.h);
+    const all = spots(plan).map((s) => key(s.x, s.y));
+    expect(new Set(all).size).toBe(all.length);
+    expect(plan.seats.every((s) => s.face === "up")).toBe(true);
+    expect(plan.lead.seat.face).toBe("down");
+    expect(plan.lounge.sofa.length).toBeGreaterThanOrEqual(3);
+    expect(plan.lounge.stand.length).toBeGreaterThanOrEqual(3);
+  });
+});
+
+describe("officePlan — masalar ve büyüme", () => {
+  it("masa sayısı ajan sayısı; masa karoları dolu, koltuk boş; hücreler çalışma alanında, çakışmıyor", () => {
+    for (const n of [1, 4, 6, 9]) {
       const plan = officePlan(n, WIDE.w, WIDE.h);
       expect(plan.desks).toHaveLength(n);
-      expect(plan.perRow).toBe(4);
-      expect(new Set(plan.desks.map((d) => d.y)).size).toBe(1);
-      checkShape(plan);
+      expect(plan.seats).toHaveLength(n);
+      const cells = new Set<string>();
+      plan.desks.forEach((d, i) => {
+        for (let x = d.x; x < d.x + 3; x++) expect(plan.blocked[d.y + 1][x]).toBe(true);
+        expect(plan.seats[i]).toEqual({ x: d.x + 1, y: d.y + 2, face: "up" });
+        for (let y = d.y; y < d.y + CELL_H; y++)
+          for (let x = d.x; x < d.x + CELL_W; x++) {
+            expect(cells.has(key(x, y))).toBe(false);
+            cells.add(key(x, y));
+            expect(plan.rooms[y][x] === "work" || plan.rooms[y][x] === "workB", key(x, y)).toBe(true);
+          }
+      });
     }
   });
 
-  it("geniş alanda sıra uzar, dar ve uzun alanda sıra 4'te kalır", () => {
-    const wide = officePlan(9, WIDE.w, WIDE.h);
-    const tall = officePlan(9, TALL.w, TALL.h);
+  it("satır başına 4-6 masa; geniş alanda sıra uzar, dar alanda 4", () => {
+    expect(officePlan(3, WIDE.w, WIDE.h).perRow).toBe(4);
+    const wide = officePlan(9, 2400, 700);
     expect(wide.perRow).toBeGreaterThanOrEqual(5);
-    expect(wide.perRow).toBeLessThanOrEqual(6);
-    expect(tall.perRow).toBe(4);
-    expect(new Set(tall.desks.map((d) => d.y)).size).toBe(3);
-    checkShape(wide);
-    checkShape(tall);
+    expect(officePlan(9, TALL.w, TALL.h).perRow).toBe(4);
   });
 
-  it("masalar sıra sırası: soldan sağa, sonra aşağı (Tab sırası bununla aynı)", () => {
-    const plan = officePlan(6, TALL.w, TALL.h);
-    const order = plan.desks.map((d) => [d.y, d.x]);
-    const sorted = [...order].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-    expect(order).toEqual(sorted);
+  it("çalışma alanı büyür; lider odası, mutfak ve sunucu odası sabit", () => {
+    const a = officePlan(2, TALL.w, TALL.h);
+    const b = officePlan(14, TALL.w, TALL.h);
+    expect(b.rows).toBeGreaterThan(a.rows);
+    expect(roomTiles(b, "work").length + roomTiles(b, "workB").length).toBeGreaterThan(roomTiles(a, "work").length);
+    for (const room of ["leader", "kitchen", "server"] as const) expect(roomTiles(b, room).length, room).toBe(roomTiles(a, room).length);
   });
 
-  it("üst duvar, pencere/pano/saat, kapı, halı, bitki ve kahve köşesi var", () => {
-    const plan = officePlan(3, WIDE.w, WIDE.h);
-    expect(plan.tiles[0].every((t) => t === "wall" || t === "door")).toBe(true);
-    expect(plan.tiles.flat()).toContain("rug");
-    expect(tileAt(plan, plan.door.x, plan.door.y)).toBe("door");
-    const kinds = plan.props.map((p) => p.kind);
-    for (const k of ["window", "board", "clock", "plant", "meeting", "coffee"] as const) expect(kinds, k).toContain(k);
-    for (const p of plan.props) {
-      expect(p.x + p.w).toBeLessThanOrEqual(plan.cols);
-      expect(p.y + p.h).toBeLessThanOrEqual(plan.rows);
-    }
-  });
-
-  it("12'yi aşınca altta ikinci oda: ilk oda 12 masa, araya kapılı duvar", () => {
+  it("12'yi aşınca ikinci bölüm: kapılı ara duvar, ilkinde 12 masa", () => {
     expect(ROOM_CAP).toBe(12);
-    const plan = officePlan(15, WIDE.w, WIDE.h);
-    checkShape(plan);
-    expect(plan.desks.filter((d) => d.room === 0)).toHaveLength(12);
-    expect(plan.desks.filter((d) => d.room === 1)).toHaveLength(3);
-    const firstBottom = Math.max(...plan.desks.filter((d) => d.room === 0).map((d) => d.y + CELL_H));
-    const secondTop = Math.min(...plan.desks.filter((d) => d.room === 1).map((d) => d.y));
-    const band = plan.tiles.slice(firstBottom, secondTop).filter((row) => row.some((t) => t === "wall"));
-    expect(band.length).toBeGreaterThan(0);
-    expect(band.some((row) => row.includes("door"))).toBe(true);
+    const plan = officePlan(14, WIDE.w, WIDE.h);
+    expect(plan.desks.filter((d) => d.room === "work")).toHaveLength(12);
+    expect(plan.desks.filter((d) => d.room === "workB")).toHaveLength(2);
+    expect(roomTiles(plan, "workB").length).toBeGreaterThan(0);
   });
 
-  it("sınır: negatif/NaN 0 masa, kesir aşağı, üst sınır MAX_DESKS", () => {
+  it("sınır: negatif/NaN 0, kesir aşağı, üst sınır MAX_DESKS", () => {
     expect(officePlan(-2, 800, 600).desks).toHaveLength(0);
     expect(officePlan(Number.NaN, 800, 600).desks).toHaveLength(0);
     expect(officePlan(2.9, 800, 600).desks).toHaveLength(2);
@@ -112,10 +135,5 @@ describe("fitScale", () => {
     expect(fitScale(w, h, 100, 100)).toBe(2);
     expect(fitScale(w, h, 0, 0)).toBe(2);
     expect(fitScale(w, h, w * 20, h * 20)).toBe(4);
-  });
-
-  it("plan ölçeği alanla birlikte büyüyor", () => {
-    expect(officePlan(3, 600, 300).scale).toBe(2);
-    expect(officePlan(3, 4000, 4000).scale).toBe(4);
   });
 });

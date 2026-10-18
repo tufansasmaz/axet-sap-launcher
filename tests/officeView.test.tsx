@@ -173,6 +173,13 @@ describe("OfficeView — kat planı ve HTML katmanı", () => {
     expect(canvas.style.imageRendering).toBe("pixelated");
   });
 
+  it("lider rolündeki ajan lider odasında: masası çalışma alanının üstünde, ötekiler çalışma masalarında", () => {
+    setup(workspace([agentPane("p1"), agentPane("lead", { agent: { engine: "axet-code", role: "Takım lideri", roleKind: "custom" } }), agentPane("p2")]));
+    const top = (id: string) => parseFloat((seat(id).closest("li") as HTMLElement).style.top);
+    expect(top("lead")).toBeLessThan(top("p1"));
+    expect(top("p1")).toBe(top("p2"));
+  });
+
   it("canvas yoksa (getContext null) sessizce yalnız HTML katmanı", () => {
     setup(workspace([agentPane("p1")]), { statuses: { p1: st("running") } });
     expect(getContext).toHaveBeenCalled();
