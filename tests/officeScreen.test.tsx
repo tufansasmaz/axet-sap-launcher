@@ -138,9 +138,10 @@ describe("Bölmeler | Pano | Ofis", () => {
 
   it("karaktere tıklama Bölmeler'e döndürüp bölmeyi öne getiriyor; Bölmeler'e dönünce odaktaki bölme active", () => {
     const { commands, rerender } = setup(workspace({ view: "office" }));
+    // revealPane zaten setWorkspaceView'u cagiriyor (terminalStore:441); gorev-5.
     fireEvent.click(document.querySelector('[data-office-seat="p1"]') as HTMLElement);
-    expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "panes");
     expect(commands.revealPane).toHaveBeenCalledWith("p1");
+    expect(commands.setWorkspaceView).not.toHaveBeenCalled();
     rerender(workspace());
     expect(office()).toBeNull();
     expect(xterm().getAttribute("data-active")).toBe("true");

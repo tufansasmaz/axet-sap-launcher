@@ -155,15 +155,15 @@ describe("OfficeView — yerleşim", () => {
 });
 
 describe("OfficeView — etkileşim", () => {
-  it("tıklama: önce görünüm Bölmeler, sonra revealPane; balona tıklamak aynı", () => {
+  it("tiklama: revealPane cagriliyor; setWorkspaceView revealPane icerisinde (gerekceli guncelleme)", () => {
+    // revealPane zaten setWorkspaceView'u cagiriyor (terminalStore:441);
+    // OfficeView'daki fazladan cagri kaldirildi (gorev-5).
     const { commands } = setup(workspace([agentPane("p1"), agentPane("p2")]), { statuses: { p2: st("asking", "exact", { question: q("Devam edilsin mi?") }) } });
     fireEvent.click(seat("p1"));
-    expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "panes");
     expect(commands.revealPane).toHaveBeenCalledWith("p1");
-    expect(vi.mocked(commands.setWorkspaceView).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(commands.revealPane).mock.invocationCallOrder[0]);
+    expect(commands.setWorkspaceView).not.toHaveBeenCalled();
     fireEvent.click(seat("p2").querySelector("[data-balloon]") as HTMLElement);
     expect(commands.revealPane).toHaveBeenLastCalledWith("p2");
-    expect(commands.setWorkspaceView).toHaveBeenCalledTimes(2);
   });
 
   it("klavye: koltuklar ızgara sırasıyla doğal düğme (tab sırası); aria-label ad, rol, durum (tahmini)", () => {

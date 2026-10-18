@@ -212,9 +212,11 @@ describe("onaylı görev", () => {
     const row = rowOf("s1");
     expect(row.textContent).toContain("Ajan: Ayşe");
     expect(row.textContent).toContain("Deneme: 1");
+    // revealPane zaten setWorkspaceView'u cagiriyor (terminalStore:441);
+    // BoardDetailPanel'daki fazladan cagri kaldirildi (gorev-5).
     fireEvent.click(within(row).getByRole("button", { name: "Terminale git" }));
-    expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "panes");
     expect(commands.revealPane).toHaveBeenCalledWith("p1");
+    expect(commands.setWorkspaceView).not.toHaveBeenCalled();
     fireEvent.click(within(row).getByRole("button", { name: "Doğrula" }));
     await flush();
     expect(command).toHaveBeenCalledWith("a", { type: "verify", taskId: "t1", subtaskId: "s1" });

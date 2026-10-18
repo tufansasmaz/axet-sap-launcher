@@ -37,8 +37,7 @@ export default function OfficeView({ workspace, onAddAgent }: { workspace: Termi
   // Hücreler bütün satırlarda eşit: eksik son satır ortalanıyor, büyümüyor.
   const cellWidth = `calc((100% - ${(grid.cols - 1) * GAP_REM}rem) / ${Math.max(1, grid.cols)})`;
   const open = (paneId: string) => {
-    // Önce görünüm: bölmeler görünür olunca odak xterm'e geçebiliyor.
-    commands.setWorkspaceView(workspace.id, "panes");
+    // revealPane Pano/Ofis'teyken zaten setWorkspaceView("panes") cagiriyor (terminalStore:441).
     commands.revealPane(paneId);
   };
   return (

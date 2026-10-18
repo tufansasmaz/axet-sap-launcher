@@ -112,7 +112,7 @@ export default function BoardDetailPanel({
   const ids = { taskId: task.id };
   const saveCommand = (drafts: SubtaskDraft[]): BoardCommand => ({ type: "saveDraft", taskId: task.id, title: task.title, goal: task.goal, subtasks: drafts });
   const goToTerminal = (paneId: string) => {
-    commands.setWorkspaceView(workspace.id, "panes");
+    // revealPane Pano/Ofis'teyken zaten setWorkspaceView("panes") cagiriyor (terminalStore:441).
     commands.revealPane(paneId);
   };
   const paneName = (paneId: string | null) => {
