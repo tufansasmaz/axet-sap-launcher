@@ -558,8 +558,9 @@ kendisi depoya çevirmez.
   yapılan bütün değişiklikler geri alınır — hangi ajan yaptıysa; satırdaki
   ajan adı yalnız noktayı tetikleyeni gösterir.
 - Geri alınacak bir dosyanın yerinde artık başka bir şey varsa (klasör,
-  kısayol/bağ ya da sonradan konmuş bir dosya) geri alma onun üstüne yazmaz;
-  durur ve o ana kadar ne yaptığını söyler.
+  kısayol/bağ ya da sonradan konmuş bir dosya) geri alma onun üstüne yazmaz:
+  bunu başlamadan görürse hiçbir dosyaya dokunmadan durur; ancak geri alma
+  sürerken ortaya çıkarsa durur ve o ana kadar ne yaptığını söyler.
 - Senin Git durumuna dokunulmaz: dalın, son commit'in, `git add` ile
   hazırladıkların ve stash'lerin aynen kalır. `.gitignore`'daki dosyalar
   izlenmez. Git eski nesneleri temizlediyse (yaklaşık iki hafta sonra) nokta

@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createGitPort, createGitRunner, GIT_BASE_ARGS, gitEnv, type ExecFileLike, type GitResult, type GitRun } from "../app-electron/main/changesGit";
-import { insideRootReal, isWithin, pathKind, removeEmptyDir } from "../app-electron/main/changesFs";
+import { dirIsEmpty, insideRootReal, isWithin, pathKind, removeEmptyDir } from "../app-electron/main/changesFs";
 import { LARGE_FILE_BYTES, LOCK_RETRIES, type FileChange } from "../app-electron/shared/changesTypes";
 
 function gitAvailable(): boolean {
@@ -645,5 +645,22 @@ describe("pathKind ve removeEmptyDir (gerçek geçici klasör)", () => {
     expect(removeEmptyDir(root, "kopru")).toBe(false);
     expect(pathKind(root, "kopru")).toBe("link");
     expect(existsSync(outside)).toBe(true);
+  });
+
+  it("dirIsEmpty: salt okur; boş klasör true ve yerinde kalıyor; dolu/dosya/yok/junction false", () => {
+    const root = path.join(base, "kok");
+    const outside = path.join(base, "disari");
+    mkdirSync(path.join(root, "bos"), { recursive: true });
+    mkdirSync(path.join(root, "dolu"), { recursive: true });
+    writeFileSync(path.join(root, "dolu", "x.txt"), "x");
+    writeFileSync(path.join(root, "a.txt"), "x");
+    mkdirSync(outside);
+    symlinkSync(outside, path.join(root, "kopru"), "junction");
+    expect(dirIsEmpty(root, "bos")).toBe(true);
+    expect(existsSync(path.join(root, "bos"))).toBe(true);
+    expect(dirIsEmpty(root, "dolu")).toBe(false);
+    expect(dirIsEmpty(root, "a.txt")).toBe(false);
+    expect(dirIsEmpty(root, "yok")).toBe(false);
+    expect(dirIsEmpty(root, "kopru")).toBe(false);
   });
 });

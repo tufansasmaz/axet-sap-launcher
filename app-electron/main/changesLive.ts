@@ -5,7 +5,7 @@
 import { app, shell } from "electron";
 import { lstatSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { insideRootReal, pathKind, removeEmptyDir } from "./changesFs";
+import { dirIsEmpty, insideRootReal, pathKind, removeEmptyDir } from "./changesFs";
 import { createGitPort } from "./changesGit";
 import type { ChangesManagerDeps } from "./changesManager";
 
@@ -26,7 +26,7 @@ export function checkpointsDir(): string {
 
 const absolute = (root: string, rel: string) => path.join(root, ...rel.split("/"));
 
-export function liveChangesPorts(): Pick<ChangesManagerDeps, "git" | "dirExists" | "insideRoot" | "pathExists" | "pathKind" | "removeEmptyDir" | "trash"> {
+export function liveChangesPorts(): Pick<ChangesManagerDeps, "git" | "dirExists" | "insideRoot" | "pathExists" | "pathKind" | "removeEmptyDir" | "dirIsEmpty" | "trash"> {
   return {
     git: createGitPort({ indexDir: checkpointsDir() }),
     dirExists: (dir) => {
@@ -47,6 +47,7 @@ export function liveChangesPorts(): Pick<ChangesManagerDeps, "git" | "dirExists"
     },
     pathKind,
     removeEmptyDir,
+    dirIsEmpty,
     // Kalıcı silme yok: işletim sisteminin çöp kutusu (spec §6.3).
     trash: (root, rel) => shell.trashItem(absolute(root, rel))
   };

@@ -154,6 +154,7 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
       order.push(`rmdir:${rel}`);
       return true;
     },
+    dirIsEmpty: (_root, rel) => state.emptyDirs.has(rel),
     pathKind: (_root, rel) => {
       if (state.kindThrows) throw new Error("lstat patladı");
       return state.kinds.get(rel) ?? "none";
@@ -163,9 +164,9 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
       if (state.trashFail.has(rel)) throw new Error("çöp kutusu yok");
       events.push(`trash:${rel}`);
       order.push(`trash:${rel}`);
-      // Sahte disk: taşınan yol artık yok.
+      // Sahte disk: taşınan yol artık yok (Windows gibi büyük/küçük harf eşi de).
       state.exists.delete(rel);
-      state.kinds.delete(rel);
+      for (const key of [...state.kinds.keys()]) if (key.toLowerCase() === rel.toLowerCase()) state.kinds.delete(key);
     },
     agents: () => {
       if (state.agentsThrow) throw new Error("izleyici patladı");
@@ -439,8 +440,10 @@ describe("Kabul et ve Geri al (spec §5, §6)", () => {
   it("Geri al: onaylanan listede olup artık aralıkta olmayan atlanıyor; aralıkta olup listede olmayana dokunulmuyor; kök dışına çıkan yol reddediliyor", async () => {
     const h = harness();
     await twoCheckpoints(h, []);
-    // c2 en sonuncusu: aralığı çalışma ağacına kadar; beforeRestore (T3) sonrası T2>T3.
+    // c2 en sonuncusu: aralığı çalışma ağacına kadar; ön tarama taze ağaçla (T3),
+    // beforeRestore (T4) sonrası T2>T4.
     h.git.diffs.set(`${T(2)}>${T(3)}`, [change("b.ts"), change("c.ts")]);
+    h.git.diffs.set(`${T(2)}>${T(4)}`, [change("b.ts"), change("c.ts")]);
     const result = await h.manager.revert("w1", "c2", ["a.ts", "b.ts"]);
     expect(result).toMatchObject({ ok: true, restored: ["b.ts"], skipped: ["a.ts"], trashed: [] });
     expect(h.events).not.toContain("restore:c.ts");
@@ -787,7 +790,7 @@ describe("Boş klasör (kontrolcü eki)", () => {
     await twoCheckpoints(h, [change("a", "deleted"), change("b.ts")]);
     h.state.kinds.set("a", "dir");
     const result = await h.manager.revert("w1", "c1", ["a", "b.ts"]);
-    expect(result).toEqual({ ok: false, reason: "pathConflict", restored: [], trashed: [], skipped: [], failedPath: "a", beforeRestoreId: "c3" });
+    expect(result).toEqual({ ok: false, reason: "pathConflict", restored: [], trashed: [], skipped: [], failedPath: "a" });
     expect(h.state.removedDirs).toEqual([]);
     expect(h.events.filter((e) => e.startsWith("restore") || e.startsWith("trash"))).toEqual([]);
   });
@@ -819,7 +822,7 @@ describe("Düzeltme turu 2 (yeniden inceleme)", () => {
     h.state.kinds.set("a", "link");
     h.state.emptyDirs.add("a");
     const result = await h.manager.revert("w1", "c1", ["a", "b.ts"]);
-    expect(result).toEqual({ ok: false, reason: "pathConflict", restored: [], trashed: [], skipped: [], failedPath: "a", beforeRestoreId: "c3" });
+    expect(result).toEqual({ ok: false, reason: "pathConflict", restored: [], trashed: [], skipped: [], failedPath: "a" });
     expect(h.state.removedDirs).toEqual([]);
     expect(h.events.filter((e) => e.startsWith("restore") || e.startsWith("trash"))).toEqual([]);
   });
@@ -845,8 +848,7 @@ describe("Düzeltme turu 2 (yeniden inceleme)", () => {
       restored: [],
       trashed: [],
       skipped: [],
-      failedPath: "bag/yeni.txt",
-      beforeRestoreId: "c3"
+      failedPath: "bag/yeni.txt"
     });
     expect(h.events.filter((e) => e.startsWith("trash") || e.startsWith("restore"))).toEqual([]);
   });
@@ -871,8 +873,7 @@ describe("Düzeltme turu 2 (yeniden inceleme)", () => {
       restored: [],
       trashed: [],
       skipped: [],
-      failedPath: "Readme.md",
-      beforeRestoreId: "c3"
+      failedPath: "Readme.md"
     });
     expect(h.order).toEqual([]);
     // İkisi birlikte seçilince işleniyor (önce çöp, sonra geri yükleme).
@@ -963,8 +964,7 @@ describe("Silinmiş yolda yeni dosya (Görev 4 incelemesinden)", () => {
       restored: [],
       trashed: [],
       skipped: [],
-      failedPath: "sil.md",
-      beforeRestoreId: "c3"
+      failedPath: "sil.md"
     });
     expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
     // Değişmiş (modified) dosyanın diskte olması beklenen: geri yükleniyor.
@@ -972,5 +972,57 @@ describe("Silinmiş yolda yeni dosya (Görev 4 incelemesinden)", () => {
     await twoCheckpoints(h2, [change("b.ts")]);
     h2.state.kinds.set("b.ts", "file");
     expect(await h2.manager.revert("w1", "c1", ["b.ts"])).toMatchObject({ ok: true, restored: ["b.ts"] });
+  });
+});
+
+describe("Ön tarama (son inceleme, Important 2)", () => {
+  it("R1'de silinen dosya sonradan yeniden yaratılmış: hiçbir dosya çöpe taşınmadan/yazılmadan pathConflict; çöp ve git sahteleri çağrılmıyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("yeni.txt", "added"), change("sil.md", "deleted", 0, 3), change("a.ts")]);
+    h.state.exists.add("yeni.txt");
+    h.state.kinds.set("yeni.txt", "file");
+    h.state.kinds.set("sil.md", "file");
+    const writes = h.written.length;
+    const eventsBefore = h.events.length;
+    expect(await h.manager.revert("w1", "c1", ["yeni.txt", "sil.md", "a.ts"])).toEqual({
+      ok: false,
+      reason: "pathConflict",
+      restored: [],
+      trashed: [],
+      skipped: [],
+      failedPath: "sil.md"
+    });
+    // beforeRestore görüntüsü yok, özel index'e yükleme yok, çöp yok, geri yükleme yok.
+    expect(h.events.slice(eventsBefore)).toEqual([]);
+    expect(h.order).toEqual([]);
+    expect(h.written.length).toBe(writes);
+    expect(h.last().checkpoints.map((c) => c.id)).toEqual(["c1", "c2"]);
+    expect(h.logs).toContainEqual(["degisiklik.geriAl", { dosya: 0, sonuc: "pathConflict" }]);
+  });
+
+  it("ön tarama dolu klasörü (eklenmiş dosyası yok) ve hedefteki bağı yazmadan buluyor; çöpe giden eklenmiş eş çakışma sayılmıyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("yeni.txt", "added"), change("a", "deleted")]);
+    h.state.exists.add("yeni.txt");
+    h.state.kinds.set("a", "dir");
+    expect(await h.manager.revert("w1", "c1", ["yeni.txt", "a"])).toMatchObject({ ok: false, reason: "pathConflict", failedPath: "a", trashed: [] });
+    expect(h.events.filter((e) => e.startsWith("trash") || e.startsWith("snapshot:" + T(3)))).toEqual([]);
+
+    const h2 = harness();
+    await twoCheckpoints(h2, [change("yeni.txt", "added"), change("b.ts")]);
+    h2.state.exists.add("yeni.txt");
+    h2.state.kinds.set("b.ts", "link");
+    expect(await h2.manager.revert("w1", "c1", ["yeni.txt", "b.ts"])).toMatchObject({ ok: false, reason: "pathConflict", failedPath: "b.ts", trashed: [] });
+    expect(h2.order).toEqual([]);
+
+    // Windows'ta lstat büyük/küçük harfe duyarsız: silinmiş Readme.md yolunda eklenmiş README.md
+    // "file" görünüyor; README.md de seçili (önce çöpe gidecek) → çakışma değil.
+    const h3 = harness();
+    await twoCheckpoints(h3, [change("README.md", "added"), change("Readme.md", "deleted")]);
+    h3.state.exists.add("README.md");
+    h3.state.kinds.set("README.md", "file");
+    h3.state.kinds.set("Readme.md", "file");
+    const out = await h3.manager.revert("w1", "c1", ["Readme.md", "README.md"]);
+    expect(out).toMatchObject({ ok: true, trashed: ["README.md"], restored: ["Readme.md"] });
   });
 });

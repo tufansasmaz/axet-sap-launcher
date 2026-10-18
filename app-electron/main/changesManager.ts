@@ -18,6 +18,9 @@
 //     (deps.removeEmptyDir), dolu klasör/üstte dosya/herhangi bir yerde bağ
 //     (junction)/kayıtta silinmiş yolda sonradan konmuş dosya ya da seçilmemiş
 //     büyük/küçük harf eşi → işlem durur (pathConflict).
+//   - Bu çakışmalar önce, beforeRestore alınmadan, yalnız okuyan bir ön
+//     taramayla aranıyor (preflight): bulunursa hiçbir dosyaya dokunulmuyor.
+//     Yazma anı denetimleri (araya giren değişiklik için) yerinde kalıyor.
 //   - Alan kapatma (drop) uçuştaki ya da kuyruktaki işi geçersiz kılar (kuşak):
 //     kayıt dosyası yeniden yaratılmaz, bellek girdisi geri gelmez, yayın yok.
 //   - beforeRestore kaydı diske yazılamazsa geri alma başlamaz (storeFailed);
@@ -97,6 +100,8 @@ export interface ChangesManagerDeps {
    * bağ/junction ya da dolu klasörde false. Dolu klasör asla silinmez.
    */
   removeEmptyDir(root: string, rel: string): boolean;
+  /** Salt okur: yoldaki gerçek (bağ olmayan) klasör boş mu; yok/bağ/dosya/hata → false. */
+  dirIsEmpty(root: string, rel: string): boolean;
   trash(root: string, rel: string): Promise<void>;
   agents(): AgentPresence[];
   emit(state: ChangesState): void;
@@ -381,6 +386,67 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     return false;
   }
 
+  /** Renderer listesini o anki aralıkla kesiştirir: eklenmiş (çöpe), diğerleri (geri yükleme), aralıkta olmayan (atlanan). */
+  function splitRevertPaths(files: readonly FileChange[], paths: readonly string[]) {
+    const byPath = new Map(files.map((f) => [f.path, f]));
+    const added: string[] = [];
+    const others: string[] = [];
+    const skipped: string[] = [];
+    for (const rel of paths) {
+      const change = byPath.get(rel);
+      // Onaylandıktan sonra aralıktan çıkmış: dokunulmuyor (spec §7).
+      if (!change) skipped.push(rel);
+      else if (change.status === "added") added.push(rel);
+      else others.push(rel);
+    }
+    return { byPath, added, others, skipped };
+  }
+
+  /**
+   * Yazmadan ÖNCE, yalnız okuyan ön tarama: önceden bilinebilen çakışmalar
+   * (hedefte bağ ya da dolu klasör, üst parçada dosya/bağ, silinmiş yolda
+   * sonradan konmuş dosya, seçilmemiş büyük/küçük harf eşi). Bulunursa geri
+   * alma hiçbir şeye dokunmadan durur. Çöpe gidecek eklenmiş yollar (harf
+   * büyüklüğü duyarsız) ve altlarında eklenmiş dosya olan klasörler çakışma
+   * sayılmıyor; onların son hâli asıl döngüdeki yazma anı denetimine kalıyor.
+   * insideRoot burada çağrılmıyor: alan dışı denetimi yazmadan hemen önce.
+   */
+  function preflight(ctx: Ctx, files: readonly FileChange[], added: readonly string[], others: readonly string[]): string | null {
+    const selected = new Set([...added, ...others]);
+    const trashedLower = new Set(added.map((p) => p.toLowerCase()));
+    const willBeTrashed = (rel: string) => trashedLower.has(rel.toLowerCase());
+    for (const rel of others) {
+      const lower = rel.toLowerCase();
+      // Yalnız büyük/küçük harfle ayrışan iki ad aralıkta (Windows'ta aynı dosya):
+      // eşi seçilmeden geri yüklenirse checkout-index eşi çöpsüz siler.
+      if (files.some((f) => f.path !== rel && f.path.toLowerCase() === lower && !selected.has(f.path))) return rel;
+    }
+    for (const rel of added) {
+      if (attempt(() => ancestorBlocked(ctx.cwd, rel), true)) return rel;
+    }
+    for (const rel of others) {
+      const blocked = attempt(() => {
+        const parts = rel.split("/");
+        for (let i = 1; i < parts.length; i += 1) {
+          const part = parts.slice(0, i).join("/");
+          const kind = deps.pathKind(ctx.cwd, part);
+          if (kind === "link") return true;
+          if (kind === "file" && !willBeTrashed(part)) return true;
+        }
+        const kind = deps.pathKind(ctx.cwd, rel);
+        if (kind === "link") return true;
+        if (willBeTrashed(rel)) return false;
+        if (kind === "file") return files.find((f) => f.path === rel)?.status === "deleted";
+        if (kind !== "dir") return false;
+        const prefix = `${rel.toLowerCase()}/`;
+        if (added.some((p) => p.toLowerCase().startsWith(prefix))) return false;
+        return deps.dirIsEmpty(ctx.cwd, rel) !== true;
+      }, true);
+      if (blocked) return rel;
+    }
+    return null;
+  }
+
   /** Kaydın aralığı: bu kayıt → sonraki kayıt; en sonuncusunda taze ağaca (çalışma ağacı). */
   async function rangeInternal(workspaceId: string, entry: Entry, ctx: Ctx, id: string): Promise<Internal> {
     const range = rangeOf(entry.checkpoints, id);
@@ -459,6 +525,19 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       log("degisiklik.geriAl", { dosya: 0, sonuc: "expired" });
       return none("expired");
     }
+    // 0b) Ön tarama (salt okur): önceden bilinebilen çakışma varsa beforeRestore
+    //     alınmadan, hiçbir dosyaya dokunmadan dur (yarım geri alma kalmasın).
+    const preRange = await attemptAsync<Internal>(() => rangeInternal(workspaceId, entry, ctx, id), fail("git"));
+    if (!preRange.ok) {
+      log("degisiklik.geriAl", { dosya: 0, sonuc: preRange.reason });
+      return none(preRange.reason);
+    }
+    const preSplit = splitRevertPaths(preRange.files, paths);
+    const preConflict = preflight(ctx, preRange.files, preSplit.added, preSplit.others);
+    if (preConflict !== null) {
+      log("degisiklik.geriAl", { dosya: 0, sonuc: "pathConflict" });
+      return { ...none("pathConflict"), failedPath: preConflict };
+    }
     // 1) Güvenlik ağı: geri almadan önce o anın görüntüsü (spec §6.2). Alınamazsa dokunma.
     //    200 sınırı geri alınan kaydı düşürmesin (keepId).
     const before = await takeSnapshot(workspaceId, entry, ctx, "beforeRestore", { paneId: null, agentName: null, subtaskId: null, label: target.label }, id);
@@ -478,32 +557,18 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       log("degisiklik.geriAl", { dosya: 0, sonuc: range.reason });
       return { ...result, reason: range.reason };
     }
-    // Renderer listesi ile yöneticinin o an hesapladığı aralığın kesişimi.
-    const byPath = new Map(range.files.map((f) => [f.path, f]));
-    const added: string[] = [];
-    const others: string[] = [];
-    for (const rel of paths) {
-      const change = byPath.get(rel);
-      // Onaylandıktan sonra aralıktan çıkmış: dokunulmuyor (spec §7).
-      if (!change) result.skipped.push(rel);
-      else if (change.status === "added") added.push(rel);
-      else others.push(rel);
-    }
+    // Renderer listesi ile yöneticinin o an (beforeRestore'dan sonra) hesapladığı aralığın kesişimi.
+    const { byPath, added, others, skipped } = splitRevertPaths(range.files, paths);
+    result.skipped.push(...skipped);
     let problem: ChangesFailure | null = null;
     const stop = (reason: ChangesFailure, rel: string) => {
       problem = reason;
       result.failedPath = rel;
     };
-    // Yalnız büyük/küçük harfle ayrışan iki ad aralıkta (Windows'ta aynı dosya):
-    // eşi seçilmeden geri yüklenirse checkout-index eşi çöpsüz siler → başlamadan dur.
-    const selected = new Set([...added, ...others]);
-    for (const rel of others) {
-      const lower = rel.toLowerCase();
-      if (range.files.some((f) => f.path !== rel && f.path.toLowerCase() === lower && !selected.has(f.path))) {
-        stop("pathConflict", rel);
-        break;
-      }
-    }
+    // Ön tarama aralık yeniden hesaplandıktan sonra bir kez daha (arada değişmiş
+    // olabilir); yazma anı denetimleri yine de asıl döngüde (TOCTOU).
+    const lateConflict = preflight(ctx, range.files, added, others);
+    if (lateConflict !== null) stop("pathConflict", lateConflict);
     // 3) Önce eklenmiş dosyalar çöpe: geri yüklenecek yolu kapatan dosya/klasör
     //    checkout-index -f'e kalıcı sildirilmesin (büyük/küçük harf yeniden adlandırma dahil).
     for (const rel of (problem as ChangesFailure | null) ? [] : added) {

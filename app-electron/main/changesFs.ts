@@ -2,7 +2,7 @@
 // olduğu denetimi (spec 2026-10-18 degisiklikler §6.4). Sembolik bağ ya da
 // junction ile dışarı çıkış reddediliyor: var olan en yakın ata (dosyanın
 // kendisi dahil) gerçek yoluyla karşılaştırılıyor.
-import { lstatSync, realpathSync, rmdirSync } from "node:fs";
+import { lstatSync, readdirSync, realpathSync, rmdirSync } from "node:fs";
 import path from "node:path";
 import { isSafeRelPath } from "../shared/changesLogic";
 import type { PathKind } from "./changesManager";
@@ -39,6 +39,19 @@ export function removeEmptyDir(root: string, rel: string): boolean {
     if (stat.isSymbolicLink() || !stat.isDirectory()) return false;
     rmdirSync(target);
     return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Salt okur: yoldaki klasör gerçek (bağ olmayan) ve boş mu. Dolu/bağ/dosya/yok/hata → false. */
+export function dirIsEmpty(root: string, rel: string): boolean {
+  if (!isSafeRelPath(rel)) return false;
+  try {
+    const target = absolute(root, rel);
+    const stat = lstatSync(target);
+    if (stat.isSymbolicLink() || !stat.isDirectory()) return false;
+    return readdirSync(target).length === 0;
   } catch {
     return false;
   }
