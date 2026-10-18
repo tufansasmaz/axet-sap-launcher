@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import OfficeView from "../src/office/OfficeView";
-import { CHARACTERS, setOfficeArtForTests, type OfficeArt } from "../src/office/officeArt";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -22,13 +21,10 @@ let getContext: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   getContext = vi.fn(() => null);
   (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext = getContext;
-  // Paket makineye göre var ya da yok; testler varsayılan olarak yedek çizimle.
-  setOfficeArtForTests(null);
 });
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
-  setOfficeArtForTests(undefined);
   delete (window as unknown as { matchMedia?: unknown }).matchMedia;
 });
 
@@ -177,32 +173,31 @@ describe("OfficeView — kat planı ve HTML katmanı", () => {
     expect(canvas.style.imageRendering).toBe("pixelated");
   });
 
-  it("lider rolündeki ajan lider odasında: masası çalışma alanının üstünde, ötekiler çalışma masalarında", () => {
+  it("lider rolündeki ajan lider masasında, ötekiler sırayla çalışma masalarında", () => {
     setup(workspace([agentPane("p1"), agentPane("lead", { agent: { engine: "axet-code", role: "Takım lideri", roleKind: "custom" } }), agentPane("p2")]));
-    const top = (id: string) => parseFloat((seat(id).closest("li") as HTMLElement).style.top);
-    expect(top("lead")).toBeLessThan(top("p1"));
-    expect(top("p1")).toBe(top("p2"));
+    const desk = (id: string) => (seat(id).closest("li") as HTMLElement).getAttribute("data-office-desk");
+    expect(desk("lead")).toBe("lead");
+    expect(desk("p1")).toBe("desk0");
+    expect(desk("p2")).toBe("desk1");
   });
 
-  it("çizim paketi: kredi ekranda görünmüyor (KULLANIM-REHBERI.md'de kalıyor)", async () => {
-    // Düzen rev.2 (2026-10-18): data-office-credit kaldırıldı; lisans rehberde.
-    setOfficeArtForTests(null);
-    setup(workspace([agentPane("p1")]));
-    await act(async () => {
-      await Promise.resolve();
+  it("masalar dolunca (9 ajan, lider yok) taşan ajan toplantı masasının taburesinde; kimse üst üste değil", () => {
+    const ids = ["a1", "a2", "a3", "a4", "a5", "a6", "a7", "a8", "a9"];
+    setup(workspace(ids.map((id) => agentPane(id))));
+    const desks = ids.map((id) => (seat(id).closest("li") as HTMLElement).getAttribute("data-office-desk"));
+    expect(desks.slice(0, 8)).toEqual(["desk0", "desk1", "desk2", "desk3", "desk4", "desk5", "desk6", "desk7"]);
+    expect(desks[8]).toMatch(/^stool/);
+    const pos = ids.map((id) => {
+      const li = seat(id).closest("li") as HTMLElement;
+      return `${li.style.left},${li.style.top}`;
     });
-    expect(document.querySelector("[data-office-credit]")).toBeNull();
-    cleanup();
-    const sheet = () => document.createElement("canvas");
-    const chars = Object.fromEntries(CHARACTERS.map((c) => [c, { idle: sheet(), run: sheet(), phone: sheet() }])) as OfficeArt["characters"];
-    setOfficeArtForTests({ room: sheet(), interiors: sheet(), characters: chars });
+    expect(new Set(pos).size).toBe(9);
+  });
+
+  it("kredi satırı ekranda yok", () => {
+    // Düzen rev.2 (2026-10-18): data-office-credit kaldırıldı.
     setup(workspace([agentPane("p1")]));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    // Paket yüklü olsa da kredi ekranda çıkmıyor.
     expect(document.querySelector("[data-office-credit]")).toBeNull();
-    setOfficeArtForTests(undefined);
   });
 
   it("canvas yoksa (getContext null) sessizce yalnız HTML katmanı", () => {

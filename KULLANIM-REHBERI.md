@@ -519,40 +519,48 @@ hiçbir kartı kapatmaz. Akış'taki ajan satırına, soru kartındaki "Terminal
 
 ### Ofis görünümü
 
-**Ofis** sekmesi (yeni ekiplerde varsayılan) ekipteki ajanları masalarında
-oturan karakterler olarak gösterir. Yeni bir bilgi üretmez; Akış'taki durumu
-ve panodaki alt görevi tek bakışta özetler.
+**Ofis** sekmesi (yeni ekiplerde varsayılan) ekipteki ajanları kuşbakışı,
+piksel çizimli bir ofiste gösterir: üstte açık ofis (masalar, ortada lider
+masası, toplantı masası, köşelerde dinlenme alanı), altta **Mutfak**,
+**Lider**, **Sunucu** ve **Dinlenme** odaları. Yeni bir bilgi üretmez;
+Akış'taki durumu ve panodaki alt görevi tek bakışta özetler. Ofis sağdaki
+alanı tam kaplar.
 
-- **Çalışıyor**: ekran parlar, eller yazar. Durumu tahmini (≈) olan
+- **Yerleşim**: lider rolündeki ajan ortadaki lider masasında, ötekiler
+  soldan sağa çalışma masalarında oturur. Masalar dolarsa (sekizden fazla
+  çalışan) taşanlar toplantı masasının taburelerinde çalışır.
+- **Çalışıyor**: ekran akar, eller yazar. Durumu tahmini (≈) olan
   ajanlarda (Claude Code, Codex, Gemini, özel komut) aynı poz durağandır;
   hareket yalnız kesin durumda olur.
-- **Soru soruyor**: başın üstünde sarı bir "?" balonu; axet-code ajanında
-  sorunun ilk 60 karakteri balonda yazar. Cevabı Akış'taki soru
-  kartından ya da terminalden verirsin.
-- **Boşta / Bitti**: ekran söner; karakter bir süre sonra mutfağa yürür,
-  kahve alır, kanepeye oturur; iş gelince masasına döner. "Boşta 3 dk" gibi
-  süre yazar. **Hata**: ekranda kırmızı bir işaret.
+- **Soru soruyor**: ekran sarı yanıp söner; axet-code ajanında sorunun ilk
+  60 karakteri başın üstündeki balonda yazar, tahmini durumda sarı bir "?"
+  çıkar. Cevabı Akış'taki soru kartından ya da terminalden verirsin.
+- **Boşta / Bitti**: karakter masasından kalkıp mutfağa, kanepeye, koşu
+  bandına ya da toplantı masasına yürür, bir süre oyalanıp başka yere geçer;
+  kahve alırsa masasına kupayla döner. İş gelince masasına yürür. "Boşta
+  3 dk" gibi süre yazar. **Hata**: ekranda ve başın üstünde kırmızı "!".
   **Bilinmiyor**: durum henüz gelmediyse karakter soluktur.
   **Kurulu değil**: motor bu bilgisayarda yoksa masa boştur.
-- Masanın altında ad, rol ve motor; ajan panodan bir alt görev
+- Panodan bir alt görev atanınca liderden (lider yoksa koridordan) o ajana
+  bir ışın gider ve lider kısa bir balonla kime verdiğini söyler.
+- Karakterin altında adı ve durum çipi; ajan panodan bir alt görev
   yürütüyorsa başlığı (uzunsa kısaltılır, üstüne gelince tamamı görünür).
 - Karaktere tıklayınca (ya da Tab ile gelip Enter/Space) **Terminal**
   sekmesine geçilir ve o ajanın terminali öne gelir; küçültülmüşse geri
-  açılır. Seçili/odaktaki ajanın çerçevesi vurgu rengindedir.
-- Düz terminaller ofiste görünmez; sağ alt köşede sayıları yazar. Ajan
+  açılır. Seçili/odaktaki ajanın adı ve ayağının altındaki halka vurgu
+  rengindedir.
+- **Kamera**: sürükleyerek kaydırılır, fare tekerleği ya da sağ üstteki
+  **−** / **+** ile yakınlaşır; ortadaki değer düğmesi bütün ofisi sığdırır.
+  Yakınlaşınca sağ altta küçük bir harita çıkar; tıklanan yere gidilir.
+- **Gündüz / gece**: ofis bilgisayarın saatini izler; akşam kararır, masa
+  ekranları ve tavan lambaları yanar, gündüz pencerelerden güneş düşer.
+- Düz terminaller ofiste görünmez; sol alt köşede sayıları yazar. Ajan
   yoksa "Ofiste kimse yok" ve **Ajan** düğmesi çıkar.
-- Ofisteyken terminaller kapanmaz, yalnız gizlenir. Windows'ta "Animasyon
-  efektlerini göster" kapalıysa (hareketi azalt) ofiste hiçbir şey kıpırdamaz.
-- **Çizimler**: ofis, LimeZu'nun **Modern Interiors** paketiyle (ücretsiz
-  sürüm) çizilir; ofis sandalyesi, yazıcı, su sebili, dosya dolabı ve beyaz
-  tahta Rubber Studio'nun **Modern Office** örneğinden, masa üstü eşyaları
-  (klavye, kalemlik, kupa, grafik panosu, yangın tüpü) Christian Perich'in
-  **Pixel Life - Office Essentials** paketinden (CC BY 4.0) gelir. Kullanılan
-  Paket lisans bildirimi (CC BY 4.0 gereksinimi): LimeZu (Modern Interiors),
-  Rubber Studio (Modern Office), Christian Perich (Pixel Life). Paket lisansları
-  dağıtıma izin vermediği için depoda yoktur: kendi
-  makinende `src/assets/office-art/` klasörüne koyarsan kullanılır, yoksa ofis
-  uygulamanın kendi basit çizimleriyle açılır.
+- Ofisteyken terminaller kapanmaz, yalnız gizlenir. Ofis ekranda değilken
+  çizim durur. Windows'ta "Animasyon efektlerini göster" kapalıysa (hareketi
+  azalt) ofiste hiçbir şey kıpırdamaz ve ofis gündüz kalır.
+- **Çizimler**: karakterler, eşya ve zeminler uygulamanın kendi kodla
+  çizilmiş piksel çizimleridir; dış görsel paketi kullanılmaz.
 
 ### Değişiklikler
 
