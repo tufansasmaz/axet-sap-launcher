@@ -11,6 +11,7 @@ import type {
   RevertResult,
   SnapshotResult
 } from "../app-electron/shared/changesTypes";
+import type { BrowserSendResult, BrowserShortcut } from "../app-electron/shared/browserLogic";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -179,6 +180,9 @@ export interface AxetApi {
   changesPrepareRevert: (workspaceId: string, checkpointId: string) => Promise<PrepareRevertResult>;
   changesRevert: (workspaceId: string, checkpointId: string, paths: string[]) => Promise<RevertResult>;
   onChangesChanged: (callback: (state: ChangesState) => void) => () => void;
+  browserSend: (workspaceId: string, paneId: string, webContentsId: number, withScreenshot: boolean) => Promise<BrowserSendResult>;
+  onBrowserDownloadBlocked: (callback: (webContentsId: number | null) => void) => () => void;
+  onBrowserShortcut: (callback: (webContentsId: number, action: BrowserShortcut) => void) => () => void;
   onAgentOpen: (callback: (paneId: string) => void) => () => void;
   onTerminalData: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;

@@ -48,6 +48,11 @@ import { createChangesManager } from "./changesManager";
 import { deleteCheckpointFiles, privateIndexFile, readCheckpointFile, restoreIndexFile, writeCheckpointFile } from "./changesStore";
 import { checkpointsDir, liveChangesPorts } from "./changesLive";
 import { isSafeRelPath, readRevertPaths } from "../shared/changesLogic";
+import { browserWorkspace } from "../shared/browserLogic";
+import { configureBrowserSession, isBrowserGuestContents, type BrowserSessionLike } from "./browserGuard";
+import { createBrowserSender } from "./browserSend";
+import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
+import { browserSession, liveBrowserGuest } from "./browserLive";
 import type { ChangesFailure } from "../shared/changesTypes";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
@@ -394,6 +399,25 @@ const changesManager = createChangesManager({
   },
   log: (tag, fields) => appLog(tag, fields)
 });
+
+// Yerleşik tarayıcının "Ajana gönder"i (spec 2026-10-18 tarayici §3). Alanın
+// kökü YALNIZ config'teki kayıttan; sayfa yalnız ana pencereye bağlı, bizim
+// bölümdeki webview'dan (liveBrowserGuest → isOurBrowserGuest); istem Görev
+// Panosu'nun yolundan (agentMonitor.sendPrompt), Enter sonucu beklenerek.
+const browserSender = createBrowserSender({
+  workspace: (id) => browserWorkspace(loadConfig().terminalWorkspaces, id),
+  agent: (workspaceId, paneId) => {
+    const found = agentMonitor.agents().find((a) => a.reg.paneId === paneId && a.reg.workspaceId === workspaceId);
+    return found ? { status: found.status, inputIdle: found.inputIdle, engineReady: found.engineReady } : null;
+  },
+  guest: (id) => liveBrowserGuest(id, mainWindow && !mainWindow.isDestroyed() ? mainWindow.webContents : null),
+  writeScreenshot: writeBrowserScreenshot,
+  removeScreenshot: removeBrowserScreenshot,
+  sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
+  now: () => Date.now(),
+  log: (tag, fields) => appLog(tag, fields)
+});
+
 let boardTimer: NodeJS.Timeout | null = null;
 let boardTickQueued = false;
 
@@ -533,6 +557,10 @@ function createWindow(): void {
       // ipcRenderer, webUtils) kullanıyor; bunun için CommonJS derleniyor
       // (bkz. electron.vite.config.ts).
       sandbox: true,
+      // Yerleşik tarayıcı (spec 2026-10-18 tarayici §4.1): <webview> etiketi
+      // YALNIZ bu pencerede. Hangi webview'ın takılacağına ve ayarlarına
+      // windowGuard karar veriyor (browserGuard.ts); preload'u hiç yok.
+      webviewTag: true,
       backgroundThrottling: false,
       // Electron 32.3'ten itibaren document.execCommand("paste") (Ctrl+V'nin
       // ve sağ-tık "Yapıştır"ın dayandığı senkron pano okuma yolu) varsayılan
@@ -1448,6 +1476,23 @@ function registerIpc(): void {
     }
   });
 
+  // Yerleşik tarayıcı (spec 2026-10-18 tarayici §3, §4.6): yalnız ana
+  // pencereden. Renderer yalnız kimlikleri yollar; adres, başlık ve seçili
+  // metin ana süreçte webview'ın kendisinden okunur.
+  ipcMain.handle(
+    "browser:send",
+    async (event, workspaceId: unknown, paneId: unknown, webContentsId: unknown, withScreenshot: unknown) => {
+      if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents) {
+        return { ok: false, reason: "invalid" };
+      }
+      try {
+        return await browserSender.send(workspaceId, paneId, webContentsId, withScreenshot);
+      } catch {
+        return { ok: false, reason: "writeFailed" };
+      }
+    }
+  );
+
   if (!boardTimer) {
     boardTimer = setInterval(() => {
       try {
@@ -2240,7 +2285,34 @@ app.whenReady().then(() => {
     defaultSession: () => session.defaultSession,
     origin: appOrigin,
     isFlowSandbox: (contents) => isFlowSandboxSender(contents),
-    log: (tag, fields) => appLog(tag, fields)
+    log: (tag, fields) => appLog(tag, fields),
+    // Yerleşik tarayıcı (spec 2026-10-18 tarayici §4): webview yalnız ana
+    // pencerede; sayfasının tuşlarından yalnız Ctrl+L ve Alt+Sol/Sağ iletiliyor.
+    browser: {
+      isMainWindow: (contents) => !!mainWindow && !mainWindow.isDestroyed() && contents === mainWindow.webContents,
+      // Sözleşme (windowGuard.ts): webview tipi + persist:ntt-tarayici oturumu
+      // + ana pencereye bağlı. Host kimliği `id` ile (Electron sarmalayıcıyı
+      // önbelleklese de kimlik id); ana pencere yoksa guest de yok.
+      isGuest: (contents) =>
+        !!mainWindow &&
+        !mainWindow.isDestroyed() &&
+        isBrowserGuestContents(contents, browserSession()) &&
+        contents.hostWebContents?.id === mainWindow.webContents.id,
+      log: (tag, fields) => appLog(tag, fields),
+      onShortcut: (contents, action) => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("browser:shortcut", contents.id, action);
+      }
+    }
+  });
+  // Tarayıcının oturumu (spec §4.2, §4.3, §4.5): bütün izinler kapalı,
+  // indirme iptal, yerel/iç şemalı istekler iptal. İlk pencereden ÖNCE.
+  // Electron oturum başına TEK istek-öncesi dinleyicisi tutuyor: bu oturuma
+  // başka bir istek dinleyicisi KURULMAZ, yalnız configureBrowserSession'ınki
+  // (şema filtresini sessizce ezerdi; tests/browserIpcWiring.test.ts kilitli).
+  configureBrowserSession(browserSession() as unknown as BrowserSessionLike, {
+    onDownloadBlocked: (webContentsId) => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("browser:downloadBlocked", webContentsId);
+    }
   });
   persistUpdateSeen({
     load: () => loadConfig().axetCodeLatestSeen,

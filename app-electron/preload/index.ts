@@ -76,6 +76,7 @@ import type {
   RevertResult,
   SnapshotResult
 } from "../shared/changesTypes";
+import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -222,6 +223,20 @@ const api = {
     const listener = (_event: unknown, state: ChangesState) => callback(state);
     ipcRenderer.on("changes:changed", listener);
     return () => ipcRenderer.removeListener("changes:changed", listener);
+  },
+  // Yerleşik tarayıcı (spec 2026-10-18 tarayici §3, §4.6): hedef webview
+  // kimliğiyle; ana süreç onu ana pencereye bağlı ve bizim bölümde mi diye doğruluyor.
+  browserSend: (workspaceId: string, paneId: string, webContentsId: number, withScreenshot: boolean): Promise<BrowserSendResult> =>
+    ipcRenderer.invoke("browser:send", workspaceId, paneId, webContentsId, withScreenshot),
+  onBrowserDownloadBlocked: (callback: (webContentsId: number | null) => void) => {
+    const listener = (_event: unknown, webContentsId: number | null) => callback(webContentsId);
+    ipcRenderer.on("browser:downloadBlocked", listener);
+    return () => ipcRenderer.removeListener("browser:downloadBlocked", listener);
+  },
+  onBrowserShortcut: (callback: (webContentsId: number, action: BrowserShortcut) => void) => {
+    const listener = (_event: unknown, webContentsId: number, action: BrowserShortcut) => callback(webContentsId, action);
+    ipcRenderer.on("browser:shortcut", listener);
+    return () => ipcRenderer.removeListener("browser:shortcut", listener);
   },
   // Ajan bildirimine tıklanınca (spec §9): Ajanlar ekranı ve o bölme.
   onAgentOpen: (callback: (paneId: string) => void) => {
