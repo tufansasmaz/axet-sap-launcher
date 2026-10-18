@@ -179,6 +179,21 @@ describe("OfficeView — etkileşim", () => {
     expect(document.activeElement).toBe(buttons[1]);
   });
 
+  it("aria-label: soru metni ve alt gorev basligini ekran okuyucuya ulastiriyor", () => {
+    const title = "Siparis tablosuna alan ekle";
+    setup(
+      workspace([agentPane("p1"), agentPane("p2")]),
+      {
+        statuses: { p1: st("asking", "exact", { question: q("Devam edilsin mi?") }) },
+        board: { workspaceId: "a", tasks: [task("t", [sub("x", { title, state: "running", paneId: "p2" })])] }
+      }
+    );
+    const label1 = seat("p1").getAttribute("aria-label") ?? "";
+    expect(label1).toContain("Devam edilsin mi?");
+    const label2 = seat("p2").getAttribute("aria-label") ?? "";
+    expect(label2).toContain(title);
+  });
+
   it("seçim: odaktaki ajanın çerçevesi lime, ötekinde accent yok; kırpılan ad ve rolde title", () => {
     setup(workspace([agentPane("p1", { title: "Çok Uzun Bir Ajan Adı Burada" }), agentPane("p2")], { focusedPaneId: "p2" }));
     expect(seat("p2").getAttribute("aria-pressed")).toBe("true");

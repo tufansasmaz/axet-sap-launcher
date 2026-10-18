@@ -100,7 +100,8 @@ function OfficeSeat({
   const engine = t(ENGINE_LABEL[pane.agent?.engine ?? "axet-code"]);
   const state = t(seat.key, seat.params);
   const job = activeSubtaskOf(boards, pane.id);
-  const label = [name, role, seat.estimated ? `${state} ${t("office.estimatedSuffix")}` : state].filter(Boolean).join(", ");
+  // aria-label: görsel metne ek olarak soru içeriğini ve aktif alt görevi ekran okuyucuya iletir.
+  const label = [name, role, seat.estimated ? `${state} ${t("office.estimatedSuffix")}` : state, seat.question, job?.subtask.title].filter(Boolean).join(", ");
   return (
     <button
       type="button"
