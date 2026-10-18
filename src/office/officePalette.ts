@@ -23,7 +23,9 @@ export const PALETTE = {
   concrete: "#8d8e92",
   concreteAlt: "#838489",
   concreteSeam: "#6f7075",
-  // Duvar, cam, kapı
+  // Duvar, cam, kapı (ceiling*: paketli çizimde duvar üstü — paketin tavan çizgisiyle aynı tonlar)
+  ceiling: "#f2efe9",
+  ceilingLine: "#3a3a50",
   wallCap: "#e8dccb",
   wallCapEdge: "#c9b9a3",
   wallFace: "#a08672",
@@ -162,6 +164,23 @@ export const SHIRT: Record<TerminalPaneColor, Pair> = {
   red: ["#c4554d", "#a0413a"],
   violet: ["#8a64b8", "#6d4d96"]
 };
+
+/**
+ * Çizim paketindeki dört karakterin gömlek ve saç tonları (açıktan koyuya;
+ * sayfalardan ölçüldü). officeArt bunları bölme rengine / saç çeşidine boyuyor.
+ */
+export const CHARACTER_SHIRT_TONES = {
+  Adam: ["#9f74a8", "#805e8e"],
+  Alex: ["#ae4a52", "#a2394b", "#6f494d"],
+  Amelia: ["#b95d72", "#a85377"],
+  Bob: ["#6c6e85"]
+} as const;
+
+export const CHARACTER_HAIR_TONES = {
+  Adam: ["#959d58", "#687253", "#5f694a", "#5d6043"],
+  Amelia: ["#ba8d5e", "#957350", "#8d7051", "#8a6552"],
+  Bob: ["#716b6e", "#5d585f", "#555157"]
+} as const;
 
 export interface Appearance {
   style: number;

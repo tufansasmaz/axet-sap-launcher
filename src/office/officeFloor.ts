@@ -1,16 +1,19 @@
-// Piksel ofisin kat planı (spec 2026-10-18 ajanlar-yeniden §3 + kalite turu).
-// SAF: ajan sayısı + alan boyutu -> karo haritası, oda haritası, yürünemez
-// karolar, masalar, oturma/durma noktaları, çizilecek eşyalar, tam sayı ölçek.
+// Piksel ofisin kat planı (spec 2026-10-18 ajanlar-yeniden §3 + kalite turları).
+// SAF: ajan sayısı + alan boyutu -> karo haritası, oda haritası, duvar ön
+// yüzleri, yürünemez karolar, masalar, oturma/durma noktaları, çizilecek
+// eşyalar, tam sayı ölçek.
 //
-//   +--------+-----------+------------------------+
-//   | sunucu |  lider    |  toplantı (halı)       |   üst sıra: sabit
-//   | arşiv  |  (ahşap)  |  masa + beyaz tahta    |
-//   +--kapı--+~~cam~kapı~+--kapı------------------+
+//   +========+===========+========================+   sınır (tavan çizgisi)
+//   | yüz    | yüz       | yüz (pencere, tahta)   |   duvar ön yüzü: 2 karo
+//   | sunucu |  lider    |  toplantı              |   üst sıra: sabit
+//   | arşiv  |  (ahşap)  |  masa + sandalyeler    |
+//   +==kapı==+====kapı===+==kapı==================+   ara duvar: sınır +
+//   | yüz    | cam bölme | yüz (pano, saat, tablo)|   2 karo yüz
 //   |  açık çalışma alanı (masa sıraları)  | mutfak |   alt sıra: çalışma
 //   |  ... ajan sayısıyla büyür            | (karo) |   alanı büyür, mutfak
-//   |--ara duvar (12 üstü), kapılı---------+--------+   sabit
+//   |==ara duvar (12 üstü), kapılı=========+========+   sabit
 //   |  ikinci bölüm                                 |
-//   +-----------------------------------------------+
+//   +===============================================+
 //
 // Birim karo (16 px). Masa hücresi CELL_W x CELL_H: satır 0 koridor + ad
 // etiketi, 1 masa (dolu), 2 koltuk (kişi yukarı, monitöre bakar), 3 koridor.
@@ -21,6 +24,8 @@ export const CELL_H = 4;
 export const DESK_W = 3;
 export const ROOM_CAP = 12;
 export const MAX_DESKS = ROOM_CAP * 2;
+/** Duvar: bir karo sınır + iki karo ön yüz. */
+const WALL_T = 3;
 const TOP_H = 6;
 const SERVER_W = 4;
 const LEAD_W = 7;
@@ -33,6 +38,7 @@ export type FloorKind = "wood" | "tile" | "carpet" | "concrete";
 export type TileKind = "wall" | "glass" | "door" | FloorKind;
 export type RoomId = "work" | "workB" | "leader" | "meeting" | "kitchen" | "server";
 export type Dir = "down" | "up" | "left" | "right";
+export type FacePart = "upper" | "lower";
 
 export interface Spot {
   x: number;
@@ -45,10 +51,12 @@ export type PropKind =
   | "whiteboard"
   | "board"
   | "clock"
+  | "painting"
   | "plant"
   | "rack"
   | "shelf"
   | "bookshelf"
+  | "globe"
   | "rug"
   | "meetingTable"
   | "meetingChair"
@@ -59,7 +67,8 @@ export type PropKind =
   | "printer"
   | "cooler"
   | "desk"
-  | "guestChair";
+  | "guestChair"
+  | "extinguisher";
 
 export interface Prop {
   kind: PropKind;
@@ -68,6 +77,8 @@ export interface Prop {
   w: number;
   h: number;
   face?: Dir;
+  /** Aynı türün çeşitleri arasında seçim (tablo, bitki, halı). */
+  variant?: number;
 }
 
 export interface DeskSpot {
@@ -84,6 +95,8 @@ export interface OfficePlan {
   scale: number;
   tiles: TileKind[][];
   rooms: (RoomId | null)[][];
+  /** Duvarın görünen ön yüzü (iki karo): üst ve alt yarı; öteki karolarda null. */
+  faces: (FacePart | null)[][];
   /** Yürünemez: duvar, cam, eşya. Kapı ve koltuk yürünebilir. */
   blocked: boolean[][];
   desks: DeskSpot[];
@@ -91,7 +104,7 @@ export interface OfficePlan {
   seats: Spot[];
   lead: { cell: { x: number; y: number }; seat: Spot; desk: { x: number; y: number } };
   lounge: { coffee: Spot; sofa: Spot[]; stand: Spot[] };
-  /** Lider yokken ışının çıktığı yer: lider odasının kapısı. */
+  /** Lider yokken ışının çıktığı yer: lider odasının kapısı (sınır karosu). */
   door: { x: number; y: number };
   props: Prop[];
 }
@@ -113,71 +126,97 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
   const first = Math.min(n, ROOM_CAP);
   const rowsA = Math.max(1, Math.ceil(first / p));
   const rowsB = n > ROOM_CAP ? Math.ceil((n - ROOM_CAP) / p) : 0;
-  const workH = rowsA * CELL_H + (rowsB > 0 ? 1 + rowsB * CELL_H : 0);
+  const workH = rowsA * CELL_H + (rowsB > 0 ? WALL_T + rowsB * CELL_H : 0);
   const lowH = Math.max(KITCHEN_H, workH);
-  const yW = 2 + TOP_H;
-  const low = yW + 1;
+  const top = WALL_T;
+  const yW = top + TOP_H;
+  const low = yW + WALL_T;
   const rows = low + lowH + 1;
 
   const tiles: TileKind[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, (): TileKind => "wall"));
   const rooms: (RoomId | null)[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, (): RoomId | null => null));
+  const faces: (FacePart | null)[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, (): FacePart | null => null));
   const blocked: boolean[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, () => true));
   const area = (x0: number, y0: number, w: number, h: number, kind: FloorKind, room: RoomId) => {
     for (let y = y0; y < y0 + h; y++)
       for (let x = x0; x < x0 + w; x++) {
         tiles[y][x] = kind;
         rooms[y][x] = room;
+        faces[y][x] = null;
         blocked[y][x] = false;
       }
   };
-  const door = (x: number, y: number) => {
-    tiles[y][x] = "door";
-    blocked[y][x] = false;
+  /** Bir karo sınırın altında iki karo ön yüz (x0..x1 dahil). */
+  const faceRow = (y: number, x0: number, x1: number) => {
+    for (let x = x0; x <= x1; x++) {
+      faces[y + 1][x] = "upper";
+      faces[y + 2][x] = "lower";
+    }
+  };
+  /** Kapı: sınırı ve iki yüz karosunu delen geçit. */
+  const doorway = (x: number, y: number, through = WALL_T) => {
+    for (let k = 0; k < through; k++) {
+      tiles[y + k][x] = "door";
+      faces[y + k][x] = null;
+      blocked[y + k][x] = false;
+    }
   };
   const block = (x0: number, y0: number, w: number, h: number) => {
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) blocked[y][x] = true;
   };
   const props: Prop[] = [];
-  const prop = (kind: PropKind, x: number, y: number, w = 1, h = 1, solid = true, face?: Dir) => {
-    props.push({ kind, x, y, w, h, ...(face ? { face } : {}) });
+  const prop = (kind: PropKind, x: number, y: number, w = 1, h = 1, solid = true, extra: Partial<Prop> = {}) => {
+    props.push({ kind, x, y, w, h, ...extra });
     if (solid) block(x, y, w, h);
   };
 
-  // Üst sıra: sunucu/arşiv, lider odası, toplantı.
+  // Üst sıra: sunucu/arşiv, lider odası, toplantı. Üst dış duvarın yüzü odaların üstünde.
   const sx = 1;
   const lx = sx + SERVER_W + 1;
   const mx = lx + LEAD_W + 1;
   const meetW = cols - 1 - mx;
-  area(sx, 2, SERVER_W, TOP_H, "concrete", "server");
-  area(lx, 2, LEAD_W, TOP_H, "wood", "leader");
-  area(mx, 2, meetW, TOP_H, "carpet", "meeting");
-  for (let x = lx; x < lx + LEAD_W; x++) tiles[yW][x] = "glass";
-  door(sx + 2, yW);
-  const leadDoor = { x: lx + 5, y: yW };
-  door(leadDoor.x, leadDoor.y);
-  door(mx + 2, yW);
+  area(sx, top, SERVER_W, TOP_H, "concrete", "server");
+  area(lx, top, LEAD_W, TOP_H, "wood", "leader");
+  area(mx, top, meetW, TOP_H, "carpet", "meeting");
+  faceRow(0, sx, sx + SERVER_W - 1);
+  faceRow(0, lx, lx + LEAD_W - 1);
+  faceRow(0, mx, mx + meetW - 1);
 
-  // Alt sıra: çalışma alanı + mutfak.
+  // Alt sıra: çalışma alanı + mutfak. Ara duvarın yüzü alt sıranın üstünde.
   area(1, low, workW, lowH, "wood", "work");
   const kx = 1 + workW;
   const kx0 = kx + 1;
   area(kx0, low, KITCHEN_W, KITCHEN_H, "tile", "kitchen");
-  door(kx, low + 4);
+  faceRow(yW, 1, cols - 2);
+  // Lider odasının çalışma alanına bakan yüzü camdan.
+  for (let x = lx; x < lx + LEAD_W; x++) {
+    tiles[yW + 1][x] = "glass";
+    tiles[yW + 2][x] = "glass";
+  }
+  doorway(sx + 2, yW);
+  const leadDoor = { x: lx + 5, y: yW };
+  doorway(leadDoor.x, leadDoor.y);
+  doorway(mx + 2, yW);
+  doorway(kx, low + 4, 1);
   if (lowH > KITCHEN_H) {
-    // Mutfağın altı çalışma alanına katılıyor; mutfağı alttan duvar kapatıyor.
-    area(kx, low + KITCHEN_H + 1, KITCHEN_W + 1, lowH - KITCHEN_H - 1, "wood", "work");
+    // Mutfağı alttan duvar kapatıyor; altı (sığarsa) çalışma alanına katılıyor.
+    const by = low + KITCHEN_H;
+    if (by + 2 < low + lowH) faceRow(by, kx0, cols - 2);
+    if (lowH > KITCHEN_H + WALL_T) area(kx, by + WALL_T, KITCHEN_W + 1, lowH - KITCHEN_H - WALL_T, "wood", "work");
   }
   let partition = -1;
   if (rowsB > 0) {
     partition = low + rowsA * CELL_H;
-    for (let x = 1; x <= workW; x++) {
-      tiles[partition][x] = "wall";
-      rooms[partition][x] = null;
-      blocked[partition][x] = true;
-    }
-    door(3, partition);
-    door(workW - 2, partition);
-    for (let y = partition + 1; y < low + lowH; y++) for (let x = 1; x < cols - 1; x++) if (rooms[y][x] === "work") rooms[y][x] = "workB";
+    for (let y = partition; y < partition + WALL_T; y++)
+      for (let x = 1; x <= workW; x++) {
+        tiles[y][x] = "wall";
+        rooms[y][x] = null;
+        blocked[y][x] = true;
+      }
+    faceRow(partition, 1, workW);
+    doorway(3, partition);
+    doorway(workW - 2, partition);
+    for (let y = partition + WALL_T; y < low + lowH; y++) for (let x = 1; x < cols - 1; x++) if (rooms[y][x] === "work") rooms[y][x] = "workB";
   }
 
   // Masalar.
@@ -186,58 +225,66 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
   for (let i = 0; i < n; i++) {
     const second = i >= ROOM_CAP;
     const k = second ? i - ROOM_CAP : i;
-    const top = second ? partition + 1 : low;
-    const d: DeskSpot = { x: 2 + (k % p) * CELL_W, y: top + Math.floor(k / p) * CELL_H, room: second ? "workB" : "work" };
+    const y0 = second ? partition + WALL_T : low;
+    const d: DeskSpot = { x: 2 + (k % p) * CELL_W, y: y0 + Math.floor(k / p) * CELL_H, room: second ? "workB" : "work" };
     desks.push(d);
     seats.push({ x: d.x + 1, y: d.y + 2, face: "up" });
-    prop("desk", d.x, d.y + 1, DESK_W, 1);
+    prop("desk", d.x, d.y + 1, DESK_W, 1, true, { variant: i });
   }
 
-  // Üst dış duvar: pencereler, saat, beyaz tahta.
-  prop("window", sx + 1, 1, 2, 1, true);
-  prop("window", lx + 3, 1, 2, 1, true);
+  // Üst dış duvarın yüzü: pencereler, saat, tahta.
+  prop("window", sx + 1, 1, 2, 2, true, { variant: 0 });
+  prop("window", lx + 3, 1, 2, 2, true, { variant: 1 });
   prop("clock", lx + 6, 1, 1, 1, true);
-  prop("whiteboard", mx + 1, 1, 3, 1, true);
-  for (let x = mx + 5; x + 2 <= cols - 1; x += 4) prop("window", x, 1, 2, 1, true);
-  // Ara duvar (çalışma alanına bakan yüz): pano ve saat.
-  prop("board", mx, yW, 2, 1, true);
-  prop("clock", mx + 3, yW, 1, 1, true);
+  prop("whiteboard", mx + 1, 1, 2, 2, true);
+  for (let x = mx + 5, i = 0; x + 2 <= cols - 1; x += 4, i++) prop("window", x, 1, 2, 2, true, { variant: i % 2 });
+  // Ara duvarın çalışma alanına bakan yüzü: pano, saat, tablolar; mutfakta tablo.
+  prop("board", mx, yW + 1, 2, 1, true);
+  prop("painting", sx, yW + 1, 2, 1, true, { variant: 5 });
+  prop("extinguisher", sx + 3, yW + 2, 1, 1, true);
+  prop("clock", mx + 3, yW + 1, 1, 1, true);
+  for (let x = mx + 5, i = 0; x + 2 <= kx; x += 4, i++) prop("painting", x, yW + 1, 2, 1, true, { variant: i });
+  prop("painting", kx0 + 5, yW + 1, 2, 1, true, { variant: 3 });
 
   // Sunucu/arşiv.
-  prop("rack", sx, 2, 1, 2);
-  prop("rack", sx + 1, 2, 1, 2);
-  prop("shelf", sx + 3, 2, 1, 3);
-  prop("shelf", sx, TOP_H, 1, 2);
+  prop("rack", sx, top, 1, 2);
+  prop("rack", sx + 1, top, 1, 2);
+  prop("shelf", sx + 3, top, 1, 3);
+  prop("shelf", sx, top + TOP_H - 2, 1, 2);
 
-  // Lider odası: masa, misafir sandalyesi, kitaplık, halı, bitki.
-  const leadDesk = { x: lx + 2, y: 4 };
-  prop("rug", lx + 1, 3, 5, 4, false);
-  prop("bookshelf", lx, 2, 2, 1);
-  prop("plant", lx + LEAD_W - 1, 2);
-  prop("plant", lx, TOP_H + 1);
-  prop("guestChair", leadDesk.x + 1, leadDesk.y + 1, 1, 1, true, "up");
+  // Lider odası: masa, misafir sandalyesi, kitaplık, halı, bitki, küre.
+  const leadDesk = { x: lx + 2, y: top + 2 };
+  prop("rug", lx + 1, top + 1, 5, 4, false, { variant: 0 });
+  prop("bookshelf", lx, top, 2, 1);
+  prop("plant", lx + LEAD_W - 1, top, 1, 1, true, { variant: 0 });
+  prop("plant", lx, top + TOP_H - 1, 1, 1, true, { variant: 1 });
+  prop("globe", lx + LEAD_W - 1, top + TOP_H - 1);
+  prop("guestChair", leadDesk.x + 1, leadDesk.y + 1, 1, 1, true, { face: "up" });
   prop("desk", leadDesk.x, leadDesk.y, DESK_W, 1);
   const leadSeat: Spot = { x: leadDesk.x + 1, y: leadDesk.y - 1, face: "down" };
 
-  // Toplantı: masa, sandalyeler, bitkiler.
+  // Toplantı: halı, masa, sandalyeler, bitkiler.
   const tx = mx + Math.max(1, Math.floor((meetW - 4) / 2));
+  prop("rug", tx - 1, top + 1, 6, 4, false, { variant: 1 });
   for (let x = tx; x < tx + 4; x++) {
-    prop("meetingChair", x, 3, 1, 1, false, "down");
-    prop("meetingChair", x, 6, 1, 1, false, "up");
+    prop("meetingChair", x, top + 1, 1, 1, false, { face: "down", variant: x });
+    prop("meetingChair", x, top + 4, 1, 1, false, { face: "up", variant: x });
   }
-  prop("meetingTable", tx, 4, 4, 2);
-  prop("plant", mx + meetW - 1, 2);
-  prop("plant", mx + meetW - 1, TOP_H + 1);
+  prop("meetingTable", tx, top + 2, 4, 2);
+  prop("plant", mx + meetW - 1, top, 1, 1, true, { variant: 2 });
+  prop("plant", mx + meetW - 1, top + TOP_H - 1, 1, 1, true, { variant: 0 });
+  prop("plant", mx, top + TOP_H - 1, 1, 1, true, { variant: 1 });
 
   // Mutfak: tezgâh (kahve makinesi, lavabo), buzdolabı, kanepe, sehpa, bitkiler.
   prop("counter", kx0, low, 5, 1);
   prop("fridge", kx0 + KITCHEN_W - 1, low, 1, 2);
   const sofaY = low + KITCHEN_H - 3;
+  prop("rug", kx0 + 1, sofaY - 1, 5, 3, false, { variant: 2 });
   prop("sofa", kx0 + 2, sofaY - 1, 3, 2, false);
   block(kx0 + 2, sofaY - 1, 3, 1);
   prop("coffeeTable", kx0 + 2, sofaY + 1, 3, 1);
-  prop("plant", kx0, low + KITCHEN_H - 1);
-  prop("plant", kx0 + KITCHEN_W - 1, low + KITCHEN_H - 1);
+  prop("plant", kx0, low + KITCHEN_H - 1, 1, 1, true, { variant: 2 });
+  prop("plant", kx0 + KITCHEN_W - 1, low + KITCHEN_H - 1, 1, 1, true, { variant: 0 });
   const lounge = {
     coffee: { x: kx0 + 1, y: low + 1, face: "up" as Dir },
     sofa: [0, 1, 2].map((i) => ({ x: kx0 + 2 + i, y: sofaY, face: "down" as Dir })),
@@ -249,11 +296,11 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
     ]
   };
 
-  // Çalışma alanı: yazıcı, su sebili, bitkiler (sağ kenar sütununda).
+  // Çalışma alanı: yazıcı, su sebili, kitaplık, bitkiler (kenar sütunlarında).
   prop("printer", workW, low);
-  prop("cooler", workW, low + 1);
-  prop("plant", 1, low + lowH - 1);
-  prop("plant", workW, low + lowH - 1);
+  prop("cooler", workW, low + 2);
+  prop("plant", 1, low + lowH - 1, 1, 1, true, { variant: 0 });
+  prop("plant", workW, low + lowH - 1, 1, 1, true, { variant: 2 });
 
   return {
     cols,
@@ -261,6 +308,7 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
     perRow: p,
     tiles,
     rooms,
+    faces,
     blocked,
     desks,
     seats,

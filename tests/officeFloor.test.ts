@@ -44,6 +44,21 @@ describe("officePlan — odalar", () => {
     }
   });
 
+  it("duvar ön yüzü iki karo (üst dış duvarda ve ara duvarda); kapı yüzü de deliyor; lider bölmesi camdan", () => {
+    const plan = officePlan(3, WIDE.w, WIDE.h);
+    const x = plan.lead.seat.x;
+    expect(plan.faces[1][x]).toBe("upper");
+    expect(plan.faces[2][x]).toBe("lower");
+    const d = plan.door;
+    for (let y = d.y; y <= d.y + 2; y++) expect(plan.tiles[y][d.x], `${d.x},${y}`).toBe("door");
+    expect(plan.faces[d.y + 1][1]).toBe("upper");
+    expect(plan.faces[d.y + 2][1]).toBe("lower");
+    const glassRows = new Set(plan.tiles.flatMap((row, y) => (row.includes("glass") ? [y] : [])));
+    expect([...glassRows].sort()).toEqual([d.y + 1, d.y + 2]);
+    // Yüz karoları yürünemez.
+    plan.faces.forEach((row, y) => row.forEach((f, xx) => f && expect(plan.blocked[y][xx]).toBe(true)));
+  });
+
   it("BFS: her oda kapıdan erişilebilir, bütün oturma/durma noktaları yürünebilir ve ulaşılabilir", () => {
     for (const n of [1, 3, 7, 9, 14, 24]) {
       const plan = officePlan(n, WIDE.w, WIDE.h);

@@ -528,8 +528,9 @@ ve panodaki alt görevi tek bakışta özetler.
 - **Soru soruyor**: başın üstünde sarı bir "?" balonu; axet-code ajanında
   sorunun ilk 60 karakteri balonda yazar. Cevabı Akış'taki soru
   kartından ya da terminalden verirsin.
-- **Boşta / Bitti**: karakter arkasına yaslanır, ekran söner; "Boşta 3 dk"
-  gibi süre yazar. **Hata**: ekranda kırmızı bir işaret.
+- **Boşta / Bitti**: ekran söner; karakter bir süre sonra mutfağa yürür,
+  kahve alır, kanepeye oturur; iş gelince masasına döner. "Boşta 3 dk" gibi
+  süre yazar. **Hata**: ekranda kırmızı bir işaret.
   **Bilinmiyor**: durum henüz gelmediyse karakter soluktur.
   **Kurulu değil**: motor bu bilgisayarda yoksa masa boştur.
 - Masanın altında ad, rol ve motor; ajan panodan bir alt görev
@@ -541,6 +542,15 @@ ve panodaki alt görevi tek bakışta özetler.
   yoksa "Ofiste kimse yok" ve **Ajan** düğmesi çıkar.
 - Ofisteyken terminaller kapanmaz, yalnız gizlenir. Windows'ta "Animasyon
   efektlerini göster" kapalıysa (hareketi azalt) ofiste hiçbir şey kıpırdamaz.
+- **Çizimler**: ofis, LimeZu'nun **Modern Interiors** paketiyle (ücretsiz
+  sürüm) çizilir; ofis sandalyesi, yazıcı, su sebili, dosya dolabı ve beyaz
+  tahta Rubber Studio'nun **Modern Office** örneğinden, masa üstü eşyaları
+  (klavye, kalemlik, kupa, grafik panosu, yangın tüpü) Christian Perich'in
+  **Pixel Life - Office Essentials** paketinden (CC BY 4.0) gelir. Kullanılan
+  paketler sağ alt köşede yazar ("Ofis çizimleri: LimeZu (Modern Interiors),
+  ..."). Paket lisansları dağıtıma izin vermediği için depoda yoktur: kendi
+  makinende `src/assets/office-art/` klasörüne koyarsan kullanılır, yoksa ofis
+  uygulamanın kendi basit çizimleriyle açılır.
 
 ### Değişiklikler
 

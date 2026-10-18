@@ -76,6 +76,10 @@ export interface ActorView {
   dim: boolean;
   seated: "desk" | "front" | null;
   animated: boolean;
+  /** Karodan karoya yürüyor. */
+  moving: boolean;
+  /** Atılan adım + ilerleme: yürüme karesinin sürekli saati. */
+  stride: number;
 }
 
 const key = (x: number, y: number) => `${x},${y}`;
@@ -286,7 +290,7 @@ export function actorView(a: Actor, input: ActorInput, now: number, reduced: boo
   const px = (a.x + (a.nx - a.x) * a.t) * 16;
   const py = (a.y + (a.ny - a.y) * a.t) * 16;
   const mark = input.pose === "asking" ? "question" : input.pose === "error" ? "error" : null;
-  const base = { px, py, mark, dim: input.pose === "unknown" } as const;
+  const base = { px, py, mark, dim: input.pose === "unknown", moving: moving(a), stride: a.steps + a.t } as const;
   if (moving(a)) {
     const frame = (a.steps * 2 + Math.floor(a.t * 2)) % 4;
     return { ...base, pose: `walk${frame}` as CharacterPose, dir: a.dir, seated: null, animated: true };

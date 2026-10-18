@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import OfficeView from "../src/office/OfficeView";
+import { CHARACTERS, RUBBER, setOfficeArtForTests, type OfficeArt } from "../src/office/officeArt";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -21,10 +22,13 @@ let getContext: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   getContext = vi.fn(() => null);
   (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext = getContext;
+  // Paket makineye göre var ya da yok; testler varsayılan olarak yedek çizimle.
+  setOfficeArtForTests(null);
 });
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  setOfficeArtForTests(undefined);
   delete (window as unknown as { matchMedia?: unknown }).matchMedia;
 });
 
@@ -178,6 +182,49 @@ describe("OfficeView — kat planı ve HTML katmanı", () => {
     const top = (id: string) => parseFloat((seat(id).closest("li") as HTMLElement).style.top);
     expect(top("lead")).toBeLessThan(top("p1"));
     expect(top("p1")).toBe(top("p2"));
+  });
+
+  it("çizim paketi: yokken yedek çizim ve kredi yok; yüklüyse sağ altta LimeZu kredisi (tr/en)", async () => {
+    setOfficeArtForTests(null);
+    setup(workspace([agentPane("p1")]));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector("[data-office-credit]")).toBeNull();
+    cleanup();
+    const sheet = () => document.createElement("canvas");
+    const chars = Object.fromEntries(CHARACTERS.map((c) => [c, { idle: sheet(), run: sheet(), phone: sheet() }])) as OfficeArt["characters"];
+    setOfficeArtForTests({ room: sheet(), interiors: sheet(), characters: chars });
+    setup(workspace([agentPane("p1")]));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector("[data-office-credit]")?.textContent).toBe("Ofis çizimleri: LimeZu (Modern Interiors)");
+    cleanup();
+    setup(workspace([agentPane("p1")]), { language: "en" });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector("[data-office-credit]")?.textContent).toBe("Office art: LimeZu (Modern Interiors)");
+    cleanup();
+    // Rubber Studio parçaları da yüklüyse kredide o da.
+    const rubber = Object.fromEntries(RUBBER.map((n) => [n, sheet()])) as NonNullable<OfficeArt["rubber"]>;
+    setOfficeArtForTests({ room: sheet(), interiors: sheet(), characters: chars, rubber });
+    setup(workspace([agentPane("p1")]));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector("[data-office-credit]")?.textContent).toBe("Ofis çizimleri: LimeZu (Modern Interiors), Rubber Studio (Modern Office)");
+    cleanup();
+    setOfficeArtForTests({ room: sheet(), interiors: sheet(), characters: chars, rubber, pixelLife: sheet() });
+    setup(workspace([agentPane("p1")]));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector("[data-office-credit]")?.textContent).toBe(
+      "Ofis çizimleri: LimeZu (Modern Interiors), Rubber Studio (Modern Office), Christian Perich (Pixel Life)"
+    );
+    setOfficeArtForTests(undefined);
   });
 
   it("canvas yoksa (getContext null) sessizce yalnız HTML katmanı", () => {

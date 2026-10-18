@@ -29,6 +29,8 @@ import { BEAM_MS, FRAME_MS, beamShape, boardLeadActive, leaderPane, newAssignmen
 import { actorView, stepWorld, worldBusy, type ActorInput, type World } from "./officeActors";
 import { cellBox, headPoint, paintBackground, paintScene, safeContext, type Look, type Scene, type SceneBeam, type SceneDesk } from "./officeCanvas";
 import { HAIR, PANTS, SHIRT, SKIN, appearanceOf } from "./officePalette";
+import { CHARACTERS, hairRecolor, shirtRecolor, useOfficeArt, type OfficeArt } from "./officeArt";
+import { paintBackgroundArt, paintSceneArt, type ArtLook } from "./officeArtCanvas";
 import { usePrefersReducedMotion } from "./reducedMotion";
 
 /** Ad etiketinin yüksekliği (sanat pikseli): monitörün üst kenarına kadar. */
@@ -36,6 +38,8 @@ const NAME_ART_H = 10;
 /** Durum çipi + alt görev satırının başladığı yer (hücrenin tepesinden, sanat pikseli). */
 const FOOT_ART_Y = 50;
 const NPC_LEAD = "__office-lead__";
+/** Paket karelerinin saati (bekleme/telefon animasyonu ~6 fps). */
+const ART_FRAME_MS = 150;
 
 interface Beam {
   id: number;
@@ -50,6 +54,22 @@ function lookOf(id: string, color: TerminalPane["color"]): Look {
   const [pants, pantsShade] = PANTS[a.pants];
   const [shirt, shirtShade] = SHIRT[color ?? "gray"];
   return { style: a.style, slots: { hair, hairShade, skin, skinShade, pants, pantsShade, shirt, shirtShade } };
+}
+
+/** Kredi: kullanılan paketler (özel ad, çevrilmez). */
+function artCredit(art: OfficeArt): string {
+  return [
+    "LimeZu (Modern Interiors)",
+    ...(art.rubber ? ["Rubber Studio (Modern Office)"] : []),
+    ...(art.pixelLife ? ["Christian Perich (Pixel Life)"] : [])
+  ].join(", ");
+}
+
+/** Paketle çizimde: kimlikten karakter + saç çeşidi, gömlek = bölme rengi. */
+function artLookOf(id: string, color: TerminalPane["color"]): ArtLook {
+  const a = appearanceOf(id);
+  const character = CHARACTERS[a.style % CHARACTERS.length];
+  return { character, recolor: { ...shirtRecolor(character, color ?? "gray"), ...hairRecolor(character, a.hair) } };
 }
 
 /** Alanın ölçüsü (ResizeObserver); yoksa 0 — plan en küçük ölçeği seçer. */
@@ -96,6 +116,8 @@ interface LoopState {
   beams: Beam[];
   reduced: boolean;
   live: boolean;
+  art: OfficeArt | null;
+  artLooks: Record<string, ArtLook>;
 }
 
 export default function OfficeView({
@@ -170,6 +192,9 @@ export default function OfficeView({
   if (npcLead) inputs.push({ id: NPC_LEAD, pose: "typing", motion: false, home: plan.lead.seat, leader: true });
   const looks: Record<string, Look> = Object.fromEntries(agents.map((p) => [p.id, lookOf(p.id, p.color)]));
   looks[NPC_LEAD] = lookOf("lider", "gray");
+  const art = useOfficeArt();
+  const artLooks: Record<string, ArtLook> = Object.fromEntries(agents.map((p) => [p.id, artLookOf(p.id, p.color)]));
+  artLooks[NPC_LEAD] = { character: "Bob", recolor: {} };
 
   const animated = live && !reduced && (shownBeams.length > 0 || inputs.some((i) => (i.pose === "typing" && i.motion) || i.pose === "resting"));
 
@@ -182,13 +207,15 @@ export default function OfficeView({
     leaderId: leaderId ?? (npcLead ? NPC_LEAD : null),
     beams: shownBeams,
     reduced,
-    live
+    live,
+    art,
+    artLooks
   };
 
   const inputsKey = inputs.map((i) => `${i.id}:${i.pose}:${i.motion}:${i.home.x},${i.home.y}`).join("|");
   const looksKey = agents.map((p) => `${p.id}:${p.color ?? ""}`).join("|");
   const world = useRef<{ plan: OfficePlan; world: World | null } | null>(null);
-  const background = useRef<{ plan: OfficePlan; image: HTMLCanvasElement | null } | null>(null);
+  const background = useRef<{ plan: OfficePlan; art: OfficeArt | null; image: HTMLCanvasElement | null } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -216,15 +243,17 @@ export default function OfficeView({
         canvas.height = height;
         resized = true;
       }
-      if (background.current?.plan !== p) {
+      if (background.current?.plan !== p || background.current.art !== s.art) {
         const image = typeof document !== "undefined" ? document.createElement("canvas") : null;
         const bctx = safeContext(image);
         if (image && bctx) {
           image.width = artW;
           image.height = artH;
-          paintBackground(bctx, p);
+          if (s.art) paintBackgroundArt(bctx, p, s.art);
+          else paintBackground(bctx, p);
         }
-        background.current = { plan: p, image: image && bctx ? image : null };
+        background.current = { plan: p, art: s.art, image: image && bctx ? image : null };
+        lastSig = "";
       }
       if (world.current?.plan !== p) world.current = { plan: p, world: null };
       const w = stepWorld(world.current.world, p, s.inputs, time, dt, s.reduced);
@@ -250,13 +279,23 @@ export default function OfficeView({
       }
       const talk = leadView && talking(s.beams.map((b) => b.start), time) ? headPoint(leadView) : null;
       const scene: Scene = {
-        actors: w.actors.map((a) => ({ id: a.id, view: views.get(a.id)!, look: s.looks[a.id] ?? lookOf(a.id, "gray") })),
+        actors: w.actors.map((a) => ({
+          id: a.id,
+          view: views.get(a.id)!,
+          look: s.looks[a.id] ?? lookOf(a.id, "gray"),
+          art: s.artLooks[a.id] ?? artLookOf(a.id, "gray")
+        })),
         desks,
         beams: sceneBeams,
         talk,
-        tick: Math.floor(time / FRAME_MS)
+        tick: Math.floor(time / FRAME_MS),
+        time,
+        still: s.reduced
       };
+      // Paketle kişiler bekleme/yürüme karelerinde kıpırdıyor (~6 fps); hareketi azaltta durağan.
+      const artClock = s.art && !s.reduced ? Math.floor(time / ART_FRAME_MS) : 0;
       const sig = [
+        artClock,
         ...scene.actors.map((a) => `${a.id}${Math.round(a.view.px)},${Math.round(a.view.py)}${a.view.pose}${a.view.dir}${a.view.mark}${a.view.dim}`),
         ...desks.map((d) => `${d.screen}${d.flicker ? scene.tick % 4 : ""}`),
         ...sceneBeams.map((b) => `${b.head.toFixed(2)}${b.alpha.toFixed(2)}`),
@@ -264,16 +303,17 @@ export default function OfficeView({
       ].join("|");
       if (sig !== lastSig || resized) {
         lastSig = sig;
-        paintScene(ctx, width / artW, background.current.image, p, scene);
+        if (s.art) paintSceneArt(ctx, width / artW, background.current.image, p, scene, s.art);
+        else paintScene(ctx, width / artW, background.current.image, p, scene);
       }
-      const busy = worldBusy(w, s.inputs, time, s.reduced) || sceneBeams.length > 0 || !!talk;
+      const busy = worldBusy(w, s.inputs, time, s.reduced) || sceneBeams.length > 0 || !!talk || (!!s.art && w.actors.length > 0);
       if (s.live && !s.reduced && busy && typeof requestAnimationFrame === "function") raf = requestAnimationFrame(frame);
     };
     frame();
     return () => {
       if (raf && typeof cancelAnimationFrame === "function") cancelAnimationFrame(raf);
     };
-  }, [plan, inputsKey, looksKey, shownBeams, reduced, live, empty, npcLead]);
+  }, [plan, inputsKey, looksKey, shownBeams, reduced, live, empty, npcLead, art]);
 
   const open = (paneId: string) => {
     // revealPane görünümü kendisi değiştiriyor (terminalStore).
@@ -323,10 +363,20 @@ export default function OfficeView({
           </div>
         </div>
       )}
-      {shells > 0 && (
-        <p data-office-shells="" className="pointer-events-none absolute bottom-2 right-3 font-mono text-2xs tabular-nums text-slate-500">
-          {t("office.shellCount", { count: shells })}
-        </p>
+      {(shells > 0 || (art && !empty)) && (
+        <div className="pointer-events-none absolute bottom-1.5 right-3 flex flex-col items-end gap-0.5">
+          {shells > 0 && (
+            <p data-office-shells="" className="font-mono text-2xs tabular-nums text-slate-500">
+              {t("office.shellCount", { count: shells })}
+            </p>
+          )}
+          {/* Paket lisansı: yalnız paket yüklüyken, kaynağıyla. */}
+          {art && !empty && (
+            <p data-office-credit="" className="text-2xs text-slate-500">
+              {t("office.credit", { who: artCredit(art) })}
+            </p>
+          )}
+        </div>
       )}
     </section>
   );

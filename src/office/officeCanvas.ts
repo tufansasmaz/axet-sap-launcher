@@ -25,6 +25,8 @@ export interface SceneActor {
   id: string;
   view: ActorView;
   look: Look;
+  /** Paketle çizimde karakter ve boyası (paket yoksa yok). */
+  art?: { character: "Adam" | "Alex" | "Amelia" | "Bob"; recolor: Record<string, string> };
 }
 
 export interface SceneDesk {
@@ -47,6 +49,10 @@ export interface Scene {
   /** Konuşma balonunun dayandığı baş noktası (lider); yoksa null. */
   talk: { x: number; y: number } | null;
   tick: number;
+  /** Duvar saati (ms): paket karelerinin saati. */
+  time?: number;
+  /** Hareketi azalt: kareler durağan. */
+  still?: boolean;
 }
 
 /** Bir kişinin baş noktası (ışın ucu, balon). */
@@ -61,12 +67,12 @@ export function cellBox(cell: { x: number; y: number }, scale: number) {
 
 // ---------------------------------------------------------------- yardımcılar
 
-function rect(ctx: Ctx, key: PaletteKey, x: number, y: number, w: number, h: number) {
+export function rect(ctx: Ctx, key: PaletteKey, x: number, y: number, w: number, h: number) {
   ctx.fillStyle = PALETTE[key];
   ctx.fillRect(x, y, w, h);
 }
 
-function alphaRect(ctx: Ctx, key: PaletteKey, alpha: number, x: number, y: number, w: number, h: number) {
+export function alphaRect(ctx: Ctx, key: PaletteKey, alpha: number, x: number, y: number, w: number, h: number) {
   ctx.globalAlpha = alpha;
   rect(ctx, key, x, y, w, h);
   ctx.globalAlpha = 1;
@@ -129,7 +135,7 @@ export function safeContext(canvas: HTMLCanvasElement | null): CanvasRenderingCo
 
 // ---------------------------------------------------------------- zemin
 
-function floorTile(ctx: Ctx, kind: FloorKind, tx: number, ty: number) {
+export function floorTile(ctx: Ctx, kind: FloorKind, tx: number, ty: number) {
   const x = tx * TILE;
   const y = ty * TILE;
   switch (kind) {
@@ -166,7 +172,7 @@ function floorTile(ctx: Ctx, kind: FloorKind, tx: number, ty: number) {
   }
 }
 
-function floorOf(plan: OfficePlan, tx: number, ty: number): FloorKind {
+export function floorOf(plan: OfficePlan, tx: number, ty: number): FloorKind {
   for (const [dx, dy] of [
     [0, 1],
     [1, 0],
@@ -179,11 +185,11 @@ function floorOf(plan: OfficePlan, tx: number, ty: number): FloorKind {
   return "wood";
 }
 
-const isWall = (plan: OfficePlan, x: number, y: number) => {
+export const isWall = (plan: OfficePlan, x: number, y: number) => {
   const t = plan.tiles[y]?.[x];
   return t === undefined || t === "wall";
 };
-const isOpen = (plan: OfficePlan, x: number, y: number) => {
+export const isOpen = (plan: OfficePlan, x: number, y: number) => {
   const t = plan.tiles[y]?.[x];
   return t !== undefined && t !== "wall";
 };
@@ -191,19 +197,15 @@ const isOpen = (plan: OfficePlan, x: number, y: number) => {
 function wallTile(ctx: Ctx, plan: OfficePlan, tx: number, ty: number) {
   const x = tx * TILE;
   const y = ty * TILE;
-  // Dikey duvardaki kapının üstünde ön yüz yok: kapı yandan açılıyor.
-  const below = plan.tiles[ty + 1]?.[tx];
-  const faceBelow = isOpen(plan, tx, ty + 1) && !(below === "door" && isOpen(plan, tx - 1, ty + 1));
-  const wallAbove = isWall(plan, tx, ty - 1);
-  if (faceBelow) {
-    // Ön yüz: üstü duvarsa karonun tamamı yüz, değilse önce ince tepe.
-    const capH = wallAbove ? 0 : 5;
-    if (capH) {
-      rect(ctx, "wallCap", x, y, TILE, capH);
-      rect(ctx, "wallCapEdge", x, y + capH - 1, TILE, 1);
-    }
-    rect(ctx, "wallFace", x, y + capH, TILE, TILE - capH);
-    rect(ctx, "wallFaceLight", x, y + capH, TILE, 1);
+  // Ön yüz iki karo: üst yarıda ışık çizgisi, alt yarıda süpürgelik.
+  const face = plan.faces[ty]?.[tx];
+  if (face === "upper") {
+    rect(ctx, "wallFace", x, y, TILE, TILE);
+    rect(ctx, "wallFaceLight", x, y, TILE, 2);
+    return;
+  }
+  if (face === "lower") {
+    rect(ctx, "wallFace", x, y, TILE, TILE);
     rect(ctx, "wallFaceDark", x, y + TILE - 5, TILE, 1);
     rect(ctx, "baseboard", x, y + TILE - 3, TILE, 3);
     return;
@@ -212,6 +214,7 @@ function wallTile(ctx: Ctx, plan: OfficePlan, tx: number, ty: number) {
   if (isOpen(plan, tx - 1, ty)) rect(ctx, "wallCapEdge", x, y, 1, TILE);
   if (isOpen(plan, tx + 1, ty)) rect(ctx, "wallCapEdge", x + TILE - 1, y, 1, TILE);
   if (isOpen(plan, tx, ty - 1)) rect(ctx, "wallCapEdge", x, y, TILE, 1);
+  if (isOpen(plan, tx, ty + 1) || plan.faces[ty + 1]?.[tx]) rect(ctx, "wallCapEdge", x, y + TILE - 1, TILE, 1);
 }
 
 function glassTile(ctx: Ctx, plan: OfficePlan, tx: number, ty: number) {
@@ -230,7 +233,7 @@ function glassTile(ctx: Ctx, plan: OfficePlan, tx: number, ty: number) {
   if (plan.tiles[ty][tx + 1] !== "glass") rect(ctx, "glassFrame", x + TILE - 2, y, 2, TILE);
 }
 
-function doorTile(ctx: Ctx, plan: OfficePlan, tx: number, ty: number) {
+export function doorTile(ctx: Ctx, plan: OfficePlan, tx: number, ty: number) {
   const x = tx * TILE;
   const y = ty * TILE;
   floorTile(ctx, floorOf(plan, tx, ty), tx, ty);
@@ -253,7 +256,7 @@ function doorTile(ctx: Ctx, plan: OfficePlan, tx: number, ty: number) {
 }
 
 /** Duvarların zemine düşen yumuşak gölgesi. */
-function wallShadows(ctx: Ctx, plan: OfficePlan) {
+export function wallShadows(ctx: Ctx, plan: OfficePlan) {
   ctx.globalAlpha = 0.16;
   ctx.fillStyle = PALETTE.shadow;
   plan.tiles.forEach((row, ty) =>
@@ -268,7 +271,7 @@ function wallShadows(ctx: Ctx, plan: OfficePlan) {
 
 // ---------------------------------------------------------------- eşyalar
 
-function softShadow(ctx: Ctx, x: number, y: number, w: number, h = 3) {
+export function softShadow(ctx: Ctx, x: number, y: number, w: number, h = 3) {
   ctx.globalAlpha = 0.22;
   ctx.fillStyle = PALETTE.shadow;
   ctx.fillRect(x + 1, y, w - 2, h);
@@ -276,7 +279,7 @@ function softShadow(ctx: Ctx, x: number, y: number, w: number, h = 3) {
   ctx.globalAlpha = 1;
 }
 
-function drawProp(ctx: Ctx, plan: OfficePlan, p: Prop) {
+export function drawProp(ctx: Ctx, plan: OfficePlan, p: Prop) {
   const x = p.x * TILE;
   const y = p.y * TILE;
   const w = p.w * TILE;
@@ -324,6 +327,16 @@ function drawProp(ctx: Ctx, plan: OfficePlan, p: Prop) {
       rect(ctx, "pin", x + 23, y + 9, 1, 1);
       return;
     }
+    case "painting":
+      rect(ctx, "doorFrame", x + 4, y + 3, w - 8, 11);
+      rect(ctx, (p.variant ?? 0) % 2 ? "sky" : "rugRedLight", x + 5, y + 4, w - 10, 9);
+      rect(ctx, "leafLight", x + 5, y + 10, w - 10, 3);
+      return;
+    case "extinguisher":
+      rect(ctx, "outline", x + 5, y + 2, 6, 12);
+      rect(ctx, "led", x + 6, y + 3, 4, 10);
+      rect(ctx, "machine", x + 6, y, 3, 3);
+      return;
     case "clock":
       drawSprite(ctx, SPRITES.clock, x + 3, plan.tiles[p.y - 1]?.[p.x] === "wall" ? y + 3 : y + 5);
       return;
@@ -500,7 +513,7 @@ export function paintBackground(ctx: Ctx, plan: OfficePlan) {
 
 // ---------------------------------------------------------------- hareketliler
 
-function monitor(ctx: Ctx, d: SceneDesk, tick: number) {
+export function monitor(ctx: Ctx, d: SceneDesk, tick: number) {
   const x = d.desk.x * TILE + 17;
   const y = (d.desk.y + 1) * TILE - 6;
   const over =
@@ -530,11 +543,11 @@ function leadDesk(ctx: Ctx, plan: OfficePlan) {
   drawSprite(ctx, SPRITES.mug, x + w - 9, y - 3);
 }
 
-function bubble(ctx: Ctx, sprite: Sprite, head: { x: number; y: number }) {
+export function bubble(ctx: Ctx, sprite: Sprite, head: { x: number; y: number }) {
   drawSprite(ctx, sprite, Math.round(head.x + 2), Math.round(head.y - sprite.h - 2));
 }
 
-function drawBeam(ctx: Ctx, beam: SceneBeam) {
+export function drawBeam(ctx: Ctx, beam: SceneBeam) {
   const pixels = linePixels(beam.from.x, beam.from.y, beam.to.x, beam.to.y);
   const shown = pixels.slice(0, Math.max(1, Math.ceil(pixels.length * beam.head)));
   ctx.globalAlpha = 0.3 * beam.alpha;
