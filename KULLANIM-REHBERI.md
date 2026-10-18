@@ -589,6 +589,9 @@ gönder** ile tek adımda bir ajana verebilirsin.
 - **Geri**, **İleri**, **Yenile/Durdur** ve **Sistem tarayıcısında aç** üst
   satırdadır. **Ctrl+L** adres alanına, **Alt+Sol/Sağ** geri/ileri götürür
   (sayfanın içindeyken de).
+- Adresteki erişim anahtarı, giriş kodu, parola ve imza parametreleri
+  (`access_token`, `code`, `sap-password` gibi) ne saklanır ne ajana gider;
+  Fiori rotası (`#SalesOrder-display?…`) korunur.
 - Alan başına son açılan adres saklanır; görünüm açılınca kendiliğinden
   yüklenmez, boş sayfadaki düğmeyle tek tıkla açarsın. Başka görünüme geçip
   dönünce sayfa ve geri/ileri geçmişi yerinde durur; uygulama kapanınca

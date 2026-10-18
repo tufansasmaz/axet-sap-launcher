@@ -115,6 +115,28 @@ describe("readBrowserUrl (spec §2, §5)", () => {
   });
 });
 
+describe("hassas parametreler (ertelenenler)", () => {
+  it("son adres: sorgudaki ve # sonrasındaki anahtar/kod/parola parametreleri atılıyor, Fiori rotası kalıyor", () => {
+    expect(readBrowserUrl("https://idp.example.com/cb?code=abc&lang=tr")).toBe("https://idp.example.com/cb?lang=tr");
+    expect(readBrowserUrl("https://app.example.com/#access_token=eyJ&token_type=bearer&expires_in=3600")).toBe(
+      "https://app.example.com/#token_type=bearer&expires_in=3600"
+    );
+    expect(readBrowserUrl("https://app.example.com/#id_token=x")).toBe("https://app.example.com/");
+    expect(readBrowserUrl("https://sap.example.com/ui#SalesOrder-display?SalesOrder=1&sap-password=gizli")).toBe(
+      "https://sap.example.com/ui#SalesOrder-display?SalesOrder=1"
+    );
+    expect(readBrowserUrl("https://sap.example.com/ui#Shell-home")).toBe("https://sap.example.com/ui#Shell-home");
+    expect(readBrowserUrl("https://x.com/a?API_KEY=1&Signature=2&q=sap")).toBe("https://x.com/a?q=sap");
+  });
+
+  it("ajana giden istemde de hassas parametreler yok", () => {
+    const text = buildBrowserPrompt({ title: "Giriş", url: "https://app.example.com/cb?code=abc#access_token=t", selection: "", screenshot: null });
+    expect(text).not.toContain("abc");
+    expect(text).not.toContain("access_token");
+    expect(text).toContain("https://app.example.com/cb");
+  });
+});
+
 describe("cleanText", () => {
   it("denetim karakterleri ve satir ayiricilari bosluga, bosluklar teklesiyor, kod noktasiyla kirpiliyor", () => {
     expect(cleanText("  bir\n\tiki\u0007\u00fc\u00e7\u0085d\u00f6rt\u2028be\u015f\u2029alt\u0131  ", 100)).toBe("bir iki \u00fc\u00e7 d\u00f6rt be\u015f alt\u0131");

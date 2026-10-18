@@ -132,15 +132,63 @@ export function readBrowserUrl(raw: unknown): string | undefined {
   if (typeof raw !== "string" || raw.length > BROWSER_URL_MAX) return undefined;
   const url = parseWeb(raw);
   if (!url || url.username || url.password) return undefined;
-  return raw;
+  return withoutSecrets(raw, url);
+}
+
+// Erişim anahtarı, giriş kodu, parola, imza taşıyan parametreler: son adrese ve
+// ajana giden isteme yazılmıyor (OAuth dönüşü `?code=`, `#access_token=` gibi).
+// Fiori rotası (`#Nesne-eylem?Alan=1`) korunur, yalnız hassas parametre atılır.
+const SECRET_PARAM =
+  /^(access_token|id_token|refresh_token|token|code|password|passwd|pwd|secret|client_secret|sig|signature|samlrequest|samlresponse|assertion|api[_-]?key|sap-password|mysapsso2)$/i;
+
+function dropSecretParams(query: string): { query: string; changed: boolean } {
+  const parts = query.split("&");
+  const kept = parts.filter((part) => {
+    const key = part.split("=")[0];
+    let name = key;
+    try {
+      name = decodeURIComponent(key);
+    } catch {
+      // bozuk kodlama: adı olduğu gibi denetle
+    }
+    return !SECRET_PARAM.test(name);
+  });
+  return { query: kept.join("&"), changed: kept.length !== parts.length };
+}
+
+function withoutSecrets(raw: string, url: URL): string {
+  let changed = false;
+  if (url.search) {
+    const q = dropSecretParams(url.search.slice(1));
+    if (q.changed) {
+      url.search = q.query ? `?${q.query}` : "";
+      changed = true;
+    }
+  }
+  if (url.hash) {
+    const hash = url.hash.slice(1);
+    const at = hash.indexOf("?");
+    // `#a=1&b=2` (parametre listesi) ya da `#Rota?a=1` (Fiori).
+    const route = at >= 0 ? hash.slice(0, at) : hash.includes("=") ? "" : hash;
+    const params = at >= 0 ? hash.slice(at + 1) : hash.includes("=") ? hash : "";
+    if (params) {
+      const q = dropSecretParams(params);
+      if (q.changed) {
+        const next = q.query ? (route ? `${route}?${q.query}` : q.query) : route;
+        url.hash = next ? `#${next}` : "";
+        changed = true;
+      }
+    }
+  }
+  return changed ? url.href : raw;
 }
 
 function withoutCredentials(raw: string): string {
   const url = parseWeb(raw);
-  if (!url || (!url.username && !url.password)) return raw;
+  if (!url) return raw;
   url.username = "";
   url.password = "";
-  return url.href;
+  return withoutSecrets(url.href, url);
 }
 
 // C0, DEL, C1 ve Unicode satir/paragraf ayiricilari: sendPrompt bunlari reddediyor.
