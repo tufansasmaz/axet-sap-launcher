@@ -16,6 +16,7 @@
 import { ASK_USER_TOOL, parseAskUser } from "./axetToolEvents";
 import { matchKey, promptStartsWith, type AxetDbMessage, type AxetPart } from "./axetSessionDb";
 import type { AgentQuestion, AgentState, AgentStatus } from "../shared/agentTypes";
+import { replySnippet } from "./agentReply";
 import type { AgentReader, GenericReader } from "./agentGenericReader";
 
 export interface AxetDbPort {
@@ -87,7 +88,20 @@ export interface DerivedAxetState {
   state: AgentState;
   question?: AgentQuestion;
   detail?: string;
+  reply?: string;
   lastActivitySec: number | null;
+}
+
+/** Son kullanıcı mesajından sonraki, metni olan son asistan mesajı (özet; spec ajanlar-ux §3). */
+function lastReply(messages: AxetDbMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message.role === "user") break;
+    if (message.role !== "assistant") continue;
+    const snippet = replySnippet(textOf(message));
+    if (snippet) return snippet;
+  }
+  return "";
 }
 
 function textOf(message: AxetDbMessage): string {
@@ -130,7 +144,8 @@ export function deriveAxetState(messages: AxetDbMessage[]): DerivedAxetState {
   const reason = finish.data?.reason ?? "";
   if (reason === "error") return { state: "error", detail: "error", lastActivitySec };
   if (reason === "tool_use") return { state: "running", lastActivitySec };
-  return { state: "idle", ...(reason ? { detail: reason } : {}), lastActivitySec };
+  const reply = lastReply(messages);
+  return { state: "idle", ...(reason ? { detail: reason } : {}), ...(reply ? { reply } : {}), lastActivitySec };
 }
 
 export interface AxetReaderOptions {
@@ -221,7 +236,8 @@ export class AxetReader implements AgentReader {
         source: "exact",
         lastActivity: d.lastActivitySec === null ? null : d.lastActivitySec * 1000,
         ...(d.question ? { question: d.question } : {}),
-        ...(d.detail ? { detail: d.detail } : {})
+        ...(d.detail ? { detail: d.detail } : {}),
+        ...(d.reply ? { reply: d.reply } : {})
       };
     }
     // İlk istemden önce: boşta (motorun kaydı henüz okunmadı → tahmini).

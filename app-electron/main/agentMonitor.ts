@@ -98,7 +98,7 @@ const SOURCE_LOG = { exact: "kesin", estimated: "tahmini" } as const;
 
 /** Çalışırken son etkinlik sürekli değişiyor; o yüzden karşılaştırmaya girmiyor. */
 function sameStatus(a: AgentStatus, b: AgentStatus): boolean {
-  if (a.state !== b.state || a.source !== b.source || a.detail !== b.detail) return false;
+  if (a.state !== b.state || a.source !== b.source || a.detail !== b.detail || a.reply !== b.reply) return false;
   if (a.question?.callId !== b.question?.callId) return false;
   return a.state === "running" || a.lastActivity === b.lastActivity;
 }

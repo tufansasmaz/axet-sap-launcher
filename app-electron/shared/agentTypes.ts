@@ -93,6 +93,11 @@ export interface AgentStatus {
   question?: AgentQuestion;
   /** Kısa sebep (`end_turn`, `error`); içerik değil. */
   detail?: string;
+  /**
+   * Yalnız kesin kaynakta, boşta: ajanın son cevabının gizlisi süzülmüş özeti
+   * (≤ 600 karakter; spec 2026-10-18 ajanlar-ux §3). Bellek içi, diske yazılmaz.
+   */
+  reply?: string;
 }
 
 export interface AgentStatusEvent {

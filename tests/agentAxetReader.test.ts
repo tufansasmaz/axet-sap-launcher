@@ -91,9 +91,27 @@ describe("deriveAxetState", () => {
     expect(deriveAxetState([msg("S", "assistant", [text("bitti"), finish("end_turn")], T0 + 5)])).toEqual({
       state: "idle",
       detail: "end_turn",
+      // Ajanlar-ux §3: boşta durumu son cevabın özetini de taşıyor.
+      reply: "bitti",
       lastActivitySec: T0 + 5
     });
     expect(deriveAxetState([msg("S", "assistant", [finish("error")], T0)])).toMatchObject({ state: "error", detail: "error" });
+  });
+
+  it("son cevap: son kullanıcı mesajından sonraki metinli asistan mesajı; gizli süzülüyor; eskisi taşınmıyor", () => {
+    const d = deriveAxetState([
+      msg("S", "user", [text("eski iş")], T0),
+      msg("S", "assistant", [text("eski cevap"), finish("end_turn")], T0 + 1),
+      msg("S", "user", [text("yeni iş")], T0 + 2),
+      msg("S", "assistant", [text("Rapor hazır. password=Gizli12345"), finish("tool_use")], T0 + 3),
+      msg("S", "tool", [result("c9")], T0 + 4),
+      msg("S", "assistant", [finish("end_turn")], T0 + 5)
+    ]);
+    expect(d.state).toBe("idle");
+    expect(d.reply).toContain("Rapor hazır.");
+    expect(d.reply).not.toContain("Gizli12345");
+    const none = deriveAxetState([msg("S", "user", [text("iş")], T0), msg("S", "assistant", [finish("end_turn")], T0 + 1)]);
+    expect(none.reply).toBeUndefined();
   });
 
   it("sonucu gelmemiş tamamlanmış ask_user soru soruyor; seçenekler ve zaman", () => {
@@ -139,7 +157,7 @@ describe("AxetReader — eşleme", () => {
     reader.poll();
     expect(reader.binding()).toBe("S1");
     expect(onMatch).toHaveBeenCalledWith("istem");
-    expect(reader.status()).toEqual({ state: "idle", source: "exact", lastActivity: (T0 + 12) * 1000, detail: "end_turn" });
+    expect(reader.status()).toEqual({ state: "idle", source: "exact", lastActivity: (T0 + 12) * 1000, detail: "end_turn", reply: "tamam" });
   });
 
   it("aynı klasörde iki ajan: her biri kendi oturumuna", () => {
