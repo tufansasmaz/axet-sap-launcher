@@ -3,7 +3,7 @@
 // değişmiyorsa AYNI durum nesnesi dönüyor ki sık gelen çıktı olayları
 // yeniden çizim tetiklemesin.
 
-import type { SavedTerminalWorkspace } from "../../app-electron/shared/types";
+import type { SavedTerminalWorkspace, WorkspaceView } from "../../app-electron/shared/types";
 import {
   MAX_TERMINAL_PANES,
   MAX_TERMINAL_WORKSPACES,
@@ -456,7 +456,7 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     }
     case "setWorkspaceView": {
       const workspace = state.workspaces.find((w) => w.id === action.id);
-      // "panes" ve bilinmeyen değer: kayıtta görünüm yok (spec 2026-10-18 ofis-gorunumu §2).
+      // Bilinmeyen değer: kayıtta görünüm yok, yani varsayılan Ofis (ajanlar-yeniden §2).
       const view = readWorkspaceView(action.view);
       if (!workspace || workspace.view === view) return state;
       const next = { ...workspace };
@@ -503,6 +503,11 @@ export function nextToStart(state: TerminalState, limit = SPAWN_CONCURRENCY, ext
 }
 
 /** Kapatınca ölecek süreç sayısı (onay metni için). */
+/** Alanın görünümü; kaydı yoksa Ofis (spec 2026-10-18 ajanlar-yeniden §2). */
+export function workspaceViewOf(workspace: Pick<TerminalWorkspace, "view">): WorkspaceView {
+  return workspace.view ?? "office";
+}
+
 export function liveCount(workspace: TerminalWorkspace): number {
   return workspace.panes.filter((p) => p.run.state === "running" || p.run.state === "starting").length;
 }

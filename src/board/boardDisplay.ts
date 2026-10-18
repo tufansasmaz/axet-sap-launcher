@@ -151,3 +151,37 @@ export const FAILURE_KEY: Record<BoardFailure, TranslationKey> = {
   hasVerify: "board.failHasVerify",
   writeFailed: "board.failWriteFailed"
 };
+
+export type ReportOutcome = "verified" | "manual" | "done" | "failed";
+
+export interface ReportRow {
+  task: BoardTask;
+  subtask: Subtask;
+  outcome: ReportOutcome;
+  /** Doğrulama anı; yoksa son gönderim (ms), o da yoksa 0. */
+  at: number;
+  /** Komutla doğrulandıysa kaç komut geçti. */
+  commands: { passed: number; total: number } | null;
+}
+
+/**
+ * Raporlar (spec 2026-10-18 ajanlar-yeniden §2b): biten, doğrulanan ve
+ * başarısız alt görevler; en yeni önce. Yeni veri yok, panodan.
+ */
+export function reportRows(board: Board | undefined): ReportRow[] {
+  const rows: ReportRow[] = [];
+  for (const task of board?.tasks ?? []) {
+    for (const subtask of task.subtasks) {
+      if (subtask.state !== "done" && subtask.state !== "failed") continue;
+      const proof = subtask.proof;
+      const outcome: ReportOutcome =
+        subtask.state === "failed" ? "failed" : proof?.kind === "commands" ? "verified" : proof?.kind === "manual" ? "manual" : "done";
+      const commands =
+        proof?.kind === "commands" && proof.commands.length
+          ? { passed: proof.commands.filter((c) => c.exitCode === 0 && !c.timedOut && !c.error).length, total: proof.commands.length }
+          : null;
+      rows.push({ task, subtask, outcome, at: proof?.at ?? subtask.dispatchedAt ?? 0, commands });
+    }
+  }
+  return rows.sort((a, b) => b.at - a.at);
+}

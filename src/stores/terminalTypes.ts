@@ -55,7 +55,7 @@ export interface TerminalWorkspace {
   root?: string;
   sap?: SavedWorkspaceSap;
   verify?: string[];
-  view?: Exclude<WorkspaceView, "panes">;
+  view?: WorkspaceView;
   browserUrl?: string;
 }
 

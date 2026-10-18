@@ -66,12 +66,12 @@ describe("indirgeyici: setWorkspaceVerify ve setWorkspaceView", () => {
     expect("verify" in cleared.workspaces[0]).toBe(false);
   });
 
-  it("görünüm: board kaydediliyor, panes kaldırıyor, bilinmeyen alan aynı durum", () => {
+  it("görünüm: board kaydediliyor, panes da kaydediliyor (varsayılan Ofis), bilinmeyen alan aynı durum", () => {
     const s = terminalReducer(ready(), { type: "setWorkspaceView", id: "w1", view: "board" });
     expect(s.workspaces[0].view).toBe("board");
     expect(toSaved(s).workspaces[0].view).toBe("board");
     expect(terminalReducer(s, { type: "setWorkspaceView", id: "w1", view: "board" })).toBe(s);
-    expect("view" in terminalReducer(s, { type: "setWorkspaceView", id: "w1", view: "panes" }).workspaces[0]).toBe(false);
+    expect(terminalReducer(s, { type: "setWorkspaceView", id: "w1", view: "panes" }).workspaces[0].view).toBe("panes");
     expect(terminalReducer(s, { type: "setWorkspaceView", id: "yok", view: "panes" })).toBe(s);
   });
 

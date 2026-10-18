@@ -77,10 +77,11 @@ export function readVerifyCommands(raw: unknown): string[] {
   return out;
 }
 
-/** Kayıttaki görünüm (spec 2026-10-18 ofis-gorunumu §2). "panes" ve bilinmeyen değer
- * atılıyor: alan yine açılır, Bölmeler'de. İleri sürümün yazdığı değer de böyle düşer. */
-export function readWorkspaceView(raw: unknown): Exclude<WorkspaceView, "panes"> | undefined {
-  return raw === "board" || raw === "office" || raw === "changes" || raw === "browser" ? raw : undefined;
+/** Kayıttaki görünüm (spec 2026-10-18 ofis-gorunumu §2). Bilinmeyen değer atılıyor:
+ * alan yine açılır, varsayılan görünümde (Ofis; ajanlar-yeniden §2). İleri sürümün
+ * yazdığı değer de böyle düşer. "panes" artık kayda giriyor: varsayılan o değil. */
+export function readWorkspaceView(raw: unknown): WorkspaceView | undefined {
+  return raw === "panes" || raw === "board" || raw === "office" || raw === "changes" || raw === "browser" ? raw : undefined;
 }
 
 /** Pano için alanın klasörü (kök, yoksa yedek) ve doğrulama komutları; alan yoksa null. */

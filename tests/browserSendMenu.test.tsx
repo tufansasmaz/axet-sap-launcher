@@ -196,7 +196,7 @@ describe("g\u00f6nderilemeyince (spec \u00a73, \u00a76)", () => {
     setup();
     const cases: [string, string][] = [
       ["busy", "Ajan \u015fu an me\u015fgul; i\u015fi bitince yeniden g\u00f6nder."],
-      ["asking", "Ajan bir soru bekliyor; \u00f6nce Kararlar'dan cevapla."],
+      ["asking", "Ajan bir soru bekliyor; önce Akış'taki soruyu cevapla."],
       ["typing", "Ajan\u0131n terminalinde g\u00f6nderilmemi\u015f bir sat\u0131r var; \u00f6nce onu g\u00f6nder ya da sil."],
       ["notRunning", "Ajan \u00e7al\u0131\u015fm\u0131yor; \u00f6nce ajan\u0131 ba\u015flat."],
       ["notSubmitted", "Metin ajan\u0131n sat\u0131r\u0131na yaz\u0131ld\u0131 ama g\u00f6nderilmedi; kontrol edip Enter'a sen bas."]

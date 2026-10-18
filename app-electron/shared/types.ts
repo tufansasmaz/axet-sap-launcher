@@ -355,7 +355,7 @@ export interface SavedTerminalWorkspace {
   /** Görev panosunun doğrulama komutları; satır başına bir (spec 2026-10-18 gorev-panosu §2). */
   verify?: string[];
   /** Ajanlar ekranında son seçilen görünüm; yoksa bölmeler (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2). */
-  view?: Exclude<WorkspaceView, "panes">;
+  view?: WorkspaceView;
   /** Tarayıcının son açılan adresi; yalnız http/https, ≤ 2048, kimlik bilgisi yok (spec 2026-10-18 tarayici §2). */
   browserUrl?: string;
 }

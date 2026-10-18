@@ -555,7 +555,7 @@ describe("ajan bölmeleri (spec 2026-10-17 ajan-alani §5)", () => {
     act(() => store.commands.setWorkspaceView(wsId, "board"));
     expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBe("board");
     act(() => store.commands.revealPane(paneId));
-    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBe("panes");
   });
 
   it("revealPane: Ofis görünümündeyken bölmeyi açıyor — görünüm Bölmeler'e dönüyor (kontrolcü kararı 2026-10-18)", async () => {
@@ -566,17 +566,17 @@ describe("ajan bölmeleri (spec 2026-10-17 ajan-alani §5)", () => {
     act(() => store.commands.setWorkspaceView(wsId, "office"));
     expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBe("office");
     act(() => store.commands.revealPane(paneId));
-    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBe("panes");
   });
 
-  it("revealPane: Bölmeler görünümündeyken görünüm değişmiyor", async () => {
+  it("revealPane: kaydı olmayan alan (varsayılan Ofis) Bölmeler'e dönüyor; Bölmeler'deyken değişmiyor", async () => {
     await ready();
     act(() => store.commands.addPane("cmd", "C:\\a"));
     const paneId = panes()[0].id;
     const wsId = store.state.activeWorkspaceId!;
     expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
     act(() => store.commands.revealPane(paneId));
-    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBe("panes");
   });
 
   it("alan kökü kaydediliyor ve yeni ajanın varsayılan klasörü oluyor", async () => {

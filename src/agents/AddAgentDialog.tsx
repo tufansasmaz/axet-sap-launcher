@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { FolderOpen } from "lucide-react";
 import { useT } from "../i18n";
-import type { TranslationKey } from "../i18n/tr";
+import { ROLE_PRESETS } from "./rolePresets";
 import { AGENT_ENGINES, isSafeArg } from "../../app-electron/shared/agentEngines";
 import {
   AGENT_COMMAND_MAX,
@@ -29,7 +29,7 @@ import { ENGINE_LABEL } from "./agentLabels";
 // bayrağı bilinen motorlarda. Kurulu olmayan motor seçilebiliyor; kartta
 // "kurulu değil" yazıyor ve bölme açılmıyor.
 
-export const ROLE_PRESETS: TranslationKey[] = ["agents.roleDeveloper", "agents.roleAnalyst", "agents.roleTest", "agents.roleReview"];
+export { ROLE_PRESETS };
 
 /** Kurulu motorlar önce; kendi aralarında tanım sırası. Bilgi yoksa hepsi kurulu sayılıyor. */
 export function orderEngines(engines: AgentEngineInfo[] | null): AgentEngineId[] {

@@ -440,7 +440,8 @@ export function TerminalStoreProvider({
         if (!found) return;
         dispatch({ type: "selectWorkspace", id: found.workspace.id });
         // Pano ya da Ofis görünümündeyken bölme gizli; Bölmeler'e çevir (kontrolcü kararı 2026-10-18).
-        if (found.workspace.view) dispatch({ type: "setWorkspaceView", id: found.workspace.id, view: "panes" });
+        // Kaydı olmayan alan Ofis'te (ajanlar-yeniden §2): o da çevriliyor.
+        if (found.workspace.view !== "panes") dispatch({ type: "setWorkspaceView", id: found.workspace.id, view: "panes" });
         if (minimizedOf(found.workspace).some((m) => m.paneId === paneId)) dispatch({ type: "restorePane", paneId });
         else dispatch({ type: "focusPane", paneId });
       },
