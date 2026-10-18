@@ -11,6 +11,7 @@ import {
   type AppOrigin
 } from "../app-electron/main/windowGuard";
 import { relaxCspForDev } from "../app-electron/shared/devCsp";
+import { BROWSER_PARTITION } from "../app-electron/shared/browserLogic";
 
 // Pencere/navigasyon korumaları (Y2). Electron'u açmadan: URL kararları saf
 // fonksiyon olarak, `web-contents-created` kurulumu sahte app/webContents ile,
@@ -120,31 +121,50 @@ class FakeContents extends EventEmitter {
     this.emit(kind, event, url);
     return event.defaultPrevented;
   }
-  attachWebview(): boolean {
+  loadURL = vi.fn(async (_url: string) => undefined);
+  // installBrowserGuestRules guest'te bunu çağırıyor (WebRTC yerel IP).
+  setWebRTCIPHandlingPolicy = vi.fn();
+  attachWebview(params: Record<string, unknown> = {}, prefs: Record<string, unknown> = {}): boolean {
     let prevented = false;
-    this.emit("will-attach-webview", { preventDefault: () => (prevented = true) }, {}, {});
+    this.emit("will-attach-webview", { preventDefault: () => (prevented = true) }, prefs, params);
     return prevented;
   }
 }
 
-function setup(origin: AppOrigin = prod) {
+function setup(origin: AppOrigin = prod, opts: { browser?: boolean } = {}) {
   const app = new EventEmitter();
   const openExternal = vi.fn().mockResolvedValue(undefined);
   const defaultSession = { getStoragePath: () => "C:\\Users\\x\\AppData\\Roaming\\NTT Studio" };
   const sandboxes = new Set<unknown>();
+  const mains = new Set<unknown>();
+  const guests = new Set<unknown>();
+  const browserLog = vi.fn();
+  const onShortcut = vi.fn();
   installWindowGuards({
     app: app as unknown as App,
     shell: { openExternal } as unknown as Shell,
     defaultSession: () => defaultSession as unknown as Session,
     origin,
-    isFlowSandbox: (contents) => sandboxes.has(contents)
+    isFlowSandbox: (contents) => sandboxes.has(contents),
+    ...(opts.browser
+      ? {
+          browser: {
+            isMainWindow: (contents: WebContents) => mains.has(contents),
+            isGuest: (contents: WebContents) => guests.has(contents),
+            log: browserLog,
+            onShortcut
+          }
+        }
+      : {})
   });
-  const create = (session: { getStoragePath: () => string | null } = defaultSession) => {
+  const create = (session: { getStoragePath: () => string | null } = defaultSession, kind: "plain" | "main" | "guest" = "plain") => {
     const contents = new FakeContents(session);
+    if (kind === "main") mains.add(contents);
+    if (kind === "guest") guests.add(contents);
     app.emit("web-contents-created", {}, contents as unknown as WebContents);
     return contents;
   };
-  return { create, openExternal, sandboxes };
+  return { create, openExternal, sandboxes, mains, browserLog, onShortcut };
 }
 
 describe("installWindowGuards", () => {
@@ -205,6 +225,74 @@ describe("installWindowGuards", () => {
       }
     });
     expect(broken.navigate("will-navigate", "https://saldirgan.example/")).toBe(true);
+  });
+});
+
+describe("installWindowGuards — yerleşik tarayıcı (spec 2026-10-18 tarayici §4)", () => {
+  const ok = { partition: BROWSER_PARTITION, src: "https://help.sap.com/" };
+  const guestSession = { getStoragePath: () => "C:\\Users\\x\\AppData\\Roaming\\NTT Studio\\Partitions\\ntt-tarayici" };
+
+  it("ana pencere yalnız bizim bölümdeki webview'ı takıyor ve ayarlarını zorluyor", () => {
+    const { create } = setup(prod, { browser: true });
+    const main = create(undefined, "main");
+    const prefs: Record<string, unknown> = { preload: "C:/x/preload.cjs", nodeIntegration: true, contextIsolation: false, sandbox: false, webSecurity: false };
+    expect(main.attachWebview(ok, prefs)).toBe(false);
+    expect("preload" in prefs).toBe(false);
+    expect(prefs).toMatchObject({ nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, allowRunningInsecureContent: false, plugins: false });
+    expect(main.attachWebview({ partition: BROWSER_PARTITION, src: "" })).toBe(false);
+    expect(main.attachWebview({ partition: "persist:saml-x", src: "https://a.com/" })).toBe(true);
+    expect(main.attachWebview({ partition: BROWSER_PARTITION, src: "file:///C:/x.html" })).toBe(true);
+    expect(main.attachWebview({ partition: BROWSER_PARTITION, src: "javascript:alert(1)" })).toBe(true);
+    expect(main.attachWebview()).toBe(true);
+    // Bölüm atlatma: webpreferences'taki başka bölüm reddediliyor.
+    expect(main.attachWebview(ok, { partition: "persist:saml-x" })).toBe(true);
+  });
+
+  it("ana pencere dışı: flow sandbox (isMainWindow yanlışlıkla true dese de), SAML, başka pencere reddediliyor", () => {
+    const { create, sandboxes, mains } = setup(prod, { browser: true });
+    const sandbox = create({ getStoragePath: () => null });
+    sandboxes.add(sandbox);
+    mains.add(sandbox);
+    expect(sandbox.attachWebview(ok)).toBe(true);
+    const saml = create({ getStoragePath: () => "C:\\Users\\x\\AppData\\Roaming\\NTT Studio\\Partitions\\saml-uuid-1" });
+    expect(saml.attachWebview(ok)).toBe(true);
+    expect(create().attachWebview(ok)).toBe(true);
+  });
+
+  it("tarayıcı bağımlılığı yoksa ana pencere de reddediyor (eski davranış)", () => {
+    const { create } = setup(prod);
+    expect(create().attachWebview(ok)).toBe(true);
+  });
+
+  it("guest: uygulamanın 'yalnız kendi sayfası' kuralı uygulanmıyor, tarayıcı kuralı uygulanıyor; bağlantı sistem tarayıcısına gitmiyor", () => {
+    const { create, openExternal, browserLog } = setup(prod, { browser: true });
+    const g = create(guestSession, "guest");
+    expect(g.navigate("will-navigate", "https://help.sap.com/docs")).toBe(false);
+    expect(g.navigate("will-navigate", "http://localhost:5173/")).toBe(false);
+    expect(g.navigate("will-navigate", "file:///C:/Users/x/evil.html")).toBe(true);
+    expect(g.navigate("will-redirect", "data:text/html,x")).toBe(true);
+    expect(g.openHandler!({ url: "https://a.com/yeni" })).toEqual({ action: "deny" });
+    expect(g.loadURL).toHaveBeenCalledWith("https://a.com/yeni");
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(g.attachWebview(ok)).toBe(true);
+    expect(JSON.stringify(browserLog.mock.calls)).not.toContain("help.sap.com");
+  });
+
+  it("guest kısayolu ana pencereye, hangi sayfadan geldiğiyle iletiliyor", () => {
+    const { create, onShortcut } = setup(prod, { browser: true });
+    const g = create(guestSession, "guest");
+    let prevented = false;
+    g.emit("before-input-event", { preventDefault: () => (prevented = true) }, { type: "keyDown", key: "l", control: true, alt: false, shift: false, meta: false });
+    expect(prevented).toBe(true);
+    expect(onShortcut).toHaveBeenCalledWith(g, "focusAddress");
+  });
+
+  it("guest değilse (sıradan pencere) eski korumalar aynen", () => {
+    const { create, openExternal } = setup(prod, { browser: true });
+    const plain = create();
+    expect(plain.navigate("will-navigate", "https://saldirgan.example/")).toBe(true);
+    expect(plain.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
+    expect(openExternal).toHaveBeenCalledWith("https://a.com/");
   });
 });
 

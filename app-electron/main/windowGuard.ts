@@ -20,6 +20,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { App, Session, Shell, WebContents } from "electron";
+import type { BrowserShortcut } from "../shared/browserLogic";
+import {
+  allowWebviewAttach,
+  hardenWebviewPreferences,
+  installBrowserGuestRules,
+  type GuestContents,
+  type WebviewAttachParams
+} from "./browserGuard";
 
 export interface AppOrigin {
   // Paketlenmiş renderer'ın klasörü (dist). Ana sayfa bunun altındaki index.html.
@@ -104,10 +112,38 @@ export interface WindowGuardDeps {
   // oradan gelen hiçbir URL sistem tarayıcısına da gitmemeli.
   isFlowSandbox: (contents: WebContents) => boolean;
   log?: (event: string, detail: Record<string, string>) => void;
+  // Yerleşik tarayıcı (spec 2026-10-18 tarayici §4). Verilmezse bütün
+  // webview'lar reddediliyor. Webview yalnız ana pencerede, yalnız
+  // persist:ntt-tarayici bölümünde; sayfasının kuralları browserGuard.ts'te.
+  browser?: {
+    isMainWindow: (contents: WebContents) => boolean;
+    isGuest: (contents: WebContents) => boolean;
+    log: (event: string, detail: Record<string, string>) => void;
+    onShortcut: (contents: WebContents, action: BrowserShortcut) => void;
+  };
 }
 
 export function installWindowGuards(deps: WindowGuardDeps): void {
   deps.app.on("web-contents-created", (_event, contents) => {
+    const browser = deps.browser;
+    // Yerleşik tarayıcının sayfası (webview, bizim bölüm): uygulamanın "yalnız
+    // kendi sayfası" kuralı ve "bağlantı sistem tarayıcısına" kuralı ona
+    // UYGULANMIYOR; yerine tarayıcı kuralı (spec 2026-10-18 tarayici §4.4).
+    // Preload'u yok, window.api hiç yok.
+    let guest = false;
+    try {
+      guest = !!browser && !deps.isFlowSandbox(contents) && browser.isGuest(contents);
+    } catch {
+      guest = false;
+    }
+    if (browser && guest) {
+      installBrowserGuestRules(contents as unknown as GuestContents, {
+        log: browser.log,
+        onShortcut: (action) => browser.onShortcut(contents, action)
+      });
+      return;
+    }
+
     // Her webContents için: yeni pencere HİÇBİR ZAMAN açılmıyor. http(s) ve
     // mailto bağlantıları sistem tarayıcısına/posta istemcisine devrediliyor;
     // böylece Node-RED'in "yeni sekmede aç"ı gibi meşru istekler de
@@ -121,7 +157,28 @@ export function installWindowGuards(deps: WindowGuardDeps): void {
       return { action: "deny" };
     });
 
-    contents.on("will-attach-webview", (event) => event.preventDefault());
+    // Tek giriş kapısı (spec 2026-10-18 tarayici §4.1): yalnız ana pencere,
+    // yalnız bizim bölüm (params ve webPreferences'ta) ve http(s)/boş
+    // başlangıç adresi; izinde ayarlar beyaz listeyle yeniden yazılıyor.
+    // Flow sandbox, SAML ve başka her pencere: ret.
+    contents.on("will-attach-webview", (event, webPreferences, params) => {
+      const prefs = webPreferences as unknown as Record<string, unknown>;
+      let allowed = false;
+      try {
+        allowed =
+          !!browser &&
+          !deps.isFlowSandbox(contents) &&
+          browser.isMainWindow(contents) &&
+          allowWebviewAttach(params as WebviewAttachParams, prefs);
+      } catch {
+        allowed = false;
+      }
+      if (!allowed) {
+        event.preventDefault();
+        return;
+      }
+      hardenWebviewPreferences(prefs);
+    });
 
     let exempt = false;
     try {
