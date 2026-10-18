@@ -26,6 +26,8 @@ import BrowserView from "../browser/BrowserView";
 import ViewRail from "../agents/ViewRail";
 import { useRailCounts } from "../agents/useRailCounts";
 import MemoryView from "../agents/MemoryView";
+import OverviewView from "../agents/OverviewView";
+import ToolsView from "../agents/ToolsView";
 import type { WorkspaceView } from "../../app-electron/shared/types";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
@@ -139,6 +141,16 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
           {state.phase === "ready" && active && view === "office" && (
             <div className="absolute inset-0">
               <OfficeView workspace={active} visible={state.visible} onAddAgent={() => setAgentDialog({})} />
+            </div>
+          )}
+          {state.phase === "ready" && active && view === "overview" && (
+            <div className="absolute inset-0">
+              <OverviewView key={active.id} workspace={active} />
+            </div>
+          )}
+          {state.phase === "ready" && active && view === "tools" && (
+            <div className="absolute inset-0">
+              <ToolsView />
             </div>
           )}
           {state.phase === "ready" && active && view === "memory" && (

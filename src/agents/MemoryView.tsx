@@ -3,6 +3,7 @@
 // kaydet, değişiklikleri at. Okuma/yazma bellek penceresiyle aynı IPC ve
 // mantık (memoryEditor.tsx); başka ajana geçince kirli metin taslak olarak
 // saklanıyor ve geri dönünce "geri getirildi" notuyla geliyor.
+// Tur 3: bütün ekiplerin ajanları, satırda boyut ve son değişiklik; aramada tüm bellekler.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookPlus, Check, Search } from "lucide-react";
 import { useT } from "../i18n";
@@ -17,6 +18,7 @@ import { agentName } from "./agentLabels";
 import { agentPanes } from "./agentView";
 import { requestAddAgent } from "./addAgentBus";
 import { MemoryEditorBody, hasMemoryDraft, useMemoryEditor } from "./memoryEditor";
+import { formatBytes } from "../lib/formatBytes";
 
 /** Arama sonucu: ajan ve eşleşen satır (en çok bir satır/ajan başına 3). */
 export interface MemoryHit {
@@ -43,47 +45,85 @@ export function searchMemories(contents: Record<string, string>, query: string):
   return hits;
 }
 
+/** Listedeki bir belleğin özeti: boyut (bayt) ve son değişiklik; okunamadıysa `failed`. */
+export interface MemoryMeta {
+  size: number;
+  mtime?: number;
+  failed?: boolean;
+}
+
+/** Tur 3: "3 dk önce", "dün 14:05", "12.10." — kısa, yerel saat. */
+export function memoryAge(mtime: number | undefined, now: number, t: ReturnType<typeof useT>): string {
+  if (!mtime) return "";
+  const min = Math.floor((now - mtime) / 60_000);
+  if (min < 1) return t("memory.ageNow");
+  if (min < 60) return t("memory.ageMin", { min });
+  const hours = Math.floor(min / 60);
+  if (hours < 24) return t("memory.ageHour", { hours });
+  return new Date(mtime).toLocaleDateString([], { day: "2-digit", month: "2-digit" });
+}
+
+const byteSize = (text: string) => new TextEncoder().encode(text).length;
+
+interface Entry {
+  workspace: TerminalWorkspace;
+  pane: TerminalPane;
+}
+
+/**
+ * Tur 3: TÜM ekiplerin ajanları (etkin ekip önce, ekip adıyla gruplu). Belleği
+ * açık ajanların dosyası açılışta bir kez okunuyor: listede boyut ve son
+ * değişiklik, aramada içerik aynı okumadan.
+ */
 export default function MemoryView({ workspace }: { workspace: TerminalWorkspace }) {
   const t = useT();
-  const agents = agentPanes(workspace);
-  const focused = agents.find((p) => p.id === workspace.focusedPaneId);
-  const [selectedId, setSelectedId] = useState<string | null>(focused?.id ?? agents[0]?.id ?? null);
-  const selected = agents.find((p) => p.id === selectedId) ?? null;
+  const { state } = useTerminalStore();
+  const teams = [workspace, ...state.workspaces.filter((w) => w.id !== workspace.id)];
+  const entries: Entry[] = teams.flatMap((w) => agentPanes(w).map((pane) => ({ workspace: w, pane })));
+  const focused = entries.find((e) => e.workspace.id === workspace.id && e.pane.id === workspace.focusedPaneId);
+  const [selectedId, setSelectedId] = useState<string | null>(focused?.pane.id ?? entries[0]?.pane.id ?? null);
+  const selected = entries.find((e) => e.pane.id === selectedId) ?? null;
   const [query, setQuery] = useState("");
   const [contents, setContents] = useState<Record<string, string> | null>(null);
+  const [meta, setMeta] = useState<Record<string, MemoryMeta>>({});
   const [savedSeq, setSavedSeq] = useState(0);
   // Düzenleyici sökülünce (başka ajan) taslak işareti listede yenilensin.
   const [, setLeft] = useState(0);
+  const now = Date.now();
 
   // Seçili ajan kapandıysa ilk ajana geç.
   useEffect(() => {
-    if (!selected && agents.length > 0) setSelectedId(agents[0].id);
-  }, [selected, agents]);
+    if (!selected && entries.length > 0) setSelectedId(entries[0].pane.id);
+  }, [selected, entries]);
 
-  // Arama: ilk sorguda (ve her kayıttan sonra) belleği açık ajanların dosyaları okunuyor.
-  const searching = query.trim().length > 0;
-  const memoryIds = agents.filter((p) => p.agent?.memory).map((p) => p.id).join("|");
+  // Belleği açık ajanların dosyaları: açılışta ve her kayıttan sonra.
+  const memoryKeys = entries
+    .filter((e) => e.pane.agent?.memory)
+    .map((e) => `${e.workspace.id}\u0001${e.pane.id}`)
+    .join("|");
   useEffect(() => {
-    if (!searching) return;
     let alive = true;
-    const ids = memoryIds ? memoryIds.split("|") : [];
+    const pairs = memoryKeys ? memoryKeys.split("|").map((k) => k.split("\u0001") as [string, string]) : [];
     void Promise.all(
-      ids.map((id) =>
-        window.api.memoryRead(workspace.id, id).then(
-          (res) => [id, res.ok ? res.content : ""] as const,
-          () => [id, ""] as const
+      pairs.map(([wsId, paneId]) =>
+        window.api.memoryRead(wsId, paneId).then(
+          (res) => [paneId, res.ok ? { content: res.content, meta: { size: byteSize(res.content), ...(res.mtime ? { mtime: res.mtime } : {}) } } : { content: "", meta: { size: 0, failed: true } }] as const,
+          () => [paneId, { content: "", meta: { size: 0, failed: true } }] as const
         )
       )
     ).then((list) => {
-      if (alive) setContents(Object.fromEntries(list));
+      if (!alive) return;
+      setContents(Object.fromEntries(list.map(([id, v]) => [id, v.content])));
+      setMeta(Object.fromEntries(list.map(([id, v]) => [id, v.meta as MemoryMeta])));
     });
     return () => {
       alive = false;
     };
-  }, [searching, memoryIds, workspace.id, savedSeq]);
+  }, [memoryKeys, savedSeq]);
+  const searching = query.trim().length > 0;
   const hits = useMemo(() => (searching && contents ? searchMemories(contents, query) : []), [searching, contents, query]);
 
-  if (agents.length === 0) {
+  if (entries.length === 0) {
     return (
       <section aria-label={t("memory.viewTitle")} data-memory-view="" className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-sm text-slate-200">{t("memory.emptyTitle")}</p>
@@ -96,17 +136,18 @@ export default function MemoryView({ workspace }: { workspace: TerminalWorkspace
   }
 
   const nameOf = (id: string) => {
-    const p = agents.find((a) => a.id === id);
-    return p ? agentName(p, t) : "";
+    const e = entries.find((x) => x.pane.id === id);
+    return e ? agentName(e.pane, t) : "";
   };
+  const multiTeam = teams.filter((w) => agentPanes(w).length > 0).length > 1;
+  const memoryCount = entries.filter((e) => e.pane.agent?.memory).length;
 
   return (
-    <section aria-label={t("memory.viewTitle")} data-memory-view="" className="flex h-full min-h-0">
-      <div className="flex w-60 shrink-0 flex-col border-r border-line">
-        <div className="flex h-9 shrink-0 items-center px-3">
-          <Eyebrow className="flex-1" count={agents.length}>
-            {t("memory.viewTitle")}
-          </Eyebrow>
+    <section aria-label={t("memory.viewTitle")} data-memory-view="" className="flex h-full min-h-0 pl-12">
+      <div className="flex w-72 shrink-0 flex-col border-r border-line">
+        <div className="flex h-11 shrink-0 flex-col justify-center px-3">
+          <Eyebrow count={`${memoryCount}/${entries.length}`}>{t("memory.viewTitle")}</Eyebrow>
+          <span className="text-2xs text-slate-500">{t("memory.viewHint")}</span>
         </div>
         <div className="shrink-0 px-2 pb-2">
           <label className="flex items-center gap-1.5 rounded bg-app px-2 py-1 ring-1 ring-line focus-within:ring-accent-500/50">
@@ -140,24 +181,42 @@ export default function MemoryView({ workspace }: { workspace: TerminalWorkspace
           </div>
         ) : (
           <div role="list" aria-label={t("memory.agents")} className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-            {agents.map((pane) => (
-              <MemoryAgentRow key={pane.id} pane={pane} workspaceId={workspace.id} selected={pane.id === selectedId} onSelect={() => setSelectedId(pane.id)} />
-            ))}
+            {teams.map((w) => {
+              const panes = agentPanes(w);
+              if (panes.length === 0) return null;
+              return (
+                <div key={w.id} role="presentation">
+                  {multiTeam && <div className="truncate px-2 pb-0.5 pt-2 text-2xs font-medium text-slate-500">{w.name}</div>}
+                  {panes.map((pane) => (
+                    <MemoryAgentRow
+                      key={pane.id}
+                      pane={pane}
+                      workspaceId={w.id}
+                      meta={meta[pane.id]}
+                      now={now}
+                      selected={pane.id === selectedId}
+                      onSelect={() => setSelectedId(pane.id)}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {selected ? (
-          selected.agent?.memory ? (
+          selected.pane.agent?.memory ? (
             <MemoryPanel
-              key={`${workspace.id}:${selected.id}`}
-              workspaceId={workspace.id}
-              pane={selected}
+              key={`${selected.workspace.id}:${selected.pane.id}`}
+              workspaceId={selected.workspace.id}
+              pane={selected.pane}
+              team={multiTeam ? selected.workspace.name : null}
               onSaved={() => setSavedSeq((n) => n + 1)}
               onLeave={() => setLeft((n) => n + 1)}
             />
           ) : (
-            <MemoryOff pane={selected} />
+            <MemoryOff pane={selected.pane} />
           )
         ) : (
           <p className="m-auto text-xs text-slate-500">{t("memory.pickAgent")}</p>
@@ -167,11 +226,34 @@ export default function MemoryView({ workspace }: { workspace: TerminalWorkspace
   );
 }
 
-function MemoryAgentRow({ pane, workspaceId, selected, onSelect }: { pane: TerminalPane; workspaceId: string; selected: boolean; onSelect: () => void }) {
+function MemoryAgentRow({
+  pane,
+  workspaceId,
+  meta,
+  now,
+  selected,
+  onSelect
+}: {
+  pane: TerminalPane;
+  workspaceId: string;
+  meta: MemoryMeta | undefined;
+  now: number;
+  selected: boolean;
+  onSelect: () => void;
+}) {
   const t = useT();
   const color = PANE_COLOR_VAR[pane.color ?? "gray"];
   const name = agentName(pane, t);
   const draft = hasMemoryDraft(workspaceId, pane.id);
+  const right = !pane.agent?.memory
+    ? t("memory.off")
+    : draft
+      ? t("memory.unsaved")
+      : meta?.failed
+        ? t("memory.unreadable")
+        : meta
+          ? [formatBytes(meta.size), memoryAge(meta.mtime, now, t)].filter(Boolean).join(" · ")
+          : "";
   return (
     <div role="listitem">
       <button
@@ -179,15 +261,17 @@ function MemoryAgentRow({ pane, workspaceId, selected, onSelect }: { pane: Termi
         data-memory-agent={pane.id}
         aria-pressed={selected}
         onClick={onSelect}
-        className={`flex h-8 w-full items-center gap-2 rounded-md px-2 text-left ${selectedClass(selected)}`}
+        className={`flex h-9 w-full items-center gap-2 rounded-md px-2 text-left ${selectedClass(selected)}`}
       >
         <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
-        <span title={name} className="max-w-[8rem] shrink-0 truncate text-xs font-medium text-slate-200">
-          {name}
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span title={name} className="truncate text-xs font-medium text-slate-200">
+            {name}
+          </span>
+          {pane.agent?.role && <span className="truncate text-2xs text-slate-500">{pane.agent.role}</span>}
         </span>
-        {pane.agent?.role && <span className="min-w-0 truncate text-2xs text-slate-500">{pane.agent.role}</span>}
-        <span className="ml-auto shrink-0 text-2xs text-slate-500">
-          {!pane.agent?.memory ? t("memory.off") : draft ? t("memory.unsaved") : ""}
+        <span data-memory-meta="" className="shrink-0 text-right font-mono text-2xs tabular-nums text-slate-500">
+          {right}
         </span>
       </button>
     </div>
@@ -212,11 +296,14 @@ function MemoryOff({ pane }: { pane: TerminalPane }) {
 function MemoryPanel({
   workspaceId,
   pane,
+  team,
   onSaved,
   onLeave
 }: {
   workspaceId: string;
   pane: TerminalPane;
+  /** Birden çok ekip varken başlıkta ekip adı. */
+  team: string | null;
   onSaved: () => void;
   onLeave: () => void;
 }) {
@@ -243,6 +330,7 @@ function MemoryPanel({
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-3">
         <span className="min-w-0 truncate text-sm font-medium text-slate-100">{t("memory.title", { name })}</span>
+        {team && <span className="shrink-0 truncate text-2xs text-slate-500">{team}</span>}
         {editor.dirty && <span className="shrink-0 text-2xs text-[var(--status-warning-text)]">{t("memory.unsaved")}</span>}
         {!editor.dirty && justSaved && (
           <span role="status" className="flex shrink-0 items-center gap-1 text-2xs text-[var(--status-success-text)]">

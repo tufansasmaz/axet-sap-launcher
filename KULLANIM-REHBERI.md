@@ -415,8 +415,17 @@ ekranın parçası**: soldaki rayda **Axet Chat** ve **Ajanlar** aynı ekranı a
 kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
 
 - **Üst şerit** tek, alçak bir satırdır: solda ekip sekmeleri ve **+ Ekip**
-  (sekme çoksa satır yatay kayar), sağda bölme sayısı, **+ Kabuk** ve
-  **+ Ajan**.
+  (sekme çoksa satır yatay kayar), yanında ekibin **deposu**, sağda bölme
+  sayısı, **+ Kabuk** ve **+ Ajan**. Sohbet ekranındayken bu şerit görünmez
+  (çalışma alanı yalnız Ajanlar'da).
+- **Depo**: ekibe bağlı klasör yoksa şeritte **Depo bağla** düğmesi vardır
+  (ipucunda şu an kullanılan varsayılan klasör yazar); tıkla, klasörü seç.
+  Bağlıysa klasörün adı bir çip olarak görünür: tıklayınca başka klasör
+  seçersin, **×** bağı kaldırır. Klasör bir Git deposu değilse, Git kurulu
+  değilse ya da klasör yoksa çip kehribar olur ve sebebi yazar. Yeni ajanlar
+  ve kabuklar bu klasörde açılır; **Değişiklikler** ve **Görev Panosu**
+  doğrulamaları da bu klasörü kullanır (bu, menüdeki **Kök klasör…** ile
+  aynı ayardır; elle seçilen klasör SAP bağını kaldırır).
 - **Ekip sekmeleri**: her ekip bir çalışma alanıdır. Sekmede ad,
   ajan sayısı ve gerekiyorsa kehribar (soru bekleyen ajan) ya da kırmızı
   (başarısız alt görev) bir sayı görünür. Tıkla ya da ok tuşlarıyla seç; çift
@@ -428,7 +437,7 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   Şablon ajanları axet-code ile, ekibin varsayılan klasöründe açar; rol yalnız
   bir etikettir, rol kapısı ve SAP kuralları aynen geçerlidir.
 - **Görünüm rayı** (içerik alanının sol kenarı, alt alta simgeler):
-  **Terminal, Görevler, Ofis, Değişiklikler, Tarayıcı, Bellek**. Simgenin
+  **Pano, Terminal, Görevler, Ofis, Değişiklikler, Tarayıcı, Bellek, Araçlar**. Simgenin
   üstüne gelince adı görünür; seçili olanın solunda vurgu çizgisi vardır.
   Klavyeyle yukarı/aşağı ok, Home/End. Sohbet'e sol menüdeki **Axet Chat**
   düğmesiyle dönülür. Seçim ekip başına hatırlanır; yeni ekip **Ofis**'te
@@ -437,10 +446,29 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   soran ajan sayısı (sıfırsa sayı çıkmaz). Terminal bölme düzenidir (değişmedi). Üst şeritteki **Kabuk**
   cmd/PowerShell bölmesi, **Ajan** yeni ajan açar: ad, motor
   (axet-code, Claude Code, Codex, Gemini CLI ya da kendi komutun), rol,
-  klasör, renk. axet-code'da rol listesi axet-code'un kendi ajanlarından
-  gelir; kurulu olmayan motorun satırında "Kurulu değil" yazar ve başlamaz.
+  klasör, renk. Pencere **Araçlar**'da seçtiğin varsayılan motorla açılır.
+  **Rol** açılır bir seçicidir (ok tuşları, Enter, Esc): axet-code'da
+  axet-code'un kendi ajanları (adı ve kısa açıklaması), öteki motorlarda hazır
+  roller (Geliştirici, Analist, Test, İnceleme) ya da **Kendin yaz…** ile
+  serbest bir rol adı. Kurulu olmayan motorun satırında "Kurulu değil" yazar
+  ve başlamaz.
+- **Pano** (raydaki ilk simge): ekibin genel bakışı. Kartlar: **Ekip** (ajan
+  sayısı; çalışan, soru soran, boşta, hatalı), **Görevler** (açık, biten,
+  taslak, açık alt görev), **Sorular**, **Değişiklikler** (incelenmeyi bekleyen
+  kayıtlar ve son üçü), **Depo** (klasör ve Git durumu), **Motorlar** (kaç
+  motor kurulu), **Bellek** (belleği açık ajanlar) ve **Son olaylar**. Bir
+  karta tıklayınca ilgili görünüm açılır.
+- **Araçlar** (raydaki son simge, anahtar): ajan motorlarının listesi. Her
+  motorun yanında kurulu olup olmadığı ve sürümü, altında programın yolu
+  yazar. Kurulu değilse tek satırlık kurulum komutu (ör. `npm install -g
+  @google/gemini-cli`) ve **kopyala** düğmesi çıkar; komutu bir terminalde
+  çalıştır, sonra **Yeniden denetle**. axet-code kurum içi yükleyiciyle
+  kurulur. Soldaki yuvarlak düğme **varsayılan motoru** seçer. Oturum açma ve
+  API anahtarları motorun kendi terminalinde yapılır; uygulama bunları
+  görmez, saklamaz.
 - **Akış** (sol sütun; Sohbet sekmesinde yerini sohbet listesi alır):
-  - Üstte ekibin adı, kaç ajanın çalıştığı ve kaçının soru beklediği, SAP bağı.
+  - Üstte ekibin adı, kaç ajanın çalıştığı ve kaçının soru beklediği, SAP
+    bağı; sağdaki kitap simgesi **Bellek** görünümünü açar.
   - **Ekip**: her ajan TEK satır — renk çizgisi, ad, rol, panodan aldığı iş
     ve sağda durum çipi (Çalışıyor, Soru soruyor, Boşta 3 dk, Bitti, Hata).
     Tıklayınca Terminal'de o ajanın terminali öne gelir. **≈** durumun tahmini
@@ -464,8 +492,11 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   - **Soru kartları**: ekibin cevap bekleyen soruları. axet-code'un seçenekli
     sorusunu tek tıkla cevaplarsın; terminalde dokunduysan ya da serbest/çok
     seçimli bir soruysa **Terminale git**.
-  - **Mesaj kutusu** (en alt): **@** yaz, listeden ajanı seç (ok tuşları +
-    Enter), mesajı yaz, Enter. Mesaj tek satır olarak ajana gider (en çok 2000
+  - **Mesaj kutusu** (en alt): kutunun altındaki **@ kime?** çipine tıkla ya
+    da **@** yaz, listeden ajanı seç (ok tuşları + Enter); seçilen ajan çipte
+    görünür, **×** kaldırır. Mesajı yaz, **Enter** gönderir, **Shift+Enter**
+    yeni satır açar (kutu yazdıkça büyür); sağdaki ok düğmesi de gönderir.
+    Satırlar ajana tek satır olarak birleşip gider (en çok 2000
     karakter, `!` ile başlayamaz). Ajan çalışıyor, soru bekliyor ya da
     terminalinde yarım bir satır varsa gönderilmez, sebebi yazılır; kendiliğinden
     yeniden denenmez. Ajan seçmeden Enter: "Bir ajan seç (@)". Ekipte iki ya da
@@ -473,8 +504,9 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     sırayla bütün ajanlara gider. Sonuçta kaçına gittiği ve gitmeyenlerin
     sebebi (meşgul, soru bekliyor, çalışmıyor…) yazılır; gitmeyenler için
     yeniden denenmez, hepsi gitmediyse metin kutuda kalır.
-- **Bellek** (raydaki kitap simgesi): solda ekibin ajanları, sağda seçili
-  ajanın kalıcı belleği. Düzenle, **Kaydet** ya da **Değişiklikleri at**.
+- **Bellek** (raydaki kitap simgesi ya da Akış başlığındaki kitap): solda
+  bütün ekiplerin ajanları (ekip adıyla gruplu; satırda belleğin boyutu ve
+  son değişikliği), sağda seçili ajanın kalıcı belleği. Düzenle, **Kaydet** ya da **Değişiklikleri at**.
   Kaydedilmemiş bir metinle başka ajana geçersen metin taslak olarak saklanır
   (listede "kaydedilmedi"), geri dönünce "geri getirildi" notuyla gelir.
   Ajan bu arada dosyayı değiştirdiyse hiçbir şey ezilmez; **Yeniden yükle**

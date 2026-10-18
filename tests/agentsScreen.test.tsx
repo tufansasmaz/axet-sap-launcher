@@ -60,15 +60,23 @@ describe("AgentsScreen", () => {
     expect((chat.parentElement as HTMLElement).className.split(" ")).toContain("hidden");
   });
 
-  it("+ Ajan Ajanlar'ı açıp ajan penceresini getiriyor", () => {
-    const { onShowAgents } = setup(true);
+  it("Sohbet ekranında ekip şeridi (çalışma alanı) görünmüyor; Ajanlar'da geri geliyor", () => {
+    const { rerender } = setup(true);
+    expect(document.querySelector("[data-agents-strip]")).toBeNull();
+    expect(screen.queryByRole("tablist", { name: "Ekipler" })).toBeNull();
+    rerender(false);
+    expect(document.querySelector("[data-agents-strip]")).not.toBeNull();
+  });
+
+  it("+ Ajan ajan penceresini getiriyor", () => {
+    const { onShowAgents } = setup(false);
     fireEvent.click(screen.getAllByRole("button", { name: "Ajan" })[0]);
     expect(onShowAgents).toHaveBeenCalled();
     expect(screen.getByText("Ajan ekle")).toBeTruthy();
   });
 
   it("ekip sekmesi üst şeritte; seçimi Ajanlar'ı açıyor", () => {
-    const { onShowAgents, commands } = setup(true);
+    const { onShowAgents, commands } = setup(false);
     fireEvent.click(screen.getByRole("tab", { name: /Satış/ }));
     expect(commands.selectWorkspace).toHaveBeenCalledWith("a");
     expect(onShowAgents).toHaveBeenCalled();

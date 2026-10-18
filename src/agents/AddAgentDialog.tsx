@@ -1,5 +1,8 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { FolderOpen } from "lucide-react";
+import { Bot, Code2, Eye, FlaskConical, FolderOpen, PenLine, Search } from "lucide-react";
+import { Select, type SelectOption } from "../ui/Select";
+import { initialEngine, readDefaultEngine } from "./defaultEngine";
+import type { TranslationKey } from "../i18n/tr";
 import { useT } from "../i18n";
 import { ROLE_PRESETS } from "./rolePresets";
 import { AGENT_ENGINES, isSafeArg } from "../../app-electron/shared/agentEngines";
@@ -18,6 +21,22 @@ import type { TerminalPaneColor } from "../../app-electron/shared/types";
 import { middleEllipsis } from "../lib/paths";
 import { Modal, ModalCancelButton } from "../ui/Modal";
 import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
+
+// Rol seçicisindeki hazır rollerin kısa açıklaması ve simgesi (Tur 3).
+const ROLE_HINT: Record<string, TranslationKey> = {
+  "agents.roleDeveloper": "agents.roleDeveloperHint",
+  "agents.roleAnalyst": "agents.roleAnalystHint",
+  "agents.roleTest": "agents.roleTestHint",
+  "agents.roleReview": "agents.roleReviewHint"
+};
+const ROLE_ICON: Record<string, typeof Bot> = {
+  "agents.roleDeveloper": Code2,
+  "agents.roleAnalyst": Search,
+  "agents.roleTest": FlaskConical,
+  "agents.roleReview": Eye
+};
+/** Seçicide "kendin yaz" satırı. */
+const CUSTOM_ROLE = "__custom";
 import { PANE_COLOR_LABEL, PANE_COLOR_VAR } from "../terminal/paneColors";
 import type { NewAgentInput } from "../stores/terminalStoreContext";
 import { ENGINE_LABEL } from "./agentLabels";
@@ -63,7 +82,8 @@ export default function AddAgentDialog({
   const t = useT();
   const order = useMemo(() => orderEngines(engines), [engines]);
   const [name, setName] = useState(defaultName);
-  const [engine, setEngine] = useState<AgentEngineId>(order[0]);
+  const [engine, setEngine] = useState<AgentEngineId>(() => initialEngine(order, readDefaultEngine()));
+  const [rolePick, setRolePick] = useState<string>(CUSTOM_ROLE);
   const [axetRole, setAxetRole] = useState("");
   const [role, setRole] = useState("");
   const [model, setModel] = useState("");
@@ -82,9 +102,10 @@ export default function AddAgentDialog({
   useEffect(() => {
     if (!open) return;
     setName(defaultName);
-    setEngine(order[0]);
+    setEngine(initialEngine(order, readDefaultEngine()));
     setAxetRole("");
     setRole("");
+    setRolePick(CUSTOM_ROLE);
     setModel("");
     setCommand("");
     setCwd(defaultCwd);
@@ -109,6 +130,18 @@ export default function AddAgentDialog({
       alive = false;
     };
   }, [open, engine, cwd]);
+
+  const axetRoleOptions: SelectOption[] = [
+    { value: "", label: t("agents.roleDefault"), description: t("agents.roleDefaultHint"), icon: <Bot size={12} /> },
+    ...axetAgents.map((a) => ({ value: a.name, label: a.name, ...(a.description ? { description: a.description } : {}), icon: <Bot size={12} /> }))
+  ];
+  const presetRoleOptions: SelectOption[] = [
+    ...ROLE_PRESETS.map((key) => {
+      const Icon = ROLE_ICON[key] ?? Bot;
+      return { value: key, label: t(key), description: t(ROLE_HINT[key] ?? "agents.roleCustomHint"), icon: <Icon size={12} /> };
+    }),
+    { value: CUSTOM_ROLE, label: t("agents.roleCustom"), description: t("agents.roleCustomHint"), icon: <PenLine size={12} /> }
+  ];
 
   const def = AGENT_ENGINES[engine];
   const info = engines?.find((e) => e.id === engine);
@@ -187,30 +220,33 @@ export default function AddAgentDialog({
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-slate-400">{t("agents.roleLabel")}</span>
           {engine === "axet-code" ? (
-            <select aria-label={t("agents.roleLabel")} value={axetRole} onChange={(e) => setAxetRole(e.target.value)} className={INPUT}>
-              <option value="">{t("agents.roleDefault")}</option>
-              {axetAgents.map((a) => (
-                <option key={a.name} value={a.name} title={a.description || undefined}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              label={t("agents.roleLabel")}
+              value={axetRole}
+              onChange={setAxetRole}
+              options={axetRoleOptions}
+            />
           ) : (
             <>
-              <div className="flex flex-wrap gap-1">
-                {ROLE_PRESETS.map((key) => (
-                  <button key={key} type="button" onClick={() => setRole(t(key))} className={TOOL_BUTTON}>
-                    {t(key)}
-                  </button>
-                ))}
-              </div>
-              <input
-                aria-label={t("agents.roleLabel")}
-                value={role}
-                maxLength={AGENT_ROLE_MAX}
-                onChange={(e) => setRole(e.target.value)}
-                className={INPUT}
+              <Select
+                label={t("agents.roleLabel")}
+                value={rolePick}
+                onChange={(next) => {
+                  setRolePick(next);
+                  setRole(next === CUSTOM_ROLE ? "" : t(next as TranslationKey));
+                }}
+                options={presetRoleOptions}
               />
+              {rolePick === CUSTOM_ROLE && (
+                <input
+                  aria-label={t("agents.roleCustomLabel")}
+                  value={role}
+                  maxLength={AGENT_ROLE_MAX}
+                  placeholder={t("agents.roleCustomHint")}
+                  onChange={(e) => setRole(e.target.value)}
+                  className={INPUT}
+                />
+              )}
             </>
           )}
         </div>

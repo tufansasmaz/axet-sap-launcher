@@ -6,6 +6,16 @@ import { LanguageProvider } from "../src/i18n";
 import AddAgentDialog from "../src/agents/AddAgentDialog";
 import type { AgentEngineInfo } from "../app-electron/shared/agentTypes";
 
+// Node 26 kendi localStorage'ını (dosyasız undefined) jsdom'unkinin üstüne koyuyor; bellekte basit depo.
+const lsStore = new Map<string, string>();
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => lsStore.get(k) ?? null,
+  setItem: (k: string, v: string) => void lsStore.set(k, String(v)),
+  removeItem: (k: string) => void lsStore.delete(k),
+  clear: () => lsStore.clear()
+});
+
+
 const ENGINES: AgentEngineInfo[] = [
   { id: "axet-code", installed: true, blocked: false },
   { id: "claude", installed: true, blocked: false },
@@ -73,17 +83,24 @@ describe("AddAgentDialog", () => {
     const { onAdd } = renderDialog();
     await flush();
     expect(api.axetAgents).toHaveBeenCalledWith("C:\\p");
-    fireEvent.change(screen.getByRole("combobox", { name: "Rol" }), { target: { value: "coder" } });
+    // Rol seçicisi bizim listbox (Tur 3): ad + açıklama satırları.
+    fireEvent.click(screen.getByRole("combobox", { name: "Rol" }));
+    const coder = screen.getByRole("option", { name: /coder/ });
+    expect(coder.textContent).toContain("Kod");
+    fireEvent.mouseDown(coder);
     fireEvent.click(addButton());
     expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "axet-code", role: "coder", roleKind: "axetAgent" } }));
   });
 
-  it("Claude Code: hazır rol ve model; axet ajan listesi yok", async () => {
+  it("Claude Code: hazır rol seçicide (axet ajanları değil) ve model", async () => {
     const { onAdd } = renderDialog();
     await flush();
     fireEvent.click(within(engineGroup()).getByRole("radio", { name: "Claude Code" }));
-    expect(screen.queryByRole("combobox", { name: "Rol" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Test" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Rol" }));
+    expect(screen.queryByRole("option", { name: /coder/ })).toBeNull();
+    fireEvent.mouseDown(screen.getByRole("option", { name: /^Test/ }));
+    // Hazır rol seçilince serbest metin kutusu kalkıyor.
+    expect(screen.queryByRole("textbox", { name: "Rol adı" })).toBeNull();
     fireEvent.change(screen.getByLabelText("Model"), { target: { value: "sonnet" } });
     fireEvent.click(addButton());
     expect(onAdd).toHaveBeenCalledWith(
@@ -95,7 +112,7 @@ describe("AddAgentDialog", () => {
     const { onAdd } = renderDialog();
     await flush();
     fireEvent.click(within(engineGroup()).getByRole("radio", { name: "Claude Code" }));
-    fireEvent.change(screen.getByRole("textbox", { name: "Rol" }), { target: { value: "Veri göçü" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Rol adı" }), { target: { value: "Veri göçü" } });
     fireEvent.click(addButton());
     expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "claude", role: "Veri göçü", roleKind: "custom" } }));
   });
@@ -221,5 +238,22 @@ describe("AddAgentDialog", () => {
     rerender(view(true));
     await flush();
     expect((screen.getByRole("checkbox", { name: "Kalıcı bellek" }) as HTMLInputElement).checked).toBe(false);
+  });
+});
+
+// Araçlar görünümündeki varsayılan motor (Tur 3): pencere onunla açılıyor.
+describe("AddAgentDialog — varsayılan motor", () => {
+  afterEach(() => localStorage.clear());
+
+  it("tercih edilen motor seçili açılıyor; bilinmeyen tercih yok sayılıyor", async () => {
+    localStorage.setItem("ntt.agents.defaultEngine", "claude");
+    renderDialog();
+    await flush();
+    expect(within(engineGroup()).getByRole("radio", { name: "Claude Code" }).getAttribute("aria-checked")).toBe("true");
+    cleanup();
+    localStorage.setItem("ntt.agents.defaultEngine", "bilinmeyen");
+    renderDialog();
+    await flush();
+    expect(within(engineGroup()).getByRole("radio", { name: "axet-code" }).getAttribute("aria-checked")).toBe("true");
   });
 });

@@ -36,11 +36,11 @@ const pane = (id: string, title: string, memory = true): TerminalPane => ({
   title
 });
 
-function setup(panes: TerminalPane[]) {
+function setup(panes: TerminalPane[], others: TerminalWorkspace[] = []) {
   const ws: TerminalWorkspace = { id: "w1", name: "w1", panes, focusedPaneId: null, maximizedPaneId: null, unread: false, error: false, view: "memory" };
   const commands = { enablePaneMemory: vi.fn() } as unknown as TerminalCommands;
   const store: TerminalStoreValue = {
-    state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [ws], activeWorkspaceId: "w1" },
+    state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [ws, ...others], activeWorkspaceId: "w1" },
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
@@ -151,6 +151,25 @@ describe("MemoryView", () => {
     fireEvent.click(screen.getByRole("button", { name: "İlk ajanını ekle" }));
     expect(heard).toHaveBeenCalledTimes(1);
     window.removeEventListener("ntt:add-agent", heard);
+  });
+});
+
+// Tur 3: bütün ekipler, satırda boyut + son değişiklik.
+describe("MemoryView — tüm ekipler", () => {
+  it("öbür ekibin ajanı da listede (ekip adıyla); satırda boyut ve son değişiklik; seçilince o ekibin belleği", async () => {
+    read.mockImplementation(async (_w: string, paneId: string) => ({ ok: true, content: files[paneId] ?? "", rel: "x", stamp: `s-${paneId}`, notice: "ok", mtime: Date.now() - 5 * 60_000 }));
+    files.c = "# Can" + String.fromCharCode(10);
+    const other: TerminalWorkspace = { id: "w2", name: "Destek", panes: [pane("c", "Can")], focusedPaneId: null, maximizedPaneId: null, unread: false, error: false };
+    setup([pane("a", "Ayşe")], [other]);
+    await flush();
+    expect(screen.getByText("Destek")).toBeTruthy();
+    const meta = document.querySelector('[data-memory-agent="a"] [data-memory-meta]')?.textContent ?? "";
+    expect(meta).toContain("B");
+    expect(meta).toContain("5 dk önce");
+    fireEvent.click(document.querySelector('[data-memory-agent="c"]') as HTMLElement);
+    await flush();
+    expect(read).toHaveBeenCalledWith("w2", "c");
+    expect(editor("Can").value).toBe("# Can" + String.fromCharCode(10));
   });
 });
 

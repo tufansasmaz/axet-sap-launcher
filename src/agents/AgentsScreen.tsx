@@ -4,6 +4,8 @@
 // sol kenarındaki dikey rayda (ViewRail, TerminalMode içinde). "Sohbet"
 // sekmesi yok (uygulama sol menüsüyle erişiliyor). Sohbet bileşeni (`chat`) ve TerminalMode HER ZAMAN takılı,
 // yalnız görünürlükleri chatActive'e bağlı (akan cevap, taslak, pty'ler).
+// Tur 3: Sohbet ekranında ekip şeridi ÇİZİLMİYOR (çalışma alanı sohbette görünmez);
+// şeritte ekip sekmelerinin yanında ekibin deposu (RepoChip).
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { useT } from "../i18n";
@@ -14,6 +16,7 @@ import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import TerminalMode, { type AddRequest } from "../terminal/TerminalMode";
 import TeamTabs from "./TeamTabs";
 import { onAddAgentRequest } from "./addAgentBus";
+import RepoChip from "./RepoChip";
 
 export default function AgentsScreen({
   chatActive,
@@ -44,9 +47,13 @@ export default function AgentsScreen({
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+      {!chatActive && (
       <div data-agents-strip="" className="flex h-9 shrink-0 items-center gap-2 border-b border-line px-2">
-        <div className="min-w-0 flex-1">
-          <TeamTabs activeSap={activeSap} onSelected={onShowAgents} />
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="min-w-0 shrink">
+            <TeamTabs activeSap={activeSap} onSelected={onShowAgents} />
+          </div>
+          {active && ready && <RepoChip workspace={active} />}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {active && (
@@ -74,6 +81,7 @@ export default function AgentsScreen({
           </button>
         </div>
       </div>
+      )}
       <div className="flex min-h-0 min-w-0 flex-1">
         <div className={chatActive ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden" : "hidden"}>{chat}</div>
         <div className={chatActive ? "hidden" : "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"}>

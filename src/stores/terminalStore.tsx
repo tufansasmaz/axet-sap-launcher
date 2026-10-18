@@ -476,8 +476,9 @@ export function TerminalStoreProvider({
 
   const activePanes = panesOf(state, state.activeWorkspaceId ?? "");
   const defaultKind: TerminalMode = lastKind ?? config?.terminal ?? "cmd";
-  const defaultCwd = activePanes[activePanes.length - 1]?.cwd ?? config?.projectsBaseDir ?? "";
   const activeRoot = state.workspaces.find((w) => w.id === state.activeWorkspaceId)?.root;
+  // Ekibe depo bağlıysa (Tur 3, üst şeritteki depo çipi) kabuklar da orada açılır.
+  const defaultCwd = activeRoot || (activePanes[activePanes.length - 1]?.cwd ?? config?.projectsBaseDir ?? "");
   const agentCwd = activeRoot || config?.axetWorkspaceDir || defaultCwd;
   const value = useMemo(
     () => ({ state, commands, defaultKind, defaultCwd, agentCwd }),

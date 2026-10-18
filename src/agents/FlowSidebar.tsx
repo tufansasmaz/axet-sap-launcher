@@ -4,8 +4,8 @@
 // akış (ajan başına başlık + durum çipi + gövde; bitirince son cevabı
 // kartta), soru kartları ve mesaj kutusu. Görünüm seçimi artık içerik
 // alanının sol kenarındaki dikey rayda (ViewRail).
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, BookPlus, RotateCw, X } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, RotateCw, X } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import type { AgentAnswerFailure, AgentEngineInfo, AgentStatus } from "../../app-electron/shared/agentTypes";
@@ -22,6 +22,7 @@ import { ENGINE_LABEL, agentName } from "./agentLabels";
 import { useBoards } from "../board/boardContext";
 import { activeSubtaskOf } from "../board/boardDisplay";
 import MemoryDialog from "./MemoryDialog";
+import { flowBody } from "./flowText";
 import { useFlow } from "./flowContext";
 import type { FlowEvent, FlowKind } from "./flowEvents";
 import { matchAgents, mentionAt, removeMention, type Mention } from "./mention";
@@ -45,6 +46,9 @@ const SEND_FAILURE: Record<AgentSendFailure, TranslationKey> = {
   writeFailed: "browser.fail.writeFailed",
   notSubmitted: "browser.fail.notSubmitted"
 };
+
+/** Mesaj kutusunun en çok yüksekliği (max-h-40 = 160px ile aynı). */
+const COMPOSER_MAX_PX = 160;
 
 const clock = (at: number) => (at ? new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "");
 
@@ -113,6 +117,7 @@ export default function FlowSidebar() {
 /** Ekibin başlığı: ad, kaç ajan çalışıyor / soru soruyor, SAP bağı. */
 function FlowHeader({ workspace, statuses }: { workspace: TerminalWorkspace; statuses: Record<string, AgentStatus> }) {
   const t = useT();
+  const { commands } = useTerminalStore();
   const live = agentPanes(workspace).filter((p) => p.run.state === "running");
   const working = live.filter((p) => statuses[p.id]?.state === "running").length;
   const asking = live.filter((p) => statuses[p.id]?.state === "asking").length;
@@ -126,6 +131,17 @@ function FlowHeader({ workspace, statuses }: { workspace: TerminalWorkspace; sta
       <span className="ml-auto min-w-0 shrink truncate font-mono text-2xs text-slate-500">
         {workspace.sap ? t("flow.sapLinked", { sid: workspace.sap.label }) : t("flow.sapNone")}
       </span>
+      {/* Tur 3: kalıcı bellek ekranına Akış'tan doğrudan geçiş. */}
+      <button
+        type="button"
+        data-flow-memory=""
+        onClick={() => commands.setWorkspaceView(workspace.id, "memory")}
+        aria-label={t("flow.openMemory")}
+        title={t("flow.openMemory")}
+        className={GHOST_ICON_BUTTON}
+      >
+        <BookOpen size={13} />
+      </button>
     </div>
   );
 }
@@ -142,23 +158,6 @@ const KIND_TONE: Record<FlowKind, StatusTone> = {
   message: "muted"
 };
 
-function flowBody(event: FlowEvent, t: ReturnType<typeof useT>): string {
-  switch (event.kind) {
-    case "started":
-    case "finished":
-    case "error":
-    case "asked":
-      return t(`flow.${event.kind}`);
-    case "assigned":
-    case "verified":
-    case "failed":
-      return t(`flow.${event.kind}`, { title: event.detail });
-    case "checkpoint":
-      return t("flow.checkpoint", { label: event.detail });
-    case "message":
-      return event.detail;
-  }
-}
 
 const LINK = "cursor-pointer text-2xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline";
 
@@ -459,17 +458,22 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Hedef çipinden açılan seçici (Tur 3); @ yazınca açılan listeyle aynı liste.
+  const [picker, setPicker] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const agents = agentPanes(workspace).map((pane) => ({ id: pane.id, name: agentName(pane, t) }));
   // Tek ajanda "ekip" o ajanın kendisi; seçenek 2+ ajanda.
   const teamOption = agents.length >= 2 ? { id: TEAM_ID, name: t("flow.team.name") } : null;
   const target = targetId === TEAM_ID ? teamOption : (agents.find((a) => a.id === targetId) ?? null);
-  const matches = mention ? matchAgents(teamOption ? [teamOption, ...agents] : agents, mention.query) : [];
-  const listOpen = mention !== null && matches.length > 0;
+  const options = teamOption ? [teamOption, ...agents] : agents;
+  const matches = mention ? matchAgents(options, mention.query) : picker ? options : [];
+  const listOpen = (mention !== null || picker) && matches.length > 0;
 
   const pick = (agent: { id: string; name: string }) => {
     setTargetId(agent.id);
     if (mention) setText((value) => removeMention(value, mention));
     setMention(null);
+    setPicker(false);
     setNotice(null);
   };
 
@@ -479,7 +483,8 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
       setNotice(t("flow.pickAgent"));
       return;
     }
-    const body = text.trim();
+    // Satırlar ajana tek satır olarak gider (terminal istemi; satır sonu reddedilir).
+    const body = text.replace(/\s+/g, " ").trim();
     if (!body) return;
     setSending(true);
     if (target.id === TEAM_ID) {
@@ -526,30 +531,43 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     if (skipped.length === 0) setText("");
   };
 
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (listOpen) {
       if (e.key === "ArrowDown") setActiveIndex((i) => (i + 1) % matches.length);
       else if (e.key === "ArrowUp") setActiveIndex((i) => (i - 1 + matches.length) % matches.length);
       else if (e.key === "Enter" || e.key === "Tab") pick(matches[Math.min(activeIndex, matches.length - 1)]);
-      else if (e.key === "Escape") setMention(null);
-      else return;
+      else if (e.key === "Escape") {
+        setMention(null);
+        setPicker(false);
+      } else return;
       e.preventDefault();
       return;
     }
-    if (e.key === "Enter") {
+    // Enter gönderir, Shift+Enter yeni satır (ajana tek satır olarak gider).
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
       void submit();
     }
   };
 
+  // Yazı alanı içeriğe göre büyüyor (en çok COMPOSER_MAX_PX); gizliyken ölçülmüyor.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    if (el.scrollHeight > 0) el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
+  }, [text]);
+
+  const canSend = !sending && text.trim() !== "";
+
   return (
-    <div className="relative shrink-0 border-t border-line p-2">
+    <div className="relative shrink-0 px-2 pb-2 pt-1">
       {listOpen && (
         <ul
           id={listId}
           role="listbox"
           aria-label={t("flow.agentList")}
-          className="absolute bottom-full left-2 right-2 mb-1 max-h-48 overflow-y-auto rounded-md border border-line bg-card p-1 shadow-xl"
+          className="absolute bottom-full left-2 right-2 z-20 mb-1 max-h-48 overflow-y-auto rounded-md border border-line bg-card p-1 shadow-xl"
         >
           {matches.map((agent, index) => (
             <li
@@ -570,21 +588,18 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
         </ul>
       )}
       {notice && (
-        <p role="status" className="mb-1 text-2xs text-[var(--status-warning-text)]">
+        <p role="status" className="mb-1 px-1 text-2xs text-[var(--status-warning-text)]">
           {notice}
         </p>
       )}
-      <div className="flex items-center gap-1.5">
-        {target && (
-          <span className="flex shrink-0 items-center gap-0.5 rounded bg-control py-0.5 pl-1.5 pr-0.5 text-2xs text-slate-200">
-            <span className="max-w-[7rem] truncate">@{target.name}</span>
-            <button type="button" onClick={() => setTargetId(null)} aria-label={t("flow.clearTarget")} title={t("flow.clearTarget")} className={GHOST_ICON_BUTTON}>
-              <X size={10} />
-            </button>
-          </span>
-        )}
-        <input
+      <div
+        data-flow-composer=""
+        className="rounded-xl border border-line-subtle bg-card px-2 pb-1.5 pt-1 transition-colors hover:border-line focus-within:border-accent-500/60"
+      >
+        <textarea
+          ref={inputRef}
           role="combobox"
+          rows={1}
           aria-label={t("flow.inputLabel")}
           aria-expanded={listOpen}
           aria-controls={listOpen ? listId : undefined}
@@ -592,21 +607,64 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
           aria-activedescendant={listOpen ? `${listId}-${matches[Math.min(activeIndex, matches.length - 1)].id}` : undefined}
           value={text}
           maxLength={2000}
-          placeholder={t("flow.placeholder")}
+          placeholder={target ? t("flow.placeholderTo", { name: target.name }) : t("flow.placeholder")}
           onChange={(e) => {
             const value = e.target.value;
             setText(value);
             setMention(mentionAt(value, e.target.selectionStart ?? value.length));
+            setPicker(false);
             setActiveIndex(0);
             setNotice(null);
           }}
           onKeyDown={onKeyDown}
-          onBlur={() => setMention(null)}
-          className="min-w-0 flex-1 rounded bg-app px-2 py-1 text-xs text-slate-100 outline-none ring-1 ring-line focus:ring-accent-500/50"
+          onBlur={() => {
+            setMention(null);
+            setPicker(false);
+          }}
+          className="block max-h-40 min-h-[34px] w-full resize-none bg-transparent px-1 py-1.5 text-xs leading-5 text-slate-100 outline-none placeholder:text-slate-500"
         />
-        <button type="button" onClick={() => void submit()} disabled={sending} className={`${PRIMARY_BUTTON} disabled:cursor-default disabled:opacity-40`}>
-          {t("flow.send")}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            data-flow-target={target ? target.id : ""}
+            aria-haspopup="listbox"
+            aria-expanded={listOpen}
+            aria-label={target ? t("flow.targetChange", { name: target.name }) : t("flow.pickTarget")}
+            title={target ? t("flow.targetChange", { name: target.name }) : t("flow.pickTarget")}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setMention(null);
+              setActiveIndex(0);
+              setPicker((open) => !open);
+              inputRef.current?.focus();
+            }}
+            className={`flex h-6 min-w-0 max-w-[10rem] cursor-pointer items-center gap-1 rounded-md px-1.5 text-2xs transition-colors ${
+              target ? "bg-control text-slate-200 hover:bg-hover" : "text-slate-400 hover:bg-hover hover:text-slate-200"
+            }`}
+          >
+            <AtSign size={11} className="shrink-0" />
+            <span className="min-w-0 truncate">{target ? target.name : t("flow.pickTargetShort")}</span>
+            <ChevronDown size={10} className="shrink-0 text-slate-500" />
+          </button>
+          {target && (
+            <button type="button" onClick={() => setTargetId(null)} aria-label={t("flow.clearTarget")} title={t("flow.clearTarget")} className={GHOST_ICON_BUTTON}>
+              <X size={10} />
+            </button>
+          )}
+          <span className="ml-auto truncate text-2xs text-slate-500">{t("flow.keysHint")}</span>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={sending}
+            aria-label={t("flow.send")}
+            title={t("flow.send")}
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors disabled:cursor-default disabled:opacity-40 ${
+              canSend ? "cursor-pointer bg-slate-200 text-app hover:bg-white" : "bg-active text-slate-500"
+            }`}
+          >
+            <ArrowUp size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );

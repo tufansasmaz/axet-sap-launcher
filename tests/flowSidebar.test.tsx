@@ -60,7 +60,7 @@ function setup(
   statuses: Record<string, AgentStatus> = {},
   extra: { answer?: AgentAnswerResult; events?: FlowEvent[] } = {}
 ) {
-  const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn() } as unknown as TerminalCommands;
+  const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
   const store: TerminalStoreValue = {
     state: { ...initialTerminalState, phase: "ready", visible: true, workspaces, activeWorkspaceId: workspaces[0]?.id ?? null },
     commands,
@@ -91,7 +91,7 @@ async function flush() {
   });
 }
 
-const box = () => screen.getByRole("combobox", { name: "Ajana mesaj" }) as HTMLInputElement;
+const box = () => screen.getByRole("combobox", { name: "Ajana mesaj" }) as HTMLTextAreaElement;
 
 describe("Akış — soru kartları (eski Kararlar)", () => {
   it("seçenek düğmesi cevabı doğru dizinle gönderiyor", async () => {
@@ -206,7 +206,8 @@ describe("Akış — mesaj kutusu", () => {
     fireEvent.keyDown(box(), { key: "ArrowDown" });
     fireEvent.keyDown(box(), { key: "Enter" });
     expect(screen.queryByRole("listbox")).toBeNull();
-    expect(screen.getByText("@Ali")).toBeTruthy();
+    // Tur 3: hedef çipi @ simgesi + ad; aria etiketi "Kime: Ali — değiştir".
+    expect(screen.getByRole("button", { name: "Kime: Ali — değiştir" })).toBeTruthy();
     expect(box().value).toBe("");
     fireEvent.change(box(), { target: { value: "testleri çalıştır" } });
     fireEvent.keyDown(box(), { key: "Enter" });
@@ -236,7 +237,7 @@ describe("Akış — mesaj kutusu", () => {
     const options = Array.from(screen.getByRole("listbox").querySelectorAll("[role=option]")).map((o) => o.getAttribute("aria-label") ?? o.textContent);
     expect(options[0]).toBe("ekip — tüm ajanlar (2)");
     fireEvent.keyDown(box(), { key: "Enter" });
-    expect(screen.getByText("@ekip")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Kime: ekip — değiştir" })).toBeTruthy();
     fireEvent.change(box(), { target: { value: "durumu yaz" } });
     fireEvent.keyDown(box(), { key: "Enter" });
     await flush();
@@ -285,7 +286,7 @@ describe("Akış — ajan satırı (eski ekip kartı)", () => {
   const row = (id: string) => document.querySelector(`[data-agent-row="${id}"]`) as HTMLElement;
 
   function setupRow(panes: TerminalPane[], over: Partial<AgentStatusValue> = {}) {
-    const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn() } as unknown as TerminalCommands;
+    const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
     const store: TerminalStoreValue = {
       state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [ws("w1", panes, { focusedPaneId: panes[0]?.id ?? null })], activeWorkspaceId: "w1" },
       commands,
@@ -441,5 +442,42 @@ describe("Akış — ajanın cevabı ve düzen", () => {
   it("mesaj kutusu demodaki gibi ekibe yazıyor: ipucu metni", () => {
     setup([ws("w1", [pane("a")])]);
     expect(box().getAttribute("placeholder")).toBe("Ekibe yaz… @ ile ajan seç");
+  });
+});
+
+// Tur 3: çok satırlı mesaj kutusu, hedef çipi seçicisi, belleğe bağlantı.
+describe("Akış — mesaj kutusu (Tur 3)", () => {
+  it("çok satırlı alan: Shift+Enter göndermiyor; Enter satırları tek satır olarak gönderiyor", async () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
+    expect(box().tagName).toBe("TEXTAREA");
+    fireEvent.change(box(), { target: { value: "@ay", selectionStart: 3 } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    fireEvent.change(box(), { target: { value: "birinci satır" } });
+    fireEvent.keyDown(box(), { key: "Enter", shiftKey: true });
+    expect(send).not.toHaveBeenCalled();
+    fireEvent.change(box(), { target: { value: "birinci satır\nikinci   satır" } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await flush();
+    expect(send).toHaveBeenCalledWith("w1", "a", "birinci satır ikinci satır");
+  });
+
+  it("hedef çipi: tıkla listeyi açıyor, seçince çip ajanın adı; gönder simge düğmesi etiketli", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" }), pane("b", { title: "Ali" })])]);
+    const chip = screen.getByRole("button", { name: "Kime: ajan seç" });
+    expect(chip.getAttribute("aria-haspopup")).toBe("listbox");
+    fireEvent.click(chip);
+    const options = screen.getAllByRole("option");
+    expect(options.map((o) => o.textContent)).toEqual(["ekip", "Ayşe", "Ali"]);
+    fireEvent.mouseDown(options[2]);
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(screen.getByRole("button", { name: "Kime: Ali — değiştir" })).toBeTruthy();
+    expect(box().getAttribute("placeholder")).toContain("Ali");
+    expect(screen.getByRole("button", { name: "Gönder" }).textContent).toBe("");
+  });
+
+  it("başlıktaki bellek düğmesi Bellek görünümünü açıyor", () => {
+    const { commands } = setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
+    fireEvent.click(screen.getByRole("button", { name: "Kalıcı bellek" }));
+    expect(commands.setWorkspaceView).toHaveBeenCalledWith("w1", "memory");
   });
 });

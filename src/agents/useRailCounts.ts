@@ -9,7 +9,8 @@ import { railCounts, type RailCounts } from "./railCounts";
 import type { ChangesState } from "../../app-electron/shared/changesTypes";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
 
-function useChangesForRail(workspaceId: string): ChangesState | null {
+/** Alanın değişiklik durumu (depo durumu dahil). `refreshKey` değişince yeniden sorulur (ör. kök değişti). */
+export function useWorkspaceChanges(workspaceId: string, refreshKey = ""): ChangesState | null {
   const [state, setState] = useState<ChangesState | null>(null);
   useEffect(() => {
     const api = typeof window === "undefined" ? undefined : window.api;
@@ -20,7 +21,7 @@ function useChangesForRail(workspaceId: string): ChangesState | null {
     });
     api.changesState(workspaceId).then(
       (next) => {
-        if (alive && next) setState((prev) => prev ?? next);
+        if (alive && next) setState((prev) => (refreshKey ? next : (prev ?? next)));
       },
       () => {}
     );
@@ -28,13 +29,13 @@ function useChangesForRail(workspaceId: string): ChangesState | null {
       alive = false;
       off();
     };
-  }, [workspaceId]);
+  }, [workspaceId, refreshKey]);
   return state && state.workspaceId === workspaceId ? state : null;
 }
 
 export function useRailCounts(workspace: TerminalWorkspace): RailCounts {
   const { boards } = useBoards();
   const { statuses } = useAgentStatuses();
-  const changes = useChangesForRail(workspace.id);
+  const changes = useWorkspaceChanges(workspace.id);
   return railCounts({ board: boards[workspace.id], changes, asking: askingCount(workspace, statuses) });
 }

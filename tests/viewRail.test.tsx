@@ -35,10 +35,10 @@ function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr", co
 const rail = () => screen.getByRole("tablist", { name: "Görünüm" });
 
 describe("ViewRail", () => {
-  it("altı sekme alt alta; Ofis ortada; Bellek sonda; dikey, içeriğin üstünde yüzüyor", () => {
+  it("sekiz sekme alt alta: Pano başta, Ofis ortada, Bellek ve Araçlar sonda; dikey, içeriğin üstünde yüzüyor", () => {
     setup("office");
     const labels = screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"));
-    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek"]);
+    expect(labels).toEqual(["Pano", "Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek", "Araçlar"]);
     expect(rail().getAttribute("aria-orientation")).toBe("vertical");
     expect(rail().className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "absolute", "rounded-full", "hover:rounded-md"]));
     // Etiket ipucunda: her düğmenin title'ı var.
@@ -61,11 +61,11 @@ describe("ViewRail", () => {
     fireEvent.keyDown(rail(), { key: "ArrowDown" });
     expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "board");
     fireEvent.keyDown(rail(), { key: "ArrowUp" });
-    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "memory");
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "overview");
     fireEvent.keyDown(rail(), { key: "End" });
-    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "memory");
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "tools");
     fireEvent.keyDown(rail(), { key: "Home" });
-    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "panes");
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "overview");
     const calls = (commands.setWorkspaceView as ReturnType<typeof vi.fn>).mock.calls.length;
     fireEvent.keyDown(rail(), { key: "ArrowRight" });
     expect((commands.setWorkspaceView as ReturnType<typeof vi.fn>).mock.calls.length).toBe(calls);
