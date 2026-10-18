@@ -15,6 +15,7 @@ import {
   readWorkspaceView
 } from "../../app-electron/shared/terminalLayout";
 import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
+import { readBrowserUrl } from "../../app-electron/shared/browserLogic";
 import {
   equalizeSplit,
   fromLegacy,
@@ -175,12 +176,14 @@ function fromSaved(saved: SavedTerminalWorkspace): TerminalWorkspace {
   // Ağaçsız eski kayıt: normalizeLayout `fromLegacy`'ye düşüyor.
   const layout = normalizeLayout(saved.layout, ids.filter((id) => !hidden.has(id)));
   const view = readWorkspaceView(saved.view);
+  const browserUrl = readBrowserUrl(saved.browserUrl);
   return {
     ...emptyWorkspace(saved.id, saved.name),
     ...(saved.root ? { root: saved.root } : {}),
     ...(saved.sap ? { sap: saved.sap } : {}),
     ...(saved.verify?.length ? { verify: [...saved.verify] } : {}),
     ...(view ? { view } : {}),
+    ...(browserUrl ? { browserUrl } : {}),
     panes: saved.panes.map((p) => ({
       id: p.id,
       kind: p.kind,
@@ -452,6 +455,14 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       delete next.view;
       return replaceWorkspace(state, view ? { ...next, view } : next);
     }
+    case "setWorkspaceBrowserUrl": {
+      const workspace = state.workspaces.find((w) => w.id === action.id);
+      // Son adres (spec 2026-10-18 tarayici §2, §5): yalniz http/https, ≤ 2048,
+      // kimlik bilgisi yok; degilse kayit degismiyor.
+      const url = readBrowserUrl(action.url);
+      if (!workspace || !url || workspace.browserUrl === url) return state;
+      return replaceWorkspace(state, { ...workspace, browserUrl: url });
+    }
   }
 }
 
@@ -510,7 +521,8 @@ export function toSaved(state: TerminalState): { workspaces: SavedTerminalWorksp
       ...(w.root ? { root: w.root } : {}),
       ...(w.sap ? { sap: w.sap } : {}),
       ...(w.verify?.length ? { verify: w.verify } : {}),
-      ...(w.view ? { view: w.view } : {})
+      ...(w.view ? { view: w.view } : {}),
+      ...(w.browserUrl ? { browserUrl: w.browserUrl } : {})
     })),
     activeId: state.activeWorkspaceId
   };

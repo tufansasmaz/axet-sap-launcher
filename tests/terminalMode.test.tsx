@@ -75,7 +75,8 @@ function commandsMock(): TerminalCommands {
     setPaneColor: vi.fn(),
     setPaneFontSize: vi.fn(),
     setWorkspaceVerify: vi.fn(),
-    setWorkspaceView: vi.fn()
+    setWorkspaceView: vi.fn(),
+    setWorkspaceBrowserUrl: vi.fn()
   };
 }
 

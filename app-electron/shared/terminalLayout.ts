@@ -15,6 +15,7 @@ import type {
   WorkspaceView
 } from "./types";
 import { LEGACY_AXET_AGENT, readAgentSpec, type AgentSpec } from "./agentTypes";
+import { readBrowserUrl } from "./browserLogic";
 import { normalizeLayout, type EdgeSide, type PaneHome } from "./terminalTree";
 
 export const MAX_TERMINAL_PANES = 9;
@@ -79,7 +80,7 @@ export function readVerifyCommands(raw: unknown): string[] {
 /** Kayıttaki görünüm (spec 2026-10-18 ofis-gorunumu §2). "panes" ve bilinmeyen değer
  * atılıyor: alan yine açılır, Bölmeler'de. İleri sürümün yazdığı değer de böyle düşer. */
 export function readWorkspaceView(raw: unknown): Exclude<WorkspaceView, "panes"> | undefined {
-  return raw === "board" || raw === "office" || raw === "changes" ? raw : undefined;
+  return raw === "board" || raw === "office" || raw === "changes" || raw === "browser" ? raw : undefined;
 }
 
 /** Pano için alanın klasörü (kök, yoksa yedek) ve doğrulama komutları; alan yoksa null. */
@@ -206,6 +207,8 @@ export function normalizeTerminalWorkspaces(raw: unknown, nameFor: (n: number) =
     if (verify.length) workspace.verify = verify;
     const view = readWorkspaceView(record.view);
     if (view) workspace.view = view;
+    const browserUrl = readBrowserUrl(record.browserUrl);
+    if (browserUrl) workspace.browserUrl = browserUrl;
     // Eski kayıtta bu iki anahtar yok; olduğu gibi bırakılıyor (ağacı
     // indirgeyici `fromLegacy` ile kuruyor). `normalizeLayout` eksik bölmeyi
     // ekliyor, fazlasını atıyor: hiçbir bölme kaybolmuyor.

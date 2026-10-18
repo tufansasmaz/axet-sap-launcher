@@ -1597,7 +1597,8 @@ export const tr = {
   "changes.revertUndoHint": "Geri almayı geri almak için listedeki \"Geri almadan önce\" kaydını seçip Geri al'a bas.",
   "changes.dismiss": "Kapat",
   "changes.noSubtaskRecord": "Bu alt görev için geri alma noktası yok.",
-  "changes.boardLink": "Değişiklikler"
+  "changes.boardLink": "Değişiklikler",
+  "browser.view": "Tarayıcı"
 };
 
 

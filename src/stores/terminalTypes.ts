@@ -56,6 +56,7 @@ export interface TerminalWorkspace {
   sap?: SavedWorkspaceSap;
   verify?: string[];
   view?: Exclude<WorkspaceView, "panes">;
+  browserUrl?: string;
 }
 
 // "AXET Projesi Seç"ten gelen, yer bekleyen bölme. Kimlikler baştan
@@ -122,4 +123,5 @@ export type TerminalAction =
   | { type: "setPaneFontSize"; paneId: string; fontSize: number | null }
   | { type: "setWorkspaceRoot"; id: string; root: string | null; sap: SavedWorkspaceSap | null }
   | { type: "setWorkspaceVerify"; id: string; verify: string[] }
-  | { type: "setWorkspaceView"; id: string; view: WorkspaceView };
+  | { type: "setWorkspaceView"; id: string; view: WorkspaceView }
+  | { type: "setWorkspaceBrowserUrl"; id: string; url: string };

@@ -17,7 +17,8 @@ const VIEW_KEY: Record<WorkspaceView, TranslationKey> = {
   panes: "board.viewPanes",
   board: "board.viewBoard",
   office: "office.view",
-  changes: "changes.view"
+  changes: "changes.view",
+  browser: "browser.view"
 };
 const VIEWS: readonly WorkspaceView[] = ["panes", "board", "office", "changes"];
 

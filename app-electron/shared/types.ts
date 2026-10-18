@@ -340,8 +340,8 @@ export interface SavedWorkspaceSap {
   label: string;
 }
 
-/** Ajanlar ekranının görünümü (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5). "panes" varsayılan; kayda yazılmaz. */
-export type WorkspaceView = "panes" | "board" | "office" | "changes";
+/** Ajanlar ekranının görünümü (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5, tarayici §2). "panes" varsayılan; kayda yazılmaz. */
+export type WorkspaceView = "panes" | "board" | "office" | "changes" | "browser";
 
 export interface SavedTerminalWorkspace {
   id: string;
@@ -356,6 +356,8 @@ export interface SavedTerminalWorkspace {
   verify?: string[];
   /** Ajanlar ekranında son seçilen görünüm; yoksa bölmeler (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2). */
   view?: Exclude<WorkspaceView, "panes">;
+  /** Tarayıcının son açılan adresi; yalnız http/https, ≤ 2048, kimlik bilgisi yok (spec 2026-10-18 tarayici §2). */
+  browserUrl?: string;
 }
 
 export type AppTheme = "dark" | "light";

@@ -47,6 +47,8 @@ export interface TerminalCommands {
   setWorkspaceVerify: (id: string, verify: string[]) => void;
   /** Ajanlar ekranında Bölmeler | Pano | Ofis (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2). */
   setWorkspaceView: (id: string, view: WorkspaceView) => void;
+  /** Tarayıcının son adresi (spec 2026-10-18 tarayici §2); geçersizse yok sayılır. */
+  setWorkspaceBrowserUrl: (id: string, url: string) => void;
 }
 
 export interface TerminalStoreValue {

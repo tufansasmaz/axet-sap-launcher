@@ -1511,5 +1511,6 @@ export const en: Record<TranslationKey, string> = {
   "changes.revertUndoHint": "To undo the revert, select the \"Before revert\" record in the list and press Revert.",
   "changes.dismiss": "Dismiss",
   "changes.noSubtaskRecord": "There is no restore point for this subtask.",
-  "changes.boardLink": "Changes"
+  "changes.boardLink": "Changes",
+  "browser.view": "Browser"
 };

@@ -71,7 +71,8 @@ function signature(workspaces: AppConfig["terminalWorkspaces"], activeId: string
         root: w.root ?? null,
         sap: w.sap ?? null,
         verify: w.verify ?? [],
-        view: w.view ?? null
+        view: w.view ?? null,
+        browserUrl: w.browserUrl ?? null
       };
     }),
     activeId
@@ -445,6 +446,7 @@ export function TerminalStoreProvider({
       setWorkspaceRoot: (id, root, sap) => dispatch({ type: "setWorkspaceRoot", id, root, sap }),
       setWorkspaceVerify: (id, verify) => dispatch({ type: "setWorkspaceVerify", id, verify }),
       setWorkspaceView: (id, view) => dispatch({ type: "setWorkspaceView", id, view }),
+      setWorkspaceBrowserUrl: (id, url) => dispatch({ type: "setWorkspaceBrowserUrl", id, url }),
       closePane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
         if (found) release(found.pane);
