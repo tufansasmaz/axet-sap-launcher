@@ -21,15 +21,15 @@ function spots(plan: OfficePlan) {
 }
 
 describe("officePlan — odalar", () => {
-  it("beş oda var; zemin türleri: çalışma ahşap, mutfak karo, toplantı halı, sunucu beton", () => {
+  it("beş oda var; zemin türleri: blueprint (lider), greenGrid (toplantı), grayCheck (çalışma), darkCheck (sunucu), lightCheck (dinlenme)", () => {
     const plan = officePlan(5, WIDE.w, WIDE.h);
     for (const room of ["work", "leader", "meeting", "kitchen", "server"] as const) expect(roomTiles(plan, room).length, room).toBeGreaterThan(0);
     const floorOf = (room: RoomId) => new Set(roomTiles(plan, room).map(([x, y]) => plan.tiles[y][x]));
-    expect(floorOf("work")).toEqual(new Set(["wood"]));
-    expect(floorOf("kitchen")).toEqual(new Set(["tile"]));
-    expect(floorOf("meeting")).toEqual(new Set(["carpet"]));
-    expect(floorOf("server")).toEqual(new Set(["concrete"]));
-    expect(floorOf("leader")).toEqual(new Set(["wood"]));
+    expect(floorOf("work")).toEqual(new Set(["grayCheck"]));
+    expect(floorOf("kitchen")).toEqual(new Set(["lightCheck"]));
+    expect(floorOf("meeting")).toEqual(new Set(["greenGrid"]));
+    expect(floorOf("server")).toEqual(new Set(["darkCheck"]));
+    expect(floorOf("leader")).toEqual(new Set(["blueprint"]));
     expect(plan.tiles.flat()).toContain("glass");
   });
 

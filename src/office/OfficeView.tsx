@@ -113,6 +113,9 @@ interface LoopState {
   artLooks: Record<string, ArtLook>;
 }
 
+const MIN_ZOOM = 2;
+const MAX_ZOOM = 4;
+
 export default function OfficeView({
   workspace,
   onAddAgent,
@@ -123,6 +126,7 @@ export default function OfficeView({
   /** Görünüm başka sekmenin arkasındaysa false: çizim döngüsü durur. */
   visible?: boolean;
 }) {
+  const [userZoom, setUserZoom] = useState<number | null>(null);
   const t = useT();
   const { commands } = useTerminalStore();
   const { statuses, now } = useAgentStatuses();
@@ -141,7 +145,11 @@ export default function OfficeView({
 
   const leaderId = leaderPane(agents);
   const workers = agents.filter((p) => p.id !== leaderId);
-  const plan = useMemo(() => officePlan(workers.length, area.w, area.h), [workers.length, area.w, area.h]);
+  const planBase = useMemo(() => officePlan(workers.length, area.w, area.h), [workers.length, area.w, area.h]);
+  const plan = useMemo(
+    () => userZoom != null ? { ...planBase, scale: Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, userZoom)) } : planBase,
+    [planBase, userZoom]
+  );
   const clock = now || Date.now();
   const deskOf = new Map(workers.map((p, i) => [p.id, i]));
   const seats = agents.map((pane) => {
@@ -326,7 +334,48 @@ export default function OfficeView({
           </button>
         </div>
       ) : (
-        <div ref={areaRef} className="flex min-h-0 flex-1 overflow-hidden" style={{ backgroundColor: PALETTE.wallFace }}>
+        <div
+          ref={areaRef}
+          className="relative flex min-h-0 flex-1 overflow-hidden"
+          style={{ backgroundColor: PALETTE.wallFace }}
+          onWheel={(e) => {
+            e.preventDefault();
+            setUserZoom((z) => {
+              const cur = z ?? plan.scale;
+              return e.deltaY < 0 ? Math.min(MAX_ZOOM, cur + 1) : Math.max(MIN_ZOOM, cur - 1);
+            });
+          }}
+        >
+          {/* Zoom düğmeleri */}
+          <div className="pointer-events-auto absolute bottom-2 right-2 z-10 flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="-"
+              title="Küçült"
+              onClick={() => setUserZoom((z) => Math.max(MIN_ZOOM, (z ?? plan.scale) - 1))}
+              className="flex h-5 w-5 items-center justify-center rounded border border-slate-600 bg-slate-800/80 font-mono text-xs text-slate-300 hover:bg-slate-700"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label={`${plan.scale}x`}
+              title="Özgün boyut"
+              onClick={() => setUserZoom(null)}
+              className="flex h-5 min-w-[2rem] items-center justify-center rounded border border-slate-600 bg-slate-800/80 font-mono text-xs text-slate-300 hover:bg-slate-700"
+            >
+              {plan.scale}x
+            </button>
+            <button
+              type="button"
+              aria-label="+"
+              title="Büyüt"
+              onClick={() => setUserZoom((z) => Math.min(MAX_ZOOM, (z ?? plan.scale) + 1))}
+              className="flex h-5 w-5 items-center justify-center rounded border border-slate-600 bg-slate-800/80 font-mono text-xs text-slate-300 hover:bg-slate-700"
+            >
+              +
+            </button>
+          </div>
           <div
             ref={stageRef}
             data-office-stage=""
@@ -400,13 +449,13 @@ function OfficeDesk({
     >
       <span
         data-office-name=""
-        className={`absolute left-1/2 top-0 flex max-w-full -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded border bg-card/90 px-1 text-2xs leading-4 ${
-          selected ? "border-accent-500/60" : "border-line"
+        className={`absolute left-1/2 top-0 flex max-w-full -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded border px-1 text-2xs font-mono uppercase leading-4 ${
+          selected ? "border-accent-500/60 bg-slate-950/95" : "border-slate-700/80 bg-slate-950/90"
         }`}
         style={{ maxHeight: NAME_ART_H * scale }}
       >
         <span data-tone={view.tone} className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[view.tone]}`} />
-        <span title={name} className="min-w-0 truncate font-medium text-slate-200">
+        <span title={name} className="min-w-0 truncate text-slate-100">
           {name}
         </span>
       </span>

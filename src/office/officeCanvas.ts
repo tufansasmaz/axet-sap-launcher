@@ -169,8 +169,50 @@ export function floorTile(ctx: Ctx, kind: FloorKind, tx: number, ty: number) {
       rect(ctx, "concreteSeam", x + 15, y, 1, TILE);
       rect(ctx, "concreteAlt", x + ((tx * 7) % 11) + 2, y + ((ty * 5) % 11) + 2, 2, 1);
       return;
+    case "blueprint":
+      rect(ctx, "blueprintBg", x, y, TILE, TILE);
+      // İnce yatay çizgi her 4 piksel
+      rect(ctx, "blueprintGrid", x, y + 4, TILE, 1);
+      rect(ctx, "blueprintGrid", x, y + 8, TILE, 1);
+      rect(ctx, "blueprintGrid", x, y + 12, TILE, 1);
+      // İnce dikey çizgi her 4 piksel
+      rect(ctx, "blueprintGrid", x + 4, y, 1, TILE);
+      rect(ctx, "blueprintGrid", x + 8, y, 1, TILE);
+      rect(ctx, "blueprintGrid", x + 12, y, 1, TILE);
+      // Kesişim noktaları parlak
+      for (let gx = 4; gx < TILE; gx += 4)
+        for (let gy = 4; gy < TILE; gy += 4)
+          rect(ctx, "blueprintGridBright", x + gx, y + gy, 1, 1);
+      return;
+    case "greenGrid":
+      rect(ctx, "greenGridBg", x, y, TILE, TILE);
+      rect(ctx, "greenGridLine", x, y + 8, TILE, 1);
+      rect(ctx, "greenGridLine", x + 8, y, 1, TILE);
+      // Nokta her 8 piksel kesişimde
+      rect(ctx, "greenGridDot", x + 8, y + 8, 1, 1);
+      rect(ctx, "greenGridDot", x, y, 1, 1);
+      return;
+    case "grayCheck": {
+      const even = (tx + ty) % 2 === 0;
+      rect(ctx, even ? "grayCheckA" : "grayCheckB", x, y, TILE, TILE);
+      return;
+    }
+    case "darkCheck": {
+      const even = (tx + ty) % 2 === 0;
+      rect(ctx, even ? "darkCheckA" : "darkCheckB", x, y, TILE, TILE);
+      return;
+    }
+    case "lightCheck": {
+      const even = (tx + ty) % 2 === 0;
+      rect(ctx, even ? "lightCheckA" : "lightCheckB", x, y, TILE, TILE);
+      // Hafif nokta deseni
+      if ((tx + ty) % 4 === 0) rect(ctx, "lightCheckDot", x + 8, y + 8, 2, 2);
+      return;
+    }
   }
 }
+
+const FLOOR_KINDS: ReadonlySet<string> = new Set(["wood", "tile", "carpet", "concrete", "blueprint", "greenGrid", "grayCheck", "darkCheck", "lightCheck"]);
 
 export function floorOf(plan: OfficePlan, tx: number, ty: number): FloorKind {
   for (const [dx, dy] of [
@@ -180,9 +222,9 @@ export function floorOf(plan: OfficePlan, tx: number, ty: number): FloorKind {
     [-1, 0]
   ]) {
     const t = plan.tiles[ty + dy]?.[tx + dx];
-    if (t === "wood" || t === "tile" || t === "carpet" || t === "concrete") return t;
+    if (t && FLOOR_KINDS.has(t)) return t as FloorKind;
   }
-  return "wood";
+  return "grayCheck";
 }
 
 export const isWall = (plan: OfficePlan, x: number, y: number) => {
@@ -496,6 +538,33 @@ export function drawProp(ctx: Ctx, plan: OfficePlan, p: Prop) {
 }
 
 /** Sabit sahne 1x olarak bir kez çiziliyor. */
+/** Oda köşelerine küçük monospace etiket ("// LIDER" vb.). */
+function paintRoomLabels(ctx: Ctx, plan: OfficePlan) {
+  const labels: Array<{ room: string; label: string }> = [
+    { room: "leader", label: "// LIDER" },
+    { room: "server", label: "// SUNUCU" },
+    { room: "meeting", label: "// TOPLANTI" },
+    { room: "work", label: "// GELISTIRME" },
+    { room: "kitchen", label: "// DINLENME" }
+  ];
+  ctx.save();
+  ctx.font = "5px monospace";
+  ctx.textBaseline = "top";
+  for (const { room, label } of labels) {
+    // Odanın sol üst köşesini bul
+    let minX = Infinity, minY = Infinity;
+    plan.rooms.forEach((row, y) => row.forEach((r, x) => { if (r === room) { if (x < minX) minX = x; if (y < minY) minY = y; } }));
+    if (!isFinite(minX)) continue;
+    const px = minX * TILE + 2;
+    const py = minY * TILE + 2;
+    ctx.fillStyle = PALETTE.roomLabel;
+    ctx.fillRect(px - 1, py - 1, label.length * 3 + 2, 7);
+    ctx.fillStyle = PALETTE.roomLabelText;
+    ctx.fillText(label, px, py);
+  }
+  ctx.restore();
+}
+
 export function paintBackground(ctx: Ctx, plan: OfficePlan) {
   plan.tiles.forEach((row, ty) =>
     row.forEach((kind, tx) => {
@@ -509,6 +578,7 @@ export function paintBackground(ctx: Ctx, plan: OfficePlan) {
   // Halı önce, duvar süsleri, sonra yerdeki eşyalar yukarıdan aşağıya.
   const order = [...plan.props].sort((a, b) => (a.kind === "rug" ? -1 : 0) - (b.kind === "rug" ? -1 : 0) || a.y + a.h - (b.y + b.h));
   for (const p of order) drawProp(ctx, plan, p);
+  paintRoomLabels(ctx, plan);
 }
 
 // ---------------------------------------------------------------- hareketliler

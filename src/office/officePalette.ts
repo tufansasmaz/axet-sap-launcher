@@ -1,37 +1,80 @@
-// Piksel ofisin paleti (spec 2026-10-18 ajanlar-yeniden §3). src/office
-// altında renk YALNIZ bu dosyada: sıcak, sabit bir ofis paleti. Canvas tema
-// değişkenini kare kare okumuyor; açık ve koyu temada aynı sahne. Lime yok:
-// lime yalnız HTML katmanındaki seçim/odak halkası (accent sınıfı).
+// Piksel ofisin paleti (spec 2026-10-18 ajanlar-yeniden §3, görsel-yeniden).
+// src/office altında renk YALNIZ bu dosyada: koyu blueprint teması.
+// Canvas tema değişkenini kare kare okumuyor; açık ve koyu temada aynı sahne.
+// Lime yok: lime yalnız HTML katmanındaki seçim/odak halkası (accent sınıfı).
 import type { TerminalPaneColor } from "../../app-electron/shared/types";
 
 export const PALETTE = {
-  outline: "#2a2024",
-  eye: "#2a2024",
-  shoe: "#3a2a26",
-  shadow: "#1a1214",
-  // Zeminler
-  wood: "#b98a5e",
-  woodAlt: "#ad7f55",
-  woodSeam: "#8f6646",
-  woodShine: "#c99a6c",
-  tile: "#d9d2c3",
-  tileAlt: "#cbc3b2",
-  tileGrout: "#a89f8e",
-  carpet: "#5a6f8f",
-  carpetAlt: "#526683",
-  carpetDot: "#6c82a3",
-  concrete: "#8d8e92",
-  concreteAlt: "#838489",
-  concreteSeam: "#6f7075",
+  outline: "#0a0c10",
+  eye: "#0a0c10",
+  shoe: "#1a1a24",
+  shadow: "#050608",
+  // ── Blueprint zeminleri (prosedürel; officePalette dışında hex yok) ──
+  // Blueprint (lider / genel çalışma): koyu lacivert + ince ızgara
+  blueprintBg: "#0d1117",
+  blueprintGrid: "#162033",
+  blueprintGridBright: "#1e3050",
+  // Yeşil ızgara (toplantı / araştırma odası)
+  greenGridBg: "#0d1a0d",
+  greenGridLine: "#1a2e1a",
+  greenGridDot: "#2a4a2a",
+  // Gri dama (açık çalışma alanı, mavi-gri)
+  grayCheckA: "#1e2330",
+  grayCheckB: "#1a1f2a",
+  // Koyu dama (sunucu / backend)
+  darkCheckA: "#111318",
+  darkCheckB: "#0d0f14",
+  // Açık dama (dinlenme / oyun odası)
+  lightCheckA: "#d4dbd4",
+  lightCheckB: "#bfc6bf",
+  lightCheckDot: "#a8b2a8",
+  // Oda sınırı (tek karo, ince koyu çizgi)
+  roomBorder: "#050608",
+  // Eski uyumluluk için (sprite'lar kullanıyor)
+  wood: "#2a3a2a",
+  woodAlt: "#24332a",
+  woodSeam: "#1e2e24",
+  woodShine: "#2e3e32",
+  tile: "#c8cfd8",
+  tileAlt: "#b8bfc8",
+  tileGrout: "#8890a0",
+  carpet: "#1a2540",
+  carpetAlt: "#16203a",
+  carpetDot: "#1e2c50",
+  concrete: "#14161c",
+  concreteAlt: "#111318",
+  concreteSeam: "#0e1014",
+  // Oda adı etiketi (canvas'ta küçük monospace, köşede)
+  roomLabel: "#1e3050",
+  roomLabelText: "#2a4878",
+  // Ad kutusu (HTML katmanı)
+  nameBg: "#050810",
+  nameText: "#e0e8f0",
+  // Holografik disk
+  holoRing: "#00b4d8",
+  holoRingGlow: "#0077b6",
+  holoCore: "#90e0ef",
+  // Hedef tahtası
+  targetRed: "#c0392b",
+  targetWhite: "#ecf0f1",
+  targetBlue: "#2980b9",
+  // Arcade makinesi
+  arcadeBody: "#1a0a2e",
+  arcadeScreen: "#6c3483",
+  arcadeBtn: "#e74c3c",
+  // Sunucu raf LED'leri
+  ledRed: "#e74c3c",
+  // Holografik halka ortası
+  holoEmpty: "#001428",
   // Duvar, cam, kapı (ceiling*: paketli çizimde duvar üstü — paketin tavan çizgisiyle aynı tonlar)
-  ceiling: "#f2efe9",
-  ceilingLine: "#3a3a50",
-  wallCap: "#e8dccb",
-  wallCapEdge: "#c9b9a3",
+  ceiling: "#0a0c10",
+  ceilingLine: "#0d1117",
+  wallCap: "#0d1117",
+  wallCapEdge: "#050608",
   wallFace: "#a08672",
-  wallFaceDark: "#8a705e",
-  wallFaceLight: "#b39882",
-  baseboard: "#5c4536",
+  wallFaceDark: "#0a0c10",
+  wallFaceLight: "#0d1117",
+  baseboard: "#050608",
   glass: "#a9d4e6",
   glassLight: "#d8eef7",
   glassFrame: "#6c7a85",

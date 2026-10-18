@@ -34,7 +34,7 @@ const KITCHEN_H = 9;
 const MIN_SCALE = 2;
 const MAX_SCALE = 4;
 
-export type FloorKind = "wood" | "tile" | "carpet" | "concrete";
+export type FloorKind = "wood" | "tile" | "carpet" | "concrete" | "blueprint" | "greenGrid" | "grayCheck" | "darkCheck" | "lightCheck";
 export type TileKind = "wall" | "glass" | "door" | FloorKind;
 export type RoomId = "work" | "workB" | "leader" | "meeting" | "kitchen" | "server";
 export type Dir = "down" | "up" | "left" | "right";
@@ -175,18 +175,18 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
   const lx = sx + SERVER_W + 1;
   const mx = lx + LEAD_W + 1;
   const meetW = cols - 1 - mx;
-  area(sx, top, SERVER_W, TOP_H, "concrete", "server");
-  area(lx, top, LEAD_W, TOP_H, "wood", "leader");
-  area(mx, top, meetW, TOP_H, "carpet", "meeting");
+  area(sx, top, SERVER_W, TOP_H, "darkCheck", "server");
+  area(lx, top, LEAD_W, TOP_H, "blueprint", "leader");
+  area(mx, top, meetW, TOP_H, "greenGrid", "meeting");
   faceRow(0, sx, sx + SERVER_W - 1);
   faceRow(0, lx, lx + LEAD_W - 1);
   faceRow(0, mx, mx + meetW - 1);
 
   // Alt sıra: çalışma alanı + mutfak. Ara duvarın yüzü alt sıranın üstünde.
-  area(1, low, workW, lowH, "wood", "work");
+  area(1, low, workW, lowH, "grayCheck", "work");
   const kx = 1 + workW;
   const kx0 = kx + 1;
-  area(kx0, low, KITCHEN_W, KITCHEN_H, "tile", "kitchen");
+  area(kx0, low, KITCHEN_W, KITCHEN_H, "lightCheck", "kitchen");
   faceRow(yW, 1, cols - 2);
   // Lider odasının çalışma alanına bakan yüzü camdan.
   for (let x = lx; x < lx + LEAD_W; x++) {
@@ -202,7 +202,7 @@ function build(n: number, p: number): Omit<OfficePlan, "scale"> {
     // Mutfağı alttan duvar kapatıyor; altı (sığarsa) çalışma alanına katılıyor.
     const by = low + KITCHEN_H;
     if (by + 2 < low + lowH) faceRow(by, kx0, cols - 2);
-    if (lowH > KITCHEN_H + WALL_T) area(kx, by + WALL_T, KITCHEN_W + 1, lowH - KITCHEN_H - WALL_T, "wood", "work");
+    if (lowH > KITCHEN_H + WALL_T) area(kx, by + WALL_T, KITCHEN_W + 1, lowH - KITCHEN_H - WALL_T, "grayCheck", "work");
   }
   let partition = -1;
   if (rowsB > 0) {
