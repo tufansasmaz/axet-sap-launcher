@@ -20,7 +20,8 @@ import {
   type LoadErrorKind
 } from "../../app-electron/shared/browserLogic";
 import BrowserPage, { type PageHandle, type PageState } from "./BrowserPage";
-import { ADDRESS_FAILURE_KEY, LOAD_ERROR_KEY } from "./browserText";
+import { ADDRESS_FAILURE_KEY, LOAD_ERROR_KEY, SEND_FAILURE_KEY } from "./browserText";
+import AgentSendMenu from "./AgentSendMenu";
 
 type Notice = { tone: "warning" | "success"; key: TranslationKey; params?: Record<string, string | number> };
 type Failure = { kind: LoadErrorKind; code: number; url: string };
@@ -45,6 +46,28 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
   const [failure, setFailure] = useState<Failure | null>(null);
   const [crashed, setCrashed] = useState(false);
   const [webContentsId, setWebContentsId] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+
+  // Spec §3: seçmek onaydır; sonuç tek satır, görünüm Tarayıcı'da kalır, yeniden deneme yok.
+  const send = async (paneId: string, name: string, withScreenshot: boolean) => {
+    const id = pageRef.current?.webContentsId() ?? null;
+    if (id === null) {
+      setNotice({ tone: "warning", key: SEND_FAILURE_KEY.noPage });
+      return;
+    }
+    setSending(true);
+    setNotice(null);
+    try {
+      const result = await window.api.browserSend(workspace.id, paneId, id, withScreenshot);
+      if (!result.ok) setNotice({ tone: "warning", key: SEND_FAILURE_KEY[result.reason] });
+      else if (result.screenshot) setNotice({ tone: "success", key: "browser.sentWithShot", params: { name, file: result.screenshot } });
+      else setNotice({ tone: "success", key: "browser.sent", params: { name } });
+    } catch {
+      setNotice({ tone: "warning", key: SEND_FAILURE_KEY.writeFailed });
+    } finally {
+      setSending(false);
+    }
+  };
 
   const open = (url: string) => {
     editing.current = false;
@@ -232,6 +255,7 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
           <ExternalLink size={14} aria-hidden />
           {t("browser.openExternal")}
         </button>
+        <AgentSendMenu workspace={workspace} disabled={!page || sending} onSend={(paneId, name, shot) => void send(paneId, name, shot)} />
       </div>
       {notice && (
         <p role="status" className={`shrink-0 border-b border-line px-3 py-1 text-2xs ${NOTICE_TONE[notice.tone]}`}>

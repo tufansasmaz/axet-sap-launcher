@@ -1622,7 +1622,27 @@ export const tr = {
   "browser.reloadPage": "Yeniden yükle",
   "browser.downloadBlocked": "İndirmeler yerleşik tarayıcıda kapalı; Sistem tarayıcısında aç'ı kullan.",
   "shortcuts.browserAddress": "Tarayıcı: adres alanına git",
-  "shortcuts.browserBackForward": "Tarayıcı: geri / ileri"
+  "shortcuts.browserBackForward": "Tarayıcı: geri / ileri",
+  "browser.send": "Ajana gönder",
+  "browser.sendMenu": "Gönderilecek ajan",
+  "browser.noAgents": "Bu alanda ajan yok",
+  "browser.withScreenshot": "Ekran görüntüsü ekle",
+  "browser.noRootForScreenshot": "Ekran görüntüsü için alanın kök klasörü gerekli.",
+  "browser.sent": "Gönderildi: {name}",
+  "browser.sentWithShot": "Gönderildi: {name} · ekran görüntüsü {file}",
+  "browser.fail.invalid": "Gönderilemedi: geçersiz istek.",
+  "browser.fail.noWorkspace": "Gönderilemedi: alan bulunamadı.",
+  "browser.fail.noAgent": "Gönderilemedi: ajan bu alanda değil ya da kapandı.",
+  "browser.fail.notRunning": "Ajan çalışmıyor; önce ajanı başlat.",
+  "browser.fail.busy": "Ajan şu an meşgul; işi bitince yeniden gönder.",
+  "browser.fail.asking": "Ajan bir soru bekliyor; önce Kararlar'dan cevapla.",
+  "browser.fail.typing": "Ajanın terminalinde gönderilmemiş bir satır var; önce onu gönder ya da sil.",
+  "browser.fail.noPage": "Gönderilecek sayfa yok.",
+  "browser.fail.pageBusy": "Sayfa cevap vermedi; hiçbir şey gönderilmedi.",
+  "browser.fail.noRoot": "Alanın kök klasörü bulunamadı; hiçbir şey gönderilmedi.",
+  "browser.fail.captureFailed": "Ekran görüntüsü alınamadı; hiçbir şey gönderilmedi.",
+  "browser.fail.tooLarge": "Ekran görüntüsü 10 MB'tan büyük; hiçbir şey gönderilmedi.",
+  "browser.fail.writeFailed": "Gönderilemedi: yazılamadı."
 };
 
 
