@@ -59,6 +59,11 @@ export interface MonitorDeps {
   log(tag: string, fields: LogFields): void;
   /** Gecikmeli iş (Enter). Yoksa setTimeout; testte enjekte. */
   schedule?(fn: () => void, ms: number): void;
+  /**
+   * Değişiklikler (spec 2026-10-18 degisiklikler §4.2): kullanıcı bölmede bir
+   * satırı Enter ile gönderdi ve motor açık. Senkron dönmeli; iş arka planda.
+   */
+  onPromptLine?(reg: AgentRegistration, line: string): void;
 }
 
 export interface AgentMonitor {
@@ -334,7 +339,12 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       if (!entry) return;
       entry.lastInputAt = deps.now();
       guard(() => {
-        for (const line of entry.input.feed(data)) entry.reader.submitLine(line);
+        for (const line of entry.input.feed(data)) {
+          // Motor kapalıyken (kabuk istemi ekranda) yazılan satır istem değil.
+          // Kancanın hatası satırın okuyucuya gitmesini engellemiyor.
+          if (entry.last?.state !== "finished") guard(() => deps.onPromptLine?.(entry.reg, line));
+          entry.reader.submitLine(line);
+        }
       });
     },
     onExit(ptyId) {

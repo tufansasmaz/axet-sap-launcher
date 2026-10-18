@@ -76,6 +76,11 @@ export interface BoardManagerDeps {
   emit(board: Board): void;
   notify(kind: BoardNotificationKind, workspaceId: string, taskTitle: string): void;
   log(tag: string, fields: LogFields): void;
+  /**
+   * Değişiklikler (spec 2026-10-18 degisiklikler §4.1): alt görevin istemi
+   * ajana yazıldı (Enter 150 ms sonra). Senkron dönmeli; iş arka planda.
+   */
+  onDispatched?(workspaceId: string, paneId: string, subtaskId: string, title: string): void;
 }
 
 export interface BoardManager {
@@ -337,6 +342,7 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
         "writeFailed" as AgentPromptResult
       );
       if (result !== "ok") continue;
+      attempt(() => deps.onDispatched?.(workspaceId, d.paneId, sub.id, sub.title), undefined);
       const next = mapSubtask(task, sub.id, (s) => assignSubtask(s, d.paneId, now));
       if (next) tasks = replaceTask(tasks, next);
       if (abortedSync) {
@@ -483,6 +489,8 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       "writeFailed" as AgentPromptResult
     );
     if (result !== "ok") return fail(promptFailure(result));
+    const dispatchedTitle = task.subtasks.find((s) => s.id === subtaskId)?.title ?? "";
+    attempt(() => deps.onDispatched?.(workspaceId, paneId, subtaskId, dispatchedTitle), undefined);
     const next = mapSubtask(task, subtaskId, (s) => {
       const assigned = assignSubtask(s, paneId, now);
       if (note) assigned.note = note;

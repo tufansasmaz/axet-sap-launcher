@@ -1,7 +1,7 @@
 // Pano yöneticisi (spec 2026-10-18 gorev-panosu §3–§7, §9). Depo, izleyici,
 // lider, doğrulama, bildirim ve günlük sahte; axet-code çalıştırılmıyor.
 import { describe, expect, it, vi } from "vitest";
-import { createBoardManager } from "../app-electron/main/boardManager";
+import { createBoardManager, type BoardManagerDeps } from "../app-electron/main/boardManager";
 import { boardNotificationFor } from "../app-electron/main/boardNotification";
 import type { AgentPresence, AgentPromptResult, LogFields } from "../app-electron/main/agentMonitor";
 import type { BoardFileResult } from "../app-electron/main/boardStore";
@@ -52,7 +52,7 @@ const draft = (id: string, over: Partial<SubtaskDraft> = {}): SubtaskDraft => ({
   ...over
 });
 
-function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResult> } = {}) {
+function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResult>; onDispatched?: BoardManagerDeps["onDispatched"] } = {}) {
   const clock = { ms: 1_000 };
   let seq = 0;
   let writeCallCount = 0;
@@ -137,7 +137,8 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
     },
     emit: (b) => emitted.push(b),
     notify: (kind, ws, title) => notified.push([kind, ws, title]),
-    log: (tag, fields) => logs.push([tag, fields])
+    log: (tag, fields) => logs.push([tag, fields]),
+    ...(opts.onDispatched ? { onDispatched: opts.onDispatched } : {})
   });
   const board = () => manager.get("w1")!;
   const task = (id = "id1") => board().tasks.find((t) => t.id === id)!;
@@ -719,5 +720,35 @@ describe("boardNotificationFor", () => {
     expect(boardNotificationFor("taskDone", false, false, "İade")).toBeNull();
     expect(boardNotificationFor("taskDone", false, true, "İade")).toEqual({ title: "İade", body: "Görev bitti" });
     expect(boardNotificationFor("subtaskFailed", false, true, "  ", "en")).toEqual({ title: "NTT Studio", body: "Subtask failed" });
+  });
+});
+
+describe("Değişiklikler kancası (spec 2026-10-18 degisiklikler §4.1)", () => {
+  it("oto ve elle dağıtımda yazma başarılıysa onDispatched alan, bölme, alt görev ve başlıkla; reddedilen yazımda yok", () => {
+    const calls: [string, string, string, string][] = [];
+    const h = harness({ onDispatched: (ws, paneId, subtaskId, title) => void calls.push([ws, paneId, subtaskId, title]) });
+    approvedTask(h, [draft("a"), draft("b")]);
+    h.state.agents = [presence("p1", exact("idle"))];
+    h.manager.tick();
+    expect(calls).toEqual([["w1", "p1", "a", "Alt a"]]);
+    h.state.agents = [presence("p1", exact("running")), presence("p2", { state: "idle", source: "estimated", lastActivity: 900 })];
+    h.state.promptResult = "notRunning";
+    expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p2" })).toEqual({ ok: false, reason: "notEligible" });
+    expect(calls).toHaveLength(1);
+    h.state.promptResult = "ok";
+    expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p2" })).toEqual({ ok: true, taskId: "id1" });
+    expect(calls.at(-1)).toEqual(["w1", "p2", "b", "Alt b"]);
+  });
+
+  it("onDispatched fırlatsa da dağıtım sürüyor", () => {
+    const h = harness({
+      onDispatched: () => {
+        throw new Error("değişiklik yöneticisi patladı");
+      }
+    });
+    approvedTask(h);
+    h.state.agents = [presence("p1", exact("idle"))];
+    expect(() => h.manager.tick()).not.toThrow();
+    expect(h.task().subtasks[0]).toMatchObject({ state: "running", paneId: "p1" });
   });
 });
