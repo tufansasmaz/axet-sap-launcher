@@ -1026,3 +1026,29 @@ describe("Ön tarama (son inceleme, Important 2)", () => {
     expect(out).toMatchObject({ ok: true, trashed: ["README.md"], restored: ["Readme.md"] });
   });
 });
+
+describe("Alt modül (son inceleme, Minor 10)", () => {
+  it("gitlink yolu geri almada yazılmıyor, çöpe taşınmıyor: skipped; sıradan dosya geri yükleniyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [
+      { ...change("alt"), submodule: true },
+      { ...change("yeni-alt", "added"), submodule: true },
+      change("a.ts")
+    ]);
+    h.state.exists.add("yeni-alt");
+    h.state.kinds.set("alt", "dir");
+    h.state.kinds.set("yeni-alt", "dir");
+    const result = await h.manager.revert("w1", "c1", ["alt", "yeni-alt", "a.ts"]);
+    expect(result).toEqual({ ok: true, restored: ["a.ts"], trashed: [], skipped: ["alt", "yeni-alt"], beforeRestoreId: "c3" });
+    expect(h.events.filter((e) => e.startsWith("trash") || e.startsWith("restore"))).toEqual(["restore:a.ts"]);
+  });
+});
+
+describe("Alt modül: geri alma planı", () => {
+  it("plan alt modül yolunu etkilenecek dosyalara koymuyor (geri alınmayacak)", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [{ ...change("alt"), submodule: true }, change("a.ts")]);
+    const prepared = await h.manager.prepareRevert("w1", "c1");
+    expect(prepared.ok && prepared.plan.files.map((f) => f.path)).toEqual(["a.ts"]);
+  });
+});

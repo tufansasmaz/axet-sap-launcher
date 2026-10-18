@@ -394,8 +394,10 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     const skipped: string[] = [];
     for (const rel of paths) {
       const change = byPath.get(rel);
-      // Onaylandıktan sonra aralıktan çıkmış: dokunulmuyor (spec §7).
-      if (!change) skipped.push(rel);
+      // Onaylandıktan sonra aralıktan çıkmış: dokunulmuyor (spec §7). Alt modül
+      // (gitlink): checkout-index onu yazmaz, eklenmişse çöpe taşımak iç içe
+      // deponun tamamını götürürdü → ikisinde de dokunulmuyor.
+      if (!change || change.submodule) skipped.push(rel);
       else if (change.status === "added") added.push(rel);
       else others.push(rel);
     }
@@ -731,7 +733,9 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         if (entry.checkpoints.find((c) => c.id === checkpointId)?.reviewed === "reverted") return fail("alreadyReverted");
         const r = await rangeInternal(workspaceId, entry, ctx, checkpointId);
         if (!r.ok) return r;
-        const paths = new Set(r.files.map((f) => f.path));
+        // Alt modül (gitlink) geri alınmıyor: etkilenecek dosyalara da çakışma taramasına da girmiyor.
+        const files = r.files.filter((f) => !f.submodule);
+        const paths = new Set(files.map((f) => f.path));
         const later = laterCheckpoints(entry.checkpoints, checkpointId, CONFLICT_SCAN_MAX);
         const totalLater = entry.checkpoints.length - 1 - r.range.index;
         const conflicts: RevertConflict[] = [];
@@ -753,7 +757,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         const runningAgents = attempt(() => deps.agents(), [] as AgentPresence[])
           .filter((p) => p.reg.workspaceId === workspaceId && (p.status?.state === "running" || p.status?.state === "asking"))
           .map((p) => p.reg.name || p.reg.paneId);
-        return { ok: true, plan: { files: r.files, conflicts, conflictsPartial: totalLater > later.length, runningAgents } };
+        return { ok: true, plan: { files, conflicts, conflictsPartial: totalLater > later.length, runningAgents } };
       });
     },
 

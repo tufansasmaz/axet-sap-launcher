@@ -1569,6 +1569,7 @@ export const tr = {
   "changes.binaryShort": "ikili",
   "changes.binaryChanged": "İkili dosya değişti.",
   "changes.largeChanged": "Büyük dosya değişti (200 KB üstü); diff gösterilmiyor.",
+  "changes.submoduleChanged": "Alt modül; içeriği gösterilmiyor.",
   "changes.diffLabel": "Diff",
   "changes.diffTruncated": "Diff çok uzun; kırpıldı.",
   "changes.liveError": "Canlı durum alınamadı.",

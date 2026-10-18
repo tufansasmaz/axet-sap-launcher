@@ -104,24 +104,35 @@ function completeZ(out: string): string {
   return out.endsWith("\0") ? out : out.slice(0, out.lastIndexOf("\0") + 1);
 }
 
-/** `git diff-tree -r --no-renames --name-status -z` çıktısı.
- *  R/C (yeniden adlandırma/kopyalama): `--no-renames` geçilse de savunma için iki yol tüketip atlıyor. */
-export function parseNameStatusZ(out: string): { path: string; status: FileStatus }[] {
+const GITLINK_MODE = "160000";
+
+/**
+ * `git diff-tree -r --no-renames --raw -z` çıktısı: her kayıt
+ * `:<eski mod> <yeni mod> <eski sha> <yeni sha> <durum>\0<yol>\0`. Bir
+ * taraftaki mod 160000 ise yol alt modül / iç içe depo (gitlink).
+ * R/C savunma için iki yolu tüketip atlanıyor; kırpılmış son kayıt atılıyor.
+ */
+export function parseRawZ(out: string): { path: string; status: FileStatus; submodule: boolean }[] {
   const parts = completeZ(out).split("\0");
-  const result: { path: string; status: FileStatus }[] = [];
+  const result: { path: string; status: FileStatus; submodule: boolean }[] = [];
   let i = 0;
   while (i + 1 < parts.length) {
-    const code = parts[i];
-    if (!code) break;
+    const meta = parts[i];
+    if (!meta || meta[0] !== ":") break;
+    const fields = meta.slice(1).split(" ");
+    const code = fields[4] ?? "";
     const firstChar = code[0];
     if (firstChar === "R" || firstChar === "C") {
-      // İki yol: eski-yol + yeni-yol; hizayı korumak için üçünü birden tüket.
       i += 3;
       continue;
     }
     const path = parts[i + 1];
-    if (!path) break;
-    result.push({ path, status: firstChar === "A" ? "added" : firstChar === "D" ? "deleted" : "modified" });
+    if (!path || !firstChar) break;
+    result.push({
+      path,
+      status: firstChar === "A" ? "added" : firstChar === "D" ? "deleted" : "modified",
+      submodule: fields[0] === GITLINK_MODE || fields[1] === GITLINK_MODE
+    });
     i += 2;
   }
   return result;
@@ -140,11 +151,18 @@ export function parseNumstatZ(out: string): Map<string, { added: number; deleted
 }
 
 export function mergeChanges(
-  names: readonly { path: string; status: FileStatus }[],
+  names: readonly { path: string; status: FileStatus; submodule?: boolean }[],
   stats: ReadonlyMap<string, { added: number; deleted: number; binary: boolean }>
 ): FileChange[] {
   return names
-    .map((n) => ({ path: n.path, status: n.status, ...(stats.get(n.path) ?? { added: 0, deleted: 0, binary: false }) }))
+    .map(
+      (n): FileChange => ({
+        path: n.path,
+        status: n.status,
+        ...(stats.get(n.path) ?? { added: 0, deleted: 0, binary: false }),
+        ...(n.submodule ? { submodule: true as const } : {})
+      })
+    )
     .sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 }
 

@@ -1483,6 +1483,7 @@ export const en: Record<TranslationKey, string> = {
   "changes.binaryShort": "binary",
   "changes.binaryChanged": "Binary file changed.",
   "changes.largeChanged": "Large file changed (over 200 KB); no diff shown.",
+  "changes.submoduleChanged": "Submodule; its contents are not shown.",
   "changes.diffLabel": "Diff",
   "changes.diffTruncated": "The diff is too long; it was truncated.",
   "changes.liveError": "Could not fetch live status.",

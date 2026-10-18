@@ -247,9 +247,9 @@ describe("Canlı yoklaması (spec §5)", () => {
 describe("aralık ve diff (spec §5)", () => {
   const twoRecords = () => state({ checkpoints: [cp("c1", at(9, 0)), cp("c2", at(9, 30))] });
 
-  it("eski kayıt seçince aralık isteniyor; dosyaya tıklayınca satır numaralı diff; ikili ve büyük dosya notu", async () => {
+  it("eski kayıt seçince aralık isteniyor; dosyaya tıklayınca satır numaralı diff; ikili, büyük dosya ve alt modül notu", async () => {
     api.changesState.mockResolvedValue(twoRecords());
-    api.changesRange.mockResolvedValue(okRange([file("a.ts"), file("logo.png", "added", 0, 0, true), file("büyük.txt")]));
+    api.changesRange.mockResolvedValue(okRange([file("a.ts"), file("logo.png", "added", 0, 0, true), file("büyük.txt"), { ...file("alt"), submodule: true }]));
     await setup();
     fireEvent.click(document.querySelector('[data-checkpoint="c1"]')!);
     await flush();
@@ -285,6 +285,10 @@ describe("aralık ve diff (spec §5)", () => {
     fireEvent.click(document.querySelector('[data-file="büyük.txt"]')!);
     await flush();
     expect(screen.getByText(/Büyük dosya değişti/)).toBeTruthy();
+    api.changesDiff.mockResolvedValueOnce({ ok: true, diff: { kind: "submodule" } });
+    fireEvent.click(document.querySelector('[data-file="alt"]')!);
+    await flush();
+    expect(document.querySelector('[data-diff-note="submodule"]')?.textContent).toBe("Alt modül; içeriği gösterilmiyor.");
   });
 
   it("en son kayıt Canlı sonucunu kullanıyor: ayrı aralık isteği yok, diff o kaydın kimliğiyle", async () => {

@@ -40,6 +40,8 @@ export interface FileChange {
   added: number;
   deleted: number;
   binary: boolean;
+  /** Alt modül / iç içe depo (gitlink, mod 160000): içeriği gösterilmiyor, geri alınmıyor. */
+  submodule?: true;
 }
 
 export type RepoStatus = "unknown" | "ok" | "notRepo" | "noGit" | "missingDir";
@@ -110,7 +112,7 @@ export interface DiffLine {
   text: string;
 }
 
-export type FileDiff = { kind: "text"; lines: DiffLine[]; truncated: boolean } | { kind: "binary" } | { kind: "large" };
+export type FileDiff = { kind: "text"; lines: DiffLine[]; truncated: boolean } | { kind: "binary" } | { kind: "large" } | { kind: "submodule" };
 
 export type SnapshotResult = { ok: true; id: string } | { ok: false; reason: ChangesFailure };
 export type RangeResult =

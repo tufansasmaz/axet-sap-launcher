@@ -664,3 +664,39 @@ describe("pathKind ve removeEmptyDir (gerçek geçici klasör)", () => {
     expect(dirIsEmpty(root, "kopru")).toBe(false);
   });
 });
+
+describe.skipIf(!HAS_GIT)("alt modül / iç içe depo (gitlink, mod 160000)", { timeout: 30_000 }, () => {
+  it("iç içe depo aralıkta submodule işaretli; fileDiff git hatası yerine 'submodule' notu", async () => {
+    initRepo();
+    const port = createGitPort({ indexDir: dataDir() });
+    const one = await port.snapshot(repo, indexFile, 20_000);
+    // Ajan alan içine bir depo klonladı: git add -A onu gitlink (160000) olarak ekliyor.
+    const nested = path.join(repo, "alt");
+    mkdirSync(nested);
+    const inner = (...args: string[]) =>
+      execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=t@t", ...args], { cwd: nested, windowsHide: true, encoding: "utf8" });
+    inner("init", "-q", "-b", "ana");
+    writeFileSync(path.join(nested, "x.txt"), "x\n");
+    inner("add", "-A");
+    inner("commit", "-q", "-m", "bir");
+    const two = await port.snapshot(repo, indexFile, 20_000);
+    writeFileSync(path.join(nested, "x.txt"), "y\n");
+    inner("commit", "-q", "-am", "iki");
+    const three = await port.snapshot(repo, indexFile, 20_000);
+    if (!one.ok || !two.ok || !three.ok) throw new Error("görüntü");
+    const added = await port.diffTrees(repo, "", one.tree, two.tree);
+    if (!added.ok) throw new Error("diff");
+    expect(byPath(added.files)["alt"]).toMatchObject({ status: "added", submodule: true });
+    const changed = await port.diffTrees(repo, "", two.tree, three.tree);
+    if (!changed.ok) throw new Error("diff");
+    expect(changed.files.map((f) => [f.path, f.status, f.submodule])).toEqual([["alt", "modified", true]]);
+    expect(await port.fileDiff(repo, "", two.tree, three.tree, changed.files[0])).toEqual({ kind: "submodule" });
+    // Sıradan dosyada işaret yok.
+    write("a.txt", "değişti\n");
+    const four = await port.snapshot(repo, indexFile, 20_000);
+    if (!four.ok) throw new Error("görüntü");
+    const plain = await port.diffTrees(repo, "", three.tree, four.tree);
+    if (!plain.ok) throw new Error("diff");
+    expect(plain.files.map((f) => [f.path, "submodule" in f])).toEqual([["a.txt", false]]);
+  });
+});

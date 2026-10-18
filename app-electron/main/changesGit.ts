@@ -29,7 +29,7 @@
 import { execFile } from "node:child_process";
 import { existsSync, realpathSync, statSync, unlinkSync } from "node:fs";
 import path from "node:path";
-import { isSafeRelPath, isTreeId, mergeChanges, parseNameStatusZ, parseNumstatZ, parseUnifiedDiff } from "../shared/changesLogic";
+import { isSafeRelPath, isTreeId, mergeChanges, parseNumstatZ, parseRawZ, parseUnifiedDiff } from "../shared/changesLogic";
 import {
   DIFF_MAX_BYTES,
   GIT_TIMEOUT_MS,
@@ -307,11 +307,11 @@ export function createGitPort(partial: Partial<Omit<GitPortDeps, "indexDir">> & 
     async diffTrees(cwd, prefix, a, b) {
       if (!isTreeId(a) || !isTreeId(b) || !isSafePrefix(prefix)) return { ok: false, reason: "git" };
       const common = ["diff-tree", "-r", "--no-renames", "-z", ...relative(prefix)];
-      const names = await run([...common, "--name-status", a, b], { cwd, timeoutMs: GIT_TIMEOUT_MS });
+      const names = await run([...common, "--raw", a, b], { cwd, timeoutMs: GIT_TIMEOUT_MS });
       if (!names.ok && !names.tooBig) return { ok: false, reason: names.timedOut ? "timeout" : "git" };
       const nums = await run([...common, "--numstat", a, b], { cwd, timeoutMs: GIT_TIMEOUT_MS });
       if (!nums.ok && !nums.tooBig) return { ok: false, reason: nums.timedOut ? "timeout" : "git" };
-      const files = mergeChanges(parseNameStatusZ(names.stdout), parseNumstatZ(nums.stdout)).filter((f) => isSafeRelPath(f.path));
+      const files = mergeChanges(parseRawZ(names.stdout), parseNumstatZ(nums.stdout)).filter((f) => isSafeRelPath(f.path));
       return { ok: true, files, truncated: names.tooBig || nums.tooBig };
     },
 
@@ -319,6 +319,8 @@ export function createGitPort(partial: Partial<Omit<GitPortDeps, "indexDir">> & 
       if (!isSafePrefix(prefix) || !isSafeRelPath(change.path)) return null;
       const full = prefix + change.path;
       if (!isSafeRelPath(full)) return null;
+      // Alt modül (gitlink): ağaçta yalnız bir commit kimliği; içerik bu depoda yok.
+      if (change.submodule) return { kind: "submodule" };
       if (change.binary) return { kind: "binary" };
       if (!isTreeId(a) || !isTreeId(b)) return null;
       const sides: string[] = [];

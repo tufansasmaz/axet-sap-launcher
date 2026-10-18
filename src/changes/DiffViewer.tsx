@@ -23,6 +23,13 @@ function DiffViewer({ diff }: { diff: FileDiff }) {
       </p>
     );
   }
+  if (diff.kind === "submodule") {
+    return (
+      <p data-diff-note="submodule" className="p-3 text-xs text-slate-400">
+        {t("changes.submoduleChanged")}
+      </p>
+    );
+  }
   if (diff.kind === "large") {
     return (
       <p data-diff-note="large" className="p-3 text-xs text-slate-400">

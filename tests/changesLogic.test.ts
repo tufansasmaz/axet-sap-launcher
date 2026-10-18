@@ -8,7 +8,7 @@ import {
   labelOf,
   laterCheckpoints,
   mergeChanges,
-  parseNameStatusZ,
+  parseRawZ,
   parseNumstatZ,
   parseUnifiedDiff,
   pendingCount,
@@ -141,28 +141,58 @@ describe("isSafeRelPath / readRevertPaths (spec §6.4, §7)", () => {
 });
 
 describe("diff-tree çıktısı ayrıştırma", () => {
-  it("name-status -z: A/M/D/T; T değişti sayılıyor; kırpılmış son kayıt atılıyor", () => {
-    expect(parseNameStatusZ("A\0yeni.txt\0M\0src/a.ts\0D\0eski.md\0T\0bag\0")).toEqual([
-      { path: "yeni.txt", status: "added" },
-      { path: "src/a.ts", status: "modified" },
-      { path: "eski.md", status: "deleted" },
-      { path: "bag", status: "modified" }
+  const Z = "0".repeat(40);
+  const S = "1".repeat(40);
+  const raw = (from: string, to: string, code: string, ...paths: string[]) => `:${from} ${to} ${Z} ${S} ${code}\0${paths.join("\0")}\0`;
+
+  it("raw -z: A/M/D/T; T değişti sayılıyor; kırpılmış son kayıt atılıyor", () => {
+    expect(
+      parseRawZ(
+        raw("000000", "100644", "A", "yeni.txt") + raw("100644", "100644", "M", "src/a.ts") + raw("100644", "000000", "D", "eski.md") + raw("100644", "120000", "T", "bag")
+      )
+    ).toEqual([
+      { path: "yeni.txt", status: "added", submodule: false },
+      { path: "src/a.ts", status: "modified", submodule: false },
+      { path: "eski.md", status: "deleted", submodule: false },
+      { path: "bag", status: "modified", submodule: false }
     ]);
-    expect(parseNameStatusZ("M\0a.ts\0A\0yar")).toEqual([{ path: "a.ts", status: "modified" }]);
-    expect(parseNameStatusZ("")).toEqual([]);
+    expect(parseRawZ(raw("100644", "100644", "M", "a.ts") + `:000000 100644 ${Z} ${S} A\0yar`)).toEqual([{ path: "a.ts", status: "modified", submodule: false }]);
+    expect(parseRawZ("")).toEqual([]);
   });
 
-  it("name-status -z: R/C (yeniden adlandırma/kopyalama) hizayı bozmadan atlanıyor", () => {
-    // Tek R girdi: iki yol tüketilmeli, sonuç boş
-    expect(parseNameStatusZ("R100\0old.ts\0new.ts\0")).toEqual([]);
-    // R ortada: önceki ve sonraki girdiler doğru hizalanıyor
-    expect(parseNameStatusZ("M\0a.ts\0R100\0old.ts\0new.ts\0A\0c.ts\0")).toEqual([
-      { path: "a.ts", status: "modified" },
-      { path: "c.ts", status: "added" }
+  it("raw -z: R/C (yeniden adlandırma/kopyalama) hizayı bozmadan atlanıyor", () => {
+    expect(parseRawZ(raw("100644", "100644", "R100", "old.ts", "new.ts"))).toEqual([]);
+    expect(parseRawZ(raw("100644", "100644", "M", "a.ts") + raw("100644", "100644", "R100", "old.ts", "new.ts") + raw("000000", "100644", "A", "c.ts"))).toEqual([
+      { path: "a.ts", status: "modified", submodule: false },
+      { path: "c.ts", status: "added", submodule: false }
     ]);
-    // C (kopyalama) da aynı
-    expect(parseNameStatusZ("C100\0src.ts\0dst.ts\0M\0b.ts\0")).toEqual([
-      { path: "b.ts", status: "modified" }
+    expect(parseRawZ(raw("100644", "100644", "C100", "src.ts", "dst.ts") + raw("100644", "100644", "M", "b.ts"))).toEqual([
+      { path: "b.ts", status: "modified", submodule: false }
+    ]);
+  });
+
+  it("raw -z: mod 160000 (gitlink) herhangi bir tarafta alt modül sayılıyor", () => {
+    expect(
+      parseRawZ(raw("000000", "160000", "A", "alt") + raw("160000", "160000", "M", "dis/alt") + raw("160000", "000000", "D", "eski") + raw("160000", "100644", "T", "donus"))
+    ).toEqual([
+      { path: "alt", status: "added", submodule: true },
+      { path: "dis/alt", status: "modified", submodule: true },
+      { path: "eski", status: "deleted", submodule: true },
+      { path: "donus", status: "modified", submodule: true }
+    ]);
+  });
+
+  it("mergeChanges: alt modül işareti yalnız alt modülde", () => {
+    const files = mergeChanges(
+      [
+        { path: "b.ts", status: "modified", submodule: false },
+        { path: "alt", status: "modified", submodule: true }
+      ],
+      new Map()
+    );
+    expect(files).toEqual([
+      { path: "alt", status: "modified", added: 0, deleted: 0, binary: false, submodule: true },
+      { path: "b.ts", status: "modified", added: 0, deleted: 0, binary: false }
     ]);
   });
 
