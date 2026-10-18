@@ -30,3 +30,6 @@ resources/guiscript-runtime/
 resources/whisper-runtime/
 __pycache__/
 *.pyc
+
+# LimeZu Modern Interiors (ucretsiz surum): lisans dagitima izin vermiyor, depoya girmez
+src/assets/office-art/
