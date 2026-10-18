@@ -317,6 +317,14 @@ describe("TerminalSidebar", () => {
     expect(screen.getByRole("dialog").textContent).not.toContain("terminal kapanacak");
   });
 
+  it("pano yuklenmemis alan (board undefined, view:board) kapatılırken onay sorulur", () => {
+    const c = renderSidebar([ws("a", "API", [], { view: "board" }), ws("b", "UI")], {}, { boards: {} });
+    fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Kapat" }));
+    expect(c.closeWorkspace).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+  });
+
   it("menü: Doğrulama komutları… penceresi satırları alana kaydediyor; 5'i aşınca kaydetmiyor", () => {
     const c = renderSidebar([ws("a", "API", [], { verify: ["npm test"] })]);
     fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
