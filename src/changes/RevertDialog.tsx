@@ -48,6 +48,7 @@ export default function RevertDialog({
         {checkpointLabel && <p className="text-xs font-medium text-slate-300">{checkpointLabel}</p>}
         <p>{t("changes.revertBody", { count: plan.files.length })}</p>
         <p>{t("changes.revertLaterWarning")}</p>
+        <p data-revert-all-agents="">{t("changes.revertAllAgents")}</p>
         {added > 0 && <p>{t("changes.revertTrashNote", { count: added })}</p>}
         <ul aria-label={t("changes.revertFiles")} className="chat-scroll max-h-48 overflow-y-auto rounded border border-line p-2 font-mono text-2xs text-slate-300">
           {plan.files.map((f) => (

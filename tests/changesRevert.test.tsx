@@ -202,6 +202,15 @@ describe("Geri al (spec §6)", () => {
     expect(api.changesRevert).not.toHaveBeenCalled();
   });
 
+  it("pencere: aralıktaki değişikliklerin hangi ajandan gelirse gelsin geri alınacağını söylüyor", async () => {
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog.querySelector("[data-revert-all-agents]")?.textContent).toContain("hangi ajan yaptıysa");
+  });
+
   it("onay: yalnız penceredeki yollarla changesRevert; başarı özeti ve geri almayı geri alma ipucu", async () => {
     await setup();
     await select("c1");

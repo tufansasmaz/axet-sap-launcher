@@ -1495,6 +1495,7 @@ export const en: Record<TranslationKey, string> = {
   "changes.revertTitle": "Revert these changes?",
   "changes.revertBody": "{count} files will return to their state at this restore point.",
   "changes.revertLaterWarning": "Later changes to these files are reverted too. A restore point of the current state is taken first, so you can undo the revert.",
+  "changes.revertAllAgents": "Every change made to these files after this point is reverted, whichever agent made it. The agent name on the row only shows who triggered the point.",
   "changes.revertTrashNote": "{count} files added later are moved to the Recycle Bin (not permanently deleted).",
   "changes.revertFiles": "Affected files",
   "changes.revertConflicts": "Later records also touched these files; their changes to these files will be lost too:",

@@ -554,7 +554,9 @@ kendisi depoya çevirmez.
   önce şimdiki hâlin geri alma noktası alınır, sonra dosyalar eski hâline
   döner; sonradan eklenmiş dosyalar **çöp kutusuna** taşınır, kalıcı
   silinmez. Geri almayı geri almak için listedeki **Geri almadan önce**
-  noktasını seçip **Geri al**'a bas.
+  noktasını seçip **Geri al**'a bas. Dikkat: noktadan sonra bu dosyalarda
+  yapılan bütün değişiklikler geri alınır — hangi ajan yaptıysa; satırdaki
+  ajan adı yalnız noktayı tetikleyeni gösterir.
 - Geri alınacak bir dosyanın yerinde artık başka bir şey varsa (klasör,
   kısayol/bağ ya da sonradan konmuş bir dosya) geri alma onun üstüne yazmaz;
   durur ve o ana kadar ne yaptığını söyler.

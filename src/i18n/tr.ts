@@ -1581,6 +1581,7 @@ export const tr = {
   "changes.revertTitle": "Değişiklikler geri alınsın mı?",
   "changes.revertBody": "{count} dosya bu geri alma noktasındaki hâline dönecek.",
   "changes.revertLaterWarning": "Bu dosyalardaki sonraki değişiklikler de geri alınır. Önce şimdiki hâlin geri alma noktası alınır; geri almayı geri alabilirsin.",
+  "changes.revertAllAgents": "Bu noktadan sonra bu dosyalarda yapılan bütün değişiklikler geri alınır — hangi ajan yaptıysa. Satırdaki ajan adı yalnız noktayı tetikleyeni gösterir.",
   "changes.revertTrashNote": "Sonradan eklenen {count} dosya çöp kutusuna taşınır (kalıcı silinmez).",
   "changes.revertFiles": "Etkilenecek dosyalar",
   "changes.revertConflicts": "Bu dosyalara sonraki kayıtlar da dokunmuş; onların bu dosyalardaki değişiklikleri de gider:",
