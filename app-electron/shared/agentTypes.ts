@@ -1,4 +1,5 @@
 // Ajan Alanı'nın ortak türleri (spec 2026-10-17 ajan-alani §3).
+import { isMemoryKey } from "./memoryLogic";
 //
 // Ana süreç ve renderer aynı türleri kullanıyor; bu yüzden `shared` altında.
 // Ajanın ADI, RENGİ ve KLASÖRÜ burada değil: ajan bir terminal bölmesi ve bu
@@ -28,6 +29,8 @@ export interface AgentSpec {
   model?: string;
   /** Yalnız `ozel` motorda: kullanıcının yazdığı komut satırı. */
   command?: string;
+  /** Kalıcı bellek anahtarı (spec 2026-10-18 ajan-bellegi §2, §5); yoksa bellek kapalı. */
+  memory?: string;
 }
 
 export const AGENT_ROLE_MAX = 40;
@@ -51,6 +54,8 @@ export function readAgentSpec(raw: unknown): AgentSpec | null {
   const spec: AgentSpec = { engine: record.engine, role, roleKind };
   const model = typeof record.model === "string" ? record.model.trim().slice(0, AGENT_MODEL_MAX) : "";
   if (model) spec.model = model;
+  // Geçersiz anahtar atılıyor (bellek kapalı sayılır); dosyaya dokunulmaz.
+  if (isMemoryKey(record.memory)) spec.memory = record.memory;
   if (record.engine === "ozel") {
     const command = typeof record.command === "string" ? record.command.trim().slice(0, AGENT_COMMAND_MAX) : "";
     if (!command) return null;
