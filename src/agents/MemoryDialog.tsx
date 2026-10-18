@@ -77,12 +77,19 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
   const savingRef = useRef(false);
   // Başarılı kaydet işareti: unmount cleanup'ta taslak yaratılmasın.
   const savedRef = useRef(false);
+  // Kullanıcının kendi kapatışı (temizken ya da "At ve Kapat" onayıyla): taslak
+  // saklanmaz. Taslak yalnız istem dışı sökümde (bölme kapandı, ekrandan çıkıldı).
+  const discardedRef = useRef(false);
+  const closeByUser = () => {
+    discardedRef.current = true;
+    onClose();
+  };
 
   // Unmount: başarılı kaydet sonrasıysa temiz; kirli hâldeyse taslağı depoya yaz; temizse sil.
   useEffect(() => {
     const dk = dKey(workspaceId, paneId);
     return () => {
-      if (savedRef.current) {
+      if (savedRef.current || discardedRef.current) {
         draftStore.delete(dk);
         return;
       }
@@ -189,7 +196,7 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
   return (
     <Modal
       open
-      onClose={onClose}
+      onClose={closeByUser}
       dirty={editable && text !== initial}
       closeDisabled={saving}
       title={t("memory.title", { name })}

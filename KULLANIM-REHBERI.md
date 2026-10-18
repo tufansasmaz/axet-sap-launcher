@@ -643,7 +643,9 @@ yazar; sen de dosyayı uygulamadan açıp düzeltebilirsin.
 - Dosya alanın kök klasörü altında `.ntt-studio/bellek/<ad>.md` olarak durur
   (alanın kökü yoksa ajanın klasöründe). `<ad>` ajanın adından türetilir
   (ör. "Ayşe Çağrı" → `ayse-cagri`); ajanın adını sonradan değiştirsen de
-  dosya aynı kalır. Aynı adlı ikinci ajan `-2`, `-3` eki alır.
+  dosya aynı kalır. Aynı adlı ikinci ajan `-2`, `-3` eki alır. Bir ajanı
+  silip aynı adla yenisini eklersen yenisi eski ajanın bellek dosyasını
+  devralır (dosya silinmez).
 - Dosya yoksa ilk açılışta tek satırlık bir başlıkla yaratılır. Var olan
   dosyaya uygulama asla kendiliğinden yazmaz, onu hiçbir zaman silmez.
 - Ajanın motoru hazır olup boşta beklediği ilk anda istem satırına bir kez

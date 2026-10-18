@@ -1662,7 +1662,7 @@ export const tr = {
   "memory.secretNote": "Belleğe şifre ya da token yazma: dosya alanın klasöründe durur, Git ile taşınabilir.",
   "memory.fail.noMemory": "Bu ajanın belleği henüz kayıtlı değil; birazdan yeniden yükle.",
   "memory.fail.noRoot": "Alanın kök klasörü ya da ajanın klasörü bulunamadı.",
-  "memory.fail.unsafe": "Bellek dosyasının yolu alanın klasörü dışını gösteriyor; açılmadı.",
+  "memory.fail.unsafe": "Bellek dosyası güvenle açılamadı: yolu alanın klasörü dışını gösteriyor ya da yerinde dosya olmayan bir şey var; dokunulmadı.",
   "memory.fail.tooLarge": "Dosya çok büyük (256 KB üstü); bir düzenleyicide aç.",
   "memory.fail.encoding": "Dosya UTF-8 değil; bozulmasın diye burada açılmadı, bir düzenleyicide aç.",
   "memory.fail.readFailed": "Bellek dosyası okunamadı; dosyaya dokunulmadı.",

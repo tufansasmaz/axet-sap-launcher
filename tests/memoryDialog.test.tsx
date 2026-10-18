@@ -199,6 +199,23 @@ describe("MemoryDialog", () => {
     return { ...r, onClose };
   }
 
+  it("kullanıcı 'At ve Kapat' derse taslak saklanmıyor; yeniden açılınca diskteki içerik", async () => {
+    const onClose = vi.fn();
+    const { unmount } = openDialog(onClose);
+    await flush();
+    fireEvent.change(box(), { target: { value: "atılan metin" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Kapat" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "At ve Kapat" }));
+    expect(onClose).toHaveBeenCalled();
+    act(() => { unmount(); });
+    cleanup();
+
+    openDialog();
+    await flush();
+    expect(box().value).toBe("# Ayşe\n");
+    expect(screen.queryByText(/Kaydedilmemiş taslağın geri getirildi/)).toBeNull();
+  });
+
   it("kirli kapatılınca taslak depoya yazılıyor; yeniden açılınca metin ve 'geri getirildi' notu çıkıyor", async () => {
     const { unmount } = openDialog();
     await flush();

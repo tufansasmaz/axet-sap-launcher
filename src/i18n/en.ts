@@ -1576,7 +1576,7 @@ export const en: Record<TranslationKey, string> = {
   "memory.secretNote": "Do not put passwords or tokens in memory: the file lives in the workspace folder and can travel with Git.",
   "memory.fail.noMemory": "This agent's memory is not saved yet; reload in a moment.",
   "memory.fail.noRoot": "Neither the workspace root nor the agent's folder was found.",
-  "memory.fail.unsafe": "The memory file's path points outside the workspace folder; not opened.",
+  "memory.fail.unsafe": "The memory file could not be opened safely: its path points outside the workspace folder or something other than a file is there; left untouched.",
   "memory.fail.tooLarge": "The file is too large (over 256 KB); open it in an editor.",
   "memory.fail.encoding": "The file is not UTF-8; it was not opened here so it does not get damaged. Open it in an editor.",
   "memory.fail.readFailed": "The memory file could not be read; it was not touched.",
