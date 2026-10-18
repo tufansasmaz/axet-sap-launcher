@@ -571,6 +571,58 @@ kendisi depoya çevirmez.
 - SAP nesnelerindeki değişiklikler burada değil, **SAP yazma geçmişi**
   panelindedir.
 
+### Tarayıcı
+
+Üst şeritteki geçişin beşinci seçeneği **Tarayıcı**, ajanların yanında bir
+web sayfası açar: ajanın ayağa kaldırdığı yerel sunucu (`localhost:5173`),
+bir dokümantasyon sayfası ya da bir Fiori uygulaması. Gördüğünü **Ajana
+gönder** ile tek adımda bir ajana verebilirsin.
+
+- Adres alanına yazıp Enter'a bas. `http://` ya da `https://` yazmazsan
+  eklenir (`localhost` ve `127.0.0.1` için `http://`, diğerleri için
+  `https://`). Yalnız http ve https adresleri açılır; yazdığın şey bir arama
+  motoruna gönderilmez. **Esc** yazdığını bırakıp sayfanın adresine döner.
+- **Geri**, **İleri**, **Yenile/Durdur** ve **Sistem tarayıcısında aç** üst
+  satırdadır. **Ctrl+L** adres alanına, **Alt+Sol/Sağ** geri/ileri götürür
+  (sayfanın içindeyken de).
+- Alan başına son açılan adres saklanır; görünüm açılınca kendiliğinden
+  yüklenmez, boş sayfadaki düğmeyle tek tıkla açarsın. Başka görünüme geçip
+  dönünce sayfa ve geri/ileri geçmişi yerinde durur; uygulama kapanınca
+  geçmiş silinir.
+- Yeni pencere açan bağlantılar aynı yerde açılır. İndirmeler kapalıdır;
+  indirmek için **Sistem tarayıcısında aç**'ı kullan. Kamera, mikrofon,
+  konum, bildirim, pano okuma gibi izinler her zaman reddedilir.
+- Sunucu bulunamaz, bağlantı kurulamaz ya da sitenin sertifikası geçersizse
+  sayfanın yerinde sebebi, adresi ve **Yeniden dene** görünür. Sertifika
+  hatası için "yine de devam et" yoktur. Sayfa çökerse **Yeniden yükle**.
+- Bu tarayıcının oturumu uygulamanın geri kalanından ayrıdır: burada SAP'ye
+  ya da portala giriş yaparsan çerezler yalnız bu tarayıcıda kalır. Sayfa
+  uygulamanın dosyalarına, terminallerine ve SAP bağlantılarına erişemez.
+- İstemci sertifikasıyla (X.509) ya da tarayıcının kendi kullanıcı adı/parola
+  penceresiyle (HTTP Basic) giriş isteyen sayfalar burada açılmaz; bunlar
+  için **Sistem tarayıcısında aç**'ı kullan.
+- Tarayıcıyı açtığın her alan, uygulama açık kaldıkça kendi sayfasını
+  bellekte tutar; çok sayıda alanda sayfa açıksa bellek kullanımı artar.
+
+**Ajana gönder** alandaki ajanları adı, rolü ve durumuyla listeler; birini
+seçince hemen gönderilir (ayrıca onay sorulmaz):
+
+- Ajanın istem satırına tek satır yazılır ve Enter'a basılır:
+  `[Tarayici] <sayfa başlığı> <adres>`; sayfada seçili metin varsa sonuna
+  `Secili metin: "…"` (en çok 2000 karakter, satır sonları boşluğa döner).
+  Adresteki kullanıcı adı ya da parola gönderilmez.
+- Menüdeki **Ekran görüntüsü ekle** işaretliyse sayfanın görünen kısmı alanın
+  kök klasörünün altında `.ntt-studio/tarayici/<tarih-saat>.png` olarak
+  kaydedilir ve yolu metne eklenir. Alanın kök klasörü yoksa bu seçenek
+  kapalıdır. Görüntüler kendiliğinden silinmez, klasörü sen temizlersin. Alan
+  bir Git deposuysa görüntüler Değişiklikler görünümünde de çıkar;
+  istemiyorsan `.gitignore`'a `.ntt-studio/` satırını ekle.
+- Ajan çalışıyorsa, bir soru bekliyorsa ya da terminalinde gönderilmemiş bir
+  satır varsa hiçbir şey gönderilmez ve sebebi yazar; sonra kendiliğinden
+  yeniden denenmez. Ekran görüntüsü alınamazsa metin de gitmez.
+- Ajan bu tarayıcıyı kendisi süremez (açma, okuma, tıklama yok); sayfayı sen
+  açar, sen gönderirsin.
+
 ## Klavye Kısayolları
 
 **Ctrl+/** (veya **F1**) tuşlarına basarak Klavye Kısayolları penceresini
