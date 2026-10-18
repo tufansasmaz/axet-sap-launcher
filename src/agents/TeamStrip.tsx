@@ -10,6 +10,15 @@ import { agentPanes, cardStatus, TONE_DOT } from "./agentView";
 import { ENGINE_LABEL, agentName } from "./agentLabels";
 import { useBoards } from "../board/boardContext";
 import { activeSubtaskOf } from "../board/boardDisplay";
+import type { WorkspaceView } from "../../app-electron/shared/types";
+import type { TranslationKey } from "../i18n/tr";
+
+const VIEW_KEY: Record<WorkspaceView, TranslationKey> = {
+  panes: "board.viewPanes",
+  board: "board.viewBoard",
+  office: "office.view"
+};
+const VIEWS: readonly WorkspaceView[] = ["panes", "board", "office"];
 
 // Ekip şeridi (spec 2026-10-17 ajan-alani §4): seçili alandaki ajanlar yan
 // yana. Kart: renk şeridi, ad, rol, motor, durum noktası + metni; tahmini
@@ -26,8 +35,8 @@ export default function TeamStrip({
 }: {
   workspace: TerminalWorkspace;
   full: boolean;
-  view: "panes" | "board";
-  onView: (view: "panes" | "board") => void;
+  view: WorkspaceView;
+  onView: (view: WorkspaceView) => void;
   onAddAgent: () => void;
   onAddShell: () => void;
 }) {
@@ -36,9 +45,9 @@ export default function TeamStrip({
   const agents = agentPanes(workspace);
   return (
     <div className="flex min-h-16 shrink-0 items-center gap-2 border-b border-line px-3">
-      {/* Bölmeler | Pano (spec 2026-10-18 gorev-panosu §8); seçim lime, alan başına hatırlanıyor. */}
+      {/* Bölmeler | Pano | Ofis (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2); seçim lime, alan başına hatırlanıyor. */}
       <div role="radiogroup" aria-label={t("board.viewLabel")} className="flex shrink-0 gap-0.5 rounded-md bg-control p-0.5">
-        {(["panes", "board"] as const).map((v) => (
+        {VIEWS.map((v) => (
           <button
             key={v}
             type="button"
@@ -49,7 +58,7 @@ export default function TeamStrip({
               view === v ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-400 hover:text-slate-200"
             }`}
           >
-            {t(v === "panes" ? "board.viewPanes" : "board.viewBoard")}
+            {t(VIEW_KEY[v])}
           </button>
         ))}
       </div>

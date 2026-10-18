@@ -1511,7 +1511,8 @@ export const tr = {
   "office.seats": "Masalar",
   "office.empty": "Ofiste kimse yok",
   "office.shellCount": "{count} terminal",
-  "office.estimatedSuffix": "(tahmini)"
+  "office.estimatedSuffix": "(tahmini)",
+  "office.view": "Ofis"
 };
 
 

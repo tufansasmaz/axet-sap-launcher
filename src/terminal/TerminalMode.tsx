@@ -1,4 +1,4 @@
-// Ajanlar ekranının sağ tarafı (spec 2026-10-17 ajan-alani §4): üstte ekip şeridi, ortada bölmeler. Bütün alanlar HEP takılı: seçili olmayanlar hidden.
+// Ajanlar ekranının sağ tarafı (spec 2026-10-17 ajan-alani §4): üstte ekip şeridi, ortada bölmeler, Pano ya da Ofis (spec 2026-10-18). Bütün alanlar HEP takılı: seçili olmayanlar ve Pano/Ofis'teyken bölmeler hidden.
 import { useRef, useState, type CSSProperties } from "react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
@@ -21,6 +21,8 @@ import AgentsEmptyState from "../agents/AgentsEmptyState";
 import AddAgentDialog from "../agents/AddAgentDialog";
 import DecisionsPanel from "../agents/DecisionsPanel";
 import BoardView from "../board/BoardView";
+import OfficeView from "../office/OfficeView";
+import type { WorkspaceView } from "../../app-electron/shared/types";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
 
@@ -46,7 +48,8 @@ export default function TerminalMode() {
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId) ?? null;
   const full = (active?.panes.length ?? 0) >= MAX_TERMINAL_PANES;
   const savedPanes = state.saved.reduce((sum, w) => sum + w.panes.length, 0);
-  const boardOpen = active?.view === "board";
+  // Görünüm alan başına; bölmeler yalnız "panes"te görünür, öbürlerinde gizli ama takılı.
+  const view: WorkspaceView = active?.view ?? "panes";
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
@@ -68,8 +71,8 @@ export default function TerminalMode() {
         <TeamStrip
           workspace={active}
           full={full}
-          view={boardOpen ? "board" : "panes"}
-          onView={(view) => commands.setWorkspaceView(active.id, view)}
+          view={view}
+          onView={(v) => commands.setWorkspaceView(active.id, v)}
           onAddAgent={() => setAgentDialog({ split: splitFor(active) })}
           onAddShell={() => setDialog({ split: splitFor(active) })}
         />
@@ -81,13 +84,13 @@ export default function TerminalMode() {
             <div
               key={w.id}
               data-workspace={w.id}
-              className={`${w.id === state.activeWorkspaceId && !boardOpen ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
+              className={`${w.id === state.activeWorkspaceId && view === "panes" ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
             >
               <div className="relative min-h-0 flex-1">
                 {w.panes.length > 0 && (
                   <WorkspaceLayout
                     workspace={w}
-                    focusable={state.visible && w.id === state.activeWorkspaceId}
+                    focusable={state.visible && w.id === state.activeWorkspaceId && view === "panes"}
                     canSplit={w.panes.length < MAX_TERMINAL_PANES}
                     onSplit={(paneId, dir) => setDialog({ split: { targetPaneId: paneId, dir } })}
                     onRects={(next) => {
@@ -109,9 +112,14 @@ export default function TerminalMode() {
               <MinimizedStrip workspace={w} />
             </div>
           ))}
-          {state.phase === "ready" && active && boardOpen && (
+          {state.phase === "ready" && active && view === "board" && (
             <div className="absolute inset-0">
               <BoardView workspace={active} />
+            </div>
+          )}
+          {state.phase === "ready" && active && view === "office" && (
+            <div className="absolute inset-0">
+              <OfficeView workspace={active} onAddAgent={() => setAgentDialog({})} />
             </div>
           )}
         </div>

@@ -547,6 +547,38 @@ describe("ajan bölmeleri (spec 2026-10-17 ajan-alani §5)", () => {
     expect(ws.focusedPaneId).toBe(first);
   });
 
+  it("revealPane: Pano görünümündeyken bölmeyi açıyor — görünüm Bölmeler'e dönüyor (kontrolcü kararı 2026-10-18)", async () => {
+    await ready();
+    act(() => store.commands.addPane("cmd", "C:\\a"));
+    const paneId = panes()[0].id;
+    const wsId = store.state.activeWorkspaceId!;
+    act(() => store.commands.setWorkspaceView(wsId, "board"));
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBe("board");
+    act(() => store.commands.revealPane(paneId));
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
+  });
+
+  it("revealPane: Ofis görünümündeyken bölmeyi açıyor — görünüm Bölmeler'e dönüyor (kontrolcü kararı 2026-10-18)", async () => {
+    await ready();
+    act(() => store.commands.addPane("cmd", "C:\\a"));
+    const paneId = panes()[0].id;
+    const wsId = store.state.activeWorkspaceId!;
+    act(() => store.commands.setWorkspaceView(wsId, "office"));
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBe("office");
+    act(() => store.commands.revealPane(paneId));
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
+  });
+
+  it("revealPane: Bölmeler görünümündeyken görünüm değişmiyor", async () => {
+    await ready();
+    act(() => store.commands.addPane("cmd", "C:\\a"));
+    const paneId = panes()[0].id;
+    const wsId = store.state.activeWorkspaceId!;
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
+    act(() => store.commands.revealPane(paneId));
+    expect(store.state.workspaces.find((w) => w.id === wsId)!.view).toBeUndefined();
+  });
+
   it("alan kökü kaydediliyor ve yeni ajanın varsayılan klasörü oluyor", async () => {
     await ready();
     expect(store.agentCwd).toBe("C:\\axet");

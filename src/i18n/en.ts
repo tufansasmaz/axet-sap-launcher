@@ -1425,5 +1425,6 @@ export const en: Record<TranslationKey, string> = {
   "office.seats": "Desks",
   "office.empty": "Nobody in the office",
   "office.shellCount": "Terminals: {count}",
-  "office.estimatedSuffix": "(estimated)"
+  "office.estimatedSuffix": "(estimated)",
+  "office.view": "Office"
 };
