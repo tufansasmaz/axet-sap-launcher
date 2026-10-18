@@ -366,7 +366,8 @@ function SubtaskActions({
       return (
         <div className="flex flex-wrap items-center gap-1.5">
           {terminal}
-          {hasVerify ? <span className="text-2xs text-slate-400">{t("board.verifyingNow")}</span> : verifyOrApprove}
+          {/* Yalnız iş gerçekten çalışırken yazı; işi olmayan verifying'de Doğrula/Onayla (takılı kalmasın). */}
+          {sub.verifyRunning ? <span className="text-2xs text-slate-400">{t("board.verifyingNow")}</span> : verifyOrApprove}
         </div>
       );
     case "failed":

@@ -81,6 +81,8 @@ export interface Subtask {
   dispatchedAt?: number;
   /** Gönderimden sonra ajan bir kez çalışırken/soru sorarken görüldü. */
   sawBusy?: boolean;
+  /** Doğrulama komutları şu an çalışıyor. Yalnız yöneticinin anlık görüntüsünde; diske yazılmaz. */
+  verifyRunning?: boolean;
 }
 
 export interface BoardTask {

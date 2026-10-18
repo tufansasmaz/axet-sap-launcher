@@ -68,10 +68,18 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
     promptResult: "ok" as AgentPromptResult,
     agentsThrow: false,
     /** true ise sendPrompt içinde onSettled("aborted") eşzamanlı çağrılır. */
-    promptAbortedSync: false
+    promptAbortedSync: false,
+    /** true ise startVerify fırlatır (süreç açılamadı). */
+    verifyThrows: false
   };
   const leads: { cwd: string; prompt: string; resolve: (o: LeadOutcome) => void; cancel: ReturnType<typeof vi.fn> }[] = [];
-  const verifies: { commands: readonly string[]; cwd: string; resolve: (p: Proof) => void; cancel: ReturnType<typeof vi.fn> }[] = [];
+  const verifies: {
+    commands: readonly string[];
+    cwd: string;
+    resolve: (p: Proof) => void;
+    reject: (e: Error) => void;
+    cancel: ReturnType<typeof vi.fn>;
+  }[] = [];
   const info = { cwd: "C:\\kok", verify: opts.verify ?? ["npm test"] };
   const manager = createBoardManager({
     now: () => clock.ms,
@@ -116,12 +124,15 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
       return { done, cancel };
     },
     startVerify: (commands, cwd) => {
+      if (state.verifyThrows) throw new Error("spawn EPERM");
       let resolve: (p: Proof) => void = () => {};
-      const done = new Promise<Proof>((r) => {
+      let reject: (e: Error) => void = () => {};
+      const done = new Promise<Proof>((r, j) => {
         resolve = r;
+        reject = j;
       });
       const cancel = vi.fn();
-      verifies.push({ commands, cwd, resolve, cancel });
+      verifies.push({ commands, cwd, resolve, reject, cancel });
       return { done, cancel };
     },
     emit: (b) => emitted.push(b),
@@ -577,6 +588,47 @@ describe("doğrulama ve kanıt", () => {
     expect(h.task().subtasks[0].state).toBe("verifying");
     expect(h.manager.command("w1", { type: "verify", taskId: "id1", subtaskId: "a" })).toEqual({ ok: false, reason: "badState" });
     expect(h.verifies).toHaveLength(1);
+  });
+
+  it("takılı Doğrulanıyor: komut sonradan eklenince tick doğrulamayı başlatıyor; anlık görüntüde verifyRunning, diskte yok", async () => {
+    const h = harness({ verify: [] });
+    approvedTask(h);
+    runToVerifying(h);
+    expect(h.verifies).toEqual([]);
+    expect(h.task().subtasks[0].verifyRunning).toBeUndefined();
+    h.info.verify = ["npm test"];
+    h.manager.tick();
+    expect(h.verifies).toHaveLength(1);
+    expect(h.task().subtasks[0]).toMatchObject({ state: "verifying", verifyRunning: true });
+    expect(h.emitted.at(-1)!.tasks[0].subtasks[0].verifyRunning).toBe(true);
+    expect(JSON.stringify(h.written.get("w1"))).not.toContain("verifyRunning");
+    h.manager.tick();
+    expect(h.verifies).toHaveLength(1);
+    h.verifies[0].resolve(proof(true));
+    await flush();
+    expect(h.task().subtasks[0].state).toBe("done");
+    expect(h.task().subtasks[0].verifyRunning).toBeUndefined();
+  });
+
+  it("doğrulama başlatılamadı (startVerify fırlattı) ya da iş reddedildi → failed, spawn kanıtı; her tick yeniden denenmiyor", async () => {
+    const h = harness();
+    approvedTask(h, [draft("a"), draft("b")]);
+    h.state.verifyThrows = true;
+    h.state.agents = [presence("p1", exact("idle")), presence("p2", exact("idle"))];
+    h.manager.tick();
+    h.state.agents = [presence("p1", exact("idle", 1_500)), presence("p2", exact("running"))];
+    h.manager.tick();
+    expect(h.task().subtasks[0]).toMatchObject({ state: "failed", proof: { ok: false, commands: [{ command: "npm test", exitCode: null, error: "spawn" }] } });
+    h.state.verifyThrows = false;
+    h.manager.tick();
+    expect(h.verifies).toEqual([]);
+    h.state.agents = [presence("p1", exact("idle", 1_500)), presence("p2", exact("idle", 1_600))];
+    h.manager.tick();
+    expect(h.verifies).toHaveLength(1);
+    h.verifies[0].reject(new Error("çocuk süreç patladı"));
+    await flush();
+    expect(h.task().subtasks[1]).toMatchObject({ state: "failed", proof: { ok: false, commands: [{ error: "spawn" }] } });
+    expect(h.task().subtasks[1].verifyRunning).toBeUndefined();
   });
 
   it("silinmiş göreve geç doğrulama sonucu yazılmıyor; silme doğrulamayı iptal ediyor", async () => {

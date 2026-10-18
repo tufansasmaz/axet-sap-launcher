@@ -182,10 +182,13 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
   }
 
   function snapshot(workspaceId: string, entry: Entry): Board {
-    const board: Board = {
-      workspaceId,
-      tasks: entry.tasks.map((t) => (planning.has(t.id) ? { ...t, planning: true } : t))
+    const withRuntime = (t: BoardTask): BoardTask => {
+      const running = t.subtasks.some((s) => verifying.has(s.id));
+      const subtasks = running ? t.subtasks.map((s) => (verifying.has(s.id) ? { ...s, verifyRunning: true } : s)) : t.subtasks;
+      if (!running && !planning.has(t.id)) return t;
+      return { ...t, subtasks, ...(planning.has(t.id) ? { planning: true } : {}) };
     };
+    const board: Board = { workspaceId, tasks: entry.tasks.map(withRuntime) };
     if (entry.recoveredFrom) board.recoveredFrom = entry.recoveredFrom;
     if (entry.unreadable) board.unreadable = true;
     return board;
@@ -248,6 +251,16 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
     }, undefined);
   }
 
+  /** Doğrulama hiç başlayamadı: kırmızı kanıt (spec §6 `error: "spawn"`); kart "Doğrulanıyor"da takılı kalmasın. */
+  function spawnFailure(commands: readonly string[]): Proof {
+    return {
+      kind: "commands",
+      ok: false,
+      at: deps.now(),
+      commands: [{ command: commands[0] ?? "", exitCode: null, durationMs: 0, tail: "", error: "spawn" }]
+    };
+  }
+
   function startVerification(workspaceId: string, taskId: string, subtaskId: string): void {
     if (verifying.has(subtaskId)) return;
     const info = attempt(() => deps.workspace(workspaceId), null);
@@ -257,9 +270,13 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
     try {
       job = deps.startVerify(info.verify, info.cwd);
     } catch {
+      finishVerification(workspaceId, taskId, subtaskId, spawnFailure(info.verify));
       return;
     }
     verifying.set(subtaskId, { workspaceId, cancel: job.cancel });
+    // "Doğrulanıyor" yalnız iş gerçekten çalışırken: anlık görüntüde verifyRunning.
+    const entry = boards.get(workspaceId);
+    if (entry) attempt(() => deps.emit(snapshot(workspaceId, entry)), undefined);
     job.done
       .then((proof) => {
         if (verifying.get(subtaskId)?.cancel !== job.cancel) return;
@@ -267,7 +284,9 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
         finishVerification(workspaceId, taskId, subtaskId, proof);
       })
       .catch(() => {
-        if (verifying.get(subtaskId)?.cancel === job.cancel) verifying.delete(subtaskId);
+        if (verifying.get(subtaskId)?.cancel !== job.cancel) return;
+        verifying.delete(subtaskId);
+        attempt(() => finishVerification(workspaceId, taskId, subtaskId, spawnFailure(info.verify)), undefined);
       });
   }
 
@@ -335,6 +354,15 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       log("pano.dagitim", { altGorev: sub.id, bolme: d.paneId, yol: "oto" });
     }
     commit(workspaceId, entry, tasks);
+    // Çalışan işi olmayan verifying (komutlar sonradan eklendi): komut varsa
+    // doğrulama başlıyor; yoksa kart "Onayla"yı bekliyor (startVerification no-op).
+    for (const task of tasks) {
+      for (const s of task.subtasks) {
+        if (s.state === "verifying" && !verifying.has(s.id) && !toVerify.some((v) => v.subtaskId === s.id)) {
+          toVerify.push({ taskId: task.id, subtaskId: s.id });
+        }
+      }
+    }
     for (const v of toVerify) startVerification(workspaceId, v.taskId, v.subtaskId);
   }
 

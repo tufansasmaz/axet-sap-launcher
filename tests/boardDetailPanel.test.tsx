@@ -229,6 +229,17 @@ describe("onaylı görev", () => {
     expect(rowOf("s2").querySelector("[data-proof-ok]")).toBeNull();
   });
 
+  it("Doğrulanıyor: iş çalışıyorsa yalnız yazı; iş yoksa (takılı) Doğrula düğmesi", async () => {
+    const { command, rerender } = setup(task("t1", [sub("s1", { state: "verifying", paneId: "p1", verifyRunning: true })]));
+    expect(rowOf("s1").textContent).toContain("Doğrulanıyor");
+    expect(within(rowOf("s1")).queryByRole("button", { name: "Doğrula" })).toBeNull();
+    expect(within(rowOf("s1")).queryByRole("button", { name: "Onayla" })).toBeNull();
+    rerender(task("t1", [sub("s1", { state: "verifying", paneId: "p1" })]));
+    fireEvent.click(within(rowOf("s1")).getByRole("button", { name: "Doğrula" }));
+    await flush();
+    expect(command).toHaveBeenCalledWith("a", { type: "verify", taskId: "t1", subtaskId: "s1" });
+  });
+
   it("yeşil komut kanıtı onay işaretiyle", () => {
     setup(task("t1", [sub("s1", { state: "done", proof: { kind: "commands", ok: true, at: 1, commands: [{ command: "npm test", exitCode: 0, durationMs: 900, tail: "" }] } })]));
     expect(rowOf("s1").querySelector("[data-proof-ok]")?.textContent).toContain("Doğrulandı");
