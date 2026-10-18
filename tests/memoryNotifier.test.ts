@@ -122,23 +122,40 @@ describe("bir kez, boşta bir anda (§3)", () => {
     expect(deps.log).toHaveBeenCalledWith("bellek.bildirim", { sonuc: "vazgecildi", deneme: 3 });
   });
 
-  it("aborted deneme sayılıyor; eşzamanlı aborted bir kez sayılıyor", () => {
+  it("aborted kendiliğinden yeniden denenmiyor (metin ajanın satırında kalmış olabilir); Yeniden bildir yeniden gönderiyor", () => {
     const { deps, notifier, settles, clock } = harness();
     notifier.tick();
+    expect(deps.sendPrompt).toHaveBeenCalledTimes(1);
     settles[0]("aborted");
-    expect(notifier.notice("p1")).toBe("pending");
+    expect(notifier.notice("p1")).toBe("failed");
+    expect(deps.log).toHaveBeenCalledTimes(1);
+    expect(deps.log).toHaveBeenCalledWith("bellek.bildirim", { sonuc: "vazgecildi", deneme: 1 });
+    for (let i = 0; i < 10; i += 1) {
+      clock.ms += MEMORY_NOTICE_GAP_MS;
+      notifier.tick();
+    }
+    expect(deps.sendPrompt).toHaveBeenCalledTimes(1);
+    expect(notifier.renotify("p1")).toBe(true);
+    notifier.tick();
+    expect(deps.sendPrompt).toHaveBeenCalledTimes(2);
+    settles[1]("sent");
+    expect(notifier.notice("p1")).toBe("sent");
+    expect(deps.log).toHaveBeenLastCalledWith("bellek.bildirim", { sonuc: "tamam", deneme: 1 });
+  });
+
+  it("eşzamanlı aborted (sendPrompt dönmeden) bir kez sayılıyor; yeniden gönderme yok", () => {
+    const { deps, notifier, clock } = harness();
     deps.sendPrompt.mockImplementationOnce((_p, _t, onSettled) => {
       onSettled?.("aborted");
       return "ok";
     });
-    clock.ms += MEMORY_NOTICE_GAP_MS;
     notifier.tick();
-    expect(notifier.notice("p1")).toBe("pending");
-    clock.ms += MEMORY_NOTICE_GAP_MS;
-    notifier.tick();
-    expect(notifier.notice("p1")).toBe("sending");
-    settles[settles.length - 1]("aborted");
+    expect(deps.sendPrompt).toHaveBeenCalledTimes(1);
     expect(notifier.notice("p1")).toBe("failed");
+    expect(deps.log.mock.calls).toEqual([["bellek.bildirim", { sonuc: "vazgecildi", deneme: 1 }]]);
+    clock.ms += 10 * MEMORY_NOTICE_GAP_MS;
+    notifier.tick();
+    expect(deps.sendPrompt).toHaveBeenCalledTimes(1);
   });
 
   it("yeniden başlatma (yeni pty): yeniden bir kez; eski sürecin geç gelen sonucu yok sayılıyor", () => {

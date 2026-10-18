@@ -48,10 +48,22 @@ export function noticeDelivered(state: NoticeState): NoticeState {
   return { ...state, phase: "sent" };
 }
 
-/** Deneme düştü (reddedildi ya da Enter'dan önce kesildi); üçüncüde vazgeçiliyor. */
+/**
+ * Deneme reddedildi (hiçbir şey yazılmadı: busy/typing/asking/notRunning/…);
+ * üçüncüde vazgeçiliyor.
+ */
 export function noticeMissed(state: NoticeState, now: number): NoticeState {
   const attempts = state.attempts + 1;
   return { ...state, attempts, phase: attempts >= MEMORY_NOTICE_TRIES ? "failed" : "pending", nextAt: now + MEMORY_NOTICE_GAP_MS };
+}
+
+/**
+ * Enter'dan önce kesildi: metin ajanın istem satırında kalmış olabilir;
+ * kendiliğinden yeniden yazmak ikinci kopyayı ekler. Deneme sayılır ve
+ * doğrudan vazgeçilir; yalnız "Yeniden bildir" baştan alır.
+ */
+export function noticeAborted(state: NoticeState): NoticeState {
+  return { ...state, attempts: state.attempts + 1, phase: "failed" };
 }
 
 /** Bellek kapalı ya da kayıt henüz yazılmadı: deneme sayılmadan sonra yeniden bakılıyor. */

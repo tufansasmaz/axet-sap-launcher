@@ -5,6 +5,7 @@ import {
   MEMORY_NOTICE_GAP_MS,
   MEMORY_NOTICE_TRIES,
   agentAtRest,
+  noticeAborted,
   noticeBlocked,
   noticeDelivered,
   noticeDue,
@@ -65,6 +66,13 @@ describe("durum makinesi", () => {
     expect(noticeDue(s, idle, now + 10 * MEMORY_NOTICE_GAP_MS)).toBe(false);
     expect(MEMORY_NOTICE_TRIES).toBe(3);
     expect(MEMORY_NOTICE_GAP_MS).toBe(10_000);
+  });
+
+  it("Enter'dan önce kesilen (aborted) deneme sayılıyor ve doğrudan vazgeçiliyor; kendiliğinden yeniden yok", () => {
+    const s = noticeAborted(noticeSending(startNotice("t1")));
+    expect(s).toEqual({ ptyId: "t1", phase: "failed", attempts: 1, nextAt: 0 });
+    expect(noticeDue(s, idle, 1e12)).toBe(false);
+    expect(noticeRetry(s)).toEqual({ ptyId: "t1", phase: "pending", attempts: 0, nextAt: 0 });
   });
 
   it("noticeLater denemeyi saymadan erteliyor", () => {

@@ -8,6 +8,7 @@
 // anahtar ve kök yalnız config'teki kayıttan (memoryTarget).
 import { memoryPromptLine, memoryTarget, type MemoryNotice, type MemoryTarget } from "../shared/memoryLogic";
 import {
+  noticeAborted,
   noticeBlocked,
   noticeDelivered,
   noticeDue,
@@ -75,7 +76,11 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
             byPane.set(paneId, noticeDelivered(sending));
             log({ sonuc: "tamam", deneme: sending.attempts + 1 });
           } else {
-            missed(paneId, sending);
+            // Enter'dan önce kesildi: metin satırda kalmış olabilir; kendiliğinden
+            // yeniden yazılmıyor (ikinci kopya), yalnız "Yeniden bildir" ile.
+            const next = noticeAborted(sending);
+            byPane.set(paneId, next);
+            log({ sonuc: "vazgecildi", deneme: next.attempts });
           }
         }),
       "writeFailed" as AgentPromptResult
