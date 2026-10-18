@@ -16,7 +16,10 @@
 //     geri yüklemeden hemen önce yol ve üst parçaları için dosya↔klasör
 //     çakışma denetimi (deps.pathKind); hedefteki BOŞ klasör kaldırılır
 //     (deps.removeEmptyDir), dolu klasör/üstte dosya/herhangi bir yerde bağ
-//     (junction) ya da seçilmemiş büyük/küçük harf eşi → işlem durur (pathConflict).
+//     (junction)/kayıtta silinmiş yolda sonradan konmuş dosya ya da seçilmemiş
+//     büyük/küçük harf eşi → işlem durur (pathConflict).
+//   - Alan kapatma (drop) uçuştaki ya da kuyruktaki işi geçersiz kılar (kuşak):
+//     kayıt dosyası yeniden yaratılmaz, bellek girdisi geri gelmez, yayın yok.
 //   - beforeRestore kaydı diske yazılamazsa geri alma başlamaz (storeFailed);
 //     depo yazma hatası uyarı olarak saklanır.
 //   - 200 sınırı beforeRestore eklenirken geri alınan kaydı düşürmez.
@@ -161,6 +164,15 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
   const promptPending = new Set<string>();
   /** Geri alma süren alanlar: ikinci geri alma "busy". */
   const reverting = new Set<string>();
+  /**
+   * Alan kuşağı: drop artırıyor. Drop'tan ÖNCE istenmiş (uçuştaki ya da
+   * kuyrukta bekleyen) iş eski kuşakta kalıyor: girdiyi belleğe geri koymuyor,
+   * kayıt dosyasını yeniden yaratmıyor, yayın yapmıyor.
+   */
+  const generations = new Map<string, number>();
+  const generationOf = (workspaceId: string) => generations.get(workspaceId) ?? 0;
+  /** Girdi hâlâ bellekteki güncel girdi mi (arada drop olmadı mı). */
+  const live = (workspaceId: string, entry: Entry) => entries.get(workspaceId) === entry;
   let disposed = false;
 
   function attempt<T>(fn: () => T, fallback: T): T {
@@ -205,7 +217,10 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     return state;
   }
 
-  const emit = (workspaceId: string, entry: Entry) => attempt(() => deps.emit(stateOf(workspaceId, entry)), undefined);
+  const emit = (workspaceId: string, entry: Entry) => {
+    // Kapatılmış alanın durumu yayınlanmıyor.
+    if (live(workspaceId, entry)) attempt(() => deps.emit(stateOf(workspaceId, entry)), undefined);
+  };
 
   /**
    * Kayıt listesini diske yazar; yazılabildi mi döner. Okunamayan dosyanın
@@ -213,7 +228,8 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
    * uyarı satırı saklanıyor (sessiz yutma yok); yayın çağıranın işi.
    */
   function save(workspaceId: string, entry: Entry): boolean {
-    if (entry.unreadable) return false;
+    // Alan kapatıldıysa (drop) kayıt dosyası yeniden yaratılmıyor.
+    if (entry.unreadable || !live(workspaceId, entry)) return false;
     const ok = attempt(() => deps.store.write(workspaceId, entry.checkpoints), false);
     if (!ok) entry.warning = { code: "storeFailed", at: deps.now() };
     return ok;
@@ -253,8 +269,11 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
   /** Alan kuyruğunda, bağlamla çalıştırır; hiçbir yol fırlatmaz. */
   async function withContext<T>(workspaceId: string, onFail: (reason: ChangesFailure) => T, job: (entry: Entry, ctx: Ctx) => Promise<T>): Promise<T> {
     if (disposed || !isBoardId(workspaceId)) return onFail("invalid");
+    const generation = generationOf(workspaceId);
     try {
       return await queue.run(workspaceId, async () => {
+        // Kuyrukta beklerken alan kapatıldı: girdi yeniden yüklenmiyor.
+        if (generationOf(workspaceId) !== generation) return onFail("noWorkspace");
         const entry = load(workspaceId);
         if (!entry) return onFail("noWorkspace");
         const c = await context(workspaceId, entry);
@@ -274,8 +293,9 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
 
   /**
    * 200 sınırı; `keepId` verildiyse o kayıt (geri alınan) ve sonrası asla
-   * düşmüyor: yalnız ondan eskiler kesiliyor, yetmezse liste geçici olarak
-   * sınırı aşıyor (bir sonraki okumada depo yine 200'e indiriyor).
+   * düşmüyor: yalnız ondan eskiler kesiliyor, yetmezse liste sınırı aşıyor
+   * ve diske öyle yazılıyor (depo okurken KESMİYOR); `keepId`'siz bir sonraki
+   * görüntü listeyi yine 200'e indiriyor.
    */
   function capKeeping(list: readonly Checkpoint[], keepId: string | undefined): Checkpoint[] {
     const index = keepId ? list.findIndex((c) => c.id === keepId) : -1;
@@ -308,7 +328,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       if (d.ok && !d.truncated) stats = statsOf(d.files);
     }
     // Beklerken alan kapatıldıysa (drop) hiçbir şey yazılmıyor.
-    if (entries.get(workspaceId) !== entry) return fail("noWorkspace");
+    if (!live(workspaceId, entry)) return fail("noWorkspace");
     const checkpoint: Checkpoint = {
       id: deps.newId(),
       workspaceId,
@@ -336,12 +356,15 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
    * Yol ya da bir üst parçası beklenmeyen türde mi: üstte dosya, hedefte klasör.
    * Hedefteki klasör gerçekten boşsa (eklenmiş içerik çöpe gitmiş) kaldırılıp
    * devam ediliyor; dolu klasör çakışma. Sorgu fırlatırsa çakışma sayılıyor.
+   * `mustBeAbsent`: aralıkta SİLİNMİŞ yol; diskte orada dosya varsa onu
+   * kullanıcı (ya da ajan) sonradan koymuş, checkout-index -f çöpsüz ezerdi.
    */
-  function pathConflict(root: string, rel: string): boolean {
+  function pathConflict(root: string, rel: string, mustBeAbsent: boolean): boolean {
     return attempt(() => {
       if (ancestorBlocked(root, rel)) return true;
       const kind = deps.pathKind(root, rel);
       if (kind === "link") return true;
+      if (kind === "file") return mustBeAbsent;
       if (kind !== "dir") return false;
       // Yalnız gerçek (bağ olmayan) klasör, yalnız boşsa.
       return deps.removeEmptyDir(root, rel) !== true;
@@ -525,7 +548,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         stop("invalid", rel);
         break;
       }
-      if (pathConflict(ctx.cwd, rel)) {
+      if (pathConflict(ctx.cwd, rel, byPath.get(rel)?.status === "deleted")) {
         stop("pathConflict", rel);
         break;
       }
@@ -538,7 +561,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     }
     if (restoreIndex) attempt(() => deps.git.discardIndex(restoreIndex), undefined);
     const failed = problem as ChangesFailure | null;
-    if (!failed && entries.get(workspaceId) === entry) {
+    if (!failed && live(workspaceId, entry)) {
       entry.checkpoints = entry.checkpoints.map((c) => (c.id === id ? { ...c, reviewed: "reverted" as const } : c));
       save(workspaceId, entry);
       emit(workspaceId, entry);
@@ -552,6 +575,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       if (disposed || !isBoardId(workspaceId)) return null;
       const entry = load(workspaceId);
       if (!entry) return null;
+      const generation = generationOf(workspaceId);
       try {
         await queue.run(workspaceId, async () => {
           await context(workspaceId, entry);
@@ -559,6 +583,8 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       } catch {
         // durum yine dönüyor
       }
+      // Beklerken alan kapatıldı: eski durum dönmüyor, girdi geri gelmiyor.
+      if (generationOf(workspaceId) !== generation || !live(workspaceId, entry)) return null;
       if (!entry.expiryChecked && entry.repo === "ok") {
         entry.expiryChecked = true;
         void checkExpiry(workspaceId).catch(() => {});
@@ -685,6 +711,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
 
     drop(workspaceId) {
       if (!isBoardId(workspaceId)) return;
+      generations.set(workspaceId, generationOf(workspaceId) + 1);
       entries.delete(workspaceId);
       attempt(() => deps.store.remove(workspaceId), undefined);
     },

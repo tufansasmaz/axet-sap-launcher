@@ -8,7 +8,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createGitPort, createGitRunner, GIT_BASE_ARGS, gitEnv, type ExecFileLike, type GitResult, type GitRun } from "../app-electron/main/changesGit";
-import { insideRootReal, isWithin } from "../app-electron/main/changesFs";
+import { insideRootReal, isWithin, pathKind, removeEmptyDir } from "../app-electron/main/changesFs";
 import { LARGE_FILE_BYTES, LOCK_RETRIES, type FileChange } from "../app-electron/shared/changesTypes";
 
 function gitAvailable(): boolean {
@@ -592,5 +592,58 @@ describe("insideRootReal (spec §6.4)", () => {
     expect(isWithin(root, path.join(root, "a", "b"))).toBe(true);
     expect(isWithin(root, path.join(root, "..kok2"))).toBe(true);
     expect(isWithin(root, path.join(base, "kok2"))).toBe(false);
+  });
+});
+
+describe("pathKind ve removeEmptyDir (gerçek geçici klasör)", () => {
+  it("pathKind: dosya, klasör, yok; junction ve dosya sembolik bağı 'link'; üst parça yoksa 'none'", () => {
+    const root = path.join(base, "kok");
+    const outside = path.join(base, "disari");
+    mkdirSync(path.join(root, "klasor"), { recursive: true });
+    mkdirSync(outside);
+    writeFileSync(path.join(root, "a.txt"), "x");
+    symlinkSync(outside, path.join(root, "kopru"), "junction");
+    expect(pathKind(root, "a.txt")).toBe("file");
+    expect(pathKind(root, "klasor")).toBe("dir");
+    expect(pathKind(root, "yok.txt")).toBe("none");
+    expect(pathKind(root, "yok/ic/x.txt")).toBe("none");
+    expect(pathKind(root, "kopru")).toBe("link");
+    // Dosya sembolik bağı Windows'ta yetki isteyebilir: oluşturulamazsa bu kısım atlanıyor.
+    let fileLink = true;
+    try {
+      symlinkSync(path.join(root, "a.txt"), path.join(root, "bag.txt"), "file");
+    } catch {
+      fileLink = false;
+    }
+    if (fileLink) expect(pathKind(root, "bag.txt")).toBe("link");
+  });
+
+  it("pathKind: lstat'ın ENOENT dışı hatası fırlatıyor (yönetici çakışma sayıyor)", () => {
+    const root = path.join(base, "kok");
+    mkdirSync(root);
+    // NUL baytı: Node ERR_INVALID_ARG_VALUE fırlatıyor; "none" sayılmamalı.
+    expect(() => pathKind(root, "a\u0000b")).toThrow(/null bytes|ERR_INVALID_ARG_VALUE|string without null/i);
+  });
+
+  it("removeEmptyDir: yalnız gerçekten boş, bağ olmayan klasör; dolu/dosya/yok/junction false, hedef korunuyor", () => {
+    const root = path.join(base, "kok");
+    const outside = path.join(base, "disari");
+    mkdirSync(path.join(root, "bos"), { recursive: true });
+    mkdirSync(path.join(root, "dolu", "ic"), { recursive: true });
+    writeFileSync(path.join(root, "dolu", "ic", "x.txt"), "x");
+    writeFileSync(path.join(root, "a.txt"), "x");
+    mkdirSync(outside);
+    symlinkSync(outside, path.join(root, "kopru"), "junction");
+    expect(removeEmptyDir(root, "bos")).toBe(true);
+    expect(existsSync(path.join(root, "bos"))).toBe(false);
+    expect(removeEmptyDir(root, "dolu")).toBe(false);
+    expect(readFileSync(path.join(root, "dolu", "ic", "x.txt"), "utf8")).toBe("x");
+    expect(removeEmptyDir(root, "a.txt")).toBe(false);
+    expect(existsSync(path.join(root, "a.txt"))).toBe(true);
+    expect(removeEmptyDir(root, "yok")).toBe(false);
+    // Boş hedefi gösteren junction bile kaldırılmıyor.
+    expect(removeEmptyDir(root, "kopru")).toBe(false);
+    expect(pathKind(root, "kopru")).toBe("link");
+    expect(existsSync(outside)).toBe(true);
   });
 });

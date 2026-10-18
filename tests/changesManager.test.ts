@@ -117,7 +117,9 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
     kindThrows: false,
     /** Gerçekten boş olan klasörler (removeEmptyDir yalnız bunları kaldırır). */
     emptyDirs: new Set<string>(),
-    removedDirs: [] as string[]
+    removedDirs: [] as string[],
+    /** Çöpe taşıma bu söz çözülene kadar bekler (geri alma sürerken drop). */
+    trashGate: null as Promise<void> | null
   };
   const manager = createChangesManager({
     now: () => clock.ms,
@@ -157,6 +159,7 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
       return state.kinds.get(rel) ?? "none";
     },
     trash: async (_root, rel) => {
+      if (state.trashGate) await state.trashGate;
       if (state.trashFail.has(rel)) throw new Error("çöp kutusu yok");
       events.push(`trash:${rel}`);
       order.push(`trash:${rel}`);
@@ -878,5 +881,96 @@ describe("Düzeltme turu 2 (yeniden inceleme)", () => {
     h2.state.exists.add("README.md");
     h2.state.kinds.set("README.md", "file");
     expect(await h2.manager.revert("w1", "c1", ["Readme.md", "README.md"])).toMatchObject({ ok: true, trashed: ["README.md"], restored: ["Readme.md"] });
+  });
+});
+
+describe("Alan kapatma uçuştaki işlemle (Görev 6)", () => {
+  it("görüntü sürerken drop: uçuştaki ve kuyruktaki görüntü kayıt dosyasını yeniden yaratmıyor, bellekte eski girdi yok", async () => {
+    const h = harness();
+    let open: () => void = () => {};
+    h.git.gate = new Promise<void>((r) => {
+      open = r;
+    });
+    const first = h.manager.snapshot("w1", "manual", meta());
+    const queued = h.manager.snapshot("w1", "prompt", meta({ label: "kuyrukta" }));
+    await flush();
+    h.manager.drop("w1");
+    const emittedAt = h.emitted.length;
+    open();
+    expect(await first).toEqual({ ok: false, reason: "noWorkspace" });
+    expect(await queued).toEqual({ ok: false, reason: "noWorkspace" });
+    expect(h.written).toEqual([]);
+    expect(h.removed).toEqual(["w1"]);
+    expect(h.emitted.length).toBe(emittedAt);
+    // Drop'tan SONRA istenen yeni işlem temiz bir girdiyle başlıyor (eski kayıt geri gelmiyor).
+    h.git.gate = null;
+    expect((await h.manager.snapshot("w1", "manual", meta())).ok).toBe(true);
+    expect(h.written.at(-1)).toHaveLength(1);
+  });
+
+  it("geri alma sürerken drop: kayıt reverted yazılmıyor, dosya yeniden yaratılmıyor, yayın yok; kuyruktaki görüntü düşüyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("yeni.txt", "added"), change("a.ts")]);
+    h.state.exists.add("yeni.txt");
+    let open: () => void = () => {};
+    h.state.trashGate = new Promise<void>((r) => {
+      open = r;
+    });
+    const writes = h.written.length;
+    const pending = h.manager.revert("w1", "c1", ["yeni.txt", "a.ts"]);
+    const queued = h.manager.snapshot("w1", "manual", meta());
+    // beforeRestore yazıldı; çöpe taşıma kapıda bekliyor.
+    await vi.waitFor(() => expect(h.written.length).toBe(writes + 1));
+    h.manager.drop("w1");
+    const emittedAt = h.emitted.length;
+    open();
+    const result = await pending;
+    expect(result).toMatchObject({ trashed: ["yeni.txt"], restored: ["a.ts"], beforeRestoreId: "c3" });
+    expect(await queued).toEqual({ ok: false, reason: "noWorkspace" });
+    expect(h.written.length).toBe(writes + 1);
+    expect(h.emitted.length).toBe(emittedAt);
+    expect(h.removed).toEqual(["w1"]);
+    expect((await h.manager.state("w1"))?.checkpoints).toEqual([]);
+  });
+
+  it("beforeRestore görüntüsü sürerken drop: hiçbir dosyaya dokunulmuyor, hiçbir şey yazılmıyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("a.ts")]);
+    let open: () => void = () => {};
+    h.git.gate = new Promise<void>((r) => {
+      open = r;
+    });
+    const writes = h.written.length;
+    const pending = h.manager.revert("w1", "c1", ["a.ts"]);
+    await flush();
+    h.manager.drop("w1");
+    open();
+    expect(await pending).toMatchObject({ ok: false, restored: [], trashed: [] });
+    expect(h.events.filter((e) => e.startsWith("restore") || e.startsWith("trash"))).toEqual([]);
+    expect(h.written.length).toBe(writes);
+  });
+});
+
+describe("Silinmiş yolda yeni dosya (Görev 4 incelemesinden)", () => {
+  it("kayıtta silinmiş yolda diskte artık bir dosya var: geri yükleme ezmiyor, pathConflict", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("sil.md", "deleted", 0, 3), change("b.ts")]);
+    h.state.kinds.set("sil.md", "file");
+    h.state.kinds.set("b.ts", "file");
+    expect(await h.manager.revert("w1", "c1", ["sil.md", "b.ts"])).toEqual({
+      ok: false,
+      reason: "pathConflict",
+      restored: [],
+      trashed: [],
+      skipped: [],
+      failedPath: "sil.md",
+      beforeRestoreId: "c3"
+    });
+    expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+    // Değişmiş (modified) dosyanın diskte olması beklenen: geri yükleniyor.
+    const h2 = harness();
+    await twoCheckpoints(h2, [change("b.ts")]);
+    h2.state.kinds.set("b.ts", "file");
+    expect(await h2.manager.revert("w1", "c1", ["b.ts"])).toMatchObject({ ok: true, restored: ["b.ts"] });
   });
 });
