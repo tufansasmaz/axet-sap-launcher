@@ -3,11 +3,11 @@
 // testleri atlanıyor ve sebebi yazılıyor; sahte koşucuyla olanlar her zaman çalışıyor.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createGitPort, gitEnv, type GitResult, type GitRun } from "../app-electron/main/changesGit";
+import { createGitPort, createGitRunner, GIT_BASE_ARGS, gitEnv, type ExecFileLike, type GitResult, type GitRun } from "../app-electron/main/changesGit";
 import { insideRootReal, isWithin } from "../app-electron/main/changesFs";
 import { LARGE_FILE_BYTES, LOCK_RETRIES, type FileChange } from "../app-electron/shared/changesTypes";
 
@@ -274,6 +274,74 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     port.discardIndex(restoreIndex);
     expect(existsSync(path.join(outside, "x.txt"))).toBe(false);
   });
+
+  it("core.splitIndex=true depoda eskimiş paylaşılan index silinmiyor; kullanıcının status'u ve aşamalanmışı duruyor", async () => {
+    initRepo();
+    g("config", "core.splitIndex", "true");
+    g("update-index", "--split-index");
+    write("src/b.ts", "export const b = 5;\n");
+    g("add", "src/b.ts");
+    const shared = readdirSync(path.join(repo, ".git")).filter((n) => n.startsWith("sharedindex."));
+    expect(shared.length).toBeGreaterThan(0);
+    const staged = g("diff", "--cached", "--name-only");
+    const before = userState();
+    // Eskitme EN SON: kullanıcının index'ini okuyan her git komutu paylaşılan index'in tarihini tazeliyor.
+    const old = new Date("2020-01-01T00:00:00Z");
+    for (const n of shared) utimesSync(path.join(repo, ".git", n), old, old);
+    const port = createGitPort();
+    write("yeni.txt", "izlenmeyen\n");
+    const one = await port.snapshot(repo, indexFile, 20_000);
+    expect(one.ok).toBe(true);
+    write("yeni.txt", "değişti\n");
+    expect((await port.snapshot(repo, indexFile, 20_000)).ok).toBe(true);
+    rmSync(path.join(repo, "yeni.txt"));
+    for (const n of shared) expect(existsSync(path.join(repo, ".git", n))).toBe(true);
+    // userState içindeki `git status` rc!=0 olsa fırlatır.
+    expect(userState()).toEqual(before);
+    expect(g("diff", "--cached", "--name-only")).toBe(staged);
+  });
+
+  it("süreç ortamındaki GIT_* değişkenleri (GIT_DIR, GIT_CEILING_DIRECTORIES, GIT_CONFIG_PARAMETERS) çağrılara karışmıyor", async () => {
+    initRepo();
+    const other = path.join(base, "baska");
+    mkdirSync(other);
+    execFileSync("git", ["init", "-q"], { cwd: other, windowsHide: true });
+    const excludes = path.join(base, "dislanan");
+    writeFileSync(excludes, "*.txt\n");
+    const saved = { ...process.env };
+    process.env.GIT_DIR = path.join(other, ".git");
+    process.env.GIT_CEILING_DIRECTORIES = repo;
+    process.env.GIT_CONFIG_PARAMETERS = `'core.excludesfile'='${excludes.replace(/\\/g, "/")}'`;
+    try {
+      const port = createGitPort();
+      const probe = await port.probe(path.join(repo, "src"));
+      expect(probe.ok && probe.prefix).toBe("src/");
+      expect(probe.ok && path.resolve(probe.top)).toBe(path.resolve(repo));
+      const one = await port.snapshot(repo, indexFile, 20_000);
+      write("yeni.txt", "görünmeli\n");
+      const two = await port.snapshot(repo, indexFile, 20_000);
+      if (!one.ok || !two.ok) throw new Error("görüntü");
+      const diff = await port.diffTrees(repo, "", one.tree, two.tree);
+      expect(diff.ok && diff.files.map((f) => f.path)).toEqual(["yeni.txt"]);
+    } finally {
+      process.env = saved;
+    }
+  });
+
+  it("kullanıcının .git/index'i index dosyası olarak verilirse silinmiyor ve yazılmıyor", async () => {
+    initRepo();
+    const userIndex = path.join(repo, ".git", "index");
+    const before = readFileSync(userIndex);
+    const port = createGitPort();
+    const one = await port.snapshot(repo, indexFile, 20_000);
+    if (!one.ok) throw new Error("görüntü");
+    expect(await port.loadIndex(repo, userIndex, one.tree)).toBe(false);
+    expect(await port.snapshot(repo, userIndex, 20_000)).toEqual({ ok: false, reason: "git" });
+    expect(await port.restoreFile(repo, userIndex, "a.txt")).toBe(false);
+    port.discardIndex(userIndex);
+    expect(existsSync(userIndex)).toBe(true);
+    expect(readFileSync(userIndex).equals(before)).toBe(true);
+  });
 });
 
 describe("sahte koşucu", () => {
@@ -294,7 +362,73 @@ describe("sahte koşucu", () => {
     expect(await dubious.probe("C:/x")).toEqual({ ok: false, reason: "git" });
   });
 
-  it("her çağrı sabit önek argümanları ve özel index ortamıyla; kabuk yok", async () => {
+  it("index dosyası beklenen klasörün dışındaysa ya da .git içindeyse reddediliyor", async () => {
+    const calls: (readonly string[])[] = [];
+    const run: GitRun = async (args) => {
+      calls.push(args);
+      return result({ stdout: `${"a".repeat(40)}\n` });
+    };
+    const dir = path.join(base, "veri");
+    const port = createGitPort({ run, indexDir: dir });
+    const outsideFile = path.join(base, "baska.index");
+    writeFileSync(outsideFile, "dokunma");
+    const gitDirFile = path.join(dir, ".GIT", "index");
+    const tree = "a".repeat(40);
+    for (const bad of [outsideFile, gitDirFile, path.join(dir, "..", "baska.index"), dir]) {
+      expect(await port.snapshot(base, bad, 20_000)).toEqual({ ok: false, reason: "git" });
+      expect(await port.loadIndex(base, bad, tree)).toBe(false);
+      expect(await port.restoreFile(base, bad, "a.txt")).toBe(false);
+      port.discardIndex(bad);
+    }
+    expect(readFileSync(outsideFile, "utf8")).toBe("dokunma");
+    expect(calls).toEqual([]);
+    expect(await port.loadIndex(base, path.join(dir, "w.index"), tree)).toBe(true);
+  });
+
+  it("runGitDefault: execFile'a sabit önek argümanları, kabuksuz seçenekler; süre aşımı ve git yok sınıflanıyor", async () => {
+    expect(GIT_BASE_ARGS).toEqual([
+      "-c",
+      "core.fsmonitor=false",
+      "-c",
+      "core.quotepath=false",
+      "-c",
+      "core.splitIndex=false",
+      "-c",
+      "splitIndex.sharedIndexExpire=never",
+      "-c",
+      "core.safecrlf=false"
+    ]);
+    const seen: { file: string; args: readonly string[]; opts: Record<string, unknown> }[] = [];
+    let reply: { err: unknown; stdout: string } = { err: null, stdout: "ok" };
+    const exec: ExecFileLike = (file, args, opts, cb) => {
+      seen.push({ file, args, opts: opts as unknown as Record<string, unknown> });
+      cb(reply.err as Error | null, reply.stdout, "");
+    };
+    const runner = createGitRunner(exec);
+    const idx = path.join(base, "veri", "w.index");
+    expect(await runner(["write-tree"], { cwd: base, indexFile: idx, timeoutMs: 1234 })).toMatchObject({ ok: true, stdout: "ok" });
+    const call = seen[0];
+    expect(call.file).toBe("git");
+    expect(call.args).toEqual([...GIT_BASE_ARGS, "write-tree"]);
+    expect(call.opts.shell).toBeUndefined();
+    expect(call.opts.windowsHide).toBe(true);
+    expect(call.opts.timeout).toBe(1234);
+    expect(typeof call.opts.maxBuffer).toBe("number");
+    expect(call.opts.cwd).toBe(base);
+    expect((call.opts.env as NodeJS.ProcessEnv).GIT_INDEX_FILE).toBe(idx);
+    reply = { err: Object.assign(new Error("öldürüldü"), { killed: true, signal: "SIGTERM", code: null }), stdout: "" };
+    expect(await runner(["add"], { cwd: base, timeoutMs: 1 })).toMatchObject({ ok: false, timedOut: true, missing: false });
+    reply = { err: Object.assign(new Error("öldürüldü"), { killed: false, signal: "SIGTERM", code: null }), stdout: "" };
+    expect(await runner(["add"], { cwd: base, timeoutMs: 1 })).toMatchObject({ ok: false, timedOut: true });
+    reply = { err: Object.assign(new Error("yok"), { code: "ENOENT" }), stdout: "" };
+    expect(await runner(["add"], { cwd: base, timeoutMs: 1 })).toMatchObject({ ok: false, missing: true, timedOut: false });
+    reply = { err: Object.assign(new Error("büyük"), { code: "ERR_CHILD_PROCESS_STDIO_MAXBUFFER", killed: true, signal: "SIGTERM" }), stdout: "yarım" };
+    expect(await runner(["diff-tree"], { cwd: base, timeoutMs: 1 })).toMatchObject({ ok: false, tooBig: true, timedOut: false, stdout: "yarım" });
+    reply = { err: Object.assign(new Error("çıktı 128"), { code: 128 }), stdout: "" };
+    expect(await runner(["add"], { cwd: base, timeoutMs: 1 })).toMatchObject({ ok: false, code: 128, timedOut: false });
+  });
+
+  it("her çağrı özel index ortamıyla, sabit komut sırasıyla", async () => {
     const calls: { args: readonly string[]; indexFile?: string }[] = [];
     const run: GitRun = async (args, opts) => {
       calls.push({ args, indexFile: opts.indexFile });
@@ -334,13 +468,18 @@ describe("sahte koşucu", () => {
     expect(calls).toEqual([]);
   });
 
-  it("gitEnv: kullanıcının GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE'ı siliniyor; istem ve isteğe bağlı kilit kapalı", () => {
+  it("gitEnv: kullanıcının bütün GIT_* değişkenleri (harf büyüklüğünden bağımsız) siliniyor; istem ve isteğe bağlı kilit kapalı", () => {
     const saved = { ...process.env };
     process.env.GIT_DIR = "C:/baska";
     process.env.GIT_WORK_TREE = "C:/baska";
     process.env.GIT_INDEX_FILE = "C:/baska/index";
+    process.env.GIT_CONFIG_PARAMETERS = "'core.splitindex'='true'";
+    process.env.GIT_CONFIG_COUNT = "1";
+    process.env.GIT_OBJECT_DIRECTORY = "C:/baska/objects";
+    process.env.Git_Namespace = "x";
     try {
       const env = gitEnv();
+      expect(Object.keys(env).filter((k) => /^git_/i.test(k)).sort()).toEqual(["GIT_OPTIONAL_LOCKS", "GIT_TERMINAL_PROMPT"]);
       expect(env.GIT_DIR).toBeUndefined();
       expect(env.GIT_WORK_TREE).toBeUndefined();
       expect(env.GIT_INDEX_FILE).toBeUndefined();

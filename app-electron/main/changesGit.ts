@@ -11,7 +11,21 @@
 //     `.git/index`'ine düşürürdü).
 //   - Dosya yolu git'e gitmeden önce `isSafeRelPath`; çalışma ağacına yazan
 //     geri yüklemede ayrıca `insideRootReal` (junction/sembolik bağ ile kök dışı).
+//   - Index dosyası uygulamanın kendi klasöründe olmalı (`indexDir`) ve hiçbir
+//     zaman bir `.git` klasörünün içinde olamaz: yükleme ve atma o dosyayı
+//     SİLİYOR, yanlış yol kullanıcının index'ini silerdi.
 //   - Hiçbir yol hata fırlatmıyor; sonuç her zaman bir değer.
+//
+// Bilinen, bu katmanda kapatılmayan riskler:
+//   - `git add` deponun `filter.<sürücü>.clean` komutunu, `checkout-index` de
+//     `smudge`'ı çalıştırıyor (ör. Git LFS). Sürücü komutu yalnız kullanıcının
+//     kendi `.git/config`'inden ya da global yapılandırmasından gelir, klonla
+//     taşınmaz; yani kullanıcının kendi `git add`'iyle aynı güven düzeyi.
+//     Kapatmak LFS depolarında görüntüyü ve geri yüklemeyi bozardı.
+//   - `restoreFile`'da `insideRootReal` denetimi ile `checkout-index`'in
+//     yazması arasında kısa bir yarış penceresi var (TOCTOU): o arada bir
+//     klasör junction'a çevrilirse git onun üzerinden yazar. Git'in yazma
+//     yolunu kilitlemeden kapatılamıyor; pencere milisaniyeler.
 import { execFile } from "node:child_process";
 import { existsSync, statSync, unlinkSync } from "node:fs";
 import path from "node:path";
@@ -26,7 +40,7 @@ import {
   type FileChange,
   type FileDiff
 } from "../shared/changesTypes";
-import { insideRootReal } from "./changesFs";
+import { insideRootReal, isWithin } from "./changesFs";
 
 export interface GitResult {
   ok: boolean;
@@ -49,56 +63,103 @@ export interface GitRunOptions {
 
 export type GitRun = (args: readonly string[], opts: GitRunOptions) => Promise<GitResult>;
 
-/** fsmonitor arka plan süreci başlatılmasın; yollar tırnaklanmasın. */
-export const GIT_BASE_ARGS: readonly string[] = ["-c", "core.fsmonitor=false", "-c", "core.quotepath=false"];
+/**
+ * fsmonitor arka plan süreci başlatılmasın; yollar tırnaklanmasın.
+ * splitIndex kapalı ve paylaşılan index'in süresi dolmuyor: açık olsa bizim
+ * index'imize yazan `git add`, `.git/sharedindex.*` dosyalarından eskimiş
+ * olanları siliyor; kullanıcının index'inin işaret ettiği dosya da onlardan
+ * biriyse `.git/index` okunamaz hâle geliyor (rc=128, aşamalanmış değişiklik kaybı).
+ * safecrlf kapalı: binlerce "LF will be replaced by CRLF" uyarısı stderr'i
+ * maxBuffer'a taşırıp `add`'i yarıda öldürmesin (geride kilit kalırdı).
+ */
+export const GIT_BASE_ARGS: readonly string[] = [
+  "-c",
+  "core.fsmonitor=false",
+  "-c",
+  "core.quotepath=false",
+  "-c",
+  "core.splitIndex=false",
+  "-c",
+  "splitIndex.sharedIndexExpire=never",
+  "-c",
+  "core.safecrlf=false"
+];
 
 export function gitEnv(indexFile?: string): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0", GIT_OPTIONAL_LOCKS: "0" };
-  // Kullanıcının ortamındaki yönlendirmeler bizim komutlarımıza karışmasın.
-  delete env.GIT_DIR;
-  delete env.GIT_WORK_TREE;
-  delete env.GIT_INDEX_FILE;
+  const env: NodeJS.ProcessEnv = { ...process.env };
+  // Kullanıcının ortamındaki HİÇBİR git değişkeni bizim komutlarımıza karışmasın
+  // (GIT_DIR, GIT_CONFIG_PARAMETERS, GIT_OBJECT_DIRECTORY, GIT_CEILING_DIRECTORIES…).
+  // Windows'ta ortam anahtarları harf büyüklüğüne duyarsız: karşılaştırma da öyle.
+  for (const key of Object.keys(env)) {
+    if (/^git_/i.test(key)) delete env[key];
+  }
+  env.GIT_TERMINAL_PROMPT = "0";
+  env.GIT_OPTIONAL_LOCKS = "0";
   if (indexFile) env.GIT_INDEX_FILE = indexFile;
   return env;
 }
 
 const FAILED: GitResult = { ok: false, code: null, stdout: "", stderr: "", timedOut: false, tooBig: false, missing: false };
 
-export const runGitDefault: GitRun = (args, opts) =>
-  new Promise<GitResult>((resolve) => {
-    try {
-      execFile(
-        "git",
-        [...GIT_BASE_ARGS, ...args],
-        {
-          cwd: opts.cwd,
-          env: gitEnv(opts.indexFile),
-          timeout: opts.timeoutMs,
-          windowsHide: true,
-          maxBuffer: opts.maxBuffer ?? DIFF_MAX_BYTES,
-          encoding: "utf8"
-        },
-        (err, stdout, stderr) => {
-          const e = err as (Error & { code?: unknown; killed?: boolean; signal?: unknown }) | null;
-          const missing = e?.code === "ENOENT";
-          const tooBig = e?.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER";
-          // Süre aşımında Node süreci öldürüyor: `killed` ya da sinyal dolu geliyor.
-          const killed = !!e && (e.killed === true || (typeof e.signal === "string" && e.signal !== ""));
-          resolve({
-            ok: !e,
-            code: !e ? 0 : typeof e.code === "number" ? e.code : null,
-            stdout: String(stdout ?? ""),
-            stderr: String(stderr ?? ""),
-            timedOut: !missing && !tooBig && killed,
-            tooBig,
-            missing
-          });
-        }
-      );
-    } catch {
-      resolve({ ...FAILED });
-    }
-  });
+/** execFile'ın bu katmanın kullandığı biçimi; testte sahtesi veriliyor. `shell` seçeneği bilerek yok. */
+export interface GitExecOptions {
+  cwd: string;
+  env: NodeJS.ProcessEnv;
+  timeout: number;
+  windowsHide: true;
+  maxBuffer: number;
+  encoding: "utf8";
+}
+export type ExecFileLike = (
+  file: string,
+  args: readonly string[],
+  opts: GitExecOptions,
+  callback: (err: Error | null, stdout: string, stderr: string) => void
+) => void;
+
+const execFileNode: ExecFileLike = (file, args, opts, callback) => {
+  execFile(file, [...args], opts, (err, stdout, stderr) => callback(err, String(stdout ?? ""), String(stderr ?? "")));
+};
+
+export function createGitRunner(exec: ExecFileLike): GitRun {
+  return (args, opts) =>
+    new Promise<GitResult>((resolve) => {
+      try {
+        exec(
+          "git",
+          [...GIT_BASE_ARGS, ...args],
+          {
+            cwd: opts.cwd,
+            env: gitEnv(opts.indexFile),
+            timeout: opts.timeoutMs,
+            windowsHide: true,
+            maxBuffer: opts.maxBuffer ?? DIFF_MAX_BYTES,
+            encoding: "utf8"
+          },
+          (err, stdout, stderr) => {
+            const e = err as (Error & { code?: unknown; killed?: boolean; signal?: unknown }) | null;
+            const missing = e?.code === "ENOENT";
+            const tooBig = e?.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER";
+            // Süre aşımında Node süreci öldürüyor: `killed` ya da sinyal dolu geliyor.
+            const killed = !!e && (e.killed === true || (typeof e.signal === "string" && e.signal !== ""));
+            resolve({
+              ok: !e,
+              code: !e ? 0 : typeof e.code === "number" ? e.code : null,
+              stdout: String(stdout ?? ""),
+              stderr: String(stderr ?? ""),
+              timedOut: !missing && !tooBig && killed,
+              tooBig,
+              missing
+            });
+          }
+        );
+      } catch {
+        resolve({ ...FAILED });
+      }
+    });
+}
+
+export const runGitDefault: GitRun = createGitRunner(execFileNode);
 
 export type ProbeResult = { ok: true; top: string; prefix: string } | { ok: false; reason: "notRepo" | "noGit" | "git" | "timeout" };
 export type SnapshotOutcome = { ok: true; tree: string } | { ok: false; reason: "noGit" | "locked" | "timeout" | "git" };
@@ -119,13 +180,29 @@ export interface GitPortDeps {
   run: GitRun;
   sleep(ms: number): Promise<void>;
   now(): number;
+  /**
+   * Uygulamanın index dosyalarının klasörü (checkpoints). Verilirse index
+   * dosyası bu klasörün içinde olmak zorunda; yönetici her zaman veriyor.
+   */
+  indexDir: string | null;
 }
 
 const literal = (fullPath: string) => `:(top,literal)${fullPath}`;
 const relative = (prefix: string): string[] => (prefix ? [`--relative=${prefix}`] : []);
 
-/** Uygulamaya ait index dosyası: boş ya da göreli olamaz. */
-const isOwnIndex = (indexFile: string): boolean => typeof indexFile === "string" && indexFile.length > 0 && path.isAbsolute(indexFile);
+/**
+ * Uygulamaya ait index dosyası mı: boş ya da göreli olamaz (boş değer git'i
+ * kullanıcının index'ine düşürür), hiçbir `.git` klasörünün içinde olamaz,
+ * `indexDir` verildiyse onun içinde (kendisi değil) olmalı.
+ */
+function isOwnIndex(indexFile: string, indexDir: string | null): boolean {
+  if (typeof indexFile !== "string" || indexFile.length === 0 || !path.isAbsolute(indexFile)) return false;
+  const resolved = path.resolve(indexFile);
+  if (resolved.split(/[\\/]/).some((part) => part.toLowerCase() === ".git")) return false;
+  if (indexDir === null) return true;
+  const dir = path.resolve(indexDir);
+  return resolved !== dir && isWithin(dir, resolved);
+}
 
 /** Önek git'ten geliyor; yine de boş ya da `/` ile biten güvenli bir göreli yol olmalı. */
 const isSafePrefix = (prefix: string): boolean => prefix === "" || (prefix.endsWith("/") && isSafeRelPath(prefix.slice(0, -1)));
@@ -142,7 +219,8 @@ export function createGitPort(partial: Partial<GitPortDeps> = {}): GitPort {
   const deps: GitPortDeps = {
     run: partial.run ?? runGitDefault,
     sleep: partial.sleep ?? ((ms) => new Promise<void>((r) => setTimeout(r, ms))),
-    now: partial.now ?? (() => Date.now())
+    now: partial.now ?? (() => Date.now()),
+    indexDir: partial.indexDir ?? null
   };
   const run = async (args: readonly string[], opts: GitRunOptions): Promise<GitResult> => {
     try {
@@ -175,7 +253,7 @@ export function createGitPort(partial: Partial<GitPortDeps> = {}): GitPort {
     },
 
     async snapshot(cwd, indexFile, timeoutMs) {
-      if (!isOwnIndex(indexFile)) return { ok: false, reason: "git" };
+      if (!isOwnIndex(indexFile, deps.indexDir)) return { ok: false, reason: "git" };
       const deadline = deps.now() + timeoutMs;
       const left = () => Math.max(1, deadline - deps.now());
       clearStaleLock(indexFile);
@@ -242,14 +320,14 @@ export function createGitPort(partial: Partial<GitPortDeps> = {}): GitPort {
     },
 
     async loadIndex(top, indexFile, tree) {
-      if (!isTreeId(tree) || !isOwnIndex(indexFile)) return false;
+      if (!isTreeId(tree) || !isOwnIndex(indexFile, deps.indexDir)) return false;
       removeQuietly(indexFile);
       const r = await run(["read-tree", tree], { cwd: top, indexFile, timeoutMs: GIT_TIMEOUT_MS });
       return r.ok;
     },
 
     async restoreFile(top, indexFile, fullPath) {
-      if (!isOwnIndex(indexFile) || !isSafeRelPath(fullPath)) return false;
+      if (!isOwnIndex(indexFile, deps.indexDir) || !isSafeRelPath(fullPath)) return false;
       // Yazmadan hemen önce: junction/sembolik bağ ile deponun kökü dışına çıkış yok.
       if (!insideRootReal(top, fullPath)) return false;
       // checkout-index yol belirteci değil düz yol alıyor (deponun köküne göre).
@@ -258,7 +336,7 @@ export function createGitPort(partial: Partial<GitPortDeps> = {}): GitPort {
     },
 
     discardIndex(indexFile) {
-      if (!isOwnIndex(indexFile)) return;
+      if (!isOwnIndex(indexFile, deps.indexDir)) return;
       removeQuietly(indexFile);
       removeQuietly(`${indexFile}.lock`);
     }
