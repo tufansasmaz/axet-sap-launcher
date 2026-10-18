@@ -198,6 +198,25 @@ describe("buildBrowserPrompt (spec §3)", () => {
     expect(/^[!/]/.test(text.trim())).toBe(false);
   });
 
+  it("secili metindeki tirnak ve ters bolu kacislaniyor; cerceve kirilmiyor", () => {
+    const text = buildBrowserPrompt({ ...base, selection: 'a "b" c\\' });
+    expect(text).toBe('[Tarayici] SAP Yard\u0131m https://help.sap.com/docs Secili metin: "a \\"b\\" c\\\\"');
+  });
+
+  it("sayfa basligindaki tirnak ve ters bolu de ayni sekilde kacislaniyor", () => {
+    const text = buildBrowserPrompt({ ...base, title: 'Say "x" \\ y', selection: "z" });
+    expect(text).toBe('[Tarayici] Say \\"x\\" \\\\ y https://help.sap.com/docs Secili metin: "z"');
+  });
+
+  it("butce sinirinda kacis bolunmuyor; toplam yine en cok 4000", () => {
+    const text = buildBrowserPrompt({ ...base, url: `https://a.com/${"p".repeat(1500)}`, selection: '"\\'.repeat(3000) });
+    expect(text.length).toBeLessThanOrEqual(BROWSER_PROMPT_MAX);
+    const inner = text.slice(text.indexOf(': "') + 3, -1);
+    expect(inner.endsWith("\u2026")).toBe(true);
+    // Kacis ciftleri cikarilinca ciplak tirnak ya da ters bolu kalmamali.
+    expect(inner.replace(/\\["\\]/g, "")).not.toMatch(/["\\]/);
+  });
+
   it("ekran goruntusu yolu (secim yokken de) sona", () => {
     expect(buildBrowserPrompt({ ...base, screenshot: ".ntt-studio/tarayici/a.png" })).toBe(
       "[Tarayici] SAP Yard\u0131m https://help.sap.com/docs Ekran goruntusu: .ntt-studio/tarayici/a.png"

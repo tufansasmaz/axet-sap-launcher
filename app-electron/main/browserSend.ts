@@ -3,7 +3,10 @@
 // sahtelerle çağırıyor. Sıra: girdi → alan → ajan uygun mu → sayfa →
 // seçili metin → (ekran görüntüsü) → ajan HÂLÂ uygun mu → istem → Enter
 // sonucu. Bir adım düşerse hiçbir şey gönderilmiyor (yarım bilgi gitmesin) ve
-// bu çağrıda yazılmış ekran görüntüsü geri siliniyor. Gönderilemeyen istem
+// bu çağrıda yazılmış ekran görüntüsü geri siliniyor. Tek istisna Enter'ın
+// iptali ("notSubmitted"): metin ajanın istem satırında DURUYOR (agentMonitor
+// yalnız motor bittiyse satırı temizliyor); kullanıcı onu gönderirse yol
+// geçerli kalsın diye görüntü silinmiyor. Gönderilemeyen istem
 // yeniden denenmiyor. Günlükte yalnız sonuç ve "ekran görüntüsü var mı" (§4.7).
 //
 // Eşzamanlı iki gönderim: göndericinin kendi kilidi yok. agentMonitor.sendPrompt
@@ -122,7 +125,10 @@ export function createBrowserSender(deps: BrowserSenderDeps): BrowserSender {
     return result;
   };
 
-  /** İstemi yazdırıp Enter'ın sonucunu bekliyor; "aborted" kullanıcı arada yazdı demek → typing. */
+  /**
+   * İstemi yazdırıp Enter'ın sonucunu bekliyor. "aborted": kullanıcı arada yazdı
+   * ya da motor kapandı; Enter basılmadı ama metin satıra yazıldı → notSubmitted.
+   */
   async function prompt(paneId: string, text: string): Promise<void> {
     let settle: (outcome: PromptOutcome | "timeout") => void = () => {};
     const settled = new Promise<PromptOutcome | "timeout">((resolve) => {
@@ -134,7 +140,7 @@ export function createBrowserSender(deps: BrowserSenderDeps): BrowserSender {
     const timer = setTimeout(() => settle("timeout"), PROMPT_SETTLE_TIMEOUT_MS);
     const outcome = await settled;
     clearTimeout(timer);
-    if (outcome === "aborted") throw new StepFailure("typing");
+    if (outcome === "aborted") throw new StepFailure("notSubmitted");
   }
 
   return {
@@ -180,7 +186,10 @@ export function createBrowserSender(deps: BrowserSenderDeps): BrowserSender {
         await prompt(paneId, text);
         return finish({ ok: true, screenshot: written }, withScreenshot);
       } catch (err) {
-        if (written && root) {
+        // notSubmitted: istem metni (görüntünün yoluyla) satırda duruyor; silmek
+        // kullanıcı satırı gönderince ajana olmayan bir dosya yolu verirdi.
+        const lineHasPrompt = err instanceof StepFailure && err.reason === "notSubmitted";
+        if (written && root && !lineHasPrompt) {
           try {
             deps.removeScreenshot(root, written);
           } catch {

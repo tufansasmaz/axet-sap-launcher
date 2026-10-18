@@ -51,7 +51,8 @@ hemen gönderilir (onay penceresi yok; menüde seçmek onaydır):
 
 - Gönderilen metin tek satır: `[Tarayici] <başlık> <adres>` ve seçili metin varsa
   ` Secili metin: "<metin>"`. Seçili metin boşlukları tekleştirilip 2000 karakterde kırpılır
-  (`…`). Kontrol karakterleri (C0/C1) atılır. Başlık 120 karakter.
+  (`…`). Kontrol karakterleri (C0/C1) atılır. Başlık 120 karakter. Başlıkta ve seçili
+  metinde `\` → `\\`, `"` → `\"` (tırnak çerçevesi kırılmasın; kırpma kaçış çiftini bölmez).
 - **Ekran görüntüsü ile**: menüdeki ikinci seçenek. Görünür alanın PNG'si alan kökünün altında
   `.ntt-studio/tarayici/<yyyyMMdd-HHmmss>.png` dosyasına yazılır ve metne
   ` Ekran goruntusu: .ntt-studio/tarayici/<ad>.png` (alan köküne göreli) eklenir. Klasör yoksa
@@ -60,7 +61,9 @@ hemen gönderilir (onay penceresi yok; menüde seçmek onaydır):
   çalışıyor/soru soruyor/kullanıcı yazıyorsa gönderilmez ve sebebi söylenir ("Ajan şu an
   meşgul", "Ajan bir soru bekliyor" …) ve sonra kendiliğinden yeniden denenmez. Uygunsa
   metin ajanın istem satırına yazılır ve Enter'a basılır (pano ile aynı). `!` ile başlayan
-  metin olmaz (önek `[Tarayici]`).
+  metin olmaz (önek `[Tarayici]`). Metin yazıldıktan sonra Enter iptal olursa (kullanıcı
+  arada terminale yazdı) sonuç `notSubmitted`: metin satırda kalır, ekran görüntüsü
+  silinmez, kullanıcıya "kontrol edip Enter'a sen bas" denir.
 - Başarıda kısa onay satırı "<ajan>'a gönderildi" ve görünüm Tarayıcı'da kalır.
 
 ## 4. Güvenlik modeli
@@ -78,8 +81,11 @@ menüleri üstte kalır). Electron'un "webview güvenliği" önerileri ana süre
 2. **Ayrı oturum**: `persist:ntt-tarayici` bölümü; uygulamanın varsayılan oturumundan, SAML
    oturumlarından ve Node-RED'den ayrı. SAP'ye ya da portala bu tarayıcıda giriş yapılırsa
    çerezler yalnız burada kalır.
-3. **İzinler**: bu oturumda bütün izin istekleri (kamera, mikrofon, konum, bildirim, pano
-   okuma, MIDI, HID, seri port, ekran paylaşımı) reddedilir; `setPermissionCheckHandler` false.
+3. **İzinler**: bu oturumda yalnız `clipboard-sanitized-write` verilir (sayfaların "kopyala"
+   düğmeleri çalışsın); geri kalan bütün izin istekleri (kamera, mikrofon, konum, bildirim, pano
+   okuma — `clipboard-read`, `deprecated-sync-clipboard-read` —, MIDI, HID, seri port, ekran
+   paylaşımı) reddedilir. `setPermissionRequestHandler` ve `setPermissionCheckHandler` aynı
+   yüklemi kullanır (yalnız `clipboard-sanitized-write` için true).
 4. **Gezinme**: webview içinde ana çerçeve gezinmesi yalnız http/https; `file:`, `data:`,
    `javascript:`, `chrome:`, `devtools:` vb. reddedilir. `window.open`/`target=_blank`:
    aynı webview'da açılır (yeni pencere asla). Uygulamanın genel "yalnız kendi sayfası"

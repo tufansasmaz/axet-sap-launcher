@@ -236,15 +236,25 @@ function track<T>(promise: Promise<T>) {
 }
 
 describe("Enter sonucu (onSettled) — fix round 1", () => {
-  it("Enter 'aborted' (kullanıcı arada yazdı): typing, bu çağrının görüntüsü siliniyor", async () => {
+  it("Enter 'aborted' (kullanıcı arada yazdı): notSubmitted; metin ajanın satırında kaldığı için görüntü SİLİNMİYOR", async () => {
     const h = harness();
     vi.mocked(h.deps.sendPrompt).mockImplementationOnce((_p, _t, onSettled) => {
       queueMicrotask(() => onSettled?.("aborted"));
       return "ok";
     });
-    await expect(h.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: false, reason: "typing" });
-    expect(h.deps.removeScreenshot).toHaveBeenCalledWith("C:\\proje", SHOT);
-    expect(h.logs).toEqual([["tarayici.gonder", { sonuc: "typing", ekranGoruntusu: true }]]);
+    await expect(h.sender.send("w1", "p1", 7, true)).resolves.toEqual({ ok: false, reason: "notSubmitted" });
+    expect(h.deps.removeScreenshot).not.toHaveBeenCalled();
+    expect(h.logs).toEqual([["tarayici.gonder", { sonuc: "notSubmitted", ekranGoruntusu: true }]]);
+  });
+
+  it("Enter 'aborted' ekran görüntüsü olmadan da notSubmitted", async () => {
+    const h = harness();
+    vi.mocked(h.deps.sendPrompt).mockImplementationOnce((_p, _t, onSettled) => {
+      onSettled?.("aborted");
+      return "ok";
+    });
+    await expect(h.sender.send("w1", "p1", 7, false)).resolves.toEqual({ ok: false, reason: "notSubmitted" });
+    expect(h.deps.removeScreenshot).not.toHaveBeenCalled();
   });
 
   it("Enter 'sent' eşzamanlı gelse de (sendPrompt dönmeden) sonuç ok", async () => {

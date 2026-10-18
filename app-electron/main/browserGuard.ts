@@ -156,7 +156,7 @@ export function installBrowserGuestRules(contents: GuestContents, deps: GuestRul
 
 export interface BrowserSessionLike {
   setPermissionRequestHandler(handler: (webContents: unknown, permission: string, callback: (granted: boolean) => void) => void): void;
-  setPermissionCheckHandler(handler: () => boolean): void;
+  setPermissionCheckHandler(handler: (webContents: unknown, permission: string) => boolean): void;
   setDevicePermissionHandler(handler: () => boolean): void;
   on(event: "will-download", listener: (event: Preventable, item: unknown, webContents: { id: number } | null | undefined) => void): unknown;
   on(event: "select-hid-device", listener: (event: Preventable, details: unknown, callback: (deviceId?: string | null) => void) => void): unknown;
@@ -190,15 +190,26 @@ export function isBrowserRequestAllowed(url: string, resourceType: string | unde
 }
 
 /**
- * §4.3, §4.5: `persist:ntt-tarayici` oturumunda bütün izinler (kamera,
- * mikrofon, konum, bildirim, pano, MIDI, HID, seri port, USB, ekran
- * paylaşımı …) reddediliyor; cihaz seçimleri (HID, USB, seri port) iptal;
- * yerel ve iç şemalı istekler iptal; indirme iptal, kullanıcıya görünümde
- * uyarı.
+ * §4.3: oturumda verilen TEK izin. Sayfaların "kopyala" düğmeleri panoya
+ * yazabilsin (Chromium'un temizlenmiş yazması: yalnız metin/HTML/PNG).
+ * Pano OKUMA (`clipboard-read`, `deprecated-sync-clipboard-read`) ve geri
+ * kalan her şey reddediliyor. İstek ve denetim işleyicisi aynı yüklemi
+ * kullanıyor: ikisi ayrışırsa sayfa izni "var" görüp kullanamaz ya da tersi.
+ */
+export function isBrowserPermissionAllowed(permission: unknown): boolean {
+  return permission === "clipboard-sanitized-write";
+}
+
+/**
+ * §4.3, §4.5: `persist:ntt-tarayici` oturumunda panoya yazma dışındaki bütün
+ * izinler (kamera, mikrofon, konum, bildirim, pano okuma, MIDI, HID, seri
+ * port, USB, ekran paylaşımı …) reddediliyor; cihaz seçimleri (HID, USB, seri
+ * port) iptal; yerel ve iç şemalı istekler iptal; indirme iptal, kullanıcıya
+ * görünümde uyarı.
  */
 export function configureBrowserSession(ses: BrowserSessionLike, deps: { onDownloadBlocked: (webContentsId: number | null) => void }): void {
-  ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
-  ses.setPermissionCheckHandler(() => false);
+  ses.setPermissionRequestHandler((_webContents, permission, callback) => callback(isBrowserPermissionAllowed(permission)));
+  ses.setPermissionCheckHandler((_webContents, permission) => isBrowserPermissionAllowed(permission));
   ses.setDevicePermissionHandler(() => false);
   ses.on("select-hid-device", (event, _details, callback) => {
     event.preventDefault();

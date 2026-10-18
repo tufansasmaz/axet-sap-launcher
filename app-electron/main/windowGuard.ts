@@ -20,7 +20,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { App, Session, Shell, WebContents } from "electron";
-import type { BrowserShortcut } from "../shared/browserLogic";
+import { BROWSER_PARTITION, type BrowserShortcut } from "../shared/browserLogic";
 import {
   allowWebviewAttach,
   hardenWebviewPreferences,
@@ -101,6 +101,19 @@ export function isExternalOpenAllowed(rawUrl: string): boolean {
 export function isSamlLoginSession(storagePath: string | null | undefined, isDefaultSession: boolean): boolean {
   if (isDefaultSession || !storagePath) return false;
   return /[\\/]Partitions[\\/]saml-[^\\/]+[\\/]?$/i.test(storagePath);
+}
+
+const BROWSER_PARTITION_DIR = BROWSER_PARTITION.replace(/^persist:/, "");
+
+/**
+ * Yerleşik tarayıcının oturumu mu? `persist:ntt-tarayici` bölümü
+ * `<userData>/Partitions/ntt-tarayici` altında tutuluyor (SAML'deki gibi
+ * disk yolundan tanıma).
+ */
+export function isBrowserPartitionSession(storagePath: string | null | undefined): boolean {
+  if (!storagePath) return false;
+  const tail = storagePath.replace(/[\\/]+$/, "").split(/[\\/]/);
+  return tail.length >= 2 && tail[tail.length - 2].toLowerCase() === "partitions" && tail[tail.length - 1].toLowerCase() === BROWSER_PARTITION_DIR;
 }
 
 export interface WindowGuardDeps {
@@ -185,6 +198,36 @@ export function installWindowGuards(deps: WindowGuardDeps): void {
         }
       }
       return;
+    }
+
+    // Guest koşulunu karşılamayan ama bizim bölümdeki bir webview (ör.
+    // hostWebContents oluşturma anında boş): uygulamanın genel kurallarına
+    // DÜŞMÜYOR — orada bağlantılar sistem tarayıcısına gidiyordu ve
+    // `allowpopups` ile sayfa jest olmadan istediği adresi açtırabilirdi.
+    // Kilitleniyor. Oturum okunamazsa da kilit (güvenli taraf).
+    let orphanWebview = false;
+    try {
+      orphanWebview =
+        contents.getType() === "webview" && !deps.isFlowSandbox(contents) && !(browser?.isMainWindow(contents) ?? false);
+    } catch {
+      orphanWebview = false;
+    }
+    if (orphanWebview) {
+      let ours = true;
+      try {
+        ours = isBrowserPartitionSession(contents.session.getStoragePath());
+      } catch {
+        ours = true;
+      }
+      if (ours) {
+        lockBrokenGuest(contents);
+        try {
+          browser?.log("tarayici.kural-hatasi", { sonuc: "ret" });
+        } catch {
+          // günlük hatası kilidi değiştirmesin
+        }
+        return;
+      }
     }
 
     // Her webContents için: yeni pencere HİÇBİR ZAMAN açılmıyor. http(s) ve

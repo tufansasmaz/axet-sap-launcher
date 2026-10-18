@@ -45,7 +45,10 @@ export type BrowserSendFailure =
   | "noRoot"
   | "captureFailed"
   | "tooLarge"
-  | "writeFailed";
+  | "writeFailed"
+  // Metin ajanin istem satirina yazildi ama Enter basilmadi (kullanici arada yazdi):
+  // metin satirda duruyor, ekran goruntusu bu yuzden silinmiyor.
+  | "notSubmitted";
 export const BROWSER_SEND_FAILURES: readonly BrowserSendFailure[] = [
   "invalid",
   "noWorkspace",
@@ -59,7 +62,8 @@ export const BROWSER_SEND_FAILURES: readonly BrowserSendFailure[] = [
   "noRoot",
   "captureFailed",
   "tooLarge",
-  "writeFailed"
+  "writeFailed",
+  "notSubmitted"
 ];
 export type BrowserSendResult = { ok: true; screenshot: string | null } | { ok: false; reason: BrowserSendFailure };
 
@@ -150,14 +154,23 @@ export function cleanText(text: string, max: number): string {
   return `${points.slice(0, max - 1).join("").trimEnd()}…`;
 }
 
-/** UTF-16 butcesine kod noktasi bolmeden sigdirir; sigmaz sa bos. */
-function fitUnits(text: string, room: number): string {
-  if (text.length <= room) return text;
+/** Sayfadan gelen metinde `\` -> `\\`, `"` -> `\"`: `Secili metin: "..."` cercevesi kirilmasin. */
+const escapePiece = (ch: string): string => (ch === "\\" || ch === '"' ? `\\${ch}` : ch);
+const escapeQuotes = (text: string): string => text.replace(/[\\"]/g, escapePiece);
+
+/**
+ * Kacislanmis metni UTF-16 butcesine sigdirir: kod noktasi ve kacis cifti
+ * (`\"`, `\\`) bolunmuyor; sigmazsa bos.
+ */
+function fitEscaped(text: string, room: number): string {
+  const escaped = escapeQuotes(text);
+  if (escaped.length <= room) return escaped;
   if (room < 2) return "";
   let out = "";
   for (const ch of text) {
-    if (out.length + ch.length > room - 1) break;
-    out += ch;
+    const piece = escapePiece(ch);
+    if (out.length + piece.length > room - 1) break;
+    out += piece;
   }
   return `${out.trimEnd()}…`;
 }
@@ -167,14 +180,14 @@ const SELECTION_FRAME = ' Secili metin: ""'.length;
 /**
  * §3: ajanin istem satirina yazilacak TEK satir. `[Tarayici]` oneki `!`/`/`
  * ile baslama yi engelliyor. Toplam BROWSER_PROMPT_MAX'i asmıyor: sigmazsa
- * secili metin kisaliyor.
+ * secili metin kisaliyor. Baslik ve secili metindeki `"` ve `\` kacislaniyor.
  */
 export function buildBrowserPrompt(input: BrowserPromptInput): string {
-  const title = cleanText(input.title, BROWSER_TITLE_MAX);
+  const title = escapeQuotes(cleanText(input.title, BROWSER_TITLE_MAX));
   const url = cleanText(withoutCredentials(input.url), BROWSER_URL_MAX);
   let text = `[Tarayici] ${title ? `${title} ` : ""}${url}`;
   const tail = input.screenshot ? ` Ekran goruntusu: ${input.screenshot}` : "";
-  const selection = fitUnits(cleanText(input.selection, BROWSER_SELECTION_MAX), BROWSER_PROMPT_MAX - text.length - tail.length - SELECTION_FRAME);
+  const selection = fitEscaped(cleanText(input.selection, BROWSER_SELECTION_MAX), BROWSER_PROMPT_MAX - text.length - tail.length - SELECTION_FRAME);
   if (selection) text += ` Secili metin: "${selection}"`;
   return text + tail;
 }

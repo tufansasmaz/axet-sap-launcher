@@ -362,6 +362,48 @@ describe("installWindowGuards — yerleşik tarayıcı (spec 2026-10-18 tarayici
     expect(logged).not.toContain("a.com");
   });
 
+  it("bizim bölümdeki webview isGuest'i karşılamazsa uygulama kurallarına düşmüyor, kilitleniyor", () => {
+    const { create, openExternal, browserLog } = setup(prod, { browser: true });
+    // guest kümesinde değil (ör. hostWebContents oluşturma anında boş): isGuest false.
+    const orphan = create(guestSession, "plain", (c) => (c.type = "webview"));
+    expect(orphan.navigate("will-navigate", "https://help.sap.com/docs")).toBe(true);
+    expect(orphan.navigate("will-redirect", "https://help.sap.com/x")).toBe(true);
+    expect(orphan.openHandler!({ url: "https://a.com/yeni" })).toEqual({ action: "deny" });
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(orphan.loadURL).not.toHaveBeenCalled();
+    expect(orphan.attachWebview({ partition: BROWSER_PARTITION, src: "https://help.sap.com/" })).toBe(true);
+    expect(browserLog).toHaveBeenCalledWith("tarayici.kural-hatasi", { sonuc: "ret" });
+    const logged = JSON.stringify(browserLog.mock.calls);
+    expect(logged).not.toContain("help.sap.com");
+    expect(logged).not.toContain("a.com");
+  });
+
+  it("webview'ın oturumu okunamazsa kilitleniyor (sistem tarayıcısı açılmıyor)", () => {
+    const { create, openExternal, browserLog } = setup(prod, { browser: true });
+    const broken = create(
+      {
+        getStoragePath: () => {
+          throw new Error("yok");
+        }
+      },
+      "plain",
+      (c) => (c.type = "webview")
+    );
+    expect(broken.navigate("will-navigate", "https://saldirgan.example/")).toBe(true);
+    expect(broken.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(browserLog).toHaveBeenCalledWith("tarayici.kural-hatasi", { sonuc: "ret" });
+  });
+
+  it("başka bölümdeki webview kilitlenmiyor: uygulamanın genel kuralları", () => {
+    const { create, openExternal, browserLog } = setup(prod, { browser: true });
+    const other = create(undefined, "plain", (c) => (c.type = "webview"));
+    expect(other.navigate("will-navigate", "https://saldirgan.example/")).toBe(true);
+    expect(other.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
+    expect(openExternal).toHaveBeenCalledWith("https://a.com/");
+    expect(browserLog).not.toHaveBeenCalled();
+  });
+
   it("guest değilse (sıradan pencere) eski korumalar aynen", () => {
     const { create, openExternal } = setup(prod, { browser: true });
     const plain = create();

@@ -263,12 +263,12 @@ describe("installBrowserGuestRules (§4.4)", () => {
 
 class FakeSession extends EventEmitter {
   request: ((webContents: unknown, permission: string, callback: (granted: boolean) => void) => void) | null = null;
-  check: (() => boolean) | null = null;
+  check: ((webContents: unknown, permission: string) => boolean) | null = null;
   device: (() => boolean) | null = null;
   setPermissionRequestHandler(handler: (webContents: unknown, permission: string, callback: (granted: boolean) => void) => void) {
     this.request = handler;
   }
-  setPermissionCheckHandler(handler: () => boolean) {
+  setPermissionCheckHandler(handler: (webContents: unknown, permission: string) => boolean) {
     this.check = handler;
   }
   setDevicePermissionHandler(handler: () => boolean) {
@@ -318,7 +318,19 @@ describe("isBrowserRequestAllowed (derinlemesine savunma)", () => {
 });
 
 describe("configureBrowserSession (§4.3, §4.5)", () => {
-  it("bütün izin istekleri ve denetimleri reddediliyor", () => {
+  it("yalnız panoya yazma (clipboard-sanitized-write) izinli; istek ve denetim tutarlı", () => {
+    const ses = new FakeSession();
+    configureBrowserSession(ses as unknown as BrowserSessionLike, { onDownloadBlocked: vi.fn() });
+    const callback = vi.fn();
+    ses.request!({}, "clipboard-sanitized-write", callback);
+    expect(callback).toHaveBeenCalledWith(true);
+    expect(ses.check!({}, "clipboard-sanitized-write")).toBe(true);
+    expect(ses.check!({}, "clipboard-read")).toBe(false);
+    expect(ses.check!(null, "deprecated-sync-clipboard-read")).toBe(false);
+    expect(ses.check!({}, "")).toBe(false);
+  });
+
+  it("geri kalan bütün izin istekleri ve denetimleri reddediliyor (pano okuma dahil)", () => {
     const ses = new FakeSession();
     configureBrowserSession(ses as unknown as BrowserSessionLike, { onDownloadBlocked: vi.fn() });
     for (const permission of [
@@ -326,8 +338,9 @@ describe("configureBrowserSession (§4.3, §4.5)", () => {
       "geolocation",
       "notifications",
       "clipboard-read",
-      "clipboard-sanitized-write",
       "deprecated-sync-clipboard-read",
+      "CLIPBOARD-SANITIZED-WRITE",
+      "unknown",
       "midi",
       "midiSysex",
       "hid",
@@ -341,8 +354,8 @@ describe("configureBrowserSession (§4.3, §4.5)", () => {
       const callback = vi.fn();
       ses.request!({}, permission, callback);
       expect(callback, permission).toHaveBeenCalledWith(false);
+      expect(ses.check!({}, permission), permission).toBe(false);
     }
-    expect(ses.check!()).toBe(false);
     expect(ses.device!()).toBe(false);
   });
 

@@ -29,5 +29,6 @@ export const SEND_FAILURE_KEY: Record<BrowserSendFailure, TranslationKey> = {
   noRoot: "browser.fail.noRoot",
   captureFailed: "browser.fail.captureFailed",
   tooLarge: "browser.fail.tooLarge",
-  writeFailed: "browser.fail.writeFailed"
+  writeFailed: "browser.fail.writeFailed",
+  notSubmitted: "browser.fail.notSubmitted"
 };

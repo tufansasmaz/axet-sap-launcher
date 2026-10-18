@@ -1643,7 +1643,8 @@ export const tr = {
   "browser.fail.noRoot": "Alanın kök klasörü bulunamadı; hiçbir şey gönderilmedi.",
   "browser.fail.captureFailed": "Ekran görüntüsü alınamadı; hiçbir şey gönderilmedi.",
   "browser.fail.tooLarge": "Ekran görüntüsü 10 MB'tan büyük; hiçbir şey gönderilmedi.",
-  "browser.fail.writeFailed": "Gönderilemedi: yazılamadı."
+  "browser.fail.writeFailed": "Gönderilemedi: yazılamadı.",
+  "browser.fail.notSubmitted": "Metin ajanın satırına yazıldı ama gönderilmedi; kontrol edip Enter'a sen bas."
 };
 
 

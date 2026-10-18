@@ -591,7 +591,8 @@ gönder** ile tek adımda bir ajana verebilirsin.
   geçmiş silinir.
 - Yeni pencere açan bağlantılar aynı yerde açılır. İndirmeler kapalıdır;
   indirmek için **Sistem tarayıcısında aç**'ı kullan. Kamera, mikrofon,
-  konum, bildirim, pano okuma gibi izinler her zaman reddedilir.
+  konum, bildirim, pano okuma gibi izinler her zaman reddedilir; sayfaların
+  **Kopyala** düğmeleri ise çalışır (sayfa panoya yazabilir, panodan okuyamaz).
 - Sunucu bulunamaz, bağlantı kurulamaz ya da sitenin sertifikası geçersizse
   sayfanın yerinde sebebi, adresi ve **Yeniden dene** görünür. Sertifika
   hatası için "yine de devam et" yoktur. Sayfa çökerse **Yeniden yükle**.
@@ -610,7 +611,11 @@ seçince hemen gönderilir (ayrıca onay sorulmaz):
 - Ajanın istem satırına tek satır yazılır ve Enter'a basılır:
   `[Tarayici] <sayfa başlığı> <adres>`; sayfada seçili metin varsa sonuna
   `Secili metin: "…"` (en çok 2000 karakter, satır sonları boşluğa döner).
+  Başlıkta ve seçili metinde geçen `"` ve `\` karakterlerinin önüne `\`
+  eklenir (`Secili metin: "a \"b\" c"`), böylece tırnak çerçevesi bozulmaz.
   Adresteki kullanıcı adı ya da parola gönderilmez.
+- Gönderdiğin sayfa metni ajana olduğu gibi gider; güvenmediğin sayfalardan
+  metin gönderirken dikkatli ol.
 - Menüdeki **Ekran görüntüsü ekle** işaretliyse sayfanın görünen kısmı alanın
   kök klasörünün altında `.ntt-studio/tarayici/<tarih-saat>.png` olarak
   kaydedilir ve yolu metne eklenir. Alanın kök klasörü yoksa bu seçenek
@@ -619,7 +624,9 @@ seçince hemen gönderilir (ayrıca onay sorulmaz):
   istemiyorsan `.gitignore`'a `.ntt-studio/` satırını ekle.
 - Ajan çalışıyorsa, bir soru bekliyorsa ya da terminalinde gönderilmemiş bir
   satır varsa hiçbir şey gönderilmez ve sebebi yazar; sonra kendiliğinden
-  yeniden denenmez. Ekran görüntüsü alınamazsa metin de gitmez.
+  yeniden denenmez. Ekran görüntüsü alınamazsa metin de gitmez. Metin yazılıp
+  Enter'a basılmadan sen terminale yazarsan Enter basılmaz: metin ajanın
+  satırında kalır (ekran görüntüsü de silinmez); kontrol edip Enter'a sen bas.
 - Ajan bu tarayıcıyı kendisi süremez (açma, okuma, tıklama yok); sayfayı sen
   açar, sen gönderirsin.
 
