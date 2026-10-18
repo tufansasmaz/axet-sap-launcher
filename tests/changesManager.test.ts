@@ -114,7 +114,10 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
     writeOk: true,
     /** Yolun diskteki türü (varsayılan "none"); geri yükleme çakışma denetimi. */
     kinds: new Map<string, "file" | "dir">(),
-    kindThrows: false
+    kindThrows: false,
+    /** Gerçekten boş olan klasörler (removeEmptyDir yalnız bunları kaldırır). */
+    emptyDirs: new Set<string>(),
+    removedDirs: [] as string[]
   };
   const manager = createChangesManager({
     now: () => clock.ms,
@@ -142,6 +145,13 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
       return state.inside(rel);
     },
     pathExists: (_root, rel) => state.exists.has(rel),
+    removeEmptyDir: (_root, rel) => {
+      if (!state.emptyDirs.has(rel) || state.kinds.get(rel) !== "dir") return false;
+      state.kinds.delete(rel);
+      state.removedDirs.push(rel);
+      order.push(`rmdir:${rel}`);
+      return true;
+    },
     pathKind: (_root, rel) => {
       if (state.kindThrows) throw new Error("lstat patladı");
       return state.kinds.get(rel) ?? "none";
@@ -751,5 +761,50 @@ describe("Düzeltme turu 1 (Görev 4 incelemesi)", () => {
     await flush();
     await flush();
     expect(h.last().checkpoints.map((c) => c.label)).toEqual(["ilk"]);
+  });
+});
+
+describe("Boş klasör (kontrolcü eki)", () => {
+  it("eklenmiş dosyalar çöpe gidince hedefte BOŞ kalan klasör kaldırılıyor, geri yükleme sürüyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("a", "deleted"), change("a/x", "added")]);
+    h.state.exists.add("a/x");
+    h.state.kinds.set("a", "dir");
+    h.state.kinds.set("a/x", "file");
+    h.state.emptyDirs.add("a");
+    const result = await h.manager.revert("w1", "c1", ["a", "a/x"]);
+    expect(result).toEqual({ ok: true, restored: ["a"], trashed: ["a/x"], skipped: [], beforeRestoreId: "c3" });
+    expect(h.order).toEqual(["inside:a/x", "trash:a/x", "inside:a", "rmdir:a", "restore:a"]);
+    expect(h.state.removedDirs).toEqual(["a"]);
+  });
+
+  it("dolu klasör: pathConflict, hiçbir şey silinmiyor", async () => {
+    const h = harness();
+    // a/ içinde yok sayılan a/.cache var: klasör boş değil.
+    await twoCheckpoints(h, [change("a", "deleted"), change("b.ts")]);
+    h.state.kinds.set("a", "dir");
+    const result = await h.manager.revert("w1", "c1", ["a", "b.ts"]);
+    expect(result).toEqual({ ok: false, reason: "pathConflict", restored: [], trashed: [], skipped: [], failedPath: "a", beforeRestoreId: "c3" });
+    expect(h.state.removedDirs).toEqual([]);
+    expect(h.events.filter((e) => e.startsWith("restore") || e.startsWith("trash"))).toEqual([]);
+  });
+
+  it("üst parça klasörse kaldırılmıyor; yalnız hedefin kendisi; removeEmptyDir fırlatırsa pathConflict", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("d/x.ts", "deleted")]);
+    h.state.kinds.set("d", "dir");
+    h.state.emptyDirs.add("d");
+    expect((await h.manager.revert("w1", "c1", ["d/x.ts"])).ok).toBe(true);
+    expect(h.state.removedDirs).toEqual([]);
+
+    const h2 = harness();
+    await twoCheckpoints(h2, [change("a", "deleted")]);
+    h2.state.kinds.set("a", "dir");
+    h2.state.emptyDirs.add("a");
+    h2.state.emptyDirs.has = () => {
+      throw new Error("rmdir patladı");
+    };
+    expect(await h2.manager.revert("w1", "c1", ["a"])).toMatchObject({ ok: false, reason: "pathConflict", failedPath: "a" });
+    expect(h2.events.filter((e) => e.startsWith("restore"))).toEqual([]);
   });
 });

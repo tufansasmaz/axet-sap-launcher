@@ -14,7 +14,8 @@
 //   - Geri alma başladıktan sonra bağımlılık fırlatsa da kısmi sonuç kaybolmaz.
 //   - Sıra: önce aralıktaki eklenmiş dosyalar çöpe, SONRA geri yükleme; her
 //     geri yüklemeden hemen önce yol ve üst parçaları için dosya↔klasör
-//     çakışma denetimi (deps.pathKind) — çakışmada işlem durur (pathConflict).
+//     çakışma denetimi (deps.pathKind); hedefteki BOŞ klasör kaldırılır
+//     (deps.removeEmptyDir), dolu klasör/üstte dosya → işlem durur (pathConflict).
 //   - beforeRestore kaydı diske yazılamazsa geri alma başlamaz (storeFailed);
 //     depo yazma hatası uyarı olarak saklanır.
 //   - 200 sınırı beforeRestore eklenirken geri alınan kaydı düşürmez.
@@ -83,6 +84,11 @@ export interface ChangesManagerDeps {
    * içeriğiyle, üst parçadaki dosyayı da çöpü atlayarak kalıcı siler.
    */
   pathKind(root: string, rel: string): PathKind;
+  /**
+   * Yoldaki klasörü YALNIZ gerçekten boşsa kaldırır (özyinelemesiz rmdir);
+   * bağ/junction ya da dolu klasörde false. Dolu klasör asla silinmez.
+   */
+  removeEmptyDir(root: string, rel: string): boolean;
   trash(root: string, rel: string): Promise<void>;
   agents(): AgentPresence[];
   emit(state: ChangesState): void;
@@ -321,14 +327,19 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     return { ok: true, id: checkpoint.id, persisted };
   }
 
-  /** Yol ya da bir üst parçası beklenmeyen türde mi: üstte dosya, hedefte klasör. Sorgu fırlatırsa çakışma sayılıyor. */
+  /**
+   * Yol ya da bir üst parçası beklenmeyen türde mi: üstte dosya, hedefte klasör.
+   * Hedefteki klasör gerçekten boşsa (eklenmiş içerik çöpe gitmiş) kaldırılıp
+   * devam ediliyor; dolu klasör çakışma. Sorgu fırlatırsa çakışma sayılıyor.
+   */
   function pathConflict(root: string, rel: string): boolean {
     return attempt(() => {
       const parts = rel.split("/");
       for (let i = 1; i < parts.length; i += 1) {
         if (deps.pathKind(root, parts.slice(0, i).join("/")) === "file") return true;
       }
-      return deps.pathKind(root, rel) === "dir";
+      if (deps.pathKind(root, rel) !== "dir") return false;
+      return deps.removeEmptyDir(root, rel) !== true;
     }, true);
   }
 
