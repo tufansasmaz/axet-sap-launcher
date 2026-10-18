@@ -4,7 +4,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import TerminalMode from "../src/terminal/TerminalMode";
+import AgentsScreen from "../src/agents/AgentsScreen";
+import FlowSidebar from "../src/agents/FlowSidebar";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -104,7 +105,7 @@ async function flush() {
   });
 }
 
-function setup(ws: TerminalWorkspace, board?: Board, language: "tr" | "en" = "tr") {
+function setup(ws: TerminalWorkspace, board?: Board, language: "tr" | "en" = "tr", flow = false) {
   const commands = commandsMock();
   const command = vi.fn(async (): Promise<BoardCommandResult> => ({ ok: true, taskId: "yeni" }));
   const store: TerminalStoreValue = {
@@ -122,7 +123,7 @@ function setup(ws: TerminalWorkspace, board?: Board, language: "tr" | "en" = "tr
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={agents}>
             <BoardContext.Provider value={boards}>
-              <TerminalMode />
+              {flow ? <FlowSidebar /> : <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />}
             </BoardContext.Provider>
           </AgentStatusContext.Provider>
         </TerminalStoreContext.Provider>
@@ -152,16 +153,16 @@ const mixed: Board = {
   ]
 };
 
-describe("Bölmeler | Pano", () => {
-  it("geçiş: Pano seçimi alana kaydediliyor; pano görünümünde sütunlar var, bölmeler gizli ama takılı", () => {
-    const { commands } = setup(workspace());
-    const group = screen.getByRole("radiogroup", { name: "Görünüm" });
-    expect(within(group).getByRole("radio", { name: "Bölmeler" }).getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(within(group).getByRole("radio", { name: "Pano" }));
+describe("Terminal | Görevler", () => {
+  it("geçiş: Görevler seçimi alana kaydediliyor; pano görünümünde sütunlar var, bölmeler gizli ama takılı", () => {
+    const { commands } = setup(workspace({ view: "panes" }));
+    const group = screen.getByRole("tablist", { name: "Görünüm" });
+    expect(within(group).getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(within(group).getByRole("tab", { name: "Görevler" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "board");
     cleanup();
     setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] });
-    expect(screen.getByRole("radio", { name: "Pano" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Görevler" }).getAttribute("aria-selected")).toBe("true");
     for (const name of ["Taslak", "Sırada", "Çalışıyor", "Doğrulama", "Bitti"]) expect(col(name)).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;
     expect(cell).toBeTruthy();
@@ -170,7 +171,7 @@ describe("Bölmeler | Pano", () => {
 
   it("İngilizce: geçiş ve sütun adları", () => {
     setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] }, "en");
-    expect(screen.getByRole("radio", { name: "Board" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Tasks" })).toBeTruthy();
     expect(col("Draft")).toBeTruthy();
     expect(col("Verification")).toBeTruthy();
   });
@@ -255,11 +256,46 @@ describe("yeni görev ve uyarı", () => {
   });
 });
 
-describe("ekip şeridi", () => {
-  it("görevli ajanın kartında alt görev başlığı küçük satır; görevsiz ajanda yok", () => {
+describe("Akış — ajan satırı", () => {
+  it("görevli ajanın satırında alt görev başlığı küçük satır; görevsiz ajanda yok", () => {
     const ws = workspace({ panes: [agentPane("p1"), agentPane("p2")] });
-    setup(ws, { workspaceId: "a", tasks: [task("t", [sub("Tabloyu ekle", { state: "running", paneId: "p1" })])] });
-    expect(document.querySelector('[data-agent-card="p1"] [data-agent-task]')?.textContent).toBe("Tabloyu ekle");
-    expect(document.querySelector('[data-agent-card="p2"] [data-agent-task]')).toBeNull();
+    setup(ws, { workspaceId: "a", tasks: [task("t", [sub("Tabloyu ekle", { state: "running", paneId: "p1" })])] }, "tr", true);
+    expect(document.querySelector('[data-agent-row="p1"] [data-agent-task]')?.textContent).toBe("Tabloyu ekle");
+    expect(document.querySelector('[data-agent-row="p2"] [data-agent-task]')).toBeNull();
+  });
+});
+
+// Raporlar (spec 2026-10-18 ajanlar-yeniden §2b): Görevler sekmesinde biten,
+// doğrulanan ve başarısız alt görevler; yeni veri yok, panodan.
+describe("Raporlar", () => {
+  it("biten/doğrulanan/başarısız alt görevler: başlık, ajan, sonuç, doğrulama özeti; tık ayrıntıyı açıyor", () => {
+    const proofOk = { kind: "commands" as const, ok: true, at: 20, commands: [{ command: "npm test", exitCode: 0, durationMs: 1, tail: "" }] };
+    const proofBad = { kind: "commands" as const, ok: false, at: 30, commands: [{ command: "npm test", exitCode: 1, durationMs: 1, tail: "" }] };
+    setup(workspace({ view: "board" }), {
+      workspaceId: "a",
+      tasks: [
+        task("t", [
+          sub("Tabloyu ekle", { state: "done", paneId: "p1", proof: proofOk }),
+          sub("Testi yaz", { state: "failed", paneId: "p1", proof: proofBad }),
+          sub("Bekleyen", { state: "running", paneId: "p1" })
+        ])
+      ]
+    });
+    const reports = screen.getByRole("region", { name: "Raporlar" });
+    const rows = Array.from(reports.querySelectorAll("[data-report]"));
+    expect(rows.map((r) => r.getAttribute("data-report"))).toEqual(["failed", "verified"]);
+    expect(rows[0].textContent).toContain("Testi yaz");
+    expect(rows[0].textContent).toContain("Başarısız");
+    expect(rows[0].textContent).toContain("0/1 komut geçti");
+    expect(rows[1].textContent).toContain("Tabloyu ekle");
+    expect(rows[1].textContent).toContain("Ajan p1");
+    expect(rows[1].textContent).toContain("Doğrulandı");
+    fireEvent.click(rows[1]);
+    expect(screen.getByRole("complementary")).toBeTruthy();
+  });
+
+  it("biten alt görev yoksa boş metni", () => {
+    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] });
+    expect(within(screen.getByRole("region", { name: "Raporlar" })).getByText("Henüz biten alt görev yok")).toBeTruthy();
   });
 });

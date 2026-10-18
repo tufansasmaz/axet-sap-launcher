@@ -19,8 +19,19 @@ describe("App — terminal modu bağlı", () => {
   it("sağlayıcı, kenar çubuğu listesi ve ekran App'te", () => {
     expect(app).toContain("<TerminalStoreProvider");
     expect(app).toMatch(/visible=\{activity === "terminal"\}/);
-    expect(app).toContain("<TerminalSidebar activeSap={activeContext.sap} />");
-    expect(app).toContain("<TerminalMode />");
+    // Ajanlar yeniden (2026-10-18 §2, §2a): kenar çubuğunda Akış; Sohbet ve
+    // Ajanlar tek ekran, Sohbet bileşeni AgentsScreen'in `chat` yuvasında.
+    expect(app).toContain("<FlowSidebar />");
+    expect(app).not.toContain("TerminalSidebar");
+    expect(app).toMatch(/<AgentsScreen\s+chatActive=\{activity === "axetCode"\}/);
+    expect(app).toMatch(/chat=\{\s*<AxetCodeHome/);
+    expect(app).toContain("<FlowProvider>");
+  });
+
+  it("Sohbet ve Ajanlar aynı kaba açılıyor; kap iki modda da takılı", () => {
+    expect(app).toContain('activity === "axetCode" || activity === "terminal" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"');
+    expect(app).toContain('onShowChat={() => setActivity("axetCode")}');
+    expect(app).toContain('onShowAgents={() => setActivity("terminal")}');
   });
 
   it("proje terminali Terminal moduna geçip sayacı artırıyor", () => {

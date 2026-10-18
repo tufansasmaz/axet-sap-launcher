@@ -54,8 +54,9 @@ import type { SapWriteState } from "../app-electron/shared/sapWriteTypes";
 import ConfirmDialog from "./components/ConfirmDialog";
 import CertTrustDialog from "./components/CertTrustDialog";
 import Toast, { type ToastMsg } from "./components/Toast";
-import TerminalSidebar from "./components/TerminalSidebar";
-import TerminalMode from "./terminal/TerminalMode";
+import FlowSidebar from "./agents/FlowSidebar";
+import AgentsScreen from "./agents/AgentsScreen";
+import { FlowProvider } from "./agents/flowContext";
 import { TerminalStoreProvider } from "./stores/terminalStore";
 import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
@@ -1006,6 +1007,7 @@ export default function App() {
       >
         <BoardProvider>
         <AgentStatusProvider>
+        <FlowProvider>
         <AgentOpenListener onShow={handleShowAgents} />
         <BoardOpenListener onShow={handleShowAgents} />
         <div className="flex h-screen flex-col overflow-hidden">
@@ -1080,7 +1082,7 @@ export default function App() {
             ) : listMode === "sapGuiScripting" ? (
               <ScriptSidebar />
             ) : (
-              <TerminalSidebar activeSap={activeContext.sap} />
+              <FlowSidebar />
             )}
           </Sidebar>
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1097,25 +1099,33 @@ export default function App() {
             gürültüsü — o yüzden O kaldırıldı, bu KALIYOR).
             Ek fayda: model listesi/sohbet geçmişi her sekme geçişinde değil
             uygulama ömründe bir kez yükleniyor. */}
-        <div className={activity === "axetCode" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
-          <AxetCodeHome
-            active={activity === "axetCode"}
-            config={config}
-            pushToast={pushToast}
-            recentEntries={recentEntries}
-            sapChatRequest={sapChatRequest}
-            workDirRequest={workDirRequest}
-            activeSap={activeContext.sap}
-            onOpenShortcuts={() => setShortcutsOpen(true)}
-            onSwitchToChat={() => setActivity("axetCode")}
-          />
-        </div>
-        {/* Terminal de HER ZAMAN takılı (spec §4): mod değişince pty'ler ve
-            xterm tamponları yaşamaya devam ediyor. Görünürlüğü sağlayıcıya
-            `visible` ile ayrıca söylüyoruz; gizliyken gelen çıktı alanı
+        {/* Sohbet ve Ajanlar TEK ekran (spec 2026-10-18 ajanlar-yeniden §2a): üst
+            şerit ortak, Sohbet orta sekmelerden biri. Kap iki modda da takılı;
+            içindeki Sohbet bileşeni ve TerminalMode da HER ZAMAN takılı (akan
+            cevap, taslak, pty'ler ve xterm tamponları yaşıyor), yalnız
+            görünürlükleri sekmeye bağlı. Terminal'in görünürlüğü sağlayıcıya
+            `visible` ile ayrıca söyleniyor; gizliyken gelen çıktı alanı
             "okunmadı" yapıyor. */}
-        <div className={activity === "terminal" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
-          <TerminalMode />
+        <div className={activity === "axetCode" || activity === "terminal" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
+          <AgentsScreen
+            chatActive={activity === "axetCode"}
+            onShowChat={() => setActivity("axetCode")}
+            onShowAgents={() => setActivity("terminal")}
+            activeSap={activeContext.sap}
+            chat={
+              <AxetCodeHome
+                active={activity === "axetCode"}
+                config={config}
+                pushToast={pushToast}
+                recentEntries={recentEntries}
+                sapChatRequest={sapChatRequest}
+                workDirRequest={workDirRequest}
+                activeSap={activeContext.sap}
+                onOpenShortcuts={() => setShortcutsOpen(true)}
+                onSwitchToChat={() => setActivity("axetCode")}
+              />
+            }
+          />
         </div>
         {activity === "axetCode" || activity === "terminal" ? null : activity === "sapGuiScripting" ? (
           <SapGuiScriptingHome activeSap={activeContext.sap} />
@@ -1380,6 +1390,7 @@ export default function App() {
           ))}
         </div>
         </div>
+        </FlowProvider>
         </AgentStatusProvider>
         </BoardProvider>
       </TerminalStoreProvider>

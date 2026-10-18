@@ -1,32 +1,42 @@
-import { useState } from "react";
-import { Plus } from "lucide-react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { MoreHorizontal, Plus } from "lucide-react";
 import { useT } from "../i18n";
 import { MAX_TERMINAL_WORKSPACES } from "../../app-electron/shared/terminalLayout";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import { liveCount, workspaceDot } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
-import { ActiveLine, selectedClass } from "../shell/SidebarFooter";
-import { Eyebrow } from "../ui/Eyebrow";
-import { GHOST_ICON_BUTTON } from "../ui/buttons";
-import ConfirmDialog from "./ConfirmDialog";
+import { selectedClass } from "../shell/SidebarFooter";
+import { GHOST_ICON_BUTTON, TOOL_BUTTON } from "../ui/buttons";
+import ConfirmDialog from "../components/ConfirmDialog";
 import VerifyCommandsDialog from "../board/VerifyCommandsDialog";
 import type { ActiveSapContext } from "../../app-electron/shared/types";
-import { useAgentStatuses } from "../agents/agentStatusContext";
-import { agentPanes, askingCount } from "../agents/agentView";
+import { useAgentStatuses } from "./agentStatusContext";
+import { agentPanes, askingCount } from "./agentView";
 import { useBoards } from "../board/boardContext";
 import { failedCount, taskCount } from "../board/boardDisplay";
+import NewTeamDialog from "./NewTeamDialog";
+import { templateAgents, type TeamTemplateId } from "./teamTemplates";
 
-// Terminal modunun kenar çubuğu: çalışma alanı listesi (spec §5.1).
-// Bölmeler burada değil, sağ tarafta; bu liste yalnız alan seçip yönetiyor.
+// Ekip sekmeleri (spec 2026-10-18 ajanlar-yeniden §2): ekip = alan. Eski
+// kenar çubuğu alan listesinin (TerminalSidebar) yerini aldı; adlandırma,
+// sağ tık menüsü, kapatma onayı ve rozetler aynı. Sonda "+ Ekip": boş ya da
+// şablonlu ekip (§2b). Sekme seçimi ok tuşlarıyla da (gezici tabindex).
 
 // Menünün yaklaşık satır yüksekliği; madde sayısıyla çarpılıyor.
 const MENU_W = 176;
 const MENU_ITEM_H = 30;
 const EDGE = 8;
 
-export default function TerminalSidebar({ activeSap = null }: { activeSap?: ActiveSapContext | null } = {}) {
+export default function TeamTabs({
+  activeSap = null,
+  onSelected
+}: {
+  activeSap?: ActiveSapContext | null;
+  /** Ekip seçildi (tık/klavye): üst ekran ekibin son sekmesine geçiyor. */
+  onSelected?: () => void;
+}) {
   const t = useT();
-  const { state, commands } = useTerminalStore();
+  const { state, commands, agentCwd } = useTerminalStore();
   const { statuses } = useAgentStatuses();
   const { boards } = useBoards();
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -34,6 +44,44 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [verifyId, setVerifyId] = useState<string | null>(null);
+  const [newTeamOpen, setNewTeamOpen] = useState(false);
+  // Şablon: alan indirgeyicide açılıp seçildikten SONRA ajanlar ekleniyor;
+  // addAgent etkin alana ekliyor ve aynı turda etkin alan henüz eskisi.
+  const [pending, setPending] = useState<{ template: TeamTemplateId; from: string | null; count: number } | null>(null);
+  const tabRefs = useRef(new Map<string, HTMLDivElement>());
+
+  useEffect(() => {
+    if (!pending) return;
+    const opened = state.workspaces.length > pending.count && state.activeWorkspaceId !== null && state.activeWorkspaceId !== pending.from;
+    if (!opened) return;
+    setPending(null);
+    for (const input of templateAgents(pending.template, t, agentCwd)) commands.addAgent(input);
+  }, [pending, state.workspaces.length, state.activeWorkspaceId, commands, agentCwd, t]);
+
+  const select = (w: TerminalWorkspace, focus = false) => {
+    commands.selectWorkspace(w.id);
+    onSelected?.();
+    if (focus) tabRefs.current.get(w.id)?.focus();
+  };
+
+  const onTabKeyDown = (e: KeyboardEvent<HTMLDivElement>, w: TerminalWorkspace, index: number) => {
+    const list = state.workspaces;
+    if (e.key === "Enter" || e.key === " ") select(w);
+    else if (e.key === "F2") startRename(w);
+    else if (e.key === "ArrowRight") select(list[(index + 1) % list.length], true);
+    else if (e.key === "ArrowLeft") select(list[(index - 1 + list.length) % list.length], true);
+    else if (e.key === "Home") select(list[0], true);
+    else if (e.key === "End") select(list[list.length - 1], true);
+    else return;
+    e.preventDefault();
+  };
+
+  const createTeam = (template: TeamTemplateId | null) => {
+    setNewTeamOpen(false);
+    if (template) setPending({ template, from: state.activeWorkspaceId, count: state.workspaces.length });
+    commands.addWorkspace();
+    onSelected?.();
+  };
 
   const full = state.workspaces.length >= MAX_TERMINAL_WORKSPACES;
   // Geri yükleme şeridi açıkken yeni alan açılmıyor: şerit "son düzen mi,
@@ -90,31 +138,16 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
   const menuHeight = 8 + MENU_ITEM_H * (4 + (canLinkSap ? 1 : 0) + (menuTarget?.sap ? 1 : 0));
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex h-9 shrink-0 items-center gap-1 px-3">
-        <Eyebrow className="flex-1" count={state.workspaces.length}>
-          {t("terminal.workspaces")}
-        </Eyebrow>
-        <button
-          type="button"
-          onClick={() => commands.addWorkspace()}
-          disabled={!canAdd}
-          title={full ? t("terminal.workspaceMax") : t("terminal.newWorkspace")}
-          aria-label={full ? t("terminal.workspaceMax") : t("terminal.newWorkspace")}
-          className={`${GHOST_ICON_BUTTON} disabled:cursor-default disabled:opacity-40`}
-        >
-          <Plus size={14} />
-        </button>
-      </div>
-
-      <div className="chat-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {state.workspaces.map((w) => {
+    <div className="flex min-w-0 items-center gap-1">
+      <div role="tablist" aria-label={t("teams.label")} className="flex min-w-0 items-center gap-1 overflow-x-auto py-1">
+        {state.workspaces.map((w, index) => {
+          const selected = state.activeWorkspaceId === w.id;
           if (renamingId === w.id) {
             return (
-              <div key={w.id} className="flex h-7 items-center px-1">
+              <div key={w.id} className="flex h-7 shrink-0 items-center">
                 <input
                   autoFocus
-                  aria-label={t("terminal.workspaceNameLabel")}
+                  aria-label={t("teams.nameLabel")}
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
                   onBlur={commitRename}
@@ -129,82 +162,105 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
                     }
                   }}
                   onFocus={(e) => e.currentTarget.select()}
-                  className="min-w-0 flex-1 rounded bg-app px-2 py-0.5 text-sm text-slate-100 outline-none ring-1 ring-accent-500/50"
+                  className="w-36 rounded bg-app px-2 py-0.5 text-sm text-slate-100 outline-none ring-1 ring-accent-500/50"
                 />
               </div>
             );
           }
-          const selected = state.activeWorkspaceId === w.id;
           const dot = workspaceDot(w);
           const agents = agentPanes(w).length;
           const asking = askingCount(w, statuses);
           const failed = failedCount(boards[w.id]);
           return (
-            <div
-              key={w.id}
-              role="button"
-              tabIndex={0}
-              aria-current={selected ? "true" : undefined}
-              title={w.root ? `${w.name} — ${w.root}` : w.name}
-              onClick={() => commands.selectWorkspace(w.id)}
-              onDoubleClick={() => startRename(w)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
+            <div key={w.id} className="flex shrink-0 items-center">
+              <div
+                ref={(el) => {
+                  if (el) tabRefs.current.set(w.id, el);
+                  else tabRefs.current.delete(w.id);
+                }}
+                role="tab"
+                aria-selected={selected}
+                tabIndex={selected || (!state.activeWorkspaceId && index === 0) ? 0 : -1}
+                title={w.root ? `${w.name} — ${w.root}` : w.name}
+                onClick={() => select(w)}
+                onDoubleClick={() => startRename(w)}
+                onKeyDown={(e) => onTabKeyDown(e, w, index)}
+                onContextMenu={(e) => {
                   e.preventDefault();
-                  commands.selectWorkspace(w.id);
-                } else if (e.key === "F2") {
-                  e.preventDefault();
-                  startRename(w);
-                }
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setMenu({ id: w.id, x: e.clientX, y: e.clientY });
-              }}
-              className={`group relative flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-sm transition-colors ${selectedClass(selected)}`}
-            >
-              {selected && <ActiveLine />}
-              {/* Nokta için yer hep ayrılıyor: nokta gelip gidince adlar
-                  sağa sola kaymasın. Hata, okunmamıştan önce geliyor. */}
-              <span className="flex w-2 shrink-0 justify-center">
-                {dot && (
+                  setMenu({ id: w.id, x: e.clientX, y: e.clientY });
+                }}
+                className={`flex h-7 max-w-[16rem] cursor-pointer items-center gap-1.5 rounded-md px-2 text-sm transition-colors ${selectedClass(selected)}`}
+              >
+                {/* Nokta için yer hep ayrılıyor: nokta gelip gidince adlar
+                    kaymasın. Hata, okunmamıştan önce geliyor. */}
+                <span className="flex w-1.5 shrink-0 justify-center">
+                  {dot && (
+                    <span
+                      data-dot={dot}
+                      className={`h-1.5 w-1.5 rounded-full ${dot === "error" ? "bg-[var(--status-danger-solid)]" : "bg-accent-400"}`}
+                    />
+                  )}
+                </span>
+                <span className="min-w-0 truncate">{w.name}</span>
+                {w.sap && <span className="shrink-0 font-mono text-2xs text-slate-500">{w.sap.label}</span>}
+                {failed > 0 && (
                   <span
-                    data-dot={dot}
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      dot === "error" ? "bg-[var(--status-danger-solid)]" : "bg-accent-400"
-                    }`}
-                  />
+                    data-failed={failed}
+                    title={t("board.failedCount", { count: failed })}
+                    aria-label={t("board.failedCount", { count: failed })}
+                    className="shrink-0 rounded-full bg-[var(--status-danger-bg)] px-1.5 font-mono text-2xs tabular-nums text-[var(--status-danger-text)]"
+                  >
+                    {failed}
+                  </span>
                 )}
-              </span>
-              <span className="min-w-0 flex-1 truncate">{w.name}</span>
-              {w.sap && <span className="shrink-0 font-mono text-2xs text-slate-500">{w.sap.label}</span>}
-              {failed > 0 && (
+                {asking > 0 && (
+                  <span
+                    data-asking={asking}
+                    title={t("agents.askingCount", { count: asking })}
+                    aria-label={t("agents.askingCount", { count: asking })}
+                    className="shrink-0 rounded-full bg-[var(--status-warning-bg)] px-1.5 font-mono text-2xs tabular-nums text-[var(--status-warning-text)]"
+                  >
+                    {asking}
+                  </span>
+                )}
                 <span
-                  data-failed={failed}
-                  title={t("board.failedCount", { count: failed })}
-                  aria-label={t("board.failedCount", { count: failed })}
-                  className="shrink-0 rounded-full bg-[var(--status-danger-bg)] px-1.5 font-mono text-2xs tabular-nums text-[var(--status-danger-text)]"
+                  title={t("agents.agentCount", { count: agents })}
+                  aria-label={t("agents.agentCount", { count: agents })}
+                  className="shrink-0 font-mono text-2xs tabular-nums text-slate-500"
                 >
-                  {failed}
+                  {agents}
                 </span>
-              )}
-              {asking > 0 && (
-                <span
-                  data-asking={asking}
-                  title={t("agents.askingCount", { count: asking })}
-                  aria-label={t("agents.askingCount", { count: asking })}
-                  className="shrink-0 rounded-full bg-[var(--status-warning-bg)] px-1.5 font-mono text-2xs tabular-nums text-[var(--status-warning-text)]"
+              </div>
+              {/* Menü düğmesi sekmenin İÇİNDE değil (iç içe etkileşimli öğe olmasın); yalnız seçili ekipte. */}
+              {selected && (
+                <button
+                  type="button"
+                  aria-label={t("teams.menu", { name: w.name })}
+                  title={t("teams.menu", { name: w.name })}
+                  aria-haspopup="menu"
+                  onClick={(e) => {
+                    const box = e.currentTarget.getBoundingClientRect();
+                    setMenu({ id: w.id, x: box.left, y: box.bottom + 4 });
+                  }}
+                  className={GHOST_ICON_BUTTON}
                 >
-                  {asking}
-                </span>
+                  <MoreHorizontal size={14} />
+                </button>
               )}
-              <span title={t("agents.agentCount", { count: agents })} aria-label={t("agents.agentCount", { count: agents })} className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">
-                {agents}
-              </span>
             </div>
           );
         })}
       </div>
+      <button
+        type="button"
+        onClick={() => setNewTeamOpen(true)}
+        disabled={!canAdd}
+        title={full ? t("teams.max") : t("teams.addTitle")}
+        className={`${TOOL_BUTTON} shrink-0 disabled:cursor-default disabled:opacity-40`}
+      >
+        <Plus size={12} />
+        {t("teams.add")}
+      </button>
 
       {/* Sağ tık menüsü SABİT konumlu: kaydırılan listenin içinde açılsaydı
           listeyle kayar ve kenar çubuğunun sınırında kırpılırdı. */}
@@ -315,6 +371,7 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
         }}
         onCancel={() => setConfirmId(null)}
       />
+      <NewTeamDialog open={newTeamOpen} onPick={createTeam} onCancel={() => setNewTeamOpen(false)} />
       <VerifyCommandsDialog
         open={verifyTarget !== null}
         workspaceName={verifyTarget?.name ?? ""}

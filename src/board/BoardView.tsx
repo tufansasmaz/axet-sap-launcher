@@ -17,8 +17,12 @@ import {
   taskColor,
   taskColumn,
   taskProgress,
-  type BoardColumn
+  reportRows,
+  type BoardColumn,
+  type ReportOutcome
 } from "./boardDisplay";
+import type { TranslationKey } from "../i18n/tr";
+import { agentName } from "../agents/agentLabels";
 import BoardDetailPanel from "./BoardDetailPanel";
 import NewTaskDialog from "./NewTaskDialog";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -192,6 +196,7 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
             );
           })}
         </div>
+        <Reports workspace={workspace} onSelect={(taskId, subtaskId) => applySelection({ taskId, subtaskId })} />
       </section>
       {selectedTask && (
         <BoardDetailPanel
@@ -318,5 +323,60 @@ function SubtaskCard({
         {parallel && <span className="truncate text-2xs text-[var(--status-warning-text)]">{t("board.parallel")}</span>}
       </button>
     </li>
+  );
+}
+
+const OUTCOME_KEY: Record<ReportOutcome, TranslationKey> = {
+  verified: "board.reportVerified",
+  manual: "board.reportManual",
+  done: "board.reportDone",
+  failed: "board.reportFailed"
+};
+
+/** Raporlar (spec 2026-10-18 ajanlar-yeniden §2b): biten alt görevlerin özeti, en yeni önce. */
+function Reports({ workspace, onSelect }: { workspace: TerminalWorkspace; onSelect: (taskId: string, subtaskId: string) => void }) {
+  const t = useT();
+  const { boards } = useBoards();
+  const rows = reportRows(boards[workspace.id]);
+  return (
+    <section aria-label={t("board.reports")} className="flex max-h-48 shrink-0 flex-col gap-1.5 border-t border-line pt-2">
+      <Eyebrow count={rows.length}>{t("board.reports")}</Eyebrow>
+      {rows.length === 0 ? (
+        <p className="text-2xs text-slate-500">{t("board.reportsEmpty")}</p>
+      ) : (
+        <ul className="chat-scroll flex min-h-0 flex-col gap-0.5 overflow-y-auto">
+          {rows.map((row) => {
+            const pane = workspace.panes.find((p) => p.id === row.subtask.paneId);
+            const failed = row.outcome === "failed";
+            return (
+              <li key={`${row.task.id}/${row.subtask.id}`}>
+                <button
+                  type="button"
+                  data-report={row.outcome}
+                  onClick={() => onSelect(row.task.id, row.subtask.id)}
+                  className="flex w-full cursor-pointer items-baseline gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-hover"
+                >
+                  <span className="min-w-0 flex-1 truncate text-slate-200" title={row.subtask.title}>
+                    {row.subtask.title}
+                  </span>
+                  {pane && <span className="max-w-[10rem] shrink-0 truncate text-2xs text-slate-500">{agentName(pane, t)}</span>}
+                  <span className={failed ? DANGER_TAG : "shrink-0 text-2xs text-slate-400"}>{t(OUTCOME_KEY[row.outcome])}</span>
+                  {row.commands && (
+                    <span className="shrink-0 font-mono text-2xs tabular-nums text-slate-500">
+                      {t("board.reportCommands", { passed: row.commands.passed, total: row.commands.total })}
+                    </span>
+                  )}
+                  {row.at > 0 && (
+                    <span className="shrink-0 font-mono text-2xs tabular-nums text-slate-600">
+                      {new Date(row.at).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

@@ -1,15 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import TerminalMode from "../src/terminal/TerminalMode";
+import AgentsScreen from "../src/agents/AgentsScreen";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalState, TerminalWorkspace } from "../src/stores/terminalTypes";
 import type { LayoutNode } from "../app-electron/shared/terminalTree";
 import { AgentStatusContext, type AgentStatusValue } from "../src/agents/agentStatusContext";
-import { AGENT_ENGINE_MISSING, type AgentStatus } from "../app-electron/shared/agentTypes";
-import type { TerminalPane } from "../src/stores/terminalTypes";
 
 // Taşımada xterm'in yeniden kurulmadığını saymak için (spec §6.2).
 const mounts = vi.hoisted(() => ({ count: 0 }));
@@ -96,6 +94,8 @@ function ws(id: string, n: number, extra: Partial<TerminalWorkspace> = {}): Term
     maximizedPaneId: null,
     unread: false,
     error: false,
+    // Terminal sekmesi; kaydı olmayan alan Ofis'te açılıyor (ajanlar-yeniden §2).
+    view: "panes",
     ...extra
   };
 }
@@ -120,7 +120,7 @@ function setup(over: Partial<TerminalState> = {}, defaultCwd = "C:\\a", agents: 
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider value={make(o)}>
         <AgentStatusContext.Provider value={agentValue}>
-          <TerminalMode />
+          <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />
         </AgentStatusContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
@@ -139,30 +139,15 @@ async function flush() {
   });
 }
 
-const agentPane = (id: string, over: Partial<TerminalPane> = {}): TerminalPane => ({
-  id,
-  kind: "agent",
-  agent: { engine: "claude", role: "Test", roleKind: "preset" },
-  cwd: "C:\\a",
-  run: { state: "running", ptyId: `t-${id}` },
-  title: "Ayşe",
-  ...over
-});
-
-function agentWs(panes: TerminalPane[], extra: Partial<TerminalWorkspace> = {}): TerminalWorkspace {
-  return { id: "a", name: "Alan a", panes, focusedPaneId: panes[0]?.id ?? null, maximizedPaneId: null, unread: false, error: false, ...extra };
-}
-
-const strip = () => screen.getByRole("list", { name: "Ekip" });
-const card = (paneId: string) => document.querySelector(`[data-agent-card="${paneId}"]`) as HTMLElement;
 
 describe("TerminalMode", () => {
-  it("kapalı evrede hiçbir şey çizmiyor", () => {
+  it("kapalı evrede bölme alanı yok; ekle düğmeleri kapalı", () => {
     setup({ phase: "closed" });
-    expect(screen.queryByRole("button")).toBeNull();
+    expect(document.querySelector("[data-workspace]")).toBeNull();
+    for (const name of ["Ajan", "Kabuk"]) expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("geri yükleme şeridi: sayılar ve iki düğme; + Ajan yok", () => {
+  it("geri yükleme şeridi: sayılar ve iki düğme; + Ajan kapalı", () => {
     const { commands } = setup({
       phase: "restorePrompt",
       saved: [
@@ -175,7 +160,7 @@ describe("TerminalMode", () => {
     fireEvent.click(screen.getByRole("button", { name: "Boş başla" }));
     expect(commands.restore).toHaveBeenCalledTimes(1);
     expect(commands.startFresh).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "Ajan" })).toBeNull();
+    expect((screen.getByRole("button", { name: "Ajan" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("boş alan: açıklama ve kurulu motorlar; 'İlk ajanını ekle' ajanı varsayılanlarla ekliyor", async () => {
@@ -215,101 +200,10 @@ describe("TerminalMode", () => {
     expect(screen.getByTestId("xterm-a-t1")).toBeTruthy();
   });
 
-  it("kartta kırpılan ad ve rol span'larında tam metin title'ı var", () => {
-    setup(
-      { workspaces: [agentWs([agentPane("x", { title: "Uzun Ajan Adı", agent: { engine: "claude", role: "Uzun Rol Metni", roleKind: "custom" } })])], activeWorkspaceId: "a" },
-      "C:\\a"
-    );
-    const nameSpan = card("x").querySelector("span.truncate.font-medium") as HTMLElement;
-    const roleSpan = card("x").querySelector("span.truncate.text-slate-500") as HTMLElement;
-    expect(nameSpan.getAttribute("title")).toBe("Uzun Ajan Adı");
-    expect(roleSpan.getAttribute("title")).toBe("Uzun Rol Metni");
-  });
-
-  it("ekip şeridi: kartta ad, rol, motor ve durum; kabuk bölmesinin kartı yok; tıklayınca bölme öne geliyor", () => {
-    const asking: AgentStatus = {
-      state: "asking",
-      source: "exact",
-      lastActivity: 1,
-      question: { callId: "c1", question: "?", header: "", options: ["A", "B"], multiSelect: false, askedAt: 1 }
-    };
-    const shell: TerminalPane = { id: "s", kind: "cmd", cwd: "C:\\a", run: { state: "running", ptyId: "t-s" } };
-    const { commands } = setup({ workspaces: [agentWs([agentPane("x"), shell])], activeWorkspaceId: "a" }, "C:\\a", {
-      statuses: { x: asking }
-    });
-    const text = card("x").textContent ?? "";
-    for (const part of ["Ayşe", "Test", "Claude Code", "Soru soruyor"]) expect(text).toContain(part);
-    expect(card("s")).toBeNull();
-    expect(card("x").querySelector("[data-estimated]")).toBeNull();
-    expect(card("x").getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(card("x"));
-    expect(commands.revealPane).toHaveBeenCalledWith("x");
-  });
-
-  it("tahmini durumda ≈ ve ipucu; boşta süresi", () => {
-    setup({ workspaces: [agentWs([agentPane("x")])], activeWorkspaceId: "a" }, "C:\\a", {
-      now: 1_000_000 + 3 * 60_000,
-      statuses: { x: { state: "idle", source: "estimated", lastActivity: 1_000_000 } }
-    });
-    expect(card("x").textContent).toContain("Boşta 3 dk");
-    const mark = card("x").querySelector("[data-estimated]") as HTMLElement;
-    expect(mark.textContent).toBe("≈");
-    expect(mark.getAttribute("title")).toBe("Bu motorun durumu terminal hareketinden tahmin ediliyor.");
-  });
-
-  it("axet-code sürüm uyarısı kartta motor adının ipucunda", () => {
-    setup(
-      { workspaces: [agentWs([agentPane("x", { agent: { engine: "axet-code", role: "", roleKind: "custom" } })])], activeWorkspaceId: "a" },
-      "C:\\a",
-      { engines: [{ id: "axet-code", installed: true, blocked: false, note: "axet-code eski" }] }
-    );
-    const note = card("x").querySelector("[data-engine-note]") as HTMLElement;
-    expect(note.textContent).toBe("axet-code");
-    expect(note.getAttribute("title")).toBe("axet-code eski");
-  });
-
-  it("motoru kurulu olmayan ajan 'Kurulu değil'; bitmiş ajan 'Yeniden başlat'", () => {
-    const { commands } = setup(
-      {
-        workspaces: [agentWs([agentPane("x", { run: { state: "failed", message: AGENT_ENGINE_MISSING } }), agentPane("y", { title: "Mehmet" })])],
-        activeWorkspaceId: "a"
-      },
-      "C:\\a",
-      { statuses: { y: { state: "finished", source: "exact", lastActivity: 1 } } }
-    );
-    expect(card("x").textContent).toContain("Kurulu değil");
-    const restarts = within(strip()).getAllByRole("button", { name: "Yeniden başlat" });
-    fireEvent.click(restarts[restarts.length - 1]);
-    expect(commands.restartPane).toHaveBeenCalledWith("y");
-  });
-
-  it("bellek kapalı ajan kartında 'Belleği etkinleştir' komutu çağırıyor, pencere açmıyor", () => {
-    const { commands } = setup({ workspaces: [agentWs([agentPane("x")])], activeWorkspaceId: "a" });
-    expect(card("x").parentElement!.querySelector("[data-agent-memory]")?.getAttribute("data-agent-memory")).toBe("off");
-    fireEvent.click(within(strip()).getByRole("button", { name: "Belleği etkinleştir" }));
-    expect(commands.enablePaneMemory).toHaveBeenCalledWith("x");
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(commands.revealPane).not.toHaveBeenCalled();
-  });
-
-  it("bellek açık ajan kartında 'Belleği aç' bellek penceresini açıyor", async () => {
-    const memoryRead = vi.fn(async () => ({ ok: true, rel: ".ntt-studio/bellek/ayse.md", content: "# Ayşe", stamp: "a".repeat(64), notice: "sent" }));
-    (window as unknown as { api: Record<string, unknown> }).api.memoryRead = memoryRead;
-    setup({
-      workspaces: [agentWs([agentPane("x", { agent: { engine: "claude", role: "Test", roleKind: "preset", memory: "ayse" } })])],
-      activeWorkspaceId: "a"
-    });
-    fireEvent.click(within(strip()).getByRole("button", { name: "Belleği aç" }));
-    await flush();
-    expect(memoryRead).toHaveBeenCalledWith("a", "x");
-    expect(screen.getByRole("dialog", { name: "Ayşe — kalıcı bellek" })).toBeTruthy();
-    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("# Ayşe");
-  });
-
-  it("+ Terminal kabuk penceresini açıp odaktaki bölmeyi bölüyor; bölme sayısı görünüyor", () => {
+  it("+ Kabuk kabuk penceresini açıp odaktaki bölmeyi bölüyor; bölme sayısı görünüyor", () => {
     const { commands } = setup({ workspaces: [ws("a", 2)], activeWorkspaceId: "a" });
     expect(screen.getByText("2 / 9 bölme")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Terminal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Kabuk" }));
     expect(screen.getByText("Yeni bölme")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Aç" }));
     // jsdom'da kutular 0×0: genişlik yükseklikten büyük değil → alta.
@@ -336,9 +230,9 @@ describe("TerminalMode", () => {
     expect(commands.addAgent).toHaveBeenCalledWith(expect.objectContaining({ memory: true }), expect.anything());
   });
 
-  it("9 bölmede + Ajan ve + Terminal kapalı ve nedenini söylüyor", () => {
+  it("9 bölmede + Ajan ve + Kabuk kapalı ve nedenini söylüyor", () => {
     setup({ workspaces: [ws("a", 9)], activeWorkspaceId: "a" });
-    for (const name of ["Ajan", "Terminal"]) {
+    for (const name of ["Ajan", "Kabuk"]) {
       const button = screen.getByRole("button", { name }) as HTMLButtonElement;
       expect(button.disabled).toBe(true);
       expect(button.title).toBe("En fazla 9 bölme");

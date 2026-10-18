@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import TerminalMode from "../src/terminal/TerminalMode";
+import AgentsScreen from "../src/agents/AgentsScreen";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -111,7 +111,7 @@ function setup(ws: TerminalWorkspace) {
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={agents}>
             <BoardContext.Provider value={boards}>
-              <TerminalMode />
+              <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />
             </BoardContext.Provider>
           </AgentStatusContext.Provider>
         </TerminalStoreContext.Provider>
@@ -127,20 +127,20 @@ const hostOf = (el: Element | null) => el?.closest("[data-browser]") as HTMLElem
 describe("Tarayıcı görünümü — geçiş", () => {
   it("geçiş beş seçenekli; Tarayıcı seçimi alana kaydediliyor", () => {
     const { commands } = setup(workspace());
-    const group = screen.getByRole("radiogroup", { name: "Görünüm" });
-    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Bölmeler", "Pano", "Ofis", "Değişiklikler", "Tarayıcı"]);
-    fireEvent.click(within(group).getByRole("radio", { name: "Tarayıcı" }));
+    const group = screen.getByRole("tablist", { name: "Görünüm" });
+    expect(within(group).getAllByRole("tab").map((r) => r.textContent)).toEqual(["Sohbet", "Ofis", "Terminal", "Görevler", "Değişiklikler", "Tarayıcı"]);
+    fireEvent.click(within(group).getByRole("tab", { name: "Tarayıcı" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "browser");
   });
 
   it("Tarayıcı'dayken: seçili, görünüm bölgesi var, bölmeler gizli ama takılı, xterm active değil, Kararlar yerinde", () => {
     setup(workspace({ view: "browser" }));
-    expect(screen.getByRole("radio", { name: "Tarayıcı" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Tarayıcı" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("region", { name: "Tarayıcı görünümü" })).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;
     expect((cell.closest("[data-workspace]") as HTMLElement).className.split(" ")).toContain("hidden");
     expect(screen.getByTestId("xterm-t-p1").getAttribute("data-active")).toBe("false");
-    expect(screen.getByRole("complementary", { name: "Kararlar" })).toBeTruthy();
+    expect(screen.queryByRole("complementary", { name: "Kararlar" })).toBeNull();
   });
 
   it("hiç Tarayıcı'ya geçilmemiş alanda tarayıcı takılı değil", () => {

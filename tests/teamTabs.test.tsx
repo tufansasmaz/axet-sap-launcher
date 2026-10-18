@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import TerminalSidebar from "../src/components/TerminalSidebar";
+import TeamTabs from "../src/agents/TeamTabs";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { PaneRun, TerminalState, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -92,56 +92,85 @@ beforeEach(() => {
   (window as unknown as { api: unknown }).api = { pickFolder: pick };
 });
 
+let lastRender: { rerender: (workspaces: TerminalWorkspace[], over?: Partial<TerminalState>) => void; onSelected: ReturnType<typeof vi.fn> } | null = null;
+
 function renderSidebar(
   workspaces: TerminalWorkspace[],
   over: Partial<TerminalState> = {},
   extra: { statuses?: Record<string, AgentStatus>; activeSap?: ActiveSapContext | null; boards?: Record<string, Board> } = {}
 ) {
   const commands = commandsMock();
-  const state: TerminalState = {
-    ...initialTerminalState,
-    phase: "ready",
-    visible: true,
-    workspaces,
-    activeWorkspaceId: workspaces[0]?.id ?? null,
-    ...over
+  const onSelected = vi.fn();
+  const ui = (list: TerminalWorkspace[], o: Partial<TerminalState>) => {
+    const state: TerminalState = {
+      ...initialTerminalState,
+      phase: "ready",
+      visible: true,
+      workspaces: list,
+      activeWorkspaceId: list[0]?.id ?? null,
+      ...o
+    };
+    const value: TerminalStoreValue = { state, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet" };
+    return (
+      <LanguageProvider language="tr">
+        <TerminalStoreContext.Provider value={value}>
+          <AgentStatusContext.Provider value={{ statuses: extra.statuses ?? {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) }}>
+            <BoardContext.Provider value={{ boards: extra.boards ?? {}, command: vi.fn(async () => ({ ok: true as const })) }}>
+              <TeamTabs activeSap={extra.activeSap ?? null} onSelected={onSelected} />
+            </BoardContext.Provider>
+          </AgentStatusContext.Provider>
+        </TerminalStoreContext.Provider>
+      </LanguageProvider>
+    );
   };
-  const value: TerminalStoreValue = { state, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet" };
-  render(
-    <LanguageProvider language="tr">
-      <TerminalStoreContext.Provider value={value}>
-        <AgentStatusContext.Provider value={{ statuses: extra.statuses ?? {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) }}>
-          <BoardContext.Provider value={{ boards: extra.boards ?? {}, command: vi.fn(async () => ({ ok: true as const })) }}>
-            <TerminalSidebar activeSap={extra.activeSap ?? null} />
-          </BoardContext.Provider>
-        </AgentStatusContext.Provider>
-      </TerminalStoreContext.Provider>
-    </LanguageProvider>
-  );
+  const r = render(ui(workspaces, over));
+  lastRender = { rerender: (list, o = {}) => r.rerender(ui(list, o)), onSelected };
   return commands;
 }
 
 const running: PaneRun = { state: "running", ptyId: "t1" };
 
 function row(name: string): HTMLElement {
-  return screen.getByText(name).closest("[role=button]") as HTMLElement;
+  return screen.getByText(name).closest("[role=tab]") as HTMLElement;
 }
 
-describe("TerminalSidebar", () => {
+// Ekip sekmeleri (spec 2026-10-18 ajanlar-yeniden §2): eski kenar çubuğu alan
+// listesinin (TerminalSidebar) yerini aldı; menü, adlandırma ve rozetler aynı.
+describe("TeamTabs", () => {
   it("alanları ajan sayısıyla listeliyor, seçiliyi işaretliyor", () => {
     renderSidebar([agentWs("a", "API", 2), ws("b", "UI")], { activeWorkspaceId: "b" });
-    expect(screen.getByText("Çalışma alanları")).toBeTruthy();
-    expect(row("UI").getAttribute("aria-current")).toBe("true");
-    expect(row("API").getAttribute("aria-current")).toBeNull();
+    expect(screen.getByRole("tablist", { name: "Ekipler" })).toBeTruthy();
+    expect(row("UI").getAttribute("aria-selected")).toBe("true");
+    expect(row("API").getAttribute("aria-selected")).toBe("false");
     expect(row("API").textContent).toContain("2");
   });
 
-  it("tıklama ve Enter alanı seçiyor", () => {
+  it("tıklama ve Enter alanı seçiyor ve ekibi gösteriyor", () => {
     const c = renderSidebar([ws("a", "API"), ws("b", "UI")]);
     fireEvent.click(row("UI"));
     fireEvent.keyDown(row("API"), { key: "Enter" });
     expect(c.selectWorkspace).toHaveBeenNthCalledWith(1, "b");
     expect(c.selectWorkspace).toHaveBeenNthCalledWith(2, "a");
+    expect(lastRender!.onSelected).toHaveBeenCalledTimes(2);
+  });
+
+  it("ok tuşları komşu ekibi seçiyor; yalnız seçili sekme Tab sırasında", () => {
+    const c = renderSidebar([ws("a", "API"), ws("b", "UI"), ws("c", "DB")]);
+    expect(row("API").tabIndex).toBe(0);
+    expect(row("UI").tabIndex).toBe(-1);
+    fireEvent.keyDown(row("API"), { key: "ArrowRight" });
+    fireEvent.keyDown(row("API"), { key: "ArrowLeft" });
+    fireEvent.keyDown(row("API"), { key: "End" });
+    expect(c.selectWorkspace).toHaveBeenNthCalledWith(1, "b");
+    expect(c.selectWorkspace).toHaveBeenNthCalledWith(2, "c");
+    expect(c.selectWorkspace).toHaveBeenNthCalledWith(3, "c");
+  });
+
+  it("seçili ekibin … düğmesi menüyü açıyor", () => {
+    renderSidebar([ws("a", "API"), ws("b", "UI")]);
+    fireEvent.click(screen.getByRole("button", { name: "API menüsü" }));
+    expect(screen.getByRole("menuitem", { name: "Yeniden adlandır" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "UI menüsü" })).toBeNull();
   });
 
   it("hata noktası okunmamış noktasından önce geliyor", () => {
@@ -155,41 +184,63 @@ describe("TerminalSidebar", () => {
     expect(row("DB").querySelector("[data-dot]")).toBeNull();
   });
 
-  it("+ yeni alan açıyor; 6 alanda kapalı ve nedenini söylüyor", () => {
+  it("+ Ekip penceresi: Boş ekip yeni alan açıyor; 6 alanda kapalı ve nedenini söylüyor", () => {
     const c = renderSidebar([ws("a", "A")]);
-    fireEvent.click(screen.getByTitle("Yeni çalışma alanı"));
+    fireEvent.click(screen.getByRole("button", { name: "Ekip" }));
+    expect(screen.getByRole("dialog", { name: "Yeni ekip" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Boş ekip/ }));
     expect(c.addWorkspace).toHaveBeenCalledTimes(1);
+    expect(c.addAgent).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
     cleanup();
     renderSidebar(["1", "2", "3", "4", "5", "6"].map((n) => ws(n, `W${n}`)));
-    const plus = screen.getByTitle("En fazla 6 çalışma alanı") as HTMLButtonElement;
+    const plus = screen.getByTitle("En fazla 6 ekip") as HTMLButtonElement;
     expect(plus.disabled).toBe(true);
   });
 
-  it("geri yükleme şeridi açıkken + kapalı", () => {
+  it("şablon: yeni alan açılınca ajanları mevcut addAgent ile o alana ekliyor (ad, rol, varsayılan klasör)", () => {
+    const c = renderSidebar([ws("a", "A")]);
+    fireEvent.click(screen.getByRole("button", { name: "Ekip" }));
+    fireEvent.click(screen.getByRole("button", { name: /SAP geliştirme/ }));
+    expect(c.addWorkspace).toHaveBeenCalledTimes(1);
+    expect(c.addAgent).not.toHaveBeenCalled();
+    // İndirgeyici yeni alanı açıp seçti: ajanlar ancak şimdi, yeni alana.
+    lastRender!.rerender([ws("a", "A"), ws("n", "Alan 2")], { activeWorkspaceId: "n" });
+    expect(c.addAgent).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(c.addAgent).mock.calls.map(([input]) => [input.name, input.spec.engine, input.spec.role, input.cwd])).toEqual([
+      ["Lider", "axet-code", "Lider", "C:\\axet"],
+      ["Geliştirici", "axet-code", "Geliştirici", "C:\\axet"],
+      ["Test", "axet-code", "Test", "C:\\axet"]
+    ]);
+    lastRender!.rerender([ws("a", "A"), ws("n", "Alan 2")], { activeWorkspaceId: "a" });
+    expect(c.addAgent).toHaveBeenCalledTimes(3);
+  });
+
+  it("geri yükleme şeridi açıkken + Ekip kapalı", () => {
     renderSidebar([], { phase: "restorePrompt" });
-    const plus = screen.getByTitle("Yeni çalışma alanı") as HTMLButtonElement;
+    const plus = screen.getByRole("button", { name: "Ekip" }) as HTMLButtonElement;
     expect(plus.disabled).toBe(true);
   });
 
   it("çift tıklayıp yeniden adlandırma: Enter kaydediyor, boşlukları kırpıyor", () => {
     const c = renderSidebar([ws("a", "API")]);
     fireEvent.doubleClick(row("API"));
-    const input = screen.getByLabelText("Çalışma alanı adı") as HTMLInputElement;
+    const input = screen.getByLabelText("Ekip adı") as HTMLInputElement;
     fireEvent.change(input, { target: { value: "  Backend  " } });
     fireEvent.keyDown(input, { key: "Enter" });
     expect(c.renameWorkspace).toHaveBeenCalledWith("a", "Backend");
-    expect(screen.queryByLabelText("Çalışma alanı adı")).toBeNull();
+    expect(screen.queryByLabelText("Ekip adı")).toBeNull();
   });
 
   it("boş ad ve Escape hiçbir şey göndermiyor", () => {
     const c = renderSidebar([ws("a", "API")]);
     fireEvent.keyDown(row("API"), { key: "F2" });
-    const input = screen.getByLabelText("Çalışma alanı adı");
+    const input = screen.getByLabelText("Ekip adı");
     fireEvent.change(input, { target: { value: "   " } });
     fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.doubleClick(row("API"));
-    fireEvent.change(screen.getByLabelText("Çalışma alanı adı"), { target: { value: "Yeni" } });
-    fireEvent.keyDown(screen.getByLabelText("Çalışma alanı adı"), { key: "Escape" });
+    fireEvent.change(screen.getByLabelText("Ekip adı"), { target: { value: "Yeni" } });
+    fireEvent.keyDown(screen.getByLabelText("Ekip adı"), { key: "Escape" });
     expect(c.renameWorkspace).not.toHaveBeenCalled();
     expect(screen.getByText("API")).toBeTruthy();
   });
@@ -202,7 +253,7 @@ describe("TerminalSidebar", () => {
     expect(screen.queryByRole("menu")).toBeNull();
     fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
     fireEvent.click(screen.getByRole("menuitem", { name: "Yeniden adlandır" }));
-    expect(screen.getByLabelText("Çalışma alanı adı")).toBeTruthy();
+    expect(screen.getByLabelText("Ekip adı")).toBeTruthy();
   });
 
   it("menü pencerenin dışına taşmıyor", () => {

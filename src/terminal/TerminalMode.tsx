@@ -1,8 +1,8 @@
-// Ajanlar ekranının sağ tarafı (spec 2026-10-17 ajan-alani §4): üstte ekip şeridi, ortada bölmeler, Pano, Ofis ya da Değişiklikler (spec 2026-10-18). Bütün alanlar HEP takılı: seçili olmayanlar ve öbür görünümlerdeyken bölmeler hidden.
+// Ajanlar ekranının orta alanı (spec 2026-10-17 ajan-alani §4; ajanlar-yeniden §2): bölmeler (Terminal), Görevler, Ofis, Değişiklikler ya da Tarayıcı. Sekmeler ve ekle düğmeleri üstteki AgentsScreen'de; ekle istekleri `addRequest` ile geliyor. Bütün alanlar HEP takılı: seçili olmayanlar ve öbür görünümlerdeyken bölmeler hidden.
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
-import { layoutOf, minimizedOf } from "../stores/terminalReducer";
+import { layoutOf, minimizedOf, workspaceViewOf } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
 import { MAX_TERMINAL_PANES } from "../../app-electron/shared/terminalLayout";
 import { leafIds, type DropZone, type SplitDir } from "../../app-electron/shared/terminalTree";
@@ -16,10 +16,8 @@ import { usePaneDrag } from "./usePaneDrag";
 import { PANE_COLOR_VAR } from "./paneColors";
 import { useAgentStatuses } from "../agents/agentStatusContext";
 import { agentPanes } from "../agents/agentView";
-import TeamStrip from "../agents/TeamStrip";
 import AgentsEmptyState from "../agents/AgentsEmptyState";
 import AddAgentDialog from "../agents/AddAgentDialog";
-import DecisionsPanel from "../agents/DecisionsPanel";
 import BoardView from "../board/BoardView";
 import OfficeView from "../office/OfficeView";
 import ChangesView from "../changes/ChangesView";
@@ -29,7 +27,10 @@ import type { WorkspaceView } from "../../app-electron/shared/types";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
 
-export default function TerminalMode() {
+/** Üst şeritteki "+ Ajan" / "+ Kabuk"; `seq` her tıkta artıyor. */
+export type AddRequest = { kind: "agent" | "shell"; seq: number };
+
+export default function TerminalMode({ addRequest = null }: { addRequest?: AddRequest | null } = {}) {
   const t = useT();
   const { state, commands, defaultKind, defaultCwd, agentCwd } = useTerminalStore();
   const { engines } = useAgentStatuses();
@@ -42,14 +43,6 @@ export default function TerminalMode() {
   // Tarayıcı (spec 2026-10-18 tarayici §2): bir alanda bir kez açılan sayfa
   // oturum boyunca takılı kalıyor, öbür görünümlerde gizleniyor; geri/ileri
   // geçmişi görünüm değişince kaybolmasın. Alan kapanınca sökülüyor.
-  const [browserOpened, setBrowserOpened] = useState<string[]>([]);
-  const browserActiveId = state.workspaces.find((w) => w.id === state.activeWorkspaceId && w.view === "browser")?.id ?? null;
-  useEffect(() => {
-    if (browserActiveId && !browserOpened.includes(browserActiveId)) setBrowserOpened((prev) => [...prev, browserActiveId]);
-  }, [browserActiveId, browserOpened]);
-
-  if (state.phase === "closed") return null;
-
   const splitFor = (w: TerminalWorkspace): PaneSplit | undefined => {
     const target = w.focusedPaneId;
     if (!target || !leafIds(layoutOf(w)).includes(target)) return undefined;
@@ -57,11 +50,30 @@ export default function TerminalMode() {
     return { targetPaneId: target, dir: box && box.width > box.height ? "row" : "column" };
   };
 
+  const [browserOpened, setBrowserOpened] = useState<string[]>([]);
+  const browserActiveId = state.workspaces.find((w) => w.id === state.activeWorkspaceId && w.view === "browser")?.id ?? null;
+  useEffect(() => {
+    if (browserActiveId && !browserOpened.includes(browserActiveId)) setBrowserOpened((prev) => [...prev, browserActiveId]);
+  }, [browserActiveId, browserOpened]);
+
+  // Üst şeritten gelen ekle isteği: odaktaki bölmeyi uzun kenarından bölüyor (eski TeamStrip düğmeleri gibi).
+  const handledAdd = useRef(0);
+  useEffect(() => {
+    if (!addRequest || addRequest.seq === handledAdd.current) return;
+    handledAdd.current = addRequest.seq;
+    const w = state.workspaces.find((x) => x.id === state.activeWorkspaceId);
+    if (!w || state.phase !== "ready") return;
+    const split = splitFor(w);
+    if (addRequest.kind === "agent") setAgentDialog({ split });
+    else setDialog({ split });
+  });
+
+  if (state.phase === "closed") return null;
+
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId) ?? null;
-  const full = (active?.panes.length ?? 0) >= MAX_TERMINAL_PANES;
   const savedPanes = state.saved.reduce((sum, w) => sum + w.panes.length, 0);
   // Görünüm alan başına; bölmeler yalnız "panes"te görünür, öbürlerinde gizli ama takılı.
-  const view: WorkspaceView = active?.view ?? "panes";
+  const view: WorkspaceView = active ? workspaceViewOf(active) : "office";
 
   return (
     <ChangesFocusProvider>
@@ -78,17 +90,6 @@ export default function TerminalMode() {
             {t("terminal.restoreLayout")}
           </button>
         </div>
-      )}
-
-      {state.phase === "ready" && active && (
-        <TeamStrip
-          workspace={active}
-          full={full}
-          view={view}
-          onView={(v) => commands.setWorkspaceView(active.id, v)}
-          onAddAgent={() => setAgentDialog({ split: splitFor(active) })}
-          onAddShell={() => setDialog({ split: splitFor(active) })}
-        />
       )}
 
       <div className="flex min-h-0 flex-1">
@@ -152,7 +153,6 @@ export default function TerminalMode() {
                 );
               })}
         </div>
-        {state.phase === "ready" && <DecisionsPanel />}
       </div>
 
       <NewPaneDialog

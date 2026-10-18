@@ -5,7 +5,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import TerminalMode from "../src/terminal/TerminalMode";
+import AgentsScreen from "../src/agents/AgentsScreen";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -101,7 +101,7 @@ function setup(ws: TerminalWorkspace, { board, language = "tr" }: { board?: Boar
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={agents}>
             <BoardContext.Provider value={boards}>
-              <TerminalMode />
+              <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />
             </BoardContext.Provider>
           </AgentStatusContext.Provider>
         </TerminalStoreContext.Provider>
@@ -115,26 +115,32 @@ function setup(ws: TerminalWorkspace, { board, language = "tr" }: { board?: Boar
 const office = () => screen.queryByRole("region", { name: "Ofis görünümü" });
 const xterm = () => screen.getByTestId("xterm-t-p1");
 
-describe("Bölmeler | Pano | Ofis", () => {
-  it("geçiş üç seçenekli; Ofis seçimi alana kaydediliyor", () => {
-    const { commands } = setup(workspace());
-    const group = screen.getByRole("radiogroup", { name: "Görünüm" });
-    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Bölmeler", "Pano", "Ofis", "Değişiklikler", "Tarayıcı"]);
-    expect(within(group).getByRole("radio", { name: "Bölmeler" }).getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(within(group).getByRole("radio", { name: "Ofis" }));
+describe("orta sekmeler: Sohbet | Ofis | Terminal | Görevler | …", () => {
+  it("kaydı olmayan alan Ofis'te açılıyor (ajanlar-yeniden §2)", () => {
+    setup(workspace());
+    expect(screen.getByRole("tab", { name: "Ofis" }).getAttribute("aria-selected")).toBe("true");
+    expect(office()).toBeTruthy();
+  });
+
+  it("altı sekme; Terminal'deyken Ofis seçimi alana kaydediliyor", () => {
+    const { commands } = setup(workspace({ view: "panes" }));
+    const group = screen.getByRole("tablist", { name: "Görünüm" });
+    expect(within(group).getAllByRole("tab").map((r) => r.textContent)).toEqual(["Sohbet", "Ofis", "Terminal", "Görevler", "Değişiklikler", "Tarayıcı"]);
+    expect(within(group).getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(within(group).getByRole("tab", { name: "Ofis" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "office");
     expect(office()).toBeNull();
   });
 
   it("ofiste: Ofis seçili, bölmeler gizli ama takılı, xterm active değil, Kararlar yerinde, Pano yok", () => {
     setup(workspace({ view: "office" }));
-    expect(screen.getByRole("radio", { name: "Ofis" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Ofis" }).getAttribute("aria-selected")).toBe("true");
     expect(office()).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;
     expect(cell).toBeTruthy();
     expect((cell.closest("[data-workspace]") as HTMLElement).className.split(" ")).toContain("hidden");
     expect(xterm().getAttribute("data-active")).toBe("false");
-    expect(screen.getByRole("complementary", { name: "Kararlar" })).toBeTruthy();
+    expect(screen.queryByRole("complementary", { name: "Kararlar" })).toBeNull();
     expect(screen.queryByRole("list", { name: "Taslak" })).toBeNull();
   });
 
@@ -144,7 +150,7 @@ describe("Bölmeler | Pano | Ofis", () => {
     fireEvent.click(document.querySelector('[data-office-seat="p1"]') as HTMLElement);
     expect(commands.revealPane).toHaveBeenCalledWith("p1");
     expect(commands.setWorkspaceView).not.toHaveBeenCalled();
-    rerender(workspace());
+    rerender(workspace({ view: "panes" }));
     expect(office()).toBeNull();
     expect(xterm().getAttribute("data-active")).toBe("true");
     expect((document.querySelector('[data-pane="p1"]')?.closest("[data-workspace]") as HTMLElement).className.split(" ")).not.toContain("hidden");
@@ -158,7 +164,7 @@ describe("Bölmeler | Pano | Ofis", () => {
 
   it("Pano görünümü değişmedi: Pano seçili, sütunlar var, ofis yok, xterm active değil", () => {
     setup(workspace({ view: "board" }), { board: { workspaceId: "a", tasks: [] } });
-    expect(screen.getByRole("radio", { name: "Pano" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Görevler" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("list", { name: "Taslak" })).toBeTruthy();
     expect(office()).toBeNull();
     expect(xterm().getAttribute("data-active")).toBe("false");
@@ -166,7 +172,7 @@ describe("Bölmeler | Pano | Ofis", () => {
 
   it("İngilizce: Office seçeneği", () => {
     setup(workspace({ view: "office" }), { language: "en" });
-    expect(screen.getByRole("radio", { name: "Office" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Office" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("region", { name: "Office view" })).toBeTruthy();
   });
 
@@ -177,17 +183,17 @@ describe("Bölmeler | Pano | Ofis", () => {
       onChangesChanged: vi.fn(() => () => {}),
       changesLive: vi.fn(async () => ({ ok: true, files: [], truncated: false, toWorkingTree: true, noCheckpoint: true }))
     };
-    const { commands } = setup(workspace());
-    fireEvent.click(screen.getByRole("radio", { name: "Değişiklikler" }));
+    const { commands } = setup(workspace({ view: "panes" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Değişiklikler" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "changes");
     cleanup();
     setup(workspace({ view: "changes" }));
-    expect(screen.getByRole("radio", { name: "Değişiklikler" }).getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Değişiklikler" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("region", { name: "Değişiklikler görünümü" })).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;
     expect((cell.closest("[data-workspace]") as HTMLElement).className.split(" ")).toContain("hidden");
     expect(xterm().getAttribute("data-active")).toBe("false");
-    expect(screen.getByRole("complementary", { name: "Kararlar" })).toBeTruthy();
+    expect(screen.queryByRole("complementary", { name: "Kararlar" })).toBeNull();
     await act(async () => {
       await Promise.resolve();
     });

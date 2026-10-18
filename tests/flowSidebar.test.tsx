@@ -1,16 +1,27 @@
 // @vitest-environment jsdom
-// Kararlar paneli (spec 2026-10-17 ajan-alani §4.3, §7).
-import { afterEach, describe, expect, it, vi } from "vitest";
+// Akış kenar çubuğu (spec 2026-10-18 ajanlar-yeniden §2): SAP satırı, Ekip
+// (ajan satırları), olaylar ve soru kartları (eski Kararlar paneli, spec
+// 2026-10-17 ajan-alani §4.3, §7), en altta `@ajan` mesaj kutusu.
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import DecisionsPanel from "../src/agents/DecisionsPanel";
+import FlowSidebar from "../src/agents/FlowSidebar";
 import { AgentStatusContext, type AgentStatusValue } from "../src/agents/agentStatusContext";
+import { FlowContext } from "../src/agents/flowContext";
+import type { FlowEvent } from "../src/agents/flowEvents";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
 import type { AgentAnswerResult, AgentQuestion, AgentStatus } from "../app-electron/shared/agentTypes";
+import type { AgentSendResult } from "../app-electron/shared/agentMessage";
 import { LIST_ANSWER_ENABLED } from "../app-electron/shared/agentDecisions";
+import { AGENT_ENGINE_MISSING } from "../app-electron/shared/agentTypes";
 
+let send: ReturnType<typeof vi.fn>;
+beforeEach(() => {
+  send = vi.fn(async (): Promise<AgentSendResult> => ({ ok: true }));
+  (window as unknown as { api: unknown }).api = { agentSend: send, memoryRead: vi.fn(async () => ({ ok: false, reason: "invalid" })) };
+});
 afterEach(cleanup);
 
 const pane = (id: string, over: Partial<TerminalPane> = {}): TerminalPane => ({
@@ -22,14 +33,15 @@ const pane = (id: string, over: Partial<TerminalPane> = {}): TerminalPane => ({
   title: `Ajan ${id}`,
   ...over
 });
-const ws = (id: string, panes: TerminalPane[]): TerminalWorkspace => ({
+const ws = (id: string, panes: TerminalPane[], over: Partial<TerminalWorkspace> = {}): TerminalWorkspace => ({
   id,
   name: id,
   panes,
   focusedPaneId: null,
   maximizedPaneId: null,
   unread: false,
-  error: false
+  error: false,
+  ...over
 });
 const question = (callId: string, over: Partial<AgentQuestion> = {}): AgentQuestion => ({
   callId,
@@ -41,9 +53,14 @@ const question = (callId: string, over: Partial<AgentQuestion> = {}): AgentQuest
   ...over
 });
 const asking = (q: AgentQuestion): AgentStatus => ({ state: "asking", source: "exact", lastActivity: 1, question: q });
+const status = (state: AgentStatus["state"]): AgentStatus => ({ state, source: "exact", lastActivity: 1 });
 
-function setup(workspaces: TerminalWorkspace[], statuses: Record<string, AgentStatus>, answerResult: AgentAnswerResult = { ok: true }) {
-  const commands = { revealPane: vi.fn() } as unknown as TerminalCommands;
+function setup(
+  workspaces: TerminalWorkspace[],
+  statuses: Record<string, AgentStatus> = {},
+  extra: { answer?: AgentAnswerResult; events?: FlowEvent[] } = {}
+) {
+  const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn() } as unknown as TerminalCommands;
   const store: TerminalStoreValue = {
     state: { ...initialTerminalState, phase: "ready", visible: true, workspaces, activeWorkspaceId: workspaces[0]?.id ?? null },
     commands,
@@ -51,18 +68,21 @@ function setup(workspaces: TerminalWorkspace[], statuses: Record<string, AgentSt
     defaultCwd: "C:\\a",
     agentCwd: "C:\\axet"
   };
-  const answer = vi.fn(async () => answerResult);
+  const answer = vi.fn(async () => extra.answer ?? { ok: true as const });
   const agents: AgentStatusValue = { statuses, engines: [], now: 1, answer };
+  const record = vi.fn();
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider value={store}>
         <AgentStatusContext.Provider value={agents}>
-          <DecisionsPanel />
+          <FlowContext.Provider value={{ events: extra.events ?? [], record }}>
+            <FlowSidebar />
+          </FlowContext.Provider>
         </AgentStatusContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
   );
-  return { commands, answer };
+  return { commands, answer, record };
 }
 
 async function flush() {
@@ -71,18 +91,12 @@ async function flush() {
   });
 }
 
-describe("DecisionsPanel", () => {
-  it("bekleyen karar yoksa dar ve 'Bekleyen karar yok' diyor", () => {
-    setup([ws("w1", [pane("a")])], {});
-    const button = screen.getByRole("button", { name: "Bekleyen karar yok" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    expect(screen.queryByText("Hangi renk?")).toBeNull();
-  });
+const box = () => screen.getByRole("combobox", { name: "Ajana mesaj" }) as HTMLInputElement;
 
+describe("Akış — soru kartları (eski Kararlar)", () => {
   it("seçenek düğmesi cevabı doğru dizinle gönderiyor", async () => {
     const { answer } = setup([ws("w1", [pane("a")])], { a: asking(question("c1")) });
     expect(screen.getByText("Hangi renk?")).toBeTruthy();
-    expect(screen.getByText("Ajan a")).toBeTruthy();
     if (!LIST_ANSWER_ENABLED) {
       expect(screen.queryByRole("button", { name: "Mavi" })).toBeNull();
       return;
@@ -99,9 +113,9 @@ describe("DecisionsPanel", () => {
     expect(commands.revealPane).toHaveBeenCalledWith("a");
   });
 
-  it("dokunulmuş soru: tuş gönderilmedi, 'terminalden cevaplayın' ve 'Terminale git' görünüyor", async () => {
+  it("dokunulmuş soru: 'terminalden cevaplayın' ve 'Terminale git'", async () => {
     if (!LIST_ANSWER_ENABLED) return;
-    const { commands } = setup([ws("w1", [pane("a")])], { a: asking(question("c1")) }, { ok: false, reason: "typing" });
+    const { commands } = setup([ws("w1", [pane("a")])], { a: asking(question("c1")) }, { answer: { ok: false, reason: "typing" } });
     fireEvent.click(screen.getByRole("button", { name: "Kırmızı" }));
     await flush();
     expect(screen.getByRole("alert").textContent).toBe("Bu soruya terminalde dokunuldu; cevabı terminalden verin.");
@@ -109,46 +123,197 @@ describe("DecisionsPanel", () => {
     expect(commands.revealPane).toHaveBeenCalledWith("a");
   });
 
-  it("bütün alanların soruları eskisi önce; kapanmış bölmenin eski sorusu yok", () => {
-    setup([ws("w1", [pane("a"), pane("z", { run: { state: "exited", ptyId: "t", code: 0 } })]), ws("w2", [pane("b")])], {
-      a: asking(question("ca", { askedAt: 50, question: "İkinci soru" })),
-      b: asking(question("cb", { askedAt: 10, question: "Birinci soru" })),
+  it("yalnız seçili ekibin soruları; eskisi önce; kapanmış bölmenin sorusu yok; callId çakışması sorun değil", () => {
+    setup([ws("w1", [pane("a"), pane("c"), pane("z", { run: { state: "exited", ptyId: "t", code: 0 } })]), ws("w2", [pane("b")])], {
+      a: asking(question("same", { askedAt: 50, question: "İkinci soru" })),
+      c: asking(question("same", { askedAt: 10, question: "Birinci soru" })),
+      b: asking(question("cb", { question: "Öbür ekip" })),
       z: asking(question("cz", { question: "Bayat soru" }))
     });
     const texts = Array.from(document.querySelectorAll("[data-decision] p")).map((p) => p.textContent);
     expect(texts).toEqual(["Birinci soru", "İkinci soru"]);
+    expect(screen.queryByText("Öbür ekip")).toBeNull();
     expect(screen.queryByText("Bayat soru")).toBeNull();
   });
+});
 
-  it("katlanıyor ve sayaçla açılıyor", () => {
-    setup([ws("w1", [pane("a")])], { a: asking(question("c1")) });
-    fireEvent.click(screen.getByRole("button", { name: "Kararları gizle" }));
-    expect(screen.queryByText("Hangi renk?")).toBeNull();
-    expect(screen.getByText("1")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Kararları göster" }));
-    expect(screen.getByText("Hangi renk?")).toBeTruthy();
+describe("Akış — ekip ve olaylar", () => {
+  it("SAP satırı ekibin bağını söylüyor", () => {
+    setup([ws("w1", [], { sap: { uuid: "u", label: "D01" } })]);
+    expect(screen.getByText("SAP: D01")).toBeTruthy();
+    cleanup();
+    setup([ws("w1", [])]);
+    expect(screen.getByText("SAP bağlı değil")).toBeTruthy();
   });
 
-  it("katlama düğmesi aria-expanded ve aria-controls taşıyor", () => {
-    setup([ws("w1", [pane("a")])], { a: asking(question("c1")) });
-    const hideBtn = screen.getByRole("button", { name: "Kararları gizle" });
-    expect(hideBtn.getAttribute("aria-expanded")).toBe("true");
-    expect(hideBtn.getAttribute("aria-controls")).toBe("decisions-panel-body");
-    fireEvent.click(hideBtn);
-    const showBtn = screen.getByRole("button", { name: "Kararları göster" });
-    expect(showBtn.getAttribute("aria-expanded")).toBe("false");
-    expect(showBtn.getAttribute("aria-controls")).toBe("decisions-panel-body");
-  });
-
-  it("iki ajanın callId çakışması durumunda satır key'i paneId:callId ile tekil", () => {
-    setup(
-      [ws("w1", [pane("a"), pane("b")])],
-      {
-        a: asking(question("same-id", { question: "A sorusu" })),
-        b: asking(question("same-id", { question: "B sorusu" }))
-      }
+  it("ajan satırı: ad, rol, durum; tık bölmeyi Terminal'de öne getiriyor; kabuk bölmesi yok", () => {
+    const { commands } = setup(
+      [ws("w1", [pane("a", { title: "Ayşe", agent: { engine: "axet-code", role: "Test", roleKind: "preset" } }), { ...pane("s"), kind: "cmd", agent: undefined }])],
+      { a: status("running") }
     );
-    expect(screen.getByText("A sorusu")).toBeTruthy();
-    expect(screen.getByText("B sorusu")).toBeTruthy();
+    const row = document.querySelector('[data-agent-row="a"]') as HTMLElement;
+    expect(row.textContent).toContain("Ayşe");
+    expect(row.textContent).toContain("Test");
+    expect(row.textContent).toContain("Çalışıyor");
+    expect(document.querySelector('[data-agent-row="s"]')).toBeNull();
+    fireEvent.click(row);
+    expect(commands.revealPane).toHaveBeenCalledWith("a");
+  });
+
+  it("bellek kapalı ajanda 'Belleği etkinleştir'; bitmiş ajanda 'Yeniden başlat'", () => {
+    const { commands } = setup([ws("w1", [pane("a", { run: { state: "exited", ptyId: "t", code: 0 } })])]);
+    fireEvent.click(screen.getByRole("button", { name: "Belleği etkinleştir" }));
+    expect(commands.enablePaneMemory).toHaveBeenCalledWith("a");
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden başlat" }));
+    expect(commands.restartPane).toHaveBeenCalledWith("a");
+  });
+
+  it("olaylar: yalnız seçili ekibinkiler, metinleriyle; boşsa 'Henüz olay yok'", () => {
+    const ev = (id: number, workspaceId: string, kind: FlowEvent["kind"], detail = ""): FlowEvent => ({ id, at: 0, workspaceId, kind, paneId: "a", name: "Ayşe", detail });
+    setup([ws("w1", [pane("a")]), ws("w2", [])], {}, {
+      events: [ev(1, "w1", "started"), ev(2, "w2", "finished"), ev(3, "w1", "assigned", "Derle"), ev(4, "w1", "checkpoint", "istem"), ev(5, "w1", "message", "selam")]
+    });
+    const items = Array.from(document.querySelectorAll("[data-flow-event]")).map((e) => e.textContent ?? "");
+    expect(items).toHaveLength(4);
+    expect(items[0]).toContain("Ayşe çalışmaya başladı");
+    expect(items[1]).toContain("Ayşe iş aldı: Derle");
+    expect(items[2]).toContain("Değişiklik kaydı: istem");
+    expect(items[3]).toContain("Sen → Ayşe: selam");
+    cleanup();
+    setup([ws("w1", [])]);
+    expect(screen.getByText("Henüz olay yok")).toBeTruthy();
+  });
+});
+
+describe("Akış — mesaj kutusu", () => {
+  it("ajan seçilmeden Enter: 'Bir ajan seç (@)', hiçbir şey gönderilmiyor", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
+    fireEvent.change(box(), { target: { value: "derle" } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    expect(screen.getByRole("status").textContent).toBe("Bir ajan seç (@)");
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("@ listesi klavyeyle: ok + Enter ajanı seçiyor, @sözcük metinden çıkıyor; Enter tek satırı gönderiyor", async () => {
+    const { record } = setup([ws("w1", [pane("a", { title: "Ayşe" }), pane("b", { title: "Ali" })])]);
+    fireEvent.change(box(), { target: { value: "@a", selectionStart: 2 } });
+    const list = screen.getByRole("listbox", { name: "Ajanlar" });
+    expect(Array.from(list.querySelectorAll("[role=option]")).map((o) => o.textContent)).toEqual(["Ayşe", "Ali"]);
+    fireEvent.keyDown(box(), { key: "ArrowDown" });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    expect(screen.queryByRole("listbox")).toBeNull();
+    expect(screen.getByText("@Ali")).toBeTruthy();
+    expect(box().value).toBe("");
+    fireEvent.change(box(), { target: { value: "testleri çalıştır" } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await flush();
+    expect(send).toHaveBeenCalledWith("w1", "b", "testleri çalıştır");
+    expect(box().value).toBe("");
+    expect(record).toHaveBeenCalledWith(expect.objectContaining({ kind: "message", workspaceId: "w1", paneId: "b", name: "Ali", detail: "testleri çalıştır" }));
+  });
+
+  it("ret sebebi yazılıyor, metin duruyor, yeniden denenmiyor", async () => {
+    send.mockResolvedValueOnce({ ok: false, reason: "busy" });
+    const { record } = setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
+    fireEvent.change(box(), { target: { value: "@ay", selectionStart: 3 } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    fireEvent.change(box(), { target: { value: "derle" } });
+    fireEvent.click(screen.getByRole("button", { name: "Gönder" }));
+    await flush();
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status").textContent).toBe("Ajan şu an meşgul; işi bitince yeniden gönder.");
+    expect(box().value).toBe("derle");
+    expect(record).not.toHaveBeenCalled();
+  });
+
+  it("Escape listeyi kapatıyor; seçili ajan çarpıyla kaldırılıyor", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
+    fireEvent.change(box(), { target: { value: "@", selectionStart: 1 } });
+    fireEvent.keyDown(box(), { key: "Escape" });
+    expect(screen.queryByRole("listbox")).toBeNull();
+    fireEvent.change(box(), { target: { value: "" } });
+    fireEvent.change(box(), { target: { value: "@", selectionStart: 1 } });
+    fireEvent.mouseDown(screen.getByRole("option", { name: "Ayşe" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ajanı kaldır" }));
+    expect(screen.queryByText("@Ayşe")).toBeNull();
+  });
+});
+
+// Eski ekip şeridi kartlarının davranışları (spec 2026-10-17 ajan-alani §4;
+// ajan-bellegi §4): Akış'ın ajan satırlarına taşındı.
+describe("Akış — ajan satırı (eski ekip kartı)", () => {
+  const row = (id: string) => document.querySelector(`[data-agent-row="${id}"]`) as HTMLElement;
+
+  function setupRow(panes: TerminalPane[], over: Partial<AgentStatusValue> = {}) {
+    const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn() } as unknown as TerminalCommands;
+    const store: TerminalStoreValue = {
+      state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [ws("w1", panes, { focusedPaneId: panes[0]?.id ?? null })], activeWorkspaceId: "w1" },
+      commands,
+      defaultKind: "cmd",
+      defaultCwd: "C:\a",
+      agentCwd: "C:\axet"
+    };
+    const agents: AgentStatusValue = { statuses: {}, engines: [], now: 1_000_000, answer: vi.fn(async () => ({ ok: true as const })), ...over };
+    render(
+      <LanguageProvider language="tr">
+        <TerminalStoreContext.Provider value={store}>
+          <AgentStatusContext.Provider value={agents}>
+            <FlowSidebar />
+          </AgentStatusContext.Provider>
+        </TerminalStoreContext.Provider>
+      </LanguageProvider>
+    );
+    return commands;
+  }
+
+  it("kırpılan ad ve rolde tam metin title; motor adı; seçili satır aria-pressed", () => {
+    setupRow([pane("x", { title: "Uzun Ajan Adı", agent: { engine: "claude", role: "Uzun Rol Metni", roleKind: "custom" } })]);
+    expect((row("x").querySelector("span.truncate.font-medium") as HTMLElement).getAttribute("title")).toBe("Uzun Ajan Adı");
+    expect(row("x").querySelector('[title="Uzun Rol Metni"]')).toBeTruthy();
+    expect(row("x").textContent).toContain("Claude Code");
+    expect(row("x").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("tahmini durumda ≈ ve ipucu; boşta süresi", () => {
+    setupRow([pane("x")], { now: 1_000_000 + 3 * 60_000, statuses: { x: { state: "idle", source: "estimated", lastActivity: 1_000_000 } } });
+    expect(row("x").textContent).toContain("Boşta 3 dk");
+    const mark = row("x").querySelector("[data-estimated]") as HTMLElement;
+    expect(mark.textContent).toBe("≈");
+    expect(mark.getAttribute("title")).toBe("Bu motorun durumu terminal hareketinden tahmin ediliyor.");
+  });
+
+  it("axet-code sürüm uyarısı motor adının ipucunda", () => {
+    setupRow([pane("x")], { engines: [{ id: "axet-code", installed: true, blocked: false, note: "axet-code eski" }] });
+    const note = row("x").querySelector("[data-engine-note]") as HTMLElement;
+    expect(note.textContent).toBe("axet-code");
+    expect(note.getAttribute("title")).toBe("axet-code eski");
+  });
+
+  it("motoru kurulu olmayan ajan 'Kurulu değil'; bitmiş ajan 'Yeniden başlat'", () => {
+    const commands = setupRow([pane("x", { run: { state: "failed", message: AGENT_ENGINE_MISSING } }), pane("y", { title: "Mehmet" })], {
+      statuses: { y: { state: "finished", source: "exact", lastActivity: 1 } }
+    });
+    expect(row("x").textContent).toContain("Kurulu değil");
+    const restarts = screen.getAllByRole("button", { name: "Yeniden başlat" });
+    fireEvent.click(restarts[restarts.length - 1]);
+    expect(commands.restartPane).toHaveBeenCalledWith("y");
+  });
+
+  it("bellek kapalı: 'Belleği etkinleştir' komutu, pencere yok, bölme öne gelmiyor", () => {
+    const commands = setupRow([pane("x")]);
+    fireEvent.click(screen.getByRole("button", { name: "Belleği etkinleştir" }));
+    expect(commands.enablePaneMemory).toHaveBeenCalledWith("x");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(commands.revealPane).not.toHaveBeenCalled();
+  });
+
+  it("bellek açık: 'Belleği aç' bellek penceresini açıyor", async () => {
+    const memoryRead = vi.fn(async () => ({ ok: true, rel: ".ntt-studio/bellek/ayse.md", content: "# Ayşe", stamp: "a".repeat(64), notice: "sent" }));
+    (window as unknown as { api: Record<string, unknown> }).api.memoryRead = memoryRead;
+    setupRow([pane("x", { title: "Ayşe", agent: { engine: "claude", role: "Test", roleKind: "preset", memory: "ayse" } })]);
+    fireEvent.click(screen.getByRole("button", { name: "Belleği aç" }));
+    await flush();
+    expect(memoryRead).toHaveBeenCalledWith("w1", "x");
+    expect(screen.getByRole("dialog", { name: "Ayşe — kalıcı bellek" })).toBeTruthy();
   });
 });
