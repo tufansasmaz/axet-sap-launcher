@@ -561,6 +561,9 @@ describe("doğrulama ve kanıt", () => {
     expect(h.manager.command("w1", { type: "sendBack", taskId: "id1", subtaskId: "a" })).toEqual({ ok: true, taskId: "id1" });
     expect(h.prompts.at(-1)).toEqual(["p1", "[Gorev a] Doğrulama başarısız: npm test çıktısının sonu: FAIL x.test.ts Düzelt."]);
     expect(h.task().subtasks[0]).toMatchObject({ state: "running", attempts: 2, note: "sentBack" });
+    // Yeni çalışma eski kırmızı kanıtla gösterilmiyor (diskte de yok).
+    expect(h.task().subtasks[0].proof).toBeUndefined();
+    expect(h.written.get("w1")![0].subtasks[0].proof).toBeUndefined();
     expect(h.logs).toContainEqual(["pano.dagitim", { altGorev: "a", bolme: "p1", yol: "geri" }]);
   });
 

@@ -80,11 +80,13 @@ export function advanceDependencies(task: BoardTask): BoardTask {
   return changed ? withDerivedState({ ...task, subtasks }) : task;
 }
 
-/** İstem yazıldı: running, ajan, deneme sayısı, gönderim anı. */
+/** İstem yazıldı: running, ajan, deneme sayısı, gönderim anı. Önceki denemenin kanıtı düşüyor. */
 export function assignSubtask(sub: Subtask, paneId: string, now: number): Subtask {
   const next: Subtask = { ...sub, state: "running", paneId, attempts: sub.attempts + 1, dispatchedAt: now, sawBusy: false };
   delete next.held;
   delete next.note;
+  // Kart yeni çalışmayı eski kırmızı sonuçla göstermesin (yanlış bilgi).
+  delete next.proof;
   return next;
 }
 

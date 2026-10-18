@@ -117,6 +117,8 @@ describe("assignSubtask", () => {
   it("running, ajan, deneme sayısı, gönderim anı; held ve not siliniyor", () => {
     const next = assignSubtask(sub("a", { state: "ready", held: true, note: "restarted", attempts: 1, sawBusy: true }), "p9", 777);
     expect(next).toMatchObject({ state: "running", paneId: "p9", attempts: 2, dispatchedAt: 777, sawBusy: false });
+    // Yeni deneme eski (kırmızı) kanıtı taşımıyor.
+    expect(assignSubtask(sub("a", { state: "failed", paneId: "p9", attempts: 1, proof: proof(false) }), "p9", 778).proof).toBeUndefined();
     expect("held" in next || "note" in next).toBe(false);
   });
 });
