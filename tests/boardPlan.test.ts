@@ -61,6 +61,12 @@ describe("parseLeadPlan", () => {
     expect(parseLeadPlan(plan([item({ role: 3 })]))).toEqual({ ok: false, error: "badField" });
   });
 
+  it("istem siniri BODY_MAX: 4000 karakter onekli gonderimde kirpilir, lider istemi reddedilmeli", () => {
+    // SUBTASK_PROMPT_MAX (4000) karakter istem onay gecse bile oneyle birlikte
+    // 4000 asilir; lider ve dogrulaici ayni BODY_MAX sinirini kullanmali.
+    expect(parseLeadPlan(plan([item({ prompt: "x".repeat(4000) })]))).toEqual({ ok: false, error: "badField" });
+  });
+
   it("geçersiz bağımlılık: aralık dışı, kendisi, dize indeks, dizi değil", () => {
     expect(parseLeadPlan(plan([item({ dependsOn: [1] })]))).toEqual({ ok: false, error: "badDependency" });
     expect(parseLeadPlan(plan([item(), item({ dependsOn: [1] })]))).toEqual({ ok: false, error: "badDependency" });

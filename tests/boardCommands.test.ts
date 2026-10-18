@@ -47,6 +47,11 @@ describe("readBoardCommand", () => {
     expect(save([draft({ dependsOn: new Array(1) })])).toBeNull();
   });
 
+  it("istem siniri BODY_MAX: 4000 karakter (SUBTASK_PROMPT_MAX) oneyle kirpilir, IPC dogrulaici reddedilmeli", () => {
+    const save = (subtasks: unknown[]) => readBoardCommand({ type: "saveDraft", taskId: "t1", title: "A", goal: "", subtasks });
+    expect(save([draft({ prompt: "x".repeat(4000) })])).toBeNull();
+  });
+
   it("taslakta boş başlık/istem kabul (onay ayrıca denetliyor)", () => {
     expect(readBoardCommand({ type: "saveDraft", taskId: "t1", title: "A", goal: "", subtasks: [draft({ title: "", prompt: "" })] })).not.toBeNull();
   });

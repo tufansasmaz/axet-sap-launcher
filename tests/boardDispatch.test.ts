@@ -7,11 +7,14 @@ import {
   busyPanes,
   foldRole,
   planDispatch,
+  PROMPT_PREFIX_MAX,
   sendBackPrompt,
+  SUBTASK_PROMPT_BODY_MAX,
   toPromptLine,
   type AgentInfo
 } from "../app-electron/shared/boardDispatch";
 import type { BoardTask, Subtask } from "../app-electron/shared/boardTypes";
+import { SUBTASK_PROMPT_MAX } from "../app-electron/shared/boardTypes";
 import type { AgentStatus } from "../app-electron/shared/agentTypes";
 
 const idleExact: AgentStatus = { state: "idle", source: "exact", lastActivity: 5_000 };
@@ -186,5 +189,14 @@ describe("toPromptLine ve sendBackPrompt", () => {
     expect(text.length).toBeLessThanOrEqual(4000);
     expect(text.endsWith("Düzelt.")).toBe(true);
     expect(sendBackPrompt({ kind: "manual", ok: true, at: 1, commands: [] })).toBeNull();
+  });
+
+  it("SUBTASK_PROMPT_BODY_MAX: sabit var, SUBTASK_PROMPT_MAX - PROMPT_PREFIX_MAX'a esit; BODY_MAX govde + 8 kimlik oneyle hic kırpılmadan tam 4000", () => {
+    expect(SUBTASK_PROMPT_BODY_MAX).toBeDefined();
+    expect(SUBTASK_PROMPT_BODY_MAX).toBe(SUBTASK_PROMPT_MAX - PROMPT_PREFIX_MAX);
+    const body = "y".repeat(SUBTASK_PROMPT_BODY_MAX);
+    const line = boardPrompt("abcd1234", body);
+    expect(line).toBe(`[Gorev abcd1234] ${body}`);
+    expect(line.length).toBe(SUBTASK_PROMPT_MAX);
   });
 });
