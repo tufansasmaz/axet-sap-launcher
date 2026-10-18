@@ -274,6 +274,25 @@ describe("MemoryDialog", () => {
     expect(screen.getByRole("button", { name: "Yeniden bildir" })).toBeTruthy();
   });
 
+  it("Yeniden yükle eski 'Yeniden bildirilemedi' satırını temizliyor", async () => {
+    api.memoryRead.mockResolvedValueOnce({ ok: true, rel: REL, content: "", stamp: STAMP, notice: "failed" });
+    api.memoryRenotify.mockResolvedValueOnce(false);
+    renderDialog();
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden bildir" }));
+    await flush();
+    expect(screen.getByText(/Yeniden bildirilemedi/)).toBeTruthy();
+    api.memoryWrite.mockResolvedValueOnce({ ok: false, reason: "changed" });
+    fireEvent.change(box(), { target: { value: "yeni" } });
+    fireEvent.click(saveButton());
+    await flush();
+    api.memoryRead.mockResolvedValueOnce({ ok: true, rel: REL, content: "", stamp: STAMP, notice: "failed" });
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden yükle" }));
+    await flush();
+    expect(screen.getByText(/Bellek ajana bildirilemedi/)).toBeTruthy();
+    expect(screen.queryByText(/Yeniden bildirilemedi/)).toBeNull();
+  });
+
   it("kaydetmede tooLarge gelince 'Metin çok uzun' yazıyor, 'Dosya çok büyük' değil", async () => {
     renderDialog();
     await flush();

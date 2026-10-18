@@ -141,6 +141,7 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
     draftStore.delete(dKey(workspaceId, paneId));
     setFailure(null);
     setDraftRestored(false);
+    setRenotifyFailed(false);
     setLoadSeq((n) => n + 1);
   };
 
