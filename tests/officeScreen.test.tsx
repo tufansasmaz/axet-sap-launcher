@@ -24,6 +24,8 @@ let prevApi: unknown;
 beforeEach(() => {
   prevApi = (window as unknown as { api?: unknown }).api;
   (window as unknown as { api: unknown }).api = { pickFolder: vi.fn(), axetAgents: vi.fn(async () => []) };
+  // jsdom canvas cizmiyor; ofis yalniz HTML katmaniyla sinaniyor.
+  (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext = () => null;
 });
 afterEach(() => {
   cleanup();

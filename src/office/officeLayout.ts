@@ -14,29 +14,6 @@ export const OFFICE_MAX_SEATS = MAX_TERMINAL_PANES;
 export const OFFICE_QUESTION_MAX = 60;
 export const OFFICE_TASK_MAX = 40;
 
-export interface OfficeGrid {
-  /** Satır başına koltuk sayısı; eksik son satır ortalanarak çiziliyor. */
-  rows: number[];
-  /** En geniş satırın koltuk sayısı; hücre genişliği bütün satırlarda 1/cols. */
-  cols: number;
-}
-
-/** 1–3 tek sıra, 4–6 iki sıra, 7–9 üç sıra (spec §3); 4 → 2+2, 7 → 3+3+1. */
-export function officeLayout(count: number): OfficeGrid {
-  const n = Number.isFinite(count) ? Math.max(0, Math.min(OFFICE_MAX_SEATS, Math.floor(count))) : 0;
-  if (n === 0) return { rows: [], cols: 0 };
-  const rowCount = Math.ceil(n / 3);
-  const cols = Math.ceil(n / rowCount);
-  const rows: number[] = [];
-  let left = n;
-  for (let r = 0; r < rowCount; r++) {
-    const k = Math.min(cols, left);
-    rows.push(k);
-    left -= k;
-  }
-  return { rows, cols };
-}
-
 /** Boşlukları teke indirir; `max` karakteri aşarsa `max` uzunlukta "…" ile biter. Emoji bölünmez. */
 export function clipText(text: string, max: number): string {
   const flat = text.replace(/\s+/g, " ").trim();
