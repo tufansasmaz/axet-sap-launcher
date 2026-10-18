@@ -432,7 +432,9 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   üstüne gelince adı görünür; seçili olanın solunda vurgu çizgisi vardır.
   Klavyeyle yukarı/aşağı ok, Home/End. Sohbet'e sol menüdeki **Axet Chat**
   düğmesiyle dönülür. Seçim ekip başına hatırlanır; yeni ekip **Ofis**'te
-  açılır. Terminal bölme düzenidir (değişmedi). Üst şeritteki **Kabuk**
+  açılır. Simgenin köşesindeki küçük sayı bekleyen işi gösterir: **Görevler**
+  açık alt görev, **Değişiklikler** incelenmeyi bekleyen kayıt, **Ofis** soru
+  soran ajan sayısı (sıfırsa sayı çıkmaz). Terminal bölme düzenidir (değişmedi). Üst şeritteki **Kabuk**
   cmd/PowerShell bölmesi, **Ajan** yeni ajan açar: ad, motor
   (axet-code, Claude Code, Codex, Gemini CLI ya da kendi komutun), rol,
   klasör, renk. axet-code'da rol listesi axet-code'un kendi ajanlarından
@@ -442,7 +444,11 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   - **Ekip**: her ajan TEK satır — renk çizgisi, ad, rol, panodan aldığı iş
     ve sağda durum çipi (Çalışıyor, Soru soruyor, Boşta 3 dk, Bitti, Hata).
     Tıklayınca Terminal'de o ajanın terminali öne gelir. **≈** durumun tahmini
-    olduğunu söyler (motorun kendi kaydı okunamıyor). Satırın üstüne gelince
+    olduğunu söyler (motorun kendi kaydı okunamıyor). axet-code açılışta
+    "Choose your development tool" (yeni klasörde model) seçimi gösterir; bu
+    seçim terminalde yapılmadan ajan hazır sayılmaz: Akış mesajı ve pano işi
+    gönderilmez (gönderilseydi seçim penceresinde kaybolurdu). Seçimi yapıp ilk
+    mesajı gönderince durum kesinleşir. Satırın üstüne gelince
     kitap simgesi (kalıcı bellek) belirir; yeniden başlatma gerektiğinde ok
     simgesi hep görünür. Motor adı ipucundadır; axet-code sürüm uyarısı varsa
     satırda görünür. Ekipte hiç ajan yoksa burada **İlk ajanını ekle** çıkar.
@@ -462,7 +468,11 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     Enter), mesajı yaz, Enter. Mesaj tek satır olarak ajana gider (en çok 2000
     karakter, `!` ile başlayamaz). Ajan çalışıyor, soru bekliyor ya da
     terminalinde yarım bir satır varsa gönderilmez, sebebi yazılır; kendiliğinden
-    yeniden denenmez. Ajan seçmeden Enter: "Bir ajan seç (@)".
+    yeniden denenmez. Ajan seçmeden Enter: "Bir ajan seç (@)". Ekipte iki ya da
+    daha çok ajan varsa listenin başında **@ekip** vardır: aynı tek satır
+    sırayla bütün ajanlara gider. Sonuçta kaçına gittiği ve gitmeyenlerin
+    sebebi (meşgul, soru bekliyor, çalışmıyor…) yazılır; gitmeyenler için
+    yeniden denenmez, hepsi gitmediyse metin kutuda kalır.
 - **Bellek** (raydaki kitap simgesi): solda ekibin ajanları, sağda seçili
   ajanın kalıcı belleği. Düzenle, **Kaydet** ya da **Değişiklikleri at**.
   Kaydedilmemiş bir metinle başka ajana geçersen metin taslak olarak saklanır
