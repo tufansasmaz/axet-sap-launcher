@@ -35,6 +35,10 @@ export function stripAnsi(text: string): string {
 }
 
 // cmd: `C:\proje>`, PowerShell: `PS C:\proje>` (Task 1 Karar B).
+// Bilinen sınır: özel istem (`PROMPT` ortam değişkeni, PowerShell profilinde
+// oh-my-posh/starship vb.) ve UNC yolu tanınmıyor; o bölmede motor kapanınca
+// `finished` görülmez. Görev Panosu rehberinde yazılı; tahmini ajana elle
+// atamada kullanıcıdan onay isteniyor.
 const RE_PROMPT = /^(?:PS )?[A-Za-z]:\\[^<>|"]*>$/;
 
 export function isShellPromptLine(line: string): boolean {

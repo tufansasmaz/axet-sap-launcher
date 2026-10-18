@@ -465,6 +465,9 @@ hiçbir kartı kapatmaz.
   yazılmaz; alt görev "Uygun ajan bekleniyor" olarak bekler. Durumu tahmini
   (≈) olan ajanlara (Claude Code, Codex, Gemini, özel komut) iş kendiliğinden
   gitmez: **Ajana ver** ile sen verirsin.
+  Kabuk istemi yalnız standart biçimde (`C:\proje>`, `PS C:\proje>`) tanınır;
+  özel istem kullanıyorsan (oh-my-posh, `PROMPT` ayarı) motorun kapandığı
+  anlaşılamaz, istem vermeden önce ajanın terminalde açık olduğundan emin ol.
 - **Kanıt**: alana sağ tıklayıp **Doğrulama komutları…** ile satır başına
   bir komut yazarsın (en fazla 5; ör. `npm run lint`, `npm test`). axet-code
   ajanı işini bitirince komutlar alanın kökünde, gizli bir pencerede sırayla

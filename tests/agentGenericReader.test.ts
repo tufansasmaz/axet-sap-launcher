@@ -121,6 +121,14 @@ describe("yardımcılar", () => {
     expect(isShellPromptLine("")).toBe(false);
   });
 
+  it("isShellPromptLine PowerShell: kök sürücü, boşluklu ve Türkçe yol; özel istem (oh-my-posh) bilinen sınır", () => {
+    expect(isShellPromptLine("PS D:\\>")).toBe(true);
+    expect(isShellPromptLine("PS C:\\Users\\Ali Veli\\Masaüstü\\proje> ")).toBe(true);
+    expect(isShellPromptLine("PS C:\\proje> axet-code -y")).toBe(false);
+    // Bilinen sınır: özel istem tanınmıyor (rehberde yazılı).
+    expect(isShellPromptLine("❯ ")).toBe(false);
+  });
+
   it("lastLine boş satırları atlıyor; commandToken tırnaklı yolu tanıyor", () => {
     expect(lastLine("a\r\nb\r\n\r\n  ")).toBe("b");
     expect(commandToken('  "C:\\Program Files\\x.exe" --a')).toBe("C:\\Program Files\\x.exe");
