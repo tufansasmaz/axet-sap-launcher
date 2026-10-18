@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BookOpen, FolderOpen, Loader2, RotateCw } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
@@ -14,6 +14,20 @@ import { TOOL_BUTTON } from "../ui/buttons";
 // okunduğu andaki özetle karşılaştırıyor; ajan bu arada yazdıysa hiçbir şey
 // ezilmiyor ve kullanıcının metni pencerede kalıyor (yalnız açıkça
 // "Yeniden yükle"ye basılınca gidiyor).
+//
+// Taslak deposu: kirli hâlde kapatılırsa (bölme kapandı, ajan belleği
+// devre dışı bırakıldı, Ajanlar ekranından çıkıldı) metin ve özet
+// modül düzeyi Map'te tutulur. Aynı bölme için pencere yeniden açılınca
+// taslak geri getirilir. Kaydet başarısında ya da Yeniden yükle'yle
+// silindi.
+
+const draftStore = new Map<string, { text: string; stamp: string }>();
+const dKey = (wId: string, pId: string) => `${wId}\0${pId}`;
+
+/** Test yardımcısı: testler arası taslak kirliliğini engeller. */
+export function clearDraftStoreForTest() {
+  draftStore.clear();
+}
 
 const FAIL_KEY: Record<MemoryFailure, TranslationKey> = {
   invalid: "memory.fail.writeFailed",
@@ -47,19 +61,64 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
   const [saving, setSaving] = useState(false);
   const [failure, setFailure] = useState<MemoryFailure | null>(null);
   const [renotified, setRenotified] = useState(false);
+  const [renotifyFailed, setRenotifyFailed] = useState(false);
   const [loadSeq, setLoadSeq] = useState(0);
+  const [draftRestored, setDraftRestored] = useState(false);
 
+  // Ref'ler: unmount cleanup'ında güncel değerlere erişim için.
+  const textRef = useRef(text);
+  const initialRef = useRef(initial);
+  const loadedRef = useRef(loaded);
+  textRef.current = text;
+  initialRef.current = initial;
+  loadedRef.current = loaded;
+
+  // Kaydetme kilidi: çift tıklamayı yapısal olarak engeller (Minor 1).
+  const savingRef = useRef(false);
+  // Başarılı kaydet işareti: unmount cleanup'ta taslak yaratılmasın.
+  const savedRef = useRef(false);
+
+  // Unmount: başarılı kaydet sonrasıysa temiz; kirli hâldeyse taslağı depoya yaz; temizse sil.
+  useEffect(() => {
+    const dk = dKey(workspaceId, paneId);
+    return () => {
+      if (savedRef.current) {
+        draftStore.delete(dk);
+        return;
+      }
+      const l = loadedRef.current;
+      if (l.kind === "ready" && textRef.current !== initialRef.current) {
+        draftStore.set(dk, { text: textRef.current, stamp: l.stamp });
+      } else if (l.kind === "ready") {
+        draftStore.delete(dk);
+      }
+      // blocked ya da loading: taslağa dokunma (sonraki açılış tekrar dener).
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Okuma: bölme kimliği veya loadSeq değişince.
   useEffect(() => {
     let alive = true;
     setLoaded({ kind: "loading" });
+    const dk = dKey(workspaceId, paneId);
     window.api.memoryRead(workspaceId, paneId).then(
       (res) => {
         if (!alive) return;
         if (res.ok) {
-          setText(res.content);
+          const draft = draftStore.get(dk);
           setInitial(res.content);
           setFailure(null);
-          setLoaded({ kind: "ready", rel: res.rel, stamp: res.stamp, notice: res.notice });
+          if (draft && draft.text !== res.content) {
+            // Taslak var ve diskten farklı: eski özeti kullan, çakışma yolu çalışır.
+            setText(draft.text);
+            setLoaded({ kind: "ready", rel: res.rel, stamp: draft.stamp, notice: res.notice });
+            setDraftRestored(true);
+          } else {
+            draftStore.delete(dk);
+            setText(res.content);
+            setLoaded({ kind: "ready", rel: res.rel, stamp: res.stamp, notice: res.notice });
+            setDraftRestored(false);
+          }
         } else {
           setLoaded({ kind: "blocked", reason: res.reason, rel: res.rel, notice: res.notice });
         }
@@ -79,12 +138,15 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
   const notice = loaded.kind === "loading" ? undefined : loaded.notice;
 
   const reload = () => {
+    draftStore.delete(dKey(workspaceId, paneId));
     setFailure(null);
+    setDraftRestored(false);
     setLoadSeq((n) => n + 1);
   };
 
   const save = async () => {
-    if (loaded.kind !== "ready" || conflict) return;
+    if (savingRef.current || loaded.kind !== "ready" || conflict) return;
+    savingRef.current = true;
     setSaving(true);
     setFailure(null);
     let res: MemoryWriteResult;
@@ -93,23 +155,35 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
     } catch {
       res = { ok: false, reason: "writeFailed" };
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
     if (!res.ok) {
       setFailure(res.reason);
       return;
     }
+    savedRef.current = true;
+    draftStore.delete(dKey(workspaceId, paneId));
     onClose();
   };
 
   const renotify = async () => {
     const ok = await window.api.memoryRenotify(workspaceId, paneId).catch(() => false);
-    setRenotified(ok);
+    if (ok) {
+      setRenotified(true);
+      setRenotifyFailed(false);
+    } else {
+      setRenotifyFailed(true);
+    }
   };
 
   const reveal = () => {
     void window.api.memoryReveal(workspaceId, paneId).catch(() => false);
   };
+
+  // Kaydetmede tooLarge: kullanıcının metni çok uzun — farklı mesaj.
+  const writeFailKey = (f: MemoryFailure): TranslationKey =>
+    f === "tooLarge" ? "memory.fail.textTooLarge" : FAIL_KEY[f];
 
   return (
     <Modal
@@ -134,6 +208,10 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
         <p className="mb-3 truncate font-mono text-2xs text-slate-500" title={rel}>
           {rel}
         </p>
+      )}
+
+      {draftRestored && (
+        <p className="mb-2 text-2xs text-[var(--status-warning-text)]">{t("memory.draftRestored")}</p>
       )}
 
       {loaded.kind === "loading" ? (
@@ -181,13 +259,19 @@ export default function MemoryDialog({ workspaceId, paneId, name, onClose }: Pro
       )}
       {failure && !conflict && (
         <p role="alert" className="mt-2 text-xs text-[var(--status-danger-text)]">
-          {t(FAIL_KEY[failure])}
+          {t(writeFailKey(failure))}
         </p>
       )}
 
       {notice === "failed" && (
         <div className="mt-3 flex items-center gap-2 text-2xs text-[var(--status-warning-text)]">
-          <span className="min-w-0 flex-1">{renotified ? t("memory.renotified") : t("memory.noticeFailed")}</span>
+          <span className="min-w-0 flex-1">
+            {renotified
+              ? t("memory.renotified")
+              : renotifyFailed
+                ? t("memory.renotifyFailed")
+                : t("memory.noticeFailed")}
+          </span>
           {!renotified && (
             <button type="button" onClick={() => void renotify()} className={TOOL_BUTTON}>
               {t("memory.renotify")}

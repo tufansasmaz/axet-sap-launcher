@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import MemoryDialog from "../src/agents/MemoryDialog";
+import MemoryDialog, { clearDraftStoreForTest } from "../src/agents/MemoryDialog";
 
 const STAMP = "a".repeat(64);
 const REL = ".ntt-studio/bellek/ayse.md";
@@ -23,6 +23,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  clearDraftStoreForTest();
   (window as unknown as { api: unknown }).api = prevApi;
 });
 
@@ -185,5 +186,103 @@ describe("MemoryDialog", () => {
     box().dispatchEvent(menu);
     expect(paste.defaultPrevented).toBe(false);
     expect(menu.defaultPrevented).toBe(false);
+  });
+
+  // Fix round 1: taslak deposu, kaydetme koruması, yeniden bildir hatası, metin boyutu
+
+  function openDialog(onClose = vi.fn()) {
+    const r = render(
+      <LanguageProvider language="tr">
+        <MemoryDialog workspaceId="w1" paneId="p1" name="Ayşe" onClose={onClose} />
+      </LanguageProvider>
+    );
+    return { ...r, onClose };
+  }
+
+  it("kirli kapatılınca taslak depoya yazılıyor; yeniden açılınca metin ve 'geri getirildi' notu çıkıyor", async () => {
+    const { unmount } = openDialog();
+    await flush();
+    fireEvent.change(box(), { target: { value: "taslak metin" } });
+    act(() => { unmount(); });
+    cleanup();
+
+    openDialog();
+    await flush();
+    expect(box().value).toBe("taslak metin");
+    expect(screen.getByText(/Kaydedilmemiş taslağın geri getirildi/)).toBeTruthy();
+  });
+
+  it("başarılı kaydet taslağı siliyor; bir daha açılınca taslak yok", async () => {
+    // Taslak oluştur
+    const { unmount: u1 } = openDialog();
+    await flush();
+    fireEvent.change(box(), { target: { value: "taslak" } });
+    act(() => { u1(); });
+    cleanup();
+
+    // Taslakla aç, başarılı kaydet
+    openDialog();
+    await flush();
+    expect(box().value).toBe("taslak");
+    fireEvent.click(saveButton());
+    await flush();
+    cleanup();
+
+    // Üçüncü açılış: taze içerik, taslak yok
+    openDialog();
+    await flush();
+    expect(box().value).toBe("# Ayşe\n");
+    expect(screen.queryByText(/geri getirildi/)).toBeNull();
+  });
+
+  it("Yeniden yükle taslağı siliyor; tekrar açılınca taslak yok", async () => {
+    // Taslak oluştur
+    const { unmount: u1 } = openDialog();
+    await flush();
+    fireEvent.change(box(), { target: { value: "taslak" } });
+    act(() => { u1(); });
+    cleanup();
+
+    // Taslakla aç — çakışma senaryosu: eski özet → "changed" → Yeniden yükle
+    openDialog();
+    await flush();
+    expect(box().value).toBe("taslak");
+    api.memoryWrite.mockResolvedValueOnce({ ok: false, reason: "changed" });
+    fireEvent.click(saveButton());
+    await flush();
+    // Yeniden yükle'ye bas
+    api.memoryRead.mockResolvedValueOnce({ ok: true, rel: REL, content: "# guncel\n", stamp: "d".repeat(64), notice: "sent" });
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden yükle" }));
+    await flush();
+    cleanup();
+
+    // Üçüncü açılış: taslak silinmiş
+    openDialog();
+    await flush();
+    expect(box().value).toBe("# Ayşe\n");
+    expect(screen.queryByText(/geri getirildi/)).toBeNull();
+  });
+
+  it("Yeniden bildir false dönünce hata satırı çıkıyor, düğme yerinde kalıyor", async () => {
+    api.memoryRead.mockResolvedValueOnce({ ok: true, rel: REL, content: "", stamp: STAMP, notice: "failed" });
+    api.memoryRenotify.mockResolvedValueOnce(false);
+    renderDialog();
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: "Yeniden bildir" }));
+    await flush();
+    expect(screen.getByText(/Yeniden bildirilemedi/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Yeniden bildir" })).toBeTruthy();
+  });
+
+  it("kaydetmede tooLarge gelince 'Metin çok uzun' yazıyor, 'Dosya çok büyük' değil", async () => {
+    renderDialog();
+    await flush();
+    api.memoryWrite.mockResolvedValueOnce({ ok: false, reason: "tooLarge" });
+    fireEvent.change(box(), { target: { value: "uzun metin" } });
+    fireEvent.click(saveButton());
+    await flush();
+    expect(screen.getByText(/Metin çok uzun/)).toBeTruthy();
+    expect(screen.queryByText(/Dosya çok büyük/)).toBeNull();
+    expect(box().value).toBe("uzun metin");
   });
 });

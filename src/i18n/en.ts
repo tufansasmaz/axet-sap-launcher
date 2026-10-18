@@ -1581,5 +1581,8 @@ export const en: Record<TranslationKey, string> = {
   "memory.fail.encoding": "The file is not UTF-8; it was not opened here so it does not get damaged. Open it in an editor.",
   "memory.fail.readFailed": "The memory file could not be read; it was not touched.",
   "memory.fail.changed": "The file changed in the meantime (the agent may have written to it); it was not overwritten. Your text is still here; copy it if you need it, then Reload (reloading discards this text).",
-  "memory.fail.writeFailed": "Could not save; your text is still in the window."
+  "memory.fail.writeFailed": "Could not save; your text is still in the window.",
+  "memory.fail.textTooLarge": "The text is too long (256 KB at most); it was not saved, your text is still in the window.",
+  "memory.draftRestored": "Your unsaved draft has been restored.",
+  "memory.renotifyFailed": "Could not notify again; try again."
 };

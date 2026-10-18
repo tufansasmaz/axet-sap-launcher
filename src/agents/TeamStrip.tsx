@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, BookPlus, Plus, RotateCw } from "lucide-react";
 import { useT } from "../i18n";
 import MemoryDialog from "./MemoryDialog";
@@ -50,6 +50,11 @@ export default function TeamStrip({
   // Kalıcı bellek penceresi (spec 2026-10-18 ajan-bellegi §4): yalnız belleği açık ajanda.
   const [memoryPaneId, setMemoryPaneId] = useState<string | null>(null);
   const memoryPane = agents.find((p) => p.id === memoryPaneId && p.agent?.memory);
+  // Alan değiştiğinde ya da bölme/bellek kalktığında kaydı temizle
+  // (aynı alana dönünce dialog kendiliğinden açılmasın).
+  useEffect(() => {
+    if (memoryPaneId !== null && !memoryPane) setMemoryPaneId(null);
+  }, [memoryPaneId, memoryPane]);
   return (
     <div className="flex min-h-16 shrink-0 items-center gap-2 border-b border-line px-3">
       {/* Bölmeler | Pano | Ofis | Değişiklikler (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5); seçim lime, alan başına hatırlanıyor. */}

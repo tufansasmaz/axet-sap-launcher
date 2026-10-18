@@ -1667,7 +1667,10 @@ export const tr = {
   "memory.fail.encoding": "Dosya UTF-8 değil; bozulmasın diye burada açılmadı, bir düzenleyicide aç.",
   "memory.fail.readFailed": "Bellek dosyası okunamadı; dosyaya dokunulmadı.",
   "memory.fail.changed": "Dosya bu arada değişti (ajan yazmış olabilir); üzerine yazılmadı. Senin metnin burada duruyor; gerekiyorsa kopyala, sonra Yeniden yükle (yüklenince bu metin gider).",
-  "memory.fail.writeFailed": "Kaydedilemedi; metnin pencerede duruyor."
+  "memory.fail.writeFailed": "Kaydedilemedi; metnin pencerede duruyor.",
+  "memory.fail.textTooLarge": "Metin çok uzun (en çok 256 KB); kaydedilmedi, metnin pencerede duruyor.",
+  "memory.draftRestored": "Kaydedilmemiş taslağın geri getirildi.",
+  "memory.renotifyFailed": "Yeniden bildirilemedi; tekrar dene."
 };
 
 
