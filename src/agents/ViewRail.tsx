@@ -11,6 +11,13 @@ import { useTerminalStore } from "../stores/terminalStoreContext";
 import { workspaceViewOf } from "../stores/terminalReducer";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
 import type { WorkspaceView } from "../../app-electron/shared/types";
+import type { RailCounts } from "./railCounts";
+
+const COUNT_KEY: Partial<Record<WorkspaceView, TranslationKey>> = {
+  board: "rail.count.board",
+  changes: "rail.count.changes",
+  office: "rail.count.office"
+};
 
 export const VIEW_TABS: readonly WorkspaceView[] = ["panes", "board", "office", "changes", "browser", "memory"];
 
@@ -32,7 +39,7 @@ const VIEW_TAB_ICON: Record<WorkspaceView, LucideIcon> = {
   memory: BookOpen
 };
 
-export default function ViewRail({ workspace }: { workspace: TerminalWorkspace }) {
+export default function ViewRail({ workspace, counts }: { workspace: TerminalWorkspace; counts?: RailCounts }) {
   const t = useT();
   const { commands } = useTerminalStore();
   const tabRefs = useRef(new Map<WorkspaceView, HTMLButtonElement>());
@@ -65,7 +72,10 @@ export default function ViewRail({ workspace }: { workspace: TerminalWorkspace }
       {VIEW_TABS.map((v) => {
         const selected = current === v;
         const Icon = VIEW_TAB_ICON[v];
-        const label = t(VIEW_TAB_KEY[v]);
+        const count = counts?.[v] ?? 0;
+        const countKey = COUNT_KEY[v];
+        // Sayı etikete ve ipucuna ekleniyor: rozet yalnız görsel (ekran okuyucu etiketten okuyor).
+        const label = count > 0 && countKey ? `${t(VIEW_TAB_KEY[v])} — ${t(countKey, { count })}` : t(VIEW_TAB_KEY[v]);
         return (
           <button
             key={v}
@@ -87,6 +97,15 @@ export default function ViewRail({ workspace }: { workspace: TerminalWorkspace }
           >
             {selected && <span aria-hidden className="absolute -left-1 top-1.5 bottom-1.5 w-0.5 rounded-full bg-accent-400" />}
             <Icon size={15} />
+            {count > 0 && countKey && (
+              <span
+                aria-hidden
+                data-rail-count=""
+                className="absolute -right-1 -top-1 min-w-[14px] rounded-full bg-slate-600 px-0.5 text-center text-[9px] font-semibold leading-[14px] text-slate-100"
+              >
+                {count > 99 ? "99+" : count}
+              </span>
+            )}
           </button>
         );
       })}

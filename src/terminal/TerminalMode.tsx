@@ -24,6 +24,7 @@ import ChangesView from "../changes/ChangesView";
 import { ChangesFocusProvider } from "../changes/changesFocus";
 import BrowserView from "../browser/BrowserView";
 import ViewRail from "../agents/ViewRail";
+import { useRailCounts } from "../agents/useRailCounts";
 import MemoryView from "../agents/MemoryView";
 import type { WorkspaceView } from "../../app-electron/shared/types";
 
@@ -96,7 +97,7 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
 
       <div className="flex min-h-0 flex-1">
         {/* Görünüm rayı: içerik alanının sol kenarına gömülü, alt alta (spec 2026-10-18 ajanlar-ux §4). */}
-        {state.phase === "ready" && active && <ViewRail workspace={active} />}
+        {state.phase === "ready" && active && <CountedViewRail workspace={active} />}
         <div className="relative min-h-0 min-w-0 flex-1">
           {state.workspaces.map((w) => (
             <div
@@ -310,4 +311,10 @@ function MinimizedStrip({ workspace }: { workspace: TerminalWorkspace }) {
       })}
     </div>
   );
+}
+
+/** Ray + sayaçları (hook yalnız ray çizilirken çalışsın diye ayrı bileşen). */
+function CountedViewRail({ workspace }: { workspace: TerminalWorkspace }) {
+  const counts = useRailCounts(workspace);
+  return <ViewRail workspace={workspace} counts={counts} />;
 }

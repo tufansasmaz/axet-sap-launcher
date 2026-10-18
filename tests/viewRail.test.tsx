@@ -5,13 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import ViewRail from "../src/agents/ViewRail";
+import type { RailCounts } from "../src/agents/railCounts";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalWorkspace } from "../src/stores/terminalTypes";
 
 afterEach(cleanup);
 
-function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr") {
+function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr", counts?: RailCounts) {
   const ws: TerminalWorkspace = { id: "w1", name: "w1", panes: [], focusedPaneId: null, maximizedPaneId: null, unread: false, error: false, view };
   const commands = { setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
   const store: TerminalStoreValue = {
@@ -24,7 +25,7 @@ function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr") {
   render(
     <LanguageProvider language={language}>
       <TerminalStoreContext.Provider value={store}>
-        <ViewRail workspace={ws} />
+        <ViewRail workspace={ws} counts={counts} />
       </TerminalStoreContext.Provider>
     </LanguageProvider>
   );
@@ -73,5 +74,21 @@ describe("ViewRail", () => {
     const commands = setup("panes", "en");
     fireEvent.click(screen.getByRole("tab", { name: "Memory" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("w1", "memory");
+  });
+
+  it("sayaç rozetleri: yalnız verisi olan sekmede; sayı etikette ve ipucunda; 99+ kırpma; lime değil", () => {
+    setup("office", "tr", { board: 3, changes: 120, office: 1 });
+    const board = screen.getByRole("tab", { name: "Görevler — 3 açık alt görev" });
+    expect(board.getAttribute("title")).toBe("Görevler — 3 açık alt görev");
+    expect(board.querySelector("[data-rail-count]")?.textContent).toBe("3");
+    expect(screen.getByRole("tab", { name: "Değişiklikler — 120 değişiklik incelenmeyi bekliyor" }).querySelector("[data-rail-count]")?.textContent).toBe("99+");
+    expect(screen.getByRole("tab", { name: "Ofis — 1 ajan soru soruyor" })).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "Terminal" }).querySelector("[data-rail-count]")).toBeNull();
+    for (const badge of document.querySelectorAll("[data-rail-count]")) expect(badge.className).not.toMatch(/accent|lime/);
+  });
+
+  it("sayaç İngilizce", () => {
+    setup("panes", "en", { board: 2 });
+    expect(screen.getByRole("tab", { name: "Tasks — 2 open subtasks" })).toBeTruthy();
   });
 });
