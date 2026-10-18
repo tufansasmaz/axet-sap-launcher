@@ -55,11 +55,13 @@ describe("labelOf", () => {
 });
 
 describe("shouldSnapshotPrompt (spec §4.2)", () => {
-  it("ilk istem; 30 sn içinde ikinci yok; 30 sn'de var; saat geri giderse var", () => {
+  it("ilk istem; 30 sn içinde ikinci yok; 30 sn'de var; saat geri giderse var; lastAt NaN geçersizse var", () => {
     expect(shouldSnapshotPrompt(undefined, 1_000)).toBe(true);
     expect(shouldSnapshotPrompt(1_000, 1_000 + PROMPT_THROTTLE_MS - 1)).toBe(false);
     expect(shouldSnapshotPrompt(1_000, 1_000 + PROMPT_THROTTLE_MS)).toBe(true);
     expect(shouldSnapshotPrompt(50_000, 10_000)).toBe(true);
+    expect(shouldSnapshotPrompt(NaN, 1_000)).toBe(true);
+    expect(shouldSnapshotPrompt(Infinity, 1_000)).toBe(true);
   });
 });
 
@@ -104,6 +106,28 @@ describe("isSafeRelPath / readRevertPaths (spec §6.4, §7)", () => {
     }
   });
 
+  it("sondaki nokta/boşluk, Windows ayrılmış adlar, görünmez/bidi karakterler, yalnız surrogate, sınır vakaları reddediliyor", () => {
+    for (const bad of [
+      // Sondaki nokta ve boşluk: Windows yol normalleştirmesi siler
+      ".git.", ".git ", "a.", "a ", "a/b.", "a/b ",
+      // Üç nokta: sondaki nokta kuralına girer
+      "...",
+      // Windows ayrılmış adlar (büyük/küçük harf, uzantılı, klasör içinde)
+      "CON", "con", "con.txt", "Con.log", "PRN", "AUX", "NUL", "nul",
+      "COM1", "COM9", "com1.txt", "LPT1", "LPT9", "lpt1.log", "a/CON", "a/NUL",
+      // C1 denetim karakterleri
+      "a\u0085b", "a\u009fb",
+      // Sıfır genişlikli / bidi / BOM
+      "a\u200bb", "a\u200fb", "a\u202ab", "a\u202eb", "a\u2066b", "a\u2069b", "\ufeffa",
+      // Yalnız surrogate
+      "a\uD800b", "a\uDFFFb", "a\uDBFFb",
+      // UNC ve sınır vakaları
+      "//server/x", "..", "a/../..",
+    ]) {
+      expect(isSafeRelPath(bad), JSON.stringify(bad)).toBe(false);
+    }
+  });
+
   it("readRevertPaths: dizi, boş değil, ≤ 5000, hepsi güvenli; tekrarlar tekleşiyor", () => {
     expect(readRevertPaths(["a.txt", "b/c.ts", "a.txt"])).toEqual(["a.txt", "b/c.ts"]);
     expect(readRevertPaths([])).toBeNull();
@@ -126,6 +150,20 @@ describe("diff-tree çıktısı ayrıştırma", () => {
     ]);
     expect(parseNameStatusZ("M\0a.ts\0A\0yar")).toEqual([{ path: "a.ts", status: "modified" }]);
     expect(parseNameStatusZ("")).toEqual([]);
+  });
+
+  it("name-status -z: R/C (yeniden adlandırma/kopyalama) hizayı bozmadan atlanıyor", () => {
+    // Tek R girdi: iki yol tüketilmeli, sonuç boş
+    expect(parseNameStatusZ("R100\0old.ts\0new.ts\0")).toEqual([]);
+    // R ortada: önceki ve sonraki girdiler doğru hizalanıyor
+    expect(parseNameStatusZ("M\0a.ts\0R100\0old.ts\0new.ts\0A\0c.ts\0")).toEqual([
+      { path: "a.ts", status: "modified" },
+      { path: "c.ts", status: "added" }
+    ]);
+    // C (kopyalama) da aynı
+    expect(parseNameStatusZ("C100\0src.ts\0dst.ts\0M\0b.ts\0")).toEqual([
+      { path: "b.ts", status: "modified" }
+    ]);
   });
 
   it("numstat -z: sayılar, ikili (- -), sekmeli yol; kırpılmış son kayıt atılıyor", () => {

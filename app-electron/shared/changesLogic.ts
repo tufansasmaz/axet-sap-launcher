@@ -27,9 +27,9 @@ export function labelOf(text: string): string {
   return Array.from(text.replace(/\s+/g, " ").trim()).slice(0, LABEL_MAX).join("");
 }
 
-/** Aynı ajan için 30 sn içinde ikinci istem görüntüsü yok (spec §4.2). Saat geri gittiyse izin. */
+/** Aynı ajan için 30 sn içinde ikinci istem görüntüsü yok (spec §4.2). Saat geri gittiyse ya da lastAt geçersizse izin. */
 export function shouldSnapshotPrompt(lastAt: number | undefined, now: number): boolean {
-  return lastAt === undefined || now < lastAt || now - lastAt >= PROMPT_THROTTLE_MS;
+  return lastAt === undefined || !Number.isFinite(lastAt) || now < lastAt || now - lastAt >= PROMPT_THROTTLE_MS;
 }
 
 /** En yeni 200 kayıt (spec §3); liste eskiden yeniye. */
@@ -60,16 +60,34 @@ export function pendingCount(list: readonly Checkpoint[]): number {
   return list.filter((c) => c.reviewed === "pending" && c.reason !== "beforeRestore").length;
 }
 
+// Yasak karakterler: C0 (\u0000-\u001f) + DEL+C1 (\u007f-\u009f), ters eğik çizgi,
+// ADS (:), sıfır genişlikli/bidi (​-‏, ‪-‮, ⁦-⁩),
+// BOM (﻿), yalnız surrogate (\ud800-\udfff).
+const UNSAFE_CHARS = /[\u0000-\u001f\u007f-\u009f\\:​-‏‪-‮⁦-⁩﻿\ud800-\udfff]/;
+
+// Windows ayrılmış adlar; uzantılı biçimi de (örn. con.txt, LPT1.log) kapsar.
+// ¹=üst1, ²=üst2, ³=üst3 (COM/LPT1-9 ve üst simge karşılıkları).
+const WIN_RESERVED = /^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
+
 /**
  * Git'in verdiği, alan köküne göre yol mu (spec §6.4, §7). Kök dışı (`..`),
  * mutlak, sürücü harfli, ters eğik çizgili, `.git` (ve 8.3 kısa adı), NTFS
- * akışı (`:`), boş/`.` parça ve denetim karakteri reddediliyor.
+ * akışı (`:`), Windows ayrılmış adlar, sondaki nokta/boşluk, görünmez/bidi
+ * karakterler, yalnız surrogate reddediliyor.
  */
 export function isSafeRelPath(value: unknown): value is string {
   if (typeof value !== "string" || value.length === 0 || value.length > PATH_MAX) return false;
-  if (/[\u0000-\u001f\u007f\\:]/.test(value)) return false;
+  if (UNSAFE_CHARS.test(value)) return false;
   if (value.startsWith("/")) return false;
-  return value.split("/").every((part) => part !== "" && part !== "." && part !== ".." && part.toLowerCase() !== ".git" && !/^git~\d+$/i.test(part));
+  return value.split("/").every((part) => {
+    if (part === "" || part === "." || part === "..") return false;
+    // Sondaki nokta/boşluk: Windows yol normalleştirmesi siler (örn. .git. → .git)
+    if (/[. ]$/.test(part)) return false;
+    if (part.toLowerCase() === ".git") return false;
+    if (/^git~\d+$/i.test(part)) return false;
+    if (WIN_RESERVED.test(part)) return false;
+    return true;
+  });
 }
 
 /** Geri alınacak yollar (IPC): dizi, boş değil, ≤ 5000, hepsi güvenli; tekrarlar tekleşiyor. */
@@ -86,15 +104,25 @@ function completeZ(out: string): string {
   return out.endsWith("\0") ? out : out.slice(0, out.lastIndexOf("\0") + 1);
 }
 
-/** `git diff-tree -r --no-renames --name-status -z` çıktısı. */
+/** `git diff-tree -r --no-renames --name-status -z` çıktısı.
+ *  R/C (yeniden adlandırma/kopyalama): `--no-renames` geçilse de savunma için iki yol tüketip atlıyor. */
 export function parseNameStatusZ(out: string): { path: string; status: FileStatus }[] {
   const parts = completeZ(out).split("\0");
   const result: { path: string; status: FileStatus }[] = [];
-  for (let i = 0; i + 1 < parts.length; i += 2) {
+  let i = 0;
+  while (i + 1 < parts.length) {
     const code = parts[i];
+    if (!code) break;
+    const firstChar = code[0];
+    if (firstChar === "R" || firstChar === "C") {
+      // İki yol: eski-yol + yeni-yol; hizayı korumak için üçünü birden tüket.
+      i += 3;
+      continue;
+    }
     const path = parts[i + 1];
-    if (!code || !path) break;
-    result.push({ path, status: code[0] === "A" ? "added" : code[0] === "D" ? "deleted" : "modified" });
+    if (!path) break;
+    result.push({ path, status: firstChar === "A" ? "added" : firstChar === "D" ? "deleted" : "modified" });
+    i += 2;
   }
   return result;
 }
@@ -174,8 +202,8 @@ export function createKeyedQueue(): KeyedQueue {
   return {
     run<T>(key: string, job: () => Promise<T>): Promise<T> {
       const prev = tails.get(key) ?? Promise.resolve();
-      // Önceki işin hatası zinciri kırmıyor.
-      const next = prev.then(job, job);
+      // Önceki işin hatası zinciri kırmıyor; argümansız çağrı tip güvenliği açısından daha açık.
+      const next = prev.then(() => job(), () => job());
       const tail = next.then(
         () => undefined,
         () => undefined
