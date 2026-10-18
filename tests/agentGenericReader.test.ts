@@ -102,7 +102,7 @@ describe("GenericReader", () => {
     reader.feedOutput("C:\\proje>claude --model sonnet\r\n");
     reader.feedOutput("  \u25cf Claude Code  ");
     expect(reader.engineReady()).toBe(true);
-    reader.feedOutput("\x1b[?1049lC:\\proje>");
+    reader.feedOutput("\x1b[?1049l\r\nC:\\proje>");
     expect(reader.engineReady()).toBe(false);
     reader.feedOutput("C:\\proje>claude --model sonnet\r\n");
     expect(reader.engineReady()).toBe(false);

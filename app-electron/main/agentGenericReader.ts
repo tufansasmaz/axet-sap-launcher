@@ -74,6 +74,8 @@ export class GenericReader {
   private lastOutputAt: number | null = null;
   private sawEcho = false;
   private sawEngineOutput = false;
+  /** Motor kapandıktan sonra yeniden başlatma bekleniyor. */
+  private exitSeen = false;
   private readonly echo: RegExp | null;
 
   constructor(private readonly opts: GenericReaderOptions) {
@@ -84,8 +86,32 @@ export class GenericReader {
   feedOutput(data: string): void {
     this.lastOutputAt = this.opts.now();
     const clean = stripAnsi(data);
+
+    if (this.exitSeen) {
+      // Motor kapalı; yeni echo gelince oturum sıfırlanıyor.
+      if (this.echo?.test(clean)) {
+        // Yeni komut başlatıldı; eski echo ile karışmaması için tail temizleniyor.
+        this.tail = clean;
+        this.sawEcho = false;
+        this.sawEngineOutput = false;
+        this.exitSeen = false;
+        // Echo bu parçada; aşağıdaki tespit bloğuna düşüyor.
+      } else {
+        // Motor hâlâ kapalı; tail güncelleniyor, engineReady false kalıyor.
+        this.tail = (this.tail + clean).slice(-TAIL_MAX);
+        return;
+      }
+    } else {
+      // Tail önce güncelleniyor; engineExited() güncel tail'e bakıyor.
+      this.tail = (this.tail + clean).slice(-TAIL_MAX);
+      if (this.sawEcho && this.engineExited()) {
+        this.exitSeen = true;
+        // sawEngineOutput burada true olsa da engineReady() engineExited() ile
+        // zaten false dönüyor; sıfırlama yeniden başlatmada (yukarıda) yapılıyor.
+      }
+    }
+
     const echoedBefore = this.sawEcho;
-    this.tail = (this.tail + clean).slice(-TAIL_MAX);
     if (echoedBefore) {
       // Yankıdan sonraki görünür her çıktı motorun (yalnız denetim dizisi sayılmıyor).
       if (/\S/.test(clean)) this.sawEngineOutput = true;
@@ -104,8 +130,11 @@ export class GenericReader {
    * Motorun açıldığı görüldü mü. Açılış penceresinde (yankı geldi, TUI henüz
    * ekranı almadı) yazılan istem konsol tamponuna düşer; motor açılırken
    * çökerse cmd onu komut olarak okur. Komutu olmayan kayıtta ilk çıktı yeter.
+   * Motor kapandıktan sonra (kabuk istemi döndükten sonra) yeniden açılıp
+   * çıktı görülene kadar false döner.
    */
   engineReady(): boolean {
+    if (this.engineExited()) return false;
     return this.echo === null ? this.lastOutputAt !== null : this.sawEngineOutput;
   }
 
