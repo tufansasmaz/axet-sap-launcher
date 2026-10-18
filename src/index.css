@@ -622,3 +622,29 @@ html:not([data-palette]) body {
 .chat-breathe {
   animation: chat-breathe 2000ms ease-in-out infinite;
 }
+
+/* Ofis görünümü (spec 2026-10-18 ofis-gorunumu §4): yalnız kesin "çalışıyor"da
+   küçük bir döngü — eller hafifçe iniyor kalkıyor, ekran yavaşça parlıyor.
+   Tahmini durumda sınıf hiç verilmiyor. "Hareketi azalt" açıksa bileşen
+   sınıfı vermiyor; bu @media bloğu ikinci kapı. */
+@keyframes office-typing {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-1.5px); }
+}
+@keyframes office-glow {
+  0%, 100% { opacity: 0.35; }
+  50%      { opacity: 0.6; }
+}
+.office-typing {
+  animation: office-typing 600ms ease-in-out infinite;
+  transform-box: fill-box;
+}
+.office-glow {
+  animation: office-glow 2400ms ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .office-typing,
+  .office-glow {
+    animation: none;
+  }
+}
