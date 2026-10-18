@@ -1420,5 +1420,10 @@ export const en: Record<TranslationKey, string> = {
   "board.estimatedPromptConfirm": "Send",
   "board.estimatedPromptCancel": "Cancel",
   "board.failedCount": "{count} subtasks failed",
-  "board.closeWorkspaceTasks": "The {count} tasks on this workspace's board will be deleted too."
+  "board.closeWorkspaceTasks": "The {count} tasks on this workspace's board will be deleted too.",
+  "office.label": "Office view",
+  "office.seats": "Desks",
+  "office.empty": "Nobody in the office",
+  "office.shellCount": "Terminals: {count}",
+  "office.estimatedSuffix": "(estimated)"
 };

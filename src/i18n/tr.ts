@@ -1506,7 +1506,12 @@ export const tr = {
   "board.estimatedPromptConfirm": "Gönder",
   "board.estimatedPromptCancel": "Vazgeç",
   "board.failedCount": "{count} alt görev başarısız",
-  "board.closeWorkspaceTasks": "Bu alanın panosundaki {count} görev de silinir."
+  "board.closeWorkspaceTasks": "Bu alanın panosundaki {count} görev de silinir.",
+  "office.label": "Ofis görünümü",
+  "office.seats": "Masalar",
+  "office.empty": "Ofiste kimse yok",
+  "office.shellCount": "{count} terminal",
+  "office.estimatedSuffix": "(tahmini)"
 };
 
 
