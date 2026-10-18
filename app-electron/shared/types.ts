@@ -340,6 +340,9 @@ export interface SavedWorkspaceSap {
   label: string;
 }
 
+/** Ajanlar ekranının görünümü (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2). "panes" varsayılan; kayda yazılmaz. */
+export type WorkspaceView = "panes" | "board" | "office";
+
 export interface SavedTerminalWorkspace {
   id: string;
   name: string;
@@ -351,8 +354,8 @@ export interface SavedTerminalWorkspace {
   sap?: SavedWorkspaceSap;
   /** Görev panosunun doğrulama komutları; satır başına bir (spec 2026-10-18 gorev-panosu §2). */
   verify?: string[];
-  /** Ajanlar ekranında son seçilen görünüm; yoksa bölmeler (spec 2026-10-18 gorev-panosu §8). */
-  view?: "board";
+  /** Ajanlar ekranında son seçilen görünüm; yoksa bölmeler (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2). */
+  view?: Exclude<WorkspaceView, "panes">;
 }
 
 export type AppTheme = "dark" | "light";

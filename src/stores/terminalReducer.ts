@@ -11,7 +11,8 @@ import {
   cleanPaneTitle,
   firstFreeWorkspaceNumber,
   isTerminalPaneColor,
-  readVerifyCommands
+  readVerifyCommands,
+  readWorkspaceView
 } from "../../app-electron/shared/terminalLayout";
 import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
 import {
@@ -173,12 +174,13 @@ function fromSaved(saved: SavedTerminalWorkspace): TerminalWorkspace {
   const hidden = new Set(minimized.map((m) => m.paneId));
   // Ağaçsız eski kayıt: normalizeLayout `fromLegacy`'ye düşüyor.
   const layout = normalizeLayout(saved.layout, ids.filter((id) => !hidden.has(id)));
+  const view = readWorkspaceView(saved.view);
   return {
     ...emptyWorkspace(saved.id, saved.name),
     ...(saved.root ? { root: saved.root } : {}),
     ...(saved.sap ? { sap: saved.sap } : {}),
     ...(saved.verify?.length ? { verify: [...saved.verify] } : {}),
-    ...(saved.view === "board" ? { view: "board" as const } : {}),
+    ...(view ? { view } : {}),
     panes: saved.panes.map((p) => ({
       id: p.id,
       kind: p.kind,
@@ -443,10 +445,12 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     }
     case "setWorkspaceView": {
       const workspace = state.workspaces.find((w) => w.id === action.id);
-      if (!workspace || (workspace.view ?? "panes") === action.view) return state;
+      // "panes" ve bilinmeyen değer: kayıtta görünüm yok (spec 2026-10-18 ofis-gorunumu §2).
+      const view = readWorkspaceView(action.view);
+      if (!workspace || workspace.view === view) return state;
       const next = { ...workspace };
       delete next.view;
-      return replaceWorkspace(state, action.view === "board" ? { ...next, view: "board" } : next);
+      return replaceWorkspace(state, view ? { ...next, view } : next);
     }
   }
 }
@@ -506,7 +510,7 @@ export function toSaved(state: TerminalState): { workspaces: SavedTerminalWorksp
       ...(w.root ? { root: w.root } : {}),
       ...(w.sap ? { sap: w.sap } : {}),
       ...(w.verify?.length ? { verify: w.verify } : {}),
-      ...(w.view === "board" ? { view: "board" as const } : {})
+      ...(w.view ? { view: w.view } : {})
     })),
     activeId: state.activeWorkspaceId
   };

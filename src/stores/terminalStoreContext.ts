@@ -2,7 +2,7 @@
 // yalnız bunu içe aktarır, sağlayıcının etkilerini çekmez.
 import { createContext, useContext } from "react";
 import type { AgentSpec } from "../../app-electron/shared/agentTypes";
-import type { SavedWorkspaceSap, TerminalMode, TerminalPaneColor } from "../../app-electron/shared/types";
+import type { SavedWorkspaceSap, TerminalMode, TerminalPaneColor, WorkspaceView } from "../../app-electron/shared/types";
 import type { DropZone, LayoutPath, SplitDir } from "../../app-electron/shared/terminalTree";
 import type { TerminalState } from "./terminalTypes";
 
@@ -45,8 +45,8 @@ export interface TerminalCommands {
   setPaneFontSize: (paneId: string, fontSize: number | null) => void;
   /** Görev panosunun doğrulama komutları (spec 2026-10-18 gorev-panosu §2). */
   setWorkspaceVerify: (id: string, verify: string[]) => void;
-  /** Ajanlar ekranında Bölmeler | Pano (spec 2026-10-18 gorev-panosu §8). */
-  setWorkspaceView: (id: string, view: "panes" | "board") => void;
+  /** Ajanlar ekranında Bölmeler | Pano | Ofis (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2). */
+  setWorkspaceView: (id: string, view: WorkspaceView) => void;
 }
 
 export interface TerminalStoreValue {

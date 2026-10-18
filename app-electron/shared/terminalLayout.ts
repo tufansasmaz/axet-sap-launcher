@@ -11,7 +11,8 @@ import type {
   SavedWorkspaceSap,
   TerminalMode,
   TerminalPaneColor,
-  TerminalPaneKind
+  TerminalPaneKind,
+  WorkspaceView
 } from "./types";
 import { LEGACY_AXET_AGENT, readAgentSpec, type AgentSpec } from "./agentTypes";
 import { normalizeLayout, type EdgeSide, type PaneHome } from "./terminalTree";
@@ -73,6 +74,12 @@ export function readVerifyCommands(raw: unknown): string[] {
     out.push(line);
   }
   return out;
+}
+
+/** Kayıttaki görünüm (spec 2026-10-18 ofis-gorunumu §2). "panes" ve bilinmeyen değer
+ * atılıyor: alan yine açılır, Bölmeler'de. İleri sürümün yazdığı değer de böyle düşer. */
+export function readWorkspaceView(raw: unknown): Exclude<WorkspaceView, "panes"> | undefined {
+  return raw === "board" || raw === "office" ? raw : undefined;
 }
 
 /** Pano için alanın klasörü (kök, yoksa yedek) ve doğrulama komutları; alan yoksa null. */
@@ -197,7 +204,8 @@ export function normalizeTerminalWorkspaces(raw: unknown, nameFor: (n: number) =
     if (sap) workspace.sap = sap;
     const verify = readVerifyCommands(record.verify);
     if (verify.length) workspace.verify = verify;
-    if (record.view === "board") workspace.view = "board";
+    const view = readWorkspaceView(record.view);
+    if (view) workspace.view = view;
     // Eski kayıtta bu iki anahtar yok; olduğu gibi bırakılıyor (ağacı
     // indirgeyici `fromLegacy` ile kuruyor). `normalizeLayout` eksik bölmeyi
     // ekliyor, fazlasını atıyor: hiçbir bölme kaybolmuyor.

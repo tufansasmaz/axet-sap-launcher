@@ -25,7 +25,7 @@ describe("normalizeTerminalWorkspaces — verify ve view", () => {
       [
         { id: "w1", name: "A", panes: [] },
         { id: "w2", name: "B", panes: [], verify: ["npm test", ""], view: "board" },
-        { id: "w3", name: "C", panes: [], verify: "npm test", view: "office" }
+        { id: "w3", name: "C", panes: [], verify: "npm test", view: "salon" }
       ],
       nameFor
     );

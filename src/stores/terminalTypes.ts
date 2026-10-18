@@ -1,7 +1,7 @@
 // Terminal modunun bellekteki durumu (spec §4.2). Diske yalnız `toSaved`'ın
 // çıkardığı düzen yazılıyor; buradaki çalışma durumu yazılmıyor.
 
-import type { SavedTerminalWorkspace, SavedWorkspaceSap, TerminalPaneColor, TerminalPaneKind } from "../../app-electron/shared/types";
+import type { SavedTerminalWorkspace, SavedWorkspaceSap, TerminalPaneColor, TerminalPaneKind, WorkspaceView } from "../../app-electron/shared/types";
 import type { AgentSpec } from "../../app-electron/shared/agentTypes";
 import type { DropZone, LayoutNode, LayoutPath, PaneHome, SplitDir } from "../../app-electron/shared/terminalTree";
 
@@ -55,7 +55,7 @@ export interface TerminalWorkspace {
   root?: string;
   sap?: SavedWorkspaceSap;
   verify?: string[];
-  view?: "board";
+  view?: Exclude<WorkspaceView, "panes">;
 }
 
 // "AXET Projesi Seç"ten gelen, yer bekleyen bölme. Kimlikler baştan
@@ -122,4 +122,4 @@ export type TerminalAction =
   | { type: "setPaneFontSize"; paneId: string; fontSize: number | null }
   | { type: "setWorkspaceRoot"; id: string; root: string | null; sap: SavedWorkspaceSap | null }
   | { type: "setWorkspaceVerify"; id: string; verify: string[] }
-  | { type: "setWorkspaceView"; id: string; view: "panes" | "board" };
+  | { type: "setWorkspaceView"; id: string; view: WorkspaceView };
