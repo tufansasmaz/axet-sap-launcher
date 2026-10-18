@@ -68,7 +68,8 @@ export function clockLabel(ms: number, now: number): string {
 }
 
 export function canAccept(cp: Checkpoint): boolean {
-  return cp.reviewed === "pending";
+  // beforeRestore kayıtları pendingCount'a girmiyor (changesLogic:60); tutarlılık için Kabul et de çıkmasın.
+  return cp.reviewed === "pending" && cp.reason !== "beforeRestore";
 }
 
 export function canRevert(cp: Checkpoint, expired: readonly string[]): boolean {

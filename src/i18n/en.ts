@@ -1501,6 +1501,7 @@ export const en: Record<TranslationKey, string> = {
   "changes.conflictsPartial": "Only the first 50 later records were checked; newer records may also have touched these files.",
   "changes.revertRunning": "Agents are running right now: {names}. They may be writing to these files.",
   "changes.revertConfirm": "Revert {count} files",
+  "changes.revertConfirm1": "Revert 1 file",
   "changes.revertDone": "Reverted: {restored} files restored, {trashed} files moved to the Recycle Bin.",
   "changes.revertFailedAt": "Stopped at: {path}",
   "changes.revertPartial": "{count} files were reverted before it stopped:",

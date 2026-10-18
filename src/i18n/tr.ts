@@ -1587,6 +1587,7 @@ export const tr = {
   "changes.conflictsPartial": "Sonraki kayıtların yalnız ilk 50'si tarandı; daha yeni kayıtlar da bu dosyalara dokunmuş olabilir.",
   "changes.revertRunning": "Şu an çalışan ajanlar var: {names}. Bu dosyalara yazıyor olabilirler.",
   "changes.revertConfirm": "{count} dosyayı geri al",
+  "changes.revertConfirm1": "1 dosyayı geri al",
   "changes.revertDone": "Geri alındı: {restored} dosya eski hâline döndü, {trashed} dosya çöpe taşındı.",
   "changes.revertFailedAt": "Durduğu dosya: {path}",
   "changes.revertPartial": "Durmadan önce {count} dosya geri alındı:",

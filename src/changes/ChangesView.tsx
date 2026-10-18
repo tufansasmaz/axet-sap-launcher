@@ -78,6 +78,7 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
   const diffRequest = useRef(0);
   const inFlight = useRef(false);
   const mounted = useRef(true);
+  const selectedRef = useRef<string>(LIVE);
   const [plan, setPlan] = useState<{ checkpointId: string; plan: RevertPlan } | null>(null);
   const [outcome, setOutcome] = useState<RevertResult | null>(null);
   const [notice, setNotice] = useState<TranslationKey | null>(null);
@@ -102,14 +103,19 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
 
   // Seçili kayıt listeden düştüyse (200 sınırı) Canlı'ya dön.
   useEffect(() => {
-    if (state && selected !== LIVE && !state.checkpoints.some((c) => c.id === selected)) setSelected(LIVE);
+    if (state && selected !== LIVE && !state.checkpoints.some((c) => c.id === selected)) {
+      selectedRef.current = LIVE;
+      setSelected(LIVE);
+    }
   }, [state, selected]);
 
   // Pano ayrıntı panelinden "Değişiklikler" (spec §5): o alt görevin en son kaydı seçili.
   useEffect(() => {
     if (!focus || focus.workspaceId !== workspace.id || !state) return;
     const target = latestForSubtask(state.checkpoints, focus.subtaskId);
-    setSelected(target ? target.id : LIVE);
+    const nextId = target ? target.id : LIVE;
+    selectedRef.current = nextId;
+    setSelected(nextId);
     setNotice(target ? null : "changes.noSubtaskRecord");
     setOutcome(null);
     clearFocus();
@@ -207,14 +213,18 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
   };
 
   const select = (id: string) => {
+    selectedRef.current = id;
     setSelected(id);
     setNotice(null);
     setOutcome(null);
   };
 
-  /** Tek uçuş: komut sürerken ikinci tıklama yok sayılır; söküldükten sonra durum yazılmaz. */
-  const runLocked = async <T,>(job: () => Promise<T>): Promise<T | null> => {
-    if (pendingRef.current) return null;
+  /** "Zaten kilitli" sentineli: runLocked kilitliyse LOCKED döner; hata oluşursa null döner. */
+  const LOCKED = Symbol("locked");
+
+  /** Tek uçuş: komut sürerken ikinci tıklama sessizce yok sayılır (LOCKED); söküldükten sonra durum yazılmaz. */
+  const runLocked = async <T,>(job: () => Promise<T>): Promise<T | typeof LOCKED | null> => {
+    if (pendingRef.current) return LOCKED;
     pendingRef.current = true;
     setPending(true);
     setError(null);
@@ -230,13 +240,16 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
 
   const accept = async (id: string) => {
     const r = await runLocked(() => window.api.changesAccept(workspace.id, id));
-    if (mounted.current && r && !r.ok) setError(FAILURE_KEY[r.reason]);
+    if (r === LOCKED || !mounted.current) return;
+    if (r && !r.ok) setError(FAILURE_KEY[r.reason]);
   };
 
   const prepareRevert = async (id: string) => {
     setOutcome(null);
     const r = await runLocked(() => window.api.changesPrepareRevert(workspace.id, id));
-    if (!mounted.current || !r) return;
+    if (r === LOCKED || !mounted.current || !r) return;
+    // Kullanıcı beklerken başka kayda geçtiyse plan bayat; pencere açılmasın.
+    if (selectedRef.current !== id) return;
     if (r.ok) setPlan({ checkpointId: id, plan: r.plan });
     else setError(FAILURE_KEY[r.reason]);
   };
@@ -247,7 +260,7 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
     setPlan(null);
     if (!current) return;
     const r = await runLocked(() => window.api.changesRevert(workspace.id, current.checkpointId, current.plan.files.map((f) => f.path)));
-    if (!mounted.current) return;
+    if (r === LOCKED || !mounted.current) return;
     setOutcome(r ?? { ok: false, reason: "git", restored: [], trashed: [], skipped: [] });
   };
 
@@ -272,6 +285,8 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
   const liveFiles = live?.ok ? live.files : null;
   const actionCp = selectedCp;
   const actionPane = actionCp?.paneId ? workspace.panes.find((p) => p.id === actionCp.paneId) : undefined;
+  const revertCp = plan ? (checkpoints.find((c) => c.id === plan.checkpointId) ?? null) : null;
+  const revertCpLabel = revertCp ? titleOf(revertCp, t) : null;
 
   return (
     <section aria-label={t("changes.label")} className="flex h-full min-h-0">
@@ -391,7 +406,7 @@ export default function ChangesView({ workspace }: { workspace: TerminalWorkspac
         )}
         {outcome && <RevertOutcome outcome={outcome} onClose={() => setOutcome(null)} />}
         <ChangesBody shown={shown} file={file} diff={diff} onOpen={openFile} />
-        <RevertDialog open={plan !== null} plan={plan?.plan ?? null} onConfirm={() => void confirmRevert()} onCancel={() => setPlan(null)} />
+        <RevertDialog open={plan !== null} plan={plan?.plan ?? null} checkpointLabel={revertCpLabel} onConfirm={() => void confirmRevert()} onCancel={() => setPlan(null)} />
       </div>
     </section>
   );
@@ -504,7 +519,7 @@ function RevertOutcome({ outcome, onClose }: { outcome: RevertResult; onClose: (
         </>
       )}
       {outcome.skipped.length > 0 && <p>{t("changes.revertSkipped", { count: outcome.skipped.length })}</p>}
-      {outcome.beforeRestoreId && <p>{t("changes.revertUndoHint")}</p>}
+      {(outcome.ok || written.length > 0) && outcome.beforeRestoreId && <p>{t("changes.revertUndoHint")}</p>}
     </div>
   );
 }

@@ -12,17 +12,20 @@ import { REASON_KEY, STATUS_KEY, STATUS_MARK } from "./changesFormat";
 export default function RevertDialog({
   open,
   plan,
+  checkpointLabel,
   onConfirm,
   onCancel
 }: {
   open: boolean;
   plan: RevertPlan | null;
+  checkpointLabel: string | null;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
   const t = useT();
   if (!plan) return null;
   const added = plan.files.filter((f) => f.status === "added").length;
+  const confirmText = plan.files.length === 1 ? t("changes.revertConfirm1") : t("changes.revertConfirm", { count: plan.files.length });
   return (
     <Modal
       open={open}
@@ -36,12 +39,13 @@ export default function RevertDialog({
         <>
           <ModalCancelButton autoFocus />
           <Button variant="danger" onClick={onConfirm}>
-            {t("changes.revertConfirm", { count: plan.files.length })}
+            {confirmText}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-3 text-sm text-slate-400">
+        {checkpointLabel && <p className="text-xs font-medium text-slate-300">{checkpointLabel}</p>}
         <p>{t("changes.revertBody", { count: plan.files.length })}</p>
         <p>{t("changes.revertLaterWarning")}</p>
         {added > 0 && <p>{t("changes.revertTrashNote", { count: added })}</p>}

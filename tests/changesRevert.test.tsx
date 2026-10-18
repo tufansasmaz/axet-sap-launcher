@@ -258,7 +258,7 @@ describe("Geri al (spec §6)", () => {
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 
-  it("pathConflict hatası: FAILURE_KEY metni ve geri almayı geri al ipucu", async () => {
+  it("pathConflict + bir dosya yazıldı: FAILURE_KEY metni + yazılanlar listeleniyor; beforeRestoreId olmadan ipucu yok", async () => {
     api.changesRevert.mockResolvedValue({ ok: false, reason: "pathConflict", restored: ["a.ts"], trashed: [], skipped: [] });
     await setup();
     await select("c1");
@@ -270,6 +270,104 @@ describe("Geri al (spec §6)", () => {
     expect(outcome.textContent).toContain("Bir dosyanın yerinde artık başka bir şey var");
     expect(outcome.textContent).toContain("Durmadan önce 1 dosya geri alındı");
     expect(outcome.textContent).toContain("a.ts");
+    expect(outcome.textContent).not.toContain("Geri almadan önce");
+  });
+
+  it("pathConflict + bir dosya yazıldı + beforeRestoreId: ipucu görünüyor", async () => {
+    api.changesRevert.mockResolvedValue({ ok: false, reason: "pathConflict", restored: ["a.ts"], trashed: [], skipped: [], beforeRestoreId: "c4" });
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "2 dosyayı geri al" }));
+    await flush();
+    const outcome = document.querySelector('[data-revert-outcome="fail"]') as HTMLElement;
+    expect(outcome.textContent).toContain("Durmadan önce 1 dosya geri alındı");
+    expect(outcome.textContent).toContain("a.ts");
+    expect(outcome.textContent).toContain("Geri almadan önce");
+  });
+
+  it("storeFailed + beforeRestoreId: FAILURE_KEY metni var ama hiç dosyaya dokunulmadı → geri almayı geri al ipucu yok", async () => {
+    // storeFailed'da beforeRestore görüntüsü alınmış olabilir (changesManager:472) ama hiçbir dosyaya dokunulmamış.
+    api.changesRevert.mockResolvedValue({ ok: false, reason: "storeFailed", restored: [], trashed: [], skipped: [], beforeRestoreId: "c4" });
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "2 dosyayı geri al" }));
+    await flush();
+    const outcome = document.querySelector('[data-revert-outcome="fail"]') as HTMLElement;
+    expect(outcome.textContent).toContain("Geri alma kaydı diske yazılamadı");
+    expect(outcome.textContent).not.toContain("Geri almadan önce");
+  });
+
+  it("alreadyReverted: FAILURE_KEY metni görünüyor, ipucu yok", async () => {
+    api.changesRevert.mockResolvedValue({ ok: false, reason: "alreadyReverted", restored: [], trashed: [], skipped: [] });
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "2 dosyayı geri al" }));
+    await flush();
+    const outcome = document.querySelector('[data-revert-outcome="fail"]') as HTMLElement;
+    expect(outcome.textContent).toContain("Bu kayıt zaten geri alındı");
+    expect(outcome.textContent).not.toContain("Geri almadan önce");
+  });
+
+  it("busy sonucu şeritte görünüyor", async () => {
+    api.changesRevert.mockResolvedValue({ ok: false, reason: "busy", restored: [], trashed: [], skipped: [] });
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "2 dosyayı geri al" }));
+    await flush();
+    expect(document.querySelector('[data-revert-outcome="fail"]')?.textContent).toContain("Bu alanda başka bir geri alma sürüyor");
+  });
+
+  it("hazırlık uçuştayken başka kayıt seçilirse dönen plan atılıyor", async () => {
+    let release: (r: unknown) => void = () => {};
+    api.changesPrepareRevert.mockImplementation(() => new Promise((r) => (release = r)));
+    await setup();
+    await select("c1");
+    const button = actions().getByRole("button", { name: "Geri al" });
+    fireEvent.click(button);
+    // Kullanıcı beklerken c3'e geçiyor
+    await act(async () => { fireEvent.click(document.querySelector('[data-checkpoint="c3"]')!); });
+    // Hazırlık tamamlanıyor ama seçim artık c3
+    await act(async () => release({ ok: true, plan: plan() }));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("pencere seçili kaydın etiketini gösteriyor", async () => {
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog.textContent).toContain("istem c1");
+  });
+
+  it("Esc pencereyi kapatıyor ve changesRevert çağrılmıyor", async () => {
+    await setup();
+    await select("c1");
+    fireEvent.click(actions().getByRole("button", { name: "Geri al" }));
+    await flush();
+    expect(screen.getByRole("alertdialog")).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape", bubbles: true });
+    await flush();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(api.changesRevert).not.toHaveBeenCalled();
+  });
+
+  it("geri almadan önce kaydında Kabul et gösterilmiyor", async () => {
+    api.changesState.mockResolvedValue(state({ checkpoints: [cp("c1", 1_000, { reason: "beforeRestore", reviewed: "pending" }), cp("c2", 2_000), cp("c3", 3_000)] }));
+    await setup();
+    await select("c1");
+    expect(actions().queryByRole("button", { name: "Kabul et" })).toBeNull();
+    // Normal pending kayıtta hâlâ görünüyor
+    await select("c2");
+    expect(actions().getByRole("button", { name: "Kabul et" })).toBeTruthy();
   });
 });
 
