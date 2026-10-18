@@ -27,7 +27,7 @@ describe("Bellek — bağlantı (§3, §6)", () => {
 
   it("dört IPC yalnız ana pencereden ve yalnız kimliklerle", () => {
     for (const channel of ["memory:read", "memory:write", "memory:reveal", "memory:renotify"]) {
-      expect(main, channel).toMatch(new RegExp(`"${channel}",[\\s\\S]{0,200}memoryFromMain\\(event\\.sender\\)`));
+      expect(main, channel).toMatch(new RegExp(`"${channel}",[\\s\\S]{0,120}memoryFromMain\\(event\\.sender\\)`));
     }
     expect(main).toMatch(/function memoryFromMain\(sender: unknown\): boolean \{\s*return !!mainWindow && !mainWindow\.isDestroyed\(\) && sender === mainWindow\.webContents;/);
     expect(preload).toContain('ipcRenderer.invoke("memory:read", workspaceId, paneId)');
@@ -47,13 +47,24 @@ describe("Bellek — veri güvenliği kilitleri (§1, §2, §6)", () => {
     expect(files.match(/writeFileSync\(/g)?.length).toBe(files.match(/flag: "wx"/g)?.length);
     // Geçici dosya openSync ile açılıyor: o da yalnız "wx".
     expect(files.match(/openSync\(/g)?.length).toBe(files.match(/openSync\(temp, "wx"\)/g)?.length);
+    // Dosyayı değiştiren tek yol: geçici dosyanın üstüne rename, özet son kez denetlendikten sonra.
+    expect(files.match(/renameSync\(/g)).toHaveLength(1);
+    expect(files).toContain("renameSync(temp, file)");
     expect(files).toMatch(/memoryStamp\(readFileSync\(file\)\) !== expectedStamp[\s\S]{0,200}renameSync\(temp, file\)/);
+  });
+
+  it("kapanışta bildirimci susuyor: stopBoardManager dispose çağırıyor, tick dispose sonrası no-op", () => {
+    expect(main).toMatch(/function stopBoardManager\(\): void \{[\s\S]{0,200}memoryNotifier\.dispose\(\);/);
+    expect(notifier).toMatch(/function tick\(\): void \{\s*if \(disposed\) return;/);
   });
 
   it("günlükte yalnız sonuç, deneme, bayt", () => {
     for (const call of notifier.match(/log\(\{[^}]*\}\)/g) ?? []) expect(call).toMatch(/^log\(\{ sonuc: [^,]+, deneme: [^}]+ \}\)$/);
     expect(service).toMatch(/"bellek\.kaydet"/);
-    expect(service).not.toMatch(/log\([^)]*(content|rel|root|key)/);
+    // Hizmetin tek günlük çağrısı ve alanları: yalnız sonuç ve bayt (metin, özet, anahtar, yol yok).
+    expect(service.match(/deps\.log\(/g)).toHaveLength(1);
+    expect(service).toContain('deps.log("bellek.kaydet", fields)');
+    expect(service).toMatch(/const fields: LogFields = res\.ok \? \{ sonuc: "tamam", bayt: res\.bytes \} : \{ sonuc: res\.reason, bayt: 0 \};/);
   });
 
   it("yeni dosyalarda görünmez ya da bidi karakter yok", () => {

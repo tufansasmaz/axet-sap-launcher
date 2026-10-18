@@ -37,10 +37,13 @@ export interface MemoryNotifier {
   tick(): void;
   notice(paneId: string): MemoryNotice;
   renotify(paneId: string): boolean;
+  /** Kapanışta: sonra tick, geç gelen sonuç ve Yeniden bildir no-op. */
+  dispose(): void;
 }
 
 export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
   const byPane = new Map<string, NoticeState>();
+  let disposed = false;
 
   function attempt<T>(fn: () => T, fallback: T): T {
     try {
@@ -71,7 +74,7 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
       () =>
         deps.sendPrompt(paneId, memoryPromptLine(target.key), (outcome) => {
           // Arada yeniden başlatıldı ya da kapandı: bu sonuç artık o sürecin değil.
-          if (byPane.get(paneId) !== sending) return;
+          if (disposed || byPane.get(paneId) !== sending) return;
           if (outcome === "sent") {
             byPane.set(paneId, noticeDelivered(sending));
             log({ sonuc: "tamam", deneme: sending.attempts + 1 });
@@ -90,6 +93,7 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
   }
 
   function tick(): void {
+    if (disposed) return;
     const presence = attempt(() => deps.agents(), null);
     if (!presence) return;
     const live = new Set(presence.map((p) => p.reg.paneId));
@@ -119,11 +123,15 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
       return byPane.get(paneId)?.phase ?? "none";
     },
     renotify(paneId) {
+      if (disposed) return false;
       const state = byPane.get(paneId);
       const next = state ? noticeRetry(state) : null;
       if (!next) return false;
       byPane.set(paneId, next);
       return true;
+    },
+    dispose() {
+      disposed = true;
     }
   };
 }

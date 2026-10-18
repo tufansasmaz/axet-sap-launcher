@@ -177,6 +177,20 @@ describe("bir kez, boşta bir anda (§3)", () => {
     notifier.tick();
     expect(notifier.notice("p1")).toBe("none");
   });
+
+  it("dispose sonrası tick hiçbir şey göndermiyor; geç gelen sonuç ve Yeniden bildir yok sayılıyor", () => {
+    const { deps, notifier, settles } = harness();
+    notifier.tick();
+    expect(deps.sendPrompt).toHaveBeenCalledTimes(1);
+    notifier.dispose();
+    settles[0]("aborted");
+    expect(deps.log).not.toHaveBeenCalled();
+    expect(notifier.renotify("p1")).toBe(false);
+    notifier.tick();
+    expect(deps.agents).toHaveBeenCalledTimes(1);
+    expect(deps.ensureFile).toHaveBeenCalledTimes(1);
+    expect(deps.sendPrompt).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("bellek kapalı, etkinleştirme, dosya (§3, §7; sapma 3, 8)", () => {

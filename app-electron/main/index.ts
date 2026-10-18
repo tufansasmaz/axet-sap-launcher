@@ -481,6 +481,7 @@ function stopBoardManager(): void {
   if (boardTimer) clearInterval(boardTimer);
   boardTimer = null;
   boardManager.dispose();
+  memoryNotifier.dispose();
   try {
     changesManager.dispose();
   } catch {
