@@ -1533,7 +1533,7 @@ export const en: Record<TranslationKey, string> = {
   "browser.errorOther": "The page could not be loaded (error {code}).",
   "browser.retry": "Try again",
   "browser.crashed": "The page crashed.",
-  "browser.reloadPage": "Reload",
+  "browser.reloadPage": "Reload page",
   "browser.downloadBlocked": "Downloads are disabled in the built-in browser; use Open in system browser.",
   "shortcuts.browserAddress": "Browser: go to the address field",
   "shortcuts.browserBackForward": "Browser: back / forward"

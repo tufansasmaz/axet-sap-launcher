@@ -22,6 +22,7 @@ const page = vi.hoisted(() => ({
   forward: vi.fn(),
   reload: vi.fn(),
   stop: vi.fn(),
+  muteAudio: vi.fn(),
   id: 7 as number | null,
   props: null as null | PageProps
 }));
@@ -38,6 +39,7 @@ vi.mock("../src/browser/BrowserPage", async () => {
         forward: page.forward,
         reload: page.reload,
         stop: page.stop,
+        muteAudio: page.muteAudio,
         webContentsId: () => page.id
       }));
       return <div data-fake-page={props.initialUrl} />;
@@ -115,7 +117,7 @@ beforeEach(() => {
     browserSend: vi.fn(async () => ({ ok: true, screenshot: null }))
   };
   (window as unknown as { api: unknown }).api = api;
-  for (const fn of [page.load, page.back, page.forward, page.reload, page.stop]) fn.mockClear();
+  for (const fn of [page.load, page.back, page.forward, page.reload, page.stop, page.muteAudio]) fn.mockClear();
   page.id = 7;
   page.props = null;
 });
@@ -126,24 +128,27 @@ afterEach(() => {
 
 function setup({ ws = workspace(), visible = true, language = "tr" as "tr" | "en" } = {}) {
   const commands = commandsMock();
-  const store: TerminalStoreValue = {
-    state: { ...initialTerminalState, phase: "ready", visible, workspaces: [ws], activeWorkspaceId: ws.id },
-    commands,
-    defaultKind: "cmd",
-    defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
-  };
   const agents: AgentStatusValue = { statuses: {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) };
-  render(
-    <LanguageProvider language={language}>
-      <TerminalStoreContext.Provider value={store}>
-        <AgentStatusContext.Provider value={agents}>
-          <BrowserView workspace={ws} visible={visible} />
-        </AgentStatusContext.Provider>
-      </TerminalStoreContext.Provider>
-    </LanguageProvider>
-  );
-  return { commands };
+  const mkJsx = (v: boolean) => {
+    const store: TerminalStoreValue = {
+      state: { ...initialTerminalState, phase: "ready", visible: v, workspaces: [ws], activeWorkspaceId: ws.id },
+      commands,
+      defaultKind: "cmd",
+      defaultCwd: "C:\\a",
+      agentCwd: "C:\\a"
+    };
+    return (
+      <LanguageProvider language={language}>
+        <TerminalStoreContext.Provider value={store}>
+          <AgentStatusContext.Provider value={agents}>
+            <BrowserView workspace={ws} visible={v} />
+          </AgentStatusContext.Provider>
+        </TerminalStoreContext.Provider>
+      </LanguageProvider>
+    );
+  };
+  const result = render(mkJsx(visible));
+  return { commands, rerender: (v: boolean) => result.rerender(mkJsx(v)) };
 }
 
 const address = () => screen.getByRole("textbox", { name: "Adres" }) as HTMLInputElement;
@@ -246,6 +251,17 @@ describe("sayfa durumu ve araç çubuğu", () => {
     fireEvent.click(external());
     expect(api.openExternalUrl).toHaveBeenCalledWith("https://help.sap.com/docs");
   });
+
+  it("blur edilince editing sıfırlanıyor; sonraki gezinme adres alanını günceller", () => {
+    setup();
+    type("help.sap.com");
+    loaded();
+    fireEvent.change(address(), { target: { value: "yarım yazı" } });
+    act(() => page.props!.onState(pageState({ url: "https://help.sap.com/diger" })));
+    expect(address().value).toBe("yarım yazı");
+    fireEvent.blur(address());
+    expect(address().value).toBe("https://help.sap.com/diger");
+  });
 });
 
 describe("hata gövdesi (spec §6)", () => {
@@ -328,6 +344,18 @@ describe("indirme ve kısayollar (spec §4.5, §7)", () => {
     setup({ visible: false });
     fireEvent.keyDown(window, { key: "l", ctrlKey: true });
     expect(document.activeElement).not.toBe(address());
+  });
+});
+
+describe("ses kontrolü (spec §2 — takılı kalma)", () => {
+  it("gizlenince ses kapatılıyor; görününce geri açılıyor", () => {
+    const { rerender } = setup({ visible: true });
+    type("help.sap.com");
+    loaded();
+    rerender(false);
+    expect(page.muteAudio).toHaveBeenCalledWith(true);
+    rerender(true);
+    expect(page.muteAudio).toHaveBeenCalledWith(false);
   });
 });
 

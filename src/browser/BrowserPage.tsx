@@ -21,6 +21,7 @@ export interface PageHandle {
   forward(): void;
   reload(): void;
   stop(): void;
+  muteAudio(muted: boolean): void;
   webContentsId(): number | null;
 }
 
@@ -39,6 +40,7 @@ interface WebviewElement extends HTMLElement {
   goForward(): void;
   reload(): void;
   stop(): void;
+  setAudioMuted(muted: boolean): void;
   canGoBack(): boolean;
   canGoForward(): boolean;
   isLoading(): boolean;
@@ -82,6 +84,11 @@ const BrowserPage = forwardRef(function BrowserPage({ initialUrl, onState, onFai
       },
       stop: () => {
         if (ready.current) element.current?.stop();
+      },
+      muteAudio: (muted: boolean) => {
+        if (element.current && ready.current) {
+          try { element.current.setAudioMuted(muted); } catch { /* webview sökülürken */ }
+        }
       },
       webContentsId: () => (element.current && ready.current ? element.current.getWebContentsId() : null)
     }),

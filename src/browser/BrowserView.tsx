@@ -76,7 +76,7 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
 
   const reload = () => {
     if (failure) {
-      open(failure.url);
+      go(failure.url); // normalizeAddress üzerinden (Minor 1)
       return;
     }
     setCrashed(false);
@@ -114,6 +114,8 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
         meta: event.metaKey
       });
       if (!action) return;
+      // Modal açıkken kısayol çalışmasın (Minor 6).
+      if (document.querySelector('[role="dialog"], [aria-modal="true"]')) return;
       event.preventDefault();
       latest.current.run(action);
     };
@@ -121,8 +123,14 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
     return () => window.removeEventListener("keydown", onKey);
   }, [visible]);
 
+  // Gizli görünümde ses kapatılır (spec §2 — sayfa takılı kalırken; Minor 2).
+  useEffect(() => {
+    pageRef.current?.muteAudio(!visible);
+  }, [visible]);
+
   const onState = (next: PageState) => {
     setPage(next);
+    setNotice(null); // Başarılı gezinmede uyarı kalksın (Minor 7).
     // Hata sayfasının (chrome-error://) adresi alana ve kayda girmiyor.
     if (!editing.current && isBrowserNavAllowed(next.url)) setAddress(next.url);
     const saved = readBrowserUrl(next.url);
@@ -188,6 +196,14 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
             editing.current = true;
             setAddress(event.target.value);
           }}
+          onBlur={() => {
+            // Odak çıkınca editing sıfırlanır ve alan sayfanın güncel adresine döner (Important 1).
+            if (!editing.current) return;
+            editing.current = false;
+            if (page && isBrowserNavAllowed(page.url)) setAddress(page.url);
+            else if (failure?.url) setAddress(failure.url);
+            // else: loading sırasında mevcut değerde kal (boşaltma).
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter") {
               event.preventDefault();
@@ -195,7 +211,8 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
             } else if (event.key === "Escape") {
               event.preventDefault();
               editing.current = false;
-              setAddress(page && isBrowserNavAllowed(page.url) ? page.url : (failure?.url ?? ""));
+              // Sayfa adresi yoksa (yükleniyor vb.) yazılanı koru, boşaltma (Minor 5).
+              setAddress(page && isBrowserNavAllowed(page.url) ? page.url : (failure?.url ?? address));
               event.currentTarget.blur();
             }
           }}
@@ -255,7 +272,7 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
                     <p className="text-sm text-slate-200">{t(LOAD_ERROR_KEY[failure.kind], { code: failure.code })}</p>
                     <p className="max-w-full break-all font-mono text-2xs text-slate-400">{failure.url}</p>
                     {/* Sertifika hatasında da yalnız "Yeniden dene": istisna düğmesi YOK (spec §2, §6). */}
-                    <button type="button" onClick={() => open(failure!.url)} className={TOOL_BUTTON}>
+                    <button type="button" onClick={reload} className={TOOL_BUTTON}>
                       {t("browser.retry")}
                     </button>
                   </>
