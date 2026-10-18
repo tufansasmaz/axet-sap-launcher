@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import OfficeView from "../src/office/OfficeView";
-import { CHARACTERS, RUBBER, setOfficeArtForTests, type OfficeArt } from "../src/office/officeArt";
+import { CHARACTERS, setOfficeArtForTests, type OfficeArt } from "../src/office/officeArt";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -184,7 +184,8 @@ describe("OfficeView — kat planı ve HTML katmanı", () => {
     expect(top("p1")).toBe(top("p2"));
   });
 
-  it("çizim paketi: yokken yedek çizim ve kredi yok; yüklüyse sağ altta LimeZu kredisi (tr/en)", async () => {
+  it("çizim paketi: kredi ekranda görünmüyor (KULLANIM-REHBERI.md'de kalıyor)", async () => {
+    // Düzen rev.2 (2026-10-18): data-office-credit kaldırıldı; lisans rehberde.
     setOfficeArtForTests(null);
     setup(workspace([agentPane("p1")]));
     await act(async () => {
@@ -199,31 +200,8 @@ describe("OfficeView — kat planı ve HTML katmanı", () => {
     await act(async () => {
       await Promise.resolve();
     });
-    expect(document.querySelector("[data-office-credit]")?.textContent).toBe("Ofis çizimleri: LimeZu (Modern Interiors)");
-    cleanup();
-    setup(workspace([agentPane("p1")]), { language: "en" });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(document.querySelector("[data-office-credit]")?.textContent).toBe("Office art: LimeZu (Modern Interiors)");
-    cleanup();
-    // Rubber Studio parçaları da yüklüyse kredide o da.
-    const rubber = Object.fromEntries(RUBBER.map((n) => [n, sheet()])) as NonNullable<OfficeArt["rubber"]>;
-    setOfficeArtForTests({ room: sheet(), interiors: sheet(), characters: chars, rubber });
-    setup(workspace([agentPane("p1")]));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(document.querySelector("[data-office-credit]")?.textContent).toBe("Ofis çizimleri: LimeZu (Modern Interiors), Rubber Studio (Modern Office)");
-    cleanup();
-    setOfficeArtForTests({ room: sheet(), interiors: sheet(), characters: chars, rubber, pixelLife: sheet() });
-    setup(workspace([agentPane("p1")]));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(document.querySelector("[data-office-credit]")?.textContent).toBe(
-      "Ofis çizimleri: LimeZu (Modern Interiors), Rubber Studio (Modern Office), Christian Perich (Pixel Life)"
-    );
+    // Paket yüklü olsa da kredi ekranda çıkmıyor.
+    expect(document.querySelector("[data-office-credit]")).toBeNull();
     setOfficeArtForTests(undefined);
   });
 

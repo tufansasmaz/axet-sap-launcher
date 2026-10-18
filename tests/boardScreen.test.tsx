@@ -123,7 +123,7 @@ function setup(ws: TerminalWorkspace, board?: Board, language: "tr" | "en" = "tr
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={agents}>
             <BoardContext.Provider value={boards}>
-              {flow ? <FlowSidebar /> : <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />}
+              {flow ? <FlowSidebar /> : <AgentsScreen chatActive={false} onShowAgents={vi.fn()} chat={null} />}
             </BoardContext.Provider>
           </AgentStatusContext.Provider>
         </TerminalStoreContext.Provider>
@@ -154,24 +154,31 @@ const mixed: Board = {
 };
 
 describe("Terminal | Görevler", () => {
-  it("geçiş: Görevler seçimi alana kaydediliyor; pano görünümünde sütunlar var, bölmeler gizli ama takılı", () => {
-    const { commands } = setup(workspace({ view: "panes" }));
+  it("geçiş: Görevler seçimi alana kaydediliyor (tablist FlowSidebar'da)", () => {
+    // Düzen rev.2: tablist FlowSidebar'ın ViewTabBar'ında (flow=true).
+    const { commands } = setup(workspace({ view: "panes" }), undefined, "tr", true);
     const group = screen.getByRole("tablist", { name: "Görünüm" });
     expect(within(group).getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(within(group).getByRole("tab", { name: "Görevler" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "board");
     cleanup();
-    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] });
+    setup(workspace({ view: "board" }), undefined, "tr", true);
     expect(screen.getByRole("tab", { name: "Görevler" }).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("pano görünümünde sütunlar var, bölmeler gizli ama takılı", () => {
+    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] });
     for (const name of ["Taslak", "Sırada", "Çalışıyor", "Doğrulama", "Bitti"]) expect(col(name)).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;
     expect(cell).toBeTruthy();
     expect((cell.closest("[data-workspace]") as HTMLElement).className).toContain("hidden");
   });
 
-  it("İngilizce: geçiş ve sütun adları", () => {
-    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] }, "en");
+  it("İngilizce: sekme ve sütun adları", () => {
+    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] }, "en", true);
     expect(screen.getByRole("tab", { name: "Tasks" })).toBeTruthy();
+    cleanup();
+    setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] }, "en");
     expect(col("Draft")).toBeTruthy();
     expect(col("Verification")).toBeTruthy();
   });

@@ -30,7 +30,6 @@ describe("App — terminal modu bağlı", () => {
 
   it("Sohbet ve Ajanlar aynı kaba açılıyor; kap iki modda da takılı", () => {
     expect(app).toContain('activity === "axetCode" || activity === "terminal" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"');
-    expect(app).toContain('onShowChat={() => setActivity("axetCode")}');
     expect(app).toContain('onShowAgents={() => setActivity("terminal")}');
   });
 

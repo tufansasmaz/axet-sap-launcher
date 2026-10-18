@@ -1,15 +1,19 @@
-// Akış (spec 2026-10-18 ajanlar-yeniden §2): Ajanlar sekmelerinde kenar
-// çubuğu yuvası. Üstte ekibin SAP bağı, "Ekip" (ajan satırları: eski ekip
-// şeridindeki kartların davranışıyla), olaylar ve soru kartları (eski
-// Kararlar paneli), en altta `@ajan` mesaj kutusu. Yalnız seçili ekip.
+// Akış (spec 2026-10-18 ajanlar-yeniden §2, düzen rev.2): Ajanlar
+// sekmelerinde kenar çubuğu yuvası. Üstte ekibin SAP bağı, "Ekip" (ajan
+// satırları), olaylar ve soru kartları, mesaj kutusu; en altta görünüm
+// sekme grubu: Terminal | Görevler | Ofis | Değişiklikler | Tarayıcı
+// (Sohbet kaldırıldı — sol menüdeki Sohbet düğmesiyle erişiliyor).
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
-import { BookOpen, BookPlus, RotateCw, X } from "lucide-react";
+import { BookOpen, BookPlus, Building2, ClipboardList, GitBranch, Globe, RotateCw, Terminal, X } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import type { AgentAnswerFailure, AgentEngineInfo, AgentStatus } from "../../app-electron/shared/agentTypes";
 import type { AgentSendFailure } from "../../app-electron/shared/agentMessage";
 import { useTerminalStore } from "../stores/terminalStoreContext";
+import { workspaceViewOf } from "../stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
+import type { WorkspaceView } from "../../app-electron/shared/types";
+import type { LucideIcon } from "lucide-react";
 import { Eyebrow } from "../ui/Eyebrow";
 import { GHOST_ICON_BUTTON, PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import { selectedClass } from "../shell/SidebarFooter";
@@ -89,6 +93,87 @@ export default function FlowSidebar() {
         )}
       </div>
       <MessageBox key={workspace.id} workspace={workspace} />
+      <ViewTabBar workspace={workspace} />
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- görünüm sekme grubu
+
+const VIEW_TABS: readonly WorkspaceView[] = ["panes", "board", "office", "changes", "browser"];
+
+const VIEW_TAB_KEY: Record<WorkspaceView, TranslationKey> = {
+  panes: "tabs.terminal",
+  board: "tabs.tasks",
+  office: "office.view",
+  changes: "changes.view",
+  browser: "browser.view"
+};
+
+const VIEW_TAB_ICON: Record<WorkspaceView, LucideIcon> = {
+  panes: Terminal,
+  board: ClipboardList,
+  office: Building2,
+  changes: GitBranch,
+  browser: Globe
+};
+
+function ViewTabBar({ workspace }: { workspace: TerminalWorkspace }) {
+  const t = useT();
+  const { commands } = useTerminalStore();
+  const tabRefs = useRef(new Map<WorkspaceView, HTMLButtonElement>());
+  const current = workspaceViewOf(workspace);
+
+  const choose = (next: WorkspaceView, focus = false) => {
+    commands.setWorkspaceView(workspace.id, next);
+    if (focus) tabRefs.current.get(next)?.focus();
+  };
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const index = VIEW_TABS.indexOf(current);
+    if (e.key === "ArrowRight") choose(VIEW_TABS[(index + 1) % VIEW_TABS.length], true);
+    else if (e.key === "ArrowLeft") choose(VIEW_TABS[(index - 1 + VIEW_TABS.length) % VIEW_TABS.length], true);
+    else if (e.key === "Home") choose(VIEW_TABS[0], true);
+    else if (e.key === "End") choose(VIEW_TABS[VIEW_TABS.length - 1], true);
+    else return;
+    e.preventDefault();
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label={t("board.viewLabel")}
+      data-view-tabbar=""
+      onKeyDown={onKeyDown}
+      className="flex shrink-0 items-stretch border-t border-line"
+    >
+      {VIEW_TABS.map((v) => {
+        const selected = current === v;
+        const Icon = VIEW_TAB_ICON[v];
+        return (
+          <button
+            key={v}
+            ref={(el) => {
+              if (el) tabRefs.current.set(v, el);
+              else tabRefs.current.delete(v);
+            }}
+            type="button"
+            role="tab"
+            data-screen-tab={v}
+            aria-selected={selected}
+            aria-label={t(VIEW_TAB_KEY[v])}
+            tabIndex={selected ? 0 : -1}
+            title={t(VIEW_TAB_KEY[v])}
+            onClick={() => choose(v)}
+            className={`flex flex-1 flex-col items-center gap-0.5 py-1.5 text-center transition-colors ${
+              selected ? "bg-[var(--accent-glow)] text-slate-100" : "text-slate-500 hover:text-slate-200"
+            }`}
+          >
+            <Icon size={13} />
+            <span className="text-2xs leading-none">{t(VIEW_TAB_KEY[v])}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

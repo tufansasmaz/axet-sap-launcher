@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import AgentsScreen from "../src/agents/AgentsScreen";
+import FlowSidebar from "../src/agents/FlowSidebar";
+import { FlowContext } from "../src/agents/flowContext";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -83,33 +85,45 @@ const workspace = (over: Partial<TerminalWorkspace> = {}): TerminalWorkspace => 
   ...over
 });
 
-function setup(ws: TerminalWorkspace, { board, language = "tr" }: { board?: Board; language?: "tr" | "en" } = {}) {
+function buildUi(
+  w: TerminalWorkspace,
+  commands: TerminalCommands,
+  agents: AgentStatusValue,
+  boards: BoardContextValue,
+  language: "tr" | "en",
+  withFlow = false
+) {
+  const store: TerminalStoreValue = {
+    state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [w], activeWorkspaceId: w.id },
+    commands,
+    defaultKind: "cmd",
+    defaultCwd: "C:\\a",
+    agentCwd: "C:\\a"
+  };
+  return (
+    <LanguageProvider language={language}>
+      <TerminalStoreContext.Provider value={store}>
+        <AgentStatusContext.Provider value={agents}>
+          <BoardContext.Provider value={boards}>
+            <FlowContext.Provider value={{ events: [], record: () => {} }}>
+              {withFlow && <FlowSidebar />}
+              <AgentsScreen chatActive={false} onShowAgents={vi.fn()} chat={null} />
+            </FlowContext.Provider>
+          </BoardContext.Provider>
+        </AgentStatusContext.Provider>
+      </TerminalStoreContext.Provider>
+    </LanguageProvider>
+  );
+}
+
+function setup(ws: TerminalWorkspace, { board, language = "tr", withFlow = false }: { board?: Board; language?: "tr" | "en"; withFlow?: boolean } = {}) {
   const commands = commandsMock();
   const agents: AgentStatusValue = { statuses: {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) };
-  const ui = (w: TerminalWorkspace) => {
-    const store: TerminalStoreValue = {
-      state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [w], activeWorkspaceId: w.id },
-      commands,
-      defaultKind: "cmd",
-      defaultCwd: "C:\\a",
-      agentCwd: "C:\\a"
-    };
-    const boards: BoardContextValue = {
-      boards: board ? { [w.id]: board } : {},
-      command: vi.fn(async (): Promise<BoardCommandResult> => ({ ok: true }))
-    };
-    return (
-      <LanguageProvider language={language}>
-        <TerminalStoreContext.Provider value={store}>
-          <AgentStatusContext.Provider value={agents}>
-            <BoardContext.Provider value={boards}>
-              <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />
-            </BoardContext.Provider>
-          </AgentStatusContext.Provider>
-        </TerminalStoreContext.Provider>
-      </LanguageProvider>
-    );
+  const boards: BoardContextValue = {
+    boards: board ? { [ws.id]: board } : {},
+    command: vi.fn(async (): Promise<BoardCommandResult> => ({ ok: true }))
   };
+  const ui = (w: TerminalWorkspace) => buildUi(w, commands, agents, boards, language, withFlow);
   const r = render(ui(ws));
   return { commands, rerender: (w: TerminalWorkspace) => r.rerender(ui(w)) };
 }
@@ -117,25 +131,26 @@ function setup(ws: TerminalWorkspace, { board, language = "tr" }: { board?: Boar
 const office = () => screen.queryByRole("region", { name: "Ofis görünümü" });
 const xterm = () => screen.getByTestId("xterm-t-p1");
 
-describe("orta sekmeler: Sohbet | Ofis | Terminal | Görevler | …", () => {
+describe("görünüm sekmeleri: FlowSidebar ViewTabBar (düzen rev.2)", () => {
   it("kaydı olmayan alan Ofis'te açılıyor (ajanlar-yeniden §2)", () => {
     setup(workspace());
-    expect(screen.getByRole("tab", { name: "Ofis" }).getAttribute("aria-selected")).toBe("true");
     expect(office()).toBeTruthy();
   });
 
-  it("altı sekme; Terminal'deyken Ofis seçimi alana kaydediliyor", () => {
-    const { commands } = setup(workspace({ view: "panes" }));
+  it("beş sekme (Sohbet yok); Terminal'deyken Ofis seçimi alana kaydediliyor", () => {
+    // Düzen rev.2: tablist FlowSidebar'da, Sohbet kaldırıldı.
+    const { commands } = setup(workspace({ view: "panes" }), { withFlow: true });
     const group = screen.getByRole("tablist", { name: "Görünüm" });
-    expect(within(group).getAllByRole("tab").map((r) => r.textContent)).toEqual(["Sohbet", "Ofis", "Terminal", "Görevler", "Değişiklikler", "Tarayıcı"]);
+    const labels = within(group).getAllByRole("tab").map((r) => r.getAttribute("aria-label"));
+    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı"]);
     expect(within(group).getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(within(group).getByRole("tab", { name: "Ofis" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "office");
-    expect(office()).toBeNull();
   });
 
-  it("ofiste: Ofis seçili, bölmeler gizli ama takılı, xterm active değil, Kararlar yerinde, Pano yok", () => {
-    setup(workspace({ view: "office" }));
+  it("ofiste: bölmeler gizli ama takılı, xterm active değil, Kararlar yok, Pano yok", () => {
+    // Tab seçim durumu FlowSidebar'da; burada içerik doğrulanıyor.
+    setup(workspace({ view: "office" }), { withFlow: true });
     expect(screen.getByRole("tab", { name: "Ofis" }).getAttribute("aria-selected")).toBe("true");
     expect(office()).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;
@@ -165,7 +180,7 @@ describe("orta sekmeler: Sohbet | Ofis | Terminal | Görevler | …", () => {
   });
 
   it("Pano görünümü değişmedi: Pano seçili, sütunlar var, ofis yok, xterm active değil", () => {
-    setup(workspace({ view: "board" }), { board: { workspaceId: "a", tasks: [] } });
+    setup(workspace({ view: "board" }), { board: { workspaceId: "a", tasks: [] }, withFlow: true });
     expect(screen.getByRole("tab", { name: "Görevler" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("list", { name: "Taslak" })).toBeTruthy();
     expect(office()).toBeNull();
@@ -173,7 +188,7 @@ describe("orta sekmeler: Sohbet | Ofis | Terminal | Görevler | …", () => {
   });
 
   it("İngilizce: Office seçeneği", () => {
-    setup(workspace({ view: "office" }), { language: "en" });
+    setup(workspace({ view: "office" }), { language: "en", withFlow: true });
     expect(screen.getByRole("tab", { name: "Office" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("region", { name: "Office view" })).toBeTruthy();
   });
@@ -185,11 +200,11 @@ describe("orta sekmeler: Sohbet | Ofis | Terminal | Görevler | …", () => {
       onChangesChanged: vi.fn(() => () => {}),
       changesLive: vi.fn(async () => ({ ok: true, files: [], truncated: false, toWorkingTree: true, noCheckpoint: true }))
     };
-    const { commands } = setup(workspace({ view: "panes" }));
+    const { commands } = setup(workspace({ view: "panes" }), { withFlow: true });
     fireEvent.click(screen.getByRole("tab", { name: "Değişiklikler" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "changes");
     cleanup();
-    setup(workspace({ view: "changes" }));
+    setup(workspace({ view: "changes" }), { withFlow: true });
     expect(screen.getByRole("tab", { name: "Değişiklikler" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("region", { name: "Değişiklikler görünümü" })).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;

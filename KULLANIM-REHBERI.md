@@ -424,13 +424,14 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   geliştirici, test), **Analiz** (lider, analist), **Destek** (tek ajan).
   Şablon ajanları axet-code ile, ekibin varsayılan klasöründe açar; rol yalnız
   bir etikettir, rol kapısı ve SAP kuralları aynen geçerlidir.
-- **Orta sekmeler**: **Sohbet | Ofis | Terminal | Görevler | Değişiklikler |
-  Tarayıcı**. Seçim ekip başına hatırlanır; yeni ekip **Ofis**'te açılır.
-  Terminal bölme düzenidir (değişmedi). Sağdaki **Kabuk** cmd/PowerShell
-  bölmesi, **Ajan** yeni ajan açar: ad, motor (axet-code, Claude Code, Codex,
-  Gemini CLI ya da kendi komutun), rol, klasör, renk. axet-code'da rol listesi
-  axet-code'un kendi ajanlarından gelir; kurulu olmayan motorun satırında
-  "Kurulu değil" yazar ve başlamaz.
+- **Görünüm sekme grubu** (Akış'ın alt kenarı): **Terminal | Görevler | Ofis |
+  Değişiklikler | Tarayıcı**. Sohbet bu gruptan kaldırıldı; Sohbet'e sol
+  menüdeki **Axet Chat** düğmesiyle dönülür. Seçim ekip başına hatırlanır;
+  yeni ekip **Ofis**'te açılır. Terminal bölme düzenidir (değişmedi). Sağdaki
+  **Kabuk** cmd/PowerShell bölmesi, **Ajan** yeni ajan açar: ad, motor
+  (axet-code, Claude Code, Codex, Gemini CLI ya da kendi komutun), rol,
+  klasör, renk. axet-code'da rol listesi axet-code'un kendi ajanlarından
+  gelir; kurulu olmayan motorun satırında "Kurulu değil" yazar ve başlamaz.
 - **Akış** (sol sütun; Sohbet sekmesinde yerini sohbet listesi alır):
   - Üstte ekibin SAP bağı.
   - **Ekip**: her ajan bir satır — ad, rol, durum (Çalışıyor, Soru soruyor,
@@ -547,8 +548,9 @@ ve panodaki alt görevi tek bakışta özetler.
   tahta Rubber Studio'nun **Modern Office** örneğinden, masa üstü eşyaları
   (klavye, kalemlik, kupa, grafik panosu, yangın tüpü) Christian Perich'in
   **Pixel Life - Office Essentials** paketinden (CC BY 4.0) gelir. Kullanılan
-  paketler sağ alt köşede yazar ("Ofis çizimleri: LimeZu (Modern Interiors),
-  ..."). Paket lisansları dağıtıma izin vermediği için depoda yoktur: kendi
+  Paket lisans bildirimi (CC BY 4.0 gereksinimi): LimeZu (Modern Interiors),
+  Rubber Studio (Modern Office), Christian Perich (Pixel Life). Paket lisansları
+  dağıtıma izin vermediği için depoda yoktur: kendi
   makinende `src/assets/office-art/` klasörüne koyarsan kullanılır, yoksa ofis
   uygulamanın kendi basit çizimleriyle açılır.
 

@@ -1109,7 +1109,6 @@ export default function App() {
         <div className={activity === "axetCode" || activity === "terminal" ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "hidden"}>
           <AgentsScreen
             chatActive={activity === "axetCode"}
-            onShowChat={() => setActivity("axetCode")}
             onShowAgents={() => setActivity("terminal")}
             activeSap={activeContext.sap}
             chat={

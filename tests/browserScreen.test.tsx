@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
 import AgentsScreen from "../src/agents/AgentsScreen";
+import FlowSidebar from "../src/agents/FlowSidebar";
+import { FlowContext } from "../src/agents/flowContext";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -94,11 +96,11 @@ const workspace = (over: Partial<TerminalWorkspace> = {}): TerminalWorkspace => 
   ...over
 });
 
-function setup(ws: TerminalWorkspace) {
+function setup(ws: TerminalWorkspace, withFlow = false) {
   const commands = commandsMock();
   const agents: AgentStatusValue = { statuses: {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) };
   const boards: BoardContextValue = { boards: {}, command: vi.fn(async (): Promise<BoardCommandResult> => ({ ok: true })) };
-  const ui = (w: TerminalWorkspace) => {
+  const buildUi = (w: TerminalWorkspace, withFlow = false) => {
     const store: TerminalStoreValue = {
       state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [w], activeWorkspaceId: w.id },
       commands,
@@ -111,30 +113,35 @@ function setup(ws: TerminalWorkspace) {
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={agents}>
             <BoardContext.Provider value={boards}>
-              <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />
+              <FlowContext.Provider value={{ events: [], record: () => {} }}>
+                {withFlow && <FlowSidebar />}
+                <AgentsScreen chatActive={false} onShowAgents={vi.fn()} chat={null} />
+              </FlowContext.Provider>
             </BoardContext.Provider>
           </AgentStatusContext.Provider>
         </TerminalStoreContext.Provider>
       </LanguageProvider>
     );
   };
-  const r = render(ui(ws));
-  return { commands, rerender: (w: TerminalWorkspace) => r.rerender(ui(w)) };
+  const r = render(buildUi(ws, withFlow));
+  return { commands, rerender: (w: TerminalWorkspace, wf = withFlow) => r.rerender(buildUi(w, wf)) };
 }
 
 const hostOf = (el: Element | null) => el?.closest("[data-browser]") as HTMLElement;
 
 describe("Tarayıcı görünümü — geçiş", () => {
-  it("geçiş beş seçenekli; Tarayıcı seçimi alana kaydediliyor", () => {
-    const { commands } = setup(workspace());
+  it("beş sekme (Sohbet yok); Tarayıcı seçimi alana kaydediliyor (tablist FlowSidebar'da)", () => {
+    // Düzen rev.2: tablist FlowSidebar'ın ViewTabBar'ında.
+    const { commands } = setup(workspace(), true);
     const group = screen.getByRole("tablist", { name: "Görünüm" });
-    expect(within(group).getAllByRole("tab").map((r) => r.textContent)).toEqual(["Sohbet", "Ofis", "Terminal", "Görevler", "Değişiklikler", "Tarayıcı"]);
+    const labels = within(group).getAllByRole("tab").map((r) => r.getAttribute("aria-label"));
+    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı"]);
     fireEvent.click(within(group).getByRole("tab", { name: "Tarayıcı" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "browser");
   });
 
-  it("Tarayıcı'dayken: seçili, görünüm bölgesi var, bölmeler gizli ama takılı, xterm active değil, Kararlar yerinde", () => {
-    setup(workspace({ view: "browser" }));
+  it("Tarayıcı'dayken: seçili (FlowSidebar'da), görünüm bölgesi var, bölmeler gizli ama takılı, xterm active değil", () => {
+    setup(workspace({ view: "browser" }), true);
     expect(screen.getByRole("tab", { name: "Tarayıcı" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.getByRole("region", { name: "Tarayıcı görünümü" })).toBeTruthy();
     const cell = document.querySelector('[data-pane="p1"]') as HTMLElement;

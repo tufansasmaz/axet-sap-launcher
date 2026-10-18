@@ -317,3 +317,80 @@ describe("Akış — ajan satırı (eski ekip kartı)", () => {
     expect(screen.getByRole("dialog", { name: "Ayşe — kalıcı bellek" })).toBeTruthy();
   });
 });
+
+describe("ViewTabBar — görünüm sekme grubu (düzen rev.2)", () => {
+  function setupTabBar(view: TerminalWorkspace["view"] = undefined) {
+    const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
+    const store: TerminalStoreValue = {
+      state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [ws("w1", [], { view })], activeWorkspaceId: "w1" },
+      commands,
+      defaultKind: "cmd",
+      defaultCwd: "C:\a",
+      agentCwd: "C:\axet"
+    };
+    const answer = vi.fn(async () => ({ ok: true as const }));
+    const agents: AgentStatusValue = { statuses: {}, engines: [], now: 1, answer };
+    render(
+      <LanguageProvider language="tr">
+        <TerminalStoreContext.Provider value={store}>
+          <AgentStatusContext.Provider value={agents}>
+            <FlowContext.Provider value={{ events: [], record: () => {} }}>
+              <FlowSidebar />
+            </FlowContext.Provider>
+          </AgentStatusContext.Provider>
+        </TerminalStoreContext.Provider>
+      </LanguageProvider>
+    );
+    return { commands };
+  }
+
+  it("beş sekme; sırası Terminal | Görevler | Ofis | Değişiklikler | Tarayıcı (Ofis ortada)", () => {
+    setupTabBar();
+    const group = screen.getByRole("tablist", { name: "Görünüm" });
+    const labels = Array.from(group.querySelectorAll("[role=tab]")).map((t) => t.getAttribute("aria-label"));
+    expect(labels).toEqual(["Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı"]);
+  });
+
+  it("Ofis görünümündeyken Ofis seçili", () => {
+    setupTabBar("office");
+    expect(screen.getByRole("tab", { name: "Ofis" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("false");
+  });
+
+  it("sekmeye tıklamak setWorkspaceView'u çağırıyor", () => {
+    const { commands } = setupTabBar("office");
+    fireEvent.click(screen.getByRole("tab", { name: "Görevler" }));
+    expect(commands.setWorkspaceView).toHaveBeenCalledWith("w1", "board");
+  });
+
+  it("ok tuşu sekmeler arasında geziyor; seçili sekme tabIndex=0", () => {
+    const { commands } = setupTabBar("panes");
+    expect(screen.getByRole("tab", { name: "Terminal" }).tabIndex).toBe(0);
+    expect(screen.getByRole("tab", { name: "Ofis" }).tabIndex).toBe(-1);
+    fireEvent.keyDown(screen.getByRole("tablist", { name: "Görünüm" }), { key: "ArrowRight" });
+    expect(commands.setWorkspaceView).toHaveBeenCalledWith("w1", "board");
+  });
+
+  it("Alan seçili değilken ViewTabBar görünmüyor", () => {
+    const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
+    const store: TerminalStoreValue = {
+      state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [], activeWorkspaceId: null },
+      commands,
+      defaultKind: "cmd",
+      defaultCwd: "C:\a",
+      agentCwd: "C:\axet"
+    };
+    render(
+      <LanguageProvider language="tr">
+        <TerminalStoreContext.Provider value={store}>
+          <AgentStatusContext.Provider value={{ statuses: {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) }}>
+            <FlowContext.Provider value={{ events: [], record: () => {} }}>
+              <FlowSidebar />
+            </FlowContext.Provider>
+          </AgentStatusContext.Provider>
+        </TerminalStoreContext.Provider>
+      </LanguageProvider>
+    );
+    expect(screen.queryByRole("tablist", { name: "Görünüm" })).toBeNull();
+  });
+});

@@ -28,7 +28,7 @@ import { CELL_H, TILE, officePlan, type OfficePlan } from "./officeFloor";
 import { BEAM_MS, FRAME_MS, beamShape, boardLeadActive, leaderPane, newAssignments, talking } from "./officeMotion";
 import { actorView, stepWorld, worldBusy, type ActorInput, type World } from "./officeActors";
 import { cellBox, headPoint, paintBackground, paintScene, safeContext, type Look, type Scene, type SceneBeam, type SceneDesk } from "./officeCanvas";
-import { HAIR, PANTS, SHIRT, SKIN, appearanceOf } from "./officePalette";
+import { HAIR, PALETTE, PANTS, SHIRT, SKIN, appearanceOf } from "./officePalette";
 import { CHARACTERS, hairRecolor, shirtRecolor, useOfficeArt, type OfficeArt } from "./officeArt";
 import { paintBackgroundArt, paintSceneArt, type ArtLook } from "./officeArtCanvas";
 import { usePrefersReducedMotion } from "./reducedMotion";
@@ -56,14 +56,7 @@ function lookOf(id: string, color: TerminalPane["color"]): Look {
   return { style: a.style, slots: { hair, hairShade, skin, skinShade, pants, pantsShade, shirt, shirtShade } };
 }
 
-/** Kredi: kullanılan paketler (özel ad, çevrilmez). */
-function artCredit(art: OfficeArt): string {
-  return [
-    "LimeZu (Modern Interiors)",
-    ...(art.rubber ? ["Rubber Studio (Modern Office)"] : []),
-    ...(art.pixelLife ? ["Christian Perich (Pixel Life)"] : [])
-  ].join(", ");
-}
+// artCredit: lisans bilgisi KULLANIM-REHBERI.md'de — ekranda gösterilmiyor.
 
 /** Paketle çizimde: kimlikten karakter + saç çeşidi, gömlek = bölme rengi. */
 function artLookOf(id: string, color: TerminalPane["color"]): ArtLook {
@@ -333,7 +326,7 @@ export default function OfficeView({
           </button>
         </div>
       ) : (
-        <div ref={areaRef} className="flex min-h-0 flex-1 overflow-auto p-4">
+        <div ref={areaRef} className="flex min-h-0 flex-1 overflow-hidden" style={{ backgroundColor: PALETTE.wallFace }}>
           <div
             ref={stageRef}
             data-office-stage=""
@@ -363,19 +356,11 @@ export default function OfficeView({
           </div>
         </div>
       )}
-      {(shells > 0 || (art && !empty)) && (
+      {shells > 0 && (
         <div className="pointer-events-none absolute bottom-1.5 right-3 flex flex-col items-end gap-0.5">
-          {shells > 0 && (
-            <p data-office-shells="" className="font-mono text-2xs tabular-nums text-slate-500">
-              {t("office.shellCount", { count: shells })}
-            </p>
-          )}
-          {/* Paket lisansı: yalnız paket yüklüyken, kaynağıyla. */}
-          {art && !empty && (
-            <p data-office-credit="" className="text-2xs text-slate-500">
-              {t("office.credit", { who: artCredit(art) })}
-            </p>
-          )}
+          <p data-office-shells="" className="font-mono text-2xs tabular-nums text-slate-500">
+            {t("office.shellCount", { count: shells })}
+          </p>
         </div>
       )}
     </section>

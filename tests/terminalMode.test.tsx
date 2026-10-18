@@ -120,7 +120,7 @@ function setup(over: Partial<TerminalState> = {}, defaultCwd = "C:\\a", agents: 
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider value={make(o)}>
         <AgentStatusContext.Provider value={agentValue}>
-          <AgentsScreen chatActive={false} onShowChat={vi.fn()} onShowAgents={vi.fn()} chat={null} />
+          <AgentsScreen chatActive={false} onShowAgents={vi.fn()} chat={null} />
         </AgentStatusContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
