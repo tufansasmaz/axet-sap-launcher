@@ -1,6 +1,6 @@
 // Değişiklik yöneticisi (spec 2026-10-18 degisiklikler §3–§8). Git, depo,
 // çöp ve izleyici sahte; gerçek git Task 3'te test ediliyor.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createChangesManager, type SnapshotMeta } from "../app-electron/main/changesManager";
 import type { GitPort, ProbeResult } from "../app-electron/main/changesGit";
 import type { CheckpointFileResult } from "../app-electron/main/changesStore";
@@ -110,7 +110,11 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
     exists: new Set<string>(),
     trashFail: new Set<string>(),
     emitThrows: false,
-    writeThrows: false
+    writeThrows: false,
+    writeOk: true,
+    /** Yolun diskteki türü (varsayılan "none"); geri yükleme çakışma denetimi. */
+    kinds: new Map<string, "file" | "dir">(),
+    kindThrows: false
   };
   const manager = createChangesManager({
     now: () => clock.ms,
@@ -119,6 +123,7 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
       read: () => opts.files ?? { checkpoints: [] },
       write: (_ws, list) => {
         if (state.writeThrows) throw new Error("disk dolu");
+        if (!state.writeOk) return false;
         written.push(JSON.parse(JSON.stringify(list)));
         return true;
       },
@@ -137,10 +142,17 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
       return state.inside(rel);
     },
     pathExists: (_root, rel) => state.exists.has(rel),
+    pathKind: (_root, rel) => {
+      if (state.kindThrows) throw new Error("lstat patladı");
+      return state.kinds.get(rel) ?? "none";
+    },
     trash: async (_root, rel) => {
       if (state.trashFail.has(rel)) throw new Error("çöp kutusu yok");
       events.push(`trash:${rel}`);
       order.push(`trash:${rel}`);
+      // Sahte disk: taşınan yol artık yok.
+      state.exists.delete(rel);
+      state.kinds.delete(rel);
     },
     agents: () => {
       if (state.agentsThrow) throw new Error("izleyici patladı");
@@ -353,7 +365,8 @@ describe("Kabul et ve Geri al (spec §5, §6)", () => {
     h.state.exists.add("yeni.txt");
     const result = await h.manager.revert("w1", "c1", ["a.ts", "sil.md", "yeni.txt"]);
     expect(result).toEqual({ ok: true, restored: ["a.ts", "sil.md"], trashed: ["yeni.txt"], skipped: [], beforeRestoreId: "c3" });
-    expect(h.events.slice(2)).toEqual([`snapshot:${T(3)}`, `load:${T(1)}`, "restore:a.ts", "restore:sil.md", "trash:yeni.txt"]);
+    // Önce eklenmiş dosyalar çöpe, sonra geri yükleme (inceleme 1: checkout-index -f çakışması).
+    expect(h.events.slice(2)).toEqual([`snapshot:${T(3)}`, "trash:yeni.txt", `load:${T(1)}`, "restore:a.ts", "restore:sil.md"]);
     const list = h.written.at(-1)!;
     expect(list.map((c) => [c.id, c.reason, c.reviewed])).toEqual([
       ["c1", "prompt", "reverted"],
@@ -391,8 +404,8 @@ describe("Kabul et ve Geri al (spec §5, §6)", () => {
     h.state.exists.add("yeni.txt");
     h.git.restoreFail.add("b.ts");
     const result = await h.manager.revert("w1", "c1", ["a.ts", "b.ts", "yeni.txt"]);
-    expect(result).toEqual({ ok: false, reason: "writeFailed", restored: ["a.ts"], trashed: [], skipped: [], failedPath: "b.ts", beforeRestoreId: "c3" });
-    expect(h.events).not.toContain("trash:yeni.txt");
+    // Eklenmiş dosya önce çöpe gitti; yazma b.ts'de durdu.
+    expect(result).toEqual({ ok: false, reason: "writeFailed", restored: ["a.ts"], trashed: ["yeni.txt"], skipped: [], failedPath: "b.ts", beforeRestoreId: "c3" });
     expect(h.last().checkpoints.map((c) => [c.id, c.reviewed])).toEqual([
       ["c1", "pending"],
       ["c2", "pending"],
@@ -473,37 +486,45 @@ describe("Kabul et ve Geri al (spec §5, §6)", () => {
 });
 
 describe("Geri al güvenliği (Görev 3 incelemesi)", () => {
-  it("insideRoot alan köküyle, her yazma ve çöpe taşımadan HEMEN önce çağrılıyor", async () => {
+  it("insideRoot alan köküyle, her yazma ve çöpe taşımadan HEMEN önce çağrılıyor; önce çöp, sonra geri yükleme", async () => {
     const h = harness();
     await twoCheckpoints(h, [change("a.ts"), change("yeni.txt", "added")]);
     h.state.exists.add("yeni.txt");
     expect((await h.manager.revert("w1", "c1", ["a.ts", "yeni.txt"])).ok).toBe(true);
-    expect(h.order).toEqual(["inside:a.ts", "restore:a.ts", "inside:yeni.txt", "trash:yeni.txt"]);
+    expect(h.order).toEqual(["inside:yeni.txt", "trash:yeni.txt", "inside:a.ts", "restore:a.ts"]);
     expect(h.insideCalls.every(([root]) => root === "C:/kok")).toBe(true);
   });
 
   it("alan alt klasör, içinde depo içindeki başka yeri gösteren junction: o dosyada durur, yazma/taşıma yok, kısmi sonuç", async () => {
-    const h = harness({ cwd: "C:/depo/src" });
-    h.git.probe = { ok: true, top: "C:/depo", prefix: "src/" };
     // bag/ alan içinde bir junction; gerçek yolu C:/depo/docs (depo içinde ama alan dışında).
-    h.state.inside = (rel) => !rel.startsWith("bag/");
-    await twoCheckpoints(h, [change("bag/a.ts"), change("bag/yeni.txt", "added"), change("ok.ts")]);
-    h.state.exists.add("bag/yeni.txt");
-    const result = await h.manager.revert("w1", "c1", ["ok.ts", "bag/a.ts", "bag/yeni.txt"]);
+    const sub = () => {
+      const h = harness({ cwd: "C:/depo/src" });
+      h.git.probe = { ok: true, top: "C:/depo", prefix: "src/" };
+      h.state.inside = (rel) => !rel.startsWith("bag/");
+      return h;
+    };
+    const h = sub();
+    await twoCheckpoints(h, [change("bag/a.ts"), change("ok.ts")]);
+    const result = await h.manager.revert("w1", "c1", ["ok.ts", "bag/a.ts"]);
     expect(result).toEqual({ ok: false, reason: "invalid", restored: ["ok.ts"], trashed: [], skipped: [], failedPath: "bag/a.ts", beforeRestoreId: "c3" });
     expect(h.events).not.toContain("restore:src/bag/a.ts");
-    expect(h.events).not.toContain("trash:bag/yeni.txt");
     expect(h.insideCalls.map(([root]) => root)).toEqual(["C:/depo/src", "C:/depo/src"]);
     expect(h.last().checkpoints[0].reviewed).toBe("pending");
     expect(h.logs).toContainEqual(["degisiklik.geriAl", { dosya: 1, sonuc: "invalid" }]);
 
-    const h2 = harness({ cwd: "C:/depo/src" });
-    h2.git.probe = { ok: true, top: "C:/depo", prefix: "src/" };
-    h2.state.inside = (rel) => !rel.startsWith("bag/");
-    await twoCheckpoints(h2, [change("bag/yeni.txt", "added")]);
+    const h2 = sub();
+    await twoCheckpoints(h2, [change("bag/yeni.txt", "added"), change("ok.ts")]);
     h2.state.exists.add("bag/yeni.txt");
-    expect(await h2.manager.revert("w1", "c1", ["bag/yeni.txt"])).toMatchObject({ ok: false, reason: "invalid", failedPath: "bag/yeni.txt", trashed: [] });
-    expect(h2.events.filter((e) => e.startsWith("trash"))).toEqual([]);
+    expect(await h2.manager.revert("w1", "c1", ["ok.ts", "bag/yeni.txt"])).toEqual({
+      ok: false,
+      reason: "invalid",
+      restored: [],
+      trashed: [],
+      skipped: [],
+      failedPath: "bag/yeni.txt",
+      beforeRestoreId: "c3"
+    });
+    expect(h2.events.filter((e) => e.startsWith("trash") || e.startsWith("restore"))).toEqual([]);
   });
 
   it("insideRoot fırlatırsa alan dışı sayılıyor", async () => {
@@ -552,13 +573,183 @@ describe("Geri al güvenliği (Görev 3 incelemesi)", () => {
     expect(h.last().warning).toEqual({ code: "git", at: 1_000 });
     expect(JSON.stringify(h.logs)).not.toContain("bir şey");
   });
+});
 
-  it("kanca: görüntü sürerken istem ve dağıtım beklemiyor", async () => {
+describe("Düzeltme turu 1 (Görev 4 incelemesi)", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("kanca: görüntü sürerken istem ve dağıtım senkron dönüyor (sahte zamanlayıcı)", async () => {
+    vi.useFakeTimers();
     const h = harness();
     h.git.gate = new Promise<void>(() => {});
-    const started = Date.now();
-    h.manager.onPromptLine(reg(), "uzun iş");
-    h.manager.onDispatched("w1", "p2", "s1", "Görev");
-    expect(Date.now() - started).toBeLessThan(50);
+    expect(h.manager.onPromptLine(reg(), "uzun iş")).toBeUndefined();
+    expect(h.manager.onDispatched("w1", "p2", "s1", "Görev")).toBeUndefined();
+    // Zaman ilerletilmeden kancalar dönmüş; görüntü hâlâ kapıda bekliyor.
+    await vi.advanceTimersByTimeAsync(0);
+    expect(h.git.active).toBeGreaterThan(0);
+    expect(h.written).toEqual([]);
+  });
+
+  it("dosya→klasör: görüntüde dosya olan yerde şimdi klasör var → geri yükleme yapılmıyor, işlem duruyor", async () => {
+    const h = harness();
+    // c1'de dosya "a"; sonra a/ klasör oldu (a/x eklendi, içinde yok sayılan a/.cache de var).
+    await twoCheckpoints(h, [change("a", "deleted"), change("a/x", "added"), change("b.ts")]);
+    h.state.exists.add("a/x");
+    h.state.kinds.set("a", "dir");
+    h.state.kinds.set("a/x", "file");
+    const result = await h.manager.revert("w1", "c1", ["a", "a/x", "b.ts"]);
+    expect(result).toEqual({ ok: false, reason: "pathConflict", restored: [], trashed: ["a/x"], skipped: [], failedPath: "a", beforeRestoreId: "c3" });
+    expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+    expect(h.last().checkpoints[0].reviewed).toBe("pending");
+  });
+
+  it("klasör→dosya: yolun üst parçası artık dosya → geri yükleme yok; o dosya eklenmişse önce çöpe gidiyor, çakışma kalkıyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("d/x.ts", "deleted")]);
+    h.state.kinds.set("d", "file");
+    expect(await h.manager.revert("w1", "c1", ["d/x.ts"])).toMatchObject({ ok: false, reason: "pathConflict", failedPath: "d/x.ts", restored: [] });
+    expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+
+    // Eklenmiş "d" dosyası aralıkta: önce çöpe (kalıcı silme yok), sonra d/x.ts geri yükleniyor.
+    const h2 = harness();
+    await twoCheckpoints(h2, [change("d", "added"), change("d/x.ts", "deleted")]);
+    h2.state.exists.add("d");
+    h2.state.kinds.set("d", "file");
+    const out = await h2.manager.revert("w1", "c1", ["d/x.ts", "d"]);
+    expect(out).toMatchObject({ ok: true, trashed: ["d"], restored: ["d/x.ts"] });
+    expect(h2.order).toEqual(["inside:d", "trash:d", "inside:d/x.ts", "restore:d/x.ts"]);
+  });
+
+  it("tür sorgusu fırlatırsa geri yükleme yok", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("a.ts")]);
+    h.state.kindThrows = true;
+    expect(await h.manager.revert("w1", "c1", ["a.ts"])).toMatchObject({ ok: false, reason: "pathConflict", failedPath: "a.ts" });
+    expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+  });
+
+  it("yalnız büyük/küçük harf farklı yeniden adlandırma (Readme.md → README.md): önce çöp, sonra geri yükleme", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("README.md", "added"), change("Readme.md", "deleted")]);
+    h.state.exists.add("README.md");
+    h.state.kinds.set("README.md", "file");
+    // Renderer sırası geri yüklemeyi önce koysa da çöp önce.
+    const result = await h.manager.revert("w1", "c1", ["Readme.md", "README.md"]);
+    expect(result).toMatchObject({ ok: true, restored: ["Readme.md"], trashed: ["README.md"] });
+    expect(h.order).toEqual(["inside:README.md", "trash:README.md", "inside:Readme.md", "restore:Readme.md"]);
+  });
+
+  it("200 sınırı: en eski kaydı geri almak kaydı düşürmüyor; geri alma yapılıyor, kayıt reverted", async () => {
+    const h = harness({ files: { checkpoints: Array.from({ length: MAX_CHECKPOINTS }, (_, i) => saved(`s${i}`, i + 1)) } });
+    h.git.diffs.set(`${T(1)}>${T(2)}`, [change("a.ts")]);
+    const result = await h.manager.revert("w1", "s0", ["a.ts"]);
+    expect(result).toMatchObject({ ok: true, restored: ["a.ts"], beforeRestoreId: "c1" });
+    const list = h.written.at(-1)!;
+    expect(list[0]).toMatchObject({ id: "s0", reviewed: "reverted" });
+    expect(list[1].id).toBe("s1");
+    expect(list.at(-1)).toMatchObject({ id: "c1", reason: "beforeRestore" });
+  });
+
+  it("200 sınırı: ortadaki kaydı geri alırken yalnız hedeften eskiler düşüyor", async () => {
+    const h = harness({ files: { checkpoints: Array.from({ length: MAX_CHECKPOINTS }, (_, i) => saved(`s${i}`, i + 1)) } });
+    h.git.diffs.set(`${T(6)}>${T(7)}`, [change("a.ts")]);
+    expect((await h.manager.revert("w1", "s5", ["a.ts"])).ok).toBe(true);
+    const list = h.written.at(-1)!;
+    expect(list).toHaveLength(MAX_CHECKPOINTS);
+    expect(list[0].id).toBe("s1");
+    expect(list.find((c) => c.id === "s5")?.reviewed).toBe("reverted");
+  });
+
+  it("kayıt dosyası yazılamıyorsa geri alma başlamıyor (storeFailed); dosyaya dokunulmuyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("a.ts"), change("yeni.txt", "added")]);
+    h.state.exists.add("yeni.txt");
+    h.state.writeOk = false;
+    const result = await h.manager.revert("w1", "c1", ["a.ts", "yeni.txt"]);
+    expect(result).toMatchObject({ ok: false, reason: "storeFailed", restored: [], trashed: [], skipped: [] });
+    expect(h.order).toEqual([]);
+    expect(h.events.filter((e) => !e.startsWith("snapshot"))).toEqual([]);
+    expect(h.last().warning).toEqual({ code: "storeFailed", at: 2_000 });
+    expect(h.logs).toContainEqual(["degisiklik.geriAl", { dosya: 0, sonuc: "storeFailed" }]);
+
+    // Fırlatan depo da aynı.
+    const h2 = harness();
+    await twoCheckpoints(h2, [change("a.ts")]);
+    h2.state.writeThrows = true;
+    expect(await h2.manager.revert("w1", "c1", ["a.ts"])).toMatchObject({ ok: false, reason: "storeFailed" });
+    expect(h2.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+  });
+
+  it("okunamayan kayıt dosyasında (diske yazılamaz) geri alma başlamıyor", async () => {
+    const h = harness({ files: { checkpoints: [saved("s1", 1), saved("s2", 2)], unreadable: true } });
+    h.git.diffs.set(`${T(1)}>${T(2)}`, [change("a.ts")]);
+    expect(await h.manager.revert("w1", "s1", ["a.ts"])).toMatchObject({ ok: false, reason: "storeFailed" });
+    expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+  });
+
+  it("görüntü ve Kabul et: depo yazılamazsa uyarı saklanıyor (sessiz yutma yok)", async () => {
+    const h = harness();
+    h.state.writeOk = false;
+    expect(await h.manager.snapshot("w1", "manual", meta())).toEqual({ ok: true, id: "c1" });
+    expect(h.last().warning).toEqual({ code: "storeFailed", at: 1_000 });
+    h.state.writeOk = true;
+    await h.manager.snapshot("w1", "manual", meta());
+    expect(h.last().warning).toBeUndefined();
+    h.state.writeOk = false;
+    h.clock.ms = 5_000;
+    expect(h.manager.accept("w1", "c1")).toEqual({ ok: true });
+    expect(h.last().warning).toEqual({ code: "storeFailed", at: 5_000 });
+  });
+
+  it("geri alınmış kayıt yönetici düzeyinde yeniden geri alınamıyor (alreadyReverted), beforeRestore birikmiyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("a.ts")]);
+    expect((await h.manager.revert("w1", "c1", ["a.ts"])).ok).toBe(true);
+    const count = h.last().checkpoints.length;
+    expect(await h.manager.revert("w1", "c1", ["a.ts"])).toEqual({ ok: false, reason: "alreadyReverted", restored: [], trashed: [], skipped: [] });
+    expect(await h.manager.prepareRevert("w1", "c1")).toEqual({ ok: false, reason: "alreadyReverted" });
+    expect(h.last().checkpoints.length).toBe(count);
+  });
+
+  it("aralığın sonundaki ağaç silinmiş: hedef de süresi doldu; beforeRestore alınmıyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("a.ts")]);
+    h.git.missing.add(T(2));
+    expect(await h.manager.revert("w1", "c1", ["a.ts"])).toEqual({ ok: false, reason: "expired", restored: [], trashed: [], skipped: [] });
+    expect(h.events.filter((e) => e.startsWith("snapshot"))).toHaveLength(2);
+    expect([...h.last().expired].sort()).toEqual(["c1", "c2"]);
+    expect(h.ids()).toEqual(["c1", "c2"]);
+  });
+
+  it("30 sn tablosu yalnız başarılı görüntüde: başarısız görüntüden hemen sonra aynı ajanın istemi görüntü alıyor", async () => {
+    const h = harness();
+    h.git.snapshotFail = "locked";
+    h.manager.onPromptLine(reg(), "ilk");
+    await flush();
+    h.git.snapshotFail = null;
+    h.clock.ms += 1_000;
+    h.manager.onPromptLine(reg(), "ikinci");
+    await flush();
+    expect(h.last().checkpoints.map((c) => c.label)).toEqual(["ikinci"]);
+    h.clock.ms += 1_000;
+    h.manager.onPromptLine(reg(), "üçüncü");
+    await flush();
+    expect(h.last().checkpoints.map((c) => c.label)).toEqual(["ikinci"]);
+  });
+
+  it("aynı ajanın görüntüsü sürerken gelen ikinci istem ikinci görüntü almıyor", async () => {
+    const h = harness();
+    let open: () => void = () => {};
+    h.git.gate = new Promise<void>((r) => {
+      open = r;
+    });
+    h.manager.onPromptLine(reg(), "ilk");
+    h.manager.onPromptLine(reg(), "ikinci");
+    open();
+    await flush();
+    await flush();
+    expect(h.last().checkpoints.map((c) => c.label)).toEqual(["ilk"]);
   });
 });

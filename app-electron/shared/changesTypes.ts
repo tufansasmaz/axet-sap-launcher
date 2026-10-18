@@ -58,7 +58,10 @@ export type ChangesFailure =
   | "notInRange"
   | "snapshotFailed"
   | "writeFailed"
-  | "busy";
+  | "busy"
+  | "pathConflict"
+  | "storeFailed"
+  | "alreadyReverted";
 
 export const CHANGES_FAILURES: readonly ChangesFailure[] = [
   "invalid",
@@ -74,7 +77,10 @@ export const CHANGES_FAILURES: readonly ChangesFailure[] = [
   "notInRange",
   "snapshotFailed",
   "writeFailed",
-  "busy"
+  "busy",
+  "pathConflict",
+  "storeFailed",
+  "alreadyReverted"
 ];
 
 /** Son görüntü alma hatası (görünümdeki uyarı satırı); başarılı görüntü siler. */

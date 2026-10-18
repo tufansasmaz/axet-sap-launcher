@@ -12,6 +12,12 @@
 //     kökü denetimi (alan deponun alt klasörü olabilir). Alan dışı yolda
 //     işlem durur, o ana kadar yapılanlar döner.
 //   - Geri alma başladıktan sonra bağımlılık fırlatsa da kısmi sonuç kaybolmaz.
+//   - Sıra: önce aralıktaki eklenmiş dosyalar çöpe, SONRA geri yükleme; her
+//     geri yüklemeden hemen önce yol ve üst parçaları için dosya↔klasör
+//     çakışma denetimi (deps.pathKind) — çakışmada işlem durur (pathConflict).
+//   - beforeRestore kaydı diske yazılamazsa geri alma başlamaz (storeFailed);
+//     depo yazma hatası uyarı olarak saklanır.
+//   - 200 sınırı beforeRestore eklenirken geri alınan kaydı düşürmez.
 //   - Günlüğe yol, içerik, istem ya da etiket yazılmıyor.
 import type { AgentRegistration } from "../shared/agentTypes";
 import { isBoardId } from "../shared/boardCommands";
@@ -29,6 +35,7 @@ import {
 } from "../shared/changesLogic";
 import {
   CONFLICT_SCAN_MAX,
+  MAX_CHECKPOINTS,
   SNAPSHOT_TIMEOUT_MS,
   type ChangesCommandResult,
   type ChangesFailure,
@@ -50,6 +57,8 @@ import type { AgentPresence, LogFields } from "./agentMonitor";
 import type { GitPort } from "./changesGit";
 import type { CheckpointFileResult } from "./changesStore";
 
+export type PathKind = "file" | "dir" | "none";
+
 export interface ChangesStorePort {
   read(workspaceId: string): CheckpointFileResult;
   write(workspaceId: string, list: readonly Checkpoint[]): boolean;
@@ -68,6 +77,12 @@ export interface ChangesManagerDeps {
   dirExists(dir: string): boolean;
   insideRoot(root: string, rel: string): boolean;
   pathExists(root: string, rel: string): boolean;
+  /**
+   * Yolun diskteki türü (bağı izlemeden, lstat gibi): dosya, klasör ya da yok.
+   * Geri yüklemede çakışma denetimi: `checkout-index -f` yolu kapatan klasörü
+   * içeriğiyle, üst parçadaki dosyayı da çöpü atlayarak kalıcı siler.
+   */
+  pathKind(root: string, rel: string): PathKind;
   trash(root: string, rel: string): Promise<void>;
   agents(): AgentPresence[];
   emit(state: ChangesState): void;
@@ -131,6 +146,8 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
   const queue = createKeyedQueue();
   /** Bölme → son istem görüntüsü anı (spec §4.2, 30 sn). */
   const lastPrompt = new Map<string, number>();
+  /** Görüntüsü süren istem bölmeleri. */
+  const promptPending = new Set<string>();
   /** Geri alma süren alanlar: ikinci geri alma "busy". */
   const reverting = new Set<string>();
   let disposed = false;
@@ -179,8 +196,16 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
 
   const emit = (workspaceId: string, entry: Entry) => attempt(() => deps.emit(stateOf(workspaceId, entry)), undefined);
 
-  function save(workspaceId: string, entry: Entry): void {
-    if (!entry.unreadable) attempt(() => deps.store.write(workspaceId, entry.checkpoints), false);
+  /**
+   * Kayıt listesini diske yazar; yazılabildi mi döner. Okunamayan dosyanın
+   * üzerine yazılmıyor (false, uyarı zaten `unreadable`). Yazma başarısızsa
+   * uyarı satırı saklanıyor (sessiz yutma yok); yayın çağıranın işi.
+   */
+  function save(workspaceId: string, entry: Entry): boolean {
+    if (entry.unreadable) return false;
+    const ok = attempt(() => deps.store.write(workspaceId, entry.checkpoints), false);
+    if (!ok) entry.warning = { code: "storeFailed", at: deps.now() };
+    return ok;
   }
 
   function markExpired(workspaceId: string, entry: Entry, ids: readonly string[]): void {
@@ -236,8 +261,26 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     return attemptAsync(() => deps.git.snapshot(ctx.cwd, indexFile, SNAPSHOT_TIMEOUT_MS), { ok: false as const, reason: "git" as const });
   }
 
-  /** Kuyruğun İÇİNDEN çağrılır (kendisi kuyruğa girmez). */
-  async function takeSnapshot(workspaceId: string, entry: Entry, ctx: Ctx, reason: CheckpointReason, meta: SnapshotMeta): Promise<SnapshotResult> {
+  /**
+   * 200 sınırı; `keepId` verildiyse o kayıt (geri alınan) ve sonrası asla
+   * düşmüyor: yalnız ondan eskiler kesiliyor, yetmezse liste geçici olarak
+   * sınırı aşıyor (bir sonraki okumada depo yine 200'e indiriyor).
+   */
+  function capKeeping(list: readonly Checkpoint[], keepId: string | undefined): Checkpoint[] {
+    const index = keepId ? list.findIndex((c) => c.id === keepId) : -1;
+    if (list.length <= MAX_CHECKPOINTS || index < 0) return capCheckpoints(list);
+    return list.slice(Math.min(list.length - MAX_CHECKPOINTS, index));
+  }
+
+  /** Kuyruğun İÇİNDEN çağrılır (kendisi kuyruğa girmez). `persisted`: kayıt diske yazıldı mı. */
+  async function takeSnapshot(
+    workspaceId: string,
+    entry: Entry,
+    ctx: Ctx,
+    reason: CheckpointReason,
+    meta: SnapshotMeta,
+    keepId?: string
+  ): Promise<{ ok: true; id: string; persisted: boolean } | { ok: false; reason: ChangesFailure }> {
     const started = deps.now();
     const out = await freshTree(workspaceId, ctx);
     const sure = Math.max(0, deps.now() - started);
@@ -269,13 +312,24 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     };
     // Bekleme sırasında Kabul et değiştirmiş olabilir: güncel listeye uygulanıyor.
     const current = entry.checkpoints.map((c) => (stats && prev && c.id === prev.id ? { ...c, stats } : c));
-    entry.checkpoints = capCheckpoints([...current, checkpoint]);
+    entry.checkpoints = capKeeping([...current, checkpoint], keepId);
     for (const id of [...entry.expired]) if (!entry.checkpoints.some((c) => c.id === id)) entry.expired.delete(id);
     delete entry.warning;
-    save(workspaceId, entry);
+    const persisted = save(workspaceId, entry);
     log("degisiklik.goruntu", { sebep: REASON_LOG[reason], sure, sonuc: "tamam" });
     emit(workspaceId, entry);
-    return { ok: true, id: checkpoint.id };
+    return { ok: true, id: checkpoint.id, persisted };
+  }
+
+  /** Yol ya da bir üst parçası beklenmeyen türde mi: üstte dosya, hedefte klasör. Sorgu fırlatırsa çakışma sayılıyor. */
+  function pathConflict(root: string, rel: string): boolean {
+    return attempt(() => {
+      const parts = rel.split("/");
+      for (let i = 1; i < parts.length; i += 1) {
+        if (deps.pathKind(root, parts.slice(0, i).join("/")) === "file") return true;
+      }
+      return deps.pathKind(root, rel) === "dir";
+    }, true);
   }
 
   /** Kaydın aralığı: bu kayıt → sonraki kayıt; en sonuncusunda taze ağaca (çalışma ağacı). */
@@ -290,7 +344,8 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     let toTree: string;
     if (range.to) {
       if (!(await deps.git.treeExists(ctx.cwd, range.to.tree))) {
-        markExpired(workspaceId, entry, [range.to.id]);
+        // Aralığın sonu yoksa bu kaydın aralığı da hesaplanamaz: ikisi de süresi doldu.
+        markExpired(workspaceId, entry, [id, range.to.id]);
         return fail("expired");
       }
       toTree = range.to.tree;
@@ -313,7 +368,10 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         log("degisiklik.goruntu", { sebep: REASON_LOG[reason], sure: 0, sonuc: reasonCode });
         return fail(reasonCode);
       },
-      (entry, ctx) => takeSnapshot(workspaceId, entry, ctx, reason, meta)
+      async (entry, ctx) => {
+        const taken = await takeSnapshot(workspaceId, entry, ctx, reason, meta);
+        return taken.ok ? { ok: true, id: taken.id } : taken;
+      }
     );
   }
 
@@ -337,14 +395,32 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
   }
 
   async function revertJob(workspaceId: string, entry: Entry, ctx: Ctx, id: string, paths: readonly string[]): Promise<RevertResult> {
+    const none = (reason: ChangesFailure): RevertResult => ({ ok: false, reason, restored: [], trashed: [], skipped: [] });
     const target = entry.checkpoints.find((c) => c.id === id);
-    if (!target) return { ok: false, reason: "notFound", restored: [], trashed: [], skipped: [] };
-    if (entry.expired.has(id)) return { ok: false, reason: "expired", restored: [], trashed: [], skipped: [] };
+    if (!target) return none("notFound");
+    if (target.reviewed === "reverted") return none("alreadyReverted");
+    if (entry.expired.has(id)) return none("expired");
+    // 0) Ağaçlar hâlâ var mı: süresi dolmuşsa beforeRestore boşuna birikmesin.
+    const range0 = rangeOf(entry.checkpoints, id);
+    const fromOk = await attemptAsync(() => deps.git.treeExists(ctx.cwd, target.tree), null);
+    const toOk = range0?.to ? await attemptAsync(() => deps.git.treeExists(ctx.cwd, range0.to!.tree), null) : true;
+    if (fromOk === null || toOk === null) return none("git");
+    if (!fromOk || !toOk) {
+      markExpired(workspaceId, entry, !fromOk || !range0?.to ? [id] : [id, range0.to.id]);
+      log("degisiklik.geriAl", { dosya: 0, sonuc: "expired" });
+      return none("expired");
+    }
     // 1) Güvenlik ağı: geri almadan önce o anın görüntüsü (spec §6.2). Alınamazsa dokunma.
-    const before = await takeSnapshot(workspaceId, entry, ctx, "beforeRestore", { paneId: null, agentName: null, subtaskId: null, label: target.label });
+    //    200 sınırı geri alınan kaydı düşürmesin (keepId).
+    const before = await takeSnapshot(workspaceId, entry, ctx, "beforeRestore", { paneId: null, agentName: null, subtaskId: null, label: target.label }, id);
     if (!before.ok) {
       log("degisiklik.geriAl", { dosya: 0, sonuc: "goruntuYok" });
-      return { ok: false, reason: "snapshotFailed", restored: [], trashed: [], skipped: [] };
+      return none("snapshotFailed");
+    }
+    // 2) beforeRestore kaydı diske yazılamadıysa (uygulama kapanınca kaybolur) geri alma başlamıyor.
+    if (!before.persisted) {
+      log("degisiklik.geriAl", { dosya: 0, sonuc: "storeFailed" });
+      return { ...none("storeFailed"), beforeRestoreId: before.id };
     }
     const result: RevertResult = { ok: false, restored: [], trashed: [], skipped: [], beforeRestoreId: before.id };
     // beforeRestore alındı: buradan sonra hiçbir hata sonucu (ve beforeRestoreId'yi) kaybettirmiyor.
@@ -353,71 +429,81 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       log("degisiklik.geriAl", { dosya: 0, sonuc: range.reason });
       return { ...result, reason: range.reason };
     }
+    // Renderer listesi ile yöneticinin o an hesapladığı aralığın kesişimi.
     const byPath = new Map(range.files.map((f) => [f.path, f]));
-    const restoreIndex = attempt(() => deps.store.restoreIndexFile(workspaceId), null);
-    let indexReady = false;
-    let problem: ChangesFailure | null = null;
+    const added: string[] = [];
+    const others: string[] = [];
     for (const rel of paths) {
       const change = byPath.get(rel);
       // Onaylandıktan sonra aralıktan çıkmış: dokunulmuyor (spec §7).
-      if (!change) {
+      if (!change) result.skipped.push(rel);
+      else if (change.status === "added") added.push(rel);
+      else others.push(rel);
+    }
+    let problem: ChangesFailure | null = null;
+    const stop = (reason: ChangesFailure, rel: string) => {
+      problem = reason;
+      result.failedPath = rel;
+    };
+    // 3) Önce eklenmiş dosyalar çöpe: geri yüklenecek yolu kapatan dosya/klasör
+    //    checkout-index -f'e kalıcı sildirilmesin (büyük/küçük harf yeniden adlandırma dahil).
+    for (const rel of added) {
+      // Alan kökü denetimi (gerçek yol; junction/sembolik bağ) taşımadan hemen önce;
+      // alan dışı → dosya atlanmıyor, işlem duruyor.
+      if (!attempt(() => deps.insideRoot(ctx.cwd, rel), false)) {
+        stop("invalid", rel);
+        break;
+      }
+      // Görüntüde yoktu: kalıcı silme yok, çöp kutusu (spec §6.3).
+      if (!attempt(() => deps.pathExists(ctx.cwd, rel), false)) {
         result.skipped.push(rel);
         continue;
       }
-      if (change.status === "added") {
-        // Alan kökü denetimi (gerçek yol; junction/sembolik bağ) taşımadan hemen önce;
-        // alan dışı → dosya atlanmıyor, işlem duruyor.
-        if (!attempt(() => deps.insideRoot(ctx.cwd, rel), false)) {
-          problem = "invalid";
-          result.failedPath = rel;
-          break;
-        }
-        // Görüntüde yoktu: kalıcı silme yok, çöp kutusu (spec §6.3).
-        if (!attempt(() => deps.pathExists(ctx.cwd, rel), false)) {
-          result.skipped.push(rel);
-          continue;
-        }
-        try {
-          await deps.trash(ctx.cwd, rel);
-          result.trashed.push(rel);
-        } catch {
-          // Çöp kutusu yoksa kalıcı silmeye düşülmüyor: işlem duruyor.
-          problem = "writeFailed";
-          result.failedPath = rel;
-          break;
-        }
-        continue;
+      try {
+        await deps.trash(ctx.cwd, rel);
+        result.trashed.push(rel);
+      } catch {
+        // Çöp kutusu yoksa kalıcı silmeye düşülmüyor: işlem duruyor.
+        stop("writeFailed", rel);
+        break;
       }
+    }
+    // 4) Sonra değişen/silinen dosyalar kaydın ağacından.
+    const restoreIndex = attempt(() => deps.store.restoreIndexFile(workspaceId), null);
+    let indexReady = false;
+    for (const rel of problem ? [] : others) {
       if (!indexReady) {
-        // Özel index'e yükleme çalışma ağacına yazmıyor; kök denetimi asıl yazmadan hemen önce.
+        // Özel index'e yükleme çalışma ağacına yazmıyor; denetimler asıl yazmadan hemen önce.
         indexReady = !!restoreIndex && (await attemptAsync(() => deps.git.loadIndex(ctx.top, restoreIndex, target.tree), false));
         if (!indexReady) {
-          problem = "git";
-          result.failedPath = rel;
+          stop("git", rel);
           break;
         }
       }
       if (!attempt(() => deps.insideRoot(ctx.cwd, rel), false)) {
-        problem = "invalid";
-        result.failedPath = rel;
+        stop("invalid", rel);
+        break;
+      }
+      if (pathConflict(ctx.cwd, rel)) {
+        stop("pathConflict", rel);
         break;
       }
       if (restoreIndex && (await attemptAsync(() => deps.git.restoreFile(ctx.top, restoreIndex, ctx.prefix + rel), false))) {
         result.restored.push(rel);
       } else {
-        problem = "writeFailed";
-        result.failedPath = rel;
+        stop("writeFailed", rel);
         break;
       }
     }
     if (restoreIndex) attempt(() => deps.git.discardIndex(restoreIndex), undefined);
-    if (!problem && entries.get(workspaceId) === entry) {
+    const failed = problem as ChangesFailure | null;
+    if (!failed && entries.get(workspaceId) === entry) {
       entry.checkpoints = entry.checkpoints.map((c) => (c.id === id ? { ...c, reviewed: "reverted" as const } : c));
       save(workspaceId, entry);
       emit(workspaceId, entry);
     }
-    log("degisiklik.geriAl", { dosya: result.restored.length + result.trashed.length, sonuc: problem ?? "tamam" });
-    return problem ? { ...result, reason: problem } : { ...result, ok: true };
+    log("degisiklik.geriAl", { dosya: result.restored.length + result.trashed.length, sonuc: failed ?? "tamam" });
+    return failed ? { ...result, reason: failed } : { ...result, ok: true };
   }
 
   return {
@@ -447,10 +533,18 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         if (disposed || !workspaceId || !isBoardId(workspaceId)) return;
         // Motor komutu istem değil (spec sapma 6).
         if (line.trim().startsWith("/")) return;
+        const paneId = reg.paneId;
+        // Aynı bölmenin görüntüsü sürüyorsa ikincisi yok; 30 sn sayacı yalnız başarılı görüntüde başlıyor.
+        if (promptPending.has(paneId)) return;
         const now = deps.now();
-        if (!shouldSnapshotPrompt(lastPrompt.get(reg.paneId), now)) return;
-        lastPrompt.set(reg.paneId, now);
-        void snapshot(workspaceId, "prompt", { paneId: reg.paneId, agentName: reg.name || null, subtaskId: null, label: line }).catch(() => {});
+        if (!shouldSnapshotPrompt(lastPrompt.get(paneId), now)) return;
+        promptPending.add(paneId);
+        void snapshot(workspaceId, "prompt", { paneId, agentName: reg.name || null, subtaskId: null, label: line })
+          .then((r) => {
+            if (r.ok) lastPrompt.set(paneId, now);
+          })
+          .catch(() => {})
+          .finally(() => promptPending.delete(paneId));
       }, undefined);
     },
 
@@ -502,6 +596,7 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     prepareRevert(workspaceId, checkpointId) {
       if (!isBoardId(checkpointId)) return Promise.resolve(fail("invalid"));
       return withContext<PrepareRevertResult>(workspaceId, fail, async (entry, ctx) => {
+        if (entry.checkpoints.find((c) => c.id === checkpointId)?.reviewed === "reverted") return fail("alreadyReverted");
         const r = await rangeInternal(workspaceId, entry, ctx, checkpointId);
         if (!r.ok) return r;
         const paths = new Set(r.files.map((f) => f.path));
