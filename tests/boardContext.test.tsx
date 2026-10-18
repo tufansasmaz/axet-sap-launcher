@@ -2,7 +2,7 @@
 // Pano aboneliği (spec 2026-10-18 gorev-panosu §8): alan başına yükleme, olay, komut.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
-import { BoardProvider, useBoards, type BoardContextValue } from "../src/board/boardContext";
+import { BOARD_RETRY_MS, BoardProvider, useBoards, type BoardContextValue } from "../src/board/boardContext";
 import { TerminalStoreContext, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalWorkspace } from "../src/stores/terminalTypes";
@@ -82,6 +82,42 @@ describe("BoardProvider", () => {
     resolve(empty("w1"));
     await flush();
     expect(value.boards.w1.tasks[0].title).toBe("Yeni");
+  });
+
+  it("yeni alan henüz kaydedilmemişse (get null) yeniden deniyor; kaydedilince pano geliyor; sökülünce duruyor", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      api.boardGet.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+      const r = render(ui([ws("w1")]));
+      await flush();
+      expect(value.boards.w1).toBeUndefined();
+      act(() => {
+        vi.advanceTimersByTime(BOARD_RETRY_MS);
+      });
+      await flush();
+      expect(value.boards.w1).toBeUndefined();
+      act(() => {
+        vi.advanceTimersByTime(BOARD_RETRY_MS);
+      });
+      await flush();
+      expect(api.boardGet).toHaveBeenCalledTimes(3);
+      expect(value.boards.w1).toEqual(empty("w1"));
+      act(() => {
+        vi.advanceTimersByTime(BOARD_RETRY_MS * 3);
+      });
+      expect(api.boardGet).toHaveBeenCalledTimes(3);
+      api.boardGet.mockResolvedValue(null);
+      r.rerender(ui([ws("w1"), ws("w2")]));
+      await flush();
+      const calls = api.boardGet.mock.calls.length;
+      r.unmount();
+      act(() => {
+        vi.advanceTimersByTime(BOARD_RETRY_MS * 5);
+      });
+      expect(api.boardGet.mock.calls.length).toBe(calls);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("komut IPC'ye gidiyor; IPC reddederse writeFailed", async () => {
