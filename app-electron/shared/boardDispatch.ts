@@ -92,6 +92,14 @@ const SHORT_ID_MAX = 8;
 export const PROMPT_PREFIX_MAX = "[Gorev ] ".length + SHORT_ID_MAX;
 
 /**
+ * Onaylı istem gövdesinin azami uzunluğu: önek eklendikten sonra toplam
+ * SUBTASK_PROMPT_MAX'ı aşmaması için. boardPlan, boardCommands ve DraftEditor
+ * aynı sabiti kullanır; böylece geçerli istem ajana gönderimde hiçbir zaman
+ * sessizce kırpılmaz.
+ */
+export const SUBTASK_PROMPT_BODY_MAX = SUBTASK_PROMPT_MAX - PROMPT_PREFIX_MAX;
+
+/**
  * Panonun ajana yazdığı HER istem (oto, Ajana ver, Düzeltmeye geri gönder)
  * buradan geçiyor: nötr ve alt göreve özgü önek. İki nedeni var:
  *   - İlk karakter hiçbir zaman `!` (TUI kabuk kipi: modeli ve izin
@@ -102,7 +110,10 @@ export const PROMPT_PREFIX_MAX = "[Gorev ] ".length + SHORT_ID_MAX;
  */
 export function boardPrompt(subtaskId: string, body: string): string {
   const short = subtaskId.replace(/[^A-Za-z0-9]/g, "").slice(0, SHORT_ID_MAX) || "0";
-  return toPromptLine(`[Gorev ${short}] ${toPromptLine(body)}`);
+  // Gövde önekten önce BODY_MAX ile kesilir; önek eklendikten sonra toplam
+  // SUBTASK_PROMPT_MAX'ı aşmaz ve onaylanan istem sessizce kırpılmaz.
+  const bodyLine = toPromptLine(body).slice(0, SUBTASK_PROMPT_BODY_MAX);
+  return toPromptLine(`[Gorev ${short}] ${bodyLine}`);
 }
 
 /** "Düzeltmeye geri gönder" istemi (spec §6): ilk kırmızı komut ve çıktısının sonu. Önek için yer bırakılıyor. */

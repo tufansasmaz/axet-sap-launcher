@@ -54,7 +54,7 @@ describe("parseLeadPlan", () => {
     expect(parseLeadPlan(plan(Array.from({ length: 9 }, () => item())))).toEqual({ ok: false, error: "tooMany" });
   });
 
-  it("alan hataları: boş istem, 4000'i aşan istem, nesne olmayan öğe, sayı rol", () => {
+  it("alan hataları: boş istem, BODY_MAX'i aşan istem, nesne olmayan öğe, sayı rol", () => {
     expect(parseLeadPlan(plan([item({ prompt: "   " })]))).toEqual({ ok: false, error: "badField" });
     expect(parseLeadPlan(plan([item({ prompt: "x".repeat(4001) })]))).toEqual({ ok: false, error: "badField" });
     expect(parseLeadPlan(plan(["metin"]))).toEqual({ ok: false, error: "badField" });

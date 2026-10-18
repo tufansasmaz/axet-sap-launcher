@@ -4,7 +4,8 @@
 // geçiyor. Yapısal hata planı reddediyor; görünüm sınırları (başlık, rol)
 // kırpılıyor: 85 karakterlik başlık bütün planı çöpe attırmamalı.
 import { graphError } from "./boardLogic";
-import { MAX_SUBTASKS, ROLE_HINT_MAX, SUBTASK_PROMPT_MAX, SUBTASK_TITLE_MAX, type LeadErrorCode } from "./boardTypes";
+import { SUBTASK_PROMPT_BODY_MAX } from "./boardDispatch";
+import { MAX_SUBTASKS, ROLE_HINT_MAX, SUBTASK_TITLE_MAX, type LeadErrorCode } from "./boardTypes";
 
 export interface PlannedSubtask {
   title: string;
@@ -73,7 +74,7 @@ export function parseLeadPlan(text: string): PlanResult {
     const record = raw as Record<string, unknown>;
     const title = typeof record.title === "string" ? record.title.trim() : "";
     const prompt = typeof record.prompt === "string" ? record.prompt.trim() : "";
-    if (!title || !prompt || prompt.length > SUBTASK_PROMPT_MAX) return fail("badField");
+    if (!title || !prompt || prompt.length > SUBTASK_PROMPT_BODY_MAX) return fail("badField");
     if (record.role !== undefined && record.role !== null && typeof record.role !== "string") return fail("badField");
     const roleHint = typeof record.role === "string" ? record.role.trim().slice(0, ROLE_HINT_MAX).trim() : "";
     const rawDeps: unknown = record.dependsOn ?? [];
@@ -106,6 +107,6 @@ export function buildLeadPrompt(input: { title: string; goal: string; roles: rea
     `- En fazla ${MAX_SUBTASKS} alt görev. "dependsOn" aynı listedeki alt görevlerin 0'dan başlayan indeksleri; döngü olmasın.`,
     '- Her "prompt" tek başına anlaşılır olsun: ajan hedefi ve öteki alt görevleri görmüyor.',
     '- "role" yukarıdaki rollerden biri olsun ya da boş kalsın.',
-    `- "title" en fazla ${SUBTASK_TITLE_MAX}, "prompt" en fazla ${SUBTASK_PROMPT_MAX} karakter.`
+    `- "title" en fazla ${SUBTASK_TITLE_MAX}, "prompt" en fazla ${SUBTASK_PROMPT_BODY_MAX} karakter.`
   ].join("\n");
 }

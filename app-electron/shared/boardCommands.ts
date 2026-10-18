@@ -2,10 +2,10 @@
 // komut ana süreçte buradan geçiyor: tür, kimlik deseni, sınırlar. Kimlik
 // deseni dosya adına da giriyor (boards/<workspaceId>.json): yol parçası
 // hiçbir koşulda geçmemeli.
+import { SUBTASK_PROMPT_BODY_MAX } from "./boardDispatch";
 import {
   MAX_SUBTASKS,
   ROLE_HINT_MAX,
-  SUBTASK_PROMPT_MAX,
   SUBTASK_TITLE_MAX,
   TASK_GOAL_MAX,
   TASK_TITLE_MAX
@@ -81,7 +81,7 @@ function readDraft(raw: unknown): SubtaskDraft | null {
   if (!raw || typeof raw !== "object") return null;
   const r = raw as Record<string, unknown>;
   const title = text(r.title, SUBTASK_TITLE_MAX);
-  const prompt = text(r.prompt, SUBTASK_PROMPT_MAX);
+  const prompt = text(r.prompt, SUBTASK_PROMPT_BODY_MAX);
   const roleHint = text(r.roleHint, ROLE_HINT_MAX);
   if (!isBoardId(r.id) || title === null || prompt === null || roleHint === null) return null;
   // Array.from seyrek dizilerin deliklerini undefined'a dönüştürür; .every deliği atlar (hata verir).

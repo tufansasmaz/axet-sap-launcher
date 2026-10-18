@@ -166,7 +166,7 @@ describe("toPromptLine ve sendBackPrompt", () => {
     expect(boardPrompt("3f9c2a1b-7d", "!rm -rf")).toBe("[Gorev 3f9c2a1b] !rm -rf");
     expect(boardPrompt("a", "x\r\ny")).toBe("[Gorev a] x y");
     expect(boardPrompt("_-", "x")).toBe("[Gorev 0] x");
-    expect(boardPrompt("abc", "z".repeat(5000)).length).toBe(4000);
+    expect(boardPrompt("abc", "z".repeat(5000)).length).toBeLessThanOrEqual(4000);
   });
 
   it("aynı cümleyle başlayan iki alt görevin istemleri eşleme penceresinde (80) ayrışıyor", () => {

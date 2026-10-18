@@ -2,10 +2,10 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useT } from "../i18n";
 import type { SubtaskDraft } from "../../app-electron/shared/boardCommands";
+import { SUBTASK_PROMPT_BODY_MAX } from "../../app-electron/shared/boardDispatch";
 import {
   MAX_SUBTASKS,
   ROLE_HINT_MAX,
-  SUBTASK_PROMPT_MAX,
   SUBTASK_TITLE_MAX,
   type BoardTask,
   type Subtask
@@ -126,7 +126,7 @@ export default function DraftEditor({
               <textarea
                 aria-label={t("board.subtaskPrompt", { n })}
                 value={d.prompt}
-                maxLength={SUBTASK_PROMPT_MAX}
+                maxLength={SUBTASK_PROMPT_BODY_MAX}
                 rows={3}
                 disabled={locked}
                 onChange={(e) => patch(d.id, { prompt: e.target.value })}

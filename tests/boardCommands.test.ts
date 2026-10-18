@@ -33,7 +33,7 @@ describe("readBoardCommand", () => {
     expect(readBoardCommand(null)).toBeNull();
   });
 
-  it("sınırlar: boş ya da 80'i aşan başlık, 2000'i aşan hedef, 8'i aşan alt görev, 4000'i aşan istem, 40'ı aşan rol", () => {
+  it("sınırlar: boş ya da 80'i aşan başlık, 2000'i aşan hedef, 8'i aşan alt görev, BODY_MAX'i aşan istem, 40'ı aşan rol", () => {
     expect(readBoardCommand({ type: "createTask", title: "   ", goal: "" })).toBeNull();
     expect(readBoardCommand({ type: "createTask", title: "x".repeat(81), goal: "" })).toBeNull();
     expect(readBoardCommand({ type: "createTask", title: "a", goal: "x".repeat(2001) })).toBeNull();
