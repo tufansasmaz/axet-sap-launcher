@@ -16,15 +16,29 @@ export interface WebviewAttachParams {
  * §4.1: yalnız bizim bölüm ve boş ya da http/https başlangıç adresi. Hangi
  * pencerenin taktığı çağıranda denetleniyor (yalnız ana pencere, Flow sandbox
  * asla).
+ *
+ * `prefs`, `will-attach-webview`'ın verdiği webPreferences nesnesi. Electron
+ * `<webview webpreferences="partition=...">` dizesini `params.partition`'dan
+ * SONRA yayıyor ve guest'in oturumunu bu belirliyor; bu yüzden orada boş
+ * olmayan başka bir bölüm varsa takma reddediliyor (bölüm atlatma). Boş ya
+ * da yoksa izin; `hardenWebviewPreferences` bizimkini yazıyor.
  */
-export function allowWebviewAttach(params: WebviewAttachParams | null | undefined): boolean {
-  if (!params || params.partition !== BROWSER_PARTITION) return false;
+export function allowWebviewAttach(params: WebviewAttachParams | null | undefined, prefs: Record<string, unknown> | null | undefined): boolean {
+  if (!params || !prefs || params.partition !== BROWSER_PARTITION) return false;
+  const prefsPartition = prefs.partition;
+  if (prefsPartition !== undefined && prefsPartition !== "" && prefsPartition !== BROWSER_PARTITION) return false;
   const src = typeof params.src === "string" ? params.src : "";
   return src === "" || isBrowserNavAllowed(src);
 }
 
-const REMOVED_PREFERENCES = ["preload", "preloadURL", "enableBlinkFeatures", "additionalArguments"] as const;
+/**
+ * Beyaz liste: takılan webview'ın ayarlarında YALNIZ bunlar kalıyor. Gelen
+ * nesnedeki her başka anahtar (preload, enableBlinkFeatures, ileride Electron'a
+ * eklenecek bilinmeyen anahtarlar …) siliniyor. `type`/`embedder` Electron
+ * tarafından olaydan sonra ekleniyor.
+ */
 const FORCED_PREFERENCES = {
+  partition: BROWSER_PARTITION,
   nodeIntegration: false,
   nodeIntegrationInSubFrames: false,
   nodeIntegrationInWorker: false,
@@ -35,12 +49,23 @@ const FORCED_PREFERENCES = {
   plugins: false,
   webviewTag: false,
   experimentalFeatures: false,
-  navigateOnDragDrop: false
+  navigateOnDragDrop: false,
+  // Sayfalar çalışsın.
+  javascript: true,
+  // `window.open` işleyiciye ulaşsın; işleyici her zaman `deny` döner.
+  disablePopups: false,
+  // Arka arkaya alert ile sayfa kilitlenmesin.
+  safeDialogs: true,
+  enableWebSQL: false
 } as const;
 
-/** §4.1: renderer ne isterse istesin webview'ın ayarları burada zorlanıyor (Electron'un "webview güvenliği" önerisi). */
+/**
+ * §4.1: renderer ne isterse istesin webview'ın ayarları burada zorlanıyor
+ * (Electron'un "webview güvenliği" önerisi). Nesne yerinde değiştiriliyor:
+ * Electron guest'i bu nesneden kuruyor.
+ */
 export function hardenWebviewPreferences(prefs: Record<string, unknown>): void {
-  for (const key of REMOVED_PREFERENCES) delete prefs[key];
+  for (const key of Object.keys(prefs)) delete prefs[key];
   Object.assign(prefs, FORCED_PREFERENCES);
 }
 
@@ -56,6 +81,7 @@ export interface GuestContents {
     event: "select-client-certificate",
     listener: (event: Preventable, url: string, certificateList: unknown[], callback: (...certificate: never[]) => void) => void
   ): unknown;
+  on(event: "select-bluetooth-device", listener: (event: Preventable, devices: unknown[], callback: (deviceId: string) => void) => void): unknown;
   on(event: "will-navigate", listener: (event: Preventable & { url: string }) => void): unknown;
   on(event: "will-redirect", listener: (event: Preventable & { url: string; isMainFrame: boolean }) => void): unknown;
   on(event: "will-attach-webview", listener: (event: Preventable) => void): unknown;
@@ -112,6 +138,12 @@ export function installBrowserGuestRules(contents: GuestContents, deps: GuestRul
     event.preventDefault();
     callback();
   });
+  // Bluetooth da aynı sınıf: preventDefault yoksa ilk cihaz seçiliyor. Boş
+  // dize isteği iptal ediyor.
+  contents.on("select-bluetooth-device", (event, _devices, callback) => {
+    event.preventDefault();
+    callback("");
+  });
   // WebRTC yerel ağ adreslerini sayfaya göstermesin.
   contents.setWebRTCIPHandlingPolicy("default_public_interface_only");
   contents.on("before-input-event", (event, input) => {
@@ -127,17 +159,67 @@ export interface BrowserSessionLike {
   setPermissionCheckHandler(handler: () => boolean): void;
   setDevicePermissionHandler(handler: () => boolean): void;
   on(event: "will-download", listener: (event: Preventable, item: unknown, webContents: { id: number } | null | undefined) => void): unknown;
+  on(event: "select-hid-device", listener: (event: Preventable, details: unknown, callback: (deviceId?: string | null) => void) => void): unknown;
+  on(event: "select-usb-device", listener: (event: Preventable, details: unknown, callback: (deviceId?: string) => void) => void): unknown;
+  on(
+    event: "select-serial-port",
+    listener: (event: Preventable, portList: unknown[], webContents: unknown, callback: (portId: string) => void) => void
+  ): unknown;
+  webRequest: {
+    onBeforeRequest(listener: (details: { url: string; resourceType?: string }, callback: (response: { cancel?: boolean }) => void) => void): void;
+  };
+}
+
+const SUBRESOURCE_SCHEMES = new Set(["http:", "https:", "ws:", "wss:", "data:", "blob:"]);
+
+/**
+ * Derinlemesine savunma: oturumdaki her istek. Ana çerçeve yalnız http/https
+ * (host'un `loadURL`'ü `will-navigate`'e uğramıyor); alt kaynaklarda ayrıca
+ * ws/wss ve sayfaların kendi ürettiği data/blob. `file:`, `chrome:`,
+ * `devtools:`, `chrome-extension:` ve her başka şema iptal.
+ */
+export function isBrowserRequestAllowed(url: string, resourceType: string | undefined): boolean {
+  let protocol: string;
+  try {
+    protocol = new URL(url).protocol;
+  } catch {
+    return false;
+  }
+  if (resourceType === "mainFrame") return protocol === "http:" || protocol === "https:";
+  return SUBRESOURCE_SCHEMES.has(protocol);
 }
 
 /**
  * §4.3, §4.5: `persist:ntt-tarayici` oturumunda bütün izinler (kamera,
  * mikrofon, konum, bildirim, pano, MIDI, HID, seri port, USB, ekran
- * paylaşımı …) reddediliyor; indirme iptal, kullanıcıya görünümde uyarı.
+ * paylaşımı …) reddediliyor; cihaz seçimleri (HID, USB, seri port) iptal;
+ * yerel ve iç şemalı istekler iptal; indirme iptal, kullanıcıya görünümde
+ * uyarı.
  */
 export function configureBrowserSession(ses: BrowserSessionLike, deps: { onDownloadBlocked: (webContentsId: number | null) => void }): void {
   ses.setPermissionRequestHandler((_webContents, _permission, callback) => callback(false));
   ses.setPermissionCheckHandler(() => false);
   ses.setDevicePermissionHandler(() => false);
+  ses.on("select-hid-device", (event, _details, callback) => {
+    event.preventDefault();
+    callback();
+  });
+  ses.on("select-usb-device", (event, _details, callback) => {
+    event.preventDefault();
+    callback();
+  });
+  ses.on("select-serial-port", (event, _portList, _webContents, callback) => {
+    event.preventDefault();
+    callback("");
+  });
+  ses.webRequest.onBeforeRequest((details, callback) => {
+    let cancel = true;
+    try {
+      cancel = !isBrowserRequestAllowed(details.url, details.resourceType);
+    } finally {
+      callback({ cancel });
+    }
+  });
   ses.on("will-download", (event, _item, webContents) => {
     event.preventDefault();
     try {
@@ -155,8 +237,14 @@ export interface SessionLike {
 export interface GuestCandidate {
   isDestroyed(): boolean;
   getType(): string;
-  hostWebContents?: unknown;
+  hostWebContents?: { id?: unknown } | null;
   session: SessionLike;
+}
+
+/** Ana pencereyle aynı webContents mi? Electron sarmalayıcıyı önbelleklese de kimlik `id`. */
+function sameHost(a: { id?: unknown } | null | undefined, b: { id?: unknown } | null | undefined): boolean {
+  if (!a || !b) return false;
+  return typeof a.id === "number" && Number.isFinite(a.id) && a.id === b.id;
 }
 
 /** Aynı nesne ya da aynı (boş olmayan) disk yolu: `persist:` bölümünün kimliği. */
@@ -168,13 +256,17 @@ function sameSession(a: SessionLike | null | undefined, b: SessionLike): boolean
 }
 
 /** §4.6: IPC'nin verdiği webContentsId ana pencereye bağlı, bu bölümdeki, canlı bir webview mi? */
-export function isOurBrowserGuest(candidate: GuestCandidate | null | undefined, host: unknown, browserSession: SessionLike): boolean {
+export function isOurBrowserGuest(
+  candidate: GuestCandidate | null | undefined,
+  host: { id?: unknown } | null | undefined,
+  browserSession: SessionLike
+): boolean {
   if (!candidate || !host) return false;
   try {
     return (
       !candidate.isDestroyed() &&
       candidate.getType() === "webview" &&
-      candidate.hostWebContents === host &&
+      sameHost(candidate.hostWebContents, host) &&
       sameSession(candidate.session, browserSession)
     );
   } catch {

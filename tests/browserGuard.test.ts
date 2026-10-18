@@ -8,6 +8,7 @@ import {
   hardenWebviewPreferences,
   installBrowserGuestRules,
   isBrowserGuestContents,
+  isBrowserRequestAllowed,
   isOurBrowserGuest,
   type BrowserSessionLike,
   type GuestContents
@@ -16,24 +17,73 @@ import { BROWSER_PARTITION } from "../app-electron/shared/browserLogic";
 
 describe("allowWebviewAttach (§4.1)", () => {
   it("yalnız bizim bölüm ve boş ya da http/https başlangıç adresi", () => {
-    expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src: "https://help.sap.com/" })).toBe(true);
-    expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src: "http://localhost:5173/" })).toBe(true);
-    expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src: "" })).toBe(true);
-    expect(allowWebviewAttach({ partition: BROWSER_PARTITION })).toBe(true);
-    for (const src of ["file:///C:/x.html", "javascript:alert(1)", "data:text/html,x", "chrome://gpu", "about:blank", "devtools://devtools/x"]) {
-      expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src }), src).toBe(false);
+    expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src: "https://help.sap.com/" }, {})).toBe(true);
+    expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src: "http://localhost:5173/" }, {})).toBe(true);
+    expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src: "HTTPS://a.com/" }, {})).toBe(true);
+    expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src: "" }, {})).toBe(true);
+    expect(allowWebviewAttach({ partition: BROWSER_PARTITION }, {})).toBe(true);
+    for (const src of [
+      "file:///C:/x.html",
+      "javascript:alert(1)",
+      " javascript:alert(1)",
+      "JAVASCRIPT:alert(1)",
+      "data:text/html,x",
+      "blob:https://a.com/x",
+      "chrome://gpu",
+      "about:blank",
+      "devtools://devtools/x"
+    ]) {
+      expect(allowWebviewAttach({ partition: BROWSER_PARTITION, src }, {}), src).toBe(false);
     }
     for (const partition of [undefined, "", "persist:ntt-tarayici2", "ntt-tarayici", "persist:saml-x", "persist:NTT-TARAYICI", "flow-sandbox"]) {
-      expect(allowWebviewAttach({ partition, src: "https://a.com/" }), String(partition)).toBe(false);
+      expect(allowWebviewAttach({ partition, src: "https://a.com/" }, {}), String(partition)).toBe(false);
     }
-    expect(allowWebviewAttach(null)).toBe(false);
-    expect(allowWebviewAttach(undefined)).toBe(false);
+    expect(allowWebviewAttach(null, {})).toBe(false);
+    expect(allowWebviewAttach(undefined, {})).toBe(false);
+  });
+
+  it("webpreferences özniteliğiyle başka bölüm: ret (bölüm atlatma)", () => {
+    const params = { partition: BROWSER_PARTITION, src: "https://a.com/" };
+    for (const partition of ["persist:saml-x", "persist:NTT-tarayici", "persist:NTT-TARAYICI", "ntt-tarayici", " persist:ntt-tarayici", 42, true, {}]) {
+      expect(allowWebviewAttach(params, { partition }), String(partition)).toBe(false);
+    }
+    // Bizim bölüm, boş ya da hiç yok: izin (hardenWebviewPreferences bizimkini yazıyor).
+    expect(allowWebviewAttach(params, { partition: BROWSER_PARTITION })).toBe(true);
+    expect(allowWebviewAttach(params, { partition: "" })).toBe(true);
+    expect(allowWebviewAttach(params, { partition: undefined })).toBe(true);
+    expect(allowWebviewAttach(params, {})).toBe(true);
+  });
+
+  it("ayar nesnesi yoksa ret", () => {
+    const params = { partition: BROWSER_PARTITION, src: "https://a.com/" };
+    expect(allowWebviewAttach(params, null)).toBe(false);
+    expect(allowWebviewAttach(params, undefined)).toBe(false);
   });
 });
 
 describe("hardenWebviewPreferences (§4.1)", () => {
-  it("preload ve tehlikeli anahtarlar siliniyor; Node, izolasyon, sandbox, web güvenliği zorla; zararsız ayar kalıyor", () => {
+  const SAFE = {
+    partition: BROWSER_PARTITION,
+    nodeIntegration: false,
+    nodeIntegrationInSubFrames: false,
+    nodeIntegrationInWorker: false,
+    contextIsolation: true,
+    sandbox: true,
+    webSecurity: true,
+    allowRunningInsecureContent: false,
+    plugins: false,
+    webviewTag: false,
+    experimentalFeatures: false,
+    navigateOnDragDrop: false,
+    javascript: true,
+    disablePopups: false,
+    safeDialogs: true,
+    enableWebSQL: false
+  };
+
+  it("beyaz liste: tehlikeli anahtarlar siliniyor, güvenli değerler zorla, javascript açık, bölüm bizimki", () => {
     const prefs: Record<string, unknown> = {
+      partition: "persist:saml-x",
       preload: "C:/x/preload.cjs",
       preloadURL: "file:///C:/x/preload.cjs",
       nodeIntegration: true,
@@ -47,24 +97,21 @@ describe("hardenWebviewPreferences (§4.1)", () => {
       webviewTag: true,
       experimentalFeatures: true,
       enableBlinkFeatures: "X",
+      disableBlinkFeatures: "Y",
       additionalArguments: ["--x"],
-      zoomFactor: 1.5
+      javascript: false,
+      disablePopups: true,
+      zoomFactor: 1.5,
+      gelecekteBilinmeyenAnahtar: "x"
     };
     hardenWebviewPreferences(prefs);
-    expect(prefs).toEqual({
-      nodeIntegration: false,
-      nodeIntegrationInSubFrames: false,
-      nodeIntegrationInWorker: false,
-      contextIsolation: true,
-      sandbox: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-      plugins: false,
-      webviewTag: false,
-      experimentalFeatures: false,
-      navigateOnDragDrop: false,
-      zoomFactor: 1.5
-    });
+    expect(prefs).toEqual(SAFE);
+  });
+
+  it("boş nesneye de aynı güvenli küme yazılıyor", () => {
+    const prefs: Record<string, unknown> = {};
+    hardenWebviewPreferences(prefs);
+    expect(prefs).toEqual(SAFE);
   });
 });
 
@@ -132,8 +179,27 @@ describe("installBrowserGuestRules (§4.4)", () => {
   it("loadURL reddedilse de (ERR_ABORTED) yakalanıyor", async () => {
     const { g } = guest();
     g.loadURL.mockRejectedValueOnce(new Error("ERR_ABORTED"));
-    expect(g.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
-    await Promise.resolve();
+    const unhandled = vi.fn();
+    process.on("unhandledRejection", unhandled);
+    try {
+      expect(g.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
+      expect(g.loadURL).toHaveBeenCalledWith("https://a.com/");
+      await new Promise((resolve) => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(unhandled).not.toHaveBeenCalled();
+    } finally {
+      process.off("unhandledRejection", unhandled);
+    }
+  });
+
+  it("Bluetooth cihazı sorulmadan seçilmiyor: varsayılan engelleniyor, istek iptal", () => {
+    const { g } = guest();
+    const preventDefault = vi.fn();
+    const callback = vi.fn();
+    g.emit("select-bluetooth-device", { preventDefault }, [{ deviceId: "AA:BB", deviceName: "kulaklik" }], callback);
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(callback).toHaveBeenCalledWith("");
   });
 
   it("istemci sertifikası sorulmadan verilmiyor: varsayılan seçim engelleniyor, sertifikasız devam", () => {
@@ -208,7 +274,48 @@ class FakeSession extends EventEmitter {
   setDevicePermissionHandler(handler: () => boolean) {
     this.device = handler;
   }
+  beforeRequest: ((details: { url: string; resourceType?: string }, callback: (response: { cancel?: boolean }) => void) => void) | null = null;
+  webRequest = {
+    onBeforeRequest: (listener: (details: { url: string; resourceType?: string }, callback: (response: { cancel?: boolean }) => void) => void) => {
+      this.beforeRequest = listener;
+    }
+  };
+  /** İsteği geçirip iptal edilip edilmediğini döndürür. */
+  requestCancelled(url: string, resourceType = "image"): boolean {
+    const callback = vi.fn();
+    this.beforeRequest!({ url, resourceType }, callback);
+    expect(callback).toHaveBeenCalledTimes(1);
+    return callback.mock.calls[0][0].cancel === true;
+  }
 }
+
+describe("isBrowserRequestAllowed (derinlemesine savunma)", () => {
+  it("http/https/ws/wss serbest; data/blob yalnız alt kaynakta; yerel ve iç şemalar ret", () => {
+    for (const url of ["https://a.com/x.js", "http://localhost:5173/", "wss://a.com/s", "ws://a.com/s", "HTTPS://A.com/"]) {
+      expect(isBrowserRequestAllowed(url, "script"), url).toBe(true);
+    }
+    expect(isBrowserRequestAllowed("data:image/png;base64,AA", "image")).toBe(true);
+    expect(isBrowserRequestAllowed("blob:https://a.com/1", "media")).toBe(true);
+    expect(isBrowserRequestAllowed("data:text/html,x", "mainFrame")).toBe(false);
+    expect(isBrowserRequestAllowed("blob:https://a.com/1", "mainFrame")).toBe(false);
+    expect(isBrowserRequestAllowed("wss://a.com/s", "mainFrame")).toBe(false);
+    expect(isBrowserRequestAllowed("https://a.com/", "mainFrame")).toBe(true);
+    for (const url of [
+      "file:///C:/Windows/win.ini",
+      "FILE:///C:/x",
+      "devtools://devtools/x",
+      "chrome://gpu",
+      "chrome-extension://abc/x.js",
+      "javascript:alert(1)",
+      "ftp://a.com/x",
+      "smb://sunucu/pay",
+      "",
+      "gecersiz adres"
+    ]) {
+      expect(isBrowserRequestAllowed(url, "image"), url).toBe(false);
+    }
+  });
+});
 
 describe("configureBrowserSession (§4.3, §4.5)", () => {
   it("bütün izin istekleri ve denetimleri reddediliyor", () => {
@@ -237,6 +344,33 @@ describe("configureBrowserSession (§4.3, §4.5)", () => {
     }
     expect(ses.check!()).toBe(false);
     expect(ses.device!()).toBe(false);
+  });
+
+  it("webRequest: file: ve iç şemalı istekler iptal, http(s) geçiyor", () => {
+    const ses = new FakeSession();
+    configureBrowserSession(ses as unknown as BrowserSessionLike, { onDownloadBlocked: vi.fn() });
+    expect(ses.requestCancelled("file:///C:/Users/x/gizli.txt")).toBe(true);
+    expect(ses.requestCancelled("chrome-extension://abc/x.js", "script")).toBe(true);
+    expect(ses.requestCancelled("devtools://devtools/x", "subFrame")).toBe(true);
+    expect(ses.requestCancelled("https://a.com/x.png")).toBe(false);
+    expect(ses.requestCancelled("https://a.com/", "mainFrame")).toBe(false);
+  });
+
+  it("HID, seri port, USB cihaz seçimi: varsayılan engelleniyor, istek iptal", () => {
+    const ses = new FakeSession();
+    configureBrowserSession(ses as unknown as BrowserSessionLike, { onDownloadBlocked: vi.fn() });
+    const hid = { preventDefault: vi.fn(), callback: vi.fn() };
+    ses.emit("select-hid-device", hid, { deviceList: [{ deviceId: "1" }] }, hid.callback);
+    expect(hid.preventDefault).toHaveBeenCalledTimes(1);
+    expect(hid.callback.mock.calls).toEqual([[]]);
+    const usb = { preventDefault: vi.fn(), callback: vi.fn() };
+    ses.emit("select-usb-device", usb, { deviceList: [{ deviceId: "1" }] }, usb.callback);
+    expect(usb.preventDefault).toHaveBeenCalledTimes(1);
+    expect(usb.callback.mock.calls).toEqual([[]]);
+    const serial = { preventDefault: vi.fn(), callback: vi.fn() };
+    ses.emit("select-serial-port", serial, [{ portId: "COM1" }], {}, serial.callback);
+    expect(serial.preventDefault).toHaveBeenCalledTimes(1);
+    expect(serial.callback.mock.calls).toEqual([[""]]);
   });
 
   it("indirme iptal; hangi sayfadan geldiği bildiriliyor", () => {
@@ -283,6 +417,15 @@ describe("isOurBrowserGuest / isBrowserGuestContents (§4.6)", () => {
     expect(isOurBrowserGuest(candidate(), host, ours)).toBe(true);
     // Aynı bölüm, farklı nesne: disk yolu aynı.
     expect(isOurBrowserGuest(candidate({ session: { getStoragePath: () => ours.getStoragePath() } }), host, ours)).toBe(true);
+    // Host aynı id, farklı sarmalayıcı nesne: kimlik id ile.
+    expect(isOurBrowserGuest(candidate({ hostWebContents: { id: 1 } }), host, ours)).toBe(true);
+  });
+
+  it("host id'si sayı değilse ya da eksikse: hayır", () => {
+    expect(isOurBrowserGuest(candidate({ hostWebContents: {} }), {}, ours)).toBe(false);
+    expect(isOurBrowserGuest(candidate({ hostWebContents: { id: "1" } }), { id: "1" }, ours)).toBe(false);
+    expect(isOurBrowserGuest(candidate({ hostWebContents: { id: Number.NaN } }), { id: Number.NaN }, ours)).toBe(false);
+    expect(isOurBrowserGuest(candidate({ hostWebContents: undefined }), host, ours)).toBe(false);
   });
 
   it("başka pencere, başka tür, yok edilmiş, başka oturum, bellek içi oturum, eksik girdi: hayır", () => {
