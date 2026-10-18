@@ -1496,7 +1496,9 @@ export const tr = {
   "board.missingDir": "Klasör bulunamadı",
   "board.spawnFailed": "Başlatılamadı",
   "board.deleteTitle": "Görevi sil",
-  "board.deleteBody": "\"{title}\" ve alt görevleri silinir; çalışan lider ya da doğrulama durdurulur."
+  "board.deleteBody": "\"{title}\" ve alt görevleri silinir; çalışan lider ya da doğrulama durdurulur.",
+  "board.failedCount": "{count} alt görev başarısız",
+  "board.closeWorkspaceTasks": "Bu alanın panosundaki {count} görev de silinir."
 };
 
 

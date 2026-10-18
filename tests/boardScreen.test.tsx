@@ -252,3 +252,12 @@ describe("yeni görev ve uyarı", () => {
     expect(document.querySelector("[data-board-not-saved]")).toBeTruthy();
   });
 });
+
+describe("ekip şeridi", () => {
+  it("görevli ajanın kartında alt görev başlığı küçük satır; görevsiz ajanda yok", () => {
+    const ws = workspace({ panes: [agentPane("p1"), agentPane("p2")] });
+    setup(ws, { workspaceId: "a", tasks: [task("t", [sub("Tabloyu ekle", { state: "running", paneId: "p1" })])] });
+    expect(document.querySelector('[data-agent-card="p1"] [data-agent-task]')?.textContent).toBe("Tabloyu ekle");
+    expect(document.querySelector('[data-agent-card="p2"] [data-agent-task]')).toBeNull();
+  });
+});

@@ -60,6 +60,8 @@ import { TerminalStoreProvider } from "./stores/terminalStore";
 import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
 import AgentsModeBadge from "./agents/AgentsModeBadge";
+import { BoardProvider } from "./board/boardContext";
+import BoardOpenListener from "./board/BoardOpenListener";
 import FileViewer from "./components/FileViewer";
 import { ChatStoreProvider } from "./stores/chatStore";
 import { flattenLandscape } from "./lib/landscape";
@@ -1002,8 +1004,10 @@ export default function App() {
         pushToast={pushToast}
         onConfigSaved={setConfig}
       >
+        <BoardProvider>
         <AgentStatusProvider>
         <AgentOpenListener onShow={handleShowAgents} />
+        <BoardOpenListener onShow={handleShowAgents} />
         <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -1377,6 +1381,7 @@ export default function App() {
         </div>
         </div>
         </AgentStatusProvider>
+        </BoardProvider>
       </TerminalStoreProvider>
       </ScriptStoreProvider>
       </ChatStoreProvider>

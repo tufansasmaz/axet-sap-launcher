@@ -9,6 +9,8 @@ import type { PaneRun, TerminalState, TerminalWorkspace } from "../src/stores/te
 import { AgentStatusContext } from "../src/agents/agentStatusContext";
 import { LEGACY_AXET_AGENT, type AgentStatus } from "../app-electron/shared/agentTypes";
 import type { ActiveSapContext } from "../app-electron/shared/types";
+import { BoardContext } from "../src/board/boardContext";
+import type { Board } from "../app-electron/shared/boardTypes";
 
 afterEach(cleanup);
 
@@ -91,7 +93,7 @@ beforeEach(() => {
 function renderSidebar(
   workspaces: TerminalWorkspace[],
   over: Partial<TerminalState> = {},
-  extra: { statuses?: Record<string, AgentStatus>; activeSap?: ActiveSapContext | null } = {}
+  extra: { statuses?: Record<string, AgentStatus>; activeSap?: ActiveSapContext | null; boards?: Record<string, Board> } = {}
 ) {
   const commands = commandsMock();
   const state: TerminalState = {
@@ -107,7 +109,9 @@ function renderSidebar(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider value={value}>
         <AgentStatusContext.Provider value={{ statuses: extra.statuses ?? {}, engines: [], now: 1, answer: vi.fn(async () => ({ ok: true as const })) }}>
-          <TerminalSidebar activeSap={extra.activeSap ?? null} />
+          <BoardContext.Provider value={{ boards: extra.boards ?? {}, command: vi.fn(async () => ({ ok: true as const })) }}>
+            <TerminalSidebar activeSap={extra.activeSap ?? null} />
+          </BoardContext.Provider>
         </AgentStatusContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
@@ -276,6 +280,41 @@ describe("TerminalSidebar", () => {
     renderSidebar([ws("a", "API")]);
     fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
     expect(screen.queryByRole("menuitem", { name: /proje klasörü yap/ })).toBeNull();
+  });
+
+  it("panoda başarısız alt görev varsa alan satırında tehlike rozeti", () => {
+    const board: Board = {
+      workspaceId: "a",
+      tasks: [
+        {
+          id: "t",
+          title: "T",
+          goal: "",
+          state: "stuck",
+          createdAt: 1,
+          approvedAt: 2,
+          subtasks: [
+            { id: "s1", title: "A", prompt: "p", roleHint: "", dependsOn: [], state: "failed", paneId: null, attempts: 1 },
+            { id: "s2", title: "B", prompt: "p", roleHint: "", dependsOn: [], state: "failed", paneId: null, attempts: 1 }
+          ]
+        }
+      ]
+    };
+    renderSidebar([ws("a", "API"), ws("b", "UI")], {}, { boards: { a: board } });
+    const badge = row("API").querySelector("[data-failed]") as HTMLElement;
+    expect(badge.textContent).toBe("2");
+    expect(badge.getAttribute("aria-label")).toBe("2 alt görev başarısız");
+    expect(row("UI").querySelector("[data-failed]")).toBeNull();
+  });
+
+  it("kapatma: süreç yok ama panoda görev varsa onay soruluyor ve görevlerin silineceği yazıyor", () => {
+    const board: Board = { workspaceId: "a", tasks: [{ id: "t", title: "T", goal: "", state: "draft", createdAt: 1, subtasks: [] }] };
+    const c = renderSidebar([ws("a", "API"), ws("b", "UI")], {}, { boards: { a: board } });
+    fireEvent.contextMenu(row("API"), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByRole("menuitem", { name: "Kapat" }));
+    expect(c.closeWorkspace).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog").textContent).toContain("Bu alanın panosundaki 1 görev de silinir.");
+    expect(screen.getByRole("dialog").textContent).not.toContain("terminal kapanacak");
   });
 
   it("menü: Doğrulama komutları… penceresi satırları alana kaydediyor; 5'i aşınca kaydetmiyor", () => {

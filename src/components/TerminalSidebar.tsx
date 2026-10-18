@@ -13,6 +13,8 @@ import VerifyCommandsDialog from "../board/VerifyCommandsDialog";
 import type { ActiveSapContext } from "../../app-electron/shared/types";
 import { useAgentStatuses } from "../agents/agentStatusContext";
 import { agentPanes, askingCount } from "../agents/agentView";
+import { useBoards } from "../board/boardContext";
+import { failedCount, taskCount } from "../board/boardDisplay";
 
 // Terminal modunun kenar çubuğu: çalışma alanı listesi (spec §5.1).
 // Bölmeler burada değil, sağ tarafta; bu liste yalnız alan seçip yönetiyor.
@@ -26,6 +28,7 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
   const t = useT();
   const { state, commands } = useTerminalStore();
   const { statuses } = useAgentStatuses();
+  const { boards } = useBoards();
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -56,7 +59,7 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
 
   const requestClose = (w: TerminalWorkspace) => {
     setMenu(null);
-    if (liveCount(w) > 0) setConfirmId(w.id);
+    if (liveCount(w) > 0 || taskCount(boards[w.id]) > 0) setConfirmId(w.id);
     else commands.closeWorkspace(w.id);
   };
 
@@ -132,6 +135,7 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
           const dot = workspaceDot(w);
           const agents = agentPanes(w).length;
           const asking = askingCount(w, statuses);
+          const failed = failedCount(boards[w.id]);
           return (
             <div
               key={w.id}
@@ -171,6 +175,16 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
               </span>
               <span className="min-w-0 flex-1 truncate">{w.name}</span>
               {w.sap && <span className="shrink-0 font-mono text-2xs text-slate-500">{w.sap.label}</span>}
+              {failed > 0 && (
+                <span
+                  data-failed={failed}
+                  title={t("board.failedCount", { count: failed })}
+                  aria-label={t("board.failedCount", { count: failed })}
+                  className="shrink-0 rounded-full bg-[var(--status-danger-bg)] px-1.5 font-mono text-2xs tabular-nums text-[var(--status-danger-text)]"
+                >
+                  {failed}
+                </span>
+              )}
               {asking > 0 && (
                 <span
                   data-asking={asking}
@@ -281,7 +295,16 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
       <ConfirmDialog
         open={confirmTarget !== null}
         title={t("terminal.closeWorkspaceTitle")}
-        message={t("terminal.closeWorkspaceBody", { count: confirmTarget ? liveCount(confirmTarget) : 0 })}
+        message={
+          confirmTarget
+            ? [
+                liveCount(confirmTarget) > 0 ? t("terminal.closeWorkspaceBody", { count: liveCount(confirmTarget) }) : "",
+                taskCount(boards[confirmTarget.id]) > 0 ? t("board.closeWorkspaceTasks", { count: taskCount(boards[confirmTarget.id]) }) : ""
+              ]
+                .filter(Boolean)
+                .join(" ")
+            : ""
+        }
         confirmLabel={t("terminal.closeWorkspaceConfirm")}
         onConfirm={() => {
           if (confirmTarget) commands.closeWorkspace(confirmTarget.id);

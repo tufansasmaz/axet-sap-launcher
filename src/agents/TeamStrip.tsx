@@ -8,6 +8,8 @@ import { PANE_COLOR_VAR } from "../terminal/paneColors";
 import { useAgentStatuses } from "./agentStatusContext";
 import { agentPanes, cardStatus, TONE_DOT } from "./agentView";
 import { ENGINE_LABEL, agentName } from "./agentLabels";
+import { useBoards } from "../board/boardContext";
+import { activeSubtaskOf } from "../board/boardDisplay";
 
 // Ekip şeridi (spec 2026-10-17 ajan-alani §4): seçili alandaki ajanlar yan
 // yana. Kart: renk şeridi, ad, rol, motor, durum noktası + metni; tahmini
@@ -33,7 +35,7 @@ export default function TeamStrip({
   const { statuses, engines, now } = useAgentStatuses();
   const agents = agentPanes(workspace);
   return (
-    <div className="flex h-16 shrink-0 items-center gap-2 border-b border-line px-3">
+    <div className="flex min-h-16 shrink-0 items-center gap-2 border-b border-line px-3">
       {/* Bölmeler | Pano (spec 2026-10-18 gorev-panosu §8); seçim lime, alan başına hatırlanıyor. */}
       <div role="radiogroup" aria-label={t("board.viewLabel")} className="flex shrink-0 gap-0.5 rounded-md bg-control p-0.5">
         {(["panes", "board"] as const).map((v) => (
@@ -106,6 +108,8 @@ function AgentCard({
   const t = useT();
   const { commands } = useTerminalStore();
   const view = cardStatus(pane, status, now);
+  const { boards } = useBoards();
+  const job = activeSubtaskOf(boards, pane.id);
   const color = PANE_COLOR_VAR[pane.color ?? "gray"];
   const engineLabel = t(ENGINE_LABEL[pane.agent?.engine ?? "axet-code"]);
   return (
@@ -116,7 +120,7 @@ function AgentCard({
         aria-pressed={selected}
         onClick={() => commands.revealPane(pane.id)}
         style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-        className={`flex h-12 w-52 flex-col justify-center gap-1 rounded-md border bg-card pl-3 pr-2 text-left transition-colors ${
+        className={`flex min-h-12 w-52 flex-col justify-center gap-1 rounded-md border bg-card py-1 pl-3 pr-2 text-left transition-colors ${
           selected ? "border-accent-500/60" : "border-line hover:border-slate-500"
         } ${view.restartable ? "pr-8" : ""}`}
       >
@@ -141,6 +145,12 @@ function AgentCard({
             {engineLabel}
           </span>
         </span>
+        {/* Görev panosu (spec 2026-10-18 gorev-panosu §8): görevli ajanın alt görevi. */}
+        {job && (
+          <span data-agent-task="" title={job.subtask.title} className="min-w-0 truncate text-2xs text-slate-500">
+            {job.subtask.title}
+          </span>
+        )}
       </button>
       {view.restartable && (
         <button

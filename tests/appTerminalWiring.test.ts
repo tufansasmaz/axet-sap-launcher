@@ -33,6 +33,11 @@ describe("App — terminal modu bağlı", () => {
     expect(app).toMatch(/<AgentOpenListener onShow=\{[^}]*\}\s*\/>/);
     expect(app).toContain("terminal: <AgentsModeBadge />");
   });
+
+  it("görev panosu sağlayıcısı ve bildirim dinleyicisi App'te", () => {
+    expect(app).toContain("<BoardProvider>");
+    expect(app).toMatch(/<BoardOpenListener onShow=\{[^}]*\}\s*\/>/);
+  });
 });
 
 describe("App — eski terminal paneli yok", () => {
