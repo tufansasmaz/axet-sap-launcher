@@ -1575,7 +1575,26 @@ export const tr = {
   "changes.diffColOld": "Eski no",
   "changes.diffColNew": "Yeni no",
   "changes.diffColSign": "İşaret",
-  "changes.diffColText": "Metin"
+  "changes.diffColText": "Metin",
+  "changes.accept": "Kabul et",
+  "changes.revert": "Geri al",
+  "changes.revertTitle": "Değişiklikler geri alınsın mı?",
+  "changes.revertBody": "{count} dosya bu geri alma noktasındaki hâline dönecek.",
+  "changes.revertLaterWarning": "Bu dosyalardaki sonraki değişiklikler de geri alınır. Önce şimdiki hâlin geri alma noktası alınır; geri almayı geri alabilirsin.",
+  "changes.revertTrashNote": "Sonradan eklenen {count} dosya çöp kutusuna taşınır (kalıcı silinmez).",
+  "changes.revertFiles": "Etkilenecek dosyalar",
+  "changes.revertConflicts": "Bu dosyalara sonraki kayıtlar da dokunmuş; onların bu dosyalardaki değişiklikleri de gider:",
+  "changes.conflictsPartial": "Sonraki kayıtların yalnız ilk 50'si tarandı; daha yeni kayıtlar da bu dosyalara dokunmuş olabilir.",
+  "changes.revertRunning": "Şu an çalışan ajanlar var: {names}. Bu dosyalara yazıyor olabilirler.",
+  "changes.revertConfirm": "{count} dosyayı geri al",
+  "changes.revertDone": "Geri alındı: {restored} dosya eski hâline döndü, {trashed} dosya çöpe taşındı.",
+  "changes.revertFailedAt": "Durduğu dosya: {path}",
+  "changes.revertPartial": "Durmadan önce {count} dosya geri alındı:",
+  "changes.revertSkipped": "{count} dosya artık bu kaydın aralığında olmadığı için atlandı.",
+  "changes.revertUndoHint": "Geri almayı geri almak için listedeki \"Geri almadan önce\" kaydını seçip Geri al'a bas.",
+  "changes.dismiss": "Kapat",
+  "changes.noSubtaskRecord": "Bu alt görev için geri alma noktası yok.",
+  "changes.boardLink": "Değişiklikler"
 };
 
 

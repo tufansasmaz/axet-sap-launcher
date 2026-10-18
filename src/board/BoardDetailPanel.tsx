@@ -13,6 +13,7 @@ import { useAgentStatuses } from "../agents/agentStatusContext";
 import { useBoards } from "./boardContext";
 import { assignablePanes, FAILURE_KEY, LEAD_ERROR_KEY, NOTE_KEY, SUBTASK_STATE_KEY } from "./boardDisplay";
 import DraftEditor from "./DraftEditor";
+import { useChangesFocus } from "../changes/changesFocus";
 
 // Ayrıntı paneli (spec 2026-10-18 gorev-panosu §8): hedef, lider durumu,
 // taslak ya da alt görev listesi (istem, rol ipucu, bağımlılık, ajan seçici),
@@ -42,6 +43,7 @@ export default function BoardDetailPanel({
   const t = useT();
   const { command } = useBoards();
   const { commands } = useTerminalStore();
+  const { requestFocus } = useChangesFocus();
   const [pending, setPending] = useState(false);
   const pendingRef = useRef(false);
   const [error, setError] = useState<TranslationKey | null>(null);
@@ -114,6 +116,11 @@ export default function BoardDetailPanel({
   const goToTerminal = (paneId: string) => {
     // revealPane Pano/Ofis'teyken zaten setWorkspaceView("panes") cagiriyor (terminalStore:441).
     commands.revealPane(paneId);
+  };
+  // Değişiklikler görünümüne, bu alt görevin en son geri alma noktası seçili (spec 2026-10-18 degisiklikler §5).
+  const goToChanges = (subtaskId: string) => {
+    requestFocus(workspace.id, subtaskId);
+    commands.setWorkspaceView(workspace.id, "changes");
   };
   const paneName = (paneId: string | null) => {
     const pane = paneId ? workspace.panes.find((p) => p.id === paneId) : undefined;
@@ -189,6 +196,20 @@ export default function BoardDetailPanel({
                   {s.roleHint && <span>{t("board.roleHint", { role: s.roleHint })}</span>}
                   {s.dependsOn.length > 0 && <span>{t("board.dependsOnList", { list: s.dependsOn.map(titleOf).join(", ") })}</span>}
                   {s.note && <span>{t(NOTE_KEY[s.note])}</span>}
+                  {/* Yalnız bir ajana gönderilmiş alt görevde: dağıtım anında geri alma noktası alınmıştır. */}
+                  {(s.dispatchedAt !== undefined || s.attempts > 0) && (
+                    <button
+                      type="button"
+                      data-subtask-changes={s.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        goToChanges(s.id);
+                      }}
+                      className="cursor-pointer text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline"
+                    >
+                      {t("changes.boardLink")}
+                    </button>
+                  )}
                 </div>
                 <details className="text-2xs text-slate-400">
                   <summary className="cursor-pointer">{t("board.prompt")}</summary>
