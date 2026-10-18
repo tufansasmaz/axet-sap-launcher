@@ -103,6 +103,10 @@ type NavEvent = { url: string; isMainFrame: boolean; preventDefault: () => void;
 
 class FakeContents extends EventEmitter {
   openHandler: ((details: { url: string }) => { action: string }) | null = null;
+  type = "window";
+  getType(): string {
+    return this.type;
+  }
   constructor(public session: { getStoragePath: () => string | null }) {
     super();
   }
@@ -131,7 +135,7 @@ class FakeContents extends EventEmitter {
   }
 }
 
-function setup(origin: AppOrigin = prod, opts: { browser?: boolean } = {}) {
+function setup(origin: AppOrigin = prod, opts: { browser?: boolean; isGuestAlways?: boolean } = {}) {
   const app = new EventEmitter();
   const openExternal = vi.fn().mockResolvedValue(undefined);
   const defaultSession = { getStoragePath: () => "C:\\Users\\x\\AppData\\Roaming\\NTT Studio" };
@@ -150,21 +154,30 @@ function setup(origin: AppOrigin = prod, opts: { browser?: boolean } = {}) {
       ? {
           browser: {
             isMainWindow: (contents: WebContents) => mains.has(contents),
-            isGuest: (contents: WebContents) => guests.has(contents),
+            // isGuestAlways: hatalı bir isGuest (her şeye true) windowGuard'ın kendi denetimini sınar.
+            isGuest: (contents: WebContents) => !!opts.isGuestAlways || guests.has(contents),
             log: browserLog,
             onShortcut
           }
         }
       : {})
   });
-  const create = (session: { getStoragePath: () => string | null } = defaultSession, kind: "plain" | "main" | "guest" = "plain") => {
+  const create = (
+    session: { getStoragePath: () => string | null } = defaultSession,
+    kind: "plain" | "main" | "guest" = "plain",
+    prepare?: (contents: FakeContents) => void
+  ) => {
     const contents = new FakeContents(session);
     if (kind === "main") mains.add(contents);
-    if (kind === "guest") guests.add(contents);
+    if (kind === "guest") {
+      guests.add(contents);
+      contents.type = "webview";
+    }
+    prepare?.(contents);
     app.emit("web-contents-created", {}, contents as unknown as WebContents);
     return contents;
   };
-  return { create, openExternal, sandboxes, mains, browserLog, onShortcut };
+  return { create, openExternal, sandboxes, mains, guests, browserLog, onShortcut };
 }
 
 describe("installWindowGuards", () => {
@@ -285,6 +298,68 @@ describe("installWindowGuards — yerleşik tarayıcı (spec 2026-10-18 tarayici
     g.emit("before-input-event", { preventDefault: () => (prevented = true) }, { type: "keyDown", key: "l", control: true, alt: false, shift: false, meta: false });
     expect(prevented).toBe(true);
     expect(onShortcut).toHaveBeenCalledWith(g, "focusAddress");
+  });
+
+  it("isGuest her şeye true dese de ana pencere guest kurallarını almıyor (yalnız kendi sayfası, sistem tarayıcısı)", () => {
+    const { create, openExternal } = setup(prod, { browser: true, isGuestAlways: true });
+    // Ana pencere webview tipinde görünse bile (hatalı yüklem + tuhaf tip) guest dalına girmiyor.
+    const main = create(undefined, "main", (c) => (c.type = "webview"));
+    expect(main.navigate("will-navigate", "https://saldirgan.example/")).toBe(true);
+    expect(main.navigate("will-redirect", "https://saldirgan.example/")).toBe(true);
+    expect(main.navigate("will-navigate", `${base}/dist/index.html`)).toBe(false);
+    expect(main.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
+    expect(main.loadURL).not.toHaveBeenCalled();
+    expect(openExternal).toHaveBeenCalledWith("https://a.com/");
+  });
+
+  it("getType() webview değilse isGuest true dese de guest kurallarını almıyor", () => {
+    const { create, openExternal } = setup(prod, { browser: true, isGuestAlways: true });
+    const plain = create();
+    expect(plain.navigate("will-navigate", "https://saldirgan.example/")).toBe(true);
+    expect(plain.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
+    expect(plain.loadURL).not.toHaveBeenCalled();
+    expect(openExternal).toHaveBeenCalledWith("https://a.com/");
+  });
+
+  it("isGuest true olan Flow sandbox guest kurallarını almıyor", () => {
+    const { create, openExternal, sandboxes } = setup(prod, { browser: true });
+    const sandbox = create({ getStoragePath: () => null }, "guest", (c) => sandboxes.add(c));
+    expect(sandbox.navigate("will-navigate", "https://saldirgan.example/")).toBe(true);
+    expect(sandbox.openHandler!({ url: "https://a.com/" })).toEqual({ action: "deny" });
+    expect(sandbox.loadURL).not.toHaveBeenCalled();
+    expect(openExternal).not.toHaveBeenCalled();
+  });
+
+  it("tarayıcı bağımlılığı varken SAML penceresi IdP'ye gidebiliyor, webview takamıyor", () => {
+    const { create, openExternal } = setup(prod, { browser: true });
+    const saml = create({ getStoragePath: () => "C:\\Users\\x\\AppData\\Roaming\\NTT Studio\\Partitions\\saml-uuid-1" });
+    expect(saml.navigate("will-navigate", "https://idp.firma.example/saml2/sso")).toBe(false);
+    expect(saml.navigate("will-redirect", "https://login.microsoftonline.com/x")).toBe(false);
+    expect(saml.openHandler!({ url: "https://idp.firma.example/yardim" })).toEqual({ action: "deny" });
+    expect(openExternal).toHaveBeenCalledTimes(1);
+    expect(saml.attachWebview(ok)).toBe(true);
+  });
+
+  it("guest kuralları kurulamazsa sayfa gezinemiyor, pencere açamıyor; adres günlüğe girmiyor", () => {
+    const { create, openExternal, browserLog } = setup(prod, { browser: true });
+    let g!: FakeContents;
+    expect(() => {
+      g = create(guestSession, "guest", (c) => {
+        c.setWebRTCIPHandlingPolicy = vi.fn(() => {
+          throw new Error("yok");
+        });
+      });
+    }).not.toThrow();
+    expect(g.navigate("will-navigate", "https://help.sap.com/docs")).toBe(true);
+    expect(g.navigate("will-redirect", "https://help.sap.com/x")).toBe(true);
+    expect(g.openHandler!({ url: "https://a.com/yeni" })).toEqual({ action: "deny" });
+    expect(g.loadURL).not.toHaveBeenCalled();
+    expect(openExternal).not.toHaveBeenCalled();
+    expect(g.attachWebview(ok)).toBe(true);
+    expect(browserLog).toHaveBeenCalledWith("tarayici.kural-hatasi", { sonuc: "ret" });
+    const logged = JSON.stringify(browserLog.mock.calls);
+    expect(logged).not.toContain("help.sap.com");
+    expect(logged).not.toContain("a.com");
   });
 
   it("guest değilse (sıradan pencere) eski korumalar aynen", () => {

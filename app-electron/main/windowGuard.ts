@@ -117,10 +117,33 @@ export interface WindowGuardDeps {
   // persist:ntt-tarayici bölümünde; sayfasının kuralları browserGuard.ts'te.
   browser?: {
     isMainWindow: (contents: WebContents) => boolean;
+    // Sözleşme: yalnız getType() === "webview", oturumu persist:ntt-tarayici
+    // ve ana pencereye bağlı (hostWebContents) bir webContents için true;
+    // ana pencere ya da başka bir pencere için ASLA. windowGuard yine de tipi,
+    // Flow sandbox'ı ve ana pencereyi kendisi denetliyor: bu yüklem guest
+    // kümesini yalnız daraltabilir, genişletemez (yanlış true ana pencerenin
+    // "yalnız kendi sayfası" korumasını kaldırırdı).
     isGuest: (contents: WebContents) => boolean;
     log: (event: string, detail: Record<string, string>) => void;
     onShortcut: (contents: WebContents, action: BrowserShortcut) => void;
   };
+}
+
+/** Kuralları kurulamayan guest: hiçbir yere gidemez, pencere açamaz, webview takamaz. */
+function lockBrokenGuest(contents: WebContents): void {
+  const steps = [
+    () => contents.setWindowOpenHandler(() => ({ action: "deny" })),
+    () => contents.on("will-navigate", (event) => event.preventDefault()),
+    () => contents.on("will-redirect", (event) => event.preventDefault()),
+    () => contents.on("will-attach-webview", (event) => event.preventDefault())
+  ];
+  for (const step of steps) {
+    try {
+      step();
+    } catch {
+      // bir adım düşerse ötekiler yine kurulsun
+    }
+  }
 }
 
 export function installWindowGuards(deps: WindowGuardDeps): void {
@@ -130,17 +153,37 @@ export function installWindowGuards(deps: WindowGuardDeps): void {
     // kendi sayfası" kuralı ve "bağlantı sistem tarayıcısına" kuralı ona
     // UYGULANMIYOR; yerine tarayıcı kuralı (spec 2026-10-18 tarayici §4.4).
     // Preload'u yok, window.api hiç yok.
+    // Sıra bilerek: önce kendi denetimlerimiz (tip, Flow sandbox, ana
+    // pencere), en son enjekte edilen yüklem. Herhangi bir hata: guest değil.
     let guest = false;
     try {
-      guest = !!browser && !deps.isFlowSandbox(contents) && browser.isGuest(contents);
+      guest =
+        !!browser &&
+        contents.getType() === "webview" &&
+        !deps.isFlowSandbox(contents) &&
+        !browser.isMainWindow(contents) &&
+        browser.isGuest(contents);
     } catch {
       guest = false;
     }
     if (browser && guest) {
-      installBrowserGuestRules(contents as unknown as GuestContents, {
-        log: browser.log,
-        onShortcut: (action) => browser.onShortcut(contents, action)
-      });
+      try {
+        installBrowserGuestRules(contents as unknown as GuestContents, {
+          log: browser.log,
+          onShortcut: (action) => browser.onShortcut(contents, action)
+        });
+      } catch {
+        // Kurallar yarıda kaldı: kısmen kurulmuş bir "izin" yolu kalmasın diye
+        // sayfa kilitleniyor. Her gezinme ve yönlendirme engelleniyor, yeni
+        // pencere işleyicisi yalnız deny dönen bir işleyiciyle değiştiriliyor,
+        // webview takma reddediliyor. Günlükte yalnız sonuç (§4.7: adres yok).
+        lockBrokenGuest(contents);
+        try {
+          browser.log("tarayici.kural-hatasi", { sonuc: "ret" });
+        } catch {
+          // günlük hatası kilidi değiştirmesin
+        }
+      }
       return;
     }
 
