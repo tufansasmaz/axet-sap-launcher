@@ -167,6 +167,17 @@ describe("AxetReader — eşleme", () => {
     expect(reader.engineReady()).toBe(true);
   });
 
+  // Tur 4: pencere açıkken durumda işaret (Akış mesajı kuyrukta bekler).
+  it("seçim penceresi açıkken durum 'setup' işaretli; sohbet ekranı gelince kalkıyor", () => {
+    const { make } = scenario();
+    const { reader } = make("A");
+    reader.feedOutput("C:\\p>axet-code -y\r\n");
+    reader.feedOutput("\x1b[2J Select Tool \x1b[3;1H Choose your development tool");
+    expect(reader.status()).toMatchObject({ state: "idle", detail: "setup" });
+    reader.feedOutput("\x1b[2J New Session \x1b[40;1H tab focus chat • ctrl+j newline • ctrl+p commands");
+    expect(reader.status().detail).toBeUndefined();
+  });
+
   it("seçim penceresi ve sohbet ekranı aynı parçadaysa sonuncusu geçerli; parça sınırı bölse de", () => {
     const { make } = scenario();
     const { reader } = make("A");

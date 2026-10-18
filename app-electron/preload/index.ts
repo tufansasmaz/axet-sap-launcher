@@ -78,6 +78,7 @@ import type {
 } from "../shared/changesTypes";
 import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic";
 import type { AgentSendResult } from "../shared/agentMessage";
+import type { StoredFlowEvent, TeamRelayMessage } from "../shared/flowHistory";
 import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
 
 const api = {
@@ -223,6 +224,15 @@ const api = {
     ipcRenderer.invoke("changes:prepareRevert", workspaceId, checkpointId),
   changesRevert: (workspaceId: string, checkpointId: string, paths: string[]): Promise<RevertResult> =>
     ipcRenderer.invoke("changes:revert", workspaceId, checkpointId, paths),
+  // Akış geçmişi ve ekip köprüsü (Tur 4).
+  flowLoad: (workspaceId: string): Promise<StoredFlowEvent[]> => ipcRenderer.invoke("flow:load", workspaceId),
+  flowSave: (workspaceId: string, events: StoredFlowEvent[]): Promise<boolean> => ipcRenderer.invoke("flow:save", workspaceId, events),
+  flowClear: (workspaceId: string): Promise<boolean> => ipcRenderer.invoke("flow:clear", workspaceId),
+  onTeamRelay: (callback: (event: TeamRelayMessage) => void) => {
+    const listener = (_event: unknown, payload: TeamRelayMessage) => callback(payload);
+    ipcRenderer.on("team:relay", listener);
+    return () => ipcRenderer.removeListener("team:relay", listener);
+  },
   onChangesChanged: (callback: (state: ChangesState) => void) => {
     const listener = (_event: unknown, state: ChangesState) => callback(state);
     ipcRenderer.on("changes:changed", listener);

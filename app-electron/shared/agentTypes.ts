@@ -70,7 +70,13 @@ export function readAgentSpec(raw: unknown): AgentSpec | null {
  */
 export const AGENT_ENGINE_MISSING = "AGENT_ENGINE_MISSING";
 
-export type AgentState = "running" | "idle" | "asking" | "finished" | "error" | "unknown";
+/**
+ * `AgentStatus.detail`: axet-code açılışta araç/model seçim penceresinde
+ * (Tur 4). Pencere açıkken yazılan istem kayboluyor; Akış mesajı kuyrukta bekler.
+ */
+export const AXET_SETUP_DETAIL = "setup";
+
+export type AgentState ="running" | "idle" | "asking" | "finished" | "error" | "unknown";
 
 /** `exact`: motorun kendi kaydından · `estimated`: terminal hareketinden (spec §2.5). */
 export type AgentStatusSource = "exact" | "estimated";

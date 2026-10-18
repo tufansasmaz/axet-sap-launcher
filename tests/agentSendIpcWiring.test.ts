@@ -13,7 +13,9 @@ const types = read("src", "window.d.ts");
 describe("agents:send", () => {
   it("yalnız ana pencereden; yalnız kimlikler ve metin", () => {
     expect(main).toMatch(/ipcMain\.handle\(\s*"agents:send",\s*async \(event, workspaceId: unknown, paneId: unknown, text: unknown\) => \{\s*if \(!mainWindow \|\| mainWindow\.isDestroyed\(\) \|\| event\.sender !== mainWindow\.webContents\) \{\s*return \{ ok: false, reason: "invalid" \};/);
-    expect(main).toMatch(/return await agentSender\.send\(workspaceId, paneId, text\);/);
+    // Tur 4: ilk mesaja ekip aracı ipucu eklenebiliyor (yalnız 2+ ajanlı ekipte, bir kez).
+    expect(main).toMatch(/const result = await agentSender\.send\(workspaceId, paneId, line\);/);
+    expect(main).toMatch(/if \(result\.ok && line !== text\) teamHinted\.add\(key\);/);
     expect(preload).toContain('ipcRenderer.invoke("agents:send", workspaceId, paneId, text)');
     expect(types).toMatch(/agentSend: \(workspaceId: string, paneId: string, text: string\) => Promise<AgentSendResult>;/);
   });

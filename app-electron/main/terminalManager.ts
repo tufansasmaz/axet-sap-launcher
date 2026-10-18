@@ -99,6 +99,19 @@ function isDirectory(dir: string): boolean {
   }
 }
 
+/** Ek ortam değişkenleri ve PATH öneki; Windows'ta PATH anahtarı "Path" olabilir (çift anahtar olmasın). */
+export function withTeamEnv(
+  env: Record<string, string>,
+  options: { env?: Record<string, string>; pathPrepend?: string }
+): Record<string, string> {
+  const out: Record<string, string> = { ...env, ...(options.env ?? {}) };
+  if (options.pathPrepend) {
+    const key = Object.keys(out).find((k) => k.toLowerCase() === "path") ?? "PATH";
+    out[key] = out[key] ? `${options.pathPrepend};${out[key]}` : options.pathPrepend;
+  }
+  return out;
+}
+
 function appendToBuffer(session: TerminalSession, data: string): void {
   session.buffer.push(data);
   session.bufferLen += data.length;
@@ -128,7 +141,7 @@ export function createTerminal(
   rows: number,
   shell: "cmd" | "powershell",
   initialCommand?: string,
-  options: { createDir?: boolean } = {}
+  options: { createDir?: boolean; env?: Record<string, string>; pathPrepend?: string } = {}
 ): boolean {
   // Terminal modu bölmeleri klasör YARATMIYOR (spec §5.1): kayıtlı düzendeki
   // silinmiş bir klasör sessizce yeniden oluşmasın, bölme "Klasör bulunamadı"
@@ -157,7 +170,8 @@ export function createTerminal(
     cwd: resolvedCwd,
     // Terminalde çalışan ajan 8787'ye token'la konuşuyor (bkz. adtHttpToken.ts);
     // PYTHONPATH, oradan çalışan Python'a TLS kuralını veriyor (pythonSiteEnv.ts).
-    env: withNttPythonSite({ ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() }) as Record<string, string>
+    // Ekip köprüsü (Tur 4, teamBridge.ts): bölme başına NTT_TEAM_* ve PATH başında ntt-team.
+    env: withTeamEnv(withNttPythonSite({ ...process.env, ABAP_HTTP_TOKEN: getAdtHttpToken() }) as Record<string, string>, options)
   });
 
   const session: TerminalSession = {

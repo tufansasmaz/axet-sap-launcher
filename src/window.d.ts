@@ -92,6 +92,7 @@ import type {
   UpdateStatus
 } from "../app-electron/shared/types";
 import type { WriteCsvResult, WriteHistoryResult } from "../app-electron/shared/sapWriteHistory";
+import type { StoredFlowEvent, TeamRelayMessage } from "../app-electron/shared/flowHistory";
 import type { Choice, SapWriteState, WorkMode } from "../app-electron/shared/sapWriteTypes";
 
 export interface AxetApi {
@@ -183,6 +184,10 @@ export interface AxetApi {
   changesPrepareRevert: (workspaceId: string, checkpointId: string) => Promise<PrepareRevertResult>;
   changesRevert: (workspaceId: string, checkpointId: string, paths: string[]) => Promise<RevertResult>;
   onChangesChanged: (callback: (state: ChangesState) => void) => () => void;
+  flowLoad: (workspaceId: string) => Promise<StoredFlowEvent[]>;
+  flowSave: (workspaceId: string, events: StoredFlowEvent[]) => Promise<boolean>;
+  flowClear: (workspaceId: string) => Promise<boolean>;
+  onTeamRelay: (callback: (event: TeamRelayMessage) => void) => () => void;
   browserSend: (workspaceId: string, paneId: string, webContentsId: number, withScreenshot: boolean) => Promise<BrowserSendResult>;
   onBrowserDownloadBlocked: (callback: (webContentsId: number | null) => void) => () => void;
   onBrowserShortcut: (callback: (webContentsId: number, action: BrowserShortcut) => void) => () => void;

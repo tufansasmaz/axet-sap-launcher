@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, Menu, shell, clipboard, screen, session, Notification } from "electron";
 import path from "node:path";
-import { promises as fs, existsSync } from "node:fs";
+import { promises as fs, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
@@ -52,6 +52,9 @@ import { browserWorkspace } from "../shared/browserLogic";
 import { configureBrowserSession, isBrowserGuestContents, type BrowserSessionLike } from "./browserGuard";
 import { createBrowserSender } from "./browserSend";
 import { createAgentSender } from "./agentSend";
+import { createTeamBridge, startTeamBridgeServer, TEAM_CMD, TEAM_HINT, TEAM_PS1 } from "./teamBridge";
+import { clearFlowHistory, loadFlowHistory, saveFlowHistory } from "./flowHistoryStore";
+import { AXET_SETUP_DETAIL } from "../shared/agentTypes";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
 import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
 import { createMemoryNotifier } from "./memoryNotifier";
@@ -433,6 +436,75 @@ const agentSender = createAgentSender({
   sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
   log: (tag, fields) => appLog(tag, fields)
 });
+
+// Akış geçmişi (Tur 4): userData/flow-history/<alan>.json, son 500 olay, gizli süzgeçli.
+const flowHistoryDir = () => path.join(app.getPath("userData"), "flow-history");
+
+// Ekip köprüsü (Tur 4, teamBridge.ts): ajan `ntt-team list|ask|feed` ile
+// ekibini görür ve ekip arkadaşına sorar. Yalnız 127.0.0.1, rastgele port,
+// bölme başına HMAC jeton (bellekte). Hedefe yazım Akış'ın kapılarından.
+const teamPaneName = (pane: { title?: string; agent?: { engine: string } }) => pane.title?.trim() || pane.agent?.engine || "ajan";
+const teamBridge = createTeamBridge({
+  caller: (ptyId) => {
+    const found = agentMonitor.agents().find((a) => a.reg.ptyId === ptyId);
+    if (!found?.reg.workspaceId) return null;
+    const pane = loadConfig().terminalWorkspaces.find((w) => w.id === found.reg.workspaceId)?.panes.find((p) => p.id === found.reg.paneId);
+    return { workspaceId: found.reg.workspaceId, paneId: found.reg.paneId, name: pane ? teamPaneName(pane) : found.reg.name };
+  },
+  members: (workspaceId) => {
+    const ws = loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId);
+    const live = agentMonitor.agents();
+    return (ws?.panes ?? [])
+      .filter((p) => p.kind === "agent")
+      .map((p) => {
+        const status = live.find((a) => a.reg.paneId === p.id)?.status ?? null;
+        return {
+          paneId: p.id,
+          name: teamPaneName(p),
+          role: p.agent?.role ?? "",
+          engine: p.agent?.engine ?? "axet-code",
+          state: status ? (status.detail === AXET_SETUP_DETAIL ? "setup" : status.state) : "closed",
+          exact: status?.source === "exact"
+        };
+      });
+  },
+  send: (workspaceId, paneId, text) => agentSender.send(workspaceId, paneId, text),
+  status: (paneId) => agentMonitor.agents().find((a) => a.reg.paneId === paneId)?.status ?? null,
+  feed: (workspaceId) => loadFlowHistory(flowHistoryDir(), workspaceId),
+  relay: (event) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("team:relay", { ...event, at: Date.now() });
+  },
+  now: () => Date.now(),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  log: (tag, fields) => appLog(tag, fields)
+});
+let teamServer: { port: number; close: () => void } | null = null;
+let teamScriptDir: string | null = null;
+/** Akış'tan ilk mesajda ekip aracı ipucu verilen bölmeler (bölme yeniden kaydolunca sıfırlanır). */
+const teamHinted = new Set<string>();
+
+function teamBridgeEnv(ptyId: string): { env?: Record<string, string>; pathPrepend?: string } {
+  if (!teamServer) return {};
+  return {
+    env: { NTT_TEAM_URL: `http://127.0.0.1:${teamServer.port}`, NTT_TEAM_PTY: ptyId, NTT_TEAM_TOKEN: teamBridge.tokenFor(ptyId) },
+    ...(teamScriptDir ? { pathPrepend: teamScriptDir } : {})
+  };
+}
+
+async function startTeamBridge(): Promise<void> {
+  try {
+    const dir = path.join(app.getPath("userData"), "team-bridge");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "ntt-team.cmd"), TEAM_CMD, "utf-8");
+    // PowerShell 5 BOM'suz UTF-8'i ANSI sanıyor: BOM'la yazılıyor.
+    writeFileSync(path.join(dir, "ntt-team.ps1"), `${String.fromCharCode(0xfeff)}${TEAM_PS1}`, "utf-8");
+    teamScriptDir = dir;
+  } catch {
+    teamScriptDir = null;
+  }
+  teamServer = await startTeamBridgeServer(teamBridge);
+  appLog("ekip.kopru", { sonuc: teamServer ? "acik" : "acilamadi" });
+}
 
 // Ajan başına kalıcı bellek (spec 2026-10-18 ajan-bellegi). Anahtar ve kök
 // YALNIZ config'teki kayıttan (memoryTarget); bildirim Görev Panosu'nun
@@ -1319,7 +1391,9 @@ function registerIpc(): void {
       const id = randomUUID();
       // Klasör yoksa ve yaratılmaması istendiyse süreç açılmadı. Metin bir
       // işaret: renderer `includes(TERMINAL_MISSING_DIR)` ile tanıyor.
-      if (!createTerminal(mainWindow, id, cwd, cols, rows, shell, initialCommand, options ?? {})) {
+      // Renderer yalnız createDir verebilir; ortam (ekip köprüsü) ana süreçten.
+      const termOptions = { ...(options?.createDir === false ? { createDir: false } : {}), ...teamBridgeEnv(id) };
+      if (!createTerminal(mainWindow, id, cwd, cols, rows, shell, initialCommand, termOptions)) {
         throw new Error(TERMINAL_MISSING_DIR);
       }
       return id;
@@ -1386,7 +1460,11 @@ function registerIpc(): void {
 
   ipcMain.handle("agents:register", (_event, raw: unknown) => {
     const reg = readAgentRegistration(raw);
-    if (reg) agentMonitor.register(reg);
+    if (reg) {
+      agentMonitor.register(reg);
+      // Yeni süreç: ekip aracı ipucu yeniden verilsin.
+      teamHinted.delete(reg.paneId);
+    }
   });
 
   ipcMain.handle("agents:unregister", (_event, paneId: unknown) => {
@@ -1407,11 +1485,26 @@ function registerIpc(): void {
       return { ok: false, reason: "invalid" };
     }
     try {
-      return await agentSender.send(workspaceId, paneId, text);
+      // Ekip aracı ipucu (Tur 4): ekipte 2+ ajan varsa bölmeye ilk Akış mesajında bir kez.
+      const key = typeof paneId === "string" ? paneId : "";
+      let line = text;
+      if (teamServer && key && !teamHinted.has(key) && typeof text === "string" && text.length + TEAM_HINT.length <= 2000) {
+        const ws = loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId);
+        if ((ws?.panes.filter((p) => p.kind === "agent").length ?? 0) >= 2) line = `${text}${TEAM_HINT}`;
+      }
+      const result = await agentSender.send(workspaceId, paneId, line);
+      if (result.ok && line !== text) teamHinted.add(key);
+      return result;
     } catch {
       return { ok: false, reason: "writeFailed" };
     }
   });
+
+  // Akış geçmişi (Tur 4): yalnız ana pencereden.
+  const fromMain = (event: Electron.IpcMainInvokeEvent) => Boolean(mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents);
+  ipcMain.handle("flow:load", (event, workspaceId: unknown) => (fromMain(event) ? loadFlowHistory(flowHistoryDir(), workspaceId) : []));
+  ipcMain.handle("flow:save", (event, workspaceId: unknown, events: unknown) => (fromMain(event) ? saveFlowHistory(flowHistoryDir(), workspaceId, events) : false));
+  ipcMain.handle("flow:clear", (event, workspaceId: unknown) => (fromMain(event) ? clearFlowHistory(flowHistoryDir(), workspaceId) : false));
 
   ipcMain.handle("board:get", (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== "string") return null;
@@ -1428,6 +1521,8 @@ function registerIpc(): void {
     } catch {
       // silinemeyen pano diskte öksüz kalır; veri kaybından iyidir
     }
+    // Akış geçmişi de (Tur 4).
+    clearFlowHistory(flowHistoryDir(), workspaceId);
     // Değişiklik kayıtları da (spec sapma 14); ağaç nesneleri depoda kalır.
     try {
       changesManager.drop(workspaceId);
@@ -2352,6 +2447,7 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  void startTeamBridge();
   // Günlüğün İLK satırı: dosya var olsun (kullanıcı "yok" diye aramasın) ve
   // her arıza satırı hangi sürümde olduğunu yanında taşısın.
   appLog("acilis", { surum: app.getVersion(), platform: process.platform, elektron: process.versions.electron });

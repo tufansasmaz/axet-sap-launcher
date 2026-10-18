@@ -18,6 +18,7 @@ import { matchKey, promptStartsWith, type AxetDbMessage, type AxetPart } from ".
 import type { AgentQuestion, AgentState, AgentStatus } from "../shared/agentTypes";
 import { replySnippet } from "./agentReply";
 import { stripAnsi, type AgentReader, type GenericReader } from "./agentGenericReader";
+import { AXET_SETUP_DETAIL } from "../shared/agentTypes";
 
 // axet-code 1.4.1 açılışta seçim penceresi gösteriyor ("Select Tool / Choose your
 // development tool"; yeni klasörde "choose a provider and model"). O pencere
@@ -260,6 +261,9 @@ export class AxetReader implements AgentReader {
         ...(exact && this.derived?.detail ? { detail: this.derived.detail } : {})
       };
     }
+    // Açılış seçim penceresi (Tur 4): renderer "Araç seçimi bekleniyor" kartını
+    // gösterip Akış mesajını kuyrukta tutsun diye durumda işaret.
+    if (this.setupOpen) return { state: "idle", source: "estimated", lastActivity: null, detail: AXET_SETUP_DETAIL };
     if (exact && this.derived) {
       const d = this.derived;
       return {
