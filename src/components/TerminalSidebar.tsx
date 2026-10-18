@@ -59,7 +59,10 @@ export default function TerminalSidebar({ activeSap = null }: { activeSap?: Acti
 
   const requestClose = (w: TerminalWorkspace) => {
     setMenu(null);
-    if (liveCount(w) > 0 || taskCount(boards[w.id]) > 0) setConfirmId(w.id);
+    // Pano henüz yüklenmemişse (boards[w.id] undefined) ama alan pano
+    // görünümündeyse görev olup olmadığı bilinmiyor: onay isteniyor.
+    const boardPending = boards[w.id] === undefined && w.view === "board";
+    if (liveCount(w) > 0 || taskCount(boards[w.id]) > 0 || boardPending) setConfirmId(w.id);
     else commands.closeWorkspace(w.id);
   };
 
