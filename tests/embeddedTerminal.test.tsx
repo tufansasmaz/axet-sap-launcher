@@ -97,6 +97,20 @@ function view(props: { active?: boolean; fontSize?: number }) {
   );
 }
 
+describe("EmbeddedTerminal odak", () => {
+  it("kap 0x0 iken active=true olunca focus hemen cagriliyor", () => {
+    // beforeEach 800x400 tanimladi; buradan sildikten sonra jsdom 0 donduruyor.
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientWidth;
+    delete (HTMLElement.prototype as unknown as Record<string, unknown>).clientHeight;
+    const r = render(view({ active: false }));
+    expect(fake.terms[0].focus).not.toHaveBeenCalled();
+    act(() => {
+      r.rerender(view({ active: true }));
+    });
+    expect(fake.terms[0].focus).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("EmbeddedTerminal yazı boyutu", () => {
   it("verilmezse 13, verilirse o boyutla kuruluyor", () => {
     render(view({}));

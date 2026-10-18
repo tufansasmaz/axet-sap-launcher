@@ -236,6 +236,8 @@ export default function EmbeddedTerminal({ sessionId, active, fontSize = PANE_FO
     const term = termRef.current;
     const fit = fitRef.current;
     if (!term || !fit || !containerRef.current) return;
+    // Odak boyut gerektirmiyor; görünüm Bölmeler'e döner dönmez kap 0×0 olsa da hemen odaklan.
+    term.focus();
     const { clientWidth, clientHeight } = containerRef.current;
     if (clientWidth <= 0 || clientHeight <= 0) return;
     try {
@@ -243,7 +245,6 @@ export default function EmbeddedTerminal({ sessionId, active, fontSize = PANE_FO
     } catch {
       // görünür olduğu ilk anda boyut henüz kararlı olmayabilir
     }
-    term.focus();
     if (term.cols > 0 && term.rows > 0) {
       window.api.resizeTerminal(sessionId, term.cols, term.rows);
     }
