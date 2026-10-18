@@ -62,7 +62,7 @@ export function createMemoryService(deps: MemoryServiceDeps): MemoryService {
       // İlk açılış: yalnız yoksa yaratılır (sapma 12); sonuç okuma adımında görünür.
       attempt(() => deps.ensure(t.root, t.key, t.name), "failed" as MemoryEnsure);
       const file = attempt(() => deps.read(t.root, t.key), { ok: false, reason: "readFailed" } as MemoryFileRead);
-      if (file.ok) return { ok: true, rel, content: file.content, stamp: file.stamp, notice };
+      if (file.ok) return { ok: true, rel, content: file.content, stamp: file.stamp, notice, ...(file.mtime ? { mtime: file.mtime } : {}) };
       return { ok: false, reason: file.reason === "missing" ? "readFailed" : file.reason, rel, notice };
     },
     write(workspaceId, paneId, content, stamp) {

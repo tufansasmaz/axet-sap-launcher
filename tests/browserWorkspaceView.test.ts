@@ -11,6 +11,9 @@ const nameFor = (n: number) => `Alan ${n}`;
 describe("readWorkspaceView — browser", () => {
   it("browser okunuyor; yazim farki atiliyor", () => {
     expect(readWorkspaceView("browser")).toBe("browser");
+    // Tur 3: Pano ve Araçlar da kayda giriyor.
+    expect(readWorkspaceView("overview")).toBe("overview");
+    expect(readWorkspaceView("tools")).toBe("tools");
     expect(readWorkspaceView("Browser")).toBeUndefined();
     expect(readWorkspaceView("tarayici")).toBeUndefined();
   });

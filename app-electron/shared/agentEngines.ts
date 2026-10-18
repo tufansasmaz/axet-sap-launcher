@@ -35,6 +35,18 @@ export function isSafeArg(value: string): boolean {
   return SAFE_ARG.test(value);
 }
 
+/**
+ * Araçlar ekranındaki tek satırlık kurulum komutu (Tur 3). axet-code kurum içi
+ * yükleyiciyle geliyor, özel komut kullanıcının: ikisinde komut yok.
+ */
+export const ENGINE_INSTALL: Record<AgentEngineId, string | null> = {
+  "axet-code": null,
+  claude: "npm install -g @anthropic-ai/claude-code",
+  codex: "npm install -g @openai/codex",
+  gemini: "npm install -g @google/gemini-cli",
+  ozel: null
+};
+
 /** PATH'te aranacak program. `ozel`de komutun ilk parçası (tırnaklı yol olabilir). */
 export function engineBinary(spec: AgentSpec): string | null {
   if (spec.engine !== "ozel") return AGENT_ENGINES[spec.engine].binary;

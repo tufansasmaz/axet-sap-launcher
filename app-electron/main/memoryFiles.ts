@@ -33,7 +33,7 @@ import { insideRootReal } from "./changesFs";
 export type MemoryEnsure = "exists" | "created" | "failed";
 
 export type MemoryFileRead =
-  | { ok: true; content: string; stamp: string }
+  | { ok: true; content: string; stamp: string; mtime?: number }
   | { ok: false; reason: "noRoot" | "unsafe" | "tooLarge" | "encoding" | "readFailed" | "missing" };
 
 export type MemoryFileWrite =
@@ -116,13 +116,16 @@ export function readMemoryFile(root: string, key: string): MemoryFileRead {
   if (kind === "none") return { ok: false, reason: "missing" };
   if (kind === "other") return { ok: false, reason: "unsafe" };
   try {
-    if (statSync(file).size > MEMORY_MAX_BYTES) return { ok: false, reason: "tooLarge" };
+    const stat = statSync(file);
+    if (stat.size > MEMORY_MAX_BYTES) return { ok: false, reason: "tooLarge" };
     const bytes = readFileSync(file);
     // stat ile okuma arasında büyüdüyse
     if (bytes.length > MEMORY_MAX_BYTES) return { ok: false, reason: "tooLarge" };
     const text = decode(bytes);
     if (text === null) return { ok: false, reason: "encoding" };
-    return { ok: true, content: text.replace(/\r\n/g, "\n"), stamp: memoryStamp(bytes) };
+    // Son değişiklik (Bellek ekranındaki liste, Tur 3); içerik değil, yalnız zaman.
+    const mtime = Number.isFinite(stat.mtimeMs) ? Math.floor(stat.mtimeMs) : undefined;
+    return { ok: true, content: text.replace(/\r\n/g, "\n"), stamp: memoryStamp(bytes), ...(mtime ? { mtime } : {}) };
   } catch {
     return { ok: false, reason: "readFailed" };
   }

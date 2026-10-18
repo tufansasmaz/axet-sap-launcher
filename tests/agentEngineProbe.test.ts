@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../app-electron/main/axetSpawnEnv", () => ({ axetSpawnEnv: () => ({}) }));
 
-const { BUILTIN_AXET_AGENTS, detectEngines, listAxetAgents, parseAxetAgentList } = await import(
+const { BUILTIN_AXET_AGENTS, detectEngines, listAxetAgents, parseAxetAgentList, parseVersion, pickBinary, shimPackageVersion } = await import(
   "../app-electron/main/agentEngineProbe"
 );
 
@@ -36,7 +36,7 @@ describe("detectEngines", () => {
 
   it("axet-code eski: kurulu, engelsiz, uyarı notu var", async () => {
     const [axet] = await detectEngines(deps([], { kind: "old", version: "1.3.0" }));
-    expect(axet).toEqual({ id: "axet-code", installed: true, blocked: false, note: "mesaj:old" });
+    expect(axet).toEqual({ id: "axet-code", installed: true, blocked: false, note: "mesaj:old", version: "1.3.0" });
   });
 
   it("axet-code bozuk: kurulu ama engelli; yoksa kurulu değil", async () => {
@@ -97,3 +97,48 @@ describe("axet-code ajan listesi", () => {
     expect(run).toHaveBeenCalledWith(["agent", "list", "--json"]);
   });
 });
+
+// Araçlar ekranı (Tur 3): yol ve sürüm; program kabuksuz, npm kabuğu çalıştırılmıyor.
+describe("motor ayrıntısı", () => {
+  it("kurulu motorlara yol ve sürüm ekleniyor; axet-code sürümü kendi sondajından", async () => {
+    const d = {
+      ...deps(["claude"], { kind: "ok", version: "1.4.1" }),
+      details: vi.fn(async (binary: string) => ({ path: `C:\\bin\\${binary}.exe`, version: "9.9.9" }))
+    };
+    const list = await detectEngines(d);
+    expect(list[0]).toMatchObject({ id: "axet-code", path: "C:\\bin\\axet-code.exe", version: "1.4.1" });
+    expect(list[1]).toMatchObject({ id: "claude", path: "C:\\bin\\claude.exe", version: "9.9.9" });
+    expect(list[2]).not.toHaveProperty("path");
+    expect(d.details).not.toHaveBeenCalledWith("codex");
+  });
+
+  it("ayrıntı fırlatırsa motor yine kurulu, yalnız yol/sürüm yok", async () => {
+    const d = { ...deps(["gemini"], { kind: "missing" }), details: vi.fn(async () => Promise.reject(new Error("x"))) };
+    const gemini = (await detectEngines(d)).find((e) => e.id === "gemini");
+    expect(gemini).toEqual({ id: "gemini", installed: true, blocked: false });
+  });
+
+  it("parseVersion ve pickBinary", () => {
+    expect(parseVersion("2.0.14 (Claude Code)")).toBe("2.0.14");
+    expect(parseVersion("codex-cli 0.46.0-beta.2")).toBe("0.46.0-beta.2");
+    expect(parseVersion("yok")).toBeNull();
+    expect(pickBinary(["C:\\npm\\claude", "C:\\npm\\claude.cmd", ""])).toBe("C:\\npm\\claude.cmd");
+    expect(pickBinary(["C:\\a\\x.cmd", "C:\\b\\x.exe"])).toBe("C:\\b\\x.exe");
+    expect(pickBinary([])).toBeNull();
+  });
+
+  it("npm kabuğundan paket sürümü; paket yolu dışarı çıkamaz", () => {
+    const files: Record<string, string> = {
+      "C:\\npm\\gemini.cmd": '"%_prog%"  "%dp0%\\node_modules\\@google\\gemini-cli\\dist\\index.js" %*',
+      [path.join("C:\\npm", "node_modules", "@google", "gemini-cli", "package.json")]: '{"version":"0.9.0"}'
+    };
+    const read = (f: string) => {
+      if (!(f in files)) throw new Error("yok");
+      return files[f];
+    };
+    expect(shimPackageVersion("C:\\npm\\gemini.cmd", read)).toBe("0.9.0");
+    expect(shimPackageVersion("C:\\npm\\kotu.cmd", () => '"%dp0%\\node_modules\\..\\..\\x"')).toBeNull();
+    expect(shimPackageVersion("C:\\npm\\yok.cmd", read)).toBeNull();
+  });
+});
+

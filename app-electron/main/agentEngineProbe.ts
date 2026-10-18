@@ -5,7 +5,8 @@
 // çalışmıyor. Hiçbir yol hata fırlatmıyor; sondaj patlarsa motor "kurulu
 // değil" sayılıyor ve ajan listesi yerleşik beşe düşüyor.
 import { execFile } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { AGENT_ENGINES } from "../shared/agentEngines";
 import { AGENT_ENGINE_IDS, type AgentEngineInfo, type AxetAgentEntry } from "../shared/agentTypes";
 import { axetSpawnEnv } from "./axetSpawnEnv";
@@ -15,6 +16,26 @@ export interface EngineProbeDeps {
   where(binary: string): Promise<boolean>;
   axetStatus(): Promise<AxetBinaryStatus>;
   axetMessage(status: AxetBinaryStatus): string | null;
+  /** Araçlar ekranı için yol ve sürüm (Tur 3); yoksa yalnız kurulu/değil. Fırlatırsa yok sayılır. */
+  details?(binary: string): Promise<EngineDetails>;
+}
+
+export interface EngineDetails {
+  path?: string;
+  version?: string;
+}
+
+async function detailsOf(deps: EngineProbeDeps, binary: string): Promise<EngineDetails> {
+  if (!deps.details) return {};
+  try {
+    const found = await deps.details(binary);
+    const out: EngineDetails = {};
+    if (found?.path) out.path = String(found.path).slice(0, 400);
+    if (found?.version) out.version = String(found.version).slice(0, 40);
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 export async function detectEngines(deps: EngineProbeDeps): Promise<AgentEngineInfo[]> {
@@ -33,11 +54,17 @@ export async function detectEngines(deps: EngineProbeDeps): Promise<AgentEngineI
         status = { kind: "missing" };
       }
       const note = deps.axetMessage(status);
+      const installedAxet = status.kind !== "missing";
+      // Sürüm axet-code'un kendi sondajından; yol `where`dan.
+      const found = installedAxet ? await detailsOf(deps, "axet-code") : {};
+      const version = status.kind === "ok" || status.kind === "old" ? status.version : undefined;
       out.push({
         id,
-        installed: status.kind !== "missing",
+        installed: installedAxet,
         blocked: status.kind === "missing" || status.kind === "broken",
-        ...(note ? { note } : {})
+        ...(note ? { note } : {}),
+        ...(found.path ? { path: found.path } : {}),
+        ...(version ? { version } : {})
       });
       continue;
     }
@@ -47,9 +74,75 @@ export async function detectEngines(deps: EngineProbeDeps): Promise<AgentEngineI
     } catch {
       installed = false;
     }
-    out.push({ id, installed, blocked: !installed });
+    const found = installed ? await detailsOf(deps, AGENT_ENGINES[id].binary ?? id) : {};
+    out.push({ id, installed, blocked: !installed, ...found });
   }
   return out;
+}
+
+/** `--version` çıktısındaki ilk sürüm (1.2.3, 1.2.3-beta.1). */
+export function parseVersion(text: string): string | null {
+  const m = /(\d+\.\d+\.\d+(?:[-+][\w.]+)?)/.exec(text);
+  return m ? m[1] : null;
+}
+
+/** `where` sonuçlarından çalıştırılacak olan: .exe önce, sonra .cmd, sonra ilki. */
+export function pickBinary(lines: readonly string[]): string | null {
+  const list = lines.map((l) => l.trim()).filter(Boolean);
+  return list.find((l) => /\.exe$/i.test(l)) ?? list.find((l) => /\.cmd$/i.test(l)) ?? list[0] ?? null;
+}
+
+/**
+ * npm kabuğu (.cmd) kabuksuz çalıştırılamıyor; sürüm, kabuğun gösterdiği
+ * paketin package.json'undan okunuyor. Program ÇALIŞTIRILMIYOR.
+ */
+export function shimPackageVersion(cmdPath: string, read: (file: string) => string): string | null {
+  try {
+    const shim = read(cmdPath);
+    const m = /node_modules[\\/]((?:@[^\\/"%\s]+[\\/])?[^\\/"%\s]+)/.exec(shim);
+    if (!m) return null;
+    const pkg = m[1].split(/[\\/]/);
+    if (pkg.some((part) => part === ".." || part === ".")) return null;
+    const file = path.join(path.dirname(cmdPath), "node_modules", ...pkg, "package.json");
+    const parsed = JSON.parse(read(file)) as { version?: unknown };
+    return typeof parsed.version === "string" ? parseVersion(parsed.version) : null;
+  } catch {
+    return null;
+  }
+}
+
+function whereAll(name: string): Promise<string[]> {
+  if (!SAFE_BINARY.test(name)) return Promise.resolve([]);
+  return new Promise((resolve) => {
+    try {
+      execFile("where", [name], { timeout: 5_000, windowsHide: true }, (error, stdout) =>
+        resolve(error ? [] : String(stdout).split(/\r?\n/))
+      );
+    } catch {
+      resolve([]);
+    }
+  });
+}
+
+/** Yol + sürüm. .exe `--version` ile (kabuk yok, 5 sn), .cmd package.json'dan. */
+export async function engineDetails(binary: string): Promise<EngineDetails> {
+  const file = pickBinary(await whereAll(binary.trim()));
+  if (!file) return {};
+  if (/\.(cmd|bat)$/i.test(file)) {
+    const version = shimPackageVersion(file, (f) => readFileSync(f, "utf8"));
+    return version ? { path: file, version } : { path: file };
+  }
+  if (!/\.exe$/i.test(file)) return { path: file };
+  const version = await new Promise<string | null>((resolve) => {
+    try {
+      execFile(file, ["--version"], { timeout: 5_000, windowsHide: true, shell: false, maxBuffer: 64 * 1024 }, (_error, stdout, stderr) =>
+        resolve(parseVersion(`${String(stdout ?? "")}\n${String(stderr ?? "")}`))
+      );
+    } catch {
+      resolve(null);
+    }
+  });
+  return version ? { path: file, version } : { path: file };
 }
 
 const SAFE_BINARY = /^[\w.-]+$/;

@@ -86,7 +86,7 @@ import {
 import { recoverAnswer } from "./axetChatRecovery";
 import { readBinding } from "./axetSessionBinding";
 import { axetBinaryMessage, axetBinaryStatus, axetUpdateAvailable, persistUpdateSeen } from "./axetCodeVersion";
-import { createAxetAgentsCache, detectEngines, runAxetCode, whereOnPath } from "./agentEngineProbe";
+import { createAxetAgentsCache, detectEngines, engineDetails, runAxetCode, whereOnPath } from "./agentEngineProbe";
 import type { AgentEngineInfo } from "../shared/agentTypes";
 import { readAttachmentPreview, saveClipboardAttachment } from "./chatAttachments";
 import { loadChatSessions, saveChatSessions } from "./chatStore";
@@ -1361,7 +1361,8 @@ function registerIpc(): void {
       const value = await detectEngines({
         where: whereOnPath,
         axetStatus: () => axetBinaryStatus(fresh),
-        axetMessage: axetBinaryMessage
+        axetMessage: axetBinaryMessage,
+        details: engineDetails
       });
       engineCache = { at: Date.now(), value };
       return value;

@@ -43,6 +43,9 @@ describe("read (§4)", () => {
     const { deps, service } = harness();
     expect(service.read("w1", "p1")).toEqual({ ok: true, rel: ".ntt-studio/bellek/ayse.md", content: "# Ayşe\n", stamp: STAMP, notice: "sent" });
     expect(deps.ensure).toHaveBeenCalledWith("C:\\kok", "ayse", "Ayşe");
+    // Dosyanın son değişikliği varsa sonuçta da var (Tur 3).
+    deps.read.mockReturnValueOnce({ ok: true, content: "# Ayşe\n", stamp: STAMP, mtime: 1700 });
+    expect(service.read("w1", "p1")).toMatchObject({ ok: true, mtime: 1700 });
     expect(deps.ensure.mock.invocationCallOrder[0]).toBeLessThan(deps.read.mock.invocationCallOrder[0]);
     expect(deps.read).toHaveBeenCalledWith("C:\\kok", "ayse");
   });

@@ -137,6 +137,10 @@ export interface AgentEngineInfo {
   blocked: boolean;
   /** Kartta gösterilecek kısa uyarı (ör. axet-code sürümü eski). */
   note?: string;
+  /** Bulunan programın yolu (`where` ilk sonucu); bilinmiyorsa yok. */
+  path?: string;
+  /** `--version` (ya da npm kabuğunun package.json'u) okunabildiyse sürüm. */
+  version?: string;
 }
 
 /** `axet-code agent list --json` satırı (spec §14.2). */

@@ -115,7 +115,8 @@ describe("readMemoryFile (§4, §5)", () => {
     const root = temp();
     const bytes = Buffer.concat([BOM, Buffer.from("# Not\r\n- karar\r\n", "utf8")]);
     put(root, bytes);
-    expect(readMemoryFile(root, "ayse")).toEqual({ ok: true, content: "# Not\n- karar\n", stamp: memoryStamp(bytes) });
+    // mtime: Bellek ekranının "son değişiklik" sütunu (Tur 3).
+    expect(readMemoryFile(root, "ayse")).toEqual({ ok: true, content: "# Not\n- karar\n", stamp: memoryStamp(bytes), mtime: expect.any(Number) });
     expect(memoryStamp(bytes)).toMatch(/^[0-9a-f]{64}$/);
   });
 

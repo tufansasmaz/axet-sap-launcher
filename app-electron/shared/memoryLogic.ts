@@ -33,7 +33,7 @@ export type MemoryFailure =
   | "writeFailed";
 
 export type MemoryReadResult =
-  | { ok: true; rel: string; content: string; stamp: string; notice: MemoryNotice }
+  | { ok: true; rel: string; content: string; stamp: string; notice: MemoryNotice; mtime?: number }
   | { ok: false; reason: MemoryFailure; rel?: string; notice?: MemoryNotice };
 
 export type MemoryWriteResult = { ok: true; stamp: string } | { ok: false; reason: MemoryFailure };
