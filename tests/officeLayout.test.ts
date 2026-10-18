@@ -109,8 +109,11 @@ describe("officeSeat", () => {
     const long = "Bu tabloya yeni bir alan eklensin mi, yoksa mevcut yapı mı korunsun, karar ver lütfen";
     const seat = officeSeat(pane(), st("asking", "exact", { question: q(long) }), NOW);
     expect(seat).toMatchObject({ pose: "asking", tone: "warning", estimated: false, key: "agents.stateAsking" });
-    expect(Array.from(seat.question ?? "")).toHaveLength(OFFICE_QUESTION_MAX);
+    // Kesim noktası bir boşluğa denk geldiğinde boşluk atılıyor; sınır üst sınırdır.
+    expect(Array.from(seat.question ?? "").length).toBeLessThanOrEqual(OFFICE_QUESTION_MAX);
+    expect(Array.from(seat.question ?? "").length).toBeGreaterThan(OFFICE_QUESTION_MAX - 5);
     expect(seat.question?.endsWith("…")).toBe(true);
+    expect(long.startsWith((seat.question ?? "").slice(0, -1))).toBe(true);
     expect(officeSeat(pane(), st("asking", "exact", { question: q("  ", "Onay") }), NOW).question).toBe("Onay");
   });
 
