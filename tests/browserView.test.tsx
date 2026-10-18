@@ -315,6 +315,20 @@ describe("indirme ve kısayollar (spec §4.5, §7)", () => {
     expect(screen.getByRole("status").textContent).toBe("İndirmeler yerleşik tarayıcıda kapalı; Sistem tarayıcısında aç'ı kullan.");
   });
 
+  it("indirme uyarısı aynı url'li durum olayıyla silinmiyor; farklı url ile siliniyor", () => {
+    setup();
+    type("help.sap.com");
+    loaded(); // url = "https://help.sap.com/docs"
+    act(() => download(7));
+    expect(screen.getByRole("status").textContent).toBe("İndirmeler yerleşik tarayıcıda kapalı; Sistem tarayıcısında aç'ı kullan.");
+    // did-stop-loading / page-title-updated: aynı url → uyarı kalmalı
+    act(() => page.props!.onState(pageState()));
+    expect(screen.getByRole("status").textContent).toBe("İndirmeler yerleşik tarayıcıda kapalı; Sistem tarayıcısında aç'ı kullan.");
+    // farklı url ile gezinme → uyarı kalkmalı
+    act(() => page.props!.onState(pageState({ url: "https://help.sap.com/other" })));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("sayfadan iletilen Ctrl+L adres alanına; Alt+Sol geri; başka sayfanın kısayolu yok sayılıyor", () => {
     setup();
     type("help.sap.com");

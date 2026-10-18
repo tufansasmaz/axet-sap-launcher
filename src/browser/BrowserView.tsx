@@ -130,7 +130,9 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
 
   const onState = (next: PageState) => {
     setPage(next);
-    setNotice(null); // Başarılı gezinmede uyarı kalksın (Minor 7).
+    // Uyarıyı yalnız adres gerçekten değiştiğinde temizle (gezinme). did-stop-loading,
+    // page-title-updated gibi aynı URL'li olaylar uyarıyı silmemeli (fix round 2).
+    if (next.url !== page?.url) setNotice(null);
     // Hata sayfasının (chrome-error://) adresi alana ve kayda girmiyor.
     if (!editing.current && isBrowserNavAllowed(next.url)) setAddress(next.url);
     const saved = readBrowserUrl(next.url);
