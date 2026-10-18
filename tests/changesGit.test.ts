@@ -52,9 +52,34 @@ function write(rel: string, content: string | Buffer) {
 function read(rel: string): string {
   return readFileSync(path.join(repo, ...rel.split("/")), "utf8");
 }
+/** Uygulamanın index klasörü (testte `veri`). */
+const dataDir = () => path.dirname(indexFile);
+/**
+ * Ortam değişkenlerini geçici olarak koyar ve anahtar anahtar geri yükler.
+ * `process.env`'i düz bir nesneyle değiştirmek Windows'taki harfe duyarsız
+ * özel nesneyi bozardı.
+ */
+async function withEnv(vars: Record<string, string>, fn: () => unknown): Promise<void> {
+  const previous = new Map<string, string | undefined>();
+  for (const key of Object.keys(vars)) {
+    previous.set(key, process.env[key]);
+    process.env[key] = vars[key];
+  }
+  try {
+    await fn();
+  } finally {
+    for (const [key, value] of previous) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
 function initRepo() {
   g("init", "-q", "-b", "ana");
   g("config", "core.autocrlf", "false");
+  // Arka plan bakımı (commit sonrası) paylaşılan index'in tarihini tazeleyip testleri yanlış yeşile çevirmesin.
+  g("config", "gc.auto", "0");
+  g("config", "maintenance.auto", "false");
   write(".gitignore", "gizli.log\n");
   write("a.txt", "bir\niki\nüç\n");
   write("src/b.ts", "export const b = 1;\n");
@@ -81,7 +106,7 @@ const byPath = (files: FileChange[]) => Object.fromEntries(files.map((f) => [f.p
 describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
   it("probe: depo kökü önek boş; alt klasör öneki; depo olmayan klasör notRepo", async () => {
     initRepo();
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const root = await port.probe(repo);
     expect(root.ok && root.prefix).toBe("");
     expect(root.ok && path.resolve(root.top)).toBe(path.resolve(repo));
@@ -94,7 +119,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
 
   it("görüntü: izlenmeyen yeni dosya dahil, .gitignore'daki hariç; durumlar, sayılar, ikili", async () => {
     initRepo();
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const first = await port.snapshot(repo, indexFile, 20_000);
     expect(first.ok).toBe(true);
     write("a.txt", "bir\nİKİ\nüç\ndört\n");
@@ -126,7 +151,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     g("add", "src/b.ts");
     write("yeni.txt", "izlenmeyen\n");
     const before = userState();
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const one = await port.snapshot(repo, indexFile, 20_000);
     write("yeni.txt", "ajan değiştirdi\n");
     const two = await port.snapshot(repo, indexFile, 20_000);
@@ -147,7 +172,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     write("src/b.ts", "export const b = 3;\n");
     g("add", "src/b.ts");
     const staged = g("diff", "--cached", "--name-only");
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const one = await port.snapshot(repo, indexFile, 20_000);
     write("src/b.ts", "export const b = 4;\n");
     if (!one.ok) throw new Error("görüntü alınamadı");
@@ -162,7 +187,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
   it("geri yükleme: değişen ve silinen dosya ağaçtaki hâline dönüyor; alt klasör öneki ile", async () => {
     initRepo();
     const root = path.join(repo, "src");
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const probe = await port.probe(root);
     if (!probe.ok) throw new Error("probe");
     const subIndex = path.join(base, "veri", "alt.index");
@@ -196,7 +221,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     initRepo();
     write("köşeli[1].txt", "a\n");
     write("köşeli1.txt", "x\n");
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const one = await port.snapshot(repo, indexFile, 20_000);
     write("a.txt", "bir\nİKİ\nüç\n");
     write("büyük.txt", "x".repeat(LARGE_FILE_BYTES + 1));
@@ -222,7 +247,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
   it("dosya diff'i alt klasör önekiyle: yalnız o dosya, alan köküne göre", async () => {
     initRepo();
     const root = path.join(repo, "src");
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const probe = await port.probe(root);
     if (!probe.ok) throw new Error("probe");
     const subIndex = path.join(base, "veri", "alt.index");
@@ -237,7 +262,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
 
   it("treeExists: var olan ağaç true, uydurma ağaç false", async () => {
     initRepo();
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const one = await port.snapshot(repo, indexFile, 20_000);
     if (!one.ok) throw new Error("görüntü");
     expect(await port.treeExists(repo, one.tree)).toBe(true);
@@ -247,7 +272,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
   it("index.lock: taze kilitte 3 deneme sonra locked; 60 sn'den eski kendi kilidimiz siliniyor", async () => {
     initRepo();
     const sleeps: number[] = [];
-    const port = createGitPort({ sleep: async (ms) => void sleeps.push(ms) });
+    const port = createGitPort({ indexDir: dataDir(), sleep: async (ms) => void sleeps.push(ms) });
     writeFileSync(`${indexFile}.lock`, "");
     expect(await port.snapshot(repo, indexFile, 20_000)).toEqual({ ok: false, reason: "locked" });
     expect(sleeps).toHaveLength(LOCK_RETRIES - 1);
@@ -263,7 +288,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     const outside = path.join(base, "disari");
     mkdirSync(outside);
     write("kopru/x.txt", "depodaki\n");
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     const one = await port.snapshot(repo, indexFile, 20_000);
     if (!one.ok) throw new Error("görüntü");
     rmSync(path.join(repo, "kopru"), { recursive: true, force: true });
@@ -288,7 +313,7 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     // Eskitme EN SON: kullanıcının index'ini okuyan her git komutu paylaşılan index'in tarihini tazeliyor.
     const old = new Date("2020-01-01T00:00:00Z");
     for (const n of shared) utimesSync(path.join(repo, ".git", n), old, old);
-    const port = createGitPort();
+    const port = createGitPort({ indexDir: dataDir() });
     write("yeni.txt", "izlenmeyen\n");
     const one = await port.snapshot(repo, indexFile, 20_000);
     expect(one.ok).toBe(true);
@@ -308,12 +333,13 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     execFileSync("git", ["init", "-q"], { cwd: other, windowsHide: true });
     const excludes = path.join(base, "dislanan");
     writeFileSync(excludes, "*.txt\n");
-    const saved = { ...process.env };
-    process.env.GIT_DIR = path.join(other, ".git");
-    process.env.GIT_CEILING_DIRECTORIES = repo;
-    process.env.GIT_CONFIG_PARAMETERS = `'core.excludesfile'='${excludes.replace(/\\/g, "/")}'`;
-    try {
-      const port = createGitPort();
+    const vars = {
+      GIT_DIR: path.join(other, ".git"),
+      GIT_CEILING_DIRECTORIES: repo,
+      GIT_CONFIG_PARAMETERS: `'core.excludesfile'='${excludes.replace(/\\/g, "/")}'`
+    };
+    await withEnv(vars, async () => {
+      const port = createGitPort({ indexDir: dataDir() });
       const probe = await port.probe(path.join(repo, "src"));
       expect(probe.ok && probe.prefix).toBe("src/");
       expect(probe.ok && path.resolve(probe.top)).toBe(path.resolve(repo));
@@ -323,22 +349,41 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
       if (!one.ok || !two.ok) throw new Error("görüntü");
       const diff = await port.diffTrees(repo, "", one.tree, two.tree);
       expect(diff.ok && diff.files.map((f) => f.path)).toEqual(["yeni.txt"]);
-    } finally {
-      process.env = saved;
-    }
+    });
+    for (const key of Object.keys(vars)) expect(process.env[key]).toBeUndefined();
   });
 
   it("kullanıcının .git/index'i index dosyası olarak verilirse silinmiyor ve yazılmıyor", async () => {
     initRepo();
     const userIndex = path.join(repo, ".git", "index");
     const before = readFileSync(userIndex);
-    const port = createGitPort();
-    const one = await port.snapshot(repo, indexFile, 20_000);
+    // Yanlış yapılandırma: index klasörü deponun kendisi. .git denetimi yine korumalı.
+    const port = createGitPort({ indexDir: repo });
+    const one = await createGitPort({ indexDir: dataDir() }).snapshot(repo, indexFile, 20_000);
     if (!one.ok) throw new Error("görüntü");
     expect(await port.loadIndex(repo, userIndex, one.tree)).toBe(false);
     expect(await port.snapshot(repo, userIndex, 20_000)).toEqual({ ok: false, reason: "git" });
     expect(await port.restoreFile(repo, userIndex, "a.txt")).toBe(false);
     port.discardIndex(userIndex);
+    expect(existsSync(userIndex)).toBe(true);
+    expect(readFileSync(userIndex).equals(before)).toBe(true);
+  });
+
+  it("8.3 kısa adıyla (GIT~1\\index) verilen kullanıcı index'i de reddediliyor", async (ctx) => {
+    initRepo();
+    const shortDir = path.join(repo, "GIT~1");
+    // Birimde 8.3 ad üretimi kapalıysa bu yol yok; sınanacak bir şey kalmıyor.
+    if (process.platform !== "win32" || !existsSync(shortDir)) ctx.skip();
+    const userIndex = path.join(repo, ".git", "index");
+    const before = readFileSync(userIndex);
+    const viaShort = path.join(shortDir, "index");
+    const port = createGitPort({ indexDir: repo });
+    const one = await createGitPort({ indexDir: dataDir() }).snapshot(repo, indexFile, 20_000);
+    if (!one.ok) throw new Error("görüntü");
+    expect(await port.loadIndex(repo, viaShort, one.tree)).toBe(false);
+    expect(await port.snapshot(repo, viaShort, 20_000)).toEqual({ ok: false, reason: "git" });
+    expect(await port.restoreFile(repo, viaShort, "a.txt")).toBe(false);
+    port.discardIndex(viaShort);
     expect(existsSync(userIndex)).toBe(true);
     expect(readFileSync(userIndex).equals(before)).toBe(true);
   });
@@ -349,17 +394,40 @@ describe("sahte koşucu", () => {
 
   it("git yok: probe ve snapshot noGit", async () => {
     const run: GitRun = async () => result({ ok: false, code: null, missing: true });
-    const port = createGitPort({ run });
+    const port = createGitPort({ run, indexDir: os.tmpdir() });
     expect(await port.probe("C:/x")).toEqual({ ok: false, reason: "noGit" });
     expect(await port.snapshot("C:/x", path.join(os.tmpdir(), "yok.index"), 20_000)).toEqual({ ok: false, reason: "noGit" });
   });
 
   it("süre aşımı: timeout; 'dubious ownership' notRepo değil git", async () => {
-    const port = createGitPort({ run: async () => result({ ok: false, code: null, timedOut: true }) });
+    const port = createGitPort({ indexDir: os.tmpdir(), run: async () => result({ ok: false, code: null, timedOut: true }) });
     expect(await port.probe("C:/x")).toEqual({ ok: false, reason: "timeout" });
     expect(await port.snapshot("C:/x", path.join(os.tmpdir(), "yok.index"), 20_000)).toEqual({ ok: false, reason: "timeout" });
-    const dubious = createGitPort({ run: async () => result({ ok: false, code: 128, stderr: "fatal: detected dubious ownership in repository" }) });
+    const dubious = createGitPort({ indexDir: os.tmpdir(), run: async () => result({ ok: false, code: 128, stderr: "fatal: detected dubious ownership in repository" }) });
     expect(await dubious.probe("C:/x")).toEqual({ ok: false, reason: "git" });
+  });
+
+  it("indexDir zorunlu: verilmezse, boşsa ya da göreliyse port oluşturulamıyor", () => {
+    expect(() => createGitPort(undefined as never)).toThrow();
+    expect(() => createGitPort({} as never)).toThrow();
+    expect(() => createGitPort({ indexDir: "" })).toThrow();
+    expect(() => createGitPort({ indexDir: "veri" })).toThrow();
+    expect(() => createGitPort({ indexDir: null } as never)).toThrow();
+  });
+
+  it("indexDir diskte yoksa index işlemlerinin hepsi reddediliyor", async () => {
+    const calls: (readonly string[])[] = [];
+    const run: GitRun = async (args) => {
+      calls.push(args);
+      return result({ stdout: `${"a".repeat(40)}\n` });
+    };
+    const missingDir = path.join(base, "olmayan");
+    const port = createGitPort({ run, indexDir: missingDir });
+    const file = path.join(missingDir, "w.index");
+    expect(await port.snapshot(base, file, 20_000)).toEqual({ ok: false, reason: "git" });
+    expect(await port.loadIndex(base, file, "a".repeat(40))).toBe(false);
+    expect(await port.restoreFile(base, file, "a.txt")).toBe(false);
+    expect(calls).toEqual([]);
   });
 
   it("index dosyası beklenen klasörün dışındaysa ya da .git içindeyse reddediliyor", async () => {
@@ -372,6 +440,7 @@ describe("sahte koşucu", () => {
     const port = createGitPort({ run, indexDir: dir });
     const outsideFile = path.join(base, "baska.index");
     writeFileSync(outsideFile, "dokunma");
+    mkdirSync(path.join(dir, ".GIT"));
     const gitDirFile = path.join(dir, ".GIT", "index");
     const tree = "a".repeat(40);
     for (const bad of [outsideFile, gitDirFile, path.join(dir, "..", "baska.index"), dir]) {
@@ -435,7 +504,7 @@ describe("sahte koşucu", () => {
       if (args[0] === "write-tree") return result({ stdout: `${"a".repeat(40)}\n` });
       return result();
     };
-    const port = createGitPort({ run });
+    const port = createGitPort({ run, indexDir: os.tmpdir() });
     const idx = path.join(os.tmpdir(), `yok-${process.pid}.index`);
     expect(await port.snapshot("C:/x", idx, 20_000)).toEqual({ ok: true, tree: "a".repeat(40) });
     expect(calls.map((c) => c.args.join(" "))).toEqual(["read-tree HEAD", "add -A -- .", "write-tree"]);
@@ -448,7 +517,7 @@ describe("sahte koşucu", () => {
       calls.push(args);
       return result({ stdout: "1\n" });
     };
-    const port = createGitPort({ run });
+    const port = createGitPort({ run, indexDir: os.tmpdir() });
     const tree = "a".repeat(40);
     const idx = path.join(os.tmpdir(), `yok-${process.pid}.r.index`);
     for (const bad of ["../disari.txt", "C:/Windows/x", "a\\b.txt", ".git/config", "a.txt:akış", "/kok.txt"]) {
@@ -468,16 +537,18 @@ describe("sahte koşucu", () => {
     expect(calls).toEqual([]);
   });
 
-  it("gitEnv: kullanıcının bütün GIT_* değişkenleri (harf büyüklüğünden bağımsız) siliniyor; istem ve isteğe bağlı kilit kapalı", () => {
-    const saved = { ...process.env };
-    process.env.GIT_DIR = "C:/baska";
-    process.env.GIT_WORK_TREE = "C:/baska";
-    process.env.GIT_INDEX_FILE = "C:/baska/index";
-    process.env.GIT_CONFIG_PARAMETERS = "'core.splitindex'='true'";
-    process.env.GIT_CONFIG_COUNT = "1";
-    process.env.GIT_OBJECT_DIRECTORY = "C:/baska/objects";
-    process.env.Git_Namespace = "x";
-    try {
+  it("gitEnv: kullanıcının bütün GIT_* değişkenleri (harf büyüklüğünden bağımsız) siliniyor; istem ve isteğe bağlı kilit kapalı", async () => {
+    const vars = {
+      GIT_DIR: "C:/baska",
+      GIT_WORK_TREE: "C:/baska",
+      GIT_INDEX_FILE: "C:/baska/index",
+      GIT_CONFIG_PARAMETERS: "'core.splitindex'='true'",
+      GIT_CONFIG_COUNT: "1",
+      GIT_OBJECT_DIRECTORY: "C:/baska/objects",
+      Git_Namespace: "x"
+    };
+    const envBefore = { ...process.env };
+    await withEnv(vars, () => {
       const env = gitEnv();
       expect(Object.keys(env).filter((k) => /^git_/i.test(k)).sort()).toEqual(["GIT_OPTIONAL_LOCKS", "GIT_TERMINAL_PROMPT"]);
       expect(env.GIT_DIR).toBeUndefined();
@@ -486,9 +557,9 @@ describe("sahte koşucu", () => {
       expect(env.GIT_TERMINAL_PROMPT).toBe("0");
       expect(env.GIT_OPTIONAL_LOCKS).toBe("0");
       expect(gitEnv("C:/veri/w.index").GIT_INDEX_FILE).toBe("C:/veri/w.index");
-    } finally {
-      process.env = saved;
-    }
+    });
+    // Anahtar anahtar geri yüklendi: ortam testten önceki hâlinde.
+    expect({ ...process.env }).toEqual(envBefore);
   });
 });
 

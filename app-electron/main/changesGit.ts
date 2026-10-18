@@ -27,7 +27,7 @@
 //     klasör junction'a çevrilirse git onun üzerinden yazar. Git'in yazma
 //     yolunu kilitlemeden kapatılamıyor; pencere milisaniyeler.
 import { execFile } from "node:child_process";
-import { existsSync, statSync, unlinkSync } from "node:fs";
+import { existsSync, realpathSync, statSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import { isSafeRelPath, isTreeId, mergeChanges, parseNameStatusZ, parseNumstatZ, parseUnifiedDiff } from "../shared/changesLogic";
 import {
@@ -181,27 +181,38 @@ export interface GitPortDeps {
   sleep(ms: number): Promise<void>;
   now(): number;
   /**
-   * Uygulamanın index dosyalarının klasörü (checkpoints). Verilirse index
-   * dosyası bu klasörün içinde olmak zorunda; yönetici her zaman veriyor.
+   * Uygulamanın index dosyalarının klasörü (checkpoints). ZORUNLU, mutlak:
+   * index dosyası bu klasörün içinde olmak zorunda.
    */
-  indexDir: string | null;
+  indexDir: string;
 }
 
 const literal = (fullPath: string) => `:(top,literal)${fullPath}`;
 const relative = (prefix: string): string[] => (prefix ? [`--relative=${prefix}`] : []);
 
+const hasGitPart = (p: string): boolean => p.split(/[\\/]/).some((part) => part.toLowerCase() === ".git");
+
 /**
  * Uygulamaya ait index dosyası mı: boş ya da göreli olamaz (boş değer git'i
- * kullanıcının index'ine düşürür), hiçbir `.git` klasörünün içinde olamaz,
- * `indexDir` verildiyse onun içinde (kendisi değil) olmalı.
+ * kullanıcının index'ine düşürür), `indexDir`'in içinde (kendisi değil)
+ * olmalı ve hiçbir `.git` klasörünün içinde olamaz. Karşılaştırma GERÇEK
+ * yollarla: 8.3 kısa ad (`GIT~1`), junction ve sembolik bağ çözülüyor.
+ * Dosyanın kendisi henüz olmayabilir; üst klasörü var olmak zorunda.
  */
-function isOwnIndex(indexFile: string, indexDir: string | null): boolean {
+function isOwnIndex(indexFile: string, indexDir: string): boolean {
   if (typeof indexFile !== "string" || indexFile.length === 0 || !path.isAbsolute(indexFile)) return false;
   const resolved = path.resolve(indexFile);
-  if (resolved.split(/[\\/]/).some((part) => part.toLowerCase() === ".git")) return false;
-  if (indexDir === null) return true;
-  const dir = path.resolve(indexDir);
-  return resolved !== dir && isWithin(dir, resolved);
+  if (hasGitPart(resolved)) return false;
+  try {
+    const realDir = realpathSync.native(indexDir);
+    const realParent = realpathSync.native(path.dirname(resolved));
+    const real = existsSync(resolved) ? realpathSync.native(resolved) : path.join(realParent, path.basename(resolved));
+    if (hasGitPart(realParent) || hasGitPart(real)) return false;
+    return real !== realDir && isWithin(realDir, real) && isWithin(realDir, realParent);
+  } catch {
+    // Klasör yok ya da çözülemiyor: index işlemi yapılmaz.
+    return false;
+  }
 }
 
 /** Önek git'ten geliyor; yine de boş ya da `/` ile biten güvenli bir göreli yol olmalı. */
@@ -215,12 +226,20 @@ function removeQuietly(file: string): void {
   }
 }
 
-export function createGitPort(partial: Partial<GitPortDeps> = {}): GitPort {
+/**
+ * `indexDir` zorunlu: verilmezse, boşsa ya da göreliyse port KURULMUYOR
+ * (fırlatır). Bu yalnız bağlama hatası; port'un işlemleri hiçbir zaman fırlatmıyor.
+ */
+export function createGitPort(partial: Partial<Omit<GitPortDeps, "indexDir">> & Pick<GitPortDeps, "indexDir">): GitPort {
+  const indexDir = partial?.indexDir;
+  if (typeof indexDir !== "string" || indexDir.length === 0 || !path.isAbsolute(indexDir)) {
+    throw new Error("createGitPort: indexDir zorunlu ve mutlak olmalı");
+  }
   const deps: GitPortDeps = {
     run: partial.run ?? runGitDefault,
     sleep: partial.sleep ?? ((ms) => new Promise<void>((r) => setTimeout(r, ms))),
     now: partial.now ?? (() => Date.now()),
-    indexDir: partial.indexDir ?? null
+    indexDir
   };
   const run = async (args: readonly string[], opts: GitRunOptions): Promise<GitResult> => {
     try {
