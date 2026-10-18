@@ -62,6 +62,9 @@ describe("Değişiklikler — IPC bağlantısı", () => {
     expect(git).toMatch(/exec\(\n\s+"git",\n\s+\[\.\.\.GIT_BASE_ARGS, \.\.\.args\]/);
     expect(git).not.toMatch(/shell:\s*true/);
     expect(git).not.toMatch(/\bspawn\(|execSync|spawnSync|\{[^}]*\bexec\b[^}]*\} from "node:child_process"/);
+    expect(git).not.toMatch(/require\(|from "child_process"|\.exec\(/);
+    expect(git.match(/child_process/g)).toHaveLength(1);
+    expect(git).toMatch(/runGitDefault: GitRun = createGitRunner\(execFileNode\)/);
     for (const forbidden of ['"commit"', '"stash"', '"reset"', '"checkout"', '"update-ref"', '"gc"', '"init"', '"switch"', '"restore"']) {
       expect(git, forbidden).not.toContain(forbidden);
     }
