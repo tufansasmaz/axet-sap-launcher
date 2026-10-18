@@ -13,6 +13,8 @@ import { initialTerminalState } from "../src/stores/terminalReducer";
 import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
 import type { BoardCommand, BoardCommandResult } from "../app-electron/shared/boardCommands";
 import type { BoardTask, Subtask } from "../app-electron/shared/boardTypes";
+import type { AgentStatus } from "../app-electron/shared/agentTypes";
+import { AgentStatusContext } from "../src/agents/agentStatusContext";
 
 afterEach(cleanup);
 
@@ -86,7 +88,7 @@ async function flush() {
   });
 }
 
-function setup(initial: BoardTask, wsOver: Partial<TerminalWorkspace> = {}, language: "tr" | "en" = "tr") {
+function setup(initial: BoardTask, wsOver: Partial<TerminalWorkspace> = {}, language: "tr" | "en" = "tr", statuses: Record<string, AgentStatus> = {}) {
   const commands = commandsMock();
   const command = vi.fn(async (_ws: string, _cmd: BoardCommand): Promise<BoardCommandResult> => ({ ok: true, taskId: initial.id }));
   const onClose = vi.fn();
@@ -112,7 +114,9 @@ function setup(initial: BoardTask, wsOver: Partial<TerminalWorkspace> = {}, lang
     <LanguageProvider language={language}>
       <TerminalStoreContext.Provider value={store}>
         <BoardContext.Provider value={{ boards: {}, command }}>
-          <BoardDetailPanel workspace={ws} task={tk} onClose={onClose} onSelectSubtask={vi.fn()} />
+          <AgentStatusContext.Provider value={{ statuses, engines: null, now: 0, answer: async () => ({ ok: true }) }}>
+            <BoardDetailPanel workspace={ws} task={tk} onClose={onClose} onSelectSubtask={vi.fn()} />
+          </AgentStatusContext.Provider>
         </BoardContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
@@ -238,6 +242,51 @@ describe("onaylı görev", () => {
     fireEvent.click(within(rowOf("s1")).getByRole("button", { name: "Doğrula" }));
     await flush();
     expect(command).toHaveBeenCalledWith("a", { type: "verify", taskId: "t1", subtaskId: "s1" });
+  });
+
+  it("tahmini ajana Ajana ver: önce onay penceresi; Vazgeç göndermiyor, onay gönderiyor; kesin ajanda pencere yok", async () => {
+    const estimated: AgentStatus = { state: "idle", source: "estimated", lastActivity: 5 };
+    const exactIdle: AgentStatus = { state: "idle", source: "exact", lastActivity: 5 };
+    const { command } = setup(task("t1", [sub("s1"), sub("s2")]), {}, "tr", { p1: estimated, p2: exactIdle });
+    fireEvent.change(within(rowOf("s1")).getByRole("combobox", { name: "Ajan" }), { target: { value: "p1" } });
+    fireEvent.click(within(rowOf("s1")).getByRole("button", { name: "Ajana ver" }));
+    await flush();
+    expect(command).not.toHaveBeenCalled();
+    let dlg = screen.getByRole("alertdialog");
+    expect(dlg.textContent).toContain(
+      "Bu ajanın durumu tahmini. Terminalinde açık bir onay menüsü olmadığından emin ol; istem Enter ile gönderilecek."
+    );
+    fireEvent.click(within(dlg).getByRole("button", { name: "Vazgeç" }));
+    await flush();
+    expect(command).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    fireEvent.click(within(rowOf("s1")).getByRole("button", { name: "Ajana ver" }));
+    dlg = screen.getByRole("alertdialog");
+    fireEvent.click(within(dlg).getByRole("button", { name: "Gönder" }));
+    await flush();
+    expect(command).toHaveBeenCalledWith("a", { type: "assign", taskId: "t1", subtaskId: "s1", paneId: "p1" });
+    fireEvent.change(within(rowOf("s2")).getByRole("combobox", { name: "Ajan" }), { target: { value: "p2" } });
+    fireEvent.click(within(rowOf("s2")).getByRole("button", { name: "Ajana ver" }));
+    await flush();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(command).toHaveBeenLastCalledWith("a", { type: "assign", taskId: "t1", subtaskId: "s2", paneId: "p2" });
+  });
+
+  it("tahmini ajana Düzeltmeye geri gönder de onay istiyor (İngilizce metin)", async () => {
+    const failed = sub("s1", {
+      state: "failed",
+      paneId: "p1",
+      attempts: 1,
+      proof: { kind: "commands", ok: false, at: 1, commands: [{ command: "npm test", exitCode: 1, durationMs: 1, tail: "FAIL" }] }
+    });
+    const { command } = setup(task("t1", [failed]), {}, "en", { p1: { state: "idle", source: "estimated", lastActivity: 5 } });
+    fireEvent.click(within(rowOf("s1")).getByRole("button", { name: "Send back for a fix" }));
+    await flush();
+    expect(command).not.toHaveBeenCalled();
+    const dlg = screen.getByRole("alertdialog");
+    fireEvent.click(within(dlg).getByRole("button", { name: "Send" }));
+    await flush();
+    expect(command).toHaveBeenCalledWith("a", { type: "sendBack", taskId: "t1", subtaskId: "s1" });
   });
 
   it("yeşil komut kanıtı onay işaretiyle", () => {

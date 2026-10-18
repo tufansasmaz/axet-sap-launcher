@@ -1501,6 +1501,10 @@ export const tr = {
   "board.unsavedBody": "Kaydedilmemiş değişiklikler atılsın mı?",
   "board.unsavedDiscard": "At",
   "board.unsavedCancel": "Vazgeç",
+  "board.estimatedPromptTitle": "Ajanın durumu tahmini",
+  "board.estimatedPromptBody": "Bu ajanın durumu tahmini. Terminalinde açık bir onay menüsü olmadığından emin ol; istem Enter ile gönderilecek.",
+  "board.estimatedPromptConfirm": "Gönder",
+  "board.estimatedPromptCancel": "Vazgeç",
   "board.failedCount": "{count} alt görev başarısız",
   "board.closeWorkspaceTasks": "Bu alanın panosundaki {count} görev de silinir."
 };

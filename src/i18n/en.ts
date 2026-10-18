@@ -1415,6 +1415,10 @@ export const en: Record<TranslationKey, string> = {
   "board.unsavedBody": "Discard unsaved changes?",
   "board.unsavedDiscard": "Discard",
   "board.unsavedCancel": "Cancel",
+  "board.estimatedPromptTitle": "Agent status is estimated",
+  "board.estimatedPromptBody": "This agent's status is estimated. Make sure no approval menu is open in its terminal; the prompt will be sent with Enter.",
+  "board.estimatedPromptConfirm": "Send",
+  "board.estimatedPromptCancel": "Cancel",
   "board.failedCount": "{count} subtasks failed",
   "board.closeWorkspaceTasks": "The {count} tasks on this workspace's board will be deleted too."
 };

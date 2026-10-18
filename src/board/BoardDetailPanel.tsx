@@ -9,6 +9,7 @@ import type { TerminalWorkspace } from "../stores/terminalTypes";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { GHOST_ICON_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 import { agentName } from "../agents/agentLabels";
+import { useAgentStatuses } from "../agents/agentStatusContext";
 import { useBoards } from "./boardContext";
 import { assignablePanes, FAILURE_KEY, LEAD_ERROR_KEY, NOTE_KEY, SUBTASK_STATE_KEY } from "./boardDisplay";
 import DraftEditor from "./DraftEditor";
@@ -46,6 +47,9 @@ export default function BoardDetailPanel({
   const [error, setError] = useState<TranslationKey | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
+  // Tahmini durumlu ajana elle istem: önce onay (izin menüsü açıksa Enter onu onaylardı).
+  const [confirmPrompt, setConfirmPrompt] = useState<BoardCommand | null>(null);
+  const { statuses } = useAgentStatuses();
   const [editorDirty, setEditorDirty] = useState(false);
   const [picks, setPicks] = useState<Record<string, string>>({});
   const mounted = useRef(true);
@@ -90,6 +94,19 @@ export default function BoardDetailPanel({
     pendingRef.current = false;
     if (mounted.current) setPending(false);
     return ok;
+  };
+
+  /** Ajana istem yazan komutun hedef bölmesi (Ajana ver / Düzeltmeye geri gönder). */
+  const promptTarget = (cmd: BoardCommand): string | null => {
+    if (cmd.type === "assign") return cmd.paneId;
+    if (cmd.type === "sendBack") return task.subtasks.find((s) => s.id === cmd.subtaskId)?.paneId ?? null;
+    return null;
+  };
+  // Durumu bilinmeyen ajanı yönetici zaten reddediyor; pencere yalnız tahmini durumda.
+  const runOrConfirm = (cmd: BoardCommand) => {
+    const paneId = promptTarget(cmd);
+    if (paneId && statuses[paneId]?.source === "estimated") setConfirmPrompt(cmd);
+    else void run(cmd);
   };
 
   const ids = { taskId: task.id };
@@ -185,7 +202,7 @@ export default function BoardDetailPanel({
                   panes={panes.map((p) => ({ id: p.id, name: agentName(p, t) }))}
                   pick={picks[s.id] ?? panes[0]?.id ?? ""}
                   onPick={(paneId) => setPicks((prev) => ({ ...prev, [s.id]: paneId }))}
-                  onRun={(cmd) => void run(cmd)}
+                  onRun={runOrConfirm}
                   onTerminal={goToTerminal}
                   taskId={task.id}
                 />
@@ -221,6 +238,21 @@ export default function BoardDetailPanel({
           });
         }}
         onCancel={() => setConfirmDelete(false)}
+      />
+      <ConfirmDialog
+        open={confirmPrompt !== null}
+        role="alertdialog"
+        danger={false}
+        title={t("board.estimatedPromptTitle")}
+        message={t("board.estimatedPromptBody")}
+        confirmLabel={t("board.estimatedPromptConfirm")}
+        cancelLabel={t("board.estimatedPromptCancel")}
+        onConfirm={() => {
+          const cmd = confirmPrompt;
+          setConfirmPrompt(null);
+          if (cmd) void run(cmd);
+        }}
+        onCancel={() => setConfirmPrompt(null)}
       />
       <ConfirmDialog
         open={confirmClose}

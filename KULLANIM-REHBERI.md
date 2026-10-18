@@ -468,6 +468,8 @@ hiçbir kartı kapatmaz.
   Kabuk istemi yalnız standart biçimde (`C:\proje>`, `PS C:\proje>`) tanınır;
   özel istem kullanıyorsan (oh-my-posh, `PROMPT` ayarı) motorun kapandığı
   anlaşılamaz, istem vermeden önce ajanın terminalde açık olduğundan emin ol.
+  Tahmini durumlu ajana **Ajana ver** ya da **Düzeltmeye geri gönder** önce
+  onay sorar: terminalinde açık bir izin menüsü varsa Enter onu onaylardı.
 - **Kanıt**: alana sağ tıklayıp **Doğrulama komutları…** ile satır başına
   bir komut yazarsın (en fazla 5; ör. `npm run lint`, `npm test`). axet-code
   ajanı işini bitirince komutlar alanın kökünde, gizli bir pencerede sırayla
