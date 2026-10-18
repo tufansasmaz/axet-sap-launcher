@@ -72,6 +72,11 @@ export type GitRun = (args: readonly string[], opts: GitRunOptions) => Promise<G
  * safecrlf kapalı: binlerce "LF will be replaced by CRLF" uyarısı stderr'i
  * maxBuffer'a taşırıp `add`'i yarıda öldürmesin (geride kilit kalırdı).
  */
+/** `git add` hatasında commit'i olmayan iç içe deponun yolu (core.quotepath=false ile ham). */
+const NESTED_NO_COMMIT = /error: '(.+?)\/?' does not have a commit checked out/;
+/** Bir görüntüde en çok bu kadar iç içe depo atlanır; fazlası "git" hatası. */
+const NESTED_EXCLUDE_MAX = 50;
+
 export const GIT_BASE_ARGS: readonly string[] = [
   "-c",
   "core.fsmonitor=false",
@@ -283,13 +288,28 @@ export function createGitPort(partial: Partial<Omit<GitPortDeps, "indexDir">> & 
         if (seed.timedOut) return { ok: false, reason: "timeout" };
         if (!seed.ok) removeQuietly(indexFile);
       }
-      for (let attempt = 1; ; attempt++) {
-        const add = await run(["add", "-A", "--", "."], { cwd, indexFile, timeoutMs: left() });
+      // Commit'i olmayan iç içe depo (ör. ajan alt klasörde `git init` yapıp commit
+      // atmamış) `add -A`'yı rc=128 ile düşürüyor ve git her seferinde yalnız ilkini
+      // söylüyor (ölçüldü, git 2.5x): görüntüden çıkarılıp yeniden deneniyor.
+      const excluded: string[] = [];
+      for (let attempt = 1; ; ) {
+        const add = await run(["add", "-A", "--", ".", ...excluded.map((p) => `:(exclude,literal)${p}`)], {
+          cwd,
+          indexFile,
+          timeoutMs: left()
+        });
         if (add.ok) break;
         if (add.missing) return { ok: false, reason: "noGit" };
         if (add.timedOut || deps.now() >= deadline) return { ok: false, reason: "timeout" };
+        const nested = NESTED_NO_COMMIT.exec(add.stderr)?.[1];
+        if (nested !== undefined) {
+          if (excluded.includes(nested) || excluded.length >= NESTED_EXCLUDE_MAX) return { ok: false, reason: "git" };
+          excluded.push(nested);
+          continue;
+        }
         if (!/index\.lock/i.test(add.stderr)) return { ok: false, reason: "git" };
         if (attempt >= LOCK_RETRIES) return { ok: false, reason: "locked" };
+        attempt++;
         await deps.sleep(LOCK_RETRY_MS);
       }
       const written = await run(["write-tree"], { cwd, indexFile, timeoutMs: left() });

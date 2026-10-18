@@ -117,6 +117,27 @@ describe.skipIf(!HAS_GIT)("gerçek depo", { timeout: 30_000 }, () => {
     expect(await port.probe(outside)).toEqual({ ok: false, reason: "notRepo" });
   });
 
+  it("görüntü: commit'i olmayan iç içe depolar atlanıyor, geri kalan alınıyor; kullanıcının deposu değişmiyor", async () => {
+    initRepo();
+    // Ajan bir alt klasörde `git init` yapıp commit atmamış (ölçüldü: add -A rc=128,
+    // "'x/' does not have a commit checked out"; git her seferinde yalnız ilkini söylüyor).
+    for (const nested of ["ic", "derin/boş klasör"]) {
+      mkdirSync(path.join(repo, ...nested.split("/")), { recursive: true });
+      execFileSync("git", ["init", "-q"], { cwd: path.join(repo, ...nested.split("/")) });
+      write(`${nested}/x.txt`, "iç\n");
+    }
+    write("yeni.txt", "dış\n");
+    const before = userState();
+    const port = createGitPort({ indexDir: dataDir() });
+    const snap = await port.snapshot(repo, indexFile, 20_000);
+    expect(snap.ok).toBe(true);
+    const listed = execFileSync("git", ["ls-tree", "-r", "--name-only", snap.ok ? snap.tree : ""], { cwd: repo, encoding: "utf8" });
+    expect(listed).toContain("yeni.txt");
+    expect(listed).not.toContain("ic/");
+    expect(listed).not.toContain("derin/");
+    expect(userState()).toEqual(before);
+  });
+
   it("görüntü: izlenmeyen yeni dosya dahil, .gitignore'daki hariç; durumlar, sayılar, ikili", async () => {
     initRepo();
     const port = createGitPort({ indexDir: dataDir() });
