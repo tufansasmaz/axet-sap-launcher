@@ -466,6 +466,17 @@ describe("Görev Panosu yüzü: agents() ve sendPrompt()", () => {
     expect(h.monitor.sendPrompt("p1", "x")).toBe("typing");
   });
 
+  it("baştaki ! (kabuk kipi) ve / (motor komutu) reddediliyor, hiçbir şey yazılmıyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    expect(h.monitor.sendPrompt("p1", "!x")).toBe("invalid");
+    expect(h.monitor.sendPrompt("p1", "   !del /s /q src")).toBe("invalid");
+    expect(h.monitor.sendPrompt("p1", "/exit")).toBe("invalid");
+    expect(h.monitor.sendPrompt("p1", " /share")).toBe("invalid");
+    expect(h.write).not.toHaveBeenCalled();
+    expect(h.monitor.sendPrompt("p1", "[Gorev a1] !x")).toBe("ok");
+  });
+
   it("readAgentRegistration alan ve rolü taşıyor; boş/bozuk olanı atıyor", () => {
     expect(readAgentRegistration({ ...reg(), workspaceId: "w1", role: "  coder  " })).toMatchObject({ workspaceId: "w1", role: "coder" });
     const r = readAgentRegistration({ ...reg(), workspaceId: 5, role: "" })!;

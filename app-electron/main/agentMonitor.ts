@@ -239,6 +239,9 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     if (!entry) return "noAgent";
     // C0 + DEL + C1 + Unicode satır/paragraf ayırıcıları denetim karakteri sayılıyor.
     if (!text || text.length > 4_000 || /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(text)) return "invalid";
+    // Ba\u015ftaki `!` TUI'yi kabuk kipine al\u0131r (sat\u0131r modeli ve izni atlay\u0131p kabukta
+    // \u00e7al\u0131\u015f\u0131r), `/` motor komutu \u00e7al\u0131\u015ft\u0131r\u0131r. Pano \u00f6nek ekliyor; bu savunma derinli\u011fi.
+    if (/^[!/]/.test(text.trim())) return "invalid";
     if (entry.promptInFlight) return "busy";
     let sentAt = 0;
     try {

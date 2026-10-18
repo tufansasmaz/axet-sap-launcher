@@ -12,10 +12,10 @@
 import type { AgentStatus } from "../shared/agentTypes";
 import {
   agentEligible,
+  boardPrompt,
   busyPanes,
   planDispatch,
   sendBackPrompt,
-  toPromptLine,
   type AgentInfo
 } from "../shared/boardDispatch";
 import { isBoardId, type BoardCommand, type BoardCommandResult, type BoardFailure } from "../shared/boardCommands";
@@ -209,6 +209,14 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
 
   const replaceTask = (tasks: readonly BoardTask[], next: BoardTask): BoardTask[] => tasks.map((t) => (t.id === next.id ? next : t));
 
+  /** Ajana giden her istem tek yerden geçiyor: nötr, alt göreve özgü önekle (boardPrompt). */
+  const sendToAgent = (
+    paneId: string,
+    subtaskId: string,
+    body: string,
+    onSettled: (outcome: "sent" | "aborted") => void
+  ): AgentPromptResult => deps.sendPrompt(paneId, boardPrompt(subtaskId, body), onSettled);
+
   /**
    * Enter 150 ms sonra "aborted" gelebilir: alt görev hâlâ çalışıyor ve aynı
    * bölme + gönderim anına sahipse geri alınıyor (spec §5).
@@ -290,7 +298,7 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       let abortedSync = false;
       const result = attempt(
         () =>
-          deps.sendPrompt(d.paneId, toPromptLine(sub.prompt), (outcome) => {
+          sendToAgent(d.paneId, sub.id, sub.prompt, (outcome) => {
             if (outcome === "aborted") {
               if (tasks.find((t) => t.id === d.taskId)?.subtasks.find((s) => s.id === d.subtaskId)?.state === "running") {
                 onPromptAborted(workspaceId, d.taskId, d.subtaskId, d.paneId, now);
@@ -426,7 +434,7 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
     let abortedSync = false;
     const result = attempt(
       () =>
-        deps.sendPrompt(paneId, text, (outcome) => {
+        sendToAgent(paneId, subtaskId, text, (outcome) => {
           if (outcome === "aborted") {
             const currentSub = entry.tasks.find((t) => t.id === taskId)?.subtasks.find((s) => s.id === subtaskId);
             if (currentSub?.state === "running") {
@@ -563,7 +571,7 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
         if (sub.state !== "ready" || sub.held) return fail("badState");
         const refusal = manualAgent(workspaceId, entry, cmd.paneId);
         if (refusal) return fail(refusal);
-        return deliver(workspaceId, entry, task, sub.id, cmd.paneId, toPromptLine(sub.prompt), "elle");
+        return deliver(workspaceId, entry, task, sub.id, cmd.paneId, sub.prompt, "elle");
       }
       case "sendBack": {
         if (sub.state !== "failed" || !sub.paneId || !sub.proof) return fail("badState");

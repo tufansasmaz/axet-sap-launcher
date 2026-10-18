@@ -3,6 +3,7 @@
 import { describe, expect, it } from "vitest";
 import {
   agentEligible,
+  boardPrompt,
   busyPanes,
   foldRole,
   planDispatch,
@@ -142,6 +143,32 @@ describe("toPromptLine ve sendBackPrompt", () => {
     })!;
     expect(text).toBe("Doğrulama başarısız: npm test çıktısının sonu: FAIL a.test.ts beklenen 2 Düzelt.");
     expect(text).not.toMatch(/[\r\n]/);
+  });
+
+  it("pano istemi nötr önekle başlıyor: ilk karakter ! / # @ olamaz; ≤ 4000", () => {
+    for (const body of ["!rm -rf", "/exit", "#not", "@dosya", "  \n!del"]) {
+      const line = boardPrompt("3f9c2a1b-7d", body);
+      expect(line.startsWith("[Gorev 3f9c2a1b] ")).toBe(true);
+    }
+    expect(boardPrompt("3f9c2a1b-7d", "!rm -rf")).toBe("[Gorev 3f9c2a1b] !rm -rf");
+    expect(boardPrompt("a", "x\r\ny")).toBe("[Gorev a] x y");
+    expect(boardPrompt("_-", "x")).toBe("[Gorev 0] x");
+    expect(boardPrompt("abc", "z".repeat(5000)).length).toBe(4000);
+  });
+
+  it("aynı cümleyle başlayan iki alt görevin istemleri eşleme penceresinde (80) ayrışıyor", () => {
+    const common = "Bu depo bir Electron uygulamasıdır ve görev panosu modülünü içerir; lütfen ".repeat(3);
+    const key = (s: string) => s.replace(/[^\p{L}\p{N}]+/gu, " ").trim().slice(0, 80);
+    const a = boardPrompt("aaaa1111-x", `${common} model`);
+    const b = boardPrompt("bbbb2222-x", `${common} test`);
+    expect(key(a)).not.toBe(key(b));
+  });
+
+  it("geri gönderme istemi önekle birlikte 4000'e sığıyor ve sonu korunuyor", () => {
+    const text = sendBackPrompt({ kind: "commands", ok: false, at: 1, commands: [{ command: "x", exitCode: 1, durationMs: 1, tail: "y".repeat(9000) }] })!;
+    const line = boardPrompt("3f9c2a1b-7d", text);
+    expect(line.length).toBeLessThanOrEqual(4000);
+    expect(line.endsWith("Düzelt.")).toBe(true);
   });
 
   it("uzun çıktı 4000'e sığacak şekilde baştan kırpılıyor; kırmızı komut yoksa null", () => {

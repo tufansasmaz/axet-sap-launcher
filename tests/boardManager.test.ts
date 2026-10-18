@@ -270,12 +270,41 @@ describe("dağıtım", () => {
     approvedTask(h);
     h.state.agents = [presence("p1", exact("idle"))];
     h.manager.tick();
-    expect(h.prompts).toEqual([["p1", "İstem a ikinci satır"]]);
+    expect(h.prompts).toEqual([["p1", "[Gorev a] İstem a ikinci satır"]]);
     expect(h.task().subtasks[0]).toMatchObject({ state: "running", paneId: "p1", attempts: 1, dispatchedAt: 1_000 });
     expect(h.logs).toContainEqual(["pano.dagitim", { altGorev: "a", bolme: "p1", yol: "oto" }]);
     expect(JSON.stringify(h.logs)).not.toContain("İstem");
     h.manager.tick();
     expect(h.prompts).toHaveLength(1);
+  });
+
+  it("istem öneki: başta ! olan istem oto, elle ve geri gönderimde '[Gorev ' ile başlıyor", async () => {
+    const h = harness();
+    approvedTask(h, [draft("a", { prompt: "!rm -rf src" }), draft("b", { prompt: "/exit" })]);
+    h.state.agents = [presence("p1", exact("idle"))];
+    h.manager.tick();
+    expect(h.prompts).toEqual([["p1", "[Gorev a] !rm -rf src"]]);
+    h.state.agents = [presence("p1", exact("running")), presence("p2", { state: "idle", source: "estimated", lastActivity: 900 })];
+    expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p2" }).ok).toBe(true);
+    expect(h.prompts.at(-1)).toEqual(["p2", "[Gorev b] /exit"]);
+    h.state.agents = [presence("p1", exact("idle", 1_500)), presence("p2", exact("running"))];
+    h.manager.tick();
+    h.verifies[0].resolve(proof(false));
+    await flush();
+    h.state.agents = [presence("p1", exact("idle", 1_500)), presence("p2", exact("running"))];
+    expect(h.manager.command("w1", { type: "sendBack", taskId: "id1", subtaskId: "a" }).ok).toBe(true);
+    expect(h.prompts.at(-1)![1].startsWith("[Gorev a] Doğrulama başarısız")).toBe(true);
+    for (const [, text] of h.prompts) expect(text.startsWith("[Gorev ")).toBe(true);
+  });
+
+  it("istem öneki: aynı cümleyle başlayan iki paralel alt görevin ilk 80 karakteri farklı", () => {
+    const h = harness();
+    const common = "Bu depo bir Electron uygulamasıdır ve görev panosu modülünü içerir; lütfen dikkatle ";
+    approvedTask(h, [draft("x1", { prompt: `${common}modeli ekle` }), draft("x2", { prompt: `${common}testleri yaz` })]);
+    h.state.agents = [presence("p1", exact("idle")), presence("p2", exact("idle"))];
+    h.manager.tick();
+    expect(h.prompts).toHaveLength(2);
+    expect(h.prompts[0][1].slice(0, 80)).not.toBe(h.prompts[1][1].slice(0, 80));
   });
 
   it("motor kapalı (kabuk istemi) ya da kullanıcı yazıyor: hiçbir şey yazılmıyor", () => {
@@ -308,7 +337,7 @@ describe("dağıtım", () => {
     expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p3" })).toEqual({ ok: false, reason: "notEligible" });
     h.state.agents[1] = presence("p2", quiet);
     expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p2" })).toEqual({ ok: true, taskId: "id1" });
-    expect(h.prompts.at(-1)).toEqual(["p2", "İstem b ikinci satır"]);
+    expect(h.prompts.at(-1)).toEqual(["p2", "[Gorev b] İstem b ikinci satır"]);
     expect(h.logs).toContainEqual(["pano.dagitim", { altGorev: "b", bolme: "p2", yol: "elle" }]);
     expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p2" })).toEqual({ ok: false, reason: "badState" });
   });
@@ -324,7 +353,7 @@ describe("dağıtım", () => {
     h.manager.tick();
     expect(h.prompts).toHaveLength(1);
     expect(h.manager.command("w1", { type: "requeue", taskId: "id1", subtaskId: "a" }).ok).toBe(true);
-    expect(h.prompts.at(-1)).toEqual(["p2", "İstem a ikinci satır"]);
+    expect(h.prompts.at(-1)).toEqual(["p2", "[Gorev a] İstem a ikinci satır"]);
   });
 
   it("yeniden başlatma: diskten held gelen alt görev kendiliğinden gönderilmiyor", () => {
@@ -480,7 +509,7 @@ describe("doğrulama ve kanıt", () => {
     expect(h.notified).toEqual([]);
     h.clock.ms = 3_000;
     h.manager.tick();
-    expect(h.prompts.at(-1)).toEqual(["p1", "İstem b ikinci satır"]);
+    expect(h.prompts.at(-1)).toEqual(["p1", "[Gorev b] İstem b ikinci satır"]);
     h.state.agents = [presence("p1", exact("idle", 4_000))];
     h.manager.tick();
     h.verifies[1].resolve(proof(true));
@@ -501,7 +530,7 @@ describe("doğrulama ve kanıt", () => {
     h.manager.tick();
     expect(h.prompts).toHaveLength(1);
     expect(h.manager.command("w1", { type: "sendBack", taskId: "id1", subtaskId: "a" })).toEqual({ ok: true, taskId: "id1" });
-    expect(h.prompts.at(-1)).toEqual(["p1", "Doğrulama başarısız: npm test çıktısının sonu: FAIL x.test.ts Düzelt."]);
+    expect(h.prompts.at(-1)).toEqual(["p1", "[Gorev a] Doğrulama başarısız: npm test çıktısının sonu: FAIL x.test.ts Düzelt."]);
     expect(h.task().subtasks[0]).toMatchObject({ state: "running", attempts: 2, note: "sentBack" });
     expect(h.logs).toContainEqual(["pano.dagitim", { altGorev: "a", bolme: "p1", yol: "geri" }]);
   });

@@ -81,13 +81,31 @@ export function toPromptLine(text: string): string {
     .slice(0, SUBTASK_PROMPT_MAX);
 }
 
-/** "Düzeltmeye geri gönder" istemi (spec §6): ilk kırmızı komut ve çıktısının sonu. */
+/** Önekteki kısa kimliğin uzunluğu ve önekin en uzun hâli (`[Gorev xxxxxxxx] `). */
+const SHORT_ID_MAX = 8;
+export const PROMPT_PREFIX_MAX = "[Gorev ] ".length + SHORT_ID_MAX;
+
+/**
+ * Panonun ajana yazdığı HER istem (oto, Ajana ver, Düzeltmeye geri gönder)
+ * buradan geçiyor: nötr ve alt göreve özgü önek. İki nedeni var:
+ *   - İlk karakter hiçbir zaman `!` (TUI kabuk kipi: modeli ve izin
+ *     penceresini atlayıp satırı kabukta çalıştırır), `/` (motor komutu),
+ *     `#` ya da `@` olamaz.
+ *   - Aynı cümleyle başlayan paralel istemler Ajan Alanı'nın istem→oturum
+ *     eşlemesinde (ilk 80 karakter) ayrışır.
+ */
+export function boardPrompt(subtaskId: string, body: string): string {
+  const short = subtaskId.replace(/[^A-Za-z0-9]/g, "").slice(0, SHORT_ID_MAX) || "0";
+  return toPromptLine(`[Gorev ${short}] ${toPromptLine(body)}`);
+}
+
+/** "Düzeltmeye geri gönder" istemi (spec §6): ilk kırmızı komut ve çıktısının sonu. Önek için yer bırakılıyor. */
 export function sendBackPrompt(proof: Proof): string | null {
   const failed = proof.commands.find((c) => c.timedOut || c.error !== undefined || c.exitCode !== 0);
   if (!failed) return null;
   const head = `Doğrulama başarısız: ${toPromptLine(failed.command)} çıktısının sonu: `;
   const end = " Düzelt.";
-  const room = Math.max(0, SUBTASK_PROMPT_MAX - head.length - end.length);
+  const room = Math.max(0, SUBTASK_PROMPT_MAX - PROMPT_PREFIX_MAX - head.length - end.length);
   const tail = toPromptLine(failed.tail);
   return toPromptLine(`${head}${room > 0 ? tail.slice(-room) : ""}${end}`);
 }
