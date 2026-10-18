@@ -22,8 +22,9 @@ En soldaki ince dikey şeritten modüller arasında geçersin:
 - **SAP GUI Scripting** (fare ikonu) — SAP GUI ekranlarını gezme, işlem
   kaydedip tekrar oynatma, doğal dille otomasyon.
 - **Ajanlar** (robot ikonu, **Ctrl+3**) — Eski Terminal ekranının yerini aldı.
-  Birden çok yapay zekâ ajanını kendi terminallerinde yan yana çalıştırırsın;
-  ayrıntı aşağıda, "Ajanlar Ekranı" bölümünde.
+  Birden çok yapay zekâ ajanını kendi terminallerinde yan yana çalıştırırsın.
+  Axet Chat ile aynı ekrandır (Sohbet onun bir sekmesi); ayrıntı aşağıda,
+  "Ajanlar Ekranı" bölümünde.
 
 Rayın altında **Hazırlık** (stetoskop ikonu), hemen altında **Uygulama
 Bağlantıları** (fiş ikonu — Outlook/SharePoint gibi aXet bağlayıcıları),
@@ -407,47 +408,62 @@ Ayarlar penceresinde "Güncellemeler" bölümünden:
 
 ## Ajanlar Ekranı
 
-Birden çok yapay zekâ ajanının yan yana çalıştığı çalışma alanı. SAP'ye bağlı
-değil: herhangi bir klasörde ya da Git deposunda kullanılabilir.
+Birden çok yapay zekâ ajanının yan yana çalıştığı ekran. SAP'ye bağlı değil:
+herhangi bir klasörde ya da Git deposunda kullanılabilir. **Sohbet de bu
+ekranın parçası**: soldaki rayda **Axet Chat** ve **Ajanlar** aynı ekranı açar
+(Sohbet sekmesi ya da ekibin son açık sekmesi). Sekme değiştirmek hiçbir şeyi
+kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
 
-- **Ajan ekle**: üst şeritteki **Ajan** düğmesi. Ad, motor (axet-code, Claude
-  Code, Codex, Gemini CLI ya da kendi yazdığın bir komut), rol, klasör ve renk
-  seçersin. axet-code'da rol listesi axet-code'un kendi ajanlarından gelir
-  (`coder`, `task`, `guide`…); ajan o rolle başlar. Kurulu olmayan bir motor
-  seçilebilir ama kartında "Kurulu değil" yazar ve başlamaz.
-- **Ekip şeridi**: her ajanın kartı — ad, rol, motor ve durum (Çalışıyor, Soru
-  soruyor, Boşta 3 dk, Bitti, Hata). Karta tıklayınca o ajanın terminali öne
-  gelir. Durumun yanında **≈** varsa durum tahminidir: o motorun kendi kaydı
-  okunamıyor, terminal hareketinden tahmin ediliyor. axet-code ajanlarında
-  durum, ilk isteğini yazdıktan sonra axet-code'un kendi kaydından okunur.
-- **Kararlar**: sağdaki panel bütün ajanların cevap bekleyen sorularını
-  toplar. axet-code'un seçenekli sorusunu buradan tek tıkla cevaplayabilirsin;
-  o soruya terminalde dokunduysan ya da serbest metin/çok seçimli bir soruysa
-  **Terminale git** ile terminalden cevaplarsın.
+- **Ekip sekmeleri** (en üst): her ekip bir çalışma alanıdır. Sekmede ad,
+  ajan sayısı ve gerekiyorsa kehribar (soru bekleyen ajan) ya da kırmızı
+  (başarısız alt görev) bir sayı görünür. Tıkla ya da ok tuşlarıyla seç; çift
+  tık ya da **F2** ile yeniden adlandır. Sağ tık ya da seçili sekmenin **…**
+  düğmesi: Yeniden adlandır, **Kök klasör…**, **Doğrulama komutları…**, SAP
+  bağla/çöz, Kapat (canlı terminal ya da görev varsa sorar). En fazla 6 ekip.
+- **+ Ekip**: boş bir ekip ya da hazır şablon. **SAP geliştirme** (lider,
+  geliştirici, test), **Analiz** (lider, analist), **Destek** (tek ajan).
+  Şablon ajanları axet-code ile, ekibin varsayılan klasöründe açar; rol yalnız
+  bir etikettir, rol kapısı ve SAP kuralları aynen geçerlidir.
+- **Orta sekmeler**: **Sohbet | Ofis | Terminal | Görevler | Değişiklikler |
+  Tarayıcı**. Seçim ekip başına hatırlanır; yeni ekip **Ofis**'te açılır.
+  Terminal bölme düzenidir (değişmedi). Sağdaki **Kabuk** cmd/PowerShell
+  bölmesi, **Ajan** yeni ajan açar: ad, motor (axet-code, Claude Code, Codex,
+  Gemini CLI ya da kendi komutun), rol, klasör, renk. axet-code'da rol listesi
+  axet-code'un kendi ajanlarından gelir; kurulu olmayan motorun satırında
+  "Kurulu değil" yazar ve başlamaz.
+- **Akış** (sol sütun; Sohbet sekmesinde yerini sohbet listesi alır):
+  - Üstte ekibin SAP bağı.
+  - **Ekip**: her ajan bir satır — ad, rol, durum (Çalışıyor, Soru soruyor,
+    Boşta 3 dk, Bitti, Hata), motor ve panodan aldığı iş. Tıklayınca Terminal
+    sekmesinde o ajanın terminali öne gelir. **≈** durumun tahmini olduğunu
+    söyler (motorun kendi kaydı okunamıyor). Satırdaki kitap simgesi kalıcı
+    belleği, ok simgesi yeniden başlatmayı açar.
+  - **Olaylar**: çalışmaya başladı, bitirdi, hata, soru sordu, iş aldı,
+    doğrulandı, başarısız, değişiklik kaydı ve gönderdiğin mesajlar; en yenisi
+    altta. Yalnız bu oturum için, en çok 200 olay; kalıcı kayıt yok.
+  - **Soru kartları**: ekibin cevap bekleyen soruları. axet-code'un seçenekli
+    sorusunu tek tıkla cevaplarsın; terminalde dokunduysan ya da serbest/çok
+    seçimli bir soruysa **Terminale git**.
+  - **Mesaj kutusu** (en alt): **@** yaz, listeden ajanı seç (ok tuşları +
+    Enter), mesajı yaz, Enter. Mesaj tek satır olarak ajana gider (en çok 2000
+    karakter, `!` ile başlayamaz). Ajan çalışıyor, soru bekliyor ya da
+    terminalinde yarım bir satır varsa gönderilmez, sebebi yazılır; kendiliğinden
+    yeniden denenmez. Ajan seçmeden Enter: "Bir ajan seç (@)".
 - **Bildirim**: pencere arka plandayken bir ajan soru sorarsa ya da işini
-  bitirirse Windows bildirimi gelir (Ayarlar'daki sohbet bildirimi ayarı). Yalnız
-  durumu kesin bilinen ajanlar için; tahmini durumda bildirim çıkmaz.
-- **Düz terminal**: **Terminal** düğmesi ya da bölme başlığındaki böl
-  düğmeleriyle cmd/PowerShell bölmesi açmaya devam edebilirsin.
-- **Çalışma alanının kökü**: kenar çubuğunda alana sağ tıklayıp **Kök klasör…**
-  ile yeni ajanların varsayılan klasörünü seçersin. Bir SAP sistemine bağlıyken
-  **Kökü {SID} proje klasörü yap** o sistemin proje klasörünü kök yapar. SAP
-  yazma onayı ve QA/PRD salt okunur kuralları ajanlar için de aynen geçerlidir.
-- Kenar çubuğunda her alanın yanında ajan sayısı, soru bekleyen ajan varsa
-  kehribar bir sayı görünür. Başka ekrandayken **Ajanlar** sekmesinde de nokta
-  belirir.
-- Bir alanda en fazla 9 bölme (ajanlar dahil), en fazla 6 alan olur. Eski
-  Terminal düzenin kaybolmaz: eski axet-code bölmeleri axet-code ajanı olarak
-  açılır. Bu dönüşüm tek yönlüdür: düzen yeni biçimde kaydedildikten sonra
-  daha eski bir sürüme (1.8.x) dönersen ajan bölmeleri o sürümde açılmaz.
+  bitirirse Windows bildirimi gelir (sohbet bildirimi ayarı); yalnız durumu
+  kesin bilinen ajanlar için.
+- SAP yazma onayı ve QA/PRD salt okunur kuralları ajanlar için de aynen
+  geçerlidir. Bir ekipte en fazla 9 bölme (ajanlar dahil). Eski Terminal
+  düzenin kaybolmaz; eski axet-code bölmeleri axet-code ajanı olarak açılır.
+  Bu dönüşüm tek yönlüdür: daha eski bir sürüme (1.8.x) dönersen ajan
+  bölmeleri o sürümde açılmaz.
 
 ### Görev Panosu
 
-Üst şeritteki **Bölmeler | Pano | Ofis | Değişiklikler** geçişiyle alanın
-görev panosunu açarsın (seçim alan başına hatırlanır). Bir hedef yazarsın; **lider** onu alt
+**Görevler** sekmesi ekibin görev panosudur (seçim ekip başına hatırlanır). Bir hedef yazarsın; **lider** onu alt
 görevlere böler, sen onaylarsın, NTT Studio alt görevleri alandaki ajanlara
 dağıtır ve her alt görev ancak **kanıtla** kapanır. Ajanın "bitti" demesi
-hiçbir kartı kapatmaz. Ekip şeridi kartına, Kararlar'daki "Terminale git" bağlantısına veya ajan bildirimine Pano ya da Ofis görünümündeyken tıklarsan görünüm otomatik olarak Bölmeler'e döner.
+hiçbir kartı kapatmaz. Akış'taki ajan satırına, soru kartındaki "Terminale git" bağlantısına ya da ajan bildirimine tıklarsan Terminal sekmesine geçilir.
 
 - **Görev**: başlık ve hedef yazarsın. **Böl** lideri çalıştırır: axet-code
   alanın kökünde (yoksa ajanların varsayılan klasöründe) tek seferlik,
@@ -470,7 +486,7 @@ hiçbir kartı kapatmaz. Ekip şeridi kartına, Kararlar'daki "Terminale git" ba
   anlaşılamaz, istem vermeden önce ajanın terminalde açık olduğundan emin ol.
   Tahmini durumlu ajana **Ajana ver** ya da **Düzeltmeye geri gönder** önce
   onay sorar: terminalinde açık bir izin menüsü varsa Enter onu onaylardı.
-- **Kanıt**: alana sağ tıklayıp **Doğrulama komutları…** ile satır başına
+- **Kanıt**: ekip sekmesine sağ tıklayıp **Doğrulama komutları…** ile satır başına
   bir komut yazarsın (en fazla 5; ör. `npm run lint`, `npm test`). axet-code
   ajanı işini bitirince komutlar alanın kökünde, gizli bir pencerede sırayla
   çalışır; hepsi başarılıysa alt görev **Bitti**, biri başarısızsa
@@ -486,9 +502,11 @@ hiçbir kartı kapatmaz. Ekip şeridi kartına, Kararlar'daki "Terminale git" ba
   görevler "Beklemede" olur ve kendiliğinden yeniden gönderilmez; **Yeniden
   sıraya al** dersin. İstem ajana gönderilemediyse (motor o anda kapandı ya da
   sen araya yazdın) alt görev "Beklemede · İstem gönderilemedi" olur.
-- Ekip şeridinde görevli ajanın kartında alt görevin başlığı, kenar
-  çubuğunda başarısız alt görevi olan alanın yanında kırmızı bir sayı
-  görünür. Pencere arka plandayken "Görev bitti" ve "Alt görev başarısız"
+- **Raporlar** (panonun altında): biten, doğrulanan ve başarısız alt
+  görevler; başlık, ajan, sonuç, kaç doğrulama komutunun geçtiği ve zaman.
+  Satıra tıklayınca ayrıntısı açılır.
+- Akış'ta görevli ajanın satırında alt görevin başlığı, ekip sekmesinde
+  başarısız alt görev sayısı kırmızı görünür. Pencere arka plandayken "Görev bitti" ve "Alt görev başarısız"
   bildirimleri gelir (sohbet bildirimi ayarı).
 - Pano uygulamanın veri klasöründe tutulur; proje klasörüne ya da depoya
   dosya yazılmaz. Alanı kapatınca panosu da silinir (görev varsa sorulur).
@@ -500,25 +518,24 @@ hiçbir kartı kapatmaz. Ekip şeridi kartına, Kararlar'daki "Terminale git" ba
 
 ### Ofis görünümü
 
-Üst şeritteki **Bölmeler | Pano | Ofis | Değişiklikler** geçişinde **Ofis**, alandaki
-ajanları masalarında oturan karakterler olarak gösterir (seçim alan başına
-hatırlanır). Yeni bir bilgi üretmez; ekip şeridindeki durumu ve panodaki
-alt görevi tek bakışta özetler.
+**Ofis** sekmesi (yeni ekiplerde varsayılan) ekipteki ajanları masalarında
+oturan karakterler olarak gösterir. Yeni bir bilgi üretmez; Akış'taki durumu
+ve panodaki alt görevi tek bakışta özetler.
 
 - **Çalışıyor**: ekran parlar, eller yazar. Durumu tahmini (≈) olan
   ajanlarda (Claude Code, Codex, Gemini, özel komut) aynı poz durağandır;
   hareket yalnız kesin durumda olur.
 - **Soru soruyor**: başın üstünde sarı bir "?" balonu; axet-code ajanında
-  sorunun ilk 60 karakteri balonda yazar. Cevabı sağdaki **Kararlar**
-  panelinden ya da terminalden verirsin.
+  sorunun ilk 60 karakteri balonda yazar. Cevabı Akış'taki soru
+  kartından ya da terminalden verirsin.
 - **Boşta / Bitti**: karakter arkasına yaslanır, ekran söner; "Boşta 3 dk"
   gibi süre yazar. **Hata**: ekranda kırmızı bir işaret.
   **Bilinmiyor**: durum henüz gelmediyse karakter soluktur.
   **Kurulu değil**: motor bu bilgisayarda yoksa masa boştur.
 - Masanın altında ad, rol ve motor; ajan panodan bir alt görev
   yürütüyorsa başlığı (uzunsa kısaltılır, üstüne gelince tamamı görünür).
-- Karaktere tıklayınca (ya da Tab ile gelip Enter/Space) görünüm
-  **Bölmeler**'e döner ve o ajanın terminali öne gelir; küçültülmüşse geri
+- Karaktere tıklayınca (ya da Tab ile gelip Enter/Space) **Terminal**
+  sekmesine geçilir ve o ajanın terminali öne gelir; küçültülmüşse geri
   açılır. Seçili/odaktaki ajanın çerçevesi vurgu rengindedir.
 - Düz terminaller ofiste görünmez; sağ alt köşede sayıları yazar. Ajan
   yoksa "Ofiste kimse yok" ve **Ajan** düğmesi çıkar.
@@ -527,8 +544,7 @@ alt görevi tek bakışta özetler.
 
 ### Değişiklikler
 
-Üst şeritteki **Bölmeler | Pano | Ofis | Değişiklikler** geçişinde
-**Değişiklikler**, ajanların bu alanın klasöründe dosyalarda yaptığı
+**Değişiklikler** sekmesi ajanların bu alanın klasöründe dosyalarda yaptığı
 değişiklikleri gösterir ve beğenmediğini geri almanı sağlar. Yalnız **Git
 deposu** olan klasörlerde çalışır (alanın kökü, yoksa ajanların varsayılan
 klasörü); depo değilse ya da Git kurulu değilse bunu açıkça söyler. Klasörü
@@ -577,7 +593,7 @@ kendisi depoya çevirmez.
 
 ### Tarayıcı
 
-Üst şeritteki geçişin beşinci seçeneği **Tarayıcı**, ajanların yanında bir
+**Tarayıcı** sekmesi ajanların yanında bir
 web sayfası açar: ajanın ayağa kaldırdığı yerel sunucu (`localhost:5173`),
 bir dokümantasyon sayfası ya da bir Fiori uygulaması. Gördüğünü **Ajana
 gönder** ile tek adımda bir ajana verebilirsin.
@@ -645,7 +661,7 @@ dosyası** olabilir. Ajan her açılışta onu okur ve önemli şeyleri oraya
 yazar; sen de dosyayı uygulamadan açıp düzeltebilirsin.
 
 - **Ajan ekle** penceresinde **Kalıcı bellek** kutusunu işaretle (varsayılan
-  kapalı). Var olan bir ajanda ekip şeridindeki kartın sağ altındaki kitap
+  kapalı). Var olan bir ajanda Akış'taki satırının sağındaki kitap
   simgesine bas (**Belleği etkinleştir**); simge **Belleği aç**'a döner.
 - Dosya alanın kök klasörü altında `.ntt-studio/bellek/<ad>.md` olarak durur
   (alanın kökü yoksa ajanın klasöründe). `<ad>` ajanın adından türetilir
