@@ -230,6 +230,42 @@ describe("Akış — mesaj kutusu", () => {
     expect(record).not.toHaveBeenCalled();
   });
 
+  it("@ekip: listede ilk seçenek (2+ ajan); tek satır tüm ekibe sırayla gidiyor, her başarı akışa yazılıyor", async () => {
+    const { record } = setup([ws("w1", [pane("a", { title: "Ayşe" }), pane("b", { title: "Ali" })])]);
+    fireEvent.change(box(), { target: { value: "@ek", selectionStart: 3 } });
+    const options = Array.from(screen.getByRole("listbox").querySelectorAll("[role=option]")).map((o) => o.getAttribute("aria-label") ?? o.textContent);
+    expect(options[0]).toBe("ekip — tüm ajanlar (2)");
+    fireEvent.keyDown(box(), { key: "Enter" });
+    expect(screen.getByText("@ekip")).toBeTruthy();
+    fireEvent.change(box(), { target: { value: "durumu yaz" } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await flush();
+    expect(send.mock.calls).toEqual([["w1", "a", "durumu yaz"], ["w1", "b", "durumu yaz"]]);
+    expect(record).toHaveBeenCalledTimes(2);
+    expect(box().value).toBe("");
+    expect(screen.getByRole("status").textContent).toBe("Ekibe gönderildi: 2/2 ajan.");
+  });
+
+  it("@ekip: meşgul ajan için sebep yazılıyor, yeniden denenmiyor; metin duruyor", async () => {
+    send.mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, reason: "busy" });
+    const { record } = setup([ws("w1", [pane("a", { title: "Ayşe" }), pane("b", { title: "Ali" })])]);
+    fireEvent.change(box(), { target: { value: "@", selectionStart: 1 } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    fireEvent.change(box(), { target: { value: "derle" } });
+    fireEvent.keyDown(box(), { key: "Enter" });
+    await flush();
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(record).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("status").textContent).toBe("Ekibe gönderildi: 1/2 ajan. Gitmedi — Ali: meşgul.");
+    expect(box().value).toBe("derle");
+  });
+
+  it("tek ajanda @ekip seçeneği yok", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
+    fireEvent.change(box(), { target: { value: "@", selectionStart: 1 } });
+    expect(Array.from(screen.getByRole("listbox").querySelectorAll("[role=option]")).map((o) => o.textContent)).toEqual(["Ayşe"]);
+  });
+
   it("Escape listeyi kapatıyor; seçili ajan çarpıyla kaldırılıyor", () => {
     setup([ws("w1", [pane("a", { title: "Ayşe" })])]);
     fireEvent.change(box(), { target: { value: "@", selectionStart: 1 } });

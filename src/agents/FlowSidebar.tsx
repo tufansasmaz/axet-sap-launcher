@@ -438,6 +438,17 @@ function AgentRow({
   );
 }
 
+/** `@ekip` seçimi: tek satır ekipteki bütün ajanlara (Tur 2). */
+const TEAM_ID = "__team__";
+
+const TEAM_REASON: Partial<Record<AgentSendFailure, TranslationKey>> = {
+  busy: "flow.team.reason.busy",
+  asking: "flow.team.reason.asking",
+  notRunning: "flow.team.reason.notRunning",
+  typing: "flow.team.reason.typing",
+  notSubmitted: "flow.team.reason.notSubmitted"
+};
+
 function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   const t = useT();
   const { record } = useFlow();
@@ -446,11 +457,13 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   const [targetId, setTargetId] = useState<string | null>(null);
   const [mention, setMention] = useState<Mention | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [notice, setNotice] = useState<TranslationKey | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const agents = agentPanes(workspace).map((pane) => ({ id: pane.id, name: agentName(pane, t) }));
-  const target = agents.find((a) => a.id === targetId) ?? null;
-  const matches = mention ? matchAgents(agents, mention.query) : [];
+  // Tek ajanda "ekip" o ajanın kendisi; seçenek 2+ ajanda.
+  const teamOption = agents.length >= 2 ? { id: TEAM_ID, name: t("flow.team.name") } : null;
+  const target = targetId === TEAM_ID ? teamOption : (agents.find((a) => a.id === targetId) ?? null);
+  const matches = mention ? matchAgents(teamOption ? [teamOption, ...agents] : agents, mention.query) : [];
   const listOpen = mention !== null && matches.length > 0;
 
   const pick = (agent: { id: string; name: string }) => {
@@ -463,12 +476,16 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   const submit = async () => {
     if (sending) return;
     if (!target) {
-      setNotice("flow.pickAgent");
+      setNotice(t("flow.pickAgent"));
       return;
     }
     const body = text.trim();
     if (!body) return;
     setSending(true);
+    if (target.id === TEAM_ID) {
+      await sendTeam(body);
+      return;
+    }
     let result;
     try {
       result = await window.api.agentSend(workspace.id, target.id, body);
@@ -481,8 +498,32 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
       setText("");
       setNotice(null);
     } else {
-      setNotice(SEND_FAILURE[result.reason] ?? "browser.fail.writeFailed");
+      setNotice(t(SEND_FAILURE[result.reason] ?? "browser.fail.writeFailed"));
     }
+  };
+
+  // Sırayla, her ajana bir kez: reddedilen yeniden denenmiyor, sebebi yazılıyor.
+  const sendTeam = async (body: string) => {
+    const skipped: string[] = [];
+    let sent = 0;
+    for (const agent of agents) {
+      let result;
+      try {
+        result = await window.api.agentSend(workspace.id, agent.id, body);
+      } catch {
+        result = { ok: false as const, reason: "writeFailed" as const };
+      }
+      if (result.ok) {
+        sent += 1;
+        record({ at: Date.now(), workspaceId: workspace.id, kind: "message", paneId: agent.id, name: agent.name, detail: body });
+      } else {
+        skipped.push(`${agent.name}: ${t(TEAM_REASON[result.reason] ?? "flow.team.reason.other")}`);
+      }
+    }
+    setSending(false);
+    const summary = t("flow.team.sent", { sent, total: agents.length });
+    setNotice(skipped.length ? `${summary} ${t("flow.team.skipped", { list: skipped.join(", ") })}` : summary);
+    if (skipped.length === 0) setText("");
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -516,6 +557,7 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
               id={`${listId}-${agent.id}`}
               role="option"
               aria-selected={index === activeIndex}
+              aria-label={agent.id === TEAM_ID ? t("flow.team.option", { count: agents.length }) : undefined}
               onMouseDown={(e) => {
                 e.preventDefault();
                 pick(agent);
@@ -529,7 +571,7 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
       )}
       {notice && (
         <p role="status" className="mb-1 text-2xs text-[var(--status-warning-text)]">
-          {t(notice)}
+          {notice}
         </p>
       )}
       <div className="flex items-center gap-1.5">
