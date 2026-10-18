@@ -1,5 +1,5 @@
 // Ofis görünümünün saf mantığı (spec 2026-10-18 ofis-gorunumu §3, §4, §7):
-// ızgara, durum→poz eşlemesi (kesin/tahmini ayrımı, bilinmiyor), metin kırpma.
+// durum→poz eşlemesi (kesin/tahmini ayrımı, bilinmiyor), metin kırpma. Kat planı: officeFloor.
 import { describe, expect, it } from "vitest";
 import {
   AGENT_ENGINE_MISSING,
@@ -9,7 +9,7 @@ import {
   type AgentStatusSource
 } from "../app-electron/shared/agentTypes";
 import type { PaneRun, TerminalPane } from "../src/stores/terminalTypes";
-import { OFFICE_MAX_SEATS, OFFICE_QUESTION_MAX, clipText, officeLayout, officeSeat } from "../src/office/officeLayout";
+import { OFFICE_MAX_SEATS, OFFICE_QUESTION_MAX, clipText, officeSeat } from "../src/office/officeLayout";
 
 const RUN: PaneRun = { state: "running", ptyId: "t1" };
 const pane = (run: PaneRun = RUN): TerminalPane => ({
@@ -35,27 +35,9 @@ const q = (question: string, header = "Başlık"): AgentQuestion => ({
 });
 const NOW = 10_000_000;
 
-describe("officeLayout", () => {
-  it("0–9 ajan: 1–3 tek sıra, 4–6 iki sıra, 7–9 üç sıra; eksik son satır", () => {
-    expect(officeLayout(0)).toEqual({ rows: [], cols: 0 });
-    expect(officeLayout(1)).toEqual({ rows: [1], cols: 1 });
-    expect(officeLayout(2)).toEqual({ rows: [2], cols: 2 });
-    expect(officeLayout(3)).toEqual({ rows: [3], cols: 3 });
-    expect(officeLayout(4)).toEqual({ rows: [2, 2], cols: 2 });
-    expect(officeLayout(5)).toEqual({ rows: [3, 2], cols: 3 });
-    expect(officeLayout(6)).toEqual({ rows: [3, 3], cols: 3 });
-    expect(officeLayout(7)).toEqual({ rows: [3, 3, 1], cols: 3 });
-    expect(officeLayout(8)).toEqual({ rows: [3, 3, 2], cols: 3 });
-    expect(officeLayout(9)).toEqual({ rows: [3, 3, 3], cols: 3 });
-  });
-
-  it("sınır: 9'u aşan 9'a, negatif/NaN 0'a, kesirli aşağı yuvarlanıyor; toplam hep koltuk sayısı", () => {
+describe("OFFICE_MAX_SEATS", () => {
+  it("alan sınırı bölme sınırıyla aynı (ızgara yerini kat planına bıraktı: officeFloor)", () => {
     expect(OFFICE_MAX_SEATS).toBe(9);
-    expect(officeLayout(12)).toEqual(officeLayout(9));
-    expect(officeLayout(-1)).toEqual({ rows: [], cols: 0 });
-    expect(officeLayout(Number.NaN)).toEqual({ rows: [], cols: 0 });
-    expect(officeLayout(2.7)).toEqual({ rows: [2], cols: 2 });
-    for (let n = 0; n <= 9; n++) expect(officeLayout(n).rows.reduce((a, b) => a + b, 0)).toBe(n);
   });
 });
 
