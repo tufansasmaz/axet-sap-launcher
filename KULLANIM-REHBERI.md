@@ -441,6 +441,58 @@ değil: herhangi bir klasörde ya da Git deposunda kullanılabilir.
   açılır. Bu dönüşüm tek yönlüdür: düzen yeni biçimde kaydedildikten sonra
   daha eski bir sürüme (1.8.x) dönersen ajan bölmeleri o sürümde açılmaz.
 
+### Görev Panosu
+
+Üst şeritteki **Bölmeler | Pano** geçişiyle alanın görev panosunu açarsın
+(seçim alan başına hatırlanır). Bir hedef yazarsın; **lider** onu alt
+görevlere böler, sen onaylarsın, NTT Studio alt görevleri alandaki ajanlara
+dağıtır ve her alt görev ancak **kanıtla** kapanır. Ajanın "bitti" demesi
+hiçbir kartı kapatmaz.
+
+- **Görev**: başlık ve hedef yazarsın. **Böl** lideri çalıştırır: axet-code
+  alanın kökünde (yoksa ajanların varsayılan klasöründe) tek seferlik,
+  Outlook gibi bağlayıcıları kapalı bir oturum açar, dosya değiştirmeden en fazla 8 alt
+  görevlik bir plan üretir (3 dakika sınırı). Lider planlarken dosya
+  değiştirdiyse taslağın üstünde uyarı çıkar. Lider kullanılamıyorsa ya da
+  geçerli bir plan dönmezse görev "Takıldı" olur, sebebi açıkça yazar;
+  **Yeniden dene** ya da alt görevleri elle ekle.
+- **Taslak**: alt görevlerin başlığını, istemini, rol ipucunu ve
+  bağımlılıklarını düzenler, ekler, siler, sıralarsın. **Onayla** demeden
+  hiçbir şey ajana gitmez.
+- **Dağıtım**: bağımlılığı bitmiş alt görev, aynı alandaki boşta bir ajana
+  gider (rol ipucu eşleşen ajan önce). Ajanın motoru kapalıysa (terminalde
+  kabuk istemi görünüyorsa) ya da sen o terminalde yazıyorsan hiçbir şey
+  yazılmaz; alt görev "Uygun ajan bekleniyor" olarak bekler. Durumu tahmini
+  (≈) olan ajanlara (Claude Code, Codex, Gemini, özel komut) iş kendiliğinden
+  gitmez: **Ajana ver** ile sen verirsin.
+- **Kanıt**: alana sağ tıklayıp **Doğrulama komutları…** ile satır başına
+  bir komut yazarsın (en fazla 5; ör. `npm run lint`, `npm test`). axet-code
+  ajanı işini bitirince komutlar alanın kökünde, gizli bir pencerede sırayla
+  çalışır; hepsi başarılıysa alt görev **Bitti**, biri başarısızsa
+  **Başarısız** olur (komut başına 10 dakika sınırı; çıktının sonu kartta).
+  Tahmini durumlu ajanlarda **Doğrula**'ya sen basarsın. Komut yazmadıysan
+  alt görevi **Onayla** ile elle kapatırsın; kartta "Elle onaylandı" yazar,
+  yeşil onay işareti çıkmaz. Yalnız buraya senin yazdığın komutlar çalışır;
+  lider ya da ajan komut çalıştıramaz.
+- **Başarısız alt görev**: **Düzeltmeye geri gönder** aynı ajana hata
+  çıktısının sonunu yazar; **Yeniden sıraya al** alt görevi boşa çıkarır.
+  Kendiliğinden geri gönderme yoktur.
+- **Ajan kapandıysa ya da uygulama yeniden açıldıysa** yarıda kalan alt
+  görevler "Beklemede" olur ve kendiliğinden yeniden gönderilmez; **Yeniden
+  sıraya al** dersin. İstem ajana gönderilemediyse (motor o anda kapandı ya da
+  sen araya yazdın) alt görev "Beklemede · İstem gönderilemedi" olur.
+- Ekip şeridinde görevli ajanın kartında alt görevin başlığı, kenar
+  çubuğunda başarısız alt görevi olan alanın yanında kırmızı bir sayı
+  görünür. Pencere arka plandayken "Görev bitti" ve "Alt görev başarısız"
+  bildirimleri gelir (sohbet bildirimi ayarı).
+- Pano uygulamanın veri klasöründe tutulur; proje klasörüne ya da depoya
+  dosya yazılmaz. Alanı kapatınca panosu da silinir (görev varsa sorulur).
+  Pano dosyası bozulursa kenara alınır ve boş pano açılır; veri sessizce
+  silinmez.
+- SAP yazma onayı, QA/PRD salt okunur kuralı ve rol kapısı aynen geçerlidir:
+  modül danışmanı rolünde pano görev çalıştırabilir ama ajan SAP'ye
+  geliştirme yazamaz.
+
 ## Klavye Kısayolları
 
 **Ctrl+/** (veya **F1**) tuşlarına basarak Klavye Kısayolları penceresini
