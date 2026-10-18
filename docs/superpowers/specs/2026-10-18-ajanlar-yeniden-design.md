@@ -44,6 +44,34 @@ terminal bölmeleri); yalnız yerleri değişir. Yeni arka uç özelliği yok.
 - Ajan ekle / kabuk ekle düğmeleri orta sekme şeridinin sağında; bellek ve rol bilgisi ofiste ve
   terminal başlığında.
 
+## 2a. Sohbet bu ekranın parçası (kullanıcı kararı 2026-10-18)
+
+- Orta sekme şeridinin başında **Sohbet** sekmesi: bugünkü Sohbet ekranı (`AxetCodeHome`) olduğu
+  gibi burada görünür. Bileşen bugünkü gibi uygulama ömrü boyunca takılı kalır (akan cevap, taslak
+  kaybolmaz); yalnız görünürlüğü bu sekmeye bağlanır.
+- Sohbet sekmesindeyken sol sütun Sohbet'in kendi oturum listesidir (`ChatSidebar`); diğer
+  sekmelerde Akış. Üst şerit (ekip sekmeleri + orta sekmeler) iki durumda da aynıdır.
+- Uygulamanın sol menüsündeki "Sohbet" ve "Ajanlar" düğmeleri aynı ekrana açılır (Sohbet → Sohbet
+  sekmesi, Ajanlar → son seçilen ajan sekmesi); ayrı ekran kalmaz.
+- Terminal sekmesi bugünkü bölme düzenidir (kullanıcı: "terminal kısmı harici" — değişmiyor).
+
+## 2b. AgentSpace'ten taşınanlar (demoda görünen 14 aşamaya karşılık)
+
+| AgentSpace | Bizde |
+|---|---|
+| Build a team (şablonla ekip) | **Ekip şablonları**: "+ Ekip" → boş ya da hazır şablon (SAP geliştirme: lider + geliştirici + test; Analiz: lider + analist; Destek: tek ajan). Şablon yalnız ajan bölmeleri açar (motor axet-code, rol hazır). |
+| Add a person | Ajan ekle (var) |
+| Tell Agent X | Akış'taki `@ajan` mesaj kutusu |
+| The beam / lead hands out work | Pano dağıtımında ofiste liderden ajana kısa bir ışın animasyonu (hareketi azaltta yok) |
+| The office at work | Piksel ofis (§3) |
+| Chat + decisions | Akış + soru kartları (§2) |
+| Tasks | Görevler sekmesi (pano) |
+| Code | Değişiklikler sekmesi |
+| Browser test | Tarayıcı sekmesi |
+| Memory | Kalıcı bellek (var; ajan satırında) |
+| Results / Reports | **Raporlar**: Görevler sekmesinde biten alt görevlerin özeti + doğrulama sonucu listesi (yeni veri yok, panodan) |
+| Visual report, Fix a design, integrations, mobil, ses | kapsam dışı |
+
 ## 3. Piksel ofis
 
 - Tek bir `<canvas>`; 16×16 piksellik karolar, tam sayı ölçek (2×–4×, alana sığan en büyük),
