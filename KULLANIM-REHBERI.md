@@ -498,6 +498,33 @@ hiçbir kartı kapatmaz.
   modül danışmanı rolünde pano görev çalıştırabilir ama ajan SAP'ye
   geliştirme yazamaz.
 
+### Ofis görünümü
+
+Üst şeritteki **Bölmeler | Pano | Ofis** geçişinde **Ofis**, alandaki
+ajanları masalarında oturan karakterler olarak gösterir (seçim alan başına
+hatırlanır). Yeni bir bilgi üretmez; ekip şeridindeki durumu ve panodaki
+alt görevi tek bakışta özetler.
+
+- **Çalışıyor**: ekran parlar, eller yazar. Durumu tahmini (≈) olan
+  ajanlarda (Claude Code, Codex, Gemini, özel komut) aynı poz durağandır;
+  hareket yalnız kesin durumda olur.
+- **Soru soruyor**: başın üstünde sarı bir "?" balonu; axet-code ajanında
+  sorunun ilk 60 karakteri balonda yazar. Cevabı sağdaki **Kararlar**
+  panelinden ya da terminalden verirsin.
+- **Boşta / Bitti**: karakter arkasına yaslanır, ekran söner; "Boşta 3 dk"
+  gibi süre yazar. **Hata**: ekranda kırmızı bir işaret.
+  **Bilinmiyor**: durum henüz gelmediyse karakter soluktur.
+  **Kurulu değil**: motor bu bilgisayarda yoksa masa boştur.
+- Masanın altında ad, rol ve motor; ajan panodan bir alt görev
+  yürütüyorsa başlığı (uzunsa kısaltılır, üstüne gelince tamamı görünür).
+- Karaktere tıklayınca (ya da Tab ile gelip Enter/Space) görünüm
+  **Bölmeler**'e döner ve o ajanın terminali öne gelir; küçültülmüşse geri
+  açılır. Seçili/odaktaki ajanın çerçevesi vurgu rengindedir.
+- Düz terminaller ofiste görünmez; sağ alt köşede sayıları yazar. Ajan
+  yoksa "Ofiste kimse yok" ve **Ajan** düğmesi çıkar.
+- Ofisteyken terminaller kapanmaz, yalnız gizlenir. Windows'ta "Animasyon
+  efektlerini göster" kapalıysa (hareketi azalt) ofiste hiçbir şey kıpırdamaz.
+
 ## Klavye Kısayolları
 
 **Ctrl+/** (veya **F1**) tuşlarına basarak Klavye Kısayolları penceresini
