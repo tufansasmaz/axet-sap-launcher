@@ -102,6 +102,8 @@ export type TerminalAction =
       agent?: AgentSpec;
       title?: string;
       color?: TerminalPaneColor;
+      /** Kalıcı bellek açılsın mı (spec 2026-10-18 ajan-bellegi §4); anahtar indirgeyicide türetiliyor. */
+      memory?: boolean;
     }
   | { type: "addProjectPane"; paneId: string; spareWorkspaceId: string; cwd: string; nameFor: NameFor }
   | { type: "closePane"; paneId: string }
@@ -124,4 +126,5 @@ export type TerminalAction =
   | { type: "setWorkspaceRoot"; id: string; root: string | null; sap: SavedWorkspaceSap | null }
   | { type: "setWorkspaceVerify"; id: string; verify: string[] }
   | { type: "setWorkspaceView"; id: string; view: WorkspaceView }
-  | { type: "setWorkspaceBrowserUrl"; id: string; url: string };
+  | { type: "setWorkspaceBrowserUrl"; id: string; url: string }
+  | { type: "enablePaneMemory"; paneId: string };

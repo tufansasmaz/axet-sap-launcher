@@ -13,6 +13,8 @@ export interface NewAgentInput {
   name: string;
   color?: TerminalPaneColor;
   cwd: string;
+  /** Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4); anahtar indirgeyicide. */
+  memory?: boolean;
 }
 
 export interface TerminalCommands {
@@ -49,6 +51,8 @@ export interface TerminalCommands {
   setWorkspaceView: (id: string, view: WorkspaceView) => void;
   /** Tarayıcının son adresi (spec 2026-10-18 tarayici §2); geçersizse yok sayılır. */
   setWorkspaceBrowserUrl: (id: string, url: string) => void;
+  /** Ajanın kalıcı belleğini açar (spec 2026-10-18 ajan-bellegi §4); anahtar addan türetilir. */
+  enablePaneMemory: (paneId: string) => void;
 }
 
 export interface TerminalStoreValue {

@@ -16,6 +16,7 @@ import {
 } from "../../app-electron/shared/terminalLayout";
 import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
 import { readBrowserUrl } from "../../app-electron/shared/browserLogic";
+import { isMemoryKey, withMemoryKey } from "../../app-electron/shared/memoryLogic";
 import {
   equalizeSplit,
   fromLegacy,
@@ -264,12 +265,19 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       // Ajan bölmesi tanımsız eklenmiyor: hangi motorun başlayacağı belli değil.
       if (action.kind === "agent" && !action.agent) return state;
       const title = cleanPaneTitle(action.title);
+      // Kalıcı bellek (spec 2026-10-18 ajan-bellegi §2): anahtar addan, bütün alanlarda tekil.
+      const agent =
+        action.kind === "agent" && action.agent
+          ? action.memory === true
+            ? withMemoryKey(action.agent, title ?? action.agent.engine, state.workspaces)
+            : action.agent
+          : undefined;
       const pane: TerminalPane = {
         id: action.paneId,
         kind: action.kind,
         cwd: action.cwd,
         run: { state: "queued" },
-        ...(action.kind === "agent" && action.agent ? { agent: action.agent } : {}),
+        ...(agent ? { agent } : {}),
         ...(title ? { title } : {}),
         ...(action.color && isTerminalPaneColor(action.color) ? { color: action.color } : {})
       };
@@ -462,6 +470,15 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       const url = readBrowserUrl(action.url);
       if (!workspace || !url || workspace.browserUrl === url) return state;
       return replaceWorkspace(state, { ...workspace, browserUrl: url });
+    }
+    case "enablePaneMemory": {
+      // Belleği etkinleştir (spec 2026-10-18 ajan-bellegi §4): anahtar bir kez
+      // türetiliyor; açıksa ya da ad sonradan değiştiyse dokunulmuyor (dosya aynı kalır).
+      const found = findPane(state, action.paneId);
+      const agent = found?.pane.kind === "agent" ? found.pane.agent : undefined;
+      if (!found || !agent || isMemoryKey(agent.memory)) return state;
+      const next = withMemoryKey(agent, found.pane.title ?? agent.engine, state.workspaces);
+      return replaceWorkspace(state, updatePane(found.workspace, action.paneId, { agent: next }));
     }
   }
 }

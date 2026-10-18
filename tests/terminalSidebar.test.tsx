@@ -81,7 +81,8 @@ function commandsMock(): TerminalCommands {
     setPaneFontSize: vi.fn(),
     setWorkspaceVerify: vi.fn(),
     setWorkspaceView: vi.fn(),
-    setWorkspaceBrowserUrl: vi.fn()
+    setWorkspaceBrowserUrl: vi.fn(),
+    enablePaneMemory: vi.fn()
   };
 }
 

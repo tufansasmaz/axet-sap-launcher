@@ -431,7 +431,8 @@ export function TerminalStoreProvider({
           split,
           agent: input.spec,
           title: input.name,
-          color: input.color
+          color: input.color,
+          memory: input.memory === true
         });
       },
       revealPane: (paneId) => {
@@ -447,6 +448,7 @@ export function TerminalStoreProvider({
       setWorkspaceVerify: (id, verify) => dispatch({ type: "setWorkspaceVerify", id, verify }),
       setWorkspaceView: (id, view) => dispatch({ type: "setWorkspaceView", id, view }),
       setWorkspaceBrowserUrl: (id, url) => dispatch({ type: "setWorkspaceBrowserUrl", id, url }),
+      enablePaneMemory: (paneId) => dispatch({ type: "enablePaneMemory", paneId }),
       closePane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
         if (found) release(found.pane);
