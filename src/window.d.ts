@@ -3,6 +3,15 @@ import type { AgentAnswerResult, AgentEngineInfo, AgentRegistration, AgentStatus
 import type { Board } from "../app-electron/shared/boardTypes";
 import type { BoardCommand, BoardCommandResult } from "../app-electron/shared/boardCommands";
 import type {
+  ChangesCommandResult,
+  ChangesState,
+  DiffResult,
+  PrepareRevertResult,
+  RangeResult,
+  RevertResult,
+  SnapshotResult
+} from "../app-electron/shared/changesTypes";
+import type {
   ActiveContext,
   ActiveGuiContext,
   AddManualSystemInput,
@@ -161,6 +170,15 @@ export interface AxetApi {
   boardDropWorkspace: (workspaceId: string) => Promise<void>;
   onBoardChanged: (callback: (board: Board) => void) => () => void;
   onBoardOpen: (callback: (workspaceId: string) => void) => () => void;
+  changesState: (workspaceId: string) => Promise<ChangesState | null>;
+  changesLive: (workspaceId: string) => Promise<RangeResult>;
+  changesRange: (workspaceId: string, checkpointId: string) => Promise<RangeResult>;
+  changesDiff: (workspaceId: string, checkpointId: string, path: string) => Promise<DiffResult>;
+  changesCheckpoint: (workspaceId: string) => Promise<SnapshotResult>;
+  changesAccept: (workspaceId: string, checkpointId: string) => Promise<ChangesCommandResult>;
+  changesPrepareRevert: (workspaceId: string, checkpointId: string) => Promise<PrepareRevertResult>;
+  changesRevert: (workspaceId: string, checkpointId: string, paths: string[]) => Promise<RevertResult>;
+  onChangesChanged: (callback: (state: ChangesState) => void) => () => void;
   onAgentOpen: (callback: (paneId: string) => void) => () => void;
   onTerminalData: (callback: (id: string, data: string) => void) => () => void;
   onTerminalExit: (callback: (id: string, exitCode: number) => void) => () => void;

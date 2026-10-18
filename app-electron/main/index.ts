@@ -44,6 +44,11 @@ import { deleteBoardFile, listBoardIds, readBoardFile, writeBoardFile } from "./
 import { runLead } from "./boardLead";
 import { runVerification } from "./boardVerify";
 import { boardsDir, liveLeadDeps, liveVerifyDeps } from "./boardLive";
+import { createChangesManager } from "./changesManager";
+import { deleteCheckpointFiles, privateIndexFile, readCheckpointFile, restoreIndexFile, writeCheckpointFile } from "./changesStore";
+import { checkpointsDir, liveChangesPorts } from "./changesLive";
+import { isSafeRelPath, readRevertPaths } from "../shared/changesLogic";
+import type { ChangesFailure } from "../shared/changesTypes";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { stopApprovalServer } from "./sapWrite/server";
@@ -324,7 +329,9 @@ const agentMonitor = createAgentMonitor({
   notify: (kind, reg) => showAgentNotification(reg.paneId, reg.name, kind),
   write: (ptyId, data) => writeTerminal(ptyId, data),
   backlog: (ptyId) => getTerminalBuffer(ptyId).slice(-4_000),
-  log: (tag, fields) => appLog(tag, fields)
+  log: (tag, fields) => appLog(tag, fields),
+  // Değişiklikler (spec 2026-10-18 degisiklikler §4.2): istem öncesi görüntü; senkron döner.
+  onPromptLine: (reg, line) => changesManager.onPromptLine(reg, line)
 });
 let agentMonitorTimer: NodeJS.Timeout | null = null;
 
@@ -357,6 +364,34 @@ const boardManager = createBoardManager({
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("board:changed", board);
   },
   notify: (kind, workspaceId, title) => showBoardNotification(workspaceId, title, kind),
+  log: (tag, fields) => appLog(tag, fields),
+  // Değişiklikler (spec 2026-10-18 degisiklikler §4.1): dağıtım görüntüsü; senkron döner.
+  onDispatched: (workspaceId, paneId, subtaskId, title) => changesManager.onDispatched(workspaceId, paneId, subtaskId, title)
+});
+
+// Değişiklikler yöneticisi (spec 2026-10-18 degisiklikler). Klasör YALNIZ
+// config.json'daki alan kaydından (boardWorkspaceInfo); dosya yolu yalnız
+// kaydın aralığından (yönetici denetliyor). Kancalar bu nesneyi geç çağırıyor.
+const changesManager = createChangesManager({
+  now: () => Date.now(),
+  newId: () => randomUUID(),
+  store: {
+    read: (id) => readCheckpointFile(checkpointsDir(), id, Date.now()),
+    write: (id, list) => writeCheckpointFile(checkpointsDir(), id, list),
+    remove: (id) => deleteCheckpointFiles(checkpointsDir(), id),
+    indexFile: (id) => privateIndexFile(checkpointsDir(), id),
+    restoreIndexFile: (id) => restoreIndexFile(checkpointsDir(), id)
+  },
+  ...liveChangesPorts(),
+  workspace: (id) => {
+    const cfg = loadConfig();
+    const info = boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, id);
+    return info ? { cwd: info.cwd } : null;
+  },
+  agents: () => agentMonitor.agents(),
+  emit: (state) => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("changes:changed", state);
+  },
   log: (tag, fields) => appLog(tag, fields)
 });
 let boardTimer: NodeJS.Timeout | null = null;
@@ -380,6 +415,11 @@ function stopBoardManager(): void {
   if (boardTimer) clearInterval(boardTimer);
   boardTimer = null;
   boardManager.dispose();
+  try {
+    changesManager.dispose();
+  } catch {
+    // kapanışta yönetici hatası önemsiz
+  }
 }
 
 // Kullanıcı onayı bekleyen TLS sertifikaları: `host:port` → bağlanırken
@@ -1291,6 +1331,12 @@ function registerIpc(): void {
     } catch {
       // silinemeyen pano diskte öksüz kalır; veri kaybından iyidir
     }
+    // Değişiklik kayıtları da (spec sapma 14); ağaç nesneleri depoda kalır.
+    try {
+      changesManager.drop(workspaceId);
+    } catch {
+      // silinemeyen kayıt dosyası öksüz kalır; veri kaybından iyidir
+    }
   });
 
   ipcMain.handle("board:command", (_event, workspaceId: unknown, raw: unknown) => {
@@ -1302,6 +1348,103 @@ function registerIpc(): void {
       return boardManager.command(workspaceId, command);
     } catch {
       return { ok: false, reason: "writeFailed" };
+    }
+  });
+
+  // Değişiklikler (spec 2026-10-18 degisiklikler §5–§7). Alan yalnız config'teki
+  // kayıtlı alan; kayıt kimliği deseni; dosya yolu güvenli VE yöneticide o
+  // kaydın o anki aralığında. Renderer serbest yol gönderemez.
+  const changesWorkspace = (workspaceId: unknown): string | null => {
+    if (!isBoardId(workspaceId)) return null;
+    const cfg = loadConfig();
+    return boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, workspaceId) ? workspaceId : null;
+  };
+  const changesFail = (reason: ChangesFailure) => ({ ok: false as const, reason });
+  const noRevert = (reason: ChangesFailure) => ({ ok: false, reason, restored: [], trashed: [], skipped: [] });
+
+  ipcMain.handle("changes:state", async (_event, workspaceId: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return null;
+    try {
+      return await changesManager.state(ws);
+    } catch {
+      return null;
+    }
+  });
+
+  ipcMain.handle("changes:live", async (_event, workspaceId: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return changesFail("noWorkspace");
+    try {
+      return await changesManager.live(ws);
+    } catch {
+      return changesFail("git");
+    }
+  });
+
+  ipcMain.handle("changes:range", async (_event, workspaceId: unknown, checkpointId: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return changesFail("noWorkspace");
+    if (!isBoardId(checkpointId)) return changesFail("invalid");
+    try {
+      return await changesManager.range(ws, checkpointId);
+    } catch {
+      return changesFail("git");
+    }
+  });
+
+  ipcMain.handle("changes:diff", async (_event, workspaceId: unknown, checkpointId: unknown, filePath: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return changesFail("noWorkspace");
+    if (!isBoardId(checkpointId) || !isSafeRelPath(filePath)) return changesFail("invalid");
+    try {
+      return await changesManager.fileDiff(ws, checkpointId, filePath);
+    } catch {
+      return changesFail("git");
+    }
+  });
+
+  ipcMain.handle("changes:checkpoint", async (_event, workspaceId: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return changesFail("noWorkspace");
+    try {
+      return await changesManager.snapshot(ws, "manual", { paneId: null, agentName: null, subtaskId: null, label: "" });
+    } catch {
+      return changesFail("git");
+    }
+  });
+
+  ipcMain.handle("changes:accept", (_event, workspaceId: unknown, checkpointId: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return changesFail("noWorkspace");
+    if (!isBoardId(checkpointId)) return changesFail("invalid");
+    try {
+      return changesManager.accept(ws, checkpointId);
+    } catch {
+      return changesFail("writeFailed");
+    }
+  });
+
+  ipcMain.handle("changes:prepareRevert", async (_event, workspaceId: unknown, checkpointId: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return changesFail("noWorkspace");
+    if (!isBoardId(checkpointId)) return changesFail("invalid");
+    try {
+      return await changesManager.prepareRevert(ws, checkpointId);
+    } catch {
+      return changesFail("git");
+    }
+  });
+
+  ipcMain.handle("changes:revert", async (_event, workspaceId: unknown, checkpointId: unknown, paths: unknown) => {
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return noRevert("noWorkspace");
+    const list = readRevertPaths(paths);
+    if (!isBoardId(checkpointId) || !list) return noRevert("invalid");
+    try {
+      return await changesManager.revert(ws, checkpointId, list);
+    } catch {
+      return noRevert("git");
     }
   });
 

@@ -67,6 +67,15 @@ import type { Choice, SapWriteState, WorkMode } from "../shared/sapWriteTypes";
 import type { AgentAnswerResult, AgentEngineInfo, AgentRegistration, AgentStatusEvent, AxetAgentEntry } from "../shared/agentTypes";
 import type { Board } from "../shared/boardTypes";
 import type { BoardCommand, BoardCommandResult } from "../shared/boardCommands";
+import type {
+  ChangesCommandResult,
+  ChangesState,
+  DiffResult,
+  PrepareRevertResult,
+  RangeResult,
+  RevertResult,
+  SnapshotResult
+} from "../shared/changesTypes";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -194,6 +203,25 @@ const api = {
     const listener = (_event: unknown, workspaceId: string) => callback(workspaceId);
     ipcRenderer.on("board:open", listener);
     return () => ipcRenderer.removeListener("board:open", listener);
+  },
+  // Değişiklikler (spec 2026-10-18 degisiklikler §5): yol yalnız ana sürecin verdiği listeden.
+  changesState: (workspaceId: string): Promise<ChangesState | null> => ipcRenderer.invoke("changes:state", workspaceId),
+  changesLive: (workspaceId: string): Promise<RangeResult> => ipcRenderer.invoke("changes:live", workspaceId),
+  changesRange: (workspaceId: string, checkpointId: string): Promise<RangeResult> =>
+    ipcRenderer.invoke("changes:range", workspaceId, checkpointId),
+  changesDiff: (workspaceId: string, checkpointId: string, path: string): Promise<DiffResult> =>
+    ipcRenderer.invoke("changes:diff", workspaceId, checkpointId, path),
+  changesCheckpoint: (workspaceId: string): Promise<SnapshotResult> => ipcRenderer.invoke("changes:checkpoint", workspaceId),
+  changesAccept: (workspaceId: string, checkpointId: string): Promise<ChangesCommandResult> =>
+    ipcRenderer.invoke("changes:accept", workspaceId, checkpointId),
+  changesPrepareRevert: (workspaceId: string, checkpointId: string): Promise<PrepareRevertResult> =>
+    ipcRenderer.invoke("changes:prepareRevert", workspaceId, checkpointId),
+  changesRevert: (workspaceId: string, checkpointId: string, paths: string[]): Promise<RevertResult> =>
+    ipcRenderer.invoke("changes:revert", workspaceId, checkpointId, paths),
+  onChangesChanged: (callback: (state: ChangesState) => void) => {
+    const listener = (_event: unknown, state: ChangesState) => callback(state);
+    ipcRenderer.on("changes:changed", listener);
+    return () => ipcRenderer.removeListener("changes:changed", listener);
   },
   // Ajan bildirimine tıklanınca (spec §9): Ajanlar ekranı ve o bölme.
   onAgentOpen: (callback: (paneId: string) => void) => {
