@@ -20,7 +20,7 @@ const VIEW_KEY: Record<WorkspaceView, TranslationKey> = {
   changes: "changes.view",
   browser: "browser.view"
 };
-const VIEWS: readonly WorkspaceView[] = ["panes", "board", "office", "changes"];
+const VIEWS: readonly WorkspaceView[] = ["panes", "board", "office", "changes", "browser"];
 
 // Ekip şeridi (spec 2026-10-17 ajan-alani §4): seçili alandaki ajanlar yan
 // yana. Kart: renk şeridi, ad, rol, motor, durum noktası + metni; tahmini

@@ -61,5 +61,9 @@ export const SHORTCUTS: Shortcut[] = [
   // Kaynak: TerminalPaneView.tsx → onWheel + onKey (useEffect §4)
   { keys: "Ctrl+Tekerlek  /  Ctrl+=", descKey: "shortcuts.terminalFontUp", group: "terminal" },
   { keys: "Ctrl+-", descKey: "shortcuts.terminalFontDown", group: "terminal" },
-  { keys: "Ctrl+0", descKey: "shortcuts.terminalFontReset", group: "terminal" }
+  { keys: "Ctrl+0", descKey: "shortcuts.terminalFontReset", group: "terminal" },
+  // --- Yerleşik tarayıcı (Ajanlar ekranı, Tarayıcı görünümü) ---
+  // Kaynak: src/browser/BrowserView.tsx + app-electron/main/browserGuard.ts (before-input-event)
+  { keys: "Ctrl+L", descKey: "shortcuts.browserAddress", group: "terminal" },
+  { keys: "Alt+←  /  Alt+→", descKey: "shortcuts.browserBackForward", group: "terminal" }
 ];

@@ -118,7 +118,7 @@ describe("Bölmeler | Pano | Ofis", () => {
   it("geçiş üç seçenekli; Ofis seçimi alana kaydediliyor", () => {
     const { commands } = setup(workspace());
     const group = screen.getByRole("radiogroup", { name: "Görünüm" });
-    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Bölmeler", "Pano", "Ofis", "Değişiklikler"]);
+    expect(within(group).getAllByRole("radio").map((r) => r.textContent)).toEqual(["Bölmeler", "Pano", "Ofis", "Değişiklikler", "Tarayıcı"]);
     expect(within(group).getByRole("radio", { name: "Bölmeler" }).getAttribute("aria-checked")).toBe("true");
     fireEvent.click(within(group).getByRole("radio", { name: "Ofis" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "office");

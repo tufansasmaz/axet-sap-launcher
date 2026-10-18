@@ -1,5 +1,5 @@
 // Ajanlar ekranının sağ tarafı (spec 2026-10-17 ajan-alani §4): üstte ekip şeridi, ortada bölmeler, Pano, Ofis ya da Değişiklikler (spec 2026-10-18). Bütün alanlar HEP takılı: seçili olmayanlar ve öbür görünümlerdeyken bölmeler hidden.
-import { useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useT } from "../i18n";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import { layoutOf, minimizedOf } from "../stores/terminalReducer";
@@ -24,6 +24,7 @@ import BoardView from "../board/BoardView";
 import OfficeView from "../office/OfficeView";
 import ChangesView from "../changes/ChangesView";
 import { ChangesFocusProvider } from "../changes/changesFocus";
+import BrowserView from "../browser/BrowserView";
 import type { WorkspaceView } from "../../app-electron/shared/types";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
@@ -37,6 +38,15 @@ export default function TerminalMode() {
   const [agentDialog, setAgentDialog] = useState<{ split?: PaneSplit } | null>(null);
   // Alan başına son ölçülen bölme kutuları: düğme uzun kenardan bölsün diye (spec 2026-10-14 §3.2).
   const rects = useRef<Record<string, Record<string, Box>>>({});
+
+  // Tarayıcı (spec 2026-10-18 tarayici §2): bir alanda bir kez açılan sayfa
+  // oturum boyunca takılı kalıyor, öbür görünümlerde gizleniyor; geri/ileri
+  // geçmişi görünüm değişince kaybolmasın. Alan kapanınca sökülüyor.
+  const [browserOpened, setBrowserOpened] = useState<string[]>([]);
+  const browserActiveId = state.workspaces.find((w) => w.id === state.activeWorkspaceId && w.view === "browser")?.id ?? null;
+  useEffect(() => {
+    if (browserActiveId && !browserOpened.includes(browserActiveId)) setBrowserOpened((prev) => [...prev, browserActiveId]);
+  }, [browserActiveId, browserOpened]);
 
   if (state.phase === "closed") return null;
 
@@ -130,6 +140,17 @@ export default function TerminalMode() {
               <ChangesView key={active.id} workspace={active} />
             </div>
           )}
+          {state.phase === "ready" &&
+            state.workspaces
+              .filter((w) => w.id === browserActiveId || browserOpened.includes(w.id))
+              .map((w) => {
+                const shown = w.id === browserActiveId;
+                return (
+                  <div key={`browser-${w.id}`} data-browser={w.id} className={shown ? "absolute inset-0" : "hidden"}>
+                    <BrowserView workspace={w} visible={shown && state.visible} />
+                  </div>
+                );
+              })}
         </div>
         {state.phase === "ready" && <DecisionsPanel />}
       </div>

@@ -1598,7 +1598,31 @@ export const tr = {
   "changes.dismiss": "Kapat",
   "changes.noSubtaskRecord": "Bu alt görev için geri alma noktası yok.",
   "changes.boardLink": "Değişiklikler",
-  "browser.view": "Tarayıcı"
+  "browser.view": "Tarayıcı",
+  "browser.region": "Tarayıcı görünümü",
+  "browser.back": "Geri",
+  "browser.forward": "İleri",
+  "browser.reload": "Yenile",
+  "browser.stop": "Durdur",
+  "browser.address": "Adres",
+  "browser.addressPlaceholder": "Adres yaz (ör. localhost:5173)",
+  "browser.openExternal": "Sistem tarayıcısında aç",
+  "browser.emptyTitle": "Bir adres yaz",
+  "browser.emptyHint": "Ajanın açtığı yerel sunucuyu, bir dokümantasyon sayfasını ya da bir Fiori uygulamasını burada açabilirsin.",
+  "browser.lastUrl": "Son açılan: {url}",
+  "browser.addressScheme": "Yalnız http ve https adresleri açılır.",
+  "browser.addressInvalid": "Adres geçersiz.",
+  "browser.addressTooLong": "Adres çok uzun (en çok 2048 karakter).",
+  "browser.errorDns": "Sunucu bulunamadı.",
+  "browser.errorConnection": "Sunucuya bağlanılamadı.",
+  "browser.errorCertificate": "Sitenin güvenlik sertifikası geçersiz; sayfa açılmadı.",
+  "browser.errorOther": "Sayfa yüklenemedi (hata {code}).",
+  "browser.retry": "Yeniden dene",
+  "browser.crashed": "Sayfa çöktü.",
+  "browser.reloadPage": "Yeniden yükle",
+  "browser.downloadBlocked": "İndirmeler yerleşik tarayıcıda kapalı; Sistem tarayıcısında aç'ı kullan.",
+  "shortcuts.browserAddress": "Tarayıcı: adres alanına git",
+  "shortcuts.browserBackForward": "Tarayıcı: geri / ileri"
 };
 
 
