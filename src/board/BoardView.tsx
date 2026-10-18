@@ -81,6 +81,19 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
     setSelection(next);
     draftDirtyRef.current = false;
   };
+  // Seçili görev başka yerden silindiyse seçim ve kirli işaret de gider: atılacak taslak yokken onay sorulmaz.
+  // Yalnız panoda bir kez görülmüş görev için: yeni oluşturulan görevin seçimi, pano güncellemesi
+  // komut sonucundan sonra gelirse silinmiş sanılmasın.
+  const seenTaskId = useRef<string | null>(null);
+  if (selectedTask) seenTaskId.current = selectedTask.id;
+  const selectionGone = selection !== null && selectedTask === undefined && seenTaskId.current === selection.taskId;
+  useEffect(() => {
+    if (!selectionGone) return;
+    seenTaskId.current = null;
+    setSelection(null);
+    setPendingChange(null);
+    draftDirtyRef.current = false;
+  }, [selectionGone]);
   const select = (next: BoardSelection) => {
     if (draftDirtyRef.current && next.taskId !== selection?.taskId) {
       setPendingChange({ selection: next });

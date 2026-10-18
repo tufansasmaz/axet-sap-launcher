@@ -308,7 +308,6 @@ function setupBoardView(tasks: BoardTask[], language: "tr" | "en" = "tr") {
     error: false,
     verify: ["npm test"]
   };
-  const board: Board = { workspaceId: "a", tasks };
   const store: TerminalStoreValue = {
     state: { ...initialTerminalState, phase: "ready", workspaces: [ws], activeWorkspaceId: "a" },
     commands,
@@ -316,16 +315,17 @@ function setupBoardView(tasks: BoardTask[], language: "tr" | "en" = "tr") {
     defaultCwd: "C:\\a",
     agentCwd: "C:\\a"
   };
-  render(
+  const tree = (list: BoardTask[]) => (
     <LanguageProvider language={language}>
       <TerminalStoreContext.Provider value={store}>
-        <BoardContext.Provider value={{ boards: { a: board }, command }}>
+        <BoardContext.Provider value={{ boards: { a: { workspaceId: "a", tasks: list } as Board }, command }}>
           <BoardView workspace={ws} />
         </BoardContext.Provider>
       </TerminalStoreContext.Provider>
     </LanguageProvider>
   );
-  return { commands, command };
+  const view = render(tree(tasks));
+  return { commands, command, setTasks: (list: BoardTask[]) => view.rerender(tree(list)) };
 }
 
 describe("kaydedilmemis taslak korumasi", () => {
@@ -361,6 +361,20 @@ describe("kaydedilmemis taslak korumasi", () => {
     fireEvent.click(document.querySelector('[data-task-card="t2"]')!);
     fireEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "At" }));
     await flush();
+    expect((screen.getByRole("textbox", { name: "Başlık 1" }) as HTMLInputElement).value).toBe("Test");
+  });
+
+  // Seçili görev başka yerden silinince kirli işaret kalmamalı: atılacak taslak yokken onay sorulmaz.
+  it("kirli taslaklı görev başka yerden silinince sonraki seçimde onay çıkmıyor", async () => {
+    const t1 = task("t1", [sub("s1", { title: "Model", prompt: "Tabloyu ekle" })], { approvedAt: undefined, state: "awaitingApproval" });
+    const t2 = task("t2", [sub("s2", { title: "Test", prompt: "Test yaz" })], { approvedAt: undefined, state: "awaitingApproval" });
+    const { setTasks } = setupBoardView([t1, t2]);
+    fireEvent.click(document.querySelector('[data-task-card="t1"]')!);
+    fireEvent.change(screen.getByRole("textbox", { name: "İstem 1" }), { target: { value: "Değiştirildi" } });
+    setTasks([t2]);
+    await flush();
+    fireEvent.click(document.querySelector('[data-task-card="t2"]')!);
+    expect(screen.queryByRole("alertdialog")).toBeNull();
     expect((screen.getByRole("textbox", { name: "Başlık 1" }) as HTMLInputElement).value).toBe("Test");
   });
 });
