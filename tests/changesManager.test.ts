@@ -113,7 +113,7 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
     writeThrows: false,
     writeOk: true,
     /** Yolun diskteki türü (varsayılan "none"); geri yükleme çakışma denetimi. */
-    kinds: new Map<string, "file" | "dir">(),
+    kinds: new Map<string, "file" | "dir" | "link">(),
     kindThrows: false,
     /** Gerçekten boş olan klasörler (removeEmptyDir yalnız bunları kaldırır). */
     emptyDirs: new Set<string>(),
@@ -806,5 +806,77 @@ describe("Boş klasör (kontrolcü eki)", () => {
     };
     expect(await h2.manager.revert("w1", "c1", ["a"])).toMatchObject({ ok: false, reason: "pathConflict", failedPath: "a" });
     expect(h2.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+  });
+});
+
+describe("Düzeltme turu 2 (yeniden inceleme)", () => {
+  it("hedef yol bağ/junction (link): geri yükleme yok, removeEmptyDir çağrılmıyor, hiçbir şey silinmiyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("a", "deleted"), change("b.ts")]);
+    h.state.kinds.set("a", "link");
+    h.state.emptyDirs.add("a");
+    const result = await h.manager.revert("w1", "c1", ["a", "b.ts"]);
+    expect(result).toEqual({ ok: false, reason: "pathConflict", restored: [], trashed: [], skipped: [], failedPath: "a", beforeRestoreId: "c3" });
+    expect(h.state.removedDirs).toEqual([]);
+    expect(h.events.filter((e) => e.startsWith("restore") || e.startsWith("trash"))).toEqual([]);
+  });
+
+  it("üst parça link: geri yükleme durur", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("bag/ic/x.ts", "deleted")]);
+    h.state.kinds.set("bag", "dir");
+    h.state.kinds.set("bag/ic", "link");
+    expect(await h.manager.revert("w1", "c1", ["bag/ic/x.ts"])).toMatchObject({ ok: false, reason: "pathConflict", failedPath: "bag/ic/x.ts", restored: [] });
+    expect(h.events.filter((e) => e.startsWith("restore"))).toEqual([]);
+  });
+
+  it("eklenmiş dosyanın üst parçası link: çöpe taşıma yok, işlem durur", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("bag/yeni.txt", "added"), change("a.ts")]);
+    h.state.exists.add("bag/yeni.txt");
+    h.state.kinds.set("bag", "link");
+    h.state.kinds.set("bag/yeni.txt", "file");
+    expect(await h.manager.revert("w1", "c1", ["bag/yeni.txt", "a.ts"])).toEqual({
+      ok: false,
+      reason: "pathConflict",
+      restored: [],
+      trashed: [],
+      skipped: [],
+      failedPath: "bag/yeni.txt",
+      beforeRestoreId: "c3"
+    });
+    expect(h.events.filter((e) => e.startsWith("trash") || e.startsWith("restore"))).toEqual([]);
+  });
+
+  it("okunan 201 kayıt olduğu gibi kalıyor; en eski (hedef) geri alınabiliyor", async () => {
+    const h = harness({ files: { checkpoints: Array.from({ length: MAX_CHECKPOINTS + 1 }, (_, i) => saved(`s${i}`, i + 1)) } });
+    expect((await h.manager.state("w1"))?.checkpoints).toHaveLength(MAX_CHECKPOINTS + 1);
+    h.git.diffs.set(`${T(1)}>${T(2)}`, [change("a.ts")]);
+    expect(await h.manager.revert("w1", "s0", ["a.ts"])).toMatchObject({ ok: true, restored: ["a.ts"] });
+    const list = h.written.at(-1)!;
+    expect(list[0]).toMatchObject({ id: "s0", reviewed: "reverted" });
+  });
+
+  it("yalnız büyük/küçük harf farklı iki ad aralıkta, yalnız silinen taraf seçildi: pathConflict, hiçbir şeye dokunulmuyor", async () => {
+    const h = harness();
+    await twoCheckpoints(h, [change("README.md", "added"), change("Readme.md", "deleted"), change("b.ts")]);
+    h.state.exists.add("README.md");
+    h.state.kinds.set("README.md", "file");
+    expect(await h.manager.revert("w1", "c1", ["b.ts", "Readme.md"])).toEqual({
+      ok: false,
+      reason: "pathConflict",
+      restored: [],
+      trashed: [],
+      skipped: [],
+      failedPath: "Readme.md",
+      beforeRestoreId: "c3"
+    });
+    expect(h.order).toEqual([]);
+    // İkisi birlikte seçilince işleniyor (önce çöp, sonra geri yükleme).
+    const h2 = harness();
+    await twoCheckpoints(h2, [change("README.md", "added"), change("Readme.md", "deleted")]);
+    h2.state.exists.add("README.md");
+    h2.state.kinds.set("README.md", "file");
+    expect(await h2.manager.revert("w1", "c1", ["Readme.md", "README.md"])).toMatchObject({ ok: true, trashed: ["README.md"], restored: ["Readme.md"] });
   });
 });

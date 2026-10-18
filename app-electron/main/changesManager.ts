@@ -15,7 +15,8 @@
 //   - Sıra: önce aralıktaki eklenmiş dosyalar çöpe, SONRA geri yükleme; her
 //     geri yüklemeden hemen önce yol ve üst parçaları için dosya↔klasör
 //     çakışma denetimi (deps.pathKind); hedefteki BOŞ klasör kaldırılır
-//     (deps.removeEmptyDir), dolu klasör/üstte dosya → işlem durur (pathConflict).
+//     (deps.removeEmptyDir), dolu klasör/üstte dosya/herhangi bir yerde bağ
+//     (junction) ya da seçilmemiş büyük/küçük harf eşi → işlem durur (pathConflict).
 //   - beforeRestore kaydı diske yazılamazsa geri alma başlamaz (storeFailed);
 //     depo yazma hatası uyarı olarak saklanır.
 //   - 200 sınırı beforeRestore eklenirken geri alınan kaydı düşürmez.
@@ -58,7 +59,8 @@ import type { AgentPresence, LogFields } from "./agentMonitor";
 import type { GitPort } from "./changesGit";
 import type { CheckpointFileResult } from "./changesStore";
 
-export type PathKind = "file" | "dir" | "none";
+/** lstat ile (bağı izlemeden): sembolik bağ ve junction (yeniden ayrıştırma noktası) her zaman "link". */
+export type PathKind = "file" | "dir" | "link" | "none";
 
 export interface ChangesStorePort {
   read(workspaceId: string): CheckpointFileResult;
@@ -79,9 +81,12 @@ export interface ChangesManagerDeps {
   insideRoot(root: string, rel: string): boolean;
   pathExists(root: string, rel: string): boolean;
   /**
-   * Yolun diskteki türü (bağı izlemeden, lstat gibi): dosya, klasör ya da yok.
+   * Yolun diskteki türü (bağı İZLEMEDEN, lstat): dosya, klasör, bağ ya da yok.
+   * Sembolik bağ ve junction "link" olmalı (klasör ya da dosya DEĞİL): git
+   * for Windows junction'ı klasör sanıp içinden özyinelemeli siler.
    * Geri yüklemede çakışma denetimi: `checkout-index -f` yolu kapatan klasörü
-   * içeriğiyle, üst parçadaki dosyayı da çöpü atlayarak kalıcı siler.
+   * içeriğiyle, üst parçadaki dosyayı/bağı da çöpü atlayarak kalıcı siler.
+   * Hedefte ya da herhangi bir üst parçada "link" → her zaman pathConflict.
    */
   pathKind(root: string, rel: string): PathKind;
   /**
@@ -334,13 +339,23 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
    */
   function pathConflict(root: string, rel: string): boolean {
     return attempt(() => {
-      const parts = rel.split("/");
-      for (let i = 1; i < parts.length; i += 1) {
-        if (deps.pathKind(root, parts.slice(0, i).join("/")) === "file") return true;
-      }
-      if (deps.pathKind(root, rel) !== "dir") return false;
+      if (ancestorBlocked(root, rel)) return true;
+      const kind = deps.pathKind(root, rel);
+      if (kind === "link") return true;
+      if (kind !== "dir") return false;
+      // Yalnız gerçek (bağ olmayan) klasör, yalnız boşsa.
       return deps.removeEmptyDir(root, rel) !== true;
     }, true);
+  }
+
+  /** Yolun üst parçalarından biri dosya ya da bağ mı (bağ: içinden yazma/taşıma yok). Fırlatabilir. */
+  function ancestorBlocked(root: string, rel: string): boolean {
+    const parts = rel.split("/");
+    for (let i = 1; i < parts.length; i += 1) {
+      const kind = deps.pathKind(root, parts.slice(0, i).join("/"));
+      if (kind === "file" || kind === "link") return true;
+    }
+    return false;
   }
 
   /** Kaydın aralığı: bu kayıt → sonraki kayıt; en sonuncusunda taze ağaca (çalışma ağacı). */
@@ -456,13 +471,28 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
       problem = reason;
       result.failedPath = rel;
     };
+    // Yalnız büyük/küçük harfle ayrışan iki ad aralıkta (Windows'ta aynı dosya):
+    // eşi seçilmeden geri yüklenirse checkout-index eşi çöpsüz siler → başlamadan dur.
+    const selected = new Set([...added, ...others]);
+    for (const rel of others) {
+      const lower = rel.toLowerCase();
+      if (range.files.some((f) => f.path !== rel && f.path.toLowerCase() === lower && !selected.has(f.path))) {
+        stop("pathConflict", rel);
+        break;
+      }
+    }
     // 3) Önce eklenmiş dosyalar çöpe: geri yüklenecek yolu kapatan dosya/klasör
     //    checkout-index -f'e kalıcı sildirilmesin (büyük/küçük harf yeniden adlandırma dahil).
-    for (const rel of added) {
+    for (const rel of (problem as ChangesFailure | null) ? [] : added) {
       // Alan kökü denetimi (gerçek yol; junction/sembolik bağ) taşımadan hemen önce;
       // alan dışı → dosya atlanmıyor, işlem duruyor.
       if (!attempt(() => deps.insideRoot(ctx.cwd, rel), false)) {
         stop("invalid", rel);
+        break;
+      }
+      // Üst parçada bağ/junction: bağın içinden taşıma yok.
+      if (attempt(() => ancestorBlocked(ctx.cwd, rel), true)) {
+        stop("pathConflict", rel);
         break;
       }
       // Görüntüde yoktu: kalıcı silme yok, çöp kutusu (spec §6.3).

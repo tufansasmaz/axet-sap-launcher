@@ -7,7 +7,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { isBoardId } from "../shared/boardCommands";
-import { capCheckpoints, isTreeId } from "../shared/changesLogic";
+import { isTreeId } from "../shared/changesLogic";
 import {
   CHECKPOINT_REASONS,
   LABEL_MAX,
@@ -95,7 +95,8 @@ export function readCheckpoints(raw: unknown, workspaceId: string): Checkpoint[]
   }
   // Array.prototype.sort kararlı: aynı zamanlı kayıtlar dosyadaki sırasını koruyor.
   result.sort((a, b) => a.createdAt - b.createdAt);
-  return capCheckpoints(result);
+  // Okumada sınır yok: geri alınan kayıt geçici 201. sırada düşmesin (sınır yazarken, yöneticide).
+  return result;
 }
 
 export function readCheckpointFile(dir: string, workspaceId: string, now: number): CheckpointFileResult {

@@ -89,10 +89,10 @@ describe("readCheckpoints", () => {
     expect("stats" in c).toBe(false);
   });
 
-  it("200'den fazlası: en yeni 200 kalıyor", () => {
-    const list = readCheckpoints({ checkpoints: Array.from({ length: MAX_CHECKPOINTS + 3 }, (_, i) => cp(`c${i}`, i + 1)) }, WS)!;
-    expect(list).toHaveLength(MAX_CHECKPOINTS);
-    expect(list[0].id).toBe("c3");
+  it("200'den fazlası okumada kesilmiyor (geri alınan kayıt geçici 201'de düşmesin; sınır yazarken yöneticide)", () => {
+    const list = readCheckpoints({ checkpoints: Array.from({ length: MAX_CHECKPOINTS + 1 }, (_, i) => cp(`c${i}`, i + 1)) }, WS)!;
+    expect(list).toHaveLength(MAX_CHECKPOINTS + 1);
+    expect(list[0].id).toBe("c0");
   });
 
   it("yapı bozuksa null", () => {
