@@ -401,6 +401,13 @@ export function TerminalStoreProvider({
       renameWorkspace: (id, name) => dispatch({ type: "renameWorkspace", id, name }),
       closeWorkspace: (id) => {
         panesOf(stateRef.current, id).forEach(release);
+        // Kullanıcının açık kapatması: panosu da silinir (onay penceresi görev
+        // sayısını söylüyor). "Boş başla" bu yoldan geçmez, pano silmez.
+        try {
+          void window.api.boardDropWorkspace(id).catch(() => {});
+        } catch {
+          // kanal yoksa pano diskte öksüz kalır
+        }
         dispatch({ type: "closeWorkspace", id, freshId: crypto.randomUUID(), nameFor: nameForRef.current });
       },
       addPane: (kind, cwd, split) => {

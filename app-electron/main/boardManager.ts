@@ -82,7 +82,8 @@ export interface BoardManager {
   get(workspaceId: string): Board | null;
   command(workspaceId: string, cmd: BoardCommand): BoardCommandResult;
   tick(): void;
-  prune(keep: readonly string[]): void;
+  /** Kullanıcı alanı kapattı: o alanın panosu bellekten ve diskten silinir. */
+  drop(workspaceId: string): void;
   dispose(): void;
 }
 
@@ -639,25 +640,21 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       if (presence === null) return;
       for (const [workspaceId, entry] of boards) attempt(() => reconcile(workspaceId, entry, presence), undefined);
     },
-    prune(keep) {
-      // Boş liste: kayıt okunamamış olabilir; hiçbir pano silinmiyor.
-      if (keep.length === 0) return;
-      const keepSet = new Set(keep);
-      const ids = new Set([...attempt(() => deps.store.list(), [] as string[]), ...boards.keys()]);
-      for (const id of ids) {
-        if (keepSet.has(id)) continue;
-        const entry = boards.get(id);
-        for (const task of entry?.tasks ?? []) {
-          attempt(() => planning.get(task.id)?.cancel(), undefined);
-          planning.delete(task.id);
-          for (const s of task.subtasks) {
-            attempt(() => verifying.get(s.id)?.cancel(), undefined);
-            verifying.delete(s.id);
-          }
+    drop(workspaceId) {
+      // Yalnız kullanıcının onaylı "alan kapat" eyleminden (spec §7). Toplu
+      // budama yok: "Boş başla" ya da okunamayan config hiçbir panoyu silmez.
+      if (!isBoardId(workspaceId)) return;
+      const entry = boards.get(workspaceId);
+      for (const task of entry?.tasks ?? []) {
+        attempt(() => planning.get(task.id)?.cancel(), undefined);
+        planning.delete(task.id);
+        for (const s of task.subtasks) {
+          attempt(() => verifying.get(s.id)?.cancel(), undefined);
+          verifying.delete(s.id);
         }
-        boards.delete(id);
-        attempt(() => deps.store.remove(id), undefined);
       }
+      boards.delete(workspaceId);
+      attempt(() => deps.store.remove(workspaceId), undefined);
     },
     dispose() {
       disposed = true;

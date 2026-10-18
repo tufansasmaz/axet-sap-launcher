@@ -38,12 +38,17 @@ describe("Görev Panosu — IPC bağlantısı", () => {
     expect(main).toMatch(/function queueBoardTick[\s\S]{0,300}setImmediate\(/);
   });
 
-  it("alan silinince pano config:save'de budanıyor", () => {
-    expect(main).toMatch(/"config:save"[\s\S]{0,1200}boardManager\.prune\(/);
+  it("config:save hiçbir panoyu silmiyor (Boş başla / geri yükleme şeridi görev silmez)", () => {
+    const save = main.slice(main.indexOf('ipcMain.handle("config:save"'));
+    const body = save.slice(0, save.indexOf("ipcMain.handle(", 10));
+    expect(body).not.toMatch(/boardManager\.(prune|drop)/);
+    expect(main).not.toMatch(/boardManager\.prune\(/);
   });
 
-  it("budama yalnız terminalWorkspaces dizi olduğunda çalışıyor", () => {
-    expect(main).toMatch(/Array\.isArray\(clean\.terminalWorkspaces\)[\s\S]{0,300}boardManager\.prune\(/);
+  it("pano yalnız açık alan kapatmada ayrı kanaldan siliniyor; kimlik deseni denetleniyor", () => {
+    expect(main).toMatch(/"board:dropWorkspace"[\s\S]{0,300}isBoardId\([\s\S]{0,300}boardManager\.drop\(/);
+    expect(preload).toMatch(/boardDropWorkspace:[\s\S]{0,120}"board:dropWorkspace"/);
+    expect(types).toContain("boardDropWorkspace:");
   });
 
   it("bildirim tıklaması board:open; ayar chatNotifications", () => {

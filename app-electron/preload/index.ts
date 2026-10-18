@@ -182,6 +182,8 @@ const api = {
   boardGet: (workspaceId: string): Promise<Board | null> => ipcRenderer.invoke("board:get", workspaceId),
   boardCommand: (workspaceId: string, command: BoardCommand): Promise<BoardCommandResult> =>
     ipcRenderer.invoke("board:command", workspaceId, command),
+  // Yalnız kullanıcının alan kapatmasından: o alanın panosu silinir.
+  boardDropWorkspace: (workspaceId: string): Promise<void> => ipcRenderer.invoke("board:dropWorkspace", workspaceId),
   onBoardChanged: (callback: (board: Board) => void) => {
     const listener = (_event: unknown, board: Board) => callback(board);
     ipcRenderer.on("board:changed", listener);

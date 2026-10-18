@@ -344,6 +344,26 @@ describe("kalıcılık", () => {
     expect(store.state.workspaces[0].name).toBe("SAP");
     expect(api.saveConfig).not.toHaveBeenCalled();
   });
+
+  it("Boş başla hiçbir panoyu silmiyor; kullanıcı alanı kapatınca yalnız o alanın panosu siliniyor", async () => {
+    api.boardDropWorkspace = vi.fn(async () => {});
+    const saved = [
+      { id: "w1", name: "SAP", panes: [{ id: "p1", kind: "cmd" as const, cwd: "C:\\a" }] },
+      { id: "w2", name: "Web", panes: [] }
+    ];
+    await ready({ config: { ...baseConfig, terminalWorkspaces: saved, terminalActiveWorkspaceId: "w1" } as AppConfig });
+    expect(store.state.phase).toBe("restorePrompt");
+    act(() => store.commands.startFresh());
+    await flush();
+    expect(api.boardDropWorkspace).not.toHaveBeenCalled();
+    act(() => store.commands.addWorkspace());
+    await flush();
+    const closing = store.state.workspaces[0].id;
+    act(() => store.commands.closeWorkspace(closing));
+    await flush();
+    expect(api.boardDropWorkspace).toHaveBeenCalledTimes(1);
+    expect(api.boardDropWorkspace).toHaveBeenCalledWith(closing);
+  });
 });
 
 describe("proje bölmesi", () => {

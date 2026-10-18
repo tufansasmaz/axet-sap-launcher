@@ -37,7 +37,7 @@ import { agentNotificationFor, type AgentNotificationKind } from "./agentNotific
 import { createAgentReader, liveAxetDbPort } from "./agentReaders";
 import { createSessionRegistry } from "./agentAxetReader";
 import { TERMINAL_MISSING_DIR, boardWorkspaceInfo } from "../shared/terminalLayout";
-import { readBoardCommand } from "../shared/boardCommands";
+import { isBoardId, readBoardCommand } from "../shared/boardCommands";
 import { createBoardManager } from "./boardManager";
 import { boardNotificationFor, type BoardNotificationKind } from "./boardNotification";
 import { deleteBoardFile, listBoardIds, readBoardFile, writeBoardFile } from "./boardStore";
@@ -1097,15 +1097,9 @@ function registerIpc(): void {
     }
     const before = loadConfig();
     const saved = saveConfig(clean);
-    // Alan silinince panosu da silinir (spec 2026-10-18 gorev-panosu §7).
-    // Yalnız renderer alan listesini yazdığında; açılışta toplu silme yok.
-    if (Array.isArray(clean.terminalWorkspaces)) {
-      try {
-        boardManager.prune(saved.terminalWorkspaces.map((w) => w.id));
-      } catch {
-        // budama bir sonraki kayıtta yeniden denenir
-      }
-    }
+    // Pano burada SİLİNMEZ: "Boş başla" da alan listesini yeniden yazıyor ve
+    // önceki alanların görevlerini sorulmadan silerdi. Pano yalnız kullanıcının
+    // onaylı alan kapatmasında "board:dropWorkspace" ile silinir.
     // Ana sürecin çeviri katmanı dili önbellekte tutuyor (her mesajda
     // config.json okumamak için). Kullanıcı dili değiştirdiğinde tazelenmezse
     // arayüz İngilizce'ye geçerken ana sürecin hata mesajları Türkçe kalırdı.
@@ -1287,6 +1281,16 @@ function registerIpc(): void {
     const cfg = loadConfig();
     if (!boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, workspaceId)) return null;
     return boardManager.get(workspaceId);
+  });
+
+  // Kullanıcı alanı kapattı (spec 2026-10-18 gorev-panosu §7): yalnız o alanın panosu.
+  ipcMain.handle("board:dropWorkspace", (_event, workspaceId: unknown) => {
+    if (!isBoardId(workspaceId)) return;
+    try {
+      boardManager.drop(workspaceId);
+    } catch {
+      // silinemeyen pano diskte öksüz kalır; veri kaybından iyidir
+    }
   });
 
   ipcMain.handle("board:command", (_event, workspaceId: unknown, raw: unknown) => {

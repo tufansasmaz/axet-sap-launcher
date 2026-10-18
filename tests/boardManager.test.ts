@@ -600,13 +600,17 @@ describe("kimlik, okunamayan pano, uyarı, budama", () => {
     expect(h.board().recoveredFrom).toBeUndefined();
   });
 
-  it("budama: listede olmayan pano siliniyor; boş liste hiçbir şey silmiyor", () => {
+  it("drop: yalnız verilen alanın panosu siliniyor, işleri iptal ediliyor; geçersiz kimlik yok sayılıyor", () => {
     const h = harness({ files: { w1: { tasks: [] }, w2: { tasks: [] } } });
-    h.manager.get("w2");
-    h.manager.prune([]);
+    approvedTask(h);
+    runToVerifying(h);
+    h.manager.drop("../x");
     expect(h.removed).toEqual([]);
-    h.manager.prune(["w1"]);
-    expect(h.removed).toEqual(["w2"]);
+    h.manager.drop("w1");
+    expect(h.removed).toEqual(["w1"]);
+    expect(h.verifies[0].cancel).toHaveBeenCalled();
+    h.manager.tick();
+    expect(h.written.get("w1")!.length).toBe(1);
   });
 
   it("dispose sonrası tick ve command no-op", () => {

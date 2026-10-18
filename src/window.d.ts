@@ -158,6 +158,7 @@ export interface AxetApi {
   onAgentStatus: (callback: (event: AgentStatusEvent) => void) => () => void;
   boardGet: (workspaceId: string) => Promise<Board | null>;
   boardCommand: (workspaceId: string, command: BoardCommand) => Promise<BoardCommandResult>;
+  boardDropWorkspace: (workspaceId: string) => Promise<void>;
   onBoardChanged: (callback: (board: Board) => void) => () => void;
   onBoardOpen: (callback: (workspaceId: string) => void) => () => void;
   onAgentOpen: (callback: (paneId: string) => void) => () => void;
