@@ -1648,7 +1648,26 @@ export const tr = {
   // Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4)
   "agents.memoryLabel": "Kalıcı bellek",
   "agents.memoryHint": "Ajan her açılışta kendi bellek dosyasını okur ve önemli şeyleri oraya yazar.",
-  "agents.memoryNoFolder": "Bellek için ajanın bir klasörü olmalı."
+  "agents.memoryNoFolder": "Bellek için ajanın bir klasörü olmalı.",
+  "memory.open": "Belleği aç",
+  "memory.enable": "Belleği etkinleştir",
+  "memory.title": "{name} — kalıcı bellek",
+  "memory.description": "Bu dosyayı ajan ve sen birlikte tutarsınız; kalıcı kararlar, öğrenilenler, yarım işler.",
+  "memory.saving": "Kaydediliyor…",
+  "memory.reload": "Yeniden yükle",
+  "memory.reveal": "Klasörde göster",
+  "memory.noticeFailed": "Bellek ajana bildirilemedi (ajan sürekli meşguldü ya da dosya yaratılamadı).",
+  "memory.renotify": "Yeniden bildir",
+  "memory.renotified": "Ajan bir sonraki boşta anında yeniden bildirilecek.",
+  "memory.secretNote": "Belleğe şifre ya da token yazma: dosya alanın klasöründe durur, Git ile taşınabilir.",
+  "memory.fail.noMemory": "Bu ajanın belleği henüz kayıtlı değil; birazdan yeniden yükle.",
+  "memory.fail.noRoot": "Alanın kök klasörü ya da ajanın klasörü bulunamadı.",
+  "memory.fail.unsafe": "Bellek dosyasının yolu alanın klasörü dışını gösteriyor; açılmadı.",
+  "memory.fail.tooLarge": "Dosya çok büyük (256 KB üstü); bir düzenleyicide aç.",
+  "memory.fail.encoding": "Dosya UTF-8 değil; bozulmasın diye burada açılmadı, bir düzenleyicide aç.",
+  "memory.fail.readFailed": "Bellek dosyası okunamadı; dosyaya dokunulmadı.",
+  "memory.fail.changed": "Dosya bu arada değişti (ajan yazmış olabilir); üzerine yazılmadı. Senin metnin burada duruyor; gerekiyorsa kopyala, sonra Yeniden yükle (yüklenince bu metin gider).",
+  "memory.fail.writeFailed": "Kaydedilemedi; metnin pencerede duruyor."
 };
 
 

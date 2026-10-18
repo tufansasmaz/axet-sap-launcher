@@ -283,6 +283,29 @@ describe("TerminalMode", () => {
     expect(commands.restartPane).toHaveBeenCalledWith("y");
   });
 
+  it("bellek kapalı ajan kartında 'Belleği etkinleştir' komutu çağırıyor, pencere açmıyor", () => {
+    const { commands } = setup({ workspaces: [agentWs([agentPane("x")])], activeWorkspaceId: "a" });
+    expect(card("x").parentElement!.querySelector("[data-agent-memory]")?.getAttribute("data-agent-memory")).toBe("off");
+    fireEvent.click(within(strip()).getByRole("button", { name: "Belleği etkinleştir" }));
+    expect(commands.enablePaneMemory).toHaveBeenCalledWith("x");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(commands.revealPane).not.toHaveBeenCalled();
+  });
+
+  it("bellek açık ajan kartında 'Belleği aç' bellek penceresini açıyor", async () => {
+    const memoryRead = vi.fn(async () => ({ ok: true, rel: ".ntt-studio/bellek/ayse.md", content: "# Ayşe", stamp: "a".repeat(64), notice: "sent" }));
+    (window as unknown as { api: Record<string, unknown> }).api.memoryRead = memoryRead;
+    setup({
+      workspaces: [agentWs([agentPane("x", { agent: { engine: "claude", role: "Test", roleKind: "preset", memory: "ayse" } })])],
+      activeWorkspaceId: "a"
+    });
+    fireEvent.click(within(strip()).getByRole("button", { name: "Belleği aç" }));
+    await flush();
+    expect(memoryRead).toHaveBeenCalledWith("a", "x");
+    expect(screen.getByRole("dialog", { name: "Ayşe — kalıcı bellek" })).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("# Ayşe");
+  });
+
   it("+ Terminal kabuk penceresini açıp odaktaki bölmeyi bölüyor; bölme sayısı görünüyor", () => {
     const { commands } = setup({ workspaces: [ws("a", 2)], activeWorkspaceId: "a" });
     expect(screen.getByText("2 / 9 bölme")).toBeTruthy();

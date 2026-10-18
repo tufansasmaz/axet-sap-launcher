@@ -1562,5 +1562,24 @@ export const en: Record<TranslationKey, string> = {
   // Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4)
   "agents.memoryLabel": "Persistent memory",
   "agents.memoryHint": "On every start the agent reads its own memory file and writes important things there.",
-  "agents.memoryNoFolder": "Memory needs a folder for the agent."
+  "agents.memoryNoFolder": "Memory needs a folder for the agent.",
+  "memory.open": "Open memory",
+  "memory.enable": "Enable memory",
+  "memory.title": "{name} — persistent memory",
+  "memory.description": "You and the agent keep this file together: lasting decisions, lessons learned, unfinished work.",
+  "memory.saving": "Saving…",
+  "memory.reload": "Reload",
+  "memory.reveal": "Show in folder",
+  "memory.noticeFailed": "The agent could not be told about its memory (it stayed busy, or the file could not be created).",
+  "memory.renotify": "Notify again",
+  "memory.renotified": "The agent will be told again the next time it is idle.",
+  "memory.secretNote": "Do not put passwords or tokens in memory: the file lives in the workspace folder and can travel with Git.",
+  "memory.fail.noMemory": "This agent's memory is not saved yet; reload in a moment.",
+  "memory.fail.noRoot": "Neither the workspace root nor the agent's folder was found.",
+  "memory.fail.unsafe": "The memory file's path points outside the workspace folder; not opened.",
+  "memory.fail.tooLarge": "The file is too large (over 256 KB); open it in an editor.",
+  "memory.fail.encoding": "The file is not UTF-8; it was not opened here so it does not get damaged. Open it in an editor.",
+  "memory.fail.readFailed": "The memory file could not be read; it was not touched.",
+  "memory.fail.changed": "The file changed in the meantime (the agent may have written to it); it was not overwritten. Your text is still here; copy it if you need it, then Reload (reloading discards this text).",
+  "memory.fail.writeFailed": "Could not save; your text is still in the window."
 };

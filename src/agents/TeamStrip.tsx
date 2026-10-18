@@ -1,5 +1,7 @@
-import { Plus, RotateCw } from "lucide-react";
+import { useState } from "react";
+import { BookOpen, BookPlus, Plus, RotateCw } from "lucide-react";
 import { useT } from "../i18n";
+import MemoryDialog from "./MemoryDialog";
 import type { AgentEngineInfo, AgentStatus } from "../../app-electron/shared/agentTypes";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
@@ -45,6 +47,9 @@ export default function TeamStrip({
   const t = useT();
   const { statuses, engines, now } = useAgentStatuses();
   const agents = agentPanes(workspace);
+  // Kalıcı bellek penceresi (spec 2026-10-18 ajan-bellegi §4): yalnız belleği açık ajanda.
+  const [memoryPaneId, setMemoryPaneId] = useState<string | null>(null);
+  const memoryPane = agents.find((p) => p.id === memoryPaneId && p.agent?.memory);
   return (
     <div className="flex min-h-16 shrink-0 items-center gap-2 border-b border-line px-3">
       {/* Bölmeler | Pano | Ofis | Değişiklikler (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5); seçim lime, alan başına hatırlanıyor. */}
@@ -73,6 +78,7 @@ export default function TeamStrip({
             status={statuses[pane.id]}
             engine={engines?.find((e) => e.id === (pane.agent?.engine ?? "axet-code"))}
             now={now || Date.now()}
+            onOpenMemory={() => setMemoryPaneId(pane.id)}
           />
         ))}
       </div>
@@ -99,6 +105,14 @@ export default function TeamStrip({
         <Plus size={12} />
         {t("agents.addAgent")}
       </button>
+      {memoryPane && (
+        <MemoryDialog
+          workspaceId={workspace.id}
+          paneId={memoryPane.id}
+          name={agentName(memoryPane, t)}
+          onClose={() => setMemoryPaneId(null)}
+        />
+      )}
     </div>
   );
 }
@@ -108,13 +122,15 @@ function AgentCard({
   selected,
   status,
   engine,
-  now
+  now,
+  onOpenMemory
 }: {
   pane: TerminalPane;
   selected: boolean;
   status: AgentStatus | undefined;
   engine: AgentEngineInfo | undefined;
   now: number;
+  onOpenMemory: () => void;
 }) {
   const t = useT();
   const { commands } = useTerminalStore();
@@ -131,9 +147,9 @@ function AgentCard({
         aria-pressed={selected}
         onClick={() => commands.revealPane(pane.id)}
         style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-        className={`flex min-h-12 w-52 flex-col justify-center gap-1 rounded-md border bg-card py-1 pl-3 pr-2 text-left transition-colors ${
+        className={`flex min-h-12 w-52 flex-col justify-center gap-1 rounded-md border bg-card py-1 pl-3 pr-8 text-left transition-colors ${
           selected ? "border-accent-500/60" : "border-line hover:border-slate-500"
-        } ${view.restartable ? "pr-8" : ""}`}
+        }`}
       >
         <span className="flex min-w-0 items-baseline gap-1.5">
           <span title={agentName(pane, t)} className="min-w-0 truncate text-xs font-medium text-slate-200">{agentName(pane, t)}</span>
@@ -174,6 +190,18 @@ function AgentCard({
           <RotateCw size={12} />
         </button>
       )}
+      {/* Kalıcı bellek (spec 2026-10-18 ajan-bellegi §4; sapma 1, 10): açıksa pencere,
+          kapalıysa anahtar türetilip kaydediliyor (pencere açılmıyor). */}
+      <button
+        type="button"
+        data-agent-memory={pane.agent?.memory ? "on" : "off"}
+        onClick={() => (pane.agent?.memory ? onOpenMemory() : commands.enablePaneMemory(pane.id))}
+        title={t(pane.agent?.memory ? "memory.open" : "memory.enable")}
+        aria-label={t(pane.agent?.memory ? "memory.open" : "memory.enable")}
+        className={`${GHOST_ICON_BUTTON} absolute bottom-1 right-1`}
+      >
+        {pane.agent?.memory ? <BookOpen size={12} /> : <BookPlus size={12} />}
+      </button>
     </div>
   );
 }
