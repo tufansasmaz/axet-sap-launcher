@@ -7,18 +7,32 @@ import { ensureMemoryFile, memoryAbsPath, memoryStamp, readMemoryFile, writeMemo
 import { MEMORY_MAX_BYTES, memoryInitialContent } from "../app-electron/shared/memoryLogic";
 
 // rename hatasını enjekte etmek için (Windows'ta hedef başka süreçte açıkken EPERM/EBUSY).
-const renameFault = vi.hoisted(() => ({ code: "" }));
+// Geçici dosyaya yazma da yarıda kesilebilir (ENOSPC/EIO); fsync çağrıları sayılır.
+const renameFault = vi.hoisted(() => ({ code: "", writeCode: "", fsyncs: 0 }));
 vi.mock("node:fs", async (orig) => {
   const real = await orig<typeof import("node:fs")>();
+  const fail = (code: string, what: string) => {
+    const error = new Error(`${code}: ${what}`) as NodeJS.ErrnoException;
+    error.code = code;
+    return error;
+  };
   return {
     ...real,
     renameSync: (from: string, to: string) => {
-      if (renameFault.code) {
-        const error = new Error(`${renameFault.code}: rename`) as NodeJS.ErrnoException;
-        error.code = renameFault.code;
-        throw error;
-      }
+      if (renameFault.code) throw fail(renameFault.code, "rename");
       return real.renameSync(from, to);
+    },
+    writeSync: (...args: Parameters<typeof real.writeSync>) => {
+      if (renameFault.writeCode) {
+        // Önce bir parça gerçekten yazılsın: yarıda kalmış geçici dosya.
+        real.writeSync(args[0] as number, Buffer.from("yarim"));
+        throw fail(renameFault.writeCode, "write");
+      }
+      return (real.writeSync as (...a: unknown[]) => number)(...args);
+    },
+    fsyncSync: (fd: number) => {
+      renameFault.fsyncs++;
+      return real.fsyncSync(fd);
     }
   };
 });
@@ -32,6 +46,8 @@ const temp = () => {
 };
 afterEach(() => {
   renameFault.code = "";
+  renameFault.writeCode = "";
+  renameFault.fsyncs = 0;
   for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 const fileOf = (root: string, key = "ayse") => path.join(root, ".ntt-studio", "bellek", `${key}.md`);
@@ -71,6 +87,14 @@ describe("ensureMemoryFile (§2)", () => {
     expect(ensureMemoryFile(root, "con", "A")).toBe("failed");
     mkdirSync(fileOf(root, "klasor"), { recursive: true });
     expect(ensureMemoryFile(root, "klasor", "A")).toBe("failed");
+  });
+
+  it(".ntt-studio/bellek yerinde bir dosya varsa: failed; o dosya aynen", () => {
+    const root = temp();
+    mkdirSync(path.join(root, ".ntt-studio"));
+    writeFileSync(path.join(root, ".ntt-studio", "bellek"), "bir dosya");
+    expect(ensureMemoryFile(root, "ayse", "A")).toBe("failed");
+    expect(readFileSync(path.join(root, ".ntt-studio", "bellek"), "utf8")).toBe("bir dosya");
   });
 
   it(".ntt-studio kök dışını gösteren bir bağsa yaratılmıyor", (ctx) => {
@@ -241,12 +265,34 @@ describe("writeMemoryFile (§4, §7: değişmiş dosya ezilmez)", () => {
       closeSync(fd);
     }
     const after = readFileSync(fileOf(root), "utf8");
-    if (result.ok) expect(after).toBe("# Not\n- yeni\n");
+    if (process.platform === "win32") {
+      // Windows: hedef açıkken rename EPERM verir (ölçüldü); eski içerik kalır.
+      expect(result).toEqual({ ok: false, reason: "writeFailed" });
+      expect(after).toBe("# Not\n");
+    } else if (result.ok) expect(after).toBe("# Not\n- yeni\n");
     else {
       expect(result).toEqual({ ok: false, reason: "writeFailed" });
       expect(after).toBe("# Not\n");
     }
     expect(readdirSync(path.dirname(fileOf(root)))).toEqual(["ayse.md"]);
+  });
+
+  it.each(["ENOSPC", "EIO"])("geçici dosyaya yazma yarıda %s verirse: writeFailed; yarım geçici dosya kalmıyor, asıl dosya aynen", (code) => {
+    const root = temp();
+    put(root, "# Not\n");
+    const r = open(root);
+    renameFault.writeCode = code;
+    expect(writeMemoryFile(root, "ayse", "# Not\n- yeni\n", r.stamp)).toEqual({ ok: false, reason: "writeFailed" });
+    expect(readFileSync(fileOf(root), "utf8")).toBe("# Not\n");
+    expect(readdirSync(path.dirname(fileOf(root)))).toEqual(["ayse.md"]);
+  });
+
+  it("rename'den önce geçici dosya diske zorlanıyor (fsync)", () => {
+    const root = temp();
+    put(root, "# Not\n");
+    const r = open(root);
+    expect(writeMemoryFile(root, "ayse", "# Not\n- yeni\n", r.stamp).ok).toBe(true);
+    expect(renameFault.fsyncs).toBe(1);
   });
 });
 

@@ -3,7 +3,7 @@
 // Kurallar (veri kaybı yok):
 //   - Yaratma YALNIZ yoksa ("wx"); var olan dosyaya ilk içerik yazılmaz.
 //   - Yazma YALNIZ diskteki baytların özeti okunduğu andakiyle aynıysa;
-//     aynı klasörde geçici dosya ("wx") → rename'den hemen önce yeniden
+//     aynı klasörde geçici dosya ("wx", fsync) → rename'den hemen önce yeniden
 //     özet → rename. Dosya silinmişse yeniden yaratılmaz ("changed").
 //   - Bellek dosyası hiçbir yolda silinmez; yalnız kendi yarattığımız geçici
 //     dosya. rename yarıda kalırsa (Windows'ta hedef açıkken EPERM/EBUSY)
@@ -12,7 +12,19 @@
 //     sonra); dosyanın yerinde bağ ya da klasör varsa dokunulmaz.
 //   - 256 KB üstü ve UTF-8 olmayan dosya düzenlemeye açılmaz.
 import { createHash, randomBytes } from "node:crypto";
-import { lstatSync, mkdirSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  fsyncSync,
+  lstatSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+  writeSync
+} from "node:fs";
 import path from "node:path";
 import { isSafeRelPath } from "../shared/changesLogic";
 import { MEMORY_MAX_BYTES, isMemoryKey, memoryInitialContent, memoryRelPath } from "../shared/memoryLogic";
@@ -144,7 +156,18 @@ export function writeMemoryFile(root: string, key: string, content: string, expe
   const temp = path.join(path.dirname(file), `.${key}.${randomBytes(4).toString("hex")}.tmp`);
   // Yalnız kendi yarattığımız geçici dosya silinir ("wx" EEXIST verdiyse o dosya bizim değil).
   let tempCreated = false;
+  let fd: number | null = null;
+  const closeTemp = () => {
+    if (fd === null) return;
+    try {
+      closeSync(fd);
+    } catch {
+      // kapanmadıysa da silmeyi deneriz
+    }
+    fd = null;
+  };
   const dropTemp = () => {
+    closeTemp();
     if (!tempCreated) return;
     try {
       unlinkSync(temp);
@@ -154,8 +177,13 @@ export function writeMemoryFile(root: string, key: string, content: string, expe
     }
   };
   try {
-    writeFileSync(temp, bytes, { flag: "wx" });
+    // Bayrak dosya yaratılır yaratılmaz: yazma yarıda kalırsa yarım geçici dosya da silinsin.
+    fd = openSync(temp, "wx");
     tempCreated = true;
+    for (let done = 0; done < bytes.length; ) done += writeSync(fd, bytes, done, bytes.length - done);
+    // rename'den önce veri diskte olsun: çökmede boş ya da yarım bellek dosyası kalmasın.
+    fsyncSync(fd);
+    closeTemp();
     // Son bakış: rename'den hemen önce dosya hâlâ okunduğu gibi mi.
     if (fileKind(file) !== "file" || memoryStamp(readFileSync(file)) !== expectedStamp || !insideRootReal(root, rel)) {
       dropTemp();
