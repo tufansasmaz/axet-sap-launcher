@@ -8,7 +8,8 @@
 import { redact } from "./support/redact";
 import { learnSummaryLine } from "../shared/learnTasks";
 
-export const REPLY_MAX = 600;
+// Tur 6: 600 gerçek bir son cevabı (729 karakter, ölçüm) kesiyordu; kart zaten katlanıyor.
+export const REPLY_MAX = 2_000;
 
 /** ANSI kaçışlarını ve denetim karakterlerini atar; satır sonları kalır. */
 function clean(text: string): string {

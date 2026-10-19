@@ -274,7 +274,8 @@ function showAgentNotification(paneId: string, agentName: string, kind: AgentNot
     const cfg = loadConfig();
     const isFocusedAndVisible = (mainWindow?.isFocused() ?? false) && !(mainWindow?.isMinimized() ?? true);
     const lang = cfg.language === "en" ? "en" : "tr";
-    const payload = agentNotificationFor(kind, isFocusedAndVisible, cfg.chatNotifications !== false, agentName, lang);
+    // Tur 6: masaüstü bildirimi iki ayarın kesişimi (Masaüstü bildirimleri + Ajan bildirimleri).
+    const payload = agentNotificationFor(kind, isFocusedAndVisible, cfg.chatNotifications !== false && cfg.agentNotifications !== false, agentName, lang);
     if (!payload) return;
     const n = new Notification({ title: payload.title, body: payload.body, silent: false, icon: resolveIconPath() });
     _liveNotifications.add(n);

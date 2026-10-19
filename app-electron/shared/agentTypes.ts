@@ -101,10 +101,40 @@ export interface AgentStatus {
   detail?: string;
   /**
    * Yalnız kesin kaynakta, boşta: ajanın son cevabının gizlisi süzülmüş özeti
-   * (≤ 600 karakter; spec 2026-10-18 ajanlar-ux §3). Bellek içi, diske yazılmaz.
+   * (≤ 2000 karakter, Tur 6; spec 2026-10-18 ajanlar-ux §3). Bellek içi, diske yazılmaz.
    */
   reply?: string;
+  /** Yalnız kesin kaynakta, çalışırken: ajanın şu anki aşaması (Tur 6). */
+  phase?: AgentPhase;
+  /**
+   * Yalnız tahmini kaynakta: gönderilmiş bir istem ve ARDINDAN gelen çıktı
+   * (Tur 6). `at` istemin anı; `done` istemden sonraki çıktı sakinleşti.
+   * İstem yoksa yok: açılış ekranı, tuş yankısı, ekran yenilemesi tur değil.
+   */
+  turn?: AgentTurn;
+  /** Kesin bağ neden yok (yalnız tahmini kaynakta; Tur 6). */
+  link?: AgentLinkIssue;
 }
+
+export type AgentPhaseKind = "thinking" | "tool" | "writing";
+
+/** `tool`: normalize edilmiş araç adı; `target`: girdinin gizlisi süzülmüş kısa özeti. */
+export interface AgentPhase {
+  kind: AgentPhaseKind;
+  tool?: string;
+  target?: string;
+}
+
+export interface AgentTurn {
+  at: number;
+  done: boolean;
+}
+
+/**
+ * `ambiguous`: istem birden çok oturumda · `noDb`: oturum kaydı yok/okunamıyor ·
+ * `notFound`: istem 60 sn içinde kayda düşmedi · `unsupported`: motorun kesin okuyucusu yok.
+ */
+export type AgentLinkIssue = "ambiguous" | "noDb" | "notFound" | "unsupported";
 
 export interface AgentStatusEvent {
   paneId: string;

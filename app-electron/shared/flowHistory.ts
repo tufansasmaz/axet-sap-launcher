@@ -15,7 +15,9 @@ export type FlowKind =
   /** Ajandan ajana (ekip köprüsü): `name` "A → B", `detail` soru ya da cevap. */
   | "relay"
   /** Öğrenme görevi (Bellek): `detail` konu ve sonuç (yerelleştirilmiş). */
-  | "learn";
+  | "learn"
+  /** Tur 6: kesin bağ kurulamadı; `detail` sebep kodu (AgentLinkIssue). */
+  | "note";
 
 export const FLOW_KINDS: readonly FlowKind[] = [
   "started",
@@ -28,14 +30,15 @@ export const FLOW_KINDS: readonly FlowKind[] = [
   "checkpoint",
   "message",
   "relay",
-  "learn"
+  "learn",
+  "note"
 ];
 
 /** Çalışma alanı başına saklanan en çok olay. */
 export const FLOW_HISTORY_MAX = 500;
 const NAME_MAX = 120;
 const DETAIL_MAX = 2_000;
-const REPLY_MAX = 600;
+const REPLY_MAX = 2_000;
 const ID_MAX = 100;
 
 export interface StoredFlowEvent {

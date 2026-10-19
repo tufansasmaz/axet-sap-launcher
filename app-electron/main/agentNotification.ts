@@ -3,7 +3,7 @@
 // ajanın yazdığı hiçbir şey bildirime girmiyor. "Yalnız kesin durumda"
 // kuralı izleyicide (agentMonitor.ts): tahmini durum buraya hiç gelmiyor.
 
-export type AgentNotificationKind = "asking" | "done";
+export type AgentNotificationKind = "asking" | "done" | "error";
 
 export interface AgentNotificationPayload {
   title: string;
@@ -11,8 +11,8 @@ export interface AgentNotificationPayload {
 }
 
 const BODY: Record<"tr" | "en", Record<AgentNotificationKind, string>> = {
-  tr: { asking: "Ajan bir soru soruyor", done: "Ajan işini bitirdi" },
-  en: { asking: "The agent is asking a question", done: "The agent finished its work" }
+  tr: { asking: "Ajan bir soru soruyor", done: "Ajan işini bitirdi", error: "Ajan hata verdi" },
+  en: { asking: "The agent is asking a question", done: "The agent finished its work", error: "The agent hit an error" }
 };
 
 export function agentNotificationFor(

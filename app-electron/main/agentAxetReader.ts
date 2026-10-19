@@ -13,9 +13,10 @@
 // bağ çözülüyor ve istem yeniden aranıyor (plan sapması 1). Soru açıkken
 // yazılan satır da böyle: soru kapanırsa düşer, aynı soru 30 sn sonra hâlâ
 // açıksa ve satır oturumda görünmediyse bağ çözülür.
-import { ASK_USER_TOOL, parseAskUser } from "./axetToolEvents";
+import { ASK_USER_TOOL, clip, normalizeToolName, parseAskUser, summarizeToolInput } from "./axetToolEvents";
 import { matchKey, promptStartsWith, type AxetDbMessage, type AxetPart } from "./axetSessionDb";
-import type { AgentQuestion, AgentState, AgentStatus } from "../shared/agentTypes";
+import type { AgentLinkIssue, AgentPhase, AgentQuestion, AgentState, AgentStatus } from "../shared/agentTypes";
+import { redact } from "./support/redact";
 import { replySnippet } from "./agentReply";
 import { stripAnsi, type AgentReader, type GenericReader } from "./agentGenericReader";
 import { AXET_SETUP_DETAIL } from "../shared/agentTypes";
@@ -115,7 +116,38 @@ export interface DerivedAxetState {
   question?: AgentQuestion;
   detail?: string;
   reply?: string;
+  /** Tur 6: yalnız "running"de, ajanın aşaması. */
+  phase?: AgentPhase;
   lastActivitySec: number | null;
+}
+
+/** Aşama satırındaki hedefin üst sınırı (kart ve ekip satırı tek satır). */
+export const PHASE_TARGET_MAX = 60;
+
+function toolPhase(part: AxetPart): AgentPhase {
+  const tool = normalizeToolName(part.data?.name ?? "");
+  // Akan (yarım) girdi JSON değil; hedef ancak tamamlanınca. Önce süz, sonra kes.
+  const raw = part.data?.finished === true ? summarizeToolInput(part.data?.input) : "";
+  const target = raw ? clip(redact(raw, []).text, PHASE_TARGET_MAX) : "";
+  return { kind: "tool", ...(tool ? { tool } : {}), ...(target ? { target } : {}) };
+}
+
+/**
+ * Çalışan turun aşaması (Tur 6). Ölçülen biçim (gerçek oturum kaydı, yalnız
+ * parça türleri): asistan mesajı `reasoning`, `tool_call`, `text`,
+ * `finish{tool_use|end_turn}`; araç sonucu ayrı `tool` mesajında. Kullanıcı
+ * mesajından ya da araç sonucundan sonra model düşünüyor.
+ */
+function phaseOf(messages: AxetDbMessage[], answered: Set<string>): AgentPhase {
+  const last = messages[messages.length - 1];
+  if (!last || last.role !== "assistant") return { kind: "thinking" };
+  const parts = last.parts.filter((p) => p.type !== "finish");
+  const pending = parts.filter((p) => p.type === "tool_call" && !(p.data?.id && answered.has(p.data.id)));
+  if (last.parts.some((p) => p.type === "finish")) return pending.length ? toolPhase(pending[pending.length - 1]) : { kind: "thinking" };
+  const tail = parts[parts.length - 1];
+  if (tail?.type === "tool_call") return toolPhase(tail);
+  if (tail?.type === "text" && (tail.data?.text ?? "").trim()) return { kind: "writing" };
+  return { kind: "thinking" };
 }
 
 /** Son kullanıcı mesajından sonraki, metni olan son asistan mesajı (özet; spec ajanlar-ux §3). */
@@ -163,13 +195,14 @@ export function deriveAxetState(messages: AxetDbMessage[]): DerivedAxetState {
       if (ask) return { state: "asking", question: { ...ask, askedAt: message.createdAt * 1000 }, lastActivitySec };
     }
   }
-  if (last.role !== "assistant") return { state: "running", lastActivitySec };
+  const running = (): DerivedAxetState => ({ state: "running", phase: phaseOf(messages, answered), lastActivitySec });
+  if (last.role !== "assistant") return running();
   let finish: AxetPart | undefined;
   for (const part of last.parts) if (part.type === "finish") finish = part;
-  if (!finish) return { state: "running", lastActivitySec };
+  if (!finish) return running();
   const reason = finish.data?.reason ?? "";
   if (reason === "error") return { state: "error", detail: "error", lastActivitySec };
-  if (reason === "tool_use") return { state: "running", lastActivitySec };
+  if (reason === "tool_use") return running();
   const reply = lastReply(messages);
   return { state: "idle", ...(reason ? { detail: reason } : {}), ...(reply ? { reply } : {}), lastActivitySec };
 }
@@ -212,6 +245,10 @@ export class AxetReader implements AgentReader {
   private derived: DerivedAxetState | null = null;
   private setupOpen = false;
   private markCarry = "";
+  /** Tur 6: bir istem bağ kurulmadan 60 sn penceresini doldurdu (kayda düşmedi). */
+  private missed = false;
+  /** Tur 6: kesin durumun en son okunduğu an (ms). */
+  private exactSeenMs = 0;
 
   constructor(private readonly opts: AxetReaderOptions) {}
 
@@ -228,7 +265,11 @@ export class AxetReader implements AgentReader {
     const key = matchKey(trimmed).slice(0, NEEDLE_MAX).trim();
     // TUI komutları (`/model`) ve çok kısa satırlar istem değil.
     if (trimmed.startsWith("/") || key.length < NEEDLE_MIN) return;
+    // Açılış seçim penceresinde yazılan satır axet-code'a ulaşmıyor (Tur 2
+    // ölçümü): iğne olsaydı 60 sn sonra yanlış bir "bulunamadı" üretirdi.
+    if (this.setupOpen) return;
     this.prompted = true;
+    this.opts.generic.submitLine(trimmed);
     const nowMs = this.opts.now();
     // Soru açıkken yazılan satır büyük olasılıkla soruya serbest cevap; yine de
     // atılmıyor (yeni oturuma geçilmiş olabilir), sorunun kimliğiyle saklanıyor.
@@ -272,12 +313,25 @@ export class AxetReader implements AgentReader {
         lastActivity: d.lastActivitySec === null ? null : d.lastActivitySec * 1000,
         ...(d.question ? { question: d.question } : {}),
         ...(d.detail ? { detail: d.detail } : {}),
-        ...(d.reply ? { reply: d.reply } : {})
+        ...(d.reply ? { reply: d.reply } : {}),
+        ...(d.phase ? { phase: d.phase } : {})
       };
     }
     // İlk istemden önce: boşta (motorun kaydı henüz okunmadı → tahmini).
     if (!this.prompted) return { state: "idle", source: "estimated", lastActivity: null };
-    return generic.status();
+    const fallback = generic.status();
+    // Kesin kaynağın zaten gördüğü tur tahmini olarak yeniden duyurulmasın (Tur 6).
+    if (fallback.turn && fallback.turn.at <= this.exactSeenMs) delete fallback.turn;
+    const link = this.linkIssue();
+    return link ? { ...fallback, link } : fallback;
+  }
+
+  /** Tur 6: kesin bağ neden yok (Akış bunu bir kez söylüyor). */
+  private linkIssue(): AgentLinkIssue | undefined {
+    if (this.dbFailed) return "noDb";
+    if (this.ambiguous) return "ambiguous";
+    if (this.missed) return "notFound";
+    return undefined;
   }
 
   /** Motorun açıldığı genel okuyucunun yankı/çıktı bilgisinden. */
@@ -305,7 +359,10 @@ export class AxetReader implements AgentReader {
   private tryBind(now: number): void {
     const before = this.needles.length;
     this.needles = this.needles.filter((n) => now - n.atMs < PROMPT_MATCH_WINDOW_MS);
-    if (this.needles.length !== before) this.publishPending();
+    if (this.needles.length !== before) {
+      this.missed = true;
+      this.publishPending();
+    }
     if (this.needles.length === 0) return;
     const dbPath = this.dbPath();
     if (!dbPath) {
@@ -347,6 +404,7 @@ export class AxetReader implements AgentReader {
     // görünmezse olağan 30 sn kuralıyla bağ çözülür.
     this.unconfirmed = [...this.unconfirmed, { key: needle.key, atMs: now, submitMs: needle.submitMs }].slice(-PENDING_CAP);
     this.ambiguous = false;
+    this.missed = false;
     this.messages.clear();
     this.lastSec = 0;
     this.derived = null;
@@ -389,6 +447,7 @@ export class AxetReader implements AgentReader {
     }
     const ordered = [...this.messages.values()].sort((a, b) => a.createdAt - b.createdAt);
     this.derived = deriveAxetState(ordered);
+    this.exactSeenMs = now;
     this.confirm(ordered, now);
   }
 

@@ -10,7 +10,7 @@
 //
 // Bilinen sınır: dönen imleç ya da saat çizen bir TUI hep "çalışıyor"
 // görünür. Bu yüzden kaynak hep "tahmini" ve kartta "≈".
-import type { AgentStatus } from "../shared/agentTypes";
+import type { AgentStatus, AgentTurn } from "../shared/agentTypes";
 
 /** İzleyicinin (agentMonitor.ts) bildiği tek yüz. Yöntemler hata fırlatmamalı. */
 export interface AgentReader {
@@ -76,6 +76,10 @@ export class GenericReader {
   private sawEngineOutput = false;
   /** Motor kapandıktan sonra yeniden başlatma bekleniyor. */
   private exitSeen = false;
+  /** Tur 6: son gönderilen istemin anı ve ondan sonra çıktı gelip gelmediği. */
+  private promptAt: number | null = null;
+  private turnOutput = false;
+  private turnDone = false;
   private readonly echo: RegExp | null;
 
   constructor(private readonly opts: GenericReaderOptions) {
@@ -83,9 +87,27 @@ export class GenericReader {
     this.echo = token ? new RegExp(`>\\s?"?${escapeRegExp(token)}`, "i") : null;
   }
 
+  /**
+   * Tur 6: bölmede Enter'la gönderilen satır. Motor açık değilken (kabuk
+   * istemi) ya da `/` komutuysa tur sayılmıyor.
+   */
+  submitLine(line: string): void {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("/") || !this.engineReady()) return;
+    this.promptAt = this.opts.now();
+    this.turnOutput = false;
+    this.turnDone = false;
+  }
+
   feedOutput(data: string): void {
-    this.lastOutputAt = this.opts.now();
+    const now = this.opts.now();
     const clean = stripAnsi(data);
+    if (this.promptAt !== null && !this.turnDone) {
+      // Sakinleşmeden sonra gelen çıktı (tuş yankısı, yenileme) biten turu geri açmasın.
+      if (this.turnOutput && this.lastOutputAt !== null && now - this.lastOutputAt >= this.idleAfter()) this.turnDone = true;
+      else if (/\S/.test(clean) && now >= this.promptAt) this.turnOutput = true;
+    }
+    this.lastOutputAt = now;
 
     if (this.exitSeen) {
       // Motor kapalı; yeni echo gelince oturum sıfırlanıyor.
@@ -142,12 +164,25 @@ export class GenericReader {
     return this.sawEcho && isShellPromptLine(lastLine(this.tail));
   }
 
+  private idleAfter(): number {
+    return this.opts.idleAfterMs ?? IDLE_AFTER_MS;
+  }
+
+  /** Tur 6: istem + ardından çıktı varsa tur; istem yoksa yok. */
+  turn(): AgentTurn | undefined {
+    if (this.promptAt === null || !this.turnOutput) return undefined;
+    const quiet = this.lastOutputAt !== null && this.opts.now() - this.lastOutputAt >= this.idleAfter();
+    return { at: this.promptAt, done: this.turnDone || quiet || this.engineExited() };
+  }
+
   status(): AgentStatus {
     const at = this.lastOutputAt;
-    if (this.engineExited()) return { state: "finished", source: "estimated", lastActivity: at };
+    const turn = this.turn();
+    const withTurn = turn ? { turn } : {};
+    if (this.engineExited()) return { state: "finished", source: "estimated", lastActivity: at, ...withTurn };
     if (at === null) return { state: "unknown", source: "estimated", lastActivity: null };
-    const quiet = this.opts.now() - at >= (this.opts.idleAfterMs ?? IDLE_AFTER_MS);
-    return { state: quiet ? "idle" : "running", source: "estimated", lastActivity: at };
+    const quiet = this.opts.now() - at >= this.idleAfter();
+    return { state: quiet ? "idle" : "running", source: "estimated", lastActivity: at, ...withTurn };
   }
 }
 
@@ -155,9 +190,10 @@ export class GenericReader {
 export function genericAgentReader(reader: GenericReader): AgentReader {
   return {
     feedOutput: (data) => reader.feedOutput(data),
-    submitLine: () => {},
+    submitLine: (line) => reader.submitLine(line),
     poll: () => {},
-    status: () => reader.status(),
+    // Tur 6: kesin kaynağı olmayan motor; Akış bunu ilk turda bir kez söylüyor.
+    status: () => ({ ...reader.status(), link: "unsupported" }),
     engineReady: () => reader.engineReady(),
     dispose: () => {}
   };

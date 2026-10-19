@@ -490,6 +490,10 @@ export interface AppConfig {
   // odaktaysa ya da kullanıcı turu durdurduysa bildirim gönderilmez.
   // `undefined` → `true` (göç: eski config dosyalarında alan yoksa açık sayılır).
   chatNotifications?: boolean;
+  // Tur 6: ajan soru sorunca / işini bitirince / hata verince uygulama içi
+  // bildirim (toast + Ajanlar rozeti). Masaüstü bildirimi ayrıca
+  // chatNotifications ister. `undefined` → `true`.
+  agentNotifications?: boolean;
   // "Yenilikler" penceresinin en son gösterildiği sürüm (İş 2 — 2026-10-17).
   // Boş dizgi: henüz hiç gösterilmedi ya da eski config'den yükseltme →
   // pencere gösterilmez, yalnız mevcut sürüm yazılır. Ayarlar formuna
