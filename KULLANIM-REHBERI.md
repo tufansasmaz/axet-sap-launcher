@@ -35,14 +35,26 @@ ile kapanır.
 ## Hazırlık Ekranı
 
 Stetoskop ikonu, bir tur başlamadan önce doğru olması gereken her şeyi tek
-ekranda toplar. Ekran genişliğine göre bir, iki ya da üç sütuna açılır:
+ekranda toplar.
+
+En üstte **Hazır mısın?** listesi durur: dört adım (dil ve rol, proje
+klasörü, axet.code, en az bir SAP bağlantısı) tek sütunda, her satırda kısa
+bir açıklama ve tek bir **Şimdi yap** düğmesi. Eksik adımlar listenin
+başına çıkar ve vurgulanır, tamamlananlar sade kalır. Ortam teşhisi
+sürerken axet.code satırında "Denetleniyor…" yazar; dört adım da tamamsa
+liste tek satırlık "Her şey hazır" özetine iner.
+
+Altındaki **Ayrıntılar** geniş ekranda iki sütundur — solda makine (ortam
+teşhisi, ajanın gördüğü dosya), sağda senin verdiklerin (reçete,
+yetenekler); dar ekranda tek sütun:
 
 - **Proje reçetesi** — Ajanın bu projede neyi bileceği. Müşteri, kapsam,
   kısıtlar; sen yazarsın, ajan her turda okur.
 - **Yapay zekâ yetenekleri** — Danışman rolü ve o role ait yetenekler
   (aşağıda ayrıntılı).
 - **Ortam teşhisi** — Makine bu işi taşıyabiliyor mu (axet-code sürümü,
-  Python, RFC bileşenleri, disk). Bir arıza varsa raydaki stetoskop
+  Python, RFC bileşenleri, disk). Sorunlu satırlar listenin başındadır ve
+  kartın başlığında sorun sayısı yazar. Bir arıza varsa raydaki stetoskop
   ikonunun üstünde nokta belirir.
 - **Ajan ne görüyor** — `sap-context.md` dosyasının kendisi. Ajana giden
   bağlamı doğrulamak için okunur.
@@ -102,6 +114,16 @@ sistem başına ayrı bir rol yoktur.
 - Doğru seçmek önemli: dar rol ajanı iş yapamaz hâle getirir, geniş rol ise
   müşteri sisteminde istemediğin bir yeteneği masaya koyar. Değiştirme
   şansın olmadığı için uyarı da o pencerededir.
+
+### Uygulama Bağlantıları
+
+Fiş ikonundaki pencerede Outlook ve SharePoint tek sütunlu bir liste olarak
+durur: her satırda durum rozeti (Bağlı / Bağlı değil / Başarısız /
+Bağlanıyor), son doğrulamanın sonucu ve tarihi, sağda tek eylem
+(**Bağlan** ya da **Bağlantıyı Kes** + yeniden doğrula). Doğrulama
+başlatılamazsa (ör. axet-code süreci açılamadı) hata satırda yazar ve rozet
+"Başarısız" olur; "Bağlantıyı Kes" kaydedilemezse satır yeniden "Bağlı"
+gösterir — ekran diskteki hâlden farklı bir şey söylemez.
 
 ### Tur başına bedel (Uygulama Bağlantıları)
 
@@ -231,7 +253,21 @@ görebilirsin:
   kaynaklanan hataları önler; sistemin "gerçek" client'ı olduğu anlamına
   gelmez.
 - Kimlik bilgileri yanlışsa (401) veya sistem ağdan erişilemezse net bir
-  hata mesajı gösterilir, terminal açılmaz.
+  hata mesajı gösterilir, hiçbir şey açılmaz.
+- **Nerede açılacağı**: **Bağlan** bağlantıyı Ayarlar > Genel > "SAP
+  sistemine bağlanınca" seçimine göre açar (varsayılan Sohbet; düğmenin
+  solunda "Sohbette açılır" / "Ajan terminalinde açılır" yazar). Yanındaki
+  ok tek seferlik başka bir yer seçtirir:
+  - **Sohbette aç** — bağlantının klasörüne bağlı yeni bir sohbet (eski
+    davranış).
+  - **Terminalde aç (ajan)** — Ajanlar ekranına geçer, o sisteme bağlı
+    alanda (yoksa boş seçili alanı bağlar, o da yoksa yeni alan açar)
+    bağlantının klasöründe bir axet-code ajan bölmesi açar ve odaklar.
+  - **Kabukta aç** — aynı yerde, Ayarlar'daki kabukla (cmd/PowerShell)
+    düz bir kabuk bölmesi.
+  Üçünde de çalışma klasörü bağlantının klasörüdür; `.conn_adt`,
+  `sap-context.md` ve QA/PRD salt okunur kuralı sohbettekiyle aynıdır.
+  Ayar "Her seferinde sor" ise düğme **Bağlan…** olur ve menüyü açar.
 
 ## Bağlandıktan Sonra Açılan Klasörde Ne Var
 
@@ -302,7 +338,7 @@ listesi ve bağlanılan sistemler var.
 - **Hazır istemler**: Sistem bağlandığında rolüne göre önerilen başlangıç
   sorularını gösteren bir kart açılır.
 - **Windows bildirimi**: Uygulama arka plandayken ajan cevabını bitirince
-  bildirim gelir. Ayarlar'dan kapatılabilir.
+  bildirim gelir. Ayarlar > Genel > Masaüstü bildirimleri'nden kapatılabilir.
 - **Arkada ne olduğunu görürsün.** Cevap beklenirken gösterge ajanın hangi
   aracı çalıştırdığını, hedefini, kaçıncı adımda olduğunu ve geçen süreyi
   yazar. Satıra tıklayarak aracın çıktısını açabilirsin.
@@ -322,13 +358,27 @@ listesi ve bağlanılan sistemler var.
 
 ## Ayarlar
 
-- **Proje klasörü**: Her müşteri/sistem için alt klasörlerin oluşturulacağı
-  kök dizin (varsayılan: Belgelerim\aXet SAP Projects).
-- **axet.code çalıştırma komutu**: Terminal açıldığında otomatik çalıştırılan
-  komut (varsayılan: `axet-code -y`).
-- **Gömülü terminal kabuğu**: cmd.exe veya PowerShell — bağlandığında
-  uygulamanın altındaki panelde bu kabukla bir terminal sekmesi açılır,
-  harici pencere açılmaz.
+Sol sütunun üstündeki **Ayar ara** kutusu ayarın adıyla arar (bölümün adını
+bilmen gerekmez); eşleşmeyen bölümler listeden çekilir.
+
+- **Genel**
+  - **Proje klasörü**: Her müşteri/sistem için alt klasörlerin
+    oluşturulacağı kök dizin (varsayılan: Belgelerim\aXet SAP Projects).
+  - **SAP sistemine bağlanınca**: Sohbette aç (varsayılan) / Ajan
+    terminalinde aç / Her seferinde sor. Bkz. "Sisteme Bağlanma".
+  - **Masaüstü bildirimleri**: Sohbet turu bitince, ajan seni beklerken ya
+    da panoda görev değişince — yalnız pencere odak dışındayken.
+- **Görünüm**: Vurgu rengi, tema, sohbet yazı boyutu ve satır sıklığı (eski
+  "Sohbet görünümü" bölümü buraya katıldı).
+- **axet.code**: Çalışma klasörü — yeni sohbetler ve kökü seçilmemiş
+  alanlardaki ajanlar burada açılır.
+- **Ajanlar ve terminal**
+  - **axet.code çalıştırma komutu**: Ajan bölmesinde çalıştırılan komut
+    (varsayılan: `axet-code -y`).
+  - **Gömülü terminal kabuğu**: cmd.exe veya PowerShell — Ajanlar ekranındaki
+    kabuk ve ajan bölmeleri bu kabukla açılır, harici pencere açılmaz.
+  - **Ajan başlarken ekip belleği özeti**: Belleği açık ajanın ilk satırına
+    ekibin önemli notlarının kısa özeti eklenir (varsayılan açık).
 - **SAPUILandscape.xml yolu**: Normalde otomatik bulunur
   (`%APPDATA%\SAP\Common\SAPUILandscape.xml`). SAP Logon'un dosyası farklı
   bir yerde tutuluyorsa burada elle belirtilir.
@@ -339,8 +389,6 @@ listesi ve bağlanılan sistemler var.
   eklenmez (otomatik atlanır), sonunda kaç kayıt eklendiği/atlandığı
   bildirilir. Bu, manuel sistem tanımlarını takım arkadaşlarınla veya
   başka bir bilgisayarınla paylaşmak için kullanılır.
-- **Bildirimler**: Uygulama arka plandayken ajan cevabını bitirince Windows
-  bildirimi gönderilir; bu anahtarla kapatılabilir.
 - **Veri ve gizlilik**: Yerel sohbet geçmişini ve önbellek dosyalarını
   temizleme seçenekleri bu bölümde yer alır.
 
@@ -390,7 +438,8 @@ standart olmayan bir yoldaysa, Ayarlar'dan bir kere elle yol belirtilir.
 
 ## Güncellemeler
 
-Ayarlar penceresinde "Güncellemeler" bölümünden:
+Ayarlar penceresinde "Sürüm ve destek" bölümünden (destek e-posta adresi ve
+**Sorun bildir…** de burada):
 
 - **Token gerekmiyor.** Depo public olduğu için güncelleme kontrolü ve
   indirme kimlik doğrulaması olmadan çalışır. (Eski sürümlerde bir GitHub
