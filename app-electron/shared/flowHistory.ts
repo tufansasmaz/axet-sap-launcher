@@ -1,6 +1,7 @@
 // Akış geçmişi (Tur 4): olay türleri ve kalıcı kaydın doğrulaması. Ana süreç
 // (dosya) ve renderer (FlowProvider) aynı türleri kullanıyor. Dosya elle
 // bozulabilir: okuyan hiçbir şey fırlatmıyor, geçersiz satır atılıyor.
+import { isLeadAct, type LeadAct } from "./leadCommands";
 
 export type FlowKind =
   | "started"
@@ -49,6 +50,10 @@ export interface StoredFlowEvent {
   detail: string;
   reply?: string;
   exact?: boolean;
+  /** Tur 7 ("relay"): lider kartı türü. */
+  act?: LeadAct;
+  /** Tur 7 ("relay"): kartın hedef bölmesi. */
+  toPaneId?: string;
 }
 
 const str = (value: unknown, max: number): string | null => (typeof value === "string" ? value.slice(0, max) : null);
@@ -73,6 +78,8 @@ export function sanitizeFlowEvents(raw: unknown, scrub: (text: string) => string
     const reply = str(r.reply, REPLY_MAX);
     if (reply) event.reply = scrub(reply);
     if (r.exact === true) event.exact = true;
+    if (isLeadAct(r.act)) event.act = r.act;
+    if (typeof r.toPaneId === "string" && r.toPaneId.length > 0 && r.toPaneId.length <= ID_MAX) event.toPaneId = r.toPaneId;
     out.push(event);
   }
   return out;
@@ -96,4 +103,6 @@ export interface TeamRelayMessage {
   name: string;
   detail: string;
   at: number;
+  act?: LeadAct;
+  toPaneId?: string;
 }

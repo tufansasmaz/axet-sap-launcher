@@ -148,3 +148,24 @@ describe("teamBridge — Tur 5 bellek", () => {
     expect(usage.body.error).toContain("Kullanim");
   });
 });
+
+describe("teamBridge — Tur 7 lider komutları", () => {
+  it("POST /lead: arayanla komutu teamLead'e verir; kapalıysa 404, bozuk gövde 400, jetonsuz 401", async () => {
+    const { deps, bridge, headers } = harness();
+    expect((await bridge.handle("POST", "/lead", headers(), JSON.stringify({ args: ["status"] }))).status).toBe(404);
+    const lead = vi.fn(async () => ({ status: 200, body: { ok: true, text: "tamam" } }));
+    const withLead = createTeamBridge({ ...deps, lead }, SECRET);
+    const r = await withLead.handle("POST", "/lead", headers(), JSON.stringify({ args: ["spawn", "--rol", "Test"] }));
+    expect(r).toEqual({ status: 200, body: { ok: true, text: "tamam" } });
+    expect(lead).toHaveBeenCalledWith({ workspaceId: "w1", paneId: "a", name: "Ayşe" }, ["spawn", "--rol", "Test"]);
+    expect((await withLead.handle("POST", "/lead", headers(), "{bozuk")).status).toBe(400);
+    expect((await withLead.handle("POST", "/lead", headers("pty-a", "x"), "{}")).status).toBe(401);
+  });
+
+  it("betik lider komutlarını /lead'e yollar; yardım metni anıyor", async () => {
+    const { TEAM_PS1 } = await import("../app-electron/main/teamBridge");
+    expect(TEAM_PS1).toContain("@('spawn','assign','wait','status','close') -contains $_");
+    expect(TEAM_PS1).toContain('"$base/lead"');
+    expect(TEAM_PS1).toContain("(Lider) ntt-team spawn|assign|wait|status|close");
+  });
+});

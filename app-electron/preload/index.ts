@@ -79,6 +79,7 @@ import type {
 import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic";
 import type { AgentSendResult } from "../shared/agentMessage";
 import type { StoredFlowEvent, TeamRelayMessage } from "../shared/flowHistory";
+import type { LeadApprovalRequest, LeadCloseRequest, LeadSpawnRequest, WithRequestId } from "../shared/leadCommands";
 import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
 import type { MemoryNote, NoteInput, NotePatch, NoteResult } from "../shared/memoryNotes";
 
@@ -246,6 +247,23 @@ const api = {
     ipcRenderer.on("team:relay", listener);
     return () => ipcRenderer.removeListener("team:relay", listener);
   },
+  // Tur 7: lider ekip yönetimi (ana süreç ister, renderer team:reply ile cevaplar).
+  onTeamSpawn: (callback: (req: WithRequestId<LeadSpawnRequest>) => void) => {
+    const listener = (_event: unknown, payload: WithRequestId<LeadSpawnRequest>) => callback(payload);
+    ipcRenderer.on("team:spawn", listener);
+    return () => ipcRenderer.removeListener("team:spawn", listener);
+  },
+  onTeamClose: (callback: (req: WithRequestId<LeadCloseRequest>) => void) => {
+    const listener = (_event: unknown, payload: WithRequestId<LeadCloseRequest>) => callback(payload);
+    ipcRenderer.on("team:close", listener);
+    return () => ipcRenderer.removeListener("team:close", listener);
+  },
+  onTeamApproval: (callback: (req: WithRequestId<LeadApprovalRequest>) => void) => {
+    const listener = (_event: unknown, payload: WithRequestId<LeadApprovalRequest>) => callback(payload);
+    ipcRenderer.on("team:approval", listener);
+    return () => ipcRenderer.removeListener("team:approval", listener);
+  },
+  teamReply: (requestId: string, value: unknown): Promise<void> => ipcRenderer.invoke("team:reply", requestId, value),
   onChangesChanged: (callback: (state: ChangesState) => void) => {
     const listener = (_event: unknown, state: ChangesState) => callback(state);
     ipcRenderer.on("changes:changed", listener);

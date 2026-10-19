@@ -9,6 +9,7 @@
 //   ntt-team ask <ajan> "<soru>"  hedefe Akış yoluyla iletir, sonraki cevabını döndürür
 //   ntt-team feed                 ekibin son Akış olayları
 //   ntt-team memory add|search|get|link|list   ekip ya da kendi belleği (Tur 5, memoryCommands.ts)
+//   ntt-team spawn|assign|wait|status|close     yalnız Lider: ekip kurar, görev verir (Tur 7, teamLead.ts)
 // Hedefe yazım Akış mesaj kutusunun kapılarından geçiyor (agentSender): meşgul,
 // soru bekleyen, açılış seçimindeki ajana yazılmıyor, sebebi dönüyor.
 // 8787 (ADT köprüsü) ve tek-sistem kuralına dokunulmuyor: ayrı, rastgele port.
@@ -17,6 +18,7 @@ import http from "node:http";
 import type { AgentStatus } from "../shared/agentTypes";
 import type { StoredFlowEvent } from "../shared/flowHistory";
 import { runMemoryCommand, type MemoryCommandStore } from "../shared/memoryCommands";
+import type { LeadAct } from "../shared/leadCommands";
 
 export interface TeamMember {
   paneId: string;
@@ -39,6 +41,10 @@ export interface TeamRelayEvent {
   paneId: string;
   name: string;
   detail: string;
+  /** Tur 7: lider kartı (açtı / görev / sonuç / kapattı / reddedildi). */
+  act?: LeadAct;
+  /** Tur 7: kartın hedef bölmesi (ofiste ışın). */
+  toPaneId?: string;
 }
 
 export interface TeamBridgeDeps {
@@ -55,6 +61,8 @@ export interface TeamBridgeDeps {
   memory?(workspaceId: string): MemoryCommandStore;
   /** Bir ajan belleğe yazdı: Bellek ekranı yenilensin. */
   memoryChanged?(workspaceId: string): void;
+  /** Tur 7: lider komutları (yoksa kapalı). */
+  lead?(caller: TeamCaller, args: unknown): Promise<TeamResponse>;
 }
 
 export interface TeamResponse {
@@ -187,6 +195,16 @@ export function createTeamBridge(deps: TeamBridgeDeps, secret: Buffer = randomBy
           deps.log("ekip.bellek", { sonuc: result.status, degisti: result.changed });
           return json(result.status, { ok: result.status < 400, text: result.text, ...(result.status >= 400 ? { error: result.text } : {}) });
         }
+        if (method === "POST" && path === "/lead") {
+          if (!deps.lead) return json(404, { ok: false, error: "Lider komutlari kapali." });
+          let args: unknown = [];
+          try {
+            args = (JSON.parse(body) as { args?: unknown }).args;
+          } catch {
+            return json(400, { ok: false, error: "Gövde JSON değil." });
+          }
+          return await deps.lead(caller, args);
+        }
         return json(404, { ok: false, error: "Bilinmeyen komut." });
       } catch {
         return json(500, { ok: false, error: "Köprü hatası." });
@@ -248,14 +266,19 @@ export const TEAM_CMD = `@echo off\r\npowershell -NoProfile -ExecutionPolicy Byp
 
 export const TEAM_PS1 = [
   "# NTT Studio ekip köprüsü (Tur 4). Sır içermez: jeton ortam değişkeninden.",
-  "param([Parameter(Position=0)][string]$Command = 'help', [Parameter(Position=1)][string]$To = '', [Parameter(Position=2, ValueFromRemainingArguments=$true)][string[]]$Rest)",
+  "# Tur 7: param() yerine $args — PowerShell '--bayrak deger' çiftlerini ayrı bağlayıp sırayı bozuyordu.",
+  "$argv = @($args | ForEach-Object { [string]$_ })",
+  "$Command = 'help'; if ($argv.Count -gt 0) { $Command = $argv[0] }",
+  "$To = ''; if ($argv.Count -gt 1) { $To = $argv[1] }",
+  "$Rest = @(); if ($argv.Count -gt 2) { $Rest = $argv[2..($argv.Count - 1)] }",
   "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8",
   "$base = $env:NTT_TEAM_URL",
   "if (-not $base) { Write-Output 'NTT Studio ekip koprusu yok: bu terminal NTT Studio ajani degil.'; exit 2 }",
   "$h = @{ Authorization = \"Bearer $($env:NTT_TEAM_TOKEN)\"; 'X-NTT-Pty' = $env:NTT_TEAM_PTY }",
   "# Yerel köprü: kurumsal vekil sunucu (proxy) atlanıyor.",
   "[System.Net.WebRequest]::DefaultWebProxy = New-Object System.Net.WebProxy",
-  "function Fail($err) { $m = $err.Exception.Message; if ($err.ErrorDetails -and $err.ErrorDetails.Message) { try { $m = ($err.ErrorDetails.Message | ConvertFrom-Json).error } catch { $m = $err.ErrorDetails.Message } }; Write-Output $m; exit 1 }",
+  "# PowerShell 5'te 4xx gövdesi ErrorDetails'e düşmüyor: yanıt akışından okunuyor (Tur 7).",
+  "function Fail($err) { $m = $err.Exception.Message; $txt = ''; if ($err.ErrorDetails -and $err.ErrorDetails.Message) { $txt = $err.ErrorDetails.Message } elseif ($err.Exception.Response) { try { $sr = New-Object System.IO.StreamReader($err.Exception.Response.GetResponseStream(), [System.Text.Encoding]::UTF8); $txt = $sr.ReadToEnd() } catch {} }; if ($txt) { try { $m = ($txt | ConvertFrom-Json).error } catch { $m = $txt } }; Write-Output $m; exit 1 }",
   "switch ($Command) {",
   "  'list' { try { $r = Invoke-RestMethod -Uri \"$base/team\" -Headers $h -TimeoutSec 15 } catch { Fail $_ }",
   "    Write-Output \"Sen: $($r.you)\"; foreach ($m in $r.members) { $me = ''; if ($m.you) { $me = ' (sen)' }; Write-Output (\"{0}{1} | rol: {2} | durum: {3} | motor: {4}\" -f $m.name, $me, $m.role, $m.state, $m.engine) } }",
@@ -268,7 +291,10 @@ export const TEAM_PS1 = [
   "  'memory' { $all = @(); if ($To) { $all += $To }; if ($Rest) { $all += $Rest }; $body = @{ args = $all } | ConvertTo-Json -Compress",
   "    try { $r = Invoke-RestMethod -Method Post -Uri \"$base/memory\" -Headers $h -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 30 } catch { Fail $_ }",
   "    Write-Output $r.text }",
-  "  default { Write-Output 'ntt-team list | ntt-team ask <ajan> \"<soru>\" | ntt-team feed | ntt-team memory add|search|get|link|list' }",
+  "  { @('spawn','assign','wait','status','close') -contains $_ } { $body = @{ args = $argv } | ConvertTo-Json -Compress",
+  "    try { $r = Invoke-RestMethod -Method Post -Uri \"$base/lead\" -Headers $h -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 660 } catch { Fail $_ }",
+  "    if ($r.text) { Write-Output $r.text } else { Write-Output $r.error } }",
+  "  default { Write-Output 'ntt-team list | ntt-team ask <ajan> \"<soru>\" | ntt-team feed | ntt-team memory add|search|get|link|list | (Lider) ntt-team spawn|assign|wait|status|close' }",
   "}",
   ""
 ].join("\r\n");

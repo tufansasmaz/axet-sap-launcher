@@ -507,6 +507,12 @@ export interface AppConfig {
   // Ajan başlangıç satırına ekip belleği özeti eklensin mi (Tur 5,
   // memoryNotifier.digest). Varsayılan açık; kapatınca yalnız bellek satırı.
   agentMemoryDigest: boolean;
+  // Tur 7: Lider rolündeki ajan `ntt-team spawn` ile ekibine ajan açabilsin
+  // (varsayılan açık); her açılış için Akış'ta onay kartı (varsayılan kapalı);
+  // ekip başına lider açımı ajan sınırı (1..8, varsayılan 4).
+  leadTeam: boolean;
+  leadApproval: boolean;
+  leadMaxAgents: number;
 }
 
 /** SAP bağlanınca açılacak yer — ayardaki seçim. */

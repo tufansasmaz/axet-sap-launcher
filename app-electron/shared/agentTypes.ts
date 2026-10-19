@@ -31,7 +31,12 @@ export interface AgentSpec {
   command?: string;
   /** Kalıcı bellek anahtarı (spec 2026-10-18 ajan-bellegi §2, §5); yoksa bellek kapalı. */
   memory?: string;
+  /** Tur 7: bu ajanı açan Lider bölmesi; yalnız o lider kapatabilir. Kullanıcının açtıklarında yok. */
+  spawnedBy?: string;
 }
+
+/** Bölme kimliği (crypto.randomUUID) biçimi. */
+const PANE_REF = /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/;
 
 export const AGENT_ROLE_MAX = 40;
 export const AGENT_MODEL_MAX = 80;
@@ -56,6 +61,7 @@ export function readAgentSpec(raw: unknown): AgentSpec | null {
   if (model) spec.model = model;
   // Geçersiz anahtar atılıyor (bellek kapalı sayılır); dosyaya dokunulmaz.
   if (isMemoryKey(record.memory)) spec.memory = record.memory;
+  if (typeof record.spawnedBy === "string" && PANE_REF.test(record.spawnedBy)) spec.spawnedBy = record.spawnedBy;
   if (record.engine === "ozel") {
     const command = typeof record.command === "string" ? record.command.trim().slice(0, AGENT_COMMAND_MAX) : "";
     if (!command) return null;

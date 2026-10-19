@@ -21,6 +21,7 @@ import { SIDEBAR_DEFAULT_WIDTH, clampSidebarWidth, readSidebarCollapsed } from "
 import { MAIN_TR } from "./i18n/tr";
 import { MAIN_EN } from "./i18n/en";
 import { normalizeActiveWorkspaceId, normalizeTerminalWorkspaces } from "../shared/terminalLayout";
+import { LEAD_MAX_DEFAULT, normalizeLeadMax } from "../shared/leadCommands";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
 const MAX_CONNECTION_HISTORY = 10;
@@ -134,7 +135,10 @@ function defaultConfig(): AppConfig {
     whatsNewSeenVersion: typeof app.getVersion === "function" ? app.getVersion() : "",
     // Bugünkü davranış: bağlanınca Sohbet.
     sapConnectOpen: "chat",
-    agentMemoryDigest: true
+    agentMemoryDigest: true,
+    leadTeam: true,
+    leadApproval: false,
+    leadMaxAgents: LEAD_MAX_DEFAULT
   };
 }
 
@@ -241,7 +245,10 @@ export function loadConfig(): AppConfig {
       sapConnectOpen: (VALID_SAP_CONNECT_OPEN as readonly string[]).includes(parsed.sapConnectOpen)
         ? parsed.sapConnectOpen
         : fallback.sapConnectOpen,
-      agentMemoryDigest: parsed.agentMemoryDigest === false ? false : fallback.agentMemoryDigest
+      agentMemoryDigest: parsed.agentMemoryDigest === false ? false : fallback.agentMemoryDigest,
+      leadTeam: parsed.leadTeam === false ? false : fallback.leadTeam,
+      leadApproval: parsed.leadApproval === true,
+      leadMaxAgents: normalizeLeadMax(parsed.leadMaxAgents)
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

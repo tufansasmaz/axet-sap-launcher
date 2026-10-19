@@ -54,8 +54,10 @@ import { configureBrowserSession, isBrowserGuestContents, type BrowserSessionLik
 import { createBrowserSender } from "./browserSend";
 import { createAgentSender } from "./agentSend";
 import { createTeamBridge, startTeamBridgeServer, TEAM_CMD, TEAM_HINT, TEAM_PS1 } from "./teamBridge";
+import { createTeamLead, type LeadApprovalRequest, type LeadSpawnRequest } from "./teamLead";
+import { isLeadRole, leadHint, newLeadTaskId } from "../shared/leadCommands";
 import { clearFlowHistory, loadFlowHistory, saveFlowHistory } from "./flowHistoryStore";
-import { AXET_SETUP_DETAIL } from "../shared/agentTypes";
+import { AXET_SETUP_DETAIL, isAgentEngineId } from "../shared/agentTypes";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
 import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
 import { createMemoryNotifier } from "./memoryNotifier";
@@ -455,6 +457,67 @@ function notifyNotesChanged(workspaceId: string): void {
 // ekibini görür ve ekip arkadaşına sorar. Yalnız 127.0.0.1, rastgele port,
 // bölme başına HMAC jeton (bellekte). Hedefe yazım Akış'ın kapılarından.
 const teamPaneName = (pane: { title?: string; agent?: { engine: string } }) => pane.title?.trim() || pane.agent?.engine || "ajan";
+
+// Lider ekip yönetimi (Tur 7, teamLead.ts): bölme açma/kapama ve onay kartı
+// renderer'da; istek-cevap eşlemesi kimlikle, cevap gelmezse zaman aşımı.
+const rendererCalls = new Map<string, (value: unknown) => void>();
+function askRenderer<T>(channel: string, payload: Record<string, unknown>, timeoutMs: number, fallback: T): Promise<T> {
+  if (!mainWindow || mainWindow.isDestroyed()) return Promise.resolve(fallback);
+  const id = randomUUID();
+  return new Promise<T>((resolve) => {
+    const timer = setTimeout(() => {
+      rendererCalls.delete(id);
+      resolve(fallback);
+    }, timeoutMs);
+    rendererCalls.set(id, (value) => {
+      clearTimeout(timer);
+      rendererCalls.delete(id);
+      resolve(value as T);
+    });
+    mainWindow?.webContents.send(channel, { ...payload, requestId: id });
+  });
+}
+const sendRelay = (event: object) => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("team:relay", { ...event, at: Date.now() });
+};
+const teamLead = createTeamLead({
+  members: (workspaceId) =>
+    (loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId)?.panes ?? [])
+      .filter((p) => p.kind === "agent")
+      .map((p) => ({
+        paneId: p.id,
+        name: teamPaneName(p),
+        role: p.agent?.role ?? "",
+        engine: p.agent?.engine ?? "axet-code",
+        ...(p.agent?.spawnedBy ? { spawnedBy: p.agent.spawnedBy } : {})
+      })),
+  paneCount: (workspaceId) => loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId)?.panes.length ?? 0,
+  settings: () => {
+    const cfg = loadConfig();
+    return { enabled: cfg.leadTeam !== false, approval: cfg.leadApproval === true, max: cfg.leadMaxAgents, lang: cfg.language === "en" ? "en" : "tr" };
+  },
+  status: (paneId) => agentMonitor.agents().find((a) => a.reg.paneId === paneId)?.status ?? null,
+  send: (workspaceId, paneId, text) => agentSender.send(workspaceId, paneId, text),
+  output: (paneId) => {
+    const ptyId = agentMonitor.agents().find((a) => a.reg.paneId === paneId)?.reg.ptyId;
+    return ptyId ? getTerminalBuffer(ptyId).slice(-20_000) : "";
+  },
+  openPane: async (req: LeadSpawnRequest) => {
+    const value = await askRenderer<unknown>("team:spawn", { ...req }, 15_000, null);
+    const r = (value ?? {}) as { ok?: unknown; engine?: unknown; reason?: unknown };
+    if (r.ok === true && isAgentEngineId(r.engine)) return { ok: true as const, engine: r.engine };
+    return { ok: false as const, reason: typeof r.reason === "string" ? r.reason.slice(0, 40) : value === null ? "noWindow" : "invalid" };
+  },
+  closePane: async (workspaceId, paneId, leaderPaneId) => (await askRenderer<unknown>("team:close", { workspaceId, paneId, leaderPaneId }, 15_000, false)) === true,
+  approve: async (req: LeadApprovalRequest) => (await askRenderer<unknown>("team:approval", { ...req }, 5 * 60_000, false)) === true,
+  relay: sendRelay,
+  newPaneId: () => randomUUID(),
+  newTaskId: () => newLeadTaskId(Math.random),
+  now: () => Date.now(),
+  sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  log: (tag, fields) => appLog(tag, fields)
+});
+let teamLeadTimer: ReturnType<typeof setInterval> | null = null;
 const teamBridge = createTeamBridge({
   caller: (ptyId) => {
     const found = agentMonitor.agents().find((a) => a.reg.ptyId === ptyId);
@@ -493,7 +556,8 @@ const teamBridge = createTeamBridge({
     add: (input) => notesStore.add(workspaceId, input),
     update: (id, patch) => notesStore.update(workspaceId, id, patch)
   }),
-  memoryChanged: notifyNotesChanged
+  memoryChanged: notifyNotesChanged,
+  lead: (caller, args) => teamLead.handle(caller, args)
 });
 let teamServer: { port: number; close: () => void } | null = null;
 let teamScriptDir: string | null = null;
@@ -520,6 +584,7 @@ async function startTeamBridge(): Promise<void> {
     teamScriptDir = null;
   }
   teamServer = await startTeamBridgeServer(teamBridge);
+  if (teamServer && !teamLeadTimer) teamLeadTimer = setInterval(() => teamLead.tick(), 1_000);
   appLog("ekip.kopru", { sonuc: teamServer ? "acik" : "acilamadi" });
 }
 
@@ -1512,9 +1577,18 @@ function registerIpc(): void {
       // Ekip aracı ipucu (Tur 4): ekipte 2+ ajan varsa bölmeye ilk Akış mesajında bir kez.
       const key = typeof paneId === "string" ? paneId : "";
       let line = text;
-      if (teamServer && key && !teamHinted.has(key) && typeof text === "string" && text.length + TEAM_HINT.length <= 2000) {
-        const ws = loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId);
-        if ((ws?.panes.filter((p) => p.kind === "agent").length ?? 0) >= 2) line = `${text}${TEAM_HINT}`;
+      if (teamServer && key && !teamHinted.has(key) && typeof text === "string") {
+        const cfg = loadConfig();
+        const ws = cfg.terminalWorkspaces.find((w) => w.id === workspaceId);
+        const pane = ws?.panes.find((p) => p.id === key);
+        // Tur 7: Lider (kullanıcının açtığı) yöneticilik rehberini alır; ekip tek kişiyse de.
+        const hint =
+          pane?.agent && isLeadRole(pane.agent.role) && !pane.agent.spawnedBy
+            ? leadHint(cfg.leadMaxAgents, cfg.leadTeam !== false)
+            : (ws?.panes.filter((p) => p.kind === "agent").length ?? 0) >= 2
+              ? TEAM_HINT
+              : "";
+        if (hint && text.length + hint.length <= 2000) line = `${text}${hint}`;
       }
       const result = await agentSender.send(workspaceId, paneId, line);
       if (result.ok && line !== text) teamHinted.add(key);
@@ -1522,6 +1596,12 @@ function registerIpc(): void {
     } catch {
       return { ok: false, reason: "writeFailed" };
     }
+  });
+
+  // Lider ekip yönetimi (Tur 7): renderer'ın açtı/kapattı/onay cevabı (yalnız ana pencereden).
+  ipcMain.handle("team:reply", (event, requestId: unknown, value: unknown) => {
+    if (!mainWindow || mainWindow.isDestroyed() || event.sender !== mainWindow.webContents || typeof requestId !== "string") return;
+    rendererCalls.get(requestId)?.(value);
   });
 
   // Akış geçmişi (Tur 4): yalnız ana pencereden.

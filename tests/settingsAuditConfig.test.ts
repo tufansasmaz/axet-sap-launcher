@@ -76,3 +76,23 @@ describe("agentMemoryDigest bağlantısı (kaynak düzeyi)", () => {
     expect(main).toMatch(/digest: \(workspaceId, paneId\) =>\s*loadConfig\(\)\.agentMemoryDigest === false \? "" : memoryDigest\(/);
   });
 });
+
+describe("eklenen (Tur 7): lider ekip ayarları", () => {
+  it("varsayılan: ekip kurabilir, onay kapalı, sınır 4", async () => {
+    const cfg = (await store(null)).loadConfig();
+    expect([cfg.leadTeam, cfg.leadApproval, cfg.leadMaxAgents]).toEqual([true, false, 4]);
+  });
+  it("kayıtlı değerler korunuyor, bozuk değer varsayılana", async () => {
+    const cfg = (await store({ leadTeam: false, leadApproval: true, leadMaxAgents: 2 })).loadConfig();
+    expect([cfg.leadTeam, cfg.leadApproval, cfg.leadMaxAgents]).toEqual([false, true, 2]);
+    vi.resetModules();
+    const bad = (await store({ leadTeam: "hayir", leadApproval: "evet", leadMaxAgents: 99 })).loadConfig();
+    expect([bad.leadTeam, bad.leadApproval, bad.leadMaxAgents]).toEqual([true, false, 4]);
+  });
+  it("ana süreç: Lider'e yöneticilik rehberi, öteki ekip üyelerine ekip ipucu (kaynak düzeyi)", async () => {
+    const { readFileSync: read } = await import("node:fs");
+    const main = read(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8").replace(/\r\n/g, "\n");
+    expect(main).toMatch(/isLeadRole\(pane\.agent\.role\) && !pane\.agent\.spawnedBy\s*\?\s*leadHint\(cfg\.leadMaxAgents, cfg\.leadTeam !== false\)/);
+    expect(main).toContain('lead: (caller, args) => teamLead.handle(caller, args)');
+  });
+});
