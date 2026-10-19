@@ -12,6 +12,27 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW_DATA: readonly WhatsNewEntry[] = [
   {
+    version: "1.9.0",
+    items: {
+      tr: [
+        "Ajanlar ekranı yenilendi: piksel ofis, Pano (grafikler), Raporlar, Ajan yönetimi, Görevler, Değişiklikler ve Tarayıcı kenardaki düğme grubunda.",
+        "Lider ajan kendi ekibini kurar: işi böler, gerekirse ajan açar, görev verir, sonuçları toplar; hataları ve takılan işleri takip eder.",
+        "Bellek artık ikinci beyin: not haritası, arama, bağlantılar ve konuyu araştırıp belleğe yazan \"Öğren\" görevleri.",
+        "Akış: ajanların canlı aşaması, son cevabı, soruya kendi cevabını yazma; ajanlar birbirine soru sorabiliyor (ntt-team).",
+        "Hata olunca neden yazıyor; geçici hatalarda (istek sınırı, servis) kendiliğinden yeniden deniyor, aynı anda çalışan ajan sınırlanıyor.",
+        "axet-code açılış seçimi otomatik; Araçlar'dan Claude Code / Gemini / Codex tek tıkla kurulur; yerel adresler gömülü tarayıcıda açılır."
+      ],
+      en: [
+        "Redesigned Agents screen: pixel office, Dashboard (charts), Reports, Agent management, Tasks, Changes and Browser in the side button group.",
+        "A lead agent builds its own team: splits the work, opens agents when needed, assigns tasks, gathers results; tracks errors and stuck work.",
+        "Memory is now a second brain: note map, search, links and \"Learn\" tasks that research a topic and write it into memory.",
+        "Flow: live agent phase, last answer, write your own answer to a question; agents can ask each other (ntt-team).",
+        "Errors show their cause; temporary errors (rate limit, service) are retried automatically and concurrent agents are limited.",
+        "axet-code startup choice is automatic; install Claude Code / Gemini / Codex from Tools in one click; local addresses open in the embedded browser."
+      ]
+    }
+  },
+  {
     version: "1.8.3",
     items: {
       tr: [
