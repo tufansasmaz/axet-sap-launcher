@@ -11,7 +11,7 @@ import { EMPTY_FLOW, FlowContext, type QueuedSend } from "../src/agents/flowCont
 import type { FlowEvent } from "../src/agents/flowEvents";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
-import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalTypes";
+import type { TerminalPane, TerminalState, TerminalWorkspace } from "../src/stores/terminalTypes";
 import type { AgentAnswerResult, AgentQuestion, AgentStatus } from "../app-electron/shared/agentTypes";
 import type { AgentSendResult } from "../app-electron/shared/agentMessage";
 import { LIST_ANSWER_ENABLED } from "../app-electron/shared/agentDecisions";
@@ -58,11 +58,18 @@ const status = (state: AgentStatus["state"]): AgentStatus => ({ state, source: "
 function setup(
   workspaces: TerminalWorkspace[],
   statuses: Record<string, AgentStatus> = {},
-  extra: { answer?: AgentAnswerResult; events?: FlowEvent[]; queued?: QueuedSend[] } = {}
+  extra: { answer?: AgentAnswerResult; events?: FlowEvent[]; queued?: QueuedSend[]; state?: Partial<TerminalState> } = {}
 ) {
-  const commands = { revealPane: vi.fn(), restartPane: vi.fn(), enablePaneMemory: vi.fn(), setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
+  const commands = {
+    revealPane: vi.fn(),
+    restartPane: vi.fn(),
+    enablePaneMemory: vi.fn(),
+    setWorkspaceView: vi.fn(),
+    restore: vi.fn(),
+    startFresh: vi.fn()
+  } as unknown as TerminalCommands;
   const store: TerminalStoreValue = {
-    state: { ...initialTerminalState, phase: "ready", visible: true, workspaces, activeWorkspaceId: workspaces[0]?.id ?? null },
+    state: { ...initialTerminalState, phase: "ready", visible: true, workspaces, activeWorkspaceId: workspaces[0]?.id ?? null, ...extra.state },
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
@@ -96,6 +103,30 @@ async function flush() {
 }
 
 const box = () => screen.getByRole("combobox", { name: "Ajana mesaj" }) as HTMLTextAreaElement;
+
+describe("Akış — ilk açılışta son düzen seçimi", () => {
+  it("geri yükleme evresinde sol panelin başında sayılar ve iki düğme", () => {
+    const { commands } = setup([], {}, {
+      state: {
+        phase: "restorePrompt",
+        saved: [
+          { id: "a", name: "A", panes: [{ id: "x", kind: "cmd", cwd: "C:\\a" }] },
+          { id: "b", name: "B", panes: [{ id: "y", kind: "cmd", cwd: "C:\\a" }, { id: "z", kind: "powershell", cwd: "C:\\a" }] }
+        ]
+      }
+    });
+    expect(screen.getByText("Son düzen: 2 alan, 3 bölme")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Geri yükle" }));
+    fireEvent.click(screen.getByRole("button", { name: "Boş başla" }));
+    expect(commands.restore).toHaveBeenCalledTimes(1);
+    expect(commands.startFresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("hazır evrede seçim görünmüyor", () => {
+    setup([ws("w1", [pane("a")])]);
+    expect(document.querySelector("[data-restore-prompt]")).toBeNull();
+  });
+});
 
 describe("Akış — soru kartları (eski Kararlar)", () => {
   it("seçenek düğmesi cevabı doğru dizinle gönderiyor", async () => {

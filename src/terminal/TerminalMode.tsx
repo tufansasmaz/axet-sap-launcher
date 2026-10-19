@@ -6,7 +6,7 @@ import { layoutOf, minimizedOf, workspaceViewOf } from "../stores/terminalReduce
 import type { TerminalWorkspace } from "../stores/terminalTypes";
 import { MAX_TERMINAL_PANES } from "../../app-electron/shared/terminalLayout";
 import { leafIds, type DropZone, type SplitDir } from "../../app-electron/shared/terminalTree";
-import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
+import { TOOL_BUTTON } from "../ui/buttons";
 import TerminalPaneView from "./TerminalPaneView";
 import NewPaneDialog from "./NewPaneDialog";
 import { paneLabel } from "../agents/agentLabels";
@@ -77,27 +77,13 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
   if (state.phase === "closed") return null;
 
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId) ?? null;
-  const savedPanes = state.saved.reduce((sum, w) => sum + w.panes.length, 0);
   // Görünüm alan başına; bölmeler yalnız "panes"te görünür, öbürlerinde gizli ama takılı.
   const view: WorkspaceView = active ? workspaceViewOf(active) : "office";
 
   return (
     <ChangesFocusProvider>
       <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
-      {state.phase === "restorePrompt" && (
-        <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-2 text-sm text-slate-300">
-          <span className="min-w-0 flex-1 truncate">
-            {t("terminal.restorePrompt", { workspaces: state.saved.length, panes: savedPanes })}
-          </span>
-          <button type="button" onClick={() => commands.startFresh()} className={TOOL_BUTTON}>
-            {t("terminal.startFresh")}
-          </button>
-          <button type="button" onClick={() => commands.restore()} className={PRIMARY_BUTTON}>
-            {t("terminal.restoreLayout")}
-          </button>
-        </div>
-      )}
-
+      {/* "Son düzen" seçimi sol paneldeki Akış başında (FlowSidebar). */}
       <div className="flex min-h-0 flex-1">
         <div className="relative min-h-0 min-w-0 flex-1">
           {/* Görünüm rayı: içeriğin üstünde yüzen, sol kenarda ortalı; kapalıyken tek yuvarlak düğme, üzerine gelince açılır. */}

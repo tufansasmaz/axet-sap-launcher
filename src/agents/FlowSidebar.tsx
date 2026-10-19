@@ -72,7 +72,7 @@ function Chip({ tone, children, title }: { tone: StatusTone; children: React.Rea
 
 export default function FlowSidebar() {
   const t = useT();
-  const { state } = useTerminalStore();
+  const { state, commands } = useTerminalStore();
   const { statuses } = useAgentStatuses();
   const { events, queued, clear } = useFlow();
   const [confirmClear, setConfirmClear] = useState(false);
@@ -89,10 +89,29 @@ export default function FlowSidebar() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [lastId, decisions.length, workspace?.id]);
 
-  if (!workspace) return <div className="flex-1" />;
+  // İlk açılışta "Son düzen" seçimi sol panelin başında (içerik alanının üstünde şerit değil).
+  const restore =
+    state.phase === "restorePrompt" ? (
+      <div data-restore-prompt="" className="flex shrink-0 flex-col gap-2 border-b border-line px-3 py-2.5">
+        <p className="text-xs text-slate-300">
+          {t("terminal.restorePrompt", { workspaces: state.saved.length, panes: state.saved.reduce((sum, w) => sum + w.panes.length, 0) })}
+        </p>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => commands.startFresh()} className={`${TOOL_BUTTON} flex-1 justify-center`}>
+            {t("terminal.startFresh")}
+          </button>
+          <button type="button" onClick={() => commands.restore()} className={`${PRIMARY_BUTTON} flex-1 justify-center`}>
+            {t("terminal.restoreLayout")}
+          </button>
+        </div>
+      </div>
+    ) : null;
+
+  if (!workspace) return <div className="flex min-h-0 flex-1 flex-col">{restore}</div>;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {restore}
       <FlowHeader workspace={workspace} statuses={statuses} />
       <TeamSection workspace={workspace} />
       <div className="flex h-8 shrink-0 items-center border-t border-line px-3">

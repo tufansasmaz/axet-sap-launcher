@@ -147,19 +147,13 @@ describe("TerminalMode", () => {
     for (const name of ["Ajan", "Kabuk"]) expect((screen.getByRole("button", { name }) as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it("geri yükleme şeridi: sayılar ve iki düğme; + Ajan kapalı", () => {
-    const { commands } = setup({
+  it("geri yükleme evresi: içerik alanında şerit yok (seçim sol panelde); + Ajan kapalı", () => {
+    setup({
       phase: "restorePrompt",
-      saved: [
-        { id: "a", name: "A", panes: [{ id: "x", kind: "cmd", cwd: "C:\\a" }] },
-        { id: "b", name: "B", panes: [{ id: "y", kind: "cmd", cwd: "C:\\a" }, { id: "z", kind: "powershell", cwd: "C:\\a" }] }
-      ]
+      saved: [{ id: "a", name: "A", panes: [{ id: "x", kind: "cmd", cwd: "C:\\a" }] }]
     });
-    expect(screen.getByText("Son düzen: 2 alan, 3 bölme")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Geri yükle" }));
-    fireEvent.click(screen.getByRole("button", { name: "Boş başla" }));
-    expect(commands.restore).toHaveBeenCalledTimes(1);
-    expect(commands.startFresh).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Son düzen/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Geri yükle" })).toBeNull();
     expect((screen.getByRole("button", { name: "Ajan" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
