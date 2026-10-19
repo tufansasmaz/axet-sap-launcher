@@ -27,6 +27,7 @@ import ViewRail from "../agents/ViewRail";
 import { useRailCounts } from "../agents/useRailCounts";
 import MemoryView from "../agents/MemoryView";
 import OverviewView from "../agents/OverviewView";
+import ReportsView from "../agents/ReportsView";
 import ToolsView from "../agents/ToolsView";
 import type { WorkspaceView } from "../../app-electron/shared/types";
 
@@ -146,6 +147,11 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
           {state.phase === "ready" && active && view === "overview" && (
             <div className="absolute inset-0">
               <OverviewView key={active.id} workspace={active} />
+            </div>
+          )}
+          {state.phase === "ready" && active && view === "reports" && (
+            <div className="absolute inset-0">
+              <ReportsView key={active.id} workspace={active} />
             </div>
           )}
           {state.phase === "ready" && active && view === "tools" && (

@@ -137,12 +137,12 @@ describe("görünüm sekmeleri: dikey ray (ajanlar-ux §4)", () => {
     expect(office()).toBeTruthy();
   });
 
-  it("sekiz sekme (Tur 3: Pano başta, Araçlar sonda), dikey rayda (Sohbet yok); Terminal'deyken Ofis seçimi alana kaydediliyor", () => {
+  it("dokuz sekme (Tur 3: Pano başta, Araçlar sonda), dikey rayda (Sohbet yok); Terminal'deyken Ofis seçimi alana kaydediliyor", () => {
     // Ajanlar-ux §4: tablist dikey rayda, Sohbet yok.
     const { commands } = setup(workspace({ view: "panes" }), { withFlow: true });
     const group = screen.getByRole("tablist", { name: "Görünüm" });
     const labels = within(group).getAllByRole("tab").map((r) => r.getAttribute("aria-label"));
-    expect(labels).toEqual(["Pano", "Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek", "Araçlar"]);
+    expect(labels).toEqual(["Pano", "Raporlar", "Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek", "Araçlar"]);
     expect(within(group).getByRole("tab", { name: "Terminal" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(within(group).getByRole("tab", { name: "Ofis" }));
     expect(commands.setWorkspaceView).toHaveBeenCalledWith("a", "office");
