@@ -84,6 +84,19 @@ describe("Ayarlar — eklenen alanlar", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ agentMemoryDigest: false }));
   });
 
+  it("Tur 8: axet-code açılış seçimi Ajanlar ve terminal'de; varsayılan açık, araç ve model kaydediliyor", async () => {
+    const onSave = mount();
+    fireEvent.click(screen.getByRole("tab", { name: "Ajanlar ve terminal" }));
+    const toggle = screen.getByRole("switch", { name: "axet-code açılış seçimini otomatik yap" });
+    expect(toggle.getAttribute("aria-checked")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Codex (OpenAI)" }));
+    fireEvent.change(screen.getByLabelText("Model (isteğe bağlı)"), { target: { value: "Claude Sonnet 4.6" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+    });
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ axetAutoTool: "codex", axetAutoModel: "Claude Sonnet 4.6" }));
+  });
+
   it("destek adresi Sürüm ve destek'te, Gelişmiş Yollar'da değil", () => {
     mount();
     fireEvent.click(screen.getByRole("tab", { name: "Gelişmiş Yollar" }));

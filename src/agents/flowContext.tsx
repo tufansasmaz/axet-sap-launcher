@@ -20,6 +20,7 @@ import { useAgentStatuses } from "./agentStatusContext";
 import { useBoards } from "../board/boardContext";
 import { agentName } from "./agentLabels";
 import { pickNotices, type AgentNotice } from "./agentNotices";
+import { autoSetupDetail } from "./flowText";
 import {
   appendFlow,
   boardEvents,
@@ -176,6 +177,20 @@ export function FlowProvider({ children }: { children: ReactNode }) {
           ...(typeof m.toPaneId === "string" && m.toPaneId ? { toPaneId: m.toPaneId } : {})
         }
       ]);
+    });
+  }, [add]);
+
+  // Tur 8: axet-code açılış penceresi otomatik seçildi / seçilemedi. Sessiz not
+  // (bildirim yok); `add` "note"u ajan + ayrıntı başına bir kez yazıyor.
+  useEffect(() => {
+    const subscribe = typeof window !== "undefined" ? window.api?.onAgentAutoSetup : undefined;
+    if (!subscribe) return;
+    return subscribe((m) => {
+      if (typeof m?.paneId !== "string") return;
+      const pane = panesRef.current.get(m.paneId);
+      if (!pane) return;
+      const detail = m.ok ? autoSetupDetail(String(m.tool ?? ""), String(m.model ?? "")) : "autoSetupFailed";
+      add([{ at: Date.now(), workspaceId: pane.workspaceId, kind: "note", paneId: m.paneId, name: pane.name, detail }]);
     });
   }, [add]);
 

@@ -3,6 +3,14 @@ import type { TranslateFn } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import type { FlowEvent } from "./flowEvents";
 
+const AUTO_SETUP = "autoSetup|";
+
+/** Tur 8: otomatik açılış seçiminin "note" ayrıntısı (araç ve model; "|" ayırıcı). */
+export function autoSetupDetail(tool: string, model: string): string {
+  const clean = (v: string) => v.split("|").join(" ").trim().slice(0, 60);
+  return `${AUTO_SETUP}${clean(tool)}|${clean(model)}`;
+}
+
 export function flowBody(event: FlowEvent, t: TranslateFn): string {
   switch (event.kind) {
     case "started":
@@ -10,8 +18,13 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
       // Tur 6: tahmini tur ayrı metinle (istem + çıktı kanıtı; cevap terminalde).
       if (event.exact === false) return t(event.kind === "started" ? "flow.startedEstimated" : "flow.finishedEstimated");
       return t(`flow.${event.kind}`);
-    case "note":
+    case "note": {
+      if (event.detail.startsWith(AUTO_SETUP)) {
+        const [tool, model] = event.detail.slice(AUTO_SETUP.length).split("|");
+        return t("flow.note.autoSetup", { tool: tool || "—", model: model || t("flow.note.autoSetupLastUsed") });
+      }
       return t(`flow.note.${event.detail}` as TranslationKey);
+    }
     case "error":
     case "asked":
       return t(`flow.${event.kind}`);

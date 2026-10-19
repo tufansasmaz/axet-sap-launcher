@@ -590,15 +590,26 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     ve sağda durum çipi (Çalışıyor, Soru soruyor, Boşta 3 dk, Bitti, Hata).
     Tıklayınca Terminal'de o ajanın terminali öne gelir. **≈** durumun tahmini
     olduğunu söyler (motorun kendi kaydı okunamıyor). axet-code açılışta
-    "Choose your development tool" (yeni klasörde model) seçimi gösterir; bu
-    seçim terminalde yapılmadan ajan hazır sayılmaz: pano işi gönderilmez
+    "Choose your development tool" (yeni klasörde model) seçimi gösterir.
+    **Ayarlar → Ajanlar ve terminal → "axet-code açılış seçimini otomatik
+    yap"** (varsayılan açık) bu pencereyi senin yerine seçer: **Geliştirme
+    aracı** (aXet.Code — axet-code'un kendi vurguladığı — ya da Codex) ve
+    isteğe bağlı **Model** (boşsa axet-code'un son kullandığı; doluysa model
+    penceresinin arama kutusuna yazılıp ilk eşleşme seçilir). Sen o an
+    terminale yazıyorsan beklenir, pencereye kendin dokunduysan karışılmaz.
+    Akış'ta ajan başına bir kez sessiz bir not düşer: "axet-code aracı
+    otomatik seçildi (aXet.Code / model …)". İki denemede olmazsa "Araç
+    seçimi otomatik yapılamadı — terminalde seç" yazar. Lider'in açtığı
+    ajanlar da bundan yararlanır; Sohbet ekranı etkilenmez. Ayar kapalıysa
+    (ya da seçim olmadıysa) seçim terminalde yapılmadan ajan hazır sayılmaz: pano işi gönderilmez
     (gönderilseydi seçim penceresinde kaybolurdu). Akış'tan yazdığın mesaj ise
     **kuyruğa** girer: Akış'ta "araç seçimi bekleniyor" kartı çıkar
     (**Terminalde aç**, **Vazgeç**); seçimi terminalde yapınca mesaj
     kendiliğinden ve bir kez gider. O an gidemezse kart sebebini yazar,
-    **Yeniden gönder** senin tıklamanla bir kez daha dener. Uygulama seçimi
-    senin yerine yapmaz (axet-code'da bu pencereyi atlatan bir ayar
-    bulunamadı). Seçimi yapıp ilk mesajı gönderince durum kesinleşir. Satırın üstüne gelince
+    **Yeniden gönder** senin tıklamanla bir kez daha dener. (axet-code'da bu
+    pencereyi atlatan bir bayrak ya da ayar yok; model bayrağı da yalnız
+    `axet-code run`'da var, bu yüzden seçim tuşla yapılıyor.) Seçimi yapıp
+    ilk mesajı gönderince durum kesinleşir. Satırın üstüne gelince
     kitap simgesi (kalıcı bellek) belirir; yeniden başlatma gerektiğinde ok
     simgesi hep görünür. Motor adı ipucundadır; axet-code sürüm uyarısı varsa
     satırda görünür. Ekipte hiç ajan yoksa burada **İlk ajanını ekle** çıkar.

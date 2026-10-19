@@ -148,3 +148,24 @@ describe("FlowProvider — Tur 4", () => {
     expect(api.agentSend).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("FlowProvider — Tur 8 açılış seçimi", () => {
+  it("otomatik seçim akışa ajan başına bir kez sessiz not; başarısızlık ayrı kart; bildirim yok", async () => {
+    let listener: ((m: unknown) => void) | null = null;
+    api.onAgentAutoSetup = vi.fn((cb: (m: unknown) => void) => {
+      listener = cb;
+      return () => {};
+    });
+    setup({});
+    await waitFor(() => expect(listener).not.toBeNull());
+    act(() => listener!({ paneId: "a", ok: true, tool: "aXet.Code", model: "Claude Sonnet 5" }));
+    act(() => listener!({ paneId: "a", ok: true, tool: "aXet.Code", model: "Claude Sonnet 5" }));
+    act(() => listener!({ paneId: "yok", ok: true, tool: "aXet.Code", model: "" }));
+    await waitFor(() => expect(current!.events.filter((e) => e.kind === "note")).toHaveLength(1));
+    const done = current!.events.find((e) => e.kind === "note")!;
+    expect(done).toMatchObject({ workspaceId: WS, paneId: "a", name: "Ayşe", detail: "autoSetup|aXet.Code|Claude Sonnet 5" });
+    act(() => listener!({ paneId: "a", ok: false }));
+    await waitFor(() => expect(current!.events.some((e) => e.detail === "autoSetupFailed")).toBe(true));
+    expect(current!.notices).toEqual([]);
+  });
+});

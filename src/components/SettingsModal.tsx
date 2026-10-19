@@ -25,6 +25,7 @@ import SettingsNav from "./settings/SettingsNav";
 import { SETTINGS_SECTIONS, EDITED_FIELDS, dirtySections, type SettingsSectionId } from "./settings/settingsSections";
 import DataPrivacySection from "./settings/DataPrivacySection";
 import { LEAD_MAX_DEFAULT, normalizeLeadMax } from "../../app-electron/shared/leadCommands";
+import { AXET_AUTO_MODEL_MAX, AXET_TOOL_CHOICES, AXET_TOOL_LABEL, normalizeAutoModel } from "../../app-electron/shared/axetSetupPrefs";
 
 /** Tur 7: ekip başına lider açımı ajan sınırı seçenekleri. */
 const LEAD_MAX_OPTIONS = [1, 2, 3, 4, 6, 8] as const;
@@ -644,6 +645,35 @@ export default function SettingsModal({
                 options={LEAD_MAX_OPTIONS.map((n) => ({ key: String(n), label: String(n) }))}
               />
             </Field>
+            {/* Tur 8: axet-code açılış penceresi (araç + model) tuşla seçilsin. */}
+            <Field label={t("settingsModal.axetAutoSetupLabel")} hint={t("settingsModal.axetAutoSetupHint")}>
+              <Toggle
+                checked={form.axetAutoSetup !== false}
+                onChange={(axetAutoSetup) => update({ axetAutoSetup })}
+                label={t("settingsModal.axetAutoSetupLabel")}
+              />
+            </Field>
+            {form.axetAutoSetup !== false && (
+              <>
+                <Field label={t("settingsModal.axetAutoToolLabel")}>
+                  <SegmentedControl
+                    value={form.axetAutoTool === "codex" ? "codex" : "axet"}
+                    onChange={(axetAutoTool) => update({ axetAutoTool })}
+                    options={AXET_TOOL_CHOICES.map((key) => ({ key, label: AXET_TOOL_LABEL[key] }))}
+                  />
+                </Field>
+                <Field label={t("settingsModal.axetAutoModelLabel")} hint={t("settingsModal.axetAutoModelHint")}>
+                  <FieldInput
+                    aria-label={t("settingsModal.axetAutoModelLabel")}
+                    value={form.axetAutoModel ?? ""}
+                    maxLength={AXET_AUTO_MODEL_MAX}
+                    placeholder={t("settingsModal.axetAutoModelPlaceholder")}
+                    onChange={(e) => update({ axetAutoModel: e.target.value })}
+                    onBlur={(e) => update({ axetAutoModel: normalizeAutoModel(e.target.value) })}
+                  />
+                </Field>
+              </>
+            )}
           </div>
         );
       case "advanced":
