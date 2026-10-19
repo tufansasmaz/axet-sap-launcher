@@ -752,6 +752,50 @@ için ekipte kalırlar; kapatmasını istersen söyle ya da Ajan yönetimi'nden 
   Reddet** kartıyla bekler, 5 dk cevapsız kalırsa reddedilir).
 - Görev takibi uygulama açıkken bellekte tutulur; uygulama kapanınca bekleyen
   görevler biter (Akış geçmişi kalır).
+- **Hata ve takılma liderin sorumluluğunda**: liderin verdiği görevde ajan hata
+  verirse görev hemen düşmez; geçici hatada uygulama önce kendisi yeniden dener
+  (aşağıya bak). Denemeler tükenince ya da hata kalıcıysa (model, yetki) görev
+  hata sınıfı ve deneme sayısıyla düşer, Akış'ta **"Ali → Ayşe · hata"** kartı
+  çıkar ve lidere kendiliğinden bir satır gider (lider meşgulse boşalınca):
+  "G-xxxx Ali: istek sınırı (429), deneme 3/3 tükendi. Öneri: …". `ntt-team wait`
+  de sınıfı, deneme sayısını ve öneriyi döndürür. Lider görevi boştaki başka
+  ajana verirse **"yeniden atadı"**, yeni ajan açarsa "yeni ajan açtı · G-xxxx
+  yerine" kartı görünür. Aynı görev en çok 2 kez yeniden atanır; sonra lider
+  sana bildirir. Atanmış görev uzun süre aşama değiştirmezse (varsayılan 10 dk)
+  lidere **"takıldı"** satırı gider; lider `ntt-team ask` ile durumu sorabilir.
+  Senin kendi verdiğin işte hata olursa lider yalnız bilgilendirilir, işine
+  karışmaz. Aynı olay için lidere tek satır gider.
+
+### Ajan hata verince
+
+Ajan bir model ya da servis hatası alınca Akış'taki kartı hatanın kısa nedenini
+gösterir: **servis geçici olarak kapalı** (5xx), **istek sınırı** (429),
+**ağ / zaman aşımı**, **kimlik / yetki** (401/403), **model bulunamadı**,
+**bağlam doldu**, **oturum geçmişi bozuk**, **güvenlik politikası engeli** ya da
+**bilinmeyen hata**. Altında **Ayrıntı** satırında ham iletinin kısa, gizlisi
+süzülmüş hali durur. axet-code'da neden oturum kaydından (kesin) okunur;
+Claude Code/Codex/Gemini'de terminalin son hata satırından tahmin edilir (≈).
+
+- **Otomatik yeniden deneme** (Ayarlar → Ajanlar ve terminal → "Ajan
+  hatalarında otomatik yeniden dene", varsayılan açık; "En çok deneme" 1–5,
+  varsayılan 3): yalnız geçici sınıflarda (servis, istek sınırı, ağ). 10 sn,
+  30 sn, 90 sn bekler (biraz sapmalı); kartta geri sayım ve **İptal** vardır.
+  axet-code'da oturum korunur, ajana "kaldığın yerden devam et" gider; öbür
+  motorlarda son istem yinelenir. Sen o arada terminalde yazarsan ya da ajan
+  başka işe geçerse deneme yapılmaz. Bildirim yalnız hata kesinleşince (deneme
+  yok ya da bitti) ve bir kez gelir.
+- **Kalıcı hatada** otomatik deneme yoktur; kart ne yapacağını söyler (ör.
+  model bulunamadıysa Ayarlar → axet-code modeli'nden geçerli model seç).
+- **Yeniden dene**: ajanın en son hata kartındaki düğme isteği hemen yeniden
+  gönderir (sayaç sıfırlanır).
+- **Aynı anda çalışan ajan (axet-code)** (varsayılan 2, "Sınırsız" seçilebilir):
+  aynı hesaptan çok ajan aynı anda istek atınca 429 geliyor (ölçüm: 429 anlarında
+  2–4 ajan çalışıyordu). Lider görevleri, pano dağıtımı ve otomatik denemeler
+  bu sınırı aşmaz; fazlası sırada bekler (Akış'ta **"sırada"** kartı). Lider
+  sınırdan muaftır. Bir ajan 429 alınca aynı motorun otomatik gönderimleri
+  ekipçe kısa süre (20 sn'den başlayıp artan) bekler. Senin terminalde ya da
+  Akış'tan yazdığın mesaj bu kapıya takılmaz.
+- **Lider görevinde takılma uyarısı** (varsayılan 10 dk; Kapalı/5/10/20/30).
 
 ### Ajan yönetimi
 

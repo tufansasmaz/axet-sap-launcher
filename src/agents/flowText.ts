@@ -2,6 +2,37 @@
 import type { TranslateFn } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import type { FlowEvent } from "./flowEvents";
+import { parseFlowErrorDetail, type AgentErrorClass, type AgentRetryInfo } from "../../app-electron/shared/agentErrors";
+
+/** Tur 9: kalıcı sınıflarda kullanıcıya ne yapacağı (otomatik deneme yok). */
+const HINT: Partial<Record<AgentErrorClass, TranslationKey>> = {
+  auth: "agents.errorHint.auth",
+  model: "agents.errorHint.model",
+  context: "agents.errorHint.context",
+  history: "agents.errorHint.history",
+  policy: "agents.errorHint.policy"
+};
+
+export interface ErrorCard {
+  cls: AgentErrorClass;
+  attempts: number;
+  max: number;
+  detail: string;
+  hint?: TranslationKey;
+}
+
+/** Hata olayının `detail`inden kart; eski biçimde (sınıfsız) null. */
+export function errorCard(detail: string): ErrorCard | null {
+  const parsed = parseFlowErrorDetail(detail);
+  if (!parsed) return null;
+  const hint = HINT[parsed.cls];
+  return { ...parsed, ...(hint ? { hint } : {}) };
+}
+
+/** Geri sayımın kalan saniyesi. */
+export function retrySecondsLeft(retry: AgentRetryInfo, now: number): number {
+  return Math.max(0, Math.ceil((retry.at - now) / 1000));
+}
 
 const AUTO_SETUP = "autoSetup|";
 
@@ -25,7 +56,12 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
       }
       return t(`flow.note.${event.detail}` as TranslationKey);
     }
-    case "error":
+    case "error": {
+      const card = errorCard(event.detail);
+      if (!card) return t("flow.error");
+      const tries = card.attempts > 0 && card.max > 0 ? t("agents.errorTries", { n: card.attempts, max: card.max }) : "";
+      return t("flow.errorClass", { cls: t(`agents.errorClass.${card.cls}` as TranslationKey), tries });
+    }
     case "asked":
       return t(`flow.${event.kind}`);
     case "assigned":

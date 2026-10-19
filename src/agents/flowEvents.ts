@@ -10,6 +10,7 @@ import type { ChangesState } from "../../app-electron/shared/changesTypes";
 
 import { FLOW_HISTORY_MAX, type FlowKind, type StoredFlowEvent } from "../../app-electron/shared/flowHistory";
 import type { LeadAct } from "../../app-electron/shared/leadCommands";
+import { flowErrorDetail } from "../../app-electron/shared/agentErrors";
 
 export type { FlowKind };
 
@@ -39,6 +40,8 @@ export interface FlowEvent {
   act?: LeadAct;
   /** Tur 7 ("relay"): kartın hedef bölmesi (ofiste ışın). */
   toPaneId?: string;
+  /** Tur 9 ("error"): otomatik deneme bekliyor; bildirim yok (canlı, kalıcı kayda yazılmaz). */
+  retrying?: boolean;
 }
 
 export type FlowInput = Omit<FlowEvent, "id">;
@@ -66,6 +69,22 @@ export function statusTransition(prev: AgentState | undefined, next: AgentState)
  *   - Kesin bağ sebebi (`link`) değişince ya da tahmini tur başlarken "bilgi"
  *     olayı; aynı sebebi bir kez göstermek FlowProvider'ın işi.
  */
+/** Tur 9: hata olayının alanları (sınıf/ayrıntı/deneme `detail`te; kalıcı şema değişmiyor). */
+function errorFields(status: AgentStatus): Pick<FlowInput, "detail" | "exact" | "retrying"> {
+  const e = status.error;
+  return {
+    detail: e ? flowErrorDetail({ cls: e.cls, attempts: status.attempts, max: status.maxAttempts, detail: e.detail }) : "",
+    exact: e ? e.source === "exact" : status.source === "exact",
+    ...(status.retry ? { retrying: true } : {})
+  };
+}
+
+/** Tur 9: yeni bir hata mı (geçiş, ya da aynı durumda yeni an). */
+function newError(before: AgentStatus, status: AgentStatus): boolean {
+  if (!status.error || (status.state !== "error" && status.state !== "finished")) return false;
+  return before.state !== status.state || !before.error || before.lastActivity !== status.lastActivity;
+}
+
 export function statusEvents(
   prev: Record<string, AgentStatus>,
   next: Record<string, AgentStatus>,
@@ -80,6 +99,11 @@ export function statusEvents(
     if (!before) continue;
     const base = { at, workspaceId: pane.workspaceId, paneId, name: pane.name, detail: "" };
     const reply = status.reply ?? "";
+    // Tur 9: hata (kesin kayıttan ya da terminalin son hata satırından; motor hata yazıp kapandıysa da).
+    if (status.error && (status.state === "error" || status.state === "finished")) {
+      if (newError(before, status)) out.push({ ...base, kind: "error", ...errorFields(status) });
+      continue;
+    }
     if (status.source === "exact") {
       // Tahmini turdan kesine geçiş: aynı görev, ikinci "başladı" yok.
       const kind = before.source === "estimated" && before.turn && status.state === "running" ? null : statusTransition(before.state, status.state);

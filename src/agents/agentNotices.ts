@@ -3,6 +3,7 @@
 // (ajan + tür + an) için tek bildirim.
 import type { TranslateFn } from "../i18n";
 import type { FlowInput } from "./flowEvents";
+import { errorCard } from "./flowText";
 
 export type NoticeKind = "asked" | "finished" | "error";
 
@@ -14,6 +15,8 @@ export interface AgentNotice {
   name: string;
   /** "finished": kesin kaynaktan mı (değilse tahmini işaretli). */
   exact: boolean;
+  /** Tur 9: hata kartının "err|…" ayrıntısı. */
+  detail?: string;
 }
 
 const KINDS: ReadonlySet<string> = new Set<NoticeKind>(["asked", "finished", "error"]);
@@ -23,10 +26,12 @@ export function pickNotices(inputs: readonly FlowInput[], seen: Set<string>): Ag
   const out: AgentNotice[] = [];
   for (const e of inputs) {
     if (!KINDS.has(e.kind) || !e.paneId) continue;
+    // Tur 9: otomatik deneme bekleyen hata bildirilmez; kesinleşen hata tek bildirim.
+    if (e.kind === "error" && e.retrying) continue;
     const key = `${e.workspaceId}|${e.paneId}|${e.kind}|${e.at}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push({ key, kind: e.kind as NoticeKind, workspaceId: e.workspaceId, paneId: e.paneId, name: e.name, exact: e.exact !== false });
+    out.push({ key, kind: e.kind as NoticeKind, workspaceId: e.workspaceId, paneId: e.paneId, name: e.name, exact: e.exact !== false, ...(e.kind === "error" ? { detail: e.detail } : {}) });
   }
   // Sınırsız büyümesin: en eski anahtarlar düşer (Set ekleme sırasını korur).
   while (seen.size > SEEN_MAX) {
@@ -60,7 +65,12 @@ export function noticePlan(notice: AgentNotice, ctx: NoticeContext): NoticePlan 
 export function noticeText(notice: AgentNotice, t: TranslateFn): string {
   const name = notice.name.trim() || t("agents.notice.someone");
   if (notice.kind === "asked") return t("agents.notice.asked", { name });
-  if (notice.kind === "error") return t("agents.notice.error", { name });
+  if (notice.kind === "error") {
+    const card = errorCard(notice.detail ?? "");
+    if (!card) return t("agents.notice.error", { name });
+    const tries = card.attempts > 0 && card.max > 0 ? t("agents.errorTries", { n: card.attempts, max: card.max }) : "";
+    return t("agents.notice.errorClass", { name, cls: t(`agents.errorClass.${card.cls}`), tries });
+  }
   return t(notice.exact ? "agents.notice.finished" : "agents.notice.finishedEstimated", { name });
 }
 

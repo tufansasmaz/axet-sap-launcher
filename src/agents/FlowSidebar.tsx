@@ -24,7 +24,7 @@ import { ENGINE_LABEL, agentName } from "./agentLabels";
 import { useBoards } from "../board/boardContext";
 import { activeSubtaskOf } from "../board/boardDisplay";
 import MemoryDialog from "./MemoryDialog";
-import { flowBody } from "./flowText";
+import { errorCard, flowBody, retrySecondsLeft } from "./flowText";
 import { phaseText } from "./agentPhase";
 import { useFlow, type LeadApproval, type QueuedSend } from "./flowContext";
 import { isLeadRole } from "../../app-electron/shared/leadCommands";
@@ -87,6 +87,9 @@ export default function FlowSidebar() {
   const waiting = workspace ? queued.filter((q) => q.workspaceId === workspace.id) : [];
   const asks = workspace ? approvals.filter((a) => a.workspaceId === workspace.id) : [];
   const lastId = shown.length ? shown[shown.length - 1].id : 0;
+  // Tur 9: ajan başına en son tur kartı (yeniden deneme yalnız onda).
+  const latestTurn = new Map<string, number>();
+  for (const e of shown) if (e.paneId && (e.kind === "started" || e.kind === "finished" || e.kind === "error")) latestTurn.set(e.paneId, e.id);
 
   // En yeni altta: yeni olay ya da soru gelince sona kay.
   useEffect(() => {
@@ -138,7 +141,7 @@ export default function FlowSidebar() {
         {shown.length === 0 && decisions.length === 0 && <p className="px-1 text-2xs text-slate-500">{t("flow.empty")}</p>}
         <ol className="flex flex-col gap-1.5">
           {shown.map((event) => (
-            <FlowEntry key={event.id} event={event} workspace={workspace} />
+            <FlowEntry key={event.id} event={event} workspace={workspace} latest={event.paneId !== null && latestTurn.get(event.paneId) === event.id} />
           ))}
         </ol>
         {asks.length > 0 && (
@@ -281,7 +284,7 @@ const KIND_TONE: Record<FlowKind, StatusTone> = {
 const LINK = "cursor-pointer text-2xs text-slate-400 underline-offset-2 hover:text-slate-200 hover:underline";
 
 /** Akışın bir satırı: kim (renk, ad, rol), ne (çip), ne zaman; altında gövde ya da cevap kartı. */
-function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: TerminalWorkspace }) {
+function FlowEntry({ event, workspace, latest = false }: { event: FlowEvent; workspace: TerminalWorkspace; latest?: boolean }) {
   const t = useT();
   const { commands } = useTerminalStore();
   const { statuses } = useAgentStatuses();
@@ -298,7 +301,7 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
         <div className="flex min-w-0 items-center gap-1.5 text-2xs">
           <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
           <span className="min-w-0 truncate font-medium text-slate-200">{title}</span>
-          <Chip tone={act === "denied" ? "warning" : "muted"}>{act ? t(`flow.lead.chip.${act}`) : t("flow.chip.relay")}</Chip>
+          <Chip tone={act === "denied" || act === "error" || act === "stall" ? "warning" : "muted"}>{act ? t(`flow.lead.chip.${act}`) : t("flow.chip.relay")}</Chip>
           <span className="ml-auto shrink-0 font-mono tabular-nums text-slate-600">{at}</span>
         </div>
         <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap break-words text-xs text-slate-200">{event.detail}</p>
@@ -364,9 +367,73 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
           )}
           {(event.kind === "verified" || event.kind === "asked") && <ToMemory event={event} workspaceId={workspace.id} />}
           {(event.kind === "browser" || event.kind === "link") && <OpenInBrowserButton workspaceId={workspace.id} url={event.detail} />}
+          {event.kind === "error" && <ErrorDetails event={event} status={latest ? status : undefined} />}
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Tur 9: hata kartının altı — ham iletinin kısa hali ("Ayrıntı"), kalıcı
+ * sınıflarda ne yapılacağı, ve yalnız ajanın en son kartında: bekleyen
+ * otomatik denemenin geri sayımı + "İptal", yoksa "Yeniden dene".
+ */
+function ErrorDetails({ event, status }: { event: FlowEvent; status: AgentStatus | undefined }) {
+  const t = useT();
+  const card = errorCard(event.detail);
+  const [now, setNow] = useState(() => Date.now());
+  const [sent, setSent] = useState<"idle" | "busy" | "sent" | "failed">("idle");
+  const retry = status?.state === "error" ? status.retry : undefined;
+  useEffect(() => {
+    if (!retry) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [retry]);
+  const api = (window as unknown as { api?: Partial<Window["api"]> }).api;
+  const paneId = event.paneId;
+  const blocked = status?.state === "error" && !retry ? status.retryBlocked : undefined;
+  return (
+    <div data-flow-error={card?.cls ?? ""} className="mt-0.5 flex flex-col gap-0.5">
+      {card?.detail && (
+        <p data-error-detail="" className="break-words text-2xs text-slate-500" title={card.detail}>
+          {t("flow.errorDetail")}: {card.detail}
+        </p>
+      )}
+      {card?.hint && <p data-error-hint="" className="break-words text-2xs text-slate-300">{t(card.hint)}</p>}
+      {blocked && blocked !== "permanent" && <p className="text-2xs text-slate-500">{t(`flow.retryBlocked.${blocked}` as TranslationKey)}</p>}
+      {retry && paneId && (
+        <div data-retry-countdown="" className="flex items-center gap-2 text-2xs text-slate-300">
+          <span role="status">{t("flow.retryIn", { s: retrySecondsLeft(retry, now), n: retry.attempt, max: retry.max })}</span>
+          <button type="button" data-retry-cancel="" className={LINK} onClick={() => void api?.agentRetryCancel?.(paneId)}>
+            {t("flow.retryCancel")}
+          </button>
+        </div>
+      )}
+      {!retry && status?.state === "error" && paneId && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-retry-now=""
+            disabled={sent === "busy"}
+            className={LINK}
+            onClick={async () => {
+              setSent("busy");
+              try {
+                const result = await api?.agentRetry?.(paneId);
+                setSent(result === "ok" ? "sent" : "failed");
+              } catch {
+                setSent("failed");
+              }
+            }}
+          >
+            {t("flow.retry")}
+          </button>
+          {sent === "sent" && <span className="text-2xs text-slate-500">{t("flow.retrySent")}</span>}
+          {sent === "failed" && <span className="text-2xs text-[var(--status-danger-text)]">{t("flow.retryFailed")}</span>}
+        </div>
+      )}
+    </div>
   );
 }
 

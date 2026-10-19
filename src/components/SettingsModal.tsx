@@ -26,6 +26,20 @@ import { SETTINGS_SECTIONS, EDITED_FIELDS, dirtySections, type SettingsSectionId
 import DataPrivacySection from "./settings/DataPrivacySection";
 import { LEAD_MAX_DEFAULT, normalizeLeadMax } from "../../app-electron/shared/leadCommands";
 import { AXET_AUTO_MODEL_MAX, AXET_TOOL_CHOICES, AXET_TOOL_LABEL, normalizeAutoModel } from "../../app-electron/shared/axetSetupPrefs";
+import {
+  CONCURRENCY_DEFAULT,
+  RETRY_MAX_DEFAULT,
+  RETRY_MAX_LIMIT,
+  STALL_MINUTES_DEFAULT,
+  STALL_MINUTES_OPTIONS,
+  normalizeConcurrency,
+  normalizeRetryMax,
+  normalizeStallMinutes
+} from "../../app-electron/shared/agentErrors";
+
+// Tur 9: ajan hatası ayarlarının seçenekleri.
+const RETRY_MAX_OPTIONS = Array.from({ length: RETRY_MAX_LIMIT }, (_, i) => i + 1);
+const CONCURRENCY_OPTIONS = [0, 1, 2, 3, 4] as const;
 
 /** Tur 7: ekip başına lider açımı ajan sınırı seçenekleri. */
 const LEAD_MAX_OPTIONS = [1, 2, 3, 4, 6, 8] as const;
@@ -674,6 +688,33 @@ export default function SettingsModal({
                 </Field>
               </>
             )}
+            {/* Tur 9: ajan hatası — otomatik yeniden deneme, eşzamanlılık, takılma. */}
+            <Field label={t("settingsModal.agentAutoRetryLabel")} hint={t("settingsModal.agentAutoRetryHint")}>
+              <Toggle checked={form.agentAutoRetry !== false} onChange={(agentAutoRetry) => update({ agentAutoRetry })} label={t("settingsModal.agentAutoRetryLabel")} />
+            </Field>
+            {form.agentAutoRetry !== false && (
+              <Field label={t("settingsModal.agentRetryMaxLabel")}>
+                <SegmentedControl
+                  value={String(form.agentRetryMax ?? RETRY_MAX_DEFAULT)}
+                  onChange={(value) => update({ agentRetryMax: normalizeRetryMax(Number(value)) })}
+                  options={RETRY_MAX_OPTIONS.map((n) => ({ key: String(n), label: String(n) }))}
+                />
+              </Field>
+            )}
+            <Field label={t("settingsModal.agentConcurrencyLabel")} hint={t("settingsModal.agentConcurrencyHint")}>
+              <SegmentedControl
+                value={String(form.agentConcurrency ?? CONCURRENCY_DEFAULT)}
+                onChange={(value) => update({ agentConcurrency: normalizeConcurrency(Number(value)) })}
+                options={CONCURRENCY_OPTIONS.map((n) => ({ key: String(n), label: n === 0 ? t("settingsModal.agentConcurrencyUnlimited") : String(n) }))}
+              />
+            </Field>
+            <Field label={t("settingsModal.leadStallLabel")} hint={t("settingsModal.leadStallHint")}>
+              <SegmentedControl
+                value={String(form.leadStallMinutes ?? STALL_MINUTES_DEFAULT)}
+                onChange={(value) => update({ leadStallMinutes: normalizeStallMinutes(Number(value)) })}
+                options={STALL_MINUTES_OPTIONS.map((n) => ({ key: String(n), label: n === 0 ? t("settingsModal.leadStallOff") : t("settingsModal.minutesShort", { n }) }))}
+              />
+            </Field>
           </div>
         );
       case "advanced":
