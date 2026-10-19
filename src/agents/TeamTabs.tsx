@@ -16,6 +16,7 @@ import { useBoards } from "../board/boardContext";
 import { failedCount, taskCount } from "../board/boardDisplay";
 import NewTeamDialog from "./NewTeamDialog";
 import { templateAgents, type TeamTemplateId } from "./teamTemplates";
+import { onNewTeamRequest } from "./addAgentBus";
 
 // Ekip sekmeleri (spec 2026-10-18 ajanlar-yeniden §2): ekip = alan. Eski
 // kenar çubuğu alan listesinin (TerminalSidebar) yerini aldı; adlandırma,
@@ -75,6 +76,9 @@ export default function TeamTabs({
     else return;
     e.preventDefault();
   };
+
+  // Tur 7: Ajan yönetimi ekranından "+ Ekip".
+  useEffect(() => onNewTeamRequest(() => setNewTeamOpen(true)), []);
 
   const createTeam = (template: TeamTemplateId | null) => {
     setNewTeamOpen(false);

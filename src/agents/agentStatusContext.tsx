@@ -10,6 +10,8 @@ export interface AgentStatusValue {
   /** "Boşta 3 dk" için saat; NOW_TICK_MS'de bir ilerliyor. */
   now: number;
   answer: (paneId: string, callId: string, index: number) => Promise<AgentAnswerResult>;
+  /** Tur 7: soru kartındaki serbest cevap. */
+  answerText?: (paneId: string, callId: string, text: string) => Promise<AgentAnswerResult>;
 }
 
 const EMPTY: AgentStatusValue = {
@@ -69,6 +71,12 @@ export function AgentStatusProvider({ children }: { children: ReactNode }) {
     []
   );
 
-  const value = useMemo(() => ({ statuses, engines, now, answer }), [statuses, engines, now, answer]);
+  const answerText = useCallback(
+    (paneId: string, callId: string, text: string) =>
+      window.api.agentAnswerText(paneId, callId, text).catch((): AgentAnswerResult => ({ ok: false, reason: "writeFailed" })),
+    []
+  );
+
+  const value = useMemo(() => ({ statuses, engines, now, answer, answerText }), [statuses, engines, now, answer, answerText]);
   return <AgentStatusContext.Provider value={value}>{children}</AgentStatusContext.Provider>;
 }

@@ -63,6 +63,7 @@ import { TerminalStoreProvider, type SapPaneRequest } from "./stores/terminalSto
 import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
 import AgentNotifier from "./agents/AgentNotifier";
+import LocalUrlWatcher from "./browser/LocalUrlWatcher";
 import AgentsModeBadge from "./agents/AgentsModeBadge";
 import { BoardProvider } from "./board/boardContext";
 import BoardOpenListener from "./board/BoardOpenListener";
@@ -1048,6 +1049,7 @@ export default function App() {
           pushToast={pushToast}
           onShow={handleShowAgents}
         />
+        <LocalUrlWatcher enabled={config?.browserAutoOpen !== false} />
         <BoardOpenListener onShow={handleShowAgents} />
         <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />

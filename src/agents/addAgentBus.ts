@@ -12,3 +12,15 @@ export function onAddAgentRequest(handler: () => void): () => void {
   window.addEventListener(EVENT, handler);
   return () => window.removeEventListener(EVENT, handler);
 }
+
+// Tur 7: Ajan yönetimi ekranındaki "+ Ekip" (şablonlar) — ekip sekmelerinin penceresini açar.
+const NEW_TEAM_EVENT = "ntt:new-team";
+
+export function requestNewTeam(): void {
+  window.dispatchEvent(new CustomEvent(NEW_TEAM_EVENT));
+}
+
+export function onNewTeamRequest(handler: () => void): () => void {
+  window.addEventListener(NEW_TEAM_EVENT, handler);
+  return () => window.removeEventListener(NEW_TEAM_EVENT, handler);
+}

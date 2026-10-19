@@ -639,8 +639,13 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     terminaline özel, uygulama kapanınca geçersiz olan bir anahtarla çalışır;
     anahtar diske yazılmaz.
   - **Soru kartları**: ekibin cevap bekleyen soruları. axet-code'un seçenekli
-    sorusunu tek tıkla cevaplarsın; terminalde dokunduysan ya da serbest/çok
-    seçimli bir soruysa **Terminale git**.
+    sorusunu tek tıkla cevaplarsın. Seçeneklerin hiçbiri uymuyorsa altındaki
+    **Kendi cevabını yaz** kutusuna yazıp **Gönder**'e bas: cevap axet-code'un
+    soru kutusundaki "Other" satırından ajana gider (ajan bunu "kullanıcı kendi
+    cevabını yazdı" olarak görür). Metin tek satıra indirilir, en çok 500
+    karakter; parola/anahtar gibi görünen parçalar «gizli» olarak gider. Her
+    soruya bir kez gönderilir. Terminalde o soruya dokunduysan, çok seçimli
+    bir soruysa ya da ajan axet-code değilse **Terminale git**.
   - **Mesaj kutusu** (en alt): kutunun altındaki **@ kime?** çipine tıkla ya
     da **@** yaz, listeden ajanı seç (ok tuşları + Enter); seçilen ajan çipte
     görünür, **×** kaldırır. Mesajı yaz, **Enter** gönderir, **Shift+Enter**
@@ -684,6 +689,25 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   düzenin kaybolmaz; eski axet-code bölmeleri axet-code ajanı olarak açılır.
   Bu dönüşüm tek yönlüdür: daha eski bir sürüme (1.8.x) dönersen ajan
   bölmeleri o sürümde açılmaz.
+
+### Ajan yönetimi
+
+Raydaki **Ajan yönetimi** (Terminal'in altında) TÜM ekiplerdeki ajanları tek
+tabloda gösterir: ad, ekip, rol, motor/model, durum ve şu anki aşama, son
+etkinlik, açılış saati (bu uygulama oturumunda), bellek boyutu. Lider ajanın
+ekip köprüsüyle açtığı ajanlarda "lider açtı" etiketi vardır.
+
+- Üstte arama (ad, rol, ekip, motor, model) ve **Ekip**, **Durum**, **Motor**
+  süzgeçleri. Soru soran ve hata veren ajanlar en üstte.
+- Satır eylemleri: **Terminalde göster**, **Mesaj gönder** (Akış mesaj
+  kutusuyla aynı kurallar), **Yeniden adlandır**, renk, **Belleği aç**
+  (kapalıysa açar), **Yeniden başlat** ve **Kapat** (ikisi de onay ister).
+- Kutucuklarla birden çok ajan seç (başlıktaki kutucuk görünenlerin hepsini
+  seçer): **Yeniden başlat** ya da **Kapat** toplu yapılır; onay penceresi kaç
+  ajanın şu an çalıştığını ve işinin yarıda kalacağını söyler.
+- **+ Ajan** seçili ekibe ekler; **+ Ekip** boş ekip ya da hazır şablon açar.
+- Ajanı başka ekibe taşımak ve rolünü değiştirmek burada yok: rol ajanın
+  açılış ayarıdır, farklı rol için yeni ajan ekle.
 
 ### Görev Panosu
 
@@ -855,6 +879,17 @@ gönder** ile tek adımda bir ajana verebilirsin.
 - Adresteki erişim anahtarı, giriş kodu, parola ve imza parametreleri
   (`access_token`, `code`, `sap-password` gibi) ne saklanır ne ajana gider;
   Fiori rotası (`#SalesOrder-display?…`) korunur.
+- **Otomatik açma**: ajan çalışırken `http://localhost:3000` gibi bir yerel
+  adres verirse (terminal çıktısında ya da son cevabında; `localhost`,
+  `127.0.0.1`, `[::1]`, `0.0.0.0` → `localhost`) adres ekibin Tarayıcı
+  görünümünde kendiliğinden açılır ve Akış'ta "Tarayıcıda açıldı" kartı
+  çıkar. Aynı adres aynı ajan oturumunda bir kez açılır. O an başka bir
+  yerde yazıyorsan ya da ekip seçili değilse görünüm değiştirilmez: sayfa
+  arkada yüklenir, raydaki Tarayıcı düğmesinde rozet görünür. Sunucu henüz
+  ayağa kalkmadıysa birkaç saniye arayla üç kez yeniden denenir. Uzak
+  adresler hiçbir zaman kendiliğinden açılmaz: ajanın cevabındaki uzak adres
+  Akış'ta **Tarayıcıda aç** düğmeli kart olarak görünür. Kapatmak için
+  Ayarlar → Genel → **Yerel adresleri tarayıcıda otomatik aç**.
 - Alan başına son açılan adres saklanır; görünüm açılınca kendiliğinden
   yüklenmez, boş sayfadaki düğmeyle tek tıkla açarsın. Başka görünüme geçip
   dönünce sayfa ve geri/ileri geçmişi yerinde durur; uygulama kapanınca

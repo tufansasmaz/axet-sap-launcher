@@ -29,6 +29,7 @@ import MemoryBrain from "../agents/brain/MemoryBrain";
 import OverviewView from "../agents/OverviewView";
 import ReportsView from "../agents/ReportsView";
 import ToolsView from "../agents/ToolsView";
+import ManageView from "../agents/ManageView";
 import type { WorkspaceView } from "../../app-electron/shared/types";
 
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
@@ -143,6 +144,11 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
           {state.phase === "ready" && active && view === "tools" && (
             <div className="absolute inset-0">
               <ToolsView />
+            </div>
+          )}
+          {state.phase === "ready" && active && view === "manage" && (
+            <div className="absolute inset-0">
+              <ManageView />
             </div>
           )}
           {state.phase === "ready" && active && view === "memory" && (

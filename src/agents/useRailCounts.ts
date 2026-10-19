@@ -8,6 +8,7 @@ import { askingCount } from "./agentView";
 import { railCounts, type RailCounts } from "./railCounts";
 import type { ChangesState } from "../../app-electron/shared/changesTypes";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
+import { useBrowserBadge } from "../browser/browserAutoOpen";
 
 /** Alanın değişiklik durumu (depo durumu dahil). `refreshKey` değişince yeniden sorulur (ör. kök değişti). */
 export function useWorkspaceChanges(workspaceId: string, refreshKey = ""): ChangesState | null {
@@ -37,5 +38,6 @@ export function useRailCounts(workspace: TerminalWorkspace): RailCounts {
   const { boards } = useBoards();
   const { statuses } = useAgentStatuses();
   const changes = useWorkspaceChanges(workspace.id);
-  return railCounts({ board: boards[workspace.id], changes, asking: askingCount(workspace, statuses) });
+  const browser = useBrowserBadge(workspace.id);
+  return railCounts({ board: boards[workspace.id], changes, asking: askingCount(workspace, statuses), browser });
 }
