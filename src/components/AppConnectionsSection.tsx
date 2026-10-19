@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useLanguage, useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
+import { btn, iconBtn } from "../ui/buttons";
 import type { ConnectorCheck, ConnectorInventory, ConnectorMode, ConnectorProvider } from "../../app-electron/shared/types";
 
 // Uygulama Bağlantıları — Outlook/SharePoint connector'ları. MİMARİ
@@ -199,17 +200,22 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
   }, [projectDir]);
 
   useEffect(() => {
-    Promise.all(PROVIDERS.map(({ id }) => window.api.getConnectorMcpUrl(id).then((url) => [id, url] as const))).then(
-      (entries) => setMcpUrls(Object.fromEntries(entries))
-    );
+    Promise.all(PROVIDERS.map(({ id }) => window.api.getConnectorMcpUrl(id).then((url) => [id, url] as const)))
+      .then((entries) => setMcpUrls(Object.fromEntries(entries)))
+      // Adres yalnız bilgi; okunamazsa satır adressiz çiziliyor.
+      .catch(() => {});
     // Önceki bağlanmaların sonucu config'te duruyor — modal her açıldığında
     // sıfırdan başlamak, kullanıcıyı her seferinde yeniden bağlanmaya
     // zorluyordu (her doğrulama ~30-60 sn).
-    window.api.getConfig().then((cfg) => {
-      setResults(cfg.connectorLastResults ?? {});
-      setEnabled(cfg.connectorEnabled ?? {});
-      setMode(cfg.connectorMode);
-    });
+    window.api
+      .getConfig()
+      .then((cfg) => {
+        setResults(cfg.connectorLastResults ?? {});
+        setEnabled(cfg.connectorEnabled ?? {});
+        setMode(cfg.connectorMode);
+      })
+      // Okunamazsa "bağlı değil" başlıyor — Bağlan zaten doğrulayıp yazıyor.
+      .catch(() => {});
   }, []);
 
   // Bağlan = doğrula + aç. Doğrulama main process'te zaten
@@ -220,7 +226,14 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
     requestIdRef.current = requestId;
     setBusyProvider(provider);
     try {
-      const result = await window.api.testConnector(requestId, provider);
+      let result: Awaited<ReturnType<typeof window.api.testConnector>>;
+      try {
+        result = await window.api.testConnector(requestId, provider);
+      } catch (err) {
+        // Kanal/ana süreç hatası: ana süreç bir şey yazamadı, ekranda da
+        // sessizce eski hâle dönmek "hiç denenmemiş" gibi gösteriyordu.
+        result = { ok: false, connected: false, detail: "", error: (err as Error)?.message || String(err) };
+      }
       if (result.cancelled) return;
       setResults((prev) => ({
         ...prev,
@@ -242,7 +255,13 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
   // Bağlantıyı Kes = sadece kapat. Hiçbir process başlatmıyor, anında.
   const handleDisconnect = useCallback(async (provider: ConnectorProvider) => {
     setEnabled((prev) => ({ ...prev, [provider]: false }));
-    await window.api.setConnectorEnabled(provider, false);
+    try {
+      await window.api.setConnectorEnabled(provider, false);
+    } catch {
+      // Diskte hâlâ açık: ekran da öyle söylemeli (yoksa "kapalı" görünen
+      // sağlayıcı sohbette yüklenmeye devam ederdi).
+      setEnabled((prev) => ({ ...prev, [provider]: true }));
+    }
   }, []);
 
   const handleCancel = useCallback(async () => {
@@ -251,9 +270,14 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
   }, []);
 
   const handleModeChange = useCallback(async (next: ConnectorMode) => {
+    const previous = mode;
     setMode(next);
-    await window.api.saveConfig({ connectorMode: next });
-  }, []);
+    try {
+      await window.api.saveConfig({ connectorMode: next });
+    } catch {
+      setMode(previous);
+    }
+  }, [mode]);
 
   // Uyarılar SAĞLAYICIYA BAĞLI. Eskiden hepsi `Object.values(results)`
   // üzerinden toplanıyordu: SharePoint'in hatası, yeşil Outlook kartının
@@ -276,34 +300,25 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
     <div className="space-y-4">
       <p className="text-xs leading-relaxed text-slate-400">{t("appConnections.intro")}</p>
 
-      <div className="grid grid-cols-2 gap-3">
+      {/* TEK SÜTUN LİSTE (2026-10-19, Hazırlık ekranıyla aynı dil): simge ·
+          ad + durum · son sonuç · tek eylem. Eski iki kartlı ızgarada bağlı
+          kartın altı boş kalıyor, hatalı kartın uyarısı onu yarım ekran
+          uzatıyordu; ayrıca iki "Bağlan" düğmesi aynı anda dolgulu vurguydu
+          (ekranda en fazla bir birincil düğme kuralı, bkz. buttons.ts). */}
+      <ul className="divide-y divide-line-subtle rounded-lg border border-line bg-app/30">
         {PROVIDERS.map(({ id, icon: Icon, labelKey }) => {
           const result = results[id];
           const busy = busyProvider === id;
           const isOn = Boolean(enabled[id]);
           const failed = Boolean(result && !result.connected);
-          // ÜÇ DURUM VAR, İKİ DEĞİL — ve üçüncüsü gözden kaçmıştı.
-          //
-          // Kart iki ayrı kaynaktan besleniyor: rozet/buton `connectorEnabled`
-          // (tek doğruluk kaynağı, bkz. dosya başlığı), altındaki satır ise
-          // `connectorLastResults` (saklanan son ölçüm). "Bağlantıyı Kes"
-          // yalnızca BİRİNCİSİNİ değiştiriyor — ikincisi diskte olduğu gibi
-          // kalıyor. Sonuç, kullanıcının bildirdiği hâl (2026-09-06): rozet
-          // "Bağlı değil", buton "Bağlan", ve tam altlarında yeşil bir tikle
-          // "Inbox folder found successfully via Outlook connector." Tek fark
-          // `opacity-60`'tı; koyu zeminde fark edilir bir şey değil.
-          //
-          // Saklanan sonucu SİLMEK çözüm değil: "en son ne zaman çalışıyordu"
-          // bilgisi kullanıcının işine yarıyor ve tekrar bağlanmadan önce ne
-          // beklemesi gerektiğini söylüyor. Sorun bilginin kendisi değil, ŞİMDİKİ
-          // ZAMANLA sunulması. Bu yüzden geçmiş zamana çekiliyor ve yeşilden
-          // çıkarılıyor.
+          // ÜÇ DURUM VAR, İKİ DEĞİL: rozet/buton `connectorEnabled` (tek
+          // doğruluk kaynağı), altındaki satır `connectorLastResults` (son
+          // ölçüm). "Bağlantıyı Kes" yalnız birincisini değiştiriyor; eski
+          // başarılı ölçüm geçmiş zamana çekiliyor ve yeşilden çıkarılıyor
+          // (kullanıcı bildirdi, 2026-09-06).
           const stale = Boolean(result?.connected && !isOn);
-          // Ajanın KENDİ cümlesi tırnak içinde. Bu metin uygulamanın sözü
-          // değil, axet-code'a bağlı modelin serbest biçimli cevabı — İngilizce
-          // olmasının ve bazen "Listed 200 SharePoint sites (…)" gibi anlatı
-          // gibi okunmasının sebebi de bu. Tırnaksızken ekranın kendi ifadesi
-          // sanılıyordu. `error` tırnaklanmıyor: o bir sistem hatası.
+          // Ajanın KENDİ cümlesi tırnak içinde — uygulamanın sözü değil,
+          // modelin serbest cevabı. `error` tırnaklanmıyor: sistem hatası.
           const line = !result
             ? ""
             : stale
@@ -317,41 +332,25 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
                     : t("appConnections.notConnected");
           const mcpUrl = mcpUrls[id];
           const issue = isOn ? null : diagnose(result);
+          const name = t(labelKey);
           return (
-            <div
-              key={id}
-              // `min-w-0`: grid hücresinin varsayılan `min-width:auto`'su,
-              // içindeki uzun URL'nin hücreyi (ve onunla birlikte tüm
-              // modal'ı) genişletmesine izin veriyordu — SharePoint'in
-              // cevabındaki `https://...sharepoint.com/sites/...` adresi
-              // kartın dışına taşıp yatay kaydırma çubuğu çıkarıyordu
-              // (kullanıcı ekran görüntüsüyle bildirdi, 2026-09-04).
-              className={`flex min-w-0 flex-col gap-3 rounded-xl border p-3.5 transition ${
-                isOn
-                  ? "border-accent-500/40 bg-accent-500/[0.06]"
-                  : "border-line bg-app/30"
-              }`}
-            >
-              <div className="flex items-start gap-2.5">
+            <li key={id} aria-label={name} aria-busy={busy || undefined} className="min-w-0 px-3.5 py-3">
+              <div className="flex items-start gap-3">
                 <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
-                    isOn
-                      ? "border-accent-500/40 bg-accent-500/15 text-accent-400"
-                      : "border-line bg-control text-slate-500"
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${
+                    isOn ? "border-line-strong bg-control text-slate-200" : "border-line bg-control text-slate-500"
                   }`}
+                  aria-hidden
                 >
-                  <Icon size={17} />
+                  <Icon size={16} />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-slate-100">{t(labelKey)}</span>
-                    {/* Durum rozeti TEK doğruluk kaynağını gösteriyor:
-                        `connectorEnabled`. "Doğrulama geçti ama kapalı" diye
-                        bir ara durum artık yok. */}
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-semibold text-slate-100">{name}</span>
                     <span
-                      className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium ${
                         busy
-                          ? "bg-accent-500/15 text-accent-400"
+                          ? "bg-control text-slate-300"
                           : isOn
                             ? "bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
                             : failed
@@ -360,9 +359,9 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
                       }`}
                     >
                       {busy ? (
-                        <Loader2 size={9} className="animate-spin" />
+                        <Loader2 size={9} className="animate-spin" aria-hidden />
                       ) : (
-                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
                       )}
                       {busy
                         ? t("appConnections.statusConnecting")
@@ -373,137 +372,115 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
                             : t("appConnections.statusDisconnected")}
                     </span>
                   </div>
-                  {/* Bu adres, uygulamanın DEĞİL axet-code'un bağlandığı yer.
-                      Çıplak hâliyle "bu uygulama oraya istek atıyor" izlenimi
-                      veriyordu; artık kimin kullandığı yazıyor. */}
+                  {/* Bu adres, uygulamanın DEĞİL axet-code'un bağlandığı yer. */}
                   {mcpUrl && (
-                    <div className="truncate text-[10px] text-slate-500" title={mcpUrl}>
+                    <div className="truncate text-2xs text-slate-500" title={mcpUrl}>
                       {t("appConnections.servedBy")} · {mcpUrl}
                     </div>
+                  )}
+                  {/* Son sonuç. `role="status"`: doğrulama 30-60 sn sürüyor;
+                      bittiğinde ekran okuyucu sonucu kendiliğinden okuyor. */}
+                  <div role="status" aria-live="polite" className="mt-1.5 empty:hidden">
+                    {result && (
+                      <>
+                        <div
+                          className={`flex items-start gap-1.5 text-xs ${
+                            stale
+                              ? "text-slate-500"
+                              : result.connected
+                                ? "text-[var(--status-success-text)]"
+                                : "text-[var(--status-danger-text)]"
+                          }`}
+                        >
+                          {stale ? (
+                            <History size={13} className="mt-0.5 shrink-0" aria-hidden />
+                          ) : result.connected ? (
+                            <CheckCircle2 size={13} className="mt-0.5 shrink-0" aria-hidden />
+                          ) : (
+                            <XCircle size={13} className="mt-0.5 shrink-0" aria-hidden />
+                          )}
+                          {/* Uzun URL'li cevap satırı yırtmasın; tamamı title'da. */}
+                          <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+                            <span className="line-clamp-3" title={result.error || result.detail || ""}>
+                              {line}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="pl-[19px] text-2xs text-slate-500">
+                          {t("appConnections.checkedAt", { time: formatCheckedAt(result.checkedAt, language) })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* TEK eylem: bağlıysa kes, değilse bağlan. Yanındaki yenileme
+                    aynı eylemin kendisi (yeniden doğrula). */}
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {busy && (
+                    <button type="button" onClick={handleCancel} className={btn("ghost", "sm")}>
+                      {t("common.cancel")}
+                    </button>
+                  )}
+                  {isOn ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => handleConnect(id)}
+                        disabled={Boolean(busyProvider)}
+                        title={t("appConnections.recheck")}
+                        aria-label={t("appConnections.recheck")}
+                        className={iconBtn("neutral", "sm")}
+                      >
+                        {busy ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                      </button>
+                      <button type="button" onClick={() => void handleDisconnect(id)} className={btn("neutral", "sm")}>
+                        <Unplug size={13} aria-hidden />
+                        {t("appConnections.disconnect")}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleConnect(id)}
+                      disabled={Boolean(busyProvider)}
+                      className={btn("neutral", "sm")}
+                    >
+                      {busy ? <Loader2 size={13} className="animate-spin" aria-hidden /> : <Plug size={13} aria-hidden />}
+                      {busy ? t("appConnections.statusConnecting") : t("appConnections.connect")}
+                    </button>
                   )}
                 </div>
               </div>
 
-              {result && (
-                <div className="space-y-1">
-                  <div
-                    className={`flex items-start gap-1.5 text-xs ${
-                      stale
-                        ? "text-slate-500"
-                        : result.connected
-                          ? "text-[var(--status-success-text)]"
-                          : "text-[var(--status-danger-text)]"
-                    }`}
-                  >
-                    {stale ? (
-                      <History size={13} className="mt-0.5 shrink-0" />
-                    ) : result.connected ? (
-                      <CheckCircle2 size={13} className="mt-0.5 shrink-0" />
-                    ) : (
-                      <XCircle size={13} className="mt-0.5 shrink-0" />
-                    )}
-                    {/* `break-words` + `min-w-0`: ajanın cevabı boşluksuz
-                        uzun bir URL içerebiliyor; sarılmadığında kartı
-                        yırtıyordu. `line-clamp-4` ise uzun bir listenin
-                        kartı sayfa boyu uzatmasını engelliyor — tamamı
-                        `title`'da duruyor. */}
-                    <span className="min-w-0 break-words [overflow-wrap:anywhere]">
-                      <span className="line-clamp-4" title={result.error || result.detail || ""}>
-                        {line}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="pl-[19px] text-[10px] text-slate-500">
-                    {t("appConnections.checkedAt", { time: formatCheckedAt(result.checkedAt, language) })}
-                  </div>
+              {/* Uyarı, ait olduğu satırın İÇİNDE ve metnin hizasında. */}
+              {issue && (
+                <div className="mt-2 pl-12">
+                  {issue === "project" ? (
+                    <ProviderHint
+                      text={t("appConnections.selectProjectHint")}
+                      action={t("appConnections.openProjectTerminal")}
+                      onAction={onOpenProjectTerminal}
+                    />
+                  ) : (
+                    <ProviderHint
+                      text={t(
+                        issue === "missing"
+                          ? "appConnections.missingIntegrationHint"
+                          : issue === "repair"
+                            ? "appConnections.integrationErrorHint"
+                            : "appConnections.connectFailedHint"
+                      )}
+                      action={t("appConnections.openAgenticPortal")}
+                      onAction={() => window.api.openExternalUrl(AGENTIC_PORTAL_URL)}
+                    />
+                  )}
                 </div>
               )}
-
-              {/* Uyarı, ait olduğu kartın İÇİNDE — hangi sağlayıcıyı
-                  kastettiği artık sorulmuyor. */}
-              {issue === "project" && (
-                <ProviderHint
-                  text={t("appConnections.selectProjectHint")}
-                  action={t("appConnections.openProjectTerminal")}
-                  onAction={onOpenProjectTerminal}
-                />
-              )}
-              {issue === "missing" && (
-                <ProviderHint
-                  text={t("appConnections.missingIntegrationHint")}
-                  action={t("appConnections.openAgenticPortal")}
-                  onAction={() => window.api.openExternalUrl(AGENTIC_PORTAL_URL)}
-                />
-              )}
-              {issue === "repair" && (
-                <ProviderHint
-                  text={t("appConnections.integrationErrorHint")}
-                  action={t("appConnections.openAgenticPortal")}
-                  onAction={() => window.api.openExternalUrl(AGENTIC_PORTAL_URL)}
-                />
-              )}
-              {issue === "portal" && (
-                <ProviderHint
-                  text={t("appConnections.connectFailedHint")}
-                  action={t("appConnections.openAgenticPortal")}
-                  onAction={() => window.api.openExternalUrl(AGENTIC_PORTAL_URL)}
-                />
-              )}
-
-              {/* TEK buton (kullanıcı isteği): bağlıysa kesiyor, değilse
-                  bağlıyor. "Test et" diye ayrı bir eylem yok — doğrulama
-                  bağlanmanın kendisi.
-                  YANINDAKİ küçük yenileme düğmesi bir istisna DEĞİL, aynı
-                  eylemin kendisi: `handleConnect` yeniden çalışıyor. Bağlıyken
-                  doğrulamanın hiçbir yolu olmaması, sessizce bozulmuş bir
-                  bağlantıyı ancak "kes + yeniden bağlan" ile fark ettiriyordu. */}
-              <div className="mt-auto flex items-center gap-1.5">
-                {isOn ? (
-                  <>
-                    <button
-                      onClick={() => handleDisconnect(id)}
-                      className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line-strong bg-control px-3 py-2 text-xs font-medium text-slate-200 transition hover:border-[var(--status-danger-border)] hover:bg-[var(--status-danger-bg)] hover:text-[var(--status-danger-text)]"
-                    >
-                      <Unplug size={13} />
-                      {t("appConnections.disconnect")}
-                    </button>
-                    <button
-                      onClick={() => handleConnect(id)}
-                      disabled={Boolean(busyProvider)}
-                      title={t("appConnections.recheck")}
-                      aria-label={t("appConnections.recheck")}
-                      className="cursor-pointer rounded-lg border border-line-strong bg-control px-2.5 py-2 text-slate-300 transition hover:border-accent-500/40 hover:text-accent-400 disabled:cursor-default disabled:opacity-50"
-                    >
-                      {busy ? (
-                        <Loader2 size={13} className="animate-spin" />
-                      ) : (
-                        <RefreshCw size={13} />
-                      )}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => handleConnect(id)}
-                    disabled={Boolean(busyProvider)}
-                    className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-accent-500 px-3 py-2 text-xs font-medium text-accent-on transition hover:bg-accent-600 disabled:cursor-default disabled:opacity-50"
-                  >
-                    {busy ? <Loader2 size={13} className="animate-spin" /> : <Plug size={13} />}
-                    {busy ? t("appConnections.statusConnecting") : t("appConnections.connect")}
-                  </button>
-                )}
-                {busy && (
-                  <button
-                    onClick={handleCancel}
-                    className="cursor-pointer rounded-lg border border-line bg-control px-2.5 py-2 text-xs text-slate-200 hover:bg-active"
-                  >
-                    {t("common.cancel")}
-                  </button>
-                )}
-              </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {/* Bağlı bir uygulamanın nerelerde işe yaradığı. Hiçbiri bağlı değilken
           aynı kutu, "şu an hiçbiri yok" diyor — eski ekranda bu ayrım hiç
@@ -642,14 +619,16 @@ export default function AppConnectionsSection({ onOpenProjectTerminal, projectDi
       {mode && anyConnected && (
         <div className="rounded-xl border border-line bg-app/30 p-3">
           <div className="mb-2 text-xs font-medium text-slate-200">{t("appConnections.modeTitle")}</div>
-          <div className="flex gap-1 rounded-lg border border-line bg-card p-1">
+          <div role="group" aria-label={t("appConnections.modeTitle")} className="flex gap-1 rounded-lg border border-line bg-card p-1">
             {(["auto", "always"] as ConnectorMode[]).map((option) => (
               <button
                 key={option}
-                onClick={() => handleModeChange(option)}
+                type="button"
+                aria-pressed={mode === option}
+                onClick={() => void handleModeChange(option)}
                 className={`flex-1 cursor-pointer rounded-md px-3 py-1.5 text-xs font-medium transition ${
                   mode === option
-                    ? "bg-accent-500 text-accent-on"
+                    ? "bg-accent-500/25 text-white"
                     : "text-slate-400 hover:bg-hover hover:text-slate-200"
                 }`}
               >
