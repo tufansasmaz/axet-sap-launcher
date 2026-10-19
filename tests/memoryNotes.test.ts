@@ -55,6 +55,12 @@ describe("not ayristirma", () => {
   it("etiket: kucuk harf, # duser, bosluk tire, Turkce harf kalir, tekil", () => {
     expect(normalizeTag("#SAP Fatura!")).toBe("sap-fatura");
     expect(normalizeTag("İŞLEM")).toBe("işlem");
+    // Yerelden bağımsız: Türkçe harfsiz etikette I → i ("FI" "fı" olmaz); Türkçe harfli kelimede Türkçe kural.
+    expect(normalizeTag("FI")).toBe("fi");
+    expect(normalizeTag("SAP FICO")).toBe("sap-fico");
+    expect(normalizeTag("MALİYET")).toBe("maliyet");
+    expect(normalizeTag("IŞIK")).toBe("ışık");
+    expect(normalizeTags("FI, Kur")).toEqual(["fi", "kur"]);
     expect(normalizeTags("a, b ,a  #c")).toEqual(["a", "b", "c"]);
     expect(normalizeTags(Array.from({ length: 30 }, (_, i) => `t${i}`))).toHaveLength(12);
   });

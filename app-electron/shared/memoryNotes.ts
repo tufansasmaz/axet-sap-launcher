@@ -97,13 +97,20 @@ export function cleanBody(raw: unknown): string {
   return clip(stripControls(raw.replace(/\r\n?/g, "\n"), true), NOTE_BODY_MAX).replace(/\s+$/, "");
 }
 
+const TURKISH_LETTER_RE = /[ÇĞİÖŞÜçğıöşü]/;
+/**
+ * Kelime küçük harfe: Türkçe harfli kelimede Türkçe kural ("IŞIK" → "ışık",
+ * "İŞLEM" → "işlem"), aksi hâlde yerelden bağımsız ("FI" → "fi", "fı" değil).
+ */
+const lowerWord = (word: string): string => (TURKISH_LETTER_RE.test(word) ? word.toLocaleLowerCase("tr-TR") : word.toLowerCase());
+
 /** Etiket: küçük harf, baştaki # düşer, boşluk `-`, harf/rakam/-/_ dışı atılır. */
 export function normalizeTag(raw: unknown): string {
   if (typeof raw !== "string") return "";
   const tag = raw
     .trim()
     .replace(/^#+/, "")
-    .toLocaleLowerCase("tr-TR")
+    .replace(/\S+/g, lowerWord)
     .replace(/\s+/g, "-")
     .replace(/[^\p{L}\p{N}_-]+/gu, "")
     .replace(/-+/g, "-")
