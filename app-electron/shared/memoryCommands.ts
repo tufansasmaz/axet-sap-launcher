@@ -5,7 +5,11 @@
 //   ntt-team memory search "<sorgu>" [--ben]
 //   ntt-team memory get "<baslik|kimlik>"
 //   ntt-team memory link "<baslik A>" "<baslik B>"
+//   ntt-team memory update "<baslik|kimlik>" "<ek metin>" [--etiket a,b]
 //   ntt-team memory list [--ben]
+//
+// `--gorev <og-…>`: öğrenme görevinin (learnTasks.ts) yazdığı not o göreve
+// işaretlenir (kaynak: görev); Bellek ekranı sayar ve görev başına geri alır.
 //
 // Varsayılan kapsam ekip belleği; `--ben` ajanın kendi belleği.
 import {
@@ -14,6 +18,7 @@ import {
   extractLinks,
   findNote,
   isNoteKind,
+  normalizeTags,
   searchNotes,
   TEAM_OWNER,
   withLink,
@@ -22,6 +27,7 @@ import {
   type NotePatch,
   type NoteResult
 } from "./memoryNotes";
+import { isLearnTaskId } from "./learnTasks";
 
 export interface MemoryCommandStore {
   list(): MemoryNote[];
@@ -46,6 +52,7 @@ export const MEMORY_USAGE = [
   '  ntt-team memory search "<sorgu>" [--ben]',
   '  ntt-team memory get "<baslik|kimlik>"',
   '  ntt-team memory link "<baslik A>" "<baslik B>"',
+  '  ntt-team memory update "<baslik|kimlik>" "<ek metin>" [--etiket a,b]',
   "  ntt-team memory list [--ben]",
   "Varsayilan ekip bellegi; --ben kendi bellegin. Govdede [[baslik]] baska nota baglar. Sifre/token yazma."
 ].join("\n");
@@ -69,7 +76,7 @@ interface Parsed {
   flags: Map<string, string | true>;
 }
 
-const VALUE_FLAGS = new Set(["tur", "kind", "etiket", "tags", "tag"]);
+const VALUE_FLAGS = new Set(["tur", "kind", "etiket", "tags", "tag", "gorev", "task"]);
 
 function parse(args: readonly string[]): Parsed {
   const positional: string[] = [];
@@ -130,6 +137,8 @@ export function runMemoryCommand(rawArgs: unknown, caller: MemoryCommandCaller, 
       const kind = flagText(p, "tur", "kind");
       if (kind !== undefined && !isNoteKind(kind)) return out(400, `Bilinmeyen tur "${kind}". Turler: ${NOTE_KINDS.join(", ")}`);
       const own = mine(p);
+      const task = flagText(p, "gorev", "task");
+      if (task !== undefined && !isLearnTaskId(task)) return out(400, `Gecersiz gorev kimligi "${task}".`);
       const result = store.add({
         title,
         body: rest.join("\n"),
@@ -137,7 +146,7 @@ export function runMemoryCommand(rawArgs: unknown, caller: MemoryCommandCaller, 
         tags: flagText(p, "etiket", "tags", "tag") ?? [],
         owner: own ? caller.paneId : TEAM_OWNER,
         ...(own ? { ownerName: caller.name } : {}),
-        source: { type: "agent", name: caller.name }
+        source: task ? { type: "task", name: caller.name, ref: task } : { type: "agent", name: caller.name }
       });
       if (!result.ok) return out(result.reason === "invalid" ? 400 : 409, REASON[result.reason] ?? result.reason);
       return out(200, `Kaydedildi: ${line(result.note, caller)}`, true);
@@ -186,6 +195,20 @@ export function runMemoryCommand(rawArgs: unknown, caller: MemoryCommandCaller, 
       const result = store.update(from.id, { body });
       if (!result.ok) return out(409, REASON[result.reason] ?? result.reason);
       return out(200, `Baglandi: ${from.title} → ${to.title}`, true);
+    }
+    case "update":
+    case "guncelle": {
+      const [ref, ...rest] = p.positional;
+      const extra = rest.join("\n").trim();
+      if (!ref || !extra) return out(400, MEMORY_USAGE);
+      const note = findNote(visible(store.list(), caller), ref);
+      if (!note) return out(404, `"${ref}" adli not yok. Yeni not: ntt-team memory add`);
+      const tagText = flagText(p, "etiket", "tags", "tag");
+      const patch: NotePatch = { body: note.body ? `${note.body}\n\n${extra}` : extra };
+      if (tagText) patch.tags = normalizeTags([...note.tags, ...normalizeTags(tagText)]);
+      const result = store.update(note.id, patch);
+      if (!result.ok) return out(409, REASON[result.reason] ?? result.reason);
+      return out(200, `Guncellendi: ${line(result.note, caller)}`, true);
     }
     case "list":
     case "liste": {

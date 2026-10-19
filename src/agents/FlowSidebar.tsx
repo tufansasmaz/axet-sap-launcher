@@ -219,7 +219,8 @@ const KIND_TONE: Record<FlowKind, StatusTone> = {
   failed: "danger",
   checkpoint: "muted",
   message: "muted",
-  relay: "muted"
+  relay: "muted",
+  learn: "muted"
 };
 
 

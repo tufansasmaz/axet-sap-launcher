@@ -13,7 +13,9 @@ export type FlowKind =
   | "checkpoint"
   | "message"
   /** Ajandan ajana (ekip köprüsü): `name` "A → B", `detail` soru ya da cevap. */
-  | "relay";
+  | "relay"
+  /** Öğrenme görevi (Bellek): `detail` konu ve sonuç (yerelleştirilmiş). */
+  | "learn";
 
 export const FLOW_KINDS: readonly FlowKind[] = [
   "started",
@@ -25,7 +27,8 @@ export const FLOW_KINDS: readonly FlowKind[] = [
   "failed",
   "checkpoint",
   "message",
-  "relay"
+  "relay",
+  "learn"
 ];
 
 /** Çalışma alanı başına saklanan en çok olay. */

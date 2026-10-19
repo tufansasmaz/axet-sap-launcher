@@ -57,6 +57,7 @@ import Toast, { type ToastMsg } from "./components/Toast";
 import FlowSidebar from "./agents/FlowSidebar";
 import AgentsScreen from "./agents/AgentsScreen";
 import { FlowProvider } from "./agents/flowContext";
+import { LearnProvider } from "./agents/brain/learnContext";
 import { TerminalStoreProvider } from "./stores/terminalStore";
 import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
@@ -1008,6 +1009,7 @@ export default function App() {
         <BoardProvider>
         <AgentStatusProvider>
         <FlowProvider>
+        <LearnProvider>
         <AgentOpenListener onShow={handleShowAgents} />
         <BoardOpenListener onShow={handleShowAgents} />
         <div className="flex h-screen flex-col overflow-hidden">
@@ -1389,6 +1391,7 @@ export default function App() {
           ))}
         </div>
         </div>
+        </LearnProvider>
         </FlowProvider>
         </AgentStatusProvider>
         </BoardProvider>

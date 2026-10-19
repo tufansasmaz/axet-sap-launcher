@@ -76,6 +76,7 @@ const GROUP: Record<FlowKind, EventGroup> = {
   assigned: "work",
   message: "work",
   relay: "work",
+  learn: "done",
   checkpoint: "change",
   finished: "done",
   verified: "done",

@@ -83,3 +83,41 @@ describe("ntt-team memory", () => {
     expect(runMemoryCommand([], ali, memStore()).status).toBe(200);
   });
 });
+
+describe("ntt-team memory — ogrenme gorevi", () => {
+  it("--gorev notu goreve isaretler (kaynak: gorev)", () => {
+    const s = memStore();
+    const r = runMemoryCommand(["add", "Kur farki", "Kaynak: docs/a.md", "--tur", "olgu", "--gorev", "og-ab12cd"], ali, s);
+    expect(r.status).toBe(200);
+    expect(s.notes[0].source).toEqual({ type: "task", name: "Ali", ref: "og-ab12cd" });
+  });
+
+  it("gecersiz gorev kimligi reddedilir", () => {
+    const s = memStore();
+    const r = runMemoryCommand(["add", "X", "y", "--gorev", "../etc"], ali, s);
+    expect(r.status).toBe(400);
+    expect(s.notes).toHaveLength(0);
+  });
+
+  it("update govdeye ekler, etiketleri birlestirir, kaynagi degistirmez", () => {
+    const s = memStore();
+    runMemoryCommand(["add", "Kur farki", "ilk", "--etiket", "fi"], ali, s);
+    const r = runMemoryCommand(["update", "Kur farki", "ek bilgi [[Kapanis]]", "--etiket", "kur", "--gorev", "og-ab12cd"], ali, s);
+    expect(r.status).toBe(200);
+    expect(r.changed).toBe(true);
+    expect(s.notes[0].body).toBe("ilk\n\nek bilgi [[Kapanis]]");
+    expect(s.notes[0].tags).toEqual(["fi", "kur"]);
+    expect(s.notes[0].source?.type).toBe("agent");
+  });
+
+  it("update olmayan not icin 404, bos ek icin 400", () => {
+    const s = memStore();
+    expect(runMemoryCommand(["update", "Yok", "x"], ali, s).status).toBe(404);
+    runMemoryCommand(["add", "A", "b"], ali, s);
+    expect(runMemoryCommand(["update", "A"], ali, s).status).toBe(400);
+  });
+
+  it("kullanim update'i aniyor", () => {
+    expect(MEMORY_USAGE).toContain("memory update");
+  });
+});
