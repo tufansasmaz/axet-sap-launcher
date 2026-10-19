@@ -180,7 +180,9 @@ describe("öğrenme görevi durumu", () => {
     await flush();
     const now = Date.now();
     notes.push({ ...createNote({ title: "Kur farkı ayda bir", source: { type: "task", name: "Ayşe", ref: id } }, now, "n-new00001")! });
-    notes[0] = { ...notes[0], updated: now };
+    notes[0] = { ...notes[0], updated: now, tasks: [id] };
+    // Aynı ajan görev sürerken başka işte işaretsiz not yazdı: göreve sayılmaz, geri almada silinmez.
+    notes.push({ ...createNote({ title: "Başka iş", source: { type: "agent", name: "Ayşe" } }, now + 1, "n-oth00001")! });
     act(() => setStatuses({ a: status("idle", now + 10, "OGRENME-OZET: Kur farkı ay sonunda. | SONRAKI: Değerleme; Kapanış") }));
     await flush();
     const row = taskRow();
@@ -203,6 +205,7 @@ describe("öğrenme görevi durumu", () => {
     fireEvent.click(within(done).getByRole("button", { name: "Sil" }));
     await flush();
     expect(api.notesRemove).toHaveBeenCalledWith("w1", "n-new00001");
+    expect(api.notesRemove).not.toHaveBeenCalledWith("w1", "n-oth00001");
     expect(within(done).getByText(/Geri alındı/)).toBeTruthy();
     expect(within(done).queryByRole("button", { name: /Geri al$/ })).toBeNull();
   });

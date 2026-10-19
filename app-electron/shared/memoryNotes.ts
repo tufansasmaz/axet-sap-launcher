@@ -40,6 +40,8 @@ export interface MemoryNote {
   /** Sahip ajanın adı (bölme kapansa da okunur kalsın). */
   ownerName?: string;
   source?: NoteSource;
+  /** Notu güncelleyen öğrenme görevleri (`memory update --gorev`); görev sayımı yalnız bu işarete dayanır. */
+  tasks?: string[];
   created: number;
   updated: number;
 }
@@ -54,7 +56,10 @@ export interface NoteInput {
   source?: NoteSource;
 }
 
-export type NotePatch = Partial<Pick<MemoryNote, "title" | "body" | "kind" | "tags" | "owner" | "ownerName">>;
+export type NotePatch = Partial<Pick<MemoryNote, "title" | "body" | "kind" | "tags" | "owner" | "ownerName">> & {
+  /** Güncellemeyi yapan öğrenme görevi (`--gorev`); notun `tasks` listesine eklenir. */
+  task?: string;
+};
 
 export type NoteFailure = "invalid" | "full" | "tooLarge" | "missing" | "changed" | "writeFailed";
 export type NoteResult = { ok: true; note: MemoryNote } | { ok: false; reason: NoteFailure };
@@ -161,6 +166,11 @@ function cleanSource(raw: unknown, scrub: Scrub): NoteSource | undefined {
   return { type: value.type as NoteSourceType, ...(name ? { name } : {}), ...(ref ? { ref } : {}) };
 }
 
+const TASK_ID_RE = /^og-[a-z0-9]{4,16}$/;
+const NOTE_TASKS_MAX = 20;
+const cleanTasks = (raw: unknown): string[] =>
+  Array.isArray(raw) ? [...new Set(raw.filter((x): x is string => typeof x === "string" && TASK_ID_RE.test(x)))].slice(-NOTE_TASKS_MAX) : [];
+
 const cleanOwner = (raw: unknown): string =>
   typeof raw === "string" && /^[\w.:-]{1,80}$/.test(raw) ? raw : TEAM_OWNER;
 
@@ -179,6 +189,7 @@ export function sanitizeNote(raw: unknown, scrub: Scrub = identity): MemoryNote 
   const ownerName = cleanTitle(typeof value.ownerName === "string" ? value.ownerName : "").slice(0, 80);
   const source = cleanSource(value.source, scrub);
   const owner = cleanOwner(value.owner);
+  const tasks = cleanTasks(value.tasks);
   return {
     id: value.id,
     title,
@@ -188,6 +199,7 @@ export function sanitizeNote(raw: unknown, scrub: Scrub = identity): MemoryNote 
     owner,
     ...(owner && ownerName ? { ownerName } : {}),
     ...(source ? { source } : {}),
+    ...(tasks.length ? { tasks } : {}),
     created,
     updated: Math.max(created, finiteTime(value.updated, created))
   };
@@ -252,6 +264,7 @@ export function applyPatch(note: MemoryNote, patch: NotePatch, now: number, scru
       ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
       ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
       ...(patch.owner !== undefined ? { owner: patch.owner, ownerName: patch.ownerName } : {}),
+      ...(typeof patch.task === "string" && TASK_ID_RE.test(patch.task) ? { tasks: [...(note.tasks ?? []).filter((x) => x !== patch.task), patch.task] } : {}),
       updated: Math.max(now, note.updated)
     },
     scrub

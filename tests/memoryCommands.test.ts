@@ -108,6 +108,15 @@ describe("ntt-team memory — ogrenme gorevi", () => {
     expect(s.notes[0].body).toBe("ilk\n\nek bilgi [[Kapanis]]");
     expect(s.notes[0].tags).toEqual(["fi", "kur"]);
     expect(s.notes[0].source?.type).toBe("agent");
+    expect(s.notes[0].tasks).toEqual(["og-ab12cd"]);
+  });
+
+  it("update --gorev gecersiz kimligi reddeder; isaretsiz update goreve yazilmaz", () => {
+    const s = memStore();
+    runMemoryCommand(["add", "Kur farki", "ilk"], ali, s);
+    expect(runMemoryCommand(["update", "Kur farki", "ek", "--gorev", "../x"], ali, s).status).toBe(400);
+    expect(runMemoryCommand(["update", "Kur farki", "ek"], ali, s).status).toBe(200);
+    expect(s.notes[0].tasks).toBeUndefined();
   });
 
   it("update olmayan not icin 404, bos ek icin 400", () => {

@@ -11,6 +11,7 @@ import type { MemoryNote } from "../../../app-electron/shared/memoryNotes";
 import {
   countLearnNotes,
   createLearnTask,
+  isLearnTaskNote,
   LEARN_RETRY_REASONS,
   LEARN_TASKS_MAX,
   LEARN_TIMEOUT_MS,
@@ -262,7 +263,10 @@ export function LearnProvider({ children }: { children: ReactNode }) {
       const task = tasksRef.current.find((x) => x.id === id);
       if (!task || task.state === "running") return 0;
       let removed = 0;
+      // Yalnız şu an göreve işaretli eklenen notlar (eski kayıtlarda işaretsiz not kimliği kalmış olabilir).
+      const marked = new Set((await listNotes(task.workspaceId)).filter((n) => isLearnTaskNote(task, n)).map((n) => n.id));
       for (const noteId of task.added) {
+        if (!marked.has(noteId)) continue;
         try {
           if (await api().notesRemove?.(task.workspaceId, noteId)) removed += 1;
         } catch {

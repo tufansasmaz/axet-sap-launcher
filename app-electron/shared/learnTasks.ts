@@ -130,7 +130,7 @@ export function learnPrompt(task: Pick<LearnTask, "id" | "topic" | "scopes" | "t
     "Yasaklar: SAP sistemlerine bağlanma, SAP/ADT/RFC/GUI araçlarını çağırma; dosya değiştirme, bir şeyi değiştiren komut çalıştırma; şifre, token, anahtar ve kişisel veri yazma.",
     "Adımlar: 1) Araştır, en önemli en çok 8 bulguyu seç.",
     "2) Her bulgu tek fikirlik kısa bir not; tür: olgu, ogrenim, karar ya da kisi (kişi/sistem).",
-    `3) Yazmadan önce ntt-team memory search "<anahtar>" ile benzerini ara; varsa ntt-team memory update "<başlık>" "<ek>" --gorev ${task.id}, yoksa ntt-team memory add "<başlık>" "<gövde>" --tur <tür> --etiket <a,b> --gorev ${task.id}${me}.`,
+    `3) Yazmadan önce ntt-team memory search "<anahtar>" ile benzerini ara; HER add/update çağrısına --gorev ${task.id} ekle (işaretsiz not göreve sayılmaz); varsa ntt-team memory update "<başlık>" "<ek>" --gorev ${task.id}, yoksa ntt-team memory add "<başlık>" "<gövde>" --tur <tür> --etiket <a,b> --gorev ${task.id}${me}.`,
     "4) Gövdede \"Kaynak: <dosya yolu ya da URL>\" olsun; ilgili notlara [[başlık]] ile bağla.",
     "5) Son cevabın yalnız şu tek satır olsun: OGRENME-OZET: <bir cümle> | SONRAKI: <konu 1>; <konu 2>"
   ];
@@ -178,24 +178,21 @@ export function stepLearnTask(task: LearnTask, event: LearnEvent): LearnTask {
   return task;
 }
 
+/** Not bu görevin eklediği not mu (`memory add --gorev`). Geri alma yalnız bunları siler. */
+export const isLearnTaskNote = (task: Pick<LearnTask, "id">, note: MemoryNote): boolean => note.source?.type === "task" && note.source.ref === task.id;
+
 /**
- * Görevin notları. Eklenen: göreve işaretli (`--gorev`) ya da görev penceresinde
- * bu ajanın yazdığı, tabanda olmayan not (ajan işareti unutsa da sayılsın).
- * Güncellenen: tabanda olup sonradan değişen.
+ * Görevin notları YALNIZ `--gorev` işaretine göre (zaman aralığına değil): aynı
+ * ajanın görev sürerken başka işte yazdığı işaretsiz not göreve sayılmaz.
+ * Eklenen: `add --gorev` (kaynak: görev); güncellenen: `update --gorev` (notun `tasks`ı).
  */
 export function countLearnNotes(task: LearnTask, notes: readonly MemoryNote[]): { added: string[]; updated: string[] } {
   if (task.startedAt === undefined) return { added: [], updated: [] };
-  const base = task.baseline ?? {};
-  const end = task.state === "done" || task.state === "error" || task.state === "timeout" ? (task.endedAt ?? Infinity) + 5_000 : Infinity;
   const added: string[] = [];
   const updated: string[] = [];
   for (const n of notes) {
-    if (n.id in base) {
-      if (n.updated !== base[n.id] && n.updated >= task.startedAt && n.updated <= end) updated.push(n.id);
-      continue;
-    }
-    const mine = n.source?.ref === task.id || (n.source?.type === "agent" && n.source.name === task.agentName);
-    if (mine && n.created >= task.startedAt && n.created <= end) added.push(n.id);
+    if (isLearnTaskNote(task, n)) added.push(n.id);
+    else if (n.tasks?.includes(task.id)) updated.push(n.id);
   }
   return { added: added.slice(0, NOTE_IDS_MAX), updated: updated.slice(0, NOTE_IDS_MAX) };
 }

@@ -5,11 +5,12 @@
 //   ntt-team memory search "<sorgu>" [--ben]
 //   ntt-team memory get "<baslik|kimlik>"
 //   ntt-team memory link "<baslik A>" "<baslik B>"
-//   ntt-team memory update "<baslik|kimlik>" "<ek metin>" [--etiket a,b]
+//   ntt-team memory update "<baslik|kimlik>" "<ek metin>" [--etiket a,b] [--gorev og-…]
 //   ntt-team memory list [--ben]
 //
 // `--gorev <og-…>`: öğrenme görevinin (learnTasks.ts) yazdığı not o göreve
-// işaretlenir (kaynak: görev); Bellek ekranı sayar ve görev başına geri alır.
+// işaretlenir (add: kaynak görev; update: notun `tasks` listesi); Bellek ekranı
+// YALNIZ bu işarete göre sayar, geri alma yalnız göreve işaretli eklenenleri siler.
 //
 // Varsayılan kapsam ekip belleği; `--ben` ajanın kendi belleği.
 import {
@@ -203,8 +204,10 @@ export function runMemoryCommand(rawArgs: unknown, caller: MemoryCommandCaller, 
       if (!ref || !extra) return out(400, MEMORY_USAGE);
       const note = findNote(visible(store.list(), caller), ref);
       if (!note) return out(404, `"${ref}" adli not yok. Yeni not: ntt-team memory add`);
+      const task = flagText(p, "gorev", "task");
+      if (task !== undefined && !isLearnTaskId(task)) return out(400, `Gecersiz gorev kimligi "${task}".`);
       const tagText = flagText(p, "etiket", "tags", "tag");
-      const patch: NotePatch = { body: note.body ? `${note.body}\n\n${extra}` : extra };
+      const patch: NotePatch = { body: note.body ? `${note.body}\n\n${extra}` : extra, ...(task ? { task } : {}) };
       if (tagText) patch.tags = normalizeTags([...note.tags, ...normalizeTags(tagText)]);
       const result = store.update(note.id, patch);
       if (!result.ok) return out(409, REASON[result.reason] ?? result.reason);

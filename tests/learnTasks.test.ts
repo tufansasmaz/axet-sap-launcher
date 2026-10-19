@@ -187,17 +187,24 @@ describe("görev durum makinesi", () => {
 });
 
 describe("not sayımı", () => {
-  it("eklenen = göreve işaretli ya da görev penceresinde bu ajanın yazdığı yeni not; güncellenen = tabanda olup değişen", () => {
-    const t = { ...base(), state: "running" as const, startedAt: 2_000, baseline: { "n-old1": 100, "n-old2": 100 } };
+  it("YALNIZ --gorev işaretine dayanır: aynı ajanın işaretsiz notu ve işaretsiz güncelleme sayılmaz", () => {
+    const t = { ...base(), state: "running" as const, startedAt: 2_000, baseline: { "n-old1": 100, "n-old2": 100, "n-old3": 100 } };
     const notes = [
       note("n-old1", { updated: 100 }),
-      note("n-old2", { updated: 3_000 }),
+      note("n-old2", { updated: 3_000, tasks: ["og-test01"] }),
+      note("n-old3", { updated: 3_100 }),
       note("n-new1", { created: 2_500, updated: 2_500, source: { type: "task", name: "Ali", ref: "og-test01" } }),
       note("n-new2", { created: 2_600, updated: 2_600, source: { type: "agent", name: "Ali" } }),
-      note("n-oth", { created: 2_700, updated: 2_700, source: { type: "agent", name: "Veli" } }),
+      note("n-oth", { created: 2_700, updated: 2_700, source: { type: "task", name: "Ali", ref: "og-baska01" } }),
       note("n-user", { created: 2_800, updated: 2_800, source: { type: "user" } })
     ];
-    expect(countLearnNotes(t, notes)).toEqual({ added: ["n-new1", "n-new2"], updated: ["n-old2"] });
+    expect(countLearnNotes(t, notes)).toEqual({ added: ["n-new1"], updated: ["n-old2"] });
+  });
+
+  it("zaman aralığı dışında yazılsa da işaretli not göreve sayılır", () => {
+    const t = { ...base(), state: "done" as const, startedAt: 2_000, endedAt: 3_000, baseline: {} };
+    const notes = [note("n-late", { created: 99_000, updated: 99_000, source: { type: "task", name: "Ali", ref: "og-test01" } })];
+    expect(countLearnNotes(t, notes).added).toEqual(["n-late"]);
   });
 
   it("başlamamış görevde sayım boş", () => {
