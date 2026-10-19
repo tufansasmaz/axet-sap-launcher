@@ -33,8 +33,9 @@ import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, setTerminalTap } from "./terminalManager";
-import { createAgentMonitor, readAgentRegistration } from "./agentMonitor";
+import { createAgentMonitor, readAgentRegistration, type AgentErrorNotice } from "./agentMonitor";
 import { agentNotificationFor, type AgentNotificationKind } from "./agentNotification";
+import { createEngineGate, type GateAgent } from "./agentGate";
 import { createAgentReader, liveAxetDbPort } from "./agentReaders";
 import { createSessionRegistry } from "./agentAxetReader";
 import { TERMINAL_MISSING_DIR, boardWorkspaceInfo } from "../shared/terminalLayout";
@@ -271,14 +272,14 @@ function showChatNotification(chatId: string, kind: Parameters<typeof notificati
 // Ajan Alanı bildirimi (spec 2026-10-17 ajan-alani §9). Sohbet bildirimiyle
 // aynı ayar (`chatNotifications`) ve aynı yaşam döngüsü; tıklayınca Ajanlar
 // ekranı ve o ajanın bölmesi açılıyor. Gövde sabit, içerik yok.
-function showAgentNotification(paneId: string, agentName: string, kind: AgentNotificationKind): void {
+function showAgentNotification(paneId: string, agentName: string, kind: AgentNotificationKind, error?: AgentErrorNotice): void {
   try {
     if (!Notification.isSupported()) return;
     const cfg = loadConfig();
     const isFocusedAndVisible = (mainWindow?.isFocused() ?? false) && !(mainWindow?.isMinimized() ?? true);
     const lang = cfg.language === "en" ? "en" : "tr";
     // Tur 6: masaüstü bildirimi iki ayarın kesişimi (Masaüstü bildirimleri + Ajan bildirimleri).
-    const payload = agentNotificationFor(kind, isFocusedAndVisible, cfg.chatNotifications !== false && cfg.agentNotifications !== false, agentName, lang);
+    const payload = agentNotificationFor(kind, isFocusedAndVisible, cfg.chatNotifications !== false && cfg.agentNotifications !== false, agentName, lang, error);
     if (!payload) return;
     const n = new Notification({ title: payload.title, body: payload.body, silent: false, icon: resolveIconPath() });
     _liveNotifications.add(n);
@@ -331,6 +332,14 @@ function showBoardNotification(workspaceId: string, taskTitle: string, kind: Boa
 // Ajan izleyicisi (spec 2026-10-17 ajan-alani §6). Modül düzeyinde tek örnek;
 // zamanlayıcı registerIpc'de kuruluyor, kapanışta duruyor.
 const agentSessions = createSessionRegistry();
+// Tur 9: aynı motorda aynı anda çalışan ajan sınırı ve 429 ortak beklemesi
+// (agentGate.ts). Otomatik gönderimler (yeniden deneme, lider görevi, pano) geçer.
+const engineGate = createEngineGate({
+  now: () => Date.now(),
+  limit: (engine) => (engine === "axet-code" ? loadConfig().agentConcurrency : 0)
+});
+const gateAgents = (alsoRunning: readonly string[] = []): GateAgent[] =>
+  agentMonitor.agents().map((a) => ({ paneId: a.reg.paneId, engine: a.reg.engine, running: a.status?.state === "running" || alsoRunning.includes(a.reg.paneId) }));
 const agentMonitor = createAgentMonitor({
   now: () => Date.now(),
   createReader: (reg) =>
@@ -345,7 +354,19 @@ const agentMonitor = createAgentMonitor({
     // Görev panosu her durum olayında da dağıtıyor (spec 2026-10-18 gorev-panosu §5).
     queueBoardTick();
   },
-  notify: (kind, reg) => showAgentNotification(reg.paneId, reg.name, kind),
+  notify: (kind, reg, error) => showAgentNotification(reg.paneId, reg.name, kind, error),
+  // Tur 9: hata zinciri — ayar, lider görevinin satırı, kapı, 429, lidere bilgi.
+  retryPrefs: () => {
+    const cfg = loadConfig();
+    return { auto: cfg.agentAutoRetry !== false, max: cfg.agentRetryMax };
+  },
+  retryText: (reg) => teamLead.retryText(reg.paneId),
+  gate: (reg) => engineGate.check(reg.paneId, reg.engine, gateAgents(), { lead: isLeadRole(reg.role) }),
+  onRateLimit: (reg) => {
+    const waitMs = engineGate.noteRateLimit(reg.engine);
+    appLog("ajan.istekSiniri", { motor: reg.engine, beklemeSn: Math.round(waitMs / 1000) });
+  },
+  onFinalError: (reg, status) => teamLead.onAgentError(reg.workspaceId, reg.paneId, status),
   write: (ptyId, data) => writeTerminal(ptyId, data),
   backlog: (ptyId) => getTerminalBuffer(ptyId).slice(-4_000),
   log: (tag, fields) => appLog(tag, fields),
@@ -392,6 +413,11 @@ const boardManager = createBoardManager({
   },
   notify: (kind, workspaceId, title) => showBoardNotification(workspaceId, title, kind),
   log: (tag, fields) => appLog(tag, fields),
+  // Tur 9: kendiliğinden dağıtım da eşzamanlılık / 429 kapısından geçer.
+  gate: (paneId, alsoRunning) => {
+    const agent = agentMonitor.agents().find((a) => a.reg.paneId === paneId);
+    return agent ? engineGate.check(paneId, agent.reg.engine, gateAgents(alsoRunning), { lead: isLeadRole(agent.reg.role) }) : "ok";
+  },
   // Değişiklikler (spec 2026-10-18 degisiklikler §4.1): dağıtım görüntüsü; senkron döner.
   onDispatched: (workspaceId, paneId, subtaskId, title) => changesManager.onDispatched(workspaceId, paneId, subtaskId, title)
 });
@@ -503,8 +529,15 @@ const teamLead = createTeamLead({
   paneCount: (workspaceId) => loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId)?.panes.length ?? 0,
   settings: () => {
     const cfg = loadConfig();
-    return { enabled: cfg.leadTeam !== false, approval: cfg.leadApproval === true, max: cfg.leadMaxAgents, lang: cfg.language === "en" ? "en" : "tr" };
+    return {
+      enabled: cfg.leadTeam !== false,
+      approval: cfg.leadApproval === true,
+      max: cfg.leadMaxAgents,
+      lang: cfg.language === "en" ? "en" : "tr",
+      stallMs: cfg.leadStallMinutes * 60_000
+    };
   },
+  gate: (paneId, engine, lead) => engineGate.check(paneId, engine, gateAgents(), { lead }),
   status: (paneId) => agentMonitor.agents().find((a) => a.reg.paneId === paneId)?.status ?? null,
   send: (workspaceId, paneId, text) => agentSender.send(workspaceId, paneId, text),
   output: (paneId) => {
@@ -1576,6 +1609,9 @@ function registerIpc(): void {
   );
 
   // Tur 7: Akış soru kartındaki "Kendi cevabını yaz" (serbest cevap; doğrulama izleyicide).
+  // Tur 9: Akış hata kartının "Yeniden dene" ve geri sayımın "İptal"i.
+  ipcMain.handle("agents:retry", (_event, paneId: unknown) => (typeof paneId === "string" ? agentMonitor.retryNow(paneId) : "noAgent"));
+  ipcMain.handle("agents:retryCancel", (_event, paneId: unknown) => (typeof paneId === "string" ? agentMonitor.cancelRetry(paneId) : false));
   ipcMain.handle("agents:answerText", (_event, paneId: unknown, callId: unknown, text: unknown) =>
     typeof paneId === "string" && typeof callId === "string" && typeof text === "string"
       ? agentMonitor.answerText(paneId, callId, text)

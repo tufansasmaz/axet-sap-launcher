@@ -523,6 +523,13 @@ export interface AppConfig {
   axetAutoSetup: boolean;
   axetAutoTool: AxetToolChoice;
   axetAutoModel: string;
+  // Tur 9: ajan hatası — geçici hatada otomatik yeniden deneme (varsayılan açık)
+  // ve en çok deneme (1..5, varsayılan 3); aynı anda çalışan axet-code ajanı
+  // (0 sınırsız, varsayılan 2; 429 ölçümü); lider görevinde takılma eşiği (dk, 0 kapalı).
+  agentAutoRetry: boolean;
+  agentRetryMax: number;
+  agentConcurrency: number;
+  leadStallMinutes: number;
 }
 
 /** SAP bağlanınca açılacak yer — ayardaki seçim. */

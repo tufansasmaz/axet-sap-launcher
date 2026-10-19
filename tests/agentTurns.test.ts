@@ -203,7 +203,7 @@ describe("izleyici — hata bildirimi ve aşama değişimi yayını", () => {
     monitor.tick();
     monitor.tick();
     expect(deps.notify).toHaveBeenCalledTimes(1);
-    expect(deps.notify).toHaveBeenLastCalledWith("error", expect.objectContaining({ paneId: "p1" }));
+    expect(deps.notify).toHaveBeenLastCalledWith("error", expect.objectContaining({ paneId: "p1" }), expect.objectContaining({ cls: "unknown" }));
     set({ state: "error", source: "estimated", lastActivity: 3 });
     monitor.tick();
     expect(deps.notify).toHaveBeenCalledTimes(1);

@@ -97,6 +97,28 @@ describe("eklenen (Tur 7): lider ekip ayarları", () => {
   });
 });
 
+describe("eklenen (Tur 9): ajan hatası ayarları", () => {
+  it("varsayılan: otomatik deneme açık, 3 deneme, axet-code için 2 eşzamanlı, takılma 10 dk", async () => {
+    const cfg = (await store(null)).loadConfig();
+    expect([cfg.agentAutoRetry, cfg.agentRetryMax, cfg.agentConcurrency, cfg.leadStallMinutes]).toEqual([true, 3, 2, 10]);
+  });
+  it("kayıtlı değerler korunuyor, bozuk değer varsayılana", async () => {
+    const cfg = (await store({ agentAutoRetry: false, agentRetryMax: 5, agentConcurrency: 0, leadStallMinutes: 0 })).loadConfig();
+    expect([cfg.agentAutoRetry, cfg.agentRetryMax, cfg.agentConcurrency, cfg.leadStallMinutes]).toEqual([false, 5, 0, 0]);
+    vi.resetModules();
+    const bad = (await store({ agentAutoRetry: "hayir", agentRetryMax: 0, agentConcurrency: 99, leadStallMinutes: 7 })).loadConfig();
+    expect([bad.agentAutoRetry, bad.agentRetryMax, bad.agentConcurrency, bad.leadStallMinutes]).toEqual([true, 3, 2, 10]);
+  });
+  it("ana süreç: izleyiciye yeniden deneme ayarı, kapı ve lidere bilgi bağlı (kaynak düzeyi)", async () => {
+    const { readFileSync: read } = await import("node:fs");
+    const main = read(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8").replace(/\r\n/g, "\n");
+    expect(main).toContain("auto: cfg.agentAutoRetry !== false, max: cfg.agentRetryMax");
+    expect(main).toContain("onFinalError: (reg, status) => teamLead.onAgentError(reg.workspaceId, reg.paneId, status)");
+    expect(main).toContain('engine === "axet-code" ? loadConfig().agentConcurrency : 0');
+    expect(main).toContain("stallMs: cfg.leadStallMinutes * 60_000");
+  });
+});
+
 describe("eklenen (Tur 8): axet-code açılış seçimi", () => {
   it("varsayılan: otomatik açık, aXet.Code, model boş (son kullanılan)", async () => {
     const cfg = (await store(null)).loadConfig();

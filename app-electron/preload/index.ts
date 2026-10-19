@@ -193,6 +193,8 @@ const api = {
     ipcRenderer.invoke("agents:answer", paneId, callId, index),
   agentAnswerText: (paneId: string, callId: string, text: string): Promise<AgentAnswerResult> =>
     ipcRenderer.invoke("agents:answerText", paneId, callId, text),
+  agentRetry: (paneId: string): Promise<string> => ipcRenderer.invoke("agents:retry", paneId),
+  agentRetryCancel: (paneId: string): Promise<boolean> => ipcRenderer.invoke("agents:retryCancel", paneId),
   agentSnapshot: (): Promise<AgentStatusEvent[]> => ipcRenderer.invoke("agents:snapshot"),
   onAgentStatus: (callback: (event: AgentStatusEvent) => void) => {
     const listener = (_event: unknown, event: AgentStatusEvent) => callback(event);

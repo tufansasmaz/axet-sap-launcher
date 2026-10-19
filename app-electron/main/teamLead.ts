@@ -21,6 +21,8 @@ import {
 
 export type { LeadApprovalRequest, LeadSpawnRequest };
 import { MAX_TERMINAL_PANES } from "../shared/terminalLayout";
+import { LEAD_ERROR_LABEL, leadErrorAdvice, type AgentErrorClass } from "../shared/agentErrors";
+import type { GateResult } from "./agentGate";
 
 export interface LeadMember {
   paneId: string;
@@ -45,6 +47,8 @@ export interface LeadSettings {
   /** Ekip başına lider açımı ajan sınırı. */
   max: number;
   lang: "tr" | "en";
+  /** Tur 9: atanmış görev bu kadar süre aşama değiştirmezse lidere "takıldı" (0 kapalı). */
+  stallMs?: number;
 }
 
 export interface LeadRelay {
@@ -74,6 +78,8 @@ export interface TeamLeadDeps {
   now(): number;
   sleep(ms: number): Promise<void>;
   log(tag: string, fields: Record<string, string | number | boolean>): void;
+  /** Tur 9: eşzamanlılık / 429 kapısı; lider (bildirim) sınırdan muaf. Yoksa açık. */
+  gate?(paneId: string, engine: AgentEngineId, lead: boolean): GateResult;
 }
 
 export type LeadTaskState = "queued" | "sending" | "sent" | "done" | "failed";
@@ -96,7 +102,28 @@ export interface LeadTask {
   matched?: boolean;
   note?: string;
   asking?: string;
+  /** Tur 9: hedefin motoru (kapı için). */
+  targetEngine?: AgentEngineId;
+  /** Tur 9: düşen görevin hata sınıfı ve deneme sayısı. */
+  errorClass?: AgentErrorClass;
+  attempts?: number;
+  maxAttempts?: number;
+  /** Tur 9: otomatik deneme sürüyor. */
+  retrying?: { cls: AgentErrorClass; attempt: number; max: number };
+  /** Tur 9: takılma izi. */
+  stallKey?: string;
+  stallSince?: number;
+  stallNotified?: boolean;
+  /** Tur 9: kapıda bekledi ("sırada" kartı bir kez). */
+  queuedNoted?: boolean;
+  /** Tur 9: yeniden atama zinciri. */
+  reassignOf?: string;
+  reassigns?: number;
+  reassignedTo?: string;
 }
+
+/** Aynı görev en çok bu kadar yeniden atanır (döngü olmasın). */
+export const LEAD_REASSIGN_MAX = 2;
 
 export interface LeadResponse {
   status: number;
@@ -125,6 +152,10 @@ export interface TeamLead {
   /** Saniyede bir: kuyruktaki görevleri gönderir, gönderilenlerin sonucunu toplar. */
   tick(): void;
   tasks(): LeadTask[];
+  /** Tur 9: ajanın açık lider görevi varsa yeniden denemede gidecek görev satırı. */
+  retryText(paneId: string): string | null;
+  /** Tur 9: hata kesinleşti; lider görevi değilse (kullanıcının işi) lidere yalnız bilgi. */
+  onAgentError(workspaceId: string | undefined, paneId: string, status: AgentStatus): void;
 }
 
 export function createTeamLead(deps: TeamLeadDeps): TeamLead {
@@ -150,10 +181,105 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
     });
   }
 
-  function finish(task: LeadTask, state: "done" | "failed", fields: Partial<LeadTask>) {
+  function finish(task: LeadTask, state: "done" | "failed", fields: Partial<LeadTask>, relay = true) {
     Object.assign(task, fields, { state });
     deps.log("ekip.lider.gorev", { sonuc: state, eslesti: task.matched === true });
-    relayResult(task);
+    if (relay) relayResult(task);
+  }
+
+  // Tur 9: lidere kendiliğinden giden satırlar. Lider meşgulse kuyrukta bekler;
+  // aynı olay (anahtar) için tek satır.
+  const outbox: Array<{ workspaceId: string; leaderPaneId: string; text: string }> = [];
+  const outboxKeys = new Set<string>();
+  const outboxBusy = new Set<string>();
+
+  function notifyLeader(workspaceId: string, leaderPaneId: string, key: string, text: string) {
+    if (outboxKeys.has(key)) return;
+    outboxKeys.add(key);
+    if (outboxKeys.size > 500) outboxKeys.delete(outboxKeys.values().next().value as string);
+    outbox.push({ workspaceId, leaderPaneId, text: `[NTT Studio] ${text}` });
+  }
+
+  function flushOutbox() {
+    for (const item of [...outbox]) {
+      if (outboxBusy.has(item.leaderPaneId)) continue;
+      const status = deps.status(item.leaderPaneId);
+      const leader = deps.members(item.workspaceId).find((m) => m.paneId === item.leaderPaneId);
+      if (!leader || !status) {
+        outbox.splice(outbox.indexOf(item), 1);
+        continue;
+      }
+      if (status.state === "running" || status.state === "asking" || status.state === "finished" || status.detail === AXET_SETUP_DETAIL) continue;
+      if ((deps.gate?.(item.leaderPaneId, leader.engine, true) ?? "ok") !== "ok") continue;
+      outboxBusy.add(item.leaderPaneId);
+      const done = (keep: boolean) => {
+        outboxBusy.delete(item.leaderPaneId);
+        if (!keep) {
+          const i = outbox.indexOf(item);
+          if (i >= 0) outbox.splice(i, 1);
+        }
+      };
+      deps
+        .send(item.workspaceId, item.leaderPaneId, item.text)
+        .then((r) => {
+          done(!r.ok && RETRYABLE.has(r.reason));
+          deps.log("ekip.lider.bildirim", { sonuc: r.ok ? "tamam" : r.reason });
+        })
+        .catch(() => done(false));
+    }
+  }
+
+  const tries = (a?: number, m?: number) => (a && m ? `, deneme ${a}/${m}${a >= m ? " tukendi" : ""}` : "");
+
+  function failWithError(task: LeadTask, status: AgentStatus) {
+    const cls = status.error?.cls ?? "unknown";
+    const label = LEAD_ERROR_LABEL[cls];
+    finish(task, "failed", { note: `${task.targetName} hata verdi: ${label}${tries(status.attempts, status.maxAttempts)}.`, errorClass: cls, attempts: status.attempts, maxAttempts: status.maxAttempts, retrying: undefined }, false);
+    deps.relay({
+      workspaceId: task.workspaceId,
+      paneId: task.targetPaneId,
+      name: `${task.targetName} → ${task.leaderName}`,
+      detail: `[${task.id}] ${label}${tries(status.attempts, status.maxAttempts)}`,
+      act: "error",
+      toPaneId: task.leaderPaneId
+    });
+    notifyLeader(task.workspaceId, task.leaderPaneId, `error:${task.id}`, `${task.id} ${task.targetName}: ${label}${tries(status.attempts, status.maxAttempts)}. ${leadErrorAdvice(cls)} Ayrinti: ntt-team wait ${task.id}`);
+  }
+
+  function watchStall(task: LeadTask, status: AgentStatus, now: number) {
+    // Yalnız kesin kaynak: tahmini "çalışıyor" çıktı hareketi, aşaması yok.
+    if (status.source !== "exact") return;
+    const key = `${status.state}|${status.phase?.kind ?? ""}|${status.phase?.tool ?? ""}|${status.phase?.target ?? ""}`;
+    if (task.stallKey !== key) {
+      task.stallKey = key;
+      task.stallSince = now;
+      return;
+    }
+    const stallMs = deps.settings().stallMs ?? 0;
+    if (!(stallMs > 0) || task.stallNotified || now - (task.stallSince ?? now) < stallMs) return;
+    task.stallNotified = true;
+    const min = Math.round(stallMs / 60_000);
+    deps.relay({ workspaceId: task.workspaceId, paneId: task.targetPaneId, name: `${task.targetName} → ${task.leaderName}`, detail: `[${task.id}] ${min} dk`, act: "stall", toPaneId: task.leaderPaneId });
+    notifyLeader(task.workspaceId, task.leaderPaneId, `stall:${task.id}`, `${task.id} ${task.targetName}: ${min} dk ilerleme yok (takilmis olabilir). Oneri: ntt-team ask ${task.targetName} "Durum ne?" ile sor ya da gorevi bostaki baska ajana ver.`);
+    deps.log("ekip.lider.takildi", { dk: min });
+  }
+
+  /** Bu liderin aynı metinli, düşmüş ve henüz yeniden atanmamış son görevi. */
+  function failedTwin(leaderPaneId: string, text: string): LeadTask | null {
+    let found: LeadTask | null = null;
+    for (const t of tasks.values()) {
+      if (t.leaderPaneId === leaderPaneId && t.state === "failed" && !t.reassignedTo && t.text.trim() === text.trim()) found = t;
+    }
+    return found;
+  }
+
+  const reassignLimit = () => err(429, `Bu gorev ${LEAD_REASSIGN_MAX} kez yeniden atandi; yeniden atama yok; kullaniciya bildir.`);
+
+  function linkReassign(prev: LeadTask | null, task: LeadTask) {
+    if (!prev) return;
+    prev.reassignedTo = task.id;
+    task.reassignOf = prev.id;
+    task.reassigns = (prev.reassigns ?? 0) + 1;
   }
 
   function trim() {
@@ -176,7 +302,8 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       targetName: target.name,
       text,
       state: "queued",
-      createdAt: deps.now()
+      createdAt: deps.now(),
+      targetEngine: target.engine
     };
     tasks.set(id, task);
     trim();
@@ -221,13 +348,24 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
     if (status.state === "running") {
       task.sawRunning = true;
       task.asking = undefined;
+      task.retrying = undefined;
+      watchStall(task, status, now);
       return;
     }
     if (status.state === "asking") {
       task.asking = status.question?.question ?? "";
+      task.stallKey = undefined;
       return;
     }
-    if (status.state === "error" && task.sawRunning) return finish(task, "failed", { note: `${task.targetName} hata verdi.` });
+    // Tur 9: hata. Otomatik deneme sürüyorsa görev düşmüyor; kesinleşince sınıf + deneme ile düşüyor.
+    if (status.state === "error" || (status.state === "finished" && status.error)) {
+      const fresh = task.sawRunning === true || (status.lastActivity !== null && status.lastActivity >= sentAt);
+      if (fresh && status.retry && status.error) {
+        task.retrying = { cls: status.error.cls, attempt: status.retry.attempt, max: status.retry.max };
+        return;
+      }
+      if (fresh && (status.error || status.state === "error")) return failWithError(task, status);
+    }
     if (status.source === "exact") {
       const fresh = status.lastActivity !== null && status.lastActivity >= sentAt;
       if ((status.state === "idle" || status.state === "finished") && (task.sawRunning || fresh)) {
@@ -258,12 +396,25 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
             continue;
           }
           if (!status || status.detail === AXET_SETUP_DETAIL || status.state === "running" || status.state === "asking") continue;
+          // Tur 9: aynı motorda aynı anda çalışan sınırı ve 429 beklemesi; görev sırada bekler.
+          if ((deps.gate?.(task.targetPaneId, task.targetEngine ?? "axet-code", false) ?? "ok") !== "ok") {
+            if (!task.queuedNoted) {
+              task.queuedNoted = true;
+              deps.relay({ workspaceId: task.workspaceId, paneId: task.leaderPaneId, name: `${task.leaderName} → ${task.targetName}`, detail: `[${task.id}] ${task.text}`, act: "queued", toPaneId: task.targetPaneId });
+            }
+            continue;
+          }
           busyTargets.add(task.targetPaneId);
           void sendTask(task);
         }
       } catch {
         // tek görevin hatası öbürlerini durdurmasın
       }
+    }
+    try {
+      flushOutbox();
+    } catch {
+      // bildirim kuyruğu hatası tick'i düşürmesin
     }
   }
 
@@ -292,6 +443,9 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       deps.log("ekip.lider.ac", { sonuc: "tekrar" });
       return json(200, { ok: true, text: `Bu gorevle zaten acildi: ${twin.targetName}, gorev ${twin.id} (${twin.state === "done" ? "bitti" : "suruyor"}). Yeni ajan acilmadi. Sonuc: ntt-team wait ${twin.id}`, name: twin.targetName });
     }
+    // Tur 9: düşmüş görevi yeni ajana vermek yeniden atama sayılır (en çok LEAD_REASSIGN_MAX).
+    const prevFailed = cmd.task ? failedTwin(caller.paneId, cmd.task) : null;
+    if (prevFailed && (prevFailed.reassigns ?? 0) >= LEAD_REASSIGN_MAX) return reassignLimit();
     const inFlight = pending.get(ws) ?? 0;
     const mine = members.filter((m) => spawnedBy(m)).length;
     if (mine + inFlight >= settings.max) return err(429, `Ekip basina en cok ${settings.max} lider-acimi ajan; once birini kapat (ntt-team close <ajan>).`);
@@ -328,7 +482,8 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
         return err(409, `Ajan acilamadi (${opened.reason}).`);
       }
       spawned.set(paneId, caller.paneId);
-      deps.relay({ workspaceId: ws, paneId: caller.paneId, name: caller.name, detail: `${name} (${role.label})`, act: "spawn", toPaneId: paneId });
+      const instead = prevFailed ? ` · ${prevFailed.id} yerine` : "";
+      deps.relay({ workspaceId: ws, paneId: caller.paneId, name: caller.name, detail: `${name} (${role.label})${instead}`, act: "spawn", toPaneId: paneId });
       deps.log("ekip.lider.ac", { sonuc: "tamam", motor: opened.engine });
       // Kayıt (terminal açıldı, izleyici tanıdı) beklenir; gelmezse görev yine kuyrukta.
       const until = deps.now() + SPAWN_REGISTER_MS;
@@ -337,6 +492,7 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       let taskLine = "";
       if (cmd.task) {
         const task = queueTask(caller, { paneId, name, role: role.label, engine: opened.engine, spawnedBy: caller.paneId }, cmd.task);
+        linkReassign(prevFailed, task);
         taskLine = ` Gorev ${task.id} kuyrukta; ajan hazir olunca gidecek. Sonuc icin: ntt-team wait ${task.id}`;
       }
       const setup = ready?.detail === AXET_SETUP_DETAIL ? " Ajan acilista arac secimi bekliyor: kullanici terminalde secmeli." : "";
@@ -360,9 +516,26 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
           : `${task.targetName} [${id}]: ${task.note ?? "bitti"}`;
         return json(200, { ok: true, id, state: "done", matched: task.matched === true, text });
       }
-      if (task.state === "failed") return json(200, { ok: false, id, state: "failed", error: `${task.targetName} [${id}]: ${task.note ?? "basarisiz"}` });
+      if (task.state === "failed") {
+        const extra = task.errorClass
+          ? { errorClass: task.errorClass, ...(task.attempts ? { attempts: task.attempts, max: task.maxAttempts } : {}), advice: leadErrorAdvice(task.errorClass) }
+          : {};
+        return json(200, { ok: false, id, state: "failed", error: `${task.targetName} [${id}]: ${task.note ?? "basarisiz"}`, ...extra });
+      }
       if (task.asking !== undefined) {
         return json(202, { ok: true, id, state: "asking", text: `${task.targetName} [${id}] soru soruyor: ${task.asking} -- kullanici ya da sen cevapla (ntt-team ask), sonra yeniden wait.` });
+      }
+      if (deps.now() >= until && task.retrying) {
+        const r = task.retrying;
+        return json(202, {
+          ok: true,
+          id,
+          state: "retrying",
+          errorClass: r.cls,
+          attempt: r.attempt,
+          max: r.max,
+          text: `${task.targetName} [${id}] hata verdi (${LEAD_ERROR_LABEL[r.cls]}); uygulama otomatik yeniden deniyor (deneme ${r.attempt}/${r.max}). Bekle: ntt-team wait ${id}`
+        });
       }
       if (deps.now() >= until) {
         const where = task.state === "queued" ? "kuyrukta (ajan henuz alamadi)" : "suruyor";
@@ -376,7 +549,10 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
     const settings = deps.settings();
     const lines = members.map((m) => {
       const s = deps.status(m.paneId);
-      const state = !s ? "kapali" : s.detail === AXET_SETUP_DETAIL ? "arac secimi" : s.state;
+      const failure = s?.error && (s.state === "error" || s.state === "finished")
+        ? ` (${LEAD_ERROR_LABEL[s.error.cls]}${s.retry ? `, otomatik deneme ${s.retry.attempt}/${s.retry.max} bekliyor` : tries(s.attempts, s.maxAttempts)})`
+        : "";
+      const state = !s ? "kapali" : s.detail === AXET_SETUP_DETAIL ? "arac secimi" : `${s.state === "error" ? "hata" : s.state}${failure}`;
       const phase = s?.phase ? ` (${s.phase.kind}${s.phase.tool ? `: ${s.phase.tool}` : ""})` : "";
       const by = spawnedBy(m);
       const tag = m.paneId === caller.paneId ? " (sen)" : by === caller.paneId ? " [senin actigin]" : by ? " [lider acti]" : "";
@@ -411,6 +587,32 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
   return {
     tasks: () => [...tasks.values()],
     tick,
+    retryText(paneId) {
+      for (const t of tasks.values()) {
+        if (t.targetPaneId === paneId && t.state === "sent") return leadTaskPrompt(t.leaderName, t.id, t.text);
+      }
+      return null;
+    },
+    onAgentError(workspaceId, paneId, status) {
+      try {
+        if (!workspaceId) return;
+        // Lider görevi olan ajan: görev yolu (failWithError) söylüyor.
+        for (const t of tasks.values()) if (t.targetPaneId === paneId && (t.state === "sent" || t.state === "sending")) return;
+        const members = deps.members(workspaceId);
+        const leader = members.find((m) => isLeadRole(m.role) && !spawnedBy(m));
+        const agent = members.find((m) => m.paneId === paneId);
+        if (!leader || !agent || leader.paneId === paneId) return;
+        const cls = status.error?.cls ?? "unknown";
+        notifyLeader(
+          workspaceId,
+          leader.paneId,
+          `info:${paneId}:${cls}:${status.lastActivity ?? ""}`,
+          `Bilgi: ${agent.name} (kullanicinin verdigi is) hata verdi: ${LEAD_ERROR_LABEL[cls]}${tries(status.attempts, status.maxAttempts)}. Yalniz bilgi; kullanicinin isine karisma, kullanici isterse yardim et.`
+        );
+      } catch {
+        // bilgi satırı hatası izleyiciyi düşürmesin
+      }
+    },
     async handle(caller, args) {
       const cmd = parseLeadArgs(args);
       if ("error" in cmd) return err(400, cmd.error);
@@ -424,7 +626,14 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       const target = findMember(members, cmd.to);
       if (!target) return err(404, `Ekipte "${cmd.to}" yok. Uyeler: ${members.map((m) => m.name).join(", ")}`);
       if (target.paneId === caller.paneId) return err(400, "Kendine gorev veremezsin.");
+      const prev = failedTwin(caller.paneId, cmd.text);
+      if (prev && (prev.reassigns ?? 0) >= LEAD_REASSIGN_MAX) return reassignLimit();
       const task = queueTask(caller, target, cmd.text);
+      linkReassign(prev, task);
+      if (prev) {
+        deps.relay({ workspaceId: caller.workspaceId, paneId: caller.paneId, name: `${caller.name} → ${target.name}`, detail: `[${task.id}] ${prev.id} yerine: ${cmd.text}`, act: "reassign", toPaneId: target.paneId });
+        deps.log("ekip.lider.yenidenAtama", { sayi: task.reassigns ?? 1 });
+      }
       deps.log("ekip.lider.gorev", { sonuc: "kuyruk" });
       return json(200, { ok: true, id: task.id, text: `Gorev ${task.id} → ${target.name} (ajan hazir olunca gider). Sonuc: ntt-team wait ${task.id}` });
     }

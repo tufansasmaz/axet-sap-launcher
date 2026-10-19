@@ -212,8 +212,9 @@ export function extractLeadResult(text: string | null | undefined, id: string): 
 }
 
 /** Akış kartının türü (StoredFlowEvent.act). */
-export type LeadAct = "spawn" | "assign" | "result" | "close" | "denied";
-export const LEAD_ACTS: readonly LeadAct[] = ["spawn", "assign", "result", "close", "denied"];
+// Tur 9: "error" (Lider ← hata bildirimi), "stall" (takıldı), "reassign" (yeniden atadı), "queued" (sırada).
+export type LeadAct = "spawn" | "assign" | "result" | "close" | "denied" | "error" | "stall" | "reassign" | "queued";
+export const LEAD_ACTS: readonly LeadAct[] = ["spawn", "assign", "result", "close", "denied", "error", "stall", "reassign", "queued"];
 
 export function isLeadAct(value: unknown): value is LeadAct {
   return typeof value === "string" && (LEAD_ACTS as readonly string[]).includes(value);
@@ -234,7 +235,7 @@ export function leadHint(max: number, canSpawn: boolean): string {
   const spawn = canSpawn
     ? `once \`ntt-team status\` ile bostaki uygun ajani kullan, yoksa \`ntt-team spawn --rol Gelistirici|Analist|Test|Inceleme [--ad X] [--gorev "..."]\` ile ajan ac (en cok ${max}), `
     : "";
-  return ` (Sen ekip liderisin: isi parcala; ${spawn}\`ntt-team assign <ajan> "<gorev>"\` ile gorev ver (G-xxxx kimligi doner), \`ntt-team wait <G-xxxx>\` ile sonucu bekle (25 sn'de bitmezse ayni komutu yeniden calistir; ajani yeniden acma); sonuclari birlestir ve kullaniciya kisa ozet ver. Is bitince actigin ajanlari kapatma, sonraki isler icin ekipte kalsinlar; \`ntt-team close <ajan>\` yalniz kullanici isterse. Kendin Lider acamazsin; actigin ajanlar senden genis yetki almaz. \`ntt-team list|ask|feed|memory\` de var.)`;
+  return ` (Sen ekip liderisin: isi parcala; ${spawn}\`ntt-team assign <ajan> "<gorev>"\` ile gorev ver (G-xxxx kimligi doner), \`ntt-team wait <G-xxxx>\` ile sonucu bekle (25 sn'de bitmezse ayni komutu yeniden calistir; ajani yeniden acma); sonuclari birlestir ve kullaniciya kisa ozet ver. Is bitince actigin ajanlari kapatma, sonraki isler icin ekipte kalsinlar; \`ntt-team close <ajan>\` yalniz kullanici isterse. Kendin Lider acamazsin; actigin ajanlar senden genis yetki almaz. Hata: \`ntt-team status\`/\`wait\` nedeni soyler; gecici (servis/429/ag) ise uygulama yeniden dener, bekle; tukenirse gorevi baska ajana ver (en cok 2 kez); kalici (model/yetki) ise kullaniciya bildir. 429 alirsan ve ekip kalabaliksa yeni ajan acma, sirayla calistir. \`ntt-team list|ask|feed|memory\` de var.)`;
 }
 
 /** Ayarlar → ekip başına lider açımı ajan sınırı. */

@@ -1,5 +1,6 @@
 // Ajan Alanı'nın ortak türleri (spec 2026-10-17 ajan-alani §3).
 import { isMemoryKey } from "./memoryLogic";
+import type { AgentErrorInfo, AgentRetryInfo, RetryBlock } from "./agentErrors";
 //
 // Ana süreç ve renderer aynı türleri kullanıyor; bu yüzden `shared` altında.
 // Ajanın ADI, RENGİ ve KLASÖRÜ burada değil: ajan bir terminal bölmesi ve bu
@@ -120,6 +121,15 @@ export interface AgentStatus {
   turn?: AgentTurn;
   /** Kesin bağ neden yok (yalnız tahmini kaynakta; Tur 6). */
   link?: AgentLinkIssue;
+  /** Tur 9: hatanın sınıfı ve kısa ayrıntısı (state "error"; motor hata yazıp kapandıysa "finished"). */
+  error?: AgentErrorInfo;
+  /** Tur 9: bu hata zincirinde gönderilmiş yeniden deneme ve sınır (izleyici ekliyor). */
+  attempts?: number;
+  maxAttempts?: number;
+  /** Tur 9: bekleyen otomatik deneme (geri sayım). */
+  retry?: AgentRetryInfo;
+  /** Tur 9: otomatik deneme neden yok / durdu. */
+  retryBlocked?: RetryBlock;
 }
 
 export type AgentPhaseKind = "thinking" | "tool" | "writing";

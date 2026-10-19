@@ -52,7 +52,7 @@ const draft = (id: string, over: Partial<SubtaskDraft> = {}): SubtaskDraft => ({
   ...over
 });
 
-function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResult>; onDispatched?: BoardManagerDeps["onDispatched"] } = {}) {
+function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResult>; onDispatched?: BoardManagerDeps["onDispatched"]; gate?: BoardManagerDeps["gate"] } = {}) {
   const clock = { ms: 1_000 };
   let seq = 0;
   let writeCallCount = 0;
@@ -114,6 +114,7 @@ function harness(opts: { verify?: string[]; files?: Record<string, BoardFileResu
       return state.promptResult;
     },
     workspace: (id) => (id === "w1" ? info : null),
+    ...(opts.gate ? { gate: opts.gate } : {}),
     startLead: (cwd, prompt) => {
       let resolve: (o: LeadOutcome) => void = () => {};
       const done = new Promise<LeadOutcome>((r) => {
@@ -738,6 +739,16 @@ describe("Değişiklikler kancası (spec 2026-10-18 degisiklikler §4.1)", () =>
     h.state.promptResult = "ok";
     expect(h.manager.command("w1", { type: "assign", taskId: "id1", subtaskId: "b", paneId: "p2" })).toEqual({ ok: true, taskId: "id1" });
     expect(calls.at(-1)).toEqual(["w1", "p2", "b", "Alt b"]);
+  });
+
+  it("Tur 9: eşzamanlılık kapısı — bu turda gönderilen de sayılır, kapı kapalıyken alt görev bekler", () => {
+    const seen: string[][] = [];
+    const h = harness({ gate: (_p, also) => (seen.push([...also]), also.length >= 1 ? "full" : "ok") });
+    approvedTask(h, [draft("a"), draft("b")]);
+    h.state.agents = [presence("p1", exact("idle")), presence("p2", exact("idle"))];
+    h.manager.tick();
+    expect(h.prompts.map((p) => p[0])).toEqual(["p1"]);
+    expect(seen).toEqual([[], ["p1"]]);
   });
 
   it("onDispatched fırlatsa da dağıtım sürüyor", () => {

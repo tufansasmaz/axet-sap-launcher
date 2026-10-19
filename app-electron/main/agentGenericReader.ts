@@ -11,6 +11,8 @@
 // Bilinen sınır: dönen imleç ya da saat çizen bir TUI hep "çalışıyor"
 // görünür. Bu yüzden kaynak hep "tahmini" ve kartta "≈".
 import type { AgentStatus, AgentTurn } from "../shared/agentTypes";
+import { scanTerminalError } from "../shared/agentErrors";
+import { agentErrorInfo } from "./agentErrorInfo";
 
 /** İzleyicinin (agentMonitor.ts) bildiği tek yüz. Yöntemler hata fırlatmamalı. */
 export interface AgentReader {
@@ -25,6 +27,8 @@ export interface AgentReader {
 
 export const IDLE_AFTER_MS = 20_000;
 const TAIL_MAX = 4_000;
+/** Tur 9: tur çıktısından taranan kuyruk (son hata satırı için). */
+const TURN_TEXT_MAX = 3_000;
 
 export function stripAnsi(text: string): string {
   return text
@@ -67,6 +71,8 @@ export interface GenericReaderOptions {
   command: string;
   now: () => number;
   idleAfterMs?: number;
+  /** Tur 9: tur bitince son hata satırı taransın (kesin okuyucusu olmayan motorlar). */
+  scanErrors?: boolean;
 }
 
 export class GenericReader {
@@ -80,6 +86,7 @@ export class GenericReader {
   private promptAt: number | null = null;
   private turnOutput = false;
   private turnDone = false;
+  private turnText = "";
   private readonly echo: RegExp | null;
 
   constructor(private readonly opts: GenericReaderOptions) {
@@ -97,6 +104,7 @@ export class GenericReader {
     this.promptAt = this.opts.now();
     this.turnOutput = false;
     this.turnDone = false;
+    this.turnText = "";
   }
 
   feedOutput(data: string): void {
@@ -106,6 +114,7 @@ export class GenericReader {
       // Sakinleşmeden sonra gelen çıktı (tuş yankısı, yenileme) biten turu geri açmasın.
       if (this.turnOutput && this.lastOutputAt !== null && now - this.lastOutputAt >= this.idleAfter()) this.turnDone = true;
       else if (/\S/.test(clean) && now >= this.promptAt) this.turnOutput = true;
+      if (!this.turnDone) this.turnText = (this.turnText + clean).slice(-TURN_TEXT_MAX);
     }
     this.lastOutputAt = now;
 
@@ -164,6 +173,19 @@ export class GenericReader {
     return this.sawEcho && isShellPromptLine(lastLine(this.tail));
   }
 
+  /** Tur 9: motor kapandıysa kabuk isteminden önceki son hata satırı. */
+  exitError(): string | null {
+    if (!this.engineExited()) return null;
+    const lines = this.tail.split(/\r?\n|\r/);
+    return scanTerminalError(lines.slice(0, -1).join("\n"));
+  }
+
+  /** Tur 9: biten turun son hata satırı. */
+  turnError(): string | null {
+    const turn = this.turn();
+    return turn?.done ? scanTerminalError(this.turnText, "turn") : null;
+  }
+
   private idleAfter(): number {
     return this.opts.idleAfterMs ?? IDLE_AFTER_MS;
   }
@@ -179,8 +201,13 @@ export class GenericReader {
     const at = this.lastOutputAt;
     const turn = this.turn();
     const withTurn = turn ? { turn } : {};
-    if (this.engineExited()) return { state: "finished", source: "estimated", lastActivity: at, ...withTurn };
+    if (this.engineExited()) {
+      const line = this.opts.scanErrors ? this.exitError() : null;
+      return { state: "finished", source: "estimated", lastActivity: at, ...withTurn, ...(line ? { error: agentErrorInfo(line, "estimated") } : {}) };
+    }
     if (at === null) return { state: "unknown", source: "estimated", lastActivity: null };
+    const line = this.opts.scanErrors ? this.turnError() : null;
+    if (line) return { state: "error", source: "estimated", lastActivity: at, ...withTurn, error: agentErrorInfo(line, "estimated") };
     const quiet = this.opts.now() - at >= this.idleAfter();
     return { state: quiet ? "idle" : "running", source: "estimated", lastActivity: at, ...withTurn };
   }

@@ -22,8 +22,10 @@ export interface ReaderDeps {
 }
 
 export function createAgentReader(reg: AgentRegistration, deps: ReaderDeps): AgentReader {
-  const generic = new GenericReader({ command: reg.command, now: deps.now });
-  if (AGENT_ENGINES[reg.engine].reader !== "axet") return genericAgentReader(generic);
+  const axet = AGENT_ENGINES[reg.engine].reader === "axet";
+  // Tur 9: kesin okuyucusu olmayan motorda tur sonu terminal hata satırı taranır.
+  const generic = new GenericReader({ command: reg.command, now: deps.now, scanErrors: !axet });
+  if (!axet) return genericAgentReader(generic);
   return new AxetReader({
     agentId: reg.paneId,
     cwd: reg.cwd,

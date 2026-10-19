@@ -9,6 +9,7 @@
 //     kullanıcının elle onayı).
 //   - Doğrulama komutu yalnız alan ayarından (deps.workspace); IPC'den değil.
 //   - Günlüğe hedef, istem, plan, komut ya da çıktı yazılmıyor.
+import type { GateResult } from "./agentGate";
 import type { AgentStatus } from "../shared/agentTypes";
 import {
   agentEligible,
@@ -76,6 +77,11 @@ export interface BoardManagerDeps {
   emit(board: Board): void;
   notify(kind: BoardNotificationKind, workspaceId: string, taskTitle: string): void;
   log(tag: string, fields: LogFields): void;
+  /**
+   * Tur 9: kendiliğinden dağıtımın eşzamanlılık / 429 kapısı. `alsoRunning`:
+   * bu turda az önce gönderilen bölmeler (çalışıyor sayılır). Yoksa açık.
+   */
+  gate?(paneId: string, alsoRunning: readonly string[]): GateResult;
   /**
    * Değişiklikler (spec 2026-10-18 degisiklikler §4.1): alt görevin istemi
    * ajana yazıldı (Enter 150 ms sonra). Senkron dönmeli; iş arka planda.
@@ -319,10 +325,14 @@ export function createBoardManager(deps: BoardManagerDeps): BoardManager {
       return advanceDependencies(applied.task);
     });
     const infos = presence.filter((p) => p.reg.workspaceId === workspaceId).map(toInfo);
+    // Tur 9: eşzamanlılık / 429 kapısı; bu turda gönderilenler de çalışıyor sayılır.
+    const startedNow: string[] = [];
     for (const d of planDispatch(tasks, workspaceId, infos)) {
       const task = tasks.find((t) => t.id === d.taskId);
       const sub = task?.subtasks.find((s) => s.id === d.subtaskId);
       if (!task || !sub) continue;
+      if (deps.gate && attempt(() => deps.gate?.(d.paneId, startedNow) ?? "ok", "ok") !== "ok") continue;
+      startedNow.push(d.paneId);
       const now = deps.now();
       // Eşzamanlı "aborted" yarışı: onSettled sendPrompt dönmeden önce
       // çağrılabilir; o anda alt görev henüz running değil. Bayrağı kaydedip

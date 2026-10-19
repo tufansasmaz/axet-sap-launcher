@@ -20,6 +20,8 @@ import { redact } from "./support/redact";
 import { replySnippet } from "./agentReply";
 import { stripAnsi, type AgentReader, type GenericReader } from "./agentGenericReader";
 import { AXET_SETUP_DETAIL } from "../shared/agentTypes";
+import type { AgentErrorInfo } from "../shared/agentErrors";
+import { agentErrorInfo, finishErrorText } from "./agentErrorInfo";
 
 // axet-code 1.4.1 açılışta seçim penceresi gösteriyor ("Select Tool / Choose your
 // development tool"; yeni klasörde "choose a provider and model"). O pencere
@@ -118,6 +120,8 @@ export interface DerivedAxetState {
   reply?: string;
   /** Tur 6: yalnız "running"de, ajanın aşaması. */
   phase?: AgentPhase;
+  /** Tur 9: yalnız "error"da, sınıf ve kısa ayrıntı. */
+  error?: AgentErrorInfo;
   lastActivitySec: number | null;
 }
 
@@ -201,7 +205,10 @@ export function deriveAxetState(messages: AxetDbMessage[]): DerivedAxetState {
   for (const part of last.parts) if (part.type === "finish") finish = part;
   if (!finish) return running();
   const reason = finish.data?.reason ?? "";
-  if (reason === "error") return { state: "error", detail: "error", lastActivitySec };
+  if (reason === "error") {
+    const error = agentErrorInfo(finishErrorText(finish.data?.message, finish.data?.details), "exact");
+    return { state: "error", detail: "error", error, lastActivitySec };
+  }
   if (reason === "tool_use") return running();
   const reply = lastReply(messages);
   return { state: "idle", ...(reason ? { detail: reason } : {}), ...(reply ? { reply } : {}), lastActivitySec };
@@ -295,11 +302,14 @@ export class AxetReader implements AgentReader {
     const exact = this.session !== null && !this.dbFailed && this.derived !== null;
     const generic = this.opts.generic;
     if (generic.engineExited()) {
+      // Tur 9: motor hata yazıp kapandıysa (ör. geçersiz model) son hata satırı, tahmini.
+      const line = generic.exitError();
       return {
         state: "finished",
         source: exact ? "exact" : "estimated",
         lastActivity: generic.status().lastActivity,
-        ...(exact && this.derived?.detail ? { detail: this.derived.detail } : {})
+        ...(exact && this.derived?.detail ? { detail: this.derived.detail } : {}),
+        ...(line ? { error: agentErrorInfo(line, "estimated") } : {})
       };
     }
     // Açılış seçim penceresi (Tur 4): renderer "Araç seçimi bekleniyor" kartını
@@ -314,7 +324,8 @@ export class AxetReader implements AgentReader {
         ...(d.question ? { question: d.question } : {}),
         ...(d.detail ? { detail: d.detail } : {}),
         ...(d.reply ? { reply: d.reply } : {}),
-        ...(d.phase ? { phase: d.phase } : {})
+        ...(d.phase ? { phase: d.phase } : {}),
+        ...(d.error ? { error: d.error } : {})
       };
     }
     // İlk istemden önce: boşta (motorun kaydı henüz okunmadı → tahmini).
