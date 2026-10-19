@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { FolderOpen, RefreshCw } from "lucide-react";
 import type { SapContextPreview } from "../../app-electron/shared/types";
-import { useT } from "../i18n";
+import { useLanguage, useT } from "../i18n";
 import { btn } from "../ui/buttons";
 import CopyButton from "./CopyButton";
 
@@ -23,6 +23,7 @@ import CopyButton from "./CopyButton";
  */
 export default function SapContextSection({ projectDir }: { projectDir: string | null }) {
   const t = useT();
+  const language = useLanguage();
   const [preview, setPreview] = useState<SapContextPreview | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -82,7 +83,7 @@ export default function SapContextSection({ projectDir }: { projectDir: string |
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
             <span>{t("sapContext.lines", { count: preview.lineCount })}</span>
             {preview.modifiedAt && (
-              <span>{t("sapContext.updated", { time: new Date(preview.modifiedAt).toLocaleString() })}</span>
+              <span>{t("sapContext.updated", { time: new Date(preview.modifiedAt).toLocaleString(language) })}</span>
             )}
             {/* Rozet turkuaz-yeşil (durum sağlığı), accent DEĞİL: accent bu
                 uygulamanın her yerinde "seçili" demek. */}

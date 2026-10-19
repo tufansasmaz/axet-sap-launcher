@@ -82,11 +82,27 @@ function mountHome({
 }
 
 describe("ReadinessCard görünürlük", () => {
-  it("doktor raporu gelmeden kart görünmez (flash yok)", () => {
-    // DoctorSection stub _drReporter'ı doldurur ama çağırmaz.
+  it("doktor raporu gelmeden kart görünür, adım 3 'denetleniyor' (düzen 2026-10-19)", () => {
+    // Kart artık gizlenmiyor: yükleniyor durumu satırın kendisinde.
     mountHome();
-    // Senkron kontrol: rapor yok → kart yok.
-    expect(screen.queryByTestId("readiness-card")).toBeNull();
+    expect(screen.getByTestId("readiness-card")).toBeTruthy();
+    const checking = document.querySelector('[data-state="checking"]');
+    expect(checking?.textContent).toContain("Denetleniyor");
+    // Ölçülmeyen adımın "Şimdi yap" düğmesi yok.
+    expect(document.querySelector('[data-step="readiness.step3"]')).toBeNull();
+  });
+
+  it("eksik adımlar listenin üstünde", async () => {
+    (window as unknown as Record<string, unknown>).api = {
+      ...((window as unknown as Record<string, unknown>).api as object),
+      listDir: vi.fn().mockResolvedValue({ ok: true, entries: [] })
+    };
+    const config = { language: "tr", skillProfile: "module-consultant", projectsBaseDir: "C:\Projects" } as unknown as import("../app-electron/shared/types").AppConfig;
+    mountHome({ config, everConnected: false });
+    await act(async () => { _drReporter?.(DOCTOR_OK); });
+    const states = [...document.querySelectorAll("[data-state]")].map((el) => el.getAttribute("data-state"));
+    expect(states[0]).toBe("todo");
+    expect(states.slice(1).every((x) => x === "done")).toBe(true);
   });
 
   it("onOpenSettings prop'u geçilmezse kart görünmez", async () => {
@@ -113,7 +129,7 @@ describe("ReadinessCard görünürlük", () => {
     expect(screen.getByTestId("readiness-card")).toBeTruthy();
   });
 
-  it("tüm adımlar tamamsa kart görünmez", async () => {
+  it("tüm adımlar tamamsa kart tek satır özet", async () => {
     // listDir: klasör var
     (window as unknown as Record<string, unknown>).api = {
       ...((window as unknown as Record<string, unknown>).api as object),
@@ -123,8 +139,9 @@ describe("ReadinessCard görünürlük", () => {
     // Doktor raporu: axetCode=ok → adım 3 tamam.
     mountHome({ config: FULL_CONFIG, everConnected: true });
     await act(async () => { _drReporter?.(DOCTOR_OK); });
-    // allDone → kart YOK.
-    expect(screen.queryByTestId("readiness-card")).toBeNull();
+    // allDone → kart tek satıra iniyor: liste yok, "hazır" rozeti var.
+    expect(screen.getByTestId("readiness-card").textContent).toContain("Her şey hazır");
+    expect(document.querySelector("[data-state]")).toBeNull();
   });
 });
 

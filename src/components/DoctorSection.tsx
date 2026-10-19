@@ -4,6 +4,7 @@ import type { DoctorReport, DoctorStatus } from "../../app-electron/shared/types
 import { useT } from "../i18n";
 import { btn } from "../ui/buttons";
 import CopyButton from "./CopyButton";
+import { sortDoctorRows } from "../lib/doctorRows";
 
 /**
  * Ayarlar'daki "Ortam Hazırlık" bölümü.
@@ -95,11 +96,12 @@ export default function DoctorSection({ onReport }: Props) {
         </button>
       </div>
 
-      {!report && !busy && <p className="text-xs text-slate-500">{t("doctorSection.failed")}</p>}
+      {!report && busy && <p className="text-xs text-slate-500">{t("common.loading")}</p>}
+      {!report && !busy && <p className="text-xs text-[var(--status-danger-text)]">{t("doctorSection.failed")}</p>}
 
       {report && (
         <div className="divide-y divide-line/40 rounded-lg border border-line/50 bg-control/30">
-          {report.rows.map((row) => (
+          {sortDoctorRows(report.rows).map((row) => (
             <div key={row.id} className="space-y-1.5 px-3 py-2.5">
               <div className="flex items-start gap-2">
                 <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${DOT[row.status]}`} />

@@ -1,7 +1,7 @@
 // Tests for İş 4 — "Hazır mısın?" kartı
 
 import { describe, expect, it } from "vitest";
-import { computeReadinessSteps } from "../src/lib/readinessSteps";
+import { computeReadinessSteps, sortReadinessSteps } from "../src/lib/readinessSteps";
 import { tr } from "../src/i18n/tr";
 import { en } from "../src/i18n/en";
 import type { DoctorReport } from "../app-electron/shared/types";
@@ -75,5 +75,31 @@ describe("i18n anahtar bütünlüğü", () => {
       expect(step.titleKey in tr, `tr eksik: ${step.titleKey}`).toBe(true);
       expect(step.titleKey in en, `en eksik: ${step.titleKey}`).toBe(true);
     }
+  });
+});
+
+describe("hazırlık listesi düzeni (2026-10-19)", () => {
+  it("her adımın kısa açıklaması tr ve en'de var", () => {
+    for (const step of computeReadinessSteps(BASE)) {
+      expect(step.descKey in tr, `tr eksik: ${step.descKey}`).toBe(true);
+      expect(step.descKey in en, `en eksik: ${step.descKey}`).toBe(true);
+    }
+  });
+
+  it("teşhis gelmeden adım 3 'denetleniyor', eksik değil", () => {
+    const steps = computeReadinessSteps({ ...BASE, doctorReport: null });
+    expect(steps[2].checking).toBe(true);
+    expect(steps[2].done).toBe(false);
+    expect(computeReadinessSteps(BASE)[2].checking).toBe(false);
+  });
+
+  it("sıralama: eksikler üstte, denetlenenler ortada, tamamlananlar altta; kendi içinde sıra korunur", () => {
+    const steps = computeReadinessSteps({ ...BASE, skillProfile: null, everConnected: false, doctorReport: null });
+    expect(sortReadinessSteps(steps).map((s) => s.titleKey)).toEqual([
+      "readiness.step1",
+      "readiness.step4",
+      "readiness.step3",
+      "readiness.step2"
+    ]);
   });
 });

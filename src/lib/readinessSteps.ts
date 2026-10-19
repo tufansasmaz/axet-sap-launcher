@@ -12,7 +12,11 @@ export type ReadinessAction =
 
 export interface ReadinessStep {
   titleKey: TranslationKey;
+  /** Satırın altındaki tek cümlelik açıklama (ne işe yarar / ne eksik). */
+  descKey: TranslationKey;
   done: boolean;
+  /** Sonuç henüz ölçülmedi (teşhis sürüyor): ne tamam ne eksik sayılır. */
+  checking: boolean;
   action: ReadinessAction;
 }
 
@@ -45,6 +49,8 @@ export function computeReadinessSteps(args: Args): ReadinessStep[] {
   return [
     {
       titleKey: "readiness.step1",
+      descKey: "readiness.step1Desc",
+      checking: false,
       done: language != null && skillProfile != null,
       // Rol seçilmemişse RoleModal; dil seçilmemişse general ayarlar.
       // Pratikte language her zaman dolu; skillProfile asıl boşluk.
@@ -52,18 +58,33 @@ export function computeReadinessSteps(args: Args): ReadinessStep[] {
     },
     {
       titleKey: "readiness.step2",
+      descKey: "readiness.step2Desc",
+      checking: false,
       done: projectsBaseDir.trim().length > 0 && projectsDirExists,
       action: { kind: "settings", section: "general" }
     },
     {
       titleKey: "readiness.step3",
+      descKey: "readiness.step3Desc",
+      checking: doctorReport === null,
       done: axetOk,
       action: { kind: "settings", section: "axetCode" }
     },
     {
       titleKey: "readiness.step4",
+      descKey: "readiness.step4Desc",
+      checking: false,
       done: everConnected,
       action: { kind: "navigate", to: "sapLauncher" }
     }
   ];
+}
+
+/** Önce eksikler, sonra ölçümü süren, en altta tamamlananlar; grup içinde sıra korunur. */
+export function sortReadinessSteps(steps: readonly ReadinessStep[]): ReadinessStep[] {
+  const rank = (s: ReadinessStep) => (s.done ? 2 : s.checking ? 1 : 0);
+  return steps
+    .map((s, i) => ({ s, i }))
+    .sort((a, b) => rank(a.s) - rank(b.s) || a.i - b.i)
+    .map(({ s }) => s);
 }

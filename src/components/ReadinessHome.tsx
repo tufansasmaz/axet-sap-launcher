@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { CheckCircle2, Circle, ClipboardList, Eye, Sparkles, Stethoscope } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronRight, ClipboardList, Eye, Loader2, Sparkles, Stethoscope } from "lucide-react";
 import type { AppConfig, DoctorReport, SkillProfile } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import DoctorSection from "./DoctorSection";
 import ProjectBriefSection from "./ProjectBriefSection";
 import SapContextSection from "./SapContextSection";
 import SkillsSection from "./SkillsSection";
-import { computeReadinessSteps, type ReadinessStep } from "../lib/readinessSteps";
+import { computeReadinessSteps, sortReadinessSteps, type ReadinessStep } from "../lib/readinessSteps";
+import { doctorIssueCount } from "../lib/doctorRows";
 import type { SettingsSectionId } from "./settings/settingsSections";
 import { btn } from "../ui/buttons";
 
@@ -89,10 +90,7 @@ export default function ReadinessHome({
     everConnected
   });
 
-  // Kart: doktor raporu gelene kadar gösterme (#4).
-  // null = henüz ölçülmedi → flash'ı önle.
-  const doctorReady = localDoctorReport !== null;
-  const allDone = readinessSteps.every((s) => s.done);
+  const doctorIssues = localDoctorReport ? doctorIssueCount(localDoctorReport.rows) : null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -112,63 +110,72 @@ export default function ReadinessHome({
         </div>
       </header>
 
-      {/* IZGARA — kartlar SIRAYLA yerleşiyor, sütunlara elle bölünmüyor
-          (kullanıcı isteği, 2026-09-08: *"proje reçetesi ve yapay zekâ
-          yetenekleri yan yana olsun, hatta 3 sütun"*, ve *"ekranın her yerini
-          kullanabilirsin, boşluk var sağda solda"*).
+      {/* DÜZEN (2026-10-19, kullanıcı: *"hazırlık ekranı göze batıyor,
+          düzeni hiç iyi değil"*). "Daha fazla arayüz değil, daha güçlü
+          hiyerarşi":
 
-          Bu yüzden `max-w-*` YOK: ortalanmış dar bir sütun, 1920px'lik bir
-          ekranda iki yanda 350'şer piksel boş bırakıyordu. Genişlik artık
-          pencerenin kendisi.
-
-          Kırılımlar: 1280px'e (xl) kadar tek sütun, sonra iki, 1536px'ten
-          (2xl) sonra üç. Sol kenar çubuğu (272px) ve ray (48px) çıktıktan
-          sonra üç sütun ancak orada ~390px'e ulaşıyor; daha dar ekranda reçete
-          formunun alanları okunmayacak kadar kısalırdı.
-
-          Dizilim: Reçete · Yetenekler · Teşhis aynı satırda ("ne verdim" ve
-          "makine taşıyor mu" birlikte görünüyor), bağlam dosyası ise ALTTA
-          tam genişlikte — o bir okuma değil, doğrulama yüzeyi ve dar bir
-          sütunda satırları kırılıyor.
-
-          `items-start`: kartlar satır boyuna GERİLMİYOR — gerildiklerinde
-          içeriği kısa olan kartın altında sebepsiz boşluk kalıyordu. */}
+          1. Üstte TEK soru: hazır mıyım? Dört adım tek sütun, hizalı satırlar
+             (simge · ad · kısa açıklama · tek eylem). Eksikler üstte ve
+             vurgulu, tamamlananlar sade ve altta. Teşhis sürerken adım 3
+             "denetleniyor" — kart gizlenmiyor, yerinden oynamıyor.
+          2. Altında ayrıntılar İKİ BAĞIMSIZ SÜTUNDA (dar ekranda tek). Eski
+             3'lü ızgarada kartlar satır boyuna göre diziliyordu ve kısa
+             kartın altında koca boşluklar kalıyordu; sütunlar ayrı yığın
+             olunca boşluk yok. Sol: makine (teşhis — sorunlar üstte) ve
+             ajanın gördüğü dosya; sağ: kullanıcının verdikleri (reçete,
+             yetenekler).
+          Genişlik 1400px'te duruyor: 1920px'lik ekranda iki sütun ~680px;
+          daha geniş satırlar okunmuyordu. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* Hazırlık kartı: doktor raporu gelince ve eksik adım varsa görünür (#4). */}
-        {doctorReady && !allDone && onOpenSettings && (
-          <div className="px-4 pt-4">
+        <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 p-4">
+          {onOpenSettings && (
             <ReadinessCard
               steps={readinessSteps}
               onOpenSettings={onOpenSettings}
               onOpenRoleModal={onOpenRoleModal}
               onGoToLogon={onGoToLogon}
             />
+          )}
+
+          <h2 className="px-1 pt-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            {t("readiness.sectionDetails")}
+          </h2>
+
+          <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-4">
+              <Card
+                icon={Stethoscope}
+                title={t("settingsModal.sectionDoctor")}
+                badge={
+                  doctorIssues === null ? null : doctorIssues > 0 ? (
+                    <StatusBadge tone="danger">{t("doctorSection.summaryIssues", { count: doctorIssues })}</StatusBadge>
+                  ) : (
+                    <StatusBadge tone="success">{t("doctorSection.summaryOk")}</StatusBadge>
+                  )
+                }
+              >
+                <DoctorSection onReport={handleDoctorReport} />
+              </Card>
+              <Card icon={Eye} title={t("readiness.sectionContext")}>
+                <SapContextSection projectDir={projectDir} />
+              </Card>
+            </div>
+            <div className="flex min-w-0 flex-col gap-4">
+              <Card icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
+                <ProjectBriefSection projectDir={projectDir} />
+              </Card>
+              <Card icon={Sparkles} title={t("settingsModal.sectionSkills")}>
+                <SkillsSection profile={skillProfile} projectDir={projectDir} />
+              </Card>
+            </div>
           </div>
-        )}
-
-        <div className="grid w-full grid-cols-1 items-start gap-3 p-4 xl:grid-cols-2 2xl:grid-cols-3">
-          <Card icon={ClipboardList} title={t("settingsModal.sectionProjectBrief")}>
-            <ProjectBriefSection projectDir={projectDir} />
-          </Card>
-
-          <Card icon={Sparkles} title={t("settingsModal.sectionSkills")}>
-            <SkillsSection profile={skillProfile} projectDir={projectDir} />
-          </Card>
-
-          <Card icon={Stethoscope} title={t("settingsModal.sectionDoctor")}>
-            <DoctorSection onReport={handleDoctorReport} />
-          </Card>
-
-          <Card icon={Eye} title={t("readiness.sectionContext")} className="xl:col-span-2 2xl:col-span-3">
-            <SapContextSection projectDir={projectDir} />
-          </Card>
         </div>
       </div>
     </div>
   );
 }
 
-// --- Hazırlık kartı (İş 4 — 2026-10-17) ---
+// --- Hazırlık kartı (İş 4 — 2026-10-17; düzen 2026-10-19) ---
 
 interface ReadinessCardProps {
   steps: ReadinessStep[];
@@ -177,8 +184,24 @@ interface ReadinessCardProps {
   onGoToLogon?: () => void;
 }
 
+const BADGE_TONE = {
+  danger: "bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]",
+  warning: "bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]",
+  success: "bg-[var(--status-success-bg)] text-[var(--status-success-text)]"
+} as const;
+
+function StatusBadge({ tone, children }: { tone: keyof typeof BADGE_TONE; children: React.ReactNode }) {
+  return (
+    <span className={`shrink-0 rounded-full px-2 py-0.5 text-2xs font-medium ${BADGE_TONE[tone]}`}>{children}</span>
+  );
+}
+
 function ReadinessCard({ steps, onOpenSettings, onOpenRoleModal, onGoToLogon }: ReadinessCardProps) {
   const t = useT();
+  const ordered = sortReadinessSteps(steps);
+  const doneCount = steps.filter((s) => s.done).length;
+  const missing = steps.filter((s) => !s.done && !s.checking).length;
+  const allDone = doneCount === steps.length;
 
   function handleAction(step: ReadinessStep) {
     const { action } = step;
@@ -190,33 +213,77 @@ function ReadinessCard({ steps, onOpenSettings, onOpenRoleModal, onGoToLogon }: 
   return (
     <section
       data-testid="readiness-card"
-      className="rounded-lg border border-line bg-card p-4"
+      aria-labelledby="readiness-steps-title"
+      className={`rounded-lg border bg-card ${missing > 0 ? "border-[var(--status-warning-border)]" : "border-line"}`}
     >
-      <h2 className="mb-3 text-sm font-semibold text-slate-200">{t("readiness.stepsCardTitle")}</h2>
-      <ul className="space-y-2">
-        {steps.map((step) => (
-          <li key={step.titleKey} className="flex items-center justify-between gap-3">
-            <span className="flex items-center gap-2 text-sm">
-              {step.done ? (
-                <CheckCircle2 size={15} className="shrink-0 text-[var(--status-success-text)]" aria-hidden />
-              ) : (
-                <Circle size={15} className="shrink-0 text-slate-600" aria-hidden />
-              )}
-              <span className={step.done ? "text-slate-400" : "text-slate-200"}>{t(step.titleKey)}</span>
-            </span>
-            {!step.done && (
-              <button
-                type="button"
-                data-step={step.titleKey}
-                onClick={() => handleAction(step)}
-                className={btn("neutral", "sm")}
+      <header className="flex items-center gap-3 border-b border-line-subtle px-4 py-3">
+        <h2 id="readiness-steps-title" className="text-sm font-semibold text-slate-200">
+          {t("readiness.stepsCardTitle")}
+        </h2>
+        <span className="text-xs text-slate-500">{t("readiness.stepsProgress", { done: doneCount, total: steps.length })}</span>
+        <span className="ml-auto">
+          {missing > 0 ? (
+            <StatusBadge tone="warning">{t("readiness.stepsMissing", { count: missing })}</StatusBadge>
+          ) : allDone ? (
+            <StatusBadge tone="success">{t("readiness.stepsAllDone")}</StatusBadge>
+          ) : null}
+        </span>
+      </header>
+      {/* Hepsi tamamsa liste kapanıyor: başlıktaki "hazır" yeterli, dört
+          yeşil satır ekranın en değerli yerini boşuna kaplıyordu. */}
+      {!allDone && (
+        <ul className="divide-y divide-line-subtle">
+          {ordered.map((step) => {
+            const todo = !step.done && !step.checking;
+            return (
+              <li
+                key={step.titleKey}
+                data-state={step.done ? "done" : step.checking ? "checking" : "todo"}
+                className={`flex items-center gap-3 px-4 ${step.done ? "py-2" : "min-h-[56px] py-2.5"}`}
               >
-                {t("readiness.stepsDo")}
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+                <span className="flex w-5 shrink-0 justify-center" aria-hidden>
+                  {step.done ? (
+                    <CheckCircle2 size={16} className="text-[var(--status-success-text)]" />
+                  ) : step.checking ? (
+                    <Loader2 size={16} className="animate-spin text-slate-500" />
+                  ) : (
+                    <AlertCircle size={16} className="text-[var(--status-warning-text)]" />
+                  )}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-sm ${step.done ? "text-slate-500" : "font-medium text-slate-200"}`}>
+                    {t(step.titleKey)}
+                    <span className="sr-only">
+                      {" — "}
+                      {step.done
+                        ? t("readiness.stepDoneSr")
+                        : step.checking
+                          ? t("readiness.stepChecking")
+                          : t("readiness.stepTodoSr")}
+                    </span>
+                  </div>
+                  {!step.done && (
+                    <p className="mt-0.5 text-xs text-slate-500">
+                      {step.checking ? t("readiness.stepChecking") : t(step.descKey)}
+                    </p>
+                  )}
+                </div>
+                {todo && (
+                  <button
+                    type="button"
+                    data-step={step.titleKey}
+                    onClick={() => handleAction(step)}
+                    className={btn("neutral", "sm", "shrink-0")}
+                  >
+                    {t("readiness.stepsDo")}
+                    <ChevronRight size={13} aria-hidden />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </section>
   );
 }
@@ -227,20 +294,24 @@ function ReadinessCard({ steps, onOpenSettings, onOpenRoleModal, onGoToLogon }: 
 function Card({
   icon: Icon,
   title,
+  badge,
   children,
   className = ""
 }: {
   icon: LucideIcon;
   title: string;
+  /** Başlığın sağındaki kısa durum (ör. "2 sorun"). */
+  badge?: React.ReactNode;
   children: React.ReactNode;
   /** Izgarada kaç sütun kaplayacağı — yalnızca yerleşim, görünüm değil. */
   className?: string;
 }) {
   return (
     <section className={`min-w-0 rounded-lg border border-line bg-card ${className}`}>
-      <header className="flex items-center gap-2 border-b border-line-subtle px-4 py-2.5">
+      <header className="flex h-11 items-center gap-2 border-b border-line-subtle px-4">
         <Icon size={15} className="shrink-0 text-slate-500" />
         <h2 className="text-xs font-semibold uppercase tracking-wide text-slate-400">{title}</h2>
+        {badge && <span className="ml-auto">{badge}</span>}
       </header>
       <div className="p-4">{children}</div>
     </section>
