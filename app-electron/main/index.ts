@@ -2268,6 +2268,25 @@ function registerIpc(): void {
     return { canceled: false, filePath: result.filePath };
   });
 
+  // Raporlar ekranı (2026-10-19): Markdown dışa aktarma, kaydet diyaloğuyla.
+  ipcMain.handle("reports:saveMarkdown", async (_event, text: unknown, suggestedName: unknown) => {
+    if (typeof text !== "string") return { canceled: true, error: "badInput" };
+    const name = typeof suggestedName === "string" && suggestedName.trim() ? path.basename(suggestedName) : "rapor.md";
+    const win = BrowserWindow.getFocusedWindow();
+    const result = await dialog.showSaveDialog(win ?? (undefined as any), {
+      title: mt("dialog.saveReport"),
+      defaultPath: name,
+      filters: [{ name: "Markdown", extensions: ["md"] }]
+    });
+    if (result.canceled || !result.filePath) return { canceled: true };
+    try {
+      await fs.writeFile(result.filePath, text, "utf-8");
+      return { canceled: false, filePath: result.filePath };
+    } catch (error) {
+      return { canceled: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+
   ipcMain.handle("flows:openJson", async () => {
     const win = BrowserWindow.getFocusedWindow();
     const result = await dialog.showOpenDialog(win ?? (undefined as any), {

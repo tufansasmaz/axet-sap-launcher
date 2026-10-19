@@ -452,6 +452,7 @@ const api = {
     ipcRenderer.invoke("flows:runtime:testRequest", payload),
   flowsSaveJson: (jsonText: string): Promise<FlowJsonFileResult> => ipcRenderer.invoke("flows:saveJson", jsonText),
   flowsOpenJson: (): Promise<FlowJsonFileResult> => ipcRenderer.invoke("flows:openJson"),
+  reportsSaveMarkdown: (text: string, suggestedName: string): Promise<FlowJsonFileResult> => ipcRenderer.invoke("reports:saveMarkdown", text, suggestedName),
   flowsExportDebugLog: (jsonText: string): Promise<FlowJsonFileResult> =>
     ipcRenderer.invoke("flows:exportDebugLog", jsonText),
   onFlowsRuntimeDebug: (callback: (entry: FlowJsonValue) => void) => {

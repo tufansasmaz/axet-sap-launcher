@@ -35,10 +35,10 @@ function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr", co
 const rail = () => screen.getByRole("tablist", { name: "Görünüm" });
 
 describe("ViewRail", () => {
-  it("sekiz sekme alt alta: Pano başta, Ofis ortada, Bellek ve Araçlar sonda; dikey, içeriğin üstünde yüzüyor", () => {
+  it("dokuz sekme alt alta: Pano başta, Ofis ortada, Bellek ve Araçlar sonda; dikey, içeriğin üstünde yüzüyor", () => {
     setup("office");
     const labels = screen.getAllByRole("tab").map((t) => t.getAttribute("aria-label"));
-    expect(labels).toEqual(["Pano", "Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek", "Araçlar"]);
+    expect(labels).toEqual(["Pano", "Raporlar", "Terminal", "Görevler", "Ofis", "Değişiklikler", "Tarayıcı", "Bellek", "Araçlar"]);
     expect(rail().getAttribute("aria-orientation")).toBe("vertical");
     expect(rail().className.split(" ")).toEqual(expect.arrayContaining(["flex-col", "absolute", "rounded-full", "hover:rounded-md"]));
     // Etiket ipucunda: her düğmenin title'ı var.
@@ -61,7 +61,7 @@ describe("ViewRail", () => {
     fireEvent.keyDown(rail(), { key: "ArrowDown" });
     expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "board");
     fireEvent.keyDown(rail(), { key: "ArrowUp" });
-    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "overview");
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "reports");
     fireEvent.keyDown(rail(), { key: "End" });
     expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "tools");
     fireEvent.keyDown(rail(), { key: "Home" });

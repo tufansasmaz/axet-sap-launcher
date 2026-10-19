@@ -305,4 +305,13 @@ describe("Raporlar", () => {
     setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [] });
     expect(within(screen.getByRole("region", { name: "Raporlar" })).getByText("Henüz biten alt görev yok")).toBeTruthy();
   });
+
+  it("en çok 3 önizleme; bağlantı Raporlar ekranını açıyor", () => {
+    const done = (title: string, at: number) => sub(title, { state: "done", paneId: "p1", proof: { kind: "manual" as const, ok: true, at, commands: [] } });
+    const { commands } = setup(workspace({ view: "board" }), { workspaceId: "a", tasks: [task("t", [done("A", 1), done("B", 2), done("C", 3), done("D", 4)])] });
+    const reports = screen.getByRole("region", { name: "Raporlar" });
+    expect(reports.querySelectorAll("[data-report]")).toHaveLength(3);
+    fireEvent.click(within(reports).getByRole("button", { name: /Raporlar ekranında aç/ }));
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("a", "reports");
+  });
 });

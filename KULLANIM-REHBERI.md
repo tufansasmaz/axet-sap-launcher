@@ -437,7 +437,7 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   Şablon ajanları axet-code ile, ekibin varsayılan klasöründe açar; rol yalnız
   bir etikettir, rol kapısı ve SAP kuralları aynen geçerlidir.
 - **Görünüm rayı** (içerik alanının sol kenarı, alt alta simgeler):
-  **Pano, Terminal, Görevler, Ofis, Değişiklikler, Tarayıcı, Bellek, Araçlar**. Simgenin
+  **Pano, Raporlar, Terminal, Görevler, Ofis, Değişiklikler, Tarayıcı, Bellek, Araçlar**. Simgenin
   üstüne gelince adı görünür; seçili olanın solunda vurgu çizgisi vardır.
   Klavyeyle yukarı/aşağı ok, Home/End. Sohbet'e sol menüdeki **Axet Chat**
   düğmesiyle dönülür. Seçim ekip başına hatırlanır; yeni ekip **Ofis**'te
@@ -452,12 +452,50 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   roller (Geliştirici, Analist, Test, İnceleme) ya da **Kendin yaz…** ile
   serbest bir rol adı. Kurulu olmayan motorun satırında "Kurulu değil" yazar
   ve başlamaz.
-- **Pano** (raydaki ilk simge): ekibin genel bakışı. Kartlar: **Ekip** (ajan
-  sayısı; çalışan, soru soran, boşta, hatalı), **Görevler** (açık, biten,
-  taslak, açık alt görev), **Sorular**, **Değişiklikler** (incelenmeyi bekleyen
-  kayıtlar ve son üçü), **Depo** (klasör ve Git durumu), **Motorlar** (kaç
-  motor kurulu), **Bellek** (belleği açık ajanlar) ve **Son olaylar**. Bir
-  karta tıklayınca ilgili görünüm açılır.
+- **Pano** (raydaki ilk simge): ekibin kontrol paneli. Sağ üstteki **1 saat /
+  24 saat / 7 gün** seçicisi bütün grafiklerin aralığını değiştirir.
+  - **Göstergeler** (üstteki sekiz kutu): aktif ajan, çalışan, soru bekleyen,
+    hatalı, açık görev, biten görev, inceleme bekleyen değişiklik ve bugünkü
+    olay. Büyük sayı ŞU ANKİ değerdir; yanındaki küçük çizgi seçili aralıkta
+    kova başına ne olduğunu gösterir (üzerine gelince ne ölçtüğü yazar). Kutuya
+    tıklayınca Ofis, Görevler ya da Değişiklikler açılır.
+  - **Etkinlik yoğunluğu**: Akış olaylarının zamana dağılımı, türe göre
+    yığılmış sütunlar (iş başladı, değişiklik kaydı, bitti/doğrulandı, soru,
+    hata). Üzerine gel ya da grafiğe Tab ile gelip ←/→ ile gez: o kovanın
+    sayıları görünür. **Tablo** düğmesi aynı veriyi tablo olarak gösterir.
+  - **Ajan durum şeridi**: her ajanın aralık boyunca ne zaman çalıştığı, soru
+    sorduğu, hata verdiği (dolu bantlar) ya da boşta kaldığı (ince çizgi).
+    Ajanın adına tıklayınca terminali açılır; **Tablo** aralıkları listeler.
+  - **Görev ilerlemesi**: onaylanmış görevlerin alt görevleri duruma göre ve
+    **doğrulama başarısı** (yalnız komutla doğrulananlar; elle onay ayrı sayılır).
+  - **Ajan karşılaştırma**: ajan, rol, motor, durum, son etkinlik, biten iş
+    (aralıkta biten tur · panoda biten alt görev) ve soru sayısı.
+  - **Değişiklikler**: aralıktaki kayıtlar, dosya ve +/− satır özeti, inceleme
+    durumu ve en çok değişen dosyalar (aralıktaki son 8 kaydın dosyaları).
+  - **Sağlık**: depo, motorlar, bellek ve Akış geçmişinin doluluğu; **Son
+    olaylar**: Akış'ın kısa kopyası.
+  - Veri yalnız uygulamada olanlardan gelir: geçmiş Akış kaydıdır ve ekip başına
+    en çok 500 olay tutulur. Yoğun bir ekipte 7 günlük görünümün başı boş
+    kalabilir; o zaman göstergelerin altında en eski kaydın tarihi yazar.
+- **Raporlar** (raydaki ikinci simge): biten ve başarısız her alt görevin
+  raporu, en yeni önce. Kartta sonuç (Doğrulandı / Elle onaylandı / Bitti /
+  Başarısız), görev, ajan, süre (ilk atamadan doğrulamaya), geçen komut sayısı,
+  değişen dosyalar ve ajanın son cevabının özeti görünür.
+  - Üstteki arama başlık, görev, ajan ve özette arar; **Ajan**, **Sonuç** ve
+    **Tarih** seçicileri listeyi daraltır, **Süzgeçleri temizle** geri getirir.
+    Listede ↑/↓ ile gezilir.
+  - Bir rapora tıklayınca sağda ayrıntısı açılır: özet, doğrulama komutları ve
+    çıkış kodları, **Adımlar** (o işe ait Akış olayları), değişiklik özeti ve
+    **Değişikliklerde aç** (o alt görevin kaydı seçili açılır), **Görevde aç**,
+    **Terminali aç** ve **Sonraki iş** önerileri (başarısızsa nedenine bak,
+    komutla doğrulanmadıysa doğrulama ekle, kayıt incelenmediyse incele).
+  - **Markdown olarak kaydet** seçili raporu, **Listeyi kaydet** süzülmüş
+    listenin tamamını tek `.md` dosyası olarak kaydet penceresiyle yazar.
+  - Raporlar yeni veri üretmez: pano, Akış geçmişi ve Değişiklikler kaydından
+    derlenir. Cevap özeti yalnız kesin kaynaklı motorlarda kaydedilir; Akış
+    geçmişi ekip başına 500 olayla sınırlı olduğundan eski raporların adımları
+    boş kalabilir. Görevler sekmesinin altındaki küçük Raporlar bölümü son
+    üçünü gösterir; **Tümünü Raporlar ekranında aç** bu ekrana getirir.
 - **Araçlar** (raydaki son simge, anahtar): ajan motorlarının listesi. Her
   motorun yanında kurulu olup olmadığı ve sürümü, altında programın yolu
   yazar. Kurulu değilse tek satırlık kurulum komutu (ör. `npm install -g

@@ -342,7 +342,7 @@ export interface SavedWorkspaceSap {
 
 /** Ajanlar ekranının görünümü (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5, tarayici §2). "panes" varsayılan; kayda yazılmaz. */
 /** "memory": kalıcı bellek görünümü (spec 2026-10-18 ajanlar-ux §5). "overview" (Pano) ve "tools" (Araçlar): Tur 3. */
-export type WorkspaceView = "overview" | "panes" | "board" | "office" | "changes" | "browser" | "memory" | "tools";
+export type WorkspaceView = "overview" | "reports" | "panes" | "board" | "office" | "changes" | "browser" | "memory" | "tools";
 
 export interface SavedTerminalWorkspace {
   id: string;

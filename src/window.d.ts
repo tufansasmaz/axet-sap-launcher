@@ -319,6 +319,8 @@ export interface AxetApi {
   flowsSendTestRequest: (payload: FlowTestRequestPayload) => Promise<FlowTestRequestResult>;
   flowsSaveJson: (jsonText: string) => Promise<FlowJsonFileResult>;
   flowsOpenJson: () => Promise<FlowJsonFileResult>;
+  /** Raporlar ekranı: Markdown metnini kaydet diyaloğuyla yazar. */
+  reportsSaveMarkdown: (text: string, suggestedName: string) => Promise<FlowJsonFileResult>;
   flowsExportDebugLog: (jsonText: string) => Promise<FlowJsonFileResult>;
   onFlowsRuntimeDebug: (callback: (entry: FlowJsonValue) => void) => () => void;
   onFlowsRuntimeStatus: (callback: (status: FlowJsonValue) => void) => () => void;

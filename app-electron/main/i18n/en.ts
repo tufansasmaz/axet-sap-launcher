@@ -247,6 +247,7 @@ export const MAIN_EN = {
   "dialog.exportChat": "Export chat",
   "dialog.exportChatFailed": "The chat could not be exported",
   "dialog.saveFlowJson": "Save aXet.flows as JSON",
+  "dialog.saveReport": "Save report as Markdown",
   "dialog.openFlowJson": "Open aXet.flows JSON file",
   "dialog.exportDebugJson": "Export debug recording as JSON",
   "dialog.saveGuiScriptJson": "Save SAP GUI Scripting recording as JSON",

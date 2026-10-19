@@ -255,6 +255,7 @@ export const MAIN_TR = {
   "dialog.exportChat": "Sohbeti dışa aktar",
   "dialog.exportChatFailed": "Sohbet dışa aktarılamadı",
   "dialog.saveFlowJson": "aXet.flows JSON olarak kaydet",
+  "dialog.saveReport": "Raporu Markdown olarak kaydet",
   "dialog.openFlowJson": "aXet.flows JSON dosyası aç",
   "dialog.exportDebugJson": "Debug kaydını JSON olarak dışa aktar",
   "dialog.saveGuiScriptJson": "SAP GUI Scripting kaydını JSON olarak kaydet",

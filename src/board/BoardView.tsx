@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Plus, X } from "lucide-react";
+import { ArrowRight, Plus, X } from "lucide-react";
+import { useTerminalStore } from "../stores/terminalStoreContext";
 import { useT } from "../i18n";
 import type { BoardTask, Subtask } from "../../app-electron/shared/boardTypes";
 import type { TerminalWorkspace } from "../stores/terminalTypes";
@@ -333,14 +334,32 @@ const OUTCOME_KEY: Record<ReportOutcome, TranslationKey> = {
   failed: "board.reportFailed"
 };
 
-/** Raporlar (spec 2026-10-18 ajanlar-yeniden §2b): biten alt görevlerin özeti, en yeni önce. */
+/** Son raporların önizlemesi; tamamı ayrı Raporlar ekranında (2026-10-19). */
+const REPORT_PREVIEW = 3;
+
+/** Raporlar (spec 2026-10-18 ajanlar-yeniden §2b): son biten alt görevler + Raporlar ekranına bağlantı. */
 function Reports({ workspace, onSelect }: { workspace: TerminalWorkspace; onSelect: (taskId: string, subtaskId: string) => void }) {
   const t = useT();
   const { boards } = useBoards();
-  const rows = reportRows(boards[workspace.id]);
+  const { commands } = useTerminalStore();
+  const all = reportRows(boards[workspace.id]);
+  const rows = all.slice(0, REPORT_PREVIEW);
   return (
     <section aria-label={t("board.reports")} className="flex max-h-48 shrink-0 flex-col gap-1.5 border-t border-line pt-2">
-      <Eyebrow count={rows.length}>{t("board.reports")}</Eyebrow>
+      <div className="flex items-center gap-2">
+        <Eyebrow count={all.length} className="flex-1">
+          {t("board.reports")}
+        </Eyebrow>
+        <button
+          type="button"
+          data-open-reports=""
+          onClick={() => commands.setWorkspaceView(workspace.id, "reports")}
+          className="flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-slate-300 hover:bg-hover hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
+        >
+          {t("reports.openScreen")}
+          <ArrowRight size={11} aria-hidden="true" />
+        </button>
+      </div>
       {rows.length === 0 ? (
         <p className="text-2xs text-slate-500">{t("board.reportsEmpty")}</p>
       ) : (

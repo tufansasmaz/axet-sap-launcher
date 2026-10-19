@@ -68,18 +68,27 @@ describe("overviewOf", () => {
   });
 });
 
-describe("OverviewView", () => {
+describe("OverviewView (grafikli pano)", () => {
+  const NOW = Date.now();
+  const live: FlowEvent[] = [
+    { id: 1, at: NOW - 2 * 3_600_000, workspaceId: "w1", kind: "started", paneId: "a", name: "Ayşe", detail: "" },
+    { id: 2, at: NOW - 10 * 60_000, workspaceId: "w1", kind: "started", paneId: "a", name: "Ayşe", detail: "" },
+    { id: 3, at: NOW - 5 * 60_000, workspaceId: "w1", kind: "finished", paneId: "a", name: "Ayşe", detail: "" },
+    { id: 4, at: NOW - 60_000, workspaceId: "w2", kind: "started", paneId: "z", name: "Başka", detail: "" }
+  ];
+  let commands: TerminalCommands;
+
   beforeEach(() => {
     (window as unknown as { api: unknown }).api = {
       changesState: vi.fn(async () => ({ workspaceId: "w1", repo: "notRepo", checkpoints: [], expired: [] })),
       onChangesChanged: vi.fn(() => () => {})
     };
+    commands = { setWorkspaceView: vi.fn(), revealPane: vi.fn() } as unknown as TerminalCommands;
   });
   afterEach(cleanup);
 
-  it("kartlar özetliyor; tıklanınca ilgili görünüme geçiyor", async () => {
+  async function draw(language: "tr" | "en" = "tr") {
     const workspace = ws();
-    const commands = { setWorkspaceView: vi.fn() } as unknown as TerminalCommands;
     const store: TerminalStoreValue = {
       state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [workspace], activeWorkspaceId: "w1" },
       commands,
@@ -89,10 +98,10 @@ describe("OverviewView", () => {
     };
     const status: AgentStatusValue = { statuses, engines: null, now: 0, answer: async () => ({ ok: false, reason: "noAgent" }) };
     render(
-      <LanguageProvider language="tr">
+      <LanguageProvider language={language}>
         <TerminalStoreContext.Provider value={store}>
           <AgentStatusContext.Provider value={status}>
-            <FlowContext.Provider value={{ ...EMPTY_FLOW, events, record: () => {} }}>
+            <FlowContext.Provider value={{ ...EMPTY_FLOW, events: live, record: () => {} }}>
               <OverviewView workspace={workspace} />
             </FlowContext.Provider>
           </AgentStatusContext.Provider>
@@ -102,19 +111,65 @@ describe("OverviewView", () => {
     await act(async () => {
       for (let i = 0; i < 4; i++) await Promise.resolve();
     });
-    // Depo uyarısı Değişiklikler sondajından.
-    expect(screen.getByText("Git deposu değil")).toBeTruthy();
-    expect(screen.getByText("İşini bitirdi.")).toBeTruthy();
-    expect(screen.queryByText("Başka")).toBeNull();
+  }
+
+  it("KPI kutuları değer + eğilim çizgisiyle; tıklanınca ilgili görünüm", async () => {
+    await draw();
+    const kpis = screen.getByRole("list", { name: "Göstergeler" });
+    expect(kpis.querySelectorAll("[data-sparkline]").length).toBe(8);
+    fireEvent.click(screen.getByRole("button", { name: /^Aktif ajan: 2 \/ 3\./}));
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "office");
+    fireEvent.click(screen.getByRole("button", { name: /^Açık görev: 0\./ }));
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "board");
+    fireEvent.click(screen.getByRole("button", { name: /^İnceleme bekleyen: 0\./ }));
+    expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", "changes");
     for (const [target, name] of [
-      ["board", "Görevler"],
-      ["changes", "Değişiklikler"],
+      ["changes", "Depo"],
       ["tools", "Motorlar"],
       ["memory", "Bellek"],
-      ["office", "Ekip"]
+      ["board", "Görev ilerlemesi"]
     ] as const) {
       fireEvent.click(screen.getByRole("button", { name: `${name} — aç` }));
       expect(commands.setWorkspaceView).toHaveBeenLastCalledWith("w1", target);
     }
+    expect(screen.getByText("Git deposu değil")).toBeTruthy();
+    expect(screen.queryByText("Başka")).toBeNull();
+  });
+
+  it("aralık seçici: 24 saat → 1 saat olay sayısını değiştiriyor", async () => {
+    await draw();
+    const chart = () => screen.getByRole("img", { name: /olay;/ });
+    expect(chart().getAttribute("aria-label")).toMatch(/^24 saat içinde 3 olay/);
+    const hour = screen.getByRole("radio", { name: "1 saat" });
+    fireEvent.click(hour);
+    expect(hour.getAttribute("aria-checked")).toBe("true");
+    expect(chart().getAttribute("aria-label")).toMatch(/^1 saat içinde 2 olay/);
+  });
+
+  it("grafiğin tablo karşılığı ve klavyeyle ipucu", async () => {
+    await draw();
+    const chart = screen.getByRole("img", { name: /olay;/ });
+    fireEvent.keyDown(chart, { key: "End" });
+    expect(screen.getByRole("status").textContent).toContain("Toplam");
+    fireEvent.click(screen.getByRole("button", { name: "Etkinlik yoğunluğu: tablo olarak göster" }));
+    const table = screen.getByRole("table", { name: "Etkinlik yoğunluğu" });
+    expect(table.querySelectorAll("tbody tr").length).toBe(24);
+    expect(screen.queryByRole("img", { name: /olay;/ })).toBeNull();
+  });
+
+  it("durum şeridi ve ajan tablosu: ada tıklayınca terminal açılıyor", async () => {
+    await draw();
+    expect(document.querySelector('[data-lane="a"]')).toBeTruthy();
+    const table = screen.getByRole("table", { name: "Ajan karşılaştırma" });
+    expect(table.querySelectorAll("tbody tr").length).toBe(3);
+    fireEvent.click(screen.getAllByRole("button", { name: "Ayşe — terminali aç" })[0]);
+    expect(commands.revealPane).toHaveBeenCalledWith("a");
+  });
+
+  it("boş durumlar (en)", async () => {
+    await draw("en");
+    expect(screen.getByText("No approved tasks.")).toBeTruthy();
+    expect(screen.getByText("No command verification yet.")).toBeTruthy();
   });
 });
+
