@@ -3,6 +3,7 @@ import path from "node:path";
 import { promises as fs, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { fileURLToPath } from "node:url";
+import { ensureToolDirsOnPath } from "./toolPath";
 import { randomUUID } from "node:crypto";
 import { loadLandscape, getServiceCredentials, getServiceSapLogonNote } from "./sapLandscape";
 import { checkConnectivity } from "./connectivity";
@@ -1451,6 +1452,8 @@ function registerIpc(): void {
   ipcMain.handle("agents:engines", async (_event, force?: unknown) => {
     const fresh = force === true;
     if (!fresh && engineCache && Date.now() - engineCache.at < 60_000) return engineCache.value;
+    // Araçlar'dan yeni kurulan npm motoru / Node.js: klasörü PATH'te değilse eklenir (toolPath.ts).
+    ensureToolDirsOnPath();
     try {
       const value = await detectEngines({
         where: whereOnPath,
@@ -2525,6 +2528,8 @@ function registerIpc(): void {
 }
 
 app.whenReady().then(() => {
+  // npm genel klasörü PATH'te değilse kabuklar ve motor sondajı npm araçlarını görmüyor (toolPath.ts).
+  ensureToolDirsOnPath();
   void startTeamBridge();
   // Günlüğün İLK satırı: dosya var olsun (kullanıcı "yok" diye aramasın) ve
   // her arıza satırı hangi sürümde olduğunu yanında taşısın.
