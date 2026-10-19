@@ -197,7 +197,14 @@ export function countLearnNotes(task: LearnTask, notes: readonly MemoryNote[]): 
   return { added: added.slice(0, NOTE_IDS_MAX), updated: updated.slice(0, NOTE_IDS_MAX) };
 }
 
-const MARK_RE = /(?:OGRENME|ÖĞRENME)-(?:OZET|ÖZET)\s*:\s*([^\n]*)/i;
+const MARK_RE = /(?:OGRENME|ÖĞRENME)-(?:OZET|ÖZET)\s*:\s*([^\n]*)/gi;
+
+/** Cevaptaki SON özet satırı (işaretten satır sonuna); ajan önce açıklama yazsa da bulunur. */
+export function learnSummaryLine(text: string): string | undefined {
+  let last: string | undefined;
+  for (const m of text.matchAll(MARK_RE)) last = m[0];
+  return last?.trimEnd();
+}
 const NEXT_RE = /\|\s*(?:SONRAKI|SONRAKİ)\s*:\s*/i;
 
 const clipText = (text: string, max: number) => {
@@ -209,7 +216,8 @@ const clipText = (text: string, max: number) => {
 export function parseLearnReply(reply: string | undefined): { summary?: string; suggestions: string[] } {
   const text = (reply ?? "").trim();
   if (!text) return { suggestions: [] };
-  const mark = MARK_RE.exec(text);
+  const line = learnSummaryLine(text);
+  const mark = line ? new RegExp(MARK_RE.source, "i").exec(line) : null;
   if (!mark) return { summary: clipText(text.replace(/\s+/g, " "), SUMMARY_MAX), suggestions: [] };
   const [head, tail = ""] = mark[1].split(NEXT_RE);
   const suggestions: string[] = [];

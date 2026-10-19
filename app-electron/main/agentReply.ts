@@ -6,6 +6,7 @@
 // (destek paketinin `redact`ı) geçiyor ve REPLY_MAX karakterle sınırlı;
 // bellekte tutuluyor, diske yazılmıyor.
 import { redact } from "./support/redact";
+import { learnSummaryLine } from "../shared/learnTasks";
 
 export const REPLY_MAX = 600;
 
@@ -32,5 +33,13 @@ export function replySnippet(raw: string, max = REPLY_MAX): string {
   // Önce süz, sonra kes: kesik bir anahtar=değer kalıbı süzgeçten kaçmasın.
   const safe = redact(text, []).text;
   const chars = Array.from(safe);
-  return chars.length > max ? `${chars.slice(0, max - 1).join("").trimEnd()}…` : safe;
+  if (chars.length <= max) return safe;
+  // Öğrenme görevinin özet satırı cevabın SONUNDA: kesilen önsöz değil o kalsın.
+  const mark = learnSummaryLine(safe);
+  if (mark) {
+    const tail = Array.from(mark).slice(0, Math.floor(max * 0.75)).join("");
+    const budget = max - Array.from(tail).length - 2;
+    return budget > 0 ? `${chars.slice(0, budget).join("").trimEnd()}…\n${tail}` : tail;
+  }
+  return `${chars.slice(0, max - 1).join("").trimEnd()}…`;
 }

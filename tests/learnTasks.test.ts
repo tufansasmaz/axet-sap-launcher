@@ -219,6 +219,9 @@ describe("özet ayrıştırma", () => {
   it("Türkçe harfli işaret de tutar, en çok 3 öneri, tekrar yok", () => {
     expect(parseLearnReply("ön söz\nÖĞRENME-ÖZET: x | SONRAKİ: a; b; a; c; d")).toEqual({ summary: "x", suggestions: ["a", "b", "c"] });
   });
+  it("özet satırı sondan aranır: önsözde geçen işaret değil son satır", () => {
+    expect(parseLearnReply("İstem: OGRENME-OZET: <bir cümle> | SONRAKI: <konu 1>\nOGRENME-OZET: gerçek | SONRAKI: a")).toEqual({ summary: "gerçek", suggestions: ["a"] });
+  });
   it("boş cevap", () => {
     expect(parseLearnReply(undefined)).toEqual({ suggestions: [] });
   });
