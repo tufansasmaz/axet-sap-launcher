@@ -72,6 +72,7 @@ function commandsMock(): TerminalCommands {
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
     setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null),
     setWorkspaceVerify: vi.fn(),
     setWorkspaceView: vi.fn(),
     setWorkspaceBrowserUrl: vi.fn(),
@@ -107,7 +108,8 @@ function setup(over: Partial<TerminalState> = {}, defaultCwd = "C:\\a", agents: 
     commands,
     defaultKind: "cmd",
     defaultCwd,
-    agentCwd: "C:\\axet"
+    agentCwd: "C:\\axet",
+    setupRuns: {}
   });
   const agentValue: AgentStatusValue = {
     statuses: {},

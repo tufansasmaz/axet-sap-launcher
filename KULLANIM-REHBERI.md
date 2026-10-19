@@ -560,9 +560,24 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
 - **Araçlar** (raydaki son simge, anahtar): ajan motorlarının listesi. Her
   motorun yanında kurulu olup olmadığı ve sürümü, altında programın yolu
   yazar. Kurulu değilse tek satırlık kurulum komutu (ör. `npm install -g
-  @google/gemini-cli`) ve **kopyala** düğmesi çıkar; komutu bir terminalde
-  çalıştır, sonra **Yeniden denetle**. axet-code kurum içi yükleyiciyle
-  kurulur. Soldaki yuvarlak düğme **varsayılan motoru** seçer. Oturum açma ve
+  @google/gemini-cli`) ve **kopyala** düğmesi çıkar.
+  - **Kur** (kurulu motorda **Güncelle**): kısa bir onay penceresi
+    çalışacak komutu aynen gösterir (**Kur** / **Vazgeç**). Onaylayınca
+    etkin alanda "Kurulum: <motor>" adlı bir cmd bölmesi açılır ve komut
+    orada, gözünün önünde çalışır; gizli arka plan kurulumu yok. İstenirse
+    kimlik doğrulamayı o bölmede yap. Başarıyla biterse bölmenin kabuğu
+    kapanır ve satır kendiliğinden yenilenir ("Kurulu · sürüm"); hata olursa
+    çıktı bölmede kalır. İstediğin an **Yeniden denetle** de olur.
+  - Komutlar sabittir: Claude Code `npm install -g @anthropic-ai/claude-code`,
+    Codex `npm install -g @openai/codex`, Gemini CLI `npm install -g
+    @google/gemini-cli`. npm bulunamazsa düğme **Önce Node.js kur** olur
+    (`winget install OpenJS.NodeJS.LTS`); Node kurulduktan sonra yeni PATH
+    için uygulamayı yeniden başlatman gerekebilir.
+  - Aynı motorun kurulumu sürerken düğme **Kuruluyor…** olarak kilitlidir.
+    Bölme açılamazsa (etkin alan yok, bölme sınırı dolu) satırda nedenini
+    söyleyen bir uyarı çıkar.
+  - axet-code kurum içi yükleyiciyle (MSI) kurulur; burada Kur düğmesi yok.
+  Soldaki yuvarlak düğme **varsayılan motoru** seçer. Oturum açma ve
   API anahtarları motorun kendi terminalinde yapılır; uygulama bunları
   görmez, saklamaz.
 - **Akış** (sol sütun; Sohbet sekmesinde yerini sohbet listesi alır):

@@ -94,7 +94,8 @@ describe("OverviewView (grafikli pano)", () => {
       commands,
       defaultKind: "cmd",
       defaultCwd: "C:\\a",
-      agentCwd: "C:\\a"
+      agentCwd: "C:\\a",
+      setupRuns: {}
     };
     const status: AgentStatusValue = { statuses, engines: null, now: 0, answer: async () => ({ ok: false, reason: "noAgent" }) };
     render(

@@ -20,7 +20,8 @@ function setup(view: TerminalWorkspace["view"], language: "tr" | "en" = "tr", co
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
+    agentCwd: "C:\\a",
+    setupRuns: {}
   };
   render(
     <LanguageProvider language={language}>

@@ -80,3 +80,119 @@ describe("ToolsView", () => {
     expect(within(row("codex")).getByText("Kurulu · 0.46.0")).toBeTruthy();
   });
 });
+
+// --- Kur düğmesi (görünür kurulum bölmesi) ---
+import { TerminalStoreContext, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
+import type { TerminalState } from "../src/stores/terminalTypes";
+
+function storeState(panes: { id: string; run: unknown }[]): TerminalState {
+  return {
+    phase: "ready",
+    visible: true,
+    activeWorkspaceId: "w1",
+    workspaces: [{ id: "w1", name: "1", panes: panes.map((p) => ({ ...p, kind: "cmd", cwd: "C:\a" })), focusedPaneId: null, maximizedPaneId: null, unread: false, error: false }]
+  } as unknown as TerminalState;
+}
+
+function setupStore(opts: { setupRuns?: TerminalStoreValue["setupRuns"]; panes?: { id: string; run: unknown }[]; addResult?: string | null; npm?: boolean } = {}) {
+  const addSetupPane = vi.fn(() => (opts.addResult === undefined ? "pane-kur" : opts.addResult));
+  const revealPane = vi.fn();
+  (window as unknown as { api: Record<string, unknown> }).api.agentWhich = vi.fn(async () => opts.npm ?? true);
+  const make = (setupRuns: TerminalStoreValue["setupRuns"], panes: { id: string; run: unknown }[]): TerminalStoreValue =>
+    ({
+      state: storeState(panes),
+      commands: { addSetupPane, revealPane },
+      defaultKind: "cmd",
+      defaultCwd: "C:\a",
+      agentCwd: "C:\a",
+      setupRuns
+    }) as unknown as TerminalStoreValue;
+  const value: AgentStatusValue = { statuses: {}, engines: ENGINES, now: 0, answer: async () => ({ ok: false, reason: "noAgent" }) };
+  const tree = (store: TerminalStoreValue) => (
+    <LanguageProvider language="tr">
+      <AgentStatusContext.Provider value={value}>
+        <TerminalStoreContext.Provider value={store}>
+          <ToolsView />
+        </TerminalStoreContext.Provider>
+      </AgentStatusContext.Provider>
+    </LanguageProvider>
+  );
+  const utils = render(tree(make(opts.setupRuns ?? {}, opts.panes ?? [])));
+  const rerender = (setupRuns: TerminalStoreValue["setupRuns"], panes: { id: string; run: unknown }[]) => utils.rerender(tree(make(setupRuns, panes)));
+  return { addSetupPane, revealPane, rerender };
+}
+
+async function settle() {
+  await act(async () => {
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+  });
+}
+
+describe("ToolsView — Kur", () => {
+  it("kurulu olmayan motorda Kur; onay penceresi komutu aynen gösteriyor, Vazgeç hiçbir şey açmıyor", async () => {
+    const { addSetupPane } = setupStore();
+    await settle();
+    fireEvent.click(within(row("codex")).getByRole("button", { name: "Kur" }));
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("npm install -g @openai/codex && exit")).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Vazgeç" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(addSetupPane).not.toHaveBeenCalled();
+  });
+
+  it("onaylayınca kurulum bölmesi açılıyor ve öne geliyor", async () => {
+    const { addSetupPane, revealPane } = setupStore();
+    await settle();
+    fireEvent.click(within(row("gemini")).getByRole("button", { name: "Kur" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Kur" }));
+    expect(addSetupPane).toHaveBeenCalledWith("gemini", "Kurulum: Gemini CLI");
+    expect(revealPane).toHaveBeenCalledWith("pane-kur");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("bölme açılamazsa anlaşılır hata", async () => {
+    setupStore({ addResult: null });
+    await settle();
+    fireEvent.click(within(row("codex")).getByRole("button", { name: "Kur" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Kur" }));
+    expect(within(row("codex")).getByRole("alert").textContent).toContain("Kurulum bölmesi açılamadı");
+  });
+
+  it("kurulum sürerken düğme kilitli; bölme kapanınca tespit yenileniyor", async () => {
+    const { rerender } = setupStore({ setupRuns: { codex: "p1" }, panes: [{ id: "p1", run: { state: "running", ptyId: "x" } }] });
+    await settle();
+    const busy = within(row("codex")).getByRole("button", { name: "Kuruluyor…" }) as HTMLButtonElement;
+    expect(busy.disabled).toBe(true);
+    expect(agentEngines).not.toHaveBeenCalled();
+    rerender({ codex: "p1" }, [{ id: "p1", run: { state: "exited", ptyId: "x", code: 0 } }]);
+    await settle();
+    expect(agentEngines).toHaveBeenCalledWith(true);
+    expect(within(row("codex")).getByText("Kurulu · 0.46.0")).toBeTruthy();
+  });
+
+  it("kurulu npm motorunda Güncelle aynı yoldan", async () => {
+    const { addSetupPane } = setupStore();
+    await settle();
+    fireEvent.click(within(row("claude")).getByRole("button", { name: "Güncelle" }));
+    expect(within(screen.getByRole("dialog")).getByText("npm install -g @anthropic-ai/claude-code && exit")).toBeTruthy();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Kur" }));
+    expect(addSetupPane).toHaveBeenCalledWith("claude", "Kurulum: Claude Code");
+  });
+
+  it("npm yoksa Kur yerine Önce Node.js kur (winget)", async () => {
+    const { addSetupPane } = setupStore({ npm: false });
+    await settle();
+    expect(within(row("codex")).queryByRole("button", { name: "Kur" })).toBeNull();
+    fireEvent.click(within(row("codex")).getByRole("button", { name: "Önce Node.js kur" }));
+    expect(within(screen.getByRole("dialog")).getByText("winget install OpenJS.NodeJS.LTS && exit")).toBeTruthy();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Kur" }));
+    expect(addSetupPane).toHaveBeenCalledWith("node", "Kurulum: Node.js");
+  });
+
+  it("axet-code ve özel komutta Kur yok", async () => {
+    setupStore();
+    await settle();
+    expect(within(row("ozel")).queryByRole("button", { name: "Kur" })).toBeNull();
+    expect(within(row("axet-code")).queryByRole("button", { name: /Kur|Güncelle/ })).toBeNull();
+  });
+});

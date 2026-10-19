@@ -81,7 +81,8 @@ describe("ReportsView", () => {
       commands,
       defaultKind: "cmd",
       defaultCwd: "C:\\a",
-      agentCwd: "C:\\a"
+      agentCwd: "C:\\a",
+      setupRuns: {}
     };
     render(
       <LanguageProvider language="tr">

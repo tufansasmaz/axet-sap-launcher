@@ -2,9 +2,10 @@
 // yalnız bunu içe aktarır, sağlayıcının etkilerini çekmez.
 import { createContext, useContext } from "react";
 import type { AgentSpec } from "../../app-electron/shared/agentTypes";
+import type { SetupKey } from "../../app-electron/shared/agentEngines";
 import type { SavedWorkspaceSap, TerminalMode, TerminalPaneColor, WorkspaceView } from "../../app-electron/shared/types";
 import type { DropZone, LayoutPath, SplitDir } from "../../app-electron/shared/terminalTree";
-import type { TerminalState } from "./terminalTypes";
+import type { PaneRun, TerminalState } from "./terminalTypes";
 
 /** "+ Ajan" penceresinin çıktısı (spec 2026-10-17 ajan-alani §4). */
 export interface NewAgentInput {
@@ -53,6 +54,12 @@ export interface TerminalCommands {
   setWorkspaceBrowserUrl: (id: string, url: string) => void;
   /** Ajanın kalıcı belleğini açar (spec 2026-10-18 ajan-bellegi §4); anahtar addan türetilir. */
   enablePaneMemory: (paneId: string) => void;
+  /**
+   * Araçlar → Kur: etkin alanda cmd bölmesi açar, ilk satırı sabit tablodan
+   * (`setupLine`). Bölme kimliği; beyaz liste dışı anahtar, aynı motorun süren
+   * kurulumu ya da yer yokluğunda null.
+   */
+  addSetupPane: (key: SetupKey, title: string) => string | null;
 }
 
 export interface TerminalStoreValue {
@@ -64,6 +71,8 @@ export interface TerminalStoreValue {
   defaultCwd: string;
   /** Yeni ajanın klasörü: seçili alanın kökü, yoksa axet çalışma klasörü. */
   agentCwd: string;
+  /** Araçlar → Kur: motor anahtarı → son kurulum bölmesi (bellekte, diske yazılmıyor). */
+  setupRuns: Partial<Record<SetupKey, string>>;
 }
 
 export const TerminalStoreContext = createContext<TerminalStoreValue | null>(null);
@@ -72,4 +81,18 @@ export function useTerminalStore(): TerminalStoreValue {
   const value = useContext(TerminalStoreContext);
   if (!value) throw new Error("useTerminalStore yalnızca TerminalStoreProvider içinde kullanılabilir");
   return value;
+}
+
+/** Kurulum bölmesi hâlâ sürüyor mu: bölme duruyor ve süreci bitmemiş. */
+export function setupRunning(state: TerminalState, paneId: string | undefined): boolean {
+  if (!paneId) return false;
+  for (const w of state.workspaces) {
+    const pane = w.panes.find((p) => p.id === paneId);
+    if (pane) return isLive(pane.run);
+  }
+  return false;
+}
+
+function isLive(run: PaneRun): boolean {
+  return run.state === "queued" || run.state === "starting" || run.state === "running";
 }

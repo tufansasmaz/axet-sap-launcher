@@ -52,7 +52,8 @@ function wrap(children: ReactNode, statuses: Record<string, AgentStatus> = {}) {
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\axet"
+    agentCwd: "C:\\axet",
+    setupRuns: {}
   };
   const r = render(
     <LanguageProvider language="tr">

@@ -36,14 +36,41 @@ export function isSafeArg(value: string): boolean {
 }
 
 /**
+ * Araçlar → "Kur" düğmesinin çalıştırdığı komutlar: resmi, sabit ve TEK yer.
+ * Kullanıcı girdisi buraya karışmaz; bölme açan komut yalnız anahtar alır
+ * (`isSetupKey` beyaz listesi). `node`: npm yoksa önkoşul.
+ */
+export const SETUP_KEYS = ["claude", "codex", "gemini", "node"] as const;
+export type SetupKey = (typeof SETUP_KEYS)[number];
+
+export const SETUP_COMMANDS: Readonly<Record<SetupKey, string>> = Object.freeze({
+  claude: "npm install -g @anthropic-ai/claude-code",
+  codex: "npm install -g @openai/codex",
+  gemini: "npm install -g @google/gemini-cli",
+  node: "winget install OpenJS.NodeJS.LTS"
+});
+
+export function isSetupKey(value: unknown): value is SetupKey {
+  return typeof value === "string" && (SETUP_KEYS as readonly string[]).includes(value);
+}
+
+/**
+ * Kurulum bölmesine (cmd) yazılan satır. Başarıda kabuk kapanır: bölmenin
+ * süreci biter, Araçlar tespiti yeniler. Hatada kabuk açık kalır, çıktı görünür.
+ */
+export function setupLine(key: SetupKey): string {
+  return `${SETUP_COMMANDS[key]} && exit`;
+}
+
+/**
  * Araçlar ekranındaki tek satırlık kurulum komutu (Tur 3). axet-code kurum içi
  * yükleyiciyle geliyor, özel komut kullanıcının: ikisinde komut yok.
  */
 export const ENGINE_INSTALL: Record<AgentEngineId, string | null> = {
   "axet-code": null,
-  claude: "npm install -g @anthropic-ai/claude-code",
-  codex: "npm install -g @openai/codex",
-  gemini: "npm install -g @google/gemini-cli",
+  claude: SETUP_COMMANDS.claude,
+  codex: SETUP_COMMANDS.codex,
+  gemini: SETUP_COMMANDS.gemini,
   ozel: null
 };
 

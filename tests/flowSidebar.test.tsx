@@ -73,7 +73,8 @@ function setup(
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\axet"
+    agentCwd: "C:\\axet",
+    setupRuns: {}
   };
   const answer = vi.fn(async () => extra.answer ?? { ok: true as const });
   const agents: AgentStatusValue = { statuses, engines: [], now: 1, answer };
@@ -327,7 +328,8 @@ describe("Akış — ajan satırı (eski ekip kartı)", () => {
       commands,
       defaultKind: "cmd",
       defaultCwd: "C:\a",
-      agentCwd: "C:\axet"
+      agentCwd: "C:\axet",
+      setupRuns: {}
     };
     const agents: AgentStatusValue = { statuses: {}, engines: [], now: 1_000_000, answer: vi.fn(async () => ({ ok: true as const })), ...over };
     render(

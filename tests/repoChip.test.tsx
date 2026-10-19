@@ -53,7 +53,8 @@ function setup(root?: string) {
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\axet"
+    agentCwd: "C:\\axet",
+    setupRuns: {}
   };
   const ui = (r?: string) => (
     <LanguageProvider language="tr">

@@ -53,6 +53,7 @@ function commandsMock(): TerminalCommands {
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
     setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null),
     setWorkspaceVerify: vi.fn(),
     setWorkspaceView: vi.fn(),
     setWorkspaceBrowserUrl: vi.fn(),
@@ -82,7 +83,7 @@ function renderPane(
   render(
     <LanguageProvider language="tr">
       <TerminalStoreContext.Provider
-        value={{ state: initialTerminalState, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet" }}
+        value={{ state: initialTerminalState, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet", setupRuns: {} }}
       >
         <TerminalPaneView
           pane={pane}

@@ -50,7 +50,8 @@ function setup(statuses: Record<string, AgentStatus>) {
     commands: {} as TerminalCommands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
+    agentCwd: "C:\\a",
+    setupRuns: {}
   };
   const ui = (s: Record<string, AgentStatus>) => {
     const value: AgentStatusValue = { statuses: s, engines: [], now: 1, answer: async () => ({ ok: false, reason: "noAgent" }) };

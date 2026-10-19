@@ -61,7 +61,8 @@ function commandsMock(): TerminalCommands {
     restorePane: vi.fn(),
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
-    setPaneFontSize: vi.fn()
+    setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null)
   };
 }
 
@@ -98,7 +99,8 @@ function buildUi(
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
+    agentCwd: "C:\\a",
+    setupRuns: {}
   };
   return (
     <LanguageProvider language={language}>

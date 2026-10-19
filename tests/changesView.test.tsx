@@ -41,7 +41,8 @@ function commandsMock(): TerminalCommands {
     restorePane: vi.fn(),
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
-    setPaneFontSize: vi.fn()
+    setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null)
   };
 }
 
@@ -133,7 +134,8 @@ async function setup({ visible = true, language = "tr" as "tr" | "en" } = {}) {
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
+    agentCwd: "C:\\a",
+    setupRuns: {}
   };
   render(
     <LanguageProvider language={language}>
@@ -387,7 +389,8 @@ describe("fix round 1: kararlılık ve doğruluk", () => {
       commands,
       defaultKind: "cmd",
       defaultCwd: "C:\\a",
-      agentCwd: "C:\\a"
+      agentCwd: "C:\\a",
+      setupRuns: {}
     };
     render(
       <LanguageProvider language="tr">

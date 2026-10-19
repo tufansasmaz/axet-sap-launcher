@@ -45,7 +45,8 @@ function commandsMock(): TerminalCommands {
     restorePane: vi.fn(),
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
-    setPaneFontSize: vi.fn()
+    setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null)
   };
 }
 
@@ -110,7 +111,8 @@ function setup(initial: BoardTask, wsOver: Partial<TerminalWorkspace> = {}, lang
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
+    agentCwd: "C:\\a",
+    setupRuns: {}
   };
   const ui = (tk: BoardTask) => (
     <LanguageProvider language={language}>
@@ -342,7 +344,7 @@ describe("onaylı görev", () => {
     const blockingCmd = vi.fn(() => new Promise<BoardCommandResult>((res) => { unblock = () => res({ ok: true }); }));
     const commands = commandsMock();
     const ws: TerminalWorkspace = { id: "a", name: "Alan a", panes: [agentPane("p1", "Ayşe")], focusedPaneId: null, maximizedPaneId: null, unread: false, error: false, verify: ["npm test"] };
-    const store: TerminalStoreValue = { state: { ...initialTerminalState, phase: "ready", workspaces: [ws], activeWorkspaceId: "a" }, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\a" };
+    const store: TerminalStoreValue = { state: { ...initialTerminalState, phase: "ready", workspaces: [ws], activeWorkspaceId: "a" }, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\a", setupRuns: {} };
     render(
       <LanguageProvider language="tr">
         <TerminalStoreContext.Provider value={store}>
@@ -377,7 +379,8 @@ function setupBoardView(tasks: BoardTask[], language: "tr" | "en" = "tr") {
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
+    agentCwd: "C:\\a",
+    setupRuns: {}
   };
   const tree = (list: BoardTask[]) => (
     <LanguageProvider language={language}>

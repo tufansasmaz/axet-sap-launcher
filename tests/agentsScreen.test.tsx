@@ -35,7 +35,8 @@ function setup(chatActive: boolean, workspace: TerminalWorkspace = ws(), languag
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\axet"
+    agentCwd: "C:\\axet",
+    setupRuns: {}
   };
   const onShowAgents = vi.fn();
   const ui = (chat: boolean) => (

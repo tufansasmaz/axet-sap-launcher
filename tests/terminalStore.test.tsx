@@ -719,3 +719,79 @@ describe("motor denetimi ve izleyici kaydı (spec 2026-10-17 ajan-alani §3, §6
     expect(api.agentUnregister).toHaveBeenCalledWith(agentPane.id);
   });
 });
+
+describe("kurulum bölmesi (Araçlar → Kur)", () => {
+  it("cmd bölmesi tablodaki komutla, başlıkla açılıyor ve izleniyor", async () => {
+    await ready();
+    let id: string | null = null;
+    act(() => {
+      id = store.commands.addSetupPane("claude", "Kurulum: Claude Code");
+    });
+    await flush();
+    expect(id).toBeTruthy();
+    expect(api.createTerminal).toHaveBeenCalledWith(
+      "C:\\axet",
+      120,
+      30,
+      "cmd",
+      "npm install -g @anthropic-ai/claude-code && exit",
+      { createDir: false }
+    );
+    expect(panes()[0]).toMatchObject({ id, kind: "cmd", title: "Kurulum: Claude Code" });
+    expect(store.setupRuns).toEqual({ claude: id });
+  });
+
+  it("beyaz liste dışı anahtar bölme açmıyor", async () => {
+    await ready();
+    let id: string | null = "x";
+    act(() => {
+      id = store.commands.addSetupPane("rm -rf" as never, "x");
+    });
+    await flush();
+    expect(id).toBeNull();
+    expect(panes()).toEqual([]);
+  });
+
+  it("aynı motor için ikinci kurulum, ilki sürerken engelleniyor; bitince açılabiliyor", async () => {
+    await ready();
+    let first: string | null = null;
+    let second: string | null = "x";
+    act(() => {
+      first = store.commands.addSetupPane("codex", "Kurulum: Codex");
+    });
+    await flush();
+    act(() => {
+      second = store.commands.addSetupPane("codex", "Kurulum: Codex");
+    });
+    await flush();
+    expect(first).toBeTruthy();
+    expect(second).toBeNull();
+    expect(panes()).toHaveLength(1);
+
+    await act(async () => creates[0].resolve("pty-kur"));
+    await flush();
+    emitExit("pty-kur", 0);
+    await flush();
+    let third: string | null = null;
+    act(() => {
+      third = store.commands.addSetupPane("codex", "Kurulum: Codex");
+    });
+    await flush();
+    expect(third).toBeTruthy();
+    expect(third).not.toBe(first);
+  });
+
+  it("yeniden başlatılan kurulum bölmesi komutu tekrar çalıştırmıyor", async () => {
+    await ready();
+    let id = "";
+    act(() => {
+      id = store.commands.addSetupPane("gemini", "Kurulum: Gemini CLI") ?? "";
+    });
+    await flush();
+    await act(async () => creates[0].resolve("pty-g"));
+    await flush();
+    act(() => store.commands.restartPane(id));
+    await flush();
+    expect(api.createTerminal).toHaveBeenLastCalledWith("C:\\axet", 120, 30, "cmd", undefined, { createDir: false });
+  });
+});

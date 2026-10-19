@@ -62,7 +62,8 @@ function commandsMock(): TerminalCommands {
     restorePane: vi.fn(),
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
-    setPaneFontSize: vi.fn()
+    setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null)
   };
 }
 
@@ -121,7 +122,8 @@ function setup({ ws = workspace(), language = "tr" as "tr" | "en", withPage = tr
     commands,
     defaultKind: "cmd",
     defaultCwd: "C:\\a",
-    agentCwd: "C:\\a"
+    agentCwd: "C:\\a",
+    setupRuns: {}
   };
   const agents: AgentStatusValue = {
     statuses: { p1: st("idle"), p2: st("running") },

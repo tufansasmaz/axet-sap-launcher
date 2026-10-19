@@ -56,7 +56,8 @@ function commandsMock(): TerminalCommands {
     restorePane: vi.fn(),
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
-    setPaneFontSize: vi.fn()
+    setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null)
   };
 }
 
@@ -119,7 +120,8 @@ function setup(ws: TerminalWorkspace, opts: Opts = {}) {
       commands,
       defaultKind: "cmd",
       defaultCwd: "C:\\a",
-      agentCwd: "C:\\a"
+      agentCwd: "C:\\a",
+      setupRuns: {}
     };
     const agents: AgentStatusValue = { statuses: o.statuses ?? {}, engines: [], now: NOW, answer: vi.fn(async () => ({ ok: true as const })) };
     const boards: BoardContextValue = {

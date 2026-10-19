@@ -1,6 +1,6 @@
 // Ajan motorları, komut kurma ve kayıttan okuma (spec 2026-10-17 ajan-alani §3, §5, §7).
 import { describe, expect, it } from "vitest";
-import { buildAgentCommand, engineBinary, isSafeArg } from "../app-electron/shared/agentEngines";
+import { buildAgentCommand, engineBinary, ENGINE_INSTALL, isSafeArg, isSetupKey, SETUP_COMMANDS, SETUP_KEYS, setupLine } from "../app-electron/shared/agentEngines";
 import { LEGACY_AXET_AGENT, readAgentSpec, type AgentQuestion, type AgentSpec } from "../app-electron/shared/agentTypes";
 import { LIST_ANSWER_ENABLED, isListAnswerable, optionKeys } from "../app-electron/shared/agentDecisions";
 
@@ -121,5 +121,39 @@ describe("Kararlar yardımcıları", () => {
 
   it("tek seçimli iki seçenekli soru Task 1 kararına göre", () => {
     expect(isListAnswerable(q({}))).toBe(LIST_ANSWER_ENABLED);
+  });
+});
+
+describe("Kurulum komutları (Araçlar → Kur)", () => {
+  it("tablo sabit, resmi ve yalnız bu dört anahtar", () => {
+    expect(SETUP_KEYS).toEqual(["claude", "codex", "gemini", "node"]);
+    expect(SETUP_COMMANDS).toEqual({
+      claude: "npm install -g @anthropic-ai/claude-code",
+      codex: "npm install -g @openai/codex",
+      gemini: "npm install -g @google/gemini-cli",
+      node: "winget install OpenJS.NodeJS.LTS"
+    });
+    expect(Object.isFrozen(SETUP_COMMANDS)).toBe(true);
+  });
+
+  it("Araçlar'daki kopyalanan komut aynı tablodan", () => {
+    expect(ENGINE_INSTALL.claude).toBe(SETUP_COMMANDS.claude);
+    expect(ENGINE_INSTALL.codex).toBe(SETUP_COMMANDS.codex);
+    expect(ENGINE_INSTALL.gemini).toBe(SETUP_COMMANDS.gemini);
+    expect(ENGINE_INSTALL["axet-code"]).toBeNull();
+    expect(ENGINE_INSTALL.ozel).toBeNull();
+  });
+
+  it("beyaz liste: bilinmeyen anahtar reddediliyor", () => {
+    expect(isSetupKey("claude")).toBe(true);
+    expect(isSetupKey("node")).toBe(true);
+    for (const bad of ["axet-code", "ozel", "", "claude & del", "toString", "__proto__", null, 3]) {
+      expect(isSetupKey(bad)).toBe(false);
+    }
+  });
+
+  it("kabuğa yazılan satır: komut, başarıda kabuk kapanır", () => {
+    expect(setupLine("codex")).toBe("npm install -g @openai/codex && exit");
+    expect(setupLine("node")).toBe("winget install OpenJS.NodeJS.LTS && exit");
   });
 });

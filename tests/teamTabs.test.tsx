@@ -79,6 +79,7 @@ function commandsMock(): TerminalCommands {
     renamePane: vi.fn(),
     setPaneColor: vi.fn(),
     setPaneFontSize: vi.fn(),
+    addSetupPane: vi.fn(() => null),
     setWorkspaceVerify: vi.fn(),
     setWorkspaceView: vi.fn(),
     setWorkspaceBrowserUrl: vi.fn(),
@@ -110,7 +111,7 @@ function renderSidebar(
       activeWorkspaceId: list[0]?.id ?? null,
       ...o
     };
-    const value: TerminalStoreValue = { state, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet" };
+    const value: TerminalStoreValue = { state, commands, defaultKind: "cmd", defaultCwd: "C:\\a", agentCwd: "C:\\axet", setupRuns: {} };
     return (
       <LanguageProvider language="tr">
         <TerminalStoreContext.Provider value={value}>

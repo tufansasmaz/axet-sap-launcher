@@ -2,8 +2,8 @@
 // bağlar. Kararların hepsi indirgeyicide; burada yalnız yan etkiler var.
 import { useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import type { AppConfig, TerminalMode } from "../../app-electron/shared/types";
-import { TERMINAL_MISSING_DIR } from "../../app-electron/shared/terminalLayout";
-import { buildAgentCommand, engineBinary } from "../../app-electron/shared/agentEngines";
+import { MAX_TERMINAL_PANES, TERMINAL_MISSING_DIR } from "../../app-electron/shared/terminalLayout";
+import { buildAgentCommand, engineBinary, isSetupKey, setupLine, type SetupKey } from "../../app-electron/shared/agentEngines";
 import { AGENT_ENGINE_MISSING, LEGACY_AXET_AGENT, type AgentEngineInfo, type AgentSpec } from "../../app-electron/shared/agentTypes";
 import { ENGINE_LABEL } from "../agents/agentLabels";
 import { fromLegacy } from "../../app-electron/shared/terminalTree";
@@ -20,7 +20,7 @@ import {
   terminalReducer,
   toSaved
 } from "./terminalReducer";
-import { TerminalStoreContext, type TerminalCommands } from "./terminalStoreContext";
+import { setupRunning, TerminalStoreContext, type TerminalCommands } from "./terminalStoreContext";
 import type { NameFor, TerminalPane, TerminalState } from "./terminalTypes";
 
 /** Bölme ilk açılırken pty boyutu; xterm sığdırınca hemen yeniden boyutlanıyor. */
@@ -130,6 +130,11 @@ export function TerminalStoreProvider({
   const [engines, setEngines] = useState<AgentEngineInfo[] | null>(null);
   /** "+ Ajan" ile eklenen, henüz kaydı yapılmamış bölmeler (günlükte `ajan.eklendi`). */
   const freshAgents = useRef(new Set<string>());
+  /** Araçlar → Kur: henüz başlamamış kurulum bölmesinin ilk satırı (bir kez). */
+  const setupCommands = useRef(new Map<string, string>());
+  const [setupRuns, setSetupRuns] = useState<Partial<Record<SetupKey, string>>>({});
+  const setupRunsRef = useRef(setupRuns);
+  const agentCwdRef = useRef("");
   const configRef = useRef(config);
   configRef.current = config;
   const nameForRef = useRef<NameFor>((n) => String(n));
@@ -283,7 +288,9 @@ export function TerminalStoreProvider({
       const spec: AgentSpec | null = pane.kind === "agent" ? (pane.agent ?? LEGACY_AXET_AGENT) : null;
       const isAgent = spec !== null;
       const shell: TerminalMode = pane.kind === "agent" ? config.terminal : pane.kind;
-      const command = spec ? buildAgentCommand(spec, config.axetCommand || "") : undefined;
+      const command = spec ? buildAgentCommand(spec, config.axetCommand || "") : setupCommands.current.get(pane.id);
+      // Kurulum satırı bir kez: yeniden başlatılan bölme düz kabuk olur.
+      setupCommands.current.delete(pane.id);
 
       const fail = (message: string) => {
         if (spawnTokens.current.get(pane.id) !== token) return;
@@ -502,7 +509,23 @@ export function TerminalStoreProvider({
       restorePane: (paneId) => dispatch({ type: "restorePane", paneId }),
       renamePane: (paneId, title) => dispatch({ type: "renamePane", paneId, title }),
       setPaneColor: (paneId, color) => dispatch({ type: "setPaneColor", paneId, color }),
-      setPaneFontSize: (paneId, fontSize) => dispatch({ type: "setPaneFontSize", paneId, fontSize })
+      setPaneFontSize: (paneId, fontSize) => dispatch({ type: "setPaneFontSize", paneId, fontSize }),
+      addSetupPane: (key, title) => {
+        // Beyaz liste: komut yalnız sabit tablodan; anahtar dışında girdi yok.
+        if (!isSetupKey(key)) return null;
+        const current = stateRef.current;
+        if (setupRunning(current, setupRunsRef.current[key])) return null;
+        const workspace = current.workspaces.find((w) => w.id === current.activeWorkspaceId);
+        const cwd = agentCwdRef.current.trim();
+        if (current.phase !== "ready" || !workspace || workspace.panes.length >= MAX_TERMINAL_PANES || !cwd) return null;
+        const paneId = crypto.randomUUID();
+        setupCommands.current.set(paneId, setupLine(key));
+        setupRunsRef.current = { ...setupRunsRef.current, [key]: paneId };
+        setSetupRuns(setupRunsRef.current);
+        // Kurulum her kabuk ayarında cmd'de: `&& exit` iki kabukta aynı çalışmıyor.
+        dispatch({ type: "addPane", workspaceId: workspace.id, paneId, kind: "cmd", cwd, title });
+        return paneId;
+      }
     };
   }, []);
 
@@ -512,9 +535,10 @@ export function TerminalStoreProvider({
   // Ekibe depo bağlıysa (Tur 3, üst şeritteki depo çipi) kabuklar da orada açılır.
   const defaultCwd = activeRoot || (activePanes[activePanes.length - 1]?.cwd ?? config?.projectsBaseDir ?? "");
   const agentCwd = activeRoot || config?.axetWorkspaceDir || defaultCwd;
+  agentCwdRef.current = agentCwd;
   const value = useMemo(
-    () => ({ state, commands, defaultKind, defaultCwd, agentCwd }),
-    [state, commands, defaultKind, defaultCwd, agentCwd]
+    () => ({ state, commands, defaultKind, defaultCwd, agentCwd, setupRuns }),
+    [state, commands, defaultKind, defaultCwd, agentCwd, setupRuns]
   );
 
   return <TerminalStoreContext.Provider value={value}>{children}</TerminalStoreContext.Provider>;
