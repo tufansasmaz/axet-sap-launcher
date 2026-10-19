@@ -83,7 +83,7 @@ describe("Ayarlar — iki sütun", () => {
     expect(screen.getByRole("tab", { name: "Genel" }).getAttribute("aria-selected")).toBe("true");
     const panel = screen.getByRole("tabpanel", { name: "Genel" });
     expect(within(panel).getByRole("heading", { name: "Genel" })).toBeTruthy();
-    expect(within(panel).getByText("Uygulama dili ve proje klasörü.")).toBeTruthy();
+    expect(within(panel).getByText("Uygulama dili, proje klasörü, SAP bağlanınca açılacak yer ve bildirimler.")).toBeTruthy();
   });
 
   it("yalnız seçili bölüm görünüyor; landmark kalabalığı yok", () => {
@@ -97,12 +97,12 @@ describe("Ayarlar — iki sütun", () => {
 
   it("bölüm geçişi formu sıfırlamıyor; değişen bölüm işaretli kalıyor", () => {
     setup();
-    goTo("Terminal");
+    goTo("Ajanlar ve terminal");
     fireEvent.change(screen.getByDisplayValue("axet"), { target: { value: "axet-yeni" } });
     goTo("Genel");
-    goTo("Terminal");
+    goTo("Ajanlar ve terminal");
     expect(screen.getByDisplayValue("axet-yeni")).toBeTruthy();
-    const terminalTab = screen.getByRole("tab", { name: "Terminal" });
+    const terminalTab = screen.getByRole("tab", { name: "Ajanlar ve terminal" });
     expect(terminalTab.querySelector("[data-dirty-dot]")).not.toBeNull();
     expect(screen.getByRole("tab", { name: "Genel" }).querySelector("[data-dirty-dot]")).toBeNull();
     expect(screen.getByText(UNSAVED)).toBeTruthy();
@@ -121,7 +121,7 @@ describe("Ayarlar — iki sütun", () => {
 
   it("otomatik denetim bir anahtar", () => {
     setup();
-    goTo("Güncellemeler");
+    goTo("Sürüm ve destek");
     const toggle = screen.getByRole("switch", { name: "Uygulama açılışında otomatik kontrol et" });
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     fireEvent.click(toggle);
@@ -145,7 +145,7 @@ describe("Ayarlar — ertelenmiş hatalar", () => {
   it("yeniden açılışın ilk karesinde eski form yok; bölüm Genel'e dönüyor", () => {
     const { seen, rerender } = setup();
     fireEvent.change(screen.getByDisplayValue("C:\\projeler"), { target: { value: "D:\\yeni" } });
-    goTo("Terminal");
+    goTo("Ajanlar ve terminal");
     rerender(false, CONFIG);
     seen.length = 0;
     rerender(true, { ...CONFIG, projectsBaseDir: "F:\\sonra" } as AppConfig);

@@ -1,6 +1,5 @@
 import { app } from "electron";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { userInfo } from "node:os";
 import path from "node:path";
 import { encryptSecret } from "./secureStorage";
 import { isSkillProfile } from "./skillProfiles";
@@ -105,10 +104,6 @@ function defaultConfig(): AppConfig {
     language: "tr",
     autoCheckUpdates: true,
     axetWorkspaceDir: path.join(app.getPath("documents"), "aXet Code Sessions"),
-    // Windows oturum adından TÜRETİLİR, ama sadece isme benziyorsa
-    // (bkz. safeUserName). Kullanıcı Ayarlar'dan değiştirebilir, boşaltırsa
-    // karşılama adsız görünür.
-    chatDisplayName: safeUserName(),
     chatFontSize: "md",
     chatDensity: "comfortable",
     sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
@@ -135,25 +130,14 @@ function defaultConfig(): AppConfig {
     // İlk kurulum: mevcut sürümü yaz — "zaten görüldü" anlamına geliyor.
     // Bu sayede fresh install'da yenilikler penceresi açılmaz.
     // Testlerde getVersion mevcut olmayabilir; "" ile güvenli başlangıç.
-    whatsNewSeenVersion: typeof app.getVersion === "function" ? app.getVersion() : ""
+    whatsNewSeenVersion: typeof app.getVersion === "function" ? app.getVersion() : "",
+    // Bugünkü davranış: bağlanınca Sohbet.
+    sapConnectOpen: "chat",
+    agentMemoryDigest: true
   };
 }
 
-// Karşılamada kullanılacak varsayılan ad. Windows oturum adı kurumsal
-// ortamlarda çoğu zaman bir SİCİL NUMARASIDIR ("10134570") ve "İyi akşamlar,
-// 10134570" saçma görünüyor (kullanıcı geri bildirimi, 2026-09-02). Bu yüzden
-// oturum adı yalnızca İSME BENZİYORSA kullanılıyor: en az bir harf içermeli.
-// Benzemiyorsa boş dönülür ve karşılama adsız kalır — kullanıcı isterse
-// Ayarlar > Sohbet görünümü'nden kendi adını yazar. `userInfo()` bazı kilitli
-// ortamlarda fırlatıyor; ad kozmetik olduğu için hata tüm config'i düşürmemeli.
-function safeUserName(): string {
-  try {
-    const raw = (userInfo().username ?? "").trim();
-    return /\p{L}/u.test(raw) ? raw : "";
-  } catch {
-    return "";
-  }
-}
+const VALID_SAP_CONNECT_OPEN = ["chat", "terminal", "ask"] as const;
 
 const MAX_PREVIOUS_DIRS = 5;
 
@@ -203,7 +187,6 @@ export function loadConfig(): AppConfig {
       chatDensity,
       theme,
       palette,
-      chatDisplayName: typeof parsed.chatDisplayName === "string" ? parsed.chatDisplayName : fallback.chatDisplayName,
       supportEmail: typeof parsed.supportEmail === "string" ? parsed.supportEmail.trim() : fallback.supportEmail,
       sidebarWidth: clampSidebarWidth(parsed.sidebarWidth),
       sidebarCollapsed: readSidebarCollapsed(parsed),
@@ -252,7 +235,11 @@ export function loadConfig(): AppConfig {
       whatsNewSeenVersion:
         typeof parsed.whatsNewSeenVersion === "string"
           ? parsed.whatsNewSeenVersion
-          : "0"
+          : "0",
+      sapConnectOpen: (VALID_SAP_CONNECT_OPEN as readonly string[]).includes(parsed.sapConnectOpen)
+        ? parsed.sapConnectOpen
+        : fallback.sapConnectOpen,
+      agentMemoryDigest: parsed.agentMemoryDigest === false ? false : fallback.agentMemoryDigest
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).
@@ -262,6 +249,8 @@ export function loadConfig(): AppConfig {
     // `chatSidebarOpen` yukarıda `sidebarCollapsed`'a göç etti (bkz.
     // readSidebarCollapsed); `...parsed` onu taşımasın, kayıtta düşsün.
     delete dead.chatSidebarOpen;
+    // Ayar denetimi (2026-10-19): karşılama adı hiçbir yerde okunmuyordu.
+    delete dead.chatDisplayName;
     return merged;
   } catch {
     return fallback;

@@ -78,7 +78,7 @@ function swatchRow(radio: HTMLElement, theme: "dark" | "light"): string[] {
 }
 
 describe("Ayarlar → Görünüm", () => {
-  it("vurgu grubu dört kartlı, seçili olan işaretli; yazı boyutu burada, Sohbet görünümünde değil", () => {
+  it("vurgu grubu dört kartlı, seçili olan işaretli; yazı boyutu ve satır sıklığı burada (Sohbet görünümü katıldı)", () => {
     mount();
     goTo("Görünüm");
     const section = screen.getByRole("tabpanel", { name: "Görünüm" });
@@ -90,9 +90,8 @@ describe("Ayarlar → Görünüm", () => {
     expect(within(group).getByRole("radio", { name: "Amber" }).getAttribute("aria-checked")).toBe("false");
     expect(within(group).getByRole("radio", { name: "Grafit" }).getAttribute("aria-checked")).toBe("false");
     expect(within(section).getByText("Yazı boyutu")).toBeTruthy();
-    goTo("Sohbet görünümü");
-    const chat = screen.getByRole("tabpanel", { name: "Sohbet görünümü" });
-    expect(within(chat).queryByText("Yazı boyutu")).toBeNull();
+    expect(within(section).getByRole("group", { name: "Satır sıklığı" })).toBeTruthy();
+    expect(screen.queryByRole("tab", { name: "Sohbet görünümü" })).toBeNull();
   });
 
   it("yalnızca seçili kart Tab sırasında; ok tuşu seçimi ve odağı birlikte taşıyor, uçta başa sarıyor", () => {
@@ -170,8 +169,8 @@ describe("Ayarlar → Görünüm", () => {
 
 // Karşılama başlığı sohbet ekranından kalktı (2026-09-29); onu besleyen ad
 // alanı ve "karşılama başlığını büyütür" ipucu artık olmayan bir şeyi vaat
-// ediyordu. `chatDisplayName` yapılandırmada duruyor — Ayarlar ekranı
-// yenilenirken kalkacak — ama kullanıcıya gösterilmiyor.
+// ediyordu. `chatDisplayName` 2026-10-19 ayar denetiminde yapılandırmadan da
+// kaldırıldı (bkz. settingsAuditConfig.test.ts).
 describe("Ayarlar — karşılama kalıntısı", () => {
   it("karşılama adı alanı yok, hiçbir ipucu karşılamadan söz etmiyor", () => {
     mount();

@@ -1,6 +1,7 @@
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Search } from "lucide-react";
 import { useT } from "../../i18n";
-import { SETTINGS_SECTIONS, type SettingsSectionId } from "./settingsSections";
+import { matchSettingsSections, SETTINGS_SECTIONS, type SettingsSectionId } from "./settingsSections";
 
 interface Props {
   value: SettingsSectionId;
@@ -14,12 +15,23 @@ interface Props {
 
 // Ayarlar'ın sol sütunu. Dikey sekme listesi: yalnız seçili sekme sekme
 // sırasında (roving tabindex), ok tuşları seçimi taşıyor ve uçlarda dönüyor.
+// Üstte arama (2026-10-19): ayarın adını bilen, bölümünü bilmeyen kullanıcı
+// için sekmeleri süzüyor; seçili bölüm süzülünce ilk eşleşmeye geçiyor.
 export default function SettingsNav({ value, onChange, dirty, idPrefix, footer }: Props) {
   const t = useT();
   const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [query, setQuery] = useState("");
+  const matches = new Set(matchSettingsSections(query, t));
+  const visible = SETTINGS_SECTIONS.filter((section) => matches.has(section.id));
+  const firstVisible = visible[0]?.id ?? null;
+  const valueVisible = matches.has(value);
+
+  useEffect(() => {
+    if (!valueVisible && firstVisible) onChange(firstVisible);
+  }, [valueVisible, firstVisible, onChange]);
 
   const move = (e: KeyboardEvent, index: number) => {
-    const last = SETTINGS_SECTIONS.length - 1;
+    const last = visible.length - 1;
     const next =
       e.key === "ArrowDown" ? (index === last ? 0 : index + 1)
       : e.key === "ArrowUp" ? (index === 0 ? last : index - 1)
@@ -28,20 +40,32 @@ export default function SettingsNav({ value, onChange, dirty, idPrefix, footer }
       : null;
     if (next === null) return;
     e.preventDefault();
-    const id = SETTINGS_SECTIONS[next].id;
+    const id = visible[next].id;
     onChange(id);
     refs.current[id]?.focus();
   };
 
   return (
     <div className="flex w-[200px] shrink-0 flex-col border-r border-line">
+      <div className="relative shrink-0 px-2 pt-2">
+        <Search size={13} aria-hidden className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-slate-500" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          aria-label={t("settingsModal.searchLabel")}
+          placeholder={t("settingsModal.searchPlaceholder")}
+          className="h-8 w-full rounded-md border border-line bg-app/40 pl-7 pr-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-line-strong focus:outline-none"
+        />
+      </div>
       <div
         role="tablist"
         aria-orientation="vertical"
         aria-label={t("settingsModal.sectionsLabel")}
         className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2"
       >
-        {SETTINGS_SECTIONS.map((section, index) => {
+        {visible.length === 0 && <p className="px-2 py-1.5 text-xs text-slate-500">{t("settingsModal.searchEmpty")}</p>}
+        {visible.map((section, index) => {
           const selected = section.id === value;
           const Icon = section.icon;
           return (

@@ -424,10 +424,9 @@ export interface AppConfig {
   autoCheckUpdates: boolean;
   axetWorkspaceDir: string;
   // --- axet.code sohbet ekranı kişiselleştirmesi ---
-  // Karşılamada görünecek ad ("Günaydın, Tufan"). Varsayılanı `defaultConfig()`
-  // Windows oturum adından türetiyor; BOŞ bırakılırsa karşılama adsız hâline
-  // düşer (kullanıcı adının ekranda görünmesini istemeyebilir).
-  chatDisplayName: string;
+  // `chatDisplayName` KALDIRILDI (ayar denetimi 2026-10-19): karşılama
+  // başlığı 2026-09-29'da kalktı, alan hiçbir yerde okunmuyordu. Eski
+  // dosyadaki değer okunurken düşüyor (bkz. store.ts `loadConfig`).
   chatFontSize: ChatFontSize;
   chatDensity: ChatDensity;
   // Kabuğun kenar çubuğu (2026-09-29), üç modda ortak. Genişlik piksel,
@@ -496,7 +495,20 @@ export interface AppConfig {
   // pencere gösterilmez, yalnız mevcut sürüm yazılır. Ayarlar formuna
   // girmez (kullanıcının düzenlediği bir ayar değil).
   whatsNewSeenVersion: string;
+  // SAP sistemine bağlanınca nerede açılsın (2026-10-19). "chat": bugünkü
+  // davranış, Sohbet'te bağlantının klasörüne bağlı yeni sohbet. "terminal":
+  // Ajanlar ekranında o SAP bağlamına bağlı alanda axet-code ajan bölmesi.
+  // "ask": bağlan düğmesi her seferinde menüyü açar. Eksik/bozuksa "chat".
+  sapConnectOpen: SapConnectOpen;
+  // Ajan başlangıç satırına ekip belleği özeti eklensin mi (Tur 5,
+  // memoryNotifier.digest). Varsayılan açık; kapatınca yalnız bellek satırı.
+  agentMemoryDigest: boolean;
 }
+
+/** SAP bağlanınca açılacak yer — ayardaki seçim. */
+export type SapConnectOpen = "chat" | "terminal" | "ask";
+/** Bağlan düğmesinden seçilebilen hedef ("ask" bir hedef değil, soru). */
+export type SapConnectTarget = "chat" | "agent" | "shell";
 
 export interface ConnectorIntegrationHealth {
   /** Araç adından çıkarılan sağlayıcı (`outlook`, `sharepoint`, …). */

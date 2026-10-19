@@ -59,7 +59,7 @@ function setup() {
       />
     </LanguageProvider>
   );
-  fireEvent.click(screen.getByRole("tab", { name: "Gelişmiş Yollar" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Sürüm ve destek" }));
   return { onSave, onReportProblem, order };
 }
 

@@ -6,7 +6,6 @@ import {
   ShieldCheck,
   Sparkles,
   TerminalSquare,
-  Type,
   Wrench,
   type LucideIcon
 } from "lucide-react";
@@ -17,7 +16,6 @@ export type SettingsSectionId =
   | "general"
   | "appearance"
   | "axetCode"
-  | "chatAppearance"
   | "terminal"
   | "dataPrivacy"
   | "advanced"
@@ -31,75 +29,129 @@ export interface SettingsSection {
   descKey: TranslationKey;
   /** Bu bölümün formda değiştirdiği alanlar; "değişiklik noktası" bunlardan hesaplanıyor. */
   fields: readonly (keyof AppConfig)[];
+  /** Arama kutusunun başlık ve açıklamaya ek olarak taradığı etiketler (bölümde görünen metinler). */
+  searchKeys: readonly TranslationKey[];
 }
 
-// Sıra spec'teki sıra. Bir alan yalnız bir bölümde durmalı; yoksa tek
-// değişiklik iki bölümü birden işaretler.
+// Bir alan yalnız bir bölümde durmalı; yoksa tek değişiklik iki bölümü
+// birden işaretler.
+//
+// AYAR DENETİMİ (2026-10-19, ayrıntı .superpowers/ayarlar-denetim.md):
+// - "Sohbet görünümü" bölümü Görünüm'e katıldı: içinde tek görünüm ayarı
+//   (satır sıklığı) ve yanlış yerde duran bildirim anahtarı kalmıştı.
+// - Bildirimler Genel'e taşındı: ayar yalnız sohbeti değil ajan ve pano
+//   bildirimlerini de yönetiyor (index.ts, `chatNotifications !== false`).
+// - Destek adresi "Gelişmiş Yollar"dan "Sürüm ve destek"e taşındı: bir yol
+//   değil, "Sorun bildir" düğmesiyle aynı yerde olmalı.
+// - Eklenen: `sapConnectOpen` (Genel), `agentMemoryDigest` (Ajanlar).
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   {
     id: "general",
     icon: Languages,
     titleKey: "settingsModal.sectionGeneral",
     descKey: "settingsModal.descGeneral",
-    fields: ["language", "projectsBaseDir"]
+    fields: ["language", "projectsBaseDir", "sapConnectOpen", "chatNotifications"],
+    searchKeys: [
+      "settingsModal.languageLabel",
+      "settingsModal.projectsDirLabel",
+      "settingsModal.sapConnectOpenLabel",
+      "settingsModal.sapConnectOpenTerminal",
+      "settingsModal.chatNotificationsLabel",
+      "settingsModal.chatNotificationsHint"
+    ]
   },
   {
     id: "appearance",
     icon: Palette,
     titleKey: "settingsModal.sectionAppearance",
     descKey: "settingsModal.descAppearance",
-    fields: ["palette", "theme", "chatFontSize"]
+    fields: ["palette", "theme", "chatFontSize", "chatDensity"],
+    searchKeys: [
+      "settingsModal.paletteLabel",
+      "settingsModal.themeLabel",
+      "settingsModal.chatFontSizeLabel",
+      "settingsModal.chatDensityLabel",
+      "settingsModal.chatDensityHint"
+    ]
   },
   {
     id: "axetCode",
     icon: Sparkles,
     titleKey: "settingsModal.sectionAxetCode",
     descKey: "settingsModal.descAxetCode",
-    fields: ["axetWorkspaceDir"]
-  },
-  {
-    id: "chatAppearance",
-    icon: Type,
-    titleKey: "settingsModal.sectionChatAppearance",
-    descKey: "settingsModal.descChatAppearance",
-    fields: ["chatDensity", "chatNotifications"]
+    fields: ["axetWorkspaceDir"],
+    searchKeys: ["settingsModal.axetWorkspaceDirLabel"]
   },
   {
     id: "terminal",
     icon: TerminalSquare,
     titleKey: "settingsModal.sectionTerminal",
     descKey: "settingsModal.descTerminal",
-    fields: ["axetCommand", "terminal"]
+    fields: ["axetCommand", "terminal", "agentMemoryDigest"],
+    searchKeys: [
+      "settingsModal.axetCommandLabel",
+      "settingsModal.shellLabel",
+      "settingsModal.shellHelper",
+      "settingsModal.agentMemoryDigestLabel",
+      "settingsModal.agentMemoryDigestHint"
+    ]
   },
   {
     id: "advanced",
     icon: Wrench,
     titleKey: "settingsModal.sectionAdvanced",
     descKey: "settingsModal.descAdvanced",
-    fields: ["landscapePathOverride", "sapShcutPathOverride", "supportEmail"]
+    fields: ["landscapePathOverride", "sapShcutPathOverride"],
+    searchKeys: ["settingsModal.landscapePathLabel", "settingsModal.sapShcutPathLabel"]
   },
   {
     id: "manual",
     icon: Database,
     titleKey: "settingsModal.sectionManual",
     descKey: "settingsModal.descManual",
-    fields: []
+    fields: [],
+    searchKeys: ["settingsModal.manualSystemsHelper", "settingsModal.exportJson", "settingsModal.importJson"]
   },
   {
     id: "updates",
     icon: Download,
     titleKey: "settingsModal.sectionUpdates",
     descKey: "settingsModal.descUpdates",
-    fields: ["autoCheckUpdates"]
+    fields: ["autoCheckUpdates", "supportEmail"],
+    searchKeys: [
+      "settingsModal.autoCheckLabel",
+      "settingsModal.checkNow",
+      "support.emailLabel",
+      "support.openAction"
+    ]
   },
   {
     id: "dataPrivacy",
     icon: ShieldCheck,
     titleKey: "settingsModal.sectionDataPrivacy",
     descKey: "settingsModal.descDataPrivacy",
-    fields: []
+    fields: [],
+    searchKeys: []
   }
 ];
+
+/** Türkçe i/ı/İ/I ve büyük/küçük harf farkını yok sayan katlama. */
+function fold(text: string): string {
+  return text.toLocaleLowerCase("tr").replace(/ı/g, "i").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/**
+ * Arama kutusu: sorguyla eşleşen bölümlerin kimlikleri (sıra korunur). Boş
+ * sorgu hepsini döndürür. Başlık, açıklama ve bölümde görünen etiketler
+ * taranıyor — kullanıcı ayarın adını arıyor, bölümün adını bilmiyor.
+ */
+export function matchSettingsSections(query: string, t: (key: TranslationKey) => string): SettingsSectionId[] {
+  const q = fold(query.trim());
+  if (!q) return SETTINGS_SECTIONS.map((s) => s.id);
+  return SETTINGS_SECTIONS.filter((s) =>
+    [s.titleKey, s.descKey, ...s.searchKeys].some((key) => fold(t(key)).includes(q))
+  ).map((s) => s.id);
+}
 
 /**
  * Bu kutunun GERÇEKTEN düzenlediği alanlar — kaydederken yalnızca bunlar
@@ -126,8 +178,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
  *
  * `theme` soldaki güneş/ay düğmesiyle de değişiyor; Ayarlar açıkken o düğmeye
  * ulaşılamıyor (pencere modal), iki yazar aynı anda çalışmıyor.
- * `chatDisplayName` hiçbir bölümde yok: karşılama başlığı kalktı
- * (2026-09-29), Kaydet ona dokunmuyor.
+ * `chatDisplayName` 2026-10-19'da yapılandırmadan da kaldırıldı (hiçbir yerde
+ * okunmuyordu).
  */
 export const EDITED_FIELDS: readonly (keyof AppConfig)[] = SETTINGS_SECTIONS.flatMap(
   (s) => s.fields

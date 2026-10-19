@@ -468,6 +468,29 @@ export default function SettingsModal({
                 {browseButton(pickFolder)}
               </div>
             </Field>
+            {/* SAP bağlanınca nerede açılsın (2026-10-19). Varsayılan bugünkü
+                davranış (Sohbet); "Her seferinde sor" Bağlan düğmesini menüye
+                çeviriyor (bkz. CredentialsModal). */}
+            <Field label={t("settingsModal.sapConnectOpenLabel")} hint={t("settingsModal.sapConnectOpenHint")}>
+              <SegmentedControl
+                value={form.sapConnectOpen ?? "chat"}
+                onChange={(sapConnectOpen) => update({ sapConnectOpen })}
+                options={[
+                  { key: "chat", label: t("settingsModal.sapConnectOpenChat") },
+                  { key: "terminal", label: t("settingsModal.sapConnectOpenTerminal") },
+                  { key: "ask", label: t("settingsModal.sapConnectOpenAsk") }
+                ]}
+              />
+            </Field>
+            {/* "Sohbet görünümü"nden taşındı: ayar sohbet, ajan ve pano
+                bildirimlerinin üçünü de yönetiyor (index.ts). */}
+            <Field label={t("settingsModal.chatNotificationsLabel")} hint={t("settingsModal.chatNotificationsHint")}>
+              <Toggle
+                checked={form.chatNotifications !== false}
+                onChange={(chatNotifications) => update({ chatNotifications })}
+                label={t("settingsModal.chatNotificationsLabel")}
+              />
+            </Field>
           </div>
         );
       case "appearance":
@@ -510,6 +533,17 @@ export default function SettingsModal({
                 ]}
               />
             </Field>
+            {/* "Sohbet görünümü" bölümünden katıldı (denetim 2026-10-19). */}
+            <Field label={t("settingsModal.chatDensityLabel")} hint={t("settingsModal.chatDensityHint")}>
+              <SegmentedControl
+                value={form.chatDensity}
+                onChange={(chatDensity) => update({ chatDensity })}
+                options={[
+                  { key: "comfortable", label: t("settingsModal.chatDensityComfortable") },
+                  { key: "compact", label: t("settingsModal.chatDensityCompact") }
+                ]}
+              />
+            </Field>
           </div>
         );
       case "axetCode":
@@ -546,32 +580,6 @@ export default function SettingsModal({
                 Hazırlık ekranında yapılan seçimi sessizce geri alırdı. */}
           </div>
         );
-      case "chatAppearance":
-        // Sohbet ekranının okuma konforu. Terminal/dizin ayarlarından AYRI
-        // bir bölüm: burası "nasıl çalışsın" değil "nasıl görünsün" — ikisi
-        // aynı kutuda olsaydı görünüm ayarları teknik ayarların arasında
-        // kaybolurdu.
-        return (
-          <div className={CARD}>
-            <Field label={t("settingsModal.chatDensityLabel")} hint={t("settingsModal.chatDensityHint")}>
-              <SegmentedControl
-                value={form.chatDensity}
-                onChange={(chatDensity) => update({ chatDensity })}
-                options={[
-                  { key: "comfortable", label: t("settingsModal.chatDensityComfortable") },
-                  { key: "compact", label: t("settingsModal.chatDensityCompact") }
-                ]}
-              />
-            </Field>
-            {/* İş B — bildirim ayarı */}
-            <Field label={t("settingsModal.chatNotificationsLabel")} hint={t("settingsModal.chatNotificationsHint")}>
-              <Toggle
-                checked={form.chatNotifications !== false}
-                onChange={(chatNotifications) => update({ chatNotifications })}
-              />
-            </Field>
-          </div>
-        );
       case "terminal":
         return (
           <div className={CARD}>
@@ -593,6 +601,13 @@ export default function SettingsModal({
                   { key: "cmd", label: t("settingsModal.shellCmd") },
                   { key: "powershell", label: t("settingsModal.shellPowershell") }
                 ]}
+              />
+            </Field>
+            <Field label={t("settingsModal.agentMemoryDigestLabel")} hint={t("settingsModal.agentMemoryDigestHint")}>
+              <Toggle
+                checked={form.agentMemoryDigest !== false}
+                onChange={(agentMemoryDigest) => update({ agentMemoryDigest })}
+                label={t("settingsModal.agentMemoryDigestLabel")}
               />
             </Field>
           </div>
@@ -618,20 +633,6 @@ export default function SettingsModal({
               />
               {pathCheck.sapShcut === false && <PathMissing text={t("settingsModal.pathMissing")} />}
             </Field>
-            <Field label={t("support.emailLabel")} hint={t("support.emailHelper")}>
-              <FieldInput
-                type="email"
-                value={form.supportEmail ?? ""}
-                onChange={(e) => update({ supportEmail: e.target.value })}
-                placeholder="ad.soyad@nttdata.com"
-              />
-            </Field>
-            <div>
-              <Button onClick={() => void reportProblem()}>
-                <LifeBuoy size={14} />
-                {t("support.openAction")}
-              </Button>
-            </div>
           </div>
         );
       case "manual":
@@ -688,6 +689,24 @@ export default function SettingsModal({
             {updateStatusNode && (
               <div className="rounded-md border border-line/60 bg-app/30 px-3 py-2">{updateStatusNode}</div>
             )}
+            {/* "Gelişmiş Yollar"dan taşındı (denetim 2026-10-19): destek adresi
+                bir yol değil, "Sorun bildir" ile birlikte duruyor. */}
+            <div className="space-y-4 border-t border-line-subtle pt-4">
+            <Field label={t("support.emailLabel")} hint={t("support.emailHelper")}>
+              <FieldInput
+                type="email"
+                value={form.supportEmail ?? ""}
+                onChange={(e) => update({ supportEmail: e.target.value })}
+                placeholder="ad.soyad@nttdata.com"
+              />
+            </Field>
+            <div>
+              <Button onClick={() => void reportProblem()}>
+                <LifeBuoy size={14} />
+                {t("support.openAction")}
+              </Button>
+            </div>
+            </div>
             {/* axet-code'un KENDİ güncelleme duyurusu buraya konmuyor — sohbet
                 AÇILIŞ ekranında gösteriliyor (bkz. ChatSessionPane). Kullanıcı
                 kararı (2026-09-07): Ayarlar'ı kimse güncelleme haberi için

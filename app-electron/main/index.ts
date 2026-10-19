@@ -532,7 +532,10 @@ const memoryNotifier = createMemoryNotifier({
   sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
   log: (tag, fields) => appLog(tag, fields),
   // Tur 5: yeni oturumda ekip belleği özeti (başlıklar, ≤700 karakter).
-  digest: (workspaceId, paneId) => memoryDigest(notesStore.list(workspaceId), paneId)
+  // Ayarlar > Ajanlar'dan kapatılabiliyor (agentMemoryDigest, 2026-10-19):
+  // boş dize → satır eskisi gibi yalnız bellek yolu.
+  digest: (workspaceId, paneId) =>
+    loadConfig().agentMemoryDigest === false ? "" : memoryDigest(notesStore.list(workspaceId), paneId)
 });
 
 const memoryService = createMemoryService({

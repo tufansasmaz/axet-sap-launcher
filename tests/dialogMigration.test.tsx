@@ -282,7 +282,7 @@ describe("SettingsModal", () => {
 
   it("değişiklik varken rozet çıkıyor; odak dışarıdayken Escape soruyor; At ve Kapat kaydetmeden kapatıyor", () => {
     const { onClose, onSave } = mount();
-    goTo("Terminal");
+    goTo("Ajanlar ve terminal");
     fireEvent.change(screen.getByDisplayValue("axet"), { target: { value: "axet-yeni" } });
     expect(screen.getByText("Kaydedilmemiş değişiklik var")).toBeTruthy();
     const outside = outsideButton();
@@ -297,7 +297,7 @@ describe("SettingsModal", () => {
 
   it("Kaydet yalnızca düzenlenen alanları yolluyor ve kapatıyor", async () => {
     const { onClose, onSave } = mount();
-    goTo("Terminal");
+    goTo("Ajanlar ve terminal");
     fireEvent.change(screen.getByDisplayValue("axet"), { target: { value: "axet-yeni" } });
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));

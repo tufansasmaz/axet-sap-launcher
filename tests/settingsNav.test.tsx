@@ -20,12 +20,12 @@ function Harness({ dirty = new Set<SettingsSectionId>() }: { dirty?: Set<Setting
 const tabs = () => screen.getAllByRole("tab");
 
 describe("SettingsNav", () => {
-  it("dikey sekme listesi, dokuz sekme, adı var", () => {
+  it("dikey sekme listesi, sekiz sekme, adı var", () => {
     render(<Harness />);
     const list = screen.getByRole("tablist");
     expect(list.getAttribute("aria-orientation")).toBe("vertical");
     expect(list.getAttribute("aria-label")).toBe("Ayar bölümleri");
-    expect(tabs()).toHaveLength(9);
+    expect(tabs()).toHaveLength(8);
     expect(tabs()[0].textContent).toContain("Genel");
     expect(screen.getByText("Sürüm 1.0")).toBeTruthy();
   });
@@ -54,12 +54,12 @@ describe("SettingsNav", () => {
     expect(document.activeElement).toBe(tabs()[1]);
     expect(tabs()[1].getAttribute("aria-selected")).toBe("true");
     fireEvent.keyDown(tabs()[1], { key: "End" });
-    expect(document.activeElement).toBe(tabs()[8]);
-    fireEvent.keyDown(tabs()[8], { key: "ArrowDown" });
+    expect(document.activeElement).toBe(tabs()[7]);
+    fireEvent.keyDown(tabs()[7], { key: "ArrowDown" });
     expect(document.activeElement).toBe(tabs()[0]);
     fireEvent.keyDown(tabs()[0], { key: "ArrowUp" });
-    expect(document.activeElement).toBe(tabs()[8]);
-    fireEvent.keyDown(tabs()[8], { key: "Home" });
+    expect(document.activeElement).toBe(tabs()[7]);
+    fireEvent.keyDown(tabs()[7], { key: "Home" });
     expect(document.activeElement).toBe(tabs()[0]);
   });
 
@@ -67,7 +67,7 @@ describe("SettingsNav", () => {
     render(<Harness dirty={new Set<SettingsSectionId>(["terminal"])} />);
     const dots = document.querySelectorAll("[data-dirty-dot]");
     expect(dots).toHaveLength(1);
-    expect(tabs()[4].contains(dots[0])).toBe(true);
+    expect(tabs()[3].contains(dots[0])).toBe(true);
     expect(dots[0].getAttribute("aria-hidden")).toBe("true");
   });
 
@@ -75,5 +75,23 @@ describe("SettingsNav", () => {
     render(<Harness />);
     expect(tabs()[0].className).toContain("bg-[var(--accent-glow)]");
     expect(tabs()[1].className).not.toContain("bg-[var(--accent-glow)]");
+  });
+});
+
+describe("SettingsNav — arama", () => {
+  it("arama kutusu sekmeleri süzüyor, eşleşme yoksa söylüyor", () => {
+    render(<Harness />);
+    const search = screen.getByRole("searchbox", { name: "Ayarlarda ara" });
+    fireEvent.change(search, { target: { value: "kabuk" } });
+    expect(tabs().map((tab) => tab.textContent)).toEqual(["Ajanlar ve terminal"]);
+    fireEvent.change(search, { target: { value: "zzzz" } });
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.getByText("Eşleşen ayar yok")).toBeTruthy();
+  });
+
+  it("seçili bölüm süzülürse ilk eşleşme seçiliyor", () => {
+    render(<Harness />);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Ayarlarda ara" }), { target: { value: "güncelleme" } });
+    expect(tabs()[0].getAttribute("aria-selected")).toBe("true");
   });
 });

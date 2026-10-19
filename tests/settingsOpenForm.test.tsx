@@ -96,7 +96,7 @@ describe("Ayarlar — açıkken config değişince", () => {
     expect(screen.getByText(UNSAVED)).toBeTruthy();
     goTo("axet.code");
     expect(screen.getByDisplayValue("D:\\baska")).toBeTruthy();
-    goTo("Terminal");
+    goTo("Ajanlar ve terminal");
     expect(screen.getByDisplayValue("axet2")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
@@ -129,7 +129,7 @@ describe("Ayarlar — açıkken config değişince", () => {
   it("güncelleme kontrolü bildirimsiz kaydediyor ve düzenlemeyi silmiyor", async () => {
     const { api, onSave, rerender } = setup();
     fireEvent.change(projectsInput(), { target: { value: "D:\\yeni" } });
-    goTo("Güncellemeler");
+    goTo("Sürüm ve destek");
     fireEvent.click(screen.getByRole("button", { name: /Güncellemeleri Şimdi Kontrol Et/ }));
     await waitFor(() => expect(api.checkForUpdates).toHaveBeenCalledTimes(1));
     // İkinci argüman `silent`: App'teki kayıt işleyicisi "Ayarlar kaydedildi"
@@ -156,9 +156,8 @@ describe("Ayarlar — erişilebilirlik", () => {
     goTo("Görünüm");
     expect(screen.getByRole("group", { name: "Tema" })).toBeTruthy();
     expect(screen.getByRole("group", { name: "Yazı boyutu" })).toBeTruthy();
-    goTo("Sohbet görünümü");
     expect(screen.getByRole("group", { name: "Satır sıklığı" })).toBeTruthy();
-    goTo("Terminal");
+    goTo("Ajanlar ve terminal");
     expect(screen.getByRole("group", { name: "Gömülü terminal kabuğu" })).toBeTruthy();
   });
 });
