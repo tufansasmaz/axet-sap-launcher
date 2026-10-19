@@ -125,8 +125,17 @@ describe("rehber ve ayar", () => {
     expect(on).not.toMatch(/[\r\n]/);
     expect(on).toContain("ntt-team spawn");
     expect(on).toContain("en cok 4");
-    expect(on).toContain("ntt-team close");
     expect(leadHint(4, false)).not.toContain("ntt-team spawn");
+    expect(on.length).toBeLessThan(1000);
+  });
+
+  it("rehber iş bitince ajanları kapattırmıyor; önce boştaki ajanı kullandırıyor", () => {
+    const on = leadHint(4, true);
+    expect(on).not.toMatch(/is bitince[^;.]*close/);
+    expect(on).toContain("kapatma");
+    expect(on).toContain("bostaki");
+    // Kapatma yalnız kullanıcı isterse.
+    expect(on).toContain("kullanici isterse");
     expect(on.length).toBeLessThan(1000);
   });
 

@@ -707,9 +707,10 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
 ### Lider ve otomatik ekip
 
 Ekibe **Lider** rolünde bir ajan eklersen (+ Ajan → Rol: Lider) iş vermenin en
-kısa yolu ona iş vermektir: lider işi parçalar, gerekirse uygun rollerde yeni
-ajanlar açar, onlara görev verir, sonuçları toplar, açtıklarını kapatır ve
-sana kısa bir özet verir.
+kısa yolu ona iş vermektir: lider işi parçalar, önce ekipteki boştaki uygun
+ajanı kullanır, yoksa uygun rolde yeni ajan açar, görev verir, sonuçları toplar
+ve sana kısa bir özet verir. Açtığı ajanları iş bitince kapatmaz — sonraki işler
+için ekipte kalırlar; kapatmasını istersen söyle ya da Ajan yönetimi'nden kapat.
 
 - **Nasıl başlar**: Akış'ta lidere ya da **@ekip**'e yaz. Ekipte Lider varsa
   @ekip mesajı yalnız lidere gider ("İş Lider … ajanına gitti"); ekibi o

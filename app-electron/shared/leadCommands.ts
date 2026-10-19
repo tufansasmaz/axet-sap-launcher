@@ -232,9 +232,9 @@ export function spawnRoleLabel(cmd: { role: LeadRoleKey | null; roleText: string
  */
 export function leadHint(max: number, canSpawn: boolean): string {
   const spawn = canSpawn
-    ? `gerekirse \`ntt-team spawn --rol Gelistirici|Analist|Test|Inceleme [--ad X] [--gorev "..."]\` ile ajan ac (en cok ${max}), `
+    ? `once \`ntt-team status\` ile bostaki uygun ajani kullan, yoksa \`ntt-team spawn --rol Gelistirici|Analist|Test|Inceleme [--ad X] [--gorev "..."]\` ile ajan ac (en cok ${max}), `
     : "";
-  return ` (Sen ekip liderisin: isi parcala; ${spawn}\`ntt-team assign <ajan> "<gorev>"\` ile gorev ver (G-xxxx kimligi doner), \`ntt-team wait <G-xxxx>\` ile sonucu bekle (25 sn'de bitmezse ayni komutu yeniden calistir; ajani yeniden acma), \`ntt-team status\` ile ekibe bak; sonuclari birlestir, is bitince status'ta [senin actigin] yazan her ajani \`ntt-team close <ajan>\` ile kapat ve kullaniciya kisa ozet ver. Kendin Lider acamazsin; actigin ajanlar senden genis yetki almaz. \`ntt-team list|ask|feed|memory\` de var.)`;
+  return ` (Sen ekip liderisin: isi parcala; ${spawn}\`ntt-team assign <ajan> "<gorev>"\` ile gorev ver (G-xxxx kimligi doner), \`ntt-team wait <G-xxxx>\` ile sonucu bekle (25 sn'de bitmezse ayni komutu yeniden calistir; ajani yeniden acma); sonuclari birlestir ve kullaniciya kisa ozet ver. Is bitince actigin ajanlari kapatma, sonraki isler icin ekipte kalsinlar; \`ntt-team close <ajan>\` yalniz kullanici isterse. Kendin Lider acamazsin; actigin ajanlar senden genis yetki almaz. \`ntt-team list|ask|feed|memory\` de var.)`;
 }
 
 /** Ayarlar → ekip başına lider açımı ajan sınırı. */
