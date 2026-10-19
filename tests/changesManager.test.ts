@@ -57,6 +57,8 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
   /** insideRoot + yazma/taşıma sırası (denetim yazmadan hemen önce mi). */
   const order: string[] = [];
   const insideCalls: [string, string][] = [];
+  const initCalls: string[] = [];
+  let initResult: { ok: true } | { ok: false; reason: "noGit" | "timeout" | "git" } = { ok: true };
   const git = {
     probe: { ok: true, top: "C:/kok", prefix: "" } as ProbeResult,
     nextTree: opts.files ? 900 : 1,
@@ -139,6 +141,11 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
       restoreIndexFile: (ws) => `C:/veri/${ws}.restore.index`
     },
     git: port,
+    gitInit: async (dir) => {
+      initCalls.push(dir);
+      if (initResult.ok) git.probe = { ok: true, top: dir, prefix: "" };
+      return initResult;
+    },
     workspace: (id) => (id === "w1" ? { cwd } : null),
     dirExists: () => state.dirOk,
     insideRoot: (root, rel) => {
@@ -180,7 +187,10 @@ function harness(opts: { files?: CheckpointFileResult; cwd?: string } = {}) {
   });
   const last = () => emitted.at(-1) as ChangesState;
   const ids = () => last().checkpoints.map((c) => c.id);
-  return { clock, git, state, manager, written, removed, emitted, logs, events, order, insideCalls, last, ids };
+  const setInit = (r: typeof initResult) => {
+    initResult = r;
+  };
+  return { clock, git, state, manager, written, removed, emitted, logs, events, order, insideCalls, initCalls, setInit, last, ids };
 }
 
 type H = ReturnType<typeof harness>;
@@ -1083,5 +1093,46 @@ describe("Geri alma: 'Geçersiz istek' yerine gerçek sebep (ertelenenler)", () 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.reason).toBe("outsideRoot");
     expect(h.events.filter((e) => e.startsWith("trash"))).toEqual([]);
+  });
+});
+
+describe("depo başlatma ve bayat durum (proje klasörü çipi)", () => {
+  it("git deposu değilse initRepo git init çalıştırır, durum ok olur ve yayınlanır", async () => {
+    const h = harness();
+    h.git.probe = { ok: false, reason: "notRepo" };
+    expect((await h.manager.state("w1"))?.repo).toBe("notRepo");
+    expect(await h.manager.initRepo("w1")).toEqual({ ok: true });
+    expect(h.initCalls).toEqual(["C:/kok"]);
+    expect(h.last().repo).toBe("ok");
+  });
+
+  it("zaten depo ise init çalışmaz; kayıtsız alan ve geçersiz kimlik reddedilir", async () => {
+    const h = harness();
+    expect(await h.manager.initRepo("w1")).toEqual({ ok: true });
+    expect(await h.manager.initRepo("baska")).toEqual({ ok: false, reason: "noWorkspace" });
+    expect(await h.manager.initRepo("../x")).toEqual({ ok: false, reason: "invalid" });
+    expect(h.initCalls).toEqual([]);
+  });
+
+  it("klasör yoksa / git yoksa init çalışmaz; init hatası olduğu gibi döner", async () => {
+    const h = harness();
+    h.state.dirOk = false;
+    expect(await h.manager.initRepo("w1")).toEqual({ ok: false, reason: "missingDir" });
+    h.state.dirOk = true;
+    h.git.probe = { ok: false, reason: "noGit" };
+    expect(await h.manager.initRepo("w1")).toEqual({ ok: false, reason: "noGit" });
+    expect(h.initCalls).toEqual([]);
+    h.git.probe = { ok: false, reason: "notRepo" };
+    h.setInit({ ok: false, reason: "timeout" });
+    expect(await h.manager.initRepo("w1")).toEqual({ ok: false, reason: "timeout" });
+    expect((await h.manager.state("w1"))?.repo).toBe("notRepo");
+  });
+
+  it("sondaj git/timeout hatası verirse önceki klasörün durumu bayat kalmıyor (unknown)", async () => {
+    const h = harness();
+    h.git.probe = { ok: false, reason: "notRepo" };
+    expect((await h.manager.state("w1"))?.repo).toBe("notRepo");
+    h.git.probe = { ok: false, reason: "git" };
+    expect((await h.manager.state("w1"))?.repo).toBe("unknown");
   });
 });

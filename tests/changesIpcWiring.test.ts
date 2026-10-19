@@ -75,3 +75,34 @@ describe("Değişiklikler — IPC bağlantısı", () => {
     expect([...tags].sort()).toEqual(["degisiklik.geriAl", "degisiklik.goruntu"]);
   });
 });
+
+describe("Proje klasörü çipi — changes:initRepo / changes:openRoot", () => {
+  const init = read("app-electron", "main", "changesInit.ts");
+
+  it("kanallar ana süreçte, preload'da ve tiplerde", () => {
+    for (const channel of ["changes:initRepo", "changes:openRoot"]) {
+      expect(main, channel).toContain(`"${channel}"`);
+      expect(preload, channel).toContain(`"${channel}"`);
+    }
+    expect(types).toContain("changesInitRepo:");
+    expect(types).toContain("changesOpenRoot:");
+  });
+
+  it("yalnız ana pencereden ve kayıtlı alan kapısından; renderer yol göndermiyor", () => {
+    for (const channel of ["changes:initRepo", "changes:openRoot"]) {
+      expect(main, channel).toMatch(new RegExp(`"${channel}", async \\(event, workspaceId: unknown\\) => \\{[\\s\\S]{0,120}fromMain\\(event\\)[\\s\\S]{0,200}changesWorkspace\\(`));
+    }
+    expect(preload).toMatch(/changesInitRepo: \(workspaceId: string\)[^\n]*invoke\("changes:initRepo", workspaceId\)/);
+    expect(preload).toMatch(/changesOpenRoot: \(workspaceId: string\)[^\n]*invoke\("changes:openRoot", workspaceId\)/);
+    // Açılan klasör config'teki kayıttan (boardWorkspaceInfo), renderer'dan değil.
+    expect(main).toMatch(/"changes:openRoot"[\s\S]{0,500}boardWorkspaceInfo\([\s\S]{0,200}shell\.openPath\(/);
+    expect(main).toMatch(/"changes:initRepo"[\s\S]{0,400}changesManager\.initRepo\(/);
+  });
+
+  it("git init yalnız changesInit.ts'te, ortak çalıştırıcıdan (execFile, kabuksuz), süre sınırlı", () => {
+    expect(init).toContain('import { runGitDefault, type GitRun } from "./changesGit";');
+    expect(init).not.toMatch(/child_process|shell:\s*true|spawn/);
+    expect(init).toMatch(/run\(\["init"\], \{ cwd, timeoutMs: GIT_INIT_TIMEOUT_MS \}\)/);
+    expect(read("app-electron", "main", "changesLive.ts")).toContain("gitInit: createGitInit()");
+  });
+});

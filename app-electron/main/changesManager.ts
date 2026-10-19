@@ -64,6 +64,7 @@ import {
 } from "../shared/changesTypes";
 import type { AgentPresence, LogFields } from "./agentMonitor";
 import type { GitPort } from "./changesGit";
+import type { InitOutcome } from "./changesInit";
 import type { CheckpointFileResult } from "./changesStore";
 
 /** lstat ile (bağı izlemeden): sembolik bağ ve junction (yeniden ayrıştırma noktası) her zaman "link". */
@@ -82,6 +83,8 @@ export interface ChangesManagerDeps {
   newId(): string;
   store: ChangesStorePort;
   git: GitPort;
+  /** Proje klasörü çipinin "Git deposu başlat"ı: klasörde yalnız `git init`. */
+  gitInit(cwd: string): Promise<InitOutcome>;
   /** Alanın kökü (yoksa ajanların varsayılan klasörü); kayıtlı değilse null. */
   workspace(workspaceId: string): { cwd: string } | null;
   dirExists(dir: string): boolean;
@@ -118,6 +121,8 @@ export interface SnapshotMeta {
 
 export interface ChangesManager {
   state(workspaceId: string): Promise<ChangesState | null>;
+  /** Kayıtlı kök git deposu değilse orada `git init`; sonra depo yeniden sorulur. */
+  initRepo(workspaceId: string): Promise<ChangesCommandResult>;
   snapshot(workspaceId: string, reason: CheckpointReason, meta: SnapshotMeta): Promise<SnapshotResult>;
   onPromptLine(reg: AgentRegistration, line: string): void;
   onDispatched(workspaceId: string, paneId: string, subtaskId: string, title: string): void;
@@ -265,7 +270,8 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
     }
     const probe = await deps.git.probe(info.cwd);
     if (!probe.ok) {
-      if (probe.reason === "notRepo" || probe.reason === "noGit") setRepo(probe.reason);
+      // git/timeout: durum bilinmiyor; önceki kökün durumu bayat kalmasın.
+      setRepo(probe.reason === "notRepo" || probe.reason === "noGit" ? probe.reason : "unknown");
       return fail(probe.reason);
     }
     setRepo("ok");
@@ -658,6 +664,28 @@ export function createChangesManager(deps: ChangesManagerDeps): ChangesManager {
         void checkExpiry(workspaceId).catch(() => {});
       }
       return stateOf(workspaceId, entry);
+    },
+
+    async initRepo(workspaceId) {
+      if (disposed || !isBoardId(workspaceId)) return fail("invalid");
+      const entry = load(workspaceId);
+      if (!entry) return fail("noWorkspace");
+      try {
+        return await queue.run(workspaceId, async (): Promise<ChangesCommandResult> => {
+          // Klasör yalnız kayıtlı alandan; zaten depoysa (ya da bir deponun içindeyse) dokunulmuyor.
+          const before = await context(workspaceId, entry);
+          if (before.ok) return { ok: true };
+          if (before.reason !== "notRepo") return fail(before.reason);
+          const info = attempt(() => deps.workspace(workspaceId), null);
+          if (!info) return fail("noWorkspace");
+          const made = await deps.gitInit(info.cwd).catch((): InitOutcome => ({ ok: false, reason: "git" }));
+          if (!made.ok) return fail(made.reason);
+          const after = await context(workspaceId, entry);
+          return after.ok ? { ok: true } : fail(after.reason);
+        });
+      } catch {
+        return fail("git");
+      }
     },
 
     snapshot,

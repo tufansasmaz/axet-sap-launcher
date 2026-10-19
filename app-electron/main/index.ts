@@ -1669,6 +1669,33 @@ function registerIpc(): void {
     }
   });
 
+  // Proje klasörü çipi: yalnız ana pencereden; klasör yalnız config'teki kayıtlı
+  // alandan (renderer yol göndermiyor). initRepo yöneticide: zaten depoysa dokunmuyor.
+  ipcMain.handle("changes:initRepo", async (event, workspaceId: unknown) => {
+    if (!fromMain(event)) return changesFail("invalid");
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return changesFail("noWorkspace");
+    try {
+      return await changesManager.initRepo(ws);
+    } catch {
+      return changesFail("git");
+    }
+  });
+
+  ipcMain.handle("changes:openRoot", async (event, workspaceId: unknown) => {
+    if (!fromMain(event)) return false;
+    const ws = changesWorkspace(workspaceId);
+    if (!ws) return false;
+    const cfg = loadConfig();
+    const info = boardWorkspaceInfo(cfg.terminalWorkspaces, cfg.axetWorkspaceDir, ws);
+    if (!info) return false;
+    try {
+      return (await shell.openPath(info.cwd)) === "";
+    } catch {
+      return false;
+    }
+  });
+
   // Yerleşik tarayıcı (spec 2026-10-18 tarayici §3, §4.6): yalnız ana
   // pencereden. Renderer yalnız kimlikleri yollar; adres, başlık ve seçili
   // metin ana süreçte webview'ın kendisinden okunur.
