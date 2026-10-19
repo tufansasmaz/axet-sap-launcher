@@ -288,6 +288,17 @@ html[data-theme="dark"] {
   --tier-prd-border: rgba(240, 138, 149, 0.28);
   --tier-prd-text: #f08a95;
 
+  /* Pano grafikleri (dataviz yöntemi): kategorik slot 1→5 sabit sırada, kart
+     yüzeyine (#17191c) karşı doğrulandı — CVD ΔE ≥ 8.4, normal ≥ 19.3, hepsi
+     ≥ 3:1. Durum şeridi --status-* jetonlarından; lime yok. */
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-grid: #26292e;
+  --viz-axis: #3a3e45;
+
   /* Gölge: 1 açılır menü · 2 pencere · 3 bildirim. Koyu temada derinliği asıl
      kenarlık ve bir basamak açık yüzey veriyor; gölge yardımcı. */
   --elev-1: 0 4px 12px rgb(0 0 0 / 0.35);
@@ -367,6 +378,16 @@ html[data-theme="light"] {
   --tier-prd-bg: rgba(190, 52, 70, 0.09);
   --tier-prd-border: rgba(190, 52, 70, 0.26);
   --tier-prd-text: #be3446;
+
+  /* Açık yüzeye (#ffffff) karşı: CVD ΔE ≥ 9.1, normal ≥ 19.6; slot 3-5 3:1'in
+     altında — rahatlama kuralı: her grafikte tablo görünümü + açık etiket. */
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-grid: #eceef1;
+  --viz-axis: #c3c7ce;
 
   --elev-1: 0 4px 12px rgb(16 20 30 / 0.08);
   --elev-2: 0 16px 40px rgb(16 20 30 / 0.14);

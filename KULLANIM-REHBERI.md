@@ -452,12 +452,31 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   roller (Geliştirici, Analist, Test, İnceleme) ya da **Kendin yaz…** ile
   serbest bir rol adı. Kurulu olmayan motorun satırında "Kurulu değil" yazar
   ve başlamaz.
-- **Pano** (raydaki ilk simge): ekibin genel bakışı. Kartlar: **Ekip** (ajan
-  sayısı; çalışan, soru soran, boşta, hatalı), **Görevler** (açık, biten,
-  taslak, açık alt görev), **Sorular**, **Değişiklikler** (incelenmeyi bekleyen
-  kayıtlar ve son üçü), **Depo** (klasör ve Git durumu), **Motorlar** (kaç
-  motor kurulu), **Bellek** (belleği açık ajanlar) ve **Son olaylar**. Bir
-  karta tıklayınca ilgili görünüm açılır.
+- **Pano** (raydaki ilk simge): ekibin kontrol paneli. Sağ üstteki **1 saat /
+  24 saat / 7 gün** seçicisi bütün grafiklerin aralığını değiştirir.
+  - **Göstergeler** (üstteki sekiz kutu): aktif ajan, çalışan, soru bekleyen,
+    hatalı, açık görev, biten görev, inceleme bekleyen değişiklik ve bugünkü
+    olay. Büyük sayı ŞU ANKİ değerdir; yanındaki küçük çizgi seçili aralıkta
+    kova başına ne olduğunu gösterir (üzerine gelince ne ölçtüğü yazar). Kutuya
+    tıklayınca Ofis, Görevler ya da Değişiklikler açılır.
+  - **Etkinlik yoğunluğu**: Akış olaylarının zamana dağılımı, türe göre
+    yığılmış sütunlar (iş başladı, değişiklik kaydı, bitti/doğrulandı, soru,
+    hata). Üzerine gel ya da grafiğe Tab ile gelip ←/→ ile gez: o kovanın
+    sayıları görünür. **Tablo** düğmesi aynı veriyi tablo olarak gösterir.
+  - **Ajan durum şeridi**: her ajanın aralık boyunca ne zaman çalıştığı, soru
+    sorduğu, hata verdiği (dolu bantlar) ya da boşta kaldığı (ince çizgi).
+    Ajanın adına tıklayınca terminali açılır; **Tablo** aralıkları listeler.
+  - **Görev ilerlemesi**: onaylanmış görevlerin alt görevleri duruma göre ve
+    **doğrulama başarısı** (yalnız komutla doğrulananlar; elle onay ayrı sayılır).
+  - **Ajan karşılaştırma**: ajan, rol, motor, durum, son etkinlik, biten iş
+    (aralıkta biten tur · panoda biten alt görev) ve soru sayısı.
+  - **Değişiklikler**: aralıktaki kayıtlar, dosya ve +/− satır özeti, inceleme
+    durumu ve en çok değişen dosyalar (aralıktaki son 8 kaydın dosyaları).
+  - **Sağlık**: depo, motorlar, bellek ve Akış geçmişinin doluluğu; **Son
+    olaylar**: Akış'ın kısa kopyası.
+  - Veri yalnız uygulamada olanlardan gelir: geçmiş Akış kaydıdır ve ekip başına
+    en çok 500 olay tutulur. Yoğun bir ekipte 7 günlük görünümün başı boş
+    kalabilir; o zaman göstergelerin altında en eski kaydın tarihi yazar.
 - **Araçlar** (raydaki son simge, anahtar): ajan motorlarının listesi. Her
   motorun yanında kurulu olup olmadığı ve sürümü, altında programın yolu
   yazar. Kurulu değilse tek satırlık kurulum komutu (ör. `npm install -g
