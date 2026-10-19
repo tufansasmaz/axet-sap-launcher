@@ -6,6 +6,7 @@ import {
   engineHasWeb,
   isLearnTaskId,
   learnPrompt,
+  LEARN_TIMEOUT_MS,
   LEARN_TOPIC_MAX,
   newLearnTaskId,
   parseLearnReply,
@@ -156,6 +157,26 @@ describe("görev durum makinesi", () => {
     const run = stepLearnTask(base(), { type: "sent", at: 2_000, baseline: {} });
     expect(stepLearnTask(run, { type: "status", status: st("error", 3_000), at: 3_000 })).toMatchObject({ state: "error", reason: "agentError" });
     expect(stepLearnTask(run, { type: "status", status: st("finished", 3_000), at: 3_000 })).toMatchObject({ state: "error", reason: "agentClosed" });
+  });
+
+  it("süre sınırı: çalışıyor görev LEARN_TIMEOUT_MS dolunca zaman aşımı; dolmadan değişmez", () => {
+    expect(LEARN_TIMEOUT_MS).toBe(30 * 60_000);
+    const run = stepLearnTask(base(), { type: "sent", at: 2_000, baseline: {} });
+    expect(stepLearnTask(run, { type: "tick", at: 2_000 + LEARN_TIMEOUT_MS - 1 })).toBe(run);
+    expect(stepLearnTask(run, { type: "tick", at: 2_000 + LEARN_TIMEOUT_MS })).toMatchObject({ state: "timeout", endedAt: 2_000 + LEARN_TIMEOUT_MS });
+    expect(stepLearnTask(base(), { type: "tick", at: 9e12 }).state).toBe("waiting");
+  });
+
+  it("zaman aşımı/hata görevi yeniden denenir: bekliyor, süre ve sebep sıfır", () => {
+    const run = stepLearnTask(base(), { type: "sent", at: 2_000, baseline: {} });
+    const late = stepLearnTask(run, { type: "tick", at: 2_000 + LEARN_TIMEOUT_MS });
+    const again = stepLearnTask(late, { type: "retry" });
+    expect(again.state).toBe("waiting");
+    expect(again.startedAt).toBeUndefined();
+    expect(again.endedAt).toBeUndefined();
+    expect(again.reason).toBeUndefined();
+    expect(stepLearnTask(run, { type: "retry" })).toBe(run);
+    expect(sanitizeLearnTasks([late])[0].state).toBe("timeout");
   });
 
   it("bitmiş görev durum olayıyla değişmez", () => {

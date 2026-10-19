@@ -14,10 +14,12 @@ export const LEARN_SCOPES = ["project", "web", "team"] as const;
 export type LearnScope = (typeof LEARN_SCOPES)[number];
 /** Notlar ekip belleğine mi, ajanın kendi belleğine mi (`--ben`). */
 export type LearnTarget = "team" | "self";
-export type LearnState = "waiting" | "running" | "done" | "error";
+export type LearnState = "waiting" | "running" | "done" | "error" | "timeout";
 export type LearnFailure = AgentSendFailure | "agentError" | "agentClosed";
 
 export const LEARN_TOPIC_MAX = 300;
+/** Çalışan görevin süre sınırı: dolunca "zaman aşımı" (ajan takıldı, bölme kapandı, uygulama yeniden açıldı). */
+export const LEARN_TIMEOUT_MS = 30 * 60_000;
 /** Saklanan en çok görev (en yeni önce). */
 export const LEARN_TASKS_MAX = 50;
 const NOTE_IDS_MAX = 200;
@@ -138,7 +140,9 @@ export function learnPrompt(task: Pick<LearnTask, "id" | "topic" | "scopes" | "t
 export type LearnEvent =
   | { type: "sent"; at: number; baseline: Record<string, number> }
   | { type: "sendFailed"; at: number; reason: AgentSendFailure }
-  | { type: "status"; at: number; status: AgentStatus };
+  | { type: "status"; at: number; status: AgentStatus }
+  | { type: "tick"; at: number }
+  | { type: "retry" };
 
 /** Ajan meşgulken/soru açıkken reddedilen istem kuyrukta bekler; ajan boşalınca yeniden denenir. */
 export const LEARN_RETRY_REASONS: readonly AgentSendFailure[] = ["busy", "asking", "typing", "notSubmitted"];
@@ -154,7 +158,15 @@ export function stepLearnTask(task: LearnTask, event: LearnEvent): LearnTask {
     if (LEARN_RETRY_REASONS.includes(event.reason)) return { ...task, reason: event.reason };
     return { ...task, state: "error", reason: event.reason, endedAt: event.at };
   }
+  if (event.type === "retry") {
+    if (task.state !== "timeout" && task.state !== "error") return task;
+    const { reason: _r, startedAt: _s, endedAt: _e, sawBusy: _b, ...rest } = task;
+    return { ...rest, state: "waiting" };
+  }
   if (task.state !== "running") return task;
+  if (event.type === "tick") {
+    return event.at - (task.startedAt ?? event.at) >= LEARN_TIMEOUT_MS ? { ...task, state: "timeout", endedAt: event.at } : task;
+  }
   const s = event.status;
   if (s.state === "running" || s.state === "asking") return task.sawBusy ? task : { ...task, sawBusy: true };
   if (s.state === "error") return { ...task, state: "error", reason: "agentError", endedAt: event.at };
@@ -174,7 +186,7 @@ export function stepLearnTask(task: LearnTask, event: LearnEvent): LearnTask {
 export function countLearnNotes(task: LearnTask, notes: readonly MemoryNote[]): { added: string[]; updated: string[] } {
   if (task.startedAt === undefined) return { added: [], updated: [] };
   const base = task.baseline ?? {};
-  const end = task.state === "done" || task.state === "error" ? (task.endedAt ?? Infinity) + 5_000 : Infinity;
+  const end = task.state === "done" || task.state === "error" || task.state === "timeout" ? (task.endedAt ?? Infinity) + 5_000 : Infinity;
   const added: string[] = [];
   const updated: string[] = [];
   for (const n of notes) {
@@ -213,7 +225,7 @@ export function parseLearnReply(reply: string | undefined): { summary?: string; 
   return { ...(summary ? { summary } : {}), suggestions };
 }
 
-const STATES: readonly LearnState[] = ["waiting", "running", "done", "error"];
+const STATES: readonly LearnState[] = ["waiting", "running", "done", "error", "timeout"];
 const strings = (v: unknown, max: number) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string").slice(0, max) : []);
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 

@@ -4,7 +4,7 @@
 // Liste: konu, ajan, durum, eklenen/güncellenen not, süre; iptal, geri al
 // (satır içi onay), "bunu da öğren" önerileri.
 import { useEffect, useId, useState, type FormEvent, type KeyboardEvent } from "react";
-import { GraduationCap, Undo2, X } from "lucide-react";
+import { GraduationCap, RotateCw, Undo2, X } from "lucide-react";
 import { useT, type TranslateFn } from "../../i18n";
 import type { TranslationKey } from "../../i18n/tr";
 import type { AgentEngineId } from "../../../app-electron/shared/agentTypes";
@@ -30,7 +30,8 @@ const STATE_CLASS: Record<LearnTask["state"], string> = {
   waiting: "border-[var(--status-warning-border)] text-[var(--status-warning-text)]",
   running: "border-line text-slate-300",
   done: "border-line text-slate-400",
-  error: "border-[var(--status-danger-border)] text-[var(--status-danger-text)]"
+  error: "border-[var(--status-danger-border)] text-[var(--status-danger-text)]",
+  timeout: "border-[var(--status-warning-border)] text-[var(--status-warning-text)]"
 };
 
 export function formatDuration(ms: number | null, t: TranslateFn): string {
@@ -175,7 +176,7 @@ const REASON_KEY: Record<string, TranslationKey> = {
 };
 
 function TaskRow({ task, t, onSuggest }: { task: LearnTask; t: TranslateFn; onSuggest(topic: string): void }) {
-  const { cancel, dismiss, undo } = useLearn();
+  const { cancel, retry, dismiss, undo } = useLearn();
   const [confirm, setConfirm] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -210,12 +211,17 @@ function TaskRow({ task, t, onSuggest }: { task: LearnTask; t: TranslateFn; onSu
             {t("learn.cancel")}
           </button>
         )}
-        {task.state === "done" && task.added.length > 0 && !confirm && (
+        {(task.state === "timeout" || task.state === "error") && (
+          <button type="button" className="inline-flex shrink-0 items-center gap-1 text-2xs text-slate-400 hover:text-slate-200" onClick={() => void retry(task.id)}>
+            <RotateCw size={11} aria-hidden /> {t("learn.retry")}
+          </button>
+        )}
+        {(task.state === "done" || task.state === "timeout") && task.added.length > 0 && !confirm && (
           <button type="button" className="inline-flex shrink-0 items-center gap-1 text-2xs text-slate-400 hover:text-slate-200" onClick={() => setConfirm(true)}>
             <Undo2 size={11} aria-hidden /> {t("learn.undo")}
           </button>
         )}
-        {(task.state === "done" || task.state === "error") && (
+        {(task.state === "done" || task.state === "error" || task.state === "timeout") && (
           <button type="button" className="shrink-0 text-slate-500 hover:text-slate-200" aria-label={t("learn.dismiss")} onClick={() => dismiss(task.id)}>
             <X size={12} />
           </button>

@@ -207,6 +207,24 @@ describe("öğrenme görevi durumu", () => {
     expect(within(done).queryByRole("button", { name: /Geri al$/ })).toBeNull();
   });
 
+  it("yeniden açılışta süresi dolmuş çalışan görev zaman aşımı; yeniden dene tekrar gönderir", async () => {
+    const startedAt = Date.now() - 31 * 60_000;
+    localStorage.setItem(
+      LEARN_STORAGE_KEY,
+      JSON.stringify([{ id: "og-eski0001", workspaceId: "w1", paneId: "a", agentName: "Ayşe", topic: "Yarım konu", scopes: ["project"], target: "team", state: "running", createdAt: startedAt, startedAt, added: [], updated: [] }])
+    );
+    setup();
+    await flush();
+    const row = taskRow();
+    expect(row.dataset.learnState).toBe("timeout");
+    expect(within(row).getByText("zaman aşımı")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: "Yeniden dene" }));
+    await flush();
+    expect(api.agentSend).toHaveBeenCalledTimes(1);
+    expect(api.agentSend.mock.calls[0][2]).toContain("og-eski0001");
+    expect(taskRow().dataset.learnState).toBe("running");
+  });
+
   it("görevler yeniden açılışta korunur", async () => {
     setup();
     await learn("Kalıcı konu");

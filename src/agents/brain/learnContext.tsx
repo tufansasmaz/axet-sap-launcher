@@ -13,6 +13,7 @@ import {
   createLearnTask,
   LEARN_RETRY_REASONS,
   LEARN_TASKS_MAX,
+  LEARN_TIMEOUT_MS,
   learnPrompt,
   newLearnTaskId,
   sanitizeLearnTasks,
@@ -25,6 +26,8 @@ import { useAgentStatuses } from "../agentStatusContext";
 import { useFlow } from "../flowContext";
 
 export const LEARN_STORAGE_KEY = "ntt.learnTasks";
+/** Çalışan görevlerin süre sınırı bu aralıkla denetlenir (açılışta bir kez hemen). */
+export const LEARN_TICK_MS = Math.min(60_000, LEARN_TIMEOUT_MS);
 /** Biten görevin notları haritada bu kadar vurgulanır. */
 export const LEARN_HIGHLIGHT_MS = 8_000;
 
@@ -38,6 +41,8 @@ export interface LearnValue {
   start(input: LearnTaskInput): Promise<LearnTask | null>;
   /** Bekleyen görevi iptal eder (gönderilmemiş). */
   cancel(id: string): void;
+  /** Zaman aşımı/hatalı görevi aynı kimlikle yeniden gönderir. */
+  retry(id: string): Promise<void>;
   /** Bitmiş/hatalı görevi listeden kaldırır (notlar kalır). */
   dismiss(id: string): void;
   /** Görevin eklediği notları siler; silinen sayısı. */
@@ -49,6 +54,7 @@ export const EMPTY_LEARN: LearnValue = {
   tasks: [],
   start: async () => null,
   cancel: () => {},
+  retry: async () => {},
   dismiss: () => {},
   undo: async () => 0,
   highlight: null
@@ -78,7 +84,7 @@ async function listNotes(workspaceId: string): Promise<MemoryNote[]> {
   }
 }
 
-const finishedState = (t: LearnTask) => t.state === "done" || t.state === "error";
+const finishedState = (t: LearnTask) => t.state === "done" || t.state === "error" || t.state === "timeout";
 
 export function LearnProvider({ children }: { children: ReactNode }) {
   const t = useT();
@@ -196,6 +202,24 @@ export function LearnProvider({ children }: { children: ReactNode }) {
     }
   }, [statuses, send, settle]);
 
+  // Süre sınırı: takılan ya da uygulama kapalıyken yarım kalan görev "zaman aşımı".
+  useEffect(() => {
+    const tick = () => {
+      const at = Date.now();
+      for (const task of tasksRef.current) {
+        if (task.state !== "running") continue;
+        const next = stepLearnTask(task, { type: "tick", at });
+        if (next === task) continue;
+        tasksRef.current = tasksRef.current.map((x) => (x.id === task.id ? next : x));
+        setTasks(tasksRef.current);
+        void settle(next);
+      }
+    };
+    tick();
+    const timer = window.setInterval(tick, LEARN_TICK_MS);
+    return () => window.clearInterval(timer);
+  }, [settle]);
+
   // Ajan not yazdıkça çalışan görevin sayısı canlı.
   useEffect(() => {
     const subscribe = api().onNotesChanged;
@@ -213,6 +237,19 @@ export function LearnProvider({ children }: { children: ReactNode }) {
       setTasks(tasksRef.current);
       await send(task);
       return task;
+    },
+    [send]
+  );
+
+  const retry = useCallback(
+    async (id: string) => {
+      const task = tasksRef.current.find((x) => x.id === id);
+      if (!task) return;
+      const next = stepLearnTask(task, { type: "retry" });
+      if (next === task) return;
+      tasksRef.current = tasksRef.current.map((x) => (x.id === id ? next : x));
+      setTasks(tasksRef.current);
+      await send(next);
     },
     [send]
   );
@@ -238,6 +275,6 @@ export function LearnProvider({ children }: { children: ReactNode }) {
     [patch]
   );
 
-  const value = useMemo<LearnValue>(() => ({ tasks, start, cancel, dismiss, undo, highlight }), [tasks, start, cancel, dismiss, undo, highlight]);
+  const value = useMemo<LearnValue>(() => ({ tasks, start, cancel, retry, dismiss, undo, highlight }), [tasks, start, cancel, retry, dismiss, undo, highlight]);
   return <LearnContext.Provider value={value}>{children}</LearnContext.Provider>;
 }
