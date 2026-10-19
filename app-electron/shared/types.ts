@@ -342,7 +342,7 @@ export interface SavedWorkspaceSap {
 
 /** Ajanlar ekranının görünümü (spec 2026-10-18 gorev-panosu §8, ofis-gorunumu §2, degisiklikler §5, tarayici §2). "panes" varsayılan; kayda yazılmaz. */
 /** "memory": kalıcı bellek görünümü (spec 2026-10-18 ajanlar-ux §5). "overview" (Pano) ve "tools" (Araçlar): Tur 3. */
-export type WorkspaceView = "overview" | "reports" | "panes" | "board" | "office" | "changes" | "browser" | "memory" | "tools";
+export type WorkspaceView = "overview" | "reports" | "panes" | "board" | "office" | "changes" | "browser" | "memory" | "tools" | "manage";
 
 export interface SavedTerminalWorkspace {
   id: string;
@@ -494,6 +494,9 @@ export interface AppConfig {
   // bildirim (toast + Ajanlar rozeti). Masaüstü bildirimi ayrıca
   // chatNotifications ister. `undefined` → `true`.
   agentNotifications?: boolean;
+  // Tur 7: ajanın çıktısındaki yerel adres (localhost, 127.0.0.1, [::1]) ekibin
+  // Tarayıcı görünümünde otomatik açılır. `undefined` → `true`.
+  browserAutoOpen?: boolean;
   // "Yenilikler" penceresinin en son gösterildiği sürüm (İş 2 — 2026-10-17).
   // Boş dizgi: henüz hiç gösterilmedi ya da eski config'den yükseltme →
   // pencere gösterilmez, yalnız mevcut sürüm yazılır. Ayarlar formuna

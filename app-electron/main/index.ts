@@ -1501,6 +1501,13 @@ function registerIpc(): void {
       : { ok: false, reason: "notAnswerable" }
   );
 
+  // Tur 7: Akış soru kartındaki "Kendi cevabını yaz" (serbest cevap; doğrulama izleyicide).
+  ipcMain.handle("agents:answerText", (_event, paneId: unknown, callId: unknown, text: unknown) =>
+    typeof paneId === "string" && typeof callId === "string" && typeof text === "string"
+      ? agentMonitor.answerText(paneId, callId, text)
+      : { ok: false, reason: "notAnswerable" }
+  );
+
   ipcMain.handle("agents:snapshot", () => agentMonitor.snapshot());
 
   // Akış mesaj kutusu (spec 2026-10-18 ajanlar-yeniden §2): yalnız ana pencereden.

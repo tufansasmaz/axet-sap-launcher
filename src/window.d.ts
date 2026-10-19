@@ -169,6 +169,7 @@ export interface AxetApi {
   agentUnregister: (paneId: string) => Promise<void>;
   agentSend: (workspaceId: string, paneId: string, text: string) => Promise<AgentSendResult>;
   agentAnswer: (paneId: string, callId: string, index: number) => Promise<AgentAnswerResult>;
+  agentAnswerText: (paneId: string, callId: string, text: string) => Promise<AgentAnswerResult>;
   agentSnapshot: () => Promise<AgentStatusEvent[]>;
   onAgentStatus: (callback: (event: AgentStatusEvent) => void) => () => void;
   boardGet: (workspaceId: string) => Promise<Board | null>;
