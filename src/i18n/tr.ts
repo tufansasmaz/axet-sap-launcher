@@ -675,6 +675,13 @@ export const tr = {
   "credentialsModal.clientPlaceholderOnprem": "örn. 100",
   "credentialsModal.verifying": "Doğrulanıyor…",
   "credentialsModal.connect": "Bağlan",
+  "credentialsModal.connectAsk": "Bağlan…",
+  "credentialsModal.openElsewhere": "Başka yerde aç",
+  "credentialsModal.openChat": "Sohbette aç",
+  "credentialsModal.openAgent": "Terminalde aç (ajan)",
+  "credentialsModal.openShell": "Kabukta aç",
+  "credentialsModal.opensChat": "Sohbette açılır",
+  "credentialsModal.opensAgent": "Ajan terminalinde açılır",
 
   "addSystemModal.editTitle": "Sistemi Düzenle",
   "addSystemModal.addTitle": "Yeni SAP Sistemi Ekle",

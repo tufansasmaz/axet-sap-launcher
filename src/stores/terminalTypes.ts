@@ -1,7 +1,7 @@
 // Terminal modunun bellekteki durumu (spec §4.2). Diske yalnız `toSaved`'ın
 // çıkardığı düzen yazılıyor; buradaki çalışma durumu yazılmıyor.
 
-import type { SavedTerminalWorkspace, SavedWorkspaceSap, TerminalPaneColor, TerminalPaneKind, WorkspaceView } from "../../app-electron/shared/types";
+import type { SavedTerminalWorkspace, SavedWorkspaceSap, TerminalMode, TerminalPaneColor, TerminalPaneKind, WorkspaceView } from "../../app-electron/shared/types";
 import type { AgentSpec } from "../../app-electron/shared/agentTypes";
 import type { DropZone, LayoutNode, LayoutPath, PaneHome, SplitDir } from "../../app-electron/shared/terminalTree";
 
@@ -65,6 +65,14 @@ export interface PendingProjectPane {
   paneId: string;
   spareWorkspaceId: string;
   cwd: string;
+  /**
+   * SAP bağlanınca terminalde aç (2026-10-19): bölme bu sisteme bağlı alana
+   * gidiyor (yoksa boş seçili alan ya da yeni alan bağlanıyor). Bağ, TeamTabs
+   * "SAP'ye bağla" ile aynı: `root` = bağlantı klasörü, `sap` = {uuid, etiket}.
+   */
+  sap?: SavedWorkspaceSap;
+  /** Doluysa ajan değil bu kabukta düz kabuk bölmesi. */
+  shell?: TerminalMode;
 }
 
 export interface TerminalState {
@@ -105,7 +113,15 @@ export type TerminalAction =
       /** Kalıcı bellek açılsın mı (spec 2026-10-18 ajan-bellegi §4); anahtar indirgeyicide türetiliyor. */
       memory?: boolean;
     }
-  | { type: "addProjectPane"; paneId: string; spareWorkspaceId: string; cwd: string; nameFor: NameFor }
+  | {
+      type: "addProjectPane";
+      paneId: string;
+      spareWorkspaceId: string;
+      cwd: string;
+      nameFor: NameFor;
+      sap?: SavedWorkspaceSap;
+      shell?: TerminalMode;
+    }
   | { type: "closePane"; paneId: string }
   | { type: "restartPane"; paneId: string; cwd?: string }
   | { type: "focusPane"; paneId: string }

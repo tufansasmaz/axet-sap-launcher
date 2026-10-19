@@ -41,9 +41,24 @@ interface TerminalStoreProviderProps {
   visible: boolean;
   /** "Proje terminali aç" sayacı: her artışta bir AXET bölmesi. */
   projectRequest: number;
+  /**
+   * SAP bağlanınca terminalde aç (2026-10-19): her yeni `nonce` bir bölme.
+   * Bölme bağlantının klasöründe, o sisteme bağlı alanda açılıyor ve odaklanıyor.
+   */
+  sapPaneRequest?: SapPaneRequest | null;
   pushToast: (kind: ToastMsg["kind"], text: string) => void;
   onConfigSaved: (config: AppConfig) => void;
   children: ReactNode;
+}
+
+/** SAP bağlantısından gelen bölme isteği (App.tsx üretiyor). Şifre/jeton taşımaz. */
+export interface SapPaneRequest {
+  nonce: number;
+  /** Bağlantının proje klasörü (`ConnectResult.projectDir`). */
+  projectDir: string;
+  sap: { uuid: string; label: string };
+  /** "agent": axet-code ajan bölmesi; "shell": ayardaki kabukta düz kabuk. */
+  kind: "agent" | "shell";
 }
 
 /** Kaydedilen düzenin karşılaştırma imzası; alan sırası sabit. */
@@ -97,6 +112,7 @@ export function TerminalStoreProvider({
   config,
   visible,
   projectRequest,
+  sapPaneRequest = null,
   pushToast,
   onConfigSaved,
   children
@@ -129,6 +145,7 @@ export function TerminalStoreProvider({
   const earlyExits = useRef(new Map<string, number>());
   const lastWritten = useRef<string | null>(null);
   const handledProjectRequest = useRef(projectRequest);
+  const handledSapNonce = useRef(sapPaneRequest?.nonce ?? 0);
   const seenLimitHits = useRef(0);
   /**
    * terminal:ready sinyali beklenen axet pty kimlikleri.
@@ -372,6 +389,21 @@ export function TerminalStoreProvider({
       nameFor: nameForRef.current
     });
   }, [projectRequest]);
+
+  // 5b. SAP bağlantısının bölmesi (2026-10-19). Kabuk türü ayardaki kabuk.
+  useEffect(() => {
+    if (!sapPaneRequest || sapPaneRequest.nonce <= handledSapNonce.current) return;
+    handledSapNonce.current = sapPaneRequest.nonce;
+    dispatch({
+      type: "addProjectPane",
+      paneId: crypto.randomUUID(),
+      spareWorkspaceId: crypto.randomUUID(),
+      cwd: sapPaneRequest.projectDir,
+      nameFor: nameForRef.current,
+      sap: sapPaneRequest.sap,
+      ...(sapPaneRequest.kind === "shell" ? { shell: configRef.current?.terminal ?? "cmd" } : {})
+    });
+  }, [sapPaneRequest]);
 
   // 6. Sınır bildirimi.
   useEffect(() => {

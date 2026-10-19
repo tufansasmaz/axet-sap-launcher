@@ -145,12 +145,47 @@ function withPane(workspace: TerminalWorkspace, pane: TerminalPane, split?: { ta
 }
 
 function placeProjectPane(state: TerminalState, item: PendingProjectPane, nameFor: NameFor): TerminalState {
-  const pane: TerminalPane = { id: item.paneId, kind: "agent", agent: { ...LEGACY_AXET_AGENT }, cwd: item.cwd, run: { state: "queued" } };
+  const pane: TerminalPane = item.shell
+    ? { id: item.paneId, kind: item.shell, cwd: item.cwd, run: { state: "queued" } }
+    : { id: item.paneId, kind: "agent", agent: { ...LEGACY_AXET_AGENT }, cwd: item.cwd, run: { state: "queued" } };
+  if (item.sap) return placeSapPane(state, item, item.sap, pane, nameFor);
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (active && active.panes.length < MAX_TERMINAL_PANES) return replaceWorkspace(state, withPane(active, pane));
   if (state.workspaces.length < MAX_TERMINAL_WORKSPACES) {
     const name = nameFor(firstFreeWorkspaceNumber(state.workspaces.map((w) => w.name), nameFor));
     const workspace = withPane(emptyWorkspace(item.spareWorkspaceId, name), pane);
+    return clearVisibleFlags({ ...state, workspaces: [...state.workspaces, workspace], activeWorkspaceId: workspace.id });
+  }
+  return { ...state, limitHits: state.limitHits + 1 };
+}
+
+/**
+ * SAP bağlantısının bölmesi: önce o sisteme zaten bağlı alan, sonra boş ve
+ * bağsız seçili alan (bağlanıyor), en son yeni bir bağlı alan. Dolu bir alanın
+ * bağı DEĞİŞTİRİLMİYOR — içindeki ajanlar başka bir klasörde çalışıyor olabilir.
+ * Seçilen alan öne alınıyor ve bölmeler görünümüne çevriliyor (kayıtsız
+ * görünüm Ofis'tir; yeni bölme görünmezdi).
+ */
+function placeSapPane(
+  state: TerminalState,
+  item: PendingProjectPane,
+  sap: NonNullable<PendingProjectPane["sap"]>,
+  pane: TerminalPane,
+  nameFor: NameFor
+): TerminalState {
+  const show = (workspace: TerminalWorkspace): TerminalWorkspace => ({
+    ...withPane(workspace, pane),
+    view: "panes"
+  });
+  const bound = state.workspaces.find((w) => w.sap?.uuid === sap.uuid && w.panes.length < MAX_TERMINAL_PANES);
+  if (bound) return { ...replaceWorkspace(state, show(bound)), activeWorkspaceId: bound.id };
+  const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
+  if (active && active.panes.length === 0 && !active.sap) {
+    return replaceWorkspace(state, show({ ...active, root: item.cwd, sap }));
+  }
+  if (state.workspaces.length < MAX_TERMINAL_WORKSPACES) {
+    const name = nameFor(firstFreeWorkspaceNumber(state.workspaces.map((w) => w.name), nameFor));
+    const workspace = show({ ...emptyWorkspace(item.spareWorkspaceId, name), root: item.cwd, sap });
     return clearVisibleFlags({ ...state, workspaces: [...state.workspaces, workspace], activeWorkspaceId: workspace.id });
   }
   return { ...state, limitHits: state.limitHits + 1 };
@@ -284,7 +319,13 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       return replaceWorkspace(state, withPane(workspace, pane, action.split));
     }
     case "addProjectPane": {
-      const item = { paneId: action.paneId, spareWorkspaceId: action.spareWorkspaceId, cwd: action.cwd };
+      const item: PendingProjectPane = {
+        paneId: action.paneId,
+        spareWorkspaceId: action.spareWorkspaceId,
+        cwd: action.cwd,
+        ...(action.sap ? { sap: action.sap } : {}),
+        ...(action.shell ? { shell: action.shell } : {})
+      };
       if (state.phase !== "ready") return { ...state, pending: [...state.pending, item] };
       return placeProjectPane(state, item, action.nameFor);
     }

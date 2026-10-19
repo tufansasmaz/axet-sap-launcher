@@ -1,6 +1,6 @@
-import { useEffect, useId, useState } from "react";
-import { AlertTriangle, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
-import type { SapService } from "../../app-electron/shared/types";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { AlertTriangle, ChevronDown, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
+import type { SapConnectOpen, SapConnectTarget, SapService } from "../../app-electron/shared/types";
 import { useT } from "../i18n";
 import { Button } from "../ui/Button";
 import { Field, Input } from "../ui/Field";
@@ -12,7 +12,10 @@ interface Props {
   connecting: boolean;
   errorMessage: string | null;
   onClose: () => void;
-  onSubmit: (username: string, password: string, client: string) => void;
+  /** `target`: bağlantı başarılı olunca nerede açılacağı (Sohbet / ajan / kabuk). */
+  onSubmit: (username: string, password: string, client: string, target: SapConnectTarget) => void;
+  /** Ayardaki "SAP bağlanınca" seçimi; yoksa bugünkü davranış (Sohbet). */
+  openPreference?: SapConnectOpen;
   loadDefaults: (serviceUuid: string) => Promise<{ username: string; password: string; client: string }>;
 }
 
@@ -23,6 +26,7 @@ export default function CredentialsModal({
   errorMessage,
   onClose,
   onSubmit,
+  openPreference = "chat",
   loadDefaults
 }: Props) {
   const t = useT();
@@ -32,6 +36,21 @@ export default function CredentialsModal({
   const [client, setClient] = useState("");
   const [loadingDefaults, setLoadingDefaults] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuItems = useRef<(HTMLButtonElement | null)[]>([]);
+  const splitRef = useRef<HTMLDivElement | null>(null);
+
+  // Menü açılınca odak ilk seçenekte (klavyeyle gelen kullanıcı için).
+  useEffect(() => {
+    if (!menuOpen) return;
+    menuItems.current[0]?.focus();
+    // Dışarı tıklanınca kapanıyor.
+    const onDown = (e: MouseEvent) => {
+      if (!splitRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -63,10 +82,41 @@ export default function CredentialsModal({
   // import EDİLEMİYOR (Buffer), bu yüzden iki satırı burada tekrar ediyoruz.
   const passwordNonAscii = [...new Set([...password].filter((ch) => ch.codePointAt(0)! > 127))];
 
+  // Varsayılan hedef ayardan; "ask" bir hedef değil — Bağlan menüyü açıyor.
+  const defaultTarget: SapConnectTarget | null =
+    openPreference === "terminal" ? "agent" : openPreference === "ask" ? null : "chat";
+
+  const submitTo = (target: SapConnectTarget) => {
+    setMenuOpen(false);
+    if (!canSubmit) return;
+    onSubmit(username.trim(), password, client.trim(), target);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!canSubmit) return;
-    onSubmit(username.trim(), password, client.trim());
+    if (defaultTarget) submitTo(defaultTarget);
+    else setMenuOpen(true);
+  };
+
+  const TARGETS: { key: SapConnectTarget; label: string }[] = [
+    { key: "chat", label: t("credentialsModal.openChat") },
+    { key: "agent", label: t("credentialsModal.openAgent") },
+    { key: "shell", label: t("credentialsModal.openShell") }
+  ];
+
+  // Menü klavyesi: oklar gezer, Escape YALNIZ menüyü kapatır (pencere değil).
+  const onMenuKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const items = menuItems.current.filter((el): el is HTMLButtonElement => !!el);
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setMenuOpen(false);
+    } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const step = e.key === "ArrowDown" ? 1 : -1;
+      items[(index + step + items.length) % items.length]?.focus();
+    }
   };
 
   return (
@@ -95,11 +145,69 @@ export default function CredentialsModal({
       }
       footer={
         <>
+          {/* Nerede açılacağı görünür — "Bağlan"ın sonucunu tahmin ettirmiyor. */}
+          {defaultTarget && !connecting && (
+            <span className="mr-auto text-xs text-slate-500">
+              {t(defaultTarget === "agent" ? "credentialsModal.opensAgent" : "credentialsModal.opensChat")}
+            </span>
+          )}
           <ModalCancelButton />
-          <Button type="submit" form={formId} variant="primary" disabled={!canSubmit}>
-            {connecting && <Loader2 size={14} className="animate-spin" />}
-            {connecting ? t("credentialsModal.verifying") : t("credentialsModal.connect")}
-          </Button>
+          {/* Bölünmüş düğme: ana parça ayardaki yere bağlanıyor, ok tek
+              seferlik başka bir yer seçtiriyor (2026-10-19). */}
+          <div ref={splitRef} className="relative flex items-stretch">
+            <Button
+              type="submit"
+              form={formId}
+              variant="primary"
+              disabled={!canSubmit}
+              className="rounded-r-none"
+            >
+              {connecting && <Loader2 size={14} className="animate-spin" />}
+              {connecting
+                ? t("credentialsModal.verifying")
+                : defaultTarget
+                  ? t("credentialsModal.connect")
+                  : t("credentialsModal.connectAsk")}
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              disabled={!canSubmit}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              aria-label={t("credentialsModal.openElsewhere")}
+              title={t("credentialsModal.openElsewhere")}
+              onClick={() => setMenuOpen((v) => !v)}
+              className="rounded-l-none border-l border-black/20 px-2"
+            >
+              <ChevronDown size={14} />
+            </Button>
+            {menuOpen && (
+              <div
+                role="menu"
+                // Escape önce menünün (Modal bu işarete bakıp pencereyi kapatmıyor).
+                data-escape-owner
+                aria-label={t("credentialsModal.openElsewhere")}
+                onKeyDown={onMenuKey}
+                className="absolute bottom-full right-0 z-10 mb-1 min-w-[200px] rounded-lg border border-line bg-card p-1 shadow-lg"
+              >
+                {TARGETS.map((item, i) => (
+                  <button
+                    key={item.key}
+                    ref={(el) => {
+                      menuItems.current[i] = el;
+                    }}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => submitTo(item.key)}
+                    className="flex w-full cursor-pointer items-center rounded-md px-2.5 py-1.5 text-left text-sm text-slate-200 hover:bg-hover focus:bg-hover focus:outline-none"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </>
       }
     >

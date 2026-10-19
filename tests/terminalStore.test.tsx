@@ -5,7 +5,7 @@ import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import { STARTUP_GRACE_MS, TerminalStoreProvider } from "../src/stores/terminalStore";
+import { STARTUP_GRACE_MS, TerminalStoreProvider, type SapPaneRequest } from "../src/stores/terminalStore";
 import { useTerminalStore, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { TERMINAL_MISSING_DIR } from "../app-electron/shared/terminalLayout";
 import type { AppConfig } from "../app-electron/shared/types";
@@ -84,7 +84,7 @@ function Probe() {
   return null;
 }
 
-function Harness(props: { config?: AppConfig; projectRequest?: number; toasts?: string[] }) {
+function Harness(props: { config?: AppConfig; projectRequest?: number; toasts?: string[]; sapPaneRequest?: SapPaneRequest | null }) {
   return (
     <StrictMode>
       <LanguageProvider language="tr">
@@ -92,6 +92,7 @@ function Harness(props: { config?: AppConfig; projectRequest?: number; toasts?: 
           config={props.config ?? baseConfig}
           visible
           projectRequest={props.projectRequest ?? 0}
+          sapPaneRequest={props.sapPaneRequest ?? null}
           pushToast={(_kind, text) => props.toasts?.push(text)}
           onConfigSaved={() => {}}
         >
@@ -394,6 +395,31 @@ describe("proje bölmesi", () => {
     utils.rerender(<Harness projectRequest={1} toasts={toasts} />);
     await flush();
     expect(toasts).toEqual(["Yer kalmadı: 6 çalışma alanının hepsi dolu (her birinde 9 terminal). Bir bölme kapatıp yeniden deneyin."]);
+  });
+});
+
+describe("SAP bağlanınca terminalde aç (2026-10-19)", () => {
+  const SAP = { uuid: "u-d01", label: "D01" };
+  it("ajan isteği: bağlantı klasöründe axet-code, alan SAP'ye bağlı; aynı nonce ikinci kez açmıyor", async () => {
+    const utils = await ready();
+    const request: SapPaneRequest = { nonce: 1, projectDir: "C:\SAP\D01", sap: SAP, kind: "agent" };
+    utils.rerender(<Harness sapPaneRequest={request} />);
+    await flush();
+    expect(panes()).toHaveLength(1);
+    expect(panes()[0]).toMatchObject({ kind: "agent", agent: LEGACY_AXET_AGENT, cwd: "C:\SAP\D01" });
+    expect(store.state.workspaces[0].sap).toEqual(SAP);
+    utils.rerender(<Harness sapPaneRequest={{ ...request }} />);
+    await flush();
+    expect(panes()).toHaveLength(1);
+  });
+
+  it("kabuk isteği ayardaki kabuğu kullanıyor", async () => {
+    const utils = await ready({ config: { ...baseConfig, terminal: "powershell" } });
+    utils.rerender(
+      <Harness config={{ ...baseConfig, terminal: "powershell" }} sapPaneRequest={{ nonce: 2, projectDir: "C:\SAP\D01", sap: SAP, kind: "shell" }} />
+    );
+    await flush();
+    expect(panes()[0]).toMatchObject({ kind: "powershell", cwd: "C:\SAP\D01" });
   });
 });
 

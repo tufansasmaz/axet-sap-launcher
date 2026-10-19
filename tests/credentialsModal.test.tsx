@@ -85,7 +85,48 @@ describe("CredentialsModal", () => {
     const props = mount();
     await loaded();
     fireEvent.click(screen.getByRole("button", { name: "Bağlan" }));
-    expect(props.onSubmit).toHaveBeenCalledWith("TESTUSER", "secret", "100");
+    expect(props.onSubmit).toHaveBeenCalledWith("TESTUSER", "secret", "100", "chat");
+  });
+
+  // SAP bağlanınca nerede açılsın (2026-10-19).
+  it("ayar terminalse Bağlan ajan terminalini seçiyor ve bunu söylüyor", async () => {
+    const props = mount({ openPreference: "terminal" });
+    await loaded();
+    expect(screen.getByText("Ajan terminalinde açılır")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Bağlan" }));
+    expect(props.onSubmit).toHaveBeenCalledWith("TESTUSER", "secret", "100", "agent");
+  });
+
+  it("ok menüsü üç yer sunuyor; seçim tek seferlik hedefle gönderiyor", async () => {
+    const props = mount();
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "Başka yerde aç" }));
+    const items = screen.getAllByRole("menuitem").map((el) => el.textContent);
+    expect(items).toEqual(["Sohbette aç", "Terminalde aç (ajan)", "Kabukta aç"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Kabukta aç" }));
+    expect(props.onSubmit).toHaveBeenCalledWith("TESTUSER", "secret", "100", "shell");
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("her seferinde sor: Bağlan… göndermiyor, menüyü açıyor; Escape yalnız menüyü kapatıyor", async () => {
+    const props = mount({ openPreference: "ask" });
+    await loaded();
+    fireEvent.click(screen.getByRole("button", { name: "Bağlan…" }));
+    expect(props.onSubmit).not.toHaveBeenCalled();
+    const menu = screen.getByRole("menu");
+    expect(document.activeElement).toBe(screen.getAllByRole("menuitem")[0]);
+    fireEvent.keyDown(menu, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getAllByRole("menuitem")[1]);
+    fireEvent.keyDown(menu, { key: "Escape" });
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(props.onClose).not.toHaveBeenCalled();
+  });
+
+  it("form eksikse menü seçimi göndermiyor", async () => {
+    const props = mount({ loadDefaults: vi.fn(() => Promise.resolve({ username: "", password: "", client: "" })) });
+    await waitFor(() => expect(props.loadDefaults).toHaveBeenCalled());
+    const arrow = screen.getByRole("button", { name: "Başka yerde aç" }) as HTMLButtonElement;
+    expect(arrow.disabled).toBe(true);
   });
 
   it("şifre göster/gizle düğmesinin adı var", async () => {

@@ -7,6 +7,7 @@ import type {
   ConnectivityState,
   DoctorReport,
   FsEntry,
+  SapConnectTarget,
   SapLandscape,
   SapService,
   SkillProfile,
@@ -58,7 +59,7 @@ import FlowSidebar from "./agents/FlowSidebar";
 import AgentsScreen from "./agents/AgentsScreen";
 import { FlowProvider } from "./agents/flowContext";
 import { LearnProvider } from "./agents/brain/learnContext";
-import { TerminalStoreProvider } from "./stores/terminalStore";
+import { TerminalStoreProvider, type SapPaneRequest } from "./stores/terminalStore";
 import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
 import AgentsModeBadge from "./agents/AgentsModeBadge";
@@ -146,6 +147,13 @@ export default function App() {
   // Başarılı bağlantıdan sonra axet.code'a devredilen "bu sisteme bağlı bir
   // sohbet aç" isteği (bkz. AxetCodeHome `SapChatRequest`).
   const [sapChatRequest, setSapChatRequest] = useState<SapChatRequest | null>(null);
+  // SAP bağlanınca Ajanlar'da açılacak bölme (2026-10-19, bkz. terminalStore
+  // `SapPaneRequest`). Şifre/jeton taşımıyor: yalnız klasör ve sistem kimliği.
+  const [sapPaneRequest, setSapPaneRequest] = useState<SapPaneRequest | null>(null);
+  // Bağlan düğmesinde seçilen yer. Ref, çünkü bağlantı rol kapısında ya da
+  // sertifika onayında bekleyip başka bir yoldan (handleRoleConfirm,
+  // handleCertTrust) sürüyor ve seçim o yollarda da korunmalı.
+  const connectTargetRef = useRef<SapConnectTarget>("chat");
   // Dosya Gezgini'nden seçilen klasörün ajanın çalışma klasörü olması isteği
   // (bkz. AxetCodeHome `WorkDirRequest`).
   const [workDirRequest, setWorkDirRequest] = useState<WorkDirRequest | null>(null);
@@ -741,8 +749,14 @@ export default function App() {
    * varsayılan profille kurulur, kullanıcının seçimi bir sonraki bağlantıya
    * kadar hiçbir şeyi değiştirmezdi.
    */
-  const handleCredentialsSubmit = async (username: string, password: string, client: string) => {
+  const handleCredentialsSubmit = async (
+    username: string,
+    password: string,
+    client: string,
+    target: SapConnectTarget = "chat"
+  ) => {
     if (!credentialsTarget) return;
+    connectTargetRef.current = target;
     if (config && config.skillProfile === null) {
       setPendingConnect({ username, password, client });
       return;
@@ -825,12 +839,27 @@ export default function App() {
           "",
           result.verified ? t("connectNotice.whatNext") : t("connectNotice.whatNextUnverified")
         ].join("\n");
-        // Bağlantı artık TERMİNAL AÇMIYOR: axet.code sohbetine, bu bağlantının
-        // proje klasörüne bağlı boş bir sohbetle düşüyoruz (bkz.
-        // openProjectDirTerminal'daki not). `nonce` şart — aynı sisteme arka
-        // arkaya bağlanmak da yeni bir sohbet açmalı.
-        setSapChatRequest({ projectDir: result.projectDir, label: title, notice, nonce: Date.now() });
-        setActivity("axetCode");
+        // Nerede açılacağı Bağlan düğmesinde seçildi (2026-10-19; varsayılan
+        // ayardan, o da varsayılan olarak Sohbet). Sohbet: bu bağlantının
+        // proje klasörüne bağlı boş bir sohbet. Ajan/kabuk: Ajanlar ekranında
+        // o sisteme bağlı alanda bölme (TeamTabs "SAP'ye bağla" ile aynı bağ);
+        // bölme bağlantının klasöründe açıldığı için .conn_adt, sap-context.md
+        // ve QA/PRD salt okunur kuralı sohbettekiyle aynı. `nonce` şart — aynı
+        // sisteme arka arkaya bağlanmak da yeni bir sohbet/bölme açmalı.
+        const target = connectTargetRef.current;
+        connectTargetRef.current = "chat";
+        if (target === "chat") {
+          setSapChatRequest({ projectDir: result.projectDir, label: title, notice, nonce: Date.now() });
+          setActivity("axetCode");
+        } else {
+          setSapPaneRequest({
+            nonce: Date.now(),
+            projectDir: result.projectDir,
+            sap: { uuid: svc.uuid, label: svc.systemId || svc.name },
+            kind: target === "agent" ? "agent" : "shell"
+          });
+          setActivity("terminal");
+        }
         try {
           const cfg = await window.api.getConfig();
           setConfig(cfg);
@@ -1003,6 +1032,7 @@ export default function App() {
         config={config}
         visible={activity === "terminal"}
         projectRequest={projectTerminalRequest}
+        sapPaneRequest={sapPaneRequest}
         pushToast={pushToast}
         onConfigSaved={setConfig}
       >
@@ -1300,6 +1330,7 @@ export default function App() {
             setCertPrompt(null);
           }}
           onSubmit={handleCredentialsSubmit}
+          openPreference={config?.sapConnectOpen ?? "chat"}
           loadDefaults={(uuid) => window.api.getCredentialDefaults(uuid)}
         />
 

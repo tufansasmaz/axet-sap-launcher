@@ -619,6 +619,13 @@ export const en: Record<TranslationKey, string> = {
   "credentialsModal.clientPlaceholderOnprem": "e.g. 100",
   "credentialsModal.verifying": "Verifying…",
   "credentialsModal.connect": "Connect",
+  "credentialsModal.connectAsk": "Connect…",
+  "credentialsModal.openElsewhere": "Open elsewhere",
+  "credentialsModal.openChat": "Open in chat",
+  "credentialsModal.openAgent": "Open in terminal (agent)",
+  "credentialsModal.openShell": "Open in shell",
+  "credentialsModal.opensChat": "Opens in chat",
+  "credentialsModal.opensAgent": "Opens in the agent terminal",
 
   "addSystemModal.editTitle": "Edit System",
   "addSystemModal.addTitle": "Add New SAP System",
