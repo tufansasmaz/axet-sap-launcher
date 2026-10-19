@@ -385,6 +385,17 @@ describe("Akış — ajanın cevabı ve düzen", () => {
     expect(commands.revealPane).toHaveBeenCalledWith("a");
   });
 
+  it("Tur 5: 'Belleğe ekle' cevabı ekip belleğine olgu notu olarak ekliyor, sonra 'Belleğe eklendi'", async () => {
+    const notesAdd = vi.fn(async (_w: string, input: { title: string }) => ({ ok: true, note: { id: "n-abcd1", ...input } }));
+    (window as unknown as { api: Record<string, unknown> }).api.notesAdd = notesAdd;
+    setup([ws("w1", [pane("a", { title: "Ayşe" })])], {}, { events: [fin(1, { exact: true, reply: "Fiyat kuruş olarak saklanır.\nAyrıntı" })] });
+    fireEvent.click(screen.getByRole("button", { name: "Belleğe ekle" }));
+    await flush();
+    expect(notesAdd).toHaveBeenCalledWith("w1", expect.objectContaining({ title: "Fiyat kuruş olarak saklanır.", kind: "olgu", owner: "", source: { type: "flow", name: "Ayşe", ref: "1" } }));
+    expect(screen.getByRole("status").textContent).toBe("Belleğe eklendi");
+    delete (window as unknown as { api: Record<string, unknown> }).api.notesAdd;
+  });
+
   it("uzun cevap dört satıra kırpılı; 'Devamını göster' açıyor, 'Daha az göster' kapatıyor", () => {
     const reply = Array.from({ length: 8 }, (_, i) => `Satır ${i + 1}`).join("\n");
     setup([ws("w1", [pane("a")])], {}, { events: [fin(1, { exact: true, reply })] });

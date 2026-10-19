@@ -810,6 +810,66 @@ yazar; sen de dosyayı uygulamadan açıp düzeltebilirsin.
 - Ajana belleğe şifre ya da token yazmaması söylenir, ama bu denetlenemez:
   dosyaya ara sıra göz at. Uygulama dosyanın içeriğini günlüğe yazmaz.
 
+### Bellek (ikinci beyin)
+
+Ajan başına markdown belleğinin üstünde, ekibin **ortak hafızası**: kararlar,
+olgular, kişi/sistem bilgileri, görevler ve öğrenilenler küçük **notlar**
+olarak birikir ve birbirine bağlanır. Rayda **Bellek** açılınca ilk görünen
+budur.
+
+- **Not** = başlık, gövde (markdown), tür (Karar · Olgu · Kişi / sistem ·
+  Görev · Öğrenim · Not), etiketler, kaynak (sen, ajan, Akış ya da görev),
+  tarih. Gövdede `[[Başka notun başlığı]]` yazınca iki not bağlanır
+  (`[[Başlık|görünen metin]]` da olur). Not ya **ekip belleğinde** ya da bir
+  **ajanın belleğindedir**.
+- **Harita**: her not bir nokta; ajanlar, "Ekip" ve en az iki notta geçen
+  etiketler büyük düğümler. Çizgiler: kimin belleği (ince), `[[bağlantı]]`
+  (açık renk), ortak etiket (kesik). Renk = kimin belleği (sol alttaki
+  liste); bir satıra tıklayınca yalnız o ajanın bildikleri parlak kalır.
+  Fareyle sürükle-kaydır, tekerlekle ya da sağ alttaki **+ / − / Sığdır** ile
+  yakınlaştır. Bir düğüme tıkla: sağda ayrıntı açılır.
+- **Ayrıntı paneli**: notun türü, kimin belleği, tarihi, kaynağı, etiketleri
+  (tıkla → o etikete süz), gövdesi (`[[bağlantı]]`lar tıklanır; olmayan nota
+  bağlantı soluk görünür, tıklarsan o başlıkla yeni not açılır),
+  **Bağlantılar** ve **Geri bağlantılar** (bu nota bağlanan notlar).
+  **Düzenle** başlık, tür, sahip, etiket ve gövdeyi değiştirir (Ctrl+Enter
+  kaydeder, Esc vazgeçer); **Sil** onay ister. Ajan düğümü seçilince onun
+  notları listelenir, **Markdown belleğini aç** eski dosya düzenleyicisine
+  götürür.
+- **Arama** başlıkta, etiketlerde ve gövdede arar (çok sözcükte hepsi
+  geçmeli; i/ı/İ/I ayrımı yapılmaz); eşleşmeyen düğümler solar, sonuç kutusu
+  başlık, sahip ve eşleşen parçayı gösterir. **Süzgeç** tür, kimin ve etiket
+  çipleri açar.
+- **Liste** aynı notları satır satır gösterir (son değişen önce): grafın
+  klavye karşılığı. ↑/↓/Home/End gezinir, Enter açar. Haritada da klavye
+  çalışır: Tab ile haritaya gir, ok tuşları o yöndeki en yakın düğüme gider,
+  Enter açar, Esc seçimi bırakır, + / − / 0 yakınlaştırır.
+- **Dosyalar** ajan başına markdown belleğidir (yukarıdaki "Kalıcı bellek");
+  olduğu gibi duruyor.
+- **Belleğin dolması**:
+  - Akış'ta ajanın cevap kartının, ajandan ajana mesajın, sorunun ve
+    doğrulanan görevin altında **Belleğe ekle**: tek tıkla ekip belleğine
+    not (cevap → Olgu, soru → Karar, görev → Görev).
+  - Ajanlar terminallerinden `ntt-team` aracıyla yazar ve okur:
+    `ntt-team memory add "<başlık>" "<gövde>" [--tur karar] [--etiket a,b] [--ben]`,
+    `ntt-team memory search "<sorgu>"`, `ntt-team memory get "<başlık>"`,
+    `ntt-team memory link "<A>" "<B>"`, `ntt-team memory list`. Varsayılan
+    ekip belleği; `--ben` ajanın kendi belleği. Bir ajan başka ajanın kendi
+    notlarını göremez, ekip notlarını herkes görür. Ajan yazınca harita
+    kendiliğinden yenilenir.
+  - Belleği açık ajan yeni oturum açınca giden `[Bellek]` satırının sonuna
+    ekip belleğinin kısa özeti eklenir (önce kararlar, yalnız başlıklar, en
+    çok ~700 karakter) ve ayrıntı için `ntt-team memory search` hatırlatılır.
+- **Nerede durur**: `%APPDATA%\<uygulama>\memory-notes\<ekip>.json`, ekip
+  başına tek dosya (ekip + ajan notları). Yazım atomik (yarım dosya kalmaz).
+  Ekibi kapatmak notları **silmez**. Sınırlar: başlık 120, gövde 8000
+  karakter, not başına 12 etiket, ekip başına 2000 not, dosya 4 MB; dolunca
+  yeni not reddedilir, eskiler silinmez.
+- **Gizli bilgi**: başlık, gövde ve etiketler yazılırken ve okunurken token,
+  anahtar ve JWT desenlerine karşı süzülür. Yine de şifre yazma.
+- Not o arada bir ajan tarafından değiştirildiyse düzenlemen üzerine
+  yazılmaz: "Not bu arada değişti" uyarısı çıkar, metnin formda kalır.
+
 ## Klavye Kısayolları
 
 **Ctrl+/** (veya **F1**) tuşlarına basarak Klavye Kısayolları penceresini

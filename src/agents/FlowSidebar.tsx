@@ -7,6 +7,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, RotateCw, Trash2, X } from "lucide-react";
 import ConfirmDialog from "../components/ConfirmDialog";
+import { noteFromFlow } from "../../app-electron/shared/memoryNotes";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import { AXET_SETUP_DETAIL, type AgentAnswerFailure, type AgentEngineInfo, type AgentStatus } from "../../app-electron/shared/agentTypes";
@@ -243,6 +244,7 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
           <span className="ml-auto shrink-0 font-mono tabular-nums text-slate-600">{at}</span>
         </div>
         <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap break-words text-xs text-slate-200">{event.detail}</p>
+        <ToMemory event={event} workspaceId={workspace.id} />
       </li>
     );
   }
@@ -272,7 +274,12 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
         <span className="ml-auto shrink-0 font-mono text-2xs tabular-nums text-slate-600">{at}</span>
       </div>
       {event.kind === "finished" && event.reply ? (
-        <ReplyCard reply={event.reply} onOpen={canOpen ? () => commands.revealPane(pane.id) : undefined} />
+        <>
+          <ReplyCard reply={event.reply} onOpen={canOpen ? () => commands.revealPane(pane.id) : undefined} />
+          <div className="ml-3.5">
+            <ToMemory event={event} workspaceId={workspace.id} />
+          </div>
+        </>
       ) : (
         <div className="mt-0.5 pl-3.5">
           <p className={`break-words text-xs ${event.kind === "error" || event.kind === "failed" ? "text-[var(--status-danger-text)]" : "text-slate-300"}`}>
@@ -283,9 +290,48 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
               {t("flow.openTerminal")}
             </button>
           )}
+          {(event.kind === "verified" || event.kind === "asked") && <ToMemory event={event} workspaceId={workspace.id} />}
         </div>
       )}
     </li>
+  );
+}
+
+/**
+ * Tur 5: Akış kartından tek tıkla ekip belleğine not (cevap → olgu, soru →
+ * karar, doğrulanan görev → görev). Not ana süreçte gizli süzgecinden geçer.
+ */
+function ToMemory({ event, workspaceId }: { event: FlowEvent; workspaceId: string }) {
+  const t = useT();
+  const [state, setState] = useState<"idle" | "busy" | "done" | "failed">("idle");
+  const input = noteFromFlow(event);
+  const notesAdd = (window as unknown as { api?: Partial<Window["api"]> }).api?.notesAdd;
+  if (!input || !notesAdd) return null;
+  if (state === "done") {
+    return (
+      <span data-to-memory="done" role="status" className="text-2xs text-slate-500">
+        {t("flow.toMemoryDone")}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      data-to-memory=""
+      disabled={state === "busy"}
+      onClick={async () => {
+        setState("busy");
+        try {
+          const result = await notesAdd(workspaceId, input);
+          setState(result.ok ? "done" : "failed");
+        } catch {
+          setState("failed");
+        }
+      }}
+      className={LINK}
+    >
+      {state === "failed" ? t("flow.toMemoryFailed") : t("flow.toMemory")}
+    </button>
   );
 }
 

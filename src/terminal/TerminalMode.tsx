@@ -25,7 +25,7 @@ import { ChangesFocusProvider } from "../changes/changesFocus";
 import BrowserView from "../browser/BrowserView";
 import ViewRail from "../agents/ViewRail";
 import { useRailCounts } from "../agents/useRailCounts";
-import MemoryView from "../agents/MemoryView";
+import MemoryBrain from "../agents/brain/MemoryBrain";
 import OverviewView from "../agents/OverviewView";
 import ToolsView from "../agents/ToolsView";
 import type { WorkspaceView } from "../../app-electron/shared/types";
@@ -155,7 +155,7 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
           )}
           {state.phase === "ready" && active && view === "memory" && (
             <div className="absolute inset-0">
-              <MemoryView key={active.id} workspace={active} />
+              <MemoryBrain key={active.id} workspace={active} />
             </div>
           )}
           {state.phase === "ready" && active && view === "changes" && (
