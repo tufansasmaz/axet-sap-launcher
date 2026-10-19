@@ -33,6 +33,8 @@ import MemoryView from "../MemoryView";
 import MemoryGraphView, { KIND_COLOR } from "./MemoryGraphView";
 import { KindChip, NoteEditor, NoteView, noteAge, type NoteDraft, type OwnerOption } from "./NoteDetail";
 import { useMemoryNotes } from "./useMemoryNotes";
+import LearnPanel from "./LearnPanel";
+import { useLearn } from "./learnContext";
 
 type Mode = "map" | "list" | "files";
 type Panel = { kind: "view" } | { kind: "edit" } | { kind: "new"; draft: NoteDraft } | null;
@@ -59,7 +61,16 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
   const [selected, setSelected] = useState<string | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
 
-  const agents = useMemo(() => agentPanes(workspace).map((p) => ({ id: p.id, name: agentName(p, t), color: PANE_COLOR_VAR[p.color ?? "gray"] })), [workspace, t]);
+  const agents = useMemo(
+    () => agentPanes(workspace).map((p) => ({ id: p.id, name: agentName(p, t), color: PANE_COLOR_VAR[p.color ?? "gray"], engine: p.agent?.engine })),
+    [workspace, t]
+  );
+  const learn = useLearn();
+  const highlighted = useMemo(
+    () => (learn.highlight?.workspaceId === workspace.id ? new Set([...learn.highlight.ids].map((id) => `note:${id}`)) : null),
+    [learn.highlight, workspace.id]
+  );
+  const learnTopic = (ref: string) => learn.tasks.find((x) => x.id === ref)?.topic;
   const ownerOptions: OwnerOption[] = agents.map((a) => ({ id: a.id, name: a.name }));
   const ownerName = (owner: string, fallback?: string) =>
     owner === TEAM_OWNER ? t("brain.teamMemory") : agents.find((a) => a.id === owner)?.name ?? fallback ?? owner;
@@ -197,6 +208,7 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
           }}
           onTag={(tag) => setTags(new Set([tag]))}
           onClose={() => open(null)}
+          learnTopic={learnTopic}
         />
       );
     }
@@ -347,7 +359,7 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
                 </div>
               ) : mode === "map" ? (
                 <>
-                  <MemoryGraphView graph={graph} visible={visible} selectedId={selected} onSelect={open} colorOf={colorOf} labelOf={labelOf} ariaOf={ariaOf} t={t} />
+                  <MemoryGraphView graph={graph} visible={visible} selectedId={selected} highlighted={highlighted} onSelect={open} colorOf={colorOf} labelOf={labelOf} ariaOf={ariaOf} t={t} />
                   <Legend
                     agents={agents}
                     counts={counts}
@@ -360,13 +372,16 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
                   )}
                 </>
               ) : (
-                <NotesList notes={shown} selectedId={selectedNote?.id ?? null} onOpen={openNote} ownerName={ownerName} t={t} />
+                <NotesList notes={shown} selectedId={selectedNote?.id ?? null} highlighted={highlighted} onOpen={openNote} ownerName={ownerName} t={t} />
               )}
             </div>
             {side && <aside className="w-[22rem] shrink-0 border-l border-line bg-card">{side}</aside>}
           </>
         )}
       </div>
+      {mode !== "files" && (
+        <LearnPanel workspaceId={workspace.id} agents={agents} preferredAgentId={selected?.startsWith("agent:") ? selected.slice(6) : null} />
+      )}
     </div>
   );
 }
@@ -478,12 +493,14 @@ function SearchResults({
 function NotesList({
   notes,
   selectedId,
+  highlighted,
   onOpen,
   ownerName,
   t
 }: {
   notes: MemoryNote[];
   selectedId: string | null;
+  highlighted: ReadonlySet<string> | null;
   onOpen(id: string): void;
   ownerName(owner: string, fallback?: string): string;
   t: ReturnType<typeof useT>;
@@ -528,6 +545,11 @@ function NotesList({
                 {n.tags.length ? ` · #${n.tags.join(" #")}` : ""}
               </span>
             </span>
+            {highlighted?.has(`note:${n.id}`) && (
+              <span data-learn-highlight="" className="shrink-0 rounded-full border border-line px-1.5 text-2xs text-slate-200">
+                {t("brain.highlightNew")}
+              </span>
+            )}
             <span className="shrink-0 text-2xs text-slate-600">{noteAge(n.updated, Date.now(), t)}</span>
           </button>
         </li>

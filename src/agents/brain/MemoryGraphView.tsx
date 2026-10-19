@@ -54,6 +54,8 @@ export interface MemoryGraphViewProps {
   /** Süzgeçten geçen düğümler; null = hepsi. Ötekiler soluk. */
   visible: ReadonlySet<string> | null;
   selectedId: string | null;
+  /** Öğrenme görevinin yeni/güncellenen notları (kısa süre; hareketi azaltta durağan). */
+  highlighted?: ReadonlySet<string> | null;
   onSelect(nodeId: string | null): void;
   colorOf(node: GraphNode): string;
   labelOf(node: GraphNode): string;
@@ -61,7 +63,7 @@ export interface MemoryGraphViewProps {
   t: TranslateFn;
 }
 
-export default function MemoryGraphView({ graph, visible, selectedId, onSelect, colorOf, labelOf, ariaOf, t }: MemoryGraphViewProps) {
+export default function MemoryGraphView({ graph, visible, selectedId, highlighted = null, onSelect, colorOf, labelOf, ariaOf, t }: MemoryGraphViewProps) {
   const reduced = usePrefersReducedMotion();
   const [positions, setPositions] = useState<Map<string, Point>>(() => new Map());
   const last = useRef<Map<string, Point>>(new Map());
@@ -242,6 +244,8 @@ export default function MemoryGraphView({ graph, visible, selectedId, onSelect, 
             positions={positions}
             visible={visible}
             selectedId={selectedId}
+            highlighted={highlighted}
+            reduced={reduced}
             neighbors={neighbors}
             focusId={activeFocus}
             zoom={zoomBucket(view.k)}
@@ -319,6 +323,8 @@ const Nodes = memo(function Nodes({
   positions,
   visible,
   selectedId,
+  highlighted,
+  reduced,
   neighbors,
   focusId,
   zoom,
@@ -333,6 +339,8 @@ const Nodes = memo(function Nodes({
   positions: Map<string, Point>;
   visible: ReadonlySet<string> | null;
   selectedId: string | null;
+  highlighted: ReadonlySet<string> | null;
+  reduced: boolean;
   neighbors: ReadonlySet<string>;
   focusId: string | null;
   zoom: number;
@@ -381,6 +389,18 @@ const Nodes = memo(function Nodes({
             }}
             onFocus={() => onFocusNode(node.id)}
           >
+            {highlighted?.has(node.id) && (
+              // Yeni öğrenilen not: nötr kesik halka (accent yalnız seçim); hareketi azaltta durağan.
+              <circle
+                data-learn-highlight=""
+                r={r + 6}
+                fill="none"
+                stroke="rgb(226 232 240)"
+                strokeWidth={1.2}
+                strokeDasharray="3 2"
+                className={reduced ? undefined : "animate-pulse"}
+              />
+            )}
             <circle className="ring" r={r + 3.5} fill="none" stroke={selected ? "rgb(var(--accent-400-rgb))" : "transparent"} strokeWidth={1.6} strokeOpacity={selected ? 1 : 0} />
             {node.type === "tag" ? (
               <circle r={r} fill="none" stroke={color} strokeWidth={1.2} />

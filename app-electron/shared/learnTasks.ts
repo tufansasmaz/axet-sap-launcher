@@ -47,6 +47,8 @@ export interface LearnTask {
   updated: string[];
   summary?: string;
   suggestions?: string[];
+  /** Kullanıcı görevin eklediği notları geri aldı (sildi). */
+  undone?: boolean;
 }
 
 export interface LearnTaskInput {
@@ -247,6 +249,7 @@ export function sanitizeLearnTasks(raw: unknown): LearnTask[] {
       if (v !== undefined) task[k] = v;
     }
     if (r.sawBusy === true) task.sawBusy = true;
+    if (r.undone === true) task.undone = true;
     if (r.baseline && typeof r.baseline === "object") {
       const b: Record<string, number> = {};
       for (const [k, v] of Object.entries(r.baseline as Record<string, unknown>)) if (typeof v === "number") b[k] = v;

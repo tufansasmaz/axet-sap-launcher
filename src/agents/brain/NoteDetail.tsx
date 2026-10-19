@@ -20,6 +20,7 @@ import {
 import { btn, GHOST_ICON_BUTTON, PRIMARY_BUTTON, TOOL_BUTTON } from "../../ui/buttons";
 import { Input, Select, Textarea } from "../../ui/Field";
 import { KIND_COLOR } from "./MemoryGraphView";
+import { isLearnTaskId } from "../../../app-electron/shared/learnTasks";
 
 export interface OwnerOption {
   id: string;
@@ -64,7 +65,8 @@ export function NoteView({
   onEdit,
   onDelete,
   onTag,
-  onClose
+  onClose,
+  learnTopic
 }: {
   note: MemoryNote;
   notes: readonly MemoryNote[];
@@ -75,6 +77,8 @@ export function NoteView({
   onDelete(): Promise<boolean>;
   onTag(tag: string): void;
   onClose(): void;
+  /** Öğrenme görevi kimliğinden konusu (görev listeden düştüyse undefined). */
+  learnTopic?(ref: string): string | undefined;
 }) {
   const t = useT();
   const [confirm, setConfirm] = useState(false);
@@ -83,9 +87,15 @@ export function NoteView({
     .map((l) => findNote(notes, l))
     .filter((n): n is MemoryNote => Boolean(n));
   const back = backlinks(notes, note);
-  const source = note.source
-    ? note.source.name ?? t(`brain.source.${note.source.type}` as TranslationKey)
-    : null;
+  const learnRef = note.source?.type === "task" && isLearnTaskId(note.source.ref) ? note.source.ref : null;
+  const topic = learnRef ? learnTopic?.(learnRef) : undefined;
+  const source = learnRef
+    ? topic
+      ? t("learn.noteSource", { topic })
+      : t("learn.noteSourceUnknown")
+    : note.source
+      ? note.source.name ?? t(`brain.source.${note.source.type}` as TranslationKey)
+      : null;
   return (
     <article data-note-detail={note.id} aria-labelledby={`note-${note.id}`} className="flex h-full min-h-0 flex-col">
       <header className="flex items-center gap-2 border-b border-line px-4 py-2.5">

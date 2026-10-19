@@ -908,6 +908,41 @@ budur.
 - Not o arada bir ajan tarafından değiştirildiyse düzenlemen üzerine
   yazılmaz: "Not bu arada değişti" uyarısı çıkar, metnin formda kalır.
 
+#### Kendi kendine öğrenme
+
+Bellek ekranının altındaki **Öğren** kutusuyla bir ajana "şunu araştır,
+öğren" dersin; ajan araştırır ve öğrendiklerini belleğe not olarak yazar.
+
+- **Kutu**: öğrenecek ajan (haritada bir ajan seçiliyse o gelir), konu,
+  **Kaynaklar** ve **Nereye yazsın** (ekip belleği ya da ajanın kendi
+  belleği). Konuyu yazıp Enter'a ya da **Öğren**'e bas.
+  - *Proje klasörü*: ajanın çalışma dizinindeki kod ve dokümanlar (yalnız okur).
+  - *Web*: yalnız motorunda web aracı olan ajanlarda görünür (axet-code
+    `fetch`, Claude Code, Gemini). Codex ve özel komutta gizli; ipucu nedenini
+    yazar.
+  - *Ekip belleği ve Akış*: var olan notlar ve son olaylar.
+  - **SAP yok**: öğrenme görevi SAP sistemlerine bağlanmaz, SAP araçlarını
+    çağırmaz, dosya değiştirmez; şifre, token ve kişisel veri yazmaz.
+- **Ajana giden görev**: araştır, en önemli en çok 8 bulguyu seç; her bulgu
+  tek fikirlik bir not (Olgu, Öğrenim, Karar ya da Kişi/sistem), gövdesinde
+  `Kaynak:` (dosya yolu ya da URL) ve ilgili notlara `[[bağlantı]]`. Ajan
+  yazmadan önce `ntt-team memory search` ile benzerini arar; varsa
+  `ntt-team memory update "<başlık>" "<ek>"` ile mevcut nota ekler, yoksa
+  `ntt-team memory add … --gorev <kimlik>` ile yeni not açar. Sonunda tek
+  satır özet ve önerdiği sonraki konular.
+- **Öğrenme görevleri** listesi: konu, ajan, durum (bekliyor / çalışıyor /
+  bitti / hata), eklenen ve güncellenen not sayısı, süre. Ajan meşgulse ya da
+  soru bekliyorsa görev **bekliyor**da kalır ve ajan boşalınca kendiliğinden
+  gönderilir (İptal edebilirsin). Liste bu bilgisayarda saklanır (en çok 50).
+- **Bitince**: yeni ve güncellenen notlar haritada birkaç saniye kesik bir
+  halkayla, listede "yeni" etiketiyle gösterilir (hareketi azalt açıksa
+  halka yanıp sönmez). Akış'ta "öğrenme" kartı çıkar. Notun ayrıntısında
+  kaynak "öğrenme görevi «konu»" yazar.
+- **Bunu da öğren**: ajanın önerdiği konular görev satırında düğme olur; tek
+  tıkla aynı ajan ve kaynaklarla yeni görev başlar.
+- **Geri al**: görevin eklediği notları siler (satır içi onay; Esc vazgeçer).
+  Güncellenen eski notlara dokunmaz.
+
 ## Klavye Kısayolları
 
 **Ctrl+/** (veya **F1**) tuşlarına basarak Klavye Kısayolları penceresini
