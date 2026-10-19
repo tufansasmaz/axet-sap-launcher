@@ -22,6 +22,8 @@ import {
 import BrowserPage, { type PageHandle, type PageState } from "./BrowserPage";
 import { ADDRESS_FAILURE_KEY, LOAD_ERROR_KEY, SEND_FAILURE_KEY } from "./browserText";
 import AgentSendMenu from "./AgentSendMenu";
+import { clearBrowserBadge, subscribeBrowserOpen, takeBrowserOpen } from "./browserAutoOpen";
+import { AUTO_RETRY_DELAYS_MS } from "./localUrls";
 
 type Notice = { tone: "warning" | "success"; key: TranslationKey; params?: Record<string, string | number> };
 type Failure = { kind: LoadErrorKind; code: number; url: string };
@@ -79,7 +81,16 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
     else pageRef.current?.load(url);
   };
 
+  // Tur 7: otomatik açılan yerel adres bağlantı reddiyle düşerse (sunucu henüz
+  // dinlemiyor) kısa aralıklarla yeniden dene; kullanıcı gezinirse bırak.
+  const retry = useRef<{ url: string; left: number[]; timer: number | null } | null>(null);
+  const cancelRetry = () => {
+    if (retry.current?.timer != null) window.clearTimeout(retry.current.timer);
+    retry.current = null;
+  };
+
   const go = (input: string) => {
+    cancelRetry();
     const result = normalizeAddress(input);
     if (result.ok) open(result.url);
     else if (result.reason !== "empty") setNotice({ tone: "warning", key: ADDRESS_FAILURE_KEY[result.reason] });
@@ -106,8 +117,31 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
     pageRef.current?.reload();
   };
 
-  const latest = useRef({ run, webContentsId, visible });
-  latest.current = { run, webContentsId, visible };
+  const latest = useRef({ run, webContentsId, visible, open });
+  latest.current = { run, webContentsId, visible, open };
+
+  // Tur 7: dışarıdan açma isteği (ajan çıktısındaki yerel adres, Akış kartı).
+  // Takılıyken hemen; takılı değilken bekleyen istek ilk açılışta alınıyor.
+  useEffect(() => {
+    const consume = () => {
+      const request = takeBrowserOpen(workspace.id);
+      if (!request) return;
+      cancelRetry();
+      if (request.auto) retry.current = { url: request.url, left: [...AUTO_RETRY_DELAYS_MS], timer: null };
+      latest.current.open(request.url);
+    };
+    consume();
+    const off = subscribeBrowserOpen(consume);
+    return () => {
+      off();
+      cancelRetry();
+    };
+  }, [workspace.id]);
+
+  // Kullanıcı Tarayıcı'yı görünce rozet sıfırlanır.
+  useEffect(() => {
+    if (visible) clearBrowserBadge(workspace.id);
+  }, [visible, workspace.id]);
 
   // Sayfa odaktayken ana süreç Ctrl+L / Alt+Sol/Sağ'ı iletiyor; indirme reddi de oradan.
   useEffect(() => {
@@ -164,7 +198,18 @@ export default function BrowserView({ workspace, visible }: { workspace: Termina
 
   const onFail = (code: number, url: string) => {
     const kind = loadErrorKind(code);
-    if (kind) setFailure({ kind, code, url });
+    if (!kind) return;
+    const pendingRetry = retry.current;
+    if (kind === "connection" && pendingRetry && pendingRetry.timer === null && pendingRetry.left.length > 0 && (url === pendingRetry.url || readBrowserUrl(url) === pendingRetry.url)) {
+      const delay = pendingRetry.left.shift() ?? 0;
+      setNotice({ tone: "warning", key: "browser.autoRetry" });
+      pendingRetry.timer = window.setTimeout(() => {
+        pendingRetry.timer = null;
+        if (retry.current === pendingRetry) latest.current.open(pendingRetry.url);
+      }, delay);
+      return;
+    }
+    setFailure({ kind, code, url });
   };
 
   const loading = page?.loading ?? false;

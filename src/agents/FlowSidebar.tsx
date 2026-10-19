@@ -31,6 +31,8 @@ import { isLeadRole } from "../../app-electron/shared/leadCommands";
 import type { FlowEvent, FlowKind } from "./flowEvents";
 import { matchAgents, mentionAt, removeMention, type Mention } from "./mention";
 import { requestAddAgent } from "./addAgentBus";
+import CustomAnswer from "./CustomAnswer";
+import OpenInBrowserButton from "../browser/OpenInBrowserButton";
 
 const ANSWER_ERROR: Record<Exclude<AgentAnswerFailure, "closed" | "alreadyAnswered">, TranslationKey> = {
   typing: "agents.answerTyping",
@@ -270,7 +272,9 @@ const KIND_TONE: Record<FlowKind, StatusTone> = {
   message: "muted",
   relay: "muted",
   learn: "muted",
-  note: "muted"
+  note: "muted",
+  browser: "success",
+  link: "muted"
 };
 
 
@@ -359,6 +363,7 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
             </button>
           )}
           {(event.kind === "verified" || event.kind === "asked") && <ToMemory event={event} workspaceId={workspace.id} />}
+          {(event.kind === "browser" || event.kind === "link") && <OpenInBrowserButton workspaceId={workspace.id} url={event.detail} />}
         </div>
       )}
     </li>
@@ -470,6 +475,8 @@ function DecisionCard({ row }: { row: DecisionRow }) {
           ))}
         </div>
       )}
+      {/* Tur 7: serbest cevap (tuş dizisi yalnız axet-code'da ölçüldü). */}
+      {row.answerable && row.pane.agent?.engine === "axet-code" && <CustomAnswer paneId={row.paneId} callId={callId} disabled={sending} />}
       {error && (
         <p role="alert" className="mt-1 text-2xs text-[var(--status-warning-text)]">
           {t(error)}

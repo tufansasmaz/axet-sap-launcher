@@ -18,3 +18,35 @@ export function optionKeys(index: number): string {
   const steps = Number.isFinite(index) ? Math.max(0, Math.floor(index)) : 0;
   return "\x1b[B".repeat(steps) + "\r";
 }
+
+/** Serbest cevabın en çok uzunluğu (karakter; tek satıra indirgendikten sonra). */
+export const CUSTOM_ANSWER_MAX = 500;
+
+/**
+ * Serbest cevap metni (Tur 7): satır sonları ve denetim karakterleri boşluğa,
+ * art arda boşluklar teke iniyor, kırpılıyor. Boşsa ya da sınırı aşıyorsa null
+ * (sessizce kesilmiyor: kullanıcı ne gönderdiğini bilmeli).
+ */
+export function cleanCustomAnswer(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const text = raw.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!text || text.length > CUSTOM_ANSWER_MAX) return null;
+  return text;
+}
+
+/**
+ * axet-code 1.4.x soru kutusunda serbest cevap (Tur 7 ölçümü, gerçek oturum):
+ * seçeneklerin altında "Other" satırı ve "Type a custom answer" kutusu var.
+ * İmleç ilk seçenekte açılıyor; seçenek sayısı kadar aşağı ok "Other"a iniyor,
+ * yazılan metin kutuya giriyor, AYRI yazılan Enter (150 ms sonra) gönderiyor.
+ * Araç sonucu `{"answers":[metin],"custom":true}`. Enter bu dizide YOK.
+ */
+export function customAnswerKeys(optionCount: number, text: string): string {
+  const steps = Number.isFinite(optionCount) ? Math.max(0, Math.floor(optionCount)) : 0;
+  return "\x1b[B".repeat(steps) + text;
+}
+
+/** Serbest cevap: listeden cevaplanabilen (tek seçimli, ≥2 seçenek) soruyla aynı koşul. */
+export function isCustomAnswerable(question: AgentQuestion): boolean {
+  return isListAnswerable(question);
+}

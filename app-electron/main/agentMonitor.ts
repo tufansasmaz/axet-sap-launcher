@@ -10,17 +10,19 @@
 //   - Kararlar cevabı, soru hâlâ açıksa VE kullanıcı o soruya terminalde
 //     dokunmadıysa gönderiliyor: dokunduysa imleç yer değiştirmiş olabilir,
 //     `↓ × i` yanlış seçeneği onaylardı.
-import { isListAnswerable, optionKeys } from "../shared/agentDecisions";
+import { cleanCustomAnswer, customAnswerKeys, isCustomAnswerable, isListAnswerable, optionKeys } from "../shared/agentDecisions";
 import {
   AGENT_ROLE_MAX,
   isAgentEngineId,
   type AgentAnswerResult,
+  type AgentQuestion,
   type AgentRegistration,
   type AgentRoleKind,
   type AgentStatus,
   type AgentStatusEvent
 } from "../shared/agentTypes";
 import { InputLineBuffer } from "./agentInput";
+import { redact } from "./support/redact";
 import type { AgentReader } from "./agentGenericReader";
 import type { AgentNotificationKind } from "./agentNotification";
 
@@ -74,6 +76,12 @@ export interface AgentMonitor {
   onExit(ptyId: string): void;
   tick(): void;
   answer(paneId: string, callId: string, index: number): AgentAnswerResult;
+  /**
+   * Tur 7: serbest cevap (yalnız axet-code, kesin kaynak, tek seçimli soru).
+   * `↓ × seçenek sayısı` + metin tek yazım, Enter PROMPT_ENTER_DELAY_MS sonra ayrı;
+   * arada kullanıcı yazdıysa ya da soru kapandıysa Enter gönderilmiyor. Tek seferlik.
+   */
+  answerText(paneId: string, callId: string, text: string): AgentAnswerResult;
   snapshot(): AgentStatusEvent[];
   agents(): AgentPresence[];
   sendPrompt(paneId: string, text: string, onSettled?: (outcome: "sent" | "aborted") => void): AgentPromptResult;
@@ -191,25 +199,34 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     });
   }
 
+  /** Cevaptan önceki ortak denetim: soru hâlâ açık, cevaplanmamış, kesin kaynakta. */
+  function openQuestion(entry: Entry, callId: string): AgentQuestion | AgentAnswerResult {
+    // Yeniden doğrula: soru aynı anda terminalden cevaplanmış olabilir (spec §7).
+    entry.reader.poll();
+    const status = entry.reader.status();
+    const question = status.question;
+    if (status.state !== "asking" || !question || question.callId !== callId) {
+      evaluate(entry);
+      return { ok: false, reason: "closed" };
+    }
+    if (entry.listAnswered.has(callId)) return { ok: false, reason: "alreadyAnswered" };
+    // Yalnız kesin kaynakta listeden cevap (tahmini okuyucu soru üretmiyor ama sözleşme burada denetleniyor).
+    if (status.source !== "exact") return { ok: false, reason: "notAnswerable" };
+    return question;
+  }
+
+  // `askedAt` saniye çözünürlüklü: 1 sn pay, şüphede gönderme.
+  const touchedSince = (entry: Entry, question: AgentQuestion): boolean => {
+    const touched = entry.lastInputAt > 0 && entry.lastInputAt >= question.askedAt - 1_000;
+    return entry.input.hasDraft() || touched || deps.now() - entry.lastInputAt < TYPING_GUARD_MS;
+  };
+
   function answer(paneId: string, callId: string, index: number): AgentAnswerResult {
     const entry = byPane.get(paneId);
     if (!entry) return { ok: false, reason: "noAgent" };
     try {
-      // Yeniden doğrula: soru aynı anda terminalden cevaplanmış olabilir (spec §7).
-      entry.reader.poll();
-      const status = entry.reader.status();
-      const question = status.question;
-      if (status.state !== "asking" || !question || question.callId !== callId) {
-        evaluate(entry);
-        return { ok: false, reason: "closed" };
-      }
-      if (entry.listAnswered.has(callId)) {
-        return { ok: false, reason: "alreadyAnswered" };
-      }
-      // Yalnız kesin kaynakta listeden cevap (tahmini okuyucu soru üretmiyor ama sözleşme burada denetleniyor).
-      if (status.source !== "exact") {
-        return { ok: false, reason: "notAnswerable" };
-      }
+      const question = openQuestion(entry, callId);
+      if ("ok" in question) return question;
       if (
         !isListAnswerable(question) ||
         !Number.isInteger(index) ||
@@ -218,11 +235,7 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       ) {
         return { ok: false, reason: "notAnswerable" };
       }
-      // `askedAt` saniye çözünürlüklü: 1 sn pay, şüphede gönderme.
-      const touched = entry.lastInputAt > 0 && entry.lastInputAt >= question.askedAt - 1_000;
-      if (entry.input.hasDraft() || touched || deps.now() - entry.lastInputAt < TYPING_GUARD_MS) {
-        return { ok: false, reason: "typing" };
-      }
+      if (touchedSince(entry, question)) return { ok: false, reason: "typing" };
       if (!deps.write(entry.reg.ptyId, optionKeys(index))) return { ok: false, reason: "writeFailed" };
       entry.listAnswered.add(callId);
       try {
@@ -230,6 +243,43 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       } catch {
         // Log hatası sonucu değiştirmez: yazma başardı.
       }
+      return { ok: true };
+    } catch {
+      return { ok: false, reason: "writeFailed" };
+    }
+  }
+
+  function answerText(paneId: string, callId: string, raw: string): AgentAnswerResult {
+    const clean = cleanCustomAnswer(raw);
+    if (clean === null) return { ok: false, reason: "notAnswerable" };
+    const entry = byPane.get(paneId);
+    if (!entry) return { ok: false, reason: "noAgent" };
+    try {
+      const question = openQuestion(entry, callId);
+      if ("ok" in question) return question;
+      // Tuş dizisi yalnız axet-code'da ölçüldü (Tur 7).
+      if (entry.reg.engine !== "axet-code" || !isCustomAnswerable(question)) return { ok: false, reason: "notAnswerable" };
+      if (touchedSince(entry, question)) return { ok: false, reason: "typing" };
+      // Gizli süzgeç: anahtar/parola/JWT desenleri ajana yazılmıyor.
+      const text = cleanCustomAnswer(redact(clean, []).text);
+      if (text === null) return { ok: false, reason: "notAnswerable" };
+      if (!deps.write(entry.reg.ptyId, customAnswerKeys(question.options.length, text))) return { ok: false, reason: "writeFailed" };
+      // Tek seferlik: Enter gitmese de ikinci gönderim yok (metin kutuda; kullanıcı terminalde tamamlar).
+      entry.listAnswered.add(callId);
+      const sentAt = deps.now();
+      const enter = () =>
+        guard(() => {
+          if (byPane.get(paneId) !== entry) return;
+          // Arada kullanıcı yazdıysa Enter onun düzenlemesini de onaylardı.
+          if (entry.lastInputAt >= sentAt || entry.input.hasDraft()) return;
+          entry.reader.poll();
+          const current = entry.reader.status();
+          if (current.state !== "asking" || current.question?.callId !== callId) return;
+          deps.write(entry.reg.ptyId, "\r");
+        });
+      if (deps.schedule) deps.schedule(enter, PROMPT_ENTER_DELAY_MS);
+      else setTimeout(enter, PROMPT_ENTER_DELAY_MS);
+      guard(() => deps.log("ajan.karar", { motor: entry.reg.engine, yol: "serbest" }));
       return { ok: true };
     } catch {
       return { ok: false, reason: "writeFailed" };
@@ -363,6 +413,7 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       }
     },
     answer,
+    answerText,
     snapshot() {
       const out: AgentStatusEvent[] = [];
       for (const entry of byPane.values()) {

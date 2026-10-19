@@ -4,7 +4,7 @@
 // Tarayıcı | Bellek | Araçlar — Ofis ortada). Seçili lime ışıltı (lime yalnız seçim); etiket
 // ipucunda ve aria-label'da. Klavye: yukarı/aşağı ok, Home/End; yalnız seçili düğme sekme sırasında.
 import { useRef, type KeyboardEvent } from "react";
-import { BookOpen, Building2, ClipboardList, GitBranch, Globe, FileText, LayoutDashboard, Terminal, Wrench, type LucideIcon } from "lucide-react";
+import { BookOpen, Building2, ClipboardList, GitBranch, Globe, FileText, LayoutDashboard, Terminal, Users, Wrench, type LucideIcon } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import { useTerminalStore } from "../stores/terminalStoreContext";
@@ -16,16 +16,18 @@ import type { RailCounts } from "./railCounts";
 const COUNT_KEY: Partial<Record<WorkspaceView, TranslationKey>> = {
   board: "rail.count.board",
   changes: "rail.count.changes",
-  office: "rail.count.office"
+  office: "rail.count.office",
+  browser: "rail.count.browser"
 };
 
 // Tur 3: Pano (genel bakış) başta, Araçlar (motorlar) sonda.
-export const VIEW_TABS: readonly WorkspaceView[] = ["overview", "reports", "panes", "board", "office", "changes", "browser", "memory", "tools"];
+export const VIEW_TABS: readonly WorkspaceView[] = ["overview", "reports", "panes", "manage", "board", "office", "changes", "browser", "memory", "tools"];
 
 const VIEW_TAB_KEY: Record<WorkspaceView, TranslationKey> = {
   overview: "overview.view",
   reports: "reports.view",
   tools: "tools.view",
+  manage: "manage.view",
   panes: "tabs.terminal",
   board: "tabs.tasks",
   office: "office.view",
@@ -38,6 +40,7 @@ const VIEW_TAB_ICON: Record<WorkspaceView, LucideIcon> = {
   overview: LayoutDashboard,
   reports: FileText,
   tools: Wrench,
+  manage: Users,
   panes: Terminal,
   board: ClipboardList,
   office: Building2,

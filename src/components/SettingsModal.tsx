@@ -503,6 +503,14 @@ export default function SettingsModal({
                 label={t("settingsModal.agentNotificationsLabel")}
               />
             </Field>
+            {/* Tur 7: ajan çıktısındaki yerel adres Tarayıcı görünümünde otomatik açılır. */}
+            <Field label={t("settingsModal.browserAutoOpenLabel")} hint={t("settingsModal.browserAutoOpenHint")}>
+              <Toggle
+                checked={form.browserAutoOpen !== false}
+                onChange={(browserAutoOpen) => update({ browserAutoOpen })}
+                label={t("settingsModal.browserAutoOpenLabel")}
+              />
+            </Field>
           </div>
         );
       case "appearance":

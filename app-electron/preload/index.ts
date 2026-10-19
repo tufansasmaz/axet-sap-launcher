@@ -190,6 +190,8 @@ const api = {
     ipcRenderer.invoke("agents:send", workspaceId, paneId, text),
   agentAnswer: (paneId: string, callId: string, index: number): Promise<AgentAnswerResult> =>
     ipcRenderer.invoke("agents:answer", paneId, callId, index),
+  agentAnswerText: (paneId: string, callId: string, text: string): Promise<AgentAnswerResult> =>
+    ipcRenderer.invoke("agents:answerText", paneId, callId, text),
   agentSnapshot: (): Promise<AgentStatusEvent[]> => ipcRenderer.invoke("agents:snapshot"),
   onAgentStatus: (callback: (event: AgentStatusEvent) => void) => {
     const listener = (_event: unknown, event: AgentStatusEvent) => callback(event);

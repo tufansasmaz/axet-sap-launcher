@@ -25,12 +25,14 @@ export function pendingChangeCount(changes: ChangesState | null | undefined): nu
   return changes.checkpoints.filter((c) => c.reviewed === "pending" && !expired.has(c.id) && (c.stats?.files ?? 0) > 0).length;
 }
 
-export function railCounts(input: { board?: Board | null; changes?: ChangesState | null; asking: number }): RailCounts {
+export function railCounts(input: { board?: Board | null; changes?: ChangesState | null; asking: number; browser?: number }): RailCounts {
   const counts: RailCounts = {};
   const board = openSubtaskCount(input.board);
   const changes = pendingChangeCount(input.changes);
   if (board > 0) counts.board = board;
   if (changes > 0) counts.changes = changes;
   if (input.asking > 0) counts.office = input.asking;
+  // Tur 7: görünüm değiştirilmeden otomatik açılan yerel adresler.
+  if ((input.browser ?? 0) > 0) counts.browser = input.browser;
   return counts;
 }

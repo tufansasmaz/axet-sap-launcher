@@ -64,6 +64,7 @@ import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
 import TeamLeadListener from "./agents/TeamLeadListener";
 import AgentNotifier from "./agents/AgentNotifier";
+import LocalUrlWatcher from "./browser/LocalUrlWatcher";
 import AgentsModeBadge from "./agents/AgentsModeBadge";
 import { BoardProvider } from "./board/boardContext";
 import BoardOpenListener from "./board/BoardOpenListener";
@@ -1049,6 +1050,7 @@ export default function App() {
           pushToast={pushToast}
           onShow={handleShowAgents}
         />
+        <LocalUrlWatcher enabled={config?.browserAutoOpen !== false} />
         <BoardOpenListener onShow={handleShowAgents} />
         <TeamLeadListener />
         <div className="flex h-screen flex-col overflow-hidden">

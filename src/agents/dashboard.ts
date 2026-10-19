@@ -84,7 +84,10 @@ const GROUP: Record<FlowKind, EventGroup> = {
   error: "problem",
   failed: "problem",
   // Tur 6: kesin bağ bilgisi; ayrı grup yok, iş akışının parçası.
-  note: "work"
+  note: "work",
+  // Tur 7: ajanın ürettiği adres (iş çıktısı).
+  browser: "done",
+  link: "work"
 };
 
 export function groupOf(kind: FlowKind): EventGroup {

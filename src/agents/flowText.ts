@@ -21,6 +21,10 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
       return t(`flow.${event.kind}`, { title: event.detail });
     case "checkpoint":
       return t("flow.checkpoint", { label: event.detail });
+    case "browser":
+      return t("flow.browserOpened", { url: event.detail });
+    case "link":
+      return t("flow.linkFound", { url: event.detail });
     case "message":
     case "relay":
     case "learn":

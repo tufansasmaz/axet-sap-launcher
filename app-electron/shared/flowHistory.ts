@@ -18,7 +18,11 @@ export type FlowKind =
   /** Öğrenme görevi (Bellek): `detail` konu ve sonuç (yerelleştirilmiş). */
   | "learn"
   /** Tur 6: kesin bağ kurulamadı; `detail` sebep kodu (AgentLinkIssue). */
-  | "note";
+  | "note"
+  /** Tur 7: ajanın çıktısındaki yerel adres Tarayıcı'da açıldı; `detail` adres (gizlisi atılmış). */
+  | "browser"
+  /** Tur 7: ajanın cevabında adres (uzak ya da otomatik açma kapalı); yalnız "Tarayıcıda aç" düğmesi. */
+  | "link";
 
 export const FLOW_KINDS: readonly FlowKind[] = [
   "started",
@@ -32,7 +36,9 @@ export const FLOW_KINDS: readonly FlowKind[] = [
   "message",
   "relay",
   "learn",
-  "note"
+  "note",
+  "browser",
+  "link"
 ];
 
 /** Çalışma alanı başına saklanan en çok olay. */

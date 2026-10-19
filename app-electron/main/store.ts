@@ -129,6 +129,7 @@ function defaultConfig(): AppConfig {
     // öğrenir; kapatmak isteyenler Ayarlar'dan kapayabilir.
     chatNotifications: true,
     agentNotifications: true,
+    browserAutoOpen: true,
     // İlk kurulum: mevcut sürümü yaz — "zaten görüldü" anlamına geliyor.
     // Bu sayede fresh install'da yenilikler penceresi açılmaz.
     // Testlerde getVersion mevcut olmayabilir; "" ile güvenli başlangıç.
@@ -234,6 +235,7 @@ export function loadConfig(): AppConfig {
       // Göç: eski config'de alan yoksa → true (varsayılan açık).
       chatNotifications: parsed.chatNotifications === false ? false : fallback.chatNotifications,
       agentNotifications: parsed.agentNotifications === false ? false : fallback.agentNotifications,
+      browserAutoOpen: parsed.browserAutoOpen === false ? false : fallback.browserAutoOpen,
       // Alan eksikse veya string değilse → sentinel "0":
       // "yükseltme, henüz gösterilmedi" — shouldShowWhatsNew bunu yakalar.
       // Alan varsa (eski sürümlerde "" olabilir) doğrudan kullan; "" de
