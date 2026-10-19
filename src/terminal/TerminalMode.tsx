@@ -34,7 +34,7 @@ import type { WorkspaceView } from "../../app-electron/shared/types";
 type PaneSplit = { targetPaneId: string; dir: SplitDir };
 
 /** Üst şeritteki "+ Ajan" / "+ Kabuk"; `seq` her tıkta artıyor. */
-export type AddRequest = { kind: "agent" | "shell"; seq: number };
+export type AddRequest = { kind: "agent" | "shell"; seq: number; lead?: boolean };
 
 export default function TerminalMode({ addRequest = null }: { addRequest?: AddRequest | null } = {}) {
   const t = useT();
@@ -42,7 +42,7 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
   const { engines } = useAgentStatuses();
   // Açıkken hangi bölmenin bölüneceği (yoksa odaktakinin sağı).
   const [dialog, setDialog] = useState<{ split?: PaneSplit } | null>(null);
-  const [agentDialog, setAgentDialog] = useState<{ split?: PaneSplit } | null>(null);
+  const [agentDialog, setAgentDialog] = useState<{ split?: PaneSplit; lead?: boolean } | null>(null);
   // Alan başına son ölçülen bölme kutuları: düğme uzun kenardan bölsün diye (spec 2026-10-14 §3.2).
   const rects = useRef<Record<string, Record<string, Box>>>({});
 
@@ -70,7 +70,7 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
     const w = state.workspaces.find((x) => x.id === state.activeWorkspaceId);
     if (!w || state.phase !== "ready") return;
     const split = splitFor(w);
-    if (addRequest.kind === "agent") setAgentDialog({ split });
+    if (addRequest.kind === "agent") setAgentDialog({ split, ...(addRequest.lead ? { lead: true } : {}) });
     else setDialog({ split });
   });
 
@@ -183,6 +183,7 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
 
       <AddAgentDialog
         open={agentDialog !== null}
+        initialLead={agentDialog?.lead === true}
         defaultCwd={agentCwd}
         defaultName={t("agents.defaultName", { n: (active ? agentPanes(active).length : 0) + 1 })}
         engines={engines}

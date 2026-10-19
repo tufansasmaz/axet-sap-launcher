@@ -72,9 +72,12 @@ export default function AddAgentDialog({
   defaultName,
   engines,
   onAdd,
-  onCancel
+  onCancel,
+  initialLead = false
 }: {
   open: boolean;
+  /** Tur 7: Akış'taki "Lider ekle" önerisi — rol Lider seçili açılır. */
+  initialLead?: boolean;
   defaultCwd: string;
   defaultName: string;
   engines: AgentEngineInfo[] | null;
@@ -105,9 +108,9 @@ export default function AddAgentDialog({
     if (!open) return;
     setName(defaultName);
     setEngine(initialEngine(order, readDefaultEngine()));
-    setAxetRole("");
-    setRole("");
-    setRolePick(CUSTOM_ROLE);
+    setAxetRole(initialLead ? "agents.roleLead" : "");
+    setRole(initialLead ? t("agents.roleLead") : "");
+    setRolePick(initialLead ? "agents.roleLead" : CUSTOM_ROLE);
     setModel("");
     setCommand("");
     setCwd(defaultCwd);

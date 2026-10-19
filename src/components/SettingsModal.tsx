@@ -24,6 +24,10 @@ import { btn, iconBtn, tintBtn } from "../ui/buttons";
 import SettingsNav from "./settings/SettingsNav";
 import { SETTINGS_SECTIONS, EDITED_FIELDS, dirtySections, type SettingsSectionId } from "./settings/settingsSections";
 import DataPrivacySection from "./settings/DataPrivacySection";
+import { LEAD_MAX_DEFAULT, normalizeLeadMax } from "../../app-electron/shared/leadCommands";
+
+/** Tur 7: ekip başına lider açımı ajan sınırı seçenekleri. */
+const LEAD_MAX_OPTIONS = [1, 2, 3, 4, 6, 8] as const;
 
 interface Props {
   open: boolean;
@@ -616,6 +620,20 @@ export default function SettingsModal({
                 checked={form.agentMemoryDigest !== false}
                 onChange={(agentMemoryDigest) => update({ agentMemoryDigest })}
                 label={t("settingsModal.agentMemoryDigestLabel")}
+              />
+            </Field>
+            {/* Tur 7: Lider ajanın ekip kurması (ntt-team spawn). */}
+            <Field label={t("settingsModal.leadTeamLabel")} hint={t("settingsModal.leadTeamHint")}>
+              <Toggle checked={form.leadTeam !== false} onChange={(leadTeam) => update({ leadTeam })} label={t("settingsModal.leadTeamLabel")} />
+            </Field>
+            <Field label={t("settingsModal.leadApprovalLabel")} hint={t("settingsModal.leadApprovalHint")}>
+              <Toggle checked={form.leadApproval === true} onChange={(leadApproval) => update({ leadApproval })} label={t("settingsModal.leadApprovalLabel")} />
+            </Field>
+            <Field label={t("settingsModal.leadMaxLabel")} hint={t("settingsModal.leadMaxHint")}>
+              <SegmentedControl
+                value={String(form.leadMaxAgents ?? LEAD_MAX_DEFAULT)}
+                onChange={(value) => update({ leadMaxAgents: normalizeLeadMax(Number(value)) })}
+                options={LEAD_MAX_OPTIONS.map((n) => ({ key: String(n), label: String(n) }))}
               />
             </Field>
           </div>

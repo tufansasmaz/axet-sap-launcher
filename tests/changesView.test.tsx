@@ -24,6 +24,7 @@ function commandsMock(): TerminalCommands {
     closeWorkspace: vi.fn(),
     addPane: vi.fn(),
     addAgent: vi.fn(),
+    addAgentAt: vi.fn(),
     revealPane: vi.fn(),
     setWorkspaceRoot: vi.fn(),
     setWorkspaceVerify: vi.fn(),

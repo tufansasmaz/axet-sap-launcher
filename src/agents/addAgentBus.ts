@@ -2,13 +2,19 @@
 // ve Bellek görünümünün boş durumları, ekle diyaloğunu açan Ajanlar
 // ekranından ayrı ağaçlarda. Aradaki bağ tek bir pencere olayı; dinleyen
 // yoksa (Ajanlar ekranı takılı değil) hiçbir şey olmaz.
+// Tur 7: `lead` — Akış'taki "Lider ekle" önerisi; pencere Lider rolüyle açılır.
 const EVENT = "ntt:add-agent";
 
-export function requestAddAgent(): void {
-  window.dispatchEvent(new CustomEvent(EVENT));
+export interface AddAgentOptions {
+  lead?: boolean;
 }
 
-export function onAddAgentRequest(handler: () => void): () => void {
-  window.addEventListener(EVENT, handler);
-  return () => window.removeEventListener(EVENT, handler);
+export function requestAddAgent(options: AddAgentOptions = {}): void {
+  window.dispatchEvent(new CustomEvent<AddAgentOptions>(EVENT, { detail: options }));
+}
+
+export function onAddAgentRequest(handler: (options: AddAgentOptions) => void): () => void {
+  const listener = (event: Event) => handler(((event as CustomEvent<AddAgentOptions | null>).detail ?? {}) as AddAgentOptions);
+  window.addEventListener(EVENT, listener);
+  return () => window.removeEventListener(EVENT, listener);
 }

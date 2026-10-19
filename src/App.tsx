@@ -62,6 +62,7 @@ import { LearnProvider } from "./agents/brain/learnContext";
 import { TerminalStoreProvider, type SapPaneRequest } from "./stores/terminalStore";
 import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
+import TeamLeadListener from "./agents/TeamLeadListener";
 import AgentNotifier from "./agents/AgentNotifier";
 import AgentsModeBadge from "./agents/AgentsModeBadge";
 import { BoardProvider } from "./board/boardContext";
@@ -1049,6 +1050,7 @@ export default function App() {
           onShow={handleShowAgents}
         />
         <BoardOpenListener onShow={handleShowAgents} />
+        <TeamLeadListener />
         <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
         <div className="flex min-h-0 flex-1 overflow-hidden">

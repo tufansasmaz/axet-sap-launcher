@@ -14,6 +14,7 @@ import { AXET_SETUP_DETAIL, type AgentStatus } from "../../app-electron/shared/a
 import type { AgentSendFailure } from "../../app-electron/shared/agentMessage";
 import type { Board } from "../../app-electron/shared/boardTypes";
 import type { ChangesState } from "../../app-electron/shared/changesTypes";
+import { isLeadAct, type LeadApprovalRequest, type WithRequestId } from "../../app-electron/shared/leadCommands";
 import { useTerminalStore } from "../stores/terminalStoreContext";
 import { useAgentStatuses } from "./agentStatusContext";
 import { useBoards } from "../board/boardContext";
@@ -57,7 +58,14 @@ export interface FlowValue {
   unread: number;
   addUnread: (count: number) => void;
   markRead: () => void;
+  /** Tur 7: Lider açılışı onay bekleyenler (Ayarlar → "Lider açılışlarını onayla"). */
+  approvals: LeadApproval[];
+  answerApproval: (requestId: string, approved: boolean) => void;
 }
+
+/** Akış'taki onay kartı: ana süreç 5 dk bekler, cevapsız kalırsa reddedilmiş sayar. */
+export type LeadApproval = WithRequestId<LeadApprovalRequest> & { at: number };
+export const APPROVAL_TTL_MS = 5 * 60_000;
 
 /** Sağlayıcısız değer (testler de kendi değerlerini bunun üstüne kuruyor). */
 export const EMPTY_FLOW: FlowValue = {
@@ -72,7 +80,9 @@ export const EMPTY_FLOW: FlowValue = {
   dropNotices: () => {},
   unread: 0,
   addUnread: () => {},
-  markRead: () => {}
+  markRead: () => {},
+  approvals: [],
+  answerApproval: () => {}
 };
 
 export const FlowContext = createContext<FlowValue>(EMPTY_FLOW);
@@ -154,9 +164,45 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     if (!subscribe) return;
     return subscribe((m) => {
       if (typeof m?.workspaceId !== "string") return;
-      add([{ at: typeof m.at === "number" ? m.at : Date.now(), workspaceId: m.workspaceId, kind: "relay", paneId: m.paneId ?? null, name: String(m.name ?? ""), detail: String(m.detail ?? "") }]);
+      add([
+        {
+          at: typeof m.at === "number" ? m.at : Date.now(),
+          workspaceId: m.workspaceId,
+          kind: "relay",
+          paneId: m.paneId ?? null,
+          name: String(m.name ?? ""),
+          detail: String(m.detail ?? ""),
+          ...(isLeadAct(m.act) ? { act: m.act } : {}),
+          ...(typeof m.toPaneId === "string" && m.toPaneId ? { toPaneId: m.toPaneId } : {})
+        }
+      ]);
     });
   }, [add]);
+
+  // Tur 7: Lider açılışı onayı (ana süreç ister; cevap team:reply).
+  const [approvals, setApprovals] = useState<LeadApproval[]>([]);
+  useEffect(() => {
+    const subscribe = typeof window !== "undefined" ? window.api?.onTeamApproval : undefined;
+    if (!subscribe) return;
+    return subscribe((req) => {
+      if (typeof req?.requestId !== "string" || typeof req.workspaceId !== "string") return;
+      setApprovals((list) => [...list.filter((a) => a.requestId !== req.requestId), { ...req, at: Date.now() }]);
+    });
+  }, []);
+  useEffect(() => {
+    if (approvals.length === 0) return;
+    const next = Math.min(...approvals.map((a) => a.at + APPROVAL_TTL_MS)) - Date.now();
+    const timer = setTimeout(() => setApprovals((list) => list.filter((a) => a.at + APPROVAL_TTL_MS > Date.now())), Math.max(0, next) + 50);
+    return () => clearTimeout(timer);
+  }, [approvals]);
+  const answerApproval = useCallback((requestId: string, approved: boolean) => {
+    setApprovals((list) => list.filter((a) => a.requestId !== requestId));
+    try {
+      void window.api?.teamReply?.(requestId, approved)?.catch(() => {});
+    } catch {
+      // kanal yoksa ana süreç zaman aşımında reddeder
+    }
+  }, []);
 
   // Geçmiş: alan ilk görüldüğünde yükle.
   const loaded = useRef(new Set<string>());
@@ -255,8 +301,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
 
   const record = useCallback((input: FlowInput) => add([input]), [add]);
   const value = useMemo(
-    () => ({ events, record, clear, queued, queue, cancelQueued, retryQueued, notices, dropNotices, unread, addUnread, markRead }),
-    [events, record, clear, queued, queue, cancelQueued, retryQueued, notices, dropNotices, unread, addUnread, markRead]
+    () => ({ events, record, clear, queued, queue, cancelQueued, retryQueued, notices, dropNotices, unread, addUnread, markRead, approvals, answerApproval }),
+    [events, record, clear, queued, queue, cancelQueued, retryQueued, notices, dropNotices, unread, addUnread, markRead, approvals, answerApproval]
   );
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>;
 }

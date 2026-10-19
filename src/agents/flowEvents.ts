@@ -9,6 +9,7 @@ import type { Board, SubtaskState } from "../../app-electron/shared/boardTypes";
 import type { ChangesState } from "../../app-electron/shared/changesTypes";
 
 import { FLOW_HISTORY_MAX, type FlowKind, type StoredFlowEvent } from "../../app-electron/shared/flowHistory";
+import type { LeadAct } from "../../app-electron/shared/leadCommands";
 
 export type { FlowKind };
 
@@ -34,6 +35,10 @@ export interface FlowEvent {
   exact?: boolean;
   /** Tur 6: "finished"/"error" kartı yerine geçtiği "started" kartının anı (tek kart). */
   startedAt?: number;
+  /** Tur 7 ("relay"): lider kartı (açtı / görev / sonuç / kapattı / reddedildi). */
+  act?: LeadAct;
+  /** Tur 7 ("relay"): kartın hedef bölmesi (ofiste ışın). */
+  toPaneId?: string;
 }
 
 export type FlowInput = Omit<FlowEvent, "id">;
@@ -204,6 +209,8 @@ export function toStored(list: readonly FlowEvent[], workspaceId: string): Store
       name: e.name,
       detail: e.detail,
       ...(e.reply ? { reply: e.reply } : {}),
-      ...(e.exact ? { exact: true } : {})
+      ...(e.exact ? { exact: true } : {}),
+      ...(e.act ? { act: e.act } : {}),
+      ...(e.toPaneId ? { toPaneId: e.toPaneId } : {})
     }));
 }

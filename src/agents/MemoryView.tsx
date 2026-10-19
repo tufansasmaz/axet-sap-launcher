@@ -128,7 +128,7 @@ export default function MemoryView({ workspace }: { workspace: TerminalWorkspace
       <section aria-label={t("memory.viewTitle")} data-memory-view="" className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <p className="text-sm text-slate-200">{t("memory.emptyTitle")}</p>
         <p className="max-w-sm text-xs text-slate-500">{t("memory.emptyBody")}</p>
-        <button type="button" onClick={requestAddAgent} className={PRIMARY_BUTTON}>
+        <button type="button" onClick={() => requestAddAgent()} className={PRIMARY_BUTTON}>
           {t("agents.addFirst")}
         </button>
       </section>

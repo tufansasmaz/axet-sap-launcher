@@ -20,6 +20,7 @@ import { useTerminalStore } from "../stores/terminalStoreContext";
 import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
 import { PRIMARY_BUTTON } from "../ui/buttons";
 import { useAgentStatuses } from "../agents/agentStatusContext";
+import { useFlow } from "../agents/flowContext";
 import { agentPanes, TONE_DOT, type StatusTone } from "../agents/agentView";
 import { agentName } from "../agents/agentLabels";
 import { useBoards } from "../board/boardContext";
@@ -202,6 +203,24 @@ export default function OfficeView({
     // names her çizimde yeni; yalnız atama değişince
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignKey, reduced]);
+  // Tur 7: Lider ntt-team ile görev verdi (Akış "relay"/assign): aynı ışın, hedef ajana.
+  const { events } = useFlow();
+  const mountedAt = useRef(Date.now());
+  const seenAssign = useRef(0);
+  const lastAssign = [...events].reverse().find((e) => e.workspaceId === workspace.id && e.kind === "relay" && e.act === "assign" && e.toPaneId);
+  const assignStamp = lastAssign && lastAssign.at >= mountedAt.current ? lastAssign.id : 0;
+  useEffect(() => {
+    if (!assignStamp || assignStamp === seenAssign.current || !lastAssign?.toPaneId) return;
+    seenAssign.current = assignStamp;
+    if (reduced || !names.has(lastAssign.toPaneId)) return;
+    const start = Date.now();
+    const beam = { id: ++beamSeq.current, paneId: lastAssign.toPaneId, start };
+    setBeams((b) => [...b, beam]);
+    const timer = setTimeout(() => setBeams((b) => b.filter((x) => x.id !== beam.id)), BEAM_MS);
+    return () => clearTimeout(timer);
+    // yalnız yeni görev kartında
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignStamp, reduced]);
   const shownBeams = reduced ? [] : beams;
 
   const inputs: ActorInput[] = seats.map((s) => ({ id: s.pane.id, pose: s.view.pose, motion: s.view.motion, seat: s.seat }));

@@ -93,6 +93,30 @@ describe("FlowProvider — Tur 4", () => {
     await waitFor(() => expect(current!.events.some((e) => e.kind === "relay" && e.name === "Ayşe → Ali")).toBe(true));
   });
 
+  it("Tur 7: lider kartı act/toPaneId'yi taşıyor; kalıcı kayda da gidiyor", async () => {
+    setup({});
+    await waitFor(() => expect(relayListener).not.toBeNull());
+    act(() => relayListener!({ workspaceId: WS, paneId: "a", name: "Ayşe → Ali", detail: "[G-ab12] yaz", at: 31, act: "assign", toPaneId: "b" }));
+    await waitFor(() => expect(current!.events.some((e) => e.act === "assign" && e.toPaneId === "b")).toBe(true));
+    await waitFor(() => expect(api.flowSave.mock.calls.some((c) => (c[1] as Array<{ act?: string }>).some((e) => e.act === "assign"))).toBe(true), { timeout: 3000 });
+  });
+
+  it("Tur 7: onay isteği kart olur, cevap team:reply ile gider ve kart kalkar", async () => {
+    let approvalListener: ((r: unknown) => void) | null = null;
+    api.onTeamApproval = vi.fn((cb: (r: unknown) => void) => {
+      approvalListener = cb;
+      return () => {};
+    });
+    api.teamReply = vi.fn(async () => {});
+    setup({});
+    await waitFor(() => expect(approvalListener).not.toBeNull());
+    act(() => approvalListener!({ requestId: "r1", workspaceId: WS, leaderPaneId: "a", leader: "Ayşe", name: "Test", role: "Test", engine: null, task: "" }));
+    await waitFor(() => expect(current!.approvals).toHaveLength(1));
+    act(() => current!.answerApproval("r1", true));
+    expect(api.teamReply).toHaveBeenCalledWith("r1", true);
+    await waitFor(() => expect(current!.approvals).toHaveLength(0));
+  });
+
   it("kuyruk: seçim penceresi açıkken gönderilmiyor; kapanınca bir kez gidiyor ve akışa yazılıyor", async () => {
     const setupStatus: AgentStatus = { state: "idle", source: "estimated", lastActivity: null, detail: "setup" };
     const { rerender } = setup({ a: setupStatus });

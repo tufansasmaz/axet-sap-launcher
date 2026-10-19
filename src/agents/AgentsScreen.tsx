@@ -36,14 +36,14 @@ export default function AgentsScreen({
   const ready = state.phase === "ready" && active !== null;
   const full = (active?.panes.length ?? 0) >= MAX_TERMINAL_PANES;
 
-  const requestAdd = (kind: AddRequest["kind"]) => {
+  const requestAdd = (kind: AddRequest["kind"], lead = false) => {
     onShowAgents();
-    setAddRequest((prev) => ({ kind, seq: (prev?.seq ?? 0) + 1 }));
+    setAddRequest((prev) => ({ kind, seq: (prev?.seq ?? 0) + 1, ...(lead ? { lead: true } : {}) }));
   };
   // Akış ve Bellek boş durumlarındaki "İlk ajanını ekle" (ayrı ağaçlar; addAgentBus).
   const requestAddRef = useRef(requestAdd);
   requestAddRef.current = requestAdd;
-  useEffect(() => onAddAgentRequest(() => requestAddRef.current("agent")), []);
+  useEffect(() => onAddAgentRequest((options) => requestAddRef.current("agent", options.lead === true)), []);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">

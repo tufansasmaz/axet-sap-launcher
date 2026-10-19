@@ -379,6 +379,9 @@ bilmen gerekmez); eşleşmeyen bölümler listeden çekilir.
     kabuk ve ajan bölmeleri bu kabukla açılır, harici pencere açılmaz.
   - **Ajan başlarken ekip belleği özeti**: Belleği açık ajanın ilk satırına
     ekibin önemli notlarının kısa özeti eklenir (varsayılan açık).
+  - **Lider ajan ekip kurabilsin** (varsayılan açık), **Lider açılışlarını
+    onayla** (varsayılan kapalı) ve **Ekip başına lider açımı ajan** (varsayılan
+    4): bkz. Ajanlar Ekranı → Lider ve otomatik ekip.
 - **SAPUILandscape.xml yolu**: Normalde otomatik bulunur
   (`%APPDATA%\SAP\Common\SAPUILandscape.xml`). SAP Logon'un dosyası farklı
   bir yerde tutuluyorsa burada elle belirtilir.
@@ -684,6 +687,54 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   düzenin kaybolmaz; eski axet-code bölmeleri axet-code ajanı olarak açılır.
   Bu dönüşüm tek yönlüdür: daha eski bir sürüme (1.8.x) dönersen ajan
   bölmeleri o sürümde açılmaz.
+
+### Lider ve otomatik ekip
+
+Ekibe **Lider** rolünde bir ajan eklersen (+ Ajan → Rol: Lider) iş vermenin en
+kısa yolu ona iş vermektir: lider işi parçalar, gerekirse uygun rollerde yeni
+ajanlar açar, onlara görev verir, sonuçları toplar, açtıklarını kapatır ve
+sana kısa bir özet verir.
+
+- **Nasıl başlar**: Akış'ta lidere ya da **@ekip**'e yaz. Ekipte Lider varsa
+  @ekip mesajı yalnız lidere gider ("İş Lider … ajanına gitti"); ekibi o
+  dağıtır. Lider yoksa mesaj eskisi gibi her ajana ayrı gider ve altında
+  **Lider ekle** önerisi çıkar (tıklayınca ekleme penceresi Lider rolüyle
+  açılır). Lidere Akış'tan giden ilk mesajın sonuna kısa bir yöneticilik
+  rehberi eklenir (ekip tek kişiyse de).
+- **Liderin araçları** (yalnız Lider rolündeki, senin açtığın ajanda çalışır):
+  `ntt-team spawn --rol Geliştirici|Analist|Test|İnceleme [--ad <ad>] [--motor <motor>] [--gorev "<ilk görev>"]`
+  ekibin alanında (ekibin depo kökünde, yoksa liderin klasöründe) yeni ajan
+  bölmesi açar; ilk görev, ajan hazır olunca (axet-code'un açılış araç
+  seçimi kapanınca) kendiliğinden gider.
+  `ntt-team assign <ajan> "<görev>"` görev verir ve **G-xxxx** takip kimliği
+  döndürür; `ntt-team wait <G-xxxx>` görevin sonucunu bekler (varsayılan 25 sn, bitmediyse yeniden çağrılır;
+  `--sure` ile en çok 10 dk). Ajandan cevabının son satırını `GOREV-SONUC <kimlik>: <özet>`
+  yazması istenir; sonuç bu kimlikle eşleştirilir, başka bir işin cevabı bu
+  görevin sonucu sayılmaz. Claude/Codex/Gemini gibi kesin okuyucusu olmayan
+  motorlarda da bu satır terminal çıktısından okunur; satır yoksa "cevap
+  terminalinde" denir. `ntt-team status` ekip üyelerini, durum/aşamayı ve
+  aktif görevleri gösterir; `ntt-team close <ajan>` yalnız liderin kendi
+  açtığı ajanı kapatır — senin açtığın ajanlara dokunamaz.
+- **Akış'ta görünür**: "Ayşe → yeni ajan açtı: Test (Test)", "Ayşe → Test"
+  (görev), "Test → Ayşe" (sonuç), "Ayşe → ajanı kapattı" kartları. Ofiste
+  liderden göreve giden ajana ışın çizilir. Liderin açtığı ajanların ekip
+  satırında küçük bir dal işareti vardır. Bu görevler Görev Panosu'na alt
+  görev olarak yazılmaz (pano kendi dağıtıcısıyla çalışıyor); izleri Akış
+  geçmişindedir.
+- **Sınırlar ve güvenlik**: ekip başına en çok 4 lider-açımı ajan (Ayarlar →
+  Ajanlar ve terminal → "Ekip başına lider açımı ajan"), toplam 9 bölme, aynı anda en
+  çok 2 açılış. Lider kendini çoğaltamaz (Lider rolünde ajan açamaz), açtığı
+  ajanlar ekip kuramaz. Açılan ajan liderle aynı alanda çalışır: aynı SAP
+  bağı, aynı beceri profili (modül danışmanı profilinde geliştirme yetkisi
+  yine yoktur; rol etiketi yetki vermez). Motor yetkisi yalnız aşağı iner:
+  onaysız çalışan axet-code'u (`-y`) yalnız axet-code lideri açabilir, serbest
+  komutlu "özel" motor hiç açılamaz. Şifre ya da jeton aktarılmaz.
+- **Ayarlar** (Ajanlar ve terminal): **Lider ajan ekip kurabilsin** (varsayılan
+  açık; kapalıyken lider yalnız var olan ajanlara görev verebilir) ve **Lider
+  açılışlarını onayla** (varsayılan kapalı; açıkken her açılış Akış'ta **Aç /
+  Reddet** kartıyla bekler, 5 dk cevapsız kalırsa reddedilir).
+- Görev takibi uygulama açıkken bellekte tutulur; uygulama kapanınca bekleyen
+  görevler biter (Akış geçmişi kalır).
 
 ### Görev Panosu
 

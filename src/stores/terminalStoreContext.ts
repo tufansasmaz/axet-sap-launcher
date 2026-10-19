@@ -29,6 +29,8 @@ export interface TerminalCommands {
   addPane: (kind: TerminalMode, cwd: string, split?: { targetPaneId: string; dir: SplitDir }) => void;
   /** Seçili alana ajan bölmesi ekler (spec §4). */
   addAgent: (input: NewAgentInput, split?: { targetPaneId: string; dir: SplitDir }) => void;
+  /** Tur 7: lider açılışı — verilen alana, verilen kimlikle; yer/alan yoksa false. */
+  addAgentAt: (workspaceId: string, paneId: string, input: NewAgentInput) => boolean;
   /** Bölmenin alanını seçer; şeritteyse geri getirir, değilse odaklar (kart, Kararlar, bildirim). */
   revealPane: (paneId: string) => void;
   /** Alanın kökü ve SAP bağı; `null` kaldırır (spec §3). */

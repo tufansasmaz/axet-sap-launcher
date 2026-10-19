@@ -474,6 +474,16 @@ export function TerminalStoreProvider({
           memory: input.memory === true
         });
       },
+      addAgentAt: (workspaceId, paneId, input) => {
+        // Tur 7: lider açılışı — kimliği ana süreç veriyor, alan liderin alanı (etkin olmayabilir).
+        const current = stateRef.current;
+        const workspace = current.workspaces.find((w) => w.id === workspaceId);
+        if (current.phase !== "ready" || !workspace || workspace.panes.length >= MAX_TERMINAL_PANES || !input.cwd.trim()) return false;
+        if (findPane(current, paneId)) return false;
+        freshAgents.current.add(paneId);
+        dispatch({ type: "addPane", workspaceId, paneId, kind: "agent", cwd: input.cwd, agent: input.spec, title: input.name, color: input.color, memory: input.memory === true });
+        return true;
+      },
       revealPane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
         if (!found) return;

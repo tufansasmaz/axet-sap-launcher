@@ -89,13 +89,17 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: TerminalSquare,
     titleKey: "settingsModal.sectionTerminal",
     descKey: "settingsModal.descTerminal",
-    fields: ["axetCommand", "terminal", "agentMemoryDigest"],
+    fields: ["axetCommand", "terminal", "agentMemoryDigest", "leadTeam", "leadApproval", "leadMaxAgents"],
     searchKeys: [
       "settingsModal.axetCommandLabel",
       "settingsModal.shellLabel",
       "settingsModal.shellHelper",
       "settingsModal.agentMemoryDigestLabel",
-      "settingsModal.agentMemoryDigestHint"
+      "settingsModal.agentMemoryDigestHint",
+      "settingsModal.leadTeamLabel",
+      "settingsModal.leadTeamHint",
+      "settingsModal.leadApprovalLabel",
+      "settingsModal.leadMaxLabel"
     ]
   },
   {

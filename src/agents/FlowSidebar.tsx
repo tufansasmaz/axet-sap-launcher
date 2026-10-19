@@ -5,7 +5,7 @@
 // kartta), soru kartları ve mesaj kutusu. Görünüm seçimi artık içerik
 // alanının sol kenarındaki dikey rayda (ViewRail).
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, RotateCw, Trash2, X } from "lucide-react";
+import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, GitBranch, RotateCw, Trash2, X } from "lucide-react";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { noteFromFlow } from "../../app-electron/shared/memoryNotes";
 import { useT } from "../i18n";
@@ -26,7 +26,8 @@ import { activeSubtaskOf } from "../board/boardDisplay";
 import MemoryDialog from "./MemoryDialog";
 import { flowBody } from "./flowText";
 import { phaseText } from "./agentPhase";
-import { useFlow, type QueuedSend } from "./flowContext";
+import { useFlow, type LeadApproval, type QueuedSend } from "./flowContext";
+import { isLeadRole } from "../../app-electron/shared/leadCommands";
 import type { FlowEvent, FlowKind } from "./flowEvents";
 import { matchAgents, mentionAt, removeMention, type Mention } from "./mention";
 import { requestAddAgent } from "./addAgentBus";
@@ -75,20 +76,21 @@ export default function FlowSidebar() {
   const t = useT();
   const { state, commands } = useTerminalStore();
   const { statuses } = useAgentStatuses();
-  const { events, queued, clear } = useFlow();
+  const { events, queued, clear, approvals } = useFlow();
   const [confirmClear, setConfirmClear] = useState(false);
   const workspace = state.workspaces.find((w) => w.id === state.activeWorkspaceId) ?? null;
   const listRef = useRef<HTMLDivElement | null>(null);
   const shown = workspace ? events.filter((e) => e.workspaceId === workspace.id) : [];
   const decisions = workspace ? decisionsOf([workspace], statuses) : [];
   const waiting = workspace ? queued.filter((q) => q.workspaceId === workspace.id) : [];
+  const asks = workspace ? approvals.filter((a) => a.workspaceId === workspace.id) : [];
   const lastId = shown.length ? shown[shown.length - 1].id : 0;
 
   // En yeni altta: yeni olay ya da soru gelince sona kay.
   useEffect(() => {
     const el = listRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [lastId, decisions.length, workspace?.id]);
+  }, [lastId, decisions.length, asks.length, workspace?.id]);
 
   // İlk açılışta "Son düzen" seçimi sol panelin başında (içerik alanının üstünde şerit değil).
   const restore =
@@ -137,6 +139,13 @@ export default function FlowSidebar() {
             <FlowEntry key={event.id} event={event} workspace={workspace} />
           ))}
         </ol>
+        {asks.length > 0 && (
+          <ul className="mt-2 flex flex-col gap-2">
+            {asks.map((item) => (
+              <ApprovalCard key={item.requestId} item={item} />
+            ))}
+          </ul>
+        )}
         {waiting.length > 0 && (
           <ul className="mt-2 flex flex-col gap-2">
             {waiting.map((item) => (
@@ -165,6 +174,26 @@ export default function FlowSidebar() {
         onCancel={() => setConfirmClear(false)}
       />
     </div>
+  );
+}
+
+/** Tur 7: Lider bir ajan açmak istiyor (Ayarlar → "Lider açılışlarını onayla"). */
+function ApprovalCard({ item }: { item: LeadApproval }) {
+  const t = useT();
+  const { answerApproval } = useFlow();
+  return (
+    <li data-flow-approval="" className="rounded-md border border-[var(--status-warning-border)] px-2 py-1.5">
+      <p className="text-2xs font-medium text-[var(--status-warning-text)]">{t("flow.lead.approveTitle", { lead: item.leader, name: item.name, role: item.role })}</p>
+      {item.task && <p className="mt-0.5 line-clamp-3 break-words text-xs text-slate-300">{item.task}</p>}
+      <div className="mt-1 flex items-center gap-2">
+        <button type="button" onClick={() => answerApproval(item.requestId, true)} className={TOOL_BUTTON}>
+          {t("flow.lead.approve")}
+        </button>
+        <button type="button" onClick={() => answerApproval(item.requestId, false)} className={LINK}>
+          {t("flow.lead.deny")}
+        </button>
+      </div>
+    </li>
   );
 }
 
@@ -255,15 +284,17 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
   const pane = event.paneId ? workspace.panes.find((p) => p.id === event.paneId) : undefined;
   const at = clock(event.at);
 
-  // Tur 4: ajandan ajana (ekip köprüsü) — "A → B" ve metin.
+  // Tur 4: ajandan ajana (ekip köprüsü) — "A → B" ve metin. Tur 7: lider kartları (act).
   if (event.kind === "relay") {
     const color = pane ? PANE_COLOR_VAR[pane.color ?? "gray"] : undefined;
+    const act = event.act;
+    const title = act === "spawn" || act === "close" || act === "denied" ? t(`flow.lead.${act}`, { lead: event.name }) : event.name;
     return (
-      <li data-flow-event="relay" className="mr-4 rounded-md border border-line px-2 py-1.5">
+      <li data-flow-event="relay" data-flow-act={act} className="mr-4 rounded-md border border-line px-2 py-1.5">
         <div className="flex min-w-0 items-center gap-1.5 text-2xs">
           <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
-          <span className="min-w-0 truncate font-medium text-slate-200">{event.name}</span>
-          <Chip tone="muted">{t("flow.chip.relay")}</Chip>
+          <span className="min-w-0 truncate font-medium text-slate-200">{title}</span>
+          <Chip tone={act === "denied" ? "warning" : "muted"}>{act ? t(`flow.lead.chip.${act}`) : t("flow.chip.relay")}</Chip>
           <span className="ml-auto shrink-0 font-mono tabular-nums text-slate-600">{at}</span>
         </div>
         <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap break-words text-xs text-slate-200">{event.detail}</p>
@@ -479,7 +510,7 @@ function TeamSection({ workspace }: { workspace: TerminalWorkspace }) {
         <div data-flow-empty="" className="mx-2 mb-2 flex flex-col items-start gap-1.5 rounded-md border border-dashed border-line p-3">
           <p className="text-xs text-slate-200">{t("flow.emptyTitle")}</p>
           <p className="text-2xs text-slate-500">{t("flow.emptyBody")}</p>
-          <button type="button" onClick={requestAddAgent} className={`${PRIMARY_BUTTON} mt-1`}>
+          <button type="button" onClick={() => requestAddAgent()} className={`${PRIMARY_BUTTON} mt-1`}>
             {t("agents.addFirst")}
           </button>
         </div>
@@ -554,6 +585,12 @@ function AgentRow({
             {pane.agent.role}
           </span>
         )}
+        {/* Tur 7: Lider açtı (yalnız o lider kapatabilir). */}
+        {pane.agent?.spawnedBy && (
+          <span data-agent-spawned="" title={t("flow.lead.spawnedBadge")} aria-label={t("flow.lead.spawnedBadge")} className="shrink-0 text-slate-500">
+            <GitBranch size={10} />
+          </span>
+        )}
         {/* Görev panosu (spec 2026-10-18 gorev-panosu §8): görevli ajanın alt görevi. */}
         {job && (
           <span data-agent-task="" title={job.subtask.title} className="min-w-0 shrink-[3] truncate text-2xs text-slate-500">
@@ -601,6 +638,11 @@ function AgentRow({
   );
 }
 
+/** Tur 7: ekibin Lider'i (kullanıcının açtığı, Lider rolünde ilk ajan). */
+export function teamLead(workspace: TerminalWorkspace): TerminalPane | null {
+  return agentPanes(workspace).find((p) => p.agent && isLeadRole(p.agent.role) && !p.agent.spawnedBy) ?? null;
+}
+
 /** `@ekip` seçimi: tek satır ekipteki bütün ajanlara (Tur 2). */
 const TEAM_ID = "__team__";
 
@@ -623,6 +665,8 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Tur 7: lidersiz ekibe iş verilince "Lider ekle" önerisi.
+  const [leadTip, setLeadTip] = useState(false);
   // Hedef çipinden açılan seçici (Tur 3); @ yazınca açılan listeyle aynı liste.
   const [picker, setPicker] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -651,18 +695,32 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     // Satırlar ajana tek satır olarak gider (terminal istemi; satır sonu reddedilir).
     const body = text.replace(/\s+/g, " ").trim();
     if (!body) return;
-    if (target.id !== TEAM_ID && statuses[target.id]?.detail === AXET_SETUP_DETAIL) {
-      // Açılış seçimi açık: yazılsaydı kaybolurdu. Kuyrukta bekler, seçim yapılınca bir kez gider.
-      queue({ workspaceId: workspace.id, paneId: target.id, name: target.name, body });
-      setText("");
-      setNotice(t("flow.queue.queued", { name: target.name }));
-      return;
-    }
+    setLeadTip(false);
     setSending(true);
     if (target.id === TEAM_ID) {
+      // Tur 7: ekipte Lider varsa iş ona gider; ekibi o kurar ve dağıtır.
+      const lead = teamLead(workspace);
+      if (lead) {
+        await sendOne({ id: lead.id, name: agentName(lead, t) }, body, t("flow.lead.routed", { name: agentName(lead, t) }));
+        return;
+      }
       await sendTeam(body);
+      setLeadTip(true);
       return;
     }
+    await sendOne(target, body, null);
+  };
+
+  const sendOne = async (to: { id: string; name: string }, body: string, okNotice: string | null) => {
+    if (statuses[to.id]?.detail === AXET_SETUP_DETAIL) {
+      // Açılış seçimi açık: yazılsaydı kaybolurdu. Kuyrukta bekler, seçim yapılınca bir kez gider.
+      setSending(false);
+      queue({ workspaceId: workspace.id, paneId: to.id, name: to.name, body });
+      setText("");
+      setNotice(t("flow.queue.queued", { name: to.name }));
+      return;
+    }
+    const target = to;
     let result;
     try {
       result = await window.api.agentSend(workspace.id, target.id, body);
@@ -673,7 +731,7 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     if (result.ok) {
       record({ at: Date.now(), workspaceId: workspace.id, kind: "message", paneId: target.id, name: target.name, detail: body });
       setText("");
-      setNotice(null);
+      setNotice(okNotice);
     } else {
       setNotice(t(SEND_FAILURE[result.reason] ?? "browser.fail.writeFailed"));
     }
@@ -767,6 +825,14 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
       {notice && (
         <p role="status" className="mb-1 px-1 text-2xs text-[var(--status-warning-text)]">
           {notice}
+        </p>
+      )}
+      {leadTip && (
+        <p data-flow-lead-tip="" className="mb-1 flex items-center gap-2 px-1 text-2xs text-slate-400">
+          <span className="min-w-0 flex-1">{t("flow.lead.tip")}</span>
+          <button type="button" onClick={() => requestAddAgent({ lead: true })} className={LINK}>
+            {t("flow.lead.addLead")}
+          </button>
         </p>
       )}
       <div
