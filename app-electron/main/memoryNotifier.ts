@@ -31,6 +31,12 @@ export interface MemoryNotifierDeps {
   ensureFile(root: string, key: string, name: string): MemoryEnsure;
   sendPrompt(paneId: string, text: string, onSettled?: (outcome: "sent" | "aborted") => void): AgentPromptResult;
   log(tag: string, fields: LogFields): void;
+  /**
+   * Tur 5: ekip belleği özeti (kısa, tek satır; memoryNotes.memoryDigest).
+   * Bellek satırının sonuna eklenir: ajan yeni oturumda ekibin önemli
+   * notlarını görür. Boşsa ya da fırlatırsa satır eskisi gibi.
+   */
+  digest?(workspaceId: string, paneId: string): string;
 }
 
 export interface MemoryNotifier {
@@ -61,7 +67,7 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
     if (next.phase === "failed") log({ sonuc: "vazgecildi", deneme: next.attempts });
   }
 
-  function send(paneId: string, state: NoticeState, target: MemoryTarget): void {
+  function send(paneId: string, state: NoticeState, target: MemoryTarget, workspaceId: string): void {
     const ensured = attempt(() => deps.ensureFile(target.root, target.key, target.name), "failed" as MemoryEnsure);
     if (ensured === "failed") {
       byPane.set(paneId, noticeBlocked(state));
@@ -72,7 +78,7 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
     byPane.set(paneId, sending);
     const result = attempt(
       () =>
-        deps.sendPrompt(paneId, memoryPromptLine(target.key), (outcome) => {
+        deps.sendPrompt(paneId, startLine(target.key, workspaceId, paneId), (outcome) => {
           // Arada yeniden başlatıldı ya da kapandı: bu sonuç artık o sürecin değil.
           if (disposed || byPane.get(paneId) !== sending) return;
           if (outcome === "sent") {
@@ -90,6 +96,14 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
     );
     // Reddedildi (busy/typing/asking/notRunning/…): onSettled hiç çağrılmaz.
     if (result !== "ok" && byPane.get(paneId) === sending) missed(paneId, sending);
+  }
+
+  /** Bellek satırı + varsa özet; denetim karakteri ve 3500 üstü düşer (sendPrompt 4000'de reddeder). */
+  function startLine(key: string, workspaceId: string, paneId: string): string {
+    const base = memoryPromptLine(key);
+    const extra = deps.digest ? attempt(() => deps.digest?.(workspaceId, paneId) ?? "", "") : "";
+    const flat = typeof extra === "string" ? extra.replace(/[\u0000-\u001f\u007f-\u009f\u2028\u2029]+/g, " ").trim() : "";
+    return flat && base.length + flat.length + 1 <= 3_500 ? `${base} ${flat}` : base;
   }
 
   function tick(): void {
@@ -113,7 +127,8 @@ export function createMemoryNotifier(deps: MemoryNotifierDeps): MemoryNotifier {
         byPane.set(paneId, noticeLater(state, now));
         continue;
       }
-      attempt(() => send(paneId, state, target), undefined);
+      const workspaceId = p.reg.workspaceId as string;
+      attempt(() => send(paneId, state, target, workspaceId), undefined);
     }
   }
 

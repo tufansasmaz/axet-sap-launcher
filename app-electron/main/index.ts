@@ -58,6 +58,8 @@ import { AXET_SETUP_DETAIL } from "../shared/agentTypes";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
 import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
 import { createMemoryNotifier } from "./memoryNotifier";
+import { createNotesStore } from "./memoryNotesStore";
+import { memoryDigest } from "../shared/memoryNotes";
 import { createMemoryService } from "./memoryService";
 import { browserSession, liveBrowserGuest } from "./browserLive";
 import type { ChangesFailure } from "../shared/changesTypes";
@@ -440,6 +442,13 @@ const agentSender = createAgentSender({
 // Akış geçmişi (Tur 4): userData/flow-history/<alan>.json, son 500 olay, gizli süzgeçli.
 const flowHistoryDir = () => path.join(app.getPath("userData"), "flow-history");
 
+// Bellek notları — ikinci beyin (Tur 5): userData/memory-notes/<ekip>.json,
+// atomik yazım, gizli süzgeçli. Ekip kapanınca silinmiyor.
+const notesStore = createNotesStore(() => path.join(app.getPath("userData"), "memory-notes"));
+function notifyNotesChanged(workspaceId: string): void {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("notes:changed", workspaceId);
+}
+
 // Ekip köprüsü (Tur 4, teamBridge.ts): ajan `ntt-team list|ask|feed` ile
 // ekibini görür ve ekip arkadaşına sorar. Yalnız 127.0.0.1, rastgele port,
 // bölme başına HMAC jeton (bellekte). Hedefe yazım Akış'ın kapılarından.
@@ -476,7 +485,13 @@ const teamBridge = createTeamBridge({
   },
   now: () => Date.now(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-  log: (tag, fields) => appLog(tag, fields)
+  log: (tag, fields) => appLog(tag, fields),
+  memory: (workspaceId) => ({
+    list: () => notesStore.list(workspaceId),
+    add: (input) => notesStore.add(workspaceId, input),
+    update: (id, patch) => notesStore.update(workspaceId, id, patch)
+  }),
+  memoryChanged: notifyNotesChanged
 });
 let teamServer: { port: number; close: () => void } | null = null;
 let teamScriptDir: string | null = null;
@@ -515,7 +530,9 @@ const memoryNotifier = createMemoryNotifier({
   workspaces: () => loadConfig().terminalWorkspaces,
   ensureFile: ensureMemoryFile,
   sendPrompt: (paneId, text, onSettled) => agentMonitor.sendPrompt(paneId, text, onSettled),
-  log: (tag, fields) => appLog(tag, fields)
+  log: (tag, fields) => appLog(tag, fields),
+  // Tur 5: yeni oturumda ekip belleği özeti (başlıklar, ≤700 karakter).
+  digest: (workspaceId, paneId) => memoryDigest(notesStore.list(workspaceId), paneId)
 });
 
 const memoryService = createMemoryService({
@@ -1505,6 +1522,18 @@ function registerIpc(): void {
   ipcMain.handle("flow:load", (event, workspaceId: unknown) => (fromMain(event) ? loadFlowHistory(flowHistoryDir(), workspaceId) : []));
   ipcMain.handle("flow:save", (event, workspaceId: unknown, events: unknown) => (fromMain(event) ? saveFlowHistory(flowHistoryDir(), workspaceId, events) : false));
   ipcMain.handle("flow:clear", (event, workspaceId: unknown) => (fromMain(event) ? clearFlowHistory(flowHistoryDir(), workspaceId) : false));
+
+  // Bellek notları (Tur 5): yalnız ana pencereden.
+  ipcMain.handle("notes:list", (event, workspaceId: unknown) => (fromMain(event) ? notesStore.list(workspaceId) : []));
+  ipcMain.handle("notes:add", (event, workspaceId: unknown, input: unknown) => {
+    if (!fromMain(event)) return { ok: false, reason: "invalid" };
+    return notesStore.add(workspaceId, input as Parameters<typeof notesStore.add>[1]);
+  });
+  ipcMain.handle("notes:update", (event, workspaceId: unknown, id: unknown, patch: unknown, expectedUpdated: unknown) => {
+    if (!fromMain(event)) return { ok: false, reason: "invalid" };
+    return notesStore.update(workspaceId, id, patch as Parameters<typeof notesStore.update>[2], typeof expectedUpdated === "number" ? expectedUpdated : undefined);
+  });
+  ipcMain.handle("notes:remove", (event, workspaceId: unknown, id: unknown) => (fromMain(event) ? notesStore.remove(workspaceId, id) : false));
 
   ipcMain.handle("board:get", (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== "string") return null;

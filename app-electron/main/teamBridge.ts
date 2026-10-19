@@ -8,6 +8,7 @@
 //   ntt-team list                 ekip üyeleri (ad, rol, durum)
 //   ntt-team ask <ajan> "<soru>"  hedefe Akış yoluyla iletir, sonraki cevabını döndürür
 //   ntt-team feed                 ekibin son Akış olayları
+//   ntt-team memory add|search|get|link|list   ekip ya da kendi belleği (Tur 5, memoryCommands.ts)
 // Hedefe yazım Akış mesaj kutusunun kapılarından geçiyor (agentSender): meşgul,
 // soru bekleyen, açılış seçimindeki ajana yazılmıyor, sebebi dönüyor.
 // 8787 (ADT köprüsü) ve tek-sistem kuralına dokunulmuyor: ayrı, rastgele port.
@@ -15,6 +16,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import type { AgentStatus } from "../shared/agentTypes";
 import type { StoredFlowEvent } from "../shared/flowHistory";
+import { runMemoryCommand, type MemoryCommandStore } from "../shared/memoryCommands";
 
 export interface TeamMember {
   paneId: string;
@@ -49,6 +51,10 @@ export interface TeamBridgeDeps {
   now(): number;
   sleep(ms: number): Promise<void>;
   log(tag: string, fields: Record<string, string | number | boolean>): void;
+  /** Tur 5: ekibin bellek notları (yoksa memory komutu kapalı). */
+  memory?(workspaceId: string): MemoryCommandStore;
+  /** Bir ajan belleğe yazdı: Bellek ekranı yenilensin. */
+  memoryChanged?(workspaceId: string): void;
 }
 
 export interface TeamResponse {
@@ -168,6 +174,19 @@ export function createTeamBridge(deps: TeamBridgeDeps, secret: Buffer = randomBy
           return json(200, { ok: true, events: events.map((e) => ({ at: new Date(e.at).toISOString(), kind: e.kind, name: e.name, detail: e.reply ?? e.detail })) });
         }
         if (method === "POST" && path === "/ask") return await ask(caller, body);
+        if (method === "POST" && path === "/memory") {
+          if (!deps.memory) return json(404, { ok: false, error: "Bellek kapali." });
+          let args: unknown = [];
+          try {
+            args = (JSON.parse(body) as { args?: unknown }).args;
+          } catch {
+            return json(400, { ok: false, error: "Gövde JSON değil." });
+          }
+          const result = runMemoryCommand(args, { paneId: caller.paneId, name: caller.name }, deps.memory(caller.workspaceId));
+          if (result.changed) deps.memoryChanged?.(caller.workspaceId);
+          deps.log("ekip.bellek", { sonuc: result.status, degisti: result.changed });
+          return json(result.status, { ok: result.status < 400, text: result.text, ...(result.status >= 400 ? { error: result.text } : {}) });
+        }
         return json(404, { ok: false, error: "Bilinmeyen komut." });
       } catch {
         return json(500, { ok: false, error: "Köprü hatası." });
@@ -246,10 +265,13 @@ export const TEAM_PS1 = [
   "    $body = @{ to = $To; message = $msg } | ConvertTo-Json -Compress",
   "    try { $r = Invoke-RestMethod -Method Post -Uri \"$base/ask\" -Headers $h -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 660 } catch { Fail $_ }",
   "    if ($r.reply) { Write-Output (\"{0} cevapladi:\" -f $r.from); Write-Output $r.reply } else { Write-Output $r.note } }",
-  "  default { Write-Output 'ntt-team list | ntt-team ask <ajan> \"<soru>\" | ntt-team feed' }",
+  "  'memory' { $all = @(); if ($To) { $all += $To }; if ($Rest) { $all += $Rest }; $body = @{ args = $all } | ConvertTo-Json -Compress",
+  "    try { $r = Invoke-RestMethod -Method Post -Uri \"$base/memory\" -Headers $h -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType 'application/json; charset=utf-8' -TimeoutSec 30 } catch { Fail $_ }",
+  "    Write-Output $r.text }",
+  "  default { Write-Output 'ntt-team list | ntt-team ask <ajan> \"<soru>\" | ntt-team feed | ntt-team memory add|search|get|link|list' }",
   "}",
   ""
 ].join("\r\n");
 
 /** Ajana ilk Akış mesajında bir kez verilen ipucu (ekipte 2+ ajan varken). */
-export const TEAM_HINT = " (Ekip araci: `ntt-team list` uyeleri gosterir, `ntt-team ask <ajan> \"<soru>\"` ekip arkadasina sorar ve cevabini dondurur, `ntt-team feed` son olaylar.)";
+export const TEAM_HINT = " (Ekip araci: `ntt-team list` uyeleri gosterir, `ntt-team ask <ajan> \"<soru>\"` ekip arkadasina sorar ve cevabini dondurur, `ntt-team feed` son olaylar; `ntt-team memory add|search|get|link` ekip bellegi.)";

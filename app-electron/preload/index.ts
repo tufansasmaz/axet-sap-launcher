@@ -80,6 +80,7 @@ import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic"
 import type { AgentSendResult } from "../shared/agentMessage";
 import type { StoredFlowEvent, TeamRelayMessage } from "../shared/flowHistory";
 import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
+import type { MemoryNote, NoteInput, NotePatch, NoteResult } from "../shared/memoryNotes";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -228,6 +229,16 @@ const api = {
   flowLoad: (workspaceId: string): Promise<StoredFlowEvent[]> => ipcRenderer.invoke("flow:load", workspaceId),
   flowSave: (workspaceId: string, events: StoredFlowEvent[]): Promise<boolean> => ipcRenderer.invoke("flow:save", workspaceId, events),
   flowClear: (workspaceId: string): Promise<boolean> => ipcRenderer.invoke("flow:clear", workspaceId),
+  notesList: (workspaceId: string): Promise<MemoryNote[]> => ipcRenderer.invoke("notes:list", workspaceId),
+  notesAdd: (workspaceId: string, input: NoteInput): Promise<NoteResult> => ipcRenderer.invoke("notes:add", workspaceId, input),
+  notesUpdate: (workspaceId: string, id: string, patch: NotePatch, expectedUpdated?: number): Promise<NoteResult> =>
+    ipcRenderer.invoke("notes:update", workspaceId, id, patch, expectedUpdated),
+  notesRemove: (workspaceId: string, id: string): Promise<boolean> => ipcRenderer.invoke("notes:remove", workspaceId, id),
+  onNotesChanged: (callback: (workspaceId: string) => void) => {
+    const listener = (_event: unknown, workspaceId: string) => callback(workspaceId);
+    ipcRenderer.on("notes:changed", listener);
+    return () => ipcRenderer.removeListener("notes:changed", listener);
+  },
   onTeamRelay: (callback: (event: TeamRelayMessage) => void) => {
     const listener = (_event: unknown, payload: TeamRelayMessage) => callback(payload);
     ipcRenderer.on("team:relay", listener);

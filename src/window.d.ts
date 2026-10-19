@@ -14,6 +14,7 @@ import type {
 import type { BrowserSendResult, BrowserShortcut } from "../app-electron/shared/browserLogic";
 import type { AgentSendResult } from "../app-electron/shared/agentMessage";
 import type { MemoryReadResult, MemoryWriteResult } from "../app-electron/shared/memoryLogic";
+import type { MemoryNote, NoteInput, NotePatch, NoteResult } from "../app-electron/shared/memoryNotes";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -187,6 +188,11 @@ export interface AxetApi {
   flowLoad: (workspaceId: string) => Promise<StoredFlowEvent[]>;
   flowSave: (workspaceId: string, events: StoredFlowEvent[]) => Promise<boolean>;
   flowClear: (workspaceId: string) => Promise<boolean>;
+  notesList: (workspaceId: string) => Promise<MemoryNote[]>;
+  notesAdd: (workspaceId: string, input: NoteInput) => Promise<NoteResult>;
+  notesUpdate: (workspaceId: string, id: string, patch: NotePatch, expectedUpdated?: number) => Promise<NoteResult>;
+  notesRemove: (workspaceId: string, id: string) => Promise<boolean>;
+  onNotesChanged: (callback: (workspaceId: string) => void) => () => void;
   onTeamRelay: (callback: (event: TeamRelayMessage) => void) => () => void;
   browserSend: (workspaceId: string, paneId: string, webContentsId: number, withScreenshot: boolean) => Promise<BrowserSendResult>;
   onBrowserDownloadBlocked: (callback: (webContentsId: number | null) => void) => () => void;

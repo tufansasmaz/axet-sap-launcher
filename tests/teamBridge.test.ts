@@ -120,3 +120,31 @@ describe("teamBridge", () => {
     expect(withTeamEnv({ A: "1" }, {})).toEqual({ A: "1" });
   });
 });
+
+describe("teamBridge — Tur 5 bellek", () => {
+  it("POST /memory: komut çalışır, değişince bildirir; bellek kapalıysa 404; bozuk gövde 400", async () => {
+    const { deps, bridge, headers } = harness();
+    expect((await bridge.handle("POST", "/memory", headers(), JSON.stringify({ args: ["list"] }))).status).toBe(404);
+    const added: unknown[] = [];
+    deps.memory = vi.fn(() => ({
+      list: () => [],
+      add: (input: { title: string }) => {
+        added.push(input);
+        return { ok: true as const, note: { id: "n-abcd1", title: input.title, body: "", kind: "not" as const, tags: [], owner: "", created: 1, updated: 1 } };
+      },
+      update: () => ({ ok: false as const, reason: "missing" as const })
+    }));
+    deps.memoryChanged = vi.fn();
+    const r = await bridge.handle("POST", "/memory", headers(), JSON.stringify({ args: ["add", "Karar bir", "gövde"] }));
+    expect(r.status).toBe(200);
+    expect(String(r.body.text)).toContain("Kaydedildi");
+    expect(deps.memory).toHaveBeenCalledWith("w1");
+    expect(added[0]).toMatchObject({ title: "Karar bir", source: { type: "agent", name: "Ayşe" } });
+    expect(deps.memoryChanged).toHaveBeenCalledWith("w1");
+    const bad = await bridge.handle("POST", "/memory", headers(), "{");
+    expect(bad.status).toBe(400);
+    const usage = await bridge.handle("POST", "/memory", headers(), JSON.stringify({ args: ["sil"] }));
+    expect(usage.status).toBe(400);
+    expect(usage.body.error).toContain("Kullanim");
+  });
+});

@@ -331,3 +331,21 @@ describe("Görev Panosu ile sıra (§3)", () => {
     expect(notifier.notice("p1")).toBe("sent");
   });
 });
+
+describe("Tur 5: ekip belleği özeti", () => {
+  it("özet bellek satırının sonuna; denetim karakteri tek boşluk; boşsa ya da fırlatırsa satır eskisi gibi", () => {
+    const a = harness();
+    const digest = vi.fn((_w: string, _p: string) => "[Ekip bellegi] 1 not.\nKarar: X;");
+    createMemoryNotifier({ ...a.deps, digest }).tick();
+    expect(digest).toHaveBeenCalledWith("w1", "p1");
+    expect(a.deps.sendPrompt.mock.calls[0][1]).toBe(`${LINE} [Ekip bellegi] 1 not. Karar: X;`);
+
+    const b = harness();
+    createMemoryNotifier({ ...b.deps, digest: () => { throw new Error("x"); } }).tick();
+    expect(b.deps.sendPrompt.mock.calls[0][1]).toBe(LINE);
+
+    const c = harness();
+    createMemoryNotifier({ ...c.deps, digest: () => "x".repeat(4_000) }).tick();
+    expect(c.deps.sendPrompt.mock.calls[0][1]).toBe(LINE);
+  });
+});
