@@ -92,6 +92,17 @@ describe("AddAgentDialog", () => {
     expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "axet-code", role: "coder", roleKind: "axetAgent" } }));
   });
 
+  it("axet-code: ekip rolleri de listede (Lider ilk); seçilen Lider hazır rol etiketi oluyor", async () => {
+    const { onAdd } = renderDialog();
+    await flush();
+    fireEvent.click(screen.getByRole("combobox", { name: "Rol" }));
+    const lead = screen.getByRole("option", { name: /Lider/ });
+    expect(lead.textContent).toContain("dağıtır");
+    fireEvent.mouseDown(lead);
+    fireEvent.click(addButton());
+    expect(onAdd).toHaveBeenCalledWith(expect.objectContaining({ spec: { engine: "axet-code", role: "Lider", roleKind: "preset" } }));
+  });
+
   it("Claude Code: hazır rol seçicide (axet ajanları değil) ve model", async () => {
     const { onAdd } = renderDialog();
     await flush();

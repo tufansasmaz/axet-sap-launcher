@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
-import { Bot, Code2, Eye, FlaskConical, FolderOpen, PenLine, Search } from "lucide-react";
+import { Bot, Code2, Crown, Eye, FlaskConical, FolderOpen, PenLine, Search } from "lucide-react";
 import { Select, type SelectOption } from "../ui/Select";
 import { initialEngine, readDefaultEngine } from "./defaultEngine";
 import type { TranslationKey } from "../i18n/tr";
@@ -24,12 +24,14 @@ import { PRIMARY_BUTTON, TOOL_BUTTON } from "../ui/buttons";
 
 // Rol seçicisindeki hazır rollerin kısa açıklaması ve simgesi (Tur 3).
 const ROLE_HINT: Record<string, TranslationKey> = {
+  "agents.roleLead": "agents.roleLeadHint",
   "agents.roleDeveloper": "agents.roleDeveloperHint",
   "agents.roleAnalyst": "agents.roleAnalystHint",
   "agents.roleTest": "agents.roleTestHint",
   "agents.roleReview": "agents.roleReviewHint"
 };
 const ROLE_ICON: Record<string, typeof Bot> = {
+  "agents.roleLead": Crown,
   "agents.roleDeveloper": Code2,
   "agents.roleAnalyst": Search,
   "agents.roleTest": FlaskConical,
@@ -131,15 +133,19 @@ export default function AddAgentDialog({
     };
   }, [open, engine, cwd]);
 
+  const presetOptions: SelectOption[] = ROLE_PRESETS.map((key) => {
+    const Icon = ROLE_ICON[key] ?? Bot;
+    return { value: key, label: t(key), description: t(ROLE_HINT[key] ?? "agents.roleCustomHint"), icon: <Icon size={12} /> };
+  });
+  // axet-code: ekip rolleri (Lider, Geliştirici…) de seçilebilir — komuta girmez, yalnız etiket;
+  // axet'in kendi ajanları (--agent) listenin sonunda.
   const axetRoleOptions: SelectOption[] = [
     { value: "", label: t("agents.roleDefault"), description: t("agents.roleDefaultHint"), icon: <Bot size={12} /> },
+    ...presetOptions,
     ...axetAgents.map((a) => ({ value: a.name, label: a.name, ...(a.description ? { description: a.description } : {}), icon: <Bot size={12} /> }))
   ];
   const presetRoleOptions: SelectOption[] = [
-    ...ROLE_PRESETS.map((key) => {
-      const Icon = ROLE_ICON[key] ?? Bot;
-      return { value: key, label: t(key), description: t(ROLE_HINT[key] ?? "agents.roleCustomHint"), icon: <Icon size={12} /> };
-    }),
+    ...presetOptions,
     { value: CUSTOM_ROLE, label: t("agents.roleCustom"), description: t("agents.roleCustomHint"), icon: <PenLine size={12} /> }
   ];
 
@@ -165,7 +171,9 @@ export default function AddAgentDialog({
     const typedRole = role.trim().slice(0, AGENT_ROLE_MAX);
     const spec: AgentSpec =
       engine === "axet-code"
-        ? { engine, role: axetRole, roleKind: axetRole ? "axetAgent" : "custom" }
+        ? (ROLE_PRESETS as string[]).includes(axetRole)
+          ? { engine, role: t(axetRole as TranslationKey), roleKind: "preset" }
+          : { engine, role: axetRole, roleKind: axetRole ? "axetAgent" : "custom" }
         : { engine, role: typedRole, roleKind: ROLE_PRESETS.some((k) => t(k) === typedRole) ? "preset" : "custom" };
     if (def.modelFlag && model.trim()) spec.model = model.trim().slice(0, AGENT_MODEL_MAX);
     if (engine === "ozel") spec.command = command.trim().slice(0, AGENT_COMMAND_MAX);

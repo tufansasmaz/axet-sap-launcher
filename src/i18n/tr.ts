@@ -2021,6 +2021,7 @@ export const tr = {
   "repo.change": "Başka klasör seç",
   "repo.open": "Klasörü Gezgin'de aç",
   "repo.unbind": "Bağı kaldır",
+  "agents.roleLeadHint": "İşi böler, ekibe dağıtır, sonucu toplar",
   "agents.roleDeveloperHint": "Kod yazar ve düzeltir",
   "agents.roleAnalystHint": "İsteği inceler, analiz çıkarır",
   "agents.roleTestHint": "Senaryo yazar, sonucu doğrular",

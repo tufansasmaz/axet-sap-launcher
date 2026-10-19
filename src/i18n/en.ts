@@ -1935,6 +1935,7 @@ export const en: Record<TranslationKey, string> = {
   "repo.change": "Choose another folder",
   "repo.open": "Open folder in Explorer",
   "repo.unbind": "Unlink",
+  "agents.roleLeadHint": "Splits the work, hands it out, gathers results",
   "agents.roleDeveloperHint": "Writes and fixes code",
   "agents.roleAnalystHint": "Studies the request, writes the analysis",
   "agents.roleTestHint": "Writes scenarios, verifies results",
