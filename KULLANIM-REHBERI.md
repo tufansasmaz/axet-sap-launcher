@@ -415,17 +415,29 @@ ekranın parçası**: soldaki rayda **Axet Chat** ve **Ajanlar** aynı ekranı a
 kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
 
 - **Üst şerit** tek, alçak bir satırdır: solda ekip sekmeleri ve **+ Ekip**
-  (sekme çoksa satır yatay kayar), yanında ekibin **deposu**, sağda bölme
+  (sekme çoksa satır yatay kayar), yanında ekibin **proje klasörü**, sağda bölme
   sayısı, **+ Kabuk** ve **+ Ajan**. Sohbet ekranındayken bu şerit görünmez
   (çalışma alanı yalnız Ajanlar'da).
-- **Depo**: ekibe bağlı klasör yoksa şeritte **Depo bağla** düğmesi vardır
-  (ipucunda şu an kullanılan varsayılan klasör yazar); tıkla, klasörü seç.
-  Bağlıysa klasörün adı bir çip olarak görünür: tıklayınca başka klasör
-  seçersin, **×** bağı kaldırır. Klasör bir Git deposu değilse, Git kurulu
-  değilse ya da klasör yoksa çip kehribar olur ve sebebi yazar. Yeni ajanlar
-  ve kabuklar bu klasörde açılır; **Değişiklikler** ve **Görev Panosu**
-  doğrulamaları da bu klasörü kullanır (bu, menüdeki **Kök klasör…** ile
-  aynı ayardır; elle seçilen klasör SAP bağını kaldırır).
+- **Proje klasörü**: ekibin çalıştığı klasör. Yeni ajanlar ve kabuklar bu
+  klasörde açılır; **Değişiklikler** ve **Görev Panosu** doğrulamaları da
+  bu klasörü kullanır (menüdeki **Kök klasör…** ile aynı ayardır; elle
+  seçilen klasör SAP bağını kaldırır). Seçili değilse şeritte **Proje
+  klasörü seç** düğmesi vardır (ipucunda şu an kullanılan varsayılan klasör
+  yazar). Seçiliyse klasörün adı bir çip olarak görünür; tıklayınca küçük
+  bir panel açılır: klasörün tam yolu, durumu ve **Başka klasör seç**,
+  **Klasörü Gezgin'de aç**, **Bağı kaldır** düğmeleri (Esc ya da dışarı
+  tıklamak kapatır). Klasör seçince çip hemen yeni adı gösterir ve kısa bir
+  süre "Kontrol ediliyor…" yazar.
+  - **Git nedir, ne zaman gerekir?** Git, bir klasördeki dosyaların
+    değişiklik geçmişini tutan araçtır. Ajanlar ve kabuklar git olmadan da
+    çalışır; git yalnız **Değişiklikler** sekmesi (ajanın neyi değiştirdiğini
+    görmek ve geri almak) için gerekir.
+  - Panel klasör git deposu değilse bunu söyler ve **Git deposu başlat**
+    düğmesi sunar (klasörde `git init` çalışır; dosyalarına dokunulmaz).
+    Bilgisayarda git kurulu değilse kurulum komutunu (`winget install
+    Git.Git`) kopyalayabilirsin; kurduktan sonra NTT Studio'yu yeniden
+    başlat. Klasör silinmiş ya da taşınmışsa **Başka klasör seç** ile yenisini
+    seçersin. Bu durumlarda çip kehribar olur ve sebebi yazar.
 - **Ekip sekmeleri**: her ekip bir çalışma alanıdır. Sekmede ad,
   ajan sayısı ve gerekiyorsa kehribar (soru bekleyen ajan) ya da kırmızı
   (başarısız alt görev) bir sayı görünür. Tıkla ya da ok tuşlarıyla seç; çift
@@ -696,7 +708,8 @@ alanı tam kaplar.
 değişiklikleri gösterir ve beğenmediğini geri almanı sağlar. Yalnız **Git
 deposu** olan klasörlerde çalışır (alanın kökü, yoksa ajanların varsayılan
 klasörü); depo değilse ya da Git kurulu değilse bunu açıkça söyler. Klasörü
-kendisi depoya çevirmez.
+kendisi depoya çevirmez; bunun için üst şeritteki **proje klasörü** çipinin
+panelinde **Git deposu başlat** düğmesi vardır.
 
 - **Geri alma noktası** kendiliğinden alınır: bir ajana istem gönderdiğinde
   (aynı ajan için en çok 30 saniyede bir), Görev Panosu bir alt görevi bir
