@@ -491,6 +491,14 @@ export default function SettingsModal({
                 label={t("settingsModal.chatNotificationsLabel")}
               />
             </Field>
+            {/* Tur 6: uygulama içi ajan bildirimi (toast + rozet); masaüstüne ancak üstteki de açıksa gider. */}
+            <Field label={t("settingsModal.agentNotificationsLabel")} hint={t("settingsModal.agentNotificationsHint")}>
+              <Toggle
+                checked={form.agentNotifications !== false}
+                onChange={(agentNotifications) => update({ agentNotifications })}
+                label={t("settingsModal.agentNotificationsLabel")}
+              />
+            </Field>
           </div>
         );
       case "appearance":

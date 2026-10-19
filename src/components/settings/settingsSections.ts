@@ -50,14 +50,16 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: Languages,
     titleKey: "settingsModal.sectionGeneral",
     descKey: "settingsModal.descGeneral",
-    fields: ["language", "projectsBaseDir", "sapConnectOpen", "chatNotifications"],
+    fields: ["language", "projectsBaseDir", "sapConnectOpen", "chatNotifications", "agentNotifications"],
     searchKeys: [
       "settingsModal.languageLabel",
       "settingsModal.projectsDirLabel",
       "settingsModal.sapConnectOpenLabel",
       "settingsModal.sapConnectOpenTerminal",
       "settingsModal.chatNotificationsLabel",
-      "settingsModal.chatNotificationsHint"
+      "settingsModal.chatNotificationsHint",
+      "settingsModal.agentNotificationsLabel",
+      "settingsModal.agentNotificationsHint"
     ]
   },
   {

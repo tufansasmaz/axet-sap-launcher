@@ -442,10 +442,11 @@ describe("Akış — ajanın cevabı ve düzen", () => {
     expect(text.className).toContain("line-clamp-4");
   });
 
-  it("tahmini kaynakta cevap yok: 'İşini bitirdi.' ve terminale yönlendiren bağ", () => {
+  it("tahmini kaynakta cevap yok: 'Bitirmiş görünüyor (tahmini…)' ve terminale yönlendiren bağ", () => {
     const { commands } = setup([ws("w1", [pane("a")])], {}, { events: [fin(1, { exact: false })] });
     expect(document.querySelector("[data-flow-reply]")).toBeNull();
-    expect(document.querySelector('[data-flow-event="finished"]')?.textContent).toContain("İşini bitirdi.");
+    // Tur 6: tahmini bitiş kendi metniyle ve ≈ işaretiyle.
+    expect(document.querySelector('[data-flow-event="finished"]')?.textContent).toContain("Bitirmiş görünüyor (tahmini");
     const link = document.querySelector("[data-reply-terminal]") as HTMLElement;
     expect(link.getAttribute("title")).toBe("Cevabı terminalde; bu motorun cevabı okunamıyor.");
     fireEvent.click(link);
@@ -577,5 +578,34 @@ describe("Akış — Tur 4", () => {
     expect(clear).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Temizle" }));
     expect(clear).toHaveBeenCalledWith("w1");
+  });
+});
+
+describe("Akış — Tur 6 (aşama, tek kart, bağ bilgisi)", () => {
+  const ev = (id: number, kind: FlowEvent["kind"], over: Partial<FlowEvent> = {}): FlowEvent => ({ id, at: 0, workspaceId: "w1", kind, paneId: "a", name: "Ayşe", detail: "", ...over });
+  const running = (phase: AgentStatus["phase"]): AgentStatus => ({ state: "running", source: "exact", lastActivity: 1, phase });
+
+  it("açık görev kartında kesin aşama canlı: 'dosya okuyor: x.ts'; ekip satırında kısa etiket, hedef ipucunda", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" })])], { a: running({ kind: "tool", tool: "view", target: "x.ts" }) }, { events: [ev(1, "started", { exact: true })] });
+    const line = document.querySelector('[data-flow-event="started"] [data-flow-phase]') as HTMLElement;
+    expect(line.textContent).toBe("dosya okuyor: x.ts");
+    const chip = document.querySelector('[data-agent-row="a"] [data-agent-phase]') as HTMLElement;
+    expect(chip.textContent).toBe("dosya okuyor");
+    expect(chip.closest("[data-chip]")?.getAttribute("title")).toBe("dosya okuyor: x.ts");
+  });
+
+  it("tahmini başladı/bitti kartı ≈ işaretli ve 'tahmini' metinli; aşama satırı yok", () => {
+    setup([ws("w1", [pane("a", { title: "Ayşe" })])], { a: { state: "running", source: "estimated", lastActivity: 1 } }, { events: [ev(1, "started", { exact: false })] });
+    const card = document.querySelector('[data-flow-event="started"]') as HTMLElement;
+    expect(card.querySelector("[data-estimated]")).not.toBeNull();
+    expect(card.textContent).toContain("Çalışıyor (tahmini");
+    expect(card.querySelector("[data-flow-phase]")).toBeNull();
+  });
+
+  it("bağ kurulamama sebebi 'bilgi' kartında", () => {
+    setup([ws("w1", [pane("a")])], {}, { events: [ev(1, "note", { detail: "notFound" })] });
+    const card = document.querySelector('[data-flow-event="note"]') as HTMLElement;
+    expect(card.textContent).toContain("bilgi");
+    expect(card.textContent).toContain("60 sn içinde axet-code kaydına düşmedi");
   });
 });

@@ -25,6 +25,7 @@ import { useBoards } from "../board/boardContext";
 import { activeSubtaskOf } from "../board/boardDisplay";
 import MemoryDialog from "./MemoryDialog";
 import { flowBody } from "./flowText";
+import { phaseText } from "./agentPhase";
 import { useFlow, type QueuedSend } from "./flowContext";
 import type { FlowEvent, FlowKind } from "./flowEvents";
 import { matchAgents, mentionAt, removeMention, type Mention } from "./mention";
@@ -239,7 +240,8 @@ const KIND_TONE: Record<FlowKind, StatusTone> = {
   checkpoint: "muted",
   message: "muted",
   relay: "muted",
-  learn: "muted"
+  learn: "muted",
+  note: "muted"
 };
 
 
@@ -249,6 +251,7 @@ const LINK = "cursor-pointer text-2xs text-slate-400 underline-offset-2 hover:te
 function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: TerminalWorkspace }) {
   const t = useT();
   const { commands } = useTerminalStore();
+  const { statuses } = useAgentStatuses();
   const pane = event.paneId ? workspace.panes.find((p) => p.id === event.paneId) : undefined;
   const at = clock(event.at);
 
@@ -284,16 +287,30 @@ function FlowEntry({ event, workspace }: { event: FlowEvent; workspace: Terminal
   const color = pane ? PANE_COLOR_VAR[pane.color ?? "gray"] : undefined;
   const role = pane?.agent?.role;
   const canOpen = pane !== undefined;
+  const status = pane ? statuses[pane.id] : undefined;
+  const live = event.kind === "started" && status?.source === "exact" && status.state === "running" ? status.phase : undefined;
   return (
     <li data-flow-event={event.kind} className="min-w-0 px-1">
       <div className="flex min-w-0 items-center gap-1.5">
         <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
         {event.name && <span className="max-w-[9rem] shrink-0 truncate text-xs font-medium text-slate-200">{event.name}</span>}
         {role && <span className="min-w-0 truncate text-2xs text-slate-500">{role}</span>}
-        <Chip tone={KIND_TONE[event.kind]}>{t(`flow.chip.${event.kind}`)}</Chip>
+        <Chip tone={KIND_TONE[event.kind]} title={event.exact === false ? t("agents.estimatedHint") : undefined}>
+          {t(`flow.chip.${event.kind}`)}
+          {event.exact === false && (
+            <span data-estimated="" className="opacity-70">
+              ≈
+            </span>
+          )}
+        </Chip>
         <span className="ml-auto shrink-0 font-mono text-2xs tabular-nums text-slate-600">{at}</span>
       </div>
-      {event.kind === "finished" && event.reply ? (
+      {live ? (
+        // Tur 6: açık görevin tek kartı; aşama satırı kesin kaynaktan canlı güncelleniyor.
+        <p data-flow-phase={live.kind} className="mt-0.5 truncate pl-3.5 text-xs text-slate-300" title={phaseText(live, t)}>
+          {phaseText(live, t)}
+        </p>
+      ) : event.kind === "finished" && event.reply ? (
         <>
           <ReplyCard reply={event.reply} onOpen={canOpen ? () => commands.revealPane(pane.id) : undefined} />
           <div className="ml-3.5">
@@ -513,6 +530,7 @@ function AgentRow({
   const { commands } = useTerminalStore();
   const { boards } = useBoards();
   const view = cardStatus(pane, status, now);
+  const phase = pane.run.state === "running" && status?.source === "exact" && status.state === "running" ? status.phase : undefined;
   const job = activeSubtaskOf(boards, pane.id);
   const color = PANE_COLOR_VAR[pane.color ?? "gray"];
   const name = agentName(pane, t);
@@ -551,9 +569,10 @@ function AgentRow({
           >
             {engineLabel}
           </span>
-          <Chip tone={view.tone} title={view.estimated ? t("agents.estimatedHint") : undefined}>
+          <Chip tone={view.tone} title={view.estimated ? t("agents.estimatedHint") : phase ? phaseText(phase, t) : undefined}>
             <span data-tone={view.tone} className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[view.tone]}`} />
-            {t(view.key, view.params)}
+            {/* Tur 6: kesin kaynakta çalışırken aşama ("dosya okuyor"); hedef ipucunda. */}
+            {phase ? <span data-agent-phase={phase.kind}>{phaseText(phase, t, false)}</span> : t(view.key, view.params)}
             {view.estimated && (
               <span data-estimated="" title={t("agents.estimatedHint")} className="opacity-70">
                 ≈

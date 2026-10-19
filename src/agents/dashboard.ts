@@ -82,7 +82,9 @@ const GROUP: Record<FlowKind, EventGroup> = {
   verified: "done",
   asked: "asked",
   error: "problem",
-  failed: "problem"
+  failed: "problem",
+  // Tur 6: kesin bağ bilgisi; ayrı grup yok, iş akışının parçası.
+  note: "work"
 };
 
 export function groupOf(kind: FlowKind): EventGroup {

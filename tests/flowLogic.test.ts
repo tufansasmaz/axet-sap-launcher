@@ -26,7 +26,8 @@ describe("statusTransition", () => {
   });
   it("çalışmaya başladı / bitti / hata / soru", () => {
     expect(statusTransition("idle", "running")).toBe("started");
-    expect(statusTransition("asking", "running")).toBe("started");
+    // Tur 6: sorudan dönüş aynı görevin devamı (yeni kart değil).
+    expect(statusTransition("asking", "running")).toBeNull();
     expect(statusTransition("running", "idle")).toBe("finished");
     expect(statusTransition("running", "finished")).toBe("finished");
     expect(statusTransition("idle", "finished")).toBeNull();
@@ -40,7 +41,7 @@ describe("statusEvents", () => {
   it("yalnız bilinen bölmeler; ad ve alan eklenir", () => {
     const panes = new Map([["p1", { workspaceId: "w1", name: "Ayşe" }]]);
     const out = statusEvents({ p1: st("idle"), p2: st("idle") }, { p1: st("running"), p2: st("running") }, panes, 5);
-    expect(out).toEqual([{ at: 5, workspaceId: "w1", kind: "started", paneId: "p1", name: "Ayşe", detail: "" }]);
+    expect(out).toEqual([{ at: 5, workspaceId: "w1", kind: "started", paneId: "p1", name: "Ayşe", detail: "", exact: true }]);
   });
 
   // Ajanlar-ux §3: akışta ajanın cevabı.
@@ -48,8 +49,9 @@ describe("statusEvents", () => {
     const panes = new Map([["p1", { workspaceId: "w1", name: "Ayşe" }]]);
     const out = statusEvents({ p1: st("running") }, { p1: { ...st("idle"), reply: "Rapor hazır." } }, panes, 5);
     expect(out).toEqual([{ at: 5, workspaceId: "w1", kind: "finished", paneId: "p1", name: "Ayşe", detail: "", exact: true, reply: "Rapor hazır." }]);
+    // Tur 6: tahmini çalışıyor→boşta (çıktı sakinleşmesi) tek başına olay değil; istem turu gerekir.
     const est = statusEvents({ p1: { ...st("running"), source: "estimated" } }, { p1: { ...st("idle"), source: "estimated" } }, panes, 6);
-    expect(est).toEqual([{ at: 6, workspaceId: "w1", kind: "finished", paneId: "p1", name: "Ayşe", detail: "", exact: false }]);
+    expect(est).toEqual([]);
   });
 
   it("boştayken yeni cevap (çalışıyor görülmeden biten kısa tur) bitti olayı; aynı cevap ya da ilk görüş değil", () => {

@@ -599,14 +599,28 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     kitap simgesi (kalıcı bellek) belirir; yeniden başlatma gerektiğinde ok
     simgesi hep görünür. Motor adı ipucundadır; axet-code sürüm uyarısı varsa
     satırda görünür. Ekipte hiç ajan yoksa burada **İlk ajanını ekle** çıkar.
+    Durum kesin bilinen (axet-code kaydına bağlı) ajan çalışırken çipte
+    **aşaması** yazar: düşünüyor, dosya okuyor, dosya düzenliyor, komut
+    çalıştırıyor, arıyor, cevap yazıyor; üstüne gelince hedefi de görünür
+    (ör. "dosya okuyor: rapor.ts"; şifre/jeton benzeri değerler maskelenir).
   - **Olaylar**: her satırda kim (renk, ad, rol), ne (başladı, cevap, hata,
-    soru, iş, doğrulandı, başarısız, kayıt çipi) ve saat; altında kısa açıklama.
-    Ajan işini bitirince **son cevabı** bir kartta görünür (en çok dört satır;
-    **Devamını göster** ile tamamı, **Terminalde aç** ile terminali). Cevap
-    yalnız durumu kesin bilinen ajanlarda (axet-code'un kendi kaydı) okunur;
-    şifre/jeton benzeri değerler «gizli» diye maskelenir, en çok 600 karakter
-    tutulur. Tahmini durumdaki ajanda "İşini bitirdi." ve **Terminalde aç**
-    yazar. Gönderdiğin mesajlar "Sen → ajan" balonu olarak görünür. En yenisi
+    soru, iş, doğrulandı, başarısız, kayıt, bilgi çipi) ve saat; altında kısa
+    açıklama. Her görev **tek kart**: "başladı" kartının altındaki aşama satırı
+    canlı güncellenir; ajan işini bitirince (ya da hata verince) aynı kart
+    cevap kartına dönüşüp en alta iner. **Son cevap** kartta görünür (en çok
+    dört satır; **Devamını göster** ile tamamı, **Terminalde aç** ile
+    terminali). Cevap yalnız durumu kesin bilinen ajanlarda (axet-code'un kendi
+    kaydı) okunur; şifre/jeton benzeri değerler «gizli» diye maskelenir, en çok
+    2000 karakter tutulur.
+    Durumu **tahmini** olan ajanda (≈) terminaldeki hareket tek başına olay
+    sayılmaz: açılış ekranı, tuş yankısı ya da ekran yenilemesi "başladı/bitti"
+    yazdırmaz. Ancak ajana bir istem gönderilip ardından çıktı gelirse
+    "Çalışıyor (tahmini)", çıktı 20 sn durunca "Bitirmiş görünüyor (tahmini)"
+    kartı çıkar; ikisi de ≈ işaretlidir, cevap terminaldedir. Kesin bağ
+    kurulamadığında Akış sebebini bir kez **bilgi** kartıyla söyler: istem
+    birden çok oturumda bulundu, oturum kaydı okunamadı, istem 60 sn içinde
+    kayda düşmedi ya da motorun (Claude Code, Codex, Gemini, özel komut) kesin
+    kaynağı yok. Gönderdiğin mesajlar "Sen → ajan" balonu olarak görünür. En yenisi
     altta. Geçmiş **kalıcıdır**: ekip başına son 500 olay uygulama verisinde
     saklanır (şifre/jeton benzeri değerler maskelenerek), uygulama yeniden
     açılınca geri gelir. "Akış" başlığının yanındaki çöp kutusu, onay
@@ -654,9 +668,17 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   ortadaki değere tıklayınca varsayılana dönersin. Ajanların durumu tahmini
   olsa da sunucu ışıkları ve ekranlar yavaşça çalışır (Windows'ta "animasyon
   efektleri" kapalıysa hareket yoktur).
-- **Bildirim**: pencere arka plandayken bir ajan soru sorarsa ya da işini
-  bitirirse Windows bildirimi gelir (sohbet bildirimi ayarı); yalnız durumu
-  kesin bilinen ajanlar için.
+- **Bildirim**: bir ajan soru sorunca, işini bitirince ya da hata verince
+  uygulamanın içinde kısa bir bildirim çıkar (soru kehribar, bitti yeşil,
+  hata kırmızı); tıklarsan Ajanlar ekranı ve o ajan açılır, Akış'taki kartı en
+  altta durur. Aynı olay için tek bildirim. O ekibi zaten görüyorsan bildirim
+  kısa kalır; başka ekrandaysan daha uzun kalır ve soldaki **Ajanlar**
+  düğmesinde okunmamış sayısı çıkar (Ajanlar'ı açınca sıfırlanır). Tahmini
+  ajanın bitişi "bitirmiş görünüyor (tahmini)" diye yazılır. Pencere arka
+  plandayken ayrıca Windows bildirimi gelir (yalnız durumu kesin bilinen
+  ajanlar için). Ayarlar → Genel: **Ajan bildirimleri** bunların hepsini
+  açıp kapatır (varsayılan açık); Windows bildirimi için **Masaüstü
+  bildirimleri** de açık olmalı.
 - SAP yazma onayı ve QA/PRD salt okunur kuralları ajanlar için de aynen
   geçerlidir. Bir ekipte en fazla 9 bölme (ajanlar dahil). Eski Terminal
   düzenin kaybolmaz; eski axet-code bölmeleri axet-code ajanı olarak açılır.

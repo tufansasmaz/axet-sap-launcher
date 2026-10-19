@@ -28,7 +28,7 @@ describe("settingsSections", () => {
 
   it("taşınan ve eklenen alanlar doğru bölümde", () => {
     const of = (id: string) => SETTINGS_SECTIONS.find((s) => s.id === id)?.fields ?? [];
-    expect(of("general")).toEqual(["language", "projectsBaseDir", "sapConnectOpen", "chatNotifications"]);
+    expect(of("general")).toEqual(["language", "projectsBaseDir", "sapConnectOpen", "chatNotifications", "agentNotifications"]); // Tur 6: ajan bildirimleri Genel bildirim ayarının yanında
     expect(of("appearance")).toEqual(["palette", "theme", "chatFontSize", "chatDensity"]);
     expect(of("terminal")).toEqual(["axetCommand", "terminal", "agentMemoryDigest"]);
     expect(of("advanced")).toEqual(["landscapePathOverride", "sapShcutPathOverride"]);

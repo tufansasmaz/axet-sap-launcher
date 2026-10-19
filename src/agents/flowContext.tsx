@@ -18,6 +18,7 @@ import { useTerminalStore } from "../stores/terminalStoreContext";
 import { useAgentStatuses } from "./agentStatusContext";
 import { useBoards } from "../board/boardContext";
 import { agentName } from "./agentLabels";
+import { pickNotices, type AgentNotice } from "./agentNotices";
 import {
   appendFlow,
   boardEvents,
@@ -49,6 +50,13 @@ export interface FlowValue {
   cancelQueued: (paneId: string) => void;
   /** Başarısız kuyruk mesajını kullanıcı isteğiyle bir kez daha gönderir. */
   retryQueued: (paneId: string) => void;
+  /** Tur 6: canlı olaylardan doğan, henüz gösterilmemiş ajan bildirimleri (AgentNotifier tüketir). */
+  notices: AgentNotice[];
+  dropNotices: (keys: readonly string[]) => void;
+  /** Ajanlar düğmesindeki okunmamış rozet. */
+  unread: number;
+  addUnread: (count: number) => void;
+  markRead: () => void;
 }
 
 /** Sağlayıcısız değer (testler de kendi değerlerini bunun üstüne kuruyor). */
@@ -59,7 +67,12 @@ export const EMPTY_FLOW: FlowValue = {
   queued: [],
   queue: () => {},
   cancelQueued: () => {},
-  retryQueued: () => {}
+  retryQueued: () => {},
+  notices: [],
+  dropNotices: () => {},
+  unread: 0,
+  addUnread: () => {},
+  markRead: () => {}
 };
 
 export const FlowContext = createContext<FlowValue>(EMPTY_FLOW);
@@ -92,9 +105,27 @@ export function FlowProvider({ children }: { children: ReactNode }) {
   const panesRef = useRef(panes);
   panesRef.current = panes;
 
+  // Tur 6: bağ kurulamama sebebi ajan başına bir kez; canlı soru/bitti/hata bildirime.
+  const notedLinks = useRef(new Set<string>());
+  const seenNotices = useRef(new Set<string>());
+  const [notices, setNotices] = useState<AgentNotice[]>([]);
+  const [unread, setUnread] = useState(0);
   const add = useCallback((inputs: FlowInput[]) => {
-    if (inputs.length) setEvents((list) => appendFlow(list, inputs));
+    const kept = inputs.filter((e) => {
+      if (e.kind !== "note") return true;
+      const key = `${e.paneId}|${e.detail}`;
+      if (notedLinks.current.has(key)) return false;
+      notedLinks.current.add(key);
+      return true;
+    });
+    if (kept.length === 0) return;
+    setEvents((list) => appendFlow(list, kept));
+    const fresh = pickNotices(kept, seenNotices.current);
+    if (fresh.length) setNotices((list) => [...list, ...fresh].slice(-20));
   }, []);
+  const dropNotices = useCallback((keys: readonly string[]) => setNotices((list) => list.filter((n) => !keys.includes(n.key))), []);
+  const addUnread = useCallback((count: number) => setUnread((n) => n + count), []);
+  const markRead = useCallback(() => setUnread(0), []);
 
   useEffect(() => {
     add(statusEvents(prevStatuses.current, statuses, panesRef.current, Date.now()));
@@ -224,8 +255,8 @@ export function FlowProvider({ children }: { children: ReactNode }) {
 
   const record = useCallback((input: FlowInput) => add([input]), [add]);
   const value = useMemo(
-    () => ({ events, record, clear, queued, queue, cancelQueued, retryQueued }),
-    [events, record, clear, queued, queue, cancelQueued, retryQueued]
+    () => ({ events, record, clear, queued, queue, cancelQueued, retryQueued, notices, dropNotices, unread, addUnread, markRead }),
+    [events, record, clear, queued, queue, cancelQueued, retryQueued, notices, dropNotices, unread, addUnread, markRead]
   );
   return <FlowContext.Provider value={value}>{children}</FlowContext.Provider>;
 }

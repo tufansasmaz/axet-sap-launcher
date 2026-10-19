@@ -62,6 +62,7 @@ import { LearnProvider } from "./agents/brain/learnContext";
 import { TerminalStoreProvider, type SapPaneRequest } from "./stores/terminalStore";
 import { AgentStatusProvider } from "./agents/agentStatusContext";
 import AgentOpenListener from "./agents/AgentOpenListener";
+import AgentNotifier from "./agents/AgentNotifier";
 import AgentsModeBadge from "./agents/AgentsModeBadge";
 import { BoardProvider } from "./board/boardContext";
 import BoardOpenListener from "./board/BoardOpenListener";
@@ -219,14 +220,14 @@ export default function App() {
     [flushConnectivity]
   );
 
-  const pushToast = (kind: ToastMsg["kind"], text: string) => {
+  const pushToast = (kind: ToastMsg["kind"], text: string, opts?: { onClick?: () => void; duration?: number }) => {
     setToasts((prev) => {
       const existing = prev.find((t) => t.kind === kind && t.text === text);
       if (existing) {
-        return prev.map((t) => (t.id === existing.id ? { ...t, count: t.count + 1, version: t.version + 1 } : t));
+        return prev.map((t) => (t.id === existing.id ? { ...t, ...opts, count: t.count + 1, version: t.version + 1 } : t));
       }
       const id = ++toastSeq;
-      return [...prev, { id, kind, text, count: 1, version: 0 }];
+      return [...prev, { id, kind, text, count: 1, version: 0, ...opts }];
     });
   };
   const dismissToast = (id: number) => setToasts((prev) => prev.filter((toast) => toast.id !== id));
@@ -1041,6 +1042,12 @@ export default function App() {
         <FlowProvider>
         <LearnProvider>
         <AgentOpenListener onShow={handleShowAgents} />
+        <AgentNotifier
+          enabled={config?.agentNotifications !== false}
+          agentsVisible={activity === "terminal"}
+          pushToast={pushToast}
+          onShow={handleShowAgents}
+        />
         <BoardOpenListener onShow={handleShowAgents} />
         <div className="flex h-screen flex-col overflow-hidden">
         <TitleBar context={activeContext} onShowSystem={handleShowActiveSystem} onClearSap={handleClearActiveSap} />
