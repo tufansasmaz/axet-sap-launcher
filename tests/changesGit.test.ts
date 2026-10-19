@@ -582,6 +582,27 @@ describe("sahte koşucu", () => {
     // Anahtar anahtar geri yüklendi: ortam testten önceki hâlinde.
     expect({ ...process.env }).toEqual(envBefore);
   });
+
+  it("gitEnv: git iletileri İngilizce (LC_ALL/LANG=C, LANGUAGE=en); PATH korunuyor", async () => {
+    await withEnv({ LC_ALL: "tr_TR.UTF-8", LANG: "tr_TR.UTF-8", LANGUAGE: "tr" }, () => {
+      const env = gitEnv();
+      expect(env.LC_ALL).toBe("C");
+      expect(env.LANG).toBe("C");
+      expect(env.LANGUAGE).toBe("en");
+      expect(env.PATH ?? env.Path).toBe(process.env.PATH ?? process.env.Path);
+    });
+  });
+
+  it("Türkçe yerelli git: depo olmayan klasör yine notRepo (ileti İngilizce istenir)", async () => {
+    // Sahte git: ortam C yereli istemiyorsa iletiyi Türkçe yazar (Türkçe Git for Windows'un yaptığı gibi).
+    const exec: ExecFileLike = (_file, _args, opts, callback) => {
+      const english = opts.env.LC_ALL === "C" || opts.env.LANGUAGE === "en";
+      const err = Object.assign(new Error("git"), { code: 128 });
+      callback(err, "", english ? "fatal: not a git repository (or any of the parent directories): .git" : "fatal: bir git deposu değil (veya üst dizinlerinden herhangi biri): .git");
+    };
+    const port = createGitPort({ run: createGitRunner(exec), indexDir: os.tmpdir() });
+    expect(await port.probe("C:/x")).toEqual({ ok: false, reason: "notRepo" });
+  });
 });
 
 describe("insideRootReal (spec §6.4)", () => {

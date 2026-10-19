@@ -96,8 +96,13 @@ export function gitEnv(indexFile?: string): NodeJS.ProcessEnv {
   // (GIT_DIR, GIT_CONFIG_PARAMETERS, GIT_OBJECT_DIRECTORY, GIT_CEILING_DIRECTORIES…).
   // Windows'ta ortam anahtarları harf büyüklüğüne duyarsız: karşılaştırma da öyle.
   for (const key of Object.keys(env)) {
-    if (/^git_/i.test(key)) delete env[key];
+    if (/^git_/i.test(key) || /^(lc_all|lang|language)$/i.test(key)) delete env[key];
   }
+  // İletiler İngilizce: Türkçe yerelli git "bir git deposu değil" yazınca notRepo
+  // tanınmıyor, "Git deposu başlat" düğmesi çıkmıyordu.
+  env.LC_ALL = "C";
+  env.LANG = "C";
+  env.LANGUAGE = "en";
   env.GIT_TERMINAL_PROMPT = "0";
   env.GIT_OPTIONAL_LOCKS = "0";
   if (indexFile) env.GIT_INDEX_FILE = indexFile;
