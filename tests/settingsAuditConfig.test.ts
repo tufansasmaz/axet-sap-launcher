@@ -96,3 +96,23 @@ describe("eklenen (Tur 7): lider ekip ayarları", () => {
     expect(main).toContain('lead: (caller, args) => teamLead.handle(caller, args)');
   });
 });
+
+describe("eklenen (Tur 8): axet-code açılış seçimi", () => {
+  it("varsayılan: otomatik açık, aXet.Code, model boş (son kullanılan)", async () => {
+    const cfg = (await store(null)).loadConfig();
+    expect([cfg.axetAutoSetup, cfg.axetAutoTool, cfg.axetAutoModel]).toEqual([true, "axet", ""]);
+  });
+  it("kayıtlı değerler korunuyor, bozuk değer varsayılana", async () => {
+    const cfg = (await store({ axetAutoSetup: false, axetAutoTool: "codex", axetAutoModel: "Claude Sonnet 4.6" })).loadConfig();
+    expect([cfg.axetAutoSetup, cfg.axetAutoTool, cfg.axetAutoModel]).toEqual([false, "codex", "Claude Sonnet 4.6"]);
+    vi.resetModules();
+    const bad = (await store({ axetAutoSetup: "hayir", axetAutoTool: "vim", axetAutoModel: "a & del" })).loadConfig();
+    expect([bad.axetAutoSetup, bad.axetAutoTool, bad.axetAutoModel]).toEqual([true, "axet", ""]);
+  });
+  it("ana süreç izleyiciye ayarı veriyor, kapalıyken null (kaynak düzeyi)", async () => {
+    const { readFileSync: read } = await import("node:fs");
+    const main = read(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8").replace(/\r\n/g, "\n");
+    expect(main).toMatch(/axetAutoSetup: \(\) => axetAutoSetupPrefs\(loadConfig\(\)\)/);
+    expect(main).toContain('mainWindow.webContents.send("agents:autoSetup"');
+  });
+});

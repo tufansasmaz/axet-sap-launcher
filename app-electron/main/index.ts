@@ -58,6 +58,7 @@ import { createTeamLead, type LeadApprovalRequest, type LeadSpawnRequest } from 
 import { isLeadRole, leadHint, newLeadTaskId } from "../shared/leadCommands";
 import { clearFlowHistory, loadFlowHistory, saveFlowHistory } from "./flowHistoryStore";
 import { AXET_SETUP_DETAIL, isAgentEngineId } from "../shared/agentTypes";
+import { axetAutoSetupPrefs, type AgentAutoSetupEvent } from "../shared/axetSetupPrefs";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
 import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
 import { createMemoryNotifier } from "./memoryNotifier";
@@ -349,7 +350,15 @@ const agentMonitor = createAgentMonitor({
   backlog: (ptyId) => getTerminalBuffer(ptyId).slice(-4_000),
   log: (tag, fields) => appLog(tag, fields),
   // Değişiklikler (spec 2026-10-18 degisiklikler §4.2): istem öncesi görüntü; senkron döner.
-  onPromptLine: (reg, line) => changesManager.onPromptLine(reg, line)
+  onPromptLine: (reg, line) => changesManager.onPromptLine(reg, line),
+  // Tur 8: açılış penceresinin otomatik seçimi (Ayarlar → Ajanlar ve terminal); kapalıyken null.
+  axetAutoSetup: () => axetAutoSetupPrefs(loadConfig()),
+  onAutoSetup: (reg, outcome) => {
+    const event: AgentAutoSetupEvent = outcome.ok
+      ? { paneId: reg.paneId, ok: true, tool: outcome.tool, model: outcome.model }
+      : { paneId: reg.paneId, ok: false, dialog: outcome.dialog };
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("agents:autoSetup", event);
+  }
 });
 let agentMonitorTimer: NodeJS.Timeout | null = null;
 

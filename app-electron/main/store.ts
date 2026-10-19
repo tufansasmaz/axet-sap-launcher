@@ -22,6 +22,7 @@ import { MAIN_TR } from "./i18n/tr";
 import { MAIN_EN } from "./i18n/en";
 import { normalizeActiveWorkspaceId, normalizeTerminalWorkspaces } from "../shared/terminalLayout";
 import { LEAD_MAX_DEFAULT, normalizeLeadMax } from "../shared/leadCommands";
+import { normalizeAutoModel, normalizeAutoTool } from "../shared/axetSetupPrefs";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
 const MAX_CONNECTION_HISTORY = 10;
@@ -139,7 +140,10 @@ function defaultConfig(): AppConfig {
     agentMemoryDigest: true,
     leadTeam: true,
     leadApproval: false,
-    leadMaxAgents: LEAD_MAX_DEFAULT
+    leadMaxAgents: LEAD_MAX_DEFAULT,
+    axetAutoSetup: true,
+    axetAutoTool: "axet",
+    axetAutoModel: ""
   };
 }
 
@@ -250,7 +254,10 @@ export function loadConfig(): AppConfig {
       agentMemoryDigest: parsed.agentMemoryDigest === false ? false : fallback.agentMemoryDigest,
       leadTeam: parsed.leadTeam === false ? false : fallback.leadTeam,
       leadApproval: parsed.leadApproval === true,
-      leadMaxAgents: normalizeLeadMax(parsed.leadMaxAgents)
+      leadMaxAgents: normalizeLeadMax(parsed.leadMaxAgents),
+      axetAutoSetup: parsed.axetAutoSetup === false ? false : fallback.axetAutoSetup,
+      axetAutoTool: normalizeAutoTool(parsed.axetAutoTool),
+      axetAutoModel: normalizeAutoModel(parsed.axetAutoModel)
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

@@ -22,6 +22,8 @@ import {
   type AgentStatusEvent
 } from "../shared/agentTypes";
 import { InputLineBuffer } from "./agentInput";
+import { AxetSetupPilot, isTerminalReport, type AutoSetupOutcome, type AxetAutoSetupPrefs } from "./axetAutoSetup";
+import { stripAnsi } from "./agentGenericReader";
 import { redact } from "./support/redact";
 import type { AgentReader } from "./agentGenericReader";
 import type { AgentNotificationKind } from "./agentNotification";
@@ -66,6 +68,13 @@ export interface MonitorDeps {
    * satırı Enter ile gönderdi ve motor açık. Senkron dönmeli; iş arka planda.
    */
   onPromptLine?(reg: AgentRegistration, line: string): void;
+  /**
+   * Tur 8: axet-code açılış penceresinin otomatik seçimi. Ayar kapalıysa null
+   * (eski davranış: kullanıcı terminalde seçer). Yalnız axet-code kaydında sorulur.
+   */
+  axetAutoSetup?(reg: AgentRegistration): AxetAutoSetupPrefs | null;
+  /** Otomatik seçim bitti (bir kez): başarı ya da iki denemeden sonra başarısızlık. */
+  onAutoSetup?(reg: AgentRegistration, outcome: AutoSetupOutcome): void;
 }
 
 export interface AgentMonitor {
@@ -100,6 +109,9 @@ interface Entry {
   notifiedQuestions: Set<string>;
   /** Pano istemi Enter bekliyor: ikinci sendPrompt reddedilsin. */
   promptInFlight: boolean;
+  /** Tur 8: kullanıcının son tuşu (terminalin kendi cevapları hariç). */
+  userInputAt: number;
+  pilot: AxetSetupPilot | null;
 }
 
 const SOURCE_LOG = { exact: "kesin", estimated: "tahmini" } as const;
@@ -163,6 +175,33 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     }
   }
 
+  function createPilot(entry: Entry): AxetSetupPilot | null {
+    if (entry.reg.engine !== "axet-code" || !deps.axetAutoSetup) return null;
+    let prefs: AxetAutoSetupPrefs | null = null;
+    try {
+      prefs = deps.axetAutoSetup(entry.reg);
+    } catch {
+      prefs = null;
+    }
+    if (!prefs) return null;
+    const paneId = entry.reg.paneId;
+    return new AxetSetupPilot(prefs, {
+      now: deps.now,
+      write: (data) => byPane.get(paneId) === entry && deps.write(entry.reg.ptyId, data),
+      schedule: (fn, ms) => {
+        const run = () => guard(fn);
+        if (deps.schedule) deps.schedule(run, ms);
+        else setTimeout(run, ms);
+      },
+      lastUserInputAt: () => entry.userInputAt,
+      hasDraft: () => entry.input.hasDraft(),
+      onSettled: (outcome) => {
+        guard(() => deps.log("ajan.aracSecimi", { motor: entry.reg.engine, sonuc: outcome.ok ? "otomatik" : "basarisiz" }));
+        guard(() => deps.onAutoSetup?.(entry.reg, outcome));
+      }
+    });
+  }
+
   function unregister(paneId: string): void {
     const entry = byPane.get(paneId);
     if (!entry) return;
@@ -182,8 +221,11 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
         last: null,
         listAnswered: new Set(),
         notifiedQuestions: new Set(),
-        promptInFlight: false
+        promptInFlight: false,
+        userInputAt: 0,
+        pilot: null
       };
+      entry.pilot = createPilot(entry);
       byPane.set(reg.paneId, entry);
       paneOfPty.set(reg.ptyId, reg.paneId);
       if (reg.added) {
@@ -195,6 +237,7 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       }
       const backlog = deps.backlog(reg.ptyId);
       if (backlog) entry.reader.feedOutput(backlog);
+      if (backlog && entry.pilot) guard(() => entry.pilot?.feed(stripAnsi(backlog)));
       evaluate(entry);
     });
   }
@@ -388,11 +431,13 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     onOutput(ptyId, data) {
       const entry = entryOfPty(ptyId);
       if (entry) guard(() => entry.reader.feedOutput(data));
+      if (entry?.pilot && !entry.pilot.finished) guard(() => entry.pilot?.feed(stripAnsi(data)));
     },
     onInput(ptyId, data) {
       const entry = entryOfPty(ptyId);
       if (!entry) return;
       entry.lastInputAt = deps.now();
+      if (!isTerminalReport(data)) entry.userInputAt = entry.lastInputAt;
       guard(() => {
         for (const line of entry.input.feed(data)) {
           // Motor kapalıyken (kabuk istemi ekranda) yazılan satır istem değil.
@@ -409,6 +454,7 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     tick() {
       for (const entry of [...byPane.values()]) {
         guard(() => entry.reader.poll());
+        if (entry.pilot && !entry.pilot.finished) guard(() => entry.pilot?.tick());
         guard(() => evaluate(entry));
       }
     },

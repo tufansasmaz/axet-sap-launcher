@@ -1,3 +1,4 @@
+import type { AxetToolChoice } from "./axetSetupPrefs";
 import type { LayoutNode, PaneHome } from "./terminalTree";
 import type { AgentSpec } from "./agentTypes";
 
@@ -516,6 +517,12 @@ export interface AppConfig {
   leadTeam: boolean;
   leadApproval: boolean;
   leadMaxAgents: number;
+  // Tur 8: axet-code ajan bölmesinin açılış penceresi ("Choose your development
+  // tool" + model) tuşla otomatik seçilsin (varsayılan açık); araç (varsayılan
+  // aXet.Code, axet-code'un vurguladığı) ve model süzgeci (boş = son kullanılan).
+  axetAutoSetup: boolean;
+  axetAutoTool: AxetToolChoice;
+  axetAutoModel: string;
 }
 
 /** SAP bağlanınca açılacak yer — ayardaki seçim. */

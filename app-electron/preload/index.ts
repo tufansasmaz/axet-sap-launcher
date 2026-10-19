@@ -79,6 +79,7 @@ import type {
 import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic";
 import type { AgentSendResult } from "../shared/agentMessage";
 import type { StoredFlowEvent, TeamRelayMessage } from "../shared/flowHistory";
+import type { AgentAutoSetupEvent } from "../shared/axetSetupPrefs";
 import type { LeadApprovalRequest, LeadCloseRequest, LeadSpawnRequest, WithRequestId } from "../shared/leadCommands";
 import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
 import type { MemoryNote, NoteInput, NotePatch, NoteResult } from "../shared/memoryNotes";
@@ -243,6 +244,12 @@ const api = {
     const listener = (_event: unknown, workspaceId: string) => callback(workspaceId);
     ipcRenderer.on("notes:changed", listener);
     return () => ipcRenderer.removeListener("notes:changed", listener);
+  },
+  // Tur 8: axet-code açılış penceresi otomatik seçildi / seçilemedi.
+  onAgentAutoSetup: (callback: (event: AgentAutoSetupEvent) => void) => {
+    const listener = (_event: unknown, payload: AgentAutoSetupEvent) => callback(payload);
+    ipcRenderer.on("agents:autoSetup", listener);
+    return () => ipcRenderer.removeListener("agents:autoSetup", listener);
   },
   onTeamRelay: (callback: (event: TeamRelayMessage) => void) => {
     const listener = (_event: unknown, payload: TeamRelayMessage) => callback(payload);
