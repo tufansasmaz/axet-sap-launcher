@@ -111,6 +111,15 @@ describe("EmbeddedTerminal odak", () => {
   });
 });
 
+describe("EmbeddedTerminal satır sonu (Tur 11)", () => {
+  it("convertEol kapalı: ConPTY'nin çıplak LF'i (aynı sütunda bir alt satır) sola kaydırılmıyor", () => {
+    // Ölçüldü: axet-code ekranı `ESC[8;4H ESC[85X \n Üç me…` yazıyor; LF→CRLF çevirisi
+    // satırı 4. sütun yerine 1. sütundan çizip sol kenarda kaydırıyordu.
+    render(view({}));
+    expect(fake.terms[0].options.convertEol).not.toBe(true);
+  });
+});
+
 describe("EmbeddedTerminal yazı boyutu", () => {
   it("verilmezse 13, verilirse o boyutla kuruluyor", () => {
     render(view({}));

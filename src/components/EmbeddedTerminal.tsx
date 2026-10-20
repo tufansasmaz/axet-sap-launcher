@@ -42,7 +42,11 @@ export default function EmbeddedTerminal({ sessionId, active, fontSize = PANE_FO
     if (!containerRef.current) return;
 
     const term = new Terminal({
-      convertEol: true,
+      // Tur 11 (ölçüldü): convertEol AÇIK OLMAMALI. Akış ConPTY'den geliyor ve satır sonları
+      // zaten CRLF; ConPTY ekranı güncellerken "aynı sütunda bir alt satır" için çıplak LF
+      // yazıyor (axet-code: `ESC[8;4H ESC[85X \n Üç me…`). LF→CRLF çevirisi bu satırları 1.
+      // sütuna itiyordu: TUI metni sol kenarda kayıyor, kısmen siliniyordu.
+      convertEol: false,
       fontSize: fontSizeRef.current,
       fontFamily: "Consolas, 'Cascadia Mono', 'Courier New', monospace",
       cursorBlink: true,
