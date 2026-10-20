@@ -37,7 +37,8 @@ describe("GenericReader — tur kanıtı (tahmini)", () => {
 
   it("istem yokken açılış çıktısı ve ekran yenilemesi tur değil", () => {
     const { clock, reader } = setup();
-    expect(reader.status().state).toBe("running");
+    // Tur 11: istemsiz açılış çıktısı artık "çalışıyor" da değil.
+    expect(reader.status().state).toBe("idle");
     expect(reader.status().turn).toBeUndefined();
     clock.ms += IDLE_AFTER_MS;
     reader.feedOutput("\x1b[2J redraw");

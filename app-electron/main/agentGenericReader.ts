@@ -37,6 +37,15 @@ export const IDLE_AFTER_MS = 20_000;
  */
 export const REPAINT_QUIET_MS = 1_500;
 const TAIL_MAX = 4_000;
+/**
+ * Tur 11 (ölçüldü, .superpowers/olcum/tur11 ham ConPTY çıktısı):
+ *   Claude Code 2.1: çalışırken "· esc to interrupt", tur sonunda "✻ Baked for 2s · done";
+ *   axet-code 1.4.1: her cevabın altında "◇ <model> via <sağlayıcı> 4s ───".
+ * Son çıktıdan bu kadar sonra (yeni çıktı yoksa) tur bitti sayılıyor.
+ */
+export const DONE_MARK_QUIET_MS = 2_000;
+export const TURN_DONE_MARKS: readonly RegExp[] = [/✻ ?\S+ for \d+(?:\.\d+)?\s?[hms]/, /◇ .{1,80}? via \S+ +\d+(?:\.\d+)?(?:ms|s|m)\b/];
+export const TURN_WORK_MARK = /esc to (?:interrupt|cancel)/i;
 /** Tur 9: tur çıktısından taranan kuyruk (son hata satırı için). */
 const TURN_TEXT_MAX = 3_000;
 
@@ -99,6 +108,9 @@ export class GenericReader {
   private turnOutput = false;
   private turnDone = false;
   private turnText = "";
+  /** Tur 11: istemden sonra motorun tur sonu işareti görüldüğü an (çalışma altbilgisi siler). */
+  private doneMarkAt: number | null = null;
+  private markCarry = "";
   private readonly echo: RegExp | null;
 
   constructor(private readonly opts: GenericReaderOptions) {
@@ -117,6 +129,8 @@ export class GenericReader {
     this.turnOutput = false;
     this.turnDone = false;
     this.turnText = "";
+    this.doneMarkAt = null;
+    this.markCarry = "";
   }
 
   noteRepaint(): void {
@@ -135,6 +149,7 @@ export class GenericReader {
       else if (/\S/.test(clean) && now >= this.promptAt) this.turnOutput = true;
       if (!this.turnDone) this.turnText = (this.turnText + clean).slice(-TURN_TEXT_MAX);
     }
+    if (this.promptAt !== null && !this.turnDone && now >= this.repaintUntil) this.scanMarks(data, now);
     // İlk çıktı (komutu olmayan kayıtta motor açıldı işareti) her zaman sayılıyor.
     if (activity || this.lastOutputAt === null) this.lastOutputAt = now;
 
@@ -210,11 +225,39 @@ export class GenericReader {
     return this.opts.idleAfterMs ?? IDLE_AFTER_MS;
   }
 
+  /** Tur 11: motorun tur sonu / çalışma işaretleri (ölçülmüş; ekran metninde imleç ileri = boşluk). */
+  private scanMarks(data: string, now: number): void {
+    const text = this.markCarry + stripAnsi(data.replace(/\x1b\[\d*C/g, " "));
+    this.markCarry = text.slice(-120);
+    let done = -1;
+    for (const re of TURN_DONE_MARKS) {
+      const m = re.exec(text);
+      if (m) done = Math.max(done, m.index);
+    }
+    const work = TURN_WORK_MARK.exec(text);
+    let lastWork = -1;
+    if (work) lastWork = text.lastIndexOf(work[0]);
+    if (done >= 0 && done > lastWork) this.doneMarkAt = now;
+    else if (lastWork >= 0) this.doneMarkAt = null;
+  }
+
   /** Tur 6: istem + ardından çıktı varsa tur; istem yoksa yok. */
   turn(): AgentTurn | undefined {
     if (this.promptAt === null || !this.turnOutput) return undefined;
-    const quiet = this.lastOutputAt !== null && this.opts.now() - this.lastOutputAt >= this.idleAfter();
-    return { at: this.promptAt, done: this.turnDone || quiet || this.engineExited() };
+    const now = this.opts.now();
+    const sinceOutput = this.lastOutputAt === null ? Infinity : now - this.lastOutputAt;
+    const quiet = sinceOutput >= this.idleAfter();
+    // Tur 11: motorun tur sonu işareti + kısa sessizlik de bitiş (20 sn beklemeden).
+    const marked = this.doneMarkAt !== null && sinceOutput >= DONE_MARK_QUIET_MS;
+    return { at: this.promptAt, done: this.turnDone || quiet || marked || this.engineExited() };
+  }
+
+  /** Tur 11: istem gönderilmiş ve tur sürüyor (çıktı bekleniyor ya da akıyor). */
+  private turnOpen(): boolean {
+    if (this.promptAt === null) return false;
+    const turn = this.turn();
+    if (turn) return !turn.done;
+    return this.opts.now() - this.promptAt < this.idleAfter();
   }
 
   status(): AgentStatus {
@@ -228,8 +271,8 @@ export class GenericReader {
     if (at === null) return { state: "unknown", source: "estimated", lastActivity: null };
     const line = this.opts.scanErrors ? this.turnError() : null;
     if (line) return { state: "error", source: "estimated", lastActivity: at, ...withTurn, error: agentErrorInfo(line, "estimated") };
-    const quiet = this.opts.now() - at >= this.idleAfter();
-    return { state: quiet ? "idle" : "running", source: "estimated", lastActivity: at, ...withTurn };
+    // Tur 11 (ölçüldü): istemsiz çıktı (açılış ekranı, yeniden boyut, TUI ipucu) iş değil.
+    return { state: this.turnOpen() ? "running" : "idle", source: "estimated", lastActivity: at, ...withTurn };
   }
 }
 

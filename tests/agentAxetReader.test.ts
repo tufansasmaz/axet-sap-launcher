@@ -427,7 +427,8 @@ describe("AxetReader — veritabanı arızası", () => {
   it("veritabanı okunamıyor: tahmini, hata fırlatmıyor", () => {
     const { db, make } = scenario();
     const { reader } = make("A");
-    reader.feedOutput("x");
+    // Tur 11: istem yalnız motor açıkken tur sayılıyor (istemsiz çıktı artık "çalışıyor" değil).
+    reader.feedOutput("X>axet-code -y\r\nAXET\r\n");
     reader.submitLine("Bir şey yap");
     db.broken = true;
     expect(() => reader.poll()).not.toThrow();

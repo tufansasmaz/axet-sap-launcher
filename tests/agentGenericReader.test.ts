@@ -23,14 +23,17 @@ describe("GenericReader", () => {
     expect(reader.status()).toEqual({ state: "unknown", source: "estimated", lastActivity: null });
   });
 
-  it("çıktı gelince çalışıyor; 20 sn sessizlikte boşta", () => {
+  it("istemden sonra çıktı gelince çalışıyor; 20 sn sessizlikte boşta (Tur 11: istemsiz çıktı boşta)", () => {
     const { clock, reader } = setup();
+    reader.feedOutput("C:\\p>claude --model sonnet\r\nClaude Code\r\n");
+    expect(reader.status()).toEqual({ state: "idle", source: "estimated", lastActivity: 1_000_000 });
+    reader.submitLine("iş");
     reader.feedOutput("x");
-    expect(reader.status()).toEqual({ state: "running", source: "estimated", lastActivity: 1_000_000 });
+    expect(reader.status()).toMatchObject({ state: "running", source: "estimated", lastActivity: 1_000_000 });
     clock.ms += IDLE_AFTER_MS - 1;
     expect(reader.status().state).toBe("running");
     clock.ms += 1;
-    expect(reader.status()).toEqual({ state: "idle", source: "estimated", lastActivity: 1_000_000 });
+    expect(reader.status()).toMatchObject({ state: "idle", source: "estimated", lastActivity: 1_000_000 });
   });
 
   it("eşik enjekte edilebiliyor", () => {
@@ -64,7 +67,7 @@ describe("GenericReader", () => {
     const { reader } = setup();
     reader.feedOutput("Microsoft Windows\r\n\r\nC:\\proje>");
     expect(reader.engineExited()).toBe(false);
-    expect(reader.status().state).toBe("running");
+    expect(reader.status().state).toBe("idle");
   });
 
   it("bittikten sonra yeni çıktı yeniden çalışıyor", () => {
@@ -72,7 +75,7 @@ describe("GenericReader", () => {
     reader.feedOutput("C:\\proje>claude --model sonnet\r\nC:\\proje>");
     expect(reader.status().state).toBe("finished");
     reader.feedOutput("claude\r\n\x1b[2J yeniden açıldı");
-    expect(reader.status().state).toBe("running");
+    expect(reader.status().state).toBe("idle");
   });
 
   it("engineReady: yankıdan önce ve yankının kendisi yetmiyor; yankıdan sonra motor çıktısı görülünce hazır", () => {
@@ -117,7 +120,7 @@ describe("GenericReader", () => {
     wrapped.submitLine("gizli istem");
     wrapped.poll();
     wrapped.feedOutput("x");
-    expect(wrapped.status().state).toBe("running");
+    expect(wrapped.status().state).toBe("idle");
     expect(() => wrapped.dispose()).not.toThrow();
   });
 });
@@ -180,7 +183,7 @@ describe("GenericReader — görünürlük kaynaklı çıktı iş sayılmıyor",
     expect(reader.status().state).toBe("idle");
     clock.ms += REPAINT_QUIET_MS;
     reader.feedOutput("✻ Thinking…");
-    expect(reader.status().state).toBe("running");
+    expect(reader.status().lastActivity).toBe(clock.ms);
   });
 
   it("izleyici yüzü noteRepaint'i okuyucuya geçiriyor", () => {
@@ -191,6 +194,79 @@ describe("GenericReader — görünürlük kaynaklı çıktı iş sayılmıyor",
     expect(face.status().state).toBe("idle");
     clock.ms += REPAINT_QUIET_MS;
     face.feedOutput("is");
-    expect(face.status().state).toBe("running");
+    expect(face.status().lastActivity).toBe(clock.ms);
+  });
+});
+
+// Tur 11 (ölçüldü: kullanıcı günlüğü 1.9.1, motor=ozel): ajan eklenince 0,3 sn'de "çalışıyor"
+// (açılış ekranı çıktısı), istem yokken 6 kez daha "çalışıyor" (yeniden boyut, TUI ipuçları) —
+// oturum dökümünde o anlarda istem YOK. Tahmini kaynakta "çalışıyor" yalnız istemden sonra.
+describe("GenericReader — Tur 11: çalışıyor yalnız gerçek istemden sonra", () => {
+  const ready = () => {
+    const s = setup("claude");
+    s.reader.feedOutput("C:\p>claude\r\n Claude Code v2 \r\n❯ ");
+    return s;
+  };
+
+  it("açılış çıktısı ve istemsiz ekran hareketi çalışıyor değil, boşta", () => {
+    const { clock, reader } = ready();
+    expect(reader.status().state).toBe("idle");
+    clock.ms += 30_000;
+    reader.feedOutput("? for shortcuts");
+    expect(reader.status().state).toBe("idle");
+    expect(reader.status().turn).toBeUndefined();
+  });
+
+  it("istemden sonra çıktı gelirken çalışıyor; tur bitince boşta", () => {
+    const { clock, reader } = ready();
+    reader.submitLine("bir iş yap");
+    expect(reader.status().state).toBe("running");
+    clock.ms += 500;
+    reader.feedOutput("✻ Thinking… · esc to interrupt");
+    expect(reader.status().state).toBe("running");
+    clock.ms += IDLE_AFTER_MS;
+    expect(reader.status()).toMatchObject({ state: "idle", turn: { done: true } });
+  });
+
+  it("istem gönderildi ama hiç çıktı yok: eşikten sonra boşta, tur yok", () => {
+    const { clock, reader } = ready();
+    reader.submitLine("cevapsız istem");
+    clock.ms += IDLE_AFTER_MS;
+    expect(reader.status().state).toBe("idle");
+    expect(reader.status().turn).toBeUndefined();
+  });
+
+  it("Claude tur sonu işareti (✻ … for Ns) + 2 sn sessizlik: 20 sn beklemeden bitti", () => {
+    const { clock, reader } = ready();
+    reader.submitLine("liste yaz");
+    clock.ms += 400;
+    reader.feedOutput("● - Elma\r\n  - Muz\r\n");
+    clock.ms += 2_000;
+    reader.feedOutput("✻ Baked for 2s · done 11:45 PM\r\n❯ ");
+    expect(reader.status().state).toBe("running");
+    clock.ms += 2_000;
+    expect(reader.status()).toMatchObject({ state: "idle", turn: { done: true } });
+  });
+
+  it("axet-code tur sonu işareti (◇ model via sağlayıcı Ns) de sayılıyor", () => {
+    const { clock, reader } = setup("axet-code -y");
+    reader.feedOutput("C:\p>axet-code -y\r\n AXET \r\n");
+    reader.submitLine("liste yaz");
+    clock.ms += 400;
+    reader.feedOutput("   1. Elma\r\n");
+    reader.feedOutput("   ◇ Claude Sonnet 5 via aws_anthropic 4s ─────────");
+    clock.ms += 2_000;
+    expect(reader.status()).toMatchObject({ state: "idle", turn: { done: true } });
+  });
+
+  it("çalışma altbilgisi sürerken tur sonu işareti sayılmıyor (önceki turun izi)", () => {
+    const { clock, reader } = ready();
+    reader.submitLine("uzun iş");
+    clock.ms += 400;
+    reader.feedOutput("✻ Baked for 2s · done");
+    clock.ms += 300;
+    reader.feedOutput("✻ Thinking… · esc to interrupt");
+    clock.ms += 2_500;
+    expect(reader.status().state).toBe("running");
   });
 });
