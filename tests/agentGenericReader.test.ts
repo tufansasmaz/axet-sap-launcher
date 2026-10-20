@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   GenericReader,
   IDLE_AFTER_MS,
+  REPAINT_QUIET_MS,
   commandToken,
   genericAgentReader,
   isShellPromptLine,
@@ -147,5 +148,49 @@ describe("yardımcılar", () => {
     expect(commandToken('  "C:\\Program Files\\x.exe" --a')).toBe("C:\\Program Files\\x.exe");
     expect(commandToken("axet-code -y --agent coder")).toBe("axet-code");
     expect(commandToken("")).toBe("");
+  });
+});
+
+// Tur 10 (ölçüldü, .superpowers/olcum/tur10/bos.cjs): terminal ekranı görünürken
+// Claude Code boştayken odak/fare raporlarına yalnız denetim dizisiyle, yeniden
+// boyuta (aynı boyut dahil, ConPTY) tam ekran yeniden çizimle cevap veriyor.
+// Bunlar iş değil: ajan "çalışıyor"a dönmemeli.
+describe("GenericReader — görünürlük kaynaklı çıktı iş sayılmıyor", () => {
+  const idleReader = () => {
+    const s = setup();
+    s.reader.feedOutput("hazir");
+    s.clock.ms += IDLE_AFTER_MS;
+    expect(s.reader.status().state).toBe("idle");
+    return s;
+  };
+
+  it("yalnız denetim dizisi (odak/fare cevabı, imleç) durumu çalışıyor yapmıyor", () => {
+    const { reader } = idleReader();
+    reader.feedOutput("\x1b[?2004h\x1b[?1000h\x1b[?1002h\x1b[?1003h\x1b[?1006h");
+    reader.feedOutput("\x1b[?2026h\x1b[?2026l\x1b[7m\x1b[31;3H \x1b[27m");
+    expect(reader.status().state).toBe("idle");
+  });
+
+  it("yeniden boyuttan sonraki yeniden çizim iş sayılmıyor; süre geçince gerçek çıktı sayılıyor", () => {
+    const { clock, reader } = idleReader();
+    reader.noteRepaint();
+    reader.feedOutput("\x1b[H\x1b[K Claude Code v2.1.304\r\n> ");
+    clock.ms += 500;
+    reader.feedOutput("\x1b[H Claude Code v2.1.304");
+    expect(reader.status().state).toBe("idle");
+    clock.ms += REPAINT_QUIET_MS;
+    reader.feedOutput("✻ Thinking…");
+    expect(reader.status().state).toBe("running");
+  });
+
+  it("izleyici yüzü noteRepaint'i okuyucuya geçiriyor", () => {
+    const { clock, reader } = idleReader();
+    const face = genericAgentReader(reader);
+    face.noteRepaint?.();
+    face.feedOutput("yeniden cizim");
+    expect(face.status().state).toBe("idle");
+    clock.ms += REPAINT_QUIET_MS;
+    face.feedOutput("is");
+    expect(face.status().state).toBe("running");
   });
 });

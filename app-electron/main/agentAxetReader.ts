@@ -259,6 +259,11 @@ export class AxetReader implements AgentReader {
 
   constructor(private readonly opts: AxetReaderOptions) {}
 
+  /** Tur 10: yeniden boyut sonrası yeniden çizim (tahmini yedek iş saymasın). */
+  noteRepaint(): void {
+    this.opts.generic.noteRepaint();
+  }
+
   feedOutput(data: string): void {
     this.opts.generic.feedOutput(data);
     // Parça sınırı işareti bölebilir: önceki parçanın sonu taşınıyor.

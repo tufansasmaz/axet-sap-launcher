@@ -35,6 +35,8 @@ const sessions = new Map<string, TerminalSession>();
 export interface TerminalTap {
   onOutput(id: string, data: string): void;
   onExit(id: string): void;
+  /** Tur 10: kabuğa gerçek bir boyut değişikliği iletildi (ardından yeniden çizim gelir). */
+  onResize?(id: string): void;
 }
 
 let tap: TerminalTap | null = null;
@@ -262,7 +264,11 @@ export function resizeTerminal(id: string, cols: number, rows: number): void {
   if (cols <= 0 || rows <= 0) return;
   const session = sessions.get(id);
   if (!session) return;
+  // Tur 10 (ölçüldü): aynı boyutla resize bile ConPTY'de tam ekran yeniden çizim
+  // üretiyor; terminal ekranı her görünür olduğunda gönderiliyordu → ajan "çalışıyor".
+  if (lastSize.get(id) === `${cols}x${rows}`) return;
   logResize(id, cols, rows);
+  tell((t) => t.onResize?.(id));
   try {
     session.proc.resize(cols, rows);
   } catch {

@@ -20,12 +20,22 @@ export interface AgentReader {
   submitLine(line: string): void;
   poll(): void;
   status(): AgentStatus;
+  /**
+   * Tur 10: bölme yeniden boyutlandı (terminal ekranı görünür oldu ya da boyut değişti);
+   * ardından gelen yeniden çizim iş sayılmasın.
+   */
+  noteRepaint?(): void;
   /** Motor açıldı: komut yankısından sonra motorun kendi çıktısı görüldü (Görev Panosu dağıtım koşulu). */
   engineReady(): boolean;
   dispose(): void;
 }
 
 export const IDLE_AFTER_MS = 20_000;
+/**
+ * Tur 10 (ölçüldü): yeniden boyuttan sonra ConPTY + TUI ekranı yeniden çiziyor
+ * (Claude Code'da ilk parça ~50 ms, son parça <1 sn). Bu pencerede gelen çıktı iş değil.
+ */
+export const REPAINT_QUIET_MS = 1_500;
 const TAIL_MAX = 4_000;
 /** Tur 9: tur çıktısından taranan kuyruk (son hata satırı için). */
 const TURN_TEXT_MAX = 3_000;
@@ -78,6 +88,8 @@ export interface GenericReaderOptions {
 export class GenericReader {
   private tail = "";
   private lastOutputAt: number | null = null;
+  /** Tur 10: bu ana kadar gelen çıktı yeniden çizim (iş sayılmıyor). */
+  private repaintUntil = 0;
   private sawEcho = false;
   private sawEngineOutput = false;
   /** Motor kapandıktan sonra yeniden başlatma bekleniyor. */
@@ -107,16 +119,24 @@ export class GenericReader {
     this.turnText = "";
   }
 
+  noteRepaint(): void {
+    this.repaintUntil = this.opts.now() + REPAINT_QUIET_MS;
+  }
+
   feedOutput(data: string): void {
     const now = this.opts.now();
     const clean = stripAnsi(data);
-    if (this.promptAt !== null && !this.turnDone) {
+    // Tur 10 (ölçüldü): görünür karakter taşımayan parça (odak/fare cevabı, imleç,
+    // kip anahtarı) ve yeniden boyut sonrası yeniden çizim iş değil: etkinlik anı ilerlemiyor.
+    const activity = /\S/.test(clean) && now >= this.repaintUntil;
+    if (activity && this.promptAt !== null && !this.turnDone) {
       // Sakinleşmeden sonra gelen çıktı (tuş yankısı, yenileme) biten turu geri açmasın.
       if (this.turnOutput && this.lastOutputAt !== null && now - this.lastOutputAt >= this.idleAfter()) this.turnDone = true;
       else if (/\S/.test(clean) && now >= this.promptAt) this.turnOutput = true;
       if (!this.turnDone) this.turnText = (this.turnText + clean).slice(-TURN_TEXT_MAX);
     }
-    this.lastOutputAt = now;
+    // İlk çıktı (komutu olmayan kayıtta motor açıldı işareti) her zaman sayılıyor.
+    if (activity || this.lastOutputAt === null) this.lastOutputAt = now;
 
     if (this.exitSeen) {
       // Motor kapalı; yeni echo gelince oturum sıfırlanıyor.
@@ -219,6 +239,7 @@ export function genericAgentReader(reader: GenericReader): AgentReader {
     feedOutput: (data) => reader.feedOutput(data),
     submitLine: (line) => reader.submitLine(line),
     poll: () => {},
+    noteRepaint: () => reader.noteRepaint(),
     // Tur 6: kesin kaynağı olmayan motor; Akış bunu ilk turda bir kez söylüyor.
     status: () => ({ ...reader.status(), link: "unsupported" }),
     engineReady: () => reader.engineReady(),

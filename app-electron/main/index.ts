@@ -1583,7 +1583,8 @@ function registerIpc(): void {
 
   setTerminalTap({
     onOutput: (id, data) => agentMonitor.onOutput(id, data),
-    onExit: (id) => agentMonitor.onExit(id)
+    onExit: (id) => agentMonitor.onExit(id),
+    onResize: (id) => agentMonitor.onResize(id)
   });
   if (!agentMonitorTimer) {
     agentMonitorTimer = setInterval(() => agentMonitor.tick(), 1_000);

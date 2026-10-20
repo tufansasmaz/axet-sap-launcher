@@ -721,3 +721,20 @@ describe("düzeltme turu 1: pano yüzü güvenlik ve sözleşme", () => {
     expect(write.mock.calls).toEqual([["t1", "istem"], ["t1", "\r"]]);
   });
 });
+
+describe("Tur 10: onResize", () => {
+  it("bölmenin okuyucusuna yeniden çizim bildiriliyor; okuyucu hatası düşürmüyor", () => {
+    const h = harness();
+    h.monitor.register(reg());
+    const r = h.reader() as FakeReader & { noteRepaint?: () => void };
+    const calls: number[] = [];
+    r.noteRepaint = () => calls.push(1);
+    h.monitor.onResize("t1");
+    h.monitor.onResize("yok");
+    expect(calls).toEqual([1]);
+    r.noteRepaint = () => {
+      throw new Error("patladı");
+    };
+    expect(() => h.monitor.onResize("t1")).not.toThrow();
+  });
+});

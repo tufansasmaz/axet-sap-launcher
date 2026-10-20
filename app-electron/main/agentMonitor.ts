@@ -108,6 +108,8 @@ export interface AgentMonitor {
   register(reg: AgentRegistration): void;
   unregister(paneId: string): void;
   onOutput(ptyId: string, data: string): void;
+  /** Tur 10: bölme yeniden boyutlandı; ardından gelen yeniden çizim iş sayılmıyor. */
+  onResize(ptyId: string): void;
   onInput(ptyId: string, data: string): void;
   onExit(ptyId: string): void;
   tick(): void;
@@ -614,6 +616,10 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
       const entry = entryOfPty(ptyId);
       if (entry) guard(() => entry.reader.feedOutput(data));
       if (entry?.pilot && !entry.pilot.finished) guard(() => entry.pilot?.feed(stripAnsi(data)));
+    },
+    onResize(ptyId) {
+      const entry = entryOfPty(ptyId);
+      if (entry) guard(() => entry.reader.noteRepaint?.());
     },
     onInput(ptyId, data) {
       const entry = entryOfPty(ptyId);

@@ -64,3 +64,22 @@ describe("createTerminal — klasör seçeneği", () => {
     expect(spawn).toHaveBeenCalledTimes(1);
   });
 });
+
+// Tur 10 (ölçüldü): aynı boyutla resize ConPTY'de tam ekran yeniden çizim üretiyor;
+// terminal ekranı her görünür olduğunda gönderiliyordu → ajan "çalışıyor"a dönüyordu.
+describe("resizeTerminal — aynı boyut yeniden gönderilmiyor", () => {
+  it("yalnız gerçek değişiklik pty'ye ve dinleyiciye gidiyor", async () => {
+    const { resizeTerminal, setTerminalTap } = await import("../app-electron/main/terminalManager");
+    const onResize = vi.fn();
+    setTerminalTap({ onOutput: vi.fn(), onExit: vi.fn(), onResize });
+    expect(createTerminal(fakeWindow, "r1", root, 80, 24, "cmd")).toBe(true);
+    const proc = spawn.mock.results[0].value as { resize: ReturnType<typeof vi.fn> };
+    resizeTerminal("r1", 120, 40);
+    resizeTerminal("r1", 120, 40);
+    resizeTerminal("r1", 120, 40);
+    resizeTerminal("r1", 100, 40);
+    expect(proc.resize.mock.calls).toEqual([[120, 40], [100, 40]]);
+    expect(onResize.mock.calls).toEqual([["r1"], ["r1"]]);
+    setTerminalTap(null);
+  });
+});
