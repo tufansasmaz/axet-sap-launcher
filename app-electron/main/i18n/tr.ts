@@ -63,6 +63,14 @@ export const MAIN_TR = {
   "chat.sapApprovalExpired": "_SAP yazma onayı 10 dakika cevapsız kaldı — yazma yapılmadı. Yine istiyorsan devam etmesini yaz._",
   "chat.sapApprovalClosed": "_SAP yazma oturumu kapandı — yazma yapılmadı._",
   "chat.sapApprovalAmbiguous": "_SAP yazma onayı istendi ama aynı klasörde başka bir oturum (Ajanlar bölmesi ya da başka sohbet) da çalışıyor; isteğin hangi oturumun olduğu belirlenemedi. Onaylanınca kendiliğinden devam edilmeyecek — onayladıysan ilgili oturuma devam etmesini yaz._",
+  "sapPane.bekliyor": "SAP yazma onayı bekleniyor — NTT Studio penceresinden karar ver; onaylanınca bu ajan kendiliğinden devam eder.",
+  "sapPane.belirsiz": "SAP yazma onayı istendi ama hangi oturumun isteği olduğu belirlenemedi (adaylar: {adaylar}). Onaylanınca kendiliğinden devam edilmeyecek — ilgili ajana sen yaz.",
+  "sapPane.kullanildi": "SAP yazma onaylandı — ajan yazmayı aynı çağrıda yaptı.",
+  "sapPane.devam": "SAP yazma onaylandı, ajan devam ettirildi.",
+  "sapPane.gonderilemedi": "SAP yazma onaylandı ama ajana devam mesajı gönderilemedi — bölmeye devam etmesini yaz.",
+  "sapPane.reddedildi": "SAP yazma onayı reddedildi — yazma yapılmadı, ajana bir şey gönderilmedi.",
+  "sapPane.sure_doldu": "SAP yazma onayı 10 dakika cevapsız kaldı — yazma yapılmadı.",
+  "sapPane.kapandi": "SAP yazma oturumu kapandı — yazma yapılmadı.",
 
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":

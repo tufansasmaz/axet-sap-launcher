@@ -73,6 +73,7 @@ import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { stopApprovalServer } from "./sapWrite/server";
 import { setApprovalCandidateProvider } from "./sapWrite/approvalEvents";
+import { createPaneApprovalRouter } from "./sapWrite/paneApprovals";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
 import { registerWriteHistoryIpc } from "./sapWrite/history";
 import { buildSummary, clearChatHistory, clearAppLog, revealData } from "./dataPrivacy";
@@ -620,6 +621,21 @@ setApprovalCandidateProvider(() =>
     ];
   })
 );
+// Bölmenin SAP yazma onayı (sapWrite/paneApprovals.ts): onaylanınca ve ajan
+// onayı aynı çağrıda kullanmadıysa bölmeye TEK kez devam satırı, Akış mesaj
+// kutusunun kapılarından (meşgul/yazıyor/soru soruyorsa kuyrukta bekler).
+createPaneApprovalRouter({
+  send: (workspaceId, paneId, text) => agentSender.send(workspaceId, paneId, text),
+  relay: sendRelay,
+  text: (n, params) => mt(`sapPane.${n}`, params),
+  continueText: () => mt("chat.sapApprovalContinue"),
+  schedule: (fn, ms) => {
+    const t = setTimeout(fn, ms);
+    return () => clearTimeout(t);
+  },
+  now: () => Date.now(),
+  log: (tag, fields) => appLog(tag, fields)
+});
 let teamServer: { port: number; close: () => void } | null = null;
 let teamScriptDir: string | null = null;
 /** Tur 10: köprü açılışı; açılışta geri yüklenen bölmeler NTT_TEAM_* olmadan açılmasın diye bekleniyor. */

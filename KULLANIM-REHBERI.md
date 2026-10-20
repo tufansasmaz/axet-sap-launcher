@@ -709,8 +709,15 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   açıp kapatır (varsayılan açık); Windows bildirimi için **Masaüstü
   bildirimleri** de açık olmalı.
 - SAP yazma onayı ve QA/PRD salt okunur kuralları ajanlar için de aynen
-  geçerlidir. Ajan bölmeleri terminal olduğu için onay sonrası otomatik devam
-  yoktur: pencereden onayladıktan sonra bölmeye "devam et" yaz. Bir ekipte en fazla 9 bölme (ajanlar dahil). Eski Terminal
+  geçerlidir. Bölmedeki ajan onay istediğinde Akış'ta "SAP yazma onayı
+  bekleniyor" kartı çıkar. Pencereden onaylayınca ajan devam eder; ajan o
+  sırada bitmişse bölmeye **bir kez** "Onaylandı, kaldığın yerden devam et"
+  gider (sen yazıyorsan ya da ajan meşgulse sırasını bekler) ve Akış'a
+  "onaylandı, devam ettirildi" düşer. Reddedersen yalnız Akış'ta not çıkar,
+  ajana bir şey gönderilmez. Onay isteği kimin olduğuna isteği yapan sürece
+  bakılarak bağlanır; aynı klasörde birden çok oturum çalışıyorken bu
+  belirlenemezse Akış'ta "hangi oturum?" notu çıkar ve kendiliğinden devam
+  edilmez — o durumda ilgili ajana sen yaz. Bir ekipte en fazla 9 bölme (ajanlar dahil). Eski Terminal
   düzenin kaybolmaz; eski axet-code bölmeleri axet-code ajanı olarak açılır.
   Bu dönüşüm tek yönlüdür: daha eski bir sürüme (1.8.x) dönersen ajan
   bölmeleri o sürümde açılmaz.

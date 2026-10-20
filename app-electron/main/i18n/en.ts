@@ -60,6 +60,14 @@ export const MAIN_EN = {
   "chat.sapApprovalExpired": "_SAP write approval went unanswered for 10 minutes — nothing was written. Ask the agent to continue if you still want it._",
   "chat.sapApprovalClosed": "_SAP write session closed — nothing was written._",
   "chat.sapApprovalAmbiguous": "_An SAP write approval was requested, but another session (an Agents pane or another chat) is working in the same folder and it could not be determined which one asked. It will not continue on its own after approval — if you approved, tell the right session to continue._",
+  "sapPane.bekliyor": "SAP write approval pending — decide in the NTT Studio window; once approved, this agent continues on its own.",
+  "sapPane.belirsiz": "An SAP write approval was requested, but it could not be determined which session asked (candidates: {adaylar}). It will not continue on its own after approval — tell the right agent yourself.",
+  "sapPane.kullanildi": "SAP write approved — the agent did the write in the same call.",
+  "sapPane.devam": "SAP write approved, the agent was told to continue.",
+  "sapPane.gonderilemedi": "SAP write approved, but the continue message could not be sent — tell the pane to continue.",
+  "sapPane.reddedildi": "SAP write rejected — nothing was written, nothing was sent to the agent.",
+  "sapPane.sure_doldu": "SAP write approval went unanswered for 10 minutes — nothing was written.",
+  "sapPane.kapandi": "SAP write session closed — nothing was written.",
 
   // --- axetChat.ts (empty answer gate) ---
   "chat.emptyAnswerTui":
