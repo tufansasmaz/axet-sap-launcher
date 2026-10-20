@@ -86,6 +86,7 @@ import { listAxetModels, getAxetModelConfig, setAxetModel } from "./axetModels";
 import {
   sendChatMessage,
   answerChatQuestion,
+  releaseApprovalWait,
   cancelChatMessage,
   cancelAllChatMessages,
   closeChatSession,
@@ -2239,6 +2240,10 @@ function registerIpc(): void {
     "axetChat:answerQuestion",
     (_event, requestId: string, optionIndex: number | number[], customText?: string) =>
       answerChatQuestion(requestId, optionIndex, customText)
+  );
+  // Kullanıcı SAP yazma onayı beklenirken yeni mesaj yazdı: otomatik devam yok (bkz. axetChat.ts).
+  ipcMain.handle("axetChat:releaseApprovalWait", (_event, requestId: string) =>
+    typeof requestId === "string" ? releaseApprovalWait(requestId) : false
   );
   // Sohbet silindi: bağlı oturum bırakılıyor (axet-code veritabanındaki kayda dokunulmuyor).
   ipcMain.handle("axetChat:closeSession", (_event, chatId: string) => {

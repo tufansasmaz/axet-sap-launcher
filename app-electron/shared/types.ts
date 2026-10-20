@@ -881,6 +881,9 @@ export type AxetChatActivityPhase =
   // Ajan `ask_user` aracıyla soru sordu; tur, kullanıcı bir seçenek seçene
   // kadar DURUYOR (bkz. axetHeadless.ts `ask_user` ağı).
   | "askUser"
+  // Ajan SAP'a yazmak için NTT Studio onayı istedi; tur, pencerede karar
+  // verilene kadar AÇIK bekliyor (bkz. axetChat.ts `waitApprovals`).
+  | "sapApproval"
   // axet-code uzun süredir hiçbir belirti vermiyor. ARIZA DEĞİL: tur sürüyor,
   // beklemeye devam ediliyor ve cevap geldiği an gösterilecek. Bu aşama
   // yalnızca kullanıcı boşluğa bakmasın diye var — durdurmak isterse

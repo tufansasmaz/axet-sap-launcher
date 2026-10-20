@@ -12,6 +12,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import path from "node:path";
 import type { Choice, Decision, SapWriteState, WorkMode } from "../../shared/sapWriteTypes";
+import { emitApprovalEvent, type ApprovalOutcome } from "./approvalEvents";
 import { appendDecisionLog, atcLogFields, factLogFields, resultLogFields } from "./log";
 import {
   canSession,
@@ -165,6 +166,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       );
     }
     if (r.created) notify();
+    // Sohbet turu bu olaylarla onay bekler (bkz. approvalEvents.ts). Kimlik ve klasör dışında bir şey taşımaz.
+    if (r.karar === "bekliyor" && r.id) emitApprovalEvent({ tur: "soruldu", id: r.id, projectDir: state.projectDir });
+    if (r.karar === "izinli" && r.kaynak === "pencere" && r.id) emitApprovalEvent({ tur: "kullanildi", id: r.id, projectDir: state.projectDir });
     send(res, 200, { karar: r.karar, id: r.id, mesaj: MESAJ[r.karar] });
     return;
   }
@@ -275,11 +279,19 @@ export async function openWriteSession(
   return { url: `http://127.0.0.1:${serverPort}`, token, sessionId };
 }
 
+/** Kapanan oturumun bekleyen istekleri: bekleyen sohbet turu boşuna 10 dk beklemesin. */
+function emitClosed(s: Session): void {
+  for (const r of s.state.records) {
+    if (r.status === "bekliyor") emitApprovalEvent({ tur: "sonuclandi", id: r.id, projectDir: s.state.projectDir, durum: "kapandi" });
+  }
+}
+
 export function closeWriteSession(projectDir: string): void {
   let changed = false;
   for (const [id, s] of sessions) {
     if (sameDir(s.state.projectDir, projectDir)) {
       sessions.delete(id);
+      emitClosed(s);
       changed = true;
     }
   }
@@ -288,7 +300,9 @@ export function closeWriteSession(projectDir: string): void {
 
 export function closeAllWriteSessions(): void {
   if (sessions.size === 0) return;
+  const closing = [...sessions.values()];
   sessions.clear();
+  closing.forEach(emitClosed);
   notify();
 }
 
@@ -315,6 +329,8 @@ export function respondToApproval(id: string, choice: Choice): { ok: boolean; er
         ...factLogFields(rec.fact),
         ...identityFields(s.state),
       });
+      const durum: ApprovalOutcome = choice === "reddet" ? "reddedildi" : "onaylandi";
+      emitApprovalEvent({ tur: "sonuclandi", id, projectDir: s.state.projectDir, durum });
     }
     notify();
     return r;
@@ -366,6 +382,7 @@ export function sweepNow(now: number = Date.now()): void {
         { tur: "karar", id, karar: "sure_doldu", ...(rec ? factLogFields(rec.fact) : {}), ...identityFields(s.state) },
         now,
       );
+      emitApprovalEvent({ tur: "sonuclandi", id, projectDir: s.state.projectDir, durum: "sure_doldu" });
     }
     if (r.changed) changed = true;
   }
@@ -375,7 +392,9 @@ export function sweepNow(now: number = Date.now()): void {
 export async function stopApprovalServer(): Promise<void> {
   if (sweeper) clearInterval(sweeper);
   sweeper = null;
+  const closing = [...sessions.values()];
   sessions.clear();
+  closing.forEach(emitClosed);
   const srv = server;
   server = null;
   serverPort = 0;

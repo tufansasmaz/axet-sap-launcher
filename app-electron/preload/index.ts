@@ -405,6 +405,8 @@ const api = {
     customText?: string
   ): Promise<boolean> =>
     ipcRenderer.invoke("axetChat:answerQuestion", requestId, optionIndex, customText),
+  releaseChatApprovalWait: (requestId: string): Promise<boolean> =>
+    ipcRenderer.invoke("axetChat:releaseApprovalWait", requestId),
   closeChatSession: (chatId: string): Promise<void> => ipcRenderer.invoke("axetChat:closeSession", chatId),
   // İstemsiz `run` süreci (bkz. axetPrewarm.ts); ateşle-unut.
   prewarmChat: (

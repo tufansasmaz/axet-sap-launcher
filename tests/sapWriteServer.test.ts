@@ -18,6 +18,7 @@ import {
   sweepNow,
 } from "../app-electron/main/sapWrite/server";
 import { LOG_FILE } from "../app-electron/main/sapWrite/log";
+import { onApprovalEvent, type ApprovalEvent } from "../app-electron/main/sapWrite/approvalEvents";
 
 const H = (c: string) => c.repeat(64);
 const ID = { sid: "DS4", client: "100", user: "DEV1" };
@@ -290,6 +291,41 @@ describe("onay ucu", () => {
       expect(expired).toBeDefined();
     } finally {
       nowSpy.mockRestore();
+    }
+  });
+
+  it("sohbet turu için olaylar: soruldu → sonuclandi(onaylandi) → kullanildi; ret, süre, kapanış; token yok", async () => {
+    const got: ApprovalEvent[] = [];
+    const off = onApprovalEvent((e) => got.push(e));
+    try {
+      const s = await openWriteSession(dir, ID);
+      setWriteMode(s.sessionId, "dogrudan");
+      const a = await call(s.url, s.token, "POST", "/approvals", fact());
+      await call(s.url, s.token, "POST", "/approvals", fact());
+      respondToApproval(a.json.id, "bu_seferlik");
+      await call(s.url, s.token, "POST", "/approvals", fact());
+      const b = await call(s.url, s.token, "POST", "/approvals", fact({ arg_hash: H("b") }));
+      respondToApproval(b.json.id, "reddet");
+      const c = await call(s.url, s.token, "POST", "/approvals", fact({ arg_hash: H("c") }));
+      sweepNow(Date.now() + 10 * 60_000 + 1);
+      const d = await call(s.url, s.token, "POST", "/approvals", fact({ arg_hash: H("d") }));
+      closeWriteSession(dir);
+      expect(got.map((e) => [e.tur, e.id, "durum" in e ? e.durum : null])).toEqual([
+        ["soruldu", a.json.id, null],
+        ["soruldu", a.json.id, null],
+        ["sonuclandi", a.json.id, "onaylandi"],
+        ["kullanildi", a.json.id, null],
+        ["soruldu", b.json.id, null],
+        ["sonuclandi", b.json.id, "reddedildi"],
+        ["soruldu", c.json.id, null],
+        ["sonuclandi", c.json.id, "sure_doldu"],
+        ["soruldu", d.json.id, null],
+        ["sonuclandi", d.json.id, "kapandi"],
+      ]);
+      expect(got.every((e) => e.projectDir === dir)).toBe(true);
+      expect(JSON.stringify(got)).not.toContain(s.token);
+    } finally {
+      off();
     }
   });
 });

@@ -57,6 +57,11 @@ export const MAIN_TR = {
   // --- axetChat.ts (başsız köprü) ---
   "chat.headlessAnswerLabel": "Kullanıcının cevabı",
   "chat.headlessRetryPrompt": "Önceki deneme sağlayıcı hatasıyla yarıda kaldı; son mesajıma cevap ver.",
+  "chat.sapApprovalContinue": "Onaylandı, kaldığın yerden devam et. SAP yazma onayı NTT Studio penceresinden verildi; bekleyen çağrıyı AYNI argümanlarla tekrar gönder.",
+  "chat.sapApprovalResumedNote": "_SAP yazma onayı verildi — kaldığı yerden devam ediyor._",
+  "chat.sapApprovalDenied": "_SAP yazma onayı reddedildi — yazma yapılmadı, ajan durdu._",
+  "chat.sapApprovalExpired": "_SAP yazma onayı 10 dakika cevapsız kaldı — yazma yapılmadı. Yine istiyorsan devam etmesini yaz._",
+  "chat.sapApprovalClosed": "_SAP yazma oturumu kapandı — yazma yapılmadı._",
 
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":

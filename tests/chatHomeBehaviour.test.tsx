@@ -252,6 +252,22 @@ describe("mesaj kuyruğu", () => {
     expect(screen.queryByTestId("chat-queued")).toBeNull();
   });
 
+  it("sıraya mesaj konunca SAP onayı sonrası otomatik devam bırakılıyor (aynı istek kimliği)", async () => {
+    const { send } = setupSend();
+    const release = vi.fn(() => Promise.resolve(true));
+    const api = (window as unknown as { api: Record<string, unknown> }).api;
+    (window as unknown as { api: unknown }).api = new Proxy(api, {
+      get: (target, k: string) => (k === "releaseChatApprovalWait" ? release : (target as Record<string, unknown>)[k])
+    });
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    expect(release).not.toHaveBeenCalled();
+    type(box, "ikinci");
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledWith(send.mock.calls[0][0]);
+  });
+
   it("tur durdurulursa sıradaki gönderilmiyor, kutuya geri dönüyor", async () => {
     const { calls, send } = setupSend();
     const box = await openChat();

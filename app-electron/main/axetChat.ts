@@ -37,6 +37,8 @@ import { askUserAsText, splitOptionsBlock, type AskUserRequest } from "./axetToo
 import { connectorGuidance } from "./connectorHealth";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { mt } from "./i18n";
+import { ApprovalTracker } from "./sapWrite/approvalEvents";
+import { PENDING_TTL_MS } from "./sapWrite/policy";
 
 // Canlı bulgu (2026-08-30): kullanıcı "Uygulama Bağlantıları"ndan Outlook'u
 // bağladı (o ekranın "Bağlantıyı Test Et"i BAŞARILI oldu — bkz.
@@ -106,6 +108,8 @@ const ASK_RULE =
   "Gerekmiyorsa en makul varsayımla devam et ve varsayımını tek cümleyle söyle.";
 
 export const AUTH_RETRY_MS = 15_000;
+/** Bir kullanıcı mesajında onay sonrası en çok kaç kez kendiliğinden sürdürülür (döngü sigortası). */
+const MAX_APPROVAL_ROUNDS = 5;
 
 function preamble(useConnectors: boolean, cwd: string): string {
   return (
@@ -156,6 +160,10 @@ interface ChatRun {
   turns: number;
   /** AUTH_RETRY_MS beklentisini erken bitirir; cancelChatMessage tarafından çağrılır. */
   wakeDelay: (() => void) | null;
+  /** SAP yazma onayı beklenirken bekleyişi devamsız bitirir (Durdur ya da kullanıcının yeni mesajı). */
+  stopApprovalWait: (() => void) | null;
+  /** Kullanıcı onay beklerken yeni mesaj yazdı: onay gelse de otomatik devam yok. */
+  approvalReleased: boolean;
 }
 
 const runs = new Map<string, ChatRun>(); // requestId → çalışan tur
@@ -400,7 +408,10 @@ export async function sendChatMessage(
 
   // Sürüm denetimi öncesinde kaydediyoruz: await sırasında gelen Durdur kayboluyor.
   // try/finally burayı kapsıyor; erken dönüşler runs.delete'i atlamaz.
-  const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0, wakeDelay: null };
+  const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0, wakeDelay: null, stopApprovalWait: null, approvalReleased: false };
+  // Bu turda sorulan SAP yazma onayları (bkz. sapWrite/approvalEvents.ts).
+  const approvals = new ApprovalTracker(resolvedCwd);
+  let approvalRounds = 0;
   runs.set(requestId, run);
 
   let useConnectors = false;
@@ -431,6 +442,7 @@ export async function sendChatMessage(
   const runOnce = async (): Promise<HeadlessTurnResult> => {
     turns += 1;
     run.turns = turns;
+    approvals.reset();
     runSinceSec = Math.floor(Date.now() / 1000) - 2;
     // Soru cevabından sonraki turun ilk parçası önceki metne yapışmasın.
     let first = true;
@@ -465,6 +477,63 @@ export async function sendChatMessage(
     totalTools += result.toolCount;
     if (result.toolsUnknown) toolsUnknown = true;
     return result;
+  };
+
+  // Görünür not: canlı akışa da, sonuç metnine de aynı satır gidiyor.
+  const appendNote = (note: string) => {
+    emitChunk(text ? `\n\n${note}` : note);
+    text = joinText(text, note);
+  };
+
+  // Alt tur bitti, ajan soru sormadı. Bu turda SAP yazma onayı sorulduysa
+  // karar beklenir; onaylanınca aynı oturum bir kez sürdürülür, ret/süre
+  // dolması/kullanıcının yeni mesajı turu bitirir. Onay ASLA burada verilmez:
+  // yalnızca pencerenin kararı dinlenir.
+  const waitApprovals = async (sessionId: string | null): Promise<"continue" | "stop" | "cancelled"> => {
+    let s = approvals.summary();
+    if (s.pending.length + s.approved.length + s.denied.length + s.expired.length + s.closed.length === 0) return "stop";
+    let timedOut = false;
+    if (s.pending.length > 0 && !run.approvalReleased) {
+      emitActivity({ phase: "sapApproval" });
+      appLog("kopru.onay", { sohbet: chatId, sonuc: "bekliyor", adet: s.pending.length });
+      const waited = await approvals.wait(PENDING_TTL_MS + 60_000, (stop) => {
+        run.stopApprovalWait = stop;
+      });
+      if (run.cancelled) return "cancelled";
+      timedOut = waited === "zaman_asimi";
+      s = approvals.summary();
+    }
+    if (run.approvalReleased) {
+      appLog("kopru.onay", { sohbet: chatId, sonuc: "birakildi" });
+      return "stop";
+    }
+    if (s.approved.length > 0 && approvalRounds < MAX_APPROVAL_ROUNDS) {
+      approvalRounds += 1;
+      appLog("kopru.onay", { sohbet: chatId, sonuc: "devam", adet: s.approved.length, tur: approvalRounds });
+      appendNote(mt("chat.sapApprovalResumedNote"));
+      emitActivity({ phase: "thinking" });
+      const continuePrompt = mt("chat.sapApprovalContinue");
+      seedHistory = [...seedHistory, { role: "user", content: seedMessage }, { role: "assistant", content: text.slice(textAtAnswer) }];
+      seedMessage = continuePrompt;
+      textAtAnswer = text.length;
+      const unsafe = sessionId ? unsafeToResume(resolvedCwd, sessionId) : "kimlik-yok";
+      if (unsafe) {
+        appLog("kopru.bag-dustu", { sohbet: chatId, sebep: unsafe, yer: "onay" });
+        clearBinding(chatId);
+        resumeId = null;
+        prompt = seedPrompt(seedHistory, seedMessage, useConnectors, resolvedCwd, totalTools > 0 || toolsUnknown);
+      } else {
+        resumeId = sessionId;
+        prompt = continuePrompt;
+      }
+      return "continue";
+    }
+    const sonuc = s.denied.length > 0 ? "red" : s.expired.length > 0 || timedOut ? "sure" : s.closed.length > 0 ? "kapandi" : "sinir";
+    if (sonuc === "red") appendNote(mt("chat.sapApprovalDenied"));
+    else if (sonuc === "sure") appendNote(mt("chat.sapApprovalExpired"));
+    else if (sonuc === "kapandi") appendNote(mt("chat.sapApprovalClosed"));
+    appLog("kopru.onay", { sohbet: chatId, sonuc });
+    return "stop";
   };
 
   try {
@@ -506,7 +575,15 @@ export async function sendChatMessage(
         const ask = result.ask ?? split.ask;
         const piece = result.ask ? result.text : split.text;
         text = joinText(text, piece);
-        if (!ask) break;
+        if (!ask) {
+          // SAP yazma onayı: onay ucu "bekliyor"u hemen döndürüyor ve başsız
+          // turda model burada duruyor. Tur AÇIK kalıyor (askUser gibi); karar
+          // gelince aynı oturum TEK kez "devam et" ile sürüyor.
+          const next = await waitApprovals(result.sessionId);
+          if (next === "cancelled") return { ok: false, text, cancelled: true, usedConnectors: useConnectors };
+          if (next === "stop") break;
+          continue;
+        }
         // Soru: kart çıkıyor, tur açık kalıyor.
         run.pendingAsk = ask;
         emitActivity({
@@ -623,6 +700,7 @@ export async function sendChatMessage(
     if (empty) return { ...out, ok: false, error: mt("chat.emptyAnswerTui") };
     return out;
   } finally {
+    approvals.dispose();
     runs.delete(requestId);
     // Alınıp kullanılmadan kalan süreç (tur başlamadan iptal) askıda kalmasın.
     if (prewarmed) {
@@ -644,9 +722,23 @@ export function cancelChatMessage(requestId: string): void {
   run.turn?.cancel();
   run.answerAsk?.(null);
   run.wakeDelay?.();
+  run.stopApprovalWait?.();
   dropPrewarm(run.chatId);
   appLog("kopru.iptal", { sohbet: run.chatId, turNo: run.turns });
   // Süreç ağacı öldürülüyor; "durdu mu" diye ayrı bir karar kanalı yok.
+}
+
+/**
+ * Kullanıcı SAP yazma onayı beklenirken yeni mesaj yazdı (sıraya koydu): tur
+ * otomatik devamsız biter, sıradaki mesaj gider. Onay penceresi açık kalır;
+ * kararı ajan kendi tekrar denemesinde görür.
+ */
+export function releaseApprovalWait(requestId: string): boolean {
+  const run = runs.get(requestId);
+  if (!run) return false;
+  run.approvalReleased = true;
+  run.stopApprovalWait?.();
+  return true;
 }
 
 export function answerChatQuestion(requestId: string, optionIndex: number | number[], customText?: string): boolean {

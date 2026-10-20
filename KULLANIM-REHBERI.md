@@ -335,6 +335,16 @@ listesi ve bağlanılan sistemler var.
   et" butonu çıkar, tıklayınca ajan kaldığı yerden devam eder.
 - **Soru kartı**: Ajan seçenek sunduğunda (ask_user) ekranda seçenek butonları
   görünür; tıklayarak ya da yazarak yanıt verebilirsin.
+- **SAP yazma onayı (DEV)**: Ajan SAP'a yazmak istediğinde NTT Studio onay
+  penceresi açılır; cevap göstergesi "SAP yazma onayını bekliyor" yazar ve
+  tur **açık kalır**. Pencereden onaylayınca ajan aynı sohbette kendiliğinden
+  ve bir kez "Onaylandı, kaldığın yerden devam et" mesajıyla sürer; ayrıca
+  "devam et" yazman gerekmez. **Reddedersen** cevabın altına "reddedildi"
+  notu düşer, ajan durur ve yazma yapılmaz. Onay **10 dakika** cevapsız
+  kalırsa süre dolar, yazma yapılmaz (istersen "devam et" yazarsın). Beklerken
+  **Durdur** turu kapatır; **yeni mesaj yazarsan** otomatik devam gönderilmez,
+  senin mesajın gider. Onay hiçbir zaman sen pencereden vermeden verilmez;
+  transport onayı ve QA/PRD salt okunur kuralı aynen geçerlidir.
 - **Hazır istemler**: Sistem bağlandığında rolüne göre önerilen başlangıç
   sorularını gösteren bir kart açılır.
 - **Windows bildirimi**: Uygulama arka plandayken ajan cevabını bitirince
@@ -699,7 +709,8 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   açıp kapatır (varsayılan açık); Windows bildirimi için **Masaüstü
   bildirimleri** de açık olmalı.
 - SAP yazma onayı ve QA/PRD salt okunur kuralları ajanlar için de aynen
-  geçerlidir. Bir ekipte en fazla 9 bölme (ajanlar dahil). Eski Terminal
+  geçerlidir. Ajan bölmeleri terminal olduğu için onay sonrası otomatik devam
+  yoktur: pencereden onayladıktan sonra bölmeye "devam et" yaz. Bir ekipte en fazla 9 bölme (ajanlar dahil). Eski Terminal
   düzenin kaybolmaz; eski axet-code bölmeleri axet-code ajanı olarak açılır.
   Bu dönüşüm tek yönlüdür: daha eski bir sürüme (1.8.x) dönersen ajan
   bölmeleri o sürümde açılmaz.

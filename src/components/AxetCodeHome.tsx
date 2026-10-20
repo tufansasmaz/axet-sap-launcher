@@ -1533,6 +1533,9 @@ export default function AxetCodeHome({
       // Cevap sürerken Enter mesajı SIRAYA koyuyor; tur başarıyla bitince
       // kendiliğinden gidiyor (bkz. `runPrompt` sonu ve aşağıdaki efekt).
       if (!session.draft.trim() && session.attachments.length === 0) return;
+      // Tur SAP yazma onayını bekliyorsa (ya da birazdan bekleyecekse) onay
+      // sonrası otomatik "devam et" gitmesin: kullanıcının yeni mesajı esas.
+      if (session.requestId) window.api.releaseChatApprovalWait?.(session.requestId)?.catch(() => {});
       setSessions((prev) =>
         prev.map((s) =>
           s.id === activeId

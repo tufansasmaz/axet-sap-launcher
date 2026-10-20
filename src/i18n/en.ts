@@ -243,6 +243,7 @@ export const en: Record<TranslationKey, string> = {
   "axetCodeHome.phaseTool": "Running a tool",
   "axetCodeHome.phaseRestarting": "Restarting session",
   "axetCodeHome.phaseAskUser": "Waiting for your answer",
+  "axetCodeHome.phaseSapApproval": "Waiting for SAP write approval — NTT Studio approval window",
   "axetCodeHome.askUserFallback": "I need one choice from you to continue.",
   "axetCodeHome.askUserCustom": "Write my own",
   "axetCodeHome.askUserCustomPlaceholder": "Type your answer and press Enter",

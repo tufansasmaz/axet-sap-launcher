@@ -374,6 +374,7 @@ const PHASE_KEYS: Record<AxetChatActivityPhase, TranslationKey> = {
   toolResult: "axetCodeHome.phaseTool",
   restarting: "axetCodeHome.phaseRestarting",
   askUser: "axetCodeHome.phaseAskUser",
+  sapApproval: "axetCodeHome.phaseSapApproval",
   // Dakika sayısı bu haritadan GELMİYOR — `label` aşağıda ayrıca kuruluyor,
   // çünkü metin parametreli. Buradaki karşılık yalnızca `Record`'un eksik
   // anahtar kabul etmemesi için.

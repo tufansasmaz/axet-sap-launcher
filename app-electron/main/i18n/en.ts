@@ -54,6 +54,11 @@ export const MAIN_EN = {
   // --- axetChat.ts (headless bridge) ---
   "chat.headlessAnswerLabel": "The user's answer",
   "chat.headlessRetryPrompt": "The previous attempt was cut off by a provider error; please answer my last message.",
+  "chat.sapApprovalContinue": "Approved, continue where you left off. The SAP write was approved in the NTT Studio window; resend the pending call with the SAME arguments.",
+  "chat.sapApprovalResumedNote": "_SAP write approved — continuing where it left off._",
+  "chat.sapApprovalDenied": "_SAP write rejected — nothing was written, the agent stopped._",
+  "chat.sapApprovalExpired": "_SAP write approval went unanswered for 10 minutes — nothing was written. Ask the agent to continue if you still want it._",
+  "chat.sapApprovalClosed": "_SAP write session closed — nothing was written._",
 
   // --- axetChat.ts (empty answer gate) ---
   "chat.emptyAnswerTui":

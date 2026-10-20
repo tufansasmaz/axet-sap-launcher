@@ -284,6 +284,8 @@ export interface AxetApi {
     optionIndex: number | number[],
     customText?: string
   ) => Promise<boolean>;
+  /** SAP yazma onayı beklenirken yeni mesaj sıraya kondu: tur otomatik devamsız biter. */
+  releaseChatApprovalWait?: (requestId: string) => Promise<boolean>;
   closeChatSession: (chatId: string) => Promise<void>;
   /**
    * İlk cevabı hızlandırmak için istemsiz bir `axet-code run` süreci açar

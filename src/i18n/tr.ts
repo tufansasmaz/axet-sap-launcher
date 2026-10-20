@@ -278,6 +278,7 @@ export const tr = {
   "axetCodeHome.phaseTool": "Araç çalıştırıyor",
   "axetCodeHome.phaseRestarting": "Oturum yenileniyor",
   "axetCodeHome.phaseAskUser": "Cevabını bekliyor",
+  "axetCodeHome.phaseSapApproval": "SAP yazma onayını bekliyor — NTT Studio onay penceresi",
   "axetCodeHome.askUserFallback": "Devam etmek için bir tercihine ihtiyacım var.",
   "axetCodeHome.askUserCustom": "Kendim yazayım",
   "axetCodeHome.askUserCustomPlaceholder": "Cevabını yaz ve Enter'a bas",
