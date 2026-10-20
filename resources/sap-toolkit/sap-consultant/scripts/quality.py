@@ -73,7 +73,51 @@ SEVERITY = ("blocker", "major", "minor")
 # a priority-1 finding into a "minor" to get a green board.
 ATC_PRIORITY = {1: "blocker", 2: "major", 3: "minor", 4: "minor"}
 
-MARK = {"pass": "✅ GEÇTİ", "warn": "⚠️ UYARI", "fail": "❌ KALDI", "not-run": "⬜ ÇALIŞMADI"}
+# A no-break space ties each mark to its word: in a narrow column the square
+# printed on one line and "ÇALIŞMADI" on the next.
+MARK = {"pass": "✅\u00a0GEÇTİ", "warn": "⚠️\u00a0UYARI", "fail": "❌\u00a0KALDI",
+        "not-run": "⬜\u00a0ÇALIŞMADI"}
+
+# The board in two languages (--lang tr|en, default tr). The fixed words are the master's
+# "board" table in plugins/office-tools/lib/doc_language.json; scripts/test_doc_language.py holds
+# this table equal to it. The stored run (run.json, gates.jsonl) is language-free: only the
+# printed board is translated, so one run prints in either language.
+LANGS = ("tr", "en")
+TEXT = {
+    "tr": {
+        "title": "Kod Kalite Karnesi", "result": "SONUÇ", "gate": "Kapı", "outcome": "Sonuç",
+        "source": "Kaynak", "note": "Not", "findings": "Bulgular", "severity": "Önem",
+        "where": "Nerede", "what": "Ne", "fix": "Öneri", "limits": "Neleri kontrol edemedim",
+        "limit_what": "Kontrol edilemedi", "limit_why": "Neden", "limit_where": "Nereye bakılmalı",
+        "no_limit": "hiçbir sınır kaydedilmedi — bu, her şeyin kontrol edildiği anlamına gelmez",
+        "pass": "GEÇTİ", "warn": "UYARI", "fail": "KALDI", "not-run": "ÇALIŞMADI",
+        "v_no": "RELEASE EDİLEMEZ", "v_incomplete": "EKSİK — KARAR VERİLEMEZ",
+        "v_cond": "ŞARTLI — UYARILAR OKUNMALI", "v_ok": "RELEASE EDİLEBİLİR",
+        "g_syntax": "Sözdizimi", "g_atc": "ATC", "g_unit": "Birim testi", "g_cleancore": "Clean Core",
+        "g_conventions": "Standartlar", "g_impact": "Etki alanı",
+    },
+    "en": {
+        "title": "Code Quality Board", "result": "RESULT", "gate": "Gate", "outcome": "Result",
+        "source": "Source", "note": "Note", "findings": "Findings", "severity": "Severity",
+        "where": "Where", "what": "What", "fix": "Suggestion", "limits": "What I could not check",
+        "limit_what": "Not checked", "limit_why": "Why", "limit_where": "Where to look",
+        "no_limit": "no limit was recorded — that does not mean everything was checked",
+        "pass": "PASSED", "warn": "WARNING", "fail": "FAILED", "not-run": "NOT RUN",
+        "v_no": "CANNOT BE RELEASED", "v_incomplete": "INCOMPLETE — NO DECISION POSSIBLE",
+        "v_cond": "CONDITIONAL — READ THE WARNINGS", "v_ok": "READY TO RELEASE",
+        "g_syntax": "Syntax", "g_atc": "ATC", "g_unit": "Unit test", "g_cleancore": "Clean Core",
+        "g_conventions": "Standards", "g_impact": "Impact",
+    },
+}
+_ICON = {"pass": "✅", "warn": "⚠️", "fail": "❌", "not-run": "⬜"}
+
+
+def _t(lang: str, key: str) -> str:
+    return TEXT[lang][key]
+
+
+def _mark(lang: str, status: str) -> str:
+    return f"{_ICON[status]}\u00a0{_t(lang, status)}"
 
 SAFE_ID = re.compile(r"[^A-Za-z0-9._-]+")
 
@@ -291,25 +335,31 @@ def _gate_state(run: Path) -> dict[str, dict]:
     }
 
 
-def _verdict(gates: dict[str, dict], findings: list[dict]) -> tuple[str, list[str]]:
+def _verdict(gates: dict[str, dict], findings: list[dict], lang: str = "tr") -> tuple[str, list[str]]:
     reasons = []
     failed = [g for g, r in gates.items() if r["status"] == "fail"]
     blockers = [f for f in findings if f["severity"] == "blocker"]
     notrun = [g for g, r in gates.items() if r["status"] == "not-run"]
+    en = lang == "en"
     if failed:
-        reasons.append(f"{len(failed)} kapı KALDI: {', '.join(failed)}")
+        reasons.append(f"{len(failed)} gate{'s' if len(failed) > 1 else ''} FAILED: {', '.join(failed)}" if en
+                       else f"{len(failed)} kapı KALDI: {', '.join(failed)}")
     if blockers:
-        reasons.append(f"{len(blockers)} blocker bulgu: {', '.join(f['id'] for f in blockers)}")
+        reasons.append(f"{len(blockers)} blocker finding{'s' if len(blockers) > 1 else ''}: "
+                       f"{', '.join(f['id'] for f in blockers)}" if en
+                       else f"{len(blockers)} blocker bulgu: {', '.join(f['id'] for f in blockers)}")
     if failed or blockers:
-        return "RELEASE EDİLEMEZ", reasons
+        return _t(lang, "v_no"), reasons
     if notrun:
-        reasons.append(f"{len(notrun)} kapı çalışmadı: {', '.join(notrun)}")
-        return "EKSİK — KARAR VERİLEMEZ", reasons
+        reasons.append(f"{len(notrun)} gate{'s' if len(notrun) > 1 else ''} not run: {', '.join(notrun)}" if en
+                       else f"{len(notrun)} kapı çalışmadı: {', '.join(notrun)}")
+        return _t(lang, "v_incomplete"), reasons
     warns = [g for g, r in gates.items() if r["status"] == "warn"]
     if warns:
-        reasons.append(f"{len(warns)} kapı uyarı verdi: {', '.join(warns)}")
-        return "ŞARTLI — UYARILAR OKUNMALI", reasons
-    return "RELEASE EDİLEBİLİR", reasons
+        reasons.append(f"{len(warns)} gate{'s' if len(warns) > 1 else ''} warned: {', '.join(warns)}" if en
+                       else f"{len(warns)} kapı uyarı verdi: {', '.join(warns)}")
+        return _t(lang, "v_cond"), reasons
+    return _t(lang, "v_ok"), reasons
 
 
 def cmd_board(args: argparse.Namespace) -> int:
@@ -319,44 +369,50 @@ def cmd_board(args: argparse.Namespace) -> int:
     gates = _gate_state(run)
     findings = _rows(run / "findings.jsonl")
     limits = _rows(run / "limits.jsonl")
-    verdict, reasons = _verdict(gates, findings)
+    lang = getattr(args, "lang", "tr") or "tr"
+    verdict, reasons = _verdict(gates, findings, lang)
 
-    print(f"## KOD KALİTE KARNESİ — {state['object']}\n")
+    # `#` and title case: the first line is the document's title, which the
+    # renderers turn into the title block (render with --eyebrow "KOD KALİTE
+    # KARNESİ"). A `##` in capitals printed as a shouting heading under no title.
+    print(f"# {_t(lang, 'title')} — {state['object']}\n")
     print(
         f"{state['system']} · {state.get('object_type') or ''} · "
         f"{(state.get('transport') or state.get('package') or '')} · {state.get('reviewer') or ''}\n"
     )
-    print("| # | Kapı | Sonuç | Kaynak | Not |")
+    print(f"| # | {_t(lang, 'gate')} | {_t(lang, 'outcome')} | {_t(lang, 'source')} | {_t(lang, 'note')} |")
     print("|---|---|---|---|---|")
     for i, (key, (label, source, _)) in enumerate(GATES.items(), start=1):
+        label = _t(lang, "g_" + key)
         row = gates[key]
         note = (row.get("detail") or "").replace("|", "\\|")
         for n in row.get("notes") or []:
             note = (note + " · " if note else "") + n.replace("|", "\\|")
-        print(f"| G{i} | {label} | {MARK[row['status']]} | `{source}` | {note} |")
+        print(f"| G{i} | {label} | {_mark(lang, row['status'])} | `{source}` | {note} |")
 
-    print(f"\n**SONUÇ: {verdict}**")
+    print(f"\n**{_t(lang, 'result')}: {verdict}**")
     for r in reasons:
         print(f"- {r}")
 
     if findings:
-        print("\n### Bulgular\n")
-        print("| ID | Önem | Nerede | Ne | Öneri |")
+        print(f"\n## {_t(lang, 'findings')}\n")
+        print(f"| ID | {_t(lang, 'severity')} | {_t(lang, 'where')} | {_t(lang, 'what')} | {_t(lang, 'fix')} |")
         print("|---|---|---|---|---|")
         order = {"blocker": 0, "major": 1, "minor": 2}
         for f in sorted(findings, key=lambda x: order[x["severity"]]):
             cells = [
                 f["id"],
-                {"blocker": "🔴 blocker", "major": "🟠 major", "minor": "🟡 minor"}[f["severity"]],
+                {"blocker": "🔴\u00a0blocker", "major": "🟠\u00a0major",
+                 "minor": "🟡\u00a0minor"}[f["severity"]],
                 (f.get("where") or "").replace("|", "\\|"),
                 (f.get("what") or "").replace("|", "\\|"),
                 (f.get("fix") or "").replace("|", "\\|"),
             ]
             print("| " + " | ".join(cells) + " |")
 
-    print("\n### NELERİ KONTROL EDEMEDİM\n")
+    print(f"\n## {_t(lang, 'limits')}\n")
     if limits:
-        print("| ID | Kontrol edilemedi | Neden | Nereye bakılmalı |")
+        print(f"| ID | {_t(lang, 'limit_what')} | {_t(lang, 'limit_why')} | {_t(lang, 'limit_where')} |")
         print("|---|---|---|---|")
         for r in limits:
             cells = [
@@ -367,7 +423,7 @@ def cmd_board(args: argparse.Namespace) -> int:
             ]
             print("| " + " | ".join(cells) + " |")
     else:
-        print("_(hiçbir sınır kaydedilmedi — bu, her şeyin kontrol edildiği anlamına gelmez)_")
+        print(f"_({_t(lang, 'no_limit')})_")
     return 0
 
 
@@ -459,6 +515,8 @@ def main() -> int:
     p.set_defaults(func=cmd_limit)
 
     p = sub.add_parser("board", help="print the scoreboard deliverable")
+    p.add_argument("--lang", choices=LANGS, default="tr",
+                   help="language of the printed board (the stored run has none); default tr")
     p.add_argument("--run", required=True)
     p.set_defaults(func=cmd_board)
 

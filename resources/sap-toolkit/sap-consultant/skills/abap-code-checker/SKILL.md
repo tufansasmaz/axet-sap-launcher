@@ -87,7 +87,7 @@ Full tool calls, and what each gate does and does not prove:
 | G1 | Sözdizimi | `adt_syntax_check` | it compiles |
 | G2 | ATC | `adt_atc_check` | it passes the rules **of the variant you named** |
 | G3 | Birim testi | `adt_unit_test` | the tests that exist, pass |
-| G4 | Clean Core | `adt_get_source` + `clean-core` | no forbidden objects or deprecated statements |
+| G4 | Clean Core | `adt_get_source` + `clean-core` | nothing the project's Clean Core profile refuses, no deprecated statements — for the project's release; an unverified object is not a pass |
 | G5 | Standartlar | `adt_get_source` | naming, method size, structure |
 | G6 | Etki alanı | `adt_where_used` | the **minimum** set of callers a change can break |
 
@@ -186,7 +186,13 @@ callers, config that the code depends on — is in
 ```bash
 py .../quality.py check --run quality/...     # exit 1 = do not release
 py .../quality.py board --run quality/...     # the scoreboard, markdown
+py .../quality.py board --run quality/... --lang en    # the same board in English (default tr)
 ```
+
+`--lang tr|en` translates only what is printed (the run itself has no language), so one run
+prints in either. Use the language of the people who read the board; the words are in
+[`references/DOCUMENT_LANGUAGE.md`](references/DOCUMENT_LANGUAGE.md). Render it with
+`--eyebrow "<KOD KALİTE KARNESİ | CODE QUALITY BOARD>" --lang <tr|en>`.
 
 Four verdicts, computed — never typed:
 
@@ -197,7 +203,7 @@ Four verdicts, computed — never typed:
 | **EKSİK — KARAR VERİLEMEZ** | a gate never ran |
 | **RELEASE EDİLEMEZ** | a gate failed, or any blocker finding |
 
-Scoreboard first, findings second, `NELERİ KONTROL EDEMEDİM` last — the order is fixed so
+Scoreboard first, findings second, `Neleri kontrol edemedim` last — the order is fixed so
 that two consultants produce the same document. Format and the customer-facing wording:
 [`references/report-format.md`](references/report-format.md). Render with `office-pdf`
 when it leaves the team.

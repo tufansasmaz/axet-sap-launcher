@@ -2654,6 +2654,47 @@ class SAPADTClient:
 
         return None
 
+    def _request_parent(self, trkorr):
+        """E070.STRKORR of `trkorr`: the request a TASK belongs to. '' for a request, for
+        an unknown number, or when the read fails -- callers treat '' as "not the same
+        request", so a failed read can only keep a refusal, never create an acceptance."""
+        tr = (trkorr or '').upper().strip()
+        if not re.fullmatch(r'[A-Z0-9]{3}K\d{6}', tr):
+            return ''
+        # Cached for the session: a request's parent never changes, and every freestyle
+        # SELECT costs SAP a temporary subroutine pool in the one stateful session --
+        # NS4 refused further queries ("No further temporary subroutine pools can be
+        # generated") after a long test run on 2026-10-19.
+        cache = self.__dict__.setdefault('_request_parent_cache', {})
+        if tr in cache:
+            return cache[tr]
+        cache[tr] = ''
+        try:
+            headers = self._get_headers('application/vnd.sap.adt.datapreview.table.v1+xml')
+            headers['Content-Type'] = 'text/plain'
+            response = self._request_with_csrf_retry(
+                'post', f"{self.url}/sap/bc/adt/datapreview/freestyle",
+                headers=headers, params={'rowNumber': 1},
+                data=f"SELECT STRKORR FROM E070 WHERE TRKORR = '{tr}'".encode('utf-8'))
+            if response.status_code != 200:
+                cache.pop(tr, None)   # an error is not an answer: ask again next time
+                return ''
+            root = ET.fromstring(response.text)
+            ns = {'dp': 'http://www.sap.com/adt/dataPreview'}
+            tag = '{http://www.sap.com/adt/dataPreview}name'
+            for col in root.findall('.//dp:columns', ns):
+                meta = col.find('dp:metadata', ns)
+                if meta is not None and meta.get(tag, '') == 'STRKORR':
+                    # './/' -- the cells sit inside <dataPreview:dataSet>, not directly
+                    # under the column (NS4 2026-10-19); a direct-child search finds none.
+                    for cell in col.findall('.//dp:data', ns):
+                        cache[tr] = (cell.text or '').strip().upper()
+                        return cache[tr]
+            return ''
+        except Exception:
+            cache.pop(tr, None)   # a failed read is not an answer: ask again next time
+            return ''
+
     def _verify_and_return_lock(self, response, object_url, transport, label=''):
         """Extract lock handle + CORRNR + IS_LINK_UP from a successful (200) lock response.
 
@@ -2676,7 +2717,11 @@ class SAPADTClient:
 
         If CORRNR != transport:
           - IS_LINK_UP='X' → FOREIGN transport (another developer's) → fail fast
-          - IS_LINK_UP=empty → different transport of the same user (stale E071) → fail fast
+          - the requested number is a TASK whose request (E070.STRKORR) is CORRNR → the
+            same request: accepted. CORRNR always names the K request, so a caller who
+            passes their own task (the shared-request case: the lead's request, my task
+            under it) used to be stopped here for asking for exactly where SAP records it.
+          - IS_LINK_UP=empty otherwise → a different request → fail fast
 
         Returns:
             lock_handle string, or 'IMPLICIT_LOCK' when SAP omits it.
@@ -2697,6 +2742,17 @@ class SAPADTClient:
             )
 
         if corrnr_actual and transport and corrnr_actual.upper() != transport.upper():
+            # 2026-10-19: the caller passed THEIR TASK and SAP names its request. That is
+            # the same request -- SAP records the change in that task -- and stopping
+            # here sent a consultant to "ask the owner" for permission they already had.
+            # Only that shape is accepted: an unrelated request still stops below, and so
+            # does any number whose parent cannot be read (unknown is not "same").
+            if is_link_up != 'X':
+                parent = self._request_parent(transport)
+                if parent and parent.upper() == corrnr_actual.upper():
+                    print(f"      [INFO] {transport.upper()} is your task in request "
+                          f"{corrnr_actual}; SAP records the change there (same request).")
+                    return lock_handle or 'IMPLICIT_LOCK'
             # CORRNR mismatch: SAP assigned a different transport than requested.
             # Fail fast in both cases — no PUT attempted, no ghost E071 entry written.
             print(f"\n[TRANSPORT MISMATCH] SAP assigned transport: {corrnr_actual}")
@@ -3058,9 +3114,14 @@ class SAPADTClient:
                     current_user = self.user.upper() if hasattr(self, 'user') and self.user else ''
 
                     # Try multiple patterns to find the lock owner
+                    # "is currently editing" is what NS4 answers (2026-10-19), and it was
+                    # not matched: the owner stayed unknown, the 403 was taken for an
+                    # authorization problem, every strategy fell through to
+                    # 'NO_LOCK_SUPPORT' and the push WROTE THE SOURCE without a lock --
+                    # while another session held it, whoever that session belonged to.
                     owner_patterns = [
                         r'<T100KEY-V1>\s*([A-Z0-9_]+)\s*</T100KEY-V1>',
-                        r'user\s+([A-Z0-9_]+)\s+is\s+already\s+editing',
+                        r'user\s+([A-Z0-9_]+)\s+is\s+(?:already|currently)\s+editing',
                         r'kullanıcı\s+([A-Z0-9_]+)\s+zaten',
                         r'benutzer\s+([A-Z0-9_]+)\s+bearbeitet',
                         r'utilisateur\s+([A-Z0-9_]+)\s+modifie',
@@ -3128,16 +3189,68 @@ class SAPADTClient:
                             if self.debug_enabled:
                                 self._debug(f"[DEBUG] lock_object - Unlock/retry failed: {str(unlock_ex)[:50]}")
 
-                        # Unlock failed, but SAP allows same-user edits even with stale enqueue lock
-                        # Return NO_LOCK_SUPPORT and let PUT proceed - it should work.
-                        # CAUTION (interpretation): 'NO_LOCK_SUPPORT' is a CATCH-ALL sentinel, not a
-                        # system verdict. It is returned here (stale same-user lock) AND on 404
-                        # (no lock endpoint / old system) AND on any other lock fall-through below.
-                        # Do NOT conclude "this system blocks ADT writes" from this string alone —
-                        # confirm with an MCP atomic push (one stateful lock->PUT->activate) first.
+                        # 2026-10-17 FIX (a consultant's), confirmed on NS4 2026-10-19: with a
+                        # second session of the same user holding the program, the old
+                        # 'NO_LOCK_SUPPORT' answer let the PUT run -- the source WAS written
+                        # (inactive) under the other session's editor, and only the activation
+                        # then failed on the lock. Stopping here writes nothing.
+                        # Originally: this used to return 'NO_LOCK_SUPPORT' here and let
+                        # the caller's PUT "try anyway" -- which is actively WRONG information
+                        # in this branch specifically. We only reach this branch after SAP
+                        # answered a REAL 403 naming OUR OWN user as the lock holder, so the
+                        # explicit lock endpoint demonstrably EXISTS and DOES enforce locks on
+                        # this object -- 'NO_LOCK_SUPPORT' (which elsewhere legitimately means
+                        # "no lock endpoint / old system, proceed unlocked") is the one
+                        # conclusion already ruled out by the evidence in hand. Proceeding to
+                        # PUT after this silently either (a) fails with the identical 403, or
+                        # (b) succeeds by coincidence while leaving the real holder's lock
+                        # intact -- neither tells the caller what is actually going on.
+                        #
+                        # Root cause this self-recovery cannot fix, confirmed live (RISE DEV,
+                        # 17.10.2026): `object_url` here is whatever URL THIS call was asked to
+                        # lock. For a sub-resource that shares its PARENT's kernel enqueue key
+                        # -- confirmed for program text-elements
+                        # (`/sap/bc/adt/textelements/programs/<name>` enqueues under the SAME
+                        # argument as the program's own
+                        # `/sap/bc/adt/programs/programs/<name>`) -- the 403 can name the
+                        # object while this unlock/relock cycle, scoped to the sub-resource URL
+                        # alone, never touches the actual holder of that shared enqueue. The
+                        # same self-cycle "succeeding" (reaching `response.status_code == 200`
+                        # above) does NOT happen in that case — if it had, we would already
+                        # have returned; reaching this point means the retry itself also still
+                        # failed, which is the one honest signal available: whatever holds this
+                        # lock was not released by anything this process can do.
+                        #
+                        # NOT the same bug class for message classes (MSAG): a message class
+                        # and its message texts are ONE ADT resource/URL
+                        # (`/sap/bc/adt/messageclass/<name>`, see `_msag_url`) — there is no
+                        # separate "editing the class" vs "editing its texts" lock target to
+                        # collide, so this specific parent/child mismatch does not apply there.
                         if self.debug_enabled:
-                            self._debug("[DEBUG] lock_object - NO_LOCK_SUPPORT cause=stale_same_user_lock (PUT will likely work)")
-                        return 'NO_LOCK_SUPPORT'
+                            self._debug("[DEBUG] lock_object - stale same-user lock self-recovery "
+                                       "exhausted; raising (was: silently returning NO_LOCK_SUPPORT)")
+                        raise SAPLockError(
+                            f"Object is locked by your OWN user ('{current_user}'), and this "
+                            f"tool's own unlock->relock self-recovery just ran and still could "
+                            f"not clear it. This happens either because a DIFFERENT, LIVE "
+                            f"session under the same account (most often a SAP GUI window in "
+                            f"SE38/SE80/SE24/SE11 change mode, not Display) is holding it, OR "
+                            f"-- if this URL is a sub-resource such as program text-elements -- "
+                            f"because the real lock is held on the PARENT object, which shares "
+                            f"the same kernel enqueue argument but was never touched by this "
+                            f"call. No further automated retry here will change the outcome.\n"
+                            f"FIRST, check for an open GUI/editor window on this object under "
+                            f"'{current_user}' and close it (or switch to Display) -- the fast, "
+                            f"usually correct fix.\n"
+                            f"If none is open: SM12, filter by USER = {current_user} ONLY (not "
+                            f"by object name -- the enqueue argument often will not match a "
+                            f"plain text search on the name), find the matching entry by eye, "
+                            f"and delete it.\n"
+                            f"Object: {object_url.split('/')[-1]}",
+                            lock_owner=current_user,
+                            status_code=403,
+                            response_text=response_text[:500]
+                        )
 
                     # If DIFFERENT user has the lock, raise exception
                     if lock_owner:
@@ -3593,13 +3706,29 @@ class SAPADTClient:
         When the same user holds a leftover enqueue lock from a previous session,
         this performs a lock→unlock cycle to clear it.
 
+        WHAT THIS CANNOT DO (2026-10-17, found live): classic SAP enqueue is
+        cumulative per user+argument. If the SAME user is holding the object open
+        in a DIFFERENT, STILL-LIVE session (a SAP GUI editor window in change mode
+        is the common real case, not a dead/leaked session), this method's own
+        lock→unlock cycle acquires and releases ITS OWN reference and returns True
+        — a real, honest success — while the OTHER session's hold is completely
+        untouched. A caller that sees True here and assumes the ORIGINAL 403 is now
+        gone is assuming something this method never checked. There is no API call
+        available to this client that can verify or force-release someone else's
+        live lock; only SM12 (filtered by USER, not by object name — the enqueue
+        argument frequently does not match a plain text search) or closing the
+        other session actually does that.
+
         Args:
             object_url: URL of the object whose enqueue lock should be cleared
             transport: Optional transport corrNr. Pass this when known to avoid
                        SAP CTS auto-creating a ghost transport during the lock step.
 
         Returns:
-            True if the cycle succeeded, False otherwise
+            True if THIS cycle's own lock→unlock succeeded — NOT proof that a
+            pre-existing lock from elsewhere was released. False if even this
+            cycle failed outright (e.g. SAP refused even this user's own second
+            concurrent lock attempt).
         """
         if self.debug_enabled:
             self._debug(f"[DEBUG] clear_enqueue_lock - attempting lock→unlock cycle for {object_url}")
@@ -3983,7 +4112,23 @@ class SAPADTClient:
         return p2
 
     def _handle_activation_403(self, response, object_name, object_url, activation_body, headers):
-        """Handle 403 during activation (stale enqueue lock). Clears lock and retries once."""
+        """Handle 403 during activation (stale enqueue lock). Clears lock and retries once.
+
+        IMPORTANT (2026-10-17, found live on RISE DEV during a real session): a 403 here
+        is the classic SAP editor lock (message EU510, "User X is already editing Y"),
+        NOT the ADT-session lock `lock_object`/`unlock_object` manage. `clear_enqueue_lock`
+        does a lock->unlock cycle AS THE SAME USER to try to clear a leftover from this
+        tool's own prior session -- but SAP's classic enqueue is cumulative per user: if a
+        DIFFERENT live session (most commonly a SAP GUI window logged on as the SAME shared
+        service user this tool uses) is ALSO holding the object open in change mode (SE38/
+        SE80/SE24/SE11 "Change" rather than "Display"), this self lock->unlock cycle
+        SUCCEEDS on its own leg and returns True -- but does nothing to the OTHER session's
+        lock, because it was never this cycle's lock to release. The result: the retry
+        activation gets the IDENTICAL 403 again, and `is_object_locked()`'s `/sap/bc/adt/
+        locks` GET keeps answering `{'locked': False}` throughout, because that endpoint
+        only reports ADT-session locks, not the classic kernel enqueue a GUI edit holds.
+        No further automated retry here can fix this -- only ending the other session can.
+        """
         error_msg = f'HTTP 403 - Activation failed'
         try:
             text = response.text or ''
@@ -4008,14 +4153,43 @@ class SAPADTClient:
                         self._update_cookies(retry)
                         if retry.status_code == 200:
                             return self._parse_activation_response(retry, object_name)
-                        error_msg = (f'Object locked by {lock_user} (same user). '
-                                     f'Enqueue lock cleared but activation still failed (HTTP {retry.status_code}).')
+                        # The self lock->unlock cycle above reported success, yet the
+                        # retry STILL 403s -- that combination is diagnostic, not just
+                        # bad luck: it means this user's OWN session/handle was never
+                        # the lock holder in the first place (see docstring). Telling
+                        # the user "lock cleared but still failed" without that context
+                        # reads as a mystery each time and sends them to SM12 hunting
+                        # for a row that a plain object-name search frequently misses
+                        # (the enqueue argument is not always a literal name match).
+                        error_msg = (
+                            f'{object_name}: a second, LIVE session under the SAME user '
+                            f'({lock_user}) is holding this open in change mode -- most '
+                            f'likely a SAP GUI window on SE38/SE80/SE24/SE11 that is NOT '
+                            f'merely displaying it but actively editing it. This tool\'s own '
+                            f'lock->unlock self-test just ran and succeeded, which proves the '
+                            f'object was never locked by THIS session to begin with; nothing '
+                            f'further can be retried automatically.\n'
+                            f'FIRST, check for that open GUI/editor window under user '
+                            f'{lock_user} and close it (or switch it to Display) -- this is '
+                            f'the fastest fix and the actual cause in most real cases.\n'
+                            f'If no such window exists, go to SM12: do NOT filter by object '
+                            f'name alone (the enqueue argument often will not match a plain '
+                            f'text search) -- filter by USER = {lock_user} only, scan the '
+                            f'resulting list for this object, and delete that entry.'
+                        )
                     else:
-                        error_msg = (f'Object locked by {lock_user} (same user). '
-                                     f'Failed to clear enqueue lock. Use SM12 to release lock "EADT_LOCK".')
+                        error_msg = (
+                            f'{object_name}: locked by {lock_user} (same user), and this '
+                            f'tool\'s own clear attempt failed outright. In SM12, filter by '
+                            f'USER = {lock_user} only (not by object name) and delete the '
+                            f'matching entry.'
+                        )
                 else:
-                    error_msg = (f'Object locked by {lock_user}. '
-                                 f'Please close other SAP sessions or use SM12 to release lock "EADT_LOCK".')
+                    error_msg = (
+                        f'{object_name}: locked by {lock_user}. In SM12, filter by '
+                        f'USER = {lock_user} only (not by object name) and delete the '
+                        f'matching entry, or ask that user to close their session.'
+                    )
         except Exception:
             pass
         return {
@@ -4746,6 +4920,17 @@ class SAPADTClient:
                     params=params,
                     timeout=self.timeout_default
                 )
+
+            # A 403 that is not about the CSRF token is SAP refusing THIS create (no
+            # authorization, a request of the wrong kind for the package, a structure
+            # package...). Another media type or namespace does not change that answer,
+            # and every further attempt runs into the name lock this one left behind --
+            # so what reached the user was "User X is currently editing <name>" for an
+            # object that does not exist, while the reason sat in attempt 1. Measured on
+            # NS4 2026-10-19: "Request ... is not a local request" and "Structure packages
+            # cannot contain development objects" both came back as "currently editing".
+            if response.status_code == 403:
+                break
 
             if response.status_code in [200, 201]:
                 # Success

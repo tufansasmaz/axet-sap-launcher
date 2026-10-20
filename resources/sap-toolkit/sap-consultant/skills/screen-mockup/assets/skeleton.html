@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Ekran Maketi — <KOD> <Konu></title>
+<!--
+  <KOD> · <Geliştirme> · Ekran maketi (screen-mockup). SAP'ye bağlı değildir; veriler uydurmadır.
+  Akış: 1 Seçim ekranı => [Yürüt F8] => 2 Liste => [Detay] => 2a popup
+-->
+<!-- @sapgui:css -->
+</head>
+<body>
+
+<div class="note-top"><b>Ekran maketi</b> — <KOD> <Konu>. SAP'ye bağlı değildir, tüm veriler uydurmadır.
+Tıklanabilir: <ne denenebilir, bir cümle>.</div>
+<div class="stepnav"></div>  <!-- filled from the data-state screens below -->
+
+<!-- ============ EKRAN 1 — SEÇİM EKRANI ============ -->
+<div class="win" data-state="1" data-label="Seçim ekranı" id="scr1">
+  <div class="title"><span><Ekran başlığı></span><small>Ekran 1 / 2 · Seçim</small></div>
+  <div class="toolbar">
+    <button class="primary" data-key="run" onclick="run()">&#9654; Yürüt (F8)</button>
+  </div>
+  <div class="msg" id="s1">&nbsp;</div>
+  <div class="body">
+    <fieldset>
+      <legend><Grup></legend>
+      <div class="row">
+        <label for="f1"><Alan></label>
+        <input type="text" id="f1" class="req"><button class="f4" title="Olası değerler (F4)">...</button>
+        <span class="to">-</span><input type="text" id="f1b"><button class="multi">&#8680;</button><span></span>
+      </div>
+    </fieldset>
+  </div>
+  <div class="actions"><button class="primary" onclick="run()">Yürüt (F8)</button></div>
+  <div class="status"><span><KOD> · Seçim ekranı</span><span>DEV (100) · OVR</span></div>
+</div>
+
+<!-- ============ EKRAN 2 — LİSTE (ALV) ============ -->
+<div class="win hidden" data-state="2" data-label="Liste (ALV)" id="scr2">
+  <div class="title"><span><Ekran başlığı> — Liste</span><small>Ekran 2 / 2 · ALV</small></div>
+  <div class="toolbar">
+    <button data-key="back" onclick="goScreen('1')">&#9664; Geri (F3)</button>
+    <button onclick="openPop('pop1')">Detay</button>
+  </div>
+  <div class="msg" id="s2">&nbsp;</div>
+  <div class="body">
+    <div class="gridwrap">
+      <table class="alv"><thead><tr><th></th><th><Kolon></th></tr></thead><tbody id="rows"></tbody></table>
+    </div>
+    <div class="ann"><b>Geliştirici notları:</b> (1) ...</div>
+  </div>
+  <div class="actions"><button onclick="goScreen('1')">Geri</button></div>
+  <div class="status"><span><KOD> · Liste</span><span>DEV (100) · OVR</span></div>
+</div>
+
+<!-- ============ POPUP 2a ============ -->
+<div class="pop" data-state="2a" data-label="Detay" data-base="2" id="pop1">
+  <div class="title"><span><Popup başlığı></span><small>2a</small></div>
+  <div class="body">...</div>
+  <div class="actions"><button class="primary" onclick="closePop()">Kapat</button></div>
+</div>
+
+<!-- @sapgui:js -->
+<script>
+// Uydurma örnek veri — gerçek müşteri, kişi veya sistem değildir.
+const DATA = [];
+function run(){ /* filtre, render */ goScreen('2'); msg('s2','s', DATA.length + ' kayıt okundu.'); }
+// How each state is reached for the screen list and the screenshots.
+window.MOCKUP_PREPARE = { '2': () => run() };
+</script>
+</body>
+</html>

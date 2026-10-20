@@ -5,7 +5,7 @@ description: >
   or HTML). Reads a source file (ideally the output of office-excel-transform or
   office-excel-report), generates a slide-per-section Marp Markdown file, and renders
   it via @marp/cli. Typical use: weekly SE report → pivot tables → slide deck.
-version: 1.0.0
+version: 1.1.0
 allowed-tools:
   - Bash
   - Read
@@ -28,6 +28,9 @@ npm install -g @marp-team/marp-cli
 marp --version
 ```
 
+On Windows npm installs it as `marp.cmd`; the script finds that (or a local copy
+through `npx`) on its own.
+
 The Python helper also needs the project venv active (pandas, openpyxl).
 
 ---
@@ -40,6 +43,8 @@ python plugins/office-tools/skills/office-slides/scripts/generate_slides.py \
   --output <deck.md>             \
   --render <pptx|pdf|html>       \   # optional, requires marp CLI
   --title  "SE Weekly Report"    \
+  --lang   tr                    \   # deck's own headings and date: tr (default) or en
+  --footer "Proje X"             \   # optional footer text before the date
   --theme  default               \
   --logo   /path/to/logo.png     \   # optional — embedded as base64
   --sheet  Data                  \   # xlsx sheet name (default: first)
@@ -89,10 +94,18 @@ office-slides       (.md → PPTX / PDF / HTML)
 
 | Slide | Content |
 |-------|---------|
-| 1 | Title + subtitle (--title, current date) |
-| 2 | Executive summary — key metrics table |
-| 3…N | One slide per group (--key-col), table + bullet highlights |
+| 1 | Title + subtitle (--title, current date in --lang) |
+| 2 | Summary (`Özet` / `Executive Summary`) — total and average per numeric column; rate and average columns get an average only |
+| 3 | **One row per group** (a weekly status: one line per module): every group in ONE table (`Modul bazında durum`) + bullet highlights |
+| 4 | …and a **bar chart** of the parts that add up to the total column (`Tamamlanan + Devam Eden + Başlamadı = Toplam`), written beside the deck as `<deck>-grafik.svg` |
+| 3…N | **Several rows per group**: one slide per group, table + bullet highlights |
 | N+1 | Appendix: full data table (if --appendix) |
+
+**The look is the house look** (since 2026-09-29): the NTT mark top right on every
+slide, Segoe UI, house-blue headings and table header, tinted zebra, numbers
+right-aligned, the deck's title in the footer with the date and page number.
+Before that the deck was Marp's default theme with the title repeated as a header,
+and a four-module status came out as four slides of a single-row table each.
 
 ---
 
@@ -103,10 +116,14 @@ office-slides       (.md → PPTX / PDF / HTML)
 | `--input` | required | Source data (xlsx, csv, json) |
 | `--output` | required | Output `.md` path |
 | `--render` | none | If set: `pptx`, `pdf`, or `html` (calls marp CLI) |
-| `--title` | "Report" | Deck title |
+| `--editable` | false | With `--render pptx`: marp's experimental `--pptx-editable`. **Needs LibreOffice** |
+| `--title` | `Rapor` / `Report` | Deck title |
 | `--subtitle` | auto | Generated from current date |
+| `--lang` | `tr` | Language of the deck's own words and date: `tr` or `en` |
+| `--footer` | none | Footer text after the title; the date always follows |
 | `--theme` | `default` | Marp theme: `default`, `gaia`, `uncover` |
-| `--logo` | none | Path to logo image (embedded as base64) |
+| `--logo` | the NTT mark | Another logo image (embedded as base64) |
+| `--no-logo` | false | No mark (a deck that is not ours) |
 | `--sheet` | first | Sheet to read from xlsx |
 | `--max-rows` | 20 | Max rows per data slide |
 | `--key-col` | none | Column to group slides by |
@@ -121,6 +138,15 @@ office-slides       (.md → PPTX / PDF / HTML)
 
 - Feed the output of `office-excel-transform --groupby` for best results — slides are
   most readable with 3–10 rows of aggregated data.
-- Use `--key-col Team` with SE reports to get one slide per support team.
-- For branded decks add `--theme gaia` and provide a `--logo` with the NTT logo.
-- PPTX output is editable in PowerPoint for last-mile adjustments.
+- Use `--key-col Team` with SE reports: one row per team gives one table and a
+  chart; several rows per team give one slide per team.
+- Keep `--theme default`: the house style is laid over it. The `.svg` chart must
+  stay beside the `.md` — rendering passes `--allow-local-files` for it.
+- Numbers: whole numbers print without `.0`; a column named like a rate
+  (`Oran`, `ratio`, `rate`, `%`) with values 0..1 prints as a percentage
+  (`%50` in tr, `50%` in en) and is never summed.
+- **The PPTX is not editable.** Marp's `--pptx` puts one picture per slide: it opens
+  and presents in PowerPoint, but its text cannot be changed there. `--editable`
+  asks marp for real text boxes, which is experimental and needs LibreOffice
+  (`soffice`) on the machine. When the deck has to be edited afterwards, build it
+  with **office-pptx** instead.

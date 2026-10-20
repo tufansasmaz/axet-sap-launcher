@@ -1,0 +1,99 @@
+/* screen-mockup -- the classic SAP GUI dress, one definition for every mock-up.
+   Inlined into the finished .html by scripts/mockup.py (the file must travel
+   alone: by e-mail, into SharePoint, no CDN). A page never restyles these
+   classes; it only writes content with them. */
+:root{
+  --hdr:#dfe8f3; --hdr-b:#9fb4cc; --tb:#eef1f5; --tb-b:#c3ccd6;
+  --grp-b:#9aa9b9; --lbl:#1d2b3a; --in-b:#8a9aac; --in-ro:#e9edf1;
+  --req:#b00000; --grid-h:#d5e0ec; --grid-b:#b4c2d1; --zebra:#f5f8fb;
+  --sel:#fff4c2; --ok:#2e7d32; --warn:#b26a00; --err:#b00000; --btn:#f4f6f8;
+  --edit:#fffdf0;
+}
+*{box-sizing:border-box}
+body{margin:0;background:#c9d3de;font:12px Tahoma,Arial,sans-serif;color:var(--lbl)}
+
+/* the frame around the mock-up: what it is, and the clickable screen list */
+.note-top{max-width:1180px;margin:10px auto 0;padding:6px 10px;background:#fffbe6;border:1px solid #e0cf7a;font-size:11px}
+.stepnav{max-width:1180px;margin:8px auto 0;font-size:11px;color:#34495e}
+.stepnav span{display:inline-block;padding:2px 8px;border:1px solid #9aa9b9;background:#eef2f6;margin-right:4px;cursor:pointer}
+.stepnav span.on{background:#3d6a99;color:#fff;border-color:#3d6a99}
+
+/* a screen */
+.win{max-width:1180px;margin:10px auto 22px;background:#f7f9fb;border:1px solid #7f93a8}
+.title{background:var(--hdr);border-bottom:1px solid var(--hdr-b);padding:5px 8px;font-weight:bold;font-size:13px;display:flex;justify-content:space-between}
+.title small{font-weight:normal;color:#51657a}
+.toolbar{background:var(--tb);border-bottom:1px solid var(--tb-b);padding:3px 6px;display:flex;gap:3px;flex-wrap:wrap}
+.toolbar button,.actions button{font:11px Tahoma,Arial;background:var(--btn);border:1px solid #9aa7b5;padding:2px 8px;cursor:pointer;height:22px}
+.toolbar button:hover,.actions button:hover{background:#e3ebf4}
+.toolbar .sep{width:1px;background:#b9c3ce;margin:0 4px}
+button.primary{font-weight:bold;border-color:#3d6a99 !important;background:#e6eef8 !important}
+.msg{padding:3px 8px;min-height:21px;border-bottom:1px solid var(--tb-b);background:#fbfcfd;font-size:11px}
+.msg.s{color:var(--ok)} .msg.w{color:var(--warn)} .msg.e{color:var(--err)}
+.body{padding:8px 10px}
+.actions{border-top:1px solid var(--tb-b);background:var(--tb);padding:6px 10px;display:flex;gap:6px;justify-content:flex-end}
+.status{background:#e4e9ef;border-top:1px solid #aab6c3;font-size:10.5px;padding:2px 8px;display:flex;justify-content:space-between;color:#44566a}
+
+/* group boxes and fields */
+fieldset{border:1px solid var(--grp-b);margin:0 0 8px;padding:6px 10px 8px}
+legend{font-weight:bold;padding:0 4px;font-size:11px}
+.row{display:grid;grid-template-columns:190px 150px 30px 40px 150px 30px 1fr;align-items:center;gap:4px;margin:3px 0}
+.row.pair{grid-template-columns:190px 1fr}
+.row label{white-space:nowrap}
+.row .to{text-align:center;color:#51657a}
+input[type=text],select,textarea{font:12px Tahoma,Arial;border:1px solid var(--in-b);height:20px;padding:0 3px;background:#fff;width:100%}
+textarea{height:auto;padding:3px}
+input.num{text-align:right}
+input.req{border-left:3px solid var(--req)}
+input[readonly],select[disabled]{background:var(--in-ro);color:#333}
+.f4,.multi{width:24px;height:20px;border:1px solid var(--in-b);background:var(--btn);font:10px Tahoma;cursor:pointer;padding:0}
+.multi{width:26px}
+.radio-grp{display:flex;gap:16px;flex-wrap:wrap}
+.hint{font-size:10.5px;color:#5b6e82;margin:2px 0 0 194px}
+
+/* tabs, when one screen genuinely cannot hold it */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--grp-b);margin-bottom:6px}
+.tabs span{padding:3px 10px;border:1px solid var(--grp-b);border-bottom:none;background:#e8edf3;cursor:pointer}
+.tabs span.on{background:#f7f9fb;font-weight:bold;margin-bottom:-1px}
+
+/* ALV grid. It scrolls sideways when it is wider than the window -- with a
+   scrollbar that stays visible, so a cut-off last column reads as "more to the
+   right" and not as an unfinished screen. */
+.alvbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:11px}
+.gridwrap{overflow:auto;border:1px solid var(--grid-b);max-height:360px;background:#fff}
+.gridwrap::-webkit-scrollbar{height:12px;width:12px}
+.gridwrap::-webkit-scrollbar-thumb{background:#aab8c7;border:2px solid #fff;border-radius:6px}
+.gridwrap::-webkit-scrollbar-track{background:#eef2f6}
+table.alv{border-collapse:collapse;width:100%;font-size:11px;white-space:nowrap}
+table.alv th{background:var(--grid-h);border:1px solid var(--grid-b);padding:3px 5px;text-align:left;position:sticky;top:0}
+table.alv td{border:1px solid #d3dce6;padding:2px 5px}
+table.alv tr:nth-child(even) td{background:var(--zebra)}
+table.alv tr.selected td{background:var(--sel) !important}
+table.alv td.n{text-align:right}
+table.alv td.edit{background:var(--edit) !important}
+table.alv tr.sum td{background:#e9eef4 !important;font-weight:bold}
+.hot{color:#0645ad;text-decoration:underline;cursor:pointer}
+.lamp{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid #666;vertical-align:-1px}
+.l-y{background:#f3c623}.l-g{background:#34a853}.l-r{background:#d93025}
+.late{color:var(--err);font-weight:bold}
+.legend{font-size:10.5px;color:#51657a;margin-top:4px}
+
+/* notes a developer would otherwise have to guess */
+.ann{margin:8px 0 0;padding:6px 8px;border:1px dashed #9aa9b9;background:#fbfcfe;font-size:10.5px;color:#34495e}
+.ann b{color:#1d2b3a}
+
+/* popups. The veil is added by sapgui.js at the END of the body, so without a
+   stacking order it lands on top of the popup and no button in it can be clicked. */
+.veil{display:none;position:fixed;inset:0;background:rgba(40,55,70,.25);z-index:10}
+.pop{display:none;position:fixed;top:12%;left:50%;transform:translateX(-50%);width:760px;max-width:95vw;background:#f7f9fb;border:1px solid #5d7590;z-index:11}
+.hidden{display:none}
+
+/* screenshot mode (scripts/mockup.py): the whole screen, no frame. The grid
+   shows every column instead of scrolling, so the picture in the FS is the
+   screen, not a window onto part of it. */
+.shot{background:#fff}
+.shot .note-top,.shot .stepnav{display:none}
+.shot .win{margin:0;max-width:none;width:max-content;min-width:900px}
+.shot .gridwrap{overflow:visible;max-height:none}
+.shot table.alv{width:auto}
+.shot .ann,.shot .legend,.shot .hint{max-width:1100px}   /* prose wraps; max-content would lay it out on one line */
+.shot .pop{position:absolute;top:60px}

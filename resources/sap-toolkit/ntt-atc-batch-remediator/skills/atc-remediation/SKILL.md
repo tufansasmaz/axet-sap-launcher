@@ -112,9 +112,11 @@ Two rules that cost real incidents to learn:
 
 - **Never draft a patch for a judgment-shaped cluster**, even if one appears in the queue
   by accident. Return nothing for it.
-- **`before_text` must be the code that is actually there.** It is what the bundler
-  matches against; an approximate before-text produces a patch that either does nothing or
-  replaces the wrong lines.
+- **`before_text` must be the code that is actually there**, character for character,
+  and unique in its include (at `line`, where the include's lines are the file's). The
+  bundler splices it into the object's current source by exact match; an approximate
+  before-text is refused, never guessed at. `after_text` is only what replaces it -- not
+  the whole object.
 
 Calibrate against [`references/calibration/`](references/calibration/) — ten worked cases
 per pattern, each with the fix shape and the confidence range it should land in. If your
@@ -124,14 +126,27 @@ Read the pattern library itself at [`references/patterns/`](references/patterns/
 cluster is not obvious; `references/fm-replacements.yaml` carries the obsolete-FM
 substitutions.
 
-## 4 · Bundle
+## 4 · Export the current source, then bundle
+
+A patch is a snippet; an abapGit import replaces a whole source member. So the bundler
+needs the **current source of every object a patch touches**, as abapGit serialises it:
+in abapGit, an offline repository on the package → **Export ZIP** (or the loose
+`.abap` + `.xml` files), dropped under
+
+```
+./remediation/inputs/source/
+```
+
+Re-export after every batch is imported — a ZIP carries whole objects, so one built from
+a stale export would put back what the previous batch fixed.
 
 ```bash
 py scripts/orchestrator.py bundle --project .
 ```
 
-Validates every drafted patch, splits on the 0.70 threshold, chunks the ship-set into
-≤25-object abapGit ZIPs, and writes the four deliverables:
+Validates every drafted patch, splits on the 0.70 threshold, splices each ship-set patch
+into its object's source, chunks the objects into ≤25-object abapGit ZIPs, and writes the
+four deliverables:
 
 | File | What it carries |
 |---|---|
@@ -144,9 +159,28 @@ Validates every drafted patch, splits on the 0.70 threshold, chunks the ship-set
 that looks like a complete batch and is missing objects — found only after it is imported
 into a real system.
 
-One more thing goes to human review automatically: **two patches against the same object**.
-This version cannot safely merge two diffs into one source file, so it says so instead of
-guessing.
+**No source, no ZIP.** If patches pass the threshold and `inputs/source/` is empty the
+run stops, names the folder, and writes nothing — the only thing it could ship is the
+snippet, and importing that replaces the program.
+
+Every object goes into its ZIP **whole**: all its abapGit files as exported, the patched
+members spliced. Several patches on one object are applied together. An object is held
+back — every patch on it routed as `patch-not-applied`, with the reason in the CSV — when
+a `before_text` is not in the source, occurs more than once, does not cover its `line`,
+or overlaps another patch; when the export lacks the object or its `.xml`; or when the
+type is not PROG, CLAS, FUGR or INTF. A report include is its own abapGit object, so a
+finding in `ZR_X_F01` ships `zr_x_f01.prog.*` and leaves `ZR_X` alone. An object patched
+under two categories ships once, in the first category's ZIP.
+
+### Why a finding is in the review queue
+
+| `reason_routed` | Means |
+|---|---|
+| `low-confidence` | drafted, below 0.70 — review the draft |
+| `categorically-judgment` | judgment-shaped check, never drafted — decide by hand |
+| `no-pattern` | no reviewed pattern for the category, never queued |
+| `no-patch-produced` | queued for drafting, no patch came back |
+| `patch-not-applied` | passed the threshold, does not apply to the current source |
 
 ## 5 · Import, re-check, verify
 

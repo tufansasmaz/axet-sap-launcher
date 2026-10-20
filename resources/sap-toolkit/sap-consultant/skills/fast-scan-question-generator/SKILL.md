@@ -27,9 +27,73 @@ the documents that earn the budget, and writes an `.xlsx` with 100 questions and
 a full traceability sheet.
 
 Full procedure — prioritization, cache, readiness, batching, output contract —
-is in **[reference/optimized-wizard-flow.md](reference/optimized-wizard-flow.md)**.
+is in **[reference/wizard-flow.md](reference/wizard-flow.md)**.
 Read it before starting the wizard. It owns those rules; this file owns the
 boundaries below.
+
+## Every run starts here: is the library on this machine?
+
+Before the first wizard question — **every run, and again on resuming from a
+checkpoint** — run `py <SCRIPTS>/find_sources.py` and act on its `status`. A
+library that was there yesterday can be gone today (shortcut removed, OneDrive
+signed out), and nothing downstream says so usefully.
+
+| `status` | what it means | what to do |
+|---|---|---|
+| `resolved` | the library is synced and its control files are there | continue with the wizard |
+| `syncing` | the RIGHT library, not finished downloading (`incomplete` names what is missing) | relay `hint`; wait, then check again. Do not send them to add the shortcut — they have it |
+| `not_found` with `pending` | no complete library, but OneDrive has a shortcut it has not filled yet | "Kısayol eklenmiş görünüyor, OneDrive henüz eşitlemeyi bitirmedi." Wait a few minutes, check again. Never tell them to add it a second time |
+| `not_found`, no `pending` | no library and nothing on its way | give the steps below, wait for them to say it is done, check again |
+| `ambiguous` | two synced copies | ask which one; pass it back with `--root` |
+
+**Adding the shortcut.** The person has to be able to finish this alone, so give
+every step, in Turkish, as written below — including what to do when a step does
+not go as described. Put `library_url` from the output into step 1. It comes from
+the department's catalog, never from this file (house rule: no URL in a skill);
+when it is absent, step 1's second sentence is the whole instruction.
+
+> **Geçmiş proje kütüphanesini bilgisayarınıza ekleyin (bir kez yapılır, ~2 dakika)**
+>
+> 1. Şu sayfayı tarayıcıda açın: `<library_url>`
+>    Link yoksa: SharePoint'te **Service Delivery - One Board** sitesini açıp **Teknik Dokümanlar** kitaplığına girin.
+> 2. Listede **26.AI Delivery** klasörünü bulun. Klasörün **içine girmeyin** — adının solundaki yuvarlağa tıklayarak **satırı seçin**.
+> 3. Üstteki menüden **OneDrive'a kısayol ekle**'ye tıklayın. Menüde görünmüyorsa **…** (Diğer) altındadır.
+> 4. Sağ altta "Kısayol eklendi" bildirimi çıkar. Birkaç dakika içinde Dosya Gezgini'nde OneDrive altında **Service Delivery - One Board_ - 26.AI Delivery** klasörü belirir.
+> 5. Bana **"ekledim"** yazın; kontrol edeyim.
+>
+> **Bir adım farklı giderse:**
+> - **Sayfa "Erişiminiz yok" diyor** → Aynı sayfadaki **Erişim iste** düğmesine basın, kısa bir not yazın ("Fast Scan için geçmiş proje kütüphanesine okuma erişimi"). Onay e-postası gelince 1. adımdan devam edin.
+> - **Liste boş görünüyor ya da 26.AI Delivery satırı seçilemiyor** → Kitaplığın kendisine okuma yetkiniz yok. Yukarıdaki gibi **Erişim iste** kullanın.
+> - **"OneDrive'a kısayol ekle" hiç çıkmıyor** → Satırı seçmek yerine klasörün içine girmişsiniz. Bir üst seviyeye dönüp satırı seçin.
+> - **"Zaten eşitliyorsunuz" / "zaten bir kısayol var" uyarısı** → Kısayol daha önce eklenmiş. Yeniden eklemeyin; bana "ekledim" yazın.
+> - **Dosya Gezgini'nde OneDrive bulutu yok ya da kırmızı çarpılı** → OneDrive uygulaması kapalı veya oturum düşmüş. Başlat menüsünden **OneDrive**'ı açıp NTT hesabınızla oturum açın.
+
+**After "ekledim", check again.** Then:
+
+- `resolved` → continue.
+- `not_found` **with** `pending`, or `syncing` → the shortcut is there and still
+  arriving; it can take several minutes, longer on a slow link. Say so, and that
+  nothing has to be done again: "Kısayol eklenmiş, OneDrive dosyaları indiriyor.
+  Birkaç dakika sonra tekrar kontrol edeceğim." Check again after a wait. If
+  `syncing` lasts, relay its `hint`: OneDrive simgesi → Ayarlar → Hesap → Klasör
+  seç → **26.AI Delivery** işaretli olsun.
+- `not_found`, **no** `pending` → either the shortcut was not added, or it was and
+  this machine's OneDrive has not picked it up yet. Do not repeat the steps at
+  once. Wait a minute, check again; still nothing, ask them to open
+  **onedrive.com → Dosyalarım**:
+  - a `... - 26.AI Delivery` shortcut is there → it was added; this machine lags.
+    OneDrive app running and signed in to the SAME account? Then wait, and check again.
+  - it is not there → adding did not complete; repeat from step 1.
+
+**Then, before the first wizard question, look for `fast_scan_session_state.json`
+in the project folder** (wizard §2.6). Every answer is written there the moment it
+is given, so a run that begins again — including one aXet.code restarted on its own
+after an LLM error, which happened three times in one run on 2026-09-25 — reuses the
+answers instead of asking them again. Say which ones you are reusing.
+
+Stop at `not_found` or `syncing`; never start the wizard on a library that is not
+there, and never "continue with general knowledge" in its place — the whole value
+of this skill is the evidence.
 
 ## Three roles, not two
 
@@ -74,9 +138,9 @@ Find it with the bundled helper; it locates the synced folder by its **content**
 not by a shortcut name.
 
 ```bash
-py <SCRIPTS>/resolve_local_sources.py
-py <SCRIPTS>/resolve_local_sources.py --root "<exact library folder>"
-py <SCRIPTS>/resolve_local_sources.py --document-url "<a Registry Document Link>"
+py <SCRIPTS>/find_sources.py
+py <SCRIPTS>/find_sources.py --root "<exact library folder>"
+py <SCRIPTS>/find_sources.py --document-url "<a Registry Document Link>"
 ```
 
 - **Local files only.** No SharePoint MCP, no HTTP. aXet.code has no MCP at all,
@@ -160,12 +224,25 @@ could not be.
 
 ## Output
 
-A real `.xlsx`: sheet **Fast Scan Questions** with exactly 100 questions and the
-19 base columns (wizard §12), sheet **Source Traceability** with every
-qualifying source row including duplicates and unread ones. Bilingual output
-splits language-dependent columns into `(EN)` / `(TR)` without duplicating
-question IDs. Use `office-excel-write` or `office-excel-report` — both ship in
-this kit.
+**Two workbooks, always written by `scripts/write_workbook.py`** — never by hand
+and never by `office-excel-*`, so every Fast Scan looks the same and carries the
+house look (office-tools/lib/xlsx_theme.py):
+
+```bash
+py <SCRIPTS>/write_workbook.py --merged <fast_scan_questions_merged.txt> --out-dir <dir>    --name "<Müşteri> - <Kapsam> Fast Scan Soru Seti" --customer "<Müşteri>" --project "<Proje>"    --lang tr --trace <traceability.json>
+```
+
+- `<name>.xlsx` — **for the customer**: question, purpose, expected input, and the
+  two columns they fill in (answer, status drop-down), plus priority and workshop.
+  No `Reference Project`, `Source Project`, `Source Document Link` or `Notes`:
+  those can name another customer's project and carry NTT's evidence trail.
+- `<name> - NTT ic.xlsx` — **for the consultant**: all 19 columns of wizard §12,
+  the same answer columns, and the Source Traceability sheet.
+
+Write the traceability rows (wizard §12 Sheet 2) as a JSON list of objects to
+`<work>/traceability.json` and pass it with `--trace`. Bilingual data keeps
+`<column> (EN)` / `<column> (TR)` keys; `--lang bilingual` lays them side by side.
+Tell the person which file goes to the customer.
 
 ## Plain language is a hard rule
 

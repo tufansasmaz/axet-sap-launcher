@@ -40,12 +40,20 @@ findings sit next to a missing authority check teaches the reader that the board
 **Namespace and modification** — a `blocker` each, no discussion:
 
 - any object not starting `Z`/`Y` being written to
-- an enhancement (implicit or explicit) inside SAP-delivered code
+- an **implicit** enhancement inside SAP-delivered code
 - a modification recorded against an SAP object in the transport (`E071` with a non-Z name)
 
-**Not-released objects** — hand the list to the `clean-core` skill. On an ABAP Cloud
-project a Level D object is a `blocker`; on a classic stack with a conversion in the plan
-it is a `major` with the target release named.
+On `s4-legacy` the last two are a `blocker` when this transport adds them and a listed
+item when it only carries them. A classic BAdI, exit or explicit enhancement spot is not
+in this list: it follows the profile (G4 in [`gates.md`](gates.md)).
+
+**Not-released objects** — hand the list to the `clean-core` skill with the project's
+Clean Core profile and release (see G4 in [`gates.md`](gates.md)). The severity comes
+from each object's `decision` and the profile's row in the `clean-core` skill's
+`references/PROFILES.md` — a `forbidden` object is a `blocker` on every profile; a
+level C table read is a `blocker` on `public`, a written reason on `s4-balanced` and a
+listed item on `s4-legacy`. A `NOT VERIFIED` object is reported as unverified, never
+counted as clean.
 
 ---
 

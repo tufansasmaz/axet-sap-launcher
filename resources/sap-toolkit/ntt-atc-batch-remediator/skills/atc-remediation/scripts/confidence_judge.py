@@ -12,9 +12,14 @@ NO LLM. Three deterministic rules, applied in order:
 
 Plus the orchestrator-side guard:
 
-  4. Any finding in ``all_findings_in_play`` for which PatchGenerator
-     produced no patch -> human review
-     (``reason_routed="no-patch-produced"``).
+  4. Any finding in ``all_findings_in_play`` without a patch -> human review,
+     labelled by WHY there is none, because the three need different work:
+     its cluster is judgment-shaped and was never queued
+     (``categorically-judgment``); its category has no reviewed pattern and
+     was never queued (``no-pattern``); or it was queued and no draft came
+     back (``no-patch-produced``). Without ``clusters`` the judge cannot tell,
+     and says only the last. Until 2026-09-28 all three read "PatchGenerator
+     produced no patch" -- a component that no longer exists.
   5. Defensively: if a patch references a ``finding_id`` not present in
      ``all_findings_in_play`` -> raise ``ValueError`` (should never happen
      given the orchestrator wiring).
@@ -28,6 +33,7 @@ import yaml  # type: ignore[import-untyped]
 
 from scripts.schemas import (
     ATCFinding,
+    Cluster,
     ConfidenceJudgeResult,
     Patch,
     Pattern,
@@ -61,6 +67,7 @@ class ConfidenceJudge:
         self,
         patches: list[Patch],
         all_findings_in_play: list[ATCFinding],
+        clusters: list[Cluster] | None = None,
     ) -> ConfidenceJudgeResult:
         # Index findings by finding_id for fast lookup.
         findings_by_id: dict[str, ATCFinding] = {}
@@ -79,7 +86,7 @@ class ConfidenceJudge:
             # cannot be matched to a finding and would crash the later
             # findings_by_id[fid] lookup. Route the orphan to the human-review
             # queue with an actionable reason rather than raising — this can
-            # happen if PatchGenerator's LLM call drops the finding_id field.
+            # happen when a draft in patch-answers.json drops the finding_id field.
             if not fid or fid not in findings_by_id:
                 # We can't synthesize a RoutedFinding without an ATCFinding,
                 # so create a synthetic placeholder so the audit trail shows
@@ -106,9 +113,9 @@ class ConfidenceJudge:
                         reason_routed="no-patch-produced",
                         confidence=patch.confidence,
                         suggested_action=(
-                            "patch missing finding_id back-pointer — re-run "
-                            "PatchGenerator for this cluster or inspect the "
-                            "LLM transcript."
+                            "patch missing finding_id back-pointer — the "
+                            "draft in work/patch-answers.json names no finding "
+                            "this export has; fix its finding_id and bundle again."
                         ),
                     )
                 )
@@ -125,7 +132,7 @@ class ConfidenceJudge:
                         confidence=patch.confidence,
                         suggested_action=(
                             "Pattern is categorically judgment-shaped — "
-                            "review the LLM draft before applying."
+                            "review the draft before applying."
                         ),
                     )
                 )
@@ -146,22 +153,48 @@ class ConfidenceJudge:
                     )
                 )
 
-        # Findings without a patch -> route as no-patch-produced.
+        # Findings without a patch -> route, saying why there is none.
+        cluster_by_fid: dict[str, Cluster] = {
+            f.finding_id: c
+            for c in clusters or []
+            for f in c.findings
+            if f.finding_id
+        }
         for fid, finding in findings_by_id.items():
             if fid in covered_finding_ids:
                 continue
-            routed.append(
-                RoutedFinding(
-                    finding=finding,
-                    reason_routed="no-patch-produced",
-                    confidence=None,
-                    suggested_action=(
-                        "PatchGenerator produced no patch for this finding."
-                    ),
-                )
-            )
+            routed.append(self._unpatched(finding, cluster_by_fid.get(fid)))
 
         return ConfidenceJudgeResult(
             patches_for_zip=patches_for_zip,
             findings_for_human_review=routed,
+        )
+
+    def _unpatched(self, finding: ATCFinding, cluster: Cluster | None) -> RoutedFinding:
+        if cluster is not None and cluster.fix_shape == "judgment":
+            return RoutedFinding(
+                finding=finding,
+                reason_routed="categorically-judgment",
+                suggested_action=(
+                    "Judgment-shaped check: the fix depends on intent, so it is "
+                    "never drafted. Decide by hand: fix, pseudo-comment or exemption."
+                ),
+            )
+        if cluster is not None and _load_pattern(cluster.category, self.patterns_dir) is None:
+            return RoutedFinding(
+                finding=finding,
+                reason_routed="no-pattern",
+                suggested_action=(
+                    f"No reviewed pattern for category '{cluster.category}', so "
+                    "nothing was queued. Fix by hand, or add the pattern to "
+                    "references/patterns/."
+                ),
+            )
+        return RoutedFinding(
+            finding=finding,
+            reason_routed="no-patch-produced",
+            suggested_action=(
+                "Queued for drafting in work/patch-queue.json; no patch came back. "
+                "Draft one into work/patch-answers.json and run bundle, or fix by hand."
+            ),
         )

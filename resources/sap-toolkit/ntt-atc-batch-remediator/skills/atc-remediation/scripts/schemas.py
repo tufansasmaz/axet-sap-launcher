@@ -127,13 +127,22 @@ class RoutedFinding(BaseModel):
 
     ``reason_routed`` is the column emitted to the human-review CSV; the
     consultant uses ``suggested_action`` as the starting point for triage.
+
+    - ``low-confidence``        drafted, below the 0.70 threshold
+    - ``categorically-judgment`` judgment-shaped check; never drafted by design
+    - ``no-pattern``            no reviewed pattern for the category; never queued
+    - ``no-patch-produced``     queued for drafting, no patch came back
+    - ``patch-not-applied``     passed the threshold, but could not be applied
+                                to the object's current source (see the action)
     """
 
     finding: ATCFinding
     reason_routed: Literal[
         "low-confidence",
         "categorically-judgment",
+        "no-pattern",
         "no-patch-produced",
+        "patch-not-applied",
     ]
     confidence: float | None = None
     suggested_action: str = ""

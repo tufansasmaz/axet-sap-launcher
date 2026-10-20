@@ -3,12 +3,12 @@
 merge_and_pdf.py — Merge TS markdown parts and create a branded PDF via office-pdf.
 
 Usage:
-    python merge_and_pdf.py <output_dir> [wricef_id] [title]
+    python merge_and_pdf.py <output_dir> [wricef_id] [title] [--lang tr|en]
 
 Arguments:
     output_dir  Directory containing the TS part files
     wricef_id   Optional: WRICEF ID (auto-detected from filenames if not provided)
-    title       Optional: PDF title (auto-generated if not provided)
+    title       Optional: PDF title (default: the document's own leading `# ...` line)
 
 Examples:
     python merge_and_pdf.py ./ts-output
@@ -138,7 +138,29 @@ def merge_markdown_files(output_dir, wricef_id):
     return output_md
 
 
-def create_pdf(md_path, pdf_path, title):
+# The words this script hands the renderer, per document language (--lang tr|en, default tr).
+# The master is plugins/office-tools/lib/doc_language.json ("render"); scripts/test_doc_language.py
+# holds this table equal to it.
+LANG = {
+    "tr": {"eyebrow": "TEKNİK SPESİFİKASYON", "classification": "Gizli — Müşteriye Özel"},
+    "en": {"eyebrow": "TECHNICAL SPECIFICATION", "classification": "Confidential — Customer Restricted"},
+}
+
+
+def take_lang(argv):
+    """Remove `--lang X` from argv (the positional arguments stay as they were) and return X."""
+    lang = "tr"
+    if "--lang" in argv:
+        i = argv.index("--lang")
+        if i + 1 >= len(argv) or argv[i + 1] not in LANG:
+            print("ERROR: --lang takes tr or en")
+            sys.exit(2)
+        lang = argv[i + 1]
+        del argv[i:i + 2]
+    return lang
+
+
+def create_pdf(md_path, pdf_path, title, lang="tr"):
     """Convert merged markdown to PDF using office-pdf."""
     script = find_office_pdf_script()
 
@@ -158,9 +180,15 @@ def create_pdf(md_path, pdf_path, title):
         script,
         "--input", md_path,
         "--output", pdf_path,
-        "--title", title,
+        "--eyebrow", LANG[lang]["eyebrow"],
+        "--classification", LANG[lang]["classification"],
+        "--lang", lang,
         "--force",
     ]
+    # No title given: office-pdf takes the document's own `# ...` line, which
+    # names the WRICEF and the development -- better than a file stem.
+    if title:
+        cmd += ["--title", title]
 
     result = subprocess.run(
         cmd,
@@ -187,6 +215,7 @@ def create_pdf(md_path, pdf_path, title):
 
 
 def main():
+    lang = take_lang(sys.argv)
     # Parse arguments
     if len(sys.argv) < 2:
         print(__doc__)
@@ -212,7 +241,7 @@ def main():
     if len(sys.argv) >= 4:
         title = sys.argv[3]
     else:
-        title = f"{wricef_id} - Teknik Spesifikasyon"
+        title = ""
 
     # Output paths
     output_md = os.path.join(output_dir, f"{wricef_id}-Teknik-Spesifikasyon.md")
@@ -231,7 +260,7 @@ def main():
 
     # Step 2: Create PDF
     print()
-    success = create_pdf(md_path, output_pdf, title)
+    success = create_pdf(md_path, output_pdf, title, lang)
 
     # Summary
     print()

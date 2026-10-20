@@ -180,7 +180,9 @@ Offer another single comparison when it is done.
 
 ## Output contract
 
-`Sonuc/<proje>/Analiz_Sonuclari.xlsx`, one sheet, 15 columns in this order:
+`Sonuc/<proje>/Analiz_Sonuclari.xlsx`, one sheet in the house workbook look
+(`office-tools/lib/xlsx_theme.py`: header block, a filterable Excel table, a bar in
+the score column, A4 print), 15 columns in this order:
 
 `Key (G)` · `Summary (G)` · `Description (G)` · `Main Responsible Modul (G)` ·
 `Gelistirme Tipi (G)` · `Modul (K)` · `Gelistirme Tanimi (K)` ·

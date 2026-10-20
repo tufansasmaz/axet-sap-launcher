@@ -144,9 +144,22 @@ Incorrect:
 
 ### 2.5 Session Checkpoint
 
-Immediately after entering `GENERATION_LOCKED`, write/update:
+Write `fast_scan_session_state.json` in the project folder **after every wizard
+answer**, from the first one on — not only after `GENERATION_LOCKED`. Update it
+again on entering `GENERATION_LOCKED` and after each batch (§2.7).
 
-`fast_scan_session_state.json`
+Why from the first answer: measured 2026-09-25 on a real run, aXet.code lost the
+conversation three times after LLM errors (429 rate limit, a dropped connection)
+while the wizard was still collecting scope. Each time the agent started again from
+SKILL.md and asked the same questions — twenty minutes of answers gone, because
+the checkpoint was only written at the lock. An answer on disk survives that; an
+answer in the conversation does not.
+
+Before the lock, `phase` is `SCOPE_COLLECTION`, `SOURCE_READING` or
+`READY_FOR_CONFIRMATION`, `confirmation_status` is `NOT_CONFIRMED`, and a field
+not yet answered is `null` — never a guess. Record the person's own wording of each
+answer in `answers` (question header -> chosen option), so a restore can show them
+what it is reusing.
 
 Store only operational state, not confidential source content.
 
@@ -168,6 +181,8 @@ Minimum structure:
   "depth": "Detailed",
   "language": "English",
   "question_count": 100,
+  "distribution": "external",
+  "answers": {"Modül kapsamı": "PP, MM, QM, EWM", "Derinlik": "Standard"},
   "generation": {
     "batch_size": 10,
     "completed_batches": [],
@@ -180,12 +195,21 @@ Minimum structure:
 
 ### 2.6 Restore from Checkpoint
 
-If working context becomes compacted, incomplete, or uncertain:
+**Check for it at the start of every run** — right after the library check
+(SKILL.md), before the first wizard question — and again whenever working context
+becomes compacted, incomplete or uncertain. A run that "starts again" without a new
+message from the person is exactly that case: aXet.code dropped the conversation,
+the person did not ask to begin again.
 
-1. Load `fast_scan_session_state.json`.
-2. Validate its `scope_version`.
-3. Restore confirmed wizard choices and current phase.
-4. Continue from the recorded generation stage.
+1. Load `fast_scan_session_state.json` if it exists.
+2. It belongs to this run when its `target_implementation` is the current target
+   and its `phase` is not `COMPLETE`. A `COMPLETE` one is a finished set: ask once
+   whether to start a new one (new `scope_version`) or change that one.
+3. Restore every recorded answer and the phase. Tell the person in one line which
+   answers you are reusing ("Kaldığım yerden devam ediyorum: PP/MM/QM/EWM,
+   Standard, NTT dışına çıkacak").
+4. Ask only the questions whose field is still `null`, then continue from the
+   recorded phase or generation stage.
 
 Do not rerun wizard questions merely because earlier conversational context is no longer present.
 
@@ -373,7 +397,7 @@ This label alone does not block generation. A known sync or revision conflict mu
 
 Use:
 
-[../scripts/resolve_local_sources.py](../scripts/resolve_local_sources.py)
+[../scripts/find_sources.py](../scripts/find_sources.py)
 
 Resolution:
 1. Use a user-supplied shortcut root if present.
@@ -610,7 +634,7 @@ Registry, relevant BDC ranges, and template/default layout are P0 controls and d
 | 6 | Language: English / Turkish / Bilingual EN+TR |
 | 7 | Question amount, default 100 |
 | 8 | Source inventory, prioritization, reading, coverage |
-| 9 | Scope/readiness/layout confirmation; persist `wizard_state`, lock the active `scope_version`, and write the session checkpoint |
+| 9 | Scope/readiness/layout confirmation; offer optional supporting documents (§10.1); persist `wizard_state`, lock the active `scope_version`, and write the session checkpoint |
 | 10 | Generate in 10-question text batches, update checkpoint after each accepted batch, merge/validate, then write and verify workbook |
 
 Project choices should show available Registry metadata such as industry, implementation type, system, language, modules, and Solution Design/Blueprint/Workshop link availability.
@@ -696,6 +720,26 @@ Review gaps after small batches and stop optional reading when coverage is suffi
 
 Default budget: **up to 10 unique supporting documents per scope**, excluding P0 controls.
 
+### 9.3.1 Staying under aXet.code's limits
+
+aXet.code's model endpoint rate-limits by tokens per minute, and a run that hits it
+does not just slow down — on 2026-09-25 the retries after `429 Too many tokens`
+lost the conversation (§2.5). The same run had reached ~116k tokens in its first
+13 minutes, with three sub-agents reading in parallel. So:
+
+- **One sub-agent at a time.** Delegate reading to a sub-agent if useful, but wait
+  for it before starting the next. Parallel sub-agents multiply the token rate
+  exactly when the context is already large.
+- **Read this file once per run.** Afterwards open only the section you need
+  (by heading or line range). Reading all of it again costs ~15k tokens each time.
+- **Extract, then read ranges.** Write a document's text to a file and read the
+  sections that matter (decisions, exceptions, interfaces, open points), not the
+  whole extract. Evidence notes go to a file; keep only their IDs and one-line
+  summaries in the conversation.
+- **Keep tool output small.** Cap what a command prints (`head -c`, row limits).
+  A full workbook or PDF dump in the conversation is never needed.
+
+
 This is adjustable, not a hard lifetime limit.
 
 Never silently defer a user-required source. Expand the budget when feasible, narrow scope, or obtain an explicit limited-coverage decision.
@@ -739,6 +783,62 @@ Before generation, show:
 - deferred coverage,
 - BDC status,
 - ambiguity/conflict/freshness limitations.
+
+### 10.1 Optional Supporting Documents
+
+After showing the summary above and before asking to generate, ask once:
+
+`Do you have any additional supporting documents (not already in the local library) that should be considered for this Fast Scan?`
+
+Options: Add documents / No, proceed without.
+
+**How documents arrive.** aXet.code has no upload. The person gives a file path,
+or drags the file into the conversation, which also produces a path. Ask for the
+path; never suggest an upload button. Local files only, as everywhere in this
+skill — a link is not fetched; ask for the synced or downloaded file instead.
+
+If the person declines or supplies none, go straight to the generation question
+with the source inventory unchanged.
+
+For each document supplied:
+
+1. **Ask whose document it is — before reading it as evidence.** One question,
+   three answers, and the answer decides what the content is worth (SKILL.md,
+   *Three roles*):
+   - **the target customer's own document** (an RFP, an org chart, a current
+     process description, notes from a meeting with them) → **Target**: its
+     statements are target facts, subject to their date;
+   - **from an earlier project of the same customer** → **Target history**: true
+     as of its date, confirmed rather than assumed;
+   - **from another customer or project** → **Reference**: a reason to ask a
+     question, never a fact about the target.
+
+   Do not infer the role from the file name or content. A document that reads like
+   the target's may be another customer's template; the person knows, the file
+   does not.
+2. Give it the identity `uploaded::<filename>` (it has no Registry or
+   `SOURCE_ROOT` lineage) and record the role with it.
+3. Priority P1 (§9.2) unless the person says otherwise. A supplied document is
+   user-required: it is never silently deferred, and it does not count against the
+   default budget of 10 (§9.3).
+4. Read it and record Source Status and Evidence Notes under the same rules as any
+   other source (§5, §6). It is not "Opened & Read" until its content was actually
+   inspected; a scanned PDF with no text layer is *found but not readable*.
+5. Add it to the inventory and to Sheet 2 Source Traceability, and fold its
+   evidence into the question plan (§11) with its role — the target/reference
+   leakage check applies to it exactly as to a library document.
+6. **Confidentiality.** A Reference document belongs to another customer. If the
+   workbook leaves NTT, its customer's name, people and document title are replaced
+   by descriptors and its path is dropped, the same rule as for library projects
+   (SKILL.md, *Confidentiality*). A Target document is the prospect's own and may be
+   cited to them.
+7. Re-show the updated inventory and coverage summary, then ask the generation
+   question.
+
+Supplying documents adds evidence; it does not by itself increment
+`scope_version`. Treat it as a scope change only if the content requires a
+different industry, module, implementation context, depth, language or question
+count than already confirmed — then follow §2.2 and §8.
 
 Ask:
 
@@ -999,8 +1099,10 @@ Only after the merged text passes this gate:
 
 ## 12. Workbook Output
 
-Create a real `.xlsx` file. This kit ships `office-excel-write` and
-`office-excel-report`; use them rather than hand-rolling a writer.
+Create the workbooks with this skill's `scripts/write_workbook.py` (see SKILL.md,
+"Output"): a customer edition without the provenance columns and an NTT-internal
+edition with all columns and the traceability sheet, both in the kit's house look.
+Do not hand-roll a writer and do not restyle its output.
 
 Build Sheet 1 **only from the validated `fast_scan_questions_merged.txt` dataset**. Workbook creation is a formatting/serialization step, not another question-generation step.
 

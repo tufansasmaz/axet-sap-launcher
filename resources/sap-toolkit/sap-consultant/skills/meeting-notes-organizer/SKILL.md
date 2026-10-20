@@ -98,40 +98,62 @@ settled fact in the topic paragraph.
 
 ## Step 5 — Build the note
 
-One `.docx`, written with `python-docx`, reading as a to-be process design document:
+Write the note as **Markdown**, then render it with **office-docx** — the kit's
+house look (NTT mark in the header, A4, Segoe UI, real heading styles, page
+numbers), the same as every FS, TS and BBP. The note must read calm: airy, easy on
+the eye, nothing that fills the page for its own sake.
 
-- **No title page, no participant/date table, no headers/footers.** A bold title line
-  (`<Client> – <Module> Workshop <N> – Process Design & Meeting Notes`) and a one-line
-  scope sentence at the top.
-- **Body = topic blocks.** Each block is one paragraph object: a **bold** short topic
-  heading, `add_break()`, then one or more **non-bold** flowing sentences — third
-  person, declarative, present/future tense, describing the agreed design
-  ("Purchasing groups are defined in…", "Approval workflows will be managed in…").
-  Strip all conversational framing into settled statements.
-- **Group by topic**, never by chronology or speaker. Merge every source's
-  contribution to a topic into one coherent paragraph — a question raised and answered
-  purely in chat, or a caveat noted only by the consultant, is folded in exactly as if
-  it had been said out loud, rewritten into the same declarative voice.
-- Use `doc.add_paragraph(text, style='List Paragraph')` for enumerated
-  deliverables/outputs of a process step, enumerated fields/characteristics/codes that
-  surfaced in chat or notes, and the two closing sections.
-- **Two closing sections, always separate, never mixed:**
-  - *Development Decisions* — what was actually agreed (the summary's Decisions block,
-    transcript/chat decisions, resolved action-item rows). Phrased as settled
-    statements of what will be built or configured.
-  - *Open Items and Next Steps* — unresolved items (Open Questions blocks, pending
-    action-item rows, and any Step-4 contradictions). Phrased as forward-looking tasks
-    or questions.
+```bash
+py <office-tools>/skills/office-docx/scripts/build_docx.py --input note.md --output "<name>.docx" \
+   --eyebrow "TOPLANTI NOTU" --title "<Client> – <Module> Atölye <N> – <Konu>" --toc off
+```
 
-  Never duplicate an item in both. Classify an ambiguous action-item row by its actual
-  outcome.
-- Skip small talk, greetings, thank-you/bye exchanges and screen-demo narration unless
-  it constitutes a decision or an open item.
-- Tone: neutral, factual, no first person, no dialogue verbs (said/asked/explained/
-  confirmed).
+In an English note use `--eyebrow "MEETING NOTE"` and `--lang en` (the footer's page word
+then reads `Page`, not `Sayfa`).
 
-Write the file with `open(path, 'w', encoding='utf-8')` inside a script — never
-`python -c "print(...)"`, which crashes on Turkish characters under a cp1252 console.
+Do not put a `#` title line in the Markdown: `--title` sets it (a second one
+would print twice).
+
+Shape, in this order:
+
+1. **Künye** — one callout (`>` lines), only lines whose value a source gives:
+   `**Tarih:**`, `**Katılımcılar:**` (names; a role or company only where a source
+   states it), `**Kaynaklar:**` (the kinds of input, e.g. "Teams transkripti,
+   sohbet dökümü"). Never invent a date or a role; a line with no source is left
+   out, not filled with "—".
+2. **Scope** — one plain sentence: what the meeting covered.
+3. **Topic blocks** — `## <short topic>` then one or more flowing paragraphs —
+   third person, declarative, present/future tense, describing the agreed design
+   ("Satınalma grupları … tanımlanır", "Onay iş akışı … yönetilecek"). Strip all
+   conversational framing into settled statements.
+   - **Group by topic**, never by chronology or speaker. Merge every source's
+     contribution to a topic into one coherent paragraph — a question raised and
+     answered purely in chat, or a caveat noted only by the consultant, is folded
+     in exactly as if it had been said out loud.
+   - Use `- ` bullets for enumerations inside a topic (fields, outputs,
+     report contents) — short items, no full sentences where a noun will do.
+   - Keep paragraphs short (3–5 sentences); split a long one at its natural seam
+     rather than letting a block run half a page.
+4. **`## Geliştirme Kararları`** — a table, one decision per row:
+   `| No | Karar | İlgili |` — `K1, K2…`; the decision as one settled sentence;
+   `İlgili` names the development (MM001) or the topic it belongs to.
+5. **`## Açık Konular ve Sonraki Adımlar`** — a table:
+   `| No | Konu | Sorumlu |` — `A1, A2…`; the item as a forward-looking task or
+   question; the owner as the sources name them. Add a `Hedef` column **only when
+   at least one item has a date in the sources**; an all-empty column is noise.
+   A contradiction from Step 4 starts with **Çelişki:** in the Konu cell —
+   "Çelişki – <konu>: <kaynak A> X derken <kaynak B> Y diyor; netleştirilmeli".
+   - Decisions and open items are **never duplicated** across the two tables.
+     Classify an ambiguous action-item row by its actual outcome.
+
+Skip small talk, greetings, thank-you/bye exchanges and screen-demo narration
+unless it constitutes a decision or an open item. Tone: neutral, factual, no first
+person, no dialogue verbs (said/asked/explained/confirmed).
+
+Write the Markdown with `open(path, 'w', encoding='utf-8')` inside a script —
+never `python -c "print(...)"`, which crashes on Turkish characters under a cp1252
+console. The Markdown is an intermediate: keep it beside the sources only if the
+project keeps sources that way, otherwise delete it after rendering.
 
 ## Step 6 — Interface / custom-development tagging (project convention, opt-in)
 
@@ -189,8 +211,13 @@ Do **not** paste the document contents into the chat.
 - `python -c "print(...)"` piped through the shell crashes on Turkish characters
   (İ/ı/ğ/ş/ö/ü/ç) under cp1252. Always write to a file with
   `open(path, 'w', encoding='utf-8')` from inside the script.
-- Don't add participant tables, dates, or headers/footers unless a source document
-  contains something the user explicitly wants preserved.
+- The künye carries only what a source states. A missing date or role is left
+  out, never guessed — a wrong date on minutes is worse than none.
+- Until 2026-09-28 this skill wrote bold-paragraph "headings", no header/footer and
+  no künye, in Word's default face on US Letter, with `List Paragraph` items that
+  had no bullets; decisions and action items read as one run-on block. The
+  structure (topic prose, two closing sections) was kept; the look moved to
+  office-docx and the closing sections became tables.
 - Teams recap ≠ Copilot summary. Two files, two contents, both full sources.
 - Asked later for another language version of an already-generated note: regenerate the
   same structure translated. The structural rules above are language-independent.
@@ -199,7 +226,6 @@ Do **not** paste the document contents into the chat.
 
 ## Related
 
-- **office-docx** (`office-tools`) converts Markdown → Word with heading styles. This
-  skill deliberately does not use it: the note's format is bold-heading + line break +
-  non-bold prose inside a *single* paragraph object, which is not a Markdown heading.
+- **office-docx** (`office-tools`) renders the note: Markdown → Word in the house
+  theme. The same Markdown can go through **office-pdf** for a PDF edition.
 - **project-kb** carries the customer's naming standard, module scope and conventions.

@@ -90,7 +90,7 @@ function resolveExecutablePath() {
 
   // 2. Playwright's own expected path, verified against disk (not trusted blindly).
   try {
-    const { chromium } = require('playwright');
+    const { chromium } = require('./deps').requireDep('playwright');
     const expected = chromium.executablePath();
     if (expected && fs.existsSync(expected)) return expected;
   } catch (_) {

@@ -458,6 +458,12 @@ FILE.
      already in yours, use that one (`transport=<that>`), and nothing needs
      repairing. This is what the pin cannot see: the pin is your intent, the
      binding is SAP's fact, and the fact wins.
+   - **Your own TASK under that request is the same request.** SAP always reports the
+     K request (CORRNR), so passing the number of your task in it (the shared-request
+     case: the lead's request, your task under it) is accepted and the change lands in
+     your task. Any OTHER request still stops. On a push, an object already held in
+     another request is no longer added to the one you named as well — it would sit in
+     both and travel in halves; the answer says `transport_diverged` and where it went.
    - **Held by someone else** — stop. Do not take the request over. The user talks
      to its owner.
    - **A stale ENQUEUE lock** (a different thing) — `adt_clear_lock`, own locks
@@ -884,6 +890,12 @@ touching SAP:
 
 **Activation.** `adt_push` auto-activates. Same-user stale locks are auto-cleared;
 foreign locks are SM12. DDIC objects: no lock needed — create → activate immediately.
+**A lock under your OWN user that will not clear.** `adt_clear_lock` (and the retry the
+engine runs on a 403) locks and unlocks *its own* reference and reports success; it cannot
+release a second, live session of the same user — usually a SAP GUI window in SE38/SE80/SE24/
+SE11 in *change* mode, not display. The 403 comes back unchanged. Close that window first.
+Only then SM12, and filter by **USER**, never by object name: the enqueue argument rarely
+matches a text search on the name (program text elements share the program's own enqueue).
 **Runtime buffer:** ADT activation may not flush a running app server's class buffer —
 if activated changes don't take effect, re-activate via Eclipse/SE24 or run
 `/$ABAP_BUFFER_RESET` (SM04), per app server on load-balanced systems.

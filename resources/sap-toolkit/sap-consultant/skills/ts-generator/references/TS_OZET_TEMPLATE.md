@@ -22,7 +22,7 @@
 |---|---|
 | Müşteri · Proje | [reçeteden] |
 | Modül · WRICEF | [MM] · [MM019 — Report] |
-| Clean Core | [Seviye A/B/C/D] — [istisna var mı: evet/hayır] |
+| Clean Core | Profil `[reçetedeki clean_core]` · [Seviye A/B/C/D] — [gerekçeli/istisna nesne sayısı, yoksa "istisna yok"] |
 | Kaynak FS | `[FS dosyası]` |
 | Tam doküman | `[WRICEF-ID-Teknik-Spesifikasyon.md]` — [N] sayfa, 5 parça |
 
@@ -63,7 +63,8 @@
 <!-- Risk yüzeyi. En fazla 5 satır, her biri tek satır.
      Buraya girenler: Clean Core istisnaları, doğrulanamamış release durumu,
      performans/hacim riski, geri alınamaz adımlar, dış bağımlılık.
-     Hiçbiri yoksa: "Öne çıkan risk yok; Clean Core Seviye [X], istisna yok." -->
+     Hiçbiri yoksa: "Öne çıkan risk yok; Clean Core profili [profil], Seviye [X],
+     istisna yok." -->
 
 - [risk — ve nerede ele alındığı]
 

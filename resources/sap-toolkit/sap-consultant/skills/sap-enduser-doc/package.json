@@ -2,7 +2,7 @@
   "name": "sap-enduser-doc",
   "version": "1.1.0",
   "private": true,
-  "description": "Generate end-user PDF documentation for SAP classic GUI programs (WebGUI screenshots + Mermaid + Playwright PDF).",
+  "description": "Generate end-user PDF documentation for SAP classic GUI programs and Fiori apps (WebGUI / launchpad screenshots + Mermaid + Playwright PDF).",
   "scripts": {
     "precheck": "node scripts/precheck.js"
   },

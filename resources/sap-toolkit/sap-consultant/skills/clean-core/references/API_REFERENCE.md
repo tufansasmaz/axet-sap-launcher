@@ -1,313 +1,104 @@
 # Clean Core Checker API Reference
 
-Reference for using the ABAP Cloud Clean Core checker.
+`scripts/clean_core_checker.py` — command line and Python. Both return the same
+result; the command line prints it as text or, with `--json`, as the dict below.
 
-## Installation
-
-The clean-core skill is part of the sap-consultant plugin. No separate installation required.
-
-## Python API
-
-### search_object
-
-Search for an object in the SAP released objects database.
-
-```python
-from clean_core_checker import search_object
-
-result = search_object(
-    object_name="MARA",
-    object_type="TABL"  # Optional
-)
-```
-
-**Returns:** Dict with object details including release status and successors
-
-```python
-{
-    "object_name": "MARA",
-    "object_type": "TABL",
-    "clean_core_level": "C",
-    "released": False,
-    "successors": [...]
-}
-```
-
-### get_object_details
-
-Get detailed information about an object.
-
-```python
-from clean_core_checker import get_object_details
-
-result = get_object_details(
-    object_name="MARA",
-    object_type="TABL"  # Optional
-)
-```
-
-**Returns:** Dict with full object details
-
-```python
-{
-    "object_name": "MARA",
-    "object_type": "TABL",
-    "clean_core_level": "C",
-    "released": False,
-    "category": "notToBeReleased",
-    "successors": [
-        {
-            "object_name": "I_PRODUCT",
-            "object_type": "CDS_STOB",
-            "description": "Successor for MARA"
-        }
-    ]
-}
-```
-
-### check_compliance
-
-Check Clean Core compliance for multiple objects.
-
-```python
-from clean_core_checker import check_compliance
-
-result = check_compliance([
-    "MARA",
-    "BSEG",
-    "I_PRODUCT"
-])
-```
-
-**Returns:** Dict with compliance results and statistics
-
-```python
-{
-    "targetLevel": "A",
-    "system_type": "public_cloud",
-    "totalChecked": 3,
-    "compliant": 1,
-    "nonCompliant": 2,
-    "results": [...]
-}
-```
-
-### get_successor
-
-Get the successor/replacement object for a forbidden object.
-
-```python
-from clean_core_checker import get_successor
-
-successor = get_successor("MARA")
-if successor:
-    print(f"Use {successor['object_name']} instead")
-```
-
-**Returns:** Dict with replacement object info or None
-
-```python
-{
-    "object_name": "I_PRODUCT",
-    "object_type": "CDS_STOB",
-    "description": "Successor for MARA"
-}
-```
-
-## Command Line Usage
-
-### Single Object Check
+## Command line
 
 ```bash
-python clean_core_checker.py MARA
+py clean_core_checker.py OBJ [OBJ ...] [--system-type T] [--version V | --s4core R --sp N] [--level L] [--json]
 ```
 
-Output:
-```
-Clean Core Status: MARA
-==================================================
-Object Name: MARA
-Object Type: TABL
-Clean Core Level: C
-Released: False
-Category: notToBeReleased
+| option | values | default |
+|---|---|---|
+| `--system-type` | `public_cloud`, `btp`, `private_cloud`, `on_premise` | `public_cloud` |
+| `--version` | `latest`, or a repository release such as `2023_3` (private_cloud / on_premise only) | `latest` |
+| `--s4core` + `--sp` | S4CORE release (107, 108, 109) and support package, instead of `--version` | — |
+| `--level` | highest acceptable Clean Core level, `A`–`D` | `A` |
 
-Successors (replacement objects):
-  - I_PRODUCT (CDS_STOB)
-    Successor for MARA
-```
+Objects may be separated by spaces or commas; a leading word `compliance` is ignored.
 
-### Multiple Objects Check
-
-```bash
-python clean_core_checker.py MARA BSEG CL_GUI_ALV_GRID
-```
-
-Output:
-```
-Clean Core Compliance Check
-==================================================
-Objects checked: ['MARA', 'BSEG', 'CL_GUI_ALV_GRID']
-
-Compliant: 0/3
-Non-Compliant: 2/3
-
-  MARA: [X] FORBIDDEN (Level C)
-    notToBeReleased
-    Successors: I_PRODUCT, I_PRODUCTPROCUREMENT, I_PRODUCTQM
-    ... and 2 more
-
-  BSEG: [X] FORBIDDEN (Level C)
-    notToBeReleased
-    Successors: I_OPERATIONALACCTGDOCITEM
-```
-
-## Common Replacement Cache
-
-The checker includes a local cache of common forbidden objects:
-
-| Object | Type | Level | Replacement |
-|--------|------|-------|-------------|
-| MARA | TABL | D | I_PRODUCT |
-| BSEG | TABL | D | I_OPERATIONALACCTGDOCITEM |
-| CL_GUI_ALV_GRID | CLAS | D | CL_SALV_TABLE |
-| CL_GUI_ALV_TREE | CLAS | D | CL_SALV_TREE |
-| VBAK | TABL | D | None (use BAPIs) |
-| T001 | TABL | D | None (use BAPIs) |
-
-## API Endpoint
-
-The checker uses the SAP Released Objects API:
+**Exit code:** `0` every object verified online · `3` at least one not verified (the
+report is still complete) · `2` the request was wrong (unknown target, a release the
+repository does not list, no objects).
 
 ```
-https://sap-released-objects-server-production.up.railway.app/api
+Clean Core check
+============================================================
+Source: online -- ROSA https://.../api (SAP Cloudification Repository), 2026-09-28
+Target: private_cloud / 2023_3 / level B
+Objects: 5 -- allowed 2, not allowed 2, not verified 1; verified online 4/5
+
+  MARA: NOT ALLOWED (TABL, level C, notToBeReleased) [online]
+    Successors: I_PRODUCT, I_PRODUCTQM, I_PRODUCTSALES ... and 2 more
+  EKKO: NOT ALLOWED (TABL, level C, notToBeReleased) [online]
+    Successors: I_PURCHASEORDERAPI01
+  CL_GUI_ALV_GRID: ALLOWED (CLAS, level B, classicAPI) [online]
+  SAP_WAPI_START_WORKFLOW: ALLOWED (FUNC, level B, classicAPI) [online]
+  MBEW: NOT VERIFIED [online]
+    SAP's repository has no entry for this object on this target
 ```
 
-**Endpoints:**
-- `/api/search` - Search for objects
-- `/api/object` - Get object details
-- `/api/compliance` - Batch compliance check
-- `/api/successor` - Get successor objects
+Offline, the Source line reads `OFFLINE -- endpoint not usable (...); bundled
+snapshot taken <date> for public_cloud / latest / level A` and the run adds
+*"Nothing below is verified."*
 
-## Error Handling
-
-### API Unavailable
-
-If the API is unavailable, the checker falls back to cached data:
+## Python
 
 ```python
-result = check_compliance(["MARA"])
-# Returns cached result even if API is down
+from clean_core_checker import check_compliance, get_object_details, get_successor, TargetError
+
+run = check_compliance(["MARA", "EKKO"], system_type="private_cloud", s4core="108", sp="3", level="B")
 ```
 
-### Object Not Found
+`check_compliance(object_names, system_type=None, version=None, level=None, s4core=None, sp=None)`
+raises `TargetError` for a request it cannot answer as asked, and otherwise returns:
 
 ```python
-result = get_object_details("UNKNOWN_OBJECT")
-# Returns {"error": "Object not found"}
+{
+  "source": {"mode": "online" | "offline", "endpoint": "...", "date": "2026-09-28",
+             "text": "...", "offline_reason": "..."},        # offline_reason only offline
+  "target": {"system_type": "private_cloud", "version": "2023_3", "level": "B"},
+  "target_is_default": False,       # True -> answered for public cloud, see "warnings"
+  "all_verified": False,
+  "exit_code": 3,
+  "counts": {"allowed": 2, "not_allowed": 2, "not_verified": 1, "total": 5, "verified": 4},
+  "warnings": [],
+  "results": [                      # every requested object, in the order given
+    {"object": "MARA", "verdict": "not_allowed", "verified": True, "source": "online",
+     "object_type": "TABL", "level": "C", "state": "notToBeReleased",
+     "successors": [{"object": "I_PRODUCT", "object_type": "CDS_STOB"}], "note": ""},
+  ],
+}
 ```
 
-### Invalid Object Type
+- `verdict` — `allowed`, `not_allowed` or `not_verified`.
+- `verified` — `True` only when the repository answered **online** for exactly the
+  requested target. A caller that writes a release status into a document tests this.
+- `source` per object — `online`, `bundled` (the offline snapshot) or `none`.
 
-```python
-result = search_object("MARA", object_type="INVALID")
-# Returns {"error": "API request failed: 400"}
-```
+`get_object_details(name, **target)` returns one object's entry plus `source_text` and
+`target`. `get_successor(name, **target)` returns the first successor as
+`{"object", "object_type", "verified", "source"}`, or `None`.
 
-## Clean Core Levels Reference
+## Endpoint
 
-| Level | Description | Action Required |
-|-------|-------------|-----------------|
-| A | Recommended | Use freely |
-| B | Allowed | Use if A unavailable |
-| C | Conditional | Check restrictions |
-| D | Deprecated/Forbidden | **Must replace** |
+ROSA's public instance by default, `ROSA_BASE_URL` (without `/api`) to override. The
+checker calls `/api/compliance` (and `/api/versions` when a release is named).
 
-## Object Type Codes
+ROSA answers for **public cloud** when it is handed a system type or level it does
+not know, instead of refusing. The checker therefore validates the target itself and
+compares the target ROSA echoes back with the one asked for; a mismatch is reported as
+not verified.
 
-| Code | Description |
-|------|-------------|
-| TABL | Table |
-| CLAS | Class |
-| INTF | Interface |
-| PROG | Program |
-| FUGR | Function Group |
-| DTEL | Data Element |
-| DOMA | Domain |
-| CDS_STOB | CDS View Entity (Stub) |
-| View | CDS View |
+## Offline
 
-## Examples
-
-### Check Before Using Object
-
-```python
-from clean_core_checker import get_object_details
-
-def safe_use_object(object_name):
-    result = get_object_details(object_name)
-    if result.get("released"):
-        return True
-    elif result.get("successors"):
-        succ = result["successors"][0]
-        print(f"WARNING: {object_name} is forbidden. Use {succ['object_name']} instead")
-        return False
-    return False
-```
-
-### Get All Successors
-
-```python
-from clean_core_checker import get_object_details
-
-def get_all_successors(object_name):
-    result = get_object_details(object_name)
-    if "successors" in result:
-        return [s["object_name"] for s in result["successors"]]
-    return []
-```
-
-### Batch Check with Filtering
-
-```python
-from clean_core_checker import check_compliance
-
-objects = ["MARA", "BSEG", "I_PRODUCT", "CL_SALV_TABLE"]
-result = check_compliance(objects)
-
-# Get only non-compliant objects
-non_compliant = [
-    r["objectName"] for r in result["results"]
-    if r.get("status") == "non_compliant"
-]
-
-print(f"Non-compliant objects: {non_compliant}")
-```
-
-## Integration with SAP ADT
-
-Combine Clean Core checking with SAP ADT operations:
-
-```python
-from sap_client import SAPClient
-from clean_core_checker import check_compliance
-
-# 1. Get objects from package
-client = SAPClient()
-objects = client.list_package_contents("ZMY_PACKAGE")
-
-# 2. Check compliance
-obj_names = [o["name"] for o in objects]
-compliance = check_compliance(obj_names)
-
-# 3. Report violations
-for r in compliance["results"]:
-    if r.get("status") == "non_compliant":
-        print(f"VIOLATION: {r['objectName']} is not Clean Core compliant")
-```
+No endpoint, an HTTP error, or a mismatched answer → the bundled snapshot
+(`BUNDLED` in the script: date, target, and ~17 classic objects above level A). It can
+say `not_allowed` (unverified) for those, for the public-cloud target it was taken for.
+It never says `allowed`. Every other object is `not_verified`.
 
 ## Documentation Links
 
-- [SAP Released Objects GitHub](https://github.com/SAP-samples/abap-file-formats)
-- [ABAP Cloud Clean Core](https://help.sap.com/doc/abap-cloud)
-- [Clean Core Checker Source](clean_core_checker.py)
+- [SAP Cloudification Repository](https://github.com/SAP/abap-atc-cr-cv-s4hc)
+- [ROSA](https://github.com/ClementRingot/ROSA)

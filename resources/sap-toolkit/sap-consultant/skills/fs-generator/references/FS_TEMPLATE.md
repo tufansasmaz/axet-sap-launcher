@@ -54,7 +54,10 @@
 ## 7. Girdi / Çıktı ve Ekran Tasarımı
 
 [Seçim ekranı alanları, ALV kolonları, form/arayüz yapısı — WRICEF tipine göre.
-Alan listelerinde: alan adı, veri öğesi/tablo-alan, zorunluluk, varsayılan.]
+Alan listelerinde: alan adı, veri öğesi/tablo-alan, zorunluluk, varsayılan.
+Ekran maketi varsa (screen-mockup) her ekranın görüntüsü burada yer alır —
+`![Ekran 1 — Seçim ekranı](<yol>.png)` ve altında ekranın amacını anlatan bir
+cümle; tıklanabilir `.html` maketin yolu da yazılır.]
 
 ## 8. Yetkilendirme
 

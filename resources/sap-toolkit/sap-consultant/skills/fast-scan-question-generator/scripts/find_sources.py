@@ -42,10 +42,11 @@ LEGACY = "sdkb_sap_delivery_copilot_kb"
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
 try:
-    from onedrive import candidate_roots, long_path
+    from onedrive import candidate_roots, long_path, onedrive_mounts
 except ImportError:                      # pragma: no cover - no plugin root
     candidate_roots = None
     long_path = None
+    onedrive_mounts = None
 
 
 def console() -> None:
@@ -132,6 +133,63 @@ def validate_root(path: Path) -> dict:
             "markers": markers}
 
 
+def pending_mounts() -> list[dict]:
+    """Folders OneDrive has registered but not yet filled -- a shortcut on its way.
+
+    `not_found` alone could not tell "never added" from "added a minute ago".
+    Both happen, and they need opposite advice: the first needs the steps, the
+    second needs patience, and re-adding a shortcut that is still arriving only
+    makes OneDrive complain about a duplicate. A new shortcut registers its
+    MountPoint first and fills the folder afterwards (measured 2026-09-21: the
+    subfolders appear at once and fill one at a time; on some machines the
+    whole thing takes minutes). So a registered mount that is missing, empty,
+    or carries only ONE of the two library directories is reported here.
+
+    Any freshly added shortcut qualifies, not only this library -- the caller
+    says "a shortcut is still syncing", never "yours is".
+    """
+    out = []
+    for mount in (onedrive_mounts() if onedrive_mounts else []):
+        try:
+            if not mount.exists():
+                out.append({"mount": str(mount), "state": "registered_not_created"})
+                continue
+            if not mount.is_dir():
+                continue
+            children = {c.name for c in mount.iterdir()}
+        except OSError:
+            continue
+        if not children:
+            out.append({"mount": str(mount), "state": "empty"})
+        elif (PROJECTS in children) != (AGENT in children):
+            out.append({"mount": str(mount), "state": "partial"})
+    return out
+
+
+def library_link(environ=None) -> str | None:
+    """The page where the shortcut is added, from the department's own catalog.
+
+    Not written in this skill (house rule: no URL in a skill). The department
+    declares it (department.yaml `links.fast_scan_library`), the publisher puts it
+    in the synced folder's catalog.json, and the installer records that folder in
+    ~/.ntt-catalog.path. A department without it gets None, and the caller
+    describes the place by name instead. FAST_SCAN_LIBRARY_URL overrides.
+    """
+    env = os.environ if environ is None else environ
+    if env.get("FAST_SCAN_LIBRARY_URL"):
+        return env["FAST_SCAN_LIBRARY_URL"]
+    try:
+        marker = Path(env.get("NTT_CATALOG_PATH_FILE")
+                      or Path.home() / ".ntt-catalog.path")
+        folder = marker.read_text(encoding="utf-8-sig").strip()
+        catalog = json.loads((io_path(Path(folder) / "catalog.json"))
+                             .read_text(encoding="utf-8-sig"))
+        url = (catalog.get("links") or {}).get("fast_scan_library")
+        return url if isinstance(url, str) and url.startswith("https://") else None
+    except (OSError, ValueError, AttributeError):
+        return None
+
+
 def resolve_sources(root: str | None = None, environ=None) -> dict:
     env = os.environ if environ is None else environ
     override = root or env.get("FAST_SCAN_SOURCE_ROOT")
@@ -155,6 +213,20 @@ def resolve_sources(root: str | None = None, environ=None) -> dict:
               "selection": selection,
               "candidates": [c for c in checks if c.get("valid") or override],
               "content_read": False}
+    if not valid and not override:
+        link = library_link(env)
+        if link:
+            result["library_url"] = link
+        pending = pending_mounts()
+        if pending:
+            result["pending"] = pending
+            result["hint"] = ("No complete library yet, but OneDrive has a shortcut it has "
+                              "not finished filling. Wait a few minutes and check again; "
+                              "do not add the shortcut a second time.")
+        else:
+            result["hint"] = ("No synced library and no shortcut on its way. Either it was "
+                              "never added, or adding it did not complete -- check that it "
+                              "appears under My files on onedrive.com.")
     if len(valid) == 1:
         chosen = next(iter(valid.values()))
         source_root = Path(chosen["root"])

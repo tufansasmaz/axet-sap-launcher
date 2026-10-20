@@ -9,7 +9,7 @@ Usage:
 Arguments:
     fs_markdown_file  The FS markdown to render.
     output_pdf        Optional: output PDF path (defaults to the .md path with .pdf suffix).
-    title             Optional: PDF title (defaults to the markdown file stem).
+    title             Optional: PDF title (default: the document's own leading `# ...` line).
 
 Examples:
     python render_pdf.py ./fs-output/PP007-FS.md
@@ -70,7 +70,29 @@ def find_office_pdf_script():
     return None
 
 
-def create_pdf(md_path, pdf_path, title):
+# The words this script hands the renderer, per document language (--lang tr|en, default tr).
+# The master is plugins/office-tools/lib/doc_language.json ("render"); scripts/test_doc_language.py
+# holds this table equal to it.
+LANG = {
+    "tr": {"eyebrow": "FONKSİYONEL SPESİFİKASYON", "classification": "Gizli — Müşteriye Özel"},
+    "en": {"eyebrow": "FUNCTIONAL SPECIFICATION", "classification": "Confidential — Customer Restricted"},
+}
+
+
+def take_lang(argv):
+    """Remove `--lang X` from argv (the positional arguments stay as they were) and return X."""
+    lang = "tr"
+    if "--lang" in argv:
+        i = argv.index("--lang")
+        if i + 1 >= len(argv) or argv[i + 1] not in LANG:
+            print("ERROR: --lang takes tr or en")
+            sys.exit(2)
+        lang = argv[i + 1]
+        del argv[i:i + 2]
+    return lang
+
+
+def create_pdf(md_path, pdf_path, title, lang="tr"):
     """Convert the markdown to PDF using office-pdf."""
     script = find_office_pdf_script()
 
@@ -90,9 +112,15 @@ def create_pdf(md_path, pdf_path, title):
         script,
         "--input", md_path,
         "--output", pdf_path,
-        "--title", title,
+        "--eyebrow", LANG[lang]["eyebrow"],
+        "--classification", LANG[lang]["classification"],
+        "--lang", lang,
         "--force",
     ]
+    # No title given: office-pdf takes the document's own `# ...` line, which
+    # names the WRICEF and the development -- better than a file stem.
+    if title:
+        cmd += ["--title", title]
 
     result = subprocess.run(
         cmd,
@@ -119,6 +147,7 @@ def create_pdf(md_path, pdf_path, title):
 
 
 def main():
+    lang = take_lang(sys.argv)
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
@@ -138,7 +167,7 @@ def main():
     if len(sys.argv) >= 4:
         title = sys.argv[3]
     else:
-        title = os.path.splitext(os.path.basename(md_path))[0]
+        title = ""
 
     print("=" * 60)
     print("FS-GENERATOR — PDF Renderer")
@@ -146,7 +175,7 @@ def main():
     print(f"Output: {pdf_path}")
     print("=" * 60)
 
-    success = create_pdf(md_path, pdf_path, title)
+    success = create_pdf(md_path, pdf_path, title, lang)
 
     print()
     print("=" * 60)

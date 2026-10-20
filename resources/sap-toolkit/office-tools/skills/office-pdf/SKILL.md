@@ -36,23 +36,42 @@ If the engine is missing the script prints this and exits with code 2.
 py plugins/office-tools/skills/office-pdf/scripts/md_to_pdf.py \
   --input  report.md \
   --output report.pdf \
-  --title  "Monthly Report" \   # footer + <title>
+  --title  "Monthly Report" \   # title block + footer; replaces a leading '# ...'
+  [--eyebrow "TEKNIK SPESIFIKASYON"] \          # small caps line above the title
+  [--classification "Confidential — Customer Restricted"] \   # footer centre
+  [--toc auto|on|off] [--toc-title Contents] [--page-word Page] \
+  [--no-logo] \                 # a document that is not ours
   [--redact-pii] \              # mask TCKN / 10-11 digit tax IDs first
   [--keep-html report.html] \   # keep the intermediate HTML
   [--force]
 ```
 
-## What you get
+Without `--title`, the document's own first `# ...` line is the title.
 
-- **A4** geometry, 16/12 mm margins, `· page/total` footer on every page.
-- **House theme** (`lib/theme.py`, shared with the .docx so the two cannot drift)
-  — h1 over an accent rule; table headers filled with white text; zebra rows;
-  horizontal hairlines only, no vertical rules.
-- **Table survival rules** — `table-layout: fixed` + `word-wrap: break-word` so
-  wide multi-column tables wrap instead of running off the page.
+## What you get — the Word edition's page
+
+Since 2026-09-29 a PDF and its `office-docx` twin are the same document on
+paper: until then an FS went to the customer twice, once with the NTT mark and
+a classification (Word) and once with neither (PDF).
+
+- **A4, Word's margins** (2.7 cm sides, 2.6 top, 2.2 bottom); the **NTT mark
+  top right** on every page; footer **title · classification · Sayfa n / m**
+  over a hairline.
+- **Title block**: eyebrow in accent small caps, the title light and large over
+  an accent rule — not an underlined H1.
+- **Contents list** from eight h1–h3 headings (`--toc auto`), dotted leaders,
+  linked. **Page numbers** come from a second print: the first one's bookmarks
+  say where each heading landed (needs `pymupdf` or `pypdf`; without either the
+  list keeps its links and drops the numbers, and says so). The PDF also carries
+  bookmarks — the headings — like Word's navigation pane.
+- **House theme** (`lib/theme.py`, shared with the .docx): six heading steps in
+  Word's sizes and colours; table headers filled with white text; zebra rows;
+  horizontal hairlines only.
+- **Tables sized by content**, as Word's are: a word never breaks, so no column
+  is narrower than its longest word; a short code (`FR-001`) stays on one line;
+  an ABAP name in a cell may break after `_`. Header rows repeat, rows do not split.
 - **`pre { white-space: pre-wrap }`** so long code/appendix lines wrap.
-- Font stack `"Segoe UI", Arial` — full Turkish glyph coverage; `print_background`
-  keeps the header fills (Chromium drops backgrounds by default when printing).
+- `#1 text` is text: a heading needs the space after `#`.
 
 ## Supported Markdown
 

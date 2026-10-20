@@ -1,13 +1,24 @@
 """ZipBundler — package ship-set patches into abapGit-compatible ZIPs.
 
-One ZIP per check category (`pattern_slug`). Within each category, distinct
-ABAP objects are chunked into batches of <=25 (the research-abapgit-bridge
-cascade-safety cap). Each ZIP carries:
+Every patched object goes into the ZIP WHOLE: its current source, taken from
+the consultant's abapGit export under ``remediation/inputs/source/``, with each
+patch's ``before_text`` replaced by its ``after_text`` (``scripts.source_splice``).
+An object whose patches cannot all be applied exactly -- no source, a
+before_text that is not there, is there twice, or overlaps another -- is left
+out, and every one of its patches is handed back in ``refused`` for the human
+review queue. Nothing is ever written from the snippets alone: an abapGit
+import replaces the member, so a snippet would replace the program.
+
+One ZIP per check category (``pattern_slug``), chunked to <=25 distinct objects
+(the research-abapgit-bridge cascade-safety cap). An object patched under
+several categories goes ONCE, in the ZIP of the first of them: two ZIPs each
+carrying the object with only their own fix would undo each other on import.
+Each ZIP carries:
 
   - ``.abapgit.xml`` (root) with ``STARTING_FOLDER=/src/`` and
     ``FOLDER_LOGIC=PREFIX`` so abapGit picks up the layout correctly.
-  - ``src/<name>.<ext>.abap`` + ``src/<name>.<ext>.xml`` per distinct
-    object (lowercase filenames — abapGit folder-layout requirement).
+  - every abapGit file of each patched object as exported, the patched
+    members replaced by their spliced source.
   - ``src/zatc_recheck/zatc_recheck_<batch_id>.prog.abap`` (+ .xml) — the
     rendered Z-report. Note that ``-`` is NOT a legal ABAP identifier, so
     the report-name uses ``_`` (``b-0007`` -> ``b_0007``).
@@ -21,9 +32,16 @@ from __future__ import annotations
 import re
 import zipfile
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 from scripts.schemas import Patch, ZipBundleManifest
+from scripts.source_splice import (
+    SUPPORTED_TYPES,
+    SourceIndex,
+    SpliceRefused,
+    build_object,
+)
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_PATH = PLUGIN_ROOT / "references" / "recheck-report.abap.template"
@@ -52,12 +70,11 @@ _ABAPGIT_XML = """\
 </abapGit>
 """
 
-# Per-type abapGit object XML. abapGit refuses CLAS/FUGR/INTF members
-# carrying PROGDIR metadata (that block is PROG-only). v0.1 supports the
-# four most common ABAP types in this plugin's pattern catalogue; the rest
-# (TABL/DTEL/DOMA) fall through to NotImplementedError so the patches get
-# routed to human review explicitly rather than producing a broken ZIP.
-_PROG_XML_TEMPLATE = """\
+# The Z-recheck report is the one object this bundler writes from scratch, so
+# it is the one XML it renders. Every patched object's XML is copied from the
+# consultant's abapGit export instead: a hand-rendered CLAS or FUGR XML would
+# reset its description, its category and whatever else abapGit serialises.
+_RECHECK_PROG_XML = """\
 <?xml version="1.0" encoding="utf-8"?>
 <abapGit version="v1.0.0" serializer="LCL_OBJECT_PROG" serializer_version="v1.0.0">
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
@@ -70,80 +87,6 @@ _PROG_XML_TEMPLATE = """\
  </asx:abap>
 </abapGit>
 """
-
-_CLAS_XML_TEMPLATE = """\
-<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_CLAS" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <VSEOCLASS>
-    <CLSNAME>{name_uc}</CLSNAME>
-    <LANGU>E</LANGU>
-   </VSEOCLASS>
-  </asx:values>
- </asx:abap>
-</abapGit>
-"""
-
-_FUGR_XML_TEMPLATE = """\
-<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_FUGR" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <AREAT>{name_uc}</AREAT>
-  </asx:values>
- </asx:abap>
-</abapGit>
-"""
-
-_INTF_XML_TEMPLATE = """\
-<?xml version="1.0" encoding="utf-8"?>
-<abapGit version="v1.0.0" serializer="LCL_OBJECT_INTF" serializer_version="v1.0.0">
- <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
-  <asx:values>
-   <VSEOINTERF>
-    <CLSNAME>{name_uc}</CLSNAME>
-   </VSEOINTERF>
-  </asx:values>
- </asx:abap>
-</abapGit>
-"""
-
-_OBJECT_XML_TEMPLATES: dict[str, str] = {
-    "PROG": _PROG_XML_TEMPLATE,
-    "CLAS": _CLAS_XML_TEMPLATE,
-    "FUGR": _FUGR_XML_TEMPLATE,
-    "INTF": _INTF_XML_TEMPLATE,
-}
-
-
-def _render_object_xml(object_type: str, object_name: str) -> str:
-    """Render the abapGit per-object XML, choosing the serializer + metadata
-    block by object type. Raises NotImplementedError on unsupported types
-    so the caller can route the affected patches to human-review instead of
-    producing a malformed ZIP.
-    """
-    tmpl = _OBJECT_XML_TEMPLATES.get(object_type.upper())
-    if tmpl is None:
-        raise NotImplementedError(
-            f"ZipBundler v0.1: unsupported object_type={object_type!r}; "
-            "route to human review (only PROG/CLAS/FUGR/INTF are supported). "
-            "See SPEC §2 v0.2 backlog for the broader-type catalogue."
-        )
-    return tmpl.format(name_uc=object_name.upper())
-
-
-def _ext_for_object_type(object_type: str) -> str:
-    """Map ATC object-type codes to abapGit file extensions."""
-    return {
-        "PROG": "prog",
-        "CLAS": "clas",
-        "FUGR": "fugr",
-        "INTF": "intf",
-        "TABL": "tabl",
-        "DTEL": "dtel",
-        "DOMA": "doma",
-    }.get(object_type.upper(), object_type.lower())
 
 
 def _ascii_batch_id_for_report(batch_id: str) -> str:
@@ -177,6 +120,14 @@ def _build_object_list_lines(distinct_objects: list[tuple[str, str]]) -> str:
     return "\n".join(lines)
 
 
+@dataclass(frozen=True)
+class RefusedPatch:
+    """A ship-set patch that did not go into a ZIP, and why."""
+
+    patch: Patch
+    reason: str
+
+
 class ZipBundler:
     """Bundle patches into abapGit ZIPs (one per category, <=25 obj each)."""
 
@@ -185,76 +136,75 @@ class ZipBundler:
         output_dir: Path,
         batch_id_seed: int = 1,
         template_path: Path | None = None,
+        source: SourceIndex | None = None,
     ) -> None:
         self.output_dir = Path(output_dir)
         self.batch_id_seed = int(batch_id_seed)
         self.template_path = template_path or TEMPLATE_PATH
-        # Multi-patch-per-object patches are pulled out of the ship-set and
-        # surfaced here for the orchestrator to route to human-review. v0.1
-        # cannot safely merge two diffs against the same object without
-        # source-aware splicing; v0.2 adds SourceIngester and a real merge.
-        self.routed_patches: list[Patch] = []
+        self.source = source if source is not None else SourceIndex()
+        # Filled by bundle(): what went into a ZIP, and what was held back.
+        self.shipped_patches: list[Patch] = []
+        self.refused: list[RefusedPatch] = []
 
     def bundle(self, patches: list[Patch]) -> list[ZipBundleManifest]:
-        """Group patches by slug, chunk into <=25-object ZIPs, write to disk.
+        """Build each object whole, group by slug, chunk into <=25-object ZIPs.
 
-        Patches landing on the same (object_type, object_name) as another
-        patch in the same slug are PULLED OUT of the ship-set and recorded
-        in ``self.routed_patches`` — concatenating two diffs against the
-        same object produces broken ABAP. The orchestrator surfaces the
-        routed patches as ``no-patch-produced`` with reason
-        ``"multi-patch-per-object — needs manual merge"`` (v0.2 backlog:
-        source-aware splicing).
+        An object is refused as a unit: if one of its patches cannot be
+        applied, none of them ship, because the others were drafted against a
+        source that still contained that one's before_text.
         """
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self.routed_patches = []  # reset on each bundle() call
+        self.shipped_patches = []
+        self.refused = []
 
-        # Group by pattern_slug (one ZIP per check category, possibly chunked).
-        by_slug: dict[str, list[Patch]] = defaultdict(list)
+        by_obj: dict[tuple[str, str], list[Patch]] = defaultdict(list)
         for p in patches:
-            slug = p.pattern_slug or "uncategorized"
-            by_slug[slug].append(p)
+            by_obj[(p.object_type.upper(), p.object_name)].append(p)
+
+        built: dict[tuple[str, str], dict[str, bytes]] = {}
+        file_owner: dict[str, tuple[str, str]] = {}
+        for key in sorted(by_obj):
+            obj_patches = by_obj[key]
+            try:
+                if key[0] not in SUPPORTED_TYPES:
+                    raise SpliceRefused(
+                        f"object type {key[0]} is not bundled "
+                        "(only PROG, CLAS, FUGR, INTF)")
+                files = build_object(obj_patches, self.source)
+                # A report include patched under two main programs would ship
+                # twice with different content; the second is refused.
+                shared = sorted(n for n in files if n in file_owner)
+                if shared:
+                    raise SpliceRefused(
+                        f"{', '.join(shared)} is also patched under "
+                        f"{file_owner[shared[0]][1]} in this run; import that "
+                        "one, re-export, and bundle again")
+            except SpliceRefused as exc:
+                self.refused.extend(RefusedPatch(p, str(exc)) for p in obj_patches)
+                continue
+            for name in files:
+                file_owner[name] = key
+            built[key] = files
+
+        by_slug: dict[str, list[tuple[str, str]]] = defaultdict(list)
+        for key in built:
+            slug = min(p.pattern_slug or "uncategorized" for p in by_obj[key])
+            by_slug[slug].append(key)
 
         manifests: list[ZipBundleManifest] = []
         next_id = self.batch_id_seed
 
-        for slug in sorted(by_slug.keys()):
-            slug_patches = by_slug[slug]
-
-            # Sub-group by distinct (object_type, object_name).
-            by_obj: dict[tuple[str, str], list[Patch]] = defaultdict(list)
-            for p in slug_patches:
-                by_obj[(p.object_type, p.object_name)].append(p)
-
-            # Filter to safe-to-bundle keys:
-            #   - Multi-patch-per-object → routed; not safe to merge in v0.1.
-            #   - Unsupported object_type (not in _OBJECT_XML_TEMPLATES) → routed
-            #     instead of crashing the run. v0.1 ships PROG/CLAS/FUGR/INTF;
-            #     TABL/DTEL/DOMA/etc. land here and go to human review.
-            safe_keys: list[tuple[str, str]] = []
-            for key, obj_patches in by_obj.items():
-                obj_type = key[0].upper()
-                if obj_type not in _OBJECT_XML_TEMPLATES:
-                    self.routed_patches.extend(obj_patches)
-                elif len(obj_patches) > 1:
-                    self.routed_patches.extend(obj_patches)
-                else:
-                    safe_keys.append(key)
-            safe_keys.sort()
-
-            # Chunk into <=MAX_OBJECTS_PER_ZIP-object pieces.
-            for chunk_start in range(0, len(safe_keys), MAX_OBJECTS_PER_ZIP):
-                chunk_keys = safe_keys[chunk_start : chunk_start + MAX_OBJECTS_PER_ZIP]
-                if not chunk_keys:
-                    continue
+        for slug in sorted(by_slug):
+            keys = sorted(by_slug[slug])
+            for chunk_start in range(0, len(keys), MAX_OBJECTS_PER_ZIP):
+                chunk_keys = keys[chunk_start : chunk_start + MAX_OBJECTS_PER_ZIP]
                 batch_id = f"b-{next_id:04d}"
                 next_id += 1
 
-                chunk_patches: list[Patch] = []
-                for key in chunk_keys:
-                    chunk_patches.extend(by_obj[key])
-
-                zip_path = self._write_zip(batch_id, slug, chunk_keys, chunk_patches)
+                chunk_patches = [p for key in chunk_keys for p in by_obj[key]]
+                zip_path = self._write_zip(
+                    batch_id, slug, chunk_keys, {k: built[k] for k in chunk_keys})
+                self.shipped_patches.extend(chunk_patches)
                 manifests.append(
                     ZipBundleManifest(
                         batch_id=batch_id,
@@ -275,7 +225,7 @@ class ZipBundler:
         batch_id: str,
         slug: str,
         distinct_objects: list[tuple[str, str]],
-        patches: list[Patch],
+        object_files: dict[tuple[str, str], dict[str, bytes]],
     ) -> Path:
         # Defence-in-depth: ZipBundler mints batch_ids internally as
         # f"b-{next_id:04d}" and slugs come from validated Patch.pattern_slug,
@@ -295,24 +245,12 @@ class ZipBundler:
         with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(".abapgit.xml", _ABAPGIT_XML)
 
-            # One pair of files per distinct object — collapse multiple patches
-            # against the same object into a single abapgit member containing
-            # `after_text` (post-fix source). before/after are preserved per
-            # patch in the audit trail.
-            objects_index: dict[tuple[str, str], list[Patch]] = defaultdict(list)
-            for p in patches:
-                objects_index[(p.object_type, p.object_name)].append(p)
-
-            for (obj_type, obj_name), obj_patches in objects_index.items():
-                ext = _ext_for_object_type(obj_type)
-                name_lc = obj_name.lower()
-                source_member = f"src/{name_lc}.{ext}.abap"
-                xml_member = f"src/{name_lc}.{ext}.xml"
-
-                # Concatenate after_text from every patch targeting this object.
-                source_body = "\n\n".join(p.after_text for p in obj_patches)
-                zf.writestr(source_member, source_body)
-                zf.writestr(xml_member, _render_object_xml(obj_type, obj_name))
+            # The complete abapGit files of every object, patched members
+            # already spliced. SourceIndex keeps base names only, so no name
+            # from the export can reach outside src/.
+            for key in distinct_objects:
+                for name, body in sorted(object_files[key].items()):
+                    zf.writestr(f"src/{name}", body)
 
             # Inline the ZATC_RECHECK Z-report.
             recheck_body = _render_recheck_report(
@@ -328,11 +266,9 @@ class ZipBundler:
                 f"src/zatc_recheck/zatc_recheck_{safe_id}.prog.xml"
             )
             zf.writestr(recheck_report_member, recheck_body)
-            # The Z-recheck report is always type PROG, so use the PROG
-            # template explicitly (it ships PROGDIR which abapGit requires).
             zf.writestr(
                 recheck_xml_member,
-                _render_object_xml("PROG", f"ZATC_RECHECK_{safe_id.upper()}"),
+                _RECHECK_PROG_XML.format(name_uc=f"ZATC_RECHECK_{safe_id.upper()}"),
             )
 
         return zip_path

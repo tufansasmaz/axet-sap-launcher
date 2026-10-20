@@ -75,12 +75,22 @@ Work through ALL of these; every failure becomes a finding with a location:
 6. **Zorunlu kontroller** — authorization, data security, logging, error handling,
    audit trail: each either specified or explicitly flagged open. Silent absence is
    an Engelleyici.
-7. **Clean Core (TS)** — extensibility level justified per Gap; Level 4 carries an
-   exception justification; nothing modifies a SAP standard object; proposals are
-   viable on the brief's target platform; **§1.3 carries a release-status evidence
-   column and every standard object in the TS appears in it** — a release claim
+7. **Clean Core (TS)** — judged against the **brief's Clean Core profile** (front
+   matter `clean_core:`; the rules are in the `clean-core` skill's
+   `references/PROFILES.md`, read them there). §1.3 names the profile and it is the
+   brief's — a TS written for another profile, or naming none, is an Engelleyici.
+   Extensibility level justified per Gap; a technique the profile's row forbids is an
+   Engelleyici (Level 4, a report, a Dynpro or a classic transport on `public`; a
+   modification or implicit enhancement anywhere); where the profile asks for a
+   reason (Level 4 on `s4-strict`) the reason is written. **§1.3 carries the evidence
+   columns (Seviye + Karar) and every standard object in the TS appears in them**; an
+   object whose Karar is `Yasak` or `Doğrulanamadı — doğrulanana kadar kullanılmaz`
+   still used in the design is an Engelleyici, a `Gerekçeyle` row without its reason
+   or an `İstisna` row missing from the decision list is an Uyarı. A release claim
    without verification evidence (and without an honest "Doğrulanamadı") is an
-   Engelleyici.
+   Engelleyici. On `public`, the TS has the shape the `clean-core` skill's
+   `references/PUBLIC_CLOUD.md` describes. The same applies to an **FS**'s `[Öneri]`
+   items: none proposes what the profile forbids.
    Two declarations the corporate checklist (guideline v2.0 §5, items 7–8) requires
    and a TS routinely omits, both findings when missing:
    - **The Clean Core A–D level is written down** (NAMING_STANDARD §0). This is not
@@ -98,8 +108,23 @@ Work through ALL of these; every failure becomes a finding with a location:
    marketing adjectives, information-free sentences, actor-less passives,
    padded sections that should be one line. Usually Öneri; Uyarı when the fat
    obscures meaning. A document can be too long to be read — that is a defect.
+10. **Entegrasyon detayı (TS of an interface)** — an Interface development, or one
+   naming PO/CPI or a connection method (IDoc, Proxy, REST, SOAP, RFC, file transfer),
+   comes with `<WRICEF_ID>-Entegrasyon-Detay.xlsx` (ts-generator,
+   `references/INTEGRATION_SHEET.md`). Missing → Uyarı. Present → it agrees with the
+   TS: source and target systems, both connection methods, sync/async, and the Field
+   Mapping sheet against §2.9. A disagreement is an Engelleyici (two teams would build
+   two different things). A required field left `Açık`, or an `Öneri` value, belongs on
+   the TS's decision list — missing there is an Uyarı. A sample payload or an endpoint
+   that carries a real password, token or customer personal data is an Engelleyici.
 
 ## Output format (STRICT)
+
+**The report is in the reviewed document's language** (its header's language; else the
+person's): the verdict line, the severity words, the column headers and the dimension names
+come from [`references/DOCUMENT_LANGUAGE.md`](references/DOCUMENT_LANGUAGE.md) — an English
+FS gets `Ready for approval` / `Correction needed — N Blocker, M Warning, K Suggestion`, not
+`Onaya hazır`. The Turkish words below are the Turkish column.
 
 Never paste or rewrite the document. Produce exactly:
 

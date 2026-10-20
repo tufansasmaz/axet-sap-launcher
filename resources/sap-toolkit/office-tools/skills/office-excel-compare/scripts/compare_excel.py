@@ -109,78 +109,134 @@ def compare_pandas(df1, df2, key: str, normalize: bool):
     return summary, added_rows, removed_rows, changed_df, dup1, dup2
 
 
-def write_delta_report(out_path: Path, summary: dict, added, removed, changed, key: str):
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, PatternFill
+# Words the report writes itself, in its language. It was English only
+# ("Delta Report Summary", "_status", "ADDED") inside Turkish projects.
+WORDS = {
+    "tr": {
+        "title": "Karşılaştırma Raporu", "summary": "Özet", "added": "Eklenen",
+        "removed": "Silinen", "changed": "Değişen", "item": "Kalem", "count": "Değer",
+        "old": "eski", "new": "yeni",
+        "rows1": "Önceki dosyadaki satır", "rows2": "Sonraki dosyadaki satır",
+        "r_added": "Eklenen satır (yalnız sonrakinde)",
+        "r_removed": "Silinen satır (yalnız öncekinde)",
+        "r_changed": "Değişen satır (aynı anahtar, farklı değer)",
+        "r_same": "Değişmeyen satır",
+        "c_added": "Eklenen kolon", "c_removed": "Silinen kolon",
+        "d1": "Önceki dosyada tekrarlanan anahtar", "d2": "Sonraki dosyada tekrarlanan anahtar",
+        "none": "yok",
+        "leg_sum": "Önceki: {f1} · Sonraki: {f2} · Anahtar kolon: {key}",
+        "leg_add": "Sonraki dosyada olup öncekinde olmayan satırlar.",
+        "leg_rem": "Önceki dosyada olup sonrakinde olmayan satırlar.",
+        "leg_chg": "Aynı anahtarlı satırlarda yalnız değişen kolonlar: eski ve yeni değer yan yana.",
+        "empty": "Bu grupta satır yok.",
+        "labels": {"customer": "Müşteri", "project": "Proje", "version": "Sürüm", "date": "Tarih"},
+    },
+    "en": {
+        "title": "Comparison Report", "summary": "Summary", "added": "Added",
+        "removed": "Removed", "changed": "Changed", "item": "Item", "count": "Value",
+        "old": "old", "new": "new",
+        "rows1": "Rows in the earlier file", "rows2": "Rows in the later file",
+        "r_added": "Added rows (later file only)",
+        "r_removed": "Removed rows (earlier file only)",
+        "r_changed": "Changed rows (same key, different values)",
+        "r_same": "Unchanged rows",
+        "c_added": "Added columns", "c_removed": "Removed columns",
+        "d1": "Duplicate keys in the earlier file", "d2": "Duplicate keys in the later file",
+        "none": "none",
+        "leg_sum": "Earlier: {f1} · Later: {f2} · Key column: {key}",
+        "leg_add": "Rows in the later file that the earlier one does not have.",
+        "leg_rem": "Rows in the earlier file that the later one does not have.",
+        "leg_chg": "Rows with the same key: only the columns that changed, old and new side by side.",
+        "empty": "No rows in this group.",
+        "labels": {"customer": "Customer", "project": "Project", "version": "Version", "date": "Date"},
+    },
+}
 
-    wb = Workbook()
 
-    # --- Summary sheet ---
-    ws_sum = wb.active
-    ws_sum.title = "Summary"
-    ws_sum.column_dimensions["A"].width = 30
-    ws_sum.column_dimensions["B"].width = 20
-    title_font = Font(bold=True, size=13)
-    ws_sum["A1"] = "Delta Report Summary"
-    ws_sum["A1"].font = title_font
-    ws_sum.merge_cells("A1:B1")
+def _pretty(name) -> str:
+    return " ".join(str(name).replace("_", " ").split())
+
+
+def _cell(v):
+    try:
+        import numpy as np
+        if isinstance(v, np.generic):
+            v = v.item()
+    except ImportError:
+        pass
+    try:
+        import pandas as pd
+        if isinstance(v, pd.Timestamp):
+            return v.to_pydatetime()
+        if not isinstance(v, (list, dict)) and pd.isna(v):
+            return ""
+    except (ImportError, TypeError, ValueError):
+        pass
+    return v
+
+
+def write_delta_report(out_path: Path, summary: dict, added, removed, changed, key: str,
+                       lang: str = "tr", title: str = "", meta_extra=None,
+                       names: tuple = ("", "")):
+    """The delta in the NTT house look (lib/xlsx_theme.py): a header block,
+    an Excel table per group (filter, sort, frozen header), A4 print setup.
+    Which group a row is in is said by its sheet, not by a traffic-light fill
+    over the whole row."""
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
+    from xlsx_theme import add_table_sheet, new_workbook
+
+    w = WORDS[lang]
+    meta = {"title": title or w["title"], "labels": w["labels"], **(meta_extra or {})}
+    wb = new_workbook(meta)
+    f1, f2 = names
     rows = [
-        ("File 1 rows", summary["file1_rows"]),
-        ("File 2 rows", summary["file2_rows"]),
-        ("", ""),
-        ("Added rows (in File 2, not File 1)", summary["added_rows"]),
-        ("Removed rows (in File 1, not File 2)", summary["removed_rows"]),
-        ("Changed rows (same key, different values)", summary["changed_rows"]),
-        ("Unchanged rows", summary["unchanged_rows"]),
-        ("", ""),
-        ("Added columns", ", ".join(summary["added_columns"]) or "none"),
-        ("Removed columns", ", ".join(summary["removed_columns"]) or "none"),
-        ("Duplicate keys in File 1", summary["duplicate_keys_file1"]),
-        ("Duplicate keys in File 2", summary["duplicate_keys_file2"]),
+        (w["rows1"], summary["file1_rows"]),
+        (w["rows2"], summary["file2_rows"]),
+        (w["r_added"], summary["added_rows"]),
+        (w["r_removed"], summary["removed_rows"]),
+        (w["r_changed"], summary["changed_rows"]),
+        (w["r_same"], summary["unchanged_rows"]),
+        (w["c_added"], ", ".join(summary["added_columns"]) or w["none"]),
+        (w["c_removed"], ", ".join(summary["removed_columns"]) or w["none"]),
+        (w["d1"], summary["duplicate_keys_file1"]),
+        (w["d2"], summary["duplicate_keys_file2"]),
     ]
-    fills = {
-        "Added rows (in File 2, not File 1)": "C6EFCE",
-        "Removed rows (in File 1, not File 2)": "FFC7CE",
-        "Changed rows (same key, different values)": "FFEB9C",
-    }
-    for i, (label, value) in enumerate(rows, start=3):
-        ws_sum.cell(row=i, column=1, value=label)
-        ws_sum.cell(row=i, column=2, value=value)
-        if label in fills:
-            fill = PatternFill("solid", fgColor=fills[label])
-            ws_sum.cell(row=i, column=1).fill = fill
-            ws_sum.cell(row=i, column=2).fill = fill
+    add_table_sheet(wb, w["summary"],
+                    [{"key": "k", "header": w["item"], "width": 44},
+                     {"key": "v", "header": w["count"], "width": 18}],
+                    [{"k": a, "v": b} for a, b in rows], meta=meta,
+                    legend=w["leg_sum"].format(f1=f1, f2=f2, key=key), freeze_cols=0,
+                    table_name="Ozet")
 
-    def _write_sheet(ws, df, status_color: str, title: str):
-        if df is None or len(df) == 0:
-            ws.cell(row=1, column=1, value=f"No {title.lower()}")
-            return
-        fill = PatternFill("solid", fgColor=status_color)
-        header_fill = PatternFill("solid", fgColor="1F4E79")
-        header_font = Font(bold=True, color="FFFFFF")
-        cols = list(df.columns)
-        for ci, col in enumerate(cols, 1):
-            cell = ws.cell(row=1, column=ci, value=col)
-            cell.fill = header_fill
-            cell.font = header_font
-        for ri, row in enumerate(df.itertuples(index=False), 2):
-            for ci, val in enumerate(row, 1):
-                cell = ws.cell(row=ri, column=ci, value=val)
-                cell.fill = fill
-        for col in ws.columns:
-            max_len = max((len(str(c.value)) for c in col if c.value), default=10)
-            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+    def sheet(name, df, legend, cols=None):
+        import pandas as pd
+        df = df if df is not None and len(df) else pd.DataFrame()
+        keys = [c for c in (cols or list(df.columns)) if c != "_status"]
+        if not keys:
+            keys = [key]
+        recs = [{k: _cell(r.get(k, "")) for k in keys} for r in df.to_dict("records")]
+        spec = []
+        for k in keys:
+            label = _pretty(k)
+            for suffix, word in (("_OLD", w["old"]), ("_NEW", w["new"])):
+                if str(k).endswith(suffix):
+                    label = f"{_pretty(str(k)[:-len(suffix)])} ({word})"
+            longest = max([len(str(r[k])) for r in recs] + [len(label)])
+            spec.append({"key": k, "header": label, "width": min(max(longest + 2, 10), 45)})
+        add_table_sheet(wb, name, spec, recs, meta=meta,
+                        legend=legend if recs else f"{legend} {w['empty']}",
+                        freeze_cols=1, table_name=name)
 
-    import pandas as pd
-    ws_add = wb.create_sheet("Added")
-    _write_sheet(ws_add, added if len(added) > 0 else pd.DataFrame(), "C6EFCE", "Added")
-
-    ws_rem = wb.create_sheet("Removed")
-    _write_sheet(ws_rem, removed if len(removed) > 0 else pd.DataFrame(), "FFC7CE", "Removed")
-
-    ws_chg = wb.create_sheet("Changed")
-    _write_sheet(ws_chg, changed if len(changed) > 0 else pd.DataFrame(), "FFEB9C", "Changed")
-
+    sheet(w["added"], added, w["leg_add"])
+    sheet(w["removed"], removed, w["leg_rem"])
+    cols = None
+    if changed is not None and len(changed):
+        # the key first, then each changed column's old/new pair side by side
+        pairs = sorted({c[:-4] for c in changed.columns if c.endswith(("_OLD", "_NEW"))})
+        cols = [key] + [x for p in pairs for x in (f"{p}_OLD", f"{p}_NEW")
+                        if x in changed.columns]
+    sheet(w["changed"], changed, w["leg_chg"], cols)
     wb.save(out_path)
 
 
@@ -220,6 +276,10 @@ def main():
                     help="Strip whitespace and lowercase keys before comparing")
     ap.add_argument("--parse-dates", default=None)
     ap.add_argument("--engine", choices=["pandas", "polars"], default="pandas")
+    ap.add_argument("--lang", choices=sorted(WORDS), default="tr")
+    ap.add_argument("--title", default="", help="report title (default: Karşılaştırma Raporu)")
+    ap.add_argument("--customer", default=None)
+    ap.add_argument("--project", default=None)
     args = ap.parse_args()
 
     p1 = Path(args.file1)
@@ -254,10 +314,14 @@ def main():
 
     if not args.summary_only:
         out_path = Path(args.output)
-        write_delta_report(out_path, summary, added, removed, changed, args.key)
+        write_delta_report(out_path, summary, added, removed, changed, args.key,
+                           lang=args.lang, title=args.title,
+                           meta_extra={"customer": args.customer, "project": args.project},
+                           names=(p1.name, p2.name))
         size_kb = out_path.stat().st_size / 1024
-        print(f"✓ Delta report: {out_path}  ({size_kb:.1f} KB)")
-        print(f"  Sheets: Summary | Added (green) | Removed (red) | Changed (yellow)")
+        w = WORDS[args.lang]
+        print(f"OK Delta report: {out_path}  ({size_kb:.1f} KB)")
+        print(f"  Sheets: {w['summary']} | {w['added']} | {w['removed']} | {w['changed']}")
 
 
 if __name__ == "__main__":

@@ -65,6 +65,15 @@ def _resolve_screenshot(path: str | None, manifest_dir: Path) -> Path | None:
 # ─────────────────────────────────────── DOCX ──────────────────────────────
 
 
+# The word before each step's number, in the manual's language. A Turkish
+# manual printed "Step 1: İşlem Kodunu Açın" until 2026-09-29.
+STEP_WORD = {"tr": "Adım", "en": "Step"}
+
+
+def _step(spec: dict) -> str:
+    return STEP_WORD.get(spec.get("lang") or "tr", "Step")
+
+
 def build_docx(spec: dict, out_path: str, manifest_dir: Path) -> None:
     try:
         from docx import Document
@@ -130,7 +139,7 @@ def build_docx(spec: dict, out_path: str, manifest_dir: Path) -> None:
         description = step.get("description", "")
         screenshot = _resolve_screenshot(step.get("screenshot"), manifest_dir)
 
-        heading = f"Step {num}: {title}" if title else f"Step {num}"
+        heading = f"{_step(spec)} {num}: {title}" if title else f"{_step(spec)} {num}"
         doc.add_heading(heading, level=2)
 
         if description:
@@ -225,7 +234,7 @@ def build_pptx(spec: dict, out_path: str, manifest_dir: Path) -> None:
         screenshot = _resolve_screenshot(step.get("screenshot"), manifest_dir)
 
         slide = prs.slides.add_slide(blank)
-        heading = f"Step {num}: {title}" if title else f"Step {num}"
+        heading = f"{_step(spec)} {num}: {title}" if title else f"{_step(spec)} {num}"
         _title_bar(slide, heading)
         _mark(slide)
 
@@ -287,13 +296,13 @@ def _spec_to_markdown(spec: dict, manifest_dir: Path) -> str:
         description = step.get("description", "")
         screenshot = _resolve_screenshot(step.get("screenshot"), manifest_dir)
 
-        lines.append(f"## Step {num}: {title}" if title else f"## Step {num}")
+        lines.append(f"## {_step(spec)} {num}: {title}" if title else f"## {_step(spec)} {num}")
         lines.append("")
         if description:
             lines += [description, ""]
         if screenshot:
             uri = "file:///" + str(screenshot.resolve()).replace("\\", "/")
-            lines += [f"![Step {num}]({uri})", ""]
+            lines += [f"![{_step(spec)} {num}]({uri})", ""]
     return "\n".join(lines)
 
 
@@ -311,6 +320,9 @@ def build_pdf(spec: dict, out_path: str, manifest_dir: Path) -> None:
 
     md_text = _spec_to_markdown(spec, manifest_dir)
     title = spec.get("title", "")
+    # The title block shows the title; the spec's own `# title` line is not
+    # printed a second time under it.
+    md_text, title = md_to_pdf.take_leading_title(md_text, title)
     html = md_to_pdf.md_to_html(md_text, title)
     html_path = out_path + ".tmp.html"
     with open(html_path, "w", encoding="utf-8") as fh:
@@ -351,6 +363,8 @@ def main(argv=None) -> int:
                      help="Auto-discover step*.png files and build a manifest on the fly")
     ap.add_argument("--title", default="", help="Document title (overrides manifest title)")
     ap.add_argument("--author", default="", help="Author line (overrides manifest author)")
+    ap.add_argument("--lang", choices=sorted(STEP_WORD), default="",
+                    help="manual language: tr (default) or en; overrides the manifest's lang")
     ap.add_argument("--output", required=True, help="Output .docx or .pptx path")
     ap.add_argument("--format", choices=["docx", "pptx", "pdf"], default="",
                     help="Output format (inferred from --output extension when omitted)")
@@ -398,6 +412,8 @@ def main(argv=None) -> int:
         spec["title"] = args.title
     if args.author:
         spec["author"] = args.author
+    if args.lang:
+        spec["lang"] = args.lang
 
     n = len(spec.get("steps", []))
     if fmt == "docx":

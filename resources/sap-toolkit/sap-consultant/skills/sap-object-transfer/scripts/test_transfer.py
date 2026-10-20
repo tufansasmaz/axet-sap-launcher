@@ -194,6 +194,52 @@ def t_message_texts_come_from_the_source():
     assert ext.raw_opts("MSAG", "<mc:messageClass/>") == {"messages": []}
 
 
+def t_domain_fixed_values_travel():
+    """A domain's value range (F4 list) lost every fixed value in a transfer, silently:
+    the create and the activation succeeded and the target domain had no range."""
+    xml = ("<doma:domain><doma:datatype>CHAR</doma:datatype><doma:length>1</doma:length>"
+           "<doma:fixValues>"
+           "<doma:fixValue><doma:low>A</doma:low><doma:text>Aktif</doma:text></doma:fixValue>"
+           "<doma:fixValue><doma:low>B</doma:low><doma:text>Pasif</doma:text></doma:fixValue>"
+           "<doma:fixValue><doma:low>C</doma:low></doma:fixValue>"
+           "<doma:fixValue><doma:low></doma:low><doma:text>no value</doma:text></doma:fixValue>"
+           "</doma:fixValues></doma:domain>")
+    got = ext.raw_opts("DOMA", xml)
+    assert got.get("fixed_values") == [{"value": "A", "text": "Aktif"},
+                                       {"value": "B", "text": "Pasif"},
+                                       {"value": "C", "text": "C"}], got
+    # a domain with no range has no key at all (not an empty list), so "none" and
+    # "the range failed to carry" cannot be mixed up on the other side
+    assert "fixed_values" not in ext.raw_opts(
+        "DOMA", "<doma:domain><doma:datatype>CHAR</doma:datatype><doma:length>1</doma:length></doma:domain>")
+
+
+def t_fixed_values_survive_the_plan_file():
+    """The plan is YAML: a list of dicts that falls into the generic branch is written as
+    a Python repr string and comes back as a STRING -- the shape that looked like 'none'."""
+    import tempfile
+    objs = [{"type": "DOMA", "from": "ZA_STATUS", "to": "ZB_STATUS", "order": 1, "select": True,
+             "opts": {"datatype": "CHAR", "length": "1",
+                      "fixed_values": [{"value": "A", "text": "Aktif: yes"},
+                                       {"value": "1", "text": "Bir"}]}}]
+    meta = {"name": "t", "created": "2026-10-19", "reason": "r", "source_conn": "s",
+            "source_system": "u", "source_client": "100", "source_package": "ZP",
+            "target_conn": "", "target_system": "", "target_client": "", "to_package": "ZT",
+            "transport": "T1", "catalog": "standard", "prefix_from": "ZA_", "prefix_to": "ZB_"}
+    with tempfile.TemporaryDirectory() as d:
+        p = Path(d) / "plan.yaml"
+        ext.write_plan(p, meta, objs)
+        back = dep.yaml.safe_load(p.read_text(encoding="utf-8"))
+    fv = back["objects"][0]["opts"]["fixed_values"]
+    assert isinstance(fv, list) and fv == [{"value": "A", "text": "Aktif: yes"},
+                                           {"value": "1", "text": "Bir"}], fv
+
+
+def t_deploy_forwards_fixed_values_only_when_there_are_some():
+    src = (Path(dep.__file__)).read_text(encoding="utf-8")
+    assert 'opts["fixed_values"]' in src and 'if opts.get("fixed_values")' in src
+
+
 # --- 3: the rename map -------------------------------------------------------
 
 PLAN_OBJS = [
@@ -404,6 +450,12 @@ def main():
          "acking a field drop on a table that holds data"),
         (t_shell_first_types_are_the_source_bearing_ones, "shell-first list matches the types",
          "adt_create being asked for a type it answers Unsupported for"),
+        (t_domain_fixed_values_travel, "a domain's fixed values are extracted",
+         "a transferred domain arriving with no value range and no error"),
+        (t_fixed_values_survive_the_plan_file, "fixed values survive the plan file",
+         "the list written as a repr string and read back as 'none'"),
+        (t_deploy_forwards_fixed_values_only_when_there_are_some, "deploy forwards fixed values",
+         "the extracted range never reaching the create call"),
         (t_failure_reason_keeps_the_engine_log, "failures keep the engine log",
          "a run file that records the error code and discards the diagnosis"),
         (t_reconcile_never_writes, "reconcile is read-only",

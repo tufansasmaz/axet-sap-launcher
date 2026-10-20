@@ -11,9 +11,13 @@ allowed-tools: Bash(python:*), Bash(pip:*), Read, Write
 # Excel Compare Skill
 
 Diffs two Excel or CSV files row-by-row using a key column and produces a
-colour-coded delta report: added rows (green), removed rows (red), changed
-rows (yellow with old/new values side-by-side). Useful for SAP migration
-validation, data reconciliation, and change tracking.
+delta report in the NTT house look (`lib/xlsx_theme.py`): a summary sheet, then
+one sheet each for added, removed and changed rows — changed rows show only the
+columns that changed, old and new side by side. Every sheet is a filterable
+Excel table with the header block and an A4 print setup. Turkish by default
+(`--lang en` for English); until 2026-09-29 it was English only and coloured
+whole rows green/red/yellow. Useful for SAP migration validation, data
+reconciliation, and change tracking.
 
 ---
 
@@ -47,6 +51,8 @@ Ask: "Which column uniquely identifies each row in both files?"
   [--sheet1 "<Sheet1>"] \
   [--sheet2 "<Sheet1>"] \
   --output "<delta_report.xlsx>" \
+  [--title "Geliştirme Listesi — v1 / v2"] [--customer "..."] [--project "..."] \
+  [--lang tr|en] \
   [--summary-only]
 ```
 

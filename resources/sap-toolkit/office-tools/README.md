@@ -14,7 +14,7 @@ Office document automation for SAP consultants — Excel, PDF, PowerPoint, and W
 | **office-excel-write** | "save as Excel", "export to xlsx", "convert CSV to Excel" | Writes CSV/JSON to a formatted `.xlsx` with styled header and auto-width columns |
 | **office-excel-transform** | "filter rows", "group by", "pivot", "clean data", "dedupe" | Chains filter/sort/rename/drop/dedupe/fillna/groupby/pivot/melt/add-col operations |
 | **office-excel-report** | "create Excel report", "format with colors", "add a chart" | Generates a professionally formatted report with header styling, alternating rows, number formats, conditional formatting, and bar/line/pie charts |
-| **office-excel-compare** | "compare two files", "what changed", "migration delta", "diff spreadsheet" | Produces a colour-coded delta report: added (green), removed (red), changed (yellow) |
+| **office-excel-compare** | "compare two files", "what changed", "migration delta", "diff spreadsheet" | Delta report in the house workbook look: Özet / Eklenen / Silinen / Değişen sheets, old and new side by side |
 | **office-excel-images** | "extract images from Excel", "get the pictures out", "pull logos from xlsx", "save embedded images" | Extracts every embedded picture to image files, named by the sheet + cell they are anchored to (`Sheet1_B2_1.png`) |
 | **office-slides** | "slide deck from this data", "Marp presentation" | Renders a Marp PDF/PPTX/HTML deck from tabular data |
 
@@ -22,7 +22,7 @@ Office document automation for SAP consultants — Excel, PDF, PowerPoint, and W
 
 | Skill | Trigger | What it does |
 |---|---|---|
-| **office-pdf** | "make a PDF", "branded PDF", "PDF for management" | Markdown → styled HTML → **headless-Chromium** PDF. Full Turkish/emoji/GFM-table fidelity, A4, green theme, page footers |
+| **office-pdf** | "make a PDF", "branded PDF", "PDF for management" | Markdown → styled HTML → **headless-Chromium** PDF. Full Turkish/emoji/GFM-table fidelity, A4, the Word edition's page: NTT mark, title block, contents with page numbers, classification footer |
 | **office-pptx** | "PowerPoint", "editable pptx", "deck I can edit" | Native, editable `.pptx` (real text boxes, bullets, tables) via python-pptx — from a JSON spec or a Markdown deck |
 | **office-docx** | "Word document", "docx", "editable Word report" | Markdown (subset) → native, editable Word `.docx` via python-docx |
 | **office-manual** | "user manual", "user guide with screenshots", "document this SAP process", "turn these screenshots into a manual" | Step-by-step user manual (`.docx` or `.pptx`) from a JSON manifest — embeds screenshots natively, one step per section/slide. Pairs with **sapgui-scriptter**'s `take_screenshot.py` to capture SAPGUI screens |

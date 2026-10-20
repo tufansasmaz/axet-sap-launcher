@@ -28,6 +28,7 @@ manifest's directory):
 {
   "title":  "How to Import ABAP via abapGit",
   "author": "NTT DATA — your name",
+  "lang":   "tr",
   "steps": [
     {
       "step": 1,
@@ -74,11 +75,15 @@ py plugins/office-tools/skills/office-manual/scripts/build_manual.py \
   --title "SAP Delivery Process" --author "NTT DATA Solutions" --force
 ```
 
+`lang` (manifest) or `--lang` (CLI) sets the word before each step's number:
+`Adım 1` in Turkish (the default), `Step 1` in English. A Turkish manual printed
+"Step 1" over Turkish steps until 2026-09-29.
+
 ## Layout
 
 **docx:** cover with the NTT mark → numbered Heading 2 steps → body text → centered screenshot (6" wide, auto-height). One blank paragraph between steps. Headings in the house accent (`lib/theme.py`), body Segoe UI 10.5 at 1.35 line spacing.
 
-**pptx:** title slide → one slide per step. Title bar ("Step N: Title") in the accent with an underline, and the wordmark small in the bottom-right of every slide — out of the reading path, where it does not compete with the one thing the slide is for. If the step has a screenshot, the image fills the content area (full-width, aspect-ratio preserved) and the description appears as a caption strip at the bottom. Text-only steps use the full slide area for the description.
+**pptx:** title slide → one slide per step. Title bar ("Adım N: Title", or "Step N" in English) in the accent with an underline, and the wordmark small in the bottom-right of every slide — out of the reading path, where it does not compete with the one thing the slide is for. If the step has a screenshot, the image fills the content area (full-width, aspect-ratio preserved) and the description appears as a caption strip at the bottom. Text-only steps use the full slide area for the description.
 
 ## End-to-end with sapgui-scriptter
 

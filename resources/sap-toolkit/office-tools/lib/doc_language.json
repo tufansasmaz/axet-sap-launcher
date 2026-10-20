@@ -1,0 +1,1484 @@
+{
+ "_what": "The fixed words of every generated document, in Turkish and English: section titles, table columns, tags, status words, the report and the board. One source (2026-10-01). scripts/sync_doc_language.py writes each document skill's references/DOCUMENT_LANGUAGE.md from it and scripts/test_doc_language.py holds the copies, the renderers' defaults and the quality board equal to it. Change the words HERE, then run py scripts/sync_doc_language.py.",
+ "render": {
+  "eyebrow": {
+   "fs": {
+    "tr": "Fonksiyonel Spesifikasyon",
+    "en": "Functional Specification"
+   },
+   "ts": {
+    "tr": "Teknik Spesifikasyon",
+    "en": "Technical Specification"
+   },
+   "bbp": {
+    "tr": "Kavramsal Tasarım (BBP)",
+    "en": "Conceptual Design (BBP)"
+   },
+   "note": {
+    "tr": "Toplantı Notu",
+    "en": "Meeting Note"
+   },
+   "asbuilt": {
+    "tr": "Teknik Doküman (As-Built)",
+    "en": "Technical Documentation (As-Built)"
+   }
+  },
+  "toc_title": {
+   "tr": "İçindekiler",
+   "en": "Contents"
+  },
+  "page_word": {
+   "tr": "Sayfa",
+   "en": "Page"
+  },
+  "classification": {
+   "tr": "Gizli — Müşteriye Özel",
+   "en": "Confidential — Customer Restricted"
+  }
+ },
+ "tables": {
+  "fs": {
+   "title": "Functional specification (FS_TEMPLATE.md)",
+   "rows": [
+    [
+     "Doküman Kontrolü",
+     "Document Control"
+    ],
+    [
+     "Amaç ve Kapsam",
+     "Purpose and Scope"
+    ],
+    [
+     "Mevcut Durum (As-Is)",
+     "Current State (As-Is)"
+    ],
+    [
+     "Hedef Süreç (To-Be)",
+     "Target Process (To-Be)"
+    ],
+    [
+     "Fonksiyonel Gereksinimler",
+     "Functional Requirements"
+    ],
+    [
+     "İş Kuralları ve Doğrulamalar",
+     "Business Rules and Validations"
+    ],
+    [
+     "Girdi / Çıktı ve Ekran Tasarımı",
+     "Input / Output and Screen Design"
+    ],
+    [
+     "Yetkilendirme",
+     "Authorization"
+    ],
+    [
+     "Hata Yönetimi ve Loglama",
+     "Error Handling and Logging"
+    ],
+    [
+     "Test Senaryoları",
+     "Test Scenarios"
+    ],
+    [
+     "Açık Konular ve Varsayımlar",
+     "Open Items and Assumptions"
+    ],
+    [
+     "Onay",
+     "Approval"
+    ],
+    [
+     "Değişiklik Geçmişi",
+     "Change History"
+    ],
+    [
+     "Alan",
+     "Field"
+    ],
+    [
+     "Değer",
+     "Value"
+    ],
+    [
+     "FS No",
+     "FS No"
+    ],
+    [
+     "Geliştirme Başlığı",
+     "Development Title"
+    ],
+    [
+     "Müşteri",
+     "Customer"
+    ],
+    [
+     "Proje",
+     "Project"
+    ],
+    [
+     "Modül",
+     "Module"
+    ],
+    [
+     "WRICEF Tipi",
+     "WRICEF Type"
+    ],
+    [
+     "SAP Ürün + Sürüm",
+     "SAP Product + Release"
+    ],
+    [
+     "Hazırlayan",
+     "Prepared by"
+    ],
+    [
+     "Tarih",
+     "Date"
+    ],
+    [
+     "Durum",
+     "Status"
+    ],
+    [
+     "Sürüm",
+     "Version"
+    ],
+    [
+     "Yazan",
+     "Author"
+    ],
+    [
+     "Açıklama",
+     "Description"
+    ],
+    [
+     "İlk taslak",
+     "First draft"
+    ],
+    [
+     "Rol",
+     "Role"
+    ],
+    [
+     "Ad",
+     "Name"
+    ],
+    [
+     "İmza/Onay",
+     "Signature/Approval"
+    ],
+    [
+     "İş Birimi",
+     "Business unit"
+    ],
+    [
+     "Modül Danışmanı",
+     "Module consultant"
+    ],
+    [
+     "Proje Yöneticisi",
+     "Project manager"
+    ],
+    [
+     "No",
+     "No"
+    ],
+    [
+     "Gereksinim",
+     "Requirement"
+    ],
+    [
+     "Kaynak",
+     "Source"
+    ],
+    [
+     "Kural",
+     "Rule"
+    ],
+    [
+     "Hata Davranışı",
+     "Error Behaviour"
+    ],
+    [
+     "Senaryo",
+     "Scenario"
+    ],
+    [
+     "Beklenen Sonuç",
+     "Expected Result"
+    ],
+    [
+     "Taslak",
+     "Draft"
+    ]
+   ]
+  },
+  "ts": {
+   "title": "Technical specification (ts-generator)",
+   "rows": [
+    [
+     "Doküman Kontrolü",
+     "Document Control"
+    ],
+    [
+     "Teknik Bağlam",
+     "Technical Context"
+    ],
+    [
+     "Genel Bakış",
+     "Overview"
+    ],
+    [
+     "Teknik Mimari",
+     "Technical Architecture"
+    ],
+    [
+     "Clean Core Değerlendirmesi",
+     "Clean Core Assessment"
+    ],
+    [
+     "Clean Core profili",
+     "Clean Core profile"
+    ],
+    [
+     "Varsayımlar",
+     "Assumptions"
+    ],
+    [
+     "Bağımlılıklar",
+     "Dependencies"
+    ],
+    [
+     "Çözüm Tasarımı",
+     "Solution Design"
+    ],
+    [
+     "Nesne Listesi",
+     "Object List"
+    ],
+    [
+     "Sınıf ve Arayüz Metot İmzaları",
+     "Class and Interface Method Signatures"
+    ],
+    [
+     "CDS ve RAP Detayı",
+     "CDS and RAP Detail"
+    ],
+    [
+     "Veri Modeli ve Yapılar",
+     "Data Model and Structures"
+    ],
+    [
+     "Girdi",
+     "Input"
+    ],
+    [
+     "Çıktı",
+     "Output"
+    ],
+    [
+     "İşlem Mantığı",
+     "Processing Logic"
+    ],
+    [
+     "Enhancement ve BAdI Detayı",
+     "Enhancement and BAdI Detail"
+    ],
+    [
+     "Kullanıcı Arayüzü Tasarımı",
+     "User Interface Design"
+    ],
+    [
+     "Doğrulamalar",
+     "Validations"
+    ],
+    [
+     "Hata Yönetimi",
+     "Error Handling"
+    ],
+    [
+     "Veri Eşleme",
+     "Data Mapping"
+    ],
+    [
+     "Yetkilendirme",
+     "Authorization"
+    ],
+    [
+     "Fonksiyonel Olmayan Gereksinimler",
+     "Non-Functional Requirements"
+    ],
+    [
+     "Test Senaryoları",
+     "Test Scenarios"
+    ],
+    [
+     "Transport ve Dağıtım Planı",
+     "Transport and Deployment Plan"
+    ],
+    [
+     "Ek",
+     "Appendix"
+    ],
+    [
+     "Tamamlanma Kriterleri (Definition of Done)",
+     "Completion Criteria (Definition of Done)"
+    ],
+    [
+     "Diyagramlar",
+     "Diagrams"
+    ],
+    [
+     "Özet",
+     "Summary"
+    ],
+    [
+     "Karar bekleyen noktalar",
+     "Points awaiting a decision"
+    ],
+    [
+     "Roller",
+     "Roles"
+    ],
+    [
+     "Revizyon Geçmişi",
+     "Revision History"
+    ],
+    [
+     "TS No",
+     "TS No"
+    ],
+    [
+     "FS No",
+     "FS No"
+    ],
+    [
+     "Başlık",
+     "Title"
+    ],
+    [
+     "Müşteri",
+     "Customer"
+    ],
+    [
+     "Proje",
+     "Project"
+    ],
+    [
+     "Modül",
+     "Module"
+    ],
+    [
+     "WRICEF Tipi",
+     "WRICEF Type"
+    ],
+    [
+     "SAP Ürün + Sürüm",
+     "SAP Product + Release"
+    ],
+    [
+     "Hazırlayan",
+     "Prepared by"
+    ],
+    [
+     "Tarih",
+     "Date"
+    ],
+    [
+     "Durum",
+     "Status"
+    ],
+    [
+     "Sürüm",
+     "Version"
+    ],
+    [
+     "Yazan",
+     "Author"
+    ],
+    [
+     "Açıklama",
+     "Description"
+    ],
+    [
+     "İlk taslak",
+     "First draft"
+    ],
+    [
+     "Taslak",
+     "Draft"
+    ],
+    [
+     "Onaylı",
+     "Approved"
+    ],
+    [
+     "Seviye",
+     "Level"
+    ],
+    [
+     "Gerekçe",
+     "Rationale"
+    ],
+    [
+     "Standart Nesne",
+     "Standard Object"
+    ],
+    [
+     "Kullanım",
+     "Use"
+    ],
+    [
+     "Release Durumu",
+     "Release Status"
+    ],
+    [
+     "Nesne Tipi",
+     "Object Type"
+    ],
+    [
+     "Nesne Adı",
+     "Object Name"
+    ],
+    [
+     "Doğrulama",
+     "Verification"
+    ],
+    [
+     "Sınıf",
+     "Class"
+    ],
+    [
+     "Metin",
+     "Text"
+    ],
+    [
+     "Senaryo",
+     "Scenario"
+    ],
+    [
+     "Beklenen Sonuç",
+     "Expected Result"
+    ],
+    [
+     "✓ doğrulandı",
+     "✓ verified"
+    ],
+    [
+     "✗ bulunamadı",
+     "✗ not found"
+    ],
+    [
+     "⚠ ad çakışması",
+     "⚠ name collision"
+    ],
+    [
+     "— doğrulanamadı",
+     "— not verified"
+    ],
+    [
+     "Doğrulanamadı",
+     "Not verified"
+    ],
+    [
+     "teyit gerekli",
+     "to be confirmed"
+    ],
+    [
+     "Released",
+     "Released"
+    ],
+    [
+     "Serbest",
+     "Free"
+    ],
+    [
+     "Gerekçeyle",
+     "With a reason"
+    ],
+    [
+     "İstisna — onay bekliyor",
+     "Exception — awaiting approval"
+    ],
+    [
+     "Listelendi",
+     "Listed"
+    ],
+    [
+     "Yasak",
+     "Forbidden"
+    ],
+    [
+     "Yeni kullanım yasak",
+     "New use forbidden"
+    ],
+    [
+     "Doğrulanamadı — doğrulanana kadar kullanılmaz",
+     "Not verified — not used until verified"
+    ],
+    [
+     "Ölçülmez (ECC)",
+     "Not measured (ECC)"
+    ],
+    [
+     "ikame",
+     "successor"
+    ],
+    [
+     "ikame yok",
+     "no successor"
+    ],
+    [
+     "SENİN KARARIN GEREKEN",
+     "YOUR DECISION IS NEEDED ON"
+    ],
+    [
+     "Önem",
+     "Severity"
+    ]
+   ]
+  },
+  "integration": {
+   "title": "Integration technical detail (ts-generator, integration_sheet.py)",
+   "rows": [
+    [
+     "Entegrasyon Teknik Detay",
+     "Integration Technical Detail"
+    ],
+    [
+     "Entegrasyon Genel Bilgiler",
+     "Integration General Information"
+    ],
+    [
+     "Ek Bilgiler",
+     "Additional Information"
+    ],
+    [
+     "Alan Eşleme",
+     "Field Mapping"
+    ],
+    [
+     "Alan",
+     "Field"
+    ],
+    [
+     "Değer",
+     "Value"
+    ],
+    [
+     "Kaynak",
+     "Source"
+    ],
+    [
+     "Başlık",
+     "Title"
+    ],
+    [
+     "Durum",
+     "Status"
+    ],
+    [
+     "Tarih",
+     "Date"
+    ],
+    [
+     "Taslak",
+     "Draft"
+    ],
+    [
+     "Servis ID",
+     "Service ID"
+    ],
+    [
+     "Entegrasyon ID",
+     "Integration ID"
+    ],
+    [
+     "Uygulama Linki",
+     "Application Link"
+    ],
+    [
+     "Öngörülen Kullanım Hacmi",
+     "Expected Volume"
+    ],
+    [
+     "Çalışma Şekli",
+     "Trigger Mode"
+    ],
+    [
+     "Çalışma Sıklığı",
+     "Frequency"
+    ],
+    [
+     "Timeout Süresi",
+     "Timeout"
+    ],
+    [
+     "Kaynak Sistem",
+     "Source System"
+    ],
+    [
+     "Kaynak Sistem Bağlantı Yöntemi",
+     "Source System Connection Method"
+    ],
+    [
+     "Hedef Sistem",
+     "Target System"
+    ],
+    [
+     "Hedef Sistem Bağlantı Yöntemi",
+     "Target System Connection Method"
+    ],
+    [
+     "Senkron/Asenkron",
+     "Synchronous/Asynchronous"
+    ],
+    [
+     "Request Örnek Veri Deseni",
+     "Request Sample Payload"
+    ],
+    [
+     "Response Örnek Veri Deseni",
+     "Response Sample Payload"
+    ],
+    [
+     "Entegre olunan sistemden sağlanan doküman bilgisi",
+     "Documentation provided by the integrated system"
+    ],
+    [
+     "Kimlik Doğrulama",
+     "Authentication"
+    ],
+    [
+     "Hata Yönetimi ve Yeniden Deneme",
+     "Error Handling and Retry"
+    ],
+    [
+     "İzleme ve Alarm",
+     "Monitoring and Alerting"
+    ],
+    [
+     "Ortam Uç Noktaları (DEV/QA/PRD)",
+     "Endpoints per Environment (DEV/QA/PRD)"
+    ],
+    [
+     "Kişisel Veri (KVKK)",
+     "Personal Data (KVKK/GDPR)"
+    ],
+    [
+     "Kaynak Alan",
+     "Source Field"
+    ],
+    [
+     "Hedef Alan",
+     "Target Field"
+    ],
+    [
+     "Tip",
+     "Type"
+    ],
+    [
+     "Zorunlu",
+     "Required"
+    ],
+    [
+     "Dönüşüm Kuralı",
+     "Transformation Rule"
+    ],
+    [
+     "Evet",
+     "Yes"
+    ],
+    [
+     "Hayır",
+     "No"
+    ],
+    [
+     "FS",
+     "FS"
+    ],
+    [
+     "TS",
+     "TS"
+    ],
+    [
+     "Kullanıcı",
+     "User"
+    ],
+    [
+     "Öneri",
+     "Proposal"
+    ],
+    [
+     "Açık",
+     "Open"
+    ],
+    [
+     "* zorunlu alan",
+     "* required field"
+    ],
+    [
+     "Kaynak sütunu: FS = fonksiyonel spesifikasyondan, TS = teknik spesifikasyondan, Kullanıcı = görüşmede verildi, Öneri = türetildi, onay bekliyor, Açık = henüz cevap yok.",
+     "Source column: FS = from the functional specification, TS = from the technical specification, User = given in the interview, Proposal = derived, awaiting confirmation, Open = no answer yet."
+    ]
+   ]
+  },
+  "bbp": {
+   "title": "Conceptual design / business blueprint (BBP_TEMPLATE.md)",
+   "rows": [
+    [
+     "PURPOSE",
+     "PURPOSE"
+    ],
+    [
+     "ANALYSIS",
+     "ANALYSIS"
+    ],
+    [
+     "Current Situation",
+     "Current Situation"
+    ],
+    [
+     "BEST PRACTICE PROCESS FLOW",
+     "BEST PRACTICE PROCESS FLOW"
+    ],
+    [
+     "FUNCTIONAL DESIGN",
+     "FUNCTIONAL DESIGN"
+    ],
+    [
+     "DEVELOPMENTS",
+     "DEVELOPMENTS"
+    ],
+    [
+     "Bölüm",
+     "Chapter"
+    ],
+    [
+     "Doküman adı",
+     "Document name"
+    ],
+    [
+     "Modül",
+     "Module"
+    ],
+    [
+     "Süreç adı",
+     "Process name"
+    ],
+    [
+     "İlgili SAP Best Practice Scope Item ID / ID'leri",
+     "Related SAP Best Practice Scope Item ID(s)"
+    ],
+    [
+     "Kullanılan kaynak dokümanlar",
+     "Source documents used"
+    ],
+    [
+     "Doküman kapsamı",
+     "Document scope"
+    ],
+    [
+     "Süreç Genel Bakışı",
+     "Process Overview"
+    ],
+    [
+     "Mevcut Organizasyon Yapısı ve Roller",
+     "Current Organisation Structure and Roles"
+    ],
+    [
+     "Mevcut Süreç Adımları",
+     "Current Process Steps"
+    ],
+    [
+     "Mevcut Veri, Doküman ve Kayıt Yapısı",
+     "Current Data, Document and Record Structure"
+    ],
+    [
+     "Mevcut Onay ve Kontrol Mekanizmaları",
+     "Current Approval and Control Mechanisms"
+    ],
+    [
+     "Mevcut Sistemler, Manuel Araçlar ve Entegrasyonlar",
+     "Current Systems, Manual Tools and Integrations"
+    ],
+    [
+     "Mevcut Sorunlar ve İyileştirme İhtiyaçları",
+     "Current Problems and Improvement Needs"
+    ],
+    [
+     "Toplantı Kararları ve Süreç Netleştirmeleri",
+     "Meeting Decisions and Process Clarifications"
+    ],
+    [
+     "Tespit Edilen Tutarsızlıklar ve Karar Önceliği",
+     "Inconsistencies Found and Decision Precedence"
+    ],
+    [
+     "Açık Konular ve Varsayımlar",
+     "Open Items and Assumptions"
+    ],
+    [
+     "İlgili SAP Best Practice Scope Item'ları",
+     "Related SAP Best Practice Scope Items"
+    ],
+    [
+     "Best Practice Süreç Akışı",
+     "Best Practice Process Flow"
+    ],
+    [
+     "İlgili SAP Uygulamaları, İşlemler ve Roller",
+     "Related SAP Applications, Transactions and Roles"
+    ],
+    [
+     "Fit-Gap Değerlendirmesi",
+     "Fit-Gap Assessment"
+    ],
+    [
+     "Hedef Süreç Genel Bakışı",
+     "Target Process Overview"
+    ],
+    [
+     "Hedef Uçtan Uca Süreç Akışı",
+     "Target End-to-End Process Flow"
+    ],
+    [
+     "Organizasyon Yapısı Tasarımı",
+     "Organisation Structure Design"
+    ],
+    [
+     "Ana Veri Tasarımı",
+     "Master Data Design"
+    ],
+    [
+     "İşlemsel Belge Tasarımı",
+     "Transactional Document Design"
+    ],
+    [
+     "Workflow, Onay ve Yetki Tasarımı",
+     "Workflow, Approval and Authorization Design"
+    ],
+    [
+     "Entegrasyon Tasarımı",
+     "Integration Design"
+    ],
+    [
+     "Raporlama, İzleme ve KPI Tasarımı",
+     "Reporting, Monitoring and KPI Design"
+    ],
+    [
+     "Hata ve İstisna Yönetimi",
+     "Error and Exception Handling"
+    ],
+    [
+     "Geliştirme Listesi",
+     "Development List"
+    ],
+    [
+     "Geliştirme Detayları",
+     "Development Details"
+    ],
+    [
+     "Kapsam Dışı Bağımlılıklar",
+     "Out-of-Scope Dependencies"
+    ],
+    [
+     "Açık Konular",
+     "Open Items"
+    ],
+    [
+     "Karşılanmayan İsterler",
+     "Unmet Requirements"
+    ],
+    [
+     "Departman / Rol",
+     "Department / Role"
+    ],
+    [
+     "Mevcut Sorumluluk",
+     "Current Responsibility"
+    ],
+    [
+     "Kullandığı Araç / Ortam",
+     "Tool / Environment Used"
+    ],
+    [
+     "Girdi / Çıktı",
+     "Input / Output"
+    ],
+    [
+     "No",
+     "No"
+    ],
+    [
+     "Karar",
+     "Decision"
+    ],
+    [
+     "Kaynak / Toplantı Tarihi",
+     "Source / Meeting Date"
+    ],
+    [
+     "Sürece Etkisi",
+     "Impact on the Process"
+    ],
+    [
+     "Konu",
+     "Topic"
+    ],
+    [
+     "İlk Bilgi / Fast Scan Cevabı",
+     "Initial Information / Fast Scan Answer"
+    ],
+    [
+     "Son Toplantı Kararı",
+     "Latest Meeting Decision"
+    ],
+    [
+     "Değerlendirme",
+     "Assessment"
+    ],
+    [
+     "Açık Konu / Varsayım",
+     "Open Item / Assumption"
+    ],
+    [
+     "Etkilenen Süreç",
+     "Affected Process"
+    ],
+    [
+     "Sorumlu",
+     "Owner"
+    ],
+    [
+     "Durum",
+     "Status"
+    ],
+    [
+     "Scope Item ID",
+     "Scope Item ID"
+    ],
+    [
+     "Best Practice Tanımı",
+     "Best Practice Description"
+    ],
+    [
+     "Doküman Kapsamındaki Kullanım Amacı",
+     "Purpose in This Document's Scope"
+    ],
+    [
+     "İş Faaliyeti",
+     "Business Activity"
+    ],
+    [
+     "Fiori Uygulaması / İşlem",
+     "Fiori App / Transaction"
+    ],
+    [
+     "Uygulama ID / T-Code",
+     "App ID / T-Code"
+    ],
+    [
+     "İş Rolü",
+     "Business Role"
+    ],
+    [
+     "Best Practice ID",
+     "Best Practice ID"
+    ],
+    [
+     "Best Practice Adımı",
+     "Best Practice Step"
+    ],
+    [
+     "Fit / Partial Fit / Gap",
+     "Fit / Partial Fit / Gap"
+    ],
+    [
+     "Gerekçe",
+     "Rationale"
+    ],
+    [
+     "Kaynak",
+     "Source"
+    ],
+    [
+     "İş Etkisi",
+     "Business Impact"
+    ],
+    [
+     "Öncelik",
+     "Priority"
+    ],
+    [
+     "Önerilen Yaklaşım",
+     "Proposed Approach"
+    ],
+    [
+     "İster Ref",
+     "Requirement Ref"
+    ],
+    [
+     "Organizasyon Unsuru",
+     "Organisation Element"
+    ],
+    [
+     "Hedef Tasarım",
+     "Target Design"
+    ],
+    [
+     "Açıklama",
+     "Description"
+    ],
+    [
+     "Warehouse / EWM Yapısı",
+     "Warehouse / EWM Structure"
+    ],
+    [
+     "Ana Veri Nesnesi",
+     "Master Data Object"
+    ],
+    [
+     "Gerekli Alanlar / Nitelikler",
+     "Required Fields / Attributes"
+    ],
+    [
+     "Veri Sahibi",
+     "Data Owner"
+    ],
+    [
+     "Oluşturma / Güncelleme Yöntemi",
+     "Creation / Update Method"
+    ],
+    [
+     "Modül",
+     "Module"
+    ],
+    [
+     "Ana veriler",
+     "Master data"
+    ],
+    [
+     "Belge / Nesne",
+     "Document / Object"
+    ],
+    [
+     "Amaç",
+     "Purpose"
+    ],
+    [
+     "Oluşturma Yöntemi",
+     "Creation Method"
+    ],
+    [
+     "Temel Kontroller",
+     "Key Controls"
+    ],
+    [
+     "Entegrasyon Etkisi",
+     "Integration Impact"
+    ],
+    [
+     "Workflow Adımı",
+     "Workflow Step"
+    ],
+    [
+     "Tetikleyici",
+     "Trigger"
+    ],
+    [
+     "Onaylayan / Sorumlu Rol",
+     "Approver / Responsible Role"
+    ],
+    [
+     "Sonraki İşlem",
+     "Next Action"
+    ],
+    [
+     "Entegrasyon",
+     "Integration"
+    ],
+    [
+     "Hedef",
+     "Target"
+    ],
+    [
+     "Veri / Belge",
+     "Data / Document"
+    ],
+    [
+     "Hata Yönetimi",
+     "Error Handling"
+    ],
+    [
+     "İş İhtiyacı",
+     "Business Need"
+    ],
+    [
+     "Standart SAP Çözümü",
+     "Standard SAP Solution"
+    ],
+    [
+     "Uygulama / İşlem",
+     "Application / Transaction"
+    ],
+    [
+     "Ek Geliştirme İhtiyacı",
+     "Additional Development Need"
+    ],
+    [
+     "İstisna / Hata",
+     "Exception / Error"
+    ],
+    [
+     "Olası Neden",
+     "Probable Cause"
+    ],
+    [
+     "Sorumlu Rol",
+     "Responsible Role"
+    ],
+    [
+     "Çözüm Yöntemi",
+     "Resolution Method"
+    ],
+    [
+     "Eskalasyon",
+     "Escalation"
+    ],
+    [
+     "Geliştirme Nesnesi",
+     "Development Object"
+    ],
+    [
+     "Geliştirme Türü",
+     "Development Type"
+    ],
+    [
+     "İş Gereksinimi",
+     "Business Requirement"
+    ],
+    [
+     "İlgili Süreç Adımı",
+     "Related Process Step"
+    ],
+    [
+     "Süreç Adımı",
+     "Process Step"
+    ],
+    [
+     "İş amacı",
+     "Business purpose"
+    ],
+    [
+     "Girdi",
+     "Input"
+    ],
+    [
+     "Çıktı",
+     "Output"
+    ],
+    [
+     "Kontrol / karar noktası",
+     "Control / decision point"
+    ],
+    [
+     "İş gerekçesi",
+     "Business rationale"
+    ],
+    [
+     "Kullanıcı / sorumlu rol",
+     "User / responsible role"
+    ],
+    [
+     "Girdi verileri",
+     "Input data"
+    ],
+    [
+     "Çıktı verileri",
+     "Output data"
+    ],
+    [
+     "İş kuralları ve validasyonlar",
+     "Business rules and validations"
+    ],
+    [
+     "Hata mesajları ve hata yönetimi",
+     "Error messages and error handling"
+    ],
+    [
+     "Yetki gereksinimleri",
+     "Authorization requirements"
+    ],
+    [
+     "Entegrasyon bağımlılıkları",
+     "Integration dependencies"
+    ],
+    [
+     "Raporlama / log ihtiyacı",
+     "Reporting / log need"
+    ],
+    [
+     "Test senaryoları",
+     "Test scenarios"
+    ],
+    [
+     "Tahmini kapsam",
+     "Estimated scope"
+    ],
+    [
+     "Geliştirme gerekmiyor – standart fonksiyon kullanılacaktır.",
+     "No development needed – the standard function will be used."
+    ],
+    [
+     "Geliştirme gerekmiyor – konfigürasyon ile karşılanacaktır.",
+     "No development needed – it will be met by configuration."
+    ]
+   ]
+  },
+  "tags": {
+   "title": "Tags (FS, TS, BBP)",
+   "rows": [
+    [
+     "Varsayım",
+     "Assumption"
+    ],
+    [
+     "Açık Konu",
+     "Open Item"
+    ],
+    [
+     "Bağımlılık",
+     "Dependency"
+    ],
+    [
+     "Netleştirilmesi Gereken Nokta",
+     "To Confirm"
+    ],
+    [
+     "Öneri",
+     "Suggestion"
+    ]
+   ]
+  },
+  "review": {
+   "title": "Review report (spec-reviewer)",
+   "rows": [
+    [
+     "Engelleyici",
+     "Blocker"
+    ],
+    [
+     "Uyarı",
+     "Warning"
+    ],
+    [
+     "Öneri",
+     "Suggestion"
+    ],
+    [
+     "Onaya hazır",
+     "Ready for approval"
+    ],
+    [
+     "Düzeltme gerekli",
+     "Correction needed"
+    ],
+    [
+     "Yapı",
+     "Structure"
+    ],
+    [
+     "Topraklama",
+     "Grounding"
+    ],
+    [
+     "İzlenebilirlik",
+     "Traceability"
+    ],
+    [
+     "Adlandırma",
+     "Naming"
+    ],
+    [
+     "Muğlaklık",
+     "Vagueness"
+    ],
+    [
+     "Zorunlu kontroller",
+     "Mandatory controls"
+    ],
+    [
+     "Dil ve biçim",
+     "Language and form"
+    ],
+    [
+     "Okunabilirlik",
+     "Readability"
+    ],
+    [
+     "Bulgular",
+     "Findings"
+    ],
+    [
+     "Bulgu yok.",
+     "No finding."
+    ],
+    [
+     "Önem",
+     "Severity"
+    ],
+    [
+     "Boyut",
+     "Dimension"
+    ],
+    [
+     "Yer",
+     "Place"
+    ],
+    [
+     "Bulgu",
+     "Finding"
+    ],
+    [
+     "Önerilen düzeltme",
+     "Suggested fix"
+    ],
+    [
+     "Otomatik kontroller",
+     "Automatic checks"
+    ],
+    [
+     "Notlar",
+     "Notes"
+    ]
+   ]
+  },
+  "board": {
+   "title": "Code quality board (abap-code-checker, scripts/quality.py)",
+   "rows": [
+    [
+     "Kod Kalite Karnesi",
+     "Code Quality Board"
+    ],
+    [
+     "GEÇTİ",
+     "PASSED"
+    ],
+    [
+     "UYARI",
+     "WARNING"
+    ],
+    [
+     "KALDI",
+     "FAILED"
+    ],
+    [
+     "ÇALIŞMADI",
+     "NOT RUN"
+    ],
+    [
+     "SONUÇ",
+     "RESULT"
+    ],
+    [
+     "RELEASE EDİLEBİLİR",
+     "READY TO RELEASE"
+    ],
+    [
+     "ŞARTLI — UYARILAR OKUNMALI",
+     "CONDITIONAL — READ THE WARNINGS"
+    ],
+    [
+     "EKSİK — KARAR VERİLEMEZ",
+     "INCOMPLETE — NO DECISION POSSIBLE"
+    ],
+    [
+     "RELEASE EDİLEMEZ",
+     "CANNOT BE RELEASED"
+    ],
+    [
+     "Kapı",
+     "Gate"
+    ],
+    [
+     "Sonuç",
+     "Result"
+    ],
+    [
+     "Kaynak",
+     "Source"
+    ],
+    [
+     "Not",
+     "Note"
+    ],
+    [
+     "Sözdizimi",
+     "Syntax"
+    ],
+    [
+     "ATC",
+     "ATC"
+    ],
+    [
+     "Birim testi",
+     "Unit test"
+    ],
+    [
+     "Clean Core",
+     "Clean Core"
+    ],
+    [
+     "Standartlar",
+     "Standards"
+    ],
+    [
+     "Etki alanı",
+     "Impact"
+    ],
+    [
+     "Bulgular",
+     "Findings"
+    ],
+    [
+     "Önem",
+     "Severity"
+    ],
+    [
+     "Nerede",
+     "Where"
+    ],
+    [
+     "Ne",
+     "What"
+    ],
+    [
+     "Öneri",
+     "Suggestion"
+    ],
+    [
+     "Neleri kontrol edemedim",
+     "What I could not check"
+    ],
+    [
+     "Kontrol edilemedi",
+     "Not checked"
+    ],
+    [
+     "Neden",
+     "Why"
+    ],
+    [
+     "Nereye bakılmalı",
+     "Where to look"
+    ],
+    [
+     "hiçbir sınır kaydedilmedi — bu, her şeyin kontrol edildiği anlamına gelmez",
+     "no limit was recorded — that does not mean everything was checked"
+    ]
+   ]
+  }
+ }
+}
