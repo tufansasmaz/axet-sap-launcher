@@ -144,6 +144,12 @@ async function flush() {
 
 
 describe("TerminalMode", () => {
+  it("terminal alanı soldan rayın genişliği kadar boşluklu (yüzen ray sütunları örtmesin)", () => {
+    setup({ workspaces: [ws("a", 1)], activeWorkspaceId: "a" });
+    const area = document.querySelector('[data-workspace="a"]') as HTMLElement;
+    expect(area.className.split(" ")).toContain("pl-12");
+  });
+
   it("kapalı evrede bölme alanı yok; ekle düğmeleri kapalı", () => {
     setup({ phase: "closed" });
     expect(document.querySelector("[data-workspace]")).toBeNull();

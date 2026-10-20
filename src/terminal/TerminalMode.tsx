@@ -93,7 +93,8 @@ export default function TerminalMode({ addRequest = null }: { addRequest?: AddRe
             <div
               key={w.id}
               data-workspace={w.id}
-              className={`${w.id === state.activeWorkspaceId && view === "panes" ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5`}
+              // Sol kenarda yüzen görünüm rayı (ViewRail, ~48px) terminalin ilk sütunlarını örtmesin.
+              className={`${w.id === state.activeWorkspaceId && view === "panes" ? "flex" : "hidden"} absolute inset-0 flex-col p-1.5 pl-12`}
             >
               <div className="relative min-h-0 flex-1">
                 {w.panes.length > 0 && (
