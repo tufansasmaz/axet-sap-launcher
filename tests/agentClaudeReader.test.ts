@@ -91,7 +91,7 @@ class FakePort implements ClaudeTranscriptPort {
   failList = false;
   list(dir: string) {
     if (this.failList) return null;
-    return [...this.files.entries()].filter(([p]) => p.startsWith(dir + "\\")).map(([p, f]) => ({ path: p, mtimeMs: f.mtimeMs }));
+    return [...this.files.entries()].filter(([p]) => p.startsWith(dir + "\\")).map(([p, f]) => ({ path: p, mtimeMs: f.mtimeMs, size: f.text.length }));
   }
   read(file: string, offset: number) {
     const f = this.files.get(file);
@@ -173,6 +173,37 @@ describe("ClaudeReader — bağlama", () => {
     h.port.files.get(file)!.text += line.slice(20) + "\n";
     h.reader.poll();
     expect(h.reader.status()).toMatchObject({ state: "idle", reply: "Son" });
+  });
+
+  it("Tur 11: `--continue` ile büyüyen eski döküm (4 MB üstü) — istem sondan bulunup bağlanıyor", () => {
+    // Ölçüldü: kullanıcının `azure --continue` ajanı 9,5 MB'lık (6 Ekim'den beri) dökümüne
+    // yazıyordu; yeni istem 9,28 MB'ta. Okuyucu 4 MB üstünü atlıyordu: bağ hiç kurulmadı.
+    const h = setup();
+    const filler = asst([{ type: "text", text: "x".repeat(2000) }], -9000, "end_turn");
+    const old = Array.from({ length: 2600 }, () => filler);
+    h.port.put("eski-uzun.jsonl", old, Date.parse(T(-8000)));
+    expect(h.port.files.get("C:\\h\\.claude\\projects\\C--p\\eski-uzun.jsonl")!.text.length).toBeGreaterThan(5 * 1024 * 1024);
+    h.reader.submitLine("devam eden oturumda yeni istem");
+    h.port.append("eski-uzun.jsonl", [user("devam eden oturumda yeni istem", 1)]);
+    h.port.files.get("C:\\h\\.claude\\projects\\C--p\\eski-uzun.jsonl")!.mtimeMs = Date.parse(T(1));
+    h.clock.ms = Date.parse(T(2));
+    h.reader.poll();
+    expect(h.reader.status()).toMatchObject({ state: "running", source: "exact" });
+    h.port.append("eski-uzun.jsonl", [asst([{ type: "text", text: "Yaptım." }], 3, "end_turn"), turnEnd(4)]);
+    h.reader.poll();
+    expect(h.reader.status()).toMatchObject({ state: "idle", source: "exact", reply: "Yaptım." });
+  });
+
+  it("Tur 11: özel komut istemden sonra bağ aranırken 'desteklenmiyor' demiyor; süre dolunca diyor", () => {
+    const h = setup();
+    const opt = new ClaudeReader({ agentId: "O", cwd: "C:\\p", home: "C:\\h", startedAtMs: h.clock.ms, port: h.port, registry: h.registry, generic: h.generic, now: () => h.clock.ms, optional: true });
+    opt.submitLine("özel komutla gönderilen istem");
+    h.generic.feedOutput("yanıt akıyor");
+    opt.poll();
+    expect(opt.status().link).toBeUndefined();
+    h.clock.ms += 61_000;
+    opt.poll();
+    expect(opt.status().link).toBe("unsupported");
   });
 
   it("dökümler okunamazsa tahmini (noDb), düşmüyor", () => {

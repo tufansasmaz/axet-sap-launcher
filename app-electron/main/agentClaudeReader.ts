@@ -39,7 +39,7 @@ export interface ClaudeEntry {
 
 export interface ClaudeTranscriptPort {
   /** Klasördeki .jsonl dökümleri; okunamazsa null. */
-  list(dir: string): { path: string; mtimeMs: number }[] | null;
+  list(dir: string): { path: string; mtimeMs: number; size?: number }[] | null;
   /** `offset`ten sonrası ve dosyanın boyu; okunamazsa null. */
   read(file: string, offset: number): { text: string; size: number } | null;
 }
@@ -152,6 +152,11 @@ const SELECT_MARK = /Enter to select|Esc to cancel|Do you want to (?:proceed|mak
 // Çalışma altbilgisi: pencere kapandı, model çalışıyor.
 const WORK_MARK = /esc to interrupt/i;
 const TRANSCRIPT_MAX = 4 * 1024 * 1024;
+/**
+ * Tur 11 (ölçüldü): `claude --continue` aynı dökümü haftalarca büyütüyor (kullanıcıda 9,5 MB);
+ * yeni istem dosyanın SONUNDA. Arama ve bağ yalnız son 1 MB'tan okuyor.
+ */
+export const SEARCH_TAIL = 1024 * 1024;
 const ENTRY_CAP = 600;
 
 export interface ClaudeReaderOptions {
@@ -174,6 +179,8 @@ interface Bound {
   offset: number;
   carry: string;
   entries: ClaudeEntry[];
+  /** Dosyanın ortasından başlandı: ilk (yarım) satır atlanacak. */
+  skipFirst?: boolean;
 }
 
 export class ClaudeReader implements AgentReader {
@@ -260,12 +267,13 @@ export class ClaudeReader implements AgentReader {
       return;
     }
     const since = this.opts.startedAtMs - 2_000;
-    const matches: string[] = [];
+    const matches: { path: string; start: number }[] = [];
     for (const f of list) {
       if (f.mtimeMs < since || f.path === this.bound?.file) continue;
       if (this.opts.registry.owner(this.dir, f.path)) continue;
-      const read = this.opts.port.read(f.path, 0);
-      if (!read || read.size > TRANSCRIPT_MAX) continue;
+      const start = f.size !== undefined && f.size > SEARCH_TAIL ? f.size - SEARCH_TAIL : 0;
+      const read = this.opts.port.read(f.path, start);
+      if (!read || read.size - start > TRANSCRIPT_MAX) continue;
       const hit = read.text.split("\n").some((line) => {
         if (!line.includes('"user"')) return false;
         let e: ClaudeEntry;
@@ -280,12 +288,12 @@ export class ClaudeReader implements AgentReader {
         const key = matchKey(t);
         return this.needles.some((n) => key.startsWith(n.key));
       });
-      if (hit) matches.push(f.path);
+      if (hit) matches.push({ path: f.path, start });
     }
     const rival = this.needles.some((n) => this.opts.registry.rivalPending(this.dir, this.opts.agentId, n.key));
     if (matches.length === 1 && !rival) {
-      this.opts.registry.claim(this.dir, matches[0], this.opts.agentId);
-      this.bound = { file: matches[0], offset: 0, carry: "", entries: [] };
+      this.opts.registry.claim(this.dir, matches[0].path, this.opts.agentId);
+      this.bound = { file: matches[0].path, offset: matches[0].start, carry: "", entries: [], skipFirst: matches[0].start > 0 };
       this.readMore(this.bound);
       this.needles = [];
       this.ambiguous = false;
@@ -305,10 +313,20 @@ export class ClaudeReader implements AgentReader {
       b.offset = 0;
       b.carry = "";
       b.entries = [];
+      b.skipFirst = false;
       return this.readMore(b);
     }
     b.offset = read.size;
-    const text = b.carry + read.text;
+    let text = b.carry + read.text;
+    if (b.skipFirst) {
+      const nl = text.indexOf("\n");
+      if (nl < 0) {
+        b.carry = text;
+        return;
+      }
+      text = text.slice(nl + 1);
+      b.skipFirst = false;
+    }
     const lines = text.split("\n");
     b.carry = lines.pop() ?? "";
     for (const line of lines) {
@@ -353,7 +371,10 @@ export class ClaudeReader implements AgentReader {
     }
     if (!this.prompted && !this.opts.optional) return { state: "idle", source: "estimated", lastActivity: null };
     const fallback = generic.status();
-    const link: AgentLinkIssue | undefined = this.opts.optional ? "unsupported" : this.failed ? "noDb" : this.ambiguous ? "ambiguous" : this.missed ? "notFound" : undefined;
+    // Tur 11: özel komutta istemden sonra bağ aranırken "desteklenmiyor" denmiyor (bağ ~1 sn'de
+    // kuruluyor; önce düşen bilgi kartı yanlıştı). Arama süresi dolunca deniyor.
+    const searching = this.prompted && this.needles.length > 0 && !this.missed;
+    const link: AgentLinkIssue | undefined = this.opts.optional ? (searching ? undefined : "unsupported") : this.failed ? "noDb" : this.ambiguous ? "ambiguous" : this.missed ? "notFound" : undefined;
     return link ? { ...fallback, link } : fallback;
   }
 
@@ -374,7 +395,8 @@ export const liveClaudeTranscriptPort: ClaudeTranscriptPort = {
         .filter((name) => name.endsWith(".jsonl"))
         .map((name) => {
           const file = path.join(dir, name);
-          return { path: file, mtimeMs: statSync(file).mtimeMs };
+          const st = statSync(file);
+          return { path: file, mtimeMs: st.mtimeMs, size: st.size };
         });
     } catch (error) {
       // Klasör henüz yok (ilk istemden önce): boş liste; öteki hatalar okunamadı.
