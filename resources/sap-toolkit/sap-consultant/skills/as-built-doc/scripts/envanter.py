@@ -70,6 +70,41 @@ OWNERSHIP_LABEL = {
     "X": "SAP standard",
 }
 
+# The words this script writes into the document, in the delivery language. A
+# Turkish As-Built carried "Type / Own. / Unit / Description" over its tables
+# until 2026-09-29 because the script only spoke English. Codes (O/S/E/X) and
+# the DD07T fixed values of 10.2 stay as they are: those are copied, not
+# translated.
+WORDS = {
+    "en": {
+        "type": "Type", "total": "Total", "TOTAL": "TOTAL", "name": "Name",
+        "own": "Own.", "unit": "Unit", "description": "Description",
+        "request": "Request", "date": "Date", "owner": "Owner", "status": "Status",
+        "codes": "Ownership codes",
+        "h_summary": "2.2 Object Inventory — Summary",
+        "h_detail": "2.4 Object Inventory — Detail",
+        "h_transport": "10.2 Transport Requests",
+        "no_transport": ("No transport request data was collected for this target. "
+                         "Read E070/E071 with `adt_sql` and save them under `veri/`, "
+                         "or close section 10.2 with a reason."),
+        "O": "Owned", "S": "Shared", "E": "External Z", "X": "SAP standard",
+    },
+    "tr": {
+        "type": "Tür", "total": "Toplam", "TOTAL": "TOPLAM", "name": "Ad",
+        "own": "Sah.", "unit": "Birim", "description": "Açıklama",
+        "request": "Talep", "date": "Tarih", "owner": "Sahibi", "status": "Durum",
+        "codes": "Sahiplik kodları",
+        "h_summary": "2.2 Nesne Envanteri — Özet",
+        "h_detail": "2.4 Nesne Envanteri — Ayrıntı",
+        "h_transport": "10.2 Taşıma İstekleri",
+        "no_transport": ("Bu hedef için taşıma isteği verisi toplanmadı. E070/E071'i "
+                         "`adt_sql` ile okuyup `veri/` altına kaydedin ya da 10.2'yi "
+                         "gerekçesiyle kapatın."),
+        "O": "Sahip", "S": "Paylaşılan", "E": "Harici Z", "X": "SAP standardı",
+    },
+}
+W = WORDS["en"]
+
 # Object types that carry no logic. They are inventory rows like any other, but the
 # volume-split decision counts narrative, not rows -- so the run summary reports
 # both numbers and the writer does not have to work it out by eye.
@@ -178,9 +213,9 @@ def summary_table(rows: list[dict]) -> str:
         body.append([typ] + [str(counts[c]) if counts[c] else "-" for c in OWNERSHIP]
                     + [str(sum(counts.values()))])
         totals.update(counts)
-    body.append(["**TOTAL**"] + [f"**{totals[c]}**" if totals[c] else "-"
-                                 for c in OWNERSHIP] + [f"**{sum(totals.values())}**"])
-    return table(["Type"] + list(OWNERSHIP) + ["Total"], body, "lccccr")
+    body.append([f"**{W['TOTAL']}**"] + [f"**{totals[c]}**" if totals[c] else "-"
+                                        for c in OWNERSHIP] + [f"**{sum(totals.values())}**"])
+    return table([W["type"]] + list(OWNERSHIP) + [W["total"]], body, "lccccr")
 
 
 def detail_table(rows: list[dict], tidx: dict) -> str:
@@ -189,8 +224,8 @@ def detail_table(rows: list[dict], tidx: dict) -> str:
         reqs = ", ".join(tidx.get(r["name"], [])) or "-"
         body.append([r["type"], f"`{r['name']}`", r["own"], r["du"] or "-",
                      r["text"] or "-", reqs])
-    return table(["Type", "Name", "Own.", "Unit", "Description", "Request"],
-                 body, "llcclll")
+    return table([W["type"], W["name"], W["own"], W["unit"], W["description"],
+                  W["request"]], body, "llcclll")
 
 
 def transport_table(e070: list[dict], carried: set) -> str:
@@ -244,10 +279,9 @@ def transport_table(e070: list[dict], carried: set) -> str:
             status.get(_pick(r, "trstatus", "status"), _pick(r, "trstatus") or "-"),
         ])
     if not body:
-        return ("No transport request data was collected for this target. "
-                "Read E070/E071 with `adt_sql` and save them under `veri/`, "
-                "or close section 10.2 with a reason.")
-    return table(["Request", "Type", "Date", "Owner", "Description", "Status"], body)
+        return W["no_transport"]
+    return table([W["request"], W["type"], W["date"], W["owner"], W["description"],
+                  W["status"]], body)
 
 
 def build(target: Path, title: str) -> tuple:
@@ -264,17 +298,17 @@ def build(target: Path, title: str) -> tuple:
     parts = [
         f"<!-- URETILDI: envanter.py -- {title} -- elle duzenlenmez, yeniden uret -->",
         "",
-        "## 2.2 Object Inventory — Summary `[V]`",
+        f"## {W['h_summary']} `[V]`",
         "",
         summary_table(rows),
         "",
-        f"Ownership codes: " + " · ".join(f"`{c}` {OWNERSHIP_LABEL[c]}" for c in OWNERSHIP),
+        f"{W['codes']}: " + " · ".join(f"`{c}` {W[c]}" for c in OWNERSHIP),
         "",
-        "## 2.4 Object Inventory — Detail `[V]`",
+        f"## {W['h_detail']} `[V]`",
         "",
         detail_table(rows, tidx),
         "",
-        "## 10.2 Transport Requests `[V]`",
+        f"## {W['h_transport']} `[V]`",
         "",
         transport_table(e070, carried),
         "",
@@ -294,7 +328,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="as-built envanter tablolari")
     ap.add_argument("target", help="as-built/<HEDEF> klasoru")
     ap.add_argument("--title", default="", help="hedefin adi (varsayilan: klasor adi)")
+    ap.add_argument("--lang", choices=sorted(WORDS), default="en",
+                    help="teslim dili: tablo basliklari ve bolum adlari (varsayilan en)")
     a = ap.parse_args()
+    global W
+    W = WORDS[a.lang]
 
     target = Path(a.target)
     if not (target / "veri").is_dir():

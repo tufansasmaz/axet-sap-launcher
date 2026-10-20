@@ -34,11 +34,13 @@ const requiredFiles = [
   'assets/style.css',
   'references/abap-analysis.md',
   'references/webgui-capture.md',
+  'references/fiori-capture.md',
   'references/writing-guide.md',
   'scripts/capture.js',
   'scripts/annotate.js',
   'scripts/render.js',
   'scripts/browser-path.js',
+  'scripts/deps.js',
 ];
 const missingFiles = requiredFiles.filter(f => !fs.existsSync(path.join(skillRoot, f)));
 check('Required skill files present', missingFiles.length === 0,
@@ -73,9 +75,9 @@ check('dependency list read from package.json', deps.length > 0,
 
 for (const pkg of deps) {
   let ok = false;
-  let detail = 'not resolvable — run `npm install` in the skill root (one-time, manual)';
+  let detail = `not installed — run \`node scripts/deps.js --install\` once (manual; installs into ${require('./deps').depsDir()})`;
   try {
-    require.resolve(pkg, { paths: [path.resolve(__dirname, '..')] });
+    require('./deps').resolveDep(pkg);
     ok = true;
     detail = 'resolvable';
   } catch (_) { /* keep default detail */ }

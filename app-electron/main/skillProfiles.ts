@@ -262,6 +262,14 @@ export const SHARED_ASSETS: SharedAsset[] = [
       "office-pdf",
       "office-pptx",
       "office-manual",
+      // 2026-10-20 kit senkronu: tablo yazanlar `xlsx_theme.py`'yi, slaytlar
+      // temayi lib'den aliyor. `library-match` ve `fast-scan`'in yukari akis
+      // yolu (`parents[3]/office-tools/lib`) kurulu agacta yok; ikisine
+      // `../../../lib` satiri eklendi.
+      "office-excel-compare",
+      "office-excel-report",
+      "office-slides",
+      "library-match",
       "fast-scan-question-generator",
       "project-store"
     ]

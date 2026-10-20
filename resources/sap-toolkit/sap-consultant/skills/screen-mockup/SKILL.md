@@ -7,7 +7,8 @@ description: >
   clickable HTML mock-up in classic SAP GUI style (header, toolbar, status bar,
   bordered group boxes, ALV-like grid, bottom action buttons), plus a written note
   on which fields are editable, required or calculated and what each button does.
-  Touches no SAP system; the output is one .html file.
+  Touches no SAP system; the output is one .html file plus a PNG of every
+  screen for the FS.
   Triggers in Turkish or English: "ekran tasarımı", "ekran taslağı", "ekranı bir
   çizelim", "nasıl görünecek", "seçim ekranı", "ALV ekranı", "maket", "mockup",
   "screen design", "screen draft", "selection screen".
@@ -24,7 +25,8 @@ rebuild. This skill produces the artefact that moves the argument earlier: a
 working HTML mock-up in classic SAP GUI dress that a functional consultant, a
 customer and a developer can all look at and point to.
 
-**It connects to no system and writes no ABAP.** One `.html` file comes out.
+**It connects to no system and writes no ABAP.** One `.html` file comes out,
+and a picture of every screen and popup for the FS.
 When the layout is settled, **`screen-gen`** builds the real Dynpro.
 
 ---
@@ -48,6 +50,25 @@ the wrong one wastes the review. **Ask before drawing, not after.**
 Classic enterprise ERP, not a modern web dashboard. The style is a deliberate
 choice: the mock-up has to look like the thing that will actually be built, or
 the customer approves a screen they will never get.
+
+**Start from `assets/skeleton.html`, never from an empty file.** The look lives
+in `assets/sapgui.css` and the shared behaviour in `assets/sapgui.js`; the page
+carries the two markers `<!-- @sapgui:css -->` / `<!-- @sapgui:js -->` and
+`scripts/mockup.py` puts them in. Write only content: the screens, the fields,
+the grid, the data, the rules. **Do not write a `<style>` block or restyle the
+kit's classes** -- until 2026-09-28 every run drew its own CSS, and no two
+mock-ups looked alike. What the markup must carry:
+
+- every screen: `<div class="win" data-state="1" data-label="Seçim ekranı">`,
+  every popup: `<div class="pop" data-state="2a" data-label="…" data-base="2">`
+  -- the screen list at the top and the screenshots are built from these;
+- the F8 / F3 buttons: `data-key="run"` / `data-key="back"`;
+- `window.MOCKUP_PREPARE` -- how each state is reached the way a user would
+  (`'2': () => run()`, `'2a': () => { pick(row); openHist(); }`), so the picture
+  of a popup shows it over a real list, with a row selected.
+
+Navigation helpers come from the kit: `goScreen(id)`, `openPop(id)`, `closePop()`,
+`msg(barId, 's'|'w'|'e', text)`.
 
 | | |
 |---|---|
@@ -112,16 +133,34 @@ Comments where a developer would otherwise have to guess: validation, conditiona
 visibility, what loads only after an action, which fields are calculated. The
 mock-up is a handover document, not decoration.
 
-## 3 · Write the file and hand over the path
+## 3 · Finish it, photograph it, hand over the paths
 
-```
-ekran-maketi-<konu>.html
+Write `ekran-maketi-<konu>.src.html` into the project folder, then:
+
+```bash
+py <SCRIPTS>/mockup.py ekran-maketi-<konu>.src.html
 ```
 
-Write it into the project folder and give the consultant the path. **Do not print
-copy-and-paste instructions** — the agent has a file system; asking a consultant
-to paste HTML into Notepad is a workaround for a limitation this kit does not
-have. For a customer-facing PDF, `office-pdf` renders it.
+It writes `ekran-maketi-<konu>.html` -- one self-contained file, style and
+behaviour inlined -- and `ekran-maketi-<konu>-<state>-<ad>.png` for every screen
+and popup: the whole screen, the grid with every column. It prints the Markdown
+image lines for the FS.
+
+**The pictures belong in the FS — and in the TS.** ts-generator reuses them in
+§2.6 (or asks for a mock-up when the FS has none), with `--fs-dir` pointed at the TS
+output folder so the image lines are relative to the TS.
+
+**The pictures belong in the FS.** A Word or PDF FS cannot hold a clickable page;
+before 2026-09-28 section 7 only named the .html, so whoever read the FS never
+saw the screen. Hand `fs-generator` the image lines for section 7, one per
+screen, each followed by a sentence on what the screen is for; keep the .html
+path beside them for the clickable version.
+
+Screenshots need Playwright's Chromium (the one `office-pdf` uses). Without it the
+.html is still written and the script prints the install line; say so rather
+than leaving the FS without pictures silently.
+
+**Do not print copy-and-paste instructions** — the agent has a file system.
 
 ## 4 · Say what you built and what you are unsure about
 

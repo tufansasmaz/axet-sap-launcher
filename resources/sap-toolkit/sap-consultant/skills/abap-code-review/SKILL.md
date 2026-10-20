@@ -3,8 +3,8 @@ name: abap-code-review
 description: >
   Perform a comprehensive ABAP code review / code quality audit against NTT's
   corporate ABAP development standard (abap_core v2.0): include architecture
-  (_TOP/_DEF/_IMP/_PBO/_PAI), naming conventions (g_/l_/m_ scope prefixes, DDIC
-  suffixes), modern ABAP 7.40+ syntax, SQL performance rules, exception design
+  (_TOP/_SSC/_MDL/_CLS, as NAMING_STANDARD), naming conventions (g_/l_/m_ scope prefixes, object names by
+  NAMING_STANDARD), modern ABAP 7.40+ syntax, SQL performance rules, exception design
   (CX_STATIC_CHECK, TEXTID, GET_TEXT conversion trap), class design (SRP,
   interfaces, DI, static-vs-instance), authorization/locking/LUW, Clean Core
   compliance, data element/domain reuse, parallel processing (aRFC/bgRFC), unit
@@ -38,13 +38,15 @@ this skill never edits or pushes code, it only produces a review report.
    files (abapGit layout), or via `sap-adt-readonly`'s `adt_get_source` if the
    user wants a live SAP object read (read-only, never modify it there).
 3. **Run the 15-point audit checklist** (guideline §12, extended with the header and pretty-printer checks) against the code:
-   1. Include architecture (`_TOP`/`_DEF`/`_IMP`/`_PBO`/`_PAI` separation)
-   2. Naming & scope prefixes (`g_`/`l_`/`m_`, DDIC suffixes `_S_`/`_TT_`/`_DE_`/`_DD_`/`_CV`)
+   1. Include architecture (`_TOP`/`_SSC`/`_MDL`/`_CLS`, NAMING_STANDARD §3.1 — the same roles the TS generator writes and `abap-code-checker` checks)
+   2. Naming & scope prefixes (`g_`/`l_`/`m_`) and object names by NAMING_STANDARD (`Z<M><N>_T_`/`_S_`/`_TT_`/`_E_`/`_D_`, CDS `_R_`/`_C_`/`_I_`) — guideline §2
    3. Performance (`SELECT *`, SQL in loops, missing `FOR ALL ENTRIES` guard, DB-side aggregation)
    4. Modern syntax (obsolete `MOVE`/`CONCATENATE`/`READ TABLE` → 7.40+ equivalents, `EXPORTING`+`CHANGING` rule §3.1.1)
    5. Error handling (unchecked `SY-SUBRC`, missing `ZCX_*` exceptions, `MESSAGE` inside classes, missing application log)
    6. Security (missing `AUTHORITY-CHECK`, missing locks, dynamic SQL/WHERE from user input)
-   7. Clean Core (unreleased standard table/API access, standard object modification)
+   7. Clean Core, **by the project's profile** (unreleased standard table/API access,
+      classic enhancement, standard object modification) — see "Clean Core follows the
+      project's profile" below
    8. Test coverage (presence/quality of `LTCL_*` ABAP Unit classes)
    9. Forbidden/obsolete keywords (guideline §10)
    10. **Program header / künye** (see below) — check it is present, at the very top of the main program, and complete
@@ -53,11 +55,33 @@ this skill never edits or pushes code, it only produces a review report.
    13. **Class design** (guideline §16) — single responsibility, interface/DI usage, static-vs-instance method fit
    14. **DE/Domain reuse** (guideline §17) — new data elements/domains checked against existing ones before creation
    15. **Parallel processing** (guideline §18) — aRFC/bgRFC task limits, mandatory result collection, lock-partitioning, LUW discipline per task
-4. **Report in this exact format** (guideline §12.9):
-   - **Executive Summary** — overall verdict, risk level
+4. **Report in this format** (guideline §12, item 14), **headings in the
+   report's language** — in Turkish: *Özet · Kritik bulgular · Temiz kod
+   önerileri · Düzeltme önerileri*:
+   - **Summary** — overall verdict, risk level
    - **Critical Issues** — blockers (syntax-breaking, security, Clean Core violations)
    - **Clean Code Improvements** — style/naming/modern-syntax suggestions
-   - **Refactored Code** — the corrected, complete code block
+   - **Corrections** — one diff per critical issue and per improvement worth
+     showing, against the source that was read (`-` / `+` lines, object and line
+     numbers), as `abap-code-checker` does. **No complete rewrite unless the user
+     asks for one.** A sample review (2026-09-29) was 804 lines, ~700 of them a
+     rewritten program nobody had compiled: longer to read than the code, and
+     every line of it unverified. When a rewrite is asked for, say plainly that it
+     has not passed a syntax check.
+   **Clean Core follows the project's profile.** The brief's front matter carries
+   `clean_core:` (`public`, `s4-strict`, `s4-balanced`, `s4-legacy`, `ecc`). What each
+   permits, and how severe a finding is, is in the `clean-core` skill's
+   `references/PROFILES.md` ("Severity in a code review or a quality gate") — read it
+   there, do not judge from memory. The same `SELECT` from `MARA` is a critical issue
+   on `public`, a finding that asks for its written reason on `s4-balanced`, and a
+   listed item on `s4-legacy`; a modification of SAP code is critical everywhere,
+   except that on `s4-legacy` one the code merely carries is listed. Name the profile
+   in the Summary. When the review depends on an object's level, ask the `clean-core`
+   checker with `--profile` and the brief's release; an object it cannot verify is
+   reported as unverified. No `clean_core:` line → ask once; with no answer review
+   against the strictest profile of the brief's platform and say so in the Summary.
+   On `public`, also apply the `clean-core` skill's `references/PUBLIC_CLOUD.md`,
+   section "What this changes in a code review or quality gate".
 5. **If the user asks you to fix/change SAP objects directly** — this skill is
    advisory only. Point them at the `abapgit-workflow` skill (edit `src/` →
    export ZIP → SAPGUI import) for the compliant delivery path; never claim to
@@ -151,7 +175,7 @@ hurt readability):
   names, field names, literals) must be left **exactly as written** — never
   auto-uppercased or auto-lowercased by the reviewer/generator.
 
-When producing **Refactored Code**, always apply this exact profile before
+When producing corrected code (a diff or a requested rewrite), always apply this exact profile before
 returning it. When reviewing existing code, flag any line/block that departs
 from it (wrong keyword case, cramped functional calls that should wrap, wrapped
 calls that should be compact, unindented `VALUE #( )`, renamed identifiers).
@@ -172,7 +196,7 @@ calls that should be compact, unindented `VALUE #( )`, renamed identifiers).
   dependencies (constructor/setter) rather than instantiating them with `NEW`
   inside business logic; methods that never touch `m_*`/`me->` should be
   `CLASS-METHODS`.
-- **DE/Domain reuse:** before creating `Z<MODULE>_DE_*`/`Z<MODULE>_DD_*`,
+- **DE/Domain reuse:** before creating `Z<M><N>_E_*`/`Z<M><N>_D_*`,
   search for an existing SAP standard or project data element/domain with the
   same meaning or value range (e.g. via `sap-adt-readonly`'s `adt_search`
   with `obj_type` `DTEL`/`DOMA`) — flag unchecked new DE/domain creation.
@@ -187,7 +211,7 @@ calls that should be compact, unindented `VALUE #( )`, renamed identifiers).
 
 | Area | Key rule |
 |---|---|
-| Includes | `_TOP` globals/selscreen, `_DEF` class defs, `_IMP` class impl, `_PBO`/`_PAI` only for existing Dynpro |
+| Includes | `_TOP` globals + class definitions, `_SSC` selection screen, `_MDL` PBO+PAI modules (existing Dynpro only), `_CLS` class implementations; no `_FRM` |
 | Scope prefix | `g_` global, `l_` local, `m_` class attribute |
 | Type prefix | `v` value, `s` structure, `t` table, `o` object, `c` constant, `fs` field-symbol |
 | Params | `i_`/`e_`/`c_`/`r_` + type letter (e.g. `iv_`, `it_`, `eo_`) |
@@ -196,7 +220,7 @@ calls that should be compact, unindented `VALUE #( )`, renamed identifiers).
 | SQL | No `SELECT *`, no SQL in loops, guard `FOR ALL ENTRIES` with `IS NOT INITIAL`, push aggregation to DB |
 | Errors | `ZCX_*` exceptions (`CX_STATIC_CHECK`), no `MESSAGE` in classes, BAL/SLG1 for background logging |
 | Auth/Lock/LUW | `AUTHORITY-CHECK` everywhere, `ENQUEUE_EZ*`/`DEQUEUE_EZ*` pairs, `COMMIT WORK` only in top-level controller |
-| Clean Core | Released APIs/CDS only, no standard object modification, no `$TMP` |
+| Clean Core | By the brief's profile (`clean_core:`): what is free, what needs a reason, what is forbidden; no standard object modification, no `$TMP` |
 | Forbidden | `MOVE`, `COMPUTE`, `ADD`/`SUBTRACT`/`MULTIPLY`/`DIVIDE`, `CONCATENATE`, `TRANSLATE`, `SEARCH`, `CREATE OBJECT`, header-line tables, `EXEC SQL`, `FORM`/`PERFORM`, `WRITE` |
 | Exceptions | `CX_STATIC_CHECK` default, `TEXTID` mandatory, never nest `GET_TEXT( )` into a fixed-length param |
 | Class design | Single responsibility, `ZIF_*` interfaces, constructor/setter DI, static methods when no `m_*` access |

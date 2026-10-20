@@ -131,7 +131,7 @@ skill boundary to find them:
 
 | Source | Installed as | Reached by | Used by |
 | --- | --- | --- | --- |
-| `office-tools/lib` **+** `sap-consultant/lib` | `<project>/.axet-code/lib` (MERGED) | `sys.path.insert(0, .../scripts/../../../lib)` | `office-docx`, `office-pdf`, `office-pptx`, `office-manual`, `fast-scan-question-generator`, `project-store` |
+| `office-tools/lib` **+** `sap-consultant/lib` | `<project>/.axet-code/lib` (MERGED) | `sys.path.insert(0, .../scripts/../../../lib)` | `office-docx`, `office-pdf`, `office-pptx`, `office-manual`, `office-excel-compare`, `office-excel-report`, `office-slides`, `library-match`, `fast-scan-question-generator`, `project-store` |
 | `sap-consultant/scripts` | `<project>/.axet-code/scripts` | `py "${CLAUDE_PLUGIN_ROOT}/scripts/<x>.py"` | `abap-code-checker`, `fs-generator`, `ts-generator`, `sap-cr-scope`, `sap-cr-handover`, `sap-incident` |
 
 The **merge** in the first row is forced by our install layout, not a convenience.
@@ -286,6 +286,9 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 | `sapgui-scriptter/skills/sapgui-screenshots/SKILL.md` | "PRD'de sadece goruntuleme" kurali | Tus basabiliyor, yanlislikla kaydedebilir; ADT tier kapisi buraya UZANMIYOR |
 | `requirements.txt`, `CLAUDE.md`, `README.md`, `toolkit-version.json` | Bu dagitima ait | Yukari akista yok |
 | `.../fast-scan-question-generator/SKILL.md`, `.../project-store/SKILL.md` + `scripts/project_store.py`, `.../ts-generator/references/NAMING_STANDARD.md` + `NAMING_STANDARD_HISTORY.md`, `.../sap-adt/references/RAP_CDS_OBJECTS.md` + `WORKFLOWS.md` | Musteri adlari, proje kodlari, SID'ler ve bir transport numarasi yer tutucuya cevrildi (`musteri-k-enerji`, `Customer K`, `SID-J`, `XXXK901433`); anlatilan olcum ve kural ayni | **Bu depo PUBLIC** (2026-09-28 temizligi). Yukari akistan tazelerken gercek adlar geri gelir: senkrondan sonra bu dosyalari yeniden tara. `sap-adt/scripts/` altindaki motor dosyalarinda kalanlar bilerek duzenlenmedi |
+
+| `.../library-match/scripts/write_results.py`, `.../fast-scan-question-generator/scripts/write_workbook.py` | Yukari akisin `HERE.parents[3] / "office-tools" / "lib"` satirinin altina `../../../lib` (= `.axet-code/lib`) eklendi | 2026-10-20 kit senkronu: kurulu agacta `office-tools/lib` `.axet-code/lib`'e kuruluyor; yukari akis yolu orada yok ve `xlsx_theme` sert import. `SHARED_ASSETS` lib `requiredBy`'ina iki skill + `office-excel-compare`/`-report`/`office-slides` eklendi |
+| `.../project-store/scripts/orbit_html.py`, `orbit_publish.py`, `orbit_client.py` | Musteri adi ve Orbit proje anahtarlari yer tutucuya cevrildi (`Customer K`, `PRJK`, `PRJM`, `musteri-q`); yalnizca yorum/ornek | Bu depo PUBLIC (2026-10-20 kit senkronu) |
 
 ### Alinmayanlar ve sebepleri
 

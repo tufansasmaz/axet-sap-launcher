@@ -32,6 +32,14 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+# `py scripts/orchestrator.py ...` is the command SKILL.md documents, and it
+# failed with "No module named 'scripts...'" (2026-09-29): run as a file, the
+# skill folder is not on the path, only scripts/ is. Put the skill folder first
+# so the documented command and `py -m scripts.orchestrator` both work.
+_SKILL_ROOT = str(Path(__file__).resolve().parents[1])
+if _SKILL_ROOT not in sys.path:
+    sys.path.insert(0, _SKILL_ROOT)
+
 import click
 
 from scripts.deliverables.deletion_plan import write_deletion_plan
@@ -69,7 +77,7 @@ from scripts.schemas import (
 # locally fixed before it was made an invariant.
 for _stream in (sys.stdout, sys.stderr):
     try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     except (AttributeError, ValueError):
         pass
 

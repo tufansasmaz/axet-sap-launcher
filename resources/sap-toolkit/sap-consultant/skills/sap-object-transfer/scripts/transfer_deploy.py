@@ -374,7 +374,15 @@ def main() -> None:
                                   "length": int(opts.get("length") or 10),
                                   "decimals": int(opts.get("decimals") or 0),
                                   "output_length": int(opts.get("output_length") or 0),
-                                  "lowercase": str(opts.get("lowercase", "")).lower() == "true"}),
+                                  "lowercase": str(opts.get("lowercase", "")).lower() == "true",
+                                  # Already {'value','text'} as extracted (see
+                                  # transfer_extract.py raw_opts/DOMA) -- the
+                                  # shape adt_create_domain's fixed_values wants.
+                                  # Omitted entirely (not []) when the source had
+                                  # none, so a domain with no value range is not
+                                  # mistaken for one whose range failed to carry.
+                                  **({"fixed_values": opts["fixed_values"]}
+                                     if opts.get("fixed_values") else {})}),
                 "DTEL": ("adt_create_data_element",
                          lambda: {"domain_name": opts.get("domain", ""),
                                   "short_label": opts.get("short_label", ""),

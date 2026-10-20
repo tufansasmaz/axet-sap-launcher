@@ -12,24 +12,18 @@ hand: they are arithmetic over data already on disk, and hand-written arithmetic
 fails every time the document is edited.
 
 Every << >> is a placeholder. kontrol.py fails the document while any survive.
+Written in English; for a Turkish delivery translate the headings (title case, never
+capitals), keep the numbering and the tags, and run envanter.py with --lang tr.
 -->
 
-<div align="center">
+<!-- The title block is the renderer's: this line is the document title,
+     and the eyebrow and classification are passed when it is rendered
+     (SKILL.md section 8). Customer, system, number and date are in 0.1. -->
 
-# TECHNICAL DOCUMENTATION (AS-BUILT)
-## <<PACKAGE>> — <<one-line title in business words>>
+# <<PACKAGE>> — <<one-line title in business words>>
 
-**NTT DATA Business Solutions** · **<<Customer>>**
-Project: <<Project>>
-System: **<<SID>> / <<client>>** · <<SAP release>>
 
-<<DOCNO>> · v<<1.0>> · <<DD.MM.YYYY>> · **Confidential — Customer Restricted**
-
-</div>
-
----
-
-# 0. DOCUMENT CONTROL
+# 0. Document Control
 
 ## 0.1 Document Information `[V]`
 
@@ -80,7 +74,7 @@ is tagged `[U]` with the way to confirm it.
 
 ---
 
-# 1. SUMMARY
+# 1. Summary
 
 <<What this package is for, in business terms. How many development units and what
 each one does, in a sentence each. What the package integrates with. Numbers here
@@ -88,7 +82,7 @@ must equal the tables in section 2 — the mechanical check compares them.>> `[V
 
 ---
 
-# 2. PACKAGE INFORMATION AND OBJECT INVENTORY
+# 2. Package Information and Object Inventory
 
 ## 2.1 Package `[V]`
 
@@ -118,7 +112,7 @@ transport.>>
 
 ---
 
-# 3. ARCHITECTURE AND DEPENDENCIES
+# 3. Architecture and Dependencies
 
 ## 3.1 Layer map `[V]`
 
@@ -143,7 +137,7 @@ it was.>>
 
 ---
 
-# 4. DATA DICTIONARY
+# 4. Data Dictionary
 
 ## 4.1 Tables `[V]`
 
@@ -165,7 +159,7 @@ maintenance. Not from how the code declares them.>>
 
 ---
 
-# 5. SHARED COMPONENTS
+# 5. Shared Components
 
 <<Objects used by two or more development units. Each is listed ONCE here; the units
 reference it. This section is what keeps the inventory honest.>>
@@ -183,7 +177,7 @@ reference it. This section is what keeps the inventory honest.>>
 
 ---
 
-# 6. DEVELOPMENT UNIT DETAILS
+# 6. Development Unit Details
 
 <!-- REPEATS. One block per unit. Only subsections with something to say get a
 heading; the rest fold into the closing paragraph. Renumber without gaps. -->
@@ -223,7 +217,7 @@ heading; the rest fold into the closing paragraph. Renumber without gaps. -->
 
 ---
 
-# 7. INTEGRATION INVENTORY
+# 7. Integration Inventory
 
 <<RFC, proxy, OData, IDoc, file interface — per interface: direction, partner,
 trigger, payload, error handling. If there are none, one line with the TADIR
@@ -231,7 +225,7 @@ evidence.>>
 
 ---
 
-# 8. AUTHORISATION MODEL
+# 8. Authorisation Model
 
 ## 8.1 Authorisation objects checked `[V]`
 
@@ -244,14 +238,14 @@ evidence.>>
 
 ---
 
-# 9. OPERATIONS AND SUPPORT
+# 9. Operations and Support
 
 <<Background jobs, logs, restart behaviour, housekeeping, what a support team needs
 on day one.>>
 
 ---
 
-# 10. TRANSPORT AND VERSION INFORMATION
+# 10. Transport and Version Information
 
 ## 10.1 Version summary `[V]`
 
@@ -263,7 +257,7 @@ on day one.>>
 
 ---
 
-# 11. ANNEXES
+# 11. Annexes
 
 ## Annex A — Glossary
 

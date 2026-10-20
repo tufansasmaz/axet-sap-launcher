@@ -183,6 +183,20 @@ BBP must show which requirement(s) it satisfies:
 5. If no requirements/ister list was supplied, skip this entirely — do not
    fabricate requirement IDs just to have something to cite.
 
+## Document language
+
+A BBP is written in **one** language and every fixed word follows it. The template's section
+titles are a customer standard written in English (`PURPOSE`, `ANALYSIS`, `Current Situation`, …)
+and its meta block, table columns and closing sections are Turkish; before 2026-10-01 both
+stayed as they were whatever the language, which gave an English document with `Kapsam Dışı
+Bağımlılıklar` and a Turkish one with `PURPOSE`. Now: settle the language (the brief's, else the
+person's, said once) and write **every** title, sub-section name, table column, field label and
+closing summary from [`references/DOCUMENT_LANGUAGE.md`](references/DOCUMENT_LANGUAGE.md) in that
+language — `Bölüm N` is `Chapter N`, `PURPOSE` is whatever the table says for Turkish. The template
+file keeps its headings as the structural keys; the table says what each is called in the
+document. Names, Scope Item descriptions (SAP's own English text) and quotes from sources stay
+as they are.
+
 ## Document structure
 
 The full skeleton — every heading, sub-heading and table, in order — is
@@ -306,7 +320,8 @@ first and say which you chose.
    covers is recorded as exactly that, in the wording the template gives, and
    does not become a Z object.
 
-8. **Render the output as a Word document** using the `office-docx` skill
+8. **Render the output as a Word document** using the `office-docx` skill (pass
+   `--lang <tr|en>`, and the eyebrow and classification from `references/DOCUMENT_LANGUAGE.md`)
    (Markdown → .docx with headings, tables, lists). Name the output file after
    the detected module (e.g. `<Customer> - QM Conceptual Design Document.docx`),
    or after the Scope Item when packaging one document per scope item — the
@@ -314,6 +329,13 @@ first and say which you chose.
    chapter-by-chapter" settled it before the first chapter was written. Assemble
    the parts first (rule 3); the heading levels are settled there too, so do not
    restructure at render time.
+
+   Pass the document title as `--title`, **the same text** as the assembled
+   Markdown's `#` line, and keep that line: `office-docx` owns the title, and
+   with `--title` it replaces a leading `# …` line with its title block instead
+   of printing the title a second time as Heading 1 (the sample BBP of
+   2026-09-28 showed it twice). The `####` sub-sections render as Word Heading 4
+   — every level down to `######` is a real heading there.
 
    Once rendered and accepted, offer to approve and save it through the
    **`project-store`** skill (`--kind BBP`), under that skill's rules: explicit
@@ -325,6 +347,32 @@ first and say which you chose.
    were provided at all, or if module detection is genuinely ambiguous.
    Otherwise proceed autonomously with what is available and note gaps in
    the final document instead of blocking.
+
+## Surviving a restart
+
+aXet.code can lose the conversation after an LLM error (a 429 rate limit, a dropped
+connection) and start the same task again with no new message from the person —
+measured three times in one Fast Scan run on 2026-09-25, each time asking twenty
+minutes of answers again. So this skill keeps its own record on disk:
+
+- **`.axet-code/state/bbp-creator.json` in the project folder.** Every answer the person
+  gave (in their words), every choice settled, the source files in use, the steps
+  finished with their output files, and `next` — the step to do now. Write it the
+  moment one of these changes, not at the end.
+- **Read it first, on every run.** If it exists and is not `"complete": true`, say in
+  one line what you are reusing and continue from `next`; ask only what it does not
+  hold. A run that begins again without a new request from the person is exactly
+  this case — never ask again what the file already answers.
+- **Close it** with `"complete": true` when the deliverable is done. A new request
+  for another deliverable renames the old file with its date and starts a new one.
+- Decisions and paths only: no document text, no source content, nothing the
+  person did not type.
+
+The chapter part files (`<stem>_parts/`) already keep the text; the state file
+keeps what they cannot — the detected module and its confirmation, the scope
+stated back, the packaging choice, the ranked source list, the chapter plan and
+which parts are written.
+
 
 ## Working chapter-by-chapter (mandatory for multi-chapter documents)
 
@@ -349,6 +397,13 @@ scope before the whole thing changes.
    | `##` | `Bölüm N: <name>` — one per chapter |
    | `###` | that chapter's `2. ANALYSIS` … `5. DEVELOPMENTS` |
    | `####` | their sub-sections (`2.1 Current Situation`, `3.1 …`) |
+   | `#####` | the numbered items under those (`2.1.1 …`, `5.2.1 …`) |
+
+   In a single-chapter document everything sits one level higher: sections at
+   `##`, `2.1` at `###`, `2.1.1` at `####`. A numbered item is always a heading,
+   never a bold paragraph — Word shows a bold paragraph neither in the navigation
+   pane nor in the contents list, and it looks heavier than the real heading above
+   it.
 
    `BBP_TEMPLATE.md` puts the five sections at `##` because it describes **one
    chapter**, not a whole document; in a multi-chapter BBP every template

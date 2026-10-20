@@ -6,11 +6,24 @@ listed (they're not impacting code). Findings without matching items are
 listed with blank item fields.
 """
 
+import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 from openpyxl import Workbook
 from openpyxl.styles import Font
+
+# office-tools/lib, beside this plugin in the catalog (cross_plugin_deps declares
+# it): the house workbook theme. Without it the table is still written, plain.
+sys.path.insert(0, str(Path(__file__).resolve().parents[5] / "office-tools" / "lib"))
+_xt: Any
+try:
+    import xlsx_theme as _xt  # type: ignore[import-not-found,no-redef]
+except ImportError:                                    # office-tools not installed
+    _xt = None
+
+_WIDTHS = [30, 26, 9, 11, 24, 24, 7, 40, 40, 16, 18]
 
 from scripts.schemas import ATCFinding, SimplificationItem
 
@@ -32,16 +45,7 @@ def write_impact_table(
     for it in items:
         items_by_note[it.sap_note_number].append(it)
 
-    wb = Workbook()
-    ws = wb.active
-    if ws is None:
-        raise RuntimeError("openpyxl returned a workbook with no active sheet")
-    ws.title = "Impact"
-
-    ws.append(_HEADERS)
-    for c in ws[1]:
-        c.font = Font(bold=True)
-
+    rows: list[list[Any]] = []
     for f in findings:
         # Find matching items by note number (best-effort join)
         matches: list[SimplificationItem] = (
@@ -52,7 +56,7 @@ def write_impact_table(
         # If no matches, still write one row with blank item fields.
         item_rows: list[SimplificationItem | None] = list(matches) or [None]
         for item in item_rows:
-            ws.append([
+            rows.append([
                 _pattern_label(f, item),
                 f.check_id,
                 f.priority,
@@ -67,7 +71,43 @@ def write_impact_table(
             ])
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if _xt is not None:
+        # The house look (2026-09-29): until then a bold header row and nothing
+        # else -- no widths, text cut at eight characters, no print setup.
+        meta = {"title": "Impact Table — ATC findings × Simplification Items",
+                "labels": {"customer": "Customer", "project": "Project",
+                           "version": "Version", "date": "Date"}}
+        wb = _xt.new_workbook(meta)
+        cols = [{"key": str(i), "header": h, "width": _WIDTHS[i]}
+                for i, h in enumerate(_HEADERS)]
+        _xt.add_table_sheet(
+            wb, "Impact", cols, [{str(i): ("" if v is None else v) for i, v in enumerate(r)}
+                                 for r in rows],
+            meta=meta, freeze_cols=1, table_name="Impact",
+            legend="One row per ATC finding and matching Simplification Item "
+                   "(joined on the SAP Note). Findings with no item keep blank item columns.")
+        wb.save(out_path)
+        return
+    wb = Workbook()
+    ws = wb.active
+    if ws is None:
+        raise RuntimeError("openpyxl returned a workbook with no active sheet")
+    ws.title = "Impact"
+    ws.append(_HEADERS)
+    for c in ws[1]:
+        c.font = Font(bold=True)
+    for row in rows:
+        ws.append(row)
     wb.save(out_path)
+
+
+def header_row(ws: Any) -> int:
+    """Row number of the column headers: 1 in a plain table, below the header
+    block in a themed one."""
+    for row in ws.iter_rows(min_row=1, max_row=12):
+        if row and row[0].value == _HEADERS[0]:
+            return int(row[0].row)
+    return 1
 
 
 def write_impact_table_md(

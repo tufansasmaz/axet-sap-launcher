@@ -17,7 +17,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const sharp = require('sharp');
+const sharp = require('./deps').requireDep('sharp');
 
 const dir = path.resolve(process.argv[2] || '');
 if (!dir || !fs.existsSync(path.join(dir, 'markers.json'))) {

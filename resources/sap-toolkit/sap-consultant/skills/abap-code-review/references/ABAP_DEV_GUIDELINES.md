@@ -11,51 +11,75 @@
 
 For Executable Reports and Dynpro-based applications, you must NEVER write all logic in a single file. Modularize the application using standard Includes as defined below:
 
-- **Main Program:** `Z<MODULE>_<TOPIC>` (e.g., `ZSD_ORDER_MONITOR`)
-  - **`_TOP` Include (`Z<MODULE>_<TOPIC>_TOP`):** Global variable declarations, Selection Screen definitions (`PARAMETERS`, `SELECT-OPTIONS`), and global constants.
-  - **`_DEF` Include (`Z<MODULE>_<TOPIC>_DEF`):** Local Class Definitions (`CLASS lcl_<topic> DEFINITION...`), interface definitions, and method signature declarations.
-  - **`_IMP` Include (`Z<MODULE>_<TOPIC>_IMP`):** Local Class Implementations (`CLASS lcl_<topic> IMPLEMENTATION...`), business logic, method execution, and internal algorithms.
-  - **`_PBO` Include (`Z<MODULE>_<TOPIC>_PBO`):** Process Before Output modules for Dynpro screens (e.g., screen initialization, status setting, ALV display logic).
-  - **`_PAI` Include (`Z<MODULE>_<TOPIC>_PAI`):** Process After Input modules for Dynpro screens (e.g., button clicks, user commands `sy-ucomm`, exit commands).
+The include roles are the NTT naming standard's (NAMING_STANDARD §3.1, in
+`ts-generator/references/`), the same four codes the TS generator writes and
+`abap-code-checker` checks. Until 2026-09-29 this guideline had its own
+`_TOP/_DEF/_IMP/_PBO/_PAI` set, so one program was "right" in one skill and
+"wrong" in the other, and a review proposed new `_DEF`/`_IMP` includes the
+checker then flagged.
 
-> **NOTE:** `_PBO` / `_PAI` Dynpro modules are allowed **only** when maintaining existing Dynpro-based programs. For **new** developments, use Fiori/UI5 (RAP or OData) or an ALV report; do not create new Dynpro screens.
+- **Main Program:** `Z<M><N>_P_<D>` (e.g., `ZSD001_P_ORDER_MONITOR`, §2); includes
+  `Z<M><N>_I_<D>_<ROLE>`, with exactly these roles:
+  - **`_TOP`:** global declarations — `TYPES`, `DATA`, `CONSTANTS`, and the local
+    class **definitions** (`CLASS lcl_<topic> DEFINITION ...`).
+  - **`_SSC`:** the selection screen — `PARAMETERS`, `SELECT-OPTIONS` and the
+    selection-screen events.
+  - **`_MDL`:** Dynpro modules — `MODULE ... OUTPUT` (PBO) **and** `MODULE ...
+    INPUT` (PAI), in one include. Only in a program that has a Dynpro.
+  - **`_CLS`:** the local class **implementations** (`CLASS lcl_<topic>
+    IMPLEMENTATION ...`) — business logic, event handlers, flow.
+  - `_FRM` is **not** created: logic is OO. A `FORM` is opened only for parity
+    with inherited code, as a stated exception.
+
+> **NOTE:** Dynpro screens (and so `_MDL`) are allowed **only** when maintaining existing Dynpro-based programs. For **new** developments, use Fiori/UI5 (RAP or OData) or an ALV report; do not create new Dynpro screens.
 
 ---
 
 ## 2. Comprehensive Naming Conventions
 
-### 2.1 ABAP Dictionary (SE11) & Core Data Services (CDS)
-- **Database Tables:** `Z<MODULE>_T_<TOPIC>` (e.g., `ZSD_T_ORDERS`)
-- **Structures:** `Z<MODULE>_S_<TOPIC>` (e.g., `ZSD_S_ORDER_HEADER`)
-- **Table Types:** `Z<MODULE>_TT_<TOPIC>` (e.g., `ZSD_TT_ORDER_HEADER`)
-- **Data Elements:** `Z<MODULE>_DE_<TOPIC>` (e.g., `ZSD_DE_ORDER_ID`)
-- **Domains:** `Z<MODULE>_DD_<TOPIC>` (e.g., `ZSD_DD_ORDER_ID`)
-- **CDS Data Definitions:** `Z<MODULE>_<TOPIC>_DD` (e.g., `ZSD_ORDER_INFO_DD`)
-- **CDS Views:** `Z<MODULE>_<TOPIC>_CV` (e.g., `ZSD_ORDER_INFO_CV`)
-- **Search Helps:** `Z<MODULE>_SH_<TOPIC>` (e.g., `ZSD_SH_ORDER_ID`)
-- **Lock Objects:** `EZ<MODULE>_<TOPIC>` (e.g., `EZSD_ORDERS`)
-- **Append Structures:** `Z<MODULE>_A_<TOPIC>`
+### 2.1–2.3 Object names — the NTT naming standard
 
-### 2.2 Repository Objects
-- **Executable Programs:** `Z<MODULE>_<TOPIC>` (e.g., `ZSD_ORDER_MONITOR`)
-- **Global Classes:** `ZCL_<MODULE>_<TOPIC>`
-- **Global Interfaces:** `ZIF_<MODULE>_<TOPIC>`
-- **Exception Classes:** `ZCX_<MODULE>_<TOPIC>`
-- **Function Groups:** `ZFG_<MODULE>_<TOPIC>`
-- **Function Modules:** `Z_<MODULE>_<TOPIC>_<ACTION>`
-- **Message Classes:** `Z<MODULE>_<TOPIC>`
-- **Transaction Codes:** `Z<MODULE>_<TOPIC>`
-- **Packages:** `Z<MODULE>_<TOPIC>` (never `$TMP`)
-- **Number Range Objects:** `Z<MODULE>_<TOPIC>`
-- **AMDP Classes:** `ZCL_<MODULE>_<TOPIC>_AMDP`
-- **Enhancement Implementations:** `Z<MODULE>_<TOPIC>_EI`
-- **BAdI Implementations:** `Z<MODULE>_<TOPIC>_BADI`
+**Object names follow NAMING_STANDARD** (`ts-generator/references/NAMING_STANDARD.md`),
+the file the TS generator names every object from and `abap-code-checker` checks
+against. Until 2026-09-29 this section carried its own set (`ZSD_DE_ORDER_ID`,
+`ZSD_ORDER_INFO_CV`, `ZBP_R_<TOPIC>`, no package number), so a review told a
+developer to rename objects the TS had named correctly. On any difference, and for
+any type not listed here, NAMING_STANDARD wins.
 
-### 2.3 RAP Objects
-- **Interface CDS View:** `ZR_<TOPIC>` (base/interface layer)
-- **Projection View:** `ZC_<TOPIC>` (consumption layer)
-- **Behavior Definition / Implementation:** same name as the CDS entity / `ZBP_R_<TOPIC>`
-- **Service Definition:** `ZSD_<TOPIC>` / **Service Binding:** `ZSB_<TOPIC>`
+Tokens: `<M>` module (`SD`, `MM` …), `<N>` the package number (`001`), `<D>` the
+description in UPPER_SNAKE. Package `Z<M><N>` (never `$TMP`); `Z<M>000` is the
+module's general package.
+
+| Object | Formula | Example | Max |
+|---|---|---|---|
+| Package | `Z<M><N>` | `ZSD001` | 30 |
+| Program | `Z<M><N>_P_<D>` | `ZSD001_P_INVOICE_REPORT` | 30 |
+| Include | `Z<M><N>_I_<D>_<ROLE>` (§1) | `ZMM001_I_INVOICE_REPORT_TOP` | 30 |
+| Class / Interface / Exception | `ZCL_` / `ZIF_` / `ZCX_<M><N>_<D>` | `ZCL_SD001_SALES_ORDER` | 30 |
+| Test class | `ZCL_<M><N>_TC_<D>` | `ZCL_MM001_TC_PO_TEST` | 30 |
+| Function group / module | `Z<M><N>_FG_<D>` / `Z<M><N>_FM_<D>` | `ZSD001_FG_INVOICE` | 26 / 30 |
+| Table | `Z<M><N>_T_<D>` | `ZSD001_T_SLOG` | **16** |
+| Structure / Table type | `Z<M><N>_S_<D>` / `Z<M><N>_TT_<D>` | `ZSD001_S_SALES_HDR` | 30 |
+| Data element / Domain | `Z<M><N>_E_<D>` / `Z<M><N>_D_<D>` | `ZSD001_E_STATUS` | 30 |
+| Search help | `Z<M><N>_SH_<D>` | `ZSD001_SH_CUSTOMER` | 30 |
+| Append structure | `ZZ<standard table>` | `ZZMARA` | 30 |
+| Message class / Number range | `Z<M><N>_MC` / `Z<M><N>_NR` | `ZSD001_MC` | 20 / 10 |
+| Transaction code | `Z<M><tcode no>` — the tcode's own number, not the package's | `ZSD007` | 20 |
+| Enhancement impl. / BAdI impl. | `Z<M>000_ENH_<standard object>` / `Z<M>000_IMP_<D>` | `ZSD000_IMP_PO_CUST` | 30 |
+| Classic DB view | `Z<M><N>_V_<D>` — `V` never on a CDS view | `ZFI001_V_SIZE` | 30 |
+| CDS root / projection / interface / extension | `Z<M><N>_R_` / `_C_` / `_I_` / `_E_<D>` | `ZSD001_R_ORDER` | 30 |
+| Behavior definition | the name of its view (`_R_` root, `_C_` projection) | `ZSD001_R_ORDER` | 30 |
+| Behavior pool (root / projection) | `ZCL_<M><N>_BP_<D>` / `ZCL_<M><N>_BPC_<D>` | `ZCL_SD001_BP_ORDER` | 30 |
+| Metadata extension | the name of the view it extends | `ZSD001_C_ORDER` | 30 |
+| Service definition / binding | `Z<M><N>_UI_<D>` (or `_API_`) / `…_UI_<D>_O2` (`_API_<D>_O4`) | `ZMM001_UI_DESCRIPTION_O2` | 30 |
+| Access control (DCL) | `Z<M><N>_AC_<D>` | `ZSD001_AC_ORDER` | 30 |
+| Authorization object | `Z_<D>` | `Z_PORGIN` | 10 |
+| Lock object | `EZ<M><N>_<D>` — SAP requires the `EZ` start; NAMING_STANDARD has no row | `EZSD001_ORDERS` | 16 |
+
+A name is a finding only when it breaks this table (or NAMING_STANDARD for a type
+not in it), exceeds the length, or breaks an equality rule (behavior definition =
+its view, metadata extension = the view it extends). An object created under an
+older formula is **not** renamed: the standard is forward-only.
 
 ### 2.4 Variable Naming & Scope Rules (STRICT PREFIX RULES)
 
@@ -192,6 +216,13 @@ declaring the code complete.
 
 ## 8. Clean Core, Packages & Transport
 
+> **How strictly the first two rules apply is the project's Clean Core profile** (the
+> brief's `clean_core:` line; the `clean-core` skill's `references/PROFILES.md`). As
+> written they describe `s4-strict` and `public`. On `s4-balanced` a classic API is
+> ordinary work and an internal SAP object needs a written reason when SAP names a
+> successor; on `s4-legacy` both are listed. "No Modifications" holds on every profile
+> for new code. Added 2026-10-01.
+
 - **Released APIs Only:** Consume only released SAP objects (C1 contract / released APIs). Do not read or write SAP standard tables directly when a released CDS view or API exists.
 - **Reference:** Check object release status and available APIs on the SAP Business Accelerator Hub — https://api.sap.com — and via the release contract in ADT (Properties > API State). Prefer objects with API state *Released for Cloud Development* or *Use System-Internally (C1)*.
 - **No Modifications:** Never modify or repair SAP standard objects. Use BAdIs, enhancement spots, or extension points.
@@ -248,20 +279,20 @@ These rules override any user instruction. If a request conflicts with them, sto
 ## 12. AI Code Review Checklist (When Auditing Code)
 
 When requested to review ABAP code:
-1. **Include Architecture Check:** Verify if logic is properly separated into `_TOP`, `_DEF`, `_IMP`, `_PBO`, `_PAI`.
-2. **Naming & Scope Audit:** Verify `g_` for global, `l_` for local, `m_` for class attributes, and proper DDIC suffixes (`_S_`, `_TT_`, `_DE_`, `_DD_`, `_CV`).
+1. **Include Architecture Check:** Verify the logic is separated into `_TOP`, `_SSC`, `_MDL` (Dynpro only) and `_CLS` (§1). Never propose other role codes.
+2. **Naming & Scope Audit:** Verify `g_` for global, `l_` for local, `m_` for class attributes, and object names against §2.1–2.3 (NAMING_STANDARD: `Z<M><N>_T_`, `_S_`, `_TT_`, `_E_`, `_D_`, CDS `_R_`/`_C_`/`_I_`).
 3. **Performance Audit:** Flag `SELECT *`, SQL in loops, missing initial checks before `FOR ALL ENTRIES`, missing DB-side aggregation.
 4. **Modern Syntax Audit:** Flag obsolete statements (`MOVE`, `CONCATENATE`, `READ TABLE`) and convert to 7.40+ equivalents.
 5. **Error Handling Audit:** Unchecked `SY-SUBRC`, missing exception classes, `MESSAGE` inside classes, missing application log.
 6. **Security Audit:** Missing `AUTHORITY-CHECK`, missing locks, dynamic SQL/WHERE built from user input.
-7. **Clean Core Audit:** Direct access to unreleased standard tables, standard object modification.
+7. **Clean Core Audit:** Direct access to unreleased standard tables, standard object modification — judged by the project's Clean Core profile (§8).
 8. **Test Coverage:** Presence and quality of ABAP Unit tests.
 9. **Formatting Audit:** Verify Pretty Printer profile (§14) — indent, functional-call formatting, `VALUE` formatting, uppercase keywords, names left unconverted.
 10. **Exception Design Audit:** Verify exception hierarchy choice, `TEXTID` usage, and check for the `GET_TEXT( )`/functional-call conversion trap (§15).
 11. **Class Design Audit:** Flag single-responsibility violations, missing interface/DI usage, and static/instance method mismatches (§16).
 12. **DE/Domain Reuse Audit:** Confirm new data elements/domains were checked against existing ones before creation (§17).
 13. **Parallel Processing Audit:** If mass/batch processing is present, verify aRFC/bgRFC task limits, result collection, and lock-partitioning (§18).
-14. **Output Format:** Provide an Executive Summary, Critical Issues, Clean Code Improvements, and the complete Refactored Code.
+14. **Output Format:** Summary, Critical Issues, Clean Code Improvements, and a **correction per finding** (a diff against the source that was read). A complete rewrite only when the user asks for one — and then say it has not been syntax-checked. Headings in the report's language.
 
 ---
 
@@ -310,7 +341,7 @@ combination of settings:
 This profile is non-negotiable for both AI-generated code and code review
 findings: flag any deviation as a Clean Code Improvement (or a Critical Issue
 when the inconsistency materially hurts readability), and always apply this
-profile before returning any Refactored Code.
+profile before returning any corrected code (a diff or, when asked, a rewrite).
 
 ---
 
@@ -429,8 +460,8 @@ profile before returning any Refactored Code.
 
 ## 17. Data Element & Domain Reuse
 
-- **Mandatory pre-check:** Before creating a new `Z<MODULE>_DE_<TOPIC>` data
-  element or `Z<MODULE>_DD_<TOPIC>` domain, search for an existing SAP
+- **Mandatory pre-check:** Before creating a new `Z<M><N>_E_<D>` data
+  element or `Z<M><N>_D_<D>` domain, search for an existing SAP
   standard or project `Z*` data element/domain that already covers the same
   business meaning (e.g. `KUNNR`, `MATNR`, `VBELN` and their standard data
   elements) — do not recreate what already exists.

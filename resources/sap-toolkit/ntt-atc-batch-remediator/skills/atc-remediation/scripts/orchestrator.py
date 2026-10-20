@@ -38,6 +38,14 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Run as a file (`py scripts/orchestrator.py`, which is what SKILL.md and the
+# slash commands say, and what the installer's SCRIPTS_DIR rewrite produces),
+# Python puts scripts/ itself on sys.path and every `from scripts.x import y`
+# below fails with ModuleNotFoundError. The skill root is what those imports
+# need; `py -m scripts.orchestrator` from the skill folder already had it.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 import click
 from pydantic import ValidationError
 
@@ -56,6 +64,7 @@ from scripts.schemas import (
     Patch,
     RoutedFinding,
 )
+from scripts.source_splice import SourceIndex
 from scripts.verifier import verify as verifier_verify
 from scripts.zip_bundler import ZipBundler
 
@@ -68,7 +77,7 @@ from scripts.zip_bundler import ZipBundler
 # locally fixed before it was made an invariant.
 for _stream in (sys.stdout, sys.stderr):
     try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     except (AttributeError, ValueError):
         pass
 
@@ -402,64 +411,65 @@ def _finish(
     """
     output_dir = project / "remediation" / "output"
     patches_dir = output_dir / "patches"
+    source_dir = project / "remediation" / "inputs" / "source"
 
-    # ConfidenceJudge — deterministic split.
+    # ConfidenceJudge — deterministic split. The clusters let it say WHY a
+    # finding has no patch: judgment-shaped, no pattern, or no draft returned.
     state["last_stage"] = "confidence-judge"
     _write_state(state_path, state)
     judge = ConfidenceJudge()
-    judge_result = judge.split(all_patches, findings)
+    judge_result = judge.split(all_patches, findings, clusters)
 
-    # ZipBundler — only on ship-set patches.
+    # A patch is a snippet; a ZIP member is a whole include. Without the
+    # current source there is nothing to splice into, and writing the snippet
+    # alone would replace the program on import. Stop before anything is
+    # written rather than ship a ZIP that looks complete.
+    source = SourceIndex.load(source_dir)
+    if judge_result.patches_for_zip and not len(source):
+        click.echo(
+            f"HARD ERROR: {len(judge_result.patches_for_zip)} patch(es) passed the "
+            f"threshold, but {source_dir} holds no current source to apply them to. "
+            "Export the affected objects with abapGit (offline repository -> "
+            "Export ZIP) and drop the ZIP there, then run: bundle. Nothing was "
+            "bundled.",
+            err=True,
+        )
+        sys.exit(2)
+
+    # ZipBundler — only on ship-set patches, each object built whole.
     state["last_stage"] = "zip-bundle"
     _write_state(state_path, state)
     bundler = ZipBundler(
         output_dir=patches_dir,
         batch_id_seed=int(state.get("next_batch_id", 1)),
+        source=source,
     )
     manifests = bundler.bundle(judge_result.patches_for_zip)
     state["next_batch_id"] = bundler.batch_id_seed
     _write_state(state_path, state)
     _log(f"ZipBundler: produced {len(manifests)} ZIP(s)")
-    if bundler.routed_patches:
+    if bundler.refused:
         _log(
-            f"ZipBundler: routed {len(bundler.routed_patches)} patch(es) to "
-            "human review (multi-patch-per-object — needs manual merge)"
+            f"ZipBundler: {len(bundler.refused)} patch(es) not applied to the "
+            "current source -- human review (reason per row in the CSV)"
         )
 
-    # No patches drafted yet: every finding belongs in the human-review queue.
-    # This is the honest state of a first `run`, not a degraded mode — the
-    # deliverables are complete and say plainly that nothing was fixed.
     routed: list[RoutedFinding] = list(judge_result.findings_for_human_review)
-    if not all_patches:
-        routed = [
-            RoutedFinding(
-                finding=f,
-                reason_routed="no-patch-produced",
-                suggested_action=(
-                    "Draft a patch into remediation/work/patch-answers.json "
-                    "(see SKILL.md), then run: bundle"
-                ),
-            )
-            for f in findings
-        ]
 
-    # Multi-patch-per-object patches: surface as no-patch-produced rows so
-    # the consultant sees them in human-review-queue.csv. v0.1 can't safely
-    # merge two diffs against the same object; v0.2 backlog.
+    # Patches that passed the threshold but could not be applied exactly:
+    # their own reason, so the queue says "the draft does not fit the code",
+    # not "nobody drafted this".
     findings_by_id = {f.finding_id: f for f in findings if f.finding_id}
-    for orphan_patch in bundler.routed_patches:
-        finding = findings_by_id.get(orphan_patch.finding_id)
+    for refusal in bundler.refused:
+        finding = findings_by_id.get(refusal.patch.finding_id)
         if finding is None:
             continue
         routed.append(
             RoutedFinding(
                 finding=finding,
-                reason_routed="no-patch-produced",
-                confidence=orphan_patch.confidence,
-                suggested_action=(
-                    "multi-patch-per-object — needs manual merge "
-                    "(v0.2 will splice via SourceIngester)"
-                ),
+                reason_routed="patch-not-applied",
+                confidence=refusal.patch.confidence,
+                suggested_action=refusal.reason,
             )
         )
 
@@ -487,7 +497,7 @@ def _finish(
     }
     write_audit_trail(
         output_path=output_dir / "audit-trail.jsonl",
-        patches=judge_result.patches_for_zip,
+        patches=bundler.shipped_patches,
         manifests=manifests,
         check_id_by_finding_id=check_id_by_finding_id,
     )
@@ -517,7 +527,7 @@ def _finish(
 
     click.echo(
         f"Done. {len(findings)} findings -> {len(clusters)} clusters -> "
-        f"{len(judge_result.patches_for_zip)} patches in {len(manifests)} ZIP(s); "
+        f"{len(bundler.shipped_patches)} patches in {len(manifests)} ZIP(s); "
         f"{len(routed)} routed to human review."
         + (f"\nPatch queue: {open_clusters} cluster(s) awaiting a draft in "
            f"{_queue_path(project)}\nDraft them into {_answers_path(project)}, "

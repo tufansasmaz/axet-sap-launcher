@@ -2,6 +2,13 @@
 
 Quick reference for replacing forbidden SAP objects with ABAP Cloud alternatives.
 
+> **Read with the project's profile** ([`PROFILES.md`](PROFILES.md)). "Forbidden" below
+> means *not released for ABAP Cloud* — that is forbidden on `public` and `s4-strict`,
+> a written reason on `s4-balanced`, and a listed item on `s4-legacy`. The examples are
+> illustrations written before the checker took a target: the successor and the level the
+> checker returns for the project's own release win over anything on this page, and a
+> code sample here is not verified syntax.
+
 ## Material Master (MARA, MARC, MAKT)
 
 ### Forbidden Objects

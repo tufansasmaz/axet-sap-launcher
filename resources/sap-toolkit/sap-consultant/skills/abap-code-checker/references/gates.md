@@ -99,18 +99,44 @@ you actually saw.
 
 Read the source filtered, then check two things:
 
-1. **Forbidden / not-released objects** — hand the referenced tables and classes to the
-   `clean-core` skill (`MARA`, `BSEG`, `CL_GUI_ALV_GRID` and friends). Level D is a
-   `blocker` on an ABAP Cloud project and a `major` on a classic stack heading there.
+1. **Forbidden / not-released objects** — hand the referenced standard tables, classes
+   and function modules to the `clean-core` skill in one call, **with the project's
+   Clean Core profile and release** (`--profile` from the brief's `clean_core:` line,
+   `--s4core`/`--sp` or `--version`) and `--json`, saved as the gate's `--raw`. What a
+   profile permits is in the `clean-core` skill's `references/PROFILES.md`; the
+   severity table there ("Severity in a code review or a quality gate") is the one this
+   gate uses. Per object, from its `decision`:
+   - `forbidden` — a `blocker`; name the successor if one is listed. On `s4-legacy`,
+     `no_new` is a `blocker` in code this transport adds and a listed `minor` in code
+     it only carries.
+   - `blocked` (`public`, `s4-strict`: nobody answered for the object) — a `blocker`
+     until it is verified.
+   - `reason` / `approval` with no reason on record (the TS §1.3 row, or a comment at
+     the use) — a `major`. With the reason on record it is a pass, and `--detail`
+     names it.
+   - `note`, `unverified` — listed in `--detail`, not a finding. An `unverified`
+     object is still unknown, not clean: the gate is at best `warn`, and `--detail`
+     names the unverified objects and the run's Source line.
+   - Only a run with exit code 0 (every object verified) and no `forbidden`, `no_new`,
+     `blocked` or unreasoned `reason` object can make this half of G4 `pass`.
+   - No `clean_core:` line in the brief → ask once; with no answer use the strictest
+     profile of the brief's platform and say so in `--detail`. A run without
+     `--profile` carries no `decision` and does not count. On `ecc` nothing is asked:
+     this half of the gate is `n/a`, and only the modification check below applies.
 2. **Deprecated statements** — `MOVE a TO b`, `CALL METHOD obj->m`, `CREATE OBJECT`,
    `TABLES`, `WRITE` for output, `SELECT *` on a standard table. Full table in
    [`review-checklist.md`](review-checklist.md).
 
-Also: any modification to a non-Z/Y object, any enhancement of SAP-delivered code, and any
-object outside the customer namespace is a `blocker` on sight. the sap-adt engine's guardrails refuse
+Also: any modification to a non-Z/Y object, any **implicit** enhancement of SAP-delivered
+code, and any object outside the customer namespace is a `blocker` on sight (on
+`s4-legacy`: when this transport adds it; one it only carries is listed). A classic BAdI,
+an exit or an explicit enhancement spot follows the profile's `classic_ext` column — a
+`blocker` on `public`, a `major` without its written reason on `s4-strict`, not a finding
+on `s4-balanced` and `s4-legacy`. the sap-adt engine's guardrails refuse
 to *write* those; this gate is what catches them when they are already there.
 
-**Proves:** the static text of this object does not name a forbidden thing.
+**Proves:** the static text of this object does not name a thing the project's profile
+refuses, for the project's release — as far as the repository knows the names asked.
 
 **Does not prove:** that the object is reachable in ABAP Cloud, or that a dynamic call
 (`CALL FUNCTION lv_name`) does not reach one at runtime.

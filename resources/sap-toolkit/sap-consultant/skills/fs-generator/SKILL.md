@@ -76,7 +76,10 @@ obey these 100%:
    that the information is absent and ask.
 4. **Language.** Produce the FS in the brief's output language; if the brief does not
    set one, match the user's language (Turkish → Turkish). Preserve UTF-8
-   (ı, ğ, ş, ç, ö, ü, İ).
+   (ı, ğ, ş, ç, ö, ü, İ). **The template's headings, table columns and tags are Turkish; in
+   an English FS every one of them is written in English** — the words are in
+   [`references/DOCUMENT_LANGUAGE.md`](references/DOCUMENT_LANGUAGE.md). Do not leave a
+   Turkish heading in an English document, or the reverse.
 
 ## Template
 
@@ -86,10 +89,30 @@ obey these 100%:
   this SKILL.md). Extend it with any extra mandatory sections the project brief lists.
 - Deliver plain Markdown filling that structure; write business rules and process flows
   as numbered sub-sections in clear, corporate prose.
-- **Clean Core.** Prefer standard, released APIs/BAdIs. Do NOT invent SAP standard
-  objects (tables, transaction codes, BAdIs, APIs, IDocs, CDS, …) that the inputs do
-  not contain. Mark every technically sound suggestion of yours as `[Öneri]` — never
-  present it as established fact.
+- **Clean Core follows the brief's profile.** The brief's front matter carries
+  `clean_core:` (`public`, `s4-strict`, `s4-balanced`, `s4-legacy`, `ecc`); what each
+  permits is in the `clean-core` skill's `references/PROFILES.md` and is not restated
+  here. No line in the brief → ask once in the question list and remind that the
+  project lead sets it centrally; no answer → the strictest profile of the brief's
+  platform, said in one sentence in the solution section. An `[Öneri]` never proposes
+  what the profile forbids: no classic enhancement on `public`, no modification or
+  implicit enhancement anywhere, and on `s4-strict` a classic API only with its reason.
+  **On `public`, read the `clean-core` skill's `references/PUBLIC_CLOUD.md` first** —
+  the solution section starts from the standard scope item and the proposals are
+  tagged by route (key user / developer / side-by-side), as that file's "What this
+  changes in an FS" says.
+- **Standard objects.** Do NOT invent SAP standard objects (tables, transaction codes,
+  BAdIs, APIs, IDocs, CDS, …) that the inputs do not contain. Mark every technically
+  sound suggestion of yours as `[Öneri]` — never present it as established fact. Where
+  the FS says a standard object is *released* or *Clean Core compliant*, that claim
+  comes from the `clean-core` skill run with the brief's profile and release
+  (`--profile`, `--s4core`/`--sp`, `--json`) and is written only for objects it returns
+  with `verified: true`, in the wording PROFILES.md gives for the object's `decision`;
+  an object it returns `forbidden` is not proposed, and anything unverified is written
+  `[Açık Konu] release durumu doğrulanamadı` — offline, or no repository entry — never
+  as released. The checker answers for Public Cloud when given no target, and that
+  answer does not hold for a Private Cloud or on-premise project. On `ecc` nothing is
+  measured and the FS makes no release claim at all.
 - **Manage missing information** with explicit tags: `[Varsayım]` (Assumption),
   `[Açık Konu]` (Open Item), `[Bağımlılık]` (Dependency), `[Netleştirilmesi Gereken
   Nokta]` (Point to Clarify).
@@ -161,7 +184,8 @@ proceed. The user never sees this process, only its one-line result.
 3. Every SAP object named in the FS appears in the inputs OR is tagged `[Öneri]`.
 4. The document-control header is complete and matches the brief (customer, project,
    module, language). Status is `Taslak`.
-5. Language is uniform (the brief's output language); UTF-8 intact.
+5. Language is uniform (the brief's output language): every heading, table column and
+   tag is in it too, from `references/DOCUMENT_LANGUAGE.md`; UTF-8 intact.
 6. Section 11 (open items) contains EVERY inline `[Varsayım]`/`[Açık Konu]`/
    `[Bağımlılık]`/`[Netleştirilmesi Gereken Nokta]`/`[Öneri]` — nothing inline that
    is missing from the collection, and vice versa.
@@ -177,13 +201,18 @@ proceed. The user never sees this process, only its one-line result.
 
 ```bash
 # Branded PDF (via office-pdf)
-py <SCRIPTS>/render_pdf.py <fs_markdown_file> [output_pdf] [title]
+py <SCRIPTS>/render_pdf.py <fs_markdown_file> [output_pdf] [title] [--lang tr|en]
 ```
 
 For an **editable Word** deliverable, hand the same Markdown to the `office-docx`
 skill (`build_docx.py --input <fs.md> --output <fs.docx> --title "<iş başlığı>"
---eyebrow "Fonksiyonel Spesifikasyon" --classification "Confidential — Customer Restricted"`).
+--lang <tr|en> --eyebrow "<Fonksiyonel Spesifikasyon | Functional Specification>"
+--classification "<Gizli — Müşteriye Özel | Confidential — Customer Restricted>"`; the
+words per language are in `references/DOCUMENT_LANGUAGE.md`).
 The NTT mark lands in the header of every page on its own.
+`--title` replaces the template's leading `# [FS-NO] — [BAŞLIK]` line with its
+title block (office-docx owns the title, so it is not printed twice); the FS
+number stays visible in the Doküman Kontrolü table.
 
 ### Approve and save to the project store
 
@@ -256,6 +285,31 @@ Then iterate in dialogue: apply the user's answers, shrink the list, keep Status
 `Taslak`. When the user explicitly approves (e.g. "onayla"), set the document-control
 Status to **`Onaylı`** with the date — `ts-generator` uses this as its input gate.
 
+## Surviving a restart
+
+aXet.code can lose the conversation after an LLM error (a 429 rate limit, a dropped
+connection) and start the same task again with no new message from the person —
+measured three times in one Fast Scan run on 2026-09-25, each time asking twenty
+minutes of answers again. So this skill keeps its own record on disk:
+
+- **`.axet-code/state/fs-generator.json` in the project folder.** Every answer the person
+  gave (in their words), every choice settled, the source files in use, the steps
+  finished with their output files, and `next` — the step to do now. Write it the
+  moment one of these changes, not at the end.
+- **Read it first, on every run.** If it exists and is not `"complete": true`, say in
+  one line what you are reusing and continue from `next`; ask only what it does not
+  hold. A run that begins again without a new request from the person is exactly
+  this case — never ask again what the file already answers.
+- **Close it** with `"complete": true` when the deliverable is done. A new request
+  for another deliverable renames the old file with its date and starts a new one.
+- Decisions and paths only: no document text, no source content, nothing the
+  person did not type.
+
+For this skill that is: the development and its source documents, the
+consultant's answers to the open questions, the template in use, the sections
+written, and the output file.
+
+
 ## Requirements
 
 - **Input:** a described requirement and/or analysis documents (PDF or text); an FS
@@ -293,6 +347,8 @@ with `OFFICE_PDF_SCRIPT`).
 - `references/FS_TEMPLATE.md` — the default NTT FS template (used when the user
   supplies none)
 - [SAP Clean Core Extensibility Guide](https://help.sap.com/docs/sap-btp-abap-environment/abap-environment/clean-core)
-- The `clean-core` skill (sap-specs plugin) — verify object release status
+- The `clean-core` skill (same plugin) — verify object release status for the brief's
+  target; its `references/PROFILES.md` holds the Clean Core profiles and
+  `references/PUBLIC_CLOUD.md` what changes on Public Cloud
 - The `ts-generator` skill (sap-specs plugin) — turn the finished FS into a Technical Specification
 - The `office-pdf` / `office-docx` skills (office-tools plugin) — PDF / Word rendering

@@ -129,8 +129,11 @@ step works unchanged.
 ## 4 · Let the script write the counting tables
 
 ```bash
-py scripts/envanter.py as-built/<HEDEF>
+py scripts/envanter.py as-built/<HEDEF> --lang tr    # or en: the delivery language
 ```
+
+`--lang` sets the table headings and section names it writes; a Turkish document
+with `Type / Own. / Unit` over its tables reads as half translated.
 
 It emits the inventory summary, the inventory detail and the transport table into
 `uretilen/envanter.md`, ready to paste into sections 2 and 10.
@@ -203,6 +206,23 @@ Markdown is the working format. When the text is settled, `office-docx` produces
 editable Word file and `office-pdf` the branded PDF. Convert at the end, in one go:
 every conversion has to be re-checked for page layout, and doing it per revision
 spends that check over and over.
+
+```bash
+py <office-docx>/scripts/build_docx.py --input <DOCNO>_<OBJECT>_v1.0.md --output <same>.docx \
+   --eyebrow "TECHNICAL DOCUMENTATION (AS-BUILT)" --lang en \
+   --classification "Confidential — Customer Restricted"
+py <office-pdf>/scripts/md_to_pdf.py   --input <same>.md --output <same>.pdf \
+   --eyebrow "TECHNICAL DOCUMENTATION (AS-BUILT)" --lang en \
+   --classification "Confidential — Customer Restricted"
+```
+
+In Turkish: `--eyebrow "TEKNİK DOKÜMAN (AS-BUILT)"`, `--lang tr`, `--classification "Gizli —
+Müşteriye Özel"` (`--lang` sets the contents heading and the footer's page word). The document's first line, `# <OBJECT> — <title>`, is the title
+block; there is **no HTML cover** — until 2026-09-29 the template opened with a
+`<div align="center">` cover that Word printed as the words "div align=center",
+and everything on it already sits in 0.1. Chapter headings are written in title
+case ("3. Architecture and Dependencies", "3. Mimari ve Bağımlılıklar"), not in
+capitals: no other NTT document shouts its headings.
 
 ## 9 · Boundaries
 

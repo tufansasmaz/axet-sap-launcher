@@ -8,25 +8,18 @@ section 6.
 
 Every << >> is a placeholder. kontrol.py fails the document while any survive.
 Written in English here because delivery usually is; if the project's delivery
-language is Turkish, translate the headings and keep the numbering and the tags.
+language is Turkish, translate the headings (title case, never capitals) and
+keep the numbering and the tags; run envanter.py with --lang tr.
 -->
 
-<div align="center">
+<!-- The title block is the renderer's: this line is the document title,
+     and the eyebrow and classification are passed when it is rendered
+     (SKILL.md section 8). Customer, system, number and date are in 0.1. -->
 
-# TECHNICAL DOCUMENTATION (AS-BUILT)
-## <<OBJECT>> — <<one-line title in business words>>
+# <<OBJECT>> — <<one-line title in business words>>
 
-**NTT DATA Business Solutions** · **<<Customer>>**
-Project: <<Project>>
-System: **<<SID>> / <<client>>** · <<SAP release>>
 
-<<DOCNO>> · v<<1.0>> · <<DD.MM.YYYY>> · **Confidential — Customer Restricted**
-
-</div>
-
----
-
-# 0. DOCUMENT CONTROL
+# 0. Document Control
 
 ## 0.1 Document Information `[V]`
 
@@ -79,7 +72,7 @@ is tagged `[U]` with the way to confirm it.
 
 ---
 
-# 1. SUMMARY
+# 1. Summary
 
 <<Three to six sentences. What this object is, what business job it does, what it
 touches, and who calls it. No adjectives about quality. A reader who stops here
@@ -87,7 +80,7 @@ should be able to say what the thing is for.>> `[V]`
 
 ---
 
-# 2. OBJECT INFORMATION
+# 2. Object Information
 
 ## 2.1 Object `[V]`
 
@@ -125,7 +118,7 @@ Detail, one row per object `[V]`:
 
 ---
 
-# 3. ARCHITECTURE AND DEPENDENCIES
+# 3. Architecture and Dependencies
 
 ## 3.1 How it fits `[V]`
 
@@ -150,7 +143,7 @@ as such — with how it is started instead (transaction, job, menu).>>
 
 ---
 
-# 4. DATA DICTIONARY
+# 4. Data Dictionary
 
 <<Only the DDIC objects this unit owns. A report that owns none closes the section in
 one line. Types come from the dictionary definition, not from how the code declares
@@ -161,7 +154,7 @@ them — a field read as CHAR in code may be a domain-bound type.>>
 
 ---
 
-# 5. SHARED COMPONENTS
+# 5. Shared Components
 
 Not applicable — this document covers a single object. Objects used by more than one
 development unit are named as dependencies in section 3 and documented where they are
@@ -169,7 +162,7 @@ owned. `[V]`
 
 ---
 
-# 6. DETAIL
+# 6. Detail
 
 ## 6.1 What it does `[V]`
 
@@ -209,7 +202,7 @@ implementation, reaches no external system, and writes no form.">>
 
 ---
 
-# 7. INTEGRATION INVENTORY
+# 7. Integration Inventory
 
 <<RFC, proxy, OData, IDoc, file interface. If there are none, one line with the
 evidence: "Not applicable — TADIR scan: SPRX 0, IWSV 0, SRVB 0; no OPEN DATASET
@@ -217,7 +210,7 @@ and no CALL FUNCTION ... DESTINATION." `[V]`>>
 
 ---
 
-# 8. AUTHORISATION MODEL
+# 8. Authorisation Model
 
 ## 8.1 Authorisation checks `[V]`
 
@@ -230,14 +223,14 @@ code's S_TCODE entry. `[V]`" — and not as a shortcoming. See standart.md §4.>
 
 ---
 
-# 9. OPERATIONS AND SUPPORT
+# 9. Operations and Support
 
 <<Background job, log, restart behaviour, what an operator would need to know.
 Job schedules held in the scheduler rather than the code are `[U]`.>>
 
 ---
 
-# 10. TRANSPORT AND VERSION INFORMATION
+# 10. Transport and Version Information
 
 ## 10.1 Version history `[V]`
 
@@ -255,7 +248,7 @@ Job schedules held in the scheduler rather than the code are `[U]`.>>
 
 ---
 
-# 11. ANNEXES
+# 11. Annexes
 
 ## Annex A — Glossary
 

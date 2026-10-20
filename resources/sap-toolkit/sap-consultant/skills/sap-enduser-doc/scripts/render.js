@@ -20,7 +20,8 @@
 
 const fs = require('fs');
 const path = require('path');
-const { marked } = require('marked'); // requires marked >= 13 (token-object renderer API)
+const { requireDep, depFile } = require('./deps');
+const { marked } = requireDep('marked'); // requires marked >= 13 (token-object renderer API)
 
 // ---------- CLI ----------
 const args = process.argv.slice(2);
@@ -172,7 +173,7 @@ function buildHtml(meta, contentHtml, toc) {
   // the `mermaid@11` range it used to carry: a fallback that renders with a
   // different mermaid than the local install is a fallback that produces a
   // different document.
-  const localMermaid = path.join(skillRoot, 'node_modules', 'mermaid', 'dist', 'mermaid.min.js');
+  const localMermaid = depFile(path.join('mermaid', 'dist', 'mermaid.min.js'));
   let mermaidSrc;
   if (fs.existsSync(localMermaid)) {
     mermaidSrc = 'file://' + localMermaid;
@@ -188,7 +189,7 @@ function buildHtml(meta, contentHtml, toc) {
       `WARNING: node_modules/mermaid is missing — falling back to the CDN ` +
       `(mermaid@${ver}).\n` +
       `  On a closed network this silently produces BLANK process diagrams.\n` +
-      `  Fix it properly: run \`npm install\` in the skill folder, then re-render.`);
+      `  Fix it properly: run \`node scripts/deps.js --install\` once, then re-render.`);
   }
 
   const ctrlRow = (label, value) => value ? `<tr><td>${label}</td><td>${value}</td></tr>` : '';
@@ -245,7 +246,7 @@ ${contentHtml}
 
 // ---------- Main ----------
 async function main() {
-  const { chromium } = require('playwright');
+  const { chromium } = requireDep('playwright');
   const { resolveExecutablePath } = require('./browser-path');
 
   // Resolve once, fail loud and stop — never install, never retry the search.

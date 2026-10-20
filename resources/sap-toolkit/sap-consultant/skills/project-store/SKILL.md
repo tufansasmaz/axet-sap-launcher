@@ -21,9 +21,11 @@ every file, so a later edit is detectable.
 
 ```
 Projects/
-└── musteri-k-enerji/            <- the project code, from the workspace pin
-    ├── _liste.json              <- the development list (Orbit export)
-    ├── SD007/                   <- one folder per development ITEM
+└── musteri-k-enerji/                 <- the project code, from the workspace pin
+    ├── 00 Belge Listesi.xlsx    <- every document, one row; rebuilt on each save
+    ├── _liste.json              <- the development list (Orbit / Trace Lens)
+    ├── _Proje/                  <- project documents: BBP, Fast-Scan, Toplanti-Notlari
+    ├── PRJK-1911 SD007/         <- one folder per development ITEM: key + code
     │   ├── FS/
     │   │   ├── SD007-Commercial-Invoice.docx
     │   │   ├── SD007-Commercial-Invoice.md
@@ -70,6 +72,7 @@ covers the exact bytes that were saved.
 py <SCRIPTS>/project_store.py where          # is the store synced here?
 py <SCRIPTS>/project_store.py whoami         # the identity a record would carry
 py <SCRIPTS>/project_store.py items          # the development list
+py <SCRIPTS>/project_store.py index          # rebuild 00 Belge Listesi.xlsx
 py <SCRIPTS>/project_store.py save --kind FS --item SD007 \
     --file <fs.docx> --file <fs.md> --skill fs-generator --approved
 py <SCRIPTS>/project_store.py assign --record <X.onay.json> --item SD007
@@ -84,7 +87,11 @@ Before saving, run `items` and **show the person the list**. They pick; you
 never guess. Title similarity would file a document under the wrong development
 quietly, which is the same failure the project code was tightened against.
 
-- **They pick an id** → `--item <id>`. It lands in that item's folder.
+- **A project document** (`--kind BBP`, `Fast-Scan`, `Toplanti-Notlari`) → no
+  `--item`; it files under `_Proje/<KIND>/`. Passing one is refused.
+- **They pick an item** → `--item <id>`: the Orbit key (`PRJK-2768`) or the
+  development code (`QM014`) when only one item carries it. It lands in the
+  item's folder, which is always named by the key.
 - **The work is not in the list** → omit `--item`. It lands in `_Listesiz/`.
 - **No list is loaded yet** → everything lands in `_Listesiz/`. Still pass
   `--item` if they can name the id: it is written into the record, and that is
@@ -134,6 +141,46 @@ Save the Word file **and** its Markdown source together, in one `save`.
 
 **Nothing is saved on 3.** Say so — do not report success because a local file
 exists. The local copy in `./fs-output/` is still there.
+
+## Then offer Orbit — a second, separate yes
+
+After a save succeeds, and only for a project whose development list names an
+`orbit_project` (Customer K: PRJK, Customer M: PRJM; not Customer Q, which is tracked in
+Trace Lens), offer to publish the approved document to Orbit. That is where the
+project team reads it.
+
+```bash
+py <SCRIPTS>/orbit_publish.py plan    --record <X.onay.json>            # nothing sent
+py <SCRIPTS>/orbit_publish.py publish --record <X.onay.json> --confirmed
+py <SCRIPTS>/orbit_publish.py status  --record <X.onay.json>
+```
+
+1. Run `plan` and **show it**: the page title, the folder it goes under
+   (e.g. `05 - TS Dökümanları -> QM - TS Dokümanları`), and the work item that gets
+   the link.
+2. Ask once: *"Bu TS'i Orbit'e de gönderelim mi? Sayfa yukarıdaki klasöre
+   eklenecek, PRJK-2768'e bağlantı ve kısa bir yorum düşülecek."* Pass
+   `--confirmed` only on a clear yes. The approval of the document is NOT this
+   yes — publishing puts it where the whole project team (and possibly the
+   customer) reads.
+3. Publishing again updates the same page; it never makes a second one.
+4. **A trial run** — only when the person says it is a test ("deneme"): add
+   `--title-prefix "[DENEME] "` to `plan` and `publish` so the team can tell the
+   page apart, and offer `unpublish --confirmed` afterwards, which removes the
+   page, its link and the comment.
+
+**Exit 5 after "changed in Orbit"** means someone edited the page by hand since
+it was published. Do not retry with `--overwrite-edits` on your own: tell the
+person, and ask whether to keep their Orbit edits (fold them into the source and
+approve again) or overwrite them. Only an explicit "overwrite" allows the flag.
+
+**Exit 3** is no Orbit session on this machine: the person signs in once with
+`npx orbit-mcp login`. Never ask for their Orbit password. **Exit 6** means the
+document has no place in Orbit (no `orbit_project`, no item key, or no folder
+for this kind in the page tree) — report it; do not create the tree.
+
+Mermaid diagrams go over as labelled code blocks (Orbit's editor draws none);
+images do not go over yet. Say so when the TS has either.
 
 ## Never overwritten
 

@@ -179,6 +179,28 @@ def raw_opts(code: str, text: str) -> dict:
                "decimals": str(int(one("decimals") or 0)),
                "output_length": out_len,
                "lowercase": one("lowercase") or "false"}
+        # Fixed values (the domain's value range / F4 list) live in their own
+        # block and were NOT read here until 2026-10-17 -- a domain transferred
+        # through this skill lost every fixed value silently: the create on the
+        # target succeeded, activated clean, and came back as a domain with no
+        # value range at all. Nothing in the deploy step failed, because nothing
+        # was ever asked to carry them -- `raw_opts` simply never looked.
+        # adt_create_domain's `fixed_values` parameter wants [{'value','text'}],
+        # the same shape built here -- NOT the {'low','high','description'} shape
+        # a bare domain-content READ returns elsewhere, which is exactly the
+        # second, different trap `_normalised_fixed_values` in sap-adt exists for.
+        fix_values = []
+        for m in re.finditer(r"<doma:fixValue>(.*?)</doma:fixValue>", text, re.S):
+            block = m.group(1)
+            low_m = re.search(r"<doma:low>([^<]*)</doma:low>", block)
+            text_m = re.search(r"<doma:text>([^<]*)</doma:text>", block)
+            value = (low_m.group(1).strip() if low_m else "")
+            if not value:
+                continue
+            fix_values.append({"value": value,
+                               "text": (text_m.group(1).strip() if text_m else value)})
+        if fix_values:
+            out["fixed_values"] = fix_values
         return {k: v for k, v in out.items() if v != ""}
     if code == "DTEL":
         def one(tag):
@@ -420,6 +442,25 @@ def write_plan(path: Path, meta: dict, objs: list[dict]) -> None:
                     for m in v:
                         L.append("        - {number: \"%s\", text: %s}"
                                  % (m["number"], yaml_str(m["text"])))
+                elif k == "fixed_values":
+                    # A domain's value range -- another list-of-dicts, same shape
+                    # trap as function_modules/messages above: the generic `else`
+                    # branch below stringifies anything that is not one of these
+                    # named cases, so a plain list of {'value','text'} dicts fell
+                    # through it, got written as the Python repr string
+                    # "[{'value': '1', 'text': '...'}]", and came back from
+                    # yaml.safe_load() at deploy time as THAT STRING rather than a
+                    # list -- indistinguishable from "no fixed values" to the
+                    # DOMA deploy spec in transfer_deploy.py, which only forwards
+                    # opts.get("fixed_values") when it is truthy and never
+                    # validated its type. The domain created clean, activated
+                    # clean, and simply had no value range -- no error anywhere
+                    # named this. See raw_opts()'s DOMA branch above for the read
+                    # side of the same 2026-10-17 fix.
+                    L.append("      fixed_values:")
+                    for fv in v:
+                        L.append("        - {value: %s, text: %s}"
+                                 % (yaml_str(fv["value"]), yaml_str(fv["text"])))
                 elif isinstance(v, dict):
                     L.append("      %s: {%s}" % (k, ", ".join(
                         "%s: %s" % (kk, yaml_str(str(vv))) for kk, vv in sorted(v.items()))))

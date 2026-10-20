@@ -1786,18 +1786,21 @@ def adt_create_table_type(name: str, package: str, description: str, row_type: s
     standard | sorted | hashed | index. key_kind: unique | nonUnique | notSpecified.
     """
     client = _get_client()
-    existed = _ddic_exists(client, "tabletype", name)
-    if not existed:
+    if not _ddic_exists(client, "tabletype", name):
+        # create_table_type writes the row type itself since 2026-10-19: the create POST
+        # keeps none of it (the object comes back CHAR(1) with an empty typeName), so
+        # the client method now runs set_table_type_content as its second step and
+        # fails when that fails. Running it again here would be a second, redundant
+        # write with its own lock.
         res = _ddic_typed(client.create_table_type, name, "tabletype",
                           name=name, row_type=row_type, description=description,
                           package=package, transport=transport or None,
                           access_type=access_type, key_kind=key_kind)
-        if not res.get("ok"):
-            return res
-    # STEP 2 -- the row type. The create returns 201 and keeps none of it: the
-    # object comes back predefinedAbapType CHAR(1) with an empty typeName, and the
-    # first symptom appears elsewhere ("... is not a valid range table" on a
-    # function module that uses it). Same two-step as data elements.
+        if res.get("ok"):
+            res["message"] = "created, row type written (%s)" % row_type.upper()
+        return res
+    # The object is already there -- a shell an earlier run left CHAR(1), or a plain
+    # re-run: rewrite its content rather than report a duplicate.
     buf = None
     try:
         with _quiet() as buf:
@@ -1807,7 +1810,7 @@ def adt_create_table_type(name: str, package: str, description: str, row_type: s
                 key_kind=key_kind, transport=transport or None)
         if filled.get("ok"):
             return {"ok": True, "name": name.upper(), "type": "tabletype",
-                    "existed": existed,
+                    "existed": True,
                     "message": "row type written (%s)" % filled.get("row_type")}
         return {"ok": False, "error": "row_type_not_written",
                 "message": str(filled.get("message"))[:900]}

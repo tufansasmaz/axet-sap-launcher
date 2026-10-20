@@ -24,11 +24,18 @@ No tenant, URL or key in here (house rule). The store is found by CONTENT: the
 synced folder that carries STORE_MARKER, located through OneDrive's own record of
 what it syncs. How to sync it lives in the department's setup document.
 
-Layout
-------
-    Projects/<project>/<ITEM>/<KIND>/          e.g. musteri-k-enerji/SD007/FS/
+Layout (2026-09-28)
+-------------------
+    Projects/<project>/00 Belge Listesi.xlsx   every document, one row, rebuilt on each save
+    Projects/<project>/_Proje/<KIND>/          project documents: BBP, Fast Scan, meetings
+    Projects/<project>/<ID> <CODE>/<KIND>/     e.g. musteri-q/SAP-10465 EWM001/FS/
     Projects/<project>/_Listesiz/<KIND>/       no list loaded, or no item given
-    Projects/<project>/_liste.json             the development list (Orbit)
+    Projects/<project>/_liste.json             the development list (Orbit, Trace Lens)
+
+The item folder carries the key AND the code a person knows it by (EWM001):
+nobody browsing SharePoint recognises SAP-10465. The key leads and is what the
+tool matches on, so a code changed in the tracker does not orphan the folder.
+The "all FS of the project" view is the index workbook, not a second tree.
 
 One folder per development ITEM, a KIND folder always inside it, because the
 work ships per item: Customer K's flow carries six deliverables for a single
@@ -43,6 +50,7 @@ Commands
   where                        locate the synced store
   whoami                       the identity a record would carry
   items  [--project DIR]       the development list, or how to load one
+  index  [--project DIR]       rebuild 00 Belge Listesi.xlsx
   init   --dest DIR            maintainer, once: mark a synced folder as the store
   save   --kind K --file F [--file F ...] --approved
          [--item ID] [--project DIR] [--skill NAME]
@@ -72,7 +80,16 @@ STORE_MARKER = ".ntt-projects.json"
 PIN_NAME = ".ntt-profile.yaml"
 # The development list names the kinds; this is the fallback when no list
 # is loaded. Customer K's flow alone has six (FS, TS, ABAP, two tests, user doc).
-DEFAULT_KINDS = ("FS", "TS", "BBP")
+DEFAULT_KINDS = ("FS", "TS", "Test", "Kullanici-Dokumani",
+                 "BBP", "Fast-Scan", "Toplanti-Notlari")
+# Kinds that belong to the PROJECT, not to one development: they file under
+# PROJECT_DIR whatever the list says. BBP used to land in _Listesiz, which reads
+# as "information missing" for a document that was never meant to have an item.
+PROJECT_KINDS = ("BBP", "Fast-Scan", "Toplanti-Notlari")
+PROJECT_DIR = "_Proje"
+INDEX_NAME = "00 Belge Listesi.xlsx"
+# A code goes into a folder name, so it is held to a short safe spelling.
+CODE_SAFE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,15}$")
 LIST_NAME = "_liste.json"
 # Everything lands here until a list says otherwise. Leading underscore so it
 # does not sort in among the item folders.
@@ -377,11 +394,20 @@ def find_item(lst: dict, wanted: str) -> tuple[str, str] | None:
 
     Case-insensitive and NEVER fuzzy. Title similarity would file a document
     under the wrong development quietly; the consultant picks, the tool obeys.
+
+    The id is the Orbit key (PRJK-2768) and names the folder. A consultant says
+    the development code instead (QM014), so an exact `code` is accepted too --
+    but only when ONE item carries it: a code reused by a cancelled item and its
+    replacement must be picked by key, not by whichever came first.
     """
     w = wanted.strip().lower()
-    for it in lst.get("items", []):
-        if isinstance(it, dict) and str(it.get("id") or "").strip().lower() == w:
+    items = [it for it in lst.get("items", []) if isinstance(it, dict)]
+    for it in items:
+        if str(it.get("id") or "").strip().lower() == w:
             return str(it["id"]).strip(), str(it.get("title") or "")
+    by_code = [it for it in items if str(it.get("code") or "").strip().lower() == w]
+    if len(by_code) == 1:
+        return str(by_code[0]["id"]).strip(), str(by_code[0].get("title") or "")
     return None
 
 
@@ -390,6 +416,231 @@ def item_ids(lst: dict | None) -> set:
         return set()
     return {str(i.get("id") or "").strip().lower()
             for i in lst.get("items", []) if isinstance(i, dict)}
+
+def item_code(lst: dict | None, iid: str) -> str:
+    for it in (lst or {}).get("items", []):
+        if isinstance(it, dict) and str(it.get("id") or "").strip() == iid:
+            c = str(it.get("code") or "").strip()
+            return c if CODE_SAFE_RE.match(c) else ""
+    return ""
+
+
+def folder_id(name: str) -> str:
+    """The key an item folder is named after: `SAP-10465 EWM001` -> SAP-10465."""
+    return name.split(" ", 1)[0]
+
+
+def item_dir(root: Path, lst: dict | None, iid: str) -> Path:
+    """The item's folder: the one already there for this key, whatever code it
+    carries, else `<key> <code>` (or the bare key when there is no code)."""
+    if long_path(root).is_dir():
+        for d in long_path(root).iterdir():
+            if d.is_dir() and folder_id(d.name).lower() == iid.lower():
+                return root / d.name
+    code = item_code(lst, iid)
+    return root / (f"{iid} {code}" if code else iid)
+
+
+# --- the index workbook --------------------------------------------------------
+# Written with the standard library (this script ships to consultants and stays
+# stdlib-only): one sheet, a header row, a filter and a frozen header.
+
+def _xml(s: str) -> str:
+    s = "".join(ch for ch in str(s) if ch in "\t\n\r" or ord(ch) >= 32)
+    return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;"))
+
+
+def _col(i: int) -> str:
+    s = ""
+    i += 1
+    while i:
+        i, r = divmod(i - 1, 26)
+        s = chr(65 + r) + s
+    return s
+
+
+def _sheet(head: list, rows: list, links: dict, widths: list) -> tuple[str, str]:
+    """One worksheet's XML and its hyperlink relationships ('' when it has none)."""
+    from urllib.parse import quote
+    cells = []
+    for r, row in enumerate([head] + rows, start=1):
+        bold = ' s="1"' if r == 1 else ""
+        cs = "".join(f'<c r="{_col(c)}{r}" t="inlineStr"{bold}>'
+                     f'<is><t xml:space="preserve">{_xml(v)}</t></is></c>'
+                     for c, v in enumerate(row))
+        cells.append(f'<row r="{r}">{cs}</row>')
+    last = f"{_col(len(head) - 1)}{len(rows) + 1}"
+    hl, rels = "", ""
+    if links:
+        hl = "<hyperlinks>" + "".join(
+            f'<hyperlink ref="{ref}" r:id="rId{n}"/>' for n, ref in enumerate(links, 1)
+        ) + "</hyperlinks>"
+        rels = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                + "".join(f'<Relationship Id="rId{n}" Type="http://schemas.openxmlformats.org/'
+                          f'officeDocument/2006/relationships/hyperlink" '
+                          f'Target="{_xml(quote(t))}" TargetMode="External"/>'
+                          for n, t in enumerate(links.values(), 1))
+                + "</Relationships>")
+    cols = "<cols>" + "".join(f'<col min="{i + 1}" max="{i + 1}" width="{w}" customWidth="1"/>'
+                              for i, w in enumerate(widths)) + "</cols>"
+    sheet = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+             '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+             'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+             '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" '
+             'activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+             f'{cols}<sheetData>{"".join(cells)}</sheetData>'
+             f'<autoFilter ref="A1:{last}"/>{hl}</worksheet>')
+    return sheet, rels
+
+
+def _xlsx(path: Path, head: list, rows: list, links: dict, widths: list,
+          extra: tuple | None = None) -> None:
+    """The workbook: sheet 1 `Belgeler`; with `extra` = (name, head, rows, widths),
+    a second sheet of plain cells (no links)."""
+    sheets = [("Belgeler", head, rows, links, widths)]
+    if extra:
+        sheets.append((extra[0], extra[1], extra[2], {}, extra[3]))
+    styles = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+              '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+              '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font>'
+              '<font><b/><sz val="11"/><name val="Calibri"/></font></fonts>'
+              '<fills count="2"><fill><patternFill patternType="none"/></fill>'
+              '<fill><patternFill patternType="gray125"/></fill></fills>'
+              '<borders count="1"><border/></borders>'
+              '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+              '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
+              '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>'
+              '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
+              '</styleSheet>')
+    n = len(sheets)
+    overrides = "".join(
+        f'<Override PartName="/xl/worksheets/sheet{i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        for i in range(1, n + 1))
+    names = "".join(f'<sheet name="{nm}" sheetId="{i}" r:id="rId{i}"/>'
+                    for i, (nm, *_rest) in enumerate(sheets, 1))
+    filters = "".join(
+        f'<definedName name="_xlnm._FilterDatabase" localSheetId="{i - 1}" hidden="1">'
+        f"{nm}!$A$1:${_col(len(hd) - 1)}${len(rw) + 1}</definedName>"
+        for i, (nm, hd, rw, *_rest) in enumerate(sheets, 1))
+    sheet_rels = "".join(
+        f'<Relationship Id="rId{i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i}.xml"/>'
+        for i in range(1, n + 1))
+    parts = {
+        "[Content_Types].xml":
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+            + overrides +
+            '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+            '</Types>',
+        "_rels/.rels":
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+            '</Relationships>',
+        "xl/workbook.xml":
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+            f'<sheets>{names}</sheets><definedNames>{filters}</definedNames>'
+            '</workbook>',
+        "xl/_rels/workbook.xml.rels":
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            + sheet_rels +
+            f'<Relationship Id="rId{n + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+            '</Relationships>',
+        "xl/styles.xml": styles,
+    }
+    for i, (_nm, hd, rw, lk, wd) in enumerate(sheets, 1):
+        xml, rels = _sheet(hd, rw, lk, wd)
+        parts[f"xl/worksheets/sheet{i}.xml"] = xml
+        if rels:
+            parts[f"xl/worksheets/_rels/sheet{i}.xml.rels"] = rels
+    tmp = path.with_name(path.name + ".tmp")
+    with zipfile.ZipFile(long_path(tmp), "w", zipfile.ZIP_DEFLATED) as z:
+        for name, body in parts.items():
+            z.writestr(name, body)
+    os.replace(long_path(tmp), long_path(path))
+
+
+def coverage_sheet(lst: dict | None, filed: dict) -> tuple | None:
+    """The `Kapsam` sheet: one row per development of the loaded list, and for each
+    document kind the newest approved version on file, or `Yok`. This is what answers
+    "which development has no FS yet" -- the `Belgeler` sheet lists only what exists.
+    `filed` maps (item id, kind) -> highest version. None when no list is loaded."""
+    items = [i for i in (lst or {}).get("items", []) if isinstance(i, dict) and i.get("id")]
+    if not items:
+        return None
+    kinds = [k for k in (lst.get("kinds") or DEFAULT_KINDS) if k not in PROJECT_KINDS]
+    head = ["Kalem", "Kod", "Başlık", "Modül", "Tip", "Faz", "Kapsam", "Durum"] + kinds
+    rows = []
+    for it in sorted(items, key=lambda i: str(i["id"])):
+        iid = str(it["id"])
+        rows.append([iid, it.get("code", ""), it.get("title", ""), it.get("module", ""),
+                     it.get("type", ""), it.get("phase", ""), it.get("scope", ""),
+                     it.get("status", "")]
+                    + [(f"v{filed[(iid, k)]}" if (iid, k) in filed else "Yok") for k in kinds])
+    return ("Kapsam", head, rows, [14, 10, 48, 10, 14, 10, 18, 18] + [14] * len(kinds))
+
+
+def write_index(store: Path, code: str, lst: dict | None) -> str:
+    """Rebuild the project's document list. Never fails the operation that
+    called it: a workbook open in Excel is locked, and the save that triggered
+    the rebuild has already succeeded. Returns a note for the caller to print."""
+    root = store / code
+    if not long_path(root).is_dir():
+        return ""
+    info = {str(i.get("id")): i for i in (lst or {}).get("items", []) if isinstance(i, dict)}
+    rows, links, filed = [], {}, {}
+    # Developments first, then _Proje and _Listesiz: the underscore folders
+    # would otherwise sort to the top of every filter.
+    recs = sorted(long_path(root).rglob("*" + RECORD_SUFFIX),
+                  key=lambda r: (os.path.relpath(r, long_path(root)).startswith("_"), str(r)))
+    for rec in recs:
+        try:
+            d = json.loads(rec.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        rel = Path(os.path.relpath(rec, long_path(root)))
+        top = rel.parts[0] if len(rel.parts) > 1 else ""
+        iid = "" if top in (PROJECT_DIR, UNLISTED) else folder_id(top)
+        it = info.get(iid, {})
+        files = [f.get("name", "") for f in d.get("files", [])]
+        main = next((n for n in files if n.lower().endswith(".docx")), files[0] if files else "")
+        appr = d.get("approved", {})
+        rows.append([
+            iid or (PROJECT_DIR if top == PROJECT_DIR else UNLISTED),
+            it.get("code", ""), it.get("title") or d.get("item_title", ""),
+            d.get("kind", ""), str(d.get("version", "")), main,
+            appr.get("by_name", ""), str(appr.get("at_utc", ""))[:10],
+            it.get("module", ""), it.get("status", ""),
+            str(rel.parent).replace("\\", "/"),
+        ])
+        if main:
+            links[f"F{len(rows) + 1}"] = str(rel.parent / main).replace("\\", "/")
+        if iid and iid not in (PROJECT_DIR, UNLISTED):
+            try:
+                ver = int(str(d.get("version", "")).split(".")[0])
+            except ValueError:
+                ver = 0
+            key = (iid, d.get("kind", ""))
+            filed[key] = max(filed.get(key, 0), ver)
+    head = ["Kalem", "Kod", "Başlık", "Tür", "Sürüm", "Belge", "Onaylayan",
+            "Onay tarihi", "Modül", "Kalem durumu", "Klasör"]
+    try:
+        _xlsx(root / INDEX_NAME, head, rows, links,
+              [14, 10, 48, 18, 7, 40, 22, 12, 10, 22, 36],
+              extra=coverage_sheet(lst, filed))
+    except OSError as exc:
+        return (f"  NOTE: {INDEX_NAME} could not be rebuilt ({exc.__class__.__name__}"
+                f" -- open in Excel?). Run `index` later; the save itself is done.")
+    return f"  index: {INDEX_NAME} ({len(rows)} document(s))"
+
 
 def next_version(folder: Path, stem: str) -> tuple[int, str]:
     """Never overwrite an approved record: the next free version wins.
@@ -485,6 +736,10 @@ def cmd_save(args) -> int:
     lst = read_list(store, code)
     kind = resolve_kind(list_kinds(lst), args.kind)
     wanted = (args.item or "").strip()
+    project_kind = kind in PROJECT_KINDS
+    if project_kind and wanted:
+        die(f"{kind} is a project document: it files under {PROJECT_DIR}/{kind}/, "
+            f"not under a development. Omit --item. NOTHING was saved.", EXIT_USAGE)
     if wanted and not ITEM_RE.match(wanted):
         die(f"{wanted!r} is not a usable item id (letters, digits, . _ -, at "
             f"most 25 characters). NOTHING was saved.", EXIT_USAGE)
@@ -508,7 +763,12 @@ def cmd_save(args) -> int:
         folder_item, title = hit
         recorded = folder_item
 
-    folder = store / code / (folder_item or UNLISTED) / kind
+    if project_kind:
+        folder = store / code / PROJECT_DIR / kind
+    elif folder_item:
+        folder = item_dir(store / code, lst, folder_item) / kind
+    else:
+        folder = store / code / UNLISTED / kind
     long_path(folder).mkdir(parents=True, exist_ok=True)
     stem = files[0].stem
     version, base = next_version(folder, stem)
@@ -553,7 +813,7 @@ def cmd_save(args) -> int:
     long_path(rec_path).write_text(json.dumps(record, ensure_ascii=False, indent=2),
                                    encoding="utf-8")
 
-    where = f"{code}/{folder_item}" if folder_item else f"{code}/{UNLISTED}"
+    where = f"{code}/{folder.parent.name}"
     print(f"saved {kind} v{version} under {where}:")
     for s in saved:
         print(f"  {folder / s['name']}")
@@ -561,7 +821,10 @@ def cmd_save(args) -> int:
     print(f"  approved by: {ident['name']} <{ident['email']}>")
     if not ident["identity_consistent"]:
         print("  WARNING: OneDrive and Windows name different accounts.")
-    if folder_item is None:
+    note = write_index(store, code, lst)
+    if note:
+        print(note)
+    if folder_item is None and not project_kind:
         if lst is None:
             print(f"  NOTE: no development list loaded for '{code}' -- filed "
                   f"under {UNLISTED}. `reconcile` moves it once one is loaded"
@@ -586,15 +849,22 @@ def cmd_items(args) -> int:
         print(f"no development list loaded for '{code}'.")
         print(f"  Everything is filed under {UNLISTED}/<KIND>/ until one is.")
         print(f"  Load it here: {list_path(store, code)}")
-        print('  Shape: {"items": [{"id": "SD007", "title": "..."}], '
-              '"kinds": ["FS", "TS"]}')
+        print('  Shape: {"items": [{"id": "PRJK-1911", "code": "SD007", '
+              '"title": "..."}], "kinds": ["FS", "TS"]}')
         return 0
     items = [i for i in lst["items"] if isinstance(i, dict)]
     print(f"development list for '{code}': {len(items)} item(s)"
           + (f", generated {lst['generated']}" if lst.get("generated") else ""))
     for it in items:
-        print(f"  {str(it.get('id') or ''):<12} {it.get('title') or ''}")
+        print(f"  {str(it.get('id') or ''):<12} {str(it.get('code') or ''):<8} "
+              f"{it.get('status') or '':<22} {it.get('title') or ''}")
     print(f"kinds: {', '.join(list_kinds(lst))}")
+    return 0
+
+
+def cmd_index(args) -> int:
+    store, code = _store_and_code(args)
+    print(write_index(store, code, read_list(store, code)) or "no project folder yet.")
     return 0
 
 
@@ -629,7 +899,7 @@ def cmd_reconcile(args) -> int:
             if hit is None:
                 unknown.append((rec.relative_to(root), named))
                 continue
-            dest = root / hit[0] / rec.parent.name
+            dest = item_dir(root, lst, hit[0]) / rec.parent.name
             names = [f["name"] for f in data.get("files", [])] + [rec.name]
             clash = [n for n in names if long_path(dest / n).exists()]
             if clash:
@@ -640,8 +910,8 @@ def cmd_reconcile(args) -> int:
 
     known = item_ids(lst)
     orphans = sorted(d.name for d in root.iterdir()
-                     if d.is_dir() and d.name != UNLISTED
-                     and d.name.lower() not in known)
+                     if d.is_dir() and d.name not in (UNLISTED, PROJECT_DIR)
+                     and folder_id(d.name).lower() not in known)
 
     for src, dest, names, iid in moves:
         print(f"  MOVE  {src.relative_to(root)}/ -> {iid}/{dest.name}/  "
@@ -673,6 +943,9 @@ def cmd_reconcile(args) -> int:
         if not any(src.iterdir()):
             src.rmdir()
     print(f"moved {done} set(s).")
+    note = write_index(store, code, lst)
+    if note:
+        print(note)
     return 0
 
 def cmd_assign(args) -> int:
@@ -768,6 +1041,8 @@ def main() -> int:
     p.set_defaults(func=cmd_save)
     p = sub.add_parser("items"); p.add_argument("--project")
     p.set_defaults(func=cmd_items)
+    p = sub.add_parser("index"); p.add_argument("--project")
+    p.set_defaults(func=cmd_index)
     p = sub.add_parser("assign"); p.add_argument("--project")
     p.add_argument("--record", required=True)
     p.add_argument("--item", required=True)

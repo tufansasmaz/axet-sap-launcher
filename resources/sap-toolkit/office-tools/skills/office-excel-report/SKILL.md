@@ -36,21 +36,33 @@ charts.
 
 ## Formatting Options
 
+**The look is the house look, not an option.** Since 2026-09-29 every report
+is built on `lib/xlsx_theme.py`, the workbook theme Fast Scan uses: the NTT mark
+and a header block (title, customer, project, date, one line on how to read it),
+a real Excel table (filter and sort on every column), house-blue header, zebra,
+frozen header, A4 landscape fitted to one page wide with the title and page
+numbers in the footer. Column names are shown without underscores
+(`Devam_Eden` → `Devam Eden`), a share column (`…Oran…`, `rate`, `pct` with
+values 0–1) as a percentage, whole numbers with thousands separators. The old
+colour flags are accepted and ignored.
+
 | Option | Flag | Default |
 |---|---|---|
-| Report title (row 1) | `--title "My Report"` | none |
-| Header background colour | `--header-color "1F4E79"` | dark blue |
-| Header font colour | `--header-font-color "FFFFFF"` | white |
-| Alternating row colour | `--alt-row-color "DCE6F1"` | light blue |
-| Freeze header row | `--freeze-header` | yes |
-| Auto-fit column widths | `--auto-width` | yes |
-| Number format per column | `--number-format "Revenue=#,##0.00,Pct=0.00%"` | none |
-| Conditional format | `--cond-format "Revenue<0=red"` | none |
+| Report title | `--title "Haftalık Durum"` | none |
+| Header block | `--customer`, `--project`, `--version` | none (date is today) |
+| One line under the title | `--legend "..."` | how to filter/sort |
+| Language of the words it writes | `--lang tr\|en` | tr |
+| Number format per column | `--number-format "Revenue=#,##0.00,Pct=0.00%"` | automatic (see above) |
+| Conditional format | `--cond-format "Revenue<0=red"` (red/green/yellow/orange = soft fills) | none |
 | Chart type | `--chart bar\|line\|pie` | none |
 | Chart columns | `--chart-cols "Month,Revenue,Cost"` | none |
-| Sheet name | `--sheet "Report"` | Sheet1 |
+| Chart title | `--chart-title "..."` | the series names — never "Chart" |
+| Sheet name | `--sheet "Rapor"` | Rapor |
 | Read from specific sheet | `--input-sheet "Data"` | first sheet |
-| A4 landscape print + freeze header row | `--print-setup` | off |
+
+The chart takes the house blues (never red/green for "in progress"/"not
+started"), sits under the table as wide as the table, and is inside the print
+area — the page prints as one piece.
 
 ---
 
@@ -68,18 +80,15 @@ python plugins/office-tools/skills/office-excel-report/scripts/report_excel.py \
   --input "<data.csv|json|xlsx>" \
   --output "<report.xlsx>" \
   --title "Monthly Revenue Report" \
-  --header-color "1F4E79" \
-  --alt-row-color "DCE6F1" \
-  --number-format "Revenue=#,##0.00,Share=0.00%" \
-  --freeze-header \
-  --auto-width \
-  [--chart bar --chart-cols "Month,Revenue"]
+  --customer "Örnek A.Ş." --project "S/4HANA Dönüşüm" \
+  [--number-format "Revenue=#,##0.00"] \
+  [--chart bar --chart-cols "Month,Revenue" --chart-title "Aylık gelir"]
 ```
 
 ### Step 3 — Report to user
 
-Confirm the output file path and size. Describe what formatting was applied
-(colours used, chart included, number formats set).
+Confirm the output file path and size, and what the reader will find (the
+table, the chart, which columns were formatted as percentages).
 
 ---
 
@@ -93,69 +102,49 @@ After confirming the report, always ask:
 
 ## Multi-Sheet Management Reports
 
-When the request involves **multiple domains/sections, KPI summary cards,
-per-sheet charts, and conditional colour coding** (e.g. a top-management
-consolidated report), skip `report_excel.py` and write a **custom openpyxl
-script** instead. This pattern is faster and gives full layout control.
-
-### Recommended helper functions (copy-paste template)
+When the request involves **multiple sheets or sections, KPI rows and per-sheet
+charts** (e.g. a top-management consolidated report), write a short script — but
+build it on the house workbook theme, **never on a palette of your own**.
+`plugins/office-tools/lib/xlsx_theme.py` is what `report_excel.py`, the Excel
+delta, Fast Scan and library-match use; a hand-rolled "NTT palette" is how a
+report came out in `003087` navy and Calibri beside documents in `0072BC` and
+Segoe UI (that palette stood in this section until 2026-09-29).
 
 ```python
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.chart import BarChart, PieChart, Reference
+import sys
+sys.path.insert(0, "plugins/office-tools/lib")        # or the installed skills' lib
+import xlsx_theme as xt
+from theme import ACCENT_HEX, DEEP_HEX, MUTED_HEX     # the house colours
 
-# NTT DATA brand palette
-C_DARK_BLUE  = "003087"
-C_MID_BLUE   = "00AEEF"
-C_LIGHT_BLUE = "E8F4FB"
-C_WHITE      = "FFFFFF"
-C_GREEN      = "00B050"
-C_RED        = "FF0000"
-C_TOTAL_BG   = "1F3864"
-
-def fill(hex_color):
-    return PatternFill("solid", fgColor=hex_color)
-
-def font(bold=False, size=11, color="000000"):
-    return Font(name="Calibri", bold=bold, size=size, color=color)
-
-def border_thin():
-    s = Side(border_style="thin", color="BFBFBF")
-    return Border(left=s, right=s, top=s, bottom=s)
-
-def align(h="left", v="center", wrap=False):
-    return Alignment(horizontal=h, vertical=v, wrap_text=wrap)
+meta = {"title": "Yönetim Raporu — Eylül 2026", "customer": "Örnek A.Ş.",
+        "project": "S/4HANA Dönüşüm"}
+wb = xt.new_workbook(meta)
+for name, columns, rows in sections:                  # one sheet per section
+    ws = xt.add_table_sheet(wb, name, columns, rows, meta=meta,
+                            legend="Her kolonda filtre ve sıralama var.")
+    # ...a chart under the table, series in ACCENT_HEX, DEEP_HEX, "6CACE4", MUTED_HEX
+wb.save("rapor.xlsx")
 ```
+
+Each sheet then has the NTT mark and header block, a filterable Excel table,
+house-blue header, tinted zebra, frozen header, A4 landscape on one page wide and
+the title and page numbers in the footer. `columns` is a list of
+`{"key", "header", "width", "input", "choices"}`; see the module's docstring.
 
 ### Chart series API (openpyxl 3.x)
 
-In openpyxl 3.x the `series[0].title.v` attribute **does not exist**. Use
-these patterns instead:
+In openpyxl 3.x the `series[0].title.v` attribute **does not exist**:
 
 ```python
-# Set series colour
-chart.series[0].graphicalProperties.solidFill = "003087"
-
-# Set series label via data reference (preferred)
-data_ref = Reference(ws, min_col=2, max_col=2, min_row=1, max_row=13)
-chart.add_data(data_ref, titles_from_data=True)   # row 1 becomes the label
+from openpyxl.chart.shapes import GraphicalProperties
+series.graphicalProperties = GraphicalProperties(solidFill=ACCENT_HEX)
+data_ref = Reference(ws, min_col=2, max_col=2, min_row=header_row, max_row=last_row)
+chart.add_data(data_ref, titles_from_data=True)   # the header row becomes the label
+chart.x_axis.delete = False; chart.y_axis.delete = False   # or the axes vanish
 ```
 
-### Sheet structure pattern for management reports
-
-```
-Row 1  – Title bar (dark blue, merged, white bold 18pt)
-Row 2  – Subtitle (light blue, italic, report period)
-Row 3  – blank spacer (height 8)
-Row 4  – Section A header (mid-blue, bold 13pt)
-Row 5  – Column headers (dark blue, white text)
-Row 6+ – Data rows (alternating white / E8F4FB)
-         Total row: dark navy (1F3864) background
-Row N  – Section B header …
-         Embed charts to the right of tables (e.g. anchor "G24")
-Row M  – Footer (grey 9pt, "RESTRICTED — Org | Date")
-```
+Blues for status series; keep red and green for a real good/bad meaning, not for
+"in progress" and "not started".
 
 ---
 

@@ -12,7 +12,7 @@ table.
 ## Page 1 — the board
 
 ```
-## KOD KALİTE KARNESİ — ZCL_SD_DELIVERY_ADDR
+# Kod Kalite Karnesi — ZCL_SD_DELIVERY_ADDR
 
 DEV/100 · class · S4DK900431 · B. Meyrali · 05.08.2026
 
@@ -88,7 +88,7 @@ finding stays a blocker; a person overrules it in public. Six months later the q
 
 - The board again, with the raw artifact filename and SHA-256 per machine gate. That is
   what makes the run reproducible by somebody who does not trust it.
-- `NELERİ KONTROL EDEMEDİM` in full.
+- `Neleri kontrol edemedim` in full.
 - The ATC variant name, spelled out. A board without it is unfalsifiable.
 
 ---
@@ -98,8 +98,13 @@ finding stays a blocker; a person overrules it in public. Six months later the q
 ```bash
 py plugins/office-tools/skills/office-pdf/scripts/md_to_pdf.py \
   --input board.md --output ZCL_SD_DELIVERY_ADDR-kalite.pdf \
-  --title "Kod Kalite Karnesi — ZCL_SD_DELIVERY_ADDR"
+  --eyebrow "KOD KALİTE KARNESİ" --classification "Gizli — Müşteriye Özel"
 ```
+
+The board's first line, `# Kod Kalite Karnesi — <object>`, is the title. What
+follows it is the three parts below as **sections**, `## Düzeltme önerileri` and
+`## Kayıt` — not "Sayfa 2 —": nothing breaks the page, and a heading that says
+"page 2" in the middle of page 1 reads as a mistake (sample, 2026-09-29).
 
 **No `--redact-pii`.** The masker treats any 10–11 digit number as a tax ID and will eat
 SAP object and document keys — which are precisely what makes a finding checkable. These

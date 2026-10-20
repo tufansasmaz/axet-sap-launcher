@@ -22,6 +22,8 @@ const fs = require('fs');
 const path = require('path');
 
 const CREDENTIAL_KEYS = ['SAP_WEBGUI_USER', 'SAP_WEBGUI_PASS'];
+// .conn_adt key -> the WebGUI variable it stands in for when no SAP_WEBGUI_* line exists.
+const ADT_FALLBACK = { ADT_SAP_USER: 'SAP_WEBGUI_USER', ADT_SAP_PASSWORD: 'SAP_WEBGUI_PASS' };
 
 function findConnAdt(startDir) {
   let dir = path.resolve(startDir || process.cwd());
@@ -50,15 +52,25 @@ function loadConnAdt() {
     return { loaded: false, path: file };
   }
 
+  const found = {};
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) continue;
     const eq = trimmed.indexOf('=');
     if (eq === -1) continue;
     const key = trimmed.slice(0, eq).trim();
-    if (!CREDENTIAL_KEYS.includes(key)) continue; // only credentials; nothing else is needed here
-    const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
-    if (!process.env[key]) process.env[key] = value;
+    if (!CREDENTIAL_KEYS.includes(key) && !(key in ADT_FALLBACK)) continue; // only credentials
+    if (!(key in found)) found[key] = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+  }
+  // SAP_WEBGUI_* is optional: a separate end-user account for the screenshots,
+  // when the project has one. Without it the project's own ADT user logs on --
+  // the same SAP user a consultant opens the launchpad with. Until 2026-09-25
+  // the WebGUI pair was required, so every project whose .conn_adt carried only
+  // what the installer writes failed precheck with the credentials right there.
+  for (const key of CREDENTIAL_KEYS) {
+    const fallback = Object.keys(ADT_FALLBACK).find(k => ADT_FALLBACK[k] === key);
+    const value = found[key] || found[fallback];
+    if (!process.env[key] && value) process.env[key] = value;
   }
   return { loaded: true, path: file };
 }

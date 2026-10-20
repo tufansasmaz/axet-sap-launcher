@@ -823,6 +823,7 @@ class SAPClient:
                 # E071 SQL — the data-preview endpoint for E071 is blocked on some SAP
                 # systems (returns 400) while the CTS XML endpoint always works.
                 _already_in_task = False
+                _scat_pre = {}
                 try:
                     _scat_pre = self.check_object_scatter(object_name)
                     _already_in_task = any(
@@ -832,7 +833,30 @@ class SAPClient:
                     )
                 except Exception:
                     pass
-                if _already_in_task:
+                # 2026-10-19: already in ANOTHER modifiable request (not this one, not a
+                # task of it) -> SAP records the change there whatever we ask for, and the
+                # lock below adopts it. Adding it to the requested request as well left the
+                # object in BOTH (measured on NS4: a push with an unrelated request wrote an
+                # E071 row there while the change went to the request holding the object),
+                # and releasing one of the two ships half of it.
+                _held_elsewhere = []
+                if not _already_in_task:
+                    try:
+                        _held = [str(h).upper() for h in (_scat_pre.get('modifiable_requests') or [])]
+                        _mine = {(transport or '').upper(), (reg_target or '').upper()}
+                        if _held and not (_mine & set(_held)):
+                            _want_k = self._k_parent(transport)
+                            if _want_k not in {self._k_parent(h) for h in _held}:
+                                _held_elsewhere = sorted(_held)
+                    except Exception:
+                        _held_elsewhere = []
+                if _held_elsewhere:
+                    print(f"        [INFO] {object_name} is already recorded in {', '.join(_held_elsewhere)}: "
+                          f"SAP records this change there, not in {transport}. Not adding it to "
+                          f"{transport} as well -- an object in two requests travels in halves.")
+                    reg_result = {'registered': True, 'method': 'held-elsewhere', 'status_code': 200}
+                    _pre_lock_covered = True
+                elif _already_in_task:
                     print(f"        [OK] {object_name} already recorded in {reg_target} — addobject skipped (idempotent).")
                     reg_result = {'registered': True, 'method': 'already-present', 'status_code': 200}
                     _pre_lock_covered = True  # CTS XML confirmed before lock — ghost guard will accept absent CORRNR
@@ -2539,6 +2563,28 @@ class SAPClient:
                   f"the other splits the change.")
         return result
 
+    def _k_parent(self, trkorr: str) -> str:
+        """The request a number belongs to: its E070.STRKORR for a task, itself otherwise
+        (and when the read fails)."""
+        tr = (trkorr or '').upper().strip()
+        if not tr:
+            return ''
+        # Cached for the session: a request's parent never changes, and every freestyle
+        # SELECT costs SAP a temporary subroutine pool in the one stateful session --
+        # NS4 refused further queries ("No further temporary subroutine pools can be
+        # generated") after a long test run on 2026-10-19.
+        cache = self.__dict__.setdefault('_k_parent_cache', {})
+        if tr in cache:
+            return cache[tr]
+        try:
+            rows = (self.run_sql_query(
+                f"SELECT strkorr FROM e070 WHERE trkorr = '{_sq(tr)}'", 1) or {}).get('data') or []
+            parent = (rows[0][0] or '').strip().upper() if rows and rows[0] else ''
+            cache[tr] = parent or tr
+            return cache[tr]
+        except Exception:
+            return tr
+
     def check_object_scatter(self, object_name: str) -> Dict[str, Any]:
         """Summarize scatter for an object. {scattered, modifiable_requests, requests}.
 
@@ -3571,18 +3617,48 @@ class SAPClient:
                 'post', url, headers=headers, params=params,
                 data=xml_payload, timeout=60)
 
+            shell_ok = False
             if response.status_code in [200, 201]:
-                print(f"\n[OK] Table type created successfully")
-                print(f"     Activate with: adt_client.activate_object('{name.upper()}', '/sap/bc/adt/ddic/tabletypes/{name.lower()}')")
-                return True
-            if response.status_code == 404:
+                print(f"\n[OK] Table type shell created")
+                shell_ok = True
+            elif response.status_code == 404:
                 print("\n[WARNING] Table type endpoint not available on this SAP system")
                 return True
-            if response.status_code == 405 and 'AlreadyExists' in response.text:
+            elif response.status_code == 405 and 'AlreadyExists' in response.text:
                 print("\n[OK] Table type already exists")
-                return True
-            print(f"\n[ERROR] {response.status_code}: {response.text[:500]}")
-            return False
+                shell_ok = True
+            else:
+                print(f"\n[ERROR] {response.status_code}: {response.text[:500]}")
+                return False
+
+            if not shell_ok:
+                return False
+
+            # STEP 2 -- the content. Same family bug as data elements and message
+            # classes (see set_table_type_content's docstring): the create POST is
+            # accepted, returns 200/201, and stores NONE of the rowType/accessType/
+            # key content regardless of what the create body said -- the shell comes
+            # back as predefinedAbapType CHAR(1) with an empty typeName. Without this
+            # step the object exists and either refuses to activate, or (worse)
+            # activates silently as a CHAR1 table type that looks fine until a
+            # function module parameter typed on it refuses with "is not a valid
+            # range/standard table" far away from this call.
+            #
+            # 2026-10-17: this exact gap caused a live production-support task to
+            # create ZABAP000_TT_POLOG as CHAR(1) instead of a structure-row table
+            # type. create_dataelement() already had this two-step fix; this method
+            # did not, even though set_table_type_content() already existed in this
+            # same file. Fixed by wiring it in here so every caller gets it for free.
+            filled = self.set_table_type_content(
+                name, row_type=row_type, description=description,
+                access_type=access_type, key_kind=key_kind, transport=transport)
+            if not filled.get('ok'):
+                print(f"\n[ERROR] shell created but content not written: "
+                      f"{filled.get('message')}")
+                return False
+            print(f"[OK] content written - row type {filled.get('row_type')}")
+            print(f"     Activate with: adt_client.activate_object('{name.upper()}', '/sap/bc/adt/ddic/tabletypes/{name.lower()}')")
+            return True
 
         except Exception as e:
             print(f"\n[ERROR] {str(e)}")

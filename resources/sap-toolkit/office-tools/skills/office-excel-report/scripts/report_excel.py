@@ -1,8 +1,19 @@
 #!/usr/bin/env python3
-"""Generate a professionally formatted Excel report using OpenPyXL."""
+"""A presentation-ready Excel report in the NTT house look (lib/xlsx_theme.py).
+
+Until 2026-09-29 this script chose its own look: a navy that is not the house
+blue, Calibri, a chart titled "Chart" in Office's default blue/red/green, column
+names printed with their underscores (`Devam_Eden`) and no print setup unless
+asked. The Fast Scan workbook had already moved to the shared theme; a weekly
+status report beside it looked like it came from another company. Now every
+report gets the same header block, Excel table (filter, sort), zebra, frozen
+header, A4 print setup and footer, and the chart the house palette.
+"""
 
 import argparse
 import json
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -19,10 +30,22 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "lib"))
 
-HEADER_COLOR_DEFAULT = "1F4E79"
-HEADER_FONT_DEFAULT = "FFFFFF"
-ALT_ROW_DEFAULT = "DCE6F1"
+# Words this script writes itself, in the report's language.
+WORDS = {
+    "tr": {"labels": {"customer": "Müşteri", "project": "Proje", "version": "Sürüm",
+                      "date": "Tarih"},
+           "legend": "Her kolonda filtre ve sıralama var; başlık satırı sabit.",
+           "chart": "Grafik"},
+    "en": {"labels": {"customer": "Customer", "project": "Project", "version": "Version",
+                      "date": "Date"},
+           "legend": "Every column filters and sorts; the header row stays in view.",
+           "chart": "Chart"},
+}
+
+# A share column (0.67) is shown as 67 %, not as a bare fraction.
+SHARE_NAME = re.compile(r"(oran|rate|ratio|pct|percent|yüzde|share|pay)", re.I)
 
 
 def load_data(args):
@@ -33,7 +56,7 @@ def load_data(args):
         sys.exit(1)
     suffix = path.suffix.lower()
     if suffix == ".json":
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             data = json.load(f)
         return pd.DataFrame(data if isinstance(data, list) else data.get(args.json_key, data))
     # --input-sheet controls which sheet to READ; --sheet controls the output sheet name
@@ -46,167 +69,172 @@ def load_data(args):
     return pd.read_csv(path, sep=sep)
 
 
-def write_base_xlsx(df, out_path: Path, sheet_name: str):
-    df.to_excel(out_path, sheet_name=sheet_name, index=False, engine="openpyxl")
+def pretty(name) -> str:
+    """`Devam_Eden` -> `Devam Eden`: a header is read, not parsed."""
+    return re.sub(r"\s+", " ", str(name).replace("_", " ")).strip()
 
 
-def style_worksheet(ws, args, num_data_rows: int, num_cols: int):
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
+def _plain(v):
+    """numpy scalars -> Python values openpyxl writes as numbers."""
+    try:
+        import numpy as np
+        if isinstance(v, np.generic):
+            return v.item()
+    except ImportError:
+        pass
+    try:
+        import pandas as pd
+        if pd.isna(v):
+            return ""
+    except (ImportError, TypeError, ValueError):
+        pass
+    return v
+
+
+def build(df, args):
     from openpyxl.utils import get_column_letter
+    from xlsx_theme import HEADER_ROW, add_table_sheet, new_workbook
 
-    header_fill = PatternFill("solid", fgColor=args.header_color.lstrip("#"))
-    header_font = Font(bold=True, color=args.header_font_color.lstrip("#"), size=11)
-    alt_fill = PatternFill("solid", fgColor=args.alt_row_color.lstrip("#"))
-    thin = Side(style="thin", color="CCCCCC")
-    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    words = WORDS[args.lang]
+    meta = {"title": args.title or "", "customer": args.customer, "project": args.project,
+            "version": args.version, "labels": words["labels"]}
+    wb = new_workbook(meta)
 
-    data_start_row = 1  # header is row 1
+    keys = [str(c) for c in df.columns]
+    rows = [{k: _plain(v) for k, v in zip(keys, rec)} for rec in df.itertuples(index=False)]
+    columns = []
+    for k in keys:
+        longest = max([len(str(r[k])) for r in rows] + [len(pretty(k))])
+        numeric = all(isinstance(r[k], (int, float)) or r[k] == "" for r in rows)
+        columns.append({"key": k, "header": pretty(k),
+                        "width": min(max(longest + 2, 10), args.max_col_width),
+                        "wrap": not numeric})
+    ws = add_table_sheet(wb, args.sheet, columns, rows, meta=meta,
+                         legend=args.legend or words["legend"], freeze_cols=1,
+                         table_name=args.sheet)
 
-    # title row
-    if args.title:
-        ws.insert_rows(1)
-        title_cell = ws.cell(row=1, column=1, value=args.title)
-        title_cell.font = Font(bold=True, size=14, color="1F4E79")
-        title_cell.alignment = Alignment(horizontal="left", vertical="center")
-        ws.row_dimensions[1].height = 24
-        if num_cols > 1:
-            ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_cols)
-        data_start_row = 2
+    first = HEADER_ROW + 1
+    last = HEADER_ROW + max(len(rows), 1)
+    col_of = {k: j for j, k in enumerate(keys, start=1)}
+    col_of.update({pretty(k): j for j, k in enumerate(keys, start=1)})
 
-    # header row
-    for cell in ws[data_start_row]:
-        cell.fill = header_fill
-        cell.font = header_font
-        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
-        cell.border = border
-    ws.row_dimensions[data_start_row].height = 20
+    # Numbers right-aligned without the text indent; shares as percentages.
+    from openpyxl.styles import Alignment
+    for k in keys:
+        vals = [r[k] for r in rows if r[k] != ""]
+        if not vals or not all(isinstance(v, (int, float)) for v in vals):
+            continue
+        j = col_of[k]
+        share = SHARE_NAME.search(k) and all(0 <= v <= 1 for v in vals)
+        for r in range(first, last + 1):
+            c = ws.cell(r, j)
+            c.alignment = Alignment(horizontal="right", vertical="top")
+            if share:
+                c.number_format = "0%"
+            elif all(float(v).is_integer() for v in vals):
+                c.number_format = "#,##0"
 
-    # data rows
-    for row_idx in range(data_start_row + 1, data_start_row + num_data_rows + 1):
-        use_alt = (row_idx - data_start_row) % 2 == 0
-        for col_idx in range(1, num_cols + 1):
-            cell = ws.cell(row=row_idx, column=col_idx)
-            if use_alt:
-                cell.fill = alt_fill
-            cell.border = border
-            cell.alignment = Alignment(vertical="center")
-
-    # freeze header
-    if args.freeze_header:
-        ws.freeze_panes = ws.cell(row=data_start_row + 1, column=1)
-
-    # number formats
     if args.number_format:
-        headers = {ws.cell(row=data_start_row, column=c).value: c
-                   for c in range(1, num_cols + 1)}
         for part in args.number_format.split(","):
             if "=" not in part:
                 continue
-            col_name, fmt = part.split("=", 1)
-            col_name, fmt = col_name.strip(), fmt.strip()
-            if col_name in headers:
-                col_idx = headers[col_name]
-                for row_idx in range(data_start_row + 1, data_start_row + num_data_rows + 1):
-                    ws.cell(row=row_idx, column=col_idx).number_format = fmt
+            name, fmt = (x.strip() for x in part.split("=", 1))
+            if name in col_of:
+                for r in range(first, last + 1):
+                    ws.cell(r, col_of[name]).number_format = fmt
 
-    # conditional format (basic: col<value=color)
     if args.cond_format:
-        from openpyxl.formatting.rule import ColorScaleRule, CellIsRule
-        headers = {ws.cell(row=data_start_row, column=c).value: c
-                   for c in range(1, num_cols + 1)}
-        for rule_str in args.cond_format.split(";"):
-            try:
-                # format: "ColName<0=red" or "ColName>100=green"
-                for op_str, xl_op in [("<", "lessThan"), (">", "greaterThan"),
-                                       ("<=", "lessThanOrEqual"), (">=", "greaterThanOrEqual"),
-                                       ("==", "equal")]:
-                    if op_str in rule_str:
-                        left, right = rule_str.split(op_str, 1)
-                        col_name = left.strip()
-                        val_color = right.strip()
-                        val, color = val_color.rsplit("=", 1)
-                        color_map = {"red": "FF0000", "green": "00B050",
-                                     "yellow": "FFFF00", "orange": "FFA500"}
-                        hex_color = color_map.get(color.strip().lower(), color.strip().lstrip("#"))
-                        if col_name in headers:
-                            col_idx = headers[col_name]
-                            col_letter = get_column_letter(col_idx)
-                            data_range = f"{col_letter}{data_start_row+1}:{col_letter}{data_start_row+num_data_rows}"
-                            fill = PatternFill("solid", fgColor=hex_color)
-                            ws.conditional_formatting.add(
-                                data_range,
-                                CellIsRule(operator=xl_op, formula=[val.strip()],
-                                           fill=fill)
-                            )
-                        break
-            except Exception as e:
-                print(f"WARNING: could not parse cond-format '{rule_str}': {e}", file=sys.stderr)
+        add_cond_format(ws, args.cond_format, col_of, first, last)
 
-    # auto column widths
-    if args.auto_width:
-        from openpyxl.cell import MergedCell
-        from openpyxl.utils import get_column_letter as _gcl
-        for col in ws.columns:
-            max_len = 0
-            col_letter = _gcl(col[0].column)
-            for cell in col:
-                if isinstance(cell, MergedCell):
-                    continue
-                try:
-                    if cell.value:
-                        max_len = max(max_len, len(str(cell.value)))
-                except Exception:
-                    pass
-            ws.column_dimensions[col_letter].width = min(max_len + 4, args.max_col_width)
+    if args.chart and args.chart_cols:
+        add_chart(ws, args, col_of, first, last, words)
+    return wb
 
 
-def add_chart(ws, chart_type: str, chart_cols_str: str,
-              data_start_row: int, num_data_rows: int):
-    from openpyxl.chart import BarChart, LineChart, PieChart, Reference, Series
+def add_cond_format(ws, spec, col_of, first, last):
+    from openpyxl.formatting.rule import CellIsRule
+    from openpyxl.styles import Font, PatternFill
     from openpyxl.utils import get_column_letter
+    # Soft fills with a readable text colour, not pure red/green/yellow.
+    colours = {"red": ("FDE2E1", "9B1C1C"), "green": ("E3F4E8", "1E6B34"),
+               "yellow": ("FFF4CE", "7A5A00"), "orange": ("FFE8D1", "8A4B08")}
+    for rule_str in spec.split(";"):
+        for op_str, xl_op in (("<=", "lessThanOrEqual"), (">=", "greaterThanOrEqual"),
+                              ("==", "equal"), ("<", "lessThan"), (">", "greaterThan")):
+            if op_str not in rule_str:
+                continue
+            try:
+                left, right = rule_str.split(op_str, 1)
+                val, color = right.rsplit("=", 1)
+                name = left.strip()
+                if name not in col_of:
+                    print(f"WARNING: cond-format column not found: {name}", file=sys.stderr)
+                    break
+                fill_hex, font_hex = colours.get(color.strip().lower(),
+                                                 (color.strip().lstrip("#"), "222629"))
+                letter = get_column_letter(col_of[name])
+                ws.conditional_formatting.add(
+                    f"{letter}{first}:{letter}{last}",
+                    CellIsRule(operator=xl_op, formula=[val.strip()],
+                               fill=PatternFill("solid", fgColor=fill_hex, bgColor=fill_hex),
+                               font=Font(color=font_hex)))
+            except ValueError as e:
+                print(f"WARNING: could not parse cond-format '{rule_str}': {e}", file=sys.stderr)
+            break
 
-    # map header name → column index
-    headers = {}
-    for cell in ws[data_start_row]:
-        if cell.value:
-            headers[str(cell.value)] = cell.column
 
-    col_names = [c.strip() for c in chart_cols_str.split(",")]
-    if len(col_names) < 2:
+def add_chart(ws, args, col_of, first, last, words):
+    from openpyxl.chart import BarChart, LineChart, PieChart, Reference, Series
+    from openpyxl.chart.shapes import GraphicalProperties
+    from openpyxl.drawing.line import LineProperties
+    from theme import ACCENT_HEX, DEEP_HEX, MUTED_HEX
+
+    names = [c.strip() for c in args.chart_cols.split(",")]
+    if len(names) < 2:
         print("WARNING: --chart-cols requires at least 2 columns (label + value)", file=sys.stderr)
         return
-
-    label_col = headers.get(col_names[0])
-    value_cols = [headers.get(n) for n in col_names[1:] if n in headers]
-
+    label_col = col_of.get(names[0])
+    value_cols = [col_of[n] for n in names[1:] if n in col_of]
     if not label_col or not value_cols:
-        print(f"WARNING: chart columns not found in sheet — skipping chart", file=sys.stderr)
+        print("WARNING: chart columns not found in sheet -- skipping chart", file=sys.stderr)
         return
 
-    chart_classes = {"bar": BarChart, "line": LineChart, "pie": PieChart}
-    ChartClass = chart_classes.get(chart_type, BarChart)
-    chart = ChartClass()
-    chart.title = "Chart"
-    chart.style = 10
-    chart.width = 20
-    chart.height = 12
-
-    cats = Reference(ws, min_col=label_col, min_row=data_start_row + 1,
-                     max_row=data_start_row + num_data_rows)
-
-    for vc in value_cols:
-        data_ref = Reference(ws, min_col=vc, min_row=data_start_row,
-                             max_row=data_start_row + num_data_rows)
-        series = Series(data_ref, title_from_data=True)
-        chart.series.append(series)
-
+    from openpyxl.utils import get_column_letter
+    chart = {"bar": BarChart, "line": LineChart, "pie": PieChart}[args.chart]()
+    chart.title = args.chart_title or ", ".join(pretty(n) for n in names[1:])
+    # As wide as the table above it (a column-width unit is ~0.19 cm), so the
+    # page prints as one piece; a 20 cm chart under a 16 cm table spilled onto
+    # a second page with its legend cut off.
+    table_cm = sum(ws.column_dimensions[get_column_letter(j)].width or 13
+                   for j in range(1, ws.max_column + 1)) * 0.19
+    chart.width, chart.height = max(12, min(24, table_cm)), 8.5
+    chart.legend.position = "r"     # at the bottom it sat on the category labels
+    # openpyxl writes axes marked deleted unless told otherwise: the first
+    # render had bars with no values and no category names under them.
+    if args.chart != "pie":
+        chart.x_axis.delete = False
+        chart.y_axis.delete = False
+    # The house blues, then a neutral: a status chart must not borrow the
+    # traffic-light meaning of red and green for "in progress" and "not started".
+    palette = [ACCENT_HEX, DEEP_HEX, "6CACE4", MUTED_HEX, "A9C9E8", "2E5E8C"]
+    cats = Reference(ws, min_col=label_col, min_row=first, max_row=last)
+    for i, vc in enumerate(value_cols):
+        s = Series(Reference(ws, min_col=vc, min_row=first - 1, max_row=last),
+                   title_from_data=True)
+        colour = palette[i % len(palette)]
+        s.graphicalProperties = GraphicalProperties(solidFill=colour)
+        s.graphicalProperties.line = LineProperties(solidFill=colour)
+        chart.series.append(s)
     chart.set_categories(cats)
-
-    # place chart below data
-    anchor_row = data_start_row + num_data_rows + 3
-    anchor_col = get_column_letter(1)
-    ws.add_chart(chart, f"{anchor_col}{anchor_row}")
-    print(f"  chart ({chart_type}) added at row {anchor_row}")
+    if args.chart == "bar":
+        chart.gapWidth = 80
+        if chart.y_axis.majorGridlines is not None:
+            chart.y_axis.majorGridlines.spPr = GraphicalProperties(
+                ln=LineProperties(solidFill="D8E3EC"))
+    ws.add_chart(chart, f"A{last + 3}")
+    # The chart is part of the page: print it too.
+    ws.print_area = f"A1:{get_column_letter(ws.max_column)}{last + 3 + int(chart.height / 0.5) + 1}"
+    print(f"  chart ({args.chart}) added at row {last + 3}")
 
 
 def main():
@@ -215,13 +243,13 @@ def main():
     ap.add_argument("--input-sheet", default=None,
                     help="Sheet to READ from input xlsx (name or index, default: first sheet)")
     ap.add_argument("--output", "-o", required=True)
-    ap.add_argument("--sheet", default="Report", help="Output sheet name (default: Report)")
-    ap.add_argument("--title", default=None)
-    ap.add_argument("--header-color", default=HEADER_COLOR_DEFAULT)
-    ap.add_argument("--header-font-color", default=HEADER_FONT_DEFAULT)
-    ap.add_argument("--alt-row-color", default=ALT_ROW_DEFAULT)
-    ap.add_argument("--freeze-header", action="store_true", default=True)
-    ap.add_argument("--auto-width", action="store_true", default=True)
+    ap.add_argument("--sheet", default="Rapor", help="Output sheet name (default: Rapor)")
+    ap.add_argument("--title", default=None, help="report title, in the header block and footer")
+    ap.add_argument("--customer", default=None)
+    ap.add_argument("--project", default=None)
+    ap.add_argument("--version", default=None)
+    ap.add_argument("--legend", default=None, help="one line under the title: how to read it")
+    ap.add_argument("--lang", choices=sorted(WORDS), default="tr")
     ap.add_argument("--max-col-width", type=int, default=50)
     ap.add_argument("--number-format", default=None,
                     help='e.g. "Revenue=#,##0.00,Pct=0.00%%"')
@@ -230,19 +258,24 @@ def main():
     ap.add_argument("--chart", choices=["bar", "line", "pie"], default=None)
     ap.add_argument("--chart-cols", default=None,
                     help="Columns for chart: first=labels, rest=series")
-    ap.add_argument("--print-setup", action="store_true",
-                    help="Configure print settings: A4 landscape, fit to 1 page wide, "
-                         "repeat header row on every printed page")
+    ap.add_argument("--chart-title", default=None)
     ap.add_argument("--json-key", default=None)
     ap.add_argument("--force", action="store_true")
+    # Accepted so an old command line still runs; the house theme decides these.
+    for legacy in ("--header-color", "--header-font-color", "--alt-row-color"):
+        ap.add_argument(legacy, default=None, help=argparse.SUPPRESS)
+    for legacy in ("--freeze-header", "--auto-width", "--print-setup"):
+        ap.add_argument(legacy, action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
 
-    # allow --input-sheet as int index
     if args.input_sheet is not None:
         try:
             args.input_sheet = int(args.input_sheet)
         except ValueError:
             pass  # keep as string sheet name
+    if any((args.header_color, args.header_font_color, args.alt_row_color)):
+        print("  note: colour flags are ignored -- the report uses the NTT house theme",
+              file=sys.stderr)
 
     out_path = Path(args.output)
     if out_path.exists() and not args.force:
@@ -250,38 +283,10 @@ def main():
         sys.exit(1)
 
     df = load_data(args)
-    num_data_rows = len(df)
-    num_cols = len(df.columns)
-    sheet_name = args.sheet[:31]
-
-    write_base_xlsx(df, out_path, sheet_name)
-
-    from openpyxl import load_workbook
-    from openpyxl.worksheet.page import PageMargins
-    wb = load_workbook(out_path)
-    ws = wb[sheet_name]
-
-    style_worksheet(ws, args, num_data_rows, num_cols)
-    data_start_row = 2 if args.title else 1
-
-    if args.print_setup:
-        from openpyxl.worksheet.page import PrintPageSetup
-        ws.page_setup.orientation = "landscape"
-        ws.page_setup.paperSize = ws.PAPERSIZE_A4
-        ws.page_setup.fitToWidth = 1
-        ws.page_setup.fitToHeight = 0
-        ws.page_setup.fitToPage = True
-        ws.print_title_rows = f"{data_start_row}:{data_start_row}"
-        ws.page_margins = PageMargins(left=0.5, right=0.5, top=0.75, bottom=0.75,
-                                      header=0.3, footer=0.3)
-        print("  Print setup: A4 landscape, fit to width, header row repeats")
-
-    if args.chart and args.chart_cols:
-        add_chart(ws, args.chart, args.chart_cols, data_start_row, num_data_rows)
-
+    wb = build(df, args)
     wb.save(out_path)
     size_kb = out_path.stat().st_size / 1024
-    print(f"✓ Report: {out_path}  ({num_data_rows:,} rows, {size_kb:.1f} KB)")
+    print(f"OK Report: {out_path}  ({len(df):,} rows, {size_kb:.1f} KB)")
     if args.title:
         print(f"  Title   : {args.title}")
     if args.chart:

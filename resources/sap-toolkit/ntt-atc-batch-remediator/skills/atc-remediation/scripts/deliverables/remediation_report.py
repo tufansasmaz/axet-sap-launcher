@@ -14,6 +14,20 @@ from pathlib import Path
 
 from scripts.schemas import RoutedFinding, ZipBundleManifest
 
+# What each routing reason means for the person working the queue. They need
+# different work, which is why they are different labels: a below-threshold
+# draft is reviewed, a judgment finding is decided, a missing draft is drafted.
+REASON_MEANS: dict[str, str] = {
+    "low-confidence": "drafted, but below the 0.70 threshold -- review the draft",
+    "categorically-judgment": "judgment-shaped check, never drafted -- decide by hand",
+    "no-pattern": "no reviewed pattern for the category, never queued",
+    "no-patch-produced": "queued for drafting, no patch came back",
+    "patch-not-applied": (
+        "passed the threshold, but does not apply to the current source -- "
+        "see suggested_action"
+    ),
+}
+
 
 def write_remediation_report(
     *,
@@ -70,10 +84,10 @@ def write_remediation_report(
         lines.append("_Nothing queued — every finding was packaged._\n")
     else:
         by_reason = Counter(r.reason_routed for r in routed_findings)
-        lines.append("| Reason routed | Count |")
-        lines.append("|---|---:|")
+        lines.append("| Reason routed | Count | Means |")
+        lines.append("|---|---:|---|")
         for reason, count in sorted(by_reason.items()):
-            lines.append(f"| {reason} | {count} |")
+            lines.append(f"| {reason} | {count} | {REASON_MEANS.get(reason, '')} |")
         lines.append("")
         top_checks = Counter(r.finding.check_id for r in routed_findings).most_common(10)
         lines.append("### Top 10 check_ids in the review queue")

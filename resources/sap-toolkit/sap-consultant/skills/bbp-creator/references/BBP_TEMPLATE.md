@@ -1,13 +1,23 @@
 # Business Blueprint — doküman şablonu
 
 Bu dosya, üretilen dokümanın **iskeleti**dir: hangi başlıklar, hangi sırayla,
-hangi tablolar. Türkçedir çünkü çıktı Türkçedir ve tablo başlıkları dokümana
-olduğu gibi giriyor. Başlıkların bir kısmı müşteri şablonundan İngilizce
-geliyor (`PURPOSE`, `ANALYSIS`, `Current Situation`); o karışım şablonun
-kendisidir, düzeltilecek bir şey değil.
+hangi tablolar. Başlıkların ve tablo sütunlarının **hangi dilde yazılacağını**
+`DOCUMENT_LANGUAGE.md` söyler: doküman tek dilde yazılır (Türkçe ya da İngilizce) ve
+buradaki her başlık, sütun ve alan etiketi o dildeki karşılığıyla girer. Bu dosyadaki
+başlıklar yapısal anahtardır — `PURPOSE`, `ANALYSIS`, `Current Situation` müşteri
+şablonundan geliyor ama Türkçe dokümanda Türkçe karşılığıyla yazılır. (2026-10-01'e
+kadar bu karışım "şablonun kendisi" sayılıyordu; Türkçe BBP'de `PURPOSE`, İngilizce
+BBP'de `Kapsam Dışı Bağımlılıklar` çıkıyordu.)
 
 İş akışı, kaynak önceliği ve yazım kuralları `SKILL.md`'de. Burada yalnızca
 şekil var.
+
+**Numaralı her alt başlık gerçek bir başlıktır, kalın paragraf değil.** Aşağıda
+`**2.1.1 …**` diye yazılanlar şablonun açıklama biçimidir; dokümanda:
+`N.` → `##`, `N.N` → `###`, `N.N.N` → `####` (çok bölümlü dokümanda her biri
+bir seviye aşağı). Kalın paragraf Word'de başlık değildir: gezinme bölmesinde
+ve içindekilerde görünmez, üstündeki gerçek başlıktan da iri durur
+(2026-09-28, örnek BBP'de 2.1.1, 2.1'den daha başlık gibi görünüyordu).
 
 Her bölümün altındaki alt başlıklar ve tablolar **kaynak dokümanların
 desteklediği ölçüde** kullanılır. Dolduracak bilgi olmayan bir alt başlık

@@ -47,6 +47,64 @@ COL_COUNT = 15
 SKOR_IDX = 13          # "Eslesme Orani (%)" -- daima sayi
 KEY_IDX = 0            # "Key (G)"
 
+HERE = Path(__file__).resolve().parent
+# office-tools/lib, beside this plugin in the catalog (cross_plugin_deps declares it)
+sys.path.insert(0, str(HERE.parents[3] / "office-tools" / "lib"))
+# NTT Studio uyarlamasi: kurulu agacta skill .axet-code/skills/<ad>/ altinda,
+# office-tools/lib ise .axet-code/lib'e kuruluyor (SHARED_ASSETS); yukaridaki
+# yol orada yok. Bu satir o lib'i buluyor.
+sys.path.insert(0, str(HERE.joinpath("..", "..", "..", "lib")))
+
+# Kolon genislikleri (karakter) ve hangi kolonlar uzun metin: ekranda okunur
+# olsun diye. 2026-09-29'a kadar dosya hic bicimlenmiyordu -- baslik rengi yok,
+# her kolon 8 karakter, metin kesik, yazdirma ayari yok.
+WIDTHS = [12, 30, 40, 12, 12, 10, 30, 40, 16, 10, 20, 20, 22, 11, 45]
+
+
+def mevcut_satirlar(ws) -> tuple[list, list]:
+    """Basligi ve veri satirlarini okur -- dosya ister prepare.py'nin yalin
+    halinde (baslik 1. satirda) ister bicimli halinde (baslik blogunun altinda)
+    olsun: baslik, ilk hucresi 'Key (G)' olan satirdir."""
+    rows = [list(r) for r in ws.iter_rows(values_only=True)]
+    for i, row in enumerate(rows):
+        if row and str(row[0] or "").strip() == "Key (G)":
+            baslik = [str(c or "") for c in row[:COL_COUNT]]
+            veri = [list(r[:COL_COUNT]) for r in rows[i + 1:]
+                    if r and any(c not in (None, "") for c in r[:COL_COUNT])]
+            return baslik, veri
+    sys.exit("Sonuc dosyasinda 'Key (G)' baslik satiri bulunamadi. "
+             "prepare.py'yi yeniden calistir.")
+
+
+def yaz(out: Path, proje: str, baslik: list, veri: list) -> None:
+    """Sonuc dosyasini NTT is kitabi temasiyla (lib/xlsx_theme.py) yazar:
+    baslik blogu, filtrelenen Excel tablosu, sabit baslik, A4 yazdirma; skor
+    kolonunda bir cubuk. Her yazimda bastan kurulur, satirlar ayni kalir."""
+    import xlsx_theme as xt
+    from openpyxl.formatting.rule import DataBarRule
+    from openpyxl.styles import Alignment
+    from openpyxl.utils import get_column_letter
+
+    meta = {"title": f"Kütüphane Eşleştirmesi — {proje}", "project": proje}
+    wb = xt.new_workbook(meta)
+    cols = [{"key": str(i), "header": h, "width": WIDTHS[i] if i < len(WIDTHS) else 16}
+            for i, h in enumerate(baslik)]
+    satir = [{str(i): ("" if v is None else v) for i, v in enumerate(r)} for r in veri]
+    ws = xt.add_table_sheet(
+        wb, "Analiz Sonuçları", cols, satir, meta=meta, freeze_cols=1,
+        table_name="Analiz",
+        legend="(G) talep listesi, (K) kütüphane. Eşleşme oranı 0–100; 0 = kütüphanede "
+               "karşılığı yok. Her kolonda filtre ve sıralama var.")
+    ilk, son = xt.HEADER_ROW + 1, xt.HEADER_ROW + max(len(satir), 1)
+    skor = get_column_letter(SKOR_IDX + 1)
+    for rr in range(ilk, son + 1):
+        ws[f"{skor}{rr}"].alignment = Alignment(horizontal="right", vertical="top")
+    ws.conditional_formatting.add(
+        f"{skor}{ilk}:{skor}{son}",
+        DataBarRule(start_type="num", start_value=0, end_type="num", end_value=100,
+                    color="6CACE4", showValue=True))
+    wb.save(out)
+
 
 def dogrula(satirlar: list) -> list:
     """Uzunluk ve tip sozlesmesini uygular; ihlali satir numarasiyla bildirir."""
@@ -128,18 +186,16 @@ def main(argv: list[str]) -> int:
         if elim.is_file():
             satirlar += dogrula(json.loads(elim.read_text(encoding="utf-8")))
 
-    wb = openpyxl.load_workbook(out)
-    ws = wb.active
-    for r in satirlar:
-        ws.append(r)
+    baslik, veri = mevcut_satirlar(openpyxl.load_workbook(out).active)
+    veri += satirlar
     try:
-        wb.save(out)
+        yaz(out, a.project, baslik, veri)
     except PermissionError:
         sys.exit(f"\n{out} yazilamadi -- Excel'de acik olabilir. Kapat ve tekrar dene.")
 
-    print(f"{len(satirlar)} satir eklendi. Toplam {ws.max_row - 1} analiz satiri.")
+    print(f"{len(satirlar)} satir eklendi. Toplam {len(veri)} analiz satiri.")
     if a.finalize:
-        skorlar = [ws.cell(r, SKOR_IDX + 1).value for r in range(2, ws.max_row + 1)]
+        skorlar = [r[SKOR_IDX] for r in veri]
         eslesen = sum(1 for s in skorlar if isinstance(s, (int, float)) and s > 0)
         print(f"  eslesen (skor > 0) : {eslesen}")
         print(f"  karsiligi yok / elenen : {len(skorlar) - eslesen}")

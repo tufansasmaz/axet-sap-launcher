@@ -11,7 +11,8 @@ This closes that, in six or seven queries, for an object list of any size.
 
 > **No connection means no change.** If `.conn_adt` is absent, the VPN is down, or
 > `adt_sql` is unavailable, the TS is written **exactly as it was before this file
-> existed** and every row's verification column reads `— doğrulanamadı`. That is a
+> existed**: §2.1 carries no verification column, and one sentence above the table
+> says the list was not checked against a system. That is a
 > supported outcome, not a degraded one: a TS is often written before anyone has a
 > system, and a rule that blocked would teach people to skip verification entirely.
 > Never ask the user to set up a connection in order to write a TS.
@@ -105,7 +106,7 @@ across five document parts, the transport, and everything already referencing it
 | `✓ doğrulandı` | found on the system; for an FM, the named parameters match in name and direction |
 | `✗ bulunamadı` | queried and absent — **a defect in the TS**, fix it before the TS goes out |
 | `⚠ ad çakışması` | a `Z` name this TS invents already exists |
-| `— doğrulanamadı` | no connection, or this object type has no cheap check |
+| `— doğrulanamadı` | this object type has no cheap check (no connection: no column at all) |
 
 `✗` and `⚠` are not decoration. Neither should reach a developer.
 

@@ -38,7 +38,7 @@ import yaml  # type: ignore[import-untyped]
 # locally fixed before it was made an invariant.
 for _stream in (sys.stdout, sys.stderr):
     try:
-        _stream.reconfigure(encoding="utf-8", errors="replace")
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[union-attr]
     except (AttributeError, ValueError):
         pass
 
