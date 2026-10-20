@@ -53,6 +53,7 @@ class FakeLauncher:
         self.requests = []
         self.headers = []
         self.karar = "izinli"
+        self.karar_bekle = None   # verilirse X-Axet-Bekle'li istekte bu karar döner (uzun yoklama)
         self.status = 200
         self.raw = None           # verilirse gövde olarak bu gider (bozuk JSON testi)
         self.health_status = 200
@@ -82,7 +83,10 @@ class FakeLauncher:
                 if outer.raw is not None:
                     return self._send(200, outer.raw)
                 if self.path == "/approvals":
-                    return self._send(outer.status, {"karar": outer.karar, "id": "onay-1", "mesaj": ""})
+                    karar = outer.karar
+                    if outer.karar_bekle is not None and self.headers.get("X-Axet-Bekle"):
+                        karar = outer.karar_bekle
+                    return self._send(outer.status, {"karar": karar, "id": "onay-1", "mesaj": ""})
                 self._send(200, {"ok": True})
 
         self.server = ThreadingHTTPServer(("127.0.0.1", 0), H)
@@ -93,6 +97,7 @@ class FakeLauncher:
         self.requests.clear()
         self.headers.clear()
         self.karar, self.status, self.raw, self.health_status = karar, status, None, 200
+        self.karar_bekle = None
 
     def paths(self):
         return [r[1] for r in self.requests]
@@ -697,7 +702,83 @@ def t_caller_header_sent():
         gs.caller_pids = orig
 
 
+def t_long_poll_same_call():
+    """Onay aynı çağrıda gelirse motor o çağrıda yazar; bekleme süresi bütçeden kalan kadar."""
+    e = Env({"zcl_a.clas.abap": SRC}, **PUSH_OWNED)
+    e.review("CLAS", "ZCL_A", ["zcl_a.clas.abap"], orta=2)
+    LAUNCHER.karar, LAUNCHER.karar_bekle = "bekliyor", "izinli"
+    fn, fake = gated("adt_push")
+    out = fn(name="ZCL_A", object_type="class", source_file="zcl_a.clas.abap")
+    assert fake.calls and out.get("ok") is not False, (out, fake.calls)
+    h = LAUNCHER.headers[[r[1] for r in LAUNCHER.requests].index("/approvals")]
+    wait = int(h.get("X-Axet-Bekle") or 0)
+    assert gs.APPROVAL_WAIT_MIN_S <= wait <= gs.APPROVAL_WAIT_BUDGET_S, h
+    assert gs.APPROVAL_WAIT_BUDGET_S <= 45, "axet-code kabuk aracı 60 sn'de arka plana atıyor; pay 15 sn"
+
+
+def t_long_poll_still_pending():
+    """Süre dolunca eski yol: approval_pending, motor çağrılmaz; mesaj 'devam et'i anlatır."""
+    e = Env({"zcl_a.clas.abap": SRC}, **PUSH_OWNED)
+    e.review("CLAS", "ZCL_A", ["zcl_a.clas.abap"], orta=2)
+    LAUNCHER.karar = "bekliyor"
+    fn, fake = gated("adt_push")
+    out = fn(name="ZCL_A", object_type="class", source_file="zcl_a.clas.abap")
+    assert out["error"] == "approval_pending" and not fake.calls, out
+    assert "devam et" in gs.MESAJ["approval_pending"]
+
+
+def t_long_poll_budget_spent():
+    """Bütçe bilgi toplamada bittiyse bekleme istenmez (başlık yok)."""
+    e = Env({"zcl_a.clas.abap": SRC}, **PUSH_OWNED)
+    e.review("CLAS", "ZCL_A", ["zcl_a.clas.abap"], orta=2)
+    LAUNCHER.karar = "bekliyor"
+    old = gs.APPROVAL_WAIT_BUDGET_S
+    try:
+        gs.APPROVAL_WAIT_BUDGET_S = gs.APPROVAL_WAIT_MIN_S - 1
+        fn, _fake = gated("adt_push")
+        fn(name="ZCL_A", object_type="class", source_file="zcl_a.clas.abap")
+        h = LAUNCHER.headers[[r[1] for r in LAUNCHER.requests].index("/approvals")]
+        assert "X-Axet-Bekle" not in h, h
+    finally:
+        gs.APPROVAL_WAIT_BUDGET_S = old
+
+
+def t_engine_lock_released_while_waiting():
+    """Beklerken motorun tek-çağrı kilidi bırakılır, sonra geri alınır; işleyici dışında dokunulmaz."""
+    lock = engine._HTTP_CALL_LOCK
+
+    class _Srv:
+        server_address = ("127.0.0.1", 8787)
+
+    class FakeHandler:
+        client_address = ("127.0.0.1", 50000)
+        server = _Srv()
+
+        def run(self):
+            assert lock.acquire(blocking=False), "kilit testten önce dolu"
+            try:
+                with gs._EngineLockReleased() as r:
+                    assert r.released and not lock.locked(), "bekleme sırasında kilit tutuluyor"
+                assert lock.locked(), "bekleme sonrası kilit geri alınmadı"
+            finally:
+                lock.release()
+
+    FakeHandler().run()
+    assert lock.acquire(blocking=False)
+    try:
+        with gs._EngineLockReleased() as r:
+            assert not r.released and lock.locked(), "işleyici dışında kilit bırakıldı"
+    finally:
+        lock.release()
+
+
 TESTS = [
+    ("long_poll_same_call", "onay aynı çağrıda gelince yazılmıyor ya da bekleme bütçesi aşılıyor",
+     t_long_poll_same_call),
+    ("long_poll_pending", "süre dolunca yazılıyor ya da devam yolu anlatılmıyor", t_long_poll_still_pending),
+    ("long_poll_budget", "bütçe bitmişken yine bekleme isteniyor", t_long_poll_budget_spent),
+    ("engine_lock", "onay beklerken motor kilidi tutuluyor ya da geri alınmıyor",
+     t_engine_lock_released_while_waiting),
     ("pid_chain", "süreç zinciri döngüde takılıyor ya da sınırı aşıyor", t_pid_chain),
     ("caller_pids_live", "çağıranın süreci TCP tablosundan bulunamıyor", t_caller_pids_live),
     ("caller_header", "onay isteği çağıranın süreç zincirini taşımıyor ya da boş başlık gidiyor",

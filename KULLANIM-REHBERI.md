@@ -337,9 +337,11 @@ listesi ve bağlanılan sistemler var.
   görünür; tıklayarak ya da yazarak yanıt verebilirsin.
 - **SAP yazma onayı (DEV)**: Ajan SAP'a yazmak istediğinde NTT Studio onay
   penceresi açılır; cevap göstergesi "SAP yazma onayını bekliyor" yazar ve
-  tur **açık kalır**. Pencereden onaylayınca ajan aynı sohbette kendiliğinden
-  ve bir kez "Onaylandı, kaldığın yerden devam et" mesajıyla sürer; ayrıca
-  "devam et" yazman gerekmez. **Reddedersen** cevabın altına "reddedildi"
+  tur **açık kalır**. Ajan kararı yaklaşık 45 saniye aynı adımda bekler: bu
+  sürede onaylarsan yazma hemen yapılır ve ajan kaldığı yerden sürer. Daha
+  geç onaylarsan ajan aynı sohbette kendiliğinden ve bir kez "Onaylandı,
+  kaldığın yerden devam et" mesajıyla sürer; iki durumda da "devam et"
+  yazman gerekmez ve onay tek kullanımlıktır (aynı yazma iki kez yapılmaz). **Reddedersen** cevabın altına "reddedildi"
   notu düşer, ajan durur ve yazma yapılmaz. Onay **10 dakika** cevapsız
   kalırsa süre dolar, yazma yapılmaz (istersen "devam et" yazarsın). Beklerken
   **Durdur** turu kapatır; **yeni mesaj yazarsan** otomatik devam gönderilmez,

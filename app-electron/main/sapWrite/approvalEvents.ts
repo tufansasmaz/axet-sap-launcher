@@ -2,12 +2,13 @@
 // bildirir, sohbet turu (axetChat.ts) dinler. Ayrı dosya, çünkü sohbet testleri
 // HTTP sunucusunu açmadan olayları kendileri yayabilsin.
 //
-// Neden var: adt_gated_server.py onay ucuna 10 sn zaman aşımıyla sorar ve
-// "bekliyor" cevabını hemen ajana döndürür. Başsız `run` turunda model bunun
-// üzerine turu bitiriyor; kullanıcı pencereden onaylasa da süreç çoktan
-// kapanmış oluyor ve kimse ajanı uyandırmıyordu ("onayladım devam et" yazılana
-// kadar). Sohbet turu artık turda sorulan onayları izliyor ve karar gelince
-// aynı oturumu bir kez sürdürüyor (bkz. axetChat.ts `waitApprovals`).
+// Neden var: adt_gated_server.py "bekliyor" cevabını ajana döndürünce model
+// turu bitiriyor; kullanıcı pencereden onaylasa da kimse ajanı uyandırmıyordu
+// ("onayladım devam et" yazılana kadar). Artık gated sunucu kararı aynı çağrıda
+// en çok 45 sn bekliyor (uzun yoklama, server.ts `X-Axet-Bekle`); onay o sürede
+// gelirse yazma aynı çağrıda yapılır ("kullanildi"). Gelmezse yedek yol: sohbet
+// turu (axetChat.ts `waitApprovals`) ve Ajanlar bölmesi (paneApprovals.ts) karar
+// gelince sahibi oldukları oturumu bir kez "devam et" ile sürdürür.
 //
 // Olaylarda token, kaynak, fark YOK: yalnızca kayıt kimliği, proje klasörü, durum.
 

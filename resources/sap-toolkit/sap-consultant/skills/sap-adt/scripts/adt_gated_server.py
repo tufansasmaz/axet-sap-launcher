@@ -14,7 +14,8 @@ NE YAPAR
     (engine.run_http → _http_tool_specs) aracı getattr(engine, ad) ile bulduğu için
     HTTP'den gelen her çağrı sarmalayıcıdan geçer.
   - Sarmalayıcı: bilgi toplar (gated_collect), kaynak taşıyan yazmada kalite
-    kapısını çalıştırır (gated_quality), launcher'a sorar, yalnızca `izinli`
+    kapısını çalıştırır (gated_quality), launcher'a sorar (kararı en çok 45 sn aynı
+    çağrıda bekler, bkz. APPROVAL_WAIT_BUDGET_S), yalnızca `izinli`
     cevabında motoru çağırır, sonucu launcher günlüğüne bildirir.
   - Üç araç ekler: axet_teslim, axet_abapgit_onay, axet_inceleme_kaydet.
   - Her aracın (okuyanlar dahil) en dışına bağlantı denetimi konur: `.conn_adt`
@@ -183,11 +184,23 @@ AXET_TOOLS = ("axet_teslim", "axet_abapgit_onay", "axet_inceleme_kaydet")
 INLINE_SOURCE_ARGS = ("source", "types_and_constants")
 ATC_MAX_OBJECTS = 10
 APPROVAL_TIMEOUT_S = 10
+# Onay kararını AYNI araç çağrısı içinde bekleme (uzun yoklama) bütçesi, çağrının
+# başından itibaren. Ölçüm (axet-code 1.4.1, 2026-10-20): ajanların ADT çağrısı MCP
+# değil, kabuk aracından (`python -c requests.post(...)`) gidiyor ve kabuk aracı
+# 1 dakikayı aşan komutu ARKA PLANA atıyor ("Commands exceeding 1 minute
+# automatically move to background"); başsız `run` turunda 200 sn'lik komut 60 sn'de
+# arka plana alındı ve tur orada bitti. 60 − 15 = 45 sn: çağrı (bilgi toplama +
+# bekleme) bu sürede biter, ajan cevabı kabukta görür. Süre dolarsa eski yol: Studio
+# onay gelince ajana "devam et" yazar, ajan aynı çağrıyı tekrar gönderir. Onay tek
+# kullanımlık (policy.ts): ikisi aynı onayla iki kez yazamaz.
+APPROVAL_WAIT_BUDGET_S = 45
+APPROVAL_WAIT_MIN_S = 3
 
 MSG_DENIED = "Kullanıcı reddetti. Tekrar deneme, başka yoldan da deneme."
 MESAJ = {
-    "approval_pending": ("NTT Studio'da onay penceresi açıldı. Kullanıcıya pencereyi onaylamasını "
-                         "söyle; onaydan sonra AYNI çağrıyı AYNI argümanlarla tekrar gönder."),
+    "approval_pending": ("NTT Studio'da onay penceresi açıldı ve karar henüz gelmedi. Kullanıcıya "
+                         "pencereyi söyle ve turunu bitir; onaylanınca NTT Studio sana 'devam et' yazar "
+                         "(ya da kullanıcı söyler). O zaman AYNI çağrıyı AYNI argümanlarla tekrar gönder."),
     "approval_denied": MSG_DENIED,
     "yerel_mod": ("Bu oturum 'önce yerelde çalış' modunda: SAP'a doğrudan yazılmaz. İş bitince "
                   "axet_teslim ile tek seferde teslim et."),
@@ -464,10 +477,53 @@ def _caller_headers() -> dict:
     return {"X-Axet-Istemci": " ".join(str(p) for p in pids)} if pids else {}
 
 
-def ask(fact: dict) -> tuple[dict | None, str | None]:
-    """(izin, None) ya da (None, ret yükü). İzin yalnızca karar tam olarak 'izinli' ise."""
+class _EngineLockReleased:
+    """Uzun yoklama boyunca motorun tek-çağrı kilidini bırakır, sonra geri alır.
+
+    Motor (run_http) her araç çağrısını `_HTTP_CALL_LOCK` altında çalıştırıyor ve
+    kilit doluyken gelen çağrıyı 503 ile geri çeviriyor. Onay beklerken SAP'a
+    dokunulmuyor; kilidi tutmak aynı sunucuyu kullanan öteki ajanların okumalarını
+    da 45 sn kilitlerdi. Eski akışta (bekliyor → tekrar gönder) iki çağrının arası
+    zaten kilitsizdi; bu, o aralığın aynısı. Kilit yalnız bu çağrı motorun HTTP
+    işleyicisinden geliyorsa (yığında işleyici var) ve doluysa bırakılır.
+    """
+
+    def __init__(self):
+        self.lock = getattr(engine, "_HTTP_CALL_LOCK", None)
+        self.released = False
+
+    def __enter__(self):
+        if self.lock is not None and self.lock.locked() and _caller_endpoint() is not None:
+            self.lock.release()
+            self.released = True
+        return self
+
+    def __exit__(self, *exc):
+        if self.released:
+            self.lock.acquire()
+        return False
+
+
+def ask(fact: dict, started: float | None = None) -> tuple[dict | None, str | None]:
+    """(izin, None) ya da (None, ret yükü). İzin yalnızca karar tam olarak 'izinli' ise.
+
+    `started` (time.monotonic) verilirse kararı en çok APPROVAL_WAIT_BUDGET_S'nin
+    kalanı kadar aynı çağrıda bekler (Studio `X-Axet-Bekle`'yi tanımıyorsa hemen döner).
+    """
+    headers = _caller_headers()
+    wait_s = 0
+    if started is not None:
+        wait_s = int(APPROVAL_WAIT_BUDGET_S - (time.monotonic() - started))
+        if wait_s < APPROVAL_WAIT_MIN_S:
+            wait_s = 0
     try:
-        out = _launcher("POST", "/approvals", fact, headers=_caller_headers())
+        if wait_s:
+            headers["X-Axet-Bekle"] = str(wait_s)
+            with _EngineLockReleased():
+                out = _launcher("POST", "/approvals", fact, headers=headers,
+                                timeout=wait_s + APPROVAL_TIMEOUT_S)
+        else:
+            out = _launcher("POST", "/approvals", fact, headers=headers)
     except ApprovalUnavailable as exc:
         return None, _fail("approval_unavailable", detail=str(exc))
     karar = out.get("karar")
@@ -587,6 +643,7 @@ def make_wrapper(arac: str, orig):
 
     @functools.wraps(orig)
     def gated(**kwargs):
+        started = time.monotonic()
         sinif = classify(arac, kwargs)
         if sinif == "mod_belirtilmeli":
             param = KARMA[arac][0]
@@ -620,7 +677,7 @@ def make_wrapper(arac: str, orig):
             return _fail("bilgi_toplanamadi", f"Kalite kapısı okunamadı: {exc}")
         if refused:
             return refused
-        grant, refused = ask(build_fact(arac, sinif, args, info))
+        grant, refused = ask(build_fact(arac, sinif, args, info), started)
         if refused:
             return refused
         call = dict(kwargs)
@@ -659,14 +716,16 @@ def make_wrapper(arac: str, orig):
 
 
 # --- katmanın kendi araçları -----------------------------------------------------
-def _ask_for(arac: str, args: dict, info: dict, pd: Path, *, extra: dict | None = None) -> dict:
+def _ask_for(arac: str, args: dict, info: dict, pd: Path, *, extra: dict | None = None,
+             started: float | None = None) -> dict:
+    started = time.monotonic() if started is None else started
     refused = quality_gate(arac, info, pd)
     if refused:
         return refused
     fact = build_fact(arac, T_O, args, info)
     if extra:
         fact.update(extra)
-    grant, refused = ask(fact)
+    grant, refused = ask(fact, started)
     if refused:
         return refused
     return {"ok": True, "onay_id": grant["id"]}

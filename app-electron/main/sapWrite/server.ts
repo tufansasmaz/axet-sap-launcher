@@ -15,6 +15,7 @@ import {
   approvalCandidates,
   dirKey,
   emitApprovalEvent,
+  onApprovalEvent,
   resolveOwnership,
   type ApprovalOutcome,
   type ApprovalOwnership,
@@ -50,7 +51,7 @@ let notifier: (() => void) | null = null;
 const MESAJ: Record<Decision, string> = {
   izinli: "Onaylandı.",
   bekliyor:
-    "Onay NTT Studio penceresinde bekliyor. Kullanıcıya pencereyi söyle ve bekle; kullanıcı onaylayınca AYNI çağrıyı AYNI argümanlarla tekrar gönder. Argümanı değiştirirsen yeni bir onay açılır.",
+    "Onay NTT Studio penceresinde hâlâ bekliyor. Kullanıcıya pencereyi söyle ve turunu burada bitir; kullanıcı onaylayınca NTT Studio sana \"Onaylandı, kaldığın yerden devam et\" yazar (ya da kullanıcı söyler). O zaman AYNI çağrıyı AYNI argümanlarla tekrar gönder; argümanı değiştirirsen yeni bir onay açılır.",
   reddedildi: "Kullanıcı reddetti. Tekrar deneme, başka yoldan da deneme. Kullanıcıya ne yapmak istediğini sor.",
   sure_doldu:
     "Onay penceresi 10 dakika cevapsız kaldı. Kullanıcıya sor; isterse 10 dakika sonra aynı çağrıyı tekrar gönder.",
@@ -75,6 +76,39 @@ export function parseCallerPids(header: string | string[] | undefined): number[]
   const parts = raw.trim().split(/\s+/).slice(0, 16);
   const pids = parts.map((x) => (/^\d{1,10}$/.test(x) ? Number(x) : NaN));
   return pids.every((n) => Number.isSafeInteger(n) && n > 0) ? pids : null;
+}
+
+/** Uzun yoklamanın en uzun süresi: onay penceresinin kendi süresi (10 dk). */
+export const MAX_WAIT_MS = 10 * 60_000;
+
+/** `X-Axet-Bekle`: saniye. Yoksa, bozuksa ya da 0'sa 0 (hemen cevap, eski davranış). */
+export function parseWaitMs(header: string | string[] | undefined): number {
+  const raw = Array.isArray(header) ? header[0] : header;
+  if (typeof raw !== "string" || !/^\d{1,4}$/.test(raw.trim())) return 0;
+  return Math.min(Number(raw.trim()) * 1000, MAX_WAIT_MS);
+}
+
+/** Kaydın kararı (pencere, süre, oturumun kapanması), süre sonu ya da çağıranın kopması. */
+function waitForDecision(id: string, ms: number, res: ServerResponse): Promise<"karar" | "zaman" | "koptu"> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v: "karar" | "zaman" | "koptu") => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      off();
+      res.off("close", onClose);
+      resolve(v);
+    };
+    const onClose = () => {
+      if (!res.writableEnded) finish("koptu");
+    };
+    const off = onApprovalEvent((e) => {
+      if (e.tur === "sonuclandi" && e.id === id) finish("karar");
+    });
+    const timer = setTimeout(() => finish("zaman"), ms);
+    res.on("close", onClose);
+  });
 }
 
 // Bekleyen isteğin sahipliği: ilk kesin (süreç zinciriyle) eşleşme yapışır,
@@ -185,7 +219,7 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
       return;
     }
     sweepNow(now);
-    const r = decide(state, body, now);
+    let r = decide(state, body, now);
     // Aynı bekleyen isteğin tekrarı (ajan yoklarken) günlüğü şişirmesin.
     if (!(r.karar === "bekliyor" && !r.created)) {
       appendDecisionLog(
@@ -199,6 +233,33 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     if (r.karar === "bekliyor" && r.id) {
       const sahiplik = ownershipOf(r.id, parseCallerPids(req.headers["x-axet-istemci"]), state.projectDir);
       emitApprovalEvent({ tur: "soruldu", id: r.id, projectDir: state.projectDir, sahiplik });
+    }
+    // Uzun yoklama: gated sunucu `X-Axet-Bekle` ile kararı aynı çağrı içinde
+    // bekleyebiliyor. Karar gelirse ya da süre biterse karar YENİDEN verilir
+    // (onay tek kullanımlık: izinli dönerse kayıt tüketilir); çağıran koparsa
+    // hiçbir şey tüketilmez, onay pencerede verilmiş olarak kalır ve ajanın
+    // tekrar gönderdiği çağrı onu kullanır. Bekleme izin VERMEZ, yalnız sorar.
+    const waitMs = parseWaitMs(req.headers["x-axet-bekle"]);
+    if (r.karar === "bekliyor" && r.id && waitMs > 0) {
+      const outcome = await waitForDecision(r.id, waitMs, res);
+      if (outcome === "koptu") return;
+      if (![...sessions.values()].includes(session)) {
+        send(res, 401, { hata: "oturum_kapandi" });
+        return;
+      }
+      if (outcome === "karar") {
+        const later = Date.now();
+        sweepNow(later);
+        r = decide(state, body, later);
+        if (!(r.karar === "bekliyor" && !r.created)) {
+          appendDecisionLog(
+            state.projectDir,
+            { tur: "karar", id: r.id, karar: r.karar, kaynak: r.kaynak, ...factLogFields(body), ...identityFields(state) },
+            later,
+          );
+        }
+        if (r.created) notify();
+      }
     }
     if (r.karar === "izinli" && r.kaynak === "pencere" && r.id) emitApprovalEvent({ tur: "kullanildi", id: r.id, projectDir: state.projectDir });
     send(res, 200, { karar: r.karar, id: r.id, mesaj: MESAJ[r.karar] });
