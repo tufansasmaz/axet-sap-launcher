@@ -1,7 +1,7 @@
 // Lider çalıştırıcısı (spec 2026-10-18 gorev-panosu §3, §7, §10). axet-code
 // ÇALIŞTIRILMIYOR: tur, sürüm denetimi ve git status enjekte.
 import { describe, expect, it, vi } from "vitest";
-import { runLead, type LeadDeps, type LeadTurnResult } from "../app-electron/main/boardLead";
+import { LEAD_RETRY_MS, runLead, type LeadDeps, type LeadTurnResult } from "../app-electron/main/boardLead";
 
 const PLAN = '```json\n{"subtasks":[{"title":"Model","prompt":"Tabloyu ekle.","role":"coder","dependsOn":[]}]}\n```';
 
@@ -86,5 +86,49 @@ describe("runLead", () => {
       }
     });
     expect(await runLead("C:\\p", "x", h.deps).done).toMatchObject({ ok: false, error: "failed" });
+  });
+});
+
+// Tur 10 (ölçüldü, .superpowers/olcum/tur10/pano-raw.txt): istek sınırına takılan
+// axet-code `run` başarıyla çıkıp yalnız "429 Too Many Requests {"message":...}"
+// satırlarını yazıyor; içindeki JSON plan sanılıp "Planda alt görev yok" deniyordu.
+describe("runLead — geçici servis hatası", () => {
+  const RATE =
+    '_Transient error (attempt 3/3): retry error: too many requests: POST "https://x/v1/messages": 429 Too Many Requests {"message":"Too many tokens, please wait before trying again."}_';
+
+  it("plan yoksa ve metin geçici hata ise bir kez bekleyip yeniden deniyor", async () => {
+    const texts = [RATE, PLAN];
+    const sleeps: number[] = [];
+    const h = harness({}, {
+      startTurn: (cwd, prompt) => {
+        h.calls.push({ cwd, prompt });
+        return { done: Promise.resolve({ ok: true, text: texts.shift()!, timedOut: false, spawnFailed: false }), cancel: vi.fn() };
+      },
+      sleep: async (ms) => {
+        sleeps.push(ms);
+      }
+    });
+    const outcome = await runLead("C:\p", "x", h.deps).done;
+    expect(h.calls).toHaveLength(2);
+    expect(sleeps).toEqual([LEAD_RETRY_MS]);
+    expect(outcome).toMatchObject({ ok: true });
+  });
+
+  it("ikinci deneme de geçici hata: 'failed' + sınıflı ayrıntı (plan hatası değil)", async () => {
+    const h = harness({ text: RATE }, { sleep: async () => {} });
+    const outcome = await runLead("C:\p", "x", h.deps).done;
+    expect(h.calls).toHaveLength(2);
+    expect(outcome).toMatchObject({ ok: false, error: "failed" });
+    if (!outcome.ok) {
+      expect(outcome.detail).toContain("429");
+      expect(outcome.raw).toContain("Too Many Requests");
+    }
+  });
+
+  it("gerçek geçersiz plan yeniden denenmiyor", async () => {
+    const h = harness({ text: '{"subtasks":[]}' }, { sleep: async () => {} });
+    const outcome = await runLead("C:\p", "x", h.deps).done;
+    expect(h.calls).toHaveLength(1);
+    expect(outcome).toMatchObject({ ok: false, error: "noSubtasks" });
   });
 });
