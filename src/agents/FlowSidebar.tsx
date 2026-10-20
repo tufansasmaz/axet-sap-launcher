@@ -4,8 +4,8 @@
 // akış (ajan başına başlık + durum çipi + gövde; bitirince son cevabı
 // kartta), soru kartları ve mesaj kutusu. Görünüm seçimi artık içerik
 // alanının sol kenarındaki dikey rayda (ViewRail).
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, GitBranch, RotateCw, Trash2, X } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
+import { ArrowUp, AtSign, BookOpen, BookPlus, ChevronDown, GitBranch, Paperclip, RotateCw, Trash2, X } from "lucide-react";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { noteFromFlow } from "../../app-electron/shared/memoryNotes";
 import { useT } from "../i18n";
@@ -33,6 +33,8 @@ import { matchAgents, mentionAt, removeMention, type Mention } from "./mention";
 import { requestAddAgent } from "./addAgentBus";
 import CustomAnswer from "./CustomAnswer";
 import OpenInBrowserButton from "../browser/OpenInBrowserButton";
+import { addAttachmentPaths, fileName, withAttachments } from "./flowAttachments";
+import { readDraggedPaths } from "../lib/attachments";
 
 const ANSWER_ERROR: Record<Exclude<AgentAnswerFailure, "closed" | "alreadyAnswered">, TranslationKey> = {
   typing: "agents.answerTyping",
@@ -739,6 +741,8 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  // Tur 10: eklenen dosyaların yolları (içerik değil); gönderilince mesaja eklenir.
+  const [files, setFiles] = useState<string[]>([]);
   // Tur 7: lidersiz ekibe iş verilince "Lider ekle" önerisi.
   const [leadTip, setLeadTip] = useState(false);
   // Hedef çipinden açılan seçici (Tur 3); @ yazınca açılan listeyle aynı liste.
@@ -768,7 +772,7 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     }
     // Satırlar ajana tek satır olarak gider (terminal istemi; satır sonu reddedilir).
     const body = text.replace(/\s+/g, " ").trim();
-    if (!body) return;
+    if (!body && files.length === 0) return;
     setLeadTip(false);
     setSending(true);
     if (target.id === TEAM_ID) {
@@ -785,12 +789,47 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     await sendOne(target, body, null);
   };
 
-  const sendOne = async (to: { id: string; name: string }, body: string, okNotice: string | null) => {
+  // Tur 10: dosya yolları ajanın klasörüne göre (içindeyse göreli).
+  const composed = (paneId: string, body: string) =>
+    withAttachments(body, files, workspace.panes.find((p) => p.id === paneId)?.cwd ?? "", t("flow.attachLabel"));
+
+  const pickFiles = async () => {
+    try {
+      const picked = await window.api.pickFiles();
+      if (picked.length) setFiles((list) => addAttachmentPaths(list, picked));
+    } catch {
+      // seçim penceresi açılamadı: ek yok
+    }
+    inputRef.current?.focus();
+  };
+
+  // Sürükle-bırak: Explorer'dan gelen dosyanın gerçek yolu, uygulamanın kendi gezgininden gelen yol.
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    const dt = event.dataTransfer;
+    if (!dt) return;
+    const paths: string[] = [...readDraggedPaths(dt)];
+    for (let i = 0; i < (dt.files?.length ?? 0); i++) {
+      const file = dt.files[i];
+      try {
+        const path = file ? window.api.getPathForFile(file) : "";
+        if (path) paths.push(path);
+      } catch {
+        // yolu olmayan (ör. tarayıcıdan sürüklenen) dosya atlanıyor
+      }
+    }
+    if (paths.length === 0) return;
+    event.preventDefault();
+    setFiles((list) => addAttachmentPaths(list, paths));
+  };
+
+  const sendOne = async (to: { id: string; name: string }, plain: string, okNotice: string | null) => {
+    const body = composed(to.id, plain);
     if (statuses[to.id]?.detail === AXET_SETUP_DETAIL) {
       // Açılış seçimi açık: yazılsaydı kaybolurdu. Kuyrukta bekler, seçim yapılınca bir kez gider.
       setSending(false);
       queue({ workspaceId: workspace.id, paneId: to.id, name: to.name, body });
       setText("");
+      setFiles([]);
       setNotice(t("flow.queue.queued", { name: to.name }));
       return;
     }
@@ -805,6 +844,7 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     if (result.ok) {
       record({ at: Date.now(), workspaceId: workspace.id, kind: "message", paneId: target.id, name: target.name, detail: body });
       setText("");
+      setFiles([]);
       setNotice(okNotice);
     } else {
       setNotice(t(SEND_FAILURE[result.reason] ?? "browser.fail.writeFailed"));
@@ -812,10 +852,11 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
   };
 
   // Sırayla, her ajana bir kez: reddedilen yeniden denenmiyor, sebebi yazılıyor.
-  const sendTeam = async (body: string) => {
+  const sendTeam = async (plain: string) => {
     const skipped: string[] = [];
     let sent = 0;
     for (const agent of agents) {
+      const body = composed(agent.id, plain);
       if (statuses[agent.id]?.detail === AXET_SETUP_DETAIL) {
         queue({ workspaceId: workspace.id, paneId: agent.id, name: agent.name, body });
         sent += 1;
@@ -837,7 +878,10 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     setSending(false);
     const summary = t("flow.team.sent", { sent, total: agents.length });
     setNotice(skipped.length ? `${summary} ${t("flow.team.skipped", { list: skipped.join(", ") })}` : summary);
-    if (skipped.length === 0) setText("");
+    if (skipped.length === 0) {
+      setText("");
+      setFiles([]);
+    }
   };
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -867,7 +911,7 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
     if (el.scrollHeight > 0) el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
   }, [text]);
 
-  const canSend = !sending && text.trim() !== "";
+  const canSend = !sending && (text.trim() !== "" || files.length > 0);
 
   return (
     <div className="relative shrink-0 px-2 pb-2 pt-1">
@@ -911,8 +955,30 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
       )}
       <div
         data-flow-composer=""
+        onDragOver={(e) => {
+          if (e.dataTransfer?.types?.length) e.preventDefault();
+        }}
+        onDrop={onDrop}
         className="rounded-xl border border-line-subtle bg-card px-2 pb-1.5 pt-1 transition-colors hover:border-line focus-within:border-accent-500/60"
       >
+        {files.length > 0 && (
+          <ul data-flow-files="" aria-label={t("flow.attachList")} className="flex flex-wrap gap-1 px-1 pt-1">
+            {files.map((file) => (
+              <li key={file} title={file} className="flex h-5 max-w-[12rem] items-center gap-1 rounded bg-control pl-1.5 text-2xs text-slate-200">
+                <span className="min-w-0 truncate">{fileName(file)}</span>
+                <button
+                  type="button"
+                  onClick={() => setFiles((list) => list.filter((f) => f !== file))}
+                  aria-label={t("flow.attachRemove", { name: fileName(file) })}
+                  title={t("flow.attachRemove", { name: fileName(file) })}
+                  className={GHOST_ICON_BUTTON}
+                >
+                  <X size={10} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <textarea
           ref={inputRef}
           role="combobox"
@@ -968,6 +1034,9 @@ function MessageBox({ workspace }: { workspace: TerminalWorkspace }) {
               <X size={10} />
             </button>
           )}
+          <button type="button" onClick={() => void pickFiles()} aria-label={t("flow.attach")} title={t("flow.attachHint")} className={GHOST_ICON_BUTTON}>
+            <Paperclip size={12} />
+          </button>
           <span className="ml-auto truncate text-2xs text-slate-500">{t("flow.keysHint")}</span>
           <button
             type="button"
