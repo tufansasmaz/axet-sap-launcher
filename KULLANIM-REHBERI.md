@@ -635,14 +635,23 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     canlı güncellenir; ajan işini bitirince (ya da hata verince) aynı kart
     cevap kartına dönüşüp en alta iner. **Son cevap** kartta görünür (en çok
     dört satır; **Devamını göster** ile tamamı, **Terminalde aç** ile
-    terminali). Cevap yalnız durumu kesin bilinen ajanlarda (axet-code'un kendi
-    kaydı) okunur; şifre/jeton benzeri değerler «gizli» diye maskelenir, en çok
-    2000 karakter tutulur.
+    terminali). Durumu kesin bilinen ajanlarda (axet-code'un kendi kaydı, Claude
+    Code'un oturum dökümü — `--continue` ile büyümüş eski oturumlar ve Claude'u
+    açan özel komutlar dahil) cevap kayıttan okunur. Tahmini ajanda cevap terminal
+    ekranından çıkarılır (Claude Code ve axet-code ekranı tanınır, öbürlerinde
+    istemden sonraki son anlamlı blok; kutu çizgileri, ilerleme göstergeleri ve
+    altbilgiler ayıklanır) ve kartın altında "≈ Terminal ekranından okundu
+    (tahmini)" yazar; çıkarılamazsa "Cevap terminalde" denir. Şifre/jeton benzeri
+    değerler «gizli» diye maskelenir, en çok 2000 karakter tutulur.
     Durumu **tahmini** olan ajanda (≈) terminaldeki hareket tek başına olay
     sayılmaz: açılış ekranı, tuş yankısı ya da ekran yenilemesi "başladı/bitti"
-    yazdırmaz. Ancak ajana bir istem gönderilip ardından çıktı gelirse
-    "Çalışıyor (tahmini)", çıktı 20 sn durunca "Bitirmiş görünüyor (tahmini)"
-    kartı çıkar; ikisi de ≈ işaretlidir, cevap terminaldedir. Kesin bağ
+    yazdırmaz; ekip satırındaki durum da istem gönderilmeden "Çalışıyor"a geçmez
+    (motor komutu ve axet-code araç seçimi istem sayılmaz; yalnız senin bölmede
+    Enter'la gönderdiğin satır ya da Akış/lider/pano gönderimi). Ajana bir istem
+    gönderilip ardından çıktı gelirse "Çalışıyor (tahmini)" kartı çıkar; motorun
+    tur sonu işareti (Claude Code "✻ … for Ns", axet-code "◇ model via … Ns")
+    görülüp çıktı 2 sn durunca ya da çıktı 20 sn durunca "Bitirmiş görünüyor
+    (tahmini)" kartı çıkar; ikisi de ≈ işaretlidir. Kesin bağ
     kurulamadığında Akış sebebini bir kez **bilgi** kartıyla söyler: istem
     birden çok oturumda bulundu, oturum kaydı okunamadı, istem 60 sn içinde
     kayda düşmedi ya da motorun (Claude Code, Codex, Gemini, özel komut) kesin
