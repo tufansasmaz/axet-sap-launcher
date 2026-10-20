@@ -12,6 +12,23 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW_DATA: readonly WhatsNewEntry[] = [
   {
+    version: "1.9.2",
+    items: {
+      tr: [
+        "Ajan artık yalnız gerçek bir görev gelince \"çalışıyor\" oluyor; açılışta yanlışlıkla çalışıyor görünmüyor, bitince daha hızlı \"bitti\" oluyor.",
+        "Akış'ta ajanın cevabı görünüyor: kesin kaynak yoksa terminal ekranından okunuyor (≈).",
+        "Uzun Claude oturumları da kesin kaynakla izleniyor.",
+        "Terminalde sol kenardaki yazı kayması düzeldi; yüzen görünüm düğmesi terminalin üstüne binmiyor."
+      ],
+      en: [
+        "An agent now shows \"working\" only when a real task arrives; it no longer looks busy right after opening and shows \"done\" sooner.",
+        "Flow shows the agent's answer: read from the terminal screen when there is no exact source (≈).",
+        "Long Claude sessions are tracked from the exact source too.",
+        "Fixed text shifting at the left edge of the terminal; the floating view button no longer covers the terminal."
+      ]
+    }
+  },
+  {
     version: "1.9.1",
     items: {
       tr: [
