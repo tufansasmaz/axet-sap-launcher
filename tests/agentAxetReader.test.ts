@@ -585,7 +585,7 @@ describe("oturum kaydı ve okuyucu seçimi", () => {
     expect(keysOverlap("lütfen devam et", "devam et")).toBe(false);
   });
 
-  it("axet-code kesin okuyucu, öteki motorlar genel okuyucu alıyor", () => {
+  it("axet-code kesin okuyucu, öteki motorlar genel okuyucu alıyor", async () => {
     const deps = { now: () => 0, port: port(fakeDb()), registry: createSessionRegistry(), onMatch: vi.fn() };
     const reg = (engine: AgentRegistration["engine"]): AgentRegistration => ({
       paneId: "p",
@@ -600,5 +600,13 @@ describe("oturum kaydı ve okuyucu seçimi", () => {
     });
     expect(createAgentReader(reg("axet-code"), deps)).toBeInstanceOf(AxetReader);
     expect(createAgentReader(reg("claude"), deps)).not.toBeInstanceOf(AxetReader);
+    // Tur 10: Claude ve özel komut (Claude başlatıcısı olabilir) döküm okuyucusu alıyor; öbürleri genel.
+    const { ClaudeReader } = await import("../app-electron/main/agentClaudeReader");
+    const claudePort = { list: () => [], read: () => null };
+    expect(createAgentReader(reg("claude"), { ...deps, claudePort, home: "C:\\h" })).toBeInstanceOf(ClaudeReader);
+    expect(createAgentReader(reg("ozel"), { ...deps, claudePort, home: "C:\\h" })).toBeInstanceOf(ClaudeReader);
+    expect(createAgentReader(reg("codex"), { ...deps, claudePort })).not.toBeInstanceOf(ClaudeReader);
+    // Özel komut bağ kurulmadıkça eskisi gibi "desteklenmiyor" der.
+    expect(createAgentReader(reg("ozel"), { ...deps, claudePort, home: "C:\\h" }).status().link).toBe("unsupported");
   });
 });
