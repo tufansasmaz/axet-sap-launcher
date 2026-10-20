@@ -4,7 +4,7 @@
 // (Araçlar'daki varsayılan liderden genişse liderin motoru), alan liderin alanı,
 // kapatma yalnız o liderin açtığı bölmede.
 import type { AgentEngineId } from "../../app-electron/shared/agentTypes";
-import { pickSpawnEngine, type LeadCloseRequest, type LeadSpawnRequest } from "../../app-electron/shared/leadCommands";
+import { pickSpawnEngine, workerCommand, type LeadCloseRequest, type LeadSpawnRequest } from "../../app-electron/shared/leadCommands";
 import { MAX_TERMINAL_PANES } from "../../app-electron/shared/terminalLayout";
 import type { NewAgentInput } from "../stores/terminalStoreContext";
 import type { TerminalState } from "../stores/terminalTypes";
@@ -25,11 +25,17 @@ export function planLeadSpawn(state: TerminalState, req: LeadSpawnRequest, prefe
   const cwd = workspace.root || leader.cwd || fallbackCwd;
   if (!cwd.trim()) return { ok: false, reason: "noDir" };
   const name = req.name.trim().slice(0, 40) || req.role;
+  // Tur 10: özel komutlu lider kendi komutuyla açar (oturum sürdürme bayrakları atılarak).
+  let command: string | undefined;
+  if (picked.engine === "ozel") {
+    command = workerCommand(leader.agent.command ?? "");
+    if (!command) return { ok: false, reason: "engine" };
+  }
   return {
     ok: true,
     engine: picked.engine,
     input: {
-      spec: { engine: picked.engine, role: req.role.slice(0, 40), roleKind: req.roleKind === "preset" ? "preset" : "custom", spawnedBy: leader.id },
+      spec: { engine: picked.engine, role: req.role.slice(0, 40), roleKind: req.roleKind === "preset" ? "preset" : "custom", spawnedBy: leader.id, ...(command ? { command } : {}) },
       name,
       cwd
     }

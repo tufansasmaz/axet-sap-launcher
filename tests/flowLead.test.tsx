@@ -201,3 +201,16 @@ describe("renderer açılış/kapatma kuralları", () => {
     expect(canLeadClose(s, { workspaceId: "w2", paneId: "T", leaderPaneId: "L" })).toBe(false);
   });
 });
+
+describe("Tur 10: özel komutlu lider", () => {
+  it("işçiyi liderin komutuyla açıyor; --continue atılıyor", () => {
+    const azureLead = pane("L", { cwd: "C:\lider", agent: { engine: "ozel", role: "Lider", roleKind: "preset", command: "azure --continue" } });
+    const plan = planLeadSpawn(
+      { ...initialTerminalState, phase: "ready", workspaces: [ws("w1", [azureLead])], activeWorkspaceId: "w1" },
+      { workspaceId: "w1", paneId: "N1", name: "Geliştirici", role: "Geliştirici", roleKind: "preset", leaderPaneId: "L", leaderEngine: "ozel", engine: null },
+      "axet-code",
+      "C:\axet"
+    );
+    expect(plan).toMatchObject({ ok: true, engine: "ozel", input: { spec: { engine: "ozel", command: "azure", spawnedBy: "L" } } });
+  });
+});

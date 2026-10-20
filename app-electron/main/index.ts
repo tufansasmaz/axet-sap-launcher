@@ -54,9 +54,9 @@ import { browserWorkspace } from "../shared/browserLogic";
 import { configureBrowserSession, isBrowserGuestContents, type BrowserSessionLike } from "./browserGuard";
 import { createBrowserSender } from "./browserSend";
 import { createAgentSender } from "./agentSend";
-import { createTeamBridge, startTeamBridgeServer, TEAM_CMD, TEAM_HINT, TEAM_PS1 } from "./teamBridge";
+import { createTeamBridge, startTeamBridgeServer, TEAM_CMD, TEAM_HINT, TEAM_PS1, TEAM_SH } from "./teamBridge";
 import { createTeamLead, type LeadApprovalRequest, type LeadSpawnRequest } from "./teamLead";
-import { isLeadRole, leadHint, newLeadTaskId } from "../shared/leadCommands";
+import { agentHintFor, isLeadRole, newLeadTaskId } from "../shared/leadCommands";
 import { clearFlowHistory, loadFlowHistory, saveFlowHistory } from "./flowHistoryStore";
 import { AXET_SETUP_DETAIL, isAgentEngineId } from "../shared/agentTypes";
 import { axetAutoSetupPrefs, type AgentAutoSetupEvent } from "../shared/axetSetupPrefs";
@@ -603,6 +603,8 @@ const teamBridge = createTeamBridge({
 });
 let teamServer: { port: number; close: () => void } | null = null;
 let teamScriptDir: string | null = null;
+/** Tur 10: köprü açılışı; açılışta geri yüklenen bölmeler NTT_TEAM_* olmadan açılmasın diye bekleniyor. */
+let teamBridgeStart: Promise<void> | null = null;
 /** Akış'tan ilk mesajda ekip aracı ipucu verilen bölmeler (bölme yeniden kaydolunca sıfırlanır). */
 const teamHinted = new Set<string>();
 
@@ -621,6 +623,8 @@ async function startTeamBridge(): Promise<void> {
     writeFileSync(path.join(dir, "ntt-team.cmd"), TEAM_CMD, "utf-8");
     // PowerShell 5 BOM'suz UTF-8'i ANSI sanıyor: BOM'la yazılıyor.
     writeFileSync(path.join(dir, "ntt-team.ps1"), `${String.fromCharCode(0xfeff)}${TEAM_PS1}`, "utf-8");
+    // Tur 10: Git Bash (Claude Code'un Bash aracı) için uzantısız sh betiği (LF, BOM'suz).
+    writeFileSync(path.join(dir, "ntt-team"), TEAM_SH, "utf-8");
     teamScriptDir = dir;
   } catch {
     teamScriptDir = null;
@@ -1507,7 +1511,7 @@ function registerIpc(): void {
 
   ipcMain.handle(
     "terminal:create",
-    (
+    async (
       _event,
       cwd: string,
       cols: number,
@@ -1516,6 +1520,9 @@ function registerIpc(): void {
       initialCommand?: string,
       options?: { createDir?: boolean }
     ) => {
+      if (!mainWindow) throw new Error(mt("app.windowNotReady"));
+      // Tur 10: köprü henüz açılmadıysa (açılış yarışı) en çok 3 sn beklenir.
+      if (!teamServer && teamBridgeStart) await Promise.race([teamBridgeStart, new Promise((r) => setTimeout(r, 3_000))]);
       if (!mainWindow) throw new Error(mt("app.windowNotReady"));
       const id = randomUUID();
       // Klasör yoksa ve yaratılmaması istendiyse süreç açılmadı. Metin bir
@@ -1628,19 +1635,22 @@ function registerIpc(): void {
     }
     try {
       // Ekip aracı ipucu (Tur 4): ekipte 2+ ajan varsa bölmeye ilk Akış mesajında bir kez.
+      // Tur 7: Lider (kullanıcının açtığı) yöneticilik rehberini alır; ekip tek kişiyse de.
+      // Tur 10: lidere sonraki her mesajda kısa hatırlatma (ölçüm: rehber yalnız ilk mesajdaydı).
       const key = typeof paneId === "string" ? paneId : "";
       let line = text;
-      if (teamServer && key && !teamHinted.has(key) && typeof text === "string") {
+      if (teamServer && key && typeof text === "string") {
         const cfg = loadConfig();
         const ws = cfg.terminalWorkspaces.find((w) => w.id === workspaceId);
         const pane = ws?.panes.find((p) => p.id === key);
-        // Tur 7: Lider (kullanıcının açtığı) yöneticilik rehberini alır; ekip tek kişiyse de.
-        const hint =
-          pane?.agent && isLeadRole(pane.agent.role) && !pane.agent.spawnedBy
-            ? leadHint(cfg.leadMaxAgents, cfg.leadTeam !== false)
-            : (ws?.panes.filter((p) => p.kind === "agent").length ?? 0) >= 2
-              ? TEAM_HINT
-              : "";
+        const hint = agentHintFor({
+          lead: Boolean(pane?.agent && isLeadRole(pane.agent.role) && !pane.agent.spawnedBy),
+          first: !teamHinted.has(key),
+          teamSize: ws?.panes.filter((p) => p.kind === "agent").length ?? 0,
+          max: cfg.leadMaxAgents,
+          canSpawn: cfg.leadTeam !== false,
+          teamHint: TEAM_HINT
+        });
         if (hint && text.length + hint.length <= 2000) line = `${text}${hint}`;
       }
       const result = await agentSender.send(workspaceId, paneId, line);
@@ -2664,7 +2674,7 @@ function registerIpc(): void {
 app.whenReady().then(() => {
   // npm genel klasörü PATH'te değilse kabuklar ve motor sondajı npm araçlarını görmüyor (toolPath.ts).
   ensureToolDirsOnPath();
-  void startTeamBridge();
+  teamBridgeStart = startTeamBridge();
   // Günlüğün İLK satırı: dosya var olsun (kullanıcı "yok" diye aramasın) ve
   // her arıza satırı hangi sürümde olduğunu yanında taşısın.
   appLog("acilis", { surum: app.getVersion(), platform: process.platform, elektron: process.versions.electron });

@@ -90,7 +90,8 @@ describe("motor yetkisi (yalnız aşağı)", () => {
     expect(pickSpawnEngine("axet-code", null, "gemini")).toEqual({ ok: true, engine: "gemini" });
     expect(pickSpawnEngine("claude", null, "axet-code")).toEqual({ ok: true, engine: "claude" });
     expect(pickSpawnEngine("claude", null, "ozel")).toEqual({ ok: true, engine: "claude" });
-    expect(pickSpawnEngine("ozel", null, null)).toMatchObject({ ok: false });
+    // Tur 10: özel komutlu lider kendi komutuyla açabiliyor (tests/leadTur10.test.ts).
+    expect(pickSpawnEngine("ozel", null, null)).toEqual({ ok: true, engine: "ozel" });
   });
 });
 

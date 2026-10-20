@@ -92,7 +92,10 @@ describe("eklenen (Tur 7): lider ekip ayarları", () => {
   it("ana süreç: Lider'e yöneticilik rehberi, öteki ekip üyelerine ekip ipucu (kaynak düzeyi)", async () => {
     const { readFileSync: read } = await import("node:fs");
     const main = read(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8").replace(/\r\n/g, "\n");
-    expect(main).toMatch(/isLeadRole\(pane\.agent\.role\) && !pane\.agent\.spawnedBy\s*\?\s*leadHint\(cfg\.leadMaxAgents, cfg\.leadTeam !== false\)/);
+    // Tur 10: karar saf agentHintFor'da (tests/leadTur10.test.ts); her lider mesajında.
+    expect(main).toMatch(/lead: Boolean\(pane\?\.agent && isLeadRole\(pane\.agent\.role\) && !pane\.agent\.spawnedBy\)/);
+    expect(main).toMatch(/first: !teamHinted\.has\(key\)/);
+    expect(main).toContain("canSpawn: cfg.leadTeam !== false");
     expect(main).toContain('lead: (caller, args) => teamLead.handle(caller, args)');
   });
 });

@@ -83,6 +83,15 @@ export type SpawnEngineResult = { ok: true; engine: AgentEngineId } | { ok: fals
  * liderin kendi motoru.
  */
 export function pickSpawnEngine(leader: AgentEngineId, requested: string | null, preferred: AgentEngineId | null): SpawnEngineResult {
+  // Tur 10: özel komutlu lider (ör. Azure/Foundry başlatıcısıyla Claude) hiç ajan
+  // açamıyordu. Kendi komutuyla (eşit yetki) ya da onay soran motorlarla açabilir;
+  // `-y`'li axet-code'u açamaz. Öteki liderler özel komut açamaz (değişmedi).
+  if (leader === "ozel") {
+    if (!requested || requested === "ozel") return { ok: true, engine: "ozel" };
+    if (!isAgentEngineId(requested)) return { ok: false, error: `Bilinmeyen motor: ${requested}. Gecerli: ozel, claude, codex, gemini.` };
+    if ((engineRank(requested) ?? 0) > 1) return { ok: false, error: `${requested} senin yetkinden genis (onaysiz calisir); ozel komutlu liderin acabilecegi motor degil.` };
+    return { ok: true, engine: requested };
+  }
   const leaderRank = engineRank(leader) ?? 0;
   const fits = (id: AgentEngineId) => {
     const rank = engineRank(id);
@@ -235,7 +244,55 @@ export function leadHint(max: number, canSpawn: boolean): string {
   const spawn = canSpawn
     ? `once \`ntt-team status\` ile bostaki uygun ajani kullan, yoksa \`ntt-team spawn --rol Gelistirici|Analist|Test|Inceleme [--ad X] [--gorev "..."]\` ile ajan ac (en cok ${max}), `
     : "";
-  return ` (Sen ekip liderisin: isi parcala; ${spawn}\`ntt-team assign <ajan> "<gorev>"\` ile gorev ver (G-xxxx kimligi doner), \`ntt-team wait <G-xxxx>\` ile sonucu bekle (25 sn'de bitmezse ayni komutu yeniden calistir; ajani yeniden acma); sonuclari birlestir ve kullaniciya kisa ozet ver. Is bitince actigin ajanlari kapatma, sonraki isler icin ekipte kalsinlar; \`ntt-team close <ajan>\` yalniz kullanici isterse. Kendin Lider acamazsin; actigin ajanlar senden genis yetki almaz. Hata: \`ntt-team status\`/\`wait\` nedeni soyler; gecici (servis/429/ag) ise uygulama yeniden dener, bekle; tukenirse gorevi baska ajana ver (en cok 2 kez); kalici (model/yetki) ise kullaniciya bildir. 429 alirsan ve ekip kalabaliksa yeni ajan acma, sirayla calistir. \`ntt-team list|ask|feed|memory\` de var.)`;
+  return ` (Sen ekip liderisin: isi kendin yapma, parcala ve ekibe dagit; ${spawn}\`ntt-team assign <ajan> "<gorev>"\` ile gorev ver (G-xxxx kimligi doner), \`ntt-team wait <G-xxxx>\` ile sonucu bekle (25 sn'de bitmezse ayni komutu yeniden calistir; ajani yeniden acma); sonuclari birlestir ve kullaniciya kisa ozet ver. Is bitince actigin ajanlari kapatma, sonraki isler icin ekipte kalsinlar; \`ntt-team close <ajan>\` yalniz kullanici isterse. Kendin Lider acamazsin; actigin ajanlar senden genis yetki almaz. Hata: \`ntt-team status\`/\`wait\` nedeni soyler; gecici (servis/429/ag) ise uygulama yeniden dener, bekle; tukenirse gorevi baska ajana ver (en cok 2 kez); kalici (model/yetki) ise kullaniciya bildir. 429 alirsan ve ekip kalabaliksa yeni ajan acma, sirayla calistir. \`ntt-team list|ask|feed|memory\` de var.)`;
+}
+
+/**
+ * Tur 10: lidere sonraki her Akış mesajında kısa hatırlatma. Ölçüm: rehber yalnız
+ * ilk mesajda gidiyordu; uzun konuşmada (ya da uygulama yeniden açılıp sürdürülen
+ * oturumda) lider işi kendisi yapmaya başlıyordu.
+ */
+export const LEAD_REMINDER =
+  " (Lider hatirlatmasi: isi kendin yapma; `ntt-team status` ile bostaki uygun ajani bul, `ntt-team assign <ajan> \"<gorev>\"` ile ver, `ntt-team wait <G-xxxx>` ile bekle; uygun ajan yoksa `ntt-team spawn`.)";
+
+/**
+ * Tur 10: Claude lideri açılışta `--append-system-prompt` ile alıyor (Claude Code'un
+ * resmi bayrağı). Komut kabuğa (cmd/PowerShell) çift tırnak içinde yazıldığı için
+ * tırnak, $, `, %, &, |, <, >, ^, ! YOK (testte denetleniyor).
+ */
+export const LEAD_SYSTEM_PROMPT =
+  "Sen NTT Studio ekibinin LIDERISIN. Kullanicinin verdigi isi kendin yapma: parcala ve ekibe dagit. " +
+  "Ekip araci ntt-team kabukta calisir (Bash aracinla calistir). Once ntt-team status ile ekibi gor; " +
+  "bostaki uygun ajana ntt-team assign AJAN GOREV ile gorev ver (G-xxxx kimligi doner), uygun ajan yoksa " +
+  "ntt-team spawn --rol Gelistirici (ya da Analist, Test, Inceleme) ile ac. Sonucu ntt-team wait G-xxxx ile bekle; " +
+  "25 sn icinde bitmezse ayni komutu yeniden calistir, ajani yeniden acma. Sonuclari birlestirip kullaniciya kisa ozet ver. " +
+  "Ayrintili kurallar kullanicinin ilk mesajinin sonunda gelir.";
+
+/** Tur 10: Akış mesajına eklenecek ipucu (saf; index.ts `agents:send` kullanıyor). */
+export function agentHintFor(input: { lead: boolean; first: boolean; teamSize: number; max: number; canSpawn: boolean; teamHint: string }): string {
+  if (input.lead) return input.first ? leadHint(input.max, input.canSpawn) : LEAD_REMINDER;
+  return input.first && input.teamSize >= 2 ? input.teamHint : "";
+}
+
+/**
+ * Tur 10: özel komutlu liderin açtığı ajanın komutu — liderin komutu, oturum
+ * sürdürme bayrakları (`--continue`/`-c`, `--resume`/`-r` [kimlik]) atılarak:
+ * işçi liderin konuşmasını sürdürmemeli.
+ */
+export function workerCommand(command: string): string {
+  const tokens = command.trim().match(/"[^"]*"|\S+/g) ?? [];
+  const out: string[] = [];
+  for (let i = 0; i < tokens.length; i++) {
+    const tok = tokens[i];
+    if (i > 0 && (tok === "--continue" || tok === "-c")) continue;
+    if (i > 0 && /^--resume=/.test(tok)) continue;
+    if (i > 0 && (tok === "--resume" || tok === "-r")) {
+      if (tokens[i + 1] && !tokens[i + 1].startsWith("-")) i += 1;
+      continue;
+    }
+    out.push(tok);
+  }
+  return out.join(" ");
 }
 
 /** Ayarlar → ekip başına lider açımı ajan sınırı. */

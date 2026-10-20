@@ -4,6 +4,13 @@
 // yazmaları ayrıca SapWriteGate'ten geçiyor). Öteki motorlara izin atlatma
 // bayrağı EKLENMİYOR: motor kendi onayını terminalde soruyor.
 import type { AgentEngineId, AgentSpec } from "./agentTypes";
+import { isLeadRole, LEAD_SYSTEM_PROMPT } from "./leadCommands";
+
+/**
+ * Tur 10: Claude Code ajanlarında ekip aracı (ntt-team) izin sormadan çalışsın
+ * (resmi --allowedTools kuralı; yalnız bu komut, genel izin atlatma değil).
+ */
+export const CLAUDE_TEAM_ALLOW = '--allowedTools "Bash(ntt-team:*)"';
 
 export interface AgentEngineDef {
   id: AgentEngineId;
@@ -88,6 +95,11 @@ export function buildAgentCommand(spec: AgentSpec, axetCommand: string): string 
   const parts = [spec.engine === "axet-code" ? axetCommand.trim() || def.base : def.base];
   if (spec.engine === "axet-code" && spec.roleKind === "axetAgent" && isSafeArg(spec.role)) {
     parts.push("--agent", spec.role);
+  }
+  // Tur 10: Claude lideri kimliğini ve rehberini açılışta alıyor (yalnız kullanıcının açtığı Lider).
+  if (spec.engine === "claude") {
+    if (isLeadRole(spec.role) && !spec.spawnedBy) parts.push("--append-system-prompt", `"${LEAD_SYSTEM_PROMPT}"`);
+    parts.push(CLAUDE_TEAM_ALLOW);
   }
   if (def.modelFlag && spec.model && isSafeArg(spec.model)) parts.push(def.modelFlag, spec.model);
   return parts.join(" ");

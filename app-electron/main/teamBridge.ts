@@ -264,6 +264,21 @@ export function startTeamBridgeServer(bridge: TeamBridge): Promise<{ port: numbe
 /** Ajanın çalıştıracağı betikler (sır içermez; her açılışta yeniden yazılır). */
 export const TEAM_CMD = `@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0ntt-team.ps1" %*\r\n`;
 
+/**
+ * Tur 10 (ölçüldü): Claude Code'un Bash aracı Windows'ta Git Bash; orada .cmd/.ps1
+ * uzantısız adla bulunmuyor ("ntt-team: command not found"). Uzantısız sh betiği
+ * ps1'i çağırıyor; MSYS yol dönüştürmesi kapalı ("/src ..." gibi argümanlar bozulmasın).
+ * cmd ve PowerShell uzantısız dosyayı seçmiyor, .cmd'yi çalıştırıyor (ölçüldü).
+ */
+export const TEAM_SH = [
+  "#!/bin/sh",
+  "# NTT Studio ekip köprüsü (Git Bash / sh). Sır içermez.",
+  'd=$(dirname "$0")',
+  'if command -v cygpath >/dev/null 2>&1; then d=$(cygpath -w "$d"); fi',
+  'MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*" exec powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$d/ntt-team.ps1" "$@"',
+  ""
+].join("\n");
+
 export const TEAM_PS1 = [
   "# NTT Studio ekip köprüsü (Tur 4). Sır içermez: jeton ortam değişkeninden.",
   "# Tur 7: param() yerine $args — PowerShell '--bayrak deger' çiftlerini ayrı bağlayıp sırayı bozuyordu.",

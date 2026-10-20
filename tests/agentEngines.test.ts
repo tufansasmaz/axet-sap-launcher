@@ -22,10 +22,11 @@ describe("buildAgentCommand", () => {
   });
 
   it("model yalnız bayrağı bilinen motorlarda", () => {
-    expect(buildAgentCommand(spec({ engine: "claude", model: "sonnet" }), "")).toBe("claude --model sonnet");
+    expect(buildAgentCommand(spec({ engine: "claude", model: "sonnet" }), "")).toBe(`claude --allowedTools "Bash(ntt-team:*)" --model sonnet`);
     expect(buildAgentCommand(spec({ engine: "codex", model: "gpt-5" }), "")).toBe("codex --model gpt-5");
     expect(buildAgentCommand(spec({ engine: "gemini", model: "gemini-2.5-pro" }), "")).toBe("gemini --model gemini-2.5-pro");
-    expect(buildAgentCommand(spec({ engine: "claude" }), "")).toBe("claude");
+    // Tur 10: Claude ajanında ntt-team için tek izin kuralı.
+    expect(buildAgentCommand(spec({ engine: "claude" }), "")).toBe(`claude --allowedTools "Bash(ntt-team:*)"`);
   });
 
   it("öteki motorlara izin atlatma bayrağı eklenmiyor", () => {
@@ -36,7 +37,7 @@ describe("buildAgentCommand", () => {
   });
 
   it("kabuk karakterli model ve rol komuta girmiyor", () => {
-    expect(buildAgentCommand(spec({ model: "x & del C:\\" }), "")).toBe("claude");
+    expect(buildAgentCommand(spec({ model: "x & del C:\\" }), "")).toBe(`claude --allowedTools "Bash(ntt-team:*)"`);
     expect(buildAgentCommand({ engine: "axet-code", role: "coder & calc", roleKind: "axetAgent" }, "")).toBe("axet-code -y");
   });
 
