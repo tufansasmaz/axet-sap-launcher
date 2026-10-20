@@ -144,11 +144,11 @@ describe("motor ayrıntısı", () => {
 
 
 describe("Tur 10: Claude kurumsal başlatıcısı", () => {
-  const launcher = { name: "azure", path: "C:\NTT\azure.bat", provider: "foundry" as const };
+  const launcher = { name: "azure", path: "C:\\NTT\\azure.bat", provider: "foundry" as const };
   it("claude PATH'te yokken başlatıcı varsa kurulu, engelsiz, notlu; 'Kur' gerekmez", async () => {
     const d = { ...deps([], { kind: "ok", version: "1.4.1" }), claudeLauncher: () => launcher, launcherNote: () => "not" };
     const claude = (await detectEngines(d)).find((e) => e.id === "claude")!;
-    expect(claude).toMatchObject({ installed: true, blocked: false, path: "C:\NTT\azure.bat", launcher, note: "not" });
+    expect(claude).toMatchObject({ installed: true, blocked: false, path: "C:\\NTT\\azure.bat", launcher, note: "not" });
   });
 
   it("başlatıcı yoksa eskisi gibi; sondaj patlarsa yok sayılır", async () => {
