@@ -74,6 +74,8 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
       return t("flow.browserOpened", { url: event.detail });
     case "link":
       return t("flow.linkFound", { url: event.detail });
+    case "memory":
+      return t(event.updated ? "flow.memory.updated" : "flow.memory.added", { title: event.detail });
     case "message":
     case "relay":
     case "learn":

@@ -22,7 +22,9 @@ export type FlowKind =
   /** Tur 7: ajanın çıktısındaki yerel adres Tarayıcı'da açıldı; `detail` adres (gizlisi atılmış). */
   | "browser"
   /** Tur 7: ajanın cevabında adres (uzak ya da otomatik açma kapalı); yalnız "Tarayıcıda aç" düğmesi. */
-  | "link";
+  | "link"
+  /** Tur 10: konuşmadan belleğe otomatik eklenen/güncellenen not; `detail` başlık, `noteId` geri alma için. */
+  | "memory";
 
 export const FLOW_KINDS: readonly FlowKind[] = [
   "started",
@@ -38,7 +40,8 @@ export const FLOW_KINDS: readonly FlowKind[] = [
   "learn",
   "note",
   "browser",
-  "link"
+  "link",
+  "memory"
 ];
 
 /** Çalışma alanı başına saklanan en çok olay. */
@@ -60,6 +63,10 @@ export interface StoredFlowEvent {
   act?: LeadAct;
   /** Tur 7 ("relay"): kartın hedef bölmesi. */
   toPaneId?: string;
+  /** Tur 10 ("memory"): notun kimliği (geri al). */
+  noteId?: string;
+  /** Tur 10 ("memory"): var olan not güncellendi (yeni eklenmedi). */
+  updated?: boolean;
 }
 
 const str = (value: unknown, max: number): string | null => (typeof value === "string" ? value.slice(0, max) : null);
@@ -86,6 +93,8 @@ export function sanitizeFlowEvents(raw: unknown, scrub: (text: string) => string
     if (r.exact === true) event.exact = true;
     if (isLeadAct(r.act)) event.act = r.act;
     if (typeof r.toPaneId === "string" && r.toPaneId.length > 0 && r.toPaneId.length <= ID_MAX) event.toPaneId = r.toPaneId;
+    if (typeof r.noteId === "string" && /^[\w-]{1,64}$/.test(r.noteId)) event.noteId = r.noteId;
+    if (r.updated === true) event.updated = true;
     out.push(event);
   }
   return out;

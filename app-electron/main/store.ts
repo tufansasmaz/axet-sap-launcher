@@ -139,6 +139,7 @@ function defaultConfig(): AppConfig {
     // Bugünkü davranış: bağlanınca Sohbet.
     sapConnectOpen: "chat",
     agentMemoryDigest: true,
+    memoryAutoCapture: true,
     leadTeam: true,
     leadApproval: false,
     leadMaxAgents: LEAD_MAX_DEFAULT,
@@ -257,6 +258,7 @@ export function loadConfig(): AppConfig {
         ? parsed.sapConnectOpen
         : fallback.sapConnectOpen,
       agentMemoryDigest: parsed.agentMemoryDigest === false ? false : fallback.agentMemoryDigest,
+      memoryAutoCapture: parsed.memoryAutoCapture === false ? false : fallback.memoryAutoCapture,
       leadTeam: parsed.leadTeam === false ? false : fallback.leadTeam,
       leadApproval: parsed.leadApproval === true,
       leadMaxAgents: normalizeLeadMax(parsed.leadMaxAgents),

@@ -279,7 +279,8 @@ const KIND_TONE: Record<FlowKind, StatusTone> = {
   learn: "muted",
   note: "muted",
   browser: "success",
-  link: "muted"
+  link: "muted",
+  memory: "muted"
 };
 
 
@@ -292,6 +293,9 @@ function FlowEntry({ event, workspace, latest = false }: { event: FlowEvent; wor
   const { statuses } = useAgentStatuses();
   const pane = event.paneId ? workspace.panes.find((p) => p.id === event.paneId) : undefined;
   const at = clock(event.at);
+
+  // Tur 10: konuşmadan belleğe otomatik eklenen not: tek satır + "Geri al".
+  if (event.kind === "memory") return <MemoryCaptured event={event} workspaceId={workspace.id} at={at} />;
 
   // Tur 4: ajandan ajana (ekip köprüsü) — "A → B" ve metin. Tur 7: lider kartları (act).
   if (event.kind === "relay") {
@@ -443,6 +447,41 @@ function ErrorDetails({ event, status }: { event: FlowEvent; status: AgentStatus
  * Tur 5: Akış kartından tek tıkla ekip belleğine not (cevap → olgu, soru →
  * karar, doğrulanan görev → görev). Not ana süreçte gizli süzgecinden geçer.
  */
+/** Tur 10: "Belleğe eklendi: başlık (geri al)". Geri al notu siler; güncellenen notta yok. */
+function MemoryCaptured({ event, workspaceId, at }: { event: FlowEvent; workspaceId: string; at: string }) {
+  const t = useT();
+  const [state, setState] = useState<"idle" | "busy" | "undone" | "failed">("idle");
+  const notesRemove = (window as unknown as { api?: Partial<Window["api"]> }).api?.notesRemove;
+  const canUndo = !event.updated && Boolean(event.noteId) && Boolean(notesRemove) && state !== "undone";
+  return (
+    <li data-flow-event="memory" className="flex min-w-0 items-center gap-1.5 px-1 text-2xs text-slate-400">
+      <BookPlus size={11} className="shrink-0 text-slate-500" />
+      <span className="min-w-0 flex-1 truncate" title={event.detail}>
+        {state === "undone" ? t("flow.memory.undone") : flowBody(event, t)}
+      </span>
+      {canUndo && (
+        <button
+          type="button"
+          disabled={state === "busy"}
+          onClick={async () => {
+            setState("busy");
+            try {
+              const ok = await notesRemove!(workspaceId, event.noteId!);
+              setState(ok ? "undone" : "failed");
+            } catch {
+              setState("failed");
+            }
+          }}
+          className={LINK}
+        >
+          {state === "failed" ? t("flow.memory.undoFailed") : t("flow.memory.undo")}
+        </button>
+      )}
+      <span className="shrink-0 font-mono tabular-nums text-slate-600">{at}</span>
+    </li>
+  );
+}
+
 function ToMemory({ event, workspaceId }: { event: FlowEvent; workspaceId: string }) {
   const t = useT();
   const [state, setState] = useState<"idle" | "busy" | "done" | "failed">("idle");

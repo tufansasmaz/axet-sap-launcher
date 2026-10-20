@@ -141,3 +141,11 @@ describe("eklenen (Tur 8): axet-code açılış seçimi", () => {
     expect(main).toContain('mainWindow.webContents.send("agents:autoSetup"');
   });
 });
+
+describe("Tur 10: memoryAutoCapture (konuşmadan belleğe otomatik not)", () => {
+  it("varsayılan açık; yalnız false kapatıyor", async () => {
+    expect((await store(null)).loadConfig().memoryAutoCapture).toBe(true);
+    expect((await store({ memoryAutoCapture: "hayır" })).loadConfig().memoryAutoCapture).toBe(true);
+    expect((await store({ memoryAutoCapture: false })).loadConfig().memoryAutoCapture).toBe(false);
+  });
+});

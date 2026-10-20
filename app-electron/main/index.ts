@@ -1680,13 +1680,23 @@ function registerIpc(): void {
   ipcMain.handle("notes:list", (event, workspaceId: unknown) => (fromMain(event) ? notesStore.list(workspaceId) : []));
   ipcMain.handle("notes:add", (event, workspaceId: unknown, input: unknown) => {
     if (!fromMain(event)) return { ok: false, reason: "invalid" };
-    return notesStore.add(workspaceId, input as Parameters<typeof notesStore.add>[1]);
+    const result = notesStore.add(workspaceId, input as Parameters<typeof notesStore.add>[1]);
+    // Tur 10: otomatik yakalama Akış'tan ekliyor; açık Bellek görünümü tazelensin.
+    if (result.ok && typeof workspaceId === "string") notifyNotesChanged(workspaceId);
+    return result;
   });
   ipcMain.handle("notes:update", (event, workspaceId: unknown, id: unknown, patch: unknown, expectedUpdated: unknown) => {
     if (!fromMain(event)) return { ok: false, reason: "invalid" };
-    return notesStore.update(workspaceId, id, patch as Parameters<typeof notesStore.update>[2], typeof expectedUpdated === "number" ? expectedUpdated : undefined);
+    const result = notesStore.update(workspaceId, id, patch as Parameters<typeof notesStore.update>[2], typeof expectedUpdated === "number" ? expectedUpdated : undefined);
+    if (result.ok && typeof workspaceId === "string") notifyNotesChanged(workspaceId);
+    return result;
   });
-  ipcMain.handle("notes:remove", (event, workspaceId: unknown, id: unknown) => (fromMain(event) ? notesStore.remove(workspaceId, id) : false));
+  ipcMain.handle("notes:remove", (event, workspaceId: unknown, id: unknown) => {
+    if (!fromMain(event)) return false;
+    const removed = notesStore.remove(workspaceId, id);
+    if (removed && typeof workspaceId === "string") notifyNotesChanged(workspaceId);
+    return removed;
+  });
 
   ipcMain.handle("board:get", (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== "string") return null;

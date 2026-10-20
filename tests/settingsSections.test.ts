@@ -30,7 +30,7 @@ describe("settingsSections", () => {
     const of = (id: string) => SETTINGS_SECTIONS.find((s) => s.id === id)?.fields ?? [];
     expect(of("general")).toEqual(["language", "projectsBaseDir", "sapConnectOpen", "chatNotifications", "agentNotifications", "browserAutoOpen"]); // Tur 7: otomatik tarayıcı; Tur 6: ajan bildirimleri Genel bildirim ayarının yanında
     expect(of("appearance")).toEqual(["palette", "theme", "chatFontSize", "chatDensity"]);
-    expect(of("terminal")).toEqual(["axetCommand", "terminal", "agentMemoryDigest", "leadTeam", "leadApproval", "leadMaxAgents", "axetAutoSetup", "axetAutoTool", "axetAutoModel", "agentAutoRetry", "agentRetryMax", "agentConcurrency", "leadStallMinutes"]);
+    expect(of("terminal")).toEqual(["axetCommand", "terminal", "agentMemoryDigest", "memoryAutoCapture", "leadTeam", "leadApproval", "leadMaxAgents", "axetAutoSetup", "axetAutoTool", "axetAutoModel", "agentAutoRetry", "agentRetryMax", "agentConcurrency", "leadStallMinutes"]);
     expect(of("advanced")).toEqual(["landscapePathOverride", "sapShcutPathOverride"]);
     expect(of("updates")).toEqual(["autoCheckUpdates", "supportEmail"]);
     expect(EDITED_FIELDS).not.toContain("chatDisplayName");

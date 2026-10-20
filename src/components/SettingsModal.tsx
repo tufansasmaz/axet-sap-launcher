@@ -645,6 +645,14 @@ export default function SettingsModal({
                 label={t("settingsModal.agentMemoryDigestLabel")}
               />
             </Field>
+            {/* Tur 10: konuşmadan belleğe otomatik not. */}
+            <Field label={t("settingsModal.memoryAutoCaptureLabel")} hint={t("settingsModal.memoryAutoCaptureHint")}>
+              <Toggle
+                checked={form.memoryAutoCapture !== false}
+                onChange={(memoryAutoCapture) => update({ memoryAutoCapture })}
+                label={t("settingsModal.memoryAutoCaptureLabel")}
+              />
+            </Field>
             {/* Tur 7: Lider ajanın ekip kurması (ntt-team spawn). */}
             <Field label={t("settingsModal.leadTeamLabel")} hint={t("settingsModal.leadTeamHint")}>
               <Toggle checked={form.leadTeam !== false} onChange={(leadTeam) => update({ leadTeam })} label={t("settingsModal.leadTeamLabel")} />

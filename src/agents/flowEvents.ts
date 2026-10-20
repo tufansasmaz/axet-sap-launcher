@@ -42,6 +42,9 @@ export interface FlowEvent {
   toPaneId?: string;
   /** Tur 9 ("error"): otomatik deneme bekliyor; bildirim yok (canlı, kalıcı kayda yazılmaz). */
   retrying?: boolean;
+  /** Tur 10 ("memory"): notun kimliği (geri al) ve güncelleme mi. */
+  noteId?: string;
+  updated?: boolean;
 }
 
 export type FlowInput = Omit<FlowEvent, "id">;
@@ -235,6 +238,8 @@ export function toStored(list: readonly FlowEvent[], workspaceId: string): Store
       ...(e.reply ? { reply: e.reply } : {}),
       ...(e.exact ? { exact: true } : {}),
       ...(e.act ? { act: e.act } : {}),
-      ...(e.toPaneId ? { toPaneId: e.toPaneId } : {})
+      ...(e.toPaneId ? { toPaneId: e.toPaneId } : {}),
+      ...(e.noteId ? { noteId: e.noteId } : {}),
+      ...(e.updated ? { updated: true } : {})
     }));
 }

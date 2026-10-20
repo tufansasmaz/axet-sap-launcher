@@ -511,6 +511,8 @@ export interface AppConfig {
   // Ajan başlangıç satırına ekip belleği özeti eklensin mi (Tur 5,
   // memoryNotifier.digest). Varsayılan açık; kapatınca yalnız bellek satırı.
   agentMemoryDigest: boolean;
+  /** Tur 10: konuşmadan (Akış mesajı, biten iş) belleğe otomatik not (varsayılan açık). */
+  memoryAutoCapture: boolean;
   // Tur 7: Lider rolündeki ajan `ntt-team spawn` ile ekibine ajan açabilsin
   // (varsayılan açık); her açılış için Akış'ta onay kartı (varsayılan kapalı);
   // ekip başına lider açımı ajan sınırı (1..8, varsayılan 4).

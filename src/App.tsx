@@ -1041,7 +1041,7 @@ export default function App() {
       >
         <BoardProvider>
         <AgentStatusProvider>
-        <FlowProvider>
+        <FlowProvider autoCapture={config?.memoryAutoCapture !== false}>
         <LearnProvider>
         <AgentOpenListener onShow={handleShowAgents} />
         <AgentNotifier

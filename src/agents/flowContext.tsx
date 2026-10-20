@@ -21,6 +21,8 @@ import { useBoards } from "../board/boardContext";
 import { agentName } from "./agentLabels";
 import { pickNotices, type AgentNotice } from "./agentNotices";
 import { autoSetupDetail } from "./flowText";
+import { captureCandidates, captureKey, planCapture, type CaptureInput } from "../../app-electron/shared/memoryCapture";
+import type { MemoryNote } from "../../app-electron/shared/memoryNotes";
 import {
   appendFlow,
   boardEvents,
@@ -96,7 +98,50 @@ const SAVE_DEBOUNCE_MS = 1_000;
 /** Pencere kapandıktan sonra motorun sohbet ekranına oturması için kısa bekleme. */
 export const QUEUE_SEND_DELAY_MS = 800;
 
-export function FlowProvider({ children }: { children: ReactNode }) {
+/** Tur 10: alan başına saatte en çok otomatik not (ekleme + güncelleme). */
+export const CAPTURE_PER_HOUR = 20;
+const CAPTURE_WINDOW_MS = 60 * 60_000;
+
+/**
+ * Tur 10 (madde 8): konuşmadan belleğe otomatik yakalama. Kaynak: kullanıcının Akış
+ * mesajı ve kesin kaynaktaki biten işin son cevabı. Eklenen/güncellenen not Akış'ta
+ * "Belleğe eklendi (geri al)" satırı olarak görünür. Geçmiş yüklenirken çalışmaz.
+ */
+export async function captureToMemory(
+  workspaceId: string,
+  input: CaptureInput,
+  api: Partial<Pick<Window["api"], "notesList" | "notesAdd" | "notesUpdate">> | undefined,
+  allow: () => boolean
+): Promise<{ note: MemoryNote; updated: boolean }[]> {
+  const candidates = captureCandidates(input);
+  if (candidates.length === 0 || !api?.notesList || !api.notesAdd || !api.notesUpdate) return [];
+  let notes: MemoryNote[];
+  try {
+    notes = await api.notesList(workspaceId);
+  } catch {
+    return [];
+  }
+  const out: { note: MemoryNote; updated: boolean }[] = [];
+  for (const candidate of candidates) {
+    if (!allow()) break;
+    const plan = planCapture(notes, candidate);
+    if (plan.action === "skip") continue;
+    try {
+      const result =
+        plan.action === "update"
+          ? await api.notesUpdate(workspaceId, plan.id, { title: candidate.title, body: candidate.body ?? "", kind: candidate.kind as MemoryNote["kind"] })
+          : await api.notesAdd(workspaceId, candidate);
+      if (!result.ok) continue;
+      out.push({ note: result.note, updated: plan.action === "update" });
+      notes = [...notes.filter((n) => n.id !== result.note.id), result.note];
+    } catch {
+      // yazılamayan not atlanıyor
+    }
+  }
+  return out;
+}
+
+export function FlowProvider({ children, autoCapture = true }: { children: ReactNode; autoCapture?: boolean }) {
   const t = useT();
   const { state } = useTerminalStore();
   const { statuses } = useAgentStatuses();
@@ -118,6 +163,12 @@ export function FlowProvider({ children }: { children: ReactNode }) {
 
   // Tur 6: bağ kurulamama sebebi ajan başına bir kez; canlı soru/bitti/hata bildirime.
   const notedLinks = useRef(new Set<string>());
+  // Tur 10: otomatik yakalama (ayar kapalıysa yok); alan başına saatlik sınır, oturumda aynı cümle bir kez.
+  const autoCaptureRef = useRef(autoCapture);
+  autoCaptureRef.current = autoCapture;
+  const captureLog = useRef<Record<string, number[]>>({});
+  const capturedKeys = useRef(new Set<string>());
+  const captureRef = useRef<(e: FlowInput) => void>(() => {});
   const seenNotices = useRef(new Set<string>());
   const [notices, setNotices] = useState<AgentNotice[]>([]);
   const [unread, setUnread] = useState(0);
@@ -131,9 +182,44 @@ export function FlowProvider({ children }: { children: ReactNode }) {
     });
     if (kept.length === 0) return;
     setEvents((list) => appendFlow(list, kept));
+    for (const e of kept) captureRef.current(e);
     const fresh = pickNotices(kept, seenNotices.current);
     if (fresh.length) setNotices((list) => [...list, ...fresh].slice(-20));
   }, []);
+  captureRef.current = (e: FlowInput) => {
+    if (!autoCaptureRef.current || e.kind === "memory") return;
+    const source = e.kind === "message" ? "user" : e.kind === "finished" && e.exact !== false && e.reply ? "agent" : null;
+    if (!source) return;
+    const text = source === "user" ? e.detail : (e.reply ?? "");
+    const key = captureKey(text).slice(0, 200);
+    if (!key || capturedKeys.current.has(key)) return;
+    capturedKeys.current.add(key);
+    const ws = e.workspaceId;
+    const allow = () => {
+      const now = Date.now();
+      const log = (captureLog.current[ws] ?? []).filter((at) => now - at < CAPTURE_WINDOW_MS);
+      captureLog.current[ws] = log;
+      if (log.length >= CAPTURE_PER_HOUR) return false;
+      log.push(now);
+      return true;
+    };
+    const api = typeof window !== "undefined" ? window.api : undefined;
+    void captureToMemory(ws, { source, text, name: e.name, ...(e.paneId ? { paneId: e.paneId } : {}) }, api, allow).then((saved) => {
+      if (saved.length === 0) return;
+      add(
+        saved.map(({ note, updated }) => ({
+          at: Date.now(),
+          workspaceId: ws,
+          kind: "memory" as const,
+          paneId: e.paneId,
+          name: e.name,
+          detail: note.title,
+          noteId: note.id,
+          ...(updated ? { updated: true } : {})
+        }))
+      );
+    });
+  };
   const dropNotices = useCallback((keys: readonly string[]) => setNotices((list) => list.filter((n) => !keys.includes(n.key))), []);
   const addUnread = useCallback((count: number) => setUnread((n) => n + count), []);
   const markRead = useCallback(() => setUnread(0), []);
