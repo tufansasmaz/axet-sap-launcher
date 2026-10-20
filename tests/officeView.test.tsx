@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import OfficeView, { fitOf } from "../src/office/OfficeView";
+import OfficeView, { fitOf, nightOf, replyLine } from "../src/office/OfficeView";
 import { ZOOMS } from "../src/office/officeSim";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
@@ -405,5 +405,78 @@ describe("OfficeView — İngilizce", () => {
     setup(workspace([agentPane("p1")]), { language: "en", statuses: { p1: st("idle", "estimated") } });
     expect(seat("p1").getAttribute("aria-label")).toBe("Ajan p1, Idle (estimated)");
     expect(screen.getByRole("list", { name: "Desks" })).toBeTruthy();
+  });
+});
+
+describe("OfficeView — ofis turu 2026-10-20: balon, bilgi kartı, üst çubuk", () => {
+  it("küçük harita yok; üst çubukta alan adı ve 'N/M aktif' (çalışan + soru soran)", () => {
+    setup(workspace([agentPane("p1"), agentPane("p2"), agentPane("p3")]), {
+      statuses: { p1: st("running", "exact"), p2: st("asking", "exact", { question: q("Hangisi?") }), p3: st("idle", "exact") }
+    });
+    expect(document.querySelectorAll("[data-office-stage] canvas")).toHaveLength(1);
+    expect(document.querySelector("[data-office-active]")?.textContent).toBe("2/3 aktif");
+  });
+
+  it("kesin soru HTML balonda (belirgin 'Soru' başlığı); tahminide balon yok; söz balonu başta gizli", () => {
+    setup(workspace([agentPane("p1"), agentPane("p2")]), {
+      statuses: { p1: st("asking", "exact", { question: q("ZF2 mi F2 mi?") }), p2: st("asking", "estimated", { question: q("ZF2 mi F2 mi?") }) }
+    });
+    const li1 = seat("p1").closest("li") as HTMLElement;
+    const ask = li1.querySelector("[data-office-ask]") as HTMLElement;
+    expect(ask.textContent).toContain("Soru");
+    expect(ask.textContent).toContain("ZF2 mi F2 mi?");
+    expect((seat("p2").closest("li") as HTMLElement).querySelector("[data-office-ask]")).toBeNull();
+    expect((li1.querySelector("[data-office-say]") as HTMLElement).hidden).toBe(true);
+  });
+
+  it("üzerine gelince kart: ad, rol, durum, aşama, görev yoksa 'Şu an görevi yok'; ayrılınca kapanır", () => {
+    setup(workspace([agentPane("p1")]), {
+      statuses: { p1: st("running", "exact", { phase: { kind: "tool", tool: "read", target: "a.abap" } }) }
+    });
+    expect(document.querySelector("[data-office-card]")).toBeNull();
+    fireEvent.mouseEnter(seat("p1"));
+    const card = screen.getByRole("tooltip");
+    expect(card.textContent).toContain("Ajan p1");
+    expect(card.textContent).toContain("coder");
+    expect(card.textContent).toContain("Çalışıyor");
+    expect(card.textContent).toContain("a.abap");
+    expect(card.textContent).toContain("Şu an görevi yok");
+    expect(seat("p1").getAttribute("aria-describedby")).toBe(card.id);
+    fireEvent.mouseLeave(seat("p1"));
+    expect(screen.queryByRole("tooltip")).toBeNull();
+  });
+
+  it("kartta son cevabın özeti (boşta, kesin) ve soru metni", () => {
+    setup(workspace([agentPane("p1"), agentPane("p2")]), {
+      statuses: { p1: st("idle", "exact", { reply: "Alan eklendi.\nATC temiz." }), p2: st("asking", "exact", { question: q("Hangisi?") }) }
+    });
+    fireEvent.focus(seat("p1"));
+    expect(screen.getByRole("tooltip").textContent).toContain("Alan eklendi. ATC temiz.");
+    fireEvent.blur(seat("p1"));
+    fireEvent.focus(seat("p2"));
+    expect(screen.getByRole("tooltip").textContent).toContain("Hangisi?");
+  });
+
+  it("saat düğmesi otomatik → gündüz → gece → otomatik", () => {
+    setup(workspace([agentPane("p1")]));
+    const clock = () => document.querySelector("[data-office-clock]") as HTMLButtonElement;
+    expect(clock().getAttribute("data-office-clock")).toBe("auto");
+    fireEvent.click(clock());
+    expect(clock().getAttribute("data-office-clock")).toBe("day");
+    fireEvent.click(clock());
+    expect(clock().textContent).toContain("Saat: gece");
+    fireEvent.click(clock());
+    expect(clock().getAttribute("data-office-clock")).toBe("auto");
+  });
+
+  it("replyLine: ilk anlamlı satır, markdown işaretleri atılır, 90 karakterde kırpılır; nightOf saat kipine uyar", () => {
+    expect(replyLine("\n## Özet\n- ikinci")).toBe("Özet");
+    expect(replyLine(undefined)).toBe("");
+    expect(Array.from(replyLine("x".repeat(200)))).toHaveLength(90);
+    const midnight = new Date(2026, 0, 1, 0, 0);
+    expect(nightOf("day", false, midnight)).toBe(0);
+    expect(nightOf("night", true, new Date(2026, 0, 1, 12, 0))).toBe(1);
+    expect(nightOf("auto", true, midnight)).toBe(0);
+    expect(nightOf("auto", false, midnight)).toBe(1);
   });
 });

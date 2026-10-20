@@ -39,6 +39,39 @@ export interface BoardSelection {
 }
 
 const DANGER_TAG = "shrink-0 rounded bg-[var(--status-danger-bg)] px-1 text-2xs text-[var(--status-danger-text)]";
+/** Sütun başlığındaki durum noktası (demo'daki "● To do" gibi; lime değil). */
+const COLUMN_DOT: Record<BoardColumn, string> = {
+  draft: "bg-slate-500",
+  queued: "bg-[var(--status-info-text)]",
+  running: "bg-[var(--status-warning-text)]",
+  verifying: "bg-violet-400",
+  done: "bg-[var(--status-success-text)]"
+};
+
+/** Onaylı görevlerin alt görev ilerlemesi (yalnız gösterim). */
+function boardSummary(tasks: readonly BoardTask[]): { done: number; total: number } {
+  let done = 0;
+  let total = 0;
+  for (const task of tasks) {
+    if (task.approvedAt === undefined) continue;
+    const p = taskProgress(task);
+    done += p.done;
+    total += p.total;
+  }
+  return { done, total };
+}
+
+function Initial({ name, color }: { name: string; color: string | null }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-4 w-4 shrink-0 items-center justify-center rounded border border-line text-[9px] font-semibold leading-none text-slate-100"
+      style={{ background: color ? `color-mix(in srgb, ${color} 30%, transparent)` : undefined }}
+    >
+      {Array.from(name.trim())[0]?.toLocaleUpperCase("tr-TR") ?? "?"}
+    </span>
+  );
+}
 const CARD = "w-full cursor-pointer rounded-md border bg-card text-left transition-colors";
 const cardBorder = (selected: boolean) => (selected ? "border-accent-500/60" : "border-line hover:border-slate-500");
 
@@ -53,6 +86,7 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
   const previous = useRef<Map<string, string> | null>(null);
   const mounted = useRef(true);
   const parallel = sameFolderParallel(tasks, workspace);
+  const summary = boardSummary(tasks);
   const selectedTask = selection ? tasks.find((task) => task.id === selection.taskId) : undefined;
   const draftDirtyRef = useRef(false);
   /** Kaydedilmemiş değişiklik onayı bekleyen geçiş; null = panel kapat. */
@@ -119,6 +153,7 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
       if (task.approvedAt === undefined) continue;
       for (const sub of task.subtasks) {
         if (subtaskColumn(sub) !== column) continue;
+        const pane = sub.paneId ? workspace.panes.find((p) => p.id === sub.paneId) : undefined;
         out.push(
           <SubtaskCard
             key={sub.id}
@@ -126,6 +161,7 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
             sub={sub}
             color={color}
             parallel={parallel.has(sub.id)}
+            agent={pane ? { name: agentName(pane, t), color: pane.color ? PANE_COLOR_VAR[pane.color] : null } : null}
             selected={isSelected(task.id, sub.id)}
             onSelect={() => select({ taskId: task.id, subtaskId: sub.id })}
           />
@@ -151,6 +187,14 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
           <p aria-live="polite" className="min-w-0 flex-1 truncate text-2xs text-slate-500">
             {announce}
           </p>
+          {summary.total > 0 && (
+            <span data-board-summary="" className="flex shrink-0 items-center gap-2 text-2xs text-slate-400">
+              <span className="h-1.5 w-28 overflow-hidden rounded-full bg-control" aria-hidden="true">
+                <span className="block h-full rounded-full bg-[var(--status-success-text)]" style={{ width: `${Math.round((summary.done / summary.total) * 100)}%` }} />
+              </span>
+              <span className="font-mono tabular-nums">{t("board.summary", { done: summary.done, total: summary.total })}</span>
+            </span>
+          )}
         </div>
         {board?.recoveredFrom && (
           <div
@@ -183,16 +227,26 @@ export default function BoardView({ workspace }: { workspace: TerminalWorkspace 
           {BOARD_COLUMNS.map((column) => {
             const list = items(column);
             return (
-              <div key={column} className="flex min-h-0 min-w-0 flex-col gap-1.5">
-                <Eyebrow count={list.length}>{t(COLUMN_KEY[column])}</Eyebrow>
+              <div key={column} className="flex min-h-0 min-w-0 flex-col gap-2 rounded-lg border border-line-subtle bg-card/40 p-2">
+                {/* Demo'daki şerit başlığı: renkli nokta + ad + sayı hapı. */}
+                <h3 className="flex shrink-0 items-center gap-1.5 px-0.5 text-xs font-medium text-slate-200">
+                  <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${COLUMN_DOT[column]}`} />
+                  <span className="truncate">{t(COLUMN_KEY[column])}</span>
+                  <span className="ml-auto rounded-full bg-control px-1.5 font-mono text-2xs tabular-nums text-slate-400">{list.length}</span>
+                </h3>
                 <ul
                   role="list"
                   aria-label={t(COLUMN_KEY[column])}
                   data-column={column}
-                  className="chat-scroll flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto"
+                  className={`chat-scroll flex min-h-0 flex-col gap-1.5 overflow-y-auto ${list.length > 0 ? "flex-1" : ""}`}
                 >
                   {list}
                 </ul>
+                {list.length === 0 && (
+                  <p data-column-empty="" className="rounded-md border border-dashed border-line py-4 text-center text-2xs text-slate-500">
+                    {t("board.columnEmpty")}
+                  </p>
+                )}
               </div>
             );
           })}
@@ -254,11 +308,16 @@ function TaskCard({ task, color, selected, onSelect }: { task: BoardTask; color:
         aria-pressed={selected}
         onClick={onSelect}
         style={color ? { boxShadow: `inset 3px 0 0 ${color}` } : undefined}
-        className={`${CARD} ${cardBorder(selected)} flex flex-col gap-1 px-3 py-2`}
+        className={`${CARD} ${cardBorder(selected)} flex flex-col gap-1.5 px-3 py-2`}
       >
-        <span title={task.title} className="truncate text-xs font-medium text-slate-200">
+        <span title={task.title} className="line-clamp-2 break-words text-xs font-semibold text-slate-100">
           {task.title}
         </span>
+        {task.approvedAt !== undefined && progress.total > 0 && (
+          <span aria-hidden="true" className="h-1 w-full overflow-hidden rounded-full bg-control">
+            <span className="block h-full rounded-full bg-[var(--status-success-text)]" style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />
+          </span>
+        )}
         <span className="flex min-w-0 items-center gap-1.5 text-2xs text-slate-400">
           {task.planning ? (
             <span className="truncate">{t("board.planning")}</span>
@@ -283,6 +342,7 @@ function SubtaskCard({
   sub,
   color,
   parallel,
+  agent,
   selected,
   onSelect
 }: {
@@ -290,6 +350,8 @@ function SubtaskCard({
   sub: Subtask;
   color: string | null;
   parallel: boolean;
+  /** Atanan ajan (demo kartındaki kişi rozeti gibi). */
+  agent: { name: string; color: string | null } | null;
   selected: boolean;
   onSelect: () => void;
 }) {
@@ -303,15 +365,21 @@ function SubtaskCard({
         aria-pressed={selected}
         onClick={onSelect}
         style={color ? { boxShadow: `inset 2px 0 0 ${color}` } : undefined}
-        className={`${CARD} ${cardBorder(selected)} flex flex-col gap-0.5 px-2.5 py-1.5`}
+        className={`${CARD} ${cardBorder(selected)} flex flex-col gap-1 px-2.5 py-2`}
       >
         <span title={task.title} className="truncate text-2xs text-slate-500">
           {task.title}
         </span>
-        <span title={sub.title} className="truncate text-xs text-slate-200">
+        <span title={sub.title} className="line-clamp-2 break-words text-xs font-medium text-slate-100">
           {sub.title}
         </span>
         <span className="flex min-w-0 items-center gap-1.5 text-2xs text-slate-400">
+          {agent && (
+            <span data-subtask-agent="" className="flex min-w-0 max-w-[50%] shrink-0 items-center gap-1 text-slate-300" title={agent.name}>
+              <Initial name={agent.name} color={agent.color} />
+              <span className="truncate">{agent.name}</span>
+            </span>
+          )}
           {sub.state === "failed" ? (
             <span data-danger="" className={DANGER_TAG}>
               {t("board.stateFailed")}

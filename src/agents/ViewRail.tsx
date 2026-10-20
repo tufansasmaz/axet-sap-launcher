@@ -1,7 +1,7 @@
 // Görünüm rayı: içeriğin üstünde yüzen, sol kenarda ortalı yarı saydam düğme grubu.
 // Kapalıyken yalnız seçili görünümün tek yuvarlak düğmesi; üzerine gelince ya da
-// klavye odağında köşeli panel olarak açılır (Pano | Terminal | Görevler | Ofis | Değişiklikler |
-// Tarayıcı | Bellek | Araçlar — Ofis ortada). Seçili lime ışıltı (lime yalnız seçim); etiket
+// klavye odağında köşeli panel olarak açılır (Pano | Raporlar | Terminal | Ofis | Ajanlar | Görevler | Değişiklikler |
+// Tarayıcı | Bellek | Araçlar — Ofis Terminal'in altında). Seçili lime ışıltı (lime yalnız seçim); etiket
 // ipucunda ve aria-label'da. Klavye: yukarı/aşağı ok, Home/End; yalnız seçili düğme sekme sırasında.
 import { useRef, type KeyboardEvent } from "react";
 import { BookOpen, Building2, ClipboardList, GitBranch, Globe, FileText, LayoutDashboard, Terminal, Users, Wrench, type LucideIcon } from "lucide-react";
@@ -20,8 +20,8 @@ const COUNT_KEY: Partial<Record<WorkspaceView, TranslationKey>> = {
   browser: "rail.count.browser"
 };
 
-// Tur 3: Pano (genel bakış) başta, Araçlar (motorlar) sonda.
-export const VIEW_TABS: readonly WorkspaceView[] = ["overview", "reports", "panes", "manage", "board", "office", "changes", "browser", "memory", "tools"];
+// Tur 3: Pano (genel bakış) başta, Araçlar (motorlar) sonda. Ofis Terminal'in hemen altında.
+export const VIEW_TABS: readonly WorkspaceView[] = ["overview", "reports", "panes", "office", "manage", "board", "changes", "browser", "memory", "tools"];
 
 const VIEW_TAB_KEY: Record<WorkspaceView, TranslationKey> = {
   overview: "overview.view",

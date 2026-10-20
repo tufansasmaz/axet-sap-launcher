@@ -5,7 +5,7 @@
 // diyaloğuyla (ana süreç). Renk yalnız durum jetonlarından; lime yalnız seçili
 // satırın çizgisinde.
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { CheckCircle2, CircleAlert, CircleDot, Download, Hand, X } from "lucide-react";
+import { CheckCircle2, CircleAlert, CircleDot, Download, FileText, Hand, X } from "lucide-react";
 import { useLanguage, useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import { useTerminalStore } from "../stores/terminalStoreContext";
@@ -14,6 +14,7 @@ import { useBoards } from "../board/boardContext";
 import { useChangesFocus } from "../changes/changesFocus";
 import { Eyebrow } from "../ui/Eyebrow";
 import { agentName } from "./agentLabels";
+import { TONE_PILL } from "./agentView";
 import { useFlow } from "./flowContext";
 import { flowBody } from "./flowText";
 import {
@@ -40,11 +41,12 @@ const DATE_KEY: Record<DateFilter, TranslationKey> = {
   "30d": "reports.date30d"
 };
 const OUTCOMES: Report["outcome"][] = ["verified", "manual", "done", "failed"];
+// Sonuç hapı (demo'daki "checked"/"ready" çipleri gibi): yuvarlak, tonlu kenarlık.
 const OUTCOME_STYLE: Record<Report["outcome"], { icon: typeof CheckCircle2; className: string }> = {
-  verified: { icon: CheckCircle2, className: "text-[var(--status-success-text)]" },
-  manual: { icon: Hand, className: "text-slate-300" },
-  done: { icon: CircleDot, className: "text-slate-300" },
-  failed: { icon: CircleAlert, className: "text-[var(--status-danger-text)]" }
+  verified: { icon: CheckCircle2, className: TONE_PILL.success },
+  manual: { icon: Hand, className: TONE_PILL.muted },
+  done: { icon: CircleDot, className: TONE_PILL.muted },
+  failed: { icon: CircleAlert, className: TONE_PILL.danger }
 };
 const SELECT = "rounded-md border border-line bg-control px-2 py-1 text-xs text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500";
 const LINK = "rounded px-1.5 py-0.5 text-2xs text-slate-300 underline-offset-2 hover:bg-hover hover:text-slate-100 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500";
@@ -53,7 +55,7 @@ function Outcome({ outcome }: { outcome: Report["outcome"] }) {
   const t = useT();
   const { icon: Icon, className } = OUTCOME_STYLE[outcome];
   return (
-    <span className={`flex shrink-0 items-center gap-1 text-2xs ${className}`}>
+    <span className={`flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-2xs font-medium ${className}`}>
       <Icon size={12} aria-hidden="true" />
       {t(OUTCOME_KEY[outcome])}
     </span>
@@ -221,10 +223,18 @@ export default function ReportsView({ workspace }: { workspace: TerminalWorkspac
                         <span className="min-w-0 flex-1 truncate text-2xs text-slate-500">{r.task.title}</span>
                         {r.at > 0 && <span className="shrink-0 text-2xs tabular-nums text-slate-500">{when(r.at)}</span>}
                       </span>
-                      <span className="truncate text-sm text-slate-100">{r.subtask.title}</span>
-                      {r.reply && <span className="line-clamp-2 text-2xs text-slate-400">{r.reply}</span>}
-                      <span className="flex flex-wrap gap-x-3 text-2xs text-slate-500">
-                        <span className="text-slate-300">{r.agent || t("reports.unknownAgent")}</span>
+                      <span className="truncate text-sm font-semibold text-slate-100">{r.subtask.title}</span>
+                      {r.reply && <span className="line-clamp-2 text-xs leading-snug text-slate-400">{r.reply}</span>}
+                      <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-2xs text-slate-500">
+                        <span className="flex items-center gap-1 text-slate-300">
+                          <span
+                            aria-hidden="true"
+                            className="flex h-4 w-4 items-center justify-center rounded border border-line bg-control text-[9px] font-semibold leading-none text-slate-200"
+                          >
+                            {Array.from((r.agent || "?").trim())[0]?.toLocaleUpperCase("tr-TR") ?? "?"}
+                          </span>
+                          {r.agent || t("reports.unknownAgent")}
+                        </span>
                         <span>
                           {t("reports.duration")}: {durationText(r.durationMs, t)}
                         </span>
@@ -254,7 +264,12 @@ export default function ReportsView({ workspace }: { workspace: TerminalWorkspac
               onTerminal={current.paneId && workspace.panes.some((p) => p.id === current.paneId) ? () => commands.revealPane(current.paneId!) : undefined}
             />
           ) : (
-            reports.length > 0 && <p className="py-8 text-center text-xs text-slate-500">{t("reports.select")}</p>
+            reports.length > 0 && (
+              <div className="flex h-full min-h-[12rem] flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-line text-center">
+                <FileText size={20} aria-hidden="true" className="text-slate-500" />
+                <p className="text-xs text-slate-500">{t("reports.select")}</p>
+              </div>
+            )
           )}
         </div>
       </div>

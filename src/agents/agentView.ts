@@ -20,6 +20,14 @@ export const TONE_DOT: Record<StatusTone, string> = {
   muted: "bg-slate-500"
 };
 
+/** Durum hapı (demo'daki "● Working" çipi gibi): yuvarlak, ince tonlu kenarlık + zemin. */
+export const TONE_PILL: Record<StatusTone, string> = {
+  success: "border-[var(--status-success-border)] bg-[var(--status-success-bg)] text-[var(--status-success-text)]",
+  warning: "border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] text-[var(--status-warning-text)]",
+  danger: "border-[var(--status-danger-border)] bg-[var(--status-danger-bg)] text-[var(--status-danger-text)]",
+  muted: "border-line bg-control text-slate-400"
+};
+
 const STATE_KEY: Record<AgentState, TranslationKey> = {
   running: "agents.stateRunning",
   idle: "agents.stateIdle",

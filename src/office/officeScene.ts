@@ -1,8 +1,8 @@
 // Ofisin çizimi: arka plan (zemin, halı, duvar, kapı, oda etiketleri), canlı
 // eşya (ekranlar, sunucu ışıkları, pano), y sıralı eşya + kişiler, güneş
-// huzmesi, sürgülü kapılar, liderden ışın, gündüz/gece ve küçük harita.
+// huzmesi, sürgülü kapılar, liderden ışın, gündüz/gece. (Küçük harita 2026-10-20 ofis turunda kaldırıldı.)
 // Ad etiketi, durum çipi ve alt görev keskin HTML katmanında (OfficeView);
-// burada yalnız kişinin üstündeki balon / "?" / "!".
+// konuşma/soru balonu da orada; burada yalnız metinsiz "?" / "!".
 import { U, charArt, type Art, type Look } from "./officeSprites";
 import {
   CARPET, DOORS, DOOR_W, H, LAMPS, MID_CAP, MID_FACE, NORTH_FACE, ROOMS, V_WALLS, W, WINDOWS,
@@ -433,23 +433,6 @@ function drawChar(ctx: Ctx, a: Actor, look: Look, f: FrameInput) {
   }
 }
 
-function bubble(ctx: Ctx, text: string, x: number, y: number) {
-  ctx.font = "10px system-ui, Segoe UI, sans-serif";
-  const w = Math.ceil(textWidth(ctx, text, 5)) + 12;
-  const bx = Math.round(x - w / 2);
-  const by = y - 20;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(bx, by, w, 16);
-  ctx.fillRect(x - 3, by + 16, 6, 3);
-  ctx.fillRect(x - 1, by + 19, 2, 2);
-  ctx.strokeStyle = "#1b1d24";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(bx + 0.5, by + 0.5, w - 1, 15);
-  ctx.fillStyle = "#1b1d24";
-  ctx.textBaseline = "top";
-  ctx.fillText(text, bx + 6, by + 3);
-}
-
 function mark(ctx: Ctx, ch: string, x: number, y: number, bg: string, fg: string) {
   ctx.fillStyle = bg;
   ctx.fillRect(x - 7, y, 14, 14);
@@ -461,11 +444,12 @@ function mark(ctx: Ctx, ch: string, x: number, y: number, bg: string, fg: string
 
 function drawOverlay(ctx: Ctx, a: Actor, f: FrameInput) {
   const hy = headY(a);
-  const question = f.questions.get(a.id);
-  if (a.bubble && f.now < a.bubble.until) bubble(ctx, a.bubble.text, a.x, hy);
-  else if (a.pose === "asking" && a.sitting) {
-    if (question) bubble(ctx, question, a.x, hy);
-    else mark(ctx, "?", a.x, hy - 18 + (Math.floor(f.t * 3) % 2 ? -2 : 0), "#f0c44c", "#1b1d24");
+  // Konuşma ve soru balonları keskin HTML katmanında (OfficeView, ofis turu
+  // 2026-10-20): canvas'ta yakınlıkla bulanıklaşan 10 px yazı okunmuyordu.
+  // Burada yalnız metinsiz işaretler: soru metni yoksa "?" , hata "!".
+  if (a.bubble && f.now < a.bubble.until) return;
+  if (a.pose === "asking" && a.sitting) {
+    if (!f.questions.get(a.id)) mark(ctx, "?", a.x, hy - 18 + (Math.floor(f.t * 3) % 2 ? -2 : 0), "#f0c44c", "#1b1d24");
   } else if (a.pose === "error" && a.sitting) mark(ctx, "!", a.x, hy - 18, "#c4554d", "#ffffff");
 }
 
@@ -619,38 +603,3 @@ export function drawFrame(ctx: Ctx, f: FrameInput, doors: readonly number[]): vo
 
   for (const a of visible) drawOverlay(ctx, a, f);
 }
-
-// ------------------------------------------------------------ küçük harita
-export const MINI_W = 240;
-export const MINI_H = 135;
-const MS = MINI_W / W;
-
-/** Zemin + eşyanın küçültülmüş durağan kopyası. */
-export function paintMinimapBase(g: Ctx, bg: HTMLCanvasElement | null): void {
-  g.imageSmoothingEnabled = true;
-  g.save();
-  g.scale(MS, MS);
-  if (bg) g.drawImage(bg, 0, 0);
-  for (const it of items) img(g, it.art, it.x, it.y);
-  g.restore();
-}
-
-const DOT: Record<string, string> = { typing: "#3ddc84", asking: "#f0c44c", resting: "#c9cfdb", error: "#ff6b5e", unknown: "#8d96a8" };
-
-export function drawMinimap(g: Ctx, base: HTMLCanvasElement | null, sim: Sim, cam: Camera, cw: number, ch: number): void {
-  g.setTransform(1, 0, 0, 1, 0, 0);
-  g.clearRect(0, 0, MINI_W, MINI_H);
-  if (base) g.drawImage(base, 0, 0);
-  for (const a of sim.actors.values()) {
-    if (a.pose === "absent") continue;
-    g.fillStyle = DOT[a.pose] ?? "#c9cfdb";
-    g.fillRect(a.x * MS - 2, a.y * MS - 3, 4, 4);
-  }
-  const vw = cw / cam.zoom;
-  const vh = ch / cam.zoom;
-  g.strokeStyle = "rgba(110,168,255,.9)";
-  g.lineWidth = 1;
-  g.strokeRect((cam.x - vw / 2) * MS + 0.5, (cam.y - vh / 2) * MS + 0.5, vw * MS, vh * MS);
-}
-
-export const minimapToWorld = (x: number, y: number): Pt => ({ x: x / MS, y: y / MS });

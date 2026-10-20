@@ -16,7 +16,6 @@ import type { WorkspaceView } from "../../app-electron/shared/types";
 import type { FileChange } from "../../app-electron/shared/changesTypes";
 import { useBoards } from "../board/boardContext";
 import { SUBTASK_STATE_KEY } from "../board/boardDisplay";
-import { Eyebrow } from "../ui/Eyebrow";
 import { ENGINE_LABEL, agentName } from "./agentLabels";
 import { useAgentStatuses } from "./agentStatusContext";
 import { agentPanes, TONE_DOT } from "./agentView";
@@ -130,11 +129,11 @@ function Card({
   const t = useT();
   const { commands } = useTerminalStore();
   return (
-    <section aria-label={title} className={`flex min-w-0 flex-col rounded-lg border border-line bg-card p-3 ${className}`}>
+    <section aria-label={title} className={`flex min-w-0 flex-col rounded-lg border border-line bg-card p-4 ${className}`}>
       <div className="flex items-center gap-2">
-        <Eyebrow as="h3" className="flex-1">
+        <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-100">
           {title}
-        </Eyebrow>
+        </h3>
         {actions}
         {target && (
           <button
@@ -205,13 +204,13 @@ function KpiTile({ kpi, workspaceId, t }: { kpi: Kpi; workspaceId: string; t: Tr
         onClick={() => commands.setWorkspaceView(workspaceId, kpi.target)}
         className="flex h-full w-full min-w-0 flex-col gap-1 rounded-lg border border-line bg-card p-3 text-left transition-colors hover:border-line-strong hover:bg-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500"
       >
-        <span className="flex items-center gap-1.5 truncate text-2xs text-slate-400">
+        <span className="flex items-center gap-1.5 truncate text-xs font-medium text-slate-400">
           {alert && <span aria-hidden="true" className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[kpi.tone!]}`} />}
           {t(kpi.label)}
         </span>
         <span className="flex items-end justify-between gap-2">
           <span className="flex items-baseline gap-1">
-            <span className="text-2xl font-medium leading-none text-slate-100">{kpi.value}</span>
+            <span className="text-[28px] font-semibold leading-none tracking-tight text-slate-100">{kpi.value}</span>
             {kpi.of !== undefined && <span className="text-xs text-slate-500">{t("dash.kpiOf", { total: kpi.of })}</span>}
           </span>
           <Sparkline values={kpi.spark} />
