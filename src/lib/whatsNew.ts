@@ -12,6 +12,27 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW_DATA: readonly WhatsNewEntry[] = [
   {
+    version: "1.9.1",
+    items: {
+      tr: [
+        "Lider işi ekibe gerçekten dağıtıyor; Claude da lider olabiliyor. Claude ajanlarının durumu ve cevabı Akış'ta görünüyor.",
+        "SAP yazma onayından sonra sohbet ve ajan kendiliğinden devam ediyor; \"devam et\" yazmaya gerek yok.",
+        "Akış'a dosya ekleme; konuşmalardan belleğe otomatik not (geri alınabilir).",
+        "Terminal ekranındayken ajan yanlışlıkla \"çalışıyor\" görünmüyor; Akış'tan yazma terminal açıkken de çalışıyor.",
+        "Ofis yenilendi (soru ve konuşma balonları, bilgi kartı, gündüz/gece); Ajan yönetimi, Görevler, Raporlar ve Pano düzeni yenilendi.",
+        "NTT beceri ve eklentileri güncellendi; yerel Claude kurulumu tanınıyor."
+      ],
+      en: [
+        "The lead really hands work to the team; Claude can be a lead too. Claude agents' status and answers show in Flow.",
+        "After an SAP write approval, chat and agents continue on their own; no need to type \"continue\".",
+        "Attach files in Flow; automatic memory notes from conversations (undoable).",
+        "Agents no longer look \"working\" just because the Terminal view is open; sending from Flow works while the terminal is open.",
+        "Refreshed office (question and speech bubbles, info card, day/night); refreshed Agent management, Tasks, Reports and Dashboard layouts.",
+        "NTT skills and plugins updated; a local Claude install is recognised."
+      ]
+    }
+  },
+  {
     version: "1.9.0",
     items: {
       tr: [
