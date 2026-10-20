@@ -453,6 +453,14 @@ describe("Akış — ajanın cevabı ve düzen", () => {
     expect(commands.revealPane).toHaveBeenCalledWith("a");
   });
 
+  it("Tur 11: tahmini kaynakta ekrandan okunan cevap kartta, ≈ ve 'ekrandan okundu' notuyla", () => {
+    setup([ws("w1", [pane("a")])], {}, { events: [fin(1, { exact: false, reply: "Dosya hazır." })] });
+    const card = document.querySelector("[data-flow-reply]") as HTMLElement;
+    expect(card.textContent).toContain("Dosya hazır.");
+    expect(document.querySelector('[data-flow-event="finished"] [data-estimated]')).not.toBeNull();
+    expect(document.querySelector("[data-reply-estimated]")?.textContent).toBe("≈ Terminal ekranından okundu (tahmini).");
+  });
+
   it("ajan satırı TEK satır: ad, rol, durum çipi aynı satırda; motor adı yalnız uyarıda görünür", () => {
     setup([ws("w1", [pane("a", { title: "Ayşe", agent: { engine: "axet-code", role: "Test", roleKind: "preset" } })])], { a: status("running") });
     const row = document.querySelector('[data-agent-row="a"]') as HTMLElement;

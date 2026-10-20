@@ -13,6 +13,8 @@
 import type { AgentStatus, AgentTurn } from "../shared/agentTypes";
 import { scanTerminalError } from "../shared/agentErrors";
 import { agentErrorInfo } from "./agentErrorInfo";
+import { TerminalScreen } from "./terminalScreen";
+import { extractTerminalReply } from "./terminalReply";
 
 /** İzleyicinin (agentMonitor.ts) bildiği tek yüz. Yöntemler hata fırlatmamalı. */
 export interface AgentReader {
@@ -24,7 +26,7 @@ export interface AgentReader {
    * Tur 10: bölme yeniden boyutlandı (terminal ekranı görünür oldu ya da boyut değişti);
    * ardından gelen yeniden çizim iş sayılmasın.
    */
-  noteRepaint?(): void;
+  noteRepaint?(cols?: number, rows?: number): void;
   /** Motor açıldı: komut yankısından sonra motorun kendi çıktısı görüldü (Görev Panosu dağıtım koşulu). */
   engineReady(): boolean;
   dispose(): void;
@@ -90,6 +92,9 @@ export interface GenericReaderOptions {
   command: string;
   now: () => number;
   idleAfterMs?: number;
+  /** Tur 11: ekranın başlangıç boyutu (bölme açılış boyutu). */
+  cols?: number;
+  rows?: number;
   /** Tur 9: tur bitince son hata satırı taransın (kesin okuyucusu olmayan motorlar). */
   scanErrors?: boolean;
 }
@@ -111,11 +116,17 @@ export class GenericReader {
   /** Tur 11: istemden sonra motorun tur sonu işareti görüldüğü an (çalışma altbilgisi siler). */
   private doneMarkAt: number | null = null;
   private markCarry = "";
+  /** Tur 11: ekran (cevap çıkarmak için) ve son istem satırı — yalnız bellekte. */
+  private readonly screen: TerminalScreen;
+  private promptLine: string | null = null;
+  private reply: { at: number; text: string | null } | null = null;
   private readonly echo: RegExp | null;
 
   constructor(private readonly opts: GenericReaderOptions) {
     const token = commandToken(opts.command);
     this.echo = token ? new RegExp(`>\\s?"?${escapeRegExp(token)}`, "i") : null;
+    // Bölme bu boyutla açılıyor (terminalStore INITIAL_COLS/ROWS); ilk sığdırma noteRepaint'le gelir.
+    this.screen = new TerminalScreen(opts.cols ?? 120, opts.rows ?? 30);
   }
 
   /**
@@ -131,14 +142,22 @@ export class GenericReader {
     this.turnText = "";
     this.doneMarkAt = null;
     this.markCarry = "";
+    this.promptLine = trimmed;
+    this.reply = null;
   }
 
-  noteRepaint(): void {
+  noteRepaint(cols?: number, rows?: number): void {
     this.repaintUntil = this.opts.now() + REPAINT_QUIET_MS;
+    if (cols && rows) this.screen.resize(cols, rows);
   }
 
   feedOutput(data: string): void {
     const now = this.opts.now();
+    try {
+      this.screen.feed(data);
+    } catch {
+      // ekran yalnız cevap çıkarmak için; hata durumu etkilemesin
+    }
     const clean = stripAnsi(data);
     // Tur 10 (ölçüldü): görünür karakter taşımayan parça (odak/fare cevabı, imleç,
     // kip anahtarı) ve yeniden boyut sonrası yeniden çizim iş değil: etkinlik anı ilerlemiyor.
@@ -260,10 +279,24 @@ export class GenericReader {
     return this.opts.now() - this.promptAt < this.idleAfter();
   }
 
+  /** Tur 11: biten turun cevabı ekrandan (tur başına bir kez hesaplanır; yalnız bellekte). */
+  private turnReply(at: number): string | null {
+    if (this.reply?.at === at) return this.reply.text;
+    let text: string | null = null;
+    try {
+      text = extractTerminalReply(this.screen.allLines(), this.promptLine);
+    } catch {
+      text = null;
+    }
+    this.reply = { at, text };
+    return text;
+  }
+
   status(): AgentStatus {
     const at = this.lastOutputAt;
     const turn = this.turn();
-    const withTurn = turn ? { turn } : {};
+    const reply = turn?.done ? this.turnReply(turn.at) : null;
+    const withTurn = turn ? { turn, ...(reply ? { reply } : {}) } : {};
     if (this.engineExited()) {
       const line = this.opts.scanErrors ? this.exitError() : null;
       return { state: "finished", source: "estimated", lastActivity: at, ...withTurn, ...(line ? { error: agentErrorInfo(line, "estimated") } : {}) };
@@ -282,7 +315,7 @@ export function genericAgentReader(reader: GenericReader): AgentReader {
     feedOutput: (data) => reader.feedOutput(data),
     submitLine: (line) => reader.submitLine(line),
     poll: () => {},
-    noteRepaint: () => reader.noteRepaint(),
+    noteRepaint: (cols, rows) => reader.noteRepaint(cols, rows),
     // Tur 6: kesin kaynağı olmayan motor; Akış bunu ilk turda bir kez söylüyor.
     status: () => ({ ...reader.status(), link: "unsupported" }),
     engineReady: () => reader.engineReady(),

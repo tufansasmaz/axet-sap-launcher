@@ -79,7 +79,8 @@ describe("resizeTerminal — aynı boyut yeniden gönderilmiyor", () => {
     resizeTerminal("r1", 120, 40);
     resizeTerminal("r1", 100, 40);
     expect(proc.resize.mock.calls).toEqual([[120, 40], [100, 40]]);
-    expect(onResize.mock.calls).toEqual([["r1"], ["r1"]]);
+    // Tur 11: boyut da iletiliyor (ajan okuyucusunun ekranı için).
+    expect(onResize.mock.calls).toEqual([["r1", 120, 40], ["r1", 100, 40]]);
     setTerminalTap(null);
   });
 });

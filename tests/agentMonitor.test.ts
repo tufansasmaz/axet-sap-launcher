@@ -744,12 +744,13 @@ describe("Tur 10: onResize", () => {
   it("bölmenin okuyucusuna yeniden çizim bildiriliyor; okuyucu hatası düşürmüyor", () => {
     const h = harness();
     h.monitor.register(reg());
-    const r = h.reader() as FakeReader & { noteRepaint?: () => void };
-    const calls: number[] = [];
-    r.noteRepaint = () => calls.push(1);
-    h.monitor.onResize("t1");
-    h.monitor.onResize("yok");
-    expect(calls).toEqual([1]);
+    const r = h.reader() as FakeReader & { noteRepaint?: (c?: number, w?: number) => void };
+    const calls: unknown[] = [];
+    r.noteRepaint = (c?: number, w?: number) => calls.push([c, w]);
+    h.monitor.onResize("t1", 90, 20);
+    h.monitor.onResize("yok", 1, 1);
+    // Tur 11: boyut okuyucunun ekranına gidiyor.
+    expect(calls).toEqual([[90, 20]]);
     r.noteRepaint = () => {
       throw new Error("patladı");
     };

@@ -200,8 +200,8 @@ export class ClaudeReader implements AgentReader {
     this.dir = claudeProjectDir(opts.home, opts.cwd, opts.configDir);
   }
 
-  noteRepaint(): void {
-    this.opts.generic.noteRepaint();
+  noteRepaint(cols?: number, rows?: number): void {
+    this.opts.generic.noteRepaint(cols, rows);
   }
 
   feedOutput(data: string): void {

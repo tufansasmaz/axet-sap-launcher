@@ -1722,6 +1722,7 @@ export const en: Record<TranslationKey, string> = {
   "flow.less": "Show less",
   "flow.openTerminal": "Open in terminal",
   "flow.replyInTerminal": "The reply is in the terminal; this engine's reply can't be read.",
+  "flow.replyEstimated": "≈ Read from the terminal screen (estimated).",
   "flow.emptyTitle": "No agents in the team yet",
   "flow.emptyBody": "Add an agent; follow its replies here and its work in the office.",
   "agents.moreActions": "More actions",

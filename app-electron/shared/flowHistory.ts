@@ -90,7 +90,8 @@ export function sanitizeFlowEvents(raw: unknown, scrub: (text: string) => string
     const event: StoredFlowEvent = { at: Math.floor(r.at), kind: r.kind as FlowKind, paneId, name: scrub(name), detail: scrub(detail) };
     const reply = str(r.reply, REPLY_MAX);
     if (reply) event.reply = scrub(reply);
-    if (r.exact === true) event.exact = true;
+    // Tur 11: tahmini kart (≈) yeniden yüklenince de tahmini kalsın.
+    if (typeof r.exact === "boolean") event.exact = r.exact;
     if (isLeadAct(r.act)) event.act = r.act;
     if (typeof r.toPaneId === "string" && r.toPaneId.length > 0 && r.toPaneId.length <= ID_MAX) event.toPaneId = r.toPaneId;
     if (typeof r.noteId === "string" && /^[\w-]{1,64}$/.test(r.noteId)) event.noteId = r.noteId;

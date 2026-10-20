@@ -108,3 +108,13 @@ describe("uygulama içi bildirim", () => {
     expect(noticeText(guess, t)).toBe("Ayşe işini bitirmiş görünüyor (tahmini)");
   });
 });
+
+describe("statusEvents — Tur 11: tahmini cevap", () => {
+  it("tahmini bitişte ekrandan okunan cevap karta taşınıyor (≈ kalıyor)", () => {
+    const a = est("running", { turn: { at: 10, done: false } });
+    const b = est("idle", { turn: { at: 10, done: true }, reply: "Dosya hazır." });
+    expect(statusEvents({ p1: a }, { p1: b }, panes, 30)).toEqual([
+      { at: 30, workspaceId: "w1", kind: "finished", paneId: "p1", name: "Ayşe", detail: "", exact: false, reply: "Dosya hazır." }
+    ]);
+  });
+});

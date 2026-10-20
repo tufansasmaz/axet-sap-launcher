@@ -67,3 +67,12 @@ describe("mergeHistory / toStored / alan başına sınır", () => {
     expect(list.filter((e) => e.workspaceId === "B")).toHaveLength(1);
   });
 });
+
+describe("Tur 11: tahmini cevap kartı yeniden yüklenince de tahmini (≈)", () => {
+  it("exact:false saklanıyor ve doğrulamadan geçiyor", () => {
+    const ev: FlowEvent = { id: 1, at: 5, workspaceId: "w", kind: "finished", paneId: "p", name: "A", detail: "", exact: false, reply: "Dosya hazır." };
+    const stored = toStored([ev], "w");
+    expect(stored[0]).toMatchObject({ exact: false, reply: "Dosya hazır." });
+    expect(sanitizeFlowEvents(JSON.parse(JSON.stringify(stored)))[0]).toMatchObject({ exact: false, reply: "Dosya hazır." });
+  });
+});

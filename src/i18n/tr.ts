@@ -1808,6 +1808,7 @@ export const tr = {
   "flow.less": "Daha az göster",
   "flow.openTerminal": "Terminalde aç",
   "flow.replyInTerminal": "Cevabı terminalde; bu motorun cevabı okunamıyor.",
+  "flow.replyEstimated": "≈ Terminal ekranından okundu (tahmini).",
   "flow.emptyTitle": "Ekipte henüz ajan yok",
   "flow.emptyBody": "Bir ajan ekle; cevaplarını burada, çalışmasını ofiste izle.",
   "agents.moreActions": "Diğer eylemler",

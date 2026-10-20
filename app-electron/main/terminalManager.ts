@@ -36,7 +36,7 @@ export interface TerminalTap {
   onOutput(id: string, data: string): void;
   onExit(id: string): void;
   /** Tur 10: kabuğa gerçek bir boyut değişikliği iletildi (ardından yeniden çizim gelir). */
-  onResize?(id: string): void;
+  onResize?(id: string, cols: number, rows: number): void;
 }
 
 let tap: TerminalTap | null = null;
@@ -274,7 +274,7 @@ export function resizeTerminal(id: string, cols: number, rows: number): void {
   // üretiyor; terminal ekranı her görünür olduğunda gönderiliyordu → ajan "çalışıyor".
   if (lastSize.get(id) === `${cols}x${rows}`) return;
   logResize(id, cols, rows);
-  tell((t) => t.onResize?.(id));
+  tell((t) => t.onResize?.(id, cols, rows));
   try {
     session.proc.resize(cols, rows);
   } catch {

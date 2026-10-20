@@ -270,3 +270,29 @@ describe("GenericReader — Tur 11: çalışıyor yalnız gerçek istemden sonra
     expect(reader.status().state).toBe("running");
   });
 });
+
+describe("GenericReader — Tur 11: ekrandan son cevap (tahmini)", () => {
+  it("tur bitince Claude ekranındaki son '●' bloğu cevap; bitmeden yok", () => {
+    const { clock, reader } = setup("azure --continue");
+    reader.feedOutput("C:\p>azure --continue\r\n Claude Code v2.1.304\r\n");
+    reader.submitLine("Bana kısa bir liste yaz");
+    clock.ms += 300;
+    reader.feedOutput("\r\n❯ Bana kısa bir liste yaz\r\n\r\n● - Elma\r\n  - Muz\r\n");
+    expect(reader.status().reply).toBeUndefined();
+    reader.feedOutput("\r\n✻ Baked for 2s · done\r\n");
+    clock.ms += 2_000;
+    expect(reader.status()).toMatchObject({ state: "idle", turn: { done: true }, reply: "- Elma\n- Muz" });
+  });
+
+  it("yeniden boyut ekranı yeniden boyutluyor (noteRepaint sütun/satır)", () => {
+    const { clock, reader } = setup("azure");
+    reader.feedOutput("C:\p>azure\r\nClaude\r\n");
+    reader.noteRepaint(60, 10);
+    clock.ms += REPAINT_QUIET_MS;
+    reader.submitLine("tek satır cevap ver");
+    clock.ms += 100;
+    reader.feedOutput("\x1b[2J\x1b[1;1H❯ tek satır cevap ver\x1b[3;1H● Tamam.\x1b[5;1H✻ Brewed for 1s\x1b[10;1H❯ ");
+    clock.ms += 2_000;
+    expect(reader.status().reply).toBe("Tamam.");
+  });
+});

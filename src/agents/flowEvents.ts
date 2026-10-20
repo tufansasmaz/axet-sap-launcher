@@ -123,7 +123,8 @@ export function statusEvents(
     const prevTurn = before.turn;
     const newTurn = turn !== undefined && turn.at !== prevTurn?.at;
     if (newTurn && !turn.done) out.push({ ...base, kind: "started", exact: false });
-    if (turn?.done && !(prevTurn?.at === turn.at && prevTurn.done)) out.push({ ...base, kind: "finished", exact: false });
+    // Tur 11: kesin kaynak yoksa cevap terminal ekranından (≈) okunmuş olabilir.
+    if (turn?.done && !(prevTurn?.at === turn.at && prevTurn.done)) out.push({ ...base, kind: "finished", exact: false, ...(reply ? { reply } : {}) });
     if (status.link && (status.link !== before.link || (newTurn && !turn.done))) out.push({ ...base, kind: "note", detail: status.link });
   }
   return out;
@@ -236,7 +237,7 @@ export function toStored(list: readonly FlowEvent[], workspaceId: string): Store
       name: e.name,
       detail: e.detail,
       ...(e.reply ? { reply: e.reply } : {}),
-      ...(e.exact ? { exact: true } : {}),
+      ...(typeof e.exact === "boolean" ? { exact: e.exact } : {}),
       ...(e.act ? { act: e.act } : {}),
       ...(e.toPaneId ? { toPaneId: e.toPaneId } : {}),
       ...(e.noteId ? { noteId: e.noteId } : {}),

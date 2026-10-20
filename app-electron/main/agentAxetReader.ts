@@ -260,8 +260,8 @@ export class AxetReader implements AgentReader {
   constructor(private readonly opts: AxetReaderOptions) {}
 
   /** Tur 10: yeniden boyut sonrası yeniden çizim (tahmini yedek iş saymasın). */
-  noteRepaint(): void {
-    this.opts.generic.noteRepaint();
+  noteRepaint(cols?: number, rows?: number): void {
+    this.opts.generic.noteRepaint(cols, rows);
   }
 
   feedOutput(data: string): void {

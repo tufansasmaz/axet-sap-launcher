@@ -356,7 +356,7 @@ function FlowEntry({ event, workspace, latest = false }: { event: FlowEvent; wor
         </p>
       ) : event.kind === "finished" && event.reply ? (
         <>
-          <ReplyCard reply={event.reply} onOpen={canOpen ? () => commands.revealPane(pane.id) : undefined} />
+          <ReplyCard reply={event.reply} estimated={event.exact === false} onOpen={canOpen ? () => commands.revealPane(pane.id) : undefined} />
           <div className="ml-3.5">
             <ToMemory event={event} workspaceId={workspace.id} />
           </div>
@@ -520,13 +520,19 @@ const CLAMP_CHARS = 220;
 const CLAMP_LINES = 4;
 
 /** Ajanın son cevabı: dört satıra kırpılı, "Devamını göster" ile açılıyor. */
-function ReplyCard({ reply, onOpen }: { reply: string; onOpen?: () => void }) {
+function ReplyCard({ reply, onOpen, estimated }: { reply: string; onOpen?: () => void; estimated?: boolean }) {
   const t = useT();
   const [open, setOpen] = useState(false);
   const long = reply.length > CLAMP_CHARS || reply.split("\n").length > CLAMP_LINES;
   return (
     <div data-flow-reply="" className="ml-3.5 mt-1 rounded-md border border-line bg-card px-2 py-1.5">
       <p className={`whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-200 ${long && !open ? "line-clamp-4" : ""}`}>{reply}</p>
+      {estimated && (
+        // Tur 11: kesin kaynak yok; cevap terminal ekranından çıkarıldı.
+        <p data-reply-estimated="" className="mt-1 text-2xs text-slate-500">
+          {t("flow.replyEstimated")}
+        </p>
+      )}
       {(long || onOpen) && (
         <div className="mt-1 flex items-center gap-3">
           {long && (
