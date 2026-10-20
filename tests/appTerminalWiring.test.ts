@@ -25,7 +25,7 @@ describe("App — terminal modu bağlı", () => {
     expect(app).not.toContain("TerminalSidebar");
     expect(app).toMatch(/<AgentsScreen\s+chatActive=\{activity === "axetCode"\}/);
     expect(app).toMatch(/chat=\{\s*<AxetCodeHome/);
-    expect(app).toContain("<FlowProvider>");
+    expect(app).toContain("<FlowProvider autoCapture=");
   });
 
   it("Sohbet ve Ajanlar aynı kaba açılıyor; kap iki modda da takılı", () => {

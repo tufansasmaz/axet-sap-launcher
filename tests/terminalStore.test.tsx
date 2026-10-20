@@ -547,7 +547,7 @@ describe("ajan bölmeleri (spec 2026-10-17 ajan-alani §5)", () => {
       })
     );
     await flush();
-    expect(api.createTerminal).toHaveBeenCalledWith("C:\\p", 120, 30, "cmd", "claude --model sonnet", { createDir: false });
+    expect(api.createTerminal).toHaveBeenCalledWith("C:\\p", 120, 30, "cmd", "claude --allowedTools \"Bash(ntt-team:*)\" --model sonnet", { createDir: false });
     expect(panes()[0]).toMatchObject({ kind: "agent", title: "Ayşe", color: "blue" });
   });
 
