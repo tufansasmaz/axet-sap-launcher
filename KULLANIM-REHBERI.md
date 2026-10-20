@@ -501,7 +501,7 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   Şablon ajanları axet-code ile, ekibin varsayılan klasöründe açar; rol yalnız
   bir etikettir, rol kapısı ve SAP kuralları aynen geçerlidir.
 - **Görünüm rayı** (içerik alanının sol kenarı, alt alta simgeler):
-  **Pano, Raporlar, Terminal, Görevler, Ofis, Değişiklikler, Tarayıcı, Bellek, Araçlar**. Simgenin
+  **Pano, Raporlar, Terminal, Ofis, Ajan yönetimi, Görevler, Değişiklikler, Tarayıcı, Bellek, Araçlar** (Ofis Terminal'in hemen altında). Simgenin
   üstüne gelince adı görünür; seçili olanın solunda vurgu çizgisi vardır.
   Klavyeyle yukarı/aşağı ok, Home/End. Sohbet'e sol menüdeki **Axet Chat**
   düğmesiyle dönülür. Seçim ekip başına hatırlanır; yeni ekip **Ofis**'te
@@ -683,7 +683,7 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   **Belleği etkinleştir** düğmesi vardır. Bellek dosyasına şifre ya da jeton
   yazma.
 - **Ofis**: varsayılan yakınlık alanı doldurur; taşan kısmı sürükleyerek
-  kaydırırsın, sağ alttaki küçük harita yeri gösterir, **−/+** ile yakınlaşır,
+  kaydırırsın (küçük harita yok), **−/+** ya da tekerlekle yumuşakça yakınlaşır,
   ortadaki değere tıklayınca varsayılana dönersin. Ajanların durumu tahmini
   olsa da sunucu ışıkları ve ekranlar yavaşça çalışır (Windows'ta "animasyon
   efektleri" kapalıysa hareket yoktur).
@@ -799,10 +799,12 @@ Claude Code/Codex/Gemini'de terminalin son hata satırından tahmin edilir (≈)
 
 ### Ajan yönetimi
 
-Raydaki **Ajan yönetimi** (Terminal'in altında) TÜM ekiplerdeki ajanları tek
-tabloda gösterir: ad, ekip, rol, motor/model, durum ve şu anki aşama, son
-etkinlik, açılış saati (bu uygulama oturumunda), bellek boyutu. Lider ajanın
-ekip köprüsüyle açtığı ajanlarda "lider açtı" etiketi vardır.
+Raydaki **Ajan yönetimi** (Ofis'in altında) TÜM ekiplerdeki ajanları tek
+tabloda gösterir: baş harfli renkli kare, kalın ad ve altında rol, ekip,
+motor/model, durum hapı ve şu anki aşama, son etkinlik, açılış saati (bu
+uygulama oturumunda), bellek boyutu. Arama ve Ekip/Durum/Motor süzgeçleri
+tek satırdadır. Lider ajanın ekip köprüsüyle açtığı ajanlarda "lider açtı"
+etiketi vardır.
 
 - Üstte arama (ad, rol, ekip, motor, model) ve **Ekip**, **Durum**, **Motor**
   süzgeçleri. Soru soran ve hata veren ajanlar en üstte.
@@ -860,6 +862,10 @@ hiçbir kartı kapatmaz. Akış'taki ajan satırına, soru kartındaki "Terminal
   görevler "Beklemede" olur ve kendiliğinden yeniden gönderilmez; **Yeniden
   sıraya al** dersin. İstem ajana gönderilemediyse (motor o anda kapandı ya da
   sen araya yazdın) alt görev "Beklemede · İstem gönderilemedi" olur.
+- **Görünüm**: her sütun renkli noktalı başlık ve sayı hapıyla ayrı bir
+  şerittir; boş sütunda kesikli "Boş" kutusu durur. Alt görev kartında
+  atanan ajanın baş harfi ve adı, ana görev kartında ilerleme çubuğu
+  vardır; sağ üstte onaylı görevlerin "3/7 alt görev bitti" özeti.
 - **Raporlar** (panonun altında): biten, doğrulanan ve başarısız alt
   görevler; başlık, ajan, sonuç, kaç doğrulama komutunun geçtiği ve zaman.
   Satıra tıklayınca ayrıntısı açılır.
@@ -890,8 +896,18 @@ alanı tam kaplar.
   ajanlarda (Claude Code, Codex, Gemini, özel komut) aynı poz durağandır;
   hareket yalnız kesin durumda olur.
 - **Soru soruyor**: ekran sarı yanıp söner; axet-code ajanında sorunun ilk
-  60 karakteri başın üstündeki balonda yazar, tahmini durumda sarı bir "?"
-  çıkar. Cevabı Akış'taki soru kartından ya da terminalden verirsin.
+  60 karakteri başın üstündeki sarı piksel balonda ("?" rozeti ve **SORU**
+  başlığıyla, en çok üç satıra sarılarak) yazar; balon yakınlıktan bağımsız
+  keskin okunur. Tahmini durumda sarı bir "?" çıkar. Cevabı Akış'taki soru
+  kartından ya da terminalden verirsin.
+- **Konuşma balonu**: ajan bir şey deyince başının üstünde beyaz piksel
+  balon birkaç saniye görünür: işini bitirince cevabının ilk satırı (cevap
+  terminaldeyse "Bitti!"), kesin durumda aşaması değişince "dosya okuyor…"
+  gibi kısa bir söz (ajan başına seyrek), panodan iş alınca "Tamam,
+  başlıyorum". Balon açıkken soru balonu geri çekilir.
+- **Bilgi kartı**: karakterin üstüne gelince (ya da Tab ile odaklanınca)
+  yanında küçük bir kart açılır: ad, rol, durum, şu anki aşama, panodaki
+  görev (yoksa "Şu an görevi yok"), soru ve son cevabın özeti.
 - **Boşta / Bitti**: karakter masasından kalkıp mutfağa, kanepeye, koşu
   bandına ya da toplantı masasına yürür, bir süre oyalanıp başka yere geçer;
   kahve alırsa masasına kupayla döner. İş gelince masasına yürür. "Boşta
@@ -906,16 +922,21 @@ alanı tam kaplar.
   sekmesine geçilir ve o ajanın terminali öne gelir; küçültülmüşse geri
   açılır. Seçili/odaktaki ajanın adı ve ayağının altındaki halka vurgu
   rengindedir.
+- **Üst çubuk** (sağ üst): ekip adı ve "2/4 aktif" (çalışan + soru soran
+  ajan / toplam), saat düğmesi ve yakınlık.
 - **Kamera**: sürükleyerek kaydırılır, fare tekerleği ya da sağ üstteki
-  **−** / **+** ile yakınlaşır; ortadaki değer düğmesi bütün ofisi sığdırır.
-  Yakınlaşınca sağ altta küçük bir harita çıkar; tıklanan yere gidilir.
-- **Gündüz / gece**: ofis bilgisayarın saatini izler; akşam kararır, masa
-  ekranları ve tavan lambaları yanar, gündüz pencerelerden güneş düşer.
+  **−** / **+** ile yumuşakça yakınlaşır (tekerlekte imlecin altındaki yer
+  sabit kalır); ortadaki değer düğmesi varsayılana döner. İlk açılışta
+  kamera masaların olduğu üst kısımdadır. Küçük harita yoktur.
+- **Gündüz / gece**: **Saat** düğmesi otomatik → gündüz → gece arasında
+  döner (seçim kaydedilmez). Otomatikte ofis bilgisayarın saatini izler;
+  akşam kararır, masa ekranları ve tavan lambaları yanar, gündüz
+  pencerelerden güneş düşer.
 - Düz terminaller ofiste görünmez; sol alt köşede sayıları yazar. Ajan
   yoksa "Ofiste kimse yok" ve **Ajan** düğmesi çıkar.
 - Ofisteyken terminaller kapanmaz, yalnız gizlenir. Ofis ekranda değilken
   çizim durur. Windows'ta "Animasyon efektlerini göster" kapalıysa (hareketi
-  azalt) ofiste hiçbir şey kıpırdamaz ve ofis gündüz kalır.
+  azalt) ofiste hiçbir şey kıpırdamaz ve ofis (Saat otomatikteyken) gündüz kalır.
 - **Çizimler**: karakterler, eşya ve zeminler uygulamanın kendi kodla
   çizilmiş piksel çizimleridir; dış görsel paketi kullanılmaz.
 
