@@ -33,7 +33,7 @@ import { mt, refreshMainLanguage } from "./i18n";
 import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
-import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, setTerminalTap } from "./terminalManager";
+import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, getTerminalPid, setTerminalTap } from "./terminalManager";
 import { createAgentMonitor, readAgentRegistration, type AgentErrorNotice } from "./agentMonitor";
 import { agentNotificationFor, type AgentNotificationKind } from "./agentNotification";
 import { createEngineGate, type GateAgent } from "./agentGate";
@@ -72,6 +72,7 @@ import type { ChangesFailure } from "../shared/changesTypes";
 import { stopAllRfcBridges } from "./rfcBridgeManager";
 import { stopAllReadonlyServers } from "./adtReadonlyServerManager";
 import { stopApprovalServer } from "./sapWrite/server";
+import { setApprovalCandidateProvider } from "./sapWrite/approvalEvents";
 import { registerSapWriteIpc } from "./sapWrite/ipc";
 import { registerWriteHistoryIpc } from "./sapWrite/history";
 import { buildSummary, clearChatHistory, clearAppLog, revealData } from "./dataPrivacy";
@@ -603,6 +604,22 @@ const teamBridge = createTeamBridge({
   memoryChanged: notifyNotesChanged,
   lead: (caller, args) => teamLead.handle(caller, args)
 });
+// SAP yazma onayının sahibi olabilecek Ajanlar bölmeleri (bkz. sapWrite/approvalEvents.ts
+// resolveOwnership): bölmenin kabuk süreci, klasörü, şu an çalışıyor mu.
+setApprovalCandidateProvider(() =>
+  agentMonitor.agents().flatMap((a) => {
+    if (!a.reg.workspaceId) return [];
+    const pid = getTerminalPid(a.reg.ptyId);
+    return [
+      {
+        ref: { tur: "bolme" as const, id: a.reg.paneId, workspaceId: a.reg.workspaceId, name: a.reg.name },
+        pids: pid ? [pid] : [],
+        dir: a.reg.cwd,
+        active: a.status?.state === "running"
+      }
+    ];
+  })
+);
 let teamServer: { port: number; close: () => void } | null = null;
 let teamScriptDir: string | null = null;
 /** Tur 10: köprü açılışı; açılışta geri yüklenen bölmeler NTT_TEAM_* olmadan açılmasın diye bekleniyor. */

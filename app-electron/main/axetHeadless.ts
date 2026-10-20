@@ -100,6 +100,8 @@ export interface HeadlessDeps {
 export interface HeadlessTurn {
   done: Promise<HeadlessTurnResult>;
   cancel(): void;
+  /** axet-code sürecinin kimliği (SAP yazma onayının sahibini eşlemek için; bkz. sapWrite/approvalEvents.ts). */
+  pid?: number;
 }
 
 const CONTEXT_LIMIT_TOKENS = 1_000_000;
@@ -586,6 +588,7 @@ export function startHeadlessTurn(args: HeadlessTurnArgs, deps: HeadlessDeps = d
 
   return {
     done,
+    ...(typeof child.pid === "number" ? { pid: child.pid } : {}),
     cancel: () => {
       if (finished || cancelled) return;
       cancelled = true;

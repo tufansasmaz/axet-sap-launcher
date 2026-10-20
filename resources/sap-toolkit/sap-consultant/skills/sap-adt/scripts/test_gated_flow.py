@@ -51,6 +51,7 @@ class FakeLauncher:
 
     def __init__(self):
         self.requests = []
+        self.headers = []
         self.karar = "izinli"
         self.status = 200
         self.raw = None           # verilirse gövde olarak bu gider (bozuk JSON testi)
@@ -77,6 +78,7 @@ class FakeLauncher:
                 n = int(self.headers.get("Content-Length") or 0)
                 body = json.loads(self.rfile.read(n).decode("utf-8"))
                 outer.requests.append(("POST", self.path, self.headers.get("Authorization"), body))
+                outer.headers.append(dict(self.headers.items()))
                 if outer.raw is not None:
                     return self._send(200, outer.raw)
                 if self.path == "/approvals":
@@ -89,6 +91,7 @@ class FakeLauncher:
 
     def reset(self, karar="izinli", status=200):
         self.requests.clear()
+        self.headers.clear()
         self.karar, self.status, self.raw, self.health_status = karar, status, None, 200
 
     def paths(self):
@@ -631,7 +634,74 @@ def t_build():
     assert "axet_teslim" in specs and specs["axet_teslim"]["schema"]["properties"]["nesneler"]
 
 
+def t_pid_chain():
+    parents = {50: 40, 40: 30, 30: 30, 7: 0}
+    assert gs.pid_chain(50, parents) == [50, 40, 30], gs.pid_chain(50, parents)
+    assert gs.pid_chain(7, parents) == [7]
+    assert gs.pid_chain(None, parents) == []
+    long = {i: i + 1 for i in range(1, 100)}
+    assert len(gs.pid_chain(1, long)) == gs._CALLER_MAX_DEPTH
+
+
+def t_caller_pids_live():
+    """Gerçek TCP bağlantısı: çağıran alt süreç, zincirin başında; ata olarak bu süreç."""
+    if os.name != "nt":
+        return
+    import subprocess
+    seen = {}
+
+    class H(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            seen["pids"] = gs.caller_pids()
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        port = srv.server_address[1]
+        code = ("import urllib.request as u;"
+                f"u.urlopen(u.Request('http://127.0.0.1:{port}/x', data=b'{{}}', method='POST'), timeout=10).read()")
+        child = subprocess.Popen([sys.executable, "-I", "-c", code])
+        child.wait(timeout=30)
+    finally:
+        srv.shutdown()
+        srv.server_close()
+    pids = seen.get("pids")
+    assert pids, f"zincir boş: {pids}"
+    assert pids[0] == child.pid, (pids, child.pid)
+    assert os.getpid() in pids, (pids, os.getpid())
+
+
+def t_caller_header_sent():
+    e = Env({"zcl_a.clas.abap": SRC}, **PUSH_OWNED)
+    e.review("CLAS", "ZCL_A", ["zcl_a.clas.abap"], orta=2)
+    LAUNCHER.karar = "bekliyor"
+    orig = gs.caller_pids
+    try:
+        gs.caller_pids = lambda: [321, 123]
+        fn, _fake = gated("adt_push")
+        fn(name="ZCL_A", object_type="class", source_file="zcl_a.clas.abap")
+        h = LAUNCHER.headers[[r[1] for r in LAUNCHER.requests].index("/approvals")]
+        assert h.get("X-Axet-Istemci") == "321 123", h
+        LAUNCHER.reset("bekliyor")
+        gs.caller_pids = lambda: []
+        fn(name="ZCL_A", object_type="class", source_file="zcl_a.clas.abap")
+        h = LAUNCHER.headers[[r[1] for r in LAUNCHER.requests].index("/approvals")]
+        assert "X-Axet-Istemci" not in h, h
+    finally:
+        gs.caller_pids = orig
+
+
 TESTS = [
+    ("pid_chain", "süreç zinciri döngüde takılıyor ya da sınırı aşıyor", t_pid_chain),
+    ("caller_pids_live", "çağıranın süreci TCP tablosundan bulunamıyor", t_caller_pids_live),
+    ("caller_header", "onay isteği çağıranın süreç zincirini taşımıyor ya da boş başlık gidiyor",
+     t_caller_header_sent),
     ("arg_hash_canonical", "aynı çağrı farklı hash alıyor ya da fark/kalite hash'e giriyor", t_arg_hash_canonical),
     ("arg_hash_changes", "transport/kaynak değişince eski onay geçerli sayılıyor", t_arg_hash_changes),
     ("classify", "KARMA mod gevşek sınıflanıyor ya da eksik mod okuma sayılıyor", t_classify),

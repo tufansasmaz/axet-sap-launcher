@@ -11,13 +11,32 @@
 //
 // Olaylarda token, kaynak, fark YOK: yalnızca kayıt kimliği, proje klasörü, durum.
 
+import { realpathSync } from "node:fs";
 import path from "node:path";
 
 export type ApprovalOutcome = "onaylandi" | "reddedildi" | "sure_doldu" | "kapandi";
 
+/** Onayı isteyen taraf: bir Sohbet turu ya da bir Ajanlar bölmesi. */
+export type ApprovalOwnerRef =
+  | { tur: "sohbet"; id: string }
+  | { tur: "bolme"; id: string; workspaceId: string; name: string };
+
+/**
+ * Onay isteğinin kime ait olduğu (bkz. `resolveOwnership`).
+ * - tam: isteği yapan sürecin ata zinciri bu sahibin sürecinden geçiyor.
+ * - klasor: süreç bilgisi yok, klasörü tutan TEK etkin aday.
+ * - belirsiz: birden çok aday; otomatik devam YOK, kullanıcıya "hangi oturum?" notu.
+ * - yok: bilinen hiçbir oturumun değil (ör. Studio dışında açılmış terminal).
+ */
+export type ApprovalOwnership =
+  | { tur: "tam"; sahip: ApprovalOwnerRef }
+  | { tur: "klasor"; sahip: ApprovalOwnerRef }
+  | { tur: "belirsiz"; adaylar: ApprovalOwnerRef[] }
+  | { tur: "yok" };
+
 export type ApprovalEvent =
-  /** Onay ucu "bekliyor" döndü (ilk istek ya da tekrarı). */
-  | { tur: "soruldu"; id: string; projectDir: string }
+  /** Onay ucu "bekliyor" döndü (ilk istek ya da tekrarı). `sahiplik` yoksa eski davranış: klasörle eşleşir. */
+  | { tur: "soruldu"; id: string; projectDir: string; sahiplik?: ApprovalOwnership }
   /** Pencere onayı ajanın tekrar gönderdiği çağrıyla kullanıldı (izinli döndü). */
   | { tur: "kullanildi"; id: string; projectDir: string }
   /** Bekleyen istek karara bağlandı: pencere, süre ya da oturumun kapanması. */
@@ -43,10 +62,24 @@ export function emitApprovalEvent(e: ApprovalEvent): void {
   }
 }
 
+/**
+ * Karşılaştırma için klasör anahtarı. `realpathSync.native` büyük/küçük harfi,
+ * ayırıcıyı, sondaki `\`'ı, 8.3 kısa adları (PROGRA~1) ve junction'ları diskteki
+ * gerçek yola çeviriyor (ölçüldü). Klasör yoksa ya da okunamıyorsa düz
+ * `path.resolve`; Windows'ta küçük harfe indirilir.
+ */
+export function dirKey(p: string): string {
+  let r: string;
+  try {
+    r = realpathSync.native(path.resolve(p));
+  } catch {
+    r = path.resolve(p);
+  }
+  return process.platform === "win32" ? r.toLowerCase() : r;
+}
+
 export function sameProjectDir(a: string, b: string): boolean {
-  const na = path.resolve(a);
-  const nb = path.resolve(b);
-  return process.platform === "win32" ? na.toLowerCase() === nb.toLowerCase() : na === nb;
+  return dirKey(a) === dirKey(b);
 }
 
 /**
@@ -55,18 +88,87 @@ export function sameProjectDir(a: string, b: string): boolean {
  * ilgisiz klasörün onayı eşleşmez.
  */
 export function relatedProjectDirs(a: string, b: string): boolean {
-  if (sameProjectDir(a, b)) return true;
-  const norm = (p: string) => {
-    const r = path.resolve(p);
-    return process.platform === "win32" ? r.toLowerCase() : r;
-  };
-  const na = norm(a);
-  const nb = norm(b);
+  const na = dirKey(a);
+  const nb = dirKey(b);
+  if (na === nb) return true;
   const inside = (child: string, parent: string) => {
     const rel = path.relative(parent, child);
     return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
   };
   return inside(na, nb) || inside(nb, na);
+}
+
+/** Onayın sahibi olabilecek bir oturum: süreç kimlikleri (kök süreç), klasörü, şu an çalışıyor mu. */
+export interface ApprovalCandidate {
+  ref: ApprovalOwnerRef;
+  pids: number[];
+  dir: string;
+  active: boolean;
+}
+
+const registered = new Set<ApprovalCandidate>();
+let candidateProvider: (() => ApprovalCandidate[]) | null = null;
+
+/** Sohbet turu sürecini açınca kaydolur; dönen fonksiyon kaydı siler. */
+export function registerApprovalCandidate(c: ApprovalCandidate): () => void {
+  registered.add(c);
+  return () => {
+    registered.delete(c);
+  };
+}
+
+/** Ajanlar bölmeleri (index.ts): o anki bölmeleri ve pty süreçlerini verir. */
+export function setApprovalCandidateProvider(fn: (() => ApprovalCandidate[]) | null): void {
+  candidateProvider = fn;
+}
+
+export function approvalCandidates(): ApprovalCandidate[] {
+  let extra: ApprovalCandidate[] = [];
+  try {
+    extra = candidateProvider?.() ?? [];
+  } catch {
+    extra = [];
+  }
+  return [...registered, ...extra];
+}
+
+const refKey = (r: ApprovalOwnerRef) => `${r.tur}:${r.id}`;
+
+/**
+ * Önce süreç kimliği: `callerPids` isteği yapan sürecin ata zinciri (en yakından
+ * uzağa; gated sunucu Windows'ta TCP tablosundan çıkarıyor). Zincirde kaydı olan
+ * bir oturumun süreci varsa sahibi odur — klasörüne bakılmaz, aynı klasörde
+ * çalışan sohbet ile bölme böylece karışmaz. Zincir var ama kimseye uymuyorsa
+ * "yok" (Studio'nun bilmediği bir süreç). Zincir hiç yoksa (eski gated sunucu,
+ * Windows dışı) klasör: ilgili klasördeki ETKİN tek aday; birden çoksa belirsiz.
+ */
+export function resolveOwnership(
+  callerPids: number[] | null,
+  projectDir: string,
+  candidates: ApprovalCandidate[],
+): ApprovalOwnership {
+  if (callerPids && callerPids.length > 0) {
+    for (const pid of callerPids) {
+      const hits = candidates.filter((c) => c.pids.includes(pid));
+      const uniq = [...new Map(hits.map((c) => [refKey(c.ref), c.ref])).values()];
+      if (uniq.length === 1) return { tur: "tam", sahip: uniq[0] };
+      if (uniq.length > 1) return { tur: "belirsiz", adaylar: uniq };
+    }
+    return { tur: "yok" };
+  }
+  const near = candidates.filter((c) => c.active && relatedProjectDirs(c.dir, projectDir));
+  const uniq = [...new Map(near.map((c) => [refKey(c.ref), c.ref])).values()];
+  if (uniq.length === 1) return { tur: "klasor", sahip: uniq[0] };
+  if (uniq.length > 1) return { tur: "belirsiz", adaylar: uniq };
+  return { tur: "yok" };
+}
+
+/** Bu sahiplik verilen oturuma mı ait: "evet", "belirsiz" (adaylar arasında) ya da "hayir". */
+export function ownershipFor(own: ApprovalOwnership, ref: { tur: ApprovalOwnerRef["tur"]; id: string }): "evet" | "belirsiz" | "hayir" {
+  const same = (r: ApprovalOwnerRef) => r.tur === ref.tur && r.id === ref.id;
+  if (own.tur === "tam" || own.tur === "klasor") return same(own.sahip) ? "evet" : "hayir";
+  if (own.tur === "belirsiz") return own.adaylar.some(same) ? "belirsiz" : "hayir";
+  return "hayir";
 }
 
 export interface ApprovalSummary {
@@ -77,6 +179,8 @@ export interface ApprovalSummary {
   denied: string[];
   expired: string[];
   closed: string[];
+  /** Bu oturumun da aday olduğu ama sahibi belirlenemeyen istekler: otomatik devam yok. */
+  ambiguous: string[];
 }
 
 /**
@@ -86,16 +190,36 @@ export interface ApprovalSummary {
  */
 export class ApprovalTracker {
   private state = new Map<string, ApprovalOutcome | "bekliyor" | "kullanildi">();
+  private ambiguous = new Set<string>();
   private off: (() => void) | null;
   private waiter: (() => void) | null = null;
 
-  constructor(private readonly projectDir: string) {
+  /**
+   * `owner` verilirse sahiplik bilgisi taşıyan olaylarda yalnız bu oturumun
+   * istekleri sayılır (aynı klasördeki bölmenin onayı bu turu uyandırmaz).
+   * Sahipliksiz olay (eski gated sunucu) ve `owner`sız izleyici: klasör kuralı.
+   */
+  constructor(
+    private readonly projectDir: string,
+    private readonly owner?: { tur: ApprovalOwnerRef["tur"]; id: string },
+  ) {
     this.off = onApprovalEvent((e) => this.handle(e));
   }
 
+  private mine(e: Extract<ApprovalEvent, { tur: "soruldu" }>): "evet" | "belirsiz" | "hayir" {
+    if (!e.sahiplik || !this.owner) return relatedProjectDirs(e.projectDir, this.projectDir) ? "evet" : "hayir";
+    return ownershipFor(e.sahiplik, this.owner);
+  }
+
   private handle(e: ApprovalEvent): void {
-    if (!relatedProjectDirs(e.projectDir, this.projectDir)) return;
     if (e.tur === "soruldu") {
+      const m = this.mine(e);
+      if (m === "hayir") return;
+      if (m === "belirsiz") {
+        if (!this.state.has(e.id)) this.ambiguous.add(e.id);
+        return;
+      }
+      this.ambiguous.delete(e.id);
       const cur = this.state.get(e.id);
       if (cur === undefined || cur === "bekliyor") this.state.set(e.id, "bekliyor");
     } else if (!this.state.has(e.id)) {
@@ -111,10 +235,11 @@ export class ApprovalTracker {
   /** Yeni alt tur: önceki turun izleri unutulur. */
   reset(): void {
     this.state.clear();
+    this.ambiguous.clear();
   }
 
   summary(): ApprovalSummary {
-    const out: ApprovalSummary = { pending: [], approved: [], denied: [], expired: [], closed: [] };
+    const out: ApprovalSummary = { pending: [], approved: [], denied: [], expired: [], closed: [], ambiguous: [...this.ambiguous] };
     for (const [id, s] of this.state) {
       if (s === "bekliyor") out.pending.push(id);
       else if (s === "onaylandi") out.approved.push(id);

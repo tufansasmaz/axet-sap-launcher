@@ -203,6 +203,65 @@ describe("sohbet turu SAP yazma onayını bekliyor", () => {
   });
 });
 
+describe("sohbet turu onayın sahibine göre (madde 2)", () => {
+  it("aynı klasördeki bölmenin onayı sohbeti bekletmiyor; kendi süreciyle eşleşen onay bekletiyor", async () => {
+    script(() => {
+      emitApprovalEvent({ tur: "soruldu", id: "P1", projectDir: DIR, sahiplik: { tur: "tam", sahip: { tur: "bolme", id: "b1", workspaceId: "w", name: "b1" } } });
+      return { text: "a" };
+    });
+    const r = await send();
+    expect(r.ok).toBe(true);
+    expect(activities.some((a) => a.phase === "sapApproval")).toBe(false);
+  });
+
+  it("tur süreci aday olarak kayıtlı; süreç zinciri eşleşince tur onayı bekliyor", async () => {
+    const { approvalCandidates, resolveOwnership } = await import("../app-electron/main/sapWrite/approvalEvents");
+    let seen: ReturnType<typeof approvalCandidates> = [];
+    chat.__setTurnStarter(((args: HeadlessTurnArgs) => {
+      calls.push(args);
+      const first = calls.length === 1;
+      const done = new Promise<HeadlessTurnResult>((resolve) => {
+        setTimeout(() => {
+          if (first) {
+            seen = approvalCandidates();
+            emitApprovalEvent({ tur: "soruldu", id: "P2", projectDir: "C:/baska", sahiplik: resolveOwnership([55, 4242], "C:/baska", seen) });
+          }
+          resolve({ ok: true, text: "x", sessionId: "S1", cancelled: false, timedOut: false, spawnFailed: false, toolCount: 1, ask: null, failure: null });
+        }, 0);
+      });
+      return { done, cancel: () => {}, pid: 4242 };
+    }) as never);
+    const p = send("r7");
+    await tick();
+    await tick();
+    expect(seen.some((c) => c.ref.tur === "sohbet" && c.ref.id === "r7" && c.pids.includes(4242))).toBe(true);
+    expect(activities.some((a) => a.phase === "sapApproval")).toBe(true);
+    emitApprovalEvent({ tur: "sonuclandi", id: "P2", projectDir: "C:/baska", durum: "onaylandi" });
+    const r = await p;
+    expect(r.ok).toBe(true);
+    expect(calls).toHaveLength(2);
+    const { approvalCandidates: after } = await import("../app-electron/main/sapWrite/approvalEvents");
+    expect(after().some((c) => c.ref.id === "r7")).toBe(false);
+  });
+
+  it("belirsiz eşleşme: beklemiyor, otomatik devam yok, 'hangi oturum' notu", async () => {
+    script(() => {
+      emitApprovalEvent({
+        tur: "soruldu",
+        id: "P3",
+        projectDir: DIR,
+        sahiplik: { tur: "belirsiz", adaylar: [{ tur: "sohbet", id: "r1" }, { tur: "bolme", id: "b1", workspaceId: "w", name: "b1" }] }
+      });
+      return { text: "Onay bekliyor." };
+    });
+    const r = await send();
+    expect(r.ok).toBe(true);
+    expect(calls).toHaveLength(1);
+    expect(r.text).toContain("chat.sapApprovalAmbiguous");
+    expect(activities.some((a) => a.phase === "sapApproval")).toBe(false);
+  });
+});
+
 describe("ApprovalTracker", () => {
   it("zaman aşımı: bekleyen kalırsa 'zaman_asimi' döner", async () => {
     vi.useFakeTimers();

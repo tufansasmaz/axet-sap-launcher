@@ -10,9 +10,15 @@
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import path from "node:path";
 import type { Choice, Decision, SapWriteState, WorkMode } from "../../shared/sapWriteTypes";
-import { emitApprovalEvent, type ApprovalOutcome } from "./approvalEvents";
+import {
+  approvalCandidates,
+  dirKey,
+  emitApprovalEvent,
+  resolveOwnership,
+  type ApprovalOutcome,
+  type ApprovalOwnership,
+} from "./approvalEvents";
 import { appendDecisionLog, atcLogFields, factLogFields, resultLogFields } from "./log";
 import {
   canSession,
@@ -55,9 +61,32 @@ const MESAJ: Record<Decision, string> = {
 };
 
 function sameDir(a: string, b: string): boolean {
-  const na = path.resolve(a);
-  const nb = path.resolve(b);
-  return process.platform === "win32" ? na.toLowerCase() === nb.toLowerCase() : na === nb;
+  return dirKey(a) === dirKey(b);
+}
+
+/**
+ * İsteği yapan sürecin ata zinciri: gated sunucu `X-Axet-Istemci` başlığında
+ * boşlukla ayrılmış PID'ler olarak gönderiyor (en yakından uzağa). Yoksa ya da
+ * bozuksa null: sahiplik klasörden çıkarılır.
+ */
+export function parseCallerPids(header: string | string[] | undefined): number[] | null {
+  const raw = Array.isArray(header) ? header[0] : header;
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const parts = raw.trim().split(/\s+/).slice(0, 16);
+  const pids = parts.map((x) => (/^\d{1,10}$/.test(x) ? Number(x) : NaN));
+  return pids.every((n) => Number.isSafeInteger(n) && n > 0) ? pids : null;
+}
+
+// Bekleyen isteğin sahipliği: ilk kesin (süreç zinciriyle) eşleşme yapışır,
+// tekrar sorulduğunda yeniden hesaplanmaz. Karar gelince silinir.
+const ownerships = new Map<string, ApprovalOwnership>();
+
+function ownershipOf(id: string, callerPids: number[] | null, projectDir: string): ApprovalOwnership {
+  const prev = ownerships.get(id);
+  if (prev?.tur === "tam") return prev;
+  const own = resolveOwnership(callerPids, projectDir, approvalCandidates());
+  ownerships.set(id, own);
+  return own;
 }
 
 function notify(): void {
@@ -167,7 +196,10 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     }
     if (r.created) notify();
     // Sohbet turu bu olaylarla onay bekler (bkz. approvalEvents.ts). Kimlik ve klasör dışında bir şey taşımaz.
-    if (r.karar === "bekliyor" && r.id) emitApprovalEvent({ tur: "soruldu", id: r.id, projectDir: state.projectDir });
+    if (r.karar === "bekliyor" && r.id) {
+      const sahiplik = ownershipOf(r.id, parseCallerPids(req.headers["x-axet-istemci"]), state.projectDir);
+      emitApprovalEvent({ tur: "soruldu", id: r.id, projectDir: state.projectDir, sahiplik });
+    }
     if (r.karar === "izinli" && r.kaynak === "pencere" && r.id) emitApprovalEvent({ tur: "kullanildi", id: r.id, projectDir: state.projectDir });
     send(res, 200, { karar: r.karar, id: r.id, mesaj: MESAJ[r.karar] });
     return;
@@ -283,6 +315,7 @@ export async function openWriteSession(
 function emitClosed(s: Session): void {
   for (const r of s.state.records) {
     if (r.status === "bekliyor") emitApprovalEvent({ tur: "sonuclandi", id: r.id, projectDir: s.state.projectDir, durum: "kapandi" });
+    ownerships.delete(r.id);
   }
 }
 
@@ -331,6 +364,7 @@ export function respondToApproval(id: string, choice: Choice): { ok: boolean; er
       });
       const durum: ApprovalOutcome = choice === "reddet" ? "reddedildi" : "onaylandi";
       emitApprovalEvent({ tur: "sonuclandi", id, projectDir: s.state.projectDir, durum });
+      ownerships.delete(id);
     }
     notify();
     return r;
@@ -383,6 +417,7 @@ export function sweepNow(now: number = Date.now()): void {
         now,
       );
       emitApprovalEvent({ tur: "sonuclandi", id, projectDir: s.state.projectDir, durum: "sure_doldu" });
+      ownerships.delete(id);
     }
     if (r.changed) changed = true;
   }

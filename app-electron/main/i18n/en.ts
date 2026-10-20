@@ -59,6 +59,7 @@ export const MAIN_EN = {
   "chat.sapApprovalDenied": "_SAP write rejected — nothing was written, the agent stopped._",
   "chat.sapApprovalExpired": "_SAP write approval went unanswered for 10 minutes — nothing was written. Ask the agent to continue if you still want it._",
   "chat.sapApprovalClosed": "_SAP write session closed — nothing was written._",
+  "chat.sapApprovalAmbiguous": "_An SAP write approval was requested, but another session (an Agents pane or another chat) is working in the same folder and it could not be determined which one asked. It will not continue on its own after approval — if you approved, tell the right session to continue._",
 
   // --- axetChat.ts (empty answer gate) ---
   "chat.emptyAnswerTui":

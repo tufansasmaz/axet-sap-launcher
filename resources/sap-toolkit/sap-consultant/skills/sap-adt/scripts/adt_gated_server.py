@@ -43,6 +43,7 @@ import inspect
 import json
 import os
 import re
+import struct
 import sys
 import threading
 import time
@@ -307,14 +308,15 @@ def _approval_env() -> tuple[str, str]:
     return url, token
 
 
-def _launcher(method: str, path: str, body: dict | None = None) -> dict:
+def _launcher(method: str, path: str, body: dict | None = None, *, headers: dict | None = None,
+              timeout: float = APPROVAL_TIMEOUT_S) -> dict:
     """Onay ucuna tek istek. 200 dışı, ağ hatası ya da JSON olmayan cevap → ApprovalUnavailable."""
     url, token = _approval_env()
     data = None if body is None else json.dumps(body, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url + path, data=data, method=method, headers={
-        "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+        **(headers or {}), "Authorization": f"Bearer {token}", "Content-Type": "application/json"})
     try:
-        with _OPENER.open(req, timeout=APPROVAL_TIMEOUT_S) as resp:
+        with _OPENER.open(req, timeout=timeout) as resp:
             text = resp.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         raise ApprovalUnavailable(f"onay ucu {exc.code} döndü")
@@ -341,10 +343,131 @@ def _fail(error: str, message: str | None = None, **extra) -> dict:
     return {"ok": False, "error": error, "message": message or MESAJ.get(error, error), **extra}
 
 
+# --- isteği yapan süreç ----------------------------------------------------------
+# NTT Studio onayın hangi Sohbet turuna / Ajanlar bölmesine ait olduğunu bilmek
+# istiyor: onaylanınca YALNIZ o oturum devam ettirilir. Onay isteğinde başka
+# kimlik yok (token proje oturumunu seçiyor; aynı klasörde bir sohbet turu ile
+# birkaç bölme aynı 8787'yi kullanıyor). Burada çağıranın TCP bağlantısından
+# süreci, oradan ata zincirini çıkarıp Studio'ya `X-Axet-Istemci` başlığıyla
+# veriyoruz; Studio zinciri kendi bildiği süreçlerle (sohbet turu, bölmenin
+# pty'si) eşliyor. Yalnız PID'ler gider: komut satırı, ad, ortam gitmez.
+# Bilgi alınamazsa (Windows dışı, tablo okunamadı) başlık hiç gönderilmez ve
+# Studio klasörle eşler. İzin bu bilgiye BAĞLI DEĞİL: yalnızca devamın kime
+# gideceğini seçer.
+_CALLER_MAX_DEPTH = 12
+
+
+def _caller_endpoint() -> tuple[int, int] | None:
+    """Motorun HTTP işleyicisinden (bu çağrının yığınında) çağıranın portu ve sunucu portu.
+
+    Motora dokunmadan: işleyici `self.client_address` / `self.server` taşıyan
+    BaseHTTPRequestHandler; çağrı onun do_POST'u içinden geliyor.
+    """
+    f = sys._getframe(1)
+    while f is not None:
+        h = f.f_locals.get("self")
+        ca = getattr(h, "client_address", None)
+        srv = getattr(h, "server", None)
+        if isinstance(ca, tuple) and len(ca) >= 2 and srv is not None:
+            try:
+                return int(ca[1]), int(srv.server_address[1])
+            except (TypeError, ValueError, AttributeError, IndexError):
+                return None
+        f = f.f_back
+    return None
+
+
+def _win_tcp_owner(client_port: int, server_port: int) -> int | None:
+    """IPv4 TCP tablosunda yerel portu client_port, uzak portu server_port olan satırın süreci."""
+    import ctypes
+    from ctypes import wintypes
+    iphlp = ctypes.WinDLL("iphlpapi")
+    size = wintypes.DWORD(0)
+    buf = None
+    for _ in range(3):
+        buf = ctypes.create_string_buffer(max(size.value, 4))
+        # AF_INET=2, TCP_TABLE_OWNER_PID_ALL=5
+        rc = iphlp.GetExtendedTcpTable(buf, ctypes.byref(size), False, 2, 5, 0)
+        if rc == 0:
+            break
+        if rc != 122:  # ERROR_INSUFFICIENT_BUFFER dışında vazgeç
+            return None
+    else:
+        return None
+    (count,) = struct.unpack_from("<I", buf, 0)
+    for i in range(count):
+        _state, _la, lport, _ra, rport, pid = struct.unpack_from("<IIIIII", buf, 4 + i * 24)
+        lp = ((lport & 0xFF) << 8) | ((lport >> 8) & 0xFF)
+        rp = ((rport & 0xFF) << 8) | ((rport >> 8) & 0xFF)
+        if lp == client_port and rp == server_port and pid:
+            return int(pid)
+    return None
+
+
+def _win_parents() -> dict[int, int]:
+    import ctypes
+    from ctypes import wintypes
+
+    class PROCESSENTRY32W(ctypes.Structure):
+        _fields_ = [("dwSize", wintypes.DWORD), ("cntUsage", wintypes.DWORD),
+                    ("th32ProcessID", wintypes.DWORD), ("th32DefaultHeapID", ctypes.c_size_t),
+                    ("th32ModuleID", wintypes.DWORD), ("cntThreads", wintypes.DWORD),
+                    ("th32ParentProcessID", wintypes.DWORD), ("pcPriClassBase", ctypes.c_long),
+                    ("dwFlags", wintypes.DWORD), ("szExeFile", ctypes.c_wchar * 260)]
+
+    k32 = ctypes.WinDLL("kernel32")
+    k32.CreateToolhelp32Snapshot.restype = wintypes.HANDLE
+    k32.CreateToolhelp32Snapshot.argtypes = [wintypes.DWORD, wintypes.DWORD]
+    k32.Process32FirstW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    k32.Process32NextW.argtypes = [wintypes.HANDLE, ctypes.POINTER(PROCESSENTRY32W)]
+    k32.CloseHandle.argtypes = [wintypes.HANDLE]
+    snap = k32.CreateToolhelp32Snapshot(0x2, 0)  # TH32CS_SNAPPROCESS
+    if not snap or snap == wintypes.HANDLE(-1).value:
+        return {}
+    out: dict[int, int] = {}
+    try:
+        e = PROCESSENTRY32W()
+        e.dwSize = ctypes.sizeof(PROCESSENTRY32W)
+        ok = k32.Process32FirstW(snap, ctypes.byref(e))
+        while ok:
+            out[int(e.th32ProcessID)] = int(e.th32ParentProcessID)
+            ok = k32.Process32NextW(snap, ctypes.byref(e))
+    finally:
+        k32.CloseHandle(snap)
+    return out
+
+
+def pid_chain(pid: int | None, parents: dict[int, int], depth: int = _CALLER_MAX_DEPTH) -> list[int]:
+    """pid ve ataları (en yakından uzağa); döngü, 0 ya da bilinmeyen süreçte durur."""
+    out: list[int] = []
+    while pid and pid not in out and len(out) < depth:
+        out.append(pid)
+        pid = parents.get(pid)
+    return out
+
+
+def caller_pids() -> list[int]:
+    """Bu araç çağrısını yapan sürecin ata zinciri; bilinemiyorsa boş liste."""
+    if os.name != "nt":
+        return []
+    try:
+        ep = _caller_endpoint()
+        if ep is None:
+            return []
+        return pid_chain(_win_tcp_owner(*ep), _win_parents())
+    except Exception:  # noqa: BLE001 — yalnız eşleme bilgisi; yoksa Studio klasörle eşler
+        return []
+
+
+def _caller_headers() -> dict:
+    pids = caller_pids()
+    return {"X-Axet-Istemci": " ".join(str(p) for p in pids)} if pids else {}
+
+
 def ask(fact: dict) -> tuple[dict | None, str | None]:
     """(izin, None) ya da (None, ret yükü). İzin yalnızca karar tam olarak 'izinli' ise."""
     try:
-        out = _launcher("POST", "/approvals", fact)
+        out = _launcher("POST", "/approvals", fact, headers=_caller_headers())
     except ApprovalUnavailable as exc:
         return None, _fail("approval_unavailable", detail=str(exc))
     karar = out.get("karar")

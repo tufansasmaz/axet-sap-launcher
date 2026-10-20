@@ -37,7 +37,7 @@ import { askUserAsText, splitOptionsBlock, type AskUserRequest } from "./axetToo
 import { connectorGuidance } from "./connectorHealth";
 import { shouldUseConnectors } from "./connectorPolicy";
 import { mt } from "./i18n";
-import { ApprovalTracker } from "./sapWrite/approvalEvents";
+import { ApprovalTracker, registerApprovalCandidate } from "./sapWrite/approvalEvents";
 import { PENDING_TTL_MS } from "./sapWrite/policy";
 
 // Canlı bulgu (2026-08-30): kullanıcı "Uygulama Bağlantıları"ndan Outlook'u
@@ -410,7 +410,10 @@ export async function sendChatMessage(
   // try/finally burayı kapsıyor; erken dönüşler runs.delete'i atlamaz.
   const run: ChatRun = { chatId, turn: null, cancelled: false, pendingAsk: null, answerAsk: null, turns: 0, wakeDelay: null, stopApprovalWait: null, approvalReleased: false };
   // Bu turda sorulan SAP yazma onayları (bkz. sapWrite/approvalEvents.ts).
-  const approvals = new ApprovalTracker(resolvedCwd);
+  // Sahibi süreç zinciriyle bu tur olan istekler sayılır; aynı klasördeki bir
+  // Ajanlar bölmesinin onayı bu turu uyandırmaz (bkz. resolveOwnership).
+  const approvals = new ApprovalTracker(resolvedCwd, { tur: "sohbet", id: requestId });
+  let ambiguousNoted = false;
   let approvalRounds = 0;
   runs.set(requestId, run);
 
@@ -471,7 +474,19 @@ export async function sendChatMessage(
       onProgress: emitProgress
     });
     run.turn = turn;
-    const result = await turn.done;
+    // Tur sürerken bu sohbet bir onay sahibi adayı: süreç kimliği ve klasörü.
+    const unregister = registerApprovalCandidate({
+      ref: { tur: "sohbet", id: requestId },
+      pids: typeof turn.pid === "number" ? [turn.pid] : [],
+      dir: resolvedCwd,
+      active: true
+    });
+    let result: HeadlessTurnResult;
+    try {
+      result = await turn.done;
+    } finally {
+      unregister();
+    }
     run.turn = null;
     if (result.sessionId) writeBinding(chatId, { sessionId: result.sessionId, cwd: resolvedCwd });
     totalTools += result.toolCount;
@@ -491,6 +506,13 @@ export async function sendChatMessage(
   // yalnızca pencerenin kararı dinlenir.
   const waitApprovals = async (sessionId: string | null): Promise<"continue" | "stop" | "cancelled"> => {
     let s = approvals.summary();
+    if (s.ambiguous.length > 0 && !ambiguousNoted) {
+      // Aynı klasörde başka bir oturum da çalışıyordu ve isteğin kimin olduğu
+      // belirlenemedi: kendiliğinden devam YOK, kullanıcıya söyleniyor.
+      ambiguousNoted = true;
+      appLog("kopru.onay", { sohbet: chatId, sonuc: "belirsiz", adet: s.ambiguous.length });
+      appendNote(mt("chat.sapApprovalAmbiguous"));
+    }
     if (s.pending.length + s.approved.length + s.denied.length + s.expired.length + s.closed.length === 0) return "stop";
     let timedOut = false;
     if (s.pending.length > 0 && !run.approvalReleased) {

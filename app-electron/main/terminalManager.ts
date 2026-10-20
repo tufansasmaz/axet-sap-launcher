@@ -219,6 +219,12 @@ export function createTerminal(
   return true;
 }
 
+/** Bölmenin kabuk sürecinin kimliği (SAP yazma onayının sahibini eşlemek için; bkz. sapWrite/approvalEvents.ts). */
+export function getTerminalPid(id: string): number | null {
+  const pid = sessions.get(id)?.proc.pid;
+  return typeof pid === "number" && pid > 0 ? pid : null;
+}
+
 export function getTerminalBuffer(id: string): string {
   return sessions.get(id)?.buffer.join("") ?? "";
 }

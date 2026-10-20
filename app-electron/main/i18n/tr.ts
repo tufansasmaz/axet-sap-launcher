@@ -62,6 +62,7 @@ export const MAIN_TR = {
   "chat.sapApprovalDenied": "_SAP yazma onayı reddedildi — yazma yapılmadı, ajan durdu._",
   "chat.sapApprovalExpired": "_SAP yazma onayı 10 dakika cevapsız kaldı — yazma yapılmadı. Yine istiyorsan devam etmesini yaz._",
   "chat.sapApprovalClosed": "_SAP yazma oturumu kapandı — yazma yapılmadı._",
+  "chat.sapApprovalAmbiguous": "_SAP yazma onayı istendi ama aynı klasörde başka bir oturum (Ajanlar bölmesi ya da başka sohbet) da çalışıyor; isteğin hangi oturumun olduğu belirlenemedi. Onaylanınca kendiliğinden devam edilmeyecek — onayladıysan ilgili oturuma devam etmesini yaz._",
 
   // --- axetChat.ts (boş cevap kapısı) ---
   "chat.emptyAnswerTui":
