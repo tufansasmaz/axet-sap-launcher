@@ -22,7 +22,7 @@ import { formatBytes } from "../lib/formatBytes";
 import { useAgentStatuses } from "./agentStatusContext";
 import { ENGINE_LABEL } from "./agentLabels";
 import { phaseText } from "./agentPhase";
-import { TONE_DOT, type StatusTone } from "./agentView";
+import { TONE_DOT, TONE_PILL, type StatusTone } from "./agentView";
 import { useFlow } from "./flowContext";
 import MemoryDialog from "./MemoryDialog";
 import { memoryAge } from "./MemoryView";
@@ -162,7 +162,7 @@ export default function ManageView() {
       </header>
 
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-line px-3 py-1.5">
-        <label className="relative flex min-w-[12rem] flex-1 items-center">
+        <label className="relative flex w-64 min-w-[10rem] max-w-full items-center">
           <Search size={12} className="pointer-events-none absolute left-2 text-slate-500" aria-hidden />
           <input
             type="search"
@@ -227,7 +227,6 @@ export default function ManageView() {
                 </th>
                 <th className="px-2 py-1.5">{t("manage.colName")}</th>
                 <th className="px-2 py-1.5">{t("manage.colTeam")}</th>
-                <th className="px-2 py-1.5">{t("manage.colRole")}</th>
                 <th className="px-2 py-1.5">{t("manage.colEngine")}</th>
                 <th className="px-2 py-1.5">{t("manage.colState")}</th>
                 <th className="px-2 py-1.5">{t("manage.colActivity")}</th>
@@ -278,7 +277,7 @@ export default function ManageView() {
 function FilterSelect({ label, value, onChange, children }: { label: string; value: string; onChange: (v: string) => void; children: ReactNode }) {
   const t = useT();
   return (
-    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={`${INPUT_CLASS} h-7 w-auto text-xs`}>
+    <select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className={`${INPUT_CLASS} h-7 !w-auto shrink-0 rounded-full text-xs`}>
       <option value="">{`${label}: ${t("manage.all")}`}</option>
       {children}
     </select>
@@ -320,31 +319,42 @@ function ManageRowView({
         <td className="px-2 py-1.5">
           <input type="checkbox" aria-label={t("manage.selectOne", { name })} checked={checked} onChange={onToggle} />
         </td>
-        <td className="max-w-[12rem] px-2 py-1.5">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <span className="h-2 w-2 shrink-0 rounded-full border border-line" style={{ background: color ?? "transparent" }} />
-            <span className="truncate font-medium text-slate-100" title={name}>
-              {name}
+        <td className="max-w-[16rem] px-2 py-2">
+          {/* Demo'daki kişi listesi gibi: avatar karesi, kalın ad, altında rol. */}
+          <div className="flex min-w-0 items-center gap-2">
+            <span
+              aria-hidden
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-line text-xs font-semibold text-slate-100"
+              style={{ background: color ? `color-mix(in srgb, ${color} 28%, transparent)` : undefined }}
+            >
+              {Array.from(name.trim())[0]?.toLocaleUpperCase("tr-TR") ?? "?"}
             </span>
-            {row.spawnedBy && (
-              <span data-lead-spawned="" title={t("manage.spawnedByHint", { name: leader || "?" })} className="shrink-0 rounded border border-line px-1 text-2xs text-slate-400">
-                {t("manage.spawnedBy")}
+            <span className="min-w-0">
+              <span className="flex min-w-0 items-center gap-1.5">
+                <span className="truncate text-sm font-semibold text-slate-100" title={name}>
+                  {name}
+                </span>
+                {row.spawnedBy && (
+                  <span data-lead-spawned="" title={t("manage.spawnedByHint", { name: leader || "?" })} className="shrink-0 rounded border border-line px-1 text-2xs text-slate-400">
+                    {t("manage.spawnedBy")}
+                  </span>
+                )}
               </span>
-            )}
+              <span className="block truncate text-2xs text-slate-400" title={row.role}>
+                {row.role || "—"}
+              </span>
+            </span>
           </div>
         </td>
-        <td className="max-w-[8rem] truncate px-2 py-1.5 text-slate-300" title={row.team}>
+        <td className="max-w-[8rem] truncate px-2 py-2 text-slate-300" title={row.team}>
           {row.team}
-        </td>
-        <td className="max-w-[8rem] truncate px-2 py-1.5 text-slate-400" title={row.role}>
-          {row.role || "—"}
         </td>
         <td className="px-2 py-1.5 text-slate-400">
           {t(ENGINE_LABEL[row.engine])}
           {row.model && <span className="block truncate font-mono text-2xs text-slate-500">{row.model}</span>}
         </td>
         <td className="max-w-[12rem] px-2 py-1.5">
-          <span className="flex items-center gap-1.5 text-slate-300">
+          <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-2xs font-medium ${TONE_PILL[STATE_TONE[row.state]]}`}>
             <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[STATE_TONE[row.state]]}`} aria-hidden />
             {t(STATE_KEY[row.state])}
             {row.estimated && live && (
@@ -398,7 +408,7 @@ function ManageRowView({
       {expanded && (
         <tr className="border-b border-line/60 bg-control">
           <td />
-          <td colSpan={9} className="px-2 py-1.5">
+          <td colSpan={8} className="px-2 py-1.5">
             {expanded === "rename" ? (
               <RenameForm row={row} name={name} onDone={() => onExpand(null)} />
             ) : (

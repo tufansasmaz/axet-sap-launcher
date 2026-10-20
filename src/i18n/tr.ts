@@ -1478,6 +1478,8 @@ export const tr = {
   "board.viewBoard": "Pano",
   "board.boardLabel": "Görev panosu",
   "board.addTask": "Görev",
+  "board.summary": "{done}/{total} alt görev bitti",
+  "board.columnEmpty": "Boş",
   "board.newTaskTitle": "Yeni görev",
   "board.titleLabel": "Başlık",
   "board.goalLabel": "Hedef",

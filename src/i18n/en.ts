@@ -1392,6 +1392,8 @@ export const en: Record<TranslationKey, string> = {
   "board.viewBoard": "Board",
   "board.boardLabel": "Task board",
   "board.addTask": "Task",
+  "board.summary": "{done}/{total} subtasks done",
+  "board.columnEmpty": "Empty",
   "board.newTaskTitle": "New task",
   "board.titleLabel": "Title",
   "board.goalLabel": "Goal",
