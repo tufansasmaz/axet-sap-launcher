@@ -260,5 +260,7 @@ export const MAIN_TR = {
   "dialog.exportDebugJson": "Debug kaydını JSON olarak dışa aktar",
   "dialog.saveGuiScriptJson": "SAP GUI Scripting kaydını JSON olarak kaydet",
   "dialog.openGuiScriptJson": "SAP GUI Scripting kaydı aç",
-  "terminal.workspaceName": "Çalışma alanı {n}"
+  "terminal.workspaceName": "Çalışma alanı {n}",
+  // --- claudeInstall.ts (Tur 10) ---
+  "engines.claudeLauncher": "Claude ajanları bu bilgisayardaki \"{name}\" başlatıcısıyla ({provider}) açılır; giriş istemez."
 } as const;

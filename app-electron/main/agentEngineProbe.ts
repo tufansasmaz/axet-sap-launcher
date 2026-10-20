@@ -11,6 +11,7 @@ import { AGENT_ENGINES } from "../shared/agentEngines";
 import { AGENT_ENGINE_IDS, type AgentEngineInfo, type AxetAgentEntry } from "../shared/agentTypes";
 import { axetSpawnEnv } from "./axetSpawnEnv";
 import type { AxetBinaryStatus } from "./axetCodeVersion";
+import type { ClaudeLauncher } from "./claudeInstall";
 
 export interface EngineProbeDeps {
   where(binary: string): Promise<boolean>;
@@ -18,6 +19,10 @@ export interface EngineProbeDeps {
   axetMessage(status: AxetBinaryStatus): string | null;
   /** Araçlar ekranı için yol ve sürüm (Tur 3); yoksa yalnız kurulu/değil. Fırlatırsa yok sayılır. */
   details?(binary: string): Promise<EngineDetails>;
+  /** Tur 10: Claude'un kurumsal başlatıcısı (claudeInstall.detectClaudeLauncher); yoksa null. */
+  claudeLauncher?(): ClaudeLauncher | null;
+  /** Başlatıcı notu (ana süreç dili). */
+  launcherNote?(launcher: ClaudeLauncher): string;
 }
 
 export interface EngineDetails {
@@ -75,6 +80,33 @@ export async function detectEngines(deps: EngineProbeDeps): Promise<AgentEngineI
       installed = false;
     }
     const found = installed ? await detailsOf(deps, AGENT_ENGINES[id].binary ?? id) : {};
+    // Tur 10: Claude PATH'te olmasa da kurumsal başlatıcısı varsa kurulu sayılır ("Kur" görünmez).
+    let launcher: ClaudeLauncher | null = null;
+    if (id === "claude" && deps.claudeLauncher) {
+      try {
+        launcher = deps.claudeLauncher();
+      } catch {
+        launcher = null;
+      }
+    }
+    if (launcher) {
+      let note = "";
+      try {
+        note = deps.launcherNote?.(launcher) ?? "";
+      } catch {
+        note = "";
+      }
+      out.push({
+        id,
+        installed: true,
+        blocked: false,
+        ...found,
+        ...(found.path ? {} : { path: launcher.path }),
+        launcher: { name: launcher.name, path: launcher.path, provider: launcher.provider },
+        ...(note ? { note } : {})
+      });
+      continue;
+    }
     out.push({ id, installed, blocked: !installed, ...found });
   }
   return out;

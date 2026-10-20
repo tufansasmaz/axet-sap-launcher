@@ -6,9 +6,13 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-/** Eklenecek klasörler: npm genel klasörü ve Node.js'in kurulum klasörü. */
+/**
+ * Eklenecek klasörler: Claude Code'un yerel kurulumu (~/.local/bin; Tur 10 — "yerel
+ * kurulum önce"), npm genel klasörü ve Node.js'in kurulum klasörü.
+ */
 function toolDirs(env: Record<string, string | undefined>): string[] {
   const out: string[] = [];
+  if (env.USERPROFILE) out.push(path.win32.join(env.USERPROFILE, ".local", "bin"));
   if (env.APPDATA) out.push(path.win32.join(env.APPDATA, "npm"));
   if (env.ProgramFiles) out.push(path.win32.join(env.ProgramFiles, "nodejs"));
   return out;
@@ -26,6 +30,15 @@ export function withToolDirs(
   const have = new Set(parts.map(norm));
   const added = toolDirs(env).filter((dir) => !have.has(norm(dir)) && isDir(dir));
   if (added.length === 0) return current ?? "";
+  // Tur 10: yerel Claude kurulumu PATH'teki npm klasöründen ÖNCE (aynı ad iki yerde varsa yerel kazansın).
+  const local = env.USERPROFILE ? norm(path.win32.join(env.USERPROFILE, ".local", "bin")) : "";
+  const npm = env.APPDATA ? norm(path.win32.join(env.APPDATA, "npm")) : "";
+  const npmAt = parts.findIndex((p) => norm(p) === npm);
+  const localDir = added.find((d) => norm(d) === local);
+  if (localDir && npmAt >= 0) {
+    const rest = added.filter((d) => d !== localDir);
+    return [...parts.slice(0, npmAt), localDir, ...parts.slice(npmAt), ...rest].join(";");
+  }
   return [...parts, ...added].join(";");
 }
 

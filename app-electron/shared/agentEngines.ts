@@ -89,10 +89,23 @@ export function engineBinary(spec: AgentSpec): string | null {
   return first || null;
 }
 
-export function buildAgentCommand(spec: AgentSpec, axetCommand: string): string {
+/**
+ * Tur 10: Claude'un kurumsal başlatıcısı (Azure/Foundry vb.; Araçlar sondajı buluyor).
+ * Yalnız güvenli ad ya da tırnaksız-özel-karaktersiz .bat/.cmd yolu kabul ediliyor.
+ */
+export function claudeBaseCommand(launcher: string | undefined): string | null {
+  const value = (launcher ?? "").trim();
+  if (!value) return null;
+  if (/^[A-Za-z0-9][\w.-]*$/.test(value)) return value;
+  if (/^[A-Za-z]:\\[^"%!^&|<>\r\n]+\.(?:bat|cmd)$/i.test(value)) return /\s/.test(value) ? `"${value}"` : value;
+  return null;
+}
+
+export function buildAgentCommand(spec: AgentSpec, axetCommand: string, opts: { claudeBase?: string } = {}): string {
   if (spec.engine === "ozel") return (spec.command ?? "").trim();
   const def = AGENT_ENGINES[spec.engine];
-  const parts = [spec.engine === "axet-code" ? axetCommand.trim() || def.base : def.base];
+  const claudeBase = spec.engine === "claude" ? claudeBaseCommand(opts.claudeBase) : null;
+  const parts = [spec.engine === "axet-code" ? axetCommand.trim() || def.base : claudeBase ?? def.base];
   if (spec.engine === "axet-code" && spec.roleKind === "axetAgent" && isSafeArg(spec.role)) {
     parts.push("--agent", spec.role);
   }

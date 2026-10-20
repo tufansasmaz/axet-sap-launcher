@@ -4,6 +4,7 @@ import { promises as fs, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { request as httpRequest } from "node:http";
 import { fileURLToPath } from "node:url";
 import { ensureToolDirsOnPath } from "./toolPath";
+import { detectClaudeLauncher } from "./claudeInstall";
 import { randomUUID } from "node:crypto";
 import { loadLandscape, getServiceCredentials, getServiceSapLogonNote } from "./sapLandscape";
 import { checkConnectivity } from "./connectivity";
@@ -1574,7 +1575,9 @@ function registerIpc(): void {
         where: whereOnPath,
         axetStatus: () => axetBinaryStatus(fresh),
         axetMessage: axetBinaryMessage,
-        details: engineDetails
+        details: engineDetails,
+        claudeLauncher: () => detectClaudeLauncher(),
+        launcherNote: (l) => mt("engines.claudeLauncher", { name: l.name, provider: l.provider === "foundry" ? "Azure/Foundry" : l.provider === "bedrock" ? "AWS Bedrock" : "Google Vertex" })
       });
       engineCache = { at: Date.now(), value };
       return value;

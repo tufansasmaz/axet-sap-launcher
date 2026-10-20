@@ -252,5 +252,7 @@ export const MAIN_EN = {
   "dialog.exportDebugJson": "Export debug recording as JSON",
   "dialog.saveGuiScriptJson": "Save SAP GUI Scripting recording as JSON",
   "dialog.openGuiScriptJson": "Open SAP GUI Scripting recording",
-  "terminal.workspaceName": "Workspace {n}"
+  "terminal.workspaceName": "Workspace {n}",
+  // --- claudeInstall.ts (Tur 10) ---
+  "engines.claudeLauncher": "Claude agents start with this computer's \"{name}\" launcher ({provider}); no sign-in needed."
 } as const;

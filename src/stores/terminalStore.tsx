@@ -288,7 +288,9 @@ export function TerminalStoreProvider({
       const spec: AgentSpec | null = pane.kind === "agent" ? (pane.agent ?? LEGACY_AXET_AGENT) : null;
       const isAgent = spec !== null;
       const shell: TerminalMode = pane.kind === "agent" ? config.terminal : pane.kind;
-      const command = spec ? buildAgentCommand(spec, config.axetCommand || "") : setupCommands.current.get(pane.id);
+      // Tur 10: Claude'un kurumsal başlatıcısı (Araçlar sondajı) varsa Claude ajanı onunla açılır.
+      const claudeBase = engines?.find((e) => e.id === "claude")?.launcher?.path;
+      const command = spec ? buildAgentCommand(spec, config.axetCommand || "", { claudeBase }) : setupCommands.current.get(pane.id);
       // Kurulum satırı bir kez: yeniden başlatılan bölme düz kabuk olur.
       setupCommands.current.delete(pane.id);
 

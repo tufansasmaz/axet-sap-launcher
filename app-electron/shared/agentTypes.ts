@@ -191,6 +191,11 @@ export interface AgentEngineInfo {
   note?: string;
   /** Bulunan programın yolu (`where` ilk sonucu); bilinmiyorsa yok. */
   path?: string;
+  /**
+   * Tur 10: Claude'un kurumsal başlatıcısı (Azure/Foundry/Bedrock/Vertex). Varsa Claude
+   * ajanı bu betikle açılır (sağlayıcı ortamını o kuruyor). Yalnız ad, yol ve tür.
+   */
+  launcher?: { name: string; path: string; provider: string };
   /** `--version` (ya da npm kabuğunun package.json'u) okunabildiyse sürüm. */
   version?: string;
 }
