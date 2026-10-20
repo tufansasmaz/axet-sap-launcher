@@ -482,6 +482,24 @@ describe("Görev Panosu yüzü: agents() ve sendPrompt()", () => {
     expect(h.monitor.sendPrompt("p1", "x")).toBe("typing");
   });
 
+  // Tur 10 (ölçüldü): Claude Code fare izlemeyi (1003) ve odak bildirimini (1004) açıyor;
+  // terminal görünürken fare hareketi/odak değişimi xterm'den rapor olarak geliyor.
+  // Bunlar kullanıcı yazısı değil: Akış mesajı "yazıyor" diye reddedilmemeli.
+  it("terminal raporları (fare, odak) yazıyor sayılmıyor; Enter'ı da iptal etmiyor", () => {
+    const h = boardHarness();
+    h.monitor.register(reg());
+    h.monitor.onInput("t1", "\x1b[<35;10;10M\x1b[<35;11;10M");
+    h.monitor.onInput("t1", "\x1b[O");
+    expect(h.monitor.agents()[0].inputIdle).toBe(true);
+    const settled: string[] = [];
+    expect(h.monitor.sendPrompt("p1", "istem", (o) => settled.push(o))).toBe("ok");
+    h.monitor.onInput("t1", "\x1b[I");
+    h.monitor.onInput("t1", "\x1b[<35;12;10M");
+    h.flushEnter();
+    expect(settled).toEqual(["sent"]);
+    expect(h.write.mock.calls).toEqual([["t1", "istem"], ["t1", "\r"]]);
+  });
+
   it("baştaki ! (kabuk kipi) ve / (motor komutu) reddediliyor, hiçbir şey yazılmıyor", () => {
     const h = boardHarness();
     h.monitor.register(reg());

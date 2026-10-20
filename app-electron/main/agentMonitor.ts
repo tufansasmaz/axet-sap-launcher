@@ -624,8 +624,13 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     onInput(ptyId, data) {
       const entry = entryOfPty(ptyId);
       if (!entry) return;
-      entry.lastInputAt = deps.now();
-      if (!isTerminalReport(data)) entry.userInputAt = entry.lastInputAt;
+      // Tur 10 (ölçüldü): terminalin kendi raporları (fare hareketi — Claude Code 1003 açıyor —,
+      // odak giriş/çıkış, DA/CPR) kullanıcı yazısı değil. Sayılsaydı terminal görünürken
+      // Akış'tan gönderim "yazıyor" diye reddediliyor, Enter iptal oluyordu.
+      if (!isTerminalReport(data)) {
+        entry.lastInputAt = deps.now();
+        entry.userInputAt = entry.lastInputAt;
+      }
       guard(() => {
         for (const line of entry.input.feed(data)) {
           // Motor kapalıyken (kabuk istemi ekranda) yazılan satır istem değil.
