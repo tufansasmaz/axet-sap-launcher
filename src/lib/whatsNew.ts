@@ -12,6 +12,27 @@ export interface WhatsNewEntry {
 
 export const WHATS_NEW_DATA: readonly WhatsNewEntry[] = [
   {
+    version: "1.9.3",
+    items: {
+      tr: [
+        "Kabukta başlattığın axet-code/Claude ajan olarak tanınıyor; rol ve bellek verilebiliyor. Logon'dan açılan ajan sistem adıyla geliyor.",
+        "Ajan yönetiminde ajanı başka ekibe taşıma ve rolünü değiştirme.",
+        "Bellek: \"Kimlik ve kurallar\" sekmesi, tüm ekiplerin gördüğü \"Genel\" bellek, Raporlar'da \"Belleğe ekle\".",
+        "Lider görevleri uygulama kapanınca kaybolmuyor.",
+        "Akış geçmişi gün bazlı (7/14/30 gün); Pano ve Raporlar tüm aralığı görüyor.",
+        "Ofiste gündüz/gece seçimi kalıcı; terminal açılışındaki hata giderildi."
+      ],
+      en: [
+        "axet-code/Claude started in a shell is recognised as an agent and can get a role and memory. Agents opened from logon are named after the system.",
+        "Move an agent to another team and change its role from Agent management.",
+        "Memory: \"Identity & rules\" tab, shared \"General\" memory for all teams, \"Add to memory\" in Reports.",
+        "Lead tasks survive an app restart.",
+        "Flow history is day-based (7/14/30 days); Dashboard and Reports see the whole range.",
+        "Day/night choice in the office is remembered; fixed an error when terminals open."
+      ]
+    }
+  },
+  {
     version: "1.9.2",
     items: {
       tr: [
