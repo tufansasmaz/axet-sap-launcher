@@ -226,6 +226,20 @@ export function mergeHistory(list: readonly FlowEvent[], workspaceId: string, st
   return capPerWorkspace(merged.map((e, i) => ({ ...e, id: i + 1 })));
 }
 
+/**
+ * Pano/Raporlar (2026-10-21): bellekteki liste en yeni pencere; ondan eski
+ * olaylar diskteki kayıttan (flow:range). Bellekteki alanın en eski olayından
+ * önceki disk olayları başa ekleniyor, `from`'dan eskiler atılıyor. Disk
+ * olaylarının kimlikleri negatif (canlılarla çakışmasın).
+ */
+export function withHistory(list: readonly FlowEvent[], workspaceId: string, stored: readonly StoredFlowEvent[], from: number): FlowEvent[] {
+  const live = list.filter((e) => e.workspaceId === workspaceId);
+  let cutoff = Infinity;
+  for (const e of live) if (e.at < cutoff) cutoff = e.at;
+  const older: FlowEvent[] = stored.filter((e) => e.at < cutoff && e.at >= from).map((e, i) => ({ ...e, workspaceId, id: -(i + 1) }));
+  return [...older, ...live.filter((e) => e.at >= from)];
+}
+
 /** Kalıcı kayda giden biçim (alan alanı dosya adında). */
 export function toStored(list: readonly FlowEvent[], workspaceId: string): StoredFlowEvent[] {
   return list

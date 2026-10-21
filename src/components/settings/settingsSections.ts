@@ -91,7 +91,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
     icon: TerminalSquare,
     titleKey: "settingsModal.sectionTerminal",
     descKey: "settingsModal.descTerminal",
-    fields: ["axetCommand", "terminal", "agentMemoryDigest", "memoryAutoCapture", "leadTeam", "leadApproval", "leadMaxAgents", "axetAutoSetup", "axetAutoTool", "axetAutoModel", "agentAutoRetry", "agentRetryMax", "agentConcurrency", "leadStallMinutes"],
+    fields: ["axetCommand", "terminal", "agentMemoryDigest", "memoryAutoCapture", "leadTeam", "leadApproval", "leadMaxAgents", "axetAutoSetup", "axetAutoTool", "axetAutoModel", "agentAutoRetry", "agentRetryMax", "agentConcurrency", "leadStallMinutes", "flowHistoryDays"],
     searchKeys: [
       "settingsModal.axetCommandLabel",
       "settingsModal.shellLabel",
@@ -112,7 +112,8 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
       "settingsModal.agentAutoRetryHint",
       "settingsModal.agentConcurrencyLabel",
       "settingsModal.agentConcurrencyHint",
-      "settingsModal.leadStallLabel"
+      "settingsModal.leadStallLabel",
+      "settingsModal.flowHistoryDaysLabel"
     ]
   },
   {

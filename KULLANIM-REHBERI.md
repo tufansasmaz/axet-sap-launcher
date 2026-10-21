@@ -567,9 +567,12 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     durumu ve en çok değişen dosyalar (aralıktaki son 8 kaydın dosyaları).
   - **Sağlık**: depo, motorlar, bellek ve Akış geçmişinin doluluğu; **Son
     olaylar**: Akış'ın kısa kopyası.
-  - Veri yalnız uygulamada olanlardan gelir: geçmiş Akış kaydıdır ve ekip başına
-    en çok 500 olay tutulur. Yoğun bir ekipte 7 günlük görünümün başı boş
-    kalabilir; o zaman göstergelerin altında en eski kaydın tarihi yazar.
+  - Veri yalnız uygulamada olanlardan gelir: geçmiş Akış kaydıdır. Kayıt
+    zaman tabanlıdır: ekip başına **Ayarlar > Ajanlar > Akış geçmişi süresi**
+    kadar gün (7 / 14 / 30, varsayılan 14), en çok 5000 olay ve 4 MB tutulur;
+    pano seçilen aralığı diskteki kayıttan okur. Çok yoğun bir ekip 5000 olaya
+    dayanırsa 7 günlük görünümün başı boş kalabilir; o zaman göstergelerin
+    altında en eski kaydın tarihi yazar.
 - **Raporlar** (raydaki ikinci simge): biten ve başarısız her alt görevin
   raporu, en yeni önce. Kartta sonuç (Doğrulandı / Elle onaylandı / Bitti /
   Başarısız), görev, ajan, süre (ilk atamadan doğrulamaya), geçen komut sayısı,
@@ -588,9 +591,9 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
   - **Markdown olarak kaydet** seçili raporu, **Listeyi kaydet** süzülmüş
     listenin tamamını tek `.md` dosyası olarak kaydet penceresiyle yazar.
   - Raporlar yeni veri üretmez: pano, Akış geçmişi ve Değişiklikler kaydından
-    derlenir. Cevap özeti yalnız kesin kaynaklı motorlarda kaydedilir; Akış
-    geçmişi ekip başına 500 olayla sınırlı olduğundan eski raporların adımları
-    boş kalabilir. Görevler sekmesinin altındaki küçük Raporlar bölümü son
+    derlenir. Cevap özeti yalnız kesin kaynaklı motorlarda kaydedilir; adımlar
+    diskteki Akış kaydından okunur, saklama süresinden (Akış geçmişi süresi)
+    eski raporların adımları boş kalır. Görevler sekmesinin altındaki küçük Raporlar bölümü son
     üçünü gösterir; **Tümünü Raporlar ekranında aç** bu ekrana getirir.
 - **Araçlar** (raydaki son simge, anahtar): ajan motorlarının listesi. Her
   motorun yanında kurulu olup olmadığı ve sürümü, altında programın yolu
@@ -676,9 +679,10 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     birden çok oturumda bulundu, oturum kaydı okunamadı, istem 60 sn içinde
     kayda düşmedi ya da motorun (Claude Code, Codex, Gemini, özel komut) kesin
     kaynağı yok. Gönderdiğin mesajlar "Sen → ajan" balonu olarak görünür. En yenisi
-    altta. Geçmiş **kalıcıdır**: ekip başına son 500 olay uygulama verisinde
-    saklanır (şifre/jeton benzeri değerler maskelenerek), uygulama yeniden
-    açılınca geri gelir. "Akış" başlığının yanındaki çöp kutusu, onay
+    altta. Geçmiş **kalıcıdır**: ekip başına Akış geçmişi süresi kadar gün (en
+    çok 5000 olay) uygulama verisinde saklanır (şifre/jeton benzeri değerler
+    maskelenerek); Akış listesi bunların son 500'ünü gösterir ve uygulama
+    yeniden açılınca geri gelir. "Akış" başlığının yanındaki çöp kutusu, onay
     sorduktan sonra o ekibin geçmişini siler; ekibi kapatınca geçmişi de
     silinir.
   - **Ajanlar birbirine soru sorabilir**: her ajanın terminalinde `ntt-team`
@@ -971,7 +975,12 @@ alanı tam kaplar.
   balon birkaç saniye görünür: işini bitirince cevabının ilk satırı (cevap
   terminaldeyse "Bitti!"), kesin durumda aşaması değişince "dosya okuyor…"
   gibi kısa bir söz (ajan başına seyrek), panodan iş alınca "Tamam,
-  başlıyorum". Balon açıkken soru balonu geri çekilir.
+  başlıyorum". Balon açıkken soru balonu geri çekilir. Tahmini durumdaki
+  ajanda "bitti" balonu yalnız güvenilir turda çıkar: tur senin gönderdiğin
+  bir istemle başlamış ve motorun tur sonu işaretiyle (Claude Code "✻ … for
+  Ns", axet-code "◇ model via … Ns") bitmiş olmalı; metin terminal ekranından
+  okunan son cevabın ilk satırıdır. Yalnız sessizlikle biten turda balon
+  çıkmaz; aynı ajan için en çok 20 saniyede bir.
 - **Bilgi kartı**: karakterin üstüne gelince (ya da Tab ile odaklanınca)
   yanında küçük bir kart açılır: ad, rol, durum, şu anki aşama, panodaki
   görev (yoksa "Şu an görevi yok"), soru ve son cevabın özeti.
@@ -996,7 +1005,7 @@ alanı tam kaplar.
   sabit kalır); ortadaki değer düğmesi varsayılana döner. İlk açılışta
   kamera masaların olduğu üst kısımdadır. Küçük harita yoktur.
 - **Gündüz / gece**: **Saat** düğmesi otomatik → gündüz → gece arasında
-  döner (seçim kaydedilmez). Otomatikte ofis bilgisayarın saatini izler;
+  döner; seçim bu bilgisayarda kaydedilir, ofis yeniden açılınca aynı kalır. Otomatikte ofis bilgisayarın saatini izler;
   akşam kararır, masa ekranları ve tavan lambaları yanar, gündüz
   pencerelerden güneş düşer.
 - Düz terminaller ofiste görünmez; sol alt köşede sayıları yazar. Ajan

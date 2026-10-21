@@ -144,6 +144,8 @@ export interface AgentPhase {
 export interface AgentTurn {
   at: number;
   done: boolean;
+  /** 2026-10-21: tur motorun ölçülmüş tur sonu işaretiyle bitti (yalnız sessizlikle değil). */
+  marked?: boolean;
 }
 
 /**

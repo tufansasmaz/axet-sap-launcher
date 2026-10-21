@@ -268,7 +268,9 @@ export class GenericReader {
     const quiet = sinceOutput >= this.idleAfter();
     // Tur 11: motorun tur sonu işareti + kısa sessizlik de bitiş (20 sn beklemeden).
     const marked = this.doneMarkAt !== null && sinceOutput >= DONE_MARK_QUIET_MS;
-    return { at: this.promptAt, done: this.turnDone || quiet || marked || this.engineExited() };
+    const done = this.turnDone || quiet || marked || this.engineExited();
+    // 2026-10-21: işaretle biten tur güvenilir (ofis balonu); sessizlikle biten değil.
+    return { at: this.promptAt, done, ...(done && marked ? { marked: true } : {}) };
   }
 
   /** Tur 11: istem gönderilmiş ve tur sürüyor (çıktı bekleniyor ya da akıyor). */

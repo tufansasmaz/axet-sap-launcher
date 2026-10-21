@@ -7,6 +7,7 @@ import { useT } from "../i18n";
 import { THEME_SURFACES } from "../../app-electron/shared/themeSurfaces";
 import { useAppearance } from "../ui/useAppearance";
 import { PANE_FONT_DEFAULT } from "../../app-electron/shared/terminalLayout";
+import { disposeAfterOpenTick } from "../terminal/xtermLifecycle";
 
 interface Props {
   sessionId: string;
@@ -58,6 +59,8 @@ export default function EmbeddedTerminal({ sessionId, active, fontSize = PANE_FO
     const fit = new FitAddon();
     term.loadAddon(fit);
     term.open(containerRef.current);
+    // 2026-10-21: aynı tikte dispose xterm'in open() zamanlayıcısını bozuyordu ("dimensions"; bkz. xtermLifecycle).
+    const disposeTerm = disposeAfterOpenTick(term);
     termRef.current = term;
     fitRef.current = fit;
 
@@ -231,7 +234,9 @@ export default function EmbeddedTerminal({ sessionId, active, fontSize = PANE_FO
       resizeObserver.disconnect();
       container.removeEventListener("dragover", handleDragOver);
       container.removeEventListener("drop", handleDrop);
-      term.dispose();
+      if (termRef.current === term) termRef.current = null;
+      if (fitRef.current === fit) fitRef.current = null;
+      disposeTerm();
     };
   }, [sessionId]);
 

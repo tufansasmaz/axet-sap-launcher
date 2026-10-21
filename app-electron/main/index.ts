@@ -61,7 +61,7 @@ import { createTeamBridge, startTeamBridgeServer, TEAM_CMD, TEAM_HINT, TEAM_PS1,
 import { createTeamLead, type LeadApprovalRequest, type LeadSpawnRequest } from "./teamLead";
 import { createLeadTaskStore } from "./leadTaskStore";
 import { agentHintFor, isLeadRole, newLeadTaskId } from "../shared/leadCommands";
-import { clearFlowHistory, loadFlowHistory, saveFlowHistory } from "./flowHistoryStore";
+import { clearFlowHistory, loadFlowHistory, readFlowRange, saveFlowHistory } from "./flowHistoryStore";
 import { AXET_SETUP_DETAIL, isAgentEngineId } from "../shared/agentTypes";
 import { axetAutoSetupPrefs, type AgentAutoSetupEvent } from "../shared/axetSetupPrefs";
 import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles";
@@ -1766,7 +1766,13 @@ function registerIpc(): void {
   // Akış geçmişi (Tur 4): yalnız ana pencereden.
   const fromMain = (event: Electron.IpcMainInvokeEvent) => Boolean(mainWindow && !mainWindow.isDestroyed() && event.sender === mainWindow.webContents);
   ipcMain.handle("flow:load", (event, workspaceId: unknown) => (fromMain(event) ? loadFlowHistory(flowHistoryDir(), workspaceId) : []));
-  ipcMain.handle("flow:save", (event, workspaceId: unknown, events: unknown) => (fromMain(event) ? saveFlowHistory(flowHistoryDir(), workspaceId, events) : false));
+  // 2026-10-21: kayıt zaman tabanlı (Ayarlar > Akış geçmişi süresi); Pano/Raporlar aralığı diskten.
+  ipcMain.handle("flow:save", (event, workspaceId: unknown, events: unknown) =>
+    fromMain(event) ? saveFlowHistory(flowHistoryDir(), workspaceId, events, { days: loadConfig().flowHistoryDays }) : false
+  );
+  ipcMain.handle("flow:range", (event, workspaceId: unknown, from: unknown, to: unknown) =>
+    fromMain(event) ? readFlowRange(flowHistoryDir(), workspaceId, from, to) : { events: [], total: 0, oldest: null, full: false }
+  );
   ipcMain.handle("flow:clear", (event, workspaceId: unknown) => (fromMain(event) ? clearFlowHistory(flowHistoryDir(), workspaceId) : false));
 
   // Bellek notları (Tur 5): yalnız ana pencereden.

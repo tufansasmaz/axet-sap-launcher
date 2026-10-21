@@ -75,7 +75,7 @@ describe("ReportsView", () => {
   });
   afterEach(cleanup);
 
-  async function draw(b: Board | null = board) {
+  async function draw(b: Board | null = board, live: FlowEvent[] = events) {
     const store: TerminalStoreValue = {
       state: { ...initialTerminalState, phase: "ready", visible: true, workspaces: [ws], activeWorkspaceId: "w1" },
       commands,
@@ -89,7 +89,7 @@ describe("ReportsView", () => {
         <TerminalStoreContext.Provider value={store}>
           <BoardContext.Provider value={{ boards: b ? { w1: b } : {}, command: vi.fn() }}>
             <ChangesFocusContext.Provider value={{ focus: null, requestFocus, clearFocus: () => {} }}>
-              <FlowContext.Provider value={{ ...EMPTY_FLOW, events }}>
+              <FlowContext.Provider value={{ ...EMPTY_FLOW, events: live }}>
                 <ReportsView workspace={ws} />
               </FlowContext.Provider>
             </ChangesFocusContext.Provider>
@@ -120,6 +120,20 @@ describe("ReportsView", () => {
     expect(screen.getByText("Süzgece uyan rapor yok.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Süzgeçleri temizle" }));
     expect(items()).toHaveLength(2);
+  });
+
+  it("2026-10-21: bellekten düşmüş adımlar kalıcı kayıttan (flow:range) okunuyor", async () => {
+    const flowRange = vi.fn(async () => ({
+      events: [{ at: now - 11 * M, kind: "finished", paneId: "a", name: "Ayşe", detail: "", reply: "Sepet bitti, testler yeşil." }],
+      total: 1,
+      oldest: now - 11 * M,
+      full: false
+    }));
+    (window as unknown as { api: Record<string, unknown> }).api.flowRange = flowRange;
+    await draw(board, []);
+    expect(flowRange).toHaveBeenCalledWith("w1", 0);
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "YEŞİL" } });
+    expect(items().map((b) => b.getAttribute("data-report-key"))).toEqual(["t1/1"]);
   });
 
   it("seçilince ayrıntı: özet, doğrulama, değişiklik bağlantısı, terminal, sonraki iş; dışa aktarma", async () => {

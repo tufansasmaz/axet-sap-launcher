@@ -540,6 +540,8 @@ export interface AppConfig {
   agentRetryMax: number;
   agentConcurrency: number;
   leadStallMinutes: number;
+  /** 2026-10-21: Akış geçmişinin diskte tutulduğu gün (7/14/30, varsayılan 14). */
+  flowHistoryDays: number;
 }
 
 /** SAP bağlanınca açılacak yer — ayardaki seçim. */

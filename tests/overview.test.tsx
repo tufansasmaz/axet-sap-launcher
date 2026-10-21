@@ -147,6 +147,27 @@ describe("OverviewView (grafikli pano)", () => {
     expect(chart().getAttribute("aria-label")).toMatch(/^1 saat içinde 2 olay/);
   });
 
+  it("2026-10-21: bellekteki listeden eski olaylar kalıcı kayıttan (flow:range) grafiğe giriyor", async () => {
+    const flowRange = vi.fn(async (_ws: string, from: number) => ({
+      events: [
+        { at: NOW - 3 * 86_400_000, kind: "started", paneId: "a", name: "Ayşe", detail: "" },
+        { at: NOW - 2 * 3_600_000, kind: "started", paneId: "a", name: "Ayşe", detail: "" }
+      ].filter((e) => e.at >= from),
+      total: 2,
+      oldest: NOW - 3 * 86_400_000,
+      full: false
+    }));
+    (window as unknown as { api: Record<string, unknown> }).api.flowRange = flowRange;
+    await draw();
+    fireEvent.click(screen.getByRole("radio", { name: "7 gün" }));
+    await act(async () => {
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+    });
+    expect(flowRange).toHaveBeenCalledWith("w1", expect.any(Number));
+    // Bellekte 3 (w1) + diskte bellekten eski 1 = 4; diskteki kopya (2 saat önce) ikilenmiyor.
+    expect(screen.getByRole("img", { name: /olay;/ }).getAttribute("aria-label")).toMatch(/^7 gün içinde 4 olay/);
+  });
+
   it("grafiğin tablo karşılığı ve klavyeyle ipucu", async () => {
     await draw();
     const chart = screen.getByRole("img", { name: /olay;/ });
