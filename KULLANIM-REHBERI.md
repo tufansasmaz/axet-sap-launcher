@@ -263,8 +263,18 @@ görebilirsin:
   - **Terminalde aç (ajan)** — Ajanlar ekranına geçer, o sisteme bağlı
     alanda (yoksa boş seçili alanı bağlar, o da yoksa yeni alan açar)
     bağlantının klasöründe bir axet-code ajan bölmesi açar ve odaklar.
+    Ajanın adı "<SID> ajanı" (ör. "ED1 ajanı"), rolü Varsayılan; Akış'a
+    "SAP <SID> için ajan açıldı (<ekip>)" notu düşer — ajan seçili ekip
+    değil o sisteme bağlı ekipteyse hangisi olduğunu buradan görürsünüz.
   - **Kabukta aç** — aynı yerde, Ayarlar'daki kabukla (cmd/PowerShell)
-    düz bir kabuk bölmesi.
+    düz bir kabuk bölmesi. Bu bölmede (ya da herhangi bir kabuk bölmesinde)
+    `axet-code`, `claude`, `codex`, `gemini` ya da Claude'un kurumsal
+    başlatıcısıyla başlayan bir satırı Enter'la gönderirseniz bölme ajan
+    olarak tanınır: ekip listesinde, ofiste ve Ajan yönetiminde
+    "kabukta başlatıldı" işaretiyle görünür, durumu okunur, Akış'a not
+    düşer. Motor kapanıp kabuk istemi dönünce bölme yeniden düz kabuktur;
+    kayıtlı düzende de kabuk olarak kalır (yeniden açılışta motoru tekrar
+    başlatınca yine tanınır). Rolü yoktur, bellek açılamaz.
   Üçünde de çalışma klasörü bağlantının klasörüdür; `.conn_adt`,
   `sap-context.md` ve QA/PRD salt okunur kuralı sohbettekiyle aynıdır.
   Ayar "Her seferinde sor" ise düğme **Bağlan…** olur ve menüyü açar.
