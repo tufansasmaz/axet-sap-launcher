@@ -3,7 +3,9 @@
 //   - bölme açma/kapama renderer'da (terminal deposunun addPane/closePane yolu),
 //   - göreve yazım Akış mesaj kutusunun kapılarından (agentSender),
 //   - durum ajan izleyiciden (Tur 6: kesin/tahmini, aşama, tur).
-// Görevler bellekte (uygulama kapanınca biter); kalıcı iz Akış geçmişinde.
+// Görevler bellekte; Tur 13'ten beri ekip başına diske de yazılıyor (deps.store,
+// leadTaskStore.ts). Açılışta bitmemiş görev "uygulama yeniden başladı — durum
+// bilinmiyor" diye düşüyor; lidere tek satır, Akış'ta kart (lider kaydolunca).
 // Yetki kuralları leadCommands.ts'te (saf); burada yalnız uygulanıyor.
 import type { AgentEngineId, AgentStatus } from "../shared/agentTypes";
 import { AXET_SETUP_DETAIL } from "../shared/agentTypes";
@@ -80,6 +82,8 @@ export interface TeamLeadDeps {
   log(tag: string, fields: Record<string, string | number | boolean>): void;
   /** Tur 9: eşzamanlılık / 429 kapısı; lider (bildirim) sınırdan muaf. Yoksa açık. */
   gate?(paneId: string, engine: AgentEngineId, lead: boolean): GateResult;
+  /** Tur 13: kalıcı kayıt (ekip başına). Yoksa görevler yalnız bellekte. */
+  store?: { load(): LeadTask[]; save(workspaceId: string, tasks: LeadTask[]): void };
 }
 
 export type LeadTaskState = "queued" | "sending" | "sent" | "done" | "failed";
@@ -120,7 +124,14 @@ export interface LeadTask {
   reassignOf?: string;
   reassigns?: number;
   reassignedTo?: string;
+  /** Tur 13: uygulama yeniden başladığında bitmemişti; durumu bilinmiyor. */
+  restarted?: boolean;
 }
+
+/** Tur 13: yeniden başlatmada düşen görevin notu (lider wait/status'ta görür). */
+export const LEAD_RESTART_NOTE = "Uygulama yeniden basladi; gorevin durumu bilinmiyor (ajan bitirmis ya da yarida birakmis olabilir; cevap terminalinde olabilir). Gerekirse yeniden ata.";
+/** Lider bu süre içinde kaydolmazsa yeniden başlatma bildirimi bırakılıyor (görev kayıtta kalır). */
+export const RESTART_NOTICE_MS = 30 * 60_000;
 
 /** Aynı görev en çok bu kadar yeniden atanır (döngü olmasın). */
 export const LEAD_REASSIGN_MAX = 2;
@@ -169,6 +180,78 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
     return members.find((m) => m.paneId === to || lower(m.name) === key) ?? null;
   };
   const spawnedBy = (m: LeadMember) => m.spawnedBy ?? spawned.get(m.paneId);
+
+  // Tur 13: kalıcı kayıt. İlk kullanımda yükleniyor (userData hazır olsun diye).
+  let restored = false;
+  const restartNotices: Array<{ workspaceId: string; leaderPaneId: string; leaderName: string; ids: string[]; since: number }> = [];
+  const savedSig = new Map<string, string>();
+
+  function ensureRestored() {
+    if (restored) return;
+    restored = true;
+    let loaded: LeadTask[] = [];
+    try {
+      loaded = deps.store?.load() ?? [];
+    } catch {
+      loaded = [];
+    }
+    const since = deps.now();
+    for (const t of loaded) {
+      if (tasks.has(t.id)) continue;
+      if (t.state !== "done" && t.state !== "failed") {
+        Object.assign(t, { state: "failed" as const, restarted: true, note: LEAD_RESTART_NOTE });
+        let notice = restartNotices.find((n) => n.workspaceId === t.workspaceId && n.leaderPaneId === t.leaderPaneId);
+        if (!notice) {
+          notice = { workspaceId: t.workspaceId, leaderPaneId: t.leaderPaneId, leaderName: t.leaderName, ids: [], since };
+          restartNotices.push(notice);
+        }
+        notice.ids.push(t.id);
+      }
+      tasks.set(t.id, t);
+    }
+    if (loaded.length) deps.log("ekip.lider.yukle", { gorev: loaded.length, kesilen: restartNotices.reduce((n, x) => n + x.ids.length, 0) });
+  }
+
+  /** Değişen ekiplerin görevlerini yazar (imza aynıysa yazmaz). */
+  function persist() {
+    if (!deps.store) return;
+    const byWs = new Map<string, LeadTask[]>();
+    for (const ws of savedSig.keys()) byWs.set(ws, []);
+    for (const t of tasks.values()) byWs.set(t.workspaceId, [...(byWs.get(t.workspaceId) ?? []), t]);
+    for (const [ws, list] of byWs) {
+      const sig = JSON.stringify(list.map((t) => [t.id, t.state, t.result ?? "", t.note ?? "", t.reassignedTo ?? "", t.sentAt ?? 0, t.matched === true]));
+      if (savedSig.get(ws) === sig) continue;
+      savedSig.set(ws, sig);
+      try {
+        deps.store.save(ws, list);
+      } catch {
+        // yazılamadı: görevler bellekte sürüyor
+      }
+    }
+  }
+
+  function flushRestartNotices(now: number) {
+    for (const n of [...restartNotices]) {
+      if (!deps.status(n.leaderPaneId)) {
+        if (now - n.since > RESTART_NOTICE_MS) restartNotices.splice(restartNotices.indexOf(n), 1);
+        continue;
+      }
+      restartNotices.splice(restartNotices.indexOf(n), 1);
+      const list = n.ids
+        .map((id) => {
+          const t = tasks.get(id);
+          return t ? `${id} (${t.targetName})` : id;
+        })
+        .join(", ");
+      deps.relay({ workspaceId: n.workspaceId, paneId: n.leaderPaneId, name: n.leaderName, detail: list, act: "restart" });
+      notifyLeader(
+        n.workspaceId,
+        n.leaderPaneId,
+        `restart:${n.leaderPaneId}:${n.ids.join(",")}`,
+        `Uygulama yeniden basladi; su gorevlerin durumu bilinmiyor: ${list}. Gerekirse yeniden ata. Ayrinti: ntt-team status / ntt-team wait <G-xxxx>`
+      );
+    }
+  }
 
   function relayResult(task: LeadTask) {
     deps.relay({
@@ -382,6 +465,7 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
   }
 
   function tick() {
+    ensureRestored();
     const now = deps.now();
     const busyTargets = new Set<string>();
     for (const t of tasks.values()) if (t.state === "sent" || t.state === "sending") busyTargets.add(t.targetPaneId);
@@ -412,9 +496,15 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       }
     }
     try {
+      flushRestartNotices(now);
       flushOutbox();
     } catch {
       // bildirim kuyruğu hatası tick'i düşürmesin
+    }
+    try {
+      persist();
+    } catch {
+      // kayıt hatası tick'i düşürmesin
     }
   }
 
@@ -560,10 +650,12 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
     });
     const active = [...tasks.values()].filter((t) => t.leaderPaneId === caller.paneId && t.state !== "done" && t.state !== "failed");
     const mine = members.filter((m) => spawnedBy(m)).length;
+    const cut = [...tasks.values()].filter((t) => t.leaderPaneId === caller.paneId && t.restarted && !t.reassignedTo).slice(-10);
     const out = [
       ...lines,
       active.length ? "Aktif gorevler:" : "Aktif gorev yok.",
       ...active.map((t) => `  ${t.id} → ${t.targetName}: ${t.state === "queued" || t.state === "sending" ? "kuyrukta" : t.asking !== undefined ? "soru soruyor" : "suruyor"} | ${t.text.slice(0, 80)}`),
+      ...(cut.length ? ["Uygulama yeniden basladi; durumu bilinmeyen gorevler:", ...cut.map((t) => `  ${t.id} → ${t.targetName}: durum bilinmiyor | ${t.text.slice(0, 80)}`)] : []),
       settings.enabled ? `Acilabilecek ajan: ${Math.max(0, settings.max - mine)} (sinir ${settings.max})` : "Ajan acma kapali (Ayarlar)."
     ];
     return json(200, { ok: true, text: out.join("\n") });
@@ -585,7 +677,10 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
   }
 
   return {
-    tasks: () => [...tasks.values()],
+    tasks: () => {
+      ensureRestored();
+      return [...tasks.values()];
+    },
     tick,
     retryText(paneId) {
       for (const t of tasks.values()) {
@@ -614,6 +709,21 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       }
     },
     async handle(caller, args) {
+      ensureRestored();
+      try {
+        return await handleCommand(caller, args);
+      } finally {
+        try {
+          persist();
+        } catch {
+          // kayıt hatası cevabı düşürmesin
+        }
+      }
+    }
+  };
+
+  async function handleCommand(caller: LeadCaller, args: unknown): Promise<LeadResponse> {
+    {
       const cmd = parseLeadArgs(args);
       if ("error" in cmd) return err(400, cmd.error);
       const members = deps.members(caller.workspaceId);
@@ -637,6 +747,6 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       deps.log("ekip.lider.gorev", { sonuc: "kuyruk" });
       return json(200, { ok: true, id: task.id, text: `Gorev ${task.id} → ${target.name} (ajan hazir olunca gider). Sonuc: ntt-team wait ${task.id}` });
     }
-  };
+  }
 }
 

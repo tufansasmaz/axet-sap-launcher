@@ -222,8 +222,8 @@ export function extractLeadResult(text: string | null | undefined, id: string): 
 
 /** Akış kartının türü (StoredFlowEvent.act). */
 // Tur 9: "error" (Lider ← hata bildirimi), "stall" (takıldı), "reassign" (yeniden atadı), "queued" (sırada).
-export type LeadAct = "spawn" | "assign" | "result" | "close" | "denied" | "error" | "stall" | "reassign" | "queued";
-export const LEAD_ACTS: readonly LeadAct[] = ["spawn", "assign", "result", "close", "denied", "error", "stall", "reassign", "queued"];
+export type LeadAct = "spawn" | "assign" | "result" | "close" | "denied" | "error" | "stall" | "reassign" | "queued" | "restart";
+export const LEAD_ACTS: readonly LeadAct[] = ["spawn", "assign", "result", "close", "denied", "error", "stall", "reassign", "queued", "restart"];
 
 export function isLeadAct(value: unknown): value is LeadAct {
   return typeof value === "string" && (LEAD_ACTS as readonly string[]).includes(value);

@@ -59,6 +59,7 @@ import { createBrowserSender } from "./browserSend";
 import { createAgentSender } from "./agentSend";
 import { createTeamBridge, startTeamBridgeServer, TEAM_CMD, TEAM_HINT, TEAM_PS1, TEAM_SH } from "./teamBridge";
 import { createTeamLead, type LeadApprovalRequest, type LeadSpawnRequest } from "./teamLead";
+import { createLeadTaskStore } from "./leadTaskStore";
 import { agentHintFor, isLeadRole, newLeadTaskId } from "../shared/leadCommands";
 import { clearFlowHistory, loadFlowHistory, saveFlowHistory } from "./flowHistoryStore";
 import { AXET_SETUP_DETAIL, isAgentEngineId } from "../shared/agentTypes";
@@ -563,7 +564,9 @@ const teamLead = createTeamLead({
   newTaskId: () => newLeadTaskId(Math.random),
   now: () => Date.now(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-  log: (tag, fields) => appLog(tag, fields)
+  log: (tag, fields) => appLog(tag, fields),
+  // Tur 13: görevler userData/lead-tasks/<ekip>.json'da (atomik, gizli süzgeçli).
+  store: createLeadTaskStore(() => path.join(app.getPath("userData"), "lead-tasks"))
 });
 let teamLeadTimer: ReturnType<typeof setInterval> | null = null;
 const teamBridge = createTeamBridge({

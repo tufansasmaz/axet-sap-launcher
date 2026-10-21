@@ -44,8 +44,13 @@ export function loadNotes(dir: string, workspaceId: unknown): MemoryNote[] {
 
 /** Atomik yazım; başarısızsa asıl dosyaya dokunulmaz. */
 export function writeNotesAtomic(file: string, notes: readonly MemoryNote[]): "ok" | "tooLarge" | "writeFailed" {
-  const bytes = Buffer.from(serializeNotes(notes), "utf8");
-  if (bytes.length > NOTES_FILE_MAX) return "tooLarge";
+  return writeTextAtomic(file, serializeNotes(notes), NOTES_FILE_MAX);
+}
+
+/** Tur 13: genel atomik yazım (geçici dosya "wx" + fsync → rename); lider görevleri ve kurallar da kullanıyor. */
+export function writeTextAtomic(file: string, text: string, max: number): "ok" | "tooLarge" | "writeFailed" {
+  const bytes = Buffer.from(text, "utf8");
+  if (bytes.length > max) return "tooLarge";
   const temp = `${file}.${randomBytes(4).toString("hex")}.tmp`;
   let fd: number | null = null;
   let created = false;

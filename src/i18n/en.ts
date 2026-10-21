@@ -2072,6 +2072,7 @@ export const en: Record<TranslationKey, string> = {
   "flow.lead.chip.stall": "stuck",
   "flow.lead.chip.reassign": "reassigned",
   "flow.lead.chip.queued": "queued",
+  "flow.lead.chip.restart": "app restarted",
   "agents.errorTries": " ({n}/{max} attempts)",
   "agents.notice.errorClass": "{name} hit an error: {cls}{tries}",
   "agents.errorClass.unavailable": "service temporarily unavailable",

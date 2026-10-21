@@ -2158,6 +2158,7 @@ export const tr = {
   "flow.lead.chip.stall": "takıldı",
   "flow.lead.chip.reassign": "yeniden atadı",
   "flow.lead.chip.queued": "sırada",
+  "flow.lead.chip.restart": "yeniden başladı",
   "agents.errorTries": " ({n}/{max} deneme)",
   "agents.notice.errorClass": "{name} hata verdi: {cls}{tries}",
   "agents.errorClass.unavailable": "servis geçici olarak kapalı",
