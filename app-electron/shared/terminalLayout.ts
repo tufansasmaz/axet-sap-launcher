@@ -9,12 +9,14 @@ import type {
   SavedTerminalPane,
   SavedTerminalWorkspace,
   SavedWorkspaceSap,
+  ShellAgentRecord,
   TerminalMode,
   TerminalPaneColor,
   TerminalPaneKind,
   WorkspaceView
 } from "./types";
-import { LEGACY_AXET_AGENT, readAgentSpec, type AgentSpec } from "./agentTypes";
+import { AGENT_ROLE_MAX, LEGACY_AXET_AGENT, readAgentSpec, type AgentSpec } from "./agentTypes";
+import { isMemoryKey } from "./memoryLogic";
 import { readBrowserUrl } from "./browserLogic";
 import { normalizeLayout, type EdgeSide, type PaneHome } from "./terminalTree";
 
@@ -134,6 +136,17 @@ function readHome(raw: unknown): PaneHome | null {
   return { siblingPaneId: home.siblingPaneId, side: home.side as EdgeSide };
 }
 
+/** Tur 13: kabuk bölmesinin rol/bellek kaydı; bozuksa null (rol boş ve bellek yoksa da). */
+export function readShellAgent(raw: unknown): ShellAgentRecord | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  if (typeof record.role !== "string") return null;
+  const role = record.role.replace(/\s+/g," ").trim().slice(0, AGENT_ROLE_MAX).trim();
+  const memory = isMemoryKey(record.memory) ? record.memory : undefined;
+  if (!role && !memory) return null;
+  return { role, ...(memory ? { memory } : {}) };
+}
+
 function readPaneExtras(pane: Record<string, unknown>): Partial<SavedTerminalPane> {
   const extras: Partial<SavedTerminalPane> = {};
   const title = cleanPaneTitle(pane.title);
@@ -192,7 +205,8 @@ export function normalizeTerminalWorkspaces(raw: unknown, nameFor: (n: number) =
           kind: kind.kind,
           cwd: pane.cwd,
           ...readPaneExtras(pane),
-          ...(kind.agent ? { agent: kind.agent } : {})
+          ...(kind.agent ? { agent: kind.agent } : {}),
+          ...(kind.kind !== "agent" && readShellAgent(pane.shellAgent) ? { shellAgent: readShellAgent(pane.shellAgent) as ShellAgentRecord } : {})
         });
       }
     }
@@ -234,4 +248,21 @@ export function normalizeTerminalWorkspaces(raw: unknown, nameFor: (n: number) =
 
 export function normalizeActiveWorkspaceId(raw: unknown, workspaces: readonly SavedTerminalWorkspace[]): string | null {
   return typeof raw === "string" && workspaces.some((w) => w.id === raw) ? raw : null;
+}
+
+/** Tur 13: ekibin ajanları (ekip köprüsü ve lider için): ajan bölmeleri + motoru canlı kayıtlı kabuklar (rol kayıttan). */
+export function teamAgentPanes(
+  workspace: Pick<SavedTerminalWorkspace, "panes"> | undefined,
+  liveEngine: (paneId: string) => AgentSpec["engine"] | null
+): { paneId: string; title?: string; role: string; engine: AgentSpec["engine"]; spawnedBy?: string }[] {
+  const out: { paneId: string; title?: string; role: string; engine: AgentSpec["engine"]; spawnedBy?: string }[] = [];
+  for (const p of workspace?.panes ?? []) {
+    if (p.kind === "agent") {
+      out.push({ paneId: p.id, ...(p.title ? { title: p.title } : {}), role: p.agent?.role ?? "", engine: p.agent?.engine ?? "axet-code", ...(p.agent?.spawnedBy ? { spawnedBy: p.agent.spawnedBy } : {}) });
+      continue;
+    }
+    const engine = liveEngine(p.id);
+    if (engine) out.push({ paneId: p.id, ...(p.title ? { title: p.title } : {}), role: p.shellAgent?.role ?? "", engine });
+  }
+  return out;
 }

@@ -14,7 +14,8 @@ import {
   readVerifyCommands,
   readWorkspaceView
 } from "../../app-electron/shared/terminalLayout";
-import { LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
+import { AGENT_ROLE_MAX, LEGACY_AXET_AGENT } from "../../app-electron/shared/agentTypes";
+import type { ShellAgentRecord } from "../../app-electron/shared/types";
 import { readBrowserUrl } from "../../app-electron/shared/browserLogic";
 import { isMemoryKey, withMemoryKey } from "../../app-electron/shared/memoryLogic";
 import {
@@ -252,6 +253,7 @@ function fromSaved(saved: SavedTerminalWorkspace): TerminalWorkspace {
       title: p.title,
       color: p.color,
       fontSize: p.fontSize,
+      ...(p.kind !== "agent" && p.shellAgent ? { shellAgent: p.shellAgent } : {}),
       // Ajan alanı eksik `agent` kaydı (elle düzenlenmiş): rolsüz axet-code.
       ...(p.kind === "agent" ? { agent: p.agent ?? { ...LEGACY_AXET_AGENT } } : {}),
       run: { state: "queued" as const }
@@ -358,7 +360,39 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     case "shellAgentStarted": {
       const found = findPane(state, action.paneId);
       if (!found || found.pane.kind === "agent" || found.pane.launched || found.pane.run.state !== "running") return state;
-      return replaceWorkspace(state, patchPane(found.workspace, action.paneId, { launched: true, agent: action.agent }));
+      // Tur 13: bölmenin kalıcı kaydı (Rol ver) varsa rol ve bellek ondan.
+      const record = found.pane.shellAgent;
+      const agent = record
+        ? { ...action.agent, ...(record.role ? { role: record.role } : {}), ...(record.memory ? { memory: record.memory } : {}) }
+        : action.agent;
+      return replaceWorkspace(state, patchPane(found.workspace, action.paneId, { launched: true, agent }));
+    }
+    case "setShellAgent": {
+      // Tur 13: kabuk bölmesine rol/bellek. Anahtar bir kez türetiliyor; bellek
+      // kapatılınca kayıttan düşüyor (dosya diskte kalır). Boş rol + kapalı bellek → kayıt yok.
+      const found = findPane(state, action.paneId);
+      if (!found || found.pane.kind === "agent") return state;
+      const role = action.role.replace(/\s+/g," ").trim().slice(0, AGENT_ROLE_MAX).trim();
+      const previous = found.pane.shellAgent?.memory ?? (found.pane.launched ? found.pane.agent?.memory : undefined);
+      const memory = action.memory
+        ? isMemoryKey(previous)
+          ? previous
+          : withMemoryKey({ engine: found.pane.agent?.engine ?? "axet-code", role: "", roleKind: "custom" }, found.pane.title ?? found.pane.kind, state.workspaces).memory
+        : undefined;
+      const record: ShellAgentRecord | undefined = role || memory ? { role, ...(memory ? { memory } : {}) } : undefined;
+      let next: TerminalWorkspace = {
+        ...found.workspace,
+        panes: found.workspace.panes.map((p) => {
+          if (p.id !== action.paneId) return p;
+          const { shellAgent: _old, ...rest } = p;
+          return record ? { ...rest, shellAgent: record } : rest;
+        })
+      };
+      if (found.pane.launched && found.pane.agent) {
+        const { memory: _m, ...base } = found.pane.agent;
+        next = updatePane(next, action.paneId, { agent: { ...base, role, ...(memory ? { memory } : {}) } });
+      }
+      return replaceWorkspace(state, next);
     }
     case "shellAgentEnded": {
       const found = findPane(state, action.paneId);
@@ -616,7 +650,9 @@ export function toSaved(state: TerminalState): { workspaces: SavedTerminalWorksp
         ...(p.color ? { color: p.color } : {}),
         ...(p.fontSize !== undefined ? { fontSize: p.fontSize } : {}),
         // Tur 12: kabukta başlatılan motorun tanımı yalnız bellekte.
-        ...(p.agent && p.kind === "agent" ? { agent: p.agent } : {})
+        ...(p.agent && p.kind === "agent" ? { agent: p.agent } : {}),
+        // Tur 13: kabuğun rol/bellek kaydı kalıcı (tür kabuk kalıyor).
+        ...(p.kind !== "agent" && p.shellAgent ? { shellAgent: p.shellAgent } : {})
       })),
       layout: layoutOf(w),
       minimized: minimizedOf(w).map((m) => ({ paneId: m.paneId, home: m.home })),

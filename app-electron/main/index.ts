@@ -34,14 +34,14 @@ import { decryptSecret } from "./secureStorage";
 import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSystem, exportManualSystemsToFile, importManualSystemsFromFile } from "./manualSystems";
 import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, getTerminalPid, setTerminalTap } from "./terminalManager";
-import { createAgentMonitor, readAgentRegistration, type AgentErrorNotice } from "./agentMonitor";
+import { createAgentMonitor, readAgentPatch, readAgentRegistration, type AgentErrorNotice } from "./agentMonitor";
 import { createShellAgentWatch } from "./shellAgentWatch";
 import { launcherName } from "../shared/agentEngines";
 import { agentNotificationFor, type AgentNotificationKind } from "./agentNotification";
 import { createEngineGate, type GateAgent } from "./agentGate";
 import { createAgentReader, liveAxetDbPort } from "./agentReaders";
 import { createSessionRegistry } from "./agentAxetReader";
-import { TERMINAL_MISSING_DIR, boardWorkspaceInfo } from "../shared/terminalLayout";
+import { TERMINAL_MISSING_DIR, boardWorkspaceInfo, teamAgentPanes } from "../shared/terminalLayout";
 import { isBoardId, readBoardCommand } from "../shared/boardCommands";
 import { createBoardManager } from "./boardManager";
 import { boardNotificationFor, type BoardNotificationKind } from "./boardNotification";
@@ -522,17 +522,18 @@ function askRenderer<T>(channel: string, payload: Record<string, unknown>, timeo
 const sendRelay = (event: object) => {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("team:relay", { ...event, at: Date.now() });
 };
+/** Tur 13: bölmenin canlı kayıtlı motoru (kabukta açılan ajan için). */
+const liveEngineOf = (paneId: string) => agentMonitor.agents().find((a) => a.reg.paneId === paneId)?.reg.engine ?? null;
 const teamLead = createTeamLead({
+  // Tur 13: kabukta açılan (canlı kayıtlı) motor da üye; rolü bölmenin kaydından.
   members: (workspaceId) =>
-    (loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId)?.panes ?? [])
-      .filter((p) => p.kind === "agent")
-      .map((p) => ({
-        paneId: p.id,
-        name: teamPaneName(p),
-        role: p.agent?.role ?? "",
-        engine: p.agent?.engine ?? "axet-code",
-        ...(p.agent?.spawnedBy ? { spawnedBy: p.agent.spawnedBy } : {})
-      })),
+    teamAgentPanes(loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId), liveEngineOf).map((m) => ({
+      paneId: m.paneId,
+      name: m.title?.trim() || m.engine,
+      role: m.role,
+      engine: m.engine,
+      ...(m.spawnedBy ? { spawnedBy: m.spawnedBy } : {})
+    })),
   paneCount: (workspaceId) => loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId)?.panes.length ?? 0,
   settings: () => {
     const cfg = loadConfig();
@@ -579,15 +580,14 @@ const teamBridge = createTeamBridge({
   members: (workspaceId) => {
     const ws = loadConfig().terminalWorkspaces.find((w) => w.id === workspaceId);
     const live = agentMonitor.agents();
-    return (ws?.panes ?? [])
-      .filter((p) => p.kind === "agent")
+    return teamAgentPanes(ws, liveEngineOf)
       .map((p) => {
-        const status = live.find((a) => a.reg.paneId === p.id)?.status ?? null;
+        const status = live.find((a) => a.reg.paneId === p.paneId)?.status ?? null;
         return {
-          paneId: p.id,
-          name: teamPaneName(p),
-          role: p.agent?.role ?? "",
-          engine: p.agent?.engine ?? "axet-code",
+          paneId: p.paneId,
+          name: p.title?.trim() || p.engine,
+          role: p.role,
+          engine: p.engine,
           state: status ? (status.detail === AXET_SETUP_DETAIL ? "setup" : status.state) : "closed",
           exact: status?.source === "exact"
         };
@@ -1647,7 +1647,11 @@ function registerIpc(): void {
   ipcMain.handle("agents:which", (_event, binary: unknown) => whereOnPath(typeof binary === "string" ? binary : ""));
 
   setTerminalTap({
-    onOutput: (id, data) => agentMonitor.onOutput(id, data),
+    onOutput: (id, data) => {
+      agentMonitor.onOutput(id, data);
+      // Tur 13: ↑ ile geçmişten çağrılan motor; açılış imzası ikinci sinyal.
+      shellAgentWatch.output(id, data);
+    },
     onExit: (id) => {
       agentMonitor.onExit(id);
       shellAgentWatch.forget(id);
@@ -1665,6 +1669,22 @@ function registerIpc(): void {
       // Yeni süreç: ekip aracı ipucu yeniden verilsin.
       teamHinted.delete(reg.paneId);
     }
+  });
+
+  // Tur 13: rol değişti / ekibe taşındı / kabuğa rol verildi. Lider olma durumu
+  // değiştiyse ekip rehberi yeniden verilsin; alan değiştiyse lider-açımı bağı bırakılsın.
+  ipcMain.handle("agents:update", (_event, paneId: unknown, raw: unknown) => {
+    const patch = readAgentPatch(raw);
+    if (typeof paneId !== "string" || !patch) return false;
+    const before = agentMonitor.agents().find((a) => a.reg.paneId === paneId)?.reg;
+    const ok = agentMonitor.update(paneId, patch);
+    if (ok && before && patch.role !== undefined && isLeadRole(before.role) !== isLeadRole(patch.role)) teamHinted.delete(paneId);
+    if (ok && before && patch.workspaceId && patch.workspaceId !== before.workspaceId) {
+      teamHinted.delete(paneId);
+      teamLead.forgetSpawn(paneId);
+    }
+    if (ok) appLog("ajan.guncellendi", { alan: Boolean(patch.workspaceId), rol: patch.role !== undefined });
+    return ok;
   });
 
   ipcMain.handle("agents:unregister", (_event, paneId: unknown) => {

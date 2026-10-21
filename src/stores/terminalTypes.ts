@@ -1,7 +1,7 @@
 // Terminal modunun bellekteki durumu (spec §4.2). Diske yalnız `toSaved`'ın
 // çıkardığı düzen yazılıyor; buradaki çalışma durumu yazılmıyor.
 
-import type { SavedTerminalWorkspace, SavedWorkspaceSap, TerminalMode, TerminalPaneColor, TerminalPaneKind, WorkspaceView } from "../../app-electron/shared/types";
+import type { SavedTerminalWorkspace, SavedWorkspaceSap, ShellAgentRecord, TerminalMode, TerminalPaneColor, TerminalPaneKind, WorkspaceView } from "../../app-electron/shared/types";
 import type { AgentSpec } from "../../app-electron/shared/agentTypes";
 import type { DropZone, LayoutNode, LayoutPath, PaneHome, SplitDir } from "../../app-electron/shared/terminalTree";
 
@@ -42,6 +42,8 @@ export interface TerminalPane {
    * tanımı. Yalnız bellekte: kalıcı düzende bölme kabuk, motor kapanınca siliniyor.
    */
   launched?: true;
+  /** Tur 13: kabuk bölmesinin kalıcı rol/bellek kaydı (Rol ver); motor açılınca ajan tanımına geçer. */
+  shellAgent?: ShellAgentRecord;
   /** Tur 12: SAP bağlan düğmesinden açıldı (Akış notu için; diske yazılmıyor). */
   openedFrom?: "sap";
 }
@@ -134,6 +136,7 @@ export type TerminalAction =
     }
   | { type: "shellAgentStarted"; paneId: string; agent: AgentSpec }
   | { type: "shellAgentEnded"; paneId: string }
+  | { type: "setShellAgent"; paneId: string; role: string; memory: boolean }
   | { type: "closePane"; paneId: string }
   | { type: "restartPane"; paneId: string; cwd?: string }
   | { type: "focusPane"; paneId: string }

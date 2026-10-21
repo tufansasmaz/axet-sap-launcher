@@ -757,3 +757,18 @@ describe("Tur 10: onResize", () => {
     expect(() => h.monitor.onResize("t1")).not.toThrow();
   });
 });
+
+// Tur 13: rol değiştirme / ekibe taşıma — kayıt yeniden yapılmadan (okuyucu korunur) alanlar güncelleniyor.
+describe("update", () => {
+  it("workspaceId, rol ve ad güncelleniyor; okuyucu aynı kalıyor", () => {
+    const h = harness();
+    h.monitor.register(reg({ workspaceId: "w1", role: "Analist" }));
+    const before = h.reader();
+    expect(h.monitor.update("p1", { workspaceId: "w2", role: "Lider", name: "Yeni" })).toBe(true);
+    const agent = h.monitor.agents().find((a) => a.reg.paneId === "p1");
+    expect(agent?.reg).toMatchObject({ workspaceId: "w2", role: "Lider", name: "Yeni" });
+    expect(h.reader()).toBe(before);
+    expect(before.disposed).toBe(false);
+    expect(h.monitor.update("yok", { role: "x" })).toBe(false);
+  });
+});

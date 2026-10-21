@@ -167,6 +167,8 @@ export interface TeamLead {
   retryText(paneId: string): string | null;
   /** Tur 9: hata kesinleşti; lider görevi değilse (kullanıcının işi) lidere yalnız bilgi. */
   onAgentError(workspaceId: string | undefined, paneId: string, status: AgentStatus): void;
+  /** Tur 13: bölme başka ekibe taşındı: lider-açımı bağı (bu oturumun kaydı) bırakılıyor; açtıkları da. */
+  forgetSpawn(paneId: string): void;
 }
 
 export function createTeamLead(deps: TeamLeadDeps): TeamLead {
@@ -682,6 +684,10 @@ export function createTeamLead(deps: TeamLeadDeps): TeamLead {
       return [...tasks.values()];
     },
     tick,
+    forgetSpawn(paneId) {
+      spawned.delete(paneId);
+      for (const [child, leader] of [...spawned]) if (leader === paneId) spawned.delete(child);
+    },
     retryText(paneId) {
       for (const t of tasks.values()) {
         if (t.targetPaneId === paneId && t.state === "sent") return leadTaskPrompt(t.leaderName, t.id, t.text);

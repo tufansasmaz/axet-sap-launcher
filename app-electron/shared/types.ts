@@ -328,6 +328,14 @@ export interface SavedTerminalPane {
   fontSize?: number;
   /** Yalnız `agent` türünde: hangi motor, hangi rol. */
   agent?: AgentSpec;
+  /** Tur 13: yalnız kabukta: kullanıcının verdiği rol ve bellek anahtarı (kabukta motor açılınca kullanılır). */
+  shellAgent?: ShellAgentRecord;
+}
+
+/** Tur 13: kabukta başlatılan ajanın bölme başına kalıcı kaydı. */
+export interface ShellAgentRecord {
+  role: string;
+  memory?: string;
 }
 
 export interface SavedMinimizedPane {

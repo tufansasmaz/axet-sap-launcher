@@ -170,6 +170,8 @@ export interface AxetApi {
   agentWhich: (binary: string) => Promise<boolean>;
   agentRegister: (reg: AgentRegistration) => Promise<void>;
   agentUnregister: (paneId: string) => Promise<void>;
+  /** Tur 13: rol değiştir / ekibe taşı / kabuğa rol ver; okuyucu korunur. */
+  agentUpdate?: (paneId: string, patch: { workspaceId?: string; role?: string; name?: string }) => Promise<boolean>;
   agentSend: (workspaceId: string, paneId: string, text: string) => Promise<AgentSendResult>;
   agentAnswer: (paneId: string, callId: string, index: number) => Promise<AgentAnswerResult>;
   agentAnswerText: (paneId: string, callId: string, text: string) => Promise<AgentAnswerResult>;

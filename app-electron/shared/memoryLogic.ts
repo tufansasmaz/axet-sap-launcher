@@ -46,7 +46,7 @@ export interface MemoryTarget {
   name: string;
 }
 
-type PanesOf = readonly { panes: readonly { agent?: AgentSpec }[] }[];
+type PanesOf = readonly { panes: readonly { agent?: AgentSpec; shellAgent?: { memory?: string } }[] }[];
 
 export function isMemoryKey(value: unknown): value is string {
   return typeof value === "string" && KEY_RE.test(value) && !RESERVED.test(value);
@@ -94,6 +94,9 @@ export function takenMemoryKeys(workspaces: PanesOf): Set<string> {
     for (const pane of workspace.panes) {
       const key = pane.agent?.memory;
       if (isMemoryKey(key)) out.add(key);
+      // Tur 13: kabuk bölmesinin kaydı (motor kapalıyken de anahtar tutulu).
+      const shellKey = pane.shellAgent?.memory;
+      if (isMemoryKey(shellKey)) out.add(shellKey);
     }
   }
   return out;
@@ -142,9 +145,10 @@ export function memoryTarget(
 ): MemoryTarget | null {
   const workspace = workspaces.find((w) => w.id === workspaceId);
   const pane = workspace?.panes.find((p) => p.id === paneId);
-  const key = pane?.kind === "agent" ? pane.agent?.memory : undefined;
-  if (!workspace || !pane || !pane.agent || !isMemoryKey(key)) return null;
+  // Tur 13: kabukta başlatılan ajanın belleği bölmenin kaydında (shellAgent).
+  const key = pane?.kind === "agent" ? pane.agent?.memory : pane?.shellAgent?.memory;
+  if (!workspace || !pane || (pane.kind === "agent" && !pane.agent) || !isMemoryKey(key)) return null;
   const root = workspace.root?.trim() || pane.cwd.trim();
   if (!root) return null;
-  return { root, key, name: pane.title ?? pane.agent.engine };
+  return { root, key, name: pane.title ?? pane.agent?.engine ?? pane.kind };
 }

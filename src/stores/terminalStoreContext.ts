@@ -56,6 +56,8 @@ export interface TerminalCommands {
   setWorkspaceBrowserUrl: (id: string, url: string) => void;
   /** Ajanın kalıcı belleğini açar (spec 2026-10-18 ajan-bellegi §4); anahtar addan türetilir. */
   enablePaneMemory: (paneId: string) => void;
+  /** Tur 13: kabuk bölmesine rol ve bellek (bölme kabuk kalır; kayıt kalıcı). */
+  setShellAgent: (paneId: string, role: string, memory: boolean) => void;
   /**
    * Araçlar → Kur: etkin alanda cmd bölmesi açar, ilk satırı sabit tablodan
    * (`setupLine`). Bölme kimliği; beyaz liste dışı anahtar, aynı motorun süren

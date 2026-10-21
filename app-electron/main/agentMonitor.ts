@@ -106,6 +106,8 @@ export interface MonitorDeps {
 
 export interface AgentMonitor {
   register(reg: AgentRegistration): void;
+  /** Tur 13: kayıtlı ajanın alanı/rolü/adı değişti (ekibe taşı, rol değiştir); okuyucu korunur. */
+  update(paneId: string, patch: AgentRegistrationPatch): boolean;
   unregister(paneId: string): void;
   onOutput(ptyId: string, data: string): void;
   /** Tur 10: bölme yeniden boyutlandı; ardından gelen yeniden çizim iş sayılmıyor. */
@@ -143,6 +145,24 @@ interface RetryChain {
   sentAt: number | null;
   blocked: RetryBlock | null;
   notifiedKey: string | null;
+}
+
+/** Tur 13: kayıt güncellemesi (yalnız bu alanlar). */
+export interface AgentRegistrationPatch {
+  workspaceId?: string;
+  role?: string;
+  name?: string;
+}
+
+/** IPC'den gelen güncelleme; bozuksa null. */
+export function readAgentPatch(raw: unknown): AgentRegistrationPatch | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const patch: AgentRegistrationPatch = {};
+  if (typeof r.workspaceId === "string" && /^[A-Za-z0-9][A-Za-z0-9-]{0,99}$/.test(r.workspaceId)) patch.workspaceId = r.workspaceId;
+  if (typeof r.role === "string") patch.role = r.role.trim().slice(0, AGENT_ROLE_MAX).trim();
+  if (typeof r.name === "string") patch.name = r.name.trim().slice(0, 80);
+  return Object.keys(patch).length ? patch : null;
 }
 
 interface Entry {
@@ -385,6 +405,18 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
     guard(() => entry.reader.dispose());
   }
 
+  function update(paneId: string, patch: AgentRegistrationPatch): boolean {
+    const entry = byPane.get(paneId);
+    if (!entry) return false;
+    entry.reg = {
+      ...entry.reg,
+      ...(typeof patch.workspaceId === "string" ? { workspaceId: patch.workspaceId } : {}),
+      ...(typeof patch.role === "string" ? { role: patch.role } : {}),
+      ...(typeof patch.name === "string" && patch.name.trim() ? { name: patch.name.trim() } : {})
+    };
+    return true;
+  }
+
   function register(reg: AgentRegistration): void {
     guard(() => {
       unregister(reg.paneId);
@@ -611,6 +643,7 @@ export function createAgentMonitor(deps: MonitorDeps): AgentMonitor {
 
   return {
     register,
+    update,
     unregister,
     onOutput(ptyId, data) {
       const entry = entryOfPty(ptyId);

@@ -271,3 +271,17 @@ describe("close ve status", () => {
     expect(text).toContain("Acilabilecek ajan: 3");
   });
 });
+
+// Tur 13: ekibe taşınan bölmenin lider-açımı bağı bırakılıyor (oturum içi kayıt).
+describe("forgetSpawn", () => {
+  it("lider açtığı ajanı unutunca o ajan artık 'lider açımı' sayılmıyor", async () => {
+    const h = harness({}, { members: [lead, dev] });
+    await h.team.handle(caller, ["spawn", "--rol", "Test"]);
+    const opened = h.members.find((m) => m.spawnedBy === "L");
+    if (!opened) throw new Error("açılmadı");
+    delete opened.spawnedBy;
+    expect(String((await h.team.handle(caller, ["status"])).body.text)).toContain("[senin actigin]");
+    h.team.forgetSpawn(opened.paneId);
+    expect(String((await h.team.handle(caller, ["status"])).body.text)).not.toContain("[senin actigin]");
+  });
+});

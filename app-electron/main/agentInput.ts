@@ -14,6 +14,12 @@ export class InputLineBuffer {
   private line = "";
   private pasting = false;
 
+  /**
+   * Tur 13: kabuk (cmd/PowerShell) satırında tek başına Esc satırı siler;
+   * ajan bölmesinde Esc soru kutusunu kapatır (satıra dokunmaz) — öntanımlı kapalı.
+   */
+  constructor(private readonly escClears = false) {}
+
   feed(data: string): string[] {
     const lines: string[] = [];
     let i = 0;
@@ -32,7 +38,9 @@ export class InputLineBuffer {
           continue;
         }
         const match = ESCAPE_SEQUENCE.exec(rest);
-        // Tek başına Esc (soru kutusunu kapatma vb.) yalnızca atlanıyor.
+        // Tek başına Esc (soru kutusunu kapatma vb.) yalnızca atlanıyor;
+        // kabukta (escClears) satırı siliyor. xterm tek Esc'i ayrı parça gönderiyor.
+        if (!match && this.escClears && !this.pasting && i + 1 === data.length) this.line = "";
         i += match ? match[0].length : 1;
         continue;
       }

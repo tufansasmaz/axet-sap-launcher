@@ -254,7 +254,8 @@ export function TerminalStoreProvider({
           roleKind: agent.roleKind,
           sap: Boolean(owner.workspace.sap),
           added: true,
-          role: "",
+          // Tur 13: bölmenin kalıcı kaydı (Rol ver) varsa rol ondan.
+          role: pane.shellAgent?.role ?? "",
           workspaceId: owner.workspace.id
         })
         .catch(() => {});
@@ -543,6 +544,7 @@ export function TerminalStoreProvider({
       setWorkspaceView: (id, view) => dispatch({ type: "setWorkspaceView", id, view }),
       setWorkspaceBrowserUrl: (id, url) => dispatch({ type: "setWorkspaceBrowserUrl", id, url }),
       enablePaneMemory: (paneId) => dispatch({ type: "enablePaneMemory", paneId }),
+      setShellAgent: (paneId, role, memory) => dispatch({ type: "setShellAgent", paneId, role, memory }),
       closePane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
         if (found) release(found.pane);
