@@ -58,6 +58,10 @@ export interface TerminalCommands {
   enablePaneMemory: (paneId: string) => void;
   /** Tur 13: kabuk bölmesine rol ve bellek (bölme kabuk kalır; kayıt kalıcı). */
   setShellAgent: (paneId: string, role: string, memory: boolean) => void;
+  /** Tur 13: ajan bölmesinin rol etiketi (yeniden başlatma gerekiyorsa çağıran restartPane der). */
+  setPaneRole: (paneId: string, role: string) => void;
+  /** Tur 13: bölmeyi başka ekibe taşı (süreç korunur); yapılamadıysa false. */
+  movePaneToWorkspace: (paneId: string, workspaceId: string) => boolean;
   /**
    * Araçlar → Kur: etkin alanda cmd bölmesi açar, ilk satırı sabit tablodan
    * (`setupLine`). Bölme kimliği; beyaz liste dışı anahtar, aynı motorun süren

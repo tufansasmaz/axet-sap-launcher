@@ -1,7 +1,8 @@
 // Ajan yönetimi (Tur 7): TÜM ekiplerdeki ajanlar tek tabloda. SAF yardımcılar:
 // satır üretimi, süzgeç (ekip/durum/motor), arama, sıralama, toplu seçim
 // özeti. Yeni arka uç yok: veri terminal deposu + ajan durumlarından.
-import type { AgentEngineId, AgentPhase, AgentStatus } from "../../app-electron/shared/agentTypes";
+import type { AgentEngineId, AgentPhase, AgentSpec, AgentStatus } from "../../app-electron/shared/agentTypes";
+import { isLeadRole } from "../../app-electron/shared/leadCommands";
 import type { TerminalPaneColor } from "../../app-electron/shared/types";
 import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
 import { isAgentPane } from "./agentView";
@@ -157,4 +158,17 @@ export function noteSession(ptyId: string, at: number): void {
 
 export function sessionStart(ptyId: string): number | null {
   return sessionStarts.get(ptyId) ?? null;
+}
+
+/**
+ * Tur 13: rol değişikliği ajanın açılış komutunu değiştiriyor mu (yeniden
+ * başlatma gerekir mi)? axet-code'da rol `--agent` ise; Claude'da kullanıcının
+ * açtığı ajan lider rolüne girip çıkıyorsa (--append-system-prompt). Öteki: yalnız etiket.
+ */
+export function roleNeedsRestart(spec: AgentSpec, role: string): boolean {
+  const next = role.trim();
+  if (next === spec.role) return false;
+  if (spec.engine === "axet-code" && spec.roleKind === "axetAgent") return true;
+  if (spec.engine === "claude" && !spec.spawnedBy) return isLeadRole(spec.role) !== isLeadRole(next);
+  return false;
 }

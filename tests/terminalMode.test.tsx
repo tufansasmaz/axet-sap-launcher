@@ -78,7 +78,9 @@ function commandsMock(): TerminalCommands {
     setWorkspaceView: vi.fn(),
     setWorkspaceBrowserUrl: vi.fn(),
     enablePaneMemory: vi.fn(),
-    setShellAgent: vi.fn()
+    setShellAgent: vi.fn(),
+    setPaneRole: vi.fn(),
+    movePaneToWorkspace: vi.fn()
   };
 }
 

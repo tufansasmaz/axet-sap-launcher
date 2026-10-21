@@ -3,9 +3,11 @@
 // açılış, lider açımı, bellek boyutu). Satır eylemleri mevcut terminal deposu
 // komutlarıyla: Terminalde göster, yeniden başlat, kapat (onaylı), yeniden
 // adlandır, renk, bellek, mesaj. Toplu seçimle yeniden başlat/kapat (onaylı).
-// Tur 13: kabukta açılan ajana "Rol ver" (rol + bellek; bölme kabuk kalır).
+// Tur 13: kabukta açılan ajana "Rol ver" (rol + bellek; bölme kabuk kalır);
+// "Rolü değiştir" (komutu değişiyorsa onaylı yeniden başlatma) ve "Ekibe taşı"
+// (süreç korunarak; ekip köprüsü ve izleyici alanı güncellenir).
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BookOpen, MessageSquare, Pencil, Plus, Power, RotateCw, Search, SquareTerminal, UserCog, Users } from "lucide-react";
+import { ArrowRightLeft, BookOpen, MessageSquare, Pencil, Plus, Power, RotateCw, Search, SquareTerminal, UserCog, Users } from "lucide-react";
 import { useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
 import ConfirmDialog from "../components/ConfirmDialog";
@@ -23,7 +25,7 @@ import { ENGINE_LABEL } from "./agentLabels";
 import { phaseText } from "./agentPhase";
 import { TONE_DOT, TONE_PILL, type StatusTone } from "./agentView";
 import { useFlow } from "./flowContext";
-import { roleChangedDetail } from "./flowText";
+import { movedTeamDetail, roleChangedDetail } from "./flowText";
 import MemoryDialog from "./MemoryDialog";
 import { memoryAge } from "./MemoryView";
 import { requestAddAgent, requestNewTeam } from "./addAgentBus";
@@ -34,6 +36,7 @@ import {
   MANAGE_STATES,
   manageRows,
   sessionStart,
+  roleNeedsRestart,
   sortRows,
   visibleSelection,
   type BulkAction,
@@ -76,7 +79,7 @@ const SEND_FAILURE: Record<AgentSendFailure, TranslationKey> = {
 const MESSAGE_MAX = 2_000;
 
 type Confirm = { action: BulkAction; ids: string[] };
-type ExpandMode = "rename" | "message" | "role";
+type ExpandMode = "rename" | "message" | "role" | "move";
 
 const clock = (at: number | null) => (at ? new Date(at).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "—");
 
@@ -311,7 +314,8 @@ function ManageRowView({
   onMemory: () => void;
 }) {
   const t = useT();
-  const { commands } = useTerminalStore();
+  const { state, commands } = useTerminalStore();
+  const canMove = state.workspaces.some((w) => w.id !== row.workspaceId);
   const color = PANE_COLOR_VAR[row.color];
   const live = row.state !== "stopped" && row.state !== "error" && row.state !== "starting";
   return (
@@ -399,11 +403,12 @@ function ManageRowView({
                 </option>
               ))}
             </select>
-            {row.launched && (
-              <IconAction label={t("manage.role")} onClick={() => onExpand(expanded === "role" ? null : "role")}>
-                <UserCog size={13} />
-              </IconAction>
-            )}
+            <IconAction label={t(row.launched ? "manage.role" : "manage.roleChange")} onClick={() => onExpand(expanded === "role" ? null : "role")}>
+              <UserCog size={13} />
+            </IconAction>
+            <IconAction label={t("manage.move")} disabled={!canMove} onClick={() => onExpand(expanded === "move" ? null : "move")}>
+              <ArrowRightLeft size={13} />
+            </IconAction>
             <IconAction label={t("manage.memory")} onClick={onMemory}>
               <BookOpen size={13} />
             </IconAction>
@@ -424,6 +429,8 @@ function ManageRowView({
               <RenameForm row={row} name={name} onDone={() => onExpand(null)} />
             ) : expanded === "role" ? (
               <RoleForm row={row} name={name} onDone={() => onExpand(null)} />
+            ) : expanded === "move" ? (
+              <MoveForm row={row} name={name} onDone={() => onExpand(null)} />
             ) : (
               <MessageForm row={row} name={name} onDone={() => onExpand(null)} />
             )}
@@ -468,40 +475,94 @@ function RenameForm({ row, name, onDone }: { row: ManageRow; name: string; onDon
   );
 }
 
-/** Tur 13: kabuk ajanına rol + bellek. Kayıt bölmede kalıcı; izleyiciye rol hemen gider. */
+/**
+ * Tur 13: rol. Kabuk ajanı: rol + bellek bölmenin kalıcı kaydına (Rol ver).
+ * Ajan bölmesi: rol etiketi; açılış komutu değişiyorsa (axet --agent, Claude
+ * lideri) düğme "Kaydet ve yeniden başlat" olur — tıklamak onaydır.
+ */
 function RoleForm({ row, name, onDone }: { row: ManageRow; name: string; onDone: () => void }) {
   const t = useT();
-  const { commands } = useTerminalStore();
+  const { state, commands } = useTerminalStore();
   const { record } = useFlow();
   const [role, setRole] = useState(row.role);
   const [memory, setMemory] = useState(Boolean(row.memory));
+  const next = role.replace(/\s+/g, " ").trim();
+  const spec = row.launched ? undefined : state.workspaces.flatMap((w) => w.panes).find((p) => p.id === row.paneId)?.agent;
+  const restart = spec ? roleNeedsRestart(spec, next) : false;
   return (
     <form
       data-manage-role=""
       className="flex flex-col gap-1"
       onSubmit={(e) => {
         e.preventDefault();
-        const next = role.replace(/\s+/g, " ").trim();
-        commands.setShellAgent(row.paneId, next, memory);
-        void window.api.agentUpdate?.(row.paneId, { role: next })?.catch(() => false);
+        if (row.launched) commands.setShellAgent(row.paneId, next, memory);
+        else if (next !== row.role) commands.setPaneRole(row.paneId, next);
+        if (restart) commands.restartPane(row.paneId);
+        else if (row.launched || next !== row.role) void window.api.agentUpdate?.(row.paneId, { role: next })?.catch(() => false);
         if (next !== row.role) record({ at: Date.now(), workspaceId: row.workspaceId, kind: "note", paneId: row.paneId, name, detail: roleChangedDetail(row.role, next) });
         onDone();
       }}
     >
       <div className="flex flex-wrap items-center gap-1.5">
         <input autoFocus aria-label={t("manage.roleInput")} placeholder={t("manage.roleInput")} value={role} maxLength={40} onChange={(e) => setRole(e.target.value)} className={`${INPUT_CLASS} h-7 max-w-xs text-xs`} />
-        <label className="flex items-center gap-1 text-2xs text-slate-300">
-          <input type="checkbox" checked={memory} onChange={(e) => setMemory(e.target.checked)} />
-          {t("manage.roleMemory")}
-        </label>
+        {row.launched && (
+          <label className="flex items-center gap-1 text-2xs text-slate-300">
+            <input type="checkbox" checked={memory} onChange={(e) => setMemory(e.target.checked)} />
+            {t("manage.roleMemory")}
+          </label>
+        )}
         <button type="submit" className={TOOL_BUTTON}>
-          {t("common.save")}
+          {t(restart ? "manage.roleSaveRestart" : "common.save")}
         </button>
         <button type="button" onClick={onDone} className={TOOL_BUTTON}>
           {t("common.cancel")}
         </button>
       </div>
-      <p className="text-2xs text-slate-500">{t("manage.roleShellHint")}</p>
+      <p className={`text-2xs ${restart ? "text-[var(--status-warning-text)]" : "text-slate-500"}`}>
+        {t(row.launched ? "manage.roleShellHint" : restart ? "manage.roleRestartHint" : "manage.roleLabelHint")}
+      </p>
+    </form>
+  );
+}
+
+/** Tur 13: ekibe taşı. Süreç korunur; izleyicinin alanı güncellenir, iki ekibin Akış'ına not. */
+function MoveForm({ row, name, onDone }: { row: ManageRow; name: string; onDone: () => void }) {
+  const t = useT();
+  const { state, commands } = useTerminalStore();
+  const { record } = useFlow();
+  const others = state.workspaces.filter((w) => w.id !== row.workspaceId);
+  const [target, setTarget] = useState(others.find((w) => w.panes.length < MAX_TERMINAL_PANES)?.id ?? "");
+  return (
+    <form
+      data-manage-move=""
+      className="flex flex-col gap-1"
+      onSubmit={(e) => {
+        e.preventDefault();
+        const to = others.find((w) => w.id === target);
+        if (!to || !commands.movePaneToWorkspace(row.paneId, to.id)) return;
+        void window.api.agentUpdate?.(row.paneId, { workspaceId: to.id })?.catch(() => false);
+        const detail = movedTeamDetail(row.team, to.name);
+        record({ at: Date.now(), workspaceId: to.id, kind: "note", paneId: row.paneId, name, detail });
+        record({ at: Date.now(), workspaceId: row.workspaceId, kind: "note", paneId: row.paneId, name, detail });
+        onDone();
+      }}
+    >
+      <div className="flex flex-wrap items-center gap-1.5">
+        <select autoFocus aria-label={t("manage.moveTarget")} value={target} onChange={(e) => setTarget(e.target.value)} className={`${INPUT_CLASS} h-7 !w-auto text-xs`}>
+          {others.map((w) => (
+            <option key={w.id} value={w.id} disabled={w.panes.length >= MAX_TERMINAL_PANES}>
+              {w.panes.length >= MAX_TERMINAL_PANES ? t("manage.moveFull", { team: w.name }) : w.name}
+            </option>
+          ))}
+        </select>
+        <button type="submit" disabled={!target} className={`${TOOL_BUTTON} disabled:opacity-40`}>
+          {t("manage.moveSubmit")}
+        </button>
+        <button type="button" onClick={onDone} className={TOOL_BUTTON}>
+          {t("common.cancel")}
+        </button>
+      </div>
+      <p className="text-2xs text-slate-500">{t("manage.moveHint")}</p>
     </form>
   );
 }

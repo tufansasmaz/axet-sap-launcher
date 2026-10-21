@@ -137,6 +137,8 @@ export type TerminalAction =
   | { type: "shellAgentStarted"; paneId: string; agent: AgentSpec }
   | { type: "shellAgentEnded"; paneId: string }
   | { type: "setShellAgent"; paneId: string; role: string; memory: boolean }
+  | { type: "movePaneToWorkspace"; paneId: string; workspaceId: string }
+  | { type: "setPaneRole"; paneId: string; role: string }
   | { type: "closePane"; paneId: string }
   | { type: "restartPane"; paneId: string; cwd?: string }
   | { type: "focusPane"; paneId: string }

@@ -141,7 +141,7 @@ export function readShellAgent(raw: unknown): ShellAgentRecord | null {
   if (!raw || typeof raw !== "object") return null;
   const record = raw as Record<string, unknown>;
   if (typeof record.role !== "string") return null;
-  const role = record.role.replace(/\s+/g," ").trim().slice(0, AGENT_ROLE_MAX).trim();
+  const role = record.role.replace(/\s+/g, " ").trim().slice(0, AGENT_ROLE_MAX).trim();
   const memory = isMemoryKey(record.memory) ? record.memory : undefined;
   if (!role && !memory) return null;
   return { role, ...(memory ? { memory } : {}) };

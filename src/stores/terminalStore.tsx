@@ -545,6 +545,14 @@ export function TerminalStoreProvider({
       setWorkspaceBrowserUrl: (id, url) => dispatch({ type: "setWorkspaceBrowserUrl", id, url }),
       enablePaneMemory: (paneId) => dispatch({ type: "enablePaneMemory", paneId }),
       setShellAgent: (paneId, role, memory) => dispatch({ type: "setShellAgent", paneId, role, memory }),
+      setPaneRole: (paneId, role) => dispatch({ type: "setPaneRole", paneId, role }),
+      movePaneToWorkspace: (paneId, workspaceId) => {
+        const before = stateRef.current;
+        const next = terminalReducer(before, { type: "movePaneToWorkspace", paneId, workspaceId });
+        if (next === before) return false;
+        dispatch({ type: "movePaneToWorkspace", paneId, workspaceId });
+        return true;
+      },
       closePane: (paneId) => {
         const found = findPane(stateRef.current, paneId);
         if (found) release(found.pane);

@@ -60,6 +60,10 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
         const [from, to] = event.detail.slice(ROLE_CHANGED.length).split("|");
         return t("flow.note.roleChanged", { from: from || "—", to: to || "—" });
       }
+      if (event.detail.startsWith(MOVED_TEAM)) {
+        const [from, to] = event.detail.slice(MOVED_TEAM.length).split("|");
+        return t("flow.note.movedTeam", { from: from || "—", to: to || "—" });
+      }
       if (event.detail.startsWith(SAP_OPENED)) {
         const [sid, team] = event.detail.slice(SAP_OPENED.length).split("|");
         return t("flow.note.sapOpened", { sid: sid || "—", team: team || "—" });
@@ -95,6 +99,13 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
 
 const SAP_OPENED = "sapOpened|";
 const ROLE_CHANGED = "roleChanged|";
+const MOVED_TEAM = "movedTeam|";
+
+/** Tur 13: bölme başka ekibe taşındı notu. */
+export function movedTeamDetail(from: string, to: string): string {
+  const clean = (v: string) => v.split("|").join(" ").trim().slice(0, 60);
+  return `${MOVED_TEAM}${clean(from)}|${clean(to)}`;
+}
 
 /** Tur 13: rol verildi/değişti notu ("note" ayrıntısı; "|" ayırıcı). */
 export function roleChangedDetail(from: string, to: string): string {

@@ -76,3 +76,52 @@ describe("kabuk ajanına Rol ver", () => {
     expect(h.record).toHaveBeenCalledWith(expect.objectContaining({ kind: "note", workspaceId: "a", paneId: "k1", detail: "roleChanged||Analist" }));
   });
 });
+
+const agentPane = (id: string, agent: TerminalPane["agent"]): TerminalPane => ({ id, kind: "agent", cwd: "C:\\p", title: `Ajan ${id}`, agent, run: { state: "running", ptyId: `t-${id}` } });
+
+describe("rolü değiştir", () => {
+  it("yalnız etiket: yeniden başlatma yok, izleyiciye rol, Akış'a not", () => {
+    const h = harness([ws("a", [agentPane("p1", { engine: "axet-code", role: "Test", roleKind: "preset" })])]);
+    const row = screen.getByText("Ajan p1").closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Rolü değiştir" }));
+    expect(screen.queryByLabelText("Kalıcı bellek açık")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Rol"), { target: { value: "Lider" } });
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
+    expect(h.commands.setPaneRole).toHaveBeenCalledWith("p1", "Lider");
+    expect(h.commands.restartPane).not.toHaveBeenCalled();
+    expect(agentUpdate).toHaveBeenCalledWith("p1", { role: "Lider" });
+    expect(h.record).toHaveBeenCalledWith(expect.objectContaining({ kind: "note", detail: "roleChanged|Test|Lider" }));
+  });
+
+  it("açılış komutu değişiyorsa (Claude lideri): uyarı + onaylı yeniden başlatma", () => {
+    const h = harness([ws("a", [agentPane("p1", { engine: "claude", role: "Analist", roleKind: "custom" })])]);
+    const row = screen.getByText("Ajan p1").closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Rolü değiştir" }));
+    fireEvent.change(screen.getByLabelText("Rol"), { target: { value: "Lider" } });
+    expect(screen.getByText(/yeniden başlatılır/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Kaydet ve yeniden başlat" }));
+    expect(h.commands.setPaneRole).toHaveBeenCalledWith("p1", "Lider");
+    expect(h.commands.restartPane).toHaveBeenCalledWith("p1");
+    expect(agentUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe("ekibe taşı", () => {
+  it("hedef ekip seçilip taşınıyor; izleyiciye yeni alan; iki ekibin Akış'ına not", () => {
+    const h = harness([ws("a", [agentPane("p1", { engine: "axet-code", role: "Test", roleKind: "preset" })]), ws("b", [])]);
+    const row = screen.getByText("Ajan p1").closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Ekibe taşı" }));
+    fireEvent.change(screen.getByLabelText("Hedef ekip"), { target: { value: "b" } });
+    fireEvent.click(screen.getByRole("button", { name: "Taşı" }));
+    expect(h.commands.movePaneToWorkspace).toHaveBeenCalledWith("p1", "b");
+    expect(agentUpdate).toHaveBeenCalledWith("p1", { workspaceId: "b" });
+    expect(h.record).toHaveBeenCalledWith(expect.objectContaining({ kind: "note", workspaceId: "b", detail: "movedTeam|Ekip a|Ekip b" }));
+    expect(h.record).toHaveBeenCalledWith(expect.objectContaining({ kind: "note", workspaceId: "a", detail: "movedTeam|Ekip a|Ekip b" }));
+  });
+
+  it("tek ekip varken düğme kapalı", () => {
+    harness([ws("a", [agentPane("p1", { engine: "axet-code", role: "Test", roleKind: "preset" })])]);
+    const row = screen.getByText("Ajan p1").closest("tr") as HTMLElement;
+    expect((within(row).getByRole("button", { name: "Ekibe taşı" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+});

@@ -145,6 +145,24 @@ function withPane(workspace: TerminalWorkspace, pane: TerminalPane, split?: { ta
   };
 }
 
+/** Bölmeyi alandan çıkarır (ağaç, küçültülenler, odak, büyütme). */
+function withoutPane(workspace: TerminalWorkspace, paneId: string): TerminalWorkspace {
+  const before = leafIds(layoutOf(workspace));
+  const layout = removePane(layoutOf(workspace), paneId);
+  const after = leafIds(layout);
+  const index = before.indexOf(paneId);
+  const focusedPaneId =
+    workspace.focusedPaneId === paneId ? (after[Math.min(Math.max(index, 0), after.length - 1)] ?? null) : workspace.focusedPaneId;
+  return {
+    ...workspace,
+    panes: workspace.panes.filter((p) => p.id !== paneId),
+    layout,
+    minimized: minimizedOf(workspace).filter((m) => m.paneId !== paneId),
+    focusedPaneId,
+    maximizedPaneId: workspace.maximizedPaneId === paneId ? null : workspace.maximizedPaneId
+  };
+}
+
 function patchPane(workspace: TerminalWorkspace, paneId: string, patch: Partial<TerminalPane>): TerminalWorkspace {
   return { ...workspace, panes: workspace.panes.map((p) => (p.id === paneId ? { ...p, ...patch } : p)) };
 }
@@ -372,7 +390,7 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       // kapatılınca kayıttan düşüyor (dosya diskte kalır). Boş rol + kapalı bellek → kayıt yok.
       const found = findPane(state, action.paneId);
       if (!found || found.pane.kind === "agent") return state;
-      const role = action.role.replace(/\s+/g," ").trim().slice(0, AGENT_ROLE_MAX).trim();
+      const role = action.role.replace(/\s+/g, " ").trim().slice(0, AGENT_ROLE_MAX).trim();
       const previous = found.pane.shellAgent?.memory ?? (found.pane.launched ? found.pane.agent?.memory : undefined);
       const memory = action.memory
         ? isMemoryKey(previous)
@@ -402,23 +420,32 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     case "closePane": {
       const found = findPane(state, action.paneId);
       if (!found) return state;
-      const { workspace } = found;
-      const before = leafIds(layoutOf(workspace));
-      const layout = removePane(layoutOf(workspace), action.paneId);
-      const after = leafIds(layout);
-      const index = before.indexOf(action.paneId);
-      const focusedPaneId =
-        workspace.focusedPaneId === action.paneId
-          ? (after[Math.min(Math.max(index, 0), after.length - 1)] ?? null)
-          : workspace.focusedPaneId;
-      return replaceWorkspace(state, {
-        ...workspace,
-        panes: workspace.panes.filter((p) => p.id !== action.paneId),
-        layout,
-        minimized: minimizedOf(workspace).filter((m) => m.paneId !== action.paneId),
-        focusedPaneId,
-        maximizedPaneId: workspace.maximizedPaneId === action.paneId ? null : workspace.maximizedPaneId
-      });
+      return replaceWorkspace(state, withoutPane(found.workspace, action.paneId));
+    }
+    case "movePaneToWorkspace": {
+      // Tur 13: ekibe taşı. Bölme (ve run içindeki ptyId) olduğu gibi gidiyor:
+      // süreç yeniden başlatılmıyor. Lider-açımı bağı kalkıyor (taşınanın ve
+      // taşınan liderin kaynakta açtıklarının); lider kuralı yeni ekipte baştan.
+      const found = findPane(state, action.paneId);
+      const target = state.workspaces.find((w) => w.id === action.workspaceId);
+      if (state.phase !== "ready" || !found || !target || target.id === found.workspace.id || target.panes.length >= MAX_TERMINAL_PANES) return state;
+      const unlink = (p: TerminalPane): TerminalPane => {
+        if (!p.agent?.spawnedBy || (p.id !== action.paneId && p.agent.spawnedBy !== action.paneId)) return p;
+        const { spawnedBy: _s, ...agent } = p.agent;
+        return { ...p, agent };
+      };
+      const source = withoutPane(found.workspace, action.paneId);
+      const next = replaceWorkspace(state, { ...source, panes: source.panes.map(unlink) });
+      return replaceWorkspace(next, withPane(target, unlink(found.pane)));
+    }
+    case "setPaneRole": {
+      // Tur 13: rol etiketi. Komutu değişen (axet --agent, Claude lideri) bölmeyi çağıran yeniden başlatıyor.
+      const found = findPane(state, action.paneId);
+      const agent = found?.pane.kind === "agent" ? found.pane.agent : undefined;
+      if (!found || !agent) return state;
+      const role = action.role.replace(/\s+/g, " ").trim().slice(0, AGENT_ROLE_MAX).trim();
+      if (role === agent.role) return state;
+      return replaceWorkspace(state, updatePane(found.workspace, action.paneId, { agent: { ...agent, role } }));
     }
     case "restartPane": {
       const found = findPane(state, action.paneId);
