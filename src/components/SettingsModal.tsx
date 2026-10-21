@@ -36,6 +36,7 @@ import {
   normalizeRetryMax,
   normalizeStallMinutes
 } from "../../app-electron/shared/agentErrors";
+import { FLOW_HISTORY_DAYS_OPTIONS, normalizeFlowHistoryDays } from "../../app-electron/shared/flowHistory";
 
 // Tur 9: ajan hatası ayarlarının seçenekleri.
 const RETRY_MAX_OPTIONS = Array.from({ length: RETRY_MAX_LIMIT }, (_, i) => i + 1);
@@ -721,6 +722,13 @@ export default function SettingsModal({
                 value={String(form.leadStallMinutes ?? STALL_MINUTES_DEFAULT)}
                 onChange={(value) => update({ leadStallMinutes: normalizeStallMinutes(Number(value)) })}
                 options={STALL_MINUTES_OPTIONS.map((n) => ({ key: String(n), label: n === 0 ? t("settingsModal.leadStallOff") : t("settingsModal.minutesShort", { n }) }))}
+              />
+            </Field>
+            <Field label={t("settingsModal.flowHistoryDaysLabel")} hint={t("settingsModal.flowHistoryDaysHint")}>
+              <SegmentedControl
+                value={String(normalizeFlowHistoryDays(form.flowHistoryDays))}
+                onChange={(value) => update({ flowHistoryDays: normalizeFlowHistoryDays(Number(value)) })}
+                options={FLOW_HISTORY_DAYS_OPTIONS.map((n) => ({ key: String(n), label: t("settingsModal.daysShort", { n }) }))}
               />
             </Field>
           </div>

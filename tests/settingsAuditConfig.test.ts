@@ -149,3 +149,19 @@ describe("Tur 10: memoryAutoCapture (konuşmadan belleğe otomatik not)", () => 
     expect((await store({ memoryAutoCapture: false })).loadConfig().memoryAutoCapture).toBe(false);
   });
 });
+
+describe("eklenen (2026-10-21): flowHistoryDays (Akış geçmişi süresi)", () => {
+  it("varsayılan 14; yalnız 7/14/30 korunuyor", async () => {
+    expect((await store(null)).loadConfig().flowHistoryDays).toBe(14);
+    vi.resetModules();
+    expect((await store({ flowHistoryDays: 30 })).loadConfig().flowHistoryDays).toBe(30);
+    vi.resetModules();
+    expect((await store({ flowHistoryDays: 99 })).loadConfig().flowHistoryDays).toBe(14);
+  });
+  it("ana süreç kaydederken ayardaki günü kullanıyor; Pano aralığı flow:range (kaynak düzeyi)", async () => {
+    const { readFileSync: read } = await import("node:fs");
+    const main = read(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8");
+    expect(main).toContain("saveFlowHistory(flowHistoryDir(), workspaceId, events, { days: loadConfig().flowHistoryDays })");
+    expect(main).toContain('ipcMain.handle("flow:range"');
+  });
+});

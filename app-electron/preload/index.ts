@@ -78,7 +78,7 @@ import type {
 } from "../shared/changesTypes";
 import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic";
 import type { AgentSendResult } from "../shared/agentMessage";
-import type { StoredFlowEvent, TeamRelayMessage } from "../shared/flowHistory";
+import type { FlowRange, StoredFlowEvent, TeamRelayMessage } from "../shared/flowHistory";
 import type { AgentAutoSetupEvent } from "../shared/axetSetupPrefs";
 import type { ShellAgentLaunchEvent } from "../shared/agentTypes";
 import type { LeadApprovalRequest, LeadCloseRequest, LeadSpawnRequest, WithRequestId } from "../shared/leadCommands";
@@ -237,6 +237,7 @@ const api = {
   // Akış geçmişi ve ekip köprüsü (Tur 4).
   flowLoad: (workspaceId: string): Promise<StoredFlowEvent[]> => ipcRenderer.invoke("flow:load", workspaceId),
   flowSave: (workspaceId: string, events: StoredFlowEvent[]): Promise<boolean> => ipcRenderer.invoke("flow:save", workspaceId, events),
+  flowRange: (workspaceId: string, from: number, to?: number): Promise<FlowRange> => ipcRenderer.invoke("flow:range", workspaceId, from, to),
   flowClear: (workspaceId: string): Promise<boolean> => ipcRenderer.invoke("flow:clear", workspaceId),
   notesList: (workspaceId: string): Promise<MemoryNote[]> => ipcRenderer.invoke("notes:list", workspaceId),
   notesAdd: (workspaceId: string, input: NoteInput): Promise<NoteResult> => ipcRenderer.invoke("notes:add", workspaceId, input),

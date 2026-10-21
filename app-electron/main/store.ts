@@ -23,6 +23,7 @@ import { MAIN_EN } from "./i18n/en";
 import { normalizeActiveWorkspaceId, normalizeTerminalWorkspaces } from "../shared/terminalLayout";
 import { LEAD_MAX_DEFAULT, normalizeLeadMax } from "../shared/leadCommands";
 import { normalizeAutoModel, normalizeAutoTool } from "../shared/axetSetupPrefs";
+import { FLOW_HISTORY_DAYS_DEFAULT, normalizeFlowHistoryDays } from "../shared/flowHistory";
 import { CONCURRENCY_DEFAULT, RETRY_MAX_DEFAULT, STALL_MINUTES_DEFAULT, normalizeConcurrency, normalizeRetryMax, normalizeStallMinutes } from "../shared/agentErrors";
 
 const LEGACY_AXET_COMMANDS = new Set(["axet-code", "axet-code.exe"]);
@@ -149,7 +150,8 @@ function defaultConfig(): AppConfig {
     agentAutoRetry: true,
     agentRetryMax: RETRY_MAX_DEFAULT,
     agentConcurrency: CONCURRENCY_DEFAULT,
-    leadStallMinutes: STALL_MINUTES_DEFAULT
+    leadStallMinutes: STALL_MINUTES_DEFAULT,
+    flowHistoryDays: FLOW_HISTORY_DAYS_DEFAULT
   };
 }
 
@@ -268,7 +270,8 @@ export function loadConfig(): AppConfig {
       agentAutoRetry: parsed.agentAutoRetry === false ? false : fallback.agentAutoRetry,
       agentRetryMax: normalizeRetryMax(parsed.agentRetryMax),
       agentConcurrency: normalizeConcurrency(parsed.agentConcurrency),
-      leadStallMinutes: normalizeStallMinutes(parsed.leadStallMinutes)
+      leadStallMinutes: normalizeStallMinutes(parsed.leadStallMinutes),
+      flowHistoryDays: normalizeFlowHistoryDays(parsed.flowHistoryDays)
     };
     // `...parsed` eski alanları da taşıyor; bir kere okunup göç ettirildikten
     // sonra dosyada kalmaları yalnızca kafa karıştırır (üç alan, ikisi ölü).

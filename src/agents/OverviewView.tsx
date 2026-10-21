@@ -41,7 +41,8 @@ import {
   type RangeSpec
 } from "./dashboard";
 import { useFlow } from "./flowContext";
-import { FLOW_MAX } from "./flowEvents";
+import { FLOW_STORE_MAX } from "../../app-electron/shared/flowHistory";
+import { useFlowHistory } from "./useFlowHistory";
 import { flowBody } from "./flowText";
 import { overviewOf } from "./overview";
 import { REPO_WARNING } from "./RepoChip";
@@ -235,8 +236,10 @@ export default function OverviewView({ workspace }: { workspace: TerminalWorkspa
 
   const board = boards[workspace.id];
   const o = overviewOf({ workspace, statuses, board, changes, events: allEvents, engines });
-  const events = useMemo(() => allEvents.filter((e) => e.workspaceId === workspace.id), [allEvents, workspace.id]);
   const range = useMemo(() => rangeSpec(rangeKey, now), [rangeKey, now]);
+  // 2026-10-21: bellekteki liste 500'de; aralığın eski kısmı kalıcı kayıttan.
+  const history = useFlowHistory(workspace.id, range.from);
+  const events = history.events;
   const fmt = formatters(language, range);
   const rangeName = t(RANGE_LABEL[rangeKey]);
   const panes = agentPanes(workspace);
@@ -253,8 +256,8 @@ export default function OverviewView({ workspace }: { workspace: TerminalWorkspa
   const verify = verifyRate(board);
   const rows = agentRows(panes, statuses, events, board, range);
   const today = events.filter((e) => e.at >= startOfToday(now)).length;
-  const oldest = events[0]?.at;
-  const capped = events.length >= FLOW_MAX && oldest !== undefined && oldest > range.from;
+  const oldest = history.oldest;
+  const capped = history.full && oldest !== undefined && oldest > range.from;
 
   const kpis: Kpi[] = [
     { key: "active", label: "dash.kpiActive", value: o.agents.running + o.agents.asking, of: o.agents.total, spark: occupancy(lanes, range, ["running", "asking"]), what: "dash.sparkActive", target: "office" },
@@ -350,7 +353,7 @@ export default function OverviewView({ workspace }: { workspace: TerminalWorkspa
           ))}
         </ul>
         {capped && (
-          <p className="text-2xs text-slate-500">{t("dash.coverage", { max: FLOW_MAX, date: fmt.when(oldest!) })}</p>
+          <p className="text-2xs text-slate-500">{t("dash.coverage", { max: FLOW_STORE_MAX, date: fmt.when(oldest!) })}</p>
         )}
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
@@ -426,7 +429,7 @@ export default function OverviewView({ workspace }: { workspace: TerminalWorkspa
             </HealthRow>
             <HealthRow name={t("dash.history")} workspaceId={workspace.id}>
               <span className="text-2xs text-slate-400">
-                {t("dash.historyCount", { count: events.length, max: FLOW_MAX })}
+                {t("dash.historyCount", { count: history.total, max: FLOW_STORE_MAX })}
                 {oldest !== undefined && ` · ${fmt.when(oldest)}`}
               </span>
             </HealthRow>

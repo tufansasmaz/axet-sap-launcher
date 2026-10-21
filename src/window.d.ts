@@ -93,7 +93,7 @@ import type {
   UpdateStatus
 } from "../app-electron/shared/types";
 import type { WriteCsvResult, WriteHistoryResult } from "../app-electron/shared/sapWriteHistory";
-import type { StoredFlowEvent, TeamRelayMessage } from "../app-electron/shared/flowHistory";
+import type { FlowRange, StoredFlowEvent, TeamRelayMessage } from "../app-electron/shared/flowHistory";
 import type { AgentAutoSetupEvent } from "../app-electron/shared/axetSetupPrefs";
 import type { ShellAgentLaunchEvent } from "../app-electron/shared/agentTypes";
 import type { LeadApprovalRequest, LeadCloseRequest, LeadSpawnRequest, WithRequestId } from "../app-electron/shared/leadCommands";
@@ -195,6 +195,8 @@ export interface AxetApi {
   onChangesChanged: (callback: (state: ChangesState) => void) => () => void;
   flowLoad: (workspaceId: string) => Promise<StoredFlowEvent[]>;
   flowSave: (workspaceId: string, events: StoredFlowEvent[]) => Promise<boolean>;
+  /** 2026-10-21: Pano/Raporlar için kalıcı kayıttan aralık. */
+  flowRange?: (workspaceId: string, from: number, to?: number) => Promise<FlowRange>;
   flowClear: (workspaceId: string) => Promise<boolean>;
   notesList: (workspaceId: string) => Promise<MemoryNote[]>;
   notesAdd: (workspaceId: string, input: NoteInput) => Promise<NoteResult>;

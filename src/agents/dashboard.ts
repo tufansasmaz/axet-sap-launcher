@@ -1,8 +1,8 @@
 // Pano grafiklerinin SAF hesapları (2026-10-19). Yeni arka uç verisi yok:
-// zaman serileri kalıcı Akış geçmişinden (Tur 4, alan başına en çok 500 olay),
-// görev dağılımı panodan, değişiklik özeti Değişiklikler kaydından türetiliyor.
-// Geçmiş 500 olayla sınırlı: 7 günlük görünümün başı boş kalabilir — ekran
-// bunu "en eski olay" notuyla söylüyor, uydurmuyor.
+// zaman serileri kalıcı Akış geçmişinden (2026-10-21: zaman tabanlı kayıt,
+// aralık diskten — useFlowHistory), görev dağılımı panodan, değişiklik özeti
+// Değişiklikler kaydından türetiliyor. Kayıt olay tavanına dayanırsa aralığın
+// başı boş kalabilir — ekran bunu "en eski olay" notuyla söylüyor, uydurmuyor.
 import type { AgentStatus } from "../../app-electron/shared/agentTypes";
 import { SUBTASK_STATES, type Board, type SubtaskState } from "../../app-electron/shared/boardTypes";
 import type { Checkpoint, FileChange } from "../../app-electron/shared/changesTypes";

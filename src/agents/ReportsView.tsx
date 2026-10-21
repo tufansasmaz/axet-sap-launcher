@@ -4,7 +4,7 @@
 // liste, sağda seçilen raporun ayrıntısı; Markdown dışa aktarma kaydet
 // diyaloğuyla (ana süreç). Renk yalnız durum jetonlarından; lime yalnız seçili
 // satırın çizgisinde.
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { CheckCircle2, CircleAlert, CircleDot, Download, FileText, Hand, X } from "lucide-react";
 import { useLanguage, useT } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
@@ -15,7 +15,7 @@ import { useChangesFocus } from "../changes/changesFocus";
 import { Eyebrow } from "../ui/Eyebrow";
 import { agentName } from "./agentLabels";
 import { TONE_PILL } from "./agentView";
-import { useFlow } from "./flowContext";
+import { useFlowHistory } from "./useFlowHistory";
 import { flowBody } from "./flowText";
 import {
   DATE_FILTERS,
@@ -76,7 +76,6 @@ export default function ReportsView({ workspace }: { workspace: TerminalWorkspac
   const language = useLanguage();
   const { commands } = useTerminalStore();
   const { boards } = useBoards();
-  const { events: allEvents } = useFlow();
   const { requestFocus } = useChangesFocus();
   const changes = useWorkspaceChanges(workspace.id, workspace.root ?? "");
   const [agent, setAgent] = useState("");
@@ -87,7 +86,8 @@ export default function ReportsView({ workspace }: { workspace: TerminalWorkspac
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  const events = useMemo(() => allEvents.filter((e) => e.workspaceId === workspace.id), [allEvents, workspace.id]);
+  // 2026-10-21: bellekteki liste 500 olayla sınırlı; eski adımlar kalıcı kayıttan (tüm saklama süresi).
+  const { events } = useFlowHistory(workspace.id, 0);
   const nameOf = (paneId: string | null) => {
     const pane = paneId ? workspace.panes.find((p) => p.id === paneId) : undefined;
     return pane ? agentName(pane, t) : "";
