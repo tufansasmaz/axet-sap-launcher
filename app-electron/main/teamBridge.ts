@@ -18,6 +18,7 @@ import http from "node:http";
 import type { AgentStatus } from "../shared/agentTypes";
 import type { StoredFlowEvent } from "../shared/flowHistory";
 import { runMemoryCommand, type MemoryCommandStore } from "../shared/memoryCommands";
+import { GENERAL_MEMORY_ID } from "../shared/memoryNotes";
 import type { LeadAct } from "../shared/leadCommands";
 
 export interface TeamMember {
@@ -192,6 +193,8 @@ export function createTeamBridge(deps: TeamBridgeDeps, secret: Buffer = randomBy
           }
           const result = runMemoryCommand(args, { paneId: caller.paneId, name: caller.name }, deps.memory(caller.workspaceId));
           if (result.changed) deps.memoryChanged?.(caller.workspaceId);
+          // Tur 13: ortak Genel bellek değişti; bütün ekiplerin Bellek ekranı yenilensin.
+          if (result.changedGeneral) deps.memoryChanged?.(GENERAL_MEMORY_ID);
           deps.log("ekip.bellek", { sonuc: result.status, degisti: result.changed });
           return json(result.status, { ok: result.status < 400, text: result.text, ...(result.status >= 400 ? { error: result.text } : {}) });
         }

@@ -7,6 +7,8 @@
 //   ntt-team memory link "<baslik A>" "<baslik B>"
 //   ntt-team memory update "<baslik|kimlik>" "<ek metin>" [--etiket a,b] [--gorev og-…]
 //   ntt-team memory list [--ben]
+//   ntt-team memory add … --genel   (Tur 13: ekipler arası ortak Genel bellek;
+//                                     search/get genel notları da bulur, "genel" işaretli)
 //
 // `--gorev <og-…>`: öğrenme görevinin (learnTasks.ts) yazdığı not o göreve
 // işaretlenir (add: kaynak görev; update: notun `tasks` listesi); Bellek ekranı
@@ -22,6 +24,7 @@ import {
   normalizeTags,
   searchNotes,
   TEAM_OWNER,
+  asGeneralNote,
   withLink,
   type MemoryNote,
   type NoteInput,
@@ -34,6 +37,8 @@ export interface MemoryCommandStore {
   list(): MemoryNote[];
   add(input: NoteInput): NoteResult;
   update(id: string, patch: NotePatch): NoteResult;
+  /** Tur 13: ekipler arası ortak Genel bellek (yoksa --genel kapalı). */
+  general?: Pick<MemoryCommandStore, "list" | "add">;
 }
 
 export interface MemoryCommandCaller {
@@ -45,6 +50,8 @@ export interface MemoryCommandOutput {
   status: number;
   text: string;
   changed: boolean;
+  /** Tur 13: Genel bellek değişti. */
+  changedGeneral?: boolean;
 }
 
 export const MEMORY_USAGE = [
@@ -55,6 +62,7 @@ export const MEMORY_USAGE = [
   '  ntt-team memory link "<baslik A>" "<baslik B>"',
   '  ntt-team memory update "<baslik|kimlik>" "<ek metin>" [--etiket a,b]',
   "  ntt-team memory list [--ben]",
+  '  ntt-team memory add "<baslik>" "<govde>" --genel   (tum ekiplerin gordugu Genel bellek; search/get genel notlari da bulur)',
   "Varsayilan ekip bellegi; --ben kendi bellegin. Govdede [[baslik]] baska nota baglar. Sifre/token yazma."
 ].join("\n");
 
@@ -105,6 +113,15 @@ const flagText = (p: Parsed, ...names: string[]): string | undefined => {
   return undefined;
 };
 const mine = (p: Parsed) => p.flags.has("ben") || p.flags.has("me");
+const general = (p: Parsed) => p.flags.has("genel") || p.flags.has("general");
+/** Genel notlar (işaretli); okunamazsa boş. */
+const generalNotes = (store: MemoryCommandStore): MemoryNote[] => {
+  try {
+    return (store.general?.list() ?? []).map(asGeneralNote);
+  } catch {
+    return [];
+  }
+};
 
 const ownerLabel = (note: MemoryNote, caller: MemoryCommandCaller) =>
   note.owner === TEAM_OWNER ? "ekip" : note.owner === caller.paneId ? "sen" : note.ownerName ?? note.owner;
@@ -140,6 +157,12 @@ export function runMemoryCommand(rawArgs: unknown, caller: MemoryCommandCaller, 
       const own = mine(p);
       const task = flagText(p, "gorev", "task");
       if (task !== undefined && !isLearnTaskId(task)) return out(400, `Gecersiz gorev kimligi "${task}".`);
+      if (general(p)) {
+        if (!store.general) return out(404, "Genel bellek kapali.");
+        const shared = store.general.add({ title, body: rest.join("\n"), kind: kind ?? "not", tags: flagText(p, "etiket", "tags", "tag") ?? [], owner: TEAM_OWNER, source: { type: "agent", name: caller.name } });
+        if (!shared.ok) return out(shared.reason === "invalid" ? 400 : 409, REASON[shared.reason] ?? shared.reason);
+        return { ...out(200, `Kaydedildi (genel): ${line(asGeneralNote(shared.note), caller)}`), changedGeneral: true };
+      }
       const result = store.add({
         title,
         body: rest.join("\n"),
@@ -156,7 +179,7 @@ export function runMemoryCommand(rawArgs: unknown, caller: MemoryCommandCaller, 
     case "ara": {
       const query = p.positional.join(" ");
       if (!query) return out(400, MEMORY_USAGE);
-      const pool = visible(store.list(), caller).filter((n) => !mine(p) || n.owner === caller.paneId);
+      const pool = [...visible(store.list(), caller), ...generalNotes(store)].filter((n) => !mine(p) || n.owner === caller.paneId);
       const hits = searchNotes(pool, query, 8);
       if (hits.length === 0) return out(200, `Bellekte "${query}" bulunamadi.`);
       return out(200, [`${hits.length} sonuc:`, ...hits.map((h) => `${line(h.note, caller)}${h.snippet ? `\n    ${h.snippet}` : ""}`)].join("\n"));
@@ -165,8 +188,10 @@ export function runMemoryCommand(rawArgs: unknown, caller: MemoryCommandCaller, 
     case "oku": {
       const ref = p.positional.join(" ");
       if (!ref) return out(400, MEMORY_USAGE);
-      const notes = visible(store.list(), caller);
-      const note = findNote(notes, ref);
+      const own = visible(store.list(), caller);
+      const shared = generalNotes(store);
+      const notes = [...own, ...shared];
+      const note = findNote(own, ref) ?? findNote(shared, ref);
       if (!note) return out(404, `"${ref}" adli not yok. Ara: ntt-team memory search "<sorgu>"`);
       const links = extractLinks(note.body);
       const back = backlinks(notes, note).map((n) => n.title);

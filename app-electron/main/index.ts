@@ -68,7 +68,7 @@ import { removeBrowserScreenshot, writeBrowserScreenshot } from "./browserFiles"
 import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from "./memoryFiles";
 import { createMemoryNotifier } from "./memoryNotifier";
 import { createNotesStore } from "./memoryNotesStore";
-import { memoryDigest } from "../shared/memoryNotes";
+import { GENERAL_MEMORY_ID, memoryDigest } from "../shared/memoryNotes";
 import { rulesDigest } from "../shared/memoryRules";
 import { createRulesStore } from "./memoryRulesStore";
 import { createMemoryService } from "./memoryService";
@@ -609,7 +609,12 @@ const teamBridge = createTeamBridge({
   memory: (workspaceId) => ({
     list: () => notesStore.list(workspaceId),
     add: (input) => notesStore.add(workspaceId, input),
-    update: (id, patch) => notesStore.update(workspaceId, id, patch)
+    update: (id, patch) => notesStore.update(workspaceId, id, patch),
+    // Tur 13: ekipler arası ortak Genel bellek (memory-notes/genel.json).
+    general: {
+      list: () => notesStore.list(GENERAL_MEMORY_ID),
+      add: (input) => notesStore.add(GENERAL_MEMORY_ID, input)
+    }
   }),
   memoryChanged: notifyNotesChanged,
   lead: (caller, args) => teamLead.handle(caller, args)

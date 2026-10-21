@@ -2136,6 +2136,7 @@ export const en: Record<TranslationKey, string> = {
   "brain.newNote": "New note",
   "brain.team": "Team",
   "brain.teamMemory": "Team memory",
+  "brain.general": "General",
   "brain.kind.karar": "Decision",
   "brain.kind.olgu": "Fact",
   "brain.kind.kisi": "Person / system",

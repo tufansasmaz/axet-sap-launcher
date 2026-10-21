@@ -130,3 +130,34 @@ describe("ntt-team memory — ogrenme gorevi", () => {
     expect(MEMORY_USAGE).toContain("memory update");
   });
 });
+
+// Tur 13: ekipler arası ortak "Genel" bellek.
+describe("ntt-team memory --genel", () => {
+  it("add --genel genel belleğe yazıyor (ekip değil); changedGeneral", () => {
+    const team = memStore();
+    const general = memStore();
+    const r = runMemoryCommand(["add", "Kurum kuralı", "Her yerde geçerli", "--genel"], ali, { ...team, general });
+    expect(r).toMatchObject({ status: 200, changed: false, changedGeneral: true });
+    expect(r.text).toContain("genel");
+    expect(team.notes).toHaveLength(0);
+    expect(general.notes[0]).toMatchObject({ title: "Kurum kuralı", owner: "" });
+  });
+
+  it("genel bellek yoksa --genel reddediliyor", () => {
+    const r = runMemoryCommand(["add", "X", "--genel"], ali, memStore());
+    expect(r.status).toBe(404);
+  });
+
+  it("arama ve get genel notları da buluyor, işaretli", () => {
+    const team = memStore([createNote({ title: "Fatura ekip notu" }, 1, "n-team0001")!]);
+    const general = memStore([createNote({ title: "Fatura kurum kuralı", body: "genel metin" }, 2, "n-genl0001")!]);
+    const s = { ...team, general };
+    const found = runMemoryCommand(["search", "Fatura"], ali, s);
+    expect(found.text).toContain("Fatura ekip notu");
+    expect(found.text).toMatch(/Fatura kurum kuralı \(not, genel\)/);
+    const got = runMemoryCommand(["get", "Fatura kurum kuralı"], ali, s);
+    expect(got.status).toBe(200);
+    expect(got.text).toContain("genel metin");
+    expect(runMemoryCommand(["search", "Fatura", "--ben"], ali, s).text).not.toContain("kurum");
+  });
+});

@@ -9,8 +9,11 @@ import { Filter, Plus, Search, X } from "lucide-react";
 import { useT } from "../../i18n";
 import type { TranslationKey } from "../../i18n/tr";
 import {
+  asGeneralNote,
   buildGraph,
   filterActive,
+  GENERAL_MEMORY_ID,
+  GENERAL_OWNER,
   filterNotes,
   NOTE_KINDS,
   normalizeTags,
@@ -21,7 +24,10 @@ import {
   type GraphNode,
   type MemoryNote,
   type NoteFilter,
-  type NoteKind
+  type NoteInput,
+  type NoteKind,
+  type NotePatch,
+  type NoteResult
 } from "../../../app-electron/shared/memoryNotes";
 import type { TerminalWorkspace } from "../../stores/terminalTypes";
 import { Tabs } from "../../ui/Tabs";
@@ -52,7 +58,27 @@ const toggle = <T,>(set: ReadonlySet<T>, value: T): Set<T> => {
 
 export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspace }) {
   const t = useT();
-  const { notes, loaded, add, update, remove } = useMemoryNotes(workspace.id);
+  const team = useMemoryNotes(workspace.id);
+  // Tur 13: ekipler arası ortak Genel bellek; ekip notlarıyla birlikte, "Genel" işaretli.
+  const shared = useMemoryNotes(GENERAL_MEMORY_ID);
+  const loaded = team.loaded;
+  const generalIds = useMemo(() => new Set(shared.notes.map((n) => n.id)), [shared.notes]);
+  const notes = useMemo(() => [...team.notes, ...shared.notes.map(asGeneralNote)], [team.notes, shared.notes]);
+  const toShared = <T extends { owner?: string; ownerName?: string }>(x: T): T => ({ ...x, owner: TEAM_OWNER, ownerName: undefined });
+  const add = (input: NoteInput): Promise<NoteResult> => (input.owner === GENERAL_OWNER ? shared.add(toShared(input)) : team.add(input));
+  const remove = (id: string): Promise<boolean> => (generalIds.has(id) ? shared.remove(id) : team.remove(id));
+  const update = async (id: string, patch: NotePatch, expected?: number): Promise<NoteResult> => {
+    const wasGeneral = generalIds.has(id);
+    const toGeneral = patch.owner === undefined ? wasGeneral : patch.owner === GENERAL_OWNER;
+    if (wasGeneral === toGeneral) return wasGeneral ? shared.update(id, toShared(patch), expected) : team.update(id, patch, expected);
+    // Ekip ↔ Genel arası taşıma: hedefe ekle, kaynaktan sil.
+    const note = notes.find((n) => n.id === id);
+    if (!note) return { ok: false, reason: "missing" };
+    const input: NoteInput = { title: patch.title ?? note.title, body: patch.body ?? note.body, kind: patch.kind ?? note.kind, tags: patch.tags ?? note.tags, owner: patch.owner, ownerName: patch.ownerName, source: note.source };
+    const added = await add(input);
+    if (added.ok) await (wasGeneral ? shared.remove(id) : team.remove(id));
+    return added;
+  };
   const [mode, setMode] = useState<Mode>("map");
   const [query, setQuery] = useState("");
   const [kinds, setKinds] = useState<ReadonlySet<NoteKind>>(new Set());
@@ -72,9 +98,9 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
     [learn.highlight, workspace.id]
   );
   const learnTopic = (ref: string) => learn.tasks.find((x) => x.id === ref)?.topic;
-  const ownerOptions: OwnerOption[] = agents.map((a) => ({ id: a.id, name: a.name }));
+  const ownerOptions: OwnerOption[] = [...agents.map((a) => ({ id: a.id, name: a.name })), { id: GENERAL_OWNER, name: t("brain.general") }];
   const ownerName = (owner: string, fallback?: string) =>
-    owner === TEAM_OWNER ? t("brain.teamMemory") : agents.find((a) => a.id === owner)?.name ?? fallback ?? owner;
+    owner === TEAM_OWNER ? t("brain.teamMemory") : owner === GENERAL_OWNER ? t("brain.general") : agents.find((a) => a.id === owner)?.name ?? fallback ?? owner;
 
   const graph = useMemo(() => {
     const g = buildGraph(notes, agents);
@@ -133,7 +159,10 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
     if (node.type === "team") return "rgb(203 213 225)";
     return "rgb(100 116 139)";
   }, [agents]);
-  const labelOf = useCallback((node: GraphNode) => (node.type === "team" ? t("brain.team") : short(node.label)), [t]);
+  const labelOf = useCallback(
+    (node: GraphNode) => (node.type === "team" ? t("brain.team") : node.type === "agent" && node.ref === GENERAL_OWNER ? t("brain.general") : short(node.label)),
+    [t]
+  );
   const ariaOf = useCallback((node: GraphNode) => {
     if (node.type === "note") return t("brain.nodeNote", { kind: t(`brain.kind.${node.kind ?? "not"}` as TranslationKey), title: node.label, links: node.degree });
     if (node.type === "agent") return t("brain.nodeAgent", { name: node.label, count: counts.get(node.ref) ?? 0 });
@@ -317,6 +346,9 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
                 {a.name}
               </FilterChip>
             ))}
+            <FilterChip pressed={owners.has(GENERAL_OWNER)} onClick={() => setOwners((s) => toggle(s, GENERAL_OWNER))}>
+              {t("brain.general")}
+            </FilterChip>
           </ChipGroup>
           {tagList.length > 0 && (
             <ChipGroup label={t("brain.filterTag")}>

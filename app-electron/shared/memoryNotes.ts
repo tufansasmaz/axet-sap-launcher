@@ -19,6 +19,15 @@ export const NOTES_MAX = 2_000;
 /** Ekip dosyasının bayt sınırı. */
 export const NOTES_FILE_MAX = 4 * 1024 * 1024;
 export const TEAM_OWNER = "";
+/** Tur 13: ekipler arası ortak "Genel" bellek: dosya kimliği (memory-notes/genel.json). */
+export const GENERAL_MEMORY_ID = "genel";
+/** Tur 13: ekranda ve komut çıktısında genel notun sahip işareti (diskte owner ""). */
+export const GENERAL_OWNER = "genel:";
+
+/** Genel notun ekip görünümündeki kopyası (işaretli). */
+export function asGeneralNote(note: MemoryNote): MemoryNote {
+  return { ...note, owner: GENERAL_OWNER, ownerName: "genel" };
+}
 
 export type NoteSourceType = "user" | "agent" | "flow" | "task";
 export interface NoteSource {

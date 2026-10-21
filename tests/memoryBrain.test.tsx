@@ -11,6 +11,8 @@ import type { TerminalPane, TerminalWorkspace } from "../src/stores/terminalType
 import { applyPatch, createNote, type MemoryNote } from "../app-electron/shared/memoryNotes";
 
 let notes: MemoryNote[];
+/** Tur 13: ortak Genel bellek (workspaceId "genel"). */
+let general: MemoryNote[];
 let api: Record<string, ReturnType<typeof vi.fn>>;
 let changed: ((id: string) => void) | null;
 
@@ -23,25 +25,32 @@ beforeEach(() => {
     mk("Stok önbelleği", { kind: "ogrenim", body: "60 sn", owner: "b" })
   ];
   changed = null;
+  general = [];
   api = {
-    notesList: vi.fn(async () => notes.map((n) => ({ ...n }))),
-    notesAdd: vi.fn(async (_w: string, input: Parameters<typeof createNote>[0]) => {
-      const note = createNote(input, 9_000, "n-new0001")!;
-      notes.push(note);
+    notesList: vi.fn(async (w: string) => (w === "genel" ? general : notes).map((n) => ({ ...n }))),
+    notesAdd: vi.fn(async (w: string, input: Parameters<typeof createNote>[0]) => {
+      const note = createNote(input, 9_000, w === "genel" ? "n-gen0001" : "n-new0001")!;
+      (w === "genel" ? general : notes).push(note);
       return { ok: true, note };
     }),
-    notesUpdate: vi.fn(async (_w: string, id: string, patch: object, expected?: number) => {
-      const at = notes.findIndex((n) => n.id === id);
-      if (expected !== undefined && notes[at].updated !== expected) return { ok: false, reason: "changed" };
-      notes[at] = applyPatch(notes[at], patch, 9_500)!;
-      return { ok: true, note: notes[at] };
+    notesUpdate: vi.fn(async (w: string, id: string, patch: object, expected?: number) => {
+      const arr = w === "genel" ? general : notes;
+      const at = arr.findIndex((n) => n.id === id);
+      if (expected !== undefined && arr[at].updated !== expected) return { ok: false, reason: "changed" };
+      arr[at] = applyPatch(arr[at], patch, 9_500)!;
+      return { ok: true, note: arr[at] };
     }),
     notesRemove: vi.fn(async (_w: string, id: string) => {
       notes = notes.filter((n) => n.id !== id);
       return true;
     }),
     onNotesChanged: vi.fn((cb: (id: string) => void) => {
-      changed = cb;
+      // Tur 13: ekip ve Genel bellek ayrı abone; hepsine iletilir.
+      const prev = changed;
+      changed = (id: string) => {
+        prev?.(id);
+        cb(id);
+      };
       return () => undefined;
     }),
     memoryRead: vi.fn(async () => ({ ok: true, content: "# Ayşe\n- eski bellek", rel: "x.md", stamp: "s", notice: "sent" }))
@@ -233,5 +242,43 @@ describe("MemoryBrain — liste ve dosyalar", () => {
     setup();
     await flush();
     expect(document.querySelector("[data-brain-empty]")?.textContent).toContain("İkinci beyin henüz boş");
+  });
+});
+
+describe("MemoryBrain — Genel bellek (Tur 13)", () => {
+  it("genel notlar işaretli görünüyor; süzgeçte Genel çipi; yeni not Genel'e yazılıyor", async () => {
+    general = [{ ...createNote({ title: "Kurum kuralı" }, 5_000, "n-gen0009")!, updated: 99_000 }];
+    setup();
+    await flush();
+    expect(api.notesList).toHaveBeenCalledWith("genel");
+    fireEvent.click(screen.getByRole("tab", { name: "Liste" }));
+    const list = screen.getByRole("list", { name: "Notlar" });
+    const first = within(list).getAllByRole("button")[0];
+    expect(first.textContent).toContain("Kurum kuralı");
+    expect(first.textContent).toContain("Genel");
+    fireEvent.click(screen.getByRole("button", { name: /Süzgeç/ }));
+    fireEvent.click(within(screen.getByRole("group", { name: "Kimin" })).getByRole("button", { name: "Genel" }));
+    expect(within(screen.getByRole("list", { name: "Notlar" })).getAllByRole("button")).toHaveLength(1);
+    fireEvent.click(screen.getAllByRole("button", { name: "Yeni not" })[0]);
+    const form = screen.getByRole("form", { name: "Yeni not" });
+    fireEvent.change(within(form).getByLabelText("Başlık"), { target: { value: "Ortak karar" } });
+    fireEvent.change(within(form).getByLabelText("Kimin belleği"), { target: { value: "genel:" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Kaydet" }));
+    await flush();
+    expect(api.notesAdd).toHaveBeenCalledWith("genel", expect.objectContaining({ title: "Ortak karar", owner: "" }));
+  });
+
+  it("genel not düzenlenince Genel belleğe yazılıyor", async () => {
+    general = [createNote({ title: "Kurum kuralı" }, 5_000, "n-gen0009")!];
+    setup();
+    await flush();
+    fireEvent.click(screen.getByRole("tab", { name: "Liste" }));
+    fireEvent.click(within(screen.getByRole("list", { name: "Notlar" })).getByRole("button", { name: /Kurum kuralı/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Düzenle" }));
+    const form = screen.getByRole("form", { name: "Düzenle" });
+    fireEvent.change(within(form).getByLabelText("Başlık"), { target: { value: "Kurum kuralı 2" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Kaydet" }));
+    await flush();
+    expect(api.notesUpdate).toHaveBeenCalledWith("genel", "n-gen0009", expect.objectContaining({ title: "Kurum kuralı 2", owner: "" }), expect.any(Number));
   });
 });

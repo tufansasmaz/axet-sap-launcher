@@ -2222,6 +2222,7 @@ export const tr = {
   "brain.newNote": "Yeni not",
   "brain.team": "Ekip",
   "brain.teamMemory": "Ekip belleği",
+  "brain.general": "Genel",
   "brain.kind.karar": "Karar",
   "brain.kind.olgu": "Olgu",
   "brain.kind.kisi": "Kişi / sistem",
