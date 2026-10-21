@@ -84,6 +84,7 @@ import type { ShellAgentLaunchEvent } from "../shared/agentTypes";
 import type { LeadApprovalRequest, LeadCloseRequest, LeadSpawnRequest, WithRequestId } from "../shared/leadCommands";
 import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
 import type { MemoryNote, NoteInput, NotePatch, NoteResult } from "../shared/memoryNotes";
+import type { MemoryRules } from "../shared/memoryRules";
 
 const api = {
   getLandscape: () => ipcRenderer.invoke("landscape:get"),
@@ -244,6 +245,8 @@ const api = {
   notesUpdate: (workspaceId: string, id: string, patch: NotePatch, expectedUpdated?: number): Promise<NoteResult> =>
     ipcRenderer.invoke("notes:update", workspaceId, id, patch, expectedUpdated),
   notesRemove: (workspaceId: string, id: string): Promise<boolean> => ipcRenderer.invoke("notes:remove", workspaceId, id),
+  rulesGet: (workspaceId: string): Promise<MemoryRules> => ipcRenderer.invoke("rules:get", workspaceId),
+  rulesSet: (workspaceId: string, rules: MemoryRules): Promise<"ok" | "invalid" | "tooLarge" | "writeFailed"> => ipcRenderer.invoke("rules:set", workspaceId, rules),
   onNotesChanged: (callback: (workspaceId: string) => void) => {
     const listener = (_event: unknown, workspaceId: string) => callback(workspaceId);
     ipcRenderer.on("notes:changed", listener);

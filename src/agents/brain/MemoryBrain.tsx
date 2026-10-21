@@ -34,9 +34,10 @@ import MemoryGraphView, { KIND_COLOR } from "./MemoryGraphView";
 import { KindChip, NoteEditor, NoteView, noteAge, type NoteDraft, type OwnerOption } from "./NoteDetail";
 import { useMemoryNotes } from "./useMemoryNotes";
 import LearnPanel from "./LearnPanel";
+import RulesPanel from "./RulesPanel";
 import { useLearn } from "./learnContext";
 
-type Mode = "map" | "list" | "files";
+type Mode = "map" | "list" | "files" | "rules";
 type Panel = { kind: "view" } | { kind: "edit" } | { kind: "new"; draft: NoteDraft } | null;
 
 const LABEL_MAX = 28;
@@ -270,10 +271,11 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
           items={[
             { value: "map", label: t("brain.mode.map") },
             { value: "list", label: t("brain.mode.list") },
-            { value: "files", label: t("brain.mode.files") }
+            { value: "files", label: t("brain.mode.files") },
+            { value: "rules", label: t("brain.mode.rules") }
           ]}
         />
-        {mode !== "files" && (
+        {mode !== "files" && mode !== "rules" && (
           <>
             <div className="relative ml-auto w-60">
               <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden />
@@ -297,7 +299,7 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
         )}
       </div>
 
-      {mode !== "files" && (showFilter || filterCount > 0) && (
+      {mode !== "files" && mode !== "rules" && (showFilter || filterCount > 0) && (
         <div data-brain-filters="" className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-line px-4 py-2">
           <ChipGroup label={t("brain.filterKind")}>
             {NOTE_KINDS.map((k) => (
@@ -346,6 +348,10 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
           <div className="relative min-w-0 flex-1">
             <MemoryView workspace={workspace} />
           </div>
+        ) : mode === "rules" ? (
+          <div className="relative min-w-0 flex-1">
+            <RulesPanel workspace={workspace} />
+          </div>
         ) : (
           <>
             <div className="relative min-w-0 flex-1">
@@ -379,7 +385,7 @@ export default function MemoryBrain({ workspace }: { workspace: TerminalWorkspac
           </>
         )}
       </div>
-      {mode !== "files" && (
+      {mode !== "files" && mode !== "rules" && (
         <LearnPanel workspaceId={workspace.id} agents={agents} preferredAgentId={selected?.startsWith("agent:") ? selected.slice(6) : null} />
       )}
     </div>

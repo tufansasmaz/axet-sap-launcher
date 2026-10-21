@@ -69,6 +69,8 @@ import { ensureMemoryFile, memoryAbsPath, readMemoryFile, writeMemoryFile } from
 import { createMemoryNotifier } from "./memoryNotifier";
 import { createNotesStore } from "./memoryNotesStore";
 import { memoryDigest } from "../shared/memoryNotes";
+import { rulesDigest } from "../shared/memoryRules";
+import { createRulesStore } from "./memoryRulesStore";
 import { createMemoryService } from "./memoryService";
 import { browserSession, liveBrowserGuest } from "./browserLive";
 import type { ChangesFailure } from "../shared/changesTypes";
@@ -491,6 +493,8 @@ const flowHistoryDir = () => path.join(app.getPath("userData"), "flow-history");
 // Bellek notları — ikinci beyin (Tur 5): userData/memory-notes/<ekip>.json,
 // atomik yazım, gizli süzgeçli. Ekip kapanınca silinmiyor.
 const notesStore = createNotesStore(() => path.join(app.getPath("userData"), "memory-notes"));
+// Tur 13: "Kimlik ve kurallar" (ekip ve ajan kuralları): userData/memory-rules/<ekip>.json.
+const rulesStore = createRulesStore(() => path.join(app.getPath("userData"), "memory-rules"));
 function notifyNotesChanged(workspaceId: string): void {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("notes:changed", workspaceId);
 }
@@ -687,8 +691,11 @@ const memoryNotifier = createMemoryNotifier({
   // Tur 5: yeni oturumda ekip belleği özeti (başlıklar, ≤700 karakter).
   // Ayarlar > Ajanlar'dan kapatılabiliyor (agentMemoryDigest, 2026-10-19):
   // boş dize → satır eskisi gibi yalnız bellek yolu.
+  // Tur 13: kullanıcının "Kimlik ve kurallar"ı önde (özet ayarı kapalıyken de gider).
   digest: (workspaceId, paneId) =>
-    loadConfig().agentMemoryDigest === false ? "" : memoryDigest(notesStore.list(workspaceId), paneId)
+    [rulesDigest(rulesStore.get(workspaceId), paneId), loadConfig().agentMemoryDigest === false ? "" : memoryDigest(notesStore.list(workspaceId), paneId)]
+      .filter(Boolean)
+      .join(" ")
 });
 
 const memoryService = createMemoryService({
@@ -1733,6 +1740,9 @@ function registerIpc(): void {
           teamHint: TEAM_HINT
         });
         if (hint && text.length + hint.length <= 2000) line = `${text}${hint}`;
+        // Tur 13: ilk mesajda (lider rehberiyle birlikte) kullanıcının kuralları; bellek kapalı ajana da gitsin.
+        const rules = !teamHinted.has(key) && typeof workspaceId === "string" ? rulesDigest(rulesStore.get(workspaceId), key) : "";
+        if (rules && typeof line === "string" && line.length + rules.length + 3 <= 2000) line = `${line} (${rules})`;
       }
       const result = await agentSender.send(workspaceId, paneId, line);
       if (result.ok && line !== text) teamHinted.add(key);
@@ -1775,6 +1785,10 @@ function registerIpc(): void {
     if (removed && typeof workspaceId === "string") notifyNotesChanged(workspaceId);
     return removed;
   });
+
+  // Tur 13: Kimlik ve kurallar (yalnız ana pencereden; gizli süzgeçli, atomik).
+  ipcMain.handle("rules:get", (event, workspaceId: unknown) => (fromMain(event) ? rulesStore.get(workspaceId) : { team: "", agents: {} }));
+  ipcMain.handle("rules:set", (event, workspaceId: unknown, rules: unknown) => (fromMain(event) ? rulesStore.set(workspaceId, rules) : "invalid"));
 
   ipcMain.handle("board:get", (_event, workspaceId: unknown) => {
     if (typeof workspaceId !== "string") return null;

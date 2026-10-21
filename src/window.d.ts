@@ -15,6 +15,7 @@ import type { BrowserSendResult, BrowserShortcut } from "../app-electron/shared/
 import type { AgentSendResult } from "../app-electron/shared/agentMessage";
 import type { MemoryReadResult, MemoryWriteResult } from "../app-electron/shared/memoryLogic";
 import type { MemoryNote, NoteInput, NotePatch, NoteResult } from "../app-electron/shared/memoryNotes";
+import type { MemoryRules } from "../app-electron/shared/memoryRules";
 import type {
   ActiveContext,
   ActiveGuiContext,
@@ -202,6 +203,9 @@ export interface AxetApi {
   notesAdd: (workspaceId: string, input: NoteInput) => Promise<NoteResult>;
   notesUpdate: (workspaceId: string, id: string, patch: NotePatch, expectedUpdated?: number) => Promise<NoteResult>;
   notesRemove: (workspaceId: string, id: string) => Promise<boolean>;
+  /** Tur 13: Kimlik ve kurallar. */
+  rulesGet?: (workspaceId: string) => Promise<MemoryRules>;
+  rulesSet?: (workspaceId: string, rules: MemoryRules) => Promise<"ok" | "invalid" | "tooLarge" | "writeFailed">;
   onNotesChanged: (callback: (workspaceId: string) => void) => () => void;
   onAgentAutoSetup: (callback: (event: AgentAutoSetupEvent) => void) => () => void;
   onShellAgentLaunch: (callback: (event: ShellAgentLaunchEvent) => void) => () => void;
