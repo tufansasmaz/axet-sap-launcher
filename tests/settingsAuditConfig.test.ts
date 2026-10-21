@@ -70,10 +70,11 @@ describe("eklenen: agentMemoryDigest (ajan başlangıç bellek özeti)", () => {
 });
 
 describe("agentMemoryDigest bağlantısı (kaynak düzeyi)", () => {
+  // Tur 13: kullanıcının "Kimlik ve kurallar"ı önde ve ayardan bağımsız; not özeti yine ayara bağlı.
   it("bildirimcinin özeti ayar kapalıyken boş dize", async () => {
     const { readFileSync: read } = await import("node:fs");
     const main = read(path.join(__dirname, "..", "app-electron", "main", "index.ts"), "utf8").replace(/\r\n/g, "\n");
-    expect(main).toMatch(/digest: \(workspaceId, paneId\) =>\s*loadConfig\(\)\.agentMemoryDigest === false \? "" : memoryDigest\(/);
+    expect(main).toMatch(/digest: \(workspaceId, paneId\) =>\s*\[rulesDigest\([^\]]*\), loadConfig\(\)\.agentMemoryDigest === false \? "" : memoryDigest\(/);
   });
 });
 

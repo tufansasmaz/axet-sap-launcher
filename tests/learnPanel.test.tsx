@@ -36,7 +36,8 @@ beforeEach(() => {
   notes = [{ ...createNote({ title: "Eski not" }, 100, "n-old00001")! }];
   record = vi.fn();
   api = {
-    notesList: vi.fn(async () => notes.map((n) => ({ ...n }))),
+    // Tur 13: Genel bellek ayrı okunuyor (boş).
+    notesList: vi.fn(async (w: string) => (w === "genel" ? [] : notes).map((n) => ({ ...n }))),
     notesRemove: vi.fn(async (_w: string, id: string) => {
       notes = notes.filter((n) => n.id !== id);
       return true;
