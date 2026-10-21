@@ -274,7 +274,14 @@ görebilirsin:
     "kabukta başlatıldı" işaretiyle görünür, durumu okunur, Akış'a not
     düşer. Motor kapanıp kabuk istemi dönünce bölme yeniden düz kabuktur;
     kayıtlı düzende de kabuk olarak kalır (yeniden açılışta motoru tekrar
-    başlatınca yine tanınır). Rolü yoktur, bellek açılamaz.
+    başlatınca yine tanınır). Komutu ↑ (ya da F3/F8) ile geçmişten çağırıp
+    Enter'a basarsanız satır tamponda görünmez; o zaman motorun açılış ekranı
+    (axet-code başlığındaki "NTT DATA, Inc." + sürüm, Claude'un karşılama
+    kutusu) 30 sn içinde görülünce bölme yine tanınır. Esc ile silinen satır
+    (cmd/PowerShell) da sayılmaz. Ajan yönetiminde **Rol ver** ile bu bölmeye
+    rol ve kalıcı bellek verebilirsiniz: kayıt bölmede kalıcıdır (bölme kabuk
+    kalır), motor her açıldığında rol ve bellek kullanılır; rolü olan kabuk
+    ajanı ekip köprüsünde ve liderin listesinde rolüyle görünür.
   Üçünde de çalışma klasörü bağlantının klasörüdür; `.conn_adt`,
   `sap-context.md` ve QA/PRD salt okunur kuralı sohbettekiyle aynıdır.
   Ayar "Her seferinde sor" ise düğme **Bağlan…** olur ve menüyü açar.
@@ -575,6 +582,9 @@ kapatmaz; akan cevap, taslak ve terminaller yerinde kalır.
     **Değişikliklerde aç** (o alt görevin kaydı seçili açılır), **Görevde aç**,
     **Terminali aç** ve **Sonraki iş** önerileri (başarısızsa nedenine bak,
     komutla doğrulanmadıysa doğrulama ekle, kayıt incelenmediyse incele).
+  - **Belleğe ekle** (ayrıntıda): raporu ekip belleğine Görev notu olarak
+    ekler (özet, görev, ajan; #rapor etiketi). Aynı rapordan ya da aynı başlık
+    ve gövdeyle not varsa eklenmez, "Zaten bellekte" der.
   - **Markdown olarak kaydet** seçili raporu, **Listeyi kaydet** süzülmüş
     listenin tamamını tek `.md` dosyası olarak kaydet penceresiyle yazar.
   - Raporlar yeni veri üretmez: pano, Akış geçmişi ve Değişiklikler kaydından
@@ -789,8 +799,14 @@ için ekipte kalırlar; kapatmasını istersen söyle ya da Ajan yönetimi'nden 
   açık; kapalıyken lider yalnız var olan ajanlara görev verebilir) ve **Lider
   açılışlarını onayla** (varsayılan kapalı; açıkken her açılış Akış'ta **Aç /
   Reddet** kartıyla bekler, 5 dk cevapsız kalırsa reddedilir).
-- Görev takibi uygulama açıkken bellekte tutulur; uygulama kapanınca bekleyen
-  görevler biter (Akış geçmişi kalır).
+- Liderin görevleri ekip başına diske de yazılır
+  (`%APPDATA%\<uygulama>\lead-tasks\<ekip>.json`; atomik, ekip başına en çok
+  100 görev, şifre/token süzülür). Uygulama kapanıp açılınca bitmemiş görevler
+  **"uygulama yeniden başladı — durum bilinmiyor"** olarak işaretlenir: lider
+  kaydolunca ona tek satır bilgi gider, Akış'ta **"yeniden başladı"** kartı
+  çıkar; lider `ntt-team status` (kesilen görevler listesi) ve `ntt-team wait
+  G-xxxx` ile görür, gerekirse yeniden atar. Görev kimlikleri eskilerle
+  çakışmaz.
 - **Hata ve takılma liderin sorumluluğunda**: liderin verdiği görevde ajan hata
   verirse görev hemen düşmez; geçici hatada uygulama önce kendisi yeniden dener
   (aşağıya bak). Denemeler tükenince ya da hata kalıcıysa (model, yetki) görev
@@ -854,8 +870,20 @@ etiketi vardır.
   seçer): **Yeniden başlat** ya da **Kapat** toplu yapılır; onay penceresi kaç
   ajanın şu an çalıştığını ve işinin yarıda kalacağını söyler.
 - **+ Ajan** seçili ekibe ekler; **+ Ekip** boş ekip ya da hazır şablon açar.
-- Ajanı başka ekibe taşımak ve rolünü değiştirmek burada yok: rol ajanın
-  açılış ayarıdır, farklı rol için yeni ajan ekle.
+- **Rolü değiştir**: rol etiketini değiştirir. Yalnız etiketse ajan yeniden
+  başlatılmaz, Akış'a "Rol: eski → yeni" notu düşer; Lider rolüne giriş/çıkış
+  ekip lideri kuralını hemen değiştirir (lider rehberi bir sonraki mesajda).
+  Rol ajanın açılış komutunu değiştiriyorsa (axet-code'da `--agent` rolü,
+  Claude'da kullanıcının açtığı ajanın Lider'e girip çıkması) düğme
+  **Kaydet ve yeniden başlat** olur: tıklamak onaydır, ajan yeni komutla
+  yeniden başlar (süren oturum kapanır).
+- Kabukta başlatılan ajanda bu düğme **Rol ver**'dir: rol ve **Kalıcı bellek
+  açık** kutusu bölmenin kaydına yazılır.
+- **Ekibe taşı**: bölmeyi başka ekibe taşır; süreç yeniden başlatılmaz
+  (terminal ve oturum aynen sürer). Ekip köprüsü ve durum izleyicisi yeni
+  ekibi görür, iki ekibin Akış'ına not düşer. Taşınan ajanın "lider açtı" bağı
+  (ve taşınan liderin eski ekipte açtıklarının bağı) kalkar. Dolu ekip (9
+  bölme) seçilemez.
 
 ### Görev Panosu
 
@@ -1199,6 +1227,21 @@ budur.
   - Belleği açık ajan yeni oturum açınca giden `[Bellek]` satırının sonuna
     ekip belleğinin kısa özeti eklenir (önce kararlar, yalnız başlıklar, en
     çok ~700 karakter) ve ayrıntı için `ntt-team memory search` hatırlatılır.
+  - **Genel bellek** (ekipler arası): bütün ekiplerin gördüğü notlar. Bellek
+    haritasında ve listesinde ekip notlarıyla birlikte "Genel" işaretli
+    görünür; Süzgeç → Kimin → **Genel** yalnız onları gösterir. Yeni notta ya
+    da düzenlemede "Kimin belleği" **Genel** seçilince not oraya yazılır (ekip
+    ↔ Genel arasında taşınabilir). Ajanlar `ntt-team memory add … --genel` ile
+    yazar; `search` ve `get` genel notları da bulur ("genel" işaretli).
+    Dosyası `memory-notes\genel.json`.
+  - **Kimlik ve kurallar** sekmesi: ajanların her zaman uyacağı kısa kurallar
+    (kimlik, dil, yasaklar). **Ekip kuralları** ve isteğe bağlı **Bu ajana
+    özel kurallar** (ajan seçilerek) yazılır, **Kaydet** ile saklanır
+    (`memory-rules\<ekip>.json`, atomik, şifre/token süzülür). Belleği açık ajanın
+    açılışında giden bellek satırına (not özetinden önce) ve her ajana Akış'tan giden ilk mesaja (lider
+    rehberiyle birlikte) en çok 600 karakterlik tek satır
+    "[Kimlik ve kurallar] Ekip: … | Sana özel: …" olarak eklenir; "bellek
+    özeti" ayarı kapalıyken de gider.
 - **Nerede durur**: `%APPDATA%\<uygulama>\memory-notes\<ekip>.json`, ekip
   başına tek dosya (ekip + ajan notları). Yazım atomik (yarım dosya kalmaz).
   Ekibi kapatmak notları **silmez**. Sınırlar: başlık 120, gövde 8000
