@@ -706,6 +706,12 @@ function AgentRow({
             {pane.agent.role}
           </span>
         )}
+        {/* Tur 12: kabukta elle başlatılan motor. */}
+        {pane.launched && (
+          <span data-shell-launched="" title={t("agents.shellLaunchedHint")} className="shrink-0 rounded border border-line px-1 text-2xs text-slate-500">
+            {t("agents.shellLaunched")}
+          </span>
+        )}
         {/* Tur 7: Lider açtı (yalnız o lider kapatabilir). */}
         {pane.agent?.spawnedBy && (
           <span data-agent-spawned="" title={t("flow.lead.spawnedBadge")} aria-label={t("flow.lead.spawnedBadge")} className="shrink-0 text-slate-500">

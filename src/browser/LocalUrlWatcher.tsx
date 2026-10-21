@@ -13,6 +13,7 @@ import type { AgentStatus } from "../../app-electron/shared/agentTypes";
 import { useAgentStatuses } from "../agents/agentStatusContext";
 import { useFlow } from "../agents/flowContext";
 import { agentName } from "../agents/agentLabels";
+import { isAgentPane } from "../agents/agentView";
 import { workspaceViewOf } from "../stores/terminalReducer";
 import { noteSession } from "../agents/manageLogic";
 import { requestBrowserOpen } from "./browserAutoOpen";
@@ -28,7 +29,7 @@ function ownersOf(workspaces: readonly TerminalWorkspace[]): Map<string, Owner> 
   const map = new Map<string, Owner>();
   for (const workspace of workspaces) {
     for (const pane of workspace.panes) {
-      if (pane.kind !== "agent" || pane.run.state !== "running") continue;
+      if (!isAgentPane(pane) || pane.run.state !== "running") continue;
       map.set(pane.run.ptyId, { pane, workspace, ptyId: pane.run.ptyId });
       // Ajan yönetimi tablosunun "açılış" sütunu (bu izleyici hep takılı; ilk görüş anı).
       noteSession(pane.run.ptyId, Date.now());

@@ -4,6 +4,7 @@
 import type { AgentEngineId, AgentPhase, AgentStatus } from "../../app-electron/shared/agentTypes";
 import type { TerminalPaneColor } from "../../app-electron/shared/types";
 import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
+import { isAgentPane } from "./agentView";
 
 /** Tablodaki durum sınıfı (süzgeç değeri). */
 export type ManageState = "running" | "asking" | "idle" | "error" | "stopped" | "starting";
@@ -26,6 +27,8 @@ export interface ManageRow {
   lastActivity: number | null;
   /** Bu uygulama oturumunda sürecin ilk görüldüğü an (bilinmiyorsa null). */
   openedAt: number | null;
+  /** Tur 12: kabukta elle başlatılan motor (bölme kalıcı düzende kabuk). */
+  launched?: true;
   /** Lider tarafından açıldıysa liderin bölmesi (ekip köprüsü); kullanıcı açtıysa yok. */
   spawnedBy?: string;
   memory?: string;
@@ -60,7 +63,7 @@ export function manageRows(
   const rows: ManageRow[] = [];
   for (const workspace of workspaces) {
     for (const pane of workspace.panes) {
-      if (pane.kind !== "agent") continue;
+      if (!isAgentPane(pane)) continue;
       const spec = pane.agent;
       const status = pane.run.state === "running" ? statuses[pane.id] : undefined;
       const ptyId = pane.run.state === "running" || pane.run.state === "exited" ? pane.run.ptyId : null;
@@ -82,6 +85,7 @@ export function manageRows(
         openedAt: pane.run.state === "running" ? openedAt(pane.run.ptyId) : null,
         ...(typeof spawnedBy === "string" && spawnedBy ? { spawnedBy } : {}),
         ...(spec?.memory ? { memory: spec.memory } : {}),
+        ...(pane.launched ? { launched: true as const } : {}),
         ptyId
       });
     }

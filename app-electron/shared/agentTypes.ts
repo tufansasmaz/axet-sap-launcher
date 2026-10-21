@@ -207,3 +207,11 @@ export interface AxetAgentEntry {
   permissions: string;
   description: string;
 }
+
+/** Tur 12: kabuk bölmesinde kullanıcı bir motor başlattı (ana süreç → renderer). */
+export interface ShellAgentLaunchEvent {
+  ptyId: string;
+  engine: AgentEngineId;
+  /** Kullanıcının yazdığı satır (≤ 400 karakter; okuyucunun yankı eşlemesi için). */
+  command: string;
+}

@@ -565,7 +565,7 @@ export default function OverviewView({ workspace }: { workspace: TerminalWorkspa
                             </button>
                           </td>
                           <td className={`${TD} max-w-[10rem] truncate`} title={row.pane.agent?.role}>
-                            {row.pane.agent?.role || "—"}
+                            {row.pane.agent?.role || t("agents.roleDefault")}
                           </td>
                           <td className={TD}>{row.pane.agent ? t(ENGINE_LABEL[row.pane.agent.engine]) : "—"}</td>
                           <td className={TD}>

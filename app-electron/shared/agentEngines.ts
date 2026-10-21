@@ -117,3 +117,26 @@ export function buildAgentCommand(spec: AgentSpec, axetCommand: string, opts: { 
   if (def.modelFlag && spec.model && isSafeArg(spec.model)) parts.push(def.modelFlag, spec.model);
   return parts.join(" ");
 }
+
+// Tur 12: kabukta elle başlatılan motor. Satırın ilk sözcüğü (tırnaklıysa
+// tırnak içi), yolu ve uzantısı atılmış hâliyle; `extra` Claude'un kurumsal
+// başlatıcısı gibi ek adlar. `ozel` tanınmıyor: hangi komutun ajan olduğu belli değil.
+const SHELL_ENGINE_NAMES: Record<string, AgentEngineId> = {
+  "axet-code": "axet-code",
+  claude: "claude",
+  codex: "codex",
+  gemini: "gemini"
+};
+
+export function engineOfCommandLine(line: string, extra: Record<string, AgentEngineId> = {}): AgentEngineId | null {
+  const match = /^\s*"([^"]+)"|^\s*(\S+)/.exec(line);
+  const token = (match?.[1] ?? match?.[2] ?? "").trim();
+  const name = launcherName(token);
+  if (!name) return null;
+  return (Object.hasOwn(SHELL_ENGINE_NAMES, name) ? SHELL_ENGINE_NAMES[name] : Object.hasOwn(extra, name) ? extra[name] : null) ?? null;
+}
+
+/** Ek ad için yol ya da adın sade hâli (`C:\x\azure.bat` → `azure`). */
+export function launcherName(pathOrName: string): string {
+  return (pathOrName.trim().split(/[\\/]/).pop() ?? "").toLowerCase().replace(/\.(?:exe|cmd|bat|ps1)$/, "");
+}

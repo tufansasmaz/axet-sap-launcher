@@ -339,9 +339,14 @@ function ManageRowView({
                     {t("manage.spawnedBy")}
                   </span>
                 )}
+                {row.launched && (
+                  <span data-shell-launched="" title={t("agents.shellLaunchedHint")} className="shrink-0 rounded border border-line px-1 text-2xs text-slate-400">
+                    {t("agents.shellLaunched")}
+                  </span>
+                )}
               </span>
               <span className="block truncate text-2xs text-slate-400" title={row.role}>
-                {row.role || "—"}
+                {row.role || t("agents.roleDefault")}
               </span>
             </span>
           </div>

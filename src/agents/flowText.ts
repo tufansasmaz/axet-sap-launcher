@@ -1,7 +1,9 @@
 // Akış olayının gövde metni (FlowSidebar ve Pano ortak; Tur 3).
 import type { TranslateFn } from "../i18n";
 import type { TranslationKey } from "../i18n/tr";
-import type { FlowEvent } from "./flowEvents";
+import type { FlowEvent, FlowInput } from "./flowEvents";
+import type { TerminalPane, TerminalWorkspace } from "../stores/terminalTypes";
+import { isAgentPane } from "./agentView";
 import { parseFlowErrorDetail, type AgentErrorClass, type AgentRetryInfo } from "../../app-electron/shared/agentErrors";
 
 /** Tur 9: kalıcı sınıflarda kullanıcıya ne yapacağı (otomatik deneme yok). */
@@ -54,6 +56,10 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
         const [tool, model] = event.detail.slice(AUTO_SETUP.length).split("|");
         return t("flow.note.autoSetup", { tool: tool || "—", model: model || t("flow.note.autoSetupLastUsed") });
       }
+      if (event.detail.startsWith(SAP_OPENED)) {
+        const [sid, team] = event.detail.slice(SAP_OPENED.length).split("|");
+        return t("flow.note.sapOpened", { sid: sid || "—", team: team || "—" });
+      }
       return t(`flow.note.${event.detail}` as TranslationKey);
     }
     case "error": {
@@ -81,4 +87,34 @@ export function flowBody(event: FlowEvent, t: TranslateFn): string {
     case "learn":
       return event.detail;
   }
+}
+
+const SAP_OPENED = "sapOpened|";
+
+/** Tur 12: SAP bağlan düğmesinden açılan ajanın "note" ayrıntısı (sistem ve ekip). */
+export function sapOpenedDetail(sid: string, team: string): string {
+  const clean = (v: string) => v.split("|").join(" ").trim().slice(0, 60);
+  return `${SAP_OPENED}${clean(sid)}|${clean(team)}`;
+}
+
+/**
+ * Tur 12: önceki görünümde olmayan ajan bölmeleri için Akış notu — SAP bağlan
+ * düğmesinden açılan ("SAP D01 için ajan açıldı (ekip)") ve kabukta başlatılan
+ * motor. Öteki yeni ajanlar sessiz (kendi kartları var).
+ */
+export function paneOpenNotes(
+  seen: ReadonlySet<string>,
+  workspaces: readonly TerminalWorkspace[],
+  now: number,
+  nameOf: (pane: TerminalPane) => string
+): FlowInput[] {
+  const out: FlowInput[] = [];
+  for (const w of workspaces) {
+    for (const p of w.panes) {
+      if (!isAgentPane(p) || seen.has(p.id)) continue;
+      const detail = p.launched ? "shellLaunched" : p.openedFrom === "sap" && w.sap ? sapOpenedDetail(w.sap.label, w.name) : null;
+      if (detail) out.push({ at: now, workspaceId: w.id, kind: "note", paneId: p.id, name: nameOf(p), detail });
+    }
+  }
+  return out;
 }

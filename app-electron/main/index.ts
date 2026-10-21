@@ -35,6 +35,8 @@ import { loadManualSystems, addManualSystem, removeManualSystem, updateManualSys
 import { mergeManualSystems } from "./manualMerge";
 import { createTerminal, writeTerminal, resizeTerminal, disposeTerminal, disposeAllTerminals, getTerminalBuffer, getTerminalPid, setTerminalTap } from "./terminalManager";
 import { createAgentMonitor, readAgentRegistration, type AgentErrorNotice } from "./agentMonitor";
+import { createShellAgentWatch } from "./shellAgentWatch";
+import { launcherName } from "../shared/agentEngines";
 import { agentNotificationFor, type AgentNotificationKind } from "./agentNotification";
 import { createEngineGate, type GateAgent } from "./agentGate";
 import { createAgentReader, liveAxetDbPort } from "./agentReaders";
@@ -1577,10 +1579,26 @@ function registerIpc(): void {
     disposeAllTerminals();
   });
 
+  // Tur 12: kabukta elle başlatılan motor (ilk sözcük axet-code/claude/codex/
+  // gemini ya da Claude'un kurumsal başlatıcısı). Renderer bölmeyi ajan olarak
+  // kaydediyor; ajan bölmelerinde ya da zaten tanınmışsa yok sayıyor.
+  const shellAgentWatch = createShellAgentWatch({
+    extraNames: () => {
+      const launcher = engineCache?.value.find((e) => e.id === "claude")?.launcher;
+      const name = launcher ? launcherName(launcher.path || launcher.name) : "";
+      return name ? { [name]: "claude" as const } : {};
+    },
+    onLaunch: (ptyId, engine, command) => {
+      appLog("ajan.kabuktan", { motor: engine });
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("terminal:shellAgent", { ptyId, engine, command });
+    }
+  });
+
   ipcMain.on("terminal:write", (_event, id: string, data: string) => {
     // Kullanıcının tuşları ajan izleyicisine (istem eşleme, "yazıyor" kilidi);
     // izleyicinin kendi yazdıkları (Kararlar cevabı) buradan geçmiyor.
     agentMonitor.onInput(id, data);
+    shellAgentWatch.feed(id, data);
     writeTerminal(id, data);
   });
 
@@ -1627,7 +1645,10 @@ function registerIpc(): void {
 
   setTerminalTap({
     onOutput: (id, data) => agentMonitor.onOutput(id, data),
-    onExit: (id) => agentMonitor.onExit(id),
+    onExit: (id) => {
+      agentMonitor.onExit(id);
+      shellAgentWatch.forget(id);
+    },
     onResize: (id, cols, rows) => agentMonitor.onResize(id, cols, rows)
   });
   if (!agentMonitorTimer) {

@@ -95,6 +95,7 @@ import type {
 import type { WriteCsvResult, WriteHistoryResult } from "../app-electron/shared/sapWriteHistory";
 import type { StoredFlowEvent, TeamRelayMessage } from "../app-electron/shared/flowHistory";
 import type { AgentAutoSetupEvent } from "../app-electron/shared/axetSetupPrefs";
+import type { ShellAgentLaunchEvent } from "../app-electron/shared/agentTypes";
 import type { LeadApprovalRequest, LeadCloseRequest, LeadSpawnRequest, WithRequestId } from "../app-electron/shared/leadCommands";
 import type { Choice, SapWriteState, WorkMode } from "../app-electron/shared/sapWriteTypes";
 
@@ -201,6 +202,7 @@ export interface AxetApi {
   notesRemove: (workspaceId: string, id: string) => Promise<boolean>;
   onNotesChanged: (callback: (workspaceId: string) => void) => () => void;
   onAgentAutoSetup: (callback: (event: AgentAutoSetupEvent) => void) => () => void;
+  onShellAgentLaunch: (callback: (event: ShellAgentLaunchEvent) => void) => () => void;
   onTeamRelay: (callback: (event: TeamRelayMessage) => void) => () => void;
   onTeamSpawn: (callback: (req: WithRequestId<LeadSpawnRequest>) => void) => () => void;
   onTeamClose: (callback: (req: WithRequestId<LeadCloseRequest>) => void) => () => void;

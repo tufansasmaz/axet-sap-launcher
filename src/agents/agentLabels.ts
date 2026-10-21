@@ -22,7 +22,8 @@ export const KIND_LABEL: Record<TerminalPaneKind, TranslationKey> = {
 
 /** Adı olmayan bölmenin etiketi: ajanda motorun adı, kabukta türü. */
 export function paneLabel(pane: Pick<TerminalPane, "kind" | "agent">, t: TranslateFn): string {
-  if (pane.kind === "agent") return t(ENGINE_LABEL[pane.agent?.engine ?? "axet-code"]);
+  // Tur 12: kabukta başlatılan motorun bölmesi de motorun adıyla.
+  if (pane.kind === "agent" || pane.agent) return t(ENGINE_LABEL[pane.agent?.engine ?? "axet-code"]);
   return t(KIND_LABEL[pane.kind]);
 }
 

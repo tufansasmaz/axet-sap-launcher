@@ -8,6 +8,7 @@ import { paneTone } from "../stores/terminalReducer";
 import type { TerminalPane } from "../stores/terminalTypes";
 import { middleEllipsis } from "../lib/paths";
 import { paneLabel } from "../agents/agentLabels";
+import { isAgentPane } from "../agents/agentView";
 import { PANE_FONT_DEFAULT, PANE_TITLE_MAX, TERMINAL_PANE_COLORS, clampPaneFontSize } from "../../app-electron/shared/terminalLayout";
 import { AGENT_ENGINE_MISSING } from "../../app-electron/shared/agentTypes";
 import type { SplitDir } from "../../app-electron/shared/terminalTree";
@@ -116,7 +117,7 @@ export default function TerminalPaneView({
 
   const requestClose = () => {
     // Çalışan ajanı kapatmak oturumunu bitiriyor; tek tıkla kaybolmasın.
-    if (pane.kind === "agent" && run.state === "running") setConfirmClose(true);
+    if (isAgentPane(pane) && run.state === "running") setConfirmClose(true);
     else commands.closePane(pane.id);
   };
 

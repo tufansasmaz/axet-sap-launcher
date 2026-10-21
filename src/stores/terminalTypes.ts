@@ -37,6 +37,13 @@ export interface TerminalPane {
   fontSize?: number;
   /** Yalnız ajan bölmesinde (spec 2026-10-17 ajan-alani §3). */
   agent?: AgentSpec;
+  /**
+   * Tur 12: kabuk bölmesinde kullanıcı bir motor başlattı; `agent` o motorun
+   * tanımı. Yalnız bellekte: kalıcı düzende bölme kabuk, motor kapanınca siliniyor.
+   */
+  launched?: true;
+  /** Tur 12: SAP bağlan düğmesinden açıldı (Akış notu için; diske yazılmıyor). */
+  openedFrom?: "sap";
 }
 
 export interface TerminalWorkspace {
@@ -73,6 +80,8 @@ export interface PendingProjectPane {
   sap?: SavedWorkspaceSap;
   /** Doluysa ajan değil bu kabukta düz kabuk bölmesi. */
   shell?: TerminalMode;
+  /** Tur 12: ajan bölmesinin adı (ör. "D01 ajanı"). */
+  title?: string;
 }
 
 export interface TerminalState {
@@ -121,7 +130,10 @@ export type TerminalAction =
       nameFor: NameFor;
       sap?: SavedWorkspaceSap;
       shell?: TerminalMode;
+      title?: string;
     }
+  | { type: "shellAgentStarted"; paneId: string; agent: AgentSpec }
+  | { type: "shellAgentEnded"; paneId: string }
   | { type: "closePane"; paneId: string }
   | { type: "restartPane"; paneId: string; cwd?: string }
   | { type: "focusPane"; paneId: string }

@@ -84,7 +84,12 @@ export function cardStatus(pane: TerminalPane, status: AgentStatus | undefined, 
 }
 
 export function agentPanes(workspace: TerminalWorkspace): TerminalPane[] {
-  return workspace.panes.filter((p) => p.kind === "agent");
+  return workspace.panes.filter(isAgentPane);
+}
+
+/** Ajan bölmesi ya da kabukta motor başlatılmış bölme (Tur 12). */
+export function isAgentPane(pane: Pick<TerminalPane, "kind" | "launched">): boolean {
+  return pane.kind === "agent" || pane.launched === true;
 }
 
 /** Kapanmış bölmenin son bilinen durumu bayat: yalnız çalışanlar sayılıyor. */

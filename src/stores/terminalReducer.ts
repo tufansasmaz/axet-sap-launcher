@@ -144,10 +144,35 @@ function withPane(workspace: TerminalWorkspace, pane: TerminalPane, split?: { ta
   };
 }
 
+function patchPane(workspace: TerminalWorkspace, paneId: string, patch: Partial<TerminalPane>): TerminalWorkspace {
+  return { ...workspace, panes: workspace.panes.map((p) => (p.id === paneId ? { ...p, ...patch } : p)) };
+}
+
+/** Tur 12: kabukta başlatılan motor kapandı; bölme yeniden düz kabuk. */
+function dropLaunch(workspace: TerminalWorkspace, paneId: string): TerminalWorkspace {
+  return {
+    ...workspace,
+    panes: workspace.panes.map((p) => {
+      if (p.id !== paneId) return p;
+      const { launched: _launched, agent: _agent, ...rest } = p;
+      return rest;
+    })
+  };
+}
+
 function placeProjectPane(state: TerminalState, item: PendingProjectPane, nameFor: NameFor): TerminalState {
+  const title = item.shell ? undefined : cleanPaneTitle(item.title);
   const pane: TerminalPane = item.shell
     ? { id: item.paneId, kind: item.shell, cwd: item.cwd, run: { state: "queued" } }
-    : { id: item.paneId, kind: "agent", agent: { ...LEGACY_AXET_AGENT }, cwd: item.cwd, run: { state: "queued" } };
+    : {
+        id: item.paneId,
+        kind: "agent",
+        agent: { ...LEGACY_AXET_AGENT },
+        cwd: item.cwd,
+        run: { state: "queued" },
+        ...(title ? { title } : {}),
+        ...(item.sap ? { openedFrom: "sap" as const } : {})
+      };
   if (item.sap) return placeSapPane(state, item, item.sap, pane, nameFor);
   const active = state.workspaces.find((w) => w.id === state.activeWorkspaceId);
   if (active && active.panes.length < MAX_TERMINAL_PANES) return replaceWorkspace(state, withPane(active, pane));
@@ -324,10 +349,21 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
         spareWorkspaceId: action.spareWorkspaceId,
         cwd: action.cwd,
         ...(action.sap ? { sap: action.sap } : {}),
-        ...(action.shell ? { shell: action.shell } : {})
+        ...(action.shell ? { shell: action.shell } : {}),
+        ...(action.title ? { title: action.title } : {})
       };
       if (state.phase !== "ready") return { ...state, pending: [...state.pending, item] };
       return placeProjectPane(state, item, action.nameFor);
+    }
+    case "shellAgentStarted": {
+      const found = findPane(state, action.paneId);
+      if (!found || found.pane.kind === "agent" || found.pane.launched || found.pane.run.state !== "running") return state;
+      return replaceWorkspace(state, patchPane(found.workspace, action.paneId, { launched: true, agent: action.agent }));
+    }
+    case "shellAgentEnded": {
+      const found = findPane(state, action.paneId);
+      if (!found?.pane.launched) return state;
+      return replaceWorkspace(state, dropLaunch(found.workspace, action.paneId));
     }
     case "closePane": {
       const found = findPane(state, action.paneId);
@@ -354,7 +390,8 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
       const found = findPane(state, action.paneId);
       if (!found) return state;
       const cwd = action.cwd ?? found.pane.cwd;
-      return replaceWorkspace(state, setRun(found.workspace, action.paneId, { state: "queued" }, { cwd }));
+      const restarted = setRun(found.workspace, action.paneId, { state: "queued" }, { cwd });
+      return replaceWorkspace(state, found.pane.launched ? dropLaunch(restarted, action.paneId) : restarted);
     }
     case "focusPane": {
       const found = findPane(state, action.paneId);
@@ -388,7 +425,8 @@ export function terminalReducer(state: TerminalState, action: TerminalAction): T
     case "ptyExit": {
       const found = paneByPty(state, action.ptyId);
       if (!found || found.pane.run.state !== "running") return state;
-      const workspace = setRun(found.workspace, found.pane.id, { state: "exited", ptyId: action.ptyId, code: action.code });
+      const exited = setRun(found.workspace, found.pane.id, { state: "exited", ptyId: action.ptyId, code: action.code });
+      const workspace = found.pane.launched ? dropLaunch(exited, found.pane.id) : exited;
       return replaceWorkspace(state, action.code !== 0 ? flag(state, workspace, "error") : workspace);
     }
     case "ptyData": {
@@ -577,7 +615,8 @@ export function toSaved(state: TerminalState): { workspaces: SavedTerminalWorksp
         ...(p.title ? { title: p.title } : {}),
         ...(p.color ? { color: p.color } : {}),
         ...(p.fontSize !== undefined ? { fontSize: p.fontSize } : {}),
-        ...(p.agent ? { agent: p.agent } : {})
+        // Tur 12: kabukta başlatılan motorun tanımı yalnız bellekte.
+        ...(p.agent && p.kind === "agent" ? { agent: p.agent } : {})
       })),
       layout: layoutOf(w),
       minimized: minimizedOf(w).map((m) => ({ paneId: m.paneId, home: m.home })),

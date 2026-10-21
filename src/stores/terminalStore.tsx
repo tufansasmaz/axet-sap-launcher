@@ -232,6 +232,46 @@ export function TerminalStoreProvider({
     };
   }, []);
 
+  // 3b. Tur 12: kabuk bölmesinde motor başlatıldı → bölme ajan olarak kaydediliyor
+  // (okuyucu o motorun: axet/Claude kesin, öteki tahmini). Motor kapanınca
+  // ("finished") kayıt siliniyor, bölme kabuğa dönüyor. Kalıcı düzende kabuk.
+  useEffect(() => {
+    const offLaunch = window.api.onShellAgentLaunch?.((event) => {
+      const paneId = ptyOwners.current.get(event.ptyId);
+      const owner = paneId ? findPane(stateRef.current, paneId) : null;
+      const pane = owner?.pane;
+      if (!owner || !pane || pane.kind === "agent" || pane.launched || pane.run.state !== "running") return;
+      const agent: AgentSpec = { engine: event.engine, role: "", roleKind: "custom" };
+      dispatch({ type: "shellAgentStarted", paneId: pane.id, agent });
+      void window.api
+        .agentRegister({
+          paneId: pane.id,
+          ptyId: event.ptyId,
+          engine: event.engine,
+          cwd: pane.cwd,
+          command: event.command,
+          name: pane.title ?? tRef.current(ENGINE_LABEL[event.engine]),
+          roleKind: agent.roleKind,
+          sap: Boolean(owner.workspace.sap),
+          added: true,
+          role: "",
+          workspaceId: owner.workspace.id
+        })
+        .catch(() => {});
+    });
+    const offStatus = window.api.onAgentStatus?.((event) => {
+      if (event.status.state !== "finished") return;
+      const found = findPane(stateRef.current, event.paneId);
+      if (!found?.pane.launched) return;
+      dispatch({ type: "shellAgentEnded", paneId: event.paneId });
+      void window.api.agentUnregister(event.paneId).catch(() => {});
+    });
+    return () => {
+      offLaunch?.();
+      offStatus?.();
+    };
+  }, []);
+
   useEffect(() => {
     dispatch({ type: "setVisible", visible });
   }, [visible]);
@@ -410,7 +450,9 @@ export function TerminalStoreProvider({
       cwd: sapPaneRequest.projectDir,
       nameFor: nameForRef.current,
       sap: sapPaneRequest.sap,
-      ...(sapPaneRequest.kind === "shell" ? { shell: configRef.current?.terminal ?? "cmd" } : {})
+      ...(sapPaneRequest.kind === "shell"
+        ? { shell: configRef.current?.terminal ?? "cmd" }
+        : { title: tRef.current("agents.sapAgentName", { sid: sapPaneRequest.sap.label }) })
     });
   }, [sapPaneRequest]);
 
@@ -424,7 +466,7 @@ export function TerminalStoreProvider({
     /** Bölmenin süreci varsa kapatır, izlerini siler. */
     const release = (pane: TerminalPane) => {
       spawnTokens.current.delete(pane.id);
-      if (pane.kind === "agent") void window.api.agentUnregister(pane.id).catch(() => {});
+      if (pane.kind === "agent" || pane.launched) void window.api.agentUnregister(pane.id).catch(() => {});
       const ptyId = ptyOf(pane);
       if (!ptyId) return;
       ptyOwners.current.delete(ptyId);

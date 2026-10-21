@@ -80,6 +80,7 @@ import type { BrowserSendResult, BrowserShortcut } from "../shared/browserLogic"
 import type { AgentSendResult } from "../shared/agentMessage";
 import type { StoredFlowEvent, TeamRelayMessage } from "../shared/flowHistory";
 import type { AgentAutoSetupEvent } from "../shared/axetSetupPrefs";
+import type { ShellAgentLaunchEvent } from "../shared/agentTypes";
 import type { LeadApprovalRequest, LeadCloseRequest, LeadSpawnRequest, WithRequestId } from "../shared/leadCommands";
 import type { MemoryReadResult, MemoryWriteResult } from "../shared/memoryLogic";
 import type { MemoryNote, NoteInput, NotePatch, NoteResult } from "../shared/memoryNotes";
@@ -252,6 +253,12 @@ const api = {
     const listener = (_event: unknown, payload: AgentAutoSetupEvent) => callback(payload);
     ipcRenderer.on("agents:autoSetup", listener);
     return () => ipcRenderer.removeListener("agents:autoSetup", listener);
+  },
+  // Tur 12: kabuk bölmesinde motor başlatıldı.
+  onShellAgentLaunch: (callback: (event: ShellAgentLaunchEvent) => void) => {
+    const listener = (_event: unknown, payload: ShellAgentLaunchEvent) => callback(payload);
+    ipcRenderer.on("terminal:shellAgent", listener);
+    return () => ipcRenderer.removeListener("terminal:shellAgent", listener);
   },
   onTeamRelay: (callback: (event: TeamRelayMessage) => void) => {
     const listener = (_event: unknown, payload: TeamRelayMessage) => callback(payload);

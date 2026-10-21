@@ -19,8 +19,9 @@ import { useTerminalStore } from "../stores/terminalStoreContext";
 import { useAgentStatuses } from "./agentStatusContext";
 import { useBoards } from "../board/boardContext";
 import { agentName } from "./agentLabels";
+import { isAgentPane } from "./agentView";
 import { pickNotices, type AgentNotice } from "./agentNotices";
-import { autoSetupDetail } from "./flowText";
+import { autoSetupDetail, paneOpenNotes } from "./flowText";
 import { captureCandidates, captureKey, planCapture, type CaptureInput } from "../../app-electron/shared/memoryCapture";
 import type { MemoryNote } from "../../app-electron/shared/memoryNotes";
 import {
@@ -155,7 +156,7 @@ export function FlowProvider({ children, autoCapture = true }: { children: React
   // Bölme → (alan, ad); olay anındaki ad kaydediliyor.
   const panes = useMemo(() => {
     const map = new Map<string, { workspaceId: string; name: string }>();
-    for (const w of state.workspaces) for (const p of w.panes) if (p.kind === "agent") map.set(p.id, { workspaceId: w.id, name: agentName(p, t) });
+    for (const w of state.workspaces) for (const p of w.panes) if (isAgentPane(p)) map.set(p.id, { workspaceId: w.id, name: agentName(p, t) });
     return map;
   }, [state.workspaces, t]);
   const panesRef = useRef(panes);
@@ -223,6 +224,14 @@ export function FlowProvider({ children, autoCapture = true }: { children: React
   const dropNotices = useCallback((keys: readonly string[]) => setNotices((list) => list.filter((n) => !keys.includes(n.key))), []);
   const addUnread = useCallback((count: number) => setUnread((n) => n + count), []);
   const markRead = useCallback(() => setUnread(0), []);
+
+  // Tur 12: SAP bağlan düğmesinden açılan / kabukta başlatılan ajan Akış'ta not.
+  // İşaretler yalnız bellekte; geri yüklenen bölmeler not üretmiyor.
+  const seenAgents = useRef<ReadonlySet<string>>(new Set());
+  useEffect(() => {
+    add(paneOpenNotes(seenAgents.current, state.workspaces, Date.now(), (p) => agentName(p, t)));
+    seenAgents.current = new Set(state.workspaces.flatMap((w) => w.panes.filter(isAgentPane).map((p) => p.id)));
+  }, [state.workspaces, add, t]);
 
   useEffect(() => {
     add(statusEvents(prevStatuses.current, statuses, panesRef.current, Date.now()));
