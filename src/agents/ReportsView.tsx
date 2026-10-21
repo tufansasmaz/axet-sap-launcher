@@ -17,6 +17,7 @@ import { agentName } from "./agentLabels";
 import { TONE_PILL } from "./agentView";
 import { useFlow } from "./flowContext";
 import { flowBody } from "./flowText";
+import { hasSameNote, noteFromReport } from "../../app-electron/shared/memoryNotes";
 import {
   DATE_FILTERS,
   OUTCOME_KEY,
@@ -253,6 +254,7 @@ export default function ReportsView({ workspace }: { workspace: TerminalWorkspac
           {current ? (
             <Detail
               report={current}
+              workspaceId={workspace.id}
               when={when}
               onClose={() => setSelected(null)}
               onExport={() => void save(reportMarkdown(current, t, language), reportFileName(current.subtask.title))}
@@ -277,8 +279,52 @@ export default function ReportsView({ workspace }: { workspace: TerminalWorkspac
   );
 }
 
+/**
+ * Tur 13: rapor ayrıntısından ekip belleğine görev notu (Akış'taki "Belleğe
+ * ekle" gibi). Çoğaltma kontrolü: aynı rapordan ya da aynı başlık+gövdeyle
+ * not varsa eklenmiyor, "Zaten bellekte" deniyor.
+ */
+function ReportToMemory({ report: r, workspaceId }: { report: Report; workspaceId: string }) {
+  const t = useT();
+  const [state, setState] = useState<"idle" | "busy" | "done" | "exists" | "failed">("idle");
+  const api = typeof window !== "undefined" ? (window as unknown as { api?: Partial<Window["api"]> }).api : undefined;
+  if (!api?.notesAdd) return null;
+  const body = [r.reply ?? "", `${t("reports.task")}: ${r.task.title}`, r.agent ? `${t("reports.agent")}: ${r.agent}` : ""].filter(Boolean).join("\n\n");
+  const input = noteFromReport({ key: r.key, title: r.subtask.title, body, agent: r.agent });
+  if (!input) return null;
+  if (state === "done" || state === "exists") {
+    return (
+      <span data-report-memory={state} role="status" className="text-2xs text-slate-500">
+        {t(state === "done" ? "reports.toMemoryDone" : "reports.toMemoryExists")}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      data-report-memory=""
+      disabled={state === "busy"}
+      onClick={async () => {
+        setState("busy");
+        try {
+          const existing = (await api.notesList?.(workspaceId)) ?? [];
+          if (hasSameNote(existing, input)) return setState("exists");
+          const result = await api.notesAdd?.(workspaceId, input);
+          setState(result?.ok ? "done" : "failed");
+        } catch {
+          setState("failed");
+        }
+      }}
+      className={LINK}
+    >
+      {t(state === "failed" ? "reports.toMemoryFailed" : "reports.toMemory")}
+    </button>
+  );
+}
+
 function Detail({
   report: r,
+  workspaceId,
   when,
   onClose,
   onExport,
@@ -287,6 +333,7 @@ function Detail({
   onTerminal
 }: {
   report: Report;
+  workspaceId: string;
   when: (at: number) => string;
   onClose: () => void;
   onExport: () => void;
@@ -344,6 +391,7 @@ function Detail({
             {t("reports.openTerminal")}
           </button>
         )}
+        <ReportToMemory key={r.key} report={r} workspaceId={workspaceId} />
       </div>
 
       <Section title={t("reports.summary")}>

@@ -560,3 +560,27 @@ export function noteFromFlow(event: FlowNoteSource): NoteInput | null {
     source: { type: event.kind === "verified" ? "task" : "flow", ...(name ? { name } : {}), ...(event.id !== undefined ? { ref: String(event.id) } : {}) }
   };
 }
+
+// ---------------------------------------------------------------- rapordan not
+
+/** Tur 13: Raporlar → "Belleğe ekle" girdisi (görev notu; kaynak raporun anahtarı). */
+export function noteFromReport(report: { key: string; title: string; body: string; agent: string }): NoteInput | null {
+  const title = cleanTitle(report.title);
+  if (!title) return null;
+  return {
+    title,
+    body: report.body.trim(),
+    kind: "gorev",
+    tags: ["rapor"],
+    owner: TEAM_OWNER,
+    source: { type: "task", ...(report.agent ? { name: report.agent } : {}), ref: `report:${report.key.replace(/[^\w.:-]/g, ":")}`.slice(0, 64) }
+  };
+}
+
+/** Tur 13: aynı kaynaktan (ref) ya da aynı başlık + gövdeyle eklenmiş not var mı (çoğaltma kontrolü). */
+export function hasSameNote(notes: readonly MemoryNote[], input: NoteInput): boolean {
+  const ref = input.source?.ref;
+  const title = fold(String(input.title ?? "").trim());
+  const body = String(input.body ?? "").trim();
+  return notes.some((n) => (ref !== undefined && n.source?.ref === ref) || (fold(n.title) === title && n.body.trim() === body));
+}

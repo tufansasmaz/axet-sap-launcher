@@ -163,4 +163,33 @@ describe("ReportsView", () => {
     expect(screen.getByText(/Henüz rapor yok/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "Listeyi kaydet" }) as HTMLButtonElement).disabled).toBe(true);
   });
+// Tur 13: rapor ayrıntısından belleğe (noteFromFlow benzeri; çoğaltma kontrolü).
+  it("Belleğe ekle: görev notu ekleniyor; ikinci kez eklenmiyor (zaten bellekte)", async () => {
+    const stored: unknown[] = [];
+    const api = (window as unknown as { api: Record<string, unknown> }).api;
+    api.notesList = vi.fn(async () => stored);
+    api.notesAdd = vi.fn(async (_w: string, input: { title: string; body: string; source?: { ref?: string } }) => {
+      const note = { id: "n-rep00001", title: input.title, body: input.body, kind: "gorev", tags: [], owner: "", created: 1, updated: 1, source: input.source };
+      stored.push(note);
+      return { ok: true, note };
+    });
+    await draw();
+    fireEvent.click(items()[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Belleğe ekle" }));
+    await act(async () => {
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+    });
+    expect(api.notesAdd).toHaveBeenCalledWith("w1", expect.objectContaining({ title: "İş 1", kind: "gorev", source: expect.objectContaining({ type: "task", ref: "report:t1:1" }) }));
+    expect(screen.getByText("Belleğe eklendi.")).toBeTruthy();
+    cleanup();
+    await draw();
+    fireEvent.click(items()[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Belleğe ekle" }));
+    await act(async () => {
+      for (let i = 0; i < 4; i++) await Promise.resolve();
+    });
+    expect(api.notesAdd).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Zaten bellekte.")).toBeTruthy();
+  });
 });
+
