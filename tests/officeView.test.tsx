@@ -7,7 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { LanguageProvider } from "../src/i18n";
-import OfficeView, { fitOf, nightOf, replyLine } from "../src/office/OfficeView";
+import OfficeView, { ESTIMATED_SAY_GAP_MS, finishedSay, fitOf, nightOf, replyLine } from "../src/office/OfficeView";
 import { ZOOMS } from "../src/office/officeSim";
 import { TerminalStoreContext, type TerminalCommands, type TerminalStoreValue } from "../src/stores/terminalStoreContext";
 import { initialTerminalState } from "../src/stores/terminalReducer";
@@ -18,8 +18,18 @@ import { AGENT_ENGINE_MISSING, type AgentQuestion, type AgentState, type AgentSt
 import type { BoardCommandResult } from "../app-electron/shared/boardCommands";
 import type { Board, BoardTask, Subtask } from "../app-electron/shared/boardTypes";
 
+// Node 26 kendi localStorage'ını (dosyasız undefined) jsdom'unkinin üstüne koyuyor; bellekte basit depo.
+const lsStore = new Map<string, string>();
+vi.stubGlobal("localStorage", {
+  getItem: (k: string) => lsStore.get(k) ?? null,
+  setItem: (k: string, v: string) => void lsStore.set(k, String(v)),
+  removeItem: (k: string) => void lsStore.delete(k),
+  clear: () => lsStore.clear()
+});
+
 let getContext: ReturnType<typeof vi.fn>;
 beforeEach(() => {
+  lsStore.clear();
   getContext = vi.fn(() => null);
   (HTMLCanvasElement.prototype as unknown as { getContext: unknown }).getContext = getContext;
 });
@@ -467,6 +477,37 @@ describe("OfficeView — ofis turu 2026-10-20: balon, bilgi kartı, üst çubuk"
     expect(clock().textContent).toContain("Saat: gece");
     fireEvent.click(clock());
     expect(clock().getAttribute("data-office-clock")).toBe("auto");
+  });
+
+  it("2026-10-21: saat seçimi kalıcı (yerel tercih); yeniden açılınca aynı kip, bozuk değer otomatik", () => {
+    localStorage.removeItem("ntt.office.clock");
+    setup(workspace([agentPane("p1")]));
+    const clock = () => document.querySelector("[data-office-clock]") as HTMLButtonElement;
+    fireEvent.click(clock());
+    fireEvent.click(clock());
+    expect(localStorage.getItem("ntt.office.clock")).toBe("night");
+    cleanup();
+    setup(workspace([agentPane("p1")]));
+    expect(clock().getAttribute("data-office-clock")).toBe("night");
+    cleanup();
+    localStorage.setItem("ntt.office.clock", "öğle");
+    setup(workspace([agentPane("p1")]));
+    expect(clock().getAttribute("data-office-clock")).toBe("auto");
+    localStorage.removeItem("ntt.office.clock");
+  });
+
+  it("2026-10-21: bitti balonu — kesinde her zaman; tahminide yalnız işaretle biten turda ve seyrek", () => {
+    const marked = st("idle", "estimated", { turn: { at: 1, done: true, marked: true } });
+    const quiet = st("idle", "estimated", { turn: { at: 1, done: true } });
+    expect(finishedSay({ exact: true, reply: "## Tamam\nikinci" }, st("idle"), undefined, 1000)).toEqual({ line: "Tamam", ms: 5000 });
+    expect(finishedSay({ exact: true }, st("idle"), 999, 1000)).toEqual({ line: "", ms: 2600 });
+    expect(finishedSay({ exact: false, reply: "Liste hazır" }, quiet, undefined, 1000)).toBeNull();
+    expect(finishedSay({ exact: false, reply: "Liste hazır" }, undefined, undefined, 1000)).toBeNull();
+    expect(finishedSay({ exact: false, reply: "Liste hazır" }, marked, undefined, 1000)).toEqual({ line: "Liste hazır", ms: 5000 });
+    expect(finishedSay({ exact: false }, marked, undefined, 1000)).toEqual({ line: "", ms: 2600 });
+    // Sıklık: aynı ajan için tahminide en çok ESTIMATED_SAY_GAP_MS'de bir.
+    expect(finishedSay({ exact: false, reply: "x" }, marked, 1000, 1000 + ESTIMATED_SAY_GAP_MS - 1)).toBeNull();
+    expect(finishedSay({ exact: false, reply: "x" }, marked, 1000, 1000 + ESTIMATED_SAY_GAP_MS)).not.toBeNull();
   });
 
   it("replyLine: ilk anlamlı satır, markdown işaretleri atılır, 90 karakterde kırpılır; nightOf saat kipine uyar", () => {

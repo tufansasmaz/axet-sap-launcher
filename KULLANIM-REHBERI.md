@@ -947,7 +947,12 @@ alanı tam kaplar.
   balon birkaç saniye görünür: işini bitirince cevabının ilk satırı (cevap
   terminaldeyse "Bitti!"), kesin durumda aşaması değişince "dosya okuyor…"
   gibi kısa bir söz (ajan başına seyrek), panodan iş alınca "Tamam,
-  başlıyorum". Balon açıkken soru balonu geri çekilir.
+  başlıyorum". Balon açıkken soru balonu geri çekilir. Tahmini durumdaki
+  ajanda "bitti" balonu yalnız güvenilir turda çıkar: tur senin gönderdiğin
+  bir istemle başlamış ve motorun tur sonu işaretiyle (Claude Code "✻ … for
+  Ns", axet-code "◇ model via … Ns") bitmiş olmalı; metin terminal ekranından
+  okunan son cevabın ilk satırıdır. Yalnız sessizlikle biten turda balon
+  çıkmaz; aynı ajan için en çok 20 saniyede bir.
 - **Bilgi kartı**: karakterin üstüne gelince (ya da Tab ile odaklanınca)
   yanında küçük bir kart açılır: ad, rol, durum, şu anki aşama, panodaki
   görev (yoksa "Şu an görevi yok"), soru ve son cevabın özeti.
@@ -972,7 +977,7 @@ alanı tam kaplar.
   sabit kalır); ortadaki değer düğmesi varsayılana döner. İlk açılışta
   kamera masaların olduğu üst kısımdadır. Küçük harita yoktur.
 - **Gündüz / gece**: **Saat** düğmesi otomatik → gündüz → gece arasında
-  döner (seçim kaydedilmez). Otomatikte ofis bilgisayarın saatini izler;
+  döner; seçim bu bilgisayarda kaydedilir, ofis yeniden açılınca aynı kalır. Otomatikte ofis bilgisayarın saatini izler;
   akşam kararır, masa ekranları ve tavan lambaları yanar, gündüz
   pencerelerden güneş düşer.
 - Düz terminaller ofiste görünmez; sol alt köşede sayıları yazar. Ajan

@@ -123,6 +123,47 @@ export function replyLine(reply: string | undefined): string {
   return clipText(line, SAY_MAX);
 }
 
+/** 2026-10-21: saat seçimi yerel tercih (localStorage); gizli bir şey değil. */
+const CLOCK_KEY = "ntt.office.clock";
+function readClock(): Clock {
+  try {
+    const raw = typeof localStorage === "undefined" ? null : localStorage.getItem(CLOCK_KEY);
+    return (CLOCKS as readonly (string | null)[]).includes(raw) ? (raw as Clock) : "auto";
+  } catch {
+    return "auto";
+  }
+}
+function writeClock(clock: Clock): void {
+  try {
+    localStorage.setItem(CLOCK_KEY, clock);
+  } catch {
+    // kaydedilemedi: bu oturumda yine geçerli
+  }
+}
+
+/** Tahmini ajanın bitti balonu en sık bu aralıkla (ajan başına). */
+export const ESTIMATED_SAY_GAP_MS = 20_000;
+
+/**
+ * 2026-10-21: Akış "finished" kartından balon. Kesin kaynakta her zaman. Tahmini
+ * kaynakta yalnız güvenilir turda: gerçek istemle başlamış (tur yalnız istemden
+ * sonra var) VE motorun ölçülmüş tur sonu işaretiyle bitmiş (`turn.marked`);
+ * cevap Tur 11'in ekran okuyucusundan. Sıklık ajan başına sınırlı. `line` boşsa "Bitti!".
+ */
+export function finishedSay(
+  event: { exact?: boolean; reply?: string },
+  status: AgentStatus | undefined,
+  lastAt: number | undefined,
+  now: number
+): { line: string; ms: number } | null {
+  if (event.exact === false) {
+    if (status?.source !== "estimated" || !status.turn?.done || !status.turn.marked) return null;
+    if (lastAt !== undefined && now - lastAt < ESTIMATED_SAY_GAP_MS) return null;
+  }
+  const line = replyLine(event.reply);
+  return { line, ms: line ? REPLY_SAY_MS : SAY_MS };
+}
+
 /** Saate göre gece katsayısı (0 gündüz … 1 gece). */
 export function nightOf(clock: Clock, reduced: boolean, at: Date): number {
   if (clock === "day") return 0;
@@ -195,7 +236,7 @@ export default function OfficeView({
 
   /** null: sığdır; sayı: kullanıcının seçtiği yakınlık. */
   const [userZoom, setUserZoom] = useState<number | null>(null);
-  const [clockMode, setClockMode] = useState<Clock>("auto");
+  const [clockMode, setClockMode] = useState<Clock>(readClock);
   const sim = useRef<Sim>(createSim());
   // İlk kamera üstte: masalar (ajanların çoğu) kuzey duvarında; "cover" yakınlıkta orta kırpılıyordu.
   const cam = useRef<Camera>({ x: W / 2, y: 0, zoom: ZOOMS[0] });
@@ -291,15 +332,21 @@ export default function OfficeView({
   }, [assignStamp, reduced]);
   // Ajan bir şey dediğinde (Akış "finished"): cevabının ilk satırı kısa süre
   // balonda; cevap terminaldeyse yalnız "Bitti!". Yalnız bu görünüm açıldıktan sonrakiler.
+  // 2026-10-21: tahmini ajanda yalnız işaretle biten turda ve seyrek (finishedSay).
   const seenSaid = useRef(0);
+  const estimatedSaidAt = useRef(new Map<string, number>());
   const lastSaid = [...events].reverse().find((e) => e.workspaceId === workspace.id && e.kind === "finished" && e.paneId);
   const saidStamp = lastSaid && lastSaid.at >= mountedAt.current ? lastSaid.id : 0;
   useEffect(() => {
     if (!saidStamp || saidStamp === seenSaid.current || !lastSaid?.paneId) return;
     seenSaid.current = saidStamp;
     if (!names.has(lastSaid.paneId)) return;
-    const line = replyLine(lastSaid.reply);
-    speak(lastSaid.paneId, line || t("office.say.done"), line ? REPLY_SAY_MS : SAY_MS);
+    const paneId = lastSaid.paneId;
+    const at = Date.now();
+    const said = finishedSay(lastSaid, statuses[paneId], estimatedSaidAt.current.get(paneId), at);
+    if (!said) return;
+    if (lastSaid.exact === false) estimatedSaidAt.current.set(paneId, at);
+    speak(paneId, said.line || t("office.say.done"), said.ms);
     // yalnız yeni "bitti" kartında
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saidStamp]);
@@ -641,7 +688,11 @@ export default function OfficeView({
               data-office-clock={clockMode}
               title={t("office.clockHint")}
               aria-label={t(`office.clock.${clockMode}`)}
-              onClick={() => setClockMode((m) => CLOCKS[(CLOCKS.indexOf(m) + 1) % CLOCKS.length])}
+              onClick={() => {
+                const next = CLOCKS[(CLOCKS.indexOf(clockMode) + 1) % CLOCKS.length];
+                setClockMode(next);
+                writeClock(next);
+              }}
               className="flex h-6 items-center gap-1 rounded-md border border-slate-700 bg-slate-900/90 px-2 text-xs text-slate-300 hover:bg-slate-700"
             >
               <ClockIcon size={12} aria-hidden="true" />

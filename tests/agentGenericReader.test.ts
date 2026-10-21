@@ -248,6 +248,21 @@ describe("GenericReader — Tur 11: çalışıyor yalnız gerçek istemden sonra
     expect(reader.status()).toMatchObject({ state: "idle", turn: { done: true } });
   });
 
+  it("2026-10-21: işaretle biten turda turn.marked; yalnız sessizlikle bitende yok (ofis balonu güveni)", () => {
+    const a = ready();
+    a.reader.submitLine("liste yaz");
+    a.clock.ms += 400;
+    a.reader.feedOutput("● - Elma\r\n✻ Baked for 2s · done\r\n❯ ");
+    a.clock.ms += 2_000;
+    expect(a.reader.status().turn).toEqual({ at: expect.any(Number), done: true, marked: true });
+    const b = ready();
+    b.reader.submitLine("bir iş yap");
+    b.clock.ms += 400;
+    b.reader.feedOutput("● Tamam");
+    b.clock.ms += IDLE_AFTER_MS;
+    expect(b.reader.status().turn).toEqual({ at: expect.any(Number), done: true });
+  });
+
   it("axet-code tur sonu işareti (◇ model via sağlayıcı Ns) de sayılıyor", () => {
     const { clock, reader } = setup("axet-code -y");
     reader.feedOutput("C:\p>axet-code -y\r\n AXET \r\n");

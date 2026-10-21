@@ -170,7 +170,7 @@ const SOURCE_LOG = { exact: "kesin", estimated: "tahmini" } as const;
 function sameStatus(a: AgentStatus, b: AgentStatus): boolean {
   if (a.state !== b.state || a.source !== b.source || a.detail !== b.detail || a.reply !== b.reply) return false;
   // Tur 6: aşama, tahmini tur ve bağ sebebi değişince de yayınla.
-  if (a.link !== b.link || a.turn?.at !== b.turn?.at || a.turn?.done !== b.turn?.done) return false;
+  if (a.link !== b.link || a.turn?.at !== b.turn?.at || a.turn?.done !== b.turn?.done || a.turn?.marked !== b.turn?.marked) return false;
   if (a.phase?.kind !== b.phase?.kind || a.phase?.tool !== b.phase?.tool || a.phase?.target !== b.phase?.target) return false;
   if (a.question?.callId !== b.question?.callId) return false;
   // Tur 9: hata, deneme sayacı ve geri sayım değişince de yayınla.
