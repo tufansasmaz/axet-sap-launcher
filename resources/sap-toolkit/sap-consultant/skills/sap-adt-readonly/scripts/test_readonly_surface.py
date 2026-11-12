@@ -287,6 +287,26 @@ def t_dump_detail_gated():
     assert fn is not None and fn.__module__ == "ntt_dump_detail", f"served: {fn!r}"
 
 
+def t_adt_dumps_pii_gate():
+    """The served adt_dumps is NTT Studio's GR_PII wrapper, in the MCP schema AND on HTTP;
+    on PRD a value-bearing chapter is refused before SAP is called."""
+    ro = fresh(ADT_RO_ALLOW_DUMPS="true")
+    quiet(ro.build)
+    fn = getattr(ro.engine, "adt_dumps", None)
+    assert fn is not None and fn.__module__ == "ntt_dump_detail", f"served: {fn!r}"
+    spec = quiet(ro.engine._http_tool_specs)["adt_dumps"]
+    props = (spec["schema"] or {}).get("properties", {})
+    assert spec["fn"] is fn, "HTTP dispatches to another adt_dumps"
+    assert {"acknowledge_risk", "approval_text", "dump", "sections"} <= set(props), f"schema: {sorted(props)}"
+    saved = ro.guardrails.get_active_tier
+    ro.guardrails.get_active_tier = lambda: "PRD"
+    try:
+        r = fn(dump="X", sections="Chosen variables")
+    finally:
+        ro.guardrails.get_active_tier = saved
+    assert isinstance(r, dict) and r.get("ok") is False and r.get("code") == "GR_PII", f"PRD: {r!r}"[:300]
+
+
 CHECKS = [
     ("classification covers the engine", "a tool the engine has but nobody classified", t_covers_engine),
     ("default surface is the 20 reads", "an accidental change to the allowlist", t_default_surface),
@@ -303,6 +323,7 @@ CHECKS = [
     ("classification is disjoint", "a write tool in ALLOW and DENY at once, exposed by ALLOW", t_classification_disjoint),
     ("engine is the sibling skill's", "pruning the registry of a same-named module that is not served", t_engine_identity),
     ("dump detail behind its own gate", "dump field values handed out on a system nobody opted in for", t_dump_detail_gated),
+    ("adt_dumps values behind GR_PII", "dump field values on PRD without the user's approval", t_adt_dumps_pii_gate),
 ]
 
 

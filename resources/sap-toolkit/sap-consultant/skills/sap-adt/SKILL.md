@@ -349,7 +349,7 @@ transport for a read.**
 | Who changed it, when? What changed since the last release? | `adt_revisions`; `adt_revision_diff` (old version vs active, or two versions) |
 | What does this transport change, object by object? | `adt_transport_diff(transport)` (layout-only changes ignored; open request = active vs last stored version) |
 | Recent runtime errors, then one dump's ST22 chapters | `adt_dumps` (`group=True`: one row per error + program, with `new`), then `adt_dumps(dump=<link from the list>)` |
-| Inside one dump (NTT Studio default): error analysis, source extract, include + line | `adt_dump_detail` (pass the `uri` from `adt_dumps`). Use `adt_dumps(dump=...)` only for a chapter `adt_dump_detail` leaves out (`sections`, `available`): it has no structured include + line, and on QA/PRD it returns "Chosen variables" without the `GR_PII` approval -- do not read field values with it there |
+| Inside one dump (NTT Studio default): error analysis, source extract, include + line | `adt_dump_detail` (pass the `uri` from `adt_dumps`). Use `adt_dumps(dump=...)` only for a chapter `adt_dump_detail` leaves out (`sections`, `available`): it has no structured include + line, and on QA/PRD any chapter outside its default ones ("Chosen variables", "Contents of system fields", ...) needs the same `GR_PII` approval (enforced in code) -- otherwise `GR_PII` or `withheld` |
 | Background jobs (SM37): failed, running, scheduled; each step's program | `adt_jobs(job_name=, user=, status=, days=)` |
 | What did that job / report print (SP01)? | `adt_spool_list(job=, owner=, days=)`, then `adt_spool_read(number)` -- list spools decoded to lines; another client's spool is refused, not "empty" |
 | What's inactive system-wide? | `adt_inactive_objects` |

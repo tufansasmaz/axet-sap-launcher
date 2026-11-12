@@ -26,6 +26,12 @@ import ntt_dump_detail as dd  # noqa: E402
 RESULTS = []
 
 
+def pii(r):
+    """Motorun kapı biçimi: error=guardrail_violation, code=GR_PII."""
+    return isinstance(r, dict) and r.get("ok") is False and r.get("error") == "guardrail_violation" \
+        and r.get("code") == "GR_PII"
+
+
 def check(name, ok, detail=""):
     RESULTS.append(ok)
     print(("GECTI " if ok else "KALDI ") + name + ("" if ok else f" -- {detail}"))
@@ -185,9 +191,9 @@ eng, reg, adt = fake_engine()
 dd.install(eng, fake_guardrails("PRD"))
 r = reg["adt_dump_detail"](dump=ID, include_variables=True)
 check("PRD: onaysız değişken reddediliyor (GR_PII), SAP'ye gidilmiyor",
-      r.get("ok") is False and r.get("error") == "GR_PII" and adt.calls == [], repr(r)[:300])
+      pii(r) and adt.calls == [], repr(r)[:300])
 r = reg["adt_dump_detail"](dump=ID, include_variables=True, acknowledge_risk=True, approval_text="belki")
-check("PRD: belirsiz onay metni yetmiyor", r.get("ok") is False and r.get("error") == "GR_PII", repr(r)[:200])
+check("PRD: belirsiz onay metni yetmiyor", pii(r), repr(r)[:200])
 r = reg["adt_dump_detail"](dump=ID, include_variables=True, acknowledge_risk=True, approval_text="onay")
 check("PRD: açık onayla geliyor", r.get("ok") is True and any(s["name"] == "kap10" for s in r["sections"]), repr(r)[:200])
 r = reg["adt_dump_detail"](dump=ID)
@@ -204,6 +210,107 @@ eng, reg, adt = fake_engine()
 dd.install(eng, fake_guardrails("DEV"))
 r = reg["adt_dump_detail"](dump="20991231000000XXX")
 check("bulunamayan dump: ok false, HTTP durumu", r.get("ok") is False and "404" in str(r.get("message", "")) + str(r.get("error", "")), repr(r)[:200])
+
+# --- motorun adt_dumps'ı: dump ayrıntısında değer taşıyan bölümler (2026-11-12) -----------
+# Motorun parse_formatted_dump'ı başlık ÖNEKİYLE seçiyor (ölçüldü: sections="c" hem
+# "Chosen variables" hem "Contents of system fields" getiriyor). Sahte motor aynısını yapıyor.
+CHAPTERS = {
+    "Short Text": "Division by 0",
+    "Error analysis": "The program divided by zero.",
+    "Source Code Extract": ">>>>>   12 x = a / b.",
+    "Active Calls/Events": "No. Ty. Program ZFOO",
+    "Chosen variables": "KUNNR 0000123456 MUSTERI ADI",
+    "Contents of system fields": "SY-UNAME MEHMET",
+    "Directory of Application Tables": "KNA1 0000123456 MUSTERI ADI",
+    "User and Transaction": "Terminal 10.1.2.3",
+    "System environment": "SAP Release 758 Host prdapp01",
+}
+DEFAULTS = ("short text", "what happened", "error analysis", "how to correct",
+            "information on where terminated", "source code extract", "active calls")
+
+
+def fake_dumps_engine():
+    eng, registered, adt = fake_engine()
+    eng.dump_calls = []
+
+    def adt_dumps(max_results: int = 10, dump: str = "", sections: str = "",
+                  max_chars: int = 6000, group: bool = False, new_hours: int = 24) -> dict:
+        eng.dump_calls.append({"dump": dump, "sections": sections})
+        if not dump:
+            return {"ok": True, "count": 1, "dumps": [{"title": "Division by 0", "user": "MEHMET",
+                                                       "dump": "adt://PRD/sap/bc/adt/runtime/dumps/X"}]}
+        wanted = [w.strip().lower() for w in sections.split(",") if w.strip()] or list(DEFAULTS)
+        picked = {t: b for t, b in CHAPTERS.items() if any(t.lower().startswith(w) for w in wanted)}
+        return {"ok": True, "dump": "/sap/bc/adt/runtime/dump/X", "header": {"Runtime Errors": "X"},
+                "sections": picked, "truncated": [t for t in picked if t == "Chosen variables"],
+                "available": [{"title": t, "chars": len(b)} for t, b in CHAPTERS.items()]}
+
+    registered["adt_dumps"] = adt_dumps
+    eng.adt_dumps = adt_dumps
+    eng.removed = []
+    eng.mcp.remove_tool = lambda name: (eng.removed.append(name), registered.pop(name, None))
+    return eng, registered
+
+
+VALUES = ("MUSTERI", "MEHMET", "Terminal")
+
+eng, reg = fake_dumps_engine()
+dd.install(eng, fake_guardrails("DEV"))
+tool = reg["adt_dumps"]
+check("adt_dumps yeniden kaydedildi (eski kayıt silindi, modül global'i yeni)",
+      eng.removed == ["adt_dumps"] and getattr(eng, "adt_dumps") is tool, repr(eng.removed))
+r = tool(dump="X", sections="Chosen variables")
+check("DEV: Chosen variables onaysız geliyor (değişmedi)", "Chosen variables" in r.get("sections", {}), repr(r)[:300])
+r = tool(dump="X", sections="c")
+check("DEV: önekle iki değer bölümü de geliyor", set(r["sections"]) == {"Chosen variables", "Contents of system fields"}, repr(r)[:300])
+
+for tier in ("PRD", "QA", "BILINMEYEN"):
+    eng, reg = fake_dumps_engine()
+    dd.install(eng, fake_guardrails(tier))
+    tool = reg["adt_dumps"]
+    r = tool(max_results=5)
+    check(f"{tier}: liste kipi onaysız açık", r.get("ok") is True and r.get("dumps"), repr(r)[:200])
+    r = tool(dump="X")
+    check(f"{tier}: varsayılan bölümler onaysız açık, değer yok",
+          r.get("ok") is True and set(r["sections"]) == {"Short Text", "Error analysis", "Source Code Extract",
+                                                          "Active Calls/Events"}
+          and not any(v in repr(r) for v in VALUES), repr(r)[:300])
+    eng.dump_calls.clear()
+    r = tool(dump="X", sections="Chosen variables")
+    check(f"{tier}: Chosen variables onaysız reddediliyor (GR_PII), SAP'ye gidilmiyor",
+          pii(r) and eng.dump_calls == []
+          and "acknowledge_risk" in r.get("message", ""), repr(r)[:300])
+    r = tool(dump="X", sections="Contents of system fields,Short Text")
+    check(f"{tier}: sistem alanları da reddediliyor", pii(r), repr(r)[:200])
+    r = tool(dump="X", sections="c")
+    check(f"{tier}: belirsiz önek reddediliyor, değer yok",
+          pii(r) and not any(v in repr(r) for v in VALUES), repr(r)[:300])
+    r = tool(dump="X", sections="s")
+    check(f"{tier}: 's' öneki: güvenli bölüm gelir, değerli bölüm maskelenir ve adı söylenir",
+          r.get("ok") is True and "Short Text" in r["sections"] and "System environment" not in r["sections"]
+          and "prdapp01" not in repr(r)
+          and r.get("withheld") == ["System environment"] and "GR_PII" in r.get("note", ""), repr(r)[:400])
+    r = tool(dump="X", sections="Chosen variables", acknowledge_risk=True, approval_text="belki")
+    check(f"{tier}: belirsiz onay metni yetmiyor", pii(r), repr(r)[:200])
+    r = tool(dump="X", sections="Chosen variables", acknowledge_risk=False, approval_text="onay")
+    check(f"{tier}: acknowledge_risk olmadan yetmiyor", pii(r), repr(r)[:200])
+    r = tool(dump="X", sections="Chosen variables,Directory", acknowledge_risk=True, approval_text="onay")
+    check(f"{tier}: açık onayla değerler geliyor",
+          r.get("ok") is True and "MUSTERI" in r["sections"].get("Chosen variables", "")
+          and "Directory of Application Tables" in r["sections"] and "withheld" not in r, repr(r)[:300])
+    check(f"{tier}: onay parametreleri motora geçmiyor", eng.dump_calls[-1] == {"dump": "X", "sections": "Chosen variables,Directory"},
+          repr(eng.dump_calls[-1:]))
+
+# Kit senkronunda motorun imzası değişirse kapı sessizce eskimesin: kurulum durur.
+eng, reg = fake_dumps_engine()
+def adt_dumps_yeni(max_results: int = 10, dump: str = "", sections: str = "", raw: bool = False) -> dict:
+    return {}
+eng.adt_dumps = reg["adt_dumps"] = adt_dumps_yeni
+try:
+    dd.install(eng, fake_guardrails("PRD"))
+    check("motor imzası değişince kurulum duruyor", False, "hata yok")
+except RuntimeError as exc:
+    check("motor imzası değişince kurulum duruyor", "adt_dumps" in str(exc), str(exc))
 
 failed = RESULTS.count(False)
 print(f"\n{len(RESULTS) - failed}/{len(RESULTS)} geçti")

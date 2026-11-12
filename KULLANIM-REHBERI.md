@@ -429,6 +429,12 @@ listesi ve bağlanılan sistemler var.
   **Durdur** turu kapatır; **yeni mesaj yazarsan** otomatik devam gönderilmez,
   senin mesajın gider. Onay hiçbir zaman sen pencereden vermeden verilmez;
   transport onayı ve QA/PRD salt okunur kuralı aynen geçerlidir.
+- **Dump'taki alan değerleri (QA/PRD)**: Ajan bir kısa dump'ı (ST22) her
+  sistemde okuyabilir: liste, hata analizi, kaynak kesiti ve çağrı yığını
+  serbesttir. Dump'taki değişken değerleri ("Chosen variables", sistem
+  alanları, tablo içerikleri) QA/PRD'de müşteri ya da kişisel veri
+  taşıyabilir; ajan bunları ancak sen sohbette açıkça "onay" dersen okur.
+  Bu kural kodla uygulanır, ajanın isteğine bağlı değildir.
 - **Hazır istemler**: Sistem bağlandığında rolüne göre önerilen başlangıç
   sorularını gösteren bir kart açılır.
 - **Windows bildirimi**: Uygulama arka plandayken ajan cevabını bitirince
