@@ -16,7 +16,7 @@ import { pinForUrl } from "./tlsPin";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
 import { saveSamlIdpOrigin } from "./store";
 import { getGlobalAxetRoot, installSkillsIntoProject, skillCountForNotice, type SkillInstallResult } from "./sapToolkit";
-import { startRfcBridge } from "./rfcBridgeManager";
+import { startRfcBridge, stopRfcBridgesExcept } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
 import { sapBindingFor, type SapBinding } from "./sapBinding";
@@ -1256,6 +1256,10 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     profile: config.skillProfile ?? undefined,
     tier: systemTier
   });
+
+  // Tek aktif bağlam: başka sistemlerin RFC köprüleri (ve SAP'taki RFC
+  // oturumları) kapanıyor; bu sistemin köprüsü gerekiyorsa aşağıda yeniden açılıyor.
+  stopRfcBridgesExcept(projectDir);
 
   let toolTest = { ok: false, detail: "RFC bridge modunda adt-tool.ps1 self-test atlandı" };
   let rfcOutcome: RfcBridgeOutcome | null = null;

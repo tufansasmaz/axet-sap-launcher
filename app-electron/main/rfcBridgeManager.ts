@@ -223,6 +223,18 @@ export function stopRfcBridge(key: string): void {
   running.delete(key);
 }
 
+/**
+ * Bu proje dışındaki bütün köprüleri durdurur (kararlilik-2 R8e). Router'lı
+ * bir sistemden router'sız birine geçince eski köprü — ve SAP'taki RFC
+ * oturumu — uygulama kapanana kadar yaşıyordu; tek aktif bağlam kuralında
+ * kimse onu kullanmıyor.
+ */
+export function stopRfcBridgesExcept(key: string): void {
+  for (const other of Array.from(running.keys())) {
+    if (other !== key) stopRfcBridge(other);
+  }
+}
+
 export function stopAllRfcBridges(): void {
   for (const key of Array.from(running.keys())) {
     stopRfcBridge(key);

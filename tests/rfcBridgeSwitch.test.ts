@@ -10,12 +10,12 @@
 // portta A'yi buldugu icin "kopru ayakta" diyordu. B'nin kimlik dogrulamasi ve
 // sonraki butun ADT cagrilari A'nin SAP sistemine gidiyordu.
 
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer, request } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, describe, expect, it } from "vitest";
-import { startRfcBridge, stopAllRfcBridges, stopRfcBridge } from "../app-electron/main/rfcBridgeManager";
+import { isRfcBridgeRunning, startRfcBridge, stopAllRfcBridges, stopRfcBridge, stopRfcBridgesExcept } from "../app-electron/main/rfcBridgeManager";
 
 const SCRIPT = path.join(__dirname, "fixtures", "fakeRfcBridge.cjs");
 
@@ -115,6 +115,29 @@ describe("RFC koprusu: sistem degistirme", () => {
       foreign.close();
     }
   }, 30_000);
+
+  // Sizan surec (kararlilik-2 R8e): router'li A'dan router'siz B'ye gecince
+  // A'nin koprusu (ve SAP'taki RFC oturumu) uygulama kapanana kadar yasiyordu.
+  it("stopRfcBridgesExcept: baska sistemin koprusu kapanir, bu sisteminki kalir", async () => {
+    const portA = await freePort();
+    const portB = await freePort();
+    const a = project("sistemE");
+    const b = project("sistemF");
+    await startRfcBridge({ scriptPath: SCRIPT, pythonPath: process.execPath, bridgePort: portA, projectDir: a });
+    await startRfcBridge({ scriptPath: SCRIPT, pythonPath: process.execPath, bridgePort: portB, projectDir: b });
+    stopRfcBridgesExcept(b);
+    expect(isRfcBridgeRunning(a)).toBe(false);
+    expect(isRfcBridgeRunning(b)).toBe(true);
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline && (await health(portA)) !== null) await new Promise((r) => setTimeout(r, 100));
+    expect(await health(portA)).toBeNull();
+    expect(await health(portB)).toBe("sistemF");
+  }, 30_000);
+
+  it("baglanma akisi router'siz sistemde oteki kopruleri kapatiyor", () => {
+    const launcher = readFileSync(path.join(__dirname, "..", "app-electron", "main", "launcher.ts"), "utf8");
+    expect(launcher).toContain("stopRfcBridgesExcept(projectDir)");
+  });
 
   it("stopRfcBridge portu birakir", async () => {
     const port = await freePort();
