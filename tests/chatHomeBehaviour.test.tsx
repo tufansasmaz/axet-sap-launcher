@@ -295,6 +295,33 @@ describe("mesaj kuyruğu", () => {
     expect(box.value).toBe("ikinci");
   });
 
+  // kararlilik-2 R8d: "Mesaj sıraya ekleme var ama anında gönderme yok."
+  // Güvenli yol, kullanıcının Durdur'u ile aynı: tur kesiliyor (axet-code süreci
+  // öldürülüyor; yarım kalan araç çağrısı varsa sonraki tur yeni oturum açıyor),
+  // sıradaki kutuya DÖNMÜYOR, hemen gidiyor.
+  it("Şimdi gönder: tur kesilir, sıradaki kutuya dönmeden hemen gider", async () => {
+    const { calls, send } = setupSend();
+    const cancel = vi.fn(() => Promise.resolve());
+    const api = (window as unknown as { api: Record<string, unknown> }).api;
+    (window as unknown as { api: unknown }).api = new Proxy(api, {
+      get: (target, k: string) => (k === "cancelChatMessage" ? cancel : (target as Record<string, unknown>)[k])
+    });
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    type(box, "ikinci");
+
+    fireEvent.click(screen.getByTitle("Şimdi gönder (mevcut turu durdurur)"));
+    expect(cancel).toHaveBeenCalledWith(send.mock.calls[0][0]);
+
+    await act(async () => calls[0].resolve({ ok: false, cancelled: true, text: "" }));
+    await wait(0);
+    expect(send).toHaveBeenCalledTimes(2);
+    expect(calls[1].prompt).toContain("ikinci");
+    expect(box.value).toBe("");
+    expect(screen.queryByTestId("chat-queued")).toBeNull();
+  });
+
   it("şeritten silinebiliyor ya da kutuya geri alınabiliyor", async () => {
     setupSend();
     const box = await openChat();

@@ -814,6 +814,7 @@ export const tr = {
   "chatQueue.label": "Sırada",
   "chatQueue.restore": "Kutuya geri al",
   "chatQueue.drop": "Sıradan çıkar",
+  "chatQueue.sendNow": "Şimdi gönder (mevcut turu durdurur)",
   "chatAttention.working": "Çalışıyor",
   "chatAttention.unseen": "Yeni cevap",
   "chatAttention.asking": "Cevabını bekliyor",

@@ -749,6 +749,7 @@ export const en: Record<TranslationKey, string> = {
   "chatQueue.label": "Queued",
   "chatQueue.restore": "Move back to input",
   "chatQueue.drop": "Remove from queue",
+  "chatQueue.sendNow": "Send now (stops the current turn)",
   "chatAttention.working": "Working",
   "chatAttention.unseen": "New reply",
   "chatAttention.asking": "Waiting for your answer",

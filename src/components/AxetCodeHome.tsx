@@ -855,6 +855,9 @@ export default function AxetCodeHome({
 
   // Turu biten, sırasında mesaj olabilecek sohbetler (bkz. `runPrompt` sonu).
   const flushQueueRef = useRef<Set<string>>(new Set());
+  // "Şimdi gönder" istenen sohbetler: turları kesildiğinde sıradaki kutuya
+  // dönmüyor, hemen gidiyor (kararlilik-2 R8d).
+  const sendNowRef = useRef<Set<string>>(new Set());
 
   // "Yeni sohbet" artık kayıt OLUŞTURMUYOR — sadece boş composer'a dönüyor.
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
@@ -1247,6 +1250,8 @@ export default function AxetCodeHome({
       // tam metniyle değiştiriliyor, yani kaybolan bir şey yok. Bırakılsaydı
       // tamamlanmış cevabın sonuna tekrar eklenirdi.
       streamQueue.current.delete(requestId);
+      // Güncelleyici tembel çalışabiliyor; bayrak şimdi okunup siliniyor.
+      const sendNow = sendNowRef.current.delete(sessionId);
 
       setSessions((prev) =>
         prev.map((s) => {
@@ -1297,7 +1302,9 @@ export default function AxetCodeHome({
           // dönüyor: durdurmak "bekle" demek, hatadan sonra da kullanıcı
           // muhtemelen ne yazacağını değiştirecek. Başarıda ise yerinde
           // kalıyor ve aşağıdaki efekt onu gönderiyor.
-          const restoreQueued = s.queued
+          // "Şimdi gönder" ile kesilen turda sıradaki YERİNDE kalıyor ve hemen
+          // gidiyor — kullanıcı tam olarak bunu istedi (bkz. handleSendQueuedNow).
+          const restoreQueued = s.queued && !sendNow
             ? { ...mergeQueuedIntoDraft(s.draft, s.attachments, s.queued), queued: null }
             : {};
 
@@ -1597,6 +1604,18 @@ export default function AxetCodeHome({
     if (!activeId) return;
     setSessions((prev) => prev.map((s) => (s.id === activeId ? { ...s, queued: null } : s)));
   }, [activeId]);
+
+  // Sıradakini HEMEN gönder: mevcut tur Durdur ile aynı yoldan kesiliyor
+  // (axet-code süreci öldürülüyor; yarım araç çağrısı kaldıysa sonraki tur
+  // yeni oturumu geçmişle tohumluyor, bkz. axetChat.ts `resumableSession`).
+  // Tur bitince `runPrompt` bayrağı görüp sıradakini kutuya geri koymuyor ve
+  // kuyruk efekti onu gönderiyor.
+  const handleSendQueuedNow = useCallback(() => {
+    const session = sessions.find((s) => s.id === activeId);
+    if (!session?.queued || !session.pending || !session.requestId) return;
+    sendNowRef.current.add(session.id);
+    window.api.cancelChatMessage(session.requestId).catch(() => {});
+  }, [activeId, sessions]);
 
   // Gönderilmiş bir kullanıcı mesajını düzenle: metni composer'a geri koy ve
   // sohbeti O MESAJDAN İTİBAREN kes. Sonrasındaki cevap(lar) düzeltilmiş
@@ -2303,6 +2322,7 @@ export default function AxetCodeHome({
             onUndoEdit={handleUndoEdit}
             onUnqueue={handleUnqueue}
             onDropQueued={handleDropQueued}
+            onSendQueuedNow={handleSendQueuedNow}
             onAttachFiles={handleAttachFiles}
             onFilesResolved={(paths) => addAttachments(session.id, paths)}
             onRemoveAttachment={(attachmentId) =>
@@ -2371,6 +2391,7 @@ export default function AxetCodeHome({
           onUndoEdit={handleUndoEdit}
           onUnqueue={handleUnqueue}
           onDropQueued={handleDropQueued}
+          onSendQueuedNow={handleSendQueuedNow}
           onAttachFiles={handleAttachFiles}
           onFilesResolved={(paths) => addAttachments(NEW_SESSION_ID, paths)}
           onRemoveAttachment={(attachmentId) =>

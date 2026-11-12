@@ -24,6 +24,7 @@ import {
   Package,
   Rocket,
   Search,
+  SendHorizontal,
   Server,
   Sparkles,
   UploadCloud,
@@ -160,6 +161,8 @@ interface Props {
   /** Sıradaki mesajı kutuya geri koyar / tamamen atar (bkz. `queued`). */
   onUnqueue: () => void;
   onDropQueued: () => void;
+  /** Mevcut turu kesip sıradakini hemen gönderir (kararlilik-2 R8d). */
+  onSendQueuedNow?: () => void;
   onAttachFiles: () => void;
   onFilesResolved: (paths: string[]) => void;
   onRemoveAttachment: (attachmentId: string) => void;
@@ -242,6 +245,7 @@ export default function ChatSessionPane({
   onUndoEdit,
   onUnqueue,
   onDropQueued,
+  onSendQueuedNow,
   onAttachFiles,
   onFilesResolved,
   onRemoveAttachment,
@@ -773,6 +777,16 @@ export default function ChatSessionPane({
                   session.queued.attachments.map((a) => a.name).join(", ")}
               </span>
               <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                {onSendQueuedNow && session.pending && (
+                  <button
+                    onClick={onSendQueuedNow}
+                    title={t("chatQueue.sendNow")}
+                    aria-label={t("chatQueue.sendNow")}
+                    className="cursor-pointer rounded-md p-1 transition hover:bg-hover hover:text-slate-200"
+                  >
+                    <SendHorizontal size={13} />
+                  </button>
+                )}
                 <button
                   onClick={onUnqueue}
                   title={t("chatQueue.restore")}
