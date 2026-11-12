@@ -25,6 +25,12 @@ allowed-tools: Bash(python:*), Bash(py:*), Read, Grep, Glob
 > Aşağıda `adt_xxx` MCP aracı denen her yerde `POST http://127.0.0.1:8787/tool/adt_xxx`
 > oku (JSON gövde = aracın argümanları).
 >
+> - **Çoklu sistem:** NTT Studio aynı anda birden fazla sisteme bağlı olabilir; her
+>   sistemin sunucusu kendi portunda ve kendi jetonuyla. Bu süreçte doğru adres
+>   `$ABAP_HTTP_URL` (ortamda; yoksa `http://127.0.0.1:8787`), jeton `$ABAP_HTTP_TOKEN` —
+>   ikisi de çalışma klasörünün sistemine ait. Aşağıda 8787 yazan her yerde bu adresi
+>   kullan; `sap-context.md` bu sistemin gerçek portunu yazar. Başka sistemin portunu
+>   deneme: jetonun onu açmaz (401).
 > - Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` gerekiyor, `/health` dahil.
 >   Token ortamda duruyor; değerini ekrana basma, hiçbir dosyaya yazma.
 > - İlk iş `GET /health` (hangi araçlar açık), argümanlar için `GET /tools` (her aracın
@@ -42,8 +48,8 @@ allowed-tools: Bash(python:*), Bash(py:*), Read, Grep, Glob
 >   `.conn_adt`'deki parolayla kendi HTTP isteğini kurma.
 >
 > ```bash
-> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.get('http://127.0.0.1:8787/health', headers=h).json())"
-> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.post('http://127.0.0.1:8787/tool/adt_logon', json={}, headers=h).json())"
+> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.get(os.environ.get('ABAP_HTTP_URL', 'http://127.0.0.1:8787') + '/health', headers=h).json())"
+> python -c "import os, requests; h={'Authorization': 'Bearer ' + os.environ['ABAP_HTTP_TOKEN']}; print(requests.post(os.environ.get('ABAP_HTTP_URL', 'http://127.0.0.1:8787') + '/tool/adt_logon', json={}, headers=h).json())"
 > ```
 
 Same engine as [`sap-adt`](../sap-adt/SKILL.md), same persistent session, same

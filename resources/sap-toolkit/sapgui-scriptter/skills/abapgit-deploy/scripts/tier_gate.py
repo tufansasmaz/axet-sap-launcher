@@ -97,6 +97,14 @@ def require_dev_tier(start: Path | str | None = None) -> str | None:
 # süreç; token ajanın ortamındaki ABAP_HTTP_TOKEN. Launcher'ın onay ucuna buradan
 # gidilmez — karar her zaman sunucunun üzerinden, aynı kayıtla verilir.
 ADT_HTTP_URL = "http://127.0.0.1:8787"
+# Çoklu sistem (NTT Studio, 2026-11-12): her sistemin onaylı sunucusu kendi
+# portunda; NTT Studio ajanın/terminalin ortamına o sistemin adresini
+# `ABAP_HTTP_URL` olarak koyuyor (jetonu da `ABAP_HTTP_TOKEN`). Yoksa 8787.
+ADT_HTTP_URL_ENV = "ABAP_HTTP_URL"
+
+
+def _adt_http_url() -> str:
+    return (os.environ.get(ADT_HTTP_URL_ENV) or "").strip().rstrip("/") or ADT_HTTP_URL
 APPROVAL_ENV = "AXET_ABAPGIT_ONAY_ID"
 EXIT_REFUSED = 2
 EXIT_PENDING = 3
@@ -132,7 +140,7 @@ def require_write_approval(script: str, paket: str = "", transport: str = "",
     body = {"script": Path(script).name, "paket": paket or "", "transport": transport or "",
             "zip_dosyasi": zip_abs, "ust_onay": os.environ.get(APPROVAL_ENV, "")}
     req = urllib.request.Request(
-        (url or ADT_HTTP_URL) + "/tool/axet_abapgit_onay",
+        (url or _adt_http_url()) + "/tool/axet_abapgit_onay",
         data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"},
         method="POST")

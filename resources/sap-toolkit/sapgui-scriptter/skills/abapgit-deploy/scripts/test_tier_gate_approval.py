@@ -72,7 +72,7 @@ def fresh(**kv):
     """Temiz sahte sunucu + ortam: token var, üst onay yok, proxy yok (kv ile değiştirilir)."""
     FAKE.calls.clear()
     FAKE.replies.clear()
-    want = {"ABAP_HTTP_TOKEN": TOKEN, tg.APPROVAL_ENV: None, "HTTP_PROXY": None, "http_proxy": None}
+    want = {"ABAP_HTTP_TOKEN": TOKEN, "ABAP_HTTP_URL": None, tg.APPROVAL_ENV: None, "HTTP_PROXY": None, "http_proxy": None}
     want.update(kv)
     old = {k: os.environ.get(k) for k in want}
     for k, v in want.items():
@@ -116,6 +116,30 @@ def token_yoksa_sorulmadan_ret():
         # İki terminal de sayılıyor: ajan terminali ve NTT Studio'nun terminali; harici olanlarda yok.
         assert "ajan terminalinden" in err and "NTT Studio'nun terminalinden" in err, err
         assert "harici terminallerde" in err, err
+
+
+@test
+def sistemin_adresi_ortamdan_okunuyor():
+    """Çoklu sistem: NTT Studio sistemin sunucusunu ABAP_HTTP_URL ile veriyor; sabit 8787 değil."""
+    saved = tg.ADT_HTTP_URL
+    tg.ADT_HTTP_URL = "http://127.0.0.1:9"  # dinlenmiyor: buraya gidilirse ret
+    try:
+        with fresh(ABAP_HTTP_URL=FAKE.url), tempfile.TemporaryDirectory() as d:
+            FAKE.reply(200, {"ok": True, "onay_id": "onay-2"})
+            z = Path(d) / "a.zip"
+            z.write_bytes(b"x")
+            cwd = os.getcwd()
+            os.chdir(d)
+            try:
+                rc, out, err = run(lambda: tg.require_write_approval(
+                    str(HERE / "gui_run_zabapgit_auto.py"), paket="ZPKG", transport="DS4K900001",
+                    zip_dosyasi="a.zip"))
+            finally:
+                os.chdir(cwd)
+            assert rc is None, (rc, err)
+            assert FAKE.calls and FAKE.calls[0]["path"] == "/tool/axet_abapgit_onay", FAKE.calls
+    finally:
+        tg.ADT_HTTP_URL = saved
 
 
 @test
