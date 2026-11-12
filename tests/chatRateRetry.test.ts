@@ -2,11 +2,10 @@
 // Hata metni portalin olculen cumlesi (bkz. shared/agentErrors.ts basi).
 
 import { describe, expect, it } from "vitest";
-import { planRateRetry, rateLimitedTurn } from "../src/lib/chatRateRetry";
-import type { ChatMessage } from "../src/components/ChatBubble";
+import { planRateRetry, rateLimitedTurn, type RetryMessage } from "../src/lib/chatRateRetry";
 
 const RATE = 'POST "https://portal/v1/messages": 429 Too Many Requests {"message":"Too many tokens, please wait before trying again."}';
-const msg = (over: Partial<ChatMessage>): ChatMessage => ({ id: "m", role: "assistant", content: "", createdAt: 0, ...over });
+const msg = (over: Partial<RetryMessage>): RetryMessage => ({ role: "assistant", content: "", ...over });
 const ON = { auto: true, max: 3 };
 const mid = () => 0.5;
 

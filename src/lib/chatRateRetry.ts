@@ -11,12 +11,20 @@
 //     yapılan iş tekrarlanmasın.
 //   - hiçbir şey yapılmadan düştü (`error`) → aynı istem yeniden gönderilir.
 import { classifyAgentError, decideRetry, retryDelayMs } from "../../app-electron/shared/agentErrors";
-import type { ChatMessage } from "../components/ChatBubble";
+/** Kararın baktığı alanlar (ChatBubble'ın ChatMessage'ının alt kümesi; ana süreç tsconfig'i JSX okumuyor). */
+export interface RetryMessage {
+  role: "user" | "assistant";
+  content: string;
+  error?: boolean;
+  streaming?: boolean;
+  interrupted?: boolean;
+  haltReason?: string;
+}
 
 export type RateRetryKind = "regenerate" | "continue";
 
 /** Son mesaj 429 ile biten bir tur mu; öyleyse hangi yoldan sürdürülür. */
-export function rateLimitedTurn(last: ChatMessage | null | undefined): RateRetryKind | null {
+export function rateLimitedTurn(last: RetryMessage | null | undefined): RateRetryKind | null {
   if (!last || last.role !== "assistant" || last.streaming) return null;
   if (last.interrupted && last.haltReason && classifyAgentError(last.haltReason) === "rateLimit") return "continue";
   if (last.error && classifyAgentError(last.content) === "rateLimit") return "regenerate";
@@ -35,7 +43,7 @@ export interface RateRetryPlan {
  * da 429 değil).
  */
 export function planRateRetry(
-  last: ChatMessage | null | undefined,
+  last: RetryMessage | null | undefined,
   attempts: number,
   settings: { auto: boolean; max: number },
   rand: () => number = Math.random
