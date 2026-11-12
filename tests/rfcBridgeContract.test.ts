@@ -41,7 +41,8 @@ describe("launcher → adt_rfc_bridge.py sözleşmesi", () => {
   });
 
   it("launcher --port veriyor, script --port'u dinliyor", () => {
-    expect(manager).toMatch(/\[opts\.scriptPath, "--port", String\(opts\.bridgePort\)\]/);
+    // py yedeğinde `-3` önde (pythonArgs): betik satırı PATH'teki python3'ü seçmesin (2026-11-12).
+    expect(manager).toMatch(/pythonArgs\(opts\.pythonPath, opts\.scriptPath, \["--port", String\(opts\.bridgePort\)\]\)/);
     expect(bridge).toMatch(/add_argument\("--port"/);
   });
 
