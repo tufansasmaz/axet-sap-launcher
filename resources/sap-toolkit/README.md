@@ -115,7 +115,7 @@ Repo layout (each `skills/<name>` folder is installed into a project's `.axet-co
 sap-toolkit/
 ├── sap-consultant/skills/{sap-adt, sap-adt-readonly, sap-adt-router-bridge, clean-core, sap-docs, abap-code-checker, abap-code-review, sap-incident, sap-cr-scope, sap-cr-handover, fs-generator, ts-generator, ...}/
 │   ├── sap-adt/scripts/adt_gated_server.py               # the engine (50 tools) behind NTT Studio write approval, 53 tools (DEV only)
-│   ├── sap-adt-readonly/scripts/adt_readonly_server.py   # the wrapper, 19 tools — imports the engine next door
+│   ├── sap-adt-readonly/scripts/adt_readonly_server.py   # the wrapper, 27 tools — imports the engine next door
 │   ├── fs-generator/scripts/{extract_pdf.js, render_pdf.py}  # requirements → FS → branded PDF
 │   └── ts-generator/scripts/{extract_pdf.js, merge_and_pdf.py}  # FS→TS: PDF in, branded PDF out
 ├── abapgit-bridge/skills/{abapgit-workflow, abapgit-export-zip, ...}/
@@ -278,7 +278,7 @@ becomes a different server with the same name.
 
 | Entrypoint | Surface | Default port |
 |---|---|---|
-| `sap-consultant/skills/sap-adt/scripts/adt_gated_server.py` | 53: the engine's 50, every write asks NTT Studio, + 3 `axet_*` | 8787 |
+| `sap-consultant/skills/sap-adt/scripts/adt_gated_server.py` | 67: the engine's 65 minus `adt_edit_source`/`adt_edit_method`, + `adt_dump_detail`, every write asks NTT Studio, + 3 `axet_*` | 8787 |
 | `sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py` | 19, and never a write | 8790 |
 
 The launcher starts whichever one the role and the tier call for, always on **8787**.
@@ -293,7 +293,7 @@ The launcher starts whichever one the role and the tier call for, always on **87
 Belt alone would not be enough: with the write tools still advertised, the model plans a
 push, spends the turn on it, and only then learns it was refused.
 
-**Surface: 19 tools on install, 22 with all three gates open.** Three read tools are
+**Surface: 27 tools on install, 32 with all five gates open (30 as NTT Studio starts it).** These read tools are
 gated behind their own variable because "read-only" reads as "harmless" and these are not:
 
 | Tool | Variable | Why gated |

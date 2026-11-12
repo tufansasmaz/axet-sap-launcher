@@ -352,10 +352,21 @@ def parse_field_spec(fields):
         parts = ([str(p) for p in row] if isinstance(row, (list, tuple))
                  else str(row).split(';'))
         parts = [p.strip() for p in parts]
+        if parts and parts[0] == '@BUTTON':
+            # An on-screen push button: "@BUTTON;TEXT;FCODE".
+            if len(parts) != 3 or not parts[1] or not re.fullmatch(r'[A-Z0-9_]{1,20}', parts[2].upper()):
+                raise ValueError(f"button {i} must be TEXT;FCODE (FCODE: up to 20 of A-Z 0-9 _): {row!r}")
+            out.append(f"@BUTTON;{parts[1]};{parts[2].upper()}")
+            continue
+        flag = ''
+        if len(parts) == 4:
+            if parts[3].lower() != 'in':
+                raise ValueError(f"field {i}: the 4th part may only be 'in' (input field): {row!r}")
+            flag, parts = ';in', parts[:3]
         if len(parts) != 3:
             raise ValueError(
                 f"field {i} has {len(parts)} part(s), expected 3 "
-                f"(label;FIELDNAME;length): {row!r}")
+                f"(label;FIELDNAME;length[;in]): {row!r}")
         label, name, length = parts
         if not label:
             raise ValueError(f"field {i} has an empty label: {row!r}")
@@ -367,10 +378,17 @@ def parse_field_spec(fields):
         if not length.isdigit() or int(length) < 1:
             raise ValueError(
                 f"field {i} length must be a positive integer, got {length!r}")
-        out.append(f"{label};{name.upper()};{length}")
+        out.append(f"{label};{name.upper()};{length}{flag}")
     if not out:
         raise ValueError("no fields given")
     return '|'.join(out)
+
+
+def expected_elements(spec):
+    """Screen elements the FM writes for a spec: a label and a value per field, one per button."""
+    rows = [r for r in spec.split('|') if r]
+    buttons = sum(1 for r in rows if r.startswith('@BUTTON;'))
+    return (len(rows) - buttons) * 2 + buttons
 
 
 def read_screen_fields(adt, program, dynpro='0100', language=None, fm_name=None):
@@ -437,7 +455,7 @@ def generate_fields(adt, program, dynpro='0100', title='Detay', fields=None,
                 "message": f"Refusing to generate a screen in non-customer program '{prog}'. "
                            "Target must be in the Z/Y customer namespace."}
 
-    spec, pair_count = '', 0
+    spec, pair_count, n_buttons = '', 0, 0
     if mode == 'WRITE':
         try:
             spec = parse_field_spec(fields)
@@ -449,7 +467,9 @@ def generate_fields(adt, program, dynpro='0100', title='Detay', fields=None,
                                 "component of the target program (e.g. GS_DETAIL-EBELN); "
                                 "a local variable or a class attribute cannot be bound "
                                 "to a screen.")}
-        pair_count = len(spec.split('|'))
+        rows = spec.split('|')
+        n_buttons = sum(1 for r in rows if r.startswith('@BUTTON;'))
+        pair_count = len(rows) - n_buttons
 
     out = {}
     if mode == 'WRITE' and not transport:
@@ -533,7 +553,7 @@ def generate_fields(adt, program, dynpro='0100', title='Detay', fields=None,
                     "message": f"Generation reported EV_RC={ev_rc}. See EV_MESSAGE."})
         return out
 
-    expected = pair_count * 2          # one TEXT + one TEMPLATE per pair
+    expected = expected_elements(spec)  # a TEXT + a TEMPLATE per field, one PUSH per button
     if not verify:
         out["ok"] = True
         out["message"] = (f"{pair_count} field pair(s) written to {prog}/{dynpro} "
@@ -567,7 +587,7 @@ def generate_fields(adt, program, dynpro='0100', title='Detay', fields=None,
 
     out["ok"] = True
     out["message"] = (
-        f"{pair_count} field pair(s) on {prog}/{dynpro}, verified: {native} native "
+        f"{pair_count} field pair(s){f' and {n_buttons} button(s)' if n_buttons else ''} on {prog}/{dynpro}, verified: {native} native "
         f"field(s) read back. GUI status untouched — STAT{dynpro}/TIT{dynpro} must "
         f"already exist (generate_screen for the same dynpro). The program must "
         f"declare each bound name as a GLOBAL variable, and CALL SCREEN must live in "
@@ -773,11 +793,15 @@ def main():
     parser.add_argument('--cc-name', default='CC_ALV',
                         help='Custom control name for CONTAINER type (default CC_ALV).')
     parser.add_argument('--fields',
-                        help='FIELDS type only. "label;FIELDNAME;length" rows joined by "|", '
-                             'e.g. "Siparis;GS_DETAIL-EBELN;12|Kalem;GS_DETAIL-EBELP;6". '
-                             'FIELDNAME must be a GLOBAL variable or structure component of '
-                             'the target program. Repeatable instead: pass --fields once per row.',
+                        help='FIELDS type only. "label;FIELDNAME;length[;in]" rows joined by "|", '
+                             'e.g. "Siparis;GS_DETAIL-EBELN;12|Malzeme;GV_MATNR;18;in". '
+                             'A 4th column "in" makes the field an INPUT field (default: '
+                             'output only). FIELDNAME must be a GLOBAL variable or structure '
+                             'component of the target program. Repeatable: once per row.',
                         action='append')
+    parser.add_argument('--button', action='append', metavar='"TEXT;FCODE"',
+                        help='FIELDS type: a push button ON the screen (not the toolbar), '
+                             'below the fields. On click PAI gets OK code FCODE. Repeatable.')
     parser.add_argument('--lines', type=int, default=20,
                         help='FIELDS type: screen height in rows (default 20).')
     parser.add_argument('--columns', type=int, default=100,
@@ -875,7 +899,8 @@ def main():
         recreate=args.recreate, transport=args.transport, language=args.language,
         fm_name=args.fm_name,
         # FIELDS only; ignored by the DOCKING/CONTAINER path.
-        fields=('|'.join(args.fields) if args.fields else None),
+        fields=('|'.join((args.fields or []) + [f"@BUTTON;{b}" for b in (args.button or [])])
+                if args.fields else None),
         lines=args.lines, columns=args.columns, verify=not args.no_verify,
         fields_fm_name=args.fields_fm_name,
     )

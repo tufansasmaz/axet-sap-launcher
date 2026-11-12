@@ -32,20 +32,27 @@ source-reading that produced the answer. Its §7 generalises beyond Adobe forms.
 
 ADT cannot display SFPI/SFPF, so there is no second opinion available — the only real
 verification is asking the same API what it actually stored. While this skill was built,
-**apparent success differed from reality three times**:
+**apparent success differed from reality five times**:
 
 | Reported | Reality | Caught by |
 |---|---|---|
 | "created and activated" | `state = I` (inactive) | `--mode STATUS` |
 | "layout written" | layout unchanged | `--mode GET_LAYOUT` |
 | "parameters added" | Context tab empty | `--mode GET_PARAMS` + user's screenshot |
+| `STATUS`: "context/interface compatible" | every field twice in the context; ADS returned an EMPTY page, static text included | **rendering the form** and looking at the PDF |
+| "layout uploaded" | ADS kept serving the OLD design from its template cache | a fresh uuid on every upload, then a render |
 
 That is why the diagnostic modes ship in production instead of being deleted after the
 bug. Use them. After any WRITE or SET_PARAMS, run `--mode STATUS`.
 
+**`STATUS` reads the objects; it does not run them. A form is done when it has been rendered through
+ADS and the PDF looked at** — `references/render_test.abap` makes the PDF, `scripts/render_pdf_check.py`
+rebuilds it from the classrun output and says whether ADS drew anything (an empty layout is about
+4600 bytes; one filled page about 11 KB) and, with `--xdp`, whether it is YOUR layout. Without that step a form is only "reported fine".
+
 ## How it works (and why SOAP-RFC, not classrun)
 
-The `CL_FP_WB_*` APIs need a **dialog context**. Called from `adt_classrun` they fail with
+The `CL_FP_WB_*` APIs need a **dialog context**. Called from an ADT class run (`IF_OO_ADT_CLASSRUN`) they fail with
 `400 "Session Timed Out"` — the identical trap documented in **screen-gen**. The fix is
 the same: an **RFC-enabled** wrapper FM (default **`ZND_FM_ADOBE_GEN`**) called over
 **`/sap/bc/soap/rfc`**, which provides that context.
@@ -191,17 +198,40 @@ context with `EV_RC=4` instead of pretending.
 SFP's Context tab and press "Get from Interface".** Use `--mode GET_CONTEXT` first to
 see what is actually there.
 
-> **Duplicated nodes** (`Düğüm adı AUFNR benzersiz değil`, and SFP refusing to open the
-> layout) mean `SYNC_CONTEXT` ran more than once while it still appended blindly. Confirm
-> with `GET_CONTEXT`: each field will appear twice under its parent. The repair is manual,
-> per the paragraph above.
+> **One case is automated: NEW fields on a populated context** (a field was added to a DDIC
+> structure the interface uses; the layout field prints empty and nothing errors). The static
+> `CL_FP_WB_FORM=>ACTIVATE` loads the inactive version without delayed loading, so it does not
+> hit the pincer above. A second generator, **`ZND_FM_ADOBE_CTX`** (`bootstrap/`, same
+> signature, called with `--fm-name`), refreshes the named nodes, activates only the new ones
+> and activates the form. Verified on DS4. It only adds: stale, renamed or duplicated nodes
+> are still the manual repair. Install, dry run and verification:
+> [`references/context-new-fields.md`](references/context-new-fields.md).
+
+> **Duplicated nodes** (`Düğüm adı AUFNR benzersiz değil`, SFP refusing to open the
+> layout, ADS returning an empty page) have two causes. (1) `SYNC_CONTEXT` ran more than
+> once on a populated context. (2) **A single run on an empty context also doubled a
+> structure's fields** (measured on a DEV system: 11 fields written, 22 nodes read back):
+> `create_structure` and `create_loop` open the DDIC components as nodes themselves, and the
+> old code then added each one again with `create_data`. The generator now counts the
+> children the node already holds and skips its `create_data` loop when there are any, for
+> a structure, for a loop's data node, and in both parameter slots. Confirm with
+> `GET_CONTEXT`. The repair of an existing duplicated context is manual, per the paragraph above.
+>
+> **An FM installed before this fix still has the bug.** The generator is installed only when
+> it is MISSING, so a system that already has `ZND_FM_ADOBE_GEN` keeps the old one. Delete that
+> function module in SE37 (not the function group: screen-gen shares it) and the next call
+> installs the fixed one, or install the bundled source under another name with
+> `bootstrap_fm.py --fm-name` (see Installation) and pass `--fm-name` to this tool.
+> `GET_CONTEXT` still lists only two levels (a loop shows `DATA`, not its fields), and `STATUS`
+> does not look for repeated names — read the tree in SFP's Context tab, or render.
 
 ## Installation: none — it installs itself
 
 On the first call against a system that lacks it, the caller installs the generator FM
 **`ZND_FM_ADOBE_GEN`** (function group **`ZND_FG_AUTO_GEN`**, shared with screen-gen)
 into **`$TMP`**, already Remote-Enabled, and retries — no SE37 step, no transport,
-cleanup is a SE37 delete. `ZNT_*` is reserved for kit tooling and never collides with
+cleanup is a SE37 delete. The install is a tool, not one of the task's objects: "every
+object in package X" does not forbid it — continue and name the FM in the final report. `ZNT_*` is reserved for kit tooling and never collides with
 project WRICEF naming. The mechanism (`RPY_FUNCTIONMODULE_INSERT` with `REMOTE_CALL`,
 and why ADT can't do this) is documented once, in
 [`../screen-gen/SKILL.md`](../screen-gen/SKILL.md) § Installation.
@@ -229,14 +259,40 @@ python scripts/generate_adobe.py --interface ZPM001_IF_ORDER --mode SET_PARAMS \
 python scripts/generate_adobe.py --interface ZPM001_IF_ORDER --form ZPM001_AF_ORDER \
   --mode SYNC_CONTEXT --param1 IS_HDR:ZPM001_S_HDR --param2 IT_OPS:ZPM001_TT_OP --cwd ...
 
-# 3. layout
+# 3. layout -- lint first: ADS renders some broken layouts without an error
+python scripts/xdp_lint.py order.xdp --locale tr_TR      # exit 1 = fix before uploading
 python scripts/generate_adobe.py --form ZPM001_AF_ORDER --mode SET_LAYOUT \
   --layout-file order.xdp --cwd "C:\project"
 
 # 4. ALWAYS verify
 python scripts/generate_adobe.py --interface ZPM001_IF_ORDER --form ZPM001_AF_ORDER \
   --mode STATUS --cwd "C:\project"
+
+# 5. render it (the real test): run references/render_test.abap as a classrun, save its output
+python scripts/render_pdf_check.py classrun_output.txt --out order.pdf --xdp layout.xdp
+#   exit 1 = looks empty OR is ANOTHER form (a cached template of someone else's layout)
 ```
+
+**Always pass `--xdp` with the layout you uploaded.** A healthy-sized PDF can still be a different
+form: ADS caches a template by the root `uuid`, and a customer's quotation once came back for a
+label request. `--xdp` looks for your layout's own labels in the PDF text: none found is
+`WRONG DOCUMENT`, and the fix is to upload again (a fresh uuid is written on every `SET_LAYOUT`) and
+render again. If it says `IDENTITY NOT CHECKED` (no `pypdf`/`pymupdf` here), open the PDF and confirm
+the headings are yours before telling the developer it is done. Never report "rendered" on size alone.
+
+Order matters: `WRITE` → `SET_PARAMS` → `SYNC_CONTEXT` → layout → lint → `SET_LAYOUT` → render → `STATUS`.
+**The base XDP and SFP.** A layout written by hand has no data schema (`dataDescription`), and the
+table or fields it binds to data may then render empty. `xdp_lint.py` warns when it sees bound
+fields and no schema. Do NOT send the developer into SFP up front: after `SYNC_CONTEXT`, `GET_LAYOUT`
+and look for `dataDescription` in the XDP; if it is there, derive from that file and SFP is not needed.
+Ask for SFP only when the lint warns, the render shows the bound fields empty, and `GET_LAYOUT` has no
+schema — then ask the developer to open the form in SFP once and save it, and SAY WHY (that is how SFP
+writes the schema), then `GET_LAYOUT` again and derive every later version from that file, changing
+only `<template>`. (Whether `GET_LAYOUT` after `SYNC_CONTEXT` already carries the schema was not
+measured; the lint and the render decide, not an assumption.) Changing the layout does not need
+a new form. `DELETE` always removes the interface too: to delete only the form, pass an interface
+name that does not exist (the form goes, the interface step reports "does not exist").
+Layout patterns that held up, and five layout traps: [`references/design-pattern.md`](references/design-pattern.md).
 
 ## Naming
 
@@ -266,6 +322,10 @@ three questions above when work starts.
 | Context tab empty | parameters ≠ context | run `SYNC_CONTEXT` (once, on an empty context) |
 | `Düğüm adı X benzersiz değil` / layout won't open | context nodes duplicated | `GET_CONTEXT` to confirm, then repair in SFP — the API cannot rewrite a full context |
 | **FPUIFB101** on Save in SFP | layout type is empty (*Unknown*) | `--mode SET_LAYOUT_TYPE --layout-type S` |
+| PDF empty (about 4600 bytes) from a program, full in SFP's F8 | the form module was called without `/1BCDWB/DOCPARAMS` | pass `VALUE sfpdocparams( langu = sy-langu country = 'TR' )` on every call |
+| PDF empty although `STATUS` says compatible | duplicated context nodes | see the note under SYNC_CONTEXT; render to confirm |
+| the PDF still shows the OLD design after `SET_LAYOUT` | ADS template cache keyed on the XDP root's `uuid` | `SET_LAYOUT` now refreshes it; an XDP uploaded by another route needs a new uuid and timeStamp |
+| item table or some fields empty | a hand-written XDP has no data schema (`xdp_lint.py` warns `data-schema`) | `GET_LAYOUT` and look for `dataDescription`; only if absent, have the developer open and save the form in SFP once, then derive from that XDP |
 | `FM lock failed` on bootstrap | **two different causes wear this label** | see below |
 | `OBJECT_NOT_IN_A_FORM` | fields attached to the loop node | attach to `GET_LOOP_DATA( )` |
 | `CL_ABAP_ELEMDESCR is not compatible … CL_ABAP_STRUCTDESCR` | the table type's row type is broken, not the code | `RTTI_DEBUG` it: `lineKind=E` means the DDIC row type never bound. Re-PUT the table type with a proper `rowType` |
@@ -284,3 +344,6 @@ Two SAP quirks worth keeping in mind, both cost real time:
 - `SET_PARAMS` / `SYNC_CONTEXT` take two parameter slots, not an arbitrary list — enough
   for the common header-structure + item-table pair.
 - Designing the layout is still human work; this skill moves an existing `.xdp` in and out.
+- A **render mode inside the generator FM was not added**: a `RENDER_TEST` mode would be new, uncompiled
+  ABAP in the one function module every adobe-gen call depends on. The render test is a separate
+  throw-away classrun (`references/render_test.abap`) so a mistake in it cannot break the generator.

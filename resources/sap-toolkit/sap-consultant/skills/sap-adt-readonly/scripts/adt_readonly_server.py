@@ -35,6 +35,7 @@ WHAT IS EXPOSED
                                            SAP user can see
     adt_dumps      ADT_RO_ALLOW_DUMPS      short-dump text, which carries field values
     adt_dump_detail ADT_RO_ALLOW_DUMP_DETAIL one dump's sections (NTT Studio, ntt_dump_detail.py)
+    adt_spool_read ADT_RO_ALLOW_SPOOL      spool content: report output, business data
   A surface that cannot change the system but hands an agent the payroll table is
   not the thing an auditor means by read-only. Open each one per session, knowing
   which system you are on.
@@ -204,13 +205,33 @@ ALLOW = {
     "adt_search",
     "adt_code_search",
     "adt_revisions",
+    # Two versions of a source compared, or an old one read: GETs only.
+    "adt_revision_diff",
+    # What a request changes in source: E070/E071 metadata + version reads, no writes.
+    "adt_transport_diff",
+    # Text pool (TEXT-001, selection texts, headings): three GETs.
+    "adt_text_elements",
+    # F3: SAP resolves a name in context (POST carries the source, changes nothing).
+    "adt_find_definition",
     "adt_inactive_objects",
     "adt_badi_discovery",
     "adt_where_used",
+    # Which program an include belongs to: one GET.
+    "adt_include_main_programs",
+    # SAP's "can this be deleted?" -- a POST that answers and changes nothing
+    # (what Eclipse asks before Delete).
+    "adt_deletion_check",
     # One GET on the binding object. Reads whether an OData service is actually
     # published -- the RAP state that looks identical to success everywhere else.
     "adt_service_binding_status",
-    # analysis — no source change, no lock, no activation
+    # SM37 job list: job names, status, times, scheduler, step program -- metadata,
+    # the support desk's first read when "the job failed". No spool content.
+    "adt_jobs",
+    # SP01 list: number, owner, title, kind, job step -- metadata, no content.
+    "adt_spool_list",
+    # analysis — no source change, no lock, no activation. adt_syntax_check is a read-only
+    # ADT check run since 2026-10-27; before that it posted to the activation endpoint and
+    # ACTIVATED a pending clean version (measured on NS4), and was denied here for a day.
     "adt_syntax_check",
     "adt_atc_check",
     # transports — read the CTS, never modify it
@@ -245,6 +266,10 @@ GATED = {
         "var": "ADT_RO_ALLOW_DUMP_DETAIL",
         "why": "returns one short dump's sections (error analysis, source extract, call stack)",
     },
+    "adt_spool_read": {
+        "var": "ADT_RO_ALLOW_SPOOL",
+        "why": "returns spool content -- report output, i.e. business data",
+    },
 }
 
 # Never registered by this entrypoint, whatever the environment says.
@@ -264,6 +289,12 @@ DENY = {
     "adt_create_metadata_extension",  # object, so each is a write however small
     "adt_create_behavior_definition",
     "adt_create_access_control",
+    "adt_create_service_definition",  # creates SRVD
+    "adt_write_class_include",       # writes a class's test / local-type / handler include
+    "adt_edit_source",               # find-and-replace inside an object's source, then push
+    "adt_leftover_sessions",         # ends SAP sessions a killed engine left open (releases their locks)
+    "adt_write_text_elements",       # changes and activates a text pool
+    "adt_edit_method",               # replaces one METHOD/FORM/MODULE block, then pushes
     "adt_create_type_group",
     "adt_create_lock_object",       # creates an ENQUEUE object in DDIC
     "adt_activate",

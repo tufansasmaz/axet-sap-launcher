@@ -19,6 +19,8 @@ By analyzing SAP's ADT Discovery endpoint and testing with actual API calls, we 
 - **Validation**: `/sap/bc/adt/ddic/domains/validation`
 
 ### ✅ Tables (TABL/DT)
+- **Client field**: a Z table's first field is `key mandt : mandt not null;` (name AND data element `mandt`). `adt_create_ddic_shell` generates `client : abap.clnt` as a placeholder; on the first push of the real definition onto that empty shell pass `ack_drop='client'`, or the data-loss guard refuses the rename. Gate DD-TBL-02.
+- **Field types**: every field except the client and plain technical flags takes a **data element** (the standard one if it exists, else a Z data element with its four labels), not a built-in type -- a built-in field has no column heading in SM30, F4 or ALV. Gate DD-TBL-11.
 - **Endpoint**: `/sap/bc/adt/ddic/tables`
 - **Accept Header**: `application/vnd.sap.adt.tables.v2+xml`
 - **Methods**: GET, POST, PUT, DELETE

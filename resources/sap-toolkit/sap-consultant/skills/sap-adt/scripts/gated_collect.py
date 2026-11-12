@@ -33,6 +33,7 @@ SOURCE_CREATES = {
     "adt_create_access_control": "DCLS",
     "adt_create_behavior_definition": "BDEF",
     "adt_create_type_group": "TYPE",
+    "adt_create_service_definition": "SRVD",
 }
 PLAIN_CREATES = {
     "adt_create_domain": "DOMA",
@@ -368,6 +369,55 @@ def _msag(sap, pd, a):
     return _result(sap, [{"ad": ad, "tip": "MSAG", "paket": paket, "yeni": yeni}], tr, enjekte=enj)
 
 
+# 2026-11-12 kit senkronu: motorun yeni yazan araçları.
+_CLASS_INCLUDES = ("testclasses", "implementations", "definitions", "macros")
+_TEXT_OWNER = {"program": ("PROG", "program"), "class": ("CLAS", "class"),
+               "function_group": ("FUGR", "function_group"), "fugr": ("FUGR", "function_group")}
+
+
+def _class_include(sap, pd, a):
+    """Sınıfın yerel include'u: sınıf var olmalı; kalite kapısı include dosyasında."""
+    ad = _name(a.get("name"), "name")
+    inc = str(a.get("include") or "").strip().lower()
+    if inc not in _CLASS_INCLUDES:
+        raise CollectError("bilgi_toplanamadi",
+                           f"include şunlardan biri olmalı: {', '.join(_CLASS_INCLUDES)}.")
+    paket, yeni = _existing(sap, "CLAS", ad)
+    if yeni:
+        raise CollectError("bilgi_toplanamadi", f"{ad} sınıfı SAP'ta yok; önce adt_push ya da adt_create.")
+    tr, enj = _owner_resolve(sap, ad, "class", a.get("transport"), paket, yeni)
+    data = _read_source(pd, a.get("source_file"))
+    obj = {"ad": ad, "tip": "CLAS", "paket": paket, "yeni": False,
+           "kaynak_sha256": [gq.src_hash(data)]}
+    try:
+        url = get_source_url(ad, "class").replace("/source/main", f"/includes/{inc}")
+        old = sap.adt_client.get_object_source(url, version="active")
+    except Exception:  # noqa: BLE001 - include henüz olmayabilir
+        old = ""
+    obj["fark"], obj["fark_kirpildi"] = gq.diff(old or "", data.decode("utf-8", "replace"))
+    return _result(sap, [obj], tr, enjekte=enj, kalite=True)
+
+
+def _text_elements(sap, pd, a):
+    """Program / sınıf / fonksiyon grubunun metin öğeleri: nesne var olmalı."""
+    ad = _name(a.get("name"), "name")
+    ot = str(a.get("object_type") or "program").strip().lower()
+    if ot not in _TEXT_OWNER:
+        raise CollectError("bilgi_toplanamadi",
+                           f"object_type şunlardan biri olmalı: {', '.join(_TEXT_OWNER)}.")
+    tip, ot_n = _TEXT_OWNER[ot]
+    paket, yeni = _existing(sap, tip, ad)
+    if yeni:
+        raise CollectError("bilgi_toplanamadi", f"{ad} SAP'ta yok; metin öğeleri var olan nesneye yazılır.")
+    tr, enj = _resolve(sap, a.get("transport"), owner_transport(sap, ad, ot_n), paket)
+    return _result(sap, [{"ad": ad, "tip": tip, "paket": paket, "yeni": False}], tr, enjekte=enj)
+
+
+def _leftover_sessions(sap, pd, a):
+    """Nesne ve transport yok: ölmüş motor süreçlerinin bu kullanıcıya ait SAP oturumları."""
+    return _result(sap, [], "")
+
+
 def _set_transport(sap, pd, a):
     return _result(sap, [], _tr(a.get("transport")))
 
@@ -403,6 +453,9 @@ _COLLECTORS = {
     "adt_generate_screen": _screen,
     "adt_generate_adobe": _adobe,
     "adt_message_class": _msag,
+    "adt_write_class_include": _class_include,
+    "adt_write_text_elements": _text_elements,
+    "adt_leftover_sessions": _leftover_sessions,
 }
 for _arac in (*SOURCE_CREATES, *PLAIN_CREATES, "adt_create", "adt_create_ddic_shell"):
     _COLLECTORS[_arac] = (lambda arac: lambda s, p, a: _create(s, p, a, arac))(_arac)

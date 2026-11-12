@@ -52,7 +52,7 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   //
   //   sap-adt              motor (50 araç) + onay katmanı, 53 araç, onaylı yazma dahil
   //   sap-adt-readonly     4 dosyalık sarmalayıcı — motoru YANDAN import edip
-  //                        28 yazan aracı MCP kaydından siliyor (22 araç kalır)
+  //                        34 yazan aracı MCP kaydından siliyor (30 araç kalır)
   //   sap-adt-router-bridge  ADT'yi RFC'ye çeviren shim (adt_rfc_bridge.py);
   //                        router arkasındaki, HTTP portu kapalı sistemler için
   //
@@ -89,6 +89,11 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   // yalnızca OKUYOR — düzeltmeyi öneriyor, uygulamıyor.
   "abap-code-review": { path: "sap-consultant/skills/abap-code-review" },
   "screen-mockup": { path: "sap-consultant/skills/screen-mockup" },
+  // 2026-11-12 kit senkronu. `fiori-mockup` SAP'a hiç bağlanmıyor (HTML maket +
+  // annotation listesi); `dev-walkthrough` sistemi yalnızca OKUYUP geliştiriciye
+  // yapılanı anlatıyor, hiçbir şey yazmıyor.
+  "fiori-mockup": { path: "sap-consultant/skills/fiori-mockup" },
+  "dev-walkthrough": { path: "sap-consultant/skills/dev-walkthrough" },
 
   // --- SAP: yazma yetenekli ------------------------------------------------
   "screen-gen": { path: "sap-consultant/skills/screen-gen", writeCapable: true },
@@ -372,6 +377,7 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     "clean-core",
     "library-match",
     "screen-mockup",
+    "fiori-mockup",
     // Modül danışmanının kendi ürünleri: konsept tasarım/BBP dokümanı, son
     // kullanıcı kılavuzu, süreç madenciliği modeli. Üçü de iş tarafına bakıyor.
     "bbp-creator",
@@ -406,6 +412,9 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     // yalnızca okuyor; teknik tarafta çünkü denetlenen şey kod.
     "abap-code-review",
     "screen-mockup",
+    "fiori-mockup",
+    // Ajanla yazılan geliştirmeyi geliştiriciye anlatır; yalnızca okur.
+    "dev-walkthrough",
     "screen-gen",
     // SAP'ta nesne YARATAN ikisi burada, yalnızca burada: Adobe form/arayüzü
     // üreten `adobe-gen` ve kaynak sistemden okuyup hedefe yazan
@@ -484,7 +493,7 @@ export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
  * kullanıcının gördüğü liste ile diske yazılan liste aynı koddan çıkar.
  *
  * ADT motoru burada TAKAS ediliyor, engellenmiyor: yazma yüzeyi isteyen bir rol
- * DEV dışı bir sistemde `sap-adt-readonly`'ye düşer (22 araç). Engelleseydik
+ * DEV dışı bir sistemde `sap-adt-readonly`'ye düşer (30 araç). Engelleseydik
  * PRD'ye bağlanan bir teknik danışmanın elinde hiç ADT kalmazdı — yazamamak
  * okuyamamak demek değil. İkisi aynı anda kurulmuyor: aynı klasörde iki ADT
  * skill'i, ajana "hangi sunucu" diye cevabı olmayan bir soru sordurur.
@@ -508,7 +517,7 @@ export function profileAllowsWriteCapable(profile: SkillProfile): boolean {
  * arıyor. Senkron o kapıları silerse `tests/tierWriteGates.test.ts` kırılır.
  *
  * ADT takası yine duruyor: yazan motor DEV dışında hiç başlatılmıyor, çünkü
- * onun 28 yazan aracının her birine ayrı kapı koymak yerine sunucunun kendisini
+ * onun 34 yazan aracının her birine ayrı kapı koymak yerine sunucunun kendisini
  * değiştirmek tek hamlede kapatıyor.
  */
 export function planSkills(profile: SkillProfile, tier: SystemTier | null): SkillPlanEntry[] {

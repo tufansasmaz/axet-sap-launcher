@@ -162,6 +162,10 @@ pass/fail rows), [`RAP_STANDARD.md`](references/RAP_STANDARD.md),
 still wrong. Names are judged only against
 [`NAMING_STANDARD.md`](../ts-generator/references/NAMING_STANDARD.md).
 
+Two of those rows are a script, not judgment: for an AMDP class or a managed behavior
+definition, save the source you read to `.tmp/` and run `py <SCRIPTS_DIR>/abap_static_checks.py <file>`
+(CDS-AMDP-01, RAP-BD-08). Exit 1 is a finding, exit 2 is *not checked* — never a pass.
+
 **Token discipline:** read source filtered — `adt_get_source` with `grep=` or `method=`.
 Three unfiltered class reads will end the session.
 

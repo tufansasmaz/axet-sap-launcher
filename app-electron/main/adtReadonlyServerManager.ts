@@ -27,7 +27,7 @@ export interface ReadonlyServerStartOptions {
   pythonPath: string;
   port: number;
   /**
-   * DEV sistemde onaylı yazma sunucusunu (54 araç), aksi hâlde sarmalayıcıyı (22 araç)
+   * DEV sistemde onaylı yazma sunucusunu (67 araç), aksi hâlde sarmalayıcıyı (30 araç)
    * başlatıyoruz. Bu bayrak, portta ZATEN duran bir sunucuyu sahiplenmeden
    * önce onun gerçekten doğru yüzey olduğunu doğrulamak için gerekiyor —
    * bkz. `probeHealth`/`surfaceMismatch`.
@@ -293,7 +293,7 @@ function probeHealth(port: number, timeoutMs = 2000, token: string = getAdtHttpT
         let body = "";
         res.setEncoding("utf-8");
         res.on("data", (chunk: string) => {
-          // 54 araç adı birkaç KB; sınırı aşan bir cevap bizim sunucumuz değil.
+          // 67 araç adı birkaç KB; sınırı aşan bir cevap bizim sunucumuz değil.
           if (body.length < 64_000) body += chunk;
         });
         res.on("end", () => {
@@ -525,7 +525,7 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
   // tek bir sunucu vardı, dolayısıyla cevap da tekti. Artık iki sunucu var:
   // DEV'de bırakılmış YAZAN bir sunucu, ardından PRD'ye bağlanıldığında sessizce
   // sahiplenilir ve canlı sisteme push edilebilir bir oturum açardı. Tersi de
-  // yanlış ama zararsız: DEV'de 22 araçlık sunucuyu devralıp "neden push yok"
+  // yanlış ama zararsız: DEV'de 30 araçlık sunucuyu devralıp "neden push yok"
   // sorusunu doğurur. İkisini de reddediyoruz; sahibi olmadığımız bir process'i
   // öldürmek yerine durumu söylüyoruz.
   //
@@ -583,7 +583,7 @@ async function startReadonlyServerInner(opts: ReadonlyServerStartOptions): Promi
         message: mt("adtServer.surfaceMismatch", {
           port: opts.port,
           found: String(onPort.toolCount),
-          expected: opts.expectWritable ? "54" : "22"
+          expected: opts.expectWritable ? "67" : "30"
         })
       };
     }

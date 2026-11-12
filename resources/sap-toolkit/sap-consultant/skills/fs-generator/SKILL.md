@@ -115,7 +115,8 @@ obey these 100%:
   measured and the FS makes no release claim at all.
 - **Manage missing information** with explicit tags: `[Varsayım]` (Assumption),
   `[Açık Konu]` (Open Item), `[Bağımlılık]` (Dependency), `[Netleştirilmesi Gereken
-  Nokta]` (Point to Clarify).
+  Nokta]` (Point to Clarify). A business rule you need and no source states (a filter,
+  an exclusion, a limit) is a `[Netleştirilmesi Gereken Nokta]`, never written as fact.
 
 ## Writing style (readability is a feature, length is a cost)
 

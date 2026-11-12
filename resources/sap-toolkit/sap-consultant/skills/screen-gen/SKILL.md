@@ -43,7 +43,7 @@ the generated screen.
 ## How it works (and why SOAP-RFC, not classrun)
 
 `RPY_DYNPRO_INSERT` (the screen) and `RS_CUA_INTERNAL_WRITE` (the GUI status) require a
-**dialog context**. Call them from `adt_classrun` and you get `400 "Session Timed Out"`.
+**dialog context**. Call them from an ADT class run (`IF_OO_ADT_CLASSRUN`) and you get `400 "Session Timed Out"`.
 
 The fix: a small **RFC-enabled** wrapper FM (default name **`ZND_FM_SCREEN_GEN`**), called
 over the **SOAP-RFC** channel `/sap/bc/soap/rfc` (which provides a dialog context). One
@@ -72,7 +72,9 @@ generate_screen.py --> POST /sap/bc/soap/rfc  --> <generator FM> (RFC)
 The generator FM is a per-system developer tool. On the first call against a system that
 does not have it, the caller installs it into **`$TMP`** and retries; the install is
 announced in the output. Nothing goes into a transportable package, so nothing has to be
-transported or cleaned up beyond a `SE37` delete.
+transported or cleaned up beyond a `SE37` delete. That install is a tool, not one of the
+task's objects: "every object in package X" does not forbid it. Let it happen and name the
+FM in the final report rather than stopping.
 
 | Object | Name |
 |---|---|
@@ -82,7 +84,7 @@ transported or cleaned up beyond a `SE37` delete.
 | Field-pair generator (`FIELDS` type) | `ZND_FM_SCREEN_FIELDS` |
 | Toolbar button adder (`--add-button`) | `ZND_FM_ADD_CUA_BUTTON` |
 
-`ZNT_*` is reserved for kit tooling — it never collides with project WRICEF naming
+`ZND_*` is reserved for kit tooling — it never collides with project WRICEF naming
 (`Z<Module><PkgNo>_…`), and anyone finding it in a system can tell it is a tool, not a
 development.
 
@@ -151,7 +153,8 @@ python generate_screen.py --program ZAI_P_LIST --dynpro 0100 --recreate    --tra
 | `--title` | `Liste` | Titlebar + dynpro description. |
 | `--screen-type` | `DOCKING` | `DOCKING` (no container) / `CONTAINER` (one custom control) / `FIELDS` (label+value detail screen). |
 | `--cc-name` | `CC_ALV` | Custom control name (CONTAINER type). |
-| `--fields` | — | **FIELDS type.** `label;FIELDNAME;length`, repeatable or `\|`-joined. `FIELDNAME` must be a GLOBAL variable/structure component of the program. |
+| `--fields` | — | **FIELDS type.** `label;FIELDNAME;length[;in]`, repeatable or `\|`-joined; `;in` = input field. `FIELDNAME` must be a GLOBAL variable/structure component of the program. |
+| `--button` | — | **FIELDS type.** `TEXT;FCODE`: a push button on the screen (repeatable). |
 | `--lines` / `--columns` | `20` / `100` | FIELDS type: screen height and width. |
 | `--no-verify` | off | FIELDS type: skip the read-back check. Don't — `rc=0` is not proof the fields landed. |
 | `--fields-fm-name` | `ZND_FM_SCREEN_FIELDS` | Installed field-pair FM name (or env `ABAP_SCREEN_FIELDS_FM`). |
@@ -175,7 +178,7 @@ non-zero digit (`0121` → `0120` → `0100`). Popups and subscreens are childre
 screen that opens/hosts them. `1000` is reserved by SAP for the selection screen.
 
 Binding definition with the limits (9 per level, 3 levels) and the exception rule:
-**§3.2 in `NAMING_STANDARD.md`**, shipped with the sap-specs `ts-generator` skill.
+**§3.2 in `NAMING_STANDARD.md`**, shipped with the `ts-generator` skill.
 
 ## Dynamic naming contract (program MUST match)
 
@@ -239,8 +242,19 @@ py <screen-gen>/scripts/generate_screen.py \
   --transport NS4K900241 --cwd "C:\project"
 ```
 
-Each row is `label;FIELDNAME;length`. `--fields` repeats, or pass one string with
-rows joined by `|`.
+Each row is `label;FIELDNAME;length[;in]`. `--fields` repeats, or pass one string with
+rows joined by `|`. Fields are **output only** unless the row ends in `;in`, which makes
+an **input field** the user types into. `--button "TEXT;FCODE"` (repeatable) puts a push
+button **on the screen**, below the fields; on click PAI gets OK code FCODE
+(`CASE sy-ucomm. WHEN 'CHECK'.`). Verified on NS4 2026-11-12: two input fields and a
+CHECK button, read back with `in` and `fc=CHECK`, program activated clean. This is the
+working way to a button -- the toolbar one (`--add-button`) still does not render.
+
+```bash
+py <screen-gen>/scripts/generate_screen.py --program ZMM013_P_CHECK --dynpro 0100 \
+  --screen-type FIELDS --recreate --fields "Material;GV_MATNR;18;in" \
+  --fields "Plant;GV_WERKS;4;in" --button "Check;CHECK" --transport <REQ> --cwd <DIR>
+```
 
 **Three constraints, each of which cost a debugging round on NS4 (2026-09-03):**
 
@@ -411,7 +425,7 @@ toolbar is the route that does not depend on any of it.
 
 | Symptom | Cause / Fix |
 |---|---|
-| SOAP Fault "FM not found" / HTTP 404 | FM missing or **not Remote-Enabled**. SE37 -> Processing Type = Remote-Enabled Module. |
+| SOAP Fault "FM not found" / HTTP 404 | FM missing or **not Remote-Enabled**. Re-run `scripts/bootstrap_fm.py`: it creates the FM Remote-Enabled. |
 | `400 Session Timed Out` | You called via classrun, not SOAP-RFC. This skill uses SOAP-RFC — don't bypass it. |
 | Runtime `00256 "select a valid function"` | Donor `act` (active-function list) was pruned. The FM intentionally KEEPS `act`; don't edit that out. |
 | Runtime `00264 "GUI status not generated"` | `RS_CUA_GENERATE` not called. The FM calls it after WRITE — if you reimplement, keep it. |
@@ -446,7 +460,8 @@ toolbar is the route that does not depend on any of it.
   fetch/prune/rename/generate sequence, proven CUST_CTRL values, ESC/exit).
 - `bootstrap/ZND_FM_SCREEN_GEN.func.abap` — the screen + GUI status FM (install once).
 - `bootstrap/ZND_FM_ADD_CUA_BUTTON.func.abap` — the toolbar button FM
-  (`--add-button`; install once). Proven on NS4 2026-09-03.
+  (`--add-button`). Writes the CUA tables but the button does not appear (see Toolbar
+  buttons); kept for `--button-mode READ`.
 - `bootstrap/ZND_FM_SCREEN_FIELDS.func.abap` — the label/value field-pair FM
   (`FIELDS` type; install once). Proven on NS4 2026-09-03 against
   `ZOO031_P_PURCHASE_ORDER`/0100, 12 pairs.

@@ -47,6 +47,8 @@ Usage:
 """
 import argparse
 import base64
+import uuid
+import datetime
 import os
 import re
 import sys
@@ -122,6 +124,32 @@ def _fault_message(text):
 
 def _customer_ns(name):
     return name.startswith(('Z', 'Y', '/'))
+
+
+def refresh_xdp_identity(raw):
+    """Give an XDP a fresh `uuid` and `timeStamp` on its root element. Returns (bytes, changed).
+
+    ADS caches a template by the `uuid` / `timeStamp` of the XDP root. An XDP taken from SFP or
+    Designer and uploaded again with the SAME uuid is served from that cache: the PDF keeps the
+    OLD design although the upload, the activation and STATUS all said fine (measured on a DEV
+    system, six layout versions in a row on one form, each shown only after its uuid was new).
+    So every upload carries a new identity. A file that is not UTF-8 text, or has no
+    <xdp:xdp> root, is returned untouched and `changed` is False.
+    """
+    try:
+        text = raw.decode('utf-8')
+    except UnicodeDecodeError:
+        return raw, False
+    m = re.search(r'<xdp:xdp\b[^>]*>', text)
+    if not m:
+        return raw, False
+    root = m.group(0)
+    selfclosing = root.endswith('/>')
+    bare = re.sub(r'\s(?:uuid|timeStamp)="[^"]*"', '', root)
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    tail = '/>' if selfclosing else '>'
+    new_root = bare[:-len(tail)] + f' timeStamp="{stamp}" uuid="{uuid.uuid4()}"' + tail
+    return text.replace(root, new_root, 1).encode('utf-8'), True
 
 
 def _auto_install(adt, fm_name, source_file, description):
@@ -335,7 +363,7 @@ def generate_adobe(adt, interface='', form='', devclass='$TMP', transport=None,
 
     out["ok"] = False
     out["error"] = "generation_failed"
-    out["message"] = f"Reported EV_RC={ev_rc}. See EV_MESSAGE."
+    out["message"] = f"Reported EV_RC={ev_rc}: {ev_message}" if ev_message else f"Reported EV_RC={ev_rc}."
     return out
 
 
@@ -354,10 +382,10 @@ def _split_param(raw, label):
 
 
 def main():
-    if sys.platform == 'win32':
-        import io
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+    # No second TextIOWrapper here: the module already reconfigures both streams to
+    # UTF-8. Wrapping the same buffer again left two wrappers on one buffer; when the
+    # old one was collected it closed the buffer, and every print after the SAP call
+    # raised "I/O operation on closed file" (NS4 2026-11-12, DELETE mode).
 
     # Reuse the sap-adt skill engine (sibling skill).
     sap_adt_scripts = Path(__file__).resolve().parents[2] / 'sap-adt' / 'scripts'
@@ -416,6 +444,9 @@ def main():
             print("[FAIL] --mode SET_LAYOUT needs --layout-file <file.xdp>")
             return 1
         raw = Path(args.layout_file).read_bytes()
+        raw, fresh = refresh_xdp_identity(raw)
+        if fresh:
+            print("[INFO] XDP root got a fresh uuid/timeStamp (ADS caches a template by them)")
         layout_b64 = base64.b64encode(raw).decode('ascii')
         print(f"[INFO] layout {args.layout_file}: {len(raw)} byte -> base64")
 

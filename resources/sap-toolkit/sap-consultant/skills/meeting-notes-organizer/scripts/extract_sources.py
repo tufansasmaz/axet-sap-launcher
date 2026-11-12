@@ -39,6 +39,9 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from note_fidelity import docx_images  # noqa: E402  (the same helper Kokpit uses)
+
 # Signature probes -- reported as counts, never as a verdict.
 DUR_RE = re.compile(r"^\s*(\d{1,2}:\d{2}(:\d{2})?|\d+\s*dakika\s*\d+\s*saniye)", re.I)
 CHAT_RE = re.compile(r"(D[uü]n|Yesterday|\d{1,2}\.\d{1,2}\.\d{2,4})\s*\d{1,2}[:.]\d{2}", re.I)
@@ -72,7 +75,10 @@ def read_docx(path: Path) -> dict:
             "bold": bool(runs) and all(r.bold for r in runs),
         })
     tables = [[[c.text.strip() for c in row.cells] for row in t.rows] for t in doc.tables]
-    return {"paragraphs": paragraphs, "tables": tables}
+    # Pictures (a weighbridge slip, a screenshot, a table pasted as an image) carry content
+    # nothing here reads. They are listed with the paragraph each follows, so the note can say
+    # they exist instead of silently losing them (note_fidelity.py, SKILL.md Step 1).
+    return {"paragraphs": paragraphs, "tables": tables, "images": docx_images(path)}
 
 
 def read_xlsx(path: Path) -> dict:
@@ -145,6 +151,7 @@ def main() -> None:
         doc = reader(f)
         if not doc["paragraphs"] and not doc["tables"]:
             die(f"{f.name} is empty or unreadable -- ask the user for another copy")
+        doc.setdefault("images", {"count": 0, "items": []})
         bundle.append({"file": f.name, "path": str(f.resolve()),
                        "signals": signals(doc), **doc})
 
@@ -159,7 +166,7 @@ def main() -> None:
               f"{s['bold_paragraphs']} bold, {s['duration_timestamps']} durations, "
               f"{s['chat_timestamps']} chat stamps, "
               f"recap_line={s['recap_helpful_line']}, "
-              f"headers={len(s['section_headers'])}")
+              f"headers={len(s['section_headers'])}, images={d['images']['count']}")
 
 
 if __name__ == "__main__":

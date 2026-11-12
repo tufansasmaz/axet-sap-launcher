@@ -13,6 +13,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Optional, Dict, Any
+from xml.sax.saxutils import escape as xml_escape
 from urllib3.exceptions import InsecureRequestWarning
 from dotenv import load_dotenv
 
@@ -213,7 +214,7 @@ def parse_sap_error(response):
         msg_match = re.search(r'<message[^>]*>([^<]+)</message>', text)
         if msg_match:
             message = msg_match.group(1)
-    except Exception:
+    except Exception:  # audit: empty-ok only the message text is extracted; the raw text stays
         pass
 
     # Map status codes to exception types
@@ -231,7 +232,7 @@ def parse_sap_error(response):
                 owner_match = re.search(r'locked by[:\s]+(\w+)', text, re.IGNORECASE)
                 if owner_match:
                     owner = owner_match.group(1)
-            except Exception:
+            except Exception:  # audit: empty-ok only the message text is extracted; the raw text stays
                 pass
             return SAPLockError(
                 f"Object is locked by another user{': ' + owner if owner else ''}",
@@ -982,7 +983,7 @@ def _parse_coverage_measurement(xml_text):
         return None
     try:
         root = ET.fromstring(xml_text)
-    except ET.ParseError:
+    except ET.ParseError:  # audit: empty-ok None = coverage not measured, reported as such
         return None
 
     coverages_elem = None
@@ -1108,6 +1109,555 @@ def _parse_code_search_results(xml_text):
             'matches': [{'line': line, 'snippet': snippet}],
         })
     return results
+
+
+
+# ---------------------------------------------------------------------------
+# Read-only syntax check: ADT check run (2026-10-27).
+#
+# syntax_check_via_activation posts to /sap/bc/adt/activation with
+# preauditRequested=true, and SAP IGNORES the flag: measured on NS4 on 2026-10-27, a clean
+# pending inactive version left DWINACTIV and became the active source while the tool
+# answered valid:true. A "syntax check" that activates is not one; a code review (the
+# abap-code-checker's gate G1) activated whatever was pending on the object.
+# The check run below does not touch the activation endpoint, a lock, a transport or the
+# source: POST /sap/bc/adt/checkruns?reporters=abapCheckRun.
+# The request/response shapes and the rule that every ambiguous answer is "not measured"
+# follow Ozgur Yilmaz's axet-template (MIT; see ../THIRD_PARTY_NOTICES.txt); the
+# behaviour on NS4 is measured in docs/specs/2026-10-27-axet-template-adoption.
+# ---------------------------------------------------------------------------
+CHECKRUN_PATH = '/sap/bc/adt/checkruns'
+CHECKRUN_REPORTER = 'abapCheckRun'
+CHECKRUN_NS = 'http://www.sap.com/adt/checkrun'
+CHECKRUN_SCOPE = (
+    "ADT check run, syntax only (reporter=abapCheckRun): NOT ATC, NOT ABAP Unit, NOT "
+    "co-activation dependencies, NOT authorisations. `version` says what was checked: "
+    "'inactive' the pending version, 'active' the running one.")
+
+
+DUMP_DEFAULT_SECTIONS = ('short text', 'what happened', 'error analysis',
+                         'how to correct', 'information on where terminated',
+                         'source code extract', 'active calls')
+
+
+USAGE_SNIPPET_BATCH = 10
+_USAGE_NS = 'http://www.sap.com/adt/ris/usageReferences'
+
+
+def _local(tag):
+    return tag.split('}')[-1]
+
+
+def _local_attrs(el):
+    return {_local(k): v for k, v in el.attrib.items()}
+
+
+def parse_usage_references(xml_text):
+    """usageReferences result -> one dict per object that uses the target.
+
+    The result is a tree: packages appear as parent nodes with no usageInformation and
+    are dropped, because they hold the users rather than use anything. Each entry keeps
+    the `object_identifier` SAP needs to return line positions (usage_snippets).
+    """
+    results = []
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return results
+    for ref in root.iter():
+        if _local(ref.tag) != 'referencedObject':
+            continue
+        ref_attrs = _local_attrs(ref)
+        usage = ref_attrs.get('usageInformation', '')
+        adt = next((c for c in ref if _local(c.tag) == 'adtObject'), None)
+        if adt is None:
+            continue
+        a = _local_attrs(adt)
+        name, obj_type = a.get('name', ''), a.get('type', '')
+        if not name or not obj_type:
+            continue
+        if obj_type.startswith('DEVC') and not usage:
+            continue
+        pkg = next((_local_attrs(c).get('name', '') for c in adt
+                    if _local(c.tag) == 'packageRef'), '')
+        ident = next(((c.text or '').strip() for c in ref
+                      if _local(c.tag) == 'objectIdentifier'), '')
+        entry = {'name': name, 'type': obj_type, 'uri': ref_attrs.get('uri', ''),
+                 'description': a.get('description', ''), 'package': pkg,
+                 'usage': [u for u in usage.split(',') if u]}
+        if ident:
+            entry['object_identifier'] = ident
+        results.append(entry)
+    return results
+
+
+def usage_snippet_body(identifiers):
+    from xml.sax.saxutils import escape
+    ids = ''.join(f'<u:objectIdentifier optional="false">{escape(i)}</u:objectIdentifier>'
+                  for i in identifiers)
+    return ('<?xml version="1.0" encoding="UTF-8"?>'
+            f'<u:usageSnippetRequest xmlns:u="{_USAGE_NS}">'
+            f'<u:objectIdentifiers>{ids}</u:objectIdentifiers><u:affectedObjects/>'
+            '</u:usageSnippetRequest>')
+
+
+_POS_RE = re.compile(r'#start=(\d+),(\d+)(?:;end=(\d+),(\d+))?')
+
+
+def parse_usage_snippets(xml_text):
+    """usageSnippets result -> {object_identifier: [{uri, line, column, ..., code}]}.
+
+    Lines are 1-based, columns as SAP gives them. For a method the position can be
+    relative to the method include, which the `uri` names.
+    """
+    out = {}
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return out
+    for obj in root.iter():
+        if _local(obj.tag) != 'codeSnippetObject':
+            continue
+        ident = next(((c.text or '').strip() for c in obj
+                      if _local(c.tag) == 'objectIdentifier'), '')
+        positions = []
+        for snip in obj.iter():
+            if _local(snip.tag) != 'codeSnippet':
+                continue
+            at = _local_attrs(snip)
+            uri = at.get('uri', '')
+            pos = {'uri': uri.split('#')[0]}
+            m = _POS_RE.search(uri)
+            if m:
+                pos['line'], pos['column'] = int(m.group(1)), int(m.group(2))
+                if m.group(3):
+                    pos['end_line'], pos['end_column'] = int(m.group(3)), int(m.group(4))
+            content = next((c.text or '' for c in snip if _local(c.tag) == 'content'), '')
+            pos['code'] = content.rstrip()
+            if at.get('matches'):
+                pos['matches'] = at['matches']
+            positions.append(pos)
+        out.setdefault(ident, []).extend(positions)
+    return out
+
+
+def parse_main_programs(xml_text):
+    """includes/<name>/mainprograms -> [{name, type, uri}] (programs or function groups)."""
+    out = []
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return out
+    for el in root.iter():
+        if _local(el.tag) == 'objectReference':
+            a = _local_attrs(el)
+            if a.get('name'):
+                out.append({'name': a['name'], 'type': a.get('type', ''), 'uri': a.get('uri', '')})
+    return out
+
+
+def deletion_check_body(object_url):
+    from xml.sax.saxutils import quoteattr
+    return ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<del:checkRequest xmlns:del="http://www.sap.com/adt/deletion" '
+            'xmlns:adtcore="http://www.sap.com/adt/core">'
+            f'<del:object adtcore:uri={quoteattr(object_url)}/></del:checkRequest>')
+
+
+def parse_deletion_check(xml_text):
+    """deletion/check -> {deletable, strong_references, weak_references, messages,
+    locked_in}. None when SAP answered about no object (an unknown URI)."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:  # audit: empty-ok None = no answer; the caller reports the check as unavailable
+        return None
+    obj = next((el for el in root.iter() if _local(el.tag) == 'object'), None)
+    if obj is None:
+        return None
+    a = _local_attrs(obj)
+
+    def _int(v):
+        try:
+            return int(v)
+        except (TypeError, ValueError):
+            return 0
+    messages = []
+    for m in obj.iter():
+        if _local(m.tag) != 'message':
+            continue
+        text = next(((c.text or '').strip() for c in m if _local(c.tag) == 'text'), '')
+        if text:
+            messages.append({'type': _local_attrs(m).get('type', ''), 'text': text})
+    trkorr = owner = ''
+    for el in obj.iter():
+        if _local(el.tag) == 'trkorr' and (el.text or '').strip():
+            trkorr = el.text.strip()
+        if _local(el.tag) == 'owner' and (el.text or '').strip():
+            owner = el.text.strip()
+    out = {'name': a.get('name', ''), 'type': a.get('type', ''),
+           'deletable': a.get('isDeletable', '').lower() == 'true',
+           'strong_references': _int(a.get('externalStrongReferences')),
+           'weak_references': _int(a.get('externalWeakReferences')),
+           'messages': messages}
+    if a.get('packageName'):
+        out['package'] = a['packageName']
+    if trkorr:
+        out['locked_in'] = {'transport': trkorr, 'owner': owner}
+    return out
+
+
+def parse_enqueue_owner(text):
+    """Owner of an ENQUEUE lock from ADT's refusal (message EU510, V1 = user), or None."""
+    if not text or '>EU<' not in text or '>510<' not in text:
+        return None
+    m = re.search(r'<entry key="T100KEY-V1">([^<]*)</entry>', text)
+    return (m.group(1).strip().upper() or 'UNKNOWN') if m else 'UNKNOWN'
+
+
+_TRANSPORT_RELS = ('http://www.sap.com/adt/relations/transport/request',
+                   'http://www.sap.com/adt/relations/transports')
+_CTS_ID_RE = re.compile(r'^[A-Z0-9]{3}[A-Z][A-Z0-9]{6}$')
+
+
+def revision_links(xml_text):
+    """hrefs of rel=".../relations/versions" links in an object's metadata, in order."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:  # audit: empty-ok no link falls back to source/main/versions, whose read raises on failure
+        return []
+    return [_local_attrs(el).get('href', '') for el in root.iter()
+            if _local(el.tag) == 'link'
+            and _local_attrs(el).get('rel') == 'http://www.sap.com/adt/relations/versions'
+            and _local_attrs(el).get('href')]
+
+
+def _revision_transport(links):
+    """CTS id of a version, from its transport link (rules from ARC-1's revision-feed.js).
+
+    adtcore:name carries the id; an href tail counts only when it looks like a CTS id
+    (ADT also emits hrefs ending in reference?obj_name=...); title/version last.
+    """
+    for a in links:
+        if a.get('rel') not in _TRANSPORT_RELS:
+            continue
+        if (a.get('name') or '').strip():
+            return a['name'].strip()
+        tail = (a.get('href') or '').split('/')[-1].split('?')[0].strip().upper()
+        if _CTS_ID_RE.match(tail):
+            return tail
+        for k in ('title', 'version'):
+            v = (a.get(k) or '').strip().upper()
+            if _CTS_ID_RE.match(v):
+                return v
+    return ''
+
+
+def parse_revision_feed(xml_text):
+    """Atom versions feed -> [{id, author, date, versionTitle, transport, uri}], or None
+    when the answer is not a versions feed (so it is never mistaken for 'no history')."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:  # audit: empty-ok None = not a feed; get_object_revisions raises on it
+        return None
+    if _local(root.tag) != 'feed':
+        return None
+    out = []
+    for entry in root:
+        if _local(entry.tag) != 'entry':
+            continue
+        def text(tag):
+            el = next((c for c in entry if _local(c.tag) == tag), None)
+            return (el.text or '').strip() if el is not None else ''
+        author = next((c for c in entry if _local(c.tag) == 'author'), None)
+        name = ''
+        if author is not None:
+            name = next(((n.text or '').strip() for n in author if _local(n.tag) == 'name'), '')
+        content = next((c for c in entry if _local(c.tag) == 'content'), None)
+        src = _local_attrs(content).get('src', '') if content is not None else ''
+        if not src:
+            return None
+        transport = _revision_transport([_local_attrs(c) for c in entry if _local(c.tag) == 'link'])
+        rev = {'id': text('id'), 'author': name, 'date': text('updated'), 'uri': src}
+        if text('title'):
+            rev['versionTitle'] = text('title')
+        if transport:
+            rev['transport'] = transport
+            rev['version'] = transport  # the key this list used to carry
+        out.append(rev)
+    return out
+
+
+TEXT_ELEMENT_CT = {
+    'symbols': 'application/vnd.sap.adt.textelements.symbols.v1',
+    'selections': 'application/vnd.sap.adt.textelements.selections.v1',
+    'headings': 'application/vnd.sap.adt.textelements.headings.v1',
+}
+_TEXT_ELEMENT_COLLECTIONS = {'class': 'classes', 'program': 'programs',
+                             'functiongroup': 'functiongroups'}
+
+
+def text_elements_url(kind, name):
+    """/sap/bc/adt/textelements/<collection>/<name> -- the pool, and its lock target."""
+    from urllib.parse import quote
+    k = (kind or '').lower().replace('_', '')
+    k = {'clas': 'class', 'prog': 'program', 'report': 'program', 'fugr': 'functiongroup',
+         'functiongroups': 'functiongroup'}.get(k, k)
+    if k not in _TEXT_ELEMENT_COLLECTIONS:
+        raise ValueError(f"text elements exist for class, program, functiongroup -- not {kind!r}")
+    return f"/sap/bc/adt/textelements/{_TEXT_ELEMENT_COLLECTIONS[k]}/{quote(name.lower())}"
+
+
+def parse_lock_result(text):
+    """ADT lock answer -> {handle, corrnr, local}."""
+    def field(tag):
+        m = re.search(rf'<{tag}>([^<]*)</{tag}>', text or '')
+        return m.group(1).strip() if m else ''
+    return {'handle': field('LOCK_HANDLE'), 'corrnr': field('CORRNR'),
+            'local': field('IS_LOCAL').upper() == 'X'}
+
+
+def parse_text_elements(text):
+    """Raw text-pool part -> [{key, text, max_length}]; '@MaxLength:N' precedes its line."""
+    out, max_len = [], None
+    for line in (text or '').splitlines():
+        line = line.rstrip('\r')
+        if not line.strip():
+            continue
+        if line.startswith('@MaxLength:'):
+            try:
+                max_len = int(line.split(':', 1)[1])
+            except ValueError:
+                max_len = None
+            continue
+        key, sep, value = line.partition('=')
+        if not sep:
+            continue
+        entry = {'key': key.strip(), 'text': value}
+        if max_len is not None:
+            entry['max_length'] = max_len
+        out.append(entry)
+        max_len = None
+    return out
+
+
+def render_text_elements(part, entries):
+    """[{key, text, max_length?}] -> the raw text SAP takes back for that part."""
+    lines = []
+    for e in entries:
+        if part == 'symbols':
+            n = e.get('max_length') or max(len(e.get('text', '')), 1)
+            lines += [f"@MaxLength:{n}", f"{e['key']}={e.get('text', '')}", '']
+        else:
+            lines.append(f"{e['key']}={e.get('text', '')}")
+    return '\n'.join(lines) + ('\n' if lines and lines[-1] != '' else '')
+
+
+def group_dumps(dumps, now_iso=None, new_hours=24):
+    """ST22 list -> one row per (runtime error, program), most frequent first.
+
+    Each row: error, program, title, count, users, first, last, dump (the newest
+    one's link) and `new` -- True when the group's FIRST occurrence in this list is
+    within `new_hours` of now. "New" is relative to the dumps fetched: a group older
+    than the window looks new, so the caller fetches a window wider than new_hours.
+    """
+    from datetime import datetime, timezone, timedelta
+
+    def ts(v):
+        try:
+            return datetime.fromisoformat((v or '').replace('Z', '+00:00'))
+        except ValueError:
+            return None
+    now = ts(now_iso) if now_iso else datetime.now(timezone.utc)
+    groups = {}
+    for d in dumps:
+        cats = d.get('categories') or []
+        key = (cats[0] if cats else '', cats[1] if len(cats) > 1 else '')
+        g = groups.setdefault(key, {'error': key[0], 'program': key[1],
+                                    'title': d.get('title', ''), 'count': 0, 'users': set(),
+                                    'first': None, 'last': None, 'dump': d.get('dump')})
+        g['count'] += 1
+        if d.get('user'):
+            g['users'].add(d['user'])
+        t = ts(d.get('date'))
+        if t and (g['first'] is None or t < g['first']):
+            g['first'] = t
+        if t and (g['last'] is None or t > g['last']):
+            g['last'], g['dump'] = t, d.get('dump')
+            g['title'] = d.get('title', g['title'])
+    out = []
+    for g in groups.values():
+        g['new'] = bool(g['first'] and now - g['first'] <= timedelta(hours=new_hours))
+        g['users'] = sorted(g['users'])
+        for k in ('first', 'last'):
+            g[k] = g[k].strftime('%Y-%m-%dT%H:%M:%SZ') if g[k] else ''
+        out.append(g)
+    out.sort(key=lambda g: g['last'], reverse=True)
+    out.sort(key=lambda g: -g['count'])
+    return out
+
+
+def parse_formatted_dump(text, sections=None, max_chars=6000):
+    """Split ADT's formatted dump text into its header fields and ST22 chapters.
+
+    The text is blocks between dashed lines; a chapter block starts `|<Title>` and its
+    lines start `|`. The first block is the header (`Category   ABAP programming error`).
+    `sections`: titles (case-insensitive prefixes) to return; default the chapters a
+    diagnosis needs. Every chapter's title and size is listed in `available`, so a caller
+    can ask for "Chosen variables" or "System environment" by name.
+    """
+    import re
+    blocks, cur = [], []
+    for line in (text or '').replace('\r\n', '\n').split('\n'):
+        if re.match(r'^-{20,}\s*$', line):
+            if cur:
+                blocks.append(cur)
+            cur = []
+        elif line.strip():
+            cur.append(line.rstrip())
+    if cur:
+        blocks.append(cur)
+
+    def clean(ln):
+        # chapter lines are framed: '|text ... |'
+        ln = ln.rstrip()
+        if ln.endswith('|'):
+            ln = ln[:-1].rstrip()
+        return ln[1:] if ln.startswith('|') else ln
+
+    def is_title(t):
+        # A chapter title is words ("Short Text", "What happened?"); the tables inside a
+        # chapter (source extract, variables, call stack) bring their own dashed lines,
+        # and their first rows ("Line |Code", "18|...", "IV_ROW_COUNT", "No.   Ty.")
+        # must stay in the chapter they belong to.
+        t = t.strip()
+        return (len(t.split()) >= 2 and any(c.islower() for c in t) and '|' not in t
+                and not t[:1].isdigit() and not re.search(r'\s{3,}', t))
+
+    header, chapters = {}, []
+    for block in blocks:
+        if block[0].startswith('|'):
+            lines = [clean(ln) for ln in block]
+            title = lines[0].strip()
+            if is_title(title):
+                body, start = [], 1
+            elif chapters:
+                title, body = chapters.pop()
+                body, start = ([body, ''] if body else []), 0
+            else:
+                continue
+            raw = lines[start:]
+            ind = min((len(b) - len(b.lstrip()) for b in raw if b.strip()), default=0)
+            body += [b[ind:] if b.strip() else '' for b in raw]
+            chapters.append((title, '\n'.join(body).strip()))
+        elif not chapters:
+            for ln in block:
+                m = re.match(r'^(\S.*?)\s{2,}(\S.*)$', ln)
+                if m:
+                    header[m.group(1).strip()] = m.group(2).strip()
+
+    wanted = [s.strip().lower() for s in (sections or DUMP_DEFAULT_SECTIONS) if s.strip()]
+    picked, truncated = {}, []
+    for title, body in chapters:
+        if any(title.lower().startswith(w) for w in wanted):
+            if len(body) > max_chars:
+                truncated.append(title)
+                body = body[:max_chars] + '\n... (truncated; ask for this section with a larger max_chars)'
+            picked[title] = body
+    return {'header': header, 'sections': picked,
+            'available': [{'title': t, 'chars': len(b)} for t, b in chapters],
+            'truncated': truncated}
+
+
+def checkrun_body(object_uri, version='inactive', content=None):
+    """The check-run request body. `object_uri` is the object's root URI.
+
+    With `content`, SAP compiles that source AS IF it were stored at the URI, without
+    writing it: an artifact with the base64 source under `<chkrun:artifacts>` (the body
+    Eclipse ADT sends; ported from ARC-1 1.10.1 `adt/devtools.js`, MIT). That is the check
+    BEFORE a push, which a failed push used to be the only way to get.
+    """
+    uri = (object_uri or '').split('?')[0]
+    if uri.endswith('/source/main'):
+        uri = uri[:-len('/source/main')]
+    esc = lambda v: (str(v).replace('&', '&amp;').replace('<', '&lt;')  # noqa: E731
+                     .replace('>', '&gt;').replace('"', '&quot;'))
+    if content is not None:
+        encoded = base64.b64encode(content.encode('utf-8')).decode('ascii')
+        return ('<?xml version="1.0" encoding="UTF-8"?>'
+                '<chkrun:checkObjectList xmlns:chkrun="%s" xmlns:adtcore="http://www.sap.com/adt/core">'
+                '<chkrun:checkObject adtcore:uri="%s" chkrun:version="%s"><chkrun:artifacts>'
+                '<chkrun:artifact chkrun:contentType="text/plain; charset=utf-8" chkrun:uri="%s/source/main">'
+                '<chkrun:content>%s</chkrun:content></chkrun:artifact></chkrun:artifacts>'
+                '</chkrun:checkObject></chkrun:checkObjectList>'
+                % (CHECKRUN_NS, esc(uri), esc(version), esc(uri), encoded))
+    return ('<?xml version="1.0" encoding="UTF-8"?>'
+            '<chkrun:checkObjectList xmlns:chkrun="%s" xmlns:adtcore="http://www.sap.com/adt/core">'
+            '<chkrun:checkObject adtcore:uri="%s" chkrun:version="%s"/></chkrun:checkObjectList>'
+            % (CHECKRUN_NS, esc(uri), esc(version)))
+
+
+def _checkrun_position(uri):
+    """`...#start=21,25` -> (21, 25); (None, None) when absent."""
+    m = re.search(r'#start=(\d+),(\d+)', uri or '')
+    return (int(m.group(1)), int(m.group(2))) if m else (None, None)
+
+
+def parse_checkrun(body, expected_uri=None, version='inactive'):
+    """A check-run answer -> ONE verdict dict. No network, never raises.
+
+    verdict: 'clean' | 'errors' | 'not_measured'. Every ambiguous case (empty or broken body,
+    no report, another reporter, the object not reported, status other than 'processed', an
+    unknown message type) is 'not_measured' -- never 'clean'.
+    """
+    out = {'verdict': 'not_measured', 'reason': '', 'errors': [], 'warnings': [],
+           'status': None, 'status_text': None,
+           'scope': {'version': version, 'reporter': CHECKRUN_REPORTER, 'checked': CHECKRUN_SCOPE}}
+    if not body or not str(body).strip():
+        out['reason'] = 'empty_body'
+        return out
+    try:
+        root = ET.fromstring(str(body))
+    except Exception as exc:  # noqa: BLE001
+        out['reason'] = 'broken_xml:%s' % type(exc).__name__
+        return out
+    ns = '{%s}' % CHECKRUN_NS
+    reports = list(root.iter(ns + 'checkReport'))
+    if not reports:
+        out['reason'] = 'no_report'
+        return out
+    ours = [r for r in reports if r.get(ns + 'reporter') == CHECKRUN_REPORTER]
+    if not ours:
+        out['reason'] = 'other_reporter:%s' % ','.join(
+            sorted({r.get(ns + 'reporter') or '?' for r in reports}))
+        return out
+    if expected_uri:
+        target = expected_uri.split('?')[0].replace('/source/main', '').rstrip('/').lower()
+        ours = [r for r in ours if (r.get(ns + 'triggeringUri') or '').rstrip('/').lower() == target]
+        if not ours:
+            out['reason'] = 'object_not_reported'
+            return out
+    for r in ours:
+        status = r.get(ns + 'status')
+        out['status'], out['status_text'] = status, r.get(ns + 'statusText')
+        if status != 'processed':
+            out['reason'] = 'status=%s: %s' % (status, r.get(ns + 'statusText') or '')
+            return out
+        for m in r.iter(ns + 'checkMessage'):
+            kind = (m.get(ns + 'type') or '').upper()
+            line, col = _checkrun_position(m.get(ns + 'uri'))
+            t100 = m.find(ns + 't100Key')
+            record = {'type': kind, 'message': m.get(ns + 'shortText') or '', 'line': line,
+                      'column': col, 'href': m.get(ns + 'uri') or '',
+                      't100': ('%s/%s' % (t100.get(ns + 'msgid'), t100.get(ns + 'msgno'))
+                               if t100 is not None else None)}
+            if kind not in ('E', 'W', 'I'):
+                out['reason'] = 'unknown_message_type:%s' % (kind or '<empty>')
+                out['errors'], out['warnings'] = [], []
+                return out
+            (out['errors'] if kind == 'E' else out['warnings']).append(record)
+    out['verdict'] = 'errors' if out['errors'] else 'clean'
+    out['reason'] = 'processed'
+    return out
 
 
 class SAPADTClient:
@@ -1882,6 +2432,69 @@ class SAPADTClient:
                 url=self.url
             )
 
+    def _stateless_request(self, method, url, headers=None, timeout=None, **kwargs):
+        """A request that opens no stateful SAP context and joins none.
+
+        A side session carries the main session's authentication cookies (SSO, SAML,
+        session id) but never `sap-contextid`, and never sends the stateful header, so
+        SAP starts and ends an internal session per request. For calls that hold no lock
+        and need no transport (freestyle SQL); everything that locks stays on the main,
+        stateful session. Falls back to the main session if the side one cannot be built.
+        """
+        import requests as _requests
+        headers = dict(headers or self._get_headers())
+        # _get_headers spells it lower-case, the lock paths capitalised: drop every
+        # spelling, or the "stateless" request asks SAP for a stateful context.
+        for k in [k for k in headers if k.lower() == 'x-sap-adt-sessiontype']:
+            del headers[k]
+        if timeout is None:
+            timeout = self.timeout_default
+        try:
+            side = getattr(self, '_side_session', None)
+            if side is None:
+                side = _requests.Session()
+                side.verify = self.session.verify
+                side.proxies = dict(getattr(self.session, 'proxies', {}) or {})
+                side.cert = getattr(self.session, 'cert', None)
+                self._side_session, self._side_csrf = side, None
+            # Authentication only: the SSO/SAML ticket travels, the session does not.
+            # SAP_SESSIONID_<SID>_<client> is the security session; carrying it kept the
+            # side requests inside the same internal session and the pool limit was hit
+            # just the same (measured NS4 2026-11-11).
+            for ck in self.session.cookies:
+                n = ck.name.lower()
+                if n != 'sap-contextid' and not n.startswith('sap_sessionid'):
+                    side.cookies.set_cookie(ck)
+            for attempt in range(2):
+                if not self._side_csrf:
+                    t = side.get(f'{self.url}/sap/bc/adt/discovery',
+                                 headers={**{k: v for k, v in headers.items() if k.lower() != 'x-csrf-token'},
+                                          'X-CSRF-Token': 'Fetch', 'Accept': 'application/atomsvc+xml'},
+                                 timeout=self.timeout_short)
+                    self._side_csrf = t.headers.get('x-csrf-token') or t.headers.get('X-CSRF-Token') or ''
+                headers['X-CSRF-Token'] = self._side_csrf
+                resp = side.request(method, url, headers=headers, timeout=timeout, **kwargs)
+                for ck in list(side.cookies):
+                    n = ck.name.lower()
+                    if n == 'sap-contextid' or n.startswith('sap_sessionid'):
+                        side.cookies.clear(ck.domain, ck.path, ck.name)
+                # a fresh internal session needs a fresh token next time
+                self._side_csrf = None
+                if resp.status_code == 403 and 'CSRF' in (resp.text or '') and attempt == 0:
+                    self._side_csrf = None
+                    continue
+                # A logon the side session cannot carry (SAML that needs the security
+                # session, an expired ticket) answers 401 or a login page: use the main
+                # session, which re-authenticates the way it always has.
+                if resp.status_code == 401 or self._response_is_html(resp):
+                    break
+                return resp
+            return self._request_with_csrf_retry(method, url, headers=headers, timeout=timeout, **kwargs)
+        except Exception as exc:  # noqa: BLE001 - never worse than the old path
+            if self.debug_enabled:
+                self._debug(f"[DEBUG] stateless request fell back to the main session: {exc}")
+            return self._request_with_csrf_retry(method, url, headers=headers, timeout=timeout, **kwargs)
+
     def _request_with_csrf_retry(self, method, url, headers=None, timeout=None, **kwargs):
         """Execute HTTP request with CSRF token management and automatic retry.
 
@@ -2014,7 +2627,7 @@ class SAPADTClient:
                                         'then set ADT_SAML_COOKIES_FILE=.saml_cookies.json in .conn_adt.'
                                     )
                                 }
-                        except Exception:
+                        except Exception:  # audit: empty-ok extra BTP probe; the logon itself already succeeded
                             pass
                     return {
                         'success': True,
@@ -2199,109 +2812,81 @@ class SAPADTClient:
         return (response.text.replace('\r\r\n', '\n')
                 .replace('\r\n', '\n').replace('\r', '\n'))
 
-    def get_object_revisions(self, object_url):
-        """Get object revision history.
+    def revision_feed_url(self, object_url, include='main'):
+        """The versions feed of an object (or of one class include), from its own metadata.
 
-        Returns a list of revisions for an object, including version, date, author, etc.
-        Based on abap-adt-api revisions functionality.
-
-        Args:
-            object_url: URL of the object (e.g., /sap/bc/adt/oo/classes/zcl_my_class)
-
-        Returns:
-            List of revision dicts with keys: uri, date, author, version, versionTitle
+        Links are relative ("includes/main/versions", "source/main/versions"), so they
+        are resolved against the object. Falls back to <object>/source/main/versions.
         """
-        # First, get object structure to find revisions link
-        try:
-            headers = self._get_headers()
-            headers['Accept'] = 'application/vnd.sap.adt.objectstructure+xml'
+        response = self._stateless_request(
+            'get', f"{self.url}{object_url}", headers=self._get_headers('application/xml, */*'))
+        if response.status_code == 404:
+            raise SAPObjectNotFoundError(f"Object not found: {object_url}", status_code=404,
+                                         endpoint=object_url)
+        hrefs = revision_links(response.text)
+        pick = next((h for h in hrefs if f"/{include}/" in f"/{h}"), '')
+        if not pick and include != 'main':
+            parts = sorted({h.split('/')[-2] for h in hrefs if h.count('/') >= 1})
+            raise SAPADTError(f"{object_url} has no '{include}' part with a version history "
+                              f"(parts: {', '.join(parts) or 'none'})", status_code=404)
+        if not pick and hrefs:
+            pick = hrefs[0]   # a DDLS has one feed, at <object>/versions
+        if not pick:
+            pick = 'source/main/versions'
+        if pick.startswith('/'):
+            return pick
+        if pick.startswith('./'):
+            # BDEF writes it relative to the collection: "./<name>/source/main/versions"
+            from urllib.parse import urljoin
+            return urljoin(object_url, pick)
+        return f"{object_url.rstrip('/')}/{pick}"   # classes: relative to the object
 
-            response = self.session.get(
-                f"{self.url}{object_url}",
-                headers=headers,
-                timeout=self.timeout_short
-            )
+    def get_object_revisions(self, object_url, include='main'):
+        """An object's version history: [{id, author, date, versionTitle, transport, uri}].
 
-            if response.status_code == 404:
-                raise SAPObjectNotFoundError(
-                    f"Object not found: {object_url}",
-                    status_code=404,
-                    endpoint=object_url
-                )
+        Until 2026-11-12 this looked for `<link` in the metadata while SAP writes
+        `<atom:link`, so it returned [] for every object and four skills read "no
+        history". A feed SAP refuses is now an error, never an empty history.
+        Feed parsing follows ARC-1 1.10.1 `adt/revision-feed.js` (MIT, Copyright (c)
+        2025-2026 Alice Vinogradova and contributors).
+        """
+        feed_url = self.revision_feed_url(object_url, include)
+        response = self._stateless_request(
+            'get', f"{self.url}{feed_url}", headers=self._get_headers('application/atom+xml;type=feed'))
+        if response.status_code != 200:
+            raise SAPADTError("Version history could not be read", status_code=response.status_code,
+                              response_text=response.text[:2000])
+        revisions = parse_revision_feed(response.text)
+        if revisions is None:
+            raise SAPADTError("Unexpected version history response (this is not an empty history)",
+                              status_code=response.status_code, response_text=response.text[:2000])
+        return revisions
 
-            # Parse object structure to find revisions link
-            # The revisions link has rel="http://www.sap.com/adt/relations/versions"
-    
-            revisions_link_match = re.search(
-                r'<link[^>]*rel="http://www\.sap\.com/adt/relations/versions"[^>]*href="([^"]+)"',
-                response.text
-            )
+    def get_revision_source(self, uri):
+        """The source text of one version (its `uri` from get_object_revisions)."""
+        response = self._stateless_request('get', f"{self.url}{uri}",
+                                           headers=self._get_headers('text/plain'))
+        if response.status_code != 200:
+            raise SAPADTError("Version source could not be read", status_code=response.status_code,
+                              response_text=response.text[:2000])
+        return response.text
 
-            if not revisions_link_match:
-                # Try alternate format
-                revisions_link_match = re.search(
-                    r'<link[^>]*href="([^"]+)"[^>]*rel="http://www\.sap\.com/adt/relations/versions"',
-                    response.text
-                )
-
-            if not revisions_link_match:
-                return []
-
-            revisions_url = revisions_link_match.group(1)
-            # Make it absolute if relative
-            if revisions_url.startswith('/'):
-                revisions_url = f"{self.url}{revisions_url}"
-
-            # Get revisions feed
-            headers = self._get_headers()
-            headers['Accept'] = 'application/atom+xml;type=feed'
-
-            response = self.session.get(
-                revisions_url,
-                headers=headers,
-                timeout=self.timeout_short
-            )
-
-            if response.status_code != 200:
-                if self.debug_enabled:
-                    self._debug(f"[DEBUG] get_object_revisions - failed with status {response.status_code}")
-                return []
-
-            # Parse Atom feed for revisions
-            revisions = []
-            entries = re.findall(r'<atom:entry>(.*?)</atom:entry>', response.text, re.DOTALL)
-
-            for entry in entries:
-                # Extract revision information from each entry
-                uri_match = re.search(r'<atom:content[^>]*src="([^"]+)"', entry)
-                version_match = re.search(r'<atom:link[^>]*type="application/vnd\.sap\.adt\.transportrequests\.v1\+xml"[^>]*adtcore:name="([^"]+)"', entry)
-                if not version_match:
-                    version_match = re.search(r'<atom:link[^>]*adtcore:name="([^"]+)"', entry)
-                title_match = re.search(r'<atom:title>([^<]+)</atom:title>', entry)
-                date_match = re.search(r'<atom:updated>([^<]+)</atom:updated>', entry)
-                author_match = re.search(r'<atom:name>([^<]+)</atom:name>', entry)
-
-                revision = {
-                    'uri': uri_match.group(1) if uri_match else '',
-                    'version': version_match.group(1) if version_match else '',
-                    'versionTitle': title_match.group(1) if title_match else '',
-                    'date': date_match.group(1) if date_match else '',
-                    'author': author_match.group(1) if author_match else 'Unknown'
-                }
-                revisions.append(revision)
-
-            return revisions
-
-        except SAPObjectNotFoundError:
-            raise
-        except Exception as e:
-            # v1.4.0 honesty: a CONNECTION-class failure must not masquerade as
-            # "object has no revisions" — re-raise so the caller reports the truth.
-            if 'Connection' in type(e).__name__ or 'Timeout' in type(e).__name__:
-                raise
-            if self.debug_enabled:
-                self._debug(f"[DEBUG] get_object_revisions - exception: {str(e)[:100]}")
-            return []
+    def get_active_include_source(self, feed_url):
+        """Active source behind a versions feed: the feed URL without '/versions'."""
+        base = feed_url[:-len('/versions')] if feed_url.endswith('/versions') else feed_url
+        # A class's main part is read at /source/main although its feed is under
+        # /includes/main; the other parts are read where their feed is.
+        if base.endswith('/includes/main'):
+            base = base[:-len('/includes/main')] + '/source/main'
+        # DDLS/DCLS keep their feed on the object itself (<object>/versions).
+        if '/source/' not in base and '/includes/' not in base:
+            base = base.rstrip('/') + '/source/main'
+        response = self._stateless_request('get', f"{self.url}{base}",
+                                           headers=self._get_headers('text/plain'))
+        if response.status_code != 200:
+            raise SAPADTError("Active source could not be read", status_code=response.status_code,
+                              response_text=response.text[:2000])
+        return response.text
 
     def set_object_source(self, object_url, source_code, lock_handle, transport=None, etag=None, max_retries=5, prefer_param_transport=False):
         """Push ABAP object source code to SAP with fallback strategies.
@@ -2622,7 +3207,7 @@ class SAPADTClient:
             for elem in root.iter():
                 if 'LOCK_HANDLE' in elem.tag and elem.text:
                     return elem.text
-        except ET.ParseError:
+        except ET.ParseError:  # audit: empty-ok None = no handle; the lock caller raises
             pass
 
         return None
@@ -2649,7 +3234,7 @@ class SAPADTClient:
                 local = elem.tag.split('}')[-1] if '}' in elem.tag else elem.tag
                 if local == field_name and elem.text:
                     return elem.text.strip()
-        except ET.ParseError:
+        except ET.ParseError:  # audit: empty-ok None = field absent
             pass
 
         return None
@@ -3420,44 +4005,46 @@ class SAPADTClient:
             self._debug("[DEBUG] unlock_object - all strategies failed; lock may persist until SAP timeout")
         return False
 
-    def is_object_locked(self, object_url):
+    def is_object_locked(self, object_url, probe=True):
+        """Is the object held in an ENQUEUE lock? {locked, lock_owner, lock_handle, method}.
+
+        Until 2026-11-12 this asked GET /sap/bc/adt/locks, which does not exist (NS4
+        answers 404 "Resource /sap/bc/adt/locks does not exist"), and read the 404 as
+        "not locked" -- so every caller was told "free" about a locked object. It now
+        asks the only way ADT answers: a LOCK. Success means the object was free (the
+        lock is released at once); HTTP 403 with message EU510 means someone holds it,
+        and V1 names who (language-independent). probe=False skips the LOCK and returns
+        None ("unknown") -- for callers that are about to lock anyway.
+        Returns None when the answer is neither.
         """
-        Check if an object is currently locked.
-
-        Returns:
-            dict with keys: locked, lock_owner, lock_handle (if locked by current user)
-            Returns None if check fails
-        """
-        try:
-            headers = self._get_headers()
-
-            response = self.session.get(
-                f"{self.url}/sap/bc/adt/locks",
-                headers=headers,
-                params={'objectRef': object_url},
-                timeout=self.timeout_short
-            )
-
-            if response.status_code == 200:
-                # Check if locked by parsing response
-                text = response.text
-                if 'LOCK_HANDLE' in text or 'lockHandle' in text:
-            
-                    owner_match = re.search(r'LOCK_OWNER>([^<]+)</', text)
-                    handle_match = re.search(r'LOCK_HANDLE>([^<]+)</', text)
-
-                    return {
-                        'locked': True,
-                        'lock_owner': owner_match.group(1) if owner_match else 'unknown',
-                        'lock_handle': handle_match.group(1) if handle_match else None
-                    }
-                return {'locked': False, 'lock_owner': None, 'lock_handle': None}
-            elif response.status_code == 404:
-                return {'locked': False, 'lock_owner': None, 'lock_handle': None}
-            else:
-                return None
-        except Exception:
+        if not probe:
             return None
+        try:
+            headers = self._get_headers(
+                'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8, '
+                'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9')
+            headers['X-sap-adt-sessiontype'] = 'stateful'
+            response = self._request_with_csrf_retry(
+                'post', f"{self.url}{object_url}", headers=headers,
+                params={'_action': 'LOCK', 'accessMode': 'MODIFY'}, timeout=self.timeout_short)
+            return self._lock_probe_result(response, object_url)
+        except Exception:  # audit: empty-ok None = unknown; adt_clear_lock reports it as unknown
+            return None
+
+    def _lock_probe_result(self, response, object_url):
+        text = response.text or ''
+        if response.status_code == 200:
+            m = re.search(r'<LOCK_HANDLE>([^<]+)</', text)
+            if m:
+                try:
+                    self.unlock_object(object_url, m.group(1))
+                except Exception:
+                    pass
+            return {'locked': False, 'lock_owner': None, 'lock_handle': None, 'method': 'probe'}
+        owner = parse_enqueue_owner(text)
+        if response.status_code == 403 and owner is not None:
+            return {'locked': True, 'lock_owner': owner, 'lock_handle': None, 'method': 'probe'}
+        return None
 
     def lock_object_with_retry(self, object_url, access_mode='MODIFY', transport=None, max_retries=3, retry_delay=2, allow_no_transport=False):
         """
@@ -3491,7 +4078,11 @@ class SAPADTClient:
                 if '403' in error_text or 'locked by' in error_text.lower() or 'stale' in error_text.lower():
                     # Check who has the lock
                     lock_info = self.is_object_locked(object_url)
-                    if lock_info and lock_info.get('locked'):
+                    # Since 2026-11-12 this really sees the lock. Stop only for ANOTHER
+                    # user's lock; our own (another session) keeps the old retry path.
+                    if (lock_info and lock_info.get('locked')
+                            and (lock_info.get('lock_owner') or '').upper()
+                            not in ((self.user or '').upper(), 'UNKNOWN')):
                         raise SAPLockError(
                             f"Object is locked by user '{lock_info.get('lock_owner', 'unknown')}'. "
                             f"Please unlock it manually or wait for the lock to expire.",
@@ -3551,8 +4142,45 @@ class SAPADTClient:
 
         return lock_context()
 
+    def check_run(self, object_url, version='inactive', content=None):
+        """Read-only syntax check: POST /sap/bc/adt/checkruns?reporters=abapCheckRun.
+
+        Never goes to the activation endpoint (no lock, transport, activation or source write).
+        Default `inactive` checks the pending version; an object with none comes back
+        'not_measured' (status notProcessed) -- the caller decides whether to ask for `active`.
+        Returns the `parse_checkrun` dict plus `http_status`; a network error or a non-200
+        answer is 'not_measured', never an exception and never 'clean'.
+        """
+        if version not in ('inactive', 'active'):
+            raise ValueError("check_run version must be 'inactive' or 'active', got %r" % (version,))
+        headers = self._get_headers('application/vnd.sap.adt.checkmessages+xml',
+                                    'application/*' if content is not None
+                                    else 'application/vnd.sap.adt.checkobjects+xml')
+        try:
+            r = self._request_with_csrf_retry(
+                'post', f"{self.url}{CHECKRUN_PATH}", headers=headers,
+                data=checkrun_body(object_url, version, content).encode('utf-8'),
+                params={'reporters': CHECKRUN_REPORTER})
+        except Exception as exc:  # noqa: BLE001 -- not measured, not clean
+            res = parse_checkrun('', object_url, version)
+            res['reason'] = 'exception:%s' % type(exc).__name__
+            res['http_status'] = None
+            return res
+        code = getattr(r, 'status_code', None)
+        if code != 200:
+            res = parse_checkrun('', object_url, version)
+            res['reason'] = 'http_%s' % code
+            res['http_status'] = code
+            return res
+        res = parse_checkrun(r.text, object_url, version)
+        res['http_status'] = code
+        return res
+
     def syntax_check_via_activation(self, object_name, object_url):
-        """Check syntax using SAP ADT activation endpoint in pre-audit mode.
+        """LEGACY, NOT read-only: posts to the activation endpoint with preauditRequested=true,
+        which SAP ignores -- a clean pending inactive version gets ACTIVATED (measured on NS4,
+        2026-10-27). Kept only for callers that activate anyway; the syntax check tools use
+        check_run(). Check syntax using the ADT activation endpoint in pre-audit mode.
 
         This performs a syntax check without actually activating the object.
 
@@ -3675,7 +4303,7 @@ class SAPADTClient:
                         'href': href
                     }
 
-                    if msg_type == 'E':
+                    if msg_type in ('E', 'A', 'X'):
                         result['errors'].append(message_info)
                     elif msg_type == 'W':
                         result['warnings'].append(message_info)
@@ -3833,7 +4461,7 @@ class SAPADTClient:
 
             return ghosts
 
-        except Exception:
+        except Exception:  # audit: empty-ok advisory only: a missed warning after a 409, no decision rests on it
             return []
 
     def _parse_activation_response(self, response, object_name):
@@ -3888,7 +4516,7 @@ class SAPADTClient:
                         if atype and '/RQ' not in atype:
                             refs.append((uri, atype, name))
                 result['ioc_refs'] = refs
-            except ET.ParseError:
+            except ET.ParseError:  # audit: empty-ok success stays False unless a shape proves it
                 pass
             return result
 
@@ -3918,7 +4546,10 @@ class SAPADTClient:
                             break
                     message_info = {'type': msg_type, 'message': msg_text,
                                     'object': obj_descr, 'line': line, 'href': href}
-                    if msg_type == 'E':
+                    # A (abort) and X (exit) are worse than E, not something to skip: a
+                    # response with activationExecuted="true" can still carry them, and
+                    # counting only E reported that as a clean activation.
+                    if msg_type in ('E', 'A', 'X'):
                         result['errors'].append(message_info)
                     elif msg_type == 'W':
                         result['warnings'].append(message_info)
@@ -3939,10 +4570,15 @@ class SAPADTClient:
                 })
 
         except ET.ParseError as e:
-            if 'activationExecuted="true"' in text:
+            has_error = re.search(r'type="[EAX]"', text) is not None
+            if 'activationExecuted="true"' in text and not has_error:
                 result['success'] = True
                 result['activation_executed'] = True
-            elif 'generationExecuted="true"' in text and 'type="E"' not in text:
+            elif has_error:
+                result['errors'] = [{'message': 'SAP reported an error in an activation response '
+                                                'that could not be parsed; treat as not activated.',
+                                     'type': 'E', 'object': object_name, 'line': '0', 'href': ''}]
+            elif 'generationExecuted="true"' in text:
                 result['success'] = True
                 result['generation_executed'] = True
             else:
@@ -4044,7 +4680,7 @@ class SAPADTClient:
                         f"ioc_refs={len(p1['ioc_refs'])}, errors={len(p1['errors'])}")
 
         # Phase 1 returned hard errors (syntax errors) — no point proceeding
-        if p1['errors'] and any(e.get('type') == 'E' for e in p1['errors']):
+        if p1['errors'] and any(e.get('type') in ('E', 'A', 'X') for e in p1['errors']):
             return p1
 
         # Phase 1 succeeded outright (empty body or activationExecuted=true with no ioc_refs)
@@ -4703,12 +5339,53 @@ class SAPADTClient:
             author = entry.findtext('a:author/a:name', default='', namespaces=ns)
             link = entry.find("a:link", ns)
             uri = link.get('href') if link is not None else ''
+            # The first link is SAP GUI integration (/vit/runtime/dumps/..., 404 over
+            # ADT); the readable detail is the one under /runtime/dump/.
+            detail = next((ln.get('href') for ln in entry.findall('a:link', ns)
+                           if '/runtime/dump/' in (ln.get('href') or '')), '')
             cats = [c.get('term') for c in entry.findall('a:category', ns) if c.get('term')]
             dumps.append({'title': title.strip(), 'user': author.strip(),
-                          'date': updated.strip(), 'uri': uri, 'categories': cats})
+                          'date': updated.strip(), 'uri': uri, 'categories': cats,
+                          'dump': detail})
             if len(dumps) >= max_results:
                 break
         return {'ok': True, 'count': len(dumps), 'dumps': dumps}
+
+    def get_runtime_dump(self, dump, sections=None, max_chars=6000):
+        """Read one short dump's text (ST22 chapters) — READ-ONLY.
+
+        `dump` is the `dump` link `list_runtime_dumps` returns (adt://<SID>/sap/bc/adt/
+        runtime/dump/<id>, or the /sap/... path, or the bare id). The text comes from
+        `.../runtime/dump/<id>/formatted` (the resource ARC-1 1.10.1 reads, MIT); it is
+        ~450 KB with variable dumps, so it is split into chapters and only the ones a
+        diagnosis needs are returned unless `sections` names others.
+        """
+        ref = str(dump or '').strip()
+        if not ref:
+            return {'ok': False, 'error': 'no dump given (pass the `dump` link from the list)'}
+        if '/sap/bc/adt/' in ref:
+            path = '/sap/bc/adt/' + ref.split('/sap/bc/adt/', 1)[1]
+        else:
+            path = '/sap/bc/adt/runtime/dump/' + ref
+        if '/vit/runtime/dumps/' in path:
+            path = path.replace('/vit/runtime/dumps/', '/runtime/dump/')
+        path = path.split('?')[0].rstrip('/')
+        if path.endswith('/formatted'):
+            path = path[:-len('/formatted')]
+        try:
+            resp = self.session.get(f'{self.url}{path}/formatted',
+                                    headers=self._get_headers('text/plain'),
+                                    timeout=self.timeout_default)
+        except Exception as e:  # noqa: BLE001 - reported, never raised to the agent
+            return {'ok': False, 'error': f'{type(e).__name__}: {str(e)[:200]}'}
+        if resp.status_code != 200:
+            return {'ok': False, 'error': f'HTTP {resp.status_code}',
+                    'message': ('SAP has no readable detail for this dump over ADT (older '
+                                'releases expose only the feed; deleted dumps 404). Open it '
+                                'in ST22.'), 'path': path}
+        out = parse_formatted_dump(resp.text, sections, max_chars)
+        out.update({'ok': True, 'dump': path})
+        return out
 
     def get_transport_info(self, object_url, dev_class=None, operation=None):
         """Get transport information for an object"""
@@ -5312,7 +5989,7 @@ class SAPADTClient:
         return None
 
     def create_transport(self, description, package_name=None, transport_layer=None,
-                         request_type='K', task_type='S', target=''):
+                         request_type='K', task_type='S', target='', cts_project=''):
         """Create a new transport request (On-Premise and BTP Cloud).
 
         On-premise S/4HANA / NetWeaver uses a DIFFERENT endpoint+payload than BTP
@@ -5333,7 +6010,7 @@ class SAPADTClient:
           HTTP 406 = SUCCESS, transport number in Location header.
         """
         if self._is_btp_cloud_url():
-            return self._create_transport_modern(description, request_type, task_type, target)
+            return self._create_transport_modern(description, request_type, task_type, target, cts_project)
         # On-prem: prefer the MODERN tm:root endpoint (/sap/bc/adt/cts/transportrequests) —
         # the path the live ADT handler uses. Confirmed from SAP source on INDEX S/4HANA
         # (2026-06-09): CL_CTS_ADT_TM_RES_COLL_CONT->post -> create_new_transport_req parses a
@@ -5348,7 +6025,7 @@ class SAPADTClient:
         # NOT call it first. Try modern first; fall back to the legacy endpoint only if the
         # modern one is genuinely unavailable on an older stack (404/405/501).
         try:
-            return self._create_transport_modern(description, request_type, task_type, target)
+            return self._create_transport_modern(description, request_type, task_type, target, cts_project)
         except SAPTransportError as e:
             if getattr(e, 'status_code', None) in (404, 405, 501):
                 if self.debug_enabled:
@@ -5403,7 +6080,8 @@ class SAPADTClient:
             response_text=(response.text or '')[:500],
         )
 
-    def _create_transport_modern(self, description, request_type='K', task_type='S', target=''):
+    def _create_transport_modern(self, description, request_type='K', task_type='S', target='',
+                                 cts_project=''):
         """Transport creation via the MODERN tm:root endpoint /cts/transportrequests.
 
         Not BTP-specific despite the old name: this is the path the live ADT
@@ -5413,6 +6091,9 @@ class SAPADTClient:
         """
         desc_escaped = self._xml_escape(description)
         target_escaped = self._xml_escape(target)
+        # A CTS project is mandatory on some customer systems; without it SAP refuses the
+        # request. Idea from vibing-steampunk (MIT): the same tm:cts_project attribute.
+        project_escaped = self._xml_escape((cts_project or '').upper())
 
         transport_body = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
@@ -5421,7 +6102,7 @@ class SAPADTClient:
             f'  <tm:request tm:desc="{desc_escaped}"'
             f' tm:type="{request_type}"'
             f' tm:target="{target_escaped}"'
-            ' tm:cts_project="">\n'
+            f' tm:cts_project="{project_escaped}">\n'
             f'    <tm:task tm:desc="{desc_escaped}" tm:type="{task_type}"/>\n'
             '  </tm:request>\n'
             '</tm:root>'
@@ -5536,7 +6217,12 @@ class SAPADTClient:
         if decode:
             params['decode'] = 'true'
 
-        response = self._request_with_csrf_retry(
+        # Outside the stateful context. Data preview generates a temporary subroutine
+        # pool per query, and an internal session holds at most 36: on the engine's
+        # long-lived stateful session the 37th query dumped GENERATE_SUBPOOL_DIR_FULL
+        # (CL_ADT_DP_ABSTRACT_SQL_HANDLER, NS4 2026-11-11). A query needs no lock or
+        # transport, so it runs on a side session whose every request is its own.
+        response = self._stateless_request(
             'post', f"{self.url}/sap/bc/adt/datapreview/freestyle",
             headers=headers,
             data=clean_query.encode('utf-8'),
@@ -7449,37 +8135,121 @@ constants:
                 response_text=response.text[:4000]
             )
 
-        results = []
-        try:
-            root = ET.fromstring(response.text)
-            # Walk referencedObject elements and extract child adtObject info
-            for ref_obj in root.iter():
-                ref_tag = ref_obj.tag.split('}')[-1] if '}' in ref_obj.tag else ref_obj.tag
-                if ref_tag != 'referencedObject':
-                    continue
-                ref_attrs = {k.split('}')[-1] if '}' in k else k: v for k, v in ref_obj.attrib.items()}
-                ref_uri = ref_attrs.get('uri', '')
-                # Find child adtObject (first child, not packageRef)
-                for child in ref_obj:
-                    child_tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-                    if child_tag != 'adtObject':
-                        continue
-                    child_attrs = {k.split('}')[-1] if '}' in k else k: v for k, v in child.attrib.items()}
-                    name = child_attrs.get('name', '')
-                    obj_type = child_attrs.get('type', '')
-                    desc = child_attrs.get('description', '')
-                    if name and obj_type:
-                        results.append({
-                            'name': name,
-                            'type': obj_type,
-                            'uri': ref_uri,
-                            'description': desc
-                        })
-                    break  # Only first adtObject child per referencedObject
-        except ET.ParseError:
-            pass
+        return parse_usage_references(response.text)
 
-        return results
+    def include_main_programs(self, include_name):
+        """The programs / function groups an include belongs to (SE38 'main program')."""
+        from urllib.parse import quote
+        response = self._stateless_request(
+            'get', f"{self.url}/sap/bc/adt/programs/includes/{quote(include_name.lower())}/mainprograms",
+            headers=self._get_headers('application/vnd.sap.adt.programs.includes.mainprograms+xml, application/xml'))
+        if response.status_code != 200:
+            raise SAPADTError("Main program lookup failed", status_code=response.status_code,
+                              response_text=response.text[:4000])
+        return parse_main_programs(response.text)
+
+    def deletion_check(self, object_url):
+        """Ask SAP whether an object can be deleted (what Eclipse asks before Delete).
+
+        Changes nothing. Returns parse_deletion_check's dict, or None when SAP said
+        nothing about the object.
+        """
+        headers = self._get_headers('application/vnd.sap.adt.deletion.check.response.v1+xml, application/xml')
+        headers['Content-Type'] = 'application/vnd.sap.adt.deletion.check.request.v1+xml'
+        response = self._request_with_csrf_retry(
+            'post', f"{self.url}/sap/bc/adt/deletion/check", headers=headers,
+            data=deletion_check_body(object_url).encode('utf-8'))
+        if response.status_code != 200:
+            raise SAPADTError("Deletion check failed", status_code=response.status_code,
+                              response_text=response.text[:4000])
+        return parse_deletion_check(response.text)
+
+    def read_text_elements(self, kind, name, part):
+        """One part of an object's text pool, as SAP's raw text (see TEXT_ELEMENT_CT)."""
+        url = f"{text_elements_url(kind, name)}/source/{part}"
+        response = self._stateless_request('get', f"{self.url}{url}",
+                                           headers=self._get_headers(TEXT_ELEMENT_CT[part]))
+        if response.status_code != 200:
+            raise SAPADTError(f"Text elements ({part}) could not be read",
+                              status_code=response.status_code, response_text=response.text[:2000])
+        return response.text
+
+    def write_text_elements(self, kind, name, part, text, transport=None):
+        """Replace one part of a text pool: lock the pool, PUT, unlock, activate the pool.
+
+        The pool has its own lock, separate from the program's. The PUT takes the
+        part's media type as both Content-Type and Accept (SAP answers 400 otherwise).
+        The object's request comes from `transport`, else from the lock's CORRNR;
+        a transportable object with neither is refused rather than given a ghost
+        request. Wire format and order follow ARC-1 1.10.1 adt/text-elements.js
+        (MIT, Copyright (c) 2025-2026 Alice Vinogradova and contributors).
+        """
+        obj = text_elements_url(kind, name)
+        before = self.read_text_elements(kind, name, part)
+        headers = self._get_headers(
+            'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result;q=0.8, '
+            'application/vnd.sap.as+xml;charset=UTF-8;dataname=com.sap.adt.lock.result2;q=0.9')
+        headers['X-sap-adt-sessiontype'] = 'stateful'
+        lock = self._request_with_csrf_retry('post', f"{self.url}{obj}", headers=headers,
+                                             params={'_action': 'LOCK', 'accessMode': 'MODIFY'})
+        info = parse_lock_result(lock.text)
+        if lock.status_code != 200 or not info.get('handle'):
+            owner = parse_enqueue_owner(lock.text)
+            raise SAPADTError(f"Text pool of {name} could not be locked"
+                              + (f" (held by {owner})" if owner else ''),
+                              status_code=lock.status_code, response_text=lock.text[:2000])
+        corr = (transport or '').strip() or info.get('corrnr', '')
+        try:
+            if not corr and not info.get('local'):
+                raise SAPADTError(f"{name} is transportable and no request was given or found: "
+                                  "pass transport=", status_code=400)
+            params = {'lockHandle': info['handle']}
+            if corr:
+                params['corrNr'] = corr
+            put_headers = self._get_headers(TEXT_ELEMENT_CT[part])
+            put_headers['Content-Type'] = TEXT_ELEMENT_CT[part] + '; charset=utf-8'
+            put_headers['X-sap-adt-sessiontype'] = 'stateful'
+            put = self._request_with_csrf_retry(
+                'put', f"{self.url}{obj}/source/{part}", headers=put_headers, params=params,
+                data=text.encode('utf-8'))
+            if put.status_code not in (200, 201, 204):
+                raise SAPADTError(f"Text elements ({part}) were not saved",
+                                  status_code=put.status_code, response_text=put.text[:2000])
+        finally:
+            try:
+                self.unlock_object(obj, info['handle'])
+            except Exception:
+                pass
+        activation = self.activate_object(name.upper(), obj)
+        after = self.read_text_elements(kind, name, part)
+        return {'transport': corr or None, 'activation': activation,
+                'before': before, 'after': after}
+
+    def usage_snippets(self, identifiers):
+        """Line positions and code lines for where-used entries.
+
+        identifiers: the `object_identifier` values `where_used` returned. SAP takes at
+        most ten per request, so they go in batches. Returns {identifier: [position]}.
+        """
+        out = {}
+        ids = [i for i in identifiers if i]
+        for k in range(0, len(ids), USAGE_SNIPPET_BATCH):
+            response = self._request_with_csrf_retry(
+                'post',
+                f"{self.url}/sap/bc/adt/repository/informationsystem/usageSnippets",
+                headers={**self._get_headers(
+                    'application/vnd.sap.adt.repository.usagesnippets.result.v1+xml'),
+                    'Content-Type': 'application/vnd.sap.adt.repository.usagesnippets.request.v1+xml'},
+                data=usage_snippet_body(ids[k:k + USAGE_SNIPPET_BATCH]).encode('utf-8'),
+            )
+            if response.status_code != 200:
+                raise SAPADTError(
+                    "Where-used positions failed",
+                    status_code=response.status_code,
+                    response_text=response.text[:4000]
+                )
+            out.update(parse_usage_snippets(response.text))
+        return out
 
     def pretty_print(self, object_url, source):
         """Format ABAP source code using SAP Pretty Printer
@@ -7587,7 +8357,7 @@ constants:
                 if wl_id:
                     result_worklist_id = wl_id
                     break
-        except ET.ParseError:
+        except ET.ParseError:  # audit: empty-ok the worklist id falls back to the one just created
             pass
 
         self._debug(f"ATC run completed, result worklist: {result_worklist_id}")
@@ -7633,7 +8403,10 @@ constants:
                         'checkId': attrs.get('checkId', '') or attrs.get('checkTitle', '')
                     })
         except ET.ParseError:
-            pass
+            # Read as "no findings" this would pass a gate on code nobody checked.
+            raise SAPADTError("ATC results could not be read (not ADT XML) -- this is not a "
+                              "clean result", status_code=response3.status_code,
+                              response_text=response3.text[:2000]) from None
 
         return {'findings': findings}
 
@@ -7818,7 +8591,9 @@ constants:
                 obj_type = elem.get('{http://www.sap.com/adt/core}type', '') or elem.get('type', '')
                 uri = elem.get('{http://www.sap.com/adt/core}uri', '') or elem.get('uri', '')
                 user = elem.get('user', '') or elem.get('{http://www.sap.com/adt/core}responsibleUser', '')
-                if name and (obj_type or uri):
+                # The feed groups objects under their request and task nodes (type
+                # "/RQ"); those are containers, not inactive objects.
+                if name and (obj_type or uri) and obj_type != '/RQ':
                     results.append({
                         'name': name,
                         'type': obj_type,
@@ -7826,7 +8601,11 @@ constants:
                         'user': user
                     })
         except ET.ParseError:
-            pass
+            # An unparseable 200 (an HTML login page, a proxy error) is not "nothing is
+            # inactive" -- the activation guidance would be built on it.
+            raise SAPADTError("Inactive-object list could not be read (not ADT XML)",
+                              status_code=response.status_code,
+                              response_text=response.text[:2000]) from None
 
         return results
 
@@ -7882,7 +8661,7 @@ constants:
                             services.append({'href': href, 'title': title})
                 info['available_services'] = services
                 info['service_count'] = len(services)
-        except Exception:
+        except Exception:  # audit: empty-ok partial info; None = error, printed
             pass
 
         return info
@@ -8153,6 +8932,140 @@ constants:
             'object_url': object_url,
             'name': name.upper(),
             'message': f'Behavior definition {name} created'
+        }
+
+    CLASS_INCLUDES = ('definitions', 'implementations', 'macros', 'testclasses')
+
+    def write_class_include(self, class_name, include, source, transport):
+        """Write one class-local include: local types, a RAP behaviour pool's handler
+        classes (`implementations`), macros, or ABAP Unit test classes (`testclasses`).
+
+        `source/main` is the global class only, so none of these can go through the
+        normal push. Sequence, in ONE stateful session sharing one lock on the class:
+        lock -> probe the include -> POST an empty one if it does not exist yet -> PUT
+        the source -> unlock. A fresh class has no `testclasses`; a PUT there answers
+        HTTP 500 "does not have any inactive version", and a POST without the lock
+        answers 423, which is why create and write must share the lock.
+
+        The class stays inactive; activate it afterwards. `transport` is required --
+        creating an include makes a new sub-object CTS must record.
+        """
+        include = (include or '').lower()
+        if include not in self.CLASS_INCLUDES:
+            raise SAPValidationError(
+                f"Unknown class include '{include}'. One of: {', '.join(self.CLASS_INCLUDES)}",
+                field='include', value=include)
+        self._validate_object_name(class_name, 'Class')
+        if not transport:
+            raise SAPValidationError(
+                "A transport is required to write a class include.", field='transport')
+        if not source or not str(source).strip():
+            raise SAPValidationError("Include source must not be empty.", field='source')
+
+        class_url = f"/sap/bc/adt/oo/classes/{class_name.lower()}"
+        include_url = f"{self.url}{class_url}/includes/{include}"
+        lock_handle = self.lock_object(class_url, transport=transport)
+        created = False
+        try:
+            params = {'corrNr': transport}
+            if lock_handle and lock_handle not in ('NO_LOCK_SUPPORT', 'IMPLICIT_LOCK'):
+                params['lockHandle'] = lock_handle
+
+            probe = self.session.get(include_url, headers=self._get_headers('text/plain'),
+                                     timeout=self.timeout_short)
+            etag = None
+            if probe.status_code == 404:
+                post_headers = self._get_headers('text/plain')
+                post_headers.pop('Content-Type', None)
+                post_headers['X-sap-adt-sessiontype'] = 'stateful'
+                resp = self._request_with_csrf_retry('post', include_url, headers=post_headers,
+                                                     params=params)
+                if resp.status_code not in (200, 201, 204):
+                    raise SAPADTError(
+                        f"Could not create the {include} include of {class_name.upper()}",
+                        status_code=resp.status_code, endpoint=include_url,
+                        response_text=(resp.text or '')[:600])
+                created = True
+            elif probe.status_code == 200:
+                etag = probe.headers.get('ETag') or probe.headers.get('etag')
+            else:
+                raise SAPADTError(
+                    f"Could not read the {include} include of {class_name.upper()}",
+                    status_code=probe.status_code, endpoint=include_url,
+                    response_text=(probe.text or '')[:600])
+
+            put_headers = self._get_headers('text/plain', 'text/plain')
+            put_headers['X-sap-adt-sessiontype'] = 'stateful'
+            if etag:
+                put_headers['If-Match'] = etag
+            resp = self._request_with_csrf_retry('put', include_url, headers=put_headers,
+                                                 data=source.encode('utf-8'), params=params)
+            if resp.status_code not in (200, 201, 204):
+                raise SAPADTError(
+                    f"Could not write the {include} include of {class_name.upper()}",
+                    status_code=resp.status_code, endpoint=include_url,
+                    response_text=(resp.text or '')[:1200])
+        finally:
+            self.unlock_object(class_url, lock_handle)
+        return {
+            'success': True,
+            'include': include,
+            'include_created': created,
+            'name': class_name.upper(),
+            'message': f"{include} include of {class_name.upper()} written (class not yet activated)",
+        }
+
+    def create_service_definition(self, name, source, description, package_name,
+                                  transport=None):
+        """Create a service definition (SRVD) from its source.
+
+        Same two steps as the other source-bearing DDIC objects: POST the shell, PUT
+        the source to /source/main. The media type is the one this system's ADT
+        discovery declares for the collection (`application/vnd.sap.adt.ddic.srvd.v1+xml`).
+        Not activated here.
+        """
+        self._validate_object_name(name, 'Service Definition')
+        self._validate_package_name(package_name)
+        self._validate_transport(transport)
+        if not self.csrf_token:
+            self.fetch_csrf_token()
+
+        esc = xml_escape
+        srvd_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<srvd:srvdSource xmlns:srvd="http://www.sap.com/adt/ddic/srvdsources"
+                 xmlns:adtcore="http://www.sap.com/adt/core"
+                 adtcore:description="{esc(description, {'"': '&quot;'})}"
+                 adtcore:name="{name.upper()}"
+                 adtcore:type="SRVD/SRV"
+                 adtcore:masterLanguage="{self.language}"
+                 srvd:srvdSourceType="S">
+  <adtcore:packageRef adtcore:name="{package_name.upper()}"/>
+</srvd:srvdSource>'''
+        ct = 'application/vnd.sap.adt.ddic.srvd.v1+xml'
+        params = {}
+        if transport:
+            params['corrNr'] = transport
+        response = self._request_with_csrf_retry(
+            'post', f"{self.url}/sap/bc/adt/ddic/srvd/sources",
+            headers=self._get_headers(ct, ct), data=srvd_xml.encode('utf-8'),
+            params=params, timeout=self.timeout_default)
+        if response.status_code not in (200, 201):
+            raise SAPADTError("Failed to create service definition",
+                              status_code=response.status_code,
+                              response_text=response.text[:4000])
+        object_url = f'/sap/bc/adt/ddic/srvd/sources/{name.lower()}'
+        source_error = None
+        try:
+            self.set_object_source(f"{object_url}/source/main", source, lock_handle=None,
+                                   transport=transport)
+        except Exception as e:  # noqa: BLE001 - reported, never swallowed
+            source_error = str(e)
+        return {
+            'success': source_error is None,
+            'source_uploaded': source_error is None,
+            'error': source_error or '',
+            'object_url': object_url,
+            'message': f'Service definition {name} created',
         }
 
     def create_behavior_implementation(self, name, behavior_definition,

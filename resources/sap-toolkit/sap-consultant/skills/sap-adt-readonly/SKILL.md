@@ -5,7 +5,7 @@ description: >
   an audit, a code review board, a demo, a training session, or a consultant who should
   not be able to push. Starts the same ADT engine as sap-adt with the write tools removed
   from the MCP registry, so push, create, activate, delete, transport creation and lock
-  clearing are not listed and cannot be called. 19 tools instead of 50, with SQL, dumps
+  clearing are not listed and cannot be called. 27 tools instead of 65, with SQL, dumps
   and unit-test execution each behind their own opt-in.
   Triggers in Turkish or English: "read-only", "salt okunur", "sadece okuma",
   "yazma yapmasın", "PRD'ye bağlan ama dokunma", "QA connection", "production system",
@@ -53,7 +53,7 @@ allowed-tools: Bash(python:*), Bash(py:*), Read, Grep, Glob
 > ```
 
 Same engine as [`sap-adt`](../sap-adt/SKILL.md), same persistent session, same
-`.conn_adt`, same guardrails. **19 tools instead of 50**, because the write tools are
+`.conn_adt`, same guardrails. **27 tools instead of 65**, because the write tools are
 never registered — not listed, not callable, and not restored by unsetting an
 environment variable.
 
@@ -98,15 +98,17 @@ continue on suspenders alone.
 
 ## The surface
 
-**19 tools on install. 22 with all three gates open. Out of 50.**
+**27 tools on install. 32 with all five gates open (four upstream + NTT Studio's `adt_dump_detail`). Out of 66.**
 
 | Group | Tools |
 |---|---|
-| Session / diagnostics | `ping`, `adt_doctor`, `adt_logon`, `adt_capabilities` |
-| Source and repository | `adt_get_source`, `adt_list_package`, `adt_search`, `adt_code_search`, `adt_revisions`, `adt_inactive_objects`, `adt_badi_discovery`, `adt_where_used` |
+| Session / diagnostics | `ping`, `adt_doctor`, `adt_logon` |
+| Source and repository | `adt_get_source`, `adt_list_package`, `adt_search`, `adt_code_search`, `adt_revisions`, `adt_revision_diff`, `adt_text_elements`, `adt_inactive_objects`, `adt_badi_discovery`, `adt_where_used`, `adt_find_definition`, `adt_include_main_programs` |
 | Static analysis | `adt_syntax_check`, `adt_atc_check` |
-| Services (read) | `adt_service_binding_status` |
-| Transports (read) | `adt_list_transports`, `adt_transport_status`, `adt_transport_check`, `adt_check_scatter` |
+| Before a delete | `adt_deletion_check` — SAP's own answer: deletable or not, who still uses it, which request holds it |
+| Transports (read) | `adt_list_transports`, `adt_transport_status`, `adt_transport_check`, `adt_check_scatter`, `adt_transport_diff` |
+| Background jobs and spool (SM37, SP01) | `adt_jobs`, `adt_spool_list` — job, status, times, scheduler, each step's program and run-as user; no spool content |
+| System | `adt_capabilities`, `adt_service_binding_status` |
 
 **Gated, each off by default and each with its own variable:**
 
@@ -115,6 +117,7 @@ continue on suspenders alone.
 | `adt_unit_test` | `ADT_RO_ALLOW_UNIT_TEST` | Executes ABAP on the target — it runs the object's test classes |
 | `adt_sql` | `ADT_RO_ALLOW_SQL` | Reads business and personal data from any table the SAP user can see |
 | `adt_dumps` | `ADT_RO_ALLOW_DUMPS` | Short-dump text routinely contains field values |
+| `adt_spool_read` | `ADT_RO_ALLOW_SPOOL` | Spool content is report output: business data. `adt_spool_list` (metadata) is open |
 | `adt_dump_detail` | `ADT_RO_ALLOW_DUMP_DETAIL` | One dump's sections and the source line it terminated on (NTT Studio's `ntt_dump_detail.py`, not upstream); field values only on request, and on QA/PRD only with the user's `GR_PII` approval |
 
 > **NTT Studio (2026-10-15):** the server NTT Studio starts on 8787 opens `adt_sql` and
@@ -123,7 +126,8 @@ continue on suspenders alone.
 > inherited. It also opens `adt_dump_detail` (2026-10-16): `adt_dumps` only lists dumps, and
 > the `uri` it returns does not open directly — pass that `uri` to `adt_dump_detail` to read
 > the error analysis, the source extract and the include + line it terminated on, then open
-> that include with `adt_get_source`. That surface is **22 tools**; `/health` lists them. Do not try to open or close
+> that include with `adt_get_source` (upstream's `adt_dumps(dump=...)` reads the same chapters). `adt_spool_read`
+> stays closed. That surface is **30 tools**; `/health` lists them. Do not try to open or close
 > a gate yourself. On QA/PRD a sensitive table still answers `GR_PII`: ask the user, and
 > only an explicit "onay" from them goes into `approval_text` — never supply it yourself.
 
@@ -146,9 +150,9 @@ Read them through the full `sap-adt` surface. The durable fix is upstream — sp
 into a read tool and a write tool so every name has one side-effect class:
 [`references/upstream-split-proposal.md`](references/upstream-split-proposal.md).
 
-### Why those three are gated rather than allowlisted
+### Why these are gated rather than allowlisted
 
-None of them writes anything. All three would pass a test that only asks "can this
+None of them writes anything. Each would pass a test that only asks "can this
 change the system?" — which is exactly why the line is drawn somewhere else.
 
 The people this skill is for read **read-only** as **harmless**, and hand the connection
@@ -199,8 +203,9 @@ reads source, transports and **business data**:
 Nor is "no writes" the same as "no server-side work". Three *ungated* tools make SAP
 *do* something rather than just hand something over: `adt_atc_check` runs the check
 variant (customer-defined checks are ABAP, and some systems persist the run),
-`adt_syntax_check` invokes the compiler, and `adt_logon` creates session and security-audit
-records. None of them touch source, the CTS or a lock — which is the line this surface
+`adt_syntax_check` invokes the compiler (an ADT check run -- before 2026-10-27 it posted to
+the activation endpoint and was measured ACTIVATING a pending version), and `adt_logon`
+creates session and security-audit records. None of them touch source, the CTS or a lock — which is the line this surface
 draws — but on a system where "nothing ran" is the requirement, that line is not the
 one you want.
 

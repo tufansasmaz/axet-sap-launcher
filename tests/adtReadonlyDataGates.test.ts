@@ -127,6 +127,6 @@ describe("salt okunur sunucuda veri okuma kapıları", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.message).toContain("adtServer.surfaceMismatch");
-    expect(result.message).toContain('"expected":"22"');
+    expect(result.message).toContain('"expected":"30"');
   }, 20_000);
 });

@@ -459,6 +459,39 @@ def t_zip_type_validation():
     assert sap.queries == [], "enjeksiyonlu tip SQL'e gitmemeli"
 
 
+def t_new_tools_2026_11():
+    # adt_write_class_include: var olan sınıf, include dosyasının hash'i, include'a karşı fark.
+    sap = FakeSap(tadir={("CLAS", "ZCL_A"): "ZPKG"}, owners={"ZCL_A": TR},
+                  sources={"zcl_a": "CLASS ltc DEFINITION.\n"})
+    pd = project({"zcl_a.testclasses.abap": NEW_SRC})
+    r = gc.collect(sap, "adt_write_class_include",
+                   {"name": "ZCL_A", "include": "testclasses",
+                    "source_file": "zcl_a.testclasses.abap", "transport": ""}, pd)
+    o = r["nesneler"][0]
+    assert (o["tip"], o["paket"], o["yeni"]) == ("CLAS", "ZPKG", False), o
+    assert o["kaynak_sha256"] == [gq.src_hash(NEW_SRC)] and r["kalite"] is True
+    assert r["transport"] == TR and r["enjekte_transport"] == TR
+    assert sap.source_urls[-1] == ("/sap/bc/adt/oo/classes/zcl_a/includes/testclasses", "active")
+    refused("bilgi_toplanamadi", lambda: gc.collect(sap, "adt_write_class_include", {
+        "name": "ZCL_A", "include": "main", "source_file": "zcl_a.testclasses.abap"}, pd))
+    refused("bilgi_toplanamadi", lambda: gc.collect(FakeSap(session_transport=TR), "adt_write_class_include", {
+        "name": "ZCL_YOK", "include": "testclasses", "source_file": "zcl_a.testclasses.abap"}, pd))
+    # adt_create_service_definition: kaynak taşıyan oluşturma, SRVD, kalite kapısı.
+    r = gc.collect(FakeSap(session_transport=TR), "adt_create_service_definition", {
+        "name": "ZUI_X", "package": "ZPKG", "description": "d", "source_file": "x.srvd"},
+        project({"x.srvd": b"define service ZUI_X { }"}))
+    assert r["nesneler"][0]["tip"] == "SRVD" and r["kalite"] is True and r["transport"] == TR
+    # adt_write_text_elements: var olan program, sahip transport.
+    sap = FakeSap(tadir={("PROG", "ZREP"): "ZPKG"}, owners={"ZREP": TR})
+    r = gc.collect(sap, "adt_write_text_elements", {"name": "ZREP", "part": "symbols", "entries": []}, pd)
+    assert r["nesneler"][0]["tip"] == "PROG" and r["transport"] == TR and r["kalite"] is False
+    refused("bilgi_toplanamadi", lambda: gc.collect(sap, "adt_write_text_elements", {
+        "name": "ZREP", "part": "symbols", "entries": [], "object_type": "table"}, pd))
+    # adt_leftover_sessions: nesnesiz, transport'suz.
+    r = gc.collect(FakeSap(), "adt_leftover_sessions", {"close": True}, pd)
+    assert r["nesneler"] == [] and r["transport"] == ""
+
+
 TESTS = [
     ("push_existing", "paket beyandan geliyor / fark yok / motorun çözeceği transport görünmüyor", t_push_existing),
     ("push_arg_differs", "argüman transport'u nesnenin sahip transport'undan farklıysa reddet", t_push_arg_differs_from_owner),
@@ -492,6 +525,7 @@ TESTS = [
     ("abapgit_transport", "paket varsa transport gerekli (I2)", t_abapgit_transport_needed),
     ("abapgit_paket_only", "paket-only çalıştırmalar transport istenmez (bootstrap/aktivasyon)", t_abapgit_paket_only_no_transport),
     ("zip_type_valid", "ZIP nesne tipi doğrulanmadığında SQL sorgusu yapılmaz (I3)", t_zip_type_validation),
+    ("new_tools_2026_11", "kit senkronunun yeni yazan araçlarında tip/kalite/transport yanlış", t_new_tools_2026_11),
 ]
 
 

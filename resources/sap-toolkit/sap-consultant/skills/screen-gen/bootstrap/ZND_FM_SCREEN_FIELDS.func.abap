@@ -33,6 +33,8 @@ FUNCTION znd_fm_screen_fields
 *               degisken ya da yapi bileseni OLMALI; lokal degisken ya da
 *               sinif niteligi ekrana baglanamaz.
 *   uzunluk  -> deger alaninin gorunur genisligi
+*   [in]     -> 4. sutun "in" ise GIRIS alani; yoksa yalniz cikis (2026-11-12)
+* "@BUTTON;metin;FCODE" satiri ekrana bir dugme koyar (PAI'de OK-kodu FCODE).
 * IV_MODE: WRITE (uret) / READ (incele) / DELETE (sil).
 *
 * KOK KONTEYNER SATIRI SILINMEMELI (asagida 'SCREEN'/'SCREEN' APPEND'i).
@@ -79,7 +81,9 @@ FUNCTION znd_fm_screen_fields
     ev_rc = sy-subrc.
     ev_message = |RPY_DYNPRO_READ subrc={ sy-subrc } ext_fields={ lines( lt_f2c ) } native={ lines( lt_native ) }|.
     LOOP AT lt_f2c INTO ls_f2c.
-      ev_message = ev_message && | [{ ls_f2c-type } { ls_f2c-name } L{ ls_f2c-line } C{ ls_f2c-column }]|.
+      ev_message = ev_message && | [{ ls_f2c-type } { ls_f2c-name } L{ ls_f2c-line } C{ ls_f2c-column }|
+                 && |{ COND string( WHEN ls_f2c-input_fld = 'X' THEN ' in' ) }|
+                 && |{ COND string( WHEN ls_f2c-push_fcode IS NOT INITIAL THEN | fc={ ls_f2c-push_fcode }| ) }]|.
     ENDLOOP.
     LOOP AT lt_native INTO ls_native.
       ev_message = ev_message && | N[{ ls_native-fnam } t={ ls_native-type } L{ ls_native-line } C{ ls_native-coln } len={ ls_native-leng }]|.
@@ -144,6 +148,23 @@ FUNCTION znd_fm_screen_fields
     lv_idx  = lv_idx + 1.
     lv_line = lv_line + 1.
 
+* "@BUTTON;metin;FCODE" -> ekranda bir dugme (PUSH). Basildiginda PAI'de
+* sy-ucomm / OK-kodu = FCODE olur.
+    IF lt_cols[ 1 ] = '@BUTTON'.
+      CLEAR ls_f2c.
+      ls_f2c-cont_type  = 'SCREEN'.
+      ls_f2c-cont_name  = 'SCREEN'.
+      ls_f2c-type       = 'PUSH'.
+      ls_f2c-name       = |BTN{ lv_idx }|.
+      ls_f2c-text       = lt_cols[ 2 ].
+      ls_f2c-push_fcode = lt_cols[ 3 ].
+      ls_f2c-line       = lv_line.
+      ls_f2c-column     = 3.
+      ls_f2c-length     = strlen( lt_cols[ 2 ] ) + 2.
+      APPEND ls_f2c TO lt_f2c.
+      CONTINUE.
+    ENDIF.
+
     CLEAR ls_f2c.
     ls_f2c-cont_type = 'SCREEN'.
     ls_f2c-cont_name = 'SCREEN'.
@@ -164,7 +185,13 @@ FUNCTION znd_fm_screen_fields
     ls_f2c-column     = 30.
     ls_f2c-length     = lt_cols[ 3 ].
     ls_f2c-output_fld = 'X'.
-    ls_f2c-outputonly = 'X'.
+* 4. sutun "in": giris alani (kullanici yazar); yoksa yalniz cikis.
+    IF lines( lt_cols ) >= 4 AND to_lower( lt_cols[ 4 ] ) = 'in'.
+      ls_f2c-input_fld  = 'X'.
+      ls_f2c-outputonly = space.
+    ELSE.
+      ls_f2c-outputonly = 'X'.
+    ENDIF.
     APPEND ls_f2c TO lt_f2c.
   ENDLOOP.
 

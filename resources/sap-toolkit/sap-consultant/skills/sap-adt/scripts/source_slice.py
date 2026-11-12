@@ -139,3 +139,94 @@ def has_implementation_body(text: str) -> bool:
     stripped = re.sub(r'".*$', '', stripped, flags=re.M)       # trailing comments
     return bool(re.search(r'^\s*(METHOD|FORM)\s+[\w~/]', stripped,
                           re.IGNORECASE | re.MULTILINE))
+
+
+_UNIT_RES = {
+    'method': (r'METHOD\s+{n}\s*\.', r'ENDMETHOD\s*\.'),
+    'form': (r'FORM\s+{n}\b', r'ENDFORM\s*\.'),
+    'module': (r'MODULE\s+{n}\b', r'ENDMODULE\s*\.'),
+}
+
+
+def find_units(text: str, name: str, kind: str = 'method',
+               class_name: str = '') -> list[tuple[int, int, str]]:
+    """Every `METHOD name.`...`ENDMETHOD.` (or FORM / MODULE) block in `text`.
+
+    Returns [(start_line, end_line, owning_class)] as 0-based indexes into
+    text.splitlines(), so a caller can tell one block from another when local
+    classes repeat a method name; class_name= keeps only the blocks inside
+    `CLASS class_name IMPLEMENTATION`. Comment lines never match (the keyword
+    must open the line). A block with no terminator is not returned.
+    """
+    start_t, end_t = _UNIT_RES[kind]
+    start_re = re.compile(r'^\s*' + start_t.format(n=re.escape(name)), re.IGNORECASE)
+    end_re = re.compile(r'^\s*' + end_t, re.IGNORECASE)
+    impl_re = re.compile(r'^\s*CLASS\s+([\w/]+)\s+IMPLEMENTATION\b', re.IGNORECASE)
+    endclass_re = re.compile(r'^\s*ENDCLASS\s*\.', re.IGNORECASE)
+    lines = text.splitlines()
+    out, current_class, i = [], '', 0
+    while i < len(lines):
+        m = impl_re.search(lines[i])
+        if m:
+            current_class = m.group(1).upper()
+        elif endclass_re.search(lines[i]):
+            current_class = ''
+        elif start_re.search(lines[i]):
+            end = next((j for j in range(i + 1, len(lines)) if end_re.search(lines[j])), None)
+            if end is None:
+                break
+            if not class_name or current_class == class_name.upper():
+                out.append((i, end, current_class))
+            i = end
+        i += 1
+    return out
+
+
+def replace_lines(text: str, start: int, end: int, new_block: str) -> str:
+    """Replace lines start..end (0-based, inclusive) with new_block, keeping the
+    text's own line ending (CRLF stays CRLF)."""
+    nl = '\r\n' if '\r\n' in text else '\n'
+    lines = text.splitlines(keepends=True)
+    tail = lines[end][len(lines[end].rstrip('\r\n')):] or nl
+    block = nl.join(new_block.replace('\r\n', '\n').rstrip('\n').split('\n')) + tail
+    return ''.join(lines[:start]) + block + ''.join(lines[end + 1:])
+
+
+def _layout_key(line: str) -> str:
+    """A line as compared when layout is ignored: no trailing space, and case folded
+    unless it holds a literal or a string template (where case is content)."""
+    s = line.rstrip()
+    return s.strip() if any(q in s for q in ("'", "`", "|")) else s.strip().casefold()
+
+
+def source_diff(old: str, new: str, context: int = 3, ignore_layout: bool = True,
+                labels: tuple = ("before", "after")) -> tuple[list[str], int, int]:
+    """Unified diff of two ABAP sources -> (lines, added, removed).
+
+    ignore_layout drops blank lines and compares lines by _layout_key, so what SAP's
+    templates and the pretty printer change (empty lines, keyword case, indentation)
+    is not reported as a change; the lines shown are the real ones.
+    """
+    import difflib
+    a, b = old.splitlines(), new.splitlines()
+    if ignore_layout:
+        a = [x for x in a if x.strip()]
+        b = [x for x in b if x.strip()]
+        ka, kb = [_layout_key(x) for x in a], [_layout_key(x) for x in b]
+    else:
+        ka, kb = a, b
+    out, added, removed = [], 0, 0
+    for group in difflib.SequenceMatcher(None, ka, kb, autojunk=False).get_grouped_opcodes(context):
+        if not out:
+            out += [f"--- {labels[0]}", f"+++ {labels[1]}"]
+        i1, i2, j1, j2 = group[0][1], group[-1][2], group[0][3], group[-1][4]
+        out.append(f"@@ -{i1 + 1},{i2 - i1} +{j1 + 1},{j2 - j1} @@")
+        for tag, x1, x2, y1, y2 in group:
+            if tag == "equal":
+                out += [" " + ln for ln in b[y1:y2]]
+                continue
+            out += ["-" + ln for ln in a[x1:x2]]
+            out += ["+" + ln for ln in b[y1:y2]]
+            removed += x2 - x1
+            added += y2 - y1
+    return out, added, removed

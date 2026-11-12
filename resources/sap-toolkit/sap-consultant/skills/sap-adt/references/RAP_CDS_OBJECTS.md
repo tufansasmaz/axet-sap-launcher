@@ -339,13 +339,13 @@ POST /sap/bc/adt/activation
 
 ## Test Evidence
 
-| Object Type | Endpoint Exists | XML Accepted | Create Works | Read Works |
+| Object Type | Endpoint Exists | XML Accepted | Create Works | Read / activate / delete |
 |-------------|----------------|--------------|--------------|------------|
 | CDS (DDLS) | Yes | Yes | Yes (existing script) | Yes (Z0001_V_MSEG) |
-| SRVD | Yes | Yes (409) | Yes* | Untested (no objects) |
-| SRVB | Yes | Yes (409) | Yes* | Untested (no objects) |
-| BDEF | Yes | Yes (409) | Yes* | Untested (no objects) |
-| DDLX | Yes | Yes (409) | Yes* | Untested (no objects) |
+| SRVD | Yes | Yes | Yes (`adt_create_service_definition`) | Yes (NS4 + JMB, 2026-11-11) |
+| SRVB | Yes | Yes | Yes | Yes; delete needs `adt_unpublish_service_binding` first (2026-11-11) |
+| BDEF | Yes | Yes | Yes | Yes (managed RAP stacks, NS4 2026-11-11) |
+| DDLX | Yes | Yes | Yes | Yes (NS4 2026-11-11) |
 | DDLA | Yes | N/A | Untested | Yes (404 = not found, not invalid) |
 
-*409 = "Transport XXXK901433 does not exist in system SID-J" - proves the endpoint accepted the payload and tried to process it, failing only on the invalid transport number.
+The first rows were first proven with a 409 ("Transport XXXK901433 does not exist in system SID-J": the endpoint accepted the payload and failed only on the transport). The 2026-11-11 comparison runs then created, read, activated and deleted every one of these types.

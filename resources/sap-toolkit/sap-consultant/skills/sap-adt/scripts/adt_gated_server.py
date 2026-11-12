@@ -149,6 +149,19 @@ SERBEST = {
     "adt_syntax_check", "adt_atc_check", "adt_unit_test", "adt_search", "adt_code_search",
     "adt_revisions", "adt_inactive_objects", "adt_badi_discovery", "adt_dumps",
     "adt_dump_detail",
+    # 2026-11-12 kit senkronu: motorun yeni okuyan araçları (salt-okur sunucuda ALLOW;
+    # adt_spool_read orada GATED, burada DEV + teknik danışman olduğu için serbest).
+    "adt_jobs", "adt_include_main_programs", "adt_deletion_check", "adt_revision_diff",
+    "adt_text_elements", "adt_find_definition", "adt_transport_diff", "adt_spool_list",
+    "adt_spool_read",
+}
+# 2026-11-12: bu yüzeyde HİÇ kaydedilmeyen araçlar. İkisi de kaynağı motorun içinde
+# geçici bir dosyada düzenleyip adt_push'a veriyor: kalite kapısı o dosyanın incelemesini
+# hiç görmediği için her çağrı `inceleme_eski` ile düşerdi (ya da iki pencere açardı).
+# Yol: adt_get_source -> dosyada düzenle -> abap-code-review -> adt_push(source_file).
+KAPALI = {
+    "adt_edit_source": "kaynak motorun geçici dosyasında düzenleniyor; inceleme kaydı o dosyayı görmez",
+    "adt_edit_method": "kaynak motorun geçici dosyasında düzenleniyor; inceleme kaydı o dosyayı görmez",
 }
 TRANSPORT_ONAYLI = {
     "adt_set_transport", "adt_push", "adt_create_domain", "adt_create_data_element",
@@ -156,11 +169,14 @@ TRANSPORT_ONAYLI = {
     "adt_create_behavior_definition", "adt_create_lock_object", "adt_create_type_group",
     "adt_create_table_type", "adt_create_function_group", "adt_write_function_module",
     "adt_create_service_binding", "adt_create_ddic_shell", "adt_create", "adt_activate",
+    "adt_create_service_definition", "adt_write_class_include", "adt_write_text_elements",
 }
 HER_SEFER = {
     "adt_clear_lock", "adt_unpublish_service_binding", "adt_publish_service_binding",
     "adt_delete_object", "adt_remove_from_transport", "adt_create_package",
     "adt_create_transport", "adt_delete_transport",
+    # Ölmüş motor süreçlerinin SAP oturumlarını kapatır (kilitleri bırakır).
+    "adt_leftover_sessions",
 }
 S, T_O, H_S = "SERBEST", "TRANSPORT_ONAYLI", "HER_SEFER"
 # Mod argümanına göre sınıf. Tanınmayan mod HER_SEFER; eksik/boş mod ayrıca reddedilir.
@@ -226,7 +242,7 @@ def _registered_names(mcp) -> set:
 
 def _check_classification() -> None:
     sets = {"SERBEST": SERBEST, "TRANSPORT_ONAYLI": TRANSPORT_ONAYLI,
-            "HER_SEFER": HER_SEFER, "KARMA": set(KARMA)}
+            "HER_SEFER": HER_SEFER, "KARMA": set(KARMA), "KAPALI": set(KAPALI)}
     names = list(sets)
     bad = []
     for i, a in enumerate(names):
@@ -239,7 +255,7 @@ def _check_classification() -> None:
 
 
 def _check_drift(registered: set) -> None:
-    classified = SERBEST | TRANSPORT_ONAYLI | HER_SEFER | set(KARMA)
+    classified = SERBEST | TRANSPORT_ONAYLI | HER_SEFER | set(KARMA) | set(KAPALI)
     unknown = sorted(registered - classified)
     missing = sorted(classified - registered)
     if unknown:
@@ -865,11 +881,27 @@ def _report_binding_mismatch(arac: str, found: dict) -> None:
                             "gozlenen_adresler": adresler})
 
 
+def _prune_closed(mcp) -> None:
+    """KAPALI araçları kayıttan çıkar ve çıktığını doğrula (HTTP katmanı kayda bakıyor)."""
+    tm = mcp._tool_manager
+    for name in sorted(KAPALI):
+        remove = getattr(mcp, "remove_tool", None) or getattr(tm, "remove_tool", None)
+        if callable(remove):
+            remove(name)
+        else:
+            tm._tools.pop(name, None)
+    left = sorted(set(KAPALI) & _registered_names(mcp))
+    if left:
+        raise SystemExit("[adt-gated] BAŞLAMIYOR: kapalı araç(lar) kayıttan çıkmadı: "
+                         + ", ".join(left) + "\n")
+
+
 def build() -> set:
     """Sınıflamayı doğrula, yazan araçları sarmala, axet araçlarını kaydet. Araç kümesini döner."""
     mcp = engine.mcp
     _check_classification()
     _check_drift(_registered_names(mcp))
+    _prune_closed(mcp)
     for name in sorted(TRANSPORT_ONAYLI | HER_SEFER | set(KARMA)):
         setattr(engine, name, make_wrapper(name, getattr(engine, name)))
     for fn in (axet_teslim, axet_abapgit_onay, axet_inceleme_kaydet):

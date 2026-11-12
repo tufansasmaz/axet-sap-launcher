@@ -179,6 +179,8 @@ with a written reason on `s4-strict`, and is ordinary work on `s4-balanced` and
 `s4-legacy`. A modification, an implicit enhancement or a direct write to a standard
 table is never proposed for new development on any profile. Record the decision
 rationale per Gap.
+When the design writes a standard business object, pick the API with the `clean-core`
+skill's `references/WRITE_API.md` and put its API choice table in the TS.
 
 **On `public` this is a different document, not a stricter one.** Before writing
 anything, read the `clean-core` skill's `references/PUBLIC_CLOUD.md` and follow its
@@ -248,7 +250,9 @@ What the FS answers is shown to confirm, not asked.
 
 **Then STOP and wait.** If answers arrive only partially, mark the still-assumed points
 explicitly in the TS "Assumptions / Open Items" section — never assume silently. If the
-user says "proceed as draft", tag every gap-fill as `[Varsayım]`.
+user says "proceed as draft", tag every gap-fill as `[Varsayım]`. The same holds for a
+filter, exclusion or limit the logic needs that no FS line, brief or answer gave: it is a
+decision for approval in that section, never a condition written quietly into the design.
 
 ### STEP 5: Generate the TS (5 parts)
 
@@ -315,8 +319,9 @@ so the developer read the screen in one document and its logic in another.
    section 7 (or the `ekran-maketi-<konu>-*.png` beside the FS or in the project's
    mock-up folder when the FS came as a PDF) and reuse them, one per screen, with the
    same order and names. Do not redraw a screen the customer already approved.
-2. **No pictures, but a screen → draw it.** Build the mock-up with `screen-mockup`
-   from the FS's field and column lists (its skeleton, its house style) and run
+2. **No pictures, but a screen → draw it.** Build the mock-up with `screen-mockup` (a
+   Dynpro) or `fiori-mockup` (a Fiori app) from the FS's field and column lists (its
+   skeleton, its house style) and run
    `mockup.py <src.html> --fs-dir <TS output folder>`: it writes one PNG per screen
    and popup and prints the image lines relative to the TS. Say in §2.6 that the
    picture was drawn for the TS and has not been through the customer.
@@ -370,8 +375,8 @@ Fill the §2.1 verification column: `✓ doğrulandı` · `✗ bulunamadı` ·
 cheap check). **A `✗` or `⚠` is a defect in the TS — fix it
 here, before the self-check.** It is not a warning to pass on to the developer.
 
-This is read-only, catalog tables only, through the `sap-adt-readonly` surface every
-TS-writing role already installs. It does not replace the §1.3 Clean Core column:
+This is read-only, catalog tables only, through the SAP surface the role installed (`sap-adt-readonly`, or
+`sap-adt` for the technical consultant, who has no read-only surface). It does not replace the §1.3 Clean Core column:
 *"exists on this system"* and *"released for ABAP Cloud"* are different questions and
 both columns stay. Nor does one fill the other: `✓ doğrulandı` here never turns a
 §1.3 `Doğrulanamadı` into `Released`.
@@ -610,7 +615,7 @@ Integration-only: the two `Entegrasyon-Detay` files, and no Part 1–5.
   Z/Y object the TS names (tokens, per-type formulas, package hierarchy, ZNT shared
   packages, AI application rules)
 - [SAP Clean Core Extensibility Guide](https://help.sap.com/docs/sap-btp-abap-environment/abap-environment/clean-core)
-- The `fs-generator` skill (sap-specs plugin) — authors the FS this skill consumes
+- The `fs-generator` skill (sap-consultant plugin) — authors the FS this skill consumes
 - The `clean-core` skill (same plugin) — verify object release status for the brief's
   target; its `references/PROFILES.md` holds the Clean Core profiles and
   `references/PUBLIC_CLOUD.md` what a TS looks like on Public Cloud

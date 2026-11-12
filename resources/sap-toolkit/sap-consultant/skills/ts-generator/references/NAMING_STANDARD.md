@@ -3,7 +3,7 @@
 > **Bu dosya, TS içindeki her Z/Y nesnesinin adının üretildiği TEK kaynaktır.**
 > Kaynaklar:
 > - `ai-naming-standard-07072026-yek.xlsx` (Standart + RAP + Kılavuz sayfaları) — proje-özel RAP/CDS detay formülleri
-> - `NTTDATA_Development_Naming_Guideline_2.0.pdf` (14.08.2026) — NTT DATA/TR kurumsal geliştirme
+> - `NTTDATA_Development_Naming_Guideline_2.2.docx` (07.11.2026; 2.0 14.08, 2.1 12.10) — NTT DATA/TR kurumsal geliştirme
 >   standardı. Nereden ne geldiği **bölüm başlıklarındaki [K] / [K!] / [P] işaretlerinde** yazılı
 >   (hemen aşağıda).
 >
@@ -13,7 +13,7 @@
 > bu dosya kazanır.
 >
 > Düzenlenebilir: satır ekle/çıkar/düzelt. Değiştirdikten sonra agent'lar otomatik bu dosyayı okur.
-> Son güncelleme: 2026-08-15. Kaynağı katalogdur (2026-08-02'de FS-to-TS projesinden `ts-generator`
+> Son güncelleme: 2026-11-09 (kılavuz 2.1 / 2.2). Kaynağı katalogdur (2026-08-02'de FS-to-TS projesinden `ts-generator`
 > skill'ine alındı); değişiklikler bu dosyada yönetilir. Reçetenin (CLAUDE.md) "Namespace / paket"
 > alanı `<Prefix1>` ve `<PkgNo>` varsayılanlarını proje bazında belirler; çelişkide reçete kazanır.
 
@@ -242,7 +242,7 @@ gerçek ad sanılır, son ikisi ikame edilecek yeri belirsiz bırakır.
 | 23 | Customizing Include (EEW*, CI_*) | Z | ZZ_ | — | 30 | `<Prefix1><Prefix2><Description>` | `ZZ_DESC` | Kurumsal kılavuzla eklendi |
 | 24 | Enhancement Implementation | Z | ENH | SD | 30 | `<Prefix1><Module>000_<Prefix2>_<StandartObje>` | `ZSD000_ENH_MV45AFZZ` | **[K!]** Kılavuz örneği `ZSD001_...`; biz §2 kapsam kuralı gereği 000'a aldık. Yalnızca custom'da kullanılır |
 | 25 | BAdI Implementation | Z | IMP | SD | 30 | `<Prefix1><Module>000_<Prefix2>_<Description>` | `ZSD000_IMP_PO_CUST` | BAdI implementasyon ID'si. **Modül genel paketine girer** (§2) |
-| 26 | Authorization Object | Z | Aut | — | 10 | `<Prefix1>_<Description>` | `Z_PORGIN` | ⚠ Formül değişti, bkz. not altta |
+| 26 | Authorization Object | Z | AUTHO | — | 10 | `<Prefix1><Prefix2>_<Description>` | `ZAUTHO_ORD` | ⚠ v2.2 ile değişti (eski `Z_PORGIN`), bkz. not altta |
 | 27 | Smart Form | Z | SF | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZSD001_SF_INVOICE` | |
 | 28 | Smart Style | Z | SS | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZSD001_SS_INVOICE` | |
 | 29 | Adobe Form | Z | AF | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZSD001_AF_INVOICE` | |
@@ -250,6 +250,15 @@ gerçek ad sanılır, son ikisi ikame edilecek yeri belirsiz bırakır.
 | 31 | View (klasik DB view) | Z | V | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZFI001_V_SIZE` | ⚠ Classic — **dil sürümü**. `V` yalnızca buraya aittir; CDS view'da `V` kullanılmaz (bkz. §4.1). Yeni geliştirmede CDS view tercih edilir |
 | 32 | Customer Exit (SMOD/CMOD) | Z | — | SD | 30 | `<Prefix1><Module><PkgNo>...` (include) | `ZXV45U01` gibi SAP'ın verdiği include | ⚠ Ad SAP'ın exit include'undan gelir, biz seçmeyiz. Custom Logic (madde 33) tercih edilir |
 | 33 | Custom Logic (cloud BAdI) | Z | ZZ1_ | — | 30 | SAP'ın enhancement spot'undan türer | `ZZ1_LE_SHIP_MODIFY_ITEM` | ⚠ Serbest ad değildir: spot adı + `ZZ1_` öneki. Public/Private Cloud'da customer exit yerine bu kullanılır |
+| 34 | Lock Object | EZ | — | SD | 16 | `E<Prefix1><Module><PkgNo>_<Description>` | `EZSD001_ORDER` | **[K]** v2.2. Ad `E` ile başlar, tür öneki yoktur (16 karakter sınırı); sistem `ENQUEUE_` / `DEQUEUE_` fonksiyon modüllerini bundan üretir |
+| 35 | Authorization Object Class | Z | AUTH | — | 4 | `<Prefix1><Prefix2>` | `ZAUTH` | **[K!]** v2.2. Kılavuz sınır 4 yazıyor ama örnek `ZAUTH` 5 karakter — çelişki → [H13](NAMING_STANDARD_HISTORY.md#h13). Yeni class açılmaz, mevcut olan kullanılır |
+| 36 | Authorization Field | Z | — | — | 10 | `<Prefix1><Description>` | `ZPLANT` | **[K]** v2.2. Mümkünse standart alan (`ACTVT`, `WERKS`) yeniden kullanılır, yenisi açılmaz |
+| 37 | IDoc Basic Type | Z | IDT | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZSD001_IDT_ORDER` | **[K]** v2.2 |
+| 38 | IDoc Extension | Z | IDX | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZSD001_IDX_ORDER` | **[K]** v2.2 |
+| 39 | IDoc Message Type | Z | MT | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZSD001_MT_ORDER` | **[K]** v2.2 |
+| 40 | IDoc Segment Type | Z | Z1 | — | 27 | `Z1<Description>` | `Z1ORDER` | **[K!]** v2.2. Ad `Z1` ile başlar (sistem `Z2` tanımını üretir, elle değiştirilmez); kılavuz örneği `ZORDER` ama notu `Z1` diyor → [H13](NAMING_STANDARD_HISTORY.md#h13) |
+| 41 | View Cluster | Z | VC | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZFI001_VC_SIZE` | **[K]** v2.1 |
+| 42 | Logo | Z | LG | SD | 30 | `<Prefix1><Module><PkgNo>_<Prefix2>_<Description>` | `ZSD001_LG_INVOICE` | **[K]** v2.1. Form logosu (Smart Form / Adobe) |
 
 ### 3.1 [P] Include Rol Suffix'leri (klasik program) — eklendi 2026-08-04
 
@@ -342,7 +351,7 @@ Ekrandan türeyen adlar bu numaraya bağlıdır ve elle değiştirilmez:
 | Nesne | ID geçer mi? | Örnek |
 |---|---|---|
 | Paket | ✅ evet | `MM019 - İhtiyaç Rezervasyon/Satınalma Takip Raporu` |
-| Transport request | ✅ evet | `OSSDDP-3092: MM019 - İhtiyaç Rez/Satınalma Tkp Rap` |
+| Transport request | ✅ evet | `PRJM-3092: MM019 - İhtiyaç Rez/Satınalma Tkp Rap` |
 | Program, class, interface, include, struct, table type, message class, DDIC… | ❌ **hayır** | `Seçim ekranı` |
 
 > **Neden:** SE80 Repository Browser nesneleri zaten paketin altında gösterir; paket satırı
@@ -466,9 +475,16 @@ bozmaz; o yüzden cevap her zaman **o anki login dili**dir.
 > verilemiyorsa `<ZTCODE>` yer tutucusu kullanılır (`<ZPKG>` ile aynı gerekçe, §1.2)
 > → [H8](NAMING_STANDARD_HISTORY.md#h8).
 
-> ⚠ **Authorization Object (madde 26)** paket/modül numarası OLMADAN yazılır: `Z_<Description>`
-> (`Z_PORGIN`). Eski proje formülü `Z_<Module>_<Description>` (`Z_SD_SALES`) ikincil kabul edilir
-> → [H11](NAMING_STANDARD_HISTORY.md#h11).
+> ⚠ **Authorization Object (madde 26)** v2.2'den beri `Z<AUTHO>_<Description>` biçimindedir
+> (`ZAUTHO_ORD`, en çok 10 karakter) ve paket/modül numarası taşımaz. Bundan önceki iki biçim
+> (`Z_PORGIN`, `Z_<Module>_<Description>`) **eski**dir: mevcut nesneler yeniden adlandırılmaz, yeni
+> üretimde kullanılmaz → [H11](NAMING_STANDARD_HISTORY.md#h11). Yetkilendirme nesneleri için ortak
+> kural: standart alan ve nesneler (`ACTVT`, `WERKS`, ...) varsa yenisi açılmaz (madde 35, 36).
+>
+> ⚠ **IDoc Segment Type (madde 40)** `Z1` ile başlar ve en çok **27** karakterdir; Basic Type ve
+> Message Type en çok 30. Segment tanımının `Z2` sürümünü sistem üretir, elle değiştirilmez.
+>
+> ⚠ **Lock Object (madde 34)** `E` ile başlar; 16 karakter sınırı yüzünden tür öneki taşımaz.
 
 ---
 
@@ -554,6 +570,57 @@ olduğu için iki ayrı tabloda duruyorlardı; formül tek yerde tutuluyor.
 | 3 | Responsibility Rule | `Z{M}{N}_RL_{D}` | `ZSD001_RL_01` |
 | 4 | Email Template | `Z{M}{N}_EMT_{D}` | `ZSD001_EMT_NOTIFICATION` |
 
+## 5.4 [K] Bağlantı Noktaları ve Destination'lar (v2.2)
+
+Bir sistemin tüm bağlantı noktaları (destination, port, alias, mantıksal sistem) teknolojiye göre
+ortak bir **grup koduyla** adlandırılır; böylece aranabilir kalır ve aynı hedef farklı adlarla
+ikinci kez açılmaz. Paket numarası taşımazlar — uzunluk sınırları nesne türünden gelir.
+
+| # | Nesne | İşlem | Grup | Formül | Örnek |
+|---|---|---|---|---|---|
+| 1 | RFC Destination | SM59 — ABAP bağlantısı (tip 3), trusted RFC, tRFC / qRFC | `RFC` | `ZRFC_<HEDEF>` (en çok 32) | `ZRFC_HUMA` |
+| 2 | HTTP Destination | SM59 — HTTP bağlantısı (tip G / H), OData / REST / SOAP tüketimi | `HTTP` | `ZHTTP_<HEDEF>` (en çok 32) | `ZHTTP_HUMA` |
+| 3 | IDoc Port | WE21 — tRFC (`TRF`), File (`FIL`) ya da XML HTTP (`XHT`) port | `IDP` | `Z` + `<PORT TİPİ>` + `<HEDEF>` (en çok 10, ayırıcı yok) | `ZTRF` |
+| 4 | Logical System | BD54 — ALE / IDoc partner sistemi | `LSY` | `<SID>CLNT<CLIENT>` (en çok 10) | `DEVCLNT100` |
+
+Port formülünde ayırıcı ve paket numarası yoktur, çünkü sınır 10 karakterdir.
+
+## 5.5 [K] Repair Kod İşareti (v2.2)
+
+SAP standart nesnesi değiştirilmek zorundaysa (repair), değişiklik Jira numarası, tarih ve geliştiriciyi
+taşıyan bir işaretle sarılır. **Orijinal kod silinmez, yorum satırı yapılır.**
+
+```abap
+"--- NTTDATA REPAIR BEGIN | JIRA-1234 | 07.11.2026 | d_developer
+  ... değişen kod ...
+"--- NTTDATA REPAIR END   | JIRA-1234
+```
+
+## 5.6 [K] Yorum Bloğu (v2.2)
+
+Her **yeni** program, include, class ve function module şu bloğu taşıyan ilk satırlarla başlar.
+Sonraki her değişiklik, üç alanı tekrarlanarak Değişiklik Günlüğü'ne eklenir. Etiketler kılavuzda
+Türkçedir ve **çevrilmez**.
+
+```abap
+*----------------------------------------------------------------------*
+* Geliştirme Danışmanı    : <Developer name>
+* Uygulama Danışmanı      : <Functional consultant name>
+* Geliştirme No           : <Development No>
+* Tarih                   : <dd.mm.yyyy hh:mm:ss>
+*----------------------------------------------------------------------*
+*& <Development No> - <Development title>
+*----------------------------------------------------------------------*
+* Değişiklik Günlüğü
+*----------------------------------------------------------------------*
+* Değişiklik/Request No   :
+* Tarih                   :
+* Geliştirme Danışmanı    :
+*----------------------------------------------------------------------*
+```
+
+Değişiklik Günlüğü'ndeki Request No, repair işaretindeki Jira numarasıyla (§5.5) aynı olmalıdır.
+
 ---
 
 ## 6. [K] ZND_ROOT — Paylaşılan Paket (bilgi amaçlı referans)
@@ -570,7 +637,9 @@ ZND_ROOT
 │   ├── ZND001   Dosya İşleme (Excel vb.)
 │   ├── ZND002   Mail İşlemleri
 │   ├── ZND003   RF Mesajları
-│   └── ZND004   ALV İşlemleri
+│   ├── ZND004   ALV İşlemleri
+│   ├── ZND005   Onay Süreçleri
+│   └── ZND006   Doküman Yönetimi İşlemleri
 └── ZND_UTL      NTT Genel Yardımcıları
 ```
 
@@ -634,6 +703,15 @@ var, en dolusu `ZNT_011`, 93 nesne). **Okuma amaçlıdır** — yeni geliştirme
    verilir; bir RAP kök business object'i `_I_` ile adlandırılmaz.
 9. **`V` yalnızca klasik DB view'ındır** (§3 madde 31). Bir CDS view hiçbir zaman `_V_` almaz;
    katmanına göre `R_`/`C_`/`I_`/`E_` alır.
-10. Yeni Authorization Object üretirken kurumsal formülü (`Z_<Description>`, madde 26) esas al; eski
-    proje formülü (`Z_<Module>_<Description>`) yalnızca önceden üretilmiş TS'lerle tutarlılık gerekiyorsa
-    referans olarak an.
+10. Yeni Authorization Object üretirken v2.2 formülünü (`Z<AUTHO>_<Description>`, `ZAUTHO_ORD`, en
+    çok 10 karakter, madde 26) kullan. Eski biçimler (`Z_PORGIN`, `Z_<Module>_<Description>`) yalnızca
+    mevcut nesneye atıf için anılır, yeni nesneye verilmez. Önce standart yetkilendirme nesnesi/alanı
+    (`ACTVT`, `WERKS`, ...) kullanılıp kullanılamayacağına bak; yenisi son çaredir.
+11. Lock Object adı `EZ<Module><PkgNo>_<Description>`'dır (madde 34): 16 karakter sınırı için
+    `<Description>` kısa tutulur, tür öneki eklenmez.
+12. RFC / HTTP destination, IDoc port ve logical system için §5.4'ün grup kodlu formülünü kullan;
+    TS'te bu bir nesne satırıdır, serbest ad değil.
+13. SAP standardında değişiklik gerektiren bir TS maddesi varsa §5.5'teki repair işaretini ve
+    Jira numarasını TS'e yaz; yeni program/include/class/function module için §5.6'daki yorum
+    bloğunu geliştirme notuna ekle.
+14. IDoc nesneleri (madde 37–40) için segment adı `Z1` ile başlar ve 27 karakteri aşmaz.

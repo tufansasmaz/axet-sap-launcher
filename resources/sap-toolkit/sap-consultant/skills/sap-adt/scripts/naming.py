@@ -45,7 +45,7 @@ import re
 # sha256[:12] of NAMING_STANDARD.md with newlines normalised to \n. Normalised
 # rather than raw because this repo converts line endings on checkout, so a raw
 # hash would differ between a Windows and a Linux CI leg for identical content.
-STANDARD_SHA = "33702c9469b8"
+STANDARD_SHA = "76b1cd8b236f"
 
 # ---------------------------------------------------------------- tokens ----
 # `<Module>` is [A-Z]{2,4} and NOT an enum of SAP module codes. The kit already
@@ -130,9 +130,14 @@ RULES = {
     "servicebinding": _formula(rf"[ZY]{_M}{_N}_(UI|API)_{_D}_(O2|O4)",
                                "Z<Module><PkgNo>_(UI|API)_<Description>_(O2|O4)",
                                "§4.2 #10"),
+    # Guideline v2.2 (§3 #34): a lock object starts with E (EZ/EY), takes no
+    # object-type infix because the name is capped at 16 characters, and the
+    # system derives ENQUEUE_/DEQUEUE_ from it.
+    "lockobject":     _formula(rf"E[ZY]{_M}{_N}_{_D}",
+                               "EZ<Module><PkgNo>_<Description>", "§3 #34", 16),
     # behaviordefinition and metadataextension are equality rules, not formulas
-    # -- see check(). lockobject and typegroup have no row in the standard and
-    # are reported unchecked rather than guessed at.
+    # -- see check(). typegroup has no row in the standard and is reported
+    # unchecked rather than guessed at.
 }
 
 _PKGNO = re.compile(rf"^[ZY]({_M})({_N})_")

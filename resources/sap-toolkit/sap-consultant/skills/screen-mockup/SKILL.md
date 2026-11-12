@@ -190,7 +190,7 @@ kullanıcı mı girecek?"** is.
   sensible — those survive into the real screen as field labels and screen
   sequence. Do not spend effort on aria roles and contrast ratios for the HTML
   itself: the mock-up is thrown away and SAP GUI has no aria. If the target is a
-  Fiori app rather than a Dynpro, that changes and the skill is the wrong one.
+  Fiori app rather than a Dynpro, that changes and the skill is the wrong one: use `fiori-mockup`.
 - **No customer data.** Fill the mock-up with obviously fake values. It travels
   by email and lands in decks.
 

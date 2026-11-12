@@ -34,8 +34,13 @@ allowed-tools: Bash(python:*), Bash(cd:*), Read, Write, Edit, Grep, Glob
 > - Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` gerekiyor, `/health` dahil.
 >   Token ortamda duruyor; değerini ekrana basma, hiçbir dosyaya yazma.
 > - İlk iş `GET /health`: `tools` listesi o an hangi yüzeyin ayakta olduğunu söylüyor.
->   DEV'de 53 araç (`adt_push`/`adt_activate` ve onay araçları dahil); diğer sistemlerde 19, yazanlar
+>   DEV'de 67 araç (`adt_push`/`adt_activate` ve onay araçları dahil); diğer sistemlerde 30, yazanlar
 >   `404 unknown_tool` döner. Hangisinin açık olduğunu varsayma, sor.
+> - `adt_edit_source` ve `adt_edit_method` NTT Studio'da **hiç açılmıyor** (DEV'de de
+>   `404 unknown_tool`): kaynağı motorun geçici dosyasında düzenleyip push ediyorlar,
+>   inceleme kaydı o dosyayı göremez. Yol: `adt_get_source` → dosyada düzenle →
+>   `abap-code-review` → `adt_push(source_file=...)`. Sınıfın yerel include'u
+>   (`adt_write_class_include`) açık ve onaylı; inceleme kaydına include dosyasını da koy.
 > - Sunucuyu kendin başlatma, `adt_mcp_server.py`'yi doğrudan çalıştırma: ikinci süreç
 >   ikinci SAP oturumu demek. Durum için proje klasöründeki `sap-context.md`'ye bak;
 >   `/health` cevap vermiyorsa kullanıcıdan NTT Studio'da sisteme yeniden bağlanmasını iste.
@@ -142,8 +147,8 @@ Claude Code's own process env.
 ### Read-only entrypoint — the `sap-adt-readonly` skill
 
 For a system that must be unwriteable: a second entrypoint onto **this same engine**
-that never registers the write tools (**19 tools instead of 50**; `ADT_READONLY` alone
-is only a call-time belt). `adt_unit_test`, `adt_sql` and `adt_dumps` are additionally
+that never registers the write tools (**27 tools instead of 65**; `ADT_READONLY` alone
+is only a call-time belt). `adt_unit_test`, `adt_sql`, `adt_dumps` and `adt_spool_read` are additionally
 gated behind individual opt-in variables. Surface table, rationale and fail-closed
 matrix: [`../sap-adt-readonly/SKILL.md`](../sap-adt-readonly/SKILL.md).
 
@@ -153,61 +158,13 @@ matrix: [`../sap-adt-readonly/SKILL.md`](../sap-adt-readonly/SKILL.md).
 
 ### Local HTTP transport — for clients that can't speak stdio MCP
 
-Some agents (e.g. `aXet.code`) can't hold a bidirectional stdio pipe. Calling scripts
-per-process instead loses the stateful session (orphaned locks → ghost transports), so
-the fix is a local HTTP transport on the SAME long-lived process and the identical
-persistent `SAPClient` — no ghost risk.
-
-```bash
-# start (single-user, localhost-only; ADT_CWD points at the dir with .conn_adt)
-ADT_CWD="$(pwd)" python plugins/sap-consultant/skills/sap-adt/scripts/adt_mcp_server.py --http --port 8787
-# -> stderr prints the bearer token to send. Every request needs it.
-```
-
-```powershell
-$env:ADT_CWD = (Get-Location).Path
-python .\scripts\adt_mcp_server.py --http --port 8787
-```
-
-Both forms, because PowerShell has no inline `VAR=x command` prefix and the bash
-line is a parse error there.
-
-> **8787 is this script's default, and since 2026-08-13 it is also what the
-> department setup documents say** — they used to say 8786 for the write server and
-> 8787 for the read-only one, which made 8787 mean "read-only" to a consultant and
-> "write" to the code. One number, one meaning now: **8787 writes, 8790 is
-> read-only.** Still **probe `/health` before starting one**: a second server is a
-> second SAP session, i.e. the ghost transport this transport exists to prevent.
-
-Endpoints, all requiring `Authorization: Bearer <token>` (POSTs also
-`Content-Type: application/json`):
-- `GET  /health` → `{ok, auth, busy, tool_count, tools:[...]}`
-- `GET  /tools` → every tool's `name`, description and JSON input `schema`
-- `POST /tool/<name>` with a JSON body of kwargs → the tool's structured result
-
-It dispatches to the exact same tool functions as stdio MCP, so every guardrail, the
-auth-latch and error hints apply unchanged.
-
-**Security** (hardened 2026-07-29 — loopback is a routing boundary, not an authorization
-one; any local process or visited web page can reach `127.0.0.1`):
-- **Auth on by default:** set `ABAP_HTTP_TOKEN` or the server generates a token and
-  prints it to stderr. `ABAP_HTTP_ALLOW_NO_AUTH=1` disables it on loopback only.
-- A non-loopback `--host` is **refused outright** unless `ABAP_HTTP_TOKEN` is set — and
-  even then front it with TLS; a bearer token over plain HTTP is cleartext.
-- The `Host` header must match the listener (**421** otherwise) — this stops DNS
-  rebinding. No CORS headers, ever.
-- Bodies capped at 1 MiB, JSON object only; chunked encoding rejected.
-- **One call at a time, refused not queued:** a concurrent call gets **`503
-  sap_session_busy`** immediately. (This serializes individual calls — it does not give
-  one caller exclusive ownership of a multi-call workflow.)
-- Every request is audit-logged to stderr (`[adt-audit]`), and to a file when
-  `ABAP_HTTP_AUDIT=<path>` is set — arguments **by key only** (values carry ABAP source,
-  SQL and business data).
-- On shutdown: stop accepting, wait up to 180 s for the in-flight SAP call, so Ctrl-C
-  mid-push does not strand a lock.
-
-Not multi-tenant — one `.conn_adt`, one client, one user. A client disconnect does not
-cancel an in-flight SAP operation.
+aXet.code reaches this engine over a local HTTP server on the SAME long-lived process
+(no ghost risk). **8787 writes, 8790 is read-only**; the launcher starts it and records
+`port` and `token` in `.axet-code/adt-http.json`. Every call needs
+`Authorization: Bearer <token>`: `GET /health`, `GET /tools`, `POST /tool/<name>`.
+**Probe `/health` before starting one** -- a second server is a second SAP session.
+Starting it by hand, endpoints and the security rules:
+[references/HTTP_TRANSPORT.md](references/HTTP_TRANSPORT.md).
 
 ---
 
@@ -229,12 +186,10 @@ cancel an in-flight SAP operation.
   `--mode STATUS` after any write. Triggers: Adobe Form, PDF form, print/output form,
   çıktı formu, fatura çıktısı.
 
-- **Message classes (`MSAG`)** — this skill's own `adt_message_class`, but
-  **create-then-write, two steps**: SAP silently drops any messages passed to the
-  create, so texts go in with `action="write"` (read current → merge → PUT → read back).
-  The tool already handles the two traps that look like walls (stateful LOCK header,
-  lower-case canonical URL). A failed run leaves an edit lock — *"user X is already
-  editing"* on a class created seconds ago — clear it in SE91/SM12 before retrying.
+- **Message classes (`MSAG`)** — this skill's own `adt_message_class`: one call,
+  `action="create"` with `messages=[...]`, creates the class and writes the texts;
+  `action="write"` adds or changes texts later (read → merge → PUT → read back). The
+  old "currently editing" refusal after a create is fixed (2026-11-11).
   **Always check the returned `language`:** blank means `T100-SPRSL` was not keyed and
   the texts never resolve at runtime, while SE91 looks perfectly normal.
 
@@ -289,6 +244,12 @@ BEFORE concluding "SAP/Basis blocks this" — usually the cause is tooling state
      verify with `adt_transport_check`.
   2. Ensure the object is recorded as **`R3TR CLAS`** (whole class, not LIMU) — for an
      existing object that means **SE09 → Include Objects**. Then retry `adt_push`.
+
+**Three identical failures on the same object: stop.** Report the error text and what was
+tried. A fourth attempt with the same input changes nothing and can leave a lock or a
+transport entry behind.
+An error message you do not recognise: [`references/KNOWN_ERRORS.md`](references/KNOWN_ERRORS.md)
+reads common ADT symptoms (412, 423, EU 510, "activated but not", false "not found").
 
 ## Project brief first (CRITICAL)
 
@@ -381,14 +342,19 @@ transport for a read.**
 | Find an object by name | `adt_search` |
 | Find code by content (literal/keyword) | `adt_code_search` (degrades to "use adt_search" where the textSearch ICF service is off) |
 | Read source (class/program/CDS/table def) | `adt_get_source` — pass `grep="<regex>"` (matching lines + context) or `method="<name>"` (one method/FORM body) to cut tokens on big objects; `include=` for a class's local types (see below) |
-| Where is this object/field used? | `adt_where_used` |
+| Where is this object/field used? | `adt_where_used` (`positions=True`: line and code of each use) |
+| Which program does this include belong to? | `adt_include_main_programs` |
+| Where is this variable / type / method defined (F3)? | `adt_find_definition(name, symbol, line=)` |
 | Look at the data | `adt_sql` (read-only SELECT, row-capped) |
-| Who changed it, when? | `adt_revisions` |
-| Recent runtime errors | `adt_dumps` |
-| Inside one dump: error analysis, source extract, include + line | `adt_dump_detail` (pass the `uri` from `adt_dumps`) |
+| Who changed it, when? What changed since the last release? | `adt_revisions`; `adt_revision_diff` (old version vs active, or two versions) |
+| What does this transport change, object by object? | `adt_transport_diff(transport)` (layout-only changes ignored; open request = active vs last stored version) |
+| Recent runtime errors, then one dump's ST22 chapters | `adt_dumps` (`group=True`: one row per error + program, with `new`), then `adt_dumps(dump=<link from the list>)` |
+| Inside one dump, NTT Studio's way: error analysis, source extract, include + line | `adt_dump_detail` (pass the `uri` from `adt_dumps`) |
+| Background jobs (SM37): failed, running, scheduled; each step's program | `adt_jobs(job_name=, user=, status=, days=)` |
+| What did that job / report print (SP01)? | `adt_spool_list(job=, owner=, days=)`, then `adt_spool_read(number)` -- list spools decoded to lines; another client's spool is refused, not "empty" |
 | What's inactive system-wide? | `adt_inactive_objects` |
 | Classic BAdI cross-reference | `adt_badi_discovery` |
-| Quality signal on existing code | `adt_atc_check`, `adt_syntax_check` |
+| Quality signal on existing code | `adt_atc_check`, `adt_syntax_check` (read-only check run; checks the pending version, else the active one) |
 | Run existing unit tests (executes ABAP, writes nothing) | `adt_unit_test` |
 | Connection health | `adt_logon`, `adt_doctor`, `ping` |
 
@@ -562,56 +528,39 @@ Read tools are in the Analyst section's palette above. The rest:
 
 | Purpose | Tool |
 |---|---|
-| Create class/program/interface/DDIC/… | `adt_create` |
-| Upload + activate source (atomic) | `adt_push(name, object_type, source_file, transport)` |
+| Create class/program/interface/include | `adt_create` |
+| Create DDIC types | `adt_create_domain`, `adt_create_data_element`, `adt_create_table_type`, `adt_create_type_group`, `adt_create_lock_object`; a table is `adt_create_ddic_shell` then `adt_push` its source; a function group `adt_create_function_group` |
+| Check source BEFORE pushing it (nothing written) | `adt_syntax_check(name, object_type, source_file=…)` — fix what it reports, then push; the object must exist |
+| **Change part of a source** (prefer this for any edit of an existing object) | `adt_edit_source(name, object_type, old_string, new_string, transport)` — unique match required, syntax-checked before the write, then pushed and activated; `include=` for a class's test/local include |
+| **Rewrite one method / FORM / MODULE** | `adt_edit_method(name, method, body, transport)` — body only (or the whole block); `class_name=` when local classes repeat the name; same check and push as `adt_edit_source` |
+| Upload + activate source (atomic) | `adt_push(name, object_type, source_file, transport)` — new objects and full rewrites |
+| Class **test classes / local types / RAP behaviour-pool handler** | `adt_write_class_include(name, include, source_file, transport)` — `include` = `testclasses` \| `implementations` \| `definitions` \| `macros`; creates the include if the class has none; class stays inactive until `adt_activate` |
+| CDS view / metadata extension / access control / **service definition** | `adt_create_cds_view`, `adt_create_metadata_extension`, `adt_create_access_control`, `adt_create_service_definition` |
+| Behaviour definition / service binding | `adt_create_behavior_definition`, `adt_create_service_binding` + `adt_publish_service_binding` |
 | Activate | `adt_activate` |
-| Delete object | `adt_delete_object` (double-confirmed) |
+| Delete object | `adt_delete_object` (double-confirmed; asks SAP's deletion check first — `adt_deletion_check` on its own changes nothing) |
 | Create package | `adt_create_package` |
 | List / pre-check / pin / status of transports | `adt_list_transports`, `adt_transport_check`, `adt_set_transport`, `adt_transport_status` |
 | Create / delete / detach from transports | `adt_create_transport`, `adt_delete_transport`, `adt_remove_from_transport` (all rule-2-gated) |
-| Scatter check / stale lock | `adt_check_scatter`, `adt_clear_lock` |
+| Scatter check / stale lock | `adt_check_scatter`, `adt_clear_lock`; a killed engine's session: `adt_leftover_sessions` |
 | Dynpro screens / Adobe Forms / message classes | `adt_generate_screen`, `adt_generate_adobe`, `adt_message_class` |
+| Text elements (TEXT-001, selection texts, list headings) | `adt_text_elements` (read), `adt_write_text_elements` (merge by key, activates the pool) |
 
 ### A class is not one source file
 
-`source/main` is the **global class only**. Local class definitions and
-implementations, macros and test classes each live behind their own ADT include,
-and `adt_get_source` without arguments does not return them — nor do `grep=` /
-`method=`, which only slice whatever main contained.
+`source/main` is the global class only. Local classes, macros and test classes are
+separate includes: read them with `adt_get_source(include="implementations" |
+"testclasses" | "definitions" | "macros" | "all")` (a plain read says when main is an
+empty shell, as in every RAP behaviour pool `ZBP_*`), write them with
+`adt_write_class_include`, then `adt_activate` the class. Never build an include URL.
 
-This bites hardest on **RAP behaviour pools (`ZBP_*`)**: main is a generated
-shell (`CLASS zbp_x DEFINITION … FOR BEHAVIOR OF …` + `ENDCLASS.`) and the entire
-handler — `LHC_*`, every `FOR MODIFY` / `FOR READ` method — is in the
-`implementations` include. Read main alone and the class looks empty.
+- **RAP behaviour pool:** `adt_create_behavior_definition` -> `adt_create` + `adt_push`
+  the `ZBP_...` shell (`... FOR BEHAVIOR OF <root>`) -> `adt_write_class_include(include=
+  "implementations")` with the `LHC_*` handlers -> `adt_activate` the class, then the BDEF.
+- **Service:** CDS views -> `adt_create_service_definition` -> `adt_activate(object_type=
+  "srvd")` -> `adt_create_service_binding` -> `adt_publish_service_binding`.
 
-```
-adt_get_source(name="ZBP_I_ORDER")                        # main + a note if it is a shell
-adt_get_source(name="ZBP_I_ORDER", include="implementations")   # the LHC_* handler
-adt_get_source(name="ZCL_FOO",     include="testclasses")       # the unit tests
-adt_get_source(name="ZCL_FOO",     include="all")               # every include, labelled
-```
-
-You do not have to remember this. When main implements nothing, the plain call
-adds `includes` (a name → line-count map) and a `note` naming where the code is:
-
-```
-includes: {definitions: 3, implementations: 55, macros: 2, testclasses: 1}
-note: main implements nothing; 55 lines are in the 'implementations' include.
-```
-
-Counts matter because *advertised* is not *populated* — every class advertises
-`definitions`/`implementations`/`macros` whether or not they hold anything, and
-SAP's empty stubs read as 1–3 lines of comment. The extra round trips are only
-spent on the shell case; an ordinary class costs exactly what it always did.
-
-> **Never build the include URL.** It is `…/includes/implementations` with **no**
-> `/source/main` suffix — unlike the class itself — and a class with no test
-> classes 404s on `testclasses`. The tool reads SAP's own `sourceUri` from the
-> class resource and asks only for what SAP advertised. Measured on S/4HANA 2023.
-
-Writing local types is **not** supported yet: `adt_push` writes `source/main`, so
-it cannot implement a behaviour pool. Deliver those through the abapGit/ZIP
-route, which carries `.clas.locals_imp.abap` correctly.
+Why each of these holds (measured): [references/CLASS_INCLUDES.md](references/CLASS_INCLUDES.md).
 
 **Object types** for `adt_get_source` / `adt_create` / `adt_push`: `class`,
 `interface`, `program`, **`include`** (lives at `programs/includes` — passing `program`
@@ -687,81 +636,14 @@ ADT_SAP_LANGUAGE=EN
 - **After any edit to `.conn_adt`, restart the MCP server** — it caches one client
   for its lifetime (see "When a connection/write FAILS").
 
-### Build it from SAP Logon instead of asking — `sapgui_landscape.py`
+### Switching systems, BTP Public Cloud
 
-Almost everything `.conn_adt` needs is already on the machine. SAP GUI keeps every
-system the consultant can reach in `SAPUILandscape.xml` (`%APPDATA%\SAP\Common\`):
-system id, application server, instance number, SAProuter hop, and for WEBGUI/FIORI
-entries a real HTTPS URL with the client in the query string. Read it rather than
-dictating a URL back to someone reading a screenshot — that is how a client becomes
-800 instead of 100.
-
-```bash
-py plugins/sap-consultant/skills/sap-adt/scripts/sapgui_landscape.py --list --probe
-py plugins/sap-consultant/skills/sap-adt/scripts/sapgui_landscape.py --json   # for you
-```
-
-**The flow to run when the user wants to switch systems:**
-
-1. `--list --probe`, and show the table. `--probe` is a bare TCP connect to each
-   candidate port — no request, no credentials — and it is what separates a system
-   ADT can reach directly from one that needs the RFC bridge. Guessing that from the
-   file alone is not possible.
-2. **Ask which system.** Offer the numbers from the table; never pick for them.
-3. **Ask which tier that system is** — DEV, QA or PRD. This is not optional and not
-   inferable: an absent `ADT_SAP_TIER` reads as **DEV**, and DEV is the only writable
-   tier, so a production box that inherits a blank tier is writable. `--tier` is
-   therefore mandatory whenever the system changes. If the consultant is unsure, PRD.
-4. **Ask for a password only if it is a different one.** The script reuses what is in
-   `.conn_adt` when the user is unchanged (`--keep-password` forces that). It asks
-   for a new one only when `--user` differs or the file has none.
-5. Run `--connect <SID> --tier <TIER>`, then `sap_doctor.py`, then **restart the MCP
-   server** — it caches one client for its lifetime.
-
-```bash
-echo <password> | py .../sapgui_landscape.py --connect ELT --tier DEV --password-stdin
-py .../sapgui_landscape.py --connect ELT --tier DEV --keep-password
-py .../sapgui_landscape.py --connect ELT --tier DEV --dry-run      # show, write nothing
-```
-
-**Never put a password on the command line.** There is deliberately no `--password`
-option: an argument lands in the shell history and in the process list of every user
-on the machine. `--password-stdin` reads one line from stdin; `ADT_NEW_PASSWORD` is
-the non-interactive equivalent. The rule above still holds — you do not ask for a
-password in the conversation either; hand the consultant the command to run.
-
-**What it refuses to do, and why each refusal is right:**
-
-| situation | what happens |
-|---|---|
-| a web entry whose **name** matches a system but whose **host** differs | reported under `[CONFIRM]`, **never selected** — even when its port answers. A chatbot, a portal and an ABAP stack all answer on 443, and a Web Dispatcher that does not route this system answers ADT with `ICMENOSYSTEMFOUND`. Basis confirms it; then pass `--url <origin>` |
-| nothing answers on any candidate port | the system is router-only → it writes the **RFC bridge** config (`RFC_ASHOST`, `RFC_SYSNR`, `RFC_SAPROUTER` in `.env`) and points `ADT_SAP_URL` at `http://127.0.0.1:8410`. See [`sap-adt-router-bridge`](../sap-adt-router-bridge/SKILL.md) |
-| the entry is a **message server** (port `36NN`) | refused. Group logon is a different connection shape; ask Basis for an application server |
-| `.conn_adt` already has `ADT_SAP_TIER`, BTP keys, `NTTH_*` | all preserved. The file is **merged**, not rewritten, and the previous version is kept as `.conn_adt.bak` |
-
-`ADT_CWD` decides which project's `.conn_adt` is written, exactly as it does for the
-MCP server. The script writes two local files and contacts no SAP system.
-
-### BTP Cloud Public Edition (.s4hana.cloud.sap)
-
-Basic Auth is **NOT supported**. Two options:
-
-**A — SAML SSO (Playwright, most compatible):** add
-`ADT_SAML_COOKIES_FILE=.saml_cookies.json` to `.conn_adt`, run
-`login_saml_sso.py --cwd <PROJECT_DIR>` once (`--headed` for MFA); re-run when the
-session expires (~8–12 h).
-
-**B — OAuth2/IAS (headless, needs the SAP_COM_0901 arrangement):** set
-`ADT_IAS_TOKEN_URL`, `ADT_IAS_CLIENT_ID`, `ADT_IAS_CLIENT_SECRET` in `.conn_adt`.
-
-**BTP warnings:**
-- `/sap/bc/adt/discovery` returns 200 publicly even without auth — the logon check does
-  a second authenticated probe and reports `btp_cloud: true` when SAML is needed.
-- `ParseError: not well-formed` = a SAML HTML redirect instead of ADT XML → re-run
-  `login_saml_sso.py`.
-- Transport creation uses `/sap/bc/adt/cts/transportrequests` with
-  `tm:useraction="newrequest"`; **HTTP 406 = SUCCESS**, the number is in the `Location`
-  header. The old `/cts/transports` endpoint is not supported there.
+- **The user wants another system:** build `.conn_adt` from SAP Logon with
+  `sapgui_landscape.py --list --probe` -- ask which system, **ask its tier (DEV/QA/PRD;
+  mandatory, unsure = PRD)**, never put a password on a command line. The full flow and
+  what the script refuses: [references/CONNECTION_SETUP.md](references/CONNECTION_SETUP.md).
+- **`.s4hana.cloud.sap`:** Basic Auth is not supported -- SAML (`login_saml_sso.py`) or
+  OAuth2/IAS; HTTP 406 on transport create there is success. Details in the same file.
 
 ## Database operations & ABAP SQL (`adt_sql`)
 
@@ -798,10 +680,10 @@ Object names are NOT invented here. **Every Z/Y name comes from the NTT DATA/TR
 naming standard** — the same document `ts-generator` uses, so the names in a TS and
 the objects you create from it always match:
 
-- **Where to find it:** in NTT-managed installs the `sap-specs` skills sit next to
+- **Where to find it:** in NTT-managed installs the document skills sit next to
   this one — read `../ts-generator/references/NAMING_STANDARD.md` (project skills
-  dir and cache both have it). In a classic plugin install it is in the `sap-specs`
-  plugin under `skills/ts-generator/references/`.
+  dir and cache both have it). In a classic plugin install it is in the
+  `sap-consultant` plugin under `skills/ts-generator/references/`.
 - **Parameters come from the project brief** (`CLAUDE.md`): `<Prefix1>` (Z/Y) and
   `<PkgNo>`; the module code comes from the work item. On conflict the brief wins.
 - **Working from a TS?** Use the names in its 2.1 Object List verbatim — they were
@@ -840,7 +722,7 @@ number is actually free before using it.
   texts) go in the **login language** of the connection — read it from `.conn_adt`
   (`ADT_SAP_LANGUAGE`); if it is not set and the brief does not say, ask. A Turkish
   description is written with its real letters (`Seçim ekranı`), never ASCII-folded.
-- **If the standard is unreachable** (file missing, no sap-specs installed): do NOT
+- **If the standard is unreachable** (file missing, ts-generator not installed): do NOT
   fall back to improvised conventions — ask the user, or mark the name
   `[teyit gerekli]` and say which formula you could not verify.
 
@@ -890,25 +772,46 @@ touching SAP:
   recipe (SE09 Include-Objects, SM12, SE03, re-read-then-push, …) for
   `GhostTransportPrevented`, `NoTransportResolved`, `SourceDriftDetected`, lock and
   already-exists cases.
-- **`$TMP` / local objects are NOT supported for write/delete** — every guard requires
-  a transport. Work in a transported `Z`/`Y` package. (The generator skills'
-  bootstrap FMs are the deliberate exception and live in their own SKILL.md.)
+- **Work in the project's transported `Z`/`Y` package.** Local `$TMP` objects can be
+  pushed and deleted without a transport (since 2026-09-03), but use `$TMP` only for a
+  throwaway test or when the user asks for it. (The generator skills'
+  bootstrap FMs are the deliberate exception and live in their own SKILL.md. Installing
+  one once per dev system is NOT a breach of "every object in package X": those words
+  cover what you build. Install, continue, and name the FM in the final report.)
 
 **Activation.** `adt_push` auto-activates. Same-user stale locks are auto-cleared;
 foreign locks are SM12. DDIC objects: no lock needed — create → activate immediately.
 **A lock under your OWN user that will not clear.** `adt_clear_lock` (and the retry the
 engine runs on a 403) locks and unlocks *its own* reference and reports success; it cannot
 release a second, live session of the same user — usually a SAP GUI window in SE38/SE80/SE24/
-SE11 in *change* mode, not display. The 403 comes back unchanged. Close that window first.
+SE11 in *change* mode, not display, or the ADT session of an engine process that was killed
+(closed terminal, restarted launcher). The engine closes the second kind itself when it
+starts; if "currently editing" still appears, run `adt_leftover_sessions` once. The 403
+comes back unchanged for a GUI window. Close that window first.
 Only then SM12, and filter by **USER**, never by object name: the enqueue argument rarely
 matches a text search on the name (program text elements share the program's own enqueue).
 **Runtime buffer:** ADT activation may not flush a running app server's class buffer —
 if activated changes don't take effect, re-activate via Eclipse/SE24 or run
 `/$ABAP_BUFFER_RESET` (SM04), per app server on load-balanced systems.
 
-**Push failed? STOP.** Report to the user; do NOT retry without explicit confirmation —
-each retry acquires a new lock and can spawn a new auto-generated S-task (Critical
-Rule 2 item 5).
+**Push failed?** Do not blind-retry — each retry acquires a new lock and can spawn a new
+auto-generated S-task (Critical Rule 2 item 5). What you do next depends on the error:
+
+- **A content error in an object you created in THIS session** (syntax error, a line over
+  255 characters, a type/name mistake, an activation message naming your own code): fix
+  the source and push again, at most **twice**, and only if `lock_released` was true and
+  `ghost_prevented` was false. Run `adt_syntax_check` between attempts. This is the
+  normal edit loop, not a retry. Never leave an object INACTIVE and call the job done:
+  after the last attempt either it is active or the report says exactly which message
+  blocks it.
+- **Anything else** — lock, transport, ghost, auth, drift, an object you did not create,
+  or the third failure: STOP and report; do not retry without explicit confirmation.
+
+**Build what you can, then name the gap.** If one part of a task has no tool, still create
+and activate every part that does (tables, CDS, classes, service definition, …) and end
+with a list of exactly what is missing and why. Refusing the whole task because one piece
+is unsupported turns a 90 % result into a 0 % one; the 2026-11-11 comparison measured
+this (RAP service refused up front, nothing created).
 
 **Deletion.** Classes/interfaces/programs need the lock cycle — `adt_delete_object`
 handles it. DDIC objects delete without a lock. Tables: use SE11.
@@ -929,12 +832,12 @@ inside the library — details in [references/WORKFLOWS.md](references/WORKFLOWS
 ## Reporting bugs
 
 ```bash
-gh issue create --repo global-innovation-lab/ntt-claude-marketplace \
+gh issue create --repo global-innovation-lab/ntt-sap-agent-kit \
   --title "[Bug][sap-adt] <short description>" --label bug \
   --body "Steps, expected/actual, plugin version (from ping), OS, SAP system type"
 ```
 
-Check first: `gh issue list --repo global-innovation-lab/ntt-claude-marketplace --label bug --search "<keyword>"`
+Check first: `gh issue list --repo global-innovation-lab/ntt-sap-agent-kit --label bug --search "<keyword>"`
 
 ## References
 
@@ -948,4 +851,7 @@ Check first: `gh issue list --repo global-innovation-lab/ntt-claude-marketplace 
 - [references/OBJECT_TYPES.md](references/OBJECT_TYPES.md) — object type reference
 - [references/DDIC_OBJECTS.md](references/DDIC_OBJECTS.md) — DDIC creation guide
 - [references/RAP_CDS_OBJECTS.md](references/RAP_CDS_OBJECTS.md) — RAP & CDS types
+- [references/CLASS_INCLUDES.md](references/CLASS_INCLUDES.md) — class includes, RAP pool and service recipes
+- [references/CONNECTION_SETUP.md](references/CONNECTION_SETUP.md) — switching systems, BTP
+- [references/HTTP_TRANSPORT.md](references/HTTP_TRANSPORT.md) — the local HTTP server
 - SAP ADT documentation: https://api.sap.com/package/SAPDevelopmentToolsForEclipse

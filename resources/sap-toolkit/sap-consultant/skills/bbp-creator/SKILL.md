@@ -197,6 +197,14 @@ file keeps its headings as the structural keys; the table says what each is call
 document. Names, Scope Item descriptions (SAP's own English text) and quotes from sources stay
 as they are.
 
+**Do not rely on remembering this.** On 2026-11-05 an English BBP came out with 23 Turkish
+sub-headings (`2.1.1 Süreç Genel Bakışı`, `4.1 Hedef Süreç Genel Bakışı`, …) and ten tables with
+Turkish column heads, every one of them in the table. Write the headings from the template, then
+render with `--lang <tr|en>`: `office-docx` puts each heading and table header row that is in the
+table into that language and prints `[doc-language] N heading(s) … put into 'en'`. If it also prints
+`NOT in the table, still Turkish`, fix those headings in the Markdown (they are not in the table:
+translate them yourself, once, and tell the person which ones) and render again.
+
 ## Document structure
 
 The full skeleton — every heading, sub-heading and table, in order — is
@@ -257,7 +265,7 @@ first and say which you chose.
    not scattered through the text. A conflict is resolved by recency and
    recorded; it is never resolved by inventing a compromise.
 
-5. **Determine each chapter's "2. Best Practice Process Flow" from the bundled
+5. **Determine each chapter's "3. Best Practice Process Flow" from the bundled
    reference — never from the internet and never from memory.** The scope-item
    catalogue **ships with this skill**, split by LOB, under
    `references/bp/`. Nothing has to be downloaded.
@@ -534,7 +542,7 @@ scope before the whole thing changes.
   differs.
 - `references/bp/*.tsv` — the SAP Best Practice scope-item
   catalogue, **bundled**, one file per LOB, 14,238 rows across thirteen files.
-  Used exclusively for each chapter's "2. Best Practice Process Flow" heading.
+  Used exclusively for each chapter's "3. Best Practice Process Flow" heading.
   `Grep` the LOB file, or the directory when the module does not map cleanly;
   never load one into context.
 - `references/bp/_meta.json` — which export the bundle came from,

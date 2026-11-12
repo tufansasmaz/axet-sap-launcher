@@ -84,9 +84,21 @@ def t_covers_engine():
     # adt_create_type_group, adt_create_lock_object,
     # adt_unpublish_service_binding -- plus adt_capabilities (ALLOW, one GET on
     # /sap/bc/adt/discovery).
-    # 51 since 2026-10-16: adt_dump_detail, registered by NTT Studio's own
+    # 52 since 2026-11-11: adt_create_service_definition and adt_write_class_include,
+    # both writes (DENY).
+    # 53 since 2026-11-11: adt_edit_source (DENY).
+    # 54 since 2026-11-11: adt_jobs (ALLOW).
+    # 56 since 2026-11-11: adt_include_main_programs, adt_deletion_check (ALLOW).
+    # 57 since 2026-11-12: adt_leftover_sessions (DENY: it ends SAP sessions).
+    # 58 since 2026-11-12: adt_revision_diff (ALLOW).
+    # 60 since 2026-11-12: adt_text_elements (ALLOW), adt_write_text_elements (DENY).
+    # 61 since 2026-11-12: adt_edit_method (DENY).
+    # 62 since 2026-11-12: adt_find_definition (ALLOW).
+    # 63 since 2026-11-12: adt_transport_diff (ALLOW).
+    # 65 since 2026-11-12: adt_spool_list (ALLOW), adt_spool_read (GATED).
+    # +1 since 2026-10-16: adt_dump_detail, registered by NTT Studio's own
     # ntt_dump_detail.py (not upstream) -- GATED, reads one dump's sections.
-    assert len(registered) == 51, f"engine registers {len(registered)} tools, expected 51"
+    assert len(registered) == 66, f"engine registers {len(registered)} tools, expected 66"
 
 
 # --- 2: default surface is reads only ----------------------------------------
@@ -96,7 +108,14 @@ def t_default_surface():
     assert keep == ro.ALLOW, f"surface != ALLOW: {sorted(keep ^ ro.ALLOW)}"
     # 18 since 2026-08-11: adt_service_binding_status joined ALLOW (one GET).
     # 19 since 2026-09-03: adt_capabilities joined ALLOW (one GET).
-    assert len(keep) == 19, f"expected 19 tools on install, got {len(keep)}"
+    # 20 since 2026-11-11: adt_jobs joined ALLOW (SM37 job metadata, no spool).
+    # 22 since 2026-11-11: adt_include_main_programs and adt_deletion_check (reads).
+    # 23 since 2026-11-12: adt_revision_diff (reads two versions).
+    # 24 since 2026-11-12: adt_text_elements.
+    # 25 since 2026-11-12: adt_find_definition.
+    # 26 since 2026-11-12: adt_transport_diff.
+    # 27 since 2026-11-12: adt_spool_list.
+    assert len(keep) == 27, f"expected 27 tools on install, got {len(keep)}"
     live = set(ro.engine.mcp._tool_manager._tools)
     assert live == keep, f"registry != surface: {sorted(live ^ keep)}"
 
@@ -144,10 +163,10 @@ def t_gate_opens():
             f"{gate['var']}=true changed the surface by more than {name}: " \
             f"{sorted(keep ^ (ro.ALLOW | {name}))}"
 
-    # All three together.
+    # All five together (four upstream + NTT Studio's adt_dump_detail).
     ro = fresh(**{g["var"]: "true" for g in ro0.GATED.values()})
     keep = quiet(ro.build)
-    assert len(keep) == 23, f"expected 23 tools with every gate open, got {len(keep)}"
+    assert len(keep) == 32, f"expected 32 tools with every gate open, got {len(keep)}"
     assert not (ro.DENY & keep), "opening the gates exposed a write tool"
 
 
@@ -270,7 +289,7 @@ def t_dump_detail_gated():
 
 CHECKS = [
     ("classification covers the engine", "a tool the engine has but nobody classified", t_covers_engine),
-    ("default surface is the 19 reads", "an accidental change to the allowlist", t_default_surface),
+    ("default surface is the 20 reads", "an accidental change to the allowlist", t_default_surface),
     ("no write tool in stdio or HTTP", "a write tool surviving the prune", t_no_write_tools),
     ("all gates closed on install", "ABAP run, or personal data read, on a system nobody opted in for", t_gate_closed_by_default),
     ("gates ignore 1/yes/on", "a gate opened by an unrelated truthy env value", t_gate_rejects_truthy_spellings),

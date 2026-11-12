@@ -21,7 +21,7 @@ a lot of noise.
 | Which requests touching this area were released in the window | `adt_sql` → `E070` (TRKORR, TRSTATUS, AS4DATE) joined to `E071` on the object names — see the warning below |
 | What configuration changed | `adt_sql` → `CDHDR` / `CDPOS` filtered on the object class and date range |
 | Which Z-objects changed, by whom, in which transport | `adt_revisions` on candidates from `adt_search` |
-| What started dumping | `adt_dumps` |
+| What started dumping | `adt_dumps(group=True)`: families by error + program, `new` = first seen in the last 24 h |
 | Anything left unactivated | `adt_inactive_objects` |
 
 ### `E070-AS4DATE` is not an import date
@@ -78,8 +78,10 @@ Filter to objects that plausibly touch the symptom — do not print the whole tr
 
 ### Short dump
 
-1. `adt_dumps` → the entry; then `adt_dump_detail` with its `uri` (NTT Studio) → exception
-   class, error analysis, source extract, and the include + line it terminated on.
+1. `adt_dumps` → the entry; then `adt_dumps(dump=<its dump link>)` → the ST22 chapters: error
+   analysis, where it terminated (include + line), source extract, call stack.
+   NTT Studio: `adt_dump_detail` with the same `uri` reads the same chapters (field values
+   only on request; on QA/PRD only with the user's approval).
 2. `adt_get_source --method` on that unit.
 3. `adt_revisions` → did it change, or did its *input* change?
 4. `adt_where_used` on the failing method → which caller passes the bad value.
@@ -90,8 +92,9 @@ A dump names where it *died*, almost never where it went wrong. Walk up the call
 ### Job / background processing failure
 
 1. `adt_dumps` in the job's window first — most "job failed" is a dump.
-2. `adt_search` the job's program, then `adt_revisions`.
-3. `adt_sql` on the application tables for the selection the job would have made: is the
+2. No dump? `adt_jobs(job_name=)` for the step and its run-as user, then `adt_spool_list(job=)` and `adt_spool_read(number)`: what the job itself printed is often the error message.
+3. `adt_search` the job's program, then `adt_revisions`.
+4. `adt_sql` on the application tables for the selection the job would have made: is the
    input set empty, or is the processing wrong? Different tickets entirely.
 
 ### Authorization

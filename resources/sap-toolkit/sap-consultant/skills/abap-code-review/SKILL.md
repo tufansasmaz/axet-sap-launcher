@@ -243,3 +243,4 @@ existing code — report the diff before applying it.
 | **Program header / künye template (mandatory)** | [references/ABAP_PRG_DETAILS_TMP.md](references/ABAP_PRG_DETAILS_TMP.md) |
 | **Indentation / Pretty Printer profile (mandatory)** | See "Indentation / Pretty Printer formatting" section above |
 | **Version-aware SAP Help / ABAP Keyword Documentation lookup** | [references/SAP_HELP_VERSION_LOOKUP.md](references/SAP_HELP_VERSION_LOOKUP.md) |
+| **Code that sends email (sender policy, HTML body, attachment, SOST)** | [references/EMAIL.md](references/EMAIL.md) |

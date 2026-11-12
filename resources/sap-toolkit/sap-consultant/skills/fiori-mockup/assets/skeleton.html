@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fiori Mock-up — <CODE> <Subject></title>
+<!--
+  <CODE> · <Development> · Fiori mock-up (fiori-mockup). Not connected to SAP; all data is invented.
+  Flow: 1 List Report => [row] => 2 Object Page => [value help] => 2a dialog
+  Write only content below. Do not add a style block and do not restyle the kit's classes.
+-->
+<!-- @fiori:css -->
+</head>
+<body>
+
+<div class="note-top"><b>Fiori-style mock-up</b> — <CODE> <Subject>. Not connected to SAP, all data is invented, not the
+rendered app. Clickable: <what can be tried, one sentence>.</div>
+<div class="mockbar"></div>   <!-- Desktop / Phone switch and the annotation overlay: filled by the kit -->
+<div class="stepnav"></div>   <!-- the screen list: filled from the data-state screens below -->
+
+<!-- ============ SCREEN 1 — LIST REPORT ============ -->
+<div class="app" data-state="1" data-label="List Report" id="app1">
+  <div class="shell"><span class="app-title"><App title></span><span class="avatar">AB</span></div>
+  <div class="page">
+    <div class="lr-title">
+      <h1 data-ann="@UI.headerInfo.typeNamePlural"><Plural object name></h1>
+      <span class="variant">Standard <b>▾</b></span>
+    </div>
+    <div class="msg" id="m1"></div>
+    <div class="filterbar">
+      <div class="fb-fields">
+        <div class="fb-field" data-ann="@UI.selectionField">
+          <label for="f1"><Filter 1></label>
+          <div class="vh"><input type="text" id="f1"><button title="Value help" onclick="openDlg('dlgVH')">&#9662;</button></div>
+        </div>
+        <div class="fb-field" data-ann="@UI.selectionField">
+          <label for="f2"><Filter 2></label>
+          <select id="f2"><option></option><option>Open</option><option>Approved</option></select>
+        </div>
+      </div>
+      <div class="fb-actions">
+        <button class="btn link">Adapt Filters</button>
+        <button class="btn emph" onclick="go1()">Go</button>
+      </div>
+    </div>
+    <div class="tablecard">
+      <div class="tc-bar">
+        <h2 id="cnt">Items (0)</h2>
+        <button class="btn" data-ann="@UI.lineItem (action)" onclick="toast('Created (mock-up)')">Create</button>
+        <button class="btn neg" onclick="toast('Deleted (mock-up)')">Delete</button>
+      </div>
+      <div class="scroll">
+        <table class="ui-table" data-ann="@UI.lineItem">
+          <thead><tr>
+            <th class="chk"></th><th><Column 1></th>
+            <th class="low"><Column 2 (hidden on phone)></th>
+            <th class="num"><Column 3 (amount)></th>
+            <th data-ann="@UI.lineItem.criticality">Status</th><th class="nav"></th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ SCREEN 2 — OBJECT PAGE ============ -->
+<div class="app hidden" data-state="2" data-label="Object Page" id="app2">
+  <div class="shell"><button class="back" onclick="goScreen('1')" title="Back">&#8592;</button><span class="app-title"><App title></span><span class="avatar">AB</span></div>
+  <div class="page">
+    <div class="msg" id="m2"></div>
+    <div class="op-header" data-ann="@UI.headerInfo">
+      <div class="op-head-main">
+        <h1 id="opTitle"><Object title></h1>
+        <p class="sub" id="opSub"><Subtitle></p>
+        <span class="os os-warn" id="opStatus">Open</span>
+      </div>
+      <div class="kfs" data-ann="@UI.dataPoint">
+        <div class="kf"><small><Key fact 1></small><b id="kf1">—</b></div>
+        <div class="kf"><small><Key fact 2></small><b id="kf2">—</b></div>
+      </div>
+      <div class="op-actions">
+        <button class="btn display-only" onclick="setEdit('app2',true)">Edit</button>
+        <button class="btn emph display-only" data-ann="@UI.identification (action)" onclick="toast('Approved (mock-up)')">Approve</button>
+      </div>
+    </div>
+    <div class="anchor" data-ann="@UI.facet">
+      <button class="on" data-sec="secGen" onclick="showSection('app2','secGen')">General Information</button>
+      <button data-sec="secItems" onclick="showSection('app2','secItems')">Items</button>
+    </div>
+    <div class="op-section" id="secGen">
+      <div class="op-sh"><h2>General Information</h2></div>
+      <div class="op-sb"><div class="form">
+        <div class="fg" data-ann="@UI.fieldGroup: #General">
+          <h3><Group></h3>
+          <label for="g1"><Field 1> *</label>
+          <input type="text" id="g1" class="req" data-editable readonly data-ann="@Common.FieldControl: #Mandatory">
+          <label for="g2"><Field 2></label>
+          <div class="vh"><input type="text" id="g2" data-editable readonly data-ann="@Consumption.valueHelpDefinition"><button class="edit-only" onclick="openDlg('dlgVH')">&#9662;</button></div>
+        </div>
+        <div class="fg" data-ann="@UI.fieldGroup: #Admin">
+          <h3><Group></h3>
+          <label for="g3"><Field 3 (read-only)></label>
+          <input type="text" id="g3" readonly data-ann="@Common.FieldControl: #ReadOnly">
+        </div>
+      </div></div>
+    </div>
+    <div class="op-section hidden" id="secItems">
+      <div class="op-sh"><h2>Items</h2><button class="btn edit-only" onclick="toast('Row added (mock-up)')">Create</button></div>
+      <div class="scroll"><table class="ui-table" data-ann="@UI.lineItem (#Items)">
+        <thead><tr><th><Item column></th><th class="num"><Amount></th></tr></thead>
+        <tbody><tr><td>…</td><td class="num">0.00<span class="unit">EUR</span></td></tr></tbody>
+      </table></div>
+    </div>
+    <!-- Annotate where a developer would otherwise guess: validation, conditional visibility, what loads
+         only after an action, which fields are calculated. -->
+  </div>
+  <div class="footer edit-only">
+    <span class="grow">Draft saved</span>
+    <button class="btn emph" onclick="setEdit('app2',false); toast('Saved (mock-up)')">Save</button>
+    <button class="btn" onclick="setEdit('app2',false)">Cancel</button>
+  </div>
+</div>
+
+<!-- ============ DIALOG 2a — VALUE HELP ============ -->
+<div class="dlg" data-state="2a" data-label="Value help" data-base="2" id="dlgVH">
+  <div class="dlg-h"><Value help title></div>
+  <div class="dlg-b">
+    <table class="ui-table"><thead><tr><th>Code</th><th>Description</th></tr></thead>
+      <tbody><tr class="row" onclick="selectRow(this)"><td>…</td><td>…</td></tr></tbody></table>
+  </div>
+  <div class="dlg-f"><button class="btn emph" onclick="closeDlg()">OK</button><button class="btn" onclick="closeDlg()">Cancel</button></div>
+</div>
+
+<!-- @fiori:js -->
+<script>
+// Invented sample data — not a real customer, person or system.
+const DATA = [];
+function go1(){ render(); msg('m1','s', DATA.length + ' items found.'); }
+function render(){
+  document.getElementById('cnt').textContent = 'Items (' + DATA.length + ')';
+  document.getElementById('rows').innerHTML = DATA.map(function(d){
+    return '<tr class="row" onclick="selectRow(this); openObj(\'' + d.id + '\')"><td class="chk"><input type="checkbox"></td>' +
+      '<td>' + d.c1 + '</td><td class="low">' + d.c2 + '</td><td class="num">' + d.c3 + '<span class="unit">EUR</span></td>' +
+      '<td><span class="os os-' + d.st + '">' + d.stText + '</span></td><td class="nav">&#8250;</td></tr>';
+  }).join('');
+}
+function openObj(id){ goScreen('2'); /* fill the header and the form from the chosen row */ }
+// How each state is reached, for the screen list and the screenshots.
+window.MOCKUP_PREPARE = { '1': () => go1(), '2': () => { render(); openObj('1'); }, '2a': () => { render(); openObj('1'); setEdit('app2', true); openDlg('dlgVH'); } };
+</script>
+</body>
+</html>

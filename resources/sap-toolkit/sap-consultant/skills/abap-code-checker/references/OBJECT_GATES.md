@@ -45,7 +45,7 @@ Everything below is *in addition* to these seven.
 | ID | Check | Severity |
 |---|---|---|
 | DD-TBL-01 | `@AbapCatalog.enhancement.category` present (`#NOT_EXTENSIBLE` unless deliberately otherwise) | BLOCKER |
-| DD-TBL-02 | A client-dependent table has a client field, first, in the key. **Both spellings are valid** — `key client : abap.clnt not null;` (what ADT generates) and `key mandt : mandt not null;` (the classic form) | BLOCKER |
+| DD-TBL-02 | A client-dependent table's first field is named **`mandt`** and typed with the data element **`mandt`**: `key mandt : mandt not null;`. The `client : abap.clnt` that `adt_create_ddic_shell` generates is a placeholder — replace it on the first push (see the note below the tables) | BLOCKER |
 | DD-TBL-03 | `not null` only on key fields | BLOCKER |
 | DD-TBL-04 | CURR/QUAN fields carry qualified `@Semantics…: 'TABLE.FIELD'`, the referenced field carries its marker (`currencyCode`/`unitOfMeasure`), and it lives in the same table | BLOCKER |
 | DD-TBL-05 | Type references lowercase; namespaced data elements unquoted | BLOCKER |
@@ -53,7 +53,8 @@ Everything below is *in addition* to these seven.
 | DD-TBL-07 | Every Z data element used is **active** | BLOCKER |
 | DD-TBL-08 | Before an update the current source was read; new business fields were added **above** the audit block | WARNING |
 | DD-TBL-09 | A field DROP, RENAME or TYPE change was preceded by a write-path analysis (where-used plus the code that writes it), the cascade scope was listed, and the **user approved** | BLOCKER |
-| DD-TBL-10 | Before CREATE, the field list, keys and data elements were shown to the user and approved | BLOCKER |
+| DD-TBL-10 | Before CREATE, the field list, keys and data elements — one per field — were shown to the user and approved | BLOCKER |
+| DD-TBL-11 | Every field except the client and plain technical flags uses a **data element**, not a built-in type (`abap.char(30)`, `abap.dats`): the standard one where it exists (audit fields `ERNAM`/`ERDAT`/`ERZET`/`AENAM`/`AEDAT`/`AEZET` included), otherwise a Z data element with all four labels. A built-in type needs a one-line reason. A built-in field has **no column heading** in SM30, the F4 help or an ALV | BLOCKER on a table with maintenance or UI use, WARNING otherwise |
 | DD-STR-01 | After create the structure source is **not empty** — the placeholder-shell trap | BLOCKER |
 | DD-TTYP-01 | Row type read back after create **and** activation. It can come back NULL | BLOCKER |
 | DD-ENQ-01 | Lock object name starts with `EZ`/`EY` (SAP's own constraint, not the NTT formula); primary table, lock mode (E/S/X) and parameters (MANDT + keys) correct | BLOCKER |
@@ -202,6 +203,12 @@ survive it.
   projection, service definition, binding and a live OData service were built on top of
   it. Both spellings are valid ABAP; what actually matters is that a client-dependent
   table has its client field first in the key.
+  **Superseded 2026-10-28 by the department owner's call:** a Z table's first field is
+  `mandt : mandt`, name and type. The 2026-08-20 collision still exists — the engine's
+  data-loss guard sees `client` leave a fresh shell as a DROP — so the first push of the real
+  definition onto a just-created, empty shell passes `ack_drop='client'`. That is safe only
+  because the table is empty; on a table with data a field drop stays a refusal (DD-TBL-09).
+  The `ack_drop` route is read from the guard in `sap_client.push_object`, not run on a system.
 - **`CDS-CONS-01`** said read-only consumption with no BO may not use `as projection on`.
   `ZCM909_C_ORDER` is `define root view entity … as projection on ZCM909_R_ORDER` and it
   activated with **no BDEF in existence at the time**. The half of that rule that holds is

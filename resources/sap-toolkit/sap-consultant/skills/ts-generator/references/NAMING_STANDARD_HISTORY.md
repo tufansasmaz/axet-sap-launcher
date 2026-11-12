@@ -15,7 +15,7 @@
 > Standarttaki her karar satırı buraya bir bağlantı taşır. **Kural metnini buraya taşımayın**:
 > koruyucu işlevi olan tek cümlelik karar standartta kalır, uzun gerekçe burada durur.
 
-Kaynak kılavuz: `NTTDATA_Development_Naming_Guideline_2.0.pdf` (14.08.2026); öncesi 1.1 (14.07.2026).
+Kaynak kılavuz: `NTTDATA_Development_Naming_Guideline_2.2.docx` (07.11.2026); öncesi 2.1 (12.10.2026), 2.0 (14.08.2026), 1.1 (14.07.2026).
 
 > **SAP kitine standartla birlikte gider.** `sync_kit_standard.py` bu dosyayı
 > `sap-dev-toolkit/standards/01-naming-history.md` olarak kopyalar ve iki taraftaki bağlantı
@@ -195,8 +195,14 @@ Bırakılan biçimler: sayılı ekler (`_T01`, `_C01`, `_F01`, `_O01`, `_I01`, `
 
 **Standartta:** §3 madde 26 ve altındaki not
 
-Kurumsal kılavuz paket/modül numarası **olmadan** `Z_<Description>` veriyor (`Z_PORGIN`). Önceki
-proje pratiği `Z_<Module>_<Description>` idi (`Z_SD_SALES`) — bu artık ikincil/eski kabul edilir.
+Kurumsal kılavuz v2.0'da paket/modül numarası **olmadan** `Z_<Description>` veriyordu (`Z_PORGIN`).
+Önceki proje pratiği `Z_<Module>_<Description>` idi (`Z_SD_SALES`).
+
+**2026-11-09, v2.2:** Kılavuz yetkilendirmeyi üç satıra böldü — class `ZAUTH`, object `ZAUTHO_ORD`,
+field `ZPLANT` — ve object için en çok 10 karakter koydu. Karar (kullanıcı, 2026-11-09): **yeni forma
+geçilir**. `Z_PORGIN` ve `Z_<Module>_<Description>` eski kabul edilir; mevcut nesneler yeniden
+adlandırılmaz (belge geneli ileri dönüklük kuralı). `ZAUTHO_ORD` tam 10 karakterdir, yani
+`<Description>` kısmı `ORD` gibi üç harfe sığmak zorundadır.
 
 <a id="h12"></a>
 
@@ -211,3 +217,28 @@ Bunlar bilerek beklemede; her biri ayrı bir karar:
 | Kılavuz §5 checklist (8 madde) | Liste olarak alınmadı; karşılığı olmayan iki maddesi (Clean Core A–D beyanı, Standard ABAP) `spec-reviewer`'a eklendi |
 | Customer Exit / Custom Logic satırları | **Alındı** — §3 madde 32, 33 |
 | Namespace prefix (`/NTT/…`) | Standartta tek satırlık kapsam notu: kütüphane/ürün geliştirmesine ait, proje TS'ine değil |
+
+<a id="h13"></a>
+
+## H13 — Kılavuz 2.1 / 2.2'nin eklediği satırlar ve kendi içindeki çelişkiler (2026-11-09)
+
+**Standartta:** §3 madde 34–42, §5.4, §5.5, §5.6, §6, §7 madde 10–14
+
+v2.1 (12.10.2026) **View Cluster** (`VC`) ve **Logo** (`LG`) satırlarını ekledi. v2.2 (07.11.2026)
+IDoc nesnelerini (`IDT`, `IDX`, `MT`, segment), Lock Object'i, yetkilendirme class/field'ını, bağlantı
+noktalarını (§4.7), repair kod işaretini (§4.8) ve yorum bloğunu (§4.9) ekledi; `ZND` ailesine
+`ZND005` (Onay Süreçleri) ve `ZND006` (Doküman Yönetimi) geldi. Hepsi **[K]** olarak alındı, aşağıdaki
+iki satır hariç.
+
+**Kılavuzun kendi içinde tutarsız olan iki yer — burada bilerek bir yön seçildi:**
+
+| Satır | Kılavuz ne diyor | Ne yaptık |
+|---|---|---|
+| IDoc Segment Type | Örnek `ZORDER`, ama not "`Z1` ile başlamalı (sistem `Z2` üretir)" | **Nota uyduk**, `Z1<Description>`. SAP'ın segment tanımı zaten `Z1` ile başlar; örnek yanlış görünüyor |
+| Authorization Object Class | Sınır **4** karakter, örnek `ZAUTH` **5** karakter | Satır kılavuzdaki gibi duruyor ama **yeni class açılmaz**, mevcut olan kullanılır; sınır SAP'ta 4 olduğundan `ZAUTH` bir sistemde yaratılamayabilir. Kılavuz sahibine sorulacak |
+
+**Alınmayan:** kılavuzun Naming Checklist'ine eklenen 7. madde (bağlantı noktaları grup koduyla mı?)
+liste olarak alınmadı — kural §5.4'te, TS uygulama kuralı §7 madde 12'dedir (H12'deki gerekçeyle aynı).
+
+**Kılavuzun kapsamadığı:** IDoc segment adı için `<Module><PkgNo>` içermez (`Z1<Description>`, 27
+karakter), bu yüzden segment adı paket numarasından anlaşılamaz.

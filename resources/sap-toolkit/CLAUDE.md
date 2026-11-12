@@ -29,7 +29,7 @@ collapse them into one.
 | 1 | which skills are installed | `planSkills()` in the launcher's `skillProfiles.ts` | role + tier |
 | 2 | which server is started on 8787 | `adtServerScriptFor()` in `launcher.ts`, fed from `SkillInstallResult.adtWriteSurface` | role + tier |
 | 3 | the engine's own `require_writable()` | `sap-adt/scripts/guardrails.py`, `_WRITABLE_TIERS = {"DEV"}`; in both 8787 wrappers `get_active_tier` is wrapped by `ntt_tier.py` (tier from the launcher's env `NTT_STUDIO_SAP_TIER`, `.conn_adt` may only tighten it) | tier only |
-| 4 | NTT Studio write approval | `sap-adt/scripts/adt_gated_server.py` (28 write tools) and `abapgit-deploy/scripts/tier_gate.py` (`require_write_approval`) ask the launcher's approval endpoint (`app-electron/main/sapWrite/`) | every single write: work mode, transport, review record |
+| 4 | NTT Studio write approval | `sap-adt/scripts/adt_gated_server.py` (32 write tools; `adt_edit_source`/`adt_edit_method` not registered at all) and `abapgit-deploy/scripts/tier_gate.py` (`require_write_approval`) ask the launcher's approval endpoint (`app-electron/main/sapWrite/`) | every single write: work mode, transport, review record |
 
 Gate 3 **cannot see the role**, which is why gate 2 has to exist: skills are documentation
 the agent reads, but the HTTP port is the surface it actually calls. If those two were
@@ -52,7 +52,7 @@ preserve its two internal locks:
 
 - **Belt** — `ADT_READONLY=true` is set *before* the engine is imported, so every write
   path refuses at source (`GR_READONLY`).
-- **Suspenders** — the 28 write-capable tools are removed from the registry before the
+- **Suspenders** — the 34 write-capable tools are removed from the registry before the
   transport starts, so they are neither listed nor callable (`404 unknown_tool`).
   Unsetting `ADT_READONLY` afterwards does not bring them back.
 
@@ -70,10 +70,10 @@ aXet.code can't speak MCP stdio, so SAP ADT runs behind a localhost HTTP server 
 **one persistent SAP session**. Two entrypoints, one engine, exactly one running:
 
 ```bash
-# Read-only surface — 19 tools (22 as NTT Studio starts it: + adt_sql, adt_dumps, adt_dump_detail). NOTE: --http is mandatory; without it this speaks MCP stdio.
+# Read-only surface — 27 tools (30 as NTT Studio starts it: + adt_sql, adt_dumps, adt_dump_detail; adt_spool_read and adt_unit_test stay closed). NOTE: --http is mandatory; without it this speaks MCP stdio.
 ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py --http --port 8787
 
-# Write surface — 54 tools: the engine's 50 behind the approval layer, + adt_dump_detail, + 3 axet_* tools.
+# Write surface — 67 tools: the engine's 65 minus adt_edit_source/adt_edit_method, behind the approval layer, + adt_dump_detail, + 3 axet_* tools.
 # Technical consultant + DEV only. The LAUNCHER starts it with ADT_APPROVAL_URL/ADT_APPROVAL_TOKEN;
 # started by hand it has neither, and refuses every write with approval_unavailable.
 ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt/scripts/adt_gated_server.py --http --port 8787
@@ -255,7 +255,7 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 | Dosya | Ne degistirildi | Neden |
 | --- | --- | --- |
 | `sap-consultant/skills/sap-adt/SKILL.md` | `description`'a + govdenin basina "MCP degil, HTTP" blogu (8787, bearer token, "`adt_*` gormemek bagli olmamak degil"); ardindan "SAP DEV yazma onayi" blogu (mod, `approval_pending`, `source_file`, `kritik_bulgu`) | 2026-09-24, SID-I: ajan `adt_*` araci goremeyince "bagli degilim" dedi, tek cagri yapmadi. `tests/skillHttpAdaptation.test.ts` + `tests/sapWriteGateContract.test.ts` kilitliyor |
-| `.../sap-adt/scripts/adt_gated_server.py`, `gated_collect.py`, `gated_quality.py` + `test_gated_quality.py`, `test_gated_collect.py`, `test_gated_flow.py` | YENI dosyalar (yukari akista yok): motoru import edip 28 yazan araci NTT Studio onayina bagliyor; `axet_teslim`, `axet_abapgit_onay`, `axet_inceleme_kaydet` | 2026-09-24 kullanici karari: DEV'e her yazma onaylanir, kritik inceleme bulgusu kesin engel. Motor degismedi. `py -3 test_gated_*.py` + `tests/sapWriteGateContract.test.ts` |
+| `.../sap-adt/scripts/adt_gated_server.py`, `gated_collect.py`, `gated_quality.py` + `test_gated_quality.py`, `test_gated_collect.py`, `test_gated_flow.py` | YENI dosyalar (yukari akista yok): motoru import edip 28 yazan araci NTT Studio onayina bagliyor; `axet_teslim`, `axet_abapgit_onay`, `axet_inceleme_kaydet` | 2026-09-24 kullanici karari: DEV'e her yazma onaylanir, kritik inceleme bulgusu kesin engel. Motor degismedi. `py -3 test_gated_*.py` + `tests/sapWriteGateContract.test.ts`. 2026-11-12 kit senkronu (motor 65 arac): 9 yeni okuyan arac SERBEST; `adt_create_service_definition` (SRVD, kalite kapisi), `adt_write_class_include` (include dosyasinin incelemesi + include'a karsi fark), `adt_write_text_elements` TRANSPORT_ONAYLI; `adt_leftover_sessions` HER_SEFER; `adt_edit_source`/`adt_edit_method` KAPALI (kayittan siliniyor: kaynagi motorun gecici dosyasinda duzenleyip push ediyorlar, inceleme kaydi o dosyayi goremez) |
 | `.../abap-code-review/SKILL.md` | 8. adim: inceleme bitince `axet_inceleme_kaydet` (bulgu sayilari, kaynak dosyalari; FUGR/FUNC notu) | Kalite kapisi inceleme kaydi olmadan yazdirmiyor |
 | `sap-consultant/skills/sap-adt-readonly/SKILL.md` | Ayni blok + "8790 degil 8787" + `/tools` (sap-adt kurulu olmayabilir) | 1.6.7'deki "aXet.code edition" d2cb667 senkronunda ezilmisti; ayni test |
 | `.../screen-gen/SKILL.md`, `.../sap-object-transfer/SKILL.md` | MCP araci/oturumu = 8787'ye POST; transfer icin `--port 8787` | `transfer_deploy.py` varsayilani 8786 |
@@ -289,16 +289,20 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 
 | `.../library-match/scripts/write_results.py`, `.../fast-scan-question-generator/scripts/write_workbook.py` | Yukari akisin `HERE.parents[3] / "office-tools" / "lib"` satirinin altina `../../../lib` (= `.axet-code/lib`) eklendi | 2026-10-20 kit senkronu: kurulu agacta `office-tools/lib` `.axet-code/lib`'e kuruluyor; yukari akis yolu orada yok ve `xlsx_theme` sert import. `SHARED_ASSETS` lib `requiredBy`'ina iki skill + `office-excel-compare`/`-report`/`office-slides` eklendi |
 | `.../project-store/scripts/orbit_html.py`, `orbit_publish.py`, `orbit_client.py` | Musteri adi ve Orbit proje anahtarlari yer tutucuya cevrildi (`Customer K`, `PRJK`, `PRJM`, `musteri-q`); yalnizca yorum/ornek | Bu depo PUBLIC (2026-10-20 kit senkronu) |
+| `.../dev-walkthrough/SKILL.md` | "MCP degil, HTTP" notu (`$ABAP_HTTP_URL`, bearer token, yazma araci yok) | 2026-11-12 kit senkronu; ayni sebep |
+| `.../sap-adt/SKILL.md` (DEV notu), `.../sap-adt-readonly/SKILL.md`, `.../sap-adt-readonly/scripts/adt_readonly_server.py` + `test_readonly_surface.py`, `.../sap-incident/references/investigation-loop.md` | Arac sayilari (DEV 67 / salt-okur 30; motor 65 + `adt_dump_detail` = 66); `adt_dump_detail` yukari akisin `adt_dumps(dump=...)`'inin yanina; `adt_edit_source`/`adt_edit_method` DEV'de de kapali notu; salt-okurda GATED'a `adt_spool_read` ile birlikte `adt_dump_detail` | 2026-11-12 kit senkronu, 3 yollu birlestirme |
+| `.../adobe-gen/references/worked-example.md`, `.../sap-adt/references/RAP_CDS_OBJECTS.md`, `.../ts-generator/references/NAMING_STANDARD.md` | Orbit proje anahtari, SID ve transport numarasi yer tutucuya (`PRJK-1958`, `PRJM-3092`, `XXXK901433`/`SID-J`) | Bu depo PUBLIC (2026-11-12 kit senkronu) |
 
 ### Alinmayanlar ve sebepleri
 
 | Alinmayan | Neden |
 | --- | --- |
-| `project-kb/*` (musteri-k-enerji, musteri-l, musteri-m-tekstil, musteri-n-musteri-o) | Musteriye ait gercek sistem verisi: tablo adlari, sirket kodlari, sure ve kapsam kayitlari. **Bu depo PUBLIC.** Kullanici karari (2026-09-23: *"alma paketleme onlari"*). Yapisi degil, ICERIGI engel -- ayni skill kabugu musterinin kendi ortaminda kurulabilir. |
+| `project-kb/*` (musteri-k-enerji, musteri-l, musteri-m-tekstil, musteri-n-musteri-o, musteri-p) | Musteriye ait gercek sistem verisi: tablo adlari, sirket kodlari, sure ve kapsam kayitlari. **Bu depo PUBLIC.** Kullanici karari (2026-09-23: *"alma paketleme onlari"*). Yapisi degil, ICERIGI engel -- ayni skill kabugu musterinin kendi ortaminda kurulabilir. |
 | `sap-adt-mcp` | MCP istemcisi; aXet.code MCP konusamiyor, yani kurulsa da calismaz. Kullanici karari: *"Simdilik alma"*. |
 | `abapgit-adt` | ADT uzerinden abapGit surer. Yazma artik var ama bu skill'in yolu `adt_*` ile SAP'a abapGit repo'su kurmak -- bizim teslim yolumuz `abapgit-workflow` (gelistirici-donguyu-kapatir) ve ikisi ayni isi iki farkli sozlesmeyle yapiyor. Ikisi birden kuruluysa ajan hangisini sececegini bilmiyor. |
 | `ntt-skill-setup` | Rakip kurulumcu: projeye skill kuran bir skill. Bu isi uygulamanin kendisi yapiyor (`installSkillsIntoProject`) ve rol kapisi orada. Ajanin elinde kendi skill'lerini kurabilecegi bir arac olmasi, 1. kapiyi anlamsiz kilar. |
 | `sap-bw`, `sap-sac` | Skill degil, vendor'lanmis MCP sunuculari. |
+| `sap-badi-impl-gen`, `sap-tcode-tmg-gen` (2026-11-12 kit) | SAP'ta nesne YARATIYORLAR (ENHO/BAdI implementasyonu, SE93 islem kodu, SM30 bakim diyalogu) ama 8787'den degil: script'leri `.conn_adt` parolasiyla `/sap/bc/soap/rfc`'ye kendisi gidiyor. Ne kademe kapisi (3) ne onay penceresi (4) bu yolu goruyor; DEV disinda da yazar. Alinmadan once `tier_gate.py` gibi `require_dev_tier` + `axet_*` onayina baglanmalari ya da 8787'de onayli bir arac olmalari gerekiyor. |
 
 Bilerek AYRISAN (alindi ama birebir degil): `sap-adt` (`__pycache__` farki + iki referans belgesindeki musteri yer tutuculari),
 `sap-adt-router-bridge` (bizde fazladan `adt_rfc_probe.py` var -- yukari akista yok),

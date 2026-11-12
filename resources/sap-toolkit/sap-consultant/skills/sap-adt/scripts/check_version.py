@@ -34,9 +34,9 @@ for _stream in (sys.stdout, sys.stderr):
 
 GITHUB_RAW = (
     "https://raw.githubusercontent.com/global-innovation-lab/"
-    "ntt-claude-marketplace/main/plugins/sap-consultant/.claude-plugin/plugin.json"
+    "ntt-sap-agent-kit/main/plugins/sap-consultant/.claude-plugin/plugin.json"
 )
-GH_API_PATH = ("repos/global-innovation-lab/ntt-claude-marketplace/contents/"
+GH_API_PATH = ("repos/global-innovation-lab/ntt-sap-agent-kit/contents/"
                "plugins/sap-consultant/.claude-plugin/plugin.json")
 
 
@@ -78,7 +78,8 @@ def _github_version(timeout=3):
     try:
         import subprocess as sp
         out = sp.run(["gh", "api", "-H", "Accept: application/vnd.github.raw", GH_API_PATH],
-                     capture_output=True, text=True, timeout=timeout)
+                     capture_output=True, text=True, encoding="utf-8", errors="replace",
+                     timeout=timeout)
         if out.returncode == 0 and out.stdout.strip().startswith("{"):
             return json.loads(out.stdout).get("version")
     except Exception:

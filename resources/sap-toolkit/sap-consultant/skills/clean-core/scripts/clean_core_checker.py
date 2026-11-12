@@ -36,6 +36,15 @@ report is still complete), 2 the request itself is wrong (target, usage).
     py clean_core_checker.py MARA,EKKO --system-type private_cloud --s4core 108 --sp 3
     py clean_core_checker.py MARA --system-type private_cloud --version 2023_3 --level B --json
     py clean_core_checker.py MARA,EKKO --profile s4-balanced --s4core 109 --sp 1 --json
+    py clean_core_checker.py --from-source .tmp/zcl_x.abap --profile s4-balanced --json
+
+--from-source reads the standard objects a saved ABAP or CDS source refers to
+STATICALLY (tables after FROM/JOIN in a SELECT, CDS sources and associations,
+CALL FUNCTION 'X', CL_/CX_/IF_ classes and interfaces) and checks them like names
+given on the line. Dynamic references (FROM (lv_tab), CALL FUNCTION lv_fm) are not
+seen, so an empty list is "nothing static found", never "nothing used". The idea
+of reading FROM/JOIN out of the source comes from Ozgur Yilmaz's axet-template
+(MIT, check_released_objects.py); the code here is our own.
 
 A project's Clean Core PROFILE (the brief's `clean_core:` line; the table is
 references/PROFILES.md and PROFILES below, held equal by the tests) turns the
@@ -308,6 +317,79 @@ def _known_versions() -> Optional[List[str]]:
 
 
 # ------------------------------------------------------------------- the check
+# ---------------------------------------------------------------- --from-source
+_CDS_FILE = re.compile(r"\bdefine\s+(?:root\s+)?(?:view|table\s+function|custom\s+entity|"
+                       r"abstract\s+entity|transient\s+view)\b", re.I)
+_NAME = r"(/?[A-Za-z][\w/]*)"
+_SQL_FROM = re.compile(r"\b(?:FROM|JOIN)\s+(?!@|\()" + _NAME, re.I)
+_CDS_ASSOC = re.compile(r"\b(?:association|composition)\b[^;{}]*?\b(?:to|of)\s+(?:parent\s+)?"
+                        r"(?:many\s+|one\s+)?" + _NAME, re.I)
+_CALL_FUNCTION = re.compile(r"\bCALL\s+FUNCTION\s+'([^']+)'", re.I)
+_CLASS_REF = re.compile(r"\b((?:CL|CX|IF)_\w+)\s*(?:=>|\()", re.I)
+_TYPE_REF = re.compile(r"\bTYPE\s+REF\s+TO\s+((?:CL|CX|IF)_\w+)", re.I)
+_NEW_OBJ = re.compile(r"\bNEW\s+((?:CL|CX)_\w+)\s*\(", re.I)
+# a FROM that is not a database source: CDS keyword or a value list
+_NOT_A_SOURCE = {"SELECT", "VALUES", "DUAL"}
+
+
+def _blank_literals(line: str, keep: bool = False) -> str:
+    """ABAP code of one line with comments removed and, unless keep, the inside of
+    '...', `...` and |...| literals blanked (lengths kept)."""
+    if line.lstrip().startswith("*"):
+        return ""
+    out, quote = [], ""
+    for ch in line:
+        if quote:
+            if ch == quote:
+                quote = ""
+                out.append(ch)
+            else:
+                out.append(ch if keep else " ")
+            continue
+        if ch == '"':
+            break
+        if ch in "'`|":
+            quote = ch
+        out.append(ch)
+    return "".join(out)
+
+
+def _is_standard(name: str) -> bool:
+    n = name.upper()
+    return bool(n) and n[0] not in "ZY" and not n.startswith(("LCL_", "LIF_", "LCX_", "LTC_"))
+
+
+def names_from_source(text: str) -> List[str]:
+    """Standard object names a saved ABAP or CDS source refers to statically, in order."""
+    found: List[str] = []
+
+    def add(name: str) -> None:
+        n = name.strip().upper().rstrip(".,;")
+        if n and _is_standard(n) and n not in _NOT_A_SOURCE and n not in found:
+            found.append(n)
+
+    if _CDS_FILE.search(text):
+        code = re.sub(r"/\*.*?\*/", " ", text, flags=re.S)
+        code = "\n".join(line.split("//", 1)[0] for line in code.splitlines())
+        for rx in (_SQL_FROM, _CDS_ASSOC):
+            for m in rx.finditer(code):
+                add(m.group(1))
+        return found
+    # ABAP: function module names live inside literals, so read them first
+    for line in text.splitlines():
+        for m in _CALL_FUNCTION.finditer(_blank_literals(line, keep=True)):
+            add(m.group(1))
+    code = "\n".join(_blank_literals(line) for line in text.splitlines())
+    for statement in code.split("."):
+        if re.search(r"\bSELECT\b", statement, re.I):
+            for m in _SQL_FROM.finditer(statement):
+                add(m.group(1))
+    for rx in (_CLASS_REF, _TYPE_REF, _NEW_OBJ):
+        for m in rx.finditer(code):
+            add(m.group(1))
+    return found
+
+
 def split_names(object_names: List[str]) -> List[str]:
     """Commas and spaces both separate names; order kept, duplicates dropped."""
     names: List[str] = []
@@ -587,6 +669,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--list-profiles", action="store_true",
                    help="print the profile table as JSON and exit")
     p.add_argument("--json", action="store_true", help="print the whole result as JSON")
+    p.add_argument("--from-source", action="append", default=[], metavar="FILE",
+                   help="also check the standard objects this saved ABAP/CDS source refers to "
+                        "statically (repeatable)")
     args = p.parse_args(argv)
 
     if args.list_profiles:
@@ -598,6 +683,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     # was never a subcommand and used to be checked as an object name.
     if objects and objects[0].lower() == "compliance":
         objects = objects[1:]
+    from_source: Dict[str, List[str]] = {}
+    for path in args.from_source:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                from_source[path] = names_from_source(fh.read())
+        except OSError as e:
+            print(f"error: cannot read {path}: {e.strerror or e}", file=sys.stderr)
+            return EXIT_USAGE
+        objects += [n for n in from_source[path] if n not in objects]
+    if args.from_source and not objects:
+        note = ("no static reference to a standard object found in "
+                + ", ".join(args.from_source)
+                + " -- dynamic references (FROM (lv_tab), CALL FUNCTION lv_fm) are not read")
+        print(json.dumps({"from_source": from_source, "note": note}, indent=1)
+              if args.json else note)
+        return EXIT_ALL_VERIFIED
     if not objects:
         p.print_usage()
         print("error: give at least one object name", file=sys.stderr)
@@ -613,7 +714,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"error: {e}", file=sys.stderr)
         return EXIT_USAGE
 
-    print(json.dumps(run, indent=1) if args.json else render_text(run))
+    if from_source:
+        run["from_source"] = from_source
+    text = render_text(run)
+    if from_source and not args.json:
+        text = "\n".join(f"Read from {f}: {', '.join(n) or '(no static reference)'}"
+                         for f, n in from_source.items()) + "\n" + text
+    print(json.dumps(run, indent=1) if args.json else text)
     return run["exit_code"]
 
 

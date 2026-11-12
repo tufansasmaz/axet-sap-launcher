@@ -47,6 +47,11 @@ try:
 except Exception:
     redact_text = None
     count_matches = None
+try:
+    # puts section titles and table column heads into the document language, from the master table
+    import doc_language_fix
+except Exception:
+    doc_language_fix = None
 
 # The palette is shared with every other Office renderer -- see lib/theme.py for
 # why it is not defined here. Not optional the way redact.py is: a missing theme
@@ -927,10 +932,23 @@ def _build_footer(section, measure, left="", classification="", page_word="Sayfa
 
 def build(md_text, out_path, title, base_dir=".", eyebrow="",
           classification="", logo=True, accent="", heading_font="",
-          toc="auto", toc_title="İçindekiler", page_word="Sayfa"):
+          toc="auto", toc_title="İçindekiler", page_word="Sayfa", lang=None):
     from docx import Document
     from docx.shared import Cm, Emu, Pt, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+    # A document is in ONE language. The skills tell the model to write every heading and column head in
+    # it, and nothing enforced that (an English BBP came out with 23 Turkish sub-headings, 2026-11-05):
+    # with lang set, each heading and table header row that is in the master table is put into that
+    # language here. What the table cannot translate is reported, never guessed.
+    if lang and doc_language_fix is not None:
+        md_text, _fixed, _left = doc_language_fix.apply(md_text, lang)
+        if _fixed["headings"] or _fixed["table_headers"]:
+            sys.stderr.write("[doc-language] %d heading(s) and %d table column head(s) put into '%s'\n"
+                             % (_fixed["headings"], _fixed["table_headers"], lang))
+        if _left:
+            sys.stderr.write("[doc-language] NOT in the table, still Turkish - fix in the source or the "
+                             "master (%d): %s\n" % (len(_left), "; ".join(_left[:8])))
 
     _apply_palette(accent, heading_font)
     base = Path(base_dir)
@@ -1368,7 +1386,7 @@ def main(argv=None) -> int:
           eyebrow=args.eyebrow, classification=args.classification,
           logo=not args.no_logo, accent=args.accent,
           heading_font=args.heading_font, toc=args.toc, toc_title=args.toc_title,
-          page_word=args.page_word)
+          page_word=args.page_word, lang=args.lang)
     print(f"[office-docx] wrote {args.output}")
     return 0
 

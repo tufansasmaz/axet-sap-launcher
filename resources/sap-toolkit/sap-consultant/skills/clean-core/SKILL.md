@@ -60,6 +60,10 @@ py <SCRIPTS_DIR>/clean_core_checker.py MARA,EKKO --system-type private_cloud --s
 py <SCRIPTS_DIR>/clean_core_checker.py MARA --system-type private_cloud --version 2023_3 --level B --json
 ```
 
+Reviewing code rather than a list of names: save the source to `.tmp/` and add
+`--from-source <file>` -- it reads the tables, function modules and classes the code refers to
+statically. A dynamic `FROM (lv_tab)` or `CALL FUNCTION lv_fm` is not seen; say so in the report.
+
 **Always pass the project's target** when a brief names one. Read it from the brief's
 target platform: `--system-type` is `public_cloud`, `btp`, `private_cloud` or
 `on_premise`; for the last two, `--s4core <release> --sp <support package>` (107 =
@@ -113,3 +117,4 @@ document as *Doğrulanamadı*, never as a release claim.
 | **Clean Core Levels** | [references/CLEAN_CORE_LEVELS.md](references/CLEAN_CORE_LEVELS.md) |
 | **Common Replacements** | [references/COMMON_REPLACEMENTS.md](references/COMMON_REPLACEMENTS.md) — worked examples; the successor the checker returns wins |
 | **API Reference** | [references/API_REFERENCE.md](references/API_REFERENCE.md) |
+| **Writing standard data** | [references/WRITE_API.md](references/WRITE_API.md) — which API to write a standard business object with, in which order, and what each step must prove |

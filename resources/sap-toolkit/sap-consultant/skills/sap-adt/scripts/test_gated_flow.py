@@ -627,7 +627,10 @@ def t_build():
     tools = gs.build()
     assert set(gs.AXET_TOOLS) <= tools, tools
     # 54 (2026-10-16): motorun 50'si + adt_dump_detail (ntt_dump_detail.py, SERBEST) + 3 axet_*.
-    assert len(tools) == 54, len(tools)
+    # 67 (2026-11-12 kit senkronu): motorun 65'i + adt_dump_detail + 3 axet_*, eksi KAPALI
+    # (adt_edit_source, adt_edit_method — kayıttan çıkarılıyor, HTTP'de de yok).
+    assert len(tools) == 67, len(tools)
+    assert not (set(gs.KAPALI) & tools), set(gs.KAPALI) & tools
     assert "adt_dump_detail" in tools and engine.adt_dump_detail.__module__ == "ntt_dump_detail"
     for name in gs.TRANSPORT_ONAYLI | gs.HER_SEFER | set(gs.KARMA):
         assert getattr(getattr(engine, name), "_axet_gated", False), f"{name} sarmalanmadı"
@@ -637,6 +640,7 @@ def t_build():
     specs = engine._http_tool_specs()
     assert getattr(specs["adt_push"]["fn"], "_axet_gated", False), "HTTP sarmalayıcıyı görmüyor"
     assert "axet_teslim" in specs and specs["axet_teslim"]["schema"]["properties"]["nesneler"]
+    assert not (set(gs.KAPALI) & set(specs)), "kapalı araç HTTP'de görünüyor"
 
 
 def t_pid_chain():

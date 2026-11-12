@@ -10,10 +10,14 @@ each section before you write a summary sentence.
 
 ```
 adt_syntax_check(name="ZCL_SD_DELIVERY_ADDR", object_type="class")
-→ {ok, valid, errors, warnings}
+→ {ok, valid, errors, warnings, version_checked}
 ```
 
-Checks the object **as it exists on the system**, including its inactive version. To check
+A read-only ADT check run since 2026-10-27 (it used to post to the activation endpoint, which
+activated a pending clean version — measured on NS4). It checks the **pending** version when
+there is one and the active one otherwise; `version_checked` says which, and the review names it.
+`ok:false` with `syntax_not_measured` (for example an include with no main program) is
+`not-run`, never a pass. Checks the object **as it exists on the system**. To check
 source you have not pushed yet, you have to push it first — which is a write, which needs
 an approval and a transport. So on a review of un-pushed source, this gate is `not-run`,
 and you say so.
@@ -215,8 +219,10 @@ difference between "six checks found nothing" and "this code is fine".
 | Config the code depends on | Lives in customizing tables, not in the class | the functional consultant; `E071K` on the CR |
 | Whether it does what the business asked | No tool has the requirement | the functional spec and UAT |
 | Behaviour after import into QA/PRD | Import history is not in ADT | STMS import history |
-| Text elements and selection texts | The engine reads and writes `source/main` only; the text pool sits behind an endpoint it has no tool for, so reading the source back cannot show a missing text | SE38 → Goto → Text elements, in the system |
 
-The last row matters more than it looks. A gate result is true **for the system you ran it
+Text elements and selection texts are no longer a blind spot (2026-11-12): `adt_text_elements`
+reads the text pool, so a `TEXT-001` the source uses and the pool lacks can be reported.
+
+The QA/PRD row matters more than it looks. A gate result is true **for the system you ran it
 on**. A green board from DEV says nothing about PRD until the transport has actually landed
 there, and ADT cannot tell you whether it has.

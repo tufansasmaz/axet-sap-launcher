@@ -1,0 +1,149 @@
+/* fiori-mockup -- a Fiori-style (Horizon-like) dress, one definition for every mock-up.
+   Inlined into the finished .html by scripts/mockup.py (the file must travel alone: by e-mail,
+   into SharePoint, no CDN, no UI5). It approximates SAP Horizon for AGREEMENT; it is not the
+   rendered app. A page never restyles these classes; it only writes content with them.
+
+   Desktop and phone are two views of the SAME markup: body.phone narrows the app to a phone and
+   applies the responsive rules below (columns marked .low are hidden, filter fields and form
+   groups stack). A real media query is not used on purpose: the mock-up must show both in one
+   window and in the screenshots. */
+:root{
+  --bg:#f5f6f7; --surface:#fff; --text:#1d2d3e; --muted:#556b82; --line:#d9d9d9; --line-soft:#e5e5e5;
+  --brand:#0070f2; --brand-d:#0058c4; --brand-l:#e5f0fa; --hover:#eaecee; --sel:#e5f0fa;
+  --ok:#188918; --ok-l:#f5fae5; --warn:#e9730c; --warn-l:#fff8d6; --err:#d20a0a; --err-l:#ffeaf4;
+  --info:#0070f2; --info-l:#e1f0ff; --shell:#fff; --radius:.5rem; --ann:#c2185b;
+  --font:"72","72full",Segoe UI,Arial,Helvetica,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font:14px/1.4 var(--font);color:var(--text)}
+button,input,select,textarea{font:inherit;color:inherit}
+
+/* ---- the frame around the mock-up (not part of the app) ---- */
+.note-top{max-width:1280px;margin:10px auto 0;padding:6px 10px;background:#fffbe6;border:1px solid #e0cf7a;font-size:12px}
+.mockbar{max-width:1280px;margin:8px auto 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px}
+.mockbar .seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:#fff}
+.mockbar .seg button{border:0;background:#fff;padding:4px 12px;cursor:pointer}
+.mockbar .seg button.on{background:var(--brand);color:#fff}
+.mockbar label{display:inline-flex;gap:4px;align-items:center;cursor:pointer}
+.stepnav{max-width:1280px;margin:8px auto 0;font-size:12px;color:var(--muted)}
+.stepnav span{display:inline-block;padding:2px 10px;border:1px solid var(--line);border-radius:999px;background:#fff;margin:0 4px 4px 0;cursor:pointer}
+.stepnav span.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+
+/* ---- an app screen ---- */
+.app{max-width:1280px;margin:10px auto 24px;background:var(--bg);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;position:relative}
+body.phone .app{max-width:390px}
+.shell{display:flex;align-items:center;gap:10px;background:var(--shell);border-bottom:1px solid var(--line);padding:0 16px;height:44px}
+.shell .back{border:0;background:none;cursor:pointer;font-size:18px;padding:0 4px;color:var(--brand)}
+.shell .app-title{font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shell .avatar{width:28px;height:28px;border-radius:50%;background:var(--brand-l);color:var(--brand);display:grid;place-items:center;font-size:11px;font-weight:600}
+.page{padding:16px}
+body.phone .page{padding:10px}
+.msg{margin:0 0 12px;padding:8px 12px;border-radius:var(--radius);border:1px solid transparent;font-size:13px;display:none}
+.msg.s,.msg.w,.msg.e,.msg.i{display:block}
+.msg.s{background:var(--ok-l);border-color:var(--ok);color:#0b4f0b}
+.msg.w{background:var(--warn-l);border-color:var(--warn);color:#6b3a00}
+.msg.e{background:var(--err-l);border-color:var(--err);color:#7a0000}
+.msg.i{background:var(--info-l);border-color:var(--info);color:#003f8a}
+
+/* ---- buttons ---- */
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--brand);border-radius:var(--radius);padding:5px 14px;height:32px;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--hover)}
+.btn.emph{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.btn.emph:hover{background:var(--brand-d)}
+.btn.neg{color:var(--err)}
+.btn.link{border:0;background:none;padding:0 4px;height:auto}
+.btn[disabled]{opacity:.45;cursor:default}
+
+/* ---- List Report: page title, filter bar, table ---- */
+.lr-title{display:flex;align-items:center;gap:10px;margin:0 0 12px}
+.lr-title h1{font-size:1.5rem;margin:0;font-weight:600;flex:1}
+.variant{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.variant b{color:var(--text)}
+.filterbar{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);padding:12px 16px;margin:0 0 12px}
+.fb-fields{display:flex;flex-wrap:wrap;gap:12px 16px}
+.fb-field{display:flex;flex-direction:column;gap:3px;min-width:200px;flex:1 1 200px;max-width:280px}
+body.phone .fb-field{max-width:none;flex-basis:100%}
+.fb-field label,.fg label{font-size:12px;color:var(--muted)}
+.fb-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;flex-wrap:wrap}
+input[type=text],input[type=number],input[type=date],select,textarea{border:1px solid var(--line);border-radius:.25rem;padding:5px 8px;background:#fff;height:32px;width:100%}
+textarea{height:64px}
+input.req,select.req{border-left:3px solid var(--err)}
+input[readonly],input:disabled,select:disabled{background:#f2f2f2;color:var(--muted);border-color:var(--line-soft)}
+.vh{display:flex;gap:0}
+.vh input{border-top-right-radius:0;border-bottom-right-radius:0}
+.vh button{border:1px solid var(--line);border-left:0;background:#fff;border-radius:0 .25rem .25rem 0;width:34px;cursor:pointer;color:var(--brand)}
+.tablecard{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);overflow:hidden}
+.tc-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line-soft);flex-wrap:wrap}
+.tc-bar h2{font-size:1rem;margin:0;font-weight:600;flex:1;min-width:80px}
+.scroll{overflow-x:auto}
+table.ui-table{width:100%;border-collapse:collapse;font-size:13.5px}
+.ui-table th{text-align:left;font-weight:600;color:var(--muted);padding:8px 12px;border-bottom:1px solid var(--line);background:#fafafa;white-space:nowrap}
+.ui-table td{padding:8px 12px;border-bottom:1px solid var(--line-soft);vertical-align:middle}
+.ui-table tr.row{cursor:pointer}
+.ui-table tr.row:hover{background:var(--hover)}
+.ui-table tr.sel{background:var(--sel)}
+.ui-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.ui-table .nav{width:28px;color:var(--muted);text-align:center}
+.ui-table .chk{width:34px}
+.ui-table input.cell{height:28px}
+body.phone .low{display:none}
+
+/* ObjectStatus / ObjectNumber */
+.os{font-weight:600}
+.os-ok{color:var(--ok)} .os-warn{color:var(--warn)} .os-err{color:var(--err)} .os-info{color:var(--info)} .os-none{color:var(--muted)}
+.os::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:currentColor;margin-right:6px}
+.unit{color:var(--muted);font-size:12px;margin-left:3px}
+
+/* ---- Object Page: header, anchor bar, sections, footer ---- */
+.op-header{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);padding:16px;margin:0 0 12px;display:flex;gap:16px;flex-wrap:wrap}
+.op-head-main{flex:1 1 280px}
+.op-head-main h1{font-size:1.5rem;margin:0 0 2px;font-weight:600}
+.op-head-main .sub{color:var(--muted);margin:0 0 8px}
+.op-actions{display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap}
+.kfs{display:flex;gap:24px;flex-wrap:wrap;flex:2 1 320px;align-content:flex-start;align-self:flex-start}
+body.phone .kfs{gap:12px}
+.kf{min-width:110px}
+.kf small{display:block;color:var(--muted);font-size:12px}
+.kf b{font-size:1.1rem;font-weight:600}
+.anchor{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 12px;overflow-x:auto}
+.anchor button{border:0;background:none;padding:8px 14px;cursor:pointer;color:var(--muted);border-bottom:3px solid transparent;white-space:nowrap}
+.anchor button.on{color:var(--brand);border-bottom-color:var(--brand);font-weight:600}
+.op-section{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);margin:0 0 12px;overflow:hidden}
+.op-section.hidden{display:none}
+.op-sh{display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid var(--line-soft)}
+.op-sh h2{font-size:1.05rem;margin:0;font-weight:600;flex:1}
+.op-sb{padding:14px 16px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px 24px}
+body.phone .form{grid-template-columns:1fr}
+.fg{display:flex;flex-direction:column;gap:3px}
+.fg h3{font-size:.95rem;margin:0 0 6px;font-weight:600}
+.fg .val{min-height:32px;display:flex;align-items:center}
+.footer{position:sticky;bottom:0;display:flex;gap:8px;justify-content:flex-end;align-items:center;background:var(--surface);border-top:1px solid var(--line);padding:8px 16px}
+.footer .grow{flex:1;color:var(--muted);font-size:12px}
+.app:not(.editing) .edit-only{display:none}
+.app.editing .display-only{display:none}
+
+/* ---- dialogs, veil, toast ---- */
+.veil{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50}
+.dlg{display:none;position:fixed;z-index:60;top:8vh;left:50%;transform:translateX(-50%);width:min(720px,94vw);max-height:84vh;overflow:auto;background:var(--surface);border-radius:var(--radius);box-shadow:0 8px 32px rgba(0,0,0,.35)}
+.dlg.sm{width:min(440px,94vw)}
+body.phone .dlg{width:96vw;top:4vh}
+.dlg-h{padding:14px 16px;font-size:1.05rem;font-weight:600;border-bottom:1px solid var(--line-soft)}
+.dlg-b{padding:14px 16px}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:10px 16px;border-top:1px solid var(--line-soft);background:#fafafa}
+.dlg.err .dlg-h{color:var(--err)} .dlg.warn .dlg-h{color:var(--warn)}
+.toast{position:fixed;left:50%;bottom:36px;transform:translateX(-50%);background:#354a5f;color:#fff;padding:8px 18px;border-radius:var(--radius);font-size:13px;display:none;z-index:70;max-width:90vw}
+
+/* ---- the annotation overlay: what each part is driven by (a developer hand-over) ---- */
+body.ann-on [data-ann]{outline:1.5px dashed var(--ann);outline-offset:1px;position:relative}
+body.ann-on [data-ann]::after{content:attr(data-ann);position:absolute;top:-9px;left:6px;background:var(--ann);color:#fff;font:600 10px/14px Consolas,monospace;padding:0 5px;border-radius:3px;white-space:nowrap;z-index:5;pointer-events:none}
+body.ann-on .ui-table th[data-ann]::after{top:-1px}
+body.ann-on .anchor{overflow:visible;padding-top:10px}
+body.ann-on .fg{padding-top:10px}
+body.ann-on .op-actions{padding-top:10px}
+
+/* ---- screenshots: no sticky/fixed surprises, no frame ---- */
+body.shot .note-top,body.shot .mockbar,body.shot .stepnav{display:none}
+body.shot .footer{position:static}
+.hidden{display:none !important}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}

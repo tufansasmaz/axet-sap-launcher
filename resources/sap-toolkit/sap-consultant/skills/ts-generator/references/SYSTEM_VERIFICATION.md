@@ -110,6 +110,9 @@ across five document parts, the transport, and everything already referencing it
 
 `✗` and `⚠` are not decoration. Neither should reach a developer.
 
+Before writing `✗ bulunamadı`, make sure the same query returns an object known to exist
+(`MARA`, or one already `✓` in this TS). A query that finds nothing at all proves nothing.
+
 ## What this does not do
 
 - No business logic — only that the named technical objects exist and fit.

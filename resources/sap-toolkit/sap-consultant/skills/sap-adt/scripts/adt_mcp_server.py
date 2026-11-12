@@ -276,6 +276,7 @@ def _tool_reporting_failures(*d_args, **d_kwargs):
             finally:
                 if _SESSION_TRACE:
                     _trace(f"<- {fn.__name__}: {_session_fingerprint()}")
+                _session_bookkeeping()
             if _is_failure(result):
                 result = _salvage_error(result)
                 raise ToolFailure(json.dumps(result, ensure_ascii=False, default=str))
@@ -334,7 +335,91 @@ def _get_client(bypass_auth_latch: bool = False):
             set_explicit_working_dir(cwd)
         from sap_client import SAPClient
         _client = SAPClient()
+        _close_leftover_sessions()
     return _client
+
+
+# --- leftover SAP sessions ----------------------------------------------------
+# A killed server leaves its stateful ADT context open on SAP, and every lock in it,
+# until SAP's timeout: the next session is told the user is "currently editing" their
+# own object. So each process writes down the context it holds (after every tool call,
+# only when it changed), and the first client of a later process closes the contexts
+# of dead processes of the same user and system. See adt_sessions.py for what was
+# measured and what the record holds.
+_SESSION_STATE = {"key": None, "leftovers": None}
+
+
+def _project_dir():
+    try:
+        import sap_adt_lib
+        d = getattr(sap_adt_lib, "_explicit_working_dir", None)
+        if d:
+            return Path(d)
+        cp = getattr(sap_adt_lib, "conn_path", None)
+        return Path(cp).parent if cp else None
+    except Exception:
+        return None
+
+
+def _session_bookkeeping() -> None:
+    """Record (or forget) the stateful context this process holds. Never raises."""
+    try:
+        if _client is None:
+            return
+        import adt_sessions
+        a = _client.adt_client
+        cookies = adt_sessions.session_cookies(a.session.cookies)
+        key = tuple((c["name"], c["value"]) for c in cookies)
+        if key == _SESSION_STATE["key"]:
+            return
+        proj = _project_dir()
+        if proj is None:
+            return
+        if cookies:
+            adt_sessions.write_record(proj, os.getpid(), a.url, a.user, a.client, cookies)
+        else:
+            adt_sessions.remove_record(proj, os.getpid())
+        _SESSION_STATE["key"] = key
+    except Exception:  # noqa: BLE001 - bookkeeping must never fail a tool call
+        pass
+
+
+def _close_leftover_sessions() -> dict:
+    """Close the contexts dead processes of this user left on this system."""
+    try:
+        import adt_sessions
+        a = _client.adt_client
+        proj = _project_dir()
+        if proj is None:
+            return {}
+        report = adt_sessions.close_leftovers(proj, os.getpid(), a.url, a.user, a.client,
+                                              verify=a.session.verify)
+    except Exception as exc:  # noqa: BLE001
+        report = {"error": str(exc)[:200]}
+    _SESSION_STATE["leftovers"] = report
+    return report
+
+
+def _close_own_session() -> None:
+    """On a clean exit: end this process's context (releasing its locks), drop the record."""
+    try:
+        if _client is None or _SESSION_STATE["key"] is None:
+            return
+        import adt_sessions
+        a = _client.adt_client
+        cookies = adt_sessions.session_cookies(a.session.cookies)
+        if cookies:
+            adt_sessions.close_context({"url": a.url, "client": a.client, "cookies": cookies},
+                                       verify=a.session.verify, timeout=10)
+        proj = _project_dir()
+        if proj is not None:
+            adt_sessions.remove_record(proj, os.getpid())
+    except Exception:  # noqa: BLE001
+        pass
+
+
+import atexit as _atexit  # noqa: E402
+_atexit.register(_close_own_session)
 
 
 @contextlib.contextmanager
@@ -546,7 +631,7 @@ def _err(exc: Exception) -> dict:
 # Raw GitHub URL of the published plugin manifest (source of truth for "latest").
 _GITHUB_PLUGIN_JSON = (
     "https://raw.githubusercontent.com/global-innovation-lab/"
-    "ntt-claude-marketplace/main/plugins/sap-consultant/.claude-plugin/plugin.json"
+    "ntt-sap-agent-kit/main/plugins/sap-consultant/.claude-plugin/plugin.json"
 )
 
 
@@ -594,9 +679,10 @@ def _github_latest_version(timeout=3):
         import subprocess as _sp
         out = _sp.run(
             ["gh", "api", "-H", "Accept: application/vnd.github.raw",
-             "repos/global-innovation-lab/ntt-claude-marketplace/contents/"
+             "repos/global-innovation-lab/ntt-sap-agent-kit/contents/"
              "plugins/sap-consultant/.claude-plugin/plugin.json"],
-            capture_output=True, text=True, timeout=timeout
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=timeout
         )
         if out.returncode == 0 and out.stdout.strip().startswith("{"):
             return _json.loads(out.stdout).get("version")
@@ -685,9 +771,10 @@ _FEATURE_CREATORS = {
     "access_control": "adt_create_access_control",
     "metadata_extension": "adt_create_metadata_extension",
     "behavior_definition": "adt_create_behavior_definition",
-    "behavior_implementation": None,   # a behaviour pool lives in local includes;
-                                       # this engine writes source/main only
-    "service_definition": None,        # THE GAP run 3 found — nothing creates an SRVD
+    # A behaviour pool's handler lives in the `implementations` include of an
+    # ordinary class: adt_create/adt_push for the shell, then this for the handler.
+    "behavior_implementation": "adt_write_class_include",
+    "service_definition": "adt_create_service_definition",
     "service_binding": "adt_create_service_binding",
     "type_group": "adt_create_type_group",
     "lock_object": "adt_create_lock_object",
@@ -831,7 +918,27 @@ def adt_logon() -> dict:
         # _AUTH_LATCH) so normal tool calls resume.
         _AUTH_LATCH["failed"] = False
         _AUTH_LATCH["detail"] = ""
-        return {"ok": True, "url": a.url, "client": a.client, "user": a.user, **_plugin_info()}
+        out = {"ok": True, "url": a.url, "client": a.client, "user": a.user, **_plugin_info()}
+        left = _SESSION_STATE.get("leftovers") or {}
+        if left.get("closed") or left.get("failed"):
+            out["leftover_sessions"] = left
+        # Say which tier writes are judged against, and whether the connection file
+        # DECLARED it. An undeclared tier is treated as DEV (writable) so older
+        # .conn_adt files keep working -- which means a QA/PRD connection without the
+        # line is fully writable. Agents used to guess here (refuse, or hunt for files);
+        # now the answer is in the result.
+        try:
+            import guardrails
+            raw = guardrails._conn_value("ADT_SAP_TIER")
+            out["tier"] = guardrails.get_active_tier()
+            out["tier_declared"] = bool(raw)
+            if not raw:
+                out["tier_warning"] = (
+                    "ADT_SAP_TIER is not set in .conn_adt: treated as DEV (writable). "
+                    "If this system is QA or PRD, add ADT_SAP_TIER=QA|PRD before any write.")
+        except Exception:  # noqa: BLE001 - diagnostics must never fail a logon
+            pass
+        return out
     except Exception as exc:
         return _err(exc)
 
@@ -1070,13 +1177,514 @@ def adt_list_package(package: str = "ZAI") -> dict:
 
 
 @mcp.tool()
-def adt_where_used(name: str, object_type: str = "class") -> dict:
-    """Find usages of an object. Returns {ok, usages}."""
+def adt_where_used(name: str, object_type: str = "class", positions: bool = False,
+                   max_objects: int = 20) -> dict:
+    """Find the objects that use an object. Returns {ok, count, usages}.
+
+    Each usage: name, type, uri, package, usage (SAP's grade, e.g. gradeDirect).
+    positions=True also asks SAP where in each user it is used: every usage then
+    carries `positions` [{uri, line, column, code}] for the first `max_objects`
+    users (SAP answers ten per request); `positions_skipped` counts the rest.
+    Lines are 1-based; for a class the uri names the include the line is in.
+    A where-used list counts what SAP indexed, not runtime calls: dynamic calls
+    (CALL METHOD (name), dynamic SELECT) are not in it.
+    The usageSnippets request is ported from ARC-1 1.10.1 `adt/where-used-native.js`
+    (MIT, Copyright (c) 2025-2026 Alice Vinogradova and contributors).
+    """
     try:
         client = _get_client()
         with _quiet():
-            usages = client.where_used(object_name=name, object_type=object_type)
-        return {"ok": True, "usages": usages or []}
+            usages = client.where_used(object_name=name, object_type=object_type) or []
+            out = {"ok": True, "count": len(usages), "usages": usages}
+            if positions:
+                cap = max(1, min(int(max_objects or 20), 100))
+                ids = [u["object_identifier"] for u in usages if u.get("object_identifier")]
+                found = client.adt_client.usage_snippets(ids[:cap])
+                for u in usages:
+                    ident = u.get("object_identifier")
+                    if ident in found:
+                        u["positions"] = found[ident]
+                out["positions_skipped"] = max(0, len(ids) - cap)
+        return out
+    except Exception as exc:
+        return _err(exc)
+
+
+@mcp.tool()
+def adt_leftover_sessions(close: bool = True) -> dict:
+    """SAP sessions a killed engine process left open in this project, with their locks.
+
+    A closed terminal or a restarted launcher leaves the old process's stateful ADT
+    session open on SAP until its timeout, and every lock in it: "User X is currently
+    editing ..." about your own object, which adt_clear_lock cannot clear. The engine
+    already closes these when it starts; call this when that message appears anyway.
+    close=True (default) ends each one, which releases its locks; close=False only lists.
+    Only sessions of THIS user on THIS system whose process is gone are touched.
+    """
+    try:
+        import adt_sessions
+        client = _get_client()
+        a = client.adt_client
+        proj = _project_dir()
+        if proj is None:
+            return {"ok": False, "error": "no_project_dir",
+                    "message": "No project folder (.conn_adt) found, so no session records."}
+        if close:
+            report = adt_sessions.close_leftovers(proj, os.getpid(), a.url, a.user, a.client,
+                                                  verify=a.session.verify)
+            return {"ok": not report.get("failed") and "error" not in report, **report}
+        to_close, stale = adt_sessions.leftovers(proj, os.getpid(), a.url, a.user, a.client)
+        return {"ok": True, "leftover": [{"pid": r.get("pid"), "written": r.get("written")}
+                                         for r in to_close], "stale_records": len(stale)}
+    except Exception as exc:
+        return _err(exc)
+
+
+def _text_parts(object_type: str) -> list:
+    import sap_adt_lib as L
+    return ["symbols"] if object_type.lower() in ("class", "clas") else list(L.TEXT_ELEMENT_CT)
+
+
+@mcp.tool()
+def adt_text_elements(name: str, object_type: str = "program", part: str = "") -> dict:
+    """Read the text elements of a program, function group or class. READ-ONLY.
+
+    Parts: symbols (the TEXT-001 / 'Text'(001) literals), selections (labels of
+    PARAMETERS / SELECT-OPTIONS), headings (list and column headings). A class has
+    symbols only. Texts are in the logon language. Returns {ok, parts:{part:
+    [{key, text, max_length}]}}; change them with adt_write_text_elements.
+    """
+    try:
+        import sap_adt_lib as L
+        a = _get_client().adt_client
+        parts = _text_parts(object_type)
+        if part and part not in parts:
+            return {"ok": False, "error": "bad_part", "message": f"part is one of {parts}"}
+        out = {}
+        with _quiet():
+            for p in ([part] if part else parts):
+                out[p] = L.parse_text_elements(a.read_text_elements(object_type, name, p))
+        return {"ok": True, "name": name.upper(), "parts": out}
+    except Exception as exc:
+        return _err(exc)
+
+
+@mcp.tool()
+def adt_write_text_elements(name: str, part: str, entries: list, object_type: str = "program",
+                            merge: bool = True, transport: str = "") -> dict:
+    """Change one part of a program's, function group's or class's text elements.
+
+    entries=[{key, text, max_length?}], e.g. symbols [{"key": "001", "text": "Total"}],
+    selections [{"key": "P_BUKRS", "text": "Company code"}]. merge=True (default)
+    changes or adds only the keys given and keeps the rest; merge=False replaces the
+    part with exactly `entries`. The text pool is locked, saved, unlocked and
+    activated; the answer lists the keys added, changed and removed. Texts are saved
+    in the logon language. Z/Y objects only, on a writable system; transport= is the
+    object's request (taken from its lock when omitted; $TMP needs none).
+    """
+    try:
+        import sap_adt_lib as L
+        a = _get_client().adt_client
+        parts = _text_parts(object_type)
+        from guardrails import require_writable, require_customer_namespace, GuardrailViolation
+        try:
+            require_writable(what="write text elements")
+            require_customer_namespace(name, what=object_type)
+        except GuardrailViolation as gv:
+            return {"ok": False, "error": "guardrail_violation", "message": str(gv)}
+        if not part or part not in parts:
+            return {"ok": False, "error": "bad_part", "message": f"write needs part= one of {parts}"}
+        new = [{"key": str(e["key"]).strip(), "text": str(e.get("text", "")),
+                **({"max_length": int(e["max_length"])} if e.get("max_length") else {})}
+               for e in (entries or []) if str(e.get("key", "")).strip()]
+        with _quiet():
+            current = L.parse_text_elements(a.read_text_elements(object_type, name, part))
+            if merge:
+                by_key = {e["key"]: dict(e) for e in current}
+                for e in new:
+                    old = by_key.get(e["key"], {})
+                    if "max_length" not in e and old.get("max_length"):
+                        e["max_length"] = max(old["max_length"], len(e["text"]))
+                    by_key[e["key"]] = e
+                final = list(by_key.values())
+            else:
+                final = new
+            too_long = [e["key"] for e in final
+                        if e.get("max_length") and len(e["text"]) > e["max_length"]]
+            if too_long:
+                return {"ok": False, "error": "text_too_long",
+                        "message": f"text longer than its max_length: {too_long}; pass a larger max_length"}
+            res = a.write_text_elements(object_type, name, part,
+                                        L.render_text_elements(part, final), transport or None)
+        before = {e["key"]: e["text"] for e in current}
+        after = {e["key"]: e["text"] for e in L.parse_text_elements(res["after"])}
+        act = res.get("activation")
+        activated = bool(act.get("success", True)) if isinstance(act, dict) else bool(act)
+        return {"ok": activated, "name": name.upper(), "part": part,
+                "transport": res.get("transport"), "activated": activated,
+                "added": sorted(k for k in after if k not in before),
+                "changed": sorted(k for k in after if k in before and after[k] != before[k]),
+                "removed": sorted(k for k in before if k not in after)}
+    except Exception as exc:
+        return _err(exc)
+
+
+# E071 object -> (kit object_type, how the object's name is read from OBJ_NAME).
+# LIMU rows name a part of a bigger object; the part is reviewed as the whole object.
+_TR_SOURCE_TYPES = {
+    ("R3TR", "CLAS"): "class", ("R3TR", "INTF"): "interface", ("R3TR", "PROG"): "program",
+    ("R3TR", "DDLS"): "cds", ("R3TR", "BDEF"): "bdef", ("R3TR", "DCLS"): "dcls",
+    ("LIMU", "METH"): "class", ("LIMU", "CPUB"): "class", ("LIMU", "CPRI"): "class",
+    ("LIMU", "CPRO"): "class", ("LIMU", "CINC"): "class", ("LIMU", "CLSD"): "class",
+    ("LIMU", "REPS"): "program", ("LIMU", "INTD"): "interface",
+}
+
+
+@mcp.tool()
+def adt_transport_diff(transport: str, max_objects: int = 20, context_lines: int = 2,
+                       max_chars: int = 30000, ignore_layout: bool = True) -> dict:
+    """What a transport request changes in source, object by object. READ-ONLY.
+
+    Reads the request's and its tasks' object list (E071), keeps the objects that have
+    source (classes, interfaces, programs, CDS, BDEF, DCL; method and include entries
+    count as their class/program) and diffs each:
+      - released request: the version SAP stored for THIS request vs the one before it;
+      - open request: the active source vs the newest stored version -- the request's
+        change, unless something outside it changed the object too (`basis` says which);
+      - no stored version: a new object, reported by size.
+    Other entries (tables, data elements, customizing keys ...) are listed under
+    `not_diffed`. Long diffs are cut at max_chars in total and say so. Needs the SQL
+    read the kit uses for E070/E071. Idea from ARC-1 (transport diff, MIT).
+    """
+    try:
+        import re as _re
+        from object_types import get_object_url
+        from source_slice import source_diff
+        tr = (transport or "").strip().upper()
+        if not _re.fullmatch(r"[A-Z0-9]{3}K\d{6}", tr):
+            return {"ok": False, "error": "bad_arguments", "message": "transport like NS4K900366"}
+        client = _get_client()
+        a = client.adt_client
+        with _quiet():
+            head = client.run_sql_query(
+                f"SELECT trkorr, trstatus, strkorr FROM e070 WHERE trkorr = '{tr}' OR strkorr = '{tr}'", 200)
+            rows = (head or {}).get("data") or []
+            if not rows:
+                return {"ok": False, "error": "not_found", "message": f"{tr} is not in E070"}
+            status = next((r[1] for r in rows if r[0] == tr), "")
+            released = status in ("R", "N")
+            keys = sorted({r[0] for r in rows})
+            in_list = ", ".join(f"'{k}'" for k in keys)
+            e071 = client.run_sql_query(
+                f"SELECT pgmid, object, obj_name FROM e071 WHERE trkorr IN ({in_list})", 2000)
+        objects, not_diffed = {}, []
+        for pgmid, obj, name in (e071 or {}).get("data") or []:
+            kind = _TR_SOURCE_TYPES.get((pgmid, obj))
+            if not kind:
+                not_diffed.append(f"{pgmid} {obj} {name}")
+                continue
+            base = name[:30].rstrip("=").strip() if pgmid == "LIMU" and obj != "REPS" else name.strip()
+            objects.setdefault((base.upper(), kind), None)
+        out, budget, skipped = [], int(max_chars), []
+        for n, (oname, kind) in enumerate(sorted(objects)):
+            if n >= int(max_objects):
+                skipped.append(oname)
+                continue
+            entry = {"name": oname, "type": kind}
+            try:
+                with _quiet():
+                    url = get_object_url(oname, kind)
+                    revs = a.get_object_revisions(url)
+                    feed = a.revision_feed_url(url)
+                    mine = [i for i, r in enumerate(revs) if r.get("transport") == tr]
+                    if released and mine:
+                        i = mine[0]
+                        new = a.get_revision_source(revs[i]["uri"])
+                        old = a.get_revision_source(revs[i + 1]["uri"]) if i + 1 < len(revs) else ""
+                        entry["basis"] = ("this request's version vs the one before it"
+                                          if i + 1 < len(revs) else "first version: new object")
+                    else:
+                        new = a.get_active_include_source(feed)
+                        old = a.get_revision_source(revs[0]["uri"]) if revs else ""
+                        entry["basis"] = ("active vs the newest stored version" if revs
+                                          else "no stored version: new object")
+                diff, entry["added"], entry["removed"] = source_diff(
+                    old, new, max(0, int(context_lines)), ignore_layout)
+                entry["changed"] = bool(diff)
+                text = "\n".join(diff)
+                if budget > 0:
+                    entry["diff"] = text[:budget]
+                    entry["truncated"] = len(text) > budget
+                    budget -= len(entry["diff"])
+                else:
+                    entry["truncated"] = bool(text)
+            except Exception as exc:  # one unreadable object must not hide the others
+                entry["error"] = str(exc)[:200]
+            out.append(entry)
+        return {"ok": True, "transport": tr, "status": status, "released": released,
+                "tasks": [k for k in keys if k != tr], "objects": out,
+                "objects_not_read": skipped, "not_diffed": not_diffed[:200]}
+    except Exception as exc:
+        return _err(exc)
+
+
+def _sql_rows(client, query: str, max_rows: int) -> list[dict]:
+    res = client.run_sql_query(query, max_rows) or {}
+    cols = [c.upper() for c in res.get("columns") or []]
+    return [{k: (v.strip() if isinstance(v, str) else v) for k, v in zip(cols, row)}
+            for row in res.get("data") or []]
+
+
+def _q(v: str) -> str:
+    return str(v or "").replace("'", "''")
+
+
+_SPOOL_COLS = ("rqident, rqclient, rqowner, rqcretime, rqtitle, rq0name, rq1name, rq2name, "
+               "rqdoctype, rqdest, rqpjreq, rqo1name")
+
+
+def _spool_entry(r: dict) -> dict:
+    t = r.get("RQCRETIME") or ""
+    return {"number": int(r.get("RQIDENT") or 0), "client": r.get("RQCLIENT"),
+            "owner": r.get("RQOWNER"), "title": r.get("RQTITLE"),
+            "created": f"{t[0:4]}-{t[4:6]}-{t[6:8]} {t[8:10]}:{t[10:12]}:{t[12:14]}" if len(t) >= 14 else t,
+            "kind": r.get("RQDOCTYPE"), "device": r.get("RQDEST"),
+            "pages": int(r.get("RQPJREQ") or 0) if str(r.get("RQPJREQ") or "").isdigit() else None,
+            "name_parts": [r.get("RQ0NAME"), r.get("RQ1NAME"), r.get("RQ2NAME")],
+            "temse": r.get("RQO1NAME")}
+
+
+@mcp.tool()
+def adt_spool_list(owner: str = "", title: str = "", program: str = "", job: str = "",
+                   days: int = 7, max_rows: int = 50) -> dict:
+    """Spool requests (SP01), newest first -- metadata only, no content. READ-ONLY.
+
+    Filters: owner (user), title (* wildcards), program (the writer, as SP01 shows
+    it in the third name part, first 12 characters), job (only spools of that
+    background job's steps), days back. Each entry: number, client, owner, title,
+    created, kind (LIST, OTF, PDF ...), pages, and the job step that wrote it. Read the
+    content with adt_spool_read(number). Ported from vibing-steampunk v2.61.0
+    pkg/adt/spool.go (MIT, Copyright (c) 2025-2026 Alice Vinogradova and contributors).
+    """
+    try:
+        import datetime as _dt
+        client = _get_client()
+        terms = []
+        if owner:
+            terms.append(f"rqowner = '{_q(owner.upper())}'")
+        if title:
+            terms.append(f"rqtitle LIKE '{_q(title.replace('*', '%'))}'")
+        if program:
+            terms.append(f"rq2name = '{_q(program.upper()[:12])}'")
+        if days and int(days) > 0:
+            since = (_dt.datetime.now() - _dt.timedelta(days=int(days))).strftime("%Y%m%d%H%M%S")
+            terms.append(f"rqcretime >= '{since}'")
+        with _quiet():
+            by_job = {}
+            if job:
+                for r in _sql_rows(client, "SELECT jobname, jobcount, stepcount, progname, variant, "
+                                   f"authcknam, listident FROM tbtcp WHERE jobname = '{_q(job.upper())}' "
+                                   "AND listident <> '0000000000'", 2000):
+                    by_job[int(r["LISTIDENT"] or 0)] = r
+                if not by_job:
+                    return {"ok": True, "count": 0, "spools": [],
+                            "message": f"No step of job {job.upper()} wrote a spool."}
+                terms.append("rqident IN (" + ", ".join(str(n) for n in sorted(by_job)[:500]) + ")")
+            q = f"SELECT {_SPOOL_COLS} FROM tsp01"
+            if terms:
+                q += " WHERE " + " AND ".join(terms)
+            q += " ORDER BY rqcretime DESCENDING"
+            rows = _sql_rows(client, q, max(1, min(int(max_rows or 50), 500)))
+            spools = [_spool_entry(r) for r in rows]
+            if spools and not job:
+                ids = ", ".join(f"'{s['number']:010d}'" for s in spools)
+                for r in _sql_rows(client, "SELECT jobname, jobcount, stepcount, progname, variant, "
+                                   f"authcknam, listident FROM tbtcp WHERE listident IN ({ids})",
+                                   len(spools) * 2):
+                    by_job[int(r["LISTIDENT"] or 0)] = r
+        for s in spools:
+            j = by_job.get(s["number"])
+            if j:
+                s["job"] = {"name": j["JOBNAME"], "count": j["JOBCOUNT"], "step": j["STEPCOUNT"],
+                            "program": j["PROGNAME"], "variant": j["VARIANT"], "user": j["AUTHCKNAM"]}
+            s.pop("temse", None)
+        return {"ok": True, "count": len(spools), "logon_client": client.adt_client.client,
+                "spools": spools}
+    except Exception as exc:
+        return _err(exc)
+
+
+@mcp.tool()
+def adt_spool_read(number: int, max_lines: int = 500, first_line: int = 1) -> dict:
+    """The content of one spool request, decoded to text lines (SP01 display). READ-ONLY.
+
+    A list spool (WRITE output) comes back as lines with their page; colour commands
+    are removed, box-drawing characters kept. OTF, PDF and other kinds are reported by
+    kind and size, not decoded. max_lines / first_line page through a long list.
+    Refused with the reason, never answered with "empty": a spool of another client
+    (the content tables are client-dependent; log on to that client), a spool kept in
+    a file instead of the database (only XBP over RFC reads it), a single-byte code
+    page. Spool content is business data: quote it minimally. Ported from
+    vibing-steampunk v2.61.0 (MIT, Copyright (c) 2025-2026 Alice Vinogradova and
+    contributors).
+    """
+    try:
+        import temse
+        client = _get_client()
+        n = int(number)
+        with _quiet():
+            req = _sql_rows(client, f"SELECT {_SPOOL_COLS} FROM tsp01 WHERE rqident = {n}", 1)
+            if not req:
+                return {"ok": False, "error": "not_found", "message": f"Spool request {n} does not exist."}
+            entry = _spool_entry(req[0])
+            logon = str(client.adt_client.client or "")
+            if entry["client"] and logon and entry["client"] != logon:
+                return {"ok": False, "error": "other_client", "spool": entry,
+                        "message": f"Spool {n} belongs to client {entry['client']}; this connection "
+                                   f"is logged on to {logon}, and the spool content tables only show "
+                                   f"the logon client. Read it from a client-{entry['client']} connection."}
+            name = _q(entry["temse"])
+            head = _sql_rows(client, "SELECT dname, dtype, drectyp, dcharcod, dstotyp, drows, dsize "
+                             f"FROM tst01 WHERE dname = '{name}'", 5)
+            if not head:
+                return {"ok": False, "error": "no_temse", "spool": entry,
+                        "message": f"Spool {n} has no TemSe object {entry['temse']} (deleted?)."}
+            h = head[0]
+            if h.get("DSTOTYP") and h["DSTOTYP"] != "D":
+                return {"ok": False, "error": "stored_in_file", "spool": entry,
+                        "message": f"Spool {n} is kept in a file on the application server, not in "
+                                   f"the database; only the XBP interface over RFC can read it."}
+            blocks = _sql_rows(client, "SELECT dpart, drowno, ddatalen, dcontent FROM tst03 "
+                               f"WHERE dname = '{name}' ORDER BY dpart, drowno", 20000)
+        if not blocks:
+            return {"ok": False, "error": "no_content", "spool": entry,
+                    "message": f"TST03 holds no content for {entry['temse']}."}
+        data = temse.join_blocks([(b["DPART"], b["DROWNO"], b["DDATALEN"], b["DCONTENT"])
+                                  for b in blocks])
+        entry.pop("temse", None)
+        entry.update({"bytes": len(data), "codepage": h.get("DCHARCOD"), "record_type": h.get("DRECTYP")})
+        if (entry.get("kind") or "").upper() != "LIST" and (h.get("DTYPE") or "").upper() != "TEXT":
+            return {"ok": True, "spool": entry, "decoded": False,
+                    "message": f"A {entry.get('kind')} spool is not a list; its {len(data)} bytes "
+                               f"are not decoded here (open it in SP01)."}
+        decoded = temse.decode_list(data, h.get("DCHARCOD"))
+        lines = [ln for ln in decoded["lines"] if ln.get("control") != temse.PAGE_END]
+        start = max(1, int(first_line)) - 1
+        page = lines[start:start + max(1, int(max_lines))]
+        return {"ok": True, "spool": entry, "decoded": True, "pages": decoded["pages"],
+                "line_count": len(lines), "first_line": start + 1,
+                "lines": [{"page": ln["page"], "text": ln["text"]} for ln in page],
+                "truncated": start + len(page) < len(lines)}
+    except Exception as exc:
+        return _err(exc)
+
+
+@mcp.tool()
+def adt_find_definition(name: str, symbol: str, object_type: str = "class", line: int = 0,
+                        occurrence: int = 1, include: str = "",
+                        function_group: str = "") -> dict:
+    """Where is `symbol`, as used in this object's source, defined? READ-ONLY.
+
+    The same answer as F3 in Eclipse: SAP resolves the name in context (a local
+    variable, a parameter, a method of another class, a DDIC type ...). line= is the
+    1-based line the symbol is used on (default: its first use; occurrence= picks the
+    n-th on that line or in the source). Returns {ok, uri, object, line, column, code}:
+    `object` is the defining object's name, `code` the defining line when it is in
+    this same source. include= for a class's local include.
+    Request shape after ARC-1 1.10.1 adt/codeintel.js (MIT, Copyright (c) 2025-2026
+    Alice Vinogradova and contributors).
+    """
+    try:
+        import re as _re
+        from urllib.parse import unquote
+        from object_types import get_object_url
+        read = adt_get_source(name, object_type, include=include) if include else \
+            adt_get_source(name, object_type, function_group=function_group)
+        source = read.get("source") or ""
+        lines = source.splitlines()
+        pat = _re.compile(r"(?<![\w/~])" + _re.escape(symbol) + r"(?![\w/])", _re.IGNORECASE)
+        hits = [(i + 1, m.start()) for i, ln in enumerate(lines)
+                for m in pat.finditer(ln) if not line or i + 1 == int(line)]
+        if len(hits) < max(1, int(occurrence)):
+            return {"ok": False, "error": "not_found",
+                    "message": f"'{symbol}' does not occur{' on line ' + str(line) if line else ''} "
+                               f"in {name.upper()}{' ' + include if include else ''}."}
+        ln, col = hits[max(1, int(occurrence)) - 1]
+        base = get_object_url(name, object_type, function_group or None)
+        src_url = f"{base}/includes/{include}" if include else f"{base}/source/main"
+        client = _get_client()
+        a = client.adt_client
+        headers = a._get_headers("application/xml")
+        headers["Content-Type"] = "text/plain"
+        with _quiet():
+            r = a._request_with_csrf_retry(
+                "post", f"{a.url}/sap/bc/adt/navigation/target", headers=headers,
+                params={"uri": f"{src_url}#start={ln},{col + 1}", "filter": "definition"},
+                data=source.encode("utf-8"))
+        m = _re.search(r'adtcore:uri="([^"]+)"', r.text or "")
+        if r.status_code != 200 or not m:
+            return {"ok": False, "error": "no_definition", "status": r.status_code,
+                    "message": f"SAP found no definition for '{symbol}' at line {ln}."}
+        uri = unquote(m.group(1).replace("&amp;", "&"))
+        out = {"ok": True, "symbol": symbol, "used_at": {"line": ln, "column": col + 1},
+               "uri": uri}
+        path = uri.split("#")[0]
+        seg = [p for p in path.split("/") if p]
+        stop = next((i for i, p in enumerate(seg) if p in ("source", "includes")), len(seg))
+        out["object"] = seg[stop - 1].upper() if stop else ""
+        pos = _re.search(r"#start=(\d+),(\d+)", uri)
+        if pos:
+            out["line"], out["column"] = int(pos.group(1)), int(pos.group(2))
+            if path.rstrip("/") == src_url.rstrip("/") and 0 < out["line"] <= len(lines):
+                out["code"] = lines[out["line"] - 1].strip()
+        return out
+    except Exception as exc:
+        return _err(exc)
+
+
+@mcp.tool()
+def adt_include_main_programs(name: str) -> dict:
+    """Which program(s) or function group an include belongs to. Returns {ok, main_programs}.
+
+    An include is checked, activated and run inside its main program; use this before
+    a syntax check or an edit of an include whose owner is not obvious from its name
+    (an include can belong to several programs). Read-only.
+    """
+    try:
+        client = _get_client()
+        with _quiet():
+            mains = client.adt_client.include_main_programs(name)
+        return {"ok": True, "include": name.upper(), "main_programs": mains}
+    except Exception as exc:
+        return _err(exc)
+
+
+def _deletion_check(client, name: str, object_type: str, function_group: str = ""):
+    """SAP's own "can this be deleted?" answer, or {'unavailable': reason}."""
+    from object_types import get_object_url
+    try:
+        url = get_object_url(name, object_type, function_group or None)
+        with _quiet():
+            res = client.adt_client.deletion_check(url)
+        return res if res is not None else {"unavailable": "SAP returned no answer for this object"}
+    except Exception as exc:
+        return {"unavailable": str(exc)[:300]}
+
+
+@mcp.tool()
+def adt_deletion_check(name: str, object_type: str = "class", function_group: str = "") -> dict:
+    """Ask SAP whether an object can be deleted, without deleting anything.
+
+    Returns {ok, deletable, strong_references, weak_references, messages, locked_in}.
+    A strong reference (an E message, e.g. "Used by 1 other DDIC object") makes SAP
+    refuse the delete; weak ones are users that would break. locked_in names the
+    request the object is recorded in. Read-only; adt_delete_object asks it first.
+    """
+    try:
+        res = _deletion_check(_get_client(), name, object_type, function_group)
+        if "unavailable" in res:
+            return {"ok": False, "error": "deletion_check_unavailable", "message": res["unavailable"]}
+        return {"ok": True, **res}
     except Exception as exc:
         return _err(exc)
 
@@ -1101,19 +1709,43 @@ def adt_clear_lock(name: str, object_type: str = "class", transport: str = "",
         with _quiet():
             status = a.is_object_locked(url)
             cts = _cts_lock_report(client, url)
-            if status and status.get("locked"):
+            if status is None:
+                # The probe got neither "free" nor "held by X" (a 404, an auth page, a
+                # network error). That is not "no lock".
+                return {"ok": False, "error": "lock_state_unknown", "cts_lock": cts,
+                        "message": f"Could not tell whether {name} is locked: SAP answered the "
+                                   f"lock probe with neither a lock nor a refusal. Check the "
+                                   f"object exists (adt_search), then retry."}
+            if status.get("locked"):
                 owner = (status.get("lock_owner") or "").upper()
                 if owner and owner not in ((a.user or "").upper(), "UNKNOWN"):
                     return _with_hint({"ok": False, "error": "foreign_lock",
                             "message": f"Lock held by {owner}; use SM12 (won't force-release another user).",
                             "cts_lock": cts})
-                cleared = a.clear_enqueue_lock(url, transport=transport or None)
+                # Our own user, in ANOTHER session: this process cannot release it by
+                # locking and unlocking. If it is a killed engine's session, closing that
+                # session releases it; a SAP GUI window in change mode has to be closed.
+                leftovers = _close_leftover_sessions()
                 after = a.is_object_locked(url)
+                cleared = False
+                if after and after.get("locked"):
+                    cleared = a.clear_enqueue_lock(url, transport=transport or None)
+                    after = a.is_object_locked(url)
+                still = bool(after and after.get("locked"))
                 # Re-read the CTS side: clearing the ENQUEUE lock does not release
                 # a request binding, and a caller who stops here retries into a 409.
-                out = {"ok": bool(cleared and not (after and after.get("locked"))),
-                       "enqueue_lock_before": True, "cleared": bool(cleared),
-                       "cts_lock": _cts_lock_report(client, url)}
+                out = {"ok": not still, "enqueue_lock_before": True, "cleared": not still,
+                       "owner": owner or None, "cts_lock": _cts_lock_report(client, url)}
+                if leftovers.get("closed"):
+                    out["leftover_sessions_closed"] = len(leftovers["closed"])
+                if still:
+                    return _with_hint({**out, "error": "own_lock_in_another_session",
+                            "message": (f"{name} is locked by your own user ({owner}) in another "
+                                        f"session SAP still keeps open, and it is not one this "
+                                        f"project's engine recorded: usually a SAP GUI window with "
+                                        f"the object in change mode (SE24/SE38/SE80/SE11) -- close "
+                                        f"it. Otherwise delete the lock in SM12 filtered by user, or "
+                                        f"wait for SAP's session timeout.")})
                 if out["cts_lock"]:
                     out["message"] = (
                         f"ENQUEUE lock cleared, but the object is still recorded in "
@@ -1275,6 +1907,156 @@ def adt_push(name: str, object_type: str, source_file: str, transport: str = "",
         if buf is not None:  # v1.3.4: keep the log on the exception path too
             out["log"] = buf.getvalue()[-3000:]
         return out
+
+
+@mcp.tool()
+def adt_edit_source(name: str, object_type: str, old_string: str, new_string: str,
+                    transport: str = "", replace_all: bool = False,
+                    include: str = "") -> dict:
+    """Change part of an object's source: replace `old_string` with `new_string`, then
+    check, push and activate — without sending the whole object.
+
+    `old_string` must occur exactly once (or pass replace_all=true); copy it from
+    adt_get_source, indentation included. 0 matches → `not_found`, more than one →
+    `ambiguous` with the count: widen old_string until it is unique. The edited source is
+    syntax-checked BEFORE anything is written (adt_syntax_check with the unsaved text); a
+    syntax error comes back with nothing changed. The write is an ordinary adt_push (or,
+    with `include`, adt_write_class_include + activate), so transport resolution, the
+    ghost and drift guards and the namespace/tier rules all apply unchanged.
+
+    object_type: class / program / interface / include. include: "testclasses" |
+    "implementations" | "definitions" | "macros" for a class's local include. Function
+    modules: use adt_write_function_module. Ideas from ARC-1 (edit_method) and
+    vibing-steampunk (EditSource), both MIT; the code is the kit's own.
+    """
+    import tempfile
+    if not old_string:
+        return {"ok": False, "error": "bad_arguments", "message": "old_string must not be empty"}
+    if old_string == new_string:
+        return {"ok": False, "error": "bad_arguments", "message": "old_string and new_string are equal"}
+    if object_type.lower() in ("function", "func", "fm"):
+        return {"ok": False, "error": "unsupported",
+                "message": "Function modules: read with adt_get_source(function_group=...), "
+                           "write the whole module with adt_write_function_module."}
+    if include and object_type.lower() not in ("class", "clas"):
+        return {"ok": False, "error": "bad_arguments", "message": "`include` applies to classes"}
+
+    read = adt_get_source(name, object_type, include=include) if include else \
+        adt_get_source(name, object_type)
+    if not read.get("ok"):
+        return read
+    source = read.get("source") or ""
+    # Line endings as SAP gave them; the caller copies text from adt_get_source.
+    count = source.count(old_string)
+    if count == 0:
+        return {"ok": False, "error": "not_found",
+                "message": "old_string is not in the current source. Re-read it with "
+                           "adt_get_source (grep= narrows it) and copy the exact text, "
+                           "indentation included."}
+    if count > 1 and not replace_all:
+        return {"ok": False, "error": "ambiguous", "matches": count,
+                "message": f"old_string occurs {count} times. Add surrounding lines until it "
+                           f"is unique, or pass replace_all=true."}
+    edited = source.replace(old_string, new_string) if replace_all else \
+        source.replace(old_string, new_string, 1)
+    res = _push_edited(name, object_type, include, edited, transport)
+    res["replaced"] = count if replace_all else 1
+    res["chars_sent_by_caller"] = len(old_string) + len(new_string)
+    return res
+
+
+def _push_edited(name: str, object_type: str, include: str, edited: str,
+                 transport: str) -> dict:
+    """Syntax-check an edited source (unsaved), then push it -- the one write path of
+    adt_edit_source and adt_edit_method, so both keep every push guard."""
+    import tempfile
+    tmp = tempfile.NamedTemporaryFile("w", suffix=".abap", delete=False, encoding="utf-8")
+    try:
+        tmp.write(edited)
+        tmp.close()
+        if not include:
+            check = adt_syntax_check(name, object_type, source_file=tmp.name)
+            if check.get("ok") and check.get("valid") is False:
+                return {"ok": False, "error": "syntax", "written": False,
+                        "errors": check.get("errors", [])[:20],
+                        "message": "The edited source does not compile; nothing was written."}
+            res = adt_push(name, object_type, tmp.name, transport)
+        else:
+            res = adt_write_class_include(name, include, tmp.name, transport)
+            if res.get("ok"):
+                act = adt_activate(name, "class")
+                res["activated"] = bool(act.get("ok") and act.get("activated", True))
+                if not res["activated"]:
+                    res["ok"] = False
+                    res["error"] = "activation_failed"
+                    res["activation"] = act
+                else:
+                    res["message"] = f"{include} include of {name.upper()} edited and the class activated"
+        return dict(res)
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+
+@mcp.tool()
+def adt_edit_method(name: str, method: str, body: str, object_type: str = "class",
+                    kind: str = "method", class_name: str = "", include: str = "",
+                    transport: str = "") -> dict:
+    """Replace one METHOD ... ENDMETHOD block (or FORM / MODULE) without sending the
+    whole object.
+
+    body: the new statements between `METHOD x.` and `ENDMETHOD.` -- or the whole block
+    including those two lines. The rest of the source is untouched. kind: method
+    (default), form (a report subroutine), module (a dynpro module). When local classes
+    repeat a method name, class_name= picks the `CLASS <class_name> IMPLEMENTATION`;
+    ambiguity is refused with the classes found. include= edits a class's local
+    include (implementations, testclasses, ...). The new source is syntax-checked
+    before anything is written, then pushed like adt_edit_source: every push guard
+    applies. Changing a method's SIGNATURE is a declaration change -- use
+    adt_edit_source on the METHODS line. Idea from ARC-1 (edit_method, MIT).
+    """
+    from source_slice import find_units, replace_lines
+    kind = (kind or "method").lower()
+    if kind not in ("method", "form", "module"):
+        return {"ok": False, "error": "bad_arguments", "message": "kind is method, form or module"}
+    if not method or not (body or "").strip():
+        return {"ok": False, "error": "bad_arguments", "message": "method and body are required"}
+    read = adt_get_source(name, object_type, include=include) if include else \
+        adt_get_source(name, object_type)
+    if not read.get("ok"):
+        return read
+    source = read.get("source") or ""
+    units = find_units(source, method, kind, class_name)
+    if not units:
+        hint = (" A RAP behaviour pool keeps its handlers in include='implementations'."
+                if kind == "method" and not include else "")
+        return {"ok": False, "error": "not_found",
+                "message": f"No {kind.upper()} {method} ... END{kind.upper()} block in "
+                           f"{name.upper()}{' ' + include if include else ''}"
+                           f"{' inside CLASS ' + class_name.upper() if class_name else ''}.{hint}"}
+    if len(units) > 1:
+        return {"ok": False, "error": "ambiguous",
+                "classes": [u[2] or "(outside a class)" for u in units],
+                "message": f"{kind.upper()} {method} occurs {len(units)} times; pass class_name="}
+    start, end, owner = units[0]
+    lines = source.splitlines()
+    opener, closer = lines[start], lines[end]
+    indent = opener[:len(opener) - len(opener.lstrip())]
+    new = body.replace("\r\n", "\n").strip("\n")
+    first = new.lstrip().split(None, 1)[0].upper() if new.strip() else ""
+    if first != kind.upper():
+        inner = "\n".join((indent + "  " + ln) if ln.strip() and not ln.startswith(indent + " ")
+                          else ln for ln in new.split("\n"))
+        new = f"{opener}\n{inner}\n{closer}"
+    old_block = "\n".join(lines[start:end + 1])
+    if new.strip() == old_block.strip():
+        return {"ok": True, "unchanged": True, "message": "The block already has this content."}
+    res = _push_edited(name, object_type, include, replace_lines(source, start, end, new), transport)
+    res.update({"block": f"{kind.upper()} {method.upper()}", "class": owner or None,
+                "lines_before": end - start + 1, "lines_after": new.count("\n") + 1})
+    return res
 
 
 _DDIC_PROBE = {
@@ -1601,6 +2383,76 @@ def adt_create_metadata_extension(name: str, package: str, description: str,
     return _create_cds_companion("ddlx", _get_client().create_metadata_extension,
                                  name, package, description, source, source_file,
                                  transport)
+
+
+@mcp.tool()
+def adt_create_service_definition(name: str, package: str, description: str,
+                                  source: str = "", source_file: str = "",
+                                  transport: str = "") -> dict:
+    """Create a service definition (SRVD) from its source.
+
+    adt_create cannot: the generic path answers "Unsupported object type: SRVD/SRV".
+    The exposed CDS entities must already exist and be active, or activation fails
+    naming them. Source looks like
+    `@EndUserText.label: '...' define service Z_X { expose ZC_Y as Alias; }`.
+
+    Pass the source inline as `source` or as a path in `source_file`. Exactly one.
+    Not activated here: call adt_activate(object_type="srvd"), then
+    adt_create_service_binding and adt_publish_service_binding.
+    """
+    from guardrails import (require_writable, require_customer_namespace,
+                             require_transport, GuardrailViolation)
+    try:
+        require_writable(what="create service definition")
+        require_customer_namespace(name, what="service definition")
+        require_transport(transport, what="service definition creation")
+    except GuardrailViolation as gv:
+        return {"ok": False, "error": "guardrail_violation", "message": str(gv)}
+    return _create_cds_companion("srvd", _get_client().create_service_definition,
+                                 name, package, description, source, source_file,
+                                 transport)
+
+
+@mcp.tool()
+def adt_write_class_include(name: str, include: str, source_file: str,
+                            transport: str) -> dict:
+    """Write a class's local include: ABAP Unit tests, local types, or a RAP
+    behaviour pool's handler classes. Creates the include if the class has none yet.
+
+    include: "testclasses" (ABAP Unit), "implementations" (local classes; for a
+             ZBP_* behaviour pool this is the whole handler), "definitions"
+             (local types), "macros".
+    `source_file` is the complete text of that include. The class must exist
+    (adt_push or adt_create first). `transport` is required.
+
+    The class is left inactive on purpose: run adt_syntax_check, then adt_activate
+    (object_type="class"), then adt_unit_test for tests. Read an include back with
+    adt_get_source(include=...). This is what `behavior_implementation: false` in
+    adt_capabilities used to mean you could not do.
+    """
+    buf = None
+    try:
+        from guardrails import (require_writable, require_customer_namespace,
+                                 require_transport, GuardrailViolation)
+        try:
+            require_writable(what="write class include")
+            require_customer_namespace(name, what="class")
+            require_transport(transport, what="class include write")
+        except GuardrailViolation as gv:
+            return {"ok": False, "error": "guardrail_violation", "message": str(gv)}
+        client = _get_client()
+        text = Path(source_file).read_text(encoding="utf-8")
+        with _quiet() as buf:
+            res = client.write_class_include(name, include, text, transport)
+        out = dict(res) if isinstance(res, dict) else {"success": bool(res)}
+        out["ok"] = bool(out.get("success"))
+        out["log"] = buf.getvalue()[-800:]
+        return _with_hint(out)
+    except Exception as exc:
+        out = _err(exc)
+        if buf is not None:
+            out["log"] = buf.getvalue()[-2000:]
+        return out
 
 
 @mcp.tool()
@@ -2185,16 +3037,28 @@ def adt_delete_object(name: str, object_type: str = "class", transport: str = ""
     DOUBLE CHECK: pass confirm_name == name AND force=True. Without both, NOTHING is
     deleted and a preview is returned. Provide transport=<an open request you own> so the
     deletion is recorded there (else SAP may auto-generate a ghost for the deletion entry).
+    Both the preview and the delete ask SAP's deletion check first: an object SAP says
+    it will not delete (still used by another object) is refused with SAP's reasons
+    instead of failing half-way. If the check itself is unavailable the delete goes on.
     """
     buf = None
     try:
-        if not (force and confirm_name and confirm_name.upper() == name.upper()):
+        confirmed = force and confirm_name and confirm_name.upper() == name.upper()
+        check = _deletion_check(_get_client(), name, object_type)
+        if "unavailable" not in check and not check.get("deletable", True):
+            return {"ok": False, "error": "not_deletable", "deleted": False, "name": name,
+                    "deletion_check": check,
+                    "message": (f"SAP will not delete {object_type} '{name}': "
+                                + "; ".join(m["text"] for m in check.get("messages", [])
+                                            if m.get("type") in ("E", "W"))
+                                + ". Remove or change the users first (adt_where_used).")}
+        if not confirmed:
             # The transport is conditional and the gate used to demand it flatly.
             # A $TMP object cannot be in one, so a consultant who followed this
             # sentence supplied a transport and walked straight into the ghost
             # guard -- while the code forty lines below already exempted local
             # objects. Say when it applies instead of always.
-            return {"ok": False, "error": "confirmation_required",
+            return {"ok": False, "error": "confirmation_required", "deletion_check": check,
                     "message": (f"Refusing to delete {object_type} '{name}'. To proceed, call again "
                                 f"with confirm_name='{name}' AND force=true. If the object is in a "
                                 f"transportable package, also pass transport=<an OPEN request you "
@@ -2384,7 +3248,7 @@ def adt_create_package(name: str, description: str, super_package: str = "",
 
 
 @mcp.tool()
-def adt_create_transport(description: str, package: str = "") -> dict:
+def adt_create_transport(description: str, package: str = "", cts_project: str = "") -> dict:
     """Create a new workbench transport request.
 
     Returns {ok, transport, target, message}. `target` is the route SAP states on
@@ -2394,6 +3258,9 @@ def adt_create_transport(description: str, package: str = "") -> dict:
 
     `package` is optional and lets SAP infer the route; omit it and SAP decides.
     It no longer defaults to `ZAI`, a package that does not exist everywhere.
+    `cts_project`: the CTS project, where the system makes one mandatory (the request
+    is refused without it). Defaults to ADT_CTS_PROJECT in .conn_adt; empty is fine
+    everywhere else.
 
     Guardrails: refused if ADT_READONLY is set. Tries the modern tm:root endpoint
     first — the path the live ADT handler uses on-prem too, despite its internal
@@ -2418,7 +3285,16 @@ def adt_create_transport(description: str, package: str = "") -> dict:
                                 "transports so described. Choose a different description.")}
         client = _get_client()
         with _quiet():
-            result = client.adt_client.create_transport(description=description, package_name=package)
+            # A system where CTS projects are mandatory refuses a request without one. The
+            # project comes from the call, else from ADT_CTS_PROJECT in .conn_adt.
+            if not cts_project:
+                try:
+                    import guardrails
+                    cts_project = guardrails._conn_value("ADT_CTS_PROJECT") or ""
+                except Exception:
+                    cts_project = ""
+            result = client.adt_client.create_transport(description=description, package_name=package,
+                                                        cts_project=cts_project)
         if isinstance(result, dict) and result.get("success"):
             trkorr = result.get("transport")
             out = {"ok": True, "transport": trkorr, "message": result.get("message", "")}
@@ -2507,27 +3383,13 @@ def adt_message_class(name: str, action: str = "read", description: str = "",
                       is read and merged first). replace=True wipes the numbers not
                       listed.
 
-    **If a write answers `User X is currently editing`:** SAP registered the creating
-    user as editing the new class and has not let go. **Nothing in this engine clears
-    it** — it is not an ENQUEUE lock, so `adt_clear_lock` resolves the object and
-    answers "no ENQUEUE lock", and it is not a CTS binding either, so the transport
-    check does not see it. It survives a full MCP restart, and SE91/SM12 do not help
-    whatever older notes say.
-
-    **It expires in about half an hour.** Measured 2026-08-20: a class created at
-    19:28:10Z deleted cleanly at 19:58:41Z, first attempt — 30 min 31 s. One created
-    two minutes later was still refused a second after that. So: wait ~30 minutes and
-    retry the write. Creating under another name buys nothing; the new one is
-    registered too.
-
-    Chaining does not avoid it — passing `messages` to `create` still writes through a
-    second HTTP call, and that call is refused just the same. What chaining does buy
-    is that the texts are never silently discarded. Three measurements on 2026-08-20
-    also killed the theory that this is about the MCP process: a plain Python process
-    doing create+write on a fresh name is refused identically, which is the control
-    `PROPOSAL.md` addendum 3 relied on and it no longer reproduces. Tracked as fault 3
-    there; the standing account is in `sap_client.py` beside
-    `set_message_class_messages`.
+    `User X is currently editing` after a create was the create running inside the
+    engine's stateful SAP context, which kept the creator registered as editor for the
+    context's lifetime (~30 min). Fixed 2026-11-11: the create now runs outside that
+    context, and create + write in one call works (NS4). If the refusal still appears,
+    it comes from a class created by an OLDER engine or another session: it clears in
+    about 30 minutes; nothing else (SE91, SM12, adt_clear_lock) releases it. The account
+    is in `sap_client.py` beside `create_message_class`.
 
     `messages`: [{"number": "001", "text": "Malzeme &1 bulunamadı"}] — 3 digits,
     &1..&4 placeholders, text in the LOGIN LANGUAGE with its own characters.
@@ -2715,23 +3577,40 @@ def adt_check_scatter(object_name: str) -> dict:
 
 
 @mcp.tool()
-def adt_syntax_check(name: str, object_type: str = "class") -> dict:
-    """Syntax-check an object WITHOUT activating (ADT activation pre-audit mode).
-    Checks the object as it exists in SAP (incl. its inactive version) — to check new
-    source, push it first (push runs activation anyway; this tool is for a standalone
-    check). Returns {ok, valid, errors, warnings}."""
+def adt_syntax_check(name: str, object_type: str = "class", source_file: str = "") -> dict:
+    """Syntax-check an object — READ-ONLY (ADT check run; no lock, no activation, no write).
+    Checks the PENDING (inactive) version, or the active one when nothing is pending;
+    `version_checked` says which.
+
+    `source_file`: check THAT source as if it were the object's main source, without
+    writing anything — run it before adt_push and fix what it reports, instead of learning
+    the errors from a failed push (each failed push takes a lock and can spawn an S-task).
+    The object must already exist (adt_create first for a new one).
+
+    Returns {ok, valid, errors, warnings, version_checked}. `valid` is true or false only
+    when SAP actually ran the check; otherwise ok=false with error `syntax_not_measured` and
+    the reason — unmeasured is neither valid nor invalid. Syntax only: not ATC, not ABAP Unit."""
     try:
         client = _get_client()
         with _quiet():
-            res = client.syntax_check(object_name=name, object_type=object_type)
+            if source_file:
+                res = client.syntax_check_source(
+                    name, object_type, Path(source_file).read_text(encoding="utf-8"))
+            else:
+                res = client.syntax_check(object_name=name, object_type=object_type)
         if not isinstance(res, dict):
             return {"ok": False, "error": "no_result"}
         # Honesty: the lib catches exceptions into {'valid': False, 'error': ...} —
         # surface that as a FAILURE, not as "syntax invalid with zero errors".
         if res.get("error"):
             return {"ok": False, "error": "check_failed", "message": str(res["error"])[:300]}
+        if res.get("verdict") == "not_measured":
+            return {"ok": False, "error": "syntax_not_measured",
+                    "message": f"SAP did not run the syntax check: {res.get('reason')}",
+                    "scope": res.get("scope")}
         return {"ok": True, "valid": bool(res.get("valid")),
-                "errors": res.get("errors", []), "warnings": res.get("warnings", [])}
+                "errors": res.get("errors", []), "warnings": res.get("warnings", []),
+                "version_checked": res.get("version_checked"), "scope": res.get("scope")}
     except Exception as exc:
         return _err(exc)
 
@@ -2820,17 +3699,78 @@ def adt_code_search(query: str, max_results: int = 50) -> dict:
 
 
 @mcp.tool()
-def adt_revisions(name: str, object_type: str = "class") -> dict:
-    """Get an object's version history (who changed it, when, which transport).
-    READ-ONLY. Returns {ok, count, revisions:[{uri, date, author, version, versionTitle}]}."""
+def adt_revisions(name: str, object_type: str = "class", include: str = "main",
+                  function_group: str = "") -> dict:
+    """An object's version history: who changed it, when, in which request. READ-ONLY.
+
+    Returns {ok, count, revisions:[{id, author, date, versionTitle, transport, uri}]},
+    newest first. SAP writes a version when a request is released (and on some explicit
+    actions), so an object changed only in open requests has none yet: count 0 is then
+    the truth, not a failure. For a class, include= picks the part: main (default),
+    definitions, implementations, macros, testclasses. Compare versions with
+    adt_revision_diff.
+    """
     try:
         from object_types import get_object_url
         client = _get_client()
-        obj_url = get_object_url(name, object_type)
+        obj_url = get_object_url(name, object_type, function_group or None)
         with _quiet():
-            revs = client.adt_client.get_object_revisions(obj_url)
-        items = revs or []
-        return {"ok": True, "count": len(items), "revisions": items}
+            revs = client.adt_client.get_object_revisions(obj_url, include=include or "main")
+        return {"ok": True, "count": len(revs), "revisions": revs}
+    except Exception as exc:
+        return _err(exc)
+
+
+@mcp.tool()
+def adt_revision_diff(name: str, object_type: str = "class", from_version: str = "",
+                      to_version: str = "active", include: str = "main",
+                      function_group: str = "", show: str = "diff",
+                      context_lines: int = 3, max_chars: int = 20000,
+                      ignore_layout: bool = True) -> dict:
+    """Compare two versions of an object's source, or read an old one. READ-ONLY.
+
+    from_version / to_version: a version `id` or `uri` from adt_revisions, or "active"
+    (the source in the system now). from_version empty = the newest stored version,
+    so the default answers "what changed since the last release". show="diff" returns
+    a unified diff with added/removed line counts; show="source" returns from_version's
+    text. ignore_layout (default) does not count blank lines, indentation, trailing
+    spaces or keyword case -- what SAP's templates and the pretty printer change.
+    Long answers are cut at max_chars and say so.
+    """
+    try:
+        from object_types import get_object_url
+        client = _get_client()
+        a = client.adt_client
+        obj_url = get_object_url(name, object_type, function_group or None)
+        with _quiet():
+            feed = a.revision_feed_url(obj_url, include or "main")
+            revs = a.get_object_revisions(obj_url, include=include or "main")
+
+            def resolve(v):
+                v = (v or "").strip()
+                if v.lower() == "active":
+                    return "active", a.get_active_include_source(feed)
+                if not v:
+                    if not revs:
+                        raise ValueError("no stored version: SAP writes one when a request is released")
+                    v = revs[0]["uri"]
+                rev = next((r for r in revs if v in (r["id"], r["uri"])), None)
+                if rev is None:
+                    raise ValueError(f"version {v!r} is not in adt_revisions for {name}")
+                return rev["id"], a.get_revision_source(rev["uri"])
+            from_id, old = resolve(from_version)
+            if show == "source":
+                text = old[:max_chars]
+                return {"ok": True, "name": name.upper(), "version": from_id, "source": text,
+                        "truncated": len(old) > max_chars}
+            to_id, new = resolve(to_version)
+        from source_slice import source_diff
+        diff, added, removed = source_diff(old, new, max(0, int(context_lines)), ignore_layout,
+                                           (f"{name.upper()}@{from_id}", f"{name.upper()}@{to_id}"))
+        text = "\n".join(diff)
+        return {"ok": True, "name": name.upper(), "from": from_id, "to": to_id,
+                "identical": not diff, "added": added, "removed": removed,
+                "diff": text[:max_chars], "truncated": len(text) > max_chars}
     except Exception as exc:
         return _err(exc)
 
@@ -2914,16 +3854,115 @@ def adt_badi_discovery(badi_definition: str, max_implementations: int = 15) -> d
         return _err(exc)
 
 
+_JOB_STATUS = {"A": "aborted", "F": "finished", "R": "active", "S": "released",
+               "P": "scheduled", "Y": "ready", "Z": "put active", "X": "unknown"}
+
+
 @mcp.tool()
-def adt_dumps(max_results: int = 10) -> dict:
-    """List recent ABAP short dumps (ST22) via the ADT runtime feed — READ-ONLY.
-    Each entry: title (exception/category), user, date, uri (full dump text), categories.
-    The go-to first move when 'the program dumped' — no SAPGUI needed."""
+def adt_jobs(job_name: str = "*", user: str = "", status: str = "", days: int = 1,
+             max_rows: int = 50, steps: bool = True) -> dict:
+    """Background jobs (SM37) — READ-ONLY: job name, status, start/end, scheduler, and
+    (steps=true) each step's program, variant and run-as user.
+
+    job_name: SAP pattern, `*` and `+` allowed (ZFI_*). user: the scheduler (SDLUNAME).
+    status: any of aborted, finished, active, released, scheduled, ready (comma-separated),
+    or the SAP letters A F R S P Y. days: how far back the start date goes (1 = since
+    yesterday). The first move when "the job failed": an aborted job's step names the
+    program, and adt_dumps in the same window usually holds the dump. Spool content is
+    not read here. Idea from vibing-steampunk (MIT); the code is the kit's own.
+    """
+    import datetime
+    try:
+        client = _get_client()
+        esc = lambda v: str(v or "").upper().replace("'", "''")  # noqa: E731
+        since = (datetime.date.today() - datetime.timedelta(days=max(0, int(days)))).strftime("%Y%m%d")
+        where = [f"( strtdate >= '{since}' OR sdlstrtdt >= '{since}' )"]
+        pat = esc(job_name or "*").replace("*", "%").replace("+", "_")
+        if pat and pat != "%":
+            where.append(f"jobname LIKE '{pat}'")
+        if user:
+            where.append(f"sdluname = '{esc(user)}'")
+        if status:
+            back = {v: k for k, v in _JOB_STATUS.items()}
+            letters = []
+            for s in status.split(","):
+                s = s.strip().lower()
+                if s:
+                    letters.append(back.get(s, s.upper()[:1]))
+            where.append("status IN (" + ", ".join(f"'{esc(x)}'" for x in letters) + ")")
+        # One clause per line: data preview cuts long lines, and a literal cut in two is
+        # "Literals across more than one line are not allowed".
+        nl = "\n"
+        sql = ("SELECT jobname, jobcount, status, sdluname, sdlstrtdt, sdlstrttm," + nl
+               + "strtdate, strttime, enddate, endtime FROM tbtco" + nl
+               + "WHERE " + (nl + "AND ").join(where) + nl
+               + "ORDER BY strtdate DESCENDING, strttime DESCENDING, sdlstrtdt DESCENDING")
+        with _quiet():
+            res = client.run_sql_query(sql, max(1, min(int(max_rows), 500))) or {}
+        cols = ["job", "count", "status", "scheduled_by", "planned_date", "planned_time",
+                "start_date", "start_time", "end_date", "end_time"]
+        jobs = []
+        for row in res.get("data", []) or []:
+            j = dict(zip(cols, row))
+            j["status"] = _JOB_STATUS.get(str(j.get("status") or ""), j.get("status"))
+            jobs.append(j)
+        if steps and jobs:
+            keys = (nl + "OR ").join(
+                f"( jobname = '{esc(j['job'])}' AND jobcount = '{esc(j['count'])}' )"
+                for j in jobs[:50])
+            with _quiet():
+                sres = client.run_sql_query(
+                    "SELECT jobname, jobcount, stepcount, progname, variant, authcknam" + nl
+                    + "FROM tbtcp" + nl + "WHERE " + keys, 500) or {}
+            by = {}
+            for r in sres.get("data", []) or []:
+                by.setdefault((r[0], r[1]), []).append(
+                    {"step": str(r[2] or "").strip(), "program": r[3], "variant": r[4], "run_as": r[5]})
+            for j in jobs:
+                j["steps"] = sorted(by.get((j["job"], j["count"]), []),
+                                    key=lambda x: int(x["step"] or 0) if str(x["step"]).isdigit() else 0)
+        return {"ok": True, "count": len(jobs), "since": since, "jobs": jobs}
+    except Exception as exc:
+        return _err(exc)
+
+
+@mcp.tool()
+def adt_dumps(max_results: int = 10, dump: str = "", sections: str = "",
+              max_chars: int = 6000, group: bool = False, new_hours: int = 24) -> dict:
+    """ABAP short dumps (ST22) over ADT — READ-ONLY.
+
+    Without `dump`: the recent dumps. Each entry: title (short text), user, date,
+    categories (runtime error, program), and `dump`, the link to its text.
+    With `dump` (that link): the dump itself, split into ST22 chapters. By default the
+    ones a diagnosis needs — Short Text, What happened?, Error analysis, How to correct
+    the error, Information on where terminated, Source Code Extract, Active Calls/Events —
+    plus the header (runtime error, exception, program, date). `available` lists every
+    chapter with its size; pass `sections` (comma-separated titles, e.g. "Chosen
+    variables") for others. Chapters over `max_chars` are cut and named in `truncated`.
+    group=True: one row per (runtime error, program) -- count, users, first, last, the
+    newest dump's link -- most frequent first, and `new` when the group's first dump in
+    the list is within `new_hours`. Grouping asks for max(max_results, 200) dumps so a
+    recurring problem is not mistaken for a new one (NS4 answers at most 100); `window`
+    says which period was read, and "new" is relative to it.
+    Dump text can hold field values: treat it as business data."""
     try:
         client = _get_client()
         with _quiet():
-            res = client.adt_client.list_runtime_dumps(max_results=max_results)
-        return res if isinstance(res, dict) else {"ok": False, "error": "no_result"}
+            if dump:
+                wanted = [s for s in (sections or "").split(",") if s.strip()] or None
+                return client.adt_client.get_runtime_dump(dump, wanted, max_chars)
+            n = max(int(max_results or 10), 200) if group else max_results
+            res = client.adt_client.list_runtime_dumps(max_results=n)
+        if not isinstance(res, dict):
+            return {"ok": False, "error": "no_result"}
+        if group and res.get("ok"):
+            import sap_adt_lib as L
+            rows = L.group_dumps(res.get("dumps") or [], new_hours=new_hours)
+            dates = sorted(d.get("date", "") for d in res.get("dumps") or [] if d.get("date"))
+            return {"ok": True, "dumps_read": res.get("count", 0),
+                    "window": {"from": dates[0] if dates else "", "to": dates[-1] if dates else ""},
+                    "groups": rows, "new_groups": sum(1 for r in rows if r["new"])}
+        return res
     except Exception as exc:
         return _err(exc)
 

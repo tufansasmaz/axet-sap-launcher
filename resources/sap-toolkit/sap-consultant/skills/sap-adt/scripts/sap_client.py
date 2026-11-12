@@ -615,6 +615,20 @@ class SAPClient:
         # Pre-push deterministic validators (v1.4.7, ported from TRAKYA) — block BEFORE
         # the bytes hit SAP, where the failure would otherwise be opaque or destructive.
         otype_l = (object_type or '').lower()
+        # (0) lines over 255 characters: SAP refuses the save. Wrap them at a safe
+        #     point (outside literals, before a comment) instead of failing; the
+        #     result says so. Lines with no safe point are left and SAP will say which.
+        if otype_l in ('class', 'clas', 'interface', 'intf', 'program', 'prog',
+                       'include', 'incl'):
+            from abap_lines import wrap_long_lines
+            source_code, n_wrapped, n_stuck = wrap_long_lines(source_code)
+            if n_wrapped:
+                result['lines_wrapped'] = n_wrapped
+                print(f"[INFO] wrapped {n_wrapped} line(s) longer than 255 characters")
+            if n_stuck:
+                result['lines_too_long'] = n_stuck
+                print(f"[WARN] line(s) {n_stuck[:10]} exceed 255 characters and have no "
+                      f"safe break point (one long literal?)")
         # (1) class method-param `TYPE c LENGTH n` → source-based save fails with a
         #     LINE-NUMBER-LESS HTTP 400. Refuse here with the exact offending lines.
         if otype_l in ('class', 'clas', 'interface', 'intf'):
@@ -779,7 +793,11 @@ class SAPClient:
         try:
             # Pre-check for stale enqueue lock from own session — clear it before locking
             # so SAP doesn't reject with 409 and create a ghost transport.
-            existing_lock = self.adt_client.is_object_locked(object_url)
+            # probe=False: a push is about to lock anyway, and a LOCK/UNLOCK probe here
+            # would double every push's lock traffic. The check was a no-op until
+            # 2026-11-12 (it asked an endpoint that does not exist); leftover sessions
+            # of killed engines are now closed when the engine starts instead.
+            existing_lock = self.adt_client.is_object_locked(object_url, probe=False)
             if existing_lock and existing_lock.get('locked') and existing_lock.get('lock_owner') == self.adt_client.user:
                 print(f"\n[INFO] Clearing own stale enqueue lock before locking...")
                 self.adt_client.clear_enqueue_lock(object_url, transport=transport)
@@ -1834,7 +1852,7 @@ class SAPClient:
                 # exactly like 'missing'.
                 headers=adt._get_headers('application/vnd.sap.adt.packages.v2+xml'),
                 timeout=adt.timeout_short)
-            if r.status_code == 404:
+            if r.status_code == 404:  # audit: empty-ok 404 is SAP's answer for a package that does not exist
                 return False
             # Only 404 means absent. A 406, a 500 or anything else means the probe
             # could not tell -- and 'could not tell' must not be reported as 'gone'.
@@ -2028,12 +2046,53 @@ class SAPClient:
 
     # ===== Code Quality Operations =====
 
+    def _has_pending_version(self, object_url: str):
+        """True: a pending (inactive) version differs from the active source. False: they are
+        the same text. None: could not tell (an object without /source/main, a read error)."""
+        try:
+            pending = self.adt_client.get_object_source(object_url)
+            active = self.adt_client.get_object_source(object_url, version='active')
+        except SAPObjectNotFoundError:
+            raise  # a missing object is an error, not 'nothing pending'
+        except Exception:  # noqa: BLE001  # audit: empty-ok None = unknown, the caller falls back
+            return None
+        return pending.strip() != active.strip()
+
+    def syntax_check_source(self, object_name: str, object_type: str, source: str) -> Dict[str, Any]:
+        """Compile `source` as if it were the object's main source, WITHOUT writing it.
+
+        The object must exist (the check needs its URI and context); a new object is
+        created first, then its source is checked here before the push. Long lines are
+        wrapped the way the push would wrap them, so the check sees what would be sent.
+        """
+        from abap_lines import wrap_long_lines
+        object_url = get_object_url(object_name, object_type)
+        source, _, _ = wrap_long_lines(source)
+        run = self.adt_client.check_run(object_url, 'inactive', content=source)
+        return {
+            'valid': {'clean': True, 'errors': False}.get(run['verdict']),
+            'errors': [{'message': e['message'], 'line': e['line'], 'column': e['column']}
+                       for e in run['errors']],
+            'warnings': [{'message': w['message'], 'line': w['line'], 'column': w['column']}
+                         for w in run['warnings']],
+            'version_checked': 'unsaved source',
+            'verdict': run['verdict'], 'reason': run['reason'], 'scope': run['scope']['checked'],
+        }
+
     def syntax_check(self, object_name: str, object_type: str = 'class') -> Dict[str, Any]:
         """
         Check syntax of ABAP code without activating.
 
-        Uses the SAP ADT activation endpoint in pre-audit mode, which performs
-        syntax check without actually activating the object.
+        Uses the ADT check run (POST /sap/bc/adt/checkruns), which is read-only. It used
+        to post to the activation endpoint with preauditRequested=true; SAP ignores that
+        flag and a clean pending inactive version was ACTIVATED (measured on NS4,
+        2026-10-27). The pending (inactive) version is checked; an object with none is
+        checked as the active version, and the result says which.
+
+        Which version is decided by comparing the two reads SAP offers: the unversioned GET
+        returns the pending version when there is one, `version=active` the running one. An
+        object with NO pending version cannot be asked for 'inactive': on NS4 a program came
+        back "processed" with a made-up "REPORT/PROGRAM statement is missing" error.
 
         Args:
             object_name: Name of the object
@@ -2054,8 +2113,25 @@ class SAPClient:
         print(f"Checking syntax: {object_name} ({type_desc})")
 
         try:
-            # Use activation pre-audit to check syntax without activating
-            result = self.adt_client.syntax_check_via_activation(object_name, object_url)
+            pending = self._has_pending_version(object_url)
+            run = self.adt_client.check_run(object_url, 'inactive' if pending is not False else 'active')
+            if pending is None and run['verdict'] == 'not_measured' and run.get('status') == 'notProcessed':
+                # could not tell whether a version is pending, and SAP says none: check the active one
+                run = self.adt_client.check_run(object_url, 'active')
+            result = {
+                'valid': {'clean': True, 'errors': False}.get(run['verdict']),
+                'errors': [{'message': e['message'], 'line': e['line'], 'column': e['column'],
+                            'object': object_name} for e in run['errors']],
+                'warnings': [{'message': w['message'], 'line': w['line'], 'column': w['column'],
+                              'object': object_name} for w in run['warnings']],
+                'version_checked': run['scope']['version'],
+                'verdict': run['verdict'],
+                'reason': run['reason'],
+                'scope': run['scope']['checked'],
+            }
+            if run['verdict'] == 'not_measured':
+                print(f"[UNVERIFIED] Syntax NOT measured: {run['reason']}")
+                return result
 
             if result.get('valid'):
                 print("[OK] Syntax check passed")
@@ -2245,7 +2321,7 @@ class SAPClient:
             print(f"Metadata for {object_name}:")
             print(metadata[:500])  # Show first 500 chars
             return metadata
-        except Exception as e:
+        except Exception as e:  # audit: empty-ok None = cannot confirm the object exists; callers report failure (safe side)
             print(f"[ERROR] {str(e)}")
             return None
 
@@ -2491,7 +2567,7 @@ class SAPClient:
         try:
             rows = self.run_sql_query(
                 f"SELECT devclass FROM tadir WHERE obj_name = '{_sq(object_name.upper())}'", 2)
-        except Exception:
+        except Exception:  # audit: empty-ok False keeps every guard on (unknown = not local)
             return False
         data = (rows or {}).get('data') or []
         return bool(data and data[0] and str(data[0][0]).startswith('$'))
@@ -3951,9 +4027,13 @@ class SAPClient:
     #     - The create response carries NO lock handle to release: HTTP 201,
     #       content-length 0, empty body, only a `location` header. Nothing is being
     #       discarded, so "release what the create locks" has nothing to release.
-    #     - SE91/SM12 do NOT clear it, whatever older notes said: it is neither an
-    #       ENQUEUE lock (is_object_locked cannot see it) nor a CTS binding (the
-    #       transport check cannot see it). Measured against a real class.
+    #     - SE91/SM12 did not clear it, and it was read as "neither an ENQUEUE lock
+    #       (is_object_locked cannot see it) nor a CTS binding". The first half is
+    #       void: is_object_locked asked an endpoint that does not exist and said
+    #       "free" about EVERY lock until 2026-11-12. The cause found on 2026-11-11 is
+    #       the create running inside the stateful context, which then held the
+    #       class open; the create now runs outside it (_post_outside_stateful_
+    #       context), and a leftover context is closed by adt_leftover_sessions.
     #     - It EXPIRES. ZCM906_MC created 19:28:10Z deleted 19:58:41Z, first attempt:
     #       30 min 31 s. A class made two minutes later was still refused one second
     #       after that. So the practical advice is "wait about half an hour", not
@@ -3962,6 +4042,39 @@ class SAPClient:
     #     `X-sap-adt-sessiontype: stateful` while the LOCK in the writer does. If SAP
     #     registers the editor inside a stateless session that then ends, the
     #     registration would outlive any session able to release it.
+
+    def _post_outside_stateful_context(self, url: str, headers: dict, params: dict,
+                                       data: bytes):
+        """POST in a throw-away session that has every cookie but `sap-contextid`.
+
+        Same authentication (Basic header, or the SSO/SAML cookies), no stateful
+        context, so nothing the request registers can outlive it. A fresh CSRF token
+        is fetched in that session; one retry on a CSRF 403.
+        """
+        import requests as _requests
+        src = self.adt_client.session
+        s = _requests.Session()
+        try:
+            s.verify = src.verify
+            s.proxies = dict(getattr(src, 'proxies', {}) or {})
+            s.cert = getattr(src, 'cert', None)
+            for ck in src.cookies:
+                if ck.name.lower() != 'sap-contextid':
+                    s.cookies.set_cookie(ck)
+            base = {k: v for k, v in headers.items()
+                    if k.lower() not in ('x-csrf-token', 'x-sap-adt-sessiontype')}
+            for _ in range(2):
+                t = s.get(f'{self.adt_client.url}/sap/bc/adt/discovery',
+                          headers={**base, 'X-CSRF-Token': 'Fetch',
+                                   'Accept': 'application/atomsvc+xml'}, timeout=60)
+                token = t.headers.get('x-csrf-token') or t.headers.get('X-CSRF-Token') or ''
+                resp = s.post(url, headers={**base, 'X-CSRF-Token': token},
+                              params=params, data=data, timeout=60)
+                if not (resp.status_code == 403 and 'CSRF' in (resp.text or '')):
+                    return resp
+            return resp
+        finally:
+            s.close()
 
     def create_message_class(self, name: str, description: str, package: str,
                             transport: Optional[str] = None,
@@ -4007,13 +4120,16 @@ class SAPClient:
                                                messages, language)
 
             params = {'corrNr': transport} if transport else {}
-            # Go through the retrying wrapper, not a raw session.post: a cached CSRF
-            # token the server has since invalidated returns 403 "CSRF token validation
-            # failed", which reads as a permission problem and sends you looking in the
-            # wrong place. The wrapper refetches and retries once.
-            response = self.adt_client._request_with_csrf_retry(
-                'POST', url, headers=headers, params=params,
-                data=xml_payload.encode('utf-8'), timeout=60)
+            # The create must run OUTSIDE the engine's stateful context. The shared
+            # session carries a `sap-contextid` cookie from earlier stateful calls, and
+            # a create made inside that context registers this user as editing the new
+            # class for the context's lifetime (~30 min) -- which is exactly the
+            # "User X is currently editing" refusal every follow-up write got, and the
+            # 30-minute expiry measured on 2026-08-20. Measured on NS4 2026-11-11: the
+            # same create in a cookie-jar copy WITHOUT sap-contextid, then the normal
+            # writer, succeeds first time. Auth cookies (SSO/SAML) are kept.
+            response = self._post_outside_stateful_context(
+                url, headers=headers, params=params, data=xml_payload.encode('utf-8'))
 
             if response.status_code in [200, 201]:
                 print(f"\n[OK] Message class created successfully")
@@ -4278,7 +4394,7 @@ constants:
             print(f"[OK] Retrieved successfully")
             print(f"Result (first 500 chars):\n{xml_result[:500]}")
             return xml_result
-        except Exception as e:
+        except Exception as e:  # audit: empty-ok no caller in the engine
             print(f"[ERROR] {str(e)}")
             return None
 
@@ -4601,7 +4717,7 @@ constants:
         try:
             results = self.adt_client.get_inactive_objects()
             return results
-        except Exception as e:
+        except Exception as e:  # audit: empty-ok None = error; adt_inactive_objects reports it
             print(f"[ERROR] Failed to get inactive objects: {str(e)}")
             return None
 
@@ -4641,11 +4757,11 @@ constants:
                             'uri': uri,
                             'description': desc
                         })
-            except ET.ParseError:
+            except ET.ParseError:  # audit: empty-ok no caller in the engine
                 pass
 
             return {'components': components}
-        except Exception as e:
+        except Exception as e:  # audit: empty-ok no caller in the engine
             print(f"[ERROR] Failed to get structure: {str(e)}")
             return None
 
@@ -4661,7 +4777,7 @@ constants:
         try:
             result = self.adt_client.get_system_info()
             return result
-        except Exception as e:
+        except Exception as e:  # audit: empty-ok partial info; None = error, printed
             print(f"[ERROR] Failed to get system info: {str(e)}")
             return None
 
@@ -4747,6 +4863,41 @@ constants:
             if result and result.get('success'):
                 print(f"[OK] Access control {name} created")
             return result if isinstance(result, dict) else {'success': bool(result)}
+        except Exception as e:
+            print(f"[ERROR] {str(e)}")
+            return {'success': False, 'error': str(e)}
+
+    def create_service_definition(self, name: str, source: str, description: str,
+                                  package: str, transport: Optional[str] = None) -> dict:
+        """Create a service definition (SRVD) in SAP. Returns the library's result dict."""
+        print(f"\n  Creating Service Definition: {name} (package {package})")
+        try:
+            result = self.adt_client.create_service_definition(
+                name=name.upper(), source=source, description=description or name,
+                package_name=package.upper(), transport=transport)
+            if result and result.get('success'):
+                print(f"[OK] Service definition {name} created")
+            return result if isinstance(result, dict) else {'success': bool(result)}
+        except Exception as e:
+            print(f"[ERROR] {str(e)}")
+            return {'success': False, 'error': str(e)}
+
+    def write_class_include(self, class_name: str, include: str, source: str,
+                            transport: str) -> dict:
+        """Write a class-local include (definitions/implementations/macros/testclasses)."""
+        print(f"\n  Writing {include} include of {class_name}")
+        try:
+            from abap_lines import wrap_long_lines
+            source, n_wrapped, n_stuck = wrap_long_lines(source)
+            result = self.adt_client.write_class_include(
+                class_name=class_name.upper(), include=include, source=source,
+                transport=transport)
+            if n_wrapped:
+                result['lines_wrapped'] = n_wrapped
+            if n_stuck:
+                result['lines_too_long'] = n_stuck
+            print(f"[OK] {result.get('message', 'include written')}")
+            return result
         except Exception as e:
             print(f"[ERROR] {str(e)}")
             return {'success': False, 'error': str(e)}

@@ -1,5 +1,5 @@
 > **Gerçek bir vakanın kaydı.** Bu belge, `adobe-gen` bu hâle gelirken yaşanan
-> oturumdan çıkmıştır — bir bakım emri çıktısı (BERP-1958) DS4 üzerinde sıfırdan
+> oturumdan çıkmıştır — bir bakım emri çıktısı (PRJK-1958) DS4 üzerinde sıfırdan
 > üretilirken. Nesne adları (`ZPM001_*`) o projeye aittir, örnek olarak bırakıldı.
 >
 > SKILL.md kuralların **özetini** taşır; buradaki değer ise **nasıl bulunduklarıdır**.
@@ -9,7 +9,7 @@
 
 ---
 
-# BERP-1958 — Adobe Form/Interface Otomasyonu: Karşılaşılan Problemler ve Çözümler
+# PRJK-1958 — Adobe Form/Interface Otomasyonu: Karşılaşılan Problemler ve Çözümler
 
 **Proje:** ZPM001_AF_MAINT_ORDER_PRINT (Adobe Form) + ZPM001_IF_MAINT_ORDER_PRINT (Adobe Interface)
 **Sistem:** DS4 (S/4HANA 2023), client 100
@@ -22,7 +22,7 @@
 
 SAP ADT (Eclipse tabanlı REST API), Adobe Form (`SFPF`) ve Adobe Interface (`SFPI`) nesne tiplerini **hiç tanımıyor** — `repository/typestructure` ve `discovery` endpoint'lerinde bu tipler yok, dolayısıyla klasik `create_object`/`get_object_source` akışı bu nesnelerde çalışmaz.
 
-Bunun tek resmi çözümü SAP'nin kendi workbench API'si (`SAFPAPI` paketi: `CL_FP_WB_INTERFACE`, `CL_FP_WB_FORM`, `CL_FP_CONTEXT`, ...) — ama bu API'ler **dialog context** ister. `adt_classrun` (ADT'nin arka planda kod çalıştırma kanalı) üzerinden çağrıldığında `400 "Session Timed Out"` ile patlar.
+Bunun tek resmi çözümü SAP'nin kendi workbench API'si (`SAFPAPI` paketi: `CL_FP_WB_INTERFACE`, `CL_FP_WB_FORM`, `CL_FP_CONTEXT`, ...) — ama bu API'ler **dialog context** ister. ADT class run (`IF_OO_ADT_CLASSRUN`, ADT'nin arka planda kod çalıştırma kanalı) üzerinden çağrıldığında `400 "Session Timed Out"` ile patlar.
 
 **Çözüm mimarisi (screen-gen skill'inden ödünç alınan pattern):**
 ```

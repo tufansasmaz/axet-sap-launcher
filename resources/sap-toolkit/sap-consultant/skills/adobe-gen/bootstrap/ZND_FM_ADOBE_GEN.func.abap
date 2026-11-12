@@ -429,6 +429,22 @@ FUNCTION znd_fm_adobe_gen
                                                                i_field = CONV fpfield( iv_param1_name )
                                                                i_parent = lo_ctx_sync ).
               lt_components = lo_structdescr->get_components( ).
+*             create_structure / create_loop open the DDIC components as nodes themselves.
+*             Adding them again with create_data wrote every field twice: SFP then says
+*             "Dugum adi X benzersiz degil" and ADS returns an EMPTY page (measured on a DEV
+*             system, 2026-11-03: 11 fields written, 22 nodes read back). So: count what the
+*             node already holds and skip the create_data loop when it holds anything. The same
+*             check runs for a loop's data node and for both parameter slots.
+              DATA(lv_auto_children) = 0.
+              DATA(lo_auto_child) = lo_struct_node->if_fp_node~get_child( ).
+              WHILE lo_auto_child IS BOUND.
+                lv_auto_children = lv_auto_children + 1.
+                lo_auto_child = lo_auto_child->get_successor( ).
+              ENDWHILE.
+              IF lv_auto_children > 0.
+                lv_child_count = lv_auto_children.
+                CLEAR lt_components.
+              ENDIF.
               LOOP AT lt_components INTO ls_component.
                 lv_checkpoint = |P1_CREATE_DATA_{ ls_component-name }|.
                 lo_data_node = lo_ctx_sync->create_data( i_name = CONV fpnodename( ls_component-name ) i_parent = lo_struct_node ).
@@ -446,6 +462,16 @@ FUNCTION znd_fm_adobe_gen
                                                         i_parent = lo_ctx_sync ).
               DATA(lo_loop_data1) = lo_loop_node->get_loop_data( ).
               lt_components = lo_line_descr->get_components( ).
+              DATA(lv_lp_children1) = 0.
+              DATA(lo_lp_child1) = lo_loop_data1->if_fp_node~get_child( ).
+              WHILE lo_lp_child1 IS BOUND.
+                lv_lp_children1 = lv_lp_children1 + 1.
+                lo_lp_child1 = lo_lp_child1->get_successor( ).
+              ENDWHILE.
+              IF lv_lp_children1 > 0.
+                lv_child_count = lv_lp_children1.
+                CLEAR lt_components.
+              ENDIF.
               LOOP AT lt_components INTO ls_component.
                 lv_checkpoint = |P1_LOOP_CREATE_DATA_{ ls_component-name }|.
                 lo_data_node = lo_ctx_sync->create_data( i_name = CONV fpnodename( ls_component-name ) i_parent = lo_loop_data1 ).
@@ -473,6 +499,16 @@ FUNCTION znd_fm_adobe_gen
                                                                i_field = CONV fpfield( iv_param2_name )
                                                                i_parent = lo_ctx_sync ).
               lt_components = lo_structdescr->get_components( ).
+              DATA(lv_auto_children2) = 0.
+              DATA(lo_auto_child2) = lo_struct_node->if_fp_node~get_child( ).
+              WHILE lo_auto_child2 IS BOUND.
+                lv_auto_children2 = lv_auto_children2 + 1.
+                lo_auto_child2 = lo_auto_child2->get_successor( ).
+              ENDWHILE.
+              IF lv_auto_children2 > 0.
+                lv_child_count = lv_auto_children2.
+                CLEAR lt_components.
+              ENDIF.
               LOOP AT lt_components INTO ls_component.
                 lv_checkpoint = |P2_CREATE_DATA_{ ls_component-name }|.
                 lo_data_node = lo_ctx_sync->create_data( i_name = CONV fpnodename( ls_component-name ) i_parent = lo_struct_node ).
@@ -490,6 +526,16 @@ FUNCTION znd_fm_adobe_gen
                                                         i_parent = lo_ctx_sync ).
               DATA(lo_loop_data2) = lo_loop_node->get_loop_data( ).
               lt_components = lo_line_descr->get_components( ).
+              DATA(lv_lp_children2) = 0.
+              DATA(lo_lp_child2) = lo_loop_data2->if_fp_node~get_child( ).
+              WHILE lo_lp_child2 IS BOUND.
+                lv_lp_children2 = lv_lp_children2 + 1.
+                lo_lp_child2 = lo_lp_child2->get_successor( ).
+              ENDWHILE.
+              IF lv_lp_children2 > 0.
+                lv_child_count = lv_lp_children2.
+                CLEAR lt_components.
+              ENDIF.
               LOOP AT lt_components INTO ls_component.
                 lv_checkpoint = |P2_LOOP_CREATE_DATA_{ ls_component-name }|.
                 lo_data_node = lo_ctx_sync->create_data( i_name = CONV fpnodename( ls_component-name ) i_parent = lo_loop_data2 ).

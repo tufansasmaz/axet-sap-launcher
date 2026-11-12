@@ -73,8 +73,14 @@ module's general package.
 | Metadata extension | the name of the view it extends | `ZSD001_C_ORDER` | 30 |
 | Service definition / binding | `Z<M><N>_UI_<D>` (or `_API_`) / `…_UI_<D>_O2` (`_API_<D>_O4`) | `ZMM001_UI_DESCRIPTION_O2` | 30 |
 | Access control (DCL) | `Z<M><N>_AC_<D>` | `ZSD001_AC_ORDER` | 30 |
-| Authorization object | `Z_<D>` | `Z_PORGIN` | 10 |
-| Lock object | `EZ<M><N>_<D>` — SAP requires the `EZ` start; NAMING_STANDARD has no row | `EZSD001_ORDERS` | 16 |
+| Authorization object (guideline v2.2) | `ZAUTHO_<D>` — older `Z_<D>` / `Z_<M>_<D>` objects are not renamed. Reuse a standard object/field (`ACTVT`, `WERKS`) before creating one | `ZAUTHO_ORD` | 10 |
+| Authorization field | `Z<D>` | `ZPLANT` | 10 |
+| Lock object | `EZ<M><N>_<D>` — starts with `E`, no type infix (v2.2, NAMING_STANDARD §3 #34) | `EZSD001_ORDER` | 16 |
+| IDoc basic type / extension / message type | `Z<M><N>_IDT_<D>` / `_IDX_<D>` / `_MT_<D>` | `ZSD001_IDT_ORDER` | 30 |
+| IDoc segment type | `Z1<D>` (the system generates `Z2`) | `Z1ORDER` | 27 |
+| View cluster / logo | `Z<M><N>_VC_<D>` / `Z<M><N>_LG_<D>` | `ZFI001_VC_SIZE` | 30 |
+| RFC / HTTP destination | `ZRFC_<TARGET>` / `ZHTTP_<TARGET>` (NAMING_STANDARD §5.4) | `ZRFC_HUMA` | 32 |
+| IDoc port / logical system | `Z<port type><TARGET>` / `<SID>CLNT<CLIENT>` | `ZTRF` / `DEVCLNT100` | 10 |
 
 A name is a finding only when it breaks this table (or NAMING_STANDARD for a type
 not in it), exceeds the length, or breaks an equality rule (behavior definition =

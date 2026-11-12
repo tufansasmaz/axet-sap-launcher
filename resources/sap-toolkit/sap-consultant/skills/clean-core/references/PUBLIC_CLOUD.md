@@ -64,7 +64,7 @@ what comes back `free`. An object the repository has no entry for is `blocked`, 
   them. Add a column: **Uzantı türü** (key user / developer / side-by-side).
 - **§2.3–2.6 Input, output, UI.** No selection screen and no ALV field catalogue. The
   screen is a Fiori app: filter bar fields, table columns, object page sections, actions.
-  The pictures rule holds — draw the Fiori screen with `screen-mockup`.
+  The pictures rule holds — draw the Fiori screen with `fiori-mockup` (`screen-mockup` draws SAP GUI only).
 - **§2.5a Enhancement.** The BAdI is named with its release status from the checker, and
   whether it is implemented in ADT or in Custom Logic.
 - **§2.8 Error handling.** Exception classes and RAP messages (`REPORTED` / `FAILED`);

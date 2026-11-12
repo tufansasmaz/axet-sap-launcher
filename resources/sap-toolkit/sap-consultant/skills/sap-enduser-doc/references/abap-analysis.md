@@ -16,7 +16,7 @@ SELECT-OPTIONS: s_matnr FOR mara-matnr,
 SELECTION-SCREEN BEGIN OF BLOCK b1 WITH FRAME TITLE TEXT-001.
 ```
 
-Record per field: technical name, DDIC type, obligatory flag, default value, checkbox/radio group, block/frame grouping, and the selection text if text elements were provided. Preserve the on-screen order — the document's field table and the walkthrough script both follow it.
+Record per field: technical name, DDIC type, obligatory flag, default value, checkbox/radio group, block/frame grouping, and the selection text (`adt_text_elements(name, part="selections")` reads them from the system when a connection exists; otherwise from text elements the user provided). Preserve the on-screen order — the document's field table and the walkthrough script both follow it.
 
 Flag as **ambiguous** (→ interview question) any field where the business meaning is not obvious from the selection text alone: generic names (`p_var1`), flags whose effect is buried in logic, date fields where the expected granularity (posting date vs. document date) matters.
 
