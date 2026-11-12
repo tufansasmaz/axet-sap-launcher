@@ -177,6 +177,20 @@ resources/sap-toolkit/    # abapGit bridge, ADT read-only Python server,
 
 ## Önemli Tasarım Kararları / Gotcha'lar
 
+- **Çoklu sistem (2026-11-12, `ozellik/coklu-sistem`).** Tasarım:
+  `docs/superpowers/specs/2026-11-12-coklu-sistem-design.md`, rapor
+  `.superpowers/coklu-sistem-rapor.md`. Sistem = proje klasörü
+  (`app-electron/main/sapSystems.ts`): sistem başına ADT portu (ilk 8787,
+  sonra 8800–8899), RFC portu (ilk 8788), **jeton yalnız kayıtta**.
+  `process.env.ABAP_HTTP_TOKEN` ARTIK YAZILMIYOR (açılışta mirası da
+  siliniyor, `scrubInheritedAdtEnv`); her süreç açılırken `applyAdtEnv(env,
+  cwd)` klasörünün sisteminin `ABAP_HTTP_TOKEN`/`ABAP_HTTP_URL`/
+  `ABAP_HTTP_PORT`'unu koyuyor (klasör sisteme ait değilse odaktaki).
+  Yeni bir spawn yolu eklerken bunu unutma; yoksa ajan hiçbir sunucuyu
+  açamaz. Vendored motor değişmedi (`--port` + ortam). `ActiveContext.sap` =
+  odaktaki sistem, `systems` = hepsi. En çok 4 sistem, aşınca LRU kesiliyor.
+  8787'de yabancı süreç varsa bağlantı düşmüyor, dinamik porta geçiliyor.
+
 - **`Menu.setApplicationMenu(null)` KULLANILMAZ.** Daha önce böyleydi ve
   Windows'ta Ctrl+V (yapıştır) input alanlarında çalışmıyordu — çünkü
   Electron'da klavye kısayolları (cut/copy/paste/selectAll) bir uygulama

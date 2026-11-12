@@ -296,14 +296,36 @@ burada değil, bağlanma penceresinde (şifreli saklanır) tut.
   `sap-context.md` ve QA/PRD salt okunur kuralı sohbettekiyle aynıdır.
   Ayar "Her seferinde sor" ise düğme **Bağlan…** olur ve menüyü açar.
 
+### Aynı anda birden fazla sistem
+
+Birden fazla sisteme **aynı anda** bağlı kalabilirsin (en çok 4). Yeni bir
+sisteme bağlanmak öncekini düşürmez: her sistemin kendi ADT sunucusu (ilk
+sistem 8787'de, sonrakiler 8800–8899 arasında boş bir portta), varsa kendi RFC
+köprüsü (ilk 8788) ve DEV'de kendi onay oturumu vardır.
+
+- **Başlık çubuğu**: her bağlı sistem bir çip (SID · client / kullanıcı ·
+  kademe). Çipe tıklamak o sistemi **odağa** alır ve Logon'da gösterir; yeni
+  sohbet ve ajan bölmesi odaktaki sistemin klasöründe açılır. Çipin **X**'i
+  yalnızca o sistemi keser.
+- **Her sohbet/bölme kendi sistemiyle çalışır**: sistem, sohbetin/bölmenin
+  klasöründen belirlenir. DEV klasöründeki sohbet DEV'in sunucusuna, PRD
+  klasöründeki PRD'ninkine gider; birinin anahtarı ötekini açmaz. QA/PRD salt
+  okunur kuralı ve DEV yazma onayı sistem başınadır — onay penceresi hangi
+  sistemin (SID / client / kullanıcı) yazması olduğunu söyler.
+- **Logon**: bağlı her sistemin başlığında "Bağlı · client / kullanıcı"
+  işareti ve "Ajan bu sistemde" öbeği (odakta olmasa da) görünür.
+- **Sınır**: beşinci sisteme bağlanınca en uzun süredir kullanılmayan sistemin
+  bağlantısı kesilir ve bağlantı mesajında adıyla söylenir.
+- Bağlantıdan **önce** açılmış bir terminal o sistemin anahtarını görmez;
+  bölmeyi yeniden aç.
+
 ### Bağlantıyı kesmek ve başka sisteme geçmek
 
-Başlık çubuğundaki bağlı sistem rozetinin **X**'i bağlantıyı gerçekten keser:
-o sistemin 8787'deki ADT sunucusu, varsa RFC köprüsü ve DEV onay oturumu
-kapanır; boş yeni sohbet taslağı da o sistemin klasöründen ayrılır. Başka bir
-sisteme bağlanınca öncekinin RFC köprüsü kendiliğinden kapanır (aynı anda tek
-aktif sistem). Aynı sisteme yeniden bağlanmak köprüyü yeni kimlik bilgileriyle
-yeniden başlatır. Bağlantı bildirimindeki skill sayısı, projeye kopyalananlarla
+Başlık çubuğundaki sistem çipinin **X**'i o sistemin bağlantısını gerçekten
+keser: o sistemin ADT sunucusu, varsa RFC köprüsü ve DEV onay oturumu kapanır;
+öteki sistemlere dokunulmaz. Aynı sisteme yeniden bağlanmak köprüyü yeni
+kimlik bilgileriyle yeniden başlatır; açık sohbet ve bölmelerin anahtarı
+değişmez. Bağlantı bildirimindeki skill sayısı, projeye kopyalananlarla
 birlikte genel klasördeki (`%LOCALAPPDATA%\axet-code\skills`) yetenekleri de sayar.
 
 ## Bağlandıktan Sonra Açılan Klasörde Ne Var
@@ -1444,7 +1466,9 @@ açabilirsin. Pencere uygulamadaki tüm kısayolları listeler.
     bozuk ya da başka mimari. `where python3` ile bulup kaldır/düzelt.
     (Sunucu artık `py -3` ile açılıyor, yani Doktor'un "tamam" dediği Python'u
     kullanıyor; PATH'teki başka bir `python3.exe` onu ele geçiremiyor.)
-  - Port dolu → 8787'yi başka bir uygulama kullanıyor.
+  - Port dolu → 8787'yi başka bir uygulama kullanıyor. Artık bağlantı bu
+    yüzden düşmüyor: sistem 8800–8899 arasında boş bir porta geçer
+    (`sap-context.md` gerçek portu yazar).
   Ajanın kendi başlattığı eski bir sunucu 8787'yi tutuyorsa (ör. DEV'de
   "yalnızca 20 salt okunur araç var, yazma yok" diyorsa) **sisteme yeniden
   bağlanmak** artık onu kapatıp doğru sunucuyu açıyor.
