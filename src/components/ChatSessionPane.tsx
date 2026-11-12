@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import ChatRateRetryStrip, { type ChatRateRetryState } from "./ChatRateRetryStrip";
+import { STALL_AUTO_STOP_MIN, stallAction } from "../lib/chatStall";
+import { btn } from "../ui/buttons";
 import {
   AlertTriangle,
   ArrowDown,
@@ -167,6 +169,8 @@ interface Props {
   /** 429 sonrası bekleyen otomatik deneme (kararlilik-2 R4). */
   rateRetry?: ChatRateRetryState | null;
   onCancelRateRetry?: () => void;
+  /** Takılmış turu durdurup yeniden dener (kararlilik-2 R8c). */
+  onStallRetry?: () => void;
   onAttachFiles: () => void;
   onFilesResolved: (paths: string[]) => void;
   onRemoveAttachment: (attachmentId: string) => void;
@@ -252,6 +256,7 @@ export default function ChatSessionPane({
   onSendQueuedNow,
   rateRetry = null,
   onCancelRateRetry,
+  onStallRetry,
   onAttachFiles,
   onFilesResolved,
   onRemoveAttachment,
@@ -712,6 +717,25 @@ export default function ChatSessionPane({
                   steps={session.activitySteps}
                   stalledMinutes={session.stalledMinutes}
                 />
+                {stallAction(session.activity, session.stalledMinutes) !== "none" && (
+                  <div
+                    data-testid="chat-stall"
+                    role="alert"
+                    className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[12px] text-[var(--status-warning-text)]"
+                  >
+                    <span className="min-w-0 flex-1">
+                      {t("chatStall.card", { minutes: session.stalledMinutes, limit: STALL_AUTO_STOP_MIN })}
+                    </span>
+                    <button type="button" onClick={onCancel} className={btn("neutral", "sm")}>
+                      {t("chatStall.stop")}
+                    </button>
+                    {onStallRetry && (
+                      <button type="button" onClick={onStallRetry} className={btn("neutral", "sm")}>
+                        {t("chatStall.retry")}
+                      </button>
+                    )}
+                  </div>
+                )}
                 {/* Soru kutusu göstergenin ALTINDA: gösterge "cevabını
                     bekliyor" diyor, kart da neyi beklediğini soruyor. */}
                 {session.pendingAsk && <AskUserCard ask={session.pendingAsk} onAnswer={onAnswerQuestion} />}

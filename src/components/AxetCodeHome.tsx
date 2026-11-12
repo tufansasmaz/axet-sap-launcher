@@ -26,6 +26,7 @@ import { settleAnswer } from "../lib/settleAnswer";
 import { saveDelay } from "../lib/saveDelay";
 import { draftBindingAfterSapChange } from "../lib/sapDraftBinding";
 import { planRateRetry, rateLimitedTurn } from "../lib/chatRateRetry";
+import { stallAction } from "../lib/chatStall";
 import { normalizeRetryMax } from "../../app-electron/shared/agentErrors";
 import type { ChatRateRetryState } from "./ChatRateRetryStrip";
 import { useT } from "../i18n";
@@ -865,6 +866,10 @@ export default function AxetCodeHome({
   // diskten yüklenen eski bir 429 hatası açılışta kendiliğinden yeniden
   // gönderilmemeli.
   const rateFreshRef = useRef<Set<string>>(new Set());
+  // Takıldığı için durdurulan turlar → sessiz geçen dakika (kararlilik-2 R8c).
+  const stallStopRef = useRef(new Map<string, number>());
+  // "Durdur ve yeniden dene" istenen sohbetler: tur kapanınca sürdürülüyor.
+  const stallRetryRef = useRef(new Set<string>());
 
   // "Yeni sohbet" artık kayıt OLUŞTURMUYOR — sadece boş composer'a dönüyor.
   // Gerçek kayıt ilk mesaj gönderilince doğuyor (handleSendNew).
@@ -1259,6 +1264,9 @@ export default function AxetCodeHome({
       streamQueue.current.delete(requestId);
       // Güncelleyici tembel çalışabiliyor; bayrak şimdi okunup siliniyor.
       const sendNow = sendNowRef.current.delete(sessionId);
+      // Takıldığı için durdurulan tur: kaç dakika sessiz kaldığı (yoksa null).
+      const stallStopped = stallStopRef.current.get(sessionId) ?? null;
+      stallStopRef.current.delete(sessionId);
 
       setSessions((prev) =>
         prev.map((s) => {
@@ -1314,6 +1322,23 @@ export default function AxetCodeHome({
           const restoreQueued = s.queued && !sendNow
             ? { ...mergeQueuedIntoDraft(s.draft, s.attachments, s.queued), queued: null }
             : {};
+
+          if (result.cancelled && stallStopped !== null) {
+            // Takıldığı için durduruldu (kararlilik-2 R8c): sessizce kesilmiş
+            // gibi görünmesin. Yarım metin varsa "Devam et" ile sürdürülebilir,
+            // yoksa sebep hata balonu olarak kalıyor ("Yeniden üret").
+            const note = t("chatStall.autoStopped", { minutes: stallStopped });
+            const partial = streamed?.content.trim() ?? "";
+            const stopped: ChatMessage = partial
+              ? { ...(streamed as ChatMessage), content: partial, streaming: false, interrupted: true, haltReason: note, ...withSteps }
+              : { id: streamed?.id ?? crypto.randomUUID(), role: "assistant", content: note, error: true, createdAt: Date.now(), ...withSteps };
+            return {
+              ...s,
+              messages: streamed ? s.messages.map((m) => (m.id === streamed.id ? stopped : m)) : [...s.messages, stopped],
+              ...done,
+              ...restoreQueued,
+            };
+          }
 
           if (result.cancelled) {
             // Kullanıcı durdurdu. Ekranda GÖRÜNEN yarım metni silmiyoruz —
@@ -1899,6 +1924,40 @@ export default function AxetCodeHome({
     };
   }, []);
 
+  // --- Asılı kalan tur (kararlilik-2 R8c, bkz. chatStall.ts) ---
+  // Üst süre: 30 dk belirtisiz tur kendiliğinden durduruluyor. Durdurma Durdur
+  // düğmesiyle aynı yoldan (axet-code süreci öldürülüyor); sonuç `runPrompt`'ta
+  // "takıldı" notuyla yazılıyor.
+  useEffect(() => {
+    for (const s of sessions) {
+      if (!s.pending || !s.requestId || stallStopRef.current.has(s.id)) continue;
+      if (stallAction(s.activity, s.stalledMinutes) !== "autoStop") continue;
+      stallStopRef.current.set(s.id, s.stalledMinutes);
+      window.api.cancelChatMessage(s.requestId).catch(() => {});
+    }
+    // "Durdur ve yeniden dene": tur kapandı, sürdür.
+    for (const id of [...stallRetryRef.current]) {
+      const s = sessions.find((x) => x.id === id);
+      if (!s) {
+        stallRetryRef.current.delete(id);
+        continue;
+      }
+      if (s.pending) continue;
+      stallRetryRef.current.delete(id);
+      const last = s.messages.length > 0 ? s.messages[s.messages.length - 1] : null;
+      if (last?.role !== "assistant" || (!last.interrupted && !last.error)) continue;
+      void (last.interrupted && !last.error ? continueRef.current(id) : regenerateRef.current(id));
+    }
+  }, [sessions]);
+
+  const handleStallRetry = useCallback(() => {
+    const s = sessions.find((x) => x.id === activeId);
+    if (!s?.pending || !s.requestId) return;
+    stallStopRef.current.set(s.id, s.stalledMinutes);
+    stallRetryRef.current.add(s.id);
+    window.api.cancelChatMessage(s.requestId).catch(() => {});
+  }, [activeId, sessions]);
+
   const handleCancelRateRetry = useCallback(() => {
     if (!activeId) return;
     dropRateRetry(activeId);
@@ -2414,6 +2473,7 @@ export default function AxetCodeHome({
             onSendQueuedNow={handleSendQueuedNow}
             rateRetry={rateRetry[session.id] ?? null}
             onCancelRateRetry={handleCancelRateRetry}
+            onStallRetry={handleStallRetry}
             onAttachFiles={handleAttachFiles}
             onFilesResolved={(paths) => addAttachments(session.id, paths)}
             onRemoveAttachment={(attachmentId) =>

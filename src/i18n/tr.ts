@@ -820,6 +820,11 @@ export const tr = {
   "chatRateRetry.exhausted": "Portal istek sınırı sürüyor (429); {max} otomatik deneme bitti",
   "chatRateRetry.hint": "Büyük analizleri parçalara bölmek (ör. önce liste, sonra tek tek ayrıntı) sınıra takılmayı azaltır.",
   "chatRateRetry.cancel": "Otomatik denemeyi iptal et",
+  // Asılı kalan tur (bkz. src/lib/chatStall.ts).
+  "chatStall.card": "Ajan {minutes} dk'dır ilerleme göstermiyor; takılmış olabilir. {limit} dk dolunca kendiliğinden durdurulur.",
+  "chatStall.stop": "Durdur",
+  "chatStall.retry": "Durdur ve yeniden dene",
+  "chatStall.autoStopped": "Tur {minutes} dk ilerleme göstermediği için durduruldu (takılmış görünüyordu). Devam et ile kaldığı yerden sürdürebilirsin.",
   "chatAttention.working": "Çalışıyor",
   "chatAttention.unseen": "Yeni cevap",
   "chatAttention.asking": "Cevabını bekliyor",

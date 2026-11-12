@@ -374,6 +374,46 @@ describe("mesaj kuyruğu", () => {
     }
   });
 
+  // kararlilik-2 R8c: belirti gelmeyen tur için kart; 30 dk'da kendiliğinden
+  // durdurma ve cevabın "takıldı" notuyla kalması.
+  function captureActivity() {
+    let emit: ((requestId: string, activity: unknown) => void) | null = null;
+    const cancel = vi.fn(() => Promise.resolve());
+    const api = (window as unknown as { api: Record<string, unknown> }).api;
+    (window as unknown as { api: unknown }).api = new Proxy(api, {
+      get: (target, k: string) => {
+        if (k === "onChatActivity")
+          return (cb: (requestId: string, activity: unknown) => void) => {
+            emit = cb;
+            return () => {};
+          };
+        if (k === "cancelChatMessage") return cancel;
+        return (target as Record<string, unknown>)[k];
+      }
+    });
+    return { cancel, emit: (requestId: string, activity: unknown) => emit?.(requestId, activity) };
+  }
+
+  it("takılan turda kart çıkıyor; 30 dk'da tur kendiliğinden durduruluyor ve notla kalıyor", async () => {
+    const { calls, send } = setupSend();
+    const act2 = captureActivity();
+    const box = await openChat();
+    type(box, "birinci");
+    await wait(0);
+    const requestId = send.mock.calls[0][0] as string;
+
+    await act(async () => act2.emit(requestId, { phase: "stalled", minutes: 5 }));
+    expect(screen.getByTestId("chat-stall").textContent).toMatch(/5 dk'dır ilerleme göstermiyor/);
+    expect(act2.cancel).not.toHaveBeenCalled();
+
+    await act(async () => act2.emit(requestId, { phase: "stalled", minutes: 30 }));
+    expect(act2.cancel).toHaveBeenCalledWith(requestId);
+
+    await act(async () => calls[0].resolve({ ok: false, cancelled: true, text: "" }));
+    await wait(0);
+    expect(screen.getByText(/30 dk ilerleme göstermediği için durduruldu/)).toBeTruthy();
+  });
+
   it("şeritten silinebiliyor ya da kutuya geri alınabiliyor", async () => {
     setupSend();
     const box = await openChat();
