@@ -78,7 +78,9 @@ require("fs").writeFileSync(${JSON.stringify(pidFile)},String(c.pid));setInterva
     const child = Number(readFileSync(pidFile, "utf-8"));
     await wait(500);
     execFileSync("taskkill", ["/PID", String(main.pid), "/F"], { stdio: "ignore" });
-    await wait(2500);
+    // Yük altında (tam takım) sahte axet'in 1,5 sn'lik gecikmesi uzayabiliyor:
+    // tur işaretini 8 sn'ye kadar bekle; işaret erken çıkarsa beklemeyi kes.
+    for (let i = 0; i < 80 && !existsSync(marker); i++) await wait(100);
     const result = { childAlive: alive(child), turnStarted: existsSync(marker) };
     if (result.childAlive) execFileSync("taskkill", ["/PID", String(child), "/T", "/F"], { stdio: "ignore" });
     return result;
@@ -86,9 +88,9 @@ require("fs").writeFileSync(${JSON.stringify(pidFile)},String(c.pid));setInterva
 
   it("ana süreç taskkill /F ile ölünce ısıtma süreci de ölüyor, boş istemli tur başlamıyor", async () => {
     expect(await crash(false)).toEqual({ childAlive: false, turnStarted: false });
-  }, 15_000);
+  }, 25_000);
 
   it("karşıt: detached çocuk çökmeden sağ çıkıyor ve boş istemle tur başlatıyor", async () => {
     expect(await crash(true)).toEqual({ childAlive: true, turnStarted: true });
-  }, 15_000);
+  }, 25_000);
 });
