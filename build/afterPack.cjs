@@ -56,9 +56,36 @@ module.exports = async function afterPack(context) {
     );
   }
 
+  // Sürüm bilgisi: aynı atlanan adım exe'nin VERSIONINFO'sunu da Electron'un
+  // varsayılanında bırakıyordu (FileDescription/ProductName = "Electron").
+  // Windows bildirimleri kısayol kaydı bulamadığında adı buradan aldığı için
+  // bildirimlerde "Electron" yazıyordu; Görev Yöneticisi'nde de öyle görünüyordu.
+  const productName = context.packager.appInfo.productName;
+  const version = context.packager.appInfo.version;
+  const parts = `${version}`.split(/[.+-]/).map((n) => Number.parseInt(n, 10) || 0);
+  const [major = 0, minor = 0, patch = 0] = parts;
+  const versionInfos = ResEdit.Resource.VersionInfo.fromEntries(res.entries);
+  for (const vi of versionInfos) {
+    vi.setFileVersion(major, minor, patch, 0);
+    vi.setProductVersion(major, minor, patch, 0);
+    for (const lang of vi.getAllLanguagesForStringValues()) {
+      vi.setStringValues(lang, {
+        FileDescription: productName,
+        ProductName: productName,
+        CompanyName: "NTT DATA Business Solutions",
+        InternalName: productFilename,
+        OriginalFilename: `${productFilename}.exe`,
+        FileVersion: version,
+        ProductVersion: version,
+        LegalCopyright: `© ${new Date().getFullYear()} NTT DATA Business Solutions`
+      });
+    }
+    vi.outputToResourceEntries(res.entries);
+  }
+
   res.outputResource(exe);
   const newBinary = exe.generate();
   fs.writeFileSync(exePath, Buffer.from(newBinary));
 
-  console.log(`[afterPack] Özel ikon gömüldü: ${exePath}`);
+  console.log(`[afterPack] Özel ikon ve sürüm bilgisi gömüldü: ${exePath}`);
 };
