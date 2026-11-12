@@ -15,7 +15,7 @@ import { buildAdtToolScript } from "./adtToolScript";
 import { pinForUrl } from "./tlsPin";
 import { performSamlLogin, type SamlLoginResult } from "./samlLogin";
 import { saveSamlIdpOrigin } from "./store";
-import { getGlobalAxetRoot, installSkillsIntoProject, type SkillInstallResult } from "./sapToolkit";
+import { getGlobalAxetRoot, installSkillsIntoProject, skillCountForNotice, type SkillInstallResult } from "./sapToolkit";
 import { startRfcBridge } from "./rfcBridgeManager";
 import { isRouterPermissionDeniedMessage } from "./sapRouter";
 import { startReadonlyServer } from "./adtReadonlyServerManager";
@@ -1319,7 +1319,7 @@ export async function connectToSystem(config: AppConfig, req: ConnectRequest): P
     return { ok: false, verified: verify.ok, projectDir, message: connectMsg(language, "contextWriteFailed", { error: (err as Error).message }) };
   }
 
-  const skillNote = skillInstall.toolkitRoot ? skillNoteFor(language, skillInstall.installed.length) : "";
+  const skillNote = skillInstall.toolkitRoot ? skillNoteFor(language, skillCountForNotice(skillInstall)) : "";
 
   if (rfcBridge && rfcOutcome) {
     if (rfcOutcome.credentialsInvalid) {
