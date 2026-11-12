@@ -181,6 +181,7 @@ const OPERATION: Record<string, TranslationKey> = {
   adt_write_class_include: "sapWrite.op.writeClassInclude",
   adt_write_text_elements: "sapWrite.op.writeTextElements",
   adt_leftover_sessions: "sapWrite.op.leftoverSessions",
+  axet_rfc_uret: "sapWrite.op.rfcGenerator",
   adt_remove_from_transport: "sapWrite.op.removeFromTransport",
   adt_publish_service_binding: "sapWrite.op.publishBinding",
   adt_unpublish_service_binding: "sapWrite.op.unpublishBinding",
@@ -211,6 +212,19 @@ const OPERATION_BY_MODE: Record<string, Record<string, TranslationKey>> = {
   adt_message_class: {
     create: "sapWrite.op.messageClassCreate",
     write: "sapWrite.op.messageClassWrite",
+  },
+  // RFC üreteçleri (sap-tcode-tmg-gen, sap-badi-impl-gen) — işlem ntt_rfc_uret.plan'dan.
+  axet_rfc_uret: {
+    TCODE_CREATE: "sapWrite.op.tcodeCreate",
+    TCODE_DELETE: "sapWrite.op.tcodeDelete",
+    TMG_CREATE: "sapWrite.op.tmgCreate",
+    TMG_RESET: "sapWrite.op.tmgReset",
+    TABLO_DOLDUR: "sapWrite.op.tableSeed",
+    TABLO_SIL_DOLDUR: "sapWrite.op.tableSeedReplace",
+    BADI_NEW: "sapWrite.op.badiNew",
+    BADI_CLASSIC: "sapWrite.op.badiClassic",
+    BADI_HOOK: "sapWrite.op.badiHook",
+    JENERATOR_KUR: "sapWrite.op.installRfcGenerator",
   },
 };
 

@@ -64,6 +64,14 @@ describe("PROFILE_SKILLS", () => {
     const writers = PROFILE_SKILLS["module-consultant"].filter((name) => SKILL_CATALOG[name]?.writeCapable);
     expect(writers).toEqual([]);
   });
+
+  it("RFC üreteçleri (2026-11-12) yazma yetkili ve yalnız teknik danışmanda", () => {
+    for (const name of ["sap-tcode-tmg-gen", "sap-badi-impl-gen"]) {
+      expect(SKILL_CATALOG[name]?.writeCapable, name).toBe(true);
+      expect(PROFILE_SKILLS["technical-consultant"], name).toContain(name);
+      expect(PROFILE_SKILLS["module-consultant"], name).not.toContain(name);
+    }
+  });
 });
 
 describe("planSkills — yazma skill'leri her sistemde kurulur, DEV disinda kilitli", () => {

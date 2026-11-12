@@ -34,7 +34,7 @@ allowed-tools: Bash(python:*), Bash(cd:*), Read, Write, Edit, Grep, Glob
 > - Her istekte `Authorization: Bearer $ABAP_HTTP_TOKEN` gerekiyor, `/health` dahil.
 >   Token ortamda duruyor; değerini ekrana basma, hiçbir dosyaya yazma.
 > - İlk iş `GET /health`: `tools` listesi o an hangi yüzeyin ayakta olduğunu söylüyor.
->   DEV'de 67 araç (`adt_push`/`adt_activate` ve onay araçları dahil); diğer sistemlerde 30, yazanlar
+>   DEV'de 68 araç (`adt_push`/`adt_activate` ve onay araçları dahil); diğer sistemlerde 30, yazanlar
 >   `404 unknown_tool` döner. Hangisinin açık olduğunu varsayma, sor.
 > - `adt_edit_source` ve `adt_edit_method` NTT Studio'da **hiç açılmıyor** (DEV'de de
 >   `404 unknown_tool`): kaynağı motorun geçici dosyasında düzenleyip push ediyorlar,

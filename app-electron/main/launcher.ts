@@ -345,7 +345,7 @@ interface ReadonlyServerOutcome {
 // alıyor ve ikisinin daha kısıtlayıcı olanını kullanıyor (`ntt_tier.py`).
 function adtServerScriptFor(writeSurface: boolean): { rel: string[]; label: string } {
   return writeSurface
-    ? { rel: ["sap-adt", "scripts", "adt_gated_server.py"], label: "ADT sunucusu (onaylı yazma, 67 araç)" }
+    ? { rel: ["sap-adt", "scripts", "adt_gated_server.py"], label: "ADT sunucusu (onaylı yazma, 68 araç)" }
     : { rel: ["sap-adt-readonly", "scripts", "adt_readonly_server.py"], label: "ADT read-only sunucusu (30 araç)" };
 }
 
@@ -665,7 +665,7 @@ function buildContextMarkdown(
 - SAP'a **yazmayan** skiller ayrıca genel klasörde duruyor: \`${getGlobalAxetRoot()}\\skills\` — orada olanlar bu projede de geçerli, ikinci kez kurulmaları gerekmez. Bir skill'i burada göremiyorsan önce orada ara.
 ${
         writable
-          ? `- **\`%sap-adt\`** — bu sistem **DEV** olarak işaretli, yani ADT sunucusu **onaylı yazma** ile çalışıyor: 67 araç (motorun 65 aracından \`adt_edit_source\`/\`adt_edit_method\` dışındakiler + \`adt_dump_detail\` + \`axet_teslim\`, \`axet_abapgit_onay\`, \`axet_inceleme_kaydet\`). Okuyan araçlar serbest (karma araçlarda — \`adt_generate_*\`, \`adt_message_class\` — modu açıkça ver, yoksa \`mod_belirtilmeli\`); SAP'a yazan her çağrı NTT Studio'da kullanıcının önüne bir **onay penceresi** açar. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
+          ? `- **\`%sap-adt\`** — bu sistem **DEV** olarak işaretli, yani ADT sunucusu **onaylı yazma** ile çalışıyor: 68 araç (motorun 65 aracından \`adt_edit_source\`/\`adt_edit_method\` dışındakiler + \`adt_dump_detail\` + \`axet_teslim\`, \`axet_abapgit_onay\`, \`axet_inceleme_kaydet\`, \`axet_rfc_uret\`). Okuyan araçlar serbest (karma araçlarda — \`adt_generate_*\`, \`adt_message_class\` — modu açıkça ver, yoksa \`mod_belirtilmeli\`); SAP'a yazan her çağrı NTT Studio'da kullanıcının önüne bir **onay penceresi** açar. Bu klasördeki \`.conn_adt\` zaten bu server ile **aynı formatta ve doğrulanmış** — doğrudan kullanılabilir, tekrar kimlik/URL sormaya gerek yok.
   - **Çalışma modunu kullanıcı seçer** (NTT Studio, oturum başına): "doğrudan DEV'e yaz" ya da "önce yerelde çalış, sonra teslim et". Mod seçilmeden yazma \`mod_secilmedi\` ile reddedilir — kullanıcıdan NTT Studio'da seçmesini iste, modu sen seçme.
   - Yazan bir çağrı \`approval_pending\` dönerse: kullanıcıya NTT Studio'daki onay penceresini söyle; onayladıktan sonra **AYNI çağrıyı AYNI argümanlarla** tekrar gönder. \`approval_denied\` → dur, başka bir yoldan deneme, kullanıcıya ne istediğini sor. \`approval_unavailable\` → NTT Studio'nun açık olduğunu sor; onay yoksa yazma yok.
   - \`yerel_mod\` → bu oturum yerelde çalışıyor: \`src/\` altında geliştir, iş bitince \`axet_teslim\` ile tek pencerede teslim onayı iste, sonra aynı nesneleri aynı kaynak dosyalarıyla ve aynı transport'la yaz.

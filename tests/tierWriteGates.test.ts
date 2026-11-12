@@ -166,3 +166,42 @@ describe("ajana giden not — GR_TIER reddi arıza değil", () => {
     expect(launcher).toContain("Bu bir arıza DEĞİL");
   });
 });
+
+describe("sap-tcode-tmg-gen / sap-badi-impl-gen — RFC üreteçleri onaylı sunucudan geçiyor", () => {
+  // 2026-11-12 kullanıcı kararı: "eklensin, güvenli şekilde". Yukarı akışta soap_rfc.py
+  // `.conn_adt` parolasıyla SOAP-RFC'ye kendisi gidiyordu. Davranış Python'da ölçülüyor
+  // (`test_soap_rfc_gate.py`, `test_ntt_rfc_uret.py`); burada uyarlamanın varlığı.
+  const skills = ["sap-tcode-tmg-gen", "sap-badi-impl-gen"];
+  const soap = skills.map((s) => read("sap-consultant", "skills", s, "scripts", "soap_rfc.py"));
+  const gated = read("sap-consultant", "skills", "sap-adt", "scripts", "adt_gated_server.py");
+
+  it("iki kopya aynı ve parola okumuyor", () => {
+    expect(soap[0]).toBe(soap[1]);
+    expect(soap[0]).toContain("NTT Studio uyarlaması");
+    expect(soap[0]).not.toContain("ADT_SAP_PASSWORD");
+    expect(soap[0]).not.toContain("/sap/bc/soap/rfc?");
+  });
+
+  it("call_rfc önce DEV kapısı, sonra onaylı sunucunun axet_rfc_uret aracı", () => {
+    gateBefore(pyFunction(soap[0], "call_rfc"), "require_dev_tier(cwd)", "/tool/axet_rfc_uret");
+    const tier = pyFunction(soap[0], "require_dev_tier");
+    expect(tier).toContain('tier != "DEV"');
+    expect(tier).toContain("NTT_STUDIO_SAP_TIER");
+  });
+
+  it("onaylı sunucu aracı kaydediyor; kademe kapısı ve pencere RFC'den önce", () => {
+    expect(gated).toContain('"axet_rfc_uret")');
+    const fn = pyFunction(gated, "axet_rfc_uret");
+    gateBefore(fn, "guardrails.require_writable(", "ru.post(");
+    gateBefore(fn, "grant, refused = ask(build_fact(arac, H_S, args, info), started)", "res = ru.post(");
+  });
+
+  it("SKILL.md'ler onay akışını anlatıyor", () => {
+    for (const s of skills) {
+      const md = read("sap-consultant", "skills", s, "SKILL.md");
+      expect(md, s).toContain("NTT Studio uyarlaması — onaylı RFC üretimi");
+      expect(md, s).toContain("approval_pending:");
+      expect(md, s).toContain("`screen-gen/scripts/bootstrap_fm.py`'yi elle ÇALIŞTIRMA");
+    }
+  });
+});

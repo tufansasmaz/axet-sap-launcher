@@ -28,7 +28,7 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
     const body = fn.slice(0, fn.indexOf("\n}\n"));
     expect(body).toContain('"adt_gated_server.py"');
     expect(body).not.toContain("adt_mcp_server.py");
-    expect(body).toContain("67 araç");
+    expect(body).toContain("68 araç");
     expect(body).toContain("(30 araç)");
   });
 
@@ -53,8 +53,8 @@ describe("kablolama — DEV'de açılan sunucu onaylı sunucu", () => {
     expect(launcher).toContain("\\`adt_unit_test\\` kapalı");
   });
 
-  it("/health sayısı yüzeyle uyuşmazsa beklenen 67 / 30", () => {
-    expect(manager).toContain('expected: opts.expectWritable ? "67" : "30"');
+  it("/health sayısı yüzeyle uyuşmazsa beklenen 68 / 30", () => {
+    expect(manager).toContain('expected: opts.expectWritable ? "68" : "30"');
   });
 
   it("hiçbir yerde eski 33 / 17 / 13 araç sayısı kalmadı", () => {
@@ -148,12 +148,12 @@ describe("SKILL.md — onay blokları", () => {
   const deploy = read("resources", "sap-toolkit", "sapgui-scriptter", "skills", "abapgit-deploy", "SKILL.md");
   const review = read(...SKILLS, "abap-code-review", "SKILL.md");
 
-  it("sap-adt: onay akışı, source_file, dolanma yasağı, 67/30", () => {
+  it("sap-adt: onay akışı, source_file, dolanma yasağı, 68/30", () => {
     expect(sapAdt).toContain("NTT Studio uyarlaması — SAP DEV yazma onayı");
     for (const s of ["approval_pending", "approval_denied", "yerel_mod", "axet_teslim", "source_file", "kritik_bulgu"]) {
       expect(sapAdt).toContain(s);
     }
-    expect(sapAdt).toContain("DEV'de 67 araç");
+    expect(sapAdt).toContain("DEV'de 68 araç");
     expect(sapAdt).toContain("diğer sistemlerde 30");
   });
 

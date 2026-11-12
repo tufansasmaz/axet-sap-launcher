@@ -88,7 +88,7 @@ export interface SkillInstallResult {
    */
   blockedByTier: string[];
   /**
-   * Bu rol + bu sistem için YAZAN ADT motoru mu açılacak (`sap-adt`, onaylı yazma, 67 araç),
+   * Bu rol + bu sistem için YAZAN ADT motoru mu açılacak (`sap-adt`, onaylı yazma, 68 araç),
    * yoksa sarmalayıcı mı (`sap-adt-readonly`, 30 araç)?
    *
    * Sunucuyu launcher başlatıyor ve gerçek yüzey O. Skill listesi ajana neyin

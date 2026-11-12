@@ -278,7 +278,7 @@ becomes a different server with the same name.
 
 | Entrypoint | Surface | Default port |
 |---|---|---|
-| `sap-consultant/skills/sap-adt/scripts/adt_gated_server.py` | 67: the engine's 65 minus `adt_edit_source`/`adt_edit_method`, + `adt_dump_detail`, every write asks NTT Studio, + 3 `axet_*` | 8787 |
+| `sap-consultant/skills/sap-adt/scripts/adt_gated_server.py` | 68: the engine's 65 minus `adt_edit_source`/`adt_edit_method`, + `adt_dump_detail`, every write asks NTT Studio, + 4 `axet_*` (`axet_rfc_uret`) | 8787 |
 | `sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py` | 19, and never a write | 8790 |
 
 The launcher starts whichever one the role and the tier call for, always on **8787**.

@@ -244,6 +244,12 @@ describe("SapWriteGate — onay", () => {
       ["adt_generate_screen", "JENERATOR_KUR", "Okuma için üreteç fonksiyon modülünü $TMP'ye kur (ZND_FG_AUTO_GEN)"],
       ["adt_message_class", "create", "Mesaj sınıfı oluştur"],
       ["adt_message_class", "write", "Mesaj sınıfının metinlerini yaz"],
+      ["axet_rfc_uret", "TCODE_CREATE", "İşlem kodu oluştur (SE93)"],
+      ["axet_rfc_uret", "TCODE_DELETE", "İşlem kodunu SİL (SE93)"],
+      ["axet_rfc_uret", "TMG_CREATE", "Tablo bakım diyaloğu üret (SM30)"],
+      ["axet_rfc_uret", "TABLO_SIL_DOLDUR", "Tablo satırlarını SİL ve test satırları yaz"],
+      ["axet_rfc_uret", "BADI_HOOK", "Kaynak kod genişletmesi oluştur (ENHO)"],
+      ["axet_rfc_uret", "JENERATOR_KUR", "Üreteç fonksiyon modülünü $TMP'ye kur (ZND_FG_AUTO_GEN)"],
       // Tanınmayan işlem aracın genel başlığına düşüyor; işlem adı küçük yazıda duruyor.
       ["adt_generate_adobe", "BILINMEYEN", "Adobe form/arayüz yaz"],
     ];

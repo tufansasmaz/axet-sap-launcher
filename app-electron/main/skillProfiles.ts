@@ -104,6 +104,12 @@ export const SKILL_CATALOG: Record<string, SkillDef> = {
   // Kaynak sistemden okuyup HEDEF sisteme ADT ile yazıyor (paket taşıma,
   // yeniden adlandırma). İki sistemli olması kapıyı yumuşatmıyor.
   "sap-object-transfer": { path: "sap-consultant/skills/sap-object-transfer", writeCapable: true },
+  // SE93 işlem kodu / SM30 bakım diyaloğu / ENHO-BAdI implementasyonu yaratan RFC
+  // üreteçleri (2026-11-12 kit). Yukarı akışta betik `.conn_adt` parolasıyla SOAP-RFC'ye
+  // kendisi gidiyordu; burada parola okunmuyor, çağrı onaylı sunucunun `axet_rfc_uret`
+  // aracından geçiyor (DEV + teknik danışman + her yazmada pencere).
+  "sap-tcode-tmg-gen": { path: "sap-consultant/skills/sap-tcode-tmg-gen", writeCapable: true },
+  "sap-badi-impl-gen": { path: "sap-consultant/skills/sap-badi-impl-gen", writeCapable: true },
 
   // --- SAP: danışmanlık döngüsü (talep → geliştirme → teslim → arıza) -------
   // Dördü de canlı sistemi OKUYOR, hiçbiri yazmıyor: kullandıkları `adt_*`
@@ -424,6 +430,9 @@ export const PROFILE_SKILLS: Record<SkillProfile, string[]> = {
     // başladığı için ABAPGIT grubundan zaten sadece bu role giriyor.
     "adobe-gen",
     "sap-object-transfer",
+    // RFC üreteçleri: işlem kodu, bakım diyaloğu, BAdI/ENHO. Modül danışmanında YOK.
+    "sap-tcode-tmg-gen",
+    "sap-badi-impl-gen",
     // Teknik tarafın kendi işleri: ATC bulgularını toplu düzeltme, çıktı/form
     // tasarımı (XSLT, Smartform) ve SAP ekosistemi geliştirme paketleri.
     "atc-remediation",

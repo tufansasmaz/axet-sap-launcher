@@ -42,7 +42,7 @@ Two rules protect the role gate specifically:
   `sap-adt-readonly` keeps it on a DEV system. Role promotion comes from the role's own
   list, never from the tier — a two-way map would make "DEV" mean "promote everyone".
 - **A module consultant never receives a write-capable skill**, and that is enforced by
-  the profile lists, not by a runtime check: `sap-adt`, `screen-gen`, `adobe-gen`,
+  the profile lists, not by a runtime check: `sap-adt`, `screen-gen`, `adobe-gen`, `sap-tcode-tmg-gen`, `sap-badi-impl-gen`,
   `sap-object-transfer` and every `abapgit-*` writer appear only under
   `technical-consultant` (user, 2026-09-23: *"modül danışmanları asla geliştirme
   yapamasınlar"*).
@@ -73,7 +73,7 @@ aXet.code can't speak MCP stdio, so SAP ADT runs behind a localhost HTTP server 
 # Read-only surface — 27 tools (30 as NTT Studio starts it: + adt_sql, adt_dumps, adt_dump_detail; adt_spool_read and adt_unit_test stay closed). NOTE: --http is mandatory; without it this speaks MCP stdio.
 ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt-readonly/scripts/adt_readonly_server.py --http --port 8787
 
-# Write surface — 67 tools: the engine's 65 minus adt_edit_source/adt_edit_method, behind the approval layer, + adt_dump_detail, + 3 axet_* tools.
+# Write surface — 68 tools: the engine's 65 minus adt_edit_source/adt_edit_method, behind the approval layer, + adt_dump_detail, + 4 axet_* tools (axet_rfc_uret: RFC generators).
 # Technical consultant + DEV only. The LAUNCHER starts it with ADT_APPROVAL_URL/ADT_APPROVAL_TOKEN;
 # started by hand it has neither, and refuses every write with approval_unavailable.
 ADT_CWD=$(pwd) py sap-consultant/skills/sap-adt/scripts/adt_gated_server.py --http --port 8787
@@ -290,8 +290,9 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 | `.../library-match/scripts/write_results.py`, `.../fast-scan-question-generator/scripts/write_workbook.py` | Yukari akisin `HERE.parents[3] / "office-tools" / "lib"` satirinin altina `../../../lib` (= `.axet-code/lib`) eklendi | 2026-10-20 kit senkronu: kurulu agacta `office-tools/lib` `.axet-code/lib`'e kuruluyor; yukari akis yolu orada yok ve `xlsx_theme` sert import. `SHARED_ASSETS` lib `requiredBy`'ina iki skill + `office-excel-compare`/`-report`/`office-slides` eklendi |
 | `.../project-store/scripts/orbit_html.py`, `orbit_publish.py`, `orbit_client.py` | Musteri adi ve Orbit proje anahtarlari yer tutucuya cevrildi (`Customer K`, `PRJK`, `PRJM`, `musteri-q`); yalnizca yorum/ornek | Bu depo PUBLIC (2026-10-20 kit senkronu) |
 | `.../dev-walkthrough/SKILL.md` | "MCP degil, HTTP" notu (`$ABAP_HTTP_URL`, bearer token, yazma araci yok) | 2026-11-12 kit senkronu; ayni sebep |
-| `.../sap-adt/SKILL.md` (DEV notu), `.../sap-adt-readonly/SKILL.md`, `.../sap-adt-readonly/scripts/adt_readonly_server.py` + `test_readonly_surface.py`, `.../sap-incident/references/investigation-loop.md` | Arac sayilari (DEV 67 / salt-okur 30; motor 65 + `adt_dump_detail` = 66); `adt_dump_detail` yukari akisin `adt_dumps(dump=...)`'inin yanina; `adt_edit_source`/`adt_edit_method` DEV'de de kapali notu; salt-okurda GATED'a `adt_spool_read` ile birlikte `adt_dump_detail` | 2026-11-12 kit senkronu, 3 yollu birlestirme |
+| `.../sap-adt/SKILL.md` (DEV notu), `.../sap-adt-readonly/SKILL.md`, `.../sap-adt-readonly/scripts/adt_readonly_server.py` + `test_readonly_surface.py`, `.../sap-incident/references/investigation-loop.md` | Arac sayilari (DEV 68 / salt-okur 30; motor 65 + `adt_dump_detail` = 66); `adt_dump_detail` yukari akisin `adt_dumps(dump=...)`'inin yanina; `adt_edit_source`/`adt_edit_method` DEV'de de kapali notu; salt-okurda GATED'a `adt_spool_read` ile birlikte `adt_dump_detail` | 2026-11-12 kit senkronu, 3 yollu birlestirme |
 | `.../adobe-gen/references/worked-example.md`, `.../sap-adt/references/RAP_CDS_OBJECTS.md`, `.../ts-generator/references/NAMING_STANDARD.md` | Orbit proje anahtari, SID ve transport numarasi yer tutucuya (`PRJK-1958`, `PRJM-3092`, `XXXK901433`/`SID-J`) | Bu depo PUBLIC (2026-11-12 kit senkronu) |
+| `.../sap-tcode-tmg-gen/scripts/soap_rfc.py` + `.../sap-badi-impl-gen/scripts/soap_rfc.py` (ayni kopya), `gen_badi_impl.py` (HOOK'ta `source_file`), iki SKILL.md'deki "onayli RFC uretimi" blogu, `.../sap-adt/scripts/ntt_rfc_uret.py` + `adt_gated_server.axet_rfc_uret` + `test_ntt_rfc_uret.py`, `.../sap-tcode-tmg-gen/scripts/test_soap_rfc_gate.py` | **Onay kapisina bagli** (2026-11-12 kullanici karari: "eklensin, guvenli sekilde"). Yukari akista betik `.conn_adt` parolasiyla `/sap/bc/soap/rfc`'ye kendisi gidiyordu. Simdi parola HIC okunmuyor: `soap_rfc.py` `.conn_adt`'den yalniz `ADT_SAP_TIER`'i okur (DEV degilse/yoksa ya da ortamdaki `NTT_STUDIO_SAP_TIER` DEV degilse cikis 2), cagriyi 8787'deki `axet_rfc_uret`'e gonderir. O arac yalniz onayli yazma sunucusunda var (teknik danisman + DEV; salt-okurda 404 = `GR_ROLE`). Sunucu: izinli FM listesi, Z/Y ad alani, paket verilmemisse ya da cagri icinde celisiyorsa ret (tahmin yok), transport'a bagli pakette transport zorunlu, var olan nesnenin TADIR paketi farkliysa ret, HOOK kaynagi dosyadan + ENHO inceleme kaydi; HER_SEFER penceresi (oturum izni kapsamaz, onay tek kullanimlik), uretec FM'i yoksa ayri JENERATOR_KUR penceresiyle `$TMP`'ye kurulum; RFC motorun kurulu oturumuyla (TLS pini, baglanti denetimi). Iki skill yalniz `technical-consultant` profilinde, `writeCapable` | Yazma yalnizca DEV'de, teknik danismanda ve onayla. `py -3 -I test_ntt_rfc_uret.py` + `test_soap_rfc_gate.py` + `tests/sapWriteGateContract.test.ts` |
 
 ### Alinmayanlar ve sebepleri
 
@@ -302,7 +303,6 @@ cikan sayi, ustune yazilmis bir uyarlamadir. 2026-09-23'te tam da bu oldu: topta
 | `abapgit-adt` | ADT uzerinden abapGit surer. Yazma artik var ama bu skill'in yolu `adt_*` ile SAP'a abapGit repo'su kurmak -- bizim teslim yolumuz `abapgit-workflow` (gelistirici-donguyu-kapatir) ve ikisi ayni isi iki farkli sozlesmeyle yapiyor. Ikisi birden kuruluysa ajan hangisini sececegini bilmiyor. |
 | `ntt-skill-setup` | Rakip kurulumcu: projeye skill kuran bir skill. Bu isi uygulamanin kendisi yapiyor (`installSkillsIntoProject`) ve rol kapisi orada. Ajanin elinde kendi skill'lerini kurabilecegi bir arac olmasi, 1. kapiyi anlamsiz kilar. |
 | `sap-bw`, `sap-sac` | Skill degil, vendor'lanmis MCP sunuculari. |
-| `sap-badi-impl-gen`, `sap-tcode-tmg-gen` (2026-11-12 kit) | SAP'ta nesne YARATIYORLAR (ENHO/BAdI implementasyonu, SE93 islem kodu, SM30 bakim diyalogu) ama 8787'den degil: script'leri `.conn_adt` parolasiyla `/sap/bc/soap/rfc`'ye kendisi gidiyor. Ne kademe kapisi (3) ne onay penceresi (4) bu yolu goruyor; DEV disinda da yazar. Alinmadan once `tier_gate.py` gibi `require_dev_tier` + `axet_*` onayina baglanmalari ya da 8787'de onayli bir arac olmalari gerekiyor. |
 
 Bilerek AYRISAN (alindi ama birebir degil): `sap-adt` (`__pycache__` farki + iki referans belgesindeki musteri yer tutuculari),
 `sap-adt-router-bridge` (bizde fazladan `adt_rfc_probe.py` var -- yukari akista yok),

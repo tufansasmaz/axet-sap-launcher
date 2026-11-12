@@ -627,9 +627,9 @@ def t_build():
     tools = gs.build()
     assert set(gs.AXET_TOOLS) <= tools, tools
     # 54 (2026-10-16): motorun 50'si + adt_dump_detail (ntt_dump_detail.py, SERBEST) + 3 axet_*.
-    # 67 (2026-11-12 kit senkronu): motorun 65'i + adt_dump_detail + 3 axet_*, eksi KAPALI
+    # 68 (2026-11-12 kit senkronu): motorun 65'i + adt_dump_detail + 4 axet_* (axet_rfc_uret dahil), eksi KAPALI
     # (adt_edit_source, adt_edit_method — kayıttan çıkarılıyor, HTTP'de de yok).
-    assert len(tools) == 67, len(tools)
+    assert len(tools) == 68, len(tools)
     assert not (set(gs.KAPALI) & tools), set(gs.KAPALI) & tools
     assert "adt_dump_detail" in tools and engine.adt_dump_detail.__module__ == "ntt_dump_detail"
     for name in gs.TRANSPORT_ONAYLI | gs.HER_SEFER | set(gs.KARMA):

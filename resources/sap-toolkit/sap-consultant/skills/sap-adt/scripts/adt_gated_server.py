@@ -91,6 +91,7 @@ _ENV_BINDING = ntt_binding.capture_env_binding()
 import adt_mcp_server as engine  # noqa: E402
 import gated_collect as gc  # noqa: E402
 import gated_quality as gq  # noqa: E402
+import ntt_rfc_uret as ru  # noqa: E402
 import guardrails  # noqa: E402
 import sap_adt_lib  # noqa: E402
 
@@ -195,7 +196,7 @@ DESTRUCTIVE_FLAGS = ("recreate", "replace", "recursive", "remove_locked_objects"
 _ISLEM_RE = re.compile(r"^[A-Za-z_]{1,40}$")
 # gated_collect._zip_nesneler'in ZIP'teki tipe uyguladığı biçim.
 _R3TR_RE = re.compile(r"^[A-Z0-9]{4}$")
-AXET_TOOLS = ("axet_teslim", "axet_abapgit_onay", "axet_inceleme_kaydet")
+AXET_TOOLS = ("axet_teslim", "axet_abapgit_onay", "axet_inceleme_kaydet", "axet_rfc_uret")
 # Kaynağı satır içi taşıyabilen argümanlar: kalite kapısı dosya hash'ine bağlı, bunlar reddedilir.
 INLINE_SOURCE_ARGS = ("source", "types_and_constants")
 ATC_MAX_OBJECTS = 10
@@ -789,6 +790,115 @@ def axet_abapgit_onay(script: str, paket: str = "", transport: str = "",
     return _ask_for("axet_abapgit_onay", args, info, pd, extra=extra)
 
 
+def _rfc_adt():
+    return engine._get_client().adt_client
+
+
+def _rfc_generator_source(fm: str) -> Path:
+    skill = ru.FMS[fm][0]
+    return _SCRIPTS_DIR.parents[1] / skill / "bootstrap" / f"{fm}.func.abap"
+
+
+def _rfc_install(fm: str) -> tuple[bool, str]:
+    """Üreteç FM'ini $TMP'ye kur (screen-gen'in bootstrap_fm'i, motorun oturumuyla)."""
+    screen_gen = _SCRIPTS_DIR.parents[1] / "screen-gen" / "scripts"
+    if str(screen_gen) not in sys.path:
+        sys.path.insert(0, str(screen_gen))
+    from bootstrap_fm import ensure_generator_fm
+    return ensure_generator_fm(_rfc_adt(), fm, ru.GENERATOR_FUGR, str(_rfc_generator_source(fm)),
+                               ru.FMS[fm][1])
+
+
+def axet_rfc_uret(fm: str, params: dict, kaynak_dosyasi: str = "") -> dict:
+    """NTT Studio: sap-tcode-tmg-gen / sap-badi-impl-gen üreteç FM'lerinin SOAP-RFC çağrısı.
+
+    Skill betikleri (soap_rfc.py) SAP'a kendileri gitmez, buraya sorar. Kademe DEV değilse,
+    FM izinli listede değilse, paket verilmemiş ya da çelişkiliyse SAP'a gidilmez. Her
+    yazma kendi onay penceresini açar (oturum izni kapsamaz); onaysız/redde RFC yok.
+    HOOK kaynağı `kaynak_dosyasi`'ndan okunur ve inceleme kaydı (ENHO) aranır.
+    """
+    started = time.monotonic()
+    arac = "axet_rfc_uret"
+    args = {"fm": fm, "params": params, "kaynak_dosyasi": kaynak_dosyasi}
+    try:
+        guardrails.require_writable(what=f"RFC generator {fm}")
+    except guardrails.GuardrailViolation as gv:
+        return _fail("GR_TIER", str(gv))
+    try:
+        p = ru.plan(fm, params)
+    except ru.PlanError as exc:
+        return _fail(exc.reason, exc.message)
+    fm = fm.strip().upper()
+    params = dict(params)
+    pd = _project_dir()
+    kalite = False
+    try:
+        sap = _sap()
+        nesneler = []
+        for o in p["nesneler"]:
+            tip_tadir = {"TOBJ": "TABL", "TABU": "TABL"}.get(o["tip"], o["tip"])
+            mevcut = gc.package_of(sap, tip_tadir, o["ad"])
+            paket = p["paket"] if p["paket"] is not None else mevcut
+            if paket is None:
+                return _fail("paket_gerekli", f"{o['ad']} SAP'ta yok ve paket verilmedi; tahmin edilmez.")
+            if mevcut is not None and o["tip"] in ("TRAN", "ENHO", "SXCI", "FUGR") and mevcut != paket:
+                return _fail("paket_uyusmazligi",
+                             f"{o['tip']} {o['ad']} SAP'ta {mevcut} paketinde, çağrı {paket} diyor.")
+            nesneler.append({"ad": o["ad"], "tip": o["tip"], "paket": paket, "yeni": mevcut is None})
+        if p["islem"] == "BADI_HOOK":
+            if not kaynak_dosyasi:
+                return _fail("kaynak_dosyasi_gerekli")
+            data = gc._read_source(pd, kaynak_dosyasi)
+            if ru.hook_source(data) != str(params.get("IV_SOURCE") or ""):
+                return _fail("kaynak_uyusmuyor",
+                             "IV_SOURCE kaynak dosyasıyla aynı değil; betiği dosyayla yeniden çalıştır.")
+            nesneler[0]["kaynak_sha256"] = [gq.src_hash(data)]
+            kalite = True
+        elif str(params.get("IV_SOURCE") or "").strip():
+            return _fail("kaynak_dosyasi_gerekli")
+        missing = gc.generator_missing(sap, fm)
+        tr = p["transport"]
+        info = {"nesneler": nesneler, "transport": tr, "transport_bilgi": gc.transport_info(sap, tr),
+                "enjekte_transport": "", "kalite": kalite, "islem": p["islem"],
+                "paket": p["paket"] if p["paket"] is not None else (nesneler[0]["paket"] if nesneler else "")}
+    except gc.CollectError as exc:
+        return _fail(exc.reason, exc.message)
+    except Exception as exc:  # noqa: BLE001 — SAP'a bağlanılamadı: bilgi yoksa onay yok
+        return _fail("bilgi_toplanamadi", f"SAP'tan bilgi okunamadı: {exc}")
+
+    if missing:
+        if not _rfc_generator_source(fm).is_file():
+            return _fail("uretec_yok", f"{fm} SAP'ta yok ve kurulum kaynağı bulunamadı.")
+        grant, refused = ask(build_fact(arac, H_S, {**args, "kur": fm}, gc.collect_generator(fm)), started)
+        if refused:
+            return refused
+        ok, msg = _rfc_install(fm)
+        _post_quiet("/results", {"id": grant["id"], "sap_sonucu": {"ok": ok, "message": msg}})
+        if not ok:
+            return _fail("uretec_kurulamadi", msg)
+
+    if ru.FMS[fm][2]:  # yalnız okuyan FM: pencere yok
+        return {"ok": True, "rfc": ru.post(_rfc_adt(), fm, params)}
+    try:
+        refused = quality_gate(arac, info, pd)
+    except Exception as exc:  # noqa: BLE001
+        return _fail("bilgi_toplanamadi", f"Kalite kapısı okunamadı: {exc}")
+    if refused:
+        return refused
+    # HER_SEFER: oturum izni ve teslim bu çağrıyı kapsamaz; her yazma kendi penceresi.
+    grant, refused = ask(build_fact(arac, H_S, args, info), started)
+    if refused:
+        return refused
+    try:
+        res = ru.post(_rfc_adt(), fm, params)
+    except Exception as exc:  # noqa: BLE001
+        _post_quiet("/results", {"id": grant["id"], "sap_sonucu": {
+            "ok": False, "error": type(exc).__name__, "message": str(exc)}})
+        return _fail("rfc_hatasi", f"{type(exc).__name__}: {exc}")
+    _post_quiet("/results", {"id": grant["id"], "sap_sonucu": res})
+    return {"ok": True, "rfc": res, "onay_id": grant["id"]}
+
+
 def axet_inceleme_kaydet(nesne: str, tip: str, kaynak_dosyalari: list, bulgular: dict,
                          rapor: str = "", skill: str = "abap-code-review") -> dict:
     """abap-code-review bittikten sonra inceleme kaydını yaz (.sap-review/<TIP>_<NESNE>.json).
@@ -904,7 +1014,7 @@ def build() -> set:
     _prune_closed(mcp)
     for name in sorted(TRANSPORT_ONAYLI | HER_SEFER | set(KARMA)):
         setattr(engine, name, make_wrapper(name, getattr(engine, name)))
-    for fn in (axet_teslim, axet_abapgit_onay, axet_inceleme_kaydet):
+    for fn in (axet_teslim, axet_abapgit_onay, axet_inceleme_kaydet, axet_rfc_uret):
         setattr(engine, fn.__name__, mcp.tool()(fn))
     names = _registered_names(mcp)
     # Bağlantı denetimi EN DIŞ katman ve SERBEST araçlar dahil hepsinde: onay
